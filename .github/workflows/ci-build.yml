@@ -84,6 +84,7 @@ jobs:
           find src-tauri/target -name "*.deb" -o -name "*.AppImage" | while read f; do cp "$f" artifacts/; done 2>/dev/null || true
 
       - name: List collected artifacts
+        shell: bash
         run: ls -la artifacts/ || echo "No artifacts found"
 
       - name: Upload artifacts
