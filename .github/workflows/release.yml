@@ -87,6 +87,7 @@ jobs:
           if [ "${{ inputs.prerelease }}" = "true" ]; then
             PRERELEASE_FLAG="--prerelease"
           fi
+          shopt -s nullglob
           gh release create "${{ inputs.tag }}" \
             --title "Port Manager ${{ inputs.tag }}" \
             --generate-notes \
