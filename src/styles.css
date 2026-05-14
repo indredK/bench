@@ -209,10 +209,22 @@ body,
   line-height: 1.5;
 }
 
+.form-input-group {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.form-input-wrapper {
+  flex: 1;
+  min-width: 200px;
+  position: relative;
+}
+
 .form-input {
   width: 100%;
-  max-width: 400px;
-  padding: 10px 14px;
+  padding: 10px 36px 10px 14px;
   border: 1px solid var(--border-color);
   border-radius: 8px;
   font-size: 14px;
@@ -227,6 +239,184 @@ body,
   border-color: var(--primary-color);
   box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
   background: #ffffff;
+}
+
+.form-input-clear {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  color: #fff;
+  font-size: 12px;
+  line-height: 20px;
+  text-align: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.form-input-clear.visible {
+  opacity: 0.6;
+}
+
+.form-input-clear.visible:hover {
+  opacity: 1;
+  background: var(--text-primary);
+}
+
+.form-input-clear.warning {
+  background: #eab308;
+  opacity: 1;
+  animation: pulse-yellow 1s ease-in-out infinite;
+}
+
+.form-input-clear.warning:hover {
+  background: #ca8a04;
+  opacity: 1;
+}
+
+@keyframes pulse-yellow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(234, 179, 8, 0); }
+}
+
+.clear-bubble {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #92400e;
+  white-space: nowrap;
+  z-index: 20;
+  animation: bubble-in 0.2s ease-out;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+@keyframes bubble-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.port-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: #fafafa;
+  min-height: 36px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.port-chips:focus-within {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+  background: #ffffff;
+}
+
+.port-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #4338ca;
+  line-height: 22px;
+  white-space: nowrap;
+  animation: chip-in 0.12s ease-out;
+}
+
+@keyframes chip-in {
+  from {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.port-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #6366f1;
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.1s ease, color 0.1s ease;
+}
+
+.port-chip-remove:hover {
+  background: #6366f1;
+  color: #ffffff;
+}
+
+.port-chips-count {
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 2px 8px;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.form-input-buttons {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.btn-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: btn-spin 0.6s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .form-hint {
@@ -486,4 +676,129 @@ body,
   to {
     transform: rotate(360deg);
   }
+}
+
+.port-process-card {
+  background: #fafafa;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+
+.port-process-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.port-process-port {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-right: 8px;
+}
+
+.port-process-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.process-tree {
+  background: #ffffff;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 6px 0;
+  font-family: "SF Mono", "Fira Code", "Fira Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  overflow-x: auto;
+}
+
+.process-tree-node {
+  user-select: none;
+  transition: background 0.1s ease;
+}
+
+.process-tree-node:hover {
+  filter: brightness(0.95);
+}
+
+.fingerprint-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.fingerprint-node.js {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #a5d6a7;
+}
+
+.fingerprint-java {
+  background: #fff3e0;
+  color: #e65100;
+  border: 1px solid #ffcc80;
+}
+
+.fingerprint-python {
+  background: #e3f2fd;
+  color: #1565c0;
+  border: 1px solid #90caf9;
+}
+
+.fingerprint-container {
+  background: #e0f2f1;
+  color: #00695c;
+  border: 1px solid #80cbc4;
+}
+
+.fingerprint-database {
+  background: #f3e5f5;
+  color: #6a1b9a;
+  border: 1px solid #ce93d8;
+}
+
+.fingerprint-monitoring {
+  background: #fce4ec;
+  color: #c62828;
+  border: 1px solid #ef9a9a;
+}
+
+.fingerprint-tools {
+  background: #f5f5f5;
+  color: #424242;
+  border: 1px solid #bdbdbd;
+}
+
+.fingerprint-ruby {
+  background: #fce4ec;
+  color: #c62828;
+  border: 1px solid #ef9a9a;
+}
+
+.fingerprint-go {
+  background: #e3f2fd;
+  color: #0d47a1;
+  border: 1px solid #64b5f6;
+}
+
+.fingerprint-php {
+  background: #e8eaf6;
+  color: #283593;
+  border: 1px solid #9fa8da;
+}
+
+.fingerprint-deno {
+  background: #fff8e1;
+  color: #bf360c;
+  border: 1px solid #ffcc80;
 }
