@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 
 interface KillResult {
   port: number;
@@ -90,6 +90,11 @@ function PortManager() {
   const handleKillPorts = async () => {
     setError("");
     setResults([]);
+
+    if (!isTauri()) {
+      setError(t("portManager.browserError"));
+      return;
+    }
 
     let ports: number[];
     try {

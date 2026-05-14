@@ -15,7 +15,8 @@
     "killing": "⏳ Killing...",
     "results": "Results — {{success}} succeeded, {{failed}} failed",
     "port": "Port {{port}}",
-    "underDevelopment": "System Info module is under development"
+    "underDevelopment": "System Info module is under development",
+    "browserError": "Cannot terminate port processes in a browser environment. Please run this as a Tauri desktop application."
   },
   "systemInfo": {
     "title": "System Information",

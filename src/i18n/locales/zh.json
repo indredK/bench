@@ -15,7 +15,8 @@
     "killing": "⏳ 正在终止...",
     "results": "结果 — {{success}} 成功，{{failed}} 失败",
     "port": "端口 {{port}}",
-    "underDevelopment": "系统信息模块开发中"
+    "underDevelopment": "系统信息模块开发中",
+    "browserError": "无法在浏览器环境中终止端口进程。请使用 Tauri 桌面应用运行此功能。"
   },
   "systemInfo": {
     "title": "系统信息",
