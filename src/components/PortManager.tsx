@@ -97,7 +97,6 @@ function PortManager() {
   const inputRef = useRef<HTMLInputElement>(null);
   const invalidTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [inputValue, setInputValue] = useState("");
-  const [inputError, setInputError] = useState("");
   const [showInvalidToast, setShowInvalidToast] = useState(false);
   const [parsedPorts, setParsedPorts] = useState<number[]>([]);
   const [scanning, setScanning] = useState(false);
@@ -170,7 +169,6 @@ function PortManager() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;
     setInputValue(raw);
-    setInputError("");
 
     if (/[^0-9,\-]/.test(raw)) {
       handleInvalidInput();
@@ -180,31 +178,27 @@ function PortManager() {
     }
   };
 
-  const parsePortsFromInput = (input: string): { ports: number[]; errors: string[] } => {
+  const parsePortsFromInput = (input: string): { ports: number[]; hasError: boolean } => {
     const ports: Set<number> = new Set();
-    const errors: string[] = [];
+    let hasError = false;
     const parts = input.split(",").map((s) => s.trim()).filter(Boolean);
 
     for (const part of parts) {
       if (part.includes("-")) {
         const rangeParts = part.split("-");
         if (rangeParts.length !== 2) {
-          errors.push(`Invalid range: "${part}"`);
+          hasError = true;
           continue;
         }
         const [startStr, endStr] = rangeParts;
         if (!/^\d+$/.test(startStr) || !/^\d+$/.test(endStr)) {
-          errors.push(`Invalid range: "${part}"`);
+          hasError = true;
           continue;
         }
         const start = parseInt(startStr, 10);
         const end = parseInt(endStr, 10);
-        if (start > end) {
-          errors.push(`Invalid range: ${start} > ${end}`);
-          continue;
-        }
-        if (start < 1 || end > 65535) {
-          errors.push(`Ports must be between 1 and 65535`);
+        if (start > end || start < 1 || end > 65535) {
+          hasError = true;
           continue;
         }
         for (let p = start; p <= end; p++) {
@@ -212,19 +206,19 @@ function PortManager() {
         }
       } else {
         if (!/^\d+$/.test(part)) {
-          errors.push(`Invalid port: "${part}"`);
+          hasError = true;
           continue;
         }
         const port = parseInt(part, 10);
         if (port < 1 || port > 65535) {
-          errors.push(`Port ${port} is out of range (1-65535)`);
+          hasError = true;
           continue;
         }
         ports.add(port);
       }
     }
 
-    return { ports: [...ports].sort((a, b) => a - b), errors };
+    return { ports: [...ports].sort((a, b) => a - b), hasError };
   };
 
   const commitInput = () => {
@@ -234,9 +228,8 @@ function PortManager() {
       handleInvalidInput();
       return;
     }
-    const { ports: newPorts, errors } = parsePortsFromInput(val);
-    if (errors.length > 0) {
-      setInputError(errors[0]);
+    const { ports: newPorts, hasError } = parsePortsFromInput(val);
+    if (hasError) {
       handleInvalidInput();
       return;
     }
@@ -252,16 +245,12 @@ function PortManager() {
       }
     }
     if (added === 0) {
-      setInputError("All ports already added");
+      handleInvalidInput();
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
-      e.preventDefault();
-      commitInput();
-    }
-    if (e.key === " " || e.key === "Space") {
       e.preventDefault();
       commitInput();
     }
@@ -282,17 +271,22 @@ function PortManager() {
     });
   };
 
-  const handleClear = () => {
+  const handleClearInput = () => {
     clearInvalidTimer();
     setInputValue("");
     setShowInvalidToast(false);
-    setInputError("");
+    inputRef.current?.focus();
+  };
+
+  const handleClearAll = () => {
+    clearInvalidTimer();
+    setInputValue("");
+    setShowInvalidToast(false);
     setParsedPorts([]);
     setPortDetails([]);
     setResults([]);
     setKillPortResults([]);
     setError("");
-    inputRef.current?.focus();
   };
 
   const handleKillPort = async (pid: number) => {
@@ -342,7 +336,6 @@ function PortManager() {
   const failCount = results.filter((r) => !r.success).length;
   const killSuccessCount = killPortResults.filter((r) => r.success).length;
   const killFailCount = killPortResults.filter((r) => !r.success).length;
-  const showInputError = inputError.length > 0;
 
   const clearBtnClass = [
     "form-input-clear",
@@ -363,7 +356,7 @@ function PortManager() {
               <input
                 ref={inputRef}
                 type="text"
-                className={`form-input${showInputError ? " has-error" : ""}`}
+                className="form-input"
                 style={{ paddingRight: 36 }}
                 placeholder={t("portManager.placeholder")}
                 value={inputValue}
@@ -374,7 +367,7 @@ function PortManager() {
               />
               <button
                 className={clearBtnClass}
-                onClick={handleClear}
+                onClick={handleClearInput}
                 disabled={scanning || killing}
                 aria-label="Clear input"
               >
@@ -406,17 +399,7 @@ function PortManager() {
             </div>
           </div>
 
-          {showInputError && (
-            <p className="form-hint" style={{ color: "var(--error-color)", marginTop: 4 }}>
-              {inputError}
-            </p>
-          )}
-
           <div style={{ marginTop: 12 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-              <div className="common-ports-label">
-                {(t as (s: string) => string)("portManager.targetPorts") === "Target Port(s)" ? "Quick Add:" : "快速添加:"}
-              </div>
               <div className="common-ports-buttons" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                 {commonPorts.map((port) => (
                   <button
@@ -429,7 +412,6 @@ function PortManager() {
                   </button>
                 ))}
               </div>
-            </div>
           </div>
 
           {parsedPorts.length > 0 && (
@@ -447,6 +429,13 @@ function PortManager() {
                 </span>
               ))}
               <span className="port-chips-count">{parsedPorts.length} port{parsedPorts.length > 1 ? "s" : ""}</span>
+              <button
+                className="port-chips-clear"
+                onClick={handleClearAll}
+                disabled={scanning || killing}
+              >
+                Clear All
+              </button>
             </div>
           )}
         </div>

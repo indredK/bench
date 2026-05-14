@@ -397,6 +397,25 @@ body,
   white-space: nowrap;
 }
 
+.port-chips-clear {
+  padding: 2px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 20px;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  white-space: nowrap;
+}
+
+.port-chips-clear:hover {
+  color: #dc2626;
+  border-color: #dc2626;
+  background: #fef2f2;
+}
+
 .form-input-buttons {
   display: flex;
   gap: 8px;
