@@ -1,0 +1,46 @@
+{
+  "app": {
+    "title": "端口管理器"
+  },
+  "sidebar": {
+    "portManager": "端口管理",
+    "systemInfo": "系统信息"
+  },
+  "portManager": {
+    "title": "终止端口进程",
+    "targetPorts": "目标端口",
+    "placeholder": "例如: 3000 或 3000-4000 或 3000,8080,9000-9010",
+    "hint": "支持单个端口、范围（如 3000-4000）或逗号分隔的组合",
+    "killButton": "🔌 终止端口进程",
+    "killing": "⏳ 正在终止...",
+    "results": "结果 — {{success}} 成功，{{failed}} 失败",
+    "port": "端口 {{port}}",
+    "underDevelopment": "系统信息模块开发中"
+  },
+  "systemInfo": {
+    "title": "系统信息",
+    "loading": "正在加载系统信息...",
+    "retry": "重试",
+    "refresh": "刷新",
+    "osName": "操作系统",
+    "osVersion": "系统版本",
+    "kernelVersion": "内核版本",
+    "hostname": "主机名",
+    "cpuBrand": "CPU 品牌",
+    "cpuCores": "CPU 核心数",
+    "totalMemory": "总内存",
+    "availableMemory": "可用内存",
+    "usedMemory": "已用内存",
+    "memoryUsage": "内存使用率",
+    "browserName": "浏览器",
+    "browserVersion": "浏览器版本",
+    "platform": "平台",
+    "language": "语言",
+    "screenResolution": "屏幕分辨率"
+  },
+  "language": {
+    "switch": "切换语言",
+    "en": "English",
+    "zh": "中文"
+  }
+}

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 
 interface KillResult {
@@ -8,12 +9,16 @@ interface KillResult {
 }
 
 function PortManager() {
+  const { t } = useTranslation();
   const [portInput, setPortInput] = useState("");
+  const [parsedPorts, setParsedPorts] = useState<number[]>([]);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<KillResult[]>([]);
   const [error, setError] = useState("");
 
-  const parsePorts = (input: string): number[] => {
+  const commonPorts = [3000, 5173, 1420, 8080, 5000, 4200, 8000, 4321, 6006, 1234, 9000];
+
+  const parsePorts = (input: string, throwOnError = true): number[] => {
     const trimmed = input.trim();
     if (!trimmed) return [];
 
@@ -27,13 +32,16 @@ function PortManager() {
         const end = parseInt(endStr, 10);
 
         if (isNaN(start) || isNaN(end)) {
-          throw new Error(`Invalid range: "${part}"`);
+          if (throwOnError) throw new Error(`Invalid range: "${part}"`);
+          continue;
         }
         if (start > end) {
-          throw new Error(`Invalid range: start (${start}) > end (${end})`);
+          if (throwOnError) throw new Error(`Invalid range: start (${start}) > end (${end})`);
+          continue;
         }
         if (start < 1 || end > 65535) {
-          throw new Error(`Ports must be between 1 and 65535`);
+          if (throwOnError) throw new Error(`Ports must be between 1 and 65535`);
+          continue;
         }
 
         for (let p = start; p <= end; p++) {
@@ -42,20 +50,41 @@ function PortManager() {
       } else {
         const port = parseInt(part, 10);
         if (isNaN(port)) {
-          throw new Error(`Invalid port number: "${part}"`);
+          if (throwOnError) throw new Error(`Invalid port number: "${part}"`);
+          continue;
         }
         if (port < 1 || port > 65535) {
-          throw new Error(`Port must be between 1 and 65535: ${port}`);
+          if (throwOnError) throw new Error(`Port must be between 1 and 65535: ${port}`);
+          continue;
         }
         ports.push(port);
       }
     }
 
-    if (ports.length === 0) {
+    if (ports.length === 0 && throwOnError) {
       throw new Error("Please enter at least one valid port number");
     }
 
     return ports;
+  };
+
+  const handleInputChange = (value: string) => {
+    setPortInput(value);
+    setError("");
+    try {
+      const ports = parsePorts(value, false);
+      setParsedPorts(ports);
+    } catch {
+      setParsedPorts([]);
+    }
+  };
+
+  const addCommonPort = (port: number) => {
+    const currentPorts = parsePorts(portInput, false);
+    if (!currentPorts.includes(port)) {
+      const newValue = portInput.trim() ? `${portInput.trim()} ${port}` : `${port}`;
+      handleInputChange(newValue);
+    }
   };
 
   const handleKillPorts = async () => {
@@ -88,39 +117,85 @@ function PortManager() {
     }
   };
 
+  const groupPorts = (ports: number[]): string[] => {
+    if (ports.length === 0) return [];
+    
+    const sorted = [...ports].sort((a, b) => a - b);
+    const groups: string[] = [];
+    let start = sorted[0];
+    let end = sorted[0];
+
+    for (let i = 1; i < sorted.length; i++) {
+      if (sorted[i] === end + 1) {
+        end = sorted[i];
+      } else {
+        groups.push(start === end ? `${start}` : `${start}-${end}`);
+        start = sorted[i];
+        end = sorted[i];
+      }
+    }
+    groups.push(start === end ? `${start}` : `${start}-${end}`);
+    
+    return groups;
+  };
+
   const successCount = results.filter((r) => r.success).length;
   const failCount = results.filter((r) => !r.success).length;
 
   return (
     <div>
       <div className="card">
-        <div className="card-title">Kill Port Processes</div>
+        <div className="card-title">{t("portManager.title")}</div>
+        
         <div className="form-group">
-          <label className="form-label">Target Port(s)</label>
+          <label className="form-label">{t("portManager.targetPorts")}</label>
           <input
             type="text"
             className="form-input"
-            placeholder="e.g. 3000 or 3000-4000 or 3000,8080,9000-9010"
+            placeholder={t("portManager.placeholder")}
             value={portInput}
-            onChange={(e) => {
-              setPortInput(e.target.value);
-              setError("");
-            }}
+            onChange={(e) => handleInputChange(e.target.value)}
             onKeyDown={handleKeyDown}
             disabled={loading}
           />
-          <p className="form-hint">
-            Supports single port, range (e.g. 3000-4000), or comma-separated
-            combinations
-          </p>
+          <p className="form-hint">{t("portManager.hint")}</p>
+        </div>
+
+        {parsedPorts.length > 0 && (
+          <div className="port-preview" style={{ marginBottom: 16 }}>
+            <div className="port-preview-label">将要终止的端口 ({parsedPorts.length} 个):</div>
+            <div className="port-tags">
+              {groupPorts(parsedPorts).map((group, index) => (
+                <span key={index} className="port-tag">
+                  {group}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="common-ports" style={{ marginBottom: 16 }}>
+          <div className="common-ports-label">常用端口:</div>
+          <div className="common-ports-buttons">
+            {commonPorts.map((port) => (
+              <button
+                key={port}
+                className="btn btn-sm btn-secondary"
+                onClick={() => addCommonPort(port)}
+                disabled={loading || parsedPorts.includes(port)}
+              >
+                {port}
+              </button>
+            ))}
+          </div>
         </div>
 
         <button
           className="btn btn-danger"
           onClick={handleKillPorts}
-          disabled={loading || !portInput.trim()}
+          disabled={loading || parsedPorts.length === 0}
         >
-          {loading ? "⏳ Killing..." : "🔌 End Port Process(es)"}
+          {loading ? t("portManager.killing") : t("portManager.killButton")}
         </button>
 
         {error && (
@@ -136,7 +211,7 @@ function PortManager() {
       {results.length > 0 && (
         <div className="card">
           <div className="card-title">
-            Results — {successCount} succeeded, {failCount} failed
+            {t("portManager.results", { success: successCount, failed: failCount })}
           </div>
           <ul className="result-list">
             {results.map((r) => (
@@ -147,7 +222,7 @@ function PortManager() {
                 <span
                   className={`status-dot ${r.success ? "success" : "error"}`}
                 />
-                <strong>Port {r.port}:</strong> {r.message}
+                <strong>{t("portManager.port", { port: r.port })}:</strong> {r.message}
               </li>
             ))}
           </ul>

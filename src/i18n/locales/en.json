@@ -1,0 +1,46 @@
+{
+  "app": {
+    "title": "Port Manager"
+  },
+  "sidebar": {
+    "portManager": "Port Manager",
+    "systemInfo": "System Info"
+  },
+  "portManager": {
+    "title": "Kill Port Processes",
+    "targetPorts": "Target Port(s)",
+    "placeholder": "e.g. 3000 or 3000-4000 or 3000,8080,9000-9010",
+    "hint": "Supports single port, range (e.g. 3000-4000), or comma-separated combinations",
+    "killButton": "🔌 End Port Process(es)",
+    "killing": "⏳ Killing...",
+    "results": "Results — {{success}} succeeded, {{failed}} failed",
+    "port": "Port {{port}}",
+    "underDevelopment": "System Info module is under development"
+  },
+  "systemInfo": {
+    "title": "System Information",
+    "loading": "Loading system information...",
+    "retry": "Retry",
+    "refresh": "Refresh",
+    "osName": "Operating System",
+    "osVersion": "OS Version",
+    "kernelVersion": "Kernel Version",
+    "hostname": "Hostname",
+    "cpuBrand": "CPU Brand",
+    "cpuCores": "CPU Cores",
+    "totalMemory": "Total Memory",
+    "availableMemory": "Available Memory",
+    "usedMemory": "Used Memory",
+    "memoryUsage": "Memory Usage",
+    "browserName": "Browser",
+    "browserVersion": "Browser Version",
+    "platform": "Platform",
+    "language": "Language",
+    "screenResolution": "Screen Resolution"
+  },
+  "language": {
+    "switch": "Switch Language",
+    "en": "English",
+    "zh": "中文"
+  }
+}
