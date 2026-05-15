@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import Sidebar from "./components/Sidebar";
 import PortManager from "./components/PortManager";
 import SystemInfo from "./components/SystemInfo";
-import LanguageSwitcher from "./components/LanguageSwitcher";
 
 export type Category = "port-manager" | "system-info";
 
@@ -33,8 +32,6 @@ function App() {
     }
   };
 
-  const activeInfo = categories.find((c) => c.id === activeCategory);
-
   return (
     <div className="app-container">
       <Sidebar
@@ -43,11 +40,6 @@ function App() {
         onSelectCategory={setActiveCategory}
       />
       <div className="main-content">
-        <div className="main-header">
-          <span className="header-icon">{activeInfo?.icon}</span>
-          <h2>{activeInfo?.name}</h2>
-          <LanguageSwitcher />
-        </div>
         <div className="main-body">{renderContent()}</div>
       </div>
     </div>

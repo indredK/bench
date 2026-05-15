@@ -8,12 +8,6 @@ interface KillPidResult {
   message: string;
 }
 
-interface KillPortResult {
-  port: number;
-  success: boolean;
-  message: string;
-}
-
 interface ProcessNode {
   pid: number;
   ppid: number;
@@ -92,21 +86,39 @@ function ProcessTreeView({ node, depth, targetPid }: { node: ProcessNode; depth:
   );
 }
 
+const PORT_SCAN_STATUS_META = {
+  waiting: { labelKey: "portManager.statusWaiting" },
+  scanning: { labelKey: "portManager.statusScanning" },
+  success: { labelKey: "portManager.statusSuccess" },
+  empty: { labelKey: "portManager.statusEmpty" },
+  error: { labelKey: "portManager.statusError" },
+  ended: { labelKey: "portManager.statusEnded" },
+} as const;
+
+type PortScanStatus = keyof typeof PORT_SCAN_STATUS_META;
+
+interface PortState {
+  port: number;
+  status: PortScanStatus;
+}
+
 function PortManager() {
   const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const invalidTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scanSessionRef = useRef(0);
   const [inputValue, setInputValue] = useState("");
   const [showInvalidToast, setShowInvalidToast] = useState(false);
-  const [parsedPorts, setParsedPorts] = useState<number[]>([]);
-  const [scanning, setScanning] = useState(false);
+  const [portStates, setPortStates] = useState<PortState[]>([]);
   const [portDetails, setPortDetails] = useState<PortProcessDetail[]>([]);
   const [killing, setKilling] = useState(false);
-  const [results, setResults] = useState<KillPidResult[]>([]);
-  const [killPortResults, setKillPortResults] = useState<KillPortResult[]>([]);
+  const [portKillMessages, setPortKillMessages] = useState<Record<number, string[]>>({});
   const [error, setError] = useState("");
+  const [showEmptyPorts, setShowEmptyPorts] = useState(true);
 
   const commonPorts = [3000, 5173, 1420, 8080, 5000, 4200, 8000, 4321, 6006, 1234, 9000];
+  const MAX_PORTS = 100;
+  const isScanning = portStates.some((ps) => ps.status === "scanning");
 
   const clearInvalidTimer = useCallback(() => {
     if (invalidTimerRef.current) {
@@ -129,40 +141,67 @@ function PortManager() {
     return () => clearInvalidTimer();
   }, [clearInvalidTimer]);
 
-  const doScan = async (ports: number[]) => {
+  const doScan = async (portsToScan: number[]) => {
     if (!isTauri()) {
       setError(t("portManager.browserError"));
       return;
     }
+    if (portsToScan.length === 0) return;
+
+    const sessionId = scanSessionRef.current;
+
     setError("");
-    setPortDetails([]);
-    setResults([]);
-    setKillPortResults([]);
-    setScanning(true);
-    try {
-      const details: PortProcessDetail[] = await invoke("query_port_processes", { ports });
-      setPortDetails(details);
-    } catch (e) {
-      setError(typeof e === "string" ? e : "Failed to scan ports");
-    } finally {
-      setScanning(false);
+    setPortDetails((prev) => prev.filter((d) => !portsToScan.includes(d.port)));
+    setPortKillMessages({});
+
+    for (const port of portsToScan) {
+      if (scanSessionRef.current !== sessionId) {
+        setPortStates((prev) =>
+          prev.map((ps) =>
+            portsToScan.includes(ps.port) && (ps.status === "waiting" || ps.status === "scanning")
+              ? { ...ps, status: "ended" }
+              : ps
+          )
+        );
+        break;
+      }
+
+      setPortStates((prev) =>
+        prev.map((ps) => (ps.port === port ? { ...ps, status: "scanning" } : ps))
+      );
+
+      try {
+        const details: PortProcessDetail[] = await invoke("query_port_processes", { ports: [port] });
+
+        if (scanSessionRef.current !== sessionId) {
+          setPortStates((prev) =>
+            prev.map((ps) => (ps.port === port ? { ...ps, status: "ended" } : ps))
+          );
+          break;
+        }
+
+        const portDetail = details.find((d) => d.port === port);
+        const isOccupied = portDetail && !portDetail.error && portDetail.pids.length > 0;
+
+        setPortDetails((prev) => [...prev, ...details]);
+        setPortStates((prev) =>
+          prev.map((ps) =>
+            ps.port === port ? { ...ps, status: isOccupied ? "success" : "empty" } : ps
+          )
+        );
+      } catch (e) {
+        if (scanSessionRef.current !== sessionId) break;
+        setPortStates((prev) =>
+          prev.map((ps) => (ps.port === port ? { ...ps, status: "error" } : ps))
+        );
+      }
     }
+
+    setPortDetails((prev) => [...prev].sort((a, b) => a.port - b.port));
   };
 
-  const isFirstMount = useRef(true);
-
-  useEffect(() => {
-    if (isFirstMount.current) {
-      isFirstMount.current = false;
-      return;
-    }
-    if (parsedPorts.length > 0) {
-      doScan(parsedPorts);
-    }
-  }, [parsedPorts]);
-
   const removePort = (port: number) => {
-    setParsedPorts((prev) => prev.filter((p) => p !== port));
+    setPortStates((prev) => prev.filter((ps) => ps.port !== port));
     setPortDetails((prev) => prev.filter((d) => d.port !== port));
   };
 
@@ -201,6 +240,11 @@ function PortManager() {
           hasError = true;
           continue;
         }
+        const rangeSize = end - start + 1;
+        if (ports.size + rangeSize > MAX_PORTS) {
+          hasError = true;
+          continue;
+        }
         for (let p = start; p <= end; p++) {
           ports.add(p);
         }
@@ -211,6 +255,10 @@ function PortManager() {
         }
         const port = parseInt(part, 10);
         if (port < 1 || port > 65535) {
+          hasError = true;
+          continue;
+        }
+        if (ports.size >= MAX_PORTS) {
           hasError = true;
           continue;
         }
@@ -234,19 +282,29 @@ function PortManager() {
       return;
     }
     if (newPorts.length === 0) return;
+
+    const existingPorts = portStates.map((ps) => ps.port);
+    const portsToAdd = newPorts.filter((p) => !existingPorts.includes(p));
+    if (portsToAdd.length === 0) {
+      handleInvalidInput();
+      return;
+    }
+
     clearInvalidTimer();
     setShowInvalidToast(false);
     setInputValue("");
-    let added = 0;
-    for (const port of newPorts) {
-      if (!parsedPorts.includes(port)) {
-        setParsedPorts((prev) => [...prev, port].sort((a, b) => a - b));
-        added++;
+
+    setPortStates((prev) => {
+      if (prev.length >= MAX_PORTS) return prev;
+      const updated = [...prev];
+      for (const port of portsToAdd) {
+        if (updated.length >= MAX_PORTS) break;
+        updated.push({ port, status: "waiting" });
       }
-    }
-    if (added === 0) {
-      handleInvalidInput();
-    }
+      return updated.sort((a, b) => a.port - b.port);
+    });
+
+    doScan(portsToAdd);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -254,8 +312,8 @@ function PortManager() {
       e.preventDefault();
       commitInput();
     }
-    if (e.key === "Backspace" && inputValue.length === 0 && parsedPorts.length > 0) {
-      removePort(parsedPorts[parsedPorts.length - 1]);
+    if (e.key === "Backspace" && inputValue.length === 0 && portStates.length > 0) {
+      removePort(portStates[portStates.length - 1].port);
     }
   };
 
@@ -265,10 +323,10 @@ function PortManager() {
 
   const addCommonPort = (port: number) => {
     if (port < 1 || port > 65535) return;
-    setParsedPorts((prev) => {
-      if (prev.includes(port)) return prev;
-      return [...prev, port].sort((a, b) => a - b);
-    });
+    const exists = portStates.some((ps) => ps.port === port);
+    if (exists) return;
+    setPortStates((prev) => [...prev, { port, status: "waiting" as PortScanStatus }].sort((a, b) => a.port - b.port));
+    doScan([port]);
   };
 
   const handleClearInput = () => {
@@ -279,22 +337,31 @@ function PortManager() {
   };
 
   const handleClearAll = () => {
+    scanSessionRef.current += 1;
     clearInvalidTimer();
     setInputValue("");
     setShowInvalidToast(false);
-    setParsedPorts([]);
+    setPortStates([]);
     setPortDetails([]);
-    setResults([]);
-    setKillPortResults([]);
+    setPortKillMessages({});
     setError("");
   };
 
-  const handleKillPort = async (pid: number) => {
+  const handleRescanAll = () => {
+    const allPorts = portStates.map((ps) => ps.port);
+    if (allPorts.length > 0) {
+      doScan(allPorts);
+    }
+  };
+
+  const handleKillPort = async (port: number, pid: number) => {
     setError("");
     setKilling(true);
     try {
       const result: KillPidResult[] = await invoke("kill_processes", { pids: [pid] });
-      setResults((prev) => [...prev, ...result]);
+      const messages = result.map((r) => (r.success ? `PID ${r.pid} killed` : `PID ${r.pid}: ${r.message}`));
+      setPortKillMessages((prev) => ({ ...prev, [port]: messages }));
+      doScan([port]);
     } catch (e) {
       setError(typeof e === "string" ? e : "Failed to kill process");
     } finally {
@@ -302,12 +369,14 @@ function PortManager() {
     }
   };
 
-  const handleKillGroup = async (pid: number) => {
+  const handleKillGroup = async (port: number, pid: number) => {
     setError("");
     setKilling(true);
     try {
       const result: KillPidResult[] = await invoke("kill_entire_group", { pid });
-      setResults((prev) => [...prev, ...result]);
+      const messages = result.map((r) => (r.success ? `PID ${r.pid} killed` : `PID ${r.pid}: ${r.message}`));
+      setPortKillMessages((prev) => ({ ...prev, [port]: messages }));
+      doScan([port]);
     } catch (e) {
       setError(typeof e === "string" ? e : "Failed to kill process group");
     } finally {
@@ -320,8 +389,11 @@ function PortManager() {
     setKilling(true);
     try {
       const allPids = portDetails.flatMap((d) => d.pids);
-      const result: KillPidResult[] = await invoke("kill_processes", { pids: allPids });
-      setResults((prev) => [...prev, ...result]);
+      const portsToRescan = portDetails.map((d) => d.port);
+      await invoke<KillPidResult[]>("kill_processes", { pids: allPids });
+      if (portsToRescan.length > 0) {
+        doScan(portsToRescan);
+      }
     } catch (e) {
       setError(typeof e === "string" ? e : "Failed to kill processes");
     } finally {
@@ -329,26 +401,37 @@ function PortManager() {
     }
   };
 
-  const hasScanned = portDetails.length > 0;
-  const hasResults = results.length > 0;
-  const hasKillResults = killPortResults.length > 0;
-  const successCount = results.filter((r) => r.success).length;
-  const failCount = results.filter((r) => !r.success).length;
-  const killSuccessCount = killPortResults.filter((r) => r.success).length;
-  const killFailCount = killPortResults.filter((r) => !r.success).length;
+  const portDetailsRef = useRef<HTMLDivElement>(null);
+  const [highlightPort, setHighlightPort] = useState<number | null>(null);
+
+  const scrollToPort = (port: number) => {
+    if (!portDetailsRef.current) return;
+    const el = portDetailsRef.current.querySelector(`[data-port="${port}"]`);
+    if (!el) {
+      const cardEl = portDetailsRef.current.closest(".card");
+      cardEl?.querySelector(".port-details-scroll")?.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    setHighlightPort(port);
+    setTimeout(() => setHighlightPort(null), 2000);
+  };
+
+  const occupiedCount = portDetails.filter((d) => !d.error && d.pids.length > 0).length;
+  const displayedDetails = showEmptyPorts ? portDetails : portDetails.filter((d) => !d.error && d.pids.length > 0);
 
   const clearBtnClass = [
     "form-input-clear",
-    (inputValue.length > 0 || parsedPorts.length > 0) ? " visible" : "",
+    inputValue.length > 0 ? " visible" : "",
     showInvalidToast ? " warning" : "",
   ].join("");
 
   return (
-    <div>
-      <div className="card">
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", gap: 12 }}>
+      <div className="card" style={{ flex: "0 0 40%", display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 360 }}>
         <div className="card-title">{t("portManager.title")}</div>
 
-        <div className="form-group">
+        <div className="form-group" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
           <label className="form-label">{t("portManager.targetPorts")}</label>
 
           <div className="form-input-group">
@@ -362,205 +445,257 @@ function PortManager() {
                 value={inputValue}
                 onChange={handleInputChange}
                 onKeyDown={handleKeyDown}
-                disabled={scanning || killing}
+                disabled={killing}
                 autoComplete="off"
               />
               <button
                 className={clearBtnClass}
                 onClick={handleClearInput}
-                disabled={scanning || killing}
+                disabled={killing}
                 aria-label="Clear input"
               >
                 ✕
                 {showInvalidToast && (
                   <span className="clear-bubble">
                     <span>⚠️</span>
-                    <span>Only digits, commas, and hyphens allowed</span>
+                    <span>{t("portManager.invalidInput")}</span>
                   </span>
                 )}
               </button>
             </div>
             <div className="form-input-buttons">
-              <button
-                className="btn btn-primary"
-                onClick={handleScanClick}
-                disabled={!inputValue.trim() || scanning || killing}
-                style={{ minWidth: 120, justifyContent: "center" }}
-              >
-                {scanning ? (
-                  <>
-                    <span className="btn-spinner" />
-                    {t("portManager.scanning")}
-                  </>
-                ) : (
-                  t("portManager.scanButton")
-                )}
-              </button>
-            </div>
-          </div>
-
-          <div style={{ marginTop: 12 }}>
-              <div className="common-ports-buttons" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {commonPorts.map((port) => (
-                  <button
-                    key={port}
-                    className="btn btn-sm btn-secondary"
-                    onClick={() => addCommonPort(port)}
-                    disabled={scanning || killing || parsedPorts.includes(port)}
-                  >
-                    {port}
-                  </button>
-                ))}
+                <button
+                  className="btn btn-primary"
+                  onClick={handleScanClick}
+                  disabled={!inputValue.trim() || killing}
+                  style={{ minWidth: 120, justifyContent: "center" }}
+                >
+                  {isScanning ? (
+                    <>
+                      <span className="btn-spinner" />
+                      {t("portManager.scanning")}
+                    </>
+                  ) : (
+                    t("portManager.scanButton")
+                  )}
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  onClick={handleClearAll}
+                  disabled={portStates.length === 0 || killing}
+                  style={{ minWidth: 130 }}
+                >
+                  {portStates.length > 0 ? t("portManager.clearSelectedPortsCount", { count: portStates.length }) : t("portManager.clearSelectedPorts")}
+                </button>
               </div>
-          </div>
-
-          {parsedPorts.length > 0 && (
-            <div className="port-chips" style={{ marginTop: 12 }}>
-              {parsedPorts.map((port) => (
-                <span key={port} className="port-chip">
-                  <span>{port}</span>
-                  <button
-                    className="port-chip-remove"
-                    onClick={() => removePort(port)}
-                    disabled={scanning || killing}
-                  >
-                    ✕
-                  </button>
-                </span>
-              ))}
-              <span className="port-chips-count">{parsedPorts.length} port{parsedPorts.length > 1 ? "s" : ""}</span>
-              <button
-                className="port-chips-clear"
-                onClick={handleClearAll}
-                disabled={scanning || killing}
-              >
-                Clear All
-              </button>
             </div>
-          )}
+
+            <div style={{ marginTop: 8 }}>
+                <div className="common-ports-buttons" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {commonPorts.map((port) => (
+                    <button
+                      key={port}
+                      className="btn btn-sm btn-secondary common-ports-btn"
+                      onClick={() => addCommonPort(port)}
+                      disabled={killing || portStates.some((ps) => ps.port === port)}
+                    >
+                      {port}
+                    </button>
+                  ))}
+                </div>
+            </div>
+
+            <div className="port-chips-scroll" style={{ flex: 1, overflowY: "auto", marginTop: 8, minHeight: 0 }}>
+              {portStates.length === 0 ? (
+                <div className="chips-empty">
+                  <p>{t("portManager.emptyChips")}</p>
+                </div>
+              ) : (
+                <div className="port-chips">
+                  {portStates.map((ps) => (
+                    <span
+                      key={ps.port}
+                      className={`port-chip port-chip-${ps.status}`}
+                      onClick={() => scrollToPort(ps.port)}
+                      title={t("portManager.chipScrollTo", { port: ps.port })}
+                      style={{ cursor: "pointer" }}
+                    >
+                      <span className={`port-chip-indicator port-chip-indicator-${ps.status}`} title={t(PORT_SCAN_STATUS_META[ps.status].labelKey)} />
+                      <span className="port-chip-label">{ps.port}</span>
+                      <button
+                        className="port-chip-remove"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removePort(ps.port);
+                        }}
+                        title={t("portManager.removePort", { port: ps.port })}
+                      >
+                        ✕
+                      </button>
+                      <button
+                        className="port-chip-rescan"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          doScan([ps.port]);
+                        }}
+                        title={t("portManager.rescan")}
+                      >
+                        ↻
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         {error && (
           <div className="result-list" style={{ marginTop: 12 }}>
-            <div className="result-item error">
-              <span className="status-dot error" />
-              {error}
+            <div className="result-item error" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span className="status-dot error" />
+                {error}
+              </div>
+              <button
+                className="port-chip-remove"
+                onClick={() => setError("")}
+                title={t("portManager.dismissError")}
+                style={{ flexShrink: 0 }}
+              >
+                ✕
+              </button>
             </div>
           </div>
         )}
-      </div>
 
-      {hasKillResults && (
-        <div className="card">
-          <div className="card-title">
-            {t("portManager.results", { success: killSuccessCount, failed: killFailCount })}
-          </div>
-          <div className="result-list">
-            {killPortResults.map((r) => (
-              <div
-                key={r.port}
-                className={`result-item ${r.success ? "success" : "error"}`}
-              >
-                <span className={`status-dot ${r.success ? "success" : "error"}`} />
-                <strong>{t("portManager.port", { port: r.port })}:</strong> {r.message}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {hasScanned && (
-        <div className="card">
-          <div className="card-title">
+      <div className="card" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
+        <div className="card-title" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+          <span>
             {t("portManager.scanResultsTitle", { count: portDetails.length })}
-          </div>
-
-          {portDetails.length > 0 && (
-            <div style={{ marginBottom: 16, display: "flex", gap: 8 }}>
+            {portDetails.length > 0 && (
+              <span style={{ color: "var(--text-secondary)", fontWeight: 400 }}>
+                {t("portManager.occupiedCount", { occupied: occupiedCount })}
+              </span>
+            )}
+          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {portDetails.length > 0 && (
               <button
-                className="btn btn-danger"
+                className="btn btn-sm btn-secondary"
+                onClick={() => setShowEmptyPorts(!showEmptyPorts)}
+                title={showEmptyPorts ? t("portManager.hideEmpty") : t("portManager.showEmpty")}
+                style={{ flexShrink: 0, minWidth: 110 }}
+              >
+                {showEmptyPorts ? t("portManager.hideEmpty") : t("portManager.showEmpty")}
+              </button>
+            )}
+            {portDetails.length > 0 && (
+              <button
+                className="btn btn-sm btn-secondary"
+                onClick={handleRescanAll}
+                disabled={isScanning || killing}
+                title={t("portManager.rescanAll")}
+                style={{ flexShrink: 0 }}
+              >
+                ↻
+              </button>
+            )}
+            {portDetails.length > 0 && (
+              <button
+                className="btn btn-sm btn-danger"
                 onClick={handleKillAll}
-                disabled={killing}
+                disabled={killing || occupiedCount === 0}
+                title={occupiedCount === 0 ? t("portManager.killAllDisabledHint") : t("portManager.killAllCommandHint")}
+                style={{ flexShrink: 0, minWidth: 110 }}
               >
                 {killing ? t("portManager.killing") : t("portManager.killAllButton")}
               </button>
-            </div>
-          )}
-
-          {portDetails.map((detail) => (
-            <div key={detail.port} className="port-process-card">
-              {detail.error ? (
-                <div className="result-item info" style={{ marginBottom: 8 }}>
-                  <span className="status-dot info" />
-                  {t("portManager.port", { port: detail.port })}: {detail.error}
-                </div>
-              ) : (
-                <>
-                  <div className="port-process-header">
-                    <div>
-                      <span className="port-process-port">
-                        {t("portManager.port", { port: detail.port })}
-                      </span>
-                      {detail.fingerprint && (
-                        <span className={`fingerprint-badge fingerprint-${detail.fingerprint.category.toLowerCase()}`}>
-                          <span>{detail.fingerprint.icon}</span>
-                          <span>{detail.fingerprint.name}</span>
-                        </span>
-                      )}
-                    </div>
-                    <div className="port-process-actions">
-                      <button
-                        className="btn btn-sm btn-secondary"
-                        onClick={() => handleKillPort(detail.pids[0])}
-                        disabled={killing}
-                      >
-                        {t("portManager.killButton")}
-                      </button>
-                      <button
-                        className="btn btn-sm btn-danger"
-                        onClick={() => handleKillGroup(detail.pids[0])}
-                        disabled={killing}
-                      >
-                        {t("portManager.killGroupButton")}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="process-tree">
-                    {detail.process_trees.map((tree) => (
-                      <ProcessTreeView
-                        key={tree.pid}
-                        node={tree}
-                        depth={0}
-                        targetPid={detail.pids[0]}
-                      />
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {hasResults && (
-        <div className="card">
-          <div className="card-title">
-            {t("portManager.killResultsTitle", { success: successCount, failed: failCount })}
+            )}
           </div>
-          <div className="result-list">
-            {results.map((r) => (
+        </div>
+
+        <div className="port-details-scroll" ref={portDetailsRef} style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+          {portDetails.length === 0 ? (
+            <div className="empty-state">
+              <span className="empty-icon">🔍</span>
+              <p>{t("portManager.emptyResults")}</p>
+            </div>
+          ) : displayedDetails.length === 0 ? (
+            <div className="empty-state" style={{ padding: "24px 20px" }}>
+              <span className="empty-icon">🔍</span>
+              <p>{t("portManager.emptyOnly")}</p>
+            </div>
+          ) : (
+            <>
+              {displayedDetails.map((detail) => (
               <div
-                key={`${r.pid}-${r.success}`}
-                className={`result-item ${r.success ? "success" : "error"}`}
+                key={detail.port}
+                data-port={detail.port}
+                className={`port-process-card${highlightPort === detail.port ? " port-process-card-highlight" : ""}`}
               >
-                <span className={`status-dot ${r.success ? "success" : "error"}`} />
-                <strong>{t("portManager.pid", { pid: r.pid })}:</strong> {r.message}
+                {detail.error ? (
+                  <div className="result-item info" style={{ marginBottom: 8 }}>
+                    <span className="status-dot info" />
+                    {t("portManager.port", { port: detail.port })}: {detail.error}
+                  </div>
+                ) : (
+                  <>
+                    <div className="port-process-header">
+                      <div>
+                        <span className="port-process-port">
+                          {t("portManager.port", { port: detail.port })}
+                        </span>
+                        {detail.fingerprint && (
+                          <span className={`fingerprint-badge fingerprint-${detail.fingerprint.category.toLowerCase().replace(/\./g, "")}`}>
+                            <span>{detail.fingerprint.icon}</span>
+                            <span>{detail.fingerprint.name}</span>
+                          </span>
+                        )}
+                        {portKillMessages[detail.port] && (
+                          <span className="port-kill-msg">
+                            {portKillMessages[detail.port].join(", ")}
+                          </span>
+                        )}
+                      </div>
+                      <div className="port-process-actions">
+                        <button
+                          className="btn btn-sm btn-warning"
+                          onClick={() => handleKillPort(detail.port, detail.pids[0])}
+                          disabled={killing}
+                          title={t("portManager.killCommandHint", { pid: detail.pids[0] })}
+                        >
+                          {t("portManager.killButton")}
+                        </button>
+                        <button
+                          className="btn btn-sm btn-danger"
+                          onClick={() => handleKillGroup(detail.port, detail.pids[0])}
+                          disabled={killing}
+                          title={t("portManager.killGroupCommandHint", { pid: detail.pids[0] })}
+                        >
+                          {t("portManager.killGroupButton")}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="process-tree">
+                      {detail.process_trees.map((tree) => (
+                        <ProcessTreeView
+                          key={tree.pid}
+                          node={tree}
+                          depth={0}
+                          targetPid={detail.pids[0]}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
             ))}
-          </div>
+            </>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

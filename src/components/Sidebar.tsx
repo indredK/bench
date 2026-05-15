@@ -1,4 +1,5 @@
 import type { CategoryInfo, Category } from "../App";
+import LanguageSwitcher from "./LanguageSwitcher";
 
 interface SidebarProps {
   categories: CategoryInfo[];
@@ -25,6 +26,9 @@ function Sidebar({ categories, activeCategory, onSelectCategory }: SidebarProps)
           </div>
         ))}
       </nav>
+      <div className="sidebar-language">
+        <LanguageSwitcher />
+      </div>
       <div className="sidebar-footer">Tauri v2 Desktop App</div>
     </div>
   );

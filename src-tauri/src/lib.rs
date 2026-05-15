@@ -566,6 +566,24 @@ fn contains_any(text: &str, patterns: &[&str]) -> bool {
     patterns.iter().any(|p| text.contains(p))
 }
 
+fn is_descendant_of(pid: u32, parent_pid: u32) -> bool {
+    let all_processes = get_all_processes();
+    let mut current = pid;
+    loop {
+        if let Some(&(ppid, _, _)) = all_processes.get(&current) {
+            if ppid == parent_pid {
+                return true;
+            }
+            if ppid == 0 || ppid == 1 || ppid == current {
+                return false;
+            }
+            current = ppid;
+        } else {
+            return false;
+        }
+    }
+}
+
 fn find_pids_by_port(port: u16) -> Result<Vec<u32>, String> {
     if cfg!(target_os = "windows") {
         find_pids_by_port_windows(port)
@@ -626,6 +644,14 @@ fn find_pids_by_port_windows(port: u16) -> Result<Vec<u32>, String> {
 }
 
 fn kill_process(pid: u32) -> Result<(), String> {
+    let current_pid = std::process::id();
+    if pid == current_pid {
+        return Err("Cannot kill the Port Manager process itself".to_string());
+    }
+    if is_descendant_of(pid, current_pid) {
+        return Err("Cannot kill a child process of Port Manager".to_string());
+    }
+
     if cfg!(target_os = "windows") {
         let output = Command::new("taskkill")
             .args(["/PID", &pid.to_string(), "/F"])
