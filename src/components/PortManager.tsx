@@ -11,7 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { RefreshCw, X } from "lucide-react";
+import { Loader2, RefreshCw, Search, X } from "lucide-react";
 
 interface KillPidResult {
   pid: number;
@@ -374,6 +374,7 @@ function PortManager() {
   const handleRescanAll = () => {
     const allPorts = portStates.map((ps) => ps.port);
     if (allPorts.length > 0) {
+      setPortStates((prev) => prev.map((ps) => ({ ...ps, status: "waiting" })));
       doScan(allPorts);
     }
   };
@@ -431,7 +432,7 @@ function PortManager() {
         <CardHeader>
           <CardTitle>{t("portManager.title")}</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-1 flex-col gap-3 overflow-hidden">
+        <CardContent className="mt-2 flex flex-1 flex-col gap-3 overflow-hidden">
           <div className="flex flex-wrap items-start gap-2.5">
               <div className="relative flex-1" style={{ minWidth: 200 }}>
                 <Input
@@ -450,7 +451,7 @@ function PortManager() {
                     <TooltipTrigger>
                       <button
                         className={cn(
-                          "flex size-5 items-center justify-center rounded-full transition",
+                          "flex size-5 items-center justify-center rounded-full transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
                           inputValue.length > 0
                             ? showInvalidToast
                               ? "animate-pulse bg-yellow-500 text-white opacity-100 hover:bg-yellow-600"
@@ -472,17 +473,13 @@ function PortManager() {
                 <Button
                   variant="default"
                   onClick={handleScanClick}
-                  disabled={!inputValue.trim() || killing}
+                  disabled={!inputValue.trim() || killing || isScanning}
                   className="min-w-[120px] justify-center"
                 >
-                  {isScanning ? (
-                    <>
-                      <div className="size-3.5 shrink-0 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                      {t("portManager.scanning")}
-                    </>
-                  ) : (
-                    t("portManager.scanButton")
+                  {isScanning && (
+                    <Loader2 className="size-3.5 animate-spin" />
                   )}
+                  {t("portManager.scanButton")}
                 </Button>
                 <Button
                   variant="secondary"
@@ -490,9 +487,10 @@ function PortManager() {
                   disabled={portStates.length === 0 || killing}
                   className="min-w-[130px]"
                 >
-                  {portStates.length > 0
-                    ? t("portManager.clearSelectedPortsCount", { count: portStates.length })
-                    : t("portManager.clearSelectedPorts")}
+                  {t("portManager.clearSelectedPorts")}
+                  {portStates.length > 0 && (
+                    <span className="ml-0.5 text-xs opacity-60">{portStates.length}</span>
+                  )}
                 </Button>
               </div>
             </div>
@@ -503,6 +501,7 @@ function PortManager() {
                 key={port}
                 variant="secondary"
                 size="sm"
+                className="rounded-lg"
                 onClick={() => addCommonPort(port)}
                 disabled={killing || portStates.some((ps) => ps.port === port)}
               >
@@ -530,17 +529,19 @@ function PortManager() {
                     <Tooltip>
                       <TooltipTrigger
                         render={
-                          <span
-                            className={cn(
-                              "size-2 shrink-0 rounded-full",
-                              ps.status === "waiting" && "opacity-0",
-                              ps.status === "scanning" && "size-3 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-500",
-                              ps.status === "success" && "bg-emerald-500",
-                              ps.status === "empty" && "bg-blue-400",
-                              ps.status === "error" && "bg-red-500",
-                              ps.status === "ended" && "bg-muted-foreground",
-                            )}
-                          />
+                          <span className="flex size-3 shrink-0 items-center justify-center">
+                            <span
+                              className={cn(
+                                "rounded-full",
+                                ps.status === "waiting" && "size-2 opacity-0",
+                                ps.status === "scanning" && "size-3 animate-spin border-2 border-indigo-200 border-t-indigo-500",
+                                ps.status === "success" && "size-2 bg-emerald-500",
+                                ps.status === "empty" && "size-2 bg-blue-400",
+                                ps.status === "error" && "size-2 bg-red-500",
+                                ps.status === "ended" && "size-2 bg-muted-foreground",
+                              )}
+                            />
+                          </span>
                         }
                       />
                       <TooltipContent>{t(PORT_SCAN_STATUS_META[ps.status].labelKey)}</TooltipContent>
@@ -552,7 +553,7 @@ function PortManager() {
                     <Tooltip>
                       <TooltipTrigger>
                         <button
-                          className={cn(chipActionBase, "group opacity-70 transition hover:bg-black/10 hover:opacity-100")}
+                          className={cn(chipActionBase, "group transition hover:bg-black/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none")}
                           onClick={(e) => {
                             e.stopPropagation();
                             doScan([ps.port]);
@@ -566,7 +567,7 @@ function PortManager() {
                     <Tooltip>
                       <TooltipTrigger>
                         <button
-                          className={cn(chipActionBase, "text-yellow-600 transition hover:bg-yellow-600 hover:text-white")}
+                          className={cn(chipActionBase, "text-yellow-600 transition hover:bg-yellow-600 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none")}
                           onClick={(e) => {
                             e.stopPropagation();
                             removePort(ps.port);
@@ -592,7 +593,7 @@ function PortManager() {
             <Tooltip>
               <TooltipTrigger>
                 <button
-                  className={cn(chipActionBase, "transition hover:bg-destructive/30")}
+                  className={cn(chipActionBase, "transition hover:bg-destructive/30 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none")}
                   onClick={() => setError("")}
                 >
                   <X size={13} />
@@ -621,8 +622,8 @@ function PortManager() {
                   <Button
                     variant="secondary"
                     size="sm"
+                    className="rounded-lg min-w-[110px] shrink-0"
                     onClick={() => setShowEmptyPorts(!showEmptyPorts)}
-                    className="min-w-[110px] shrink-0"
                   >
                     {showEmptyPorts ? t("portManager.hideEmpty") : t("portManager.showEmpty")}
                   </Button>
@@ -636,9 +637,9 @@ function PortManager() {
                   <Button
                     variant="secondary"
                     size="sm"
+                    className="rounded-lg shrink-0"
                     onClick={handleRescanAll}
                     disabled={isScanning || killing}
-                    className="shrink-0"
                   >
                     <RefreshCw size={14} />
                   </Button>
@@ -652,11 +653,14 @@ function PortManager() {
                   <Button
                     variant="destructive"
                     size="sm"
+                    className="rounded-lg min-w-[110px] shrink-0"
                     onClick={handleKillAll}
                     disabled={killing || occupiedCount === 0}
-                    className="min-w-[110px] shrink-0"
                   >
-                    {killing ? t("portManager.killing") : t("portManager.killAllButton")}
+                    {killing && (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    )}
+                    {t("portManager.killAllButton")}
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -671,12 +675,12 @@ function PortManager() {
             <div ref={scrollContentRef}>
             {portDetails.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-4 py-10 text-center text-muted-foreground">
-                <span className="text-5xl opacity-30">🔍</span>
+                <Search size={48} className="opacity-30" />
                 <p className="text-sm">{t("portManager.emptyResults")}</p>
               </div>
             ) : displayedDetails.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-4 py-6 text-center text-muted-foreground">
-                <span className="text-5xl opacity-30">🔍</span>
+                <Search size={48} className="opacity-30" />
                 <p className="text-sm">{t("portManager.emptyOnly")}</p>
               </div>
             ) : (
@@ -720,7 +724,7 @@ function PortManager() {
                               <Button
                                 variant="default"
                                 size="sm"
-                                className="bg-amber-600 hover:bg-amber-700"
+                                className="rounded-lg bg-amber-600 hover:bg-amber-700"
                                 onClick={() => handleKillPort(detail.port, detail.pids[0])}
                                 disabled={killing}
                               >

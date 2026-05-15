@@ -25,7 +25,7 @@ function Sidebar({ categories, activeCategory, onSelectCategory }: SidebarProps)
             }`}
             onClick={() => onSelectCategory(category.id)}
           >
-            <span className="w-5 shrink-0 text-center text-base">{category.icon}</span>
+            <span className="flex size-5 shrink-0 items-center justify-center">{category.icon}</span>
             <span>{category.name}</span>
           </div>
         ))}

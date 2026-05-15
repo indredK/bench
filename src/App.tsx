@@ -1,5 +1,6 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Zap, Monitor } from "lucide-react";
 import Sidebar from "./components/Sidebar";
 import PortManager from "./components/PortManager";
 import SystemInfo from "./components/SystemInfo";
@@ -9,7 +10,7 @@ export type Category = "port-manager" | "system-info";
 export interface CategoryInfo {
   id: Category;
   name: string;
-  icon: string;
+  icon: React.ReactNode;
 }
 
 function App() {
@@ -17,8 +18,8 @@ function App() {
   const [activeCategory, setActiveCategory] = useState<Category>("port-manager");
 
   const categories: CategoryInfo[] = [
-    { id: "port-manager", name: t("sidebar.portManager"), icon: "⚡" },
-    { id: "system-info", name: t("sidebar.systemInfo"), icon: "🖥" },
+    { id: "port-manager", name: t("sidebar.portManager"), icon: <Zap size={18} /> },
+    { id: "system-info", name: t("sidebar.systemInfo"), icon: <Monitor size={18} /> },
   ];
 
   const renderContent = () => {
