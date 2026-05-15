@@ -75,6 +75,11 @@ jobs:
           echo "=== Release assets ==="
           ls -la release-assets/
 
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
