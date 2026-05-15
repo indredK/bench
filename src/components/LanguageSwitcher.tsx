@@ -1,8 +1,9 @@
 import { useTranslation } from "react-i18next";
+import i18n from "../i18n/config";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
 function LanguageSwitcher() {
-  const { i18n, t } = useTranslation();
+  const { t } = useTranslation();
 
   const changeLanguage = async (lng: string) => {
     i18n.changeLanguage(lng);
@@ -13,15 +14,19 @@ function LanguageSwitcher() {
   };
 
   return (
-    <div className="language-switcher">
+    <div className="flex gap-1.5">
       <button
-        className={`lang-btn ${i18n.language === "en" ? "active" : ""}`}
+        className={`min-h-7 cursor-pointer rounded-md border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-medium text-indigo-200 transition hover:bg-white/10 ${
+          i18n.language === "en" ? "bg-indigo-500 border-indigo-500 text-white" : ""
+        }`}
         onClick={() => changeLanguage("en")}
       >
         {t("language.en")}
       </button>
       <button
-        className={`lang-btn ${i18n.language === "zh" ? "active" : ""}`}
+        className={`min-h-7 cursor-pointer rounded-md border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-medium text-indigo-200 transition hover:bg-white/10 ${
+          i18n.language === "zh" ? "bg-indigo-500 border-indigo-500 text-white" : ""
+        }`}
         onClick={() => changeLanguage("zh")}
       >
         {t("language.zh")}

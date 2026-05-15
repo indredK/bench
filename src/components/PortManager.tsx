@@ -2,6 +2,16 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { platformConfig } from "../platform/config";
 import { invoke, isTauri } from "@tauri-apps/api/core";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
+import { RefreshCw, X } from "lucide-react";
 
 interface KillPidResult {
   pid: number;
@@ -36,53 +46,55 @@ function ProcessTreeView({ node, depth, targetPid }: { node: ProcessNode; depth:
   const [expanded, setExpanded] = useState(false);
   const hasChildren = node.children.length > 0;
 
+  const nodeContent = (
+    <div
+      className={cn(
+        "flex items-center gap-2 rounded px-1 py-0.5 text-[13px] leading-[22px]",
+        isTarget && "bg-primary text-primary-foreground"
+      )}
+      style={{ paddingLeft: 4 + depth * 24 }}
+    >
+      <span className="w-4 shrink-0 text-center opacity-50">
+        {hasChildren ? (expanded ? "▼" : "▶") : " "}
+      </span>
+      <span className={cn("whitespace-nowrap", isTarget && "font-semibold")}>
+        {node.name}
+      </span>
+      <span className={cn(
+        "text-[11px]",
+        isTarget ? "text-primary-foreground/70" : "text-muted-foreground"
+      )}>
+        PID {node.pid}
+      </span>
+      {isTarget && (
+        <span className="rounded-[10px] bg-white/20 px-1.5 py-px text-[10px]">
+          PORT OWNER
+        </span>
+      )}
+      {!isTarget && node.pid === node.ppid && (
+        <span className="rounded-[10px] border px-1.5 py-px text-[10px] text-muted-foreground">
+          ROOT
+        </span>
+      )}
+    </div>
+  );
+
+  if (!hasChildren) {
+    return nodeContent;
+  }
+
   return (
     <div>
-      <div
-        className="process-tree-node"
-        style={{
-          paddingLeft: depth * 24,
-          background: isTarget ? "var(--primary-color)" : "transparent",
-          color: isTarget ? "#fff" : undefined,
-          borderRadius: isTarget ? "4px" : undefined,
-          margin: "2px 0",
-          padding: `${2}px ${4 + depth * 24}px`,
-          cursor: hasChildren ? "pointer" : "default",
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          fontSize: 13,
-          lineHeight: "22px",
-        }}
-        onClick={() => hasChildren && setExpanded(!expanded)}
-      >
-        <span style={{ width: 16, textAlign: "center", flexShrink: 0, opacity: 0.5 }}>
-          {hasChildren ? (expanded ? "▼" : "▶") : " "}
-        </span>
-        <span style={{ fontWeight: isTarget ? 600 : 400, whiteSpace: "nowrap" }}>
-          {node.name}
-        </span>
-        <span style={{ color: isTarget ? "rgba(255,255,255,0.7)" : "var(--text-secondary)", fontSize: 11 }}>
-          PID {node.pid}
-        </span>
-        {isTarget && (
-          <span style={{ fontSize: 10, background: "rgba(255,255,255,0.2)", padding: "1px 6px", borderRadius: 10 }}>
-            PORT OWNER
-          </span>
-        )}
-        {!isTarget && node.pid === node.ppid && (
-          <span style={{ fontSize: 10, color: "var(--text-secondary)", padding: "1px 6px", borderRadius: 10, border: "1px solid var(--border-color)" }}>
-            ROOT
-          </span>
-        )}
-      </div>
-      {expanded && hasChildren && (
-        <div>
+      <Collapsible open={expanded} onOpenChange={setExpanded}>
+        <CollapsibleTrigger className="w-full cursor-pointer">
+          {nodeContent}
+        </CollapsibleTrigger>
+        <CollapsibleContent>
           {node.children.map((child) => (
             <ProcessTreeView key={child.pid} node={child} depth={depth + 1} targetPid={targetPid} />
           ))}
-        </div>
-      )}
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 }
@@ -102,6 +114,17 @@ interface PortState {
   port: number;
   status: PortScanStatus;
 }
+
+const chipStatusClasses: Record<PortScanStatus, string> = {
+  waiting: "opacity-65 bg-muted border-muted-foreground/20 text-muted-foreground",
+  scanning: "bg-indigo-50 border-indigo-300 text-indigo-600 animate-pulse",
+  success: "bg-emerald-50 border-emerald-300 text-emerald-700",
+  empty: "bg-blue-50 border-blue-300 text-blue-700",
+  error: "bg-red-50 border-red-300 text-red-800",
+  ended: "opacity-50 bg-muted border-dashed border-muted-foreground/30 text-muted-foreground",
+};
+
+const chipActionBase = "flex size-5 shrink-0 items-center justify-center rounded-full";
 
 function PortManager() {
   const { t } = useTranslation();
@@ -387,17 +410,13 @@ function PortManager() {
     }
   };
 
-  const portDetailsRef = useRef<HTMLDivElement>(null);
+  const scrollContentRef = useRef<HTMLDivElement>(null);
   const [highlightPort, setHighlightPort] = useState<number | null>(null);
 
   const scrollToPort = (port: number) => {
-    if (!portDetailsRef.current) return;
-    const el = portDetailsRef.current.querySelector(`[data-port="${port}"]`);
-    if (!el) {
-      const cardEl = portDetailsRef.current.closest(".card");
-      cardEl?.querySelector(".port-details-scroll")?.scrollTo({ top: 0, behavior: "smooth" });
-      return;
-    }
+    if (!scrollContentRef.current) return;
+    const el = scrollContentRef.current.querySelector(`[data-port="${port}"]`);
+    if (!el) return;
     el.scrollIntoView({ behavior: "smooth", block: "start" });
     setHighlightPort(port);
     setTimeout(() => setHighlightPort(null), 2000);
@@ -406,277 +425,338 @@ function PortManager() {
   const occupiedCount = portDetails.filter((d) => !d.error && d.pids.length > 0).length;
   const displayedDetails = showEmptyPorts ? portDetails : portDetails.filter((d) => !d.error && d.pids.length > 0);
 
-  const clearBtnClass = [
-    "form-input-clear",
-    inputValue.length > 0 ? " visible" : "",
-    showInvalidToast ? " warning" : "",
-  ].join("");
-
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", gap: 12 }}>
-      <div className="card" style={{ flex: "0 0 40%", display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 360 }}>
-        <div className="card-title">{t("portManager.title")}</div>
-
-        <div className="form-group" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          <label className="form-label">{t("portManager.targetPorts")}</label>
-
-          <div className="form-input-group">
-            <div className="form-input-wrapper" style={{ maxWidth: "none", flex: 1, minWidth: 200 }}>
-              <input
-                ref={inputRef}
-                type="text"
-                className="form-input"
-                style={{ paddingRight: 36 }}
-                placeholder={t("portManager.placeholder")}
-                value={inputValue}
-                onChange={handleInputChange}
-                onKeyDown={handleKeyDown}
-                disabled={killing}
-                autoComplete="off"
-              />
-              <button
-                className={clearBtnClass}
-                onClick={handleClearInput}
-                disabled={killing}
-                aria-label="Clear input"
-              >
-                ✕
-                {showInvalidToast && (
-                  <span className="clear-bubble">
-                    <span>⚠️</span>
-                    <span>{t("portManager.invalidInput")}</span>
-                  </span>
-                )}
-              </button>
-            </div>
-            <div className="form-input-buttons">
-                <button
-                  className="btn btn-primary"
+    <div className="flex h-full flex-col gap-3">
+      <Card className="flex flex-col overflow-visible">
+        <CardHeader>
+          <CardTitle>{t("portManager.title")}</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-1 flex-col gap-3 overflow-hidden">
+          <div className="flex flex-wrap items-start gap-2.5">
+              <div className="relative flex-1" style={{ minWidth: 200 }}>
+                <Input
+                  ref={inputRef}
+                  id="port-input"
+                  className="pr-9"
+                  placeholder={t("portManager.placeholder")}
+                  value={inputValue}
+                  onChange={handleInputChange}
+                  onKeyDown={handleKeyDown}
+                  disabled={killing}
+                  autoComplete="off"
+                />
+                <span className="absolute right-2 top-1/2 -translate-y-1/2">
+                  <Tooltip open={showInvalidToast}>
+                    <TooltipTrigger>
+                      <button
+                        className={cn(
+                          "flex size-5 items-center justify-center rounded-full transition",
+                          inputValue.length > 0
+                            ? showInvalidToast
+                              ? "animate-pulse bg-yellow-500 text-white opacity-100 hover:bg-yellow-600"
+                              : "bg-muted-foreground text-white opacity-60 hover:bg-foreground hover:opacity-100"
+                            : "opacity-0 pointer-events-none"
+                        )}
+                        onClick={handleClearInput}
+                        disabled={killing}
+                        aria-label="Clear input"
+                      >
+                        <X size={13} />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>{t("portManager.invalidInput")}</TooltipContent>
+                  </Tooltip>
+                </span>
+              </div>
+              <div className="flex shrink-0 gap-2">
+                <Button
+                  variant="default"
                   onClick={handleScanClick}
                   disabled={!inputValue.trim() || killing}
-                  style={{ minWidth: 120, justifyContent: "center" }}
+                  className="min-w-[120px] justify-center"
                 >
                   {isScanning ? (
                     <>
-                      <span className="btn-spinner" />
+                      <div className="size-3.5 shrink-0 animate-spin rounded-full border-2 border-white/30 border-t-white" />
                       {t("portManager.scanning")}
                     </>
                   ) : (
                     t("portManager.scanButton")
                   )}
-                </button>
-                <button
-                  className="btn btn-secondary"
+                </Button>
+                <Button
+                  variant="secondary"
                   onClick={handleClearAll}
                   disabled={portStates.length === 0 || killing}
-                  style={{ minWidth: 130 }}
+                  className="min-w-[130px]"
                 >
-                  {portStates.length > 0 ? t("portManager.clearSelectedPortsCount", { count: portStates.length }) : t("portManager.clearSelectedPorts")}
-                </button>
+                  {portStates.length > 0
+                    ? t("portManager.clearSelectedPortsCount", { count: portStates.length })
+                    : t("portManager.clearSelectedPorts")}
+                </Button>
               </div>
             </div>
 
-            <div style={{ marginTop: 8 }}>
-                <div className="common-ports-buttons" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  {commonPorts.map((port) => (
-                    <button
-                      key={port}
-                      className="btn btn-sm btn-secondary common-ports-btn"
-                      onClick={() => addCommonPort(port)}
-                      disabled={killing || portStates.some((ps) => ps.port === port)}
-                    >
-                      {port}
-                    </button>
-                  ))}
-                </div>
-            </div>
-
-            <div className="port-chips-scroll" style={{ flex: 1, overflowY: "auto", marginTop: 8, minHeight: 0 }}>
-              {portStates.length === 0 ? (
-                <div className="chips-empty">
-                  <p>{t("portManager.emptyChips")}</p>
-                </div>
-              ) : (
-                <div className="port-chips">
-                  {portStates.map((ps) => (
-                    <span
-                      key={ps.port}
-                      className={`port-chip port-chip-${ps.status}`}
-                      onClick={() => scrollToPort(ps.port)}
-                      title={t("portManager.chipScrollTo", { port: ps.port })}
-                      style={{ cursor: "pointer" }}
-                    >
-                      <span className={`port-chip-indicator port-chip-indicator-${ps.status}`} title={t(PORT_SCAN_STATUS_META[ps.status].labelKey)} />
-                      <span className="port-chip-label">{ps.port}</span>
-                      <button
-                        className="port-chip-remove"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removePort(ps.port);
-                        }}
-                        title={t("portManager.removePort", { port: ps.port })}
-                      >
-                        ✕
-                      </button>
-                      <button
-                        className="port-chip-rescan"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          doScan([ps.port]);
-                        }}
-                        title={t("portManager.rescan")}
-                      >
-                        ↻
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {error && (
-          <div className="result-list" style={{ marginTop: 12 }}>
-            <div className="result-item error" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span className="status-dot error" />
-                {error}
-              </div>
-              <button
-                className="port-chip-remove"
-                onClick={() => setError("")}
-                title={t("portManager.dismissError")}
-                style={{ flexShrink: 0 }}
+          <div className="flex flex-wrap gap-1.5">
+            {commonPorts.map((port) => (
+              <Button
+                key={port}
+                variant="secondary"
+                size="sm"
+                onClick={() => addCommonPort(port)}
+                disabled={killing || portStates.some((ps) => ps.port === port)}
               >
-                ✕
-              </button>
-            </div>
+                {port}
+              </Button>
+            ))}
           </div>
-        )}
 
-      <div className="card" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
-        <div className="card-title" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-          <span>
+          <div className="min-h-20 max-h-40 overflow-y-auto rounded-lg border bg-muted/30 p-1.5">
+            {portStates.length === 0 ? (
+              <div className="flex min-h-[44px] items-center justify-center p-2">
+                <p className="text-center text-[13px] text-muted-foreground">{t("portManager.emptyChips")}</p>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center gap-1.5">
+                {portStates.map((ps) => (
+                  <span
+                    key={ps.port}
+                    className={cn(
+                      "inline-flex cursor-pointer items-center gap-1 rounded-md border px-2 py-0.5 text-[13px] font-medium leading-[22px] whitespace-nowrap transition-colors animate-[chip-in_0.12s_ease-out]",
+                      chipStatusClasses[ps.status]
+                    )}
+                    onClick={() => scrollToPort(ps.port)}
+                  >
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <span
+                            className={cn(
+                              "size-2 shrink-0 rounded-full",
+                              ps.status === "waiting" && "opacity-0",
+                              ps.status === "scanning" && "size-3 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-500",
+                              ps.status === "success" && "bg-emerald-500",
+                              ps.status === "empty" && "bg-blue-400",
+                              ps.status === "error" && "bg-red-500",
+                              ps.status === "ended" && "bg-muted-foreground",
+                            )}
+                          />
+                        }
+                      />
+                      <TooltipContent>{t(PORT_SCAN_STATUS_META[ps.status].labelKey)}</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger render={<span>{ps.port}</span>} />
+                      <TooltipContent>{t("portManager.chipScrollTo", { port: ps.port })}</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <button
+                          className={cn(chipActionBase, "group opacity-70 transition hover:bg-black/10 hover:opacity-100")}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            doScan([ps.port]);
+                          }}
+                        >
+                          <RefreshCw size={13} className="transition-transform group-hover:rotate-180" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>{t("portManager.rescan")}</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <button
+                          className={cn(chipActionBase, "text-yellow-600 transition hover:bg-yellow-600 hover:text-white")}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removePort(ps.port);
+                          }}
+                        >
+                          <X size={13} />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>{t("portManager.removePort", { port: ps.port })}</TooltipContent>
+                    </Tooltip>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription className="flex items-center justify-between">
+            <span>{error}</span>
+            <Tooltip>
+              <TooltipTrigger>
+                <button
+                  className={cn(chipActionBase, "transition hover:bg-destructive/30")}
+                  onClick={() => setError("")}
+                >
+                  <X size={13} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>{t("portManager.dismissError")}</TooltipContent>
+            </Tooltip>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <Card className="flex flex-1 flex-col overflow-hidden">
+        <CardHeader className="flex flex-row flex-nowrap items-center justify-between gap-3">
+          <CardTitle className="min-w-0 truncate">
             {t("portManager.scanResultsTitle", { count: portDetails.length })}
             {portDetails.length > 0 && (
-              <span style={{ color: "var(--text-secondary)", fontWeight: 400 }}>
+              <span className="ml-1.5 font-normal text-muted-foreground">
                 {t("portManager.occupiedCount", { occupied: occupiedCount })}
               </span>
             )}
-          </span>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          </CardTitle>
+          <div className="flex shrink-0 items-center gap-2">
             {portDetails.length > 0 && (
-              <button
-                className="btn btn-sm btn-secondary"
-                onClick={() => setShowEmptyPorts(!showEmptyPorts)}
-                title={showEmptyPorts ? t("portManager.hideEmpty") : t("portManager.showEmpty")}
-                style={{ flexShrink: 0, minWidth: 110 }}
-              >
-                {showEmptyPorts ? t("portManager.hideEmpty") : t("portManager.showEmpty")}
-              </button>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setShowEmptyPorts(!showEmptyPorts)}
+                    className="min-w-[110px] shrink-0"
+                  >
+                    {showEmptyPorts ? t("portManager.hideEmpty") : t("portManager.showEmpty")}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{showEmptyPorts ? t("portManager.hideEmpty") : t("portManager.showEmpty")}</TooltipContent>
+              </Tooltip>
             )}
             {portDetails.length > 0 && (
-              <button
-                className="btn btn-sm btn-secondary"
-                onClick={handleRescanAll}
-                disabled={isScanning || killing}
-                title={t("portManager.rescanAll")}
-                style={{ flexShrink: 0 }}
-              >
-                ↻
-              </button>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleRescanAll}
+                    disabled={isScanning || killing}
+                    className="shrink-0"
+                  >
+                    <RefreshCw size={14} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{t("portManager.rescanAll")}</TooltipContent>
+              </Tooltip>
             )}
             {portDetails.length > 0 && (
-              <button
-                className="btn btn-sm btn-danger"
-                onClick={handleKillAll}
-                disabled={killing || occupiedCount === 0}
-                title={occupiedCount === 0 ? t("portManager.killAllDisabledHint") : t("portManager.killAllCommandHint")}
-                style={{ flexShrink: 0, minWidth: 110 }}
-              >
-                {killing ? t("portManager.killing") : t("portManager.killAllButton")}
-              </button>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleKillAll}
+                    disabled={killing || occupiedCount === 0}
+                    className="min-w-[110px] shrink-0"
+                  >
+                    {killing ? t("portManager.killing") : t("portManager.killAllButton")}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {occupiedCount === 0 ? t("portManager.killAllDisabledHint") : t("portManager.killAllCommandHint")}
+                </TooltipContent>
+              </Tooltip>
             )}
           </div>
-        </div>
-
-        <div className="port-details-scroll" ref={portDetailsRef} style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
-          {portDetails.length === 0 ? (
-            <div className="empty-state">
-              <span className="empty-icon">🔍</span>
-              <p>{t("portManager.emptyResults")}</p>
-            </div>
-          ) : displayedDetails.length === 0 ? (
-            <div className="empty-state" style={{ padding: "24px 20px" }}>
-              <span className="empty-icon">🔍</span>
-              <p>{t("portManager.emptyOnly")}</p>
-            </div>
-          ) : (
-            <>
-              {displayedDetails.map((detail) => (
-              <div
-                key={detail.port}
-                data-port={detail.port}
-                className={`port-process-card${highlightPort === detail.port ? " port-process-card-highlight" : ""}`}
-              >
-                {detail.error ? (
-                  <div className="result-item info" style={{ marginBottom: 8 }}>
-                    <span className="status-dot info" />
-                    {t("portManager.port", { port: detail.port })}: {detail.error}
-                  </div>
-                ) : (
-                  <>
-                    <div className="port-process-header">
-                      <div>
-                        <span className="port-process-port">
-                          {t("portManager.port", { port: detail.port })}
-                        </span>
-                        {detail.fingerprint && (
-                          <span className={`fingerprint-badge fingerprint-${detail.fingerprint.category.toLowerCase().replace(/\./g, "")}`}>
-                            <span>{detail.fingerprint.icon}</span>
-                            <span>{detail.fingerprint.name}</span>
-                          </span>
-                        )}
-                        {portKillMessages[detail.port] && (
-                          <span className="port-kill-msg">
-                            {portKillMessages[detail.port].join(", ")}
-                          </span>
-                        )}
-                      </div>
-                      <div className="port-process-actions">
-                        <button
-                          className="btn btn-sm btn-warning"
-                          onClick={() => handleKillPort(detail.port, detail.pids[0])}
-                          disabled={killing}
-                          title={t("portManager.freePortHint", {
-                            port: detail.port,
-                            command: platformConfig.freePortCommandTemplate.replace("{{port}}", String(detail.port)),
-                          })}
-                        >
-                          {t("portManager.killButton")}
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="process-tree">
-                      {detail.process_trees.map((tree) => (
-                        <ProcessTreeView
-                          key={tree.pid}
-                          node={tree}
-                          depth={0}
-                          targetPid={detail.pids[0]}
-                        />
-                      ))}
-                    </div>
-                  </>
-                )}
+        </CardHeader>
+        <CardContent className="flex-1 overflow-hidden p-0">
+          <ScrollArea className="h-full px-4 pb-4">
+            <div ref={scrollContentRef}>
+            {portDetails.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-4 py-10 text-center text-muted-foreground">
+                <span className="text-5xl opacity-30">🔍</span>
+                <p className="text-sm">{t("portManager.emptyResults")}</p>
               </div>
-            ))}
-            </>
-          )}
-        </div>
-      </div>
+            ) : displayedDetails.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-4 py-6 text-center text-muted-foreground">
+                <span className="text-5xl opacity-30">🔍</span>
+                <p className="text-sm">{t("portManager.emptyOnly")}</p>
+              </div>
+            ) : (
+              <>
+                {displayedDetails.map((detail) => (
+                  <div
+                    key={detail.port}
+                    data-port={detail.port}
+                    className={cn(
+                      "mb-2.5 rounded-lg border bg-muted/30 p-3 transition",
+                      highlightPort === detail.port && "border-indigo-400 bg-indigo-50 shadow-[0_0_0_3px_rgba(79,70,229,0.15)]"
+                    )}
+                  >
+                    {detail.error ? (
+                      <div className="flex items-center gap-2 rounded-md bg-blue-50 px-3 py-2 text-[13px] text-blue-700">
+                        <span className="size-2 shrink-0 rounded-full bg-blue-500" />
+                        {t("portManager.port", { port: detail.port })}: {detail.error}
+                      </div>
+                    ) : (
+                      <>
+                        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-semibold">
+                              {t("portManager.port", { port: detail.port })}
+                            </span>
+                            {detail.fingerprint && (
+                              <Badge variant="outline" className="gap-1">
+                                <span>{detail.fingerprint.icon}</span>
+                                <span>{detail.fingerprint.name}</span>
+                              </Badge>
+                            )}
+                            {portKillMessages[detail.port] && (
+                              <span className="rounded bg-yellow-50 px-2 py-0.5 text-xs text-yellow-700">
+                                {portKillMessages[detail.port].join(", ")}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex gap-1.5">
+                            <Tooltip>
+                            <TooltipTrigger>
+                              <Button
+                                variant="default"
+                                size="sm"
+                                className="bg-amber-600 hover:bg-amber-700"
+                                onClick={() => handleKillPort(detail.port, detail.pids[0])}
+                                disabled={killing}
+                              >
+                                {t("portManager.killButton")}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {t("portManager.freePortHint", {
+                                port: detail.port,
+                                command: platformConfig.freePortCommandTemplate.replace("{{port}}", String(detail.port)),
+                              })}
+                            </TooltipContent>
+                          </Tooltip>
+                          </div>
+                        </div>
+
+                        <div className="overflow-x-auto rounded-md border bg-background px-1 py-1.5 font-mono text-xs">
+                          {detail.process_trees.map((tree) => (
+                            <ProcessTreeView
+                              key={tree.pid}
+                              node={tree}
+                              depth={0}
+                              targetPid={detail.pids[0]}
+                            />
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </>
+            )}
+            </div>
+          </ScrollArea>
+        </CardContent>
+      </Card>
     </div>
   );
 }

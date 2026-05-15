@@ -11,6 +11,7 @@
     "composite": true,
     "emitDeclarationOnly": true,
     "strict": true,
+    "types": ["node"],
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true

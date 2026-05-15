@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 import { isTauri } from "@tauri-apps/api/core";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface SystemInfoData {
   os_name: string;
@@ -108,30 +111,33 @@ function SystemInfo() {
 
   if (loading) {
     return (
-      <div className="card">
-        <div className="card-title">{t("systemInfo.title")}</div>
-        <div className="loading-state">
-          <div className="loading-spinner" />
-          <p>{t("systemInfo.loading")}</p>
-        </div>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("systemInfo.title")}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center gap-3 py-10 text-muted-foreground">
+            <div className="size-8 animate-spin rounded-full border-[3px] border-muted border-t-primary" />
+            <p>{t("systemInfo.loading")}</p>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
   if (error) {
     return (
-      <div className="card">
-        <div className="card-title">{t("systemInfo.title")}</div>
-        <div className="result-list">
-          <div className="result-item error">
-            <span className="status-dot error" />
-            {error}
-          </div>
-        </div>
-        <button className="btn btn-primary" onClick={loadSystemInfo}>
-          {t("systemInfo.retry")}
-        </button>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("systemInfo.title")}</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+          <Button variant="default" onClick={loadSystemInfo}>{t("systemInfo.retry")}</Button>
+        </CardContent>
+      </Card>
     );
   }
 
@@ -140,101 +146,69 @@ function SystemInfo() {
   }
 
   return (
-    <div className="card">
-      <div className="card-title">{t("systemInfo.title")}</div>
-      <div className="info-grid">
-        <div className="info-item">
-          <div className="info-label">{t("systemInfo.osName")}</div>
-          <div className="info-value">{systemInfo.os_name}</div>
+    <Card>
+      <CardHeader className="flex-row items-center justify-between">
+        <CardTitle>{t("systemInfo.title")}</CardTitle>
+        <Button variant="outline" size="sm" onClick={loadSystemInfo}>
+          {t("systemInfo.refresh")}
+        </Button>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
+          <InfoItem label={t("systemInfo.osName")} value={systemInfo.os_name} />
+          {systemInfo.os_version !== "Unknown" && (
+            <InfoItem label={t("systemInfo.osVersion")} value={systemInfo.os_version} />
+          )}
+          {systemInfo.kernel_version !== "Unknown" && (
+            <InfoItem label={t("systemInfo.kernelVersion")} value={systemInfo.kernel_version} />
+          )}
+          {systemInfo.hostname !== "Unknown" && (
+            <InfoItem label={t("systemInfo.hostname")} value={systemInfo.hostname} />
+          )}
+          {systemInfo.cpu_brand !== "Unknown" && (
+            <InfoItem label={t("systemInfo.cpuBrand")} value={systemInfo.cpu_brand} />
+          )}
+          {systemInfo.cpu_cores > 0 && (
+            <InfoItem label={t("systemInfo.cpuCores")} value={String(systemInfo.cpu_cores)} />
+          )}
+          {systemInfo.total_memory > 0 && (
+            <InfoItem label={t("systemInfo.totalMemory")} value={`${formatMemory(systemInfo.total_memory)} GB`} />
+          )}
+          {systemInfo.available_memory > 0 && (
+            <InfoItem label={t("systemInfo.availableMemory")} value={`${formatMemory(systemInfo.available_memory)} GB`} />
+          )}
+          {systemInfo.used_memory > 0 && (
+            <InfoItem label={t("systemInfo.usedMemory")} value={`${formatMemory(systemInfo.used_memory)} GB`} />
+          )}
+          {systemInfo.memory_usage_percent > 0 && (
+            <InfoItem label={t("systemInfo.memoryUsage")} value={`${systemInfo.memory_usage_percent.toFixed(1)}%`} />
+          )}
+          {systemInfo.browser_name && (
+            <InfoItem label={t("systemInfo.browserName")} value={systemInfo.browser_name} />
+          )}
+          {systemInfo.browser_version && (
+            <InfoItem label={t("systemInfo.browserVersion")} value={systemInfo.browser_version} />
+          )}
+          {systemInfo.platform && (
+            <InfoItem label={t("systemInfo.platform")} value={systemInfo.platform} />
+          )}
+          {systemInfo.language && (
+            <InfoItem label={t("systemInfo.language")} value={systemInfo.language} />
+          )}
+          {systemInfo.screen_resolution && (
+            <InfoItem label={t("systemInfo.screenResolution")} value={systemInfo.screen_resolution} />
+          )}
         </div>
-        {systemInfo.os_version !== "Unknown" && (
-          <div className="info-item">
-            <div className="info-label">{t("systemInfo.osVersion")}</div>
-            <div className="info-value">{systemInfo.os_version}</div>
-          </div>
-        )}
-        {systemInfo.kernel_version !== "Unknown" && (
-          <div className="info-item">
-            <div className="info-label">{t("systemInfo.kernelVersion")}</div>
-            <div className="info-value">{systemInfo.kernel_version}</div>
-          </div>
-        )}
-        {systemInfo.hostname !== "Unknown" && (
-          <div className="info-item">
-            <div className="info-label">{t("systemInfo.hostname")}</div>
-            <div className="info-value">{systemInfo.hostname}</div>
-          </div>
-        )}
-        {systemInfo.cpu_brand !== "Unknown" && (
-          <div className="info-item">
-            <div className="info-label">{t("systemInfo.cpuBrand")}</div>
-            <div className="info-value">{systemInfo.cpu_brand}</div>
-          </div>
-        )}
-        {systemInfo.cpu_cores > 0 && (
-          <div className="info-item">
-            <div className="info-label">{t("systemInfo.cpuCores")}</div>
-            <div className="info-value">{systemInfo.cpu_cores}</div>
-          </div>
-        )}
-        {systemInfo.total_memory > 0 && (
-          <div className="info-item">
-            <div className="info-label">{t("systemInfo.totalMemory")}</div>
-            <div className="info-value">{formatMemory(systemInfo.total_memory)} GB</div>
-          </div>
-        )}
-        {systemInfo.available_memory > 0 && (
-          <div className="info-item">
-            <div className="info-label">{t("systemInfo.availableMemory")}</div>
-            <div className="info-value">{formatMemory(systemInfo.available_memory)} GB</div>
-          </div>
-        )}
-        {systemInfo.used_memory > 0 && (
-          <div className="info-item">
-            <div className="info-label">{t("systemInfo.usedMemory")}</div>
-            <div className="info-value">{formatMemory(systemInfo.used_memory)} GB</div>
-          </div>
-        )}
-        {systemInfo.memory_usage_percent > 0 && (
-          <div className="info-item">
-            <div className="info-label">{t("systemInfo.memoryUsage")}</div>
-            <div className="info-value">{systemInfo.memory_usage_percent.toFixed(1)}%</div>
-          </div>
-        )}
-        {systemInfo.browser_name && (
-          <div className="info-item">
-            <div className="info-label">{t("systemInfo.browserName")}</div>
-            <div className="info-value">{systemInfo.browser_name}</div>
-          </div>
-        )}
-        {systemInfo.browser_version && (
-          <div className="info-item">
-            <div className="info-label">{t("systemInfo.browserVersion")}</div>
-            <div className="info-value">{systemInfo.browser_version}</div>
-          </div>
-        )}
-        {systemInfo.platform && (
-          <div className="info-item">
-            <div className="info-label">{t("systemInfo.platform")}</div>
-            <div className="info-value">{systemInfo.platform}</div>
-          </div>
-        )}
-        {systemInfo.language && (
-          <div className="info-item">
-            <div className="info-label">{t("systemInfo.language")}</div>
-            <div className="info-value">{systemInfo.language}</div>
-          </div>
-        )}
-        {systemInfo.screen_resolution && (
-          <div className="info-item">
-            <div className="info-label">{t("systemInfo.screenResolution")}</div>
-            <div className="info-value">{systemInfo.screen_resolution}</div>
-          </div>
-        )}
-      </div>
-      <button className="btn btn-primary" onClick={loadSystemInfo}>
-        {t("systemInfo.refresh")}
-      </button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function InfoItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border bg-muted/40 px-4 py-4">
+      <div className="mb-1.5 text-xs font-semibold text-muted-foreground">{label}</div>
+      <div className="text-sm font-medium break-words">{value}</div>
     </div>
   );
 }

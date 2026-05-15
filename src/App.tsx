@@ -33,14 +33,14 @@ function App() {
   };
 
   return (
-    <div className="app-container">
+    <div className="flex h-screen overflow-hidden bg-background">
       <Sidebar
         categories={categories}
         activeCategory={activeCategory}
         onSelectCategory={setActiveCategory}
       />
-      <div className="main-content">
-        <div className="main-body">{renderContent()}</div>
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="flex-1 overflow-hidden p-4">{renderContent()}</div>
       </div>
     </div>
   );
