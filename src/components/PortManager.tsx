@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import { platformConfig } from "../platform/config";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 
 interface KillPidResult {
@@ -369,21 +370,6 @@ function PortManager() {
     }
   };
 
-  const handleKillGroup = async (port: number, pid: number) => {
-    setError("");
-    setKilling(true);
-    try {
-      const result: KillPidResult[] = await invoke("kill_entire_group", { pid });
-      const messages = result.map((r) => (r.success ? `PID ${r.pid} killed` : `PID ${r.pid}: ${r.message}`));
-      setPortKillMessages((prev) => ({ ...prev, [port]: messages }));
-      doScan([port]);
-    } catch (e) {
-      setError(typeof e === "string" ? e : "Failed to kill process group");
-    } finally {
-      setKilling(false);
-    }
-  };
-
   const handleKillAll = async () => {
     setError("");
     setKilling(true);
@@ -663,17 +649,12 @@ function PortManager() {
                           className="btn btn-sm btn-warning"
                           onClick={() => handleKillPort(detail.port, detail.pids[0])}
                           disabled={killing}
-                          title={t("portManager.killCommandHint", { pid: detail.pids[0] })}
+                          title={t("portManager.freePortHint", {
+                            port: detail.port,
+                            command: platformConfig.freePortCommandTemplate.replace("{{port}}", String(detail.port)),
+                          })}
                         >
                           {t("portManager.killButton")}
-                        </button>
-                        <button
-                          className="btn btn-sm btn-danger"
-                          onClick={() => handleKillGroup(detail.port, detail.pids[0])}
-                          disabled={killing}
-                          title={t("portManager.killGroupCommandHint", { pid: detail.pids[0] })}
-                        >
-                          {t("portManager.killGroupButton")}
                         </button>
                       </div>
                     </div>

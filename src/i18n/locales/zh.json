@@ -1,7 +1,4 @@
 {
-  "app": {
-    "title": "端口管理器"
-  },
   "sidebar": {
     "portManager": "端口管理",
     "systemInfo": "系统信息"
@@ -13,11 +10,10 @@
     "scanButton": "加入扫描",
     "scanning": "扫描中...",
     "scanResultsTitle": "进程详情（{{count}} 个端口）",
-    "killButton": "终止进程",
-    "killGroupButton": "终止进程组",
-    "killAllButton": "终止所有进程",
-    "killAllDisabledHint": "没有已占用的端口可供终止",
-    "killing": "终止中...",
+    "killButton": "释放端口",
+    "killAllButton": "释放全部端口",
+    "killAllDisabledHint": "没有已占用的端口可供释放",
+    "killing": "释放中...",
     "port": "端口 {{port}}",
     "browserError": "无法在浏览器环境中终止端口进程，请以 Tauri 桌面应用方式运行。",
     "emptyResults": "暂无扫描结果。在上方输入端口并点击「加入扫描」开始扫描。",
@@ -34,9 +30,8 @@
     "removePort": "移除端口 {{port}}",
     "dismissError": "关闭",
     "rescanAll": "重新扫描全部",
-    "killCommandHint": "kill -9 PID {{pid}}",
-    "killGroupCommandHint": "终止 PID {{pid}} 及其所有子进程",
-    "killAllCommandHint": "kill -9 终止所有已扫描端口的 PID",
+    "killAllCommandHint": "释放所有已扫描的端口",
+    "freePortHint": "释放端口 {{port}} — {{command}}",
     "statusWaiting": "等待扫描",
     "statusScanning": "扫描中",
     "statusSuccess": "已占用",
@@ -66,7 +61,6 @@
     "screenResolution": "屏幕分辨率"
   },
   "language": {
-    "switch": "切换语言",
     "en": "English",
     "zh": "中文"
   }

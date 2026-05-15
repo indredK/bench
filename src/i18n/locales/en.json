@@ -1,7 +1,4 @@
 {
-  "app": {
-    "title": "Port Manager"
-  },
   "sidebar": {
     "portManager": "Port Manager",
     "systemInfo": "System Info"
@@ -13,11 +10,10 @@
     "scanButton": "Add to Scan",
     "scanning": "Scanning...",
     "scanResultsTitle": "Process Details ({{count}} ports)",
-    "killButton": "Kill",
-    "killGroupButton": "Kill Group",
-    "killAllButton": "Kill All Processes",
-    "killAllDisabledHint": "No occupied ports to kill",
-    "killing": "Killing...",
+    "killButton": "Free Port",
+    "killAllButton": "Free All Ports",
+    "killAllDisabledHint": "No occupied ports to free",
+    "killing": "Freeing...",
     "port": "Port {{port}}",
     "browserError": "Cannot terminate port processes in a browser environment. Please run this as a Tauri desktop application.",
     "emptyResults": "No scan results yet. Enter port(s) above and click 'Add to Scan' to start scanning.",
@@ -34,9 +30,8 @@
     "removePort": "Remove port {{port}}",
     "dismissError": "Dismiss",
     "rescanAll": "Rescan All",
-    "killCommandHint": "kill -9 PID {{pid}}",
-    "killGroupCommandHint": "Kill PID {{pid}} and all descendant processes",
-    "killAllCommandHint": "kill -9 all PIDs from scanned ports",
+    "killAllCommandHint": "Free all scanned ports",
+    "freePortHint": "Free port {{port}} — {{command}}",
     "statusWaiting": "Waiting",
     "statusScanning": "Scanning",
     "statusSuccess": "Occupied",
@@ -66,7 +61,6 @@
     "screenResolution": "Screen Resolution"
   },
   "language": {
-    "switch": "Switch Language",
     "en": "English",
     "zh": "中文"
   }
