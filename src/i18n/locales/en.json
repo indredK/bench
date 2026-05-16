@@ -82,6 +82,7 @@
       "nodejs": "Node.js (node_modules)",
       "python": "Python (.venv, venv)",
       "rust": "Rust (target)",
+      "go": "Go (vendor)",
       "all": "All Projects"
     }
   },

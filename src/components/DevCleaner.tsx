@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import { isTauri } from "@tauri-apps/api/core";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,7 +37,7 @@ interface ScanResult {
 }
 
 type SortBy = "size" | "modified" | "name";
-type FilterType = "all" | "nodejs" | "python" | "rust";
+type FilterType = "all" | "nodejs" | "python" | "rust" | "go";
 
 export default function DevCleaner() {
   const { t } = useTranslation();
@@ -189,6 +188,7 @@ export default function DevCleaner() {
         nodejs: "NodeJs",
         python: "Python",
         rust: "Rust",
+        go: "Go",
       };
       filtered = filtered.filter((p) => p.project_type === typeMap[filterType]);
     }
@@ -396,7 +396,7 @@ export default function DevCleaner() {
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-muted-foreground whitespace-nowrap">{t("devCleaner.filterLabel")}</span>
-                      {["all", "nodejs", "python", "rust"].map((filter) => (
+                      {["all", "nodejs", "python", "rust", "go"].map((filter) => (
                         <Button
                           key={filter}
                           variant={filterType === filter ? "default" : "outline"}

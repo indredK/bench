@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { invoke } from "@tauri-apps/api/core";
-import { isTauri } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -103,7 +102,6 @@ function SystemInfo({ active }: { active: boolean }) {
       memory_usage_percent: 0,
       browser_name: browserName,
       browser_version: browserVersion,
-      platform: platform,
       language: navigator.language,
       screen_resolution: screenResolution,
     };

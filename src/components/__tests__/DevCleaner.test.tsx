@@ -50,6 +50,7 @@ vi.mock("react-i18next", () => ({
         "devCleaner.filter.nodejs": "Node.js (node_modules)",
         "devCleaner.filter.python": "Python (.venv, venv)",
         "devCleaner.filter.rust": "Rust (target)",
+        "devCleaner.filter.go": "Go (vendor)",
         "devCleaner.filter.all": "All Projects",
       };
       return translations[key] || key;
