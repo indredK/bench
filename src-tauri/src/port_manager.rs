@@ -534,7 +534,7 @@ fn fingerprint_by_command(command: &str, port: u16) -> Option<ProcessFingerprint
                 return None;
             }
         }
-        _ => None?,
+        _ => return None,
     };
 
     Some(fp)

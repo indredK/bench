@@ -362,9 +362,14 @@ function PortManager() {
 
   const addCommonPort = (port: number) => {
     if (port < 1 || port > 65535) return;
-    const exists = portStates.some((ps) => ps.port === port);
-    if (exists) return;
-    setPortStates((prev) => [...prev, { port, status: "waiting" as PortScanStatus }].sort((a, b) => a.port - b.port));
+    const added = portStates.some((ps) => ps.port === port);
+    if (added) return;
+    setPortStates((prev) => {
+      if (prev.some((ps) => ps.port === port)) return prev;
+      const updated = [...prev, { port, status: "waiting" as PortScanStatus }];
+      updated.sort((a, b) => a.port - b.port);
+      return updated;
+    });
     doScan([port]);
   };
 

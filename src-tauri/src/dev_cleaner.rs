@@ -317,7 +317,12 @@ fn calculate_dir_size(path: &Path, abort_flag: Option<&Arc<AtomicBool>>) -> Resu
     let mut size = 0u64;
 
     if let Ok(entries) = fs::read_dir(path) {
-        for entry in entries.flatten() {
+        for (i, entry) in entries.flatten().enumerate() {
+            if let Some(flag) = abort_flag {
+                if i % 100 == 0 && flag.load(Ordering::SeqCst) {
+                    return Ok(0);
+                }
+            }
             let name = entry.file_name();
             let name_str = name.to_string_lossy();
             if is_skip_dir_name(&name_str) {
@@ -334,21 +339,15 @@ fn calculate_dir_size(path: &Path, abort_flag: Option<&Arc<AtomicBool>>) -> Resu
         .filter_map(|e| e.ok())
         .enumerate()
     {
-        if i % 100 == 0 {
-            if let Some(flag) = abort_flag {
-                if flag.load(Ordering::SeqCst) {
-                    return Ok(0);
-                }
+        if let Some(flag) = abort_flag {
+            if i % 100 == 0 && flag.load(Ordering::SeqCst) {
+                return Ok(0);
             }
         }
 
-        match fs::metadata(entry.path()) {
-            Ok(metadata) => {
-                if metadata.is_file() {
-                    size += metadata.len();
-                }
-            }
-            Err(_e) => {
+        if let Ok(metadata) = fs::metadata(entry.path()) {
+            if metadata.is_file() {
+                size += metadata.len();
             }
         }
     }
@@ -358,6 +357,11 @@ fn calculate_dir_size(path: &Path, abort_flag: Option<&Arc<AtomicBool>>) -> Resu
 
 fn get_dir_size_fast(path: &Path, abort_flag: Option<&Arc<AtomicBool>>) -> Result<u64, String> {
     if cfg!(unix) {
+        if let Some(flag) = abort_flag {
+            if flag.load(Ordering::SeqCst) {
+                return Ok(0);
+            }
+        }
         if let Ok(output) = Command::new("du")
             .args(["-sk", &path.to_string_lossy().to_string()])
             .output()

@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import i18n from "../i18n/config";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { isTauri } from "@tauri-apps/api/core";
 
 function LanguageSwitcher() {
   const { t } = useTranslation();
@@ -8,9 +8,12 @@ function LanguageSwitcher() {
   const changeLanguage = async (lng: string) => {
     i18n.changeLanguage(lng);
     localStorage.setItem("language", lng);
-    const window = await getCurrentWindow();
-    const title = lng === "zh" ? "端口管理器 - DevTools" : "Port Manager - DevTools";
-    await window.setTitle(title);
+    if (isTauri()) {
+      const { getCurrentWindow } = await import("@tauri-apps/api/window");
+      const window = await getCurrentWindow();
+      const title = lng === "zh" ? "端口管理器 - DevTools" : "Port Manager - DevTools";
+      await window.setTitle(title);
+    }
   };
 
   return (
