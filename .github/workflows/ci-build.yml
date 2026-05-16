@@ -1,4 +1,4 @@
-name: CI Build
+name: Build & Release
 
 on:
   push:
@@ -9,8 +9,8 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 permissions:
-  contents: read
-  actions: write
+  contents: write
+  actions: read
 
 jobs:
   build:
@@ -92,4 +92,35 @@ jobs:
         with:
           name: bundle-${{ matrix.target }}
           path: artifacts/
-          retention-days: 30
+          retention-days: 7
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v6
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: List release assets
+        run: |
+          echo "=== Release assets ==="
+          ls -la release-assets/
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          shopt -s nullglob
+          gh release create "${{ github.ref_name }}" \
+            --title "Port Manager ${{ github.ref_name }}" \
+            --generate-notes \
+            release-assets/*
