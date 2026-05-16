@@ -1,14 +1,15 @@
-import React from "react";
+import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import App from "./App";
 import "./styles.css";
 import "./i18n/config";
+import "@fontsource-variable/geist";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-  <React.StrictMode>
+  <StrictMode>
     <TooltipProvider>
       <App />
     </TooltipProvider>
-  </React.StrictMode>,
+  </StrictMode>,
 );

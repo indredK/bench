@@ -85,7 +85,7 @@ function SystemInfo({ active }: { active: boolean }) {
       if (match) browserVersion = match[1];
     }
 
-    let platform = navigator.platform;
+    let platform = "Unknown";
     if (ua.includes("Win")) platform = "Windows";
     else if (ua.includes("Mac")) platform = "MacOS";
     else if (ua.includes("Linux")) platform = "Linux";

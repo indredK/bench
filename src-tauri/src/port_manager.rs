@@ -260,42 +260,30 @@ fn get_all_processes() -> HashMap<u32, (u32, String, String)> {
     let mut processes = HashMap::new();
 
     if cfg!(target_os = "windows") {
-        if let Ok(output) = Command::new("wmic")
-            .args(["process", "get", "processid,parentprocessid,name,commandline", "/format:list"])
+        if let Ok(output) = Command::new("powershell")
+            .args([
+                "-NoProfile",
+                "-Command",
+                "Get-CimInstance Win32_Process | Select-Object ProcessId, ParentProcessId, Name, CommandLine | ConvertTo-Csv -NoTypeInformation"
+            ])
             .output()
         {
             let stdout = String::from_utf8_lossy(&output.stdout);
-            let mut current_pid = 0u32;
-            let mut current_ppid = 0u32;
-            let mut current_name = String::new();
-            let mut current_cmd = String::new();
-
-            for line in stdout.lines() {
+            for line in stdout.lines().skip(1) {
                 let line = line.trim();
-                if line.is_empty() {
-                    if current_pid > 0 {
-                        processes.insert(current_pid, (current_ppid, current_name.clone(), current_cmd.clone()));
-                        current_pid = 0;
-                        current_ppid = 0;
-                        current_name.clear();
-                        current_cmd.clear();
-                    }
+                if line.is_empty() || !line.starts_with('"') {
                     continue;
                 }
-                if let Some(eq_pos) = line.find('=') {
-                    let key = line[..eq_pos].trim();
-                    let value = line[eq_pos + 1..].trim();
-                    match key {
-                        "ProcessId" => { if let Ok(pid) = value.parse::<u32>() { current_pid = pid; } }
-                        "ParentProcessId" => { if let Ok(ppid) = value.parse::<u32>() { current_ppid = ppid; } }
-                        "Name" => current_name = value.to_string(),
-                        "CommandLine" => current_cmd = value.to_string(),
-                        _ => {}
+                let parts: Vec<&str> = line.split(',')
+                    .map(|s| s.trim_matches('"').trim())
+                    .collect();
+                if parts.len() >= 4 {
+                    if let (Ok(pid), Ok(ppid)) = (parts[0].parse::<u32>(), parts[1].parse::<u32>()) {
+                        let name = parts[2].to_string();
+                        let cmd = parts[3..].join(",");
+                        processes.insert(pid, (ppid, name, cmd));
                     }
                 }
-            }
-            if current_pid > 0 {
-                processes.insert(current_pid, (current_ppid, current_name, current_cmd));
             }
         }
     } else {

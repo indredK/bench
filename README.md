@@ -191,8 +191,7 @@ port-manager/
 │   ├── icons/                    # Application icons
 │   └── tauri.conf.json           # Tauri configuration
 ├── .github/workflows/
-│   ├── ci-build.yml              # CI build pipeline
-│   └── release.yml               # Release publishing workflow
+│   └── ci-build.yml              # CI build & release pipeline
 ├── package.json
 ├── vite.config.ts
 └── tsconfig.json
@@ -224,9 +223,9 @@ Key configuration from [tauri.conf.json](src-tauri/tauri.conf.json):
 
 This project uses GitHub Actions for continuous integration and delivery:
 
-### CI Build (`ci-build.yml`)
+### CI Build & Release (`ci-build.yml`)
 
-Triggered on version tag pushes (`v*.*.*`). Builds for 4 targets in parallel:
+Triggered on version tag pushes (`v*.*.*`). Builds for 4 targets in parallel and publishes a GitHub Release:
 
 | Target                   | Platform                     |
 | ------------------------ | ---------------------------- |
@@ -234,14 +233,6 @@ Triggered on version tag pushes (`v*.*.*`). Builds for 4 targets in parallel:
 | `x86_64-apple-darwin`    | Intel Mac                    |
 | `x86_64-pc-windows-msvc` | Windows                      |
 | `x86_64-unknown-linux-gnu` | Linux                      |
-
-### Release (`release.yml`)
-
-Manual workflow that creates a GitHub Release from CI build artifacts:
-
-1. Trigger the workflow via GitHub Actions UI.
-2. Specify the version tag, draft, and pre-release options.
-3. Artifacts from all platforms are collected and published as a single release.
 
 ## Contributing
 

@@ -22,6 +22,12 @@ interface ProjectInfo {
   cleanup_potential: number;
 }
 
+interface CleanupResult {
+  success: boolean;
+  cleaned_size: number;
+  errors: string[];
+}
+
 interface ScanResult {
   total_projects: number;
   total_size: number;
@@ -213,7 +219,7 @@ export default function DevCleaner() {
     setCleanupMessage(null);
 
     try {
-      const result: any = await invoke("cleanup_projects", {
+      const result: CleanupResult = await invoke("cleanup_projects", {
         paths: Array.from(selectedProjects),
         targets: ["node_modules", "dist", ".next", ".venv", "venv", "__pycache__", "target", "vendor"],
       });

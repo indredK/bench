@@ -244,6 +244,86 @@ pub fn cleanup_projects(paths: Vec<String>, targets: Vec<String>) -> Result<Clea
     })
 }
 
+fn count_dependencies(path: &Path, project_type: ProjectType) -> u32 {
+    match project_type {
+        ProjectType::NodeJs => {
+            let pkg = path.join("package.json");
+            if pkg.exists() {
+                if let Ok(content) = fs::read_to_string(&pkg) {
+                    if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                        let mut count = 0u32;
+                        if let Some(deps) = json.get("dependencies").and_then(|v| v.as_object()) {
+                            count += deps.len() as u32;
+                        }
+                        if let Some(deps) = json.get("devDependencies").and_then(|v| v.as_object()) {
+                            count += deps.len() as u32;
+                        }
+                        return count;
+                    }
+                }
+            }
+            0
+        }
+        ProjectType::Python => {
+            let files = &[
+                path.join("requirements.txt"),
+                path.join("pyproject.toml"),
+            ];
+            let mut count = 0u32;
+            for f in files {
+                if f.exists() {
+                    if let Ok(content) = fs::read_to_string(f) {
+                        count += content.lines()
+                            .filter(|l| {
+                                let l = l.trim();
+                                !l.is_empty() && !l.starts_with('#')
+                            })
+                            .count() as u32;
+                    }
+                }
+            }
+            count
+        }
+        ProjectType::Rust => {
+            let cargo = path.join("Cargo.toml");
+            if cargo.exists() {
+                if let Ok(content) = fs::read_to_string(&cargo) {
+                    let mut count = 0u32;
+                    let mut in_deps = false;
+                    for line in content.lines() {
+                        let trimmed = line.trim();
+                        if trimmed.starts_with('[') {
+                            let section = trimmed.trim_start_matches('[').trim_end_matches(']');
+                            in_deps = section.starts_with("dependencies")
+                                || section.starts_with("build-dependencies")
+                                || section.starts_with("dev-dependencies");
+                            continue;
+                        }
+                        if in_deps && trimmed.contains('=') && !trimmed.starts_with('#') {
+                            count += 1;
+                        }
+                    }
+                    return count;
+                }
+            }
+            0
+        }
+        ProjectType::Go => {
+            let go_mod = path.join("go.mod");
+            if go_mod.exists() {
+                if let Ok(content) = fs::read_to_string(&go_mod) {
+                    let count = content.lines()
+                        .filter(|l| l.trim().starts_with("\t") && !l.trim().starts_with("\t//"))
+                        .count();
+                    return count.max(1) as u32;
+                }
+            }
+            0
+        }
+        ProjectType::General => 0,
+    }
+}
+
 fn detect_project(path: &Path, project_type: ProjectType, abort_flag: Option<&Arc<AtomicBool>>) -> Result<ProjectInfo, String> {
     let name = path
         .file_name()
@@ -263,13 +343,15 @@ fn detect_project(path: &Path, project_type: ProjectType, abort_flag: Option<&Ar
         }
     }
 
+    let dependencies_count = count_dependencies(path, project_type);
+
     Ok(ProjectInfo {
         path: path.to_string_lossy().to_string(),
         name,
         total_size,
         target_size,
         last_modified: get_last_modified(path),
-        dependencies_count: 0,
+        dependencies_count,
         project_type: project_type.as_str().to_string(),
         cleanup_potential: target_size,
     })
