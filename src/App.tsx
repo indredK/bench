@@ -33,9 +33,15 @@ function App() {
       />
       <div className="flex flex-1 flex-col overflow-hidden">
         <div className="flex-1 overflow-auto p-4">
-          {activeCategory === "port-manager" && <PortManager />}
-          {activeCategory === "dev-cleaner" && <DevCleaner />}
-          {activeCategory === "system-info" && <SystemInfo />}
+          <div style={{ display: activeCategory === "port-manager" ? "block" : "none" }}>
+            <PortManager />
+          </div>
+          <div style={{ display: activeCategory === "dev-cleaner" ? "block" : "none" }}>
+            <DevCleaner />
+          </div>
+          <div style={{ display: activeCategory === "system-info" ? "block" : "none" }}>
+            <SystemInfo />
+          </div>
         </div>
       </div>
     </div>
