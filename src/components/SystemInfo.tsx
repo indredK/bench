@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 import { isTauri } from "@tauri-apps/api/core";
@@ -32,14 +32,7 @@ function SystemInfo({ active }: { active: boolean }) {
   const [error, setError] = useState("");
   const fetchedRef = useRef(false);
 
-  useEffect(() => {
-    if (active && !fetchedRef.current) {
-      fetchedRef.current = true;
-      loadSystemInfo();
-    }
-  }, [active]);
-
-  const loadSystemInfo = async () => {
+  const loadSystemInfo = useCallback(async () => {
     setLoading(true);
     setError("");
 
@@ -56,7 +49,14 @@ function SystemInfo({ active }: { active: boolean }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (active && !fetchedRef.current) {
+      fetchedRef.current = true;
+      loadSystemInfo();
+    }
+  }, [active, loadSystemInfo]);
 
   const getBrowserInfo = (): SystemInfoData => {
     const ua = navigator.userAgent;
@@ -70,10 +70,6 @@ function SystemInfo({ active }: { active: boolean }) {
     } else if (ua.includes("Edg")) {
       browserName = "Edge";
       const match = ua.match(/Edg\/(\d+\.\d+)/);
-      if (match) browserVersion = match[1];
-    } else if (ua.includes("Edge")) {
-      browserName = "Edge";
-      const match = ua.match(/Edge\/(\d+\.\d+)/);
       if (match) browserVersion = match[1];
     } else if (ua.includes("Chrome")) {
       browserName = "Chrome";

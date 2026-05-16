@@ -371,7 +371,7 @@ fn fingerprint_by_command(command: &str, port: u16) -> Option<ProcessFingerprint
 
     let fp = match port {
         3000 => {
-            if contains_all(&cmd_lower, &["next", "node"]) && !contains_all(&cmd_lower, &[".vite", "vite/bin"]) {
+            if contains_all(&cmd_lower, &["next", "node"]) && !contains_any(&cmd_lower, &[".vite", "vite/bin"]) {
                 fp("Node.js", "Next.js Dev Server", "▲")
             } else if contains_all(&cmd_lower, &["vite", "react"]) || contains_any(&cmd_lower, &["react-scripts", "react-dev-utils", "create-react-app"]) {
                 fp("Node.js", "React Dev Server (Vite)", "⚛️")

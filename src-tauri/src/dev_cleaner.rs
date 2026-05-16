@@ -218,6 +218,10 @@ pub fn cleanup_projects(paths: Vec<String>, targets: Vec<String>) -> Result<Clea
         let project_dir = Path::new(&project_path);
 
         for target in &targets {
+            if target.contains("..") || target.contains('/') || target.contains('\\') {
+                errors.push(format!("Invalid target name: {}", target));
+                continue;
+            }
             let target_path = project_dir.join(target);
 
             if target_path.exists() {
@@ -313,7 +317,7 @@ fn count_dependencies(path: &Path, project_type: ProjectType) -> u32 {
             if go_mod.exists() {
                 if let Ok(content) = fs::read_to_string(&go_mod) {
                     let count = content.lines()
-                        .filter(|l| l.trim().starts_with("\t") && !l.trim().starts_with("\t//"))
+                        .filter(|l| l.starts_with('\t') && !l.trim_start().starts_with("//"))
                         .count();
                     return count.max(1) as u32;
                 }

@@ -12,7 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:rust": "cd src-tauri && cargo test",
-    "test:all": "cd src-tauri && cargo test && cd .. && vitest run"
+    "test:all": "cd src-tauri && cargo test; cd .. && vitest run"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
