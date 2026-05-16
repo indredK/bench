@@ -146,7 +146,7 @@ pub fn stop_scan(flag: tauri::State<ScanAbortFlag>) {
 }
 
 #[tauri::command]
-pub async fn scan_dev_projects(root_path: String, _max_depth: u32, _min_size_mb: u64, flag: tauri::State<'_, ScanAbortFlag>) -> Result<ScanResult, String> {
+pub async fn scan_dev_projects(root_path: String, flag: tauri::State<'_, ScanAbortFlag>) -> Result<ScanResult, String> {
     flag.store(false, Ordering::SeqCst);
     let abort = flag.inner().clone();
 
@@ -210,7 +210,7 @@ pub async fn scan_dev_projects(root_path: String, _max_depth: u32, _min_size_mb:
 }
 
 #[tauri::command]
-pub fn cleanup_projects(paths: Vec<String>, targets: Vec<String>, _backup: bool) -> Result<CleanupResult, String> {
+pub fn cleanup_projects(paths: Vec<String>, targets: Vec<String>) -> Result<CleanupResult, String> {
     let mut cleaned_size = 0u64;
     let mut errors = Vec::new();
 
@@ -223,9 +223,10 @@ pub fn cleanup_projects(paths: Vec<String>, targets: Vec<String>, _backup: bool)
             if target_path.exists() {
                 match calculate_dir_size(&target_path, None) {
                     Ok(size) => {
-                        cleaned_size += size;
                         if let Err(e) = fs::remove_dir_all(&target_path) {
                             errors.push(format!("Failed to remove {}: {}", target_path.display(), e));
+                        } else {
+                            cleaned_size += size;
                         }
                     }
                     Err(e) => {
@@ -274,9 +275,9 @@ fn detect_project(path: &Path, project_type: ProjectType, abort_flag: Option<&Ar
     })
 }
 
-fn detect_skip_dir_project(path: &Path, dir_name: &str, _abort_flag: Option<&Arc<AtomicBool>>) -> Result<ProjectInfo, String> {
+fn detect_skip_dir_project(path: &Path, dir_name: &str, abort_flag: Option<&Arc<AtomicBool>>) -> Result<ProjectInfo, String> {
     let pt = ProjectType::from_skip_dir(dir_name);
-    let size = get_dir_size_fast(path)?;
+    let size = get_dir_size_fast(path, abort_flag)?;
 
     let parent_name = path
         .parent()
@@ -309,7 +310,7 @@ fn calculate_dir_size(path: &Path, abort_flag: Option<&Arc<AtomicBool>>) -> Resu
 
     if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
         if is_skip_dir_name(name) {
-            return get_dir_size_fast(path);
+            return get_dir_size_fast(path, abort_flag);
         }
     }
 
@@ -320,7 +321,7 @@ fn calculate_dir_size(path: &Path, abort_flag: Option<&Arc<AtomicBool>>) -> Resu
             let name = entry.file_name();
             let name_str = name.to_string_lossy();
             if is_skip_dir_name(&name_str) {
-                if let Ok(skip_size) = get_dir_size_fast(&entry.path()) {
+                if let Ok(skip_size) = get_dir_size_fast(&entry.path(), abort_flag) {
                     size += skip_size;
                 }
             }
@@ -355,7 +356,7 @@ fn calculate_dir_size(path: &Path, abort_flag: Option<&Arc<AtomicBool>>) -> Resu
     Ok(size)
 }
 
-fn get_dir_size_fast(path: &Path) -> Result<u64, String> {
+fn get_dir_size_fast(path: &Path, abort_flag: Option<&Arc<AtomicBool>>) -> Result<u64, String> {
     if cfg!(unix) {
         if let Ok(output) = Command::new("du")
             .args(["-sk", &path.to_string_lossy().to_string()])
@@ -373,7 +374,12 @@ fn get_dir_size_fast(path: &Path) -> Result<u64, String> {
     }
 
     let mut size = 0u64;
-    for entry in WalkDir::new(path).into_iter().filter_map(|e| e.ok()) {
+    for (i, entry) in WalkDir::new(path).into_iter().filter_map(|e| e.ok()).enumerate() {
+        if let Some(flag) = abort_flag {
+            if i % 100 == 0 && flag.load(Ordering::SeqCst) {
+                return Ok(0);
+            }
+        }
         if let Ok(metadata) = fs::metadata(entry.path()) {
             if metadata.is_file() {
                 size += metadata.len();

@@ -12,11 +12,9 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(Arc::new(AtomicBool::new(false)) as ScanAbortFlag)
         .invoke_handler(tauri::generate_handler![
-            port_manager::kill_ports,
             port_manager::get_system_info,
             port_manager::query_port_processes,
             port_manager::kill_processes,
-            port_manager::kill_entire_group,
             dev_cleaner::scan_dev_projects,
             dev_cleaner::cleanup_projects,
             dev_cleaner::stop_scan,

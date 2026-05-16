@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 import { isTauri } from "@tauri-apps/api/core";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { formatMemory } from "@/lib/utils";
 
 interface SystemInfoData {
   os_name: string;
@@ -24,15 +25,19 @@ interface SystemInfoData {
   screen_resolution?: string;
 }
 
-function SystemInfo() {
+function SystemInfo({ active }: { active: boolean }) {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [systemInfo, setSystemInfo] = useState<SystemInfoData | null>(null);
   const [error, setError] = useState("");
+  const fetchedRef = useRef(false);
 
   useEffect(() => {
-    loadSystemInfo();
-  }, []);
+    if (active && !fetchedRef.current) {
+      fetchedRef.current = true;
+      loadSystemInfo();
+    }
+  }, [active]);
 
   const loadSystemInfo = async () => {
     setLoading(true);
@@ -62,6 +67,14 @@ function SystemInfo() {
       browserName = "Firefox";
       const match = ua.match(/Firefox\/(\d+\.\d+)/);
       if (match) browserVersion = match[1];
+    } else if (ua.includes("Edg")) {
+      browserName = "Edge";
+      const match = ua.match(/Edg\/(\d+\.\d+)/);
+      if (match) browserVersion = match[1];
+    } else if (ua.includes("Edge")) {
+      browserName = "Edge";
+      const match = ua.match(/Edge\/(\d+\.\d+)/);
+      if (match) browserVersion = match[1];
     } else if (ua.includes("Chrome")) {
       browserName = "Chrome";
       const match = ua.match(/Chrome\/(\d+\.\d+)/);
@@ -69,10 +82,6 @@ function SystemInfo() {
     } else if (ua.includes("Safari")) {
       browserName = "Safari";
       const match = ua.match(/Version\/(\d+\.\d+)/);
-      if (match) browserVersion = match[1];
-    } else if (ua.includes("Edge")) {
-      browserName = "Edge";
-      const match = ua.match(/Edge\/(\d+\.\d+)/);
       if (match) browserVersion = match[1];
     }
 
@@ -102,11 +111,6 @@ function SystemInfo() {
       language: navigator.language,
       screen_resolution: screenResolution,
     };
-  };
-
-  const formatMemory = (bytes: number): string => {
-    const gb = bytes / (1024 * 1024 * 1024);
-    return gb.toFixed(2);
   };
 
   if (loading) {

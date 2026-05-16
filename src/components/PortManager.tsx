@@ -396,11 +396,11 @@ function PortManager() {
     }
   };
 
-  const handleKillPort = async (port: number, pid: number) => {
+  const handleKillPort = async (port: number, pids: number[]) => {
     setError("");
     setKilling(true);
     try {
-      const result: KillPidResult[] = await invoke("kill_processes", { pids: [pid] });
+      const result: KillPidResult[] = await invoke("kill_processes", { pids });
       const messages = result.map((r) => (r.success ? `PID ${r.pid} killed` : `PID ${r.pid}: ${r.message}`));
       setPortKillMessages((prev) => ({ ...prev, [port]: messages }));
       doScan([port]);
@@ -417,7 +417,16 @@ function PortManager() {
     try {
       const allPids = portDetails.flatMap((d) => d.pids);
       const portsToRescan = portDetails.map((d) => d.port);
-      await invoke<KillPidResult[]>("kill_processes", { pids: allPids });
+      const result: KillPidResult[] = await invoke("kill_processes", { pids: allPids });
+      const killMessages: Record<number, string[]> = {};
+      for (const r of result) {
+        const message = r.success ? `PID ${r.pid} killed` : `PID ${r.pid}: ${r.message}`;
+        const port = portDetails.find((d) => d.pids.includes(r.pid));
+        if (port) {
+          killMessages[port.port] = [...(killMessages[port.port] || []), message];
+        }
+      }
+      setPortKillMessages(killMessages);
       if (portsToRescan.length > 0) {
         doScan(portsToRescan);
       }
@@ -742,7 +751,7 @@ function PortManager() {
                                 variant="default"
                                 size="sm"
                                 className="rounded-lg bg-amber-600 hover:bg-amber-700"
-                                onClick={() => handleKillPort(detail.port, detail.pids[0])}
+                                onClick={() => handleKillPort(detail.port, detail.pids)}
                                 disabled={killing}
                               >
                                 {t("portManager.killButton")}

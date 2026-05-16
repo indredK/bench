@@ -2,11 +2,13 @@ import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
+import { isTauri } from "@tauri-apps/api/core";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { formatSize, formatDate } from "@/lib/utils";
 import { Loader2, FolderOpen, Trash2, AlertTriangle, StopCircle, ChevronDown, ChevronUp } from "lucide-react";
 
 interface ProjectInfo {
@@ -31,18 +33,6 @@ interface ScanResult {
 
 type SortBy = "size" | "modified" | "name";
 type FilterType = "all" | "nodejs" | "python" | "rust";
-
-function formatSize(bytes: number): string {
-  if (bytes === 0) return "0 B";
-  const k = 1024;
-  const sizes = ["B", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
-}
-
-function formatDate(timestamp: number): string {
-  return new Date(timestamp * 1000).toLocaleDateString();
-}
 
 export default function DevCleaner() {
   const { t } = useTranslation();
@@ -96,11 +86,14 @@ export default function DevCleaner() {
     let cancelled = false;
 
     const doScan = async () => {
+      if (!isTauri()) {
+        setCleanupMessage({ type: "error", text: "Scanning is only available in the desktop app" });
+        setIsScanning(false);
+        return;
+      }
       try {
         const result: ScanResult = await invoke("scan_dev_projects", {
           rootPath: selectedPathRef.current,
-          maxDepth: 10,
-          minSizeMb: 0,
         });
         if (cancelled) return;
         setScanResult(result);
@@ -186,8 +179,7 @@ export default function DevCleaner() {
 
     // Apply filter
     if (filterType !== "all") {
-      const typeMap: Record<FilterType, string> = {
-        all: "",
+      const typeMap: Record<Exclude<FilterType, "all">, string> = {
         nodejs: "NodeJs",
         python: "Python",
         rust: "Rust",
@@ -223,8 +215,7 @@ export default function DevCleaner() {
     try {
       const result: any = await invoke("cleanup_projects", {
         paths: Array.from(selectedProjects),
-        targets: ["node_modules", "target", ".venv", "venv"],
-        backup: false,
+        targets: ["node_modules", "dist", ".next", ".venv", "venv", "__pycache__", "target", "vendor"],
       });
 
       if (result.success) {
@@ -282,7 +273,7 @@ export default function DevCleaner() {
   }, [selectedFilteredCount, filteredProjects.length]);
 
   return (
-    <div className="h-full flex flex-col gap-4 p-2 overflow-auto">
+    <div className="h-full flex flex-col gap-4">
       {/* Header */}
       <Card className="shrink-0">
         <CardHeader>

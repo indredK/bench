@@ -32,15 +32,15 @@ function App() {
         onSelectCategory={setActiveCategory}
       />
       <div className="flex flex-1 flex-col overflow-hidden">
-        <div className="flex-1 overflow-auto p-4">
-          <div style={{ display: activeCategory === "port-manager" ? "block" : "none" }}>
+        <div className="flex-1 overflow-hidden p-4">
+          <div className="h-full" style={{ display: activeCategory === "port-manager" ? "block" : "none" }}>
             <PortManager />
           </div>
-          <div style={{ display: activeCategory === "dev-cleaner" ? "block" : "none" }}>
+          <div className="h-full" style={{ display: activeCategory === "dev-cleaner" ? "block" : "none" }}>
             <DevCleaner />
           </div>
-          <div style={{ display: activeCategory === "system-info" ? "block" : "none" }}>
-            <SystemInfo />
+          <div className="h-full" style={{ display: activeCategory === "system-info" ? "block" : "none" }}>
+            <SystemInfo active={activeCategory === "system-info"} />
           </div>
         </div>
       </div>

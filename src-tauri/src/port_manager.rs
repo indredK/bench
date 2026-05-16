@@ -4,13 +4,6 @@ use std::process::Command;
 use sysinfo::System;
 
 #[derive(Debug, Serialize)]
-pub struct KillResult {
-    pub port: u16,
-    pub success: bool,
-    pub message: String,
-}
-
-#[derive(Debug, Serialize)]
 pub struct KillPidResult {
     pub pid: u32,
     pub success: bool,
@@ -54,11 +47,6 @@ pub struct PortProcessDetail {
     pub process_trees: Vec<ProcessNode>,
     pub fingerprint: Option<ProcessFingerprint>,
     pub error: Option<String>,
-}
-
-#[tauri::command]
-pub fn kill_ports(ports: Vec<u16>) -> Vec<KillResult> {
-    ports.into_iter().map(|port| kill_port(port)).collect()
 }
 
 #[tauri::command]
@@ -111,40 +99,16 @@ pub fn query_port_processes(ports: Vec<u16>) -> Vec<PortProcessDetail> {
 
 #[tauri::command]
 pub fn kill_processes(pids: Vec<u32>) -> Vec<KillPidResult> {
-    pids.into_iter()
-        .map(|pid| match kill_process(pid) {
-            Ok(()) => KillPidResult {
-                pid,
-                success: true,
-                message: "Successfully terminated".to_string(),
-            },
-            Err(e) => KillPidResult {
-                pid,
-                success: false,
-                message: e,
-            },
-        })
-        .collect()
-}
-
-#[tauri::command]
-pub fn kill_entire_group(pid: u32) -> Vec<KillPidResult> {
     let all_processes = get_all_processes();
-    let mut pids_to_kill = Vec::new();
-    collect_subtree_pids(&mut pids_to_kill, pid, &all_processes);
-    pids_to_kill.sort();
-    pids_to_kill.dedup();
-
-    pids_to_kill
-        .into_iter()
-        .map(|target_pid| match kill_process(target_pid) {
+    pids.into_iter()
+        .map(|pid| match kill_process(pid, &all_processes) {
             Ok(()) => KillPidResult {
-                pid: target_pid,
+                pid,
                 success: true,
                 message: "Successfully terminated".to_string(),
             },
             Err(e) => KillPidResult {
-                pid: target_pid,
+                pid,
                 success: false,
                 message: e,
             },
@@ -180,83 +144,12 @@ pub fn get_system_info() -> SystemInfo {
     }
 }
 
-fn kill_port(port: u16) -> KillResult {
-    let pids = match find_pids_by_port(port) {
-        Ok(pids) => pids,
-        Err(e) => {
-            return KillResult {
-                port,
-                success: false,
-                message: format!("Failed to query: {}", e),
-            };
-        }
-    };
-
-    if pids.is_empty() {
-        return KillResult {
-            port,
-            success: false,
-            message: "No process found on this port".to_string(),
-        };
-    }
-
-    let mut killed = Vec::new();
-    let mut failed = Vec::new();
-
-    for pid in &pids {
-        match kill_process(*pid) {
-            Ok(()) => killed.push(pid),
-            Err(e) => failed.push((pid, e)),
-        }
-    }
-
-    if failed.is_empty() {
-        KillResult {
-            port,
-            success: true,
-            message: format!(
-                "Successfully terminated (PID: {})",
-                killed
-                    .iter()
-                    .map(|p| p.to_string())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            ),
-        }
-    } else if killed.is_empty() {
-        let errors: Vec<String> = failed
-            .iter()
-            .map(|(pid, e)| format!("PID {}: {}", pid, e))
-            .collect();
-        KillResult {
-            port,
-            success: false,
-            message: format!("Failed to terminate: {}", errors.join("; ")),
-        }
-    } else {
-        let killed_str: Vec<String> = killed.iter().map(|p| p.to_string()).collect();
-        let failed_str: Vec<String> = failed
-            .iter()
-            .map(|(pid, e)| format!("PID {}: {}", pid, e))
-            .collect();
-        KillResult {
-            port,
-            success: false,
-            message: format!(
-                "Killed PID: {}. Failed: {}",
-                killed_str.join(", "),
-                failed_str.join("; ")
-            ),
-        }
-    }
-}
-
-fn kill_process(pid: u32) -> Result<(), String> {
+fn kill_process(pid: u32, all_processes: &HashMap<u32, (u32, String, String)>) -> Result<(), String> {
     let current_pid = std::process::id();
     if pid == current_pid {
         return Err("Cannot kill the Port Manager process itself".to_string());
     }
-    if is_descendant_of(pid, current_pid) {
+    if is_descendant_of(pid, current_pid, all_processes) {
         return Err("Cannot kill a child process of Port Manager".to_string());
     }
 
@@ -287,8 +180,7 @@ fn kill_process(pid: u32) -> Result<(), String> {
     }
 }
 
-fn is_descendant_of(pid: u32, parent_pid: u32) -> bool {
-    let all_processes = get_all_processes();
+fn is_descendant_of(pid: u32, parent_pid: u32, all_processes: &HashMap<u32, (u32, String, String)>) -> bool {
     let mut current = pid;
     loop {
         if let Some(&(ppid, _, _)) = all_processes.get(&current) {
@@ -349,7 +241,7 @@ fn find_pids_by_port_windows(port: u16) -> Result<Vec<u32>, String> {
     let mut pids: Vec<u32> = Vec::new();
 
     for line in stdout.lines() {
-        if line.contains(&port_str) && line.contains("LISTENING") {
+        if line.contains(&port_str) {
             let parts: Vec<&str> = line.split_whitespace().collect();
             if let Some(pid_str) = parts.last() {
                 if let Ok(pid) = pid_str.parse::<u32>() {
@@ -369,34 +261,41 @@ fn get_all_processes() -> HashMap<u32, (u32, String, String)> {
 
     if cfg!(target_os = "windows") {
         if let Ok(output) = Command::new("wmic")
-            .args(["process", "get", "processid,parentprocessid,name,commandline", "/format:csv"])
+            .args(["process", "get", "processid,parentprocessid,name,commandline", "/format:list"])
             .output()
         {
             let stdout = String::from_utf8_lossy(&output.stdout);
-            for line in stdout.lines().skip(1) {
+            let mut current_pid = 0u32;
+            let mut current_ppid = 0u32;
+            let mut current_name = String::new();
+            let mut current_cmd = String::new();
+
+            for line in stdout.lines() {
                 let line = line.trim();
                 if line.is_empty() {
+                    if current_pid > 0 {
+                        processes.insert(current_pid, (current_ppid, current_name.clone(), current_cmd.clone()));
+                        current_pid = 0;
+                        current_ppid = 0;
+                        current_name.clear();
+                        current_cmd.clear();
+                    }
                     continue;
                 }
-                let parts: Vec<&str> = line.split(',').collect();
-                if parts.len() >= 3 {
-                    if parts.len() >= 4 {
-                        let command = parts[3].trim().to_string();
-                        let name = parts[2].trim().to_string();
-                        let pid_str = parts[1].trim();
-                        let ppid_str = parts[0].trim();
-                        if let (Ok(pid), Ok(ppid)) = (pid_str.parse::<u32>(), ppid_str.parse::<u32>()) {
-                            processes.insert(pid, (ppid, name, command));
-                        }
-                    } else {
-                        let name = parts[2].trim().to_string();
-                        let pid_str = parts[0].trim();
-                        let ppid_str = parts[1].trim();
-                        if let (Ok(pid), Ok(ppid)) = (pid_str.parse::<u32>(), ppid_str.parse::<u32>()) {
-                            processes.insert(pid, (ppid, name, String::new()));
-                        }
+                if let Some(eq_pos) = line.find('=') {
+                    let key = line[..eq_pos].trim();
+                    let value = line[eq_pos + 1..].trim();
+                    match key {
+                        "ProcessId" => { if let Ok(pid) = value.parse::<u32>() { current_pid = pid; } }
+                        "ParentProcessId" => { if let Ok(ppid) = value.parse::<u32>() { current_ppid = ppid; } }
+                        "Name" => current_name = value.to_string(),
+                        "CommandLine" => current_cmd = value.to_string(),
+                        _ => {}
                     }
                 }
+            }
+            if current_pid > 0 {
+                processes.insert(current_pid, (current_ppid, current_name, current_cmd));
             }
         }
     } else {
@@ -407,12 +306,11 @@ fn get_all_processes() -> HashMap<u32, (u32, String, String)> {
                 if line.is_empty() {
                     continue;
                 }
-                let parts: Vec<&str> = line.splitn(4, |c: char| c.is_whitespace())
-                    .filter(|s| !s.is_empty())
-                    .collect();
+                let parts: Vec<&str> = line.split_whitespace().collect();
                 if parts.len() >= 4 {
                     if let (Ok(pid), Ok(ppid)) = (parts[0].parse::<u32>(), parts[1].parse::<u32>()) {
-                        processes.insert(pid, (ppid, parts[2].to_string(), parts[3].to_string()));
+                        let command = parts[3..].join(" ");
+                        processes.insert(pid, (ppid, parts[2].to_string(), command));
                     }
                 }
             }
@@ -460,18 +358,9 @@ fn get_parent_chain(pid: u32, all: &HashMap<u32, (u32, String, String)>, max_dep
 }
 
 fn build_focused_tree(pid: u32, all: &HashMap<u32, (u32, String, String)>) -> ProcessNode {
-    let parent_chain = get_parent_chain(pid, all, 3);
+    let parent_chain = get_parent_chain(pid, all, 10);
     let root_pid = parent_chain.last().copied().unwrap_or(pid);
     build_subtree(root_pid, all)
-}
-
-fn collect_subtree_pids(pids: &mut Vec<u32>, pid: u32, all: &HashMap<u32, (u32, String, String)>) {
-    pids.push(pid);
-    for (&child_pid, child_info) in all {
-        if child_info.0 == pid && child_pid != pid {
-            collect_subtree_pids(pids, child_pid, all);
-        }
-    }
 }
 
 fn fingerprint_port_process(port: u16, pids: &[u32], all: &HashMap<u32, (u32, String, String)>) -> Option<ProcessFingerprint> {
@@ -496,7 +385,7 @@ fn fingerprint_by_command(command: &str, port: u16) -> Option<ProcessFingerprint
         3000 => {
             if contains_all(&cmd_lower, &["next", "node"]) && !contains_all(&cmd_lower, &[".vite", "vite/bin"]) {
                 fp("Node.js", "Next.js Dev Server", "▲")
-            } else if contains_all(&cmd_lower, &["vite", "react"]) || contains_any(&cmd_lower, &["react-scripts", "react-dev-utils", "create-react-app", "react-scripts"]) {
+            } else if contains_all(&cmd_lower, &["vite", "react"]) || contains_any(&cmd_lower, &["react-scripts", "react-dev-utils", "create-react-app"]) {
                 fp("Node.js", "React Dev Server (Vite)", "⚛️")
             } else if contains_any(&cmd_lower, &["vite"]) {
                 fp("Node.js", "Vite Dev Server", "⚡")
