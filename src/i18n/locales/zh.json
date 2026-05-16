@@ -1,6 +1,7 @@
 {
   "sidebar": {
     "portManager": "端口管理",
+    "devCleaner": "垃圾清理",
     "systemInfo": "系统信息"
   },
   "portManager": {
@@ -23,6 +24,13 @@
     "chipScrollTo": "滚动至端口 {{port}} 详情",
     "clearSelectedPorts": "清除已选端口",
     "invalidInput": "仅允许输入数字、逗号和连字符",
+    "invalidRangeFormat": "端口范围格式错误，应为 起始-结束（如 3000-4000）",
+    "invalidPortNumber": "端口号必须为正整数",
+    "invalidPortFormat": "端口格式错误",
+    "rangeStartGtEnd": "起始端口不能大于结束端口",
+    "portOutOfRange": "端口范围为 1-65535",
+    "tooManyPorts": "最多支持添加 100 个端口",
+    "portsAlreadyAdded": "这些端口已添加到扫描列表",
     "rescan": "重新扫描",
     "removePort": "移除端口 {{port}}",
     "dismissError": "关闭",
@@ -35,6 +43,47 @@
     "statusEmpty": "空闲",
     "statusError": "扫描失败",
     "statusEnded": "已终止"
+  },
+  "devCleaner": {
+    "title": "垃圾清理",
+    "subtitle": "清理开发垃圾文件",
+    "selectPath": "选择目录",
+    "enterPath": "输入目录路径或选择文件夹",
+    "startScan": "开始扫描",
+    "scanning": "扫描中...",
+    "stopScan": "停止扫描",
+    "scanStopped": "扫描已停止。已找到 {{count}} 个项目，可清理 {{size}}。",
+    "scanComplete": "扫描完成",
+    "projectsFound": "找到 {{count}} 个项目",
+    "totalSize": "总大小",
+    "cleanupSize": "可清理大小",
+    "lastModified": "最后修改",
+    "projectType": "项目类型",
+    "selectProjects": "选择要清理的项目",
+    "selectAll": "全选",
+    "deselectAll": "取消全选",
+    "cleanupButton": "开始清理",
+    "clearSelection": "清除选择",
+    "confirmDelete": "确认清理",
+    "confirmMessage": "这将删除 {{count}} 个项目并释放 {{size}} 的空间。此操作无法撤销。",
+    "cancel": "取消",
+    "cleanup": "清理",
+    "cleanupSuccess": "清理成功！释放了 {{size}} 的空间。",
+    "cleanupError": "清理失败：{{error}}",
+    "noProjects": "在选定的目录中未找到任何项目。",
+    "refreshing": "正在刷新...",
+    "sorting": {
+      "size": "按大小",
+      "modified": "按修改时间",
+      "name": "按名称"
+    },
+    "filterLabel": "筛选",
+    "filter": {
+      "nodejs": "Node.js (node_modules)",
+      "python": "Python (.venv, venv)",
+      "rust": "Rust (target)",
+      "all": "所有项目"
+    }
   },
   "systemInfo": {
     "title": "系统信息",

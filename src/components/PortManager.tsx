@@ -139,6 +139,7 @@ function PortManager() {
   const [portKillMessages, setPortKillMessages] = useState<Record<number, string[]>>({});
   const [error, setError] = useState("");
   const [showEmptyPorts, setShowEmptyPorts] = useState(true);
+  const [inputError, setInputError] = useState("");
 
   const commonPorts = [3000, 5173, 1420, 8080, 5000, 4200, 8000, 4321, 6006, 1234, 9000];
   const MAX_PORTS = 100;
@@ -151,15 +152,17 @@ function PortManager() {
     }
   }, []);
 
-  const handleInvalidInput = useCallback(() => {
+  const handleInvalidInput = useCallback((message?: string) => {
     setShowInvalidToast(true);
+    setInputError(message || t("portManager.invalidInput"));
     clearInvalidTimer();
     invalidTimerRef.current = setTimeout(() => {
       setInputValue("");
       setShowInvalidToast(false);
+      setInputError("");
       invalidTimerRef.current = null;
     }, 3000);
-  }, [clearInvalidTimer]);
+  }, [clearInvalidTimer, t]);
 
   useEffect(() => {
     return () => clearInvalidTimer();
@@ -241,32 +244,42 @@ function PortManager() {
     }
   };
 
-  const parsePortsFromInput = (input: string): { ports: number[]; hasError: boolean } => {
+  const parsePortsFromInput = (input: string): { ports: number[]; hasError: boolean; error?: string } => {
     const ports: Set<number> = new Set();
     let hasError = false;
+    let error: string | undefined;
     const parts = input.split(",").map((s) => s.trim()).filter(Boolean);
 
     for (const part of parts) {
       if (part.includes("-")) {
         const rangeParts = part.split("-");
-        if (rangeParts.length !== 2) {
+        if (rangeParts.length !== 2 || !rangeParts[0] || !rangeParts[1]) {
           hasError = true;
+          error = error || t("portManager.invalidRangeFormat");
           continue;
         }
         const [startStr, endStr] = rangeParts;
         if (!/^\d+$/.test(startStr) || !/^\d+$/.test(endStr)) {
           hasError = true;
+          error = error || t("portManager.invalidPortNumber");
           continue;
         }
         const start = parseInt(startStr, 10);
         const end = parseInt(endStr, 10);
-        if (start > end || start < 1 || end > 65535) {
+        if (start > end) {
           hasError = true;
+          error = error || t("portManager.rangeStartGtEnd");
+          continue;
+        }
+        if (start < 1 || end > 65535) {
+          hasError = true;
+          error = error || t("portManager.portOutOfRange");
           continue;
         }
         const rangeSize = end - start + 1;
         if (ports.size + rangeSize > MAX_PORTS) {
           hasError = true;
+          error = error || t("portManager.tooManyPorts");
           continue;
         }
         for (let p = start; p <= end; p++) {
@@ -275,34 +288,37 @@ function PortManager() {
       } else {
         if (!/^\d+$/.test(part)) {
           hasError = true;
+          error = error || t("portManager.invalidPortFormat");
           continue;
         }
         const port = parseInt(part, 10);
         if (port < 1 || port > 65535) {
           hasError = true;
+          error = error || t("portManager.portOutOfRange");
           continue;
         }
         if (ports.size >= MAX_PORTS) {
           hasError = true;
+          error = error || t("portManager.tooManyPorts");
           continue;
         }
         ports.add(port);
       }
     }
 
-    return { ports: [...ports].sort((a, b) => a - b), hasError };
+    return { ports: [...ports].sort((a, b) => a - b), hasError, error };
   };
 
   const commitInput = () => {
     const val = inputValue.trim();
     if (!val) return;
     if (!/^[\d,\-]+$/.test(val)) {
-      handleInvalidInput();
+      handleInvalidInput(t("portManager.invalidInput"));
       return;
     }
-    const { ports: newPorts, hasError } = parsePortsFromInput(val);
+    const { ports: newPorts, hasError, error } = parsePortsFromInput(val);
     if (hasError) {
-      handleInvalidInput();
+      handleInvalidInput(error || t("portManager.invalidInput"));
       return;
     }
     if (newPorts.length === 0) return;
@@ -310,7 +326,7 @@ function PortManager() {
     const existingPorts = portStates.map((ps) => ps.port);
     const portsToAdd = newPorts.filter((p) => !existingPorts.includes(p));
     if (portsToAdd.length === 0) {
-      handleInvalidInput();
+      handleInvalidInput(t("portManager.portsAlreadyAdded"));
       return;
     }
 
@@ -357,6 +373,7 @@ function PortManager() {
     clearInvalidTimer();
     setInputValue("");
     setShowInvalidToast(false);
+    setInputError("");
     inputRef.current?.focus();
   };
 
@@ -365,6 +382,7 @@ function PortManager() {
     clearInvalidTimer();
     setInputValue("");
     setShowInvalidToast(false);
+    setInputError("");
     setPortStates([]);
     setPortDetails([]);
     setPortKillMessages({});
@@ -427,7 +445,7 @@ function PortManager() {
   const displayedDetails = showEmptyPorts ? portDetails : portDetails.filter((d) => !d.error && d.pids.length > 0);
 
   return (
-    <div className="flex h-full flex-col gap-3">
+    <div className="h-full flex flex-col gap-3">
       <Card className="flex flex-col overflow-visible">
         <CardHeader>
           <CardTitle>{t("portManager.title")}</CardTitle>
@@ -465,7 +483,7 @@ function PortManager() {
                         <X size={13} />
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent>{t("portManager.invalidInput")}</TooltipContent>
+                    <TooltipContent>{inputError || t("portManager.invalidInput")}</TooltipContent>
                   </Tooltip>
                 </span>
               </div>
@@ -670,8 +688,8 @@ function PortManager() {
             )}
           </div>
         </CardHeader>
-        <CardContent className="flex-1 overflow-hidden p-0">
-          <ScrollArea className="h-full px-4 pb-4">
+        <CardContent className="flex-1 min-h-0 p-0">
+          <div className="h-full overflow-y-auto px-4 pb-4">
             <div ref={scrollContentRef}>
             {portDetails.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-4 py-10 text-center text-muted-foreground">
@@ -758,7 +776,7 @@ function PortManager() {
               </>
             )}
             </div>
-          </ScrollArea>
+          </div>
         </CardContent>
       </Card>
     </div>

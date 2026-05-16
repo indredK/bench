@@ -1,6 +1,7 @@
 {
   "sidebar": {
     "portManager": "Port Manager",
+    "devCleaner": "Dev Cleaner",
     "systemInfo": "System Info"
   },
   "portManager": {
@@ -23,6 +24,13 @@
     "chipScrollTo": "Scroll to port {{port}} details",
     "clearSelectedPorts": "Clear Selected Ports",
     "invalidInput": "Only digits, commas, and hyphens allowed",
+    "invalidRangeFormat": "Invalid range format, use start-end (e.g. 3000-4000)",
+    "invalidPortNumber": "Port must be a positive integer",
+    "invalidPortFormat": "Invalid port format",
+    "rangeStartGtEnd": "Start port cannot be greater than end port",
+    "portOutOfRange": "Port range is 1-65535",
+    "tooManyPorts": "Maximum 100 ports allowed",
+    "portsAlreadyAdded": "These ports are already in the scan list",
     "rescan": "Rescan",
     "removePort": "Remove port {{port}}",
     "dismissError": "Dismiss",
@@ -35,6 +43,47 @@
     "statusEmpty": "Free",
     "statusError": "Error",
     "statusEnded": "Ended"
+  },
+  "devCleaner": {
+    "title": "Dev Cleaner",
+    "subtitle": "Clean up development garbage files",
+    "selectPath": "Select Directory",
+    "enterPath": "Enter directory path or select a folder",
+    "startScan": "Start Scan",
+    "scanning": "Scanning...",
+    "stopScan": "Stop Scan",
+    "scanStopped": "Scan stopped. Found {{count}} projects, {{size}} can be cleaned.",
+    "scanComplete": "Scan Complete",
+    "projectsFound": "Found {{count}} projects",
+    "totalSize": "Total Size",
+    "cleanupSize": "Cleanup Size",
+    "lastModified": "Last Modified",
+    "projectType": "Project Type",
+    "selectProjects": "Select Projects to Clean",
+    "selectAll": "Select All",
+    "deselectAll": "Deselect All",
+    "cleanupButton": "Start Cleanup",
+    "clearSelection": "Clear Selection",
+    "confirmDelete": "Confirm Cleanup",
+    "confirmMessage": "This will delete {{count}} projects and free up {{size}} of space. This action cannot be undone.",
+    "cancel": "Cancel",
+    "cleanup": "Clean Up",
+    "cleanupSuccess": "Cleanup successful! Freed {{size}} of space.",
+    "cleanupError": "Cleanup failed: {{error}}",
+    "noProjects": "No projects found in the selected directory.",
+    "refreshing": "Refreshing...",
+    "sorting": {
+      "size": "By Size",
+      "modified": "By Last Modified",
+      "name": "By Name"
+    },
+    "filterLabel": "Filter",
+    "filter": {
+      "nodejs": "Node.js (node_modules)",
+      "python": "Python (.venv, venv)",
+      "rust": "Rust (target)",
+      "all": "All Projects"
+    }
   },
   "systemInfo": {
     "title": "System Information",

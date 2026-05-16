@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Zap, Monitor } from "lucide-react";
+import { Zap, Monitor, Trash2 } from "lucide-react";
 import Sidebar from "./components/Sidebar";
 import PortManager from "./components/PortManager";
 import SystemInfo from "./components/SystemInfo";
+import DevCleaner from "./components/DevCleaner";
 
-export type Category = "port-manager" | "system-info";
+export type Category = "port-manager" | "system-info" | "dev-cleaner";
 
 export interface CategoryInfo {
   id: Category;
@@ -19,19 +20,9 @@ function App() {
 
   const categories: CategoryInfo[] = [
     { id: "port-manager", name: t("sidebar.portManager"), icon: <Zap size={18} /> },
+    { id: "dev-cleaner", name: t("sidebar.devCleaner"), icon: <Trash2 size={18} /> },
     { id: "system-info", name: t("sidebar.systemInfo"), icon: <Monitor size={18} /> },
   ];
-
-  const renderContent = () => {
-    switch (activeCategory) {
-      case "port-manager":
-        return <PortManager />;
-      case "system-info":
-        return <SystemInfo />;
-      default:
-        return null;
-    }
-  };
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -41,7 +32,11 @@ function App() {
         onSelectCategory={setActiveCategory}
       />
       <div className="flex flex-1 flex-col overflow-hidden">
-        <div className="flex-1 overflow-hidden p-4">{renderContent()}</div>
+        <div className="flex-1 overflow-auto p-4">
+          {activeCategory === "port-manager" && <PortManager />}
+          {activeCategory === "dev-cleaner" && <DevCleaner />}
+          {activeCategory === "system-info" && <SystemInfo />}
+        </div>
       </div>
     </div>
   );
