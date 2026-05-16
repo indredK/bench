@@ -474,3 +474,268 @@ fn get_dir_size_fast(path: &Path, abort_flag: Option<&Arc<AtomicBool>>) -> Resul
     }
     Ok(size)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::path::PathBuf;
+
+    #[test]
+    fn test_is_skip_dir_name_known() {
+        assert!(is_skip_dir_name("node_modules"));
+        assert!(is_skip_dir_name("target"));
+        assert!(is_skip_dir_name(".venv"));
+        assert!(is_skip_dir_name("venv"));
+        assert!(is_skip_dir_name("__pycache__"));
+        assert!(is_skip_dir_name(".git"));
+        assert!(is_skip_dir_name("dist"));
+        assert!(is_skip_dir_name(".next"));
+        assert!(is_skip_dir_name("vendor"));
+        assert!(is_skip_dir_name(".nuxt"));
+        assert!(is_skip_dir_name("build"));
+        assert!(is_skip_dir_name(".cache"));
+    }
+
+    #[test]
+    fn test_is_skip_dir_name_unknown() {
+        assert!(!is_skip_dir_name("src"));
+        assert!(!is_skip_dir_name("lib"));
+        assert!(!is_skip_dir_name("my_project"));
+        assert!(!is_skip_dir_name(""));
+    }
+
+    #[test]
+    fn test_project_type_from_indicator() {
+        assert_eq!(ProjectType::from_indicator("package.json"), Some(ProjectType::NodeJs));
+        assert_eq!(ProjectType::from_indicator("Cargo.toml"), Some(ProjectType::Rust));
+        assert_eq!(ProjectType::from_indicator("pyproject.toml"), Some(ProjectType::Python));
+        assert_eq!(ProjectType::from_indicator("requirements.txt"), Some(ProjectType::Python));
+        assert_eq!(ProjectType::from_indicator("go.mod"), Some(ProjectType::Go));
+    }
+
+    #[test]
+    fn test_project_type_from_indicator_unknown() {
+        assert_eq!(ProjectType::from_indicator("README.md"), None);
+        assert_eq!(ProjectType::from_indicator("Makefile"), None);
+        assert_eq!(ProjectType::from_indicator(""), None);
+    }
+
+    #[test]
+    fn test_project_type_from_skip_dir() {
+        assert_eq!(ProjectType::from_skip_dir("node_modules"), ProjectType::NodeJs);
+        assert_eq!(ProjectType::from_skip_dir("dist"), ProjectType::NodeJs);
+        assert_eq!(ProjectType::from_skip_dir(".next"), ProjectType::NodeJs);
+        assert_eq!(ProjectType::from_skip_dir(".nuxt"), ProjectType::NodeJs);
+        assert_eq!(ProjectType::from_skip_dir("build"), ProjectType::NodeJs);
+        assert_eq!(ProjectType::from_skip_dir(".cache"), ProjectType::NodeJs);
+        assert_eq!(ProjectType::from_skip_dir(".venv"), ProjectType::Python);
+        assert_eq!(ProjectType::from_skip_dir("venv"), ProjectType::Python);
+        assert_eq!(ProjectType::from_skip_dir("__pycache__"), ProjectType::Python);
+        assert_eq!(ProjectType::from_skip_dir("target"), ProjectType::Rust);
+        assert_eq!(ProjectType::from_skip_dir("vendor"), ProjectType::Go);
+    }
+
+    #[test]
+    fn test_project_type_from_skip_dir_unknown() {
+        assert_eq!(ProjectType::from_skip_dir("src"), ProjectType::General);
+        assert_eq!(ProjectType::from_skip_dir(""), ProjectType::General);
+    }
+
+    #[test]
+    fn test_project_type_as_str() {
+        assert_eq!(ProjectType::NodeJs.as_str(), "NodeJs");
+        assert_eq!(ProjectType::Python.as_str(), "Python");
+        assert_eq!(ProjectType::Rust.as_str(), "Rust");
+        assert_eq!(ProjectType::Go.as_str(), "Go");
+        assert_eq!(ProjectType::General.as_str(), "General");
+    }
+
+    #[test]
+    fn test_cleanup_targets() {
+        let node_targets = ProjectType::NodeJs.cleanup_targets();
+        assert!(node_targets.contains(&"node_modules"));
+        assert!(node_targets.contains(&"dist"));
+        assert!(node_targets.contains(&".next"));
+
+        let python_targets = ProjectType::Python.cleanup_targets();
+        assert!(python_targets.contains(&".venv"));
+        assert!(python_targets.contains(&"venv"));
+        assert!(python_targets.contains(&"__pycache__"));
+
+        let rust_targets = ProjectType::Rust.cleanup_targets();
+        assert!(rust_targets.contains(&"target"));
+
+        let go_targets = ProjectType::Go.cleanup_targets();
+        assert!(go_targets.contains(&"vendor"));
+
+        let general_targets = ProjectType::General.cleanup_targets();
+        assert!(general_targets.is_empty());
+    }
+
+    #[test]
+    fn test_is_child_of_skip_dir() {
+        let tmp = std::env::temp_dir().join("tauri_test_is_child");
+        let _ = fs::remove_dir_all(&tmp);
+        fs::create_dir_all(tmp.join("my_project").join("node_modules").join("some_pkg")).unwrap();
+        fs::create_dir_all(tmp.join("my_project").join("src")).unwrap();
+
+        let entry_in_node_modules = walkdir::WalkDir::new(tmp.join("my_project").join("node_modules").join("some_pkg"))
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .find(|e| e.path().is_dir())
+            .unwrap();
+
+        assert!(is_child_of_skip_dir(&entry_in_node_modules, &tmp));
+
+        let entry_in_src = walkdir::WalkDir::new(tmp.join("my_project").join("src"))
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .find(|e| e.path().is_dir())
+            .unwrap();
+
+        assert!(!is_child_of_skip_dir(&entry_in_src, &tmp));
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_is_child_of_skip_dir_skip_dir_itself() {
+        let tmp = std::env::temp_dir().join("tauri_test_is_child_self");
+        let _ = fs::remove_dir_all(&tmp);
+        fs::create_dir_all(tmp.join("my_project").join("node_modules")).unwrap();
+
+        let entry = walkdir::WalkDir::new(tmp.join("my_project").join("node_modules"))
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .find(|e| e.path().is_dir())
+            .unwrap();
+
+        assert!(!is_child_of_skip_dir(&entry, &tmp));
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_get_last_modified_existing_file() {
+        let tmp = std::env::temp_dir().join("tauri_test_last_modified");
+        fs::create_dir_all(&tmp).unwrap();
+        let file_path = tmp.join("test.txt");
+        fs::write(&file_path, "hello").unwrap();
+
+        let ts = get_last_modified(&file_path);
+        assert!(ts > 0);
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_get_last_modified_missing_file() {
+        let ts = get_last_modified(&PathBuf::from("/nonexistent/path/foobar"));
+        assert_eq!(ts, 0);
+    }
+
+    #[test]
+    fn test_calculate_dir_size_empty() {
+        let tmp = std::env::temp_dir().join("tauri_test_empty_dir");
+        fs::create_dir_all(&tmp).unwrap();
+
+        let size = calculate_dir_size(&tmp, None).unwrap();
+        assert_eq!(size, 0);
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_calculate_dir_size_with_files() {
+        let tmp = std::env::temp_dir().join("tauri_test_size_files");
+        fs::create_dir_all(&tmp).unwrap();
+        fs::write(tmp.join("a.txt"), "hello world").unwrap();
+        fs::write(tmp.join("b.txt"), "foo bar baz").unwrap();
+
+        let size = calculate_dir_size(&tmp, None).unwrap();
+        assert!(size > 0);
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_calculate_dir_size_nonexistent() {
+        let size = calculate_dir_size(&PathBuf::from("/nonexistent/path/xyz"), None).unwrap();
+        assert_eq!(size, 0);
+    }
+
+    #[test]
+    fn test_count_dependencies_nodejs() {
+        let tmp = std::env::temp_dir().join("tauri_test_deps_node");
+        fs::create_dir_all(&tmp).unwrap();
+        let pkg_json = r#"{"dependencies": {"react": "^18.0.0", "lodash": "^4.0.0"}, "devDependencies": {"typescript": "^5.0.0"}}"#;
+        fs::write(tmp.join("package.json"), pkg_json).unwrap();
+
+        let count = count_dependencies(&tmp, ProjectType::NodeJs);
+        assert_eq!(count, 3);
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_count_dependencies_nodejs_no_file() {
+        let tmp = std::env::temp_dir().join("tauri_test_deps_node_empty");
+        fs::create_dir_all(&tmp).unwrap();
+
+        let count = count_dependencies(&tmp, ProjectType::NodeJs);
+        assert_eq!(count, 0);
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_count_dependencies_python() {
+        let tmp = std::env::temp_dir().join("tauri_test_deps_python");
+        fs::create_dir_all(&tmp).unwrap();
+        fs::write(tmp.join("requirements.txt"), "flask\n# comment\nrequests\n\npytest\n").unwrap();
+
+        let count = count_dependencies(&tmp, ProjectType::Python);
+        assert_eq!(count, 3);
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_count_dependencies_rust() {
+        let tmp = std::env::temp_dir().join("tauri_test_deps_rust");
+        fs::create_dir_all(&tmp).unwrap();
+        let cargo_toml = r#"[package]
+name = "test"
+[dependencies]
+serde = "1"
+tokio = "1"
+[dev-dependencies]
+criterion = "0.5"
+"#;
+        fs::write(tmp.join("Cargo.toml"), cargo_toml).unwrap();
+
+        let count = count_dependencies(&tmp, ProjectType::Rust);
+        assert_eq!(count, 3);
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_count_dependencies_go() {
+        let tmp = std::env::temp_dir().join("tauri_test_deps_go");
+        fs::create_dir_all(&tmp).unwrap();
+        fs::write(tmp.join("go.mod"), "module example\n\ngo 1.21\n\nrequire (\n\tgithub.com/gin-gonic/gin v1.9.0\n\tgithub.com/go-sql-driver/mysql v1.7.0\n)\n").unwrap();
+
+        let count = count_dependencies(&tmp, ProjectType::Go);
+        assert!(count >= 1);
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_count_dependencies_general() {
+        let count = count_dependencies(&PathBuf::from("/tmp"), ProjectType::General);
+        assert_eq!(count, 0);
+    }
+}

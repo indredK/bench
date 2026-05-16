@@ -543,3 +543,369 @@ fn contains_all(text: &str, patterns: &[&str]) -> bool {
 fn contains_any(text: &str, patterns: &[&str]) -> bool {
     patterns.iter().any(|p| text.contains(p))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    #[test]
+    fn test_contains_all() {
+        assert!(contains_all("hello world foo bar", &["hello", "world"]));
+        assert!(!contains_all("hello world", &["hello", "missing"]));
+        assert!(contains_all("test", &[]));
+    }
+
+    #[test]
+    fn test_contains_any() {
+        assert!(contains_any("hello world", &["hello", "missing"]));
+        assert!(!contains_any("hello world", &["missing", "absent"]));
+        assert!(!contains_any("test", &[]));
+    }
+
+    #[test]
+    fn test_fingerprint_by_command_vite() {
+        let fp = fingerprint_by_command("node /path/vite/bin/vite.js", 5173);
+        assert!(fp.is_some());
+        let fp = fp.unwrap();
+        assert_eq!(fp.category, "Node.js");
+        assert!(fp.name.contains("Vite"));
+    }
+
+    #[test]
+    fn test_fingerprint_by_command_nextjs() {
+        let fp = fingerprint_by_command("next dev --port 3000", 3000);
+        assert!(fp.is_some());
+        let fp = fp.unwrap();
+        assert_eq!(fp.category, "Node.js");
+        assert!(fp.name.contains("Next.js"));
+    }
+
+    #[test]
+    fn test_fingerprint_by_command_flask() {
+        let fp = fingerprint_by_command("python -m flask run", 5000);
+        assert!(fp.is_some());
+        let fp = fp.unwrap();
+        assert_eq!(fp.category, "Python");
+        assert!(fp.name.contains("Flask"));
+    }
+
+    #[test]
+    fn test_fingerprint_by_command_postgres() {
+        let fp = fingerprint_by_command("/usr/lib/postgresql/14/bin/postgres", 5432);
+        assert!(fp.is_some());
+        let fp = fp.unwrap();
+        assert_eq!(fp.category, "Database");
+        assert!(fp.name.contains("PostgreSQL"));
+    }
+
+    #[test]
+    fn test_fingerprint_by_command_redis() {
+        let fp = fingerprint_by_command("redis-server *:6379", 6379);
+        assert!(fp.is_some());
+        let fp = fp.unwrap();
+        assert_eq!(fp.category, "Database");
+        assert!(fp.name.contains("Redis"));
+    }
+
+    #[test]
+    fn test_fingerprint_by_command_mysql() {
+        let fp = fingerprint_by_command("/usr/sbin/mysqld", 3306);
+        assert!(fp.is_some());
+        let fp = fp.unwrap();
+        assert_eq!(fp.category, "Database");
+        assert!(fp.name.contains("MySQL"));
+    }
+
+    #[test]
+    fn test_fingerprint_by_command_mongodb() {
+        let fp = fingerprint_by_command("/usr/bin/mongod --port 27017", 27017);
+        assert!(fp.is_some());
+        let fp = fp.unwrap();
+        assert_eq!(fp.category, "Database");
+        assert!(fp.name.contains("MongoDB"));
+    }
+
+    #[test]
+    fn test_fingerprint_by_command_spring_boot() {
+        let fp = fingerprint_by_command("java -jar app.jar --server.port=8080", 8080);
+        assert!(fp.is_some());
+        let fp = fp.unwrap();
+        assert_eq!(fp.category, "Java");
+        assert!(fp.name.contains("Spring Boot"));
+    }
+
+    #[test]
+    fn test_fingerprint_by_command_jupyter() {
+        let fp = fingerprint_by_command("jupyter-notebook", 8888);
+        assert!(fp.is_some());
+        let fp = fp.unwrap();
+        assert_eq!(fp.category, "Python");
+        assert!(fp.name.contains("Jupyter"));
+    }
+
+    #[test]
+    fn test_fingerprint_by_command_prometheus() {
+        let fp = fingerprint_by_command("/bin/prometheus --config.file=prometheus.yml", 9090);
+        assert!(fp.is_some());
+        let fp = fp.unwrap();
+        assert_eq!(fp.category, "Monitoring");
+        assert!(fp.name.contains("Prometheus"));
+    }
+
+    #[test]
+    fn test_fingerprint_by_command_node_debugger() {
+        let fp = fingerprint_by_command("node --inspect index.js", 9229);
+        assert!(fp.is_some());
+        let fp = fp.unwrap();
+        assert_eq!(fp.category, "Node.js");
+        assert!(fp.name.contains("Debugger"));
+    }
+
+    #[test]
+    fn test_fingerprint_by_command_unknown_port() {
+        let fp = fingerprint_by_command("some-random-app", 9999);
+        assert!(fp.is_none());
+    }
+
+    #[test]
+    fn test_fingerprint_by_command_empty() {
+        let fp = fingerprint_by_command("", 3000);
+        assert!(fp.is_none());
+    }
+
+    #[test]
+    fn test_fingerprint_by_command_angular() {
+        let fp = fingerprint_by_command("ng serve", 4200);
+        assert!(fp.is_some());
+        let fp = fp.unwrap();
+        assert_eq!(fp.category, "Node.js");
+        assert!(fp.name.contains("Angular"));
+    }
+
+    #[test]
+    fn test_fingerprint_by_command_django() {
+        let fp = fingerprint_by_command("python manage.py runserver", 5000);
+        assert!(fp.is_some());
+        let fp = fp.unwrap();
+        assert_eq!(fp.category, "Python");
+        assert!(fp.name.contains("Django"));
+    }
+
+    #[test]
+    fn test_fingerprint_by_command_python_http() {
+        let fp = fingerprint_by_command("python -m http.server 8000", 8000);
+        assert!(fp.is_some());
+        let fp = fp.unwrap();
+        assert_eq!(fp.category, "Python");
+        assert!(fp.name.contains("HTTP Server"));
+    }
+
+    #[test]
+    fn test_fingerprint_by_command_docker_8080() {
+        let fp = fingerprint_by_command("docker-proxy -proto tcp", 8080);
+        assert!(fp.is_some());
+        let fp = fp.unwrap();
+        assert_eq!(fp.category, "Container");
+        assert!(fp.name.contains("Docker"));
+    }
+
+    #[test]
+    fn test_fingerprint_by_command_tomcat_ssl() {
+        let fp = fingerprint_by_command("java org.apache.catalina.startup.Bootstrap", 8443);
+        assert!(fp.is_some());
+        let fp = fp.unwrap();
+        assert_eq!(fp.category, "Java");
+        assert!(fp.name.contains("Tomcat"));
+    }
+
+    #[test]
+    fn test_is_descendant_of_direct_child() {
+        let mut processes = HashMap::new();
+        processes.insert(100, (50, "parent".to_string(), "/bin/parent".to_string()));
+        processes.insert(50, (1, "grandparent".to_string(), "/sbin/init".to_string()));
+
+        assert!(is_descendant_of(100, 50, &processes));
+    }
+
+    #[test]
+    fn test_is_descendant_of_grandchild() {
+        let mut processes = HashMap::new();
+        processes.insert(200, (100, "child".to_string(), "/bin/child".to_string()));
+        processes.insert(100, (50, "parent".to_string(), "/bin/parent".to_string()));
+        processes.insert(50, (1, "init".to_string(), "/sbin/init".to_string()));
+
+        assert!(is_descendant_of(200, 50, &processes));
+    }
+
+    #[test]
+    fn test_is_descendant_of_not_related() {
+        let mut processes = HashMap::new();
+        processes.insert(100, (50, "a".to_string(), "/bin/a".to_string()));
+        processes.insert(200, (150, "b".to_string(), "/bin/b".to_string()));
+
+        assert!(!is_descendant_of(100, 200, &processes));
+    }
+
+    #[test]
+    fn test_is_descendant_of_self() {
+        let mut processes = HashMap::new();
+        processes.insert(100, (50, "self".to_string(), "/bin/self".to_string()));
+
+        assert!(!is_descendant_of(100, 100, &processes));
+    }
+
+    #[test]
+    fn test_is_descendant_of_missing_pid() {
+        let processes: HashMap<u32, (u32, String, String)> = HashMap::new();
+        assert!(!is_descendant_of(999, 1, &processes));
+    }
+
+    #[test]
+    fn test_is_descendant_of_root_process() {
+        let mut processes = HashMap::new();
+        processes.insert(100, (0, "orphan".to_string(), "/bin/orphan".to_string()));
+
+        assert!(!is_descendant_of(100, 1, &processes));
+    }
+
+    #[test]
+    fn test_build_subtree_single_node() {
+        let mut processes = HashMap::new();
+        processes.insert(42, (1, "myapp".to_string(), "/usr/bin/myapp".to_string()));
+
+        let node = build_subtree(42, &processes);
+        assert_eq!(node.pid, 42);
+        assert_eq!(node.ppid, 1);
+        assert_eq!(node.name, "myapp");
+        assert_eq!(node.command, "/usr/bin/myapp");
+        assert!(node.children.is_empty());
+    }
+
+    #[test]
+    fn test_build_subtree_with_children() {
+        let mut processes = HashMap::new();
+        processes.insert(1, (0, "init".to_string(), "/sbin/init".to_string()));
+        processes.insert(100, (1, "parent".to_string(), "/bin/parent".to_string()));
+        processes.insert(101, (100, "child1".to_string(), "/bin/child1".to_string()));
+        processes.insert(102, (100, "child2".to_string(), "/bin/child2".to_string()));
+
+        let node = build_subtree(1, &processes);
+        assert_eq!(node.pid, 1);
+        assert_eq!(node.children.len(), 1);
+
+        let parent = &node.children[0];
+        assert_eq!(parent.pid, 100);
+        assert_eq!(parent.children.len(), 2);
+        assert_eq!(parent.children[0].pid, 101);
+        assert_eq!(parent.children[1].pid, 102);
+    }
+
+    #[test]
+    fn test_build_subtree_missing_pid() {
+        let processes: HashMap<u32, (u32, String, String)> = HashMap::new();
+        let node = build_subtree(999, &processes);
+        assert_eq!(node.pid, 999);
+        assert_eq!(node.name, "Unknown");
+        assert!(node.children.is_empty());
+    }
+
+    #[test]
+    fn test_get_parent_chain_normal() {
+        let mut processes = HashMap::new();
+        processes.insert(200, (100, "child".to_string(), "/bin/child".to_string()));
+        processes.insert(100, (50, "parent".to_string(), "/bin/parent".to_string()));
+        processes.insert(50, (1, "grandparent".to_string(), "/sbin/init".to_string()));
+
+        let chain = get_parent_chain(200, &processes, 10);
+        assert_eq!(chain, vec![100, 50]);
+    }
+
+    #[test]
+    fn test_get_parent_chain_max_depth() {
+        let mut processes = HashMap::new();
+        processes.insert(5, (4, "p5".to_string(), "/bin/p5".to_string()));
+        processes.insert(4, (3, "p4".to_string(), "/bin/p4".to_string()));
+        processes.insert(3, (2, "p3".to_string(), "/bin/p3".to_string()));
+        processes.insert(2, (1, "p2".to_string(), "/bin/p2".to_string()));
+        processes.insert(1, (0, "p1".to_string(), "/bin/p1".to_string()));
+
+        let chain = get_parent_chain(5, &processes, 2);
+        assert_eq!(chain.len(), 2);
+        assert_eq!(chain, vec![4, 3]);
+    }
+
+    #[test]
+    fn test_get_parent_chain_missing() {
+        let processes: HashMap<u32, (u32, String, String)> = HashMap::new();
+        let chain = get_parent_chain(999, &processes, 10);
+        assert!(chain.is_empty());
+    }
+
+    #[test]
+    fn test_get_parent_chain_circular_prevention() {
+        let mut processes = HashMap::new();
+        processes.insert(100, (200, "a".to_string(), "/bin/a".to_string()));
+        processes.insert(200, (100, "b".to_string(), "/bin/b".to_string()));
+
+        let chain = get_parent_chain(100, &processes, 10);
+        assert_eq!(chain.len(), 2);
+        assert_eq!(chain[0], 200);
+        assert_eq!(chain[1], 100);
+    }
+
+    #[test]
+    fn test_build_focused_tree_finds_root() {
+        let mut processes = HashMap::new();
+        processes.insert(1, (0, "init".to_string(), "/sbin/init".to_string()));
+        processes.insert(50, (1, "service".to_string(), "/bin/service".to_string()));
+        processes.insert(100, (50, "worker".to_string(), "/bin/worker".to_string()));
+
+        let node = build_focused_tree(100, &processes);
+        assert_eq!(node.pid, 50);
+        assert_eq!(node.children.len(), 1);
+        assert_eq!(node.children[0].pid, 100);
+    }
+
+    #[test]
+    fn test_build_focused_tree_already_root() {
+        let mut processes = HashMap::new();
+        processes.insert(1, (0, "init".to_string(), "/sbin/init".to_string()));
+
+        let node = build_focused_tree(1, &processes);
+        assert_eq!(node.pid, 1);
+    }
+
+    #[test]
+    fn test_fingerprint_port_process_empty_pids() {
+        let processes: HashMap<u32, (u32, String, String)> = HashMap::new();
+        let result = fingerprint_port_process(3000, &[], &processes);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_fingerprint_port_process_unknown_command() {
+        let mut processes = HashMap::new();
+        processes.insert(100, (1, "unknown".to_string(), "Unknown".to_string()));
+        let result = fingerprint_port_process(3000, &[100], &processes);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_fingerprint_port_process_known_command() {
+        let mut processes = HashMap::new();
+        processes.insert(100, (1, "node".to_string(), "next dev".to_string()));
+        let result = fingerprint_port_process(3000, &[100], &processes);
+        assert!(result.is_some());
+        let fp = result.unwrap();
+        assert!(fp.name.contains("Next.js"));
+    }
+
+    #[test]
+    fn test_fp_helper() {
+        let result = fp("TestCategory", "TestName", "T");
+        assert_eq!(result.category, "TestCategory");
+        assert_eq!(result.name, "TestName");
+        assert_eq!(result.icon, "T");
+    }
+}
