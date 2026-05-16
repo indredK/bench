@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import React from "react";
 import PortManager from "../PortManager";
@@ -133,10 +133,9 @@ vi.mock("@/components/ui/alert", () => ({
 }));
 
 vi.mock("@/components/ui/collapsible", () => ({
-  Collapsible: ({ children, open, onOpenChange }: {
+  Collapsible: ({ children, open }: {
     children: React.ReactNode;
     open?: boolean;
-    onOpenChange?: (open: boolean) => void;
   }) => <div data-testid="collapsible" data-open={open}>{children}</div>,
   CollapsibleTrigger: ({ children, className }: { children: React.ReactNode; className?: string }) => (
     <div data-testid="collapsible-trigger" className={className}>{children}</div>
@@ -164,9 +163,9 @@ vi.mock("@/lib/utils", () => ({
 
 vi.mock("lucide-react", () => ({
   Loader2: ({ className }: { className?: string }) => <span data-testid="loader" className={className}>Loading</span>,
-  RefreshCw: ({ size }: { size?: number }) => <span data-testid="refresh">Refresh</span>,
-  Search: ({ size }: { size?: number }) => <span data-testid="search">Search</span>,
-  X: ({ size }: { size?: number }) => <span data-testid="x-icon">X</span>,
+  RefreshCw: () => <span data-testid="refresh">Refresh</span>,
+  Search: () => <span data-testid="search">Search</span>,
+  X: () => <span data-testid="x-icon">X</span>,
 }));
 
 describe("PortManager", () => {

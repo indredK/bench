@@ -90,6 +90,7 @@ describe("SystemInfo", () => {
   });
 
   it("renders the system info title", () => {
+    mockInvoke.mockImplementation(() => new Promise(() => {}));
     render(<SystemInfo active={true} />);
     expect(screen.getByText("System Information")).toBeInTheDocument();
   });

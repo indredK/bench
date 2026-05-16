@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import React from "react";
 import DevCleaner from "../DevCleaner";
 
@@ -142,12 +141,12 @@ vi.mock("@/lib/utils", () => ({
 
 vi.mock("lucide-react", () => ({
   Loader2: ({ className }: { className?: string }) => <span data-testid="loader" className={className}>Loading</span>,
-  FolderOpen: ({ size }: { size?: number }) => <span data-testid="folder">Folder</span>,
-  Trash2: ({ size }: { size?: number }) => <span data-testid="trash">Trash</span>,
-  AlertTriangle: ({ size }: { size?: number }) => <span data-testid="alert-triangle">Alert</span>,
-  StopCircle: ({ size }: { size?: number }) => <span data-testid="stop">Stop</span>,
-  ChevronDown: ({ size }: { size?: number }) => <span data-testid="chevron-down">Down</span>,
-  ChevronUp: ({ size }: { size?: number }) => <span data-testid="chevron-up">Up</span>,
+  FolderOpen: () => <span data-testid="folder">Folder</span>,
+  Trash2: () => <span data-testid="trash">Trash</span>,
+  AlertTriangle: () => <span data-testid="alert-triangle">Alert</span>,
+  StopCircle: () => <span data-testid="stop">Stop</span>,
+  ChevronDown: () => <span data-testid="chevron-down">Down</span>,
+  ChevronUp: () => <span data-testid="chevron-up">Up</span>,
 }));
 
 describe("DevCleaner", () => {
