@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import i18n from "../i18n/config";
 import { isTauri } from "@tauri-apps/api/core";
+import { Globe } from "lucide-react";
 
 function LanguageSwitcher() {
   const { t } = useTranslation();
@@ -16,25 +17,18 @@ function LanguageSwitcher() {
     }
   };
 
+  const nextLang = i18n.language === "zh" ? "en" : "zh";
+  const currentLabel = i18n.language === "zh" ? "中文" : "EN";
+
   return (
-    <div className="flex gap-1.5">
-      <button
-        className={`min-h-7 cursor-pointer rounded-md border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-medium text-indigo-200 transition hover:bg-white/10 ${
-          i18n.language === "en" ? "bg-indigo-500 border-indigo-500 text-white" : ""
-        }`}
-        onClick={() => changeLanguage("en")}
-      >
-        {t("language.en")}
-      </button>
-      <button
-        className={`min-h-7 cursor-pointer rounded-md border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-medium text-indigo-200 transition hover:bg-white/10 ${
-          i18n.language === "zh" ? "bg-indigo-500 border-indigo-500 text-white" : ""
-        }`}
-        onClick={() => changeLanguage("zh")}
-      >
-        {t("language.zh")}
-      </button>
-    </div>
+    <button
+      onClick={() => changeLanguage(nextLang)}
+      className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-indigo-200 transition hover:bg-white/10 hover:text-white"
+      title={t("language.switch")}
+    >
+      <Globe className="size-3.5" />
+      <span>{currentLabel}</span>
+    </button>
   );
 }
 
