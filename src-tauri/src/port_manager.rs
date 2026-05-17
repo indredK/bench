@@ -131,8 +131,8 @@ pub fn get_system_info() -> SystemInfo {
     };
 
     SystemInfo {
-        os_name: System::long_os_version().unwrap_or_else(|| "Unknown".to_string()),
-        os_version: System::os_version().unwrap_or_else(|| "Unknown".to_string()),
+        os_name: System::name().unwrap_or_else(|| "Unknown".to_string()),
+        os_version: System::long_os_version().unwrap_or_else(|| "Unknown".to_string()),
         kernel_version: System::kernel_version().unwrap_or_else(|| "Unknown".to_string()),
         hostname: System::host_name().unwrap_or_else(|| "Unknown".to_string()),
         cpu_brand: sys.cpus().first().map(|cpu| cpu.brand().to_string()).unwrap_or_else(|| "Unknown".to_string()),
