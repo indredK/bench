@@ -3,13 +3,11 @@ import { useTranslation } from "react-i18next";
 import { Plus, X } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import FilterBar from "@/components/FilterBar";
+import type { FilterGroup } from "@/components/FilterBar";
 import type { ReactNode } from "react";
 
-export interface SpecRow<T> {
-  key: keyof T;
-  label: string;
-  format?: (val: T[keyof T], model: T) => string;
-}
+export type { FilterGroup };
 
 export interface CompareDataModule<T extends { id: string; model: string }> {
   data: T[];
@@ -17,6 +15,7 @@ export interface CompareDataModule<T extends { id: string; model: string }> {
   numericKeys: (keyof T)[];
   inverseKeys: (keyof T)[];
   i18nPrefix: string;
+  filterGroups?: FilterGroup<T>[];
 }
 
 interface HardwareCompareProps<T extends { id: string; model: string }> {
@@ -31,8 +30,9 @@ function HardwareCompare<T extends { id: string; model: string }>({
   icon,
 }: HardwareCompareProps<T>) {
   const { t } = useTranslation();
-  const { data, specRows, numericKeys, inverseKeys, i18nPrefix } = module;
+  const { data, specRows, numericKeys, inverseKeys, i18nPrefix, filterGroups } = module;
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [filters, setFilters] = useState<Record<string, string>>({});
 
   const toggleModel = (id: string) => {
     setSelectedIds((prev) =>
@@ -40,8 +40,32 @@ function HardwareCompare<T extends { id: string; model: string }>({
     );
   };
 
+  const setFilter = (key: string, value: string) => {
+    setFilters((prev) => {
+      if (prev[key] === value) {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      }
+      return { ...prev, [key]: value };
+    });
+  };
+
+  const clearFilters = () => setFilters({});
+
+  const hasActiveFilters = Object.keys(filters).length > 0;
+
+  // Apply filters to available-models pool (selected models stay unfiltered)
+  const filteredData = !hasActiveFilters
+    ? data
+    : data.filter((m) =>
+        Object.entries(filters).every(
+          ([key, value]) => String(m[key as keyof T]) === value
+        )
+      );
+
   const selectedModels = data.filter((m) => selectedIds.includes(m.id));
-  const availableModels = data.filter((m) => !selectedIds.includes(m.id));
+  const availableModels = filteredData.filter((m) => !selectedIds.includes(m.id));
 
   const bestValues = new Map<keyof T, Set<string>>();
   specRows.forEach((row) => {
@@ -85,9 +109,26 @@ function HardwareCompare<T extends { id: string; model: string }>({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* ── 筛选器区域（抽取为公共组件） ── */}
+        {filterGroups && filterGroups.length > 0 && (
+          <FilterBar
+            filterGroups={filterGroups}
+            data={data}
+            filters={filters}
+            onFilterChange={setFilter}
+            onClearFilters={clearFilters}
+          />
+        )}
+
+        {/* ── 型号选择区域 ── */}
         <div>
           <p className="mb-2 text-sm font-semibold text-muted-foreground">
             {t(`${i18nPrefix}.selectModels`)}
+            {hasActiveFilters && (
+              <span className="ml-1 font-normal text-xs text-muted-foreground">
+                ({t("hardwareCompare.filteredCount", { count: availableModels.length })})
+              </span>
+            )}
           </p>
           <div className="flex flex-wrap gap-2">
             {availableModels.map((model) => (

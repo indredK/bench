@@ -1,8 +1,9 @@
-import type { CompareDataModule, SpecRow } from "@/components/HardwareCompare";
+import type { CompareDataModule, SpecRow, FilterGroup } from "@/components/HardwareCompare";
 
 export interface MonitorModel {
   id: string;
   brand: string;
+  series: string;
   model: string;
   size: number;
   resolution: string;
@@ -21,21 +22,22 @@ export interface MonitorModel {
 }
 
 export const monitorData: MonitorModel[] = [
-  { id: "pg32ucdm", brand: "ASUS", model: "ROG Swift PG32UCDM", size: 31.5, resolution: "3840×2160", panelType: "QD-OLED", refreshRate: 240, responseTime: 0.03, hdr: "True Black 400", brightness: 1000, contrastRatio: "∞:1", colorGamut: "99% DCI-P3", adaptiveSync: "G-Sync Compatible, FreeSync Premium Pro", ports: "1x DP 1.4, 2x HDMI 2.1, 1x USB-C 90W", curved: "No", vesa: "100×100", launchYear: 2024 },
-  { id: "aw3423dwf", brand: "Alienware", model: "AW3423DWF", size: 34, resolution: "3440×1440", panelType: "QD-OLED", refreshRate: 165, responseTime: 0.1, hdr: "True Black 400", brightness: 1000, contrastRatio: "∞:1", colorGamut: "99.3% DCI-P3", adaptiveSync: "FreeSync Premium Pro", ports: "2x DP 1.4, 1x HDMI 2.0", curved: "1800R", vesa: "100×100", launchYear: 2023 },
-  { id: "odysseyg9", brand: "Samsung", model: "Odyssey OLED G9", size: 49, resolution: "5120×1440", panelType: "QD-OLED", refreshRate: 240, responseTime: 0.03, hdr: "True Black 400", brightness: 1000, contrastRatio: "∞:1", colorGamut: "99% DCI-P3", adaptiveSync: "FreeSync Premium Pro, G-Sync Compatible", ports: "1x DP 1.4, 1x HDMI 2.1, 1x USB-C 65W", curved: "1800R", vesa: "100×100", launchYear: 2024 },
-  { id: "lg27gr95qe", brand: "LG", model: "UltraGear 27GR95QE", size: 27, resolution: "2560×1440", panelType: "WOLED", refreshRate: 240, responseTime: 0.03, hdr: "HDR10", brightness: 800, contrastRatio: "∞:1", colorGamut: "98.5% DCI-P3", adaptiveSync: "G-Sync Compatible, FreeSync Premium", ports: "1x DP 1.4, 2x HDMI 2.1", curved: "No", vesa: "100×100", launchYear: 2023 },
-  { id: "gp27u", brand: "Cooler Master", model: "Tempest GP27U", size: 27, resolution: "3840×2160", panelType: "Mini-LED IPS", refreshRate: 160, responseTime: 1, hdr: "HDR1000", brightness: 1200, contrastRatio: "50000:1", colorGamut: "98% DCI-P3", adaptiveSync: "FreeSync Premium Pro", ports: "1x DP 1.4, 2x HDMI 2.1, 1x USB-C 90W", curved: "No", vesa: "100×100", launchYear: 2023 },
-  { id: "m32u", brand: "Gigabyte", model: "M32U", size: 31.5, resolution: "3840×2160", panelType: "IPS", refreshRate: 144, responseTime: 1, hdr: "HDR400", brightness: 400, contrastRatio: "1000:1", colorGamut: "90% DCI-P3", adaptiveSync: "FreeSync Premium Pro", ports: "1x DP 1.4, 2x HDMI 2.1, 1x USB-C 18W", curved: "No", vesa: "100×100", launchYear: 2021 },
-  { id: "pg27aqn", brand: "ASUS", model: "ROG Swift PG27AQN", size: 27, resolution: "2560×1440", panelType: "Ultra-Fast IPS", refreshRate: 360, responseTime: 1, hdr: "HDR600", brightness: 600, contrastRatio: "1000:1", colorGamut: "95% DCI-P3", adaptiveSync: "G-Sync Ultimate", ports: "1x DP 1.4, 3x HDMI 2.0", curved: "No", vesa: "100×100", launchYear: 2023 },
-  { id: "pg27ucdm", brand: "ASUS", model: "ROG Swift PG27UCDM", size: 27, resolution: "3840×2160", panelType: "QD-OLED", refreshRate: 240, responseTime: 0.03, hdr: "True Black 400", brightness: 1000, contrastRatio: "∞:1", colorGamut: "99% DCI-P3", adaptiveSync: "G-Sync Compatible, FreeSync Premium Pro", ports: "1x DP 2.1, 2x HDMI 2.1, 1x USB-C 90W", curved: "No", vesa: "100×100", launchYear: 2025 },
-  { id: "xeneonflex", brand: "Corsair", model: "Xeneon Flex 45WQHD240", size: 45, resolution: "3440×1440", panelType: "WOLED", refreshRate: 240, responseTime: 0.03, hdr: "HDR10", brightness: 1000, contrastRatio: "∞:1", colorGamut: "98.5% DCI-P3", adaptiveSync: "G-Sync Compatible, FreeSync Premium", ports: "1x DP 1.4, 2x HDMI 2.1, 1x USB-C 30W", curved: "Bendable 800R", vesa: "100×100", launchYear: 2023 },
-  { id: "dellu3224kb", brand: "Dell", model: "UltraSharp U3224KB", size: 31.5, resolution: "6144×3456", panelType: "IPS Black", refreshRate: 60, responseTime: 5, hdr: "HDR600", brightness: 450, contrastRatio: "2000:1", colorGamut: "99% DCI-P3", adaptiveSync: "No", ports: "1x DP 2.1, 1x HDMI 2.1, 1x Thunderbolt 4 140W", curved: "No", vesa: "100×100", launchYear: 2023 },
-  { id: "pg42uq", brand: "ASUS", model: "ROG Swift PG42UQ", size: 41.5, resolution: "3840×2160", panelType: "WOLED", refreshRate: 138, responseTime: 0.1, hdr: "HDR10", brightness: 900, contrastRatio: "∞:1", colorGamut: "98% DCI-P3", adaptiveSync: "G-Sync Compatible", ports: "2x HDMI 2.1, 2x HDMI 2.0, 1x DP 1.4", curved: "No", vesa: "300×300", launchYear: 2022 },
+  { id: "pg32ucdm", brand: "ASUS", series: "ROG Swift", model: "ROG Swift PG32UCDM", size: 31.5, resolution: "3840×2160", panelType: "QD-OLED", refreshRate: 240, responseTime: 0.03, hdr: "True Black 400", brightness: 1000, contrastRatio: "∞:1", colorGamut: "99% DCI-P3", adaptiveSync: "G-Sync Compatible, FreeSync Premium Pro", ports: "1x DP 1.4, 2x HDMI 2.1, 1x USB-C 90W", curved: "No", vesa: "100×100", launchYear: 2024 },
+  { id: "pg27ucdm", brand: "ASUS", series: "ROG Swift", model: "ROG Swift PG27UCDM", size: 27, resolution: "3840×2160", panelType: "QD-OLED", refreshRate: 240, responseTime: 0.03, hdr: "True Black 400", brightness: 1000, contrastRatio: "∞:1", colorGamut: "99% DCI-P3", adaptiveSync: "G-Sync Compatible, FreeSync Premium Pro", ports: "1x DP 2.1, 2x HDMI 2.1, 1x USB-C 90W", curved: "No", vesa: "100×100", launchYear: 2025 },
+  { id: "pg27aqn", brand: "ASUS", series: "ROG Swift", model: "ROG Swift PG27AQN", size: 27, resolution: "2560×1440", panelType: "Ultra-Fast IPS", refreshRate: 360, responseTime: 1, hdr: "HDR600", brightness: 600, contrastRatio: "1000:1", colorGamut: "95% DCI-P3", adaptiveSync: "G-Sync Ultimate", ports: "1x DP 1.4, 3x HDMI 2.0", curved: "No", vesa: "100×100", launchYear: 2023 },
+  { id: "pg42uq", brand: "ASUS", series: "ROG Swift", model: "ROG Swift PG42UQ", size: 41.5, resolution: "3840×2160", panelType: "WOLED", refreshRate: 138, responseTime: 0.1, hdr: "HDR10", brightness: 900, contrastRatio: "∞:1", colorGamut: "98% DCI-P3", adaptiveSync: "G-Sync Compatible", ports: "2x HDMI 2.1, 2x HDMI 2.0, 1x DP 1.4", curved: "No", vesa: "300×300", launchYear: 2022 },
+  { id: "aw3423dwf", brand: "Alienware", series: "AW", model: "AW3423DWF", size: 34, resolution: "3440×1440", panelType: "QD-OLED", refreshRate: 165, responseTime: 0.1, hdr: "True Black 400", brightness: 1000, contrastRatio: "∞:1", colorGamut: "99.3% DCI-P3", adaptiveSync: "FreeSync Premium Pro", ports: "2x DP 1.4, 1x HDMI 2.0", curved: "1800R", vesa: "100×100", launchYear: 2023 },
+  { id: "odysseyg9", brand: "Samsung", series: "Odyssey OLED", model: "Odyssey OLED G9", size: 49, resolution: "5120×1440", panelType: "QD-OLED", refreshRate: 240, responseTime: 0.03, hdr: "True Black 400", brightness: 1000, contrastRatio: "∞:1", colorGamut: "99% DCI-P3", adaptiveSync: "FreeSync Premium Pro, G-Sync Compatible", ports: "1x DP 1.4, 1x HDMI 2.1, 1x USB-C 65W", curved: "1800R", vesa: "100×100", launchYear: 2024 },
+  { id: "lg27gr95qe", brand: "LG", series: "UltraGear", model: "UltraGear 27GR95QE", size: 27, resolution: "2560×1440", panelType: "WOLED", refreshRate: 240, responseTime: 0.03, hdr: "HDR10", brightness: 800, contrastRatio: "∞:1", colorGamut: "98.5% DCI-P3", adaptiveSync: "G-Sync Compatible, FreeSync Premium", ports: "1x DP 1.4, 2x HDMI 2.1", curved: "No", vesa: "100×100", launchYear: 2023 },
+  { id: "gp27u", brand: "Cooler Master", series: "Tempest", model: "Tempest GP27U", size: 27, resolution: "3840×2160", panelType: "Mini-LED IPS", refreshRate: 160, responseTime: 1, hdr: "HDR1000", brightness: 1200, contrastRatio: "50000:1", colorGamut: "98% DCI-P3", adaptiveSync: "FreeSync Premium Pro", ports: "1x DP 1.4, 2x HDMI 2.1, 1x USB-C 90W", curved: "No", vesa: "100×100", launchYear: 2023 },
+  { id: "m32u", brand: "Gigabyte", series: "M", model: "M32U", size: 31.5, resolution: "3840×2160", panelType: "IPS", refreshRate: 144, responseTime: 1, hdr: "HDR400", brightness: 400, contrastRatio: "1000:1", colorGamut: "90% DCI-P3", adaptiveSync: "FreeSync Premium Pro", ports: "1x DP 1.4, 2x HDMI 2.1, 1x USB-C 18W", curved: "No", vesa: "100×100", launchYear: 2021 },
+  { id: "xeneonflex", brand: "Corsair", series: "Xeneon", model: "Xeneon Flex 45WQHD240", size: 45, resolution: "3440×1440", panelType: "WOLED", refreshRate: 240, responseTime: 0.03, hdr: "HDR10", brightness: 1000, contrastRatio: "∞:1", colorGamut: "98.5% DCI-P3", adaptiveSync: "G-Sync Compatible, FreeSync Premium", ports: "1x DP 1.4, 2x HDMI 2.1, 1x USB-C 30W", curved: "Bendable 800R", vesa: "100×100", launchYear: 2023 },
+  { id: "dellu3224kb", brand: "Dell", series: "UltraSharp", model: "UltraSharp U3224KB", size: 31.5, resolution: "6144×3456", panelType: "IPS Black", refreshRate: 60, responseTime: 5, hdr: "HDR600", brightness: 450, contrastRatio: "2000:1", colorGamut: "99% DCI-P3", adaptiveSync: "No", ports: "1x DP 2.1, 1x HDMI 2.1, 1x Thunderbolt 4 140W", curved: "No", vesa: "100×100", launchYear: 2023 },
 ];
 
 export const monitorSpecRows: SpecRow<MonitorModel>[] = [
   { key: "brand", label: "monitorCompare.brand" },
+  { key: "series", label: "monitorCompare.series" },
   { key: "launchYear", label: "monitorCompare.launchYear" },
   { key: "size", label: "monitorCompare.size", format: (v) => `${v}"` },
   { key: "resolution", label: "monitorCompare.resolution" },
@@ -52,9 +54,18 @@ export const monitorSpecRows: SpecRow<MonitorModel>[] = [
   { key: "vesa", label: "monitorCompare.vesa" },
 ];
 
+export const monitorFilterGroups: FilterGroup<MonitorModel>[] = [
+  { key: "brand", label: "monitorCompare.brand" },
+  { key: "series", label: "monitorCompare.series" },
+  { key: "panelType", label: "monitorCompare.panelType" },
+  { key: "resolution", label: "monitorCompare.resolution" },
+  { key: "launchYear", label: "monitorCompare.launchYear" },
+];
+
 export const monitorModule: CompareDataModule<MonitorModel> = {
   data: monitorData,
   specRows: monitorSpecRows,
+  filterGroups: monitorFilterGroups,
   numericKeys: ["size", "refreshRate", "brightness"],
   inverseKeys: ["responseTime"],
   i18nPrefix: "monitorCompare",
