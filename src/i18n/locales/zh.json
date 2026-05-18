@@ -6,7 +6,28 @@
     "hardwareCompare": "硬件对比",
     "phoneCompare": "手机对比",
     "telescopeCompare": "望远镜",
-    "cameraCompare": "相机"
+    "cameraCompare": "相机",
+    "envDetector": "环境检测"
+  },
+  "envDetector": {
+    "title": "环境检测",
+    "summary": "共 {{total}} 个工具，{{available}} 个可用",
+    "refresh": "刷新",
+    "scanning": "正在扫描...",
+    "searchPlaceholder": "搜索工具...",
+    "showUnavailable": "显示未安装",
+    "toolName": "工具名称",
+    "version": "版本",
+    "path": "路径",
+    "size": "大小",
+    "installTime": "安装时间",
+    "status": "状态",
+    "notFound": "未找到",
+    "loading": "正在扫描开发工具...",
+    "loadFailed": "扫描环境工具失败",
+    "browserInfo": "环境检测功能仅在 Tauri 桌面应用中可用，请使用 `npm run tauri:dev` 运行。",
+    "empty": "没有匹配的工具",
+    "startHint": "点击「刷新」按钮扫描系统中的所有开发工具。"
   },
   "portManager": {
     "title": "终止端口进程",

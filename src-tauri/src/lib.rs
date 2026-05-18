@@ -1,4 +1,5 @@
 mod dev_cleaner;
+mod env_detector;
 mod port_manager;
 
 use dev_cleaner::ScanAbortFlag;
@@ -17,6 +18,7 @@ pub fn run() {
             dev_cleaner::scan_dev_projects,
             dev_cleaner::cleanup_projects,
             dev_cleaner::stop_scan,
+            env_detector::detect_env_tools,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

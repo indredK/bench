@@ -6,7 +6,28 @@
     "hardwareCompare": "Hardware Compare",
     "phoneCompare": "Phones",
     "telescopeCompare": "Telescopes",
-    "cameraCompare": "Cameras"
+    "cameraCompare": "Cameras",
+    "envDetector": "Env Detector"
+  },
+  "envDetector": {
+    "title": "Environment Detector",
+    "summary": "Found {{available}} tools available out of {{total}}",
+    "refresh": "Refresh",
+    "scanning": "Scanning...",
+    "searchPlaceholder": "Search tools...",
+    "showUnavailable": "Show unavailable",
+    "toolName": "Tool",
+    "version": "Version",
+    "path": "Path",
+    "size": "Size",
+    "installTime": "Install Time",
+    "status": "Status",
+    "notFound": "Not found",
+    "loading": "Scanning development tools...",
+    "loadFailed": "Failed to scan environment tools",
+    "browserInfo": "Environment detection is only available in the Tauri desktop app. Run with `npm run tauri:dev` to use this feature.",
+    "empty": "No matching tools found",
+    "startHint": "Click \"Refresh\" to scan all development tools on your system."
   },
   "portManager": {
     "title": "Kill Port Processes",

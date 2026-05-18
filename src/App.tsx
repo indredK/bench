@@ -1,11 +1,12 @@
 import { Router, Route, Switch } from "wouter";
 import { useHashLocation } from "wouter/use-hash-location";
-import { Zap, Trash2, Monitor, Cpu, Smartphone, Telescope, Camera } from "lucide-react";
+import { Zap, Trash2, Monitor, Cpu, Smartphone, Telescope, Camera, Box } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import Sidebar from "./components/Sidebar";
 import PortManager from "./components/PortManager";
 import SystemInfo from "./components/SystemInfo";
 import DevCleaner from "./components/DevCleaner";
+import EnvDetector from "./components/EnvDetector";
 import HardwareComparePage from "./components/HardwareComparePage";
 import PhoneComparePage from "./components/PhoneComparePage";
 import TelescopeComparePage from "./components/TelescopeComparePage";
@@ -28,6 +29,7 @@ function App() {
     { path: "/telescope", name: t("sidebar.telescopeCompare"), icon: <Telescope size={18} /> },
     { path: "/camera", name: t("sidebar.cameraCompare"), icon: <Camera size={18} /> },
     { path: "/system-info", name: t("sidebar.systemInfo"), icon: <Monitor size={18} /> },
+    { path: "/env-detector", name: t("sidebar.envDetector"), icon: <Box size={18} /> },
   ];
 
   return (
@@ -46,6 +48,9 @@ function App() {
               <Route path="/phone" component={PhoneComparePage} />
               <Route path="/telescope" component={TelescopeComparePage} />
               <Route path="/camera" component={CameraComparePage} />
+              <Route path="/env-detector">
+                <EnvDetector active />
+              </Route>
             </Switch>
           </div>
         </div>
