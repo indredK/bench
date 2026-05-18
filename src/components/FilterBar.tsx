@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n/config";
 import { RotateCcw, Plus, X, ChevronDown, ChevronUp } from "lucide-react";
@@ -53,8 +53,25 @@ function FilterBar<T extends { id: string; model: string }>({
 }: FilterBarProps<T>) {
   const { t } = useTranslation();
   const hasActiveFilters = Object.keys(filters).length > 0;
-  const [masterCollapsed, setMasterCollapsed] = useState(false);
+  const [masterCollapsed, setMasterCollapsed] = useState(true);
   const [modelsCollapsed, setModelsCollapsed] = useState(false);
+  const collapseTimer = useRef<ReturnType<typeof setTimeout>>();
+
+  const expandOnHover = useCallback(() => {
+    if (collapseTimer.current) clearTimeout(collapseTimer.current);
+    setMasterCollapsed(false);
+  }, []);
+
+  const collapseOnLeave = useCallback(() => {
+    collapseTimer.current = setTimeout(() => {
+      setMasterCollapsed(true);
+    }, 400);
+  }, []);
+
+  const toggleMaster = useCallback(() => {
+    if (collapseTimer.current) clearTimeout(collapseTimer.current);
+    setMasterCollapsed((prev) => !prev);
+  }, []);
 
   // Compute cascading filter options: each group's options are constrained
   // by all OTHER active filters (so brand → series → socket → launchYear cascade)
@@ -92,11 +109,18 @@ function FilterBar<T extends { id: string; model: string }>({
   }, [filterGroups, data, filters, i18n.language]);
 
   return (
-    <div className="rounded-xl border bg-card/50">
+    <div
+      className="rounded-xl border bg-card/50"
+      onMouseEnter={expandOnHover}
+      onMouseLeave={collapseOnLeave}
+    >
       {/* ── 标题栏（始终显示，整行可点击缩起/展开） ── */}
       <div
-        className="flex items-center justify-between px-4 py-2.5 cursor-pointer select-none"
-        onClick={() => setMasterCollapsed(!masterCollapsed)}
+        className={cn(
+          "flex items-center justify-between px-4 cursor-pointer select-none transition-all",
+          masterCollapsed ? "py-1" : "py-2.5"
+        )}
+        onClick={toggleMaster}
       >
         <span className="text-xs font-semibold text-foreground/70 uppercase tracking-wider">
           {t("hardwareCompare.filters")}
@@ -116,7 +140,7 @@ function FilterBar<T extends { id: string; model: string }>({
             variant="ghost"
             size="sm"
             className="h-6 w-6 p-0 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-all duration-200"
-            onClick={() => setMasterCollapsed(!masterCollapsed)}
+            onClick={toggleMaster}
             title={masterCollapsed ? t("hardwareCompare.expandFilters") : t("hardwareCompare.collapseFilters")}
           >
             {masterCollapsed ? (
