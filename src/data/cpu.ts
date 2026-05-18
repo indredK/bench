@@ -1,4 +1,5 @@
 import type { CompareDataModule, SpecRow, FilterGroup } from "@/components/HardwareCompare";
+import { brandName } from "@/lib/i18nBrand";
 import i18n from "@/i18n/config";
 
 export interface CpuModel {
@@ -146,7 +147,7 @@ function i18nValue(field: string, value: unknown): string {
 }
 
 export const cpuSpecRows: SpecRow<CpuModel>[] = [
-  { key: "brand", label: "cpuCompare.brand", format: (v) => i18nValue("brand", v) },
+  { key: "brand", label: "cpuCompare.brand", format: brandName },
   { key: "series", label: "cpuCompare.series", format: (v) => i18nValue("series", v) },
   { key: "launchYear", label: "cpuCompare.launchYear" },
   { key: "price", label: "cpuCompare.price", format: (v) => (v != null ? `$${v}` : "—") },
@@ -175,7 +176,7 @@ export const cpuSpecRows: SpecRow<CpuModel>[] = [
 ];
 
 export const cpuFilterGroups: FilterGroup<CpuModel>[] = [
-  { key: "brand", label: "cpuCompare.brand" },
+  { key: "brand", label: "cpuCompare.brand", format: brandName },
   { key: "series", label: "cpuCompare.series" },
   { key: "socket", label: "cpuCompare.socket" },
   { key: "launchYear", label: "cpuCompare.launchYear" },

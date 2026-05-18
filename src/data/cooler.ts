@@ -1,4 +1,5 @@
 import type { CompareDataModule, SpecRow, FilterGroup } from "@/components/HardwareCompare";
+import { brandName } from "@/lib/i18nBrand";
 
 export interface CoolerModel {
   id: string;
@@ -34,7 +35,7 @@ export const coolerData: CoolerModel[] = [
 ];
 
 export const coolerSpecRows: SpecRow<CoolerModel>[] = [
-  { key: "brand", label: "coolerCompare.brand" },
+  { key: "brand", label: "coolerCompare.brand", format: brandName },
   { key: "series", label: "coolerCompare.series" },
   { key: "launchYear", label: "coolerCompare.launchYear" },
   { key: "type", label: "coolerCompare.type" },
@@ -51,7 +52,7 @@ export const coolerSpecRows: SpecRow<CoolerModel>[] = [
 ];
 
 export const coolerFilterGroups: FilterGroup<CoolerModel>[] = [
-  { key: "brand", label: "coolerCompare.brand" },
+  { key: "brand", label: "coolerCompare.brand", format: brandName },
   { key: "series", label: "coolerCompare.series" },
   { key: "type", label: "coolerCompare.type" },
   { key: "launchYear", label: "coolerCompare.launchYear" },

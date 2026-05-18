@@ -1,4 +1,5 @@
 import type { CompareDataModule, SpecRow, FilterGroup } from "@/components/HardwareCompare";
+import { brandName } from "@/lib/i18nBrand";
 
 export interface MotherboardModel {
   id: string;
@@ -43,7 +44,7 @@ export const motherboardData: MotherboardModel[] = [
 ];
 
 export const motherboardSpecRows: SpecRow<MotherboardModel>[] = [
-  { key: "brand", label: "motherboardCompare.brand" },
+  { key: "brand", label: "motherboardCompare.brand", format: brandName },
   { key: "series", label: "motherboardCompare.series" },
   { key: "launchYear", label: "motherboardCompare.launchYear" },
   { key: "socket", label: "motherboardCompare.socket" },
@@ -66,7 +67,7 @@ export const motherboardSpecRows: SpecRow<MotherboardModel>[] = [
 ];
 
 export const motherboardFilterGroups: FilterGroup<MotherboardModel>[] = [
-  { key: "brand", label: "motherboardCompare.brand" },
+  { key: "brand", label: "motherboardCompare.brand", format: brandName },
   { key: "series", label: "motherboardCompare.series" },
   { key: "socket", label: "motherboardCompare.socket" },
   { key: "chipset", label: "motherboardCompare.chipset" },

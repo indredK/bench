@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import i18n from "@/i18n/config";
 import { RotateCcw, Plus, X, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -85,7 +86,7 @@ function FilterBar<T extends { id: string; model: string }>({
 
       return { ...fg, options };
     });
-  }, [filterGroups, data, filters]);
+  }, [filterGroups, data, filters, i18n.language]);
 
   return (
     <div className="rounded-xl border bg-card/50 p-4 space-y-3 relative">

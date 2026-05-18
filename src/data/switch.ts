@@ -1,4 +1,5 @@
 import type { CompareDataModule, SpecRow, FilterGroup } from "@/components/HardwareCompare";
+import { brandName } from "@/lib/i18nBrand";
 
 export interface SwitchModel {
   id: string;
@@ -33,7 +34,7 @@ export const switchData: SwitchModel[] = [
 ];
 
 export const switchSpecRows: SpecRow<SwitchModel>[] = [
-  { key: "brand", label: "switchCompare.brand" },
+  { key: "brand", label: "switchCompare.brand", format: brandName },
   { key: "series", label: "switchCompare.series" },
   { key: "launchYear", label: "switchCompare.launchYear" },
   { key: "type", label: "switchCompare.type" },
@@ -49,7 +50,7 @@ export const switchSpecRows: SpecRow<SwitchModel>[] = [
 ];
 
 export const switchFilterGroups: FilterGroup<SwitchModel>[] = [
-  { key: "brand", label: "switchCompare.brand" },
+  { key: "brand", label: "switchCompare.brand", format: brandName },
   { key: "series", label: "switchCompare.series" },
   { key: "type", label: "switchCompare.type" },
   { key: "portCount", label: "switchCompare.portCount" },

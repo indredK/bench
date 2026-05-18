@@ -1,4 +1,5 @@
 import type { CompareDataModule, SpecRow, FilterGroup } from "@/components/HardwareCompare";
+import { brandName } from "@/lib/i18nBrand";
 
 export interface SsdModel {
   id: string;
@@ -43,7 +44,7 @@ export const ssdData: SsdModel[] = [
 ];
 
 export const ssdSpecRows: SpecRow<SsdModel>[] = [
-  { key: "brand", label: "ssdCompare.brand" },
+  { key: "brand", label: "ssdCompare.brand", format: brandName },
   { key: "series", label: "ssdCompare.series" },
   { key: "launchYear", label: "ssdCompare.launchYear" },
   { key: "capacity", label: "ssdCompare.capacity", format: (v) => `${v} GB` },
@@ -63,7 +64,7 @@ export const ssdSpecRows: SpecRow<SsdModel>[] = [
 ];
 
 export const ssdFilterGroups: FilterGroup<SsdModel>[] = [
-  { key: "brand", label: "ssdCompare.brand" },
+  { key: "brand", label: "ssdCompare.brand", format: brandName },
   { key: "series", label: "ssdCompare.series" },
   { key: "interfaceType", label: "ssdCompare.interfaceType" },
   { key: "formFactor", label: "ssdCompare.formFactor" },

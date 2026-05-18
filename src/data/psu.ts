@@ -1,4 +1,5 @@
 import type { CompareDataModule, SpecRow, FilterGroup } from "@/components/HardwareCompare";
+import { brandName } from "@/lib/i18nBrand";
 
 export interface PsuModel {
   id: string;
@@ -32,7 +33,7 @@ export const psuData: PsuModel[] = [
 ];
 
 export const psuSpecRows: SpecRow<PsuModel>[] = [
-  { key: "brand", label: "psuCompare.brand" },
+  { key: "brand", label: "psuCompare.brand", format: brandName },
   { key: "series", label: "psuCompare.series" },
   { key: "launchYear", label: "psuCompare.launchYear" },
   { key: "wattage", label: "psuCompare.wattage", format: (v) => `${v} W` },
@@ -46,7 +47,7 @@ export const psuSpecRows: SpecRow<PsuModel>[] = [
 ];
 
 export const psuFilterGroups: FilterGroup<PsuModel>[] = [
-  { key: "brand", label: "psuCompare.brand" },
+  { key: "brand", label: "psuCompare.brand", format: brandName },
   { key: "series", label: "psuCompare.series" },
   { key: "efficiency", label: "psuCompare.efficiency" },
   { key: "wattage", label: "psuCompare.wattage", format: (v) => `${v} W` },

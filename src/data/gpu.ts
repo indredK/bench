@@ -1,4 +1,5 @@
 import type { CompareDataModule, SpecRow, FilterGroup } from "@/components/HardwareCompare";
+import { brandName } from "@/lib/i18nBrand";
 
 export interface GpuModel {
   id: string;
@@ -72,7 +73,7 @@ export const gpuData: GpuModel[] = [
 ];
 
 export const gpuSpecRows: SpecRow<GpuModel>[] = [
-  { key: "brand", label: "gpuCompare.brand" },
+  { key: "brand", label: "gpuCompare.brand", format: brandName },
   { key: "series", label: "gpuCompare.series" },
   { key: "launchYear", label: "gpuCompare.launchYear" },
   { key: "price", label: "gpuCompare.price", format: (v) => (v != null ? `$${v}` : "—") },
@@ -93,7 +94,7 @@ export const gpuSpecRows: SpecRow<GpuModel>[] = [
 ];
 
 export const gpuFilterGroups: FilterGroup<GpuModel>[] = [
-  { key: "brand", label: "gpuCompare.brand" },
+  { key: "brand", label: "gpuCompare.brand", format: brandName },
   { key: "series", label: "gpuCompare.series" },
   { key: "vram", label: "gpuCompare.vram", format: (v) => `${v} GB` },
   { key: "launchYear", label: "gpuCompare.launchYear" },
