@@ -53,7 +53,7 @@ function HardwareComparePage() {
   const active = tabs.find((t) => t.id === activeTab) ?? tabs[0];
 
   return (
-    <div className="h-full overflow-auto">
+    <div className="h-full overflow-hidden flex flex-col">
       {/* Tab bar */}
       <div className="flex flex-wrap gap-1 mb-4">
         {tabs.map((tab) => {
@@ -77,8 +77,6 @@ function HardwareComparePage() {
       {active && (
         <HardwareCompare
           module={active.module}
-          title={t(`${active.i18nPrefix}.title`)}
-          icon={active.icon}
         />
       )}
     </div>

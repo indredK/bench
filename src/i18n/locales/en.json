@@ -401,7 +401,8 @@
     "filters": "Filters",
     "clearFilters": "Clear",
     "filteredCount": "{{count}} found",
-    "viewSource": "View benchmark source"
+    "viewSource": "View benchmark source",
+    "noModelsSelected": "Select models above to compare"
   },
   "language": {
     "en": "English",

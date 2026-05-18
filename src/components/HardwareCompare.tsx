@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useId } from "react";
 import { useTranslation } from "react-i18next";
-import { Plus, X, ExternalLink, ChevronDown } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Plus, X, ExternalLink } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -9,9 +9,17 @@ import {
   TooltipContent,
   TooltipProvider,
 } from "@/components/ui/tooltip";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 import FilterBar from "@/components/FilterBar";
 import type { FilterGroup } from "@/components/FilterBar";
-import type { ReactNode } from "react";
 
 export type { FilterGroup };
 
@@ -34,20 +42,24 @@ export interface CompareDataModule<T extends { id: string; model: string }> {
 
 interface HardwareCompareProps<T extends { id: string; model: string }> {
   module: CompareDataModule<T>;
-  title: string;
-  icon: ReactNode;
 }
 
 function HardwareCompare<T extends { id: string; model: string }>({
   module,
-  title,
-  icon,
 }: HardwareCompareProps<T>) {
   const { t } = useTranslation();
-  const { data, specRows, numericKeys, inverseKeys, i18nPrefix, filterGroups, referenceUrl } = module;
+  const uid = useId();
+  const {
+    data,
+    specRows,
+    numericKeys,
+    inverseKeys,
+    i18nPrefix,
+    filterGroups,
+    referenceUrl,
+  } = module;
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [filters, setFilters] = useState<Record<string, string>>({});
-  const [modelsCollapsed, setModelsCollapsed] = useState(false);
 
   const toggleModel = (id: string) => {
     setSelectedIds((prev) =>
@@ -80,7 +92,7 @@ function HardwareCompare<T extends { id: string; model: string }>({
       );
 
   const selectedModels = data.filter((m) => selectedIds.includes(m.id));
-  const availableModels = filteredData.filter((m) => !selectedIds.includes(m.id));
+  const allFiltered = filteredData; // 筛选后的全部型号（不排除已选中的）
 
   const bestValues = new Map<keyof T, Set<string>>();
   const rangeValues = new Map<keyof T, { min: number; max: number }>();
@@ -88,7 +100,9 @@ function HardwareCompare<T extends { id: string; model: string }>({
     if (selectedModels.length < 2) return;
     const key = row.key;
     if (numericKeys.includes(key)) {
-      const nums = selectedModels.map((m) => m[key] as number).filter((n) => n != null);
+      const nums = selectedModels
+        .map((m) => m[key] as number)
+        .filter((n) => n != null);
       if (nums.length > 0) {
         const maxVal = Math.max(...nums);
         rangeValues.set(key, { min: Math.min(...nums), max: maxVal });
@@ -102,7 +116,9 @@ function HardwareCompare<T extends { id: string; model: string }>({
         );
       }
     } else if (inverseKeys.includes(key)) {
-      const nums = selectedModels.map((m) => m[key] as number).filter((n) => n != null);
+      const nums = selectedModels
+        .map((m) => m[key] as number)
+        .filter((n) => n != null);
       if (nums.length > 0) {
         const minVal = Math.min(...nums);
         rangeValues.set(key, { min: minVal, max: Math.max(...nums) });
@@ -120,15 +136,9 @@ function HardwareCompare<T extends { id: string; model: string }>({
 
   return (
     <TooltipProvider delay={200}>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            {icon}
-            {title}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* ── 筛选器区域 ── */}
+      <Card className="shadow-sm flex-1 flex flex-col min-h-0">
+        <CardContent className="pt-4 space-y-4 flex flex-col flex-1 min-h-0">
+          {/* ── 筛选 + 型号选择（合并） ── */}
           {filterGroups && filterGroups.length > 0 && (
             <FilterBar
               filterGroups={filterGroups}
@@ -136,111 +146,80 @@ function HardwareCompare<T extends { id: string; model: string }>({
               filters={filters}
               onFilterChange={setFilter}
               onClearFilters={clearFilters}
+              models={allFiltered}
+              selectedIds={selectedIds}
+              onToggleModel={toggleModel}
+              i18nPrefix={i18nPrefix}
+              uid={uid}
             />
           )}
 
-          {/* ── 型号选择区域 ── */}
-          <div>
-            <div
-              className="flex items-center justify-between mb-2 cursor-pointer select-none"
-              onClick={() => setModelsCollapsed(!modelsCollapsed)}
-            >
-              <p className="text-sm font-semibold text-muted-foreground">
-                {t(`${i18nPrefix}.selectModels`)}
-                {hasActiveFilters && (
-                  <span className="ml-1 font-normal text-xs text-muted-foreground">
-                    ({t("hardwareCompare.filteredCount", { count: availableModels.length })})
-                  </span>
-                )}
-              </p>
-              <button
-                className="text-muted-foreground/60 hover:text-muted-foreground transition-colors"
-              >
-                <ChevronDown
-                  className={`size-4 transition-transform duration-200 ${
-                    modelsCollapsed ? "-rotate-90" : ""
-                  }`}
-                />
-              </button>
-            </div>
-            {!modelsCollapsed && (
-              <>
-                <div className="flex flex-wrap gap-2">
-                  {availableModels.map((model) => (
-                    <Button
-                      key={model.id}
-                      variant="outline"
-                      size="sm"
-                      onClick={() => toggleModel(model.id)}
-                    >
-                      <Plus className="mr-1 size-3" />
-                      {model.model}
-                    </Button>
-                  ))}
-                </div>
-                {availableModels.length === 0 && selectedModels.length > 0 && (
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {t(`${i18nPrefix}.allSelected`)}
-                  </p>
-                )}
-              </>
-            )}
-          </div>
-
+          {/* ── 对比表格 ── */}
           {selectedModels.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-muted-foreground">
-                {t(`${i18nPrefix}.comparingTitle`, { count: selectedModels.length })}
-              </p>
-              <div className="overflow-x-auto rounded-lg border">
-                <table className="min-w-full text-sm">
-                  <thead>
-                    <tr className="bg-muted/60">
-                      <th className="px-4 py-2 text-left font-semibold">
+            <div className="flex flex-col flex-1 min-h-0">
+              <div className="flex items-center justify-between shrink-0 mb-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  {t(`${i18nPrefix}.comparingTitle`, {
+                    count: selectedModels.length,
+                  })}
+                </p>
+              </div>
+              <div className="rounded-xl border shadow-xs flex-1 min-h-0 overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50 sticky top-0 z-20">
+                      <TableHead className="sticky left-0 z-10 bg-muted/50 font-semibold text-muted-foreground w-[100px] sm:w-[130px]">
                         {t(`${i18nPrefix}.specification`)}
-                      </th>
+                      </TableHead>
                       {selectedModels.map((model) => (
-                        <th
+                        <TableHead
                           key={model.id}
-                          className="px-4 py-2 text-left font-semibold min-w-[140px]"
+                          className="font-semibold min-w-[140px]"
                         >
                           <div className="flex items-center gap-2">
-                            <span className="truncate">{model.model}</span>
-                            <button
+                            <div className="size-2 shrink-0 rounded-full bg-primary/40" />
+                            <span className="truncate font-medium">
+                              {model.model}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="icon-xs"
+                              className="shrink-0 ml-auto opacity-60 hover:opacity-100 transition-opacity"
                               onClick={() => toggleModel(model.id)}
-                              className="shrink-0 text-muted-foreground hover:text-foreground"
                             >
-                              <X className="size-3.5" />
-                            </button>
+                              <X className="size-3" />
+                            </Button>
                           </div>
-                        </th>
+                        </TableHead>
                       ))}
-                    </tr>
-                  </thead>
-                  <tbody>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {specRows.map((row, idx) => {
                       const isBest = bestValues.has(row.key);
                       const range = rangeValues.get(row.key);
-                      const isNumeric = numericKeys.includes(row.key) || inverseKeys.includes(row.key);
+                      const isNumeric =
+                        numericKeys.includes(row.key) ||
+                        inverseKeys.includes(row.key);
                       return (
-                        <tr
+                        <TableRow
                           key={String(row.key)}
-                          className={
-                            idx % 2 === 0
-                              ? "bg-background"
-                              : "bg-muted/20"
-                          }
+                          className={cn(
+                            idx % 2 === 1 && "bg-muted/15",
+                            "transition-none"
+                          )}
                         >
-                          <td className="px-4 py-2 font-medium text-muted-foreground whitespace-nowrap">
+                          <TableCell className="sticky left-0 z-10 bg-background font-medium text-muted-foreground text-xs whitespace-nowrap w-[100px] sm:w-[130px]">
                             {t(row.label)}
-                          </td>
+                          </TableCell>
                           {selectedModels.map((model) => {
                             const val = model[row.key];
                             const displayVal = row.format
                               ? row.format(val as never, model)
                               : String(val ?? "—");
                             const isHighlighted =
-                              isBest && bestValues.get(row.key)?.has(model.id);
+                              isBest &&
+                              bestValues.get(row.key)?.has(model.id);
 
                             // 计算柱状图百分比
                             let barPercent = 0;
@@ -266,55 +245,85 @@ function HardwareCompare<T extends { id: string; model: string }>({
                               : undefined;
 
                             return (
-                              <td
+                              <TableCell
                                 key={model.id}
-                                className={`px-4 py-2 relative ${
-                                  isHighlighted
-                                    ? "font-bold text-emerald-600 dark:text-emerald-400"
-                                    : ""
-                                }`}
+                                className={cn(
+                                  "relative",
+                                  isHighlighted &&
+                                    "font-bold text-emerald-600 dark:text-emerald-400"
+                                )}
                               >
                                 {/* 可视化柱状图 */}
                                 {barPercent > 0 && (
                                   <div
-                                    className="absolute inset-y-1 left-0 rounded-r-sm transition-all duration-300"
+                                    className="absolute inset-y-1.5 left-0 rounded-r-full transition-all duration-300"
                                     style={{
                                       width: `${Math.max(barPercent, 4)}%`,
                                       background: isHighlighted
-                                        ? "linear-gradient(90deg, rgba(5,150,105,0.25), rgba(5,150,105,0.08))"
-                                        : "linear-gradient(90deg, rgba(107,114,128,0.12), rgba(107,114,128,0.03))",
+                                        ? "linear-gradient(90deg, rgba(5,150,105,0.20), rgba(5,150,105,0.06))"
+                                        : "linear-gradient(90deg, rgba(107,114,128,0.10), rgba(107,114,128,0.02))",
                                     }}
                                   />
                                 )}
                                 {/* 内容 */}
                                 <div className="relative z-10 flex items-center gap-1.5">
-                                  <span>{displayVal}</span>
+                                  <span
+                                    className={cn(
+                                      "text-sm tabular-nums",
+                                      isHighlighted &&
+                                        "text-emerald-700 dark:text-emerald-300"
+                                    )}
+                                  >
+                                    {displayVal}
+                                  </span>
                                   {refUrl && (
                                     <Tooltip>
                                       <TooltipTrigger
-                                        className="shrink-0 text-muted-foreground/50 hover:text-muted-foreground transition-colors cursor-pointer"
+                                        className="shrink-0 text-muted-foreground/40 hover:text-muted-foreground transition-colors cursor-pointer"
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          window.open(refUrl, '_blank', 'noopener,noreferrer');
+                                          window.open(
+                                            refUrl,
+                                            "_blank",
+                                            "noopener,noreferrer"
+                                          );
                                         }}
                                       >
                                         <ExternalLink className="size-3" />
                                       </TooltipTrigger>
-                                      <TooltipContent side="top" align="center" className="max-w-[400px] break-all">
-                                        <span className="font-mono text-[10px]">{refUrl}</span>
+                                      <TooltipContent
+                                        side="top"
+                                        align="center"
+                                        className="max-w-[400px] break-all"
+                                      >
+                                        <span className="font-mono text-[10px]">
+                                          {refUrl}
+                                        </span>
                                       </TooltipContent>
                                     </Tooltip>
                                   )}
                                 </div>
-                              </td>
+                              </TableCell>
                             );
                           })}
-                        </tr>
+                        </TableRow>
                       );
                     })}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
+            </div>
+          )}
+
+          {/* ── 空状态 ── */}
+          {selectedModels.length === 0 && (
+            <div className="flex flex-col items-center justify-center flex-1 py-10 text-center">
+              <div className="size-10 rounded-full bg-muted flex items-center justify-center mb-3">
+                <Plus className="size-5 text-muted-foreground/60" />
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {t("hardwareCompare.noModelsSelected")}
+              </p>
             </div>
           )}
         </CardContent>
