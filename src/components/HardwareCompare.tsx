@@ -10,7 +10,6 @@ import {
   TooltipProvider,
 } from "@/components/ui/tooltip";
 import {
-  Table,
   TableHeader,
   TableBody,
   TableRow,
@@ -60,6 +59,8 @@ function HardwareCompare<T extends { id: string; model: string }>({
   } = module;
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [filters, setFilters] = useState<Record<string, string>>({});
+
+  const clearSelectedModels = () => setSelectedIds([]);
 
   const toggleModel = (id: string) => {
     setSelectedIds((prev) =>
@@ -149,6 +150,7 @@ function HardwareCompare<T extends { id: string; model: string }>({
               models={allFiltered}
               selectedIds={selectedIds}
               onToggleModel={toggleModel}
+              onClearSelected={clearSelectedModels}
               i18nPrefix={i18nPrefix}
               uid={uid}
             />
@@ -165,16 +167,16 @@ function HardwareCompare<T extends { id: string; model: string }>({
                 </p>
               </div>
               <div className="rounded-xl border shadow-xs flex-1 min-h-0 overflow-auto">
-                <Table>
+                <table className="w-full caption-bottom text-sm border-collapse bg-background">
                   <TableHeader>
-                    <TableRow className="bg-muted/50 sticky top-0 z-20">
-                      <TableHead className="sticky left-0 z-10 bg-muted/50 font-semibold text-muted-foreground w-[100px] sm:w-[130px]">
+                    <TableRow>
+                      <TableHead className="sticky top-0 left-0 z-40 bg-muted font-semibold text-muted-foreground border-r border-border shadow-[4px_0_8px_-4px_rgba(0,0,0,0.15),0_2px_6px_-2px_rgba(0,0,0,0.12)]">
                         {t(`${i18nPrefix}.specification`)}
                       </TableHead>
                       {selectedModels.map((model) => (
                         <TableHead
                           key={model.id}
-                          className="font-semibold min-w-[140px]"
+                          className="sticky top-0 z-20 bg-muted font-semibold min-w-[140px] shadow-[0_2px_6px_-2px_rgba(0,0,0,0.12)]"
                         >
                           <div className="flex items-center gap-2">
                             <div className="size-2 shrink-0 rounded-full bg-primary/40" />
@@ -209,7 +211,7 @@ function HardwareCompare<T extends { id: string; model: string }>({
                             "transition-none"
                           )}
                         >
-                          <TableCell className="sticky left-0 z-10 bg-background font-medium text-muted-foreground text-xs whitespace-nowrap w-[100px] sm:w-[130px]">
+                          <TableCell className="sticky left-0 z-20 bg-background font-medium text-muted-foreground text-xs whitespace-nowrap border-r border-border shadow-[4px_0_8px_-4px_rgba(0,0,0,0.12)]">
                             {t(row.label)}
                           </TableCell>
                           {selectedModels.map((model) => {
@@ -310,7 +312,7 @@ function HardwareCompare<T extends { id: string; model: string }>({
                       );
                     })}
                   </TableBody>
-                </Table>
+                </table>
               </div>
             </div>
           )}

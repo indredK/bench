@@ -402,7 +402,10 @@
     "clearFilters": "Clear",
     "filteredCount": "{{count}} found",
     "viewSource": "View benchmark source",
-    "noModelsSelected": "Select models above to compare"
+    "noModelsSelected": "Select models above to compare",
+    "clearSelected": "Clear selected",
+    "collapseFilters": "Collapse filters",
+    "expandFilters": "Expand filters"
   },
   "brands": {
     "intel": "Intel",

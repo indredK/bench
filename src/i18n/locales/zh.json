@@ -402,7 +402,10 @@
     "clearFilters": "清除",
     "filteredCount": "找到 {{count}} 个",
     "viewSource": "查看跑分来源",
-    "noModelsSelected": "请从上方选择要对比的型号"
+    "noModelsSelected": "请从上方选择要对比的型号",
+    "clearSelected": "清除已选",
+    "collapseFilters": "收起筛选",
+    "expandFilters": "展开筛选"
   },
   "brands": {
     "intel": "英特尔",
