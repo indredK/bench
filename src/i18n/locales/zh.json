@@ -222,7 +222,15 @@
     "price": "参考价格",
     "rayTracing": "光线追踪",
     "upscalingTech": "超分技术",
-    "pcieVersion": "PCIe 版本"
+    "pcieVersion": "PCIe 版本",
+    "values": {
+      "series": {
+        "GeForce RTX 40": "GeForce RTX 40",
+        "GeForce RTX 50": "GeForce RTX 50",
+        "Radeon RX 7000": "Radeon RX 7000",
+        "Radeon RX 9000": "Radeon RX 9000"
+      }
+    }
   },
   "memoryCompare": {
     "title": "内存",
@@ -245,7 +253,23 @@
     "xmpProfile": "XMP/EXPO",
     "ecc": "ECC",
     "hasHeatsink": "散热马甲",
-    "hasRgb": "RGB 灯效"
+    "hasRgb": "RGB 灯效",
+    "values": {
+      "series": {
+        "Vengeance": "复仇者",
+        "Dominator": "统治者",
+        "Trident Z5": "Trident Z5",
+        "Ripjaws": " Ripjaws",
+        "Fury": "Fury",
+        "Pro": "Pro",
+        "Ballistix": "Ballistix",
+        "T-Force": "T-Force"
+      },
+      "type": {
+        "DDR5": "DDR5",
+        "DDR4": "DDR4"
+      }
+    }
   },
   "ssdCompare": {
     "title": "固态硬盘",
@@ -269,7 +293,36 @@
     "tbw": "写入寿命",
     "mtbf": "平均无故障时间",
     "warranty": "质保",
-    "hasHeatsink": "散热片"
+    "hasHeatsink": "散热片",
+    "values": {
+      "series": {
+        "990 Pro": "990 Pro",
+        "980 Pro": "980 Pro",
+        "9100 Pro": "9100 Pro",
+        "Black SN850X": "Black SN850X",
+        "Black SN770": "Black SN770",
+        "Black SN580": "Black SN580",
+        "Black SN5000": "Black SN5000",
+        "T700": "T700",
+        "T500": "T500",
+        "Platinum P41": "Platinum P41",
+        "KC3000": "KC3000",
+        "FireCuda 540": "FireCuda 540",
+        "MP700": "MP700",
+        "870 EVO": "870 EVO",
+        "MX500": "MX500",
+        "Cardea A440": "Cardea A440"
+      },
+      "interfaceType": {
+        "PCIe 4.0 x4": "PCIe 4.0 x4",
+        "PCIe 5.0 x4": "PCIe 5.0 x4",
+        "SATA 6Gb/s": "SATA 6Gb/s"
+      },
+      "formFactor": {
+        "M.2 2280": "M.2 2280",
+        "2.5 inch": "2.5 英寸"
+      }
+    }
   },
   "motherboardCompare": {
     "title": "主板",
@@ -319,7 +372,25 @@
     "adaptiveSync": "同步技术",
     "ports": "接口",
     "curved": "曲面",
-    "vesa": "VESA 挂载"
+    "vesa": "VESA 挂载",
+    "values": {
+      "series": {},
+      "panelType": {
+        "QD-OLED": "QD-OLED",
+        "Ultra-Fast IPS": "Ultra-Fast IPS",
+        "WOLED": "WOLED",
+        "Mini-LED IPS": "Mini-LED IPS",
+        "IPS": "IPS",
+        "IPS Black": "IPS Black"
+      },
+      "resolution": {
+        "3840×2160": "3840×2160",
+        "2560×1440": "2560×1440",
+        "3440×1440": "3440×1440",
+        "5120×1440": "5120×1440",
+        "6144×3456": "6144×3456"
+      }
+    }
   },
   "psuCompare": {
     "title": "电源",
@@ -337,7 +408,15 @@
     "pcieGen5": "PCIe 5.0 / 12VHPWR",
     "atxVersion": "ATX 版本",
     "dimensions": "尺寸",
-    "warranty": "质保"
+    "warranty": "质保",
+    "values": {
+      "series": {},
+      "efficiency": {
+        "80+ Gold": "80+ 金牌",
+        "80+ Platinum": "80+ 白金",
+        "80+ Titanium": "80+ 钛金"
+      }
+    }
   },
   "caseCompare": {
     "title": "机箱",
@@ -358,7 +437,18 @@
     "radiatorSupport": "水冷支持",
     "frontIO": "前置 I/O",
     "sidePanel": "侧板",
-    "weight": "重量"
+    "weight": "重量",
+    "values": {
+      "series": {},
+      "type": {
+        "Mid Tower": "中塔式机箱",
+        "Mid Tower (Dual Chamber)": "中塔式（双仓）"
+      },
+      "motherboardSupport": {
+        "E-ATX / ATX / M-ATX / ITX": "E-ATX / ATX / M-ATX / ITX",
+        "ATX / M-ATX / ITX": "ATX / M-ATX / ITX"
+      }
+    }
   },
   "coolerCompare": {
     "title": "散热器",
@@ -399,7 +489,23 @@
     "vlanSupport": "VLAN 支持",
     "stackable": "堆叠支持",
     "management": "管理方式",
-    "formFactor": "外形规格"
+    "formFactor": "外形规格",
+    "values": {
+      "series": {},
+      "type": {
+        "Managed": "网管型",
+        "Smart Managed": "智能网管型",
+        "Unmanaged": "非网管型",
+        "Managed (RouterOS)": "网管型（RouterOS）"
+      },
+      "portSpeed": {
+        "1GbE": "千兆以太网",
+        "2.5GbE": "2.5G 以太网",
+        "10GbE SFP+": "万兆 SFP+",
+        "10GbE": "万兆以太网",
+        "1GbE + 10GbE SFP+": "千兆 + 万兆 SFP+"
+      }
+    }
   },
   "phoneCompare": {
     "title": "手机",
@@ -688,6 +794,22 @@
         "opticalPentaprism": "光学五棱镜（100%视野）",
         "evfHybrid": "{{dots}}万点 OLED EVF（混合）",
         "evfFormat": "{{dots}}万点 OLED EVF"
+      },
+      "mount": {
+        "Sony E": "索尼 E 卡口",
+        "Canon RF": "佳能 RF 卡口",
+        "Nikon Z": "尼康 Z 卡口",
+        "Leica L": "徕卡 L 卡口",
+        "Fujifilm X": "富士 X 卡口",
+        "Canon RF-S": "佳能 RF-S 卡口",
+        "Nikon F": "尼康 F 卡口",
+        "Canon EF": "佳能 EF 卡口",
+        "Pentax K": "宾得 K 卡口",
+        "Fujifilm G": "富士 G 卡口",
+        "Hasselblad XCD": "哈苏 XCD 卡口",
+        "Micro 4/3": "Micro 4/3 卡口",
+        "Leica L (定焦28mm)": "徕卡 L（定焦 28mm）",
+        "Fujifilm X (定焦23mm)": "富士 X（定焦 23mm）"
       }
     },
     "units": {

@@ -54,9 +54,9 @@ export const coolerSpecRows: SpecRow<CoolerModel>[] = [
 
 export const coolerFilterGroups: FilterGroup<CoolerModel>[] = [
   { key: "brand", label: "coolerCompare.brand", format: brandName },
-  { key: "series", label: "coolerCompare.series" },
-  { key: "type", label: "coolerCompare.type" },
-  { key: "launchYear", label: "coolerCompare.launchYear" },
+  { key: "series", label: "coolerCompare.series", format: (v) => { const str = String(v); const key = `coolerCompare.values.series.${str}`; const result = t(key); return result !== key ? result : str; } },
+  { key: "type", label: "coolerCompare.type", format: (v) => { const str = String(v); const key = `coolerCompare.values.type.${str}`; const result = t(key); return result !== key ? result : str; } },
+  { key: "launchYear", label: "coolerCompare.launchYear", format: (val) => String(val) },
 ];
 
 export const coolerModule: CompareDataModule<CoolerModel> = {

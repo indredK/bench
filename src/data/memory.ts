@@ -1,5 +1,6 @@
 import type { CompareDataModule, SpecRow, FilterGroup } from "@/components/HardwareCompare";
 import { brandName } from "@/lib/i18nBrand";
+import { t } from "i18next";
 
 export interface MemoryModel {
   id: string;
@@ -82,8 +83,8 @@ export const memorySpecRows: SpecRow<MemoryModel>[] = [
 
 export const memoryFilterGroups: FilterGroup<MemoryModel>[] = [
   { key: "brand", label: "memoryCompare.brand", format: brandName },
-  { key: "series", label: "memoryCompare.series" },
-  { key: "type", label: "memoryCompare.type" },
+  { key: "series", label: "memoryCompare.series", format: (v) => { const str = String(v); const key = `memoryCompare.values.series.${str}`; const result = t(key); return result !== key ? result : str; } },
+  { key: "type", label: "memoryCompare.type", format: (v) => { const str = String(v); const key = `memoryCompare.values.type.${str}`; const result = t(key); return result !== key ? result : str; } },
   { key: "capacity", label: "memoryCompare.capacity", format: (v) => `${v} GB` },
 ];
 

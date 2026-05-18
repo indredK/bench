@@ -66,9 +66,9 @@ export const ssdSpecRows: SpecRow<SsdModel>[] = [
 
 export const ssdFilterGroups: FilterGroup<SsdModel>[] = [
   { key: "brand", label: "ssdCompare.brand", format: brandName },
-  { key: "series", label: "ssdCompare.series" },
-  { key: "interfaceType", label: "ssdCompare.interfaceType" },
-  { key: "formFactor", label: "ssdCompare.formFactor" },
+  { key: "series", label: "ssdCompare.series", format: (v) => { const str = String(v); const key = `ssdCompare.values.series.${str}`; const result = t(key); return result !== key ? result : str; } },
+  { key: "interfaceType", label: "ssdCompare.interfaceType", format: (v) => { const str = String(v); const key = `ssdCompare.values.interfaceType.${str}`; const result = t(key); return result !== key ? result : str; } },
+  { key: "formFactor", label: "ssdCompare.formFactor", format: (v) => { const str = String(v); const key = `ssdCompare.values.formFactor.${str}`; const result = t(key); return result !== key ? result : str; } },
 ];
 
 export const ssdModule: CompareDataModule<SsdModel> = {

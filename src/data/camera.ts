@@ -791,7 +791,7 @@ export const cameraFilterGroups: FilterGroup<CameraModel>[] = [
     const result = t(key);
     return result !== key ? result : str;
   }},
-  { key: "mount", label: "cameraCompare.mount" },
+  { key: "mount", label: "cameraCompare.mount", format: (v) => { const str = String(v); const key = `cameraCompare.values.mount.${str}`; const result = t(key); return result !== key ? result : str; } },
   { key: "launchYear", label: "cameraCompare.launchYear", format: (val) => String(val) },
 ];
 

@@ -1,5 +1,6 @@
 import type { CompareDataModule, SpecRow, FilterGroup } from "@/components/HardwareCompare";
 import { brandName } from "@/lib/i18nBrand";
+import { t } from "i18next";
 
 export interface CaseModel {
   id: string;
@@ -54,9 +55,9 @@ export const caseSpecRows: SpecRow<CaseModel>[] = [
 
 export const caseFilterGroups: FilterGroup<CaseModel>[] = [
   { key: "brand", label: "caseCompare.brand", format: brandName },
-  { key: "series", label: "caseCompare.series" },
-  { key: "type", label: "caseCompare.type" },
-  { key: "motherboardSupport", label: "caseCompare.motherboardSupport" },
+  { key: "series", label: "caseCompare.series", format: (v) => { const str = String(v); const key = `caseCompare.values.series.${str}`; const result = t(key); return result !== key ? result : str; } },
+  { key: "type", label: "caseCompare.type", format: (v) => { const str = String(v); const key = `caseCompare.values.type.${str}`; const result = t(key); return result !== key ? result : str; } },
+  { key: "motherboardSupport", label: "caseCompare.motherboardSupport", format: (v) => { const str = String(v); const key = `caseCompare.values.motherboardSupport.${str}`; const result = t(key); return result !== key ? result : str; } },
 ];
 
 export const caseModule: CompareDataModule<CaseModel> = {

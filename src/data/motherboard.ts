@@ -1,5 +1,6 @@
 import type { CompareDataModule, SpecRow, FilterGroup } from "@/components/HardwareCompare";
 import { brandName } from "@/lib/i18nBrand";
+import { t } from "i18next";
 
 export interface MotherboardModel {
   id: string;
@@ -68,10 +69,10 @@ export const motherboardSpecRows: SpecRow<MotherboardModel>[] = [
 
 export const motherboardFilterGroups: FilterGroup<MotherboardModel>[] = [
   { key: "brand", label: "motherboardCompare.brand", format: brandName },
-  { key: "series", label: "motherboardCompare.series" },
-  { key: "socket", label: "motherboardCompare.socket" },
-  { key: "chipset", label: "motherboardCompare.chipset" },
-  { key: "formFactor", label: "motherboardCompare.formFactor" },
+  { key: "series", label: "motherboardCompare.series", format: (v) => { const str = String(v); const key = `motherboardCompare.values.series.${str}`; const result = t(key); return result !== key ? result : str; } },
+  { key: "socket", label: "motherboardCompare.socket", format: (v) => { const str = String(v); const key = `motherboardCompare.values.socket.${str}`; const result = t(key); return result !== key ? result : str; } },
+  { key: "chipset", label: "motherboardCompare.chipset", format: (v) => { const str = String(v); const key = `motherboardCompare.values.chipset.${str}`; const result = t(key); return result !== key ? result : str; } },
+  { key: "formFactor", label: "motherboardCompare.formFactor", format: (v) => { const str = String(v); const key = `motherboardCompare.values.formFactor.${str}`; const result = t(key); return result !== key ? result : str; } },
 ];
 
 export const motherboardModule: CompareDataModule<MotherboardModel> = {

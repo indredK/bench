@@ -1,5 +1,6 @@
 import type { CompareDataModule, SpecRow, FilterGroup } from "@/components/HardwareCompare";
 import { brandName } from "@/lib/i18nBrand";
+import { t } from "i18next";
 
 export interface SwitchModel {
   id: string;
@@ -51,10 +52,10 @@ export const switchSpecRows: SpecRow<SwitchModel>[] = [
 
 export const switchFilterGroups: FilterGroup<SwitchModel>[] = [
   { key: "brand", label: "switchCompare.brand", format: brandName },
-  { key: "series", label: "switchCompare.series" },
-  { key: "type", label: "switchCompare.type" },
-  { key: "portCount", label: "switchCompare.portCount" },
-  { key: "portSpeed", label: "switchCompare.portSpeed" },
+  { key: "series", label: "switchCompare.series", format: (v) => { const str = String(v); const key = `switchCompare.values.series.${str}`; const result = t(key); return result !== key ? result : str; } },
+  { key: "type", label: "switchCompare.type", format: (v) => { const str = String(v); const key = `switchCompare.values.type.${str}`; const result = t(key); return result !== key ? result : str; } },
+  { key: "portCount", label: "switchCompare.portCount", format: (val) => String(val) },
+  { key: "portSpeed", label: "switchCompare.portSpeed", format: (v) => { const str = String(v); const key = `switchCompare.values.portSpeed.${str}`; const result = t(key); return result !== key ? result : str; } },
 ];
 
 export const switchModule: CompareDataModule<SwitchModel> = {

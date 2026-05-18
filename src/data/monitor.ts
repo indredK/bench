@@ -1,5 +1,6 @@
 import type { CompareDataModule, SpecRow, FilterGroup } from "@/components/HardwareCompare";
 import { brandName } from "@/lib/i18nBrand";
+import { t } from "i18next";
 
 export interface MonitorModel {
   id: string;
@@ -58,10 +59,10 @@ export const monitorSpecRows: SpecRow<MonitorModel>[] = [
 
 export const monitorFilterGroups: FilterGroup<MonitorModel>[] = [
   { key: "brand", label: "monitorCompare.brand", format: brandName },
-  { key: "series", label: "monitorCompare.series" },
-  { key: "panelType", label: "monitorCompare.panelType" },
-  { key: "resolution", label: "monitorCompare.resolution" },
-  { key: "launchYear", label: "monitorCompare.launchYear" },
+  { key: "series", label: "monitorCompare.series", format: (v) => { const str = String(v); const key = `monitorCompare.values.series.${str}`; const result = t(key); return result !== key ? result : str; } },
+  { key: "panelType", label: "monitorCompare.panelType", format: (v) => { const str = String(v); const key = `monitorCompare.values.panelType.${str}`; const result = t(key); return result !== key ? result : str; } },
+  { key: "resolution", label: "monitorCompare.resolution", format: (v) => { const str = String(v); const key = `monitorCompare.values.resolution.${str}`; const result = t(key); return result !== key ? result : str; } },
+  { key: "launchYear", label: "monitorCompare.launchYear", format: (val) => String(val) },
 ];
 
 export const monitorModule: CompareDataModule<MonitorModel> = {

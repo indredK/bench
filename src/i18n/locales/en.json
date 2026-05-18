@@ -222,7 +222,15 @@
     "price": "Price",
     "rayTracing": "Ray Tracing",
     "upscalingTech": "Upscaling Tech",
-    "pcieVersion": "PCIe Version"
+    "pcieVersion": "PCIe Version",
+    "values": {
+      "series": {
+        "GeForce RTX 40": "GeForce RTX 40",
+        "GeForce RTX 50": "GeForce RTX 50",
+        "Radeon RX 7000": "Radeon RX 7000",
+        "Radeon RX 9000": "Radeon RX 9000"
+      }
+    }
   },
   "memoryCompare": {
     "title": "Memory",
@@ -245,7 +253,23 @@
     "xmpProfile": "XMP/EXPO",
     "ecc": "ECC",
     "hasHeatsink": "Heatsink",
-    "hasRgb": "RGB"
+    "hasRgb": "RGB",
+    "values": {
+      "series": {
+        "Vengeance": "Vengeance",
+        "Dominator": "Dominator",
+        "Trident Z5": "Trident Z5",
+        "Ripjaws": "Ripjaws",
+        "Fury": "Fury",
+        "Pro": "Pro",
+        "Ballistix": "Ballistix",
+        "T-Force": "T-Force"
+      },
+      "type": {
+        "DDR5": "DDR5",
+        "DDR4": "DDR4"
+      }
+    }
   },
   "ssdCompare": {
     "title": "SSD",
@@ -269,7 +293,36 @@
     "tbw": "Endurance (TBW)",
     "mtbf": "MTBF",
     "warranty": "Warranty",
-    "hasHeatsink": "Heatsink"
+    "hasHeatsink": "Heatsink",
+    "values": {
+      "series": {
+        "990 Pro": "990 Pro",
+        "980 Pro": "980 Pro",
+        "9100 Pro": "9100 Pro",
+        "Black SN850X": "Black SN850X",
+        "Black SN770": "Black SN770",
+        "Black SN580": "Black SN580",
+        "Black SN5000": "Black SN5000",
+        "T700": "T700",
+        "T500": "T500",
+        "Platinum P41": "Platinum P41",
+        "KC3000": "KC3000",
+        "FireCuda 540": "FireCuda 540",
+        "MP700": "MP700",
+        "870 EVO": "870 EVO",
+        "MX500": "MX500",
+        "Cardea A440": "Cardea A440"
+      },
+      "interfaceType": {
+        "PCIe 4.0 x4": "PCIe 4.0 x4",
+        "PCIe 5.0 x4": "PCIe 5.0 x4",
+        "SATA 6Gb/s": "SATA 6Gb/s"
+      },
+      "formFactor": {
+        "M.2 2280": "M.2 2280",
+        "2.5 inch": "2.5 inch"
+      }
+    }
   },
   "motherboardCompare": {
     "title": "Motherboard",
@@ -296,7 +349,27 @@
     "ethernet": "Ethernet",
     "audio": "Audio Codec",
     "biosFlashback": "BIOS Flashback",
-    "rgbHeaders": "RGB Headers"
+    "rgbHeaders": "RGB Headers",
+    "values": {
+      "series": {},
+      "socket": {
+        "LGA1700": "LGA1700",
+        "AM5": "AM5",
+        "LGA1851": "LGA1851"
+      },
+      "chipset": {
+        "Z790": "Z790",
+        "X670E": "X670E",
+        "X870E": "X870E",
+        "Z890": "Z890",
+        "B650": "B650",
+        "B650E": "B650E"
+      },
+      "formFactor": {
+        "ATX": "ATX",
+        "E-ATX": "E-ATX"
+      }
+    }
   },
   "monitorCompare": {
     "title": "Monitor",
@@ -319,7 +392,25 @@
     "adaptiveSync": "Adaptive Sync",
     "ports": "Ports",
     "curved": "Curved",
-    "vesa": "VESA Mount"
+    "vesa": "VESA Mount",
+    "values": {
+      "series": {},
+      "panelType": {
+        "QD-OLED": "QD-OLED",
+        "Ultra-Fast IPS": "Ultra-Fast IPS",
+        "WOLED": "WOLED",
+        "Mini-LED IPS": "Mini-LED IPS",
+        "IPS": "IPS",
+        "IPS Black": "IPS Black"
+      },
+      "resolution": {
+        "3840×2160": "3840×2160",
+        "2560×1440": "2560×1440",
+        "3440×1440": "3440×1440",
+        "5120×1440": "5120×1440",
+        "6144×3456": "6144×3456"
+      }
+    }
   },
   "psuCompare": {
     "title": "PSU",
@@ -337,7 +428,15 @@
     "pcieGen5": "PCIe 5.0 / 12VHPWR",
     "atxVersion": "ATX Version",
     "dimensions": "Dimensions",
-    "warranty": "Warranty"
+    "warranty": "Warranty",
+    "values": {
+      "series": {},
+      "efficiency": {
+        "80+ Gold": "80+ Gold",
+        "80+ Platinum": "80+ Platinum",
+        "80+ Titanium": "80+ Titanium"
+      }
+    }
   },
   "caseCompare": {
     "title": "Case",
@@ -358,7 +457,18 @@
     "radiatorSupport": "Radiator Support",
     "frontIO": "Front I/O",
     "sidePanel": "Side Panel",
-    "weight": "Weight"
+    "weight": "Weight",
+    "values": {
+      "series": {},
+      "type": {
+        "Mid Tower": "Mid Tower",
+        "Mid Tower (Dual Chamber)": "Mid Tower (Dual Chamber)"
+      },
+      "motherboardSupport": {
+        "E-ATX / ATX / M-ATX / ITX": "E-ATX / ATX / M-ATX / ITX",
+        "ATX / M-ATX / ITX": "ATX / M-ATX / ITX"
+      }
+    }
   },
   "coolerCompare": {
     "title": "Cooler",
@@ -379,7 +489,14 @@
     "height": "Height",
     "socketSupport": "Socket Support",
     "hasRgb": "RGB",
-    "hasDisplay": "Display"
+    "hasDisplay": "Display",
+    "values": {
+      "series": {},
+      "type": {
+        "Air": "Air Cooler",
+        "AIO": "AIO Liquid Cooler"
+      }
+    }
   },
   "switchCompare": {
     "title": "Switch",
@@ -399,7 +516,23 @@
     "vlanSupport": "VLAN Support",
     "stackable": "Stackable",
     "management": "Management",
-    "formFactor": "Form Factor"
+    "formFactor": "Form Factor",
+    "values": {
+      "series": {},
+      "type": {
+        "Managed": "Managed",
+        "Smart Managed": "Smart Managed",
+        "Unmanaged": "Unmanaged",
+        "Managed (RouterOS)": "Managed (RouterOS)"
+      },
+      "portSpeed": {
+        "1GbE": "1GbE",
+        "2.5GbE": "2.5GbE",
+        "10GbE SFP+": "10GbE SFP+",
+        "10GbE": "10GbE",
+        "1GbE + 10GbE SFP+": "1GbE + 10GbE SFP+"
+      }
+    }
   },
   "phoneCompare": {
     "title": "Phone",
@@ -688,6 +821,22 @@
         "opticalPentaprism": "Optical Pentaprism (100% Coverage)",
         "evfHybrid": "{{dots}}M-Dot OLED EVF (Hybrid)",
         "evfFormat": "{{dots}}M-Dot OLED EVF"
+      },
+      "mount": {
+        "Sony E": "Sony E",
+        "Canon RF": "Canon RF",
+        "Nikon Z": "Nikon Z",
+        "Leica L": "Leica L",
+        "Fujifilm X": "Fujifilm X",
+        "Canon RF-S": "Canon RF-S",
+        "Nikon F": "Nikon F",
+        "Canon EF": "Canon EF",
+        "Pentax K": "Pentax K",
+        "Fujifilm G": "Fujifilm G",
+        "Hasselblad XCD": "Hasselblad XCD",
+        "Micro 4/3": "Micro Four Thirds",
+        "Leica L (定焦28mm)": "Leica L (28mm Fixed)",
+        "Fujifilm X (定焦23mm)": "Fujifilm X (23mm Fixed)"
       }
     },
     "units": {
