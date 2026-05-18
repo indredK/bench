@@ -3,10 +3,8 @@
     "portManager": "端口管理",
     "devCleaner": "垃圾清理",
     "systemInfo": "系统信息",
-    "hardwareCompare": "硬件对比",
-    "phoneCompare": "手机对比",
-    "telescopeCompare": "望远镜",
-    "cameraCompare": "相机",
+    "hardwareCompare": "电脑硬件",
+    "digitalProducts": "数码产品",
     "envDetector": "环境检测"
   },
   "envDetector": {

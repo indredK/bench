@@ -3,10 +3,8 @@
     "portManager": "Port Manager",
     "devCleaner": "Dev Cleaner",
     "systemInfo": "System Info",
-    "hardwareCompare": "Hardware Compare",
-    "phoneCompare": "Phones",
-    "telescopeCompare": "Telescopes",
-    "cameraCompare": "Cameras",
+    "hardwareCompare": "PC Hardware",
+    "digitalProducts": "Digital Products",
     "envDetector": "Env Detector"
   },
   "envDetector": {
