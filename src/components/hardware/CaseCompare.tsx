@@ -1,4 +1,4 @@
-import HardwareCompare from "@/components/HardwareCompare";
+import HardwareCompare from "./HardwareCompare";
 import { caseModule } from "@/data/case";
 
 function CaseCompare() {

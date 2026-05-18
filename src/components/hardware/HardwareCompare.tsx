@@ -18,8 +18,8 @@ import {
   StickyTableCell,
 } from "@/components/ui/StickyTable";
 import { cn } from "@/lib/utils";
-import FilterBar from "@/components/FilterBar";
-import type { FilterGroup } from "@/components/FilterBar";
+import FilterBar from "@/components/features/FilterBar";
+import type { FilterGroup } from "@/components/features/FilterBar";
 
 export type { FilterGroup };
 

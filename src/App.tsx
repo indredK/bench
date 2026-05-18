@@ -2,15 +2,15 @@ import { Router, Route, Switch } from "wouter";
 import { useHashLocation } from "wouter/use-hash-location";
 import { Zap, Trash2, Monitor, Cpu, Smartphone, Telescope, Camera, Box } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import Sidebar from "./components/Sidebar";
-import PortManager from "./components/PortManager";
-import SystemInfo from "./components/SystemInfo";
-import DevCleaner from "./components/DevCleaner";
-import EnvDetector from "./components/EnvDetector";
-import HardwareComparePage from "./components/HardwareComparePage";
-import PhoneComparePage from "./components/PhoneComparePage";
-import TelescopeComparePage from "./components/TelescopeComparePage";
-import CameraComparePage from "./components/CameraComparePage";
+import Sidebar from "./components/layout/Sidebar";
+import PortManager from "./components/features/PortManager";
+import SystemInfo from "./components/features/SystemInfo";
+import DevCleaner from "./components/features/DevCleaner";
+import EnvDetector from "./components/features/EnvDetector";
+import HardwareComparePage from "./components/pages/HardwareComparePage";
+import PhoneComparePage from "./components/pages/PhoneComparePage";
+import TelescopeComparePage from "./components/pages/TelescopeComparePage";
+import CameraComparePage from "./components/pages/CameraComparePage";
 
 export interface SidebarItem {
   path: string;

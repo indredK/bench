@@ -1,5 +1,5 @@
 import { useLocation, Link } from "wouter";
-import type { SidebarItem } from "../App";
+import type { SidebarItem } from "@/App";
 import LanguageSwitcher from "./LanguageSwitcher";
 
 interface SidebarProps {

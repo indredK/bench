@@ -1,4 +1,4 @@
-import type { CompareDataModule, FilterGroup, SpecRow } from "@/components/HardwareCompare";
+import type { CompareDataModule, FilterGroup, SpecRow } from "@/components/hardware/HardwareCompare";
 import { t } from "i18next";
 
 export interface CameraModel {

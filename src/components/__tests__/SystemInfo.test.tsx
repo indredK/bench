@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import React from "react";
-import SystemInfo from "../SystemInfo";
+import SystemInfo from "../features/SystemInfo";
 
 const mockInvoke = vi.fn();
 const mockIsTauri = vi.fn(() => true);

@@ -1,4 +1,4 @@
-import HardwareCompare from "@/components/HardwareCompare";
+import HardwareCompare from "./HardwareCompare";
 import { ssdModule } from "@/data/ssd";
 
 function SsdCompare() {

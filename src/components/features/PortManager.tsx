@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { platformConfig } from "../platform/config";
+import { platformConfig } from "@/platform/config";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

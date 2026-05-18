@@ -1,4 +1,4 @@
-import HardwareCompare from "@/components/HardwareCompare";
+import HardwareCompare from "./HardwareCompare";
 import { motherboardModule } from "@/data/motherboard";
 
 function MotherboardCompare() {

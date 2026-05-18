@@ -1,4 +1,4 @@
-import HardwareCompare from "@/components/HardwareCompare";
+import HardwareCompare from "./HardwareCompare";
 import { gpuModule } from "@/data/gpu";
 
 function GpuCompare() {

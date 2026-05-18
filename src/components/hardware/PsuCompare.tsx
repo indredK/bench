@@ -1,4 +1,4 @@
-import HardwareCompare from "@/components/HardwareCompare";
+import HardwareCompare from "./HardwareCompare";
 import { psuModule } from "@/data/psu";
 
 function PsuCompare() {

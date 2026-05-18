@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import i18n from "../i18n/config";
+import i18n from "@/i18n/config";
 import { isTauri } from "@tauri-apps/api/core";
 import { Globe } from "lucide-react";
 

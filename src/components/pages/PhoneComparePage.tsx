@@ -1,10 +1,10 @@
 import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Smartphone, Cpu } from "lucide-react";
-import HardwareCompare from "@/components/HardwareCompare";
+import HardwareCompare from "@/components/hardware/HardwareCompare";
 import { phoneModule } from "@/data/phone";
 import { chipsetModule } from "@/data/phone-chipset";
-import type { CompareDataModule } from "@/components/HardwareCompare";
+import type { CompareDataModule } from "@/components/hardware/HardwareCompare";
 import { Button } from "@/components/ui/button";
 
 interface PhoneTab {

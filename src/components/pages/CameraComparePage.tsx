@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import HardwareCompare from "@/components/HardwareCompare";
+import HardwareCompare from "@/components/hardware/HardwareCompare";
 import { cameraModule } from "@/data/camera";
 
 function CameraComparePage() {
