@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { RotateCcw, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export interface FilterGroupOption {
   value: string;
@@ -107,10 +108,19 @@ function FilterBar<T extends { id: string }>({
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+            className={cn(
+              "h-7 px-3 text-xs gap-1.5 rounded-full",
+              "border border-border/40",
+              "bg-background/50 backdrop-blur-sm",
+              "text-muted-foreground hover:text-foreground",
+              "shadow-xs hover:shadow-sm",
+              "transition-all duration-200 ease-in-out",
+              "hover:scale-[1.03] active:scale-95",
+              "hover:bg-muted/80 hover:border-muted-foreground/20",
+            )}
             onClick={onClearFilters}
           >
-            <RotateCcw className="mr-1 size-3" />
+            <RotateCcw className="size-3 transition-transform duration-300 group-hover:rotate-[-180deg]" />
             {t("hardwareCompare.clearFilters")}
           </Button>
         </div>

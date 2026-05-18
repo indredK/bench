@@ -109,7 +109,7 @@
     "screenResolution": "屏幕分辨率"
   },
   "cpuCompare": {
-    "title": "CPU 对比",
+    "title": "CPU",
     "selectModels": "选择要对比的型号",
     "allSelected": "已选择全部型号",
     "comparingTitle": "正在对比 {{count}} 个型号",
@@ -132,10 +132,71 @@
     "memoryChannels": "内存通道",
     "pcieVersion": "PCIe 版本",
     "integratedGpu": "集成显卡",
-    "price": "参考价格"
+    "price": "参考价格",
+    "geekbench6Single": "Geekbench 6 单核",
+    "geekbench6Multi": "Geekbench 6 多核",
+    "passmarkSingle": "PassMark 单线程",
+    "passmarkMulti": "PassMark 多核",
+    "cinebench2024Single": "Cinebench 2024 单核",
+    "cinebench2024Multi": "Cinebench 2024 多核",
+    "values": {
+      "brand": {
+        "intel": "英特尔",
+        "amd": "AMD",
+        "apple": "苹果"
+      },
+      "series": {
+        "core_i3": "酷睿 i3",
+        "core_i5": "酷睿 i5",
+        "core_i7": "酷睿 i7",
+        "core_i9": "酷睿 i9",
+        "core_ultra_5": "酷睿 Ultra 5",
+        "core_ultra_7": "酷睿 Ultra 7",
+        "core_ultra_9": "酷睿 Ultra 9",
+        "ryzen_5": "锐龙 5",
+        "ryzen_7": "锐龙 7",
+        "ryzen_9": "锐龙 9",
+        "m2": "Apple M2 系列",
+        "m3": "Apple M3 系列",
+        "m4": "Apple M4 系列"
+      },
+      "architecture": {
+        "alder_lake": "奥尔德湖 (Alder Lake)",
+        "raptor_lake": "猛禽湖 (Raptor Lake)",
+        "raptor_lake_refresh": "猛禽湖 Refresh",
+        "arrow_lake": "箭湖 (Arrow Lake)",
+        "arrow_lake_refresh": "箭湖 (Arrow Lake) Refresh",
+        "zen_3": "Zen 3 架构",
+        "zen_3_3d_v-cache": "Zen 3 3D V-Cache 版",
+        "zen_4": "Zen 4 架构",
+        "zen_4_3d_v-cache": "Zen 4 3D V-Cache 版",
+        "zen_5": "Zen 5 架构",
+        "zen_5_3d_v-cache": "Zen 5 3D V-Cache 版",
+        "zen_5_dual_3d_v-cache": "Zen 5 双 3D V-Cache 版",
+        "apple_m2_pro": "Apple M2 Pro 芯片",
+        "apple_m2_max": "Apple M2 Max 芯片",
+        "apple_m2_ultra": "Apple M2 Ultra 芯片",
+        "apple_m3": "Apple M3 芯片",
+        "apple_m3_pro": "Apple M3 Pro 芯片",
+        "apple_m3_max": "Apple M3 Max 芯片",
+        "apple_m4": "Apple M4 芯片",
+        "apple_m4_pro": "Apple M4 Pro 芯片",
+        "apple_m4_max": "Apple M4 Max 芯片"
+      },
+      "socket": {
+        "lga1700": "LGA 1700 接口",
+        "lga1851": "LGA 1851 接口",
+        "am4": "Socket AM4 接口",
+        "am5": "Socket AM5 接口",
+        "apple_soc": "Apple 集成式 SoC"
+      },
+      "integratedGpu": {
+        "none": "无集成显卡"
+      }
+    }
   },
   "gpuCompare": {
-    "title": "显卡对比",
+    "title": "显卡",
     "selectModels": "选择要对比的型号",
     "allSelected": "已选择全部型号",
     "comparingTitle": "正在对比 {{count}} 个型号",
@@ -160,7 +221,7 @@
     "pcieVersion": "PCIe 版本"
   },
   "memoryCompare": {
-    "title": "内存对比",
+    "title": "内存",
     "selectModels": "选择要对比的型号",
     "allSelected": "已选择全部型号",
     "comparingTitle": "正在对比 {{count}} 个型号",
@@ -183,7 +244,7 @@
     "hasRgb": "RGB 灯效"
   },
   "ssdCompare": {
-    "title": "固态硬盘对比",
+    "title": "固态硬盘",
     "selectModels": "选择要对比的型号",
     "allSelected": "已选择全部型号",
     "comparingTitle": "正在对比 {{count}} 个型号",
@@ -207,7 +268,7 @@
     "hasHeatsink": "散热片"
   },
   "motherboardCompare": {
-    "title": "主板对比",
+    "title": "主板",
     "selectModels": "选择要对比的型号",
     "allSelected": "已选择全部型号",
     "comparingTitle": "正在对比 {{count}} 个型号",
@@ -234,7 +295,7 @@
     "rgbHeaders": "RGB 接针"
   },
   "monitorCompare": {
-    "title": "显示器对比",
+    "title": "显示器",
     "selectModels": "选择要对比的型号",
     "allSelected": "已选择全部型号",
     "comparingTitle": "正在对比 {{count}} 个型号",
@@ -257,7 +318,7 @@
     "vesa": "VESA 挂载"
   },
   "psuCompare": {
-    "title": "电源对比",
+    "title": "电源",
     "selectModels": "选择要对比的型号",
     "allSelected": "已选择全部型号",
     "comparingTitle": "正在对比 {{count}} 个型号",
@@ -275,7 +336,7 @@
     "warranty": "质保"
   },
   "caseCompare": {
-    "title": "机箱对比",
+    "title": "机箱",
     "selectModels": "选择要对比的型号",
     "allSelected": "已选择全部型号",
     "comparingTitle": "正在对比 {{count}} 个型号",
@@ -296,7 +357,7 @@
     "weight": "重量"
   },
   "coolerCompare": {
-    "title": "散热器对比",
+    "title": "散热器",
     "selectModels": "选择要对比的型号",
     "allSelected": "已选择全部型号",
     "comparingTitle": "正在对比 {{count}} 个型号",
@@ -317,7 +378,7 @@
     "hasDisplay": "显示屏"
   },
   "switchCompare": {
-    "title": "交换机对比",
+    "title": "交换机",
     "selectModels": "选择要对比的型号",
     "allSelected": "已选择全部型号",
     "comparingTitle": "正在对比 {{count}} 个型号",
@@ -339,7 +400,8 @@
   "hardwareCompare": {
     "filters": "筛选",
     "clearFilters": "清除",
-    "filteredCount": "找到 {{count}} 个"
+    "filteredCount": "找到 {{count}} 个",
+    "viewSource": "查看跑分来源"
   },
   "language": {
     "en": "English",

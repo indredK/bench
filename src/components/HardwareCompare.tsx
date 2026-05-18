@@ -1,8 +1,14 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Plus, X } from "lucide-react";
+import { Plus, X, ExternalLink, ChevronDown } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider,
+} from "@/components/ui/tooltip";
 import FilterBar from "@/components/FilterBar";
 import type { FilterGroup } from "@/components/FilterBar";
 import type { ReactNode } from "react";
@@ -22,6 +28,8 @@ export interface CompareDataModule<T extends { id: string; model: string }> {
   inverseKeys: (keyof T)[];
   i18nPrefix: string;
   filterGroups?: FilterGroup<T>[];
+  /** 获取某个字段的参考链接（key 为规格行字段名） */
+  referenceUrl?: (model: T, key: keyof T) => string | undefined;
 }
 
 interface HardwareCompareProps<T extends { id: string; model: string }> {
@@ -36,9 +44,10 @@ function HardwareCompare<T extends { id: string; model: string }>({
   icon,
 }: HardwareCompareProps<T>) {
   const { t } = useTranslation();
-  const { data, specRows, numericKeys, inverseKeys, i18nPrefix, filterGroups } = module;
+  const { data, specRows, numericKeys, inverseKeys, i18nPrefix, filterGroups, referenceUrl } = module;
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [filters, setFilters] = useState<Record<string, string>>({});
+  const [modelsCollapsed, setModelsCollapsed] = useState(false);
 
   const toggleModel = (id: string) => {
     setSelectedIds((prev) =>
@@ -74,13 +83,15 @@ function HardwareCompare<T extends { id: string; model: string }>({
   const availableModels = filteredData.filter((m) => !selectedIds.includes(m.id));
 
   const bestValues = new Map<keyof T, Set<string>>();
+  const rangeValues = new Map<keyof T, { min: number; max: number }>();
   specRows.forEach((row) => {
     if (selectedModels.length < 2) return;
     const key = row.key;
     if (numericKeys.includes(key)) {
-      const nums = selectedModels.map((m) => m[key] as number);
-      if (nums.some((n) => n !== undefined && n !== null)) {
+      const nums = selectedModels.map((m) => m[key] as number).filter((n) => n != null);
+      if (nums.length > 0) {
         const maxVal = Math.max(...nums);
+        rangeValues.set(key, { min: Math.min(...nums), max: maxVal });
         bestValues.set(
           key,
           new Set(
@@ -91,9 +102,10 @@ function HardwareCompare<T extends { id: string; model: string }>({
         );
       }
     } else if (inverseKeys.includes(key)) {
-      const nums = selectedModels.map((m) => m[key] as number);
-      if (nums.some((n) => n !== undefined && n !== null)) {
+      const nums = selectedModels.map((m) => m[key] as number).filter((n) => n != null);
+      if (nums.length > 0) {
         const minVal = Math.min(...nums);
+        rangeValues.set(key, { min: minVal, max: Math.max(...nums) });
         bestValues.set(
           key,
           new Set(
@@ -107,123 +119,207 @@ function HardwareCompare<T extends { id: string; model: string }>({
   });
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          {icon}
-          {title}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* ── 筛选器区域（抽取为公共组件） ── */}
-        {filterGroups && filterGroups.length > 0 && (
-          <FilterBar
-            filterGroups={filterGroups}
-            data={data}
-            filters={filters}
-            onFilterChange={setFilter}
-            onClearFilters={clearFilters}
-          />
-        )}
-
-        {/* ── 型号选择区域 ── */}
-        <div>
-          <p className="mb-2 text-sm font-semibold text-muted-foreground">
-            {t(`${i18nPrefix}.selectModels`)}
-            {hasActiveFilters && (
-              <span className="ml-1 font-normal text-xs text-muted-foreground">
-                ({t("hardwareCompare.filteredCount", { count: availableModels.length })})
-              </span>
-            )}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {availableModels.map((model) => (
-              <Button
-                key={model.id}
-                variant="outline"
-                size="sm"
-                onClick={() => toggleModel(model.id)}
-              >
-                <Plus className="mr-1 size-3" />
-                {model.model}
-              </Button>
-            ))}
-          </div>
-          {availableModels.length === 0 && selectedModels.length > 0 && (
-            <p className="mt-2 text-sm text-muted-foreground">
-              {t(`${i18nPrefix}.allSelected`)}
-            </p>
+    <TooltipProvider delay={200}>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            {icon}
+            {title}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* ── 筛选器区域 ── */}
+          {filterGroups && filterGroups.length > 0 && (
+            <FilterBar
+              filterGroups={filterGroups}
+              data={data}
+              filters={filters}
+              onFilterChange={setFilter}
+              onClearFilters={clearFilters}
+            />
           )}
-        </div>
 
-        {selectedModels.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-sm font-semibold text-muted-foreground">
-              {t(`${i18nPrefix}.comparingTitle`, { count: selectedModels.length })}
-            </p>
-            <div className="overflow-x-auto rounded-lg border">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="bg-muted/60">
-                    <th className="px-4 py-2 text-left font-semibold">
-                      {t(`${i18nPrefix}.specification`)}
-                    </th>
-                    {selectedModels.map((model) => (
-                      <th key={model.id} className="px-4 py-2 text-left font-semibold">
-                        <div className="flex items-center gap-2">
-                          <span>{model.model}</span>
-                          <button
-                            onClick={() => toggleModel(model.id)}
-                            className="text-muted-foreground hover:text-foreground"
-                          >
-                            <X className="size-3.5" />
-                          </button>
-                        </div>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {specRows.map((row, idx) => {
-                    const isBest = bestValues.has(row.key);
-                    return (
-                      <tr
-                        key={String(row.key)}
-                        className={idx % 2 === 0 ? "bg-background" : "bg-muted/20"}
-                      >
-                        <td className="px-4 py-2 font-medium text-muted-foreground">
-                          {t(row.label)}
-                        </td>
-                        {selectedModels.map((model) => {
-                          const val = model[row.key];
-                          const displayVal = row.format
-                            ? row.format(val as never, model)
-                            : String(val ?? "—");
-                          const isHighlighted =
-                            isBest && bestValues.get(row.key)?.has(model.id);
-                          return (
-                            <td
-                              key={model.id}
-                              className={`px-4 py-2 ${
-                                isHighlighted
-                                  ? "font-bold text-emerald-600 dark:text-emerald-400"
-                                  : ""
-                              }`}
-                            >
-                              {displayVal}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+          {/* ── 型号选择区域 ── */}
+          <div>
+            <div
+              className="flex items-center justify-between mb-2 cursor-pointer select-none"
+              onClick={() => setModelsCollapsed(!modelsCollapsed)}
+            >
+              <p className="text-sm font-semibold text-muted-foreground">
+                {t(`${i18nPrefix}.selectModels`)}
+                {hasActiveFilters && (
+                  <span className="ml-1 font-normal text-xs text-muted-foreground">
+                    ({t("hardwareCompare.filteredCount", { count: availableModels.length })})
+                  </span>
+                )}
+              </p>
+              <button
+                className="text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+              >
+                <ChevronDown
+                  className={`size-4 transition-transform duration-200 ${
+                    modelsCollapsed ? "-rotate-90" : ""
+                  }`}
+                />
+              </button>
             </div>
+            {!modelsCollapsed && (
+              <>
+                <div className="flex flex-wrap gap-2">
+                  {availableModels.map((model) => (
+                    <Button
+                      key={model.id}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => toggleModel(model.id)}
+                    >
+                      <Plus className="mr-1 size-3" />
+                      {model.model}
+                    </Button>
+                  ))}
+                </div>
+                {availableModels.length === 0 && selectedModels.length > 0 && (
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {t(`${i18nPrefix}.allSelected`)}
+                  </p>
+                )}
+              </>
+            )}
           </div>
-        )}
-      </CardContent>
-    </Card>
+
+          {selectedModels.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-muted-foreground">
+                {t(`${i18nPrefix}.comparingTitle`, { count: selectedModels.length })}
+              </p>
+              <div className="overflow-x-auto rounded-lg border">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="bg-muted/60">
+                      <th className="px-4 py-2 text-left font-semibold">
+                        {t(`${i18nPrefix}.specification`)}
+                      </th>
+                      {selectedModels.map((model) => (
+                        <th
+                          key={model.id}
+                          className="px-4 py-2 text-left font-semibold min-w-[140px]"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="truncate">{model.model}</span>
+                            <button
+                              onClick={() => toggleModel(model.id)}
+                              className="shrink-0 text-muted-foreground hover:text-foreground"
+                            >
+                              <X className="size-3.5" />
+                            </button>
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {specRows.map((row, idx) => {
+                      const isBest = bestValues.has(row.key);
+                      const range = rangeValues.get(row.key);
+                      const isNumeric = numericKeys.includes(row.key) || inverseKeys.includes(row.key);
+                      return (
+                        <tr
+                          key={String(row.key)}
+                          className={
+                            idx % 2 === 0
+                              ? "bg-background"
+                              : "bg-muted/20"
+                          }
+                        >
+                          <td className="px-4 py-2 font-medium text-muted-foreground whitespace-nowrap">
+                            {t(row.label)}
+                          </td>
+                          {selectedModels.map((model) => {
+                            const val = model[row.key];
+                            const displayVal = row.format
+                              ? row.format(val as never, model)
+                              : String(val ?? "—");
+                            const isHighlighted =
+                              isBest && bestValues.get(row.key)?.has(model.id);
+
+                            // 计算柱状图百分比
+                            let barPercent = 0;
+                            if (
+                              range &&
+                              isNumeric &&
+                              val != null &&
+                              !Number.isNaN(Number(val))
+                            ) {
+                              const num = Number(val);
+                              const diff = range.max - range.min;
+                              if (diff > 0) {
+                                barPercent =
+                                  ((num - range.min) / diff) * 100;
+                              } else {
+                                barPercent = 100;
+                              }
+                            }
+
+                            // 参考链接
+                            const refUrl = referenceUrl
+                              ? referenceUrl(model, row.key)
+                              : undefined;
+
+                            return (
+                              <td
+                                key={model.id}
+                                className={`px-4 py-2 relative ${
+                                  isHighlighted
+                                    ? "font-bold text-emerald-600 dark:text-emerald-400"
+                                    : ""
+                                }`}
+                              >
+                                {/* 可视化柱状图 */}
+                                {barPercent > 0 && (
+                                  <div
+                                    className="absolute inset-y-1 left-0 rounded-r-sm transition-all duration-300"
+                                    style={{
+                                      width: `${Math.max(barPercent, 4)}%`,
+                                      background: isHighlighted
+                                        ? "linear-gradient(90deg, rgba(5,150,105,0.25), rgba(5,150,105,0.08))"
+                                        : "linear-gradient(90deg, rgba(107,114,128,0.12), rgba(107,114,128,0.03))",
+                                    }}
+                                  />
+                                )}
+                                {/* 内容 */}
+                                <div className="relative z-10 flex items-center gap-1.5">
+                                  <span>{displayVal}</span>
+                                  {refUrl && (
+                                    <Tooltip>
+                                      <TooltipTrigger
+                                        className="shrink-0 text-muted-foreground/50 hover:text-muted-foreground transition-colors cursor-pointer"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          window.open(refUrl, '_blank', 'noopener,noreferrer');
+                                        }}
+                                      >
+                                        <ExternalLink className="size-3" />
+                                      </TooltipTrigger>
+                                      <TooltipContent side="top" align="center" className="max-w-[400px] break-all">
+                                        <span className="font-mono text-[10px]">{refUrl}</span>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  )}
+                                </div>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </TooltipProvider>
   );
 }
 

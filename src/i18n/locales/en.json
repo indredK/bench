@@ -109,7 +109,7 @@
     "screenResolution": "Screen Resolution"
   },
   "cpuCompare": {
-    "title": "CPU Compare",
+    "title": "CPU",
     "selectModels": "Select models to compare",
     "allSelected": "All models selected",
     "comparingTitle": "Comparing {{count}} models",
@@ -132,10 +132,71 @@
     "memoryChannels": "Memory Channels",
     "pcieVersion": "PCIe Version",
     "integratedGpu": "Integrated GPU",
-    "price": "Price"
+    "price": "Price",
+    "geekbench6Single": "Geekbench 6 (Single-Core)",
+    "geekbench6Multi": "Geekbench 6 (Multi-Core)",
+    "passmarkSingle": "PassMark (Single Thread)",
+    "passmarkMulti": "PassMark (Multi-Core)",
+    "cinebench2024Single": "Cinebench 2024 (Single-Core)",
+    "cinebench2024Multi": "Cinebench 2024 (Multi-Core)",
+    "values": {
+      "brand": {
+        "intel": "Intel",
+        "amd": "AMD",
+        "apple": "Apple"
+      },
+      "series": {
+        "core_i3": "Core i3",
+        "core_i5": "Core i5",
+        "core_i7": "Core i7",
+        "core_i9": "Core i9",
+        "core_ultra_5": "Core Ultra 5",
+        "core_ultra_7": "Core Ultra 7",
+        "core_ultra_9": "Core Ultra 9",
+        "ryzen_5": "Ryzen 5",
+        "ryzen_7": "Ryzen 7",
+        "ryzen_9": "Ryzen 9",
+        "m2": "M2 Series",
+        "m3": "M3 Series",
+        "m4": "M4 Series"
+      },
+      "architecture": {
+        "alder_lake": "Alder Lake",
+        "raptor_lake": "Raptor Lake",
+        "raptor_lake_refresh": "Raptor Lake Refresh",
+        "arrow_lake": "Arrow Lake",
+        "arrow_lake_refresh": "Arrow Lake Refresh",
+        "zen_3": "Zen 3",
+        "zen_3_3d_v-cache": "Zen 3 3D V-Cache",
+        "zen_4": "Zen 4",
+        "zen_4_3d_v-cache": "Zen 4 3D V-Cache",
+        "zen_5": "Zen 5",
+        "zen_5_3d_v-cache": "Zen 5 3D V-Cache",
+        "zen_5_dual_3d_v-cache": "Zen 5 Dual 3D V-Cache",
+        "apple_m2_pro": "Apple M2 Pro",
+        "apple_m2_max": "Apple M2 Max",
+        "apple_m2_ultra": "Apple M2 Ultra",
+        "apple_m3": "Apple M3",
+        "apple_m3_pro": "Apple M3 Pro",
+        "apple_m3_max": "Apple M3 Max",
+        "apple_m4": "Apple M4",
+        "apple_m4_pro": "Apple M4 Pro",
+        "apple_m4_max": "Apple M4 Max"
+      },
+      "socket": {
+        "lga1700": "LGA 1700",
+        "lga1851": "LGA 1851",
+        "am4": "Socket AM4",
+        "am5": "Socket AM5",
+        "apple_soc": "Apple SoC"
+      },
+      "integratedGpu": {
+        "none": "None"
+      }
+    }
   },
   "gpuCompare": {
-    "title": "GPU Compare",
+    "title": "GPU",
     "selectModels": "Select models to compare",
     "allSelected": "All models selected",
     "comparingTitle": "Comparing {{count}} models",
@@ -160,7 +221,7 @@
     "pcieVersion": "PCIe Version"
   },
   "memoryCompare": {
-    "title": "Memory Compare",
+    "title": "Memory",
     "selectModels": "Select models to compare",
     "allSelected": "All models selected",
     "comparingTitle": "Comparing {{count}} models",
@@ -183,7 +244,7 @@
     "hasRgb": "RGB"
   },
   "ssdCompare": {
-    "title": "SSD Compare",
+    "title": "SSD",
     "selectModels": "Select models to compare",
     "allSelected": "All models selected",
     "comparingTitle": "Comparing {{count}} models",
@@ -207,7 +268,7 @@
     "hasHeatsink": "Heatsink"
   },
   "motherboardCompare": {
-    "title": "Motherboard Compare",
+    "title": "Motherboard",
     "selectModels": "Select models to compare",
     "allSelected": "All models selected",
     "comparingTitle": "Comparing {{count}} models",
@@ -234,7 +295,7 @@
     "rgbHeaders": "RGB Headers"
   },
   "monitorCompare": {
-    "title": "Monitor Compare",
+    "title": "Monitor",
     "selectModels": "Select models to compare",
     "allSelected": "All models selected",
     "comparingTitle": "Comparing {{count}} models",
@@ -257,7 +318,7 @@
     "vesa": "VESA Mount"
   },
   "psuCompare": {
-    "title": "PSU Compare",
+    "title": "PSU",
     "selectModels": "Select models to compare",
     "allSelected": "All models selected",
     "comparingTitle": "Comparing {{count}} models",
@@ -275,7 +336,7 @@
     "warranty": "Warranty"
   },
   "caseCompare": {
-    "title": "Case Compare",
+    "title": "Case",
     "selectModels": "Select models to compare",
     "allSelected": "All models selected",
     "comparingTitle": "Comparing {{count}} models",
@@ -296,7 +357,7 @@
     "weight": "Weight"
   },
   "coolerCompare": {
-    "title": "Cooler Compare",
+    "title": "Cooler",
     "selectModels": "Select models to compare",
     "allSelected": "All models selected",
     "comparingTitle": "Comparing {{count}} models",
@@ -317,7 +378,7 @@
     "hasDisplay": "Display"
   },
   "switchCompare": {
-    "title": "Switch Compare",
+    "title": "Switch",
     "selectModels": "Select models to compare",
     "allSelected": "All models selected",
     "comparingTitle": "Comparing {{count}} models",
@@ -339,7 +400,8 @@
   "hardwareCompare": {
     "filters": "Filters",
     "clearFilters": "Clear",
-    "filteredCount": "{{count}} found"
+    "filteredCount": "{{count}} found",
+    "viewSource": "View benchmark source"
   },
   "language": {
     "en": "English",
