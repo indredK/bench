@@ -466,6 +466,50 @@
         "edge_50": "Edge 50 Series",
         "rog_9": "ROG Phone 9 Series"
       }
+    },
+    "cameraTerms": {
+      "main": "Main",
+      "ultrawide": "Ultrawide",
+      "telephoto": "Telephoto",
+      "periscope": "Periscope Telephoto",
+      "macro": "Macro",
+      "leica": "Leica",
+      "hasselblad": "Hasselblad",
+      "zeiss": "ZEISS"
+    },
+    "fingerprintTerms": {
+      "side": "Side Fingerprint",
+      "side3d": "Side FP + 3D Face Recognition",
+      "optical": "Under-Display Optical FP",
+      "ultrasonic": "Under-Display Ultrasonic FP",
+      "ultrasonicUnder": "Ultrasonic Under-Display FP"
+    },
+    "materialTerms": {
+      "glassAlu": "Glass Body + Aluminum Frame",
+      "glassSteel": "Glass Body + Stainless Steel Frame",
+      "glassTitan": "Glass Body + Titanium Frame",
+      "glassMetal": "Glass Body + Metal Frame",
+      "glassFan": "Glass Body + Metal Frame (Built-in Fan)",
+      "titanGrade5": "Titanium Frame (Grade 5)",
+      "titan": "Titanium Frame",
+      "aluBodyVc": "Unibody Aluminum + VC Chamber",
+      "glassLeatherTitan": "Glass/Leather Body + Titanium Frame",
+      "glassLeatherAlu": "Glass/Leather Body + Aluminum Frame",
+      "glassLeatherMetal": "Glass/Leather Body + Metal Frame",
+      "glassTitanBody": "Glass/Titanium Body",
+      "glassFiberMetal": "Glass/Fiber Body + Metal Frame"
+    },
+    "waterproofTerms": {
+      "ip68_6m": "IP68 (6m/30min)",
+      "ip68_1.5m": "IP68 (1.5m/30min)",
+      "ip68_ip69": "IP68/IP69",
+      "ip68_ip69_1.5m": "IP68/IP69 (1.5m/30min)",
+      "ip68": "IP68",
+      "ip48": "IP48",
+      "ip65": "IP65"
+    },
+    "screenTerms": {
+      "underDisplay": "Under Display"
     }
   },
   "phoneChipsetCompare": {
@@ -555,6 +599,25 @@
         "手持 (防抖)": "Handheld (IS)",
         "步枪镜": "Riflescope",
         "N/A": "N/A"
+      },
+      "coating": {
+        "多层镀膜": "Multi-Coated",
+        "全表面多层镀膜": "Fully Multi-Coated",
+        "抛物面镜": "Parabolic Mirror",
+        "锗镜片多层镀膜": "Germanium Multi-Coated"
+      },
+      "waterproof": {
+        "防水": "Waterproof",
+        "防水充氮": "Nitrogen-Filled Waterproof",
+        "防水充氮 (4m)": "Nitrogen-Filled Waterproof (4m)",
+        "防水充氮 (500mbar)": "Nitrogen-Filled Waterproof (500mbar)",
+        "防水充氮 (5m)": "Nitrogen-Filled Waterproof (5m)",
+        "IPX7": "IPX7",
+        "IP67": "IP67"
+      },
+      "goto": {
+        "有 (手机辅助)": "Yes (Phone-Assisted)",
+        "有 (智能)": "Yes (Smart)"
       }
     }
   },
@@ -591,7 +654,47 @@
         "mirrorless_apsc": "APS-C Mirrorless",
         "dslr": "DSLR",
         "medium_format": "Medium Format"
+      },
+      "sensorType": {
+        "CMOS 全画幅": "Full-Frame CMOS",
+        "CMOS APS-C": "APS-C CMOS",
+        "CMOS APS-C X-Trans": "APS-C X-Trans CMOS",
+        "CMOS 中画幅 (43.8×32.9mm)": "Medium Format CMOS (43.8×32.9mm)",
+        "CMOS 全画幅 BSI": "Full-Frame BSI CMOS",
+        "CMOS 4/3 堆栈式": "Stacked 4/3 CMOS"
+      },
+      "shutterType": {
+        "机械/电子快门": "Mechanical/Electronic Shutter",
+        "电子快门": "Electronic Shutter",
+        "镜间快门/电子快门": "Leaf/Electronic Shutter"
+      },
+      "screenType": {
+        "multiAngleTilting": "Multi-Angle Tilting Screen",
+        "sideFlipTouch": "Side Flip Touch Screen",
+        "sideFlip": "Side Flip Screen",
+        "tiltingTouch": "Tilting Touch Screen",
+        "tilting": "Tilting Screen",
+        "touch": "Touch Screen",
+        "downwardTilting": "Downward Tilting Screen"
+      },
+      "stabilization": {
+        "digitalIs": "Digital IS",
+        "noLensIs": "None (Lens IS)",
+        "lensOis": "Lens IS (OIS)",
+        "ibisActiveMode": "5-Axis IBIS (Active Mode)",
+        "ibisFormat": "5-Axis IBIS ({{stops}} Stops)"
+      },
+      "viewfinder": {
+        "opticalPentaprism": "Optical Pentaprism (100% Coverage)",
+        "evfHybrid": "{{dots}}M-Dot OLED EVF (Hybrid)",
+        "evfFormat": "{{dots}}M-Dot OLED EVF"
       }
+    },
+    "units": {
+      "autofocusPoints": "pts",
+      "batteryLife": "shots (CIPA)",
+      "millionDots": "M-Dot",
+      "stops": "Stops"
     }
   },
   "hardwareCompare": {
@@ -663,7 +766,30 @@
     "qualcomm": "Qualcomm",
     "mediatek": "MediaTek",
     "google": "Google",
-    "hisilicon": "HiSilicon"
+    "hisilicon": "HiSilicon",
+    "sony": "Sony",
+    "panasonic": "Panasonic",
+    "fujifilm": "Fujifilm",
+    "pentax": "Pentax",
+    "hasselblad": "Hasselblad",
+    "leica": "Leica",
+    "zeiss": "Zeiss",
+    "celestron": "Celestron",
+    "skywatcher": "Sky-Watcher",
+    "meade": "Meade",
+    "orion": "Orion",
+    "pulsar": "Pulsar",
+    "flir": "FLIR",
+    "hikmicro": "HIKMICRO",
+    "vortex": "Vortex",
+    "swarovski": "Swarovski",
+    "bushnell": "Bushnell",
+    "unistellar": "Unistellar",
+    "zwo": "ZWO",
+    "vaonis": "Vaonis",
+    "om_system": "OM System",
+    "canon": "Canon",
+    "nikon": "Nikon"
   },
   "common": {
     "yes": "Yes",

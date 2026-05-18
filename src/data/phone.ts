@@ -2123,15 +2123,80 @@ export const phoneSpecRows: SpecRow<PhoneModel>[] = [
   { key: "gpu", label: "phoneCompare.gpu" },
   { key: "ram", label: "phoneCompare.ram", format: (v) => `${v}GB` },
   { key: "storage", label: "phoneCompare.storage" },
-  { key: "mainCamera", label: "phoneCompare.mainCamera" },
-  { key: "frontCamera", label: "phoneCompare.frontCamera" },
+  { key: "mainCamera", label: "phoneCompare.mainCamera", format: (v) => {
+    const str = String(v);
+    if (!str) return "—";
+    const terms: Record<string, string> = {
+      "主摄": "phoneCompare.cameraTerms.main",
+      "超广角": "phoneCompare.cameraTerms.ultrawide",
+      "长焦": "phoneCompare.cameraTerms.telephoto",
+      "潜望长焦": "phoneCompare.cameraTerms.periscope",
+      "微距": "phoneCompare.cameraTerms.macro",
+      "徕卡": "phoneCompare.cameraTerms.leica",
+      "哈苏": "phoneCompare.cameraTerms.hasselblad",
+      "蔡司": "phoneCompare.cameraTerms.zeiss",
+    };
+    let result = str;
+    const sorted = Object.keys(terms).sort((a, b) => b.length - a.length);
+    for (const cn of sorted) {
+      result = result.replace(cn, t(terms[cn]));
+    }
+    return result;
+  }},
+  { key: "frontCamera", label: "phoneCompare.frontCamera", format: (v) => {
+    const str = String(v);
+    if (!str) return "—";
+    return str.replace(/\(屏下\)/g, `(${t("phoneCompare.screenTerms.underDisplay")})`);
+  }},
   { key: "batteryCapacity", label: "phoneCompare.batteryCapacity", format: (v) => `${v}mAh` },
   { key: "wiredCharging", label: "phoneCompare.wiredCharging", format: (v) => `${v}W` },
   { key: "wirelessCharging", label: "phoneCompare.wirelessCharging", format: (v) => (Number(v) > 0 ? `${v}W` : "—") },
   { key: "os", label: "phoneCompare.os" },
-  { key: "waterproof", label: "phoneCompare.waterproof" },
-  { key: "fingerprint", label: "phoneCompare.fingerprint" },
-  { key: "material", label: "phoneCompare.material" },
+  { key: "waterproof", label: "phoneCompare.waterproof", format: (v) => {
+    const str = String(v);
+    if (!str || str === "无") return t("common.no");
+    // Handle "IP68 (6米/30分钟)" format
+    const match = str.match(/^(IP[\d/]+) \(([\d.]+)米\/([\d.]+)分钟\)$/);
+    if (match) {
+      const base = t(`phoneCompare.waterproofTerms.${match[1].toLowerCase().replace(/\//g, '_')}`);
+      if (base !== `phoneCompare.waterproofTerms.${match[1].toLowerCase().replace(/\//g, '_')}`) {
+        return `${base} (${match[2]}m/${match[3]}min)`;
+      }
+    }
+    const key = `phoneCompare.waterproofTerms.${str.toLowerCase().replace(/\//g, '_').replace(/\./g, '_')}`;
+    const result = t(key);
+    return result !== key ? result : str;
+  }},
+  { key: "fingerprint", label: "phoneCompare.fingerprint", format: (v) => {
+    const str = String(v);
+    if (!str) return "—";
+    if (str === "Face ID") return "Face ID";
+    const key = `phoneCompare.fingerprintTerms.${str === "侧边指纹" ? "side" : str === "侧边指纹 + 3D人脸识别" ? "side3d" : str === "屏下光学指纹" ? "optical" : str === "屏下超声波指纹" ? "ultrasonic" : str === "超声波屏下指纹" ? "ultrasonicUnder" : ""}`;
+    const result = t(key);
+    return result !== key ? result : str;
+  }},
+  { key: "material", label: "phoneCompare.material", format: (v) => {
+    const str = String(v);
+    if (!str) return "—";
+    const materialKeys: Record<string, string> = {
+      "玻璃机身 + 铝金属边框": "glassAlu",
+      "玻璃机身 + 不锈钢边框": "glassSteel",
+      "玻璃机身 + 钛金属边框": "glassTitan",
+      "玻璃机身 + 金属边框 (内置风扇)": "glassFan",
+      "玻璃机身 + 金属边框": "glassMetal",
+      "钛金属边框 (Grade 5)": "titanGrade5",
+      "钛金属边框": "titan",
+      "铝金属一体机身 + VC均热板": "aluBodyVc",
+      "玻璃/素皮机身 + 钛金属边框": "glassLeatherTitan",
+      "玻璃/素皮机身 + 铝金属边框": "glassLeatherAlu",
+      "玻璃/素皮机身 + 金属边框": "glassLeatherMetal",
+      "玻璃/钛金属机身": "glassTitanBody",
+      "玻璃/玻纤机身 + 金属边框": "glassFiberMetal",
+    };
+    const key = `phoneCompare.materialTerms.${materialKeys[str] || ""}`;
+    const result = t(key);
+    return result !== key ? result : str;
+  }},
   { key: "geekbench6Multi", label: "phoneCompare.geekbench6Multi" },
   { key: "antutuScore", label: "phoneCompare.antutuScore" },
   { key: "dxomarkCamera", label: "phoneCompare.dxomarkCamera" },

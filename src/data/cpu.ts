@@ -177,8 +177,8 @@ export const cpuSpecRows: SpecRow<CpuModel>[] = [
 
 export const cpuFilterGroups: FilterGroup<CpuModel>[] = [
   { key: "brand", label: "cpuCompare.brand", format: brandName },
-  { key: "series", label: "cpuCompare.series" },
-  { key: "socket", label: "cpuCompare.socket" },
+  { key: "series", label: "cpuCompare.series", format: (v) => i18nValue("series", v) },
+  { key: "socket", label: "cpuCompare.socket", format: (v) => i18nValue("socket", v) },
   { key: "launchYear", label: "cpuCompare.launchYear" },
 ];
 

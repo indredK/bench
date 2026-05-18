@@ -1116,10 +1116,30 @@ export const telescopeSpecRows: SpecRow<TelescopeModel>[] = [
   { key: "maxMagnification", label: "telescopeCompare.maxMagnification", format: (v) => `${v}x` },
   { key: "fieldOfView", label: "telescopeCompare.fieldOfView", format: (v) => (Number(v) > 0 ? `${v}°` : "N/A") },
   { key: "exitPupil", label: "telescopeCompare.exitPupil", format: (v) => (Number(v) > 0 ? `${v} mm` : "N/A") },
-  { key: "coating", label: "telescopeCompare.coating" },
-  { key: "waterproof", label: "telescopeCompare.waterproof", format: (v) => String(v) || "—" },
+  { key: "coating", label: "telescopeCompare.coating", format: (v) => {
+    const str = String(v);
+    if (!str) return "—";
+    const key = `telescopeCompare.values.coating.${str}`;
+    const result = t(key);
+    return result !== key ? result : str;
+  }},
+  { key: "waterproof", label: "telescopeCompare.waterproof", format: (v) => {
+    const str = String(v);
+    if (!str) return "—";
+    const key = `telescopeCompare.values.waterproof.${str}`;
+    const result = t(key);
+    return result !== key ? result : str;
+  }},
   { key: "closeFocus", label: "telescopeCompare.closeFocus", format: (v) => (Number(v) > 0 ? `${v} m` : "N/A") },
-  { key: "goto", label: "telescopeCompare.goto", format: (v) => t(`common.${v === "有" ? "yes" : v === "无" ? "no" : "na"}`) },
+  { key: "goto", label: "telescopeCompare.goto", format: (v) => {
+    const str = String(v);
+    if (str === "有") return t("common.yes");
+    if (str === "无") return t("common.no");
+    if (str === "N/A") return t("common.na");
+    const key = `telescopeCompare.values.goto.${str}`;
+    const result = t(key);
+    return result !== key ? result : str;
+  }},
   { key: "weight", label: "telescopeCompare.weight", format: (v) => `${v} kg` },
   { key: "launchYear", label: "telescopeCompare.launchYear" },
   { key: "price", label: "telescopeCompare.price", format: (v) => `$${v}` },

@@ -785,7 +785,12 @@ const categoryFormat = (val: unknown) => t(`cameraCompare.values.category.${val}
 export const cameraFilterGroups: FilterGroup<CameraModel>[] = [
   { key: "category", label: "cameraCompare.category", format: categoryFormat },
   { key: "brand", label: "cameraCompare.brand", format: brandFormat },
-  { key: "sensorType", label: "cameraCompare.sensorType" },
+  { key: "sensorType", label: "cameraCompare.sensorType", format: (v) => {
+    const str = String(v);
+    const key = `cameraCompare.values.sensorType.${str}`;
+    const result = t(key);
+    return result !== key ? result : str;
+  }},
   { key: "mount", label: "cameraCompare.mount" },
   { key: "launchYear", label: "cameraCompare.launchYear", format: (val) => String(val) },
 ];
@@ -795,20 +800,70 @@ export const cameraSpecRows: SpecRow<CameraModel>[] = [
   { key: "brand", label: "cameraCompare.brand", format: (v, _m) => brandFormat(v) },
   { key: "series", label: "cameraCompare.series" },
   { key: "model", label: "cameraCompare.model" },
-  { key: "sensorType", label: "cameraCompare.sensorType" },
+  { key: "sensorType", label: "cameraCompare.sensorType", format: (v) => {
+    const str = String(v);
+    const key = `cameraCompare.values.sensorType.${str}`;
+    const result = t(key);
+    return result !== key ? result : str;
+  }},
   { key: "megapixels", label: "cameraCompare.megapixels", format: (v) => `${v} MP` },
   { key: "isoRange", label: "cameraCompare.isoRange" },
   { key: "mount", label: "cameraCompare.mount" },
-  { key: "shutterType", label: "cameraCompare.shutterType" },
+  { key: "shutterType", label: "cameraCompare.shutterType", format: (v) => {
+    const str = String(v);
+    const key = `cameraCompare.values.shutterType.${str}`;
+    const result = t(key);
+    return result !== key ? result : str;
+  }},
   { key: "shutterSpeed", label: "cameraCompare.shutterSpeed" },
   { key: "burstRate", label: "cameraCompare.burstRate", format: (v) => `${v} fps` },
   { key: "videoMax", label: "cameraCompare.videoMax" },
-  { key: "autofocusPoints", label: "cameraCompare.autofocusPoints", format: (v) => `${v} 点` },
+  { key: "autofocusPoints", label: "cameraCompare.autofocusPoints", format: (v) => `${v} ${t("cameraCompare.units.autofocusPoints")}` },
   { key: "storageMedia", label: "cameraCompare.storageMedia" },
-  { key: "batteryLife", label: "cameraCompare.batteryLife", format: (v) => `${v} 张 (CIPA)` },
-  { key: "stabilization", label: "cameraCompare.stabilization" },
-  { key: "viewfinder", label: "cameraCompare.viewfinder" },
-  { key: "screenType", label: "cameraCompare.screenType" },
+  { key: "batteryLife", label: "cameraCompare.batteryLife", format: (v) => `${v} ${t("cameraCompare.units.batteryLife")}` },
+  { key: "stabilization", label: "cameraCompare.stabilization", format: (v) => {
+    const str = String(v);
+    if (str === "无") return t("common.no");
+    if (str === "数码 IS") return t("cameraCompare.values.stabilization.digitalIs");
+    if (str === "无 (镜头防抖)") return t("cameraCompare.values.stabilization.noLensIs");
+    if (str === "镜头防抖 (OIS)") return t("cameraCompare.values.stabilization.lensOis");
+    if (str === "机身5轴防抖 (增强模式)") return t("cameraCompare.values.stabilization.ibisActiveMode");
+    const ibisMatch = str.match(/^机身5轴防抖 \(([\d.]+)级\)$/);
+    if (ibisMatch) return t("cameraCompare.values.stabilization.ibisFormat", { stops: ibisMatch[1] });
+    return str;
+  }},
+  { key: "viewfinder", label: "cameraCompare.viewfinder", format: (v) => {
+    const str = String(v);
+    if (str === "无") return t("common.no");
+    if (str === "光学五棱镜 (100%视野)") return t("cameraCompare.values.viewfinder.opticalPentaprism");
+    const hybridMatch = str.match(/^([\d]+)万点 OLED EVF \(混合\)$/);
+    if (hybridMatch) return t("cameraCompare.values.viewfinder.evfHybrid", { dots: hybridMatch[1] });
+    const evfMatch = str.match(/^([\d]+)万点 OLED EVF$/);
+    if (evfMatch) return t("cameraCompare.values.viewfinder.evfFormat", { dots: evfMatch[1] });
+    return str;
+  }},
+  { key: "screenType", label: "cameraCompare.screenType", format: (v) => {
+    const str = String(v);
+    if (!str) return "—";
+    const termMap: Record<string, string> = {
+      "多轴翻转屏": "cameraCompare.values.screenType.multiAngleTilting",
+      "侧翻触控屏": "cameraCompare.values.screenType.sideFlipTouch",
+      "侧翻屏": "cameraCompare.values.screenType.sideFlip",
+      "翻转触控屏": "cameraCompare.values.screenType.tiltingTouch",
+      "翻转屏": "cameraCompare.values.screenType.tilting",
+      "触控屏": "cameraCompare.values.screenType.touch",
+      "下翻屏": "cameraCompare.values.screenType.downwardTilting",
+    };
+    let result = str;
+    // Replace from longest to shortest to avoid partial matches
+    const sortedTerms = Object.keys(termMap).sort((a, b) => b.length - a.length);
+    for (const cn of sortedTerms) {
+      result = result.replace(cn, t(termMap[cn]));
+    }
+    result = result.replace(/万点/g, t("cameraCompare.units.millionDots"));
+    result = result.replace(/\\"/g, '"');
+    return result;
+  }},
   { key: "weight", label: "cameraCompare.weight", format: (v) => `${v}g` },
   { key: "launchYear", label: "cameraCompare.launchYear" },
   { key: "price", label: "cameraCompare.price", format: (v) => `$${v}` },

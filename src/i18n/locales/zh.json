@@ -466,6 +466,50 @@
         "edge_50": "Edge 50 系列",
         "rog_9": "ROG Phone 9 系列"
       }
+    },
+    "cameraTerms": {
+      "main": "主摄",
+      "ultrawide": "超广角",
+      "telephoto": "长焦",
+      "periscope": "潜望长焦",
+      "macro": "微距",
+      "leica": "徕卡",
+      "hasselblad": "哈苏",
+      "zeiss": "蔡司"
+    },
+    "fingerprintTerms": {
+      "side": "侧边指纹",
+      "side3d": "侧边指纹 + 3D人脸识别",
+      "optical": "屏下光学指纹",
+      "ultrasonic": "屏下超声波指纹",
+      "ultrasonicUnder": "超声波屏下指纹"
+    },
+    "materialTerms": {
+      "glassAlu": "玻璃机身 + 铝金属边框",
+      "glassSteel": "玻璃机身 + 不锈钢边框",
+      "glassTitan": "玻璃机身 + 钛金属边框",
+      "glassMetal": "玻璃机身 + 金属边框",
+      "glassFan": "玻璃机身 + 金属边框 (内置风扇)",
+      "titanGrade5": "钛金属边框 (Grade 5)",
+      "titan": "钛金属边框",
+      "aluBodyVc": "铝金属一体机身 + VC均热板",
+      "glassLeatherTitan": "玻璃/素皮机身 + 钛金属边框",
+      "glassLeatherAlu": "玻璃/素皮机身 + 铝金属边框",
+      "glassLeatherMetal": "玻璃/素皮机身 + 金属边框",
+      "glassTitanBody": "玻璃/钛金属机身",
+      "glassFiberMetal": "玻璃/玻纤机身 + 金属边框"
+    },
+    "waterproofTerms": {
+      "ip68_6m": "IP68 (6米/30分钟)",
+      "ip68_1.5m": "IP68 (1.5米/30分钟)",
+      "ip68_ip69": "IP68/IP69",
+      "ip68_ip69_1.5m": "IP68/IP69 (1.5米/30分钟)",
+      "ip68": "IP68",
+      "ip48": "IP48",
+      "ip65": "IP65"
+    },
+    "screenTerms": {
+      "underDisplay": "屏下"
     }
   },
   "phoneChipsetCompare": {
@@ -555,6 +599,25 @@
         "手持 (防抖)": "手持(防抖)",
         "步枪镜": "步枪镜",
         "N/A": "—"
+      },
+      "coating": {
+        "多层镀膜": "多层镀膜",
+        "全表面多层镀膜": "全表面多层镀膜",
+        "抛物面镜": "抛物面镜",
+        "锗镜片多层镀膜": "锗镜片多层镀膜"
+      },
+      "waterproof": {
+        "防水": "防水",
+        "防水充氮": "防水充氮",
+        "防水充氮 (4m)": "防水充氮（4m）",
+        "防水充氮 (500mbar)": "防水充氮（500mbar）",
+        "防水充氮 (5m)": "防水充氮（5m）",
+        "IPX7": "IPX7",
+        "IP67": "IP67"
+      },
+      "goto": {
+        "有 (手机辅助)": "有（手机辅助）",
+        "有 (智能)": "有（智能）"
       }
     }
   },
@@ -591,7 +654,47 @@
         "mirrorless_apsc": "APS-C 无反",
         "dslr": "单反",
         "medium_format": "中画幅"
+      },
+      "sensorType": {
+        "CMOS 全画幅": "CMOS 全画幅",
+        "CMOS APS-C": "CMOS APS-C",
+        "CMOS APS-C X-Trans": "CMOS APS-C X-Trans",
+        "CMOS 中画幅 (43.8×32.9mm)": "CMOS 中画幅（43.8×32.9mm）",
+        "CMOS 全画幅 BSI": "CMOS 全画幅 BSI",
+        "CMOS 4/3 堆栈式": "CMOS 4/3 堆栈式"
+      },
+      "shutterType": {
+        "机械/电子快门": "机械/电子快门",
+        "电子快门": "电子快门",
+        "镜间快门/电子快门": "镜间快门/电子快门"
+      },
+      "screenType": {
+        "multiAngleTilting": "多轴翻转屏",
+        "sideFlipTouch": "侧翻触控屏",
+        "sideFlip": "侧翻屏",
+        "tiltingTouch": "翻转触控屏",
+        "tilting": "翻转屏",
+        "touch": "触控屏",
+        "downwardTilting": "下翻屏"
+      },
+      "stabilization": {
+        "digitalIs": "数码 IS",
+        "noLensIs": "无（镜头防抖）",
+        "lensOis": "镜头防抖（OIS）",
+        "ibisActiveMode": "机身5轴防抖（增强模式）",
+        "ibisFormat": "机身5轴防抖（{{stops}}级）"
+      },
+      "viewfinder": {
+        "opticalPentaprism": "光学五棱镜（100%视野）",
+        "evfHybrid": "{{dots}}万点 OLED EVF（混合）",
+        "evfFormat": "{{dots}}万点 OLED EVF"
       }
+    },
+    "units": {
+      "autofocusPoints": "点",
+      "batteryLife": "张（CIPA）",
+      "millionDots": "万点",
+      "stops": "级"
     }
   },
   "hardwareCompare": {
@@ -663,7 +766,30 @@
     "qualcomm": "高通",
     "mediatek": "联发科",
     "google": "谷歌",
-    "hisilicon": "海思"
+    "hisilicon": "海思",
+    "sony": "索尼",
+    "panasonic": "松下",
+    "fujifilm": "富士",
+    "pentax": "宾得",
+    "hasselblad": "哈苏",
+    "leica": "徕卡",
+    "zeiss": "蔡司",
+    "celestron": "星特朗",
+    "skywatcher": "信达",
+    "meade": "米德",
+    "orion": "Orion",
+    "pulsar": "脉冲星",
+    "flir": "菲力尔",
+    "hikmicro": "海康微影",
+    "vortex": "Vortex",
+    "swarovski": "施华洛世奇",
+    "bushnell": "博士能",
+    "unistellar": "Unistellar",
+    "zwo": "振旺",
+    "vaonis": "Vaonis",
+    "om_system": "奥之心",
+    "canon": "佳能",
+    "nikon": "尼康"
   },
   "common": {
     "yes": "有",
