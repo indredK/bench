@@ -405,7 +405,9 @@
     "noModelsSelected": "请从上方选择要对比的型号",
     "clearSelected": "清除已选",
     "collapseFilters": "收起筛选",
-    "expandFilters": "展开筛选"
+    "expandFilters": "展开筛选",
+    "autoExpandHint": "悬停自动展开，点击固定",
+    "pinnedHint": "固定展开，点击启用自动展开"
   },
   "brands": {
     "intel": "英特尔",

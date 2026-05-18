@@ -1,7 +1,7 @@
 import { useMemo, useState, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n/config";
-import { RotateCcw, Plus, X, ChevronDown, ChevronUp } from "lucide-react";
+import { RotateCcw, Plus, X, ChevronDown, Pin, PinOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -53,25 +53,36 @@ function FilterBar<T extends { id: string; model: string }>({
 }: FilterBarProps<T>) {
   const { t } = useTranslation();
   const hasActiveFilters = Object.keys(filters).length > 0;
-  const [masterCollapsed, setMasterCollapsed] = useState(true);
+  const [masterCollapsed, setMasterCollapsed] = useState(false);
+  const [autoMode, setAutoMode] = useState(false);
   const [modelsCollapsed, setModelsCollapsed] = useState(false);
   const collapseTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const expandOnHover = useCallback(() => {
+    if (!autoMode) return;
     if (collapseTimer.current) clearTimeout(collapseTimer.current);
     setMasterCollapsed(false);
-  }, []);
+  }, [autoMode]);
 
   const collapseOnLeave = useCallback(() => {
+    if (!autoMode) return;
     collapseTimer.current = setTimeout(() => {
       setMasterCollapsed(true);
     }, 400);
-  }, []);
+  }, [autoMode]);
 
   const toggleMaster = useCallback(() => {
     if (collapseTimer.current) clearTimeout(collapseTimer.current);
-    setMasterCollapsed((prev) => !prev);
-  }, []);
+    if (autoMode) {
+      // 点击：退出自动模式，保持展开
+      setAutoMode(false);
+      setMasterCollapsed(false);
+    } else {
+      // 点击：收起并进入自动模式
+      setAutoMode(true);
+      setMasterCollapsed(true);
+    }
+  }, [autoMode]);
 
   // Compute cascading filter options: each group's options are constrained
   // by all OTHER active filters (so brand → series → socket → launchYear cascade)
@@ -139,14 +150,19 @@ function FilterBar<T extends { id: string; model: string }>({
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 w-6 p-0 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-all duration-200"
+            className={cn(
+              "h-6 w-6 p-0 rounded-full transition-all duration-300 group",
+              autoMode
+                ? "text-muted-foreground hover:text-foreground hover:bg-muted/80"
+                : "bg-primary/10 text-primary hover:bg-primary/20 ring-1 ring-primary/20"
+            )}
             onClick={toggleMaster}
-            title={masterCollapsed ? t("hardwareCompare.expandFilters") : t("hardwareCompare.collapseFilters")}
+            title={autoMode ? t("hardwareCompare.autoExpandHint") : t("hardwareCompare.pinnedHint")}
           >
-            {masterCollapsed ? (
-              <ChevronDown className="size-3.5" />
+            {autoMode ? (
+              <PinOff className="size-3.5 transition-transform duration-300 group-hover:scale-110" />
             ) : (
-              <ChevronUp className="size-3.5" />
+              <Pin className="size-3.5 transition-transform duration-300 group-hover:scale-110" />
             )}
           </Button>
         </div>

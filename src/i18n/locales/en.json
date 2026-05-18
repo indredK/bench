@@ -405,7 +405,9 @@
     "noModelsSelected": "Select models above to compare",
     "clearSelected": "Clear selected",
     "collapseFilters": "Collapse filters",
-    "expandFilters": "Expand filters"
+    "expandFilters": "Expand filters",
+    "autoExpandHint": "Hover to expand, click to pin",
+    "pinnedHint": "Pinned open, click for auto-expand"
   },
   "brands": {
     "intel": "Intel",
