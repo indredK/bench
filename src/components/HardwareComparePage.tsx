@@ -10,6 +10,7 @@ import {
   Box,
   Wind,
   Network,
+  Smartphone,
 } from "lucide-react";
 import HardwareCompare from "@/components/HardwareCompare";
 import { cpuModule } from "@/data/cpu";
@@ -22,6 +23,7 @@ import { psuModule } from "@/data/psu";
 import { caseModule } from "@/data/case";
 import { coolerModule } from "@/data/cooler";
 import { switchModule } from "@/data/switch";
+import { phoneModule } from "@/data/phone";
 import type { CompareDataModule } from "@/components/HardwareCompare";
 import { Button } from "@/components/ui/button";
 
@@ -48,6 +50,7 @@ function HardwareComparePage() {
     { id: "case",        i18nPrefix: "caseCompare",        icon: <Box size={16} />,         module: caseModule },
     { id: "cooler",      i18nPrefix: "coolerCompare",      icon: <Wind size={16} />,        module: coolerModule },
     { id: "switch",      i18nPrefix: "switchCompare",      icon: <Network size={16} />,     module: switchModule },
+    { id: "phone",       i18nPrefix: "phoneCompare",       icon: <Smartphone size={16} />,  module: phoneModule },
   ];
 
   const active = tabs.find((t) => t.id === activeTab) ?? tabs[0];
