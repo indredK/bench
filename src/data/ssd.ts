@@ -1,5 +1,6 @@
 import type { CompareDataModule, SpecRow, FilterGroup } from "@/components/HardwareCompare";
 import { brandName } from "@/lib/i18nBrand";
+import { t } from "i18next";
 
 export interface SsdModel {
   id: string;
@@ -60,7 +61,7 @@ export const ssdSpecRows: SpecRow<SsdModel>[] = [
   { key: "tbw", label: "ssdCompare.tbw", format: (v) => `${v} TB` },
   { key: "mtbf", label: "ssdCompare.mtbf", format: (v) => `${v}M hours` },
   { key: "warranty", label: "ssdCompare.warranty" },
-  { key: "hasHeatsink", label: "ssdCompare.hasHeatsink" },
+  { key: "hasHeatsink", label: "ssdCompare.hasHeatsink", format: (v) => { const s = String(v); return s === "Yes" ? t("common.yes") : s === "No" ? t("common.no") : s === "Optional" ? t("common.optional") : s === "Included" ? t("common.included") : s; } },
 ];
 
 export const ssdFilterGroups: FilterGroup<SsdModel>[] = [

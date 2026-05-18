@@ -44,7 +44,7 @@ function SystemInfo({ active }: { active: boolean }) {
         setSystemInfo(browserInfo);
       }
     } catch (e) {
-      setError(typeof e === "string" ? e : "Failed to load system information");
+      setError(typeof e === "string" ? e : t("systemInfo.loadFailed"));
     } finally {
       setLoading(false);
     }

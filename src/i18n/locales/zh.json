@@ -95,6 +95,7 @@
     "loading": "正在加载系统信息...",
     "retry": "重试",
     "refresh": "刷新",
+    "loadFailed": "加载系统信息失败",
     "osName": "操作系统",
     "osVersion": "系统版本",
     "kernelVersion": "内核版本",
@@ -491,12 +492,17 @@
     "antutuScore": "安兔兔跑分",
     "values": {
       "series": {
-        "a_series": "A 系列",
-        "snapdragon_8": "Snapdragon 8 系列",
-        "dimensity_9000": "Dimensity 9000 系列",
+        "a_series": "Apple A 系列",
+        "snapdragon_8": "骁龙 8 系列",
+        "snapdragon_8s": "骁龙 8s 系列",
+        "snapdragon_7": "骁龙 7 系列",
+        "dimensity_9000": "天玑 9000 系列",
+        "dimensity_8000": "天玑 8000 系列",
+        "exynos_2200": "Exynos 2200 系列",
         "exynos_2400": "Exynos 2400 系列",
+        "exynos_2500": "Exynos 2500 系列",
         "tensor": "Tensor 系列",
-        "kirin_9000": "Kirin 9000 系列"
+        "kirin_9000": "麒麟 9000 系列"
       }
     }
   },
@@ -516,11 +522,6 @@
     "fRatio": "焦比",
     "mountType": "支架类型",
     "maxMagnification": "最大倍数",
-    "fieldOfView": "视野",
-    "exitPupil": "出瞳直径",
-    "coating": "镜片镀膜",
-    "waterproof": "防水等级",
-    "closeFocus": "近焦距离",
     "goto": "GOTO 自动寻星",
     "weight": "重量",
     "launchYear": "发布年份",
@@ -570,9 +571,6 @@
     "shutterSpeed": "快门速度",
     "burstRate": "连拍速度",
     "videoMax": "最高视频规格",
-    "autofocusPoints": "对焦点",
-    "storageMedia": "存储介质",
-    "batteryLife": "电池续航",
     "stabilization": "防抖",
     "viewfinder": "取景器",
     "screenType": "屏幕",
@@ -654,13 +652,19 @@
     "redmagic": "红魔",
     "meizu": "魅族",
     "motorola": "摩托罗拉",
-    "zeiss": "蔡司",
-    "leica": "徕卡",
-    "bushnell": "博士能",
-    "unistellar": "Unistellar",
-    "zwo": "ZWO",
-    "vaonis": "Vaonis",
-    "om_system": "OM System"
+    "qualcomm": "高通",
+    "mediatek": "联发科",
+    "google": "谷歌",
+    "hisilicon": "海思"
+  },
+  "common": {
+    "yes": "有",
+    "no": "无",
+    "none": "无",
+    "optional": "可选",
+    "included": "附赠",
+    "na": "—",
+    "withParenthesis": "{{prefix}}（{{detail}}）"
   },
   "language": {
     "en": "English",

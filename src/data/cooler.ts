@@ -1,5 +1,6 @@
 import type { CompareDataModule, SpecRow, FilterGroup } from "@/components/HardwareCompare";
 import { brandName } from "@/lib/i18nBrand";
+import { t } from "i18next";
 
 export interface CoolerModel {
   id: string;
@@ -47,8 +48,8 @@ export const coolerSpecRows: SpecRow<CoolerModel>[] = [
   { key: "tdp", label: "coolerCompare.tdp", format: (v) => `${v} W` },
   { key: "height", label: "coolerCompare.height" },
   { key: "socketSupport", label: "coolerCompare.socketSupport" },
-  { key: "hasRgb", label: "coolerCompare.hasRgb" },
-  { key: "hasDisplay", label: "coolerCompare.hasDisplay" },
+  { key: "hasRgb", label: "coolerCompare.hasRgb", format: (v) => String(v).startsWith("Yes") ? t(`common.yes`) + (String(v).includes("(") ? ` (${String(v).match(/\(([^)]+)\)/)![1]})` : "") : t("common.no") },
+  { key: "hasDisplay", label: "coolerCompare.hasDisplay", format: (v) => String(v).startsWith("Yes") ? t(`common.yes`) + (String(v).includes("(") ? ` (${String(v).match(/\(([^)]+)\)/)![1]})` : "") : t("common.no") },
 ];
 
 export const coolerFilterGroups: FilterGroup<CoolerModel>[] = [
