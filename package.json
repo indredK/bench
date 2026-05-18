@@ -4,6 +4,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "setup": "powershell -ExecutionPolicy Bypass -File scripts/setup.ps1",
+    "setup:unix": "bash scripts/setup.sh",
     "dev": "vite",
     "tauri:dev": "tauri dev",
     "build": "tsc && vite build",
@@ -50,3 +52,4 @@
     "vitest": "^4.1.6"
   }
 }
+
