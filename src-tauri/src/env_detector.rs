@@ -1,6 +1,6 @@
 use chrono::{DateTime, Local};
 use serde::Serialize;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -8,6 +8,7 @@ use std::process::Command;
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
+use tauri::{AppHandle, Emitter};
 
 #[derive(Debug, Serialize, Clone)]
 pub struct EnvTool {
@@ -20,70 +21,69 @@ pub struct EnvTool {
     pub available: bool,
 }
 
-const TOOL_DISPLAY_NAMES: &[(&str, &str)] = &[
-    ("node", "Node.js"),
-    ("npm", "npm"),
-    ("npx", "npx"),
-    ("yarn", "Yarn"),
-    ("pnpm", "pnpm"),
-    ("bun", "Bun"),
-    ("deno", "Deno"),
-    ("python", "Python"),
-    ("python3", "Python 3"),
-    ("pip", "pip"),
-    ("pip3", "pip3"),
-    ("go", "Go"),
-    ("rustc", "Rust (rustc)"),
-    ("cargo", "Cargo"),
-    ("java", "Java"),
-    ("git", "Git"),
-    ("docker", "Docker"),
-    ("docker-compose", "Docker Compose"),
-    ("docker compose", "Docker Compose"),
-    ("kubectl", "kubectl"),
-    ("code", "VS Code"),
-    ("code-insiders", "VS Code Insiders"),
-    ("codex", "Codex CLI"),
-    ("gemini", "Gemini CLI"),
-    ("claude", "Claude CLI"),
-    ("cursor", "Cursor"),
-    ("windsurf", "Windsurf"),
-    ("nvim", "Neovim"),
-    ("vim", "Vim"),
-    ("nano", "Nano"),
-    ("curl", "curl"),
-    ("wget", "wget"),
-    ("cmake", "CMake"),
-    ("make", "Make"),
-    ("gcc", "GCC"),
-    ("g++", "G++"),
-    ("clang", "Clang"),
-    ("dotnet", ".NET SDK"),
-    ("flutter", "Flutter"),
-    ("dart", "Dart"),
-    ("tauri", "Tauri CLI"),
-    ("psql", "PostgreSQL (psql)"),
-    ("sqlite3", "SQLite"),
-    ("mongosh", "MongoDB Shell"),
-    ("redis-cli", "Redis CLI"),
-    ("ssh", "SSH"),
-    ("terraform", "Terraform"),
-    ("ansible", "Ansible"),
-    ("podman", "Podman"),
-    ("minikube", "Minikube"),
-    ("helm", "Helm"),
-    ("gh", "GitHub CLI"),
-    ("aws", "AWS CLI"),
-    ("az", "Azure CLI"),
-    ("gcloud", "Google Cloud CLI"),
-    ("vercel", "Vercel CLI"),
-    ("wrangler", "Wrangler (Cloudflare)"),
-    ("ngrok", "ngrok"),
-    ("jq", "jq"),
-    ("scoop", "Scoop"),
-    ("choco", "Chocolatey"),
-    ("winget", "winget"),
-    ("brew", "Homebrew"),
+const TOOL_BINARIES: &[&str] = &[
+    "node",
+    "npm",
+    "npx",
+    "yarn",
+    "pnpm",
+    "bun",
+    "deno",
+    "python",
+    "python3",
+    "pip",
+    "pip3",
+    "go",
+    "rustc",
+    "cargo",
+    "java",
+    "git",
+    "docker",
+    "docker-compose",
+    "kubectl",
+    "code",
+    "code-insiders",
+    "codex",
+    "gemini",
+    "claude",
+    "cursor",
+    "windsurf",
+    "nvim",
+    "vim",
+    "nano",
+    "curl",
+    "wget",
+    "cmake",
+    "make",
+    "gcc",
+    "g++",
+    "clang",
+    "dotnet",
+    "flutter",
+    "dart",
+    "tauri",
+    "psql",
+    "sqlite3",
+    "mongosh",
+    "redis-cli",
+    "ssh",
+    "terraform",
+    "ansible",
+    "podman",
+    "minikube",
+    "helm",
+    "gh",
+    "aws",
+    "az",
+    "gcloud",
+    "vercel",
+    "wrangler",
+    "ngrok",
+    "jq",
+    "scoop",
+    "choco",
+    "winget",
+    "brew",
 ];
 
 const SKIP_DIR_PREFIXES: &[&str] = &[
@@ -100,44 +100,41 @@ const SKIP_DIR_PREFIXES: &[&str] = &[
 /// Maximum seconds to wait for a single `--version` probe.
 const PROBE_TIMEOUT_SECS: u64 = 3;
 
+#[derive(Debug, Serialize, Clone)]
+pub struct ScanDonePayload {
+    pub unavailable: Vec<EnvTool>,
+}
+
 #[tauri::command]
-pub async fn detect_env_tools() -> Vec<EnvTool> {
-    tokio::task::spawn_blocking(|| {
+pub async fn detect_env_tools(app_handle: AppHandle) {
+    tokio::task::spawn_blocking(move || {
         match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            detect_env_tools_inner()
+            detect_env_tools_inner(app_handle);
         })) {
-            Ok(result) => result,
+            Ok(()) => {}
             Err(_) => {
                 eprintln!("[env_detector] panic caught, returning empty result");
-                Vec::new()
             }
         }
     })
     .await
-    .unwrap_or_else(|_| Vec::new())
+    .unwrap_or_else(|_| {});
 }
 
-fn detect_env_tools_inner() -> Vec<EnvTool> {
+fn detect_env_tools_inner(app_handle: AppHandle) {
     let is_windows = cfg!(target_os = "windows");
 
-    let display_names: HashMap<&str, &str> = TOOL_DISPLAY_NAMES
-        .iter()
-        .map(|&(bin, name)| (bin, name))
-        .collect();
+    let tool_set: HashSet<&str> = TOOL_BINARIES.iter().copied().collect();
 
-    // Scan PATH and get (name, full_path) pairs — NO `where`/`which` calls
     let entries = scan_path_entries(is_windows);
 
     let mut found_set: HashSet<String> = HashSet::new();
-    let mut results: Vec<EnvTool> = Vec::new();
 
-    // Filter entries to only process tools we care about
     let relevant_entries: Vec<_> = entries
         .into_iter()
-        .filter(|(name, _)| display_names.contains_key(name.as_str()))
+        .filter(|(name, _)| tool_set.contains(name.as_str()))
         .collect();
 
-    // Parallel version probing to avoid sequential timeouts
     let (tx, rx) = mpsc::channel();
     let mut handles = Vec::new();
 
@@ -157,38 +154,33 @@ fn detect_env_tools_inner() -> Vec<EnvTool> {
         handles.push(handle);
     }
 
-    // Collect results from threads
     for _ in 0..relevant_entries.len() {
         if let Ok((name, full_path, version, size_bytes, size_display, install_time)) = rx.recv_timeout(Duration::from_secs(PROBE_TIMEOUT_SECS * 2)) {
             found_set.insert(name.clone());
 
-            let display_name = display_names
-                .get(name.as_str())
-                .map(|&s| s.to_string())
-                .unwrap_or_else(|| name.clone());
-
-            results.push(EnvTool {
-                name: display_name,
+            let tool = EnvTool {
+                name: name.clone(),
                 version,
                 path: full_path.to_string_lossy().to_string(),
                 size_bytes,
                 size_display,
                 install_time,
                 available: true,
-            });
+            };
+
+            let _ = app_handle.emit("env-tool-found", &tool);
         }
     }
 
-    // Wait for remaining threads to finish (non-blocking)
     for handle in handles {
         let _ = handle.join();
     }
 
-    // Add missing known tools
-    for &(binary, display_name) in TOOL_DISPLAY_NAMES {
+    let mut unavailable: Vec<EnvTool> = Vec::new();
+    for &binary in TOOL_BINARIES {
         if !found_set.contains(binary) {
-            results.push(EnvTool {
-                name: display_name.to_string(),
+            unavailable.push(EnvTool {
+                name: binary.to_string(),
                 version: String::new(),
                 path: String::new(),
                 size_bytes: 0,
@@ -199,14 +191,7 @@ fn detect_env_tools_inner() -> Vec<EnvTool> {
         }
     }
 
-    results.sort_by(|a, b| {
-        a.available
-            .cmp(&b.available)
-            .reverse()
-            .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
-    });
-
-    results
+    let _ = app_handle.emit("env-scan-done", ScanDonePayload { unavailable });
 }
 
 /// Scan PATH directories and return (stem_name, full_path) for each executable found.

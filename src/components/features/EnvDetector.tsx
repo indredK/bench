@@ -1,6 +1,7 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { invoke, isTauri } from "@tauri-apps/api/core";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import {
   Card,
   CardHeader,
@@ -43,38 +44,71 @@ function EnvDetector({ active: _active }: { active: boolean }) {
   const { t } = useTranslation();
   const [tools, setTools] = useState<EnvTool[]>([]);
   const [loading, setLoading] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"name" | "size" | "installTime">("name");
   const [sortDesc, setSortDesc] = useState(false);
   const [scanned, setScanned] = useState(false);
+  const unlistenersRef = useRef<UnlistenFn[]>([]);
+  const scanningRef = useRef(false);
+  const triggeredRef = useRef(false);
+
+  const cleanupListeners = useCallback(() => {
+    for (const unlisten of unlistenersRef.current) {
+      unlisten();
+    }
+    unlistenersRef.current = [];
+  }, []);
 
   const loadTools = useCallback(async () => {
+    if (scanningRef.current) return;
+    scanningRef.current = true;
+
     setLoading(true);
+    setScanning(true);
     setError("");
+    setTools([]);
+
+    cleanupListeners();
 
     try {
       if (isTauriEnv()) {
-        const result: EnvTool[] = await invoke("detect_env_tools");
-        setTools(result);
-      } else {
-        setTools([]);
+        const unlisten1 = await listen<EnvTool>("env-tool-found", (event) => {
+          setTools((prev) => [...prev, event.payload]);
+        });
+        const unlisten2 = await listen<{ unavailable: EnvTool[] }>("env-scan-done", (event) => {
+          setTools((prev) => [...prev, ...event.payload.unavailable]);
+          setScanning(false);
+          scanningRef.current = false;
+          cleanupListeners();
+        });
+
+        unlistenersRef.current = [unlisten1, unlisten2];
+
+        await invoke("detect_env_tools");
       }
       setScanned(true);
     } catch (e) {
       console.warn("[EnvDetector] Failed to detect tools:", e);
       setTools([]);
+      setScanning(false);
+      scanningRef.current = false;
       setScanned(true);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [cleanupListeners]);
 
   useEffect(() => {
-    if (isTauriEnv() && !scanned) {
+    if (isTauriEnv() && !scanned && !triggeredRef.current) {
+      triggeredRef.current = true;
       loadTools();
     }
-  }, [loadTools, scanned]);
+    return () => {
+      cleanupListeners();
+    };
+  }, [loadTools, scanned, cleanupListeners]);
 
   const statusCounts = {
     total: tools.length,
@@ -141,9 +175,9 @@ function EnvDetector({ active: _active }: { active: boolean }) {
                 variant="outline"
                 size="sm"
                 onClick={loadTools}
-                disabled={loading}
+                disabled={scanning}
               >
-                {loading ? (
+                {scanning ? (
                   <>
                     <span className="mr-1.5 size-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
                     {t("envDetector.scanning")}
@@ -154,6 +188,9 @@ function EnvDetector({ active: _active }: { active: boolean }) {
               </Button>
             </div>
             <div className="flex items-center justify-end">
+              {scanning && (
+                <span className="mr-2 size-2 animate-pulse rounded-full bg-primary" />
+              )}
               <p className="text-sm text-muted-foreground">
                 {t("envDetector.summary", {
                   available: statusCounts.available,
@@ -165,12 +202,12 @@ function EnvDetector({ active: _active }: { active: boolean }) {
 
           {/* Table Area */}
           <div className="flex-1 min-h-0">
-            {loading ? (
+            {loading && tools.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground rounded-lg border">
                 <div className="size-8 animate-spin rounded-full border-[3px] border-muted border-t-primary" />
                 <p>{t("envDetector.scanning")}</p>
               </div>
-            ) : filteredTools.length > 0 ? (
+            ) : tools.length > 0 ? (
               <StickyTable containerClassName="h-full min-h-0 rounded-lg border">
                 <StickyTableHeader>
                   <StickyTableRow>
