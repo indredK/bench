@@ -10,12 +10,13 @@ import {
   TooltipProvider,
 } from "@/components/ui/tooltip";
 import {
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "@/components/ui/table";
+  StickyTable,
+  StickyTableHeader,
+  StickyTableBody,
+  StickyTableRow,
+  StickyTableHead,
+  StickyTableCell,
+} from "@/components/ui/StickyTable";
 import { cn } from "@/lib/utils";
 import FilterBar from "@/components/FilterBar";
 import type { FilterGroup } from "@/components/FilterBar";
@@ -166,154 +167,148 @@ function HardwareCompare<T extends { id: string; model: string }>({
                   })}
                 </p>
               </div>
-              <div className="rounded-xl border shadow-xs flex-1 min-h-0 overflow-auto">
-                <table className="w-full caption-bottom text-sm border-collapse bg-background">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="sticky top-0 left-0 z-40 bg-muted font-semibold text-muted-foreground border-r border-border shadow-[4px_0_8px_-4px_rgba(0,0,0,0.15),0_2px_6px_-2px_rgba(0,0,0,0.12)]">
-                        {t(`${i18nPrefix}.specification`)}
-                      </TableHead>
-                      {selectedModels.map((model) => (
-                        <TableHead
-                          key={model.id}
-                          className="sticky top-0 z-20 bg-muted font-semibold min-w-[140px] shadow-[0_2px_6px_-2px_rgba(0,0,0,0.12)]"
-                        >
-                          <div className="flex items-center gap-2">
-                            <div className="size-2 shrink-0 rounded-full bg-primary/40" />
-                            <span className="truncate font-medium">
-                              {model.model}
-                            </span>
-                            <Button
-                              variant="ghost"
-                              size="icon-xs"
-                              className="shrink-0 ml-auto opacity-60 hover:opacity-100 transition-opacity"
-                              onClick={() => toggleModel(model.id)}
-                            >
-                              <X className="size-3" />
-                            </Button>
-                          </div>
-                        </TableHead>
-                      ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {specRows.map((row, idx) => {
-                      const isBest = bestValues.has(row.key);
-                      const range = rangeValues.get(row.key);
-                      const isNumeric =
-                        numericKeys.includes(row.key) ||
-                        inverseKeys.includes(row.key);
-                      return (
-                        <TableRow
-                          key={String(row.key)}
-                          className={cn(
-                            idx % 2 === 1 && "bg-muted/15",
-                            "transition-none"
-                          )}
-                        >
-                          <TableCell className="sticky left-0 z-20 bg-background font-medium text-muted-foreground text-xs whitespace-nowrap border-r border-border shadow-[4px_0_8px_-4px_rgba(0,0,0,0.12)]">
-                            {t(row.label)}
-                          </TableCell>
-                          {selectedModels.map((model) => {
-                            const val = model[row.key];
-                            const displayVal = row.format
-                              ? row.format(val as never, model)
-                              : String(val ?? "—");
-                            const isHighlighted =
-                              isBest &&
-                              bestValues.get(row.key)?.has(model.id);
+              <StickyTable containerClassName="rounded-xl border shadow-xs flex-1 min-h-0">
+                <StickyTableHeader>
+                  <StickyTableRow>
+                    <StickyTableHead isFirstColumn isFirstRow>
+                      {t(`${i18nPrefix}.specification`)}
+                    </StickyTableHead>
+                    {selectedModels.map((model) => (
+                      <StickyTableHead
+                        key={model.id}
+                        isFirstRow
+                        className="min-w-[140px]"
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="size-2 shrink-0 rounded-full bg-primary/40" />
+                          <span className="truncate font-medium">
+                            {model.model}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
+                            className="shrink-0 ml-auto opacity-60 hover:opacity-100 transition-opacity"
+                            onClick={() => toggleModel(model.id)}
+                          >
+                            <X className="size-3" />
+                          </Button>
+                        </div>
+                      </StickyTableHead>
+                    ))}
+                  </StickyTableRow>
+                </StickyTableHeader>
+                <StickyTableBody>
+                  {specRows.map((row, idx) => {
+                    const isBest = bestValues.has(row.key);
+                    const range = rangeValues.get(row.key);
+                    const isNumeric =
+                      numericKeys.includes(row.key) ||
+                      inverseKeys.includes(row.key);
+                    const isEvenRow = idx % 2 === 1;
+                    return (
+                      <StickyTableRow
+                        key={String(row.key)}
+                        className="transition-none"
+                      >
+                        <StickyTableCell isFirstColumn className="text-xs">
+                          {t(row.label)}
+                        </StickyTableCell>
+                        {selectedModels.map((model) => {
+                          const val = model[row.key];
+                          const displayVal = row.format
+                            ? row.format(val as never, model)
+                            : String(val ?? "—");
+                          const isHighlighted =
+                            isBest &&
+                            bestValues.get(row.key)?.has(model.id);
 
-                            // 计算柱状图百分比
-                            let barPercent = 0;
-                            if (
-                              range &&
-                              isNumeric &&
-                              val != null &&
-                              !Number.isNaN(Number(val))
-                            ) {
-                              const num = Number(val);
-                              const diff = range.max - range.min;
-                              if (diff > 0) {
-                                barPercent =
-                                  ((num - range.min) / diff) * 100;
-                              } else {
-                                barPercent = 100;
-                              }
+                          let barPercent = 0;
+                          if (
+                            range &&
+                            isNumeric &&
+                            val != null &&
+                            !Number.isNaN(Number(val))
+                          ) {
+                            const num = Number(val);
+                            const diff = range.max - range.min;
+                            if (diff > 0) {
+                              barPercent =
+                                ((num - range.min) / diff) * 100;
+                            } else {
+                              barPercent = 100;
                             }
+                          }
 
-                            // 参考链接
-                            const refUrl = referenceUrl
-                              ? referenceUrl(model, row.key)
-                              : undefined;
+                          const refUrl = referenceUrl
+                            ? referenceUrl(model, row.key)
+                            : undefined;
 
-                            return (
-                              <TableCell
-                                key={model.id}
-                                className={cn(
-                                  "relative",
-                                  isHighlighted &&
-                                    "font-bold text-emerald-600 dark:text-emerald-400"
-                                )}
-                              >
-                                {/* 可视化柱状图 */}
-                                {barPercent > 0 && (
-                                  <div
-                                    className="absolute inset-y-1.5 left-0 rounded-r-full transition-all duration-300"
-                                    style={{
-                                      width: `${Math.max(barPercent, 4)}%`,
-                                      background: isHighlighted
-                                        ? "linear-gradient(90deg, rgba(5,150,105,0.20), rgba(5,150,105,0.06))"
-                                        : "linear-gradient(90deg, rgba(107,114,128,0.10), rgba(107,114,128,0.02))",
-                                    }}
-                                  />
-                                )}
-                                {/* 内容 */}
-                                <div className="relative z-10 flex items-center gap-1.5">
-                                  <span
-                                    className={cn(
-                                      "text-sm tabular-nums",
-                                      isHighlighted &&
-                                        "text-emerald-700 dark:text-emerald-300"
-                                    )}
-                                  >
-                                    {displayVal}
-                                  </span>
-                                  {refUrl && (
-                                    <Tooltip>
-                                      <TooltipTrigger
-                                        className="shrink-0 text-muted-foreground/40 hover:text-muted-foreground transition-colors cursor-pointer"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          window.open(
-                                            refUrl,
-                                            "_blank",
-                                            "noopener,noreferrer"
-                                          );
-                                        }}
-                                      >
-                                        <ExternalLink className="size-3" />
-                                      </TooltipTrigger>
-                                      <TooltipContent
-                                        side="top"
-                                        align="center"
-                                        className="max-w-[400px] break-all"
-                                      >
-                                        <span className="font-mono text-[10px]">
-                                          {refUrl}
-                                        </span>
-                                      </TooltipContent>
-                                    </Tooltip>
+                          return (
+                            <StickyTableCell
+                              key={model.id}
+                              className={cn(
+                                "relative",
+                                isEvenRow && "bg-muted/15",
+                                isHighlighted &&
+                                  "font-bold text-emerald-600 dark:text-emerald-400"
+                              )}
+                            >
+                              {barPercent > 0 && (
+                                <div
+                                  className="absolute inset-y-1.5 left-0 rounded-r-full transition-all duration-300"
+                                  style={{
+                                    width: `${Math.max(barPercent, 4)}%`,
+                                    background: isHighlighted
+                                      ? "linear-gradient(90deg, rgba(5,150,105,0.20), rgba(5,150,105,0.06))"
+                                      : "linear-gradient(90deg, rgba(107,114,128,0.10), rgba(107,114,128,0.02))",
+                                  }}
+                                />
+                              )}
+                              <div className="relative z-10 flex items-center gap-1.5">
+                                <span
+                                  className={cn(
+                                    "text-sm tabular-nums",
+                                    isHighlighted &&
+                                      "text-emerald-700 dark:text-emerald-300"
                                   )}
-                                </div>
-                              </TableCell>
-                            );
-                          })}
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </table>
-              </div>
+                                >
+                                  {displayVal}
+                                </span>
+                                {refUrl && (
+                                  <Tooltip>
+                                    <TooltipTrigger
+                                      className="shrink-0 text-muted-foreground/40 hover:text-muted-foreground transition-colors cursor-pointer"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        window.open(
+                                          refUrl,
+                                          "_blank",
+                                          "noopener,noreferrer"
+                                        );
+                                      }}
+                                    >
+                                      <ExternalLink className="size-3" />
+                                    </TooltipTrigger>
+                                    <TooltipContent
+                                      side="top"
+                                      align="center"
+                                      className="max-w-[400px] break-all"
+                                    >
+                                      <span className="font-mono text-[10px]">
+                                        {refUrl}
+                                      </span>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
+                              </div>
+                            </StickyTableCell>
+                          );
+                        })}
+                      </StickyTableRow>
+                    );
+                  })}
+                </StickyTableBody>
+              </StickyTable>
             </div>
           )}
 

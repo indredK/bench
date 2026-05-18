@@ -11,6 +11,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
+import {
+  StickyTable,
+  StickyTableHeader,
+  StickyTableBody,
+  StickyTableRow,
+  StickyTableHead,
+  StickyTableCell,
+} from "@/components/ui/StickyTable";
 
 export interface EnvTool {
   name: string;
@@ -163,99 +171,75 @@ function EnvDetector({ active: _active }: { active: boolean }) {
                 <p>{t("envDetector.scanning")}</p>
               </div>
             ) : filteredTools.length > 0 ? (
-              <div className="h-full min-h-0 overflow-auto rounded-lg border">
-                <table className="w-full divide-y divide-border text-sm">
-                  <thead className="bg-muted sticky top-0 z-30">
-                    <tr>
-                      <th
-                        className="sticky top-0 left-0 z-40 bg-muted cursor-pointer px-4 py-3 text-left font-semibold text-muted-foreground hover:text-foreground border-r shadow-[4px_0_8px_-4px_rgba(0,0,0,0.15),0_2px_6px_-2px_rgba(0,0,0,0.12)]"
-                        onClick={() => handleSort("name")}
-                      >
-                        {t("envDetector.toolName")}
-                        {sortBy === "name" ? (
-                          <span className="ml-1">{sortDesc ? "↓" : "↑"}</span>
+              <StickyTable containerClassName="h-full min-h-0 rounded-lg border">
+                <StickyTableHeader>
+                  <StickyTableRow>
+                    <StickyTableHead isFirstColumn isFirstRow onClick={() => handleSort("name")}>
+                      {t("envDetector.toolName")}
+                      {sortBy === "name" ? (
+                        <span className="ml-1">{sortDesc ? "↓" : "↑"}</span>
+                      ) : (
+                        <span className="ml-1 opacity-40">⇅</span>
+                      )}
+                    </StickyTableHead>
+                    <StickyTableHead isFirstRow>{t("envDetector.version")}</StickyTableHead>
+                    <StickyTableHead isFirstRow>{t("envDetector.path")}</StickyTableHead>
+                    <StickyTableHead isFirstRow onClick={() => handleSort("size")} className="text-right">
+                      {t("envDetector.size")}
+                      {sortBy === "size" ? (
+                        <span className="ml-1">{sortDesc ? "↓" : "↑"}</span>
+                      ) : (
+                        <span className="ml-1 opacity-40">⇅</span>
+                      )}
+                    </StickyTableHead>
+                    <StickyTableHead isFirstRow onClick={() => handleSort("installTime")} className="text-right">
+                      {t("envDetector.installTime")}
+                      {sortBy === "installTime" ? (
+                        <span className="ml-1">{sortDesc ? "↓" : "↑"}</span>
+                      ) : (
+                        <span className="ml-1 opacity-40">⇅</span>
+                      )}
+                    </StickyTableHead>
+                    <StickyTableHead isFirstRow className="text-center">{t("envDetector.status")}</StickyTableHead>
+                  </StickyTableRow>
+                </StickyTableHeader>
+                <StickyTableBody>
+                  {filteredTools.map((tool) => (
+                    <StickyTableRow key={tool.name}>
+                      <StickyTableCell isFirstColumn>{tool.name}</StickyTableCell>
+                      <StickyTableCell className="max-w-[200px] truncate text-muted-foreground">
+                        {tool.available ? tool.version : t("envDetector.notFound")}
+                      </StickyTableCell>
+                      <StickyTableCell className="max-w-[280px] truncate font-mono text-xs text-muted-foreground">
+                        {tool.available ? tool.path : "—"}
+                      </StickyTableCell>
+                      <StickyTableCell className="whitespace-nowrap text-right tabular-nums text-muted-foreground">
+                        {tool.available ? tool.size_display : "—"}
+                      </StickyTableCell>
+                      <StickyTableCell className="whitespace-nowrap text-right text-muted-foreground">
+                        {tool.available ? tool.install_time : "—"}
+                      </StickyTableCell>
+                      <StickyTableCell className="text-center">
+                        {tool.available ? (
+                          <Badge
+                            variant="default"
+                            className="bg-green-600/20 text-green-700 dark:bg-green-500/15 dark:text-green-400"
+                          >
+                            ✓
+                          </Badge>
                         ) : (
-                          <span className="ml-1 opacity-40">⇅</span>
+                          <Badge
+                            variant="secondary"
+                            className="bg-muted/50 text-muted-foreground"
+                          >
+                            ✕
+                          </Badge>
                         )}
-                      </th>
-                      <th className="sticky top-0 z-20 bg-muted px-4 py-3 text-left font-semibold text-muted-foreground shadow-[0_2px_6px_-2px_rgba(0,0,0,0.12)]">
-                        {t("envDetector.version")}
-                      </th>
-                      <th className="sticky top-0 z-20 bg-muted px-4 py-3 text-left font-semibold text-muted-foreground shadow-[0_2px_6px_-2px_rgba(0,0,0,0.12)]">
-                        {t("envDetector.path")}
-                      </th>
-                      <th
-                        className="sticky top-0 z-20 bg-muted cursor-pointer px-4 py-3 text-right font-semibold text-muted-foreground hover:text-foreground shadow-[0_2px_6px_-2px_rgba(0,0,0,0.12)]"
-                        onClick={() => handleSort("size")}
-                      >
-                        {t("envDetector.size")}
-                        {sortBy === "size" ? (
-                          <span className="ml-1">{sortDesc ? "↓" : "↑"}</span>
-                        ) : (
-                          <span className="ml-1 opacity-40">⇅</span>
-                        )}
-                      </th>
-                      <th
-                        className="sticky top-0 z-20 bg-muted cursor-pointer px-4 py-3 text-right font-semibold text-muted-foreground hover:text-foreground shadow-[0_2px_6px_-2px_rgba(0,0,0,0.12)]"
-                        onClick={() => handleSort("installTime")}
-                      >
-                        {t("envDetector.installTime")}
-                        {sortBy === "installTime" ? (
-                          <span className="ml-1">{sortDesc ? "↓" : "↑"}</span>
-                        ) : (
-                          <span className="ml-1 opacity-40">⇅</span>
-                        )}
-                      </th>
-                      <th className="sticky top-0 z-20 bg-muted px-4 py-3 text-center font-semibold text-muted-foreground shadow-[0_2px_6px_-2px_rgba(0,0,0,0.12)]">
-                        {t("envDetector.status")}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {filteredTools.map((tool) => (
-                      <tr
-                        key={tool.name}
-                        className="transition-colors hover:bg-muted/30"
-                      >
-                        <td className="sticky left-0 bg-background whitespace-nowrap px-4 py-3 font-medium border-r shadow-[4px_0_8px_-4px_rgba(0,0,0,0.12)]">
-                          {tool.name}
-                        </td>
-                        <td className="max-w-[200px] truncate px-4 py-3 text-muted-foreground">
-                          {tool.available
-                            ? tool.version
-                            : t("envDetector.notFound")}
-                        </td>
-                        <td className="max-w-[280px] truncate px-4 py-3 font-mono text-xs text-muted-foreground">
-                          {tool.available ? tool.path : "—"}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-muted-foreground">
-                          {tool.available ? tool.size_display : "—"}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-right text-muted-foreground">
-                          {tool.available ? tool.install_time : "—"}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          {tool.available ? (
-                            <Badge
-                              variant="default"
-                              className="bg-green-600/20 text-green-700 dark:bg-green-500/15 dark:text-green-400"
-                            >
-                              ✓
-                            </Badge>
-                          ) : (
-                            <Badge
-                              variant="secondary"
-                              className="bg-muted/50 text-muted-foreground"
-                            >
-                              ✕
-                            </Badge>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                      </StickyTableCell>
+                    </StickyTableRow>
+                  ))}
+                </StickyTableBody>
+              </StickyTable>
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground rounded-lg border">
                 <p>{scanned ? t("envDetector.empty") : t("envDetector.startHint")}</p>
