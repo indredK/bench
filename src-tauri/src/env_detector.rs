@@ -6,6 +6,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::mpsc;
+use std::thread;
 use std::time::Duration;
 
 #[derive(Debug, Serialize, Clone)]
@@ -100,18 +101,20 @@ const SKIP_DIR_PREFIXES: &[&str] = &[
 const PROBE_TIMEOUT_SECS: u64 = 3;
 
 #[tauri::command]
-pub fn detect_env_tools() -> Vec<EnvTool> {
-    // Wrap with catch_unwind so ANY panic is caught and returned as empty
-    // instead of crashing the Tauri command (which triggers native error dialog).
-    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        detect_env_tools_inner()
-    })) {
-        Ok(result) => result,
-        Err(_) => {
-            eprintln!("[env_detector] panic caught, returning empty result");
-            Vec::new()
+pub async fn detect_env_tools() -> Vec<EnvTool> {
+    tokio::task::spawn_blocking(|| {
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            detect_env_tools_inner()
+        })) {
+            Ok(result) => result,
+            Err(_) => {
+                eprintln!("[env_detector] panic caught, returning empty result");
+                Vec::new()
+            }
         }
-    }
+    })
+    .await
+    .unwrap_or_else(|_| Vec::new())
 }
 
 fn detect_env_tools_inner() -> Vec<EnvTool> {
@@ -128,27 +131,57 @@ fn detect_env_tools_inner() -> Vec<EnvTool> {
     let mut found_set: HashSet<String> = HashSet::new();
     let mut results: Vec<EnvTool> = Vec::new();
 
-    for (name, full_path) in &entries {
-        found_set.insert(name.clone());
+    // Filter entries to only process tools we care about
+    let relevant_entries: Vec<_> = entries
+        .into_iter()
+        .filter(|(name, _)| display_names.contains_key(name.as_str()))
+        .collect();
 
-        let display_name = display_names
-            .get(name.as_str())
-            .map(|&s| s.to_string())
-            .unwrap_or_else(|| name.clone());
+    // Parallel version probing to avoid sequential timeouts
+    let (tx, rx) = mpsc::channel();
+    let mut handles = Vec::new();
 
-        let version = probe_version_with_timeout(full_path);
-        let (size_bytes, size_display) = get_file_size(full_path);
-        let install_time = get_file_time(full_path);
+    for (name, full_path) in &relevant_entries {
+        let tx_clone = tx.clone();
+        let name_clone = name.clone();
+        let full_path_clone = full_path.clone();
 
-        results.push(EnvTool {
-            name: display_name,
-            version,
-            path: full_path.to_string_lossy().to_string(),
-            size_bytes,
-            size_display,
-            install_time,
-            available: true,
+        let handle = thread::spawn(move || {
+            let version = probe_version_with_timeout(&full_path_clone);
+            let (size_bytes, size_display) = get_file_size(&full_path_clone);
+            let install_time = get_file_time(&full_path_clone);
+
+            let _ = tx_clone.send((name_clone, full_path_clone, version, size_bytes, size_display, install_time));
         });
+
+        handles.push(handle);
+    }
+
+    // Collect results from threads
+    for _ in 0..relevant_entries.len() {
+        if let Ok((name, full_path, version, size_bytes, size_display, install_time)) = rx.recv_timeout(Duration::from_secs(PROBE_TIMEOUT_SECS * 2)) {
+            found_set.insert(name.clone());
+
+            let display_name = display_names
+                .get(name.as_str())
+                .map(|&s| s.to_string())
+                .unwrap_or_else(|| name.clone());
+
+            results.push(EnvTool {
+                name: display_name,
+                version,
+                path: full_path.to_string_lossy().to_string(),
+                size_bytes,
+                size_display,
+                install_time,
+                available: true,
+            });
+        }
+    }
+
+    // Wait for remaining threads to finish (non-blocking)
+    for handle in handles {
+        let _ = handle.join();
     }
 
     // Add missing known tools
