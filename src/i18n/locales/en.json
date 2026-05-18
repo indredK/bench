@@ -3,16 +3,7 @@
     "portManager": "Port Manager",
     "devCleaner": "Dev Cleaner",
     "systemInfo": "System Info",
-    "cpuCompare": "CPU Compare",
-    "gpuCompare": "GPU Compare",
-    "memoryCompare": "Memory Compare",
-    "ssdCompare": "SSD Compare",
-    "motherboardCompare": "Motherboard Compare",
-    "monitorCompare": "Monitor Compare",
-    "psuCompare": "PSU Compare",
-    "caseCompare": "Case Compare",
-    "coolerCompare": "Cooler Compare",
-    "switchCompare": "Switch Compare"
+    "hardwareCompare": "Hardware Compare"
   },
   "portManager": {
     "title": "Kill Port Processes",

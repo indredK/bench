@@ -3,16 +3,7 @@
     "portManager": "端口管理",
     "devCleaner": "垃圾清理",
     "systemInfo": "系统信息",
-    "cpuCompare": "CPU 对比",
-    "gpuCompare": "显卡对比",
-    "memoryCompare": "内存对比",
-    "ssdCompare": "固态硬盘对比",
-    "motherboardCompare": "主板对比",
-    "monitorCompare": "显示器对比",
-    "psuCompare": "电源对比",
-    "caseCompare": "机箱对比",
-    "coolerCompare": "散热器对比",
-    "switchCompare": "交换机对比"
+    "hardwareCompare": "硬件对比"
   },
   "portManager": {
     "title": "终止端口进程",

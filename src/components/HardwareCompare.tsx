@@ -9,6 +9,12 @@ import type { ReactNode } from "react";
 
 export type { FilterGroup };
 
+export interface SpecRow<T> {
+  key: keyof T;
+  label: string;
+  format?: (val: T[keyof T], model: T) => string;
+}
+
 export interface CompareDataModule<T extends { id: string; model: string }> {
   data: T[];
   specRows: SpecRow<T>[];
