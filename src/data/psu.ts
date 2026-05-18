@@ -17,7 +17,7 @@ export interface PsuModel {
 }
 
 export const psuData: PsuModel[] = [
-  { id: "rme1000", brand: "Corsair", series: "RM", model: "RM1000e", wattage: 1000, efficiency: "80+ Gold", modularType: "Full", fanSize: 120, pcieGen5: "Yes (12VHPWR)", atxVersion: "ATX 3.0", dimensions: "150×86×140mm", warranty: "7 years", launchYear: 2023 },
+  { id: "rme1000", brand: "Corsair", series: "RM", model: "RM1000e", wattage: 1000, efficiency: "80+ Gold", modularType: "Full", fanSize: 120, pcieGen5: "Yes (12VHPWR)", atxVersion: "ATX 3.1", dimensions: "150×86×140mm", warranty: "7 years", launchYear: 2023 },
   { id: "rmx850", brand: "Corsair", series: "RMx", model: "RM850x", wattage: 850, efficiency: "80+ Gold", modularType: "Full", fanSize: 135, pcieGen5: "No", atxVersion: "ATX 2.52", dimensions: "160×86×150mm", warranty: "10 years", launchYear: 2021 },
   { id: "hx1500i", brand: "Corsair", series: "HXi", model: "HX1500i", wattage: 1500, efficiency: "80+ Platinum", modularType: "Full", fanSize: 140, pcieGen5: "Yes", atxVersion: "ATX 3.1", dimensions: "200×86×150mm", warranty: "10 years", launchYear: 2024 },
   { id: "rmxshift1200", brand: "Corsair", series: "RMx Shift", model: "RMx Shift 1200", wattage: 1200, efficiency: "80+ Gold", modularType: "Full (Side)", fanSize: 140, pcieGen5: "Yes (12VHPWR x2)", atxVersion: "ATX 3.0", dimensions: "160×86×150mm", warranty: "10 years", launchYear: 2023 },
