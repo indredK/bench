@@ -10,6 +10,7 @@
   "envDetector": {
     "title": "环境检测",
     "summary": "共 {{total}} 个工具，{{available}} 个可用",
+    "filteredSummary": "共 {{total}} 个工具，{{available}} 个可用，当前筛选结果为 {{visible}} 个",
     "refresh": "刷新",
     "scanning": "正在扫描...",
     "searchPlaceholder": "搜索工具...",
@@ -25,7 +26,52 @@
     "loadFailed": "扫描环境工具失败",
     "browserInfo": "环境检测功能仅在 Tauri 桌面应用中可用，请使用 `npm run tauri:dev` 运行。",
     "empty": "没有匹配的工具",
-    "startHint": "点击「刷新」按钮扫描系统中的所有开发工具。"
+    "startHint": "点击「刷新」按钮扫描系统中的所有开发工具。",
+    "filters": "筛选",
+    "clearFilters": "清除",
+    "filteredCount": "显示 {{count}} 个",
+    "autoExpandHint": "悬停自动展开，点击固定",
+    "pinnedHint": "固定展开，点击启用自动展开",
+    "filterGroups": {
+      "category": "类别",
+      "source": "来源",
+      "kind": "类型"
+    },
+    "filterValues": {
+      "category": {
+        "ai": "AI 工具",
+        "javascript": "JavaScript",
+        "rust": "Rust",
+        "python": "Python",
+        "container": "容器/K8s",
+        "cloud": "云与部署",
+        "database": "数据库",
+        "editor": "编辑器",
+        "network": "网络",
+        "packageManager": "包管理",
+        "runtime": "语言运行时",
+        "build": "编译构建",
+        "other": "其他"
+      },
+      "source": {
+        "node": "Node 包",
+        "cargo": "Cargo/Rustup",
+        "homebrew": "Homebrew",
+        "volta": "Volta",
+        "asdf": "asdf",
+        "mise": "mise",
+        "scoop": "Scoop",
+        "chocolatey": "Chocolatey",
+        "go": "Go bin",
+        "local": "本地 bin",
+        "path": "PATH"
+      },
+      "kind": {
+        "executable": "可执行文件",
+        "shim": "命令包装器",
+        "script": "脚本"
+      }
+    }
   },
   "portManager": {
     "title": "终止端口进程",

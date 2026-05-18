@@ -1,13 +1,10 @@
 use chrono::{DateTime, Local};
 use serde::Serialize;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::env;
+use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
-use std::sync::mpsc;
-use std::thread;
-use std::time::Duration;
 use tauri::{AppHandle, Emitter};
 
 #[derive(Debug, Serialize, Clone)]
@@ -21,88 +18,30 @@ pub struct EnvTool {
     pub available: bool,
 }
 
-const TOOL_BINARIES: &[&str] = &[
-    "node",
-    "npm",
-    "npx",
-    "yarn",
-    "pnpm",
-    "bun",
-    "deno",
-    "python",
-    "python3",
-    "pip",
-    "pip3",
-    "go",
-    "rustc",
-    "cargo",
-    "java",
-    "git",
-    "docker",
-    "docker-compose",
-    "kubectl",
-    "code",
-    "code-insiders",
-    "codex",
-    "gemini",
-    "claude",
-    "cursor",
-    "windsurf",
-    "nvim",
-    "vim",
-    "nano",
-    "curl",
-    "wget",
-    "cmake",
-    "make",
-    "gcc",
-    "g++",
-    "clang",
-    "dotnet",
-    "flutter",
-    "dart",
-    "tauri",
-    "psql",
-    "sqlite3",
-    "mongosh",
-    "redis-cli",
-    "ssh",
-    "terraform",
-    "ansible",
-    "podman",
-    "minikube",
-    "helm",
-    "gh",
-    "aws",
-    "az",
-    "gcloud",
-    "vercel",
-    "wrangler",
-    "ngrok",
-    "jq",
-    "scoop",
-    "choco",
-    "winget",
-    "brew",
-];
-
-const SKIP_DIR_PREFIXES: &[&str] = &[
-    "C:\\Windows\\",
-    "C:\\Program Files\\Windows ",
-    "/usr/bin",
-    "/usr/sbin",
-    "/bin",
-    "/sbin",
-    "/usr/lib",
-    "/lib",
-];
-
-/// Maximum seconds to wait for a single `--version` probe.
-const PROBE_TIMEOUT_SECS: u64 = 3;
-
 #[derive(Debug, Serialize, Clone)]
 pub struct ScanDonePayload {
     pub unavailable: Vec<EnvTool>,
+}
+
+#[derive(Debug, Clone)]
+struct CommandCandidate {
+    name: String,
+    path: PathBuf,
+    dir_index: usize,
+    extension_rank: usize,
+}
+
+#[derive(Debug)]
+struct NodeBinInfo {
+    package_name: String,
+    declared_bins: Vec<NodeDeclaredBin>,
+    matched_name: Option<String>,
+}
+
+#[derive(Debug)]
+struct NodeDeclaredBin {
+    name: String,
+    relative_path: String,
 }
 
 #[tauri::command]
@@ -122,216 +61,582 @@ pub async fn detect_env_tools(app_handle: AppHandle) {
 }
 
 fn detect_env_tools_inner(app_handle: AppHandle) {
-    let is_windows = cfg!(target_os = "windows");
+    let search_dirs = collect_search_dirs();
+    let tools = scan_env_commands(&search_dirs);
 
-    let tool_set: HashSet<&str> = TOOL_BINARIES.iter().copied().collect();
-
-    let entries = scan_path_entries(is_windows);
-
-    let mut found_set: HashSet<String> = HashSet::new();
-
-    let relevant_entries: Vec<_> = entries
-        .into_iter()
-        .filter(|(name, _)| tool_set.contains(name.as_str()))
-        .collect();
-
-    let (tx, rx) = mpsc::channel();
-    let mut handles = Vec::new();
-
-    for (name, full_path) in &relevant_entries {
-        let tx_clone = tx.clone();
-        let name_clone = name.clone();
-        let full_path_clone = full_path.clone();
-
-        let handle = thread::spawn(move || {
-            let version = probe_version_with_timeout(&full_path_clone);
-            let (size_bytes, size_display) = get_file_size(&full_path_clone);
-            let install_time = get_file_time(&full_path_clone);
-
-            let _ = tx_clone.send((name_clone, full_path_clone, version, size_bytes, size_display, install_time));
-        });
-
-        handles.push(handle);
+    for tool in tools {
+        let _ = app_handle.emit("env-tool-found", &tool);
     }
 
-    for _ in 0..relevant_entries.len() {
-        if let Ok((name, full_path, version, size_bytes, size_display, install_time)) = rx.recv_timeout(Duration::from_secs(PROBE_TIMEOUT_SECS * 2)) {
-            found_set.insert(name.clone());
-
-            let tool = EnvTool {
-                name: name.clone(),
-                version,
-                path: full_path.to_string_lossy().to_string(),
-                size_bytes,
-                size_display,
-                install_time,
-                available: true,
-            };
-
-            let _ = app_handle.emit("env-tool-found", &tool);
-        }
-    }
-
-    for handle in handles {
-        let _ = handle.join();
-    }
-
-    let mut unavailable: Vec<EnvTool> = Vec::new();
-    for &binary in TOOL_BINARIES {
-        if !found_set.contains(binary) {
-            unavailable.push(EnvTool {
-                name: binary.to_string(),
-                version: String::new(),
-                path: String::new(),
-                size_bytes: 0,
-                size_display: String::new(),
-                install_time: String::new(),
-                available: false,
-            });
-        }
-    }
-
-    let _ = app_handle.emit("env-scan-done", ScanDonePayload { unavailable });
+    let _ = app_handle.emit(
+        "env-scan-done",
+        ScanDonePayload {
+            unavailable: Vec::new(),
+        },
+    );
 }
 
-/// Scan PATH directories and return (stem_name, full_path) for each executable found.
-/// Skips system directories. Does NOT call `where`/`which`.
-fn scan_path_entries(is_windows: bool) -> Vec<(String, PathBuf)> {
-    let path_var = env::var("PATH").unwrap_or_default();
-    let separator = if is_windows { ';' } else { ':' };
+fn scan_env_commands(search_dirs: &[PathBuf]) -> Vec<EnvTool> {
+    let mut candidates_by_name: HashMap<String, CommandCandidate> = HashMap::new();
+    let mut command_order: Vec<String> = Vec::new();
+    let windows_extensions = windows_executable_extensions(env::var_os("PATHEXT").as_deref());
 
-    let mut seen: HashSet<String> = HashSet::new();
-    let mut result: Vec<(String, PathBuf)> = Vec::new();
-
-    for dir_str in path_var.split(separator) {
-        let dir_path = Path::new(dir_str.trim());
-
-        if is_skip_directory(dir_path) || !dir_path.is_dir() {
+    for (dir_index, dir) in search_dirs.iter().enumerate() {
+        if !is_scannable_dir(dir) {
             continue;
         }
 
-        let entries = match fs::read_dir(dir_path) {
-            Ok(e) => e,
+        let entries = match fs::read_dir(dir) {
+            Ok(entries) => entries,
             Err(_) => continue,
         };
 
         for entry in entries.flatten() {
-            let full_path = entry.path();
+            let path = entry.path();
             let file_name = entry.file_name();
-            let name_str = file_name.to_string_lossy().to_string();
 
-            if name_str.starts_with('.')
-                || name_str.eq_ignore_ascii_case("desktop.ini")
-                || name_str.eq_ignore_ascii_case("thumbs.db")
-            {
+            if !is_executable_file(&path) {
                 continue;
             }
 
-            let stem = if is_windows {
-                let lower = name_str.to_lowercase();
-                if lower.ends_with(".exe")
-                    || lower.ends_with(".bat")
-                    || lower.ends_with(".cmd")
-                    || lower.ends_with(".ps1")
-                {
-                    Path::new(&name_str)
-                        .file_stem()
-                        .map(|s| s.to_string_lossy().to_lowercase())
-                        .unwrap_or_default()
-                } else {
-                    continue;
-                }
-            } else {
-                // On Unix, check executable permission
-                if !is_executable(&full_path) {
-                    continue;
-                }
-                name_str.to_lowercase()
+            let Some((command_name, extension_rank)) =
+                command_name_from_file_name(&file_name, &windows_extensions)
+            else {
+                continue;
             };
 
-            if !stem.is_empty() && seen.insert(stem.clone()) {
-                result.push((stem, full_path));
+            let candidate = CommandCandidate {
+                name: command_name,
+                path,
+                dir_index,
+                extension_rank,
+            };
+
+            let Some(candidate) = refine_command_candidate(candidate) else {
+                continue;
+            };
+            let key = command_key(&candidate.name);
+
+            match candidates_by_name.get(&key) {
+                Some(existing) if !candidate_is_better(&candidate, existing) => {}
+                Some(_) => {
+                    candidates_by_name.insert(key, candidate);
+                }
+                None => {
+                    command_order.push(key.clone());
+                    candidates_by_name.insert(key, candidate);
+                }
             }
         }
     }
 
-    result
+    command_order
+        .into_iter()
+        .filter_map(|key| candidates_by_name.remove(&key))
+        .map(build_available_tool)
+        .collect()
 }
 
-/// Try `--version` with a hard timeout. The timeout prevents hanging on commands
-/// that never exit (e.g. interactive tools run without stdin).
-fn probe_version_with_timeout(path: &PathBuf) -> String {
-    let path = path.clone();
-    let (tx, rx) = mpsc::channel();
+fn candidate_is_better(candidate: &CommandCandidate, existing: &CommandCandidate) -> bool {
+    candidate.dir_index < existing.dir_index
+        || (candidate.dir_index == existing.dir_index
+            && candidate.extension_rank < existing.extension_rank)
+}
 
-    std::thread::spawn(move || {
-        let result = run_version_cmd(&path);
-        let _ = tx.send(result);
-    });
+fn build_available_tool(candidate: CommandCandidate) -> EnvTool {
+    let (size_bytes, size_display) = get_file_size(&candidate.path);
+    let install_time = get_file_time(&candidate.path);
 
-    match rx.recv_timeout(Duration::from_secs(PROBE_TIMEOUT_SECS)) {
-        Ok(version) => version,
-        Err(mpsc::RecvTimeoutError::Timeout) => {
-            // Timeout — command hung. Return empty string silently.
-            String::new()
-        }
-        Err(mpsc::RecvTimeoutError::Disconnected) => String::new(),
+    EnvTool {
+        name: candidate.name,
+        version: String::new(),
+        path: candidate.path.to_string_lossy().to_string(),
+        size_bytes,
+        size_display,
+        install_time,
+        available: true,
     }
 }
 
-/// Run the binary with --version and parse output.
-/// Tries `--version` first; if no output, tries `-v`.
-fn run_version_cmd(path: &Path) -> String {
-    for args in [&["--version"][..], &["-v"][..], &["-V"][..]] {
-        let result = run_single_cmd(path, args);
-        if !result.is_empty() {
-            return result;
+fn refine_command_candidate(mut candidate: CommandCandidate) -> Option<CommandCandidate> {
+    let node_bin_info = node_bin_info_for_candidate(&candidate);
+
+    if let Some(info) = node_bin_info {
+        if let Some(declared_name) = &info.matched_name {
+            candidate.name = declared_name.clone();
         }
+
+        if is_low_signal_node_bin(&candidate.name, &info) {
+            return None;
+        }
+    } else if is_low_signal_command_name(&candidate.name) {
+        return None;
     }
-    String::new()
+
+    Some(candidate)
 }
 
-fn run_single_cmd(path: &Path, args: &[&str]) -> String {
-    let output = match Command::new(path).args(args).output() {
-        Ok(o) => o,
-        Err(_) => return String::new(),
-    };
-
-    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-
-    let combined = if !stdout.is_empty() && !stderr.is_empty() {
-        format!("{}\n{}", stdout, stderr)
-    } else if !stdout.is_empty() {
-        stdout
-    } else {
-        stderr
-    };
-
-    let trimmed: String = combined
-        .lines()
-        .take(3)
-        .collect::<Vec<_>>()
-        .join(" | ")
-        .trim()
+fn node_bin_info_for_candidate(candidate: &CommandCandidate) -> Option<NodeBinInfo> {
+    let resolved_path =
+        fs::canonicalize(&candidate.path).unwrap_or_else(|_| candidate.path.clone());
+    let package_root = find_node_package_root(&resolved_path)?;
+    let package_json_path = package_root.join("package.json");
+    let package_json = fs::read_to_string(package_json_path).ok()?;
+    let package_json = serde_json::from_str::<serde_json::Value>(&package_json).ok()?;
+    let package_name = package_json
+        .get("name")
+        .and_then(|value| value.as_str())
+        .unwrap_or_default()
         .to_string();
 
-    if trimmed.is_empty()
-        || trimmed.eq_ignore_ascii_case("usage")
-        || trimmed.eq_ignore_ascii_case("help")
-    {
-        return String::new();
+    if package_name.is_empty() {
+        return None;
     }
 
-    trimmed
+    let declared_bins = parse_node_declared_bins(&package_json, &package_name)?;
+    let matched_name = match_declared_node_bin(
+        &candidate.name,
+        &resolved_path,
+        &package_root,
+        &declared_bins,
+    );
+
+    Some(NodeBinInfo {
+        package_name,
+        declared_bins,
+        matched_name,
+    })
 }
 
-fn is_skip_directory(path: &Path) -> bool {
-    let path_str = path.to_string_lossy();
-    let normalized = path_str.replace('/', "\\");
-    SKIP_DIR_PREFIXES
+fn find_node_package_root(path: &Path) -> Option<PathBuf> {
+    for ancestor in path.ancestors().skip(1) {
+        if ancestor.join("package.json").is_file() && path_has_component(ancestor, "node_modules") {
+            return Some(ancestor.to_path_buf());
+        }
+    }
+
+    None
+}
+
+fn parse_node_declared_bins(
+    package_json: &serde_json::Value,
+    package_name: &str,
+) -> Option<Vec<NodeDeclaredBin>> {
+    let bin = package_json.get("bin")?;
+
+    if let Some(relative_path) = bin.as_str() {
+        return Some(vec![NodeDeclaredBin {
+            name: command_name_from_package_name(package_name),
+            relative_path: relative_path.to_string(),
+        }]);
+    }
+
+    let object = bin.as_object()?;
+    let mut bins = Vec::new();
+    for (name, value) in object {
+        if let Some(relative_path) = value.as_str() {
+            bins.push(NodeDeclaredBin {
+                name: name.to_string(),
+                relative_path: relative_path.to_string(),
+            });
+        }
+    }
+
+    if bins.is_empty() {
+        None
+    } else {
+        Some(bins)
+    }
+}
+
+fn command_name_from_package_name(package_name: &str) -> String {
+    package_name
+        .rsplit('/')
+        .next()
+        .unwrap_or(package_name)
+        .to_string()
+}
+
+fn match_declared_node_bin(
+    command_name: &str,
+    resolved_path: &Path,
+    package_root: &Path,
+    declared_bins: &[NodeDeclaredBin],
+) -> Option<String> {
+    let requested_key = command_key(command_name);
+
+    for bin in declared_bins {
+        if command_key(&bin.name) == requested_key {
+            return Some(bin.name.clone());
+        }
+    }
+
+    for bin in declared_bins {
+        let bin_path = package_root.join(&bin.relative_path);
+        if paths_refer_to_same_file(&bin_path, resolved_path) {
+            return Some(bin.name.clone());
+        }
+    }
+
+    None
+}
+
+fn paths_refer_to_same_file(left: &Path, right: &Path) -> bool {
+    match (fs::canonicalize(left), fs::canonicalize(right)) {
+        (Ok(left), Ok(right)) => normalize_path_key(&left) == normalize_path_key(&right),
+        _ => normalize_path_key(left) == normalize_path_key(right),
+    }
+}
+
+fn is_low_signal_node_bin(command_name: &str, info: &NodeBinInfo) -> bool {
+    let command = command_name.to_ascii_lowercase();
+    let package = command_name_from_package_name(&info.package_name).to_ascii_lowercase();
+
+    if matches!(command.as_str(), "tsserver") {
+        return true;
+    }
+
+    if command.contains("language-server") || command.ends_with("-lsp") {
+        return true;
+    }
+
+    info.declared_bins.len() > 1
+        && command.ends_with("server")
+        && command != package
+        && info
+            .declared_bins
+            .iter()
+            .any(|bin| command_key(&bin.name) == command_key(command_name))
+}
+
+fn is_low_signal_command_name(command_name: &str) -> bool {
+    let command = command_name.to_ascii_lowercase();
+    matches!(command.as_str(), "tsserver")
+        || command.contains("language-server")
+        || command.ends_with("-lsp")
+}
+
+fn collect_search_dirs() -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
+    let mut seen = HashSet::new();
+
+    if let Some(path_var) = env::var_os("PATH") {
+        for dir in env::split_paths(&path_var) {
+            push_search_dir(&mut dirs, &mut seen, dir);
+        }
+    }
+
+    for dir in platform_default_dirs() {
+        push_search_dir(&mut dirs, &mut seen, dir);
+    }
+
+    dirs
+}
+
+fn push_search_dir(dirs: &mut Vec<PathBuf>, seen: &mut HashSet<String>, dir: PathBuf) {
+    if dir.as_os_str().is_empty() || !dir.is_absolute() {
+        return;
+    }
+
+    let key = normalize_path_key(&dir);
+    if seen.insert(key) {
+        dirs.push(dir);
+    }
+}
+
+fn normalize_path_key(path: &Path) -> String {
+    let mut value = path.to_string_lossy().replace('\\', "/");
+    while value.len() > 1 && value.ends_with('/') {
+        value.pop();
+    }
+
+    if cfg!(windows) {
+        value.to_lowercase()
+    } else {
+        value
+    }
+}
+
+fn platform_default_dirs() -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
+
+    push_env_dir(&mut dirs, "PNPM_HOME");
+
+    if let Some(home) = home_dir() {
+        dirs.push(home.join(".cargo").join("bin"));
+        dirs.push(home.join(".bun").join("bin"));
+        dirs.push(home.join(".deno").join("bin"));
+        dirs.push(home.join(".local").join("bin"));
+        dirs.push(home.join(".local").join("share").join("mise").join("shims"));
+        dirs.push(home.join(".asdf").join("shims"));
+        dirs.push(home.join(".volta").join("bin"));
+        dirs.push(home.join("go").join("bin"));
+
+        push_existing_child_bin_dirs(&mut dirs, &home.join(".nvm").join("versions").join("node"));
+
+        #[cfg(target_os = "macos")]
+        {
+            dirs.push(home.join(".npm-global").join("bin"));
+            dirs.push(home.join(".rbenv").join("shims"));
+            dirs.push(home.join(".pyenv").join("shims"));
+            dirs.push(home.join("Library").join("pnpm"));
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            dirs.push(home.join("scoop").join("shims"));
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        dirs.push(PathBuf::from("/opt/homebrew/bin"));
+        dirs.push(PathBuf::from("/usr/local/bin"));
+        dirs.push(PathBuf::from("/opt/local/bin"));
+    }
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        dirs.push(PathBuf::from("/usr/local/bin"));
+        dirs.push(PathBuf::from("/snap/bin"));
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        push_env_child(&mut dirs, "APPDATA", &["npm"]);
+        push_env_child(&mut dirs, "LOCALAPPDATA", &["pnpm"]);
+        push_env_child(
+            &mut dirs,
+            "LOCALAPPDATA",
+            &["Programs", "Microsoft VS Code", "bin"],
+        );
+        push_env_child(&mut dirs, "ProgramData", &["chocolatey", "bin"]);
+
+        dirs.push(PathBuf::from(r"C:\Program Files\nodejs"));
+        dirs.push(PathBuf::from(r"C:\Program Files\Git\cmd"));
+        dirs.push(PathBuf::from(
+            r"C:\Program Files\Docker\Docker\resources\bin",
+        ));
+        dirs.push(PathBuf::from(r"C:\Program Files\Microsoft VS Code\bin"));
+    }
+
+    dirs
+}
+
+fn home_dir() -> Option<PathBuf> {
+    env::var_os("HOME")
+        .or_else(|| env::var_os("USERPROFILE"))
+        .map(PathBuf::from)
+}
+
+fn push_env_dir(dirs: &mut Vec<PathBuf>, key: &str) {
+    if let Some(value) = env::var_os(key) {
+        dirs.push(PathBuf::from(value));
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn push_env_child(dirs: &mut Vec<PathBuf>, key: &str, parts: &[&str]) {
+    if let Some(value) = env::var_os(key) {
+        let mut path = PathBuf::from(value);
+        for part in parts {
+            path.push(part);
+        }
+        dirs.push(path);
+    }
+}
+
+fn push_existing_child_bin_dirs(dirs: &mut Vec<PathBuf>, parent: &Path) {
+    let entries = match fs::read_dir(parent) {
+        Ok(entries) => entries,
+        Err(_) => return,
+    };
+
+    for entry in entries.flatten() {
+        let bin_dir = entry.path().join("bin");
+        if bin_dir.is_dir() {
+            dirs.push(bin_dir);
+        }
+    }
+}
+
+fn is_scannable_dir(path: &Path) -> bool {
+    path.is_dir() && !is_os_system_dir(path) && !is_project_local_bin_dir(path)
+}
+
+fn is_os_system_dir(path: &Path) -> bool {
+    let normalized = normalize_path_key(path);
+
+    if cfg!(windows) {
+        return normalized == "c:/windows"
+            || normalized.starts_with("c:/windows/")
+            || normalized.ends_with("/windows/system32")
+            || normalized.ends_with("/windows/syswow64");
+    }
+
+    matches!(
+        normalized.as_str(),
+        "/bin"
+            | "/sbin"
+            | "/usr/bin"
+            | "/usr/sbin"
+            | "/usr/lib"
+            | "/lib"
+            | "/library/apple/usr/bin"
+    ) || normalized.starts_with("/system/")
+}
+
+fn is_project_local_bin_dir(path: &Path) -> bool {
+    has_component_suffix(path, &["node_modules", ".bin"])
+        || has_component_suffix(path, &[".venv", "bin"])
+        || has_component_suffix(path, &["venv", "bin"])
+        || has_component_suffix(path, &["env", "bin"])
+        || has_component_suffix(path, &["target", "debug"])
+        || has_component_suffix(path, &["target", "release"])
+        || has_component_suffix(path, &[".git", "hooks"])
+        || (cfg!(windows)
+            && (has_component_suffix(path, &[".venv", "scripts"])
+                || has_component_suffix(path, &["venv", "scripts"])
+                || has_component_suffix(path, &["env", "scripts"])))
+}
+
+fn path_has_component(path: &Path, needle: &str) -> bool {
+    path_components(path).iter().any(|part| part == needle)
+}
+
+fn has_component_suffix(path: &Path, suffix: &[&str]) -> bool {
+    let components = path_components(path);
+    components.len() >= suffix.len()
+        && components[components.len() - suffix.len()..]
+            .iter()
+            .zip(suffix.iter())
+            .all(|(left, right)| left == right)
+}
+
+fn path_components(path: &Path) -> Vec<String> {
+    path.components()
+        .filter_map(|component| component.as_os_str().to_str())
+        .map(|component| {
+            if cfg!(windows) {
+                component.to_ascii_lowercase()
+            } else {
+                component.to_string()
+            }
+        })
+        .collect()
+}
+
+fn command_name_from_file_name(
+    file_name: &OsStr,
+    windows_extensions: &[String],
+) -> Option<(String, usize)> {
+    let file_name = file_name.to_string_lossy();
+    if is_ignored_file_name(&file_name) {
+        return None;
+    }
+
+    if cfg!(windows) {
+        windows_command_name_from_file_name(&file_name, windows_extensions)
+    } else if is_reasonable_command_name(&file_name) {
+        Some((file_name.to_string(), 0))
+    } else {
+        None
+    }
+}
+
+fn windows_command_name_from_file_name(
+    file_name: &str,
+    windows_extensions: &[String],
+) -> Option<(String, usize)> {
+    let extension = Path::new(file_name)
+        .extension()
+        .map(|ext| format!(".{}", ext.to_string_lossy().to_lowercase()))?;
+
+    let extension_rank = windows_extensions
         .iter()
-        .any(|&prefix| normalized.starts_with(prefix))
+        .position(|candidate| candidate == &extension)?;
+
+    let stem = Path::new(file_name)
+        .file_stem()
+        .map(|stem| stem.to_string_lossy().to_string())?;
+
+    if is_reasonable_command_name(&stem) {
+        Some((stem, extension_rank))
+    } else {
+        None
+    }
+}
+
+fn windows_executable_extensions(path_ext: Option<&OsStr>) -> Vec<String> {
+    const FALLBACK_EXTENSIONS: &[&str] = &[".exe", ".cmd", ".bat", ".com", ".ps1"];
+    const ALLOWED_EXTENSIONS: &[&str] = &[".exe", ".cmd", ".bat", ".com", ".ps1"];
+
+    let mut extensions = Vec::new();
+    let source = path_ext
+        .map(|value| value.to_string_lossy().to_string())
+        .unwrap_or_else(|| FALLBACK_EXTENSIONS.join(";"));
+
+    for raw in source.split(';') {
+        let trimmed = raw.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+
+        let normalized = if trimmed.starts_with('.') {
+            trimmed.to_lowercase()
+        } else {
+            format!(".{}", trimmed.to_lowercase())
+        };
+
+        if ALLOWED_EXTENSIONS.contains(&normalized.as_str())
+            && !extensions.iter().any(|ext| ext == &normalized)
+        {
+            extensions.push(normalized);
+        }
+    }
+
+    for fallback in FALLBACK_EXTENSIONS {
+        let fallback = (*fallback).to_string();
+        if !extensions.iter().any(|ext| ext == &fallback) {
+            extensions.push(fallback);
+        }
+    }
+
+    extensions
+}
+
+fn is_executable_file(path: &Path) -> bool {
+    if !path.is_file() {
+        return false;
+    }
+
+    if cfg!(windows) {
+        true
+    } else {
+        is_executable(path)
+    }
+}
+
+fn is_ignored_file_name(name: &str) -> bool {
+    name.is_empty()
+        || name.starts_with('.')
+        || name.eq_ignore_ascii_case("desktop.ini")
+        || name.eq_ignore_ascii_case("thumbs.db")
+}
+
+fn is_reasonable_command_name(name: &str) -> bool {
+    !name.is_empty()
+        && name.chars().count() <= 120
+        && !name.contains(std::path::MAIN_SEPARATOR)
+        && !name.chars().any(char::is_control)
+}
+
+fn command_key(name: &str) -> String {
+    if cfg!(windows) {
+        name.to_lowercase()
+    } else {
+        name.to_string()
+    }
 }
 
 fn get_file_size(path: &Path) -> (u64, String) {
@@ -392,10 +697,149 @@ fn format_bytes(bytes: u64) -> String {
     if bytes == 0 {
         return "0 B".to_string();
     }
+
     const UNITS: &[&str] = &["B", "KB", "MB", "GB", "TB"];
     let bytes_f = bytes as f64;
     let i = (bytes_f.log10() / 3.0).floor() as usize;
     let i = i.min(UNITS.len() - 1);
     let value = bytes_f / 1000_f64.powi(i as i32);
     format!("{:.2} {}", value, UNITS[i])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_windows_path_ext_with_fallbacks() {
+        let extensions = windows_executable_extensions(Some(OsStr::new(".JS;.CMD;.EXE;.ps1;.cmd")));
+
+        assert_eq!(extensions, vec![".cmd", ".exe", ".ps1", ".bat", ".com"]);
+    }
+
+    #[test]
+    fn extracts_windows_command_name_from_wrapper() {
+        let extensions = vec![".cmd".to_string(), ".exe".to_string()];
+        let command = windows_command_name_from_file_name("sample-tool.cmd", &extensions);
+
+        assert_eq!(command, Some(("sample-tool".to_string(), 0)));
+    }
+
+    #[test]
+    fn ignores_non_executable_windows_extension() {
+        let extensions = vec![".cmd".to_string(), ".exe".to_string()];
+        let command = windows_command_name_from_file_name("sample-tool.txt", &extensions);
+
+        assert_eq!(command, None);
+    }
+
+    #[test]
+    fn prefers_path_order_before_extension_order() {
+        let candidate = CommandCandidate {
+            name: "sample".to_string(),
+            path: PathBuf::from("/second/sample.exe"),
+            dir_index: 1,
+            extension_rank: 0,
+        };
+        let existing = CommandCandidate {
+            name: "sample".to_string(),
+            path: PathBuf::from("/first/sample.cmd"),
+            dir_index: 0,
+            extension_rank: 1,
+        };
+
+        assert!(!candidate_is_better(&candidate, &existing));
+    }
+
+    #[test]
+    fn prefers_extension_order_inside_same_dir() {
+        let candidate = CommandCandidate {
+            name: "sample".to_string(),
+            path: PathBuf::from("/bin/sample.exe"),
+            dir_index: 0,
+            extension_rank: 0,
+        };
+        let existing = CommandCandidate {
+            name: "sample".to_string(),
+            path: PathBuf::from("/bin/sample.cmd"),
+            dir_index: 0,
+            extension_rank: 1,
+        };
+
+        assert!(candidate_is_better(&candidate, &existing));
+    }
+
+    #[test]
+    fn rejects_hidden_and_metadata_files() {
+        assert!(is_ignored_file_name(".hidden"));
+        assert!(is_ignored_file_name("desktop.ini"));
+        assert!(is_ignored_file_name("thumbs.db"));
+        assert!(!is_ignored_file_name("sample"));
+    }
+
+    #[test]
+    fn rejects_project_local_bin_dirs() {
+        assert!(is_project_local_bin_dir(Path::new(
+            "/project/node_modules/.bin"
+        )));
+        assert!(is_project_local_bin_dir(Path::new("/project/.venv/bin")));
+        assert!(is_project_local_bin_dir(Path::new("/project/target/debug")));
+        assert!(!is_project_local_bin_dir(Path::new("/Users/me/.cargo/bin")));
+    }
+
+    #[test]
+    fn maps_node_declared_bin_from_package_manifest() {
+        let json = serde_json::json!({
+            "name": "sample-package",
+            "bin": {
+                "sample": "./bin/cli.js",
+                "sample-server": "./bin/server.js"
+            }
+        });
+
+        let bins = parse_node_declared_bins(&json, "sample-package").unwrap();
+
+        assert_eq!(bins.len(), 2);
+        assert_eq!(bins[0].name, "sample");
+        assert_eq!(bins[0].relative_path, "./bin/cli.js");
+    }
+
+    #[test]
+    fn derives_bin_name_from_string_bin_package_name() {
+        let json = serde_json::json!({
+            "name": "@scope/sample",
+            "bin": "./bin/cli.js"
+        });
+
+        let bins = parse_node_declared_bins(&json, "@scope/sample").unwrap();
+
+        assert_eq!(bins[0].name, "sample");
+    }
+
+    #[test]
+    fn rejects_low_signal_node_service_bins() {
+        let info = NodeBinInfo {
+            package_name: "typescript".to_string(),
+            declared_bins: vec![
+                NodeDeclaredBin {
+                    name: "tsc".to_string(),
+                    relative_path: "./bin/tsc".to_string(),
+                },
+                NodeDeclaredBin {
+                    name: "tsserver".to_string(),
+                    relative_path: "./bin/tsserver".to_string(),
+                },
+            ],
+            matched_name: Some("tsserver".to_string()),
+        };
+
+        assert!(is_low_signal_node_bin("tsserver", &info));
+        assert!(!is_low_signal_node_bin("tsc", &info));
+    }
+
+    #[test]
+    fn formats_byte_counts() {
+        assert_eq!(format_bytes(0), "0 B");
+        assert_eq!(format_bytes(1536), "1.54 KB");
+    }
 }
