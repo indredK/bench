@@ -15,13 +15,11 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import FilterBar, { type FilterGroup } from "@/components/features/FilterBar";
 import {
-  StickyTable,
-  StickyTableHeader,
-  StickyTableBody,
-  StickyTableRow,
-  StickyTableHead,
-  StickyTableCell,
-} from "@/components/ui/StickyTable";
+  StickyDataTable,
+  type StickyDataTableColumn,
+  type StickyDataTableSortState,
+} from "@/components/ui/StickyDataTable";
+import { StickyTableText } from "@/components/ui/StickyTable";
 
 export interface EnvTool {
   name: string;
@@ -41,6 +39,13 @@ export interface EnvTool {
 }
 
 type EnvFilterKey = "category" | "source" | "kind" | "status";
+type EnvTableColumnId =
+  | "name"
+  | "version"
+  | "path"
+  | "size"
+  | "installTime"
+  | "status";
 
 interface EnvFilterRow {
   id: string;
@@ -91,8 +96,10 @@ function EnvDetector({ active }: { active: boolean }) {
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState<Record<string, string>>({});
-  const [sortBy, setSortBy] = useState<"name" | "size" | "installTime">("name");
-  const [sortDesc, setSortDesc] = useState(false);
+  const [sorting, setSorting] = useState<StickyDataTableSortState<EnvTableColumnId>>({
+    columnId: "name",
+    direction: "asc",
+  });
   const [scanned, setScanned] = useState(false);
   const [showAllCommands, setShowAllCommands] = useState(false);
   const unlistenersRef = useRef<UnlistenFn[]>([]);
@@ -180,30 +187,23 @@ function EnvDetector({ active }: { active: boolean }) {
     [tools]
   );
 
-  const matchingTools = tools
-    .filter((tool) => {
-      const matchesSearch =
-        !searchQuery ||
-        tool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        tool.path.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        tool.detector.toLowerCase().includes(searchQuery.toLowerCase());
+  const matchingTools = useMemo(
+    () =>
+      tools.filter((tool) => {
+        const matchesSearch =
+          !searchQuery ||
+          tool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          tool.path.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          tool.detector.toLowerCase().includes(searchQuery.toLowerCase());
 
-      const matchesFilters = Object.entries(filters).every(
-        ([key, value]) => !value || String(tool[key as EnvFilterKey]) === value
-      );
+        const matchesFilters = Object.entries(filters).every(
+          ([key, value]) => !value || String(tool[key as EnvFilterKey]) === value
+        );
 
-      return matchesSearch && matchesFilters;
-    })
-    .sort((a, b) => {
-      const dir = sortDesc ? -1 : 1;
-      if (sortBy === "size") {
-        return (a.size_bytes - b.size_bytes) * dir;
-      }
-      if (sortBy === "installTime") {
-        return a.install_time.localeCompare(b.install_time) * dir;
-      }
-      return a.name.localeCompare(b.name) * dir;
-    });
+        return matchesSearch && matchesFilters;
+      }),
+    [filters, searchQuery, tools]
+  );
   const missingTools = matchingTools.filter((tool) => !tool.available);
   const displayedTools = matchingTools.filter((tool) => {
     if (!tool.available) return false;
@@ -228,14 +228,86 @@ function EnvDetector({ active }: { active: boolean }) {
 
   const clearFilters = () => setFilters({});
 
-  const handleSort = (field: "name" | "size" | "installTime") => {
-    if (sortBy === field) {
-      setSortDesc(!sortDesc);
-    } else {
-      setSortBy(field);
-      setSortDesc(field === "size" || field === "installTime");
-    }
-  };
+  const tableColumns = useMemo<StickyDataTableColumn<EnvTool, EnvTableColumnId>[]>(() => [
+    {
+      id: "name",
+      header: t("envDetector.toolName"),
+      sticky: true,
+      minWidth: "160px",
+      sortable: true,
+      renderCell: (tool) => tool.name,
+      compareFn: (left, right) => left.name.localeCompare(right.name),
+    },
+    {
+      id: "version",
+      header: t("envDetector.version"),
+      minWidth: "140px",
+      cellClassName: "text-muted-foreground",
+      renderCell: (tool) => (
+        <StickyTableText title={tool.version || t("envDetector.notFound")}>
+          {tool.available ? tool.version || "—" : t("envDetector.notFound")}
+        </StickyTableText>
+      ),
+    },
+    {
+      id: "path",
+      header: t("envDetector.path"),
+      minWidth: "280px",
+      cellClassName: "font-mono text-xs text-muted-foreground",
+      renderCell: (tool) =>
+        tool.available ? (
+          <span title={tool.all_paths.join("\n") || tool.path}>
+            <StickyTableText title={tool.path}>{tool.path}</StickyTableText>
+            {tool.all_paths.length > 1 && (
+              <Badge variant="outline" className="ml-2 align-middle text-[10px]">
+                {t("envDetector.pathCount", { count: tool.all_paths.length })}
+              </Badge>
+            )}
+          </span>
+        ) : (
+          "—"
+        ),
+    },
+    {
+      id: "size",
+      header: t("envDetector.size"),
+      width: "120px",
+      align: "right",
+      sortable: true,
+      sortDescFirst: true,
+      renderCell: (tool) => (
+        <span className="tabular-nums text-muted-foreground">
+          {tool.available ? tool.size_display : "—"}
+        </span>
+      ),
+      compareFn: (left, right) =>
+        left.size_bytes - right.size_bytes || left.name.localeCompare(right.name),
+    },
+    {
+      id: "installTime",
+      header: t("envDetector.installTime"),
+      width: "170px",
+      align: "right",
+      sortable: true,
+      sortDescFirst: true,
+      renderCell: (tool) => (
+        <span className="text-muted-foreground">
+          {tool.available ? tool.install_time : "—"}
+        </span>
+      ),
+      compareFn: (left, right) =>
+        left.install_time.localeCompare(right.install_time) ||
+        left.name.localeCompare(right.name),
+    },
+    {
+      id: "status",
+      header: t("envDetector.status"),
+      width: "112px",
+      align: "center",
+      cellClassName: "text-center",
+      renderCell: (tool) => <EnvStatusBadge tool={tool} />,
+    },
+  ], [t]);
 
   return (
     <div className="h-full flex flex-col gap-3">
@@ -349,72 +421,16 @@ function EnvDetector({ active }: { active: boolean }) {
                     </p>
                   )}
                 </div>
-              <StickyTable containerClassName="h-full min-h-0 rounded-lg border">
-                <StickyTableHeader>
-                  <StickyTableRow>
-                    <StickyTableHead isFirstColumn isFirstRow onClick={() => handleSort("name")}>
-                      {t("envDetector.toolName")}
-                      {sortBy === "name" ? (
-                        <span className="ml-1">{sortDesc ? "↓" : "↑"}</span>
-                      ) : (
-                        <span className="ml-1 opacity-40">⇅</span>
-                      )}
-                    </StickyTableHead>
-                    <StickyTableHead isFirstRow>{t("envDetector.version")}</StickyTableHead>
-                    <StickyTableHead isFirstRow>{t("envDetector.path")}</StickyTableHead>
-                    <StickyTableHead isFirstRow onClick={() => handleSort("size")} className="text-right">
-                      {t("envDetector.size")}
-                      {sortBy === "size" ? (
-                        <span className="ml-1">{sortDesc ? "↓" : "↑"}</span>
-                      ) : (
-                        <span className="ml-1 opacity-40">⇅</span>
-                      )}
-                    </StickyTableHead>
-                    <StickyTableHead isFirstRow onClick={() => handleSort("installTime")} className="text-right">
-                      {t("envDetector.installTime")}
-                      {sortBy === "installTime" ? (
-                        <span className="ml-1">{sortDesc ? "↓" : "↑"}</span>
-                      ) : (
-                        <span className="ml-1 opacity-40">⇅</span>
-                      )}
-                    </StickyTableHead>
-                    <StickyTableHead isFirstRow className="text-center">{t("envDetector.status")}</StickyTableHead>
-                  </StickyTableRow>
-                </StickyTableHeader>
-                <StickyTableBody>
-                  {displayedTools.map((tool) => (
-                    <StickyTableRow key={tool.name}>
-                      <StickyTableCell isFirstColumn>{tool.name}</StickyTableCell>
-                      <StickyTableCell className="max-w-[200px] truncate text-muted-foreground">
-                        {tool.available ? tool.version || "—" : t("envDetector.notFound")}
-                      </StickyTableCell>
-                      <StickyTableCell className="max-w-[280px] truncate font-mono text-xs text-muted-foreground">
-                        {tool.available ? (
-                          <span title={tool.all_paths.join("\n") || tool.path}>
-                            {tool.path}
-                            {tool.all_paths.length > 1 && (
-                              <Badge variant="outline" className="ml-2 align-middle text-[10px]">
-                                {t("envDetector.pathCount", { count: tool.all_paths.length })}
-                              </Badge>
-                            )}
-                          </span>
-                        ) : (
-                          "—"
-                        )}
-                      </StickyTableCell>
-                      <StickyTableCell className="whitespace-nowrap text-right tabular-nums text-muted-foreground">
-                        {tool.available ? tool.size_display : "—"}
-                      </StickyTableCell>
-                      <StickyTableCell className="whitespace-nowrap text-right text-muted-foreground">
-                        {tool.available ? tool.install_time : "—"}
-                      </StickyTableCell>
-                      <StickyTableCell className="text-center">
-                        <EnvStatusBadge tool={tool} />
-                      </StickyTableCell>
-                    </StickyTableRow>
-                  ))}
-                </StickyTableBody>
-              </StickyTable>
+              <StickyDataTable
+                data={displayedTools}
+                columns={tableColumns}
+                getRowId={(tool) => `${tool.name}:${tool.path || tool.detector}:${tool.status}`}
+                sorting={{
+                  state: sorting,
+                  onChange: setSorting,
+                }}
+                containerClassName="h-full min-h-0 rounded-lg border"
+              />
                 {missingTools.length > 0 && (
                   <div className="shrink-0 rounded-lg border bg-muted/20 p-3">
                     <p className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">

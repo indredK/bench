@@ -257,6 +257,7 @@ export type {
   StickyTableHeadProps,
   StickyTableCellProps,
   StickyTableCaptionProps,
+  StickyTableSortDirection,
   StickyTableSortButtonProps,
   StickyTableTextProps,
   StickyTableCheckboxProps,

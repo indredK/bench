@@ -8,14 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import {
-  StickyTable,
-  StickyTableHeader,
-  StickyTableBody,
-  StickyTableRow,
-  StickyTableHead,
-  StickyTableCell,
-  StickyTableCheckbox,
-  StickyTableSortButton,
+  StickyDataTable,
+  getNextStickyDataTableSortState,
+  getStickyDataTableSortDirection,
+  type StickyDataTableColumn,
+  type StickyDataTableSortState,
+} from "@/components/ui/StickyDataTable";
+import {
   StickyTableText,
 } from "@/components/ui/StickyTable";
 import { formatDate, formatSize } from "@/lib/utils";
@@ -78,6 +77,13 @@ const naturalTextComparator = new Intl.Collator(undefined, {
 });
 const MAX_VISIBLE_PATH_LENGTH = 56;
 
+function compareProjectIdentity(left: ProjectInfo, right: ProjectInfo) {
+  return (
+    naturalTextComparator.compare(left.name, right.name) ||
+    naturalTextComparator.compare(left.path, right.path)
+  );
+}
+
 function compactPath(path: string, maxLength = MAX_VISIBLE_PATH_LENGTH) {
   const separator = path.includes("\\") ? "\\" : "/";
   const parts = path.split(/[/\\]+/).filter(Boolean);
@@ -126,8 +132,10 @@ export default function DevCleaner() {
     type: "success" | "error";
     text: string;
   } | null>(null);
-  const [sortBy, setSortBy] = useState<SortBy>("cleanupSize");
-  const [sortDesc, setSortDesc] = useState(true);
+  const [sorting, setSorting] = useState<StickyDataTableSortState<SortBy>>({
+    columnId: "cleanupSize",
+    direction: "desc",
+  });
   const [filterType, setFilterType] = useState<FilterType>("all");
   const [showConfirm, setShowConfirm] = useState(false);
   const [showFilterOptions, setShowFilterOptions] = useState(true);
@@ -136,11 +144,6 @@ export default function DevCleaner() {
   const rescanTimeoutRef = useRef<number | null>(null);
 
   selectedPathRef.current = selectedPath;
-
-  const getProjectTypeLabel = (projectType: ProjectInfo["project_type"]) => {
-    const filterKey = projectTypeMap[projectType];
-    return filterKey ? t(`devCleaner.filter.${filterKey}`) : projectType;
-  };
 
   const handleSelectPath = async () => {
     try {
@@ -242,26 +245,8 @@ export default function DevCleaner() {
       filtered = filtered.filter((project) => project.project_type === filterTypeMap[filterType]);
     }
 
-    return [...filtered].sort((a, b) => {
-      const direction = sortDesc ? -1 : 1;
-      const compareByName = naturalTextComparator.compare(a.name, b.name);
-      const compareByPath = naturalTextComparator.compare(a.path, b.path);
-      const compareByIdentity = (compareByName || compareByPath) * direction;
-
-      switch (sortBy) {
-        case "cleanupSize":
-          return (a.cleanup_potential - b.cleanup_potential) * direction || compareByIdentity;
-        case "totalSize":
-          return (a.total_size - b.total_size) * direction || compareByIdentity;
-        case "modified":
-          return (a.last_modified - b.last_modified) * direction || compareByIdentity;
-        case "name":
-          return compareByIdentity;
-        default:
-          return 0;
-      }
-    });
-  }, [filterType, scanResult, sortBy, sortDesc]);
+    return filtered;
+  }, [filterType, scanResult]);
 
   const projectsByPath = useMemo(
     () =>
@@ -286,14 +271,6 @@ export default function DevCleaner() {
     [visibleProjectPaths]
   );
   const selectedCount = selectedProjects.size;
-  const selectedFilteredCount = useMemo(
-    () => visibleProjectPaths.filter((path) => selectedProjects.has(path)).length,
-    [selectedProjects, visibleProjectPaths]
-  );
-  const allVisibleSelected =
-    filteredProjects.length > 0 && selectedFilteredCount === filteredProjects.length;
-  const someVisibleSelected =
-    selectedFilteredCount > 0 && selectedFilteredCount < filteredProjects.length;
   const selectedSize = useMemo(
     () =>
       Array.from(selectedProjects).reduce(
@@ -303,57 +280,6 @@ export default function DevCleaner() {
     [projectsByPath, selectedProjects]
   );
   const activeScanResult = scanResult;
-
-  const handleSelectAll = () => {
-    setSelectedProjects((current) => {
-      const next = new Set(current);
-
-      if (allVisibleSelected) {
-        for (const path of visibleProjectPaths) {
-          next.delete(path);
-        }
-      } else {
-        for (const path of visibleProjectPaths) {
-          next.add(path);
-        }
-      }
-
-      return next;
-    });
-  };
-
-  const handleProjectToggle = (path: string) => {
-    setSelectedProjects((current) => {
-      const next = new Set(current);
-
-      if (next.has(path)) {
-        next.delete(path);
-      } else {
-        next.add(path);
-      }
-
-      return next;
-    });
-  };
-
-  const handleSort = (field: SortBy) => {
-    if (sortBy === field) {
-      setSortDesc((current) => !current);
-    } else {
-      setSortBy(field);
-      setSortDesc(field !== "name");
-    }
-  };
-
-  const getSortDirection = (field: SortBy) => {
-    return sortBy === field ? (sortDesc ? "desc" : "asc") : "none";
-  };
-
-  const renderSortIndicator = (field: SortBy) => {
-    const direction = getSortDirection(field);
-
-    return direction === "asc" ? "↑" : direction === "desc" ? "↓" : "⇅";
-  };
 
   const handleCleanup = async () => {
     if (selectedProjects.size === 0) {
@@ -436,6 +362,94 @@ export default function DevCleaner() {
       }
     };
   }, []);
+
+  const projectColumns = useMemo<StickyDataTableColumn<ProjectInfo, SortBy>[]>(() => [
+    {
+      id: "name",
+      header: t("devCleaner.column.project"),
+      width: "44%",
+      minWidth: "280px",
+      sortable: true,
+      renderCell: (project) => (
+        <div className="min-w-0 space-y-1">
+          <div className="flex min-w-0 items-center gap-2">
+            <StickyTableText className="font-medium">
+              {project.name}
+            </StickyTableText>
+            <Badge variant="outline" className="shrink-0 text-xs">
+              {projectTypeMap[project.project_type]
+                ? t(`devCleaner.filter.${projectTypeMap[project.project_type]}`)
+                : project.project_type}
+            </Badge>
+          </div>
+          <StickyTableText
+            className="text-xs text-muted-foreground"
+            title={project.path}
+          >
+            {compactPath(project.path)}
+          </StickyTableText>
+          {project.dependencies_count > 0 && (
+            <span className="text-xs text-muted-foreground">
+              {t("devCleaner.dependencies")}: {project.dependencies_count}
+            </span>
+          )}
+        </div>
+      ),
+      compareFn: compareProjectIdentity,
+    },
+    {
+      id: "totalSize",
+      header: t("devCleaner.totalSize"),
+      width: "120px",
+      align: "right",
+      sortable: true,
+      renderCell: (project) => <span className="text-sm">{formatSize(project.total_size)}</span>,
+      compareFn: (left, right) =>
+        left.total_size - right.total_size || compareProjectIdentity(left, right),
+      sortDescFirst: true,
+    },
+    {
+      id: "cleanupSize",
+      header: t("devCleaner.cleanupSize"),
+      width: "150px",
+      align: "right",
+      sortable: true,
+      renderCell: (project) => (
+        <div className="inline-block rounded-lg border border-orange-200 bg-orange-50/70 px-3 py-1.5">
+          <p className="text-[10px] text-orange-700/80">
+            {t("devCleaner.cleanupSize")}
+          </p>
+          <p className="text-sm font-semibold text-orange-600">
+            {formatSize(project.cleanup_potential)}
+          </p>
+        </div>
+      ),
+      compareFn: (left, right) =>
+        left.cleanup_potential - right.cleanup_potential || compareProjectIdentity(left, right),
+      sortDescFirst: true,
+    },
+    {
+      id: "modified",
+      header: t("devCleaner.lastModified"),
+      width: "170px",
+      align: "right",
+      sortable: true,
+      renderCell: (project) => (
+        <span className="text-sm text-muted-foreground">
+          {formatDate(project.last_modified)}
+        </span>
+      ),
+      compareFn: (left, right) =>
+        left.last_modified - right.last_modified || compareProjectIdentity(left, right),
+      sortDescFirst: true,
+    },
+  ], [t]);
+
+  const updateSorting = (field: SortBy, sortDescFirst = false) => {
+    setSorting((current) =>
+      getNextStickyDataTableSortState(current, field, sortDescFirst)
+    );
+  };
 
   return (
     <div className="h-full flex flex-col gap-4">
@@ -560,9 +574,9 @@ export default function DevCleaner() {
                     <CardTitle className="text-base">{t("devCleaner.selectProjects")}</CardTitle>
                   )}
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="secondary">
-                    {t("devCleaner.sorting.current")}: {t(`devCleaner.sorting.${sortBy}`)}
+                    {t("devCleaner.sorting.current")}: {t(`devCleaner.sorting.${sorting.columnId}`)}
                   </Badge>
                   <Badge variant="secondary">
                     {filteredProjects.length} {t("devCleaner.resultsLabel")}
@@ -593,168 +607,52 @@ export default function DevCleaner() {
                 <div className="space-y-2 flex flex-col h-full">
                   <div className="flex flex-wrap gap-2 mb-2 md:hidden shrink-0">
                     <Button
-                      variant={sortBy === "cleanupSize" ? "default" : "outline"}
+                      variant={sorting.columnId === "cleanupSize" ? "default" : "outline"}
                       size="sm"
-                      onClick={() => handleSort("cleanupSize")}
+                      onClick={() => updateSorting("cleanupSize", true)}
                     >
                       {t("devCleaner.cleanupSize")}
-                      {renderSortIndicator("cleanupSize")}
+                      {getStickyDataTableSortDirection(sorting, "cleanupSize") === "asc" ? "↑" : getStickyDataTableSortDirection(sorting, "cleanupSize") === "desc" ? "↓" : "⇅"}
                     </Button>
                     <Button
-                      variant={sortBy === "modified" ? "default" : "outline"}
+                      variant={sorting.columnId === "modified" ? "default" : "outline"}
                       size="sm"
-                      onClick={() => handleSort("modified")}
+                      onClick={() => updateSorting("modified", true)}
                     >
                       {t("devCleaner.lastModified")}
-                      {renderSortIndicator("modified")}
+                      {getStickyDataTableSortDirection(sorting, "modified") === "asc" ? "↑" : getStickyDataTableSortDirection(sorting, "modified") === "desc" ? "↓" : "⇅"}
                     </Button>
                     <Button
-                      variant={sortBy === "name" ? "default" : "outline"}
+                      variant={sorting.columnId === "name" ? "default" : "outline"}
                       size="sm"
-                      onClick={() => handleSort("name")}
+                      onClick={() => updateSorting("name")}
                     >
                       {t("devCleaner.sorting.name")}
-                      {renderSortIndicator("name")}
+                      {getStickyDataTableSortDirection(sorting, "name") === "asc" ? "↑" : getStickyDataTableSortDirection(sorting, "name") === "desc" ? "↓" : "⇅"}
                     </Button>
                   </div>
-                  <StickyTable
+                  <StickyDataTable
+                    data={filteredProjects}
+                    columns={projectColumns}
+                    getRowId={(project) => project.path}
+                    sorting={{
+                      state: sorting,
+                      onChange: setSorting,
+                    }}
+                    selection={{
+                      selectedRowIds: selectedProjects,
+                      onChange: setSelectedProjects,
+                      selectOnRowClick: true,
+                      columnClassName: "w-12 p-2",
+                      getSelectAllCheckboxLabel: (isAllSelected) =>
+                        isAllSelected ? t("devCleaner.deselectAll") : t("devCleaner.selectAll"),
+                      getRowCheckboxLabel: (project, isSelected) =>
+                        `${isSelected ? t("devCleaner.deselectAll") : t("devCleaner.selectAll")} ${project.name}`,
+                    }}
                     layout="fixed"
                     className="min-w-[760px]"
                     containerClassName="rounded-xl border shadow-xs flex-1 min-h-0"
-                  >
-                    <StickyTableHeader>
-                      <StickyTableRow>
-                        <StickyTableHead isFirstColumn isFirstRow className="w-12">
-                          <StickyTableCheckbox
-                            checked={allVisibleSelected}
-                            indeterminate={someVisibleSelected}
-                            readOnly
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              handleSelectAll();
-                            }}
-                            aria-label={allVisibleSelected ? t("devCleaner.deselectAll") : t("devCleaner.selectAll")}
-                          />
-                        </StickyTableHead>
-                        <StickyTableHead isFirstRow className="w-[44%] min-w-[280px]">
-                          <StickyTableSortButton
-                            onClick={() => handleSort("name")}
-                            direction={getSortDirection("name")}
-                          >
-                            {t("devCleaner.column.project")}
-                          </StickyTableSortButton>
-                        </StickyTableHead>
-                        <StickyTableHead isFirstRow className="w-[120px] text-right">
-                          <StickyTableSortButton
-                            align="right"
-                            onClick={() => handleSort("totalSize")}
-                            direction={getSortDirection("totalSize")}
-                          >
-                            {t("devCleaner.totalSize")}
-                          </StickyTableSortButton>
-                        </StickyTableHead>
-                        <StickyTableHead isFirstRow className="w-[150px] text-right">
-                          <StickyTableSortButton
-                            align="right"
-                            onClick={() => handleSort("cleanupSize")}
-                            direction={getSortDirection("cleanupSize")}
-                          >
-                            {t("devCleaner.cleanupSize")}
-                          </StickyTableSortButton>
-                        </StickyTableHead>
-                        <StickyTableHead isFirstRow className="w-[170px] text-right">
-                          <StickyTableSortButton
-                            align="right"
-                            onClick={() => handleSort("modified")}
-                            direction={getSortDirection("modified")}
-                          >
-                            {t("devCleaner.lastModified")}
-                          </StickyTableSortButton>
-                        </StickyTableHead>
-                      </StickyTableRow>
-                    </StickyTableHeader>
-                    <StickyTableBody>
-                      {filteredProjects.map((project) => {
-                        const isSelected = selectedProjects.has(project.path);
-                        return (
-                          <StickyTableRow
-                            key={project.path}
-                            data-state={isSelected ? "selected" : undefined}
-                            aria-selected={isSelected}
-                          >
-                            <StickyTableCell
-                              isFirstColumn
-                              className="cursor-pointer p-2"
-                              onClick={() => handleProjectToggle(project.path)}
-                            >
-                              <StickyTableCheckbox
-                                checked={isSelected}
-                                readOnly
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  handleProjectToggle(project.path);
-                                }}
-                                aria-label={`${isSelected ? t("devCleaner.deselectAll") : t("devCleaner.selectAll")} ${project.name}`}
-                              />
-                            </StickyTableCell>
-                            <StickyTableCell
-                              className="cursor-pointer p-3"
-                              onClick={() => handleProjectToggle(project.path)}
-                            >
-                              <div className="min-w-0 space-y-1">
-                                <div className="flex min-w-0 items-center gap-2">
-                                  <StickyTableText className="font-medium">
-                                    {project.name}
-                                  </StickyTableText>
-                                  <Badge variant="outline" className="text-xs shrink-0">
-                                    {getProjectTypeLabel(project.project_type)}
-                                  </Badge>
-                                </div>
-                                <StickyTableText
-                                  className="text-xs text-muted-foreground"
-                                  title={project.path}
-                                >
-                                  {compactPath(project.path)}
-                                </StickyTableText>
-                                {project.dependencies_count > 0 && (
-                                  <span className="text-xs text-muted-foreground">
-                                    {t("devCleaner.dependencies")}: {project.dependencies_count}
-                                  </span>
-                                )}
-                              </div>
-                            </StickyTableCell>
-                            <StickyTableCell
-                              className="cursor-pointer p-3 text-right"
-                              onClick={() => handleProjectToggle(project.path)}
-                            >
-                              <span className="text-sm">{formatSize(project.total_size)}</span>
-                            </StickyTableCell>
-                            <StickyTableCell
-                              className="cursor-pointer p-3 text-right"
-                              onClick={() => handleProjectToggle(project.path)}
-                            >
-                              <div className="rounded-lg border border-orange-200 bg-orange-50/70 px-3 py-1.5 inline-block">
-                                <p className="text-[10px] text-orange-700/80">
-                                  {t("devCleaner.cleanupSize")}
-                                </p>
-                                <p className="text-sm font-semibold text-orange-600">
-                                  {formatSize(project.cleanup_potential)}
-                                </p>
-                              </div>
-                            </StickyTableCell>
-                            <StickyTableCell
-                              className="cursor-pointer p-3 text-right"
-                              onClick={() => handleProjectToggle(project.path)}
-                            >
-                              <span className="text-sm text-muted-foreground">
-                                {formatDate(project.last_modified)}
-                              </span>
-                            </StickyTableCell>
-                          </StickyTableRow>
-                        );
-                      })}
-                    </StickyTableBody>
-                  </StickyTable>
+                  />
                 </div>
               ) : (
                 <div className="flex h-full flex-col items-center justify-center py-12 text-center">
