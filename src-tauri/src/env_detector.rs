@@ -298,7 +298,8 @@ pub async fn detect_env_tools(app_handle: AppHandle) {
 
 fn detect_env_tools_inner(app_handle: AppHandle) {
     let search_dirs = collect_search_dirs();
-    let (tools, unavailable) = scan_env_commands(&search_dirs, MAX_VERSION_PROBES);
+    let inventory = collect_command_inventory(&search_dirs);
+    let (tools, unavailable) = diagnose_command_inventory(inventory, MAX_VERSION_PROBES);
 
     for tool in tools {
         let _ = app_handle.emit("env-tool-found", &tool);
@@ -307,10 +308,14 @@ fn detect_env_tools_inner(app_handle: AppHandle) {
     let _ = app_handle.emit("env-scan-done", ScanDonePayload { unavailable });
 }
 
-fn scan_env_commands(
-    search_dirs: &[PathBuf],
-    max_version_probes: usize,
-) -> (Vec<EnvTool>, Vec<EnvTool>) {
+#[derive(Debug)]
+struct CommandInventory {
+    candidates_by_name: HashMap<String, CommandCandidate>,
+    paths_by_name: HashMap<String, Vec<String>>,
+    command_order: Vec<String>,
+}
+
+fn collect_command_inventory(search_dirs: &[PathBuf]) -> CommandInventory {
     let mut candidates_by_name: HashMap<String, CommandCandidate> = HashMap::new();
     let mut paths_by_name: HashMap<String, Vec<String>> = HashMap::new();
     let mut command_order: Vec<String> = Vec::new();
@@ -368,12 +373,24 @@ fn scan_env_commands(
         }
     }
 
+    CommandInventory {
+        candidates_by_name,
+        paths_by_name,
+        command_order,
+    }
+}
+
+fn diagnose_command_inventory(
+    mut inventory: CommandInventory,
+    max_version_probes: usize,
+) -> (Vec<EnvTool>, Vec<EnvTool>) {
     let mut version_probe_count = 0;
-    let tools: Vec<EnvTool> = command_order
+    let tools: Vec<EnvTool> = inventory
+        .command_order
         .into_iter()
         .filter_map(|key| {
-            let candidate = candidates_by_name.remove(&key)?;
-            let all_paths = paths_by_name.remove(&key).unwrap_or_default();
+            let candidate = inventory.candidates_by_name.remove(&key)?;
+            let all_paths = inventory.paths_by_name.remove(&key).unwrap_or_default();
             let should_probe_version = version_probe_count < max_version_probes
                 && resolve_tool_detector(&candidate.name).is_some();
             if should_probe_version {
