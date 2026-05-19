@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { Pin, PinOff, RotateCcw, X } from "lucide-react";
+import i18n from "@/i18n/config";
 import {
   Card,
   CardHeader,
@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
+import FilterBar, { type FilterGroup } from "@/components/features/FilterBar";
 import {
   StickyTable,
   StickyTableHeader,
@@ -21,7 +22,6 @@ import {
   StickyTableHead,
   StickyTableCell,
 } from "@/components/ui/StickyTable";
-import { cn } from "@/lib/utils";
 
 export interface EnvTool {
   name: string;
@@ -46,10 +46,30 @@ interface ClassifiedEnvTool {
   facets: EnvToolFacets;
 }
 
-const ENV_FILTER_GROUPS: Array<{ key: EnvFilterKey; labelKey: string }> = [
-  { key: "category", labelKey: "envDetector.filterGroups.category" },
-  { key: "source", labelKey: "envDetector.filterGroups.source" },
-  { key: "kind", labelKey: "envDetector.filterGroups.kind" },
+interface EnvFilterRow {
+  id: string;
+  model: string;
+  category: string;
+  source: string;
+  kind: string;
+}
+
+const ENV_FILTER_GROUPS: FilterGroup<EnvFilterRow>[] = [
+  {
+    key: "category",
+    label: "envDetector.filterGroups.category",
+    format: (value) => formatEnvFilterValue("category", String(value)),
+  },
+  {
+    key: "source",
+    label: "envDetector.filterGroups.source",
+    format: (value) => formatEnvFilterValue("source", String(value)),
+  },
+  {
+    key: "kind",
+    label: "envDetector.filterGroups.kind",
+    format: (value) => formatEnvFilterValue("kind", String(value)),
+  },
 ];
 
 const CATEGORY_NAME_RULES = [
@@ -133,7 +153,7 @@ function EnvDetector({ active }: { active: boolean }) {
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [filters, setFilters] = useState<Partial<Record<EnvFilterKey, string>>>({});
+  const [filters, setFilters] = useState<Record<string, string>>({});
   const [sortBy, setSortBy] = useState<"name" | "size" | "installTime">("name");
   const [sortDesc, setSortDesc] = useState(false);
   const [scanned, setScanned] = useState(false);
@@ -214,32 +234,15 @@ function EnvDetector({ active }: { active: boolean }) {
     [tools]
   );
 
-  const filterOptions = useMemo(() => {
-    return ENV_FILTER_GROUPS.map((group) => {
-      const otherFilters = { ...filters };
-      delete otherFilters[group.key];
-
-      const pool = classifiedTools.filter(({ facets }) =>
-        Object.entries(otherFilters).every(
-          ([key, value]) => !value || facets[key as EnvFilterKey] === value
-        )
-      );
-
-      const optionValues = Array.from(
-        new Set(pool.map(({ facets }) => facets[group.key]).filter(Boolean))
-      ).sort((a, b) =>
-        formatEnvFilterValue(group.key, a, t).localeCompare(formatEnvFilterValue(group.key, b, t))
-      );
-
-      return {
-        ...group,
-        options: optionValues.map((value) => ({
-          value,
-          label: formatEnvFilterValue(group.key, value, t),
-        })),
-      };
-    });
-  }, [classifiedTools, filters, t]);
+  const filterRows = useMemo<EnvFilterRow[]>(
+    () =>
+      classifiedTools.map(({ tool, facets }) => ({
+        id: tool.name,
+        model: tool.name,
+        ...facets,
+      })),
+    [classifiedTools]
+  );
 
   const filteredTools = classifiedTools
     .filter(({ tool, facets }) => {
@@ -269,13 +272,14 @@ function EnvDetector({ active }: { active: boolean }) {
   const hasActiveResultFilter =
     searchQuery.trim().length > 0 || Object.keys(filters).length > 0;
 
-  const handleFilterChange = (key: EnvFilterKey, value: string) => {
+  const handleFilterChange = (key: string, value: string) => {
     setFilters((prev) => {
       const next = { ...prev };
-      if (next[key] === value) {
-        delete next[key];
+      const filterKey = key as EnvFilterKey;
+      if (next[filterKey] === value) {
+        delete next[filterKey];
       } else {
-        next[key] = value;
+        next[filterKey] = value;
       }
       return next;
     });
@@ -341,13 +345,21 @@ function EnvDetector({ active }: { active: boolean }) {
                 )}
               </Button>
             </div>
-            <EnvCommandFilterBar
-              groups={filterOptions}
-              filters={filters}
-              resultCount={filteredTools.length}
-              onFilterChange={handleFilterChange}
-              onClearFilters={clearFilters}
-            />
+            <div className="mb-2">
+              <FilterBar
+                filterGroups={ENV_FILTER_GROUPS}
+                data={filterRows}
+                filters={filters}
+                onFilterChange={handleFilterChange}
+                onClearFilters={clearFilters}
+                resultCount={filteredTools.length}
+                filterTitleKey="envDetector.filters"
+                clearFiltersKey="envDetector.clearFilters"
+                filteredCountKey="envDetector.filteredCount"
+                autoExpandHintKey="envDetector.autoExpandHint"
+                pinnedHintKey="envDetector.pinnedHint"
+              />
+            </div>
             <div className="flex items-center justify-end">
               {scanning && (
                 <span className="mr-2 size-2 animate-pulse rounded-full bg-primary" />
@@ -456,154 +468,6 @@ function EnvDetector({ active }: { active: boolean }) {
   );
 }
 
-interface EnvCommandFilterBarProps {
-  groups: Array<{
-    key: EnvFilterKey;
-    labelKey: string;
-    options: Array<{ value: string; label: string }>;
-  }>;
-  filters: Partial<Record<EnvFilterKey, string>>;
-  resultCount: number;
-  onFilterChange: (key: EnvFilterKey, value: string) => void;
-  onClearFilters: () => void;
-}
-
-function EnvCommandFilterBar({
-  groups,
-  filters,
-  resultCount,
-  onFilterChange,
-  onClearFilters,
-}: EnvCommandFilterBarProps) {
-  const { t } = useTranslation();
-  const hasActiveFilters = Object.keys(filters).length > 0;
-  const [collapsed, setCollapsed] = useState(false);
-  const [autoMode, setAutoMode] = useState(false);
-  const collapseTimer = useRef<ReturnType<typeof setTimeout>>();
-
-  const expandOnHover = useCallback(() => {
-    if (!autoMode) return;
-    if (collapseTimer.current) clearTimeout(collapseTimer.current);
-    setCollapsed(false);
-  }, [autoMode]);
-
-  const collapseOnLeave = useCallback(() => {
-    if (!autoMode) return;
-    collapseTimer.current = setTimeout(() => {
-      setCollapsed(true);
-    }, 400);
-  }, [autoMode]);
-
-  const toggleCollapsed = useCallback(() => {
-    if (collapseTimer.current) clearTimeout(collapseTimer.current);
-    if (autoMode) {
-      setAutoMode(false);
-      setCollapsed(false);
-    } else {
-      setAutoMode(true);
-      setCollapsed(true);
-    }
-  }, [autoMode]);
-
-  return (
-    <div
-      className="mb-2 rounded-xl border bg-card/50"
-      onMouseEnter={expandOnHover}
-      onMouseLeave={collapseOnLeave}
-    >
-      <div
-        className={cn(
-          "flex items-center justify-between px-4 cursor-pointer select-none transition-all",
-          collapsed ? "py-1" : "py-2.5"
-        )}
-        onClick={toggleCollapsed}
-      >
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="text-xs font-semibold text-foreground/70 uppercase tracking-wider">
-            {t("envDetector.filters")}
-          </span>
-          {hasActiveFilters && (
-            <span className="text-xs text-muted-foreground tabular-nums">
-              {t("envDetector.filteredCount", { count: resultCount })}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 px-2 text-xs gap-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-all duration-200"
-            onClick={onClearFilters}
-            disabled={!hasActiveFilters}
-          >
-            <RotateCcw className="size-2.5 shrink-0" />
-            {t("envDetector.clearFilters")}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className={cn(
-              "h-6 w-6 p-0 rounded-full transition-all duration-300 group",
-              autoMode
-                ? "text-muted-foreground hover:text-foreground hover:bg-muted/80"
-                : "bg-primary/10 text-primary hover:bg-primary/20 ring-1 ring-primary/20"
-            )}
-            onClick={toggleCollapsed}
-            title={autoMode ? t("envDetector.autoExpandHint") : t("envDetector.pinnedHint")}
-          >
-            {autoMode ? (
-              <PinOff className="size-3.5 transition-transform duration-300 group-hover:scale-110" />
-            ) : (
-              <Pin className="size-3.5 transition-transform duration-300 group-hover:scale-110" />
-            )}
-          </Button>
-        </div>
-      </div>
-
-      {!collapsed && (
-        <div className="px-4 pb-4 border-t border-border/40">
-          <div className="pt-3 flex flex-col gap-3">
-            {groups.map((group) => {
-              const activeFilter = filters[group.key];
-              return (
-                <div key={group.key} className="flex items-start gap-2 sm:gap-3">
-                  <span className="min-w-[4.5rem] shrink-0 pt-0.5 text-left sm:text-right text-xs font-medium text-muted-foreground leading-5">
-                    {t(group.labelKey)}
-                  </span>
-                  <div className="flex flex-wrap gap-1.5 flex-1">
-                    {group.options.map((option) => {
-                      const isActive = activeFilter === option.value;
-                      return (
-                        <Badge
-                          key={option.value}
-                          variant={isActive ? "default" : "outline"}
-                          className={cn(
-                            "cursor-pointer select-none text-xs transition-all",
-                            isActive
-                              ? "shadow-sm"
-                              : "hover:bg-accent hover:text-accent-foreground active:scale-95"
-                          )}
-                          onClick={() => onFilterChange(group.key, option.value)}
-                        >
-                          {option.label}
-                          {isActive && <X className="ml-1 size-2.5" />}
-                        </Badge>
-                      );
-                    })}
-                    {group.options.length === 0 && (
-                      <span className="text-xs text-muted-foreground italic">—</span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function classifyEnvTool(tool: EnvTool): EnvToolFacets {
   const source = classifySource(tool.path);
   return {
@@ -670,10 +534,9 @@ function normalizeToolPath(path: string): string {
 
 function formatEnvFilterValue(
   key: EnvFilterKey,
-  value: string,
-  t: (key: string) => string
+  value: string
 ): string {
-  return t(`envDetector.filterValues.${key}.${value}`);
+  return i18n.t(`envDetector.filterValues.${key}.${value}`);
 }
 
 export default EnvDetector;

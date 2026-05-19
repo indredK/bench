@@ -148,6 +148,7 @@ function HardwareCompare<T extends { id: string; model: string }>({
               filters={filters}
               onFilterChange={setFilter}
               onClearFilters={clearFilters}
+              resultCount={allFiltered.length}
               models={allFiltered}
               selectedIds={selectedIds}
               onToggleModel={toggleModel}

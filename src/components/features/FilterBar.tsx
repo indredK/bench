@@ -29,13 +29,21 @@ interface FilterBarProps<T extends { id: string; model: string }> {
   filters: Record<string, string>;
   onFilterChange: (key: string, value: string) => void;
   onClearFilters: () => void;
-  /* ── 型号选择相关 ── */
-  models: T[];
-  selectedIds: string[];
-  onToggleModel: (id: string) => void;
-  onClearSelected: () => void;
-  i18nPrefix: string;
-  uid: string;
+  resultCount: number;
+  filterTitleKey?: string;
+  clearFiltersKey?: string;
+  filteredCountKey?: string;
+  autoExpandHintKey?: string;
+  pinnedHintKey?: string;
+  /* ── 型号选择相关（可选） ── */
+  models?: T[];
+  selectedIds?: string[];
+  onToggleModel?: (id: string) => void;
+  onClearSelected?: () => void;
+  i18nPrefix?: string;
+  uid?: string;
+  selectModelsTitleKey?: string;
+  clearSelectedKey?: string;
 }
 
 function FilterBar<T extends { id: string; model: string }>({
@@ -44,12 +52,20 @@ function FilterBar<T extends { id: string; model: string }>({
   filters,
   onFilterChange,
   onClearFilters,
+  resultCount,
+  filterTitleKey = "hardwareCompare.filters",
+  clearFiltersKey = "hardwareCompare.clearFilters",
+  filteredCountKey = "hardwareCompare.filteredCount",
+  autoExpandHintKey = "hardwareCompare.autoExpandHint",
+  pinnedHintKey = "hardwareCompare.pinnedHint",
   models,
   selectedIds,
   onToggleModel,
   onClearSelected,
   i18nPrefix,
   uid,
+  selectModelsTitleKey,
+  clearSelectedKey = "hardwareCompare.clearSelected",
 }: FilterBarProps<T>) {
   const { t } = useTranslation();
   const hasActiveFilters = Object.keys(filters).length > 0;
@@ -57,6 +73,10 @@ function FilterBar<T extends { id: string; model: string }>({
   const [autoMode, setAutoMode] = useState(false);
   const [modelsCollapsed, setModelsCollapsed] = useState(false);
   const collapseTimer = useRef<ReturnType<typeof setTimeout>>();
+  const modelPicker =
+    models && selectedIds && onToggleModel && onClearSelected
+      ? { models, selectedIds, onToggleModel, onClearSelected }
+      : null;
 
   const expandOnHover = useCallback(() => {
     if (!autoMode) return;
@@ -134,7 +154,7 @@ function FilterBar<T extends { id: string; model: string }>({
         onClick={toggleMaster}
       >
         <span className="text-xs font-semibold text-foreground/70 uppercase tracking-wider">
-          {t("hardwareCompare.filters")}
+          {t(filterTitleKey)}
         </span>
         <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
           <Button
@@ -145,7 +165,7 @@ function FilterBar<T extends { id: string; model: string }>({
             disabled={!hasActiveFilters}
           >
             <RotateCcw className="size-2.5 shrink-0" />
-            {t("hardwareCompare.clearFilters")}
+            {t(clearFiltersKey)}
           </Button>
           <Button
             variant="ghost"
@@ -157,7 +177,7 @@ function FilterBar<T extends { id: string; model: string }>({
                 : "bg-primary/10 text-primary hover:bg-primary/20 ring-1 ring-primary/20"
             )}
             onClick={toggleMaster}
-            title={autoMode ? t("hardwareCompare.autoExpandHint") : t("hardwareCompare.pinnedHint")}
+            title={autoMode ? t(autoExpandHintKey) : t(pinnedHintKey)}
           >
             {autoMode ? (
               <PinOff className="size-3.5 transition-transform duration-300 group-hover:scale-110" />
@@ -209,85 +229,89 @@ function FilterBar<T extends { id: string; model: string }>({
             })}
           </div>
 
-          {/* 分隔线 */}
-          <div className="border-t border-border/40" />
+          {modelPicker && (
+            <>
+              {/* 分隔线 */}
+              <div className="border-t border-border/40" />
 
-          {/* 型号选择列表（可折叠） */}
-          <Collapsible
-            open={!modelsCollapsed}
-            onOpenChange={(open) => setModelsCollapsed(!open)}
-          >
-            <CollapsibleTrigger className="flex items-center justify-between w-full cursor-pointer select-none group">
-              <div className="flex items-center gap-2 px-4 py-2.5 flex-1 min-w-0">
-                <span className="text-xs font-semibold text-foreground/70 uppercase tracking-wider">
-                  {t(`${i18nPrefix}.selectModels`)}
-                </span>
-                {hasActiveFilters && (
-                  <span className="text-xs text-muted-foreground font-normal tabular-nums">
-                    {t("hardwareCompare.filteredCount", { count: models.length })}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-0.5 pr-4">
-                <span
-                  className={cn(
-                    "inline-flex items-center gap-1 h-6 px-2 text-xs rounded-full transition-all duration-200",
-                    selectedIds.length > 0
-                      ? "cursor-pointer select-none text-muted-foreground hover:text-foreground hover:bg-muted/80"
-                      : "text-muted-foreground/30 cursor-default"
+              {/* 型号选择列表（可折叠） */}
+              <Collapsible
+                open={!modelsCollapsed}
+                onOpenChange={(open) => setModelsCollapsed(!open)}
+              >
+                <CollapsibleTrigger className="flex items-center justify-between w-full cursor-pointer select-none group">
+                  <div className="flex items-center gap-2 px-4 py-2.5 flex-1 min-w-0">
+                    <span className="text-xs font-semibold text-foreground/70 uppercase tracking-wider">
+                      {t(selectModelsTitleKey ?? `${i18nPrefix ?? "hardwareCompare"}.selectModels`)}
+                    </span>
+                    {hasActiveFilters && (
+                      <span className="text-xs text-muted-foreground font-normal tabular-nums">
+                        {t(filteredCountKey, { count: resultCount })}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-0.5 pr-4">
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-1 h-6 px-2 text-xs rounded-full transition-all duration-200",
+                        modelPicker.selectedIds.length > 0
+                          ? "cursor-pointer select-none text-muted-foreground hover:text-foreground hover:bg-muted/80"
+                          : "text-muted-foreground/30 cursor-default"
+                      )}
+                      onClick={(e) => {
+                        if (modelPicker.selectedIds.length === 0) return;
+                        e.stopPropagation();
+                        modelPicker.onClearSelected();
+                      }}
+                    >
+                      <X className="size-2.5 shrink-0" />
+                      {t(clearSelectedKey)}
+                    </span>
+                    <ChevronDown
+                      className={cn(
+                        "size-3.5 text-muted-foreground/50 transition-all duration-200 group-hover:text-muted-foreground",
+                        modelsCollapsed && "-rotate-90"
+                      )}
+                    />
+                  </div>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-2">
+                  {modelPicker.models.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {modelPicker.models.map((model) => {
+                        const isSelected = modelPicker.selectedIds.includes(model.id);
+                        return (
+                          <Button
+                            key={`${uid}-model-${model.id}`}
+                            variant={isSelected ? "default" : "outline"}
+                            size="sm"
+                            className={cn(
+                              "gap-1.5 transition-all active:scale-95",
+                              isSelected
+                                ? "shadow-sm"
+                                : "hover:bg-accent hover:text-accent-foreground"
+                            )}
+                            onClick={() => modelPicker.onToggleModel(model.id)}
+                          >
+                            {isSelected ? (
+                              <X className="size-3 shrink-0" />
+                            ) : (
+                              <Plus className="size-3 shrink-0" />
+                            )}
+                            <span className="max-w-[160px] truncate">{model.model}</span>
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground py-2">
+                      {t("hardwareCompare.noModelsSelected")}
+                    </p>
                   )}
-                  onClick={(e) => {
-                    if (selectedIds.length === 0) return;
-                    e.stopPropagation();
-                    onClearSelected();
-                  }}
-                >
-                  <X className="size-2.5 shrink-0" />
-                  {t("hardwareCompare.clearSelected")}
-                </span>
-                <ChevronDown
-                  className={cn(
-                    "size-3.5 text-muted-foreground/50 transition-all duration-200 group-hover:text-muted-foreground",
-                    modelsCollapsed && "-rotate-90"
-                  )}
-                />
-              </div>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="pt-2">
-              {models.length > 0 ? (
-                <div className="flex flex-wrap gap-1.5">
-                  {models.map((model) => {
-                    const isSelected = selectedIds.includes(model.id);
-                    return (
-                      <Button
-                        key={`${uid}-model-${model.id}`}
-                        variant={isSelected ? "default" : "outline"}
-                        size="sm"
-                        className={cn(
-                          "gap-1.5 transition-all active:scale-95",
-                          isSelected
-                            ? "shadow-sm"
-                            : "hover:bg-accent hover:text-accent-foreground"
-                        )}
-                        onClick={() => onToggleModel(model.id)}
-                      >
-                        {isSelected ? (
-                          <X className="size-3 shrink-0" />
-                        ) : (
-                          <Plus className="size-3 shrink-0" />
-                        )}
-                        <span className="max-w-[160px] truncate">{model.model}</span>
-                      </Button>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground py-2">
-                  {t("hardwareCompare.noModelsSelected")}
-                </p>
-              )}
-            </CollapsibleContent>
-          </Collapsible>
+                </CollapsibleContent>
+              </Collapsible>
+            </>
+          )}
         </div>
       )}
     </div>
