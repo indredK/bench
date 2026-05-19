@@ -1,21 +1,13 @@
 import { useMemo, useState, useId } from "react";
 import { useTranslation } from "react-i18next";
-import { Plus, X, ExternalLink } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import {
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
   TooltipProvider,
 } from "@/components/ui/tooltip";
-import {
-  StickyDataTable,
-  type StickyDataTableColumn,
-} from "@/components/ui/StickyDataTable";
-import { cn } from "@/lib/utils";
 import FilterBar from "@/components/features/FilterBar";
-import type { CompareDataModule, SpecRow } from "@/features/compare/types";
+import type { CompareDataModule } from "@/features/compare/types";
+import { CompareMatrixTable } from "@/features/compare/CompareMatrixTable";
 
 interface HardwareCompareProps<T extends { id: string; model: string }> {
   module: CompareDataModule<T>;
@@ -124,124 +116,6 @@ function HardwareCompare<T extends { id: string; model: string }>({
     };
   }, [inverseKeys, numericKeys, selectedModels, specRows]);
 
-  const compareTableColumns = useMemo<StickyDataTableColumn<SpecRow<T>>[]>(() => [
-    {
-      id: "specification",
-      header: t(`${i18nPrefix}.specification`),
-      sticky: true,
-      minWidth: "160px",
-      cellClassName: "text-xs",
-      renderCell: (row) => t(row.label),
-    },
-    ...selectedModels.map<StickyDataTableColumn<SpecRow<T>>>((model) => ({
-      id: model.id,
-      header: (
-        <div className="flex items-center gap-2">
-          <div className="size-2 shrink-0 rounded-full bg-primary/40" />
-          <span className="truncate font-medium">
-            {model.model}
-          </span>
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            className="ml-auto shrink-0 opacity-60 transition-opacity hover:opacity-100"
-            onClick={() => toggleModel(model.id)}
-          >
-            <X className="size-3" />
-          </Button>
-        </div>
-      ),
-      minWidth: "140px",
-      cellClassName: (row, context) => {
-        const isHighlighted = bestValues.get(row.key)?.has(model.id);
-
-        return cn(
-          "relative",
-          context.rowIndex % 2 === 1 && "bg-muted/15",
-          isHighlighted && "font-bold text-emerald-600 dark:text-emerald-400"
-        );
-      },
-      renderCell: (row) => {
-        const value = model[row.key];
-        const displayValue = row.format
-          ? row.format(value as never, model)
-          : String(value ?? "—");
-        const isHighlighted = bestValues.get(row.key)?.has(model.id);
-        const range = rangeValues.get(row.key);
-        const isNumeric =
-          numericKeys.includes(row.key) ||
-          inverseKeys.includes(row.key);
-        const reference = referenceUrl
-          ? referenceUrl(model, row.key)
-          : undefined;
-        let barPercent = 0;
-
-        if (
-          range &&
-          isNumeric &&
-          value != null &&
-          !Number.isNaN(Number(value))
-        ) {
-          const numericValue = Number(value);
-          const diff = range.max - range.min;
-          if (diff > 0) {
-            barPercent = ((numericValue - range.min) / diff) * 100;
-          } else {
-            barPercent = 100;
-          }
-        }
-
-        return (
-          <>
-            {barPercent > 0 && (
-              <div
-                className="absolute inset-y-1.5 left-0 rounded-r-full transition-all duration-300"
-                style={{
-                  width: `${Math.max(barPercent, 4)}%`,
-                  background: isHighlighted
-                    ? "linear-gradient(90deg, rgba(5,150,105,0.20), rgba(5,150,105,0.06))"
-                    : "linear-gradient(90deg, rgba(107,114,128,0.10), rgba(107,114,128,0.02))",
-                }}
-              />
-            )}
-            <div className="relative z-10 flex items-center gap-1.5">
-              <span
-                className={cn(
-                  "text-sm tabular-nums",
-                  isHighlighted && "text-emerald-700 dark:text-emerald-300"
-                )}
-              >
-                {displayValue}
-              </span>
-              {reference && (
-                <Tooltip>
-                  <TooltipTrigger
-                    className="shrink-0 cursor-pointer text-muted-foreground/40 transition-colors hover:text-muted-foreground"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      window.open(reference, "_blank", "noopener,noreferrer");
-                    }}
-                  >
-                    <ExternalLink className="size-3" />
-                  </TooltipTrigger>
-                  <TooltipContent
-                    side="top"
-                    align="center"
-                    className="max-w-[400px] break-all"
-                  >
-                    <span className="font-mono text-[10px]">
-                      {reference}
-                    </span>
-                  </TooltipContent>
-                </Tooltip>
-              )}
-            </div>
-          </>
-        );
-      },
-    })),
-  ], [bestValues, i18nPrefix, inverseKeys, numericKeys, rangeValues, referenceUrl, selectedModels, t]);
-
   return (
     <TooltipProvider delay={200}>
       <Card className="shadow-sm flex-1 flex flex-col min-h-0">
@@ -274,11 +148,16 @@ function HardwareCompare<T extends { id: string; model: string }>({
                   })}
                 </p>
               </div>
-              <StickyDataTable
-                data={specRows}
-                columns={compareTableColumns}
-                getRowId={(row) => String(row.key)}
-                getRowClassName={() => "transition-none"}
+              <CompareMatrixTable
+                specRows={specRows}
+                selectedModels={selectedModels}
+                numericKeys={numericKeys}
+                inverseKeys={inverseKeys}
+                i18nPrefix={i18nPrefix}
+                bestValues={bestValues}
+                rangeValues={rangeValues}
+                referenceUrl={referenceUrl}
+                onRemoveModel={toggleModel}
                 containerClassName="rounded-xl border shadow-xs flex-1 min-h-0"
               />
             </div>
