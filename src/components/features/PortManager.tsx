@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { platformConfig } from "@/platform/config";
-import { invoke, isTauri } from "@tauri-apps/api/core";
+import { isTauri } from "@tauri-apps/api/core";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,35 +10,14 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { killProcesses, queryPortProcesses } from "@/lib/tauri/commands";
+import type { PortProcessDetail, ProcessNode } from "@/lib/tauri/types";
+import {
+  DEFAULT_MAX_PORTS,
+  hasInvalidPortInputCharacters,
+  parsePortsFromInput,
+} from "@/features/port-manager/ports";
 import { Loader2, RefreshCw, Search, X } from "lucide-react";
-
-interface KillPidResult {
-  pid: number;
-  success: boolean;
-  message: string;
-}
-
-interface ProcessNode {
-  pid: number;
-  ppid: number;
-  name: string;
-  command: string;
-  children: ProcessNode[];
-}
-
-interface ProcessFingerprint {
-  category: string;
-  name: string;
-  icon: string;
-}
-
-interface PortProcessDetail {
-  port: number;
-  pids: number[];
-  process_trees: ProcessNode[];
-  fingerprint: ProcessFingerprint | null;
-  error: string | null;
-}
 
 function ProcessTreeView({ node, depth, targetPid }: { node: ProcessNode; depth: number; targetPid: number }) {
   const isTarget = node.pid === targetPid;
@@ -141,7 +120,6 @@ function PortManager() {
   const [inputError, setInputError] = useState("");
 
   const commonPorts = [3000, 5173, 1420, 8080, 5000, 4200, 8000, 4321, 6006, 1234, 9000];
-  const MAX_PORTS = 100;
   const isScanning = portStates.some((ps) => ps.status === "scanning");
 
   const clearInvalidTimer = useCallback(() => {
@@ -197,7 +175,7 @@ function PortManager() {
       );
 
       try {
-        const details: PortProcessDetail[] = await invoke("query_port_processes", { ports: [port] });
+        const details = await queryPortProcesses([port]);
 
         if (scanSessionRef.current !== sessionId) {
           setPortStates((prev) =>
@@ -235,77 +213,12 @@ function PortManager() {
     const raw = e.target.value;
     setInputValue(raw);
 
-    if (/[^0-9,\-]/.test(raw)) {
+    if (hasInvalidPortInputCharacters(raw)) {
       handleInvalidInput();
     } else {
       clearInvalidTimer();
       setShowInvalidToast(false);
     }
-  };
-
-  const parsePortsFromInput = (input: string): { ports: number[]; hasError: boolean; error?: string } => {
-    const ports: Set<number> = new Set();
-    let hasError = false;
-    let error: string | undefined;
-    const parts = input.split(",").map((s) => s.trim()).filter(Boolean);
-
-    for (const part of parts) {
-      if (part.includes("-")) {
-        const rangeParts = part.split("-");
-        if (rangeParts.length !== 2 || !rangeParts[0] || !rangeParts[1]) {
-          hasError = true;
-          error = error || t("portManager.invalidRangeFormat");
-          continue;
-        }
-        const [startStr, endStr] = rangeParts;
-        if (!/^\d+$/.test(startStr) || !/^\d+$/.test(endStr)) {
-          hasError = true;
-          error = error || t("portManager.invalidPortNumber");
-          continue;
-        }
-        const start = parseInt(startStr, 10);
-        const end = parseInt(endStr, 10);
-        if (start > end) {
-          hasError = true;
-          error = error || t("portManager.rangeStartGtEnd");
-          continue;
-        }
-        if (start < 1 || end > 65535) {
-          hasError = true;
-          error = error || t("portManager.portOutOfRange");
-          continue;
-        }
-        const rangeSize = end - start + 1;
-        if (ports.size + rangeSize > MAX_PORTS) {
-          hasError = true;
-          error = error || t("portManager.tooManyPorts");
-          continue;
-        }
-        for (let p = start; p <= end; p++) {
-          ports.add(p);
-        }
-      } else {
-        if (!/^\d+$/.test(part)) {
-          hasError = true;
-          error = error || t("portManager.invalidPortFormat");
-          continue;
-        }
-        const port = parseInt(part, 10);
-        if (port < 1 || port > 65535) {
-          hasError = true;
-          error = error || t("portManager.portOutOfRange");
-          continue;
-        }
-        if (ports.size >= MAX_PORTS) {
-          hasError = true;
-          error = error || t("portManager.tooManyPorts");
-          continue;
-        }
-        ports.add(port);
-      }
-    }
-
-    return { ports: [...ports].sort((a, b) => a - b), hasError, error };
   };
 
   const commitInput = () => {
@@ -315,9 +228,9 @@ function PortManager() {
       handleInvalidInput(t("portManager.invalidInput"));
       return;
     }
-    const { ports: newPorts, hasError, error } = parsePortsFromInput(val);
+    const { ports: newPorts, hasError, errorKey } = parsePortsFromInput(val);
     if (hasError) {
-      handleInvalidInput(error || t("portManager.invalidInput"));
+      handleInvalidInput(t(`portManager.${errorKey ?? "invalidInput"}`));
       return;
     }
     if (newPorts.length === 0) return;
@@ -334,10 +247,10 @@ function PortManager() {
     setInputValue("");
 
     setPortStates((prev) => {
-      if (prev.length >= MAX_PORTS) return prev;
+      if (prev.length >= DEFAULT_MAX_PORTS) return prev;
       const updated = [...prev];
       for (const port of portsToAdd) {
-        if (updated.length >= MAX_PORTS) break;
+        if (updated.length >= DEFAULT_MAX_PORTS) break;
         updated.push({ port, status: "waiting" });
       }
       return updated.sort((a, b) => a.port - b.port);
@@ -405,7 +318,7 @@ function PortManager() {
     setError("");
     setKilling(true);
     try {
-      const result: KillPidResult[] = await invoke("kill_processes", { pids });
+      const result = await killProcesses(pids);
       const messages = result.map((r) => (r.success ? `PID ${r.pid} killed` : `PID ${r.pid}: ${r.message}`));
       setPortKillMessages((prev) => ({ ...prev, [port]: messages }));
       doScan([port]);
@@ -422,7 +335,7 @@ function PortManager() {
     try {
       const allPids = portDetails.flatMap((d) => d.pids);
       const portsToRescan = portDetails.map((d) => d.port);
-      const result: KillPidResult[] = await invoke("kill_processes", { pids: allPids });
+      const result = await killProcesses(allPids);
       const killMessages: Record<number, string[]> = {};
       for (const r of result) {
         const message = r.success ? `PID ${r.pid} killed` : `PID ${r.pid}: ${r.message}`;

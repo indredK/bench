@@ -1,28 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { invoke, isTauri } from "@tauri-apps/api/core";
+import { isTauri } from "@tauri-apps/api/core";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { getSystemInfo } from "@/lib/tauri/commands";
+import type { SystemInfoData } from "@/lib/tauri/types";
 import { formatMemory } from "@/lib/utils";
-
-interface SystemInfoData {
-  os_name: string;
-  os_version: string;
-  kernel_version: string;
-  hostname: string;
-  cpu_brand: string;
-  cpu_cores: number;
-  total_memory: number;
-  available_memory: number;
-  used_memory: number;
-  memory_usage_percent: number;
-  browser_name?: string;
-  browser_version?: string;
-  platform?: string;
-  language?: string;
-  screen_resolution?: string;
-}
 
 function SystemInfo({ active }: { active: boolean }) {
   const { t } = useTranslation();
@@ -37,7 +21,7 @@ function SystemInfo({ active }: { active: boolean }) {
 
     try {
       if (isTauri()) {
-        const info: SystemInfoData = await invoke("get_system_info");
+        const info = await getSystemInfo();
         setSystemInfo(info);
       } else {
         const browserInfo = getBrowserInfo();

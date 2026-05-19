@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { invoke, isTauri } from "@tauri-apps/api/core";
+import type { SortingState } from "@tanstack/react-table";
+import { isTauri } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import i18n from "@/i18n/config";
 import {
@@ -14,38 +15,12 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import FilterBar, { type FilterGroup } from "@/components/features/FilterBar";
-import {
-  StickyDataTable,
-  type StickyDataTableColumn,
-  type StickyDataTableSortState,
-} from "@/components/ui/StickyDataTable";
-import { StickyTableText } from "@/components/ui/StickyTable";
-
-export interface EnvTool {
-  name: string;
-  version: string;
-  path: string;
-  size_bytes: number;
-  size_display: string;
-  install_time: string;
-  available: boolean;
-  category: string;
-  source: string;
-  kind: string;
-  status: string;
-  detector: string;
-  all_paths: string[];
-  issue: string;
-}
+import { DataTable } from "@/components/ui/DataTable";
+import { createEnvDetectorColumns } from "@/features/env-detector/columns";
+import { detectEnvTools } from "@/lib/tauri/commands";
+import type { EnvTool } from "@/lib/tauri/types";
 
 type EnvFilterKey = "category" | "source" | "kind" | "status";
-type EnvTableColumnId =
-  | "name"
-  | "version"
-  | "path"
-  | "size"
-  | "installTime"
-  | "status";
 
 interface EnvFilterRow {
   id: string;
@@ -96,10 +71,9 @@ function EnvDetector({ active }: { active: boolean }) {
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState<Record<string, string>>({});
-  const [sorting, setSorting] = useState<StickyDataTableSortState<EnvTableColumnId>>({
-    columnId: "name",
-    direction: "asc",
-  });
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: "name", desc: false },
+  ]);
   const [scanned, setScanned] = useState(false);
   const [showAllCommands, setShowAllCommands] = useState(false);
   const unlistenersRef = useRef<UnlistenFn[]>([]);
@@ -143,7 +117,7 @@ function EnvDetector({ active }: { active: boolean }) {
 
       unlistenersRef.current = [unlisten1, unlisten2];
 
-      await invoke("detect_env_tools");
+      await detectEnvTools();
       setScanned(true);
     } catch (e) {
       console.warn("[EnvDetector] Failed to detect tools:", e);
@@ -228,86 +202,7 @@ function EnvDetector({ active }: { active: boolean }) {
 
   const clearFilters = () => setFilters({});
 
-  const tableColumns = useMemo<StickyDataTableColumn<EnvTool, EnvTableColumnId>[]>(() => [
-    {
-      id: "name",
-      header: t("envDetector.toolName"),
-      sticky: true,
-      minWidth: "160px",
-      sortable: true,
-      renderCell: (tool) => tool.name,
-      compareFn: (left, right) => left.name.localeCompare(right.name),
-    },
-    {
-      id: "version",
-      header: t("envDetector.version"),
-      minWidth: "140px",
-      cellClassName: "text-muted-foreground",
-      renderCell: (tool) => (
-        <StickyTableText title={tool.version || t("envDetector.notFound")}>
-          {tool.available ? tool.version || "—" : t("envDetector.notFound")}
-        </StickyTableText>
-      ),
-    },
-    {
-      id: "path",
-      header: t("envDetector.path"),
-      minWidth: "280px",
-      cellClassName: "font-mono text-xs text-muted-foreground",
-      renderCell: (tool) =>
-        tool.available ? (
-          <span title={tool.all_paths.join("\n") || tool.path}>
-            <StickyTableText title={tool.path}>{tool.path}</StickyTableText>
-            {tool.all_paths.length > 1 && (
-              <Badge variant="outline" className="ml-2 align-middle text-[10px]">
-                {t("envDetector.pathCount", { count: tool.all_paths.length })}
-              </Badge>
-            )}
-          </span>
-        ) : (
-          "—"
-        ),
-    },
-    {
-      id: "size",
-      header: t("envDetector.size"),
-      width: "120px",
-      align: "right",
-      sortable: true,
-      sortDescFirst: true,
-      renderCell: (tool) => (
-        <span className="tabular-nums text-muted-foreground">
-          {tool.available ? tool.size_display : "—"}
-        </span>
-      ),
-      compareFn: (left, right) =>
-        left.size_bytes - right.size_bytes || left.name.localeCompare(right.name),
-    },
-    {
-      id: "installTime",
-      header: t("envDetector.installTime"),
-      width: "170px",
-      align: "right",
-      sortable: true,
-      sortDescFirst: true,
-      renderCell: (tool) => (
-        <span className="text-muted-foreground">
-          {tool.available ? tool.install_time : "—"}
-        </span>
-      ),
-      compareFn: (left, right) =>
-        left.install_time.localeCompare(right.install_time) ||
-        left.name.localeCompare(right.name),
-    },
-    {
-      id: "status",
-      header: t("envDetector.status"),
-      width: "112px",
-      align: "center",
-      cellClassName: "text-center",
-      renderCell: (tool) => <EnvStatusBadge tool={tool} />,
-    },
-  ], [t]);
+  const tableColumns = useMemo(() => createEnvDetectorColumns(t), [t]);
 
   return (
     <div className="h-full flex flex-col gap-3">
@@ -421,13 +316,13 @@ function EnvDetector({ active }: { active: boolean }) {
                     </p>
                   )}
                 </div>
-              <StickyDataTable
+              <DataTable
                 data={displayedTools}
                 columns={tableColumns}
                 getRowId={(tool) => `${tool.name}:${tool.path || tool.detector}:${tool.status}`}
                 sorting={{
-                  state: sorting,
-                  onChange: setSorting,
+                  sorting,
+                  onSortingChange: setSorting,
                 }}
                 containerClassName="h-full min-h-0 rounded-lg border"
               />
@@ -471,43 +366,6 @@ function isDeveloperSignal(tool: EnvTool): boolean {
     tool.category !== "other" ||
     tool.status === "multipleVersions" ||
     tool.status === "versionUnknown"
-  );
-}
-
-function EnvStatusBadge({ tool }: { tool: EnvTool }) {
-  const { t } = useTranslation();
-
-  if (!tool.available) {
-    return (
-      <Badge variant="secondary" className="bg-muted/50 text-muted-foreground">
-        {t("envDetector.filterValues.status.missing")}
-      </Badge>
-    );
-  }
-
-  if (tool.status === "multipleVersions") {
-    return (
-      <Badge variant="outline" className="border-amber-500/40 text-amber-700 dark:text-amber-300">
-        {t("envDetector.filterValues.status.multipleVersions")}
-      </Badge>
-    );
-  }
-
-  if (tool.status === "versionUnknown") {
-    return (
-      <Badge variant="outline" className="text-muted-foreground">
-        {t("envDetector.filterValues.status.versionUnknown")}
-      </Badge>
-    );
-  }
-
-  return (
-    <Badge
-      variant="default"
-      className="bg-green-600/20 text-green-700 dark:bg-green-500/15 dark:text-green-400"
-    >
-      {t("envDetector.filterValues.status.ok")}
-    </Badge>
   );
 }
 

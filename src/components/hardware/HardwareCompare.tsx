@@ -15,26 +15,7 @@ import {
 } from "@/components/ui/StickyDataTable";
 import { cn } from "@/lib/utils";
 import FilterBar from "@/components/features/FilterBar";
-import type { FilterGroup } from "@/components/features/FilterBar";
-
-export type { FilterGroup };
-
-export interface SpecRow<T> {
-  key: keyof T;
-  label: string;
-  format?: (val: T[keyof T], model: T) => string;
-}
-
-export interface CompareDataModule<T extends { id: string; model: string }> {
-  data: T[];
-  specRows: SpecRow<T>[];
-  numericKeys: (keyof T)[];
-  inverseKeys: (keyof T)[];
-  i18nPrefix: string;
-  filterGroups?: FilterGroup<T>[];
-  /** 获取某个字段的参考链接（key 为规格行字段名） */
-  referenceUrl?: (model: T, key: keyof T) => string | undefined;
-}
+import type { CompareDataModule, SpecRow } from "@/features/compare/types";
 
 interface HardwareCompareProps<T extends { id: string; model: string }> {
   module: CompareDataModule<T>;

@@ -1,4 +1,13 @@
 import { useMemo } from "react";
+import {
+  getCoreRowModel,
+  getSortedRowModel,
+  useReactTable,
+  type ColumnDef,
+  type Row as TanStackRow,
+  type RowSelectionState,
+  type SortingState,
+} from "@tanstack/react-table";
 import { cn } from "@/lib/utils";
 import {
   StickyTable,
@@ -150,6 +159,30 @@ function getStickyDataTableAlignClass(align: StickyDataTableColumnAlign = "left"
   return "text-left";
 }
 
+function toTanStackColumns<DataRow, ColumnId extends string>(
+  columns: StickyDataTableColumn<DataRow, ColumnId>[]
+): ColumnDef<DataRow>[] {
+  return columns.map((column) => ({
+    id: column.id,
+    enableSorting: Boolean(column.sortable),
+    accessorFn: column.getSortValue ?? (() => undefined),
+    sortingFn: (left: TanStackRow<DataRow>, right: TanStackRow<DataRow>) => {
+      if (column.compareFn) {
+        return column.compareFn(left.original, right.original);
+      }
+
+      if (column.getSortValue) {
+        return compareStickyDataTableValues(
+          column.getSortValue(left.original),
+          column.getSortValue(right.original)
+        );
+      }
+
+      return 0;
+    },
+  }));
+}
+
 function StickyDataTable<Row, ColumnId extends string = string>({
   data,
   columns,
@@ -162,35 +195,52 @@ function StickyDataTable<Row, ColumnId extends string = string>({
   onRowClick,
   ...tableProps
 }: StickyDataTableProps<Row, ColumnId>) {
-  const sortedData = useMemo(() => {
+  const tanstackColumns = useMemo<ColumnDef<Row>[]>(
+    () => toTanStackColumns(columns),
+    [columns]
+  );
+
+  const tanstackSorting = useMemo<SortingState>(() => {
     if (!sorting) {
-      return data;
+      return [];
     }
 
-    const activeColumn = columns.find((column) => column.id === sorting.state.columnId);
-    if (!activeColumn || !activeColumn.sortable) {
-      return data;
+    return [
+      {
+        id: sorting.state.columnId,
+        desc: sorting.state.direction === "desc",
+      },
+    ];
+  }, [sorting]);
+
+  const rowSelection = useMemo<RowSelectionState>(() => {
+    if (!selection) {
+      return {};
     }
 
-    const directionFactor = sorting.state.direction === "desc" ? -1 : 1;
+    return Object.fromEntries(
+      Array.from(selection.selectedRowIds).map((rowId) => [rowId, true])
+    );
+  }, [selection]);
 
-    return [...data].sort((left, right) => {
-      const comparison = activeColumn.compareFn
-        ? activeColumn.compareFn(left, right)
-        : activeColumn.getSortValue
-          ? compareStickyDataTableValues(
-              activeColumn.getSortValue(left),
-              activeColumn.getSortValue(right)
-            )
-          : 0;
+  const table = useReactTable({
+    data,
+    columns: tanstackColumns,
+    getRowId,
+    state: {
+      sorting: tanstackSorting,
+      rowSelection,
+    },
+    enableRowSelection: Boolean(selection),
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
 
-      return comparison * directionFactor;
-    });
-  }, [columns, data, sorting]);
+  const tableRows = table.getRowModel().rows;
 
   const visibleRowIds = useMemo(
-    () => sortedData.map((row) => getRowId(row)),
-    [getRowId, sortedData]
+    () => tableRows.map((row) => row.id),
+    [tableRows]
   );
 
   const selectedVisibleCount = useMemo(() => {
@@ -317,9 +367,10 @@ function StickyDataTable<Row, ColumnId extends string = string>({
         </StickyTableRow>
       </StickyTableHeader>
       <StickyTableBody className={bodyClassName}>
-        {sortedData.map((row, rowIndex) => {
-          const rowId = getRowId(row);
-          const isSelected = selection?.selectedRowIds.has(rowId) ?? false;
+        {tableRows.map((tableRow, rowIndex) => {
+          const row = tableRow.original;
+          const rowId = tableRow.id;
+          const isSelected = selection ? tableRow.getIsSelected() : false;
           const rowContext = {
             rowId,
             rowIndex,

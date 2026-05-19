@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { invoke, isTauri } from "@tauri-apps/api/core";
+import type { RowSelectionState, SortingState } from "@tanstack/react-table";
+import { isTauri } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,16 +9,18 @@ import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import {
-  StickyDataTable,
-  getNextStickyDataTableSortState,
-  getStickyDataTableSortDirection,
-  type StickyDataTableColumn,
-  type StickyDataTableSortState,
-} from "@/components/ui/StickyDataTable";
+  DataTable,
+  getDataTableSortDirection,
+  getNextDataTableSorting,
+} from "@/components/ui/DataTable";
 import {
-  StickyTableText,
-} from "@/components/ui/StickyTable";
-import { formatDate, formatSize } from "@/lib/utils";
+  cleanupProjects as runCleanupProjects,
+  scanDevProjects,
+  stopDevProjectScan,
+} from "@/lib/tauri/commands";
+import { createDevCleanerColumns } from "@/features/dev-cleaner/columns";
+import type { ProjectInfo, ScanResult } from "@/lib/tauri/types";
+import { formatSize } from "@/lib/utils";
 import {
   AlertTriangle,
   ChevronDown,
@@ -28,34 +31,6 @@ import {
   Trash2,
 } from "lucide-react";
 
-interface ProjectInfo {
-  path: string;
-  name: string;
-  total_size: number;
-  target_size: number;
-  last_modified: number;
-  dependencies_count: number;
-  project_type: "NodeJs" | "Python" | "Rust" | "Go" | "General";
-  cleanup_potential: number;
-  cleanup_paths?: string[];
-}
-
-interface CleanupResult {
-  success: boolean;
-  cleaned_size: number;
-  errors: string[];
-}
-
-interface ScanResult {
-  total_projects: number;
-  total_size: number;
-  total_cleanup_size: number;
-  projects: ProjectInfo[];
-  scan_time_ms: number;
-  aborted: boolean;
-}
-
-type SortBy = "name" | "totalSize" | "cleanupSize" | "modified";
 type FilterType = "all" | "nodejs" | "python" | "rust" | "go";
 
 const filterOptions: FilterType[] = ["all", "nodejs", "python", "rust", "go"];
@@ -65,54 +40,6 @@ const filterTypeMap: Record<Exclude<FilterType, "all">, ProjectInfo["project_typ
   rust: "Rust",
   go: "Go",
 };
-const projectTypeMap: Partial<Record<ProjectInfo["project_type"], Exclude<FilterType, "all">>> = {
-  NodeJs: "nodejs",
-  Python: "python",
-  Rust: "rust",
-  Go: "go",
-};
-const naturalTextComparator = new Intl.Collator(undefined, {
-  numeric: true,
-  sensitivity: "base",
-});
-const MAX_VISIBLE_PATH_LENGTH = 56;
-
-function compareProjectIdentity(left: ProjectInfo, right: ProjectInfo) {
-  return (
-    naturalTextComparator.compare(left.name, right.name) ||
-    naturalTextComparator.compare(left.path, right.path)
-  );
-}
-
-function compactPath(path: string, maxLength = MAX_VISIBLE_PATH_LENGTH) {
-  const separator = path.includes("\\") ? "\\" : "/";
-  const parts = path.split(/[/\\]+/).filter(Boolean);
-  const hasDrivePrefix = /^[A-Za-z]:/.test(path);
-  const hasRootPrefix = separator === "/" && path.startsWith("/");
-
-  if (path.length <= maxLength || parts.length <= 4) {
-    return path;
-  }
-
-  const prefix = hasDrivePrefix
-    ? `${parts[0]}${separator}`
-    : hasRootPrefix
-      ? separator
-      : `${parts[0]}${separator}`;
-  const maxTailSegments = Math.min(4, parts.length - 1);
-
-  for (let tailSegments = maxTailSegments; tailSegments >= 2; tailSegments -= 1) {
-    const tail = parts.slice(-tailSegments).join(separator);
-    const candidate = `${prefix}...${separator}${tail}`;
-
-    if (candidate.length <= maxLength || tailSegments === 2) {
-      return candidate;
-    }
-  }
-
-  return path;
-}
-
 function formatScanTime(scanTimeMs: number) {
   if (scanTimeMs < 1000) {
     return `${scanTimeMs} ms`;
@@ -126,16 +53,15 @@ export default function DevCleaner() {
   const [selectedPath, setSelectedPath] = useState("");
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
-  const [selectedProjects, setSelectedProjects] = useState<Set<string>>(new Set());
+  const [selectedProjects, setSelectedProjects] = useState<RowSelectionState>({});
   const [isCleaningUp, setIsCleaningUp] = useState(false);
   const [cleanupMessage, setCleanupMessage] = useState<{
     type: "success" | "error";
     text: string;
   } | null>(null);
-  const [sorting, setSorting] = useState<StickyDataTableSortState<SortBy>>({
-    columnId: "cleanupSize",
-    direction: "desc",
-  });
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: "cleanupSize", desc: true },
+  ]);
   const [filterType, setFilterType] = useState<FilterType>("all");
   const [showConfirm, setShowConfirm] = useState(false);
   const [showFilterOptions, setShowFilterOptions] = useState(true);
@@ -189,14 +115,12 @@ export default function DevCleaner() {
       }
 
       try {
-        const result: ScanResult = await invoke("scan_dev_projects", {
-          rootPath: selectedPathRef.current,
-        });
+        const result = await scanDevProjects(selectedPathRef.current);
 
         if (cancelled) return;
 
         setScanResult(result);
-        setSelectedProjects(new Set());
+        setSelectedProjects({});
 
         if (result.aborted) {
           setCleanupMessage({
@@ -230,7 +154,7 @@ export default function DevCleaner() {
 
   const handleStopScan = async () => {
     try {
-      await invoke("stop_scan");
+      await stopDevProjectScan();
     } catch (error) {
       console.error("Failed to stop scan:", error);
     }
@@ -262,27 +186,30 @@ export default function DevCleaner() {
     () => filteredProjects.reduce((sum, project) => sum + project.cleanup_potential, 0),
     [filteredProjects]
   );
-  const visibleProjectPaths = useMemo(
-    () => filteredProjects.map((project) => project.path),
+  const visibleProjectPathSet = useMemo(
+    () => new Set(filteredProjects.map((project) => project.path)),
     [filteredProjects]
   );
-  const visibleProjectPathSet = useMemo(
-    () => new Set(visibleProjectPaths),
-    [visibleProjectPaths]
+  const selectedProjectPaths = useMemo(
+    () =>
+      Object.entries(selectedProjects)
+        .filter(([, selected]) => selected)
+        .map(([path]) => path),
+    [selectedProjects]
   );
-  const selectedCount = selectedProjects.size;
+  const selectedCount = selectedProjectPaths.length;
   const selectedSize = useMemo(
     () =>
-      Array.from(selectedProjects).reduce(
+      selectedProjectPaths.reduce(
         (sum, path) => sum + (projectsByPath.get(path)?.cleanup_potential || 0),
         0
       ),
-    [projectsByPath, selectedProjects]
+    [projectsByPath, selectedProjectPaths]
   );
   const activeScanResult = scanResult;
 
   const handleCleanup = async () => {
-    if (selectedProjects.size === 0) {
+    if (selectedCount === 0) {
       alert("Please select projects to clean up");
       return;
     }
@@ -292,11 +219,9 @@ export default function DevCleaner() {
     setCleanupMessage(null);
 
     try {
-      const cleanupProjects =
-        activeScanResult?.projects.filter((project) => selectedProjects.has(project.path)) ?? [];
-      const result: CleanupResult = await invoke("cleanup_projects", {
-        projects: cleanupProjects,
-      });
+      const projectsToCleanup =
+        activeScanResult?.projects.filter((project) => selectedProjects[project.path]) ?? [];
+      const result = await runCleanupProjects(projectsToCleanup);
 
       if (result.success) {
         setCleanupMessage({
@@ -305,7 +230,7 @@ export default function DevCleaner() {
             size: formatSize(result.cleaned_size),
           }),
         });
-        setSelectedProjects(new Set());
+        setSelectedProjects({});
         if (rescanTimeoutRef.current !== null) {
           window.clearTimeout(rescanTimeoutRef.current);
         }
@@ -333,15 +258,15 @@ export default function DevCleaner() {
 
   useEffect(() => {
     setSelectedProjects((current) => {
-      if (current.size === 0) {
+      if (Object.keys(current).length === 0) {
         return current;
       }
 
-      const next = new Set(
-        Array.from(current).filter((path) => visibleProjectPathSet.has(path))
+      const next = Object.fromEntries(
+        Object.entries(current).filter(([path, selected]) => selected && visibleProjectPathSet.has(path))
       );
 
-      if (next.size === current.size) {
+      if (Object.keys(next).length === Object.keys(current).length) {
         return current;
       }
 
@@ -363,93 +288,15 @@ export default function DevCleaner() {
     };
   }, []);
 
-  const projectColumns = useMemo<StickyDataTableColumn<ProjectInfo, SortBy>[]>(() => [
-    {
-      id: "name",
-      header: t("devCleaner.column.project"),
-      width: "44%",
-      minWidth: "280px",
-      sortable: true,
-      renderCell: (project) => (
-        <div className="min-w-0 space-y-1">
-          <div className="flex min-w-0 items-center gap-2">
-            <StickyTableText className="font-medium">
-              {project.name}
-            </StickyTableText>
-            <Badge variant="outline" className="shrink-0 text-xs">
-              {projectTypeMap[project.project_type]
-                ? t(`devCleaner.filter.${projectTypeMap[project.project_type]}`)
-                : project.project_type}
-            </Badge>
-          </div>
-          <StickyTableText
-            className="text-xs text-muted-foreground"
-            title={project.path}
-          >
-            {compactPath(project.path)}
-          </StickyTableText>
-          {project.dependencies_count > 0 && (
-            <span className="text-xs text-muted-foreground">
-              {t("devCleaner.dependencies")}: {project.dependencies_count}
-            </span>
-          )}
-        </div>
-      ),
-      compareFn: compareProjectIdentity,
-    },
-    {
-      id: "totalSize",
-      header: t("devCleaner.totalSize"),
-      width: "120px",
-      align: "right",
-      sortable: true,
-      renderCell: (project) => <span className="text-sm">{formatSize(project.total_size)}</span>,
-      compareFn: (left, right) =>
-        left.total_size - right.total_size || compareProjectIdentity(left, right),
-      sortDescFirst: true,
-    },
-    {
-      id: "cleanupSize",
-      header: t("devCleaner.cleanupSize"),
-      width: "150px",
-      align: "right",
-      sortable: true,
-      renderCell: (project) => (
-        <div className="inline-block rounded-lg border border-orange-200 bg-orange-50/70 px-3 py-1.5">
-          <p className="text-[10px] text-orange-700/80">
-            {t("devCleaner.cleanupSize")}
-          </p>
-          <p className="text-sm font-semibold text-orange-600">
-            {formatSize(project.cleanup_potential)}
-          </p>
-        </div>
-      ),
-      compareFn: (left, right) =>
-        left.cleanup_potential - right.cleanup_potential || compareProjectIdentity(left, right),
-      sortDescFirst: true,
-    },
-    {
-      id: "modified",
-      header: t("devCleaner.lastModified"),
-      width: "170px",
-      align: "right",
-      sortable: true,
-      renderCell: (project) => (
-        <span className="text-sm text-muted-foreground">
-          {formatDate(project.last_modified)}
-        </span>
-      ),
-      compareFn: (left, right) =>
-        left.last_modified - right.last_modified || compareProjectIdentity(left, right),
-      sortDescFirst: true,
-    },
-  ], [t]);
+  const projectColumns = useMemo(() => createDevCleanerColumns(t), [t]);
 
-  const updateSorting = (field: SortBy, sortDescFirst = false) => {
+  const updateSorting = (field: string, sortDescFirst = false) => {
     setSorting((current) =>
-      getNextStickyDataTableSortState(current, field, sortDescFirst)
+      getNextDataTableSorting(current, field, sortDescFirst)
     );
   };
+
+  const activeSortId = sorting[0]?.id;
 
   return (
     <div className="h-full flex flex-col gap-4">
@@ -576,7 +423,7 @@ export default function DevCleaner() {
                 </div>
                   <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="secondary">
-                    {t("devCleaner.sorting.current")}: {t(`devCleaner.sorting.${sorting.columnId}`)}
+                    {t("devCleaner.sorting.current")}: {t(`devCleaner.sorting.${activeSortId ?? "name"}`)}
                   </Badge>
                   <Badge variant="secondary">
                     {filteredProjects.length} {t("devCleaner.resultsLabel")}
@@ -607,41 +454,41 @@ export default function DevCleaner() {
                 <div className="space-y-2 flex flex-col h-full">
                   <div className="flex flex-wrap gap-2 mb-2 md:hidden shrink-0">
                     <Button
-                      variant={sorting.columnId === "cleanupSize" ? "default" : "outline"}
+                      variant={activeSortId === "cleanupSize" ? "default" : "outline"}
                       size="sm"
                       onClick={() => updateSorting("cleanupSize", true)}
                     >
                       {t("devCleaner.cleanupSize")}
-                      {getStickyDataTableSortDirection(sorting, "cleanupSize") === "asc" ? "↑" : getStickyDataTableSortDirection(sorting, "cleanupSize") === "desc" ? "↓" : "⇅"}
+                      {getDataTableSortDirection(sorting, "cleanupSize") === "asc" ? "↑" : getDataTableSortDirection(sorting, "cleanupSize") === "desc" ? "↓" : "⇅"}
                     </Button>
                     <Button
-                      variant={sorting.columnId === "modified" ? "default" : "outline"}
+                      variant={activeSortId === "modified" ? "default" : "outline"}
                       size="sm"
                       onClick={() => updateSorting("modified", true)}
                     >
                       {t("devCleaner.lastModified")}
-                      {getStickyDataTableSortDirection(sorting, "modified") === "asc" ? "↑" : getStickyDataTableSortDirection(sorting, "modified") === "desc" ? "↓" : "⇅"}
+                      {getDataTableSortDirection(sorting, "modified") === "asc" ? "↑" : getDataTableSortDirection(sorting, "modified") === "desc" ? "↓" : "⇅"}
                     </Button>
                     <Button
-                      variant={sorting.columnId === "name" ? "default" : "outline"}
+                      variant={activeSortId === "name" ? "default" : "outline"}
                       size="sm"
                       onClick={() => updateSorting("name")}
                     >
                       {t("devCleaner.sorting.name")}
-                      {getStickyDataTableSortDirection(sorting, "name") === "asc" ? "↑" : getStickyDataTableSortDirection(sorting, "name") === "desc" ? "↓" : "⇅"}
+                      {getDataTableSortDirection(sorting, "name") === "asc" ? "↑" : getDataTableSortDirection(sorting, "name") === "desc" ? "↓" : "⇅"}
                     </Button>
                   </div>
-                  <StickyDataTable
+                  <DataTable
                     data={filteredProjects}
                     columns={projectColumns}
                     getRowId={(project) => project.path}
                     sorting={{
-                      state: sorting,
-                      onChange: setSorting,
+                      sorting,
+                      onSortingChange: setSorting,
                     }}
                     selection={{
-                      selectedRowIds: selectedProjects,
-                      onChange: setSelectedProjects,
+                      rowSelection: selectedProjects,
+                      onRowSelectionChange: setSelectedProjects,
                       selectOnRowClick: true,
                       columnClassName: "w-12 p-2",
                       getSelectAllCheckboxLabel: (isAllSelected) =>
@@ -676,7 +523,7 @@ export default function DevCleaner() {
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <Button
                       variant="outline"
-                      onClick={() => setSelectedProjects(new Set())}
+                      onClick={() => setSelectedProjects({})}
                       className="flex-1"
                     >
                       {t("devCleaner.clearSelection")}
