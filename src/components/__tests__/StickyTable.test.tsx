@@ -63,8 +63,6 @@ describe("StickyTable", () => {
     );
 
     expect(screen.getByRole("button", { name: "Project" })).toHaveTextContent("Project");
-    expect(screen.getByTitle("/Users/apple/workspace/very/long/path")).toHaveTextContent(
-      "/.../workspace/very/long/path"
-    );
+    expect(screen.getByText("/.../workspace/very/long/path")).toHaveClass("truncate");
   });
 });

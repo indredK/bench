@@ -24,9 +24,11 @@ export function createEnvDetectorColumns(
       enableSorting: true,
       meta: {
         sticky: true,
-        minWidth: "160px",
+        width: "20%",
       },
-      cell: ({ row }) => row.original.name,
+      cell: ({ row }) => (
+        <StickyTableText>{row.original.name}</StickyTableText>
+      ),
       sortingFn: (left, right) => left.original.name.localeCompare(right.original.name),
     },
     {
@@ -34,7 +36,7 @@ export function createEnvDetectorColumns(
       header: t("envDetector.version"),
       accessorKey: "version",
       meta: {
-        minWidth: "140px",
+        width: "14%",
         cellClassName: "text-muted-foreground",
       },
       cell: ({ row }) => (
@@ -48,19 +50,18 @@ export function createEnvDetectorColumns(
       header: t("envDetector.path"),
       accessorKey: "path",
       meta: {
-        minWidth: "280px",
         cellClassName: "font-mono text-xs text-muted-foreground",
       },
       cell: ({ row }) =>
         row.original.available ? (
-          <span title={row.original.all_paths.join("\n") || row.original.path}>
+          <>
             <StickyTableText title={row.original.path}>{row.original.path}</StickyTableText>
             {row.original.all_paths.length > 1 && (
               <Badge variant="outline" className="ml-2 align-middle text-[10px]">
                 {t("envDetector.pathCount", { count: row.original.all_paths.length })}
               </Badge>
             )}
-          </span>
+          </>
         ) : (
           "—"
         ),
@@ -72,7 +73,7 @@ export function createEnvDetectorColumns(
       enableSorting: true,
       sortDescFirst: true,
       meta: {
-        width: "120px",
+        width: "11%",
         align: "right",
       },
       cell: ({ row }) => (
@@ -91,7 +92,7 @@ export function createEnvDetectorColumns(
       enableSorting: true,
       sortDescFirst: true,
       meta: {
-        width: "170px",
+        width: "16%",
         align: "right",
       },
       cell: ({ row }) => (
@@ -108,7 +109,7 @@ export function createEnvDetectorColumns(
       header: t("envDetector.status"),
       accessorKey: "status",
       meta: {
-        width: "112px",
+        width: "11%",
         align: "center",
         cellClassName: "text-center",
       },

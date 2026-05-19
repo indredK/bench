@@ -1,5 +1,6 @@
-import { forwardRef, useEffect, useRef } from "react";
+import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
 interface StickyTableProps extends React.ComponentProps<"table"> {
   className?: string;
@@ -14,7 +15,13 @@ function StickyTable({
   ...props
 }: StickyTableProps) {
   return (
-    <div className={cn("relative w-full overflow-auto bg-background", containerClassName)}>
+    <div
+      data-table-scroll
+      className={cn(
+        "relative w-full overflow-auto bg-background min-h-[120px] min-w-[280px]",
+        containerClassName
+      )}
+    >
       <table
         className={cn(
           "w-full border-separate border-spacing-0 text-sm bg-background",
@@ -176,16 +183,56 @@ interface StickyTableTextProps extends React.ComponentProps<"span"> {
 }
 
 function StickyTableText({ className, title, children, ...props }: StickyTableTextProps) {
-  const fallbackTitle = typeof children === "string" ? children : undefined;
+  const spanRef = useRef<HTMLSpanElement | null>(null);
+  const [isTruncated, setIsTruncated] = useState(false);
+  const tooltipContent = title ?? (typeof children === "string" ? children : undefined);
+
+  const checkTruncation = useCallback(() => {
+    const el = spanRef.current;
+    if (!el) return;
+    setIsTruncated(el.scrollWidth > el.clientWidth);
+  }, []);
+
+  useEffect(() => {
+    checkTruncation();
+
+    const el = spanRef.current;
+    if (!el) return;
+
+    const observer = new ResizeObserver(checkTruncation);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [checkTruncation]);
+
+  if (!tooltipContent || !isTruncated) {
+    return (
+      <span
+        ref={spanRef}
+        className={cn("block min-w-0 truncate", className)}
+        {...props}
+      >
+        {children}
+      </span>
+    );
+  }
 
   return (
-    <span
-      className={cn("block min-w-0 truncate", className)}
-      title={title ?? fallbackTitle}
-      {...props}
-    >
-      {children}
-    </span>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <span
+            ref={spanRef}
+            className={cn("block min-w-0 truncate", className)}
+            {...props}
+          >
+            {children}
+          </span>
+        }
+      />
+      <TooltipContent side="top" align="center" className="max-w-xs whitespace-pre-wrap break-all">
+        {tooltipContent}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 

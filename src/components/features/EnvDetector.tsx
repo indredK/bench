@@ -324,6 +324,7 @@ function EnvDetector({ active }: { active: boolean }) {
                   sorting,
                   onSortingChange: setSorting,
                 }}
+                layout="fixed"
                 containerClassName="h-full min-h-0 rounded-lg border"
               />
                 {missingTools.length > 0 && (
