@@ -31,20 +31,16 @@ export interface EnvTool {
   size_display: string;
   install_time: string;
   available: boolean;
-}
-
-type EnvFilterKey = "category" | "source" | "kind";
-
-interface EnvToolFacets {
   category: string;
   source: string;
   kind: string;
+  status: string;
+  detector: string;
+  all_paths: string[];
+  issue: string;
 }
 
-interface ClassifiedEnvTool {
-  tool: EnvTool;
-  facets: EnvToolFacets;
-}
+type EnvFilterKey = "category" | "source" | "kind" | "status";
 
 interface EnvFilterRow {
   id: string;
@@ -52,6 +48,7 @@ interface EnvFilterRow {
   category: string;
   source: string;
   kind: string;
+  status: string;
 }
 
 const ENV_FILTER_GROUPS: FilterGroup<EnvFilterRow>[] = [
@@ -70,72 +67,12 @@ const ENV_FILTER_GROUPS: FilterGroup<EnvFilterRow>[] = [
     label: "envDetector.filterGroups.kind",
     format: (value) => formatEnvFilterValue("kind", String(value)),
   },
+  {
+    key: "status",
+    label: "envDetector.filterGroups.status",
+    format: (value) => formatEnvFilterValue("status", String(value)),
+  },
 ];
-
-const CATEGORY_NAME_RULES = [
-  {
-    category: "ai",
-    names: ["claude", "codex", "cursor", "gemini", "ollama", "opencode", "windsurf"],
-  },
-  {
-    category: "javascript",
-    names: ["bun", "corepack", "deno", "node", "npm", "npx", "pnpm", "yarn"],
-  },
-  {
-    category: "rust",
-    names: ["cargo", "clippy-driver", "cross", "rustc", "rustfmt", "rustup"],
-    prefixes: ["cargo-"],
-  },
-  {
-    category: "python",
-    names: [
-      "conda", "ipython", "jupyter", "pip", "pip3", "pipx", "poetry", "py",
-      "pyenv", "python", "python3", "uv", "virtualenv",
-    ],
-  },
-  {
-    category: "container",
-    names: ["docker", "docker-compose", "helm", "k9s", "kind", "kubectl", "minikube", "podman"],
-  },
-  {
-    category: "cloud",
-    names: [
-      "ansible", "aws", "az", "doctl", "fly", "gcloud", "gh", "netlify",
-      "pulumi", "terraform", "vercel", "wrangler",
-    ],
-  },
-  {
-    category: "database",
-    names: ["duckdb", "mariadb", "mongosh", "mysql", "psql", "redis-cli", "sqlite3"],
-  },
-  {
-    category: "editor",
-    names: ["code", "code-insiders", "emacs", "nano", "nvim", "subl", "vim"],
-  },
-  {
-    category: "network",
-    names: ["curl", "dig", "ngrok", "nslookup", "openssl", "rsync", "scp", "sftp", "ssh", "wget"],
-  },
-  {
-    category: "packageManager",
-    names: ["apt", "apt-get", "brew", "choco", "dnf", "pacman", "scoop", "winget", "yum", "zypper"],
-  },
-  {
-    category: "runtime",
-    names: [
-      "bundle", "composer", "dart", "dotnet", "flutter", "gem", "go", "gofmt",
-      "gradle", "java", "javac", "kotlin", "kotlinc", "lua", "mvn", "perl",
-      "php", "ruby", "swift", "swiftc",
-    ],
-  },
-  {
-    category: "build",
-    names: [
-      "ar", "bazel", "clang", "clang++", "cmake", "g++", "gcc", "gdb", "ld",
-      "lldb", "make", "meson", "ninja", "ranlib", "xcodebuild",
-    ],
-  },
-] as const;
 
 /** 检测是否在 Tauri 运行时环境 */
 function isTauriEnv(): boolean {
@@ -157,6 +94,7 @@ function EnvDetector({ active }: { active: boolean }) {
   const [sortBy, setSortBy] = useState<"name" | "size" | "installTime">("name");
   const [sortDesc, setSortDesc] = useState(false);
   const [scanned, setScanned] = useState(false);
+  const [showAllCommands, setShowAllCommands] = useState(false);
   const unlistenersRef = useRef<UnlistenFn[]>([]);
   const scanningRef = useRef(false);
   const triggeredRef = useRef(false);
@@ -229,35 +167,33 @@ function EnvDetector({ active }: { active: boolean }) {
     unavailable: tools.filter((t) => !t.available).length,
   };
 
-  const classifiedTools = useMemo<ClassifiedEnvTool[]>(
-    () => tools.map((tool) => ({ tool, facets: classifyEnvTool(tool) })),
+  const filterRows = useMemo<EnvFilterRow[]>(
+    () =>
+      tools.map((tool) => ({
+        id: tool.name,
+        model: tool.name,
+        category: tool.category,
+        source: tool.source,
+        kind: tool.kind,
+        status: tool.status,
+      })),
     [tools]
   );
 
-  const filterRows = useMemo<EnvFilterRow[]>(
-    () =>
-      classifiedTools.map(({ tool, facets }) => ({
-        id: tool.name,
-        model: tool.name,
-        ...facets,
-      })),
-    [classifiedTools]
-  );
-
-  const filteredTools = classifiedTools
-    .filter(({ tool, facets }) => {
+  const matchingTools = tools
+    .filter((tool) => {
       const matchesSearch =
         !searchQuery ||
         tool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        tool.path.toLowerCase().includes(searchQuery.toLowerCase());
+        tool.path.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        tool.detector.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesFilters = Object.entries(filters).every(
-        ([key, value]) => !value || facets[key as EnvFilterKey] === value
+        ([key, value]) => !value || String(tool[key as EnvFilterKey]) === value
       );
 
       return matchesSearch && matchesFilters;
     })
-    .map(({ tool }) => tool)
     .sort((a, b) => {
       const dir = sortDesc ? -1 : 1;
       if (sortBy === "size") {
@@ -268,6 +204,11 @@ function EnvDetector({ active }: { active: boolean }) {
       }
       return a.name.localeCompare(b.name) * dir;
     });
+  const missingTools = matchingTools.filter((tool) => !tool.available);
+  const displayedTools = matchingTools.filter((tool) => {
+    if (!tool.available) return false;
+    return showAllCommands || isDeveloperSignal(tool);
+  });
 
   const hasActiveResultFilter =
     searchQuery.trim().length > 0 || Object.keys(filters).length > 0;
@@ -332,6 +273,16 @@ function EnvDetector({ active }: { active: boolean }) {
               <Button
                 variant="outline"
                 size="sm"
+                onClick={() => setShowAllCommands((prev) => !prev)}
+                disabled={loading}
+              >
+                {showAllCommands
+                  ? t("envDetector.hideAllCommands")
+                  : t("envDetector.showAllCommands")}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={loadTools}
                 disabled={scanning}
               >
@@ -352,7 +303,7 @@ function EnvDetector({ active }: { active: boolean }) {
                 filters={filters}
                 onFilterChange={handleFilterChange}
                 onClearFilters={clearFilters}
-                resultCount={filteredTools.length}
+                resultCount={displayedTools.length + missingTools.length}
                 filterTitleKey="envDetector.filters"
                 clearFiltersKey="envDetector.clearFilters"
                 filteredCountKey="envDetector.filteredCount"
@@ -372,7 +323,7 @@ function EnvDetector({ active }: { active: boolean }) {
                   {
                     available: statusCounts.available,
                     total: statusCounts.total,
-                    visible: filteredTools.length,
+                    visible: displayedTools.length + missingTools.length,
                   }
                 )}
               </p>
@@ -387,6 +338,17 @@ function EnvDetector({ active }: { active: boolean }) {
                 <p>{t("envDetector.scanning")}</p>
               </div>
             ) : tools.length > 0 ? (
+              <div className="flex h-full min-h-0 flex-col gap-3">
+                <div className="flex items-center justify-between shrink-0">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    {t("envDetector.detectedTools", { count: displayedTools.length })}
+                  </p>
+                  {missingTools.length > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      {t("envDetector.missingTools", { count: missingTools.length })}
+                    </p>
+                  )}
+                </div>
               <StickyTable containerClassName="h-full min-h-0 rounded-lg border">
                 <StickyTableHeader>
                   <StickyTableRow>
@@ -420,14 +382,25 @@ function EnvDetector({ active }: { active: boolean }) {
                   </StickyTableRow>
                 </StickyTableHeader>
                 <StickyTableBody>
-                  {filteredTools.map((tool) => (
+                  {displayedTools.map((tool) => (
                     <StickyTableRow key={tool.name}>
                       <StickyTableCell isFirstColumn>{tool.name}</StickyTableCell>
                       <StickyTableCell className="max-w-[200px] truncate text-muted-foreground">
                         {tool.available ? tool.version || "—" : t("envDetector.notFound")}
                       </StickyTableCell>
                       <StickyTableCell className="max-w-[280px] truncate font-mono text-xs text-muted-foreground">
-                        {tool.available ? tool.path : "—"}
+                        {tool.available ? (
+                          <span title={tool.all_paths.join("\n") || tool.path}>
+                            {tool.path}
+                            {tool.all_paths.length > 1 && (
+                              <Badge variant="outline" className="ml-2 align-middle text-[10px]">
+                                {t("envDetector.pathCount", { count: tool.all_paths.length })}
+                              </Badge>
+                            )}
+                          </span>
+                        ) : (
+                          "—"
+                        )}
                       </StickyTableCell>
                       <StickyTableCell className="whitespace-nowrap text-right tabular-nums text-muted-foreground">
                         {tool.available ? tool.size_display : "—"}
@@ -436,26 +409,27 @@ function EnvDetector({ active }: { active: boolean }) {
                         {tool.available ? tool.install_time : "—"}
                       </StickyTableCell>
                       <StickyTableCell className="text-center">
-                        {tool.available ? (
-                          <Badge
-                            variant="default"
-                            className="bg-green-600/20 text-green-700 dark:bg-green-500/15 dark:text-green-400"
-                          >
-                            ✓
-                          </Badge>
-                        ) : (
-                          <Badge
-                            variant="secondary"
-                            className="bg-muted/50 text-muted-foreground"
-                          >
-                            ✕
-                          </Badge>
-                        )}
+                        <EnvStatusBadge tool={tool} />
                       </StickyTableCell>
                     </StickyTableRow>
                   ))}
                 </StickyTableBody>
               </StickyTable>
+                {missingTools.length > 0 && (
+                  <div className="shrink-0 rounded-lg border bg-muted/20 p-3">
+                    <p className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      {t("envDetector.missingTools", { count: missingTools.length })}
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {missingTools.map((tool) => (
+                        <Badge key={`missing-${tool.name}`} variant="secondary">
+                          {tool.name}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground rounded-lg border">
                 <p>{scanned ? t("envDetector.empty") : t("envDetector.startHint")}</p>
@@ -468,75 +442,57 @@ function EnvDetector({ active }: { active: boolean }) {
   );
 }
 
-function classifyEnvTool(tool: EnvTool): EnvToolFacets {
-  const source = classifySource(tool.path);
-  return {
-    category: classifyCategory(tool.name, source),
-    source,
-    kind: classifyKind(tool.path),
-  };
-}
-
-function classifyCategory(name: string, source: string): string {
-  const normalized = name.toLowerCase();
-
-  for (const rule of CATEGORY_NAME_RULES) {
-    if ((rule.names as readonly string[]).includes(normalized)) {
-      return rule.category;
-    }
-
-    if (
-      "prefixes" in rule &&
-      (rule.prefixes as readonly string[] | undefined)?.some((prefix) =>
-        normalized.startsWith(prefix)
-      )
-    ) {
-      return rule.category;
-    }
-  }
-
-  if (source === "node" || source === "volta") return "javascript";
-  if (source === "cargo") return "rust";
-  if (source === "go") return "runtime";
-
-  return "other";
-}
-
-function classifySource(path: string): string {
-  const normalized = normalizeToolPath(path);
-
-  if (normalized.includes("/node_modules/") || normalized.endsWith("/npm")) return "node";
-  if (normalized.includes("/.cargo/bin") || normalized.includes("/.rustup/")) return "cargo";
-  if (normalized.includes("/opt/homebrew/") || normalized.includes("/homebrew/")) return "homebrew";
-  if (normalized.includes("/.volta/")) return "volta";
-  if (normalized.includes("/.asdf/")) return "asdf";
-  if (normalized.includes("/mise/")) return "mise";
-  if (normalized.includes("/scoop/")) return "scoop";
-  if (normalized.includes("/chocolatey/")) return "chocolatey";
-  if (normalized.includes("/go/bin")) return "go";
-  if (normalized.includes("/.local/bin")) return "local";
-
-  return "path";
-}
-
-function classifyKind(path: string): string {
-  const normalized = normalizeToolPath(path);
-  const extension = normalized.split(".").pop();
-
-  if (extension && ["cmd", "bat", "ps1"].includes(extension)) return "shim";
-  if (extension && ["js", "mjs", "cjs", "ts", "py", "rb", "sh"].includes(extension)) return "script";
-  return "executable";
-}
-
-function normalizeToolPath(path: string): string {
-  return path.replaceAll("\\", "/").toLowerCase();
-}
-
 function formatEnvFilterValue(
   key: EnvFilterKey,
   value: string
 ): string {
   return i18n.t(`envDetector.filterValues.${key}.${value}`);
+}
+
+function isDeveloperSignal(tool: EnvTool): boolean {
+  return (
+    tool.detector !== "path-scan" ||
+    tool.category !== "other" ||
+    tool.status === "multipleVersions" ||
+    tool.status === "versionUnknown"
+  );
+}
+
+function EnvStatusBadge({ tool }: { tool: EnvTool }) {
+  const { t } = useTranslation();
+
+  if (!tool.available) {
+    return (
+      <Badge variant="secondary" className="bg-muted/50 text-muted-foreground">
+        {t("envDetector.filterValues.status.missing")}
+      </Badge>
+    );
+  }
+
+  if (tool.status === "multipleVersions") {
+    return (
+      <Badge variant="outline" className="border-amber-500/40 text-amber-700 dark:text-amber-300">
+        {t("envDetector.filterValues.status.multipleVersions")}
+      </Badge>
+    );
+  }
+
+  if (tool.status === "versionUnknown") {
+    return (
+      <Badge variant="outline" className="text-muted-foreground">
+        {t("envDetector.filterValues.status.versionUnknown")}
+      </Badge>
+    );
+  }
+
+  return (
+    <Badge
+      variant="default"
+      className="bg-green-600/20 text-green-700 dark:bg-green-500/15 dark:text-green-400"
+    >
+      {t("envDetector.filterValues.status.ok")}
+    </Badge>
+  );
 }
 
 export default EnvDetector;

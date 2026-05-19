@@ -30,12 +30,18 @@
     "filters": "Filters",
     "clearFilters": "Clear",
     "filteredCount": "{{count}} shown",
+    "showAllCommands": "Show all commands",
+    "hideAllCommands": "Hide system commands",
+    "detectedTools": "Detected tools ({{count}})",
+    "missingTools": "Missing ({{count}})",
+    "pathCount": "{{count}} paths",
     "autoExpandHint": "Hover to expand, click to pin",
     "pinnedHint": "Pinned open, click for auto-expand",
     "filterGroups": {
       "category": "Category",
       "source": "Source",
-      "kind": "Type"
+      "kind": "Type",
+      "status": "Status"
     },
     "filterValues": {
       "category": {
@@ -64,12 +70,22 @@
         "chocolatey": "Chocolatey",
         "go": "Go bin",
         "local": "Local bin",
-        "path": "PATH"
+        "path": "PATH",
+        "pyenv": "pyenv",
+        "python": "Python",
+        "notFound": "Not found"
       },
       "kind": {
         "executable": "Executable",
         "shim": "Command Shim",
-        "script": "Script"
+        "script": "Script",
+        "missing": "Missing"
+      },
+      "status": {
+        "ok": "Available",
+        "missing": "Missing",
+        "multipleVersions": "Multiple versions",
+        "versionUnknown": "Version unknown"
       }
     }
   },

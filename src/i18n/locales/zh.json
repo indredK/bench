@@ -30,12 +30,18 @@
     "filters": "筛选",
     "clearFilters": "清除",
     "filteredCount": "显示 {{count}} 个",
+    "showAllCommands": "显示全部命令",
+    "hideAllCommands": "隐藏系统命令",
+    "detectedTools": "已发现工具（{{count}}）",
+    "missingTools": "未检测到（{{count}}）",
+    "pathCount": "{{count}} 个路径",
     "autoExpandHint": "悬停自动展开，点击固定",
     "pinnedHint": "固定展开，点击启用自动展开",
     "filterGroups": {
       "category": "类别",
       "source": "来源",
-      "kind": "类型"
+      "kind": "类型",
+      "status": "状态"
     },
     "filterValues": {
       "category": {
@@ -64,12 +70,22 @@
         "chocolatey": "Chocolatey",
         "go": "Go bin",
         "local": "本地 bin",
-        "path": "PATH"
+        "path": "PATH",
+        "pyenv": "pyenv",
+        "python": "Python",
+        "notFound": "未找到"
       },
       "kind": {
         "executable": "可执行文件",
         "shim": "命令包装器",
-        "script": "脚本"
+        "script": "脚本",
+        "missing": "未安装"
+      },
+      "status": {
+        "ok": "可用",
+        "missing": "未安装",
+        "multipleVersions": "多版本",
+        "versionUnknown": "版本未知"
       }
     }
   },
