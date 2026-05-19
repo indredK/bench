@@ -8,8 +8,18 @@ use std::time::SystemTime;
 use walkdir::WalkDir;
 
 const SKIP_DIR_NAMES: &[&str] = &[
-    "node_modules", "target", ".venv", "venv", "__pycache__",
-    ".git", "dist", ".next", "vendor", ".nuxt", "build", ".cache",
+    "node_modules",
+    "target",
+    ".venv",
+    "venv",
+    "__pycache__",
+    ".git",
+    "dist",
+    ".next",
+    "vendor",
+    ".nuxt",
+    "build",
+    ".cache",
 ];
 
 fn is_skip_dir_name(name: &str) -> bool {
@@ -18,7 +28,11 @@ fn is_skip_dir_name(name: &str) -> bool {
 
 fn is_skip_dir_entry(entry: &walkdir::DirEntry) -> bool {
     entry.file_type().is_dir()
-        && entry.file_name().to_str().map(is_skip_dir_name).unwrap_or(false)
+        && entry
+            .file_name()
+            .to_str()
+            .map(is_skip_dir_name)
+            .unwrap_or(false)
 }
 
 fn is_child_of_skip_dir(entry: &walkdir::DirEntry, root: &Path) -> bool {
@@ -43,7 +57,10 @@ fn is_child_of_skip_dir(entry: &walkdir::DirEntry, root: &Path) -> bool {
     }
 
     components.iter().any(|c| {
-        c.as_os_str().to_str().map(is_skip_dir_name).unwrap_or(false)
+        c.as_os_str()
+            .to_str()
+            .map(is_skip_dir_name)
+            .unwrap_or(false)
     })
 }
 
@@ -146,7 +163,10 @@ pub fn stop_scan(flag: tauri::State<ScanAbortFlag>) {
 }
 
 #[tauri::command]
-pub async fn scan_dev_projects(root_path: String, flag: tauri::State<'_, ScanAbortFlag>) -> Result<ScanResult, String> {
+pub async fn scan_dev_projects(
+    root_path: String,
+    flag: tauri::State<'_, ScanAbortFlag>,
+) -> Result<ScanResult, String> {
     flag.store(false, Ordering::SeqCst);
     let abort = flag.inner().clone();
 
@@ -228,13 +248,21 @@ pub fn cleanup_projects(paths: Vec<String>, targets: Vec<String>) -> Result<Clea
                 match calculate_dir_size(&target_path, None) {
                     Ok(size) => {
                         if let Err(e) = fs::remove_dir_all(&target_path) {
-                            errors.push(format!("Failed to remove {}: {}", target_path.display(), e));
+                            errors.push(format!(
+                                "Failed to remove {}: {}",
+                                target_path.display(),
+                                e
+                            ));
                         } else {
                             cleaned_size += size;
                         }
                     }
                     Err(e) => {
-                        errors.push(format!("Failed to calculate size of {}: {}", target_path.display(), e));
+                        errors.push(format!(
+                            "Failed to calculate size of {}: {}",
+                            target_path.display(),
+                            e
+                        ));
                     }
                 }
             }
@@ -259,7 +287,8 @@ fn count_dependencies(path: &Path, project_type: ProjectType) -> u32 {
                         if let Some(deps) = json.get("dependencies").and_then(|v| v.as_object()) {
                             count += deps.len() as u32;
                         }
-                        if let Some(deps) = json.get("devDependencies").and_then(|v| v.as_object()) {
+                        if let Some(deps) = json.get("devDependencies").and_then(|v| v.as_object())
+                        {
                             count += deps.len() as u32;
                         }
                         return count;
@@ -269,15 +298,13 @@ fn count_dependencies(path: &Path, project_type: ProjectType) -> u32 {
             0
         }
         ProjectType::Python => {
-            let files = &[
-                path.join("requirements.txt"),
-                path.join("pyproject.toml"),
-            ];
+            let files = &[path.join("requirements.txt"), path.join("pyproject.toml")];
             let mut count = 0u32;
             for f in files {
                 if f.exists() {
                     if let Ok(content) = fs::read_to_string(f) {
-                        count += content.lines()
+                        count += content
+                            .lines()
                             .filter(|l| {
                                 let l = l.trim();
                                 !l.is_empty() && !l.starts_with('#')
@@ -316,7 +343,8 @@ fn count_dependencies(path: &Path, project_type: ProjectType) -> u32 {
             let go_mod = path.join("go.mod");
             if go_mod.exists() {
                 if let Ok(content) = fs::read_to_string(&go_mod) {
-                    let count = content.lines()
+                    let count = content
+                        .lines()
                         .filter(|l| l.starts_with('\t') && !l.trim_start().starts_with("//"))
                         .count();
                     return count.max(1) as u32;
@@ -328,7 +356,11 @@ fn count_dependencies(path: &Path, project_type: ProjectType) -> u32 {
     }
 }
 
-fn detect_project(path: &Path, project_type: ProjectType, abort_flag: Option<&Arc<AtomicBool>>) -> Result<ProjectInfo, String> {
+fn detect_project(
+    path: &Path,
+    project_type: ProjectType,
+    abort_flag: Option<&Arc<AtomicBool>>,
+) -> Result<ProjectInfo, String> {
     let name = path
         .file_name()
         .unwrap_or_default()
@@ -361,7 +393,11 @@ fn detect_project(path: &Path, project_type: ProjectType, abort_flag: Option<&Ar
     })
 }
 
-fn detect_skip_dir_project(path: &Path, dir_name: &str, abort_flag: Option<&Arc<AtomicBool>>) -> Result<ProjectInfo, String> {
+fn detect_skip_dir_project(
+    path: &Path,
+    dir_name: &str,
+    abort_flag: Option<&Arc<AtomicBool>>,
+) -> Result<ProjectInfo, String> {
     let pt = ProjectType::from_skip_dir(dir_name);
     let size = get_dir_size_fast(path, abort_flag)?;
 
@@ -464,7 +500,11 @@ fn get_dir_size_fast(path: &Path, abort_flag: Option<&Arc<AtomicBool>>) -> Resul
     }
 
     let mut size = 0u64;
-    for (i, entry) in WalkDir::new(path).into_iter().filter_map(|e| e.ok()).enumerate() {
+    for (i, entry) in WalkDir::new(path)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .enumerate()
+    {
         if let Some(flag) = abort_flag {
             if i % 100 == 0 && flag.load(Ordering::SeqCst) {
                 return Ok(0);
@@ -511,10 +551,22 @@ mod tests {
 
     #[test]
     fn test_project_type_from_indicator() {
-        assert_eq!(ProjectType::from_indicator("package.json"), Some(ProjectType::NodeJs));
-        assert_eq!(ProjectType::from_indicator("Cargo.toml"), Some(ProjectType::Rust));
-        assert_eq!(ProjectType::from_indicator("pyproject.toml"), Some(ProjectType::Python));
-        assert_eq!(ProjectType::from_indicator("requirements.txt"), Some(ProjectType::Python));
+        assert_eq!(
+            ProjectType::from_indicator("package.json"),
+            Some(ProjectType::NodeJs)
+        );
+        assert_eq!(
+            ProjectType::from_indicator("Cargo.toml"),
+            Some(ProjectType::Rust)
+        );
+        assert_eq!(
+            ProjectType::from_indicator("pyproject.toml"),
+            Some(ProjectType::Python)
+        );
+        assert_eq!(
+            ProjectType::from_indicator("requirements.txt"),
+            Some(ProjectType::Python)
+        );
         assert_eq!(ProjectType::from_indicator("go.mod"), Some(ProjectType::Go));
     }
 
@@ -527,7 +579,10 @@ mod tests {
 
     #[test]
     fn test_project_type_from_skip_dir() {
-        assert_eq!(ProjectType::from_skip_dir("node_modules"), ProjectType::NodeJs);
+        assert_eq!(
+            ProjectType::from_skip_dir("node_modules"),
+            ProjectType::NodeJs
+        );
         assert_eq!(ProjectType::from_skip_dir("dist"), ProjectType::NodeJs);
         assert_eq!(ProjectType::from_skip_dir(".next"), ProjectType::NodeJs);
         assert_eq!(ProjectType::from_skip_dir(".nuxt"), ProjectType::NodeJs);
@@ -535,7 +590,10 @@ mod tests {
         assert_eq!(ProjectType::from_skip_dir(".cache"), ProjectType::NodeJs);
         assert_eq!(ProjectType::from_skip_dir(".venv"), ProjectType::Python);
         assert_eq!(ProjectType::from_skip_dir("venv"), ProjectType::Python);
-        assert_eq!(ProjectType::from_skip_dir("__pycache__"), ProjectType::Python);
+        assert_eq!(
+            ProjectType::from_skip_dir("__pycache__"),
+            ProjectType::Python
+        );
         assert_eq!(ProjectType::from_skip_dir("target"), ProjectType::Rust);
         assert_eq!(ProjectType::from_skip_dir("vendor"), ProjectType::Go);
     }
@@ -584,11 +642,12 @@ mod tests {
         fs::create_dir_all(tmp.join("my_project").join("node_modules").join("some_pkg")).unwrap();
         fs::create_dir_all(tmp.join("my_project").join("src")).unwrap();
 
-        let entry_in_node_modules = walkdir::WalkDir::new(tmp.join("my_project").join("node_modules").join("some_pkg"))
-            .into_iter()
-            .filter_map(|e| e.ok())
-            .find(|e| e.path().is_dir())
-            .unwrap();
+        let entry_in_node_modules =
+            walkdir::WalkDir::new(tmp.join("my_project").join("node_modules").join("some_pkg"))
+                .into_iter()
+                .filter_map(|e| e.ok())
+                .find(|e| e.path().is_dir())
+                .unwrap();
 
         assert!(is_child_of_skip_dir(&entry_in_node_modules, &tmp));
 
@@ -697,7 +756,11 @@ mod tests {
     fn test_count_dependencies_python() {
         let tmp = std::env::temp_dir().join("tauri_test_deps_python");
         fs::create_dir_all(&tmp).unwrap();
-        fs::write(tmp.join("requirements.txt"), "flask\n# comment\nrequests\n\npytest\n").unwrap();
+        fs::write(
+            tmp.join("requirements.txt"),
+            "flask\n# comment\nrequests\n\npytest\n",
+        )
+        .unwrap();
 
         let count = count_dependencies(&tmp, ProjectType::Python);
         assert_eq!(count, 3);

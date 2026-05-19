@@ -135,7 +135,11 @@ pub fn get_system_info() -> SystemInfo {
         os_version: System::long_os_version().unwrap_or_else(|| "Unknown".to_string()),
         kernel_version: System::kernel_version().unwrap_or_else(|| "Unknown".to_string()),
         hostname: System::host_name().unwrap_or_else(|| "Unknown".to_string()),
-        cpu_brand: sys.cpus().first().map(|cpu| cpu.brand().to_string()).unwrap_or_else(|| "Unknown".to_string()),
+        cpu_brand: sys
+            .cpus()
+            .first()
+            .map(|cpu| cpu.brand().to_string())
+            .unwrap_or_else(|| "Unknown".to_string()),
         cpu_cores: sys.cpus().len() as u32,
         total_memory,
         available_memory,
@@ -144,7 +148,10 @@ pub fn get_system_info() -> SystemInfo {
     }
 }
 
-fn kill_process(pid: u32, all_processes: &HashMap<u32, (u32, String, String)>) -> Result<(), String> {
+fn kill_process(
+    pid: u32,
+    all_processes: &HashMap<u32, (u32, String, String)>,
+) -> Result<(), String> {
     let current_pid = std::process::id();
     if pid == current_pid {
         return Err("Cannot kill the Port Manager process itself".to_string());
@@ -180,7 +187,11 @@ fn kill_process(pid: u32, all_processes: &HashMap<u32, (u32, String, String)>) -
     }
 }
 
-fn is_descendant_of(pid: u32, parent_pid: u32, all_processes: &HashMap<u32, (u32, String, String)>) -> bool {
+fn is_descendant_of(
+    pid: u32,
+    parent_pid: u32,
+    all_processes: &HashMap<u32, (u32, String, String)>,
+) -> bool {
     let mut current = pid;
     loop {
         if let Some(&(ppid, _, _)) = all_processes.get(&current) {
@@ -287,7 +298,10 @@ fn get_all_processes() -> HashMap<u32, (u32, String, String)> {
             }
         }
     } else {
-        if let Ok(output) = Command::new("ps").args(["-eo", "pid,ppid,comm,args"]).output() {
+        if let Ok(output) = Command::new("ps")
+            .args(["-eo", "pid,ppid,comm,args"])
+            .output()
+        {
             let stdout = String::from_utf8_lossy(&output.stdout);
             for line in stdout.lines().skip(1) {
                 let line = line.trim();
@@ -296,7 +310,8 @@ fn get_all_processes() -> HashMap<u32, (u32, String, String)> {
                 }
                 let parts: Vec<&str> = line.split_whitespace().collect();
                 if parts.len() >= 4 {
-                    if let (Ok(pid), Ok(ppid)) = (parts[0].parse::<u32>(), parts[1].parse::<u32>()) {
+                    if let (Ok(pid), Ok(ppid)) = (parts[0].parse::<u32>(), parts[1].parse::<u32>())
+                    {
                         let command = parts[3..].join(" ");
                         processes.insert(pid, (ppid, parts[2].to_string(), command));
                     }
@@ -309,7 +324,10 @@ fn get_all_processes() -> HashMap<u32, (u32, String, String)> {
 }
 
 fn build_subtree(pid: u32, all: &HashMap<u32, (u32, String, String)>) -> ProcessNode {
-    let (ppid, name, command) = all.get(&pid).cloned().unwrap_or((0, "Unknown".to_string(), "Unknown".to_string()));
+    let (ppid, name, command) =
+        all.get(&pid)
+            .cloned()
+            .unwrap_or((0, "Unknown".to_string(), "Unknown".to_string()));
 
     let mut children: Vec<ProcessNode> = all
         .iter()
@@ -328,7 +346,11 @@ fn build_subtree(pid: u32, all: &HashMap<u32, (u32, String, String)>) -> Process
     }
 }
 
-fn get_parent_chain(pid: u32, all: &HashMap<u32, (u32, String, String)>, max_depth: usize) -> Vec<u32> {
+fn get_parent_chain(
+    pid: u32,
+    all: &HashMap<u32, (u32, String, String)>,
+    max_depth: usize,
+) -> Vec<u32> {
     let mut chain = Vec::new();
     let mut current = pid;
     for _ in 0..max_depth {
@@ -351,13 +373,20 @@ fn build_focused_tree(pid: u32, all: &HashMap<u32, (u32, String, String)>) -> Pr
     build_subtree(root_pid, all)
 }
 
-fn fingerprint_port_process(port: u16, pids: &[u32], all: &HashMap<u32, (u32, String, String)>) -> Option<ProcessFingerprint> {
+fn fingerprint_port_process(
+    port: u16,
+    pids: &[u32],
+    all: &HashMap<u32, (u32, String, String)>,
+) -> Option<ProcessFingerprint> {
     if pids.is_empty() {
         return None;
     }
 
     let pid = pids[0];
-    let (_, _, command) = all.get(&pid).cloned().unwrap_or((0, String::new(), String::new()));
+    let (_, _, command) = all
+        .get(&pid)
+        .cloned()
+        .unwrap_or((0, String::new(), String::new()));
 
     if command.is_empty() || command == "Unknown" {
         return None;
@@ -371,9 +400,16 @@ fn fingerprint_by_command(command: &str, port: u16) -> Option<ProcessFingerprint
 
     let fp = match port {
         3000 => {
-            if contains_all(&cmd_lower, &["next", "node"]) && !contains_any(&cmd_lower, &[".vite", "vite/bin"]) {
+            if contains_all(&cmd_lower, &["next", "node"])
+                && !contains_any(&cmd_lower, &[".vite", "vite/bin"])
+            {
                 fp("Node.js", "Next.js Dev Server", "▲")
-            } else if contains_all(&cmd_lower, &["vite", "react"]) || contains_any(&cmd_lower, &["react-scripts", "react-dev-utils", "create-react-app"]) {
+            } else if contains_all(&cmd_lower, &["vite", "react"])
+                || contains_any(
+                    &cmd_lower,
+                    &["react-scripts", "react-dev-utils", "create-react-app"],
+                )
+            {
                 fp("Node.js", "React Dev Server (Vite)", "⚛️")
             } else if contains_any(&cmd_lower, &["vite"]) {
                 fp("Node.js", "Vite Dev Server", "⚡")
@@ -419,7 +455,9 @@ fn fingerprint_by_command(command: &str, port: u16) -> Option<ProcessFingerprint
                 fp("Python", "Flask Dev Server", "🐍")
             } else if contains_any(&cmd_lower, &["gunicorn"]) {
                 fp("Python", "Gunicorn (Flask/Django)", "🐍")
-            } else if contains_all(&cmd_lower, &["python", "django"]) || contains_any(&cmd_lower, &["manage.py", "manage-py", "django-admin"]) {
+            } else if contains_all(&cmd_lower, &["python", "django"])
+                || contains_any(&cmd_lower, &["manage.py", "manage-py", "django-admin"])
+            {
                 fp("Python", "Django Dev Server", "🎸")
             } else if contains_any(&cmd_lower, &["python", "python3"]) {
                 fp("Python", "Python Dev Server", "🐍")
@@ -428,9 +466,16 @@ fn fingerprint_by_command(command: &str, port: u16) -> Option<ProcessFingerprint
             }
         }
         8000 => {
-            if contains_all(&cmd_lower, &["python", "http.server"]) || contains_all(&cmd_lower, &["python", "-m", "http"]) {
+            if contains_all(&cmd_lower, &["python", "http.server"])
+                || contains_all(&cmd_lower, &["python", "-m", "http"])
+            {
                 fp("Python", "Python HTTP Server", "🐍")
-            } else if contains_any(&cmd_lower, &["python", "python3"]) && contains_any(&cmd_lower, &["serve", "server", "app.py", "app-py", "uvicorn"]) {
+            } else if contains_any(&cmd_lower, &["python", "python3"])
+                && contains_any(
+                    &cmd_lower,
+                    &["serve", "server", "app.py", "app-py", "uvicorn"],
+                )
+            {
                 fp("Python", "Python Web Server", "🐍")
             } else if contains_any(&cmd_lower, &["node"]) {
                 fp("Node.js", "Node.js Server", "📦")
@@ -439,13 +484,27 @@ fn fingerprint_by_command(command: &str, port: u16) -> Option<ProcessFingerprint
             }
         }
         8080 => {
-            if contains_any(&cmd_lower, &["spring", "spring-boot", "springboot"]) || (contains_all(&cmd_lower, &["java", "jar"]) && contains_all(&cmd_lower, &["8080"])) {
+            if contains_any(&cmd_lower, &["spring", "spring-boot", "springboot"])
+                || (contains_all(&cmd_lower, &["java", "jar"])
+                    && contains_all(&cmd_lower, &["8080"]))
+            {
                 fp("Java", "Spring Boot", "🍃")
             } else if contains_all(&cmd_lower, &["java", "tomcat"]) {
                 fp("Java", "Apache Tomcat", "☕")
-            } else if contains_any(&cmd_lower, &["vue", "vue-cli-service"]) || (contains_any(&cmd_lower, &["node"]) && contains_all(&cmd_lower, &["8080"])) {
+            } else if contains_any(&cmd_lower, &["vue", "vue-cli-service"])
+                || (contains_any(&cmd_lower, &["node"]) && contains_all(&cmd_lower, &["8080"]))
+            {
                 fp("Node.js", "Vue Dev Server", "💚")
-            } else if contains_any(&cmd_lower, &["docker", "docker-proxy", "containerd", "dockerd", "com.docker"]) {
+            } else if contains_any(
+                &cmd_lower,
+                &[
+                    "docker",
+                    "docker-proxy",
+                    "containerd",
+                    "dockerd",
+                    "com.docker",
+                ],
+            ) {
                 fp("Container", "Docker Container", "🐳")
             } else if contains_all(&cmd_lower, &["java", "jar"]) {
                 fp("Java", "Java Application", "☕")
