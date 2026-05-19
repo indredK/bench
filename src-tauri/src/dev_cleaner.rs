@@ -874,6 +874,7 @@ mod tests {
             dependencies_count: 0,
             project_type: ProjectType::NodeJs,
             cleanup_potential: 0,
+            cleanup_paths: vec![],
         };
 
         let paths = resolve_cleanup_paths(&project).unwrap();
@@ -900,6 +901,7 @@ mod tests {
             dependencies_count: 0,
             project_type: ProjectType::NodeJs,
             cleanup_potential: 0,
+            cleanup_paths: vec![],
         };
 
         let paths = resolve_cleanup_paths(&project).unwrap();
@@ -923,6 +925,7 @@ mod tests {
             dependencies_count: 0,
             project_type: ProjectType::NodeJs,
             cleanup_potential: 0,
+            cleanup_paths: vec![],
         };
 
         let error = resolve_cleanup_paths(&project).unwrap_err();
