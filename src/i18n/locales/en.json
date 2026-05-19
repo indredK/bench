@@ -132,6 +132,7 @@
   "devCleaner": {
     "title": "Dev Cleaner",
     "subtitle": "Clean up development garbage files",
+    "projectsLabel": "Projects",
     "selectPath": "Select Directory",
     "enterPath": "Enter directory path or select a folder",
     "startScan": "Start Scan",
@@ -157,8 +158,20 @@
     "cleanupError": "Cleanup failed: {{error}}",
     "noProjects": "No projects found in the selected directory.",
     "refreshing": "Refreshing...",
+    "controls": "View Options",
+    "filteredCleanup": "Visible Cleanup",
+    "resultsLabel": "visible",
+    "selectedSize": "Selected",
+    "scanTime": "Scan Time",
+    "dependencies": "Dependencies",
+    "column": {
+      "project": "Project"
+    },
     "sorting": {
+      "current": "Sorted By",
       "size": "By Size",
+      "totalSize": "Total Size",
+      "cleanupSize": "Cleanup Size",
       "modified": "By Last Modified",
       "name": "By Name"
     },

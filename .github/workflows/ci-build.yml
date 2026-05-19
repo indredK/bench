@@ -1,19 +1,80 @@
-name: Build & Release
+name: CI & Release
 
 on:
   push:
+    branches:
+      - main
+      - master
     tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+*'
+      - "v[0-9]+.[0-9]+.[0-9]+*"
+  pull_request:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  CI: true
 
 permissions:
   contents: write
   actions: read
 
 jobs:
-  build:
+  verify:
+    name: Verify (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - macos-latest
+          - windows-latest
+          - ubuntu-latest
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libgtk-3-dev \
+            libsoup-3.0-dev \
+            libjavascriptcoregtk-4.1-dev
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Run frontend tests
+        run: npm run test
+
+      - name: Run Rust tests
+        run: npm run test:rust
+
+      - name: Run frontend build
+        run: npm run build
+
+      - name: Run Tauri build smoke test
+        run: npx tauri build --debug
+
+  release-build:
+    name: Release Build (${{ matrix.target }})
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: verify
     strategy:
       fail-fast: false
       matrix:
@@ -36,7 +97,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: '22'
+          node-version: "22"
+          cache: npm
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -61,8 +123,6 @@ jobs:
 
       - name: Build Tauri app
         run: npx tauri build --target ${{ matrix.target }}
-        env:
-          CI: true
 
       - name: Collect macOS bundle (dmg)
         if: runner.os == 'macOS'
@@ -83,10 +143,6 @@ jobs:
           mkdir -p artifacts
           find src-tauri/target -name "*.deb" -o -name "*.AppImage" | while read f; do cp "$f" artifacts/; done 2>/dev/null || true
 
-      - name: List collected artifacts
-        shell: bash
-        run: ls -la artifacts/ || echo "No artifacts found"
-
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
         with:
@@ -95,7 +151,9 @@ jobs:
           retention-days: 7
 
   publish:
-    needs: build
+    name: Publish Release
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: release-build
     runs-on: ubuntu-latest
 
     steps:
@@ -111,9 +169,7 @@ jobs:
           merge-multiple: true
 
       - name: List release assets
-        run: |
-          echo "=== Release assets ==="
-          ls -la release-assets/
+        run: ls -la release-assets/
 
       - name: Create GitHub Release
         env:

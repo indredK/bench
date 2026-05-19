@@ -132,6 +132,7 @@
   "devCleaner": {
     "title": "垃圾清理",
     "subtitle": "清理开发垃圾文件",
+    "projectsLabel": "项目数",
     "selectPath": "选择目录",
     "enterPath": "输入目录路径或选择文件夹",
     "startScan": "开始扫描",
@@ -157,8 +158,20 @@
     "cleanupError": "清理失败：{{error}}",
     "noProjects": "在选定的目录中未找到任何项目。",
     "refreshing": "正在刷新...",
+    "controls": "显示选项",
+    "filteredCleanup": "当前可清理",
+    "resultsLabel": "项结果",
+    "selectedSize": "已选",
+    "scanTime": "扫描耗时",
+    "dependencies": "依赖数",
+    "column": {
+      "project": "项目"
+    },
     "sorting": {
+      "current": "当前排序",
       "size": "按大小",
+      "totalSize": "总大小",
+      "cleanupSize": "可清理大小",
       "modified": "按修改时间",
       "name": "按名称"
     },

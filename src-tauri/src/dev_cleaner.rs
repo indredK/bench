@@ -1,10 +1,11 @@
-use serde::Serialize;
+use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::SystemTime;
+use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
 
 const SKIP_DIR_NAMES: &[&str] = &[
@@ -64,8 +65,8 @@ fn is_child_of_skip_dir(entry: &walkdir::DirEntry, root: &Path) -> bool {
     })
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-enum ProjectType {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum ProjectType {
     NodeJs,
     Python,
     Rust,
@@ -73,17 +74,45 @@ enum ProjectType {
     General,
 }
 
-impl ProjectType {
-    fn as_str(self) -> &'static str {
-        match self {
-            ProjectType::NodeJs => "NodeJs",
-            ProjectType::Python => "Python",
-            ProjectType::Rust => "Rust",
-            ProjectType::Go => "Go",
-            ProjectType::General => "General",
-        }
-    }
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct CleanupRule {
+    target: &'static str,
+}
 
+const NODEJS_CLEANUP_RULES: &[CleanupRule] = &[
+    CleanupRule {
+        target: "node_modules",
+    },
+    CleanupRule { target: "dist" },
+    CleanupRule { target: ".next" },
+    CleanupRule { target: ".nuxt" },
+    CleanupRule { target: "build" },
+    CleanupRule { target: ".cache" },
+];
+
+const PYTHON_CLEANUP_RULES: &[CleanupRule] = &[
+    CleanupRule { target: ".venv" },
+    CleanupRule { target: "venv" },
+    CleanupRule {
+        target: "__pycache__",
+    },
+];
+
+const RUST_CLEANUP_RULES: &[CleanupRule] = &[CleanupRule { target: "target" }];
+const GO_CLEANUP_RULES: &[CleanupRule] = &[CleanupRule { target: "vendor" }];
+
+fn is_cleanup_dir_name(name: &str) -> bool {
+    [
+        ProjectType::NodeJs,
+        ProjectType::Python,
+        ProjectType::Rust,
+        ProjectType::Go,
+    ]
+    .into_iter()
+    .any(|project_type| project_type.is_cleanup_dir_name(name))
+}
+
+impl ProjectType {
     fn from_indicator(file_name: &str) -> Option<Self> {
         match file_name {
             "package.json" => Some(ProjectType::NodeJs),
@@ -95,23 +124,42 @@ impl ProjectType {
     }
 
     fn from_skip_dir(dir_name: &str) -> Self {
-        match dir_name {
-            "node_modules" | "dist" | ".next" | ".nuxt" | "build" | ".cache" => ProjectType::NodeJs,
-            ".venv" | "venv" | "__pycache__" => ProjectType::Python,
-            "target" => ProjectType::Rust,
-            "vendor" => ProjectType::Go,
-            _ => ProjectType::General,
+        for project_type in [
+            ProjectType::NodeJs,
+            ProjectType::Python,
+            ProjectType::Rust,
+            ProjectType::Go,
+        ] {
+            if project_type.is_cleanup_dir_name(dir_name) {
+                return project_type;
+            }
+        }
+
+        ProjectType::General
+    }
+
+    fn indicator_files(self) -> &'static [&'static str] {
+        match self {
+            ProjectType::NodeJs => &["package.json"],
+            ProjectType::Python => &["pyproject.toml", "requirements.txt"],
+            ProjectType::Rust => &["Cargo.toml"],
+            ProjectType::Go => &["go.mod"],
+            ProjectType::General => &[],
         }
     }
 
-    fn cleanup_targets(self) -> &'static [&'static str] {
+    fn cleanup_rules(self) -> &'static [CleanupRule] {
         match self {
-            ProjectType::NodeJs => &["node_modules", "dist", ".next"],
-            ProjectType::Python => &[".venv", "venv", "__pycache__"],
-            ProjectType::Rust => &["target"],
-            ProjectType::Go => &["vendor"],
+            ProjectType::NodeJs => NODEJS_CLEANUP_RULES,
+            ProjectType::Python => PYTHON_CLEANUP_RULES,
+            ProjectType::Rust => RUST_CLEANUP_RULES,
+            ProjectType::Go => GO_CLEANUP_RULES,
             ProjectType::General => &[],
         }
+    }
+
+    fn is_cleanup_dir_name(self, dir_name: &str) -> bool {
+        self.cleanup_rules().iter().any(|rule| rule.target == dir_name)
     }
 }
 
@@ -126,7 +174,7 @@ fn get_last_modified(path: &Path) -> u64 {
         .unwrap_or(0)
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ProjectInfo {
     pub path: String,
     pub name: String,
@@ -134,8 +182,9 @@ pub struct ProjectInfo {
     pub target_size: u64,
     pub last_modified: u64,
     pub dependencies_count: u32,
-    pub project_type: String,
+    pub project_type: ProjectType,
     pub cleanup_potential: u64,
+    pub cleanup_paths: Vec<String>,
 }
 
 pub type ScanAbortFlag = Arc<AtomicBool>;
@@ -172,18 +221,10 @@ pub async fn scan_dev_projects(
 
     tauri::async_runtime::spawn_blocking(move || {
         let start_time = std::time::Instant::now();
-        let mut projects = Vec::new();
-        let mut total_size = 0u64;
-        let mut total_cleanup_size = 0u64;
+        let mut raw_projects = Vec::new();
         let mut aborted = false;
 
         let root_path_ref = Path::new(&root_path);
-
-        let mut push_project = |p: ProjectInfo| {
-            total_size += p.total_size;
-            total_cleanup_size += p.cleanup_potential;
-            projects.push(p);
-        };
 
         for entry in WalkDir::new(&root_path)
             .into_iter()
@@ -200,11 +241,11 @@ pub async fn scan_dev_projects(
 
             if let Some(pt) = ProjectType::from_indicator(&file_name) {
                 if let Ok(project) = detect_project(path.parent().unwrap(), pt, Some(&abort)) {
-                    push_project(project);
+                    raw_projects.push(project);
                 }
-            } else if entry.file_type().is_dir() && is_skip_dir_name(&file_name) {
+            } else if entry.file_type().is_dir() && is_cleanup_dir_name(&file_name) {
                 if let Ok(project) = detect_skip_dir_project(path, &file_name, Some(&abort)) {
-                    push_project(project);
+                    raw_projects.push(project);
                 }
             }
 
@@ -214,6 +255,12 @@ pub async fn scan_dev_projects(
             }
         }
 
+        let projects = dedupe_projects(raw_projects, Some(&abort));
+        let total_size = projects.iter().map(|project| project.total_size).sum();
+        let total_cleanup_size = projects
+            .iter()
+            .map(|project| project.cleanup_potential)
+            .sum();
         let scan_time_ms = start_time.elapsed().as_millis() as u64;
 
         Ok(ScanResult {
@@ -230,19 +277,34 @@ pub async fn scan_dev_projects(
 }
 
 #[tauri::command]
-pub fn cleanup_projects(paths: Vec<String>, targets: Vec<String>) -> Result<CleanupResult, String> {
+pub fn cleanup_projects(projects: Vec<ProjectInfo>) -> Result<CleanupResult, String> {
     let mut cleaned_size = 0u64;
     let mut errors = Vec::new();
+    let mut seen_targets = HashSet::<PathBuf>::new();
 
-    for project_path in paths {
-        let project_dir = Path::new(&project_path);
+    for project in projects {
+        let project_dir = Path::new(&project.path);
 
-        for target in &targets {
-            if target.contains("..") || target.contains('/') || target.contains('\\') {
-                errors.push(format!("Invalid target name: {}", target));
+        let cleanup_paths = match resolve_cleanup_paths(&project) {
+            Ok(paths) => paths,
+            Err(error) => {
+                errors.push(error);
                 continue;
             }
-            let target_path = project_dir.join(target);
+        };
+
+        for target_path in cleanup_paths {
+            if !seen_targets.insert(target_path.clone()) {
+                continue;
+            }
+
+            if !target_path.starts_with(project_dir) {
+                errors.push(format!(
+                    "Unsafe cleanup path outside project: {}",
+                    target_path.display()
+                ));
+                continue;
+            }
 
             if target_path.exists() {
                 match calculate_dir_size(&target_path, None) {
@@ -356,6 +418,104 @@ fn count_dependencies(path: &Path, project_type: ProjectType) -> u32 {
     }
 }
 
+fn collect_existing_cleanup_paths(path: &Path, project_type: ProjectType) -> Vec<PathBuf> {
+    cleanup_paths_for_project(path, project_type)
+        .into_iter()
+        .filter(|target_path| target_path.exists())
+        .collect()
+}
+
+fn sum_cleanup_paths(paths: &[String], abort_flag: Option<&Arc<AtomicBool>>) -> u64 {
+    paths.iter().fold(0u64, |sum, path| {
+        sum + calculate_dir_size(Path::new(path), abort_flag).unwrap_or(0)
+    })
+}
+
+fn is_direct_cleanup_entry(project: &ProjectInfo) -> bool {
+    matches!(project.cleanup_paths.as_slice(), [only_path] if only_path == &project.path)
+}
+
+fn merge_project_info(
+    existing: &mut ProjectInfo,
+    candidate: ProjectInfo,
+    abort_flag: Option<&Arc<AtomicBool>>,
+) {
+    let ProjectInfo {
+        name: candidate_name,
+        total_size: candidate_total_size,
+        target_size: candidate_target_size,
+        last_modified: candidate_last_modified,
+        dependencies_count: candidate_dependencies_count,
+        project_type: candidate_project_type,
+        cleanup_potential: candidate_cleanup_potential,
+        cleanup_paths: candidate_cleanup_paths,
+        ..
+    } = candidate;
+
+    let candidate_is_more_specific = candidate_cleanup_potential > existing.cleanup_potential
+        || (candidate_cleanup_paths.len() > existing.cleanup_paths.len()
+            && candidate_project_type != existing.project_type);
+
+    if candidate_is_more_specific {
+        existing.project_type = candidate_project_type;
+        existing.name = candidate_name;
+    }
+
+    existing.total_size = existing.total_size.max(candidate_total_size);
+    existing.last_modified = existing.last_modified.max(candidate_last_modified);
+    existing.dependencies_count = existing.dependencies_count.max(candidate_dependencies_count);
+
+    let mut seen_cleanup_paths = existing.cleanup_paths.iter().cloned().collect::<HashSet<_>>();
+    let mut cleanup_paths_changed = false;
+
+    for cleanup_path in candidate_cleanup_paths {
+        if seen_cleanup_paths.insert(cleanup_path.clone()) {
+            existing.cleanup_paths.push(cleanup_path);
+            cleanup_paths_changed = true;
+        }
+    }
+
+    if cleanup_paths_changed {
+        let cleanup_size = sum_cleanup_paths(&existing.cleanup_paths, abort_flag);
+        existing.target_size = cleanup_size;
+        existing.cleanup_potential = cleanup_size;
+    } else {
+        existing.target_size = existing.target_size.max(candidate_target_size);
+        existing.cleanup_potential = existing.cleanup_potential.max(candidate_cleanup_potential);
+    }
+}
+
+fn dedupe_projects(
+    projects: Vec<ProjectInfo>,
+    abort_flag: Option<&Arc<AtomicBool>>,
+) -> Vec<ProjectInfo> {
+    let mut merged_projects = Vec::new();
+    let mut index_by_path = HashMap::<String, usize>::new();
+
+    for project in projects {
+        if let Some(index) = index_by_path.get(&project.path).copied() {
+            merge_project_info(&mut merged_projects[index], project, abort_flag);
+        } else {
+            index_by_path.insert(project.path.clone(), merged_projects.len());
+            merged_projects.push(project);
+        }
+    }
+
+    let covered_cleanup_dirs = merged_projects
+        .iter()
+        .filter(|project| !is_direct_cleanup_entry(project))
+        .flat_map(|project| project.cleanup_paths.iter().cloned())
+        .collect::<HashSet<_>>();
+
+    merged_projects
+        .into_iter()
+        .filter(|project| project.cleanup_potential > 0)
+        .filter(|project| {
+            !is_direct_cleanup_entry(project) || !covered_cleanup_dirs.contains(&project.path)
+        })
+        .collect()
+}
+
 fn detect_project(
     path: &Path,
     project_type: ProjectType,
@@ -369,18 +529,12 @@ fn detect_project(
 
     let total_size = calculate_dir_size(path, abort_flag)?;
 
-    let mut target_size = 0u64;
-    for target in project_type.cleanup_targets() {
-        let target_path = path.join(target);
-        if target_path.exists() {
-            if let Ok(size) = calculate_dir_size(&target_path, abort_flag) {
-                target_size += size;
-            }
-        }
-    }
+    let cleanup_paths = collect_existing_cleanup_paths(path, project_type);
+    let target_size = cleanup_paths.iter().fold(0u64, |sum, cleanup_path| {
+        sum + calculate_dir_size(cleanup_path, abort_flag).unwrap_or(0)
+    });
 
     let dependencies_count = count_dependencies(path, project_type);
-
     Ok(ProjectInfo {
         path: path.to_string_lossy().to_string(),
         name,
@@ -388,8 +542,12 @@ fn detect_project(
         target_size,
         last_modified: get_last_modified(path),
         dependencies_count,
-        project_type: project_type.as_str().to_string(),
+        project_type,
         cleanup_potential: target_size,
+        cleanup_paths: cleanup_paths
+            .into_iter()
+            .map(|cleanup_path| cleanup_path.to_string_lossy().to_string())
+            .collect(),
     })
 }
 
@@ -420,9 +578,55 @@ fn detect_skip_dir_project(
         target_size: size,
         last_modified: get_last_modified(path),
         dependencies_count: 0,
-        project_type: pt.as_str().to_string(),
+        project_type: pt,
         cleanup_potential: size,
+        cleanup_paths: vec![path.to_string_lossy().to_string()],
     })
+}
+
+fn cleanup_paths_for_project(path: &Path, project_type: ProjectType) -> Vec<PathBuf> {
+    project_type
+        .cleanup_rules()
+        .iter()
+        .map(|rule| path.join(rule.target))
+        .collect()
+}
+
+fn project_has_indicator(path: &Path, project_type: ProjectType) -> bool {
+    project_type
+        .indicator_files()
+        .iter()
+        .any(|indicator| path.join(indicator).is_file())
+}
+
+fn resolve_cleanup_paths(project: &ProjectInfo) -> Result<Vec<PathBuf>, String> {
+    if !project.cleanup_paths.is_empty() {
+        return Ok(project
+            .cleanup_paths
+            .iter()
+            .map(PathBuf::from)
+            .collect());
+    }
+
+    let project_path = Path::new(&project.path);
+
+    if project_has_indicator(project_path, project.project_type) {
+        return Ok(cleanup_paths_for_project(project_path, project.project_type));
+    }
+
+    let dir_name = project_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or_default();
+
+    if project.project_type.is_cleanup_dir_name(dir_name) {
+        return Ok(vec![project_path.to_path_buf()]);
+    }
+
+    Err(format!(
+        "Unrecognized cleanup request: {}",
+        project_path.display()
+    ))
 }
 
 fn calculate_dir_size(path: &Path, abort_flag: Option<&Arc<AtomicBool>>) -> Result<u64, String> {
@@ -605,34 +809,126 @@ mod tests {
     }
 
     #[test]
-    fn test_project_type_as_str() {
-        assert_eq!(ProjectType::NodeJs.as_str(), "NodeJs");
-        assert_eq!(ProjectType::Python.as_str(), "Python");
-        assert_eq!(ProjectType::Rust.as_str(), "Rust");
-        assert_eq!(ProjectType::Go.as_str(), "Go");
-        assert_eq!(ProjectType::General.as_str(), "General");
-    }
-
-    #[test]
     fn test_cleanup_targets() {
-        let node_targets = ProjectType::NodeJs.cleanup_targets();
+        let node_targets: Vec<_> = ProjectType::NodeJs
+            .cleanup_rules()
+            .iter()
+            .map(|rule| rule.target)
+            .collect();
         assert!(node_targets.contains(&"node_modules"));
         assert!(node_targets.contains(&"dist"));
         assert!(node_targets.contains(&".next"));
+        assert!(node_targets.contains(&".nuxt"));
+        assert!(node_targets.contains(&"build"));
+        assert!(node_targets.contains(&".cache"));
 
-        let python_targets = ProjectType::Python.cleanup_targets();
+        let python_targets: Vec<_> = ProjectType::Python
+            .cleanup_rules()
+            .iter()
+            .map(|rule| rule.target)
+            .collect();
         assert!(python_targets.contains(&".venv"));
         assert!(python_targets.contains(&"venv"));
         assert!(python_targets.contains(&"__pycache__"));
 
-        let rust_targets = ProjectType::Rust.cleanup_targets();
+        let rust_targets: Vec<_> = ProjectType::Rust
+            .cleanup_rules()
+            .iter()
+            .map(|rule| rule.target)
+            .collect();
         assert!(rust_targets.contains(&"target"));
 
-        let go_targets = ProjectType::Go.cleanup_targets();
+        let go_targets: Vec<_> = ProjectType::Go
+            .cleanup_rules()
+            .iter()
+            .map(|rule| rule.target)
+            .collect();
         assert!(go_targets.contains(&"vendor"));
 
-        let general_targets = ProjectType::General.cleanup_targets();
+        let general_targets = ProjectType::General.cleanup_rules();
         assert!(general_targets.is_empty());
+    }
+
+    #[test]
+    fn test_is_cleanup_dir_name() {
+        assert!(is_cleanup_dir_name("node_modules"));
+        assert!(is_cleanup_dir_name(".nuxt"));
+        assert!(is_cleanup_dir_name("build"));
+        assert!(is_cleanup_dir_name(".cache"));
+        assert!(!is_cleanup_dir_name(".git"));
+    }
+
+    #[test]
+    fn test_resolve_cleanup_paths_for_project_root() {
+        let tmp = std::env::temp_dir().join("tauri_test_cleanup_project_root");
+        let _ = fs::remove_dir_all(&tmp);
+        fs::create_dir_all(tmp.join("node_modules")).unwrap();
+        fs::write(tmp.join("package.json"), "{}").unwrap();
+
+        let project = ProjectInfo {
+            path: tmp.to_string_lossy().to_string(),
+            name: "demo".to_string(),
+            total_size: 0,
+            target_size: 0,
+            last_modified: 0,
+            dependencies_count: 0,
+            project_type: ProjectType::NodeJs,
+            cleanup_potential: 0,
+        };
+
+        let paths = resolve_cleanup_paths(&project).unwrap();
+        assert!(paths.contains(&tmp.join("node_modules")));
+        assert!(paths.contains(&tmp.join("dist")));
+        assert!(paths.contains(&tmp.join(".next")));
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_resolve_cleanup_paths_for_skip_dir_project() {
+        let tmp = std::env::temp_dir().join("tauri_test_cleanup_skip_dir");
+        let skip_dir = tmp.join("sample").join("node_modules");
+        let _ = fs::remove_dir_all(&tmp);
+        fs::create_dir_all(&skip_dir).unwrap();
+
+        let project = ProjectInfo {
+            path: skip_dir.to_string_lossy().to_string(),
+            name: "sample/node_modules".to_string(),
+            total_size: 0,
+            target_size: 0,
+            last_modified: 0,
+            dependencies_count: 0,
+            project_type: ProjectType::NodeJs,
+            cleanup_potential: 0,
+        };
+
+        let paths = resolve_cleanup_paths(&project).unwrap();
+        assert_eq!(paths, vec![skip_dir.clone()]);
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_resolve_cleanup_paths_rejects_unknown_project_shape() {
+        let tmp = std::env::temp_dir().join("tauri_test_cleanup_unknown");
+        let _ = fs::remove_dir_all(&tmp);
+        fs::create_dir_all(&tmp).unwrap();
+
+        let project = ProjectInfo {
+            path: tmp.to_string_lossy().to_string(),
+            name: "unknown".to_string(),
+            total_size: 0,
+            target_size: 0,
+            last_modified: 0,
+            dependencies_count: 0,
+            project_type: ProjectType::NodeJs,
+            cleanup_potential: 0,
+        };
+
+        let error = resolve_cleanup_paths(&project).unwrap_err();
+        assert!(error.contains("Unrecognized cleanup request"));
+
+        let _ = fs::remove_dir_all(&tmp);
     }
 
     #[test]

@@ -33,6 +33,13 @@ Port Manager is a [Tauri v2](https://v2.tauri.app/) desktop application that hel
   - Screen resolution
 - **Refresh & Retry** - Refresh data on demand or retry on error
 
+### Dev Cleaner
+
+- **Workspace Scan** - Detect developer projects and heavy build artifacts under a chosen folder
+- **Safe Cleanup Rules** - Only removes regenerable directories such as `node_modules`, `target`, `.venv`, `venv`, `vendor`, `dist`, `.next`, `.nuxt`, `build`, and `.cache`
+- **Cross-Platform Path Safety** - Cleanup targets are resolved in the Rust backend to avoid frontend path drift across macOS, Windows, and Linux
+- **Batch Cleanup** - Select multiple projects and clear reclaimable space in one action
+
 ### Internationalization
 
 Full support for **English** and **Simplified Chinese** with a built-in language switcher in the header bar. UI language can be changed instantly without restarting the application.
@@ -122,6 +129,18 @@ npm run tauri:dev
 
 This will start the Vite dev server on `http://localhost:1420` and launch the Tauri desktop window.
 
+### Verification
+
+Run the local verification steps before shipping changes:
+
+```bash
+npm run test
+npm run test:rust
+npm run build
+```
+
+GitHub Actions also runs the verification matrix on **macOS**, **Windows**, and **Linux**, then performs tagged release builds for the platform bundles.
+
 ### Build for Production
 
 ```bash
@@ -161,6 +180,14 @@ The packaged installers will be available in `src-tauri/target/release/bundle/`:
    - CPU information
    - Memory usage statistics
 3. Click **Refresh** to update the data.
+
+### Cleaning Development Artifacts
+
+1. Click **Dev Cleaner** in the sidebar.
+2. Choose a workspace directory to scan.
+3. Review the detected projects and reclaimable size.
+4. Select one or more projects and confirm cleanup.
+5. The backend will remove only recognized cleanup directories for the detected project type.
 
 ### Switching Language
 
