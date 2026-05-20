@@ -7,8 +7,11 @@ import {
   upgradeApp,
   uninstallApp,
   getAppOperationHistory,
+  batchUpgradeApps,
+  batchUninstallApps,
+  refreshAppUpdates,
 } from "@/lib/tauri/commands";
-import type { AppInfo, AppScanResult, OperationRecord } from "@/lib/tauri/types";
+import type { AppInfo, AppScanResult, BatchOperationResult, OperationRecord } from "@/lib/tauri/types";
 
 export type AppFilterKey = "all" | "user" | "system" | "launchable" | "managed" | "upgradable";
 
@@ -21,12 +24,17 @@ export const APP_FILTER_OPTIONS = [
   { key: "upgradable" as const, labelKey: "appManager.filterUpgradable" },
 ];
 
-/** Possible states for a management operation on a specific app */
 export type OperationStatus = "idle" | "pending" | "running" | "success" | "error";
 
 interface AppOperationState {
   status: OperationStatus;
   message: string;
+}
+
+interface BatchProgress {
+  running: boolean;
+  current: number;
+  total: number;
 }
 
 interface AppManagerState {
@@ -39,19 +47,27 @@ interface AppManagerState {
   scanned: boolean;
   result: AppScanResult | null;
 
-  // Operation tracking: appId → state
+  // Single-item operations
   operations: Record<string, AppOperationState>;
-  // Operation history
   history: OperationRecord[];
-  // Confirmation dialog
   confirmDialog: {
     open: boolean;
     appId: string;
     appName: string;
     action: "upgrade" | "uninstall";
   };
-  // History drawer
   historyOpen: boolean;
+
+  // Batch selection
+  selectedAppIds: Set<string>;
+  batchMode: boolean;
+  batchProgress: BatchProgress | null;
+  batchResults: BatchOperationResult | null;
+  batchConfirmDialog: {
+    open: boolean;
+    action: "upgrade" | "uninstall";
+    count: number;
+  };
 
   setSearchQuery: (query: string) => void;
   setActiveFilter: (filter: AppFilterKey) => void;
@@ -59,14 +75,22 @@ interface AppManagerState {
   scanApps: () => Promise<void>;
   refreshUpdates: () => Promise<void>;
 
-  // Operations
+  // Single operations
   doUpgrade: (appId: string) => Promise<void>;
   doUninstall: (appId: string) => Promise<void>;
   setOperationStatus: (appId: string, status: OperationStatus, message?: string) => void;
-
-  // Confirm dialog
   openConfirmDialog: (appId: string, appName: string, action: "upgrade" | "uninstall") => void;
   closeConfirmDialog: () => void;
+
+  // Batch operations
+  toggleSelectApp: (appId: string) => void;
+  selectAllFiltered: (filteredIds: string[]) => void;
+  clearSelection: () => void;
+  setBatchMode: (on: boolean) => void;
+  openBatchConfirmDialog: (action: "upgrade" | "uninstall", count: number) => void;
+  closeBatchConfirmDialog: () => void;
+  doBatchUpgrade: () => Promise<void>;
+  doBatchUninstall: () => Promise<void>;
 
   // History
   loadHistory: () => Promise<void>;
@@ -89,6 +113,13 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
   confirmDialog: { open: false, appId: "", appName: "", action: "upgrade" },
   historyOpen: false,
 
+  // Batch
+  selectedAppIds: new Set(),
+  batchMode: false,
+  batchProgress: null,
+  batchResults: null,
+  batchConfirmDialog: { open: false, action: "upgrade", count: 0 },
+
   setSearchQuery: (query) => set({ searchQuery: query }),
   setActiveFilter: (filter) => set({ activeFilter: filter }),
   setSorting: (sorting: Updater<SortingState>) =>
@@ -99,150 +130,148 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
   scanApps: async () => {
     const { loading } = get();
     if (loading) return;
-
-    set({ loading: true, error: "", apps: [], result: null });
-
-    if (!isTauri()) {
-      set({ scanned: true, loading: false });
-      return;
-    }
-
+    set({ loading: true, error: "", apps: [], result: null, selectedAppIds: new Set(), batchMode: false, batchResults: null });
+    if (!isTauri()) { set({ scanned: true, loading: false }); return; }
     try {
       const result = await scanInstalledApps();
-      set({
-        apps: result.apps,
-        result,
-        scanned: true,
-        loading: false,
-      });
-      // Load history after scan
+      set({ apps: result.apps, result, scanned: true, loading: false });
       get().loadHistory();
     } catch (e) {
-      console.warn("[AppManager] Failed to scan apps:", e);
-      set({
-        apps: [],
-        result: null,
-        error: String(e) || "Failed to scan applications",
-        scanned: true,
-        loading: false,
-      });
+      set({ apps: [], result: null, error: String(e) || "Failed to scan", scanned: true, loading: false });
     }
   },
 
   refreshUpdates: async () => {
     const { apps } = get();
     if (!isTauri() || apps.length === 0) return;
-
     try {
-      const managedIds = apps
-        .filter((a) => a.canUpgrade)
-        .map((a) => a.appId);
-
+      const managedIds = apps.filter((a) => a.canUpgrade).map((a) => a.appId);
       if (managedIds.length === 0) return;
-
       const updatableIds = await checkManagedAppUpdates(managedIds);
       const updatableSet = new Set(updatableIds);
-
       set((state) => ({
-        apps: state.apps.map((a) => ({
-          ...a,
-          upgradeAvailable: updatableSet.has(a.appId),
-        })),
+        apps: state.apps.map((a) => ({ ...a, upgradeAvailable: updatableSet.has(a.appId) })),
       }));
-    } catch (e) {
-      console.warn("[AppManager] Failed to check updates:", e);
-    }
+    } catch (e) { console.warn("[AppManager] Failed to check updates:", e); }
   },
 
-  // --- Operations ---
-
+  // --- Single-item Operations ---
   setOperationStatus: (appId, status, message = "") =>
-    set((state) => ({
-      operations: {
-        ...state.operations,
-        [appId]: { status, message },
-      },
-    })),
+    set((state) => ({ operations: { ...state.operations, [appId]: { status, message } } })),
 
   doUpgrade: async (appId: string) => {
     const { setOperationStatus, loadHistory } = get();
     setOperationStatus(appId, "running", "Upgrading...");
-
     try {
       const result = await upgradeApp(appId);
-      if (result.success) {
-        setOperationStatus(appId, "success", result.message);
-        // Clear after 5s
-        setTimeout(() => setOperationStatus(appId, "idle"), 5000);
-      } else {
-        setOperationStatus(appId, "error", result.message);
-      }
+      setOperationStatus(appId, result.success ? "success" : "error", result.message);
+      if (result.success) setTimeout(() => setOperationStatus(appId, "idle"), 5000);
     } catch (e) {
       setOperationStatus(appId, "error", String(e));
     }
-
     await loadHistory();
-    // Refresh the scan to pick up any changes
     get().scanApps();
   },
 
   doUninstall: async (appId: string) => {
     const { setOperationStatus, loadHistory } = get();
     setOperationStatus(appId, "running", "Uninstalling...");
-
     try {
       const result = await uninstallApp(appId);
       if (result.success) {
         setOperationStatus(appId, "success", result.message);
-        setTimeout(() => {
-          // Re-scan after successful uninstall
-          get().scanApps();
-        }, 800);
+        setTimeout(() => get().scanApps(), 800);
       } else {
         setOperationStatus(appId, "error", result.message);
       }
     } catch (e) {
       setOperationStatus(appId, "error", String(e));
     }
-
     await loadHistory();
   },
 
-  // --- Confirm dialog ---
-
   openConfirmDialog: (appId, appName, action) =>
     set({ confirmDialog: { open: true, appId, appName, action } }),
-
   closeConfirmDialog: () =>
     set({ confirmDialog: { open: false, appId: "", appName: "", action: "upgrade" } }),
 
-  // --- History ---
+  // --- Batch Selection ---
+  toggleSelectApp: (appId: string) =>
+    set((state) => {
+      const next = new Set(state.selectedAppIds);
+      if (next.has(appId)) next.delete(appId);
+      else next.add(appId);
+      return { selectedAppIds: next };
+    }),
 
-  loadHistory: async () => {
-    if (!isTauri()) return;
+  selectAllFiltered: (filteredIds: string[]) =>
+    set({ selectedAppIds: new Set(filteredIds) }),
+
+  clearSelection: () => set({ selectedAppIds: new Set(), batchMode: false }),
+
+  setBatchMode: (on) => set({ batchMode: on }),
+
+  openBatchConfirmDialog: (action, count) =>
+    set({ batchConfirmDialog: { open: true, action, count } }),
+
+  closeBatchConfirmDialog: () =>
+    set({ batchConfirmDialog: { open: false, action: "upgrade", count: 0 } }),
+
+  // --- Batch Operations ---
+  doBatchUpgrade: async () => {
+    const { selectedAppIds, loadHistory } = get();
+    const ids = Array.from(selectedAppIds);
+    if (ids.length === 0) return;
+    set({ batchProgress: { running: true, current: 0, total: ids.length }, batchResults: null });
     try {
-      const records = await getAppOperationHistory();
-      set({ history: records });
+      const result = await batchUpgradeApps(ids);
+      set({
+        batchProgress: null,
+        batchResults: result,
+        selectedAppIds: new Set(),
+        batchMode: false,
+      });
     } catch (e) {
-      console.warn("[AppManager] Failed to load history:", e);
+      set({ batchProgress: null, error: String(e) });
     }
+    await loadHistory();
+    get().scanApps();
   },
 
+  doBatchUninstall: async () => {
+    const { selectedAppIds, loadHistory } = get();
+    const ids = Array.from(selectedAppIds);
+    if (ids.length === 0) return;
+    set({ batchProgress: { running: true, current: 0, total: ids.length }, batchResults: null });
+    try {
+      const result = await batchUninstallApps(ids);
+      set({
+        batchProgress: null,
+        batchResults: result,
+        selectedAppIds: new Set(),
+        batchMode: false,
+      });
+    } catch (e) {
+      set({ batchProgress: null, error: String(e) });
+    }
+    await loadHistory();
+    get().scanApps();
+  },
+
+  // --- History ---
+  loadHistory: async () => {
+    if (!isTauri()) return;
+    try { set({ history: await getAppOperationHistory() }); }
+    catch (e) { console.warn("[AppManager] Failed to load history:", e); }
+  },
   setHistoryOpen: (open) => set({ historyOpen: open }),
 
   reset: () =>
     set({
-      apps: [],
-      loading: false,
-      error: "",
-      searchQuery: "",
-      activeFilter: "all",
-      sorting: [{ id: "name", desc: false }],
-      scanned: false,
-      result: null,
-      operations: {},
-      history: [],
-      confirmDialog: { open: false, appId: "", appName: "", action: "upgrade" },
-      historyOpen: false,
+      apps: [], loading: false, error: "", searchQuery: "", activeFilter: "all",
+      sorting: [{ id: "name", desc: false }], scanned: false, result: null,
+      operations: {}, history: [], confirmDialog: { open: false, appId: "", appName: "", action: "upgrade" },
+      historyOpen: false, selectedAppIds: new Set(), batchMode: false, batchProgress: null, batchResults: null,
+      batchConfirmDialog: { open: false, action: "upgrade", count: 0 },
     }),
 }));

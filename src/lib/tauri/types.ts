@@ -94,20 +94,43 @@ export interface AppInfo {
   };
 }
 
+export interface PlatformCapabilities {
+  brewAvailable: boolean;
+  wingetAvailable: boolean;
+  flatpakAvailable: boolean;
+  snapAvailable: boolean;
+  aptAvailable: boolean;
+}
+
 export interface AppScanResult {
   apps: AppInfo[];
   totalCount: number;
   userCount: number;
   systemCount: number;
   scanTimeMs: number;
-  brewAvailable: boolean;
   managedCount: number;
+  platformCapabilities: PlatformCapabilities;
 }
 
 export interface OperationResult {
   success: boolean;
   message: string;
   exitCode: number | null;
+}
+
+export interface BatchItemResult {
+  appId: string;
+  appName: string;
+  success: boolean;
+  message: string;
+  exitCode: number | null;
+}
+
+export interface BatchOperationResult {
+  total: number;
+  succeeded: number;
+  failed: number;
+  results: BatchItemResult[];
 }
 
 export interface OperationRecord {

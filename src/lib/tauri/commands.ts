@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
   AppScanResult,
+  BatchOperationResult,
   CleanupResult,
   EnvTool,
   KillPidResult,
@@ -66,6 +67,18 @@ export function uninstallApp(appId: string) {
 
 export function getAppOperationHistory(appId?: string) {
   return invoke<OperationRecord[]>("get_app_operation_history", { appId: appId || null });
+}
+
+export function batchUpgradeApps(appIds: string[]) {
+  return invoke<BatchOperationResult>("batch_upgrade_apps", { appIds });
+}
+
+export function batchUninstallApps(appIds: string[]) {
+  return invoke<BatchOperationResult>("batch_uninstall_apps", { appIds });
+}
+
+export function refreshAppUpdates(appIds: string[]) {
+  return invoke<string[]>("refresh_app_updates", { appIds });
 }
 
 export type { EnvTool };

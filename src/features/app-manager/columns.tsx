@@ -1,6 +1,6 @@
 import type { TFunction } from "i18next";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Globe, Folder, Play, ArrowUpCircle, Trash2, Loader2, CheckCircle2, AlertCircle, ShieldAlert } from "lucide-react";
+import { Folder, Play, ArrowUpCircle, Trash2, Loader2, CheckCircle2, AlertCircle, ShieldAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { StickyTableText } from "@/components/ui/StickyTable";
@@ -43,9 +43,12 @@ function copyPath(path: string) {
 
 function sourceBadgeVariant(sourceType: string): "default" | "secondary" | "outline" | "destructive" {
   switch (sourceType) {
-    case "HomebrewCask": return "default";
-    case "MacBundle": return "secondary";
-    case "AppStore": return "outline";
+    case "HomebrewCask": case "Winget": case "Flatpak": case "Snap": case "Apt":
+      return "default";
+    case "MacBundle": case "MsiInstaller":
+      return "secondary";
+    case "AppStore": case "WindowsStore":
+      return "outline";
     default: return "outline";
   }
 }
@@ -55,6 +58,12 @@ function sourceTypeLabel(t: TFunction, sourceType: string): string {
     case "HomebrewCask": return t("appManager.sourceHomebrewCask");
     case "MacBundle": return t("appManager.sourceMacBundle");
     case "AppStore": return t("appManager.sourceAppStore");
+    case "Winget": return "winget";
+    case "WindowsStore": return t("appManager.sourceAppStore");
+    case "MsiInstaller": return "MSI";
+    case "Flatpak": return "Flatpak";
+    case "Snap": return "Snap";
+    case "Apt": return "APT";
     default: return t("appManager.sourceUnknown");
   }
 }
@@ -79,6 +88,9 @@ export function createAppManagerColumns(
   onReveal: (app: AppInfo) => void,
   onUpgrade: (app: AppInfo) => void,
   onUninstall: (app: AppInfo) => void,
+  _batchMode?: boolean,
+  _onRowClick?: (appId: string) => void,
+  _selectedIds?: Set<string>,
 ): ColumnDef<AppInfo>[] {
   return [
     {

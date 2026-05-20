@@ -53,7 +53,22 @@
     "confirmUninstall": "确认卸载",
     "cancel": "取消",
     "operationHistory": "操作记录",
-    "historyEmpty": "暂无操作记录"
+    "historyEmpty": "暂无操作记录",
+    "batchMode": "批量选择",
+    "batchModeOff": "退出批量",
+    "batchSelected": "已选 {{count}} 项",
+    "batchUpgrade": "批量升级",
+    "batchUninstall": "批量卸载",
+    "batchClear": "清除",
+    "batchResults": "批量操作结果",
+    "batchSucceeded": "成功 {{n}} 个",
+    "batchFailed": "失败 {{n}} 个",
+    "batchTotal": "共 {{n}} 个",
+    "batchConfirmTitle": "确认批量{{action}}（{{count}} 个应用）",
+    "batchActionUpgrade": "升级",
+    "batchActionUninstall": "卸载",
+    "batchUpgradeConfirmDescription": "确定要批量升级 {{count}} 个应用吗？每个应用将升级至最新版本。",
+    "batchUninstallConfirmDescription": "确定要批量卸载 {{count}} 个应用吗？此操作不可撤销。"
   },
   "envDetector": {
     "title": "环境检测",

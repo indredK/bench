@@ -53,7 +53,22 @@
     "confirmUninstall": "Uninstall",
     "cancel": "Cancel",
     "operationHistory": "Operation History",
-    "historyEmpty": "No operations recorded"
+    "historyEmpty": "No operations recorded",
+    "batchMode": "Batch Select",
+    "batchModeOff": "Exit Batch",
+    "batchSelected": "{{count}} selected",
+    "batchUpgrade": "Batch Upgrade",
+    "batchUninstall": "Batch Uninstall",
+    "batchClear": "Clear",
+    "batchResults": "Batch Results",
+    "batchSucceeded": "{{n}} succeeded",
+    "batchFailed": "{{n}} failed",
+    "batchTotal": "{{n}} total",
+    "batchConfirmTitle": "Confirm Batch {{action}} ({{count}} apps)",
+    "batchActionUpgrade": "Upgrade",
+    "batchActionUninstall": "Uninstall",
+    "batchUpgradeConfirmDescription": "Upgrade {{count}} apps to their latest versions?",
+    "batchUninstallConfirmDescription": "Uninstall {{count}} apps? This cannot be undone."
   },
   "envDetector": {
     "title": "Environment Detector",
