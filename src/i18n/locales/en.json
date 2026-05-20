@@ -71,7 +71,20 @@
     "batchUninstallConfirmDescription": "Uninstall {{count}} apps? This cannot be undone.",
     "lastScan": "Last scan",
     "lastUpdate": "Last update check",
-    "uninstallNotice": "Uninstalling will remove the application and its associated data. If managed by a package manager (Homebrew, winget, etc.), it will no longer appear in the installed list after removal."
+    "uninstallNotice": "Uninstalling will remove the application and its associated data. If managed by a package manager (Homebrew, winget, etc.), it will no longer appear in the installed list after removal.",
+    "filters": "Filters",
+    "filterBy": "Filter by type",
+    "platform": "Platform Capabilities",
+    "noPmAvailable": "No package managers detected",
+    "summaryShort": "{{total}} apps, {{managed}} managed",
+    "details": "App Details",
+    "info": "Basic Info",
+    "detailVersion": "Version",
+    "detailPath": "Path",
+    "detailSource": "Source",
+    "detailSourceId": "Source ID",
+    "detailType": "Type",
+    "detailModified": "Modified"
   },
   "envDetector": {
     "title": "Environment Detector",

@@ -1,14 +1,12 @@
-import { useEffect, useMemo, useCallback } from "react";
+import { useEffect, useMemo, useCallback, Component, type ErrorInfo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { isTauri } from "@tauri-apps/api/core";
 import {
   RefreshCw, Search, AppWindow, History, X,
-  CheckCircle2, AlertCircle, ArrowUpCircle, Trash2, Info,
-  Layers, CheckSquare, ArrowUp, AlertTriangle,
+  CheckCircle2, AlertCircle, ArrowUpCircle, Trash2,
+  Layers, CheckSquare, ArrowUp, Filter,
+  Play, Folder,
 } from "lucide-react";
-import {
-  Card, CardHeader, CardTitle, CardContent,
-} from "@/components/ui/card";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription,
@@ -18,17 +16,36 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
-import { DataTable } from "@/components/ui/DataTable";
-import { createAppManagerColumns } from "@/features/app-manager/columns";
-import {
-  useAppManagerStore,
-  type AppFilterKey,
-  APP_FILTER_OPTIONS,
-  type OperationStatus,
-} from "@/stores/app-manager";
+import { Card, CardContent } from "@/components/ui/card";
+import { ThreeColumnLayout } from "@/components/layout/ThreeColumnLayout";
+import { FilterPanel } from "@/components/layout/FilterPanel";
+import { DetailPanel, MetadataRow, DetailSection } from "@/components/layout/DetailPanel";
+import { ContentView } from "@/components/content/ContentView";
+import { ViewToggle } from "@/components/content/ViewToggle";
+import { useAppManagerStore, APP_FILTER_OPTIONS, type OperationStatus } from "@/stores/app-manager";
 import { launchApp, revealAppInFinder } from "@/lib/tauri/commands";
-import type { AppInfo, PlatformCapabilities } from "@/lib/tauri/types";
-import type { RowSelectionState, OnChangeFn } from "@tanstack/react-table";
+import { createAppManagerColumns } from "@/features/app-manager/columns";
+import type { AppInfo } from "@/lib/tauri/types";
+
+// --- Error Boundary for AppManager ---
+class AppManagerErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: string }> {
+  state = { hasError: false, error: "" };
+  static getDerivedStateFromError(error: Error) { return { hasError: true, error: String(error) }; }
+  componentDidCatch(error: Error, info: ErrorInfo) { console.error("[AppManager] Render error:", error, info); }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="h-full flex flex-col items-center justify-center gap-4 text-muted-foreground">
+          <AlertCircle size={40} className="text-red-500" />
+          <p className="font-semibold">App Manager crashed</p>
+          <pre className="text-xs max-w-lg overflow-auto bg-muted p-2 rounded">{this.state.error}</pre>
+          <Button variant="outline" onClick={() => this.setState({ hasError: false, error: "" })}>Retry</Button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function isTauriEnv(): boolean {
   try { return isTauri(); } catch { return false; }
@@ -45,17 +62,16 @@ function AppManager({ active }: { active: boolean }) {
   const sorting = useAppManagerStore((s) => s.sorting);
   const scanned = useAppManagerStore((s) => s.scanned);
   const result = useAppManagerStore((s) => s.result);
-  const operations = useAppManagerStore((s) => s.operations);
   const history = useAppManagerStore((s) => s.history);
   const confirmDialog = useAppManagerStore((s) => s.confirmDialog);
   const historyOpen = useAppManagerStore((s) => s.historyOpen);
   const lastScanTime = useAppManagerStore((s) => s.lastScanTime);
   const lastUpdateCheck = useAppManagerStore((s) => s.lastUpdateCheck);
-
-  // Batch
+  const viewMode = useAppManagerStore((s) => s.viewMode);
+  const selectedItem = useAppManagerStore((s) => s.selectedItem);
+  const filterPanelOpen = useAppManagerStore((s) => s.filterPanelOpen);
   const selectedAppIds = useAppManagerStore((s) => s.selectedAppIds);
   const batchMode = useAppManagerStore((s) => s.batchMode);
-  const batchProgress = useAppManagerStore((s) => s.batchProgress);
   const batchResults = useAppManagerStore((s) => s.batchResults);
   const batchConfirmDialog = useAppManagerStore((s) => s.batchConfirmDialog);
 
@@ -70,30 +86,24 @@ function AppManager({ active }: { active: boolean }) {
   const closeConfirmDialog = useAppManagerStore((s) => s.closeConfirmDialog);
   const loadHistory = useAppManagerStore((s) => s.loadHistory);
   const setHistoryOpen = useAppManagerStore((s) => s.setHistoryOpen);
-  const toggleSelectApp = useAppManagerStore((s) => s.toggleSelectApp);
   const clearSelection = useAppManagerStore((s) => s.clearSelection);
   const setBatchMode = useAppManagerStore((s) => s.setBatchMode);
   const openBatchConfirmDialog = useAppManagerStore((s) => s.openBatchConfirmDialog);
   const closeBatchConfirmDialog = useAppManagerStore((s) => s.closeBatchConfirmDialog);
   const doBatchUpgrade = useAppManagerStore((s) => s.doBatchUpgrade);
   const doBatchUninstall = useAppManagerStore((s) => s.doBatchUninstall);
+  const setViewMode = useAppManagerStore((s) => s.setViewMode);
+  const setSelectedItem = useAppManagerStore((s) => s.setSelectedItem);
+  const setFilterPanelOpen = useAppManagerStore((s) => s.setFilterPanelOpen);
 
-  useEffect(() => {
-    if (active && isTauriEnv() && !scanned) scanApps();
-  }, [active, scanApps, scanned]);
+  useEffect(() => { if (active && isTauriEnv() && !scanned) scanApps(); }, [active, scanApps, scanned]);
+  useEffect(() => { if (scanned && apps.length > 0) refreshUpdates(); }, [scanned]);
+  useEffect(() => { if (historyOpen) loadHistory(); }, [historyOpen]);
 
-  useEffect(() => {
-    if (scanned && apps.length > 0) refreshUpdates();
-  }, [scanned]);
-
-  useEffect(() => {
-    if (historyOpen) loadHistory();
-  }, [historyOpen]);
-
-  const getOpStatus = useCallback(
-    (appId: string): OperationStatus => operations[appId]?.status ?? "idle",
-    [operations],
-  );
+  const getOpStatus = useCallback((appId: string): OperationStatus => {
+    const state = useAppManagerStore.getState();
+    return state.operations[appId]?.status ?? "idle";
+  }, []);
 
   const filteredApps = useMemo(() => {
     return apps.filter((app) => {
@@ -112,41 +122,21 @@ function AppManager({ active }: { active: boolean }) {
     });
   }, [apps, searchQuery, activeFilter]);
 
-  // Build rowSelection from store
-  const rowSelection = useMemo<RowSelectionState>(() => {
-    const sel: RowSelectionState = {};
-    for (const id of selectedAppIds) sel[id] = true;
-    return sel;
-  }, [selectedAppIds]);
-
-  const handleRowSelectionChange: OnChangeFn<RowSelectionState> = useCallback(
-    (updaterOrValue) => {
-      // We handle selection via store; this gets called when checkboxes toggle
-      // The DataTable has its own selection state; we sync to store
-      if (typeof updaterOrValue === "function") {
-        const next = updaterOrValue(rowSelection);
-        const toggledArr = Object.keys(next).filter(k => next[k] !== rowSelection[k]);
-        // Actually, we use individual toggle in the store instead
-      }
-    },
-    [rowSelection],
-  );
-
   const handleLaunch = useCallback(async (app: AppInfo) => {
     if (!isTauriEnv()) return;
-    try { await launchApp(app.installPath); } catch (e) { console.warn("[AppManager] Launch failed:", e); }
+    try { await launchApp(app.installPath); } catch (e) { console.warn(e); }
   }, []);
 
   const handleReveal = useCallback(async (app: AppInfo) => {
     if (!isTauriEnv()) return;
-    try { await revealAppInFinder(app.installPath); } catch (e) { console.warn("[AppManager] Reveal failed:", e); }
+    try { await revealAppInFinder(app.installPath); } catch (e) { console.warn(e); }
   }, []);
 
-  const handleUpgradeClick = useCallback((app: AppInfo) => {
+  const handleUpgradeFromColumn = useCallback((app: AppInfo) => {
     openConfirmDialog(app.appId, app.name, "upgrade");
   }, [openConfirmDialog]);
 
-  const handleUninstallClick = useCallback((app: AppInfo) => {
+  const handleUninstallFromColumn = useCallback((app: AppInfo) => {
     openConfirmDialog(app.appId, app.name, "uninstall");
   }, [openConfirmDialog]);
 
@@ -157,23 +147,24 @@ function AppManager({ active }: { active: boolean }) {
     else await doUninstall(appId);
   }, [confirmDialog, closeConfirmDialog, doUpgrade, doUninstall]);
 
-  // Batch handlers
   const handleToggleBatchMode = useCallback(() => {
     if (batchMode) { clearSelection(); setBatchMode(false); }
     else setBatchMode(true);
   }, [batchMode, clearSelection, setBatchMode]);
 
+  const selectedCount = selectedAppIds.size;
+  const selectedUpgradable = filteredApps.filter(a => a.allowedActions.upgrade && selectedAppIds.has(a.appId)).length;
+  const selectedUninstallable = filteredApps.filter(a => a.allowedActions.uninstall && selectedAppIds.has(a.appId)).length;
+
   const handleBatchUpgrade = useCallback(() => {
-    const upgradable = filteredApps.filter(a => a.allowedActions.upgrade && selectedAppIds.has(a.appId));
-    if (upgradable.length === 0) return;
-    openBatchConfirmDialog("upgrade", upgradable.length);
-  }, [filteredApps, selectedAppIds, openBatchConfirmDialog]);
+    if (selectedUpgradable === 0) return;
+    openBatchConfirmDialog("upgrade", selectedUpgradable);
+  }, [selectedUpgradable, openBatchConfirmDialog]);
 
   const handleBatchUninstall = useCallback(() => {
-    const uninstallable = filteredApps.filter(a => a.allowedActions.uninstall && selectedAppIds.has(a.appId));
-    if (uninstallable.length === 0) return;
-    openBatchConfirmDialog("uninstall", uninstallable.length);
-  }, [filteredApps, selectedAppIds, openBatchConfirmDialog]);
+    if (selectedUninstallable === 0) return;
+    openBatchConfirmDialog("uninstall", selectedUninstallable);
+  }, [selectedUninstallable, openBatchConfirmDialog]);
 
   const handleBatchConfirm = useCallback(async () => {
     const action = batchConfirmDialog.action;
@@ -182,295 +173,328 @@ function AppManager({ active }: { active: boolean }) {
     else await doBatchUninstall();
   }, [batchConfirmDialog, closeBatchConfirmDialog, doBatchUpgrade, doBatchUninstall]);
 
-  const handleRowClick = useCallback((appId: string) => {
-    if (batchMode) toggleSelectApp(appId);
-  }, [batchMode, toggleSelectApp]);
+  const handleDetailUpgrade = useCallback(() => {
+    if (!selectedItem) return;
+    openConfirmDialog(selectedItem.appId, selectedItem.name, "upgrade");
+  }, [selectedItem, openConfirmDialog]);
 
-  const tableColumns = useMemo(
-    () => createAppManagerColumns(t, getOpStatus, handleLaunch, handleReveal, handleUpgradeClick, handleUninstallClick, batchMode, handleRowClick, selectedAppIds),
-    [t, getOpStatus, handleLaunch, handleReveal, handleUpgradeClick, handleUninstallClick, batchMode, handleRowClick, selectedAppIds],
-  );
+  const handleDetailUninstall = useCallback(() => {
+    if (!selectedItem) return;
+    openConfirmDialog(selectedItem.appId, selectedItem.name, "uninstall");
+  }, [selectedItem, openConfirmDialog]);
 
-  const hasActiveFilter = searchQuery.trim().length > 0 || activeFilter !== "all";
-  const selectedCount = selectedAppIds.size;
-  const selectedUpgradable = filteredApps.filter(a => a.allowedActions.upgrade && selectedAppIds.has(a.appId)).length;
-  const selectedUninstallable = filteredApps.filter(a => a.allowedActions.uninstall && selectedAppIds.has(a.appId)).length;
+  const tableColumns = useMemo(() => {
+    try {
+      return createAppManagerColumns(t, getOpStatus, handleLaunch, handleReveal, handleUpgradeFromColumn, handleUninstallFromColumn);
+    } catch (e) {
+      console.error("[AppManager] Failed to create columns:", e);
+      return [];
+    }
+  }, [t, getOpStatus, handleLaunch, handleReveal, handleUpgradeFromColumn, handleUninstallFromColumn]);
 
-  // Platform capability badges
+  const renderGridCard = useCallback((app: AppInfo) => (
+    <div className="rounded-xl border bg-card p-4 hover:ring-2 hover:ring-primary/30 transition-all h-full flex flex-col gap-2">
+      <div className="flex items-center gap-2">
+        <AppWindow size={16} className="text-muted-foreground shrink-0" />
+        <span className="font-medium text-sm truncate">{app.name}</span>
+        {app.isSystemApp && <Badge variant="secondary" className="text-[10px] px-1 py-0 shrink-0">{t("appManager.systemLabel")}</Badge>}
+        {app.upgradeAvailable && <Badge variant="destructive" className="text-[10px] px-1 py-0 shrink-0">{t("appManager.updateAvailable")}</Badge>}
+      </div>
+      <p className="text-xs text-muted-foreground truncate">{app.bundleId !== "unknown" ? app.bundleId : "—"}</p>
+      <p className="text-xs text-muted-foreground truncate">{app.version}</p>
+      <p className="text-[10px] text-muted-foreground truncate">{app.sourceType}</p>
+    </div>
+  ), [t]);
+
+  const renderDetail = useCallback((app: AppInfo) => (
+    <div className="space-y-4">
+      <div>
+        <h3 className="font-semibold text-sm">{app.name}</h3>
+        <p className="text-xs text-muted-foreground mt-0.5">{app.bundleId}</p>
+      </div>
+      <DetailSection label={t("appManager.info")}>
+        <MetadataRow label={t("appManager.detailVersion")} value={app.version} />
+        <MetadataRow label={t("appManager.detailPath")} value={app.installPath} />
+        <MetadataRow label={t("appManager.detailSource")} value={app.sourceType} />
+        <MetadataRow label={t("appManager.detailSourceId")} value={app.sourceId || "—"} />
+        <MetadataRow label={t("appManager.detailType")} value={app.isSystemApp ? t("appManager.filterSystem") : t("appManager.filterUser")} />
+        {app.lastModified > 0 && (
+          <MetadataRow label={t("appManager.detailModified")} value={new Date(app.lastModified * 1000).toLocaleDateString()} />
+        )}
+      </DetailSection>
+      <DetailSection label={t("appManager.column.actions")}>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" disabled={!app.allowedActions.launch} onClick={() => handleLaunch(app)}>
+            <Play size={13} className="mr-1" />{t("appManager.actionLaunch")}
+          </Button>
+          <Button size="sm" variant="outline" disabled={!app.allowedActions.reveal} onClick={() => handleReveal(app)}>
+            <Folder size={13} className="mr-1" />{t("appManager.actionReveal")}
+          </Button>
+          {app.allowedActions.upgrade && (
+            <Button size="sm" variant="outline" onClick={handleDetailUpgrade}>
+              <ArrowUpCircle size={13} className="mr-1" />{t("appManager.actionUpgrade")}
+            </Button>
+          )}
+          {app.allowedActions.uninstall && (
+            <Button size="sm" variant="outline" className="text-red-600" onClick={handleDetailUninstall}>
+              <Trash2 size={13} className="mr-1" />{t("appManager.actionUninstall")}
+            </Button>
+          )}
+        </div>
+      </DetailSection>
+    </div>
+  ), [t, handleLaunch, handleReveal, handleDetailUpgrade, handleDetailUninstall]);
+
+  const activeFilterCount = searchQuery.trim() ? 1 : (activeFilter !== "all" ? 1 : 0);
   const caps = result?.platformCapabilities;
 
-  // Action icon for history
-  const actionIcon = (action: string, success: boolean) => {
-    const cls = "size-3.5";
-    if (!success) return <AlertCircle className={`${cls} text-red-500`} />;
-    return <CheckCircle2 className={`${cls} text-green-500`} />;
-  };
-
   return (
-    <div className="h-full flex flex-col gap-3">
-      <Card className="flex flex-1 flex-col overflow-hidden">
-        <CardHeader className="shrink-0 pb-2">
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <AppWindow size={20} />
-              {t("appManager.title")}
-              {caps && (
-                <span className="flex items-center gap-1 ml-1">
-                  {caps.brewAvailable && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">brew</Badge>}
-                  {caps.wingetAvailable && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">winget</Badge>}
-                  {caps.flatpakAvailable && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">flatpak</Badge>}
-                  {caps.snapAvailable && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">snap</Badge>}
-                  {caps.aptAvailable && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">apt</Badge>}
-                </span>
-              )}
-            </CardTitle>
-            <div className="flex items-center gap-2">
-              {scanned && (
-                <Button
-                  variant={batchMode ? "default" : "outline"}
-                  size="sm"
-                  onClick={handleToggleBatchMode}
-                  title={t("appManager.batchMode")}
-                >
-                  <CheckSquare size={14} className="mr-1" />
-                  {batchMode ? t("appManager.batchModeOff") : t("appManager.batchMode")}
-                </Button>
-              )}
-              <Button variant="ghost" size="icon" className="h-8 w-8" title={t("appManager.operationHistory")}
-                onClick={() => setHistoryOpen(!historyOpen)}>
-                <History size={16} />
-              </Button>
-              <Button variant="outline" size="sm" onClick={scanApps} disabled={loading}>
-                {loading ? (<><RefreshCw size={14} className="mr-1.5 animate-spin" />{t("appManager.scanning")}</>)
-                  : (<><RefreshCw size={14} className="mr-1.5" />{t("appManager.refresh")}</>)}
-              </Button>
+    <AppManagerErrorBoundary>
+      <div className="h-full flex flex-col gap-3">
+        {/* --- Action Bar --- */}
+        <Card className="shrink-0">
+          <CardContent className="flex items-center gap-3 py-2.5">
+            <div className="relative flex-1 min-w-[200px] max-w-md">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder={t("appManager.searchPlaceholder")}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 h-8"
+                disabled={loading}
+              />
             </div>
-          </div>
-        </CardHeader>
-
-        <CardContent className="flex-1 min-h-0 flex flex-row gap-3">
-          <div className="flex-1 min-w-0 flex flex-col">
-            {error && (<Alert variant="destructive" className="mb-3 shrink-0"><AlertDescription>{error}</AlertDescription></Alert>)}
-
-            {!isTauriEnv() && !loading && apps.length === 0 && (
-              <Alert className="mb-3 shrink-0 bg-indigo-50 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-800">
-                <AlertDescription className="text-indigo-700 dark:text-indigo-300">{t("appManager.browserWarning")}</AlertDescription>
-              </Alert>
-            )}
-
-            {/* Search + Filters */}
+            <Button variant="outline" size="sm" onClick={scanApps} disabled={loading}>
+              <RefreshCw size={13} className={`mr-1 ${loading ? "animate-spin" : ""}`} />
+              {loading ? t("appManager.scanning") : t("appManager.refresh")}
+            </Button>
+            <div className="flex-1" />
             {scanned && (
-              <div className="mb-3 shrink-0 space-y-2">
-                <div className="relative">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                  <Input placeholder={t("appManager.searchPlaceholder")} value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" disabled={loading} />
+              <Button variant={batchMode ? "default" : "ghost"} size="sm" onClick={handleToggleBatchMode}>
+                <CheckSquare size={13} className="mr-1" />
+                {batchMode ? t("appManager.batchModeOff") : t("appManager.batchMode")}
+              </Button>
+            )}
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setHistoryOpen(!historyOpen)}>
+              <History size={15} />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setFilterPanelOpen(!filterPanelOpen)}>
+              <Filter size={15} />
+            </Button>
+            <ViewToggle viewMode={viewMode} onChange={setViewMode} />
+          </CardContent>
+        </Card>
+
+        {/* Error Banner */}
+        {error && <Alert variant="destructive" className="shrink-0"><AlertDescription>{error}</AlertDescription></Alert>}
+
+        {/* Batch Results */}
+        {batchResults && (
+          <div className="shrink-0 rounded-lg border p-2 bg-background flex items-center justify-between">
+            <div className="flex items-center gap-3 text-sm">
+              <span className="text-green-600">{t("appManager.batchSucceeded", { n: batchResults.succeeded })}</span>
+              {batchResults.failed > 0 && <span className="text-red-600">{t("appManager.batchFailed", { n: batchResults.failed })}</span>}
+              <span className="text-muted-foreground">{t("appManager.batchTotal", { n: batchResults.total })}</span>
+            </div>
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => useAppManagerStore.setState({ batchResults: null })}>
+              <X size={12} />
+            </Button>
+          </div>
+        )}
+
+        {/* --- Three-Column Layout --- */}
+        {!isTauriEnv() && !loading && !scanned ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground rounded-xl border bg-card/50 gap-2">
+            <AppWindow size={32} className="opacity-30" />
+            <p>{t("appManager.browserWarning")}</p>
+          </div>
+        ) : (
+          <ThreeColumnLayout
+            filterOpen={filterPanelOpen}
+            detailOpen={!!selectedItem}
+            filter={
+              <FilterPanel open={filterPanelOpen} onToggle={() => setFilterPanelOpen(!filterPanelOpen)}
+                activeFilterCount={activeFilterCount} title={t("appManager.filters")}>
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-[11px] text-muted-foreground mb-2 uppercase tracking-wider">{t("appManager.filterBy")}</p>
+                    <div className="flex flex-col gap-1">
+                      {APP_FILTER_OPTIONS.map((option) => (
+                        <Badge key={option.key} variant={activeFilter === option.key ? "default" : "outline"}
+                          className="cursor-pointer select-none text-xs justify-start"
+                          onClick={() => setActiveFilter(option.key)}>
+                          {t(option.labelKey)}
+                          {option.key === "all" && ` (${apps.length})`}
+                          {option.key === "managed" && ` (${result?.managedCount ?? 0})`}
+                          {option.key === "upgradable" && ` (${apps.filter(a => a.upgradeAvailable).length})`}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                  {batchMode && selectedCount > 0 && (
+                    <div className="pt-2 border-t">
+                      <p className="text-[11px] text-muted-foreground mb-2 uppercase tracking-wider">
+                        {t("appManager.batchSelected", { count: selectedCount })}</p>
+                      <div className="flex flex-col gap-1.5">
+                        <Button variant="outline" size="sm" disabled={selectedUpgradable === 0} onClick={handleBatchUpgrade}>
+                          <ArrowUp size={13} className="mr-1" />{t("appManager.batchUpgrade")} ({selectedUpgradable})</Button>
+                        <Button variant="outline" size="sm" className="text-red-600" disabled={selectedUninstallable === 0} onClick={handleBatchUninstall}>
+                          <Trash2 size={13} className="mr-1" />{t("appManager.batchUninstall")} ({selectedUninstallable})</Button>
+                        <Button variant="ghost" size="sm" onClick={clearSelection}>
+                          <X size={13} className="mr-1" />{t("appManager.batchClear")}</Button>
+                      </div>
+                    </div>
+                  )}
+                  {caps && (
+                    <div className="pt-2 border-t">
+                      <p className="text-[11px] text-muted-foreground mb-2 uppercase tracking-wider">{t("appManager.platform")}</p>
+                      <div className="space-y-1.5 text-xs">
+                        {caps.brewAvailable && <p className="text-green-600">✓ Homebrew</p>}
+                        {caps.wingetAvailable && <p className="text-green-600">✓ winget</p>}
+                        {caps.flatpakAvailable && <p className="text-green-600">✓ Flatpak</p>}
+                        {caps.snapAvailable && <p className="text-green-600">✓ Snap</p>}
+                        {caps.aptAvailable && <p className="text-green-600">✓ APT</p>}
+                        {!caps.brewAvailable && !caps.wingetAvailable && !caps.flatpakAvailable && !caps.snapAvailable && !caps.aptAvailable && (
+                          <p className="text-muted-foreground">{t("appManager.noPmAvailable")}</p>)}
+                      </div>
+                    </div>
+                  )}
+                  <div className="pt-2 border-t">
+                    <div className="text-[11px] text-muted-foreground space-y-1">
+                      {lastScanTime > 0 && <p>{t("appManager.lastScan")}: {new Date(lastScanTime).toLocaleTimeString()}</p>}
+                      {lastUpdateCheck > 0 && <p>{t("appManager.lastUpdate")}: {new Date(lastUpdateCheck).toLocaleTimeString()}</p>}
+                      {result && <p>{t("appManager.summaryShort", { total: result.totalCount, managed: result.managedCount })}</p>}
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  {APP_FILTER_OPTIONS.map((option) => (
-                    <Badge key={option.key} variant={activeFilter === option.key ? "default" : "outline"}
-                      className="cursor-pointer select-none text-xs" onClick={() => setActiveFilter(option.key)}>
-                      {t(option.labelKey)}
-                    </Badge>
+              </FilterPanel>
+            }
+            content={
+              <ContentView
+                data={filteredApps}
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
+                columns={tableColumns}
+                getRowId={(app) => app.appId}
+                renderGridCard={renderGridCard}
+                onItemClick={(app) => setSelectedItem(app)}
+                sorting={sorting}
+                onSortingChange={setSorting}
+                loading={loading}
+                selectedId={selectedItem?.appId ?? null}
+                renderEmpty={() => (
+                  scanned ? (
+                    <div className="flex flex-col items-center justify-center h-full text-muted-foreground rounded-xl border bg-card/50 gap-2">
+                      <Search size={32} className="opacity-30" />
+                      <p>{filteredApps.length === 0 && apps.length > 0 ? t("appManager.noResults") : t("appManager.empty")}</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-muted-foreground rounded-xl border bg-card/50 gap-2">
+                      <AppWindow size={32} className="opacity-30" />
+                      <p>{t("appManager.startHint")}</p>
+                    </div>
+                  )
+                )}
+              />
+            }
+            detail={
+              <DetailPanel
+                item={selectedItem}
+                open={!!selectedItem}
+                onClose={() => setSelectedItem(null)}
+                title={t("appManager.details")}
+                renderDetail={renderDetail}
+              />
+            }
+          />
+        )}
+
+        {/* --- History Sidebar --- */}
+        {historyOpen && (
+          <div className="fixed right-0 top-0 bottom-0 w-[300px] border-l bg-card z-50 flex flex-col shadow-lg">
+            <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
+              <span className="text-sm font-semibold">{t("appManager.operationHistory")}</span>
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setHistoryOpen(false)}><X size={14} /></Button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3">
+              {history.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-8">{t("appManager.historyEmpty")}</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {[...history].reverse().map((record, idx) => (
+                    <div key={`${record.timestamp}-${idx}`} className="rounded-md border bg-background p-2 text-xs">
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-1.5">
+                          {record.success ? <CheckCircle2 className="size-3.5 text-green-500" /> : <AlertCircle className="size-3.5 text-red-500" />}
+                          <span className="font-medium">{record.action}</span>
+                          {record.errorCode && <Badge variant={record.permissionIssue ? "destructive" : "outline"} className="text-[9px] px-1 py-0">{record.errorCode}</Badge>}
+                        </div>
+                        <span className="text-muted-foreground">{new Date(record.timestamp).toLocaleTimeString()}</span>
+                      </div>
+                      <div className="text-muted-foreground truncate">{record.appName}</div>
+                      {record.output && (
+                        <p className={`mt-1 truncate ${record.success ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`} title={record.output}>{record.output}</p>
+                      )}
+                    </div>
                   ))}
                 </div>
-              </div>
-            )}
-
-            {/* Batch Action Bar */}
-            {batchMode && selectedCount > 0 && (
-              <div className="mb-2 shrink-0 flex items-center gap-2 p-2 rounded-lg border bg-accent/30">
-                <span className="text-sm font-medium">{t("appManager.batchSelected", { count: selectedCount })}</span>
-                <div className="flex-1" />
-                <Button variant="outline" size="sm" disabled={selectedUpgradable === 0} onClick={handleBatchUpgrade}>
-                  <ArrowUp size={13} className="mr-1" />{t("appManager.batchUpgrade")} ({selectedUpgradable})
-                </Button>
-                <Button variant="outline" size="sm" className="text-red-600" disabled={selectedUninstallable === 0} onClick={handleBatchUninstall}>
-                  <Trash2 size={13} className="mr-1" />{t("appManager.batchUninstall")} ({selectedUninstallable})
-                </Button>
-                <Button variant="ghost" size="sm" onClick={clearSelection}><X size={13} className="mr-1" />{t("appManager.batchClear")}</Button>
-              </div>
-            )}
-
-            {/* Batch Results */}
-            {batchResults && (
-              <div className="mb-2 shrink-0 rounded-lg border p-2 bg-background">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-medium">{t("appManager.batchResults")}</span>
-                  <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => useAppManagerStore.setState({ batchResults: null })}>
-                    <X size={12} />
-                  </Button>
-                </div>
-                <div className="flex items-center gap-3 text-sm">
-                  <span className="text-green-600">{t("appManager.batchSucceeded", { n: batchResults.succeeded })}</span>
-                  {batchResults.failed > 0 && <span className="text-red-600">{t("appManager.batchFailed", { n: batchResults.failed })}</span>}
-                  <span className="text-muted-foreground">{t("appManager.batchTotal", { n: batchResults.total })}</span>
-                </div>
-              </div>
-            )}
-
-            {/* Summary */}
-            {scanned && result && (
-              <div className="flex items-center justify-between mb-2 shrink-0 gap-2">
-                <p className="text-sm text-muted-foreground">
-                  {hasActiveFilter
-                    ? t("appManager.filteredSummary", { visible: filteredApps.length, total: apps.length })
-                    : t("appManager.summary", { total: result.totalCount, user: result.userCount, system: result.systemCount, managed: result.managedCount, time: ((result.scanTimeMs ?? 0) / 1000).toFixed(2) })}
-                </p>
-                <div className="flex items-center gap-2 text-[11px] text-muted-foreground/60 shrink-0">
-                  {lastScanTime > 0 && (
-                    <span title={new Date(lastScanTime).toLocaleString()}>
-                      {t("appManager.lastScan")}: {new Date(lastScanTime).toLocaleTimeString()}
-                    </span>
-                  )}
-                  {lastUpdateCheck > 0 && (
-                    <span title={new Date(lastUpdateCheck).toLocaleString()}>
-                      {t("appManager.lastUpdate")}: {new Date(lastUpdateCheck).toLocaleTimeString()}
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Table */}
-            <div className="flex-1 min-h-0">
-              {loading && apps.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground rounded-lg border">
-                  <RefreshCw size={28} className="animate-spin text-primary" /><p>{t("appManager.scanning")}</p>
-                </div>
-              ) : scanned && apps.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-muted-foreground rounded-lg border gap-2">
-                  <AppWindow size={32} className="opacity-30" /><p>{t("appManager.empty")}</p>
-                </div>
-              ) : scanned && apps.length > 0 && filteredApps.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-muted-foreground rounded-lg border gap-2">
-                  <Search size={32} className="opacity-30" /><p>{t("appManager.noResults")}</p>
-                </div>
-              ) : scanned && apps.length > 0 ? (
-                <DataTable
-                  data={filteredApps}
-                  columns={tableColumns}
-                  getRowId={(app) => app.appId}
-                  sorting={{ sorting, onSortingChange: setSorting }}
-                  selection={batchMode ? {
-                    rowSelection,
-                    onRowSelectionChange: (updaterOrValue) => {
-                      // Handle via store
-                    },
-                    selectOnRowClick: true,
-                  } : undefined}
-                  layout="fixed"
-                  containerClassName="h-full min-h-0 rounded-lg border"
-                />
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full text-muted-foreground rounded-lg border gap-2">
-                  <AppWindow size={32} className="opacity-30" /><p>{t("appManager.startHint")}</p>
-                </div>
               )}
             </div>
           </div>
+        )}
 
-          {/* History Sidebar */}
-          {historyOpen && (
-            <div className="w-[280px] shrink-0 border rounded-lg bg-card flex flex-col overflow-hidden">
-              <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/30 shrink-0">
-                <span className="text-sm font-semibold">{t("appManager.operationHistory")}</span>
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setHistoryOpen(false)}><X size={14} /></Button>
-              </div>
-              <div className="flex-1 overflow-y-auto p-2">
-                {history.length === 0 ? (
-                  <p className="text-xs text-muted-foreground text-center py-8">{t("appManager.historyEmpty")}</p>
-                ) : (
-                  <div className="space-y-1.5">
-                    {[...history].reverse().map((record, idx) => (
-                      <div key={`${record.timestamp}-${idx}`} className="rounded-md border bg-background p-2 text-xs">
-                        <div className="flex items-center justify-between mb-1">
-                          <div className="flex items-center gap-1.5">
-                            {actionIcon(record.action, record.success)}
-                            <span className="font-medium">{record.action}</span>
-                            {record.errorCode && (
-                              <Badge variant={record.permissionIssue ? "destructive" : "outline"} className="text-[9px] px-1 py-0">
-                                {record.errorCode}
-                              </Badge>
-                            )}
-                          </div>
-                          <span className="text-muted-foreground">{new Date(record.timestamp).toLocaleTimeString()}</span>
-                        </div>
-                        <div className="text-muted-foreground truncate">{record.appName}</div>
-                        {record.output && (
-                          <p className={`mt-1 truncate ${record.success ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`} title={record.output}>
-                            {record.output}
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        {/* Single Confirm Dialog */}
+        <AlertDialog open={confirmDialog.open} onOpenChange={(open) => { if (!open) closeConfirmDialog(); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                {confirmDialog.action === "uninstall" ? <Trash2 size={18} className="text-red-500" /> : <ArrowUpCircle size={18} className="text-orange-500" />}
+                {confirmDialog.action === "uninstall" ? t("appManager.confirmUninstallTitle") : t("appManager.confirmUpgradeTitle")}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {confirmDialog.action === "uninstall"
+                  ? t("appManager.confirmUninstallDescription", { name: confirmDialog.appName })
+                  : t("appManager.confirmUpgradeDescription", { name: confirmDialog.appName })}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t("appManager.cancel")}</AlertDialogCancel>
+              <AlertDialogAction onClick={handleConfirmAction}
+                className={confirmDialog.action === "uninstall" ? "bg-red-600 hover:bg-red-700" : ""}>
+                {confirmDialog.action === "uninstall" ? t("appManager.confirmUninstall") : t("appManager.confirmUpgrade")}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
-      {/* Single Confirmation Dialog */}
-      <AlertDialog open={confirmDialog.open} onOpenChange={(open: boolean) => { if (!open) closeConfirmDialog(); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              {confirmDialog.action === "uninstall" ? <Trash2 size={18} className="text-red-500" /> : <ArrowUpCircle size={18} className="text-orange-500" />}
-              {confirmDialog.action === "uninstall" ? t("appManager.confirmUninstallTitle") : t("appManager.confirmUpgradeTitle")}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {confirmDialog.action === "uninstall"
-                ? t("appManager.confirmUninstallDescription", { name: confirmDialog.appName })
-                : t("appManager.confirmUpgradeDescription", { name: confirmDialog.appName })}
-            </AlertDialogDescription>
-            {confirmDialog.action === "uninstall" && (
-              <Alert className="mt-2 bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
-                <AlertTriangle className="size-4 text-amber-600" />
-                <AlertDescription className="text-amber-700 dark:text-amber-300 text-xs">
-                  {t("appManager.uninstallNotice")}
-                </AlertDescription>
-              </Alert>
-            )}
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("appManager.cancel")}</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmAction}
-              className={confirmDialog.action === "uninstall" ? "bg-red-600 hover:bg-red-700" : ""}>
-              {confirmDialog.action === "uninstall" ? t("appManager.confirmUninstall") : t("appManager.confirmUpgrade")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Batch Confirmation Dialog */}
-      <AlertDialog open={batchConfirmDialog.open} onOpenChange={(open: boolean) => { if (!open) closeBatchConfirmDialog(); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <Layers size={18} />
-              {t("appManager.batchConfirmTitle", {
-                action: batchConfirmDialog.action === "uninstall" ? t("appManager.batchActionUninstall") : t("appManager.batchActionUpgrade"),
-                count: batchConfirmDialog.count,
-              })}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {batchConfirmDialog.action === "uninstall"
-                ? t("appManager.batchUninstallConfirmDescription", { count: batchConfirmDialog.count })
-                : t("appManager.batchUpgradeConfirmDescription", { count: batchConfirmDialog.count })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("appManager.cancel")}</AlertDialogCancel>
-            <AlertDialogAction onClick={handleBatchConfirm}
-              className={batchConfirmDialog.action === "uninstall" ? "bg-red-600 hover:bg-red-700" : ""}>
-              {batchConfirmDialog.action === "uninstall" ? t("appManager.confirmUninstall") : t("appManager.confirmUpgrade")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
+        {/* Batch Confirm Dialog */}
+        <AlertDialog open={batchConfirmDialog.open} onOpenChange={(open) => { if (!open) closeBatchConfirmDialog(); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <Layers size={18} />
+                {t("appManager.batchConfirmTitle", {
+                  action: batchConfirmDialog.action === "uninstall" ? t("appManager.batchActionUninstall") : t("appManager.batchActionUpgrade"),
+                  count: batchConfirmDialog.count,
+                })}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {batchConfirmDialog.action === "uninstall"
+                  ? t("appManager.batchUninstallConfirmDescription", { count: batchConfirmDialog.count })
+                  : t("appManager.batchUpgradeConfirmDescription", { count: batchConfirmDialog.count })}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t("appManager.cancel")}</AlertDialogCancel>
+              <AlertDialogAction onClick={handleBatchConfirm}
+                className={batchConfirmDialog.action === "uninstall" ? "bg-red-600 hover:bg-red-700" : ""}>
+                {batchConfirmDialog.action === "uninstall" ? t("appManager.confirmUninstall") : t("appManager.confirmUpgrade")}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    </AppManagerErrorBoundary>
   );
 }
 

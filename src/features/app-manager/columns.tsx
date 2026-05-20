@@ -99,8 +99,7 @@ export function createAppManagerColumns(
       accessorFn: (app) => app.name,
       enableSorting: true,
       meta: {
-        width: "30%",
-        minWidth: "200px",
+        minWidth: "160px",
       },
       cell: ({ row }) => (
         <div className="min-w-0 space-y-0.5">
@@ -167,8 +166,8 @@ export function createAppManagerColumns(
       accessorKey: "installPath",
       enableSorting: true,
       meta: {
-        width: "22%",
-        minWidth: "150px",
+        width: "auto",
+        minWidth: "140px",
       },
       cell: ({ row }) => (
         <StickyTableText

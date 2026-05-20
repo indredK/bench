@@ -288,6 +288,7 @@ impl AppManagerState {
         }
     }
 
+    #[allow(dead_code)]
     pub fn refresh_apps(&self, apps: Vec<AppInfo>) {
         if let Ok(mut guard) = self.apps.lock() {
             *guard = apps;
@@ -326,6 +327,7 @@ impl AppManagerState {
     }
 
     /// Get cached scan if available.
+    #[allow(dead_code)]
     pub fn get_cached_scan(&self) -> Option<ScanResult> {
         if let Ok(c) = self.cached_result.lock() { c.clone() } else { None }
     }

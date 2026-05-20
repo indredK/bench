@@ -1,0 +1,163 @@
+import { useRef, useMemo } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import {
+  flexRender,
+  getCoreRowModel,
+  getSortedRowModel,
+  useReactTable,
+  type ColumnDef,
+  type Row,
+} from "@tanstack/react-table";
+import type { SortingState, OnChangeFn } from "@tanstack/react-table";
+import { cn } from "@/lib/utils";
+
+interface VirtualDataTableProps<T> {
+  data: T[];
+  columns: ColumnDef<T>[];
+  getRowId: (item: T) => string;
+  onItemClick: (item: T) => void;
+  estimatedRowHeight?: number;
+  sorting?: SortingState;
+  onSortingChange?: OnChangeFn<SortingState>;
+  selectedId?: string | null;
+}
+
+/**
+ * Resolve a human-readable width from column meta into a CSS grid track value.
+ * Supports: fixed pixel / rem widths, "auto", "1fr", minmax(…), or undefined.
+ */
+function resolveGridTrack(meta: unknown): string {
+  if (!meta || typeof meta !== "object") return "minmax(120px, 1fr)";
+  const m = meta as Record<string, unknown>;
+
+  const width = typeof m.width === "string" ? m.width : undefined;
+  const minWidth = typeof m.minWidth === "string" ? m.minWidth : undefined;
+
+  // Explicit width takes priority
+  if (width && width !== "auto") return width;
+
+  // If only minWidth is provided, use it as a min constraint with flex
+  if (minWidth && minWidth !== "auto") return `minmax(${minWidth}, 1fr)`;
+
+  // Neither specified → flexible column
+  return "minmax(100px, 1fr)";
+}
+
+export function VirtualDataTable<T>({
+  data,
+  columns,
+  getRowId,
+  onItemClick,
+  estimatedRowHeight = 48,
+  sorting,
+  onSortingChange,
+  selectedId,
+}: VirtualDataTableProps<T>) {
+  const table = useReactTable({
+    data,
+    columns,
+    getRowId,
+    state: sorting != null ? { sorting } : undefined,
+    onSortingChange,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
+
+  const rows = table.getRowModel().rows;
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const rowVirtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => containerRef.current,
+    estimateSize: () => estimatedRowHeight,
+    overscan: 10,
+  });
+
+  // Build a single grid-template-columns string that is shared between header
+  // and every body row. This guarantees column widths stay in lockstep.
+  const gridCols = useMemo(() => {
+    return columns.map((col) => resolveGridTrack(col.meta)).join(" ");
+  }, [columns]);
+
+  if (data.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-muted-foreground border rounded-xl bg-card/50">
+        <p className="text-sm">No items to display</p>
+      </div>
+    );
+  }
+
+  const headerGroup = table.getHeaderGroups()[0];
+  if (!headerGroup) return null;
+
+  return (
+    <div ref={containerRef} className="h-full overflow-auto rounded-xl border bg-card">
+      {/* ---- Sticky Header Row ---- */}
+      <div
+        className="sticky top-0 z-10 grid border-b bg-card"
+        style={{ gridTemplateColumns: gridCols }}
+      >
+        {headerGroup.headers.map((header) => {
+          const canSort = header.column.getCanSort();
+          const isSorted = header.column.getIsSorted();
+          return (
+            <div
+              key={header.id}
+              className={cn(
+                "px-3 py-2.5 flex items-center gap-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider select-none",
+                canSort && "cursor-pointer hover:text-foreground transition-colors"
+              )}
+              onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
+            >
+              <span className="truncate">
+                {flexRender(header.column.columnDef.header, header.getContext())}
+              </span>
+              {isSorted && (
+                <span className="text-[10px] shrink-0 ml-0.5">
+                  {isSorted === "asc" ? "▲" : "▼"}
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ---- Virtualised Body ---- */}
+      <div
+        style={{
+          height: `${rowVirtualizer.getTotalSize()}px`,
+          position: "relative",
+        }}
+      >
+        {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+          const row = rows[virtualRow.index] as Row<T>;
+          const isSelected = selectedId != null && getRowId(row.original) === selectedId;
+          return (
+            <div
+              key={row.id}
+              className={cn(
+                "grid absolute top-0 left-0 w-full border-b cursor-pointer hover:bg-muted/50 transition-colors",
+                isSelected && "bg-primary/10 border-l-2 border-l-primary"
+              )}
+              style={{
+                height: `${virtualRow.size}px`,
+                transform: `translateY(${virtualRow.start}px)`,
+                gridTemplateColumns: gridCols,
+              }}
+              onClick={() => onItemClick(row.original)}
+            >
+              {row.getVisibleCells().map((cell) => (
+                <div
+                  key={cell.id}
+                  className="px-3 py-2 text-sm flex items-center truncate"
+                >
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </div>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

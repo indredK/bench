@@ -37,6 +37,17 @@ function savePreferences(prefs: PersistedPreferences) {
   try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch { /* ignore */ }
 }
 
+const VIEW_MODE_KEY = "view-mode:app-manager";
+function loadViewMode(): "table" | "grid" {
+  try {
+    const s = localStorage.getItem(VIEW_MODE_KEY);
+    return s === "grid" ? "grid" : "table";
+  } catch { return "table"; }
+}
+function saveViewMode(m: "table" | "grid") {
+  try { localStorage.setItem(VIEW_MODE_KEY, m); } catch {}
+}
+
 const savedPrefs = loadPreferences();
 
 export const APP_FILTER_OPTIONS = [
@@ -97,6 +108,11 @@ export interface AppManagerState {
   lastScanTime: number;
   lastUpdateCheck: number;
 
+  // Three-column layout state
+  viewMode: "table" | "grid";
+  selectedItem: AppInfo | null;
+  filterPanelOpen: boolean;
+
   setSearchQuery: (query: string) => void;
   setActiveFilter: (filter: AppFilterKey) => void;
   setSorting: (sorting: Updater<SortingState>) => void;
@@ -119,6 +135,11 @@ export interface AppManagerState {
   closeBatchConfirmDialog: () => void;
   doBatchUpgrade: () => Promise<void>;
   doBatchUninstall: () => Promise<void>;
+
+  // Layout
+  setViewMode: (mode: "table" | "grid") => void;
+  setSelectedItem: (item: AppInfo | null) => void;
+  setFilterPanelOpen: (open: boolean) => void;
 
   // History
   loadHistory: () => Promise<void>;
@@ -151,6 +172,11 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
   // Timestamps
   lastScanTime: 0,
   lastUpdateCheck: 0,
+
+  // Three-column layout
+  viewMode: loadViewMode(),
+  selectedItem: null,
+  filterPanelOpen: true,
 
   setSearchQuery: (query) => set({ searchQuery: query }),
   setActiveFilter: (filter) => {
@@ -299,6 +325,14 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
     get().scanApps();
   },
 
+  // --- Layout ---
+  setViewMode: (mode) => {
+    set({ viewMode: mode });
+    saveViewMode(mode);
+  },
+  setSelectedItem: (item) => set({ selectedItem: item }),
+  setFilterPanelOpen: (open) => set({ filterPanelOpen: open }),
+
   // --- History ---
   loadHistory: async () => {
     if (!isTauri()) return;
@@ -315,5 +349,6 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
       historyOpen: false, selectedAppIds: new Set(), batchMode: false, batchProgress: null, batchResults: null,
       batchConfirmDialog: { open: false, action: "upgrade", count: 0 },
       lastScanTime: 0, lastUpdateCheck: 0,
+      viewMode: loadViewMode(), selectedItem: null, filterPanelOpen: true,
     }),
 }));
