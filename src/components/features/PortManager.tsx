@@ -253,7 +253,7 @@ function PortManager() {
                 />
                 <span className="absolute right-2 top-1/2 -translate-y-1/2">
                   <Tooltip open={showInvalidToast}>
-                    <TooltipTrigger>
+                    <TooltipTrigger asChild>
                       <button
                         className={cn(
                           "flex size-5 items-center justify-center rounded-full transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
@@ -356,7 +356,7 @@ function PortManager() {
                       <TooltipContent>{t("portManager.chipScrollTo", { port: ps.port })}</TooltipContent>
                     </Tooltip>
                     <Tooltip>
-                      <TooltipTrigger>
+                      <TooltipTrigger asChild>
                         <button
                           className={cn(chipActionBase, "group transition hover:bg-foreground/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none")}
                           onClick={(e) => {
@@ -370,7 +370,7 @@ function PortManager() {
                       <TooltipContent>{t("portManager.rescan")}</TooltipContent>
                     </Tooltip>
                     <Tooltip>
-                      <TooltipTrigger>
+                      <TooltipTrigger asChild>
                         <button
                           className={cn(chipActionBase, "text-yellow-600 dark:text-yellow-400 transition hover:bg-yellow-600 hover:text-white dark:hover:bg-yellow-600 dark:hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none")}
                           onClick={(e) => {
@@ -396,7 +396,7 @@ function PortManager() {
           <AlertDescription className="flex items-center justify-between">
             <span>{error}</span>
             <Tooltip>
-              <TooltipTrigger>
+              <TooltipTrigger asChild>
                 <button
                   className={cn(chipActionBase, "transition hover:bg-destructive/30 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none")}
                   onClick={() => setError("")}
@@ -423,7 +423,7 @@ function PortManager() {
           <div className="flex shrink-0 items-center gap-2">
             {portDetails.length > 0 && (
               <Tooltip>
-                <TooltipTrigger>
+                <TooltipTrigger asChild>
                   <Button
                     variant="secondary"
                     size="sm"
@@ -438,7 +438,7 @@ function PortManager() {
             )}
             {portDetails.length > 0 && (
               <Tooltip>
-                <TooltipTrigger>
+                <TooltipTrigger asChild>
                   <Button
                     variant="secondary"
                     size="sm"
@@ -454,7 +454,7 @@ function PortManager() {
             )}
             {portDetails.length > 0 && (
               <Tooltip>
-                <TooltipTrigger>
+                <TooltipTrigger asChild>
                   <Button
                     variant="destructive"
                     size="sm"
@@ -525,7 +525,7 @@ function PortManager() {
                           </div>
                           <div className="flex gap-1.5">
                             <Tooltip>
-                            <TooltipTrigger>
+                            <TooltipTrigger asChild>
                               <Button
                                 variant="default"
                                 size="sm"

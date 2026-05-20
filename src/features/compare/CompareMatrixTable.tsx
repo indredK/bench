@@ -114,7 +114,6 @@ function CompareMatrixValueCell<T extends { id: string; model: string }>({
     <>
       {barPercent > 0 && (
         <div
-          className="absolute inset-y-1.5 left-0 rounded-r-full transition-all duration-300"
           className={cn(
             "absolute inset-y-1 left-1 rounded-sm",
             isHighlighted
