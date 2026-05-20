@@ -119,7 +119,7 @@ function HardwareCompare<T extends { id: string; model: string }>({
   return (
     <TooltipProvider delay={200}>
       <Card className="shadow-sm flex-1 flex flex-col min-h-0">
-        <CardContent className="pt-4 space-y-4 flex flex-col flex-1 min-h-0">
+        <CardContent className="pt-4 gap-4 flex flex-col flex-1 min-h-0">
           {/* ── 筛选 + 型号选择（合并） ── */}
           {filterGroups && filterGroups.length > 0 && (
             <FilterBar
@@ -140,7 +140,7 @@ function HardwareCompare<T extends { id: string; model: string }>({
 
           {/* ── 对比表格 ── */}
           {selectedModels.length > 0 && (
-            <div className="flex flex-col flex-1 min-h-0">
+            <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
               <div className="flex items-center justify-between shrink-0 mb-2">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   {t(`${i18nPrefix}.comparingTitle`, {
