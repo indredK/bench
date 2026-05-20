@@ -142,6 +142,8 @@
     "pathCount": "{{count}} paths",
     "autoExpandHint": "Hover to expand, click to pin",
     "pinnedHint": "Pinned open, click for auto-expand",
+    "copyPath": "Copy Path",
+    "copyVersion": "Copy Version",
     "filterGroups": {
       "category": "Category",
       "source": "Source",
@@ -262,6 +264,7 @@
     "cleanupSuccess": "Cleanup successful! Freed {{size}} of space.",
     "cleanupError": "Cleanup failed: {{error}}",
     "noProjects": "No projects found in the selected directory.",
+    "copyPath": "Copy Path",
     "refreshing": "Refreshing...",
     "controls": "View Options",
     "filteredCleanup": "Visible Cleanup",

@@ -11,6 +11,10 @@ import {
 } from "@tanstack/react-table";
 import { cn } from "@/lib/utils";
 import {
+  ContextMenu,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import {
   StickyTable,
   StickyTableBody,
   StickyTableCaption,
@@ -67,6 +71,8 @@ interface DataTableProps<TData> extends Omit<StickyTableProps, "children"> {
   bodyClassName?: string;
   getRowClassName?: (row: TData, context: DataTableRowContext) => string | undefined;
   onRowClick?: (row: TData, context: DataTableRowContext) => void;
+  /** Optional context menu content renderer (receives the item and row context, returns JSX for ContextMenuContent) */
+  renderContextMenu?: (row: TData, context: DataTableRowContext) => React.ReactNode;
 }
 
 function getNextDataTableSorting(
@@ -134,6 +140,7 @@ function DataTable<TData>({
   bodyClassName,
   getRowClassName,
   onRowClick,
+  renderContextMenu,
   ...tableProps
 }: DataTableProps<TData>) {
   const table = useReactTable({
@@ -250,9 +257,8 @@ function DataTable<TData>({
           };
           const isInteractive = Boolean(selection?.selectOnRowClick || onRowClick);
 
-          return (
+          const rowElement = (
             <StickyTableRow
-              key={tableRow.id}
               data-state={isSelected ? "selected" : undefined}
               aria-selected={isSelected || undefined}
               className={cn(
@@ -311,6 +317,19 @@ function DataTable<TData>({
               })}
             </StickyTableRow>
           );
+
+          if (renderContextMenu) {
+            return (
+              <ContextMenu key={tableRow.id}>
+                <ContextMenuTrigger asChild>
+                  {rowElement}
+                </ContextMenuTrigger>
+                {renderContextMenu(row, rowContext)}
+              </ContextMenu>
+            );
+          }
+
+          return <div key={tableRow.id}>{rowElement}</div>;
         })}
       </StickyTableBody>
     </StickyTable>

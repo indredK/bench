@@ -30,6 +30,11 @@ import { classifyApp } from "@/features/app-manager/app-categories";
 import { classifySeries } from "@/features/app-manager/app-series";
 import { AppIcon } from "@/components/features/AppIcon";
 import type { AppInfo } from "@/lib/tauri/types";
+import {
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+} from "@/components/ui/context-menu";
 
 // --- Error Boundary for AppManager ---
 class AppManagerErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: string }> {
@@ -157,6 +162,34 @@ function AppManager({ active }: { active: boolean }) {
   const handleUninstallFromColumn = useCallback((app: AppInfo) => {
     openConfirmDialog(app.appId, app.name, "uninstall");
   }, [openConfirmDialog]);
+
+  const renderContextMenu = useCallback((app: AppInfo) => (
+    <ContextMenuContent>
+      <ContextMenuItem onClick={() => handleLaunch(app)} disabled={!app.allowedActions.launch}>
+        <Play size={14} />
+        {t("appManager.actionLaunch")}
+      </ContextMenuItem>
+      <ContextMenuItem onClick={() => handleReveal(app)} disabled={!app.allowedActions.reveal}>
+        <Folder size={14} />
+        {t("appManager.actionReveal")}
+      </ContextMenuItem>
+      {(app.allowedActions.upgrade || app.allowedActions.uninstall) && (
+        <ContextMenuSeparator />
+      )}
+      {app.allowedActions.upgrade && (
+        <ContextMenuItem onClick={() => handleUpgradeFromColumn(app)}>
+          <ArrowUpCircle size={14} />
+          {t("appManager.actionUpgrade")}
+        </ContextMenuItem>
+      )}
+      {app.allowedActions.uninstall && (
+        <ContextMenuItem onClick={() => handleUninstallFromColumn(app)} className="text-red-600 focus:text-red-600">
+          <Trash2 size={14} />
+          {t("appManager.actionUninstall")}
+        </ContextMenuItem>
+      )}
+    </ContextMenuContent>
+  ), [t, handleLaunch, handleReveal, handleUpgradeFromColumn, handleUninstallFromColumn]);
 
   const handleConfirmAction = useCallback(async () => {
     const { appId, action } = confirmDialog;
@@ -413,6 +446,7 @@ function AppManager({ active }: { active: boolean }) {
                 batchMode={batchMode}
                 selectedIds={selectedAppIds}
                 onToggleSelect={toggleSelectApp}
+                renderContextMenu={renderContextMenu}
                 actions={
                   <>
                     {scanned && (

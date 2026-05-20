@@ -2,6 +2,7 @@ import { useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
+import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu";
 
 interface VirtualGridViewProps<T> {
   data: T[];
@@ -14,6 +15,8 @@ interface VirtualGridViewProps<T> {
   batchMode?: boolean;
   selectedIds?: Set<string>;
   onToggleSelect?: (id: string) => void;
+  /** Optional context menu content renderer (receives the item, returns JSX for ContextMenuContent) */
+  renderContextMenu?: (item: T) => React.ReactNode;
 }
 
 export function VirtualGridView<T>({
@@ -27,6 +30,7 @@ export function VirtualGridView<T>({
   batchMode = false,
   selectedIds,
   onToggleSelect,
+  renderContextMenu,
 }: VirtualGridViewProps<T>) {
   const containerRef = useRef<HTMLDivElement>(null);
   const displayColumns = gridColumnsProp ?? 3;
@@ -88,9 +92,8 @@ export function VirtualGridView<T>({
                     }
                   };
 
-                  return (
+                  const cardContent = (
                     <div
-                      key={id}
                       onClick={handleClick}
                       className={cn(
                         "cursor-pointer transition-all min-w-0",
@@ -115,6 +118,19 @@ export function VirtualGridView<T>({
                       </div>
                     </div>
                   );
+
+                  if (renderContextMenu) {
+                    return (
+                      <ContextMenu key={id}>
+                        <ContextMenuTrigger asChild>
+                          {cardContent}
+                        </ContextMenuTrigger>
+                        {renderContextMenu(item)}
+                      </ContextMenu>
+                    );
+                  }
+
+                  return <div key={id}>{cardContent}</div>;
                 })}
               </div>
             );

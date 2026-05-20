@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { isTauri } from "@tauri-apps/api/core";
 import i18n from "@/i18n/config";
@@ -17,6 +17,11 @@ import { DataTable } from "@/components/ui/DataTable";
 import { createEnvDetectorColumns } from "@/features/env-detector/columns";
 import { useEnvDetectorStore } from "@/stores/env-detector";
 import type { EnvTool } from "@/lib/tauri/types";
+import { Clipboard, Hash } from "lucide-react";
+import {
+  ContextMenuContent,
+  ContextMenuItem,
+} from "@/components/ui/context-menu";
 
 type EnvFilterKey = "category" | "source" | "kind" | "status";
 
@@ -90,6 +95,32 @@ function EnvDetector({ active }: { active: boolean }) {
     available: tools.filter((t) => t.available).length,
     unavailable: tools.filter((t) => !t.available).length,
   };
+
+  const handleCopyToClipboard = useCallback(async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // clipboard write may fail in some environments
+    }
+  }, []);
+
+  const renderContextMenu = useCallback(
+    (tool: EnvTool) => (
+      <ContextMenuContent>
+        <ContextMenuItem onClick={() => handleCopyToClipboard(tool.path || tool.name)}>
+          <Clipboard size={14} />
+          {t("envDetector.copyPath")}
+        </ContextMenuItem>
+        {tool.version && (
+          <ContextMenuItem onClick={() => handleCopyToClipboard(tool.version)}>
+            <Hash size={14} />
+            {t("envDetector.copyVersion")}
+          </ContextMenuItem>
+        )}
+      </ContextMenuContent>
+    ),
+    [t, handleCopyToClipboard]
+  );
 
   const filterRows = useMemo<EnvFilterRow[]>(
     () =>
@@ -253,6 +284,7 @@ function EnvDetector({ active }: { active: boolean }) {
                 }}
                 layout="fixed"
                 containerClassName="h-full min-h-0 rounded-lg border"
+                renderContextMenu={renderContextMenu}
               />
                 {missingTools.length > 0 && (
                   <div className="shrink-0 rounded-lg border bg-muted/20 p-3">

@@ -11,6 +11,7 @@ import {
 import type { SortingState, OnChangeFn } from "@tanstack/react-table";
 import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
+import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu";
 
 interface VirtualDataTableProps<T> {
   data: T[];
@@ -27,6 +28,8 @@ interface VirtualDataTableProps<T> {
   selectedIds?: Set<string>;
   /** Called in batch mode when a row is clicked to toggle selection */
   onToggleSelect?: (id: string) => void;
+  /** Optional context menu content renderer (receives the item, returns JSX for ContextMenuContent) */
+  renderContextMenu?: (item: T) => React.ReactNode;
 }
 
 /**
@@ -65,6 +68,7 @@ export function VirtualDataTable<T>({
   batchMode = false,
   selectedIds,
   onToggleSelect,
+  renderContextMenu,
 }: VirtualDataTableProps<T>) {
   const table = useReactTable({
     data,
@@ -164,9 +168,8 @@ export function VirtualDataTable<T>({
             }
           };
 
-          return (
+          const rowContent = (
             <div
-              key={row.id}
               className={cn(
                 "grid absolute top-0 left-0 w-full border-b cursor-pointer hover:bg-muted/50 transition-colors group",
                 isDetailSelected && "bg-primary/10 border-l-2 border-l-primary",
@@ -221,6 +224,19 @@ export function VirtualDataTable<T>({
               })}
             </div>
           );
+
+          if (renderContextMenu) {
+            return (
+              <ContextMenu key={row.id}>
+                <ContextMenuTrigger asChild>
+                  {rowContent}
+                </ContextMenuTrigger>
+                {renderContextMenu(row.original)}
+              </ContextMenu>
+            );
+          }
+
+          return <div key={row.id}>{rowContent}</div>;
         })}
       </div>
     </div>

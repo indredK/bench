@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,11 +17,17 @@ import {
   AlertTriangle,
   ChevronDown,
   ChevronUp,
+  Clipboard,
   FolderOpen,
   Loader2,
   StopCircle,
   Trash2,
 } from "lucide-react";
+import {
+  ContextMenuContent,
+  ContextMenuItem,
+} from "@/components/ui/context-menu";
+import type { ProjectInfo } from "@/lib/tauri/types";
 
 function formatScanTime(scanTimeMs: number) {
   if (scanTimeMs < 1000) {
@@ -130,6 +136,26 @@ export default function DevCleaner() {
   };
 
   const activeSortId = sorting[0]?.id;
+
+  const handleCopyPath = useCallback(async (path: string) => {
+    try {
+      await navigator.clipboard.writeText(path);
+    } catch {
+      // clipboard write may fail in some environments
+    }
+  }, []);
+
+  const renderContextMenu = useCallback(
+    (project: ProjectInfo) => (
+      <ContextMenuContent>
+        <ContextMenuItem onClick={() => handleCopyPath(project.path)}>
+          <Clipboard size={14} />
+          {t("devCleaner.copyPath")}
+        </ContextMenuItem>
+      </ContextMenuContent>
+    ),
+    [t, handleCopyPath]
+  );
 
   return (
     <div className="h-full flex flex-col gap-4">
@@ -332,6 +358,7 @@ export default function DevCleaner() {
                     layout="fixed"
                     className="min-w-[760px]"
                     containerClassName="rounded-xl border shadow-xs flex-1 min-h-0"
+                    renderContextMenu={renderContextMenu}
                   />
                 </div>
               ) : (

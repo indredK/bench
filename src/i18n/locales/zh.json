@@ -142,6 +142,8 @@
     "pathCount": "{{count}} 个路径",
     "autoExpandHint": "悬停自动展开，点击固定",
     "pinnedHint": "固定展开，点击启用自动展开",
+    "copyPath": "复制路径",
+    "copyVersion": "复制版本",
     "filterGroups": {
       "category": "类别",
       "source": "来源",
@@ -262,6 +264,7 @@
     "cleanupSuccess": "清理成功！释放了 {{size}} 的空间。",
     "cleanupError": "清理失败：{{error}}",
     "noProjects": "在选定的目录中未找到任何项目。",
+    "copyPath": "复制路径",
     "refreshing": "正在刷新...",
     "controls": "显示选项",
     "filteredCleanup": "当前可清理",
