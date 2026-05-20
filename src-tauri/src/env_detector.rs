@@ -29,6 +29,7 @@ pub struct EnvTool {
 
 #[derive(Debug, Serialize, Clone)]
 pub struct ScanDonePayload {
+    pub tools: Vec<EnvTool>,
     pub unavailable: Vec<EnvTool>,
 }
 
@@ -300,11 +301,7 @@ fn detect_env_tools_inner(app_handle: AppHandle) {
     let inventory = collect_command_inventory(&search_dirs);
     let (tools, unavailable) = diagnose_command_inventory(inventory, MAX_VERSION_PROBES);
 
-    for tool in tools {
-        let _ = app_handle.emit("env-tool-found", &tool);
-    }
-
-    let _ = app_handle.emit("env-scan-done", ScanDonePayload { unavailable });
+    let _ = app_handle.emit("env-scan-done", ScanDonePayload { tools, unavailable });
 }
 
 #[derive(Debug)]

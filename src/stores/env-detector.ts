@@ -71,29 +71,24 @@ export const useEnvDetectorStore = create<EnvDetectorState>((set, get) => ({
       return;
     }
 
-    const unlisteners: UnlistenFn[] = [];
+    let unlisten: UnlistenFn | null = null;
 
     try {
-      const unlisten1 = await listen<EnvTool>("env-tool-found", (event) => {
-        set((state) => ({ tools: [...state.tools, event.payload] }));
-      });
-      const unlisten2 = await listen<{ unavailable: EnvTool[] }>("env-scan-done", (event) => {
-        set((state) => ({
-          tools: [...state.tools, ...event.payload.unavailable],
+      unlisten = await listen<{ tools: EnvTool[]; unavailable: EnvTool[] }>("env-scan-done", (event) => {
+        set({
+          tools: [...event.payload.tools, ...event.payload.unavailable],
           loading: false,
           scanning: false,
           scanned: true,
-        }));
-        for (const unlisten of unlisteners) unlisten();
+        });
+        unlisten?.();
       });
-
-      unlisteners.push(unlisten1, unlisten2);
 
       await detectEnvTools();
     } catch (e) {
       console.warn("[EnvDetector] Failed to detect tools:", e);
       set({ tools: [], error: "Failed to detect tools", loading: false, scanning: false, scanned: true });
-      for (const unlisten of unlisteners) unlisten();
+      unlisten?.();
     }
   },
 
