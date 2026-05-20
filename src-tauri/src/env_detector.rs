@@ -72,6 +72,7 @@ struct NodeDeclaredBin {
 }
 
 const VERSION_TIMEOUT: Duration = Duration::from_millis(1200);
+const SHELL_TIMEOUT: Duration = Duration::from_millis(4000);
 const MAX_VERSION_PROBES: usize = 80;
 const ENV_TOOL_DETECTORS: &[ToolDetector] = &[
     ToolDetector {
@@ -291,9 +292,7 @@ pub async fn detect_env_tools(app_handle: AppHandle) {
                 eprintln!("[env_detector] panic caught, returning empty result");
             }
         }
-    })
-    .await
-    .unwrap_or_else(|_| {});
+    });
 }
 
 fn detect_env_tools_inner(app_handle: AppHandle) {
@@ -1007,19 +1006,41 @@ fn macos_login_shell_path_dirs() -> Vec<PathBuf> {
         .filter(|path| path.is_file())
         .unwrap_or_else(|| PathBuf::from("/bin/zsh"));
 
-    let output = Command::new(shell)
+    let mut child = match Command::new(&shell)
         .args(["-lc", "print -r -- $PATH"])
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
-        .output();
+        .spawn()
+    {
+        Ok(child) => child,
+        Err(_) => return Vec::new(),
+    };
 
-    match output {
-        Ok(output) if output.status.success() => {
-            let path_value = String::from_utf8_lossy(&output.stdout);
-            env::split_paths(OsStr::new(path_value.trim())).collect()
+    let start = std::time::Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) if status.success() => {
+                let output = match child.wait_with_output() {
+                    Ok(out) => out,
+                    Err(_) => return Vec::new(),
+                };
+                let path_value = String::from_utf8_lossy(&output.stdout);
+                return env::split_paths(OsStr::new(path_value.trim())).collect();
+            }
+            Ok(Some(_)) => return Vec::new(),
+            Ok(None) if start.elapsed() >= SHELL_TIMEOUT => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Vec::new();
+            }
+            Ok(None) => std::thread::sleep(Duration::from_millis(50)),
+            Err(_) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Vec::new();
+            }
         }
-        _ => Vec::new(),
     }
 }
 
