@@ -5,17 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Bench</title>
     <script>
-      (function() {
+      (function () {
         try {
           var lang = localStorage.getItem("language");
           if (lang) {
             document.documentElement.lang = lang;
           }
+
           var theme = localStorage.getItem("theme");
           if (theme === "dark" || (theme !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
             document.documentElement.classList.add("dark");
           }
-        } catch(e) {}
+        } catch (e) {}
       })();
     </script>
     <style>
@@ -29,26 +30,42 @@
       }
 
       body {
-        --brand: #5b5cf6;
-        --brand-strong: #3737e8;
-        --cyan: #16c7df;
-        --mint: #2ac979;
-        --ring: rgba(91, 92, 246, 0.48);
-        --ring-soft: rgba(22, 199, 223, 0.3);
-        --panel-shadow: rgba(63, 63, 241, 0.26);
+        --ink: #0f172a;
+        --surface: rgba(248, 250, 252, 0.9);
+        --surface-deep: rgba(226, 232, 240, 0.58);
+        --brand: #4f46e5;
+        --brand-hot: #7c3aed;
+        --cyan: #06b6d4;
+        --cyan-soft: rgba(6, 182, 212, 0.36);
+        --mint: #10b981;
+        --lime: #a3e635;
+        --white: rgba(255, 255, 255, 0.96);
+        --ghost: rgba(255, 255, 255, 0.18);
+        --shadow: rgba(37, 99, 235, 0.32);
         display: grid;
         place-items: center;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        font-family:
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          Roboto,
+          Helvetica,
+          Arial,
+          sans-serif;
       }
 
       html.dark body {
+        --ink: #e2e8f0;
+        --surface: rgba(15, 23, 42, 0.82);
+        --surface-deep: rgba(30, 41, 59, 0.64);
         --brand: #818cf8;
-        --brand-strong: #6366f1;
+        --brand-hot: #a78bfa;
         --cyan: #22d3ee;
+        --cyan-soft: rgba(34, 211, 238, 0.38);
         --mint: #34d399;
-        --ring: rgba(129, 140, 248, 0.52);
-        --ring-soft: rgba(34, 211, 238, 0.34);
-        --panel-shadow: rgba(99, 102, 241, 0.34);
+        --lime: #bef264;
+        --ghost: rgba(255, 255, 255, 0.22);
+        --shadow: rgba(79, 70, 229, 0.44);
       }
 
       .splash {
@@ -58,26 +75,89 @@
         aspect-ratio: 1;
         place-items: center;
         overflow: hidden;
-        border-radius: 9999px;
         isolation: isolate;
+        transform: translateZ(0);
+      }
+
+      .aura,
+      .panel,
+      .hud,
+      .stage,
+      .frame,
+      .data-plane,
+      .scanner {
+        position: absolute;
+        inset: 0;
+      }
+
+      .aura {
+        z-index: 0;
+        opacity: 0.92;
+        filter: blur(0.2px);
+        transform: translateZ(0) scale(0.92);
+        will-change: transform, opacity;
+      }
+
+      .aura::before,
+      .aura::after {
+        position: absolute;
+        inset: 18%;
+        border-radius: 9999px;
+        content: "";
+      }
+
+      .aura::before {
+        background:
+          radial-gradient(circle, rgba(255, 255, 255, 0.36) 0 2px, transparent 3px),
+          conic-gradient(
+            from 90deg,
+            transparent 0 9deg,
+            var(--cyan-soft) 10deg 22deg,
+            transparent 23deg 42deg,
+            rgba(79, 70, 229, 0.28) 43deg 59deg,
+            transparent 60deg 86deg,
+            rgba(16, 185, 129, 0.3) 87deg 104deg,
+            transparent 105deg 132deg,
+            rgba(124, 58, 237, 0.26) 133deg 150deg,
+            transparent 151deg 360deg
+          );
+        mask-image: radial-gradient(circle, transparent 0 52%, #000 53% 64%, transparent 65%);
+        animation: ring-spin 1.25s linear infinite;
+      }
+
+      .aura::after {
+        inset: 26%;
+        background:
+          conic-gradient(
+            from 0deg,
+            transparent 0 28deg,
+            rgba(255, 255, 255, 0.68) 29deg 34deg,
+            transparent 35deg 86deg,
+            var(--mint) 87deg 93deg,
+            transparent 94deg 184deg,
+            var(--cyan) 185deg 191deg,
+            transparent 192deg 360deg
+          );
+        mask-image: radial-gradient(circle, transparent 0 46%, #000 47% 53%, transparent 54%);
+        animation: ring-spin-reverse 2.4s linear infinite;
       }
 
       .panel {
-        position: absolute;
-        inset: 1px;
-        z-index: 0;
+        z-index: 1;
+        inset: 18px;
         overflow: hidden;
-        border: 1px solid rgba(255, 255, 255, 0.36);
+        border: 1px solid rgba(255, 255, 255, 0.18);
         border-radius: 9999px;
         opacity: 0;
         background:
-          radial-gradient(circle at 30% 18%, rgba(255, 255, 255, 0.72), transparent 28%),
-          linear-gradient(135deg, rgba(22, 199, 223, 0.94), rgba(91, 92, 246, 0.98) 48%, rgba(42, 201, 121, 0.9));
+          linear-gradient(135deg, rgba(255, 255, 255, 0.26), transparent 38%),
+          radial-gradient(circle at 18% 22%, rgba(255, 255, 255, 0.7), transparent 24%),
+          linear-gradient(135deg, rgba(6, 182, 212, 0.82), rgba(79, 70, 229, 0.9) 48%, rgba(16, 185, 129, 0.72));
         box-shadow:
-          0 0 56px rgba(22, 199, 223, 0.28),
-          0 26px 80px var(--panel-shadow);
-        transform: scale(0.68);
-        will-change: border-radius, opacity, transform;
+          0 0 46px rgba(6, 182, 212, 0.3),
+          0 26px 72px var(--shadow);
+        transform: translateZ(0) scale(0.48);
+        will-change: transform, opacity, border-radius;
       }
 
       .panel::before,
@@ -89,92 +169,310 @@
 
       .panel::before {
         background:
-          linear-gradient(90deg, rgba(255, 255, 255, 0.16) 1px, transparent 1px),
-          linear-gradient(0deg, rgba(255, 255, 255, 0.12) 1px, transparent 1px);
-        background-size: 28px 28px;
-        mask-image: radial-gradient(circle at center, #000 0 62%, transparent 82%);
-        opacity: 0.46;
+          linear-gradient(90deg, rgba(255, 255, 255, 0.2) 1px, transparent 1px),
+          linear-gradient(0deg, rgba(255, 255, 255, 0.15) 1px, transparent 1px);
+        background-size: 20px 20px;
+        mask-image: radial-gradient(circle at center, #000 0 52%, transparent 76%);
+        opacity: 0.54;
       }
 
       .panel::after {
-        border: 1px solid rgba(255, 255, 255, 0.28);
         border-radius: inherit;
         box-shadow:
-          inset 0 0 0 1px rgba(255, 255, 255, 0.16),
-          inset 0 0 48px rgba(255, 255, 255, 0.12);
+          inset 0 0 0 1px rgba(255, 255, 255, 0.18),
+          inset 0 0 54px rgba(255, 255, 255, 0.2);
+      }
+
+      .data-plane {
+        z-index: 2;
+        inset: 48px;
+        opacity: 0;
+        transform: translateZ(0) scale(0.82);
+        will-change: transform, opacity;
+      }
+
+      .data-plane span {
+        position: absolute;
+        display: block;
+        height: 2px;
+        border-radius: 9999px;
+        background: linear-gradient(90deg, transparent, var(--white), var(--cyan), transparent);
+        box-shadow: 0 0 16px var(--cyan-soft);
+        opacity: 0.76;
+      }
+
+      .data-plane span:nth-child(1) {
+        top: 32px;
+        left: 14px;
+        width: 82px;
+      }
+
+      .data-plane span:nth-child(2) {
+        top: 62px;
+        right: 18px;
+        width: 56px;
+      }
+
+      .data-plane span:nth-child(3) {
+        bottom: 44px;
+        left: 22px;
+        width: 68px;
+      }
+
+      .data-plane span:nth-child(4) {
+        right: 24px;
+        bottom: 72px;
+        width: 78px;
+      }
+
+      .data-plane span:nth-child(5) {
+        top: 92px;
+        left: 50%;
+        width: 46px;
+        transform: translateX(-50%);
+      }
+
+      .data-plane span:nth-child(6) {
+        top: 48%;
+        left: 22px;
+        width: 38px;
+        transform: rotate(90deg);
+      }
+
+      .hud {
+        z-index: 3;
+        inset: 22px;
+        border-radius: 9999px;
+        opacity: 0;
+        transform: translateZ(0) scale(0.62);
+        will-change: transform, opacity, border-radius;
+      }
+
+      .hud::before,
+      .hud::after {
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        content: "";
+      }
+
+      .hud::before {
+        background:
+          conic-gradient(
+            from 45deg,
+            rgba(255, 255, 255, 0.86) 0 3deg,
+            transparent 4deg 34deg,
+            var(--cyan) 35deg 43deg,
+            transparent 44deg 88deg,
+            rgba(163, 230, 53, 0.74) 89deg 95deg,
+            transparent 96deg 178deg,
+            rgba(255, 255, 255, 0.72) 179deg 183deg,
+            transparent 184deg 244deg,
+            var(--brand-hot) 245deg 252deg,
+            transparent 253deg 360deg
+          );
+        mask-image: radial-gradient(circle, transparent 0 43%, #000 44% 46%, transparent 47% 56%, #000 57% 59%, transparent 60%);
+        animation: hud-spin 1.9s linear infinite;
+      }
+
+      .hud::after {
+        inset: 17%;
+        background:
+          linear-gradient(var(--cyan), var(--cyan)) 50% 0 / 1px 100% no-repeat,
+          linear-gradient(90deg, var(--cyan), var(--cyan)) 0 50% / 100% 1px no-repeat;
+        opacity: 0.24;
+      }
+
+      .frame {
+        z-index: 4;
+        inset: 42px;
+        opacity: 0;
+        transform: translateZ(0) scale(0.7);
+        will-change: transform, opacity;
+      }
+
+      .corner {
+        position: absolute;
+        width: 42px;
+        height: 42px;
+        opacity: 0.92;
+      }
+
+      .corner::before,
+      .corner::after {
+        position: absolute;
+        background: linear-gradient(90deg, var(--white), var(--cyan));
+        box-shadow: 0 0 16px var(--cyan-soft);
+        content: "";
+      }
+
+      .corner::before {
+        width: 100%;
+        height: 2px;
+      }
+
+      .corner::after {
+        width: 2px;
+        height: 100%;
+      }
+
+      .corner:nth-child(1) {
+        top: 0;
+        left: 0;
+      }
+
+      .corner:nth-child(2) {
+        top: 0;
+        right: 0;
+        rotate: 90deg;
+      }
+
+      .corner:nth-child(3) {
+        right: 0;
+        bottom: 0;
+        rotate: 180deg;
+      }
+
+      .corner:nth-child(4) {
+        bottom: 0;
+        left: 0;
+        rotate: 270deg;
+      }
+
+      .scanner {
+        z-index: 5;
+        inset: 18px;
+        opacity: 0;
+        overflow: hidden;
+        border-radius: 30px;
+        transform: translateZ(0) scale(0.74);
+        will-change: transform, opacity;
+      }
+
+      .scanner::before {
+        position: absolute;
+        inset: auto -34px 48%;
+        height: 34px;
+        background:
+          linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.58), transparent),
+          linear-gradient(90deg, transparent, var(--cyan), var(--white), var(--mint), transparent);
+        box-shadow: 0 0 28px var(--cyan-soft);
+        content: "";
+        transform: translateY(-104px) rotate(-13deg);
+        will-change: transform;
       }
 
       .stage {
-        position: relative;
-        z-index: 2;
+        z-index: 6;
         display: grid;
-        width: min(74vw, 132px);
+        width: min(66vw, 116px);
         aspect-ratio: 1;
         place-items: center;
-        filter: drop-shadow(0 18px 36px var(--panel-shadow));
+        filter: drop-shadow(0 18px 34px var(--shadow));
+        transform: translateZ(0);
         will-change: transform, opacity;
       }
 
       .orbit {
         position: absolute;
         inset: 0;
-        border: 1.5px solid var(--ring-soft);
-        border-top-color: var(--cyan);
-        border-right-color: var(--ring);
         border-radius: 9999px;
+        background:
+          conic-gradient(
+            from 0deg,
+            transparent 0 28deg,
+            var(--cyan) 29deg 43deg,
+            transparent 44deg 128deg,
+            rgba(255, 255, 255, 0.78) 129deg 136deg,
+            transparent 137deg 214deg,
+            var(--mint) 215deg 226deg,
+            transparent 227deg 360deg
+          );
+        mask-image: radial-gradient(circle, transparent 0 48%, #000 49% 53%, transparent 54%);
         opacity: 0.96;
-        rotate: 0deg;
-        scale: 1;
-        animation: spin 1.45s linear infinite;
-        will-change: rotate, scale, border-radius, opacity;
+        animation: ring-spin 1.1s linear infinite;
+        will-change: rotate, scale, opacity, border-radius;
       }
 
       .orbit::after {
         position: absolute;
-        top: 8%;
-        right: 12%;
-        width: 9px;
-        height: 9px;
+        top: 7%;
+        right: 17%;
+        width: 8px;
+        height: 8px;
         border-radius: 9999px;
         background: var(--cyan);
-        box-shadow: 0 0 18px var(--cyan);
+        box-shadow: 0 0 20px var(--cyan);
         content: "";
       }
 
       .orbit.inner {
-        inset: 11%;
-        border-top-color: var(--mint);
-        border-left-color: var(--ring);
-        animation-duration: 2.1s;
-        animation-direction: reverse;
-        opacity: 0.76;
+        inset: 12%;
+        background:
+          conic-gradient(
+            from 180deg,
+            transparent 0 34deg,
+            var(--lime) 35deg 44deg,
+            transparent 45deg 132deg,
+            var(--brand-hot) 133deg 146deg,
+            transparent 147deg 250deg,
+            rgba(255, 255, 255, 0.72) 251deg 256deg,
+            transparent 257deg 360deg
+          );
+        mask-image: radial-gradient(circle, transparent 0 45%, #000 46% 51%, transparent 52%);
+        opacity: 0.84;
+        animation: ring-spin-reverse 1.85s linear infinite;
       }
 
-      .icon {
+      .core {
         position: relative;
         display: grid;
-        width: 67%;
+        width: 64%;
         aspect-ratio: 1;
         place-items: center;
         overflow: hidden;
-        border: 1px solid rgba(255, 255, 255, 0.34);
+        border: 1px solid rgba(255, 255, 255, 0.42);
         border-radius: 50%;
         background:
-          radial-gradient(circle at 32% 24%, rgba(255, 255, 255, 0.42), transparent 34%),
-          linear-gradient(135deg, var(--brand), var(--brand-strong) 54%, #2024b8);
+          radial-gradient(circle at 30% 24%, rgba(255, 255, 255, 0.52), transparent 32%),
+          linear-gradient(135deg, var(--brand-hot), var(--brand) 50%, #0f766e);
         box-shadow:
-          inset 0 1px 0 rgba(255, 255, 255, 0.38),
-          0 16px 36px rgba(63, 63, 241, 0.34);
-        animation: breathe 1.85s ease-in-out infinite;
-        will-change: transform, border-radius, opacity;
+          inset 0 1px 0 rgba(255, 255, 255, 0.52),
+          inset 0 -18px 36px rgba(15, 23, 42, 0.18),
+          0 18px 34px var(--shadow);
+        animation: core-breathe 1.5s ease-in-out infinite;
+        transform: translateZ(0);
+        will-change: transform, opacity, border-radius;
+      }
+
+      .core::before,
+      .core::after {
+        position: absolute;
+        inset: 0;
+        content: "";
+      }
+
+      .core::before {
+        background:
+          linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.54), transparent) -88px 0 / 44px 100% no-repeat,
+          linear-gradient(0deg, transparent 0 38%, rgba(255, 255, 255, 0.18) 39% 40%, transparent 41% 100%);
+        animation: core-scan 1.1s ease-in-out infinite;
+      }
+
+      .core::after {
+        border-radius: inherit;
+        box-shadow: inset 0 0 0 8px rgba(255, 255, 255, 0.06);
       }
 
       .letter {
-        color: #ffffff;
-        font-size: 40px;
+        position: relative;
+        z-index: 1;
+        color: var(--white);
+        font-size: 38px;
         font-weight: 760;
         letter-spacing: 0;
         line-height: 1;
+        text-shadow: 0 0 18px rgba(255, 255, 255, 0.28);
         user-select: none;
       }
 
@@ -182,67 +480,97 @@
         position: absolute;
         top: 50%;
         left: 50%;
-        width: 26%;
-        aspect-ratio: 1;
+        width: 23px;
+        height: 23px;
+        border: 1px solid rgba(255, 255, 255, 0.52);
         border-radius: 50%;
         background:
           linear-gradient(135deg, rgba(255, 255, 255, 0.72), transparent 34%),
           linear-gradient(135deg, var(--cyan), var(--brand));
+        box-shadow: 0 0 20px var(--cyan-soft);
         opacity: 0;
-        transform: translate(-50%, -50%) scale(0.24);
-        will-change: transform, border-radius, opacity;
+        transform: translate3d(-50%, -50%, 0) scale(0.16);
+        will-change: transform, opacity, border-radius;
       }
 
       .shard:nth-child(1) {
         --x: -1;
         --y: -1;
+        --r: -10deg;
       }
 
       .shard:nth-child(2) {
         --x: 1;
         --y: -1;
-        animation-delay: 45ms;
+        --r: 12deg;
+        animation-delay: 38ms;
       }
 
       .shard:nth-child(3) {
         --x: -1;
         --y: 1;
-        animation-delay: 75ms;
+        --r: 14deg;
+        animation-delay: 76ms;
       }
 
       .shard:nth-child(4) {
         --x: 1;
         --y: 1;
-        animation-delay: 105ms;
+        --r: -8deg;
+        animation-delay: 114ms;
+      }
+
+      body.run .aura {
+        animation: aura-release 1.78s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       }
 
       body.run .panel {
-        animation: panel-expand 2.1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        animation: panel-form 2.12s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+
+      body.run .data-plane {
+        animation: data-form 1.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+
+      body.run .hud {
+        animation: hud-form 1.78s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+
+      body.run .frame {
+        animation: frame-form 1.72s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+
+      body.run .scanner {
+        animation: scanner-form 1.78s ease-out forwards;
+      }
+
+      body.run .scanner::before {
+        animation: scan-sweep 1.18s 0.34s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       }
 
       body.run .stage {
-        animation: stage-release 1.68s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        animation: stage-release 1.62s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       }
 
-      body.run .icon {
-        animation: icon-morph 1.46s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      body.run .core {
+        animation: core-morph 1.52s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       }
 
       body.run .orbit {
         animation:
-          spin 0.85s linear infinite,
-          orbit-release 1.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          ring-spin 0.78s linear infinite,
+          orbit-release 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       }
 
       body.run .orbit.inner {
         animation:
-          spin 0.95s linear infinite reverse,
-          orbit-release-inner 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          ring-spin-reverse 0.9s linear infinite,
+          orbit-release-inner 1.46s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       }
 
       body.run .shard {
         animation-name: shard-release;
-        animation-duration: 1.56s;
+        animation-duration: 1.5s;
         animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
         animation-fill-mode: forwards;
       }
@@ -252,116 +580,273 @@
         transition: opacity 220ms ease;
       }
 
-      @keyframes spin {
+      @keyframes ring-spin {
         to {
           rotate: 360deg;
         }
       }
 
-      @keyframes breathe {
-        0%,
-        100% {
-          transform: scale(1);
-        }
-        50% {
-          transform: scale(1.055);
+      @keyframes ring-spin-reverse {
+        to {
+          rotate: -360deg;
         }
       }
 
-      @keyframes panel-expand {
+      @keyframes hud-spin {
+        to {
+          rotate: 360deg;
+        }
+      }
+
+      @keyframes core-breathe {
+        0%,
+        100% {
+          transform: translateZ(0) scale(1);
+        }
+
+        50% {
+          transform: translateZ(0) scale(1.045);
+        }
+      }
+
+      @keyframes core-scan {
+        0% {
+          background-position:
+            -88px 0,
+            0 0;
+        }
+
+        70%,
+        100% {
+          background-position:
+            120px 0,
+            0 0;
+        }
+      }
+
+      @keyframes aura-release {
+        0% {
+          opacity: 0.92;
+          transform: translateZ(0) scale(0.92);
+        }
+
+        46% {
+          opacity: 0.72;
+          transform: translateZ(0) scale(1.18);
+        }
+
+        100% {
+          opacity: 0;
+          transform: translateZ(0) scale(1.46);
+        }
+      }
+
+      @keyframes panel-form {
         0% {
           border-radius: 9999px;
           opacity: 0;
-          transform: scale(0.68);
+          transform: translateZ(0) scale(0.48);
         }
+
         18% {
           border-radius: 9999px;
           opacity: 0.88;
-          transform: scale(0.98);
+          transform: translateZ(0) scale(0.86);
         }
-        54% {
+
+        50% {
           border-radius: 36px;
-          opacity: 0.96;
-          transform: scale(1.08);
+          opacity: 0.94;
+          transform: translateZ(0) scale(1.08);
         }
-        82% {
+
+        78% {
           border-radius: 22px;
-          opacity: 0.92;
-          transform: scale(1.16);
+          opacity: 0.8;
+          transform: translateZ(0) scale(1.16);
         }
+
         100% {
           border-radius: 18px;
           opacity: 0;
-          transform: scale(1.24);
+          transform: translateZ(0) scale(1.22);
+        }
+      }
+
+      @keyframes data-form {
+        0% {
+          opacity: 0;
+          transform: translateZ(0) scale(0.76);
+        }
+
+        34% {
+          opacity: 0;
+        }
+
+        58% {
+          opacity: 0.92;
+          transform: translateZ(0) scale(1);
+        }
+
+        100% {
+          opacity: 0;
+          transform: translateZ(0) scale(1.1);
+        }
+      }
+
+      @keyframes hud-form {
+        0% {
+          border-radius: 9999px;
+          opacity: 0;
+          transform: translateZ(0) scale(0.62);
+        }
+
+        24% {
+          border-radius: 9999px;
+          opacity: 0.84;
+          transform: translateZ(0) scale(0.92);
+        }
+
+        62% {
+          border-radius: 30px;
+          opacity: 0.72;
+          transform: translateZ(0) scale(1.08);
+        }
+
+        100% {
+          border-radius: 18px;
+          opacity: 0;
+          transform: translateZ(0) scale(1.24);
+        }
+      }
+
+      @keyframes frame-form {
+        0% {
+          opacity: 0;
+          transform: translateZ(0) scale(0.7);
+        }
+
+        36% {
+          opacity: 0;
+          transform: translateZ(0) scale(0.78);
+        }
+
+        64% {
+          opacity: 0.96;
+          transform: translateZ(0) scale(1);
+        }
+
+        100% {
+          opacity: 0;
+          transform: translateZ(0) scale(1.14);
+        }
+      }
+
+      @keyframes scanner-form {
+        0% {
+          opacity: 0;
+          transform: translateZ(0) scale(0.74);
+        }
+
+        26% {
+          opacity: 0;
+        }
+
+        54% {
+          opacity: 0.94;
+          transform: translateZ(0) scale(1);
+        }
+
+        100% {
+          opacity: 0;
+          transform: translateZ(0) scale(1.12);
+        }
+      }
+
+      @keyframes scan-sweep {
+        0% {
+          transform: translateY(-104px) rotate(-13deg);
+        }
+
+        100% {
+          transform: translateY(116px) rotate(-13deg);
         }
       }
 
       @keyframes stage-release {
         0% {
           opacity: 1;
-          transform: scale(1);
+          transform: translateZ(0) scale(1);
         }
-        42% {
+
+        44% {
           opacity: 0.94;
-          transform: scale(1.06);
+          transform: translateZ(0) scale(1.06);
         }
+
         100% {
           opacity: 0;
-          transform: scale(1.72);
+          transform: translateZ(0) scale(1.72);
         }
       }
 
-      @keyframes icon-morph {
+      @keyframes core-morph {
         0% {
           border-radius: 50%;
           opacity: 1;
-          transform: scale(1);
+          transform: translateZ(0) scale(1);
         }
-        42% {
-          border-radius: 26%;
-          opacity: 0.92;
-          transform: scale(1.12);
+
+        44% {
+          border-radius: 28%;
+          opacity: 0.96;
+          transform: translateZ(0) scale(1.16);
         }
+
         100% {
-          border-radius: 14%;
+          border-radius: 16%;
           opacity: 0;
-          transform: scale(5.2);
+          transform: translateZ(0) scale(5.25);
         }
       }
 
       @keyframes orbit-release {
         0% {
           border-radius: 9999px;
-          opacity: 0.95;
+          opacity: 0.96;
           scale: 1;
         }
+
         52% {
           border-radius: 32%;
-          opacity: 0.62;
-          scale: 2.9;
+          opacity: 0.72;
+          scale: 2.85;
         }
+
         100% {
           border-radius: 14%;
           opacity: 0;
-          scale: 7.8;
+          scale: 7.9;
         }
       }
 
       @keyframes orbit-release-inner {
         0% {
           border-radius: 9999px;
-          opacity: 0.76;
+          opacity: 0.84;
           scale: 1;
         }
+
         52% {
-          border-radius: 28%;
-          opacity: 0.48;
-          scale: 2.3;
+          border-radius: 30%;
+          opacity: 0.58;
+          scale: 2.32;
         }
+
         100% {
           border-radius: 12%;
           opacity: 0;
-          scale: 6.6;
+          scale: 6.7;
         }
       }
 
@@ -369,46 +854,70 @@
         0% {
           border-radius: 50%;
           opacity: 0;
-          transform: translate(-50%, -50%) scale(0.24);
+          transform: translate3d(-50%, -50%, 0) scale(0.16);
         }
+
         18% {
-          opacity: 0.92;
+          opacity: 0.95;
         }
-        58% {
+
+        55% {
           border-radius: 24%;
-          opacity: 0.7;
+          opacity: 0.82;
           transform:
-            translate(
-              calc(-50% + var(--x) * 86px),
-              calc(-50% + var(--y) * 68px)
+            translate3d(
+              calc(-50% + var(--x) * 78px),
+              calc(-50% + var(--y) * 62px),
+              0
             )
-            scale(1.1);
+            rotate(var(--r))
+            scale(1.2);
         }
+
         100% {
-          border-radius: 12%;
+          border-radius: 10%;
           opacity: 0;
           transform:
-            translate(
+            translate3d(
               calc(-50% + var(--x) * 122px),
-              calc(-50% + var(--y) * 106px)
+              calc(-50% + var(--y) * 108px),
+              0
             )
-            scale(0.42);
+            rotate(var(--r))
+            scale(0.54);
         }
       }
 
       @media (prefers-reduced-motion: reduce) {
-        .icon,
+        .aura,
+        .aura::before,
+        .aura::after,
+        .hud::before,
         .orbit,
+        .orbit.inner,
+        .core,
+        .core::before,
+        body.run .aura,
         body.run .panel,
+        body.run .data-plane,
+        body.run .hud,
+        body.run .frame,
+        body.run .scanner,
+        body.run .scanner::before,
         body.run .stage,
-        body.run .icon,
+        body.run .core,
         body.run .orbit,
         body.run .orbit.inner,
         body.run .shard {
           animation: none;
         }
 
+        .aura,
         .panel,
+        .data-plane,
+        .hud,
+        .frame,
+        .scanner,
         .stage {
           opacity: 0;
         }
@@ -417,11 +926,28 @@
   </head>
   <body>
     <main class="splash" aria-hidden="true">
+      <div class="aura"></div>
       <div class="panel"></div>
+      <div class="data-plane">
+        <span></span>
+        <span></span>
+        <span></span>
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+      <div class="hud"></div>
+      <div class="frame">
+        <span class="corner"></span>
+        <span class="corner"></span>
+        <span class="corner"></span>
+        <span class="corner"></span>
+      </div>
+      <div class="scanner"></div>
       <div class="stage">
         <div class="orbit"></div>
         <div class="orbit inner"></div>
-        <div class="icon">
+        <div class="core">
           <span class="letter">B</span>
         </div>
         <div class="shards">
