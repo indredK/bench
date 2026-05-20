@@ -30,7 +30,7 @@ function ThemeSwitcher() {
     <Tooltip>
       <TooltipTrigger
         onClick={() => setTheme(nextTheme)}
-        className="flex cursor-pointer items-center justify-center rounded-md border border-sidebar-border bg-sidebar-accent/40 p-1.5 text-sidebar-foreground transition hover:bg-sidebar-accent"
+        className="flex cursor-pointer items-center justify-center rounded-md border border-border bg-accent/40 p-1.5 text-foreground transition hover:bg-accent"
         aria-label={t("theme.label", { mode: t(`theme.${current}`) })}
       >
         <Icon className="size-4" />

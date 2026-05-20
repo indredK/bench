@@ -5,7 +5,8 @@
     "devCleaner": "Dev Cleaner",
     "systemInfo": "System Info",
     "hardwareQuery": "Hardware Query",
-    "envDetector": "Env Detector"
+    "envDetector": "Env Detector",
+    "settings": "Settings"
   },
   "appManager": {
     "title": "App Manager",
@@ -1174,5 +1175,10 @@
     "currentMode": "Current:",
     "label": "Theme: {{mode}}",
     "tooltip": "Click to cycle: System → Light → Dark"
+  },
+  "about": {
+    "description": "All-in-one developer toolkit for macOS",
+    "version": "Version",
+    "close": "Close"
   }
 }

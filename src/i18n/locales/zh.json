@@ -5,7 +5,8 @@
     "devCleaner": "垃圾清理",
     "systemInfo": "系统信息",
     "hardwareQuery": "硬件查询",
-    "envDetector": "环境检测"
+    "envDetector": "环境检测",
+    "settings": "设置"
   },
   "appManager": {
     "title": "应用管理",
@@ -1147,5 +1148,10 @@
     "currentMode": "当前：",
     "label": "主题：{{mode}}",
     "tooltip": "点击切换：跟随系统 → 日间 → 暗黑"
+  },
+  "about": {
+    "description": "macOS 全能开发者工具集",
+    "version": "版本",
+    "close": "关闭"
   }
 }

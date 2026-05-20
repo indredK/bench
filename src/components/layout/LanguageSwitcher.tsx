@@ -60,7 +60,7 @@ function LanguageSwitcher() {
     <Tooltip>
       <TooltipTrigger
         onClick={() => changeLanguage(nextMode)}
-        className="flex cursor-pointer items-center justify-center rounded-md border border-sidebar-border bg-sidebar-accent/40 p-1.5 text-sidebar-foreground transition hover:bg-sidebar-accent"
+        className="flex cursor-pointer items-center justify-center rounded-md border border-border bg-accent/40 p-1.5 text-foreground transition hover:bg-accent"
         aria-label={tooltipText}
       >
         {FLAG_ICON[currentMode]}
