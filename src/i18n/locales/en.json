@@ -79,10 +79,11 @@
       "ai": "AI",
       "browser": "Browsers",
       "communication": "Messaging",
-      "compiler": "Programming",
+      "ide": "IDEs & Editors",
       "launcher": "Launchers",
       "utility": "Utilities",
       "development": "Dev Tools",
+      "system": "System",
       "other": "Other"
     },
     "platform": "Platform Capabilities",

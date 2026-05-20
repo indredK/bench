@@ -79,10 +79,11 @@
       "ai": "AI 软件",
       "browser": "浏览器",
       "communication": "通讯软件",
-      "compiler": "编程工具",
-      "launcher": "龙虾类",
+      "ide": "IDE/编辑器",
+      "launcher": "启动器",
       "utility": "工具软件",
       "development": "开发工具",
+      "system": "系统软件",
       "other": "其他"
     },
     "platform": "平台能力",

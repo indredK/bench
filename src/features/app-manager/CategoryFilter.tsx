@@ -18,10 +18,11 @@ export function CategoryFilter({ apps, selected, onChange }: CategoryFilterProps
       ai: 0,
       browser: 0,
       communication: 0,
-      compiler: 0,
+      ide: 0,
       launcher: 0,
       utility: 0,
       development: 0,
+      system: 0,
       other: 0,
     };
     for (const app of apps) {
