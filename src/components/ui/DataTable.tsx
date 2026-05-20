@@ -257,6 +257,7 @@ function DataTable<TData>({
 
           const rowElement = (
             <StickyTableRow
+              key={tableRow.id}
               data-state={isSelected ? "selected" : undefined}
               aria-selected={isSelected || undefined}
               {...rowAttrs}
@@ -317,7 +318,7 @@ function DataTable<TData>({
             </StickyTableRow>
           );
 
-          return <div key={tableRow.id}>{rowElement}</div>;
+          return rowElement;
         })}
       </StickyTableBody>
     </StickyTable>
