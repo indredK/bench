@@ -1045,7 +1045,21 @@
     "withParenthesis": "{{prefix}} ({{detail}})"
   },
   "language": {
+    "system": "System",
     "en": "English",
-    "zh": "中文"
+    "zh": "中文",
+    "switch": "Switch Language",
+    "switchToEn": "Switch to English",
+    "switchToZh": "Switch to 中文",
+    "switchTo": "Click to switch to {{next}}",
+    "current": "Current:"
+  },
+  "theme": {
+    "system": "System",
+    "light": "Light",
+    "dark": "Dark",
+    "currentMode": "Current:",
+    "label": "Theme: {{mode}}",
+    "tooltip": "Click to cycle: System → Light → Dark"
   }
 }

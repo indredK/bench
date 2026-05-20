@@ -1018,7 +1018,21 @@
     "withParenthesis": "{{prefix}}（{{detail}}）"
   },
   "language": {
+    "system": "跟随系统",
     "en": "English",
-    "zh": "中文"
+    "zh": "中文",
+    "switch": "切换语言",
+    "switchToEn": "切换到 English",
+    "switchToZh": "切换到中文",
+    "switchTo": "点击切换到 {{next}}",
+    "current": "当前："
+  },
+  "theme": {
+    "system": "跟随系统",
+    "light": "日间",
+    "dark": "暗黑",
+    "currentMode": "当前：",
+    "label": "主题：{{mode}}",
+    "tooltip": "点击切换：跟随系统 → 日间 → 暗黑"
   }
 }
