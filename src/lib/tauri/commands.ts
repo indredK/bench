@@ -4,6 +4,8 @@ import type {
   CleanupResult,
   EnvTool,
   KillPidResult,
+  OperationRecord,
+  OperationResult,
   PortProcessDetail,
   ProjectInfo,
   ScanResult,
@@ -48,6 +50,22 @@ export function launchApp(appPath: string) {
 
 export function revealAppInFinder(appPath: string) {
   return invoke<void>("reveal_app_in_finder", { appPath });
+}
+
+export function checkManagedAppUpdates(appIds: string[]) {
+  return invoke<string[]>("check_managed_app_updates", { appIds });
+}
+
+export function upgradeApp(appId: string) {
+  return invoke<OperationResult>("upgrade_app", { appId });
+}
+
+export function uninstallApp(appId: string) {
+  return invoke<OperationResult>("uninstall_app", { appId });
+}
+
+export function getAppOperationHistory(appId?: string) {
+  return invoke<OperationRecord[]>("get_app_operation_history", { appId: appId || null });
 }
 
 export type { EnvTool };

@@ -77,11 +77,20 @@ export interface AppInfo {
   bundleId: string;
   installPath: string;
   source: string;
+  sourceType: string;
+  sourceId: string;
+  sourceConfidence: number;
+  canUpgrade: boolean;
+  canUninstall: boolean;
+  upgradeAvailable: boolean;
+  lastOperationResult: string | null;
   lastModified: number;
   isSystemApp: boolean;
   allowedActions: {
     launch: boolean;
     reveal: boolean;
+    upgrade: boolean;
+    uninstall: boolean;
   };
 }
 
@@ -91,6 +100,24 @@ export interface AppScanResult {
   userCount: number;
   systemCount: number;
   scanTimeMs: number;
+  brewAvailable: boolean;
+  managedCount: number;
+}
+
+export interface OperationResult {
+  success: boolean;
+  message: string;
+  exitCode: number | null;
+}
+
+export interface OperationRecord {
+  timestamp: number;
+  action: string;
+  appId: string;
+  appName: string;
+  success: boolean;
+  output: string;
+  exitCode: number | null;
 }
 
 export interface SystemInfoData {
