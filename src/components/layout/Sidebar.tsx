@@ -27,7 +27,7 @@ function Sidebar({ items, onRefresh, onSettings }: SidebarProps) {
   return (
     <div className="flex w-[220px] shrink-0 flex-col bg-background text-foreground select-none">
       <div className="border-b border-border px-5 pt-6 pb-5 text-center">
-        <h1 className="text-lg font-bold tracking-tight">DevTools</h1>
+        <h1 className="text-2xl font-bold tracking-tight">DevTools</h1>
         <p className="mt-1 text-xs text-muted-foreground">Cross-platform utilities</p>
       </div>
       <nav className="flex-1 overflow-y-auto py-3">
