@@ -161,6 +161,10 @@ export interface SystemInfoData {
   available_memory: number;
   used_memory: number;
   memory_usage_percent: number;
+  uptime_seconds: number;
+  arch: string;
+  model_name: string;
+  distribution: string;
   browser_name?: string;
   browser_version?: string;
   platform?: string;

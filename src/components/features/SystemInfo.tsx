@@ -1,10 +1,10 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent, CardAction } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useSystemInfoStore } from "@/stores/system-info";
-import { formatMemory } from "@/lib/utils";
+import { formatMemory, formatUptime } from "@/lib/utils";
 
 function SystemInfo({ active }: { active: boolean }) {
   const { t } = useTranslation();
@@ -62,13 +62,17 @@ function SystemInfo({ active }: { active: boolean }) {
     return null;
   }
 
+  const uptimeStr = formatUptime(systemInfo.uptime_seconds);
+
   return (
     <Card>
-      <CardHeader className="flex-row items-center justify-between">
+      <CardHeader>
         <CardTitle>{t("systemInfo.title")}</CardTitle>
-        <Button variant="outline" size="sm" onClick={loadSystemInfo}>
-          {t("systemInfo.refresh")}
-        </Button>
+        <CardAction>
+          <Button variant="outline" size="sm" onClick={loadSystemInfo}>
+            {t("systemInfo.refresh")}
+          </Button>
+        </CardAction>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
@@ -82,8 +86,14 @@ function SystemInfo({ active }: { active: boolean }) {
           {systemInfo.hostname !== "Unknown" && (
             <InfoItem label={t("systemInfo.hostname")} value={systemInfo.hostname} />
           )}
+          {systemInfo.model_name && (
+            <InfoItem label={t("systemInfo.modelName")} value={systemInfo.model_name} />
+          )}
           {systemInfo.cpu_brand !== "Unknown" && (
             <InfoItem label={t("systemInfo.cpuBrand")} value={systemInfo.cpu_brand} />
+          )}
+          {systemInfo.arch !== "Unknown" && systemInfo.arch && (
+            <InfoItem label={t("systemInfo.arch")} value={systemInfo.arch} />
           )}
           {systemInfo.cpu_cores > 0 && (
             <InfoItem label={t("systemInfo.cpuCores")} value={String(systemInfo.cpu_cores)} />
@@ -99,6 +109,12 @@ function SystemInfo({ active }: { active: boolean }) {
           )}
           {systemInfo.memory_usage_percent > 0 && (
             <InfoItem label={t("systemInfo.memoryUsage")} value={`${systemInfo.memory_usage_percent.toFixed(1)}%`} />
+          )}
+          {uptimeStr && (
+            <InfoItem label={t("systemInfo.uptime")} value={uptimeStr} />
+          )}
+          {systemInfo.distribution && (
+            <InfoItem label={t("systemInfo.distribution")} value={systemInfo.distribution} />
           )}
           {systemInfo.browser_name && (
             <InfoItem label={t("systemInfo.browserName")} value={systemInfo.browser_name} />

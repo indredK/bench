@@ -29,6 +29,10 @@ vi.mock("react-i18next", () => ({
         "systemInfo.availableMemory": "Available Memory",
         "systemInfo.usedMemory": "Used Memory",
         "systemInfo.memoryUsage": "Memory Usage",
+        "systemInfo.uptime": "Uptime",
+        "systemInfo.arch": "CPU Architecture",
+        "systemInfo.modelName": "Model Name",
+        "systemInfo.distribution": "Distribution",
         "systemInfo.browserName": "Browser",
         "systemInfo.browserVersion": "Browser Version",
         "systemInfo.platform": "Platform",
@@ -57,6 +61,9 @@ vi.mock("@/components/ui/card", () => ({
   CardContent: ({ children, className }: { children: React.ReactNode; className?: string }) => (
     <div data-testid="card-content" className={className}>{children}</div>
   ),
+  CardAction: ({ children, className }: { children: React.ReactNode; className?: string }) => (
+    <div data-testid="card-action" className={className}>{children}</div>
+  ),
 }));
 
 vi.mock("@/components/ui/button", () => ({
@@ -81,6 +88,13 @@ vi.mock("@/components/ui/alert", () => ({
 
 vi.mock("@/lib/utils", () => ({
   formatMemory: (bytes: number) => (bytes / (1024 * 1024 * 1024)).toFixed(2),
+  formatUptime: (seconds: number) => {
+    if (seconds <= 0) return "";
+    const d = Math.floor(seconds / 86400);
+    const h = Math.floor((seconds % 86400) / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    return [d && `${d}d`, h && `${h}h`, `${m}m`].filter(Boolean).join(" ");
+  },
 }));
 
 describe("SystemInfo", () => {
@@ -113,6 +127,10 @@ describe("SystemInfo", () => {
       available_memory: 8589934592,
       used_memory: 8589934592,
       memory_usage_percent: 50.0,
+      uptime_seconds: 86400,
+      arch: "aarch64",
+      model_name: "MacBookPro18,1",
+      distribution: "",
     });
 
     render(<SystemInfo active={true} />);

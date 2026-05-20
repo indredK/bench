@@ -22,6 +22,10 @@ pub struct SystemInfo {
     pub available_memory: u64,
     pub used_memory: u64,
     pub memory_usage_percent: f32,
+    pub uptime_seconds: u64,
+    pub arch: String,
+    pub model_name: String,
+    pub distribution: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -145,7 +149,38 @@ pub fn get_system_info() -> SystemInfo {
         available_memory,
         used_memory,
         memory_usage_percent,
+        uptime_seconds: System::uptime(),
+        arch: std::env::consts::ARCH.to_string(),
+        model_name: detect_model_name(),
+        distribution: detect_distribution(),
     }
+}
+
+#[cfg(target_os = "macos")]
+fn detect_model_name() -> String {
+    Command::new("sysctl")
+        .args(["-n", "hw.model"])
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .map(|s| s.trim().to_string())
+        .unwrap_or_default()
+}
+
+#[cfg(not(target_os = "macos"))]
+fn detect_model_name() -> String {
+    String::new()
+}
+
+#[cfg(target_os = "linux")]
+fn detect_distribution() -> String {
+    let distro = sysinfo::System::distribution();
+    format!("{} {}", distro.0, distro.1)
+}
+
+#[cfg(not(target_os = "linux"))]
+fn detect_distribution() -> String {
+    String::new()
 }
 
 fn kill_process(
