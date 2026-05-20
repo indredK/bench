@@ -12,6 +12,7 @@ import {
 } from "@/lib/tauri/commands";
 import type { AppInfo, AppScanResult, BatchOperationResult, OperationRecord } from "@/lib/tauri/types";
 import type { AppCategoryKey } from "@/features/app-manager/app-categories";
+import type { AppSeriesKey } from "@/features/app-manager/app-series";
 
 export type AppFilterKey = "all" | "user" | "system" | "launchable" | "managed" | "upgradable";
 
@@ -80,6 +81,7 @@ export interface AppManagerState {
   searchQuery: string;
   activeFilter: AppFilterKey;
   categoryFilter: AppCategoryKey | null;
+  seriesFilter: AppSeriesKey | null;
   sorting: SortingState;
   scanned: boolean;
   result: AppScanResult | null;
@@ -118,6 +120,7 @@ export interface AppManagerState {
   setSearchQuery: (query: string) => void;
   setActiveFilter: (filter: AppFilterKey) => void;
   setCategoryFilter: (category: AppCategoryKey | null) => void;
+  setSeriesFilter: (series: AppSeriesKey | null) => void;
   setSorting: (sorting: Updater<SortingState>) => void;
   scanApps: () => Promise<void>;
   refreshUpdates: () => Promise<void>;
@@ -158,6 +161,7 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
   searchQuery: "",
   activeFilter: savedPrefs.activeFilter,
   categoryFilter: null,
+  seriesFilter: null,
   sorting: savedPrefs.sorting,
   scanned: false,
   result: null,
@@ -188,6 +192,7 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
     savePreferences({ activeFilter: filter, sorting: get().sorting });
   },
   setCategoryFilter: (category) => set({ categoryFilter: category }),
+  setSeriesFilter: (series) => set({ seriesFilter: series }),
   setSorting: (sorting: Updater<SortingState>) => {
     set((state) => {
       const next = typeof sorting === "function" ? sorting(state.sorting) : sorting;
@@ -349,7 +354,7 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
 
   reset: () =>
     set({
-      apps: [], loading: false, error: "", searchQuery: "", activeFilter: "all", categoryFilter: null,
+      apps: [], loading: false, error: "", searchQuery: "", activeFilter: "all", categoryFilter: null, seriesFilter: null,
       sorting: [{ id: "name", desc: false }], scanned: false, result: null,
       operations: {}, history: [], confirmDialog: { open: false, appId: "", appName: "", action: "upgrade" },
       historyOpen: false, selectedAppIds: new Set(), batchMode: false, batchProgress: null, batchResults: null,

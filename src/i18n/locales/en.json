@@ -75,6 +75,9 @@
     "filters": "Filters",
     "filterBy": "Filter by type",
     "filterByCategory": "Filter by category",
+    "filterBySeries": "Filter by series",
+    "filterTabCategory": "By Category",
+    "filterTabSeries": "By Series",
     "category": {
       "ai": "AI",
       "browser": "Browsers",
@@ -85,6 +88,17 @@
       "development": "Dev Tools",
       "system": "System",
       "other": "Other"
+    },
+    "series": {
+      "google": "Google",
+      "microsoft": "Microsoft",
+      "apple": "Apple",
+      "tencent": "Tencent",
+      "bytedance": "ByteDance",
+      "alibaba": "Alibaba",
+      "baidu": "Baidu",
+      "openai": "OpenAI",
+      "other": "Other Vendors"
     },
     "platform": "Platform Capabilities",
     "noPmAvailable": "No package managers detected",

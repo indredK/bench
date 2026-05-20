@@ -75,6 +75,9 @@
     "filters": "筛选条件",
     "filterBy": "按类型筛选",
     "filterByCategory": "按分类筛选",
+    "filterBySeries": "按系列筛选",
+    "filterTabCategory": "按分类筛选",
+    "filterTabSeries": "按系列筛选",
     "category": {
       "ai": "AI 软件",
       "browser": "浏览器",
@@ -85,6 +88,17 @@
       "development": "开发工具",
       "system": "系统软件",
       "other": "其他"
+    },
+    "series": {
+      "google": "谷歌系",
+      "microsoft": "微软系",
+      "apple": "苹果系",
+      "tencent": "腾讯系",
+      "bytedance": "字节系",
+      "alibaba": "阿里系",
+      "baidu": "百度系",
+      "openai": "OpenAI",
+      "other": "其他厂商"
     },
     "platform": "平台能力",
     "noPmAvailable": "未检测到包管理器",
