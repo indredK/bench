@@ -30,11 +30,8 @@ import { classifyApp } from "@/features/app-manager/app-categories";
 import { classifySeries } from "@/features/app-manager/app-series";
 import { AppIcon } from "@/components/features/AppIcon";
 import type { AppInfo } from "@/lib/tauri/types";
-import {
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-} from "@/components/ui/context-menu";
+import { useContextMenuRegistration } from "@/features/context-menu/useContextMenuRegistration";
+import type { ContextMenuConfig, ContextMenuRegistration } from "@/features/context-menu/types";
 
 // --- Error Boundary for AppManager ---
 class AppManagerErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: string }> {
@@ -163,33 +160,56 @@ function AppManager({ active }: { active: boolean }) {
     openConfirmDialog(app.appId, app.name, "uninstall");
   }, [openConfirmDialog]);
 
-  const renderContextMenu = useCallback((app: AppInfo) => (
-    <ContextMenuContent>
-      <ContextMenuItem onClick={() => handleLaunch(app)} disabled={!app.allowedActions.launch}>
-        <Play size={14} />
-        {t("appManager.actionLaunch")}
-      </ContextMenuItem>
-      <ContextMenuItem onClick={() => handleReveal(app)} disabled={!app.allowedActions.reveal}>
-        <Folder size={14} />
-        {t("appManager.actionReveal")}
-      </ContextMenuItem>
-      {(app.allowedActions.upgrade || app.allowedActions.uninstall) && (
-        <ContextMenuSeparator />
-      )}
-      {app.allowedActions.upgrade && (
-        <ContextMenuItem onClick={() => handleUpgradeFromColumn(app)}>
-          <ArrowUpCircle size={14} />
-          {t("appManager.actionUpgrade")}
-        </ContextMenuItem>
-      )}
-      {app.allowedActions.uninstall && (
-        <ContextMenuItem onClick={() => handleUninstallFromColumn(app)} className="text-red-600 focus:text-red-600">
-          <Trash2 size={14} />
-          {t("appManager.actionUninstall")}
-        </ContextMenuItem>
-      )}
-    </ContextMenuContent>
-  ), [t, handleLaunch, handleReveal, handleUpgradeFromColumn, handleUninstallFromColumn]);
+  const getRowAttributes = useCallback((app: AppInfo) => ({
+    "data-context-type": "app-manager-row",
+    "data-row-id": app.appId,
+  }), []);
+
+  const appRegistration = useMemo(() => ({
+    id: "app-manager-row",
+    selector: '[data-context-type="app-manager-row"]',
+    resolveContext: (target: HTMLElement) => target.dataset.rowId || null,
+    buildMenu: (ctx: unknown): ContextMenuConfig | null => {
+      const appId = ctx as string;
+      if (!appId) return null;
+      const app = apps.find((a) => a.appId === appId);
+      if (!app) return null;
+      return {
+        id: "app-manager-menu",
+        items: [
+          {
+            id: "launch",
+            label: t("appManager.actionLaunch"),
+            icon: undefined,
+            disabled: !app.allowedActions.launch,
+            onClick: () => handleLaunch(app),
+          },
+          {
+            id: "reveal",
+            label: t("appManager.actionReveal"),
+            icon: undefined,
+            disabled: !app.allowedActions.reveal,
+            onClick: () => handleReveal(app),
+          },
+          ...(app.allowedActions.upgrade ? [{
+            id: "upgrade",
+            label: t("appManager.actionUpgrade"),
+            icon: undefined,
+            onClick: () => handleUpgradeFromColumn(app),
+          }] : []),
+          ...(app.allowedActions.uninstall ? [{
+            id: "uninstall",
+            label: t("appManager.actionUninstall"),
+            icon: undefined,
+            destructive: true,
+            onClick: () => handleUninstallFromColumn(app),
+          }] : []),
+        ],
+      };
+    },
+  } satisfies ContextMenuRegistration), [apps, t, handleLaunch, handleReveal, handleUpgradeFromColumn, handleUninstallFromColumn]);
+
+  useContextMenuRegistration(appRegistration);
 
   const handleConfirmAction = useCallback(async () => {
     const { appId, action } = confirmDialog;
@@ -446,7 +466,7 @@ function AppManager({ active }: { active: boolean }) {
                 batchMode={batchMode}
                 selectedIds={selectedAppIds}
                 onToggleSelect={toggleSelectApp}
-                renderContextMenu={renderContextMenu}
+                getRowAttributes={getRowAttributes}
                 actions={
                   <>
                     {scanned && (

@@ -9,6 +9,10 @@ import DevCleaner from "./components/features/DevCleaner";
 import EnvDetector from "./components/features/EnvDetector";
 import AppManager from "./components/features/AppManager";
 import HardwareComparePage from "./components/pages/HardwareComparePage";
+import { GlobalContextMenu } from "@/features/context-menu/GlobalContextMenu";
+import { useDefaultContextMenu } from "@/features/context-menu/useContextMenuRegistration";
+import type { ContextMenuConfig } from "@/features/context-menu/types";
+import { useMemo } from "react";
 
 export interface SidebarItem {
   path: string;
@@ -18,6 +22,18 @@ export interface SidebarItem {
 
 function App() {
   const { t } = useTranslation();
+
+  useDefaultContextMenu(useMemo((): (() => ContextMenuConfig) => () => ({
+    id: "default-menu",
+    items: [
+      {
+        id: "refresh",
+        label: t("appManager.refresh"),
+        icon: undefined,
+        onClick: () => window.location.reload(),
+      },
+    ],
+  }), [t]));
 
   const sidebarItems: SidebarItem[] = [
     { path: "/", name: t("sidebar.portManager"), icon: <Zap size={18} /> },
@@ -30,7 +46,7 @@ function App() {
 
   return (
     <Router hook={useHashLocation}>
-      <div className="flex h-screen overflow-hidden bg-background">
+      <GlobalContextMenu className="flex h-screen overflow-hidden bg-background">
         <Sidebar items={sidebarItems} />
         <div className="flex flex-1 flex-col overflow-hidden">
           <div className="flex-1 overflow-hidden p-4">
@@ -50,7 +66,7 @@ function App() {
             </Switch>
           </div>
         </div>
-      </div>
+      </GlobalContextMenu>
     </Router>
   );
 }

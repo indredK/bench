@@ -17,16 +17,13 @@ import {
   AlertTriangle,
   ChevronDown,
   ChevronUp,
-  Clipboard,
   FolderOpen,
   Loader2,
   StopCircle,
   Trash2,
 } from "lucide-react";
-import {
-  ContextMenuContent,
-  ContextMenuItem,
-} from "@/components/ui/context-menu";
+import { useContextMenuRegistration } from "@/features/context-menu/useContextMenuRegistration";
+import type { ContextMenuConfig, ContextMenuRegistration } from "@/features/context-menu/types";
 import type { ProjectInfo } from "@/lib/tauri/types";
 
 function formatScanTime(scanTimeMs: number) {
@@ -145,17 +142,35 @@ export default function DevCleaner() {
     }
   }, []);
 
-  const renderContextMenu = useCallback(
-    (project: ProjectInfo) => (
-      <ContextMenuContent>
-        <ContextMenuItem onClick={() => handleCopyPath(project.path)}>
-          <Clipboard size={14} />
-          {t("devCleaner.copyPath")}
-        </ContextMenuItem>
-      </ContextMenuContent>
-    ),
-    [t, handleCopyPath]
-  );
+  const getRowAttributes = useCallback((project: ProjectInfo) => ({
+    "data-context-type": "dev-cleaner-row",
+    "data-row-id": project.path,
+  }), []);
+
+  const devRegistration = useMemo(() => ({
+    id: "dev-cleaner-row",
+    selector: '[data-context-type="dev-cleaner-row"]',
+    resolveContext: (target: HTMLElement) => target.dataset.rowId || null,
+    buildMenu: (ctx: unknown): ContextMenuConfig | null => {
+      const path = ctx as string;
+      if (!path) return null;
+      const project = projectsByPath.get(path);
+      if (!project) return null;
+      return {
+        id: "dev-cleaner-menu",
+        items: [
+          {
+            id: "copy-path",
+            label: t("devCleaner.copyPath"),
+            icon: undefined,
+            onClick: () => handleCopyPath(project.path),
+          },
+        ],
+      };
+    },
+  } satisfies ContextMenuRegistration), [projectsByPath, t, handleCopyPath]);
+
+  useContextMenuRegistration(devRegistration);
 
   return (
     <div className="h-full flex flex-col gap-4">
@@ -358,7 +373,7 @@ export default function DevCleaner() {
                     layout="fixed"
                     className="min-w-[760px]"
                     containerClassName="rounded-xl border shadow-xs flex-1 min-h-0"
-                    renderContextMenu={renderContextMenu}
+                    getRowAttributes={getRowAttributes}
                   />
                 </div>
               ) : (

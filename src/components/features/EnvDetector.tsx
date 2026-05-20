@@ -17,11 +17,8 @@ import { DataTable } from "@/components/ui/DataTable";
 import { createEnvDetectorColumns } from "@/features/env-detector/columns";
 import { useEnvDetectorStore } from "@/stores/env-detector";
 import type { EnvTool } from "@/lib/tauri/types";
-import { Clipboard, Hash } from "lucide-react";
-import {
-  ContextMenuContent,
-  ContextMenuItem,
-} from "@/components/ui/context-menu";
+import { useContextMenuRegistration } from "@/features/context-menu/useContextMenuRegistration";
+import type { ContextMenuConfig, ContextMenuRegistration } from "@/features/context-menu/types";
 
 type EnvFilterKey = "category" | "source" | "kind" | "status";
 
@@ -104,23 +101,41 @@ function EnvDetector({ active }: { active: boolean }) {
     }
   }, []);
 
-  const renderContextMenu = useCallback(
-    (tool: EnvTool) => (
-      <ContextMenuContent>
-        <ContextMenuItem onClick={() => handleCopyToClipboard(tool.path || tool.name)}>
-          <Clipboard size={14} />
-          {t("envDetector.copyPath")}
-        </ContextMenuItem>
-        {tool.version && (
-          <ContextMenuItem onClick={() => handleCopyToClipboard(tool.version)}>
-            <Hash size={14} />
-            {t("envDetector.copyVersion")}
-          </ContextMenuItem>
-        )}
-      </ContextMenuContent>
-    ),
-    [t, handleCopyToClipboard]
-  );
+  const getRowAttributes = useCallback((tool: EnvTool) => ({
+    "data-context-type": "env-detector-row",
+    "data-row-id": tool.path || tool.name,
+  }), []);
+
+  const envRegistration = useMemo(() => ({
+    id: "env-detector-row",
+    selector: '[data-context-type="env-detector-row"]',
+    resolveContext: (target: HTMLElement) => target.dataset.rowId || null,
+    buildMenu: (ctx: unknown): ContextMenuConfig | null => {
+      const key = ctx as string;
+      if (!key) return null;
+      const tool = tools.find((t) => (t.path || t.name) === key);
+      if (!tool) return null;
+      const items: ContextMenuConfig["items"] = [
+        {
+          id: "copy-path",
+          label: t("envDetector.copyPath"),
+          icon: undefined,
+          onClick: () => handleCopyToClipboard(tool.path || tool.name),
+        },
+      ];
+      if (tool.version) {
+        items.push({
+          id: "copy-version",
+          label: t("envDetector.copyVersion"),
+          icon: undefined,
+          onClick: () => handleCopyToClipboard(tool.version),
+        });
+      }
+      return { id: "env-detector-menu", items };
+    },
+  } satisfies ContextMenuRegistration), [tools, t, handleCopyToClipboard]);
+
+  useContextMenuRegistration(envRegistration);
 
   const filterRows = useMemo<EnvFilterRow[]>(
     () =>
@@ -284,7 +299,7 @@ function EnvDetector({ active }: { active: boolean }) {
                 }}
                 layout="fixed"
                 containerClassName="h-full min-h-0 rounded-lg border"
-                renderContextMenu={renderContextMenu}
+                getRowAttributes={getRowAttributes}
               />
                 {missingTools.length > 0 && (
                   <div className="shrink-0 rounded-lg border bg-muted/20 p-3">

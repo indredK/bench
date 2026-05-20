@@ -30,8 +30,8 @@ interface ContentViewProps<T> {
   showViewToggle?: boolean;
   /** Optional actions slot rendered to the left of the view toggle */
   actions?: ReactNode;
-  /** Optional context menu content renderer (receives the item, returns JSX for ContextMenuContent) */
-  renderContextMenu?: (item: T) => ReactNode;
+  /** Returns data attributes to attach to each row/card for context menu delegation */
+  getRowAttributes?: (item: T) => Record<string, string>;
 }
 
 export function ContentView<T>({
@@ -56,7 +56,7 @@ export function ContentView<T>({
   onToggleSelect,
   showViewToggle = true,
   actions,
-  renderContextMenu,
+  getRowAttributes,
 }: ContentViewProps<T>) {
   // Initial load with no data — show full-screen loader
   if (loading && data.length === 0) {
@@ -82,17 +82,17 @@ export function ContentView<T>({
     <VirtualGridView
       data={data}
       getRowId={getRowId}
-      renderGridCard={renderGridCard}
-      onItemClick={onItemClick}
-      estimatedCardHeight={estimatedCardHeight}
-      gridColumns={gridColumns}
-      selectedId={selectedId}
-      batchMode={batchMode}
-      selectedIds={selectedIds}
-      onToggleSelect={onToggleSelect}
-      renderContextMenu={renderContextMenu}
-    />
-  ) : (
+        renderGridCard={renderGridCard}
+        onItemClick={onItemClick}
+        estimatedCardHeight={estimatedCardHeight}
+        gridColumns={gridColumns}
+        selectedId={selectedId}
+        batchMode={batchMode}
+        selectedIds={selectedIds}
+        onToggleSelect={onToggleSelect}
+        getRowAttributes={getRowAttributes}
+      />
+    ) : (
     <VirtualDataTable
       data={data}
       columns={columns}
@@ -105,7 +105,7 @@ export function ContentView<T>({
       batchMode={batchMode}
       selectedIds={selectedIds}
       onToggleSelect={onToggleSelect}
-      renderContextMenu={renderContextMenu}
+      getRowAttributes={getRowAttributes}
     />
   );
 
