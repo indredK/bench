@@ -111,16 +111,21 @@ export function VirtualDataTable<T>({
         style={{ gridTemplateColumns: gridCols }}
       >
         {batchMode && (
-          <div className="px-2 py-2.5 flex items-center justify-center" />
+          <div className="px-2 py-2.5 flex items-center justify-center sticky left-0 z-20 bg-card" />
         )}
-        {headerGroup.headers.map((header) => {
+        {headerGroup.headers.map((header, idx) => {
           const canSort = header.column.getCanSort();
           const isSorted = header.column.getIsSorted();
+          const isFirstDataCol = idx === 0;
+          const stickyClass = isFirstDataCol
+            ? (batchMode ? "sticky left-[40px] z-20 bg-card" : "sticky left-0 z-20 bg-card")
+            : "";
           return (
             <div
               key={header.id}
               className={cn(
                 "px-3 py-2.5 flex items-center gap-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider select-none",
+                stickyClass,
                 canSort && "cursor-pointer hover:text-foreground transition-colors"
               )}
               onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
@@ -163,7 +168,7 @@ export function VirtualDataTable<T>({
             <div
               key={row.id}
               className={cn(
-                "grid absolute top-0 left-0 w-full border-b cursor-pointer hover:bg-muted/50 transition-colors",
+                "grid absolute top-0 left-0 w-full border-b cursor-pointer hover:bg-muted/50 transition-colors group",
                 isDetailSelected && "bg-primary/10 border-l-2 border-l-primary",
                 isBatchSelected && "bg-primary/10"
               )}
@@ -176,7 +181,11 @@ export function VirtualDataTable<T>({
             >
               {/* Dedicated checkbox column in batch mode */}
               {batchMode && (
-                <div className="flex items-center justify-center">
+                <div className={cn(
+                  "flex items-center justify-center sticky left-0 z-10 bg-card",
+                  "group-hover:bg-muted/50",
+                  isBatchSelected && "bg-primary/10 group-hover:bg-primary/10"
+                )}>
                   <div className={cn(
                     "size-4 rounded border-2 flex items-center justify-center transition-colors",
                     isBatchSelected
@@ -187,14 +196,29 @@ export function VirtualDataTable<T>({
                   </div>
                 </div>
               )}
-              {row.getVisibleCells().map((cell) => (
-                <div
-                  key={cell.id}
-                  className="px-3 py-2 text-sm flex items-center truncate"
-                >
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </div>
-              ))}
+              {row.getVisibleCells().map((cell, idx) => {
+                const isFirstDataCol = idx === 0;
+                const stickyCellClass = isFirstDataCol
+                  ? cn(
+                      batchMode ? "sticky left-[40px] z-10 bg-card" : "sticky left-0 z-10 bg-card",
+                      "group-hover:bg-muted/50",
+                      isDetailSelected && "bg-primary/10 group-hover:bg-primary/10",
+                      isBatchSelected && "bg-primary/10 group-hover:bg-primary/10"
+                    )
+                  : "";
+
+                return (
+                  <div
+                    key={cell.id}
+                    className={cn(
+                      "px-3 py-2 text-sm flex items-center min-w-0 overflow-hidden",
+                      stickyCellClass
+                    )}
+                  >
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </div>
+                );
+              })}
             </div>
           );
         })}

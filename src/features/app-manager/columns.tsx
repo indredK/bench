@@ -129,7 +129,7 @@ export function createAppManagerColumns(
       header: t("appManager.column.version"),
       accessorKey: "version",
       enableSorting: true,
-      meta: { width: "90px" },
+      meta: { width: "70px" },
       cell: ({ row }) => (
         <span className="text-sm">{row.original.version}</span>
       ),
@@ -139,7 +139,7 @@ export function createAppManagerColumns(
       header: t("appManager.column.source"),
       accessorKey: "sourceType",
       enableSorting: true,
-      meta: { width: "120px" },
+      meta: { width: "90px" },
       cell: ({ row }) => {
         const app = row.original;
         return (
@@ -188,7 +188,7 @@ export function createAppManagerColumns(
       enableSorting: true,
       sortDescFirst: true,
       meta: {
-        width: "120px",
+        width: "100px",
         align: "right",
       },
       cell: ({ row }) => {

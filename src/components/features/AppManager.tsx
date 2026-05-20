@@ -200,7 +200,7 @@ function AppManager({ active }: { active: boolean }) {
   }, [t, getOpStatus, handleLaunch, handleReveal, handleUpgradeFromColumn, handleUninstallFromColumn]);
 
   const renderGridCard = useCallback((app: AppInfo) => (
-    <div className="rounded-xl border bg-card p-4 hover:ring-2 hover:ring-primary/30 transition-all h-full flex flex-col gap-2">
+    <div className="rounded-xl border bg-card p-3 hover:ring-2 hover:ring-primary/30 transition-all h-full flex flex-col gap-2">
       <div className="flex items-center gap-2">
         <AppIcon iconBase64={app.iconBase64} size={20} className="shrink-0 rounded-sm" />
         <span className="font-medium text-sm truncate">{app.name}</span>
@@ -399,6 +399,7 @@ function AppManager({ active }: { active: boolean }) {
                 columns={tableColumns}
                 getRowId={(app) => app.appId}
                 renderGridCard={renderGridCard}
+                estimatedCardHeight={120}
                 onItemClick={(app) => setSelectedItem(app)}
                 sorting={sorting}
                 onSortingChange={setSorting}
