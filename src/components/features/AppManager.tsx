@@ -109,6 +109,13 @@ function AppManager({ active }: { active: boolean }) {
   useEffect(() => { if (scanned && apps.length > 0) refreshUpdates(); }, [scanned]);
   useEffect(() => { if (historyOpen) loadHistory(); }, [historyOpen]);
 
+  useEffect(() => {
+    if (!historyOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => { if (e.key === "Escape") setHistoryOpen(false); };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [historyOpen, setHistoryOpen]);
+
   const getOpStatus = useCallback((appId: string): OperationStatus => {
     const state = useAppManagerStore.getState();
     return state.operations[appId]?.status ?? "idle";
@@ -448,13 +455,15 @@ function AppManager({ active }: { active: boolean }) {
           />
         )}
 
-        {/* --- History Sidebar --- */}
+        {/* --- History Drawer --- */}
         {historyOpen && (
-          <div className="fixed right-0 top-0 bottom-0 w-[300px] border-l bg-card z-50 flex flex-col shadow-lg">
-            <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
-              <span className="text-sm font-semibold">{t("appManager.operationHistory")}</span>
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setHistoryOpen(false)}><X size={14} /></Button>
-            </div>
+          <>
+            <div className="fixed inset-0 bg-black/30 z-40 transition-opacity" onClick={() => setHistoryOpen(false)} />
+            <div className="fixed right-0 top-0 bottom-0 w-[300px] border-l bg-card z-50 flex flex-col shadow-lg animate-slide-in-right">
+              <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
+                <span className="text-sm font-semibold">{t("appManager.operationHistory")}</span>
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setHistoryOpen(false)}><X size={14} /></Button>
+              </div>
             <div className="flex-1 overflow-y-auto p-3">
               {history.length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-8">{t("appManager.historyEmpty")}</p>
@@ -479,7 +488,8 @@ function AppManager({ active }: { active: boolean }) {
                 </div>
               )}
             </div>
-          </div>
+            </div>
+          </>
         )}
 
         {/* Single Confirm Dialog */}
