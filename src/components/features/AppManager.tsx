@@ -25,6 +25,7 @@ import { ContentView } from "@/components/content/ContentView";
 import { useAppManagerStore, APP_FILTER_OPTIONS, type OperationStatus } from "@/stores/app-manager";
 import { launchApp, revealAppInFinder } from "@/lib/tauri/commands";
 import { createAppManagerColumns } from "@/features/app-manager/columns";
+import { AppIcon } from "@/components/features/AppIcon";
 import type { AppInfo } from "@/lib/tauri/types";
 
 // --- Error Boundary for AppManager ---
@@ -196,7 +197,7 @@ function AppManager({ active }: { active: boolean }) {
   const renderGridCard = useCallback((app: AppInfo) => (
     <div className="rounded-xl border bg-card p-4 hover:ring-2 hover:ring-primary/30 transition-all h-full flex flex-col gap-2">
       <div className="flex items-center gap-2">
-        <AppWindow size={16} className="text-muted-foreground shrink-0" />
+        <AppIcon iconBase64={app.iconBase64} size={20} className="shrink-0 rounded-sm" />
         <span className="font-medium text-sm truncate">{app.name}</span>
         {app.isSystemApp && <Badge variant="secondary" className="text-[10px] px-1 py-0 shrink-0">{t("appManager.systemLabel")}</Badge>}
         {app.upgradeAvailable && <Badge variant="destructive" className="text-[10px] px-1 py-0 shrink-0">{t("appManager.updateAvailable")}</Badge>}
@@ -209,9 +210,12 @@ function AppManager({ active }: { active: boolean }) {
 
   const renderDetail = useCallback((app: AppInfo) => (
     <div className="space-y-4">
-      <div>
-        <h3 className="font-semibold text-sm">{app.name}</h3>
-        <p className="text-xs text-muted-foreground mt-0.5">{app.bundleId}</p>
+      <div className="flex items-center gap-3">
+        <AppIcon iconBase64={app.iconBase64} size={40} className="shrink-0 rounded-md" />
+        <div>
+          <h3 className="font-semibold text-sm">{app.name}</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">{app.bundleId}</p>
+        </div>
       </div>
       <DetailSection label={t("appManager.info")}>
         <MetadataRow label={t("appManager.detailVersion")} value={app.version} />

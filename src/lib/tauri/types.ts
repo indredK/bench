@@ -86,6 +86,7 @@ export interface AppInfo {
   lastOperationResult: string | null;
   lastModified: number;
   isSystemApp: boolean;
+  iconBase64: string | null;
   allowedActions: {
     launch: boolean;
     reveal: boolean;

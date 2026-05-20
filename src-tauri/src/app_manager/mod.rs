@@ -151,6 +151,7 @@ pub struct AppInfo {
     pub last_modified: u64,
     pub is_system_app: bool,
     pub allowed_actions: AllowedActions,
+    pub icon_base64: Option<String>,
 }
 
 /// Capabilities available on the current platform.
@@ -675,6 +676,7 @@ mod tests {
                 upgrade: false,
                 uninstall: false,
             },
+            icon_base64: None,
         };
         let dupe = app.clone();
         let result = deduplicate(vec![app, dupe]);

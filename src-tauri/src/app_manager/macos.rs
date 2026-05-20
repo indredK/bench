@@ -3,8 +3,12 @@ use crate::app_manager::{
     AppInfo, AllowedActions, OperationRecord, OperationResult, ScanResult,
     PlatformCapabilities, AppManagerState, SourceType,
 };
+use base64::Engine;
+use std::collections::hash_map::DefaultHasher;
 use std::collections::HashSet;
 use std::fs;
+use std::hash::{Hash, Hasher};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -191,10 +195,27 @@ pub fn scan_installed_apps(state: tauri::State<'_, AppManagerState>) -> ScanResu
             source_type, source_id, source_confidence,
             can_upgrade, can_uninstall, upgrade_available,
             last_operation_result: None, last_modified, is_system_app: is_system,
+            icon_base64: None,
         });
     }
 
     apps = deduplicate(apps);
+
+    let num_threads = std::cmp::min(apps.len(), 8);
+    let chunk_size = if num_threads > 0 { (apps.len() + num_threads - 1) / num_threads } else { 0 };
+
+    if chunk_size > 0 {
+        std::thread::scope(|s| {
+            for chunk in apps.chunks_mut(chunk_size) {
+                s.spawn(move || {
+                    for app in chunk.iter_mut() {
+                        app.icon_base64 = get_app_icon_base64(&app.install_path).ok();
+                    }
+                });
+            }
+        });
+    }
+
     apps.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
 
     let total_count = apps.len();
@@ -325,4 +346,198 @@ pub fn uninstall_app(
         error_code: rec.error_code,
         permission_issue: rec.permission_issue,
     })
+}
+
+// ============================================================================
+// App Icon Extraction (macOS)
+// ============================================================================
+
+fn find_icns_in_resources(resources: &Path) -> Option<PathBuf> {
+    if !resources.exists() {
+        return None;
+    }
+    let entries = std::fs::read_dir(resources).ok()?;
+    let mut icns_files: Vec<PathBuf> = entries
+        .filter_map(|e| e.ok())
+        .map(|e| e.path())
+        .filter(|p| p.extension().map_or(false, |ext| ext == "icns"))
+        .collect();
+    icns_files.sort_by_key(|p| {
+        std::fs::metadata(p).map(|m| m.len()).unwrap_or(0)
+    });
+    icns_files.pop()
+}
+
+fn extract_plist_icon_file(plist_content: &str) -> Option<String> {
+    let key = "<key>CFBundleIconFile</key>";
+    let start = plist_content.find(key)?;
+    let after_key = &plist_content[start + key.len()..];
+    let tag_start = after_key.find("<string>")?;
+    let tag_end = after_key[tag_start..].find("</string>")?;
+    Some(after_key[tag_start + 8..tag_start + tag_end].trim().to_string())
+}
+
+fn resolve_finder_alias(path: &Path) -> Option<PathBuf> {
+    if !path.is_file() {
+        return None;
+    }
+    let output = Command::new("osascript")
+        .args([
+            "-e",
+            &format!(
+                "tell application \"Finder\" to get POSIX path of (original item of (POSIX file \"{}\" as alias))",
+                path.display()
+            ),
+        ])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let resolved = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if resolved.is_empty() {
+        return None;
+    }
+    let resolved_path = PathBuf::from(resolved);
+    if resolved_path.exists() {
+        Some(resolved_path)
+    } else {
+        None
+    }
+}
+
+pub fn get_app_icon_base64(install_path: &str) -> Result<String, String> {
+    let app_path = Path::new(install_path);
+    if !app_path.exists() {
+        return Err("Application not found".into());
+    }
+
+    let app_path = if app_path.is_file() {
+        resolve_finder_alias(app_path)
+            .ok_or("Cannot resolve Finder alias to real app bundle")?
+    } else {
+        app_path.to_path_buf()
+    };
+
+    let contents = app_path.join("Contents");
+
+    if contents.exists() {
+        let resources = contents.join("Resources");
+        let icon_path = resolve_macos_icon(&contents, &resources)?;
+        return icns_to_base64_png(install_path, &icon_path);
+    }
+
+    let inner_app = resolve_ios_wrapped_bundle(&app_path).unwrap_or(app_path);
+    let png = find_ios_app_icon_png(&inner_app)?;
+    png_to_base64(&png)
+}
+
+fn resolve_macos_icon(contents: &Path, resources: &Path) -> Result<PathBuf, String> {
+    if let Ok(plist_content) = std::fs::read_to_string(contents.join("Info.plist")) {
+        let icon_name = extract_plist_icon_file(&plist_content).unwrap_or_default();
+        if !icon_name.is_empty() {
+            let p = resources.join(&icon_name);
+            if p.exists() {
+                return Ok(p);
+            }
+            let with_ext = resources.join(format!("{}.icns", icon_name));
+            if with_ext.exists() {
+                return Ok(with_ext);
+            }
+        }
+    }
+    find_icns_in_resources(resources).ok_or("No icon file found in app bundle".into())
+}
+
+fn resolve_ios_wrapped_bundle(app_path: &Path) -> Option<PathBuf> {
+    let wrapper = app_path.join("Wrapper");
+    if wrapper.is_dir() {
+        if let Ok(entries) = std::fs::read_dir(&wrapper) {
+            for entry in entries.flatten() {
+                let p = entry.path();
+                if p.extension().map_or(false, |ext| ext == "app") {
+                    return Some(p);
+                }
+            }
+        }
+    }
+    let wrapped = app_path.join("WrappedBundle");
+    if wrapped.is_symlink() {
+        if let Ok(target) = std::fs::read_link(&wrapped) {
+            let resolved = if target.is_relative() {
+                app_path.join(target)
+            } else {
+                target
+            };
+            return resolve_ios_wrapped_bundle(&resolved)
+                .or_else(|| if resolved.exists() { Some(resolved) } else { None });
+        }
+    }
+    None
+}
+
+fn find_ios_app_icon_png(app_path: &Path) -> Result<PathBuf, String> {
+    if !app_path.is_dir() {
+        return Err("Not a valid iOS app bundle".into());
+    }
+    let read_dir = std::fs::read_dir(app_path).map_err(|e| format!("Cannot read app bundle: {}", e))?;
+    let mut icons: Vec<PathBuf> = read_dir
+        .filter_map(|e| e.ok())
+        .map(|e| e.path())
+        .filter(|p| {
+            p.is_file()
+                && p.file_name()
+                    .and_then(|n| n.to_str())
+                    .map_or(false, |n| {
+                        n.starts_with("AppIcon") && n.ends_with(".png")
+                    })
+        })
+        .collect();
+    if icons.is_empty() {
+        return Err("No AppIcon PNG found in iOS app bundle".into());
+    }
+    icons.sort_by_key(|p| {
+        std::fs::metadata(p).map(|m| m.len()).unwrap_or(0)
+    });
+    icons.pop().ok_or("No AppIcon found".into())
+}
+
+fn icns_to_base64_png(install_path: &str, icon_path: &Path) -> Result<String, String> {
+    let temp_dir = std::env::temp_dir();
+    let mut hasher = DefaultHasher::new();
+    install_path.hash(&mut hasher);
+    let temp_png = temp_dir.join(format!("bench_app_icon_{:x}.png", hasher.finish()));
+
+    let output = Command::new("sips")
+        .args([
+            "-s", "format", "png",
+            icon_path.to_str().ok_or("Invalid icon path")?,
+            "--out", temp_png.to_str().ok_or("Invalid temp path")?,
+        ])
+        .output()
+        .map_err(|e| format!("Failed to run sips: {}", e))?;
+
+    if !output.status.success() {
+        let _ = std::fs::remove_file(&temp_png);
+        return Err("Failed to convert icon to PNG".into());
+    }
+
+    let mut buf = Vec::new();
+    std::fs::File::open(&temp_png)
+        .map_err(|e| format!("Failed to open converted PNG: {}", e))?
+        .read_to_end(&mut buf)
+        .map_err(|e| format!("Failed to read converted PNG: {}", e))?;
+
+    let _ = std::fs::remove_file(&temp_png);
+
+    Ok(base64::engine::general_purpose::STANDARD.encode(&buf))
+}
+
+fn png_to_base64(png_path: &Path) -> Result<String, String> {
+    let mut buf = Vec::new();
+    std::fs::File::open(png_path)
+        .map_err(|e| format!("Failed to open icon PNG: {}", e))?
+        .read_to_end(&mut buf)
+        .map_err(|e| format!("Failed to read icon PNG: {}", e))?;
+    Ok(base64::engine::general_purpose::STANDARD.encode(&buf))
 }

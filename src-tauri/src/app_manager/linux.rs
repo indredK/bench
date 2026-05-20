@@ -245,6 +245,7 @@ pub fn scan_installed_apps() -> ScanResult {
             source_type, source_id, source_confidence,
             can_upgrade, can_uninstall, upgrade_available,
             last_operation_result: None, last_modified, is_system_app: false,
+            icon_base64: None,
         });
     }
 
