@@ -1,8 +1,8 @@
 import {
   Cpu,
-  MemoryStick,
-  HardDrive,
   CircuitBoard,
+  HardDrive,
+  MemoryStick,
   Monitor,
   Plug,
   Box,
@@ -12,6 +12,7 @@ import {
   Camera,
   Telescope,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import HardwareCompare from "@/components/hardware/HardwareCompare";
 import CompareTabs, { type CompareTabItem } from "@/features/compare/CompareTabs";
 import { cpuModule } from "@/data/cpu";
@@ -46,8 +47,20 @@ const tabs: CompareTabItem[] = [
   { id: "telescope", i18nPrefix: "telescopeCompare", icon: <Telescope size={16} />, content: <HardwareCompare module={telescopeModule} /> },
 ];
 
+const GROUP_LABEL_KEYS = {
+  cpu: "hardwareCompare.groupPcHardware",
+  phone: "hardwareCompare.groupDigitalProducts",
+} as const;
+
 function HardwareComparePage() {
-  return <CompareTabs tabs={tabs} defaultTabId="cpu" />;
+  const { t } = useTranslation();
+
+  const groupLabels: Record<string, string> = {};
+  for (const [key, i18nKey] of Object.entries(GROUP_LABEL_KEYS)) {
+    groupLabels[key] = t(i18nKey);
+  }
+
+  return <CompareTabs tabs={tabs} defaultTabId="cpu" groupLabels={groupLabels} />;
 }
 
 export default HardwareComparePage;

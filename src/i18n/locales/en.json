@@ -940,6 +940,8 @@
     }
   },
   "hardwareCompare": {
+    "groupPcHardware": "PC Hardware",
+    "groupDigitalProducts": "Digital Products",
     "filters": "Filters",
     "clearFilters": "Clear",
     "filteredCount": "{{count}} found",

@@ -913,6 +913,8 @@
     }
   },
   "hardwareCompare": {
+    "groupPcHardware": "电脑硬件",
+    "groupDigitalProducts": "数码产品",
     "filters": "筛选",
     "clearFilters": "清除",
     "filteredCount": "找到 {{count}} 个",
