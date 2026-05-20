@@ -28,6 +28,8 @@ interface ContentViewProps<T> {
   onToggleSelect?: (id: string) => void;
   /** When true, shows a ViewToggle at the top-right of the content area */
   showViewToggle?: boolean;
+  /** Optional actions slot rendered to the left of the view toggle */
+  actions?: ReactNode;
 }
 
 export function ContentView<T>({
@@ -51,6 +53,7 @@ export function ContentView<T>({
   selectedIds,
   onToggleSelect,
   showViewToggle = true,
+  actions,
 }: ContentViewProps<T>) {
   // Initial load with no data — show full-screen loader
   if (loading && data.length === 0) {
@@ -103,7 +106,8 @@ export function ContentView<T>({
 
   const content = showViewToggle ? (
     <div className="h-full flex flex-col gap-1.5">
-      <div className="flex items-center justify-end shrink-0">
+      <div className="flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-1">{actions}</div>
         <ViewToggle viewMode={viewMode} onChange={onViewModeChange} />
       </div>
       <div className="flex-1 min-h-0">{body}</div>

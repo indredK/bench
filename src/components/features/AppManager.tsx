@@ -284,25 +284,11 @@ function AppManager({ active }: { active: boolean }) {
               tooltip={loading ? t("appManager.scanning") : t("appManager.refresh")}
               onClick={scanApps}
             />
-            {scanned && (
-              <ToolbarButton
-                icon={<CheckSquare size={15} />}
-                tooltip={batchMode ? t("appManager.batchModeOff") : t("appManager.batchMode")}
-                onClick={handleToggleBatchMode}
-                active={batchMode}
-              />
-            )}
             <ToolbarButton
               icon={<History size={15} />}
               tooltip={t("appManager.operationHistory")}
               onClick={() => setHistoryOpen(!historyOpen)}
               active={historyOpen}
-            />
-            <ToolbarButton
-              icon={<Filter size={15} />}
-              tooltip={t("appManager.filters")}
-              onClick={() => setFilterPanelOpen(!filterPanelOpen)}
-              active={filterPanelOpen || activeFilter !== "all"}
             />
           </CardContent>
         </Card>
@@ -420,6 +406,24 @@ function AppManager({ active }: { active: boolean }) {
                 batchMode={batchMode}
                 selectedIds={selectedAppIds}
                 onToggleSelect={toggleSelectApp}
+                actions={
+                  <>
+                    {scanned && (
+                      <ToolbarButton
+                        icon={<CheckSquare size={15} />}
+                        tooltip={batchMode ? t("appManager.batchModeOff") : t("appManager.batchMode")}
+                        onClick={handleToggleBatchMode}
+                        active={batchMode}
+                      />
+                    )}
+                    <ToolbarButton
+                      icon={<Filter size={15} />}
+                      tooltip={t("appManager.filters")}
+                      onClick={() => setFilterPanelOpen(!filterPanelOpen)}
+                      active={filterPanelOpen || activeFilter !== "all"}
+                    />
+                  </>
+                }
                 emptyIcon={
                   scanned
                     ? <Search size={32} className="opacity-30" />
