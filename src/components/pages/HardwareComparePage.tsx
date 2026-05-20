@@ -8,6 +8,9 @@ import {
   Box,
   Wind,
   Network,
+  Smartphone,
+  Camera,
+  Telescope,
 } from "lucide-react";
 import HardwareCompare from "@/components/hardware/HardwareCompare";
 import CompareTabs, { type CompareTabItem } from "@/features/compare/CompareTabs";
@@ -21,6 +24,10 @@ import { psuModule } from "@/data/psu";
 import { caseModule } from "@/data/case";
 import { coolerModule } from "@/data/cooler";
 import { switchModule } from "@/data/switch";
+import { phoneModule } from "@/data/phone";
+import { chipsetModule } from "@/data/phone-chipset";
+import { cameraModule } from "@/data/camera";
+import { telescopeModule } from "@/data/telescope";
 
 const tabs: CompareTabItem[] = [
   { id: "cpu", i18nPrefix: "cpuCompare", icon: <Cpu size={16} />, content: <HardwareCompare module={cpuModule} /> },
@@ -33,6 +40,10 @@ const tabs: CompareTabItem[] = [
   { id: "case", i18nPrefix: "caseCompare", icon: <Box size={16} />, content: <HardwareCompare module={caseModule} /> },
   { id: "cooler", i18nPrefix: "coolerCompare", icon: <Wind size={16} />, content: <HardwareCompare module={coolerModule} /> },
   { id: "switch", i18nPrefix: "switchCompare", icon: <Network size={16} />, content: <HardwareCompare module={switchModule} /> },
+  { id: "phone", i18nPrefix: "phoneCompare", icon: <Smartphone size={16} />, content: <HardwareCompare module={phoneModule} /> },
+  { id: "chipset", i18nPrefix: "phoneChipsetCompare", icon: <Cpu size={16} />, content: <HardwareCompare module={chipsetModule} /> },
+  { id: "camera", i18nPrefix: "cameraCompare", icon: <Camera size={16} />, content: <HardwareCompare module={cameraModule} /> },
+  { id: "telescope", i18nPrefix: "telescopeCompare", icon: <Telescope size={16} />, content: <HardwareCompare module={telescopeModule} /> },
 ];
 
 function HardwareComparePage() {

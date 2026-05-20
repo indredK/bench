@@ -3,8 +3,7 @@
     "portManager": "Port Manager",
     "devCleaner": "Dev Cleaner",
     "systemInfo": "System Info",
-    "hardwareCompare": "PC Hardware",
-    "digitalProducts": "Digital Products",
+    "hardwareQuery": "Hardware Query",
     "envDetector": "Env Detector"
   },
   "envDetector": {
