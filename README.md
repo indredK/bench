@@ -1,8 +1,8 @@
-# Port Manager - DevTools
+# Bench - DevTools
 
 > A cross-platform desktop developer utility for managing network ports and viewing system information.
 
-Port Manager is a [Tauri v2](https://v2.tauri.app/) desktop application that helps developers quickly identify and terminate processes occupying network ports during local development. It also provides a real-time system information viewer for hardware and OS details.
+Bench is a [Tauri v2](https://v2.tauri.app/) desktop application that helps developers quickly identify and terminate processes occupying network ports during local development. It also provides a real-time system information viewer for hardware and OS details.
 
 ## Features
 
@@ -123,8 +123,8 @@ sudo apt-get install -y \
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/port-manager.git
-cd port-manager
+git clone https://github.com/your-username/bench.git
+cd bench
 
 # Install frontend dependencies
 npm install
@@ -207,7 +207,7 @@ Click the language toggle button in the top-right corner of the header bar to sw
 ## Project Structure
 
 ```
-port-manager/
+bench/
 ├── src/                          # React frontend
 │   ├── components/
 │   │   ├── features/             # Feature pages
@@ -263,7 +263,7 @@ Key configuration from [tauri.conf.json](src-tauri/tauri.conf.json):
 
 | Setting               | Value                               |
 | --------------------- | ----------------------------------- |
-| App Identifier        | `com.portmanager.app`               |
+| App Identifier        | `com.bench.app`               |
 | Version               | `1.0.0`                             |
 | Window Size           | 960 x 680                           |
 | Min Window Size       | 800 x 500                           |

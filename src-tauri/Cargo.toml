@@ -1,10 +1,10 @@
 [package]
-name = "port-manager"
+name = "bench"
 version = "1.0.0"
 edition = "2021"
 
 [lib]
-name = "port_manager_lib"
+name = "bench_lib"
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [build-dependencies]
