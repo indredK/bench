@@ -1,10 +1,38 @@
 {
   "sidebar": {
     "portManager": "端口管理",
+    "appManager": "应用管理",
     "devCleaner": "垃圾清理",
     "systemInfo": "系统信息",
     "hardwareQuery": "硬件查询",
     "envDetector": "环境检测"
+  },
+  "appManager": {
+    "title": "应用管理",
+    "summary": "共 {{total}} 个应用（用户 {{user}} 个，系统 {{system}} 个），扫描耗时 {{time}}s",
+    "filteredSummary": "筛选结果 {{visible}} 个 / 共 {{total}} 个",
+    "refresh": "刷新",
+    "scanning": "正在扫描应用...",
+    "searchPlaceholder": "搜索应用名称、路径或 Bundle ID...",
+    "startHint": "点击「刷新」按钮开始扫描已安装的应用",
+    "empty": "未发现任何应用",
+    "noResults": "没有匹配的应用",
+    "browserWarning": "应用管理功能需要在 Tauri 桌面环境中使用",
+    "systemLabel": "系统",
+    "filterAll": "全部",
+    "filterUser": "用户应用",
+    "filterSystem": "系统应用",
+    "filterLaunchable": "可启动",
+    "column": {
+      "name": "应用",
+      "version": "版本",
+      "path": "安装路径",
+      "source": "来源",
+      "lastModified": "最近修改",
+      "actions": "操作"
+    },
+    "actionLaunch": "启动应用",
+    "actionReveal": "在 Finder 中显示"
   },
   "envDetector": {
     "title": "环境检测",

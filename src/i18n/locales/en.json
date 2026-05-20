@@ -1,10 +1,38 @@
 {
   "sidebar": {
     "portManager": "Port Manager",
+    "appManager": "App Manager",
     "devCleaner": "Dev Cleaner",
     "systemInfo": "System Info",
     "hardwareQuery": "Hardware Query",
     "envDetector": "Env Detector"
+  },
+  "appManager": {
+    "title": "App Manager",
+    "summary": "{{total}} apps ({{user}} user, {{system}} system), scan took {{time}}s",
+    "filteredSummary": "{{visible}} of {{total}} apps matching filters",
+    "refresh": "Refresh",
+    "scanning": "Scanning applications...",
+    "searchPlaceholder": "Search by name, path or Bundle ID...",
+    "startHint": "Click \"Refresh\" to start scanning installed applications",
+    "empty": "No applications found",
+    "noResults": "No matching applications",
+    "browserWarning": "App Manager requires a Tauri desktop environment",
+    "systemLabel": "System",
+    "filterAll": "All",
+    "filterUser": "User Apps",
+    "filterSystem": "System Apps",
+    "filterLaunchable": "Launchable",
+    "column": {
+      "name": "Application",
+      "version": "Version",
+      "path": "Install Path",
+      "source": "Source",
+      "lastModified": "Last Modified",
+      "actions": "Actions"
+    },
+    "actionLaunch": "Launch App",
+    "actionReveal": "Reveal in Finder"
   },
   "envDetector": {
     "title": "Environment Detector",

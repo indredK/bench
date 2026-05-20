@@ -70,6 +70,29 @@ export interface EnvTool {
   issue: string;
 }
 
+export interface AppInfo {
+  appId: string;
+  name: string;
+  version: string;
+  bundleId: string;
+  installPath: string;
+  source: string;
+  lastModified: number;
+  isSystemApp: boolean;
+  allowedActions: {
+    launch: boolean;
+    reveal: boolean;
+  };
+}
+
+export interface AppScanResult {
+  apps: AppInfo[];
+  totalCount: number;
+  userCount: number;
+  systemCount: number;
+  scanTimeMs: number;
+}
+
 export interface SystemInfoData {
   os_name: string;
   os_version: string;

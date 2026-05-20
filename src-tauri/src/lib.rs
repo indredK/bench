@@ -1,3 +1,4 @@
+mod app_manager;
 mod dev_cleaner;
 mod env_detector;
 mod port_manager;
@@ -12,6 +13,9 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(Arc::new(AtomicBool::new(false)) as ScanAbortFlag)
         .invoke_handler(tauri::generate_handler![
+            app_manager::scan_installed_apps,
+            app_manager::launch_app,
+            app_manager::reveal_app_in_finder,
             port_manager::get_system_info,
             port_manager::query_port_processes,
             port_manager::kill_processes,

@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
+  AppScanResult,
   CleanupResult,
   EnvTool,
   KillPidResult,
@@ -35,6 +36,18 @@ export function getSystemInfo() {
 
 export function detectEnvTools() {
   return invoke<void>("detect_env_tools");
+}
+
+export function scanInstalledApps() {
+  return invoke<AppScanResult>("scan_installed_apps");
+}
+
+export function launchApp(appPath: string) {
+  return invoke<void>("launch_app", { appPath });
+}
+
+export function revealAppInFinder(appPath: string) {
+  return invoke<void>("reveal_app_in_finder", { appPath });
 }
 
 export type { EnvTool };
