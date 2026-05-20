@@ -1,8 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import type { RowSelectionState, SortingState } from "@tanstack/react-table";
-import { isTauri } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,14 +10,9 @@ import {
   getDataTableSortDirection,
   getNextDataTableSorting,
 } from "@/components/ui/DataTable";
-import {
-  cleanupProjects as runCleanupProjects,
-  scanDevProjects,
-  stopDevProjectScan,
-} from "@/lib/tauri/commands";
 import { createDevCleanerColumns } from "@/features/dev-cleaner/columns";
-import type { ProjectInfo, ScanResult } from "@/lib/tauri/types";
 import { formatSize } from "@/lib/utils";
+import { useDevCleanerStore, filterTypeMap, type FilterType } from "@/stores/dev-cleaner";
 import {
   AlertTriangle,
   ChevronDown,
@@ -31,165 +23,62 @@ import {
   Trash2,
 } from "lucide-react";
 
-type FilterType = "all" | "nodejs" | "python" | "rust" | "go";
-
-const filterOptions: FilterType[] = ["all", "nodejs", "python", "rust", "go"];
-const filterTypeMap: Record<Exclude<FilterType, "all">, ProjectInfo["project_type"]> = {
-  nodejs: "NodeJs",
-  python: "Python",
-  rust: "Rust",
-  go: "Go",
-};
 function formatScanTime(scanTimeMs: number) {
   if (scanTimeMs < 1000) {
     return `${scanTimeMs} ms`;
   }
-
   return `${(scanTimeMs / 1000).toFixed(1)} s`;
 }
 
 export default function DevCleaner() {
   const { t } = useTranslation();
-  const [selectedPath, setSelectedPath] = useState("");
-  const [isScanning, setIsScanning] = useState(false);
-  const [scanResult, setScanResult] = useState<ScanResult | null>(null);
-  const [selectedProjects, setSelectedProjects] = useState<RowSelectionState>({});
-  const [isCleaningUp, setIsCleaningUp] = useState(false);
-  const [cleanupMessage, setCleanupMessage] = useState<{
-    type: "success" | "error";
-    text: string;
-  } | null>(null);
-  const [sorting, setSorting] = useState<SortingState>([
-    { id: "cleanupSize", desc: true },
-  ]);
-  const [filterType, setFilterType] = useState<FilterType>("all");
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [showFilterOptions, setShowFilterOptions] = useState(true);
-  const [scanTrigger, setScanTrigger] = useState(0);
-  const selectedPathRef = useRef(selectedPath);
   const rescanTimeoutRef = useRef<number | null>(null);
 
-  selectedPathRef.current = selectedPath;
+  const selectedPath = useDevCleanerStore((s) => s.selectedPath);
+  const isScanning = useDevCleanerStore((s) => s.isScanning);
+  const scanResult = useDevCleanerStore((s) => s.scanResult);
+  const selectedProjects = useDevCleanerStore((s) => s.selectedProjects);
+  const isCleaningUp = useDevCleanerStore((s) => s.isCleaningUp);
+  const cleanupMessage = useDevCleanerStore((s) => s.cleanupMessage);
+  const sorting = useDevCleanerStore((s) => s.sorting);
+  const filterType = useDevCleanerStore((s) => s.filterType);
+  const showConfirm = useDevCleanerStore((s) => s.showConfirm);
+  const showFilterOptions = useDevCleanerStore((s) => s.showFilterOptions);
 
-  const handleSelectPath = async () => {
-    try {
-      const selected = await open({
-        directory: true,
-        multiple: false,
-        title: "Select Directory to Scan",
-      });
-
-      if (selected && typeof selected === "string") {
-        setSelectedPath(selected);
-      }
-    } catch (error) {
-      alert(`Failed to open directory dialog: ${error}`);
-    }
-  };
-
-  const handleScan = async () => {
-    if (!selectedPath) {
-      alert(t("devCleaner.enterPath"));
-      return;
-    }
-
-    setIsScanning(true);
-    setShowConfirm(false);
-    setShowFilterOptions(true);
-    setScanTrigger((n) => n + 1);
-  };
-
-  useEffect(() => {
-    if (scanTrigger === 0) return;
-
-    let cancelled = false;
-
-    const doScan = async () => {
-      if (!isTauri()) {
-        setCleanupMessage({
-          type: "error",
-          text: "Scanning is only available in the desktop app",
-        });
-        setIsScanning(false);
-        return;
-      }
-
-      try {
-        const result = await scanDevProjects(selectedPathRef.current);
-
-        if (cancelled) return;
-
-        setScanResult(result);
-        setSelectedProjects({});
-
-        if (result.aborted) {
-          setCleanupMessage({
-            type: "success",
-            text: t("devCleaner.scanStopped", {
-              count: result.total_projects,
-              size: formatSize(result.total_cleanup_size),
-            }),
-          });
-        } else {
-          setCleanupMessage(null);
-        }
-      } catch (error) {
-        if (cancelled) return;
-
-        setCleanupMessage({
-          type: "error",
-          text: `Scan failed: ${error}`,
-        });
-      } finally {
-        if (!cancelled) setIsScanning(false);
-      }
-    };
-
-    doScan();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [scanTrigger, t]);
-
-  const handleStopScan = async () => {
-    try {
-      await stopDevProjectScan();
-    } catch (error) {
-      console.error("Failed to stop scan:", error);
-    }
-  };
+  const setSelectedPath = useDevCleanerStore((s) => s.setSelectedPath);
+  const setFilterType = useDevCleanerStore((s) => s.setFilterType);
+  const setShowConfirm = useDevCleanerStore((s) => s.setShowConfirm);
+  const setSorting = useDevCleanerStore((s) => s.setSorting);
+  const setSelectedProjects = useDevCleanerStore((s) => s.setSelectedProjects);
+  const handleSelectPath = useDevCleanerStore((s) => s.handleSelectPath);
+  const handleScan = useDevCleanerStore((s) => s.handleScan);
+  const handleStopScan = useDevCleanerStore((s) => s.handleStopScan);
+  const handleCleanup = useDevCleanerStore((s) => s.handleCleanup);
 
   const filteredProjects = useMemo(() => {
     if (!scanResult) return [];
-
     let filtered = scanResult.projects;
-
     if (filterType !== "all") {
       filtered = filtered.filter((project) => project.project_type === filterTypeMap[filterType]);
     }
-
     return filtered;
   }, [filterType, scanResult]);
 
   const projectsByPath = useMemo(
-    () =>
-      new Map(
-        scanResult?.projects.map((project) => [
-          project.path,
-          project,
-        ]) ?? []
-      ),
+    () => new Map(scanResult?.projects.map((project) => [project.path, project]) ?? []),
     [scanResult]
   );
+
   const filteredCleanupSize = useMemo(
     () => filteredProjects.reduce((sum, project) => sum + project.cleanup_potential, 0),
     [filteredProjects]
   );
+
   const visibleProjectPathSet = useMemo(
     () => new Set(filteredProjects.map((project) => project.path)),
     [filteredProjects]
   );
+
   const selectedProjectPaths = useMemo(
     () =>
       Object.entries(selectedProjects)
@@ -197,7 +86,9 @@ export default function DevCleaner() {
         .map(([path]) => path),
     [selectedProjects]
   );
+
   const selectedCount = selectedProjectPaths.length;
+
   const selectedSize = useMemo(
     () =>
       selectedProjectPaths.reduce(
@@ -206,79 +97,23 @@ export default function DevCleaner() {
       ),
     [projectsByPath, selectedProjectPaths]
   );
-  const activeScanResult = scanResult;
-
-  const handleCleanup = async () => {
-    if (selectedCount === 0) {
-      alert("Please select projects to clean up");
-      return;
-    }
-
-    setShowConfirm(false);
-    setIsCleaningUp(true);
-    setCleanupMessage(null);
-
-    try {
-      const projectsToCleanup =
-        activeScanResult?.projects.filter((project) => selectedProjects[project.path]) ?? [];
-      const result = await runCleanupProjects(projectsToCleanup);
-
-      if (result.success) {
-        setCleanupMessage({
-          type: "success",
-          text: t("devCleaner.cleanupSuccess", {
-            size: formatSize(result.cleaned_size),
-          }),
-        });
-        setSelectedProjects({});
-        if (rescanTimeoutRef.current !== null) {
-          window.clearTimeout(rescanTimeoutRef.current);
-        }
-        rescanTimeoutRef.current = window.setTimeout(() => {
-          rescanTimeoutRef.current = null;
-          handleScan();
-        }, 1000);
-      } else {
-        setCleanupMessage({
-          type: "error",
-          text: t("devCleaner.cleanupError", {
-            error: result.errors?.join(", ") || "Unknown error",
-          }),
-        });
-      }
-    } catch (error) {
-      setCleanupMessage({
-        type: "error",
-        text: t("devCleaner.cleanupError", { error: String(error) }),
-      });
-    } finally {
-      setIsCleaningUp(false);
-    }
-  };
 
   useEffect(() => {
     setSelectedProjects((current) => {
-      if (Object.keys(current).length === 0) {
-        return current;
-      }
-
+      if (Object.keys(current).length === 0) return current;
       const next = Object.fromEntries(
         Object.entries(current).filter(([path, selected]) => selected && visibleProjectPathSet.has(path))
       );
-
-      if (Object.keys(next).length === Object.keys(current).length) {
-        return current;
-      }
-
+      if (Object.keys(next).length === Object.keys(current).length) return current;
       return next;
     });
-  }, [visibleProjectPathSet]);
+  }, [visibleProjectPathSet, setSelectedProjects]);
 
   useEffect(() => {
     if (selectedCount === 0 && showConfirm) {
       setShowConfirm(false);
     }
-  }, [selectedCount, showConfirm]);
+  }, [selectedCount, showConfirm, setShowConfirm]);
 
   useEffect(() => {
     return () => {
@@ -291,9 +126,7 @@ export default function DevCleaner() {
   const projectColumns = useMemo(() => createDevCleanerColumns(t), [t]);
 
   const updateSorting = (field: string, sortDescFirst = false) => {
-    setSorting((current) =>
-      getNextDataTableSorting(current, field, sortDescFirst)
-    );
+    setSorting((current) => getNextDataTableSorting(current, field, sortDescFirst));
   };
 
   const activeSortId = sorting[0]?.id;
@@ -306,11 +139,11 @@ export default function DevCleaner() {
             <Trash2 size={20} />
             {t("devCleaner.title")}
           </CardTitle>
-          {activeScanResult && (
+          {scanResult && (
             <button
               type="button"
               className="flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
-              onClick={() => setShowFilterOptions((current) => !current)}
+              onClick={() => useDevCleanerStore.setState({ showFilterOptions: !useDevCleanerStore.getState().showFilterOptions })}
             >
               <span>{t("devCleaner.filterLabel")}</span>
               {showFilterOptions ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
@@ -360,29 +193,29 @@ export default function DevCleaner() {
             </Alert>
           )}
 
-          {activeScanResult && (
+          {scanResult && (
             <>
               <div className="flex flex-wrap items-center gap-4">
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs text-muted-foreground">{t("devCleaner.projectsLabel")}</span>
-                  <span className="font-semibold">{activeScanResult.total_projects}</span>
+                  <span className="font-semibold">{scanResult.total_projects}</span>
                 </div>
                 <div className="h-4 w-px bg-border" />
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs text-muted-foreground">{t("devCleaner.totalSize")}</span>
-                  <span className="font-semibold">{formatSize(activeScanResult.total_size)}</span>
+                  <span className="font-semibold">{formatSize(scanResult.total_size)}</span>
                 </div>
                 <div className="h-4 w-px bg-border" />
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs text-orange-700/80">{t("devCleaner.cleanupSize")}</span>
                   <span className="font-semibold text-orange-600">
-                    {formatSize(activeScanResult.total_cleanup_size)}
+                    {formatSize(scanResult.total_cleanup_size)}
                   </span>
                 </div>
                 <div className="h-4 w-px bg-border" />
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs text-muted-foreground">{t("devCleaner.scanTime")}</span>
-                  <span className="font-semibold">{formatScanTime(activeScanResult.scan_time_ms)}</span>
+                  <span className="font-semibold">{formatScanTime(scanResult.scan_time_ms)}</span>
                 </div>
                 <div className="h-4 w-px bg-border" />
                 <span className="text-xs text-muted-foreground">
@@ -392,7 +225,7 @@ export default function DevCleaner() {
 
               {showFilterOptions && (
                 <div className="flex flex-wrap gap-2 pt-3 border-t">
-                  {filterOptions.map((filter) => (
+                  {(["all", "nodejs", "python", "rust", "go"] as FilterType[]).map((filter) => (
                     <Button
                       key={filter}
                       variant={filterType === filter ? "default" : "outline"}
@@ -409,7 +242,7 @@ export default function DevCleaner() {
         </CardContent>
       </Card>
 
-      {activeScanResult && (
+      {scanResult && (
         <div className="flex-1 min-h-0 flex flex-col gap-4">
           <Card className="flex-1 min-h-[200px] flex flex-col overflow-hidden">
             <CardHeader className="pb-2 shrink-0">

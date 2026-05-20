@@ -1,7 +1,6 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { platformConfig } from "@/platform/config";
-import { isTauri } from "@tauri-apps/api/core";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,14 +9,10 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { killProcesses, queryPortProcesses } from "@/lib/tauri/commands";
-import type { PortProcessDetail, ProcessNode } from "@/lib/tauri/types";
-import {
-  DEFAULT_MAX_PORTS,
-  hasInvalidPortInputCharacters,
-  parsePortsFromInput,
-} from "@/features/port-manager/ports";
 import { Loader2, RefreshCw, Search, X } from "lucide-react";
+import { usePortManagerStore, PORT_SCAN_STATUS_META, type PortScanStatus } from "@/stores/port-manager";
+import type { ProcessNode } from "@/lib/tauri/types";
+import { hasInvalidPortInputCharacters, DEFAULT_MAX_PORTS } from "@/features/port-manager/ports";
 
 function ProcessTreeView({ node, depth, targetPid }: { node: ProcessNode; depth: number; targetPid: number }) {
   const isTarget = node.pid === targetPid;
@@ -77,22 +72,6 @@ function ProcessTreeView({ node, depth, targetPid }: { node: ProcessNode; depth:
   );
 }
 
-const PORT_SCAN_STATUS_META = {
-  waiting: { labelKey: "portManager.statusWaiting" },
-  scanning: { labelKey: "portManager.statusScanning" },
-  success: { labelKey: "portManager.statusSuccess" },
-  empty: { labelKey: "portManager.statusEmpty" },
-  error: { labelKey: "portManager.statusError" },
-  ended: { labelKey: "portManager.statusEnded" },
-} as const;
-
-type PortScanStatus = keyof typeof PORT_SCAN_STATUS_META;
-
-interface PortState {
-  port: number;
-  status: PortScanStatus;
-}
-
 const chipStatusClasses: Record<PortScanStatus, string> = {
   waiting: "opacity-65 bg-muted border-muted-foreground/20 text-muted-foreground",
   scanning: "bg-indigo-50 border-indigo-300 text-indigo-600 animate-pulse",
@@ -108,16 +87,30 @@ function PortManager() {
   const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const invalidTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const scanSessionRef = useRef(0);
-  const [inputValue, setInputValue] = useState("");
-  const [showInvalidToast, setShowInvalidToast] = useState(false);
-  const [portStates, setPortStates] = useState<PortState[]>([]);
-  const [portDetails, setPortDetails] = useState<PortProcessDetail[]>([]);
-  const [killing, setKilling] = useState(false);
-  const [portKillMessages, setPortKillMessages] = useState<Record<number, string[]>>({});
-  const [error, setError] = useState("");
-  const [showEmptyPorts, setShowEmptyPorts] = useState(true);
-  const [inputError, setInputError] = useState("");
+  const scrollContentRef = useRef<HTMLDivElement>(null);
+
+  const inputValue = usePortManagerStore((s) => s.inputValue);
+  const showInvalidToast = usePortManagerStore((s) => s.showInvalidToast);
+  const inputError = usePortManagerStore((s) => s.inputError);
+  const portStates = usePortManagerStore((s) => s.portStates);
+  const portDetails = usePortManagerStore((s) => s.portDetails);
+  const killing = usePortManagerStore((s) => s.killing);
+  const portKillMessages = usePortManagerStore((s) => s.portKillMessages);
+  const error = usePortManagerStore((s) => s.error);
+  const showEmptyPorts = usePortManagerStore((s) => s.showEmptyPorts);
+  const highlightPort = usePortManagerStore((s) => s.highlightPort);
+
+  const setInputValue = usePortManagerStore((s) => s.setInputValue);
+  const setShowInvalidToast = usePortManagerStore((s) => s.setShowInvalidToast);
+  const setInputError = usePortManagerStore((s) => s.setInputError);
+  const setError = usePortManagerStore((s) => s.setError);
+  const setShowEmptyPorts = usePortManagerStore((s) => s.setShowEmptyPorts);
+  const setHighlightPort = usePortManagerStore((s) => s.setHighlightPort);
+  const removePort = usePortManagerStore((s) => s.removePort);
+  const clearAll = usePortManagerStore((s) => s.clearAll);
+  const doScan = usePortManagerStore((s) => s.doScan);
+  const killPort = usePortManagerStore((s) => s.killPort);
+  const killAll = usePortManagerStore((s) => s.killAll);
 
   const commonPorts = [3000, 5173, 1420, 8080, 5000, 4200, 8000, 4321, 6006, 1234, 9000];
   const isScanning = portStates.some((ps) => ps.status === "scanning");
@@ -139,75 +132,7 @@ function PortManager() {
       setInputError("");
       invalidTimerRef.current = null;
     }, 3000);
-  }, [clearInvalidTimer, t]);
-
-  useEffect(() => {
-    return () => clearInvalidTimer();
-  }, [clearInvalidTimer]);
-
-  const doScan = async (portsToScan: number[]) => {
-    if (!isTauri()) {
-      setError(t("portManager.browserError"));
-      return;
-    }
-    if (portsToScan.length === 0) return;
-
-    const sessionId = scanSessionRef.current;
-
-    setError("");
-    setPortDetails((prev) => prev.filter((d) => !portsToScan.includes(d.port)));
-    setPortKillMessages({});
-
-    for (const port of portsToScan) {
-      if (scanSessionRef.current !== sessionId) {
-        setPortStates((prev) =>
-          prev.map((ps) =>
-            portsToScan.includes(ps.port) && (ps.status === "waiting" || ps.status === "scanning")
-              ? { ...ps, status: "ended" }
-              : ps
-          )
-        );
-        break;
-      }
-
-      setPortStates((prev) =>
-        prev.map((ps) => (ps.port === port ? { ...ps, status: "scanning" } : ps))
-      );
-
-      try {
-        const details = await queryPortProcesses([port]);
-
-        if (scanSessionRef.current !== sessionId) {
-          setPortStates((prev) =>
-            prev.map((ps) => (ps.port === port ? { ...ps, status: "ended" } : ps))
-          );
-          break;
-        }
-
-        const portDetail = details.find((d) => d.port === port);
-        const isOccupied = portDetail && !portDetail.error && portDetail.pids.length > 0;
-
-        setPortDetails((prev) => [...prev, ...details]);
-        setPortStates((prev) =>
-          prev.map((ps) =>
-            ps.port === port ? { ...ps, status: isOccupied ? "success" : "empty" } : ps
-          )
-        );
-      } catch (e) {
-        if (scanSessionRef.current !== sessionId) break;
-        setPortStates((prev) =>
-          prev.map((ps) => (ps.port === port ? { ...ps, status: "error" } : ps))
-        );
-      }
-    }
-
-    setPortDetails((prev) => [...prev].sort((a, b) => a.port - b.port));
-  };
-
-  const removePort = (port: number) => {
-    setPortStates((prev) => prev.filter((ps) => ps.port !== port));
-    setPortDetails((prev) => prev.filter((d) => d.port !== port));
-  };
+  }, [clearInvalidTimer, setInputValue, setShowInvalidToast, setInputError, t]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;
@@ -224,18 +149,16 @@ function PortManager() {
   const commitInput = () => {
     const val = inputValue.trim();
     if (!val) return;
-    if (!/^[\d,\-]+$/.test(val)) {
-      handleInvalidInput(t("portManager.invalidInput"));
-      return;
-    }
-    const { ports: newPorts, hasError, errorKey } = parsePortsFromInput(val);
+
+    const store = usePortManagerStore.getState();
+    const { ports: newPorts, hasError, errorKey } = store.addPortsFromInput(val);
     if (hasError) {
       handleInvalidInput(t(`portManager.${errorKey ?? "invalidInput"}`));
       return;
     }
     if (newPorts.length === 0) return;
 
-    const existingPorts = portStates.map((ps) => ps.port);
+    const existingPorts = store.portStates.map((ps) => ps.port);
     const portsToAdd = newPorts.filter((p) => !existingPorts.includes(p));
     if (portsToAdd.length === 0) {
       handleInvalidInput(t("portManager.portsAlreadyAdded"));
@@ -246,17 +169,20 @@ function PortManager() {
     setShowInvalidToast(false);
     setInputValue("");
 
-    setPortStates((prev) => {
-      if (prev.length >= DEFAULT_MAX_PORTS) return prev;
-      const updated = [...prev];
-      for (const port of portsToAdd) {
-        if (updated.length >= DEFAULT_MAX_PORTS) break;
-        updated.push({ port, status: "waiting" });
-      }
-      return updated.sort((a, b) => a.port - b.port);
-    });
+    const currentPorts = store.portStates;
+    const portsToAddFinal: number[] = [];
+    const updatedPorts = [...currentPorts];
+    for (const port of portsToAdd) {
+      if (updatedPorts.length >= DEFAULT_MAX_PORTS) break;
+      updatedPorts.push({ port, status: "waiting" as PortScanStatus });
+      portsToAddFinal.push(port);
+    }
+    updatedPorts.sort((a, b) => a.port - b.port);
+    usePortManagerStore.setState({ portStates: updatedPorts });
 
-    doScan(portsToAdd);
+    if (portsToAddFinal.length > 0) {
+      doScan(portsToAddFinal);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -275,14 +201,13 @@ function PortManager() {
 
   const addCommonPort = (port: number) => {
     if (port < 1 || port > 65535) return;
-    const added = portStates.some((ps) => ps.port === port);
-    if (added) return;
-    setPortStates((prev) => {
-      if (prev.some((ps) => ps.port === port)) return prev;
-      const updated = [...prev, { port, status: "waiting" as PortScanStatus }];
-      updated.sort((a, b) => a.port - b.port);
-      return updated;
-    });
+    const store = usePortManagerStore.getState();
+    const currentPorts = store.portStates;
+    if (currentPorts.some((ps) => ps.port === port)) return;
+    const updated = [...currentPorts, { port, status: "waiting" as PortScanStatus }];
+    updated.sort((a, b) => a.port - b.port);
+    usePortManagerStore.setState({ portStates: updated });
+
     doScan([port]);
   };
 
@@ -293,70 +218,6 @@ function PortManager() {
     setInputError("");
     inputRef.current?.focus();
   };
-
-  const handleClearAll = () => {
-    scanSessionRef.current += 1;
-    clearInvalidTimer();
-    setInputValue("");
-    setShowInvalidToast(false);
-    setInputError("");
-    setPortStates([]);
-    setPortDetails([]);
-    setPortKillMessages({});
-    setError("");
-  };
-
-  const handleRescanAll = () => {
-    const allPorts = portStates.map((ps) => ps.port);
-    if (allPorts.length > 0) {
-      setPortStates((prev) => prev.map((ps) => ({ ...ps, status: "waiting" })));
-      doScan(allPorts);
-    }
-  };
-
-  const handleKillPort = async (port: number, pids: number[]) => {
-    setError("");
-    setKilling(true);
-    try {
-      const result = await killProcesses(pids);
-      const messages = result.map((r) => (r.success ? `PID ${r.pid} killed` : `PID ${r.pid}: ${r.message}`));
-      setPortKillMessages((prev) => ({ ...prev, [port]: messages }));
-      doScan([port]);
-    } catch (e) {
-      setError(typeof e === "string" ? e : "Failed to kill process");
-    } finally {
-      setKilling(false);
-    }
-  };
-
-  const handleKillAll = async () => {
-    setError("");
-    setKilling(true);
-    try {
-      const allPids = portDetails.flatMap((d) => d.pids);
-      const portsToRescan = portDetails.map((d) => d.port);
-      const result = await killProcesses(allPids);
-      const killMessages: Record<number, string[]> = {};
-      for (const r of result) {
-        const message = r.success ? `PID ${r.pid} killed` : `PID ${r.pid}: ${r.message}`;
-        const port = portDetails.find((d) => d.pids.includes(r.pid));
-        if (port) {
-          killMessages[port.port] = [...(killMessages[port.port] || []), message];
-        }
-      }
-      setPortKillMessages(killMessages);
-      if (portsToRescan.length > 0) {
-        doScan(portsToRescan);
-      }
-    } catch (e) {
-      setError(typeof e === "string" ? e : "Failed to kill processes");
-    } finally {
-      setKilling(false);
-    }
-  };
-
-  const scrollContentRef = useRef<HTMLDivElement>(null);
-  const [highlightPort, setHighlightPort] = useState<number | null>(null);
 
   const scrollToPort = (port: number) => {
     if (!scrollContentRef.current) return;
@@ -427,7 +288,7 @@ function PortManager() {
                 </Button>
                 <Button
                   variant="secondary"
-                  onClick={handleClearAll}
+                  onClick={clearAll}
                   disabled={portStates.length === 0 || killing}
                   className="min-w-[130px]"
                 >
@@ -582,7 +443,7 @@ function PortManager() {
                     variant="secondary"
                     size="sm"
                     className="rounded-lg shrink-0"
-                    onClick={handleRescanAll}
+                    onClick={() => usePortManagerStore.getState().rescanAll()}
                     disabled={isScanning || killing}
                   >
                     <RefreshCw size={14} />
@@ -598,7 +459,7 @@ function PortManager() {
                     variant="destructive"
                     size="sm"
                     className="rounded-lg min-w-[110px] shrink-0"
-                    onClick={handleKillAll}
+                    onClick={killAll}
                     disabled={killing || occupiedCount === 0}
                   >
                     {killing && (
@@ -669,7 +530,7 @@ function PortManager() {
                                 variant="default"
                                 size="sm"
                                 className="rounded-lg bg-amber-600 hover:bg-amber-700"
-                                onClick={() => handleKillPort(detail.port, detail.pids)}
+                                onClick={() => killPort(detail.port, detail.pids)}
                                 disabled={killing}
                               >
                                 {t("portManager.killButton")}

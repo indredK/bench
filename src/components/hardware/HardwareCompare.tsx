@@ -1,4 +1,4 @@
-import { useMemo, useState, useId } from "react";
+import { useMemo, useId } from "react";
 import { useTranslation } from "react-i18next";
 import { Plus } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,6 +8,7 @@ import {
 import FilterBar from "@/components/features/FilterBar";
 import type { CompareDataModule } from "@/features/compare/types";
 import { CompareMatrixTable } from "@/features/compare/CompareMatrixTable";
+import { useHardwareCompareStore } from "@/stores/hardware-compare";
 
 interface HardwareCompareProps<T extends { id: string; model: string }> {
   module: CompareDataModule<T>;
@@ -27,33 +28,16 @@ function HardwareCompare<T extends { id: string; model: string }>({
     filterGroups,
     referenceUrl,
   } = module;
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [filters, setFilters] = useState<Record<string, string>>({});
 
-  const clearSelectedModels = () => setSelectedIds([]);
-
-  const toggleModel = (id: string) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
-  };
-
-  const setFilter = (key: string, value: string) => {
-    setFilters((prev) => {
-      if (prev[key] === value) {
-        const next = { ...prev };
-        delete next[key];
-        return next;
-      }
-      return { ...prev, [key]: value };
-    });
-  };
-
-  const clearFilters = () => setFilters({});
+  const selectedIds = useHardwareCompareStore((s) => s.selectedIds);
+  const filters = useHardwareCompareStore((s) => s.filters);
+  const toggleModel = useHardwareCompareStore((s) => s.toggleModel);
+  const setFilter = useHardwareCompareStore((s) => s.setFilter);
+  const clearFilters = useHardwareCompareStore((s) => s.clearFilters);
+  const clearSelectedModels = useHardwareCompareStore((s) => s.clearSelectedModels);
 
   const hasActiveFilters = Object.keys(filters).length > 0;
 
-  // Apply filters to available-models pool (selected models stay unfiltered)
   const filteredData = !hasActiveFilters
     ? data
     : data.filter((m) =>
@@ -63,7 +47,7 @@ function HardwareCompare<T extends { id: string; model: string }>({
       );
 
   const selectedModels = data.filter((m) => selectedIds.includes(m.id));
-  const allFiltered = filteredData; // 筛选后的全部型号（不排除已选中的）
+  const allFiltered = filteredData;
 
   const { bestValues, rangeValues } = useMemo(() => {
     const nextBestValues = new Map<keyof T, Set<string>>();
@@ -120,7 +104,6 @@ function HardwareCompare<T extends { id: string; model: string }>({
     <TooltipProvider delay={200}>
       <Card className="shadow-sm flex-1 flex flex-col min-h-0">
         <CardContent className="pt-4 gap-4 flex flex-col flex-1 min-h-0">
-          {/* ── 筛选 + 型号选择（合并） ── */}
           {filterGroups && filterGroups.length > 0 && (
             <FilterBar
               filterGroups={filterGroups}
@@ -138,7 +121,6 @@ function HardwareCompare<T extends { id: string; model: string }>({
             />
           )}
 
-          {/* ── 对比表格 ── */}
           {selectedModels.length > 0 && (
             <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
               <div className="flex items-center justify-between shrink-0 mb-2">
@@ -163,7 +145,6 @@ function HardwareCompare<T extends { id: string; model: string }>({
             </div>
           )}
 
-          {/* ── 空状态 ── */}
           {selectedModels.length === 0 && (
             <div className="flex flex-col items-center justify-center flex-1 py-10 text-center">
               <div className="size-10 rounded-full bg-muted flex items-center justify-center mb-3">

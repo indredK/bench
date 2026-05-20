@@ -1,95 +1,30 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { isTauri } from "@tauri-apps/api/core";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { getSystemInfo } from "@/lib/tauri/commands";
-import type { SystemInfoData } from "@/lib/tauri/types";
+import { useSystemInfoStore } from "@/stores/system-info";
 import { formatMemory } from "@/lib/utils";
 
 function SystemInfo({ active }: { active: boolean }) {
   const { t } = useTranslation();
-  const [loading, setLoading] = useState(true);
-  const [systemInfo, setSystemInfo] = useState<SystemInfoData | null>(null);
-  const [error, setError] = useState("");
-  const fetchedRef = useRef(false);
+  const loading = useSystemInfoStore((s) => s.loading);
+  const systemInfo = useSystemInfoStore((s) => s.systemInfo);
+  const error = useSystemInfoStore((s) => s.error);
+  const fetched = useSystemInfoStore((s) => s.fetched);
+  const loadSystemInfo = useSystemInfoStore((s) => s.loadSystemInfo);
 
-  const loadSystemInfo = useCallback(async () => {
-    setLoading(true);
-    setError("");
-
-    try {
-      if (isTauri()) {
-        const info = await getSystemInfo();
-        setSystemInfo(info);
-      } else {
-        const browserInfo = getBrowserInfo();
-        setSystemInfo(browserInfo);
-      }
-    } catch (e) {
-      setError(typeof e === "string" ? e : t("systemInfo.loadFailed"));
-    } finally {
-      setLoading(false);
-    }
+  useEffect(() => {
+    return () => {
+      useSystemInfoStore.getState().reset();
+    };
   }, []);
 
   useEffect(() => {
-    if (active && !fetchedRef.current) {
-      fetchedRef.current = true;
+    if (active && !fetched) {
       loadSystemInfo();
     }
-  }, [active, loadSystemInfo]);
-
-  const getBrowserInfo = (): SystemInfoData => {
-    const ua = navigator.userAgent;
-    let browserName = "Unknown";
-    let browserVersion = "Unknown";
-
-    if (ua.includes("Firefox")) {
-      browserName = "Firefox";
-      const match = ua.match(/Firefox\/(\d+\.\d+)/);
-      if (match) browserVersion = match[1];
-    } else if (ua.includes("Edg")) {
-      browserName = "Edge";
-      const match = ua.match(/Edg\/(\d+\.\d+)/);
-      if (match) browserVersion = match[1];
-    } else if (ua.includes("Chrome")) {
-      browserName = "Chrome";
-      const match = ua.match(/Chrome\/(\d+\.\d+)/);
-      if (match) browserVersion = match[1];
-    } else if (ua.includes("Safari")) {
-      browserName = "Safari";
-      const match = ua.match(/Version\/(\d+\.\d+)/);
-      if (match) browserVersion = match[1];
-    }
-
-    let platform = "Unknown";
-    if (ua.includes("Win")) platform = "Windows";
-    else if (ua.includes("Mac")) platform = "MacOS";
-    else if (ua.includes("Linux")) platform = "Linux";
-    else if (ua.includes("Android")) platform = "Android";
-    else if (ua.includes("iPhone") || ua.includes("iPad")) platform = "iOS";
-
-    const screenResolution = `${window.screen.width} x ${window.screen.height}`;
-
-    return {
-      os_name: platform,
-      os_version: "Unknown",
-      kernel_version: "Unknown",
-      hostname: "Unknown",
-      cpu_brand: "Unknown",
-      cpu_cores: 0,
-      total_memory: 0,
-      available_memory: 0,
-      used_memory: 0,
-      memory_usage_percent: 0,
-      browser_name: browserName,
-      browser_version: browserVersion,
-      language: navigator.language,
-      screen_resolution: screenResolution,
-    };
-  };
+  }, [active, fetched, loadSystemInfo]);
 
   if (loading) {
     return (

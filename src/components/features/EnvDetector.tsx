@@ -1,8 +1,6 @@
-import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import type { SortingState } from "@tanstack/react-table";
 import { isTauri } from "@tauri-apps/api/core";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import i18n from "@/i18n/config";
 import {
   Card,
@@ -17,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import FilterBar, { type FilterGroup } from "@/components/features/FilterBar";
 import { DataTable } from "@/components/ui/DataTable";
 import { createEnvDetectorColumns } from "@/features/env-detector/columns";
-import { detectEnvTools } from "@/lib/tauri/commands";
+import { useEnvDetectorStore } from "@/stores/env-detector";
 import type { EnvTool } from "@/lib/tauri/types";
 
 type EnvFilterKey = "category" | "source" | "kind" | "status";
@@ -54,7 +52,6 @@ const ENV_FILTER_GROUPS: FilterGroup<EnvFilterRow>[] = [
   },
 ];
 
-/** 检测是否在 Tauri 运行时环境 */
 function isTauriEnv(): boolean {
   try {
     return isTauri();
@@ -65,82 +62,28 @@ function isTauriEnv(): boolean {
 
 function EnvDetector({ active }: { active: boolean }) {
   const { t } = useTranslation();
-  const [tools, setTools] = useState<EnvTool[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [scanning, setScanning] = useState(false);
-  const [error, setError] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filters, setFilters] = useState<Record<string, string>>({});
-  const [sorting, setSorting] = useState<SortingState>([
-    { id: "name", desc: false },
-  ]);
-  const [scanned, setScanned] = useState(false);
-  const [showAllCommands, setShowAllCommands] = useState(false);
-  const unlistenersRef = useRef<UnlistenFn[]>([]);
-  const scanningRef = useRef(false);
-  const triggeredRef = useRef(false);
 
-  const cleanupListeners = useCallback(() => {
-    for (const unlisten of unlistenersRef.current) {
-      unlisten();
-    }
-    unlistenersRef.current = [];
-  }, []);
+  const tools = useEnvDetectorStore((s) => s.tools);
+  const loading = useEnvDetectorStore((s) => s.loading);
+  const scanning = useEnvDetectorStore((s) => s.scanning);
+  const error = useEnvDetectorStore((s) => s.error);
+  const searchQuery = useEnvDetectorStore((s) => s.searchQuery);
+  const filters = useEnvDetectorStore((s) => s.filters);
+  const sorting = useEnvDetectorStore((s) => s.sorting);
+  const scanned = useEnvDetectorStore((s) => s.scanned);
+  const showAllCommands = useEnvDetectorStore((s) => s.showAllCommands);
 
-  const loadTools = useCallback(async () => {
-    if (scanningRef.current) return;
-    scanningRef.current = true;
-
-    setLoading(true);
-    setScanning(true);
-    setError("");
-    setTools([]);
-
-    cleanupListeners();
-
-    try {
-      if (!isTauriEnv()) {
-        setScanned(true);
-        return;
-      }
-
-      const unlisten1 = await listen<EnvTool>("env-tool-found", (event) => {
-        setTools((prev) => [...prev, event.payload]);
-      });
-      const unlisten2 = await listen<{ unavailable: EnvTool[] }>("env-scan-done", (event) => {
-        setTools((prev) => [...prev, ...event.payload.unavailable]);
-        setScanning(false);
-        scanningRef.current = false;
-        setScanned(true);
-        cleanupListeners();
-      });
-
-      unlistenersRef.current = [unlisten1, unlisten2];
-
-      await detectEnvTools();
-      setScanned(true);
-    } catch (e) {
-      console.warn("[EnvDetector] Failed to detect tools:", e);
-      setTools([]);
-      setError(t("envDetector.loadFailed"));
-      setScanned(true);
-      cleanupListeners();
-    } finally {
-      setLoading(false);
-      setScanning(false);
-      scanningRef.current = false;
-    }
-  }, [cleanupListeners, t]);
+  const setSearchQuery = useEnvDetectorStore((s) => s.setSearchQuery);
+  const setSorting = useEnvDetectorStore((s) => s.setSorting);
+  const handleFilterChange = useEnvDetectorStore((s) => s.handleFilterChange);
+  const clearFilters = useEnvDetectorStore((s) => s.clearFilters);
+  const loadTools = useEnvDetectorStore((s) => s.loadTools);
 
   useEffect(() => {
-    if (active && isTauriEnv() && !scanned && !triggeredRef.current) {
-      triggeredRef.current = true;
+    if (active && isTauriEnv() && !scanned) {
       loadTools();
     }
-    return () => {
-      cleanupListeners();
-    };
-  }, [active, loadTools, scanned, cleanupListeners]);
+  }, [active, loadTools, scanned]);
 
   const statusCounts = {
     total: tools.length,
@@ -178,6 +121,7 @@ function EnvDetector({ active }: { active: boolean }) {
       }),
     [filters, searchQuery, tools]
   );
+
   const missingTools = matchingTools.filter((tool) => !tool.available);
   const displayedTools = matchingTools.filter((tool) => {
     if (!tool.available) return false;
@@ -186,21 +130,6 @@ function EnvDetector({ active }: { active: boolean }) {
 
   const hasActiveResultFilter =
     searchQuery.trim().length > 0 || Object.keys(filters).length > 0;
-
-  const handleFilterChange = (key: string, value: string) => {
-    setFilters((prev) => {
-      const next = { ...prev };
-      const filterKey = key as EnvFilterKey;
-      if (next[filterKey] === value) {
-        delete next[filterKey];
-      } else {
-        next[filterKey] = value;
-      }
-      return next;
-    });
-  };
-
-  const clearFilters = () => setFilters({});
 
   const tableColumns = useMemo(() => createEnvDetectorColumns(t), [t]);
 
@@ -225,7 +154,6 @@ function EnvDetector({ active }: { active: boolean }) {
             </Alert>
           )}
 
-          {/* Search & Filter Bar - always visible */}
           <div className="mb-3 shrink-0">
             <div className="flex items-center gap-3 mb-2">
               <div className="relative flex-1 min-w-[200px]">
@@ -240,7 +168,7 @@ function EnvDetector({ active }: { active: boolean }) {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setShowAllCommands((prev) => !prev)}
+                onClick={() => useEnvDetectorStore.setState({ showAllCommands: !useEnvDetectorStore.getState().showAllCommands })}
                 disabled={loading}
               >
                 {showAllCommands
@@ -297,7 +225,6 @@ function EnvDetector({ active }: { active: boolean }) {
             </div>
           </div>
 
-          {/* Table Area */}
           <div className="flex-1 min-h-0">
             {loading && tools.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground rounded-lg border">
@@ -354,10 +281,7 @@ function EnvDetector({ active }: { active: boolean }) {
   );
 }
 
-function formatEnvFilterValue(
-  key: EnvFilterKey,
-  value: string
-): string {
+function formatEnvFilterValue(key: EnvFilterKey, value: string): string {
   return i18n.t(`envDetector.filterValues.${key}.${value}`);
 }
 
