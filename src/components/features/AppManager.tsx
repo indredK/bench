@@ -25,6 +25,8 @@ import { ContentView } from "@/components/content/ContentView";
 import { useAppManagerStore, APP_FILTER_OPTIONS, type OperationStatus } from "@/stores/app-manager";
 import { launchApp, revealAppInFinder } from "@/lib/tauri/commands";
 import { createAppManagerColumns } from "@/features/app-manager/columns";
+import { CategoryFilter } from "@/features/app-manager/CategoryFilter";
+import { classifyApp } from "@/features/app-manager/app-categories";
 import { AppIcon } from "@/components/features/AppIcon";
 import type { AppInfo } from "@/lib/tauri/types";
 
@@ -60,6 +62,7 @@ function AppManager({ active }: { active: boolean }) {
   const error = useAppManagerStore((s) => s.error);
   const searchQuery = useAppManagerStore((s) => s.searchQuery);
   const activeFilter = useAppManagerStore((s) => s.activeFilter);
+  const categoryFilter = useAppManagerStore((s) => s.categoryFilter);
   const sorting = useAppManagerStore((s) => s.sorting);
   const scanned = useAppManagerStore((s) => s.scanned);
   const result = useAppManagerStore((s) => s.result);
@@ -78,6 +81,7 @@ function AppManager({ active }: { active: boolean }) {
 
   const setSearchQuery = useAppManagerStore((s) => s.setSearchQuery);
   const setActiveFilter = useAppManagerStore((s) => s.setActiveFilter);
+  const setCategoryFilter = useAppManagerStore((s) => s.setCategoryFilter);
   const setSorting = useAppManagerStore((s) => s.setSorting);
   const scanApps = useAppManagerStore((s) => s.scanApps);
   const refreshUpdates = useAppManagerStore((s) => s.refreshUpdates);
@@ -120,9 +124,10 @@ function AppManager({ active }: { active: boolean }) {
         case "managed": if (!app.canUpgrade && !app.canUninstall) return false; break;
         case "upgradable": if (!app.upgradeAvailable) return false; break;
       }
+      if (categoryFilter && classifyApp(app) !== categoryFilter) return false;
       return true;
     });
-  }, [apps, searchQuery, activeFilter]);
+  }, [apps, searchQuery, activeFilter, categoryFilter]);
 
   const handleLaunch = useCallback(async (app: AppInfo) => {
     if (!isTauriEnv()) return;
@@ -250,7 +255,7 @@ function AppManager({ active }: { active: boolean }) {
     </div>
   ), [t, handleLaunch, handleReveal, handleDetailUpgrade, handleDetailUninstall]);
 
-  const activeFilterCount = searchQuery.trim() ? 1 : (activeFilter !== "all" ? 1 : 0);
+  const activeFilterCount = (searchQuery.trim() ? 1 : 0) + (activeFilter !== "all" ? 1 : 0) + (categoryFilter ? 1 : 0);
   const caps = result?.platformCapabilities;
 
   return (
@@ -343,6 +348,10 @@ function AppManager({ active }: { active: boolean }) {
                         </Badge>
                       ))}
                     </div>
+                  </div>
+                  <div className="pt-2 border-t">
+                    <p className="text-[11px] text-muted-foreground mb-2 uppercase tracking-wider">{t("appManager.filterByCategory")}</p>
+                    <CategoryFilter apps={apps} selected={categoryFilter} onChange={setCategoryFilter} />
                   </div>
                   {batchMode && selectedCount > 0 && (
                     <div className="pt-2 border-t">

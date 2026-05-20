@@ -11,6 +11,7 @@ import {
   batchUninstallApps,
 } from "@/lib/tauri/commands";
 import type { AppInfo, AppScanResult, BatchOperationResult, OperationRecord } from "@/lib/tauri/types";
+import type { AppCategoryKey } from "@/features/app-manager/app-categories";
 
 export type AppFilterKey = "all" | "user" | "system" | "launchable" | "managed" | "upgradable";
 
@@ -78,6 +79,7 @@ export interface AppManagerState {
   error: string;
   searchQuery: string;
   activeFilter: AppFilterKey;
+  categoryFilter: AppCategoryKey | null;
   sorting: SortingState;
   scanned: boolean;
   result: AppScanResult | null;
@@ -115,6 +117,7 @@ export interface AppManagerState {
 
   setSearchQuery: (query: string) => void;
   setActiveFilter: (filter: AppFilterKey) => void;
+  setCategoryFilter: (category: AppCategoryKey | null) => void;
   setSorting: (sorting: Updater<SortingState>) => void;
   scanApps: () => Promise<void>;
   refreshUpdates: () => Promise<void>;
@@ -154,6 +157,7 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
   error: "",
   searchQuery: "",
   activeFilter: savedPrefs.activeFilter,
+  categoryFilter: null,
   sorting: savedPrefs.sorting,
   scanned: false,
   result: null,
@@ -183,6 +187,7 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
     set({ activeFilter: filter });
     savePreferences({ activeFilter: filter, sorting: get().sorting });
   },
+  setCategoryFilter: (category) => set({ categoryFilter: category }),
   setSorting: (sorting: Updater<SortingState>) => {
     set((state) => {
       const next = typeof sorting === "function" ? sorting(state.sorting) : sorting;
@@ -344,7 +349,7 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
 
   reset: () =>
     set({
-      apps: [], loading: false, error: "", searchQuery: "", activeFilter: "all",
+      apps: [], loading: false, error: "", searchQuery: "", activeFilter: "all", categoryFilter: null,
       sorting: [{ id: "name", desc: false }], scanned: false, result: null,
       operations: {}, history: [], confirmDialog: { open: false, appId: "", appName: "", action: "upgrade" },
       historyOpen: false, selectedAppIds: new Set(), batchMode: false, batchProgress: null, batchResults: null,

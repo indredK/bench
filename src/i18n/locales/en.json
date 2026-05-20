@@ -74,6 +74,17 @@
     "uninstallNotice": "Uninstalling will remove the application and its associated data. If managed by a package manager (Homebrew, winget, etc.), it will no longer appear in the installed list after removal.",
     "filters": "Filters",
     "filterBy": "Filter by type",
+    "filterByCategory": "Filter by category",
+    "category": {
+      "ai": "AI",
+      "browser": "Browsers",
+      "communication": "Messaging",
+      "compiler": "Programming",
+      "launcher": "Launchers",
+      "utility": "Utilities",
+      "development": "Dev Tools",
+      "other": "Other"
+    },
     "platform": "Platform Capabilities",
     "noPmAvailable": "No package managers detected",
     "summaryShort": "{{total}} apps, {{managed}} managed",
