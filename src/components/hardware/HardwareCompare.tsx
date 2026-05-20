@@ -1,7 +1,6 @@
 import { useMemo, useId } from "react";
 import { useTranslation } from "react-i18next";
 import { Plus } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   TooltipProvider,
 } from "@/components/ui/tooltip";
@@ -102,61 +101,59 @@ function HardwareCompare<T extends { id: string; model: string }>({
 
   return (
     <TooltipProvider delay={200}>
-      <Card className="shadow-sm flex-1 flex flex-col min-h-0">
-        <CardContent className="pt-4 gap-4 flex flex-col flex-1 min-h-0">
-          {filterGroups && filterGroups.length > 0 && (
-            <FilterBar
-              filterGroups={filterGroups}
-              data={data}
-              filters={filters}
-              onFilterChange={setFilter}
-              onClearFilters={clearFilters}
-              resultCount={allFiltered.length}
-              models={allFiltered}
-              selectedIds={selectedIds}
-              onToggleModel={toggleModel}
-              onClearSelected={clearSelectedModels}
-              i18nPrefix={i18nPrefix}
-              uid={uid}
-            />
-          )}
+      <div className="flex-1 flex flex-col gap-4 min-h-0">
+        {filterGroups && filterGroups.length > 0 && (
+          <FilterBar
+            filterGroups={filterGroups}
+            data={data}
+            filters={filters}
+            onFilterChange={setFilter}
+            onClearFilters={clearFilters}
+            resultCount={allFiltered.length}
+            models={allFiltered}
+            selectedIds={selectedIds}
+            onToggleModel={toggleModel}
+            onClearSelected={clearSelectedModels}
+            i18nPrefix={i18nPrefix}
+            uid={uid}
+          />
+        )}
 
-          {selectedModels.length > 0 && (
-            <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-              <div className="flex items-center justify-between shrink-0 mb-2">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  {t(`${i18nPrefix}.comparingTitle`, {
-                    count: selectedModels.length,
-                  })}
-                </p>
-              </div>
-              <CompareMatrixTable
-                specRows={specRows}
-                selectedModels={selectedModels}
-                numericKeys={numericKeys}
-                inverseKeys={inverseKeys}
-                i18nPrefix={i18nPrefix}
-                bestValues={bestValues}
-                rangeValues={rangeValues}
-                referenceUrl={referenceUrl}
-                onRemoveModel={toggleModel}
-                containerClassName="rounded-xl border shadow-xs flex-1 min-h-0"
-              />
-            </div>
-          )}
-
-          {selectedModels.length === 0 && (
-            <div className="flex flex-col items-center justify-center flex-1 py-10 text-center">
-              <div className="size-10 rounded-full bg-muted flex items-center justify-center mb-3">
-                <Plus className="size-5 text-muted-foreground/60" />
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {t("hardwareCompare.noModelsSelected")}
+        {selectedModels.length > 0 && (
+          <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+            <div className="flex items-center justify-between shrink-0 mb-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                {t(`${i18nPrefix}.comparingTitle`, {
+                  count: selectedModels.length,
+                })}
               </p>
             </div>
-          )}
-        </CardContent>
-      </Card>
+            <CompareMatrixTable
+              specRows={specRows}
+              selectedModels={selectedModels}
+              numericKeys={numericKeys}
+              inverseKeys={inverseKeys}
+              i18nPrefix={i18nPrefix}
+              bestValues={bestValues}
+              rangeValues={rangeValues}
+              referenceUrl={referenceUrl}
+              onRemoveModel={toggleModel}
+              containerClassName="rounded-xl border shadow-xs flex-1 min-h-0"
+            />
+          </div>
+        )}
+
+        {selectedModels.length === 0 && (
+          <div className="flex flex-col items-center justify-center flex-1 rounded-xl border bg-card/50 py-10 text-center">
+            <div className="size-10 rounded-full bg-muted flex items-center justify-center mb-3">
+              <Plus className="size-5 text-muted-foreground/60" />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {t("hardwareCompare.noModelsSelected")}
+            </p>
+          </div>
+        )}
+      </div>
     </TooltipProvider>
   );
 }

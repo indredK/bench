@@ -37,13 +37,13 @@ function Sidebar({ items, onRefresh, onSettings }: SidebarProps) {
             <Link
               key={item.path}
               href={item.path}
-              className={`flex cursor-pointer items-center gap-2.5 border-l-[3px] px-5 py-2.5 text-sm leading-relaxed transition ${
+              className={`ml-8 mr-2 flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm leading-relaxed transition ${
                 isActive
-                  ? "border-l-primary bg-accent font-semibold text-accent-foreground"
-                  : "border-l-transparent hover:bg-accent/60 hover:text-foreground"
+                  ? "bg-primary/10 font-medium text-primary"
+                  : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
               }`}
             >
-              <span className="flex size-5 shrink-0 items-center justify-center">{item.icon}</span>
+              <span className="flex size-4 shrink-0 items-center justify-center">{item.icon}</span>
               <span>{item.name}</span>
             </Link>
           );

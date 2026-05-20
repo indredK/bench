@@ -24,7 +24,7 @@ function CompareTabs({ tabs, defaultTabId, groupLabels }: CompareTabsProps) {
 
   return (
     <div className="h-full overflow-hidden flex flex-col">
-      <div className="flex flex-wrap gap-1 mb-4" role="tablist">
+      <div className="rounded-xl border bg-card/50 p-3 flex flex-wrap gap-1 mb-4" role="tablist">
         {tabs.map((tab) => {
           const isActive = tab.id === active.id;
           const groupLabel = groupLabels?.[tab.id];
