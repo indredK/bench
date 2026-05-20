@@ -110,12 +110,16 @@ export interface AppScanResult {
   scanTimeMs: number;
   managedCount: number;
   platformCapabilities: PlatformCapabilities;
+  lastScanTime: number;
+  lastUpdateCheck: number;
 }
 
 export interface OperationResult {
   success: boolean;
   message: string;
   exitCode: number | null;
+  errorCode: string | null;
+  permissionIssue: boolean;
 }
 
 export interface BatchItemResult {
@@ -141,6 +145,8 @@ export interface OperationRecord {
   success: boolean;
   output: string;
   exitCode: number | null;
+  errorCode: string | null;
+  permissionIssue: boolean;
 }
 
 export interface SystemInfoData {

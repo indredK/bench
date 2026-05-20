@@ -130,7 +130,7 @@ fn scan_directory_raw(dir: &Path, is_system: bool) -> Vec<(String, String, Strin
 // scan_installed_apps (macOS)
 // ============================================================================
 
-pub fn scan_installed_apps() -> ScanResult {
+pub fn scan_installed_apps(state: tauri::State<'_, AppManagerState>) -> ScanResult {
     let start = std::time::Instant::now();
     let mut raw: Vec<(String, String, String, String, String, bool, u64)> = Vec::new();
 
@@ -209,11 +209,10 @@ pub fn scan_installed_apps() -> ScanResult {
         managed_count,
         platform_capabilities: PlatformCapabilities {
             brew_available,
-            winget_available: false,
-            flatpak_available: false,
-            snap_available: false,
-            apt_available: false,
+            winget_available: false, flatpak_available: false, snap_available: false, apt_available: false,
         },
+        last_scan_time: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64,
+        last_update_check: if let Ok(t) = state.last_update_check_time.lock() { *t } else { 0 },
     }
 }
 
@@ -285,16 +284,15 @@ pub fn upgrade_app(
     let combined = format!("{}\n{}", stdout, stderr).trim().to_string();
     let success = output.status.success();
 
-    record_operation(OperationRecord {
-        timestamp: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64,
-        action: "upgrade".into(), app_id: app.app_id.clone(), app_name: app.name.clone(),
-        success, output: combined.clone(), exit_code: output.status.code(),
-    });
+    let rec = OperationRecord::new("upgrade", &app.app_id, &app.name, success, &combined, output.status.code());
+    record_operation(rec.clone());
 
     Ok(OperationResult {
         success,
         message: if success { format!("Upgraded {}", app.name) } else { combined },
         exit_code: output.status.code(),
+        error_code: rec.error_code,
+        permission_issue: rec.permission_issue,
     })
 }
 
@@ -317,15 +315,14 @@ pub fn uninstall_app(
     let combined = format!("{}\n{}", stdout, stderr).trim().to_string();
     let success = output.status.success();
 
-    record_operation(OperationRecord {
-        timestamp: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64,
-        action: "uninstall".into(), app_id: app.app_id.clone(), app_name: app.name.clone(),
-        success, output: combined.clone(), exit_code: output.status.code(),
-    });
+    let rec = OperationRecord::new("uninstall", &app.app_id, &app.name, success, &combined, output.status.code());
+    record_operation(rec.clone());
 
     Ok(OperationResult {
         success,
         message: if success { format!("Uninstalled {}", app.name) } else { combined },
         exit_code: output.status.code(),
+        error_code: rec.error_code,
+        permission_issue: rec.permission_issue,
     })
 }

@@ -9,11 +9,35 @@ import {
   getAppOperationHistory,
   batchUpgradeApps,
   batchUninstallApps,
-  refreshAppUpdates,
 } from "@/lib/tauri/commands";
 import type { AppInfo, AppScanResult, BatchOperationResult, OperationRecord } from "@/lib/tauri/types";
 
 export type AppFilterKey = "all" | "user" | "system" | "launchable" | "managed" | "upgradable";
+
+// ============================================================================
+// Preference Persistence (localStorage)
+// ============================================================================
+
+const PREF_KEY = "app-manager-preferences";
+
+interface PersistedPreferences {
+  activeFilter: AppFilterKey;
+  sorting: SortingState;
+}
+
+function loadPreferences(): PersistedPreferences {
+  try {
+    const raw = localStorage.getItem(PREF_KEY);
+    if (raw) return JSON.parse(raw) as PersistedPreferences;
+  } catch { /* ignore */ }
+  return { activeFilter: "all", sorting: [{ id: "name", desc: false }] };
+}
+
+function savePreferences(prefs: PersistedPreferences) {
+  try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch { /* ignore */ }
+}
+
+const savedPrefs = loadPreferences();
 
 export const APP_FILTER_OPTIONS = [
   { key: "all" as const, labelKey: "appManager.filterAll" },
@@ -37,7 +61,7 @@ interface BatchProgress {
   total: number;
 }
 
-interface AppManagerState {
+export interface AppManagerState {
   apps: AppInfo[];
   loading: boolean;
   error: string;
@@ -68,6 +92,10 @@ interface AppManagerState {
     action: "upgrade" | "uninstall";
     count: number;
   };
+
+  // Timestamps (from scan result)
+  lastScanTime: number;
+  lastUpdateCheck: number;
 
   setSearchQuery: (query: string) => void;
   setActiveFilter: (filter: AppFilterKey) => void;
@@ -104,8 +132,8 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
   loading: false,
   error: "",
   searchQuery: "",
-  activeFilter: "all",
-  sorting: [{ id: "name", desc: false }],
+  activeFilter: savedPrefs.activeFilter,
+  sorting: savedPrefs.sorting,
   scanned: false,
   result: null,
   operations: {},
@@ -120,12 +148,22 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
   batchResults: null,
   batchConfirmDialog: { open: false, action: "upgrade", count: 0 },
 
+  // Timestamps
+  lastScanTime: 0,
+  lastUpdateCheck: 0,
+
   setSearchQuery: (query) => set({ searchQuery: query }),
-  setActiveFilter: (filter) => set({ activeFilter: filter }),
-  setSorting: (sorting: Updater<SortingState>) =>
-    set((state) => ({
-      sorting: typeof sorting === "function" ? sorting(state.sorting) : sorting,
-    })),
+  setActiveFilter: (filter) => {
+    set({ activeFilter: filter });
+    savePreferences({ activeFilter: filter, sorting: get().sorting });
+  },
+  setSorting: (sorting: Updater<SortingState>) => {
+    set((state) => {
+      const next = typeof sorting === "function" ? sorting(state.sorting) : sorting;
+      savePreferences({ activeFilter: state.activeFilter, sorting: next });
+      return { sorting: next };
+    });
+  },
 
   scanApps: async () => {
     const { loading } = get();
@@ -134,7 +172,7 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
     if (!isTauri()) { set({ scanned: true, loading: false }); return; }
     try {
       const result = await scanInstalledApps();
-      set({ apps: result.apps, result, scanned: true, loading: false });
+      set({ apps: result.apps, result, scanned: true, loading: false, lastScanTime: result.lastScanTime, lastUpdateCheck: result.lastUpdateCheck });
       get().loadHistory();
     } catch (e) {
       set({ apps: [], result: null, error: String(e) || "Failed to scan", scanned: true, loading: false });
@@ -160,7 +198,9 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
     set((state) => ({ operations: { ...state.operations, [appId]: { status, message } } })),
 
   doUpgrade: async (appId: string) => {
-    const { setOperationStatus, loadHistory } = get();
+    const { operations, setOperationStatus, loadHistory } = get();
+    // Prevent duplicate clicks
+    if (operations[appId]?.status === "running") return;
     setOperationStatus(appId, "running", "Upgrading...");
     try {
       const result = await upgradeApp(appId);
@@ -174,7 +214,8 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
   },
 
   doUninstall: async (appId: string) => {
-    const { setOperationStatus, loadHistory } = get();
+    const { operations, setOperationStatus, loadHistory } = get();
+    if (operations[appId]?.status === "running") return;
     setOperationStatus(appId, "running", "Uninstalling...");
     try {
       const result = await uninstallApp(appId);
@@ -273,5 +314,6 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
       operations: {}, history: [], confirmDialog: { open: false, appId: "", appName: "", action: "upgrade" },
       historyOpen: false, selectedAppIds: new Set(), batchMode: false, batchProgress: null, batchResults: null,
       batchConfirmDialog: { open: false, action: "upgrade", count: 0 },
+      lastScanTime: 0, lastUpdateCheck: 0,
     }),
 }));

@@ -68,7 +68,10 @@
     "batchActionUpgrade": "升级",
     "batchActionUninstall": "卸载",
     "batchUpgradeConfirmDescription": "确定要批量升级 {{count}} 个应用吗？每个应用将升级至最新版本。",
-    "batchUninstallConfirmDescription": "确定要批量卸载 {{count}} 个应用吗？此操作不可撤销。"
+    "batchUninstallConfirmDescription": "确定要批量卸载 {{count}} 个应用吗？此操作不可撤销。",
+    "lastScan": "上次扫描",
+    "lastUpdate": "上次更新检查",
+    "uninstallNotice": "卸载将同时移除应用及其关联数据。如果应用由 Homebrew/winget 等包管理器管理，卸载后将不再出现在已安装列表中。"
   },
   "envDetector": {
     "title": "环境检测",

@@ -56,6 +56,36 @@ pub struct OperationRecord {
     pub success: bool,
     pub output: String,
     pub exit_code: Option<i32>,
+    pub error_code: Option<String>,
+    pub permission_issue: bool,
+}
+
+impl OperationRecord {
+    pub fn new(action: &str, app_id: &str, app_name: &str, success: bool, output: &str, exit_code: Option<i32>) -> Self {
+        let permission_issue = !success && (
+            output.contains("permission denied") ||
+            output.contains("Permission denied") ||
+            output.contains("not permitted") ||
+            output.contains("root") ||
+            output.contains("sudo") ||
+            output.contains("administrator") ||
+            output.contains("Access is denied") ||
+            exit_code == Some(5) // EACCES on macOS
+        );
+        let error_code = if !success {
+            if permission_issue { Some("PERMISSION_DENIED".into()) }
+            else if output.contains("not found") || output.contains("Not found") { Some("NOT_FOUND".into()) }
+            else if output.contains("locked") || output.contains("Lock") { Some("LOCKED".into()) }
+            else { Some("GENERIC_ERROR".into()) }
+        } else { None };
+
+        OperationRecord {
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64,
+            action: action.into(), app_id: app_id.into(), app_name: app_name.into(),
+            success, output: output.into(), exit_code, error_code, permission_issue,
+        }
+    }
 }
 
 /// Result of a single upgrade/uninstall operation.
@@ -65,6 +95,8 @@ pub struct OperationResult {
     pub success: bool,
     pub message: String,
     pub exit_code: Option<i32>,
+    pub error_code: Option<String>,
+    pub permission_issue: bool,
 }
 
 /// Per-app result within a batch operation.
@@ -141,6 +173,10 @@ pub struct ScanResult {
     pub scan_time_ms: u64,
     pub managed_count: usize,
     pub platform_capabilities: PlatformCapabilities,
+    /// Unix timestamp in ms of when this scan completed
+    pub last_scan_time: u64,
+    /// Unix timestamp in ms of the last update check (0 if never)
+    pub last_update_check: u64,
 }
 
 // ============================================================================
@@ -231,12 +267,24 @@ pub fn name_match_confidence(app_name: &str, bundle_id: &str, token: &str) -> f6
 
 pub struct AppManagerState {
     pub apps: Mutex<Vec<AppInfo>>,
+    /// Set of app_ids currently undergoing an operation (upgrade/uninstall)
+    pub in_progress: Mutex<HashSet<String>>,
+    /// Cache of the last scan result
+    pub cached_result: Mutex<Option<ScanResult>>,
+    /// Timestamp in ms of last scan
+    pub last_scan_time: Mutex<u64>,
+    /// Timestamp in ms of last update check
+    pub last_update_check_time: Mutex<u64>,
 }
 
 impl AppManagerState {
     pub fn new() -> Self {
         Self {
             apps: Mutex::new(Vec::new()),
+            in_progress: Mutex::new(HashSet::new()),
+            cached_result: Mutex::new(None),
+            last_scan_time: Mutex::new(0),
+            last_update_check_time: Mutex::new(0),
         }
     }
 
@@ -244,6 +292,42 @@ impl AppManagerState {
         if let Ok(mut guard) = self.apps.lock() {
             *guard = apps;
         }
+    }
+
+    /// Try to acquire a lock on an app_id for an operation. Returns false if already locked.
+    pub fn acquire_op_lock(&self, app_id: &str) -> bool {
+        if let Ok(mut guard) = self.in_progress.lock() {
+            guard.insert(app_id.to_string())
+        } else {
+            false
+        }
+    }
+
+    /// Release the operation lock on an app_id.
+    pub fn release_op_lock(&self, app_id: &str) {
+        if let Ok(mut guard) = self.in_progress.lock() {
+            guard.remove(app_id);
+        }
+    }
+
+    /// Cache scan result and update timestamp.
+    pub fn cache_scan_result(&self, result: ScanResult) {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64;
+        if let Ok(mut c) = self.cached_result.lock() { *c = Some(result); }
+        if let Ok(mut t) = self.last_scan_time.lock() { *t = now; }
+    }
+
+    /// Update last update check timestamp.
+    pub fn mark_update_check(&self) {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64;
+        if let Ok(mut t) = self.last_update_check_time.lock() { *t = now; }
+    }
+
+    /// Get cached scan if available.
+    pub fn get_cached_scan(&self) -> Option<ScanResult> {
+        if let Ok(c) = self.cached_result.lock() { c.clone() } else { None }
     }
 }
 
@@ -267,31 +351,35 @@ fn is_linux() -> bool {
 // Tauri Commands – Cross-platform Dispatchers
 // ============================================================================
 
+fn empty_scan_result() -> ScanResult {
+    ScanResult {
+        apps: vec![], total_count: 0, user_count: 0, system_count: 0,
+        scan_time_ms: 0, managed_count: 0,
+        platform_capabilities: PlatformCapabilities {
+            brew_available: false, winget_available: false,
+            flatpak_available: false, snap_available: false, apt_available: false,
+        },
+        last_scan_time: 0, last_update_check: 0,
+    }
+}
+
 #[tauri::command]
-pub fn scan_installed_apps() -> ScanResult {
-    if is_macos() {
-        macos::scan_installed_apps()
+pub fn scan_installed_apps(state: tauri::State<'_, AppManagerState>) -> ScanResult {
+    let result = if is_macos() {
+        macos::scan_installed_apps(state.clone())
     } else if is_windows() {
         windows::scan_installed_apps()
     } else if is_linux() {
         linux::scan_installed_apps()
     } else {
-        ScanResult {
-            apps: vec![],
-            total_count: 0,
-            user_count: 0,
-            system_count: 0,
-            scan_time_ms: 0,
-            managed_count: 0,
-            platform_capabilities: PlatformCapabilities {
-                brew_available: false,
-                winget_available: false,
-                flatpak_available: false,
-                snap_available: false,
-                apt_available: false,
-            },
-        }
+        empty_scan_result()
+    };
+
+    // Cache the result
+    if !result.apps.is_empty() {
+        state.cache_scan_result(result.clone());
     }
+    result
 }
 
 #[tauri::command]
@@ -325,6 +413,7 @@ pub fn check_managed_app_updates(
     app_ids: Vec<String>,
     state: tauri::State<'_, AppManagerState>,
 ) -> Vec<String> {
+    state.mark_update_check();
     if is_macos() {
         macos::check_updates(app_ids, state)
     } else if is_windows() {
@@ -341,15 +430,29 @@ pub fn upgrade_app(
     app_id: String,
     state: tauri::State<'_, AppManagerState>,
 ) -> Result<OperationResult, String> {
-    if is_macos() {
-        macos::upgrade_app(app_id, state)
+    // Operation locking – prevent duplicate concurrent operations
+    if !state.acquire_op_lock(&app_id) {
+        return Ok(OperationResult {
+            success: false,
+            message: "This application is currently being modified. Please wait.".into(),
+            exit_code: None,
+            error_code: Some("LOCKED".into()),
+            permission_issue: false,
+        });
+    }
+
+    let result = if is_macos() {
+        macos::upgrade_app(app_id.clone(), state.clone())
     } else if is_windows() {
-        windows::upgrade_app(app_id, state)
+        windows::upgrade_app(app_id.clone(), state.clone())
     } else if is_linux() {
-        linux::upgrade_app(app_id, state)
+        linux::upgrade_app(app_id.clone(), state.clone())
     } else {
         Err("Unsupported platform".into())
-    }
+    };
+
+    state.release_op_lock(&app_id);
+    result
 }
 
 #[tauri::command]
@@ -357,15 +460,28 @@ pub fn uninstall_app(
     app_id: String,
     state: tauri::State<'_, AppManagerState>,
 ) -> Result<OperationResult, String> {
-    if is_macos() {
-        macos::uninstall_app(app_id, state)
+    if !state.acquire_op_lock(&app_id) {
+        return Ok(OperationResult {
+            success: false,
+            message: "This application is currently being modified. Please wait.".into(),
+            exit_code: None,
+            error_code: Some("LOCKED".into()),
+            permission_issue: false,
+        });
+    }
+
+    let result = if is_macos() {
+        macos::uninstall_app(app_id.clone(), state.clone())
     } else if is_windows() {
-        windows::uninstall_app(app_id, state)
+        windows::uninstall_app(app_id.clone(), state.clone())
     } else if is_linux() {
-        linux::uninstall_app(app_id, state)
+        linux::uninstall_app(app_id.clone(), state.clone())
     } else {
         Err("Unsupported platform".into())
-    }
+    };
+
+    state.release_op_lock(&app_id);
+    result
 }
 
 #[tauri::command]

@@ -4,7 +4,7 @@ import { isTauri } from "@tauri-apps/api/core";
 import {
   RefreshCw, Search, AppWindow, History, X,
   CheckCircle2, AlertCircle, ArrowUpCircle, Trash2, Info,
-  Layers, CheckSquare, ArrowUp, XCircle,
+  Layers, CheckSquare, ArrowUp, AlertTriangle,
 } from "lucide-react";
 import {
   Card, CardHeader, CardTitle, CardContent,
@@ -49,6 +49,8 @@ function AppManager({ active }: { active: boolean }) {
   const history = useAppManagerStore((s) => s.history);
   const confirmDialog = useAppManagerStore((s) => s.confirmDialog);
   const historyOpen = useAppManagerStore((s) => s.historyOpen);
+  const lastScanTime = useAppManagerStore((s) => s.lastScanTime);
+  const lastUpdateCheck = useAppManagerStore((s) => s.lastUpdateCheck);
 
   // Batch
   const selectedAppIds = useAppManagerStore((s) => s.selectedAppIds);
@@ -309,12 +311,24 @@ function AppManager({ active }: { active: boolean }) {
 
             {/* Summary */}
             {scanned && result && (
-              <div className="flex items-center justify-between mb-2 shrink-0">
+              <div className="flex items-center justify-between mb-2 shrink-0 gap-2">
                 <p className="text-sm text-muted-foreground">
                   {hasActiveFilter
                     ? t("appManager.filteredSummary", { visible: filteredApps.length, total: apps.length })
                     : t("appManager.summary", { total: result.totalCount, user: result.userCount, system: result.systemCount, managed: result.managedCount, time: ((result.scanTimeMs ?? 0) / 1000).toFixed(2) })}
                 </p>
+                <div className="flex items-center gap-2 text-[11px] text-muted-foreground/60 shrink-0">
+                  {lastScanTime > 0 && (
+                    <span title={new Date(lastScanTime).toLocaleString()}>
+                      {t("appManager.lastScan")}: {new Date(lastScanTime).toLocaleTimeString()}
+                    </span>
+                  )}
+                  {lastUpdateCheck > 0 && (
+                    <span title={new Date(lastUpdateCheck).toLocaleString()}>
+                      {t("appManager.lastUpdate")}: {new Date(lastUpdateCheck).toLocaleTimeString()}
+                    </span>
+                  )}
+                </div>
               </div>
             )}
 
@@ -374,6 +388,11 @@ function AppManager({ active }: { active: boolean }) {
                           <div className="flex items-center gap-1.5">
                             {actionIcon(record.action, record.success)}
                             <span className="font-medium">{record.action}</span>
+                            {record.errorCode && (
+                              <Badge variant={record.permissionIssue ? "destructive" : "outline"} className="text-[9px] px-1 py-0">
+                                {record.errorCode}
+                              </Badge>
+                            )}
                           </div>
                           <span className="text-muted-foreground">{new Date(record.timestamp).toLocaleTimeString()}</span>
                         </div>
@@ -406,6 +425,14 @@ function AppManager({ active }: { active: boolean }) {
                 ? t("appManager.confirmUninstallDescription", { name: confirmDialog.appName })
                 : t("appManager.confirmUpgradeDescription", { name: confirmDialog.appName })}
             </AlertDialogDescription>
+            {confirmDialog.action === "uninstall" && (
+              <Alert className="mt-2 bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
+                <AlertTriangle className="size-4 text-amber-600" />
+                <AlertDescription className="text-amber-700 dark:text-amber-300 text-xs">
+                  {t("appManager.uninstallNotice")}
+                </AlertDescription>
+              </Alert>
+            )}
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t("appManager.cancel")}</AlertDialogCancel>

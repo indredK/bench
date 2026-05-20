@@ -222,10 +222,10 @@ pub fn scan_installed_apps() -> ScanResult {
         platform_capabilities: PlatformCapabilities {
             brew_available: false,
             winget_available,
-            flatpak_available: false,
-            snap_available: false,
-            apt_available: false,
+            flatpak_available: false, snap_available: false, apt_available: false,
         },
+        last_scan_time: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64,
+        last_update_check: 0,
     }
 }
 
@@ -304,12 +304,9 @@ pub fn upgrade_app(
         String::from_utf8_lossy(&output.stderr)).trim().to_string();
     let success = output.status.success();
 
-    record_operation(OperationRecord {
-        timestamp: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64,
-        action: "upgrade".into(), app_id: app.app_id.clone(), app_name: app.name.clone(),
-        success, output: combined.clone(), exit_code: output.status.code(),
-    });
-    Ok(OperationResult { success, message: combined, exit_code: output.status.code() })
+    let rec = OperationRecord::new("upgrade", &app.app_id, &app.name, success, &combined, output.status.code());
+    record_operation(rec.clone());
+    Ok(OperationResult { success, message: combined, exit_code: output.status.code(), error_code: rec.error_code, permission_issue: rec.permission_issue })
 }
 
 pub fn uninstall_app(
@@ -332,10 +329,7 @@ pub fn uninstall_app(
         String::from_utf8_lossy(&output.stderr)).trim().to_string();
     let success = output.status.success();
 
-    record_operation(OperationRecord {
-        timestamp: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64,
-        action: "uninstall".into(), app_id: app.app_id.clone(), app_name: app.name.clone(),
-        success, output: combined.clone(), exit_code: output.status.code(),
-    });
-    Ok(OperationResult { success, message: combined, exit_code: output.status.code() })
+    let rec = OperationRecord::new("uninstall", &app.app_id, &app.name, success, &combined, output.status.code());
+    record_operation(rec.clone());
+    Ok(OperationResult { success, message: combined, exit_code: output.status.code(), error_code: rec.error_code, permission_issue: rec.permission_issue })
 }

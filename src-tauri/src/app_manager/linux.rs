@@ -267,6 +267,8 @@ pub fn scan_installed_apps() -> ScanResult {
             snap_available: sn_available,
             apt_available: ap_available,
         },
+        last_scan_time: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64,
+        last_update_check: 0,
     }
 }
 
@@ -436,12 +438,9 @@ pub fn upgrade_app(
     if !app.can_upgrade { return Err("Cannot upgrade".into()); }
 
     let (success, output, exit_code) = do_upgrade_linux(&app)?;
-    record_operation(OperationRecord {
-        timestamp: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64,
-        action: "upgrade".into(), app_id: app.app_id.clone(), app_name: app.name.clone(),
-        success, output: output.clone(), exit_code,
-    });
-    Ok(OperationResult { success, message: output, exit_code })
+    let rec = OperationRecord::new("upgrade", &app.app_id, &app.name, success, &output, exit_code);
+    record_operation(rec.clone());
+    Ok(OperationResult { success, message: output, exit_code, error_code: rec.error_code, permission_issue: rec.permission_issue })
 }
 
 pub fn uninstall_app(
@@ -456,10 +455,7 @@ pub fn uninstall_app(
     if !app.can_uninstall { return Err("Cannot uninstall".into()); }
 
     let (success, output, exit_code) = do_uninstall_linux(&app)?;
-    record_operation(OperationRecord {
-        timestamp: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64,
-        action: "uninstall".into(), app_id: app.app_id.clone(), app_name: app.name.clone(),
-        success, output: output.clone(), exit_code,
-    });
-    Ok(OperationResult { success, message: output, exit_code })
+    let rec = OperationRecord::new("uninstall", &app.app_id, &app.name, success, &output, exit_code);
+    record_operation(rec.clone());
+    Ok(OperationResult { success, message: output, exit_code, error_code: rec.error_code, permission_issue: rec.permission_issue })
 }

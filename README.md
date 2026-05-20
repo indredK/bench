@@ -40,13 +40,24 @@ Port Manager is a [Tauri v2](https://v2.tauri.app/) desktop application that hel
 - **Cross-Platform Path Safety** - Cleanup targets are resolved in the Rust backend to avoid frontend path drift across macOS, Windows, and Linux
 - **Batch Cleanup** - Select multiple projects and clear reclaimable space in one action
 
+### App Manager <sup>new</sup>
+
+Manage installed applications across macOS, Windows, and Linux:
+
+- **Cross-Platform App Discovery** - Scan installed applications from macOS `/Applications`, Windows Registry, and Linux Desktop Entries
+- **Source Identification** - Automatic source detection with confidence scoring (Homebrew Cask, winget, Flatpak, Snap, APT)
+- **Managed App Operations** - Upgrade and uninstall applications via their native package managers with confirmation dialogs
+- **Batch Management** - Select multiple safe targets and perform batch upgrades or uninstalls with result summaries
+- **Operation Locking & Audit Trail** - Prevents concurrent modifications on the same app and keeps a full operation history with error codes
+- **Smart Safety Gating** - System applications and unknown-source apps are explicitly protected from uninstallation
+
 ### Internationalization
 
 Full support for **English** and **Simplified Chinese** with a built-in language switcher in the header bar. UI language can be changed instantly without restarting the application.
 
 ### Cross-Platform
 
-Runs on **macOS**, **Windows**, and **Linux** with platform-native behavior.
+Runs on **macOS**, **Windows**, and **Linux** with platform-native behavior. App Manager adapts to each platform's package manager ecosystem automatically.
 
 ## Technology Stack
 
@@ -199,24 +210,44 @@ Click the language toggle button in the top-right corner of the header bar to sw
 port-manager/
 ├── src/                          # React frontend
 │   ├── components/
-│   │   ├── PortManager.tsx       # Port killing UI
-│   │   ├── SystemInfo.tsx        # System information display
-│   │   ├── Sidebar.tsx           # Navigation sidebar
-│   │   └── LanguageSwitcher.tsx  # Language toggle
+│   │   ├── features/             # Feature pages
+│   │   │   ├── AppManager.tsx    # App Manager page (cross-platform)
+│   │   │   ├── PortManager.tsx   # Port killing UI
+│   │   │   ├── DevCleaner.tsx    # Dev project cleaner
+│   │   │   ├── SystemInfo.tsx    # System information display
+│   │   │   └── EnvDetector.tsx   # Environment tool detection
+│   │   ├── layout/
+│   │   │   └── Sidebar.tsx       # Navigation sidebar
+│   │   └── ui/                   # Reusable UI components
+│   ├── features/
+│   │   └── app-manager/
+│   │       └── columns.tsx       # App Manager table columns
+│   ├── stores/
+│   │   └── app-manager.ts        # App Manager state (Zustand)
+│   ├── lib/tauri/
+│   │   ├── commands.ts           # Tauri command bindings
+│   │   └── types.ts              # Shared type definitions
 │   ├── i18n/
 │   │   ├── config.ts             # i18next initialization
 │   │   └── locales/
 │   │       ├── en.json           # English translations
 │   │       └── zh.json           # Chinese translations
 │   ├── App.tsx                   # Root component with routing
-│   ├── main.tsx                  # Application entry point
-│   └── styles.css                # Global styles
+│   └── main.tsx                  # Application entry point
 ├── src-tauri/                    # Rust backend
 │   ├── src/
-│   │   ├── lib.rs                # Core logic (port kill, system info)
-│   │   └── main.rs               # Binary entry point
+│   │   ├── app_manager/          # Cross-platform app management
+│   │   │   ├── mod.rs            # Shared types + command dispatch
+│   │   │   ├── macos.rs          # macOS: Homebrew + .app scanner
+│   │   │   ├── windows.rs        # Windows: Registry + winget
+│   │   │   └── linux.rs          # Linux: Desktop entries + multi-pm
+│   │   ├── dev_cleaner.rs        # Dev project scanner/cleaner
+│   │   ├── env_detector.rs       # Environment tool detection
+│   │   ├── port_manager.rs       # Port + system info logic
+│   │   └── lib.rs                # Command registration
 │   ├── icons/                    # Application icons
 │   └── tauri.conf.json           # Tauri configuration
+├── docs/app-manager-roadmap/     # App Manager development roadmap
 ├── .github/workflows/
 │   └── ci-build.yml              # CI build & release pipeline
 ├── package.json
