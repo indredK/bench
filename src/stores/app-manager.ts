@@ -194,7 +194,8 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
   scanApps: async () => {
     const { loading } = get();
     if (loading) return;
-    set({ loading: true, error: "", apps: [], result: null, selectedAppIds: new Set(), batchMode: false, batchResults: null });
+    // Keep existing data visible while scanning — avoids white-screen flash
+    set({ loading: true, error: "", selectedAppIds: new Set(), batchMode: false, batchResults: null });
     if (!isTauri()) { set({ scanned: true, loading: false }); return; }
     try {
       const result = await scanInstalledApps();

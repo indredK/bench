@@ -88,9 +88,6 @@ export function createAppManagerColumns(
   onReveal: (app: AppInfo) => void,
   onUpgrade: (app: AppInfo) => void,
   onUninstall: (app: AppInfo) => void,
-  _batchMode?: boolean,
-  _onRowClick?: (appId: string) => void,
-  _selectedIds?: Set<string>,
 ): ColumnDef<AppInfo>[] {
   return [
     {

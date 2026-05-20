@@ -1,25 +1,32 @@
 import { useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { cn } from "@/lib/utils";
+import { Check } from "lucide-react";
 
 interface VirtualGridViewProps<T> {
   data: T[];
-  getItemId: (item: T) => string;
+  getRowId: (item: T) => string;
   renderGridCard: (item: T) => React.ReactNode;
   onItemClick: (item: T) => void;
   estimatedCardHeight?: number;
   gridColumns?: number;
   selectedId?: string | null;
+  batchMode?: boolean;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (id: string) => void;
 }
 
 export function VirtualGridView<T>({
   data,
-  getItemId,
+  getRowId,
   renderGridCard,
   onItemClick,
   estimatedCardHeight = 180,
   gridColumns: gridColumnsProp,
   selectedId,
+  batchMode = false,
+  selectedIds,
+  onToggleSelect,
 }: VirtualGridViewProps<T>) {
   const containerRef = useRef<HTMLDivElement>(null);
   const displayColumns = gridColumnsProp ?? 3;
@@ -68,18 +75,43 @@ export function VirtualGridView<T>({
               }}
             >
               {rowItems.map((item) => {
-                const id = getItemId(item);
-                const isSelected = selectedId != null && id === selectedId;
+                const id = getRowId(item);
+                const isDetailSelected = !batchMode && selectedId != null && id === selectedId;
+                const isBatchSelected = batchMode && selectedIds != null && selectedIds.has(id);
+
+                const handleClick = () => {
+                  if (batchMode && onToggleSelect) {
+                    onToggleSelect(id);
+                  } else {
+                    onItemClick(item);
+                  }
+                };
+
                 return (
                   <div
                     key={id}
-                    onClick={() => onItemClick(item)}
+                    onClick={handleClick}
                     className={cn(
                       "cursor-pointer transition-all",
-                      isSelected && "ring-2 ring-primary rounded-lg"
+                      isDetailSelected && "ring-2 ring-primary rounded-lg",
+                      isBatchSelected && "ring-2 ring-primary rounded-lg"
                     )}
                   >
-                    {renderGridCard(item)}
+                    <div className="relative">
+                      {batchMode && (
+                        <div className="absolute top-1 right-1 z-10">
+                          <div className={cn(
+                            "size-4 rounded border-2 flex items-center justify-center transition-colors",
+                            isBatchSelected
+                              ? "bg-primary border-primary text-primary-foreground"
+                              : "border-muted-foreground/40 bg-background/80"
+                          )}>
+                            {isBatchSelected && <Check size={10} strokeWidth={3} />}
+                          </div>
+                        </div>
+                      )}
+                      {renderGridCard(item)}
+                    </div>
                   </div>
                 );
               })}

@@ -7,6 +7,7 @@ use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Mutex;
 use std::time::UNIX_EPOCH;
+use tauri::Manager;
 
 // ============================================================================
 // Data Models
@@ -366,22 +367,27 @@ fn empty_scan_result() -> ScanResult {
 }
 
 #[tauri::command]
-pub fn scan_installed_apps(state: tauri::State<'_, AppManagerState>) -> ScanResult {
-    let result = if is_macos() {
-        macos::scan_installed_apps(state.clone())
-    } else if is_windows() {
-        windows::scan_installed_apps()
-    } else if is_linux() {
-        linux::scan_installed_apps()
-    } else {
-        empty_scan_result()
-    };
+pub async fn scan_installed_apps(app: tauri::AppHandle) -> Result<ScanResult, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state: tauri::State<'_, AppManagerState> = app.state();
+        let result = if is_macos() {
+            macos::scan_installed_apps(state.clone())
+        } else if is_windows() {
+            windows::scan_installed_apps()
+        } else if is_linux() {
+            linux::scan_installed_apps()
+        } else {
+            empty_scan_result()
+        };
 
-    // Cache the result
-    if !result.apps.is_empty() {
-        state.cache_scan_result(result.clone());
-    }
-    result
+        // Cache the result
+        if !result.apps.is_empty() {
+            state.cache_scan_result(result.clone());
+        }
+        result
+    })
+    .await
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

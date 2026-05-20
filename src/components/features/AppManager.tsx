@@ -13,6 +13,7 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { ToolbarButton } from "@/components/ui/toolbar-button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
@@ -21,7 +22,6 @@ import { ThreeColumnLayout } from "@/components/layout/ThreeColumnLayout";
 import { FilterPanel } from "@/components/layout/FilterPanel";
 import { DetailPanel, MetadataRow, DetailSection } from "@/components/layout/DetailPanel";
 import { ContentView } from "@/components/content/ContentView";
-import { ViewToggle } from "@/components/content/ViewToggle";
 import { useAppManagerStore, APP_FILTER_OPTIONS, type OperationStatus } from "@/stores/app-manager";
 import { launchApp, revealAppInFinder } from "@/lib/tauri/commands";
 import { createAppManagerColumns } from "@/features/app-manager/columns";
@@ -88,6 +88,7 @@ function AppManager({ active }: { active: boolean }) {
   const setHistoryOpen = useAppManagerStore((s) => s.setHistoryOpen);
   const clearSelection = useAppManagerStore((s) => s.clearSelection);
   const setBatchMode = useAppManagerStore((s) => s.setBatchMode);
+  const toggleSelectApp = useAppManagerStore((s) => s.toggleSelectApp);
   const openBatchConfirmDialog = useAppManagerStore((s) => s.openBatchConfirmDialog);
   const closeBatchConfirmDialog = useAppManagerStore((s) => s.closeBatchConfirmDialog);
   const doBatchUpgrade = useAppManagerStore((s) => s.doBatchUpgrade);
@@ -253,7 +254,7 @@ function AppManager({ active }: { active: boolean }) {
       <div className="h-full flex flex-col gap-3">
         {/* --- Action Bar --- */}
         <Card className="shrink-0">
-          <CardContent className="flex items-center gap-3 py-2.5">
+          <CardContent className="flex items-center gap-1.5 py-2.5">
             <div className="relative flex-1 min-w-[200px] max-w-md">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -264,24 +265,32 @@ function AppManager({ active }: { active: boolean }) {
                 disabled={loading}
               />
             </div>
-            <Button variant="outline" size="sm" onClick={scanApps} disabled={loading}>
-              <RefreshCw size={13} className={`mr-1 ${loading ? "animate-spin" : ""}`} />
-              {loading ? t("appManager.scanning") : t("appManager.refresh")}
-            </Button>
             <div className="flex-1" />
+            <ToolbarButton
+              icon={<RefreshCw size={15} className={loading ? "animate-spin" : ""} />}
+              tooltip={loading ? t("appManager.scanning") : t("appManager.refresh")}
+              onClick={scanApps}
+            />
             {scanned && (
-              <Button variant={batchMode ? "default" : "ghost"} size="sm" onClick={handleToggleBatchMode}>
-                <CheckSquare size={13} className="mr-1" />
-                {batchMode ? t("appManager.batchModeOff") : t("appManager.batchMode")}
-              </Button>
+              <ToolbarButton
+                icon={<CheckSquare size={15} />}
+                tooltip={batchMode ? t("appManager.batchModeOff") : t("appManager.batchMode")}
+                onClick={handleToggleBatchMode}
+                active={batchMode}
+              />
             )}
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setHistoryOpen(!historyOpen)}>
-              <History size={15} />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setFilterPanelOpen(!filterPanelOpen)}>
-              <Filter size={15} />
-            </Button>
-            <ViewToggle viewMode={viewMode} onChange={setViewMode} />
+            <ToolbarButton
+              icon={<History size={15} />}
+              tooltip={t("appManager.operationHistory")}
+              onClick={() => setHistoryOpen(!historyOpen)}
+              active={historyOpen}
+            />
+            <ToolbarButton
+              icon={<Filter size={15} />}
+              tooltip={t("appManager.filters")}
+              onClick={() => setFilterPanelOpen(!filterPanelOpen)}
+              active={filterPanelOpen || activeFilter !== "all"}
+            />
           </CardContent>
         </Card>
 
@@ -382,19 +391,19 @@ function AppManager({ active }: { active: boolean }) {
                 onSortingChange={setSorting}
                 loading={loading}
                 selectedId={selectedItem?.appId ?? null}
-                renderEmpty={() => (
-                  scanned ? (
-                    <div className="flex flex-col items-center justify-center h-full text-muted-foreground rounded-xl border bg-card/50 gap-2">
-                      <Search size={32} className="opacity-30" />
-                      <p>{filteredApps.length === 0 && apps.length > 0 ? t("appManager.noResults") : t("appManager.empty")}</p>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center h-full text-muted-foreground rounded-xl border bg-card/50 gap-2">
-                      <AppWindow size={32} className="opacity-30" />
-                      <p>{t("appManager.startHint")}</p>
-                    </div>
-                  )
-                )}
+                batchMode={batchMode}
+                selectedIds={selectedAppIds}
+                onToggleSelect={toggleSelectApp}
+                emptyIcon={
+                  scanned
+                    ? <Search size={32} className="opacity-30" />
+                    : <AppWindow size={32} className="opacity-30" />
+                }
+                emptyText={
+                  scanned
+                    ? (filteredApps.length === 0 && apps.length > 0 ? t("appManager.noResults") : t("appManager.empty"))
+                    : t("appManager.startHint")
+                }
               />
             }
             detail={

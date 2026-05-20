@@ -10,6 +10,7 @@ import {
 } from "@tanstack/react-table";
 import type { SortingState, OnChangeFn } from "@tanstack/react-table";
 import { cn } from "@/lib/utils";
+import { Check } from "lucide-react";
 
 interface VirtualDataTableProps<T> {
   data: T[];
@@ -20,6 +21,12 @@ interface VirtualDataTableProps<T> {
   sorting?: SortingState;
   onSortingChange?: OnChangeFn<SortingState>;
   selectedId?: string | null;
+  /** When true, row clicks toggle batch selection instead of opening details */
+  batchMode?: boolean;
+  /** Set of selected item IDs (for batch mode) */
+  selectedIds?: Set<string>;
+  /** Called in batch mode when a row is clicked to toggle selection */
+  onToggleSelect?: (id: string) => void;
 }
 
 /**
@@ -43,6 +50,9 @@ function resolveGridTrack(meta: unknown): string {
   return "minmax(100px, 1fr)";
 }
 
+/** Width of the dedicated checkbox column in batch mode */
+const BATCH_COL_WIDTH = "40px";
+
 export function VirtualDataTable<T>({
   data,
   columns,
@@ -52,6 +62,9 @@ export function VirtualDataTable<T>({
   sorting,
   onSortingChange,
   selectedId,
+  batchMode = false,
+  selectedIds,
+  onToggleSelect,
 }: VirtualDataTableProps<T>) {
   const table = useReactTable({
     data,
@@ -73,11 +86,11 @@ export function VirtualDataTable<T>({
     overscan: 10,
   });
 
-  // Build a single grid-template-columns string that is shared between header
-  // and every body row. This guarantees column widths stay in lockstep.
+  // Build grid-template-columns. In batch mode, prepend a narrow checkbox column.
   const gridCols = useMemo(() => {
-    return columns.map((col) => resolveGridTrack(col.meta)).join(" ");
-  }, [columns]);
+    const dataCols = columns.map((col) => resolveGridTrack(col.meta)).join(" ");
+    return batchMode ? `${BATCH_COL_WIDTH} ${dataCols}` : dataCols;
+  }, [columns, batchMode]);
 
   if (data.length === 0) {
     return (
@@ -97,6 +110,9 @@ export function VirtualDataTable<T>({
         className="sticky top-0 z-10 grid border-b bg-card"
         style={{ gridTemplateColumns: gridCols }}
       >
+        {batchMode && (
+          <div className="px-2 py-2.5 flex items-center justify-center" />
+        )}
         {headerGroup.headers.map((header) => {
           const canSort = header.column.getCanSort();
           const isSorted = header.column.getIsSorted();
@@ -131,21 +147,46 @@ export function VirtualDataTable<T>({
       >
         {rowVirtualizer.getVirtualItems().map((virtualRow) => {
           const row = rows[virtualRow.index] as Row<T>;
-          const isSelected = selectedId != null && getRowId(row.original) === selectedId;
+          const rowId = getRowId(row.original);
+          const isDetailSelected = !batchMode && selectedId != null && rowId === selectedId;
+          const isBatchSelected = batchMode && selectedIds != null && selectedIds.has(rowId);
+
+          const handleClick = () => {
+            if (batchMode && onToggleSelect) {
+              onToggleSelect(rowId);
+            } else {
+              onItemClick(row.original);
+            }
+          };
+
           return (
             <div
               key={row.id}
               className={cn(
                 "grid absolute top-0 left-0 w-full border-b cursor-pointer hover:bg-muted/50 transition-colors",
-                isSelected && "bg-primary/10 border-l-2 border-l-primary"
+                isDetailSelected && "bg-primary/10 border-l-2 border-l-primary",
+                isBatchSelected && "bg-primary/10"
               )}
               style={{
                 height: `${virtualRow.size}px`,
                 transform: `translateY(${virtualRow.start}px)`,
                 gridTemplateColumns: gridCols,
               }}
-              onClick={() => onItemClick(row.original)}
+              onClick={handleClick}
             >
+              {/* Dedicated checkbox column in batch mode */}
+              {batchMode && (
+                <div className="flex items-center justify-center">
+                  <div className={cn(
+                    "size-4 rounded border-2 flex items-center justify-center transition-colors",
+                    isBatchSelected
+                      ? "bg-primary border-primary text-primary-foreground"
+                      : "border-muted-foreground/40"
+                  )}>
+                    {isBatchSelected && <Check size={10} strokeWidth={3} />}
+                  </div>
+                </div>
+              )}
               {row.getVisibleCells().map((cell) => (
                 <div
                   key={cell.id}
