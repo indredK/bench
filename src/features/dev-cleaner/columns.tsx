@@ -123,11 +123,11 @@ export function createDevCleanerColumns(
         align: "right",
       },
       cell: ({ row }) => (
-        <div className="inline-block rounded-lg border border-orange-200 bg-orange-50/70 px-3 py-1.5">
-          <p className="text-[10px] text-orange-700/80">
+        <div className="inline-block rounded-lg border border-orange-200 bg-orange-50/70 px-3 py-1.5 dark:border-orange-800 dark:bg-orange-950/30">
+          <p className="text-[10px] text-orange-700/80 dark:text-orange-300/80">
             {t("devCleaner.cleanupSize")}
           </p>
-          <p className="text-sm font-semibold text-orange-600">
+          <p className="text-sm font-semibold text-orange-600 dark:text-orange-400">
             {formatSize(row.original.cleanup_potential)}
           </p>
         </div>

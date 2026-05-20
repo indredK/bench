@@ -42,12 +42,12 @@ function LanguageSwitcher() {
     const resolvedLang = mode === "system" ? detectSystemLanguage() : mode;
     setStoredMode(mode);
     setCurrentMode(mode);
-    i18n.changeLanguage(resolvedLang);
+    await i18n.changeLanguage(resolvedLang);
     if (isTauri()) {
       const { getCurrentWindow } = await import("@tauri-apps/api/window");
-      const window = await getCurrentWindow();
+      const currentWindow = await getCurrentWindow();
       const title = resolvedLang === "zh" ? "端口管理器 - DevTools" : "Port Manager - DevTools";
-      await window.setTitle(title);
+      await currentWindow.setTitle(title);
     }
   };
 
@@ -58,14 +58,12 @@ function LanguageSwitcher() {
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          onClick={() => changeLanguage(nextMode)}
-          className="flex cursor-pointer items-center justify-center rounded-md border border-sidebar-border bg-sidebar-accent/40 p-1.5 text-sidebar-foreground transition hover:bg-sidebar-accent"
-          aria-label={tooltipText}
-        >
-          {FLAG_ICON[currentMode]}
-        </button>
+      <TooltipTrigger
+        onClick={() => changeLanguage(nextMode)}
+        className="flex cursor-pointer items-center justify-center rounded-md border border-sidebar-border bg-sidebar-accent/40 p-1.5 text-sidebar-foreground transition hover:bg-sidebar-accent"
+        aria-label={tooltipText}
+      >
+        {FLAG_ICON[currentMode]}
       </TooltipTrigger>
       <TooltipContent side="top">
         <p>

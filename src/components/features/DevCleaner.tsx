@@ -207,8 +207,8 @@ export default function DevCleaner() {
                 </div>
                 <div className="h-4 w-px bg-border" />
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xs text-orange-700/80">{t("devCleaner.cleanupSize")}</span>
-                  <span className="font-semibold text-orange-600">
+                  <span className="text-xs text-orange-700/80 dark:text-orange-300/80">{t("devCleaner.cleanupSize")}</span>
+                  <span className="font-semibold text-orange-600 dark:text-orange-400">
                     {formatSize(scanResult.total_cleanup_size)}
                   </span>
                 </div>
@@ -347,7 +347,7 @@ export default function DevCleaner() {
             <div className="shrink-0 space-y-2 px-4 pb-4 pt-2">
               {selectedCount > 0 && !showConfirm && (
                 <>
-                  <p className="text-sm font-medium text-orange-700">
+                  <p className="text-sm font-medium text-orange-700 dark:text-orange-300">
                     {t("devCleaner.confirmMessage", {
                       count: selectedCount,
                       size: formatSize(selectedSize),

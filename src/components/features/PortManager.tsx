@@ -74,10 +74,10 @@ function ProcessTreeView({ node, depth, targetPid }: { node: ProcessNode; depth:
 
 const chipStatusClasses: Record<PortScanStatus, string> = {
   waiting: "opacity-65 bg-muted border-muted-foreground/20 text-muted-foreground",
-  scanning: "bg-indigo-50 border-indigo-300 text-indigo-600 animate-pulse",
-  success: "bg-emerald-50 border-emerald-300 text-emerald-700",
-  empty: "bg-blue-50 border-blue-300 text-blue-700",
-  error: "bg-red-50 border-red-300 text-red-800",
+  scanning: "bg-indigo-50 border-indigo-300 text-indigo-600 dark:bg-indigo-950/30 dark:border-indigo-800 dark:text-indigo-300 animate-pulse",
+  success: "bg-emerald-50 border-emerald-300 text-emerald-700 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-300",
+  empty: "bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-950/30 dark:border-blue-800 dark:text-blue-300",
+  error: "bg-red-50 border-red-300 text-red-800 dark:bg-red-950/30 dark:border-red-800 dark:text-red-300",
   ended: "opacity-50 bg-muted border-dashed border-muted-foreground/30 text-muted-foreground",
 };
 
@@ -259,8 +259,8 @@ function PortManager() {
                           "flex size-5 items-center justify-center rounded-full transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
                           inputValue.length > 0
                             ? showInvalidToast
-                              ? "animate-pulse bg-yellow-500 text-white opacity-100 hover:bg-yellow-600"
-                              : "bg-muted-foreground text-white opacity-60 hover:bg-foreground hover:opacity-100"
+                              ? "animate-pulse bg-yellow-500 text-white hover:bg-yellow-600 dark:bg-yellow-600 dark:hover:bg-yellow-700 opacity-100"
+                              : "bg-muted-foreground text-background opacity-60 hover:bg-foreground hover:opacity-100"
                             : "opacity-0 pointer-events-none"
                         )}
                         onClick={handleClearInput}
@@ -339,10 +339,10 @@ function PortManager() {
                               className={cn(
                                 "rounded-full",
                                 ps.status === "waiting" && "size-2 opacity-0",
-                                ps.status === "scanning" && "size-3 animate-spin border-2 border-indigo-200 border-t-indigo-500",
-                                ps.status === "success" && "size-2 bg-emerald-500",
-                                ps.status === "empty" && "size-2 bg-blue-400",
-                                ps.status === "error" && "size-2 bg-red-500",
+                                ps.status === "scanning" && "size-3 animate-spin border-2 border-indigo-200 border-t-indigo-500 dark:border-indigo-800 dark:border-t-indigo-400",
+                                ps.status === "success" && "size-2 bg-emerald-500 dark:bg-emerald-400",
+                                ps.status === "empty" && "size-2 bg-blue-400 dark:bg-blue-300",
+                                ps.status === "error" && "size-2 bg-red-500 dark:bg-red-400",
                                 ps.status === "ended" && "size-2 bg-muted-foreground",
                               )}
                             />
@@ -358,7 +358,7 @@ function PortManager() {
                     <Tooltip>
                       <TooltipTrigger>
                         <button
-                          className={cn(chipActionBase, "group transition hover:bg-black/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none")}
+                          className={cn(chipActionBase, "group transition hover:bg-foreground/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none")}
                           onClick={(e) => {
                             e.stopPropagation();
                             doScan([ps.port]);
@@ -372,7 +372,7 @@ function PortManager() {
                     <Tooltip>
                       <TooltipTrigger>
                         <button
-                          className={cn(chipActionBase, "text-yellow-600 transition hover:bg-yellow-600 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none")}
+                          className={cn(chipActionBase, "text-yellow-600 dark:text-yellow-400 transition hover:bg-yellow-600 hover:text-white dark:hover:bg-yellow-600 dark:hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none")}
                           onClick={(e) => {
                             e.stopPropagation();
                             removePort(ps.port);
@@ -496,12 +496,12 @@ function PortManager() {
                     data-port={detail.port}
                     className={cn(
                       "mb-2.5 rounded-lg border bg-muted/30 p-3 transition",
-                      highlightPort === detail.port && "border-indigo-400 bg-indigo-50 shadow-[0_0_0_3px_rgba(79,70,229,0.15)]"
+                      highlightPort === detail.port && "border-indigo-400 dark:border-indigo-600 bg-indigo-50 dark:bg-indigo-950/30 shadow-[0_0_0_3px_rgba(79,70,229,0.15)] dark:shadow-[0_0_0_3px_rgba(129,140,248,0.15)]"
                     )}
                   >
                     {detail.error ? (
-                      <div className="flex items-center gap-2 rounded-md bg-blue-50 px-3 py-2 text-[13px] text-blue-700">
-                        <span className="size-2 shrink-0 rounded-full bg-blue-500" />
+                      <div className="flex items-center gap-2 rounded-md bg-blue-50 px-3 py-2 text-[13px] text-blue-700 dark:bg-blue-950/30 dark:text-blue-300">
+                        <span className="size-2 shrink-0 rounded-full bg-blue-500 dark:bg-blue-400" />
                         {t("portManager.port", { port: detail.port })}: {detail.error}
                       </div>
                     ) : (
@@ -518,7 +518,7 @@ function PortManager() {
                               </Badge>
                             )}
                             {portKillMessages[detail.port] && (
-                              <span className="rounded bg-yellow-50 px-2 py-0.5 text-xs text-yellow-700">
+                              <span className="rounded bg-yellow-50 px-2 py-0.5 text-xs text-yellow-700 dark:bg-yellow-950/30 dark:text-yellow-300">
                                 {portKillMessages[detail.port].join(", ")}
                               </span>
                             )}
@@ -529,7 +529,7 @@ function PortManager() {
                               <Button
                                 variant="default"
                                 size="sm"
-                                className="rounded-lg bg-amber-600 hover:bg-amber-700"
+                                className="rounded-lg bg-amber-600 hover:bg-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600"
                                 onClick={() => killPort(detail.port, detail.pids)}
                                 disabled={killing}
                               >

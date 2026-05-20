@@ -115,12 +115,13 @@ function CompareMatrixValueCell<T extends { id: string; model: string }>({
       {barPercent > 0 && (
         <div
           className="absolute inset-y-1.5 left-0 rounded-r-full transition-all duration-300"
-          style={{
-            width: `${Math.max(barPercent, 4)}%`,
-            background: isHighlighted
-              ? "linear-gradient(90deg, rgba(5,150,105,0.20), rgba(5,150,105,0.06))"
-              : "linear-gradient(90deg, rgba(107,114,128,0.10), rgba(107,114,128,0.02))",
-          }}
+          className={cn(
+            "absolute inset-y-1 left-1 rounded-sm",
+            isHighlighted
+              ? "bg-gradient-to-r from-emerald-600/20 to-emerald-600/5 dark:from-emerald-400/20 dark:to-emerald-400/5"
+              : "bg-gradient-to-r from-gray-500/10 to-gray-500/5 dark:from-gray-400/10 dark:to-gray-400/5"
+          )}
+          style={{ width: `${Math.max(barPercent, 4)}%` }}
         />
       )}
       <div className="relative z-10 flex items-center gap-1.5">
