@@ -27,6 +27,14 @@ export default defineConfig(async () => ({
       ignored: ["**/src-tauri/**"],
     },
   },
+  build: {
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, "index.html"),
+        splash: path.resolve(__dirname, "splash.html"),
+      },
+    },
+  },
   test: {
     globals: true,
     environment: "jsdom",

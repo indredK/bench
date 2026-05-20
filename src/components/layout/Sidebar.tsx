@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 
 interface SidebarProps {
   items: SidebarItem[];
-  onRefresh?: () => void;
+  onRefresh?: () => void | Promise<void>;
   onSettings?: () => void;
 }
 
@@ -19,8 +19,11 @@ function Sidebar({ items, onRefresh, onSettings }: SidebarProps) {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    onRefresh?.();
-    setTimeout(() => setIsRefreshing(false), 600);
+    try {
+      await onRefresh?.();
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 600);
+    }
   };
   const [location] = useLocation();
 

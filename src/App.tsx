@@ -16,7 +16,12 @@ import type { ContextMenuConfig } from "@/features/context-menu/types";
 import { useMenuEvent, useInitMenuEvents } from "@/hooks/useMenuEvents";
 import { AboutDialog } from "@/components/common/AboutDialog";
 import { SettingsDialog } from "@/components/common/SettingsDialog";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { useAppManagerStore } from "@/stores/app-manager";
+import { useDevCleanerStore } from "@/stores/dev-cleaner";
+import { useEnvDetectorStore } from "@/stores/env-detector";
+import { usePortManagerStore } from "@/stores/port-manager";
+import { useSystemInfoStore } from "@/stores/system-info";
 
 export interface SidebarItem {
   path: string;
@@ -27,6 +32,37 @@ export interface SidebarItem {
 function App() {
   const { t } = useTranslation();
 
+  const [aboutOpen, setAboutOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  const handleRefresh = useCallback(async () => {
+    const currentPath = window.location.hash.replace(/^#/, "") || "/";
+
+    switch (currentPath) {
+      case "/app-manager":
+        await useAppManagerStore.getState().scanApps();
+        break;
+      case "/dev-cleaner":
+        await useDevCleanerStore.getState().handleScan();
+        break;
+      case "/system-info":
+        await useSystemInfoStore.getState().loadSystemInfo();
+        break;
+      case "/env-detector":
+        await useEnvDetectorStore.getState().loadTools();
+        break;
+      case "/":
+        usePortManagerStore.getState().rescanAll();
+        break;
+      default:
+        break;
+    }
+  }, []);
+
+  const handleSettings = useCallback(() => {
+    setSettingsOpen(true);
+  }, []);
+
   useDefaultContextMenu(useMemo((): (() => ContextMenuConfig) => () => ({
     id: "default-menu",
     items: [
@@ -34,13 +70,12 @@ function App() {
         id: "refresh",
         label: t("appManager.refresh"),
         icon: undefined,
-        onClick: () => window.location.reload(),
+        onClick: () => {
+          void handleRefresh();
+        },
       },
     ],
-  }), [t]));
-
-  const [aboutOpen, setAboutOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  }), [handleRefresh, t]));
 
   useInitMenuEvents();
 
@@ -52,7 +87,7 @@ function App() {
     handleSettings();
   });
   useMenuEvent("reload", () => {
-    window.location.reload();
+    void handleRefresh();
   });
   useMenuEvent("toggle_devtools", () => {
     // DevTools 已在开发模式下通过右键菜单可用
@@ -66,14 +101,6 @@ function App() {
     { path: "/system-info", name: t("sidebar.systemInfo"), icon: <Monitor size={18} /> },
     { path: "/env-detector", name: t("sidebar.envDetector"), icon: <Box size={18} /> },
   ];
-
-  const handleRefresh = () => {
-    window.location.reload();
-  };
-
-  const handleSettings = () => {
-    setSettingsOpen(true);
-  };
 
   return (
     <>

@@ -12,17 +12,41 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "Bench - DevTools",
         "width": 1280,
         "height": 800,
         "minWidth": 960,
         "minHeight": 600,
+        "center": true,
         "resizable": true,
         "fullscreen": false,
+        "visible": false,
         "decorations": false,
         "titleBarStyle": "Overlay"
+      },
+      {
+        "label": "splashscreen",
+        "url": "splash.html",
+        "title": "Bench",
+        "width": 320,
+        "height": 320,
+        "center": true,
+        "resizable": false,
+        "maximizable": false,
+        "minimizable": false,
+        "closable": false,
+        "fullscreen": false,
+        "focus": false,
+        "transparent": true,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "shadow": false,
+        "backgroundColor": "#00000000"
       }
     ],
+    "macOSPrivateApi": true,
     "security": {
       "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost"
     }
