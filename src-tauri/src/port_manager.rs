@@ -174,8 +174,9 @@ fn detect_model_name() -> String {
 
 #[cfg(target_os = "linux")]
 fn detect_distribution() -> String {
-    let distro = sysinfo::System::distribution();
-    format!("{} {}", distro.0, distro.1)
+    let id = sysinfo::System::distribution_id();
+    let version = sysinfo::System::long_os_version().unwrap_or_default();
+    format!("{} {}", id, version)
 }
 
 #[cfg(not(target_os = "linux"))]
