@@ -6,6 +6,7 @@ import {
   batchUninstallApps,
   batchUpgradeApps,
   checkManagedAppUpdates,
+  getAppIconBase64,
   getAppOperationHistory,
   installApp,
   launchApp,
@@ -24,6 +25,7 @@ const VIEW_MODE_KEY = "view-mode:app-manager";
 
 export const appManagerRepository = {
   scanInstalledApps,
+  getAppIconBase64,
   launchApp,
   revealAppInFinder,
   checkManagedAppUpdates,

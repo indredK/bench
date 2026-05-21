@@ -227,25 +227,6 @@ pub fn scan_installed_apps(state: tauri::State<'_, AppManagerState>) -> ScanResu
 
     apps = deduplicate(apps);
 
-    let num_threads = std::cmp::min(apps.len(), 8);
-    let chunk_size = if num_threads > 0 {
-        apps.len().div_ceil(num_threads)
-    } else {
-        0
-    };
-
-    if chunk_size > 0 {
-        std::thread::scope(|s| {
-            for chunk in apps.chunks_mut(chunk_size) {
-                s.spawn(move || {
-                    for app in chunk.iter_mut() {
-                        app.icon_base64 = get_app_icon_base64(&app.install_path).ok();
-                    }
-                });
-            }
-        });
-    }
-
     build_scan_result(
         apps,
         platform_capabilities(brew_available, false, false, false, false),

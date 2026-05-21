@@ -15,7 +15,12 @@ export function AppManagerGridCard({ app, t }: AppManagerGridCardProps) {
   return (
     <div className="rounded-xl border bg-card p-3 hover:ring-2 hover:ring-primary/30 transition-all h-full flex flex-col gap-2">
       <div className="flex items-center gap-2">
-        <AppIcon iconBase64={app.iconBase64} size={20} className="shrink-0 rounded-sm" />
+        <AppIcon
+          iconBase64={app.iconBase64}
+          installPath={app.installPath}
+          size={20}
+          className="shrink-0 rounded-sm"
+        />
         <span className="font-medium text-sm truncate">{app.name}</span>
         {app.isSystemApp && (
           <Badge variant="secondary" className="text-[10px] px-1 py-0 shrink-0">

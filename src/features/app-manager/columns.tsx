@@ -107,7 +107,12 @@ export function createAppManagerColumns(
       cell: ({ row }) => (
         <div className="min-w-0 space-y-0.5">
           <div className="flex min-w-0 items-center gap-2">
-            <AppIcon iconBase64={row.original.iconBase64} size={20} className="shrink-0 rounded-sm" />
+            <AppIcon
+              iconBase64={row.original.iconBase64}
+              installPath={row.original.installPath}
+              size={20}
+              className="shrink-0 rounded-sm"
+            />
             <StickyTableText className="font-medium">
               {row.original.name}
             </StickyTableText>

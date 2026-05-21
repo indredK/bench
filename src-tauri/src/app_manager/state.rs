@@ -75,6 +75,10 @@ impl AppManagerState {
 
     /// Cache scan result and update timestamp.
     pub fn cache_scan_result(&self, result: ScanResult) {
+        if let Ok(mut apps) = self.apps.lock() {
+            *apps = result.apps.clone();
+        }
+
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_millis() as u64)

@@ -84,6 +84,18 @@ export function useAppManagerController(active: boolean) {
 
   const canUsePlatformFeatures = canUseDesktopFeatures();
 
+  const deferUntilAfterFirstPaint = useCallback((callback: () => void) => {
+    let timeoutId = 0;
+    const frameId = window.requestAnimationFrame(() => {
+      timeoutId = window.setTimeout(callback, 0);
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      if (timeoutId) window.clearTimeout(timeoutId);
+    };
+  }, []);
+
   const loadHistory = useCallback(async () => {
     if (!appManagerUseCases.isAvailable()) return;
     try {
@@ -318,12 +330,18 @@ export function useAppManagerController(active: boolean) {
   );
 
   useEffect(() => {
-    if (active && canUsePlatformFeatures && !scanned) scanApps();
-  }, [active, canUsePlatformFeatures, scanned, scanApps]);
+    if (!active || !canUsePlatformFeatures || scanned) return;
+    return deferUntilAfterFirstPaint(() => {
+      void scanApps();
+    });
+  }, [active, canUsePlatformFeatures, deferUntilAfterFirstPaint, scanned, scanApps]);
 
   useEffect(() => {
-    if (scanned && apps.length > 0) refreshUpdates();
-  }, [scanned, apps.length, refreshUpdates]);
+    if (!active || !scanned || apps.length === 0) return;
+    return deferUntilAfterFirstPaint(() => {
+      void refreshUpdates();
+    });
+  }, [active, apps.length, deferUntilAfterFirstPaint, refreshUpdates, scanned]);
 
   useEffect(() => {
     if (historyOpen) loadHistory();

@@ -42,6 +42,19 @@ pub async fn scan_installed_apps(app: tauri::AppHandle) -> Result<ScanResult, St
 }
 
 #[tauri::command]
+pub async fn get_app_icon_base64(install_path: String) -> Result<Option<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        if is_macos() {
+            Ok(macos::get_app_icon_base64(&install_path).ok())
+        } else {
+            Ok(None)
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
 pub fn launch_app(app_path: String) -> Result<(), String> {
     if is_macos() {
         macos::launch_app(app_path)
@@ -68,20 +81,25 @@ pub fn reveal_app_in_finder(app_path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn check_managed_app_updates(
+pub async fn check_managed_app_updates(
     app_ids: Vec<String>,
-    state: tauri::State<'_, AppManagerState>,
-) -> Vec<String> {
-    state.mark_update_check();
-    if is_macos() {
-        macos::check_updates(app_ids, state)
-    } else if is_windows() {
-        windows::check_updates(app_ids, state)
-    } else if is_linux() {
-        linux::check_updates(app_ids, state)
-    } else {
-        vec![]
-    }
+    app: tauri::AppHandle,
+) -> Result<Vec<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state: tauri::State<'_, AppManagerState> = app.state();
+        state.mark_update_check();
+        if is_macos() {
+            macos::check_updates(app_ids, state)
+        } else if is_windows() {
+            windows::check_updates(app_ids, state)
+        } else if is_linux() {
+            linux::check_updates(app_ids, state)
+        } else {
+            vec![]
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -232,11 +250,11 @@ pub fn batch_uninstall_apps(
 }
 
 #[tauri::command]
-pub fn refresh_app_updates(
+pub async fn refresh_app_updates(
     app_ids: Vec<String>,
-    state: tauri::State<'_, AppManagerState>,
-) -> Vec<String> {
-    check_managed_app_updates(app_ids, state)
+    app: tauri::AppHandle,
+) -> Result<Vec<String>, String> {
+    check_managed_app_updates(app_ids, app).await
 }
 
 #[tauri::command]

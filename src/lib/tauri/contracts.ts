@@ -3,6 +3,7 @@
  */
 import type {
   AppScanResult,
+  AppIconBase64,
   BatchOperationResult,
   InstallSource,
   OperationRecord,
@@ -33,6 +34,7 @@ function defineTauriCommand<Args, Result>() {
 
 export const TAURI_COMMAND_CONTRACTS = {
   scan_installed_apps: defineTauriCommand<undefined, AppScanResult>()("scan_installed_apps"),
+  get_app_icon_base64: defineTauriCommand<{ installPath: string }, AppIconBase64>()("get_app_icon_base64"),
   launch_app: defineTauriCommand<{ appPath: string }, void>()("launch_app"),
   reveal_app_in_finder: defineTauriCommand<{ appPath: string }, void>()("reveal_app_in_finder"),
   check_managed_app_updates: defineTauriCommand<{ appIds: string[] }, string[]>()("check_managed_app_updates"),
@@ -86,6 +88,7 @@ function commandName<Name extends TauriCommandName>(name: Name): Name {
 export const TAURI_COMMANDS = {
   appManager: {
     scanInstalledApps: commandName("scan_installed_apps"),
+    getAppIconBase64: commandName("get_app_icon_base64"),
     launchApp: commandName("launch_app"),
     revealAppInFinder: commandName("reveal_app_in_finder"),
     checkManagedAppUpdates: commandName("check_managed_app_updates"),
@@ -133,6 +136,7 @@ type TauriCommandArgKeys = {
 
 export const TAURI_COMMAND_ARG_KEYS = {
   scan_installed_apps: [],
+  get_app_icon_base64: ["installPath"],
   launch_app: ["appPath"],
   reveal_app_in_finder: ["appPath"],
   check_managed_app_updates: ["appIds"],

@@ -30,7 +30,12 @@ export function AppDetail({
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <AppIcon iconBase64={app.iconBase64} size={40} className="shrink-0 rounded-md" />
+        <AppIcon
+          iconBase64={app.iconBase64}
+          installPath={app.installPath}
+          size={40}
+          className="shrink-0 rounded-md"
+        />
         <div>
           <h3 className="font-semibold text-sm">{app.name}</h3>
           <p className="text-xs text-muted-foreground mt-0.5">{app.bundleId}</p>

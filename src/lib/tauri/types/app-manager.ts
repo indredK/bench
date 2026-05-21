@@ -26,6 +26,8 @@ export interface AppInfo {
   };
 }
 
+export type AppIconBase64 = string | null;
+
 export interface PlatformCapabilities {
   brewAvailable: boolean;
   wingetAvailable: boolean;

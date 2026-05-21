@@ -3,6 +3,7 @@ macro_rules! app_invoke_handler {
     () => {
         tauri::generate_handler![
             $crate::app_manager::commands::scan_installed_apps,
+            $crate::app_manager::commands::get_app_icon_base64,
             $crate::app_manager::commands::launch_app,
             $crate::app_manager::commands::reveal_app_in_finder,
             $crate::app_manager::commands::check_managed_app_updates,

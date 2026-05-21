@@ -75,6 +75,10 @@ function createAppManagerUseCases(
       return repository.scanInstalledApps();
     },
 
+    loadAppIconBase64(installPath: string) {
+      return repository.getAppIconBase64(installPath);
+    },
+
     async findManagedAppUpdates(apps: AppInfo[]): Promise<Set<string>> {
       if (!isAvailable() || apps.length === 0) return new Set();
 

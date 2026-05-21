@@ -11,6 +11,10 @@ export function scanInstalledApps() {
   return invokeTauriCommand(TAURI_COMMANDS.appManager.scanInstalledApps);
 }
 
+export function getAppIconBase64(installPath: string) {
+  return invokeTauriCommand(TAURI_COMMANDS.appManager.getAppIconBase64, { installPath });
+}
+
 export function launchApp(appPath: string) {
   return invokeTauriCommand(TAURI_COMMANDS.appManager.launchApp, { appPath });
 }
