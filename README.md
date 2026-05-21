@@ -26,8 +26,8 @@ Built with [Tauri v2](https://v2.tauri.app/) + [React 18](https://react.dev/) + 
 | Layer / 层 | Technology / 技术 |
 | :--- | :--- |
 | Desktop Framework | [Tauri v2](https://v2.tauri.app/) |
-| Frontend / 前端 | [React 18](https://react.dev/), [TypeScript 5](https://www.typescriptlang.org/), [TailwindCSS 3](https://tailwindcss.com/), [shadcn/ui](https://ui.shadcn.com/) |
-| Bundler / 构建 | [Vite 6](https://vitejs.dev/) |
+| Frontend / 前端 | [React 19](https://react.dev/), [TypeScript 6](https://www.typescriptlang.org/), [TailwindCSS 4](https://tailwindcss.com/), [shadcn/ui](https://ui.shadcn.com/) |
+| Bundler / 构建 | [Vite 8](https://vitejs.dev/) |
 | Backend / 后端 | [Rust](https://www.rust-lang.org/) (edition 2021) |
 | State / 状态管理 | [Zustand](https://zustand.docs.pmnd.rs/) |
 | Routing / 路由 | [Wouter](https://github.com/molefrog/wouter) |
