@@ -391,7 +391,7 @@ fn do_upgrade_linux(app: &AppInfo) -> Result<(bool, String, Option<i32>), String
         }
         "Apt" => {
             let output = Command::new("sudo")
-                .args(["apt-get", "install", "--only-upgrade", "-y", &app.source_id])
+                .args(["-n", "apt-get", "install", "--only-upgrade", "-y", &app.source_id])
                 .output().map_err(|e| format!("apt upgrade failed: {}", e))?;
             let combined = format!("{}\n{}", String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr)).trim().to_string();
             Ok((output.status.success(), combined, output.status.code()))
@@ -418,7 +418,7 @@ fn do_uninstall_linux(app: &AppInfo) -> Result<(bool, String, Option<i32>), Stri
         }
         "Apt" => {
             let output = Command::new("sudo")
-                .args(["apt-get", "remove", "-y", &app.source_id])
+                .args(["-n", "apt-get", "remove", "-y", &app.source_id])
                 .output().map_err(|e| format!("apt remove failed: {}", e))?;
             let combined = format!("{}\n{}", String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr)).trim().to_string();
             Ok((output.status.success(), combined, output.status.code()))
@@ -504,7 +504,7 @@ pub fn install_app(app_id: String, install_source: crate::app_manager::InstallSo
     if let Some(apt_pkg) = &install_source.apt {
         if apt_available() {
             let output = Command::new("sudo")
-                .args(["apt", "install", "-y", apt_pkg])
+                .args(["-n", "apt", "install", "-y", apt_pkg])
                 .output()
                 .map_err(|e| format!("apt install failed: {}", e))?;
             let combined = format!("{}\n{}",

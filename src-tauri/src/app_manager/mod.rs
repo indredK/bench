@@ -80,9 +80,12 @@ impl OperationRecord {
             else { Some("GENERIC_ERROR".into()) }
         } else { None };
 
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0);
         OperationRecord {
-            timestamp: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64,
+            timestamp: now,
             action: action.into(), app_id: app_id.into(), app_name: app_name.into(),
             success, output: output.into(), exit_code, error_code, permission_issue,
         }
@@ -336,7 +339,9 @@ impl AppManagerState {
     /// Cache scan result and update timestamp.
     pub fn cache_scan_result(&self, result: ScanResult) {
         let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64;
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0);
         if let Ok(mut c) = self.cached_result.lock() { *c = Some(result); }
         if let Ok(mut t) = self.last_scan_time.lock() { *t = now; }
     }
@@ -344,7 +349,9 @@ impl AppManagerState {
     /// Update last update check timestamp.
     pub fn mark_update_check(&self) {
         let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64;
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0);
         if let Ok(mut t) = self.last_update_check_time.lock() { *t = now; }
     }
 

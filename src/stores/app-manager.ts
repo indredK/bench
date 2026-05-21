@@ -407,7 +407,7 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
         batchMode: false,
       });
     } catch (e) {
-      set({ batchProgress: null, error: String(e) });
+      set({ batchProgress: null, batchResults: null, selectedAppIds: new Set(), batchMode: false, error: String(e) });
     }
     await loadHistory();
     get().scanApps();
@@ -427,7 +427,7 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
         batchMode: false,
       });
     } catch (e) {
-      set({ batchProgress: null, error: String(e) });
+      set({ batchProgress: null, batchResults: null, selectedAppIds: new Set(), batchMode: false, error: String(e) });
     }
     await loadHistory();
     get().scanApps();

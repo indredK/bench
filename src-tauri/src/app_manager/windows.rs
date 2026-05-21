@@ -12,13 +12,11 @@ use std::process::Command;
 // ============================================================================
 
 fn find_winget() -> Option<String> {
-    // Try direct path first
-    let paths = &[
-        r"C:\Users\*\AppData\Local\Microsoft\WindowsApps\winget.exe",
-    ];
-    for p in paths {
-        if Path::new(p).exists() {
-            return Some(p.to_string());
+    // Try via LOCALAPPDATA environment variable
+    if let Ok(localappdata) = std::env::var("LOCALAPPDATA") {
+        let p = format!(r"{}\Microsoft\WindowsApps\winget.exe", localappdata);
+        if Path::new(&p).exists() {
+            return Some(p);
         }
     }
     // Try `where winget`
@@ -253,7 +251,8 @@ pub fn launch_app(app_path: String) -> Result<(), String> {
 
 pub fn reveal_in_explorer(app_path: String) -> Result<(), String> {
     let status = Command::new("explorer")
-        .arg(format!("/select,{}", app_path))
+        .arg("/select")
+        .arg(&app_path)
         .status()
         .map_err(|e| format!("Failed to reveal: {}", e))?;
     if status.success() { Ok(()) } else { Err("Reveal failed".into()) }

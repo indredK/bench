@@ -32,8 +32,7 @@ export function classifySeries(app: AppInfo): AppSeriesKey {
   const bid = app.bundleId.toLowerCase();
 
   if (
-    bid.includes("com.google.") ||
-    bid.includes("com.googlecode.")
+    bid.includes("com.google.")
   ) {
     return "google";
   }

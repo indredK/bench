@@ -381,13 +381,17 @@ fn resolve_finder_alias(path: &Path) -> Option<PathBuf> {
     if !path.is_file() {
         return None;
     }
+    let path_str = path.to_string_lossy();
     let output = Command::new("osascript")
         .args([
             "-e",
-            &format!(
-                "tell application \"Finder\" to get POSIX path of (original item of (POSIX file \"{}\" as alias))",
-                path.display()
-            ),
+            "on run argv",
+            "-e",
+            "tell application \"Finder\" to get POSIX path of (original item of (POSIX file (item 1 of argv) as alias))",
+            "-e",
+            "end run",
+            "--",
+            &path_str,
         ])
         .output()
         .ok()?;

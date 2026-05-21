@@ -344,27 +344,27 @@ function PortManager() {
                     onClick={() => scrollToPort(ps.port)}
                   >
                     <Tooltip>
-                      <TooltipTrigger
-                        render={
-                          <span className="flex size-3 shrink-0 items-center justify-center">
-                            <span
-                              className={cn(
-                                "rounded-full",
-                                ps.status === "waiting" && "size-2 opacity-0",
-                                ps.status === "scanning" && "size-3 animate-spin border-2 border-indigo-200 border-t-indigo-500 dark:border-indigo-800 dark:border-t-indigo-400",
-                                ps.status === "success" && "size-2 bg-emerald-500 dark:bg-emerald-400",
-                                ps.status === "empty" && "size-2 bg-blue-400 dark:bg-blue-300",
-                                ps.status === "error" && "size-2 bg-red-500 dark:bg-red-400",
-                                ps.status === "ended" && "size-2 bg-muted-foreground",
-                              )}
-                            />
-                          </span>
-                        }
-                      />
+                      <TooltipTrigger asChild>
+                        <span className="flex size-3 shrink-0 items-center justify-center">
+                          <span
+                            className={cn(
+                              "rounded-full",
+                              ps.status === "waiting" && "size-2 opacity-0",
+                              ps.status === "scanning" && "size-3 animate-spin border-2 border-indigo-200 border-t-indigo-500 dark:border-indigo-800 dark:border-t-indigo-400",
+                              ps.status === "success" && "size-2 bg-emerald-500 dark:bg-emerald-400",
+                              ps.status === "empty" && "size-2 bg-blue-400 dark:bg-blue-300",
+                              ps.status === "error" && "size-2 bg-red-500 dark:bg-red-400",
+                              ps.status === "ended" && "size-2 bg-muted-foreground",
+                            )}
+                          />
+                        </span>
+                      </TooltipTrigger>
                       <TooltipContent>{t(PORT_SCAN_STATUS_META[ps.status].labelKey)}</TooltipContent>
                     </Tooltip>
                     <Tooltip>
-                      <TooltipTrigger render={<span>{ps.port}</span>} />
+                      <TooltipTrigger asChild>
+                        <span>{ps.port}</span>
+                      </TooltipTrigger>
                       <TooltipContent>{t("portManager.chipScrollTo", { port: ps.port })}</TooltipContent>
                     </Tooltip>
                     <Tooltip>

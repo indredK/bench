@@ -37,7 +37,9 @@
       "path": "安装路径",
       "source": "来源",
       "lastModified": "最近修改",
-      "actions": "操作"
+      "actions": "操作",
+      "description": "描述",
+      "status": "状态"
     },
     "actionLaunch": "启动应用",
     "actionReveal": "在 Finder 中显示",
@@ -579,7 +581,27 @@
     "ethernet": "有线网络",
     "audio": "音频芯片",
     "biosFlashback": "BIOS Flashback",
-    "rgbHeaders": "RGB 接针"
+    "rgbHeaders": "RGB 接针",
+    "values": {
+      "series": {},
+      "socket": {
+        "LGA1700": "LGA1700",
+        "AM5": "AM5",
+        "LGA1851": "LGA1851"
+      },
+      "chipset": {
+        "Z790": "Z790",
+        "X670E": "X670E",
+        "X870E": "X870E",
+        "Z890": "Z890",
+        "B650": "B650",
+        "B650E": "B650E"
+      },
+      "formFactor": {
+        "ATX": "ATX",
+        "E-ATX": "E-ATX"
+      }
+    }
   },
   "monitorCompare": {
     "title": "显示器",
@@ -699,7 +721,14 @@
     "height": "散热器高度",
     "socketSupport": "平台兼容",
     "hasRgb": "RGB 灯效",
-    "hasDisplay": "显示屏"
+    "hasDisplay": "显示屏",
+    "values": {
+      "series": {},
+      "type": {
+        "Air": "风冷散热器",
+        "AIO": "一体式水冷"
+      }
+    }
   },
   "switchCompare": {
     "title": "交换机",

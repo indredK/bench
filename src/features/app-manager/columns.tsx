@@ -61,7 +61,7 @@ function sourceTypeLabel(t: TFunction, sourceType: string): string {
     case "MacBundle": return t("appManager.sourceMacBundle");
     case "AppStore": return t("appManager.sourceAppStore");
     case "Winget": return "winget";
-    case "WindowsStore": return t("appManager.sourceAppStore");
+    case "WindowsStore": return "Windows Store";
     case "MsiInstaller": return "MSI";
     case "Flatpak": return "Flatpak";
     case "Snap": return "Snap";

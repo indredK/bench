@@ -37,7 +37,9 @@
       "path": "Install Path",
       "source": "Source",
       "lastModified": "Last Modified",
-      "actions": "Actions"
+      "actions": "Actions",
+      "description": "Description",
+      "status": "Status"
     },
     "actionLaunch": "Launch App",
     "actionReveal": "Reveal in Finder",

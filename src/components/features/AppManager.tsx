@@ -299,11 +299,19 @@ function AppManager({ active }: { active: boolean }) {
 
   useContextMenuRegistration(appRegistration);
 
+  const confirmPendingRef = useRef(false);
   const handleConfirmAction = useCallback(async () => {
+    if (confirmPendingRef.current) return;
     const { appId, action } = confirmDialog;
+    if (!appId) return;
+    confirmPendingRef.current = true;
     closeConfirmDialog();
-    if (action === "upgrade") await doUpgrade(appId);
-    else await doUninstall(appId);
+    try {
+      if (action === "upgrade") await doUpgrade(appId);
+      else await doUninstall(appId);
+    } finally {
+      confirmPendingRef.current = false;
+    }
   }, [confirmDialog, closeConfirmDialog, doUpgrade, doUninstall]);
 
   const handleToggleBatchMode = useCallback(() => {

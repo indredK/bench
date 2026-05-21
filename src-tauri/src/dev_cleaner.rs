@@ -298,7 +298,10 @@ pub fn cleanup_projects(projects: Vec<ProjectInfo>) -> Result<CleanupResult, Str
                 continue;
             }
 
-            if !target_path.starts_with(project_dir) {
+            let canonical_target = target_path.canonicalize().unwrap_or_else(|_| target_path.clone());
+            let canonical_project = project_dir.canonicalize().unwrap_or_else(|_| project_dir.to_path_buf());
+
+            if !canonical_target.starts_with(&canonical_project) {
                 errors.push(format!(
                     "Unsafe cleanup path outside project: {}",
                     target_path.display()

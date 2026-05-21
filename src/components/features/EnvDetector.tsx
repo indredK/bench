@@ -325,12 +325,7 @@ function formatEnvFilterValue(key: EnvFilterKey, value: string): string {
 }
 
 function isDeveloperSignal(tool: EnvTool): boolean {
-  return (
-    tool.detector !== "path-scan" ||
-    tool.category !== "other" ||
-    tool.status === "multipleVersions" ||
-    tool.status === "versionUnknown"
-  );
+  return !(tool.detector === "path-scan" && tool.category === "other");
 }
 
 export default EnvDetector;
