@@ -1,6 +1,6 @@
 import type { StoreApi } from "zustand";
 import type { AppInfo, InstallListAppInfo } from "@/lib/tauri/types/app-manager";
-import type { AppManagerState } from "@/features/app-manager/store";
+import type { AppManagerState } from "@/features/app-manager/model/store-types";
 import { createInstallListApps } from "@/features/app-manager/model/install-list";
 import {
   createBatchErrorPatch,
