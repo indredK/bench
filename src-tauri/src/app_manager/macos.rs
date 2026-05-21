@@ -541,3 +541,55 @@ fn png_to_base64(png_path: &Path) -> Result<String, String> {
         .map_err(|e| format!("Failed to read icon PNG: {}", e))?;
     Ok(base64::engine::general_purpose::STANDARD.encode(&buf))
 }
+
+// ============================================================================
+// Install
+// ============================================================================
+
+pub fn install_app(app_id: String, install_source: crate::app_manager::InstallSource) -> Result<crate::app_manager::OperationResult, String> {
+    use crate::app_manager::record_operation;
+    use crate::app_manager::OperationRecord;
+
+    // Prefer brew install --cask
+    if let Some(cask) = &install_source.brew {
+        if let Some(brew) = find_brew() {
+            let output = std::process::Command::new(brew)
+                .args(["install", "--cask", cask])
+                .output()
+                .map_err(|e| format!("Failed to execute brew: {}", e))?;
+
+            let success = output.status.success();
+            let message = String::from_utf8_lossy(if success { &output.stdout } else { &output.stderr }).to_string();
+
+            let result = crate::app_manager::OperationResult {
+                success,
+                message: message.trim().to_string(),
+                exit_code: output.status.code(),
+                error_code: if success { None } else { Some("INSTALL_FAILED".into()) },
+                permission_issue: message.contains("permission denied") || message.contains("root"),
+            };
+
+            record_operation(OperationRecord::new(
+                "install", &app_id, &app_id, result.success, &result.message, result.exit_code,
+            ));
+
+            return Ok(result);
+        }
+    }
+
+    // Fallback: try to open download URL
+    if let Some(url) = &install_source.url {
+        let _ = std::process::Command::new("open")
+            .arg(url)
+            .output();
+        return Ok(crate::app_manager::OperationResult {
+            success: true,
+            message: format!("Opening download page: {}", url),
+            exit_code: Some(0),
+            error_code: None,
+            permission_issue: false,
+        });
+    }
+
+    Err("No suitable installation method available for this application".into())
+}

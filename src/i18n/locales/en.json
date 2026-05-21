@@ -111,7 +111,17 @@
     "detailSource": "Source",
     "detailSourceId": "Source ID",
     "detailType": "Type",
-    "detailModified": "Modified"
+    "detailModified": "Modified",
+    "filterUninstalled": "Not Installed",
+    "install": "Install",
+    "installing": "Installing...",
+    "installSearchPlaceholder": "Search recommended apps...",
+    "installCount": "{{count}} apps available for install",
+    "installNoResults": "No recommended apps match your search",
+    "installConfirmTitle": "Install {{name}}",
+    "installConfirmDescription": "This will download and install {{name}} on your system.",
+    "confirmInstall": "Install",
+    "openWebsite": "Open Website"
   },
   "envDetector": {
     "title": "Environment Detector",

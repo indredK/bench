@@ -113,6 +113,8 @@ pub fn run() {
             app_manager::batch_upgrade_apps,
             app_manager::batch_uninstall_apps,
             app_manager::refresh_app_updates,
+            app_manager::install_app,
+            app_manager::batch_install_apps,
             port_manager::get_system_info,
             port_manager::query_port_processes,
             port_manager::kill_processes,

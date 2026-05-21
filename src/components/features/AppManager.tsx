@@ -5,7 +5,7 @@ import {
   RefreshCw, Search, AppWindow, History, X,
   CheckCircle2, AlertCircle, ArrowUpCircle, Trash2,
   Layers, CheckSquare, ArrowUp, Filter,
-  Play, Folder,
+  Play, Folder, Download, Package, ExternalLink, RotateCcw,
 } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -29,7 +29,7 @@ import { CategoryFilter } from "@/features/app-manager/CategoryFilter";
 import { classifyApp } from "@/features/app-manager/app-categories";
 import { classifySeries } from "@/features/app-manager/app-series";
 import { AppIcon } from "@/components/features/AppIcon";
-import type { AppInfo } from "@/lib/tauri/types";
+import type { AppInfo, UninstalledAppInfo } from "@/lib/tauri/types";
 import { useContextMenuRegistration } from "@/features/context-menu/useContextMenuRegistration";
 import type { ContextMenuConfig, ContextMenuRegistration } from "@/features/context-menu/types";
 import { DesktopOnly } from "@/components/common/DesktopOnly";
@@ -107,6 +107,11 @@ function AppManager({ active }: { active: boolean }) {
   const setViewMode = useAppManagerStore((s) => s.setViewMode);
   const setSelectedItem = useAppManagerStore((s) => s.setSelectedItem);
   const setFilterPanelOpen = useAppManagerStore((s) => s.setFilterPanelOpen);
+  const uninstalledApps = useAppManagerStore((s) => s.uninstalledApps);
+  const installConfirmDialog = useAppManagerStore((s) => s.installConfirmDialog);
+  const doInstall = useAppManagerStore((s) => s.doInstall);
+  const openInstallConfirmDialog = useAppManagerStore((s) => s.openInstallConfirmDialog);
+  const closeInstallConfirmDialog = useAppManagerStore((s) => s.closeInstallConfirmDialog);
 
   useEffect(() => { if (active && isTauriEnv() && !scanned) scanApps(); }, [active, scanApps, scanned]);
   useEffect(() => { if (scanned && apps.length > 0) refreshUpdates(); }, [scanned]);
@@ -125,6 +130,25 @@ function AppManager({ active }: { active: boolean }) {
   }, []);
 
   const filteredApps = useMemo(() => {
+    if (activeFilter === "uninstalled") {
+      let result = uninstalledApps;
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        result = result.filter(
+          (app) =>
+            app.name.toLowerCase().includes(q) ||
+            app.description.toLowerCase().includes(q)
+        );
+      }
+      if (categoryFilter) {
+        result = result.filter((app) => app.category === categoryFilter);
+      }
+      if (seriesFilter) {
+        result = result.filter((app) => app.series === seriesFilter);
+      }
+      return result;
+    }
+
     return apps.filter((app) => {
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -141,7 +165,7 @@ function AppManager({ active }: { active: boolean }) {
       if (seriesFilter && classifySeries(app) !== seriesFilter) return false;
       return true;
     });
-  }, [apps, searchQuery, activeFilter, categoryFilter, seriesFilter]);
+  }, [apps, uninstalledApps, searchQuery, activeFilter, categoryFilter, seriesFilter]);
 
   const handleLaunch = useCallback(async (app: AppInfo) => {
     if (!isTauriEnv()) return;
@@ -160,6 +184,17 @@ function AppManager({ active }: { active: boolean }) {
   const handleUninstallFromColumn = useCallback((app: AppInfo) => {
     openConfirmDialog(app.appId, app.name, "uninstall");
   }, [openConfirmDialog]);
+
+  const handleInstall = useCallback((app: UninstalledAppInfo) => {
+    openInstallConfirmDialog(app.id, app.name);
+  }, [openInstallConfirmDialog]);
+
+  const handleInstallConfirm = useCallback(async () => {
+    const { appId } = installConfirmDialog;
+    closeInstallConfirmDialog();
+    const app = uninstalledApps.find((a) => a.id === appId);
+    if (app) await doInstall(app.id, app.name, app.installSource);
+  }, [installConfirmDialog, closeInstallConfirmDialog, uninstalledApps, doInstall]);
 
   const getRowAttributes = useCallback((app: AppInfo) => ({
     "data-context-type": "app-manager-row",
@@ -225,8 +260,12 @@ function AppManager({ active }: { active: boolean }) {
   }, [batchMode, clearSelection, setBatchMode]);
 
   const selectedCount = selectedAppIds.size;
-  const selectedUpgradable = filteredApps.filter(a => a.allowedActions.upgrade && selectedAppIds.has(a.appId)).length;
-  const selectedUninstallable = filteredApps.filter(a => a.allowedActions.uninstall && selectedAppIds.has(a.appId)).length;
+  const selectedUpgradable = activeFilter !== "uninstalled"
+    ? (filteredApps as AppInfo[]).filter(a => a.allowedActions.upgrade && selectedAppIds.has(a.appId)).length
+    : 0;
+  const selectedUninstallable = activeFilter !== "uninstalled"
+    ? (filteredApps as AppInfo[]).filter(a => a.allowedActions.uninstall && selectedAppIds.has(a.appId)).length
+    : 0;
 
   const handleBatchUpgrade = useCallback(() => {
     if (selectedUpgradable === 0) return;
@@ -277,6 +316,60 @@ function AppManager({ active }: { active: boolean }) {
       <p className="text-[10px] text-muted-foreground truncate">{app.sourceType}</p>
     </div>
   ), [t]);
+
+  const handleOpenWebsite = useCallback((url: string | undefined) => {
+    if (url) window.open(url, "_blank");
+  }, []);
+
+  const renderUninstalledCard = useCallback((app: UninstalledAppInfo) => {
+    const state = useAppManagerStore.getState().installStates[app.id];
+    const isInstalling = state?.status === "running";
+    return (
+      <div className="rounded-xl border bg-card p-4 flex flex-col hover:ring-2 hover:ring-primary/30 transition-all h-full">
+        <div className="flex items-start gap-3 flex-1">
+          <div className="size-9 shrink-0 rounded-md bg-muted flex items-center justify-center">
+            <Package size={18} className="text-muted-foreground" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h4 className="text-sm font-medium truncate">{app.name}</h4>
+            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{app.description}</p>
+            <div className="flex flex-wrap gap-1 mt-2">
+              {app.installSource.brew && (
+                <Badge variant="secondary" className="text-[10px] px-1 py-0">Homebrew</Badge>
+              )}
+              {app.installSource.winget && (
+                <Badge variant="secondary" className="text-[10px] px-1 py-0">winget</Badge>
+              )}
+              {!app.installSource.brew && !app.installSource.winget && app.installSource.url && (
+                <Badge variant="secondary" className="text-[10px] px-1 py-0">Download</Badge>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5 mt-3">
+          <Button
+            className="flex-1 h-8"
+            size="sm"
+            disabled={isInstalling}
+            onClick={() => handleInstall(app)}
+          >
+            {isInstalling ? (
+              <><RotateCcw size={13} className="mr-1 animate-spin" />{t("appManager.installing")}</>
+            ) : (
+              <><Download size={13} className="mr-1" />{t("appManager.install")}</>
+            )}
+          </Button>
+          {app.installSource.url && (
+            <ToolbarButton
+              icon={<ExternalLink size={14} />}
+              tooltip={t("appManager.openWebsite")}
+              onClick={() => handleOpenWebsite(app.installSource.url)}
+            />
+          )}
+        </div>
+      </div>
+    );
+  }, [t, handleInstall, handleOpenWebsite]);
 
   const renderDetail = useCallback((app: AppInfo) => (
     <div className="space-y-4">
@@ -394,6 +487,7 @@ function AppManager({ active }: { active: boolean }) {
                           {option.key === "all" && ` (${apps.length})`}
                           {option.key === "managed" && ` (${result?.managedCount ?? 0})`}
                           {option.key === "upgradable" && ` (${apps.filter(a => a.upgradeAvailable).length})`}
+                          {option.key === "uninstalled" && ` (${uninstalledApps.length})`}
                         </Badge>
                       ))}
                     </div>
@@ -449,8 +543,28 @@ function AppManager({ active }: { active: boolean }) {
               </FilterPanel>
             }
             content={
-              <ContentView
-                data={filteredApps}
+              activeFilter === "uninstalled" ? (
+                <ContentView<UninstalledAppInfo>
+                  data={filteredApps as UninstalledAppInfo[]}
+                  viewMode="grid"
+                  onViewModeChange={() => {}}
+                  columns={[]}
+                  getRowId={(app) => app.id}
+                  renderGridCard={renderUninstalledCard}
+                  estimatedCardHeight={180}
+                  onItemClick={() => {}}
+                  showViewToggle={false}
+                  summary={
+                    <span className="text-xs text-muted-foreground">
+                      {t("appManager.installCount", { count: filteredApps.length })}
+                    </span>
+                  }
+                  emptyIcon={<Search size={32} className="opacity-30" />}
+                  emptyText={t("appManager.installNoResults")}
+                />
+              ) : (
+              <ContentView<AppInfo>
+                data={filteredApps as AppInfo[]}
                 viewMode={viewMode}
                 onViewModeChange={setViewMode}
                 columns={tableColumns}
@@ -495,6 +609,7 @@ function AppManager({ active }: { active: boolean }) {
                     : t("appManager.startHint")
                 }
               />
+              )
             }
             detail={
               <DetailPanel
@@ -563,6 +678,27 @@ function AppManager({ active }: { active: boolean }) {
               <AlertDialogAction onClick={handleConfirmAction}
                 className={confirmDialog.action === "uninstall" ? "bg-red-600 hover:bg-red-700" : ""}>
                 {confirmDialog.action === "uninstall" ? t("appManager.confirmUninstall") : t("appManager.confirmUpgrade")}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Install Confirm Dialog */}
+        <AlertDialog open={installConfirmDialog.open} onOpenChange={(open) => { if (!open) closeInstallConfirmDialog(); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <Download size={18} className="text-blue-500" />
+                {t("appManager.installConfirmTitle", { name: installConfirmDialog.appName })}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {t("appManager.installConfirmDescription", { name: installConfirmDialog.appName })}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t("appManager.cancel")}</AlertDialogCancel>
+              <AlertDialogAction onClick={handleInstallConfirm}>
+                {t("appManager.confirmInstall")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

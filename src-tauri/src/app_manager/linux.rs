@@ -460,3 +460,74 @@ pub fn uninstall_app(
     record_operation(rec.clone());
     Ok(OperationResult { success, message: output, exit_code, error_code: rec.error_code, permission_issue: rec.permission_issue })
 }
+
+// ============================================================================
+// Install (Linux via flatpak/snap/apt)
+// ============================================================================
+
+pub fn install_app(app_id: String, install_source: crate::app_manager::InstallSource) -> Result<OperationResult, String> {
+    // Prefer flatpak
+    if let Some(flatpak_id) = &install_source.flatpak {
+        if flatpak_available() {
+            let output = Command::new("flatpak")
+                .args(["install", "--noninteractive", "-y", "flathub", flatpak_id])
+                .output()
+                .map_err(|e| format!("flatpak install failed: {}", e))?;
+            let combined = format!("{}\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)).trim().to_string();
+            let success = output.status.success();
+            let r = OperationRecord::new("install", &app_id, &app_id, success, &combined, output.status.code());
+            record_operation(r.clone());
+            return Ok(OperationResult { success, message: combined, exit_code: output.status.code(), error_code: r.error_code, permission_issue: r.permission_issue });
+        }
+    }
+
+    // Prefer snap
+    if let Some(snap_name) = &install_source.snap {
+        if snap_available() {
+            let output = Command::new("snap")
+                .args(["install", snap_name])
+                .output()
+                .map_err(|e| format!("snap install failed: {}", e))?;
+            let combined = format!("{}\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)).trim().to_string();
+            let success = output.status.success();
+            let r = OperationRecord::new("install", &app_id, &app_id, success, &combined, output.status.code());
+            record_operation(r.clone());
+            return Ok(OperationResult { success, message: combined, exit_code: output.status.code(), error_code: r.error_code, permission_issue: r.permission_issue });
+        }
+    }
+
+    // Prefer apt
+    if let Some(apt_pkg) = &install_source.apt {
+        if apt_available() {
+            let output = Command::new("sudo")
+                .args(["apt", "install", "-y", apt_pkg])
+                .output()
+                .map_err(|e| format!("apt install failed: {}", e))?;
+            let combined = format!("{}\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)).trim().to_string();
+            let success = output.status.success();
+            let r = OperationRecord::new("install", &app_id, &app_id, success, &combined, output.status.code());
+            record_operation(r.clone());
+            return Ok(OperationResult { success, message: combined, exit_code: output.status.code(), error_code: r.error_code, permission_issue: r.permission_issue });
+        }
+    }
+
+    // Fallback: open download URL with xdg-open
+    if let Some(url) = &install_source.url {
+        let _ = Command::new("xdg-open").arg(url).status();
+        return Ok(OperationResult {
+            success: true,
+            message: format!("Opening download page: {}", url),
+            exit_code: Some(0),
+            error_code: None,
+            permission_issue: false,
+        });
+    }
+
+    Err("No suitable installation method available for this application".into())
+}

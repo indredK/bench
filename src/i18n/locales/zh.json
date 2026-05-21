@@ -111,7 +111,17 @@
     "detailSource": "来源",
     "detailSourceId": "来源 ID",
     "detailType": "类型",
-    "detailModified": "修改时间"
+    "detailModified": "修改时间",
+    "filterUninstalled": "未安装",
+    "install": "安装",
+    "installing": "安装中...",
+    "installSearchPlaceholder": "搜索推荐应用...",
+    "installCount": "{{count}} 个应用可安装",
+    "installNoResults": "没有匹配的推荐应用",
+    "installConfirmTitle": "安装 {{name}}",
+    "installConfirmDescription": "将下载并安装 {{name}} 到您的系统。",
+    "confirmInstall": "安装",
+    "openWebsite": "打开官网"
   },
   "envDetector": {
     "title": "环境检测",

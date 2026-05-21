@@ -150,6 +150,29 @@ export interface OperationRecord {
   permissionIssue: boolean;
 }
 
+export interface InstallSource {
+  brew?: string;
+  winget?: string;
+  apt?: string;
+  flatpak?: string;
+  snap?: string;
+  url?: string;
+}
+
+export interface UninstalledAppInfo {
+  _virtual: true;
+  id: string;
+  name: string;
+  bundleId: string;
+  category: string;
+  series: string;
+  description: string;
+  installSource: InstallSource;
+  iconKey: string;
+}
+
+export type AppManagerItem = AppInfo | UninstalledAppInfo;
+
 export interface SystemInfoData {
   os_name: string;
   os_version: string;

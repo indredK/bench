@@ -9,12 +9,15 @@ import {
   getAppOperationHistory,
   batchUpgradeApps,
   batchUninstallApps,
+  installApp as tauriInstallApp,
 } from "@/lib/tauri/commands";
-import type { AppInfo, AppScanResult, BatchOperationResult, OperationRecord } from "@/lib/tauri/types";
+import type { AppInfo, AppScanResult, BatchOperationResult, OperationRecord, UninstalledAppInfo } from "@/lib/tauri/types";
 import type { AppCategoryKey } from "@/features/app-manager/app-categories";
 import type { AppSeriesKey } from "@/features/app-manager/app-series";
+import { getUninstalledRecommended } from "@/features/app-manager/recommended-apps";
+import type { RecommendedApp } from "@/features/app-manager/recommended-apps";
 
-export type AppFilterKey = "all" | "user" | "system" | "launchable" | "managed" | "upgradable";
+export type AppFilterKey = "all" | "user" | "system" | "launchable" | "managed" | "upgradable" | "uninstalled";
 
 // ============================================================================
 // Preference Persistence (localStorage)
@@ -59,6 +62,7 @@ export const APP_FILTER_OPTIONS = [
   { key: "launchable" as const, labelKey: "appManager.filterLaunchable" },
   { key: "managed" as const, labelKey: "appManager.filterManaged" },
   { key: "upgradable" as const, labelKey: "appManager.filterUpgradable" },
+  { key: "uninstalled" as const, labelKey: "appManager.filterUninstalled" },
 ];
 
 export type OperationStatus = "idle" | "pending" | "running" | "success" | "error";
@@ -117,6 +121,15 @@ export interface AppManagerState {
   selectedItem: AppInfo | null;
   filterPanelOpen: boolean;
 
+  // Uninstalled / recommended apps
+  uninstalledApps: UninstalledAppInfo[];
+  installStates: Record<string, AppOperationState>;
+  installConfirmDialog: {
+    open: boolean;
+    appId: string;
+    appName: string;
+  };
+
   setSearchQuery: (query: string) => void;
   setActiveFilter: (filter: AppFilterKey) => void;
   setCategoryFilter: (category: AppCategoryKey | null) => void;
@@ -124,6 +137,7 @@ export interface AppManagerState {
   setSorting: (sorting: Updater<SortingState>) => void;
   scanApps: () => Promise<void>;
   refreshUpdates: () => Promise<void>;
+  refreshUninstalled: () => void;
 
   // Single operations
   doUpgrade: (appId: string) => Promise<void>;
@@ -131,6 +145,12 @@ export interface AppManagerState {
   setOperationStatus: (appId: string, status: OperationStatus, message?: string) => void;
   openConfirmDialog: (appId: string, appName: string, action: "upgrade" | "uninstall") => void;
   closeConfirmDialog: () => void;
+
+  // Installation operations
+  setInstallState: (appId: string, status: OperationStatus, message?: string) => void;
+  doInstall: (appId: string, appName: string, installSource: UninstalledAppInfo["installSource"]) => Promise<void>;
+  openInstallConfirmDialog: (appId: string, appName: string) => void;
+  closeInstallConfirmDialog: () => void;
 
   // Batch operations
   toggleSelectApp: (appId: string) => void;
@@ -186,6 +206,11 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
   selectedItem: null,
   filterPanelOpen: true,
 
+  // Uninstalled / recommended apps
+  uninstalledApps: [],
+  installStates: {},
+  installConfirmDialog: { open: false, appId: "", appName: "" },
+
   setSearchQuery: (query) => set({ searchQuery: query }),
   setActiveFilter: (filter) => {
     set({ activeFilter: filter });
@@ -211,6 +236,7 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
       const result = await scanInstalledApps();
       set({ apps: result.apps, result, scanned: true, loading: false, lastScanTime: result.lastScanTime, lastUpdateCheck: result.lastUpdateCheck });
       get().loadHistory();
+      get().refreshUninstalled();
     } catch (e) {
       set({ apps: [], result: null, error: String(e) || "Failed to scan", scanned: true, loading: false });
     }
@@ -228,6 +254,25 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
         apps: state.apps.map((a) => ({ ...a, upgradeAvailable: updatableSet.has(a.appId) })),
       }));
     } catch (e) { console.warn("[AppManager] Failed to check updates:", e); }
+  },
+
+  refreshUninstalled: () => {
+    const { apps } = get();
+    const installedBundleIds = apps.map((a) => a.bundleId);
+    const uninstalled = getUninstalledRecommended(installedBundleIds);
+    set({
+      uninstalledApps: uninstalled.map((app: RecommendedApp) => ({
+        _virtual: true as const,
+        id: app.id,
+        name: app.name,
+        bundleId: app.bundleIdPattern,
+        category: app.category,
+        series: app.series,
+        description: app.description,
+        installSource: app.installSource,
+        iconKey: app.iconKey,
+      })),
+    });
   },
 
   // --- Single-item Operations ---
@@ -272,6 +317,33 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
     set({ confirmDialog: { open: true, appId, appName, action } }),
   closeConfirmDialog: () =>
     set({ confirmDialog: { open: false, appId: "", appName: "", action: "upgrade" } }),
+
+  // --- Installation Operations ---
+  setInstallState: (appId, status, message = "") =>
+    set((state) => ({ installStates: { ...state.installStates, [appId]: { status, message } } })),
+
+  doInstall: async (appId, _appName, installSource) => {
+    const { installStates, setInstallState } = get();
+    if (installStates[appId]?.status === "running") return;
+    setInstallState(appId, "running", "Installing...");
+    try {
+      const result = await tauriInstallApp(appId, installSource);
+      setInstallState(appId, result.success ? "success" : "error", result.message);
+      if (result.success) {
+        setTimeout(() => {
+          get().scanApps();
+          get().refreshUninstalled();
+        }, 2000);
+      }
+    } catch (e) {
+      setInstallState(appId, "error", String(e));
+    }
+  },
+
+  openInstallConfirmDialog: (appId, appName) =>
+    set({ installConfirmDialog: { open: true, appId, appName } }),
+  closeInstallConfirmDialog: () =>
+    set({ installConfirmDialog: { open: false, appId: "", appName: "" } }),
 
   // --- Batch Selection ---
   toggleSelectApp: (appId: string) =>
@@ -361,5 +433,6 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
       batchConfirmDialog: { open: false, action: "upgrade", count: 0 },
       lastScanTime: 0, lastUpdateCheck: 0,
       viewMode: loadViewMode(), selectedItem: null, filterPanelOpen: true,
+      uninstalledApps: [], installStates: {}, installConfirmDialog: { open: false, appId: "", appName: "" },
     }),
 }));

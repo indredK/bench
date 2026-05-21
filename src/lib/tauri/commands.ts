@@ -81,5 +81,13 @@ export function refreshAppUpdates(appIds: string[]) {
   return invoke<string[]>("refresh_app_updates", { appIds });
 }
 
+export function installApp(appId: string, installSource: import("./types").InstallSource) {
+  return invoke<OperationResult>("install_app", { appId, installSource });
+}
+
+export function batchInstallApps(items: { appId: string; installSource: import("./types").InstallSource }[]) {
+  return invoke<BatchOperationResult>("batch_install_apps", { items });
+}
+
 export type { EnvTool };
 

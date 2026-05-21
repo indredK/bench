@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { cn } from "@/lib/utils";
-import { Check } from "lucide-react";
 
 interface VirtualGridViewProps<T> {
   data: T[];
@@ -11,6 +10,12 @@ interface VirtualGridViewProps<T> {
   estimatedCardHeight?: number;
   gridColumns?: number;
   minCardWidth?: number;
+  /** Gap between grid items in pixels (default: 8) */
+  gap?: number;
+  /** Vertical padding per row in pixels: [top, bottom] (default: [4, 8]) */
+  rowPadding?: [top: number, bottom: number];
+  /** Padding on the outer scrollable wrapper (Tailwind class, default: "px-2 py-2") */
+  wrapperPadding?: string;
   selectedId?: string | null;
   batchMode?: boolean;
   selectedIds?: Set<string>;
@@ -27,6 +32,9 @@ export function VirtualGridView<T>({
   estimatedCardHeight = 130,
   gridColumns: gridColumnsProp,
   minCardWidth = 240,
+  gap = 8,
+  rowPadding = [4, 8],
+  wrapperPadding = "px-2 py-2",
   selectedId,
   batchMode = false,
   selectedIds,
@@ -34,7 +42,7 @@ export function VirtualGridView<T>({
   getRowAttributes,
 }: VirtualGridViewProps<T>) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const gridGap = 8;
+  const gridGap = gap;
   const maxColumns = Math.max(1, gridColumnsProp ?? 3);
   const [containerWidth, setContainerWidth] = useState(0);
   const displayColumns = containerWidth > 0
@@ -77,7 +85,7 @@ export function VirtualGridView<T>({
 
   return (
     <div ref={containerRef} className="h-full overflow-auto" data-table-scroll>
-      <div className="min-h-full rounded-xl border bg-card/50 px-2 py-2" style={{ minWidth: `${minGridWidth}px` }}>
+      <div className={cn("min-h-full rounded-xl border bg-card/50", wrapperPadding)} style={{ minWidth: `${minGridWidth}px` }}>
         <div
           style={{
             height: `${rowVirtualizer.getTotalSize()}px`,
@@ -103,7 +111,7 @@ export function VirtualGridView<T>({
                   display: "grid",
                   gridTemplateColumns: `repeat(${displayColumns}, minmax(${minCardWidth}px, 1fr))`,
                   gap: `${gridGap}px`,
-                  padding: "0.25rem 0 0.5rem 0",
+                  padding: `${rowPadding[0] / 4}rem 0 ${rowPadding[1] / 4}rem 0`,
                 }}
               >
                 {rowItems.map((item) => {
@@ -126,30 +134,18 @@ export function VirtualGridView<T>({
                       {...rowAttrs}
                       onClick={handleClick}
                       className={cn(
-                        "cursor-pointer transition-all min-w-0",
+                        "cursor-pointer transition-all min-w-0 h-full",
                         isDetailSelected && "ring-2 ring-primary rounded-lg",
                         isBatchSelected && "ring-2 ring-primary rounded-lg"
                       )}
                     >
-                      <div className="relative">
-                        {batchMode && (
-                          <div className="absolute top-1 right-1 z-10">
-                            <div className={cn(
-                              "size-4 rounded border-2 flex items-center justify-center transition-colors",
-                              isBatchSelected
-                                ? "bg-primary border-primary text-primary-foreground"
-                                : "border-muted-foreground/40 bg-background/80"
-                            )}>
-                              {isBatchSelected && <Check size={10} strokeWidth={3} />}
-                            </div>
-                          </div>
-                        )}
+                      <div className="relative h-full">
                         {renderGridCard(item)}
                       </div>
                     </div>
                   );
 
-                  return <div key={id}>{cardContent}</div>;
+                  return <div key={id} className="h-full">{cardContent}</div>;
                 })}
               </div>
             );

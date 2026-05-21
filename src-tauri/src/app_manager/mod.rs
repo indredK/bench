@@ -154,6 +154,26 @@ pub struct AppInfo {
     pub icon_base64: Option<String>,
 }
 
+/// Installation source parameters for installing a recommended app.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstallSource {
+    pub brew: Option<String>,
+    pub winget: Option<String>,
+    pub apt: Option<String>,
+    pub flatpak: Option<String>,
+    pub snap: Option<String>,
+    pub url: Option<String>,
+}
+
+/// Item for batch install.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchInstallItem {
+    pub app_id: String,
+    pub install_source: InstallSource,
+}
+
 /// Capabilities available on the current platform.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -615,6 +635,64 @@ pub fn refresh_app_updates(
     state: tauri::State<'_, AppManagerState>,
 ) -> Vec<String> {
     check_managed_app_updates(app_ids, state)
+}
+
+// ============================================================================
+// Install Commands
+// ============================================================================
+
+#[tauri::command]
+pub fn install_app(
+    app_id: String,
+    install_source: InstallSource,
+) -> Result<OperationResult, String> {
+    if is_macos() {
+        macos::install_app(app_id, install_source)
+    } else if is_windows() {
+        windows::install_app(app_id, install_source)
+    } else if is_linux() {
+        linux::install_app(app_id, install_source)
+    } else {
+        Err("Unsupported platform".into())
+    }
+}
+
+#[tauri::command]
+pub fn batch_install_apps(
+    items: Vec<BatchInstallItem>,
+) -> BatchOperationResult {
+    let mut results = Vec::new();
+    let mut succeeded = 0usize;
+    let mut failed = 0usize;
+
+    for item in &items {
+        let result = install_app(item.app_id.clone(), item.install_source.clone());
+        match result {
+            Ok(r) => {
+                let item_result = BatchItemResult {
+                    app_id: item.app_id.clone(),
+                    app_name: String::new(),
+                    success: r.success,
+                    message: r.message,
+                    exit_code: r.exit_code,
+                };
+                if r.success { succeeded += 1; } else { failed += 1; }
+                results.push(item_result);
+            }
+            Err(e) => {
+                failed += 1;
+                results.push(BatchItemResult {
+                    app_id: item.app_id.clone(),
+                    app_name: String::new(),
+                    success: false,
+                    message: e,
+                    exit_code: None,
+                });
+            }
+        }
+    }
+
+    BatchOperationResult { total: items.len(), succeeded, failed, results }
 }
 
 // ============================================================================

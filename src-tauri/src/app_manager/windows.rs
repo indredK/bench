@@ -334,3 +334,51 @@ pub fn uninstall_app(
     record_operation(rec.clone());
     Ok(OperationResult { success, message: combined, exit_code: output.status.code(), error_code: rec.error_code, permission_issue: rec.permission_issue })
 }
+
+// ============================================================================
+// Install (Windows via winget)
+// ============================================================================
+
+pub fn install_app(app_id: String, install_source: crate::app_manager::InstallSource) -> Result<OperationResult, String> {
+    // Prefer winget install
+    if let Some(winget_id) = &install_source.winget {
+        if let Some(wg) = find_winget() {
+            let output = Command::new(&wg)
+                .args(["install", "--id", winget_id, "--accept-source-agreements", "--silent"])
+                .output()
+                .map_err(|e| format!("winget install failed: {}", e))?;
+
+            let combined = format!("{}\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)).trim().to_string();
+            let success = output.status.success();
+
+            let rec = OperationRecord::new("install", &app_id, &app_id, success, &combined, output.status.code());
+            record_operation(rec.clone());
+
+            return Ok(OperationResult {
+                success,
+                message: combined,
+                exit_code: output.status.code(),
+                error_code: rec.error_code,
+                permission_issue: rec.permission_issue,
+            });
+        }
+    }
+
+    // Fallback: open download URL
+    if let Some(url) = &install_source.url {
+        let _ = Command::new("cmd")
+            .args(["/C", "start", url])
+            .status();
+        return Ok(OperationResult {
+            success: true,
+            message: format!("Opening download page: {}", url),
+            exit_code: Some(0),
+            error_code: None,
+            permission_issue: false,
+        });
+    }
+
+    Err("No suitable installation method available for this application".into())
+}

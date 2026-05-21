@@ -21,6 +21,12 @@ interface ContentViewProps<T> {
   estimatedCardHeight?: number;
   gridColumns?: number;
   minCardWidth?: number;
+  /** Gap between grid items in pixels (default: 8) */
+  gridGap?: number;
+  /** Vertical padding per row in pixels: [top, bottom] (default: [4, 8]) */
+  gridRowPadding?: [top: number, bottom: number];
+  /** Padding on the outer scrollable wrapper (Tailwind class, default: "px-2 py-2") */
+  gridWrapperPadding?: string;
   sorting?: SortingState;
   onSortingChange?: OnChangeFn<SortingState>;
   selectedId?: string | null;
@@ -52,6 +58,9 @@ export function ContentView<T>({
   estimatedCardHeight,
   gridColumns,
   minCardWidth,
+  gridGap,
+  gridRowPadding,
+  gridWrapperPadding,
   sorting,
   onSortingChange,
   selectedId,
@@ -92,6 +101,9 @@ export function ContentView<T>({
       estimatedCardHeight={estimatedCardHeight}
       gridColumns={gridColumns}
       minCardWidth={minCardWidth}
+      gap={gridGap}
+      rowPadding={gridRowPadding}
+      wrapperPadding={gridWrapperPadding}
       selectedId={selectedId}
       batchMode={batchMode}
       selectedIds={selectedIds}
