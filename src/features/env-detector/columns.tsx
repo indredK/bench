@@ -118,7 +118,7 @@ export function createEnvDetectorColumns(
   ];
 }
 
-function EnvStatusBadge({ tool }: { tool: EnvTool }) {
+export function EnvStatusBadge({ tool }: { tool: EnvTool }) {
   const { t } = useTranslation();
 
   if (!tool.available) {

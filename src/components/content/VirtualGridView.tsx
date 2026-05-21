@@ -24,7 +24,7 @@ export function VirtualGridView<T>({
   getRowId,
   renderGridCard,
   onItemClick,
-  estimatedCardHeight = 180,
+  estimatedCardHeight = 130,
   gridColumns: gridColumnsProp,
   minCardWidth = 240,
   selectedId,
@@ -77,14 +77,13 @@ export function VirtualGridView<T>({
 
   return (
     <div ref={containerRef} className="h-full overflow-auto" data-table-scroll>
-      <div className="min-h-full rounded-xl border bg-card/50" style={{ minWidth: `${minGridWidth}px` }}>
+      <div className="min-h-full rounded-xl border bg-card/50 px-2 py-2" style={{ minWidth: `${minGridWidth}px` }}>
         <div
           style={{
             height: `${rowVirtualizer.getTotalSize()}px`,
             minWidth: `${minGridWidth}px`,
             position: "relative",
           }}
-          className="px-3 py-4"
         >
           {rowVirtualizer.getVirtualItems().map((virtualRow) => {
             const rowIndex = virtualRow.index;
@@ -104,7 +103,7 @@ export function VirtualGridView<T>({
                   display: "grid",
                   gridTemplateColumns: `repeat(${displayColumns}, minmax(${minCardWidth}px, 1fr))`,
                   gap: `${gridGap}px`,
-                  padding: "0.5rem 0 1rem 0",
+                  padding: "0.25rem 0 0.5rem 0",
                 }}
               >
                 {rowItems.map((item) => {

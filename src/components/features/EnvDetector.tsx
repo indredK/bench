@@ -13,8 +13,8 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import FilterBar, { type FilterGroup } from "@/components/features/FilterBar";
-import { DataTable } from "@/components/ui/DataTable";
-import { createEnvDetectorColumns } from "@/features/env-detector/columns";
+import { ContentView } from "@/components/content/ContentView";
+import { createEnvDetectorColumns, EnvStatusBadge } from "@/features/env-detector/columns";
 import { useEnvDetectorStore } from "@/stores/env-detector";
 import type { EnvTool } from "@/lib/tauri/types";
 import { useContextMenuRegistration } from "@/features/context-menu/useContextMenuRegistration";
@@ -80,9 +80,11 @@ function EnvDetector({ active }: { active: boolean }) {
   const sorting = useEnvDetectorStore((s) => s.sorting);
   const scanned = useEnvDetectorStore((s) => s.scanned);
   const showAllCommands = useEnvDetectorStore((s) => s.showAllCommands);
+  const viewMode = useEnvDetectorStore((s) => s.viewMode);
 
   const setSearchQuery = useEnvDetectorStore((s) => s.setSearchQuery);
   const setSorting = useEnvDetectorStore((s) => s.setSorting);
+  const setViewMode = useEnvDetectorStore((s) => s.setViewMode);
   const handleFilterChange = useEnvDetectorStore((s) => s.handleFilterChange);
   const clearFilters = useEnvDetectorStore((s) => s.clearFilters);
   const loadTools = useEnvDetectorStore((s) => s.loadTools);
@@ -185,6 +187,24 @@ function EnvDetector({ active }: { active: boolean }) {
 
   const tableColumns = useMemo(() => createEnvDetectorColumns(t), [t]);
 
+  const renderGridCard = useCallback((tool: EnvTool) => (
+    <div className="rounded-xl border bg-card p-3 hover:ring-2 hover:ring-primary/30 transition-all h-full flex flex-col gap-1.5" {...getRowAttributes(tool)}>
+      <div className="flex items-start justify-between gap-2">
+        <span className="font-medium text-sm truncate">{tool.name}</span>
+        <EnvStatusBadge tool={tool} />
+      </div>
+      <p className="text-xs text-muted-foreground truncate">
+        {tool.available ? tool.version || "—" : t("envDetector.notFound")}
+      </p>
+      <p className="text-[11px] text-muted-foreground truncate font-mono">
+        {tool.available ? tool.path : "—"}
+      </p>
+      {tool.available && tool.size_display && (
+        <p className="text-[11px] text-muted-foreground">{tool.size_display}</p>
+      )}
+    </div>
+  ), [t, getRowAttributes]);
+
   return (
     <div className="h-full flex flex-col gap-3">
       <Card className="flex flex-1 flex-col overflow-hidden">
@@ -250,73 +270,47 @@ function EnvDetector({ active }: { active: boolean }) {
                 pinnedHintKey="envDetector.pinnedHint"
               />
             </div>
-            <div className="flex items-center justify-end">
-              {scanning && (
-                <span className="mr-2 size-2 animate-pulse rounded-full bg-primary" />
-              )}
-              <p className="text-sm text-muted-foreground">
-                {t(
-                  hasActiveResultFilter
-                    ? "envDetector.filteredSummary"
-                    : "envDetector.summary",
-                  {
-                    available: statusCounts.available,
-                    total: statusCounts.total,
-                    visible: displayedTools.length + missingTools.length,
-                  }
-                )}
-              </p>
-            </div>
           </div>
 
-          <div className="flex-1 min-h-0">
-            {loading && tools.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground rounded-lg border">
-                <div className="size-8 animate-spin rounded-full border-[3px] border-muted border-t-primary" />
-                <p>{t("envDetector.scanning")}</p>
-              </div>
-            ) : tools.length > 0 ? (
-              <div className="flex h-full min-h-0 flex-col gap-3">
-                <div className="flex items-center justify-between shrink-0">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    {t("envDetector.detectedTools", { count: displayedTools.length })}
-                  </p>
-                  {missingTools.length > 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      {t("envDetector.missingTools", { count: missingTools.length })}
-                    </p>
-                  )}
+          <div className="flex-1 min-h-0 flex flex-col gap-3">
+            <ContentView
+              data={displayedTools}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              columns={tableColumns}
+              getRowId={(tool) => `${tool.name}:${tool.path || tool.detector}:${tool.status}`}
+              renderGridCard={renderGridCard}
+              onItemClick={() => {}}
+              sorting={sorting}
+              onSortingChange={setSorting}
+              emptyIcon={<Box size={32} className="opacity-30" />}
+              emptyText={scanned ? t("envDetector.empty") : t("envDetector.startHint")}
+              loading={loading}
+              showViewToggle
+              summary={t(
+                hasActiveResultFilter
+                  ? "envDetector.filteredSummary"
+                  : "envDetector.summary",
+                {
+                  available: statusCounts.available,
+                  total: statusCounts.total,
+                  visible: displayedTools.length + missingTools.length,
+                }
+              )}
+              getRowAttributes={getRowAttributes}
+            />
+            {missingTools.length > 0 && (
+              <div className="shrink-0 rounded-lg border bg-muted/20 p-3">
+                <p className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  {t("envDetector.missingTools", { count: missingTools.length })}
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {missingTools.map((tool) => (
+                    <Badge key={`missing-${tool.name}`} variant="secondary">
+                      {tool.name}
+                    </Badge>
+                  ))}
                 </div>
-              <DataTable
-                data={displayedTools}
-                columns={tableColumns}
-                getRowId={(tool) => `${tool.name}:${tool.path || tool.detector}:${tool.status}`}
-                sorting={{
-                  sorting,
-                  onSortingChange: setSorting,
-                }}
-                layout="fixed"
-                containerClassName="h-full min-h-0 rounded-lg border"
-                getRowAttributes={getRowAttributes}
-              />
-                {missingTools.length > 0 && (
-                  <div className="shrink-0 rounded-lg border bg-muted/20 p-3">
-                    <p className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                      {t("envDetector.missingTools", { count: missingTools.length })}
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {missingTools.map((tool) => (
-                        <Badge key={`missing-${tool.name}`} variant="secondary">
-                          {tool.name}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full text-muted-foreground rounded-lg border">
-                <p>{scanned ? t("envDetector.empty") : t("envDetector.startHint")}</p>
               </div>
             )}
           </div>

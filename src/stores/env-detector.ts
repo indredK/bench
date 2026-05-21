@@ -15,11 +15,13 @@ interface EnvDetectorState {
   sorting: SortingState;
   scanned: boolean;
   showAllCommands: boolean;
+  viewMode: "table" | "grid";
 
   setSearchQuery: (query: string) => void;
   setFilters: (filters: Record<string, string> | ((prev: Record<string, string>) => Record<string, string>)) => void;
   setSorting: (sorting: Updater<SortingState>) => void;
   setShowAllCommands: (show: boolean) => void;
+  setViewMode: (mode: "table" | "grid") => void;
   handleFilterChange: (key: string, value: string) => void;
   clearFilters: () => void;
   loadTools: () => Promise<void>;
@@ -36,6 +38,7 @@ export const useEnvDetectorStore = create<EnvDetectorState>((set, get) => ({
   sorting: [{ id: "name", desc: false }],
   scanned: false,
   showAllCommands: false,
+  viewMode: "table",
 
   setSearchQuery: (query) => set({ searchQuery: query }),
   setSorting: (sorting: Updater<SortingState>) =>
@@ -43,6 +46,7 @@ export const useEnvDetectorStore = create<EnvDetectorState>((set, get) => ({
       sorting: typeof sorting === "function" ? sorting(state.sorting) : sorting,
     })),
   setShowAllCommands: (show) => set({ showAllCommands: show }),
+  setViewMode: (mode) => set({ viewMode: mode }),
   setFilters: (filters) =>
     set((state) => ({
       filters: typeof filters === "function" ? filters(state.filters) : filters,
@@ -103,5 +107,6 @@ export const useEnvDetectorStore = create<EnvDetectorState>((set, get) => ({
       sorting: [{ id: "name", desc: false }],
       scanned: false,
       showAllCommands: false,
+      viewMode: "table",
     }),
 }));

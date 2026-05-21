@@ -29,6 +29,8 @@ interface ContentViewProps<T> {
   onToggleSelect?: (id: string) => void;
   /** When true, shows a ViewToggle at the top-right of the content area */
   showViewToggle?: boolean;
+  /** Summary text rendered on the left side of the header row */
+  summary?: ReactNode;
   /** Optional actions slot rendered to the left of the view toggle */
   actions?: ReactNode;
   /** Returns data attributes to attach to each row/card for context menu delegation */
@@ -57,6 +59,7 @@ export function ContentView<T>({
   selectedIds,
   onToggleSelect,
   showViewToggle = true,
+  summary,
   actions,
   getRowAttributes,
 }: ContentViewProps<T>) {
@@ -115,7 +118,10 @@ export function ContentView<T>({
   const content = showViewToggle ? (
     <div className="h-full flex flex-col gap-1.5">
       <div className="flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-1">{actions}</div>
+        <div className="flex items-center gap-3">
+          {summary && <span className="text-sm text-muted-foreground">{summary}</span>}
+          {actions}
+        </div>
         <ViewToggle viewMode={viewMode} onChange={onViewModeChange} />
       </div>
       <div className="flex-1 min-h-0">{body}</div>
