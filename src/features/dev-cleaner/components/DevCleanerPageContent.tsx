@@ -1,3 +1,6 @@
+/**
+ * Feature View / 功能视图: render from props/state; 只负责功能界面.
+ */
 import { AlertTriangle, ChevronDown, ChevronUp, FolderOpen, Loader2, StopCircle, Trash2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";

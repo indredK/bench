@@ -1,3 +1,6 @@
+/**
+ * Content UI / 内容 UI: own presentation patterns; 只负责内容展示模式.
+ */
 import { type ReactNode } from "react";
 import { type ColumnDef, type SortingState, type OnChangeFn } from "@tanstack/react-table";
 import { RefreshCw, Search } from "lucide-react";

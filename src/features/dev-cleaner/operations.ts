@@ -1,3 +1,6 @@
+/**
+ * Operation / 操作层: legacy orchestration; 临时承载流程编排.
+ */
 import { devCleanerUseCases } from "@/features/dev-cleaner/services/dev-cleaner.use-cases";
 import { useDevCleanerStore } from "@/features/dev-cleaner/store";
 

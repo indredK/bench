@@ -1,3 +1,6 @@
+/**
+ * Utility / 通用工具: keep helpers pure; 保持纯工具函数.
+ */
 import i18n from "@/i18n/config";
 
 /**

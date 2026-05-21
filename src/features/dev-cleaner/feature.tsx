@@ -1,3 +1,6 @@
+/**
+ * Feature Descriptor / 功能描述: expose route metadata; 只暴露路由元数据.
+ */
 import { Trash2 } from "lucide-react";
 import DevCleaner from "@/features/dev-cleaner/page";
 import { devCleanerOperations } from "@/features/dev-cleaner/operations";

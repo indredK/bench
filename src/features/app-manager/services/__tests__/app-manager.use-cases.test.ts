@@ -1,3 +1,6 @@
+/**
+ * Test / 测试: verify behavior only; 只验证行为与契约.
+ */
 import { describe, expect, it, vi } from "vitest";
 import { createAppManagerUseCases } from "@/features/app-manager/services/app-manager.use-cases";
 import type { AppManagerRepository } from "@/features/app-manager/services/app-manager.repository";

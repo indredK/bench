@@ -1,3 +1,6 @@
+/**
+ * Controller / 控制器: bind view events and use cases; 连接视图事件与用例.
+ */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ContextMenuConfig, ContextMenuRegistration } from "@/shared/context-menu/types";

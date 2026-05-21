@@ -1,3 +1,6 @@
+/**
+ * Layout UI / 布局 UI: own layout only; 只负责通用布局.
+ */
 import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { Minus, Maximize2, X } from "lucide-react";

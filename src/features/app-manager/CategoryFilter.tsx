@@ -1,3 +1,6 @@
+/**
+ * Feature / 功能层: stay within this feature; 只处理当前功能.
+ */
 import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";

@@ -1,3 +1,6 @@
+/**
+ * Repository / 仓储层: adapt external APIs; 只适配外部接口.
+ */
 import { TAURI_EVENTS } from "@/lib/tauri/contracts";
 import { detectEnvTools } from "@/lib/tauri/commands/env-detector";
 import type { EnvScanDonePayload } from "@/lib/tauri/types/env-detector";

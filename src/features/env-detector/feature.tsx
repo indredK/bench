@@ -1,3 +1,6 @@
+/**
+ * Feature Descriptor / 功能描述: expose route metadata; 只暴露路由元数据.
+ */
 import { Box } from "lucide-react";
 import EnvDetector from "@/features/env-detector/page";
 import { envDetectorOperations } from "@/features/env-detector/operations";

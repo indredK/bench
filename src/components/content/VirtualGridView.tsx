@@ -1,3 +1,6 @@
+/**
+ * Content UI / 内容 UI: own presentation patterns; 只负责内容展示模式.
+ */
 import { useEffect, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { cn } from "@/lib/utils";

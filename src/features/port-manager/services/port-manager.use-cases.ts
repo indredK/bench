@@ -1,3 +1,6 @@
+/**
+ * Use Case / 用例层: coordinate business rules; 只编排业务规则.
+ */
 import type { KillPidResult, PortProcessDetail } from "@/lib/tauri/types/port-manager";
 import { portManagerRepository } from "@/features/port-manager/services/port-manager.repository";
 import { canUseDesktopFeatures } from "@/platform/capabilities";

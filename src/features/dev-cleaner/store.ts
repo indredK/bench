@@ -1,3 +1,6 @@
+/**
+ * Feature Store / 功能状态: store state and simple actions; 只存状态与简单动作.
+ */
 import { create } from "zustand";
 import type { RowSelectionState, SortingState } from "@tanstack/react-table";
 import type { ScanResult, ProjectInfo } from "@/lib/tauri/types/dev-cleaner";

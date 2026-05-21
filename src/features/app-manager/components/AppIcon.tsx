@@ -1,3 +1,6 @@
+/**
+ * Feature View / 功能视图: render from props/state; 只负责功能界面.
+ */
 import { AppWindow } from "lucide-react";
 
 interface AppIconProps {

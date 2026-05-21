@@ -1,3 +1,6 @@
+/**
+ * Repository / 仓储层: adapt external APIs; 只适配外部接口.
+ */
 import {
   cleanupProjects,
   scanDevProjects,

@@ -1,3 +1,6 @@
+/**
+ * Feature View / 功能视图: render from props/state; 只负责功能界面.
+ */
 import { useState } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";

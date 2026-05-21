@@ -1,3 +1,6 @@
+/**
+ * Platform Adapter / 平台适配: wrap runtime APIs; 统一封装运行时能力.
+ */
 export interface PlatformConfig {
   killCommand: string;
   killHintTemplate: string;

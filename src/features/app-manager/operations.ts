@@ -1,3 +1,6 @@
+/**
+ * Operation / 操作层: legacy orchestration; 临时承载流程编排.
+ */
 import type { SortingState } from "@tanstack/react-table";
 import type { AppInfo, InstallListAppInfo } from "@/lib/tauri/types/app-manager";
 import { createInstallListApps } from "@/features/app-manager/model/install-list";

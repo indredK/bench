@@ -1,3 +1,6 @@
+/**
+ * Feature View / 功能视图: render from props/state; 只负责功能界面.
+ */
 import type { TFunction } from "i18next";
 import { CheckCircle2, Download, ExternalLink, Package, RotateCcw } from "lucide-react";
 import {

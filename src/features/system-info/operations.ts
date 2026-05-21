@@ -1,3 +1,6 @@
+/**
+ * Operation / 操作层: legacy orchestration; 临时承载流程编排.
+ */
 import { systemInfoUseCases } from "@/features/system-info/services/system-info.use-cases";
 import { useSystemInfoStore } from "@/features/system-info/store";
 

@@ -1,3 +1,6 @@
+/**
+ * Layout UI / 布局 UI: own layout only; 只负责通用布局.
+ */
 import { type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 

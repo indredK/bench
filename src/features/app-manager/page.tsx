@@ -1,3 +1,6 @@
+/**
+ * Page View / 页面视图: compose screen only; 只组合页面.
+ */
 import { AppWindow, ArrowUpCircle, CheckSquare, Download, Filter, Search, Trash2, X } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { DetailPanel } from "@/components/layout/DetailPanel";

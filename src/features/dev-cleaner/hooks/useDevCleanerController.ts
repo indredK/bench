@@ -1,3 +1,6 @@
+/**
+ * Controller / 控制器: bind view events and use cases; 连接视图事件与用例.
+ */
 import { useCallback, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { getNextDataTableSorting } from "@/components/ui/DataTable";

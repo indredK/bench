@@ -1,3 +1,6 @@
+/**
+ * Feature Registry / 功能注册: compose descriptors only; 只聚合功能描述.
+ */
 import type { TFunction } from "i18next";
 import { appManagerFeature } from "@/features/app-manager/feature";
 import { devCleanerFeature } from "@/features/dev-cleaner/feature";

@@ -1,3 +1,6 @@
+/**
+ * Feature Model / 功能模型: keep pure model logic; 只放纯模型逻辑.
+ */
 import type { AppInfo, InstallListAppInfo } from "@/lib/tauri/types/app-manager";
 import {
   getRecommendedInstallList,

@@ -1,3 +1,6 @@
+/**
+ * IPC Contracts / 通信契约: define command/event contracts; 只定义命令与事件契约.
+ */
 import type {
   AppScanResult,
   BatchOperationResult,

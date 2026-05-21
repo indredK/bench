@@ -1,3 +1,6 @@
+/**
+ * Feature View / 功能视图: render from props/state; 只负责功能界面.
+ */
 import type { TFunction } from "i18next";
 import { Badge } from "@/components/ui/badge";
 import { FilterPanel } from "@/components/layout/FilterPanel";

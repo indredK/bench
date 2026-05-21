@@ -1,3 +1,6 @@
+/**
+ * Utility / 通用工具: keep helpers pure; 保持纯工具函数.
+ */
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 

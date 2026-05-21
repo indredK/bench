@@ -1,3 +1,6 @@
+/**
+ * IPC Invoke / 通信调用: provide typed invoke primitive; 只提供类型化调用入口.
+ */
 import { invoke } from "@tauri-apps/api/core";
 import type { TauriCommandContracts, TauriCommandName } from "@/lib/tauri/contracts";
 

@@ -1,3 +1,6 @@
+/**
+ * Primitive UI / 基础 UI: render primitives only; 只提供基础组件.
+ */
 "use client"
 
 import * as React from "react"

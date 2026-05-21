@@ -1,3 +1,6 @@
+/**
+ * Common UI / 通用 UI: share cross-feature UI; 只放跨功能通用界面.
+ */
 import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "next-themes";

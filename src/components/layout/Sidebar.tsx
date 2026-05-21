@@ -1,3 +1,6 @@
+/**
+ * Layout UI / 布局 UI: own layout only; 只负责通用布局.
+ */
 import { useState } from "react";
 import { useLocation, Link } from "wouter";
 import type { NavigationItem } from "@/features/types";

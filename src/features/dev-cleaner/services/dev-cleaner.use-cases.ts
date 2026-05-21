@@ -1,3 +1,6 @@
+/**
+ * Use Case / 用例层: coordinate business rules; 只编排业务规则.
+ */
 import type { RowSelectionState } from "@tanstack/react-table";
 import type { ProjectInfo, ScanResult } from "@/lib/tauri/types/dev-cleaner";
 import { devCleanerRepository } from "@/features/dev-cleaner/services/dev-cleaner.repository";

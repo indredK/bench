@@ -1,3 +1,6 @@
+/**
+ * Shared Compare / 共享对比: own generic compare tools; 只负责通用对比能力.
+ */
 import { useMemo } from "react";
 import type { FilterGroup, FilterGroupOption } from "@/shared/compare/types";
 

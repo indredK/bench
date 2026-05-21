@@ -1,3 +1,6 @@
+/**
+ * Test / 测试: verify behavior only; 只验证行为与契约.
+ */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, waitFor } from "@testing-library/react";
 import { VirtualGridView } from "../content/VirtualGridView";

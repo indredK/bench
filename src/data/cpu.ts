@@ -1,3 +1,6 @@
+/**
+ * Static Data / 静态数据: export catalogs only; 只导出静态目录数据.
+ */
 import type { CompareDataModule, SpecRow, FilterGroup } from "@/shared/compare/types";
 import { brandName } from "@/lib/i18nBrand";
 import i18n from "@/i18n/config";

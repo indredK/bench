@@ -1,3 +1,6 @@
+/**
+ * Shared Compare / 共享对比: own generic compare tools; 只负责通用对比能力.
+ */
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronDown, Plus, X } from "lucide-react";

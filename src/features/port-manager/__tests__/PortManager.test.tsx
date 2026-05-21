@@ -1,3 +1,6 @@
+/**
+ * Test / 测试: verify behavior only; 只验证行为与契约.
+ */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";

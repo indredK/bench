@@ -1,3 +1,6 @@
+/**
+ * App Shell / 应用壳层: compose routing and shell actions; 只做全局组合与路由.
+ */
 import { Router, Route, Switch } from "wouter";
 import { useHashLocation } from "wouter/use-hash-location";
 import { useTranslation } from "react-i18next";

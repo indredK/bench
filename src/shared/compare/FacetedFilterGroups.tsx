@@ -1,3 +1,6 @@
+/**
+ * Shared Compare / 共享对比: own generic compare tools; 只负责通用对比能力.
+ */
 import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";

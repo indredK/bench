@@ -1,3 +1,6 @@
+/**
+ * Shell Hook / 壳层 Hook: share shell hooks only; 只放壳层通用 Hook.
+ */
 import { useEffect } from "react";
 import { TAURI_EVENTS } from "@/lib/tauri/contracts";
 import { listenToPlatformEvent } from "@/platform/events";

@@ -1,3 +1,6 @@
+/**
+ * Feature Model / 功能模型: keep pure model logic; 只放纯模型逻辑.
+ */
 import type { StoreApi } from "zustand";
 import type { SortingState, Updater } from "@tanstack/react-table";
 import type { AppInfo } from "@/lib/tauri/types/app-manager";

@@ -1,3 +1,6 @@
+/**
+ * Feature / 功能层: stay within this feature; 只处理当前功能.
+ */
 export const DEFAULT_MAX_PORTS = 100;
 export const MIN_PORT = 1;
 export const MAX_PORT = 65535;

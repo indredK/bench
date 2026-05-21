@@ -1,3 +1,6 @@
+/**
+ * Operation / 操作层: legacy orchestration; 临时承载流程编排.
+ */
 import { portManagerUseCases } from "@/features/port-manager/services/port-manager.use-cases";
 import { usePortManagerStore, type PortScanStatus } from "@/features/port-manager/store";
 

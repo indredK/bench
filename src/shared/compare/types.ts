@@ -1,3 +1,6 @@
+/**
+ * Shared Compare / 共享对比: own generic compare tools; 只负责通用对比能力.
+ */
 export interface FilterGroupOption {
   value: string;
   label: string;

@@ -1,3 +1,6 @@
+/**
+ * Localization / 本地化: own translations only; 只处理语言资源与 i18n.
+ */
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import en from "./locales/en.json";

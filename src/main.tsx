@@ -1,3 +1,6 @@
+/**
+ * Bootstrap / 启动入口: wire providers and mount app; 只挂载应用与全局 Provider.
+ */
 import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
 import { ThemeProvider } from "next-themes";

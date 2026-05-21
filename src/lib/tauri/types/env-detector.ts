@@ -1,3 +1,6 @@
+/**
+ * IPC Types / 通信类型: mirror payload shapes only; 只定义通信数据形状.
+ */
 export interface EnvTool {
   name: string;
   version: string;

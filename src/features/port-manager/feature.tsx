@@ -1,3 +1,6 @@
+/**
+ * Feature Descriptor / 功能描述: expose route metadata; 只暴露路由元数据.
+ */
 import { Zap } from "lucide-react";
 import PortManager from "@/features/port-manager/page";
 import { portManagerOperations } from "@/features/port-manager/operations";

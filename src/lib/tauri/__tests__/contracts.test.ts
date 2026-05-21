@@ -1,3 +1,6 @@
+/**
+ * Test / 测试: verify behavior only; 只验证行为与契约.
+ */
 import { describe, expect, it } from "vitest";
 import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";

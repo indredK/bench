@@ -1,3 +1,6 @@
+/**
+ * Primitive UI / 基础 UI: render primitives only; 只提供基础组件.
+ */
 import { useTheme } from "next-themes"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "lucide-react"

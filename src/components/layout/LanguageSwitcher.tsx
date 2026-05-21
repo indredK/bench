@@ -1,3 +1,6 @@
+/**
+ * Layout UI / 布局 UI: own layout only; 只负责通用布局.
+ */
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import i18n, { detectSystemLanguage } from "@/i18n/config";

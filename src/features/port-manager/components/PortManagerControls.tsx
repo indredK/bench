@@ -1,3 +1,6 @@
+/**
+ * Feature View / 功能视图: render from props/state; 只负责功能界面.
+ */
 import type { TFunction } from "i18next";
 import type { Ref } from "react";
 import { Loader2, RefreshCw, X } from "lucide-react";

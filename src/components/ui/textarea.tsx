@@ -1,3 +1,6 @@
+/**
+ * Primitive UI / 基础 UI: render primitives only; 只提供基础组件.
+ */
 import * as React from "react"
 
 import { cn } from "@/lib/utils"

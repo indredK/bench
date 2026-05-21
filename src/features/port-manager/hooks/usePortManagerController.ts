@@ -1,3 +1,6 @@
+/**
+ * Controller / 控制器: bind view events and use cases; 连接视图事件与用例.
+ */
 import { createElement, useCallback, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { portManagerOperations } from "@/features/port-manager/operations";

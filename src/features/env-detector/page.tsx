@@ -1,3 +1,6 @@
+/**
+ * Page View / 页面视图: compose screen only; 只组合页面.
+ */
 import { useEffect, useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n/config";

@@ -1,3 +1,6 @@
+/**
+ * Feature Store / 功能状态: store state and simple actions; 只存状态与简单动作.
+ */
 import { create } from "zustand";
 import type { SystemInfoData } from "@/lib/tauri/types/system-info";
 

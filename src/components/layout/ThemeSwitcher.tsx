@@ -1,3 +1,6 @@
+/**
+ * Layout UI / 布局 UI: own layout only; 只负责通用布局.
+ */
 import { useTheme } from "next-themes";
 import { useTranslation } from "react-i18next";
 import { Monitor, Sun, Moon } from "lucide-react";

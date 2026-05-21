@@ -1,3 +1,6 @@
+/**
+ * Use Case / 用例层: coordinate business rules; 只编排业务规则.
+ */
 import type { SystemInfoData } from "@/lib/tauri/types/system-info";
 import { canUseTauriCommands } from "@/platform/capabilities";
 import { getBrowserSystemInfo } from "@/platform/browser-info";

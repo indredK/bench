@@ -1,3 +1,6 @@
+/**
+ * Operation / 操作层: legacy orchestration; 临时承载流程编排.
+ */
 import { envDetectorUseCases } from "@/features/env-detector/services/env-detector.use-cases";
 import { useEnvDetectorStore } from "@/features/env-detector/store";
 

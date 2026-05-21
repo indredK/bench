@@ -1,3 +1,6 @@
+/**
+ * Page View / 页面视图: compose screen only; 只组合页面.
+ */
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Card, CardHeader, CardTitle, CardContent, CardAction } from "@/components/ui/card";

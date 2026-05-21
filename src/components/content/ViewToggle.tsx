@@ -1,3 +1,6 @@
+/**
+ * Content UI / 内容 UI: own presentation patterns; 只负责内容展示模式.
+ */
 import { Table2, Grid3x3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 

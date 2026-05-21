@@ -1,3 +1,6 @@
+/**
+ * Page View / 页面视图: compose screen only; 只组合页面.
+ */
 import { Zap } from "lucide-react";
 import { RuntimeFeatureGate } from "@/components/common/RuntimeFeatureGate";
 import { PortManagerPageContent } from "@/features/port-manager/components/PortManagerPageContent";

@@ -1,3 +1,6 @@
+/**
+ * Test / 测试: verify behavior only; 只验证行为与契约.
+ */
 import { describe, it, expect } from "vitest";
 import { formatSize, formatDate, formatMemory, cn } from "../utils";
 

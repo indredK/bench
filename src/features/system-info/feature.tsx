@@ -1,3 +1,6 @@
+/**
+ * Feature Descriptor / 功能描述: expose route metadata; 只暴露路由元数据.
+ */
 import { Monitor } from "lucide-react";
 import SystemInfo from "@/features/system-info/page";
 import { systemInfoOperations } from "@/features/system-info/operations";

@@ -1,3 +1,6 @@
+/**
+ * Feature Descriptor / 功能描述: expose route metadata; 只暴露路由元数据.
+ */
 import { AppWindow } from "lucide-react";
 import AppManager from "@/features/app-manager/page";
 import { appManagerOperations } from "@/features/app-manager/operations";

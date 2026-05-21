@@ -1,3 +1,6 @@
+/**
+ * Page View / 页面视图: compose screen only; 只组合页面.
+ */
 import {
   Cpu,
   CircuitBoard,

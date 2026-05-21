@@ -1,3 +1,6 @@
+/**
+ * Window Bootstrap / 窗口启动: coordinate startup windows; 只处理启动窗口.
+ */
 import { canUseWindowControls, getAppWindowByLabel, getCurrentAppWindow } from "@/platform/window";
 
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;

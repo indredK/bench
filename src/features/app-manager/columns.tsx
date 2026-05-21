@@ -1,3 +1,6 @@
+/**
+ * Table View / 表格视图: define table presentation; 只定义表格展示.
+ */
 import type { TFunction } from "i18next";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Folder, Play, ArrowUpCircle, Trash2, Loader2, CheckCircle2, AlertCircle, ShieldAlert } from "lucide-react";

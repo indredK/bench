@@ -1,3 +1,6 @@
+/**
+ * Shared Interaction / 共享交互: own generic menus; 只负责通用右键菜单能力.
+ */
 import { useEffect, useRef } from "react";
 import { contextMenuManager } from "./ContextMenuManager";
 import type { ContextMenuRegistration } from "./types";

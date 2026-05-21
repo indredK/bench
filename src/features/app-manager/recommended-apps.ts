@@ -1,3 +1,6 @@
+/**
+ * Feature / 功能层: stay within this feature; 只处理当前功能.
+ */
 import type { AppCategoryKey } from "@/features/app-manager/app-categories";
 import type { AppSeriesKey } from "@/features/app-manager/app-series";
 import type { AppInfo } from "@/lib/tauri/types";

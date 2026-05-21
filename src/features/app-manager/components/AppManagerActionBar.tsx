@@ -1,3 +1,6 @@
+/**
+ * Feature View / 功能视图: render from props/state; 只负责功能界面.
+ */
 import type { TFunction } from "i18next";
 import { History, RefreshCw, Search } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
