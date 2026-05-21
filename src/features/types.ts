@@ -9,7 +9,6 @@ export interface AppFeature {
   labelKey: string;
   icon: ReactNode;
   render: (feature: AppFeature) => ReactNode;
-  refresh?: () => void | Promise<void>;
   desktopOnly?: boolean;
 }
 

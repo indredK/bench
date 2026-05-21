@@ -14,6 +14,7 @@ import { AboutDialog } from "@/components/common/AboutDialog";
 import { SettingsDialog } from "@/components/common/SettingsDialog";
 import { useCallback, useMemo, useState } from "react";
 import { appFeatures, createNavigationItems, getFeatureByPath } from "@/features/registry";
+import { requestFeatureRefresh } from "@/features/refresh";
 
 function App() {
   const { t } = useTranslation();
@@ -23,7 +24,10 @@ function App() {
 
   const handleRefresh = useCallback(async () => {
     const currentPath = window.location.hash.replace(/^#/, "") || "/";
-    await getFeatureByPath(currentPath)?.refresh?.();
+    const currentFeature = getFeatureByPath(currentPath);
+    if (currentFeature) {
+      await requestFeatureRefresh(currentFeature.id);
+    }
   }, []);
 
   const handleSettings = useCallback(() => {

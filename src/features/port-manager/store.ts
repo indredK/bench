@@ -3,7 +3,6 @@
  */
 import { create } from "zustand";
 import type { PortProcessDetail } from "@/lib/tauri/types/port-manager";
-import { parsePortsFromInput } from "@/features/port-manager/ports";
 
 export const DEFAULT_MAX_PORTS = 20;
 
@@ -44,12 +43,10 @@ interface PortManagerState {
   setShowEmptyPorts: (show: boolean) => void;
   setHighlightPort: (port: number | null) => void;
   removePort: (port: number) => void;
-  addPortsToScan: (ports: number[]) => number[];
   clearAll: () => void;
-  addPortsFromInput: (val: string) => { ports: number[]; hasError: boolean; errorKey?: string };
 }
 
-export const usePortManagerStore = create<PortManagerState>((set, get) => ({
+export const usePortManagerStore = create<PortManagerState>((set) => ({
   inputValue: "",
   showInvalidToast: false,
   inputError: "",
@@ -76,26 +73,6 @@ export const usePortManagerStore = create<PortManagerState>((set, get) => ({
       portDetails: state.portDetails.filter((d) => d.port !== port),
     })),
 
-  addPortsToScan: (ports) => {
-    const { portStates } = get();
-    const updatedPorts = [...portStates];
-    const portsToAdd: number[] = [];
-
-    for (const port of ports) {
-      if (updatedPorts.length >= DEFAULT_MAX_PORTS) break;
-      if (updatedPorts.some((ps) => ps.port === port)) continue;
-      updatedPorts.push({ port, status: "waiting" });
-      portsToAdd.push(port);
-    }
-
-    if (portsToAdd.length > 0) {
-      updatedPorts.sort((a, b) => a.port - b.port);
-      set({ portStates: updatedPorts });
-    }
-
-    return portsToAdd;
-  },
-
   clearAll: () =>
     set((state) => ({
       scanSession: state.scanSession + 1,
@@ -107,11 +84,4 @@ export const usePortManagerStore = create<PortManagerState>((set, get) => ({
       portKillMessages: {},
       error: "",
     })),
-
-  addPortsFromInput: (val) => {
-    if (!/^[\d,\-]+$/.test(val)) {
-      return { ports: [], hasError: true, errorKey: "invalidInput" };
-    }
-    return parsePortsFromInput(val);
-  },
 }));

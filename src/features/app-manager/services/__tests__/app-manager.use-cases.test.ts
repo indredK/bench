@@ -30,6 +30,10 @@ const createRepository = (
   installApp: vi.fn(),
   batchInstallApps: vi.fn(),
   openExternal: vi.fn(),
+  loadPreferences: vi.fn().mockReturnValue(null),
+  savePreferences: vi.fn(),
+  loadViewMode: vi.fn().mockReturnValue(null),
+  saveViewMode: vi.fn(),
   ...overrides,
 });
 

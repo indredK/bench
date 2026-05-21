@@ -22,7 +22,6 @@ interface EnvDetectorState {
   setSorting: (sorting: Updater<SortingState>) => void;
   setShowAllCommands: (show: boolean) => void;
   setViewMode: (mode: "table" | "grid") => void;
-  handleFilterChange: (key: string, value: string) => void;
   clearFilters: () => void;
   reset: () => void;
 }
@@ -50,16 +49,6 @@ export const useEnvDetectorStore = create<EnvDetectorState>((set) => ({
     set((state) => ({
       filters: typeof filters === "function" ? filters(state.filters) : filters,
     })),
-
-  handleFilterChange: (key, value) =>
-    set((state) => {
-      if (state.filters[key] === value) {
-        const next = { ...state.filters };
-        delete next[key];
-        return { filters: next };
-      }
-      return { filters: { ...state.filters, [key]: value } };
-    }),
 
   clearFilters: () => set({ filters: {} }),
 

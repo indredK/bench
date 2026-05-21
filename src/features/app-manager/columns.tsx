@@ -11,6 +11,7 @@ import { AppIcon } from "@/features/app-manager/components/AppIcon";
 import type { AppInfo } from "@/lib/tauri/types";
 import type { OperationStatus } from "@/features/app-manager/store";
 import { appManagerPlatformConfig } from "@/platform/config";
+import { writeClipboardText } from "@/platform/clipboard";
 
 const naturalTextComparator = new Intl.Collator(undefined, {
   numeric: true,
@@ -43,7 +44,7 @@ function compactPath(path: string, maxLength = 46) {
 }
 
 function copyPath(path: string) {
-  navigator.clipboard.writeText(path).catch(() => {});
+  writeClipboardText(path).catch(() => {});
 }
 
 function sourceBadgeVariant(sourceType: string): "default" | "secondary" | "outline" | "destructive" {

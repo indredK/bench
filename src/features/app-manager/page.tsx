@@ -76,6 +76,7 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
     setFilterPanelOpen,
     closeInstallConfirmDialog,
     openExternal,
+    copyText,
     handleLaunch,
     handleReveal,
     handleInstall,
@@ -174,6 +175,7 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                           onOpenWebsite={(url) => {
                             if (url) void openExternal(url);
                           }}
+                          onCopyText={copyText}
                         />
                       )}
                       estimatedCardHeight={220}

@@ -3,7 +3,6 @@
  */
 import { Monitor } from "lucide-react";
 import SystemInfo from "@/features/system-info/page";
-import { systemInfoOperations } from "@/features/system-info/operations";
 import type { AppFeature } from "@/features/types";
 
 export const systemInfoFeature: AppFeature = {
@@ -12,5 +11,4 @@ export const systemInfoFeature: AppFeature = {
   labelKey: "sidebar.systemInfo",
   icon: <Monitor size={18} />,
   render: () => <SystemInfo active />,
-  refresh: () => systemInfoOperations.loadSystemInfo(),
 };

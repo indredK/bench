@@ -14,6 +14,11 @@ import {
   type AppManagerRepository,
 } from "@/features/app-manager/services/app-manager.repository";
 import { canUseDesktopFeatures } from "@/platform/capabilities";
+import {
+  normalizeAppManagerPreferences,
+  normalizeAppManagerViewMode,
+  type PersistedPreferences,
+} from "@/features/app-manager/model/preferences";
 
 export type AppOperationKind = "upgrade" | "uninstall" | "install";
 export type BatchOperationKind = "upgrade" | "uninstall";
@@ -82,6 +87,39 @@ function createAppManagerUseCases(
 
     loadHistory(): Promise<OperationRecord[]> {
       return repository.getAppOperationHistory();
+    },
+
+    loadPreferences(): PersistedPreferences {
+      try {
+        const raw = repository.loadPreferences();
+        return normalizeAppManagerPreferences(raw ? JSON.parse(raw) : null);
+      } catch {
+        return normalizeAppManagerPreferences(null);
+      }
+    },
+
+    savePreferences(preferences: PersistedPreferences) {
+      try {
+        repository.savePreferences(preferences);
+      } catch {
+        /* ignore storage failures */
+      }
+    },
+
+    loadViewMode(): "table" | "grid" {
+      try {
+        return normalizeAppManagerViewMode(repository.loadViewMode());
+      } catch {
+        return "table";
+      }
+    },
+
+    saveViewMode(mode: "table" | "grid") {
+      try {
+        repository.saveViewMode(mode);
+      } catch {
+        /* ignore storage failures */
+      }
     },
 
     async runAppOperation(

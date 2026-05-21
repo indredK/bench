@@ -3,9 +3,15 @@
  */
 import { createElement, useCallback, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { portManagerOperations } from "@/features/port-manager/operations";
-import { hasInvalidPortInputCharacters } from "@/features/port-manager/ports";
-import { usePortManagerStore, type PortScanStatus, PORT_SCAN_STATUS_META } from "@/features/port-manager/store";
+import { portManagerUseCases } from "@/features/port-manager/services/port-manager.use-cases";
+import { hasInvalidPortInputCharacters, parsePortsFromInput } from "@/features/port-manager/ports";
+import { registerFeatureRefresh } from "@/features/refresh";
+import {
+  DEFAULT_MAX_PORTS,
+  usePortManagerStore,
+  type PortScanStatus,
+  PORT_SCAN_STATUS_META,
+} from "@/features/port-manager/store";
 import { canUseDesktopFeatures } from "@/platform/capabilities";
 
 export const commonPorts = [3000, 5173, 1420, 8080, 5000, 4200, 8000, 4321, 6006, 1234, 9000];
@@ -45,11 +51,147 @@ export function usePortManagerController() {
   const setShowEmptyPorts = usePortManagerStore((s) => s.setShowEmptyPorts);
   const setHighlightPort = usePortManagerStore((s) => s.setHighlightPort);
   const removePort = usePortManagerStore((s) => s.removePort);
-  const addPortsToScan = usePortManagerStore((s) => s.addPortsToScan);
   const clearAll = usePortManagerStore((s) => s.clearAll);
 
   const canUsePlatformFeatures = canUseDesktopFeatures();
   const isScanning = portStates.some((ps) => ps.status === "scanning");
+
+  const addPortsToScan = useCallback((ports: number[]) => {
+    const { portStates: currentPortStates } = usePortManagerStore.getState();
+    const updatedPorts = [...currentPortStates];
+    const portsToAdd: number[] = [];
+
+    for (const port of ports) {
+      if (updatedPorts.length >= DEFAULT_MAX_PORTS) break;
+      if (updatedPorts.some((ps) => ps.port === port)) continue;
+      updatedPorts.push({ port, status: "waiting" });
+      portsToAdd.push(port);
+    }
+
+    if (portsToAdd.length > 0) {
+      updatedPorts.sort((left, right) => left.port - right.port);
+      usePortManagerStore.setState({ portStates: updatedPorts });
+    }
+
+    return portsToAdd;
+  }, []);
+
+  const scan = useCallback(async (portsToScan: number[]) => {
+    if (!portManagerUseCases.isAvailable()) {
+      usePortManagerStore.setState({ error: "Port scanning is only available in the desktop app" });
+      return;
+    }
+    if (portsToScan.length === 0) return;
+
+    const sessionId = usePortManagerStore.getState().scanSession;
+
+    usePortManagerStore.setState((state) => ({
+      error: "",
+      portDetails: state.portDetails.filter((detail) => !portsToScan.includes(detail.port)),
+      portKillMessages: {},
+    }));
+
+    for (const port of portsToScan) {
+      if (usePortManagerStore.getState().scanSession !== sessionId) {
+        usePortManagerStore.setState((state) => ({
+          portStates: state.portStates.map((ps) =>
+            portsToScan.includes(ps.port) && (ps.status === "waiting" || ps.status === "scanning")
+              ? { ...ps, status: "ended" as PortScanStatus }
+              : ps
+          ),
+        }));
+        break;
+      }
+
+      usePortManagerStore.setState((state) => ({
+        portStates: state.portStates.map((ps) =>
+          ps.port === port ? { ...ps, status: "scanning" as PortScanStatus } : ps
+        ),
+      }));
+
+      try {
+        const details = await portManagerUseCases.queryPortProcesses([port]);
+
+        if (usePortManagerStore.getState().scanSession !== sessionId) {
+          usePortManagerStore.setState((state) => ({
+            portStates: state.portStates.map((ps) =>
+              ps.port === port ? { ...ps, status: "ended" as PortScanStatus } : ps
+            ),
+          }));
+          break;
+        }
+
+        const portDetail = details.find((detail) => detail.port === port);
+        const isOccupied = portDetail && !portDetail.error && portDetail.pids.length > 0;
+
+        usePortManagerStore.setState((state) => ({
+          portDetails: [...state.portDetails, ...details],
+          portStates: state.portStates.map((ps) =>
+            ps.port === port ? { ...ps, status: (isOccupied ? "success" : "empty") as PortScanStatus } : ps
+          ),
+        }));
+      } catch {
+        if (usePortManagerStore.getState().scanSession !== sessionId) break;
+        usePortManagerStore.setState((state) => ({
+          portStates: state.portStates.map((ps) =>
+            ps.port === port ? { ...ps, status: "error" as PortScanStatus } : ps
+          ),
+        }));
+      }
+    }
+
+    usePortManagerStore.setState((state) => ({
+      portDetails: [...state.portDetails].sort((left, right) => left.port - right.port),
+    }));
+  }, []);
+
+  const rescanAll = useCallback(() => {
+    const allPorts = usePortManagerStore.getState().portStates.map((ps) => ps.port);
+    if (allPorts.length === 0) return;
+
+    usePortManagerStore.setState((state) => ({
+      portStates: state.portStates.map((ps) => ({ ...ps, status: "waiting" as PortScanStatus })),
+    }));
+    void scan(allPorts);
+  }, [scan]);
+
+  const killPort = useCallback(
+    async (port: number, pids: number[]) => {
+      usePortManagerStore.setState({ error: "", killing: true });
+      try {
+        const result = await portManagerUseCases.killProcesses(pids);
+        const messages = portManagerUseCases.createKillMessages(result);
+        usePortManagerStore.setState((state) => ({
+          portKillMessages: { ...state.portKillMessages, [port]: messages },
+        }));
+        void scan([port]);
+      } catch (error) {
+        usePortManagerStore.setState({ error: typeof error === "string" ? error : "Failed to kill process" });
+      } finally {
+        usePortManagerStore.setState({ killing: false });
+      }
+    },
+    [scan]
+  );
+
+  const killAll = useCallback(async () => {
+    const { portDetails: currentPortDetails } = usePortManagerStore.getState();
+    usePortManagerStore.setState({ error: "", killing: true });
+    try {
+      const allPids = currentPortDetails.flatMap((detail) => detail.pids);
+      const portsToRescan = currentPortDetails.map((detail) => detail.port);
+      const result = await portManagerUseCases.killProcesses(allPids);
+      const killMessages = portManagerUseCases.groupKillMessagesByPort(result, currentPortDetails);
+      usePortManagerStore.setState({ portKillMessages: killMessages });
+      if (portsToRescan.length > 0) {
+        void scan(portsToRescan);
+      }
+    } catch (error) {
+      usePortManagerStore.setState({ error: typeof error === "string" ? error : "Failed to kill processes" });
+    } finally {
+      usePortManagerStore.setState({ killing: false });
+    }
+  }, [scan]);
 
   const clearInvalidTimer = useCallback(() => {
     if (invalidTimerRef.current) {
@@ -99,15 +241,16 @@ export function usePortManagerController() {
     const val = inputValue.trim();
     if (!val) return;
 
-    const store = usePortManagerStore.getState();
-    const { ports: newPorts, hasError, errorKey } = store.addPortsFromInput(val);
+    const { ports: newPorts, hasError, errorKey } = /^[\d,\-]+$/.test(val)
+      ? parsePortsFromInput(val)
+      : { ports: [], hasError: true, errorKey: "invalidInput" as const };
     if (hasError) {
       handleInvalidInput(t(`portManager.${errorKey ?? "invalidInput"}`));
       return;
     }
     if (newPorts.length === 0) return;
 
-    const existingPorts = store.portStates.map((ps) => ps.port);
+    const existingPorts = usePortManagerStore.getState().portStates.map((ps) => ps.port);
     const portsToAdd = newPorts.filter((port) => !existingPorts.includes(port));
     if (portsToAdd.length === 0) {
       handleInvalidInput(t("portManager.portsAlreadyAdded"));
@@ -120,9 +263,9 @@ export function usePortManagerController() {
 
     const portsToAddFinal = addPortsToScan(portsToAdd);
     if (portsToAddFinal.length > 0) {
-      void portManagerOperations.scan(portsToAddFinal);
+      void scan(portsToAddFinal);
     }
-  }, [addPortsToScan, clearInvalidTimer, handleInvalidInput, inputValue, setInputValue, setShowInvalidToast, t]);
+  }, [addPortsToScan, clearInvalidTimer, handleInvalidInput, inputValue, scan, setInputValue, setShowInvalidToast, t]);
 
   const handleInputKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -148,10 +291,10 @@ export function usePortManagerController() {
       if (store.portStates.some((ps) => ps.port === port)) return;
       const portsToAdd = addPortsToScan([port]);
       if (portsToAdd.length > 0) {
-        void portManagerOperations.scan(portsToAdd);
+        void scan(portsToAdd);
       }
     },
-    [addPortsToScan]
+    [addPortsToScan, scan]
   );
 
   const handleClearInput = useCallback(() => {
@@ -180,20 +323,20 @@ export function usePortManagerController() {
 
   const handleKillPort = useCallback(
     (port: number, pids: number[]) => {
-      void portManagerOperations.killPort(port, pids);
+      void killPort(port, pids);
     },
-    []
+    [killPort]
   );
 
   const handleKillAll = useCallback(() => {
-    void portManagerOperations.killAll();
-  }, []);
+    void killAll();
+  }, [killAll]);
 
   const handleRescanPort = useCallback(
     (port: number) => {
-      void portManagerOperations.scan([port]);
+      void scan([port]);
     },
-    []
+    [scan]
   );
 
   const displayedDetails = useMemo(
@@ -240,6 +383,8 @@ export function usePortManagerController() {
     [clearHighlightTimer, clearInvalidTimer]
   );
 
+  useEffect(() => registerFeatureRefresh("port-manager", rescanAll), [rescanAll]);
+
   return {
     t,
     canUsePlatformFeatures,
@@ -257,7 +402,7 @@ export function usePortManagerController() {
     highlightPort,
     setShowEmptyPorts,
     clearAll,
-    rescanAll: portManagerOperations.rescanAll,
+    rescanAll,
     removePort,
     setError,
     handleInputChange,

@@ -5,12 +5,14 @@ import { useCallback, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { getNextDataTableSorting } from "@/components/ui/DataTable";
 import { createDevCleanerColumns } from "@/features/dev-cleaner/columns";
-import { devCleanerOperations } from "@/features/dev-cleaner/operations";
+import { devCleanerUseCases } from "@/features/dev-cleaner/services/dev-cleaner.use-cases";
+import { registerFeatureRefresh } from "@/features/refresh";
 import { useContextMenuRegistration } from "@/shared/context-menu/useContextMenuRegistration";
 import type { ContextMenuConfig, ContextMenuRegistration } from "@/shared/context-menu/types";
 import { useDevCleanerStore, filterTypeMap } from "@/features/dev-cleaner/store";
 import type { ProjectInfo } from "@/lib/tauri/types";
 import { canUseDesktopFeatures } from "@/platform/capabilities";
+import { writeClipboardText } from "@/platform/clipboard";
 
 export function useDevCleanerController() {
   const { t } = useTranslation();
@@ -33,10 +35,103 @@ export function useDevCleanerController() {
   const setShowFilterOptions = useDevCleanerStore((s) => s.setShowFilterOptions);
   const setSorting = useDevCleanerStore((s) => s.setSorting);
   const setSelectedProjects = useDevCleanerStore((s) => s.setSelectedProjects);
-  const handleSelectPath = devCleanerOperations.selectPath;
-  const handleScan = devCleanerOperations.scan;
-  const handleStopScan = devCleanerOperations.stopScan;
-  const handleCleanup = devCleanerOperations.cleanup;
+
+  const handleSelectPath = useCallback(async () => {
+    try {
+      const selected = await devCleanerUseCases.selectDirectory();
+      if (selected && typeof selected === "string") {
+        useDevCleanerStore.setState({ selectedPath: selected });
+      }
+    } catch (error) {
+      useDevCleanerStore.setState({
+        cleanupMessage: {
+          type: "error",
+          text: `Failed to open directory dialog: ${error}`,
+        },
+      });
+    }
+  }, []);
+
+  const handleScan = useCallback(async () => {
+    const { selectedPath: currentSelectedPath } = useDevCleanerStore.getState();
+    if (!currentSelectedPath) return;
+
+    useDevCleanerStore.setState({ isScanning: true, showConfirm: false, showFilterOptions: true });
+
+    if (!devCleanerUseCases.isAvailable()) {
+      useDevCleanerStore.setState({
+        cleanupMessage: {
+          type: "error",
+          text: "Scanning is only available in the desktop app",
+        },
+        isScanning: false,
+      });
+      return;
+    }
+
+    try {
+      const result = await devCleanerUseCases.scanProjects(currentSelectedPath);
+      useDevCleanerStore.setState({
+        scanResult: result,
+        selectedProjects: {},
+        isScanning: false,
+        cleanupMessage: devCleanerUseCases.createScanStoppedMessage(result),
+      });
+    } catch (error) {
+      useDevCleanerStore.setState({
+        cleanupMessage: {
+          type: "error",
+          text: `Scan failed: ${error}`,
+        },
+        isScanning: false,
+      });
+    }
+  }, []);
+
+  const handleStopScan = useCallback(async () => {
+    try {
+      await devCleanerUseCases.stopScan();
+    } catch (error) {
+      console.error("Failed to stop scan:", error);
+    }
+  }, []);
+
+  const handleCleanup = useCallback(async () => {
+    const { selectedProjects: currentSelectedProjects, scanResult: currentScanResult } =
+      useDevCleanerStore.getState();
+    const currentSelectedCount = Object.values(currentSelectedProjects).filter(Boolean).length;
+    if (currentSelectedCount === 0) return;
+
+    useDevCleanerStore.setState({ showConfirm: false, isCleaningUp: true, cleanupMessage: null });
+
+    try {
+      const projectsToCleanup = devCleanerUseCases.getSelectedProjects(currentScanResult, currentSelectedProjects);
+      const result = await devCleanerUseCases.cleanupProjects(projectsToCleanup);
+
+      if (result.success) {
+        useDevCleanerStore.setState({
+          cleanupMessage: { type: "success", text: `Cleaned up ${result.cleaned_size} bytes` },
+          selectedProjects: {},
+        });
+        window.setTimeout(() => {
+          void handleScan();
+        }, 1000);
+      } else {
+        useDevCleanerStore.setState({
+          cleanupMessage: {
+            type: "error",
+            text: result.errors?.join(", ") || "Unknown error",
+          },
+        });
+      }
+    } catch (error) {
+      useDevCleanerStore.setState({
+        cleanupMessage: { type: "error", text: `Cleanup failed: ${error}` },
+      });
+    } finally {
+      useDevCleanerStore.setState({ isCleaningUp: false });
+    }
+  }, [handleScan]);
 
   const filteredProjects = useMemo(() => {
     if (!scanResult) return [];
@@ -98,6 +193,8 @@ export function useDevCleanerController() {
     }
   }, [selectedCount, showConfirm, setShowConfirm]);
 
+  useEffect(() => registerFeatureRefresh("dev-cleaner", handleScan), [handleScan]);
+
   const projectColumns = useMemo(() => createDevCleanerColumns(t), [t]);
 
   const updateSorting = useCallback(
@@ -111,7 +208,7 @@ export function useDevCleanerController() {
 
   const handleCopyPath = useCallback(async (path: string) => {
     try {
-      await navigator.clipboard.writeText(path);
+      await writeClipboardText(path);
     } catch {
       // clipboard write may fail in some environments
     }

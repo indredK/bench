@@ -1,34 +1,14 @@
 /**
  * Page View / 页面视图: compose screen only; 只组合页面.
  */
-import { useEffect } from "react";
-import { useTranslation } from "react-i18next";
 import { Card, CardHeader, CardTitle, CardContent, CardAction } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { systemInfoOperations } from "@/features/system-info/operations";
-import { useSystemInfoStore } from "@/features/system-info/store";
+import { useSystemInfoController } from "@/features/system-info/hooks/useSystemInfoController";
 import { formatMemory, formatUptime } from "@/lib/utils";
 
 function SystemInfo({ active }: { active: boolean }) {
-  const { t } = useTranslation();
-  const loading = useSystemInfoStore((s) => s.loading);
-  const systemInfo = useSystemInfoStore((s) => s.systemInfo);
-  const error = useSystemInfoStore((s) => s.error);
-  const fetched = useSystemInfoStore((s) => s.fetched);
-  const loadSystemInfo = systemInfoOperations.loadSystemInfo;
-
-  useEffect(() => {
-    return () => {
-      useSystemInfoStore.getState().reset();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (active && !fetched) {
-      loadSystemInfo();
-    }
-  }, [active, fetched, loadSystemInfo]);
+  const { t, loading, systemInfo, error, loadSystemInfo } = useSystemInfoController(active);
 
   if (loading) {
     return (

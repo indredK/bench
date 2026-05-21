@@ -22,6 +22,7 @@ interface InstallListCardProps {
   status: OperationStatus | undefined;
   onInstall: (app: InstallListAppInfo) => void;
   onOpenWebsite: (url: string | undefined) => void;
+  onCopyText: (text: string | undefined) => void;
 }
 
 export function InstallListCard({
@@ -30,6 +31,7 @@ export function InstallListCard({
   status,
   onInstall,
   onOpenWebsite,
+  onCopyText,
 }: InstallListCardProps) {
   const isInstalling = status === "running";
 
@@ -104,7 +106,7 @@ export function InstallListCard({
                   />
                 </ContextMenuTrigger>
                 <ContextMenuContent>
-                  <ContextMenuItem onClick={() => navigator.clipboard.writeText(app.installSource.url!)}>
+                  <ContextMenuItem onClick={() => onCopyText(app.installSource.url)}>
                     {t("appManager.copyWebsite")}
                   </ContextMenuItem>
                 </ContextMenuContent>
@@ -115,7 +117,7 @@ export function InstallListCard({
       </ContextMenuTrigger>
       {app.installedPath && (
         <ContextMenuContent>
-          <ContextMenuItem onClick={() => navigator.clipboard.writeText(app.installedPath!)}>
+          <ContextMenuItem onClick={() => onCopyText(app.installedPath)}>
             {t("appManager.copyPath")}
           </ContextMenuItem>
         </ContextMenuContent>

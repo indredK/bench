@@ -10,6 +10,10 @@ interface SystemInfoState {
   error: string;
   fetched: boolean;
 
+  setLoading: (loading: boolean) => void;
+  setSystemInfo: (systemInfo: SystemInfoData | null) => void;
+  setError: (error: string) => void;
+  setFetched: (fetched: boolean) => void;
   reset: () => void;
 }
 
@@ -19,5 +23,9 @@ export const useSystemInfoStore = create<SystemInfoState>((set) => ({
   error: "",
   fetched: false,
 
+  setLoading: (loading) => set({ loading }),
+  setSystemInfo: (systemInfo) => set({ systemInfo }),
+  setError: (error) => set({ error }),
+  setFetched: (fetched) => set({ fetched }),
   reset: () => set({ loading: true, systemInfo: null, error: "", fetched: false }),
 }));

@@ -7,11 +7,22 @@ import type { ContextMenuConfig, ContextMenuRegistration } from "@/shared/contex
 import { useContextMenuRegistration } from "@/shared/context-menu/useContextMenuRegistration";
 import { useAppManagerStore } from "@/features/app-manager/store";
 import { createAppManagerColumns } from "@/features/app-manager/columns";
+import { createInstallListApps } from "@/features/app-manager/model/install-list";
+import {
+  createBatchErrorPatch,
+  createBatchProgress,
+  createBatchSuccessPatch,
+  createRunningOperationState,
+  isOperationRunning,
+  toOperationState,
+} from "@/features/app-manager/model/operations";
 import { filterAppManagerItems } from "@/features/app-manager/model/selectors";
-import { appManagerOperations } from "@/features/app-manager/operations";
+import { appManagerUseCases } from "@/features/app-manager/services/app-manager.use-cases";
+import { registerFeatureRefresh } from "@/features/refresh";
 import type { AppInfo, InstallListAppInfo } from "@/lib/tauri/types/app-manager";
 import { appManagerPlatformConfig } from "@/platform/config";
 import { canUseDesktopFeatures } from "@/platform/capabilities";
+import { writeClipboardText } from "@/platform/clipboard";
 import { createInstallListColumns } from "@/features/app-manager/components/install-list-columns";
 
 export function useAppManagerController(active: boolean) {
@@ -48,13 +59,8 @@ export function useAppManagerController(active: boolean) {
   const setCategoryFilter = useAppManagerStore((s) => s.setCategoryFilter);
   const setSeriesFilter = useAppManagerStore((s) => s.setSeriesFilter);
   const setSorting = useAppManagerStore((s) => s.setSorting);
-  const scanApps = appManagerOperations.scanApps;
-  const refreshUpdates = appManagerOperations.refreshUpdates;
-  const doUpgrade = appManagerOperations.upgrade;
-  const doUninstall = appManagerOperations.uninstall;
   const openConfirmDialog = useAppManagerStore((s) => s.openConfirmDialog);
   const closeConfirmDialog = useAppManagerStore((s) => s.closeConfirmDialog);
-  const loadHistory = appManagerOperations.loadHistory;
   const setHistoryOpen = useAppManagerStore((s) => s.setHistoryOpen);
   const clearSelection = useAppManagerStore((s) => s.clearSelection);
   const setBatchMode = useAppManagerStore((s) => s.setBatchMode);
@@ -62,17 +68,11 @@ export function useAppManagerController(active: boolean) {
   const openBatchConfirmDialog = useAppManagerStore((s) => s.openBatchConfirmDialog);
   const closeBatchConfirmDialog = useAppManagerStore((s) => s.closeBatchConfirmDialog);
   const clearBatchResults = useAppManagerStore((s) => s.clearBatchResults);
-  const doBatchUpgrade = appManagerOperations.batchUpgrade;
-  const doBatchUninstall = appManagerOperations.batchUninstall;
   const setViewMode = useAppManagerStore((s) => s.setViewMode);
   const setSelectedItem = useAppManagerStore((s) => s.setSelectedItem);
   const setFilterPanelOpen = useAppManagerStore((s) => s.setFilterPanelOpen);
-  const doInstall = appManagerOperations.install;
   const openInstallConfirmDialog = useAppManagerStore((s) => s.openInstallConfirmDialog);
   const closeInstallConfirmDialog = useAppManagerStore((s) => s.closeInstallConfirmDialog);
-  const launchApp = appManagerOperations.launchApp;
-  const revealApp = appManagerOperations.revealApp;
-  const openExternal = appManagerOperations.openExternal;
 
   const [selectedInstallIds, setSelectedInstallIds] = useState<Set<string>>(new Set());
   const [installBatchMode, setInstallBatchMode] = useState(false);
@@ -80,23 +80,242 @@ export function useAppManagerController(active: boolean) {
   const [preferencesHydrated, setPreferencesHydrated] = useState(false);
   const pendingBatchInstallIds = useRef<string[]>([]);
   const confirmPendingRef = useRef(false);
+  const refreshHandlerRef = useRef<(() => void | Promise<void>) | null>(null);
 
   const canUsePlatformFeatures = canUseDesktopFeatures();
 
+  const loadHistory = useCallback(async () => {
+    if (!appManagerUseCases.isAvailable()) return;
+    try {
+      useAppManagerStore.setState({ history: await appManagerUseCases.loadHistory() });
+    } catch (error) {
+      console.warn("[AppManager] Failed to load history:", error);
+    }
+  }, []);
+
+  const scanApps = useCallback(async () => {
+    const { loading: currentLoading } = useAppManagerStore.getState();
+    if (currentLoading) return;
+
+    useAppManagerStore.setState({
+      loading: true,
+      error: "",
+      selectedAppIds: new Set(),
+      batchMode: false,
+      batchResults: null,
+    });
+
+    if (!appManagerUseCases.isAvailable()) {
+      useAppManagerStore.setState({ scanned: true, loading: false });
+      return;
+    }
+
+    try {
+      const scanResult = await appManagerUseCases.scanInstalledApps();
+      useAppManagerStore.setState({
+        apps: scanResult.apps,
+        result: scanResult,
+        scanned: true,
+        loading: false,
+        lastScanTime: scanResult.lastScanTime,
+        lastUpdateCheck: scanResult.lastUpdateCheck,
+        installListApps: createInstallListApps(scanResult.apps),
+      });
+      void loadHistory();
+    } catch (scanError) {
+      useAppManagerStore.setState({
+        apps: [],
+        result: null,
+        error: String(scanError) || "Failed to scan",
+        scanned: true,
+        loading: false,
+      });
+    }
+  }, [loadHistory]);
+
+  const refreshInstallList = useCallback(() => {
+    useAppManagerStore.setState({
+      installListApps: createInstallListApps(useAppManagerStore.getState().apps),
+    });
+  }, []);
+
+  const refreshUpdates = useCallback(async () => {
+    const { apps: currentApps } = useAppManagerStore.getState();
+    try {
+      const updatableSet = await appManagerUseCases.findManagedAppUpdates(currentApps);
+      if (updatableSet.size === 0) return;
+      useAppManagerStore.setState((state) => ({
+        apps: state.apps.map((app) => ({
+          ...app,
+          upgradeAvailable: updatableSet.has(app.appId),
+        })),
+      }));
+    } catch (updateError) {
+      console.warn("[AppManager] Failed to check updates:", updateError);
+    }
+  }, []);
+
+  const scheduleScanApps = useCallback(
+    (delayMs: number) => {
+      window.setTimeout(() => {
+        void scanApps();
+      }, delayMs);
+    },
+    [scanApps]
+  );
+
+  const doUpgrade = useCallback(
+    async (appId: string) => {
+      const { operations, setOperationStatus } = useAppManagerStore.getState();
+      if (isOperationRunning(operations, appId)) return;
+
+      useAppManagerStore.setState((state) => ({
+        operations: { ...state.operations, [appId]: createRunningOperationState("Upgrading...") },
+      }));
+
+      const outcome = await appManagerUseCases.runAppOperation({ appId, kind: "upgrade" });
+      if (!outcome) return;
+
+      useAppManagerStore.setState((state) => ({
+        operations: { ...state.operations, [appId]: toOperationState(outcome.result) },
+      }));
+      if (outcome.result.success) {
+        window.setTimeout(() => setOperationStatus(appId, "idle"), 5000);
+      }
+
+      await loadHistory();
+      if (outcome.shouldRescan) void scanApps();
+    },
+    [loadHistory, scanApps]
+  );
+
+  const doUninstall = useCallback(
+    async (appId: string) => {
+      const { operations } = useAppManagerStore.getState();
+      if (isOperationRunning(operations, appId)) return;
+
+      useAppManagerStore.setState((state) => ({
+        operations: { ...state.operations, [appId]: createRunningOperationState("Uninstalling...") },
+      }));
+
+      const outcome = await appManagerUseCases.runAppOperation({ appId, kind: "uninstall" });
+      if (!outcome) return;
+
+      useAppManagerStore.setState((state) => ({
+        operations: { ...state.operations, [appId]: toOperationState(outcome.result) },
+      }));
+      if (outcome.shouldRescan) {
+        scheduleScanApps(800);
+      }
+
+      await loadHistory();
+    },
+    [loadHistory, scheduleScanApps]
+  );
+
+  const doInstall = useCallback(
+    async (appId: string, _appName: string, installSource: InstallListAppInfo["installSource"]) => {
+      const { installStates } = useAppManagerStore.getState();
+      if (isOperationRunning(installStates, appId)) return;
+
+      useAppManagerStore.setState((state) => ({
+        installStates: { ...state.installStates, [appId]: createRunningOperationState("Installing...") },
+      }));
+
+      const outcome = await appManagerUseCases.runAppOperation({ appId, kind: "install", installSource });
+      if (!outcome) return;
+
+      useAppManagerStore.setState((state) => ({
+        installStates: { ...state.installStates, [appId]: toOperationState(outcome.result) },
+      }));
+      if (outcome.shouldRescan) {
+        window.setTimeout(() => {
+          void scanApps();
+          refreshInstallList();
+        }, 2000);
+      }
+    },
+    [refreshInstallList, scanApps]
+  );
+
+  const runBatchOperation = useCallback(
+    async (kind: "upgrade" | "uninstall") => {
+      const ids = Array.from(useAppManagerStore.getState().selectedAppIds);
+      if (ids.length === 0) return;
+
+      useAppManagerStore.setState({ batchProgress: createBatchProgress(ids.length), batchResults: null });
+      const outcome = await appManagerUseCases.runBatchOperation(kind, ids);
+      if (!outcome) return;
+
+      useAppManagerStore.setState(
+        outcome.result ? createBatchSuccessPatch(outcome.result) : createBatchErrorPatch(outcome.error)
+      );
+      await loadHistory();
+      void scanApps();
+    },
+    [loadHistory, scanApps]
+  );
+
+  const doBatchUpgrade = useCallback(() => runBatchOperation("upgrade"), [runBatchOperation]);
+  const doBatchUninstall = useCallback(() => runBatchOperation("uninstall"), [runBatchOperation]);
+
+  const launchApp = useCallback(async (app: AppInfo) => {
+    try {
+      await appManagerUseCases.launchApp(app);
+    } catch (error) {
+      console.warn("[AppManager] Failed to launch app:", error);
+    }
+  }, []);
+
+  const revealApp = useCallback(async (app: AppInfo) => {
+    try {
+      await appManagerUseCases.revealApp(app);
+    } catch (error) {
+      console.warn("[AppManager] Failed to reveal app:", error);
+    }
+  }, []);
+
+  const openExternal = useCallback((reference: string) => {
+    return appManagerUseCases.openExternal(reference);
+  }, []);
+
+  const copyText = useCallback(async (text?: string) => {
+    if (!text) return;
+    try {
+      await writeClipboardText(text);
+    } catch {
+      /* clipboard may be unavailable */
+    }
+  }, []);
+
   useEffect(() => {
-    appManagerOperations.restorePreferences();
+    const preferences = appManagerUseCases.loadPreferences();
+    useAppManagerStore.setState({
+      activeFilter: preferences.activeFilter,
+      sorting: preferences.sorting,
+      viewMode: appManagerUseCases.loadViewMode(),
+    });
     setPreferencesHydrated(true);
   }, []);
 
   useEffect(() => {
     if (!preferencesHydrated) return;
-    appManagerOperations.savePreferences(activeFilter, sorting);
+    appManagerUseCases.savePreferences({ activeFilter, sorting });
   }, [preferencesHydrated, activeFilter, sorting]);
 
   useEffect(() => {
     if (!preferencesHydrated) return;
-    appManagerOperations.saveViewMode(viewMode);
+    appManagerUseCases.saveViewMode(viewMode);
   }, [preferencesHydrated, viewMode]);
+
+  useEffect(() => {
+    refreshHandlerRef.current = scanApps;
+  }, [scanApps]);
+
+  useEffect(
+    () => registerFeatureRefresh("app-manager", () => refreshHandlerRef.current?.()),
+    []
+  );
 
   useEffect(() => {
     if (active && canUsePlatformFeatures && !scanned) scanApps();
@@ -383,8 +602,9 @@ export function useAppManagerController(active: boolean) {
         onOpenWebsite: (url) => {
           if (url) void openExternal(url);
         },
+        onCopyText: copyText,
       }),
-    [t, handleInstall, openExternal]
+    [t, handleInstall, openExternal, copyText]
   );
 
   const activeFilterCount =
@@ -464,6 +684,7 @@ export function useAppManagerController(active: boolean) {
     launchApp,
     revealApp,
     openExternal,
+    copyText,
     handleLaunch,
     handleReveal,
     handleUpgradeFromColumn,

@@ -3,7 +3,7 @@
  */
 import type { TFunction } from "i18next";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Download, ExternalLink } from "lucide-react";
+import { Copy, Download, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ToolbarButton } from "@/components/ui/toolbar-button";
@@ -14,12 +14,14 @@ interface InstallListColumnsOptions {
   t: TFunction;
   onInstall: (app: InstallListAppInfo) => void;
   onOpenWebsite: (url: string | undefined) => void;
+  onCopyText: (text: string | undefined) => void;
 }
 
 export function createInstallListColumns({
   t,
   onInstall,
   onOpenWebsite,
+  onCopyText,
 }: InstallListColumnsOptions): ColumnDef<InstallListAppInfo>[] {
   return [
     {
@@ -85,11 +87,18 @@ export function createInstallListColumns({
               {t("appManager.install")}
             </Button>
             {app.installSource.url && (
-              <ToolbarButton
-                icon={<ExternalLink size={12} />}
-                tooltip={t("appManager.openWebsite")}
-                onClick={() => onOpenWebsite(app.installSource.url)}
-              />
+              <div className="flex items-center gap-1">
+                <ToolbarButton
+                  icon={<ExternalLink size={12} />}
+                  tooltip={t("appManager.openWebsite")}
+                  onClick={() => onOpenWebsite(app.installSource.url)}
+                />
+                <ToolbarButton
+                  icon={<Copy size={12} />}
+                  tooltip={t("appManager.copyWebsite")}
+                  onClick={() => onCopyText(app.installSource.url)}
+                />
+              </div>
             )}
           </div>
         );
