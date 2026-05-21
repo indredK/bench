@@ -1,3 +1,4 @@
+use super::types::{CleanupResult, ProjectInfo, ProjectType, ScanAbortFlag, ScanResult};
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -5,7 +6,6 @@ use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::SystemTime;
-use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
 
 const SKIP_DIR_NAMES: &[&str] = &[
@@ -63,15 +63,6 @@ fn is_child_of_skip_dir(entry: &walkdir::DirEntry, root: &Path) -> bool {
             .map(is_skip_dir_name)
             .unwrap_or(false)
     })
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum ProjectType {
-    NodeJs,
-    Python,
-    Rust,
-    Go,
-    General,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -172,38 +163,6 @@ fn get_last_modified(path: &Path) -> u64 {
                 .unwrap_or(0)
         })
         .unwrap_or(0)
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ProjectInfo {
-    pub path: String,
-    pub name: String,
-    pub total_size: u64,
-    pub target_size: u64,
-    pub last_modified: u64,
-    pub dependencies_count: u32,
-    pub project_type: ProjectType,
-    pub cleanup_potential: u64,
-    pub cleanup_paths: Vec<String>,
-}
-
-pub type ScanAbortFlag = Arc<AtomicBool>;
-
-#[derive(Debug, Serialize)]
-pub struct ScanResult {
-    pub total_projects: u32,
-    pub total_size: u64,
-    pub total_cleanup_size: u64,
-    pub projects: Vec<ProjectInfo>,
-    pub scan_time_ms: u64,
-    pub aborted: bool,
-}
-
-#[derive(Debug, Serialize)]
-pub struct CleanupResult {
-    pub success: bool,
-    pub cleaned_size: u64,
-    pub errors: Vec<String>,
 }
 
 #[tauri::command]

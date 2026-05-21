@@ -1,5 +1,8 @@
 use chrono::{DateTime, Local};
-use serde::Serialize;
+use super::types::{
+    CommandCandidate, EnvTool, NodeBinInfo, NodeDeclaredBin, ScanDonePayload, ToolClassification,
+    ToolDetector,
+};
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::ffi::OsStr;
@@ -8,69 +11,6 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::Duration;
 use tauri::{AppHandle, Emitter};
-
-#[derive(Debug, Serialize, Clone)]
-pub struct EnvTool {
-    pub name: String,
-    pub version: String,
-    pub path: String,
-    pub size_bytes: u64,
-    pub size_display: String,
-    pub install_time: String,
-    pub available: bool,
-    pub category: String,
-    pub source: String,
-    pub kind: String,
-    pub status: String,
-    pub detector: String,
-    pub all_paths: Vec<String>,
-    pub issue: String,
-}
-
-#[derive(Debug, Serialize, Clone)]
-pub struct ScanDonePayload {
-    pub tools: Vec<EnvTool>,
-    pub unavailable: Vec<EnvTool>,
-}
-
-#[derive(Debug, Clone)]
-struct CommandCandidate {
-    name: String,
-    path: PathBuf,
-    dir_index: usize,
-    extension_rank: usize,
-}
-
-#[derive(Debug, Clone, Copy)]
-struct ToolDetector {
-    name: &'static str,
-    aliases: &'static [&'static str],
-    category: &'static str,
-    version_args: &'static [&'static str],
-}
-
-#[derive(Debug)]
-struct ToolClassification {
-    category: String,
-    source: String,
-    kind: String,
-    status: String,
-    detector: String,
-    issue: String,
-}
-
-#[derive(Debug)]
-struct NodeBinInfo {
-    package_name: String,
-    declared_bins: Vec<NodeDeclaredBin>,
-    matched_name: Option<String>,
-}
-
-#[derive(Debug)]
-struct NodeDeclaredBin {
-    name: String,
-    relative_path: String,
-}
 
 const VERSION_TIMEOUT: Duration = Duration::from_millis(1200);
 #[cfg(target_os = "macos")]

@@ -14,13 +14,13 @@ macro_rules! app_invoke_handler {
             $crate::app_manager::commands::refresh_app_updates,
             $crate::app_manager::commands::install_app,
             $crate::app_manager::commands::batch_install_apps,
-            $crate::port_manager::get_system_info,
-            $crate::port_manager::query_port_processes,
-            $crate::port_manager::kill_processes,
-            $crate::dev_cleaner::scan_dev_projects,
-            $crate::dev_cleaner::cleanup_projects,
-            $crate::dev_cleaner::stop_scan,
-            $crate::env_detector::detect_env_tools,
+            $crate::port_manager::core::get_system_info,
+            $crate::port_manager::core::query_port_processes,
+            $crate::port_manager::core::kill_processes,
+            $crate::dev_cleaner::core::scan_dev_projects,
+            $crate::dev_cleaner::core::cleanup_projects,
+            $crate::dev_cleaner::core::stop_scan,
+            $crate::env_detector::core::detect_env_tools,
         ]
     };
 }
