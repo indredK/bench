@@ -17,7 +17,11 @@ export function formatSize(bytes: number): string {
 }
 
 export function formatDate(timestamp: number): string {
-  return new Date(timestamp * 1000).toLocaleDateString();
+  const d = new Date(timestamp * 1000);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 export function formatMemory(bytes: number): string {
