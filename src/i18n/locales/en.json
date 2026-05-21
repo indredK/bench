@@ -1201,7 +1201,7 @@
     "tooltip": "Click to cycle: System → Light → Dark"
   },
   "about": {
-    "description": "All-in-one developer toolkit for macOS",
+    "description": "All-in-one developer toolkit",
     "version": "Version",
     "close": "Close"
   }

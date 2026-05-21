@@ -15,6 +15,10 @@ export interface AppManagerPlatformConfig {
 export type PlatformName = "macos" | "linux" | "windows";
 
 function detectPlatform(): PlatformName {
+  const ua = navigator.userAgent.toLowerCase();
+  if (ua.includes("mac os") || ua.includes("macintosh")) return "macos";
+  if (ua.includes("windows") || ua.includes("win64")) return "windows";
+  if (ua.includes("linux")) return "linux";
   const p = navigator.platform.toLowerCase();
   if (p.includes("mac")) return "macos";
   if (p.includes("win")) return "windows";

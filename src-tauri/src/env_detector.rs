@@ -1144,16 +1144,26 @@ fn platform_default_dirs() -> Vec<PathBuf> {
         );
         push_env_child(&mut dirs, "ProgramData", &["chocolatey", "bin"]);
 
-        dirs.push(PathBuf::from(r"C:\Program Files\nodejs"));
-        dirs.push(PathBuf::from(r"C:\Program Files\Go\bin"));
-        dirs.push(PathBuf::from(r"C:\Program Files\Git\cmd"));
-        dirs.push(PathBuf::from(
-            r"C:\Program Files\Docker\Docker\resources\bin",
-        ));
-        dirs.push(PathBuf::from(r"C:\Program Files\Microsoft VS Code\bin"));
-        dirs.push(PathBuf::from(r"C:\Python312\Scripts"));
-        dirs.push(PathBuf::from(r"C:\Python311\Scripts"));
-        dirs.push(PathBuf::from(r"C:\Python310\Scripts"));
+        // Use env vars for Program Files to support non-English Windows
+        if let Some(pf) = env::var_os("ProgramFiles") {
+            dirs.push(PathBuf::from(&pf).join("nodejs"));
+            dirs.push(PathBuf::from(&pf).join("Go").join("bin"));
+            dirs.push(PathBuf::from(&pf).join("Git").join("cmd"));
+            dirs.push(
+                PathBuf::from(&pf)
+                    .join("Docker")
+                    .join("Docker")
+                    .join("resources")
+                    .join("bin"),
+            );
+        }
+        if let Some(pfx86) = env::var_os("ProgramFiles(x86)") {
+            dirs.push(PathBuf::from(&pfx86).join("Microsoft VS Code").join("bin"));
+        } else if let Some(pf) = env::var_os("ProgramFiles") {
+            dirs.push(PathBuf::from(&pf).join("Microsoft VS Code").join("bin"));
+        }
+        // Python Scripts from LOCALAPPDATA instead of root C:\Python*
+        push_env_child(&mut dirs, "LOCALAPPDATA", &["Programs", "Python", "Launcher"]);
     }
 
     dirs

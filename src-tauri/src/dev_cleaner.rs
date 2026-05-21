@@ -682,12 +682,14 @@ fn calculate_dir_size(path: &Path, abort_flag: Option<&Arc<AtomicBool>>) -> Resu
 }
 
 fn get_dir_size_fast(path: &Path, abort_flag: Option<&Arc<AtomicBool>>) -> Result<u64, String> {
-    if cfg!(unix) {
-        if let Some(flag) = abort_flag {
-            if flag.load(Ordering::SeqCst) {
-                return Ok(0);
-            }
+    if let Some(flag) = abort_flag {
+        if flag.load(Ordering::SeqCst) {
+            return Ok(0);
         }
+    }
+
+    #[cfg(unix)]
+    {
         if let Ok(output) = Command::new("du")
             .args(["-sk", &path.to_string_lossy().to_string()])
             .output()
@@ -697,6 +699,31 @@ fn get_dir_size_fast(path: &Path, abort_flag: Option<&Arc<AtomicBool>>) -> Resul
                 if let Some(size_str) = stdout.split_whitespace().next() {
                     if let Ok(kb) = size_str.parse::<u64>() {
                         return Ok(kb * 1024);
+                    }
+                }
+            }
+        }
+    }
+
+    #[cfg(windows)]
+    {
+        if let Ok(output) = Command::new("powershell")
+            .args([
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                &format!(
+                    "((Get-ChildItem -Recurse -Force -ErrorAction SilentlyContinue '{}' | Where-Object {{ -not $_.PSIsContainer }} | Measure-Object -Sum Length).Sum)",
+                    path.to_string_lossy().replace('\'', "''")
+                ),
+            ])
+            .output()
+        {
+            if output.status.success() {
+                let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                if !stdout.is_empty() {
+                    if let Ok(bytes) = stdout.parse::<u64>() {
+                        return Ok(bytes);
                     }
                 }
             }
