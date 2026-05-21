@@ -1,5 +1,6 @@
 import type { AppCategoryKey } from "@/features/app-manager/app-categories";
 import type { AppSeriesKey } from "@/features/app-manager/app-series";
+import type { AppInfo } from "@/lib/tauri/types";
 
 export interface RecommendedApp {
   id: string;
@@ -19,6 +20,13 @@ export interface RecommendedApp {
   iconKey: string;
   recommended: boolean;
   popularity?: number;
+}
+
+export interface RecommendedAppInstallStatus extends RecommendedApp {
+  installed: boolean;
+  installedAppId?: string;
+  installedVersion?: string;
+  installedPath?: string;
 }
 
 export const RECOMMENDED_APPS: RecommendedApp[] = [
@@ -53,7 +61,7 @@ export const RECOMMENDED_APPS: RecommendedApp[] = [
     category: "browser",
     series: "other",
     description: "革新性的现代化浏览器",
-    installSource: { brew: "arc", url: "https://arc.net/" },
+    installSource: { brew: "arc", url: "https://arc.net/download" },
     iconKey: "arc",
     recommended: false,
     popularity: 70,
@@ -113,7 +121,7 @@ export const RECOMMENDED_APPS: RecommendedApp[] = [
     category: "communication",
     series: "other",
     description: "团队沟通与协作平台",
-    installSource: { brew: "slack", winget: "SlackTechnologies.Slack", url: "https://slack.com/" },
+    installSource: { brew: "slack", winget: "SlackTechnologies.Slack", url: "https://slack.com/downloads" },
     iconKey: "slack",
     recommended: false,
     popularity: 60,
@@ -137,7 +145,7 @@ export const RECOMMENDED_APPS: RecommendedApp[] = [
     category: "communication",
     series: "other",
     description: "游戏玩家和社区的首选语音聊天平台",
-    installSource: { brew: "discord", winget: "Discord.Discord", url: "https://discord.com/" },
+    installSource: { brew: "discord", winget: "Discord.Discord", url: "https://discord.com/download" },
     iconKey: "discord",
     recommended: false,
     popularity: 55,
@@ -149,7 +157,7 @@ export const RECOMMENDED_APPS: RecommendedApp[] = [
     category: "communication",
     series: "other",
     description: "视频会议软件",
-    installSource: { brew: "zoom", winget: "Zoom.Zoom", url: "https://zoom.us/" },
+    installSource: { brew: "zoom", winget: "Zoom.Zoom", url: "https://www.zoom.com/download" },
     iconKey: "zoom",
     recommended: false,
     popularity: 50,
@@ -161,7 +169,7 @@ export const RECOMMENDED_APPS: RecommendedApp[] = [
     category: "ide",
     series: "microsoft",
     description: "微软出品,轻量级但功能强大的代码编辑器",
-    installSource: { brew: "visual-studio-code", winget: "Microsoft.VisualStudioCode", url: "https://code.visualstudio.com/" },
+    installSource: { brew: "visual-studio-code", winget: "Microsoft.VisualStudioCode", url: "https://code.visualstudio.com/download" },
     iconKey: "vscode",
     recommended: true,
     popularity: 99,
@@ -173,7 +181,7 @@ export const RECOMMENDED_APPS: RecommendedApp[] = [
     category: "ide",
     series: "other",
     description: "JetBrains 出品的 Java IDE",
-    installSource: { brew: "intellij-idea", url: "https://www.jetbrains.com/idea/" },
+    installSource: { brew: "intellij-idea", url: "https://www.jetbrains.com/idea/download/" },
     iconKey: "intellij",
     recommended: false,
     popularity: 70,
@@ -185,7 +193,7 @@ export const RECOMMENDED_APPS: RecommendedApp[] = [
     category: "ide",
     series: "other",
     description: "AI-first 代码编辑器",
-    installSource: { brew: "cursor", url: "https://cursor.sh/" },
+    installSource: { brew: "cursor", url: "https://cursor.com/download" },
     iconKey: "cursor",
     recommended: true,
     popularity: 85,
@@ -197,7 +205,7 @@ export const RECOMMENDED_APPS: RecommendedApp[] = [
     category: "ide",
     series: "other",
     description: "AI 驱动的 IDE",
-    installSource: { url: "https://codeium.com/windsurf" },
+    installSource: { url: "https://windsurf.com/windsurf/download" },
     iconKey: "windsurf",
     recommended: false,
     popularity: 65,
@@ -221,7 +229,7 @@ export const RECOMMENDED_APPS: RecommendedApp[] = [
     category: "ide",
     series: "other",
     description: "极速轻量级文本编辑器",
-    installSource: { brew: "sublime-text", winget: "SublimeHQ.SublimeText", url: "https://www.sublimetext.com/" },
+    installSource: { brew: "sublime-text", winget: "SublimeHQ.SublimeText", url: "https://www.sublimetext.com/download" },
     iconKey: "sublime",
     recommended: false,
     popularity: 45,
@@ -233,7 +241,7 @@ export const RECOMMENDED_APPS: RecommendedApp[] = [
     category: "ai",
     series: "openai",
     description: "OpenAI 官方桌面客户端",
-    installSource: { url: "https://chatgpt.com/" },
+    installSource: { url: "https://openai.com/chatgpt/desktop/" },
     iconKey: "chatgpt",
     recommended: true,
     popularity: 95,
@@ -245,7 +253,7 @@ export const RECOMMENDED_APPS: RecommendedApp[] = [
     category: "ai",
     series: "other",
     description: "Anthropic 出品,AI 助手桌面版",
-    installSource: { url: "https://claude.ai/" },
+    installSource: { url: "https://claude.com/download" },
     iconKey: "claude",
     recommended: false,
     popularity: 80,
@@ -257,7 +265,7 @@ export const RECOMMENDED_APPS: RecommendedApp[] = [
     category: "ai",
     series: "other",
     description: "本地运行 LLM 的利器",
-    installSource: { brew: "ollama", url: "https://ollama.ai/" },
+    installSource: { brew: "ollama", url: "https://ollama.com/download" },
     iconKey: "ollama",
     recommended: true,
     popularity: 75,
@@ -269,7 +277,7 @@ export const RECOMMENDED_APPS: RecommendedApp[] = [
     category: "development",
     series: "other",
     description: "容器化应用开发平台",
-    installSource: { brew: "docker", url: "https://www.docker.com/" },
+    installSource: { brew: "docker", url: "https://www.docker.com/products/docker-desktop/" },
     iconKey: "docker",
     recommended: true,
     popularity: 95,
@@ -293,7 +301,7 @@ export const RECOMMENDED_APPS: RecommendedApp[] = [
     category: "development",
     series: "other",
     description: "协作式 UI/UX 设计工具",
-    installSource: { brew: "figma", url: "https://www.figma.com/" },
+    installSource: { brew: "figma", url: "https://www.figma.com/downloads/" },
     iconKey: "figma",
     recommended: false,
     popularity: 80,
@@ -305,7 +313,7 @@ export const RECOMMENDED_APPS: RecommendedApp[] = [
     category: "development",
     series: "other",
     description: "API 开发和测试工具",
-    installSource: { brew: "postman", winget: "Postman.Postman", url: "https://www.postman.com/" },
+    installSource: { brew: "postman", winget: "Postman.Postman", url: "https://www.postman.com/downloads/" },
     iconKey: "postman",
     recommended: false,
     popularity: 75,
@@ -456,19 +464,112 @@ export const RECOMMENDED_APPS: RecommendedApp[] = [
   },
 ];
 
-export function getUninstalledRecommended(
-  installedBundleIds: string[]
-): RecommendedApp[] {
-  const installed = new Set(
-    installedBundleIds.map((id) => id.toLowerCase())
-  );
+type InstalledAppFingerprint = Pick<AppInfo, "appId" | "name" | "bundleId" | "sourceId" | "version" | "installPath">;
 
-  return RECOMMENDED_APPS.filter((app) => {
-    const patterns = app.bundleIdPattern.split(",").map((p) => p.trim().toLowerCase());
-    const isInstalled = patterns.some((pattern) =>
-      installed.has(pattern) ||
-      [...installed].some((installedId) => installedId.includes(pattern))
-    );
-    return !isInstalled;
+function normalizeId(value: string | undefined): string {
+  return (value ?? "").trim().toLowerCase();
+}
+
+function normalizeName(value: string | undefined): string {
+  return normalizeId(value)
+    .replace(/\.app$/, "")
+    .replace(/[^a-z0-9\u4e00-\u9fff]+/g, "");
+}
+
+function splitPatterns(value: string): string[] {
+  return value
+    .split(",")
+    .map((item) => normalizeId(item))
+    .filter(Boolean);
+}
+
+function looseNameMatch(expected: string, actual: string): boolean {
+  if (!expected || !actual) return false;
+  if (expected === actual) return true;
+  return Math.min(expected.length, actual.length) >= 4 && (
+    expected.includes(actual) || actual.includes(expected)
+  );
+}
+
+function findInstalledMatch(
+  recommendedApp: RecommendedApp,
+  installedApps: InstalledAppFingerprint[]
+): InstalledAppFingerprint | undefined {
+  const bundlePatterns = splitPatterns(recommendedApp.bundleIdPattern);
+  const sourcePatterns = [
+    recommendedApp.installSource.brew,
+    recommendedApp.installSource.winget,
+    recommendedApp.installSource.apt,
+    recommendedApp.installSource.flatpak,
+    recommendedApp.installSource.snap,
+  ].map(normalizeId).filter(Boolean);
+  const namePatterns = [
+    recommendedApp.name,
+    recommendedApp.id,
+    recommendedApp.iconKey,
+  ].map(normalizeName).filter(Boolean);
+
+  return installedApps.find((installedApp) => {
+    const installedBundleId = normalizeId(installedApp.bundleId);
+    if (installedBundleId && installedBundleId !== "unknown") {
+      const matchedByBundle = bundlePatterns.some((pattern) =>
+        installedBundleId === pattern || installedBundleId.includes(pattern)
+      );
+      if (matchedByBundle) return true;
+    }
+
+    const installedSourceId = normalizeId(installedApp.sourceId);
+    if (installedSourceId) {
+      const matchedBySource = sourcePatterns.some((pattern) =>
+        installedSourceId === pattern ||
+        installedSourceId.includes(pattern) ||
+        pattern.includes(installedSourceId)
+      );
+      if (matchedBySource) return true;
+    }
+
+    const installedName = normalizeName(installedApp.name);
+    return namePatterns.some((pattern) => looseNameMatch(pattern, installedName));
   });
+}
+
+export function getRecommendedInstallList(
+  installedApps: InstalledAppFingerprint[]
+): RecommendedAppInstallStatus[] {
+  return RECOMMENDED_APPS.map((app) => {
+    const installedApp = findInstalledMatch(app, installedApps);
+    return {
+      ...app,
+      installed: Boolean(installedApp),
+      installedAppId: installedApp?.appId,
+      installedVersion: installedApp?.version,
+      installedPath: installedApp?.installPath,
+    };
+  });
+}
+
+export function getUninstalledRecommended(
+  installedBundleIds: string[],
+  installedNames: string[],
+  installedSourceIds: string[] = []
+): RecommendedApp[] {
+  const installedApps = installedBundleIds.map((bundleId, index) => ({
+    appId: "",
+    bundleId,
+    name: installedNames[index] ?? "",
+    sourceId: installedSourceIds[index] ?? "",
+    version: "",
+    installPath: "",
+  }));
+
+  return getRecommendedInstallList(installedApps)
+    .filter((app) => !app.installed)
+    .map((app) => {
+      const { installed, installedAppId, installedVersion, installedPath, ...recommendedApp } = app;
+      void installed;
+      void installedAppId;
+      void installedVersion;
+      void installedPath;
+      return recommendedApp;
+    });
 }

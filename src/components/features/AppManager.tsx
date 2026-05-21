@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useCallback, Component, type ErrorInfo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { isTauri } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-shell";
 import {
   RefreshCw, Search, AppWindow, History, X,
   CheckCircle2, AlertCircle, ArrowUpCircle, Trash2,
@@ -18,6 +19,12 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  ContextMenu,
+  ContextMenuTrigger,
+  ContextMenuContent,
+  ContextMenuItem,
+} from "@/components/ui/context-menu";
 import { ThreeColumnLayout } from "@/components/layout/ThreeColumnLayout";
 import { FilterPanel } from "@/components/layout/FilterPanel";
 import { DetailPanel, MetadataRow, DetailSection } from "@/components/layout/DetailPanel";
@@ -25,11 +32,11 @@ import { ContentView } from "@/components/content/ContentView";
 import { useAppManagerStore, APP_FILTER_OPTIONS, type OperationStatus } from "@/stores/app-manager";
 import { launchApp, revealAppInFinder } from "@/lib/tauri/commands";
 import { createAppManagerColumns } from "@/features/app-manager/columns";
-import { CategoryFilter } from "@/features/app-manager/CategoryFilter";
+import { CategoryFilter, type CategorizableItem } from "@/features/app-manager/CategoryFilter";
 import { classifyApp } from "@/features/app-manager/app-categories";
 import { classifySeries } from "@/features/app-manager/app-series";
 import { AppIcon } from "@/components/features/AppIcon";
-import type { AppInfo, UninstalledAppInfo } from "@/lib/tauri/types";
+import type { AppInfo, InstallListAppInfo } from "@/lib/tauri/types";
 import { useContextMenuRegistration } from "@/features/context-menu/useContextMenuRegistration";
 import type { ContextMenuConfig, ContextMenuRegistration } from "@/features/context-menu/types";
 import { DesktopOnly } from "@/components/common/DesktopOnly";
@@ -107,7 +114,7 @@ function AppManager({ active }: { active: boolean }) {
   const setViewMode = useAppManagerStore((s) => s.setViewMode);
   const setSelectedItem = useAppManagerStore((s) => s.setSelectedItem);
   const setFilterPanelOpen = useAppManagerStore((s) => s.setFilterPanelOpen);
-  const uninstalledApps = useAppManagerStore((s) => s.uninstalledApps);
+  const installListApps = useAppManagerStore((s) => s.installListApps);
   const installConfirmDialog = useAppManagerStore((s) => s.installConfirmDialog);
   const doInstall = useAppManagerStore((s) => s.doInstall);
   const openInstallConfirmDialog = useAppManagerStore((s) => s.openInstallConfirmDialog);
@@ -130,8 +137,8 @@ function AppManager({ active }: { active: boolean }) {
   }, []);
 
   const filteredApps = useMemo(() => {
-    if (activeFilter === "uninstalled") {
-      let result = uninstalledApps;
+    if (activeFilter === "installList") {
+      let result = installListApps;
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         result = result.filter(
@@ -165,7 +172,7 @@ function AppManager({ active }: { active: boolean }) {
       if (seriesFilter && classifySeries(app) !== seriesFilter) return false;
       return true;
     });
-  }, [apps, uninstalledApps, searchQuery, activeFilter, categoryFilter, seriesFilter]);
+  }, [apps, installListApps, searchQuery, activeFilter, categoryFilter, seriesFilter]);
 
   const handleLaunch = useCallback(async (app: AppInfo) => {
     if (!isTauriEnv()) return;
@@ -185,16 +192,17 @@ function AppManager({ active }: { active: boolean }) {
     openConfirmDialog(app.appId, app.name, "uninstall");
   }, [openConfirmDialog]);
 
-  const handleInstall = useCallback((app: UninstalledAppInfo) => {
+  const handleInstall = useCallback((app: InstallListAppInfo) => {
+    if (app.installed) return;
     openInstallConfirmDialog(app.id, app.name);
   }, [openInstallConfirmDialog]);
 
   const handleInstallConfirm = useCallback(async () => {
     const { appId } = installConfirmDialog;
     closeInstallConfirmDialog();
-    const app = uninstalledApps.find((a) => a.id === appId);
-    if (app) await doInstall(app.id, app.name, app.installSource);
-  }, [installConfirmDialog, closeInstallConfirmDialog, uninstalledApps, doInstall]);
+    const app = installListApps.find((a) => a.id === appId);
+    if (app && !app.installed) await doInstall(app.id, app.name, app.installSource);
+  }, [installConfirmDialog, closeInstallConfirmDialog, installListApps, doInstall]);
 
   const getRowAttributes = useCallback((app: AppInfo) => ({
     "data-context-type": "app-manager-row",
@@ -260,10 +268,10 @@ function AppManager({ active }: { active: boolean }) {
   }, [batchMode, clearSelection, setBatchMode]);
 
   const selectedCount = selectedAppIds.size;
-  const selectedUpgradable = activeFilter !== "uninstalled"
+  const selectedUpgradable = activeFilter !== "installList"
     ? (filteredApps as AppInfo[]).filter(a => a.allowedActions.upgrade && selectedAppIds.has(a.appId)).length
     : 0;
-  const selectedUninstallable = activeFilter !== "uninstalled"
+  const selectedUninstallable = activeFilter !== "installList"
     ? (filteredApps as AppInfo[]).filter(a => a.allowedActions.uninstall && selectedAppIds.has(a.appId)).length
     : 0;
 
@@ -318,56 +326,98 @@ function AppManager({ active }: { active: boolean }) {
   ), [t]);
 
   const handleOpenWebsite = useCallback((url: string | undefined) => {
-    if (url) window.open(url, "_blank");
+    if (!url) return;
+    if (isTauriEnv()) {
+      open(url);
+    } else {
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
   }, []);
 
-  const renderUninstalledCard = useCallback((app: UninstalledAppInfo) => {
+  const renderInstallListCard = useCallback((app: InstallListAppInfo) => {
     const state = useAppManagerStore.getState().installStates[app.id];
     const isInstalling = state?.status === "running";
     return (
-      <div className="rounded-xl border bg-card p-4 flex flex-col hover:ring-2 hover:ring-primary/30 transition-all h-full">
-        <div className="flex items-start gap-3 flex-1">
-          <div className="size-9 shrink-0 rounded-md bg-muted flex items-center justify-center">
-            <Package size={18} className="text-muted-foreground" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h4 className="text-sm font-medium truncate">{app.name}</h4>
-            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{app.description}</p>
-            <div className="flex flex-wrap gap-1 mt-2">
-              {app.installSource.brew && (
-                <Badge variant="secondary" className="text-[10px] px-1 py-0">Homebrew</Badge>
-              )}
-              {app.installSource.winget && (
-                <Badge variant="secondary" className="text-[10px] px-1 py-0">winget</Badge>
-              )}
-              {!app.installSource.brew && !app.installSource.winget && app.installSource.url && (
-                <Badge variant="secondary" className="text-[10px] px-1 py-0">Download</Badge>
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <div className="rounded-xl border bg-card p-4 flex flex-col hover:ring-2 hover:ring-primary/30 transition-all h-full relative">
+            <div className="flex items-start gap-3 flex-1 min-w-0">
+              <div className="size-9 shrink-0 rounded-md bg-muted flex items-center justify-center">
+                {app.installed ? (
+                  <CheckCircle2 size={18} className="text-green-600" />
+                ) : (
+                  <Package size={18} className="text-muted-foreground" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="text-sm font-medium truncate pr-16">{app.name}</h4>
+                <p className="text-xs text-muted-foreground mt-0.5 truncate">{app.description}</p>
+                <div className="flex items-center gap-1 mt-1.5">
+                  {app.installSource.brew && (
+                    <Badge variant="secondary" className="text-[10px] px-1 py-0">Homebrew</Badge>
+                  )}
+                  {app.installSource.winget && (
+                    <Badge variant="secondary" className="text-[10px] px-1 py-0">winget</Badge>
+                  )}
+                  {!app.installSource.brew && !app.installSource.winget && app.installSource.url && (
+                    <Badge variant="secondary" className="text-[10px] px-1 py-0">Download</Badge>
+                  )}
+                </div>
+                {app.installed && (app.installedVersion || app.installedPath) && (
+                  <div className="mt-1.5 space-y-0.5 text-[11px] text-muted-foreground">
+                    {app.installedVersion && <p className="truncate">{app.installedVersion}</p>}
+                    {app.installedPath && <p className="truncate">{app.installedPath}</p>}
+                  </div>
+                )}
+              </div>
+            </div>
+            {app.installed ? (
+              <Badge variant="secondary" className="absolute top-3 right-3 text-[10px] px-1.5 py-0.5">{t("appManager.installListInstalled")}</Badge>
+            ) : (
+              <Badge variant="outline" className="absolute top-3 right-3 text-[10px] px-1.5 py-0.5">{t("appManager.installListPending")}</Badge>
+            )}
+            <div className="flex items-center gap-1.5 mt-2.5">
+              <Button
+                className="flex-1 h-8"
+                size="sm"
+                disabled={isInstalling || app.installed}
+                onClick={() => handleInstall(app)}
+              >
+                {isInstalling ? (
+                  <><RotateCcw size={13} className="mr-1 animate-spin" />{t("appManager.installing")}</>
+                ) : app.installed ? (
+                  <><CheckCircle2 size={13} className="mr-1" />{t("appManager.installListInstalled")}</>
+                ) : (
+                  <><Download size={13} className="mr-1" />{t("appManager.install")}</>
+                )}
+              </Button>
+              {app.installSource.url && (
+                <ContextMenu>
+                  <ContextMenuTrigger asChild>
+                    <ToolbarButton
+                      icon={<ExternalLink size={14} />}
+                      tooltip={t("appManager.openWebsite")}
+                      onClick={() => handleOpenWebsite(app.installSource.url)}
+                    />
+                  </ContextMenuTrigger>
+                  <ContextMenuContent>
+                    <ContextMenuItem onClick={() => navigator.clipboard.writeText(app.installSource.url!)}>
+                      {t("appManager.copyWebsite")}
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
               )}
             </div>
           </div>
-        </div>
-        <div className="flex items-center gap-1.5 mt-3">
-          <Button
-            className="flex-1 h-8"
-            size="sm"
-            disabled={isInstalling}
-            onClick={() => handleInstall(app)}
-          >
-            {isInstalling ? (
-              <><RotateCcw size={13} className="mr-1 animate-spin" />{t("appManager.installing")}</>
-            ) : (
-              <><Download size={13} className="mr-1" />{t("appManager.install")}</>
-            )}
-          </Button>
-          {app.installSource.url && (
-            <ToolbarButton
-              icon={<ExternalLink size={14} />}
-              tooltip={t("appManager.openWebsite")}
-              onClick={() => handleOpenWebsite(app.installSource.url)}
-            />
-          )}
-        </div>
-      </div>
+        </ContextMenuTrigger>
+        {app.installedPath && (
+          <ContextMenuContent>
+            <ContextMenuItem onClick={() => navigator.clipboard.writeText(app.installedPath!)}>
+              {t("appManager.copyPath")}
+            </ContextMenuItem>
+          </ContextMenuContent>
+        )}
+      </ContextMenu>
     );
   }, [t, handleInstall, handleOpenWebsite]);
 
@@ -413,7 +463,13 @@ function AppManager({ active }: { active: boolean }) {
     </div>
   ), [t, handleLaunch, handleReveal, handleDetailUpgrade, handleDetailUninstall]);
 
-  const activeFilterCount = (searchQuery.trim() ? 1 : 0) + (activeFilter !== "all" ? 1 : 0) + ((categoryFilter || seriesFilter) ? 1 : 0);
+  const activeFilterCount =
+    (searchQuery.trim() ? 1 : 0) +
+    (activeFilter !== "all" ? 1 : 0) +
+    ((categoryFilter || seriesFilter) ? 1 : 0);
+  const visibleInstallListApps = activeFilter === "installList" ? (filteredApps as InstallListAppInfo[]) : installListApps;
+  const visibleInstallListInstalledCount = visibleInstallListApps.filter((app) => app.installed).length;
+  const visibleInstallListPendingCount = visibleInstallListApps.length - visibleInstallListInstalledCount;
   const caps = result?.platformCapabilities;
 
   return (
@@ -475,29 +531,49 @@ function AppManager({ active }: { active: boolean }) {
             filter={
               <FilterPanel open={filterPanelOpen} onToggle={() => setFilterPanelOpen(!filterPanelOpen)}
                 activeFilterCount={activeFilterCount} title={t("appManager.filters")}>
-                <div className="space-y-4">
+                <div className="space-y-3">
                   <div>
-                    <p className="text-[11px] text-muted-foreground mb-2 uppercase tracking-wider">{t("appManager.filterBy")}</p>
-                    <div className="flex flex-col gap-1">
-                      {APP_FILTER_OPTIONS.map((option) => (
-                        <Badge key={option.key} variant={activeFilter === option.key ? "default" : "outline"}
-                          className="cursor-pointer select-none text-xs justify-start"
-                          onClick={() => setActiveFilter(option.key)}>
-                          {t(option.labelKey)}
-                          {option.key === "all" && ` (${apps.length})`}
-                          {option.key === "managed" && ` (${result?.managedCount ?? 0})`}
-                          {option.key === "upgradable" && ` (${apps.filter(a => a.upgradeAvailable).length})`}
-                          {option.key === "uninstalled" && ` (${uninstalledApps.length})`}
-                        </Badge>
-                      ))}
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <button
+                        onClick={() => setActiveFilter(activeFilter === "installList" ? "all" : activeFilter)}
+                        className={`text-[11px] px-2.5 py-1 rounded-md transition-colors ${
+                          activeFilter !== "installList"
+                            ? "bg-primary text-primary-foreground font-medium"
+                            : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                        }`}
+                      >
+                        {t("appManager.filterBy")}
+                      </button>
+                      <span className="text-muted-foreground/50 text-xs select-none">|</span>
+                      <button
+                        onClick={() => setActiveFilter("installList")}
+                        className={`text-[11px] px-2.5 py-1 rounded-md transition-colors ${
+                          activeFilter === "installList"
+                            ? "bg-primary text-primary-foreground font-medium"
+                            : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                        }`}
+                      >
+                        {t("appManager.installList")}
+                      </button>
                     </div>
+                    {activeFilter !== "installList" && (
+                      <div className="flex flex-col gap-1">
+                        {APP_FILTER_OPTIONS.map((option) => (
+                          <Badge key={option.key} variant={activeFilter === option.key ? "default" : "outline"}
+                            className="cursor-pointer select-none text-xs justify-start"
+                            onClick={() => setActiveFilter(option.key)}>
+                            {t(option.labelKey)}
+                            {option.key === "all" && ` (${apps.length})`}
+                            {option.key === "managed" && ` (${result?.managedCount ?? 0})`}
+                            {option.key === "upgradable" && ` (${apps.filter(a => a.upgradeAvailable).length})`}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className="pt-2 border-t">
-                    <p className="text-[11px] text-muted-foreground mb-2 uppercase tracking-wider">
-                      {seriesFilter ? t("appManager.filterBySeries") : t("appManager.filterByCategory")}
-                    </p>
                     <CategoryFilter
-                      apps={apps}
+                      apps={activeFilter === "installList" ? (installListApps as CategorizableItem[]) : apps}
                       categorySelected={categoryFilter}
                       seriesSelected={seriesFilter}
                       onCategoryChange={setCategoryFilter}
@@ -543,73 +619,83 @@ function AppManager({ active }: { active: boolean }) {
               </FilterPanel>
             }
             content={
-              activeFilter === "uninstalled" ? (
-                <ContentView<UninstalledAppInfo>
-                  data={filteredApps as UninstalledAppInfo[]}
-                  viewMode="grid"
-                  onViewModeChange={() => {}}
-                  columns={[]}
-                  getRowId={(app) => app.id}
-                  renderGridCard={renderUninstalledCard}
-                  estimatedCardHeight={180}
-                  onItemClick={() => {}}
-                  showViewToggle={false}
-                  summary={
-                    <span className="text-xs text-muted-foreground">
-                      {t("appManager.installCount", { count: filteredApps.length })}
-                    </span>
-                  }
-                  emptyIcon={<Search size={32} className="opacity-30" />}
-                  emptyText={t("appManager.installNoResults")}
-                />
-              ) : (
-              <ContentView<AppInfo>
-                data={filteredApps as AppInfo[]}
-                viewMode={viewMode}
-                onViewModeChange={setViewMode}
-                columns={tableColumns}
-                getRowId={(app) => app.appId}
-                renderGridCard={renderGridCard}
-                estimatedCardHeight={120}
-                onItemClick={(app) => setSelectedItem(app)}
-                sorting={sorting}
-                onSortingChange={setSorting}
-                loading={loading}
-                selectedId={selectedItem?.appId ?? null}
-                batchMode={batchMode}
-                selectedIds={selectedAppIds}
-                onToggleSelect={toggleSelectApp}
-                getRowAttributes={getRowAttributes}
-                actions={
-                  <>
-                    {scanned && (
-                      <ToolbarButton
-                        icon={<CheckSquare size={15} />}
-                        tooltip={batchMode ? t("appManager.batchModeOff") : t("appManager.batchMode")}
-                        onClick={handleToggleBatchMode}
-                        active={batchMode}
-                      />
-                    )}
-                    <ToolbarButton
-                      icon={<Filter size={15} />}
-                      tooltip={t("appManager.filters")}
-                      onClick={() => setFilterPanelOpen(!filterPanelOpen)}
-                      active={filterPanelOpen || activeFilter !== "all"}
+              <div className="h-full flex flex-col gap-3">
+                <div className="flex-1 min-h-0">
+                  {activeFilter === "installList" ? (
+                    <ContentView<InstallListAppInfo>
+                      data={filteredApps as InstallListAppInfo[]}
+                      viewMode="grid"
+                      onViewModeChange={() => {}}
+                      columns={[]}
+                      getRowId={(app) => app.id}
+                      renderGridCard={renderInstallListCard}
+                      estimatedCardHeight={220}
+                      gridGap={10}
+                      gridRowPadding={[4, 12]}
+                      onItemClick={() => {}}
+                      showViewToggle={false}
+                      summary={
+                        <span className="text-xs text-muted-foreground">
+                          {t("appManager.installListSummary", {
+                            total: visibleInstallListApps.length,
+                            pending: visibleInstallListPendingCount,
+                            installed: visibleInstallListInstalledCount,
+                          })}
+                        </span>
+                      }
+                      emptyIcon={<Search size={32} className="opacity-30" />}
+                      emptyText={t("appManager.installNoResults")}
                     />
-                  </>
-                }
-                emptyIcon={
-                  scanned
-                    ? <Search size={32} className="opacity-30" />
-                    : <AppWindow size={32} className="opacity-30" />
-                }
-                emptyText={
-                  scanned
-                    ? (filteredApps.length === 0 && apps.length > 0 ? t("appManager.noResults") : t("appManager.empty"))
-                    : t("appManager.startHint")
-                }
-              />
-              )
+                  ) : (
+                    <ContentView<AppInfo>
+                      data={filteredApps as AppInfo[]}
+                      viewMode={viewMode}
+                      onViewModeChange={setViewMode}
+                      columns={tableColumns}
+                      getRowId={(app) => app.appId}
+                      renderGridCard={renderGridCard}
+                      estimatedCardHeight={120}
+                      onItemClick={(app) => setSelectedItem(app)}
+                      sorting={sorting}
+                      onSortingChange={setSorting}
+                      loading={loading}
+                      selectedId={selectedItem?.appId ?? null}
+                      batchMode={batchMode}
+                      selectedIds={selectedAppIds}
+                      onToggleSelect={toggleSelectApp}
+                      getRowAttributes={getRowAttributes}
+                      actions={
+                        <>
+                          {scanned && (
+                            <ToolbarButton
+                              icon={<CheckSquare size={15} />}
+                              tooltip={batchMode ? t("appManager.batchModeOff") : t("appManager.batchMode")}
+                              onClick={handleToggleBatchMode}
+                              active={batchMode}
+                            />
+                          )}
+                          <ToolbarButton
+                            icon={<Filter size={15} />}
+                            tooltip={t("appManager.filters")}
+                            onClick={() => setFilterPanelOpen(!filterPanelOpen)}
+                            active={filterPanelOpen || activeFilter !== "all"}
+                          />
+                        </>
+                      }
+                      emptyIcon={
+                        scanned
+                          ? <Search size={32} className="opacity-30" />
+                          : <AppWindow size={32} className="opacity-30" />
+                      }
+                      emptyText={
+                        scanned
+                          ? (filteredApps.length === 0 && apps.length > 0 ? t("appManager.noResults") : t("appManager.empty"))
+                          : t("appManager.startHint")
+                      }
+                    />
+                  )}
+                </div>
+              </div>
             }
             detail={
               <DetailPanel

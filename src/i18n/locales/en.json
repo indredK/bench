@@ -112,6 +112,10 @@
     "detailSourceId": "Source ID",
     "detailType": "Type",
     "detailModified": "Modified",
+    "installList": "Install List",
+    "installListInstalled": "Installed",
+    "installListPending": "To Install",
+    "installListSummary": "{{total}} total, {{pending}} to install, {{installed}} installed",
     "filterUninstalled": "Not Installed",
     "install": "Install",
     "installing": "Installing...",
@@ -121,7 +125,9 @@
     "installConfirmTitle": "Install {{name}}",
     "installConfirmDescription": "This will download and install {{name}} on your system.",
     "confirmInstall": "Install",
-    "openWebsite": "Open Website"
+    "openWebsite": "Open Website",
+    "copyPath": "Copy Path",
+    "copyWebsite": "Copy Website"
   },
   "envDetector": {
     "title": "Environment Detector",

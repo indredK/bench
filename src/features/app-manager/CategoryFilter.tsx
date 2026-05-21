@@ -1,14 +1,26 @@
 import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
-import type { AppInfo } from "@/lib/tauri/types";
+import type { AppInfo, InstallListAppInfo } from "@/lib/tauri/types";
 import { APP_CATEGORIES, classifyApp, type AppCategoryKey } from "./app-categories";
 import { APP_SERIES, classifySeries, type AppSeriesKey } from "./app-series";
 
 type FilterMode = "category" | "series";
 
+export type CategorizableItem = AppInfo | InstallListAppInfo;
+
+function getAppCategory(item: CategorizableItem): AppCategoryKey {
+  if ("_virtual" in item) return (item as InstallListAppInfo).category as AppCategoryKey;
+  return classifyApp(item as AppInfo);
+}
+
+function getAppSeries(item: CategorizableItem): AppSeriesKey {
+  if ("_virtual" in item) return (item as InstallListAppInfo).series as AppSeriesKey;
+  return classifySeries(item as AppInfo);
+}
+
 interface CategoryFilterProps {
-  apps: AppInfo[];
+  apps: CategorizableItem[];
   categorySelected: AppCategoryKey | null;
   seriesSelected: AppSeriesKey | null;
   onCategoryChange: (category: AppCategoryKey | null) => void;
@@ -31,7 +43,7 @@ export function CategoryFilter({
       utility: 0, development: 0, system: 0, other: 0,
     };
     for (const app of apps) {
-      counts[classifyApp(app)]++;
+      counts[getAppCategory(app)]++;
     }
     return counts;
   }, [apps]);
@@ -42,7 +54,7 @@ export function CategoryFilter({
       alibaba: 0, baidu: 0, openai: 0, other: 0,
     };
     for (const app of apps) {
-      counts[classifySeries(app)]++;
+      counts[getAppSeries(app)]++;
     }
     return counts;
   }, [apps]);

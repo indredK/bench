@@ -11,13 +11,13 @@ import {
   batchUninstallApps,
   installApp as tauriInstallApp,
 } from "@/lib/tauri/commands";
-import type { AppInfo, AppScanResult, BatchOperationResult, OperationRecord, UninstalledAppInfo } from "@/lib/tauri/types";
+import type { AppInfo, AppScanResult, BatchOperationResult, InstallListAppInfo, OperationRecord } from "@/lib/tauri/types";
 import type { AppCategoryKey } from "@/features/app-manager/app-categories";
 import type { AppSeriesKey } from "@/features/app-manager/app-series";
-import { getUninstalledRecommended } from "@/features/app-manager/recommended-apps";
-import type { RecommendedApp } from "@/features/app-manager/recommended-apps";
+import { getRecommendedInstallList } from "@/features/app-manager/recommended-apps";
+import type { RecommendedAppInstallStatus } from "@/features/app-manager/recommended-apps";
 
-export type AppFilterKey = "all" | "user" | "system" | "launchable" | "managed" | "upgradable" | "uninstalled";
+export type AppFilterKey = "all" | "user" | "system" | "launchable" | "managed" | "upgradable" | "installList";
 
 // ============================================================================
 // Preference Persistence (localStorage)
@@ -30,10 +30,33 @@ interface PersistedPreferences {
   sorting: SortingState;
 }
 
+const VALID_FILTER_KEYS = new Set<AppFilterKey>([
+  "all",
+  "user",
+  "system",
+  "launchable",
+  "managed",
+  "upgradable",
+  "installList",
+]);
+
+function normalizeFilterKey(value: unknown): AppFilterKey {
+  if (value === "uninstalled") return "installList";
+  return typeof value === "string" && VALID_FILTER_KEYS.has(value as AppFilterKey)
+    ? value as AppFilterKey
+    : "all";
+}
+
 function loadPreferences(): PersistedPreferences {
   try {
     const raw = localStorage.getItem(PREF_KEY);
-    if (raw) return JSON.parse(raw) as PersistedPreferences;
+    if (raw) {
+      const prefs = JSON.parse(raw) as Partial<PersistedPreferences> & { activeFilter?: unknown };
+      return {
+        activeFilter: normalizeFilterKey(prefs.activeFilter),
+        sorting: Array.isArray(prefs.sorting) ? prefs.sorting : [{ id: "name", desc: false }],
+      };
+    }
   } catch { /* ignore */ }
   return { activeFilter: "all", sorting: [{ id: "name", desc: false }] };
 }
@@ -62,7 +85,6 @@ export const APP_FILTER_OPTIONS = [
   { key: "launchable" as const, labelKey: "appManager.filterLaunchable" },
   { key: "managed" as const, labelKey: "appManager.filterManaged" },
   { key: "upgradable" as const, labelKey: "appManager.filterUpgradable" },
-  { key: "uninstalled" as const, labelKey: "appManager.filterUninstalled" },
 ];
 
 export type OperationStatus = "idle" | "pending" | "running" | "success" | "error";
@@ -121,8 +143,8 @@ export interface AppManagerState {
   selectedItem: AppInfo | null;
   filterPanelOpen: boolean;
 
-  // Uninstalled / recommended apps
-  uninstalledApps: UninstalledAppInfo[];
+  // Recommended install checklist
+  installListApps: InstallListAppInfo[];
   installStates: Record<string, AppOperationState>;
   installConfirmDialog: {
     open: boolean;
@@ -137,7 +159,7 @@ export interface AppManagerState {
   setSorting: (sorting: Updater<SortingState>) => void;
   scanApps: () => Promise<void>;
   refreshUpdates: () => Promise<void>;
-  refreshUninstalled: () => void;
+  refreshInstallList: () => void;
 
   // Single operations
   doUpgrade: (appId: string) => Promise<void>;
@@ -148,7 +170,7 @@ export interface AppManagerState {
 
   // Installation operations
   setInstallState: (appId: string, status: OperationStatus, message?: string) => void;
-  doInstall: (appId: string, appName: string, installSource: UninstalledAppInfo["installSource"]) => Promise<void>;
+  doInstall: (appId: string, appName: string, installSource: InstallListAppInfo["installSource"]) => Promise<void>;
   openInstallConfirmDialog: (appId: string, appName: string) => void;
   closeInstallConfirmDialog: () => void;
 
@@ -206,8 +228,8 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
   selectedItem: null,
   filterPanelOpen: true,
 
-  // Uninstalled / recommended apps
-  uninstalledApps: [],
+  // Recommended install checklist
+  installListApps: [],
   installStates: {},
   installConfirmDialog: { open: false, appId: "", appName: "" },
 
@@ -236,7 +258,7 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
       const result = await scanInstalledApps();
       set({ apps: result.apps, result, scanned: true, loading: false, lastScanTime: result.lastScanTime, lastUpdateCheck: result.lastUpdateCheck });
       get().loadHistory();
-      get().refreshUninstalled();
+      get().refreshInstallList();
     } catch (e) {
       set({ apps: [], result: null, error: String(e) || "Failed to scan", scanned: true, loading: false });
     }
@@ -256,12 +278,11 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
     } catch (e) { console.warn("[AppManager] Failed to check updates:", e); }
   },
 
-  refreshUninstalled: () => {
+  refreshInstallList: () => {
     const { apps } = get();
-    const installedBundleIds = apps.map((a) => a.bundleId);
-    const uninstalled = getUninstalledRecommended(installedBundleIds);
+    const installList = getRecommendedInstallList(apps);
     set({
-      uninstalledApps: uninstalled.map((app: RecommendedApp) => ({
+      installListApps: installList.map((app: RecommendedAppInstallStatus) => ({
         _virtual: true as const,
         id: app.id,
         name: app.name,
@@ -271,6 +292,10 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
         description: app.description,
         installSource: app.installSource,
         iconKey: app.iconKey,
+        installed: app.installed,
+        installedAppId: app.installedAppId,
+        installedVersion: app.installedVersion,
+        installedPath: app.installedPath,
       })),
     });
   },
@@ -332,7 +357,7 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
       if (result.success) {
         setTimeout(() => {
           get().scanApps();
-          get().refreshUninstalled();
+          get().refreshInstallList();
         }, 2000);
       }
     } catch (e) {
@@ -433,6 +458,6 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
       batchConfirmDialog: { open: false, action: "upgrade", count: 0 },
       lastScanTime: 0, lastUpdateCheck: 0,
       viewMode: loadViewMode(), selectedItem: null, filterPanelOpen: true,
-      uninstalledApps: [], installStates: {}, installConfirmDialog: { open: false, appId: "", appName: "" },
+      installListApps: [], installStates: {}, installConfirmDialog: { open: false, appId: "", appName: "" },
     }),
 }));

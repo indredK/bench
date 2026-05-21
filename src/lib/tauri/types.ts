@@ -159,7 +159,7 @@ export interface InstallSource {
   url?: string;
 }
 
-export interface UninstalledAppInfo {
+export interface InstallListAppInfo {
   _virtual: true;
   id: string;
   name: string;
@@ -169,9 +169,15 @@ export interface UninstalledAppInfo {
   description: string;
   installSource: InstallSource;
   iconKey: string;
+  installed: boolean;
+  installedAppId?: string;
+  installedVersion?: string;
+  installedPath?: string;
 }
 
-export type AppManagerItem = AppInfo | UninstalledAppInfo;
+export type UninstalledAppInfo = InstallListAppInfo;
+
+export type AppManagerItem = AppInfo | InstallListAppInfo;
 
 export interface SystemInfoData {
   os_name: string;
@@ -194,4 +200,3 @@ export interface SystemInfoData {
   language?: string;
   screen_resolution?: string;
 }
-
