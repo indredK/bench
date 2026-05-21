@@ -1,5 +1,7 @@
 import { useState, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import { isTauri } from "@tauri-apps/api/core";
+import { Zap } from "lucide-react";
 import { platformConfig } from "@/platform/config";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,6 +15,7 @@ import { Loader2, RefreshCw, Search, X } from "lucide-react";
 import { usePortManagerStore, PORT_SCAN_STATUS_META, type PortScanStatus } from "@/stores/port-manager";
 import type { ProcessNode } from "@/lib/tauri/types";
 import { hasInvalidPortInputCharacters, DEFAULT_MAX_PORTS } from "@/features/port-manager/ports";
+import { DesktopOnly } from "@/components/common/DesktopOnly";
 
 function ProcessTreeView({ node, depth, targetPid }: { node: ProcessNode; depth: number; targetPid: number }) {
   const isTarget = node.pid === targetPid;
@@ -83,8 +86,17 @@ const chipStatusClasses: Record<PortScanStatus, string> = {
 
 const chipActionBase = "flex size-5 shrink-0 items-center justify-center rounded-full";
 
+function isTauriEnv(): boolean {
+  try { return isTauri(); } catch { return false; }
+}
+
 function PortManager() {
   const { t } = useTranslation();
+
+  if (!isTauriEnv()) {
+    return <DesktopOnly title={t("portManager.title")} icon={<Zap size={32} className="opacity-40" />} />;
+  }
+
   const inputRef = useRef<HTMLInputElement>(null);
   const invalidTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scrollContentRef = useRef<HTMLDivElement>(null);

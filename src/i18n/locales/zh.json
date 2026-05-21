@@ -1129,7 +1129,8 @@
     "optional": "可选",
     "included": "附赠",
     "na": "—",
-    "withParenthesis": "{{prefix}}（{{detail}}）"
+    "withParenthesis": "{{prefix}}（{{detail}}）",
+    "desktopOnly": "此功能仅在 Bench 桌面版中可用。"
   },
   "language": {
     "system": "跟随系统",

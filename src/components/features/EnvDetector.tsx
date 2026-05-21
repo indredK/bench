@@ -19,6 +19,8 @@ import { useEnvDetectorStore } from "@/stores/env-detector";
 import type { EnvTool } from "@/lib/tauri/types";
 import { useContextMenuRegistration } from "@/features/context-menu/useContextMenuRegistration";
 import type { ContextMenuConfig, ContextMenuRegistration } from "@/features/context-menu/types";
+import { Box } from "lucide-react";
+import { DesktopOnly } from "@/components/common/DesktopOnly";
 
 type EnvFilterKey = "category" | "source" | "kind" | "status";
 
@@ -64,6 +66,10 @@ function isTauriEnv(): boolean {
 
 function EnvDetector({ active }: { active: boolean }) {
   const { t } = useTranslation();
+
+  if (!isTauriEnv()) {
+    return <DesktopOnly title={t("envDetector.title")} icon={<Box size={32} className="opacity-40" />} />;
+  }
 
   const tools = useEnvDetectorStore((s) => s.tools);
   const loading = useEnvDetectorStore((s) => s.loading);
@@ -189,14 +195,6 @@ function EnvDetector({ active }: { active: boolean }) {
           {error && (
             <Alert variant="destructive" className="mb-4 shrink-0">
               <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          {!isTauriEnv() && !loading && tools.length === 0 && (
-            <Alert className="mb-4 shrink-0 bg-indigo-50 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-800">
-              <AlertDescription className="text-indigo-700 dark:text-indigo-300">
-                {t("envDetector.browserInfo")}
-              </AlertDescription>
             </Alert>
           )}
 

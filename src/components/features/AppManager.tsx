@@ -32,6 +32,7 @@ import { AppIcon } from "@/components/features/AppIcon";
 import type { AppInfo } from "@/lib/tauri/types";
 import { useContextMenuRegistration } from "@/features/context-menu/useContextMenuRegistration";
 import type { ContextMenuConfig, ContextMenuRegistration } from "@/features/context-menu/types";
+import { DesktopOnly } from "@/components/common/DesktopOnly";
 
 // --- Error Boundary for AppManager ---
 class AppManagerErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: string }> {
@@ -324,6 +325,9 @@ function AppManager({ active }: { active: boolean }) {
 
   return (
     <AppManagerErrorBoundary>
+      {!isTauriEnv() ? (
+        <DesktopOnly title={t("appManager.title")} icon={<AppWindow size={32} className="opacity-40" />} />
+      ) : (
       <div className="h-full flex flex-col gap-3">
         {/* --- Action Bar --- */}
         <Card className="shrink-0">
@@ -371,12 +375,7 @@ function AppManager({ active }: { active: boolean }) {
         )}
 
         {/* --- Three-Column Layout --- */}
-        {!isTauriEnv() && !loading && !scanned ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground rounded-xl border bg-card/50 gap-2">
-            <AppWindow size={32} className="opacity-30" />
-            <p>{t("appManager.browserWarning")}</p>
-          </div>
-        ) : (
+        
           <ThreeColumnLayout
             filterOpen={filterPanelOpen}
             detailOpen={!!selectedItem}
@@ -507,7 +506,6 @@ function AppManager({ active }: { active: boolean }) {
               />
             }
           />
-        )}
 
         {/* --- History Drawer --- */}
         {historyOpen && (
@@ -597,6 +595,7 @@ function AppManager({ active }: { active: boolean }) {
           </AlertDialogContent>
         </AlertDialog>
       </div>
+      )}
     </AppManagerErrorBoundary>
   );
 }

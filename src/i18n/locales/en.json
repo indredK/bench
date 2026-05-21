@@ -1156,7 +1156,8 @@
     "optional": "Optional",
     "included": "Included",
     "na": "—",
-    "withParenthesis": "{{prefix}} ({{detail}})"
+    "withParenthesis": "{{prefix}} ({{detail}})",
+    "desktopOnly": "This feature is only available in the desktop version of Bench."
   },
   "language": {
     "system": "System",

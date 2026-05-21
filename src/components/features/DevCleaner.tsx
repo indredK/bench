@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import { isTauri } from "@tauri-apps/api/core";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +26,7 @@ import {
 import { useContextMenuRegistration } from "@/features/context-menu/useContextMenuRegistration";
 import type { ContextMenuConfig, ContextMenuRegistration } from "@/features/context-menu/types";
 import type { ProjectInfo } from "@/lib/tauri/types";
+import { DesktopOnly } from "@/components/common/DesktopOnly";
 
 function formatScanTime(scanTimeMs: number) {
   if (scanTimeMs < 1000) {
@@ -33,8 +35,17 @@ function formatScanTime(scanTimeMs: number) {
   return `${(scanTimeMs / 1000).toFixed(1)} s`;
 }
 
+function isTauriEnv(): boolean {
+  try { return isTauri(); } catch { return false; }
+}
+
 export default function DevCleaner() {
   const { t } = useTranslation();
+
+  if (!isTauriEnv()) {
+    return <DesktopOnly title={t("devCleaner.title")} icon={<Trash2 size={32} className="opacity-40" />} />;
+  }
+
   const rescanTimeoutRef = useRef<number | null>(null);
 
   const selectedPath = useDevCleanerStore((s) => s.selectedPath);
