@@ -7,6 +7,7 @@ import { StickyTableText } from "@/components/ui/StickyTable";
 import { AppIcon } from "@/components/features/AppIcon";
 import type { AppInfo } from "@/lib/tauri/types";
 import type { OperationStatus } from "@/stores/app-manager";
+import { appManagerPlatformConfig } from "@/platform/config";
 
 const naturalTextComparator = new Intl.Collator(undefined, {
   numeric: true,
@@ -237,7 +238,7 @@ export function createAppManagerColumns(
               size="icon"
               className="h-7 w-7"
               disabled={!app.allowedActions.reveal}
-              title={t("appManager.actionReveal")}
+              title={t(appManagerPlatformConfig.revealActionLabel)}
               onClick={() => onReveal(app)}
             >
               <Folder size={14} />

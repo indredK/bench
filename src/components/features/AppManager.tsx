@@ -38,6 +38,7 @@ import { classifySeries } from "@/features/app-manager/app-series";
 import { AppIcon } from "@/components/features/AppIcon";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { AppInfo, InstallListAppInfo } from "@/lib/tauri/types";
+import { appManagerPlatformConfig } from "@/platform/config";
 import { useContextMenuRegistration } from "@/features/context-menu/useContextMenuRegistration";
 import type { ContextMenuConfig, ContextMenuRegistration } from "@/features/context-menu/types";
 import { DesktopOnly } from "@/components/common/DesktopOnly";
@@ -273,7 +274,7 @@ function AppManager({ active }: { active: boolean }) {
           },
           {
             id: "reveal",
-            label: t("appManager.actionReveal"),
+            label: t(appManagerPlatformConfig.revealActionLabel),
             icon: undefined,
             disabled: !app.allowedActions.reveal,
             onClick: () => handleReveal(app),
@@ -415,14 +416,26 @@ function AppManager({ active }: { active: boolean }) {
       {
         id: "source",
         header: "Source",
-        accessorFn: (app: InstallListAppInfo) => app.installSource.brew ? "brew" : app.installSource.winget ? "winget" : "url",
+        accessorFn: (app: InstallListAppInfo) => {
+          const src = app.installSource;
+          if (src.brew) return "brew";
+          if (src.winget) return "winget";
+          if (src.flatpak) return "flatpak";
+          if (src.snap) return "snap";
+          if (src.apt) return "apt";
+          return src.url ? "url" : "none";
+        },
         cell: ({ row }: any) => {
           const app = row.original as InstallListAppInfo;
+          const src = app.installSource;
           return (
-            <div className="flex gap-1">
-              {app.installSource.brew && <Badge variant="secondary" className="text-[10px]">Homebrew</Badge>}
-              {app.installSource.winget && <Badge variant="secondary" className="text-[10px]">winget</Badge>}
-              {!app.installSource.brew && !app.installSource.winget && app.installSource.url && (
+            <div className="flex gap-1 flex-wrap">
+              {src.brew && <Badge variant="secondary" className="text-[10px]">Homebrew</Badge>}
+              {src.winget && <Badge variant="secondary" className="text-[10px]">winget</Badge>}
+              {src.flatpak && <Badge variant="secondary" className="text-[10px]">Flatpak</Badge>}
+              {src.snap && <Badge variant="secondary" className="text-[10px]">Snap</Badge>}
+              {src.apt && <Badge variant="secondary" className="text-[10px]">APT</Badge>}
+              {!src.brew && !src.winget && !src.flatpak && !src.snap && !src.apt && src.url && (
                 <Badge variant="secondary" className="text-[10px]">Download</Badge>
               )}
             </div>
@@ -467,14 +480,23 @@ function AppManager({ active }: { active: boolean }) {
               <div className="flex-1 min-w-0">
                 <h4 className="text-sm font-medium truncate pr-16">{app.name}</h4>
                 <p className="text-xs text-muted-foreground mt-0.5 truncate">{app.description}</p>
-                <div className="flex items-center gap-1 mt-1.5">
+                <div className="flex items-center gap-1 mt-1.5 flex-wrap">
                   {app.installSource.brew && (
                     <Badge variant="secondary" className="text-[10px] px-1 py-0">Homebrew</Badge>
                   )}
                   {app.installSource.winget && (
                     <Badge variant="secondary" className="text-[10px] px-1 py-0">winget</Badge>
                   )}
-                  {!app.installSource.brew && !app.installSource.winget && app.installSource.url && (
+                  {app.installSource.flatpak && (
+                    <Badge variant="secondary" className="text-[10px] px-1 py-0">Flatpak</Badge>
+                  )}
+                  {app.installSource.snap && (
+                    <Badge variant="secondary" className="text-[10px] px-1 py-0">Snap</Badge>
+                  )}
+                  {app.installSource.apt && (
+                    <Badge variant="secondary" className="text-[10px] px-1 py-0">APT</Badge>
+                  )}
+                  {!app.installSource.brew && !app.installSource.winget && !app.installSource.flatpak && !app.installSource.snap && !app.installSource.apt && app.installSource.url && (
                     <Badge variant="secondary" className="text-[10px] px-1 py-0">Download</Badge>
                   )}
                 </div>
@@ -561,7 +583,7 @@ function AppManager({ active }: { active: boolean }) {
             <Play size={13} className="mr-1" />{t("appManager.actionLaunch")}
           </Button>
           <Button size="sm" variant="outline" disabled={!app.allowedActions.reveal} onClick={() => handleReveal(app)}>
-            <Folder size={13} className="mr-1" />{t("appManager.actionReveal")}
+            <Folder size={13} className="mr-1" />{t(appManagerPlatformConfig.revealActionLabel)}
           </Button>
           {app.allowedActions.upgrade && (
             <Button size="sm" variant="outline" onClick={handleDetailUpgrade}>
@@ -592,7 +614,15 @@ function AppManager({ active }: { active: boolean }) {
       <DetailSection label={t("appManager.info")}>
         {app.installedVersion && <MetadataRow label={t("appManager.detailVersion")} value={app.installedVersion} />}
         {app.installedPath && <MetadataRow label={t("appManager.detailPath")} value={app.installedPath} />}
-        <MetadataRow label="Source" value={app.installSource.brew ? "Homebrew" : app.installSource.winget ? "winget" : "Download"} />
+        <MetadataRow label="Source" value={(() => {
+          const s = app.installSource;
+          if (s.brew) return "Homebrew";
+          if (s.winget) return "winget";
+          if (s.flatpak) return "Flatpak";
+          if (s.snap) return "Snap";
+          if (s.apt) return "APT";
+          return "Download";
+        })()} />
         {app.description && <MetadataRow label={t("appManager.column.description")} value={app.description} />}
       </DetailSection>
       <DetailSection label={t("appManager.column.actions")}>

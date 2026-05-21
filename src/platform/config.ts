@@ -5,7 +5,16 @@ export interface PlatformConfig {
   portsCommand: string;
 }
 
-function detectPlatform(): "macos" | "linux" | "windows" {
+export interface AppManagerPlatformConfig {
+  revealActionLabel: string;
+  fileManagerName: string;
+  packageManagers: string[];
+  primaryPackageManager: string | null;
+}
+
+export type PlatformName = "macos" | "linux" | "windows";
+
+function detectPlatform(): PlatformName {
   const p = navigator.platform.toLowerCase();
   if (p.includes("mac")) return "macos";
   if (p.includes("win")) return "windows";
@@ -33,4 +42,27 @@ const CONFIGS: Record<string, PlatformConfig> = {
   },
 };
 
-export const platformConfig: PlatformConfig = CONFIGS[detectPlatform()];
+const APP_MANAGER_CONFIGS: Record<PlatformName, AppManagerPlatformConfig> = {
+  macos: {
+    revealActionLabel: "appManager.actionRevealMacos",
+    fileManagerName: "Finder",
+    packageManagers: ["brew"],
+    primaryPackageManager: "brew",
+  },
+  linux: {
+    revealActionLabel: "appManager.actionRevealLinux",
+    fileManagerName: "File Manager",
+    packageManagers: ["flatpak", "snap", "apt"],
+    primaryPackageManager: null,
+  },
+  windows: {
+    revealActionLabel: "appManager.actionRevealWindows",
+    fileManagerName: "Explorer",
+    packageManagers: ["winget"],
+    primaryPackageManager: "winget",
+  },
+};
+
+export const platformName: PlatformName = detectPlatform();
+export const platformConfig: PlatformConfig = CONFIGS[platformName];
+export const appManagerPlatformConfig: AppManagerPlatformConfig = APP_MANAGER_CONFIGS[platformName];
