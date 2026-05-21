@@ -20,6 +20,7 @@ interface ContentViewProps<T> {
   estimatedRowHeight?: number;
   estimatedCardHeight?: number;
   gridColumns?: number;
+  minCardWidth?: number;
   sorting?: SortingState;
   onSortingChange?: OnChangeFn<SortingState>;
   selectedId?: string | null;
@@ -48,6 +49,7 @@ export function ContentView<T>({
   estimatedRowHeight,
   estimatedCardHeight,
   gridColumns,
+  minCardWidth,
   sorting,
   onSortingChange,
   selectedId,
@@ -82,17 +84,18 @@ export function ContentView<T>({
     <VirtualGridView
       data={data}
       getRowId={getRowId}
-        renderGridCard={renderGridCard}
-        onItemClick={onItemClick}
-        estimatedCardHeight={estimatedCardHeight}
-        gridColumns={gridColumns}
-        selectedId={selectedId}
-        batchMode={batchMode}
-        selectedIds={selectedIds}
-        onToggleSelect={onToggleSelect}
-        getRowAttributes={getRowAttributes}
-      />
-    ) : (
+      renderGridCard={renderGridCard}
+      onItemClick={onItemClick}
+      estimatedCardHeight={estimatedCardHeight}
+      gridColumns={gridColumns}
+      minCardWidth={minCardWidth}
+      selectedId={selectedId}
+      batchMode={batchMode}
+      selectedIds={selectedIds}
+      onToggleSelect={onToggleSelect}
+      getRowAttributes={getRowAttributes}
+    />
+  ) : (
     <VirtualDataTable
       data={data}
       columns={columns}

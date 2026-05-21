@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
@@ -10,6 +10,7 @@ interface VirtualGridViewProps<T> {
   onItemClick: (item: T) => void;
   estimatedCardHeight?: number;
   gridColumns?: number;
+  minCardWidth?: number;
   selectedId?: string | null;
   batchMode?: boolean;
   selectedIds?: Set<string>;
@@ -25,6 +26,7 @@ export function VirtualGridView<T>({
   onItemClick,
   estimatedCardHeight = 180,
   gridColumns: gridColumnsProp,
+  minCardWidth = 240,
   selectedId,
   batchMode = false,
   selectedIds,
@@ -32,8 +34,31 @@ export function VirtualGridView<T>({
   getRowAttributes,
 }: VirtualGridViewProps<T>) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const displayColumns = gridColumnsProp ?? 3;
+  const gridGap = 8;
+  const maxColumns = Math.max(1, gridColumnsProp ?? 3);
+  const [containerWidth, setContainerWidth] = useState(0);
+  const displayColumns = containerWidth > 0
+    ? Math.min(
+        maxColumns,
+        Math.max(1, Math.floor((containerWidth + gridGap) / (minCardWidth + gridGap)))
+      )
+    : maxColumns;
+  const minGridWidth = displayColumns * minCardWidth + Math.max(displayColumns - 1, 0) * gridGap;
   const rowCount = Math.ceil(data.length / displayColumns);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || typeof ResizeObserver === "undefined") return;
+
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width ?? container.clientWidth;
+      setContainerWidth(width);
+    });
+
+    setContainerWidth(container.clientWidth);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
 
   const rowVirtualizer = useVirtualizer({
     count: rowCount,
@@ -51,10 +76,14 @@ export function VirtualGridView<T>({
   }
 
   return (
-    <div ref={containerRef} className="h-full overflow-auto">
-      <div className="min-h-full rounded-xl border bg-card/50">
+    <div ref={containerRef} className="h-full overflow-auto" data-table-scroll>
+      <div className="min-h-full rounded-xl border bg-card/50" style={{ minWidth: `${minGridWidth}px` }}>
         <div
-          style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: "relative" }}
+          style={{
+            height: `${rowVirtualizer.getTotalSize()}px`,
+            minWidth: `${minGridWidth}px`,
+            position: "relative",
+          }}
           className="px-3 py-4"
         >
           {rowVirtualizer.getVirtualItems().map((virtualRow) => {
@@ -73,8 +102,8 @@ export function VirtualGridView<T>({
                   height: `${virtualRow.size}px`,
                   transform: `translateY(${virtualRow.start}px)`,
                   display: "grid",
-                  gridTemplateColumns: `repeat(${displayColumns}, 1fr)`,
-                  gap: "0.5rem",
+                  gridTemplateColumns: `repeat(${displayColumns}, minmax(${minCardWidth}px, 1fr))`,
+                  gap: `${gridGap}px`,
                   padding: "0.5rem 0 1rem 0",
                 }}
               >
