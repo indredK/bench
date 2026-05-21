@@ -27,7 +27,7 @@ function CompareTabs({ tabs, defaultTabId, groupLabels }: CompareTabsProps) {
 
   return (
     <div className="h-full overflow-hidden flex flex-col">
-      <div className="rounded-xl border bg-card/50 p-3 flex flex-wrap gap-1 mb-4" role="tablist">
+      <div className="shrink-0 rounded-xl border bg-card/50 p-3 flex flex-wrap gap-1 mb-4" role="tablist">
         {tabs.map((tab) => {
           const isActive = tab.id === active.id;
           const groupLabel = groupLabels?.[tab.id];
@@ -55,7 +55,7 @@ function CompareTabs({ tabs, defaultTabId, groupLabels }: CompareTabsProps) {
         })}
       </div>
 
-      <div role="tabpanel" className="flex-1 min-h-0">
+      <div role="tabpanel" className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {active.content}
       </div>
     </div>
@@ -63,4 +63,3 @@ function CompareTabs({ tabs, defaultTabId, groupLabels }: CompareTabsProps) {
 }
 
 export default CompareTabs;
-

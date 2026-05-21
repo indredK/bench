@@ -21,7 +21,7 @@ function StickyTable({
     <div
       data-table-scroll
       className={cn(
-        "relative isolate w-full overflow-auto bg-background min-h-[120px] min-w-[280px]",
+        "relative isolate w-full max-h-full min-h-[120px] min-w-[280px] overflow-auto bg-background",
         containerClassName
       )}
     >
