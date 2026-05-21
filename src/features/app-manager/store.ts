@@ -3,14 +3,7 @@ import type { SortingState, Updater } from "@tanstack/react-table";
 import type { AppInfo, AppScanResult, BatchOperationResult, InstallListAppInfo, OperationRecord } from "@/lib/tauri/types/app-manager";
 import type { AppCategoryKey } from "@/features/app-manager/app-categories";
 import type { AppSeriesKey } from "@/features/app-manager/app-series";
-import { createInstallListApps } from "@/features/app-manager/model/install-list";
 import {
-  createBatchErrorPatch,
-  createBatchProgress,
-  createBatchSuccessPatch,
-  createRunningOperationState,
-  isOperationRunning,
-  toOperationState,
   type AppOperationState,
   type BatchProgress,
   type OperationStatus,
@@ -22,7 +15,7 @@ import {
   saveAppManagerViewMode,
   type AppFilterKey,
 } from "@/features/app-manager/model/preferences";
-import { appManagerUseCases } from "@/features/app-manager/services/app-manager.use-cases";
+import { createAppManagerStoreActions } from "@/features/app-manager/model/store-actions";
 
 export type { AppFilterKey };
 export type { OperationStatus };
@@ -138,7 +131,36 @@ export interface AppManagerState {
   reset: () => void;
 }
 
-export const useAppManagerStore = create<AppManagerState>((set, get) => ({
+const initialState = (): Pick<
+  AppManagerState,
+  | "apps"
+  | "loading"
+  | "error"
+  | "searchQuery"
+  | "activeFilter"
+  | "categoryFilter"
+  | "seriesFilter"
+  | "sorting"
+  | "scanned"
+  | "result"
+  | "operations"
+  | "history"
+  | "confirmDialog"
+  | "historyOpen"
+  | "selectedAppIds"
+  | "batchMode"
+  | "batchProgress"
+  | "batchResults"
+  | "batchConfirmDialog"
+  | "lastScanTime"
+  | "lastUpdateCheck"
+  | "viewMode"
+  | "selectedItem"
+  | "filterPanelOpen"
+  | "installListApps"
+  | "installStates"
+  | "installConfirmDialog"
+> => ({
   apps: [],
   loading: false,
   error: "",
@@ -153,27 +175,23 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
   history: [],
   confirmDialog: { open: false, appId: "", appName: "", action: "upgrade" },
   historyOpen: false,
-
-  // Batch
   selectedAppIds: new Set(),
   batchMode: false,
   batchProgress: null,
   batchResults: null,
   batchConfirmDialog: { open: false, action: "upgrade", count: 0 },
-
-  // Timestamps
   lastScanTime: 0,
   lastUpdateCheck: 0,
-
-  // Three-column layout
   viewMode: loadAppManagerViewMode(),
   selectedItem: null,
   filterPanelOpen: true,
-
-  // Recommended install checklist
   installListApps: [],
   installStates: {},
   installConfirmDialog: { open: false, appId: "", appName: "" },
+});
+
+export const useAppManagerStore = create<AppManagerState>((set, get) => ({
+  ...initialState(),
 
   setSearchQuery: (query) => set({ searchQuery: query }),
   setActiveFilter: (filter) => {
@@ -190,89 +208,9 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
     });
   },
 
-  scanApps: async () => {
-    const { loading } = get();
-    if (loading) return;
-    // Keep existing data visible while scanning — avoids white-screen flash
-    set({ loading: true, error: "", selectedAppIds: new Set(), batchMode: false, batchResults: null });
-    if (!appManagerUseCases.isAvailable()) { set({ scanned: true, loading: false }); return; }
-    try {
-      const result = await appManagerUseCases.scanInstalledApps();
-      set({
-        apps: result.apps,
-        result,
-        scanned: true,
-        loading: false,
-        lastScanTime: result.lastScanTime,
-        lastUpdateCheck: result.lastUpdateCheck,
-        installListApps: createInstallListApps(result.apps),
-      });
-      get().loadHistory();
-    } catch (e) {
-      set({ apps: [], result: null, error: String(e) || "Failed to scan", scanned: true, loading: false });
-    }
-  },
-
-  refreshUpdates: async () => {
-    const { apps } = get();
-    try {
-      const updatableSet = await appManagerUseCases.findManagedAppUpdates(apps);
-      if (updatableSet.size === 0) return;
-      set((state) => ({
-        apps: state.apps.map((a) => ({ ...a, upgradeAvailable: updatableSet.has(a.appId) })),
-      }));
-    } catch (e) { console.warn("[AppManager] Failed to check updates:", e); }
-  },
-
-  refreshInstallList: () => {
-    const { apps } = get();
-    set({ installListApps: createInstallListApps(apps) });
-  },
-
   // --- Single-item Operations ---
   setOperationStatus: (appId, status, message = "") =>
     set((state) => ({ operations: { ...state.operations, [appId]: { status, message } } })),
-
-  doUpgrade: async (appId: string) => {
-    const { operations, setOperationStatus, loadHistory } = get();
-    if (isOperationRunning(operations, appId)) return;
-    set((state) => ({
-      operations: { ...state.operations, [appId]: createRunningOperationState("Upgrading...") },
-    }));
-
-    const outcome = await appManagerUseCases.runAppOperation({ appId, kind: "upgrade" });
-    if (!outcome) return;
-
-    set((state) => ({
-      operations: { ...state.operations, [appId]: toOperationState(outcome.result) },
-    }));
-    if (outcome.result.success) {
-      setTimeout(() => setOperationStatus(appId, "idle"), 5000);
-    }
-
-    await loadHistory();
-    if (outcome.shouldRescan) get().scanApps();
-  },
-
-  doUninstall: async (appId: string) => {
-    const { operations, loadHistory } = get();
-    if (isOperationRunning(operations, appId)) return;
-    set((state) => ({
-      operations: { ...state.operations, [appId]: createRunningOperationState("Uninstalling...") },
-    }));
-
-    const outcome = await appManagerUseCases.runAppOperation({ appId, kind: "uninstall" });
-    if (!outcome) return;
-
-    set((state) => ({
-      operations: { ...state.operations, [appId]: toOperationState(outcome.result) },
-    }));
-    if (outcome.shouldRescan) {
-      setTimeout(() => get().scanApps(), 800);
-    }
-
-    await loadHistory();
-  },
 
   openConfirmDialog: (appId, appName, action) =>
     set({ confirmDialog: { open: true, appId, appName, action } }),
@@ -283,53 +221,10 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
   setInstallState: (appId, status, message = "") =>
     set((state) => ({ installStates: { ...state.installStates, [appId]: { status, message } } })),
 
-  doInstall: async (appId, _appName, installSource) => {
-    const { installStates } = get();
-    if (isOperationRunning(installStates, appId)) return;
-    set((state) => ({
-      installStates: { ...state.installStates, [appId]: createRunningOperationState("Installing...") },
-    }));
-
-    const outcome = await appManagerUseCases.runAppOperation(
-      { appId, kind: "install", installSource }
-    );
-    if (!outcome) return;
-
-    set((state) => ({
-      installStates: { ...state.installStates, [appId]: toOperationState(outcome.result) },
-    }));
-    if (outcome.shouldRescan) {
-      setTimeout(() => {
-        get().scanApps();
-        get().refreshInstallList();
-      }, 2000);
-    }
-  },
-
   openInstallConfirmDialog: (appId, appName) =>
     set({ installConfirmDialog: { open: true, appId, appName } }),
   closeInstallConfirmDialog: () =>
     set({ installConfirmDialog: { open: false, appId: "", appName: "" } }),
-
-  launchApp: async (app) => {
-    try {
-      await appManagerUseCases.launchApp(app);
-    } catch (e) {
-      console.warn("[AppManager] Failed to launch app:", e);
-    }
-  },
-
-  revealApp: async (app) => {
-    try {
-      await appManagerUseCases.revealApp(app);
-    } catch (e) {
-      console.warn("[AppManager] Failed to reveal app:", e);
-    }
-  },
-
-  openExternal: async (reference) => {
-    await appManagerUseCases.openExternal(reference);
-  },
 
   // --- Batch Selection ---
   toggleSelectApp: (appId: string) =>
@@ -355,31 +250,6 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
 
   clearBatchResults: () => set({ batchResults: null }),
 
-  // --- Batch Operations ---
-  doBatchUpgrade: async () => {
-    const { selectedAppIds, loadHistory } = get();
-    const ids = Array.from(selectedAppIds);
-    if (ids.length === 0) return;
-    set({ batchProgress: createBatchProgress(ids.length), batchResults: null });
-    const outcome = await appManagerUseCases.runBatchOperation("upgrade", ids);
-    if (!outcome) return;
-    set(outcome.result ? createBatchSuccessPatch(outcome.result) : createBatchErrorPatch(outcome.error));
-    await loadHistory();
-    get().scanApps();
-  },
-
-  doBatchUninstall: async () => {
-    const { selectedAppIds, loadHistory } = get();
-    const ids = Array.from(selectedAppIds);
-    if (ids.length === 0) return;
-    set({ batchProgress: createBatchProgress(ids.length), batchResults: null });
-    const outcome = await appManagerUseCases.runBatchOperation("uninstall", ids);
-    if (!outcome) return;
-    set(outcome.result ? createBatchSuccessPatch(outcome.result) : createBatchErrorPatch(outcome.error));
-    await loadHistory();
-    get().scanApps();
-  },
-
   // --- Layout ---
   setViewMode: (mode) => {
     set({ viewMode: mode });
@@ -389,22 +259,9 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
   setFilterPanelOpen: (open) => set({ filterPanelOpen: open }),
 
   // --- History ---
-  loadHistory: async () => {
-    if (!appManagerUseCases.isAvailable()) return;
-    try { set({ history: await appManagerUseCases.loadHistory() }); }
-    catch (e) { console.warn("[AppManager] Failed to load history:", e); }
-  },
   setHistoryOpen: (open) => set({ historyOpen: open }),
 
-  reset: () =>
-    set({
-      apps: [], loading: false, error: "", searchQuery: "", activeFilter: "all", categoryFilter: null, seriesFilter: null,
-      sorting: [{ id: "name", desc: false }], scanned: false, result: null,
-      operations: {}, history: [], confirmDialog: { open: false, appId: "", appName: "", action: "upgrade" },
-      historyOpen: false, selectedAppIds: new Set(), batchMode: false, batchProgress: null, batchResults: null,
-      batchConfirmDialog: { open: false, action: "upgrade", count: 0 },
-      lastScanTime: 0, lastUpdateCheck: 0,
-      viewMode: loadAppManagerViewMode(), selectedItem: null, filterPanelOpen: true,
-      installListApps: [], installStates: {}, installConfirmDialog: { open: false, appId: "", appName: "" },
-    }),
+  reset: () => set({ ...initialState(), activeFilter: "all", sorting: [{ id: "name", desc: false }] }),
+
+  ...createAppManagerStoreActions(set, get),
 }));

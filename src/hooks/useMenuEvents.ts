@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
+import { TAURI_EVENTS } from "@/lib/tauri/contracts";
 
 type MenuEventHandler = (menuItemId: string) => void;
 
@@ -21,7 +22,7 @@ export function useInitMenuEvents() {
 
     const setup = async () => {
       try {
-        unlisten = await listen<string>("menu-event", (event) => {
+        unlisten = await listen<string>(TAURI_EVENTS.menu.event, (event) => {
           const handler = menuHandlers[event.payload];
           if (handler) {
             handler(event.payload);

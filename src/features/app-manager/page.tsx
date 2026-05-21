@@ -35,8 +35,8 @@ import { filterAppManagerItems } from "@/features/app-manager/model/selectors";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { AppInfo, InstallListAppInfo } from "@/lib/tauri/types";
 import { appManagerPlatformConfig } from "@/platform/config";
-import { useContextMenuRegistration } from "@/features/context-menu/useContextMenuRegistration";
-import type { ContextMenuConfig, ContextMenuRegistration } from "@/features/context-menu/types";
+import { useContextMenuRegistration } from "@/shared/context-menu/useContextMenuRegistration";
+import type { ContextMenuConfig, ContextMenuRegistration } from "@/shared/context-menu/types";
 import { DesktopOnly } from "@/components/common/DesktopOnly";
 import { isDesktopRuntime } from "@/platform/runtime";
 

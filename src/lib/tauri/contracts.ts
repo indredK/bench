@@ -51,6 +51,9 @@ export const TAURI_EVENTS = {
   envDetector: {
     scanDone: "env-scan-done",
   },
+  menu: {
+    event: "menu-event",
+  },
 } as const;
 
 export interface TauriCommandContracts {
@@ -134,6 +137,7 @@ export interface TauriCommandContracts {
 
 export interface TauriEventContracts {
   "env-scan-done": EnvScanDonePayload;
+  "menu-event": string;
 }
 
 export type TauriCommandName = keyof TauriCommandContracts;

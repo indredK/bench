@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import HardwareCompare from "@/features/hardware/HardwareCompare";
-import CompareTabs, { type CompareTabItem } from "@/features/compare/CompareTabs";
+import CompareTabs, { type CompareTabItem } from "@/shared/compare/CompareTabs";
 import { cpuModule } from "@/data/cpu";
 import { gpuModule } from "@/data/gpu";
 import { memoryModule } from "@/data/memory";

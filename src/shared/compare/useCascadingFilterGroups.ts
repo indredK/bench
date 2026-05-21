@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { FilterGroup, FilterGroupOption } from "@/features/compare/types";
+import type { FilterGroup, FilterGroupOption } from "@/shared/compare/types";
 
 export interface ResolvedFilterGroup<T> extends FilterGroup<T> {
   options: FilterGroupOption[];

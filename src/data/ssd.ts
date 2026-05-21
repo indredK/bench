@@ -1,4 +1,4 @@
-import type { CompareDataModule, SpecRow, FilterGroup } from "@/features/compare/types";
+import type { CompareDataModule, SpecRow, FilterGroup } from "@/shared/compare/types";
 import { brandName } from "@/lib/i18nBrand";
 import { t } from "i18next";
 

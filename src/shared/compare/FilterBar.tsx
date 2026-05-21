@@ -4,12 +4,12 @@ import i18n from "@/i18n/config";
 import { RotateCcw, Pin, PinOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import FacetedFilterGroups from "@/features/compare/FacetedFilterGroups";
-import ModelPicker from "@/features/compare/ModelPicker";
-import { useCascadingFilterGroups } from "@/features/compare/useCascadingFilterGroups";
-import type { FilterGroup } from "@/features/compare/types";
+import FacetedFilterGroups from "@/shared/compare/FacetedFilterGroups";
+import ModelPicker from "@/shared/compare/ModelPicker";
+import { useCascadingFilterGroups } from "@/shared/compare/useCascadingFilterGroups";
+import type { FilterGroup } from "@/shared/compare/types";
 
-export type { FilterGroup } from "@/features/compare/types";
+export type { FilterGroup } from "@/shared/compare/types";
 
 interface FilterBarProps<T extends { id: string; model: string }> {
   filterGroups: FilterGroup<T>[];

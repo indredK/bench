@@ -22,8 +22,8 @@ import {
   StopCircle,
   Trash2,
 } from "lucide-react";
-import { useContextMenuRegistration } from "@/features/context-menu/useContextMenuRegistration";
-import type { ContextMenuConfig, ContextMenuRegistration } from "@/features/context-menu/types";
+import { useContextMenuRegistration } from "@/shared/context-menu/useContextMenuRegistration";
+import type { ContextMenuConfig, ContextMenuRegistration } from "@/shared/context-menu/types";
 import type { ProjectInfo } from "@/lib/tauri/types";
 import { DesktopOnly } from "@/components/common/DesktopOnly";
 import { isDesktopRuntime } from "@/platform/runtime";

@@ -23,7 +23,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import type { SpecRow } from "@/features/compare/types";
+import type { SpecRow } from "@/shared/compare/types";
 import { openExternal } from "@/platform/shell";
 
 interface CompareMatrixRowContext {

@@ -1,4 +1,4 @@
-import type { CompareDataModule, FilterGroup, SpecRow } from "@/features/compare/types";
+import type { CompareDataModule, FilterGroup, SpecRow } from "@/shared/compare/types";
 import { t } from "i18next";
 
 export interface PhoneModel {

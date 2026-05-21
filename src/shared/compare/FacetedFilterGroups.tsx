@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import type { ResolvedFilterGroup } from "@/features/compare/useCascadingFilterGroups";
+import type { ResolvedFilterGroup } from "@/shared/compare/useCascadingFilterGroups";
 
 interface FacetedFilterGroupsProps<T> {
   groups: ResolvedFilterGroup<T>[];
