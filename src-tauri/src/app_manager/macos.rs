@@ -1,7 +1,8 @@
 use crate::app_manager::{
-    record_operation, make_app_id, get_last_modified, deduplicate, name_match_confidence,
-    AppInfo, AllowedActions, OperationRecord, OperationResult, ScanResult,
-    PlatformCapabilities, AppManagerState, SourceType,
+    build_app_info, build_scan_result, deduplicate, get_last_modified, make_app_id,
+    operation_result, platform_capabilities, record_operation_result,
+    record_operation_result_with_error_code, resolve_macos_source, AppInfoInput, AppManagerState,
+    OperationResult, ScanResult, SourceType,
 };
 use base64::Engine;
 use std::collections::hash_map::DefaultHasher;
@@ -52,7 +53,11 @@ fn list_installed_casks(brew: &str) -> Result<HashSet<String>, String> {
         return Err(format!("brew list --cask failed: {}", stderr.trim()));
     }
     let stdout = String::from_utf8_lossy(&output.stdout);
-    Ok(stdout.lines().map(|s| s.trim().to_lowercase()).filter(|s| !s.is_empty()).collect())
+    Ok(stdout
+        .lines()
+        .map(|s| s.trim().to_lowercase())
+        .filter(|s| !s.is_empty())
+        .collect())
 }
 
 fn list_outdated_casks(brew: &str) -> Result<HashSet<String>, String> {
@@ -61,7 +66,11 @@ fn list_outdated_casks(brew: &str) -> Result<HashSet<String>, String> {
         .output()
         .map_err(|e| format!("Failed to run brew outdated --cask: {}", e))?;
     let stdout = String::from_utf8_lossy(&output.stdout);
-    Ok(stdout.lines().map(|s| s.trim().to_lowercase()).filter(|s| !s.is_empty()).collect())
+    Ok(stdout
+        .lines()
+        .map(|s| s.trim().to_lowercase())
+        .filter(|s| !s.is_empty())
+        .collect())
 }
 
 fn map_casks(brew: &str) -> Result<(HashSet<String>, HashSet<String>), String> {
@@ -97,12 +106,24 @@ fn extract_app_metadata(app_path: &Path) -> Option<(String, String, String)> {
     let version = read_plist_string(&plist_content, "CFBundleShortVersionString")
         .or_else(|| read_plist_string(&plist_content, "CFBundleVersion"));
     let name = display_name
-        .or_else(|| app_path.file_stem().and_then(|s| s.to_str()).map(|s| s.to_string()))
+        .or_else(|| {
+            app_path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .map(|s| s.to_string())
+        })
         .unwrap_or_else(|| "Unknown".to_string());
-    Some((name, bundle_id.unwrap_or_else(|| "unknown".to_string()), version.unwrap_or_else(|| "—".to_string())))
+    Some((
+        name,
+        bundle_id.unwrap_or_else(|| "unknown".to_string()),
+        version.unwrap_or_else(|| "—".to_string()),
+    ))
 }
 
-fn scan_directory_raw(dir: &Path, is_system: bool) -> Vec<(String, String, String, String, String, bool, u64)> {
+fn scan_directory_raw(
+    dir: &Path,
+    is_system: bool,
+) -> Vec<(String, String, String, String, String, bool, u64)> {
     let mut results = Vec::new();
     let entries = match fs::read_dir(dir) {
         Ok(e) => e,
@@ -121,11 +142,23 @@ fn scan_directory_raw(dir: &Path, is_system: bool) -> Vec<(String, String, Strin
         let (name, bundle_id, version) = if let Some(m) = extract_app_metadata(&real_path) {
             m
         } else {
-            let name = real_path.file_stem().and_then(|s| s.to_str()).unwrap_or("Unknown").to_string();
+            let name = real_path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("Unknown")
+                .to_string();
             (name, "unknown".to_string(), "—".to_string())
         };
         let app_id = make_app_id(&bundle_id, &install_path);
-        results.push((app_id, name, bundle_id, version, install_path, is_system, get_last_modified(&real_path)));
+        results.push((
+            app_id,
+            name,
+            bundle_id,
+            version,
+            install_path,
+            is_system,
+            get_last_modified(&real_path),
+        ));
     }
     results
 }
@@ -162,47 +195,44 @@ pub fn scan_installed_apps(state: tauri::State<'_, AppManagerState>) -> ScanResu
         }
     }
 
-    let mut apps: Vec<AppInfo> = Vec::new();
+    let mut apps = Vec::new();
 
     for (app_id, name, bundle_id, version, install_path, is_system, last_modified) in raw {
-        let (source_type, source_id, source_confidence, can_upgrade, can_uninstall, upgrade_available) =
-            if is_system {
-                (SourceType::MacBundle.to_string(), String::new(), 1.0, false, false, false)
-            } else {
-                let mut best_cask: Option<String> = None;
-                let mut best_conf = 0.0;
-                for cask in &installed_casks {
-                    let conf = name_match_confidence(&name, &bundle_id, cask);
-                    if conf > best_conf { best_conf = conf; best_cask = Some(cask.clone()); }
-                }
-                if best_conf >= 0.5 {
-                    let ct = best_cask.unwrap();
-                    let upd = outdated_casks.contains(&ct);
-                    (SourceType::HomebrewCask.to_string(), ct.clone(), best_conf, true, true, upd)
-                } else {
-                    (SourceType::MacBundle.to_string(), String::new(), 1.0, false, false, false)
-                }
-            };
+        let source = resolve_macos_source(
+            &name,
+            &bundle_id,
+            is_system,
+            &installed_casks,
+            &outdated_casks,
+        );
 
-        apps.push(AppInfo {
-            allowed_actions: AllowedActions {
-                launch: true, reveal: true,
-                upgrade: can_upgrade,
-                uninstall: can_uninstall && !is_system,
-            },
-            app_id, name, version, bundle_id, install_path,
-            source: if source_type == SourceType::HomebrewCask.to_string() { "Homebrew".into() } else { "Bundle".into() },
-            source_type, source_id, source_confidence,
-            can_upgrade, can_uninstall, upgrade_available,
-            last_operation_result: None, last_modified, is_system_app: is_system,
-            icon_base64: None,
-        });
+        apps.push(build_app_info(AppInfoInput {
+            app_id,
+            name,
+            version,
+            bundle_id,
+            install_path,
+            source_type: source.source_type,
+            source_id: source.source_id,
+            source_confidence: source.source_confidence,
+            can_upgrade: source.can_upgrade,
+            can_uninstall: source.can_uninstall,
+            upgrade_available: source.upgrade_available,
+            last_modified,
+            is_system_app: is_system,
+            launchable: true,
+            revealable: true,
+        }));
     }
 
     apps = deduplicate(apps);
 
     let num_threads = std::cmp::min(apps.len(), 8);
-    let chunk_size = if num_threads > 0 { (apps.len() + num_threads - 1) / num_threads } else { 0 };
+    let chunk_size = if num_threads > 0 {
+        (apps.len() + num_threads - 1) / num_threads
+    } else {
+        0
+    };
 
     if chunk_size > 0 {
         std::thread::scope(|s| {
@@ -216,25 +246,16 @@ pub fn scan_installed_apps(state: tauri::State<'_, AppManagerState>) -> ScanResu
         });
     }
 
-    apps.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
-
-    let total_count = apps.len();
-    let system_count = apps.iter().filter(|a| a.is_system_app).count();
-    let managed_count = apps.iter().filter(|a| a.can_upgrade || a.can_uninstall).count();
-
-    ScanResult {
-        apps, total_count,
-        user_count: total_count - system_count,
-        system_count,
-        scan_time_ms: start.elapsed().as_millis() as u64,
-        managed_count,
-        platform_capabilities: PlatformCapabilities {
-            brew_available,
-            winget_available: false, flatpak_available: false, snap_available: false, apt_available: false,
+    build_scan_result(
+        apps,
+        platform_capabilities(brew_available, false, false, false, false),
+        start.elapsed().as_millis() as u64,
+        if let Ok(t) = state.last_update_check_time.lock() {
+            *t
+        } else {
+            0
         },
-        last_scan_time: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64,
-        last_update_check: if let Ok(t) = state.last_update_check_time.lock() { *t } else { 0 },
-    }
+    )
 }
 
 // ============================================================================
@@ -245,18 +266,31 @@ pub fn launch_app(app_path: String) -> Result<(), String> {
     if !Path::new(&app_path).exists() {
         return Err(format!("Application not found: {}", app_path));
     }
-    let status = Command::new("open").arg(&app_path).status()
+    let status = Command::new("open")
+        .arg(&app_path)
+        .status()
         .map_err(|e| format!("Failed to launch: {}", e))?;
-    if status.success() { Ok(()) } else { Err(format!("Launch exited with status: {}", status)) }
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("Launch exited with status: {}", status))
+    }
 }
 
 pub fn reveal_app_in_finder(app_path: String) -> Result<(), String> {
     if !Path::new(&app_path).exists() {
         return Err(format!("Application not found: {}", app_path));
     }
-    let status = Command::new("open").arg("-R").arg(&app_path).status()
+    let status = Command::new("open")
+        .arg("-R")
+        .arg(&app_path)
+        .status()
         .map_err(|e| format!("Failed to reveal: {}", e))?;
-    if status.success() { Ok(()) } else { Err(format!("Reveal exited with status: {}", status)) }
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("Reveal exited with status: {}", status))
+    }
 }
 
 // ============================================================================
@@ -273,12 +307,15 @@ pub fn check_updates(
         HashSet::new()
     };
     let apps = state.apps.lock().unwrap();
-    app_ids.into_iter().filter(|id| {
-        apps.iter().find(|a| &a.app_id == id).map_or(false, |a| {
-            a.source_type == SourceType::HomebrewCask.to_string()
-                && outdated.contains(&a.source_id.to_lowercase())
+    app_ids
+        .into_iter()
+        .filter(|id| {
+            apps.iter().find(|a| &a.app_id == id).map_or(false, |a| {
+                a.source_type == SourceType::HomebrewCask.to_string()
+                    && outdated.contains(&a.source_id.to_lowercase())
+            })
         })
-    }).collect()
+        .collect()
 }
 
 // ============================================================================
@@ -291,30 +328,37 @@ pub fn upgrade_app(
 ) -> Result<OperationResult, String> {
     let app = {
         let apps = state.apps.lock().unwrap();
-        apps.iter().find(|a| a.app_id == app_id).cloned()
+        apps.iter()
+            .find(|a| a.app_id == app_id)
+            .cloned()
             .ok_or_else(|| "Application not found".to_string())?
     };
     if !app.can_upgrade {
         return Err("This application cannot be upgraded".to_string());
     }
     let brew = brew_path().ok_or("Homebrew is not available")?;
-    let output = Command::new(&brew).args(["upgrade", "--cask", &app.source_id]).output()
+    let output = Command::new(&brew)
+        .args(["upgrade", "--cask", &app.source_id])
+        .output()
         .map_err(|e| format!("Failed to run brew upgrade: {}", e))?;
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
     let combined = format!("{}\n{}", stdout, stderr).trim().to_string();
     let success = output.status.success();
 
-    let rec = OperationRecord::new("upgrade", &app.app_id, &app.name, success, &combined, output.status.code());
-    record_operation(rec.clone());
-
-    Ok(OperationResult {
+    Ok(record_operation_result(
+        "upgrade",
+        &app.app_id,
+        &app.name,
         success,
-        message: if success { format!("Upgraded {}", app.name) } else { combined },
-        exit_code: output.status.code(),
-        error_code: rec.error_code,
-        permission_issue: rec.permission_issue,
-    })
+        &combined,
+        if success {
+            format!("Upgraded {}", app.name)
+        } else {
+            combined.clone()
+        },
+        output.status.code(),
+    ))
 }
 
 pub fn uninstall_app(
@@ -323,29 +367,40 @@ pub fn uninstall_app(
 ) -> Result<OperationResult, String> {
     let app = {
         let apps = state.apps.lock().unwrap();
-        apps.iter().find(|a| a.app_id == app_id).cloned()
+        apps.iter()
+            .find(|a| a.app_id == app_id)
+            .cloned()
             .ok_or_else(|| "Application not found".to_string())?
     };
-    if app.is_system_app { return Err("System applications cannot be uninstalled".into()); }
-    if !app.can_uninstall { return Err("This application cannot be uninstalled".into()); }
+    if app.is_system_app {
+        return Err("System applications cannot be uninstalled".into());
+    }
+    if !app.can_uninstall {
+        return Err("This application cannot be uninstalled".into());
+    }
     let brew = brew_path().ok_or("Homebrew is not available")?;
-    let output = Command::new(&brew).args(["uninstall", "--cask", &app.source_id]).output()
+    let output = Command::new(&brew)
+        .args(["uninstall", "--cask", &app.source_id])
+        .output()
         .map_err(|e| format!("Failed to run brew uninstall: {}", e))?;
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
     let combined = format!("{}\n{}", stdout, stderr).trim().to_string();
     let success = output.status.success();
 
-    let rec = OperationRecord::new("uninstall", &app.app_id, &app.name, success, &combined, output.status.code());
-    record_operation(rec.clone());
-
-    Ok(OperationResult {
+    Ok(record_operation_result(
+        "uninstall",
+        &app.app_id,
+        &app.name,
         success,
-        message: if success { format!("Uninstalled {}", app.name) } else { combined },
-        exit_code: output.status.code(),
-        error_code: rec.error_code,
-        permission_issue: rec.permission_issue,
-    })
+        &combined,
+        if success {
+            format!("Uninstalled {}", app.name)
+        } else {
+            combined.clone()
+        },
+        output.status.code(),
+    ))
 }
 
 // ============================================================================
@@ -362,9 +417,7 @@ fn find_icns_in_resources(resources: &Path) -> Option<PathBuf> {
         .map(|e| e.path())
         .filter(|p| p.extension().map_or(false, |ext| ext == "icns"))
         .collect();
-    icns_files.sort_by_key(|p| {
-        std::fs::metadata(p).map(|m| m.len()).unwrap_or(0)
-    });
+    icns_files.sort_by_key(|p| std::fs::metadata(p).map(|m| m.len()).unwrap_or(0));
     icns_files.pop()
 }
 
@@ -374,7 +427,11 @@ fn extract_plist_icon_file(plist_content: &str) -> Option<String> {
     let after_key = &plist_content[start + key.len()..];
     let tag_start = after_key.find("<string>")?;
     let tag_end = after_key[tag_start..].find("</string>")?;
-    Some(after_key[tag_start + 8..tag_start + tag_end].trim().to_string())
+    Some(
+        after_key[tag_start + 8..tag_start + tag_end]
+            .trim()
+            .to_string(),
+    )
 }
 
 fn resolve_finder_alias(path: &Path) -> Option<PathBuf> {
@@ -417,8 +474,7 @@ pub fn get_app_icon_base64(install_path: &str) -> Result<String, String> {
     }
 
     let app_path = if app_path.is_file() {
-        resolve_finder_alias(app_path)
-            .ok_or("Cannot resolve Finder alias to real app bundle")?
+        resolve_finder_alias(app_path).ok_or("Cannot resolve Finder alias to real app bundle")?
     } else {
         app_path.to_path_buf()
     };
@@ -473,8 +529,13 @@ fn resolve_ios_wrapped_bundle(app_path: &Path) -> Option<PathBuf> {
             } else {
                 target
             };
-            return resolve_ios_wrapped_bundle(&resolved)
-                .or_else(|| if resolved.exists() { Some(resolved) } else { None });
+            return resolve_ios_wrapped_bundle(&resolved).or_else(|| {
+                if resolved.exists() {
+                    Some(resolved)
+                } else {
+                    None
+                }
+            });
         }
     }
     None
@@ -484,7 +545,8 @@ fn find_ios_app_icon_png(app_path: &Path) -> Result<PathBuf, String> {
     if !app_path.is_dir() {
         return Err("Not a valid iOS app bundle".into());
     }
-    let read_dir = std::fs::read_dir(app_path).map_err(|e| format!("Cannot read app bundle: {}", e))?;
+    let read_dir =
+        std::fs::read_dir(app_path).map_err(|e| format!("Cannot read app bundle: {}", e))?;
     let mut icons: Vec<PathBuf> = read_dir
         .filter_map(|e| e.ok())
         .map(|e| e.path())
@@ -492,17 +554,13 @@ fn find_ios_app_icon_png(app_path: &Path) -> Result<PathBuf, String> {
             p.is_file()
                 && p.file_name()
                     .and_then(|n| n.to_str())
-                    .map_or(false, |n| {
-                        n.starts_with("AppIcon") && n.ends_with(".png")
-                    })
+                    .map_or(false, |n| n.starts_with("AppIcon") && n.ends_with(".png"))
         })
         .collect();
     if icons.is_empty() {
         return Err("No AppIcon PNG found in iOS app bundle".into());
     }
-    icons.sort_by_key(|p| {
-        std::fs::metadata(p).map(|m| m.len()).unwrap_or(0)
-    });
+    icons.sort_by_key(|p| std::fs::metadata(p).map(|m| m.len()).unwrap_or(0));
     icons.pop().ok_or("No AppIcon found".into())
 }
 
@@ -514,9 +572,12 @@ fn icns_to_base64_png(install_path: &str, icon_path: &Path) -> Result<String, St
 
     let output = Command::new("sips")
         .args([
-            "-s", "format", "png",
+            "-s",
+            "format",
+            "png",
             icon_path.to_str().ok_or("Invalid icon path")?,
-            "--out", temp_png.to_str().ok_or("Invalid temp path")?,
+            "--out",
+            temp_png.to_str().ok_or("Invalid temp path")?,
         ])
         .output()
         .map_err(|e| format!("Failed to run sips: {}", e))?;
@@ -550,10 +611,10 @@ fn png_to_base64(png_path: &Path) -> Result<String, String> {
 // Install
 // ============================================================================
 
-pub fn install_app(app_id: String, install_source: crate::app_manager::InstallSource) -> Result<crate::app_manager::OperationResult, String> {
-    use crate::app_manager::record_operation;
-    use crate::app_manager::OperationRecord;
-
+pub fn install_app(
+    app_id: String,
+    install_source: crate::app_manager::InstallSource,
+) -> Result<crate::app_manager::OperationResult, String> {
     // Prefer brew install --cask
     if let Some(cask) = &install_source.brew {
         if let Some(brew) = find_brew() {
@@ -563,36 +624,36 @@ pub fn install_app(app_id: String, install_source: crate::app_manager::InstallSo
                 .map_err(|e| format!("Failed to execute brew: {}", e))?;
 
             let success = output.status.success();
-            let message = String::from_utf8_lossy(if success { &output.stdout } else { &output.stderr }).to_string();
+            let message = String::from_utf8_lossy(if success {
+                &output.stdout
+            } else {
+                &output.stderr
+            })
+            .to_string();
 
-            let result = crate::app_manager::OperationResult {
+            return Ok(record_operation_result_with_error_code(
+                "install",
+                &app_id,
+                &app_id,
                 success,
-                message: message.trim().to_string(),
-                exit_code: output.status.code(),
-                error_code: if success { None } else { Some("INSTALL_FAILED".into()) },
-                permission_issue: message.contains("permission denied") || message.contains("root"),
-            };
-
-            record_operation(OperationRecord::new(
-                "install", &app_id, &app_id, result.success, &result.message, result.exit_code,
+                message.trim(),
+                message.trim().to_string(),
+                output.status.code(),
+                Some("INSTALL_FAILED"),
             ));
-
-            return Ok(result);
         }
     }
 
     // Fallback: try to open download URL
     if let Some(url) = &install_source.url {
-        let _ = std::process::Command::new("open")
-            .arg(url)
-            .output();
-        return Ok(crate::app_manager::OperationResult {
-            success: true,
-            message: format!("Opening download page: {}", url),
-            exit_code: Some(0),
-            error_code: None,
-            permission_issue: false,
-        });
+        let _ = std::process::Command::new("open").arg(url).output();
+        return Ok(operation_result(
+            true,
+            format!("Opening download page: {}", url),
+            Some(0),
+            None,
+            false,
+        ));
     }
 
     Err("No suitable installation method available for this application".into())

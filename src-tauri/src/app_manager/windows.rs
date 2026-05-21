@@ -1,7 +1,7 @@
 use crate::app_manager::{
-    record_operation, make_app_id, get_last_modified, deduplicate, name_match_confidence,
-    AppInfo, AllowedActions, OperationRecord, OperationResult, ScanResult,
-    PlatformCapabilities, AppManagerState, SourceType,
+    build_app_info, build_scan_result, deduplicate, get_last_modified, make_app_id,
+    operation_result, platform_capabilities, record_operation_result, resolve_windows_source,
+    AppInfoInput, AppManagerState, OperationResult, ScanResult, SourceType,
 };
 use std::collections::HashSet;
 use std::path::Path;
@@ -155,12 +155,18 @@ pub fn scan_installed_apps() -> ScanResult {
         }
     }
 
-    let mut apps: Vec<AppInfo> = Vec::new();
+    let mut apps = Vec::new();
 
     for (name, version, publisher, install_location) in registry_entries {
-        if name.is_empty() { continue; }
+        if name.is_empty() {
+            continue;
+        }
 
-        let bundle_id = format!("{}.{}", publisher.to_lowercase().replace(' ', "."), name.to_lowercase().replace(' ', "."));
+        let bundle_id = format!(
+            "{}.{}",
+            publisher.to_lowercase().replace(' ', "."),
+            name.to_lowercase().replace(' ', ".")
+        );
 
         let install_path = if !install_location.is_empty() {
             install_location.clone()
@@ -171,61 +177,41 @@ pub fn scan_installed_apps() -> ScanResult {
         let app_id = make_app_id(&bundle_id, &install_path);
         let last_modified = get_last_modified(Path::new(&install_path));
 
-        // Match against winget
-        let (source_type, source_id, source_confidence, can_upgrade, can_uninstall, upgrade_available) = {
-            let mut best_match: Option<&(String, String)> = None;
-            let mut best_conf = 0.0;
-            for pkg in &winget_packages {
-                let conf = name_match_confidence(&name, &bundle_id, &pkg.0);
-                if conf > best_conf { best_conf = conf; best_match = Some(pkg); }
-            }
-            if best_conf >= 0.5 {
-                let pkg = best_match.unwrap();
-                let upgradable = upgradable_ids.contains(&pkg.1.to_lowercase());
-                (SourceType::Winget.to_string(), pkg.1.clone(), best_conf, true, true, upgradable)
-            } else {
-                (SourceType::MsiInstaller.to_string(), String::new(), 1.0, false, false, false)
-            }
+        let source = resolve_windows_source(&name, &bundle_id, &winget_packages, &upgradable_ids);
+
+        let ver = if version.is_empty() {
+            "—".into()
+        } else {
+            version
         };
 
-        let ver = if version.is_empty() { "—".into() } else { version };
-
-        apps.push(AppInfo {
-            allowed_actions: AllowedActions {
-                launch: !install_location.is_empty(),
-                reveal: !install_location.is_empty(),
-                upgrade: can_upgrade,
-                uninstall: can_uninstall,
-            },
-            app_id, name, version: ver, bundle_id, install_path,
-            source: if source_type == SourceType::Winget.to_string() { "winget".into() } else { "Registry".into() },
-            source_type, source_id, source_confidence,
-            can_upgrade, can_uninstall, upgrade_available,
-            last_operation_result: None, last_modified, is_system_app: false,
-            icon_base64: None,
-        });
+        apps.push(build_app_info(AppInfoInput {
+            app_id,
+            name,
+            version: ver,
+            bundle_id,
+            install_path,
+            source_type: source.source_type,
+            source_id: source.source_id,
+            source_confidence: source.source_confidence,
+            can_upgrade: source.can_upgrade,
+            can_uninstall: source.can_uninstall,
+            upgrade_available: source.upgrade_available,
+            last_modified,
+            is_system_app: false,
+            launchable: !install_location.is_empty(),
+            revealable: !install_location.is_empty(),
+        }));
     }
 
     apps = deduplicate(apps);
-    apps.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
 
-    let total_count = apps.len();
-    let managed_count = apps.iter().filter(|a| a.can_upgrade || a.can_uninstall).count();
-
-    ScanResult {
-        apps, total_count,
-        user_count: total_count,
-        system_count: 0,
-        scan_time_ms: start.elapsed().as_millis() as u64,
-        managed_count,
-        platform_capabilities: PlatformCapabilities {
-            brew_available: false,
-            winget_available,
-            flatpak_available: false, snap_available: false, apt_available: false,
-        },
-        last_scan_time: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64,
-        last_update_check: 0,
-    }
+    build_scan_result(
+        apps,
+        platform_capabilities(false, winget_available, false, false, false),
+        start.elapsed().as_millis() as u64,
+        0,
+    )
 }
 
 // ============================================================================
@@ -239,14 +225,20 @@ pub fn launch_app(app_path: String) -> Result<(), String> {
             .args(["/C", "start", "", &app_path])
             .status()
             .map_err(|e| format!("Failed to launch: {}", e))?;
-        if status.success() { return Ok(()); }
+        if status.success() {
+            return Ok(());
+        }
         return Err("Launch failed".into());
     }
     let status = Command::new("cmd")
         .args(["/C", "start", "", &app_path])
         .status()
         .map_err(|e| format!("Failed to launch: {}", e))?;
-    if status.success() { Ok(()) } else { Err("Launch failed".into()) }
+    if status.success() {
+        Ok(())
+    } else {
+        Err("Launch failed".into())
+    }
 }
 
 pub fn reveal_in_explorer(app_path: String) -> Result<(), String> {
@@ -255,7 +247,11 @@ pub fn reveal_in_explorer(app_path: String) -> Result<(), String> {
         .arg(&app_path)
         .status()
         .map_err(|e| format!("Failed to reveal: {}", e))?;
-    if status.success() { Ok(()) } else { Err("Reveal failed".into()) }
+    if status.success() {
+        Ok(())
+    } else {
+        Err("Reveal failed".into())
+    }
 }
 
 // ============================================================================
@@ -272,12 +268,15 @@ pub fn check_updates(
         Vec::new()
     };
     let apps = state.apps.lock().unwrap();
-    app_ids.into_iter().filter(|id| {
-        apps.iter().find(|a| &a.app_id == id).map_or(false, |a| {
-            a.source_type == SourceType::Winget.to_string()
-                && upgradable.contains(&a.source_id.to_lowercase())
+    app_ids
+        .into_iter()
+        .filter(|id| {
+            apps.iter().find(|a| &a.app_id == id).map_or(false, |a| {
+                a.source_type == SourceType::Winget.to_string()
+                    && upgradable.contains(&a.source_id.to_lowercase())
+            })
         })
-    }).collect()
+        .collect()
 }
 
 // ============================================================================
@@ -290,23 +289,43 @@ pub fn upgrade_app(
 ) -> Result<OperationResult, String> {
     let app = {
         let apps = state.apps.lock().unwrap();
-        apps.iter().find(|a| a.app_id == app_id).cloned()
+        apps.iter()
+            .find(|a| a.app_id == app_id)
+            .cloned()
             .ok_or_else(|| "Application not found".to_string())?
     };
-    if !app.can_upgrade { return Err("Cannot upgrade".into()); }
+    if !app.can_upgrade {
+        return Err("Cannot upgrade".into());
+    }
     let wg = winget_path().ok_or("winget is not available")?;
     let output = Command::new(&wg)
-        .args(["upgrade", "--id", &app.source_id, "--accept-source-agreements", "--silent"])
+        .args([
+            "upgrade",
+            "--id",
+            &app.source_id,
+            "--accept-source-agreements",
+            "--silent",
+        ])
         .output()
         .map_err(|e| format!("winget upgrade failed: {}", e))?;
-    let combined = format!("{}\n{}",
+    let combined = format!(
+        "{}\n{}",
         String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)).trim().to_string();
+        String::from_utf8_lossy(&output.stderr)
+    )
+    .trim()
+    .to_string();
     let success = output.status.success();
 
-    let rec = OperationRecord::new("upgrade", &app.app_id, &app.name, success, &combined, output.status.code());
-    record_operation(rec.clone());
-    Ok(OperationResult { success, message: combined, exit_code: output.status.code(), error_code: rec.error_code, permission_issue: rec.permission_issue })
+    Ok(record_operation_result(
+        "upgrade",
+        &app.app_id,
+        &app.name,
+        success,
+        &combined,
+        combined.clone(),
+        output.status.code(),
+    ))
 }
 
 pub fn uninstall_app(
@@ -315,68 +334,98 @@ pub fn uninstall_app(
 ) -> Result<OperationResult, String> {
     let app = {
         let apps = state.apps.lock().unwrap();
-        apps.iter().find(|a| a.app_id == app_id).cloned()
+        apps.iter()
+            .find(|a| a.app_id == app_id)
+            .cloned()
             .ok_or_else(|| "Application not found".to_string())?
     };
-    if !app.can_uninstall { return Err("Cannot uninstall".into()); }
+    if !app.can_uninstall {
+        return Err("Cannot uninstall".into());
+    }
     let wg = winget_path().ok_or("winget is not available")?;
     let output = Command::new(&wg)
-        .args(["uninstall", "--id", &app.source_id, "--accept-source-agreements", "--silent"])
+        .args([
+            "uninstall",
+            "--id",
+            &app.source_id,
+            "--accept-source-agreements",
+            "--silent",
+        ])
         .output()
         .map_err(|e| format!("winget uninstall failed: {}", e))?;
-    let combined = format!("{}\n{}",
+    let combined = format!(
+        "{}\n{}",
         String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)).trim().to_string();
+        String::from_utf8_lossy(&output.stderr)
+    )
+    .trim()
+    .to_string();
     let success = output.status.success();
 
-    let rec = OperationRecord::new("uninstall", &app.app_id, &app.name, success, &combined, output.status.code());
-    record_operation(rec.clone());
-    Ok(OperationResult { success, message: combined, exit_code: output.status.code(), error_code: rec.error_code, permission_issue: rec.permission_issue })
+    Ok(record_operation_result(
+        "uninstall",
+        &app.app_id,
+        &app.name,
+        success,
+        &combined,
+        combined.clone(),
+        output.status.code(),
+    ))
 }
 
 // ============================================================================
 // Install (Windows via winget)
 // ============================================================================
 
-pub fn install_app(app_id: String, install_source: crate::app_manager::InstallSource) -> Result<OperationResult, String> {
+pub fn install_app(
+    app_id: String,
+    install_source: crate::app_manager::InstallSource,
+) -> Result<OperationResult, String> {
     // Prefer winget install
     if let Some(winget_id) = &install_source.winget {
         if let Some(wg) = find_winget() {
             let output = Command::new(&wg)
-                .args(["install", "--id", winget_id, "--accept-source-agreements", "--silent"])
+                .args([
+                    "install",
+                    "--id",
+                    winget_id,
+                    "--accept-source-agreements",
+                    "--silent",
+                ])
                 .output()
                 .map_err(|e| format!("winget install failed: {}", e))?;
 
-            let combined = format!("{}\n{}",
+            let combined = format!(
+                "{}\n{}",
                 String::from_utf8_lossy(&output.stdout),
-                String::from_utf8_lossy(&output.stderr)).trim().to_string();
+                String::from_utf8_lossy(&output.stderr)
+            )
+            .trim()
+            .to_string();
             let success = output.status.success();
 
-            let rec = OperationRecord::new("install", &app_id, &app_id, success, &combined, output.status.code());
-            record_operation(rec.clone());
-
-            return Ok(OperationResult {
+            return Ok(record_operation_result(
+                "install",
+                &app_id,
+                &app_id,
                 success,
-                message: combined,
-                exit_code: output.status.code(),
-                error_code: rec.error_code,
-                permission_issue: rec.permission_issue,
-            });
+                &combined,
+                combined.clone(),
+                output.status.code(),
+            ));
         }
     }
 
     // Fallback: open download URL
     if let Some(url) = &install_source.url {
-        let _ = Command::new("cmd")
-            .args(["/C", "start", url])
-            .status();
-        return Ok(OperationResult {
-            success: true,
-            message: format!("Opening download page: {}", url),
-            exit_code: Some(0),
-            error_code: None,
-            permission_issue: false,
-        });
+        let _ = Command::new("cmd").args(["/C", "start", url]).status();
+        return Ok(operation_result(
+            true,
+            format!("Opening download page: {}", url),
+            Some(0),
+            None,
+            false,
+        ));
     }
 
     Err("No suitable installation method available for this application".into())

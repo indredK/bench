@@ -68,7 +68,7 @@ pub fn name_match_confidence(app_name: &str, bundle_id: &str, token: &str) -> f6
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::app_manager::{AllowedActions, SourceType};
+    use crate::app_manager::types::{AllowedActions, SourceType};
 
     #[test]
     fn test_make_app_id_stable() {

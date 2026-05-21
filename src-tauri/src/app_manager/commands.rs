@@ -1,9 +1,9 @@
 use super::state::{get_operation_history, AppManagerState};
 use super::types::{
     BatchInstallItem, BatchItemResult, BatchOperationResult, InstallSource, OperationRecord,
-    OperationResult, PlatformCapabilities, ScanResult,
+    OperationResult, ScanResult,
 };
-use super::{linux, macos, windows};
+use super::{empty_scan_result, linux, locked_operation_result, macos, windows};
 use tauri::Manager;
 
 fn is_macos() -> bool {
@@ -16,26 +16,6 @@ fn is_windows() -> bool {
 
 fn is_linux() -> bool {
     std::env::consts::OS == "linux"
-}
-
-fn empty_scan_result() -> ScanResult {
-    ScanResult {
-        apps: vec![],
-        total_count: 0,
-        user_count: 0,
-        system_count: 0,
-        scan_time_ms: 0,
-        managed_count: 0,
-        platform_capabilities: PlatformCapabilities {
-            brew_available: false,
-            winget_available: false,
-            flatpak_available: false,
-            snap_available: false,
-            apt_available: false,
-        },
-        last_scan_time: 0,
-        last_update_check: 0,
-    }
 }
 
 #[tauri::command]
@@ -110,13 +90,7 @@ pub fn upgrade_app(
     state: tauri::State<'_, AppManagerState>,
 ) -> Result<OperationResult, String> {
     if !state.acquire_op_lock(&app_id) {
-        return Ok(OperationResult {
-            success: false,
-            message: "This application is currently being modified. Please wait.".into(),
-            exit_code: None,
-            error_code: Some("LOCKED".into()),
-            permission_issue: false,
-        });
+        return Ok(locked_operation_result());
     }
 
     let result = if is_macos() {
@@ -139,13 +113,7 @@ pub fn uninstall_app(
     state: tauri::State<'_, AppManagerState>,
 ) -> Result<OperationResult, String> {
     if !state.acquire_op_lock(&app_id) {
-        return Ok(OperationResult {
-            success: false,
-            message: "This application is currently being modified. Please wait.".into(),
-            exit_code: None,
-            error_code: Some("LOCKED".into()),
-            permission_issue: false,
-        });
+        return Ok(locked_operation_result());
     }
 
     let result = if is_macos() {
