@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { getNextDataTableSorting } from "@/components/ui/DataTable";
 import { createDevCleanerColumns } from "@/features/dev-cleaner/columns";
+import { devCleanerOperations } from "@/features/dev-cleaner/operations";
 import { useContextMenuRegistration } from "@/shared/context-menu/useContextMenuRegistration";
 import type { ContextMenuConfig, ContextMenuRegistration } from "@/shared/context-menu/types";
 import { useDevCleanerStore, filterTypeMap } from "@/features/dev-cleaner/store";
@@ -29,10 +30,10 @@ export function useDevCleanerController() {
   const setShowFilterOptions = useDevCleanerStore((s) => s.setShowFilterOptions);
   const setSorting = useDevCleanerStore((s) => s.setSorting);
   const setSelectedProjects = useDevCleanerStore((s) => s.setSelectedProjects);
-  const handleSelectPath = useDevCleanerStore((s) => s.handleSelectPath);
-  const handleScan = useDevCleanerStore((s) => s.handleScan);
-  const handleStopScan = useDevCleanerStore((s) => s.handleStopScan);
-  const handleCleanup = useDevCleanerStore((s) => s.handleCleanup);
+  const handleSelectPath = devCleanerOperations.selectPath;
+  const handleScan = devCleanerOperations.scan;
+  const handleStopScan = devCleanerOperations.stopScan;
+  const handleCleanup = devCleanerOperations.cleanup;
 
   const filteredProjects = useMemo(() => {
     if (!scanResult) return [];

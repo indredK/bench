@@ -1,6 +1,6 @@
 import { AppWindow } from "lucide-react";
 import AppManager from "@/features/app-manager/page";
-import { useAppManagerStore } from "@/features/app-manager/store";
+import { appManagerOperations } from "@/features/app-manager/operations";
 import type { AppFeature } from "@/features/types";
 
 export const appManagerFeature: AppFeature = {
@@ -9,6 +9,6 @@ export const appManagerFeature: AppFeature = {
   labelKey: "sidebar.appManager",
   icon: <AppWindow size={18} />,
   render: () => <AppManager active />,
-  refresh: () => useAppManagerStore.getState().scanApps(),
+  refresh: () => appManagerOperations.scanApps(),
   desktopOnly: true,
 };

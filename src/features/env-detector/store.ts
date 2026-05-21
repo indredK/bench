@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import type { SortingState, Updater } from "@tanstack/react-table";
 import type { EnvTool } from "@/lib/tauri/types/env-detector";
-import { envDetectorUseCases } from "@/features/env-detector/services/env-detector.use-cases";
 
 interface EnvDetectorState {
   tools: EnvTool[];
@@ -22,11 +21,10 @@ interface EnvDetectorState {
   setViewMode: (mode: "table" | "grid") => void;
   handleFilterChange: (key: string, value: string) => void;
   clearFilters: () => void;
-  loadTools: () => Promise<void>;
   reset: () => void;
 }
 
-export const useEnvDetectorStore = create<EnvDetectorState>((set, get) => ({
+export const useEnvDetectorStore = create<EnvDetectorState>((set) => ({
   tools: [],
   loading: false,
   scanning: false,
@@ -61,31 +59,6 @@ export const useEnvDetectorStore = create<EnvDetectorState>((set, get) => ({
     }),
 
   clearFilters: () => set({ filters: {} }),
-
-  loadTools: async () => {
-    const { scanning } = get();
-    if (scanning) return;
-
-    set({ loading: true, scanning: true, error: "", tools: [] });
-
-    if (!envDetectorUseCases.isAvailable()) {
-      set({ scanned: true, loading: false, scanning: false });
-      return;
-    }
-
-    try {
-      const payload = await envDetectorUseCases.scanEnvTools();
-      set({
-        tools: [...payload.tools, ...payload.unavailable],
-        loading: false,
-        scanning: false,
-        scanned: true,
-      });
-    } catch (e) {
-      console.warn("[EnvDetector] Failed to detect tools:", e);
-      set({ tools: [], error: "Failed to detect tools", loading: false, scanning: false, scanned: true });
-    }
-  },
 
   reset: () =>
     set({

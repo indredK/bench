@@ -5,6 +5,7 @@ import { useContextMenuRegistration } from "@/shared/context-menu/useContextMenu
 import { useAppManagerStore } from "@/features/app-manager/store";
 import { createAppManagerColumns } from "@/features/app-manager/columns";
 import { filterAppManagerItems } from "@/features/app-manager/model/selectors";
+import { appManagerOperations } from "@/features/app-manager/operations";
 import type { AppInfo, InstallListAppInfo } from "@/lib/tauri/types/app-manager";
 import { appManagerPlatformConfig } from "@/platform/config";
 import { isDesktopRuntime } from "@/platform/runtime";
@@ -44,13 +45,13 @@ export function useAppManagerController(active: boolean) {
   const setCategoryFilter = useAppManagerStore((s) => s.setCategoryFilter);
   const setSeriesFilter = useAppManagerStore((s) => s.setSeriesFilter);
   const setSorting = useAppManagerStore((s) => s.setSorting);
-  const scanApps = useAppManagerStore((s) => s.scanApps);
-  const refreshUpdates = useAppManagerStore((s) => s.refreshUpdates);
-  const doUpgrade = useAppManagerStore((s) => s.doUpgrade);
-  const doUninstall = useAppManagerStore((s) => s.doUninstall);
+  const scanApps = appManagerOperations.scanApps;
+  const refreshUpdates = appManagerOperations.refreshUpdates;
+  const doUpgrade = appManagerOperations.upgrade;
+  const doUninstall = appManagerOperations.uninstall;
   const openConfirmDialog = useAppManagerStore((s) => s.openConfirmDialog);
   const closeConfirmDialog = useAppManagerStore((s) => s.closeConfirmDialog);
-  const loadHistory = useAppManagerStore((s) => s.loadHistory);
+  const loadHistory = appManagerOperations.loadHistory;
   const setHistoryOpen = useAppManagerStore((s) => s.setHistoryOpen);
   const clearSelection = useAppManagerStore((s) => s.clearSelection);
   const setBatchMode = useAppManagerStore((s) => s.setBatchMode);
@@ -58,25 +59,41 @@ export function useAppManagerController(active: boolean) {
   const openBatchConfirmDialog = useAppManagerStore((s) => s.openBatchConfirmDialog);
   const closeBatchConfirmDialog = useAppManagerStore((s) => s.closeBatchConfirmDialog);
   const clearBatchResults = useAppManagerStore((s) => s.clearBatchResults);
-  const doBatchUpgrade = useAppManagerStore((s) => s.doBatchUpgrade);
-  const doBatchUninstall = useAppManagerStore((s) => s.doBatchUninstall);
+  const doBatchUpgrade = appManagerOperations.batchUpgrade;
+  const doBatchUninstall = appManagerOperations.batchUninstall;
   const setViewMode = useAppManagerStore((s) => s.setViewMode);
   const setSelectedItem = useAppManagerStore((s) => s.setSelectedItem);
   const setFilterPanelOpen = useAppManagerStore((s) => s.setFilterPanelOpen);
-  const doInstall = useAppManagerStore((s) => s.doInstall);
+  const doInstall = appManagerOperations.install;
   const openInstallConfirmDialog = useAppManagerStore((s) => s.openInstallConfirmDialog);
   const closeInstallConfirmDialog = useAppManagerStore((s) => s.closeInstallConfirmDialog);
-  const launchApp = useAppManagerStore((s) => s.launchApp);
-  const revealApp = useAppManagerStore((s) => s.revealApp);
-  const openExternal = useAppManagerStore((s) => s.openExternal);
+  const launchApp = appManagerOperations.launchApp;
+  const revealApp = appManagerOperations.revealApp;
+  const openExternal = appManagerOperations.openExternal;
 
   const [selectedInstallIds, setSelectedInstallIds] = useState<Set<string>>(new Set());
   const [installBatchMode, setInstallBatchMode] = useState(false);
   const [installDetailItem, setInstallDetailItem] = useState<InstallListAppInfo | null>(null);
+  const [preferencesHydrated, setPreferencesHydrated] = useState(false);
   const pendingBatchInstallIds = useRef<string[]>([]);
   const confirmPendingRef = useRef(false);
 
   const isTauriEnv = isDesktopRuntime();
+
+  useEffect(() => {
+    appManagerOperations.restorePreferences();
+    setPreferencesHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!preferencesHydrated) return;
+    appManagerOperations.savePreferences(activeFilter, sorting);
+  }, [preferencesHydrated, activeFilter, sorting]);
+
+  useEffect(() => {
+    if (!preferencesHydrated) return;
+    appManagerOperations.saveViewMode(viewMode);
+  }, [preferencesHydrated, viewMode]);
 
   useEffect(() => {
     if (active && isTauriEnv && !scanned) scanApps();

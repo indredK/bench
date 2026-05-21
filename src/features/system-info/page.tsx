@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Card, CardHeader, CardTitle, CardContent, CardAction } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { systemInfoOperations } from "@/features/system-info/operations";
 import { useSystemInfoStore } from "@/features/system-info/store";
 import { formatMemory, formatUptime } from "@/lib/utils";
 
@@ -12,7 +13,7 @@ function SystemInfo({ active }: { active: boolean }) {
   const systemInfo = useSystemInfoStore((s) => s.systemInfo);
   const error = useSystemInfoStore((s) => s.error);
   const fetched = useSystemInfoStore((s) => s.fetched);
-  const loadSystemInfo = useSystemInfoStore((s) => s.loadSystemInfo);
+  const loadSystemInfo = systemInfoOperations.loadSystemInfo;
 
   useEffect(() => {
     return () => {

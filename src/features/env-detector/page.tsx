@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import FilterBar, { type FilterGroup } from "@/shared/compare/FilterBar";
 import { ContentView } from "@/components/content/ContentView";
 import { createEnvDetectorColumns, EnvStatusBadge } from "@/features/env-detector/columns";
+import { envDetectorOperations } from "@/features/env-detector/operations";
 import { useEnvDetectorStore } from "@/features/env-detector/store";
 import type { EnvTool } from "@/lib/tauri/types";
 import { useContextMenuRegistration } from "@/shared/context-menu/useContextMenuRegistration";
@@ -84,7 +85,7 @@ function EnvDetector({ active }: { active: boolean }) {
   const setViewMode = useEnvDetectorStore((s) => s.setViewMode);
   const handleFilterChange = useEnvDetectorStore((s) => s.handleFilterChange);
   const clearFilters = useEnvDetectorStore((s) => s.clearFilters);
-  const loadTools = useEnvDetectorStore((s) => s.loadTools);
+  const loadTools = envDetectorOperations.loadTools;
 
   useEffect(() => {
     if (active && isTauriEnv() && !scanned) {

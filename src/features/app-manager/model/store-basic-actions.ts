@@ -4,33 +4,22 @@ import type { AppInfo } from "@/lib/tauri/types/app-manager";
 import type { AppCategoryKey } from "@/features/app-manager/app-categories";
 import type { AppSeriesKey } from "@/features/app-manager/app-series";
 import type { AppManagerState } from "@/features/app-manager/model/store-types";
-import {
-  saveAppManagerPreferences,
-  saveAppManagerViewMode,
-  type AppFilterKey,
-} from "@/features/app-manager/model/preferences";
+import type { AppFilterKey } from "@/features/app-manager/model/preferences";
 import type { OperationStatus } from "@/features/app-manager/model/operations";
 import { createInitialAppManagerState } from "@/features/app-manager/model/store-state";
 
 type SetState = StoreApi<AppManagerState>["setState"];
-type GetState = StoreApi<AppManagerState>["getState"];
 
-export function createAppManagerBasicActions(set: SetState, get: GetState) {
+export function createAppManagerBasicActions(set: SetState) {
   return {
     setSearchQuery: (query: string) => set({ searchQuery: query }),
-    setActiveFilter: (filter: AppFilterKey) => {
-      set({ activeFilter: filter });
-      saveAppManagerPreferences({ activeFilter: filter, sorting: get().sorting });
-    },
+    setActiveFilter: (filter: AppFilterKey) => set({ activeFilter: filter }),
     setCategoryFilter: (category: AppCategoryKey | null) => set({ categoryFilter: category }),
     setSeriesFilter: (series: AppSeriesKey | null) => set({ seriesFilter: series }),
-    setSorting: (sorting: Updater<SortingState>) => {
-      set((state) => {
-        const next = typeof sorting === "function" ? sorting(state.sorting) : sorting;
-        saveAppManagerPreferences({ activeFilter: state.activeFilter, sorting: next });
-        return { sorting: next };
-      });
-    },
+    setSorting: (sorting: Updater<SortingState>) =>
+      set((state) => ({
+        sorting: typeof sorting === "function" ? sorting(state.sorting) : sorting,
+      })),
 
     setOperationStatus: (appId: string, status: OperationStatus, message = "") =>
       set((state) => ({
@@ -66,10 +55,7 @@ export function createAppManagerBasicActions(set: SetState, get: GetState) {
       set({ batchConfirmDialog: { open: false, action: "upgrade", count: 0 } }),
     clearBatchResults: () => set({ batchResults: null }),
 
-    setViewMode: (mode: "table" | "grid") => {
-      set({ viewMode: mode });
-      saveAppManagerViewMode(mode);
-    },
+    setViewMode: (mode: "table" | "grid") => set({ viewMode: mode }),
     setSelectedItem: (item: AppInfo | null) => set({ selectedItem: item }),
     setFilterPanelOpen: (open: boolean) => set({ filterPanelOpen: open }),
     setHistoryOpen: (open: boolean) => set({ historyOpen: open }),

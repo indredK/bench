@@ -1,5 +1,6 @@
 import { createElement, useCallback, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import { portManagerOperations } from "@/features/port-manager/operations";
 import { hasInvalidPortInputCharacters } from "@/features/port-manager/ports";
 import { usePortManagerStore, type PortScanStatus, PORT_SCAN_STATUS_META } from "@/features/port-manager/store";
 import { isDesktopRuntime } from "@/platform/runtime";
@@ -43,10 +44,6 @@ export function usePortManagerController() {
   const removePort = usePortManagerStore((s) => s.removePort);
   const addPortsToScan = usePortManagerStore((s) => s.addPortsToScan);
   const clearAll = usePortManagerStore((s) => s.clearAll);
-  const rescanAll = usePortManagerStore((s) => s.rescanAll);
-  const doScan = usePortManagerStore((s) => s.doScan);
-  const killPort = usePortManagerStore((s) => s.killPort);
-  const killAll = usePortManagerStore((s) => s.killAll);
 
   const isTauriEnv = isDesktopRuntime();
   const isScanning = portStates.some((ps) => ps.status === "scanning");
@@ -120,9 +117,9 @@ export function usePortManagerController() {
 
     const portsToAddFinal = addPortsToScan(portsToAdd);
     if (portsToAddFinal.length > 0) {
-      void doScan(portsToAddFinal);
+      void portManagerOperations.scan(portsToAddFinal);
     }
-  }, [addPortsToScan, clearInvalidTimer, handleInvalidInput, inputValue, doScan, setInputValue, setShowInvalidToast, t]);
+  }, [addPortsToScan, clearInvalidTimer, handleInvalidInput, inputValue, setInputValue, setShowInvalidToast, t]);
 
   const handleInputKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -148,10 +145,10 @@ export function usePortManagerController() {
       if (store.portStates.some((ps) => ps.port === port)) return;
       const portsToAdd = addPortsToScan([port]);
       if (portsToAdd.length > 0) {
-        void doScan(portsToAdd);
+        void portManagerOperations.scan(portsToAdd);
       }
     },
-    [addPortsToScan, doScan]
+    [addPortsToScan]
   );
 
   const handleClearInput = useCallback(() => {
@@ -180,20 +177,20 @@ export function usePortManagerController() {
 
   const handleKillPort = useCallback(
     (port: number, pids: number[]) => {
-      void killPort(port, pids);
+      void portManagerOperations.killPort(port, pids);
     },
-    [killPort]
+    []
   );
 
   const handleKillAll = useCallback(() => {
-    void killAll();
-  }, [killAll]);
+    void portManagerOperations.killAll();
+  }, []);
 
   const handleRescanPort = useCallback(
     (port: number) => {
-      void doScan([port]);
+      void portManagerOperations.scan([port]);
     },
-    [doScan]
+    []
   );
 
   const displayedDetails = useMemo(
@@ -257,7 +254,7 @@ export function usePortManagerController() {
     highlightPort,
     setShowEmptyPorts,
     clearAll,
-    rescanAll,
+    rescanAll: portManagerOperations.rescanAll,
     removePort,
     setError,
     handleInputChange,

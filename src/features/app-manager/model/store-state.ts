@@ -1,8 +1,4 @@
 import type { AppManagerState } from "@/features/app-manager/model/store-types";
-import {
-  loadAppManagerPreferences,
-  loadAppManagerViewMode,
-} from "@/features/app-manager/model/preferences";
 
 type AppManagerDataState = Omit<
   AppManagerState,
@@ -11,21 +7,12 @@ type AppManagerDataState = Omit<
   | "setCategoryFilter"
   | "setSeriesFilter"
   | "setSorting"
-  | "scanApps"
-  | "refreshUpdates"
-  | "refreshInstallList"
-  | "doUpgrade"
-  | "doUninstall"
   | "setOperationStatus"
   | "openConfirmDialog"
   | "closeConfirmDialog"
   | "setInstallState"
-  | "doInstall"
   | "openInstallConfirmDialog"
   | "closeInstallConfirmDialog"
-  | "launchApp"
-  | "revealApp"
-  | "openExternal"
   | "toggleSelectApp"
   | "selectAllFiltered"
   | "clearSelection"
@@ -33,28 +20,23 @@ type AppManagerDataState = Omit<
   | "openBatchConfirmDialog"
   | "closeBatchConfirmDialog"
   | "clearBatchResults"
-  | "doBatchUpgrade"
-  | "doBatchUninstall"
   | "setViewMode"
   | "setSelectedItem"
   | "setFilterPanelOpen"
-  | "loadHistory"
   | "setHistoryOpen"
   | "reset"
 >;
 
 export function createInitialAppManagerState(): AppManagerDataState {
-  const savedPrefs = loadAppManagerPreferences();
-
   return {
     apps: [],
     loading: false,
     error: "",
     searchQuery: "",
-    activeFilter: savedPrefs.activeFilter,
+    activeFilter: "all",
     categoryFilter: null,
     seriesFilter: null,
-    sorting: savedPrefs.sorting,
+    sorting: [{ id: "name", desc: false }],
     scanned: false,
     result: null,
     operations: {},
@@ -68,7 +50,7 @@ export function createInitialAppManagerState(): AppManagerDataState {
     batchConfirmDialog: { open: false, action: "upgrade", count: 0 },
     lastScanTime: 0,
     lastUpdateCheck: 0,
-    viewMode: loadAppManagerViewMode(),
+    viewMode: "table",
     selectedItem: null,
     filterPanelOpen: true,
     installListApps: [],

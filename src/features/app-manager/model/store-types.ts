@@ -78,27 +78,14 @@ export interface AppManagerState {
   setCategoryFilter: (category: AppCategoryKey | null) => void;
   setSeriesFilter: (series: AppSeriesKey | null) => void;
   setSorting: (sorting: Updater<SortingState>) => void;
-  scanApps: () => Promise<void>;
-  refreshUpdates: () => Promise<void>;
-  refreshInstallList: () => void;
 
-  doUpgrade: (appId: string) => Promise<void>;
-  doUninstall: (appId: string) => Promise<void>;
   setOperationStatus: (appId: string, status: OperationStatus, message?: string) => void;
   openConfirmDialog: (appId: string, appName: string, action: "upgrade" | "uninstall") => void;
   closeConfirmDialog: () => void;
 
   setInstallState: (appId: string, status: OperationStatus, message?: string) => void;
-  doInstall: (
-    appId: string,
-    appName: string,
-    installSource: InstallListAppInfo["installSource"]
-  ) => Promise<void>;
   openInstallConfirmDialog: (appId: string, appName: string) => void;
   closeInstallConfirmDialog: () => void;
-  launchApp: (app: AppInfo) => Promise<void>;
-  revealApp: (app: AppInfo) => Promise<void>;
-  openExternal: (reference: string) => Promise<void>;
 
   toggleSelectApp: (appId: string) => void;
   selectAllFiltered: (filteredIds: string[]) => void;
@@ -107,14 +94,11 @@ export interface AppManagerState {
   openBatchConfirmDialog: (action: "upgrade" | "uninstall" | "install", count: number) => void;
   closeBatchConfirmDialog: () => void;
   clearBatchResults: () => void;
-  doBatchUpgrade: () => Promise<void>;
-  doBatchUninstall: () => Promise<void>;
 
   setViewMode: (mode: "table" | "grid") => void;
   setSelectedItem: (item: AppInfo | null) => void;
   setFilterPanelOpen: (open: boolean) => void;
 
-  loadHistory: () => Promise<void>;
   setHistoryOpen: (open: boolean) => void;
 
   reset: () => void;

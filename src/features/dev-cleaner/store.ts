@@ -1,10 +1,7 @@
 import { create } from "zustand";
 import type { RowSelectionState, SortingState } from "@tanstack/react-table";
 import type { ScanResult, ProjectInfo } from "@/lib/tauri/types/dev-cleaner";
-import {
-  devCleanerUseCases,
-  type CleanupMessage,
-} from "@/features/dev-cleaner/services/dev-cleaner.use-cases";
+import type { CleanupMessage } from "@/features/dev-cleaner/services/dev-cleaner.use-cases";
 
 export type FilterType = "all" | "nodejs" | "python" | "rust" | "go";
 
@@ -35,14 +32,10 @@ interface DevCleanerState {
   setSorting: (sorting: SortingState | ((prev: SortingState) => SortingState)) => void;
   setSelectedProjects: (selected: RowSelectionState | ((prev: RowSelectionState) => RowSelectionState)) => void;
   setCleanupMessage: (message: CleanupMessage | null) => void;
-  handleSelectPath: () => Promise<void>;
-  handleScan: () => Promise<void>;
-  handleStopScan: () => Promise<void>;
-  handleCleanup: () => Promise<void>;
   reset: () => void;
 }
 
-export const useDevCleanerStore = create<DevCleanerState>((set, get) => ({
+export const useDevCleanerStore = create<DevCleanerState>((set) => ({
   selectedPath: "",
   isScanning: false,
   scanResult: null,
@@ -68,97 +61,6 @@ export const useDevCleanerStore = create<DevCleanerState>((set, get) => ({
         typeof selected === "function" ? selected(state.selectedProjects) : selected,
     })),
   setCleanupMessage: (message) => set({ cleanupMessage: message }),
-
-  handleSelectPath: async () => {
-    try {
-      const selected = await devCleanerUseCases.selectDirectory();
-      if (selected && typeof selected === "string") {
-        set({ selectedPath: selected });
-      }
-    } catch (error) {
-      alert(`Failed to open directory dialog: ${error}`);
-    }
-  },
-
-  handleScan: async () => {
-    const { selectedPath } = get();
-    if (!selectedPath) return;
-
-    set({ isScanning: true, showConfirm: false, showFilterOptions: true });
-
-    if (!devCleanerUseCases.isAvailable()) {
-      set({
-        cleanupMessage: {
-          type: "error",
-          text: "Scanning is only available in the desktop app",
-        },
-        isScanning: false,
-      });
-      return;
-    }
-
-    try {
-      const result = await devCleanerUseCases.scanProjects(selectedPath);
-      set({
-        scanResult: result,
-        selectedProjects: {},
-        isScanning: false,
-        cleanupMessage: devCleanerUseCases.createScanStoppedMessage(result),
-      });
-    } catch (error) {
-      set({
-        cleanupMessage: {
-          type: "error",
-          text: `Scan failed: ${error}`,
-        },
-        isScanning: false,
-      });
-    }
-  },
-
-  handleStopScan: async () => {
-    try {
-      await devCleanerUseCases.stopScan();
-    } catch (error) {
-      console.error("Failed to stop scan:", error);
-    }
-  },
-
-  handleCleanup: async () => {
-    const { selectedProjects, scanResult } = get();
-    const selectedCount = Object.values(selectedProjects).filter(Boolean).length;
-    if (selectedCount === 0) return;
-
-    set({ showConfirm: false, isCleaningUp: true, cleanupMessage: null });
-
-    try {
-      const projectsToCleanup = devCleanerUseCases.getSelectedProjects(scanResult, selectedProjects);
-      const result = await devCleanerUseCases.cleanupProjects(projectsToCleanup);
-
-      if (result.success) {
-        set({
-          cleanupMessage: { type: "success", text: `Cleaned up ${result.cleaned_size} bytes` },
-          selectedProjects: {},
-        });
-        setTimeout(() => {
-          get().handleScan();
-        }, 1000);
-      } else {
-        set({
-          cleanupMessage: {
-            type: "error",
-            text: result.errors?.join(", ") || "Unknown error",
-          },
-        });
-      }
-    } catch (error) {
-      set({
-        cleanupMessage: { type: "error", text: `Cleanup failed: ${error}` },
-      });
-    } finally {
-      set({ isCleaningUp: false });
-    }
-  },
 
   reset: () =>
     set({

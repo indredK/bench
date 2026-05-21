@@ -1,6 +1,6 @@
 import { Box } from "lucide-react";
 import EnvDetector from "@/features/env-detector/page";
-import { useEnvDetectorStore } from "@/features/env-detector/store";
+import { envDetectorOperations } from "@/features/env-detector/operations";
 import type { AppFeature } from "@/features/types";
 
 export const envDetectorFeature: AppFeature = {
@@ -9,6 +9,6 @@ export const envDetectorFeature: AppFeature = {
   labelKey: "sidebar.envDetector",
   icon: <Box size={18} />,
   render: () => <EnvDetector active />,
-  refresh: () => useEnvDetectorStore.getState().loadTools(),
+  refresh: () => envDetectorOperations.loadTools(),
   desktopOnly: true,
 };
