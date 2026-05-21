@@ -136,7 +136,7 @@ export function createAppManagerColumns(
       enableSorting: true,
       meta: { width: "70px" },
       cell: ({ row }) => (
-        <span className="text-sm">{row.original.version}</span>
+        <StickyTableText className="text-sm">{row.original.version}</StickyTableText>
       ),
     },
     {

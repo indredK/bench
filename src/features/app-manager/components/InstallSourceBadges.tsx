@@ -4,6 +4,11 @@
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n/config";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type { InstallSource } from "@/lib/tauri/types/app-manager";
 
 interface InstallSourceBadgesProps {
@@ -16,34 +21,37 @@ export function InstallSourceBadges({
   className = "text-[10px] px-1 py-0",
 }: InstallSourceBadgesProps) {
   const { t } = useTranslation();
-  const hasPackageManager =
-    installSource.brew ||
-    installSource.winget ||
-    installSource.flatpak ||
-    installSource.snap ||
-    installSource.apt;
+  const labels: string[] = [];
+  if (installSource.brew) labels.push(t("appManager.sourceHomebrewCask"));
+  if (installSource.winget) labels.push(t("appManager.sourceWinget"));
+  if (installSource.flatpak) labels.push(t("appManager.sourceFlatpak"));
+  if (installSource.snap) labels.push(t("appManager.sourceSnap"));
+  if (installSource.apt) labels.push(t("appManager.sourceApt"));
+  if (labels.length === 0 && installSource.url) labels.push(t("appManager.sourceDownload"));
+
+  if (labels.length === 0) return null;
+
+  const primary = labels[0];
+  const extra = labels.length - 1;
 
   return (
-    <>
-      {installSource.brew && (
-        <Badge variant="secondary" className={className}>{t("appManager.sourceHomebrewCask")}</Badge>
-      )}
-      {installSource.winget && (
-        <Badge variant="secondary" className={className}>{t("appManager.sourceWinget")}</Badge>
-      )}
-      {installSource.flatpak && (
-        <Badge variant="secondary" className={className}>{t("appManager.sourceFlatpak")}</Badge>
-      )}
-      {installSource.snap && (
-        <Badge variant="secondary" className={className}>{t("appManager.sourceSnap")}</Badge>
-      )}
-      {installSource.apt && (
-        <Badge variant="secondary" className={className}>{t("appManager.sourceApt")}</Badge>
-      )}
-      {!hasPackageManager && installSource.url && (
-        <Badge variant="secondary" className={className}>{t("appManager.sourceDownload")}</Badge>
-      )}
-    </>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div className="flex items-center gap-0.5 shrink-0">
+          <Badge variant="secondary" className={className}>{primary}</Badge>
+          {extra > 0 && (
+            <Badge variant="outline" className={className}>+{extra}</Badge>
+          )}
+        </div>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="p-1.5">
+        <div className="flex gap-1 flex-wrap">
+          {labels.map((label, i) => (
+            <Badge key={i} variant="secondary" className="text-[10px] px-1 py-0">{label}</Badge>
+          ))}
+        </div>
+      </TooltipContent>
+    </Tooltip>
   );
 }
 

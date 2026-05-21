@@ -7,6 +7,7 @@ import { Copy, Download, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ToolbarButton } from "@/components/ui/toolbar-button";
+import { StickyTableText } from "@/components/ui/StickyTable";
 import { InstallSourceBadges, getInstallSourceLabel } from "@/features/app-manager/components/InstallSourceBadges";
 import type { InstallListAppInfo } from "@/lib/tauri/types/app-manager";
 
@@ -28,22 +29,25 @@ export function createInstallListColumns({
       id: "name",
       header: t("appManager.column.name"),
       accessorFn: (app) => app.name,
+      meta: { minWidth: "80px" },
       cell: ({ getValue }) => (
-        <span className="font-medium text-sm truncate">{getValue() as string}</span>
+        <StickyTableText className="font-medium text-sm">{getValue() as string}</StickyTableText>
       ),
     },
     {
       id: "description",
       header: t("appManager.column.description"),
       accessorFn: (app) => app.description,
+      meta: { minWidth: "120px" },
       cell: ({ getValue }) => (
-        <span className="text-xs text-muted-foreground truncate">{getValue() as string}</span>
+        <StickyTableText className="text-xs text-muted-foreground">{getValue() as string}</StickyTableText>
       ),
     },
     {
       id: "status",
       header: t("appManager.column.status"),
       accessorFn: (app) => app.installed,
+      meta: { width: "76px" },
       cell: ({ row }) => {
         const app = row.original;
         return app.installed ? (
@@ -61,18 +65,18 @@ export function createInstallListColumns({
       id: "source",
       header: t("appManager.column.source"),
       accessorFn: (app) => getInstallSourceLabel(app.installSource),
+      meta: { width: "120px" },
       cell: ({ row }) => (
-        <div className="flex gap-1 flex-wrap">
-          <InstallSourceBadges
-            installSource={row.original.installSource}
-            className="text-[10px]"
-          />
-        </div>
+        <InstallSourceBadges
+          installSource={row.original.installSource}
+          className="text-[10px]"
+        />
       ),
     },
     {
       id: "actions",
-      header: "",
+      header: t("appManager.column.actions"),
+      meta: { width: "160px" },
       cell: ({ row }) => {
         const app = row.original;
         return (
