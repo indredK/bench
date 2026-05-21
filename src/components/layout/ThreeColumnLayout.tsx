@@ -22,7 +22,7 @@ export function ThreeColumnLayout({
   onCloseDetail,
 }: ThreeColumnLayoutProps) {
   return (
-    <div className="flex flex-1 min-h-0 gap-3 overflow-x-hidden">
+    <div className="flex flex-1 min-h-0 gap-3 overflow-x-hidden relative">
       <div
         className={cn(
           "shrink-0 overflow-hidden transition-[width] duration-200",
@@ -34,26 +34,27 @@ export function ThreeColumnLayout({
         </div>
       </div>
 
-      <div className="flex-1 min-w-0 flex flex-col relative">
+      <div className="flex-1 min-w-0 flex flex-col">
         {content}
-        <div
-          className={cn(
-            "absolute inset-0 z-20 transition-opacity duration-200",
-            detailOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
-          )}
-          onClick={onCloseDetail}
-        >
-          <div className="absolute inset-0 bg-black/20 rounded-xl" />
-        </div>
       </div>
 
       <div
         className={cn(
-          "shrink-0 w-[320px] ml-[-320px] overflow-hidden transition-transform duration-200 ease-out",
+          "shrink-0 w-[320px] ml-[-320px] overflow-hidden transition-transform duration-200 ease-out z-[80]",
           detailOpen ? "translate-x-0" : "translate-x-full"
         )}
       >
         {detail}
+      </div>
+
+      <div
+        className={cn(
+          "absolute inset-0 z-[70] transition-opacity duration-200",
+          detailOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+        )}
+        onClick={onCloseDetail}
+      >
+        <div className="absolute inset-0 bg-black/20" />
       </div>
     </div>
   );

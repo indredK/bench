@@ -37,7 +37,10 @@ export function InstallSourceBadges({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <div className="flex items-center gap-0.5 shrink-0">
+        <div
+          className="flex items-center gap-0.5 shrink-0"
+          onClick={(e) => e.stopPropagation()}
+        >
           <Badge variant="secondary" className={className}>{primary}</Badge>
           {extra > 0 && (
             <Badge variant="outline" className={className}>+{extra}</Badge>

@@ -26,7 +26,7 @@ export function DetailPanel<T>({
   return (
     <div
       className={cn(
-        "rounded-xl border bg-card flex flex-col overflow-hidden w-full h-full",
+        "rounded-xl border bg-card flex flex-col overflow-hidden w-full h-full shrink-0",
         open ? "opacity-100" : "opacity-0"
       )}
     >
@@ -38,7 +38,7 @@ export function DetailPanel<T>({
           <X size={14} />
         </Button>
       </div>
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-4 min-h-0">
         {loading ? (
           <div className="flex flex-col items-center justify-center h-full gap-3">
             <div className="size-6 animate-spin rounded-full border-2 border-muted border-t-primary" />
@@ -68,9 +68,9 @@ export function MetadataRow({
 }) {
   return (
     <div className="flex justify-between py-1.5 text-sm border-b border-border/40 last:border-0">
-      <span className="text-muted-foreground">{label}</span>
+      <span className="text-muted-foreground shrink-0 mr-2">{label}</span>
       <span
-        className="font-medium text-right max-w-[60%] truncate"
+        className="font-medium text-right max-w-[60%] break-words overflow-wrap-anywhere"
         title={value || "—"}
       >
         {value || "—"}

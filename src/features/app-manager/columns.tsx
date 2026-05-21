@@ -177,7 +177,10 @@ export function createAppManagerColumns(
         <StickyTableText
           className="text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
           title={row.original.installPath}
-          onClick={() => copyPath(row.original.installPath)}
+          onClick={(e) => {
+            e.stopPropagation();
+            copyPath(row.original.installPath);
+          }}
         >
           {compactPath(row.original.installPath)}
         </StickyTableText>
@@ -223,7 +226,10 @@ export function createAppManagerColumns(
         const opStatus = getOpStatus(app.appId);
 
         return (
-          <div className="flex items-center justify-center gap-0.5">
+          <div
+            className="flex items-center justify-center gap-0.5"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Launch */}
             <Button
               variant="ghost"

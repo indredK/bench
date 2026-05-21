@@ -185,7 +185,15 @@ interface StickyTableTextProps extends React.ComponentProps<"span"> {
   title?: string;
 }
 
-function StickyTableText({ className, title, children, ...props }: StickyTableTextProps) {
+function StickyTableText({
+  className,
+  title,
+  children,
+  onClick: externalOnClick,
+  onMouseDown: externalOnMouseDown,
+  onMouseUp: externalOnMouseUp,
+  ...restProps
+}: StickyTableTextProps) {
   const spanRef = useRef<HTMLSpanElement | null>(null);
   const [isTruncated, setIsTruncated] = useState(false);
   const tooltipContent = title ?? (typeof children === "string" ? children : undefined);
@@ -212,7 +220,10 @@ function StickyTableText({ className, title, children, ...props }: StickyTableTe
       <span
         ref={spanRef}
         className={cn("block min-w-0 truncate", className)}
-        {...props}
+        onClick={externalOnClick}
+        onMouseDown={externalOnMouseDown}
+        onMouseUp={externalOnMouseUp}
+        {...restProps}
       >
         {children}
       </span>
@@ -221,17 +232,28 @@ function StickyTableText({ className, title, children, ...props }: StickyTableTe
 
   return (
     <Tooltip>
-      <TooltipTrigger
-        render={
-          <span
-            ref={spanRef}
-            className={cn("block min-w-0 truncate", className)}
-            {...props}
-          >
-            {children}
-          </span>
-        }
-      />
+      <TooltipTrigger asChild>
+        <span
+          ref={spanRef}
+          className={cn("block min-w-0 truncate", className)}
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            externalOnClick?.(e);
+          }}
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            externalOnMouseDown?.(e);
+          }}
+          onMouseUp={(e) => {
+            e.stopPropagation();
+            externalOnMouseUp?.(e);
+          }}
+          {...restProps}
+        >
+          {children}
+        </span>
+      </TooltipTrigger>
       <TooltipContent side="top" align="center" className="max-w-xs whitespace-pre-wrap break-all">
         {tooltipContent}
       </TooltipContent>

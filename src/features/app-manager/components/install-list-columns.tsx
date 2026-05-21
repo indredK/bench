@@ -80,7 +80,10 @@ export function createInstallListColumns({
       cell: ({ row }) => {
         const app = row.original;
         return (
-          <div className="flex items-center gap-1.5 justify-end">
+          <div
+            className="flex items-center gap-1.5 justify-end"
+            onClick={(e) => e.stopPropagation()}
+          >
             <Button
               size="sm"
               className="h-7 text-xs"
