@@ -114,6 +114,7 @@ pub fn resolve_windows_source(
     SourceResolution::unmanaged(SourceType::MsiInstaller)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn resolve_linux_source(
     name: &str,
     bundle_id: &str,

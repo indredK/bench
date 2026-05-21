@@ -111,7 +111,7 @@ fn scan_desktop_entries() -> Vec<(String, String, String, String, String)> {
         };
         for entry in entries.flatten() {
             let path = entry.path();
-            if path.extension().map_or(true, |ext| ext != "desktop") {
+            if path.extension().is_none_or(|ext| ext != "desktop") {
                 continue;
             }
             if let Some((name, _comment, exec, _icon)) = parse_desktop_entry(&path) {
@@ -388,7 +388,7 @@ pub fn check_updates(
     app_ids
         .into_iter()
         .filter(|id| {
-            apps.iter().find(|a| &a.app_id == id).map_or(false, |a| {
+            apps.iter().find(|a| &a.app_id == id).is_some_and(|a| {
                 updatable_ids.contains(&a.source_id.to_lowercase())
             })
         })

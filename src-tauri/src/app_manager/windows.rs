@@ -271,7 +271,7 @@ pub fn check_updates(
     app_ids
         .into_iter()
         .filter(|id| {
-            apps.iter().find(|a| &a.app_id == id).map_or(false, |a| {
+            apps.iter().find(|a| &a.app_id == id).is_some_and(|a| {
                 a.source_type == SourceType::Winget.to_string()
                     && upgradable.contains(&a.source_id.to_lowercase())
             })

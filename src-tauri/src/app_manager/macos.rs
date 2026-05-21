@@ -131,7 +131,7 @@ fn scan_directory_raw(
     };
     for entry in entries.flatten() {
         let path = entry.path();
-        if path.extension().map_or(true, |ext| ext != "app") {
+        if path.extension().is_none_or(|ext| ext != "app") {
             continue;
         }
         let real_path = match fs::canonicalize(&path) {
@@ -229,7 +229,7 @@ pub fn scan_installed_apps(state: tauri::State<'_, AppManagerState>) -> ScanResu
 
     let num_threads = std::cmp::min(apps.len(), 8);
     let chunk_size = if num_threads > 0 {
-        (apps.len() + num_threads - 1) / num_threads
+        apps.len().div_ceil(num_threads)
     } else {
         0
     };
@@ -310,7 +310,7 @@ pub fn check_updates(
     app_ids
         .into_iter()
         .filter(|id| {
-            apps.iter().find(|a| &a.app_id == id).map_or(false, |a| {
+            apps.iter().find(|a| &a.app_id == id).is_some_and(|a| {
                 a.source_type == SourceType::HomebrewCask.to_string()
                     && outdated.contains(&a.source_id.to_lowercase())
             })
@@ -415,7 +415,7 @@ fn find_icns_in_resources(resources: &Path) -> Option<PathBuf> {
     let mut icns_files: Vec<PathBuf> = entries
         .filter_map(|e| e.ok())
         .map(|e| e.path())
-        .filter(|p| p.extension().map_or(false, |ext| ext == "icns"))
+        .filter(|p| p.extension().is_some_and(|ext| ext == "icns"))
         .collect();
     icns_files.sort_by_key(|p| std::fs::metadata(p).map(|m| m.len()).unwrap_or(0));
     icns_files.pop()
@@ -515,7 +515,7 @@ fn resolve_ios_wrapped_bundle(app_path: &Path) -> Option<PathBuf> {
         if let Ok(entries) = std::fs::read_dir(&wrapper) {
             for entry in entries.flatten() {
                 let p = entry.path();
-                if p.extension().map_or(false, |ext| ext == "app") {
+                if p.extension().is_some_and(|ext| ext == "app") {
                     return Some(p);
                 }
             }
@@ -554,7 +554,7 @@ fn find_ios_app_icon_png(app_path: &Path) -> Result<PathBuf, String> {
             p.is_file()
                 && p.file_name()
                     .and_then(|n| n.to_str())
-                    .map_or(false, |n| n.starts_with("AppIcon") && n.ends_with(".png"))
+                    .is_some_and(|n| n.starts_with("AppIcon") && n.ends_with(".png"))
         })
         .collect();
     if icons.is_empty() {

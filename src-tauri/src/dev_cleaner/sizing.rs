@@ -86,7 +86,7 @@ pub(super) fn get_dir_size_fast(
     #[cfg(unix)]
     {
         if let Ok(output) = Command::new("du")
-            .args(["-sk", &path.to_string_lossy().to_string()])
+            .args(["-sk", path.to_string_lossy().as_ref()])
             .output()
         {
             if output.status.success() {

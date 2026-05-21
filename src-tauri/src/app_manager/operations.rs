@@ -48,6 +48,7 @@ pub fn record_operation_result(
     result
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn record_operation_result_with_error_code(
     action: &str,
     app_id: &str,

@@ -356,13 +356,13 @@ fn build_available_tool(
     let (size_bytes, size_display) = get_file_size(&candidate.path);
     let install_time = get_file_time(&candidate.path);
     let detector = resolve_tool_detector(&candidate.name);
-    let version = should_probe_version
-        .then(|| {
-            detector
-                .and_then(|detector| detect_tool_version(&candidate.path, detector.version_args))
-                .unwrap_or_default()
-        })
-        .unwrap_or_default();
+    let version = if should_probe_version {
+        detector
+            .and_then(|detector| detect_tool_version(&candidate.path, detector.version_args))
+            .unwrap_or_default()
+    } else {
+        String::new()
+    };
     let classification = classify_env_tool(
         &candidate.name,
         &candidate.path,
