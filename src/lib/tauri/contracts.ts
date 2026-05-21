@@ -17,35 +17,138 @@ import type {
 } from "@/lib/tauri/types/port-manager";
 import type { SystemInfoData } from "@/lib/tauri/types/system-info";
 
+type TauriCommandSpec<Name extends string, Args, Result> = {
+  readonly name: Name;
+  readonly __args?: Args;
+  readonly __result?: Result;
+};
+
+function defineTauriCommand<Args, Result>() {
+  return <const Name extends string>(name: Name) =>
+    ({ name }) as TauriCommandSpec<Name, Args, Result>;
+}
+
+export const TAURI_COMMAND_CONTRACTS = {
+  scan_installed_apps: defineTauriCommand<undefined, AppScanResult>()("scan_installed_apps"),
+  launch_app: defineTauriCommand<{ appPath: string }, void>()("launch_app"),
+  reveal_app_in_finder: defineTauriCommand<{ appPath: string }, void>()("reveal_app_in_finder"),
+  check_managed_app_updates: defineTauriCommand<{ appIds: string[] }, string[]>()("check_managed_app_updates"),
+  upgrade_app: defineTauriCommand<{ appId: string }, OperationResult>()("upgrade_app"),
+  uninstall_app: defineTauriCommand<{ appId: string }, OperationResult>()("uninstall_app"),
+  get_app_operation_history: defineTauriCommand<{ appId: string | null }, OperationRecord[]>()("get_app_operation_history"),
+  batch_upgrade_apps: defineTauriCommand<{ appIds: string[] }, BatchOperationResult>()("batch_upgrade_apps"),
+  batch_uninstall_apps: defineTauriCommand<{ appIds: string[] }, BatchOperationResult>()("batch_uninstall_apps"),
+  refresh_app_updates: defineTauriCommand<{ appIds: string[] }, string[]>()("refresh_app_updates"),
+  install_app: defineTauriCommand<{ appId: string; installSource: InstallSource }, OperationResult>()("install_app"),
+  batch_install_apps: defineTauriCommand<{ items: { appId: string; installSource: InstallSource }[] }, BatchOperationResult>()("batch_install_apps"),
+  scan_dev_projects: defineTauriCommand<{ rootPath: string }, ScanResult>()("scan_dev_projects"),
+  cleanup_projects: defineTauriCommand<{ projects: ProjectInfo[] }, CleanupResult>()("cleanup_projects"),
+  stop_scan: defineTauriCommand<undefined, void>()("stop_scan"),
+  detect_env_tools: defineTauriCommand<undefined, void>()("detect_env_tools"),
+  get_system_info: defineTauriCommand<undefined, SystemInfoData>()("get_system_info"),
+  query_port_processes: defineTauriCommand<{ ports: number[] }, PortProcessDetail[]>()("query_port_processes"),
+  kill_processes: defineTauriCommand<{ pids: number[] }, KillPidResult[]>()("kill_processes"),
+} as const;
+
+export type TauriCommandName = keyof typeof TAURI_COMMAND_CONTRACTS;
+
+type CommandArgs<Spec> =
+  Spec extends TauriCommandSpec<string, infer Args, unknown> ? Args : never;
+
+type CommandResult<Spec> =
+  Spec extends TauriCommandSpec<string, unknown, infer Result> ? Result : never;
+
+export type TauriCommandContracts = {
+  [Name in TauriCommandName]: {
+    args: CommandArgs<(typeof TAURI_COMMAND_CONTRACTS)[Name]>;
+    result: CommandResult<(typeof TAURI_COMMAND_CONTRACTS)[Name]>;
+  };
+};
+
+type ContractNameMismatches = {
+  [Name in TauriCommandName]: (typeof TAURI_COMMAND_CONTRACTS)[Name]["name"] extends Name
+    ? Name extends (typeof TAURI_COMMAND_CONTRACTS)[Name]["name"]
+      ? never
+      : Name
+    : Name;
+}[TauriCommandName];
+
+const _tauriCommandContractNamesMatchKeys: ContractNameMismatches extends never ? true : never = true;
+void _tauriCommandContractNamesMatchKeys;
+
+function commandName<Name extends TauriCommandName>(name: Name): Name {
+  return TAURI_COMMAND_CONTRACTS[name].name as Name;
+}
+
 export const TAURI_COMMANDS = {
   appManager: {
-    scanInstalledApps: "scan_installed_apps",
-    launchApp: "launch_app",
-    revealAppInFinder: "reveal_app_in_finder",
-    checkManagedAppUpdates: "check_managed_app_updates",
-    upgradeApp: "upgrade_app",
-    uninstallApp: "uninstall_app",
-    getAppOperationHistory: "get_app_operation_history",
-    batchUpgradeApps: "batch_upgrade_apps",
-    batchUninstallApps: "batch_uninstall_apps",
-    refreshAppUpdates: "refresh_app_updates",
-    installApp: "install_app",
-    batchInstallApps: "batch_install_apps",
+    scanInstalledApps: commandName("scan_installed_apps"),
+    launchApp: commandName("launch_app"),
+    revealAppInFinder: commandName("reveal_app_in_finder"),
+    checkManagedAppUpdates: commandName("check_managed_app_updates"),
+    upgradeApp: commandName("upgrade_app"),
+    uninstallApp: commandName("uninstall_app"),
+    getAppOperationHistory: commandName("get_app_operation_history"),
+    batchUpgradeApps: commandName("batch_upgrade_apps"),
+    batchUninstallApps: commandName("batch_uninstall_apps"),
+    refreshAppUpdates: commandName("refresh_app_updates"),
+    installApp: commandName("install_app"),
+    batchInstallApps: commandName("batch_install_apps"),
   },
   devCleaner: {
-    scanDevProjects: "scan_dev_projects",
-    cleanupProjects: "cleanup_projects",
-    stopScan: "stop_scan",
+    scanDevProjects: commandName("scan_dev_projects"),
+    cleanupProjects: commandName("cleanup_projects"),
+    stopScan: commandName("stop_scan"),
   },
   envDetector: {
-    detectEnvTools: "detect_env_tools",
+    detectEnvTools: commandName("detect_env_tools"),
   },
   portManager: {
-    getSystemInfo: "get_system_info",
-    queryPortProcesses: "query_port_processes",
-    killProcesses: "kill_processes",
+    getSystemInfo: commandName("get_system_info"),
+    queryPortProcesses: commandName("query_port_processes"),
+    killProcesses: commandName("kill_processes"),
   },
 } as const;
+
+type FlattenCommandGroups<T> = {
+  [Group in keyof T]: T[Group] extends Record<string, infer Name> ? Name : never;
+}[keyof T];
+
+type TauriGroupedCommandName = FlattenCommandGroups<typeof TAURI_COMMANDS>;
+type MissingGroupedCommands = Exclude<TauriCommandName, TauriGroupedCommandName>;
+type ExtraGroupedCommands = Exclude<TauriGroupedCommandName, TauriCommandName>;
+
+const _tauriCommandGroupsCoverContracts:
+  [MissingGroupedCommands, ExtraGroupedCommands] extends [never, never] ? true : never = true;
+void _tauriCommandGroupsCoverContracts;
+
+type TauriCommandArgKeys = {
+  [Name in TauriCommandName]: TauriCommandContracts[Name]["args"] extends undefined
+    ? readonly []
+    : readonly Extract<keyof TauriCommandContracts[Name]["args"], string>[];
+};
+
+export const TAURI_COMMAND_ARG_KEYS = {
+  scan_installed_apps: [],
+  launch_app: ["appPath"],
+  reveal_app_in_finder: ["appPath"],
+  check_managed_app_updates: ["appIds"],
+  upgrade_app: ["appId"],
+  uninstall_app: ["appId"],
+  get_app_operation_history: ["appId"],
+  batch_upgrade_apps: ["appIds"],
+  batch_uninstall_apps: ["appIds"],
+  refresh_app_updates: ["appIds"],
+  install_app: ["appId", "installSource"],
+  batch_install_apps: ["items"],
+  scan_dev_projects: ["rootPath"],
+  cleanup_projects: ["projects"],
+  stop_scan: [],
+  detect_env_tools: [],
+  get_system_info: [],
+  query_port_processes: ["ports"],
+  kill_processes: ["pids"],
+} as const satisfies TauriCommandArgKeys;
 
 export const TAURI_EVENTS = {
   envDetector: {
@@ -56,88 +159,7 @@ export const TAURI_EVENTS = {
   },
 } as const;
 
-export interface TauriCommandContracts {
-  scan_installed_apps: {
-    args: undefined;
-    result: AppScanResult;
-  };
-  launch_app: {
-    args: { appPath: string };
-    result: void;
-  };
-  reveal_app_in_finder: {
-    args: { appPath: string };
-    result: void;
-  };
-  check_managed_app_updates: {
-    args: { appIds: string[] };
-    result: string[];
-  };
-  upgrade_app: {
-    args: { appId: string };
-    result: OperationResult;
-  };
-  uninstall_app: {
-    args: { appId: string };
-    result: OperationResult;
-  };
-  get_app_operation_history: {
-    args: { appId: string | null };
-    result: OperationRecord[];
-  };
-  batch_upgrade_apps: {
-    args: { appIds: string[] };
-    result: BatchOperationResult;
-  };
-  batch_uninstall_apps: {
-    args: { appIds: string[] };
-    result: BatchOperationResult;
-  };
-  refresh_app_updates: {
-    args: { appIds: string[] };
-    result: string[];
-  };
-  install_app: {
-    args: { appId: string; installSource: InstallSource };
-    result: OperationResult;
-  };
-  batch_install_apps: {
-    args: { items: { appId: string; installSource: InstallSource }[] };
-    result: BatchOperationResult;
-  };
-  scan_dev_projects: {
-    args: { rootPath: string };
-    result: ScanResult;
-  };
-  cleanup_projects: {
-    args: { projects: ProjectInfo[] };
-    result: CleanupResult;
-  };
-  stop_scan: {
-    args: undefined;
-    result: void;
-  };
-  detect_env_tools: {
-    args: undefined;
-    result: void;
-  };
-  get_system_info: {
-    args: undefined;
-    result: SystemInfoData;
-  };
-  query_port_processes: {
-    args: { ports: number[] };
-    result: PortProcessDetail[];
-  };
-  kill_processes: {
-    args: { pids: number[] };
-    result: KillPidResult[];
-  };
-}
-
 export interface TauriEventContracts {
   "env-scan-done": EnvScanDonePayload;
   "menu-event": string;
 }
-
-export type TauriCommandName = keyof TauriCommandContracts;
