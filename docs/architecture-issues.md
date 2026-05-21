@@ -36,6 +36,22 @@ App shell
 
 每一步都应保持小步提交，避免一次性移动过多文件导致难以回归。
 
+## 本轮已落地
+
+- `App.tsx` 已改为通过 feature registry 组合页面与刷新逻辑。
+- 页面级实现已迁入 `src/features/<feature>/page.tsx`。
+- feature store 已迁入各自目录，并继续下沉到 `services/use-cases`。
+- `src/components/features` 的兼容导出已删除。
+- `src/lib/tauri/commands` 与 `src/lib/tauri/types` 已按 feature 拆分。
+- `SystemInfoData` 已从 `port-manager` 命名空间独立出来。
+- Rust 侧 `lib.rs` 已拆出菜单与 command 注册模块。
+
+仍建议后续继续补强：
+
+- IPC schema / codegen 统一来源。
+- 更细的 feature 内 use-case 与 selector 分层。
+- Rust 后端更明确的 feature module 注册。
+
 ## 1. 应用壳层承担了特性调度职责
 
 **位置**
