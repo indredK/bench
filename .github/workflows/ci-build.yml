@@ -171,12 +171,16 @@ jobs:
       - name: List release assets
         run: ls -la release-assets/
 
-      - name: Create GitHub Release
+      - name: Create or update GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           shopt -s nullglob
-          gh release create "${{ github.ref_name }}" \
-            --title "Port Manager ${{ github.ref_name }}" \
-            --generate-notes \
-            release-assets/*
+          if gh release view "${{ github.ref_name }}" >/dev/null 2>&1; then
+            gh release upload "${{ github.ref_name }}" release-assets/* --clobber
+          else
+            gh release create "${{ github.ref_name }}" \
+              --title "Bench ${{ github.ref_name }}" \
+              --generate-notes \
+              release-assets/*
+          fi
