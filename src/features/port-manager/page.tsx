@@ -11,7 +11,7 @@ import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/component
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { Loader2, RefreshCw, Search, X } from "lucide-react";
-import { usePortManagerStore, PORT_SCAN_STATUS_META, type PortScanStatus } from "@/stores/port-manager";
+import { usePortManagerStore, PORT_SCAN_STATUS_META, type PortScanStatus } from "@/features/port-manager/store";
 import type { ProcessNode } from "@/lib/tauri/types";
 import { hasInvalidPortInputCharacters } from "@/features/port-manager/ports";
 import { DesktopOnly } from "@/components/common/DesktopOnly";

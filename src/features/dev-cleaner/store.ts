@@ -1,8 +1,10 @@
 import { create } from "zustand";
 import type { RowSelectionState, SortingState } from "@tanstack/react-table";
 import type { ScanResult, ProjectInfo } from "@/lib/tauri/types/dev-cleaner";
-import { devCleanerRepository } from "@/features/dev-cleaner/services/dev-cleaner.repository";
-import { isDesktopRuntime } from "@/platform/runtime";
+import {
+  devCleanerUseCases,
+  type CleanupMessage,
+} from "@/features/dev-cleaner/services/dev-cleaner.use-cases";
 
 export type FilterType = "all" | "nodejs" | "python" | "rust" | "go";
 
@@ -13,11 +15,6 @@ export const filterTypeMap: Record<Exclude<FilterType, "all">, ProjectInfo["proj
   rust: "Rust",
   go: "Go",
 };
-
-interface CleanupMessage {
-  type: "success" | "error";
-  text: string;
-}
 
 interface DevCleanerState {
   selectedPath: string;
@@ -74,7 +71,7 @@ export const useDevCleanerStore = create<DevCleanerState>((set, get) => ({
 
   handleSelectPath: async () => {
     try {
-      const selected = await devCleanerRepository.selectDirectory();
+      const selected = await devCleanerUseCases.selectDirectory();
       if (selected && typeof selected === "string") {
         set({ selectedPath: selected });
       }
@@ -89,7 +86,7 @@ export const useDevCleanerStore = create<DevCleanerState>((set, get) => ({
 
     set({ isScanning: true, showConfirm: false, showFilterOptions: true });
 
-    if (!isDesktopRuntime()) {
+    if (!devCleanerUseCases.isAvailable()) {
       set({
         cleanupMessage: {
           type: "error",
@@ -101,17 +98,12 @@ export const useDevCleanerStore = create<DevCleanerState>((set, get) => ({
     }
 
     try {
-      const result = await devCleanerRepository.scanProjects(selectedPath);
+      const result = await devCleanerUseCases.scanProjects(selectedPath);
       set({
         scanResult: result,
         selectedProjects: {},
         isScanning: false,
-        cleanupMessage: result.aborted
-          ? {
-              type: "success" as const,
-              text: `Scan stopped. Found ${result.total_projects} projects`,
-            }
-          : null,
+        cleanupMessage: devCleanerUseCases.createScanStoppedMessage(result),
       });
     } catch (error) {
       set({
@@ -126,7 +118,7 @@ export const useDevCleanerStore = create<DevCleanerState>((set, get) => ({
 
   handleStopScan: async () => {
     try {
-      await devCleanerRepository.stopScan();
+      await devCleanerUseCases.stopScan();
     } catch (error) {
       console.error("Failed to stop scan:", error);
     }
@@ -140,9 +132,8 @@ export const useDevCleanerStore = create<DevCleanerState>((set, get) => ({
     set({ showConfirm: false, isCleaningUp: true, cleanupMessage: null });
 
     try {
-      const projectsToCleanup =
-        scanResult?.projects.filter((project) => selectedProjects[project.path]) ?? [];
-      const result = await devCleanerRepository.cleanupProjects(projectsToCleanup);
+      const projectsToCleanup = devCleanerUseCases.getSelectedProjects(scanResult, selectedProjects);
+      const result = await devCleanerUseCases.cleanupProjects(projectsToCleanup);
 
       if (result.success) {
         set({

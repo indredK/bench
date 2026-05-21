@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { StickyTableText } from "@/components/ui/StickyTable";
 import { AppIcon } from "@/features/app-manager/components/AppIcon";
 import type { AppInfo } from "@/lib/tauri/types";
-import type { OperationStatus } from "@/stores/app-manager";
+import type { OperationStatus } from "@/features/app-manager/store";
 import { appManagerPlatformConfig } from "@/platform/config";
 
 const naturalTextComparator = new Intl.Collator(undefined, {

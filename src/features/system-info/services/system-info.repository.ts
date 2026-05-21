@@ -1,4 +1,4 @@
-import { getSystemInfo } from "@/lib/tauri/commands/port-manager";
+import { getSystemInfo } from "@/lib/tauri/commands/system-info";
 
 export const systemInfoRepository = {
   getSystemInfo,

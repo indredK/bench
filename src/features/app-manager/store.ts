@@ -3,71 +3,19 @@ import type { SortingState, Updater } from "@tanstack/react-table";
 import type { AppInfo, AppScanResult, BatchOperationResult, InstallListAppInfo, OperationRecord } from "@/lib/tauri/types/app-manager";
 import type { AppCategoryKey } from "@/features/app-manager/app-categories";
 import type { AppSeriesKey } from "@/features/app-manager/app-series";
-import { getRecommendedInstallList } from "@/features/app-manager/recommended-apps";
-import type { RecommendedAppInstallStatus } from "@/features/app-manager/recommended-apps";
-import { appManagerRepository } from "@/features/app-manager/services/app-manager.repository";
-import { isDesktopRuntime } from "@/platform/runtime";
+import { createInstallListApps } from "@/features/app-manager/model/install-list";
+import {
+  loadAppManagerPreferences,
+  loadAppManagerViewMode,
+  saveAppManagerPreferences,
+  saveAppManagerViewMode,
+  type AppFilterKey,
+} from "@/features/app-manager/model/preferences";
+import { appManagerUseCases } from "@/features/app-manager/services/app-manager.use-cases";
 
-export type AppFilterKey = "all" | "user" | "system" | "launchable" | "managed" | "upgradable" | "installList";
+export type { AppFilterKey };
 
-// ============================================================================
-// Preference Persistence (localStorage)
-// ============================================================================
-
-const PREF_KEY = "app-manager-preferences";
-
-interface PersistedPreferences {
-  activeFilter: AppFilterKey;
-  sorting: SortingState;
-}
-
-const VALID_FILTER_KEYS = new Set<AppFilterKey>([
-  "all",
-  "user",
-  "system",
-  "launchable",
-  "managed",
-  "upgradable",
-  "installList",
-]);
-
-function normalizeFilterKey(value: unknown): AppFilterKey {
-  if (value === "uninstalled") return "installList";
-  return typeof value === "string" && VALID_FILTER_KEYS.has(value as AppFilterKey)
-    ? value as AppFilterKey
-    : "all";
-}
-
-function loadPreferences(): PersistedPreferences {
-  try {
-    const raw = localStorage.getItem(PREF_KEY);
-    if (raw) {
-      const prefs = JSON.parse(raw) as Partial<PersistedPreferences> & { activeFilter?: unknown };
-      return {
-        activeFilter: normalizeFilterKey(prefs.activeFilter),
-        sorting: Array.isArray(prefs.sorting) ? prefs.sorting : [{ id: "name", desc: false }],
-      };
-    }
-  } catch { /* ignore */ }
-  return { activeFilter: "all", sorting: [{ id: "name", desc: false }] };
-}
-
-function savePreferences(prefs: PersistedPreferences) {
-  try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch { /* ignore */ }
-}
-
-const VIEW_MODE_KEY = "view-mode:app-manager";
-function loadViewMode(): "table" | "grid" {
-  try {
-    const s = localStorage.getItem(VIEW_MODE_KEY);
-    return s === "grid" ? "grid" : "table";
-  } catch { return "table"; }
-}
-function saveViewMode(m: "table" | "grid") {
-  try { localStorage.setItem(VIEW_MODE_KEY, m); } catch {}
-}
-
-const savedPrefs = loadPreferences();
+const savedPrefs = loadAppManagerPreferences();
 
 export const APP_FILTER_OPTIONS = [
   { key: "all" as const, labelKey: "appManager.filterAll" },
@@ -164,6 +112,9 @@ export interface AppManagerState {
   doInstall: (appId: string, appName: string, installSource: InstallListAppInfo["installSource"]) => Promise<void>;
   openInstallConfirmDialog: (appId: string, appName: string) => void;
   closeInstallConfirmDialog: () => void;
+  launchApp: (app: AppInfo) => Promise<void>;
+  revealApp: (app: AppInfo) => Promise<void>;
+  openExternal: (reference: string) => Promise<void>;
 
   // Batch operations
   toggleSelectApp: (appId: string) => void;
@@ -216,7 +167,7 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
   lastUpdateCheck: 0,
 
   // Three-column layout
-  viewMode: loadViewMode(),
+  viewMode: loadAppManagerViewMode(),
   selectedItem: null,
   filterPanelOpen: true,
 
@@ -228,14 +179,14 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
   setSearchQuery: (query) => set({ searchQuery: query }),
   setActiveFilter: (filter) => {
     set({ activeFilter: filter });
-    savePreferences({ activeFilter: filter, sorting: get().sorting });
+    saveAppManagerPreferences({ activeFilter: filter, sorting: get().sorting });
   },
   setCategoryFilter: (category) => set({ categoryFilter: category }),
   setSeriesFilter: (series) => set({ seriesFilter: series }),
   setSorting: (sorting: Updater<SortingState>) => {
     set((state) => {
       const next = typeof sorting === "function" ? sorting(state.sorting) : sorting;
-      savePreferences({ activeFilter: state.activeFilter, sorting: next });
+      saveAppManagerPreferences({ activeFilter: state.activeFilter, sorting: next });
       return { sorting: next };
     });
   },
@@ -245,12 +196,19 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
     if (loading) return;
     // Keep existing data visible while scanning — avoids white-screen flash
     set({ loading: true, error: "", selectedAppIds: new Set(), batchMode: false, batchResults: null });
-    if (!isDesktopRuntime()) { set({ scanned: true, loading: false }); return; }
+    if (!appManagerUseCases.isAvailable()) { set({ scanned: true, loading: false }); return; }
     try {
-      const result = await appManagerRepository.scanInstalledApps();
-      set({ apps: result.apps, result, scanned: true, loading: false, lastScanTime: result.lastScanTime, lastUpdateCheck: result.lastUpdateCheck });
+      const result = await appManagerUseCases.scanInstalledApps();
+      set({
+        apps: result.apps,
+        result,
+        scanned: true,
+        loading: false,
+        lastScanTime: result.lastScanTime,
+        lastUpdateCheck: result.lastUpdateCheck,
+        installListApps: createInstallListApps(result.apps),
+      });
       get().loadHistory();
-      get().refreshInstallList();
     } catch (e) {
       set({ apps: [], result: null, error: String(e) || "Failed to scan", scanned: true, loading: false });
     }
@@ -258,12 +216,9 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
 
   refreshUpdates: async () => {
     const { apps } = get();
-    if (!isDesktopRuntime() || apps.length === 0) return;
     try {
-      const managedIds = apps.filter((a) => a.canUpgrade).map((a) => a.appId);
-      if (managedIds.length === 0) return;
-      const updatableIds = await appManagerRepository.checkManagedAppUpdates(managedIds);
-      const updatableSet = new Set(updatableIds);
+      const updatableSet = await appManagerUseCases.findManagedAppUpdates(apps);
+      if (updatableSet.size === 0) return;
       set((state) => ({
         apps: state.apps.map((a) => ({ ...a, upgradeAvailable: updatableSet.has(a.appId) })),
       }));
@@ -272,24 +227,7 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
 
   refreshInstallList: () => {
     const { apps } = get();
-    const installList = getRecommendedInstallList(apps);
-    set({
-      installListApps: installList.map((app: RecommendedAppInstallStatus) => ({
-        _virtual: true as const,
-        id: app.id,
-        name: app.name,
-        bundleId: app.bundleIdPattern,
-        category: app.category,
-        series: app.series,
-        description: app.description,
-        installSource: app.installSource,
-        iconKey: app.iconKey,
-        installed: app.installed,
-        installedAppId: app.installedAppId,
-        installedVersion: app.installedVersion,
-        installedPath: app.installedPath,
-      })),
-    });
+    set({ installListApps: createInstallListApps(apps) });
   },
 
   // --- Single-item Operations ---
@@ -302,7 +240,7 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
     if (operations[appId]?.status === "running") return;
     setOperationStatus(appId, "running", "Upgrading...");
     try {
-      const result = await appManagerRepository.upgradeApp(appId);
+      const result = await appManagerUseCases.upgradeApp(appId);
       setOperationStatus(appId, result.success ? "success" : "error", result.message);
       if (result.success) setTimeout(() => setOperationStatus(appId, "idle"), 5000);
     } catch (e) {
@@ -317,7 +255,7 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
     if (operations[appId]?.status === "running") return;
     setOperationStatus(appId, "running", "Uninstalling...");
     try {
-      const result = await appManagerRepository.uninstallApp(appId);
+      const result = await appManagerUseCases.uninstallApp(appId);
       if (result.success) {
         setOperationStatus(appId, "success", result.message);
         setTimeout(() => get().scanApps(), 800);
@@ -344,7 +282,7 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
     if (installStates[appId]?.status === "running") return;
     setInstallState(appId, "running", "Installing...");
     try {
-      const result = await appManagerRepository.installApp(appId, installSource);
+      const result = await appManagerUseCases.installApp(appId, installSource);
       setInstallState(appId, result.success ? "success" : "error", result.message);
       if (result.success) {
         setTimeout(() => {
@@ -361,6 +299,26 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
     set({ installConfirmDialog: { open: true, appId, appName } }),
   closeInstallConfirmDialog: () =>
     set({ installConfirmDialog: { open: false, appId: "", appName: "" } }),
+
+  launchApp: async (app) => {
+    try {
+      await appManagerUseCases.launchApp(app);
+    } catch (e) {
+      console.warn("[AppManager] Failed to launch app:", e);
+    }
+  },
+
+  revealApp: async (app) => {
+    try {
+      await appManagerUseCases.revealApp(app);
+    } catch (e) {
+      console.warn("[AppManager] Failed to reveal app:", e);
+    }
+  },
+
+  openExternal: async (reference) => {
+    await appManagerUseCases.openExternal(reference);
+  },
 
   // --- Batch Selection ---
   toggleSelectApp: (appId: string) =>
@@ -393,7 +351,7 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
     if (ids.length === 0) return;
     set({ batchProgress: { running: true, current: 0, total: ids.length }, batchResults: null });
     try {
-      const result = await appManagerRepository.batchUpgradeApps(ids);
+      const result = await appManagerUseCases.batchUpgradeApps(ids);
       set({
         batchProgress: null,
         batchResults: result,
@@ -413,7 +371,7 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
     if (ids.length === 0) return;
     set({ batchProgress: { running: true, current: 0, total: ids.length }, batchResults: null });
     try {
-      const result = await appManagerRepository.batchUninstallApps(ids);
+      const result = await appManagerUseCases.batchUninstallApps(ids);
       set({
         batchProgress: null,
         batchResults: result,
@@ -430,15 +388,15 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
   // --- Layout ---
   setViewMode: (mode) => {
     set({ viewMode: mode });
-    saveViewMode(mode);
+    saveAppManagerViewMode(mode);
   },
   setSelectedItem: (item) => set({ selectedItem: item }),
   setFilterPanelOpen: (open) => set({ filterPanelOpen: open }),
 
   // --- History ---
   loadHistory: async () => {
-    if (!isDesktopRuntime()) return;
-    try { set({ history: await appManagerRepository.getAppOperationHistory() }); }
+    if (!appManagerUseCases.isAvailable()) return;
+    try { set({ history: await appManagerUseCases.loadHistory() }); }
     catch (e) { console.warn("[AppManager] Failed to load history:", e); }
   },
   setHistoryOpen: (open) => set({ historyOpen: open }),
@@ -451,7 +409,7 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
       historyOpen: false, selectedAppIds: new Set(), batchMode: false, batchProgress: null, batchResults: null,
       batchConfirmDialog: { open: false, action: "upgrade", count: 0 },
       lastScanTime: 0, lastUpdateCheck: 0,
-      viewMode: loadViewMode(), selectedItem: null, filterPanelOpen: true,
+      viewMode: loadAppManagerViewMode(), selectedItem: null, filterPanelOpen: true,
       installListApps: [], installStates: {}, installConfirmDialog: { open: false, appId: "", appName: "" },
     }),
 }));

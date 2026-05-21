@@ -1,8 +1,7 @@
 import { create } from "zustand";
 import type { PortProcessDetail } from "@/lib/tauri/types/port-manager";
 import { parsePortsFromInput } from "@/features/port-manager/ports";
-import { portManagerRepository } from "@/features/port-manager/services/port-manager.repository";
-import { isDesktopRuntime } from "@/platform/runtime";
+import { portManagerUseCases } from "@/features/port-manager/services/port-manager.use-cases";
 
 export const DEFAULT_MAX_PORTS = 20;
 
@@ -130,7 +129,7 @@ export const usePortManagerStore = create<PortManagerState>((set, get) => ({
   },
 
   doScan: async (portsToScan) => {
-    if (!isDesktopRuntime()) {
+    if (!portManagerUseCases.isAvailable()) {
       set({ error: "Port scanning is only available in the desktop app" });
       return;
     }
@@ -163,7 +162,7 @@ export const usePortManagerStore = create<PortManagerState>((set, get) => ({
       }));
 
       try {
-        const details = await portManagerRepository.queryPortProcesses([port]);
+        const details = await portManagerUseCases.queryPortProcesses([port]);
 
         if (get().scanSession !== sessionId) {
           set((state) => ({
@@ -201,10 +200,8 @@ export const usePortManagerStore = create<PortManagerState>((set, get) => ({
   killPort: async (port, pids) => {
     set({ error: "", killing: true });
     try {
-      const result = await portManagerRepository.killProcesses(pids);
-      const messages = result.map((r) =>
-        r.success ? `PID ${r.pid} killed` : `PID ${r.pid}: ${r.message}`
-      );
+      const result = await portManagerUseCases.killProcesses(pids);
+      const messages = portManagerUseCases.createKillMessages(result);
       set((state) => ({
         portKillMessages: { ...state.portKillMessages, [port]: messages },
       }));
@@ -222,15 +219,8 @@ export const usePortManagerStore = create<PortManagerState>((set, get) => ({
     try {
       const allPids = portDetails.flatMap((d) => d.pids);
       const portsToRescan = portDetails.map((d) => d.port);
-      const result = await portManagerRepository.killProcesses(allPids);
-      const killMessages: Record<number, string[]> = {};
-      for (const r of result) {
-        const message = r.success ? `PID ${r.pid} killed` : `PID ${r.pid}: ${r.message}`;
-        const port = portDetails.find((d) => d.pids.includes(r.pid));
-        if (port) {
-          killMessages[port.port] = [...(killMessages[port.port] || []), message];
-        }
-      }
+      const result = await portManagerUseCases.killProcesses(allPids);
+      const killMessages = portManagerUseCases.groupKillMessagesByPort(result, portDetails);
       set({ portKillMessages: killMessages });
       if (portsToRescan.length > 0) {
         get().doScan(portsToRescan);

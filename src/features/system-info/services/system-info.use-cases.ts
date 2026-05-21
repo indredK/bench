@@ -1,17 +1,16 @@
-import { create } from "zustand";
-import type { SystemInfoData } from "@/lib/tauri/types/port-manager";
-import { systemInfoRepository } from "@/features/system-info/services/system-info.repository";
+import type { SystemInfoData } from "@/lib/tauri/types/system-info";
 import { isDesktopRuntime } from "@/platform/runtime";
+import { systemInfoRepository } from "@/features/system-info/services/system-info.repository";
 
-interface SystemInfoState {
-  loading: boolean;
-  systemInfo: SystemInfoData | null;
-  error: string;
-  fetched: boolean;
+export const systemInfoUseCases = {
+  async loadSystemInfo(): Promise<SystemInfoData> {
+    if (isDesktopRuntime()) {
+      return systemInfoRepository.getSystemInfo();
+    }
 
-  loadSystemInfo: () => Promise<void>;
-  reset: () => void;
-}
+    return getBrowserInfo();
+  },
+};
 
 function getBrowserInfo(): SystemInfoData {
   const ua = navigator.userAgent;
@@ -64,31 +63,3 @@ function getBrowserInfo(): SystemInfoData {
     screen_resolution: `${window.screen.width} x ${window.screen.height}`,
   };
 }
-
-export const useSystemInfoStore = create<SystemInfoState>((set) => ({
-  loading: true,
-  systemInfo: null,
-  error: "",
-  fetched: false,
-
-  loadSystemInfo: async () => {
-    set({ loading: true, error: "" });
-    try {
-      if (isDesktopRuntime()) {
-        const info = await systemInfoRepository.getSystemInfo();
-        set({ systemInfo: info, loading: false, fetched: true });
-      } else {
-        const browserInfo = getBrowserInfo();
-        set({ systemInfo: browserInfo, loading: false, fetched: true });
-      }
-    } catch (e) {
-      set({
-        error: typeof e === "string" ? e : "Failed to load system info",
-        loading: false,
-        fetched: true,
-      });
-    }
-  },
-
-  reset: () => set({ loading: true, systemInfo: null, error: "", fetched: false }),
-}));

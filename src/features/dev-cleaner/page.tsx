@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/DataTable";
 import { createDevCleanerColumns } from "@/features/dev-cleaner/columns";
 import { formatSize } from "@/lib/utils";
-import { useDevCleanerStore, filterTypeMap, type FilterType } from "@/stores/dev-cleaner";
+import { useDevCleanerStore, filterTypeMap, type FilterType } from "@/features/dev-cleaner/store";
 import {
   AlertTriangle,
   ChevronDown,

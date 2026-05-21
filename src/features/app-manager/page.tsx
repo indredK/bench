@@ -27,19 +27,17 @@ import { ThreeColumnLayout } from "@/components/layout/ThreeColumnLayout";
 import { FilterPanel } from "@/components/layout/FilterPanel";
 import { DetailPanel, MetadataRow, DetailSection } from "@/components/layout/DetailPanel";
 import { ContentView } from "@/components/content/ContentView";
-import { useAppManagerStore, APP_FILTER_OPTIONS, type OperationStatus } from "@/stores/app-manager";
+import { useAppManagerStore, APP_FILTER_OPTIONS, type OperationStatus } from "@/features/app-manager/store";
 import { createAppManagerColumns } from "@/features/app-manager/columns";
 import { CategoryFilter, type CategorizableItem } from "@/features/app-manager/CategoryFilter";
-import { classifyApp } from "@/features/app-manager/app-categories";
-import { classifySeries } from "@/features/app-manager/app-series";
 import { AppIcon } from "@/features/app-manager/components/AppIcon";
+import { filterAppManagerItems } from "@/features/app-manager/model/selectors";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { AppInfo, InstallListAppInfo } from "@/lib/tauri/types";
 import { appManagerPlatformConfig } from "@/platform/config";
 import { useContextMenuRegistration } from "@/features/context-menu/useContextMenuRegistration";
 import type { ContextMenuConfig, ContextMenuRegistration } from "@/features/context-menu/types";
 import { DesktopOnly } from "@/components/common/DesktopOnly";
-import { appManagerRepository } from "@/features/app-manager/services/app-manager.repository";
 import { isDesktopRuntime } from "@/platform/runtime";
 
 // --- Error Boundary for AppManager ---
@@ -121,6 +119,9 @@ function AppManager({ active }: { active: boolean }) {
   const doInstall = useAppManagerStore((s) => s.doInstall);
   const openInstallConfirmDialog = useAppManagerStore((s) => s.openInstallConfirmDialog);
   const closeInstallConfirmDialog = useAppManagerStore((s) => s.closeInstallConfirmDialog);
+  const launchApp = useAppManagerStore((s) => s.launchApp);
+  const revealApp = useAppManagerStore((s) => s.revealApp);
+  const openExternal = useAppManagerStore((s) => s.openExternal);
 
   const [selectedInstallIds, setSelectedInstallIds] = useState<Set<string>>(new Set());
   const [installBatchMode, setInstallBatchMode] = useState(false);
@@ -163,52 +164,25 @@ function AppManager({ active }: { active: boolean }) {
   }, []);
 
   const filteredApps = useMemo(() => {
-    if (activeFilter === "installList") {
-      let result = installListApps;
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        result = result.filter(
-          (app) =>
-            app.name.toLowerCase().includes(q) ||
-            app.description.toLowerCase().includes(q)
-        );
-      }
-      if (categoryFilter) {
-        result = result.filter((app) => app.category === categoryFilter);
-      }
-      if (seriesFilter) {
-        result = result.filter((app) => app.series === seriesFilter);
-      }
-      return result;
-    }
-
-    return apps.filter((app) => {
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        if (!app.name.toLowerCase().includes(q) && !app.installPath.toLowerCase().includes(q) && !app.bundleId.toLowerCase().includes(q)) return false;
-      }
-      switch (activeFilter) {
-        case "user": if (app.isSystemApp) return false; break;
-        case "system": if (!app.isSystemApp) return false; break;
-        case "launchable": if (!app.allowedActions.launch) return false; break;
-        case "managed": if (!app.canUpgrade && !app.canUninstall) return false; break;
-        case "upgradable": if (!app.upgradeAvailable) return false; break;
-      }
-      if (categoryFilter && classifyApp(app) !== categoryFilter) return false;
-      if (seriesFilter && classifySeries(app) !== seriesFilter) return false;
-      return true;
+    return filterAppManagerItems({
+      apps,
+      installListApps,
+      searchQuery,
+      activeFilter,
+      categoryFilter,
+      seriesFilter,
     });
   }, [apps, installListApps, searchQuery, activeFilter, categoryFilter, seriesFilter]);
 
   const handleLaunch = useCallback(async (app: AppInfo) => {
     if (!isTauriEnv()) return;
-    try { await appManagerRepository.launchApp(app.installPath); } catch (e) { console.warn(e); }
-  }, []);
+    await launchApp(app);
+  }, [launchApp]);
 
   const handleReveal = useCallback(async (app: AppInfo) => {
     if (!isTauriEnv()) return;
-    try { await appManagerRepository.revealAppInFinder(app.installPath); } catch (e) { console.warn(e); }
-  }, []);
+    await revealApp(app);
+  }, [revealApp]);
 
   const handleUpgradeFromColumn = useCallback((app: AppInfo) => {
     openConfirmDialog(app.appId, app.name, "upgrade");
@@ -387,12 +361,8 @@ function AppManager({ active }: { active: boolean }) {
 
   const handleOpenWebsite = useCallback((url: string | undefined) => {
     if (!url) return;
-    if (isTauriEnv()) {
-      appManagerRepository.openExternal(url);
-    } else {
-      window.open(url, "_blank", "noopener,noreferrer");
-    }
-  }, []);
+    void openExternal(url);
+  }, [openExternal]);
 
   const installListColumns = useMemo(() => {
     return [

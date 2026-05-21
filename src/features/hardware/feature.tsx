@@ -1,5 +1,5 @@
 import { Cpu } from "lucide-react";
-import HardwareComparePage from "@/components/pages/HardwareComparePage";
+import HardwareComparePage from "@/features/hardware/page";
 import type { AppFeature } from "@/features/types";
 
 export const hardwareFeature: AppFeature = {

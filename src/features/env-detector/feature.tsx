@@ -1,6 +1,6 @@
 import { Box } from "lucide-react";
 import EnvDetector from "@/features/env-detector/page";
-import { useEnvDetectorStore } from "@/stores/env-detector";
+import { useEnvDetectorStore } from "@/features/env-detector/store";
 import type { AppFeature } from "@/features/types";
 
 export const envDetectorFeature: AppFeature = {

@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Card, CardHeader, CardTitle, CardContent, CardAction } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useSystemInfoStore } from "@/stores/system-info";
+import { useSystemInfoStore } from "@/features/system-info/store";
 import { formatMemory, formatUptime } from "@/lib/utils";
 
 function SystemInfo({ active }: { active: boolean }) {

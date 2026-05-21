@@ -1,8 +1,7 @@
 import { create } from "zustand";
 import type { SortingState, Updater } from "@tanstack/react-table";
 import type { EnvTool } from "@/lib/tauri/types/env-detector";
-import { envDetectorRepository } from "@/features/env-detector/services/env-detector.repository";
-import { isDesktopRuntime } from "@/platform/runtime";
+import { envDetectorUseCases } from "@/features/env-detector/services/env-detector.use-cases";
 
 interface EnvDetectorState {
   tools: EnvTool[];
@@ -69,13 +68,13 @@ export const useEnvDetectorStore = create<EnvDetectorState>((set, get) => ({
 
     set({ loading: true, scanning: true, error: "", tools: [] });
 
-    if (!isDesktopRuntime()) {
+    if (!envDetectorUseCases.isAvailable()) {
       set({ scanned: true, loading: false, scanning: false });
       return;
     }
 
     try {
-      const payload = await envDetectorRepository.scanEnvTools();
+      const payload = await envDetectorUseCases.scanEnvTools();
       set({
         tools: [...payload.tools, ...payload.unavailable],
         loading: false,

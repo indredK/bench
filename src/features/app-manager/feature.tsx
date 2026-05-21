@@ -1,6 +1,6 @@
 import { AppWindow } from "lucide-react";
 import AppManager from "@/features/app-manager/page";
-import { useAppManagerStore } from "@/stores/app-manager";
+import { useAppManagerStore } from "@/features/app-manager/store";
 import type { AppFeature } from "@/features/types";
 
 export const appManagerFeature: AppFeature = {

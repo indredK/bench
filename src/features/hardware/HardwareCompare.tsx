@@ -4,10 +4,10 @@ import { Plus } from "lucide-react";
 import {
   TooltipProvider,
 } from "@/components/ui/tooltip";
-import FilterBar from "@/components/features/FilterBar";
+import FilterBar from "@/features/compare/FilterBar";
 import type { CompareDataModule } from "@/features/compare/types";
 import { CompareMatrixTable } from "@/features/compare/CompareMatrixTable";
-import { useHardwareCompareStore } from "@/stores/hardware-compare";
+import { useHardwareCompareStore } from "@/features/hardware/store";
 
 interface HardwareCompareProps<T extends { id: string; model: string }> {
   module: CompareDataModule<T>;
