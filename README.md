@@ -1,322 +1,136 @@
-# Bench - DevTools
+# Bench - DevTools / 开发者工具
 
-> A cross-platform desktop developer utility for managing network ports and viewing system information.
+> A cross-platform desktop utility for managing network ports, system info, app management, and dev cleanup.
+> 跨平台桌面开发者工具：端口管理、系统信息、应用管理、开发垃圾清理。
 
-Bench is a [Tauri v2](https://v2.tauri.app/) desktop application that helps developers quickly identify and terminate processes occupying network ports during local development. It also provides a real-time system information viewer for hardware and OS details.
+Built with [Tauri v2](https://v2.tauri.app/) + [React 18](https://react.dev/) + [Rust](https://www.rust-lang.org/).
 
-## Features
+---
 
-### Port Management
+## Features / 功能
 
-- **Flexible Port Input** - Support multiple input formats:
-  - Single port: `3000`
-  - Port range: `3000-4000`
-  - Comma-separated: `3000,8080,9000`
-  - Mixed format: `3000,8080,9000-9010`
-- **Common Port Quick-Add** - One-click buttons for frequently used ports (3000, 5173, 1420, 8080, 5000, 4200, 8000, 4321, 6006, 1234, 9000)
-- **Live Port Preview** - Visual tag display showing parsed ports as grouped ranges (e.g. `3000`, `5173`, `8080-9000`)
-- **Detailed Results** - Color-coded success/failure status per port with process information
-- **Keyboard Shortcut Support** - Press `Enter` to submit
+| Module / 模块 | Description / 描述 |
+| :--- | :--- |
+| **Port Manager / 端口管理** | Multi-format port input (single/range/comma), common port quick-add, live preview, kill processes with status feedback. 支持多种输入格式、常用端口一键添加、实时预览、结束进程并反馈状态。 |
+| **System Info / 系统信息** | Native hardware & OS details via Rust backend (CPU, memory, kernel, hostname); browser fallback mode. 通过 Rust 后端获取原生系统详情，支持浏览器回退模式。 |
+| **App Manager / 应用管理** | Cross-platform installed app discovery (macOS/Windows/Linux), source identification, batch upgrade/uninstall with safety gates. 跨平台应用发现、来源识别、批量升级/卸载及安全保护。 |
+| **Dev Cleaner / 垃圾清理** | Scan workspace directories for build artifacts (`node_modules`, `target`, `.venv`, `dist`, etc.), batch cleanup. 扫描工作区目录中的构建产物，支持批量清理回收空间。 |
+| **Hardware Compare / 硬件查询** | Query and compare hardware specifications across devices. 查询和对比不同设备的硬件规格。 |
+| **Env Detector / 环境检测** | Detect installed development tools (runtimes, package managers, etc.). 检测已安装的开发工具和运行环境。 |
+| **i18n / 国际化** | English & Simplified Chinese, instant switch without restart. 中英文双语，无需重启即时切换。 |
 
-### System Information
+---
 
-- **Native Mode** (Tauri) - Full hardware and OS details via Rust backend:
-  - Operating system name and version
-  - Kernel version
-  - Hostname
-  - CPU brand and core count
-  - Memory statistics (total, available, used, usage percentage)
-- **Browser Fallback Mode** - When running outside Tauri, displays:
-  - Browser name and version (Firefox, Chrome, Safari, Edge)
-  - Platform detection
-  - System language
-  - Screen resolution
-- **Refresh & Retry** - Refresh data on demand or retry on error
+## Tech Stack / 技术栈
 
-### Dev Cleaner
+| Layer / 层 | Technology / 技术 |
+| :--- | :--- |
+| Desktop Framework | [Tauri v2](https://v2.tauri.app/) |
+| Frontend / 前端 | [React 18](https://react.dev/), [TypeScript 5](https://www.typescriptlang.org/), [TailwindCSS 3](https://tailwindcss.com/), [shadcn/ui](https://ui.shadcn.com/) |
+| Bundler / 构建 | [Vite 6](https://vitejs.dev/) |
+| Backend / 后端 | [Rust](https://www.rust-lang.org/) (edition 2021) |
+| State / 状态管理 | [Zustand](https://zustand.docs.pmnd.rs/) |
+| Routing / 路由 | [Wouter](https://github.com/molefrog/wouter) |
+| i18n | [i18next](https://www.i18next.com/) + [react-i18next](https://react.i18next.com/) |
+| Testing / 测试 | [Vitest](https://vitest.dev/), [Testing Library](https://testing-library.com/) |
+| CI/CD | GitHub Actions (4 targets: macOS Intel/Apple Silicon, Windows, Linux) |
 
-- **Workspace Scan** - Detect developer projects and heavy build artifacts under a chosen folder
-- **Safe Cleanup Rules** - Only removes regenerable directories such as `node_modules`, `target`, `.venv`, `venv`, `vendor`, `dist`, `.next`, `.nuxt`, `build`, and `.cache`
-- **Cross-Platform Path Safety** - Cleanup targets are resolved in the Rust backend to avoid frontend path drift across macOS, Windows, and Linux
-- **Batch Cleanup** - Select multiple projects and clear reclaimable space in one action
+---
 
-### App Manager <sup>new</sup>
+## Quick Start / 快速开始
 
-Manage installed applications across macOS, Windows, and Linux:
+### Prerequisites / 环境要求
 
-- **Cross-Platform App Discovery** - Scan installed applications from macOS `/Applications`, Windows Registry, and Linux Desktop Entries
-- **Source Identification** - Automatic source detection with confidence scoring (Homebrew Cask, winget, Flatpak, Snap, APT)
-- **Managed App Operations** - Upgrade and uninstall applications via their native package managers with confirmation dialogs
-- **Batch Management** - Select multiple safe targets and perform batch upgrades or uninstalls with result summaries
-- **Operation Locking & Audit Trail** - Prevents concurrent modifications on the same app and keeps a full operation history with error codes
-- **Smart Safety Gating** - System applications and unknown-source apps are explicitly protected from uninstallation
+- **Node.js** ≥ 18 (recommended v22)
+- **Rust** latest stable → [rustup.rs](https://rustup.rs/)
+- **Platform deps / 平台依赖**:
+  - **macOS**: `xcode-select --install`
+  - **Linux**: `libwebkit2gtk-4.1-dev libgtk-3-dev libsoup-3.0-dev` etc.
+  - **Windows**: [VC++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) + WebView2
 
-### Internationalization
-
-Full support for **English** and **Simplified Chinese** with a built-in language switcher in the header bar. UI language can be changed instantly without restarting the application.
-
-### Cross-Platform
-
-Runs on **macOS**, **Windows**, and **Linux** with platform-native behavior. App Manager adapts to each platform's package manager ecosystem automatically.
-
-## Technology Stack
-
-| Layer       | Technology                                                                 |
-| ----------- | -------------------------------------------------------------------------- |
-| Desktop FW  | [Tauri v2](https://v2.tauri.app/)                                         |
-| Frontend    | [React 18](https://react.dev/), [TypeScript 5](https://www.typescriptlang.org/) |
-| Bundler     | [Vite 6](https://vitejs.dev/)                                             |
-| Backend     | [Rust](https://www.rust-lang.org/) (edition 2021)                         |
-| i18n        | [i18next](https://www.i18next.com/) + [react-i18next](https://react.i18next.com/) |
-| CI/CD       | GitHub Actions (4 build targets + automated releases)                     |
-
-## Screenshots
-
-| Port Manager | System Info |
-| :----------: | :---------: |
-| ![Port Manager](https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=Developer+desktop+app+showing+port+management+interface+with+input+field+common+port+buttons+and+kill+button+on+a+light+modern+macOS+like+UI&image_size=landscape_4_3) | ![System Info](https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=Developer+desktop+app+showing+system+information+panel+with+OS+name+CPU+memory+usage+on+a+light+modern+macOS+like+UI&image_size=landscape_4_3) |
-
-## Getting Started
-
-### Prerequisites
-
-Before you begin, ensure you have the following installed:
-
-- **Node.js** v18 or later (recommended: v22)
-- **Rust** (latest stable) - [Install via rustup](https://rustup.rs/)
-- **System dependencies** (platform-specific):
-
-<details>
-<summary><b>macOS</b></summary>
-
-No additional dependencies required. Xcode Command Line Tools are recommended:
+### Development / 开发
 
 ```bash
-xcode-select --install
+npm install        # Install deps / 安装依赖
+npm run dev        # Start Tauri dev with HMR / 启动 Tauri 开发模式（热更新）
 ```
-</details>
 
-<details>
-<summary><b>Linux (Ubuntu/Debian)</b></summary>
+Dev server runs at `http://localhost:1420`.
+
+### Build / 构建
 
 ```bash
-sudo apt-get update
-sudo apt-get install -y \
-  libwebkit2gtk-4.1-dev \
-  libappindicator3-dev \
-  librsvg2-dev \
-  patchelf \
-  libgtk-3-dev \
-  libsoup-3.0-dev \
-  libjavascriptcoregtk-4.1-dev
-```
-</details>
-
-<details>
-<summary><b>Windows</b></summary>
-
-- Install [Microsoft Visual Studio C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
-- Install [WebView2](https://developer.microsoft.com/en-us/microsoft-edge/webview2/) (pre-installed on Windows 10 version 1803+)
-</details>
-
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/your-username/bench.git
-cd bench
-
-# Install frontend dependencies
-npm install
+npm run build      # Production build for current platform / 当前平台生产构建
 ```
 
-### Development
-
-Run the app in development mode with hot module replacement:
-
-```bash
-npm run tauri:dev
-```
-
-This will start the Vite dev server on `http://localhost:1420` and launch the Tauri desktop window.
-
-### Verification
-
-Run the local verification steps before shipping changes:
-
-```bash
-npm run test
-npm run test:rust
-npm run build
-```
-
-GitHub Actions also runs the verification matrix on **macOS**, **Windows**, and **Linux**, then performs tagged release builds for the platform bundles.
-
-### Build for Production
-
-```bash
-# Build the Tauri desktop application for the current platform
-npm run tauri build
-```
-
-The packaged installers will be available in `src-tauri/target/release/bundle/`:
+Outputs in `src-tauri/target/release/bundle/`:
 - **macOS**: `.dmg`
 - **Windows**: `.msi` / `.exe`
 - **Linux**: `.deb` / `.AppImage`
 
-## Usage Guide
+### Test / 测试
 
-### Killing Port Processes
+```bash
+npm run test       # Frontend + Backend tests / 前后端测试
+```
 
-1. Launch the application and navigate to the **Port Manager** tab (default).
-2. Enter target port(s) in the input field. Examples:
+---
 
-   ```
-   3000                        # Single port
-   3000-4000                   # Port range
-   3000,8080,9000              # Comma-separated
-   3000,8080,9000-9010         # Mixed format
-   ```
-
-3. Alternatively, click any **common port button** to add it to the input.
-4. Review the **port preview** to confirm the ports to be terminated.
-5. Click **"End Port Process(es)"** or press `Enter`.
-6. Review the **results** - each port shows a success (green) or failure (red) status with details.
-
-### Viewing System Information
-
-1. Click **System Info** in the sidebar.
-2. The system information will load automatically and display:
-   - Operating System details
-   - CPU information
-   - Memory usage statistics
-3. Click **Refresh** to update the data.
-
-### Cleaning Development Artifacts
-
-1. Click **Dev Cleaner** in the sidebar.
-2. Choose a workspace directory to scan.
-3. Review the detected projects and reclaimable size.
-4. Select one or more projects and confirm cleanup.
-5. The backend will remove only recognized cleanup directories for the detected project type.
-
-### Switching Language
-
-Click the language toggle button in the top-right corner of the header bar to switch between English and Chinese.
-
-## Project Structure
+## Project Structure / 项目结构
 
 ```
 bench/
-├── src/                          # React frontend
+├── src/                           # React Frontend / 前端
 │   ├── components/
-│   │   ├── features/             # Feature pages
-│   │   │   ├── AppManager.tsx    # App Manager page (cross-platform)
-│   │   │   ├── PortManager.tsx   # Port killing UI
-│   │   │   ├── DevCleaner.tsx    # Dev project cleaner
-│   │   │   ├── SystemInfo.tsx    # System information display
-│   │   │   └── EnvDetector.tsx   # Environment tool detection
-│   │   ├── layout/
-│   │   │   └── Sidebar.tsx       # Navigation sidebar
-│   │   └── ui/                   # Reusable UI components
-│   ├── features/
-│   │   └── app-manager/
-│   │       └── columns.tsx       # App Manager table columns
-│   ├── stores/
-│   │   └── app-manager.ts        # App Manager state (Zustand)
-│   ├── lib/tauri/
-│   │   ├── commands.ts           # Tauri command bindings
-│   │   └── types.ts              # Shared type definitions
-│   ├── i18n/
-│   │   ├── config.ts             # i18next initialization
-│   │   └── locales/
-│   │       ├── en.json           # English translations
-│   │       └── zh.json           # Chinese translations
-│   ├── App.tsx                   # Root component with routing
-│   └── main.tsx                  # Application entry point
-├── src-tauri/                    # Rust backend
-│   ├── src/
-│   │   ├── app_manager/          # Cross-platform app management
-│   │   │   ├── mod.rs            # Shared types + command dispatch
-│   │   │   ├── macos.rs          # macOS: Homebrew + .app scanner
-│   │   │   ├── windows.rs        # Windows: Registry + winget
-│   │   │   └── linux.rs          # Linux: Desktop entries + multi-pm
-│   │   ├── dev_cleaner.rs        # Dev project scanner/cleaner
-│   │   ├── env_detector.rs       # Environment tool detection
-│   │   ├── port_manager.rs       # Port + system info logic
-│   │   └── lib.rs                # Command registration
-│   ├── icons/                    # Application icons
-│   └── tauri.conf.json           # Tauri configuration
-├── docs/app-manager-roadmap/     # App Manager development roadmap
-├── .github/workflows/
-│   └── ci-build.yml              # CI build & release pipeline
-├── package.json
-├── vite.config.ts
-└── tsconfig.json
+│   │   ├── features/              # Feature pages / 功能页面
+│   │   │   ├── PortManager.tsx    # Port kill / 端口管理
+│   │   │   ├── AppManager.tsx     # App management / 应用管理
+│   │   │   ├── DevCleaner.tsx     # Dev cleanup / 垃圾清理
+│   │   │   ├── SystemInfo.tsx     # System info / 系统信息
+│   │   │   └── EnvDetector.tsx    # Environment detection / 环境检测
+│   │   ├── layout/Sidebar.tsx     # Navigation sidebar / 侧边栏
+│   │   └── ui/                    # Shared UI components / 通用 UI 组件
+│   ├── features/app-manager/      # App Manager domain / 应用管理领域
+│   ├── stores/app-manager.ts      # App Manager state (Zustand)
+│   ├── lib/tauri/                 # Tauri IPC bindings / IPC 绑定
+│   │   ├── commands.ts            # Command wrappers / 命令封装
+│   │   └── types.ts               # Shared types / 共享类型
+│   ├── i18n/                      # Internationalization / 国际化
+│   │   └── locales/{en,zh}.json  # Language packs / 语言包
+│   ├── App.tsx                    # Root component with routing / 根组件
+│   └── main.tsx                   # Entry point / 入口
+├── src-tauri/                     # Rust Backend / 后端
+│   └── src/
+│       ├── app_manager/           # Platform-specific app mgmt / 平台应用管理
+│       │   ├── mod.rs, macos.rs, windows.rs, linux.rs
+│       ├── port_manager.rs        # Port & system info / 端口与系统信息
+│       ├── dev_cleaner.rs         # Dev artifact cleaner / 构建产物清理
+│       ├── env_detector.rs        # Environment detection / 环境检测
+│       └── lib.rs                 # Command registration / 命令注册
+├── .github/workflows/ci-build.yml # CI/CD pipeline
+└── package.json
 ```
 
-## Configuration
+---
 
-### Tauri Settings
+## Configuration / 配置
 
-Key configuration from [tauri.conf.json](src-tauri/tauri.conf.json):
+Key settings in `src-tauri/tauri.conf.json`:
 
-| Setting               | Value                               |
-| --------------------- | ----------------------------------- |
-| App Identifier        | `com.bench.app`               |
-| Version               | `1.0.0`                             |
-| Window Size           | 960 x 680                           |
-| Min Window Size       | 800 x 500                           |
-| Dev Server            | `http://localhost:1420`             |
-| Dev HMR Port          | 1421                                |
-| Bundle Targets        | dmg, msi, deb, AppImage             |
+| Setting / 配置项 | Value / 值 |
+| :--- | :--- |
+| App ID | `com.bench.app` |
+| Window Size / 窗口大小 | 960 × 680 (min 800 × 500) |
+| Dev Server | `http://localhost:1420` |
+| Bundle Targets / 打包目标 | dmg, msi, deb, AppImage |
 
-### Environment Variables
+---
 
-| Variable        | Purpose                          |
-| --------------- | -------------------------------- |
-| `TAURI_DEV_HOST` | Set to enable network-accessible dev server |
+## License / 许可证
 
-## CI/CD Pipeline
+MIT - see [LICENSE](LICENSE)
 
-This project uses GitHub Actions for continuous integration and delivery:
+## Acknowledgments / 致谢
 
-### CI Build & Release (`ci-build.yml`)
-
-Triggered on version tag pushes (`v*.*.*`). Builds for 4 targets in parallel and publishes a GitHub Release:
-
-| Target                   | Platform                     |
-| ------------------------ | ---------------------------- |
-| `aarch64-apple-darwin`   | Apple Silicon (M1/M2/M3) Mac |
-| `x86_64-apple-darwin`    | Intel Mac                    |
-| `x86_64-pc-windows-msvc` | Windows                      |
-| `x86_64-unknown-linux-gnu` | Linux                      |
-
-## Contributing
-
-We welcome contributions! Please follow these guidelines:
-
-1. **Fork** the repository.
-2. **Create a feature branch** (`git checkout -b feature/amazing-feature`).
-3. **Commit your changes** (`git commit -m 'Add amazing feature'`).
-4. **Push to the branch** (`git push origin feature/amazing-feature`).
-5. **Open a Pull Request**.
-
-### Development Tips
-
-- Ensure Rust and Node.js are installed before starting.
-- Run `npm run tauri:dev` for development with hot reload.
-- Run `npm run build` to verify TypeScript compilation and frontend build.
-- On Windows, some port numbers may be in use by system processes and require administrator privileges.
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- [Tauri](https://tauri.app/) - Desktop application framework
-- [React](https://react.dev/) - UI library
-- [Vite](https://vitejs.dev/) - Build tool
-- [i18next](https://www.i18next.com/) - Internationalization framework
-- [sysinfo](https://github.com/GuillaumeGomez/sysinfo) - Rust system information crate
+- [Tauri](https://tauri.app/) · [React](https://react.dev/) · [Vite](https://vitejs.dev/)
+- [sysinfo](https://github.com/GuillaumeGomez/sysinfo) · [i18next](https://www.i18next.com/) · [shadcn/ui](https://ui.shadcn.com/)
