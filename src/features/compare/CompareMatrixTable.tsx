@@ -7,8 +7,6 @@ import {
   type ColumnDef,
 } from "@tanstack/react-table";
 import { ExternalLink, X } from "lucide-react";
-import { open } from "@tauri-apps/plugin-shell";
-import { isTauri } from "@tauri-apps/api/core";
 import { Button } from "@/components/ui/button";
 import {
   StickyTable,
@@ -26,6 +24,7 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { SpecRow } from "@/features/compare/types";
+import { openExternal } from "@/platform/shell";
 
 interface CompareMatrixRowContext {
   rowId: string;
@@ -140,7 +139,7 @@ function CompareMatrixValueCell<T extends { id: string; model: string }>({
               className="shrink-0 cursor-pointer text-muted-foreground/40 transition-colors hover:text-muted-foreground"
               onClick={(event) => {
                 event.stopPropagation();
-                try { isTauri() ? open(reference) : window.open(reference, "_blank", "noopener,noreferrer"); } catch { window.open(reference, "_blank", "noopener,noreferrer"); }
+                void openExternal(reference);
               }}
               aria-label={reference}
             >

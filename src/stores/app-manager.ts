@@ -1,21 +1,12 @@
 import { create } from "zustand";
 import type { SortingState, Updater } from "@tanstack/react-table";
-import { isTauri } from "@tauri-apps/api/core";
-import {
-  scanInstalledApps,
-  checkManagedAppUpdates,
-  upgradeApp,
-  uninstallApp,
-  getAppOperationHistory,
-  batchUpgradeApps,
-  batchUninstallApps,
-  installApp as tauriInstallApp,
-} from "@/lib/tauri/commands";
-import type { AppInfo, AppScanResult, BatchOperationResult, InstallListAppInfo, OperationRecord } from "@/lib/tauri/types";
+import type { AppInfo, AppScanResult, BatchOperationResult, InstallListAppInfo, OperationRecord } from "@/lib/tauri/types/app-manager";
 import type { AppCategoryKey } from "@/features/app-manager/app-categories";
 import type { AppSeriesKey } from "@/features/app-manager/app-series";
 import { getRecommendedInstallList } from "@/features/app-manager/recommended-apps";
 import type { RecommendedAppInstallStatus } from "@/features/app-manager/recommended-apps";
+import { appManagerRepository } from "@/features/app-manager/services/app-manager.repository";
+import { isDesktopRuntime } from "@/platform/runtime";
 
 export type AppFilterKey = "all" | "user" | "system" | "launchable" | "managed" | "upgradable" | "installList";
 
@@ -181,6 +172,7 @@ export interface AppManagerState {
   setBatchMode: (on: boolean) => void;
   openBatchConfirmDialog: (action: "upgrade" | "uninstall" | "install", count: number) => void;
   closeBatchConfirmDialog: () => void;
+  clearBatchResults: () => void;
   doBatchUpgrade: () => Promise<void>;
   doBatchUninstall: () => Promise<void>;
 
@@ -253,9 +245,9 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
     if (loading) return;
     // Keep existing data visible while scanning — avoids white-screen flash
     set({ loading: true, error: "", selectedAppIds: new Set(), batchMode: false, batchResults: null });
-    if (!isTauri()) { set({ scanned: true, loading: false }); return; }
+    if (!isDesktopRuntime()) { set({ scanned: true, loading: false }); return; }
     try {
-      const result = await scanInstalledApps();
+      const result = await appManagerRepository.scanInstalledApps();
       set({ apps: result.apps, result, scanned: true, loading: false, lastScanTime: result.lastScanTime, lastUpdateCheck: result.lastUpdateCheck });
       get().loadHistory();
       get().refreshInstallList();
@@ -266,11 +258,11 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
 
   refreshUpdates: async () => {
     const { apps } = get();
-    if (!isTauri() || apps.length === 0) return;
+    if (!isDesktopRuntime() || apps.length === 0) return;
     try {
       const managedIds = apps.filter((a) => a.canUpgrade).map((a) => a.appId);
       if (managedIds.length === 0) return;
-      const updatableIds = await checkManagedAppUpdates(managedIds);
+      const updatableIds = await appManagerRepository.checkManagedAppUpdates(managedIds);
       const updatableSet = new Set(updatableIds);
       set((state) => ({
         apps: state.apps.map((a) => ({ ...a, upgradeAvailable: updatableSet.has(a.appId) })),
@@ -310,7 +302,7 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
     if (operations[appId]?.status === "running") return;
     setOperationStatus(appId, "running", "Upgrading...");
     try {
-      const result = await upgradeApp(appId);
+      const result = await appManagerRepository.upgradeApp(appId);
       setOperationStatus(appId, result.success ? "success" : "error", result.message);
       if (result.success) setTimeout(() => setOperationStatus(appId, "idle"), 5000);
     } catch (e) {
@@ -325,7 +317,7 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
     if (operations[appId]?.status === "running") return;
     setOperationStatus(appId, "running", "Uninstalling...");
     try {
-      const result = await uninstallApp(appId);
+      const result = await appManagerRepository.uninstallApp(appId);
       if (result.success) {
         setOperationStatus(appId, "success", result.message);
         setTimeout(() => get().scanApps(), 800);
@@ -352,7 +344,7 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
     if (installStates[appId]?.status === "running") return;
     setInstallState(appId, "running", "Installing...");
     try {
-      const result = await tauriInstallApp(appId, installSource);
+      const result = await appManagerRepository.installApp(appId, installSource);
       setInstallState(appId, result.success ? "success" : "error", result.message);
       if (result.success) {
         setTimeout(() => {
@@ -392,6 +384,8 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
   closeBatchConfirmDialog: () =>
     set({ batchConfirmDialog: { open: false, action: "upgrade", count: 0 } }),
 
+  clearBatchResults: () => set({ batchResults: null }),
+
   // --- Batch Operations ---
   doBatchUpgrade: async () => {
     const { selectedAppIds, loadHistory } = get();
@@ -399,7 +393,7 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
     if (ids.length === 0) return;
     set({ batchProgress: { running: true, current: 0, total: ids.length }, batchResults: null });
     try {
-      const result = await batchUpgradeApps(ids);
+      const result = await appManagerRepository.batchUpgradeApps(ids);
       set({
         batchProgress: null,
         batchResults: result,
@@ -419,7 +413,7 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
     if (ids.length === 0) return;
     set({ batchProgress: { running: true, current: 0, total: ids.length }, batchResults: null });
     try {
-      const result = await batchUninstallApps(ids);
+      const result = await appManagerRepository.batchUninstallApps(ids);
       set({
         batchProgress: null,
         batchResults: result,
@@ -443,8 +437,8 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
 
   // --- History ---
   loadHistory: async () => {
-    if (!isTauri()) return;
-    try { set({ history: await getAppOperationHistory() }); }
+    if (!isDesktopRuntime()) return;
+    try { set({ history: await appManagerRepository.getAppOperationHistory() }); }
     catch (e) { console.warn("[AppManager] Failed to load history:", e); }
   },
   setHistoryOpen: (open) => set({ historyOpen: open }),

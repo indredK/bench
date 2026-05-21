@@ -2,7 +2,8 @@ import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { Minus, Maximize2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { isTauri } from "@tauri-apps/api/core";
+import { isDesktopRuntime } from "@/platform/runtime";
+import { getCurrentAppWindow } from "@/platform/window";
 
 interface CustomTitlebarProps {
   className?: string;
@@ -19,8 +20,7 @@ let cachedControls: WindowControls | null = null;
 async function getWindowControls(): Promise<WindowControls> {
   if (cachedControls) return cachedControls;
 
-  const { getCurrentWindow } = await import("@tauri-apps/api/window");
-  const win = await getCurrentWindow();
+  const win = await getCurrentAppWindow();
 
   cachedControls = {
     minimize: () => win.minimize(),
@@ -31,7 +31,7 @@ async function getWindowControls(): Promise<WindowControls> {
   return cachedControls;
 }
 
-const desktop = isTauri();
+const desktop = isDesktopRuntime();
 
 export function CustomTitlebar({
   className,

@@ -10,7 +10,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import i18n, { detectSystemLanguage } from "@/i18n/config";
-import { isTauri } from "@tauri-apps/api/core";
+import { isDesktopRuntime } from "@/platform/runtime";
+import { getCurrentAppWindow } from "@/platform/window";
 
 const THEME_ORDER = ["system", "light", "dark"] as const;
 type ThemeMode = (typeof THEME_ORDER)[number];
@@ -53,9 +54,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     }
     const resolved = lang === "system" ? detectSystemLanguage() : lang;
     await i18n.changeLanguage(resolved);
-    if (isTauri()) {
-      const { getCurrentWindow } = await import("@tauri-apps/api/window");
-      const win = await getCurrentWindow();
+    if (isDesktopRuntime()) {
+      const win = await getCurrentAppWindow();
       const title = resolved === "zh" ? "端口管理器 - DevTools" : "Port Manager - DevTools";
       await win.setTitle(title);
     }

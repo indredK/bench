@@ -4,7 +4,7 @@ import { Folder, Play, ArrowUpCircle, Trash2, Loader2, CheckCircle2, AlertCircle
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { StickyTableText } from "@/components/ui/StickyTable";
-import { AppIcon } from "@/components/features/AppIcon";
+import { AppIcon } from "@/features/app-manager/components/AppIcon";
 import type { AppInfo } from "@/lib/tauri/types";
 import type { OperationStatus } from "@/stores/app-manager";
 import { appManagerPlatformConfig } from "@/platform/config";

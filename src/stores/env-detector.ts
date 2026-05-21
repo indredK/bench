@@ -1,9 +1,8 @@
 import { create } from "zustand";
 import type { SortingState, Updater } from "@tanstack/react-table";
-import { isTauri } from "@tauri-apps/api/core";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { detectEnvTools } from "@/lib/tauri/commands";
-import type { EnvTool } from "@/lib/tauri/types";
+import type { EnvTool } from "@/lib/tauri/types/env-detector";
+import { envDetectorRepository } from "@/features/env-detector/services/env-detector.repository";
+import { isDesktopRuntime } from "@/platform/runtime";
 
 interface EnvDetectorState {
   tools: EnvTool[];
@@ -70,29 +69,22 @@ export const useEnvDetectorStore = create<EnvDetectorState>((set, get) => ({
 
     set({ loading: true, scanning: true, error: "", tools: [] });
 
-    if (!isTauri()) {
+    if (!isDesktopRuntime()) {
       set({ scanned: true, loading: false, scanning: false });
       return;
     }
 
-    let unlisten: UnlistenFn | null = null;
-
     try {
-      unlisten = await listen<{ tools: EnvTool[]; unavailable: EnvTool[] }>("env-scan-done", (event) => {
-        set({
-          tools: [...event.payload.tools, ...event.payload.unavailable],
-          loading: false,
-          scanning: false,
-          scanned: true,
-        });
-        unlisten?.();
+      const payload = await envDetectorRepository.scanEnvTools();
+      set({
+        tools: [...payload.tools, ...payload.unavailable],
+        loading: false,
+        scanning: false,
+        scanned: true,
       });
-
-      await detectEnvTools();
     } catch (e) {
       console.warn("[EnvDetector] Failed to detect tools:", e);
       set({ tools: [], error: "Failed to detect tools", loading: false, scanning: false, scanned: true });
-      unlisten?.();
     }
   },
 

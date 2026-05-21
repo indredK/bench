@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import i18n, { detectSystemLanguage } from "@/i18n/config";
-import { isTauri } from "@tauri-apps/api/core";
 import { Globe } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { isDesktopRuntime } from "@/platform/runtime";
+import { getCurrentAppWindow } from "@/platform/window";
 
 type LangMode = "system" | "zh" | "en";
 const CYCLE_ORDER: LangMode[] = ["system", "zh", "en"];
@@ -43,9 +44,8 @@ function LanguageSwitcher() {
     setStoredMode(mode);
     setCurrentMode(mode);
     await i18n.changeLanguage(resolvedLang);
-    if (isTauri()) {
-      const { getCurrentWindow } = await import("@tauri-apps/api/window");
-      const currentWindow = await getCurrentWindow();
+    if (isDesktopRuntime()) {
+      const currentWindow = await getCurrentAppWindow();
       const title = resolvedLang === "zh" ? "端口管理器 - DevTools" : "Port Manager - DevTools";
       await currentWindow.setTitle(title);
     }

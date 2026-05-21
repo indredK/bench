@@ -1,13 +1,8 @@
 import { create } from "zustand";
 import type { RowSelectionState, SortingState } from "@tanstack/react-table";
-import { isTauri } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
-import {
-  cleanupProjects as runCleanupProjects,
-  scanDevProjects,
-  stopDevProjectScan,
-} from "@/lib/tauri/commands";
-import type { ScanResult, ProjectInfo } from "@/lib/tauri/types";
+import type { ScanResult, ProjectInfo } from "@/lib/tauri/types/dev-cleaner";
+import { devCleanerRepository } from "@/features/dev-cleaner/services/dev-cleaner.repository";
+import { isDesktopRuntime } from "@/platform/runtime";
 
 export type FilterType = "all" | "nodejs" | "python" | "rust" | "go";
 
@@ -79,11 +74,7 @@ export const useDevCleanerStore = create<DevCleanerState>((set, get) => ({
 
   handleSelectPath: async () => {
     try {
-      const selected = await open({
-        directory: true,
-        multiple: false,
-        title: "Select Directory to Scan",
-      });
+      const selected = await devCleanerRepository.selectDirectory();
       if (selected && typeof selected === "string") {
         set({ selectedPath: selected });
       }
@@ -98,7 +89,7 @@ export const useDevCleanerStore = create<DevCleanerState>((set, get) => ({
 
     set({ isScanning: true, showConfirm: false, showFilterOptions: true });
 
-    if (!isTauri()) {
+    if (!isDesktopRuntime()) {
       set({
         cleanupMessage: {
           type: "error",
@@ -110,7 +101,7 @@ export const useDevCleanerStore = create<DevCleanerState>((set, get) => ({
     }
 
     try {
-      const result = await scanDevProjects(selectedPath);
+      const result = await devCleanerRepository.scanProjects(selectedPath);
       set({
         scanResult: result,
         selectedProjects: {},
@@ -135,7 +126,7 @@ export const useDevCleanerStore = create<DevCleanerState>((set, get) => ({
 
   handleStopScan: async () => {
     try {
-      await stopDevProjectScan();
+      await devCleanerRepository.stopScan();
     } catch (error) {
       console.error("Failed to stop scan:", error);
     }
@@ -151,7 +142,7 @@ export const useDevCleanerStore = create<DevCleanerState>((set, get) => ({
     try {
       const projectsToCleanup =
         scanResult?.projects.filter((project) => selectedProjects[project.path]) ?? [];
-      const result = await runCleanupProjects(projectsToCleanup);
+      const result = await devCleanerRepository.cleanupProjects(projectsToCleanup);
 
       if (result.success) {
         set({

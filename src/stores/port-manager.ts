@@ -1,8 +1,8 @@
 import { create } from "zustand";
-import { isTauri } from "@tauri-apps/api/core";
-import { killProcesses, queryPortProcesses } from "@/lib/tauri/commands";
-import type { PortProcessDetail } from "@/lib/tauri/types";
+import type { PortProcessDetail } from "@/lib/tauri/types/port-manager";
 import { parsePortsFromInput } from "@/features/port-manager/ports";
+import { portManagerRepository } from "@/features/port-manager/services/port-manager.repository";
+import { isDesktopRuntime } from "@/platform/runtime";
 
 export const DEFAULT_MAX_PORTS = 20;
 
@@ -43,6 +43,7 @@ interface PortManagerState {
   setShowEmptyPorts: (show: boolean) => void;
   setHighlightPort: (port: number | null) => void;
   removePort: (port: number) => void;
+  addPortsToScan: (ports: number[]) => number[];
   clearAll: () => void;
   rescanAll: () => void;
   addPortsFromInput: (val: string) => { ports: number[]; hasError: boolean; errorKey?: string };
@@ -78,6 +79,26 @@ export const usePortManagerStore = create<PortManagerState>((set, get) => ({
       portDetails: state.portDetails.filter((d) => d.port !== port),
     })),
 
+  addPortsToScan: (ports) => {
+    const { portStates } = get();
+    const updatedPorts = [...portStates];
+    const portsToAdd: number[] = [];
+
+    for (const port of ports) {
+      if (updatedPorts.length >= DEFAULT_MAX_PORTS) break;
+      if (updatedPorts.some((ps) => ps.port === port)) continue;
+      updatedPorts.push({ port, status: "waiting" });
+      portsToAdd.push(port);
+    }
+
+    if (portsToAdd.length > 0) {
+      updatedPorts.sort((a, b) => a.port - b.port);
+      set({ portStates: updatedPorts });
+    }
+
+    return portsToAdd;
+  },
+
   clearAll: () =>
     set((state) => ({
       scanSession: state.scanSession + 1,
@@ -109,7 +130,7 @@ export const usePortManagerStore = create<PortManagerState>((set, get) => ({
   },
 
   doScan: async (portsToScan) => {
-    if (!isTauri()) {
+    if (!isDesktopRuntime()) {
       set({ error: "Port scanning is only available in the desktop app" });
       return;
     }
@@ -142,7 +163,7 @@ export const usePortManagerStore = create<PortManagerState>((set, get) => ({
       }));
 
       try {
-        const details = await queryPortProcesses([port]);
+        const details = await portManagerRepository.queryPortProcesses([port]);
 
         if (get().scanSession !== sessionId) {
           set((state) => ({
@@ -180,7 +201,7 @@ export const usePortManagerStore = create<PortManagerState>((set, get) => ({
   killPort: async (port, pids) => {
     set({ error: "", killing: true });
     try {
-      const result = await killProcesses(pids);
+      const result = await portManagerRepository.killProcesses(pids);
       const messages = result.map((r) =>
         r.success ? `PID ${r.pid} killed` : `PID ${r.pid}: ${r.message}`
       );
@@ -201,7 +222,7 @@ export const usePortManagerStore = create<PortManagerState>((set, get) => ({
     try {
       const allPids = portDetails.flatMap((d) => d.pids);
       const portsToRescan = portDetails.map((d) => d.port);
-      const result = await killProcesses(allPids);
+      const result = await portManagerRepository.killProcesses(allPids);
       const killMessages: Record<number, string[]> = {};
       for (const r of result) {
         const message = r.success ? `PID ${r.pid} killed` : `PID ${r.pid}: ${r.message}`;

@@ -1,7 +1,7 @@
 import { create } from "zustand";
-import { isTauri } from "@tauri-apps/api/core";
-import { getSystemInfo } from "@/lib/tauri/commands";
-import type { SystemInfoData } from "@/lib/tauri/types";
+import type { SystemInfoData } from "@/lib/tauri/types/port-manager";
+import { systemInfoRepository } from "@/features/system-info/services/system-info.repository";
+import { isDesktopRuntime } from "@/platform/runtime";
 
 interface SystemInfoState {
   loading: boolean;
@@ -74,8 +74,8 @@ export const useSystemInfoStore = create<SystemInfoState>((set) => ({
   loadSystemInfo: async () => {
     set({ loading: true, error: "" });
     try {
-      if (isTauri()) {
-        const info = await getSystemInfo();
+      if (isDesktopRuntime()) {
+        const info = await systemInfoRepository.getSystemInfo();
         set({ systemInfo: info, loading: false, fetched: true });
       } else {
         const browserInfo = getBrowserInfo();

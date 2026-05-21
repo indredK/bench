@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation, Link } from "wouter";
-import type { SidebarItem } from "@/App";
+import type { NavigationItem } from "@/features/types";
 import LanguageSwitcher from "./LanguageSwitcher";
 import ThemeSwitcher from "./ThemeSwitcher";
 import { useTranslation } from "react-i18next";
@@ -8,7 +8,7 @@ import { RefreshCw, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SidebarProps {
-  items: SidebarItem[];
+  items: NavigationItem[];
   onRefresh?: () => void | Promise<void>;
   onSettings?: () => void;
 }

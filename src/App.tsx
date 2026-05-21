@@ -1,15 +1,8 @@
 import { Router, Route, Switch } from "wouter";
 import { useHashLocation } from "wouter/use-hash-location";
-import { Zap, Trash2, Monitor, Cpu, Box, AppWindow } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import Sidebar from "./components/layout/Sidebar";
 import { CustomTitlebar } from "./components/layout/CustomTitlebar";
-import PortManager from "./components/features/PortManager";
-import SystemInfo from "./components/features/SystemInfo";
-import DevCleaner from "./components/features/DevCleaner";
-import EnvDetector from "./components/features/EnvDetector";
-import AppManager from "./components/features/AppManager";
-import HardwareComparePage from "./components/pages/HardwareComparePage";
 import { GlobalContextMenu } from "@/features/context-menu/GlobalContextMenu";
 import { useDefaultContextMenu } from "@/features/context-menu/useContextMenuRegistration";
 import type { ContextMenuConfig } from "@/features/context-menu/types";
@@ -17,17 +10,7 @@ import { useMenuEvent, useInitMenuEvents } from "@/hooks/useMenuEvents";
 import { AboutDialog } from "@/components/common/AboutDialog";
 import { SettingsDialog } from "@/components/common/SettingsDialog";
 import { useCallback, useMemo, useState } from "react";
-import { useAppManagerStore } from "@/stores/app-manager";
-import { useDevCleanerStore } from "@/stores/dev-cleaner";
-import { useEnvDetectorStore } from "@/stores/env-detector";
-import { usePortManagerStore } from "@/stores/port-manager";
-import { useSystemInfoStore } from "@/stores/system-info";
-
-export interface SidebarItem {
-  path: string;
-  name: string;
-  icon: React.ReactNode;
-}
+import { appFeatures, createNavigationItems, getFeatureByPath } from "@/features/registry";
 
 function App() {
   const { t } = useTranslation();
@@ -37,26 +20,7 @@ function App() {
 
   const handleRefresh = useCallback(async () => {
     const currentPath = window.location.hash.replace(/^#/, "") || "/";
-
-    switch (currentPath) {
-      case "/app-manager":
-        await useAppManagerStore.getState().scanApps();
-        break;
-      case "/dev-cleaner":
-        await useDevCleanerStore.getState().handleScan();
-        break;
-      case "/system-info":
-        await useSystemInfoStore.getState().loadSystemInfo();
-        break;
-      case "/env-detector":
-        await useEnvDetectorStore.getState().loadTools();
-        break;
-      case "/":
-        usePortManagerStore.getState().rescanAll();
-        break;
-      default:
-        break;
-    }
+    await getFeatureByPath(currentPath)?.refresh?.();
   }, []);
 
   const handleSettings = useCallback(() => {
@@ -93,14 +57,7 @@ function App() {
     // DevTools 已在开发模式下通过右键菜单可用
   });
 
-  const sidebarItems: SidebarItem[] = [
-    { path: "/", name: t("sidebar.portManager"), icon: <Zap size={18} /> },
-    { path: "/app-manager", name: t("sidebar.appManager"), icon: <AppWindow size={18} /> },
-    { path: "/dev-cleaner", name: t("sidebar.devCleaner"), icon: <Trash2 size={18} /> },
-    { path: "/hardware", name: t("sidebar.hardwareQuery"), icon: <Cpu size={18} /> },
-    { path: "/system-info", name: t("sidebar.systemInfo"), icon: <Monitor size={18} /> },
-    { path: "/env-detector", name: t("sidebar.envDetector"), icon: <Box size={18} /> },
-  ];
+  const sidebarItems = useMemo(() => createNavigationItems(t), [t]);
 
   return (
     <>
@@ -118,18 +75,11 @@ function App() {
               <div className="flex flex-1 flex-col overflow-hidden">
                 <div className="flex-1 overflow-hidden p-4">
                   <Switch>
-                    <Route path="/" component={PortManager} />
-                    <Route path="/app-manager">
-                      <AppManager active />
-                    </Route>
-                    <Route path="/dev-cleaner" component={DevCleaner} />
-                    <Route path="/system-info">
-                      <SystemInfo active />
-                    </Route>
-                    <Route path="/hardware" component={HardwareComparePage} />
-                    <Route path="/env-detector">
-                      <EnvDetector active />
-                    </Route>
+                    {appFeatures.map((feature) => (
+                      <Route key={feature.id} path={feature.path}>
+                        {feature.render()}
+                      </Route>
+                    ))}
                   </Switch>
                 </div>
               </div>
