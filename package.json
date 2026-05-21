@@ -6,16 +6,25 @@
   "scripts": {
     "setup": "node scripts/setup.mjs",
     "setup:unix": "node scripts/setup.mjs",
-    "dev": "vite",
-    "tauri:dev": "tauri dev",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
-    "tauri": "tauri",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:rust": "cd src-tauri && cargo test",
-    "test:all": "cd src-tauri && cargo test; cd .. && vitest run",
-    "clean:rust": "cd src-tauri && cargo clean"
+
+    "dev:fe": "vite",
+    "build:fe": "tsc && vite build",
+    "preview:fe": "vite preview",
+    "test:fe": "vitest run",
+    "test:fe:watch": "vitest",
+
+    "test:be": "cd src-tauri && cargo test",
+    "check:be": "cd src-tauri && cargo check",
+    "clippy:be": "cd src-tauri && cargo clippy -- -D warnings",
+    "clean:be": "cd src-tauri && cargo clean",
+
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "build:debug": "tauri build --debug",
+    "test": "npm run test:fe && npm run test:be",
+
+    "verify": "npm run test:fe && npm run test:be && npm run build:fe && npm run build:debug",
+    "ci": "npm ci && npm run verify"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.2.8",

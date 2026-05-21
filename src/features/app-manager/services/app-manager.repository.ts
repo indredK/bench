@@ -29,3 +29,5 @@ export const appManagerRepository = {
   batchInstallApps,
   openExternal,
 };
+
+export type AppManagerRepository = typeof appManagerRepository;

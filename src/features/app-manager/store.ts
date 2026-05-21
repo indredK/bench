@@ -5,6 +5,17 @@ import type { AppCategoryKey } from "@/features/app-manager/app-categories";
 import type { AppSeriesKey } from "@/features/app-manager/app-series";
 import { createInstallListApps } from "@/features/app-manager/model/install-list";
 import {
+  createBatchErrorPatch,
+  createBatchProgress,
+  createBatchSuccessPatch,
+  createRunningOperationState,
+  isOperationRunning,
+  toOperationState,
+  type AppOperationState,
+  type BatchProgress,
+  type OperationStatus,
+} from "@/features/app-manager/model/operations";
+import {
   loadAppManagerPreferences,
   loadAppManagerViewMode,
   saveAppManagerPreferences,
@@ -14,6 +25,7 @@ import {
 import { appManagerUseCases } from "@/features/app-manager/services/app-manager.use-cases";
 
 export type { AppFilterKey };
+export type { OperationStatus };
 
 const savedPrefs = loadAppManagerPreferences();
 
@@ -25,19 +37,6 @@ export const APP_FILTER_OPTIONS = [
   { key: "managed" as const, labelKey: "appManager.filterManaged" },
   { key: "upgradable" as const, labelKey: "appManager.filterUpgradable" },
 ];
-
-export type OperationStatus = "idle" | "pending" | "running" | "success" | "error";
-
-interface AppOperationState {
-  status: OperationStatus;
-  message: string;
-}
-
-interface BatchProgress {
-  running: boolean;
-  current: number;
-  total: number;
-}
 
 export interface AppManagerState {
   apps: AppInfo[];
@@ -236,35 +235,42 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
 
   doUpgrade: async (appId: string) => {
     const { operations, setOperationStatus, loadHistory } = get();
-    // Prevent duplicate clicks
-    if (operations[appId]?.status === "running") return;
-    setOperationStatus(appId, "running", "Upgrading...");
-    try {
-      const result = await appManagerUseCases.upgradeApp(appId);
-      setOperationStatus(appId, result.success ? "success" : "error", result.message);
-      if (result.success) setTimeout(() => setOperationStatus(appId, "idle"), 5000);
-    } catch (e) {
-      setOperationStatus(appId, "error", String(e));
+    if (isOperationRunning(operations, appId)) return;
+    set((state) => ({
+      operations: { ...state.operations, [appId]: createRunningOperationState("Upgrading...") },
+    }));
+
+    const outcome = await appManagerUseCases.runAppOperation({ appId, kind: "upgrade" });
+    if (!outcome) return;
+
+    set((state) => ({
+      operations: { ...state.operations, [appId]: toOperationState(outcome.result) },
+    }));
+    if (outcome.result.success) {
+      setTimeout(() => setOperationStatus(appId, "idle"), 5000);
     }
+
     await loadHistory();
-    get().scanApps();
+    if (outcome.shouldRescan) get().scanApps();
   },
 
   doUninstall: async (appId: string) => {
-    const { operations, setOperationStatus, loadHistory } = get();
-    if (operations[appId]?.status === "running") return;
-    setOperationStatus(appId, "running", "Uninstalling...");
-    try {
-      const result = await appManagerUseCases.uninstallApp(appId);
-      if (result.success) {
-        setOperationStatus(appId, "success", result.message);
-        setTimeout(() => get().scanApps(), 800);
-      } else {
-        setOperationStatus(appId, "error", result.message);
-      }
-    } catch (e) {
-      setOperationStatus(appId, "error", String(e));
+    const { operations, loadHistory } = get();
+    if (isOperationRunning(operations, appId)) return;
+    set((state) => ({
+      operations: { ...state.operations, [appId]: createRunningOperationState("Uninstalling...") },
+    }));
+
+    const outcome = await appManagerUseCases.runAppOperation({ appId, kind: "uninstall" });
+    if (!outcome) return;
+
+    set((state) => ({
+      operations: { ...state.operations, [appId]: toOperationState(outcome.result) },
+    }));
+    if (outcome.shouldRescan) {
+      setTimeout(() => get().scanApps(), 800);
     }
+
     await loadHistory();
   },
 
@@ -278,20 +284,25 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
     set((state) => ({ installStates: { ...state.installStates, [appId]: { status, message } } })),
 
   doInstall: async (appId, _appName, installSource) => {
-    const { installStates, setInstallState } = get();
-    if (installStates[appId]?.status === "running") return;
-    setInstallState(appId, "running", "Installing...");
-    try {
-      const result = await appManagerUseCases.installApp(appId, installSource);
-      setInstallState(appId, result.success ? "success" : "error", result.message);
-      if (result.success) {
-        setTimeout(() => {
-          get().scanApps();
-          get().refreshInstallList();
-        }, 2000);
-      }
-    } catch (e) {
-      setInstallState(appId, "error", String(e));
+    const { installStates } = get();
+    if (isOperationRunning(installStates, appId)) return;
+    set((state) => ({
+      installStates: { ...state.installStates, [appId]: createRunningOperationState("Installing...") },
+    }));
+
+    const outcome = await appManagerUseCases.runAppOperation(
+      { appId, kind: "install", installSource }
+    );
+    if (!outcome) return;
+
+    set((state) => ({
+      installStates: { ...state.installStates, [appId]: toOperationState(outcome.result) },
+    }));
+    if (outcome.shouldRescan) {
+      setTimeout(() => {
+        get().scanApps();
+        get().refreshInstallList();
+      }, 2000);
     }
   },
 
@@ -349,18 +360,10 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
     const { selectedAppIds, loadHistory } = get();
     const ids = Array.from(selectedAppIds);
     if (ids.length === 0) return;
-    set({ batchProgress: { running: true, current: 0, total: ids.length }, batchResults: null });
-    try {
-      const result = await appManagerUseCases.batchUpgradeApps(ids);
-      set({
-        batchProgress: null,
-        batchResults: result,
-        selectedAppIds: new Set(),
-        batchMode: false,
-      });
-    } catch (e) {
-      set({ batchProgress: null, batchResults: null, selectedAppIds: new Set(), batchMode: false, error: String(e) });
-    }
+    set({ batchProgress: createBatchProgress(ids.length), batchResults: null });
+    const outcome = await appManagerUseCases.runBatchOperation("upgrade", ids);
+    if (!outcome) return;
+    set(outcome.result ? createBatchSuccessPatch(outcome.result) : createBatchErrorPatch(outcome.error));
     await loadHistory();
     get().scanApps();
   },
@@ -369,18 +372,10 @@ export const useAppManagerStore = create<AppManagerState>((set, get) => ({
     const { selectedAppIds, loadHistory } = get();
     const ids = Array.from(selectedAppIds);
     if (ids.length === 0) return;
-    set({ batchProgress: { running: true, current: 0, total: ids.length }, batchResults: null });
-    try {
-      const result = await appManagerUseCases.batchUninstallApps(ids);
-      set({
-        batchProgress: null,
-        batchResults: result,
-        selectedAppIds: new Set(),
-        batchMode: false,
-      });
-    } catch (e) {
-      set({ batchProgress: null, batchResults: null, selectedAppIds: new Set(), batchMode: false, error: String(e) });
-    }
+    set({ batchProgress: createBatchProgress(ids.length), batchResults: null });
+    const outcome = await appManagerUseCases.runBatchOperation("uninstall", ids);
+    if (!outcome) return;
+    set(outcome.result ? createBatchSuccessPatch(outcome.result) : createBatchErrorPatch(outcome.error));
     await loadHistory();
     get().scanApps();
   },

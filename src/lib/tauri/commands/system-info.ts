@@ -1,6 +1,6 @@
-import { invoke } from "@tauri-apps/api/core";
-import type { SystemInfoData } from "@/lib/tauri/types/system-info";
+import { TAURI_COMMANDS } from "@/lib/tauri/contracts";
+import { invokeTauriCommand } from "@/lib/tauri/invoke";
 
 export function getSystemInfo() {
-  return invoke<SystemInfoData>("get_system_info");
+  return invokeTauriCommand(TAURI_COMMANDS.portManager.getSystemInfo);
 }

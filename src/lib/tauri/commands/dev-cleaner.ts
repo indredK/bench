@@ -1,18 +1,15 @@
-import { invoke } from "@tauri-apps/api/core";
-import type {
-  CleanupResult,
-  ProjectInfo,
-  ScanResult,
-} from "@/lib/tauri/types/dev-cleaner";
+import { TAURI_COMMANDS } from "@/lib/tauri/contracts";
+import { invokeTauriCommand } from "@/lib/tauri/invoke";
+import type { ProjectInfo } from "@/lib/tauri/types/dev-cleaner";
 
 export function scanDevProjects(rootPath: string) {
-  return invoke<ScanResult>("scan_dev_projects", { rootPath });
+  return invokeTauriCommand(TAURI_COMMANDS.devCleaner.scanDevProjects, { rootPath });
 }
 
 export function stopDevProjectScan() {
-  return invoke<void>("stop_scan");
+  return invokeTauriCommand(TAURI_COMMANDS.devCleaner.stopScan);
 }
 
 export function cleanupProjects(projects: ProjectInfo[]) {
-  return invoke<CleanupResult>("cleanup_projects", { projects });
+  return invokeTauriCommand(TAURI_COMMANDS.devCleaner.cleanupProjects, { projects });
 }

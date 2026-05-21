@@ -1,5 +1,6 @@
-import { invoke } from "@tauri-apps/api/core";
+import { TAURI_COMMANDS } from "@/lib/tauri/contracts";
+import { invokeTauriCommand } from "@/lib/tauri/invoke";
 
 export function detectEnvTools() {
-  return invoke<void>("detect_env_tools");
+  return invokeTauriCommand(TAURI_COMMANDS.envDetector.detectEnvTools);
 }

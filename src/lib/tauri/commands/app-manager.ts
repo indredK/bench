@@ -1,56 +1,53 @@
-import { invoke } from "@tauri-apps/api/core";
+import { TAURI_COMMANDS } from "@/lib/tauri/contracts";
+import { invokeTauriCommand } from "@/lib/tauri/invoke";
 import type {
-  AppScanResult,
-  BatchOperationResult,
   InstallSource,
-  OperationRecord,
-  OperationResult,
 } from "@/lib/tauri/types/app-manager";
 
 export function scanInstalledApps() {
-  return invoke<AppScanResult>("scan_installed_apps");
+  return invokeTauriCommand(TAURI_COMMANDS.appManager.scanInstalledApps);
 }
 
 export function launchApp(appPath: string) {
-  return invoke<void>("launch_app", { appPath });
+  return invokeTauriCommand(TAURI_COMMANDS.appManager.launchApp, { appPath });
 }
 
 export function revealAppInFinder(appPath: string) {
-  return invoke<void>("reveal_app_in_finder", { appPath });
+  return invokeTauriCommand(TAURI_COMMANDS.appManager.revealAppInFinder, { appPath });
 }
 
 export function checkManagedAppUpdates(appIds: string[]) {
-  return invoke<string[]>("check_managed_app_updates", { appIds });
+  return invokeTauriCommand(TAURI_COMMANDS.appManager.checkManagedAppUpdates, { appIds });
 }
 
 export function upgradeApp(appId: string) {
-  return invoke<OperationResult>("upgrade_app", { appId });
+  return invokeTauriCommand(TAURI_COMMANDS.appManager.upgradeApp, { appId });
 }
 
 export function uninstallApp(appId: string) {
-  return invoke<OperationResult>("uninstall_app", { appId });
+  return invokeTauriCommand(TAURI_COMMANDS.appManager.uninstallApp, { appId });
 }
 
 export function getAppOperationHistory(appId?: string) {
-  return invoke<OperationRecord[]>("get_app_operation_history", { appId: appId || null });
+  return invokeTauriCommand(TAURI_COMMANDS.appManager.getAppOperationHistory, { appId: appId || null });
 }
 
 export function batchUpgradeApps(appIds: string[]) {
-  return invoke<BatchOperationResult>("batch_upgrade_apps", { appIds });
+  return invokeTauriCommand(TAURI_COMMANDS.appManager.batchUpgradeApps, { appIds });
 }
 
 export function batchUninstallApps(appIds: string[]) {
-  return invoke<BatchOperationResult>("batch_uninstall_apps", { appIds });
+  return invokeTauriCommand(TAURI_COMMANDS.appManager.batchUninstallApps, { appIds });
 }
 
 export function refreshAppUpdates(appIds: string[]) {
-  return invoke<string[]>("refresh_app_updates", { appIds });
+  return invokeTauriCommand(TAURI_COMMANDS.appManager.refreshAppUpdates, { appIds });
 }
 
 export function installApp(appId: string, installSource: InstallSource) {
-  return invoke<OperationResult>("install_app", { appId, installSource });
+  return invokeTauriCommand(TAURI_COMMANDS.appManager.installApp, { appId, installSource });
 }
 
 export function batchInstallApps(items: { appId: string; installSource: InstallSource }[]) {
-  return invoke<BatchOperationResult>("batch_install_apps", { items });
+  return invokeTauriCommand(TAURI_COMMANDS.appManager.batchInstallApps, { items });
 }

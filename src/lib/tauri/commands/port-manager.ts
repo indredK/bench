@@ -1,13 +1,10 @@
-import { invoke } from "@tauri-apps/api/core";
-import type {
-  KillPidResult,
-  PortProcessDetail,
-} from "@/lib/tauri/types/port-manager";
+import { TAURI_COMMANDS } from "@/lib/tauri/contracts";
+import { invokeTauriCommand } from "@/lib/tauri/invoke";
 
 export function queryPortProcesses(ports: number[]) {
-  return invoke<PortProcessDetail[]>("query_port_processes", { ports });
+  return invokeTauriCommand(TAURI_COMMANDS.portManager.queryPortProcesses, { ports });
 }
 
 export function killProcesses(pids: number[]) {
-  return invoke<KillPidResult[]>("kill_processes", { pids });
+  return invokeTauriCommand(TAURI_COMMANDS.portManager.killProcesses, { pids });
 }
