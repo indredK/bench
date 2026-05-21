@@ -60,16 +60,16 @@ jobs:
         run: npm ci
 
       - name: Run frontend tests
-        run: npm run test
+        run: npm run test:fe
 
       - name: Run Rust tests
-        run: npm run test:rust
+        run: npm run test:be
 
       - name: Run frontend build
-        run: npm run build
+        run: npm run build:fe
 
       - name: Run Tauri build smoke test
-        run: npx tauri build --debug
+        run: npm run build:debug
 
   release-build:
     name: Release Build (${{ matrix.target }})
