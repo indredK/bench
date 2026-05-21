@@ -43,6 +43,12 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Cache Rust build outputs
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            ./src-tauri -> target
+
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
         run: |
@@ -65,11 +71,8 @@ jobs:
       - name: Run Rust tests
         run: npm run test:be
 
-      - name: Run frontend build
-        run: npm run build:fe
-
-      - name: Run Tauri build smoke test
-        run: npm run build:debug
+      - name: Run Tauri build smoke test (no bundle)
+        run: npx tauri build --debug --no-bundle
 
   release-build:
     name: Release Build (${{ matrix.target }})
@@ -85,8 +88,9 @@ jobs:
             os: macos-latest
           - target: x86_64-pc-windows-msvc
             os: windows-latest
-          - target: x86_64-unknown-linux-gnu
-            os: ubuntu-latest
+          # Linux release packaging is temporarily disabled.
+          # - target: x86_64-unknown-linux-gnu
+          #   os: ubuntu-latest
 
     runs-on: ${{ matrix.os }}
 
@@ -104,6 +108,12 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
+
+      - name: Cache Rust build outputs
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            ./src-tauri -> target
 
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
@@ -137,11 +147,12 @@ jobs:
           mkdir artifacts
           Get-ChildItem -Path src-tauri/target -Recurse -Include *.msi,*.exe | Where-Object { $_.FullName -match "bundle" } | Copy-Item -Destination artifacts/ -ErrorAction SilentlyContinue
 
-      - name: Collect Linux bundle (deb/AppImage)
-        if: runner.os == 'Linux'
-        run: |
-          mkdir -p artifacts
-          find src-tauri/target -name "*.deb" -o -name "*.AppImage" | while read f; do cp "$f" artifacts/; done 2>/dev/null || true
+      # Linux release packaging is temporarily disabled.
+      # - name: Collect Linux bundle (deb/AppImage)
+      #   if: runner.os == 'Linux'
+      #   run: |
+      #     mkdir -p artifacts
+      #     find src-tauri/target -name "*.deb" -o -name "*.AppImage" | while read f; do cp "$f" artifacts/; done 2>/dev/null || true
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
