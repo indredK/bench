@@ -68,6 +68,8 @@
     "batchConfirmTitle": "确认批量{{action}}（{{count}} 个应用）",
     "batchActionUpgrade": "升级",
     "batchActionUninstall": "卸载",
+    "batchInstallConfirmTitle": "安装 {{count}} 个应用？",
+    "batchInstallConfirmDescription": "确认安装选中的 {{count}} 个应用？",
     "batchUpgradeConfirmDescription": "确定要批量升级 {{count}} 个应用吗？每个应用将升级至最新版本。",
     "batchUninstallConfirmDescription": "确定要批量卸载 {{count}} 个应用吗？此操作不可撤销。",
     "lastScan": "上次扫描",
@@ -125,6 +127,8 @@
     "installConfirmTitle": "安装 {{name}}",
     "installConfirmDescription": "将下载并安装 {{name}} 到您的系统。",
     "confirmInstall": "安装",
+    "installSelected": "安装选中 ({{count}})",
+    "clearSelection": "取消选中",
     "openWebsite": "打开官网",
     "copyPath": "复制路径",
     "copyWebsite": "复制官网"

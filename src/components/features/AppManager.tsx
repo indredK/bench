@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useCallback, Component, type ErrorInfo, type ReactNode } from "react";
+import { useEffect, useMemo, useCallback, useState, useRef, Component, type ErrorInfo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { isTauri } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-shell";
 import {
   RefreshCw, Search, AppWindow, History, X,
   CheckCircle2, AlertCircle, ArrowUpCircle, Trash2,
-  Layers, CheckSquare, ArrowUp, Filter,
+  Layers, CheckSquare, Filter,
   Play, Folder, Download, Package, ExternalLink, RotateCcw,
 } from "lucide-react";
 import {
@@ -36,6 +36,7 @@ import { CategoryFilter, type CategorizableItem } from "@/features/app-manager/C
 import { classifyApp } from "@/features/app-manager/app-categories";
 import { classifySeries } from "@/features/app-manager/app-series";
 import { AppIcon } from "@/components/features/AppIcon";
+import type { ColumnDef } from "@tanstack/react-table";
 import type { AppInfo, InstallListAppInfo } from "@/lib/tauri/types";
 import { useContextMenuRegistration } from "@/features/context-menu/useContextMenuRegistration";
 import type { ContextMenuConfig, ContextMenuRegistration } from "@/features/context-menu/types";
@@ -120,6 +121,11 @@ function AppManager({ active }: { active: boolean }) {
   const openInstallConfirmDialog = useAppManagerStore((s) => s.openInstallConfirmDialog);
   const closeInstallConfirmDialog = useAppManagerStore((s) => s.closeInstallConfirmDialog);
 
+  const [selectedInstallIds, setSelectedInstallIds] = useState<Set<string>>(new Set());
+  const [installBatchMode, setInstallBatchMode] = useState(false);
+  const [installDetailItem, setInstallDetailItem] = useState<InstallListAppInfo | null>(null);
+  const pendingBatchInstallIds = useRef<string[]>([]);
+
   useEffect(() => { if (active && isTauriEnv() && !scanned) scanApps(); }, [active, scanApps, scanned]);
   useEffect(() => { if (scanned && apps.length > 0) refreshUpdates(); }, [scanned]);
   useEffect(() => { if (historyOpen) loadHistory(); }, [historyOpen]);
@@ -130,6 +136,20 @@ function AppManager({ active }: { active: boolean }) {
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [historyOpen, setHistoryOpen]);
+
+  useEffect(() => {
+    if (!selectedItem) return;
+    const onKeyDown = (e: KeyboardEvent) => { if (e.key === "Escape") setSelectedItem(null); };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [selectedItem, setSelectedItem]);
+
+  useEffect(() => {
+    if (!installDetailItem) return;
+    const onKeyDown = (e: KeyboardEvent) => { if (e.key === "Escape") setInstallDetailItem(null); };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [installDetailItem]);
 
   const getOpStatus = useCallback((appId: string): OperationStatus => {
     const state = useAppManagerStore.getState();
@@ -196,6 +216,24 @@ function AppManager({ active }: { active: boolean }) {
     if (app.installed) return;
     openInstallConfirmDialog(app.id, app.name);
   }, [openInstallConfirmDialog]);
+
+  const toggleInstallSelect = useCallback((id: string) => {
+    setSelectedInstallIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const clearInstallSelection = useCallback(() => {
+    setSelectedInstallIds(new Set());
+  }, []);
+
+  const handleBatchInstall = useCallback(() => {
+    if (selectedInstallIds.size === 0) return;
+    pendingBatchInstallIds.current = [...selectedInstallIds];
+    openBatchConfirmDialog("install", selectedInstallIds.size);
+  }, [selectedInstallIds, openBatchConfirmDialog]);
 
   const handleInstallConfirm = useCallback(async () => {
     const { appId } = installConfirmDialog;
@@ -267,7 +305,6 @@ function AppManager({ active }: { active: boolean }) {
     else setBatchMode(true);
   }, [batchMode, clearSelection, setBatchMode]);
 
-  const selectedCount = selectedAppIds.size;
   const selectedUpgradable = activeFilter !== "installList"
     ? (filteredApps as AppInfo[]).filter(a => a.allowedActions.upgrade && selectedAppIds.has(a.appId)).length
     : 0;
@@ -289,8 +326,17 @@ function AppManager({ active }: { active: boolean }) {
     const action = batchConfirmDialog.action;
     closeBatchConfirmDialog();
     if (action === "upgrade") await doBatchUpgrade();
-    else await doBatchUninstall();
-  }, [batchConfirmDialog, closeBatchConfirmDialog, doBatchUpgrade, doBatchUninstall]);
+    else if (action === "uninstall") await doBatchUninstall();
+    else if (action === "install") {
+      const ids = pendingBatchInstallIds.current;
+      pendingBatchInstallIds.current = [];
+      clearInstallSelection();
+      for (const id of ids) {
+        const app = installListApps.find(a => a.id === id);
+        if (app && !app.installed) await doInstall(app.id, app.name, app.installSource);
+      }
+    }
+  }, [batchConfirmDialog, closeBatchConfirmDialog, doBatchUpgrade, doBatchUninstall, installListApps, doInstall, clearInstallSelection]);
 
   const handleDetailUpgrade = useCallback(() => {
     if (!selectedItem) return;
@@ -333,6 +379,70 @@ function AppManager({ active }: { active: boolean }) {
       window.open(url, "_blank", "noopener,noreferrer");
     }
   }, []);
+
+  const installListColumns = useMemo(() => {
+    return [
+      {
+        id: "name",
+        header: t("appManager.column.name"),
+        accessorFn: (app: InstallListAppInfo) => app.name,
+        cell: ({ getValue }: any) => <span className="font-medium text-sm truncate">{getValue() as string}</span>,
+      },
+      {
+        id: "description",
+        header: t("appManager.column.description"),
+        accessorFn: (app: InstallListAppInfo) => app.description,
+        cell: ({ getValue }: any) => <span className="text-xs text-muted-foreground truncate">{getValue() as string}</span>,
+      },
+      {
+        id: "status",
+        header: t("appManager.column.status"),
+        accessorFn: (app: InstallListAppInfo) => app.installed,
+        cell: ({ row }: any) => {
+          const app = row.original as InstallListAppInfo;
+          return app.installed ? (
+            <Badge variant="secondary" className="text-[10px]">{t("appManager.installListInstalled")}</Badge>
+          ) : (
+            <Badge variant="outline" className="text-[10px]">{t("appManager.installListPending")}</Badge>
+          );
+        },
+      },
+      {
+        id: "source",
+        header: "Source",
+        accessorFn: (app: InstallListAppInfo) => app.installSource.brew ? "brew" : app.installSource.winget ? "winget" : "url",
+        cell: ({ row }: any) => {
+          const app = row.original as InstallListAppInfo;
+          return (
+            <div className="flex gap-1">
+              {app.installSource.brew && <Badge variant="secondary" className="text-[10px]">Homebrew</Badge>}
+              {app.installSource.winget && <Badge variant="secondary" className="text-[10px]">winget</Badge>}
+              {!app.installSource.brew && !app.installSource.winget && app.installSource.url && (
+                <Badge variant="secondary" className="text-[10px]">Download</Badge>
+              )}
+            </div>
+          );
+        },
+      },
+      {
+        id: "actions",
+        header: "",
+        cell: ({ row }: any) => {
+          const app = row.original as InstallListAppInfo;
+          return (
+            <div className="flex items-center gap-1.5 justify-end">
+              <Button size="sm" className="h-7 text-xs" disabled={app.installed} onClick={() => handleInstall(app)}>
+                <Download size={12} className="mr-1" />{t("appManager.install")}
+              </Button>
+              {app.installSource.url && (
+                <ToolbarButton icon={<ExternalLink size={12} />} tooltip={t("appManager.openWebsite")} onClick={() => handleOpenWebsite(app.installSource.url)} />
+              )}
+            </div>
+          );
+        },
+      },
+    ] as ColumnDef<InstallListAppInfo>[];
+  }, [t, handleInstall, handleOpenWebsite, toggleInstallSelect, selectedInstallIds]);
 
   const renderInstallListCard = useCallback((app: InstallListAppInfo) => {
     const state = useAppManagerStore.getState().installStates[app.id];
@@ -463,6 +573,38 @@ function AppManager({ active }: { active: boolean }) {
     </div>
   ), [t, handleLaunch, handleReveal, handleDetailUpgrade, handleDetailUninstall]);
 
+  const renderInstallDetail = useCallback((app: InstallListAppInfo) => (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <div className="size-10 shrink-0 rounded-md bg-muted flex items-center justify-center">
+          {app.installed ? <CheckCircle2 size={20} className="text-green-600" /> : <Package size={20} className="text-muted-foreground" />}
+        </div>
+        <div>
+          <h3 className="font-semibold text-sm">{app.name}</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">{app.bundleId}</p>
+        </div>
+      </div>
+      <DetailSection label={t("appManager.info")}>
+        {app.installedVersion && <MetadataRow label={t("appManager.detailVersion")} value={app.installedVersion} />}
+        {app.installedPath && <MetadataRow label={t("appManager.detailPath")} value={app.installedPath} />}
+        <MetadataRow label="Source" value={app.installSource.brew ? "Homebrew" : app.installSource.winget ? "winget" : "Download"} />
+        {app.description && <MetadataRow label={t("appManager.column.description")} value={app.description} />}
+      </DetailSection>
+      <DetailSection label={t("appManager.column.actions")}>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" disabled={app.installed} onClick={() => handleInstall(app)}>
+            <Download size={13} className="mr-1" />{app.installed ? t("appManager.installListInstalled") : t("appManager.install")}
+          </Button>
+          {app.installSource.url && (
+            <Button size="sm" variant="outline" onClick={() => handleOpenWebsite(app.installSource.url)}>
+              <ExternalLink size={13} className="mr-1" />{t("appManager.openWebsite")}
+            </Button>
+          )}
+        </div>
+      </DetailSection>
+    </div>
+  ), [t, handleInstall, handleOpenWebsite]);
+
   const activeFilterCount =
     (searchQuery.trim() ? 1 : 0) +
     (activeFilter !== "all" ? 1 : 0) +
@@ -527,7 +669,7 @@ function AppManager({ active }: { active: boolean }) {
         
           <ThreeColumnLayout
             filterOpen={filterPanelOpen}
-            detailOpen={!!selectedItem}
+            detailOpen={!!selectedItem || !!installDetailItem}
             filter={
               <FilterPanel open={filterPanelOpen} onToggle={() => setFilterPanelOpen(!filterPanelOpen)}
                 activeFilterCount={activeFilterCount} title={t("appManager.filters")}>
@@ -580,20 +722,6 @@ function AppManager({ active }: { active: boolean }) {
                       onSeriesChange={setSeriesFilter}
                     />
                   </div>
-                  {batchMode && selectedCount > 0 && (
-                    <div className="pt-2 border-t">
-                      <p className="text-[11px] text-muted-foreground mb-2 uppercase tracking-wider">
-                        {t("appManager.batchSelected", { count: selectedCount })}</p>
-                      <div className="flex flex-col gap-1.5">
-                        <Button variant="outline" size="sm" disabled={selectedUpgradable === 0} onClick={handleBatchUpgrade}>
-                          <ArrowUp size={13} className="mr-1" />{t("appManager.batchUpgrade")} ({selectedUpgradable})</Button>
-                        <Button variant="outline" size="sm" className="text-red-600" disabled={selectedUninstallable === 0} onClick={handleBatchUninstall}>
-                          <Trash2 size={13} className="mr-1" />{t("appManager.batchUninstall")} ({selectedUninstallable})</Button>
-                        <Button variant="ghost" size="sm" onClick={clearSelection}>
-                          <X size={13} className="mr-1" />{t("appManager.batchClear")}</Button>
-                      </div>
-                    </div>
-                  )}
                   {caps && (
                     <div className="pt-2 border-t">
                       <p className="text-[11px] text-muted-foreground mb-2 uppercase tracking-wider">{t("appManager.platform")}</p>
@@ -624,25 +752,58 @@ function AppManager({ active }: { active: boolean }) {
                   {activeFilter === "installList" ? (
                     <ContentView<InstallListAppInfo>
                       data={filteredApps as InstallListAppInfo[]}
-                      viewMode="grid"
-                      onViewModeChange={() => {}}
-                      columns={[]}
+                      viewMode={viewMode}
+                      onViewModeChange={setViewMode}
+                      columns={installListColumns}
                       getRowId={(app) => app.id}
                       renderGridCard={renderInstallListCard}
                       estimatedCardHeight={220}
                       gridGap={10}
                       gridRowPadding={[4, 12]}
-                      onItemClick={() => {}}
-                      showViewToggle={false}
-                      summary={
-                        <span className="text-xs text-muted-foreground">
-                          {t("appManager.installListSummary", {
-                            total: visibleInstallListApps.length,
-                            pending: visibleInstallListPendingCount,
-                            installed: visibleInstallListInstalledCount,
-                          })}
-                        </span>
+                      onItemClick={(app) => setInstallDetailItem(app)}
+                      batchMode={installBatchMode}
+                      selectedIds={selectedInstallIds}
+                      onToggleSelect={toggleInstallSelect}
+                      showViewToggle={true}
+                      summary={undefined}
+                      actions={
+                        <>
+                          <ToolbarButton
+                            icon={<CheckSquare size={15} />}
+                            tooltip={installBatchMode ? t("appManager.batchModeOff") : t("appManager.batchMode")}
+                            onClick={() => { setInstallBatchMode(v => !v); clearInstallSelection(); }}
+                            active={installBatchMode}
+                          />
+                          <ToolbarButton
+                            icon={<Filter size={15} />}
+                            tooltip={t("appManager.filters")}
+                            onClick={() => setFilterPanelOpen(!filterPanelOpen)}
+                            active={filterPanelOpen}
+                          />
+                          <span className="text-xs text-muted-foreground tabular-nums">
+                            {t("appManager.installListSummary", {
+                              total: visibleInstallListApps.length,
+                              pending: visibleInstallListPendingCount,
+                              installed: visibleInstallListInstalledCount,
+                            })}
+                          </span>
+                        </>
                       }
+                      rightActions={installBatchMode ? (
+                        <div className="flex items-center gap-1">
+                          <ToolbarButton
+                            icon={<Download size={15} />}
+                            tooltip={`${t("appManager.installSelected")} (${selectedInstallIds.size})`}
+                            disabled={selectedInstallIds.size === 0}
+                            onClick={handleBatchInstall}
+                          />
+                          <ToolbarButton
+                            icon={<X size={15} />}
+                            tooltip={t("appManager.clearSelection")}
+                            onClick={() => { clearInstallSelection(); }}
+                          />
+                        </div>
+                      ) : undefined}
                       emptyIcon={<Search size={32} className="opacity-30" />}
                       emptyText={t("appManager.installNoResults")}
                     />
@@ -682,6 +843,27 @@ function AppManager({ active }: { active: boolean }) {
                           />
                         </>
                       }
+                      rightActions={batchMode ? (
+                        <div className="flex items-center gap-1">
+                          <ToolbarButton
+                            icon={<ArrowUpCircle size={15} className={selectedUpgradable > 0 ? "text-orange-500" : ""} />}
+                            tooltip={`${t("appManager.batchUpgrade")} (${selectedUpgradable})`}
+                            disabled={selectedUpgradable === 0}
+                            onClick={handleBatchUpgrade}
+                          />
+                          <ToolbarButton
+                            icon={<Trash2 size={15} />}
+                            tooltip={`${t("appManager.batchUninstall")} (${selectedUninstallable})`}
+                            disabled={selectedUninstallable === 0}
+                            onClick={handleBatchUninstall}
+                          />
+                          <ToolbarButton
+                            icon={<X size={15} />}
+                            tooltip={t("appManager.batchClear")}
+                            onClick={clearSelection}
+                          />
+                        </div>
+                      ) : undefined}
                       emptyIcon={
                         scanned
                           ? <Search size={32} className="opacity-30" />
@@ -698,13 +880,23 @@ function AppManager({ active }: { active: boolean }) {
               </div>
             }
             detail={
-              <DetailPanel
-                item={selectedItem}
-                open={!!selectedItem}
-                onClose={() => setSelectedItem(null)}
-                title={t("appManager.details")}
-                renderDetail={renderDetail}
-              />
+              activeFilter === "installList" ? (
+                <DetailPanel<InstallListAppInfo>
+                  item={installDetailItem}
+                  open={!!installDetailItem}
+                  onClose={() => setInstallDetailItem(null)}
+                  title={t("appManager.details")}
+                  renderDetail={renderInstallDetail}
+                />
+              ) : (
+                <DetailPanel
+                  item={selectedItem}
+                  open={!!selectedItem}
+                  onClose={() => setSelectedItem(null)}
+                  title={t("appManager.details")}
+                  renderDetail={renderDetail}
+                />
+              )
             }
           />
 
@@ -790,19 +982,26 @@ function AppManager({ active }: { active: boolean }) {
           </AlertDialogContent>
         </AlertDialog>
 
-        {/* Batch Confirm Dialog */}
-        <AlertDialog open={batchConfirmDialog.open} onOpenChange={(open) => { if (!open) closeBatchConfirmDialog(); }}>
+          <AlertDialog open={batchConfirmDialog.open} onOpenChange={(open) => { if (!open) closeBatchConfirmDialog(); }}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle className="flex items-center gap-2">
-                <Layers size={18} />
-                {t("appManager.batchConfirmTitle", {
-                  action: batchConfirmDialog.action === "uninstall" ? t("appManager.batchActionUninstall") : t("appManager.batchActionUpgrade"),
-                  count: batchConfirmDialog.count,
-                })}
+                {batchConfirmDialog.action === "install" ? (
+                  <Download size={18} className="text-blue-500" />
+                ) : (
+                  <Layers size={18} />
+                )}
+                {batchConfirmDialog.action === "install"
+                  ? t("appManager.batchInstallConfirmTitle", { count: batchConfirmDialog.count })
+                  : t("appManager.batchConfirmTitle", {
+                      action: batchConfirmDialog.action === "uninstall" ? t("appManager.batchActionUninstall") : t("appManager.batchActionUpgrade"),
+                      count: batchConfirmDialog.count,
+                    })}
               </AlertDialogTitle>
               <AlertDialogDescription>
-                {batchConfirmDialog.action === "uninstall"
+                {batchConfirmDialog.action === "install"
+                  ? t("appManager.batchInstallConfirmDescription", { count: batchConfirmDialog.count })
+                  : batchConfirmDialog.action === "uninstall"
                   ? t("appManager.batchUninstallConfirmDescription", { count: batchConfirmDialog.count })
                   : t("appManager.batchUpgradeConfirmDescription", { count: batchConfirmDialog.count })}
               </AlertDialogDescription>
@@ -811,7 +1010,9 @@ function AppManager({ active }: { active: boolean }) {
               <AlertDialogCancel>{t("appManager.cancel")}</AlertDialogCancel>
               <AlertDialogAction onClick={handleBatchConfirm}
                 className={batchConfirmDialog.action === "uninstall" ? "bg-red-600 hover:bg-red-700" : ""}>
-                {batchConfirmDialog.action === "uninstall" ? t("appManager.confirmUninstall") : t("appManager.confirmUpgrade")}
+                {batchConfirmDialog.action === "install"
+                  ? t("appManager.confirmInstall")
+                  : batchConfirmDialog.action === "uninstall" ? t("appManager.confirmUninstall") : t("appManager.confirmUpgrade")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

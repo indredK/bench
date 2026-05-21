@@ -39,6 +39,8 @@ interface ContentViewProps<T> {
   summary?: ReactNode;
   /** Optional actions slot rendered to the left of the view toggle */
   actions?: ReactNode;
+  /** Optional actions slot rendered to the right of summary/actions, before the view toggle */
+  rightActions?: ReactNode;
   /** Returns data attributes to attach to each row/card for context menu delegation */
   getRowAttributes?: (item: T) => Record<string, string>;
 }
@@ -70,6 +72,7 @@ export function ContentView<T>({
   showViewToggle = true,
   summary,
   actions,
+  rightActions,
   getRowAttributes,
 }: ContentViewProps<T>) {
   // Initial load with no data — show full-screen loader
@@ -131,12 +134,15 @@ export function ContentView<T>({
   const content = showHeader ? (
     <div className="h-full flex flex-col gap-1.5">
       <div className="flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
-          {summary && <span className="text-sm text-muted-foreground">{summary}</span>}
-          {actions}
+          <div className="flex items-center gap-3">
+            {summary && <span className="text-sm text-muted-foreground">{summary}</span>}
+            {actions}
+          </div>
+          <div className="flex items-center gap-2">
+            {rightActions}
+            {showViewToggle && <ViewToggle viewMode={viewMode} onChange={onViewModeChange} />}
+          </div>
         </div>
-        {showViewToggle && <ViewToggle viewMode={viewMode} onChange={onViewModeChange} />}
-      </div>
       <div className="flex-1 min-h-0">{body}</div>
     </div>
   ) : body;

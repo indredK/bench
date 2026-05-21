@@ -162,6 +162,7 @@ export function VirtualDataTable<T>({
           const handleClick = () => {
             if (batchMode && onToggleSelect) {
               onToggleSelect(rowId);
+              onItemClick(row.original);
             } else {
               onItemClick(row.original);
             }

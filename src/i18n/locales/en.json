@@ -68,6 +68,8 @@
     "batchConfirmTitle": "Confirm Batch {{action}} ({{count}} apps)",
     "batchActionUpgrade": "Upgrade",
     "batchActionUninstall": "Uninstall",
+    "batchInstallConfirmTitle": "Install {{count}} apps?",
+    "batchInstallConfirmDescription": "Install {{count}} selected apps?",
     "batchUpgradeConfirmDescription": "Upgrade {{count}} apps to their latest versions?",
     "batchUninstallConfirmDescription": "Uninstall {{count}} apps? This cannot be undone.",
     "lastScan": "Last scan",
@@ -125,6 +127,8 @@
     "installConfirmTitle": "Install {{name}}",
     "installConfirmDescription": "This will download and install {{name}} on your system.",
     "confirmInstall": "Install",
+    "installSelected": "Install Selected ({{count}})",
+    "clearSelection": "Clear Selection",
     "openWebsite": "Open Website",
     "copyPath": "Copy Path",
     "copyWebsite": "Copy Website"

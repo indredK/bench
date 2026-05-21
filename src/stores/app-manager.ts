@@ -130,7 +130,7 @@ export interface AppManagerState {
   batchResults: BatchOperationResult | null;
   batchConfirmDialog: {
     open: boolean;
-    action: "upgrade" | "uninstall";
+    action: "upgrade" | "uninstall" | "install";
     count: number;
   };
 
@@ -179,7 +179,7 @@ export interface AppManagerState {
   selectAllFiltered: (filteredIds: string[]) => void;
   clearSelection: () => void;
   setBatchMode: (on: boolean) => void;
-  openBatchConfirmDialog: (action: "upgrade" | "uninstall", count: number) => void;
+  openBatchConfirmDialog: (action: "upgrade" | "uninstall" | "install", count: number) => void;
   closeBatchConfirmDialog: () => void;
   doBatchUpgrade: () => Promise<void>;
   doBatchUninstall: () => Promise<void>;
