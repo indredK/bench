@@ -64,12 +64,12 @@ function sourceTypeLabel(t: TFunction, sourceType: string): string {
     case "HomebrewCask": return t("appManager.sourceHomebrewCask");
     case "MacBundle": return t("appManager.sourceMacBundle");
     case "AppStore": return t("appManager.sourceAppStore");
-    case "Winget": return "winget";
-    case "WindowsStore": return "Windows Store";
-    case "MsiInstaller": return "MSI";
-    case "Flatpak": return "Flatpak";
-    case "Snap": return "Snap";
-    case "Apt": return "APT";
+    case "Winget": return t("appManager.sourceWinget");
+    case "WindowsStore": return t("appManager.sourceWindowsStore");
+    case "MsiInstaller": return t("appManager.sourceMsiInstaller");
+    case "Flatpak": return t("appManager.sourceFlatpak");
+    case "Snap": return t("appManager.sourceSnap");
+    case "Apt": return t("appManager.sourceApt");
     default: return t("appManager.sourceUnknown");
   }
 }

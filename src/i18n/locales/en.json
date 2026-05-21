@@ -30,6 +30,13 @@
     "sourceHomebrewCask": "Homebrew",
     "sourceMacBundle": "Mac Bundle",
     "sourceAppStore": "App Store",
+    "sourceWinget": "winget",
+    "sourceWindowsStore": "Windows Store",
+    "sourceMsiInstaller": "MSI",
+    "sourceFlatpak": "Flatpak",
+    "sourceSnap": "Snap",
+    "sourceApt": "APT",
+    "sourceDownload": "Download",
     "sourceUnknown": "Unknown",
     "column": {
       "name": "Application",
@@ -1182,7 +1189,8 @@
     "included": "Included",
     "na": "—",
     "withParenthesis": "{{prefix}} ({{detail}})",
-    "desktopOnly": "This feature is only available in the desktop version of Bench."
+    "desktopOnly": "This feature is only available in the desktop version of Bench.",
+    "appTitle": "Port Manager - DevTools"
   },
   "language": {
     "system": "System",

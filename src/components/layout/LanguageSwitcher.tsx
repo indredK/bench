@@ -46,7 +46,7 @@ function LanguageSwitcher() {
     setStoredMode(mode);
     setCurrentMode(mode);
     await i18n.changeLanguage(resolvedLang);
-    const title = resolvedLang === "zh" ? "端口管理器 - DevTools" : "Port Manager - DevTools";
+    const title = t("common.appTitle");
     await setCurrentWindowTitle(title);
   };
 

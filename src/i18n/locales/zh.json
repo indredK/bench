@@ -30,6 +30,13 @@
     "sourceHomebrewCask": "Homebrew",
     "sourceMacBundle": "Mac 原生",
     "sourceAppStore": "App Store",
+    "sourceWinget": "winget",
+    "sourceWindowsStore": "Microsoft Store",
+    "sourceMsiInstaller": "MSI 安装包",
+    "sourceFlatpak": "Flatpak",
+    "sourceSnap": "Snap",
+    "sourceApt": "APT",
+    "sourceDownload": "网页下载",
     "sourceUnknown": "未知",
     "column": {
       "name": "应用",
@@ -1182,7 +1189,8 @@
     "included": "附赠",
     "na": "—",
     "withParenthesis": "{{prefix}}（{{detail}}）",
-    "desktopOnly": "此功能仅在 Bench 桌面版中可用。"
+    "desktopOnly": "此功能仅在 Bench 桌面版中可用。",
+    "appTitle": "端口管理器 - DevTools"
   },
   "language": {
     "system": "跟随系统",

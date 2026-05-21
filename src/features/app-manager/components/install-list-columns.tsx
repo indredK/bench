@@ -59,7 +59,7 @@ export function createInstallListColumns({
     },
     {
       id: "source",
-      header: "Source",
+      header: t("appManager.column.source"),
       accessorFn: (app) => getInstallSourceLabel(app.installSource),
       cell: ({ row }) => (
         <div className="flex gap-1 flex-wrap">
