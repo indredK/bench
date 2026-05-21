@@ -28,10 +28,30 @@ export default defineConfig(async () => ({
     },
   },
   build: {
+    chunkSizeWarningLimit: 600,
     rollupOptions: {
       input: {
         main: path.resolve(__dirname, "index.html"),
         splash: path.resolve(__dirname, "splash.html"),
+      },
+      output: {
+        manualChunks(id: string | string[]) {
+          if (id.includes("node_modules")) {
+            if (id.includes("react") || id.includes("react-dom")) {
+              return "vendor-react";
+            }
+            if (id.includes("@tauri-apps")) {
+              return "vendor-tauri";
+            }
+            if (id.includes("radix-ui") || id.includes("@radix-ui")) {
+              return "vendor-radix";
+            }
+            if (id.includes("lucide-react")) {
+              return "vendor-icons";
+            }
+            return "vendor";
+          }
+        },
       },
     },
   },

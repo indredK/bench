@@ -73,6 +73,7 @@ struct NodeDeclaredBin {
 }
 
 const VERSION_TIMEOUT: Duration = Duration::from_millis(1200);
+#[cfg(target_os = "macos")]
 const SHELL_TIMEOUT: Duration = Duration::from_millis(4000);
 const MAX_VERSION_PROBES: usize = 80;
 const ENV_TOOL_DETECTORS: &[ToolDetector] = &[
