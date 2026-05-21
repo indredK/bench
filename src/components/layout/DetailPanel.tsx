@@ -23,7 +23,7 @@ export function DetailPanel<T>({
   return (
     <div
       className={cn(
-        "rounded-xl border bg-card flex flex-col overflow-hidden transition-opacity duration-200 w-full h-full",
+        "rounded-xl border bg-card flex flex-col overflow-hidden w-full h-full",
         open ? "opacity-100" : "opacity-0"
       )}
     >

@@ -7,23 +7,19 @@ interface ThreeColumnLayoutProps {
   detail: ReactNode;
   filterOpen: boolean;
   detailOpen: boolean;
+  onCloseDetail?: () => void;
 }
 
-/**
- * Three-column layout using flexbox with a single source of truth for column widths.
- * Parent wrappers control widths via Tailwind classes; children use w-full internally
- * to avoid double-width-control conflicts that break the layout.
- */
 export function ThreeColumnLayout({
   filter,
   content,
   detail,
   filterOpen,
   detailOpen,
+  onCloseDetail,
 }: ThreeColumnLayoutProps) {
   return (
-    <div className="flex flex-1 min-h-0 gap-3">
-      {/* Filter column - parent controls width, child fills with w-full */}
+    <div className="flex flex-1 min-h-0 gap-3 overflow-x-hidden">
       <div
         className={cn(
           "shrink-0 overflow-hidden transition-[width] duration-200",
@@ -35,21 +31,26 @@ export function ThreeColumnLayout({
         </div>
       </div>
 
-      {/* Content column - takes remaining flex space */}
-      <div className="flex-1 min-w-0 flex flex-col">
+      <div className="flex-1 min-w-0 flex flex-col relative">
         {content}
+        <div
+          className={cn(
+            "absolute inset-0 z-20 transition-opacity duration-200",
+            detailOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+          )}
+          onClick={onCloseDetail}
+        >
+          <div className="absolute inset-0 bg-black/20 rounded-xl" />
+        </div>
       </div>
 
-      {/* Detail column - parent controls width, child fills with w-full */}
       <div
         className={cn(
-          "shrink-0 overflow-hidden transition-[width] duration-200",
-          detailOpen ? "w-[320px]" : "w-0"
+          "shrink-0 w-[320px] ml-[-320px] overflow-hidden transition-transform duration-200 ease-out",
+          detailOpen ? "translate-x-0" : "translate-x-full"
         )}
       >
-        <div className={cn("w-full h-full", !detailOpen && "invisible")}>
-          {detail}
-        </div>
+        {detail}
       </div>
     </div>
   );

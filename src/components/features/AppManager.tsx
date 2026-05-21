@@ -151,6 +151,11 @@ function AppManager({ active }: { active: boolean }) {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [installDetailItem]);
 
+  useEffect(() => {
+    setSelectedItem(null);
+    setInstallDetailItem(null);
+  }, [activeFilter, categoryFilter, seriesFilter, searchQuery]);
+
   const getOpStatus = useCallback((appId: string): OperationStatus => {
     const state = useAppManagerStore.getState();
     return state.operations[appId]?.status ?? "idle";
@@ -302,8 +307,8 @@ function AppManager({ active }: { active: boolean }) {
 
   const handleToggleBatchMode = useCallback(() => {
     if (batchMode) { clearSelection(); setBatchMode(false); }
-    else setBatchMode(true);
-  }, [batchMode, clearSelection, setBatchMode]);
+    else { setSelectedItem(null); setBatchMode(true); }
+  }, [batchMode, clearSelection, setBatchMode, setSelectedItem]);
 
   const selectedUpgradable = activeFilter !== "installList"
     ? (filteredApps as AppInfo[]).filter(a => a.allowedActions.upgrade && selectedAppIds.has(a.appId)).length
@@ -670,6 +675,7 @@ function AppManager({ active }: { active: boolean }) {
           <ThreeColumnLayout
             filterOpen={filterPanelOpen}
             detailOpen={!!selectedItem || !!installDetailItem}
+            onCloseDetail={() => { setSelectedItem(null); setInstallDetailItem(null); }}
             filter={
               <FilterPanel open={filterPanelOpen} onToggle={() => setFilterPanelOpen(!filterPanelOpen)}
                 activeFilterCount={activeFilterCount} title={t("appManager.filters")}>

@@ -122,7 +122,6 @@ export function VirtualGridView<T>({
                   const handleClick = () => {
                     if (batchMode && onToggleSelect) {
                       onToggleSelect(id);
-                      onItemClick(item);
                     } else {
                       onItemClick(item);
                     }
