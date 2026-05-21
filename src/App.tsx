@@ -77,7 +77,7 @@ function App() {
                   <Switch>
                     {appFeatures.map((feature) => (
                       <Route key={feature.id} path={feature.path}>
-                        {feature.render()}
+                        {feature.render(feature)}
                       </Route>
                     ))}
                   </Switch>

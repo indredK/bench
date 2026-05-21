@@ -1,10 +1,10 @@
 import type { EnvScanDonePayload } from "@/lib/tauri/types/env-detector";
 import { envDetectorRepository } from "@/features/env-detector/services/env-detector.repository";
-import { isDesktopRuntime } from "@/platform/runtime";
+import { canUseDesktopFeatures } from "@/platform/capabilities";
 
 export const envDetectorUseCases = {
   isAvailable() {
-    return isDesktopRuntime();
+    return canUseDesktopFeatures();
   },
 
   scanEnvTools(): Promise<EnvScanDonePayload> {

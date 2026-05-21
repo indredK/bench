@@ -5,7 +5,7 @@ export interface AppFeature {
   path: string;
   labelKey: string;
   icon: ReactNode;
-  render: () => ReactNode;
+  render: (feature: AppFeature) => ReactNode;
   refresh?: () => void | Promise<void>;
   desktopOnly?: boolean;
 }

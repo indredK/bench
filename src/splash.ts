@@ -1,4 +1,4 @@
-import { getAppWindowByLabel, getCurrentAppWindow } from "@/platform/window";
+import { canUseWindowControls, getAppWindowByLabel, getCurrentAppWindow } from "@/platform/window";
 
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const showDelay = reduceMotion ? 220 : 1700;
@@ -17,6 +17,7 @@ async function finishSplash() {
 }
 
 function closeSplash() {
+  if (!canUseWindowControls()) return;
   document.body.classList.add("done");
   window.setTimeout(() => {
     void getCurrentAppWindow().then((win) => win.close());

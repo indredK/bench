@@ -1,10 +1,10 @@
 import type { KillPidResult, PortProcessDetail } from "@/lib/tauri/types/port-manager";
 import { portManagerRepository } from "@/features/port-manager/services/port-manager.repository";
-import { isDesktopRuntime } from "@/platform/runtime";
+import { canUseDesktopFeatures } from "@/platform/capabilities";
 
 export const portManagerUseCases = {
   isAvailable() {
-    return isDesktopRuntime();
+    return canUseDesktopFeatures();
   },
 
   queryPortProcesses(ports: number[]): Promise<PortProcessDetail[]> {

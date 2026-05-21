@@ -166,6 +166,7 @@ vi.mock("lucide-react", () => ({
   RefreshCw: () => <span data-testid="refresh">Refresh</span>,
   Search: () => <span data-testid="search">Search</span>,
   X: () => <span data-testid="x-icon">X</span>,
+  Zap: () => <span data-testid="zap">Zap</span>,
 }));
 
 describe("PortManager", () => {

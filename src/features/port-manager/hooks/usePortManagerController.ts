@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { portManagerOperations } from "@/features/port-manager/operations";
 import { hasInvalidPortInputCharacters } from "@/features/port-manager/ports";
 import { usePortManagerStore, type PortScanStatus, PORT_SCAN_STATUS_META } from "@/features/port-manager/store";
-import { isDesktopRuntime } from "@/platform/runtime";
+import { canUseDesktopFeatures } from "@/platform/capabilities";
 
 export const commonPorts = [3000, 5173, 1420, 8080, 5000, 4200, 8000, 4321, 6006, 1234, 9000];
 
@@ -45,7 +45,7 @@ export function usePortManagerController() {
   const addPortsToScan = usePortManagerStore((s) => s.addPortsToScan);
   const clearAll = usePortManagerStore((s) => s.clearAll);
 
-  const isTauriEnv = isDesktopRuntime();
+  const canUsePlatformFeatures = canUseDesktopFeatures();
   const isScanning = portStates.some((ps) => ps.status === "scanning");
 
   const clearInvalidTimer = useCallback(() => {
@@ -239,7 +239,7 @@ export function usePortManagerController() {
 
   return {
     t,
-    isTauriEnv,
+    canUsePlatformFeatures,
     inputRef,
     scrollContentRef,
     inputValue,

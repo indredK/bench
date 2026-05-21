@@ -1,7 +1,7 @@
 import type { RowSelectionState } from "@tanstack/react-table";
 import type { ProjectInfo, ScanResult } from "@/lib/tauri/types/dev-cleaner";
 import { devCleanerRepository } from "@/features/dev-cleaner/services/dev-cleaner.repository";
-import { isDesktopRuntime } from "@/platform/runtime";
+import { canUseDesktopFeatures } from "@/platform/capabilities";
 
 export interface CleanupMessage {
   type: "success" | "error";
@@ -10,7 +10,7 @@ export interface CleanupMessage {
 
 export const devCleanerUseCases = {
   isAvailable() {
-    return isDesktopRuntime();
+    return canUseDesktopFeatures();
   },
 
   selectDirectory() {

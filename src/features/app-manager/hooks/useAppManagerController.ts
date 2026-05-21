@@ -8,7 +8,7 @@ import { filterAppManagerItems } from "@/features/app-manager/model/selectors";
 import { appManagerOperations } from "@/features/app-manager/operations";
 import type { AppInfo, InstallListAppInfo } from "@/lib/tauri/types/app-manager";
 import { appManagerPlatformConfig } from "@/platform/config";
-import { isDesktopRuntime } from "@/platform/runtime";
+import { canUseDesktopFeatures } from "@/platform/capabilities";
 import { createInstallListColumns } from "@/features/app-manager/components/install-list-columns";
 
 export function useAppManagerController(active: boolean) {
@@ -78,7 +78,7 @@ export function useAppManagerController(active: boolean) {
   const pendingBatchInstallIds = useRef<string[]>([]);
   const confirmPendingRef = useRef(false);
 
-  const isTauriEnv = isDesktopRuntime();
+  const canUsePlatformFeatures = canUseDesktopFeatures();
 
   useEffect(() => {
     appManagerOperations.restorePreferences();
@@ -96,8 +96,8 @@ export function useAppManagerController(active: boolean) {
   }, [preferencesHydrated, viewMode]);
 
   useEffect(() => {
-    if (active && isTauriEnv && !scanned) scanApps();
-  }, [active, isTauriEnv, scanned, scanApps]);
+    if (active && canUsePlatformFeatures && !scanned) scanApps();
+  }, [active, canUsePlatformFeatures, scanned, scanApps]);
 
   useEffect(() => {
     if (scanned && apps.length > 0) refreshUpdates();
@@ -159,18 +159,18 @@ export function useAppManagerController(active: boolean) {
 
   const handleLaunch = useCallback(
     async (app: AppInfo) => {
-      if (!isTauriEnv) return;
+      if (!canUsePlatformFeatures) return;
       await launchApp(app);
     },
-    [isTauriEnv, launchApp]
+    [canUsePlatformFeatures, launchApp]
   );
 
   const handleReveal = useCallback(
     async (app: AppInfo) => {
-      if (!isTauriEnv) return;
+      if (!canUsePlatformFeatures) return;
       await revealApp(app);
     },
-    [isTauriEnv, revealApp]
+    [canUsePlatformFeatures, revealApp]
   );
 
   const handleUpgradeFromColumn = useCallback(
@@ -431,7 +431,7 @@ export function useAppManagerController(active: boolean) {
     visibleInstallListInstalledCount,
     visibleInstallListPendingCount,
     caps,
-    isTauriEnv,
+    canUsePlatformFeatures,
     appManagerColumns,
     installListColumns,
     setSearchQuery,

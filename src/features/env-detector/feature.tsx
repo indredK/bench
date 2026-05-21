@@ -8,7 +8,7 @@ export const envDetectorFeature: AppFeature = {
   path: "/env-detector",
   labelKey: "sidebar.envDetector",
   icon: <Box size={18} />,
-  render: () => <EnvDetector active />,
+  render: (feature) => <EnvDetector active feature={feature} />,
   refresh: () => envDetectorOperations.loadTools(),
   desktopOnly: true,
 };

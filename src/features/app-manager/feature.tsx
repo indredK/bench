@@ -8,7 +8,7 @@ export const appManagerFeature: AppFeature = {
   path: "/app-manager",
   labelKey: "sidebar.appManager",
   icon: <AppWindow size={18} />,
-  render: () => <AppManager active />,
+  render: (feature) => <AppManager active feature={feature} />,
   refresh: () => appManagerOperations.scanApps(),
   desktopOnly: true,
 };

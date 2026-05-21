@@ -4,7 +4,7 @@ import { DetailPanel } from "@/components/layout/DetailPanel";
 import { ThreeColumnLayout } from "@/components/layout/ThreeColumnLayout";
 import { ToolbarButton } from "@/components/ui/toolbar-button";
 import { ContentView } from "@/components/content/ContentView";
-import { DesktopOnly } from "@/components/common/DesktopOnly";
+import { RuntimeFeatureGate } from "@/components/common/RuntimeFeatureGate";
 import { AppDetail, InstallDetail } from "@/features/app-manager/components/AppManagerDetails";
 import { AppManagerActionBar } from "@/features/app-manager/components/AppManagerActionBar";
 import { AppManagerBatchResults } from "@/features/app-manager/components/AppManagerBatchResults";
@@ -17,7 +17,7 @@ import { InstallListCard } from "@/features/app-manager/components/InstallListCa
 import { useAppManagerController } from "@/features/app-manager/hooks/useAppManagerController";
 import type { AppInfo, InstallListAppInfo } from "@/lib/tauri/types/app-manager";
 
-function AppManager({ active }: { active: boolean }) {
+function AppManager({ active, feature }: { active: boolean; feature?: { desktopOnly?: boolean } }) {
   const controller = useAppManagerController(active);
   const {
     t,
@@ -55,7 +55,6 @@ function AppManager({ active }: { active: boolean }) {
     visibleInstallListInstalledCount,
     visibleInstallListPendingCount,
     caps,
-    isTauriEnv,
     appManagerColumns,
     installListColumns,
     setSearchQuery,
@@ -97,12 +96,11 @@ function AppManager({ active }: { active: boolean }) {
 
   return (
     <AppManagerErrorBoundary>
-      {!isTauriEnv ? (
-        <DesktopOnly
-          title={t("appManager.title")}
-          icon={<AppWindow size={32} className="opacity-40" />}
-        />
-      ) : (
+      <RuntimeFeatureGate
+        feature={feature}
+        title={t("appManager.title")}
+        icon={<AppWindow size={32} className="opacity-40" />}
+      >
         <div className="h-full flex flex-col gap-3">
           <AppManagerActionBar
             t={t}
@@ -360,7 +358,7 @@ function AppManager({ active }: { active: boolean }) {
             onBatchConfirm={handleBatchConfirm}
           />
         </div>
-      )}
+      </RuntimeFeatureGate>
     </AppManagerErrorBoundary>
   );
 }

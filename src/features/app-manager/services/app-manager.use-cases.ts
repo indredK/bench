@@ -10,7 +10,7 @@ import {
   appManagerRepository,
   type AppManagerRepository,
 } from "@/features/app-manager/services/app-manager.repository";
-import { isDesktopRuntime } from "@/platform/runtime";
+import { canUseDesktopFeatures } from "@/platform/capabilities";
 
 export type AppOperationKind = "upgrade" | "uninstall" | "install";
 export type BatchOperationKind = "upgrade" | "uninstall";
@@ -56,7 +56,7 @@ const operationSkippedResult = (message: string): OperationResult => ({
 
 function createAppManagerUseCases(
   repository: AppManagerRepository = appManagerRepository,
-  isAvailable: () => boolean = isDesktopRuntime
+  isAvailable: () => boolean = canUseDesktopFeatures
 ) {
   return {
     isAvailable() {

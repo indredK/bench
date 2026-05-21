@@ -8,7 +8,7 @@ export const portManagerFeature: AppFeature = {
   path: "/",
   labelKey: "sidebar.portManager",
   icon: <Zap size={18} />,
-  render: () => <PortManager />,
+  render: (feature) => <PortManager feature={feature} />,
   refresh: () => portManagerOperations.rescanAll(),
   desktopOnly: true,
 };

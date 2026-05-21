@@ -1,14 +1,14 @@
-import { open } from "@tauri-apps/plugin-dialog";
 import {
   cleanupProjects,
   scanDevProjects,
   stopDevProjectScan,
 } from "@/lib/tauri/commands/dev-cleaner";
 import type { ProjectInfo } from "@/lib/tauri/types/dev-cleaner";
+import { openPlatformDialog } from "@/platform/dialog";
 
 export const devCleanerRepository = {
   selectDirectory() {
-    return open({
+    return openPlatformDialog({
       directory: true,
       multiple: false,
       title: "Select Directory to Scan",

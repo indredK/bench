@@ -7,11 +7,11 @@ import { useContextMenuRegistration } from "@/shared/context-menu/useContextMenu
 import type { ContextMenuConfig, ContextMenuRegistration } from "@/shared/context-menu/types";
 import { useDevCleanerStore, filterTypeMap } from "@/features/dev-cleaner/store";
 import type { ProjectInfo } from "@/lib/tauri/types";
-import { isDesktopRuntime } from "@/platform/runtime";
+import { canUseDesktopFeatures } from "@/platform/capabilities";
 
 export function useDevCleanerController() {
   const { t } = useTranslation();
-  const isTauriEnv = isDesktopRuntime();
+  const canUsePlatformFeatures = canUseDesktopFeatures();
 
   const selectedPath = useDevCleanerStore((s) => s.selectedPath);
   const isScanning = useDevCleanerStore((s) => s.isScanning);
@@ -152,7 +152,7 @@ export function useDevCleanerController() {
 
   return {
     t,
-    isTauriEnv,
+    canUsePlatformFeatures,
     selectedPath,
     isScanning,
     scanResult,

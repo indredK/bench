@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { Minus, Maximize2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { isDesktopRuntime } from "@/platform/runtime";
+import { canUseWindowControls } from "@/platform/window";
 import { getCurrentAppWindow } from "@/platform/window";
 
 interface CustomTitlebarProps {
@@ -31,7 +31,7 @@ async function getWindowControls(): Promise<WindowControls> {
   return cachedControls;
 }
 
-const desktop = isDesktopRuntime();
+const desktop = canUseWindowControls();
 
 export function CustomTitlebar({
   className,

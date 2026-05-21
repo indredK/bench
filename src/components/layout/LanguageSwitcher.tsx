@@ -7,8 +7,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { isDesktopRuntime } from "@/platform/runtime";
-import { getCurrentAppWindow } from "@/platform/window";
+import { setCurrentWindowTitle } from "@/platform/window";
 
 type LangMode = "system" | "zh" | "en";
 const CYCLE_ORDER: LangMode[] = ["system", "zh", "en"];
@@ -44,11 +43,8 @@ function LanguageSwitcher() {
     setStoredMode(mode);
     setCurrentMode(mode);
     await i18n.changeLanguage(resolvedLang);
-    if (isDesktopRuntime()) {
-      const currentWindow = await getCurrentAppWindow();
-      const title = resolvedLang === "zh" ? "端口管理器 - DevTools" : "Port Manager - DevTools";
-      await currentWindow.setTitle(title);
-    }
+    const title = resolvedLang === "zh" ? "端口管理器 - DevTools" : "Port Manager - DevTools";
+    await setCurrentWindowTitle(title);
   };
 
   const currentIndex = CYCLE_ORDER.indexOf(currentMode);

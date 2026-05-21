@@ -8,7 +8,7 @@ export const devCleanerFeature: AppFeature = {
   path: "/dev-cleaner",
   labelKey: "sidebar.devCleaner",
   icon: <Trash2 size={18} />,
-  render: () => <DevCleaner />,
+  render: (feature) => <DevCleaner feature={feature} />,
   refresh: () => devCleanerOperations.scan(),
   desktopOnly: true,
 };

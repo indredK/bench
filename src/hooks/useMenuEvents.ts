@@ -1,6 +1,6 @@
 import { useEffect } from "react";
-import { listen } from "@tauri-apps/api/event";
 import { TAURI_EVENTS } from "@/lib/tauri/contracts";
+import { listenToPlatformEvent } from "@/platform/events";
 
 type MenuEventHandler = (menuItemId: string) => void;
 
@@ -21,16 +21,12 @@ export function useInitMenuEvents() {
     let unlisten: (() => void) | undefined;
 
     const setup = async () => {
-      try {
-        unlisten = await listen<string>(TAURI_EVENTS.menu.event, (event) => {
-          const handler = menuHandlers[event.payload];
-          if (handler) {
-            handler(event.payload);
-          }
-        });
-      } catch {
-        // 非 Tauri 环境（浏览器开发时）忽略
-      }
+      unlisten = await listenToPlatformEvent<string>(TAURI_EVENTS.menu.event, (event) => {
+        const handler = menuHandlers[event.payload];
+        if (handler) {
+          handler(event.payload);
+        }
+      });
     };
 
     setup();

@@ -20,8 +20,8 @@ import type { EnvTool } from "@/lib/tauri/types";
 import { useContextMenuRegistration } from "@/shared/context-menu/useContextMenuRegistration";
 import type { ContextMenuConfig, ContextMenuRegistration } from "@/shared/context-menu/types";
 import { Box } from "lucide-react";
-import { DesktopOnly } from "@/components/common/DesktopOnly";
-import { isDesktopRuntime } from "@/platform/runtime";
+import { RuntimeFeatureGate } from "@/components/common/RuntimeFeatureGate";
+import { canUseDesktopFeatures } from "@/platform/capabilities";
 
 type EnvFilterKey = "category" | "source" | "kind" | "status";
 
@@ -57,16 +57,9 @@ const ENV_FILTER_GROUPS: FilterGroup<EnvFilterRow>[] = [
   },
 ];
 
-function isTauriEnv(): boolean {
-  return isDesktopRuntime();
-}
-
-function EnvDetector({ active }: { active: boolean }) {
+function EnvDetector({ active, feature }: { active: boolean; feature?: { desktopOnly?: boolean } }) {
   const { t } = useTranslation();
-
-  if (!isTauriEnv()) {
-    return <DesktopOnly title={t("envDetector.title")} icon={<Box size={32} className="opacity-40" />} />;
-  }
+  const canUsePlatformFeatures = canUseDesktopFeatures();
 
   const tools = useEnvDetectorStore((s) => s.tools);
   const loading = useEnvDetectorStore((s) => s.loading);
@@ -88,10 +81,10 @@ function EnvDetector({ active }: { active: boolean }) {
   const loadTools = envDetectorOperations.loadTools;
 
   useEffect(() => {
-    if (active && isTauriEnv() && !scanned) {
+    if (active && canUsePlatformFeatures && !scanned) {
       loadTools();
     }
-  }, [active, loadTools, scanned]);
+  }, [active, canUsePlatformFeatures, loadTools, scanned]);
 
   const statusCounts = {
     total: tools.length,
@@ -204,117 +197,123 @@ function EnvDetector({ active }: { active: boolean }) {
   ), [t, getRowAttributes]);
 
   return (
-    <div className="h-full flex flex-col gap-3">
-      <Card className="flex flex-1 flex-col overflow-hidden">
-        <CardHeader className="shrink-0">
-          <CardTitle>{t("envDetector.title")}</CardTitle>
-        </CardHeader>
-        <CardContent className="flex-1 min-h-0 flex flex-col">
-          {error && (
-            <Alert variant="destructive" className="mb-4 shrink-0">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+    <RuntimeFeatureGate
+      feature={feature}
+      title={t("envDetector.title")}
+      icon={<Box size={32} className="opacity-40" />}
+    >
+      <div className="h-full flex flex-col gap-3">
+        <Card className="flex flex-1 flex-col overflow-hidden">
+          <CardHeader className="shrink-0">
+            <CardTitle>{t("envDetector.title")}</CardTitle>
+          </CardHeader>
+          <CardContent className="flex-1 min-h-0 flex flex-col">
+            {error && (
+              <Alert variant="destructive" className="mb-4 shrink-0">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
 
-          <div className="mb-3 shrink-0">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="relative flex-1 min-w-[200px]">
-                <Input
-                  placeholder={t("envDetector.searchPlaceholder")}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-3"
+            <div className="mb-3 shrink-0">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="relative flex-1 min-w-[200px]">
+                  <Input
+                    placeholder={t("envDetector.searchPlaceholder")}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-3"
+                    disabled={loading}
+                  />
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAllCommands(!showAllCommands)}
                   disabled={loading}
+                >
+                  {showAllCommands
+                    ? t("envDetector.hideAllCommands")
+                    : t("envDetector.showAllCommands")}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={loadTools}
+                  disabled={scanning}
+                >
+                  {scanning ? (
+                    <>
+                      <span className="mr-1.5 size-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                      {t("envDetector.scanning")}
+                    </>
+                  ) : (
+                    t("envDetector.refresh")
+                  )}
+                </Button>
+              </div>
+              <div className="mb-2">
+                <FilterBar
+                  filterGroups={ENV_FILTER_GROUPS}
+                  data={filterRows}
+                  filters={filters}
+                  onFilterChange={handleFilterChange}
+                  onClearFilters={clearFilters}
+                  resultCount={displayedTools.length + missingTools.length}
+                  filterTitleKey="envDetector.filters"
+                  clearFiltersKey="envDetector.clearFilters"
+                  filteredCountKey="envDetector.filteredCount"
+                  autoExpandHintKey="envDetector.autoExpandHint"
+                  pinnedHintKey="envDetector.pinnedHint"
                 />
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowAllCommands(!showAllCommands)}
-                disabled={loading}
-              >
-                {showAllCommands
-                  ? t("envDetector.hideAllCommands")
-                  : t("envDetector.showAllCommands")}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={loadTools}
-                disabled={scanning}
-              >
-                {scanning ? (
-                  <>
-                    <span className="mr-1.5 size-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                    {t("envDetector.scanning")}
-                  </>
-                ) : (
-                  t("envDetector.refresh")
-                )}
-              </Button>
             </div>
-            <div className="mb-2">
-              <FilterBar
-                filterGroups={ENV_FILTER_GROUPS}
-                data={filterRows}
-                filters={filters}
-                onFilterChange={handleFilterChange}
-                onClearFilters={clearFilters}
-                resultCount={displayedTools.length + missingTools.length}
-                filterTitleKey="envDetector.filters"
-                clearFiltersKey="envDetector.clearFilters"
-                filteredCountKey="envDetector.filteredCount"
-                autoExpandHintKey="envDetector.autoExpandHint"
-                pinnedHintKey="envDetector.pinnedHint"
-              />
-            </div>
-          </div>
 
-          <div className="flex-1 min-h-0 flex flex-col gap-3">
-            <ContentView
-              data={displayedTools}
-              viewMode={viewMode}
-              onViewModeChange={setViewMode}
-              columns={tableColumns}
-              getRowId={(tool) => `${tool.name}:${tool.path || tool.detector}:${tool.status}`}
-              renderGridCard={renderGridCard}
-              onItemClick={() => {}}
-              sorting={sorting}
-              onSortingChange={setSorting}
-              emptyIcon={<Box size={32} className="opacity-30" />}
-              emptyText={scanned ? t("envDetector.empty") : t("envDetector.startHint")}
-              loading={loading}
-              showViewToggle
-              summary={t(
-                hasActiveResultFilter
-                  ? "envDetector.filteredSummary"
-                  : "envDetector.summary",
-                {
-                  available: statusCounts.available,
-                  total: statusCounts.total,
-                  visible: displayedTools.length + missingTools.length,
-                }
-              )}
-              getRowAttributes={getRowAttributes}
-            />
-            {missingTools.length > 0 && (
-              <div className="shrink-0 rounded-lg border bg-muted/20 p-3">
-                <p className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  {t("envDetector.missingTools", { count: missingTools.length })}
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {missingTools.map((tool) => (
-                    <Badge key={`missing-${tool.name}`} variant="secondary">
-                      {tool.name}
-                    </Badge>
-                  ))}
+            <div className="flex-1 min-h-0 flex flex-col gap-3">
+              <ContentView
+                data={displayedTools}
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
+                columns={tableColumns}
+                getRowId={(tool) => `${tool.name}:${tool.path || tool.detector}:${tool.status}`}
+                renderGridCard={renderGridCard}
+                onItemClick={() => {}}
+                sorting={sorting}
+                onSortingChange={setSorting}
+                emptyIcon={<Box size={32} className="opacity-30" />}
+                emptyText={scanned ? t("envDetector.empty") : t("envDetector.startHint")}
+                loading={loading}
+                showViewToggle
+                summary={t(
+                  hasActiveResultFilter
+                    ? "envDetector.filteredSummary"
+                    : "envDetector.summary",
+                  {
+                    available: statusCounts.available,
+                    total: statusCounts.total,
+                    visible: displayedTools.length + missingTools.length,
+                  }
+                )}
+                getRowAttributes={getRowAttributes}
+              />
+              {missingTools.length > 0 && (
+                <div className="shrink-0 rounded-lg border bg-muted/20 p-3">
+                  <p className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    {t("envDetector.missingTools", { count: missingTools.length })}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {missingTools.map((tool) => (
+                      <Badge key={`missing-${tool.name}`} variant="secondary">
+                        {tool.name}
+                      </Badge>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </RuntimeFeatureGate>
   );
 }
 

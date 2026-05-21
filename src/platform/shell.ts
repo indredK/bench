@@ -1,8 +1,8 @@
 import { open as openExternalUrl } from "@tauri-apps/plugin-shell";
-import { isDesktopRuntime } from "@/platform/runtime";
+import { canUseTauriShell } from "@/platform/capabilities";
 
 export function openExternal(reference: string) {
-  if (isDesktopRuntime()) {
+  if (canUseTauriShell()) {
     return openExternalUrl(reference);
   }
 
