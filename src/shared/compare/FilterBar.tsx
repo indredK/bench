@@ -62,7 +62,7 @@ function FilterBar<T extends { id: string; model: string }>({
   const hasActiveFilters = Object.keys(filters).length > 0;
   const [masterCollapsed, setMasterCollapsed] = useState(false);
   const [autoMode, setAutoMode] = useState(false);
-  const collapseTimer = useRef<ReturnType<typeof setTimeout>>();
+  const collapseTimer = useRef<ReturnType<typeof setTimeout>>(null);
   const modelPicker =
     models && selectedIds && onToggleModel && onClearSelected
       ? { models, selectedIds, onToggleModel, onClearSelected }

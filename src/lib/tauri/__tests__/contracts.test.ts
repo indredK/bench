@@ -1,3 +1,4 @@
+/// <reference types="node" />
 /**
  * Test / 测试: verify behavior only; 只验证行为与契约.
  */
