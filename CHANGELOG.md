@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.8.4](https://github.com/indredK/bench/compare/v1.8.3...v1.8.4) (2026-05-22)
+
+
+### Bug Fixes
+
+* **release-please:** 修正Cargo.lock版本提取的jsonpath语法 ([e549572](https://github.com/indredK/bench/commit/e549572cbff75957d8b2a0ecffd48ee56c83fe60))
+* **release-please:** 简化release-please配置，合并版本管理 ([0795ce4](https://github.com/indredK/bench/commit/0795ce48117d6973e6c285ed024125abfdb3ec7e))
+* trigger release ([890b5f2](https://github.com/indredK/bench/commit/890b5f23f6f690b3a8fd589ff9312922b23cc9b9))
+
 ## [1.8.3](https://github.com/indredK/bench/compare/v1.8.2...v1.8.3) (2026-05-22)
 
 
