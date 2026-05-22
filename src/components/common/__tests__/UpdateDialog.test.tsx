@@ -17,9 +17,25 @@ vi.mock("react-i18next", () => ({
         "updater.availableTitle": `New version ${options?.version ?? ""}`.trim(),
         "updater.availableDescription": "Ready to download and install.",
         "updater.checkFailedTitle": "Couldn't check for updates",
-        "updater.checkFailedDescription": "We couldn't reach the update service. Check your connection and try again.",
+        "updater.checkFailedDescription": "The update service didn't return a usable result. Please try again shortly.",
         "updater.installFailedTitle": "Update installation failed",
         "updater.installFailedDescription": "The update package couldn't be downloaded or installed. Please try again.",
+        "updater.desktopOnlyTitle": "Updates aren't available here",
+        "updater.desktopOnlyDescription": "Updater features are only available in the desktop app.",
+        "updater.releaseInfoUnavailableTitle": "Update info isn't ready yet",
+        "updater.releaseInfoUnavailableDescription": "The latest release details are still syncing or temporarily unreadable. Please try again shortly.",
+        "updater.serviceBusyTitle": "Update service is busy",
+        "updater.serviceBusyDescription": "The update service is temporarily unavailable. Please try again shortly.",
+        "updater.networkUnavailableTitle": "Can't reach the update service",
+        "updater.networkUnavailableDescription": "The app couldn't connect to the update service just now. Please try again shortly.",
+        "updater.rateLimitedTitle": "Checks are happening too often",
+        "updater.rateLimitedDescription": "The update service is rate limiting requests for a moment. Please try again later.",
+        "updater.downloadFailedTitle": "Update download didn't finish",
+        "updater.downloadFailedDescription": "The update package download was interrupted. Please try again.",
+        "updater.installBlockedTitle": "Update can't be installed right now",
+        "updater.installBlockedDescription": "The installer may be blocked by a file in use or missing permission. Close related processes and try again.",
+        "updater.updateStateChangedTitle": "That update is no longer available",
+        "updater.updateStateChangedDescription": "The update changed after the last check. Please check again.",
         "updater.releaseNotes": "Release Notes",
         "updater.technicalDetails": "Technical details",
         "updater.close": "Close",
@@ -118,6 +134,7 @@ describe("UpdateDialog", () => {
             "* Added [support article](https://example.com/some/really/long/path/that/should/wrap)",
           ].join("\n"),
         }}
+        errorInfo={null}
         error=""
         downloadedBytes={0}
         totalBytes={null}
@@ -152,6 +169,7 @@ describe("UpdateDialog", () => {
           date: "2026-05-22",
           body: "plain text",
         }}
+        errorInfo={null}
         error=""
         downloadedBytes={0}
         totalBytes={null}
@@ -175,6 +193,12 @@ describe("UpdateDialog", () => {
         status="error"
         currentVersion="1.7.0"
         updateInfo={null}
+        errorInfo={{
+          kind: "releaseInfoUnavailable",
+          operation: "check",
+          message: "failed to check for updates: Could not fetch a valid release JSON from the remote",
+          retryAction: "check",
+        }}
         error="failed to check for updates: Could not fetch a valid release JSON from the remote"
         downloadedBytes={0}
         totalBytes={null}
@@ -187,9 +211,11 @@ describe("UpdateDialog", () => {
       />,
     );
 
-    expect(screen.getByText("Couldn't check for updates")).toBeInTheDocument();
+    expect(screen.getByText("Update info isn't ready yet")).toBeInTheDocument();
     expect(
-      screen.getByText("We couldn't reach the update service. Check your connection and try again."),
+      screen.getByText(
+        "The latest release details are still syncing or temporarily unreadable. Please try again shortly.",
+      ),
     ).toBeInTheDocument();
     expect(screen.queryByText("Latest Version")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();

@@ -3,6 +3,7 @@
  */
 import { create } from "zustand";
 import type { AppUpdateInfo } from "@/lib/tauri/types/updater";
+import type { UpdaterErrorInfo } from "@/features/updater/error-classifier";
 
 export type UpdaterStatus =
   | "idle"
@@ -20,6 +21,7 @@ interface UpdaterState {
   currentVersion: string;
   updateInfo: AppUpdateInfo | null;
   error: string;
+  errorInfo: UpdaterErrorInfo | null;
   downloadedBytes: number;
   totalBytes: number | null;
   lastCheckedAt: number;
@@ -29,6 +31,7 @@ interface UpdaterState {
   setCurrentVersion: (currentVersion: string) => void;
   setUpdateInfo: (updateInfo: AppUpdateInfo | null) => void;
   setError: (error: string) => void;
+  setErrorInfo: (errorInfo: UpdaterErrorInfo | null) => void;
   setProgress: (downloadedBytes: number, totalBytes: number | null) => void;
   setLastCheckedAt: (lastCheckedAt: number) => void;
   resetProgress: () => void;
@@ -41,6 +44,7 @@ export const useUpdaterStore = create<UpdaterState>((set) => ({
   currentVersion: "",
   updateInfo: null,
   error: "",
+  errorInfo: null,
   downloadedBytes: 0,
   totalBytes: null,
   lastCheckedAt: 0,
@@ -50,6 +54,7 @@ export const useUpdaterStore = create<UpdaterState>((set) => ({
   setCurrentVersion: (currentVersion) => set({ currentVersion }),
   setUpdateInfo: (updateInfo) => set({ updateInfo }),
   setError: (error) => set({ error }),
+  setErrorInfo: (errorInfo) => set({ errorInfo }),
   setProgress: (downloadedBytes, totalBytes) => set({ downloadedBytes, totalBytes }),
   setLastCheckedAt: (lastCheckedAt) => set({ lastCheckedAt }),
   resetProgress: () => set({ downloadedBytes: 0, totalBytes: null }),
@@ -61,6 +66,7 @@ export const useUpdaterStore = create<UpdaterState>((set) => ({
       status: "idle",
       updateInfo: null,
       error: "",
+      errorInfo: null,
       downloadedBytes: 0,
       totalBytes: null,
     })),

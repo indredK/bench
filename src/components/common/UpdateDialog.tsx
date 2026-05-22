@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { UpdaterController } from "@/features/updater/hooks/useUpdaterController";
+import type { UpdaterErrorInfo } from "@/features/updater/error-classifier";
 import {
   Dialog,
   DialogContent,
@@ -198,12 +199,69 @@ function renderReleaseNotes(body: string) {
   });
 }
 
+function getErrorCopy(t: (key: string) => string, errorInfo: UpdaterErrorInfo | null) {
+  switch (errorInfo?.kind) {
+    case "desktopOnly":
+      return {
+        title: t("updater.desktopOnlyTitle"),
+        description: t("updater.desktopOnlyDescription"),
+      };
+    case "releaseInfoUnavailable":
+      return {
+        title: t("updater.releaseInfoUnavailableTitle"),
+        description: t("updater.releaseInfoUnavailableDescription"),
+      };
+    case "serviceBusy":
+      return {
+        title: t("updater.serviceBusyTitle"),
+        description: t("updater.serviceBusyDescription"),
+      };
+    case "networkUnavailable":
+      return {
+        title: t("updater.networkUnavailableTitle"),
+        description: t("updater.networkUnavailableDescription"),
+      };
+    case "rateLimited":
+      return {
+        title: t("updater.rateLimitedTitle"),
+        description: t("updater.rateLimitedDescription"),
+      };
+    case "downloadFailed":
+      return {
+        title: t("updater.downloadFailedTitle"),
+        description: t("updater.downloadFailedDescription"),
+      };
+    case "installBlocked":
+      return {
+        title: t("updater.installBlockedTitle"),
+        description: t("updater.installBlockedDescription"),
+      };
+    case "updateStateChanged":
+      return {
+        title: t("updater.updateStateChangedTitle"),
+        description: t("updater.updateStateChangedDescription"),
+      };
+    case "unknownInstallFailure":
+      return {
+        title: t("updater.installFailedTitle"),
+        description: t("updater.installFailedDescription"),
+      };
+    case "unknownCheckFailure":
+    default:
+      return {
+        title: t("updater.checkFailedTitle"),
+        description: t("updater.checkFailedDescription"),
+      };
+  }
+}
+
 export function UpdateDialog({
   open,
   status,
   currentVersion,
   updateInfo,
   error,
+  errorInfo,
   downloadedBytes,
   totalBytes,
   lastCheckedAt,
@@ -226,20 +284,9 @@ export function UpdateDialog({
   const busy = status === "downloading" || status === "installing";
   const canInstall = status === "available";
   const canRestart = status === "readyToRestart";
-  const installContext = Boolean(updateInfo?.available);
+  const retryAction = errorInfo?.retryAction ?? (updateInfo?.available ? "install" : "check");
   const hasKnownLatestVersion = Boolean(latestVersion);
-  const errorTitle =
-    status === "error"
-      ? installContext
-        ? t("updater.installFailedTitle")
-        : t("updater.checkFailedTitle")
-      : null;
-  const errorDescription =
-    status === "error"
-      ? installContext
-        ? t("updater.installFailedDescription")
-        : t("updater.checkFailedDescription")
-      : null;
+  const errorCopy = getErrorCopy(t, errorInfo);
   const statusAlert = useMemo(() => {
     switch (status) {
       case "checking":
@@ -287,14 +334,14 @@ export function UpdateDialog({
       case "error":
         return {
           icon: <TriangleAlert className="size-4" />,
-          title: errorTitle ?? t("updater.errorTitle"),
-          description: errorDescription ?? error,
+          title: errorCopy.title,
+          description: errorCopy.description,
           variant: "destructive" as const,
         };
       default:
         return null;
     }
-  }, [currentVersion, error, errorDescription, errorTitle, latestVersion, status, t]);
+  }, [currentVersion, errorCopy.description, errorCopy.title, latestVersion, status, t]);
   const dialogDescription = useMemo(() => {
     const parts = [`${t("updater.currentVersion")} ${currentVersion || "-"}.`];
 
@@ -429,8 +476,8 @@ export function UpdateDialog({
             </Button>
           )}
 
-          {status === "error" && (
-            <Button onClick={() => void (installContext ? downloadAndInstall() : checkUpdates())}>
+          {status === "error" && retryAction && (
+            <Button onClick={() => void (retryAction === "install" ? downloadAndInstall() : checkUpdates())}>
               <RefreshCcw className="size-4" />
               {t("updater.retry")}
             </Button>
