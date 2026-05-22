@@ -82,7 +82,7 @@ fn kill_process(pid: u32, all_processes: &ProcessSnapshot) -> Result<(), String>
 
     if cfg!(target_os = "windows") {
         let output = Command::new("taskkill")
-            .args(["/PID", &pid.to_string(), "/F"])
+            .args(["/PID", &pid.to_string(), "/T", "/F"])
             .output()
             .map_err(|e| format!("Failed to run taskkill: {}", e))?;
 
@@ -93,6 +93,15 @@ fn kill_process(pid: u32, all_processes: &ProcessSnapshot) -> Result<(), String>
             Err(format!("taskkill error: {}", stderr.trim()))
         }
     } else {
+        // SIGKILL doesn't propagate to children. Kill descendants from deepest to
+        // shallowest first so they aren't reparented to PID 1 and left running.
+        let descendants = collect_descendants(pid, all_processes);
+        for child in descendants.iter().rev() {
+            let _ = Command::new("kill")
+                .args(["-9", &child.to_string()])
+                .output();
+        }
+
         let output = Command::new("kill")
             .args(["-9", &pid.to_string()])
             .output()
@@ -105,6 +114,35 @@ fn kill_process(pid: u32, all_processes: &ProcessSnapshot) -> Result<(), String>
             Err(format!("kill error: {}", stderr.trim()))
         }
     }
+}
+
+/// Collect all descendant PIDs of `pid` in BFS order (shallowest first).
+fn collect_descendants(pid: u32, all: &ProcessSnapshot) -> Vec<u32> {
+    let mut children_map: HashMap<u32, Vec<u32>> = HashMap::new();
+    for (&child_pid, info) in all.iter() {
+        let ppid = info.0;
+        if child_pid != ppid {
+            children_map.entry(ppid).or_default().push(child_pid);
+        }
+    }
+
+    let mut descendants = Vec::new();
+    let mut queue = std::collections::VecDeque::from([pid]);
+    let mut visited = std::collections::HashSet::new();
+    visited.insert(pid);
+
+    while let Some(current) = queue.pop_front() {
+        if let Some(children) = children_map.get(&current) {
+            for &child in children {
+                if visited.insert(child) {
+                    descendants.push(child);
+                    queue.push_back(child);
+                }
+            }
+        }
+    }
+
+    descendants
 }
 
 fn is_descendant_of(pid: u32, parent_pid: u32, all_processes: &ProcessSnapshot) -> bool {
@@ -262,7 +300,7 @@ fn get_parent_chain(pid: u32, all: &ProcessSnapshot, max_depth: usize) -> Vec<u3
 }
 
 fn build_focused_tree(pid: u32, all: &ProcessSnapshot) -> ProcessNode {
-    let parent_chain = get_parent_chain(pid, all, 10);
+    let parent_chain = get_parent_chain(pid, all, 64);
     let root_pid = parent_chain.last().copied().unwrap_or(pid);
     build_subtree(root_pid, all)
 }
