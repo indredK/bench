@@ -8,6 +8,7 @@ import { Monitor, Sun, Moon, Globe, Check } from "lucide-react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -65,6 +66,9 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
       <DialogContent className="sm:max-w-[400px]">
         <DialogHeader>
           <DialogTitle>{t("sidebar.settings")}</DialogTitle>
+          <DialogDescription className="sr-only">
+            {t("language.switch")} · {t("theme.currentMode")}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-2">
