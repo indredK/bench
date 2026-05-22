@@ -16,6 +16,7 @@ interface AboutDialogProps {
   onOpenChange: (open: boolean) => void;
   appVersion?: string;
   tauriVersion?: string;
+  onCheckUpdates?: () => void;
 }
 
 export function AboutDialog({
@@ -23,6 +24,7 @@ export function AboutDialog({
   onOpenChange,
   appVersion = "1.0.0",
   tauriVersion = "2.x",
+  onCheckUpdates,
 }: AboutDialogProps) {
   const { t } = useTranslation();
 
@@ -49,7 +51,16 @@ export function AboutDialog({
           </div>
         </div>
 
-        <div className="flex justify-center pt-2">
+        <div className="flex justify-center gap-2 pt-2">
+          {onCheckUpdates && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onCheckUpdates}
+            >
+              {t("updater.checkNow")}
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"

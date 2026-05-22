@@ -20,6 +20,11 @@ import type {
   PortProcessDetail,
 } from "@/lib/tauri/types/port-manager";
 import type { SystemInfoData } from "@/lib/tauri/types/system-info";
+import type {
+  AppUpdateDownloadEvent,
+  AppUpdateInfo,
+  AppUpdateInstallResult,
+} from "@/lib/tauri/types/updater";
 
 type TauriCommandSpec<Name extends string, Args, Result> = {
   readonly name: Name;
@@ -33,6 +38,10 @@ function defineTauriCommand<Args, Result>() {
 }
 
 export const TAURI_COMMAND_CONTRACTS = {
+  check_for_app_update: defineTauriCommand<undefined, AppUpdateInfo>()("check_for_app_update"),
+  download_and_install_app_update: defineTauriCommand<undefined, AppUpdateInstallResult>()("download_and_install_app_update"),
+  restart_after_update: defineTauriCommand<undefined, void>()("restart_after_update"),
+  get_current_app_version: defineTauriCommand<undefined, string>()("get_current_app_version"),
   scan_installed_apps: defineTauriCommand<undefined, AppScanResult>()("scan_installed_apps"),
   get_app_icon_base64: defineTauriCommand<{ installPath: string }, AppIconBase64>()("get_app_icon_base64"),
   launch_app: defineTauriCommand<{ appPath: string }, void>()("launch_app"),
@@ -86,6 +95,12 @@ function commandName<Name extends TauriCommandName>(name: Name): Name {
 }
 
 export const TAURI_COMMANDS = {
+  updater: {
+    checkForAppUpdate: commandName("check_for_app_update"),
+    downloadAndInstallAppUpdate: commandName("download_and_install_app_update"),
+    restartAfterUpdate: commandName("restart_after_update"),
+    getCurrentAppVersion: commandName("get_current_app_version"),
+  },
   appManager: {
     scanInstalledApps: commandName("scan_installed_apps"),
     getAppIconBase64: commandName("get_app_icon_base64"),
@@ -135,6 +150,10 @@ type TauriCommandArgKeys = {
 };
 
 export const TAURI_COMMAND_ARG_KEYS = {
+  check_for_app_update: [],
+  download_and_install_app_update: [],
+  restart_after_update: [],
+  get_current_app_version: [],
   scan_installed_apps: [],
   get_app_icon_base64: ["installPath"],
   launch_app: ["appPath"],
@@ -158,6 +177,9 @@ export const TAURI_COMMAND_ARG_KEYS = {
 } as const satisfies TauriCommandArgKeys;
 
 export const TAURI_EVENTS = {
+  updater: {
+    download: "app-updater-download",
+  },
   envDetector: {
     scanDone: "env-scan-done",
   },
@@ -167,6 +189,7 @@ export const TAURI_EVENTS = {
 } as const;
 
 export interface TauriEventContracts {
+  "app-updater-download": AppUpdateDownloadEvent;
   "env-scan-done": EnvScanDonePayload;
   "menu-event": string;
 }

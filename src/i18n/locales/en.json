@@ -1214,5 +1214,37 @@
     "description": "All-in-one developer toolkit",
     "version": "Version",
     "close": "Close"
+  },
+  "updater": {
+    "title": "Software Update",
+    "checkNow": "Check for Updates",
+    "checking": "Checking...",
+    "currentVersion": "Current Version",
+    "latestVersion": "Latest Version",
+    "lastChecked": "Last Checked",
+    "upToDateTitle": "You're up to date",
+    "upToDateDescription": "The currently installed Bench build is already the latest version.",
+    "availableTitle": "Version {{version}} is available",
+    "availableDescription": "A newer Bench build is ready to download and install.",
+    "downloading": "Downloading update",
+    "downloadDescription": "Fetching the update package now. Keep the app open until it finishes.",
+    "installing": "Installing update",
+    "installDescription": "The download is complete and the installer is applying the update.",
+    "readyToRestartTitle": "Update installed",
+    "readyToRestartDescription": "Restart the app to switch over to the new version.",
+    "errorTitle": "Update failed",
+    "installNow": "Download and Install",
+    "restartNow": "Restart Now",
+    "later": "Later",
+    "close": "Close",
+    "releaseNotes": "Release Notes",
+    "progressLabel": "{{downloaded}} / {{total}}",
+    "progressDone": "Download complete",
+    "unknownSize": "Unknown size",
+    "desktopOnly": "Updater features are only available in the desktop app.",
+    "errors": {
+      "checkFailed": "Failed to check for updates",
+      "installFailed": "Failed to install update"
+    }
   }
 }

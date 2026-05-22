@@ -141,7 +141,7 @@ function parseRegisteredCommands(commandsSource: string): string[] {
 
 function parseTauriCommandArgs(rustSource: string): Record<string, string[]> {
   const commands: Record<string, string[]> = {};
-  const commandRegex = /#\[tauri::command\]\s*pub\s+(?:async\s+)?fn\s+([a-zA-Z0-9_]+)\s*\(([\s\S]*?)\)\s*(?:->|\{)/g;
+  const commandRegex = /#\[tauri::command\]\s*pub\s+(?:async\s+)?fn\s+([a-zA-Z0-9_]+)(?:\s*<[\s\S]*?>)?\s*\(([\s\S]*?)\)\s*(?:->|\{)/g;
 
   for (const match of rustSource.matchAll(commandRegex)) {
     const [, commandName, rawArgs] = match;

@@ -1,0 +1,177 @@
+/**
+ * Controller / 控制器: bind updater shell actions; 连接更新检查、下载与重启流程.
+ */
+import { useCallback, useEffect } from "react";
+import { useTranslation } from "react-i18next";
+import {
+  checkForAppUpdate,
+  downloadAndInstallAppUpdate,
+  getCurrentAppVersion,
+  restartAfterUpdate,
+} from "@/lib/tauri/commands/updater";
+import { TAURI_EVENTS } from "@/lib/tauri/contracts";
+import type { AppUpdateDownloadEvent } from "@/lib/tauri/types/updater";
+import { listenToPlatformEvent } from "@/platform/events";
+import { canUseDesktopFeatures } from "@/platform/capabilities";
+import { useUpdaterStore } from "@/features/updater/store";
+
+function toErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : typeof error === "string" ? error : fallback;
+}
+
+export function useUpdaterController() {
+  const { t } = useTranslation();
+  const canUsePlatformFeatures = canUseDesktopFeatures();
+
+  const open = useUpdaterStore((s) => s.open);
+  const status = useUpdaterStore((s) => s.status);
+  const currentVersion = useUpdaterStore((s) => s.currentVersion);
+  const updateInfo = useUpdaterStore((s) => s.updateInfo);
+  const error = useUpdaterStore((s) => s.error);
+  const downloadedBytes = useUpdaterStore((s) => s.downloadedBytes);
+  const totalBytes = useUpdaterStore((s) => s.totalBytes);
+  const lastCheckedAt = useUpdaterStore((s) => s.lastCheckedAt);
+
+  const setOpen = useUpdaterStore((s) => s.setOpen);
+  const resetTransientState = useUpdaterStore((s) => s.resetTransientState);
+
+  const loadCurrentVersion = useCallback(async () => {
+    if (!canUsePlatformFeatures) return;
+    try {
+      const version = await getCurrentAppVersion();
+      useUpdaterStore.setState({ currentVersion: version });
+    } catch {
+      /* ignore version bootstrap failures */
+    }
+  }, [canUsePlatformFeatures]);
+
+  const checkUpdates = useCallback(async () => {
+    if (!canUsePlatformFeatures) {
+      useUpdaterStore.setState({
+        open: true,
+        status: "error",
+        error: t("updater.desktopOnly"),
+      });
+      return;
+    }
+
+    useUpdaterStore.setState({
+      open: true,
+      status: "checking",
+      error: "",
+      updateInfo: null,
+      downloadedBytes: 0,
+      totalBytes: null,
+    });
+
+    try {
+      const result = await checkForAppUpdate();
+      useUpdaterStore.setState({
+        currentVersion: result.currentVersion,
+        updateInfo: result,
+        status: result.available ? "available" : "upToDate",
+        lastCheckedAt: Date.now(),
+        error: "",
+      });
+    } catch (error) {
+      useUpdaterStore.setState({
+        status: "error",
+        error: toErrorMessage(error, t("updater.errors.checkFailed")),
+      });
+    }
+  }, [canUsePlatformFeatures, t]);
+
+  const downloadAndInstall = useCallback(async () => {
+    useUpdaterStore.setState({
+      status: "downloading",
+      error: "",
+      downloadedBytes: 0,
+      totalBytes: null,
+    });
+
+    try {
+      await downloadAndInstallAppUpdate();
+      useUpdaterStore.setState({ status: "readyToRestart", error: "" });
+    } catch (error) {
+      useUpdaterStore.setState({
+        status: "error",
+        error: toErrorMessage(error, t("updater.errors.installFailed")),
+      });
+    }
+  }, [t]);
+
+  const restartNow = useCallback(async () => {
+    await restartAfterUpdate();
+  }, []);
+
+  const closeDialog = useCallback(() => {
+    if (status === "downloading" || status === "installing") {
+      return;
+    }
+    setOpen(false);
+  }, [setOpen, status]);
+
+  const dismissDialog = useCallback(() => {
+    if (status === "downloading" || status === "installing") return;
+    resetTransientState();
+    setOpen(false);
+  }, [resetTransientState, setOpen, status]);
+
+  useEffect(() => {
+    void loadCurrentVersion();
+  }, [loadCurrentVersion]);
+
+  useEffect(() => {
+    if (!canUsePlatformFeatures) return;
+
+    let unlisten: (() => void) | undefined;
+    const setup = async () => {
+      unlisten = await listenToPlatformEvent<AppUpdateDownloadEvent>(
+        TAURI_EVENTS.updater.download,
+        (event) => {
+          const payload = event.payload;
+          if (payload.event === "started") {
+            useUpdaterStore.setState({
+              status: "downloading",
+              downloadedBytes: 0,
+              totalBytes: payload.contentLength,
+            });
+            return;
+          }
+          if (payload.event === "progress") {
+            useUpdaterStore.setState({
+              status: "downloading",
+              downloadedBytes: payload.downloadedBytes,
+              totalBytes: payload.contentLength,
+            });
+            return;
+          }
+          useUpdaterStore.setState({ status: "installing" });
+        }
+      );
+    };
+
+    void setup();
+    return () => {
+      unlisten?.();
+    };
+  }, [canUsePlatformFeatures]);
+
+  return {
+    open,
+    status,
+    currentVersion,
+    updateInfo,
+    error,
+    downloadedBytes,
+    totalBytes,
+    lastCheckedAt,
+    checkUpdates,
+    downloadAndInstall,
+    restartNow,
+    closeDialog,
+    dismissDialog,
+  };
+}
+
+export type UpdaterController = ReturnType<typeof useUpdaterController>;

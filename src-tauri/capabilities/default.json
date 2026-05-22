@@ -5,6 +5,7 @@
   "permissions": [
     "core:default",
     "dialog:default",
+    "updater:default",
     "shell:allow-open",
     "core:window:allow-close",
     "core:window:allow-minimize",

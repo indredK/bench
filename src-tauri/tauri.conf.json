@@ -51,9 +51,9 @@
       "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost"
     }
   },
-  "plugins": {},
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": true,
     "targets": "all",
     "icon": [
       "icons/32x32.png",
@@ -63,5 +63,16 @@
       "icons/icon.ico",
       "icons/icon.png"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IENFQkI3QjQ3NDU1MzRGMQpSV1R4TkZWMHRMZnJESHY4dUlEV3gya01mNmwzdU40YnZkR1pDQ0NVaWpCUUdxT2tFb2swTFl6bwo=",
+      "endpoints": [
+        "https://github.com/indredK/bench/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

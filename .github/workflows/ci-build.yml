@@ -132,20 +132,46 @@ jobs:
         run: npm ci
 
       - name: Build Tauri app
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: npx tauri build --target ${{ matrix.target }}
 
-      - name: Collect macOS bundle (dmg)
+      - name: Collect macOS bundle and updater artifacts
         if: runner.os == 'macOS'
         run: |
           mkdir -p artifacts
           cp src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg artifacts/ || true
           find src-tauri/target -name "*.dmg" -exec cp {} artifacts/ \; 2>/dev/null || true
+          updater_file="$(find src-tauri/target/${{ matrix.target }}/release/bundle -name "*.app.tar.gz" | head -n 1)"
+          if [ -n "$updater_file" ] && [ -f "${updater_file}.sig" ]; then
+            cp "$updater_file" artifacts/
+            cp "${updater_file}.sig" artifacts/
+            node -e "const fs=require('fs'); const path=require('path'); const target=process.argv[1]; const file=process.argv[2]; const sig=process.argv[3]; const platformMap={ 'aarch64-apple-darwin':'darwin-aarch64', 'x86_64-apple-darwin':'darwin-x86_64' }; fs.writeFileSync(path.join('artifacts', `updater-manifest-${target}.json`), JSON.stringify({ platform: platformMap[target], file: path.basename(file), signature: path.basename(sig) }, null, 2));" "${{ matrix.target }}" "$updater_file" "${updater_file}.sig"
+          fi
 
-      - name: Collect Windows bundle (msi/exe)
+      - name: Collect Windows bundle and updater artifacts
         if: runner.os == 'Windows'
         run: |
           mkdir artifacts
-          Get-ChildItem -Path src-tauri/target -Recurse -Include *.msi,*.exe | Where-Object { $_.FullName -match "bundle" } | Copy-Item -Destination artifacts/ -ErrorAction SilentlyContinue
+          Get-ChildItem -Path src-tauri/target -Recurse -Include *.msi,*.exe,*.sig | Where-Object { $_.FullName -match "bundle" } | Copy-Item -Destination artifacts/ -ErrorAction SilentlyContinue
+          $preferred = Get-ChildItem -Path src-tauri/target -Recurse -File | Where-Object { $_.FullName -match "bundle" -and $_.Name -match '\.exe$' } | Select-Object -First 1
+          if (-not $preferred) {
+            $preferred = Get-ChildItem -Path src-tauri/target -Recurse -File | Where-Object { $_.FullName -match "bundle" -and $_.Name -match '\.msi$' } | Select-Object -First 1
+          }
+          if ($preferred) {
+            $sigPath = "$($preferred.FullName).sig"
+            if (Test-Path $sigPath) {
+              Copy-Item $preferred.FullName -Destination artifacts/ -ErrorAction SilentlyContinue
+              Copy-Item $sigPath -Destination artifacts/ -ErrorAction SilentlyContinue
+              $manifest = @{
+                platform = "windows-x86_64"
+                file = $preferred.Name
+                signature = [System.IO.Path]::GetFileName($sigPath)
+              } | ConvertTo-Json
+              Set-Content -Path "artifacts/updater-manifest-${{ matrix.target }}.json" -Value $manifest
+            }
+          }
 
       # Linux release packaging is temporarily disabled.
       # - name: Collect Linux bundle (deb/AppImage)
@@ -182,11 +208,24 @@ jobs:
       - name: List release assets
         run: ls -la release-assets/
 
+      - name: Ensure release exists and read metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view "${{ github.ref_name }}" >/dev/null 2>&1; then
+            gh release create "${{ github.ref_name }}" --title "Bench ${{ github.ref_name }}" --notes ""
+          fi
+          gh release view "${{ github.ref_name }}" --json body,publishedAt > release-metadata.json
+
+      - name: Generate latest.json
+        run: node scripts/generate-updater-json.mjs --assets-dir release-assets --tag "${{ github.ref_name }}" --repo "${{ github.repository }}" --release-metadata release-metadata.json
+
       - name: Create or update GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           shopt -s nullglob
+          rm -f release-assets/updater-manifest-*.json
           if gh release view "${{ github.ref_name }}" >/dev/null 2>&1; then
             gh release upload "${{ github.ref_name }}" release-assets/* --clobber
           else

@@ -12,12 +12,15 @@ import type { ContextMenuConfig } from "@/shared/context-menu/types";
 import { useMenuEvent, useInitMenuEvents } from "@/hooks/useMenuEvents";
 import { AboutDialog } from "@/components/common/AboutDialog";
 import { SettingsDialog } from "@/components/common/SettingsDialog";
+import { UpdateDialog } from "@/components/common/UpdateDialog";
 import { useCallback, useMemo, useState } from "react";
 import { appFeatures, createNavigationItems, getFeatureByPath } from "@/features/registry";
 import { requestFeatureRefresh } from "@/features/refresh";
+import { useUpdaterController } from "@/features/updater/hooks/useUpdaterController";
 
 function App() {
   const { t } = useTranslation();
+  const updater = useUpdaterController();
 
   const [aboutOpen, setAboutOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -52,7 +55,7 @@ function App() {
 
   useMenuEvent("about", () => setAboutOpen(true));
   useMenuEvent("check_updates", () => {
-    // TODO: 对接更新检查逻辑
+    void updater.checkUpdates();
   });
   useMenuEvent("preferences", () => {
     handleSettings();
@@ -98,12 +101,16 @@ function App() {
       <AboutDialog
         open={aboutOpen}
         onOpenChange={setAboutOpen}
+        appVersion={updater.currentVersion || "-"}
+        onCheckUpdates={() => void updater.checkUpdates()}
       />
 
       <SettingsDialog
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
       />
+
+      <UpdateDialog {...updater} />
     </>
   );
 }
