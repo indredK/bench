@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.8.1](https://github.com/indredK/bench/compare/v1.8.0...v1.8.1) (2026-05-22)
+
+
+### Bug Fixes
+
+* **ci:** install libglib2.0-dev for linux tauri checks ([cd3cac2](https://github.com/indredK/bench/commit/cd3cac26e599246c954ca449541982594c75420d))
+* **ci:** install libglib2.0-dev for linux tauri checks ([cd3cac2](https://github.com/indredK/bench/commit/cd3cac26e599246c954ca449541982594c75420d))
+* **ci:** install libglib2.0-dev for linux tauri checks ([eb65f5b](https://github.com/indredK/bench/commit/eb65f5b5000ca5566f4310a12f35587224882581))
+
 ## [1.8.0](https://github.com/indredK/bench/compare/v1.7.1...v1.8.0) (2026-05-22)
 
 
