@@ -8,9 +8,9 @@ pub(super) fn collect_system_info() -> SystemInfo {
 
     let total_memory = sys.total_memory();
     let available_memory = sys.available_memory();
-    let used_memory = total_memory - available_memory;
+    let used_memory = total_memory.saturating_sub(available_memory);
     let memory_usage_percent = if total_memory > 0 {
-        (used_memory as f32 / total_memory as f32) * 100.0
+        ((used_memory as f64 / total_memory as f64) * 100.0).clamp(0.0, 100.0) as f32
     } else {
         0.0
     };

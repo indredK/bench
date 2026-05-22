@@ -111,6 +111,7 @@ dependencies = [
  "chrono",
  "dirs-next",
  "minisign-verify",
+ "plist",
  "serde",
  "serde_json",
  "sysinfo",

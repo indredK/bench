@@ -87,24 +87,22 @@ fn user_applications_dir() -> Option<PathBuf> {
     dirs_next::home_dir().map(|home| home.join("Applications"))
 }
 
-fn read_plist_string(plist_xml: &str, key: &str) -> Option<String> {
-    let pattern = format!("<key>{}</key>", key);
-    let start = plist_xml.find(&pattern)?;
-    let after_key = &plist_xml[start + pattern.len()..];
-    let tag_start = after_key.find("<string>")?;
-    let tag_end = after_key[tag_start..].find("</string>")?;
-    let value = &after_key[tag_start + 8..tag_start + tag_end];
-    Some(value.trim().to_string())
-}
-
 fn extract_app_metadata(app_path: &Path) -> Option<(String, String, String)> {
     let plist_path = app_path.join("Contents").join("Info.plist");
-    let plist_content = fs::read_to_string(&plist_path).ok()?;
-    let display_name = read_plist_string(&plist_content, "CFBundleDisplayName")
-        .or_else(|| read_plist_string(&plist_content, "CFBundleName"));
-    let bundle_id = read_plist_string(&plist_content, "CFBundleIdentifier");
-    let version = read_plist_string(&plist_content, "CFBundleShortVersionString")
-        .or_else(|| read_plist_string(&plist_content, "CFBundleVersion"));
+    let dict = plist::Value::from_file(&plist_path)
+        .ok()?
+        .into_dictionary()?;
+
+    let read = |key: &str| -> Option<String> {
+        dict.get(key)
+            .and_then(|v| v.as_string())
+            .map(|s| s.to_string())
+    };
+
+    let display_name = read("CFBundleDisplayName").or_else(|| read("CFBundleName"));
+    let bundle_id = read("CFBundleIdentifier");
+    let version =
+        read("CFBundleShortVersionString").or_else(|| read("CFBundleVersion"));
     let name = display_name
         .or_else(|| {
             app_path
@@ -402,19 +400,6 @@ fn find_icns_in_resources(resources: &Path) -> Option<PathBuf> {
     icns_files.pop()
 }
 
-fn extract_plist_icon_file(plist_content: &str) -> Option<String> {
-    let key = "<key>CFBundleIconFile</key>";
-    let start = plist_content.find(key)?;
-    let after_key = &plist_content[start + key.len()..];
-    let tag_start = after_key.find("<string>")?;
-    let tag_end = after_key[tag_start..].find("</string>")?;
-    Some(
-        after_key[tag_start + 8..tag_start + tag_end]
-            .trim()
-            .to_string(),
-    )
-}
-
 fn resolve_finder_alias(path: &Path) -> Option<PathBuf> {
     if !path.is_file() {
         return None;
@@ -474,17 +459,21 @@ pub fn get_app_icon_base64(install_path: &str) -> Result<String, String> {
 }
 
 fn resolve_macos_icon(contents: &Path, resources: &Path) -> Result<PathBuf, String> {
-    if let Ok(plist_content) = std::fs::read_to_string(contents.join("Info.plist")) {
-        let icon_name = extract_plist_icon_file(&plist_content).unwrap_or_default();
-        if !icon_name.is_empty() {
-            let p = resources.join(&icon_name);
-            if p.exists() {
-                return Ok(p);
-            }
-            let with_ext = resources.join(format!("{}.icns", icon_name));
-            if with_ext.exists() {
-                return Ok(with_ext);
-            }
+    let icon_name = plist::Value::from_file(contents.join("Info.plist"))
+        .ok()
+        .and_then(|v| v.into_dictionary())
+        .and_then(|mut d| d.remove("CFBundleIconFile"))
+        .and_then(|v| v.into_string())
+        .map(|s| s.trim().to_string())
+        .unwrap_or_default();
+    if !icon_name.is_empty() {
+        let p = resources.join(&icon_name);
+        if p.exists() {
+            return Ok(p);
+        }
+        let with_ext = resources.join(format!("{}.icns", icon_name));
+        if with_ext.exists() {
+            return Ok(with_ext);
         }
     }
     find_icns_in_resources(resources).ok_or("No icon file found in app bundle".into())

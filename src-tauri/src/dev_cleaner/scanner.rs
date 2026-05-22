@@ -29,8 +29,10 @@ pub(super) async fn scan_dev_projects(
             let file_name = path.file_name().unwrap_or_default().to_string_lossy();
 
             if let Some(pt) = ProjectType::from_indicator(&file_name) {
-                if let Ok(project) = detect_project(path.parent().unwrap(), pt, Some(&abort)) {
-                    raw_projects.push(project);
+                if let Some(parent) = path.parent() {
+                    if let Ok(project) = detect_project(parent, pt, Some(&abort)) {
+                        raw_projects.push(project);
+                    }
                 }
             } else if entry.file_type().is_dir() && is_cleanup_dir_name(&file_name) {
                 if let Ok(project) = detect_skip_dir_project(path, &file_name, Some(&abort)) {

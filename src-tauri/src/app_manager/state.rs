@@ -6,24 +6,20 @@ static OPERATION_HISTORY: std::sync::LazyLock<Mutex<Vec<OperationRecord>>> =
     std::sync::LazyLock::new(|| Mutex::new(Vec::new()));
 
 pub fn record_operation(record: OperationRecord) {
-    if let Ok(mut history) = OPERATION_HISTORY.lock() {
-        history.push(record);
-        if history.len() > 100 {
-            history.remove(0);
-        }
+    let mut history = OPERATION_HISTORY.lock().unwrap_or_else(|e| e.into_inner());
+    history.push(record);
+    if history.len() > 100 {
+        history.remove(0);
     }
 }
 
 pub fn get_operation_history(app_id: Option<String>) -> Vec<OperationRecord> {
-    if let Ok(history) = OPERATION_HISTORY.lock() {
-        let all: Vec<OperationRecord> = history.clone();
-        if let Some(ref id) = app_id {
-            all.into_iter().filter(|r| &r.app_id == id).collect()
-        } else {
-            all
-        }
+    let history = OPERATION_HISTORY.lock().unwrap_or_else(|e| e.into_inner());
+    let all: Vec<OperationRecord> = history.clone();
+    if let Some(ref id) = app_id {
+        all.into_iter().filter(|r| &r.app_id == id).collect()
     } else {
-        Vec::new()
+        all
     }
 }
 
@@ -52,43 +48,37 @@ impl AppManagerState {
 
     #[allow(dead_code)]
     pub fn refresh_apps(&self, apps: Vec<AppInfo>) {
-        if let Ok(mut guard) = self.apps.lock() {
-            *guard = apps;
-        }
+        *self.apps.lock().unwrap_or_else(|e| e.into_inner()) = apps;
     }
 
     /// Try to acquire a lock on an app_id for an operation. Returns false if already locked.
     pub fn acquire_op_lock(&self, app_id: &str) -> bool {
-        if let Ok(mut guard) = self.in_progress.lock() {
-            guard.insert(app_id.to_string())
-        } else {
-            false
-        }
+        let mut guard = self.in_progress.lock().unwrap_or_else(|e| e.into_inner());
+        guard.insert(app_id.to_string())
     }
 
     /// Release the operation lock on an app_id.
     pub fn release_op_lock(&self, app_id: &str) {
-        if let Ok(mut guard) = self.in_progress.lock() {
-            guard.remove(app_id);
-        }
+        let mut guard = self.in_progress.lock().unwrap_or_else(|e| e.into_inner());
+        guard.remove(app_id);
     }
 
     /// Cache scan result and update timestamp.
     pub fn cache_scan_result(&self, result: ScanResult) {
-        if let Ok(mut apps) = self.apps.lock() {
-            *apps = result.apps.clone();
-        }
+        *self.apps.lock().unwrap_or_else(|e| e.into_inner()) = result.apps.clone();
 
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_millis() as u64)
             .unwrap_or(0);
-        if let Ok(mut c) = self.cached_result.lock() {
-            *c = Some(result);
-        }
-        if let Ok(mut t) = self.last_scan_time.lock() {
-            *t = now;
-        }
+        *self
+            .cached_result
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = Some(result);
+        *self
+            .last_scan_time
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = now;
     }
 
     /// Update last update check timestamp.
@@ -97,18 +87,18 @@ impl AppManagerState {
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_millis() as u64)
             .unwrap_or(0);
-        if let Ok(mut t) = self.last_update_check_time.lock() {
-            *t = now;
-        }
+        *self
+            .last_update_check_time
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = now;
     }
 
     /// Get cached scan if available.
     #[allow(dead_code)]
     pub fn get_cached_scan(&self) -> Option<ScanResult> {
-        if let Ok(c) = self.cached_result.lock() {
-            c.clone()
-        } else {
-            None
-        }
+        self.cached_result
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
     }
 }
