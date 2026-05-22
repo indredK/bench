@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.2](https://github.com/indredK/bench/compare/v1.8.1...v1.8.2) (2026-05-22)
+
+
+### Bug Fixes
+
+* 修复发布问题 ([38fa1f4](https://github.com/indredK/bench/commit/38fa1f46f19353a7bf5a03d8eed41628b015b879))
+
 ## [1.8.1](https://github.com/indredK/bench/compare/v1.8.0...v1.8.1) (2026-05-22)
 
 
