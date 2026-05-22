@@ -147,13 +147,23 @@ jobs:
           if [ -n "$updater_file" ] && [ -f "${updater_file}.sig" ]; then
             cp "$updater_file" artifacts/
             cp "${updater_file}.sig" artifacts/
-            node -e "const fs=require('fs'); const path=require('path'); const target=process.argv[1]; const file=process.argv[2]; const sig=process.argv[3]; const platformMap={ 'aarch64-apple-darwin':'darwin-aarch64', 'x86_64-apple-darwin':'darwin-x86_64' }; fs.writeFileSync(path.join('artifacts', `updater-manifest-${target}.json`), JSON.stringify({ platform: platformMap[target], file: path.basename(file), signature: path.basename(sig) }, null, 2));" "${{ matrix.target }}" "$updater_file" "${updater_file}.sig"
+            case "${{ matrix.target }}" in
+              aarch64-apple-darwin) updater_platform="darwin-aarch64" ;;
+              x86_64-apple-darwin) updater_platform="darwin-x86_64" ;;
+              *) echo "Unsupported macOS updater target: ${{ matrix.target }}" && exit 1 ;;
+            esac
+            node scripts/write-updater-manifest.mjs \
+              --output-dir artifacts \
+              --target "${{ matrix.target }}" \
+              --platform "$updater_platform" \
+              --file "$updater_file" \
+              --signature "${updater_file}.sig"
           fi
 
       - name: Collect Windows bundle and updater artifacts
         if: runner.os == 'Windows'
         run: |
-          mkdir artifacts
+          New-Item -ItemType Directory -Force -Path artifacts | Out-Null
           Get-ChildItem -Path src-tauri/target -Recurse -Include *.msi,*.exe,*.sig | Where-Object { $_.FullName -match "bundle" } | Copy-Item -Destination artifacts/ -ErrorAction SilentlyContinue
           $preferred = Get-ChildItem -Path src-tauri/target -Recurse -File | Where-Object { $_.FullName -match "bundle" -and $_.Name -match '\.exe$' } | Select-Object -First 1
           if (-not $preferred) {
@@ -164,12 +174,12 @@ jobs:
             if (Test-Path $sigPath) {
               Copy-Item $preferred.FullName -Destination artifacts/ -ErrorAction SilentlyContinue
               Copy-Item $sigPath -Destination artifacts/ -ErrorAction SilentlyContinue
-              $manifest = @{
-                platform = "windows-x86_64"
-                file = $preferred.Name
-                signature = [System.IO.Path]::GetFileName($sigPath)
-              } | ConvertTo-Json
-              Set-Content -Path "artifacts/updater-manifest-${{ matrix.target }}.json" -Value $manifest
+              node scripts/write-updater-manifest.mjs `
+                --output-dir artifacts `
+                --target "${{ matrix.target }}" `
+                --platform "windows-x86_64" `
+                --file "$($preferred.FullName)" `
+                --signature "$sigPath"
             }
           }
 
