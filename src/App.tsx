@@ -13,10 +13,13 @@ import { useMenuEvent, useInitMenuEvents } from "@/hooks/useMenuEvents";
 import { AboutDialog } from "@/components/common/AboutDialog";
 import { SettingsDialog } from "@/components/common/SettingsDialog";
 import { UpdateDialog } from "@/components/common/UpdateDialog";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { appFeatures, createNavigationItems, getFeatureByPath } from "@/features/registry";
 import { requestFeatureRefresh } from "@/features/refresh";
 import { useUpdaterController } from "@/features/updater/hooks/useUpdaterController";
+import { WINDOW_BOOTSTRAP_EVENTS } from "@/lib/tauri/contracts";
+import { emitPlatformEventTo } from "@/platform/events";
+import { canUseWindowControls } from "@/platform/window";
 
 function App() {
   const { t } = useTranslation();
@@ -24,6 +27,16 @@ function App() {
 
   const [aboutOpen, setAboutOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  useEffect(() => {
+    if (!canUseWindowControls()) return undefined;
+
+    requestAnimationFrame(() => {
+      void emitPlatformEventTo("splashscreen", WINDOW_BOOTSTRAP_EVENTS.mainReady, null);
+    });
+
+    return undefined;
+  }, []);
 
   const handleRefresh = useCallback(async () => {
     const currentPath = window.location.hash.replace(/^#/, "") || "/";
