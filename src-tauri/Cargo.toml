@@ -1,6 +1,12 @@
+[workspace]
+members = ["."]
+
+[workspace.package]
+version = "1.7.0"
+
 [package]
 name = "bench"
-version = "1.7.0"
+version.workspace = true
 edition = "2021"
 
 [lib]
