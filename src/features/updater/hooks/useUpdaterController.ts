@@ -13,11 +13,11 @@ import { TAURI_EVENTS } from "@/lib/tauri/contracts";
 import type { AppUpdateDownloadEvent } from "@/lib/tauri/types/updater";
 import { listenToPlatformEvent } from "@/platform/events";
 import { canUseDesktopFeatures } from "@/platform/capabilities";
+import {
+  classifyUpdaterError,
+  createDesktopOnlyUpdaterError,
+} from "@/features/updater/error-classifier";
 import { useUpdaterStore } from "@/features/updater/store";
-
-function toErrorMessage(error: unknown, fallback: string) {
-  return error instanceof Error ? error.message : typeof error === "string" ? error : fallback;
-}
 
 export function useUpdaterController() {
   const { t } = useTranslation();
@@ -28,6 +28,7 @@ export function useUpdaterController() {
   const currentVersion = useUpdaterStore((s) => s.currentVersion);
   const updateInfo = useUpdaterStore((s) => s.updateInfo);
   const error = useUpdaterStore((s) => s.error);
+  const errorInfo = useUpdaterStore((s) => s.errorInfo);
   const downloadedBytes = useUpdaterStore((s) => s.downloadedBytes);
   const totalBytes = useUpdaterStore((s) => s.totalBytes);
   const lastCheckedAt = useUpdaterStore((s) => s.lastCheckedAt);
@@ -51,6 +52,7 @@ export function useUpdaterController() {
         open: true,
         status: "error",
         error: t("updater.desktopOnly"),
+        errorInfo: createDesktopOnlyUpdaterError(t("updater.desktopOnly")),
       });
       return;
     }
@@ -59,6 +61,7 @@ export function useUpdaterController() {
       open: true,
       status: "checking",
       error: "",
+      errorInfo: null,
       updateInfo: null,
       downloadedBytes: 0,
       totalBytes: null,
@@ -72,11 +75,14 @@ export function useUpdaterController() {
         status: result.available ? "available" : "upToDate",
         lastCheckedAt: Date.now(),
         error: "",
+        errorInfo: null,
       });
     } catch (error) {
+      const errorInfo = classifyUpdaterError(error, "check", t("updater.errors.checkFailed"));
       useUpdaterStore.setState({
         status: "error",
-        error: toErrorMessage(error, t("updater.errors.checkFailed")),
+        error: errorInfo.message,
+        errorInfo,
       });
     }
   }, [canUsePlatformFeatures, t]);
@@ -85,17 +91,20 @@ export function useUpdaterController() {
     useUpdaterStore.setState({
       status: "downloading",
       error: "",
+      errorInfo: null,
       downloadedBytes: 0,
       totalBytes: null,
     });
 
     try {
       await downloadAndInstallAppUpdate();
-      useUpdaterStore.setState({ status: "readyToRestart", error: "" });
+      useUpdaterStore.setState({ status: "readyToRestart", error: "", errorInfo: null });
     } catch (error) {
+      const errorInfo = classifyUpdaterError(error, "install", t("updater.errors.installFailed"));
       useUpdaterStore.setState({
         status: "error",
-        error: toErrorMessage(error, t("updater.errors.installFailed")),
+        error: errorInfo.message,
+        errorInfo,
       });
     }
   }, [t]);
@@ -163,6 +172,7 @@ export function useUpdaterController() {
     currentVersion,
     updateInfo,
     error,
+    errorInfo,
     downloadedBytes,
     totalBytes,
     lastCheckedAt,
