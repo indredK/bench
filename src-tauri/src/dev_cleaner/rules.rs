@@ -47,15 +47,6 @@ pub(super) fn is_skip_dir_name(name: &str) -> bool {
     SKIP_DIR_NAMES.contains(&name)
 }
 
-pub(super) fn is_skip_dir_entry(entry: &walkdir::DirEntry) -> bool {
-    entry.file_type().is_dir()
-        && entry
-            .file_name()
-            .to_str()
-            .map(is_skip_dir_name)
-            .unwrap_or(false)
-}
-
 pub(super) fn is_child_of_skip_dir(entry: &walkdir::DirEntry, root: &Path) -> bool {
     let rel_path = match entry.path().strip_prefix(root) {
         Ok(p) => p,
