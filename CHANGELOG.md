@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.7.1](https://github.com/indredK/bench/compare/v1.7.0...v1.7.1) (2026-05-22)
+
+
+### Features
+
+* 尝试新打包流程 ([4ca9eca](https://github.com/indredK/bench/commit/4ca9eca2729648aeb51b155c5e55672fc42eccd8))
+* 尝试新打包流程 ([4ca9eca](https://github.com/indredK/bench/commit/4ca9eca2729648aeb51b155c5e55672fc42eccd8))
+
+
+### Bug Fixes
+
+* **release:** simplify cargo workspace release config ([ff3f204](https://github.com/indredK/bench/commit/ff3f204881c9254319a5d0e8f3475f06b860c3d0))
+
+
+### Miscellaneous Chores
+
+* release 1.7.1 ([02f77b4](https://github.com/indredK/bench/commit/02f77b41ffcb5c40602ed13ef78d4c2ce28e0956))
+* release 1.7.1 ([6427178](https://github.com/indredK/bench/commit/642717817b662f32755e8b734ff0fc73a923cb6e))
+* release 1.7.1 ([7e960c1](https://github.com/indredK/bench/commit/7e960c1b441418613e44e12edd2bab2f77fbc873))
+
 ## [1.7.0](https://github.com/indredK/bench/compare/v1.6.0...v1.7.0) (2026-05-22)
 
 
