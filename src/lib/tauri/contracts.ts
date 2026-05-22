@@ -176,6 +176,10 @@ export const TAURI_COMMAND_ARG_KEYS = {
   kill_processes: ["pids"],
 } as const satisfies TauriCommandArgKeys;
 
+export const WINDOW_BOOTSTRAP_EVENTS = {
+  mainReady: "app-bootstrap-main-ready",
+} as const;
+
 export const TAURI_EVENTS = {
   updater: {
     download: "app-updater-download",

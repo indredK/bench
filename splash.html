@@ -42,8 +42,10 @@
         --white: rgba(255, 255, 255, 0.96);
         --ghost: rgba(255, 255, 255, 0.18);
         --shadow: rgba(37, 99, 235, 0.32);
+        --backdrop: radial-gradient(circle at 50% 34%, rgba(255, 255, 255, 0.14), transparent 38%);
         display: grid;
         place-items: center;
+        opacity: 1;
         font-family:
           -apple-system,
           BlinkMacSystemFont,
@@ -66,6 +68,7 @@
         --lime: #bef264;
         --ghost: rgba(255, 255, 255, 0.22);
         --shadow: rgba(79, 70, 229, 0.44);
+        --backdrop: radial-gradient(circle at 50% 34%, rgba(129, 140, 248, 0.22), transparent 42%);
       }
 
       .splash {
@@ -76,6 +79,9 @@
         place-items: center;
         overflow: hidden;
         isolation: isolate;
+        transition:
+          transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
+          opacity 260ms ease;
         transform: translateZ(0);
       }
 
@@ -92,9 +98,9 @@
 
       .aura {
         z-index: 0;
-        opacity: 0.92;
-        filter: blur(0.2px);
-        transform: translateZ(0) scale(0.92);
+        opacity: 0.78;
+        filter: blur(0.3px);
+        transform: translateZ(0) scale(0.88);
         will-change: transform, opacity;
       }
 
@@ -150,13 +156,14 @@
         border-radius: 9999px;
         opacity: 0;
         background:
+          var(--backdrop),
           linear-gradient(135deg, rgba(255, 255, 255, 0.26), transparent 38%),
           radial-gradient(circle at 18% 22%, rgba(255, 255, 255, 0.7), transparent 24%),
           linear-gradient(135deg, rgba(6, 182, 212, 0.82), rgba(79, 70, 229, 0.9) 48%, rgba(16, 185, 129, 0.72));
         box-shadow:
-          0 0 46px rgba(6, 182, 212, 0.3),
-          0 26px 72px var(--shadow);
-        transform: translateZ(0) scale(0.48);
+          0 0 36px rgba(6, 182, 212, 0.22),
+          0 22px 58px var(--shadow);
+        transform: translateZ(0) scale(0.56);
         will-change: transform, opacity, border-radius;
       }
 
@@ -365,10 +372,10 @@
       .stage {
         z-index: 6;
         display: grid;
-        width: min(66vw, 116px);
+        width: min(62vw, 108px);
         aspect-ratio: 1;
         place-items: center;
-        filter: drop-shadow(0 18px 34px var(--shadow));
+        filter: drop-shadow(0 14px 26px var(--shadow));
         transform: translateZ(0);
         will-change: transform, opacity;
       }
@@ -439,8 +446,8 @@
         box-shadow:
           inset 0 1px 0 rgba(255, 255, 255, 0.52),
           inset 0 -18px 36px rgba(15, 23, 42, 0.18),
-          0 18px 34px var(--shadow);
-        animation: core-breathe 1.5s ease-in-out infinite;
+          0 14px 28px var(--shadow);
+        animation: core-breathe 1.2s ease-in-out infinite;
         transform: translateZ(0);
         will-change: transform, opacity, border-radius;
       }
@@ -468,7 +475,7 @@
         position: relative;
         z-index: 1;
         color: var(--white);
-        font-size: 38px;
+        font-size: 34px;
         font-weight: 760;
         letter-spacing: 0;
         line-height: 1;
@@ -521,63 +528,68 @@
       }
 
       body.run .aura {
-        animation: aura-release 1.78s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        animation: aura-release 1.02s cubic-bezier(0.22, 1, 0.36, 1) forwards;
       }
 
       body.run .panel {
-        animation: panel-form 2.12s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        animation: panel-form 1.24s cubic-bezier(0.22, 1, 0.36, 1) forwards;
       }
 
       body.run .data-plane {
-        animation: data-form 1.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        animation: data-form 1.06s cubic-bezier(0.22, 1, 0.36, 1) forwards;
       }
 
       body.run .hud {
-        animation: hud-form 1.78s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        animation: hud-form 1.04s cubic-bezier(0.22, 1, 0.36, 1) forwards;
       }
 
       body.run .frame {
-        animation: frame-form 1.72s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        animation: frame-form 0.98s cubic-bezier(0.22, 1, 0.36, 1) forwards;
       }
 
       body.run .scanner {
-        animation: scanner-form 1.78s ease-out forwards;
+        animation: scanner-form 1.02s ease-out forwards;
       }
 
       body.run .scanner::before {
-        animation: scan-sweep 1.18s 0.34s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        animation: scan-sweep 0.7s 0.12s cubic-bezier(0.22, 1, 0.36, 1) forwards;
       }
 
       body.run .stage {
-        animation: stage-release 1.62s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        animation: stage-release 0.92s cubic-bezier(0.22, 1, 0.36, 1) forwards;
       }
 
       body.run .core {
-        animation: core-morph 1.52s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        animation: core-morph 0.88s cubic-bezier(0.22, 1, 0.36, 1) forwards;
       }
 
       body.run .orbit {
         animation:
-          ring-spin 0.78s linear infinite,
-          orbit-release 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          ring-spin 0.62s linear infinite,
+          orbit-release 0.86s cubic-bezier(0.22, 1, 0.36, 1) forwards;
       }
 
       body.run .orbit.inner {
         animation:
-          ring-spin-reverse 0.9s linear infinite,
-          orbit-release-inner 1.46s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          ring-spin-reverse 0.72s linear infinite,
+          orbit-release-inner 0.82s cubic-bezier(0.22, 1, 0.36, 1) forwards;
       }
 
       body.run .shard {
         animation-name: shard-release;
-        animation-duration: 1.5s;
-        animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+        animation-duration: 0.9s;
+        animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
         animation-fill-mode: forwards;
       }
 
       body.done {
         opacity: 0;
-        transition: opacity 220ms ease;
+        transition: opacity 180ms ease;
+      }
+
+      body.done .splash {
+        opacity: 0;
+        transform: translateZ(0) scale(0.96);
       }
 
       @keyframes ring-spin {
@@ -626,18 +638,18 @@
 
       @keyframes aura-release {
         0% {
-          opacity: 0.92;
-          transform: translateZ(0) scale(0.92);
+          opacity: 0.78;
+          transform: translateZ(0) scale(0.88);
         }
 
-        46% {
-          opacity: 0.72;
-          transform: translateZ(0) scale(1.18);
+        55% {
+          opacity: 0.48;
+          transform: translateZ(0) scale(1.04);
         }
 
         100% {
           opacity: 0;
-          transform: translateZ(0) scale(1.46);
+          transform: translateZ(0) scale(1.18);
         }
       }
 
@@ -650,26 +662,26 @@
 
         18% {
           border-radius: 9999px;
-          opacity: 0.88;
+          opacity: 0.9;
           transform: translateZ(0) scale(0.86);
         }
 
         50% {
-          border-radius: 36px;
+          border-radius: 32px;
           opacity: 0.94;
-          transform: translateZ(0) scale(1.08);
+          transform: translateZ(0) scale(1.02);
         }
 
         78% {
-          border-radius: 22px;
-          opacity: 0.8;
-          transform: translateZ(0) scale(1.16);
+          border-radius: 20px;
+          opacity: 0.52;
+          transform: translateZ(0) scale(1.08);
         }
 
         100% {
           border-radius: 18px;
           opacity: 0;
-          transform: translateZ(0) scale(1.22);
+          transform: translateZ(0) scale(1.12);
         }
       }
 
@@ -684,13 +696,13 @@
         }
 
         58% {
-          opacity: 0.92;
+          opacity: 0.78;
           transform: translateZ(0) scale(1);
         }
 
         100% {
           opacity: 0;
-          transform: translateZ(0) scale(1.1);
+          transform: translateZ(0) scale(1.06);
         }
       }
 
@@ -708,15 +720,15 @@
         }
 
         62% {
-          border-radius: 30px;
-          opacity: 0.72;
-          transform: translateZ(0) scale(1.08);
+          border-radius: 26px;
+          opacity: 0.58;
+          transform: translateZ(0) scale(1.02);
         }
 
         100% {
           border-radius: 18px;
           opacity: 0;
-          transform: translateZ(0) scale(1.24);
+          transform: translateZ(0) scale(1.08);
         }
       }
 
@@ -732,13 +744,13 @@
         }
 
         64% {
-          opacity: 0.96;
+          opacity: 0.86;
           transform: translateZ(0) scale(1);
         }
 
         100% {
           opacity: 0;
-          transform: translateZ(0) scale(1.14);
+          transform: translateZ(0) scale(1.08);
         }
       }
 
@@ -753,13 +765,13 @@
         }
 
         54% {
-          opacity: 0.94;
+          opacity: 0.78;
           transform: translateZ(0) scale(1);
         }
 
         100% {
           opacity: 0;
-          transform: translateZ(0) scale(1.12);
+          transform: translateZ(0) scale(1.06);
         }
       }
 
@@ -780,13 +792,13 @@
         }
 
         44% {
-          opacity: 0.94;
-          transform: translateZ(0) scale(1.06);
+          opacity: 1;
+          transform: translateZ(0) scale(1.03);
         }
 
         100% {
           opacity: 0;
-          transform: translateZ(0) scale(1.72);
+          transform: translateZ(0) scale(1.26);
         }
       }
 
@@ -798,15 +810,15 @@
         }
 
         44% {
-          border-radius: 28%;
+          border-radius: 34%;
           opacity: 0.96;
-          transform: translateZ(0) scale(1.16);
+          transform: translateZ(0) scale(1.08);
         }
 
         100% {
-          border-radius: 16%;
+          border-radius: 22%;
           opacity: 0;
-          transform: translateZ(0) scale(5.25);
+          transform: translateZ(0) scale(2.9);
         }
       }
 
@@ -818,15 +830,15 @@
         }
 
         52% {
-          border-radius: 32%;
-          opacity: 0.72;
-          scale: 2.85;
+          border-radius: 34%;
+          opacity: 0.56;
+          scale: 1.86;
         }
 
         100% {
-          border-radius: 14%;
+          border-radius: 20%;
           opacity: 0;
-          scale: 7.9;
+          scale: 3.8;
         }
       }
 
@@ -839,14 +851,14 @@
 
         52% {
           border-radius: 30%;
-          opacity: 0.58;
-          scale: 2.32;
+          opacity: 0.46;
+          scale: 1.62;
         }
 
         100% {
-          border-radius: 12%;
+          border-radius: 18%;
           opacity: 0;
-          scale: 6.7;
+          scale: 3.1;
         }
       }
 
@@ -863,15 +875,15 @@
 
         55% {
           border-radius: 24%;
-          opacity: 0.82;
+          opacity: 0.56;
           transform:
             translate3d(
-              calc(-50% + var(--x) * 78px),
-              calc(-50% + var(--y) * 62px),
+              calc(-50% + var(--x) * 56px),
+              calc(-50% + var(--y) * 44px),
               0
             )
             rotate(var(--r))
-            scale(1.2);
+            scale(0.92);
         }
 
         100% {
@@ -879,12 +891,12 @@
           opacity: 0;
           transform:
             translate3d(
-              calc(-50% + var(--x) * 122px),
-              calc(-50% + var(--y) * 108px),
+              calc(-50% + var(--x) * 82px),
+              calc(-50% + var(--y) * 74px),
               0
             )
             rotate(var(--r))
-            scale(0.54);
+            scale(0.44);
         }
       }
 
