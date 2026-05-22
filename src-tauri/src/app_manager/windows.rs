@@ -174,6 +174,8 @@ pub fn scan_installed_apps() -> ScanResult {
             format!(r"C:\Program Files\{}", name)
         };
 
+        let install_exists = Path::new(&install_path).exists();
+
         let app_id = make_app_id(&bundle_id, &install_path);
         let last_modified = get_last_modified(Path::new(&install_path));
 
@@ -199,8 +201,8 @@ pub fn scan_installed_apps() -> ScanResult {
             upgrade_available: source.upgrade_available,
             last_modified,
             is_system_app: false,
-            launchable: !install_location.is_empty(),
-            revealable: !install_location.is_empty(),
+            launchable: install_exists,
+            revealable: install_exists,
         }));
     }
 

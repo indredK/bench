@@ -141,13 +141,13 @@ pub fn resolve_linux_source(
         );
     }
 
-    if snap_apps
+    if let Some((_, snap_name, _)) = snap_apps
         .iter()
-        .any(|(app_name, _, _)| app_name.to_lowercase() == name_lower)
+        .find(|(app_name, _, _)| app_name.to_lowercase() == name_lower)
     {
         return SourceResolution::managed(
             SourceType::Snap,
-            name_lower,
+            snap_name.clone(),
             0.9,
             snap_available,
             snap_available,

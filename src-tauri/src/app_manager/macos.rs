@@ -627,14 +627,38 @@ pub fn install_app(
 
     // Fallback: try to open download URL
     if let Some(url) = &install_source.url {
-        let _ = std::process::Command::new("open").arg(url).output();
-        return Ok(operation_result(
-            true,
-            format!("Opening download page: {}", url),
-            Some(0),
-            None,
-            false,
-        ));
+        let output = std::process::Command::new("open").arg(url).output();
+        return match output {
+            Ok(o) if o.status.success() => Ok(operation_result(
+                true,
+                format!("Opening download page: {}", url),
+                o.status.code(),
+                None,
+                false,
+            )),
+            Ok(o) => {
+                let stderr = String::from_utf8_lossy(&o.stderr);
+                let msg = stderr.trim();
+                Ok(operation_result(
+                    false,
+                    if msg.is_empty() {
+                        format!("Failed to open URL: {}", url)
+                    } else {
+                        format!("Failed to open URL: {}", msg)
+                    },
+                    o.status.code(),
+                    None,
+                    false,
+                ))
+            }
+            Err(e) => Ok(operation_result(
+                false,
+                format!("Failed to launch 'open': {}", e),
+                None,
+                None,
+                false,
+            )),
+        };
     }
 
     Err("No suitable installation method available for this application".into())
