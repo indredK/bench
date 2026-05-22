@@ -34,6 +34,7 @@ if (manifestFiles.length === 0) {
 }
 
 const platforms = {};
+const usedFiles = new Map();
 
 for (const manifestFile of manifestFiles) {
   const manifestPath = path.join(assetsDir, manifestFile);
@@ -47,6 +48,15 @@ for (const manifestFile of manifestFiles) {
   if (!fs.existsSync(signaturePath)) {
     throw new Error(`Updater signature not found: ${signaturePath}`);
   }
+  if (platforms[manifest.platform]) {
+    throw new Error(`Duplicate updater platform in ${manifestFile}: ${manifest.platform}`);
+  }
+  if (usedFiles.has(manifest.file)) {
+    throw new Error(
+      `Updater asset ${manifest.file} is referenced by both ${usedFiles.get(manifest.file)} and ${manifest.platform}`
+    );
+  }
+  usedFiles.set(manifest.file, manifest.platform);
 
   platforms[manifest.platform] = {
     signature: fs.readFileSync(signaturePath, "utf8").trim(),

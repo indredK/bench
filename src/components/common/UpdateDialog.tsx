@@ -231,6 +231,11 @@ function getErrorCopy(t: (key: string) => string, errorInfo: UpdaterErrorInfo | 
         title: t("updater.downloadFailedTitle"),
         description: t("updater.downloadFailedDescription"),
       };
+    case "signatureVerificationFailed":
+      return {
+        title: t("updater.signatureVerificationFailedTitle"),
+        description: t("updater.signatureVerificationFailedDescription"),
+      };
     case "installBlocked":
       return {
         title: t("updater.installBlockedTitle"),

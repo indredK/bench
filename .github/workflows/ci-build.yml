@@ -145,19 +145,21 @@ jobs:
           find src-tauri/target -name "*.dmg" -exec cp {} artifacts/ \; 2>/dev/null || true
           updater_file="$(find src-tauri/target/${{ matrix.target }}/release/bundle -name "*.app.tar.gz" | head -n 1)"
           if [ -n "$updater_file" ] && [ -f "${updater_file}.sig" ]; then
-            cp "$updater_file" artifacts/
-            cp "${updater_file}.sig" artifacts/
             case "${{ matrix.target }}" in
               aarch64-apple-darwin) updater_platform="darwin-aarch64" ;;
               x86_64-apple-darwin) updater_platform="darwin-x86_64" ;;
               *) echo "Unsupported macOS updater target: ${{ matrix.target }}" && exit 1 ;;
             esac
+            updater_name="${updater_platform}-$(basename "$updater_file")"
+            updater_sig_name="${updater_name}.sig"
+            cp "$updater_file" "artifacts/$updater_name"
+            cp "${updater_file}.sig" "artifacts/$updater_sig_name"
             node scripts/write-updater-manifest.mjs \
               --output-dir artifacts \
               --target "${{ matrix.target }}" \
               --platform "$updater_platform" \
-              --file "$updater_file" \
-              --signature "${updater_file}.sig"
+              --file "artifacts/$updater_name" \
+              --signature "artifacts/$updater_sig_name"
           fi
 
       - name: Collect Windows bundle and updater artifacts
@@ -229,6 +231,14 @@ jobs:
 
       - name: Generate latest.json
         run: node scripts/generate-updater-json.mjs --assets-dir release-assets --tag "${{ github.ref_name }}" --repo "${{ github.repository }}" --release-metadata release-metadata.json
+
+      - name: Verify updater signatures
+        run: |
+          updater_pubkey="$(node -e "const fs=require('fs'); const conf=JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json','utf8')); process.stdout.write(conf.plugins.updater.pubkey);")"
+          cargo run --manifest-path src-tauri/Cargo.toml --bin verify_updater_manifest -- \
+            --latest-json release-assets/latest.json \
+            --assets-dir release-assets \
+            --pubkey "$updater_pubkey"
 
       - name: Create or update GitHub Release
         env:

@@ -1250,6 +1250,8 @@
     "rateLimitedDescription": "The update service is rate limiting requests for a moment. Please try again later.",
     "downloadFailedTitle": "Update download didn't finish",
     "downloadFailedDescription": "The update package download was interrupted. Please try again.",
+    "signatureVerificationFailedTitle": "Update package signature check failed",
+    "signatureVerificationFailedDescription": "The update package signature doesn't match the release key trusted by this app. Please verify the published artifacts.",
     "installBlockedTitle": "Update can't be installed right now",
     "installBlockedDescription": "The installer may be blocked by a file in use or missing permission. Close related processes and try again.",
     "updateStateChangedTitle": "That update is no longer available",

@@ -32,6 +32,8 @@ vi.mock("react-i18next", () => ({
         "updater.rateLimitedDescription": "The update service is rate limiting requests for a moment. Please try again later.",
         "updater.downloadFailedTitle": "Update download didn't finish",
         "updater.downloadFailedDescription": "The update package download was interrupted. Please try again.",
+        "updater.signatureVerificationFailedTitle": "Update package signature check failed",
+        "updater.signatureVerificationFailedDescription": "The update package signature doesn't match the release key trusted by this app. Please verify the published artifacts.",
         "updater.installBlockedTitle": "Update can't be installed right now",
         "updater.installBlockedDescription": "The installer may be blocked by a file in use or missing permission. Close related processes and try again.",
         "updater.updateStateChangedTitle": "That update is no longer available",
@@ -220,5 +222,45 @@ describe("UpdateDialog", () => {
     expect(screen.queryByText("Latest Version")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Technical details/i })).toBeInTheDocument();
+  });
+
+  it("shows a release-integrity message for signature verification failures", () => {
+    render(
+      <UpdateDialog
+        open={true}
+        status="error"
+        currentVersion="1.6.0"
+        updateInfo={{
+          available: true,
+          currentVersion: "1.6.0",
+          version: "1.7.0",
+          date: "2026-05-22",
+          body: null,
+        }}
+        errorInfo={{
+          kind: "signatureVerificationFailed",
+          operation: "install",
+          message: "failed to download and install update: The signature verification failed",
+          retryAction: "check",
+        }}
+        error="failed to download and install update: The signature verification failed"
+        downloadedBytes={0}
+        totalBytes={null}
+        lastCheckedAt={0}
+        checkUpdates={vi.fn(async () => {})}
+        downloadAndInstall={vi.fn(async () => {})}
+        restartNow={vi.fn(async () => {})}
+        closeDialog={vi.fn()}
+        dismissDialog={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Update package signature check failed")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "The update package signature doesn't match the release key trusted by this app. Please verify the published artifacts.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("1.7.0")).toBeInTheDocument();
   });
 });

@@ -110,6 +110,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "dirs-next",
+ "minisign-verify",
  "serde",
  "serde_json",
  "sysinfo",
