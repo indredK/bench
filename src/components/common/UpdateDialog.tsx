@@ -1,8 +1,15 @@
 /**
  * Common UI / 通用 UI: render app update dialog only; 只放应用更新相关界面.
  */
-import type { ReactNode } from "react";
-import { RefreshCcw, Download, RotateCw, CheckCircle2 } from "lucide-react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  RefreshCcw,
+  Download,
+  RotateCw,
+  CheckCircle2,
+  TriangleAlert,
+  ChevronDown,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { UpdaterController } from "@/features/updater/hooks/useUpdaterController";
 import {
@@ -14,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -206,8 +214,9 @@ export function UpdateDialog({
   dismissDialog,
 }: UpdaterController) {
   const { t } = useTranslation();
+  const [showErrorDetails, setShowErrorDetails] = useState(false);
 
-  const latestVersion = updateInfo?.version || currentVersion || "-";
+  const latestVersion = updateInfo?.version ?? null;
   const releaseNotes = updateInfo?.body?.trim() || "";
   const progressPercent =
     totalBytes && totalBytes > 0
@@ -217,6 +226,88 @@ export function UpdateDialog({
   const busy = status === "downloading" || status === "installing";
   const canInstall = status === "available";
   const canRestart = status === "readyToRestart";
+  const installContext = Boolean(updateInfo?.available);
+  const hasKnownLatestVersion = Boolean(latestVersion);
+  const errorTitle =
+    status === "error"
+      ? installContext
+        ? t("updater.installFailedTitle")
+        : t("updater.checkFailedTitle")
+      : null;
+  const errorDescription =
+    status === "error"
+      ? installContext
+        ? t("updater.installFailedDescription")
+        : t("updater.checkFailedDescription")
+      : null;
+  const statusAlert = useMemo(() => {
+    switch (status) {
+      case "checking":
+        return {
+          icon: <RefreshCcw className="size-4 animate-spin" />,
+          title: t("updater.checking"),
+          description: t("updater.checkingDescription"),
+          variant: "default" as const,
+        };
+      case "upToDate":
+        return {
+          icon: <CheckCircle2 className="size-4" />,
+          title: t("updater.upToDateTitle"),
+          description: t("updater.upToDateDescription"),
+          variant: "default" as const,
+        };
+      case "available":
+        return {
+          icon: <Download className="size-4" />,
+          title: t("updater.availableTitle", { version: (latestVersion ?? currentVersion) || "-" }),
+          description: t("updater.availableDescription"),
+          variant: "default" as const,
+        };
+      case "downloading":
+        return {
+          icon: <RotateCw className="size-4 animate-spin" />,
+          title: t("updater.downloading"),
+          description: t("updater.downloadDescription"),
+          variant: "default" as const,
+        };
+      case "installing":
+        return {
+          icon: <RotateCw className="size-4 animate-spin" />,
+          title: t("updater.installing"),
+          description: t("updater.installDescription"),
+          variant: "default" as const,
+        };
+      case "readyToRestart":
+        return {
+          icon: <CheckCircle2 className="size-4" />,
+          title: t("updater.readyToRestartTitle"),
+          description: t("updater.readyToRestartDescription"),
+          variant: "default" as const,
+        };
+      case "error":
+        return {
+          icon: <TriangleAlert className="size-4" />,
+          title: errorTitle ?? t("updater.errorTitle"),
+          description: errorDescription ?? error,
+          variant: "destructive" as const,
+        };
+      default:
+        return null;
+    }
+  }, [currentVersion, error, errorDescription, errorTitle, latestVersion, status, t]);
+  const dialogDescription = useMemo(() => {
+    const parts = [`${t("updater.currentVersion")} ${currentVersion || "-"}.`];
+
+    if (latestVersion) {
+      parts.push(`${t("updater.latestVersion")} ${latestVersion}.`);
+    }
+
+    return parts.join(" ");
+  }, [currentVersion, latestVersion, t]);
+
+  useEffect(() => {
+    setShowErrorDetails(false);
+  }, [status, open]);
 
   return (
     <Dialog
@@ -230,14 +321,19 @@ export function UpdateDialog({
       <DialogContent className="max-h-[min(85vh,720px)] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden sm:max-w-[640px]">
         <DialogHeader className="pr-8">
           <DialogTitle>{t("updater.title")}</DialogTitle>
-          <DialogDescription className="sr-only">
-            {t("updater.currentVersion")} {currentVersion || "-"};{" "}
-            {t("updater.latestVersion")} {latestVersion}.
-          </DialogDescription>
+          <DialogDescription className="sr-only">{dialogDescription}</DialogDescription>
         </DialogHeader>
 
         <div className="min-w-0 overflow-y-auto pr-1">
           <div className="min-w-0 space-y-4">
+            {statusAlert && (
+              <Alert variant={statusAlert.variant} className="px-3 py-3">
+                {statusAlert.icon}
+                <AlertTitle>{statusAlert.title}</AlertTitle>
+                <AlertDescription>{statusAlert.description}</AlertDescription>
+              </Alert>
+            )}
+
             <div className="grid min-w-0 gap-2 rounded-lg border p-3 text-sm">
               <div className="flex items-start justify-between gap-3">
                 <span className="text-muted-foreground">{t("updater.currentVersion")}</span>
@@ -245,12 +341,14 @@ export function UpdateDialog({
                   {currentVersion || "-"}
                 </span>
               </div>
-              <div className="flex items-start justify-between gap-3">
-                <span className="text-muted-foreground">{t("updater.latestVersion")}</span>
-                <span className="min-w-0 text-right font-mono [overflow-wrap:anywhere]">
-                  {latestVersion}
-                </span>
-              </div>
+              {hasKnownLatestVersion && (
+                <div className="flex items-start justify-between gap-3">
+                  <span className="text-muted-foreground">{t("updater.latestVersion")}</span>
+                  <span className="min-w-0 text-right font-mono [overflow-wrap:anywhere]">
+                    {latestVersion}
+                  </span>
+                </div>
+              )}
               {lastCheckedAt > 0 && (
                 <div className="flex items-start justify-between gap-3">
                   <span className="text-muted-foreground">{t("updater.lastChecked")}</span>
@@ -261,49 +359,20 @@ export function UpdateDialog({
               )}
             </div>
 
-            {status === "upToDate" && (
-              <Alert>
-                <CheckCircle2 className="size-4" />
-                <AlertTitle>{t("updater.upToDateTitle")}</AlertTitle>
-                <AlertDescription>{t("updater.upToDateDescription")}</AlertDescription>
-              </Alert>
-            )}
-
-            {status === "available" && (
-              <Alert>
-                <Download className="size-4" />
-                <AlertTitle>{t("updater.availableTitle", { version: latestVersion })}</AlertTitle>
-                <AlertDescription>{t("updater.availableDescription")}</AlertDescription>
-              </Alert>
-            )}
-
-            {busy && (
-              <Alert>
-                <RotateCw className="size-4 animate-spin" />
-                <AlertTitle>
-                  {status === "downloading" ? t("updater.downloading") : t("updater.installing")}
-                </AlertTitle>
-                <AlertDescription>
-                  {status === "downloading"
-                    ? t("updater.downloadDescription")
-                    : t("updater.installDescription")}
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {canRestart && (
-              <Alert>
-                <CheckCircle2 className="size-4" />
-                <AlertTitle>{t("updater.readyToRestartTitle")}</AlertTitle>
-                <AlertDescription>{t("updater.readyToRestartDescription")}</AlertDescription>
-              </Alert>
-            )}
-
-            {status === "error" && (
-              <Alert variant="destructive">
-                <AlertTitle>{t("updater.errorTitle")}</AlertTitle>
-                <AlertDescription className="[overflow-wrap:anywhere]">{error}</AlertDescription>
-              </Alert>
+            {status === "error" && error && (
+              <Collapsible open={showErrorDetails} onOpenChange={setShowErrorDetails}>
+                <div className="rounded-lg border bg-muted/20">
+                  <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm font-medium transition-colors hover:bg-muted/40">
+                    <span>{t("updater.technicalDetails")}</span>
+                    <ChevronDown
+                      className={`size-4 shrink-0 transition-transform ${showErrorDetails ? "rotate-180" : ""}`}
+                    />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="border-t px-3 py-3 text-sm text-muted-foreground [overflow-wrap:anywhere]">
+                    {error}
+                  </CollapsibleContent>
+                </div>
+              </Collapsible>
             )}
 
             {(busy || canRestart) && (
@@ -360,7 +429,14 @@ export function UpdateDialog({
             </Button>
           )}
 
-          {!canInstall && !canRestart && (
+          {status === "error" && (
+            <Button onClick={() => void (installContext ? downloadAndInstall() : checkUpdates())}>
+              <RefreshCcw className="size-4" />
+              {t("updater.retry")}
+            </Button>
+          )}
+
+          {(status === "idle" || status === "checking" || status === "upToDate") && (
             <Button onClick={() => void checkUpdates()} disabled={checking || busy}>
               <RefreshCcw className={`size-4 ${checking ? "animate-spin" : ""}`} />
               {checking ? t("updater.checking") : t("updater.checkNow")}

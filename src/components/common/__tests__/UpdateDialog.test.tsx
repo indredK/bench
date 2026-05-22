@@ -10,11 +10,21 @@ vi.mock("react-i18next", () => ({
         "updater.currentVersion": "Current Version",
         "updater.latestVersion": "Latest Version",
         "updater.lastChecked": "Last Checked",
+        "updater.checking": "Checking...",
+        "updater.checkingDescription": "Connecting to the update service now.",
+        "updater.upToDateTitle": "You're up to date",
+        "updater.upToDateDescription": "The currently installed Bench build is already the latest version.",
         "updater.availableTitle": `New version ${options?.version ?? ""}`.trim(),
         "updater.availableDescription": "Ready to download and install.",
+        "updater.checkFailedTitle": "Couldn't check for updates",
+        "updater.checkFailedDescription": "We couldn't reach the update service. Check your connection and try again.",
+        "updater.installFailedTitle": "Update installation failed",
+        "updater.installFailedDescription": "The update package couldn't be downloaded or installed. Please try again.",
         "updater.releaseNotes": "Release Notes",
+        "updater.technicalDetails": "Technical details",
         "updater.close": "Close",
         "updater.installNow": "Download and Install",
+        "updater.retry": "Retry",
       };
 
       return translations[key] || key;
@@ -62,6 +72,24 @@ vi.mock("@/components/ui/alert", () => ({
   Alert: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   AlertTitle: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   AlertDescription: ({
+    children,
+    className,
+  }: {
+    children: React.ReactNode;
+    className?: string;
+  }) => <div className={className}>{children}</div>,
+}));
+
+vi.mock("@/components/ui/collapsible", () => ({
+  Collapsible: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  CollapsibleTrigger: ({
+    children,
+    className,
+  }: {
+    children: React.ReactNode;
+    className?: string;
+  }) => <button type="button" className={className}>{children}</button>,
+  CollapsibleContent: ({
     children,
     className,
   }: {
@@ -138,5 +166,33 @@ describe("UpdateDialog", () => {
 
     expect(screen.getByTestId("dialog-content")).toHaveClass("overflow-hidden");
     expect(screen.getByTestId("dialog-content")).toHaveClass("grid-rows-[auto_minmax(0,1fr)_auto]");
+  });
+
+  it("shows a human-readable retry state without echoing current version as latest on check failure", () => {
+    render(
+      <UpdateDialog
+        open={true}
+        status="error"
+        currentVersion="1.7.0"
+        updateInfo={null}
+        error="failed to check for updates: Could not fetch a valid release JSON from the remote"
+        downloadedBytes={0}
+        totalBytes={null}
+        lastCheckedAt={0}
+        checkUpdates={vi.fn(async () => {})}
+        downloadAndInstall={vi.fn(async () => {})}
+        restartNow={vi.fn(async () => {})}
+        closeDialog={vi.fn()}
+        dismissDialog={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Couldn't check for updates")).toBeInTheDocument();
+    expect(
+      screen.getByText("We couldn't reach the update service. Check your connection and try again."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Latest Version")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Technical details/i })).toBeInTheDocument();
   });
 });
