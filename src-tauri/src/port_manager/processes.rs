@@ -2,6 +2,7 @@ use super::fingerprints::fingerprint_port_process;
 use super::types::{KillPidResult, PortProcessDetail, ProcessNode};
 use std::collections::HashMap;
 use std::process::Command;
+use sysinfo::System;
 
 type ProcessSnapshot = HashMap<u32, (u32, String, String)>;
 
@@ -143,14 +144,10 @@ fn find_pids_by_port_unix(port: u16) -> Result<Vec<u32>, String> {
         return Ok(Vec::new());
     }
 
-    stdout
+    Ok(stdout
         .lines()
-        .map(|line| {
-            line.trim()
-                .parse::<u32>()
-                .map_err(|e| format!("Failed to parse PID '{}': {}", line.trim(), e))
-        })
-        .collect()
+        .filter_map(|line| line.trim().parse::<u32>().ok())
+        .collect())
 }
 
 fn find_pids_by_port_windows(port: u16) -> Result<Vec<u32>, String> {
@@ -160,18 +157,44 @@ fn find_pids_by_port_windows(port: u16) -> Result<Vec<u32>, String> {
         .map_err(|e| format!("Failed to run netstat: {}", e))?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let port_str = format!(":{}", port);
     let mut pids: Vec<u32> = Vec::new();
 
     for line in stdout.lines() {
-        if line.contains(&port_str) {
-            let parts: Vec<&str> = line.split_whitespace().collect();
-            if let Some(pid_str) = parts.last() {
-                if let Ok(pid) = pid_str.parse::<u32>() {
-                    if pid != 0 && !pids.contains(&pid) {
-                        pids.push(pid);
-                    }
-                }
+        let cols: Vec<&str> = line.split_whitespace().collect();
+        if cols.len() < 4 {
+            continue;
+        }
+        let proto = cols[0];
+        let local = cols[1];
+
+        let (state, pid_str) = if proto.eq_ignore_ascii_case("TCP") {
+            if cols.len() < 5 {
+                continue;
+            }
+            (Some(cols[3]), cols[4])
+        } else if proto.eq_ignore_ascii_case("UDP") {
+            (None, cols[3])
+        } else {
+            continue;
+        };
+
+        let is_listening_tcp = state.is_some_and(|s| s.eq_ignore_ascii_case("LISTENING"));
+        let is_udp = state.is_none();
+        if !is_listening_tcp && !is_udp {
+            continue;
+        }
+
+        let local_port = local
+            .rsplit(':')
+            .next()
+            .and_then(|s| s.parse::<u16>().ok());
+        if local_port != Some(port) {
+            continue;
+        }
+
+        if let Ok(pid) = pid_str.parse::<u32>() {
+            if pid != 0 && !pids.contains(&pid) {
+                pids.push(pid);
             }
         }
     }
@@ -180,58 +203,22 @@ fn find_pids_by_port_windows(port: u16) -> Result<Vec<u32>, String> {
 }
 
 fn get_all_processes() -> ProcessSnapshot {
-    let mut processes = HashMap::new();
-
-    if cfg!(target_os = "windows") {
-        if let Ok(output) = Command::new("powershell")
-            .args([
-                "-NoProfile",
-                "-Command",
-                "Get-CimInstance Win32_Process | Select-Object ProcessId, ParentProcessId, Name, CommandLine | ConvertTo-Csv -NoTypeInformation",
-            ])
-            .output()
-        {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            for line in stdout.lines().skip(1) {
-                let line = line.trim();
-                if line.is_empty() || !line.starts_with('"') {
-                    continue;
-                }
-                let parts: Vec<&str> = line
-                    .split(',')
-                    .map(|s| s.trim_matches('"').trim())
-                    .collect();
-                if parts.len() >= 4 {
-                    if let (Ok(pid), Ok(ppid)) = (parts[0].parse::<u32>(), parts[1].parse::<u32>())
-                    {
-                        let name = parts[2].to_string();
-                        let cmd = parts[3..].join(",");
-                        processes.insert(pid, (ppid, name, cmd));
-                    }
-                }
-            }
-        }
-    } else if let Ok(output) = Command::new("ps")
-        .args(["-eo", "pid,ppid,comm,args"])
-        .output()
-    {
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        for line in stdout.lines().skip(1) {
-            let line = line.trim();
-            if line.is_empty() {
-                continue;
-            }
-            let parts: Vec<&str> = line.split_whitespace().collect();
-            if parts.len() >= 4 {
-                if let (Ok(pid), Ok(ppid)) = (parts[0].parse::<u32>(), parts[1].parse::<u32>()) {
-                    let command = parts[3..].join(" ");
-                    processes.insert(pid, (ppid, parts[2].to_string(), command));
-                }
-            }
-        }
-    }
-
-    processes
+    let mut sys = System::new_all();
+    sys.refresh_all();
+    sys.processes()
+        .iter()
+        .map(|(pid, p)| {
+            let ppid = p.parent().map(|p| p.as_u32()).unwrap_or(0);
+            let name = p.name().to_string_lossy().to_string();
+            let cmd = p
+                .cmd()
+                .iter()
+                .filter_map(|s| s.to_str())
+                .collect::<Vec<_>>()
+                .join(" ");
+            (pid.as_u32(), (ppid, name, cmd))
+        })
+        .collect()
 }
 
 fn build_subtree(pid: u32, all: &ProcessSnapshot) -> ProcessNode {

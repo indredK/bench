@@ -8,21 +8,15 @@ pub(super) fn fingerprint_port_process(
     pids: &[u32],
     all: &ProcessSnapshot,
 ) -> Option<ProcessFingerprint> {
-    if pids.is_empty() {
-        return None;
-    }
-
-    let pid = pids[0];
-    let (_, _, command) = all
-        .get(&pid)
-        .cloned()
-        .unwrap_or((0, String::new(), String::new()));
-
-    if command.is_empty() || command == "Unknown" {
-        return None;
-    }
-
-    fingerprint_by_command(&command, port)
+    pids.iter()
+        .filter_map(|pid| {
+            let (_, _, command) = all.get(pid)?;
+            if command.is_empty() || command == "Unknown" {
+                return None;
+            }
+            fingerprint_by_command(command, port)
+        })
+        .next()
 }
 
 fn fingerprint_by_command(command: &str, port: u16) -> Option<ProcessFingerprint> {
