@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.8.0](https://github.com/indredK/bench/compare/v1.7.1...v1.8.0) (2026-05-22)
+
+
+### Features
+
+* **updater:** add full update dialog state and i18n translations ([e38704d](https://github.com/indredK/bench/commit/e38704da4dda6d726e62270577682c2857f9c088))
+* **updater:** 完善更新错误处理与多语言文案 ([0816e27](https://github.com/indredK/bench/commit/0816e275a6327a946ea4d233b2e716bde485f550))
+* **updater:** 新增更新包签名校验相关功能与错误处理 ([da23577](https://github.com/indredK/bench/commit/da235772ee98bc0502fa97b23964a2d2d55b1df8))
+
+
+### Bug Fixes
+
+* **release:** trigger release-please after updater fix ([2a13ec8](https://github.com/indredK/bench/commit/2a13ec874af2204e8a80de42ffe8a99afb310880))
+* 修复升级 ([a35ee83](https://github.com/indredK/bench/commit/a35ee83ee081f3f4310a3307e3396a18fe34eef3))
+
 ## [1.7.1](https://github.com/indredK/bench/compare/v1.7.0...v1.7.1) (2026-05-22)
 
 
