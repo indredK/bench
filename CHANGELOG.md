@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.3](https://github.com/indredK/bench/compare/v1.8.2...v1.8.3) (2026-05-22)
+
+
+### Bug Fixes
+
+* trigger release-please ([f739702](https://github.com/indredK/bench/commit/f7397022d959c8238b9caa2182eee0ad008a25d0))
+
 ## [1.8.2](https://github.com/indredK/bench/compare/v1.8.1...v1.8.2) (2026-05-22)
 
 
