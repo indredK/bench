@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import i18n, { detectSystemLanguage } from "@/i18n/config";
 import { setCurrentWindowTitle } from "@/platform/window";
+import { readStorageItem, removeStorageItem, writeStorageItem } from "@/platform/storage";
 
 const THEME_ORDER = ["system", "light", "dark"] as const;
 type ThemeMode = (typeof THEME_ORDER)[number];
@@ -42,18 +43,18 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   const currentTheme = (theme as ThemeMode) || "system";
 
   const storedLang = (() => {
-    const s = localStorage.getItem("languageMode");
+    const s = readStorageItem("languageMode");
     if (s === "zh" || s === "en") return s;
     return "system";
   })();
 
   const changeLanguage = useCallback(async (lang: string) => {
     if (lang === "system") {
-      localStorage.removeItem("languageMode");
-      localStorage.removeItem("language");
+      removeStorageItem("languageMode");
+      removeStorageItem("language");
     } else {
-      localStorage.setItem("languageMode", lang);
-      localStorage.setItem("language", lang);
+      writeStorageItem("languageMode", lang);
+      writeStorageItem("language", lang);
     }
     const resolved = lang === "system" ? detectSystemLanguage() : lang;
     await i18n.changeLanguage(resolved);

@@ -11,6 +11,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { setCurrentWindowTitle } from "@/platform/window";
+import { readStorageItem, removeStorageItem, writeStorageItem } from "@/platform/storage";
 
 type LangMode = "system" | "zh" | "en";
 const CYCLE_ORDER: LangMode[] = ["system", "zh", "en"];
@@ -22,18 +23,18 @@ const FLAG_ICON: Record<LangMode, React.ReactNode> = {
 };
 
 function getStoredMode(): LangMode {
-  const stored = localStorage.getItem("languageMode");
+  const stored = readStorageItem("languageMode");
   if (stored === "zh" || stored === "en") return stored;
   return "system";
 }
 
 function setStoredMode(mode: LangMode) {
   if (mode === "system") {
-    localStorage.removeItem("languageMode");
-    localStorage.removeItem("language");
+    removeStorageItem("languageMode");
+    removeStorageItem("language");
   } else {
-    localStorage.setItem("languageMode", mode);
-    localStorage.setItem("language", mode);
+    writeStorageItem("languageMode", mode);
+    writeStorageItem("language", mode);
   }
 }
 

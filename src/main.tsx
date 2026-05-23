@@ -7,15 +7,29 @@ import { ThemeProvider } from "next-themes";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import App from "./App";
 import "./styles.css";
-import "./i18n/config";
+import { i18nInitPromise } from "./i18n/config";
 import "@fontsource-variable/geist";
 
-ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-  <StrictMode>
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      <TooltipProvider>
-        <App />
-      </TooltipProvider>
-    </ThemeProvider>
-  </StrictMode>,
-);
+// Await i18next so the first React paint already has translations resolved.
+// Without this, the first frame renders raw keys like "appManager.title"
+// and only flips to translated text on the next tick — visible flicker (#098).
+// If init rejects we render anyway with the i18next fallback locale so the
+// user never sees a permanent white screen.
+async function bootstrap() {
+  try {
+    await i18nInitPromise;
+  } catch (error) {
+    console.warn("[bootstrap] i18n init failed; falling back to default:", error);
+  }
+  ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
+    <StrictMode>
+      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        <TooltipProvider>
+          <App />
+        </TooltipProvider>
+      </ThemeProvider>
+    </StrictMode>,
+  );
+}
+
+void bootstrap();
