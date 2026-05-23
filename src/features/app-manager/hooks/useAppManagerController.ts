@@ -371,31 +371,28 @@ export function useAppManagerController(active: boolean) {
   }, [historyOpen, loadHistory]);
 
   useEffect(() => {
-    if (!historyOpen) return;
+    // Single ESC listener with deepest-first priority. Previously each modal
+    // (history / selectedItem / installDetailItem) registered its own
+    // document-level keydown listener, so when two modals were open ESC
+    // closed both at once instead of unwinding the stack (#069).
+    if (!historyOpen && !selectedItem && !installDetailItem) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setHistoryOpen(false);
+      if (event.key !== "Escape") return;
+      if (installDetailItem) {
+        setInstallDetailItem(null);
+        return;
+      }
+      if (selectedItem) {
+        setSelectedItem(null);
+        return;
+      }
+      if (historyOpen) {
+        setHistoryOpen(false);
+      }
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [historyOpen, setHistoryOpen]);
-
-  useEffect(() => {
-    if (!selectedItem) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setSelectedItem(null);
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [selectedItem, setSelectedItem]);
-
-  useEffect(() => {
-    if (!installDetailItem) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setInstallDetailItem(null);
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [installDetailItem]);
+  }, [historyOpen, installDetailItem, selectedItem, setHistoryOpen, setInstallDetailItem, setSelectedItem]);
 
   useEffect(() => {
     setSelectedItem(null);

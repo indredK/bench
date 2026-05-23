@@ -82,9 +82,8 @@ function App() {
   useMenuEvent("reload", () => {
     void handleRefresh();
   });
-  useMenuEvent("toggle_devtools", () => {
-    // DevTools 已在开发模式下通过右键菜单可用
-  });
+  // Note: "toggle_devtools" is handled directly in Rust (src-tauri/src/menu.rs)
+  // because devtools open/close is only callable from the native side (#066).
 
   const sidebarItems = useMemo(() => createNavigationItems(t), [t]);
 

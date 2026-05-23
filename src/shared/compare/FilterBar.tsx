@@ -1,7 +1,7 @@
 /**
  * Shared Compare / 共享对比: own generic compare tools; 只负责通用对比能力.
  */
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n/config";
 import { RotateCcw, Pin, PinOff } from "lucide-react";
@@ -80,6 +80,17 @@ function FilterBar<T extends { id: string; model: string }>({
       setMasterCollapsed(true);
     }, 400);
   }, [autoMode]);
+
+  // Cancel the pending auto-collapse if the component unmounts mid-delay,
+  // otherwise the setTimeout callback fires setState on a dead component (#109).
+  useEffect(() => {
+    return () => {
+      if (collapseTimer.current) {
+        clearTimeout(collapseTimer.current);
+        collapseTimer.current = null;
+      }
+    };
+  }, []);
 
   const toggleMaster = useCallback(() => {
     if (collapseTimer.current) clearTimeout(collapseTimer.current);

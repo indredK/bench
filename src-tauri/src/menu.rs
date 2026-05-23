@@ -1,4 +1,6 @@
 use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
+#[cfg(debug_assertions)]
+use tauri::Manager;
 use tauri::Emitter;
 
 pub fn setup_menu(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
@@ -79,7 +81,22 @@ pub fn setup_menu(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>
 
     let handle = app.handle().clone();
     app.on_menu_event(move |_window, event| {
-        let _ = handle.emit("menu-event", event.id().as_ref().to_string());
+        let id = event.id().as_ref().to_string();
+        // Debug-only handler so the View → Toggle Developer Tools menu item
+        // actually does something. open_devtools / close_devtools are gated on
+        // debug_assertions or the `devtools` feature flag, so this whole branch
+        // compiles out of release builds (#066).
+        #[cfg(debug_assertions)]
+        if id == "toggle_devtools" {
+            if let Some(w) = handle.get_webview_window("main") {
+                if w.is_devtools_open() {
+                    w.close_devtools();
+                } else {
+                    w.open_devtools();
+                }
+            }
+        }
+        let _ = handle.emit("menu-event", id);
     });
 
     Ok(())

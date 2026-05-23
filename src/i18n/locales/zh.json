@@ -143,7 +143,9 @@
     "clearSelection": "取消选中",
     "openWebsite": "打开官网",
     "copyPath": "复制路径",
-    "copyWebsite": "复制官网"
+    "copyWebsite": "复制官网",
+    "crashed": "应用管理器发生错误",
+    "crashedRetry": "重试"
   },
   "envDetector": {
     "title": "环境检测",

@@ -143,7 +143,9 @@
     "clearSelection": "Clear Selection",
     "openWebsite": "Open Website",
     "copyPath": "Copy Path",
-    "copyWebsite": "Copy Website"
+    "copyWebsite": "Copy Website",
+    "crashed": "App Manager crashed",
+    "crashedRetry": "Retry"
   },
   "envDetector": {
     "title": "Environment Detector",
