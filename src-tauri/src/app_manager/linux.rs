@@ -537,6 +537,7 @@ pub fn upgrade_app(
 
     let (success, output, exit_code) = do_upgrade_linux(&app)?;
     Ok(record_operation_result(
+        &state,
         "upgrade",
         &app.app_id,
         &app.name,
@@ -564,6 +565,7 @@ pub fn uninstall_app(
 
     let (success, output, exit_code) = do_uninstall_linux(&app)?;
     Ok(record_operation_result(
+        &state,
         "uninstall",
         &app.app_id,
         &app.name,
@@ -581,6 +583,7 @@ pub fn uninstall_app(
 pub fn install_app(
     app_id: String,
     install_source: crate::app_manager::InstallSource,
+    state: tauri::State<'_, AppManagerState>,
 ) -> Result<OperationResult, String> {
     // Prefer flatpak
     if let Some(flatpak_id) = &install_source.flatpak {
@@ -598,6 +601,7 @@ pub fn install_app(
             .to_string();
             let success = output.status.success();
             return Ok(record_operation_result(
+                &state,
                 "install",
                 &app_id,
                 &app_id,
@@ -625,6 +629,7 @@ pub fn install_app(
             .to_string();
             let success = output.status.success();
             return Ok(record_operation_result(
+                &state,
                 "install",
                 &app_id,
                 &app_id,
@@ -652,6 +657,7 @@ pub fn install_app(
             .to_string();
             let success = output.status.success();
             return Ok(record_operation_result(
+                &state,
                 "install",
                 &app_id,
                 &app_id,

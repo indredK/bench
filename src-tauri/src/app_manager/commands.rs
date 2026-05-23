@@ -1,4 +1,4 @@
-use super::state::{get_operation_history, AppManagerState};
+use super::state::AppManagerState;
 use super::types::{
     BatchInstallItem, BatchItemResult, BatchOperationResult, InstallSource, OperationRecord,
     OperationResult, ScanResult,
@@ -161,8 +161,11 @@ pub fn uninstall_app(
 }
 
 #[tauri::command]
-pub fn get_app_operation_history(app_id: Option<String>) -> Vec<OperationRecord> {
-    get_operation_history(app_id)
+pub fn get_app_operation_history(
+    app_id: Option<String>,
+    state: tauri::State<'_, AppManagerState>,
+) -> Vec<OperationRecord> {
+    state.get_operation_history(app_id)
 }
 
 #[tauri::command]
@@ -291,13 +294,14 @@ pub async fn refresh_app_updates(
 pub fn install_app(
     app_id: String,
     install_source: InstallSource,
+    state: tauri::State<'_, AppManagerState>,
 ) -> Result<OperationResult, String> {
     if is_macos() {
-        macos::install_app(app_id, install_source)
+        macos::install_app(app_id, install_source, state)
     } else if is_windows() {
-        windows::install_app(app_id, install_source)
+        windows::install_app(app_id, install_source, state)
     } else if is_linux() {
-        linux::install_app(app_id, install_source)
+        linux::install_app(app_id, install_source, state)
     } else {
         Err("Unsupported platform".into())
     }
@@ -320,7 +324,7 @@ pub fn batch_install_apps(
             results.push(cancelled_batch_item(&item.app_id));
             continue;
         }
-        let result = install_app(item.app_id.clone(), item.install_source.clone());
+        let result = install_app(item.app_id.clone(), item.install_source.clone(), state.clone());
         match result {
             Ok(r) => {
                 let item_result = BatchItemResult {

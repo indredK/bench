@@ -1,4 +1,4 @@
-use super::state::record_operation;
+use super::state::AppManagerState;
 use super::types::{OperationRecord, OperationResult};
 
 pub fn operation_result(
@@ -28,6 +28,7 @@ pub fn locked_operation_result() -> OperationResult {
 }
 
 pub fn record_operation_result(
+    state: &AppManagerState,
     action: &str,
     app_id: &str,
     app_name: &str,
@@ -44,12 +45,13 @@ pub fn record_operation_result(
         error_code: record.error_code.clone(),
         permission_issue: record.permission_issue,
     };
-    record_operation(record);
+    state.record_operation(record);
     result
 }
 
 #[allow(clippy::too_many_arguments)]
 pub fn record_operation_result_with_error_code(
+    state: &AppManagerState,
     action: &str,
     app_id: &str,
     app_name: &str,
@@ -73,6 +75,6 @@ pub fn record_operation_result_with_error_code(
         error_code: record.error_code.clone(),
         permission_issue: record.permission_issue,
     };
-    record_operation(record);
+    state.record_operation(record);
     result
 }

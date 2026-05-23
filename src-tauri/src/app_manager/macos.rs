@@ -326,6 +326,7 @@ pub fn upgrade_app(
     let success = output.status.success();
 
     Ok(record_operation_result(
+        &state,
         "upgrade",
         &app.app_id,
         &app.name,
@@ -368,6 +369,7 @@ pub fn uninstall_app(
     let success = output.status.success();
 
     Ok(record_operation_result(
+        &state,
         "uninstall",
         &app.app_id,
         &app.name,
@@ -584,6 +586,7 @@ fn png_to_base64(png_path: &Path) -> Result<String, String> {
 pub fn install_app(
     app_id: String,
     install_source: crate::app_manager::InstallSource,
+    state: tauri::State<'_, AppManagerState>,
 ) -> Result<crate::app_manager::OperationResult, String> {
     // Prefer brew install --cask
     if let Some(cask) = &install_source.brew {
@@ -602,6 +605,7 @@ pub fn install_app(
             .to_string();
 
             return Ok(record_operation_result_with_error_code(
+                &state,
                 "install",
                 &app_id,
                 &app_id,

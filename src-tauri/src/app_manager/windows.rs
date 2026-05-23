@@ -320,6 +320,7 @@ pub fn upgrade_app(
     let success = output.status.success();
 
     Ok(record_operation_result(
+        &state,
         "upgrade",
         &app.app_id,
         &app.name,
@@ -365,6 +366,7 @@ pub fn uninstall_app(
     let success = output.status.success();
 
     Ok(record_operation_result(
+        &state,
         "uninstall",
         &app.app_id,
         &app.name,
@@ -382,6 +384,7 @@ pub fn uninstall_app(
 pub fn install_app(
     app_id: String,
     install_source: crate::app_manager::InstallSource,
+    state: tauri::State<'_, AppManagerState>,
 ) -> Result<OperationResult, String> {
     // Prefer winget install
     if let Some(winget_id) = &install_source.winget {
@@ -407,6 +410,7 @@ pub fn install_app(
             let success = output.status.success();
 
             return Ok(record_operation_result(
+                &state,
                 "install",
                 &app_id,
                 &app_id,
