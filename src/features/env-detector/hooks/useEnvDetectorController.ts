@@ -9,6 +9,7 @@ import { useContextMenuRegistration } from "@/shared/context-menu/useContextMenu
 import type { ContextMenuConfig, ContextMenuRegistration } from "@/shared/context-menu/types";
 import { createEnvDetectorColumns } from "@/features/env-detector/columns";
 import { envDetectorUseCases } from "@/features/env-detector/services/env-detector.use-cases";
+import { EnvScanTimeoutError } from "@/features/env-detector/services/env-detector.repository";
 import { useEnvDetectorStore } from "@/features/env-detector/store";
 import { registerFeatureRefresh } from "@/features/refresh";
 import type { EnvTool } from "@/lib/tauri/types";
@@ -77,9 +78,13 @@ export function useEnvDetectorController(active: boolean) {
       });
     } catch (error) {
       console.warn("[EnvDetector] Failed to detect tools:", error);
+      const errorKey =
+        error instanceof EnvScanTimeoutError
+          ? "envDetector.scanTimedOut"
+          : "envDetector.loadFailed";
       useEnvDetectorStore.setState({
         tools: [],
-        error: "Failed to detect tools",
+        error: i18n.t(errorKey),
         loading: false,
         scanning: false,
         scanned: true,

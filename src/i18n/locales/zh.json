@@ -162,6 +162,7 @@
     "notFound": "未找到",
     "loading": "正在扫描开发工具...",
     "loadFailed": "扫描环境工具失败",
+    "scanTimedOut": "扫描时间过长已取消,请稍后重试。",
     "browserInfo": "环境检测功能仅在 Tauri 桌面应用中可用，请使用 `npm run tauri:dev` 运行。",
     "empty": "没有匹配的工具",
     "startHint": "点击「刷新」按钮扫描系统中的所有开发工具。",
