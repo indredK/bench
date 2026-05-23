@@ -254,3 +254,51 @@ pub struct UpdateInfo {
     #[serde(default)]
     pub ignored: bool,
 }
+
+/// Phase of an in-progress app update install (v1.2). Tagged enum so the
+/// frontend can pattern-match `{ phase: "downloading", percent: 42, ... }`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", tag = "phase")]
+pub enum InstallPhase {
+    Queued,
+    Downloading {
+        percent: u8,
+        bytes_total: Option<u64>,
+    },
+    Verifying,
+    DeveloperIdChanged {
+        old: String,
+        new: String,
+    },
+    Extracting,
+    Replacing,
+    Finalizing,
+    Done,
+    Failed {
+        code: String,
+        message: String,
+    },
+    RolledBack {
+        reason: String,
+    },
+}
+
+/// Event payload for `app-update-install:progress` (v1.2).
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstallProgressEvent {
+    pub app_id: String,
+    #[serde(flatten)]
+    pub phase: InstallPhase,
+    pub elapsed_ms: u64,
+}
+
+/// Event payload for `app-update-install:finished` (v1.2).
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstallFinishedEvent {
+    pub app_id: String,
+    pub success: bool,
+    pub message: String,
+    pub error_code: Option<String>,
+}

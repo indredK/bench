@@ -135,3 +135,35 @@ export interface UpdateInfo {
   feedUrl: string | null;
   ignored: boolean;
 }
+
+/**
+ * v1.2: phases of an in-progress install. The Rust side serializes this with
+ * `#[serde(rename_all = "camelCase", tag = "phase")]`, so each event payload
+ * is a discriminated union keyed by the `phase` field. Pattern-match on `phase`
+ * in stores / dialogs — never index by string elsewhere.
+ */
+export type InstallPhase =
+  | { phase: "queued" }
+  | { phase: "downloading"; percent: number; bytesTotal: number | null }
+  | { phase: "verifying" }
+  | { phase: "developerIdChanged"; old: string; new: string }
+  | { phase: "extracting" }
+  | { phase: "replacing" }
+  | { phase: "finalizing" }
+  | { phase: "done" }
+  | { phase: "failed"; code: string; message: string }
+  | { phase: "rolledBack"; reason: string };
+
+/** Event payload for `app-update-install:progress` (v1.2). */
+export type InstallProgressEvent = InstallPhase & {
+  appId: string;
+  elapsedMs: number;
+};
+
+/** Event payload for `app-update-install:finished` (v1.2). */
+export interface InstallFinishedEvent {
+  appId: string;
+  success: boolean;
+  message: string;
+  errorCode: string | null;
+}

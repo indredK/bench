@@ -59,6 +59,11 @@ pub struct AppcastItem {
     pub description: Option<String>,
     pub min_system_version: Option<String>,
     pub length: Option<u64>,
+    /// `sparkle:edSignature` from the enclosure (base64 ed25519). Used by the
+    /// orchestrator together with `SUPublicEDKey` from Info.plist.
+    pub ed_signature: Option<String>,
+    /// `sparkle:installerSHA512Sum` from the enclosure (base64 or hex sha512).
+    pub installer_sha512_sum: Option<String>,
 }
 
 /// Parse a Sparkle appcast XML and return the latest item (highest version
@@ -96,6 +101,10 @@ pub fn parse_appcast(xml: &str) -> Result<Vec<AppcastItem>, String> {
                                         "sparkle:version" => item.version = val,
                                         "sparkle:shortVersionString" => item.short_version = val,
                                         "length" => item.length = val.parse().ok(),
+                                        "sparkle:edSignature" => item.ed_signature = Some(val),
+                                        "sparkle:installerSHA512Sum" => {
+                                            item.installer_sha512_sum = Some(val)
+                                        }
                                         _ => {}
                                     }
                                 }
@@ -164,6 +173,10 @@ pub fn parse_appcast(xml: &str) -> Result<Vec<AppcastItem>, String> {
                                 "sparkle:version" => item.version = val,
                                 "sparkle:shortVersionString" => item.short_version = val,
                                 "length" => item.length = val.parse().ok(),
+                                "sparkle:edSignature" => item.ed_signature = Some(val),
+                                "sparkle:installerSHA512Sum" => {
+                                    item.installer_sha512_sum = Some(val)
+                                }
                                 _ => {}
                             }
                         }
@@ -319,36 +332,69 @@ impl UpdaterSource for SparkleSource {
 
         // Sparkle XML path (existing behaviour).
         let items = parse_appcast(&body)?;
-        let Some(latest) = pick_latest(items) else {
-            return Ok(None);
-        };
-
-        let latest_version = if !latest.short_version.is_empty() {
-            latest.short_version.clone()
-        } else {
-            latest.version.clone()
-        };
-
-        if !version_lt(&app.version, &latest_version) {
-            return Ok(None);
-        }
-
-        Ok(Some(UpdateInfo {
-            app_id: app.app_id.clone(),
-            app_name: app.name.clone(),
-            source: UpdateSource::Sparkle,
-            current_version: app.version.clone(),
-            latest_version,
-            download_url: latest.enclosure_url.clone(),
-            adam_id: None,
-            release_notes_url: latest.release_notes_link.clone(),
-            release_notes_inline: latest.description.clone(),
-            size: latest.length,
-            source_meta: None,
-            feed_url: Some(feed_url),
-            ignored: false,
-        }))
+        build_sparkle_update(items, app, feed_url)
     }
+}
+
+/// Pure: pick the newest appcast item from `items` and convert it into an
+/// `UpdateInfo` if it's newer than `app.version`. Extracted so that the v1.2
+/// `source_meta` shape (provider / ed25519Signature / sha512) can be tested
+/// without an HTTP mock.
+fn build_sparkle_update(
+    items: Vec<AppcastItem>,
+    app: &AppInfo,
+    feed_url: String,
+) -> Result<Option<UpdateInfo>, String> {
+    let Some(latest) = pick_latest(items) else {
+        return Ok(None);
+    };
+
+    let latest_version = if !latest.short_version.is_empty() {
+        latest.short_version.clone()
+    } else {
+        latest.version.clone()
+    };
+
+    if !version_lt(&app.version, &latest_version) {
+        return Ok(None);
+    }
+
+    let mut meta = serde_json::Map::new();
+    meta.insert(
+        "provider".into(),
+        serde_json::Value::String("sparkle".into()),
+    );
+    if let Some(sig) = &latest.ed_signature {
+        meta.insert(
+            "ed25519Signature".into(),
+            serde_json::Value::String(sig.clone()),
+        );
+    }
+    if let Some(sha) = &latest.installer_sha512_sum {
+        meta.insert("sha512".into(), serde_json::Value::String(sha.clone()));
+    }
+    let source_meta = if meta.len() == 1 {
+        // Only the "provider" key — no verification material was advertised.
+        None
+    } else {
+        Some(serde_json::Value::Object(meta))
+    };
+
+    Ok(Some(UpdateInfo {
+        app_id: app.app_id.clone(),
+        app_name: app.name.clone(),
+        source: UpdateSource::Sparkle,
+        current_version: app.version.clone(),
+        latest_version,
+        download_url: latest.enclosure_url.clone(),
+        adam_id: None,
+        release_notes_url: latest.release_notes_link.clone(),
+        release_notes_inline: latest.description.clone(),
+        size: latest.length,
+        source_meta,
+        feed_url: Some(feed_url),
+        ignored: false,
+    }))
 }
 
 fn build_squirrel_update(
@@ -562,5 +608,108 @@ mod tests {
         assert_eq!(info.latest_version, "2.1.0");
         assert_eq!(info.download_url.as_deref(), Some("https://e.com/a.zip"));
         assert_eq!(info.release_notes_inline.as_deref(), Some("notes"));
+    }
+
+    /// Regression: enclosure attributes carrying Sparkle's ed25519 + sha512
+    /// material must be captured for both empty-element and start/end forms.
+    /// These two fields drive the v1.2 verifier (ed25519 > sha512 > skip).
+    #[test]
+    fn parses_ed_signature_and_sha512_from_empty_enclosure() {
+        let feed = r#"<?xml version="1.0"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+<channel>
+<item>
+<sparkle:shortVersionString>1.2.0</sparkle:shortVersionString>
+<enclosure url="https://e.com/App-1.2.0.dmg" length="123" sparkle:edSignature="ED-SIG-AAA" sparkle:installerSHA512Sum="SHA-AAA" />
+</item>
+</channel>
+</rss>"#;
+        let items = parse_appcast(feed).expect("parses");
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].ed_signature.as_deref(), Some("ED-SIG-AAA"));
+        assert_eq!(items[0].installer_sha512_sum.as_deref(), Some("SHA-AAA"));
+    }
+
+    #[test]
+    fn parses_ed_signature_and_sha512_from_paired_enclosure() {
+        let feed = r#"<?xml version="1.0"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+<channel>
+<item>
+<sparkle:shortVersionString>1.2.0</sparkle:shortVersionString>
+<enclosure url="https://e.com/App-1.2.0.dmg" sparkle:edSignature="ED-SIG-BBB" sparkle:installerSHA512Sum="SHA-BBB"></enclosure>
+</item>
+</channel>
+</rss>"#;
+        let items = parse_appcast(feed).expect("parses");
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].ed_signature.as_deref(), Some("ED-SIG-BBB"));
+        assert_eq!(items[0].installer_sha512_sum.as_deref(), Some("SHA-BBB"));
+    }
+
+    /// End-to-end: a feed with both ed25519 + sha512 must produce a
+    /// `source_meta` JSON object the orchestrator can read directly.
+    #[test]
+    fn build_sparkle_update_emits_source_meta_with_signature_and_sha512() {
+        let feed = r#"<?xml version="1.0"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+<channel>
+<item>
+<sparkle:shortVersionString>2.0.0</sparkle:shortVersionString>
+<enclosure url="https://e.com/App-2.0.0.dmg" length="200" sparkle:edSignature="ED-XYZ" sparkle:installerSHA512Sum="SHA-XYZ" />
+</item>
+</channel>
+</rss>"#;
+        let items = parse_appcast(feed).expect("parses");
+        let app = make_app("1.0.0");
+        let info = build_sparkle_update(items, &app, "https://e.com/feed".into())
+            .expect("ok")
+            .expect("has update");
+        assert_eq!(info.source, UpdateSource::Sparkle);
+        assert_eq!(info.latest_version, "2.0.0");
+        let meta = info.source_meta.expect("source_meta present");
+        assert_eq!(meta["provider"], "sparkle");
+        assert_eq!(meta["ed25519Signature"], "ED-XYZ");
+        assert_eq!(meta["sha512"], "SHA-XYZ");
+    }
+
+    /// When neither verification material is advertised, `source_meta` is
+    /// `None` rather than a useless `{"provider":"sparkle"}` object — the
+    /// orchestrator then falls back to "verification skipped".
+    #[test]
+    fn build_sparkle_update_omits_source_meta_when_no_signature_or_hash() {
+        let feed = r#"<?xml version="1.0"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+<channel>
+<item>
+<sparkle:shortVersionString>2.0.0</sparkle:shortVersionString>
+<enclosure url="https://e.com/App-2.0.0.dmg" length="200" />
+</item>
+</channel>
+</rss>"#;
+        let items = parse_appcast(feed).expect("parses");
+        let app = make_app("1.0.0");
+        let info = build_sparkle_update(items, &app, "https://e.com/feed".into())
+            .expect("ok")
+            .expect("has update");
+        assert!(info.source_meta.is_none());
+    }
+
+    #[test]
+    fn build_sparkle_update_skips_when_current_is_up_to_date() {
+        let feed = r#"<?xml version="1.0"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+<channel>
+<item>
+<sparkle:shortVersionString>1.0.0</sparkle:shortVersionString>
+<enclosure url="https://e.com/App-1.0.0.dmg" length="200" />
+</item>
+</channel>
+</rss>"#;
+        let items = parse_appcast(feed).expect("parses");
+        let app = make_app("1.0.0");
+        let result = build_sparkle_update(items, &app, "https://e.com/feed".into())
+            .expect("ok");
+        assert!(result.is_none());
     }
 }

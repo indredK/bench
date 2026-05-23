@@ -4,6 +4,10 @@
 import type { StoreApi } from "zustand";
 import type { SortingState, Updater } from "@tanstack/react-table";
 import type { AppInfo, UpdateInfo, UpdateSource } from "@/lib/tauri/types/app-manager";
+import type {
+  InstallFinishedEvent,
+  InstallPhase,
+} from "@/lib/tauri/types/app-manager";
 import type { AppCategoryKey } from "@/features/app-manager/app-categories";
 import type { AppSeriesKey } from "@/features/app-manager/app-series";
 import type {
@@ -96,6 +100,29 @@ export function createAppManagerBasicActions(set: SetState) {
           [appId]: { status, message },
         },
       })),
+
+    setInstallProgress: (appId: string, phase: InstallPhase) =>
+      set((state) => ({
+        installProgress: { ...state.installProgress, [appId]: phase },
+      })),
+    clearInstallProgress: (appId: string) =>
+      set((state) => {
+        if (!(appId in state.installProgress)) return state;
+        const next = { ...state.installProgress };
+        delete next[appId];
+        return { installProgress: next };
+      }),
+    setInstallFinished: (appId: string, event: InstallFinishedEvent) =>
+      set((state) => ({
+        installFinished: { ...state.installFinished, [appId]: event },
+      })),
+    clearInstallFinished: (appId: string) =>
+      set((state) => {
+        if (!(appId in state.installFinished)) return state;
+        const next = { ...state.installFinished };
+        delete next[appId];
+        return { installFinished: next };
+      }),
 
     reset: () =>
       set({

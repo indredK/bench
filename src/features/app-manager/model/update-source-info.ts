@@ -50,6 +50,8 @@ export function getUpdateActionKey(source: UpdateSource): string {
     case "sparkle":
     case "electron":
     case "squirrel":
+      // v1.2: 这些来源现在走代下载代安装(in-place install).
+      return "appManager.softwareUpdate.action.install";
     default:
       return "appManager.softwareUpdate.action.openDownloadPage";
   }

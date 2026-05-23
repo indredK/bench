@@ -18,6 +18,8 @@ import {
 } from "@/features/app-manager/model/operations";
 import { filterAppManagerItems } from "@/features/app-manager/model/selectors";
 import { appManagerUseCases } from "@/features/app-manager/services/app-manager.use-cases";
+import { useInstallEvents } from "@/features/app-manager/hooks/useInstallEvents";
+import { installAppUpdate } from "@/lib/tauri/commands/app-manager";
 import { registerFeatureRefresh } from "@/features/refresh";
 import type { AppInfo, InstallListAppInfo, UpdateInfo } from "@/lib/tauri/types/app-manager";
 import type { AppManagerTabKey } from "@/features/app-manager/model/store-types";
@@ -66,6 +68,10 @@ export function useAppManagerController(active: boolean) {
   const selectedUpdate = useAppManagerStore((s) => s.selectedUpdate);
   const updateOperations = useAppManagerStore((s) => s.updateOperations);
 
+  const setInstallFinished = useAppManagerStore((s) => s.setInstallFinished);
+  const clearInstallProgress = useAppManagerStore((s) => s.clearInstallProgress);
+  const clearInstallFinished = useAppManagerStore((s) => s.clearInstallFinished);
+
   const setSearchQuery = useAppManagerStore((s) => s.setSearchQuery);
   const setActiveFilter = useAppManagerStore((s) => s.setActiveFilter);
   const setCategoryFilter = useAppManagerStore((s) => s.setCategoryFilter);
@@ -102,6 +108,9 @@ export function useAppManagerController(active: boolean) {
   const [selectedInstallIds, setSelectedInstallIds] = useState<Set<string>>(new Set());
   const [installBatchMode, setInstallBatchMode] = useState(false);
   const [installDetailItem, setInstallDetailItem] = useState<InstallListAppInfo | null>(null);
+  // v1.2: which UpdateInfo the orchestrator is currently driving (drives the
+  // progress + blocking dialogs). `null` when nothing is in flight.
+  const [inProgressUpdate, setInProgressUpdate] = useState<UpdateInfo | null>(null);
   const [preferencesHydrated, setPreferencesHydrated] = useState(false);
   const pendingBatchInstallIds = useRef<string[]>([]);
   const confirmPendingRef = useRef(false);
@@ -131,6 +140,11 @@ export function useAppManagerController(active: boolean) {
   );
 
   const canUsePlatformFeatures = canUseDesktopFeatures();
+
+  // v1.2: subscribe to `app-update-install:*` events; the listener writes phase
+  // updates and the terminal finished payload into the store, where the
+  // progress / blocking dialogs read from.
+  useInstallEvents();
 
   const deferUntilAfterFirstPaint = useCallback((callback: () => void) => {
     let timeoutId = 0;
@@ -277,7 +291,34 @@ export function useAppManagerController(active: boolean) {
         return;
       }
 
-      // Sparkle / Electron / Squirrel / GitHub → open download or releases page
+      // v1.2: sparkle / electron / squirrel — kick off the in-place install
+      // orchestrator. Progress flows back through the Tauri events into the
+      // store, which the UpdateProgressDialog and UpdateBlockingDialogs read.
+      if (update.source === "sparkle" || update.source === "electron" || update.source === "squirrel") {
+        // Wipe any leftover terminal state from a prior run for this app, so
+        // the dialog doesn't see both the in-flight progress AND the previous
+        // SU_* failure.
+        clearInstallProgress(update.appId);
+        clearInstallFinished(update.appId);
+        setInProgressUpdate(update);
+        setUpdateOperationStatus(update.appId, "running", "Installing update…");
+        try {
+          await installAppUpdate(update);
+        } catch (err) {
+          // installAppUpdate returns Ok once the orchestrator is spawned; a
+          // synchronous Err means we never reached the running-check phase, so
+          // synthesise a finished event so the dialog surfaces the error.
+          setInstallFinished(update.appId, {
+            appId: update.appId,
+            success: false,
+            message: String(err),
+            errorCode: "SU_INSTALL_FAIL",
+          });
+        }
+        return;
+      }
+
+      // gitHub (no installer yet) → still fall back to the releases page.
       const url = update.downloadUrl ?? update.releaseNotesUrl ?? update.feedUrl;
       if (!url) {
         setUpdateOperationStatus(update.appId, "error", "No download URL available");
@@ -290,8 +331,50 @@ export function useAppManagerController(active: boolean) {
         setUpdateOperationStatus(update.appId, "error", String(err));
       }
     },
-    [checkAllUpdates, scanApps, setUpdateOperationStatus]
+    [
+      checkAllUpdates,
+      scanApps,
+      setUpdateOperationStatus,
+      clearInstallProgress,
+      clearInstallFinished,
+      setInstallFinished,
+    ]
   );
+
+  // v1.2: invoked by the progress / blocking dialogs when the user dismisses
+  // them. Mirrors the terminal install outcome into the row's `updateOperations`
+  // status and clears the per-app install snapshots so subsequent runs start
+  // fresh. On success we also re-scan so the row drops out of the list.
+  const handleCloseInstallDialog = useCallback(() => {
+    const update = inProgressUpdate;
+    if (!update) return;
+    const { installFinished: finishedMap } = useAppManagerStore.getState();
+    const finished = finishedMap[update.appId];
+    if (finished) {
+      setUpdateOperationStatus(
+        update.appId,
+        finished.success ? "success" : "error",
+        finished.message
+      );
+      if (finished.success) {
+        void checkAllUpdates(true);
+        void scanApps();
+      }
+    } else {
+      // User cancelled before any terminal event arrived.
+      setUpdateOperationStatus(update.appId, "idle");
+    }
+    clearInstallProgress(update.appId);
+    clearInstallFinished(update.appId);
+    setInProgressUpdate(null);
+  }, [
+    inProgressUpdate,
+    checkAllUpdates,
+    scanApps,
+    clearInstallFinished,
+    clearInstallProgress,
+    setUpdateOperationStatus,
+  ]);
 
   const handleUpdateAllVisible = useCallback(
     async (visibleUpdates: UpdateInfo[]) => {
@@ -858,6 +941,8 @@ export function useAppManagerController(active: boolean) {
     checkAllUpdates,
     handleUpdateAction,
     handleUpdateAllVisible,
+    handleCloseInstallDialog,
+    inProgressUpdate,
     handleSetActiveTab,
     toggleUpdateGroup,
     toggleSelectUpdate,

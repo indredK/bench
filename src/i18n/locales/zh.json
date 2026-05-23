@@ -174,6 +174,7 @@
         "openAppStore": "在 App Store 中打开",
         "openDownloadPage": "打开下载页",
         "openReleases": "打开 Releases",
+        "install": "安装",
         "cancel": "取消",
         "queued": "排队中"
       },
@@ -201,6 +202,47 @@
       "progress": {
         "scanning": "正在检查 {{completed}} / {{total}} 个应用…",
         "finished": "找到 {{count}} 个更新（耗时 {{durationMs}}ms）"
+      },
+      "install": {
+        "subtitle": "{{app}} · {{from}} → {{to}}",
+        "titleQueued": "正在准备更新…",
+        "titleDownloading": "正在下载…",
+        "titleVerifying": "正在校验下载文件…",
+        "titleExtracting": "正在解压…",
+        "titleReplacing": "正在替换应用…",
+        "titleFinalizing": "正在完成…",
+        "titleDone": "更新已安装",
+        "titleFailed": "更新失败",
+        "titleRolledBack": "更新已回滚",
+        "downloadingSize": "{{percent}}% / {{total}}",
+        "downloadingPercent": "{{percent}}%",
+        "doneBody": "新版本已安装完成。",
+        "body": {
+          "queued": "等待安装程序启动…",
+          "verifying": "正在校验下载的文件…",
+          "extracting": "正在解压新版本…",
+          "replacing": "正在替换为新版本…",
+          "finalizing": "正在收尾…",
+          "done": "已完成。"
+        },
+        "cancel": "取消",
+        "close": "关闭",
+        "devIdChanged": {
+          "title": "开发者签名已变更",
+          "body": "{{app}} 的签名身份与初次安装时不同。请仅在你信任新的发行方时继续。",
+          "oldLabel": "原签名",
+          "newLabel": "新签名",
+          "unknown": "未知",
+          "hint": "如果这并非预期，请取消更新并核实来源。",
+          "approve": "信任新签名",
+          "reject": "取消更新"
+        },
+        "appRunning": {
+          "title": "应用正在运行",
+          "body": "{{app}} 正在运行，需要先退出才能安装更新。",
+          "cancel": "取消",
+          "retry": "已退出 · 重试"
+        }
       }
     }
   },

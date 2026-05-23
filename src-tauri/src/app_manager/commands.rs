@@ -3,9 +3,11 @@ use super::types::{
     BatchInstallItem, BatchItemResult, BatchOperationResult, InstallSource, OperationRecord,
     OperationResult, ScanResult, UpdateInfo,
 };
+use super::installer::orchestrator::{install_update, InstallHandle};
 use super::{empty_scan_result, linux, locked_operation_result, macos, sources, windows};
 use serde::Serialize;
 use std::sync::atomic::Ordering;
+use std::sync::Arc;
 use tauri::{Emitter, Manager};
 
 fn is_macos() -> bool {
@@ -605,4 +607,93 @@ pub async fn open_in_mac_app_store(adam_id: String) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || sources::mac_app_store::open_in_mac_app_store(&adam_id))
         .await
         .map_err(|e| e.to_string())?
+}
+
+/// v1.2: kick off an in-place install of an update. Returns immediately; the
+/// orchestrator emits `app-update-install:progress` and `app-update-install:finished`
+/// events as it runs.
+#[tauri::command]
+pub async fn install_app_update(
+    update: UpdateInfo,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
+    if !is_macos() {
+        return Err("SU_PLATFORM_UNSUPPORTED: only macOS supports in-place updates".into());
+    }
+
+    let state: tauri::State<'_, AppManagerState> = app.state();
+
+    let install_path = {
+        let apps = state.apps.lock().unwrap_or_else(|e| e.into_inner());
+        apps.iter()
+            .find(|a| a.app_id == update.app_id)
+            .map(|a| a.install_path.clone())
+    };
+    let install_path = install_path
+        .ok_or_else(|| "SU_APP_NOT_FOUND: not in cached scan; run scan first".to_string())?;
+
+    if !state.acquire_op_lock(&update.app_id) {
+        return Err("LOCKED".to_string());
+    }
+
+    let handle = Arc::new(InstallHandle::new());
+    {
+        let mut map = state.install_state.lock().unwrap_or_else(|e| e.into_inner());
+        map.insert(update.app_id.clone(), handle.clone());
+    }
+
+    let app_id = update.app_id.clone();
+    let app_handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        install_update(app_handle.clone(), update, install_path, handle).await;
+        let state: tauri::State<'_, AppManagerState> = app_handle.state();
+        state.release_op_lock(&app_id);
+        let mut map = state.install_state.lock().unwrap_or_else(|e| e.into_inner());
+        map.remove(&app_id);
+    });
+
+    Ok(())
+}
+
+/// Cancel an in-flight install. Returns Ok even when there's no install in
+/// progress so the frontend can call this idempotently.
+#[tauri::command]
+pub fn cancel_app_update(
+    app_id: String,
+    state: tauri::State<'_, AppManagerState>,
+) -> Result<(), String> {
+    let handle = {
+        let map = state.install_state.lock().unwrap_or_else(|e| e.into_inner());
+        map.get(&app_id).cloned()
+    };
+    if let Some(h) = handle {
+        h.cancel.notify_waiters();
+    }
+    Ok(())
+}
+
+/// Frontend's response to the `DeveloperIdChanged` phase. `approved=true`
+/// resumes the install; `false` rejects it and the orchestrator fails with
+/// `SU_DEV_ID_DENIED`.
+#[tauri::command]
+pub async fn confirm_developer_id_change(
+    app_id: String,
+    approved: bool,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
+    let state: tauri::State<'_, AppManagerState> = app.state();
+    let handle = {
+        let map = state.install_state.lock().unwrap_or_else(|e| e.into_inner());
+        map.get(&app_id).cloned()
+    };
+    let handle = handle.ok_or_else(|| "SU_NOT_INSTALLING: no install in progress".to_string())?;
+
+    let mut slot = handle.dev_id_decision.lock().await;
+    match slot.take() {
+        Some(tx) => {
+            let _ = tx.send(approved);
+            Ok(())
+        }
+        None => Err("SU_NOT_AWAITING_CONFIRM: orchestrator is not waiting for a decision".into()),
+    }
 }

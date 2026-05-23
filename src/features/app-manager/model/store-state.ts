@@ -40,6 +40,10 @@ type AppManagerDataState = Omit<
   | "setUpdateSourceFilter"
   | "setSelectedUpdate"
   | "setUpdateOperationStatus"
+  | "setInstallProgress"
+  | "clearInstallProgress"
+  | "setInstallFinished"
+  | "clearInstallFinished"
   | "reset"
 >;
 
@@ -93,5 +97,7 @@ export function createInitialAppManagerState(): AppManagerDataState {
     updateSourceFilter: "all",
     selectedUpdate: null,
     updateOperations: {},
+    installProgress: {},
+    installFinished: {},
   };
 }

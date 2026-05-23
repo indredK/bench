@@ -19,6 +19,8 @@ import { AppManagerHistoryDrawer } from "@/features/app-manager/components/AppMa
 import { AppManagerTabs } from "@/features/app-manager/components/AppManagerTabs";
 import { InstallListCard } from "@/features/app-manager/components/InstallListCard";
 import { SoftwareUpdateView } from "@/features/app-manager/components/SoftwareUpdateView";
+import { UpdateBlockingDialogs } from "@/features/app-manager/components/UpdateBlockingDialogs";
+import { UpdateProgressDialog } from "@/features/app-manager/components/UpdateProgressDialog";
 import { useAppManagerController } from "@/features/app-manager/hooks/useAppManagerController";
 import type { AppInfo, InstallListAppInfo } from "@/lib/tauri/types/app-manager";
 
@@ -111,6 +113,8 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
     checkAllUpdates,
     handleUpdateAction,
     handleUpdateAllVisible,
+    handleCloseInstallDialog,
+    inProgressUpdate,
     handleSetActiveTab,
     toggleUpdateGroup,
     toggleSelectUpdate,
@@ -420,6 +424,17 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
             onConfirmAction={handleConfirmAction}
             onInstallConfirm={handleInstallConfirm}
             onBatchConfirm={handleBatchConfirm}
+          />
+
+          {/* v1.2: in-place install progress + interactive checkpoints. Both
+              dialogs read state from the store keyed by `inProgressUpdate.appId`. */}
+          <UpdateProgressDialog
+            update={inProgressUpdate}
+            onClose={handleCloseInstallDialog}
+          />
+          <UpdateBlockingDialogs
+            update={inProgressUpdate}
+            onClose={handleCloseInstallDialog}
           />
         </div>
       </RuntimeFeatureGate>

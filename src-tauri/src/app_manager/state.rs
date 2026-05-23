@@ -1,5 +1,6 @@
+use super::installer::orchestrator::InstallHandle;
 use super::types::{AppInfo, OperationRecord, ScanResult, UpdateInfo};
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -23,6 +24,9 @@ pub struct AppManagerState {
     /// VecDeque keeps push_back / pop_front at O(1) so batch operations
     /// stay O(ops) instead of O(ops²).
     pub operation_history: Mutex<VecDeque<OperationRecord>>,
+    /// Per-app-id orchestrator handles for in-flight `install_app_update`
+    /// calls. Removed when the install ends (success or failure).
+    pub install_state: Mutex<HashMap<String, Arc<InstallHandle>>>,
 }
 
 impl AppManagerState {
@@ -36,6 +40,7 @@ impl AppManagerState {
             updates: Mutex::new(Vec::new()),
             batch_cancel: Mutex::new(None),
             operation_history: Mutex::new(VecDeque::with_capacity(OPERATION_HISTORY_CAP + 1)),
+            install_state: Mutex::new(HashMap::new()),
         }
     }
 

@@ -174,6 +174,7 @@
         "openAppStore": "Open in App Store",
         "openDownloadPage": "Open download page",
         "openReleases": "Open Releases",
+        "install": "Install",
         "cancel": "Cancel",
         "queued": "Queued"
       },
@@ -201,6 +202,47 @@
       "progress": {
         "scanning": "Scanning {{completed}} / {{total}} apps…",
         "finished": "Found {{count}} update(s) ({{durationMs}}ms)"
+      },
+      "install": {
+        "subtitle": "{{app}} · {{from}} → {{to}}",
+        "titleQueued": "Preparing update…",
+        "titleDownloading": "Downloading…",
+        "titleVerifying": "Verifying download…",
+        "titleExtracting": "Extracting…",
+        "titleReplacing": "Replacing app…",
+        "titleFinalizing": "Finalizing…",
+        "titleDone": "Update installed",
+        "titleFailed": "Update failed",
+        "titleRolledBack": "Update rolled back",
+        "downloadingSize": "{{percent}}% of {{total}}",
+        "downloadingPercent": "{{percent}}%",
+        "doneBody": "The new version has been installed.",
+        "body": {
+          "queued": "Waiting for the installer to start…",
+          "verifying": "Checking the downloaded file…",
+          "extracting": "Unpacking the new version…",
+          "replacing": "Swapping in the new version…",
+          "finalizing": "Finishing up…",
+          "done": "All done."
+        },
+        "cancel": "Cancel",
+        "close": "Close",
+        "devIdChanged": {
+          "title": "Developer ID changed",
+          "body": "The signing identity for {{app}} has changed since you installed it. Continue only if you trust the new publisher.",
+          "oldLabel": "Previously",
+          "newLabel": "New",
+          "unknown": "unknown",
+          "hint": "If you didn't expect this, reject the update and verify the source.",
+          "approve": "Trust new identity",
+          "reject": "Cancel update"
+        },
+        "appRunning": {
+          "title": "App is running",
+          "body": "{{app}} is currently running and must be quit before the update can be installed.",
+          "cancel": "Cancel",
+          "retry": "I quit the app · Retry"
+        }
       }
     }
   },

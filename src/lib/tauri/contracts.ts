@@ -5,6 +5,8 @@ import type {
   AppScanResult,
   AppIconBase64,
   BatchOperationResult,
+  InstallFinishedEvent,
+  InstallProgressEvent,
   InstallSource,
   OperationRecord,
   OperationResult,
@@ -63,6 +65,9 @@ export const TAURI_COMMAND_CONTRACTS = {
   cancel_batch_operation: defineTauriCommand<undefined, boolean>()("cancel_batch_operation"),
   check_all_app_updates: defineTauriCommand<{ forceRefresh?: boolean }, UpdateInfo[]>()("check_all_app_updates"),
   open_in_mac_app_store: defineTauriCommand<{ adamId: string }, void>()("open_in_mac_app_store"),
+  install_app_update: defineTauriCommand<{ update: UpdateInfo }, void>()("install_app_update"),
+  cancel_app_update: defineTauriCommand<{ appId: string }, void>()("cancel_app_update"),
+  confirm_developer_id_change: defineTauriCommand<{ appId: string; approved: boolean }, void>()("confirm_developer_id_change"),
   scan_dev_projects: defineTauriCommand<{ rootPath: string }, ScanResult>()("scan_dev_projects"),
   cleanup_projects: defineTauriCommand<{ projects: ProjectInfo[] }, CleanupResult>()("cleanup_projects"),
   stop_scan: defineTauriCommand<undefined, void>()("stop_scan"),
@@ -131,6 +136,9 @@ export const TAURI_COMMANDS = {
     cancelBatchOperation: commandName("cancel_batch_operation"),
     checkAllAppUpdates: commandName("check_all_app_updates"),
     openInMacAppStore: commandName("open_in_mac_app_store"),
+    installAppUpdate: commandName("install_app_update"),
+    cancelAppUpdate: commandName("cancel_app_update"),
+    confirmDeveloperIdChange: commandName("confirm_developer_id_change"),
   },
   devCleaner: {
     scanDevProjects: commandName("scan_dev_projects"),
@@ -189,6 +197,9 @@ export const TAURI_COMMAND_ARG_KEYS = {
   cancel_batch_operation: [],
   check_all_app_updates: ["forceRefresh"],
   open_in_mac_app_store: ["adamId"],
+  install_app_update: ["update"],
+  cancel_app_update: ["appId"],
+  confirm_developer_id_change: ["appId", "approved"],
   scan_dev_projects: ["rootPath"],
   cleanup_projects: ["projects"],
   stop_scan: [],
@@ -212,10 +223,16 @@ export const TAURI_EVENTS = {
   menu: {
     event: "menu-event",
   },
+  appUpdateInstall: {
+    progress: "app-update-install:progress",
+    finished: "app-update-install:finished",
+  },
 } as const;
 
 export interface TauriEventContracts {
   "app-updater-download": AppUpdateDownloadEvent;
   "env-scan-done": EnvScanDonePayload;
   "menu-event": string;
+  "app-update-install:progress": InstallProgressEvent;
+  "app-update-install:finished": InstallFinishedEvent;
 }

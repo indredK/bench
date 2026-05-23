@@ -6,7 +6,9 @@ import type {
   AppInfo,
   AppScanResult,
   BatchOperationResult,
+  InstallFinishedEvent,
   InstallListAppInfo,
+  InstallPhase,
   OperationRecord,
   UpdateInfo,
   UpdateSource,
@@ -91,6 +93,19 @@ export interface AppManagerState {
   selectedUpdate: UpdateInfo | null;
   updateOperations: Record<string, AppOperationState>;
 
+  /**
+   * v1.2: latest `InstallPhase` per app_id for any in-flight install. Cleared
+   * when the install reaches a terminal state and the UI dismisses its
+   * progress dialog. Dialogs pattern-match on `.phase`.
+   */
+  installProgress: Record<string, InstallPhase>;
+  /**
+   * v1.2: terminal payload of the most recent install per app_id. Used by the
+   * progress dialog to show a final success/failure line, then cleared on
+   * dismiss.
+   */
+  installFinished: Record<string, InstallFinishedEvent>;
+
   setSearchQuery: (query: string) => void;
   setActiveFilter: (filter: AppFilterKey) => void;
   setCategoryFilter: (category: AppCategoryKey | null) => void;
@@ -131,6 +146,15 @@ export interface AppManagerState {
   setUpdateSourceFilter: (filter: UpdateSource | "all") => void;
   setSelectedUpdate: (update: UpdateInfo | null) => void;
   setUpdateOperationStatus: (appId: string, status: OperationStatus, message?: string) => void;
+
+  /** v1.2: write the latest progress phase for an app_id. */
+  setInstallProgress: (appId: string, phase: InstallPhase) => void;
+  /** v1.2: clear the in-flight progress entry. */
+  clearInstallProgress: (appId: string) => void;
+  /** v1.2: record the terminal `app-update-install:finished` payload. */
+  setInstallFinished: (appId: string, event: InstallFinishedEvent) => void;
+  /** v1.2: clear the terminal payload after the user dismisses it. */
+  clearInstallFinished: (appId: string) => void;
 
   reset: () => void;
 }

@@ -48,6 +48,8 @@ pub struct LatestMacFile {
     pub url: String,
     #[serde(default)]
     pub size: Option<u64>,
+    #[serde(default)]
+    pub sha512: Option<String>,
 }
 
 pub fn parse_latest_mac_yml(yml: &str) -> Result<LatestMacYml, String> {
@@ -268,6 +270,12 @@ fn build_generic_update(
         .find(|f| f.url.to_lowercase().ends_with(".zip"))
         .or_else(|| parsed.files.first());
     let download_url = chosen.map(|f| join_url(base_url, &f.url));
+    let mut source_meta = serde_json::json!({ "provider": "generic" });
+    if let (Some(obj), Some(f)) = (source_meta.as_object_mut(), chosen) {
+        if let Some(sha) = &f.sha512 {
+            obj.insert("sha512".into(), serde_json::Value::String(sha.clone()));
+        }
+    }
     Some(UpdateInfo {
         app_id: app.app_id.clone(),
         app_name: app.name.clone(),
@@ -279,7 +287,7 @@ fn build_generic_update(
         release_notes_url: None,
         release_notes_inline: parsed.release_notes.clone(),
         size: chosen.and_then(|f| f.size),
-        source_meta: Some(serde_json::json!({ "provider": "generic" })),
+        source_meta: Some(source_meta),
         feed_url: Some(feed_url.to_string()),
         ignored: false,
     })
@@ -491,10 +499,12 @@ releaseDate: '2026-01-15T10:00:00.000Z'
                 LatestMacFile {
                     url: "App-1.86.0-mac.dmg".into(),
                     size: Some(200),
+                    sha512: None,
                 },
                 LatestMacFile {
                     url: "App-1.86.0-mac.zip".into(),
                     size: Some(100),
+                    sha512: Some("aZx2pdQs".into()),
                 },
             ],
             release_notes: None,
@@ -507,5 +517,31 @@ releaseDate: '2026-01-15T10:00:00.000Z'
             Some("https://updates.example.com/App-1.86.0-mac.zip")
         );
         assert_eq!(info.size, Some(100));
+        // source_meta should now carry the SHA-512 picked from the chosen file.
+        let meta = info.source_meta.as_ref().expect("meta present");
+        assert_eq!(meta["sha512"], "aZx2pdQs");
+        assert_eq!(meta["provider"], "generic");
+    }
+
+    /// Regression: a generic feed with no sha512 must still produce a
+    /// `source_meta` so the source can be identified, but without a fake
+    /// sha512 key that would steer the verifier into a guaranteed-fail check.
+    #[test]
+    fn build_generic_update_omits_sha512_when_feed_has_none() {
+        let parsed = LatestMacYml {
+            version: "1.86.0".into(),
+            files: vec![LatestMacFile {
+                url: "App-1.86.0-mac.zip".into(),
+                size: Some(100),
+                sha512: None,
+            }],
+            release_notes: None,
+        };
+        let app = make_app("1.85.0");
+        let info = build_generic_update(&parsed, &app, "https://updates.example.com", "https://u/latest.yml")
+            .expect("has update");
+        let meta = info.source_meta.as_ref().expect("meta present");
+        assert_eq!(meta["provider"], "generic");
+        assert!(meta.get("sha512").is_none());
     }
 }
