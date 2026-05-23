@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.8.5](https://github.com/indredK/bench/compare/v1.8.4...v1.8.5) (2026-05-23)
+
+
+### Bug Fixes
+
+* **app-manager:** Linux 启动遵循 TryExec, macOS 图标支持 PNG/iconset 回退 ([7d91370](https://github.com/indredK/bench/commit/7d91370ee593a785a27d11ee2d55e4b32ceac58e))
+* **app-manager:** 修复三个平台特定的 user-facing bug ([fa704f8](https://github.com/indredK/bench/commit/fa704f8de0bab10c1dfdb9fb54780059812c88f4))
+* **app-manager:** 空扫描丢缓存、检查更新错误吞噬、批量无法取消 ([3f918aa](https://github.com/indredK/bench/commit/3f918aaf7f76a2be0673e814bc0b28fa6b5c71c7))
+* **dev-cleaner,app-updater:** 多语言项目标签与更新元数据缓存 ([a6d2985](https://github.com/indredK/bench/commit/a6d29850c4c9b8af29f96bff568ec84c33cec36b))
+* **dev-cleaner:** 嵌套跳过目录、单位口径、abort 响应延迟 ([4e59159](https://github.com/indredK/bench/commit/4e59159e33593af4f2cc51327731812fd5edf800))
+* **env-detector:** 修复非 zsh 登录 shell PATH 采集与探测节流可见性 ([ba494d5](https://github.com/indredK/bench/commit/ba494d54f6aeb70c36bcc62cbaf18d36844f76c1))
+* **port-manager:** 杀进程递归到子进程,父链 max_depth 提升到 64 ([bfb078a](https://github.com/indredK/bench/commit/bfb078ac91df6f00b9df2ad114bce8acffa3df82))
+* **port-manager:** 进程采集鲁棒性,改用 sysinfo 并修正端口/指纹匹配 ([9259c4a](https://github.com/indredK/bench/commit/9259c4acbc881a9dcc62a219956837301f0f7fed))
+* 闭环 panic → Mutex 中毒 → 状态不可恢复 链路 ([49afa9c](https://github.com/indredK/bench/commit/49afa9c4fca54095850c93a97450ed9e5e3e3d71))
+
 ## [1.8.4](https://github.com/indredK/bench/compare/v1.8.3...v1.8.4) (2026-05-22)
 
 
