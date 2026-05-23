@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.8.7](https://github.com/indredK/bench/compare/v1.8.6...v1.8.7) (2026-05-23)
+
+
+### Bug Fixes
+
+* **app-manager:** brew/winget 表头列解析 + Linux 启动脱壳 ([9361f3b](https://github.com/indredK/bench/commit/9361f3bbb98530859f3abf89d597ad4162c73919))
+* **app-manager:** operationStatus setTimeout 卸载未清理 ([#068](https://github.com/indredK/bench/issues/068)) ([fc72125](https://github.com/indredK/bench/commit/fc721251c89374b9dd68f7fe57ec7547ca4621f1))
+* **app-manager:** 筛选切换时同步清空批量选择 ([925df1f](https://github.com/indredK/bench/commit/925df1f7350127c29476e1bb3c04a5271cc398a8))
+* **boot:** 隐私模式 storage 兜底 + i18n init 等待 + HTML inline try/catch ([b897115](https://github.com/indredK/bench/commit/b8971152aad9fa74bdd1c6ea4231c6bda9a75230))
+* **ci:** publish 步骤优先使用 RELEASE_PLEASE_TOKEN,与 release-please 对齐 ([5470de8](https://github.com/indredK/bench/commit/5470de853248ad7cb1ae067c476af7fa35125e74))
+* **ci:** 让 linux.rs 在 Windows 上能编译,清理跨平台 use 警告 ([ff8691d](https://github.com/indredK/bench/commit/ff8691d29a27da6debc752fe67c97bae089b7a27))
+* **dev-cleaner:** cleanup 接入 abort flag + 卸载时清理 rescan timer ([c026a96](https://github.com/indredK/bench/commit/c026a9677decbe7178e34cfae017a244a4bcfa0e))
+* **port-manager:** 本地化 netstat + PID 重用守卫 + 错误码分类 + 常量去重 ([b71d0df](https://github.com/indredK/bench/commit/b71d0dfa725040537c400ae01b79efed469d6b19))
+* **tauri tests:** add error_code field to KillPidResult DTO test ([273660c](https://github.com/indredK/bench/commit/273660c98767e12056600277b098afc034c9550c))
+
 ## [1.8.6](https://github.com/indredK/bench/compare/v1.8.5...v1.8.6) (2026-05-23)
 
 
