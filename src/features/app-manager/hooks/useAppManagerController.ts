@@ -82,6 +82,29 @@ export function useAppManagerController(active: boolean) {
   const confirmPendingRef = useRef(false);
   const refreshHandlerRef = useRef<(() => void | Promise<void>) | null>(null);
 
+  // All setTimeout IDs scheduled from this controller. We clear them on
+  // unmount so deferred work (status auto-clear, post-op rescans) can't
+  // fire against a torn-down view and cause the cross-tab status flicker
+  // documented in #068.
+  const pendingTimersRef = useRef<Set<number>>(new Set());
+  const scheduleTimeout = useCallback((callback: () => void, delayMs: number) => {
+    const handle = window.setTimeout(() => {
+      pendingTimersRef.current.delete(handle);
+      callback();
+    }, delayMs);
+    pendingTimersRef.current.add(handle);
+    return handle;
+  }, []);
+  useEffect(
+    () => () => {
+      for (const handle of pendingTimersRef.current) {
+        window.clearTimeout(handle);
+      }
+      pendingTimersRef.current.clear();
+    },
+    []
+  );
+
   const canUsePlatformFeatures = canUseDesktopFeatures();
 
   const deferUntilAfterFirstPaint = useCallback((callback: () => void) => {
@@ -169,11 +192,11 @@ export function useAppManagerController(active: boolean) {
 
   const scheduleScanApps = useCallback(
     (delayMs: number) => {
-      window.setTimeout(() => {
+      scheduleTimeout(() => {
         void scanApps();
       }, delayMs);
     },
-    [scanApps]
+    [scanApps, scheduleTimeout]
   );
 
   const doUpgrade = useCallback(
@@ -192,13 +215,13 @@ export function useAppManagerController(active: boolean) {
         operations: { ...state.operations, [appId]: toOperationState(outcome.result) },
       }));
       if (outcome.result.success) {
-        window.setTimeout(() => setOperationStatus(appId, "idle"), 5000);
+        scheduleTimeout(() => setOperationStatus(appId, "idle"), 5000);
       }
 
       await loadHistory();
       if (outcome.shouldRescan) void scanApps();
     },
-    [loadHistory, scanApps]
+    [loadHistory, scanApps, scheduleTimeout]
   );
 
   const doUninstall = useCallback(
@@ -241,13 +264,13 @@ export function useAppManagerController(active: boolean) {
         installStates: { ...state.installStates, [appId]: toOperationState(outcome.result) },
       }));
       if (outcome.shouldRescan) {
-        window.setTimeout(() => {
+        scheduleTimeout(() => {
           void scanApps();
           refreshInstallList();
         }, 2000);
       }
     },
-    [refreshInstallList, scanApps]
+    [refreshInstallList, scanApps, scheduleTimeout]
   );
 
   const runBatchOperation = useCallback(
