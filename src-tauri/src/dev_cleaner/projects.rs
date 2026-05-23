@@ -166,7 +166,18 @@ fn count_dependencies(path: &Path, project_type: ProjectType) -> u32 {
                             .lines()
                             .filter(|l| {
                                 let l = l.trim();
-                                !l.is_empty() && !l.starts_with('#')
+                                if l.is_empty() || l.starts_with('#') {
+                                    return false;
+                                }
+                                // pip meta-options reference other requirements
+                                // files (`-r`, `--requirement`, `-c`,
+                                // `--constraint`) or mark editable installs
+                                // (`-e`, `--editable`). Counting them inflates
+                                // the dependency total — a project with
+                                // `-r requirements-dev.txt` would tally the
+                                // line itself plus every package the file
+                                // pulls in (#041).
+                                !l.starts_with('-')
                             })
                             .count() as u32;
                     }
@@ -419,6 +430,25 @@ mod tests {
 
         let count = count_dependencies(&tmp, ProjectType::Python);
         assert_eq!(count, 3);
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_count_dependencies_python_skips_pip_meta_options() {
+        // -r references another file (which has its own deps tallied
+        // elsewhere); -e marks editable installs (often the project itself).
+        // Both inflate the count when treated as plain dependency lines (#041).
+        let tmp = std::env::temp_dir().join("tauri_test_deps_python_meta");
+        fs::create_dir_all(&tmp).unwrap();
+        fs::write(
+            tmp.join("requirements.txt"),
+            "flask\n-r requirements-dev.txt\n--constraint constraints.txt\n-e .\nrequests\n",
+        )
+        .unwrap();
+
+        let count = count_dependencies(&tmp, ProjectType::Python);
+        assert_eq!(count, 2, "only `flask` and `requests` should count");
 
         let _ = fs::remove_dir_all(&tmp);
     }

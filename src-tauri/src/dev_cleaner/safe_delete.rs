@@ -205,7 +205,9 @@ fn move_to_trash(path: &Path) -> Result<(), String> {
 
 #[cfg(target_os = "windows")]
 fn move_to_trash(path: &Path) -> Result<(), String> {
+    use std::os::windows::process::CommandExt;
     use std::process::Command;
+    const CREATE_NO_WINDOW: u32 = 0x08000000;
     let raw = path.to_string_lossy().to_string();
     if raw.contains('\'') || raw.contains('\n') {
         return Err(format!(
@@ -225,7 +227,10 @@ fn move_to_trash(path: &Path) -> Result<(), String> {
          }}",
         path = raw
     );
+    // CREATE_NO_WINDOW (0x08000000) prevents the brief console window flash
+    // every time we move a path to the recycle bin (#032).
     let output = Command::new("powershell")
+        .creation_flags(CREATE_NO_WINDOW)
         .args(["-NoProfile", "-NonInteractive", "-Command", &script])
         .output()
         .map_err(|e| format!("powershell spawn failed: {}", e))?;

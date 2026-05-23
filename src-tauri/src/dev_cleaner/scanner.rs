@@ -10,10 +10,24 @@ pub(super) async fn scan_dev_projects(
     abort: ScanAbortFlag,
 ) -> Result<ScanResult, String> {
     tauri::async_runtime::spawn_blocking(move || {
+        let root_path_ref = Path::new(&root_path);
+        // Reject up-front when the user picked a file (drag-and-drop misfire)
+        // or a broken symlink: WalkDir would otherwise return a single non-dir
+        // entry, produce a 0-project result, and leave the UI showing
+        // "scan complete" without any context (#042).
+        match std::fs::metadata(root_path_ref) {
+            Ok(md) if !md.is_dir() => {
+                return Err(format!("Not a directory: {}", root_path));
+            }
+            Err(e) => {
+                return Err(format!("Cannot access {}: {}", root_path, e));
+            }
+            _ => {}
+        }
+
         let start_time = std::time::Instant::now();
         let mut raw_projects = Vec::new();
         let mut aborted = false;
-        let root_path_ref = Path::new(&root_path);
 
         for entry in WalkDir::new(&root_path)
             .same_file_system(true)

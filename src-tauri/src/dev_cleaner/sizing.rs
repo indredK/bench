@@ -104,18 +104,25 @@ pub(super) fn get_dir_size_fast(
 
     #[cfg(windows)]
     {
-        if let Ok(output) = Command::new("powershell")
-            .args([
-                "-NoProfile",
-                "-NonInteractive",
-                "-Command",
-                &format!(
-                    "((Get-ChildItem -Recurse -Force -ErrorAction SilentlyContinue '{}' | Where-Object {{ -not $_.PSIsContainer }} | Measure-Object -Sum Length).Sum)",
-                    path.to_string_lossy().replace('\'', "''")
-                ),
-            ])
-            .output()
-        {
+        // CREATE_NO_WINDOW (0x08000000) keeps the PowerShell child from
+        // briefly flashing a console window on the desktop every time we
+        // size a directory (#032).
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        let mut cmd = Command::new("powershell");
+        cmd.creation_flags(CREATE_NO_WINDOW);
+        cmd.args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            // -LiteralPath stops PowerShell from treating wildcards
+            // (`?`, `*`, `[`) inside a project path as globs (#033).
+            &format!(
+                "((Get-ChildItem -Recurse -Force -ErrorAction SilentlyContinue -LiteralPath '{}' | Where-Object {{ -not $_.PSIsContainer }} | Measure-Object -Sum Length).Sum)",
+                path.to_string_lossy().replace('\'', "''")
+            ),
+        ]);
+        if let Ok(output) = cmd.output() {
             if output.status.success() {
                 let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
                 if !stdout.is_empty() {
