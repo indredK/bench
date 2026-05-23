@@ -124,12 +124,18 @@ export function usePortManagerController() {
         const portDetail = details.find((detail) => detail.port === port);
         const isOccupied = portDetail && !portDetail.error && portDetail.pids.length > 0;
 
-        usePortManagerStore.setState((state) => ({
-          portDetails: [...state.portDetails, ...details],
-          portStates: state.portStates.map((ps) =>
-            ps.port === port ? { ...ps, status: (isOccupied ? "success" : "empty") as PortScanStatus } : ps
-          ),
-        }));
+        usePortManagerStore.setState((state) => {
+          // The user may have removed this port between scan kickoff and the
+          // result arriving; drop stale details so removed rows don't reappear (#090).
+          const trackedPorts = new Set(state.portStates.map((ps) => ps.port));
+          const fresh = details.filter((detail) => trackedPorts.has(detail.port));
+          return {
+            portDetails: [...state.portDetails, ...fresh],
+            portStates: state.portStates.map((ps) =>
+              ps.port === port ? { ...ps, status: (isOccupied ? "success" : "empty") as PortScanStatus } : ps
+            ),
+          };
+        });
       } catch {
         if (usePortManagerStore.getState().scanSession !== sessionId) break;
         usePortManagerStore.setState((state) => ({
@@ -382,8 +388,12 @@ export function usePortManagerController() {
     () => () => {
       clearInvalidTimer();
       clearHighlightTimer();
+      // Zustand store is module-scoped and survives unmount; reset the highlight
+      // explicitly so re-mounting the page doesn't show a stale highlight from
+      // a previous visit that was navigated away before the 2s timer fired (#077).
+      setHighlightPort(null);
     },
-    [clearHighlightTimer, clearInvalidTimer]
+    [clearHighlightTimer, clearInvalidTimer, setHighlightPort]
   );
 
   useEffect(() => registerFeatureRefresh("port-manager", rescanAll), [rescanAll]);
