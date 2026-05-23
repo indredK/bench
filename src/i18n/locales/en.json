@@ -64,8 +64,6 @@
     "confirmUpgrade": "Upgrade",
     "confirmUninstall": "Uninstall",
     "cancel": "Cancel",
-    "operationHistory": "Operation History",
-    "historyEmpty": "No operations recorded",
     "batchMode": "Batch Select",
     "batchModeOff": "Exit Batch",
     "batchSelected": "{{count}} selected",
@@ -153,8 +151,6 @@
     "softwareUpdate": {
       "recheck": "Re-check",
       "checking": "Checking…",
-      "selectAll": "Select all",
-      "deselectAll": "Deselect all",
       "filterBySource": "Source",
       "source": {
         "appStore": "App Store",
@@ -165,6 +161,12 @@
         "github": "GitHub"
       },
       "groupCount": "{{count}} update(s)",
+      "groupAction": {
+        "updateAll": "Update All From Source",
+        "openAppStoreUpdates": "Open App Store Updates",
+        "installAll": "Install All From Source",
+        "openAllReleases": "Open All Releases"
+      },
       "searchPlaceholder": "Search by app, version, or source...",
       "action": {
         "update": "Update",

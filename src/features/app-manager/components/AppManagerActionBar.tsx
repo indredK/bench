@@ -2,7 +2,7 @@
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  */
 import type { TFunction } from "i18next";
-import { History, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { ToolbarButton } from "@/components/ui/toolbar-button";
 import { AppManagerToolbar } from "@/features/app-manager/components/AppManagerToolbar";
 
@@ -11,10 +11,8 @@ interface AppManagerActionBarProps {
   searchQuery: string;
   searchPlaceholder: string;
   loading: boolean;
-  historyOpen: boolean;
   onSearchQueryChange: (query: string) => void;
   onScanApps: () => void;
-  onToggleHistory: () => void;
 }
 
 export function AppManagerActionBar({
@@ -22,10 +20,8 @@ export function AppManagerActionBar({
   searchQuery,
   searchPlaceholder,
   loading,
-  historyOpen,
   onSearchQueryChange,
   onScanApps,
-  onToggleHistory,
 }: AppManagerActionBarProps) {
   return (
     <AppManagerToolbar
@@ -40,12 +36,6 @@ export function AppManagerActionBar({
             icon={<RefreshCw size={15} className={loading ? "animate-spin" : ""} />}
             tooltip={loading ? t("appManager.scanning") : t("appManager.refresh")}
             onClick={onScanApps}
-          />
-          <ToolbarButton
-            icon={<History size={15} />}
-            tooltip={t("appManager.operationHistory")}
-            onClick={onToggleHistory}
-            active={historyOpen}
           />
         </div>
       }

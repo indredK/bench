@@ -24,12 +24,21 @@ import { appManagerUseCases } from "@/features/app-manager/services/app-manager.
 import { useInstallEvents } from "@/features/app-manager/hooks/useInstallEvents";
 import { installAppUpdate } from "@/lib/tauri/commands/app-manager";
 import { registerFeatureRefresh } from "@/features/refresh";
-import type { AppInfo, InstallListAppInfo, UpdateInfo } from "@/lib/tauri/types/app-manager";
+import type {
+  AppInfo,
+  InstallListAppInfo,
+  UpdateInfo,
+  UpdateSource,
+} from "@/lib/tauri/types/app-manager";
 import type { AppManagerTabKey } from "@/features/app-manager/model/store-types";
 import { appManagerPlatformConfig } from "@/platform/config";
 import { canUseDesktopFeatures } from "@/platform/capabilities";
 import { writeClipboardText } from "@/platform/clipboard";
 import { createInstallListColumns } from "@/features/app-manager/components/install-list-columns";
+
+function isInstallerUpdateSource(source: UpdateSource): boolean {
+  return source === "sparkle" || source === "electron" || source === "squirrel";
+}
 
 export function useAppManagerController(active: boolean) {
   const { t } = useTranslation();
@@ -45,9 +54,7 @@ export function useAppManagerController(active: boolean) {
   const sorting = useAppManagerStore((s) => s.sorting);
   const scanned = useAppManagerStore((s) => s.scanned);
   const result = useAppManagerStore((s) => s.result);
-  const history = useAppManagerStore((s) => s.history);
   const confirmDialog = useAppManagerStore((s) => s.confirmDialog);
-  const historyOpen = useAppManagerStore((s) => s.historyOpen);
   const lastScanTime = useAppManagerStore((s) => s.lastScanTime);
   const lastUpdateCheck = useAppManagerStore((s) => s.lastUpdateCheck);
   const viewMode = useAppManagerStore((s) => s.viewMode);
@@ -84,7 +91,6 @@ export function useAppManagerController(active: boolean) {
   const setSorting = useAppManagerStore((s) => s.setSorting);
   const openConfirmDialog = useAppManagerStore((s) => s.openConfirmDialog);
   const closeConfirmDialog = useAppManagerStore((s) => s.closeConfirmDialog);
-  const setHistoryOpen = useAppManagerStore((s) => s.setHistoryOpen);
   const clearSelection = useAppManagerStore((s) => s.clearSelection);
   const setBatchMode = useAppManagerStore((s) => s.setBatchMode);
   const toggleSelectApp = useAppManagerStore((s) => s.toggleSelectApp);
@@ -104,7 +110,6 @@ export function useAppManagerController(active: boolean) {
   const setUpdatesScanned = useAppManagerStore((s) => s.setUpdatesScanned);
   const toggleUpdateGroup = useAppManagerStore((s) => s.toggleUpdateGroup);
   const toggleSelectUpdate = useAppManagerStore((s) => s.toggleSelectUpdate);
-  const selectAllUpdates = useAppManagerStore((s) => s.selectAllUpdates);
   const clearUpdateSelection = useAppManagerStore((s) => s.clearUpdateSelection);
   const setUpdateSourceFilter = useAppManagerStore((s) => s.setUpdateSourceFilter);
   const setSelectedUpdate = useAppManagerStore((s) => s.setSelectedUpdate);
@@ -118,6 +123,8 @@ export function useAppManagerController(active: boolean) {
   const [inProgressUpdate, setInProgressUpdate] = useState<UpdateInfo | null>(null);
   const [preferencesHydrated, setPreferencesHydrated] = useState(false);
   const pendingBatchInstallIds = useRef<string[]>([]);
+  const pendingInstallerUpdatesRef = useRef<UpdateInfo[]>([]);
+  const activeInstallerAppIdRef = useRef<string | null>(null);
   const confirmPendingRef = useRef(false);
   const refreshHandlerRef = useRef<(() => void | Promise<void>) | null>(null);
 
@@ -144,6 +151,10 @@ export function useAppManagerController(active: boolean) {
     []
   );
 
+  useEffect(() => {
+    activeInstallerAppIdRef.current = inProgressUpdate?.appId ?? null;
+  }, [inProgressUpdate]);
+
   const canUsePlatformFeatures = canUseDesktopFeatures();
 
   // v1.2: subscribe to `app-update-install:*` events; the listener writes phase
@@ -161,15 +172,6 @@ export function useAppManagerController(active: boolean) {
       window.cancelAnimationFrame(frameId);
       if (timeoutId) window.clearTimeout(timeoutId);
     };
-  }, []);
-
-  const loadHistory = useCallback(async () => {
-    if (!appManagerUseCases.isAvailable()) return;
-    try {
-      useAppManagerStore.setState({ history: await appManagerUseCases.loadHistory() });
-    } catch (error) {
-      console.warn("[AppManager] Failed to load history:", error);
-    }
   }, []);
 
   const scanApps = useCallback(async () => {
@@ -200,7 +202,6 @@ export function useAppManagerController(active: boolean) {
         lastUpdateCheck: scanResult.lastUpdateCheck,
         installListApps: createInstallListApps(scanResult.apps),
       });
-      void loadHistory();
     } catch (scanError) {
       useAppManagerStore.setState({
         apps: [],
@@ -210,7 +211,7 @@ export function useAppManagerController(active: boolean) {
         loading: false,
       });
     }
-  }, [loadHistory]);
+  }, []);
 
   const refreshInstallList = useCallback(() => {
     useAppManagerStore.setState({
@@ -299,7 +300,9 @@ export function useAppManagerController(active: boolean) {
       // v1.2: sparkle / electron / squirrel — kick off the in-place install
       // orchestrator. Progress flows back through the Tauri events into the
       // store, which the UpdateProgressDialog and UpdateBlockingDialogs read.
-      if (update.source === "sparkle" || update.source === "electron" || update.source === "squirrel") {
+      if (isInstallerUpdateSource(update.source)) {
+        const activeInstallerAppId = activeInstallerAppIdRef.current;
+        if (activeInstallerAppId && activeInstallerAppId !== update.appId) return;
         // Wipe any leftover terminal state from a prior run for this app, so
         // the dialog doesn't see both the in-flight progress AND the previous
         // SU_* failure.
@@ -346,6 +349,41 @@ export function useAppManagerController(active: boolean) {
     ]
   );
 
+  const handleUpdateSourceAction = useCallback(
+    async (source: UpdateSource, sourceUpdates: UpdateInfo[]) => {
+      const { updateOperations: ops } = useAppManagerStore.getState();
+      const availableUpdates = sourceUpdates.filter((update) => !isOperationRunning(ops, update.appId));
+      if (availableUpdates.length === 0) return;
+
+      if (source === "macAppStore") {
+        pendingInstallerUpdatesRef.current = [];
+        try {
+          await appManagerUseCases.openMacAppStoreUpdates();
+        } catch (error) {
+          setUpdatesError(String(error));
+        }
+        return;
+      }
+
+      if (isInstallerUpdateSource(source)) {
+        if (activeInstallerAppIdRef.current || pendingInstallerUpdatesRef.current.length > 0) {
+          return;
+        }
+        const [firstUpdate, ...restUpdates] = availableUpdates;
+        if (!firstUpdate) return;
+        pendingInstallerUpdatesRef.current = restUpdates;
+        await handleUpdateAction(firstUpdate);
+        return;
+      }
+
+      pendingInstallerUpdatesRef.current = [];
+      for (const update of availableUpdates) {
+        await handleUpdateAction(update);
+      }
+    },
+    [handleUpdateAction, setUpdatesError]
+  );
+
   // v1.2: invoked by the progress / blocking dialogs when the user dismisses
   // them. Mirrors the terminal install outcome into the row's `updateOperations`
   // status and clears the per-app install snapshots so subsequent runs start
@@ -355,6 +393,11 @@ export function useAppManagerController(active: boolean) {
     if (!update) return;
     const { installFinished: finishedMap } = useAppManagerStore.getState();
     const finished = finishedMap[update.appId];
+    const nextQueuedUpdate =
+      finished?.success && pendingInstallerUpdatesRef.current.length > 0
+        ? pendingInstallerUpdatesRef.current.shift() ?? null
+        : null;
+
     if (finished) {
       setUpdateOperationStatus(
         update.appId,
@@ -367,17 +410,31 @@ export function useAppManagerController(active: boolean) {
       }
     } else {
       // User cancelled before any terminal event arrived.
+      pendingInstallerUpdatesRef.current = [];
       setUpdateOperationStatus(update.appId, "idle");
     }
+
+    if (finished && !finished.success) {
+      pendingInstallerUpdatesRef.current = [];
+    }
+
     clearInstallProgress(update.appId);
     clearInstallFinished(update.appId);
     setInProgressUpdate(null);
+
+    if (nextQueuedUpdate) {
+      scheduleTimeout(() => {
+        void handleUpdateAction(nextQueuedUpdate);
+      }, 0);
+    }
   }, [
     inProgressUpdate,
     checkAllUpdates,
     scanApps,
     clearInstallFinished,
     clearInstallProgress,
+    handleUpdateAction,
+    scheduleTimeout,
     setUpdateOperationStatus,
   ]);
 
@@ -427,10 +484,9 @@ export function useAppManagerController(active: boolean) {
         scheduleTimeout(() => setOperationStatus(appId, "idle"), 5000);
       }
 
-      await loadHistory();
       if (outcome.shouldRescan) void scanApps();
     },
-    [loadHistory, scanApps, scheduleTimeout]
+    [scanApps, scheduleTimeout]
   );
 
   const doUninstall = useCallback(
@@ -451,10 +507,8 @@ export function useAppManagerController(active: boolean) {
       if (outcome.shouldRescan) {
         scheduleScanApps(800);
       }
-
-      await loadHistory();
     },
-    [loadHistory, scheduleScanApps]
+    [scheduleScanApps]
   );
 
   const doInstall = useCallback(
@@ -494,10 +548,9 @@ export function useAppManagerController(active: boolean) {
       useAppManagerStore.setState(
         outcome.result ? createBatchSuccessPatch(outcome.result) : createBatchErrorPatch(outcome.error)
       );
-      await loadHistory();
       void scanApps();
     },
-    [loadHistory, scanApps]
+    [scanApps]
   );
 
   const doBatchUpgrade = useCallback(() => runBatchOperation("upgrade"), [runBatchOperation]);
@@ -576,13 +629,9 @@ export function useAppManagerController(active: boolean) {
   }, [active, apps.length, deferUntilAfterFirstPaint, refreshUpdates, scanned]);
 
   useEffect(() => {
-    if (historyOpen) loadHistory();
-  }, [historyOpen, loadHistory]);
-
-  useEffect(() => {
-    // Keep detail/history ESC behavior in one stack so only the topmost
-    // app-manager panel closes per keypress.
-    if (!historyOpen && !selectedItem && !installDetailItem && !selectedUpdate) return;
+    // Keep detail ESC behavior in one stack so only the topmost panel closes
+    // per keypress.
+    if (!selectedItem && !installDetailItem && !selectedUpdate) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       if (selectedUpdate) {
@@ -595,20 +644,14 @@ export function useAppManagerController(active: boolean) {
       }
       if (selectedItem) {
         setSelectedItem(null);
-        return;
-      }
-      if (historyOpen) {
-        setHistoryOpen(false);
       }
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [
-    historyOpen,
     installDetailItem,
     selectedItem,
     selectedUpdate,
-    setHistoryOpen,
     setInstallDetailItem,
     setSelectedItem,
     setSelectedUpdate,
@@ -903,9 +946,7 @@ export function useAppManagerController(active: boolean) {
     sorting,
     scanned,
     result,
-    history,
     confirmDialog,
-    historyOpen,
     lastScanTime,
     lastUpdateCheck,
     viewMode,
@@ -952,18 +993,16 @@ export function useAppManagerController(active: boolean) {
     refreshUpdates,
     checkAllUpdates,
     handleUpdateAction,
+    handleUpdateSourceAction,
     handleCloseInstallDialog,
     inProgressUpdate,
     handleSetActiveTab,
     toggleUpdateGroup,
     toggleSelectUpdate,
-    selectAllUpdates,
     clearUpdateSelection,
     setUpdateSourceFilter,
     setSelectedUpdate,
     setUpdateOperationStatus,
-    loadHistory,
-    setHistoryOpen,
     clearSelection,
     setBatchMode,
     toggleSelectApp,

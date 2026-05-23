@@ -355,6 +355,19 @@ pub fn open_in_mac_app_store(adam_id: &str) -> Result<(), String> {
     }
 }
 
+/// Open the Mac App Store directly to the Updates page.
+pub fn open_mac_app_store_updates() -> Result<(), String> {
+    let status = Command::new("/usr/bin/open")
+        .arg("macappstore://showUpdatesPage")
+        .status()
+        .map_err(|e| format!("SU_MAS_OPEN_FAIL: {e}"))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("SU_MAS_OPEN_FAIL: exit {status}"))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -28,7 +28,6 @@ type AppManagerDataState = Omit<
   | "setViewMode"
   | "setSelectedItem"
   | "setFilterPanelOpen"
-  | "setHistoryOpen"
   | "setActiveTab"
   | "setUpdates"
   | "setUpdatesLoading"
@@ -73,9 +72,7 @@ export function createInitialAppManagerState(): AppManagerDataState {
     scanned: false,
     result: null,
     operations: {},
-    history: [],
     confirmDialog: { open: false, appId: "", appName: "", action: "upgrade" },
-    historyOpen: false,
     selectedAppIds: new Set(),
     batchMode: false,
     batchProgress: null,

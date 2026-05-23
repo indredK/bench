@@ -36,12 +36,12 @@ interface SoftwareUpdateViewProps {
   onRecheck: () => void;
   onToggleGroup: (source: UpdateSource) => void;
   onToggleSelect: (appId: string) => void;
-  onSelectAll: (ids: string[]) => void;
   onClearSelection: () => void;
   onChangeSourceFilter: (filter: UpdateSource | "all") => void;
   onRowClick: (update: UpdateInfo) => void;
   onCloseDetail: () => void;
   onRowAction: (update: UpdateInfo) => void;
+  onGroupAction: (source: UpdateSource, updates: UpdateInfo[]) => void;
   onOpenExternal: (url: string) => void;
 }
 
@@ -73,12 +73,12 @@ export function SoftwareUpdateView({
   onRecheck,
   onToggleGroup,
   onToggleSelect,
-  onSelectAll,
   onClearSelection,
   onChangeSourceFilter,
   onRowClick,
   onCloseDetail,
   onRowAction,
+  onGroupAction,
   onOpenExternal,
 }: SoftwareUpdateViewProps) {
   const normalizedSearch = searchQuery.trim().toLowerCase();
@@ -126,24 +126,6 @@ export function SoftwareUpdateView({
       })),
     [grouped]
   );
-
-  const visibleSelectableIds = useMemo(
-    () => visibleUpdates.map((u) => u.appId),
-    [visibleUpdates]
-  );
-
-  const visibleSelectedCount = useMemo(
-    () => visibleSelectableIds.filter((id) => selectedIds.has(id)).length,
-    [visibleSelectableIds, selectedIds]
-  );
-
-  const handleToggleSelectAllVisible = () => {
-    if (visibleSelectedCount >= visibleUpdates.length) {
-      onClearSelection();
-    } else {
-      onSelectAll(visibleSelectableIds);
-    }
-  };
 
   const renderEmpty = () => {
     if (loading) {
@@ -202,13 +184,11 @@ export function SoftwareUpdateView({
         searchQuery={searchQuery}
         loading={loading}
         totalCount={searchedUpdates.length}
-        visibleCount={visibleUpdates.length}
-        selectedCount={visibleSelectedCount}
+        selectedCount={selectedIds.size}
         visibleSources={visibleSources}
         sourceFilter={sourceFilter}
         onSearchQueryChange={onSearchQueryChange}
         onRecheck={onRecheck}
-        onToggleSelectAllVisible={handleToggleSelectAllVisible}
         onChangeSourceFilter={onChangeSourceFilter}
         onClearSelection={onClearSelection}
       />
@@ -249,6 +229,7 @@ export function SoftwareUpdateView({
                       onToggleSelect={onToggleSelect}
                       onRowClick={onRowClick}
                       onRowAction={onRowAction}
+                      onSourceAction={onGroupAction}
                     />
                   ))
                 )}

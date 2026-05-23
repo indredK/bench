@@ -72,10 +72,21 @@ export function createAppManagerBasicActions(set: SetState) {
     setViewMode: (mode: "table" | "grid") => set({ viewMode: mode }),
     setSelectedItem: (item: AppInfo | null) => set({ selectedItem: item }),
     setFilterPanelOpen: (open: boolean) => set({ filterPanelOpen: open }),
-    setHistoryOpen: (open: boolean) => set({ historyOpen: open }),
 
     setActiveTab: (tab: AppManagerTabKey) => set({ activeTab: tab }),
-    setUpdates: (updates: UpdateInfo[]) => set({ updates }),
+    setUpdates: (updates: UpdateInfo[]) =>
+      set((state) => {
+        const updateMap = new Map(updates.map((update) => [update.appId, update]));
+        return {
+          updates,
+          selectedUpdateIds: new Set(
+            [...state.selectedUpdateIds].filter((appId) => updateMap.has(appId))
+          ),
+          selectedUpdate: state.selectedUpdate
+            ? updateMap.get(state.selectedUpdate.appId) ?? null
+            : null,
+        };
+      }),
     setUpdatesLoading: (loading: boolean) => set({ updatesLoading: loading }),
     setUpdatesError: (error: string) => set({ updatesError: error }),
     setUpdatesScanned: (scanned: boolean) => set({ updatesScanned: scanned }),

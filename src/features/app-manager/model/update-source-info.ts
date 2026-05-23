@@ -31,12 +31,25 @@ const SOURCE_LABEL_KEY: Record<UpdateSource, string> = {
   gitHub: "appManager.softwareUpdate.source.github",
 };
 
+const SOURCE_GROUP_ACTION_KEY: Record<UpdateSource, string> = {
+  homebrew: "appManager.softwareUpdate.groupAction.updateAll",
+  macAppStore: "appManager.softwareUpdate.groupAction.openAppStoreUpdates",
+  sparkle: "appManager.softwareUpdate.groupAction.installAll",
+  electron: "appManager.softwareUpdate.groupAction.installAll",
+  squirrel: "appManager.softwareUpdate.groupAction.installAll",
+  gitHub: "appManager.softwareUpdate.groupAction.openAllReleases",
+};
+
 export function getUpdateSourceIcon(source: UpdateSource): string {
   return SOURCE_ICON[source];
 }
 
 export function getUpdateSourceLabel(t: TFunction, source: UpdateSource): string {
   return t(SOURCE_LABEL_KEY[source]);
+}
+
+export function getUpdateGroupActionKey(source: UpdateSource): string {
+  return SOURCE_GROUP_ACTION_KEY[source];
 }
 
 export function getUpdateActionKey(source: UpdateSource): string {

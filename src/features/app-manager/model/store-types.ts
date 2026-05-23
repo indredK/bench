@@ -9,7 +9,6 @@ import type {
   InstallFinishedEvent,
   InstallListAppInfo,
   InstallPhase,
-  OperationRecord,
   UpdateInfo,
   UpdateSource,
 } from "@/lib/tauri/types/app-manager";
@@ -58,14 +57,12 @@ export interface AppManagerState {
   result: AppScanResult | null;
 
   operations: Record<string, AppOperationState>;
-  history: OperationRecord[];
   confirmDialog: {
     open: boolean;
     appId: string;
     appName: string;
     action: "upgrade" | "uninstall";
   };
-  historyOpen: boolean;
 
   selectedAppIds: Set<string>;
   batchMode: boolean;
@@ -142,8 +139,6 @@ export interface AppManagerState {
   setViewMode: (mode: "table" | "grid") => void;
   setSelectedItem: (item: AppInfo | null) => void;
   setFilterPanelOpen: (open: boolean) => void;
-
-  setHistoryOpen: (open: boolean) => void;
 
   setActiveTab: (tab: AppManagerTabKey) => void;
   setUpdates: (updates: UpdateInfo[]) => void;

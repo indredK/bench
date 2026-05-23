@@ -36,7 +36,6 @@ interface AppManagerCatalogViewProps<TItem, TFilter extends string> {
   searchPlaceholder: string;
   loading: boolean;
   error: string;
-  historyOpen: boolean;
   batchResults: BatchOperationResult | null;
   filterPanelOpen: boolean;
   activeFilterCount: number;
@@ -47,7 +46,6 @@ interface AppManagerCatalogViewProps<TItem, TFilter extends string> {
   detailTitle: string;
   onSearchQueryChange: (query: string) => void;
   onScanApps: () => void;
-  onToggleHistory: () => void;
   onClearBatchResults: () => void;
   onToggleFilterPanel: () => void;
   onTypeFilterChange: (filter: TFilter) => void;
@@ -93,7 +91,6 @@ export function AppManagerCatalogView<TItem, TFilter extends string>({
   searchPlaceholder,
   loading,
   error,
-  historyOpen,
   batchResults,
   filterPanelOpen,
   activeFilterCount,
@@ -104,7 +101,6 @@ export function AppManagerCatalogView<TItem, TFilter extends string>({
   detailTitle,
   onSearchQueryChange,
   onScanApps,
-  onToggleHistory,
   onClearBatchResults,
   onToggleFilterPanel,
   onTypeFilterChange,
@@ -139,10 +135,8 @@ export function AppManagerCatalogView<TItem, TFilter extends string>({
         searchQuery={searchQuery}
         searchPlaceholder={searchPlaceholder}
         loading={loading}
-        historyOpen={historyOpen}
         onSearchQueryChange={onSearchQueryChange}
         onScanApps={onScanApps}
-        onToggleHistory={onToggleHistory}
       />
 
       {error && (

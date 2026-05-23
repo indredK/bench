@@ -2,7 +2,7 @@
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  */
 import type { TFunction } from "i18next";
-import { CheckSquare, RefreshCw, Square, X } from "lucide-react";
+import { RefreshCw, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ToolbarButton } from "@/components/ui/toolbar-button";
 import { AppManagerToolbar } from "@/features/app-manager/components/AppManagerToolbar";
@@ -18,13 +18,11 @@ interface UpdaterActionBarProps {
   searchQuery: string;
   loading: boolean;
   totalCount: number;
-  visibleCount: number;
   selectedCount: number;
   visibleSources: UpdateSource[];
   sourceFilter: UpdateSource | "all";
   onSearchQueryChange: (query: string) => void;
   onRecheck: () => void;
-  onToggleSelectAllVisible: () => void;
   onChangeSourceFilter: (filter: UpdateSource | "all") => void;
   onClearSelection: () => void;
 }
@@ -34,17 +32,14 @@ export function UpdaterActionBar({
   searchQuery,
   loading,
   totalCount,
-  visibleCount,
   selectedCount,
   visibleSources,
   sourceFilter,
   onSearchQueryChange,
   onRecheck,
-  onToggleSelectAllVisible,
   onChangeSourceFilter,
   onClearSelection,
 }: UpdaterActionBarProps) {
-  const allSelected = selectedCount > 0 && selectedCount >= visibleCount;
   const showAllChip = totalCount > 0;
 
   return (
@@ -62,23 +57,12 @@ export function UpdaterActionBar({
             onClick={onRecheck}
             disabled={loading}
           />
-
-          {visibleCount > 0 && (
-            <ToolbarButton
-              icon={allSelected ? <CheckSquare size={15} /> : <Square size={15} />}
-              tooltip={allSelected ? t("appManager.softwareUpdate.deselectAll") : t("appManager.softwareUpdate.selectAll")}
-              onClick={onToggleSelectAllVisible}
-              active={allSelected}
-            />
-          )}
-
-          {selectedCount > 0 && (
-            <ToolbarButton
-              icon={<X size={15} />}
-              tooltip={t("appManager.batchClear")}
-              onClick={onClearSelection}
-            />
-          )}
+          <ToolbarButton
+            icon={<X size={15} />}
+            tooltip={t("appManager.batchClear")}
+            onClick={onClearSelection}
+            disabled={selectedCount === 0}
+          />
         </>
       }
       rightContent={

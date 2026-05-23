@@ -36,10 +36,6 @@ export function uninstallApp(appId: string) {
   return invokeTauriCommand(TAURI_COMMANDS.appManager.uninstallApp, { appId });
 }
 
-export function getAppOperationHistory(appId?: string) {
-  return invokeTauriCommand(TAURI_COMMANDS.appManager.getAppOperationHistory, { appId: appId || null });
-}
-
 export function batchUpgradeApps(appIds: string[]) {
   return invokeTauriCommand(TAURI_COMMANDS.appManager.batchUpgradeApps, { appIds });
 }
@@ -70,6 +66,10 @@ export function checkAllAppUpdates(forceRefresh?: boolean) {
 
 export function openInMacAppStore(adamId: string) {
   return invokeTauriCommand(TAURI_COMMANDS.appManager.openInMacAppStore, { adamId });
+}
+
+export function openMacAppStoreUpdates() {
+  return invokeTauriCommand(TAURI_COMMANDS.appManager.openMacAppStoreUpdates);
 }
 
 /**

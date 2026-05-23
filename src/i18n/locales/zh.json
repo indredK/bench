@@ -64,8 +64,6 @@
     "confirmUpgrade": "确认升级",
     "confirmUninstall": "确认卸载",
     "cancel": "取消",
-    "operationHistory": "操作记录",
-    "historyEmpty": "暂无操作记录",
     "batchMode": "批量选择",
     "batchModeOff": "退出批量",
     "batchSelected": "已选 {{count}} 项",
@@ -153,8 +151,6 @@
     "softwareUpdate": {
       "recheck": "重新检查",
       "checking": "检查中…",
-      "selectAll": "全选",
-      "deselectAll": "取消全选",
       "filterBySource": "源",
       "source": {
         "appStore": "App Store",
@@ -165,6 +161,12 @@
         "github": "GitHub"
       },
       "groupCount": "{{count}} 个更新",
+      "groupAction": {
+        "updateAll": "更新此源全部",
+        "openAppStoreUpdates": "打开 App Store 更新",
+        "installAll": "安装此源全部",
+        "openAllReleases": "打开此源全部 Releases"
+      },
       "searchPlaceholder": "搜索应用名称、版本或来源...",
       "action": {
         "update": "更新",

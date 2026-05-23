@@ -6,7 +6,6 @@ import type {
   AppScanResult,
   BatchOperationResult,
   InstallListAppInfo,
-  OperationRecord,
   OperationResult,
   UpdateInfo,
 } from "@/lib/tauri/types/app-manager";
@@ -88,10 +87,6 @@ function createAppManagerUseCases(
 
       const updatableIds = await repository.checkManagedAppUpdates(managedIds);
       return new Set(updatableIds);
-    },
-
-    loadHistory(): Promise<OperationRecord[]> {
-      return repository.getAppOperationHistory();
     },
 
     loadPreferences(): PersistedPreferences {
@@ -189,6 +184,11 @@ function createAppManagerUseCases(
     openInMacAppStore(adamId: string): Promise<void> {
       if (!isAvailable()) return Promise.resolve();
       return repository.openInMacAppStore(adamId);
+    },
+
+    openMacAppStoreUpdates(): Promise<void> {
+      if (!isAvailable()) return Promise.resolve();
+      return repository.openMacAppStoreUpdates();
     },
 
     launchApp(app: AppInfo) {

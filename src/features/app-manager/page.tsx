@@ -9,7 +9,6 @@ import { AppManagerCatalogView } from "@/features/app-manager/components/AppMana
 import { AppManagerConfirmDialogs } from "@/features/app-manager/components/AppManagerConfirmDialogs";
 import { AppManagerErrorBoundary } from "@/features/app-manager/components/AppManagerErrorBoundary";
 import { AppManagerGridCard } from "@/features/app-manager/components/AppManagerGridCard";
-import { AppManagerHistoryDrawer } from "@/features/app-manager/components/AppManagerHistoryDrawer";
 import { AppManagerTabs } from "@/features/app-manager/components/AppManagerTabs";
 import { InstallListCard } from "@/features/app-manager/components/InstallListCard";
 import { SoftwareUpdateView } from "@/features/app-manager/components/SoftwareUpdateView";
@@ -34,9 +33,7 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
     seriesFilter,
     scanned,
     result,
-    history,
     confirmDialog,
-    historyOpen,
     lastScanTime,
     lastUpdateCheck,
     viewMode,
@@ -76,7 +73,6 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
     setCategoryFilter,
     setSeriesFilter,
     scanApps,
-    setHistoryOpen,
     clearSelection,
     toggleSelectApp,
     closeBatchConfirmDialog,
@@ -108,12 +104,12 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
     setInstallDetailItem,
     checkAllUpdates,
     handleUpdateAction,
+    handleUpdateSourceAction,
     handleCloseInstallDialog,
     inProgressUpdate,
     handleSetActiveTab,
     toggleUpdateGroup,
     toggleSelectUpdate,
-    selectAllUpdates,
     clearUpdateSelection,
     setUpdateSourceFilter,
     setSelectedUpdate,
@@ -178,12 +174,14 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                 onRecheck={() => void checkAllUpdates(true)}
                 onToggleGroup={toggleUpdateGroup}
                 onToggleSelect={toggleSelectUpdate}
-                onSelectAll={(ids) => selectAllUpdates(ids)}
                 onClearSelection={clearUpdateSelection}
                 onChangeSourceFilter={setUpdateSourceFilter}
                 onRowClick={setSelectedUpdate}
                 onCloseDetail={() => setSelectedUpdate(null)}
                 onRowAction={(update) => void handleUpdateAction(update)}
+                onGroupAction={(source, sourceUpdates) =>
+                  void handleUpdateSourceAction(source, sourceUpdates)
+                }
                 onOpenExternal={(url) => void openExternal(url)}
               />
             ) : activeTab === "marketplace" ? (
@@ -224,7 +222,6 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                 searchPlaceholder={t("appManager.installSearchPlaceholder")}
                 loading={loading}
                 error={error}
-                historyOpen={historyOpen}
                 batchResults={batchResults}
                 filterPanelOpen={filterPanelOpen}
                 activeFilterCount={marketplaceFilterCount}
@@ -235,7 +232,6 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                 detailTitle={t("appManager.details")}
                 onSearchQueryChange={setSearchQuery}
                 onScanApps={scanApps}
-                onToggleHistory={() => setHistoryOpen(!historyOpen)}
                 onClearBatchResults={clearBatchResults}
                 onToggleFilterPanel={() => setFilterPanelOpen(!filterPanelOpen)}
                 onTypeFilterChange={setMarketplaceFilter}
@@ -317,7 +313,6 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                 searchPlaceholder={t("appManager.searchPlaceholder")}
                 loading={loading}
                 error={error}
-                historyOpen={historyOpen}
                 batchResults={batchResults}
                 filterPanelOpen={filterPanelOpen}
                 activeFilterCount={activeFilterCount}
@@ -328,7 +323,6 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                 detailTitle={t("appManager.details")}
                 onSearchQueryChange={setSearchQuery}
                 onScanApps={scanApps}
-                onToggleHistory={() => setHistoryOpen(!historyOpen)}
                 onClearBatchResults={clearBatchResults}
                 onToggleFilterPanel={() => setFilterPanelOpen(!filterPanelOpen)}
                 onTypeFilterChange={setActiveFilter}
@@ -434,13 +428,6 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
               />
             )}
           </div>
-
-          <AppManagerHistoryDrawer
-            t={t}
-            open={historyOpen}
-            history={history}
-            onClose={() => setHistoryOpen(false)}
-          />
 
           <AppManagerConfirmDialogs
             t={t}

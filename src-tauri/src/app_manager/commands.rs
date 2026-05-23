@@ -1,8 +1,8 @@
 use super::installer::orchestrator::{install_update, InstallHandle};
 use super::state::AppManagerState;
 use super::types::{
-    BatchInstallItem, BatchItemResult, BatchOperationResult, InstallSource, OperationRecord,
-    OperationResult, ScanResult, UpdateInfo,
+    BatchInstallItem, BatchItemResult, BatchOperationResult, InstallSource, OperationResult,
+    ScanResult, UpdateInfo,
 };
 use super::{empty_scan_result, linux, locked_operation_result, macos, sources, windows};
 use serde::Serialize;
@@ -195,14 +195,6 @@ pub fn uninstall_app(
 
     state.release_op_lock(&app_id);
     result
-}
-
-#[tauri::command]
-pub fn get_app_operation_history(
-    app_id: Option<String>,
-    state: tauri::State<'_, AppManagerState>,
-) -> Vec<OperationRecord> {
-    state.get_operation_history(app_id)
 }
 
 #[tauri::command]
@@ -613,6 +605,16 @@ pub async fn open_in_mac_app_store(adam_id: String) -> Result<(), String> {
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn open_in_mac_app_store_updates() -> Result<(), String> {
+    if !is_macos() {
+        return Err("SU_MAS_OPEN_FAIL: not macOS".into());
+    }
+    tauri::async_runtime::spawn_blocking(sources::mac_app_store::open_mac_app_store_updates)
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 /// v1.2: kick off an in-place install of an update. Returns immediately; the

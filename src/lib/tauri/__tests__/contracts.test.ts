@@ -15,7 +15,6 @@ import type {
   AppInfo,
   BatchOperationResult,
   InstallSource,
-  OperationRecord,
   OperationResult,
 } from "@/lib/tauri/types/app-manager";
 import type { EnvScanDonePayload, EnvTool } from "@/lib/tauri/types/env-detector";
@@ -91,7 +90,6 @@ describe("Tauri contracts", () => {
         "iconBase64",
       ])],
       ["OperationResult", "camel", dtoKeys<OperationResult>(["success", "message", "exitCode", "errorCode", "permissionIssue"])],
-      ["OperationRecord", "camel", dtoKeys<OperationRecord>(["timestamp", "action", "appId", "appName", "success", "output", "exitCode", "errorCode", "permissionIssue"])],
       ["BatchOperationResult", "camel", dtoKeys<BatchOperationResult>(["total", "succeeded", "failed", "results"])],
       ["InstallSource", "camel", dtoKeys<InstallSource>(["brew", "winget", "apt", "flatpak", "snap", "url"])],
       ["ProjectInfo", "snake", dtoKeys<ProjectInfo>(["path", "name", "total_size", "target_size", "last_modified", "dependencies_count", "project_type", "cleanup_potential", "cleanup_paths"])],

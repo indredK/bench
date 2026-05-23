@@ -3,11 +3,13 @@
  */
 import type { TFunction } from "i18next";
 import { ChevronDown, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { AppInfo, UpdateInfo, UpdateSource } from "@/lib/tauri/types/app-manager";
 import type { OperationStatus } from "@/features/app-manager/model/operations";
 import { UpdateRow } from "@/features/app-manager/components/UpdateRow";
 import {
+  getUpdateGroupActionKey,
   getUpdateSourceIcon,
   getUpdateSourceLabel,
 } from "@/features/app-manager/model/update-source-info";
@@ -25,6 +27,7 @@ interface UpdateGroupSectionProps {
   onToggleSelect: (appId: string) => void;
   onRowClick: (update: UpdateInfo) => void;
   onRowAction: (update: UpdateInfo) => void;
+  onSourceAction: (source: UpdateSource, updates: UpdateInfo[]) => void;
 }
 
 export function UpdateGroupSection({
@@ -40,7 +43,10 @@ export function UpdateGroupSection({
   onToggleSelect,
   onRowClick,
   onRowAction,
+  onSourceAction,
 }: UpdateGroupSectionProps) {
+  const groupBusy = updates.some((update) => updateOperations[update.appId]?.status === "running");
+
   return (
     <section className="relative rounded-lg border bg-card">
       <div className="sticky top-0 z-10 flex items-center rounded-t-lg border-b bg-card/95 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-card/90 relative after:pointer-events-none after:absolute after:inset-x-0 after:top-0 after:h-px after:bg-border/80 after:content-['']">
@@ -59,6 +65,19 @@ export function UpdateGroupSection({
             {t("appManager.softwareUpdate.groupCount", { count: updates.length })}
           </span>
         </button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="ml-2 shrink-0"
+          disabled={groupBusy || updates.length === 0}
+          onClick={(event) => {
+            event.stopPropagation();
+            onSourceAction(source, updates);
+          }}
+        >
+          {t(getUpdateGroupActionKey(source))}
+        </Button>
       </div>
 
       {expanded && (

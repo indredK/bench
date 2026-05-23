@@ -71,18 +71,6 @@ export interface BatchOperationResult {
   results: BatchItemResult[];
 }
 
-export interface OperationRecord {
-  timestamp: number;
-  action: string;
-  appId: string;
-  appName: string;
-  success: boolean;
-  output: string;
-  exitCode: number | null;
-  errorCode: string | null;
-  permissionIssue: boolean;
-}
-
 export interface InstallSource {
   brew?: string;
   winget?: string;
