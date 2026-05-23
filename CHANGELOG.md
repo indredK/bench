@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.8.6](https://github.com/indredK/bench/compare/v1.8.5...v1.8.6) (2026-05-23)
+
+
+### Bug Fixes
+
+* **app-manager:** mutex 中毒恢复 + install 操作锁 + batch 进度事件 ([9a8f686](https://github.com/indredK/bench/commit/9a8f686c94e7237918e21fea5b7872cba964ecb8))
+* **app-updater:** 单飞检查 + 取消下载 + 失败保留 cache + 进度饱和 ([865e7d4](https://github.com/indredK/bench/commit/865e7d4b2869d75b38b9585e516dff1f4a49082e))
+* **bootstrap:** splash 握手 + 窗口重试 + 监听清理竞态 ([f2ccf62](https://github.com/indredK/bench/commit/f2ccf623279eaca2588533577f19c2a38d899848))
+* **dev-cleaner:** 数据安全四连击 — 防 symlink/junction 越界、防跨卷、走回收站 ([afd84eb](https://github.com/indredK/bench/commit/afd84eb5351f60d8c6543913ee13add8cf59340e))
+
 ## [1.8.5](https://github.com/indredK/bench/compare/v1.8.4...v1.8.5) (2026-05-23)
 
 
