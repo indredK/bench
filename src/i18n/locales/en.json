@@ -168,6 +168,7 @@
       },
       "groupAll": "Update all in source",
       "groupCount": "{{count}} update(s)",
+      "searchPlaceholder": "Search by app, version, or source...",
       "action": {
         "update": "Update",
         "openAppStore": "Open in App Store",

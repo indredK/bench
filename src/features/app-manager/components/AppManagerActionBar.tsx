@@ -2,13 +2,14 @@
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  */
 import type { TFunction } from "i18next";
-import { History, RefreshCw, Search } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { History, RefreshCw } from "lucide-react";
 import { ToolbarButton } from "@/components/ui/toolbar-button";
+import { AppManagerToolbar } from "@/features/app-manager/components/AppManagerToolbar";
 
 interface AppManagerActionBarProps {
   t: TFunction;
   searchQuery: string;
+  searchPlaceholder: string;
   loading: boolean;
   historyOpen: boolean;
   onSearchQueryChange: (query: string) => void;
@@ -19,6 +20,7 @@ interface AppManagerActionBarProps {
 export function AppManagerActionBar({
   t,
   searchQuery,
+  searchPlaceholder,
   loading,
   historyOpen,
   onSearchQueryChange,
@@ -26,34 +28,27 @@ export function AppManagerActionBar({
   onToggleHistory,
 }: AppManagerActionBarProps) {
   return (
-    <div className="shrink-0 rounded-lg border bg-card">
-      <div className="flex flex-wrap items-center gap-1.5 px-3 py-2">
-        <div className="relative flex-1 min-w-[200px] max-w-md">
-          <Search
-            size={14}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+    <AppManagerToolbar
+      t={t}
+      searchQuery={searchQuery}
+      searchPlaceholder={searchPlaceholder}
+      onSearchQueryChange={onSearchQueryChange}
+      searchDisabled={loading}
+      rightContent={
+        <div className="flex items-center gap-1.5">
+          <ToolbarButton
+            icon={<RefreshCw size={15} className={loading ? "animate-spin" : ""} />}
+            tooltip={loading ? t("appManager.scanning") : t("appManager.refresh")}
+            onClick={onScanApps}
           />
-          <Input
-            placeholder={t("appManager.searchPlaceholder")}
-            value={searchQuery}
-            onChange={(event) => onSearchQueryChange(event.target.value)}
-            className="pl-9 h-8"
-            disabled={loading}
+          <ToolbarButton
+            icon={<History size={15} />}
+            tooltip={t("appManager.operationHistory")}
+            onClick={onToggleHistory}
+            active={historyOpen}
           />
         </div>
-        <div className="flex-1" />
-        <ToolbarButton
-          icon={<RefreshCw size={15} className={loading ? "animate-spin" : ""} />}
-          tooltip={loading ? t("appManager.scanning") : t("appManager.refresh")}
-          onClick={onScanApps}
-        />
-        <ToolbarButton
-          icon={<History size={15} />}
-          tooltip={t("appManager.operationHistory")}
-          onClick={onToggleHistory}
-          active={historyOpen}
-        />
-      </div>
-    </div>
+      }
+    />
   );
 }

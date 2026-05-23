@@ -145,6 +145,7 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                 t={t}
                 apps={apps}
                 updates={updates}
+                searchQuery={searchQuery}
                 loading={updatesLoading}
                 scanned={updatesScanned}
                 error={updatesError}
@@ -154,6 +155,7 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                 sourceFilter={updateSourceFilter}
                 expandedGroups={expandedUpdateGroups}
                 updateOperations={updateOperations}
+                onSearchQueryChange={setSearchQuery}
                 onRecheck={() => void checkAllUpdates(true)}
                 onToggleGroup={toggleUpdateGroup}
                 onToggleSelect={toggleSelectUpdate}
@@ -171,6 +173,11 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                 <AppManagerActionBar
                   t={t}
                   searchQuery={searchQuery}
+                  searchPlaceholder={
+                    activeFilter === "installList"
+                      ? t("appManager.installSearchPlaceholder")
+                      : t("appManager.searchPlaceholder")
+                  }
                   loading={loading}
                   historyOpen={historyOpen}
                   onSearchQueryChange={setSearchQuery}

@@ -168,6 +168,7 @@
       },
       "groupAll": "此源全部更新",
       "groupCount": "{{count}} 个更新",
+      "searchPlaceholder": "搜索应用名称、版本或来源...",
       "action": {
         "update": "更新",
         "openAppStore": "在 App Store 中打开",

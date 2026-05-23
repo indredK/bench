@@ -3,7 +3,7 @@
  */
 import { useMemo } from "react";
 import type { TFunction } from "i18next";
-import { CheckCircle2, RefreshCw } from "lucide-react";
+import { CheckCircle2, RefreshCw, Search } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { DetailPanel } from "@/components/layout/DetailPanel";
@@ -13,12 +13,16 @@ import type { AppOperationState } from "@/features/app-manager/model/operations"
 import { UpdaterActionBar } from "@/features/app-manager/components/UpdaterActionBar";
 import { UpdateGroupSection } from "@/features/app-manager/components/UpdateGroupSection";
 import { UpdateDetail } from "@/features/app-manager/components/UpdateDetail";
-import { UPDATE_SOURCE_ORDER } from "@/features/app-manager/model/update-source-info";
+import {
+  UPDATE_SOURCE_ORDER,
+  getUpdateSourceLabel,
+} from "@/features/app-manager/model/update-source-info";
 
 interface SoftwareUpdateViewProps {
   t: TFunction;
   apps: AppInfo[];
   updates: UpdateInfo[];
+  searchQuery: string;
   loading: boolean;
   scanned: boolean;
   error: string;
@@ -28,6 +32,7 @@ interface SoftwareUpdateViewProps {
   sourceFilter: UpdateSource | "all";
   expandedGroups: Record<UpdateSource, boolean>;
   updateOperations: Record<string, AppOperationState>;
+  onSearchQueryChange: (query: string) => void;
   onRecheck: () => void;
   onToggleGroup: (source: UpdateSource) => void;
   onToggleSelect: (appId: string) => void;
@@ -55,6 +60,7 @@ export function SoftwareUpdateView({
   t,
   apps,
   updates,
+  searchQuery,
   loading,
   scanned,
   error,
@@ -64,6 +70,7 @@ export function SoftwareUpdateView({
   sourceFilter,
   expandedGroups,
   updateOperations,
+  onSearchQueryChange,
   onRecheck,
   onToggleGroup,
   onToggleSelect,
@@ -76,6 +83,8 @@ export function SoftwareUpdateView({
   onUpdateAllVisible,
   onOpenExternal,
 }: SoftwareUpdateViewProps) {
+  const normalizedSearch = searchQuery.trim().toLowerCase();
+
   const appLookup = useMemo(() => {
     const map = new Map<string, AppInfo>();
     for (const app of apps) {
@@ -84,16 +93,30 @@ export function SoftwareUpdateView({
     return map;
   }, [apps]);
 
+  const searchedUpdates = useMemo(() => {
+    if (!normalizedSearch) return updates;
+    return updates.filter((update) => {
+      const sourceLabel = getUpdateSourceLabel(t, update.source).toLowerCase();
+      return [
+        update.appName,
+        update.appId,
+        update.currentVersion,
+        update.latestVersion,
+        sourceLabel,
+      ].some((value) => value.toLowerCase().includes(normalizedSearch));
+    });
+  }, [normalizedSearch, t, updates]);
+
   const visibleUpdates = useMemo(() => {
-    if (sourceFilter === "all") return updates;
-    return updates.filter((u) => u.source === sourceFilter);
-  }, [updates, sourceFilter]);
+    if (sourceFilter === "all") return searchedUpdates;
+    return searchedUpdates.filter((u) => u.source === sourceFilter);
+  }, [searchedUpdates, sourceFilter]);
 
   const visibleSources = useMemo(() => {
     const set = new Set<UpdateSource>();
-    for (const u of updates) set.add(u.source);
+    for (const u of searchedUpdates) set.add(u.source);
     return Array.from(set);
-  }, [updates]);
+  }, [searchedUpdates]);
 
   const grouped = useMemo(() => groupBySource(visibleUpdates), [visibleUpdates]);
 
@@ -149,6 +172,14 @@ export function SoftwareUpdateView({
         </div>
       );
     }
+    if (normalizedSearch) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full text-center gap-2">
+          <Search size={32} className="opacity-30" />
+          <p className="text-sm font-medium">{t("appManager.noResults")}</p>
+        </div>
+      );
+    }
     return (
       <div className="flex flex-col items-center justify-center h-full text-center gap-2">
         <CheckCircle2 size={36} className="text-green-500 opacity-80" />
@@ -170,12 +201,14 @@ export function SoftwareUpdateView({
     <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-3 overflow-hidden">
       <UpdaterActionBar
         t={t}
+        searchQuery={searchQuery}
         loading={loading}
-        totalCount={updates.length}
+        totalCount={searchedUpdates.length}
         visibleCount={visibleUpdates.length}
         selectedCount={visibleSelectedCount}
         visibleSources={visibleSources}
         sourceFilter={sourceFilter}
+        onSearchQueryChange={onSearchQueryChange}
         onRecheck={onRecheck}
         onUpdateAllVisible={() => onUpdateAllVisible(visibleUpdates)}
         onToggleSelectAllVisible={handleToggleSelectAllVisible}

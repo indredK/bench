@@ -6,6 +6,7 @@ import { ArrowUpCircle, CheckSquare, RefreshCw, Square, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ToolbarButton } from "@/components/ui/toolbar-button";
+import { AppManagerToolbar } from "@/features/app-manager/components/AppManagerToolbar";
 import type { UpdateSource } from "@/lib/tauri/types/app-manager";
 import {
   UPDATE_SOURCE_ORDER,
@@ -15,12 +16,14 @@ import {
 
 interface UpdaterActionBarProps {
   t: TFunction;
+  searchQuery: string;
   loading: boolean;
   totalCount: number;
   visibleCount: number;
   selectedCount: number;
   visibleSources: UpdateSource[];
   sourceFilter: UpdateSource | "all";
+  onSearchQueryChange: (query: string) => void;
   onRecheck: () => void;
   onUpdateAllVisible: () => void;
   onToggleSelectAllVisible: () => void;
@@ -30,12 +33,14 @@ interface UpdaterActionBarProps {
 
 export function UpdaterActionBar({
   t,
+  searchQuery,
   loading,
   totalCount,
   visibleCount,
   selectedCount,
   visibleSources,
   sourceFilter,
+  onSearchQueryChange,
   onRecheck,
   onUpdateAllVisible,
   onToggleSelectAllVisible,
@@ -46,50 +51,56 @@ export function UpdaterActionBar({
   const showAllChip = totalCount > 0;
 
   return (
-    <div className="shrink-0 rounded-lg border bg-card">
-      <div className="flex flex-wrap items-center gap-1.5 px-3 py-2">
-        <Button
-          variant={visibleCount > 0 ? "default" : "ghost"}
-          size="sm"
-          disabled={loading || visibleCount === 0}
-          onClick={onUpdateAllVisible}
-          className="gap-1.5"
-        >
-          <ArrowUpCircle size={14} />
-          {visibleCount > 0
-            ? t("appManager.softwareUpdate.updateAllCount", { count: visibleCount })
-            : t("appManager.softwareUpdate.updateAll")}
-        </Button>
+    <AppManagerToolbar
+      t={t}
+      searchQuery={searchQuery}
+      searchPlaceholder={t("appManager.softwareUpdate.searchPlaceholder")}
+      onSearchQueryChange={onSearchQueryChange}
+      searchDisabled={loading}
+      actions={
+        <>
+          <Button
+            variant={visibleCount > 0 ? "default" : "ghost"}
+            size="sm"
+            disabled={loading || visibleCount === 0}
+            onClick={onUpdateAllVisible}
+            className="gap-1.5"
+          >
+            <ArrowUpCircle size={14} />
+            {visibleCount > 0
+              ? t("appManager.softwareUpdate.updateAllCount", { count: visibleCount })
+              : t("appManager.softwareUpdate.updateAll")}
+          </Button>
 
-        <ToolbarButton
-          icon={<RefreshCw size={15} className={loading ? "animate-spin" : ""} />}
-          tooltip={loading ? t("appManager.softwareUpdate.checking") : t("appManager.softwareUpdate.recheck")}
-          onClick={onRecheck}
-          disabled={loading}
-        />
-
-        {visibleCount > 0 && (
           <ToolbarButton
-            icon={allSelected ? <CheckSquare size={15} /> : <Square size={15} />}
-            tooltip={allSelected ? t("appManager.softwareUpdate.deselectAll") : t("appManager.softwareUpdate.selectAll")}
-            onClick={onToggleSelectAllVisible}
-            active={allSelected}
+            icon={<RefreshCw size={15} className={loading ? "animate-spin" : ""} />}
+            tooltip={loading ? t("appManager.softwareUpdate.checking") : t("appManager.softwareUpdate.recheck")}
+            onClick={onRecheck}
+            disabled={loading}
           />
-        )}
 
-        {selectedCount > 0 && (
-          <ToolbarButton
-            icon={<X size={15} />}
-            tooltip={t("appManager.batchClear")}
-            onClick={onClearSelection}
-          />
-        )}
+          {visibleCount > 0 && (
+            <ToolbarButton
+              icon={allSelected ? <CheckSquare size={15} /> : <Square size={15} />}
+              tooltip={allSelected ? t("appManager.softwareUpdate.deselectAll") : t("appManager.softwareUpdate.selectAll")}
+              onClick={onToggleSelectAllVisible}
+              active={allSelected}
+            />
+          )}
 
-        <div className="flex-1" />
-
-        {showAllChip && (
+          {selectedCount > 0 && (
+            <ToolbarButton
+              icon={<X size={15} />}
+              tooltip={t("appManager.batchClear")}
+              onClick={onClearSelection}
+            />
+          )}
+        </>
+      }
+      rightContent={
+        showAllChip ? (
           <div className="flex flex-wrap items-center gap-1">
-            <span className="text-xs text-muted-foreground mr-1">
+            <span className="mr-1 text-xs text-muted-foreground">
               {t("appManager.softwareUpdate.filterBySource")}:
             </span>
             <Badge
@@ -111,8 +122,8 @@ export function UpdaterActionBar({
               </Badge>
             ))}
           </div>
-        )}
-      </div>
-    </div>
+        ) : null
+      }
+    />
   );
 }
