@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.8.10](https://github.com/indredK/bench/compare/v1.8.9...v1.8.10) (2026-05-23)
+
+
+### Bug Fixes
+
+* **app-manager:** 生产构建图标不显示 — CSP 补 img-src data: ([17af422](https://github.com/indredK/bench/commit/17af4228ef75271684ab87b9888fb0968930b6e9))
+* **ui/i18n:** 4 项跨模块修复 ([#066](https://github.com/indredK/bench/issues/066) [#069](https://github.com/indredK/bench/issues/069) [#084](https://github.com/indredK/bench/issues/084) [#109](https://github.com/indredK/bench/issues/109)) ([b907d7c](https://github.com/indredK/bench/commit/b907d7c8a4cefcb0fb2f1e3dc69a9be6fed602c1))
+
 ## [1.8.9](https://github.com/indredK/bench/compare/v1.8.8...v1.8.9) (2026-05-23)
 
 
