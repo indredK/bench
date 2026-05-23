@@ -78,6 +78,34 @@ export function filterInstallListApps({
   return result;
 }
 
+export function getInstalledFilterCounts(apps: AppInfo[]): Record<AppFilterKey, number> {
+  const counts: Record<AppFilterKey, number> = {
+    all: apps.length,
+    user: 0,
+    system: 0,
+    launchable: 0,
+    managed: 0,
+  };
+
+  for (const app of apps) {
+    if (app.isSystemApp) {
+      counts.system += 1;
+    } else {
+      counts.user += 1;
+    }
+
+    if (app.allowedActions.launch) {
+      counts.launchable += 1;
+    }
+
+    if (app.canUpgrade || app.canUninstall) {
+      counts.managed += 1;
+    }
+  }
+
+  return counts;
+}
+
 function filterInstalledApps({
   apps,
   searchQuery,

@@ -15,6 +15,7 @@ import { SoftwareUpdateView } from "@/features/app-manager/components/SoftwareUp
 import { UpdateBlockingDialogs } from "@/features/app-manager/components/UpdateBlockingDialogs";
 import { UpdateProgressDialog } from "@/features/app-manager/components/UpdateProgressDialog";
 import { useAppManagerController } from "@/features/app-manager/hooks/useAppManagerController";
+import { getInstalledFilterCounts } from "@/features/app-manager/model/selectors";
 import { APP_FILTER_OPTIONS, MARKETPLACE_FILTER_OPTIONS } from "@/features/app-manager/model/store-types";
 import type { AppFilterKey, MarketplaceFilterKey } from "@/features/app-manager/model/preferences";
 import type { AppInfo, InstallListAppInfo } from "@/lib/tauri/types/app-manager";
@@ -115,15 +116,11 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
     setSelectedUpdate,
   } = controller;
 
+  const installedFilterCounts = getInstalledFilterCounts(apps);
   const installedTypeFilterOptions = APP_FILTER_OPTIONS.map((option) => ({
     key: option.key,
     label: t(option.labelKey),
-    count:
-      option.key === "all"
-        ? apps.length
-        : option.key === "managed"
-          ? result?.managedCount ?? 0
-        : undefined,
+    count: installedFilterCounts[option.key],
   }));
 
   const marketplaceInstalledCount = installListApps.filter((app) => app.installed).length;
