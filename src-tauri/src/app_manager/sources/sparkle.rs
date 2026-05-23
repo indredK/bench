@@ -3,6 +3,7 @@ use crate::app_manager::types::{AppInfo, UpdateInfo, UpdateSource};
 use async_trait::async_trait;
 use quick_xml::events::Event;
 use quick_xml::Reader;
+use serde::Deserialize;
 use std::path::Path;
 use std::time::Duration;
 
@@ -15,6 +16,38 @@ pub fn read_su_feed_url(install_path: &str) -> Option<String> {
         .and_then(|v| v.as_string())
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
+}
+
+/// Detect a Squirrel.Mac-hosted app. Presence of Squirrel.framework or the
+/// ShipIt helper is a strong signal; the feed still uses Sparkle's SUFeedURL.
+pub fn is_squirrel_app(install_path: &str) -> bool {
+    let p = Path::new(install_path);
+    p.join("Contents/Frameworks/Squirrel.framework").exists()
+        || p.join("Contents/Frameworks/ShipIt").exists()
+}
+
+fn append_squirrel_query(url: &str, version: &str) -> String {
+    let arch = if cfg!(target_arch = "aarch64") {
+        "arm64"
+    } else {
+        "x64"
+    };
+    let sep = if url.contains('?') { '&' } else { '?' };
+    format!("{url}{sep}version={version}&platform=darwin&arch={arch}")
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct SquirrelFeed {
+    pub url: String,
+    pub name: String,
+    #[serde(default)]
+    pub notes: Option<String>,
+    #[serde(default)]
+    pub pub_date: Option<String>,
+}
+
+pub fn parse_squirrel_json(body: &str) -> Result<SquirrelFeed, String> {
+    serde_json::from_str::<SquirrelFeed>(body).map_err(|e| format!("SU_SQUIRREL_JSON: {e}"))
 }
 
 #[derive(Debug, Default, Clone)]
@@ -153,7 +186,7 @@ fn normalize_version(v: &str) -> String {
 }
 
 /// `a < b`? Compare semver, with build-number fallback.
-fn version_lt(a: &str, b: &str) -> bool {
+pub(crate) fn version_lt(a: &str, b: &str) -> bool {
     let a = normalize_version(a);
     let b = normalize_version(b);
     if let (Ok(va), Ok(vb)) = (semver::Version::parse(&a), semver::Version::parse(&b)) {
@@ -244,20 +277,47 @@ impl UpdaterSource for SparkleSource {
             return Ok(None);
         };
 
+        let is_squirrel = is_squirrel_app(&app.install_path);
+        // Squirrel servers expect ?version= so they can return 204 when up-to-date.
+        let request_url = if is_squirrel {
+            append_squirrel_query(&feed_url, &app.version)
+        } else {
+            feed_url.clone()
+        };
+
         let resp = self
             .client
-            .get(&feed_url)
+            .get(&request_url)
             .send()
             .await
             .map_err(|e| format!("SU_SPARKLE_HTTP: {e}"))?;
+        if resp.status() == reqwest::StatusCode::NO_CONTENT {
+            return Ok(None);
+        }
         if !resp.status().is_success() {
             return Err(format!("SU_SPARKLE_HTTP: {}", resp.status()));
         }
+        let content_type = resp
+            .headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("")
+            .to_lowercase();
         let body = resp
             .text()
             .await
             .map_err(|e| format!("SU_SPARKLE_HTTP: {e}"))?;
+        let trimmed = body.trim_start();
+        if trimmed.is_empty() {
+            return Ok(None);
+        }
 
+        let looks_json = content_type.contains("json") || trimmed.starts_with('{');
+        if is_squirrel || looks_json {
+            return build_squirrel_update(&body, app, &feed_url);
+        }
+
+        // Sparkle XML path (existing behaviour).
         let items = parse_appcast(&body)?;
         let Some(latest) = pick_latest(items) else {
             return Ok(None);
@@ -289,6 +349,38 @@ impl UpdaterSource for SparkleSource {
             ignored: false,
         }))
     }
+}
+
+fn build_squirrel_update(
+    body: &str,
+    app: &AppInfo,
+    feed_url: &str,
+) -> Result<Option<UpdateInfo>, String> {
+    let feed = parse_squirrel_json(body)?;
+    let latest_version = feed
+        .name
+        .trim()
+        .trim_start_matches('v')
+        .trim_start_matches('V')
+        .to_string();
+    if latest_version.is_empty() || !version_lt(&app.version, &latest_version) {
+        return Ok(None);
+    }
+    Ok(Some(UpdateInfo {
+        app_id: app.app_id.clone(),
+        app_name: app.name.clone(),
+        source: UpdateSource::Squirrel,
+        current_version: app.version.clone(),
+        latest_version,
+        download_url: Some(feed.url),
+        adam_id: None,
+        release_notes_url: None,
+        release_notes_inline: feed.notes,
+        size: None,
+        source_meta: feed.pub_date.map(|d| serde_json::json!({ "pubDate": d })),
+        feed_url: Some(feed_url.to_string()),
+        ignored: false,
+    }))
 }
 
 #[cfg(test)]
@@ -373,5 +465,102 @@ mod tests {
         // quick-xml may or may not error on this depending on event; either is fine
         // as long as it doesn't panic.
         let _ = result;
+    }
+
+    #[test]
+    fn parses_squirrel_json_feed() {
+        let body = r###"{
+  "url": "https://example.com/Slack-4.32.0-macos.zip",
+  "name": "4.32.0",
+  "notes": "## What's New\n- Bug fixes",
+  "pub_date": "2026-01-15T10:00:00Z"
+}"###;
+        let feed = parse_squirrel_json(body).expect("parses");
+        assert_eq!(feed.name, "4.32.0");
+        assert_eq!(feed.url, "https://example.com/Slack-4.32.0-macos.zip");
+        assert!(feed.notes.unwrap().contains("Bug fixes"));
+    }
+
+    #[test]
+    fn squirrel_json_missing_optional_fields_ok() {
+        let body = r#"{ "url": "https://e.com/app.zip", "name": "1.2.3" }"#;
+        let feed = parse_squirrel_json(body).expect("parses");
+        assert!(feed.notes.is_none());
+        assert!(feed.pub_date.is_none());
+    }
+
+    #[test]
+    fn squirrel_json_malformed_errors() {
+        let result = parse_squirrel_json("not json");
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.starts_with("SU_SQUIRREL_JSON:"));
+    }
+
+    #[test]
+    fn squirrel_query_appends_with_and_without_existing_qs() {
+        assert_eq!(
+            append_squirrel_query("https://e.com/feed", "1.0.0"),
+            format!(
+                "https://e.com/feed?version=1.0.0&platform=darwin&arch={}",
+                if cfg!(target_arch = "aarch64") { "arm64" } else { "x64" }
+            )
+        );
+        assert_eq!(
+            append_squirrel_query("https://e.com/feed?token=abc", "1.0.0"),
+            format!(
+                "https://e.com/feed?token=abc&version=1.0.0&platform=darwin&arch={}",
+                if cfg!(target_arch = "aarch64") { "arm64" } else { "x64" }
+            )
+        );
+    }
+
+    fn make_app(version: &str) -> AppInfo {
+        AppInfo {
+            app_id: "demo".into(),
+            name: "Demo".into(),
+            version: version.into(),
+            bundle_id: "com.example.demo".into(),
+            install_path: "/Applications/Demo.app".into(),
+            source: "MacBundle".into(),
+            source_type: "MacBundle".into(),
+            source_id: String::new(),
+            source_confidence: 0.0,
+            can_upgrade: false,
+            can_uninstall: false,
+            upgrade_available: false,
+            last_operation_result: None,
+            last_modified: 0,
+            is_system_app: false,
+            allowed_actions: crate::app_manager::types::AllowedActions {
+                launch: true,
+                reveal: true,
+                upgrade: true,
+                uninstall: true,
+            },
+            icon_base64: None,
+        }
+    }
+
+    #[test]
+    fn build_squirrel_update_skips_when_up_to_date() {
+        let body = r#"{ "url": "https://e.com/a.zip", "name": "1.0.0" }"#;
+        let app = make_app("1.0.0");
+        let result = build_squirrel_update(body, &app, "https://e.com/feed")
+            .expect("ok");
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn build_squirrel_update_returns_squirrel_source() {
+        let body = r#"{ "url": "https://e.com/a.zip", "name": "v2.1.0", "notes": "notes" }"#;
+        let app = make_app("2.0.0");
+        let info = build_squirrel_update(body, &app, "https://e.com/feed")
+            .expect("ok")
+            .expect("has update");
+        assert_eq!(info.source, UpdateSource::Squirrel);
+        assert_eq!(info.latest_version, "2.1.0");
+        assert_eq!(info.download_url.as_deref(), Some("https://e.com/a.zip"));
+        assert_eq!(info.release_notes_inline.as_deref(), Some("notes"));
     }
 }

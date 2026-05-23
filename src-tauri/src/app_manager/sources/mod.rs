@@ -2,6 +2,7 @@ use crate::app_manager::types::{AppInfo, UpdateInfo, UpdateSource};
 use async_trait::async_trait;
 use std::sync::Arc;
 
+pub mod electron;
 pub mod homebrew;
 pub mod mac_app_store;
 pub mod sparkle;
@@ -35,12 +36,16 @@ impl SourceRegistry {
         self.sources.push(source);
     }
 
-    /// Default macOS v1.0 registry: Homebrew + Mac App Store + Sparkle.
+    /// Default macOS registry: Homebrew + Mac App Store + Electron + Sparkle.
     /// Order matters — the first matching source wins for a given app.
+    /// Sparkle is the catch-all; ElectronSource must run before it so apps with
+    /// both an Electron framework and an SUFeedURL are routed to electron-updater.
+    /// SparkleSource internally branches Squirrel.Mac via JSON detection.
     pub fn default_macos() -> Self {
         let mut reg = Self::new();
         reg.register(Arc::new(homebrew::HomebrewSource::new()));
         reg.register(Arc::new(mac_app_store::MacAppStoreSource::new()));
+        reg.register(Arc::new(electron::ElectronSource::new()));
         reg.register(Arc::new(sparkle::SparkleSource::new()));
         reg
     }

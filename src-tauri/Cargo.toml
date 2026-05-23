@@ -33,6 +33,7 @@ minisign-verify = "0.2.5"
 plist = "1"
 async-trait = "0.1"
 quick-xml = { version = "0.36", features = ["serialize"] }
+serde_yaml = "0.9"
 semver = "1"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "gzip", "brotli"] }
 
