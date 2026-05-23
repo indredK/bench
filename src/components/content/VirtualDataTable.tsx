@@ -13,6 +13,7 @@ import {
 } from "@tanstack/react-table";
 import type { SortingState, OnChangeFn } from "@tanstack/react-table";
 import { cn } from "@/lib/utils";
+import { AnimatePresence, motion } from "motion/react";
 import { Check } from "lucide-react";
 
 interface VirtualDataTableProps<T> {
@@ -200,7 +201,20 @@ export function VirtualDataTable<T>({
                       ? "bg-primary border-primary text-primary-foreground"
                       : "border-muted-foreground/40"
                   )}>
-                    {isBatchSelected && <Check size={10} strokeWidth={3} />}
+                    <AnimatePresence initial={false}>
+                      {isBatchSelected && (
+                        <motion.span
+                          key="check"
+                          initial={{ scale: 0, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          exit={{ scale: 0, opacity: 0 }}
+                          transition={{ type: "spring", stiffness: 700, damping: 28 }}
+                          className="inline-flex"
+                        >
+                          <Check size={10} strokeWidth={3} />
+                        </motion.span>
+                      )}
+                    </AnimatePresence>
                   </div>
                 </div>
               )}

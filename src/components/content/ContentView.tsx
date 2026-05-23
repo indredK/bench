@@ -3,6 +3,7 @@
  */
 import { type ReactNode } from "react";
 import { type ColumnDef, type SortingState, type OnChangeFn } from "@tanstack/react-table";
+import { AnimatePresence, motion } from "motion/react";
 import { RefreshCw, Search } from "lucide-react";
 import { VirtualDataTable } from "./VirtualDataTable";
 import { VirtualGridView } from "./VirtualGridView";
@@ -142,7 +143,19 @@ export function ContentView<T>({
           {summary && <span className="text-sm text-muted-foreground">{summary}</span>}
         </div>
         <div className="flex items-center gap-2">
-          {rightActions}
+          <AnimatePresence initial={false} mode="popLayout">
+            {rightActions && (
+              <motion.div
+                key="right-actions"
+                initial={{ opacity: 0, x: 8 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 8 }}
+                transition={{ duration: 0.16, ease: "easeOut" }}
+              >
+                {rightActions}
+              </motion.div>
+            )}
+          </AnimatePresence>
           {showViewToggle && <ViewToggle viewMode={viewMode} onChange={onViewModeChange} />}
         </div>
       </div>
