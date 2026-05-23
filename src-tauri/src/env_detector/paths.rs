@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::env;
+#[cfg(target_os = "macos")]
 use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};

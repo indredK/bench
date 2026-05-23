@@ -63,7 +63,7 @@ impl WingetColumns {
 
 /// Locate the winget header line and return remaining data lines (skipping the
 /// dash separator immediately after the header).
-fn find_winget_table<'a>(stdout: &'a str) -> Option<(WingetColumns, Vec<&'a str>)> {
+fn find_winget_table(stdout: &str) -> Option<(WingetColumns, Vec<&str>)> {
     let lines: Vec<&str> = stdout.lines().collect();
     for (i, line) in lines.iter().enumerate() {
         if let Some(cols) = WingetColumns::from_header(line) {

@@ -5,6 +5,7 @@ use crate::app_manager::{
 };
 use std::collections::HashSet;
 use std::fs;
+#[cfg(unix)]
 use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -362,6 +363,7 @@ fn spawn_detached(mut command: Command) -> Result<(), String> {
         .stderr(Stdio::null());
     // SAFETY: `setsid` is async-signal-safe; no allocation/locks are taken
     // between fork and exec.
+    #[cfg(unix)]
     unsafe {
         command.pre_exec(|| {
             extern "C" {
