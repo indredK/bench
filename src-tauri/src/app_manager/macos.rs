@@ -43,6 +43,23 @@ fn brew_path() -> Option<String> {
     find_brew().map(|p| p.to_string_lossy().to_string())
 }
 
+/// Verify that the located brew binary is actually executable and behaves
+/// like Homebrew. `brew_path` only checks for file existence, but the binary
+/// could be a broken symlink, lack execute permissions, or be a stub left by
+/// an uninstall (#023). We run `brew --version` and require the success exit
+/// status with stdout that starts with "Homebrew" before reporting brew as
+/// available.
+fn brew_works(brew: &str) -> bool {
+    let Ok(output) = Command::new(brew).arg("--version").output() else {
+        return false;
+    };
+    if !output.status.success() {
+        return false;
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    stdout.trim_start().starts_with("Homebrew")
+}
+
 fn list_installed_casks(brew: &str) -> Result<HashSet<String>, String> {
     let output = Command::new(brew)
         .args(["list", "--cask"])
@@ -186,14 +203,16 @@ pub fn scan_installed_apps(state: tauri::State<'_, AppManagerState>) -> ScanResu
     }
 
     let brew = brew_path();
-    let brew_available = brew.is_some();
+    let brew_available = brew.as_deref().map(brew_works).unwrap_or(false);
     let mut installed_casks = HashSet::new();
     let mut outdated_casks = HashSet::new();
 
-    if let Some(ref brew_bin) = brew {
-        if let Ok((casks, outdated)) = map_casks(brew_bin) {
-            installed_casks = casks;
-            outdated_casks = outdated;
+    if brew_available {
+        if let Some(ref brew_bin) = brew {
+            if let Ok((casks, outdated)) = map_casks(brew_bin) {
+                installed_casks = casks;
+                outdated_casks = outdated;
+            }
         }
     }
 
@@ -722,4 +741,27 @@ pub fn install_app(
     }
 
     Err("No suitable installation method available for this application".into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn brew_works_returns_false_for_nonexistent_path() {
+        // Regression #023: brew_path() only checked file existence, so a stale
+        // symlink or non-Homebrew binary at one of BREW_PATHS used to be
+        // reported as available, breaking later `brew list --cask` calls.
+        assert!(!brew_works("/nonexistent/brew"));
+    }
+
+    #[test]
+    fn brew_works_returns_false_for_non_brew_binary() {
+        // `/bin/echo` is a well-known POSIX binary that exits successfully
+        // but does NOT print "Homebrew", so the version-string probe must
+        // reject it as a fake brew. Skip on systems without /bin/echo.
+        if Path::new("/bin/echo").exists() {
+            assert!(!brew_works("/bin/echo"));
+        }
+    }
 }
