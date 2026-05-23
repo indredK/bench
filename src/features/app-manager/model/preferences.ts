@@ -10,6 +10,11 @@ export type AppFilterKey =
   | "launchable"
   | "managed";
 
+export type MarketplaceFilterKey =
+  | "all"
+  | "pending"
+  | "installed";
+
 export interface PersistedPreferences {
   activeFilter: AppFilterKey;
   sorting: SortingState;

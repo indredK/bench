@@ -14,7 +14,10 @@ import type {
   AppManagerState,
   AppManagerTabKey,
 } from "@/features/app-manager/model/store-types";
-import type { AppFilterKey } from "@/features/app-manager/model/preferences";
+import type {
+  AppFilterKey,
+  MarketplaceFilterKey,
+} from "@/features/app-manager/model/preferences";
 import type { OperationStatus } from "@/features/app-manager/model/operations";
 import { createInitialAppManagerState } from "@/features/app-manager/model/store-state";
 
@@ -24,6 +27,7 @@ export function createAppManagerBasicActions(set: SetState) {
   return {
     setSearchQuery: (query: string) => set({ searchQuery: query }),
     setActiveFilter: (filter: AppFilterKey) => set({ activeFilter: filter }),
+    setMarketplaceFilter: (filter: MarketplaceFilterKey) => set({ marketplaceFilter: filter }),
     setCategoryFilter: (category: AppCategoryKey | null) => set({ categoryFilter: category }),
     setSeriesFilter: (series: AppSeriesKey | null) => set({ seriesFilter: series }),
     setSorting: (sorting: Updater<SortingState>) =>

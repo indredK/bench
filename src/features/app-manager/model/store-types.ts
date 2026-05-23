@@ -20,9 +20,13 @@ import type {
   BatchProgress,
   OperationStatus,
 } from "@/features/app-manager/model/operations";
-import type { AppFilterKey } from "@/features/app-manager/model/preferences";
+import type {
+  AppFilterKey,
+  MarketplaceFilterKey,
+} from "@/features/app-manager/model/preferences";
 
 export type { AppFilterKey };
+export type { MarketplaceFilterKey };
 
 export const APP_FILTER_OPTIONS = [
   { key: "all" as const, labelKey: "appManager.filterAll" },
@@ -30,6 +34,12 @@ export const APP_FILTER_OPTIONS = [
   { key: "system" as const, labelKey: "appManager.filterSystem" },
   { key: "launchable" as const, labelKey: "appManager.filterLaunchable" },
   { key: "managed" as const, labelKey: "appManager.filterManaged" },
+];
+
+export const MARKETPLACE_FILTER_OPTIONS = [
+  { key: "all" as const, labelKey: "appManager.filterAll" },
+  { key: "pending" as const, labelKey: "appManager.installListPending" },
+  { key: "installed" as const, labelKey: "appManager.installListInstalled" },
 ];
 
 export type AppManagerTabKey = "installed" | "softwareUpdate" | "marketplace";
@@ -40,6 +50,7 @@ export interface AppManagerState {
   error: string;
   searchQuery: string;
   activeFilter: AppFilterKey;
+  marketplaceFilter: MarketplaceFilterKey;
   categoryFilter: AppCategoryKey | null;
   seriesFilter: AppSeriesKey | null;
   sorting: SortingState;
@@ -107,6 +118,7 @@ export interface AppManagerState {
 
   setSearchQuery: (query: string) => void;
   setActiveFilter: (filter: AppFilterKey) => void;
+  setMarketplaceFilter: (filter: MarketplaceFilterKey) => void;
   setCategoryFilter: (category: AppCategoryKey | null) => void;
   setSeriesFilter: (series: AppSeriesKey | null) => void;
   setSorting: (sorting: Updater<SortingState>) => void;

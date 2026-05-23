@@ -39,6 +39,7 @@ export function useAppManagerController(active: boolean) {
   const error = useAppManagerStore((s) => s.error);
   const searchQuery = useAppManagerStore((s) => s.searchQuery);
   const activeFilter = useAppManagerStore((s) => s.activeFilter);
+  const marketplaceFilter = useAppManagerStore((s) => s.marketplaceFilter);
   const categoryFilter = useAppManagerStore((s) => s.categoryFilter);
   const seriesFilter = useAppManagerStore((s) => s.seriesFilter);
   const sorting = useAppManagerStore((s) => s.sorting);
@@ -77,6 +78,7 @@ export function useAppManagerController(active: boolean) {
 
   const setSearchQuery = useAppManagerStore((s) => s.setSearchQuery);
   const setActiveFilter = useAppManagerStore((s) => s.setActiveFilter);
+  const setMarketplaceFilter = useAppManagerStore((s) => s.setMarketplaceFilter);
   const setCategoryFilter = useAppManagerStore((s) => s.setCategoryFilter);
   const setSeriesFilter = useAppManagerStore((s) => s.setSeriesFilter);
   const setSorting = useAppManagerStore((s) => s.setSorting);
@@ -643,10 +645,11 @@ export function useAppManagerController(active: boolean) {
       filterInstallListApps({
         installListApps,
         searchQuery,
+        marketplaceFilter,
         categoryFilter,
         seriesFilter,
       }),
-    [installListApps, searchQuery, categoryFilter, seriesFilter]
+    [installListApps, searchQuery, marketplaceFilter, categoryFilter, seriesFilter]
   );
 
   const handleLaunch = useCallback(
@@ -703,7 +706,7 @@ export function useAppManagerController(active: boolean) {
   useEffect(() => {
     setInstallDetailItem(null);
     clearInstallSelection();
-  }, [activeTab, categoryFilter, seriesFilter, searchQuery, clearInstallSelection]);
+  }, [activeTab, categoryFilter, marketplaceFilter, seriesFilter, searchQuery, clearInstallSelection]);
 
   const handleBatchInstall = useCallback(() => {
     if (selectedInstallIds.size === 0) return;
@@ -885,6 +888,7 @@ export function useAppManagerController(active: boolean) {
 
   const marketplaceFilterCount =
     (searchQuery.trim() ? 1 : 0) +
+    (marketplaceFilter !== "all" ? 1 : 0) +
     ((categoryFilter || seriesFilter) ? 1 : 0);
   const visibleInstallListInstalledCount = filteredInstallListApps.filter((app) => app.installed).length;
   const visibleInstallListPendingCount = filteredInstallListApps.length - visibleInstallListInstalledCount;
@@ -897,6 +901,7 @@ export function useAppManagerController(active: boolean) {
     error,
     searchQuery,
     activeFilter,
+    marketplaceFilter,
     categoryFilter,
     seriesFilter,
     sorting,
@@ -943,6 +948,7 @@ export function useAppManagerController(active: boolean) {
     installListColumns,
     setSearchQuery,
     setActiveFilter,
+    setMarketplaceFilter,
     setCategoryFilter,
     setSeriesFilter,
     setSorting,

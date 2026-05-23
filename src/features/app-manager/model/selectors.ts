@@ -6,7 +6,7 @@ import type { AppCategoryKey } from "@/features/app-manager/app-categories";
 import { classifyApp } from "@/features/app-manager/app-categories";
 import type { AppSeriesKey } from "@/features/app-manager/app-series";
 import { classifySeries } from "@/features/app-manager/app-series";
-import type { AppFilterKey } from "@/features/app-manager/model/preferences";
+import type { AppFilterKey, MarketplaceFilterKey } from "@/features/app-manager/model/preferences";
 
 interface FilterAppManagerItemsOptions {
   apps: AppInfo[];
@@ -19,6 +19,7 @@ interface FilterAppManagerItemsOptions {
 interface FilterInstallListAppsOptions {
   installListApps: InstallListAppInfo[];
   searchQuery: string;
+  marketplaceFilter: MarketplaceFilterKey;
   categoryFilter: AppCategoryKey | null;
   seriesFilter: AppSeriesKey | null;
 }
@@ -42,6 +43,7 @@ export function filterAppManagerItems({
 export function filterInstallListApps({
   installListApps,
   searchQuery,
+  marketplaceFilter,
   categoryFilter,
   seriesFilter,
 }: FilterInstallListAppsOptions): InstallListAppInfo[] {
@@ -58,6 +60,15 @@ export function filterInstallListApps({
 
   if (categoryFilter) {
     result = result.filter((app) => app.category === categoryFilter);
+  }
+
+  switch (marketplaceFilter) {
+    case "pending":
+      result = result.filter((app) => !app.installed);
+      break;
+    case "installed":
+      result = result.filter((app) => app.installed);
+      break;
   }
 
   if (seriesFilter) {

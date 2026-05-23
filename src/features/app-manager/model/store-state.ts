@@ -8,6 +8,7 @@ type AppManagerDataState = Omit<
   AppManagerState,
   | "setSearchQuery"
   | "setActiveFilter"
+  | "setMarketplaceFilter"
   | "setCategoryFilter"
   | "setSeriesFilter"
   | "setSorting"
@@ -65,6 +66,7 @@ export function createInitialAppManagerState(): AppManagerDataState {
     error: "",
     searchQuery: "",
     activeFilter: "all",
+    marketplaceFilter: "all",
     categoryFilter: null,
     seriesFilter: null,
     sorting: [{ id: "name", desc: false }],
