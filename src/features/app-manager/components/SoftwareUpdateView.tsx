@@ -126,11 +126,12 @@ export function SoftwareUpdateView({
       })),
     [grouped]
   );
+  const hasGroups = orderedGroups.length > 0;
 
   const renderEmpty = () => {
     if (loading) {
       return (
-        <div className="flex flex-col items-center justify-center h-full text-center gap-3">
+        <div className="flex max-w-sm flex-col items-center justify-center gap-3 text-center">
           <RefreshCw size={32} className="opacity-40 animate-spin" />
           <p className="text-sm text-muted-foreground">
             {t("appManager.softwareUpdate.checking")}
@@ -140,7 +141,7 @@ export function SoftwareUpdateView({
     }
     if (!scanned) {
       return (
-        <div className="flex flex-col items-center justify-center h-full text-center gap-3">
+        <div className="flex max-w-sm flex-col items-center justify-center gap-3 text-center">
           <RefreshCw size={32} className="opacity-30" />
           <p className="text-sm text-muted-foreground">
             {t("appManager.softwareUpdate.empty.neverChecked")}
@@ -154,14 +155,14 @@ export function SoftwareUpdateView({
     }
     if (normalizedSearch) {
       return (
-        <div className="flex flex-col items-center justify-center h-full text-center gap-2">
+        <div className="flex max-w-sm flex-col items-center justify-center gap-2 text-center">
           <Search size={32} className="opacity-30" />
           <p className="text-sm font-medium">{t("appManager.noResults")}</p>
         </div>
       );
     }
     return (
-      <div className="flex flex-col items-center justify-center h-full text-center gap-2">
+      <div className="flex max-w-sm flex-col items-center justify-center gap-2 text-center">
         <CheckCircle2 size={36} className="text-green-500 opacity-80" />
         <p className="text-sm font-medium">
           {t("appManager.softwareUpdate.empty.allUpToDate")}
@@ -207,10 +208,16 @@ export function SoftwareUpdateView({
         filter={null}
         content={
           <div className="flex h-full min-h-0 flex-col overflow-hidden">
-            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pr-1 pb-3">
-              <div className="flex min-h-full flex-col gap-3">
-                {orderedGroups.length === 0 ? (
-                  <div className="flex-1 min-h-0 rounded-lg border bg-card">
+            <div
+              className={
+                hasGroups
+                  ? "flex-1 min-h-0 overflow-y-auto overscroll-contain pr-1 pb-3"
+                  : "flex-1 min-h-0 overflow-hidden"
+              }
+            >
+              <div className={hasGroups ? "flex min-h-full flex-col gap-3" : "flex h-full min-h-0 flex-col"}>
+                {!hasGroups ? (
+                  <div className="flex flex-1 min-h-0 items-center justify-center rounded-lg border bg-card p-6">
                     {renderEmpty()}
                   </div>
                 ) : (
