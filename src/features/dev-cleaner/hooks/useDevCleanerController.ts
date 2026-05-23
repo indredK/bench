@@ -13,6 +13,7 @@ import { useDevCleanerStore, filterTypeMap } from "@/features/dev-cleaner/store"
 import type { ProjectInfo } from "@/lib/tauri/types";
 import { canUseDesktopFeatures } from "@/platform/capabilities";
 import { writeClipboardText } from "@/platform/clipboard";
+import { formatSize } from "@/lib/utils";
 
 export function useDevCleanerController() {
   const { t } = useTranslation();
@@ -85,7 +86,7 @@ export function useDevCleanerController() {
         scanResult: result,
         selectedProjects: {},
         isScanning: false,
-        cleanupMessage: devCleanerUseCases.createScanStoppedMessage(result),
+        cleanupMessage: devCleanerUseCases.createScanStoppedMessage(result, t),
       });
     } catch (error) {
       useDevCleanerStore.setState({
@@ -120,7 +121,10 @@ export function useDevCleanerController() {
 
       if (result.success) {
         useDevCleanerStore.setState({
-          cleanupMessage: { type: "success", text: `Cleaned up ${result.cleaned_size} bytes` },
+          cleanupMessage: {
+            type: "success",
+            text: t("devCleaner.cleanupSuccess", { size: formatSize(result.cleaned_size) }),
+          },
           selectedProjects: {},
         });
         // Auto-rescan after the success toast settles. The timer is tracked

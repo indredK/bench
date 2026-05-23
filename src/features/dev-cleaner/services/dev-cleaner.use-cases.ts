@@ -2,9 +2,11 @@
  * Use Case / 用例层: coordinate business rules; 只编排业务规则.
  */
 import type { RowSelectionState } from "@tanstack/react-table";
+import type { TFunction } from "i18next";
 import type { ProjectInfo, ScanResult } from "@/lib/tauri/types/dev-cleaner";
 import { devCleanerRepository } from "@/features/dev-cleaner/services/dev-cleaner.repository";
 import { canUseDesktopFeatures } from "@/platform/capabilities";
+import { formatSize } from "@/lib/utils";
 
 export interface CleanupMessage {
   type: "success" | "error";
@@ -39,11 +41,14 @@ export const devCleanerUseCases = {
     return devCleanerRepository.cleanupProjects(projects);
   },
 
-  createScanStoppedMessage(result: ScanResult): CleanupMessage | null {
+  createScanStoppedMessage(result: ScanResult, t: TFunction): CleanupMessage | null {
     return result.aborted
       ? {
           type: "success",
-          text: `Scan stopped. Found ${result.total_projects} projects`,
+          text: t("devCleaner.scanStopped", {
+            count: result.total_projects,
+            size: formatSize(result.total_cleanup_size),
+          }),
         }
       : null;
   },
