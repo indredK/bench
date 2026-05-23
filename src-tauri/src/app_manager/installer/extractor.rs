@@ -59,10 +59,10 @@ pub fn find_app_bundle(root: &Path) -> Result<PathBuf, String> {
 /// Extract a `.zip` archive to `work_dir` and return the path of the contained
 /// `.app` bundle. Restores Unix permissions so executable bits survive.
 pub fn extract_zip(zip_path: &Path, work_dir: &Path) -> Result<PathBuf, String> {
-    let file = std::fs::File::open(zip_path)
-        .map_err(|e| format!("SU_EXTRACT_FAIL: open zip {e}"))?;
-    let mut archive = zip::ZipArchive::new(file)
-        .map_err(|e| format!("SU_EXTRACT_FAIL: read zip {e}"))?;
+    let file =
+        std::fs::File::open(zip_path).map_err(|e| format!("SU_EXTRACT_FAIL: open zip {e}"))?;
+    let mut archive =
+        zip::ZipArchive::new(file).map_err(|e| format!("SU_EXTRACT_FAIL: read zip {e}"))?;
 
     for i in 0..archive.len() {
         let mut entry = archive
@@ -76,8 +76,7 @@ pub fn extract_zip(zip_path: &Path, work_dir: &Path) -> Result<PathBuf, String> 
         let outpath = work_dir.join(&rel);
 
         if entry.is_dir() {
-            std::fs::create_dir_all(&outpath)
-                .map_err(|e| format!("SU_EXTRACT_FAIL: mkdir {e}"))?;
+            std::fs::create_dir_all(&outpath).map_err(|e| format!("SU_EXTRACT_FAIL: mkdir {e}"))?;
         } else {
             if let Some(parent) = outpath.parent() {
                 std::fs::create_dir_all(parent)
@@ -104,8 +103,7 @@ pub fn extract_zip(zip_path: &Path, work_dir: &Path) -> Result<PathBuf, String> 
 /// Returns the path of the local copy of the `.app`.
 pub fn extract_dmg(dmg_path: &Path, work_dir: &Path) -> Result<PathBuf, String> {
     let mount_dir = work_dir.join("mnt");
-    std::fs::create_dir_all(&mount_dir)
-        .map_err(|e| format!("SU_HDIUTIL_FAIL: mkdir mount {e}"))?;
+    std::fs::create_dir_all(&mount_dir).map_err(|e| format!("SU_HDIUTIL_FAIL: mkdir mount {e}"))?;
 
     let attach = std::process::Command::new("hdiutil")
         .arg("attach")

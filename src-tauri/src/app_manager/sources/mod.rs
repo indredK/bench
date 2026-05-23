@@ -57,10 +57,7 @@ impl SourceRegistry {
 
     /// Find the first matching source for `app`, if any.
     pub fn match_source(&self, app: &AppInfo) -> Option<Arc<dyn UpdaterSource>> {
-        self.sources
-            .iter()
-            .find(|s| s.applies_to(app))
-            .cloned()
+        self.sources.iter().find(|s| s.applies_to(app)).cloned()
     }
 
     /// Scan every app across every applicable source. Concurrency capped at
@@ -82,12 +79,7 @@ impl SourceRegistry {
                 match source.check_for_update(&app).await {
                     Ok(opt) => opt,
                     Err(err) => {
-                        eprintln!(
-                            "[updater] {} {} failed: {}",
-                            source.id(),
-                            app.app_id,
-                            err
-                        );
+                        eprintln!("[updater] {} {} failed: {}", source.id(), app.app_id, err);
                         None
                     }
                 }

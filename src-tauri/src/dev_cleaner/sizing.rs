@@ -7,9 +7,9 @@ use std::path::Path;
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::time::SystemTime;
 #[cfg(any(all(unix, not(target_os = "macos")), windows))]
 use std::time::Duration;
+use std::time::SystemTime;
 use walkdir::WalkDir;
 
 const ABORT_CHECK_MASK: usize = 31;

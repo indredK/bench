@@ -106,10 +106,7 @@ impl AppManagerState {
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_millis() as u64)
             .unwrap_or(0);
-        *self
-            .cached_result
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = Some(result);
+        *self.cached_result.lock().unwrap_or_else(|e| e.into_inner()) = Some(result);
         *self
             .last_scan_time
             .lock()

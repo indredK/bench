@@ -139,10 +139,7 @@ pub(super) fn safe_recursive_delete(path: &Path, root_fs_id: u64) -> io::Result<
 /// the canonicalised `path` stays inside `root` AND is on the same
 /// filesystem. Returns the filesystem id of `root` for the caller to thread
 /// through `safe_recursive_delete`.
-pub(super) fn validate_path_within_root(
-    path: &Path,
-    root: &Path,
-) -> Result<u64, String> {
+pub(super) fn validate_path_within_root(path: &Path, root: &Path) -> Result<u64, String> {
     let canonical_target = fs::canonicalize(path)
         .map_err(|e| format!("canonicalize target '{}': {}", path.display(), e))?;
     let canonical_root = fs::canonicalize(root)
@@ -155,10 +152,20 @@ pub(super) fn validate_path_within_root(
         ));
     }
 
-    let root_fs = filesystem_id(&canonical_root)
-        .map_err(|e| format!("filesystem id of root '{}': {}", canonical_root.display(), e))?;
-    let target_fs = filesystem_id(&canonical_target)
-        .map_err(|e| format!("filesystem id of target '{}': {}", canonical_target.display(), e))?;
+    let root_fs = filesystem_id(&canonical_root).map_err(|e| {
+        format!(
+            "filesystem id of root '{}': {}",
+            canonical_root.display(),
+            e
+        )
+    })?;
+    let target_fs = filesystem_id(&canonical_target).map_err(|e| {
+        format!(
+            "filesystem id of target '{}': {}",
+            canonical_target.display(),
+            e
+        )
+    })?;
     if root_fs != target_fs {
         return Err(format!(
             "target '{}' is on a different filesystem than project root '{}'",
@@ -251,18 +258,19 @@ fn move_to_trash(path: &Path) -> Result<(), String> {
     let xdg_data_home = env::var("XDG_DATA_HOME")
         .map(PathBuf::from)
         .ok()
-        .or_else(|| env::var("HOME").ok().map(|h| PathBuf::from(h).join(".local/share")))
+        .or_else(|| {
+            env::var("HOME")
+                .ok()
+                .map(|h| PathBuf::from(h).join(".local/share"))
+        })
         .ok_or_else(|| "neither XDG_DATA_HOME nor HOME is set".to_string())?;
     let trash_root = xdg_data_home.join("Trash");
     let files_dir = trash_root.join("files");
     let info_dir = trash_root.join("info");
-    fs::create_dir_all(&files_dir)
-        .map_err(|e| format!("cannot create trash files dir: {}", e))?;
-    fs::create_dir_all(&info_dir)
-        .map_err(|e| format!("cannot create trash info dir: {}", e))?;
+    fs::create_dir_all(&files_dir).map_err(|e| format!("cannot create trash files dir: {}", e))?;
+    fs::create_dir_all(&info_dir).map_err(|e| format!("cannot create trash info dir: {}", e))?;
 
-    let abs = fs::canonicalize(path)
-        .map_err(|e| format!("canonicalize: {}", e))?;
+    let abs = fs::canonicalize(path).map_err(|e| format!("canonicalize: {}", e))?;
     let original_name = abs
         .file_name()
         .ok_or_else(|| "target has no filename".to_string())?
@@ -292,8 +300,7 @@ fn move_to_trash(path: &Path) -> Result<(), String> {
         abs.display(),
         now
     );
-    fs::write(&info_dest, info_content)
-        .map_err(|e| format!("write .trashinfo: {}", e))?;
+    fs::write(&info_dest, info_content).map_err(|e| format!("write .trashinfo: {}", e))?;
     Ok(())
 }
 
@@ -305,10 +312,7 @@ fn move_to_trash(_path: &Path) -> Result<(), String> {
 /// Public entry point: validate `path` is safely inside `project_root`, then
 /// try the platform trash backend. On trash failure, fall back to a safe
 /// recursive direct delete. Returns the outcome so callers can log it.
-pub(super) fn safe_delete_within_root(
-    path: &Path,
-    project_root: &Path,
-) -> DeleteOutcome {
+pub(super) fn safe_delete_within_root(path: &Path, project_root: &Path) -> DeleteOutcome {
     let root_fs_id = match validate_path_within_root(path, project_root) {
         Ok(id) => id,
         Err(reason) => return DeleteOutcome::SkippedUnsafe { reason },

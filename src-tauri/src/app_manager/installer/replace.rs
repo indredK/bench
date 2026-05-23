@@ -21,7 +21,10 @@ pub enum ReplaceError {
     /// in trash and the install location is empty or partial. The caller
     /// should surface this as a hard failure and tell the user where the old
     /// bundle ended up so they can move it back manually.
-    Stranded { reason: String, trashed_old: PathBuf },
+    Stranded {
+        reason: String,
+        trashed_old: PathBuf,
+    },
 }
 
 impl ReplaceError {
@@ -64,8 +67,7 @@ pub fn replace_bundle(
     let trash_path = unique_trash_path(trash_dir, old);
 
     // Move old → trash. If this fails the original is untouched.
-    move_path(old, &trash_path)
-        .map_err(|e| ReplaceError::RolledBack(format!("trash old: {e}")))?;
+    move_path(old, &trash_path).map_err(|e| ReplaceError::RolledBack(format!("trash old: {e}")))?;
 
     // Move new → old's location. Rollback if it fails.
     if let Err(e) = move_path(new, old) {
@@ -99,10 +101,7 @@ fn unique_trash_path(trash_dir: &Path, old: &Path) -> PathBuf {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_nanos())
         .unwrap_or(0);
-    let stem = old
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("Bundle");
+    let stem = old.file_stem().and_then(|s| s.to_str()).unwrap_or("Bundle");
     let ext = old.extension().and_then(|s| s.to_str()).unwrap_or("app");
     trash_dir.join(format!("{stem}-{ts}.{ext}"))
 }
@@ -113,7 +112,11 @@ fn move_path(src: &Path, dst: &Path) -> io::Result<()> {
     match std::fs::rename(src, dst) {
         Ok(()) => Ok(()),
         Err(_) => {
-            let out = Command::new("/bin/cp").arg("-R").arg(src).arg(dst).output()?;
+            let out = Command::new("/bin/cp")
+                .arg("-R")
+                .arg(src)
+                .arg(dst)
+                .output()?;
             if !out.status.success() {
                 return Err(io::Error::other(format!(
                     "cp -R exit {} {}",

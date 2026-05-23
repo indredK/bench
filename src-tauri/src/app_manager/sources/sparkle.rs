@@ -94,7 +94,8 @@ pub fn parse_appcast(xml: &str) -> Result<Vec<AppcastItem>, String> {
                         if in_item && !in_deltas {
                             if let Some(item) = current.as_mut() {
                                 for attr in e.attributes().flatten() {
-                                    let key = String::from_utf8_lossy(attr.key.as_ref()).to_string();
+                                    let key =
+                                        String::from_utf8_lossy(attr.key.as_ref()).to_string();
                                     let val = attr.unescape_value().unwrap_or_default().to_string();
                                     match key.as_str() {
                                         "url" => item.enclosure_url = Some(val),
@@ -195,7 +196,10 @@ pub fn parse_appcast(xml: &str) -> Result<Vec<AppcastItem>, String> {
 
 /// Strip a leading `v` from version strings like `v2.5`.
 fn normalize_version(v: &str) -> String {
-    v.trim().trim_start_matches('v').trim_start_matches('V').to_string()
+    v.trim()
+        .trim_start_matches('v')
+        .trim_start_matches('V')
+        .to_string()
 }
 
 /// `a < b`? Compare semver, with build-number fallback.
@@ -214,9 +218,10 @@ pub(crate) fn version_lt(a: &str, b: &str) -> bool {
             _ => s.to_string(),
         }
     };
-    if let (Ok(va), Ok(vb)) =
-        (semver::Version::parse(&pad(&a)), semver::Version::parse(&pad(&b)))
-    {
+    if let (Ok(va), Ok(vb)) = (
+        semver::Version::parse(&pad(&a)),
+        semver::Version::parse(&pad(&b)),
+    ) {
         return va < vb;
     }
     // Final fallback: numeric segment-by-segment.
@@ -549,14 +554,22 @@ mod tests {
             append_squirrel_query("https://e.com/feed", "1.0.0"),
             format!(
                 "https://e.com/feed?version=1.0.0&platform=darwin&arch={}",
-                if cfg!(target_arch = "aarch64") { "arm64" } else { "x64" }
+                if cfg!(target_arch = "aarch64") {
+                    "arm64"
+                } else {
+                    "x64"
+                }
             )
         );
         assert_eq!(
             append_squirrel_query("https://e.com/feed?token=abc", "1.0.0"),
             format!(
                 "https://e.com/feed?token=abc&version=1.0.0&platform=darwin&arch={}",
-                if cfg!(target_arch = "aarch64") { "arm64" } else { "x64" }
+                if cfg!(target_arch = "aarch64") {
+                    "arm64"
+                } else {
+                    "x64"
+                }
             )
         );
     }
@@ -592,8 +605,7 @@ mod tests {
     fn build_squirrel_update_skips_when_up_to_date() {
         let body = r#"{ "url": "https://e.com/a.zip", "name": "1.0.0" }"#;
         let app = make_app("1.0.0");
-        let result = build_squirrel_update(body, &app, "https://e.com/feed")
-            .expect("ok");
+        let result = build_squirrel_update(body, &app, "https://e.com/feed").expect("ok");
         assert!(result.is_none());
     }
 
@@ -708,8 +720,7 @@ mod tests {
 </rss>"#;
         let items = parse_appcast(feed).expect("parses");
         let app = make_app("1.0.0");
-        let result = build_sparkle_update(items, &app, "https://e.com/feed".into())
-            .expect("ok");
+        let result = build_sparkle_update(items, &app, "https://e.com/feed".into()).expect("ok");
         assert!(result.is_none());
     }
 }

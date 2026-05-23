@@ -1,7 +1,7 @@
 use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
+use tauri::Emitter;
 #[cfg(debug_assertions)]
 use tauri::Manager;
-use tauri::Emitter;
 
 pub fn setup_menu(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let about = MenuItemBuilder::with_id("about", "About Bench").build(app)?;
@@ -63,9 +63,7 @@ pub fn setup_menu(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>
 
     let minimize = PredefinedMenuItem::minimize(app, None)?;
 
-    let window_submenu = SubmenuBuilder::new(app, "Window")
-        .item(&minimize)
-        .build()?;
+    let window_submenu = SubmenuBuilder::new(app, "Window").item(&minimize).build()?;
 
     let help_submenu = SubmenuBuilder::new(app, "Help").build()?;
 

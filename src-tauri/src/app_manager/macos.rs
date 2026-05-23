@@ -6,7 +6,7 @@ use crate::app_manager::{
 };
 use base64::Engine;
 use std::collections::hash_map::DefaultHasher;
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 use std::fs;
 use std::hash::{Hash, Hasher};
 use std::io::Read;
@@ -103,6 +103,7 @@ fn map_casks(brew: &str) -> Result<(HashSet<String>, HashSet<String>), String> {
 // ============================================================================
 
 const SCAN_DIRECTORIES: &[&str] = &["/Applications", "/System/Applications"];
+const SCAN_MAX_DEPTH: usize = 3;
 
 fn user_applications_dir() -> Option<PathBuf> {
     dirs_next::home_dir().map(|home| home.join("Applications"))
@@ -122,8 +123,7 @@ fn extract_app_metadata(app_path: &Path) -> Option<(String, String, String)> {
 
     let display_name = read("CFBundleDisplayName").or_else(|| read("CFBundleName"));
     let bundle_id = read("CFBundleIdentifier");
-    let version =
-        read("CFBundleShortVersionString").or_else(|| read("CFBundleVersion"));
+    let version = read("CFBundleShortVersionString").or_else(|| read("CFBundleVersion"));
     let name = display_name
         .or_else(|| {
             app_path
@@ -144,41 +144,57 @@ fn scan_directory_raw(
     is_system: bool,
 ) -> Vec<(String, String, String, String, String, bool, u64)> {
     let mut results = Vec::new();
-    let entries = match fs::read_dir(dir) {
-        Ok(e) => e,
-        Err(_) => return results,
-    };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.extension().is_none_or(|ext| ext != "app") {
-            continue;
-        }
-        let real_path = match fs::canonicalize(&path) {
-            Ok(p) => p,
+    let mut queue = VecDeque::from([(dir.to_path_buf(), 0usize)]);
+
+    while let Some((current_dir, depth)) = queue.pop_front() {
+        let entries = match fs::read_dir(&current_dir) {
+            Ok(e) => e,
             Err(_) => continue,
         };
-        let install_path = real_path.to_string_lossy().to_string();
-        let (name, bundle_id, version) = if let Some(m) = extract_app_metadata(&real_path) {
-            m
-        } else {
-            let name = real_path
-                .file_stem()
-                .and_then(|s| s.to_str())
-                .unwrap_or("Unknown")
-                .to_string();
-            (name, "unknown".to_string(), "—".to_string())
-        };
-        let app_id = make_app_id(&bundle_id, &install_path);
-        results.push((
-            app_id,
-            name,
-            bundle_id,
-            version,
-            install_path,
-            is_system,
-            get_last_modified(&real_path),
-        ));
+        for entry in entries.flatten() {
+            let Ok(file_type) = entry.file_type() else {
+                continue;
+            };
+            if file_type.is_symlink() {
+                continue;
+            }
+
+            let path = entry.path();
+            if path.extension().is_some_and(|ext| ext == "app") {
+                let real_path = match fs::canonicalize(&path) {
+                    Ok(p) => p,
+                    Err(_) => continue,
+                };
+                let install_path = real_path.to_string_lossy().to_string();
+                let (name, bundle_id, version) = if let Some(m) = extract_app_metadata(&real_path) {
+                    m
+                } else {
+                    let name = real_path
+                        .file_stem()
+                        .and_then(|s| s.to_str())
+                        .unwrap_or("Unknown")
+                        .to_string();
+                    (name, "unknown".to_string(), "—".to_string())
+                };
+                let app_id = make_app_id(&bundle_id, &install_path);
+                results.push((
+                    app_id,
+                    name,
+                    bundle_id,
+                    version,
+                    install_path,
+                    is_system,
+                    get_last_modified(&real_path),
+                ));
+                continue;
+            }
+
+            if file_type.is_dir() && depth < SCAN_MAX_DEPTH {
+                queue.push_back((path, depth + 1));
+            }
+        }
     }
+
     results
 }
 
@@ -219,13 +235,42 @@ pub fn scan_installed_apps(state: tauri::State<'_, AppManagerState>) -> ScanResu
     let mut apps = Vec::new();
 
     for (app_id, name, bundle_id, version, install_path, is_system, last_modified) in raw {
-        let source = resolve_macos_source(
-            &name,
-            &bundle_id,
-            is_system,
-            &installed_casks,
-            &outdated_casks,
-        );
+        let has_mas_receipt = !is_system
+            && crate::app_manager::sources::mac_app_store::has_mas_receipt(&install_path);
+
+        let (
+            source_type,
+            source_id,
+            source_confidence,
+            can_upgrade,
+            can_uninstall,
+            upgrade_available,
+        ) = if has_mas_receipt {
+            (
+                SourceType::AppStore,
+                String::new(),
+                1.0,
+                false,
+                false,
+                false,
+            )
+        } else {
+            let source = resolve_macos_source(
+                &name,
+                &bundle_id,
+                is_system,
+                &installed_casks,
+                &outdated_casks,
+            );
+            (
+                source.source_type,
+                source.source_id,
+                source.source_confidence,
+                source.can_upgrade,
+                source.can_uninstall,
+                source.upgrade_available,
+            )
+        };
 
         apps.push(build_app_info(AppInfoInput {
             app_id,
@@ -233,12 +278,12 @@ pub fn scan_installed_apps(state: tauri::State<'_, AppManagerState>) -> ScanResu
             version,
             bundle_id,
             install_path,
-            source_type: source.source_type,
-            source_id: source.source_id,
-            source_confidence: source.source_confidence,
-            can_upgrade: source.can_upgrade,
-            can_uninstall: source.can_uninstall,
-            upgrade_available: source.upgrade_available,
+            source_type,
+            source_id,
+            source_confidence,
+            can_upgrade,
+            can_uninstall,
+            upgrade_available,
             last_modified,
             is_system_app: is_system,
             launchable: true,
@@ -258,6 +303,72 @@ pub fn scan_installed_apps(state: tauri::State<'_, AppManagerState>) -> ScanResu
             0
         },
     )
+}
+
+#[cfg(test)]
+mod scan_tests {
+    use super::*;
+
+    fn unique_temp_dir(name: &str) -> PathBuf {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        std::env::temp_dir().join(format!("bench-app-manager-{name}-{nanos}"))
+    }
+
+    fn write_info_plist(app_dir: &Path, bundle_id: &str, version: &str) {
+        let contents_dir = app_dir.join("Contents");
+        fs::create_dir_all(&contents_dir).expect("create contents dir");
+        let plist = format!(
+            r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleDisplayName</key>
+  <string>Test App</string>
+  <key>CFBundleIdentifier</key>
+  <string>{bundle_id}</string>
+  <key>CFBundleShortVersionString</key>
+  <string>{version}</string>
+</dict>
+</plist>
+"#
+        );
+        fs::write(contents_dir.join("Info.plist"), plist).expect("write plist");
+    }
+
+    #[test]
+    fn scan_directory_raw_finds_nested_apps_outside_app_bundles() {
+        let root = unique_temp_dir("nested");
+        let nested_app = root.join("Vendor").join("Test.app");
+        fs::create_dir_all(root.join("Vendor")).expect("create vendor dir");
+        write_info_plist(&nested_app, "com.example.nested", "1.2.3");
+
+        let results = scan_directory_raw(&root, false);
+        let install_paths: Vec<String> = results.into_iter().map(|item| item.4).collect();
+
+        assert_eq!(install_paths.len(), 1);
+        assert!(install_paths[0].ends_with("/Vendor/Test.app"));
+
+        fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn scan_directory_raw_does_not_descend_into_app_bundles() {
+        let root = unique_temp_dir("app-bundle");
+        let outer_app = root.join("Outer.app");
+        let inner_app = outer_app.join("Nested").join("Inner.app");
+        write_info_plist(&outer_app, "com.example.outer", "1.0.0");
+        write_info_plist(&inner_app, "com.example.inner", "2.0.0");
+
+        let results = scan_directory_raw(&root, false);
+        let bundle_ids: Vec<String> = results.into_iter().map(|item| item.2).collect();
+
+        assert_eq!(bundle_ids, vec!["com.example.outer".to_string()]);
+
+        fs::remove_dir_all(root).expect("cleanup");
+    }
 }
 
 // ============================================================================
@@ -304,8 +415,9 @@ pub fn check_updates(
     state: tauri::State<'_, AppManagerState>,
 ) -> Result<Vec<String>, String> {
     let outdated = match brew_path() {
-        Some(ref brew) => list_outdated_casks(brew)
-            .map_err(|e| format!("brew outdated failed: {}", e))?,
+        Some(ref brew) => {
+            list_outdated_casks(brew).map_err(|e| format!("brew outdated failed: {}", e))?
+        }
         None => HashSet::new(),
     };
     let apps = state.apps.lock().unwrap_or_else(|e| e.into_inner());
@@ -524,13 +636,7 @@ fn resolve_macos_icon(contents: &Path, resources: &Path) -> Result<IconSource, S
         }
     }
     // 4. Bare PNG candidates (Electron / cross-platform apps without .icns)
-    for name in [
-        "AppIcon.png",
-        "icon.png",
-        "Icon.png",
-        "app.png",
-        "logo.png",
-    ] {
+    for name in ["AppIcon.png", "icon.png", "Icon.png", "app.png", "logo.png"] {
         let candidate = resources.join(name);
         if candidate.exists() {
             return Ok(IconSource::Png(candidate));

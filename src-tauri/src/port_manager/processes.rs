@@ -139,14 +139,22 @@ fn kill_process(pid: u32, all_processes: &ProcessSnapshot) -> Result<(), (String
         let output = Command::new("taskkill")
             .args(["/PID", &pid.to_string(), "/T", "/F"])
             .output()
-            .map_err(|e| (format!("Failed to run taskkill: {}", e), "SPAWN_FAILED".to_string()))?;
+            .map_err(|e| {
+                (
+                    format!("Failed to run taskkill: {}", e),
+                    "SPAWN_FAILED".to_string(),
+                )
+            })?;
 
         if output.status.success() {
             Ok(())
         } else {
             let stderr = String::from_utf8_lossy(&output.stderr);
             let trimmed = stderr.trim().to_string();
-            Err((format!("taskkill error: {}", trimmed), classify_kill_error(&trimmed)))
+            Err((
+                format!("taskkill error: {}", trimmed),
+                classify_kill_error(&trimmed),
+            ))
         }
     } else {
         // SIGKILL doesn't propagate to children. Kill descendants from deepest to
@@ -161,14 +169,22 @@ fn kill_process(pid: u32, all_processes: &ProcessSnapshot) -> Result<(), (String
         let output = Command::new("kill")
             .args(["-9", &pid.to_string()])
             .output()
-            .map_err(|e| (format!("Failed to run kill: {}", e), "SPAWN_FAILED".to_string()))?;
+            .map_err(|e| {
+                (
+                    format!("Failed to run kill: {}", e),
+                    "SPAWN_FAILED".to_string(),
+                )
+            })?;
 
         if output.status.success() {
             Ok(())
         } else {
             let stderr = String::from_utf8_lossy(&output.stderr);
             let trimmed = stderr.trim().to_string();
-            Err((format!("kill error: {}", trimmed), classify_kill_error(&trimmed)))
+            Err((
+                format!("kill error: {}", trimmed),
+                classify_kill_error(&trimmed),
+            ))
         }
     }
 }
@@ -302,10 +318,7 @@ fn find_pids_by_port_windows(port: u16) -> Result<Vec<u32>, String> {
         }
 
         let local = cols[1];
-        let local_port = local
-            .rsplit(':')
-            .next()
-            .and_then(|s| s.parse::<u16>().ok());
+        let local_port = local.rsplit(':').next().and_then(|s| s.parse::<u16>().ok());
         if local_port != Some(port) {
             continue;
         }
@@ -339,10 +352,7 @@ fn find_pids_by_port_windows(port: u16) -> Result<Vec<u32>, String> {
 /// address as a zeroed/wildcard sentinel. Matching on these patterns is
 /// locale-independent — Windows does not translate them.
 fn is_listening_foreign(foreign: &str) -> bool {
-    foreign == "0.0.0.0:0"
-        || foreign == "[::]:0"
-        || foreign == "*:*"
-        || foreign.ends_with(":*")
+    foreign == "0.0.0.0:0" || foreign == "[::]:0" || foreign == "*:*" || foreign.ends_with(":*")
 }
 
 fn get_all_processes() -> ProcessSnapshot {

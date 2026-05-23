@@ -149,7 +149,9 @@ impl ProjectType {
     }
 
     pub(super) fn is_cleanup_dir_name(self, dir_name: &str) -> bool {
-        self.cleanup_rules().iter().any(|rule| rule.target == dir_name)
+        self.cleanup_rules()
+            .iter()
+            .any(|rule| rule.target == dir_name)
     }
 }
 

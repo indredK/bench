@@ -285,9 +285,15 @@ fn merge_project_info(
 
     existing.total_size = existing.total_size.max(candidate_total_size);
     existing.last_modified = existing.last_modified.max(candidate_last_modified);
-    existing.dependencies_count = existing.dependencies_count.max(candidate_dependencies_count);
+    existing.dependencies_count = existing
+        .dependencies_count
+        .max(candidate_dependencies_count);
 
-    let mut seen_cleanup_paths = existing.cleanup_paths.iter().cloned().collect::<HashSet<_>>();
+    let mut seen_cleanup_paths = existing
+        .cleanup_paths
+        .iter()
+        .cloned()
+        .collect::<HashSet<_>>();
     let mut cleanup_paths_changed = false;
 
     for cleanup_path in candidate_cleanup_paths {
@@ -532,10 +538,7 @@ criterion = "0.5"
             .cleanup_paths
             .iter()
             .any(|p| p.ends_with("node_modules")));
-        assert!(merged[0]
-            .cleanup_paths
-            .iter()
-            .any(|p| p.ends_with(".venv")));
+        assert!(merged[0].cleanup_paths.iter().any(|p| p.ends_with(".venv")));
 
         let _ = fs::remove_dir_all(&tmp);
     }

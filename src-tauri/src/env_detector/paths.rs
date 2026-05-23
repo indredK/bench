@@ -214,7 +214,11 @@ fn platform_default_dirs() -> Vec<PathBuf> {
         } else if let Some(pf) = env::var_os("ProgramFiles") {
             dirs.push(PathBuf::from(&pf).join("Microsoft VS Code").join("bin"));
         }
-        push_env_child(&mut dirs, "LOCALAPPDATA", &["Programs", "Python", "Launcher"]);
+        push_env_child(
+            &mut dirs,
+            "LOCALAPPDATA",
+            &["Programs", "Python", "Launcher"],
+        );
     }
 
     dirs
@@ -418,6 +422,9 @@ mod tests {
         assert_eq!(shell_print_path_command(Path::new("/bin/dash")), posix);
         assert_eq!(shell_print_path_command(Path::new("/usr/bin/ksh")), posix);
         // Unknown shell — must not break with `print -r`.
-        assert_eq!(shell_print_path_command(Path::new("/opt/weird/shell")), posix);
+        assert_eq!(
+            shell_print_path_command(Path::new("/opt/weird/shell")),
+            posix
+        );
     }
 }

@@ -5,7 +5,9 @@ use super::command_files::command_key;
 use super::paths::{normalize_path_key, path_has_component};
 use super::types::{CommandCandidate, NodeBinInfo, NodeDeclaredBin};
 
-pub(super) fn refine_command_candidate(mut candidate: CommandCandidate) -> Option<CommandCandidate> {
+pub(super) fn refine_command_candidate(
+    mut candidate: CommandCandidate,
+) -> Option<CommandCandidate> {
     let node_bin_info = node_bin_info_for_candidate(&candidate);
 
     if let Some(info) = node_bin_info {

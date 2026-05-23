@@ -1,8 +1,8 @@
-pub(crate) mod core;
 mod classification;
+mod command_files;
+pub(crate) mod core;
 mod inventory;
 mod node_bins;
 mod paths;
-mod command_files;
-mod version;
 mod types;
+mod version;

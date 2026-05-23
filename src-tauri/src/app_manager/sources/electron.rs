@@ -9,7 +9,8 @@ use std::time::Duration;
 /// Requires both the Electron framework and the `app-update.yml` config file.
 pub fn is_electron_updater_app(install_path: &str) -> bool {
     let p = Path::new(install_path);
-    p.join("Contents/Frameworks/Electron Framework.framework").exists()
+    p.join("Contents/Frameworks/Electron Framework.framework")
+        .exists()
         && p.join("Contents/Resources/app-update.yml").exists()
 }
 
@@ -168,8 +169,8 @@ impl ElectronSource {
             .text()
             .await
             .map_err(|e| format!("SU_ELEC_HTTP: {e}"))?;
-        let release: GithubRelease = serde_json::from_str(&body)
-            .map_err(|e| format!("SU_ELEC_JSON: {e}"))?;
+        let release: GithubRelease =
+            serde_json::from_str(&body).map_err(|e| format!("SU_ELEC_JSON: {e}"))?;
         Ok(build_github_update(&release, app, &api_url))
     }
 
@@ -194,9 +195,7 @@ impl ElectronSource {
             Err(e) if arch == "arm64" => {
                 // Some apps publish a single latest-mac.yml only.
                 let fallback = join_url(base_url, "latest-mac.yml");
-                self.fetch_text(&fallback)
-                    .await
-                    .map_err(|_| e)?
+                self.fetch_text(&fallback).await.map_err(|_| e)?
             }
             Err(e) => return Err(e),
         };
@@ -214,13 +213,15 @@ impl ElectronSource {
         if !resp.status().is_success() {
             return Err(format!("SU_ELEC_HTTP: {}", resp.status()));
         }
-        resp.text()
-            .await
-            .map_err(|e| format!("SU_ELEC_HTTP: {e}"))
+        resp.text().await.map_err(|e| format!("SU_ELEC_HTTP: {e}"))
     }
 }
 
-fn build_github_update(release: &GithubRelease, app: &AppInfo, api_url: &str) -> Option<UpdateInfo> {
+fn build_github_update(
+    release: &GithubRelease,
+    app: &AppInfo,
+    api_url: &str,
+) -> Option<UpdateInfo> {
     let latest_version = release
         .tag_name
         .trim()
@@ -365,7 +366,10 @@ mod tests {
         let yml = "provider: generic\nurl: https://updates.example.com/feed\nchannel: latest\n";
         let parsed = parse_app_update_yml(yml).expect("parses");
         assert_eq!(parsed.provider, "generic");
-        assert_eq!(parsed.url.as_deref(), Some("https://updates.example.com/feed"));
+        assert_eq!(
+            parsed.url.as_deref(),
+            Some("https://updates.example.com/feed")
+        );
     }
 
     #[test]
@@ -411,7 +415,9 @@ releaseDate: '2026-01-15T10:00:00.000Z'
         let pick = pick_mac_asset(&assets).expect("has match");
         // We compile for the host arch; just verify the picked URL is mac-flavored
         // and matches one of the arch-specific or universal assets — never the wrong arch.
-        assert!(pick.name.to_lowercase().contains("mac") || pick.name.to_lowercase().contains("darwin"));
+        assert!(
+            pick.name.to_lowercase().contains("mac") || pick.name.to_lowercase().contains("darwin")
+        );
     }
 
     #[test]
@@ -510,8 +516,13 @@ releaseDate: '2026-01-15T10:00:00.000Z'
             release_notes: None,
         };
         let app = make_app("1.85.0");
-        let info = build_generic_update(&parsed, &app, "https://updates.example.com", "https://u/latest.yml")
-            .expect("has update");
+        let info = build_generic_update(
+            &parsed,
+            &app,
+            "https://updates.example.com",
+            "https://u/latest.yml",
+        )
+        .expect("has update");
         assert_eq!(
             info.download_url.as_deref(),
             Some("https://updates.example.com/App-1.86.0-mac.zip")
@@ -538,8 +549,13 @@ releaseDate: '2026-01-15T10:00:00.000Z'
             release_notes: None,
         };
         let app = make_app("1.85.0");
-        let info = build_generic_update(&parsed, &app, "https://updates.example.com", "https://u/latest.yml")
-            .expect("has update");
+        let info = build_generic_update(
+            &parsed,
+            &app,
+            "https://updates.example.com",
+            "https://u/latest.yml",
+        )
+        .expect("has update");
         let meta = info.source_meta.as_ref().expect("meta present");
         assert_eq!(meta["provider"], "generic");
         assert!(meta.get("sha512").is_none());

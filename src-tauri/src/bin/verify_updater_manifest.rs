@@ -42,9 +42,14 @@ fn main() -> Result<(), String> {
             .ok_or_else(|| format!("{platform}: update URL has no file name"))?;
         let file_name = percent_decode(file_name);
         let asset_path = assets_dir.join(&file_name);
-        let asset = fs::read(&asset_path)
-            .map_err(|error| format!("{platform}: failed to read {}: {error}", asset_path.display()))?;
-        let signature_text = decode_base64_to_string(&update.signature, &format!("{platform} signature"))?;
+        let asset = fs::read(&asset_path).map_err(|error| {
+            format!(
+                "{platform}: failed to read {}: {error}",
+                asset_path.display()
+            )
+        })?;
+        let signature_text =
+            decode_base64_to_string(&update.signature, &format!("{platform} signature"))?;
         let signature = Signature::decode(&signature_text)
             .map_err(|error| format!("{platform}: failed to decode signature: {error}"))?;
 

@@ -511,8 +511,8 @@ pub fn launch_app(app_path: String) -> Result<(), String> {
         // tokenisation so a value like `Exec="/opt/foo bar/app" %U` still
         // launches a path with a space rather than splitting on it.
         let expanded = expand_exec_field_codes(&exec);
-        let parts = split_exec_args(&expanded)
-            .map_err(|e| format!("Failed to parse Exec field: {}", e))?;
+        let parts =
+            split_exec_args(&expanded).map_err(|e| format!("Failed to parse Exec field: {}", e))?;
         if parts.is_empty() {
             return Err("Empty exec in desktop entry".into());
         }
@@ -654,9 +654,9 @@ pub fn check_updates(
     Ok(app_ids
         .into_iter()
         .filter(|id| {
-            apps.iter().find(|a| &a.app_id == id).is_some_and(|a| {
-                updatable_ids.contains(&a.source_id.to_lowercase())
-            })
+            apps.iter()
+                .find(|a| &a.app_id == id)
+                .is_some_and(|a| updatable_ids.contains(&a.source_id.to_lowercase()))
         })
         .collect())
 }
@@ -1019,15 +1019,10 @@ mod tests {
 
     #[test]
     fn split_exec_args_handles_backslash_escapes_in_quotes() {
-        let parts =
-            split_exec_args(r#""a\"b" "c\\d" "e\$f""#).expect("parse ok");
+        let parts = split_exec_args(r#""a\"b" "c\\d" "e\$f""#).expect("parse ok");
         assert_eq!(
             parts,
-            vec![
-                "a\"b".to_string(),
-                "c\\d".to_string(),
-                "e$f".to_string(),
-            ]
+            vec!["a\"b".to_string(), "c\\d".to_string(), "e$f".to_string(),]
         );
     }
 

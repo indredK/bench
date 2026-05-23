@@ -83,8 +83,8 @@ fn decode_sha512(s: &str) -> Result<[u8; 64], String> {
         let mut out = [0u8; 64];
         for (i, byte) in out.iter_mut().enumerate() {
             let s = &trimmed[i * 2..i * 2 + 2];
-            *byte = u8::from_str_radix(s, 16)
-                .map_err(|e| format!("SU_VERIFY_HASH_FAIL: hex {e}"))?;
+            *byte =
+                u8::from_str_radix(s, 16).map_err(|e| format!("SU_VERIFY_HASH_FAIL: hex {e}"))?;
         }
         return Ok(out);
     }

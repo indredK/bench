@@ -162,9 +162,7 @@ pub async fn download_and_install_app_update<R: Runtime>(
             updater
                 .check()
                 .await
-                .map_err(|error| {
-                    updater_error("failed to check updates before install", error)
-                })?
+                .map_err(|error| updater_error("failed to check updates before install", error))?
                 .ok_or_else(|| "No update is currently available".to_string())?
         }
     };
@@ -234,7 +232,10 @@ pub async fn download_and_install_app_update<R: Runtime>(
             requires_restart: true,
         }),
         DownloadOutcome::Cancelled => {
-            let _ = app.emit(APP_UPDATER_DOWNLOAD_EVENT, AppUpdateDownloadEvent::Cancelled);
+            let _ = app.emit(
+                APP_UPDATER_DOWNLOAD_EVENT,
+                AppUpdateDownloadEvent::Cancelled,
+            );
             // Restore (#051): preserve the Update handle so the user can
             // retry the install without paying for another manifest fetch.
             cache.store(Some(update));
