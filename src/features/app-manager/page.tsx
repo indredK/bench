@@ -251,6 +251,12 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                 actions={
                   <>
                     <ToolbarButton
+                      icon={<Filter size={15} />}
+                      tooltip={t("appManager.filters")}
+                      onClick={() => setFilterPanelOpen(!filterPanelOpen)}
+                      active={filterPanelOpen || marketplaceFilterCount > 0}
+                    />
+                    <ToolbarButton
                       icon={<CheckSquare size={15} />}
                       tooltip={installBatchMode ? t("appManager.batchModeOff") : t("appManager.batchMode")}
                       onClick={() => {
@@ -258,12 +264,6 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                         clearInstallSelection();
                       }}
                       active={installBatchMode}
-                    />
-                    <ToolbarButton
-                      icon={<Filter size={15} />}
-                      tooltip={t("appManager.filters")}
-                      onClick={() => setFilterPanelOpen(!filterPanelOpen)}
-                      active={filterPanelOpen || marketplaceFilterCount > 0}
                     />
                   </>
                 }
@@ -384,6 +384,12 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                 })}
                 actions={
                   <>
+                    <ToolbarButton
+                      icon={<Filter size={15} />}
+                      tooltip={t("appManager.filters")}
+                      onClick={() => setFilterPanelOpen(!filterPanelOpen)}
+                      active={filterPanelOpen || activeFilter !== "all"}
+                    />
                     {scanned && (
                       <ToolbarButton
                         icon={<CheckSquare size={15} />}
@@ -392,12 +398,6 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                         active={batchMode}
                       />
                     )}
-                    <ToolbarButton
-                      icon={<Filter size={15} />}
-                      tooltip={t("appManager.filters")}
-                      onClick={() => setFilterPanelOpen(!filterPanelOpen)}
-                      active={filterPanelOpen || activeFilter !== "all"}
-                    />
                   </>
                 }
                 rightActions={batchMode ? (

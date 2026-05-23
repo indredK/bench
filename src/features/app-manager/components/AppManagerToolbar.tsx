@@ -13,6 +13,7 @@ interface AppManagerToolbarProps {
   searchPlaceholder: string;
   onSearchQueryChange: (query: string) => void;
   searchDisabled?: boolean;
+  afterSearchContent?: ReactNode;
   actions?: ReactNode;
   rightContent?: ReactNode;
   searchClassName?: string;
@@ -24,6 +25,7 @@ export function AppManagerToolbar({
   searchPlaceholder,
   onSearchQueryChange,
   searchDisabled = false,
+  afterSearchContent,
   actions,
   rightContent,
   searchClassName,
@@ -45,6 +47,8 @@ export function AppManagerToolbar({
             disabled={searchDisabled}
           />
         </div>
+
+        {afterSearchContent}
 
         {actions}
 

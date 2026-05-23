@@ -133,19 +133,19 @@ export function ContentView<T>({
     />
   );
 
-  const showHeader = showViewToggle || Boolean(summary) || Boolean(actions);
+  const showHeader = showViewToggle || Boolean(summary) || Boolean(actions) || Boolean(rightActions);
   const content = showHeader ? (
     <div className="h-full flex flex-col gap-1.5">
       <div className="flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            {summary && <span className="text-sm text-muted-foreground">{summary}</span>}
-            {actions}
-          </div>
-          <div className="flex items-center gap-2">
-            {rightActions}
-            {showViewToggle && <ViewToggle viewMode={viewMode} onChange={onViewModeChange} />}
-          </div>
+        <div className="flex items-center gap-3">
+          {actions}
+          {summary && <span className="text-sm text-muted-foreground">{summary}</span>}
         </div>
+        <div className="flex items-center gap-2">
+          {rightActions}
+          {showViewToggle && <ViewToggle viewMode={viewMode} onChange={onViewModeChange} />}
+        </div>
+      </div>
       <div className="flex-1 min-h-0">{body}</div>
     </div>
   ) : body;
