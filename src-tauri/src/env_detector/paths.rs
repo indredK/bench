@@ -37,8 +37,9 @@ fn macos_login_shell_path_dirs() -> Vec<PathBuf> {
         .filter(|path| path.is_file())
         .unwrap_or_else(|| PathBuf::from("/bin/zsh"));
 
+    let print_cmd = shell_print_path_command(&shell);
     let mut child = match Command::new(&shell)
-        .args(["-lc", "print -r -- $PATH"])
+        .args(["-lc", print_cmd])
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
@@ -72,6 +73,23 @@ fn macos_login_shell_path_dirs() -> Vec<PathBuf> {
                 return Vec::new();
             }
         }
+    }
+}
+
+/// Pick a command compatible with the user's login shell to print PATH.
+/// `print -r --` is a zsh builtin and breaks on bash/fish/etc.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+pub(super) fn shell_print_path_command(shell: &Path) -> &'static str {
+    let name = shell
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("zsh")
+        .to_ascii_lowercase();
+    match name.as_str() {
+        "zsh" => "print -r -- $PATH",
+        "fish" => "printf '%s' $PATH",
+        // POSIX-compatible fallback (works in bash/sh/dash/ash/ksh).
+        _ => "printf '%s' \"$PATH\"",
     }
 }
 
@@ -369,4 +387,36 @@ fn path_components(path: &Path) -> Vec<String> {
             }
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn shell_print_path_command_uses_zsh_builtin_for_zsh() {
+        assert_eq!(
+            shell_print_path_command(Path::new("/bin/zsh")),
+            "print -r -- $PATH"
+        );
+    }
+
+    #[test]
+    fn shell_print_path_command_uses_fish_syntax_for_fish() {
+        assert_eq!(
+            shell_print_path_command(Path::new("/usr/local/bin/fish")),
+            "printf '%s' $PATH"
+        );
+    }
+
+    #[test]
+    fn shell_print_path_command_falls_back_to_posix_for_bash_and_others() {
+        let posix = "printf '%s' \"$PATH\"";
+        assert_eq!(shell_print_path_command(Path::new("/bin/bash")), posix);
+        assert_eq!(shell_print_path_command(Path::new("/bin/sh")), posix);
+        assert_eq!(shell_print_path_command(Path::new("/bin/dash")), posix);
+        assert_eq!(shell_print_path_command(Path::new("/usr/bin/ksh")), posix);
+        // Unknown shell — must not break with `print -r`.
+        assert_eq!(shell_print_path_command(Path::new("/opt/weird/shell")), posix);
+    }
 }

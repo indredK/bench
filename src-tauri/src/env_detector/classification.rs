@@ -17,8 +17,14 @@ pub(super) fn classify_env_tool(
     let detector_name = detector
         .map(|detector| detector.name.to_string())
         .unwrap_or_else(|| "path-scan".to_string());
+    // Surface the throttled case explicitly: when we know how to probe a
+    // tool but skipped because the global probe budget was exhausted, the UI
+    // must distinguish that from "probed but no version returned".
+    let probe_throttled = detector.is_some() && !version_probe_attempted;
     let issue = if all_paths.len() > 1 {
         "multipleVersions".to_string()
+    } else if probe_throttled {
+        "versionProbeThrottled".to_string()
     } else if detector.is_some() && version_probe_attempted && !version_found {
         "versionUnknown".to_string()
     } else {
@@ -26,6 +32,8 @@ pub(super) fn classify_env_tool(
     };
     let status = if all_paths.len() > 1 {
         "multipleVersions"
+    } else if probe_throttled {
+        "versionProbeThrottled"
     } else if detector.is_some() && version_probe_attempted && !version_found {
         "versionUnknown"
     } else {
