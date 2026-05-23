@@ -98,7 +98,7 @@ describe("Tauri contracts", () => {
       ["ScanResult", "snake", dtoKeys<DevCleanerScanResult>(["total_projects", "total_size", "total_cleanup_size", "projects", "scan_time_ms", "aborted"])],
       ["EnvTool", "snake", dtoKeys<EnvTool>(["name", "version", "path", "size_bytes", "size_display", "install_time", "available", "category", "source", "kind", "status", "detector", "all_paths", "issue"])],
       ["ScanDonePayload", "snake", dtoKeys<EnvScanDonePayload>(["tools", "unavailable"])],
-      ["KillPidResult", "snake", dtoKeys<KillPidResult>(["pid", "success", "message"])],
+      ["KillPidResult", "snake", dtoKeys<KillPidResult>(["pid", "success", "message", "error_code"])],
       ["ProcessNode", "snake", dtoKeys<ProcessNode>(["pid", "ppid", "name", "command", "children"])],
       ["ProcessFingerprint", "snake", dtoKeys<ProcessFingerprint>(["category", "name", "icon"])],
       ["PortProcessDetail", "snake", dtoKeys<PortProcessDetail>(["port", "pids", "process_trees", "fingerprint", "error"])],
