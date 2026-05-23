@@ -11,30 +11,33 @@ import { useTranslation } from "react-i18next";
 import { RefreshCw, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useScrambleText } from "@/hooks/useScrambleText";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface SidebarProps {
   items: NavigationItem[];
-  onRefresh?: () => void | Promise<void>;
+  onRestart?: () => void | Promise<void>;
   onSettings?: () => void;
 }
 
-function Sidebar({ items, onRefresh, onSettings }: SidebarProps) {
+function Sidebar({ items, onRestart, onSettings }: SidebarProps) {
   const { t } = useTranslation();
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isRestarting, setIsRestarting] = useState(false);
   const { text: titleText, start: scrambleTitle } = useScrambleText({
     target: "DevTools",
     duration: 700,
   });
 
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
+  const handleRestart = async () => {
+    setIsRestarting(true);
     try {
-      await onRefresh?.();
+      await onRestart?.();
     } finally {
-      setTimeout(() => setIsRefreshing(false), 600);
+      setTimeout(() => setIsRestarting(false), 600);
     }
   };
   const [location] = useLocation();
+  const restartTooltipText = t("sidebar.restart");
+  const settingsTooltipText = t("sidebar.settings");
 
   return (
     <div className="flex w-[220px] shrink-0 flex-col bg-background text-foreground select-none">
@@ -74,22 +77,38 @@ function Sidebar({ items, onRefresh, onSettings }: SidebarProps) {
         })}
       </nav>
       <div className="border-t border-border px-4 py-3 flex items-center justify-center gap-2">
-        <button
-          type="button"
-          className="flex cursor-pointer items-center justify-center rounded-md border border-border bg-accent/40 p-1.5 text-foreground transition hover:bg-accent"
-          onClick={handleRefresh}
-          title={t("appManager.refresh")}
-        >
-          <RefreshCw size={14} className={cn(isRefreshing && "animate-spin")} />
-        </button>
-        <button
-          type="button"
-          className="flex cursor-pointer items-center justify-center rounded-md border border-border bg-accent/40 p-1.5 text-foreground transition hover:bg-accent"
-          onClick={onSettings}
-          title={t("sidebar.settings")}
-        >
-          <Settings size={14} />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="inline-flex">
+              <button
+                type="button"
+                className="flex cursor-pointer items-center justify-center rounded-md border border-border bg-accent/40 p-1.5 text-foreground transition hover:bg-accent"
+                onClick={handleRestart}
+                aria-label={restartTooltipText}
+              >
+                <RefreshCw size={14} className={cn(isRestarting && "animate-spin")} />
+              </button>
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            <p>{restartTooltipText}</p>
+          </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className="flex cursor-pointer items-center justify-center rounded-md border border-border bg-accent/40 p-1.5 text-foreground transition hover:bg-accent"
+              onClick={onSettings}
+              aria-label={settingsTooltipText}
+            >
+              <Settings size={14} />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            <p>{settingsTooltipText}</p>
+          </TooltipContent>
+        </Tooltip>
         <LanguageSwitcher />
         <ThemeSwitcher />
       </div>

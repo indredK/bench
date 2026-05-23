@@ -6,6 +6,7 @@
     "systemInfo": "System Info",
     "hardwareQuery": "Hardware Query",
     "envDetector": "Env Detector",
+    "restart": "Restart App",
     "settings": "Settings"
   },
   "appManager": {

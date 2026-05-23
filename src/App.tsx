@@ -19,8 +19,10 @@ import { appFeatures, createNavigationItems, getFeatureByPath } from "@/features
 import { requestFeatureRefresh } from "@/features/refresh";
 import { useUpdaterController } from "@/features/updater/hooks/useUpdaterController";
 import { markMainReady } from "@/lib/tauri/commands/bootstrap";
+import { restartApp } from "@/lib/tauri/commands";
 import { WINDOW_BOOTSTRAP_EVENTS } from "@/lib/tauri/contracts";
 import { emitPlatformEventTo } from "@/platform/events";
+import { canUseTauriCommands } from "@/platform/capabilities";
 import { canUseWindowControls } from "@/platform/window";
 
 function AnimatedRoutes() {
@@ -84,6 +86,15 @@ function App() {
     }
   }, []);
 
+  const handleRestart = useCallback(async () => {
+    if (canUseTauriCommands()) {
+      await restartApp();
+      return;
+    }
+
+    window.location.reload();
+  }, []);
+
   const handleSettings = useCallback(() => {
     setSettingsOpen(true);
   }, []);
@@ -129,7 +140,7 @@ function App() {
             <div className="flex flex-1 overflow-hidden">
               <Sidebar
                 items={sidebarItems}
-                onRefresh={handleRefresh}
+                onRestart={handleRestart}
                 onSettings={handleSettings}
               />
               <div className="flex flex-1 flex-col overflow-hidden">

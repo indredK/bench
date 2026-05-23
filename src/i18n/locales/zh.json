@@ -6,6 +6,7 @@
     "systemInfo": "系统信息",
     "hardwareQuery": "硬件查询",
     "envDetector": "环境检测",
+    "restart": "重新启动软件",
     "settings": "设置"
   },
   "appManager": {
