@@ -21,20 +21,29 @@ export function useMenuEvent(menuItemId: string, handler: MenuEventHandler) {
 
 export function useInitMenuEvents() {
   useEffect(() => {
+    // The listen call is async (it lazy-loads @tauri-apps/api/event). If the
+    // component unmounts before the promise resolves, `unlisten` is still
+    // undefined and the cleanup is a no-op — but the listener still ends up
+    // registered, leaking. Use a `cancelled` flag so a late-arriving
+    // unlisten can be invoked immediately (#104).
+    let cancelled = false;
     let unlisten: (() => void) | undefined;
 
-    const setup = async () => {
-      unlisten = await listenToPlatformEvent<string>(TAURI_EVENTS.menu.event, (event) => {
-        const handler = menuHandlers[event.payload];
-        if (handler) {
-          handler(event.payload);
-        }
-      });
-    };
-
-    setup();
+    void listenToPlatformEvent<string>(TAURI_EVENTS.menu.event, (event) => {
+      const handler = menuHandlers[event.payload];
+      if (handler) {
+        handler(event.payload);
+      }
+    }).then((fn) => {
+      if (cancelled) {
+        fn();
+      } else {
+        unlisten = fn;
+      }
+    });
 
     return () => {
+      cancelled = true;
       unlisten?.();
     };
   }, []);

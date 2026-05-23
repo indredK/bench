@@ -133,49 +133,55 @@ export function useUpdaterController() {
   useEffect(() => {
     if (!canUsePlatformFeatures) return;
 
+    // `listenToPlatformEvent` is async — if the component unmounts before the
+    // promise resolves the original cleanup was a no-op while the listener
+    // ended up registered (leak). Use a `cancelled` flag so a late-arriving
+    // unlisten is invoked immediately (#104).
+    let cancelled = false;
     let unlisten: (() => void) | undefined;
-    const setup = async () => {
-      unlisten = await listenToPlatformEvent<AppUpdateDownloadEvent>(
-        TAURI_EVENTS.updater.download,
-        (event) => {
-          const payload = event.payload;
-          if (payload.event === "started") {
-            useUpdaterStore.setState({
-              status: "downloading",
-              downloadedBytes: 0,
-              totalBytes: payload.contentLength,
-            });
-            return;
-          }
-          if (payload.event === "progress") {
-            useUpdaterStore.setState({
-              status: "downloading",
-              downloadedBytes: payload.downloadedBytes,
-              totalBytes: payload.contentLength,
-            });
-            return;
-          }
-          if (payload.event === "cancelled") {
-            // User-initiated cancel: invoke() also rejects, so error UI
-            // is driven there. Leave status alone; clear transient counters.
-            useUpdaterStore.setState({
-              downloadedBytes: 0,
-              totalBytes: null,
-            });
-            return;
-          }
-          if (payload.event === "failed") {
-            // The invoke() rejection sets the error; this is informational.
-            return;
-          }
-          // payload.event === "finished" — the install step is starting.
-          useUpdaterStore.setState({ status: "installing" });
-        }
-      );
-    };
 
-    void setup();
+    void listenToPlatformEvent<AppUpdateDownloadEvent>(
+      TAURI_EVENTS.updater.download,
+      (event) => {
+        const payload = event.payload;
+        if (payload.event === "started") {
+          useUpdaterStore.setState({
+            status: "downloading",
+            downloadedBytes: 0,
+            totalBytes: payload.contentLength,
+          });
+          return;
+        }
+        if (payload.event === "progress") {
+          useUpdaterStore.setState({
+            status: "downloading",
+            downloadedBytes: payload.downloadedBytes,
+            totalBytes: payload.contentLength,
+          });
+          return;
+        }
+        if (payload.event === "cancelled") {
+          useUpdaterStore.setState({
+            downloadedBytes: 0,
+            totalBytes: null,
+          });
+          return;
+        }
+        if (payload.event === "failed") {
+          return;
+        }
+        useUpdaterStore.setState({ status: "installing" });
+      },
+    ).then((fn) => {
+      if (cancelled) {
+        fn();
+      } else {
+        unlisten = fn;
+      }
+    });
+
     return () => {
+      cancelled = true;
       unlisten?.();
     };
   }, [canUsePlatformFeatures]);

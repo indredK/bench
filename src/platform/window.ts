@@ -14,13 +14,32 @@ interface AppWindow {
 
 let cachedWindow: AppWindow | null = null;
 
+// Number of attempts and per-attempt delay before giving up on the Tauri
+// runtime exposing a current window. Tauri normally returns the window
+// reference synchronously, but during very early startup the bridge may
+// not be wired up yet — retrying briefly avoids spurious crashes in the
+// titlebar / theme bootstrap path (#095).
+const CURRENT_WINDOW_MAX_ATTEMPTS = 30;
+const CURRENT_WINDOW_RETRY_DELAY_MS = 50;
+
 export async function getCurrentAppWindow(): Promise<AppWindow> {
   assertTauriWindowAvailable();
   if (cachedWindow) return cachedWindow;
 
   const { getCurrentWindow } = await import("@tauri-apps/api/window");
-  cachedWindow = await getCurrentWindow();
-  return cachedWindow;
+  for (let attempt = 0; attempt < CURRENT_WINDOW_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      const win = getCurrentWindow();
+      if (win) {
+        cachedWindow = win;
+        return cachedWindow;
+      }
+    } catch {
+      /* swallow and retry */
+    }
+    await new Promise((resolve) => window.setTimeout(resolve, CURRENT_WINDOW_RETRY_DELAY_MS));
+  }
+  throw new Error("Tauri current window was not available after retries");
 }
 
 export async function getAppWindowByLabel(label: string): Promise<AppWindow | null> {

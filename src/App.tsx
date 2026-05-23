@@ -17,6 +17,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { appFeatures, createNavigationItems, getFeatureByPath } from "@/features/registry";
 import { requestFeatureRefresh } from "@/features/refresh";
 import { useUpdaterController } from "@/features/updater/hooks/useUpdaterController";
+import { markMainReady } from "@/lib/tauri/commands/bootstrap";
 import { WINDOW_BOOTSTRAP_EVENTS } from "@/lib/tauri/contracts";
 import { emitPlatformEventTo } from "@/platform/events";
 import { canUseWindowControls } from "@/platform/window";
@@ -32,7 +33,12 @@ function App() {
     if (!canUseWindowControls()) return undefined;
 
     requestAnimationFrame(() => {
-      void emitPlatformEventTo("splashscreen", WINDOW_BOOTSTRAP_EVENTS.mainReady, null);
+      // Mark ready in backend FIRST (#103): if the splash listener wasn't
+      // attached yet, it will poll this flag immediately after subscribing
+      // and reveal the main window without depending on event timing.
+      void markMainReady().finally(() => {
+        void emitPlatformEventTo("splashscreen", WINDOW_BOOTSTRAP_EVENTS.mainReady, null);
+      });
     });
 
     return undefined;

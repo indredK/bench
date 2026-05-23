@@ -1,5 +1,6 @@
 mod app_manager;
 mod app_updater;
+mod bootstrap;
 mod commands;
 mod dev_cleaner;
 mod env_detector;
@@ -8,6 +9,7 @@ mod port_manager;
 
 use app_manager::AppManagerState;
 use app_updater::UpdaterCache;
+use bootstrap::create_state as create_bootstrap_state;
 use dev_cleaner::ScanAbortFlag;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -23,6 +25,7 @@ pub fn run() {
         .manage(Arc::new(AtomicBool::new(false)) as ScanAbortFlag)
         .manage(app_manager_state)
         .manage(UpdaterCache::default())
+        .manage(create_bootstrap_state())
         .setup(menu::setup_menu)
         .invoke_handler(app_invoke_handler!())
         .run(tauri::generate_context!())

@@ -43,6 +43,8 @@ export const TAURI_COMMAND_CONTRACTS = {
   cancel_app_update_download: defineTauriCommand<undefined, void>()("cancel_app_update_download"),
   restart_after_update: defineTauriCommand<undefined, void>()("restart_after_update"),
   get_current_app_version: defineTauriCommand<undefined, string>()("get_current_app_version"),
+  mark_main_ready: defineTauriCommand<undefined, void>()("mark_main_ready"),
+  is_main_ready: defineTauriCommand<undefined, boolean>()("is_main_ready"),
   scan_installed_apps: defineTauriCommand<undefined, AppScanResult>()("scan_installed_apps"),
   get_app_icon_base64: defineTauriCommand<{ installPath: string }, AppIconBase64>()("get_app_icon_base64"),
   launch_app: defineTauriCommand<{ appPath: string }, void>()("launch_app"),
@@ -104,6 +106,10 @@ export const TAURI_COMMANDS = {
     restartAfterUpdate: commandName("restart_after_update"),
     getCurrentAppVersion: commandName("get_current_app_version"),
   },
+  bootstrap: {
+    markMainReady: commandName("mark_main_ready"),
+    isMainReady: commandName("is_main_ready"),
+  },
   appManager: {
     scanInstalledApps: commandName("scan_installed_apps"),
     getAppIconBase64: commandName("get_app_icon_base64"),
@@ -159,6 +165,8 @@ export const TAURI_COMMAND_ARG_KEYS = {
   cancel_app_update_download: [],
   restart_after_update: [],
   get_current_app_version: [],
+  mark_main_ready: [],
+  is_main_ready: [],
   scan_installed_apps: [],
   get_app_icon_base64: ["installPath"],
   launch_app: ["appPath"],
