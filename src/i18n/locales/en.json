@@ -151,8 +151,6 @@
       "marketplace": "Marketplace"
     },
     "softwareUpdate": {
-      "updateAll": "Update All",
-      "updateAllCount": "Update All ({{count}})",
       "recheck": "Re-check",
       "checking": "Checking…",
       "selectAll": "Select all",
@@ -166,7 +164,6 @@
         "squirrel": "Squirrel",
         "github": "GitHub"
       },
-      "groupAll": "Update all in source",
       "groupCount": "{{count}} update(s)",
       "searchPlaceholder": "Search by app, version, or source...",
       "action": {

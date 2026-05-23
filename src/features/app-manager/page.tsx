@@ -108,7 +108,6 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
     setInstallDetailItem,
     checkAllUpdates,
     handleUpdateAction,
-    handleUpdateAllVisible,
     handleCloseInstallDialog,
     inProgressUpdate,
     handleSetActiveTab,
@@ -185,7 +184,6 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                 onRowClick={setSelectedUpdate}
                 onCloseDetail={() => setSelectedUpdate(null)}
                 onRowAction={(update) => void handleUpdateAction(update)}
-                onUpdateAllVisible={(items) => void handleUpdateAllVisible(items)}
                 onOpenExternal={(url) => void openExternal(url)}
               />
             ) : activeTab === "marketplace" ? (

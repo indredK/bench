@@ -2,8 +2,7 @@
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  */
 import type { TFunction } from "i18next";
-import { ArrowUpCircle, CheckSquare, RefreshCw, Square, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { CheckSquare, RefreshCw, Square, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ToolbarButton } from "@/components/ui/toolbar-button";
 import { AppManagerToolbar } from "@/features/app-manager/components/AppManagerToolbar";
@@ -25,7 +24,6 @@ interface UpdaterActionBarProps {
   sourceFilter: UpdateSource | "all";
   onSearchQueryChange: (query: string) => void;
   onRecheck: () => void;
-  onUpdateAllVisible: () => void;
   onToggleSelectAllVisible: () => void;
   onChangeSourceFilter: (filter: UpdateSource | "all") => void;
   onClearSelection: () => void;
@@ -42,7 +40,6 @@ export function UpdaterActionBar({
   sourceFilter,
   onSearchQueryChange,
   onRecheck,
-  onUpdateAllVisible,
   onToggleSelectAllVisible,
   onChangeSourceFilter,
   onClearSelection,
@@ -59,19 +56,6 @@ export function UpdaterActionBar({
       searchDisabled={loading}
       actions={
         <>
-          <Button
-            variant={visibleCount > 0 ? "default" : "ghost"}
-            size="sm"
-            disabled={loading || visibleCount === 0}
-            onClick={onUpdateAllVisible}
-            className="gap-1.5"
-          >
-            <ArrowUpCircle size={14} />
-            {visibleCount > 0
-              ? t("appManager.softwareUpdate.updateAllCount", { count: visibleCount })
-              : t("appManager.softwareUpdate.updateAll")}
-          </Button>
-
           <ToolbarButton
             icon={<RefreshCw size={15} className={loading ? "animate-spin" : ""} />}
             tooltip={loading ? t("appManager.softwareUpdate.checking") : t("appManager.softwareUpdate.recheck")}

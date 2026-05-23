@@ -42,7 +42,6 @@ interface SoftwareUpdateViewProps {
   onRowClick: (update: UpdateInfo) => void;
   onCloseDetail: () => void;
   onRowAction: (update: UpdateInfo) => void;
-  onUpdateAllVisible: (updates: UpdateInfo[]) => void;
   onOpenExternal: (url: string) => void;
 }
 
@@ -80,7 +79,6 @@ export function SoftwareUpdateView({
   onRowClick,
   onCloseDetail,
   onRowAction,
-  onUpdateAllVisible,
   onOpenExternal,
 }: SoftwareUpdateViewProps) {
   const normalizedSearch = searchQuery.trim().toLowerCase();
@@ -210,7 +208,6 @@ export function SoftwareUpdateView({
         sourceFilter={sourceFilter}
         onSearchQueryChange={onSearchQueryChange}
         onRecheck={onRecheck}
-        onUpdateAllVisible={() => onUpdateAllVisible(visibleUpdates)}
         onToggleSelectAllVisible={handleToggleSelectAllVisible}
         onChangeSourceFilter={onChangeSourceFilter}
         onClearSelection={onClearSelection}
@@ -252,8 +249,6 @@ export function SoftwareUpdateView({
                       onToggleSelect={onToggleSelect}
                       onRowClick={onRowClick}
                       onRowAction={onRowAction}
-                      onGroupAction={() => onUpdateAllVisible(items)}
-                      groupActionDisabled={loading}
                     />
                   ))
                 )}

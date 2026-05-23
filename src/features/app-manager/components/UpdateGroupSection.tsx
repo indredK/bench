@@ -3,7 +3,6 @@
  */
 import type { TFunction } from "i18next";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { AppInfo, UpdateInfo, UpdateSource } from "@/lib/tauri/types/app-manager";
 import type { OperationStatus } from "@/features/app-manager/model/operations";
@@ -26,8 +25,6 @@ interface UpdateGroupSectionProps {
   onToggleSelect: (appId: string) => void;
   onRowClick: (update: UpdateInfo) => void;
   onRowAction: (update: UpdateInfo) => void;
-  onGroupAction: () => void;
-  groupActionDisabled: boolean;
 }
 
 export function UpdateGroupSection({
@@ -43,12 +40,10 @@ export function UpdateGroupSection({
   onToggleSelect,
   onRowClick,
   onRowAction,
-  onGroupAction,
-  groupActionDisabled,
 }: UpdateGroupSectionProps) {
   return (
     <section className="relative rounded-lg border bg-card">
-      <div className="sticky top-0 z-10 flex items-center justify-between rounded-t-lg border-b bg-card/95 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-card/90 relative after:pointer-events-none after:absolute after:inset-x-0 after:top-0 after:h-px after:bg-border/80 after:content-['']">
+      <div className="sticky top-0 z-10 flex items-center rounded-t-lg border-b bg-card/95 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-card/90 relative after:pointer-events-none after:absolute after:inset-x-0 after:top-0 after:h-px after:bg-border/80 after:content-['']">
         <button
           type="button"
           className={cn(
@@ -64,14 +59,6 @@ export function UpdateGroupSection({
             {t("appManager.softwareUpdate.groupCount", { count: updates.length })}
           </span>
         </button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onGroupAction}
-          disabled={groupActionDisabled || updates.length === 0}
-        >
-          {t("appManager.softwareUpdate.groupAll")}
-        </Button>
       </div>
 
       {expanded && (

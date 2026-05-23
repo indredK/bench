@@ -151,8 +151,6 @@
       "marketplace": "应用市场"
     },
     "softwareUpdate": {
-      "updateAll": "全部更新",
-      "updateAllCount": "全部更新 ({{count}})",
       "recheck": "重新检查",
       "checking": "检查中…",
       "selectAll": "全选",
@@ -166,7 +164,6 @@
         "squirrel": "Squirrel",
         "github": "GitHub"
       },
-      "groupAll": "此源全部更新",
       "groupCount": "{{count}} 个更新",
       "searchPlaceholder": "搜索应用名称、版本或来源...",
       "action": {

@@ -381,21 +381,6 @@ export function useAppManagerController(active: boolean) {
     setUpdateOperationStatus,
   ]);
 
-  const handleUpdateAllVisible = useCallback(
-    async (visibleUpdates: UpdateInfo[]) => {
-      if (visibleUpdates.length === 0) return;
-      for (const update of visibleUpdates) {
-        if (update.source === "homebrew") {
-          // For non-brew sources, "update all" still iterates so external pages are opened in sequence.
-          await handleUpdateAction(update);
-        } else {
-          await handleUpdateAction(update);
-        }
-      }
-    },
-    [handleUpdateAction]
-  );
-
   const handleSetActiveTab = useCallback(
     (tab: AppManagerTabKey) => {
       setActiveTab(tab);
@@ -595,13 +580,15 @@ export function useAppManagerController(active: boolean) {
   }, [historyOpen, loadHistory]);
 
   useEffect(() => {
-    // Single ESC listener with deepest-first priority. Previously each modal
-    // (history / selectedItem / installDetailItem) registered its own
-    // document-level keydown listener, so when two modals were open ESC
-    // closed both at once instead of unwinding the stack (#069).
-    if (!historyOpen && !selectedItem && !installDetailItem) return;
+    // Keep detail/history ESC behavior in one stack so only the topmost
+    // app-manager panel closes per keypress.
+    if (!historyOpen && !selectedItem && !installDetailItem && !selectedUpdate) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
+      if (selectedUpdate) {
+        setSelectedUpdate(null);
+        return;
+      }
       if (installDetailItem) {
         setInstallDetailItem(null);
         return;
@@ -616,7 +603,16 @@ export function useAppManagerController(active: boolean) {
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [historyOpen, installDetailItem, selectedItem, setHistoryOpen, setInstallDetailItem, setSelectedItem]);
+  }, [
+    historyOpen,
+    installDetailItem,
+    selectedItem,
+    selectedUpdate,
+    setHistoryOpen,
+    setInstallDetailItem,
+    setSelectedItem,
+    setSelectedUpdate,
+  ]);
 
   useEffect(() => {
     setSelectedItem(null);
@@ -956,7 +952,6 @@ export function useAppManagerController(active: boolean) {
     refreshUpdates,
     checkAllUpdates,
     handleUpdateAction,
-    handleUpdateAllVisible,
     handleCloseInstallDialog,
     inProgressUpdate,
     handleSetActiveTab,
