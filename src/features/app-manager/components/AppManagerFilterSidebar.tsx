@@ -94,7 +94,6 @@ export function AppManagerFilterSidebar({
                   {t(option.labelKey)}
                   {option.key === "all" && ` (${apps.length})`}
                   {option.key === "managed" && ` (${managedCount ?? 0})`}
-                  {option.key === "upgradable" && ` (${apps.filter((app) => app.upgradeAvailable).length})`}
                 </Badge>
               ))}
             </div>

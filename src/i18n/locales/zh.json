@@ -26,7 +26,6 @@
     "filterSystem": "系统应用",
     "filterLaunchable": "可启动",
     "filterManaged": "可管理",
-    "filterUpgradable": "可升级",
     "sourceHomebrewCask": "Homebrew",
     "sourceMacBundle": "Mac 原生",
     "sourceAppStore": "App Store",

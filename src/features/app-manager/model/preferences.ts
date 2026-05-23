@@ -9,7 +9,6 @@ export type AppFilterKey =
   | "system"
   | "launchable"
   | "managed"
-  | "upgradable"
   | "installList";
 
 export interface PersistedPreferences {
@@ -23,7 +22,6 @@ const VALID_FILTER_KEYS = new Set<AppFilterKey>([
   "system",
   "launchable",
   "managed",
-  "upgradable",
   "installList",
 ]);
 

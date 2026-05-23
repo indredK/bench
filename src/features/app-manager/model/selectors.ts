@@ -105,9 +105,6 @@ function filterInstalledApps({
       case "managed":
         if (!app.canUpgrade && !app.canUninstall) return false;
         break;
-      case "upgradable":
-        if (!app.upgradeAvailable) return false;
-        break;
     }
 
     if (categoryFilter && classifyApp(app) !== categoryFilter) return false;

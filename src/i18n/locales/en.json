@@ -26,7 +26,6 @@
     "filterSystem": "System Apps",
     "filterLaunchable": "Launchable",
     "filterManaged": "Managed",
-    "filterUpgradable": "Upgradable",
     "sourceHomebrewCask": "Homebrew",
     "sourceMacBundle": "Mac Bundle",
     "sourceAppStore": "App Store",

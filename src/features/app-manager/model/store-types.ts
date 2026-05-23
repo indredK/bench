@@ -30,7 +30,6 @@ export const APP_FILTER_OPTIONS = [
   { key: "system" as const, labelKey: "appManager.filterSystem" },
   { key: "launchable" as const, labelKey: "appManager.filterLaunchable" },
   { key: "managed" as const, labelKey: "appManager.filterManaged" },
-  { key: "upgradable" as const, labelKey: "appManager.filterUpgradable" },
 ];
 
 export type AppManagerTabKey = "installed" | "softwareUpdate" | "marketplace";
