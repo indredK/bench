@@ -1,8 +1,9 @@
 /**
  * App Shell / 应用壳层: compose routing and shell actions; 只做全局组合与路由.
  */
-import { Router, Route, Switch } from "wouter";
+import { Router, Route, Switch, useLocation } from "wouter";
 import { useHashLocation } from "wouter/use-hash-location";
+import { AnimatePresence, motion } from "motion/react";
 import { useTranslation } from "react-i18next";
 import Sidebar from "./components/layout/Sidebar";
 import { CustomTitlebar } from "./components/layout/CustomTitlebar";
@@ -21,6 +22,37 @@ import { markMainReady } from "@/lib/tauri/commands/bootstrap";
 import { WINDOW_BOOTSTRAP_EVENTS } from "@/lib/tauri/contracts";
 import { emitPlatformEventTo } from "@/platform/events";
 import { canUseWindowControls } from "@/platform/window";
+
+function AnimatedRoutes() {
+  const [location] = useLocation();
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      <FeaturePanel key={location} location={location} />
+    </AnimatePresence>
+  );
+}
+
+function FeaturePanel({ location }: { location: string }) {
+  // 锁定挂载时的 location, 避免退场期间 Switch 跟着新路由切换内容
+  const [frozenLocation] = useState(location);
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -4 }}
+      transition={{ duration: 0.12, ease: "easeOut" }}
+      className="h-full"
+    >
+      <Switch location={frozenLocation}>
+        {appFeatures.map((feature) => (
+          <Route key={feature.id} path={feature.path}>
+            {feature.render(feature)}
+          </Route>
+        ))}
+      </Switch>
+    </motion.div>
+  );
+}
 
 function App() {
   const { t } = useTranslation();
@@ -102,13 +134,7 @@ function App() {
               />
               <div className="flex flex-1 flex-col overflow-hidden">
                 <div className="flex-1 overflow-hidden p-4">
-                  <Switch>
-                    {appFeatures.map((feature) => (
-                      <Route key={feature.id} path={feature.path}>
-                        {feature.render(feature)}
-                      </Route>
-                    ))}
-                  </Switch>
+                  <AnimatedRoutes />
                 </div>
               </div>
             </div>

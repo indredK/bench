@@ -1,6 +1,7 @@
 /**
  * Page View / 页面视图: compose screen only; 只组合页面.
  */
+import { AnimatePresence, motion } from "motion/react";
 import { AppWindow, CheckSquare, Download, Filter, Search, Trash2, X } from "lucide-react";
 import { ToolbarButton } from "@/components/ui/toolbar-button";
 import { RuntimeFeatureGate } from "@/components/common/RuntimeFeatureGate";
@@ -153,7 +154,16 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
           />
 
           <div className="flex-1 min-h-0">
+            <AnimatePresence mode="wait" initial={false}>
             {activeTab === "softwareUpdate" ? (
+              <motion.div
+                key="softwareUpdate"
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.12, ease: "easeOut" }}
+                className="h-full min-h-0"
+              >
               <SoftwareUpdateView
                 t={t}
                 apps={apps}
@@ -182,7 +192,16 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                 }
                 onOpenExternal={(url) => void openExternal(url)}
               />
+              </motion.div>
             ) : activeTab === "marketplace" ? (
+              <motion.div
+                key="marketplace"
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.12, ease: "easeOut" }}
+                className="h-full min-h-0"
+              >
               <AppManagerCatalogView<InstallListAppInfo, MarketplaceFilterKey>
                 t={t}
                 items={filteredInstallListApps}
@@ -288,7 +307,16 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                   </div>
                 ) : undefined}
               />
+              </motion.div>
             ) : (
+              <motion.div
+                key="installed"
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.12, ease: "easeOut" }}
+                className="h-full min-h-0"
+              >
               <AppManagerCatalogView<AppInfo, AppFilterKey>
                 t={t}
                 items={filteredApps}
@@ -423,7 +451,9 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                 ) : undefined}
                 getRowAttributes={getRowAttributes}
               />
+              </motion.div>
             )}
+            </AnimatePresence>
           </div>
 
           <AppManagerConfirmDialogs

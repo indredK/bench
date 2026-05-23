@@ -3,6 +3,7 @@
  */
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { AnimatePresence, motion } from "motion/react";
 import i18n from "@/i18n/config";
 import { RotateCcw, Pin, PinOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -162,34 +163,48 @@ function FilterBar<T extends { id: string; model: string }>({
       </div>
 
       {/* ── 可切换内容区域 ── */}
-      {!masterCollapsed && (
-        <div className="px-4 pb-4 space-y-3 border-t border-border/40">
-          <FacetedFilterGroups
-            groups={resolvedGroups}
-            filters={filters}
-            onFilterChange={onFilterChange}
-          />
-
-          {modelPicker && (
-            <>
-              <div className="border-t border-border/40" />
-              <ModelPicker
-                models={modelPicker.models}
-                selectedIds={modelPicker.selectedIds}
-                onToggleModel={modelPicker.onToggleModel}
-                onClearSelected={modelPicker.onClearSelected}
-                hasActiveFilters={hasActiveFilters}
-                resultCount={resultCount}
-                filteredCountKey={filteredCountKey}
-                i18nPrefix={i18nPrefix}
-                uid={uid}
-                selectModelsTitleKey={selectModelsTitleKey}
-                clearSelectedKey={clearSelectedKey}
+      <AnimatePresence initial={false}>
+        {!masterCollapsed && (
+          <motion.div
+            key="content"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{
+              height: { duration: 0.22, ease: [0.4, 0, 0.2, 1] },
+              opacity: { duration: 0.18, ease: "easeOut" },
+            }}
+            className="overflow-hidden"
+          >
+            <div className="px-4 pb-4 space-y-3 border-t border-border/40">
+              <FacetedFilterGroups
+                groups={resolvedGroups}
+                filters={filters}
+                onFilterChange={onFilterChange}
               />
-            </>
-          )}
-        </div>
-      )}
+
+              {modelPicker && (
+                <>
+                  <div className="border-t border-border/40" />
+                  <ModelPicker
+                    models={modelPicker.models}
+                    selectedIds={modelPicker.selectedIds}
+                    onToggleModel={modelPicker.onToggleModel}
+                    onClearSelected={modelPicker.onClearSelected}
+                    hasActiveFilters={hasActiveFilters}
+                    resultCount={resultCount}
+                    filteredCountKey={filteredCountKey}
+                    i18nPrefix={i18nPrefix}
+                    uid={uid}
+                    selectModelsTitleKey={selectModelsTitleKey}
+                    clearSelectedKey={clearSelectedKey}
+                  />
+                </>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
