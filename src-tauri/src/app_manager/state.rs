@@ -182,4 +182,59 @@ mod tests {
         assert_eq!(state_a.get_operation_history(None).len(), 1);
         assert_eq!(state_b.get_operation_history(None).len(), 0);
     }
+
+    /// Regression: even if the mutex is poisoned by a panic in another thread,
+    /// `record_operation` / `acquire_op_lock` / `cache_scan_result` recover the
+    /// data instead of propagating the poison panic.
+    #[test]
+    fn state_recovers_from_poisoned_mutex() {
+        use std::sync::Arc;
+        use std::thread;
+
+        let state = Arc::new(AppManagerState::new());
+        let state_clone = state.clone();
+
+        // Poison every mutex deliberately by panicking while holding each one.
+        let _ = thread::spawn(move || {
+            let _g1 = state_clone.apps.lock().unwrap();
+            let _g2 = state_clone.in_progress.lock().unwrap();
+            let _g3 = state_clone.cached_result.lock().unwrap();
+            let _g4 = state_clone.last_scan_time.lock().unwrap();
+            let _g5 = state_clone.last_update_check_time.lock().unwrap();
+            let _g6 = state_clone.batch_cancel.lock().unwrap();
+            let _g7 = state_clone.operation_history.lock().unwrap();
+            panic!("intentional poisoning");
+        })
+        .join();
+
+        // None of the following should panic – they all use `unwrap_or_else(into_inner)`.
+        assert!(state.acquire_op_lock("foo"));
+        state.release_op_lock("foo");
+        state.record_operation(record("post-panic"));
+        let history = state.get_operation_history(None);
+        assert_eq!(history.len(), 1);
+        assert_eq!(history[0].app_id, "post-panic");
+
+        state.mark_update_check();
+        let flag = state.start_batch_operation();
+        assert!(state.cancel_batch_operation());
+        assert!(flag.load(std::sync::atomic::Ordering::Relaxed));
+        state.clear_batch_operation();
+    }
+
+    /// Regression: install/upgrade/uninstall paths must serialize per-app-id
+    /// via `acquire_op_lock` so concurrent commands on the same app return
+    /// LOCKED instead of racing the package manager.
+    #[test]
+    fn acquire_op_lock_is_exclusive_per_app_id() {
+        let state = AppManagerState::new();
+        assert!(state.acquire_op_lock("a"));
+        // Re-acquiring the same id while still held is rejected.
+        assert!(!state.acquire_op_lock("a"));
+        // A different id is still free.
+        assert!(state.acquire_op_lock("b"));
+        // Releasing restores availability.
+        state.release_op_lock("a");
+        assert!(state.acquire_op_lock("a"));
+    }
 }

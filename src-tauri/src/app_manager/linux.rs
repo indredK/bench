@@ -577,7 +577,7 @@ pub fn upgrade_app(
     state: tauri::State<'_, AppManagerState>,
 ) -> Result<OperationResult, String> {
     let app = {
-        let apps = state.apps.lock().unwrap();
+        let apps = state.apps.lock().unwrap_or_else(|e| e.into_inner());
         apps.iter()
             .find(|a| a.app_id == app_id)
             .cloned()
@@ -605,7 +605,7 @@ pub fn uninstall_app(
     state: tauri::State<'_, AppManagerState>,
 ) -> Result<OperationResult, String> {
     let app = {
-        let apps = state.apps.lock().unwrap();
+        let apps = state.apps.lock().unwrap_or_else(|e| e.into_inner());
         apps.iter()
             .find(|a| a.app_id == app_id)
             .cloned()

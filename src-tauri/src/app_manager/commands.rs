@@ -4,8 +4,9 @@ use super::types::{
     OperationResult, ScanResult,
 };
 use super::{empty_scan_result, linux, locked_operation_result, macos, windows};
+use serde::Serialize;
 use std::sync::atomic::Ordering;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 fn is_macos() -> bool {
     std::env::consts::OS == "macos"
@@ -27,6 +28,40 @@ fn cancelled_batch_item(app_id: &str) -> BatchItemResult {
         message: "Cancelled by user".to_string(),
         exit_code: None,
     }
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct BatchProgressEvent<'a> {
+    action: &'a str,
+    app_id: &'a str,
+    success: bool,
+    error_code: Option<&'a str>,
+    index: usize,
+    total: usize,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct BatchCancelledEvent<'a> {
+    action: &'a str,
+    app_id: &'a str,
+    index: usize,
+    total: usize,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct BatchFinishedEvent<'a> {
+    action: &'a str,
+    total: usize,
+    succeeded: usize,
+    failed: usize,
+    cancelled: usize,
+}
+
+fn emit_silently<T: Serialize + Clone>(app: &tauri::AppHandle, event: &str, payload: T) {
+    let _ = app.emit(event, payload);
 }
 
 #[tauri::command]
@@ -172,38 +207,74 @@ pub fn get_app_operation_history(
 pub fn batch_upgrade_apps(
     app_ids: Vec<String>,
     state: tauri::State<'_, AppManagerState>,
+    app: tauri::AppHandle,
 ) -> BatchOperationResult {
     let mut results = Vec::new();
     let mut succeeded = 0usize;
     let mut failed = 0usize;
+    let mut cancelled = 0usize;
 
     let cancel_flag = state.start_batch_operation();
+    let total = app_ids.len();
 
-    for app_id in &app_ids {
+    for (idx, app_id) in app_ids.iter().enumerate() {
         if cancel_flag.load(Ordering::Relaxed) {
-            failed += 1;
+            cancelled += 1;
             results.push(cancelled_batch_item(app_id));
+            emit_silently(
+                &app,
+                "app-manager://batch-cancelled-item",
+                BatchCancelledEvent {
+                    action: "upgrade",
+                    app_id,
+                    index: idx,
+                    total,
+                },
+            );
             continue;
         }
         let result = upgrade_app(app_id.clone(), state.clone());
         match result {
             Ok(r) => {
-                let item = BatchItemResult {
-                    app_id: app_id.clone(),
-                    app_name: String::new(),
-                    success: r.success,
-                    message: r.message,
-                    exit_code: r.exit_code,
-                };
                 if r.success {
                     succeeded += 1;
                 } else {
                     failed += 1;
                 }
-                results.push(item);
+                emit_silently(
+                    &app,
+                    "app-manager://batch-progress",
+                    BatchProgressEvent {
+                        action: "upgrade",
+                        app_id,
+                        success: r.success,
+                        error_code: r.error_code.as_deref(),
+                        index: idx,
+                        total,
+                    },
+                );
+                results.push(BatchItemResult {
+                    app_id: app_id.clone(),
+                    app_name: String::new(),
+                    success: r.success,
+                    message: r.message,
+                    exit_code: r.exit_code,
+                });
             }
             Err(e) => {
                 failed += 1;
+                emit_silently(
+                    &app,
+                    "app-manager://batch-progress",
+                    BatchProgressEvent {
+                        action: "upgrade",
+                        app_id,
+                        success: false,
+                        error_code: Some("GENERIC_ERROR"),
+                        index: idx,
+                        total,
+                    },
+                );
                 results.push(BatchItemResult {
                     app_id: app_id.clone(),
                     app_name: String::new(),
@@ -216,11 +287,22 @@ pub fn batch_upgrade_apps(
     }
 
     state.clear_batch_operation();
+    emit_silently(
+        &app,
+        "app-manager://batch-finished",
+        BatchFinishedEvent {
+            action: "upgrade",
+            total,
+            succeeded,
+            failed: failed + cancelled,
+            cancelled,
+        },
+    );
 
     BatchOperationResult {
-        total: app_ids.len(),
+        total,
         succeeded,
-        failed,
+        failed: failed + cancelled,
         results,
     }
 }
@@ -229,38 +311,74 @@ pub fn batch_upgrade_apps(
 pub fn batch_uninstall_apps(
     app_ids: Vec<String>,
     state: tauri::State<'_, AppManagerState>,
+    app: tauri::AppHandle,
 ) -> BatchOperationResult {
     let mut results = Vec::new();
     let mut succeeded = 0usize;
     let mut failed = 0usize;
+    let mut cancelled = 0usize;
 
     let cancel_flag = state.start_batch_operation();
+    let total = app_ids.len();
 
-    for app_id in &app_ids {
+    for (idx, app_id) in app_ids.iter().enumerate() {
         if cancel_flag.load(Ordering::Relaxed) {
-            failed += 1;
+            cancelled += 1;
             results.push(cancelled_batch_item(app_id));
+            emit_silently(
+                &app,
+                "app-manager://batch-cancelled-item",
+                BatchCancelledEvent {
+                    action: "uninstall",
+                    app_id,
+                    index: idx,
+                    total,
+                },
+            );
             continue;
         }
         let result = uninstall_app(app_id.clone(), state.clone());
         match result {
             Ok(r) => {
-                let item = BatchItemResult {
-                    app_id: app_id.clone(),
-                    app_name: String::new(),
-                    success: r.success,
-                    message: r.message,
-                    exit_code: r.exit_code,
-                };
                 if r.success {
                     succeeded += 1;
                 } else {
                     failed += 1;
                 }
-                results.push(item);
+                emit_silently(
+                    &app,
+                    "app-manager://batch-progress",
+                    BatchProgressEvent {
+                        action: "uninstall",
+                        app_id,
+                        success: r.success,
+                        error_code: r.error_code.as_deref(),
+                        index: idx,
+                        total,
+                    },
+                );
+                results.push(BatchItemResult {
+                    app_id: app_id.clone(),
+                    app_name: String::new(),
+                    success: r.success,
+                    message: r.message,
+                    exit_code: r.exit_code,
+                });
             }
             Err(e) => {
                 failed += 1;
+                emit_silently(
+                    &app,
+                    "app-manager://batch-progress",
+                    BatchProgressEvent {
+                        action: "uninstall",
+                        app_id,
+                        success: false,
+                        error_code: Some("GENERIC_ERROR"),
+                        index: idx,
+                        total,
+                    },
+                );
                 results.push(BatchItemResult {
                     app_id: app_id.clone(),
                     app_name: String::new(),
@@ -273,11 +391,22 @@ pub fn batch_uninstall_apps(
     }
 
     state.clear_batch_operation();
+    emit_silently(
+        &app,
+        "app-manager://batch-finished",
+        BatchFinishedEvent {
+            action: "uninstall",
+            total,
+            succeeded,
+            failed: failed + cancelled,
+            cancelled,
+        },
+    );
 
     BatchOperationResult {
-        total: app_ids.len(),
+        total,
         succeeded,
-        failed,
+        failed: failed + cancelled,
         results,
     }
 }
@@ -296,53 +425,96 @@ pub fn install_app(
     install_source: InstallSource,
     state: tauri::State<'_, AppManagerState>,
 ) -> Result<OperationResult, String> {
-    if is_macos() {
-        macos::install_app(app_id, install_source, state)
+    if !state.acquire_op_lock(&app_id) {
+        return Ok(locked_operation_result());
+    }
+
+    let result = if is_macos() {
+        macos::install_app(app_id.clone(), install_source, state.clone())
     } else if is_windows() {
-        windows::install_app(app_id, install_source, state)
+        windows::install_app(app_id.clone(), install_source, state.clone())
     } else if is_linux() {
-        linux::install_app(app_id, install_source, state)
+        linux::install_app(app_id.clone(), install_source, state.clone())
     } else {
         Err("Unsupported platform".into())
-    }
+    };
+
+    state.release_op_lock(&app_id);
+    result
 }
 
 #[tauri::command]
 pub fn batch_install_apps(
     items: Vec<BatchInstallItem>,
     state: tauri::State<'_, AppManagerState>,
+    app: tauri::AppHandle,
 ) -> BatchOperationResult {
     let mut results = Vec::new();
     let mut succeeded = 0usize;
     let mut failed = 0usize;
+    let mut cancelled = 0usize;
 
     let cancel_flag = state.start_batch_operation();
+    let total = items.len();
 
-    for item in &items {
+    for (idx, item) in items.iter().enumerate() {
         if cancel_flag.load(Ordering::Relaxed) {
-            failed += 1;
+            cancelled += 1;
             results.push(cancelled_batch_item(&item.app_id));
+            emit_silently(
+                &app,
+                "app-manager://batch-cancelled-item",
+                BatchCancelledEvent {
+                    action: "install",
+                    app_id: &item.app_id,
+                    index: idx,
+                    total,
+                },
+            );
             continue;
         }
         let result = install_app(item.app_id.clone(), item.install_source.clone(), state.clone());
         match result {
             Ok(r) => {
-                let item_result = BatchItemResult {
-                    app_id: item.app_id.clone(),
-                    app_name: String::new(),
-                    success: r.success,
-                    message: r.message,
-                    exit_code: r.exit_code,
-                };
                 if r.success {
                     succeeded += 1;
                 } else {
                     failed += 1;
                 }
-                results.push(item_result);
+                emit_silently(
+                    &app,
+                    "app-manager://batch-progress",
+                    BatchProgressEvent {
+                        action: "install",
+                        app_id: &item.app_id,
+                        success: r.success,
+                        error_code: r.error_code.as_deref(),
+                        index: idx,
+                        total,
+                    },
+                );
+                results.push(BatchItemResult {
+                    app_id: item.app_id.clone(),
+                    app_name: String::new(),
+                    success: r.success,
+                    message: r.message,
+                    exit_code: r.exit_code,
+                });
             }
             Err(e) => {
                 failed += 1;
+                emit_silently(
+                    &app,
+                    "app-manager://batch-progress",
+                    BatchProgressEvent {
+                        action: "install",
+                        app_id: &item.app_id,
+                        success: false,
+                        error_code: Some("GENERIC_ERROR"),
+                        index: idx,
+                        total,
+                    },
+                );
                 results.push(BatchItemResult {
                     app_id: item.app_id.clone(),
                     app_name: String::new(),
@@ -355,11 +527,22 @@ pub fn batch_install_apps(
     }
 
     state.clear_batch_operation();
+    emit_silently(
+        &app,
+        "app-manager://batch-finished",
+        BatchFinishedEvent {
+            action: "install",
+            total,
+            succeeded,
+            failed: failed + cancelled,
+            cancelled,
+        },
+    );
 
     BatchOperationResult {
-        total: items.len(),
+        total,
         succeeded,
-        failed,
+        failed: failed + cancelled,
         results,
     }
 }
