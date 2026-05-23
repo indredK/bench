@@ -33,24 +33,101 @@ fn winget_path() -> Option<String> {
     find_winget()
 }
 
+/// Column offsets parsed from a winget table header.
+struct WingetColumns {
+    name_start: usize,
+    id_start: usize,
+    version_start: Option<usize>,
+}
+
+impl WingetColumns {
+    fn from_header(header: &str) -> Option<Self> {
+        let name_start = header.find("Name")?;
+        let id_start = header.find("Id")?;
+        if id_start <= name_start {
+            return None;
+        }
+        let version_start = header.find("Version");
+        if let Some(v) = version_start {
+            if v <= id_start {
+                return None;
+            }
+        }
+        Some(Self {
+            name_start,
+            id_start,
+            version_start,
+        })
+    }
+}
+
+/// Locate the winget header line and return remaining data lines (skipping the
+/// dash separator immediately after the header).
+fn find_winget_table<'a>(stdout: &'a str) -> Option<(WingetColumns, Vec<&'a str>)> {
+    let lines: Vec<&str> = stdout.lines().collect();
+    for (i, line) in lines.iter().enumerate() {
+        if let Some(cols) = WingetColumns::from_header(line) {
+            let data: Vec<&str> = lines.into_iter().skip(i + 2).collect();
+            return Some((cols, data));
+        }
+    }
+    None
+}
+
+/// Slice `s` by byte range, snapping each endpoint to the nearest char
+/// boundary so UTF-8 sequences stay intact.
+fn slice_byte_range(s: &str, start: usize, end: usize) -> &str {
+    let len = s.len();
+    if start >= len {
+        return "";
+    }
+    let end = end.min(len);
+    if end <= start {
+        return "";
+    }
+    let mut s_idx = start;
+    while s_idx < len && !s.is_char_boundary(s_idx) {
+        s_idx += 1;
+    }
+    let mut e_idx = end;
+    while e_idx < len && !s.is_char_boundary(e_idx) {
+        e_idx += 1;
+    }
+    if s_idx >= e_idx {
+        return "";
+    }
+    &s[s_idx..e_idx]
+}
+
 /// List installed winget packages.
 fn list_winget_packages(winget: &str) -> Result<Vec<(String, String)>, String> {
     let output = Command::new(winget)
         .args(["list", "--accept-source-agreements"])
         .output()
         .map_err(|e| format!("winget list failed: {}", e))?;
-    // Parse winget table output – format: Name Id Version Available Source
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("winget list failed: {}", stderr.trim()));
+    }
     let stdout = String::from_utf8_lossy(&output.stdout);
+    let (cols, data) = match find_winget_table(&stdout) {
+        Some(v) => v,
+        None => return Ok(Vec::new()),
+    };
     let mut packages = Vec::new();
-    for line in stdout.lines().skip(3) {
-        // winget list output columns are variable-width; extract first two columns
-        let parts: Vec<&str> = line.split_whitespace().collect();
-        if parts.len() >= 2 {
-            let name = parts[0].to_string();
-            let id = parts[1].to_string();
-            if !name.is_empty() && !id.is_empty() {
-                packages.push((name, id));
-            }
+    for line in data {
+        if line.trim().is_empty() {
+            continue;
+        }
+        let id_end = cols.version_start.unwrap_or(usize::MAX);
+        let name = slice_byte_range(line, cols.name_start, cols.id_start)
+            .trim()
+            .to_string();
+        let id = slice_byte_range(line, cols.id_start, id_end)
+            .trim()
+            .to_string();
+        if !name.is_empty() && !id.is_empty() {
+            packages.push((name, id));
         }
     }
     Ok(packages)
@@ -61,12 +138,24 @@ fn list_winget_upgradable(winget: &str) -> Result<Vec<String>, String> {
         .args(["upgrade", "--accept-source-agreements"])
         .output()
         .map_err(|e| format!("winget upgrade list failed: {}", e))?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("winget upgrade list failed: {}", stderr.trim()));
+    }
     let stdout = String::from_utf8_lossy(&output.stdout);
+    let (cols, data) = match find_winget_table(&stdout) {
+        Some(v) => v,
+        None => return Ok(Vec::new()),
+    };
     let mut ids = Vec::new();
-    for line in stdout.lines().skip(3) {
-        let parts: Vec<&str> = line.split_whitespace().collect();
-        if parts.len() >= 2 {
-            ids.push(parts[1].to_lowercase());
+    for line in data {
+        if line.trim().is_empty() {
+            continue;
+        }
+        let id_end = cols.version_start.unwrap_or(usize::MAX);
+        let id = slice_byte_range(line, cols.id_start, id_end).trim();
+        if !id.is_empty() {
+            ids.push(id.to_lowercase());
         }
     }
     Ok(ids)

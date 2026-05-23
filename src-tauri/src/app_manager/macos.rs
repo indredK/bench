@@ -65,6 +65,10 @@ fn list_outdated_casks(brew: &str) -> Result<HashSet<String>, String> {
         .args(["outdated", "--cask"])
         .output()
         .map_err(|e| format!("Failed to run brew outdated --cask: {}", e))?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("brew outdated --cask failed: {}", stderr.trim()));
+    }
     let stdout = String::from_utf8_lossy(&output.stdout);
     Ok(stdout
         .lines()

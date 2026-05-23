@@ -5,8 +5,9 @@ use crate::app_manager::{
 };
 use std::collections::HashSet;
 use std::fs;
+use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 // ============================================================================
 // Package Manager Detection
@@ -341,25 +342,41 @@ pub fn launch_app(app_path: String) -> Result<(), String> {
         for arg in &parts[1..] {
             command.arg(arg);
         }
-        let status = command
-            .status()
-            .map_err(|e| format!("Failed to launch: {}", e))?;
-        return if status.success() {
-            Ok(())
-        } else {
-            Err("Launch failed".into())
-        };
+        return spawn_detached(command);
     }
     // Fallback to xdg-open
-    let status = Command::new("xdg-open")
-        .arg(&app_path)
-        .status()
-        .map_err(|e| format!("Failed to launch: {}", e))?;
-    if status.success() {
-        Ok(())
-    } else {
-        Err("Launch failed".into())
+    spawn_detached({
+        let mut c = Command::new("xdg-open");
+        c.arg(&app_path);
+        c
+    })
+}
+
+/// Launch `command` as a detached child: its stdio is redirected to /dev/null
+/// and `setsid` makes it the leader of a new session, so the parent (this
+/// process) never blocks waiting on it and the GUI app survives if we exit.
+fn spawn_detached(mut command: Command) -> Result<(), String> {
+    command
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    // SAFETY: `setsid` is async-signal-safe; no allocation/locks are taken
+    // between fork and exec.
+    unsafe {
+        command.pre_exec(|| {
+            extern "C" {
+                fn setsid() -> i32;
+            }
+            if setsid() == -1 {
+                return Err(std::io::Error::last_os_error());
+            }
+            Ok(())
+        });
     }
+    command
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| format!("Failed to launch: {}", e))
 }
 
 /// Resolve a TryExec entry against PATH. Accepts absolute paths (must exist
