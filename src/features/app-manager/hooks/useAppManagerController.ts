@@ -377,7 +377,8 @@ export function useAppManagerController(active: boolean) {
   useEffect(() => {
     setSelectedItem(null);
     setInstallDetailItem(null);
-  }, [activeFilter, categoryFilter, seriesFilter, searchQuery, setSelectedItem]);
+    clearSelection();
+  }, [activeFilter, categoryFilter, seriesFilter, searchQuery, setSelectedItem, clearSelection]);
 
   const getOpStatus = useCallback((appId: string) => {
     const state = useAppManagerStore.getState();
