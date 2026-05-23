@@ -2,6 +2,7 @@
  * Layout UI / 布局 UI: own layout only; 只负责通用布局.
  */
 import { type ReactNode } from "react";
+import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 
 interface ThreeColumnLayoutProps {
@@ -25,16 +26,17 @@ export function ThreeColumnLayout({
 }: ThreeColumnLayoutProps) {
   return (
     <div className="relative flex h-full flex-1 min-h-0 overflow-hidden">
-      <div
-        className={cn(
-          "shrink-0 overflow-hidden transition-[width,margin] duration-200",
-          filterOpen ? "mr-3 w-[240px]" : "mr-0 w-0"
-        )}
+      <motion.div
+        initial={false}
+        animate={{
+          width: filterOpen ? 240 : 0,
+          marginRight: filterOpen ? 12 : 0,
+        }}
+        transition={{ type: "spring", stiffness: 380, damping: 36, mass: 0.7 }}
+        className="shrink-0 overflow-hidden"
       >
-        <div className={cn("w-full h-full", !filterOpen && "invisible")}>
-          {filter}
-        </div>
-      </div>
+        <div className="w-[240px] h-full">{filter}</div>
+      </motion.div>
 
       <div className="flex-1 min-w-0 min-h-0 flex flex-col">
         {content}

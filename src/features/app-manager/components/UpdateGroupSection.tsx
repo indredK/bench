@@ -2,7 +2,8 @@
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  */
 import type { TFunction } from "i18next";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { AppInfo, UpdateInfo, UpdateSource } from "@/lib/tauri/types/app-manager";
@@ -58,7 +59,13 @@ export function UpdateGroupSection({
           )}
           onClick={onToggleExpanded}
         >
-          {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          <motion.span
+            animate={{ rotate: expanded ? 0 : -90 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="inline-flex"
+          >
+            <ChevronDown size={14} />
+          </motion.span>
           <span className="text-base">{getUpdateSourceIcon(source)}</span>
           <span className="font-semibold">{getUpdateSourceLabel(t, source)}</span>
           <span className="text-xs text-muted-foreground tabular-nums">
@@ -80,24 +87,38 @@ export function UpdateGroupSection({
         </Button>
       </div>
 
-      {expanded && (
-        <div className="flex flex-col gap-1 px-3 py-2">
-          {updates.map((update) => (
-            <UpdateRow
-              key={update.appId}
-              t={t}
-              update={update}
-              app={appLookup.get(update.appId)}
-              selected={selectedIds.has(update.appId)}
-              isActive={activeUpdate?.appId === update.appId}
-              operationStatus={updateOperations[update.appId]?.status}
-              onToggleSelect={() => onToggleSelect(update.appId)}
-              onClickRow={() => onRowClick(update)}
-              onAction={() => onRowAction(update)}
-            />
-          ))}
-        </div>
-      )}
+      <AnimatePresence initial={false}>
+        {expanded && (
+          <motion.div
+            key="content"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{
+              height: { duration: 0.22, ease: [0.4, 0, 0.2, 1] },
+              opacity: { duration: 0.18, ease: "easeOut" },
+            }}
+            className="overflow-hidden"
+          >
+            <div className="flex flex-col gap-1 px-3 py-2">
+              {updates.map((update) => (
+                <UpdateRow
+                  key={update.appId}
+                  t={t}
+                  update={update}
+                  app={appLookup.get(update.appId)}
+                  selected={selectedIds.has(update.appId)}
+                  isActive={activeUpdate?.appId === update.appId}
+                  operationStatus={updateOperations[update.appId]?.status}
+                  onToggleSelect={() => onToggleSelect(update.appId)}
+                  onClickRow={() => onRowClick(update)}
+                  onAction={() => onRowAction(update)}
+                />
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   );
 }
