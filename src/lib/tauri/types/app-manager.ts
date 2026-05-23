@@ -111,3 +111,27 @@ export interface InstallListAppInfo {
 export type UninstalledAppInfo = InstallListAppInfo;
 
 export type AppManagerItem = AppInfo | InstallListAppInfo;
+
+export type UpdateSource =
+  | "homebrew"
+  | "macAppStore"
+  | "sparkle"
+  | "electron"
+  | "squirrel"
+  | "gitHub";
+
+export interface UpdateInfo {
+  appId: string;
+  appName: string;
+  source: UpdateSource;
+  currentVersion: string;
+  latestVersion: string;
+  downloadUrl: string | null;
+  adamId: string | null;
+  releaseNotesUrl: string | null;
+  releaseNotesInline: string | null;
+  size: number | null;
+  sourceMeta: unknown;
+  feedUrl: string | null;
+  ignored: boolean;
+}

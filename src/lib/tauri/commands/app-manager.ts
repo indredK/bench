@@ -62,3 +62,11 @@ export function batchInstallApps(items: { appId: string; installSource: InstallS
 export function cancelBatchOperation() {
   return invokeTauriCommand(TAURI_COMMANDS.appManager.cancelBatchOperation);
 }
+
+export function checkAllAppUpdates(forceRefresh?: boolean) {
+  return invokeTauriCommand(TAURI_COMMANDS.appManager.checkAllAppUpdates, { forceRefresh });
+}
+
+export function openInMacAppStore(adamId: string) {
+  return invokeTauriCommand(TAURI_COMMANDS.appManager.openInMacAppStore, { adamId });
+}

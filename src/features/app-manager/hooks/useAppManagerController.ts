@@ -19,7 +19,8 @@ import {
 import { filterAppManagerItems } from "@/features/app-manager/model/selectors";
 import { appManagerUseCases } from "@/features/app-manager/services/app-manager.use-cases";
 import { registerFeatureRefresh } from "@/features/refresh";
-import type { AppInfo, InstallListAppInfo } from "@/lib/tauri/types/app-manager";
+import type { AppInfo, InstallListAppInfo, UpdateInfo } from "@/lib/tauri/types/app-manager";
+import type { AppManagerTabKey } from "@/features/app-manager/model/store-types";
 import { appManagerPlatformConfig } from "@/platform/config";
 import { canUseDesktopFeatures } from "@/platform/capabilities";
 import { writeClipboardText } from "@/platform/clipboard";
@@ -54,6 +55,17 @@ export function useAppManagerController(active: boolean) {
   const installStates = useAppManagerStore((s) => s.installStates);
   const installConfirmDialog = useAppManagerStore((s) => s.installConfirmDialog);
 
+  const activeTab = useAppManagerStore((s) => s.activeTab);
+  const updates = useAppManagerStore((s) => s.updates);
+  const updatesLoading = useAppManagerStore((s) => s.updatesLoading);
+  const updatesError = useAppManagerStore((s) => s.updatesError);
+  const updatesScanned = useAppManagerStore((s) => s.updatesScanned);
+  const expandedUpdateGroups = useAppManagerStore((s) => s.expandedUpdateGroups);
+  const selectedUpdateIds = useAppManagerStore((s) => s.selectedUpdateIds);
+  const updateSourceFilter = useAppManagerStore((s) => s.updateSourceFilter);
+  const selectedUpdate = useAppManagerStore((s) => s.selectedUpdate);
+  const updateOperations = useAppManagerStore((s) => s.updateOperations);
+
   const setSearchQuery = useAppManagerStore((s) => s.setSearchQuery);
   const setActiveFilter = useAppManagerStore((s) => s.setActiveFilter);
   const setCategoryFilter = useAppManagerStore((s) => s.setCategoryFilter);
@@ -73,6 +85,19 @@ export function useAppManagerController(active: boolean) {
   const setFilterPanelOpen = useAppManagerStore((s) => s.setFilterPanelOpen);
   const openInstallConfirmDialog = useAppManagerStore((s) => s.openInstallConfirmDialog);
   const closeInstallConfirmDialog = useAppManagerStore((s) => s.closeInstallConfirmDialog);
+
+  const setActiveTab = useAppManagerStore((s) => s.setActiveTab);
+  const setUpdates = useAppManagerStore((s) => s.setUpdates);
+  const setUpdatesLoading = useAppManagerStore((s) => s.setUpdatesLoading);
+  const setUpdatesError = useAppManagerStore((s) => s.setUpdatesError);
+  const setUpdatesScanned = useAppManagerStore((s) => s.setUpdatesScanned);
+  const toggleUpdateGroup = useAppManagerStore((s) => s.toggleUpdateGroup);
+  const toggleSelectUpdate = useAppManagerStore((s) => s.toggleSelectUpdate);
+  const selectAllUpdates = useAppManagerStore((s) => s.selectAllUpdates);
+  const clearUpdateSelection = useAppManagerStore((s) => s.clearUpdateSelection);
+  const setUpdateSourceFilter = useAppManagerStore((s) => s.setUpdateSourceFilter);
+  const setSelectedUpdate = useAppManagerStore((s) => s.setSelectedUpdate);
+  const setUpdateOperationStatus = useAppManagerStore((s) => s.setUpdateOperationStatus);
 
   const [selectedInstallIds, setSelectedInstallIds] = useState<Set<string>>(new Set());
   const [installBatchMode, setInstallBatchMode] = useState(false);
@@ -189,6 +214,123 @@ export function useAppManagerController(active: boolean) {
       console.warn("[AppManager] Failed to check updates:", updateError);
     }
   }, []);
+
+  const checkAllUpdates = useCallback(
+    async (forceRefresh = false) => {
+      if (!appManagerUseCases.isAvailable()) return;
+      const { updatesLoading: currentLoading } = useAppManagerStore.getState();
+      if (currentLoading) return;
+
+      setUpdatesLoading(true);
+      setUpdatesError("");
+      try {
+        const { updates: result, error } = await appManagerUseCases.checkAllAppUpdates(forceRefresh);
+        if (error) {
+          setUpdatesError(error);
+        }
+        setUpdates(result);
+        setUpdatesScanned(true);
+      } catch (err) {
+        setUpdatesError(String(err));
+        setUpdatesScanned(true);
+      } finally {
+        setUpdatesLoading(false);
+      }
+    },
+    [setUpdates, setUpdatesError, setUpdatesLoading, setUpdatesScanned]
+  );
+
+  const handleUpdateAction = useCallback(
+    async (update: UpdateInfo) => {
+      const { updateOperations: ops } = useAppManagerStore.getState();
+      if (isOperationRunning(ops, update.appId)) return;
+
+      if (update.source === "macAppStore") {
+        if (!update.adamId) {
+          setUpdateOperationStatus(update.appId, "error", "Missing Mac App Store identifier");
+          return;
+        }
+        setUpdateOperationStatus(update.appId, "running", "Opening App Store…");
+        try {
+          await appManagerUseCases.openInMacAppStore(update.adamId);
+          setUpdateOperationStatus(update.appId, "success");
+        } catch (err) {
+          setUpdateOperationStatus(update.appId, "error", String(err));
+        }
+        return;
+      }
+
+      if (update.source === "homebrew") {
+        setUpdateOperationStatus(update.appId, "running", "Upgrading via Homebrew…");
+        const outcome = await appManagerUseCases.runAppOperation({ appId: update.appId, kind: "upgrade" });
+        if (outcome) {
+          setUpdateOperationStatus(
+            update.appId,
+            outcome.result.success ? "success" : "error",
+            outcome.result.message
+          );
+          if (outcome.shouldRescan) {
+            void checkAllUpdates(true);
+            void scanApps();
+          }
+        }
+        return;
+      }
+
+      // Sparkle / Electron / Squirrel / GitHub → open download or releases page
+      const url = update.downloadUrl ?? update.releaseNotesUrl ?? update.feedUrl;
+      if (!url) {
+        setUpdateOperationStatus(update.appId, "error", "No download URL available");
+        return;
+      }
+      try {
+        await appManagerUseCases.openExternal(url);
+        setUpdateOperationStatus(update.appId, "success");
+      } catch (err) {
+        setUpdateOperationStatus(update.appId, "error", String(err));
+      }
+    },
+    [checkAllUpdates, scanApps, setUpdateOperationStatus]
+  );
+
+  const handleUpdateAllVisible = useCallback(
+    async (visibleUpdates: UpdateInfo[]) => {
+      if (visibleUpdates.length === 0) return;
+      for (const update of visibleUpdates) {
+        if (update.source === "homebrew") {
+          // For non-brew sources, "update all" still iterates so external pages are opened in sequence.
+          await handleUpdateAction(update);
+        } else {
+          await handleUpdateAction(update);
+        }
+      }
+    },
+    [handleUpdateAction]
+  );
+
+  const handleSetActiveTab = useCallback(
+    (tab: AppManagerTabKey) => {
+      setActiveTab(tab);
+      const state = useAppManagerStore.getState();
+
+      if (tab === "marketplace" && state.activeFilter !== "installList") {
+        setActiveFilter("installList");
+      } else if (tab === "installed" && state.activeFilter === "installList") {
+        setActiveFilter("all");
+      }
+
+      if (tab === "softwareUpdate") {
+        const cacheValid =
+          state.updatesScanned &&
+          state.lastUpdateCheck > 0 &&
+          Date.now() - state.lastUpdateCheck < 5 * 60 * 1000;
+        if (!state.updatesLoading && !cacheValid) {
+          void checkAllUpdates(false);
+        }
+      }
+    },
+    [checkAllUpdates, setActiveFilter, setActiveTab]
+  );
 
   const scheduleScanApps = useCallback(
     (delayMs: number) => {
@@ -687,6 +829,16 @@ export function useAppManagerController(active: boolean) {
     selectedInstallIds,
     installBatchMode,
     installDetailItem,
+    activeTab,
+    updates,
+    updatesLoading,
+    updatesError,
+    updatesScanned,
+    expandedUpdateGroups,
+    selectedUpdateIds,
+    updateSourceFilter,
+    selectedUpdate,
+    updateOperations,
     filteredApps,
     activeFilterCount,
     visibleInstallListApps,
@@ -703,6 +855,17 @@ export function useAppManagerController(active: boolean) {
     setSorting,
     scanApps,
     refreshUpdates,
+    checkAllUpdates,
+    handleUpdateAction,
+    handleUpdateAllVisible,
+    handleSetActiveTab,
+    toggleUpdateGroup,
+    toggleSelectUpdate,
+    selectAllUpdates,
+    clearUpdateSelection,
+    setUpdateSourceFilter,
+    setSelectedUpdate,
+    setUpdateOperationStatus,
     loadHistory,
     setHistoryOpen,
     clearSelection,

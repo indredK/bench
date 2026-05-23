@@ -209,3 +209,48 @@ pub struct ScanResult {
     /// Unix timestamp in ms of the last update check (0 if never)
     pub last_update_check: u64,
 }
+
+/// Identifies the update channel a discovered update came from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum UpdateSource {
+    Homebrew,
+    MacAppStore,
+    Sparkle,
+    Electron,
+    Squirrel,
+    GitHub,
+}
+
+impl std::fmt::Display for UpdateSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            UpdateSource::Homebrew => write!(f, "Homebrew"),
+            UpdateSource::MacAppStore => write!(f, "MacAppStore"),
+            UpdateSource::Sparkle => write!(f, "Sparkle"),
+            UpdateSource::Electron => write!(f, "Electron"),
+            UpdateSource::Squirrel => write!(f, "Squirrel"),
+            UpdateSource::GitHub => write!(f, "GitHub"),
+        }
+    }
+}
+
+/// Describes a single available update for an app, regardless of its source.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateInfo {
+    pub app_id: String,
+    pub app_name: String,
+    pub source: UpdateSource,
+    pub current_version: String,
+    pub latest_version: String,
+    pub download_url: Option<String>,
+    pub adam_id: Option<String>,
+    pub release_notes_url: Option<String>,
+    pub release_notes_inline: Option<String>,
+    pub size: Option<u64>,
+    pub source_meta: Option<serde_json::Value>,
+    pub feed_url: Option<String>,
+    #[serde(default)]
+    pub ignored: bool,
+}

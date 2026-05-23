@@ -16,7 +16,9 @@ import { AppManagerErrorBoundary } from "@/features/app-manager/components/AppMa
 import { AppManagerFilterSidebar } from "@/features/app-manager/components/AppManagerFilterSidebar";
 import { AppManagerGridCard } from "@/features/app-manager/components/AppManagerGridCard";
 import { AppManagerHistoryDrawer } from "@/features/app-manager/components/AppManagerHistoryDrawer";
+import { AppManagerTabs } from "@/features/app-manager/components/AppManagerTabs";
 import { InstallListCard } from "@/features/app-manager/components/InstallListCard";
+import { SoftwareUpdateView } from "@/features/app-manager/components/SoftwareUpdateView";
 import { useAppManagerController } from "@/features/app-manager/hooks/useAppManagerController";
 import type { AppInfo, InstallListAppInfo } from "@/lib/tauri/types/app-manager";
 
@@ -52,6 +54,16 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
     selectedInstallIds,
     installBatchMode,
     installDetailItem,
+    activeTab,
+    updates,
+    updatesLoading,
+    updatesError,
+    updatesScanned,
+    expandedUpdateGroups,
+    selectedUpdateIds,
+    updateSourceFilter,
+    selectedUpdate,
+    updateOperations,
     filteredApps,
     activeFilterCount,
     visibleInstallListApps,
@@ -96,6 +108,16 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
     handleDetailUninstall,
     setInstallBatchMode,
     setInstallDetailItem,
+    checkAllUpdates,
+    handleUpdateAction,
+    handleUpdateAllVisible,
+    handleSetActiveTab,
+    toggleUpdateGroup,
+    toggleSelectUpdate,
+    selectAllUpdates,
+    clearUpdateSelection,
+    setUpdateSourceFilter,
+    setSelectedUpdate,
   } = controller;
 
   return (
@@ -106,6 +128,41 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
         icon={<AppWindow size={32} className="opacity-40" />}
       >
         <div className="h-full flex flex-col gap-3">
+          <AppManagerTabs
+            t={t}
+            activeTab={activeTab}
+            onChange={handleSetActiveTab}
+            updateCount={updates.length}
+          />
+
+          {activeTab === "softwareUpdate" ? (
+            <SoftwareUpdateView
+              t={t}
+              apps={apps}
+              updates={updates}
+              loading={updatesLoading}
+              scanned={updatesScanned}
+              error={updatesError}
+              lastUpdateCheck={lastUpdateCheck}
+              selectedIds={selectedUpdateIds}
+              selectedUpdate={selectedUpdate}
+              sourceFilter={updateSourceFilter}
+              expandedGroups={expandedUpdateGroups}
+              updateOperations={updateOperations}
+              onRecheck={() => void checkAllUpdates(true)}
+              onToggleGroup={toggleUpdateGroup}
+              onToggleSelect={toggleSelectUpdate}
+              onSelectAll={(ids) => selectAllUpdates(ids)}
+              onClearSelection={clearUpdateSelection}
+              onChangeSourceFilter={setUpdateSourceFilter}
+              onRowClick={setSelectedUpdate}
+              onCloseDetail={() => setSelectedUpdate(null)}
+              onRowAction={(update) => void handleUpdateAction(update)}
+              onUpdateAllVisible={(items) => void handleUpdateAllVisible(items)}
+              onOpenExternal={(url) => void openExternal(url)}
+            />
+          ) : (
+          <>
           <AppManagerActionBar
             t={t}
             searchQuery={searchQuery}
@@ -342,6 +399,8 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
               )
             }
           />
+          </>
+          )}
 
           <AppManagerHistoryDrawer
             t={t}

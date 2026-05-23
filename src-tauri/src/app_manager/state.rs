@@ -1,4 +1,4 @@
-use super::types::{AppInfo, OperationRecord, ScanResult};
+use super::types::{AppInfo, OperationRecord, ScanResult, UpdateInfo};
 use std::collections::{HashSet, VecDeque};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -15,6 +15,8 @@ pub struct AppManagerState {
     pub last_scan_time: Mutex<u64>,
     /// Timestamp in ms of last update check
     pub last_update_check_time: Mutex<u64>,
+    /// Cached list of discovered updates from the multi-source updater.
+    pub updates: Mutex<Vec<UpdateInfo>>,
     /// Cancellation flag for the currently running batch operation (if any).
     pub batch_cancel: Mutex<Option<Arc<AtomicBool>>>,
     /// Recent operation records, capped at OPERATION_HISTORY_CAP entries.
@@ -31,9 +33,25 @@ impl AppManagerState {
             cached_result: Mutex::new(None),
             last_scan_time: Mutex::new(0),
             last_update_check_time: Mutex::new(0),
+            updates: Mutex::new(Vec::new()),
             batch_cancel: Mutex::new(None),
             operation_history: Mutex::new(VecDeque::with_capacity(OPERATION_HISTORY_CAP + 1)),
         }
+    }
+
+    /// Replace the cached updates list with the result of a fresh scan and
+    /// stamp the check time in one operation.
+    pub fn cache_updates(&self, updates: Vec<UpdateInfo>) {
+        *self.updates.lock().unwrap_or_else(|e| e.into_inner()) = updates;
+        self.mark_update_check();
+    }
+
+    /// Snapshot of the cached updates list.
+    pub fn get_cached_updates(&self) -> Vec<UpdateInfo> {
+        self.updates
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
     }
 
     #[allow(dead_code)]

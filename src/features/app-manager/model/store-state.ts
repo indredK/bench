@@ -1,6 +1,7 @@
 /**
  * Feature Model / 功能模型: keep pure model logic; 只放纯模型逻辑.
  */
+import type { UpdateSource } from "@/lib/tauri/types/app-manager";
 import type { AppManagerState } from "@/features/app-manager/model/store-types";
 
 type AppManagerDataState = Omit<
@@ -27,8 +28,31 @@ type AppManagerDataState = Omit<
   | "setSelectedItem"
   | "setFilterPanelOpen"
   | "setHistoryOpen"
+  | "setActiveTab"
+  | "setUpdates"
+  | "setUpdatesLoading"
+  | "setUpdatesError"
+  | "setUpdatesScanned"
+  | "toggleUpdateGroup"
+  | "toggleSelectUpdate"
+  | "selectAllUpdates"
+  | "clearUpdateSelection"
+  | "setUpdateSourceFilter"
+  | "setSelectedUpdate"
+  | "setUpdateOperationStatus"
   | "reset"
 >;
+
+function defaultExpandedGroups(): Record<UpdateSource, boolean> {
+  return {
+    homebrew: true,
+    macAppStore: true,
+    sparkle: true,
+    electron: true,
+    squirrel: true,
+    gitHub: true,
+  };
+}
 
 export function createInitialAppManagerState(): AppManagerDataState {
   return {
@@ -59,5 +83,15 @@ export function createInitialAppManagerState(): AppManagerDataState {
     installListApps: [],
     installStates: {},
     installConfirmDialog: { open: false, appId: "", appName: "" },
+    activeTab: "installed",
+    updates: [],
+    updatesLoading: false,
+    updatesError: "",
+    updatesScanned: false,
+    expandedUpdateGroups: defaultExpandedGroups(),
+    selectedUpdateIds: new Set(),
+    updateSourceFilter: "all",
+    selectedUpdate: null,
+    updateOperations: {},
   };
 }

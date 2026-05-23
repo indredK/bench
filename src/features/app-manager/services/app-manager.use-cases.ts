@@ -8,6 +8,7 @@ import type {
   InstallListAppInfo,
   OperationRecord,
   OperationResult,
+  UpdateInfo,
 } from "@/lib/tauri/types/app-manager";
 import {
   appManagerRepository,
@@ -171,6 +172,23 @@ function createAppManagerUseCases(
       } catch {
         return false;
       }
+    },
+
+    async checkAllAppUpdates(
+      forceRefresh = false
+    ): Promise<{ updates: UpdateInfo[]; error: string | null }> {
+      if (!isAvailable()) return { updates: [], error: null };
+      try {
+        const updates = await repository.checkAllAppUpdates(forceRefresh);
+        return { updates, error: null };
+      } catch (error) {
+        return { updates: [], error: String(error) };
+      }
+    },
+
+    openInMacAppStore(adamId: string): Promise<void> {
+      if (!isAvailable()) return Promise.resolve();
+      return repository.openInMacAppStore(adamId);
     },
 
     launchApp(app: AppInfo) {

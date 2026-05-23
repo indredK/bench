@@ -145,7 +145,64 @@
     "copyPath": "复制路径",
     "copyWebsite": "复制官网",
     "crashed": "应用管理器发生错误",
-    "crashedRetry": "重试"
+    "crashedRetry": "重试",
+    "tabs": {
+      "installed": "已安装",
+      "softwareUpdate": "软件更新",
+      "marketplace": "应用市场"
+    },
+    "softwareUpdate": {
+      "updateAll": "全部更新",
+      "updateAllCount": "全部更新 ({{count}})",
+      "recheck": "重新检查",
+      "checking": "检查中…",
+      "selectAll": "全选",
+      "deselectAll": "取消全选",
+      "filterBySource": "源",
+      "source": {
+        "appStore": "App Store",
+        "homebrew": "Homebrew",
+        "sparkle": "Sparkle",
+        "electron": "Electron",
+        "squirrel": "Squirrel",
+        "github": "GitHub"
+      },
+      "groupAll": "此源全部更新",
+      "groupCount": "{{count}} 个更新",
+      "action": {
+        "update": "更新",
+        "openAppStore": "在 App Store 中打开",
+        "openDownloadPage": "打开下载页",
+        "openReleases": "打开 Releases",
+        "cancel": "取消",
+        "queued": "排队中"
+      },
+      "versionTransition": "{{from}} → {{to}}",
+      "detail": {
+        "versionCompare": "版本对比",
+        "sourceLabel": "更新源",
+        "sizeLabel": "下载大小",
+        "lastCheckLabel": "上次检查",
+        "releaseNotes": "更新日志",
+        "viewFullNotes": "查看完整更新日志",
+        "ignoreToggle": "忽略此应用的更新",
+        "noNotes": "暂无更新说明"
+      },
+      "empty": {
+        "allUpToDate": "所有应用都是最新的",
+        "lastChecked": "上次检查：{{time}}",
+        "neverChecked": "尚未检查更新",
+        "startHint": "点击「重新检查」开始扫描可用更新"
+      },
+      "banner": {
+        "offline": "网络不可用，部分更新源已跳过（brew 仍可用）",
+        "checkFailed": "检查失败：{{message}}"
+      },
+      "progress": {
+        "scanning": "正在检查 {{completed}} / {{total}} 个应用…",
+        "finished": "找到 {{count}} 个更新（耗时 {{durationMs}}ms）"
+      }
+    }
   },
   "envDetector": {
     "title": "环境检测",

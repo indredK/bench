@@ -31,6 +31,8 @@ const createRepository = (
   installApp: vi.fn(),
   batchInstallApps: vi.fn(),
   cancelBatchOperation: vi.fn(),
+  checkAllAppUpdates: vi.fn(),
+  openInMacAppStore: vi.fn(),
   openExternal: vi.fn(),
   loadPreferences: vi.fn().mockReturnValue(null),
   savePreferences: vi.fn(),

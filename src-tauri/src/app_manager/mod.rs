@@ -3,6 +3,7 @@ pub mod domain;
 pub mod linux;
 pub mod macos;
 pub mod operations;
+pub mod sources;
 pub mod state;
 pub mod types;
 pub mod utils;
@@ -18,4 +19,6 @@ pub use operations::{
 };
 pub use state::AppManagerState;
 pub use types::{AppInfo, InstallSource, OperationResult, ScanResult, SourceType};
+#[allow(unused_imports)]
+pub use types::{UpdateInfo, UpdateSource};
 pub use utils::{deduplicate, get_last_modified, make_app_id};

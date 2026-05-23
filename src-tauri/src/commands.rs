@@ -23,6 +23,8 @@ macro_rules! app_invoke_handler {
             $crate::app_manager::commands::install_app,
             $crate::app_manager::commands::batch_install_apps,
             $crate::app_manager::commands::cancel_batch_operation,
+            $crate::app_manager::commands::check_all_app_updates,
+            $crate::app_manager::commands::open_in_mac_app_store,
             $crate::port_manager::core::get_system_info,
             $crate::port_manager::core::query_port_processes,
             $crate::port_manager::core::kill_processes,

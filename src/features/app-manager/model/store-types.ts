@@ -8,6 +8,8 @@ import type {
   BatchOperationResult,
   InstallListAppInfo,
   OperationRecord,
+  UpdateInfo,
+  UpdateSource,
 } from "@/lib/tauri/types/app-manager";
 import type { AppCategoryKey } from "@/features/app-manager/app-categories";
 import type { AppSeriesKey } from "@/features/app-manager/app-series";
@@ -28,6 +30,8 @@ export const APP_FILTER_OPTIONS = [
   { key: "managed" as const, labelKey: "appManager.filterManaged" },
   { key: "upgradable" as const, labelKey: "appManager.filterUpgradable" },
 ];
+
+export type AppManagerTabKey = "installed" | "softwareUpdate" | "marketplace";
 
 export interface AppManagerState {
   apps: AppInfo[];
@@ -76,6 +80,17 @@ export interface AppManagerState {
     appName: string;
   };
 
+  activeTab: AppManagerTabKey;
+  updates: UpdateInfo[];
+  updatesLoading: boolean;
+  updatesError: string;
+  updatesScanned: boolean;
+  expandedUpdateGroups: Record<UpdateSource, boolean>;
+  selectedUpdateIds: Set<string>;
+  updateSourceFilter: UpdateSource | "all";
+  selectedUpdate: UpdateInfo | null;
+  updateOperations: Record<string, AppOperationState>;
+
   setSearchQuery: (query: string) => void;
   setActiveFilter: (filter: AppFilterKey) => void;
   setCategoryFilter: (category: AppCategoryKey | null) => void;
@@ -103,6 +118,19 @@ export interface AppManagerState {
   setFilterPanelOpen: (open: boolean) => void;
 
   setHistoryOpen: (open: boolean) => void;
+
+  setActiveTab: (tab: AppManagerTabKey) => void;
+  setUpdates: (updates: UpdateInfo[]) => void;
+  setUpdatesLoading: (loading: boolean) => void;
+  setUpdatesError: (error: string) => void;
+  setUpdatesScanned: (scanned: boolean) => void;
+  toggleUpdateGroup: (source: UpdateSource) => void;
+  toggleSelectUpdate: (appId: string) => void;
+  selectAllUpdates: (appIds: string[]) => void;
+  clearUpdateSelection: () => void;
+  setUpdateSourceFilter: (filter: UpdateSource | "all") => void;
+  setSelectedUpdate: (update: UpdateInfo | null) => void;
+  setUpdateOperationStatus: (appId: string, status: OperationStatus, message?: string) => void;
 
   reset: () => void;
 }

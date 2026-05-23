@@ -8,6 +8,7 @@ import type {
   InstallSource,
   OperationRecord,
   OperationResult,
+  UpdateInfo,
 } from "@/lib/tauri/types/app-manager";
 import type {
   CleanupResult,
@@ -60,6 +61,8 @@ export const TAURI_COMMAND_CONTRACTS = {
   install_app: defineTauriCommand<{ appId: string; installSource: InstallSource }, OperationResult>()("install_app"),
   batch_install_apps: defineTauriCommand<{ items: { appId: string; installSource: InstallSource }[] }, BatchOperationResult>()("batch_install_apps"),
   cancel_batch_operation: defineTauriCommand<undefined, boolean>()("cancel_batch_operation"),
+  check_all_app_updates: defineTauriCommand<{ forceRefresh?: boolean }, UpdateInfo[]>()("check_all_app_updates"),
+  open_in_mac_app_store: defineTauriCommand<{ adamId: string }, void>()("open_in_mac_app_store"),
   scan_dev_projects: defineTauriCommand<{ rootPath: string }, ScanResult>()("scan_dev_projects"),
   cleanup_projects: defineTauriCommand<{ projects: ProjectInfo[] }, CleanupResult>()("cleanup_projects"),
   stop_scan: defineTauriCommand<undefined, void>()("stop_scan"),
@@ -126,6 +129,8 @@ export const TAURI_COMMANDS = {
     installApp: commandName("install_app"),
     batchInstallApps: commandName("batch_install_apps"),
     cancelBatchOperation: commandName("cancel_batch_operation"),
+    checkAllAppUpdates: commandName("check_all_app_updates"),
+    openInMacAppStore: commandName("open_in_mac_app_store"),
   },
   devCleaner: {
     scanDevProjects: commandName("scan_dev_projects"),
@@ -182,6 +187,8 @@ export const TAURI_COMMAND_ARG_KEYS = {
   install_app: ["appId", "installSource"],
   batch_install_apps: ["items"],
   cancel_batch_operation: [],
+  check_all_app_updates: ["forceRefresh"],
+  open_in_mac_app_store: ["adamId"],
   scan_dev_projects: ["rootPath"],
   cleanup_projects: ["projects"],
   stop_scan: [],

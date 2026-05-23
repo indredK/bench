@@ -3,10 +3,13 @@
  */
 import type { StoreApi } from "zustand";
 import type { SortingState, Updater } from "@tanstack/react-table";
-import type { AppInfo } from "@/lib/tauri/types/app-manager";
+import type { AppInfo, UpdateInfo, UpdateSource } from "@/lib/tauri/types/app-manager";
 import type { AppCategoryKey } from "@/features/app-manager/app-categories";
 import type { AppSeriesKey } from "@/features/app-manager/app-series";
-import type { AppManagerState } from "@/features/app-manager/model/store-types";
+import type {
+  AppManagerState,
+  AppManagerTabKey,
+} from "@/features/app-manager/model/store-types";
 import type { AppFilterKey } from "@/features/app-manager/model/preferences";
 import type { OperationStatus } from "@/features/app-manager/model/operations";
 import { createInitialAppManagerState } from "@/features/app-manager/model/store-state";
@@ -62,6 +65,37 @@ export function createAppManagerBasicActions(set: SetState) {
     setSelectedItem: (item: AppInfo | null) => set({ selectedItem: item }),
     setFilterPanelOpen: (open: boolean) => set({ filterPanelOpen: open }),
     setHistoryOpen: (open: boolean) => set({ historyOpen: open }),
+
+    setActiveTab: (tab: AppManagerTabKey) => set({ activeTab: tab }),
+    setUpdates: (updates: UpdateInfo[]) => set({ updates }),
+    setUpdatesLoading: (loading: boolean) => set({ updatesLoading: loading }),
+    setUpdatesError: (error: string) => set({ updatesError: error }),
+    setUpdatesScanned: (scanned: boolean) => set({ updatesScanned: scanned }),
+    toggleUpdateGroup: (source: UpdateSource) =>
+      set((state) => ({
+        expandedUpdateGroups: {
+          ...state.expandedUpdateGroups,
+          [source]: !state.expandedUpdateGroups[source],
+        },
+      })),
+    toggleSelectUpdate: (appId: string) =>
+      set((state) => {
+        const next = new Set(state.selectedUpdateIds);
+        if (next.has(appId)) next.delete(appId);
+        else next.add(appId);
+        return { selectedUpdateIds: next };
+      }),
+    selectAllUpdates: (appIds: string[]) => set({ selectedUpdateIds: new Set(appIds) }),
+    clearUpdateSelection: () => set({ selectedUpdateIds: new Set() }),
+    setUpdateSourceFilter: (filter: UpdateSource | "all") => set({ updateSourceFilter: filter }),
+    setSelectedUpdate: (update: UpdateInfo | null) => set({ selectedUpdate: update }),
+    setUpdateOperationStatus: (appId: string, status: OperationStatus, message = "") =>
+      set((state) => ({
+        updateOperations: {
+          ...state.updateOperations,
+          [appId]: { status, message },
+        },
+      })),
 
     reset: () =>
       set({

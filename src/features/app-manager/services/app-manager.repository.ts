@@ -6,11 +6,13 @@ import {
   batchUninstallApps,
   batchUpgradeApps,
   cancelBatchOperation,
+  checkAllAppUpdates,
   checkManagedAppUpdates,
   getAppIconBase64,
   getAppOperationHistory,
   installApp,
   launchApp,
+  openInMacAppStore,
   refreshAppUpdates,
   revealAppInFinder,
   scanInstalledApps,
@@ -39,6 +41,8 @@ export const appManagerRepository = {
   installApp,
   batchInstallApps,
   cancelBatchOperation,
+  checkAllAppUpdates,
+  openInMacAppStore,
   openExternal,
   loadPreferences() {
     return readStorageItem(PREF_KEY);

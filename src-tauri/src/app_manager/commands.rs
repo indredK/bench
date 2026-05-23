@@ -1,9 +1,9 @@
 use super::state::AppManagerState;
 use super::types::{
     BatchInstallItem, BatchItemResult, BatchOperationResult, InstallSource, OperationRecord,
-    OperationResult, ScanResult,
+    OperationResult, ScanResult, UpdateInfo,
 };
-use super::{empty_scan_result, linux, locked_operation_result, macos, windows};
+use super::{empty_scan_result, linux, locked_operation_result, macos, sources, windows};
 use serde::Serialize;
 use std::sync::atomic::Ordering;
 use tauri::{Emitter, Manager};
@@ -550,4 +550,59 @@ pub fn batch_install_apps(
 #[tauri::command]
 pub fn cancel_batch_operation(state: tauri::State<'_, AppManagerState>) -> bool {
     state.cancel_batch_operation()
+}
+
+/// Cache TTL for `check_all_app_updates`: 5 minutes.
+/// A second invocation within this window returns the cached list instead of
+/// re-scanning, matching what's promised in the planning doc (AC-2.2).
+const UPDATE_CACHE_TTL_MS: u64 = 5 * 60 * 1000;
+
+#[tauri::command]
+pub async fn check_all_app_updates(
+    force_refresh: Option<bool>,
+    app: tauri::AppHandle,
+) -> Result<Vec<UpdateInfo>, String> {
+    let force = force_refresh.unwrap_or(false);
+    let state: tauri::State<'_, AppManagerState> = app.state();
+
+    // Honor cache TTL unless caller asked for a refresh.
+    if !force {
+        let last = *state
+            .last_update_check_time
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0);
+        if last != 0 && now.saturating_sub(last) < UPDATE_CACHE_TTL_MS {
+            return Ok(state.get_cached_updates());
+        }
+    }
+
+    if !is_macos() {
+        // v1.0 ships macOS only — Windows/Linux just return an empty list.
+        state.cache_updates(Vec::new());
+        return Ok(Vec::new());
+    }
+
+    let apps = {
+        let guard = state.apps.lock().unwrap_or_else(|e| e.into_inner());
+        guard.clone()
+    };
+
+    let registry = sources::SourceRegistry::default_macos();
+    let updates = registry.check_all(&apps).await;
+    state.cache_updates(updates.clone());
+    Ok(updates)
+}
+
+#[tauri::command]
+pub async fn open_in_mac_app_store(adam_id: String) -> Result<(), String> {
+    if !is_macos() {
+        return Err("SU_MAS_OPEN_FAIL: not macOS".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || sources::mac_app_store::open_in_mac_app_store(&adam_id))
+        .await
+        .map_err(|e| e.to_string())?
 }

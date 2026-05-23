@@ -1,0 +1,97 @@
+/**
+ * Feature View / 功能视图: render from props/state; 只负责功能界面.
+ */
+import type { TFunction } from "i18next";
+import { ChevronDown, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import type { AppInfo, UpdateInfo, UpdateSource } from "@/lib/tauri/types/app-manager";
+import type { OperationStatus } from "@/features/app-manager/model/operations";
+import { UpdateRow } from "@/features/app-manager/components/UpdateRow";
+import {
+  getUpdateSourceIcon,
+  getUpdateSourceLabel,
+} from "@/features/app-manager/model/update-source-info";
+
+interface UpdateGroupSectionProps {
+  t: TFunction;
+  source: UpdateSource;
+  updates: UpdateInfo[];
+  expanded: boolean;
+  appLookup: Map<string, AppInfo>;
+  selectedIds: Set<string>;
+  activeUpdate: UpdateInfo | null;
+  updateOperations: Record<string, { status: OperationStatus; message: string }>;
+  onToggleExpanded: () => void;
+  onToggleSelect: (appId: string) => void;
+  onRowClick: (update: UpdateInfo) => void;
+  onRowAction: (update: UpdateInfo) => void;
+  onGroupAction: () => void;
+  groupActionDisabled: boolean;
+}
+
+export function UpdateGroupSection({
+  t,
+  source,
+  updates,
+  expanded,
+  appLookup,
+  selectedIds,
+  activeUpdate,
+  updateOperations,
+  onToggleExpanded,
+  onToggleSelect,
+  onRowClick,
+  onRowAction,
+  onGroupAction,
+  groupActionDisabled,
+}: UpdateGroupSectionProps) {
+  return (
+    <div className="rounded-lg border bg-card overflow-hidden">
+      <div className="flex items-center justify-between px-3 py-2 bg-muted/30">
+        <button
+          type="button"
+          className={cn(
+            "flex items-center gap-2 flex-1 text-left",
+            "rounded outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+          )}
+          onClick={onToggleExpanded}
+        >
+          {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          <span className="text-base">{getUpdateSourceIcon(source)}</span>
+          <span className="font-semibold">{getUpdateSourceLabel(t, source)}</span>
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {t("appManager.softwareUpdate.groupCount", { count: updates.length })}
+          </span>
+        </button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onGroupAction}
+          disabled={groupActionDisabled || updates.length === 0}
+        >
+          {t("appManager.softwareUpdate.groupAll")}
+        </Button>
+      </div>
+
+      {expanded && (
+        <div className="flex flex-col gap-1 p-2">
+          {updates.map((update) => (
+            <UpdateRow
+              key={update.appId}
+              t={t}
+              update={update}
+              app={appLookup.get(update.appId)}
+              selected={selectedIds.has(update.appId)}
+              isActive={activeUpdate?.appId === update.appId}
+              operationStatus={updateOperations[update.appId]?.status}
+              onToggleSelect={() => onToggleSelect(update.appId)}
+              onClickRow={() => onRowClick(update)}
+              onAction={() => onRowAction(update)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

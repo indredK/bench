@@ -145,7 +145,64 @@
     "copyPath": "Copy Path",
     "copyWebsite": "Copy Website",
     "crashed": "App Manager crashed",
-    "crashedRetry": "Retry"
+    "crashedRetry": "Retry",
+    "tabs": {
+      "installed": "Installed",
+      "softwareUpdate": "Updates",
+      "marketplace": "Marketplace"
+    },
+    "softwareUpdate": {
+      "updateAll": "Update All",
+      "updateAllCount": "Update All ({{count}})",
+      "recheck": "Re-check",
+      "checking": "Checking…",
+      "selectAll": "Select all",
+      "deselectAll": "Deselect all",
+      "filterBySource": "Source",
+      "source": {
+        "appStore": "App Store",
+        "homebrew": "Homebrew",
+        "sparkle": "Sparkle",
+        "electron": "Electron",
+        "squirrel": "Squirrel",
+        "github": "GitHub"
+      },
+      "groupAll": "Update all in source",
+      "groupCount": "{{count}} update(s)",
+      "action": {
+        "update": "Update",
+        "openAppStore": "Open in App Store",
+        "openDownloadPage": "Open download page",
+        "openReleases": "Open Releases",
+        "cancel": "Cancel",
+        "queued": "Queued"
+      },
+      "versionTransition": "{{from}} → {{to}}",
+      "detail": {
+        "versionCompare": "Version",
+        "sourceLabel": "Source",
+        "sizeLabel": "Download size",
+        "lastCheckLabel": "Last check",
+        "releaseNotes": "Release notes",
+        "viewFullNotes": "View full release notes",
+        "ignoreToggle": "Ignore updates for this app",
+        "noNotes": "No release notes available"
+      },
+      "empty": {
+        "allUpToDate": "All apps are up to date",
+        "lastChecked": "Last checked: {{time}}",
+        "neverChecked": "Updates have not been checked yet",
+        "startHint": "Click 'Re-check' to scan for available updates"
+      },
+      "banner": {
+        "offline": "Offline. Some sources skipped (brew still works).",
+        "checkFailed": "Check failed: {{message}}"
+      },
+      "progress": {
+        "scanning": "Scanning {{completed}} / {{total}} apps…",
+        "finished": "Found {{count}} update(s) ({{durationMs}}ms)"
+      }
+    }
   },
   "envDetector": {
     "title": "Environment Detector",
