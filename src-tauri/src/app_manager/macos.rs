@@ -451,8 +451,11 @@ pub fn get_app_icon_base64(install_path: &str) -> Result<String, String> {
 
     if contents.exists() {
         let resources = contents.join("Resources");
-        let icon_path = resolve_macos_icon(&contents, &resources)?;
-        return icns_to_base64_png(install_path, &icon_path);
+        let source = resolve_macos_icon(&contents, &resources)?;
+        return match source {
+            IconSource::Icns(p) => icns_to_base64_png(install_path, &p),
+            IconSource::Png(p) => png_to_base64(&p),
+        };
     }
 
     let inner_app = resolve_ios_wrapped_bundle(&app_path).unwrap_or(app_path);
@@ -460,7 +463,13 @@ pub fn get_app_icon_base64(install_path: &str) -> Result<String, String> {
     png_to_base64(&png)
 }
 
-fn resolve_macos_icon(contents: &Path, resources: &Path) -> Result<PathBuf, String> {
+enum IconSource {
+    Icns(PathBuf),
+    Png(PathBuf),
+}
+
+fn resolve_macos_icon(contents: &Path, resources: &Path) -> Result<IconSource, String> {
+    // 1. Info.plist CFBundleIconFile (preferred per Apple spec)
     let icon_name = plist::Value::from_file(contents.join("Info.plist"))
         .ok()
         .and_then(|v| v.into_dictionary())
@@ -471,14 +480,68 @@ fn resolve_macos_icon(contents: &Path, resources: &Path) -> Result<PathBuf, Stri
     if !icon_name.is_empty() {
         let p = resources.join(&icon_name);
         if p.exists() {
-            return Ok(p);
+            return Ok(classify_icon_path(p));
         }
         let with_ext = resources.join(format!("{}.icns", icon_name));
         if with_ext.exists() {
-            return Ok(with_ext);
+            return Ok(IconSource::Icns(with_ext));
         }
     }
-    find_icns_in_resources(resources).ok_or("No icon file found in app bundle".into())
+    // 2. Largest .icns in Resources/
+    if let Some(p) = find_icns_in_resources(resources) {
+        return Ok(IconSource::Icns(p));
+    }
+    // 3. AppIcon.iconset / AppIcon.appiconset directories (Xcode build output)
+    for iconset in ["AppIcon.iconset", "AppIcon.appiconset"] {
+        let dir = resources.join(iconset);
+        if dir.is_dir() {
+            if let Some(p) = find_largest_png_in_dir(&dir) {
+                return Ok(IconSource::Png(p));
+            }
+        }
+    }
+    // 4. Bare PNG candidates (Electron / cross-platform apps without .icns)
+    for name in [
+        "AppIcon.png",
+        "icon.png",
+        "Icon.png",
+        "app.png",
+        "logo.png",
+    ] {
+        let candidate = resources.join(name);
+        if candidate.exists() {
+            return Ok(IconSource::Png(candidate));
+        }
+    }
+    Err("No icon file found in app bundle".into())
+}
+
+fn classify_icon_path(path: PathBuf) -> IconSource {
+    match path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.to_ascii_lowercase())
+        .as_deref()
+    {
+        Some("png") => IconSource::Png(path),
+        _ => IconSource::Icns(path),
+    }
+}
+
+fn find_largest_png_in_dir(dir: &Path) -> Option<PathBuf> {
+    let entries = std::fs::read_dir(dir).ok()?;
+    let mut pngs: Vec<PathBuf> = entries
+        .filter_map(|e| e.ok())
+        .map(|e| e.path())
+        .filter(|p| {
+            p.is_file()
+                && p.extension()
+                    .and_then(|e| e.to_str())
+                    .is_some_and(|ext| ext.eq_ignore_ascii_case("png"))
+        })
+        .collect();
+    pngs.sort_by_key(|p| std::fs::metadata(p).map(|m| m.len()).unwrap_or(0));
+    pngs.pop()
 }
 
 fn resolve_ios_wrapped_bundle(app_path: &Path) -> Option<PathBuf> {

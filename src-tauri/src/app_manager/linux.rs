@@ -281,32 +281,74 @@ pub fn scan_installed_apps() -> ScanResult {
 // launch / reveal (Linux)
 // ============================================================================
 
+/// Parse a .desktop file for launch fields (TryExec, Exec) from the
+/// [Desktop Entry] section only. Action sections are ignored per
+/// freedesktop.org Desktop Entry Specification §6.
+fn parse_desktop_entry_for_launch(path: &Path) -> Option<(Option<String>, Option<String>)> {
+    let content = fs::read_to_string(path).ok()?;
+    let mut try_exec: Option<String> = None;
+    let mut exec: Option<String> = None;
+    let mut in_desktop_entry = false;
+
+    for line in content.lines() {
+        let line = line.trim();
+        if line == "[Desktop Entry]" {
+            in_desktop_entry = true;
+            continue;
+        }
+        if line.starts_with('[') {
+            in_desktop_entry = false;
+            continue;
+        }
+        if !in_desktop_entry {
+            continue;
+        }
+        if let Some(val) = line.strip_prefix("TryExec=") {
+            try_exec = Some(val.to_string());
+        } else if let Some(val) = line.strip_prefix("Exec=") {
+            if exec.is_none() {
+                exec = Some(val.to_string());
+            }
+        }
+    }
+    Some((try_exec, exec))
+}
+
 pub fn launch_app(app_path: String) -> Result<(), String> {
     // Extract Exec line from desktop file and run it
     if app_path.ends_with(".desktop") {
-        if let Ok(content) = fs::read_to_string(&app_path) {
-            for line in content.lines() {
-                if let Some(exec) = line.trim().strip_prefix("Exec=") {
-                    let cmd = clean_exec(exec);
-                    let parts: Vec<&str> = cmd.split_whitespace().collect();
-                    if parts.is_empty() {
-                        return Err("Empty exec in desktop entry".into());
-                    }
-                    let mut command = Command::new(parts[0]);
-                    for arg in &parts[1..] {
-                        command.arg(arg);
-                    }
-                    let status = command
-                        .status()
-                        .map_err(|e| format!("Failed to launch: {}", e))?;
-                    return if status.success() {
-                        Ok(())
-                    } else {
-                        Err("Launch failed".into())
-                    };
-                }
+        let path = Path::new(&app_path);
+        let (try_exec, exec) = parse_desktop_entry_for_launch(path)
+            .ok_or_else(|| "Failed to read desktop entry".to_string())?;
+
+        // Per XDG Desktop Entry Specification: if TryExec is set and the
+        // referenced binary is not in PATH, the entry should be considered
+        // not installed and the launcher must not invoke Exec.
+        if let Some(try_exec) = try_exec.as_deref() {
+            let try_exec = try_exec.trim();
+            if !try_exec.is_empty() && !try_exec_resolves(try_exec) {
+                return Err(format!("TryExec not found in PATH: {}", try_exec));
             }
         }
+
+        let exec = exec.ok_or_else(|| "No Exec= in [Desktop Entry] section".to_string())?;
+        let cmd = clean_exec(&exec);
+        let parts: Vec<&str> = cmd.split_whitespace().collect();
+        if parts.is_empty() {
+            return Err("Empty exec in desktop entry".into());
+        }
+        let mut command = Command::new(parts[0]);
+        for arg in &parts[1..] {
+            command.arg(arg);
+        }
+        let status = command
+            .status()
+            .map_err(|e| format!("Failed to launch: {}", e))?;
+        return if status.success() {
+            Ok(())
+        } else {
+            Err("Launch failed".into())
+        };
     }
     // Fallback to xdg-open
     let status = Command::new("xdg-open")
@@ -318,6 +360,16 @@ pub fn launch_app(app_path: String) -> Result<(), String> {
     } else {
         Err("Launch failed".into())
     }
+}
+
+/// Resolve a TryExec entry against PATH. Accepts absolute paths (must exist
+/// and be executable) or bare binaries (must be reachable via `which`).
+fn try_exec_resolves(value: &str) -> bool {
+    let path = Path::new(value);
+    if path.is_absolute() {
+        return path.exists();
+    }
+    has_command(value)
 }
 
 pub fn reveal_in_file_manager(app_path: String) -> Result<(), String> {
@@ -682,4 +734,60 @@ pub fn install_app(
     }
 
     Err("No suitable installation method available for this application".into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn write_temp_desktop(name: &str, body: &str) -> PathBuf {
+        let path = std::env::temp_dir().join(name);
+        fs::write(&path, body).expect("write desktop file");
+        path
+    }
+
+    #[test]
+    fn parse_desktop_entry_for_launch_extracts_try_exec_and_exec() {
+        let path = write_temp_desktop(
+            "tauri_test_launch_a.desktop",
+            "[Desktop Entry]\nName=A\nTryExec=/usr/bin/ls\nExec=ls -la\n",
+        );
+        let (try_exec, exec) = parse_desktop_entry_for_launch(&path).unwrap();
+        assert_eq!(try_exec.as_deref(), Some("/usr/bin/ls"));
+        assert_eq!(exec.as_deref(), Some("ls -la"));
+        let _ = fs::remove_file(&path);
+    }
+
+    #[test]
+    fn parse_desktop_entry_for_launch_ignores_action_section_exec() {
+        // Action section Exec should be ignored when [Desktop Entry] has none
+        let path = write_temp_desktop(
+            "tauri_test_launch_b.desktop",
+            "[Desktop Entry]\nName=B\n\n[Desktop Action Open]\nName=Open\nExec=other-binary\n",
+        );
+        let (try_exec, exec) = parse_desktop_entry_for_launch(&path).unwrap();
+        assert!(try_exec.is_none());
+        assert!(
+            exec.is_none(),
+            "Exec from [Desktop Action] section must not leak into the main entry"
+        );
+        let _ = fs::remove_file(&path);
+    }
+
+    #[test]
+    fn parse_desktop_entry_for_launch_takes_first_exec_in_desktop_entry() {
+        let path = write_temp_desktop(
+            "tauri_test_launch_c.desktop",
+            "[Desktop Entry]\nName=C\nExec=primary %U\nExec=secondary\n",
+        );
+        let (_, exec) = parse_desktop_entry_for_launch(&path).unwrap();
+        assert_eq!(exec.as_deref(), Some("primary %U"));
+        let _ = fs::remove_file(&path);
+    }
+
+    #[test]
+    fn try_exec_resolves_absolute_path_existence() {
+        assert!(try_exec_resolves("/bin/sh"));
+        assert!(!try_exec_resolves("/this/path/does/not/exist/abcxyz"));
+    }
 }
