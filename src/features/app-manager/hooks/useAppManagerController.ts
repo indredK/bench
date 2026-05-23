@@ -16,7 +16,10 @@ import {
   isOperationRunning,
   toOperationState,
 } from "@/features/app-manager/model/operations";
-import { filterAppManagerItems } from "@/features/app-manager/model/selectors";
+import {
+  filterAppManagerItems,
+  filterInstallListApps,
+} from "@/features/app-manager/model/selectors";
 import { appManagerUseCases } from "@/features/app-manager/services/app-manager.use-cases";
 import { useInstallEvents } from "@/features/app-manager/hooks/useInstallEvents";
 import { installAppUpdate } from "@/lib/tauri/commands/app-manager";
@@ -396,12 +399,6 @@ export function useAppManagerController(active: boolean) {
       setActiveTab(tab);
       const state = useAppManagerStore.getState();
 
-      if (tab === "marketplace" && state.activeFilter !== "installList") {
-        setActiveFilter("installList");
-      } else if (tab === "installed" && state.activeFilter === "installList") {
-        setActiveFilter("all");
-      }
-
       if (tab === "softwareUpdate") {
         const cacheValid =
           state.updatesScanned &&
@@ -412,7 +409,7 @@ export function useAppManagerController(active: boolean) {
         }
       }
     },
-    [checkAllUpdates, setActiveFilter, setActiveTab]
+    [checkAllUpdates, setActiveTab]
   );
 
   const scheduleScanApps = useCallback(
@@ -621,7 +618,6 @@ export function useAppManagerController(active: boolean) {
 
   useEffect(() => {
     setSelectedItem(null);
-    setInstallDetailItem(null);
     clearSelection();
   }, [activeFilter, categoryFilter, seriesFilter, searchQuery, setSelectedItem, clearSelection]);
 
@@ -634,13 +630,23 @@ export function useAppManagerController(active: boolean) {
     () =>
       filterAppManagerItems({
         apps,
-        installListApps,
         searchQuery,
         activeFilter,
         categoryFilter,
         seriesFilter,
       }),
-    [apps, installListApps, searchQuery, activeFilter, categoryFilter, seriesFilter]
+    [apps, searchQuery, activeFilter, categoryFilter, seriesFilter]
+  );
+
+  const filteredInstallListApps = useMemo(
+    () =>
+      filterInstallListApps({
+        installListApps,
+        searchQuery,
+        categoryFilter,
+        seriesFilter,
+      }),
+    [installListApps, searchQuery, categoryFilter, seriesFilter]
   );
 
   const handleLaunch = useCallback(
@@ -693,6 +699,11 @@ export function useAppManagerController(active: boolean) {
   const clearInstallSelection = useCallback(() => {
     setSelectedInstallIds(new Set());
   }, []);
+
+  useEffect(() => {
+    setInstallDetailItem(null);
+    clearInstallSelection();
+  }, [activeTab, categoryFilter, seriesFilter, searchQuery, clearInstallSelection]);
 
   const handleBatchInstall = useCallback(() => {
     if (selectedInstallIds.size === 0) return;
@@ -798,16 +809,12 @@ export function useAppManagerController(active: boolean) {
     }
   }, [batchMode, clearSelection, setBatchMode, setSelectedItem]);
 
-  const selectedUpgradable = activeFilter !== "installList"
-    ? (filteredApps as AppInfo[]).filter(
-        (app) => app.allowedActions.upgrade && selectedAppIds.has(app.appId)
-      ).length
-    : 0;
-  const selectedUninstallable = activeFilter !== "installList"
-    ? (filteredApps as AppInfo[]).filter(
-        (app) => app.allowedActions.uninstall && selectedAppIds.has(app.appId)
-      ).length
-    : 0;
+  const selectedUpgradable = filteredApps.filter(
+    (app) => app.allowedActions.upgrade && selectedAppIds.has(app.appId)
+  ).length;
+  const selectedUninstallable = filteredApps.filter(
+    (app) => app.allowedActions.uninstall && selectedAppIds.has(app.appId)
+  ).length;
 
   const handleBatchUpgrade = useCallback(() => {
     if (selectedUpgradable === 0) return;
@@ -876,10 +883,11 @@ export function useAppManagerController(active: boolean) {
     (activeFilter !== "all" ? 1 : 0) +
     ((categoryFilter || seriesFilter) ? 1 : 0);
 
-  const visibleInstallListApps =
-    activeFilter === "installList" ? (filteredApps as InstallListAppInfo[]) : installListApps;
-  const visibleInstallListInstalledCount = visibleInstallListApps.filter((app) => app.installed).length;
-  const visibleInstallListPendingCount = visibleInstallListApps.length - visibleInstallListInstalledCount;
+  const marketplaceFilterCount =
+    (searchQuery.trim() ? 1 : 0) +
+    ((categoryFilter || seriesFilter) ? 1 : 0);
+  const visibleInstallListInstalledCount = filteredInstallListApps.filter((app) => app.installed).length;
+  const visibleInstallListPendingCount = filteredInstallListApps.length - visibleInstallListInstalledCount;
   const caps = result?.platformCapabilities;
 
   return {
@@ -923,8 +931,10 @@ export function useAppManagerController(active: boolean) {
     selectedUpdate,
     updateOperations,
     filteredApps,
+    filteredInstallListApps,
     activeFilterCount,
-    visibleInstallListApps,
+    marketplaceFilterCount,
+    visibleInstallListApps: filteredInstallListApps,
     visibleInstallListInstalledCount,
     visibleInstallListPendingCount,
     caps,

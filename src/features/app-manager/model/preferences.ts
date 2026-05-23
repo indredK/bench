@@ -8,8 +8,7 @@ export type AppFilterKey =
   | "user"
   | "system"
   | "launchable"
-  | "managed"
-  | "installList";
+  | "managed";
 
 export interface PersistedPreferences {
   activeFilter: AppFilterKey;
@@ -22,11 +21,10 @@ const VALID_FILTER_KEYS = new Set<AppFilterKey>([
   "system",
   "launchable",
   "managed",
-  "installList",
 ]);
 
 export function normalizeFilterKey(value: unknown): AppFilterKey {
-  if (value === "uninstalled") return "installList";
+  if (value === "uninstalled" || value === "installList") return "all";
   return typeof value === "string" && VALID_FILTER_KEYS.has(value as AppFilterKey)
     ? (value as AppFilterKey)
     : "all";

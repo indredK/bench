@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { FilterPanel } from "@/components/layout/FilterPanel";
 import { APP_FILTER_OPTIONS } from "@/features/app-manager/store";
 import { CategoryFilter, type CategorizableItem } from "@/features/app-manager/CategoryFilter";
-import type { AppInfo, InstallListAppInfo, PlatformCapabilities } from "@/lib/tauri/types/app-manager";
+import type { AppInfo, PlatformCapabilities } from "@/lib/tauri/types/app-manager";
 import type { AppFilterKey } from "@/features/app-manager/model/store-types";
 import type { AppCategoryKey } from "@/features/app-manager/app-categories";
 import type { AppSeriesKey } from "@/features/app-manager/app-series";
@@ -16,8 +16,8 @@ interface AppManagerFilterSidebarProps {
   open: boolean;
   activeFilterCount: number;
   activeFilter: AppFilterKey;
-  apps: AppInfo[];
-  installListApps: InstallListAppInfo[];
+  items: CategorizableItem[];
+  mode?: "installed" | "marketplace";
   categoryFilter: AppCategoryKey | null;
   seriesFilter: AppSeriesKey | null;
   capabilities: PlatformCapabilities | undefined;
@@ -36,8 +36,8 @@ export function AppManagerFilterSidebar({
   open,
   activeFilterCount,
   activeFilter,
-  apps,
-  installListApps,
+  items,
+  mode = "installed",
   categoryFilter,
   seriesFilter,
   capabilities,
@@ -50,6 +50,9 @@ export function AppManagerFilterSidebar({
   onCategoryChange,
   onSeriesChange,
 }: AppManagerFilterSidebarProps) {
+  const installedItems = items as AppInfo[];
+  const showTypeFilters = mode === "installed";
+
   return (
     <FilterPanel
       open={open}
@@ -58,31 +61,11 @@ export function AppManagerFilterSidebar({
       title={t("appManager.filters")}
     >
       <div className="space-y-3">
-        <div>
-          <div className="flex items-center gap-1.5 mb-2">
-            <button
-              onClick={() => onActiveFilterChange(activeFilter === "installList" ? "all" : activeFilter)}
-              className={`text-[11px] px-2.5 py-1 rounded-md transition-colors ${
-                activeFilter !== "installList"
-                  ? "bg-primary text-primary-foreground font-medium"
-                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
-              }`}
-            >
+        {showTypeFilters && (
+          <div>
+            <p className="mb-2 text-[11px] uppercase tracking-wider text-muted-foreground">
               {t("appManager.filterBy")}
-            </button>
-            <span className="text-muted-foreground/50 text-xs select-none">|</span>
-            <button
-              onClick={() => onActiveFilterChange("installList")}
-              className={`text-[11px] px-2.5 py-1 rounded-md transition-colors ${
-                activeFilter === "installList"
-                  ? "bg-primary text-primary-foreground font-medium"
-                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
-              }`}
-            >
-              {t("appManager.installList")}
-            </button>
-          </div>
-          {activeFilter !== "installList" && (
+            </p>
             <div className="flex flex-col gap-1">
               {APP_FILTER_OPTIONS.map((option) => (
                 <Badge
@@ -92,17 +75,17 @@ export function AppManagerFilterSidebar({
                   onClick={() => onActiveFilterChange(option.key)}
                 >
                   {t(option.labelKey)}
-                  {option.key === "all" && ` (${apps.length})`}
+                  {option.key === "all" && ` (${installedItems.length})`}
                   {option.key === "managed" && ` (${managedCount ?? 0})`}
                 </Badge>
               ))}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
-        <div className="pt-2 border-t">
+        <div className={showTypeFilters ? "pt-2 border-t" : undefined}>
           <CategoryFilter
-            apps={activeFilter === "installList" ? (installListApps as CategorizableItem[]) : apps}
+            apps={items}
             categorySelected={categoryFilter}
             seriesSelected={seriesFilter}
             onCategoryChange={onCategoryChange}
@@ -110,7 +93,7 @@ export function AppManagerFilterSidebar({
           />
         </div>
 
-        {capabilities && (
+        {showTypeFilters && capabilities && (
           <div className="pt-2 border-t">
             <p className="text-[11px] text-muted-foreground mb-2 uppercase tracking-wider">
               {t("appManager.platform")}
@@ -132,19 +115,21 @@ export function AppManagerFilterSidebar({
           </div>
         )}
 
-        <div className="pt-2 border-t">
-          <div className="text-[11px] text-muted-foreground space-y-1">
-            {lastScanTime > 0 && (
-              <p>{t("appManager.lastScan")}: {new Date(lastScanTime).toLocaleTimeString()}</p>
-            )}
-            {lastUpdateCheck > 0 && (
-              <p>{t("appManager.lastUpdate")}: {new Date(lastUpdateCheck).toLocaleTimeString()}</p>
-            )}
-            {totalCount != null && managedCount != null && (
-              <p>{t("appManager.summaryShort", { total: totalCount, managed: managedCount })}</p>
-            )}
+        {showTypeFilters && (
+          <div className="pt-2 border-t">
+            <div className="text-[11px] text-muted-foreground space-y-1">
+              {lastScanTime > 0 && (
+                <p>{t("appManager.lastScan")}: {new Date(lastScanTime).toLocaleTimeString()}</p>
+              )}
+              {lastUpdateCheck > 0 && (
+                <p>{t("appManager.lastUpdate")}: {new Date(lastUpdateCheck).toLocaleTimeString()}</p>
+              )}
+              {totalCount != null && managedCount != null && (
+                <p>{t("appManager.summaryShort", { total: totalCount, managed: managedCount })}</p>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </FilterPanel>
   );

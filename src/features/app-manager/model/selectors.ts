@@ -10,32 +10,26 @@ import type { AppFilterKey } from "@/features/app-manager/model/preferences";
 
 interface FilterAppManagerItemsOptions {
   apps: AppInfo[];
-  installListApps: InstallListAppInfo[];
   searchQuery: string;
   activeFilter: AppFilterKey;
   categoryFilter: AppCategoryKey | null;
   seriesFilter: AppSeriesKey | null;
 }
 
-export type FilteredAppManagerItems = AppInfo[] | InstallListAppInfo[];
+interface FilterInstallListAppsOptions {
+  installListApps: InstallListAppInfo[];
+  searchQuery: string;
+  categoryFilter: AppCategoryKey | null;
+  seriesFilter: AppSeriesKey | null;
+}
 
 export function filterAppManagerItems({
   apps,
-  installListApps,
   searchQuery,
   activeFilter,
   categoryFilter,
   seriesFilter,
-}: FilterAppManagerItemsOptions): FilteredAppManagerItems {
-  if (activeFilter === "installList") {
-    return filterInstallListApps({
-      installListApps,
-      searchQuery,
-      categoryFilter,
-      seriesFilter,
-    });
-  }
-
+}: FilterAppManagerItemsOptions): AppInfo[] {
   return filterInstalledApps({
     apps,
     searchQuery,
@@ -45,12 +39,12 @@ export function filterAppManagerItems({
   });
 }
 
-function filterInstallListApps({
+export function filterInstallListApps({
   installListApps,
   searchQuery,
   categoryFilter,
   seriesFilter,
-}: Omit<FilterAppManagerItemsOptions, "apps" | "activeFilter">): InstallListAppInfo[] {
+}: FilterInstallListAppsOptions): InstallListAppInfo[] {
   let result = installListApps;
   const query = searchQuery.trim().toLowerCase();
 

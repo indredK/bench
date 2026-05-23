@@ -67,8 +67,9 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
     selectedUpdate,
     updateOperations,
     filteredApps,
+    filteredInstallListApps,
     activeFilterCount,
-    visibleInstallListApps,
+    marketplaceFilterCount,
     visibleInstallListInstalledCount,
     visibleInstallListPendingCount,
     caps,
@@ -124,6 +125,301 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
     setSelectedUpdate,
   } = controller;
 
+  const installedContent = (
+    <div className="flex h-full min-h-0 flex-col gap-3">
+      <AppManagerActionBar
+        t={t}
+        searchQuery={searchQuery}
+        searchPlaceholder={t("appManager.searchPlaceholder")}
+        loading={loading}
+        historyOpen={historyOpen}
+        onSearchQueryChange={setSearchQuery}
+        onScanApps={scanApps}
+        onToggleHistory={() => setHistoryOpen(!historyOpen)}
+      />
+
+      {error && (
+        <Alert variant="destructive" className="shrink-0">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      <AppManagerBatchResults
+        t={t}
+        batchResults={batchResults}
+        onClear={clearBatchResults}
+      />
+
+      <ThreeColumnLayout
+        filterOpen={filterPanelOpen}
+        detailOpen={!!selectedItem}
+        onCloseDetail={() => setSelectedItem(null)}
+        filter={
+          <AppManagerFilterSidebar
+            t={t}
+            open={filterPanelOpen}
+            activeFilterCount={activeFilterCount}
+            activeFilter={activeFilter}
+            items={apps}
+            mode="installed"
+            categoryFilter={categoryFilter}
+            seriesFilter={seriesFilter}
+            capabilities={caps}
+            lastScanTime={lastScanTime}
+            lastUpdateCheck={lastUpdateCheck}
+            totalCount={result?.totalCount}
+            managedCount={result?.managedCount}
+            onToggle={() => setFilterPanelOpen(!filterPanelOpen)}
+            onActiveFilterChange={setActiveFilter}
+            onCategoryChange={setCategoryFilter}
+            onSeriesChange={setSeriesFilter}
+          />
+        }
+        content={
+          <div className="h-full flex flex-col gap-3">
+            <div className="flex-1 min-h-0">
+              <ContentView<AppInfo>
+                data={filteredApps}
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
+                columns={appManagerColumns}
+                getRowId={(app) => app.appId}
+                renderGridCard={(app) => <AppManagerGridCard app={app} t={t} />}
+                estimatedCardHeight={120}
+                onItemClick={setSelectedItem}
+                sorting={sorting}
+                onSortingChange={setSorting}
+                loading={loading}
+                selectedId={selectedItem?.appId ?? null}
+                batchMode={batchMode}
+                selectedIds={selectedAppIds}
+                onToggleSelect={toggleSelectApp}
+                getRowAttributes={getRowAttributes}
+                actions={
+                  <>
+                    {scanned && (
+                      <ToolbarButton
+                        icon={<CheckSquare size={15} />}
+                        tooltip={batchMode ? t("appManager.batchModeOff") : t("appManager.batchMode")}
+                        onClick={handleToggleBatchMode}
+                        active={batchMode}
+                      />
+                    )}
+                    <ToolbarButton
+                      icon={<Filter size={15} />}
+                      tooltip={t("appManager.filters")}
+                      onClick={() => setFilterPanelOpen(!filterPanelOpen)}
+                      active={filterPanelOpen || activeFilter !== "all"}
+                    />
+                  </>
+                }
+                rightActions={batchMode ? (
+                  <div className="flex items-center gap-1">
+                    <ToolbarButton
+                      icon={<ArrowUpCircle size={15} className={selectedUpgradable > 0 ? "text-orange-500" : ""} />}
+                      tooltip={`${t("appManager.batchUpgrade")} (${selectedUpgradable})`}
+                      disabled={selectedUpgradable === 0}
+                      onClick={handleBatchUpgrade}
+                    />
+                    <ToolbarButton
+                      icon={<Trash2 size={15} />}
+                      tooltip={`${t("appManager.batchUninstall")} (${selectedUninstallable})`}
+                      disabled={selectedUninstallable === 0}
+                      onClick={handleBatchUninstall}
+                    />
+                    <ToolbarButton
+                      icon={<X size={15} />}
+                      tooltip={t("appManager.batchClear")}
+                      onClick={clearSelection}
+                    />
+                  </div>
+                ) : undefined}
+                emptyIcon={
+                  scanned
+                    ? <Search size={32} className="opacity-30" />
+                    : <AppWindow size={32} className="opacity-30" />
+                }
+                emptyText={
+                  scanned
+                    ? (filteredApps.length === 0 && apps.length > 0
+                      ? t("appManager.noResults")
+                      : t("appManager.empty"))
+                    : t("appManager.startHint")
+                }
+              />
+            </div>
+          </div>
+        }
+        detail={
+          <DetailPanel<AppInfo>
+            item={selectedItem}
+            open={!!selectedItem}
+            onClose={() => setSelectedItem(null)}
+            title={t("appManager.details")}
+            renderDetail={(app) => (
+              <AppDetail
+                app={app}
+                t={t}
+                onLaunch={handleLaunch}
+                onReveal={handleReveal}
+                onUpgrade={handleDetailUpgrade}
+                onUninstall={handleDetailUninstall}
+              />
+            )}
+          />
+        }
+      />
+    </div>
+  );
+
+  const marketplaceContent = (
+    <div className="flex h-full min-h-0 flex-col gap-3">
+      <AppManagerActionBar
+        t={t}
+        searchQuery={searchQuery}
+        searchPlaceholder={t("appManager.installSearchPlaceholder")}
+        loading={loading}
+        historyOpen={historyOpen}
+        onSearchQueryChange={setSearchQuery}
+        onScanApps={scanApps}
+        onToggleHistory={() => setHistoryOpen(!historyOpen)}
+      />
+
+      {error && (
+        <Alert variant="destructive" className="shrink-0">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      <AppManagerBatchResults
+        t={t}
+        batchResults={batchResults}
+        onClear={clearBatchResults}
+      />
+
+      <ThreeColumnLayout
+        filterOpen={filterPanelOpen}
+        detailOpen={!!installDetailItem}
+        onCloseDetail={() => setInstallDetailItem(null)}
+        filter={
+          <AppManagerFilterSidebar
+            t={t}
+            open={filterPanelOpen}
+            activeFilterCount={marketplaceFilterCount}
+            activeFilter={activeFilter}
+            items={installListApps}
+            mode="marketplace"
+            categoryFilter={categoryFilter}
+            seriesFilter={seriesFilter}
+            capabilities={undefined}
+            lastScanTime={lastScanTime}
+            lastUpdateCheck={lastUpdateCheck}
+            totalCount={installListApps.length}
+            managedCount={undefined}
+            onToggle={() => setFilterPanelOpen(!filterPanelOpen)}
+            onActiveFilterChange={setActiveFilter}
+            onCategoryChange={setCategoryFilter}
+            onSeriesChange={setSeriesFilter}
+          />
+        }
+        content={
+          <div className="h-full flex flex-col gap-3">
+            <div className="flex-1 min-h-0">
+              <ContentView<InstallListAppInfo>
+                data={filteredInstallListApps}
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
+                columns={installListColumns}
+                getRowId={(app) => app.id}
+                renderGridCard={(app) => (
+                  <InstallListCard
+                    app={app}
+                    t={t}
+                    status={installStates[app.id]?.status}
+                    onInstall={handleInstall}
+                    onOpenWebsite={(url) => {
+                      if (url) void openExternal(url);
+                    }}
+                    onCopyText={copyText}
+                  />
+                )}
+                estimatedCardHeight={220}
+                gridGap={10}
+                gridRowPadding={[4, 12]}
+                onItemClick={setInstallDetailItem}
+                batchMode={installBatchMode}
+                selectedIds={selectedInstallIds}
+                onToggleSelect={toggleInstallSelect}
+                showViewToggle={true}
+                actions={
+                  <>
+                    <ToolbarButton
+                      icon={<CheckSquare size={15} />}
+                      tooltip={installBatchMode ? t("appManager.batchModeOff") : t("appManager.batchMode")}
+                      onClick={() => {
+                        setInstallBatchMode((value) => !value);
+                        clearInstallSelection();
+                      }}
+                      active={installBatchMode}
+                    />
+                    <ToolbarButton
+                      icon={<Filter size={15} />}
+                      tooltip={t("appManager.filters")}
+                      onClick={() => setFilterPanelOpen(!filterPanelOpen)}
+                      active={filterPanelOpen || marketplaceFilterCount > 0}
+                    />
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      {t("appManager.installListSummary", {
+                        total: filteredInstallListApps.length,
+                        pending: visibleInstallListPendingCount,
+                        installed: visibleInstallListInstalledCount,
+                      })}
+                    </span>
+                  </>
+                }
+                rightActions={installBatchMode ? (
+                  <div className="flex items-center gap-1">
+                    <ToolbarButton
+                      icon={<Download size={15} />}
+                      tooltip={`${t("appManager.installSelected")} (${selectedInstallIds.size})`}
+                      disabled={selectedInstallIds.size === 0}
+                      onClick={handleBatchInstall}
+                    />
+                    <ToolbarButton
+                      icon={<X size={15} />}
+                      tooltip={t("appManager.clearSelection")}
+                      onClick={clearInstallSelection}
+                    />
+                  </div>
+                ) : undefined}
+                emptyIcon={<Search size={32} className="opacity-30" />}
+                emptyText={t("appManager.installNoResults")}
+              />
+            </div>
+          </div>
+        }
+        detail={
+          <DetailPanel<InstallListAppInfo>
+            item={installDetailItem}
+            open={!!installDetailItem}
+            onClose={() => setInstallDetailItem(null)}
+            title={t("appManager.details")}
+            renderDetail={(app) => (
+              <InstallDetail
+                app={app}
+                t={t}
+                onInstall={handleInstall}
+                onOpenWebsite={(url) => {
+                  if (url) void openExternal(url);
+                }}
+              />
+            )}
+          />
+        }
+      />
+    </div>
+  );
+
   return (
     <AppManagerErrorBoundary>
       <RuntimeFeatureGate
@@ -168,250 +464,10 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                 onUpdateAllVisible={(items) => void handleUpdateAllVisible(items)}
                 onOpenExternal={(url) => void openExternal(url)}
               />
+            ) : activeTab === "marketplace" ? (
+              marketplaceContent
             ) : (
-              <div className="flex h-full min-h-0 flex-col gap-3">
-                <AppManagerActionBar
-                  t={t}
-                  searchQuery={searchQuery}
-                  searchPlaceholder={
-                    activeFilter === "installList"
-                      ? t("appManager.installSearchPlaceholder")
-                      : t("appManager.searchPlaceholder")
-                  }
-                  loading={loading}
-                  historyOpen={historyOpen}
-                  onSearchQueryChange={setSearchQuery}
-                  onScanApps={scanApps}
-                  onToggleHistory={() => setHistoryOpen(!historyOpen)}
-                />
-
-                {error && (
-                  <Alert variant="destructive" className="shrink-0">
-                    <AlertDescription>{error}</AlertDescription>
-                  </Alert>
-                )}
-
-                <AppManagerBatchResults
-                  t={t}
-                  batchResults={batchResults}
-                  onClear={clearBatchResults}
-                />
-
-                <ThreeColumnLayout
-                  filterOpen={filterPanelOpen}
-                  detailOpen={!!selectedItem || !!installDetailItem}
-                  onCloseDetail={() => {
-                    setSelectedItem(null);
-                    setInstallDetailItem(null);
-                  }}
-                  filter={
-                    <AppManagerFilterSidebar
-                      t={t}
-                      open={filterPanelOpen}
-                      activeFilterCount={activeFilterCount}
-                      activeFilter={activeFilter}
-                      apps={apps}
-                      installListApps={installListApps}
-                      categoryFilter={categoryFilter}
-                      seriesFilter={seriesFilter}
-                      capabilities={caps}
-                      lastScanTime={lastScanTime}
-                      lastUpdateCheck={lastUpdateCheck}
-                      totalCount={result?.totalCount}
-                      managedCount={result?.managedCount}
-                      onToggle={() => setFilterPanelOpen(!filterPanelOpen)}
-                      onActiveFilterChange={setActiveFilter}
-                      onCategoryChange={setCategoryFilter}
-                      onSeriesChange={setSeriesFilter}
-                    />
-                  }
-                  content={
-                    <div className="h-full flex flex-col gap-3">
-                      <div className="flex-1 min-h-0">
-                        {activeFilter === "installList" ? (
-                          <ContentView<InstallListAppInfo>
-                            data={filteredApps as InstallListAppInfo[]}
-                            viewMode={viewMode}
-                            onViewModeChange={setViewMode}
-                            columns={installListColumns}
-                            getRowId={(app) => app.id}
-                            renderGridCard={(app) => (
-                              <InstallListCard
-                                app={app}
-                                t={t}
-                                status={installStates[app.id]?.status}
-                                onInstall={handleInstall}
-                                onOpenWebsite={(url) => {
-                                  if (url) void openExternal(url);
-                                }}
-                                onCopyText={copyText}
-                              />
-                            )}
-                            estimatedCardHeight={220}
-                            gridGap={10}
-                            gridRowPadding={[4, 12]}
-                            onItemClick={setInstallDetailItem}
-                            batchMode={installBatchMode}
-                            selectedIds={selectedInstallIds}
-                            onToggleSelect={toggleInstallSelect}
-                            showViewToggle={true}
-                            actions={
-                              <>
-                                <ToolbarButton
-                                  icon={<CheckSquare size={15} />}
-                                  tooltip={installBatchMode ? t("appManager.batchModeOff") : t("appManager.batchMode")}
-                                  onClick={() => {
-                                    setInstallBatchMode((value) => !value);
-                                    clearInstallSelection();
-                                  }}
-                                  active={installBatchMode}
-                                />
-                                <ToolbarButton
-                                  icon={<Filter size={15} />}
-                                  tooltip={t("appManager.filters")}
-                                  onClick={() => setFilterPanelOpen(!filterPanelOpen)}
-                                  active={filterPanelOpen}
-                                />
-                                <span className="text-xs text-muted-foreground tabular-nums">
-                                  {t("appManager.installListSummary", {
-                                    total: visibleInstallListApps.length,
-                                    pending: visibleInstallListPendingCount,
-                                    installed: visibleInstallListInstalledCount,
-                                  })}
-                                </span>
-                              </>
-                            }
-                            rightActions={installBatchMode ? (
-                              <div className="flex items-center gap-1">
-                                <ToolbarButton
-                                  icon={<Download size={15} />}
-                                  tooltip={`${t("appManager.installSelected")} (${selectedInstallIds.size})`}
-                                  disabled={selectedInstallIds.size === 0}
-                                  onClick={handleBatchInstall}
-                                />
-                                <ToolbarButton
-                                  icon={<X size={15} />}
-                                  tooltip={t("appManager.clearSelection")}
-                                  onClick={clearInstallSelection}
-                                />
-                              </div>
-                            ) : undefined}
-                            emptyIcon={<Search size={32} className="opacity-30" />}
-                            emptyText={t("appManager.installNoResults")}
-                          />
-                        ) : (
-                          <ContentView<AppInfo>
-                            data={filteredApps as AppInfo[]}
-                            viewMode={viewMode}
-                            onViewModeChange={setViewMode}
-                            columns={appManagerColumns}
-                            getRowId={(app) => app.appId}
-                            renderGridCard={(app) => <AppManagerGridCard app={app} t={t} />}
-                            estimatedCardHeight={120}
-                            onItemClick={setSelectedItem}
-                            sorting={sorting}
-                            onSortingChange={setSorting}
-                            loading={loading}
-                            selectedId={selectedItem?.appId ?? null}
-                            batchMode={batchMode}
-                            selectedIds={selectedAppIds}
-                            onToggleSelect={toggleSelectApp}
-                            getRowAttributes={getRowAttributes}
-                            actions={
-                              <>
-                                {scanned && (
-                                  <ToolbarButton
-                                    icon={<CheckSquare size={15} />}
-                                    tooltip={batchMode ? t("appManager.batchModeOff") : t("appManager.batchMode")}
-                                    onClick={handleToggleBatchMode}
-                                    active={batchMode}
-                                  />
-                                )}
-                                <ToolbarButton
-                                  icon={<Filter size={15} />}
-                                  tooltip={t("appManager.filters")}
-                                  onClick={() => setFilterPanelOpen(!filterPanelOpen)}
-                                  active={filterPanelOpen || activeFilter !== "all"}
-                                />
-                              </>
-                            }
-                            rightActions={batchMode ? (
-                              <div className="flex items-center gap-1">
-                                <ToolbarButton
-                                  icon={<ArrowUpCircle size={15} className={selectedUpgradable > 0 ? "text-orange-500" : ""} />}
-                                  tooltip={`${t("appManager.batchUpgrade")} (${selectedUpgradable})`}
-                                  disabled={selectedUpgradable === 0}
-                                  onClick={handleBatchUpgrade}
-                                />
-                                <ToolbarButton
-                                  icon={<Trash2 size={15} />}
-                                  tooltip={`${t("appManager.batchUninstall")} (${selectedUninstallable})`}
-                                  disabled={selectedUninstallable === 0}
-                                  onClick={handleBatchUninstall}
-                                />
-                                <ToolbarButton
-                                  icon={<X size={15} />}
-                                  tooltip={t("appManager.batchClear")}
-                                  onClick={clearSelection}
-                                />
-                              </div>
-                            ) : undefined}
-                            emptyIcon={
-                              scanned
-                                ? <Search size={32} className="opacity-30" />
-                                : <AppWindow size={32} className="opacity-30" />
-                            }
-                            emptyText={
-                              scanned
-                                ? (filteredApps.length === 0 && apps.length > 0
-                                  ? t("appManager.noResults")
-                                  : t("appManager.empty"))
-                                : t("appManager.startHint")
-                            }
-                          />
-                        )}
-                      </div>
-                    </div>
-                  }
-                  detail={
-                    activeFilter === "installList" ? (
-                      <DetailPanel<InstallListAppInfo>
-                        item={installDetailItem}
-                        open={!!installDetailItem}
-                        onClose={() => setInstallDetailItem(null)}
-                        title={t("appManager.details")}
-                        renderDetail={(app) => (
-                          <InstallDetail
-                            app={app}
-                            t={t}
-                            onInstall={handleInstall}
-                            onOpenWebsite={(url) => {
-                              if (url) void openExternal(url);
-                            }}
-                          />
-                        )}
-                      />
-                    ) : (
-                      <DetailPanel<AppInfo>
-                        item={selectedItem}
-                        open={!!selectedItem}
-                        onClose={() => setSelectedItem(null)}
-                        title={t("appManager.details")}
-                        renderDetail={(app) => (
-                          <AppDetail
-                            app={app}
-                            t={t}
-                            onLaunch={handleLaunch}
-                            onReveal={handleReveal}
-                            onUpgrade={handleDetailUpgrade}
-                            onUninstall={handleDetailUninstall}
-                          />
-                        )}
-                      />
-                    )
-                  }
-                />
-              </div>
+              installedContent
             )}
           </div>
 
