@@ -4,6 +4,7 @@ macro_rules! app_invoke_handler {
         tauri::generate_handler![
             $crate::app_updater::commands::check_for_app_update,
             $crate::app_updater::commands::download_and_install_app_update,
+            $crate::app_updater::commands::cancel_app_update_download,
             $crate::app_updater::commands::restart_after_update,
             $crate::app_updater::commands::get_current_app_version,
             $crate::app_manager::commands::scan_installed_apps,

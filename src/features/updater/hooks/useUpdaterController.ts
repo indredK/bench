@@ -155,6 +155,20 @@ export function useUpdaterController() {
             });
             return;
           }
+          if (payload.event === "cancelled") {
+            // User-initiated cancel: invoke() also rejects, so error UI
+            // is driven there. Leave status alone; clear transient counters.
+            useUpdaterStore.setState({
+              downloadedBytes: 0,
+              totalBytes: null,
+            });
+            return;
+          }
+          if (payload.event === "failed") {
+            // The invoke() rejection sets the error; this is informational.
+            return;
+          }
+          // payload.event === "finished" — the install step is starting.
           useUpdaterStore.setState({ status: "installing" });
         }
       );

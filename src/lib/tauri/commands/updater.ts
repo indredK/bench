@@ -12,6 +12,10 @@ export function downloadAndInstallAppUpdate() {
   return invokeTauriCommand(TAURI_COMMANDS.updater.downloadAndInstallAppUpdate);
 }
 
+export function cancelAppUpdateDownload() {
+  return invokeTauriCommand(TAURI_COMMANDS.updater.cancelAppUpdateDownload);
+}
+
 export function restartAfterUpdate() {
   return invokeTauriCommand(TAURI_COMMANDS.updater.restartAfterUpdate);
 }

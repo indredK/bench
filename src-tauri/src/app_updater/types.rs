@@ -31,4 +31,8 @@ pub enum AppUpdateDownloadEvent {
         content_length: Option<u64>,
     },
     Finished,
+    Cancelled,
+    Failed {
+        error: String,
+    },
 }

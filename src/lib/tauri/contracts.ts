@@ -40,6 +40,7 @@ function defineTauriCommand<Args, Result>() {
 export const TAURI_COMMAND_CONTRACTS = {
   check_for_app_update: defineTauriCommand<undefined, AppUpdateInfo>()("check_for_app_update"),
   download_and_install_app_update: defineTauriCommand<undefined, AppUpdateInstallResult>()("download_and_install_app_update"),
+  cancel_app_update_download: defineTauriCommand<undefined, void>()("cancel_app_update_download"),
   restart_after_update: defineTauriCommand<undefined, void>()("restart_after_update"),
   get_current_app_version: defineTauriCommand<undefined, string>()("get_current_app_version"),
   scan_installed_apps: defineTauriCommand<undefined, AppScanResult>()("scan_installed_apps"),
@@ -99,6 +100,7 @@ export const TAURI_COMMANDS = {
   updater: {
     checkForAppUpdate: commandName("check_for_app_update"),
     downloadAndInstallAppUpdate: commandName("download_and_install_app_update"),
+    cancelAppUpdateDownload: commandName("cancel_app_update_download"),
     restartAfterUpdate: commandName("restart_after_update"),
     getCurrentAppVersion: commandName("get_current_app_version"),
   },
@@ -154,6 +156,7 @@ type TauriCommandArgKeys = {
 export const TAURI_COMMAND_ARG_KEYS = {
   check_for_app_update: [],
   download_and_install_app_update: [],
+  cancel_app_update_download: [],
   restart_after_update: [],
   get_current_app_version: [],
   scan_installed_apps: [],

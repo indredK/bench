@@ -27,4 +27,11 @@ export type AppUpdateDownloadEvent =
     }
   | {
       event: "finished";
+    }
+  | {
+      event: "cancelled";
+    }
+  | {
+      event: "failed";
+      error: string;
     };
