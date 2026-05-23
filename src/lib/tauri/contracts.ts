@@ -17,6 +17,7 @@ import type {
 import type { EnvScanDonePayload } from "@/lib/tauri/types/env-detector";
 import type {
   KillPidResult,
+  KillTarget,
   PortProcessDetail,
 } from "@/lib/tauri/types/port-manager";
 import type { SystemInfoData } from "@/lib/tauri/types/system-info";
@@ -65,7 +66,7 @@ export const TAURI_COMMAND_CONTRACTS = {
   detect_env_tools: defineTauriCommand<undefined, void>()("detect_env_tools"),
   get_system_info: defineTauriCommand<undefined, SystemInfoData>()("get_system_info"),
   query_port_processes: defineTauriCommand<{ ports: number[] }, PortProcessDetail[]>()("query_port_processes"),
-  kill_processes: defineTauriCommand<{ pids: number[] }, KillPidResult[]>()("kill_processes"),
+  kill_processes: defineTauriCommand<{ targets: KillTarget[] }, KillPidResult[]>()("kill_processes"),
 } as const;
 
 export type TauriCommandName = keyof typeof TAURI_COMMAND_CONTRACTS;
@@ -187,7 +188,7 @@ export const TAURI_COMMAND_ARG_KEYS = {
   detect_env_tools: [],
   get_system_info: [],
   query_port_processes: ["ports"],
-  kill_processes: ["pids"],
+  kill_processes: ["targets"],
 } as const satisfies TauriCommandArgKeys;
 
 export const WINDOW_BOOTSTRAP_EVENTS = {

@@ -1,10 +1,18 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize)]
 pub struct KillPidResult {
     pub pid: u32,
     pub success: bool,
     pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_code: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct KillTarget {
+    pub pid: u32,
+    pub expected_name: Option<String>,
 }
 
 #[derive(Debug, Serialize)]

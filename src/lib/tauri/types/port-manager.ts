@@ -5,6 +5,16 @@ export interface KillPidResult {
   pid: number;
   success: boolean;
   message: string;
+  /** Stable identifier the UI branches on; missing on success.
+   *  Known values: PID_GONE | PID_REUSED | PERMISSION_DENIED | SELF_KILL | CHILD_KILL | KILL_FAILED | SPAWN_FAILED */
+  error_code?: string | null;
+}
+
+export interface KillTarget {
+  pid: number;
+  /** Process name observed at scan time. Backend rejects with PID_REUSED if the
+   *  live process now has a different name, preventing accidental sshd kills. */
+  expected_name: string | null;
 }
 
 export interface ProcessNode {

@@ -7,7 +7,7 @@ import { portManagerUseCases } from "@/features/port-manager/services/port-manag
 import { hasInvalidPortInputCharacters, parsePortsFromInput } from "@/features/port-manager/ports";
 import { registerFeatureRefresh } from "@/features/refresh";
 import {
-  DEFAULT_MAX_PORTS,
+  MAX_TRACKED_PORTS,
   usePortManagerStore,
   type PortScanStatus,
   PORT_SCAN_STATUS_META,
@@ -62,7 +62,7 @@ export function usePortManagerController() {
     const portsToAdd: number[] = [];
 
     for (const port of ports) {
-      if (updatedPorts.length >= DEFAULT_MAX_PORTS) break;
+      if (updatedPorts.length >= MAX_TRACKED_PORTS) break;
       if (updatedPorts.some((ps) => ps.port === port)) continue;
       updatedPorts.push({ port, status: "waiting" });
       portsToAdd.push(port);
@@ -159,7 +159,9 @@ export function usePortManagerController() {
     async (port: number, pids: number[]) => {
       usePortManagerStore.setState({ error: "", killing: true });
       try {
-        const result = await portManagerUseCases.killProcesses(pids);
+        const { portDetails: currentDetails } = usePortManagerStore.getState();
+        const targets = portManagerUseCases.buildKillTargets(pids, currentDetails);
+        const result = await portManagerUseCases.killProcesses(targets);
         const messages = portManagerUseCases.createKillMessages(result);
         usePortManagerStore.setState((state) => ({
           portKillMessages: { ...state.portKillMessages, [port]: messages },
@@ -180,7 +182,8 @@ export function usePortManagerController() {
     try {
       const allPids = currentPortDetails.flatMap((detail) => detail.pids);
       const portsToRescan = currentPortDetails.map((detail) => detail.port);
-      const result = await portManagerUseCases.killProcesses(allPids);
+      const targets = portManagerUseCases.buildKillTargets(allPids, currentPortDetails);
+      const result = await portManagerUseCases.killProcesses(targets);
       const killMessages = portManagerUseCases.groupKillMessagesByPort(result, currentPortDetails);
       usePortManagerStore.setState({ portKillMessages: killMessages });
       if (portsToRescan.length > 0) {

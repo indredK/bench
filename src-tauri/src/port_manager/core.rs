@@ -1,4 +1,4 @@
-use super::types::{KillPidResult, PortProcessDetail, SystemInfo};
+use super::types::{KillPidResult, KillTarget, PortProcessDetail, SystemInfo};
 
 #[tauri::command]
 pub fn query_port_processes(ports: Vec<u16>) -> Vec<PortProcessDetail> {
@@ -6,8 +6,8 @@ pub fn query_port_processes(ports: Vec<u16>) -> Vec<PortProcessDetail> {
 }
 
 #[tauri::command]
-pub fn kill_processes(pids: Vec<u32>) -> Vec<KillPidResult> {
-    super::processes::kill_processes(pids)
+pub fn kill_processes(targets: Vec<KillTarget>) -> Vec<KillPidResult> {
+    super::processes::kill_processes(targets)
 }
 
 #[tauri::command]

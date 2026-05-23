@@ -4,7 +4,7 @@
 import { create } from "zustand";
 import type { PortProcessDetail } from "@/lib/tauri/types/port-manager";
 
-export const DEFAULT_MAX_PORTS = 20;
+export const MAX_TRACKED_PORTS = 20;
 
 export const PORT_SCAN_STATUS_META = {
   waiting: { labelKey: "portManager.statusWaiting" },

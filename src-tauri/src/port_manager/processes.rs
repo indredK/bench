@@ -1,10 +1,20 @@
 use super::fingerprints::fingerprint_port_process;
-use super::types::{KillPidResult, PortProcessDetail, ProcessNode};
+use super::types::{KillPidResult, KillTarget, PortProcessDetail, ProcessNode};
 use std::collections::HashMap;
 use std::process::Command;
 use sysinfo::System;
 
 type ProcessSnapshot = HashMap<u32, (u32, String, String)>;
+
+/// Stable error codes the frontend can branch on for UX. Strings are intentional
+/// — frontends compare them as-is.
+pub mod error_codes {
+    pub const PID_GONE: &str = "PID_GONE";
+    pub const PID_REUSED: &str = "PID_REUSED";
+    pub const PERMISSION_DENIED: &str = "PERMISSION_DENIED";
+    pub const SELF_KILL: &str = "SELF_KILL";
+    pub const CHILD_KILL: &str = "CHILD_KILL";
+}
 
 pub(super) fn query_port_processes(ports: Vec<u16>) -> Vec<PortProcessDetail> {
     let all_processes = get_all_processes();
@@ -53,44 +63,89 @@ pub(super) fn query_port_processes(ports: Vec<u16>) -> Vec<PortProcessDetail> {
         .collect()
 }
 
-pub(super) fn kill_processes(pids: Vec<u32>) -> Vec<KillPidResult> {
+pub(super) fn kill_processes(targets: Vec<KillTarget>) -> Vec<KillPidResult> {
     let all_processes = get_all_processes();
-    pids.into_iter()
-        .map(|pid| match kill_process(pid, &all_processes) {
-            Ok(()) => KillPidResult {
-                pid,
-                success: true,
-                message: "Successfully terminated".to_string(),
-            },
-            Err(e) => KillPidResult {
-                pid,
-                success: false,
-                message: e,
-            },
-        })
+    targets
+        .into_iter()
+        .map(|target| kill_one(target, &all_processes))
         .collect()
 }
 
-fn kill_process(pid: u32, all_processes: &ProcessSnapshot) -> Result<(), String> {
+fn kill_one(target: KillTarget, all_processes: &ProcessSnapshot) -> KillPidResult {
+    let pid = target.pid;
+
+    // Pre-kill identity check: catch PID reuse before sending a signal that
+    // could harm an unrelated process that grabbed the same PID slot. Linux's
+    // 32k default cap makes this realistic for any "scan and then act later"
+    // workflow.
+    if let Some(expected) = target.expected_name.as_deref().filter(|n| !n.is_empty()) {
+        match all_processes.get(&pid).map(|(_, name, _)| name.as_str()) {
+            None => {
+                return KillPidResult {
+                    pid,
+                    success: false,
+                    message: format!("PID {} no longer exists", pid),
+                    error_code: Some(error_codes::PID_GONE.to_string()),
+                };
+            }
+            Some(actual) if !actual.eq_ignore_ascii_case(expected) => {
+                return KillPidResult {
+                    pid,
+                    success: false,
+                    message: format!(
+                        "PID {} now belongs to '{}' (was '{}') — refusing to kill",
+                        pid, actual, expected
+                    ),
+                    error_code: Some(error_codes::PID_REUSED.to_string()),
+                };
+            }
+            Some(_) => {}
+        }
+    }
+
+    match kill_process(pid, all_processes) {
+        Ok(()) => KillPidResult {
+            pid,
+            success: true,
+            message: "Successfully terminated".to_string(),
+            error_code: None,
+        },
+        Err((message, error_code)) => KillPidResult {
+            pid,
+            success: false,
+            message,
+            error_code: Some(error_code),
+        },
+    }
+}
+
+fn kill_process(pid: u32, all_processes: &ProcessSnapshot) -> Result<(), (String, String)> {
     let current_pid = std::process::id();
     if pid == current_pid {
-        return Err("Cannot kill the Port Manager process itself".to_string());
+        return Err((
+            "Cannot kill the Port Manager process itself".to_string(),
+            error_codes::SELF_KILL.to_string(),
+        ));
     }
     if is_descendant_of(pid, current_pid, all_processes) {
-        return Err("Cannot kill a child process of Port Manager".to_string());
+        return Err((
+            "Cannot kill a child process of Port Manager".to_string(),
+            error_codes::CHILD_KILL.to_string(),
+        ));
     }
 
     if cfg!(target_os = "windows") {
         let output = Command::new("taskkill")
             .args(["/PID", &pid.to_string(), "/T", "/F"])
             .output()
-            .map_err(|e| format!("Failed to run taskkill: {}", e))?;
+            .map_err(|e| (format!("Failed to run taskkill: {}", e), "SPAWN_FAILED".to_string()))?;
 
         if output.status.success() {
             Ok(())
         } else {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            Err(format!("taskkill error: {}", stderr.trim()))
+            let trimmed = stderr.trim().to_string();
+            Err((format!("taskkill error: {}", trimmed), classify_kill_error(&trimmed)))
         }
     } else {
         // SIGKILL doesn't propagate to children. Kill descendants from deepest to
@@ -105,15 +160,33 @@ fn kill_process(pid: u32, all_processes: &ProcessSnapshot) -> Result<(), String>
         let output = Command::new("kill")
             .args(["-9", &pid.to_string()])
             .output()
-            .map_err(|e| format!("Failed to run kill: {}", e))?;
+            .map_err(|e| (format!("Failed to run kill: {}", e), "SPAWN_FAILED".to_string()))?;
 
         if output.status.success() {
             Ok(())
         } else {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            Err(format!("kill error: {}", stderr.trim()))
+            let trimmed = stderr.trim().to_string();
+            Err((format!("kill error: {}", trimmed), classify_kill_error(&trimmed)))
         }
     }
+}
+
+/// Map raw stderr from kill/taskkill to a stable error code. Matches the
+/// lower-cased English + localized strings we've observed in practice — when
+/// in doubt we fall through to a generic code so the frontend still receives
+/// the raw message for display.
+fn classify_kill_error(stderr: &str) -> String {
+    let lower = stderr.to_lowercase();
+    if lower.contains("permission denied")
+        || lower.contains("operation not permitted")
+        || lower.contains("access is denied")
+        || lower.contains("拒绝访问")
+        || stderr.contains("拒絕存取")
+    {
+        return error_codes::PERMISSION_DENIED.to_string();
+    }
+    "KILL_FAILED".to_string()
 }
 
 /// Collect all descendant PIDs of `pid` in BFS order (shallowest first).
@@ -197,31 +270,29 @@ fn find_pids_by_port_windows(port: u16) -> Result<Vec<u32>, String> {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let mut pids: Vec<u32> = Vec::new();
 
+    // Locale-independent parser. Headers like "协议 / 本地地址 / 状态" on Chinese
+    // Windows used to break a header-based parser, and the TCP state column
+    // itself can be localized ("正在监听"). We instead require:
+    //   - first column is the ASCII keyword TCP/UDP (Windows keeps these
+    //     untranslated even in localized builds we've observed)
+    //   - local address local port equals the target port
+    //   - for TCP, the foreign address is the IPv4/IPv6 sentinel for a
+    //     listening socket (0.0.0.0:0 / [::]:0 / *:*) — this is what
+    //     identifies LISTENING regardless of the printed state string
+    // UDP rows have no state column so we always take them.
     for line in stdout.lines() {
         let cols: Vec<&str> = line.split_whitespace().collect();
         if cols.len() < 4 {
             continue;
         }
         let proto = cols[0];
-        let local = cols[1];
-
-        let (state, pid_str) = if proto.eq_ignore_ascii_case("TCP") {
-            if cols.len() < 5 {
-                continue;
-            }
-            (Some(cols[3]), cols[4])
-        } else if proto.eq_ignore_ascii_case("UDP") {
-            (None, cols[3])
-        } else {
-            continue;
-        };
-
-        let is_listening_tcp = state.is_some_and(|s| s.eq_ignore_ascii_case("LISTENING"));
-        let is_udp = state.is_none();
-        if !is_listening_tcp && !is_udp {
+        let is_tcp = proto.eq_ignore_ascii_case("TCP");
+        let is_udp = proto.eq_ignore_ascii_case("UDP");
+        if !is_tcp && !is_udp {
             continue;
         }
 
+        let local = cols[1];
         let local_port = local
             .rsplit(':')
             .next()
@@ -229,6 +300,21 @@ fn find_pids_by_port_windows(port: u16) -> Result<Vec<u32>, String> {
         if local_port != Some(port) {
             continue;
         }
+
+        let pid_str = if is_tcp {
+            // TCP rows: Proto Local Foreign State PID
+            if cols.len() < 5 {
+                continue;
+            }
+            let foreign = cols[2];
+            if !is_listening_foreign(foreign) {
+                continue;
+            }
+            cols[4]
+        } else {
+            // UDP rows: Proto Local Foreign PID (no state column)
+            cols[3]
+        };
 
         if let Ok(pid) = pid_str.parse::<u32>() {
             if pid != 0 && !pids.contains(&pid) {
@@ -238,6 +324,16 @@ fn find_pids_by_port_windows(port: u16) -> Result<Vec<u32>, String> {
     }
 
     Ok(pids)
+}
+
+/// A TCP socket in LISTEN state has no peer; netstat prints the foreign
+/// address as a zeroed/wildcard sentinel. Matching on these patterns is
+/// locale-independent — Windows does not translate them.
+fn is_listening_foreign(foreign: &str) -> bool {
+    foreign == "0.0.0.0:0"
+        || foreign == "[::]:0"
+        || foreign == "*:*"
+        || foreign.ends_with(":*")
 }
 
 fn get_all_processes() -> ProcessSnapshot {
