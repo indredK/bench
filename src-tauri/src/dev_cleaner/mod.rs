@@ -2,6 +2,7 @@ mod cleanup;
 pub(crate) mod core;
 mod projects;
 mod rules;
+mod safe_delete;
 mod scanner;
 mod sizing;
 mod types;

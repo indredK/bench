@@ -16,6 +16,7 @@ pub(super) async fn scan_dev_projects(
         let root_path_ref = Path::new(&root_path);
 
         for entry in WalkDir::new(&root_path)
+            .same_file_system(true)
             .into_iter()
             .filter_entry(|e| !is_child_of_skip_dir(e, root_path_ref))
             .filter_map(|e| e.ok())

@@ -1,8 +1,8 @@
 use super::projects::resolve_cleanup_paths;
+use super::safe_delete::{safe_delete_within_root, DeleteOutcome};
 use super::sizing::calculate_dir_size;
 use super::types::{CleanupResult, ProjectInfo};
 use std::collections::HashSet;
-use std::fs;
 use std::path::{Path, PathBuf};
 
 pub(super) fn cleanup_projects(projects: Vec<ProjectInfo>) -> Result<CleanupResult, String> {
@@ -25,42 +25,50 @@ pub(super) fn cleanup_projects(projects: Vec<ProjectInfo>) -> Result<CleanupResu
             if !seen_targets.insert(target_path.clone()) {
                 continue;
             }
-
-            let canonical_target = target_path
-                .canonicalize()
-                .unwrap_or_else(|_| target_path.clone());
-            let canonical_project = project_dir
-                .canonicalize()
-                .unwrap_or_else(|_| project_dir.to_path_buf());
-
-            if !canonical_target.starts_with(&canonical_project) {
-                errors.push(format!(
-                    "Unsafe cleanup path outside project: {}",
-                    target_path.display()
-                ));
+            if !target_path.exists() {
                 continue;
             }
 
-            if target_path.exists() {
-                match calculate_dir_size(&target_path, None) {
-                    Ok(size) => {
-                        if let Err(e) = fs::remove_dir_all(&target_path) {
-                            errors.push(format!(
-                                "Failed to remove {}: {}",
-                                target_path.display(),
-                                e
-                            ));
-                        } else {
-                            cleaned_size += size;
-                        }
+            // Compute size before delete so the metric still includes
+            // entries that get permanently removed by the fallback. If size
+            // calculation fails we still attempt the delete, but skip the
+            // metric — surface the calculation failure separately.
+            let size_estimate = match calculate_dir_size(&target_path, None) {
+                Ok(size) => Some(size),
+                Err(e) => {
+                    errors.push(format!(
+                        "Failed to calculate size of {}: {}",
+                        target_path.display(),
+                        e
+                    ));
+                    None
+                }
+            };
+
+            match safe_delete_within_root(&target_path, project_dir) {
+                DeleteOutcome::Trashed => {
+                    if let Some(size) = size_estimate {
+                        cleaned_size += size;
                     }
-                    Err(e) => {
-                        errors.push(format!(
-                            "Failed to calculate size of {}: {}",
-                            target_path.display(),
-                            e
-                        ));
+                }
+                DeleteOutcome::PermanentlyDeleted { trash_error } => {
+                    if let Some(size) = size_estimate {
+                        cleaned_size += size;
                     }
+                    // Trash was unavailable; warn so the user knows nothing
+                    // is recoverable from the recycle bin.
+                    errors.push(format!(
+                        "Recycle bin unavailable for {}; permanently deleted instead ({})",
+                        target_path.display(),
+                        trash_error
+                    ));
+                }
+                DeleteOutcome::SkippedUnsafe { reason } => {
+                    errors.push(format!(
+                        "Unsafe cleanup path skipped: {} ({})",
+                        target_path.display(),
+                        reason
+                    ));
                 }
             }
         }
