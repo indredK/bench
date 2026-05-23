@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.8.9](https://github.com/indredK/bench/compare/v1.8.8...v1.8.9) (2026-05-23)
+
+
+### Bug Fixes
+
+* **dev_cleaner:** du/PowerShell 子进程加超时 + Unix hardlink dedup ([#046](https://github.com/indredK/bench/issues/046) [#048](https://github.com/indredK/bench/issues/048)) ([0822238](https://github.com/indredK/bench/commit/0822238856bde6fd8a26bfe850ab253707340cda))
+* **env_detector:** 版本探测超时放宽到 3s 并清洗 ANSI ([#061](https://github.com/indredK/bench/issues/061) [#064](https://github.com/indredK/bench/issues/064)) ([e2875ee](https://github.com/indredK/bench/commit/e2875ee7dfde7757b76160a363e191a731dadd35))
+* **env-detector:** 前端扫描加 90s 超时并 i18n 化错误信息 ([#075](https://github.com/indredK/bench/issues/075) [#079](https://github.com/indredK/bench/issues/079)) ([24321e9](https://github.com/indredK/bench/commit/24321e9f31f2848618e716e2106beed7c09e4d1f))
+* **port_manager:** lsof PID 去重 + 进程树 O(N) ([#055](https://github.com/indredK/bench/issues/055) [#058](https://github.com/indredK/bench/issues/058)) ([bbc472b](https://github.com/indredK/bench/commit/bbc472b0181c1e730530135f05060832a33c15de))
+* **port-manager:** scan 回包过滤被移除端口 + 卸载清 highlight ([#077](https://github.com/indredK/bench/issues/077) [#090](https://github.com/indredK/bench/issues/090)) ([eae7d46](https://github.com/indredK/bench/commit/eae7d460f383edd597a603a354c4391ed0aef958))
+
 ## [1.8.8](https://github.com/indredK/bench/compare/v1.8.7...v1.8.8) (2026-05-23)
 
 
