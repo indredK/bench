@@ -1,7 +1,7 @@
 /**
  * Page View / 页面视图: compose screen only; 只组合页面.
  */
-import { AppWindow, ArrowUpCircle, CheckSquare, Download, Filter, Search, Trash2, X } from "lucide-react";
+import { AppWindow, CheckSquare, Download, Filter, Search, Trash2, X } from "lucide-react";
 import { ToolbarButton } from "@/components/ui/toolbar-button";
 import { RuntimeFeatureGate } from "@/components/common/RuntimeFeatureGate";
 import { AppDetail, InstallDetail } from "@/features/app-manager/components/AppManagerDetails";
@@ -48,6 +48,8 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
     installStates,
     installConfirmDialog,
     selectedInstallIds,
+    selectedInstallableCount,
+    selectedMarketplaceUninstallableCount,
     installBatchMode,
     installDetailItem,
     activeTab,
@@ -74,7 +76,6 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
     setCategoryFilter,
     setSeriesFilter,
     scanApps,
-    clearSelection,
     toggleSelectApp,
     closeBatchConfirmDialog,
     clearBatchResults,
@@ -90,18 +91,17 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
     toggleInstallSelect,
     clearInstallSelection,
     handleBatchInstall,
+    handleBatchInstallListUninstall,
     handleInstallConfirm,
     getRowAttributes,
     handleConfirmAction,
     handleToggleBatchMode,
-    selectedUpgradable,
+    handleToggleInstallBatchMode,
     selectedUninstallable,
-    handleBatchUpgrade,
     handleBatchUninstall,
     handleBatchConfirm,
     handleDetailUpgrade,
     handleDetailUninstall,
-    setInstallBatchMode,
     setInstallDetailItem,
     checkAllUpdates,
     handleUpdateAction,
@@ -114,6 +114,7 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
     clearUpdateSelection,
     setUpdateSourceFilter,
     setSelectedUpdate,
+    clearSelectedApps,
   } = controller;
 
   const installedFilterCounts = getInstalledFilterCounts(apps);
@@ -211,6 +212,7 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                   />
                 )}
                 selectedItem={installDetailItem}
+                selectedId={installDetailItem?.id ?? null}
                 onItemClick={setInstallDetailItem}
                 onCloseDetail={() => setInstallDetailItem(null)}
                 viewMode={viewMode}
@@ -259,10 +261,7 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                     <ToolbarButton
                       icon={<CheckSquare size={15} />}
                       tooltip={installBatchMode ? t("appManager.batchModeOff") : t("appManager.batchMode")}
-                      onClick={() => {
-                        setInstallBatchMode((value) => !value);
-                        clearInstallSelection();
-                      }}
+                      onClick={handleToggleInstallBatchMode}
                       active={installBatchMode}
                     />
                   </>
@@ -271,9 +270,15 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                   <div className="flex items-center gap-1">
                     <ToolbarButton
                       icon={<Download size={15} />}
-                      tooltip={`${t("appManager.installSelected")} (${selectedInstallIds.size})`}
-                      disabled={selectedInstallIds.size === 0}
+                      tooltip={`${t("appManager.installSelected")} (${selectedInstallableCount})`}
+                      disabled={selectedInstallableCount === 0}
                       onClick={handleBatchInstall}
+                    />
+                    <ToolbarButton
+                      icon={<Trash2 size={15} />}
+                      tooltip={`${t("appManager.batchUninstall")} (${selectedMarketplaceUninstallableCount})`}
+                      disabled={selectedMarketplaceUninstallableCount === 0}
+                      onClick={handleBatchInstallListUninstall}
                     />
                     <ToolbarButton
                       icon={<X size={15} />}
@@ -302,6 +307,7 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                   />
                 )}
                 selectedItem={selectedItem}
+                selectedId={selectedItem?.appId ?? null}
                 onItemClick={setSelectedItem}
                 onCloseDetail={() => setSelectedItem(null)}
                 viewMode={viewMode}
@@ -403,12 +409,6 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                 rightActions={batchMode ? (
                   <div className="flex items-center gap-1">
                     <ToolbarButton
-                      icon={<ArrowUpCircle size={15} className={selectedUpgradable > 0 ? "text-orange-500" : ""} />}
-                      tooltip={`${t("appManager.batchUpgrade")} (${selectedUpgradable})`}
-                      disabled={selectedUpgradable === 0}
-                      onClick={handleBatchUpgrade}
-                    />
-                    <ToolbarButton
                       icon={<Trash2 size={15} />}
                       tooltip={`${t("appManager.batchUninstall")} (${selectedUninstallable})`}
                       disabled={selectedUninstallable === 0}
@@ -417,7 +417,7 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                     <ToolbarButton
                       icon={<X size={15} />}
                       tooltip={t("appManager.batchClear")}
-                      onClick={clearSelection}
+                      onClick={clearSelectedApps}
                     />
                   </div>
                 ) : undefined}

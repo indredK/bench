@@ -61,12 +61,17 @@ export function createAppManagerBasicActions(set: SetState) {
         return { selectedAppIds: next };
       }),
     selectAllFiltered: (filteredIds: string[]) => set({ selectedAppIds: new Set(filteredIds) }),
+    clearSelectedApps: () => set({ selectedAppIds: new Set() }),
     clearSelection: () => set({ selectedAppIds: new Set(), batchMode: false }),
     setBatchMode: (on: boolean) => set({ batchMode: on }),
-    openBatchConfirmDialog: (action: "upgrade" | "uninstall" | "install", count: number) =>
-      set({ batchConfirmDialog: { open: true, action, count } }),
+    openBatchConfirmDialog: (
+      action: "upgrade" | "uninstall" | "install",
+      count: number,
+      names: string[] = []
+    ) =>
+      set({ batchConfirmDialog: { open: true, action, count, names } }),
     closeBatchConfirmDialog: () =>
-      set({ batchConfirmDialog: { open: false, action: "upgrade", count: 0 } }),
+      set({ batchConfirmDialog: { open: false, action: "upgrade", count: 0, names: [] } }),
     clearBatchResults: () => set({ batchResults: null }),
 
     setViewMode: (mode: "table" | "grid") => set({ viewMode: mode }),

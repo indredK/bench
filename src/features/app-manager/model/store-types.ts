@@ -72,6 +72,7 @@ export interface AppManagerState {
     open: boolean;
     action: "upgrade" | "uninstall" | "install";
     count: number;
+    names: string[];
   };
 
   lastScanTime: number;
@@ -130,9 +131,14 @@ export interface AppManagerState {
 
   toggleSelectApp: (appId: string) => void;
   selectAllFiltered: (filteredIds: string[]) => void;
+  clearSelectedApps: () => void;
   clearSelection: () => void;
   setBatchMode: (on: boolean) => void;
-  openBatchConfirmDialog: (action: "upgrade" | "uninstall" | "install", count: number) => void;
+  openBatchConfirmDialog: (
+    action: "upgrade" | "uninstall" | "install",
+    count: number,
+    names?: string[]
+  ) => void;
   closeBatchConfirmDialog: () => void;
   clearBatchResults: () => void;
 

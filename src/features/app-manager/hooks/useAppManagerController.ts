@@ -91,6 +91,7 @@ export function useAppManagerController(active: boolean) {
   const setSorting = useAppManagerStore((s) => s.setSorting);
   const openConfirmDialog = useAppManagerStore((s) => s.openConfirmDialog);
   const closeConfirmDialog = useAppManagerStore((s) => s.closeConfirmDialog);
+  const clearSelectedApps = useAppManagerStore((s) => s.clearSelectedApps);
   const clearSelection = useAppManagerStore((s) => s.clearSelection);
   const setBatchMode = useAppManagerStore((s) => s.setBatchMode);
   const toggleSelectApp = useAppManagerStore((s) => s.toggleSelectApp);
@@ -122,7 +123,11 @@ export function useAppManagerController(active: boolean) {
   // progress + blocking dialogs). `null` when nothing is in flight.
   const [inProgressUpdate, setInProgressUpdate] = useState<UpdateInfo | null>(null);
   const [preferencesHydrated, setPreferencesHydrated] = useState(false);
-  const pendingBatchInstallIds = useRef<string[]>([]);
+  const pendingBatchExecutionRef = useRef<{
+    action: "upgrade" | "uninstall" | "install";
+    appIds: string[];
+    source: "installed" | "marketplace";
+  } | null>(null);
   const pendingInstallerUpdatesRef = useRef<UpdateInfo[]>([]);
   const activeInstallerAppIdRef = useRef<string | null>(null);
   const confirmPendingRef = useRef(false);
@@ -537,8 +542,7 @@ export function useAppManagerController(active: boolean) {
   );
 
   const runBatchOperation = useCallback(
-    async (kind: "upgrade" | "uninstall") => {
-      const ids = Array.from(useAppManagerStore.getState().selectedAppIds);
+    async (kind: "upgrade" | "uninstall", ids: string[]) => {
       if (ids.length === 0) return;
 
       useAppManagerStore.setState({ batchProgress: createBatchProgress(ids.length), batchResults: null });
@@ -552,9 +556,6 @@ export function useAppManagerController(active: boolean) {
     },
     [scanApps]
   );
-
-  const doBatchUpgrade = useCallback(() => runBatchOperation("upgrade"), [runBatchOperation]);
-  const doBatchUninstall = useCallback(() => runBatchOperation("uninstall"), [runBatchOperation]);
 
   const launchApp = useCallback(async (app: AppInfo) => {
     try {
@@ -747,12 +748,6 @@ export function useAppManagerController(active: boolean) {
     clearInstallSelection();
   }, [activeTab, categoryFilter, marketplaceFilter, seriesFilter, searchQuery, clearInstallSelection]);
 
-  const handleBatchInstall = useCallback(() => {
-    if (selectedInstallIds.size === 0) return;
-    pendingBatchInstallIds.current = [...selectedInstallIds];
-    openBatchConfirmDialog("install", selectedInstallIds.size);
-  }, [selectedInstallIds, openBatchConfirmDialog]);
-
   const handleInstallConfirm = useCallback(async () => {
     const { appId } = installConfirmDialog;
     closeInstallConfirmDialog();
@@ -851,38 +846,154 @@ export function useAppManagerController(active: boolean) {
     }
   }, [batchMode, clearSelection, setBatchMode, setSelectedItem]);
 
-  const selectedUpgradable = filteredApps.filter(
-    (app) => app.allowedActions.upgrade && selectedAppIds.has(app.appId)
-  ).length;
-  const selectedUninstallable = filteredApps.filter(
-    (app) => app.allowedActions.uninstall && selectedAppIds.has(app.appId)
-  ).length;
+  const handleToggleInstallBatchMode = useCallback(() => {
+    if (installBatchMode) {
+      clearInstallSelection();
+      setInstallBatchMode(false);
+    } else {
+      setInstallDetailItem(null);
+      setInstallBatchMode(true);
+    }
+  }, [installBatchMode, clearInstallSelection, setInstallDetailItem]);
+
+  const selectedUpgradableIds = useMemo(
+    () =>
+      apps
+        .filter((app) => app.allowedActions.upgrade && selectedAppIds.has(app.appId))
+        .map((app) => app.appId),
+    [apps, selectedAppIds]
+  );
+  const selectedUpgradableNames = useMemo(
+    () =>
+      apps
+        .filter((app) => app.allowedActions.upgrade && selectedAppIds.has(app.appId))
+        .map((app) => app.name),
+    [apps, selectedAppIds]
+  );
+  const selectedUpgradable = selectedUpgradableIds.length;
+  const selectedUninstallableIds = useMemo(
+    () =>
+      apps
+        .filter((app) => app.allowedActions.uninstall && selectedAppIds.has(app.appId))
+        .map((app) => app.appId),
+    [apps, selectedAppIds]
+  );
+  const selectedUninstallableNames = useMemo(
+    () =>
+      apps
+        .filter((app) => app.allowedActions.uninstall && selectedAppIds.has(app.appId))
+        .map((app) => app.name),
+    [apps, selectedAppIds]
+  );
+  const selectedUninstallable = selectedUninstallableIds.length;
+  const selectedInstallableIds = useMemo(
+    () =>
+      installListApps
+        .filter((app) => !app.installed && selectedInstallIds.has(app.id))
+        .map((app) => app.id),
+    [installListApps, selectedInstallIds]
+  );
+  const selectedInstallableNames = useMemo(
+    () =>
+      installListApps
+        .filter((app) => !app.installed && selectedInstallIds.has(app.id))
+        .map((app) => app.name),
+    [installListApps, selectedInstallIds]
+  );
+  const selectedInstallableCount = selectedInstallableIds.length;
+  const selectedMarketplaceUninstallableIds = useMemo(
+    () =>
+      installListApps
+        .filter(
+          (app) => app.installed && Boolean(app.installedAppId) && selectedInstallIds.has(app.id)
+        )
+        .map((app) => app.installedAppId as string),
+    [installListApps, selectedInstallIds]
+  );
+  const selectedMarketplaceUninstallableNames = useMemo(
+    () =>
+      installListApps
+        .filter(
+          (app) => app.installed && Boolean(app.installedAppId) && selectedInstallIds.has(app.id)
+        )
+        .map((app) => app.name),
+    [installListApps, selectedInstallIds]
+  );
+  const selectedMarketplaceUninstallableCount = selectedMarketplaceUninstallableIds.length;
+
+  const handleBatchInstall = useCallback(() => {
+    if (selectedInstallableIds.length === 0) return;
+    pendingBatchExecutionRef.current = {
+      action: "install",
+      appIds: selectedInstallableIds,
+      source: "marketplace",
+    };
+    openBatchConfirmDialog("install", selectedInstallableIds.length, selectedInstallableNames);
+  }, [selectedInstallableIds, selectedInstallableNames, openBatchConfirmDialog]);
+
+  const handleBatchInstallListUninstall = useCallback(() => {
+    if (selectedMarketplaceUninstallableIds.length === 0) return;
+    pendingBatchExecutionRef.current = {
+      action: "uninstall",
+      appIds: selectedMarketplaceUninstallableIds,
+      source: "marketplace",
+    };
+    openBatchConfirmDialog(
+      "uninstall",
+      selectedMarketplaceUninstallableIds.length,
+      selectedMarketplaceUninstallableNames
+    );
+  }, [
+    selectedMarketplaceUninstallableIds,
+    selectedMarketplaceUninstallableNames,
+    openBatchConfirmDialog,
+  ]);
 
   const handleBatchUpgrade = useCallback(() => {
     if (selectedUpgradable === 0) return;
-    openBatchConfirmDialog("upgrade", selectedUpgradable);
-  }, [selectedUpgradable, openBatchConfirmDialog]);
+    pendingBatchExecutionRef.current = {
+      action: "upgrade",
+      appIds: selectedUpgradableIds,
+      source: "installed",
+    };
+    openBatchConfirmDialog("upgrade", selectedUpgradable, selectedUpgradableNames);
+  }, [selectedUpgradable, selectedUpgradableIds, selectedUpgradableNames, openBatchConfirmDialog]);
 
   const handleBatchUninstall = useCallback(() => {
     if (selectedUninstallable === 0) return;
-    openBatchConfirmDialog("uninstall", selectedUninstallable);
-  }, [selectedUninstallable, openBatchConfirmDialog]);
+    pendingBatchExecutionRef.current = {
+      action: "uninstall",
+      appIds: selectedUninstallableIds,
+      source: "installed",
+    };
+    openBatchConfirmDialog("uninstall", selectedUninstallable, selectedUninstallableNames);
+  }, [
+    selectedUninstallable,
+    selectedUninstallableIds,
+    selectedUninstallableNames,
+    openBatchConfirmDialog,
+  ]);
 
   const handleBatchConfirm = useCallback(async () => {
-    const action = batchConfirmDialog.action;
+    const pending = pendingBatchExecutionRef.current;
+    pendingBatchExecutionRef.current = null;
     closeBatchConfirmDialog();
-    if (action === "upgrade") await doBatchUpgrade();
-    else if (action === "uninstall") await doBatchUninstall();
-    else if (action === "install") {
-      const ids = pendingBatchInstallIds.current;
-      pendingBatchInstallIds.current = [];
+    if (!pending) return;
+
+    if (pending.action === "install") {
       clearInstallSelection();
-      for (const id of ids) {
+      for (const id of pending.appIds) {
         const app = installListApps.find((item) => item.id === id);
         if (app && !app.installed) await doInstall(app.id, app.name, app.installSource);
       }
+      return;
     }
-  }, [batchConfirmDialog, closeBatchConfirmDialog, doBatchUpgrade, doBatchUninstall, installListApps, doInstall, clearInstallSelection]);
+
+    if (pending.source === "marketplace") {
+      clearInstallSelection();
+    }
+    await runBatchOperation(pending.action, pending.appIds);
+  }, [closeBatchConfirmDialog, installListApps, doInstall, clearInstallSelection, runBatchOperation]);
 
   const handleDetailUpgrade = useCallback(() => {
     if (!selectedItem) return;
@@ -960,6 +1071,8 @@ export function useAppManagerController(active: boolean) {
     installStates,
     installConfirmDialog,
     selectedInstallIds,
+    selectedInstallableCount,
+    selectedMarketplaceUninstallableCount,
     installBatchMode,
     installDetailItem,
     activeTab,
@@ -1003,14 +1116,13 @@ export function useAppManagerController(active: boolean) {
     setUpdateSourceFilter,
     setSelectedUpdate,
     setUpdateOperationStatus,
+    clearSelectedApps,
     clearSelection,
     setBatchMode,
     toggleSelectApp,
     openBatchConfirmDialog,
     closeBatchConfirmDialog,
     clearBatchResults,
-    doBatchUpgrade,
-    doBatchUninstall,
     setViewMode,
     setSelectedItem,
     setFilterPanelOpen,
@@ -1030,11 +1142,13 @@ export function useAppManagerController(active: boolean) {
     toggleInstallSelect,
     clearInstallSelection,
     handleBatchInstall,
+    handleBatchInstallListUninstall,
     handleInstallConfirm,
     getRowAttributes,
     appRegistration,
     handleConfirmAction,
     handleToggleBatchMode,
+    handleToggleInstallBatchMode,
     selectedUpgradable,
     selectedUninstallable,
     handleBatchUpgrade,
@@ -1044,6 +1158,5 @@ export function useAppManagerController(active: boolean) {
     handleDetailUninstall,
     setInstallBatchMode,
     setInstallDetailItem,
-    pendingBatchInstallIds,
   };
 }

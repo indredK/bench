@@ -81,6 +81,7 @@
     "batchInstallConfirmDescription": "Install {{count}} selected apps?",
     "batchUpgradeConfirmDescription": "Upgrade {{count}} apps to their latest versions?",
     "batchUninstallConfirmDescription": "Uninstall {{count}} apps? This cannot be undone.",
+    "batchSelectedAppsLabel": "The following apps will be included",
     "lastScan": "Last scan",
     "lastUpdate": "Last update check",
     "uninstallNotice": "Uninstalling will remove the application and its associated data. If managed by a package manager (Homebrew, winget, etc.), it will no longer appear in the installed list after removal.",

@@ -31,6 +31,7 @@ interface BatchConfirmDialogState {
   open: boolean;
   action: "upgrade" | "uninstall" | "install";
   count: number;
+  names: string[];
 }
 
 interface AppManagerConfirmDialogsProps {
@@ -120,8 +121,8 @@ export function AppManagerConfirmDialogs({
         open={batchConfirmDialog.open}
         onOpenChange={(open) => { if (!open) onCloseBatchConfirm(); }}
       >
-        <AlertDialogContent>
-          <AlertDialogHeader>
+        <AlertDialogContent className="sm:max-w-md">
+          <AlertDialogHeader className="w-full place-items-stretch text-left">
             <AlertDialogTitle className="flex items-center gap-2">
               {batchConfirmDialog.action === "install" ? (
                 <Download size={18} className="text-blue-500" />
@@ -144,6 +145,25 @@ export function AppManagerConfirmDialogs({
                   ? t("appManager.batchUninstallConfirmDescription", { count: batchConfirmDialog.count })
                   : t("appManager.batchUpgradeConfirmDescription", { count: batchConfirmDialog.count })}
             </AlertDialogDescription>
+            {batchConfirmDialog.names.length > 0 && (
+              <div className="w-full space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">
+                  {t("appManager.batchSelectedAppsLabel")}
+                </p>
+                <div className="w-full overflow-hidden rounded-lg border bg-muted/25">
+                  <ul className="max-h-48 overflow-y-auto text-sm">
+                    {batchConfirmDialog.names.map((name, index) => (
+                      <li
+                        key={`${name}-${index}`}
+                        className="flex min-h-9 items-center border-b px-3 py-2 last:border-b-0"
+                      >
+                        <span className="truncate">{name}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t("appManager.cancel")}</AlertDialogCancel>

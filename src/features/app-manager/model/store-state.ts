@@ -20,6 +20,7 @@ type AppManagerDataState = Omit<
   | "closeInstallConfirmDialog"
   | "toggleSelectApp"
   | "selectAllFiltered"
+  | "clearSelectedApps"
   | "clearSelection"
   | "setBatchMode"
   | "openBatchConfirmDialog"
@@ -77,7 +78,7 @@ export function createInitialAppManagerState(): AppManagerDataState {
     batchMode: false,
     batchProgress: null,
     batchResults: null,
-    batchConfirmDialog: { open: false, action: "upgrade", count: 0 },
+    batchConfirmDialog: { open: false, action: "upgrade", count: 0, names: [] },
     lastScanTime: 0,
     lastUpdateCheck: 0,
     viewMode: "table",
