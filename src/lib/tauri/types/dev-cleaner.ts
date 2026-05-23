@@ -8,7 +8,7 @@ export interface ProjectInfo {
   target_size: number;
   last_modified: number;
   dependencies_count: number;
-  project_type: "NodeJs" | "Python" | "Rust" | "Go" | "General";
+  project_type: "NodeJs" | "Python" | "Rust" | "Go" | "Mixed" | "General";
   cleanup_potential: number;
   cleanup_paths?: string[];
 }

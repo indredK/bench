@@ -7,6 +7,7 @@ mod menu;
 mod port_manager;
 
 use app_manager::AppManagerState;
+use app_updater::UpdaterCache;
 use dev_cleaner::ScanAbortFlag;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -21,6 +22,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(Arc::new(AtomicBool::new(false)) as ScanAbortFlag)
         .manage(app_manager_state)
+        .manage(UpdaterCache::default())
         .setup(menu::setup_menu)
         .invoke_handler(app_invoke_handler!())
         .run(tauri::generate_context!())

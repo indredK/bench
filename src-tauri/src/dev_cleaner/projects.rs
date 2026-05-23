@@ -211,7 +211,7 @@ fn count_dependencies(path: &Path, project_type: ProjectType) -> u32 {
             }
             0
         }
-        ProjectType::General => 0,
+        ProjectType::Mixed | ProjectType::General => 0,
     }
 }
 
@@ -253,9 +253,23 @@ fn merge_project_info(
         || (candidate_cleanup_paths.len() > existing.cleanup_paths.len()
             && candidate_project_type != existing.project_type);
 
+    let existing_type_before_merge = existing.project_type;
+
     if candidate_is_more_specific {
         existing.project_type = candidate_project_type;
         existing.name = candidate_name;
+    }
+
+    // Once two distinct language indicators meet at the same path, the label
+    // must surface as Mixed regardless of which side won the specificity race
+    // above — otherwise a Python backend with a small Node frontend (or vice
+    // versa) silently inherits whichever side happened to have more cleanup
+    // bytes, depending on filesystem traversal order.
+    if is_real_language(existing_type_before_merge)
+        && is_real_language(candidate_project_type)
+        && existing_type_before_merge != candidate_project_type
+    {
+        existing.project_type = ProjectType::Mixed;
     }
 
     existing.total_size = existing.total_size.max(candidate_total_size);
@@ -280,6 +294,13 @@ fn merge_project_info(
         existing.target_size = existing.target_size.max(candidate_target_size);
         existing.cleanup_potential = existing.cleanup_potential.max(candidate_cleanup_potential);
     }
+}
+
+fn is_real_language(project_type: ProjectType) -> bool {
+    matches!(
+        project_type,
+        ProjectType::NodeJs | ProjectType::Python | ProjectType::Rust | ProjectType::Go
+    )
 }
 
 #[cfg(test)]
@@ -438,5 +459,94 @@ criterion = "0.5"
     fn test_count_dependencies_general() {
         let count = count_dependencies(&PathBuf::from("/tmp"), ProjectType::General);
         assert_eq!(count, 0);
+    }
+
+    #[test]
+    fn test_dedupe_marks_cross_language_merge_as_mixed() {
+        let tmp = std::env::temp_dir().join("tauri_test_mixed_project");
+        let _ = fs::remove_dir_all(&tmp);
+        fs::create_dir_all(tmp.join("node_modules")).unwrap();
+        fs::create_dir_all(tmp.join(".venv")).unwrap();
+        fs::write(tmp.join("node_modules").join("dummy"), b"node").unwrap();
+        fs::write(tmp.join(".venv").join("dummy"), b"python").unwrap();
+
+        let path_str = tmp.to_string_lossy().to_string();
+        let node_side = ProjectInfo {
+            path: path_str.clone(),
+            name: "demo".into(),
+            total_size: 10,
+            target_size: 5,
+            last_modified: 0,
+            dependencies_count: 0,
+            project_type: ProjectType::NodeJs,
+            cleanup_potential: 5,
+            cleanup_paths: vec![tmp.join("node_modules").to_string_lossy().to_string()],
+        };
+        let python_side = ProjectInfo {
+            path: path_str,
+            name: "demo".into(),
+            total_size: 20,
+            target_size: 7,
+            last_modified: 0,
+            dependencies_count: 0,
+            project_type: ProjectType::Python,
+            cleanup_potential: 7,
+            cleanup_paths: vec![tmp.join(".venv").to_string_lossy().to_string()],
+        };
+
+        let merged = dedupe_projects(vec![node_side, python_side], None);
+        assert_eq!(merged.len(), 1);
+        assert_eq!(merged[0].project_type, ProjectType::Mixed);
+        // Cleanup_paths should remain unioned so both language targets are cleaned.
+        assert!(merged[0]
+            .cleanup_paths
+            .iter()
+            .any(|p| p.ends_with("node_modules")));
+        assert!(merged[0]
+            .cleanup_paths
+            .iter()
+            .any(|p| p.ends_with(".venv")));
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_dedupe_keeps_single_language_label() {
+        let tmp = std::env::temp_dir().join("tauri_test_single_language");
+        let _ = fs::remove_dir_all(&tmp);
+        fs::create_dir_all(tmp.join("node_modules")).unwrap();
+        fs::create_dir_all(tmp.join("dist")).unwrap();
+        fs::write(tmp.join("node_modules").join("dummy"), b"node").unwrap();
+        fs::write(tmp.join("dist").join("dummy"), b"build").unwrap();
+
+        let path_str = tmp.to_string_lossy().to_string();
+        let first = ProjectInfo {
+            path: path_str.clone(),
+            name: "demo".into(),
+            total_size: 10,
+            target_size: 5,
+            last_modified: 0,
+            dependencies_count: 0,
+            project_type: ProjectType::NodeJs,
+            cleanup_potential: 5,
+            cleanup_paths: vec![tmp.join("node_modules").to_string_lossy().to_string()],
+        };
+        let second = ProjectInfo {
+            path: path_str,
+            name: "demo".into(),
+            total_size: 12,
+            target_size: 6,
+            last_modified: 0,
+            dependencies_count: 0,
+            project_type: ProjectType::NodeJs,
+            cleanup_potential: 6,
+            cleanup_paths: vec![tmp.join("dist").to_string_lossy().to_string()],
+        };
+
+        let merged = dedupe_projects(vec![first, second], None);
+        assert_eq!(merged.len(), 1);
+        assert_eq!(merged[0].project_type, ProjectType::NodeJs);
+
+        let _ = fs::remove_dir_all(&tmp);
     }
 }

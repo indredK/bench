@@ -27,6 +27,7 @@ pub fn locked_operation_result() -> OperationResult {
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn record_operation_result(
     state: &AppManagerState,
     action: &str,

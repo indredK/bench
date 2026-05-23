@@ -1,3 +1,4 @@
+use super::state::UpdaterCache;
 use super::types::{
     AppUpdateDownloadEvent, AppUpdateInfo, AppUpdateInstallResult, APP_UPDATER_DOWNLOAD_EVENT,
 };
@@ -9,7 +10,10 @@ fn updater_error(context: &str, error: impl std::fmt::Display) -> String {
 }
 
 #[tauri::command]
-pub async fn check_for_app_update<R: Runtime>(app: AppHandle<R>) -> Result<AppUpdateInfo, String> {
+pub async fn check_for_app_update<R: Runtime>(
+    app: AppHandle<R>,
+    cache: tauri::State<'_, UpdaterCache>,
+) -> Result<AppUpdateInfo, String> {
     let current_version = app.package_info().version.to_string();
     let updater: Updater = app
         .updater()
@@ -18,6 +22,11 @@ pub async fn check_for_app_update<R: Runtime>(app: AppHandle<R>) -> Result<AppUp
         .check()
         .await
         .map_err(|error| updater_error("failed to check for updates", error))?;
+
+    // Cache the handle so download_and_install_app_update can reuse it
+    // instead of issuing a second manifest request (also closes the race
+    // window where the UI shows v1.2.3 but the install path downloads v1.2.4).
+    cache.store(update.clone());
 
     Ok(match update {
         Some(update) => AppUpdateInfo {
@@ -40,17 +49,25 @@ pub async fn check_for_app_update<R: Runtime>(app: AppHandle<R>) -> Result<AppUp
 #[tauri::command]
 pub async fn download_and_install_app_update<R: Runtime>(
     app: AppHandle<R>,
+    cache: tauri::State<'_, UpdaterCache>,
 ) -> Result<AppUpdateInstallResult, String> {
-    let updater: Updater = app
-        .updater()
-        .map_err(|error| updater_error("failed to build updater", error))?;
-
-    let update: Option<Update> = updater
-        .check()
-        .await
-        .map_err(|error| updater_error("failed to re-check updates before install", error))?;
-
-    let update: Update = update.ok_or_else(|| "No update is currently available".to_string())?;
+    let update: Update = match cache.take() {
+        Some(update) => update,
+        None => {
+            // Fallback for callers that skip the explicit check step — keeps
+            // the command usable on its own without forcing a stale manifest.
+            let updater: Updater = app
+                .updater()
+                .map_err(|error| updater_error("failed to build updater", error))?;
+            updater
+                .check()
+                .await
+                .map_err(|error| {
+                    updater_error("failed to check updates before install", error)
+                })?
+                .ok_or_else(|| "No update is currently available".to_string())?
+        }
+    };
 
     let progress_handle: AppHandle<R> = app.clone();
     let finished_handle: AppHandle<R> = app.clone();

@@ -10,11 +10,12 @@ import { formatDate, formatSize } from "@/lib/utils";
 
 export type DevCleanerSortBy = "name" | "totalSize" | "cleanupSize" | "modified";
 
-const projectTypeMap: Partial<Record<ProjectInfo["project_type"], "nodejs" | "python" | "rust" | "go">> = {
+const projectTypeMap: Partial<Record<ProjectInfo["project_type"], "nodejs" | "python" | "rust" | "go" | "mixed">> = {
   NodeJs: "nodejs",
   Python: "python",
   Rust: "rust",
   Go: "go",
+  Mixed: "mixed",
 };
 
 const naturalTextComparator = new Intl.Collator(undefined, {

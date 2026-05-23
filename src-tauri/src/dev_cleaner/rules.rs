@@ -134,7 +134,7 @@ impl ProjectType {
             ProjectType::Python => &["pyproject.toml", "requirements.txt"],
             ProjectType::Rust => &["Cargo.toml"],
             ProjectType::Go => &["go.mod"],
-            ProjectType::General => &[],
+            ProjectType::Mixed | ProjectType::General => &[],
         }
     }
 
@@ -144,7 +144,7 @@ impl ProjectType {
             ProjectType::Python => PYTHON_CLEANUP_RULES,
             ProjectType::Rust => RUST_CLEANUP_RULES,
             ProjectType::Go => GO_CLEANUP_RULES,
-            ProjectType::General => &[],
+            ProjectType::Mixed | ProjectType::General => &[],
         }
     }
 

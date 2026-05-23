@@ -8,6 +8,12 @@ pub enum ProjectType {
     Python,
     Rust,
     Go,
+    /// Indicator files for more than one language were found at the same path
+    /// (e.g. a Python backend co-located with a Node frontend). The label
+    /// signals "multi-language" without losing any of the per-language cleanup
+    /// rules — `dedupe_projects` unions cleanup_paths across all detected
+    /// indicators, so the actual cleanup behavior is the union of both.
+    Mixed,
     General,
 }
 

@@ -322,6 +322,7 @@
       "python": "Python (.venv, venv)",
       "rust": "Rust (target)",
       "go": "Go (vendor)",
+      "mixed": "混合语言",
       "all": "所有项目"
     }
   },
