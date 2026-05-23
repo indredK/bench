@@ -13,11 +13,37 @@ interface AppIconProps {
   className?: string;
 }
 
+// LRU cap. The icon cache previously grew without bound; on a machine with
+// 800+ apps each base64 icon (~10-30KB) could pin several megabytes
+// indefinitely, and re-scans never released the entries (#070). The cap is
+// generous (covers most users in one shot) and we rely on Map insertion-order
+// to evict the oldest entries.
+const ICON_CACHE_CAP = 500;
 const iconCache = new Map<string, string | null>();
 const iconRequests = new Map<string, Promise<string | null>>();
 
+function rememberIcon(installPath: string, icon: string | null) {
+  // Refresh recency for an existing key by re-inserting.
+  if (iconCache.has(installPath)) {
+    iconCache.delete(installPath);
+  } else if (iconCache.size >= ICON_CACHE_CAP) {
+    const oldest = iconCache.keys().next().value;
+    if (oldest !== undefined) iconCache.delete(oldest);
+  }
+  iconCache.set(installPath, icon);
+}
+
+function readIcon(installPath: string): string | null | undefined {
+  if (!iconCache.has(installPath)) return undefined;
+  const value = iconCache.get(installPath) ?? null;
+  // Touch on read so frequently-rendered rows survive eviction.
+  iconCache.delete(installPath);
+  iconCache.set(installPath, value);
+  return value;
+}
+
 function loadIcon(installPath: string) {
-  const cached = iconCache.get(installPath);
+  const cached = readIcon(installPath);
   if (cached !== undefined) return Promise.resolve(cached);
 
   const existing = iconRequests.get(installPath);
@@ -25,11 +51,11 @@ function loadIcon(installPath: string) {
 
   const request = appManagerUseCases.loadAppIconBase64(installPath)
     .then((icon) => {
-      iconCache.set(installPath, icon);
+      rememberIcon(installPath, icon);
       return icon;
     })
     .catch(() => {
-      iconCache.set(installPath, null);
+      rememberIcon(installPath, null);
       return null;
     })
     .finally(() => {
@@ -42,7 +68,7 @@ function loadIcon(installPath: string) {
 
 export function AppIcon({ iconBase64, installPath, size = 24, className }: AppIconProps) {
   const [loadedIcon, setLoadedIcon] = useState(() =>
-    installPath ? iconCache.get(installPath) ?? null : null
+    installPath ? readIcon(installPath) ?? null : null
   );
   const icon = iconBase64 ?? loadedIcon;
 
