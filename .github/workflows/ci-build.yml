@@ -16,6 +16,7 @@ env:
 permissions:
   contents: write
   actions: read
+  pull-requests: read
 
 jobs:
   verify:
@@ -252,7 +253,7 @@ jobs:
 
       - name: Ensure release exists and read metadata
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
         run: |
           if ! gh release view "${{ github.ref_name }}" >/dev/null 2>&1; then
             gh release create "${{ github.ref_name }}" --title "Bench ${{ github.ref_name }}" --notes ""
@@ -272,7 +273,7 @@ jobs:
 
       - name: Create or update GitHub Release
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
         run: |
           shopt -s nullglob
           rm -f release-assets/updater-manifest-*.json
