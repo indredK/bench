@@ -22,11 +22,11 @@ export function ThreeColumnLayout({
   onCloseDetail,
 }: ThreeColumnLayoutProps) {
   return (
-    <div className="flex flex-1 min-h-0 gap-3 overflow-x-hidden relative">
+    <div className="relative flex flex-1 min-h-0 overflow-x-hidden">
       <div
         className={cn(
-          "shrink-0 overflow-hidden transition-[width] duration-200",
-          filterOpen ? "w-[240px]" : "w-0"
+          "shrink-0 overflow-hidden transition-[width,margin] duration-200",
+          filterOpen ? "mr-3 w-[240px]" : "mr-0 w-0"
         )}
       >
         <div className={cn("w-full h-full", !filterOpen && "invisible")}>
@@ -40,7 +40,7 @@ export function ThreeColumnLayout({
 
       <div
         className={cn(
-          "shrink-0 w-[320px] ml-[-320px] overflow-hidden transition-transform duration-200 ease-out z-[80]",
+          "absolute inset-y-0 right-0 z-[80] w-[320px] overflow-hidden transition-transform duration-200 ease-out",
           detailOpen ? "translate-x-0" : "translate-x-full"
         )}
       >

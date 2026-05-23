@@ -75,7 +75,7 @@ export function UpdateGroupSection({
       </div>
 
       {expanded && (
-        <div className="flex flex-col gap-1 p-2">
+        <div className="flex flex-col gap-1 px-3 py-2">
           {updates.map((update) => (
             <UpdateRow
               key={update.appId}

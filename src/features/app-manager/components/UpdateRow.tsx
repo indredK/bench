@@ -45,7 +45,7 @@ export function UpdateRow({
   return (
     <div
       className={cn(
-        "group flex items-center gap-3 rounded-md border border-transparent px-3 py-2 hover:bg-muted/50 cursor-pointer",
+        "group flex items-center gap-3 rounded-md border border-transparent py-2 hover:bg-muted/50 cursor-pointer",
         isActive && "border-primary/40 bg-muted/40",
         running && "opacity-80"
       )}

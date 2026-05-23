@@ -3,7 +3,6 @@
  */
 import type { TFunction } from "i18next";
 import { ArrowUpCircle, CheckSquare, RefreshCw, Square, X } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ToolbarButton } from "@/components/ui/toolbar-button";
@@ -47,8 +46,8 @@ export function UpdaterActionBar({
   const showAllChip = totalCount > 0;
 
   return (
-    <Card className="shrink-0">
-      <CardContent className="flex flex-wrap items-center gap-1.5 py-2.5">
+    <div className="shrink-0 rounded-lg border bg-card">
+      <div className="flex flex-wrap items-center gap-1.5 px-3 py-2">
         <Button
           variant={visibleCount > 0 ? "default" : "ghost"}
           size="sm"
@@ -113,7 +112,7 @@ export function UpdaterActionBar({
             ))}
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
