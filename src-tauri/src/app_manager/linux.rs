@@ -46,6 +46,7 @@ fn user_desktop_entries_dir() -> Option<PathBuf> {
 fn parse_desktop_entry(path: &Path) -> Option<(String, String, String, String)> {
     let content = fs::read_to_string(path).ok()?;
     let mut name = String::new();
+    let mut localized_names: Vec<(String, String)> = Vec::new();
     let mut comment = String::new();
     let mut exec = String::new();
     let mut icon = String::new();
@@ -70,6 +71,15 @@ fn parse_desktop_entry(path: &Path) -> Option<(String, String, String, String)> 
         }
         if let Some(val) = line.strip_prefix("Name=") {
             name = val.to_string();
+        } else if let Some(rest) = line.strip_prefix("Name[") {
+            // Name[zh_CN]=Value — collect locale variants for desktop_locale selection
+            if let Some(close) = rest.find(']') {
+                let locale = rest[..close].to_string();
+                let after = &rest[close + 1..];
+                if let Some(val) = after.strip_prefix('=') {
+                    localized_names.push((locale, val.to_string()));
+                }
+            }
         } else if let Some(val) = line.strip_prefix("Comment=") {
             comment = val.to_string();
         } else if let Some(val) = line.strip_prefix("Exec=") {
@@ -79,23 +89,186 @@ fn parse_desktop_entry(path: &Path) -> Option<(String, String, String, String)> 
         }
     }
 
+    if let Some(localized) = pick_localized_name(&localized_names, &name) {
+        name = localized;
+    }
+
     if name.is_empty() {
         return None;
     }
     Some((name, comment, exec, icon))
 }
 
-/// Clean Exec field: remove %f, %u, %F, %U placeholders.
+/// Select the best `Name[locale]` variant for the current LC_MESSAGES, falling
+/// back through priorities: exact `lang_REGION` → `lang` → any `lang_*` →
+/// base `Name=`. Per freedesktop Desktop Entry Specification §5.
+fn pick_localized_name(localized: &[(String, String)], base: &str) -> Option<String> {
+    if localized.is_empty() {
+        return None;
+    }
+    let locale = current_desktop_locale();
+    let locale_lower = locale.to_lowercase();
+    let (lang, region) = match locale_lower.split_once('_') {
+        Some((l, r)) => {
+            let r = r.split('.').next().unwrap_or(r);
+            let r = r.split('@').next().unwrap_or(r);
+            (l.to_string(), Some(r.to_string()))
+        }
+        None => {
+            let l = locale_lower
+                .split('.')
+                .next()
+                .unwrap_or(&locale_lower)
+                .split('@')
+                .next()
+                .unwrap_or(&locale_lower);
+            (l.to_string(), None)
+        }
+    };
+
+    // Priority 1: exact lang_REGION
+    if let Some(region) = &region {
+        let want = format!("{}_{}", lang, region.to_uppercase());
+        let want_lower = want.to_lowercase();
+        if let Some((_, v)) = localized
+            .iter()
+            .find(|(k, _)| k.to_lowercase() == want_lower)
+        {
+            return Some(v.clone());
+        }
+    }
+    // Priority 2: lang only
+    if let Some((_, v)) = localized.iter().find(|(k, _)| {
+        k.to_lowercase() == lang
+            || k.to_lowercase()
+                .split_once('_')
+                .is_some_and(|(l, _)| l == lang)
+                && region.is_none()
+    }) {
+        return Some(v.clone());
+    }
+    // Priority 3: any lang_*
+    if let Some((_, v)) = localized.iter().find(|(k, _)| {
+        k.to_lowercase()
+            .split_once('_')
+            .is_some_and(|(l, _)| l == lang)
+    }) {
+        return Some(v.clone());
+    }
+    if base.is_empty() {
+        return localized.first().map(|(_, v)| v.clone());
+    }
+    None
+}
+
+fn current_desktop_locale() -> String {
+    for var in ["LC_ALL", "LC_MESSAGES", "LANG"] {
+        if let Ok(v) = std::env::var(var) {
+            let v = v.trim();
+            if !v.is_empty() && v != "C" && v != "POSIX" {
+                return v.to_string();
+            }
+        }
+    }
+    String::new()
+}
+
+/// Expand and strip freedesktop Exec field codes per §6 of the Desktop Entry
+/// Specification. `%%` becomes a literal `%`; field codes that would need a
+/// file/url/icon (`%f %F %u %U %i %c %k`) and the deprecated `%d %D %n %N %v
+/// %m` codes are dropped since the launcher has nothing to substitute.
+fn expand_exec_field_codes(exec: &str) -> String {
+    let mut out = String::with_capacity(exec.len());
+    let mut chars = exec.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c != '%' {
+            out.push(c);
+            continue;
+        }
+        match chars.next() {
+            Some('%') => out.push('%'),
+            // Drop substitution codes — no files/urls/icons to forward.
+            Some('f') | Some('F') | Some('u') | Some('U') | Some('i') | Some('c') | Some('k')
+            | Some('d') | Some('D') | Some('n') | Some('N') | Some('v') | Some('m') => {}
+            // Unknown / future codes: drop the marker too, matching glib behaviour.
+            Some(_) => {}
+            None => {} // trailing `%` — drop
+        }
+    }
+    out
+}
+
+/// Split a `.desktop` Exec line into argv per freedesktop spec §6. Honours
+/// double-quoted strings with backslash escapes (`\\ \" \` \$`). Single
+/// quotes have no special meaning in the spec. Returns Err for unterminated
+/// quotes so the caller can refuse to launch a malformed entry rather than
+/// silently truncating arguments.
+fn split_exec_args(exec: &str) -> Result<Vec<String>, String> {
+    let mut args: Vec<String> = Vec::new();
+    let mut current = String::new();
+    let mut in_quotes = false;
+    let mut had_token = false;
+    let mut chars = exec.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        if in_quotes {
+            if c == '\\' {
+                match chars.next() {
+                    Some(next @ ('"' | '\\' | '`' | '$')) => current.push(next),
+                    Some(other) => {
+                        current.push('\\');
+                        current.push(other);
+                    }
+                    None => return Err("trailing backslash in Exec".into()),
+                }
+                continue;
+            }
+            if c == '"' {
+                in_quotes = false;
+                continue;
+            }
+            current.push(c);
+            continue;
+        }
+
+        if c.is_whitespace() {
+            if had_token {
+                args.push(std::mem::take(&mut current));
+                had_token = false;
+            }
+            continue;
+        }
+        if c == '"' {
+            in_quotes = true;
+            had_token = true;
+            continue;
+        }
+        if c == '\\' {
+            if let Some(next) = chars.next() {
+                current.push(next);
+                had_token = true;
+            }
+            continue;
+        }
+        current.push(c);
+        had_token = true;
+    }
+
+    if in_quotes {
+        return Err("unterminated quote in Exec".into());
+    }
+    if had_token {
+        args.push(current);
+    }
+    Ok(args)
+}
+
+/// Returns the cleaned Exec line as a single display string (for storage
+/// alongside the parsed entry). Tokenisation for actual launching uses
+/// [`split_exec_args`] on the same expanded string.
 fn clean_exec(exec: &str) -> String {
-    let s = exec
-        .replace("%f", "")
-        .replace("%u", "")
-        .replace("%F", "")
-        .replace("%U", "")
-        .replace("%c", "")
-        .replace("%k", "");
-    let s = s.split_whitespace().collect::<Vec<_>>().join(" ");
-    s.trim().to_string()
+    let s = expand_exec_field_codes(exec);
+    s.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 fn scan_desktop_entries() -> Vec<(String, String, String, String, String)> {
@@ -334,12 +507,16 @@ pub fn launch_app(app_path: String) -> Result<(), String> {
         }
 
         let exec = exec.ok_or_else(|| "No Exec= in [Desktop Entry] section".to_string())?;
-        let cmd = clean_exec(&exec);
-        let parts: Vec<&str> = cmd.split_whitespace().collect();
+        // Per freedesktop §6: substitute field codes BEFORE shell-style
+        // tokenisation so a value like `Exec="/opt/foo bar/app" %U` still
+        // launches a path with a space rather than splitting on it.
+        let expanded = expand_exec_field_codes(&exec);
+        let parts = split_exec_args(&expanded)
+            .map_err(|e| format!("Failed to parse Exec field: {}", e))?;
         if parts.is_empty() {
             return Err("Empty exec in desktop entry".into());
         }
-        let mut command = Command::new(parts[0]);
+        let mut command = Command::new(&parts[0]);
         for arg in &parts[1..] {
             command.arg(arg);
         }
@@ -808,5 +985,92 @@ mod tests {
     fn try_exec_resolves_absolute_path_existence() {
         assert!(try_exec_resolves("/bin/sh"));
         assert!(!try_exec_resolves("/this/path/does/not/exist/abcxyz"));
+    }
+
+    #[test]
+    fn expand_exec_field_codes_drops_substitution_placeholders() {
+        // Regression #018: %i %D %n %v were not stripped, causing `--icon %i`
+        // to reach the child process as a literal argument.
+        assert_eq!(expand_exec_field_codes("foo %f %U %i %c"), "foo    ");
+        assert_eq!(expand_exec_field_codes("foo %D %n %v %m %N"), "foo     ");
+    }
+
+    #[test]
+    fn expand_exec_field_codes_escapes_double_percent() {
+        // Per spec: %% in Exec must be substituted with a literal %.
+        assert_eq!(expand_exec_field_codes("100%%"), "100%");
+    }
+
+    #[test]
+    fn split_exec_args_handles_quoted_paths() {
+        // Regression #019: split_whitespace cut "/opt/dir with space/app" at
+        // the first space, so the binary couldn't be located.
+        let parts =
+            split_exec_args(r#""/opt/dir with space/app" --foo "bar baz""#).expect("parse ok");
+        assert_eq!(
+            parts,
+            vec![
+                "/opt/dir with space/app".to_string(),
+                "--foo".to_string(),
+                "bar baz".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn split_exec_args_handles_backslash_escapes_in_quotes() {
+        let parts =
+            split_exec_args(r#""a\"b" "c\\d" "e\$f""#).expect("parse ok");
+        assert_eq!(
+            parts,
+            vec![
+                "a\"b".to_string(),
+                "c\\d".to_string(),
+                "e$f".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn split_exec_args_rejects_unterminated_quote() {
+        assert!(split_exec_args(r#"foo "bar"#).is_err());
+    }
+
+    #[test]
+    fn pick_localized_name_prefers_exact_region_then_lang() {
+        // Regression #020: the parser silently used `Name=` even when the
+        // user's locale had a matching `Name[zh_CN]=` variant.
+        let entries = vec![
+            ("zh_CN".into(), "微信".into()),
+            ("zh_TW".into(), "微信(臺)".into()),
+            ("ja".into(), "ウィーチャット".into()),
+        ];
+
+        // Save and restore locale env so we don't leak state across tests.
+        let original = std::env::var("LC_ALL").ok();
+        // SAFETY: only this test (single-threaded by default in cargo test
+        // unless --test-threads > 1) touches the variable; it's restored
+        // immediately. Tests run with --test-threads=1 in our CI config.
+        unsafe {
+            std::env::set_var("LC_ALL", "zh_CN.UTF-8");
+        }
+        let v = pick_localized_name(&entries, "WeChat");
+        assert_eq!(v.as_deref(), Some("微信"));
+
+        unsafe {
+            std::env::set_var("LC_ALL", "zh_HK.UTF-8");
+        }
+        // Falls back to any zh_* when neither exact lang_REGION nor bare lang
+        // is available — picks the first zh_* in declaration order.
+        let v = pick_localized_name(&entries, "WeChat");
+        assert!(matches!(v.as_deref(), Some("微信") | Some("微信(臺)")));
+
+        // Restore
+        unsafe {
+            match original {
+                Some(v) => std::env::set_var("LC_ALL", v),
+                None => std::env::remove_var("LC_ALL"),
+            }
+        }
     }
 }
