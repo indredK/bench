@@ -349,7 +349,7 @@ mod scan_tests {
         let install_paths: Vec<String> = results.into_iter().map(|item| item.4).collect();
 
         assert_eq!(install_paths.len(), 1);
-        assert!(install_paths[0].ends_with("/Vendor/Test.app"));
+        assert!(Path::new(&install_paths[0]).ends_with(Path::new("Vendor").join("Test.app")));
 
         fs::remove_dir_all(root).expect("cleanup");
     }

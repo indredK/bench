@@ -225,11 +225,12 @@ mod tests {
         assert_eq!(rb.code(), "SU_REPLACE_ROLLED_BACK");
         assert_eq!(rb.message(), "reason here");
 
+        let trashed_old = PathBuf::from("t").join("Demo.app");
         let st = ReplaceError::Stranded {
             reason: "x".into(),
-            trashed_old: PathBuf::from("/t/Demo.app"),
+            trashed_old: trashed_old.clone(),
         };
         assert_eq!(st.code(), "SU_REPLACE_FAIL");
-        assert!(st.message().contains("/t/Demo.app"));
+        assert!(st.message().contains(&trashed_old.display().to_string()));
     }
 }
