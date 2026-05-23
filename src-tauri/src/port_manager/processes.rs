@@ -18,6 +18,7 @@ pub mod error_codes {
 
 pub(super) fn query_port_processes(ports: Vec<u16>) -> Vec<PortProcessDetail> {
     let all_processes = get_all_processes();
+    let children_by_parent = build_children_index(&all_processes);
 
     ports
         .into_iter()
@@ -47,7 +48,7 @@ pub(super) fn query_port_processes(ports: Vec<u16>) -> Vec<PortProcessDetail> {
 
             let process_trees: Vec<ProcessNode> = pids
                 .iter()
-                .map(|pid| build_focused_tree(*pid, &all_processes))
+                .map(|pid| build_focused_tree(*pid, &all_processes, &children_by_parent))
                 .collect();
 
             let fingerprint = fingerprint_port_process(port, &pids, &all_processes);
@@ -255,10 +256,18 @@ fn find_pids_by_port_unix(port: u16) -> Result<Vec<u32>, String> {
         return Ok(Vec::new());
     }
 
-    Ok(stdout
-        .lines()
-        .filter_map(|line| line.trim().parse::<u32>().ok())
-        .collect())
+    // A process dual-listening on IPv4 + IPv6 (Node default) can show the same
+    // PID twice depending on the lsof build; keep insertion order but drop
+    // repeats so downstream PID lists / fingerprints aren't duplicated (#055).
+    let mut pids: Vec<u32> = Vec::new();
+    for line in stdout.lines() {
+        if let Ok(pid) = line.trim().parse::<u32>() {
+            if !pids.contains(&pid) {
+                pids.push(pid);
+            }
+        }
+    }
+    Ok(pids)
 }
 
 fn find_pids_by_port_windows(port: u16) -> Result<Vec<u32>, String> {
@@ -355,19 +364,48 @@ fn get_all_processes() -> ProcessSnapshot {
         .collect()
 }
 
+#[cfg(test)]
 fn build_subtree(pid: u32, all: &ProcessSnapshot) -> ProcessNode {
+    let children_by_parent = build_children_index(all);
+    build_subtree_with_index(pid, all, &children_by_parent)
+}
+
+/// Index processes by parent PID so subsequent subtree queries are O(N) in the
+/// number of visited nodes rather than O(N²) (each level previously full-scanned
+/// `all`). On developer machines with 500+ running processes the old form
+/// spent >100 ms here (#058).
+fn build_children_index(all: &ProcessSnapshot) -> HashMap<u32, Vec<u32>> {
+    let mut by_parent: HashMap<u32, Vec<u32>> = HashMap::new();
+    for (&pid, info) in all.iter() {
+        let ppid = info.0;
+        if ppid != pid {
+            by_parent.entry(ppid).or_default().push(pid);
+        }
+    }
+    for kids in by_parent.values_mut() {
+        kids.sort_unstable();
+    }
+    by_parent
+}
+
+fn build_subtree_with_index(
+    pid: u32,
+    all: &ProcessSnapshot,
+    children_by_parent: &HashMap<u32, Vec<u32>>,
+) -> ProcessNode {
     let (ppid, name, command) =
         all.get(&pid)
             .cloned()
             .unwrap_or((0, "Unknown".to_string(), "Unknown".to_string()));
 
-    let mut children: Vec<ProcessNode> = all
-        .iter()
-        .filter(|(&child_pid, child_info)| child_info.0 == pid && child_pid != pid)
-        .map(|(&child_pid, _)| build_subtree(child_pid, all))
-        .collect();
-
-    children.sort_by_key(|c| c.pid);
+    let children: Vec<ProcessNode> = children_by_parent
+        .get(&pid)
+        .map(|kids| {
+            kids.iter()
+                .map(|&child| build_subtree_with_index(child, all, children_by_parent))
+                .collect()
+        })
+        .unwrap_or_default();
 
     ProcessNode {
         pid,
@@ -395,10 +433,14 @@ fn get_parent_chain(pid: u32, all: &ProcessSnapshot, max_depth: usize) -> Vec<u3
     chain
 }
 
-fn build_focused_tree(pid: u32, all: &ProcessSnapshot) -> ProcessNode {
+fn build_focused_tree(
+    pid: u32,
+    all: &ProcessSnapshot,
+    children_by_parent: &HashMap<u32, Vec<u32>>,
+) -> ProcessNode {
     let parent_chain = get_parent_chain(pid, all, 64);
     let root_pid = parent_chain.last().copied().unwrap_or(pid);
-    build_subtree(root_pid, all)
+    build_subtree_with_index(root_pid, all, children_by_parent)
 }
 
 #[cfg(test)]
@@ -548,7 +590,8 @@ mod tests {
         processes.insert(50, (1, "service".to_string(), "/bin/service".to_string()));
         processes.insert(100, (50, "worker".to_string(), "/bin/worker".to_string()));
 
-        let node = build_focused_tree(100, &processes);
+        let index = build_children_index(&processes);
+        let node = build_focused_tree(100, &processes, &index);
         assert_eq!(node.pid, 50);
         assert_eq!(node.children.len(), 1);
         assert_eq!(node.children[0].pid, 100);
@@ -559,7 +602,31 @@ mod tests {
         let mut processes = HashMap::new();
         processes.insert(1, (0, "init".to_string(), "/sbin/init".to_string()));
 
-        let node = build_focused_tree(1, &processes);
+        let index = build_children_index(&processes);
+        let node = build_focused_tree(1, &processes, &index);
         assert_eq!(node.pid, 1);
+    }
+
+    #[test]
+    fn test_build_children_index_groups_siblings() {
+        let mut processes = HashMap::new();
+        processes.insert(1, (0, "init".to_string(), "/sbin/init".to_string()));
+        processes.insert(10, (1, "a".to_string(), "/bin/a".to_string()));
+        processes.insert(11, (1, "b".to_string(), "/bin/b".to_string()));
+        processes.insert(12, (1, "c".to_string(), "/bin/c".to_string()));
+
+        let idx = build_children_index(&processes);
+        assert_eq!(idx.get(&1).map(Vec::len), Some(3));
+        let kids = idx.get(&1).unwrap();
+        assert!(kids.windows(2).all(|w| w[0] < w[1])); // sorted
+    }
+
+    #[test]
+    fn test_build_children_index_skips_self_loop() {
+        let mut processes = HashMap::new();
+        // PID == PPID (root or unusual init layout) — must not appear as its own child.
+        processes.insert(1, (1, "init".to_string(), "/sbin/init".to_string()));
+        let idx = build_children_index(&processes);
+        assert!(!idx.contains_key(&1));
     }
 }
