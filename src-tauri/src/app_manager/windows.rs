@@ -263,14 +263,14 @@ pub fn reveal_in_explorer(app_path: String) -> Result<(), String> {
 pub fn check_updates(
     app_ids: Vec<String>,
     state: tauri::State<'_, AppManagerState>,
-) -> Vec<String> {
-    let upgradable = if let Some(ref wg) = winget_path() {
-        list_winget_upgradable(wg).unwrap_or_default()
-    } else {
-        Vec::new()
+) -> Result<Vec<String>, String> {
+    let upgradable = match winget_path() {
+        Some(ref wg) => list_winget_upgradable(wg)
+            .map_err(|e| format!("winget upgrade --list failed: {}", e))?,
+        None => Vec::new(),
     };
-    let apps = state.apps.lock().unwrap();
-    app_ids
+    let apps = state.apps.lock().unwrap_or_else(|e| e.into_inner());
+    Ok(app_ids
         .into_iter()
         .filter(|id| {
             apps.iter().find(|a| &a.app_id == id).is_some_and(|a| {
@@ -278,7 +278,7 @@ pub fn check_updates(
                     && upgradable.contains(&a.source_id.to_lowercase())
             })
         })
-        .collect()
+        .collect())
 }
 
 // ============================================================================

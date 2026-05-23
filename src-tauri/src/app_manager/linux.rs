@@ -354,45 +354,63 @@ pub fn reveal_in_file_manager(app_path: String) -> Result<(), String> {
 pub fn check_updates(
     app_ids: Vec<String>,
     state: tauri::State<'_, AppManagerState>,
-) -> Vec<String> {
-    let apps = state.apps.lock().unwrap();
+) -> Result<Vec<String>, String> {
+    let apps = state.apps.lock().unwrap_or_else(|e| e.into_inner());
 
-    // Collect upgradable flatpak/snap apps
     let mut updatable_ids: HashSet<String> = HashSet::new();
+    let mut errors: Vec<String> = Vec::new();
 
     if flatpak_available() {
-        if let Ok(output) = Command::new("flatpak")
+        match Command::new("flatpak")
             .args(["remote-ls", "--updates", "--app"])
             .output()
         {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            for line in stdout.lines() {
-                if let Some(id) = line.split_whitespace().next() {
-                    updatable_ids.insert(id.to_lowercase());
+            Ok(output) if output.status.success() => {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                for line in stdout.lines() {
+                    if let Some(id) = line.split_whitespace().next() {
+                        updatable_ids.insert(id.to_lowercase());
+                    }
                 }
             }
+            Ok(output) => {
+                let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+                errors.push(format!("flatpak: {}", stderr));
+            }
+            Err(e) => errors.push(format!("flatpak: {}", e)),
         }
     }
 
     if snap_available() {
-        if let Ok(output) = Command::new("snap").args(["refresh", "--list"]).output() {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            for line in stdout.lines().skip(1) {
-                if let Some(name) = line.split_whitespace().next() {
-                    updatable_ids.insert(name.to_lowercase());
+        match Command::new("snap").args(["refresh", "--list"]).output() {
+            Ok(output) if output.status.success() => {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                for line in stdout.lines().skip(1) {
+                    if let Some(name) = line.split_whitespace().next() {
+                        updatable_ids.insert(name.to_lowercase());
+                    }
                 }
             }
+            Ok(output) => {
+                let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+                errors.push(format!("snap: {}", stderr));
+            }
+            Err(e) => errors.push(format!("snap: {}", e)),
         }
     }
 
-    app_ids
+    if !errors.is_empty() && updatable_ids.is_empty() {
+        return Err(errors.join("; "));
+    }
+
+    Ok(app_ids
         .into_iter()
         .filter(|id| {
             apps.iter().find(|a| &a.app_id == id).is_some_and(|a| {
                 updatable_ids.contains(&a.source_id.to_lowercase())
             })
         })
-        .collect()
+        .collect())
 }
 
 // ============================================================================

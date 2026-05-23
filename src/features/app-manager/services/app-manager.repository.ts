@@ -5,6 +5,7 @@ import {
   batchInstallApps,
   batchUninstallApps,
   batchUpgradeApps,
+  cancelBatchOperation,
   checkManagedAppUpdates,
   getAppIconBase64,
   getAppOperationHistory,
@@ -37,6 +38,7 @@ export const appManagerRepository = {
   refreshAppUpdates,
   installApp,
   batchInstallApps,
+  cancelBatchOperation,
   openExternal,
   loadPreferences() {
     return readStorageItem(PREF_KEY);

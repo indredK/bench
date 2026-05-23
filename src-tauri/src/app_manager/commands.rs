@@ -4,6 +4,7 @@ use super::types::{
     OperationResult, ScanResult,
 };
 use super::{empty_scan_result, linux, locked_operation_result, macos, windows};
+use std::sync::atomic::Ordering;
 use tauri::Manager;
 
 fn is_macos() -> bool {
@@ -16,6 +17,16 @@ fn is_windows() -> bool {
 
 fn is_linux() -> bool {
     std::env::consts::OS == "linux"
+}
+
+fn cancelled_batch_item(app_id: &str) -> BatchItemResult {
+    BatchItemResult {
+        app_id: app_id.to_string(),
+        app_name: String::new(),
+        success: false,
+        message: "Cancelled by user".to_string(),
+        exit_code: None,
+    }
 }
 
 #[tauri::command]
@@ -32,9 +43,10 @@ pub async fn scan_installed_apps(app: tauri::AppHandle) -> Result<ScanResult, St
             empty_scan_result()
         };
 
-        if !result.apps.is_empty() {
-            state.cache_scan_result(result.clone());
-        }
+        // Always cache: an empty scan after the user removed every managed app
+        // must replace the prior cache so subsequent update checks don't query
+        // for apps that no longer exist.
+        state.cache_scan_result(result.clone());
         result
     })
     .await
@@ -95,11 +107,11 @@ pub async fn check_managed_app_updates(
         } else if is_linux() {
             linux::check_updates(app_ids, state)
         } else {
-            vec![]
+            Ok(vec![])
         }
     })
     .await
-    .map_err(|e| e.to_string())
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -162,7 +174,14 @@ pub fn batch_upgrade_apps(
     let mut succeeded = 0usize;
     let mut failed = 0usize;
 
+    let cancel_flag = state.start_batch_operation();
+
     for app_id in &app_ids {
+        if cancel_flag.load(Ordering::Relaxed) {
+            failed += 1;
+            results.push(cancelled_batch_item(app_id));
+            continue;
+        }
         let result = upgrade_app(app_id.clone(), state.clone());
         match result {
             Ok(r) => {
@@ -193,6 +212,8 @@ pub fn batch_upgrade_apps(
         }
     }
 
+    state.clear_batch_operation();
+
     BatchOperationResult {
         total: app_ids.len(),
         succeeded,
@@ -210,7 +231,14 @@ pub fn batch_uninstall_apps(
     let mut succeeded = 0usize;
     let mut failed = 0usize;
 
+    let cancel_flag = state.start_batch_operation();
+
     for app_id in &app_ids {
+        if cancel_flag.load(Ordering::Relaxed) {
+            failed += 1;
+            results.push(cancelled_batch_item(app_id));
+            continue;
+        }
         let result = uninstall_app(app_id.clone(), state.clone());
         match result {
             Ok(r) => {
@@ -240,6 +268,8 @@ pub fn batch_uninstall_apps(
             }
         }
     }
+
+    state.clear_batch_operation();
 
     BatchOperationResult {
         total: app_ids.len(),
@@ -274,12 +304,22 @@ pub fn install_app(
 }
 
 #[tauri::command]
-pub fn batch_install_apps(items: Vec<BatchInstallItem>) -> BatchOperationResult {
+pub fn batch_install_apps(
+    items: Vec<BatchInstallItem>,
+    state: tauri::State<'_, AppManagerState>,
+) -> BatchOperationResult {
     let mut results = Vec::new();
     let mut succeeded = 0usize;
     let mut failed = 0usize;
 
+    let cancel_flag = state.start_batch_operation();
+
     for item in &items {
+        if cancel_flag.load(Ordering::Relaxed) {
+            failed += 1;
+            results.push(cancelled_batch_item(&item.app_id));
+            continue;
+        }
         let result = install_app(item.app_id.clone(), item.install_source.clone());
         match result {
             Ok(r) => {
@@ -310,10 +350,17 @@ pub fn batch_install_apps(items: Vec<BatchInstallItem>) -> BatchOperationResult 
         }
     }
 
+    state.clear_batch_operation();
+
     BatchOperationResult {
         total: items.len(),
         succeeded,
         failed,
         results,
     }
+}
+
+#[tauri::command]
+pub fn cancel_batch_operation(state: tauri::State<'_, AppManagerState>) -> bool {
+    state.cancel_batch_operation()
 }

@@ -279,14 +279,14 @@ pub fn reveal_app_in_finder(app_path: String) -> Result<(), String> {
 pub fn check_updates(
     app_ids: Vec<String>,
     state: tauri::State<'_, AppManagerState>,
-) -> Vec<String> {
-    let outdated = if let Some(ref brew) = brew_path() {
-        list_outdated_casks(brew).unwrap_or_default()
-    } else {
-        HashSet::new()
+) -> Result<Vec<String>, String> {
+    let outdated = match brew_path() {
+        Some(ref brew) => list_outdated_casks(brew)
+            .map_err(|e| format!("brew outdated failed: {}", e))?,
+        None => HashSet::new(),
     };
-    let apps = state.apps.lock().unwrap();
-    app_ids
+    let apps = state.apps.lock().unwrap_or_else(|e| e.into_inner());
+    Ok(app_ids
         .into_iter()
         .filter(|id| {
             apps.iter().find(|a| &a.app_id == id).is_some_and(|a| {
@@ -294,7 +294,7 @@ pub fn check_updates(
                     && outdated.contains(&a.source_id.to_lowercase())
             })
         })
-        .collect()
+        .collect())
 }
 
 // ============================================================================

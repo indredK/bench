@@ -165,6 +165,14 @@ function createAppManagerUseCases(
       }
     },
 
+    async cancelBatch(): Promise<boolean> {
+      try {
+        return await repository.cancelBatchOperation();
+      } catch {
+        return false;
+      }
+    },
+
     launchApp(app: AppInfo) {
       if (!isAvailable()) return Promise.resolve();
       return repository.launchApp(app.installPath);

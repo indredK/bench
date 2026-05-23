@@ -58,3 +58,7 @@ export function installApp(appId: string, installSource: InstallSource) {
 export function batchInstallApps(items: { appId: string; installSource: InstallSource }[]) {
   return invokeTauriCommand(TAURI_COMMANDS.appManager.batchInstallApps, { items });
 }
+
+export function cancelBatchOperation() {
+  return invokeTauriCommand(TAURI_COMMANDS.appManager.cancelBatchOperation);
+}

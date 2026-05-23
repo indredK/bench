@@ -55,6 +55,7 @@ export const TAURI_COMMAND_CONTRACTS = {
   refresh_app_updates: defineTauriCommand<{ appIds: string[] }, string[]>()("refresh_app_updates"),
   install_app: defineTauriCommand<{ appId: string; installSource: InstallSource }, OperationResult>()("install_app"),
   batch_install_apps: defineTauriCommand<{ items: { appId: string; installSource: InstallSource }[] }, BatchOperationResult>()("batch_install_apps"),
+  cancel_batch_operation: defineTauriCommand<undefined, boolean>()("cancel_batch_operation"),
   scan_dev_projects: defineTauriCommand<{ rootPath: string }, ScanResult>()("scan_dev_projects"),
   cleanup_projects: defineTauriCommand<{ projects: ProjectInfo[] }, CleanupResult>()("cleanup_projects"),
   stop_scan: defineTauriCommand<undefined, void>()("stop_scan"),
@@ -115,6 +116,7 @@ export const TAURI_COMMANDS = {
     refreshAppUpdates: commandName("refresh_app_updates"),
     installApp: commandName("install_app"),
     batchInstallApps: commandName("batch_install_apps"),
+    cancelBatchOperation: commandName("cancel_batch_operation"),
   },
   devCleaner: {
     scanDevProjects: commandName("scan_dev_projects"),
@@ -167,6 +169,7 @@ export const TAURI_COMMAND_ARG_KEYS = {
   refresh_app_updates: ["appIds"],
   install_app: ["appId", "installSource"],
   batch_install_apps: ["items"],
+  cancel_batch_operation: [],
   scan_dev_projects: ["rootPath"],
   cleanup_projects: ["projects"],
   stop_scan: [],

@@ -1,6 +1,7 @@
 use super::types::{AppInfo, OperationRecord, ScanResult};
 use std::collections::HashSet;
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 
 static OPERATION_HISTORY: std::sync::LazyLock<Mutex<Vec<OperationRecord>>> =
     std::sync::LazyLock::new(|| Mutex::new(Vec::new()));
@@ -33,6 +34,8 @@ pub struct AppManagerState {
     pub last_scan_time: Mutex<u64>,
     /// Timestamp in ms of last update check
     pub last_update_check_time: Mutex<u64>,
+    /// Cancellation flag for the currently running batch operation (if any).
+    pub batch_cancel: Mutex<Option<Arc<AtomicBool>>>,
 }
 
 impl AppManagerState {
@@ -43,6 +46,7 @@ impl AppManagerState {
             cached_result: Mutex::new(None),
             last_scan_time: Mutex::new(0),
             last_update_check_time: Mutex::new(0),
+            batch_cancel: Mutex::new(None),
         }
     }
 
@@ -100,5 +104,30 @@ impl AppManagerState {
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .clone()
+    }
+
+    /// Start a new batch operation: install a fresh cancellation flag and
+    /// return an Arc clone for the loop to check on each iteration.
+    pub fn start_batch_operation(&self) -> Arc<AtomicBool> {
+        let flag = Arc::new(AtomicBool::new(false));
+        *self.batch_cancel.lock().unwrap_or_else(|e| e.into_inner()) = Some(flag.clone());
+        flag
+    }
+
+    /// Signal cancellation on the currently running batch (no-op if idle).
+    pub fn cancel_batch_operation(&self) -> bool {
+        let guard = self.batch_cancel.lock().unwrap_or_else(|e| e.into_inner());
+        match guard.as_ref() {
+            Some(flag) => {
+                flag.store(true, Ordering::Relaxed);
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// Clear the cancellation flag after the batch loop finishes.
+    pub fn clear_batch_operation(&self) {
+        *self.batch_cancel.lock().unwrap_or_else(|e| e.into_inner()) = None;
     }
 }
