@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.8.8](https://github.com/indredK/bench/compare/v1.8.7...v1.8.8) (2026-05-23)
+
+
+### Bug Fixes
+
+* **app_manager/linux:** Exec 字段解析符合 freedesktop 规范 ([#018](https://github.com/indredK/bench/issues/018) [#019](https://github.com/indredK/bench/issues/019) [#020](https://github.com/indredK/bench/issues/020)) ([1960ef6](https://github.com/indredK/bench/commit/1960ef6d505d2a350e869837927c86e0fad9e5a0))
+* **app_manager/macos:** brew 可用性增加 --version 探活 ([#023](https://github.com/indredK/bench/issues/023)) ([1eb3fbe](https://github.com/indredK/bench/commit/1eb3fbe51da7b3e0bc83c98407c4f5e63a4a8b2f))
+* **app_manager:** 短 token 名称匹配避免子串误伤 ([#016](https://github.com/indredK/bench/issues/016)) ([a5181ef](https://github.com/indredK/bench/commit/a5181ef01cc233926d9fef79b1499793408c7aeb))
+* **app-manager:** AppIcon 模块级缓存改为有界 LRU ([#070](https://github.com/indredK/bench/issues/070)) ([6aab454](https://github.com/indredK/bench/commit/6aab454bd5db8405793fc8192813d9f1fa4777be))
+* **dev_cleaner:** Windows polish 与扫描入口校验 ([#032](https://github.com/indredK/bench/issues/032) [#033](https://github.com/indredK/bench/issues/033) [#041](https://github.com/indredK/bench/issues/041) [#042](https://github.com/indredK/bench/issues/042)) ([818923f](https://github.com/indredK/bench/commit/818923f92934c865c792e735e74722ed4b2a8f19))
+* **dev-cleaner:** i18n 化清理成功 toast 与扫描停止消息 ([#080](https://github.com/indredK/bench/issues/080) [#083](https://github.com/indredK/bench/issues/083)) ([ae1ef88](https://github.com/indredK/bench/commit/ae1ef8876cd72256cdc4a435bda7a047b616489d))
+* **platform:** clipboard textarea 兜底 + shell openExternal 失败降级 ([9167663](https://github.com/indredK/bench/commit/916766327937c8ee07c3acede10d0e510a597576))
+
 ## [1.8.7](https://github.com/indredK/bench/compare/v1.8.6...v1.8.7) (2026-05-23)
 
 
