@@ -1,7 +1,7 @@
 /**
  * Controller / 控制器: bind view events and use cases; 连接视图事件与用例.
  */
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { getNextDataTableSorting } from "@/components/ui/DataTable";
 import { createDevCleanerColumns } from "@/features/dev-cleaner/columns";
@@ -35,6 +35,16 @@ export function useDevCleanerController() {
   const setShowFilterOptions = useDevCleanerStore((s) => s.setShowFilterOptions);
   const setSorting = useDevCleanerStore((s) => s.setSorting);
   const setSelectedProjects = useDevCleanerStore((s) => s.setSelectedProjects);
+
+  const rescanTimerRef = useRef<number | null>(null);
+  useEffect(() => {
+    return () => {
+      if (rescanTimerRef.current !== null) {
+        window.clearTimeout(rescanTimerRef.current);
+        rescanTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const handleSelectPath = useCallback(async () => {
     try {
@@ -113,7 +123,14 @@ export function useDevCleanerController() {
           cleanupMessage: { type: "success", text: `Cleaned up ${result.cleaned_size} bytes` },
           selectedProjects: {},
         });
-        window.setTimeout(() => {
+        // Auto-rescan after the success toast settles. The timer is tracked
+        // in a ref so unmount cancels it — otherwise a fire-after-unmount
+        // would kick off an orphan scan against torn-down state (#081).
+        if (rescanTimerRef.current !== null) {
+          window.clearTimeout(rescanTimerRef.current);
+        }
+        rescanTimerRef.current = window.setTimeout(() => {
+          rescanTimerRef.current = null;
           void handleScan();
         }, 1000);
       } else {

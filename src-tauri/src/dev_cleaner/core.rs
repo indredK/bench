@@ -16,6 +16,13 @@ pub async fn scan_dev_projects(
 }
 
 #[tauri::command]
-pub fn cleanup_projects(projects: Vec<ProjectInfo>) -> Result<CleanupResult, String> {
-    super::cleanup::cleanup_projects(projects)
+pub fn cleanup_projects(
+    projects: Vec<ProjectInfo>,
+    flag: tauri::State<'_, ScanAbortFlag>,
+) -> Result<CleanupResult, String> {
+    // Reset the shared abort flag at the start of each cleanup so that a
+    // prior `stop_scan` toggle from an unrelated cancelled scan does not
+    // immediately cancel this run before any work begins.
+    flag.store(false, Ordering::SeqCst);
+    super::cleanup::cleanup_projects(projects, Some(flag.inner().clone()))
 }
