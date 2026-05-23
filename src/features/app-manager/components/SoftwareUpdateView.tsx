@@ -167,7 +167,7 @@ export function SoftwareUpdateView({
   };
 
   return (
-    <div className="h-full flex flex-col gap-3">
+    <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-3 overflow-hidden">
       <UpdaterActionBar
         t={t}
         loading={loading}
@@ -192,35 +192,40 @@ export function SoftwareUpdateView({
       <ThreeColumnLayout
         filterOpen={false}
         detailOpen={!!selectedUpdate}
+        showDetailOverlay={false}
         onCloseDetail={onCloseDetail}
         filter={null}
         content={
-          <div className="h-full flex flex-col gap-3 overflow-y-auto">
-            {orderedGroups.length === 0 ? (
-              <div className="flex-1 min-h-0 rounded-lg border bg-card">
-                {renderEmpty()}
+          <div className="flex h-full min-h-0 flex-col overflow-hidden">
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pr-1 pb-3">
+              <div className="flex min-h-full flex-col gap-3">
+                {orderedGroups.length === 0 ? (
+                  <div className="flex-1 min-h-0 rounded-lg border bg-card">
+                    {renderEmpty()}
+                  </div>
+                ) : (
+                  orderedGroups.map(({ source, items }) => (
+                    <UpdateGroupSection
+                      key={source}
+                      t={t}
+                      source={source}
+                      updates={items}
+                      expanded={expandedGroups[source] ?? true}
+                      appLookup={appLookup}
+                      selectedIds={selectedIds}
+                      activeUpdate={selectedUpdate}
+                      updateOperations={updateOperations}
+                      onToggleExpanded={() => onToggleGroup(source)}
+                      onToggleSelect={onToggleSelect}
+                      onRowClick={onRowClick}
+                      onRowAction={onRowAction}
+                      onGroupAction={() => onUpdateAllVisible(items)}
+                      groupActionDisabled={loading}
+                    />
+                  ))
+                )}
               </div>
-            ) : (
-              orderedGroups.map(({ source, items }) => (
-                <UpdateGroupSection
-                  key={source}
-                  t={t}
-                  source={source}
-                  updates={items}
-                  expanded={expandedGroups[source] ?? true}
-                  appLookup={appLookup}
-                  selectedIds={selectedIds}
-                  activeUpdate={selectedUpdate}
-                  updateOperations={updateOperations}
-                  onToggleExpanded={() => onToggleGroup(source)}
-                  onToggleSelect={onToggleSelect}
-                  onRowClick={onRowClick}
-                  onRowAction={onRowAction}
-                  onGroupAction={() => onUpdateAllVisible(items)}
-                  groupActionDisabled={loading}
-                />
-              ))
-            )}
+            </div>
           </div>
         }
         detail={

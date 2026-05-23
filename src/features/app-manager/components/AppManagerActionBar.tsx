@@ -3,7 +3,6 @@
  */
 import type { TFunction } from "i18next";
 import { History, RefreshCw, Search } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ToolbarButton } from "@/components/ui/toolbar-button";
 
@@ -27,8 +26,8 @@ export function AppManagerActionBar({
   onToggleHistory,
 }: AppManagerActionBarProps) {
   return (
-    <Card className="shrink-0">
-      <CardContent className="flex items-center gap-1.5 py-2.5">
+    <div className="shrink-0 rounded-lg border bg-card">
+      <div className="flex flex-wrap items-center gap-1.5 px-3 py-2">
         <div className="relative flex-1 min-w-[200px] max-w-md">
           <Search
             size={14}
@@ -54,7 +53,7 @@ export function AppManagerActionBar({
           onClick={onToggleHistory}
           active={historyOpen}
         />
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

@@ -10,6 +10,7 @@ interface ThreeColumnLayoutProps {
   detail: ReactNode;
   filterOpen: boolean;
   detailOpen: boolean;
+  showDetailOverlay?: boolean;
   onCloseDetail?: () => void;
 }
 
@@ -19,10 +20,11 @@ export function ThreeColumnLayout({
   detail,
   filterOpen,
   detailOpen,
+  showDetailOverlay = true,
   onCloseDetail,
 }: ThreeColumnLayoutProps) {
   return (
-    <div className="relative flex flex-1 min-h-0 overflow-x-hidden">
+    <div className="relative flex h-full flex-1 min-h-0 overflow-hidden">
       <div
         className={cn(
           "shrink-0 overflow-hidden transition-[width,margin] duration-200",
@@ -34,7 +36,7 @@ export function ThreeColumnLayout({
         </div>
       </div>
 
-      <div className="flex-1 min-w-0 flex flex-col">
+      <div className="flex-1 min-w-0 min-h-0 flex flex-col">
         {content}
       </div>
 
@@ -47,15 +49,17 @@ export function ThreeColumnLayout({
         {detail}
       </div>
 
-      <div
-        className={cn(
-          "absolute inset-0 z-[70] transition-opacity duration-200",
-          detailOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
-        )}
-        onClick={onCloseDetail}
-      >
-        <div className="absolute inset-0 bg-black/20" />
-      </div>
+      {showDetailOverlay && (
+        <div
+          className={cn(
+            "absolute inset-0 z-[70] transition-opacity duration-200",
+            detailOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+          )}
+          onClick={onCloseDetail}
+        >
+          <div className="absolute inset-0 bg-black/20" />
+        </div>
+      )}
     </div>
   );
 }

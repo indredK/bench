@@ -47,8 +47,8 @@ export function UpdateGroupSection({
   groupActionDisabled,
 }: UpdateGroupSectionProps) {
   return (
-    <div className="rounded-lg border bg-card overflow-hidden">
-      <div className="flex items-center justify-between px-3 py-2 bg-muted/30">
+    <section className="relative rounded-lg border bg-card">
+      <div className="sticky top-0 z-10 flex items-center justify-between rounded-t-lg border-b bg-card/95 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-card/90 relative after:pointer-events-none after:absolute after:inset-x-0 after:top-0 after:h-px after:bg-border/80 after:content-['']">
         <button
           type="button"
           className={cn(
@@ -92,6 +92,6 @@ export function UpdateGroupSection({
           ))}
         </div>
       )}
-    </div>
+    </section>
   );
 }
