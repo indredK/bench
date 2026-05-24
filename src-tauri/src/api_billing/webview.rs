@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use sha2::{Digest, Sha256};
-use tauri::{AppHandle, Manager, Runtime, WebviewUrl, WebviewWindowBuilder};
+use tauri::{webview::PageLoadEvent, AppHandle, Manager, Runtime, WebviewUrl, WebviewWindowBuilder};
 
 use super::types::{ApiBillingError, ApiBillingResult};
 
@@ -10,6 +10,23 @@ const LOGIN_WINDOW_WIDTH: f64 = 1080.0;
 const LOGIN_WINDOW_HEIGHT: f64 = 720.0;
 const PROBE_TIMEOUT_SECS: u64 = 8;
 const PROBE_RESULT_HOST: &str = "probe-result.local";
+
+fn build_probe_script(probe_url: &str) -> String {
+    format!(
+        r#"!function(){{
+if(window.__relayProbeStarted)return;
+window.__relayProbeStarted=true;
+var u='{p}';
+var c=new AbortController();
+setTimeout(function(){{c.abort()}},5000);
+fetch(u,{{credentials:'include',cache:'no-store',signal:c.signal}})
+  .then(function(r){{window.location.href='https://{h}/'+r.status}})
+  .catch(function(e){{window.location.href='https://{h}/'+(e.name==='AbortError'?408:0)}})
+}}()"#,
+        p = probe_url.replace('\'', "\\'").replace('\n', ""),
+        h = PROBE_RESULT_HOST,
+    )
+}
 
 pub fn login_window_label(account_id: &str) -> String {
     format!("relay-login-{account_id}")
@@ -117,16 +134,18 @@ pub async fn run_probe<R: Runtime>(
     let (tx, rx) = tokio::sync::oneshot::channel::<u16>();
     let tx = Arc::new(Mutex::new(Some(tx)));
 
-    let script = format!(
-        "!function(){{var u='{p}';var c=new AbortController();setTimeout(function(){{c.abort()}},5000);fetch(u,{{credentials:'include',cache:'no-store',signal:c.signal}}).then(function(r){{window.location.href='https://{h}/'+r.status}}).catch(function(e){{window.location.href='https://{h}/'+(e.name==='AbortError'?408:0)}})}}()",
-        p = probe_url.replace('\'', "\\'").replace('\n', ""),
-        h = PROBE_RESULT_HOST,
-    );
+    let script = build_probe_script(probe_url);
+    let script_on_load = script.clone();
 
     let mut builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(parsed))
         .data_directory(data_dir)
         .visible(false)
         .initialization_script(&script)
+        .on_page_load(move |window, payload| {
+            if payload.event() == PageLoadEvent::Finished {
+                let _ = window.eval(&script_on_load);
+            }
+        })
         .on_navigation(move |url| {
             if url.host_str() == Some(PROBE_RESULT_HOST) {
                 let status = url.path().trim_start_matches('/').parse::<u16>().unwrap_or(0);

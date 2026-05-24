@@ -15,6 +15,8 @@
     "accountTitle": "账号列表",
     "detailTitle": "详情",
     "addStation": "添加",
+    "importData": "导入",
+    "exportData": "导出",
     "addAccount": "添加账号",
     "editStation": "编辑",
     "editAccount": "编辑",
@@ -115,7 +117,11 @@
       "revealPasswordFailed": "显示密码失败",
       "copyPasswordFailed": "复制密码失败",
       "deleteStationFailed": "删除中转站失败",
-      "deleteAccountFailed": "删除账号失败"
+      "deleteAccountFailed": "删除账号失败",
+      "exportFailed": "导出中转站数据失败",
+      "exportSuccess": "已导出 {{stations}} 个中转站、{{accounts}} 个账号",
+      "importFailed": "导入中转站数据失败",
+      "importSuccess": "已导入，当前共有 {{stations}} 个中转站、{{accounts}} 个账号"
     }
   },
   "appManager": {

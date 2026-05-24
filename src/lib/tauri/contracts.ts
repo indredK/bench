@@ -12,6 +12,8 @@ import type {
   UpdateInfo,
 } from "@/lib/tauri/types/app-manager";
 import type {
+  RelayDataExportResult,
+  RelayDataImportResult,
   RelayStation,
   StationAccount,
 } from "@/lib/tauri/types/api-billing";
@@ -145,6 +147,12 @@ export const TAURI_COMMAND_CONTRACTS = {
     StationAccount[]
   >()("refresh_station"),
   refresh_all: defineTauriCommand<undefined, StationAccount[]>()("refresh_all"),
+  export_relay_data: defineTauriCommand<{ path: string }, RelayDataExportResult>()(
+    "export_relay_data"
+  ),
+  import_relay_data: defineTauriCommand<{ path: string }, RelayDataImportResult>()(
+    "import_relay_data"
+  ),
 } as const;
 
 export type TauriCommandName = keyof typeof TAURI_COMMAND_CONTRACTS;
@@ -245,6 +253,8 @@ export const TAURI_COMMANDS = {
     refreshAccount: commandName("refresh_account"),
     refreshStation: commandName("refresh_station"),
     refreshAll: commandName("refresh_all"),
+    exportRelayData: commandName("export_relay_data"),
+    importRelayData: commandName("import_relay_data"),
   },
 } as const;
 
@@ -319,6 +329,8 @@ export const TAURI_COMMAND_ARG_KEYS = {
   refresh_account: ["accountId"],
   refresh_station: ["stationId"],
   refresh_all: [],
+  export_relay_data: ["path"],
+  import_relay_data: ["path"],
 } as const satisfies TauriCommandArgKeys;
 
 export const WINDOW_BOOTSTRAP_EVENTS = {

@@ -3,11 +3,19 @@
  */
 import { invokeTauriCommand } from "@/lib/tauri/invoke";
 import type {
+  RelayDataExportResult,
+  RelayDataImportResult,
   RelayStation,
   StationAccount,
 } from "@/lib/tauri/types/api-billing";
 
-export type { AccountSessionStatus, RelayStation, StationAccount } from "@/lib/tauri/types/api-billing";
+export type {
+  AccountSessionStatus,
+  RelayDataExportResult,
+  RelayDataImportResult,
+  RelayStation,
+  StationAccount,
+} from "@/lib/tauri/types/api-billing";
 
 export function listStations(): Promise<RelayStation[]> {
   return invokeTauriCommand("list_stations");
@@ -108,4 +116,12 @@ export function refreshStation(stationId: string): Promise<StationAccount[]> {
 
 export function refreshAll(): Promise<StationAccount[]> {
   return invokeTauriCommand("refresh_all");
+}
+
+export function exportRelayData(path: string): Promise<RelayDataExportResult> {
+  return invokeTauriCommand("export_relay_data", { path });
+}
+
+export function importRelayData(path: string): Promise<RelayDataImportResult> {
+  return invokeTauriCommand("import_relay_data", { path });
 }

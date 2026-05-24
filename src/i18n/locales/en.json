@@ -15,6 +15,8 @@
     "accountTitle": "Accounts",
     "detailTitle": "Detail",
     "addStation": "Add",
+    "importData": "Import",
+    "exportData": "Export",
     "addAccount": "Add Account",
     "editStation": "Edit",
     "editAccount": "Edit",
@@ -115,7 +117,11 @@
       "revealPasswordFailed": "Failed to reveal password",
       "copyPasswordFailed": "Failed to copy password",
       "deleteStationFailed": "Failed to delete gateway",
-      "deleteAccountFailed": "Failed to delete account"
+      "deleteAccountFailed": "Failed to delete account",
+      "exportFailed": "Failed to export gateway data",
+      "exportSuccess": "Exported {{stations}} gateways and {{accounts}} accounts",
+      "importFailed": "Failed to import gateway data",
+      "importSuccess": "Import complete. There are now {{stations}} gateways and {{accounts}} accounts"
     }
   },
   "appManager": {

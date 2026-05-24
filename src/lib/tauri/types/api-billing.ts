@@ -23,6 +23,18 @@ export interface StationAccount {
   hasPassword: boolean;
 }
 
+export interface RelayDataExportResult {
+  stationCount: number;
+  accountCount: number;
+}
+
+export interface RelayDataImportResult {
+  stationCount: number;
+  accountCount: number;
+  stations: RelayStation[];
+  accounts: StationAccount[];
+}
+
 export type ApiBillingErrorCode = "NOT_FOUND" | "INVALID_INPUT" | "STORE_FAIL";
 
 export interface ApiBillingError {

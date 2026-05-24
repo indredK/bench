@@ -5,10 +5,12 @@ import {
   BadgeCheck,
   Check,
   Copy,
+  Download,
   ExternalLink,
   Eye,
   EyeOff,
   Globe,
+  Import,
   Inbox,
   KeyRound,
   LogIn,
@@ -33,6 +35,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { openExternal } from "@/platform/shell";
+import { openPlatformDialog, savePlatformDialog } from "@/platform/dialog";
 import { canUseTauriWindow } from "@/platform/capabilities";
 import { cn } from "@/lib/utils";
 import * as api from "@/features/api-billing/api";
@@ -87,6 +90,8 @@ function ApiBillingPage() {
   const [deletingStation, setDeletingStation] = useState<RelayStation | null>(null);
   const [isDeleteAccountOpen, setDeleteAccountOpen] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState<StationAccount | null>(null);
+  const [importingData, setImportingData] = useState(false);
+  const [exportingData, setExportingData] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -239,6 +244,67 @@ function ApiBillingPage() {
     }
   };
 
+  const handleExportData = async () => {
+    if (exportingData) return;
+    const selected = await savePlatformDialog({
+      canCreateDirectories: true,
+      defaultPath: "relay-data-export.json",
+      filters: [{ name: "JSON", extensions: ["json"] }],
+    });
+    if (!selected) return;
+    setExportingData(true);
+    try {
+      const result = await api.exportRelayData(selected);
+      toast.success(
+        t("apiBilling.toasts.exportSuccess", {
+          stations: result.stationCount,
+          accounts: result.accountCount,
+        })
+      );
+    } catch (error) {
+      toast.error(t("apiBilling.toasts.exportFailed"));
+    } finally {
+      setExportingData(false);
+    }
+  };
+
+  const handleImportData = async () => {
+    if (importingData) return;
+    const selected = await openPlatformDialog({
+      directory: false,
+      multiple: false,
+      filters: [{ name: "JSON", extensions: ["json"] }],
+    });
+    if (!selected || Array.isArray(selected)) return;
+    setImportingData(true);
+    try {
+      const result = await api.importRelayData(selected);
+      setStations(result.stations);
+      setAccounts(result.accounts);
+      const firstStationId = result.stations[0]?.id ?? "";
+      setSelectedStationId((current) =>
+        current && result.stations.some((station) => station.id === current)
+          ? current
+          : firstStationId
+      );
+      setSelectedAccountId((current) =>
+        current && result.accounts.some((account) => account.id === current)
+          ? current
+          : (result.accounts.find((account) => account.stationId === firstStationId)?.id ?? "")
+      );
+      toast.success(
+        t("apiBilling.toasts.importSuccess", {
+          stations: result.stationCount,
+          accounts: result.accountCount,
+        })
+      );
+    } catch (error) {
+      toast.error(t("apiBilling.toasts.importFailed"));
+    } finally {
+      setImportingData(false);
+    }
+  };
+
   const handleEditStation = async (remark: string, website: string, probeUrl: string | null) => {
     if (!editingStation) return;
     try {
@@ -320,6 +386,10 @@ function ApiBillingPage() {
         onDelete={(station) => { setDeletingStation(station); setDeleteStationOpen(true); }}
         onRefreshAll={handleRefreshAll}
         refreshingAll={refreshingAll}
+        onImportData={() => void handleImportData()}
+        onExportData={() => void handleExportData()}
+        importingData={importingData}
+        exportingData={exportingData}
       />
 
       <AccountColumn
@@ -413,6 +483,10 @@ function StationColumn({
   onDelete,
   onRefreshAll,
   refreshingAll,
+  onImportData,
+  onExportData,
+  importingData,
+  exportingData,
 }: {
   stations: RelayStation[];
   selectedId: string;
@@ -423,6 +497,10 @@ function StationColumn({
   onDelete: (station: RelayStation) => void;
   onRefreshAll: () => void;
   refreshingAll: boolean;
+  onImportData: () => void;
+  onExportData: () => void;
+  importingData: boolean;
+  exportingData: boolean;
 }) {
   const { t } = useTranslation();
   return (
@@ -431,6 +509,26 @@ function StationColumn({
         title={t("apiBilling.stationTitle")}
         action={
           <div className="flex items-center gap-1.5">
+            <Button
+              size="icon-sm"
+              variant="outline"
+              onClick={onImportData}
+              disabled={importingData}
+              aria-label={t("apiBilling.importData")}
+              title={t("apiBilling.importData")}
+            >
+              <Import className={importingData ? "animate-pulse" : undefined} />
+            </Button>
+            <Button
+              size="icon-sm"
+              variant="outline"
+              onClick={onExportData}
+              disabled={exportingData}
+              aria-label={t("apiBilling.exportData")}
+              title={t("apiBilling.exportData")}
+            >
+              <Download className={exportingData ? "animate-pulse" : undefined} />
+            </Button>
             <Button
               size="icon-sm"
               variant="outline"
@@ -1425,15 +1523,6 @@ function StatusBadge({ status }: { status: AccountSessionStatus }) {
     <Badge variant={variant[status]} className={className}>
       {t(`apiBilling.status.${status}`)}
     </Badge>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg bg-muted/30 px-3 py-2">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-1 break-all text-sm font-semibold">{value}</p>
-    </div>
   );
 }
 

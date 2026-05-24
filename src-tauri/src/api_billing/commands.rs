@@ -1,5 +1,6 @@
 use chrono::Local;
 use rand::RngCore;
+use std::collections::{HashMap, HashSet};
 use tauri::{AppHandle, Runtime, State};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 
@@ -7,9 +8,13 @@ use super::crypto;
 use super::state::ApiBillingState;
 use super::storage;
 use super::types::{
-    AccountSessionStatus, ApiBillingError, ApiBillingResult, RelayStation, StationAccount,
+    AccountSessionStatus, ApiBillingError, ApiBillingResult, RelayAccountExport,
+    RelayDataExportFile, RelayDataExportResult, RelayDataImportResult, RelayStation,
+    RelayStationExport, StationAccount,
 };
 use super::webview;
+
+const RELAY_EXPORT_VERSION: u32 = 1;
 
 fn new_id(prefix: &str) -> String {
     let mut bytes = [0u8; 4];
@@ -39,6 +44,23 @@ fn normalize_optional(input: Option<String>) -> Option<String> {
             Some(t.to_string())
         }
     })
+}
+
+fn next_unique_remark(base: &str, existing: &mut HashSet<String>) -> String {
+    if existing.insert(base.to_string()) {
+        return base.to_string();
+    }
+
+    let trimmed = base.trim();
+    let root = if trimmed.is_empty() { "中转站" } else { trimmed };
+    let mut index = 1usize;
+    loop {
+        let candidate = format!("{root}{index}");
+        if existing.insert(candidate.clone()) {
+            return candidate;
+        }
+        index += 1;
+    }
 }
 
 // ───── stations ─────
@@ -274,6 +296,156 @@ pub fn delete_account<R: Runtime>(
     }
     super::webview::remove_account_data_dir(&app, &id);
     Ok(())
+}
+
+// ───── import / export ─────
+
+#[tauri::command]
+pub fn export_relay_data(
+    state: State<'_, ApiBillingState>,
+    path: String,
+) -> ApiBillingResult<RelayDataExportResult> {
+    let stations = state.stations.lock().unwrap().clone();
+    let accounts = state.accounts.lock().unwrap().clone();
+    let secrets = state.secrets.lock().unwrap().clone();
+    let key = if secrets.is_empty() {
+        None
+    } else {
+        Some(state.master_key()?)
+    };
+
+    let mut exported_accounts = 0usize;
+    let stations = stations
+        .into_iter()
+        .map(|station| {
+            let station_accounts = accounts
+                .iter()
+                .filter(|account| account.station_id == station.id)
+                .map(|account| {
+                    exported_accounts += 1;
+                    let password = match (secrets.get(&account.id), key) {
+                        (Some(blob), Some(k)) => Some(crypto::decrypt(&k, blob)?),
+                        _ => None,
+                    };
+                    Ok(RelayAccountExport {
+                        username: account.username.clone(),
+                        password,
+                        notes: account.notes.clone(),
+                        status: account.status,
+                        last_login_at: account.last_login_at.clone(),
+                        last_refreshed_at: account.last_refreshed_at.clone(),
+                        created_at: Some(account.created_at.clone()),
+                    })
+                })
+                .collect::<ApiBillingResult<Vec<_>>>()?;
+
+            Ok(RelayStationExport {
+                remark: station.remark,
+                website: station.website,
+                probe_url: station.probe_url,
+                created_at: Some(station.created_at),
+                accounts: station_accounts,
+            })
+        })
+        .collect::<ApiBillingResult<Vec<_>>>()?;
+
+    let export = RelayDataExportFile {
+        version: RELAY_EXPORT_VERSION,
+        exported_at: now_label(),
+        stations,
+    };
+    let body = serde_json::to_string_pretty(&export)
+        .map_err(|e| ApiBillingError::store_fail(format!("serialize export: {e}")))?;
+    std::fs::write(&path, body)
+        .map_err(|e| ApiBillingError::store_fail(format!("write export {path}: {e}")))?;
+
+    Ok(RelayDataExportResult {
+        station_count: export.stations.len(),
+        account_count: exported_accounts,
+    })
+}
+
+#[tauri::command]
+pub fn import_relay_data<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, ApiBillingState>,
+    path: String,
+) -> ApiBillingResult<RelayDataImportResult> {
+    let body = std::fs::read_to_string(&path)
+        .map_err(|e| ApiBillingError::store_fail(format!("read import {path}: {e}")))?;
+    let data: RelayDataExportFile = serde_json::from_str(&body)
+        .map_err(|e| ApiBillingError::invalid_input(format!("invalid import file: {e}")))?;
+
+    let mut imported_stations: Vec<RelayStation> = Vec::new();
+    let mut imported_accounts: Vec<StationAccount> = Vec::new();
+    let mut imported_secrets: HashMap<String, super::crypto::EncryptedBlob> = HashMap::new();
+
+    let mut existing_remarks: HashSet<String> = {
+        state
+            .stations
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|station| station.remark.clone())
+            .collect()
+    };
+
+    let key = state.master_key()?;
+
+    for station in data.stations {
+        let station_remark = trim_or_invalid(&station.remark, "remark")?;
+        let unique_remark = next_unique_remark(&station_remark, &mut existing_remarks);
+        let station_id = new_id("stn");
+        imported_stations.push(RelayStation {
+            id: station_id.clone(),
+            remark: unique_remark,
+            website: trim_or_invalid(&station.website, "website")?,
+            probe_url: normalize_optional(station.probe_url),
+            created_at: station.created_at.unwrap_or_else(now_label),
+        });
+
+        for account in station.accounts {
+            let account_id = new_id("acct");
+            let password = normalize_optional(account.password);
+            imported_accounts.push(StationAccount {
+                id: account_id.clone(),
+                station_id: station_id.clone(),
+                username: trim_or_invalid(&account.username, "username")?,
+                notes: account.notes.trim().to_string(),
+                status: account.status,
+                last_login_at: account.last_login_at,
+                last_refreshed_at: account.last_refreshed_at,
+                created_at: account.created_at.unwrap_or_else(now_label),
+                has_password: password.is_some(),
+            });
+            if let Some(password) = password {
+                imported_secrets.insert(account_id, crypto::encrypt(&key, &password)?);
+            }
+        }
+    }
+
+    let (stations_snapshot, accounts_snapshot, secrets_snapshot) = {
+        let mut stations = state.stations.lock().unwrap();
+        let mut accounts = state.accounts.lock().unwrap();
+        let mut secrets = state.secrets.lock().unwrap();
+
+        stations.extend(imported_stations);
+        accounts.extend(imported_accounts);
+        secrets.extend(imported_secrets);
+
+        (stations.clone(), accounts.clone(), secrets.clone())
+    };
+
+    storage::save_stations(&app, &stations_snapshot)?;
+    storage::save_accounts(&app, &accounts_snapshot)?;
+    storage::save_secrets(&app, &secrets_snapshot)?;
+
+    Ok(RelayDataImportResult {
+        station_count: stations_snapshot.len(),
+        account_count: accounts_snapshot.len(),
+        stations: stations_snapshot,
+        accounts: accounts_snapshot,
+    })
 }
 
 // ───── secrets (P1: AES-256-GCM encrypted at rest) ─────

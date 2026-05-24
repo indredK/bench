@@ -54,6 +54,8 @@ macro_rules! app_invoke_handler {
             $crate::api_billing::commands::refresh_account,
             $crate::api_billing::commands::refresh_station,
             $crate::api_billing::commands::refresh_all,
+            $crate::api_billing::commands::export_relay_data,
+            $crate::api_billing::commands::import_relay_data,
         ]
     };
 }

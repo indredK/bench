@@ -4,6 +4,7 @@
 import type {
   OpenDialogOptions,
   OpenDialogReturn,
+  SaveDialogOptions,
 } from "@tauri-apps/plugin-dialog";
 import { canUseTauriDialog } from "@/platform/capabilities";
 
@@ -16,4 +17,15 @@ export async function openPlatformDialog<T extends OpenDialogOptions>(
 
   const { open } = await import("@tauri-apps/plugin-dialog");
   return open(options);
+}
+
+export async function savePlatformDialog(
+  options?: SaveDialogOptions
+): Promise<string | null> {
+  if (!canUseTauriDialog()) {
+    return null;
+  }
+
+  const { save } = await import("@tauri-apps/plugin-dialog");
+  return save(options);
 }
