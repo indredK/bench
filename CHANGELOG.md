@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.11.0](https://github.com/indredK/bench/compare/v1.10.0...v1.11.0) (2026-05-24)
+
+
+### Features
+
+* **api-billing:** add last refreshed time tracking for station accounts ([8a37a1f](https://github.com/indredK/bench/commit/8a37a1f44218aad9bb1627a4593e5c717d4c8259))
+
 ## [1.10.0](https://github.com/indredK/bench/compare/v1.9.0...v1.10.0) (2026-05-24)
 
 
