@@ -516,6 +516,7 @@ function StationColumn({
             <Button
               size="icon-sm"
               variant="outline"
+              className="hidden"
               onClick={onRefreshAll}
               disabled={refreshingAll}
               aria-label={t("apiBilling.refreshAll")}
