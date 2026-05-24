@@ -1,5 +1,6 @@
 {
   "sidebar": {
+    "apiBilling": "Gateway Accounts",
     "portManager": "Port Manager",
     "appManager": "App Manager",
     "devCleaner": "Dev Cleaner",
@@ -8,6 +9,111 @@
     "envDetector": "Env Detector",
     "restart": "Restart App",
     "settings": "Settings"
+  },
+  "apiBilling": {
+    "stationTitle": "All Gateways",
+    "accountTitle": "Accounts",
+    "detailTitle": "Detail",
+    "addStation": "Add",
+    "addAccount": "Add Account",
+    "editStation": "Edit",
+    "editAccount": "Edit",
+    "opening": "Opening...",
+    "refreshAll": "Refresh all",
+    "refreshStation": "Refresh accounts in this gateway",
+    "refreshStatus": "Refresh login status",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "deleteStation": "Delete",
+    "deleteAccount": "Delete",
+    "deleteAction": "Delete",
+    "deleteStationTitle": "Delete Gateway",
+    "deleteStationDesc": "Delete \"{{name}}\"? All accounts under it and their data will also be removed.",
+    "deleteAccountTitle": "Delete Account",
+    "deleteAccountDesc": "Delete \"{{name}}\"? The associated browser data will also be removed.",
+    "noStation": "No gateway yet. Click \"Add\" on the top right to start.",
+    "noAccount": "No accounts yet",
+    "noAccountHint": "Click \"Add Account\" to create one under the selected gateway.",
+    "pickStationFirst": "Pick a gateway on the left first.",
+    "notesEmpty": "No notes",
+    "neverLogin": "Never logged in",
+    "fields": {
+      "remark": "Remark",
+      "website": "Website",
+      "username": "Account",
+      "password": "Password",
+      "notes": "Notes",
+      "probeUrl": "Probe URL",
+      "probeUrlHint": "Optional URL used to verify login status"
+    },
+    "addStationDialog": {
+      "title": "Add Gateway",
+      "subtitle": "Fill in a remark and the website URL. It will appear in the left list.",
+      "remarkPlaceholder": "e.g. Alpha Gateway",
+      "websitePlaceholder": "https://example.com"
+    },
+    "addAccountDialog": {
+      "title": "Add Account",
+      "subtitle": "Create a new account under \"{{name}}\". The session can be reused after login.",
+      "usernamePlaceholder": "e.g. alpha-main",
+      "passwordPlaceholder": "Optional · enter the login password",
+      "notesPlaceholder": "Use, balance, or anything worth noting."
+    },
+    "editStationDialog": {
+      "title": "Edit Gateway",
+      "subtitle": "Edit the gateway remark, website URL, and probe URL."
+    },
+    "editAccountDialog": {
+      "title": "Edit Account",
+      "subtitle": "Edit account info for \"{{name}}\".",
+      "notesPlaceholder": "Use, balance, or anything worth noting."
+    },
+    "status": {
+      "ready": "Signed in",
+      "loginRequired": "Needs Login",
+      "expired": "Re-login"
+    },
+    "card": {
+      "lastLogin": "Last Login",
+      "createdAt": "Created",
+      "login": "Login"
+    },
+    "detail": {
+      "empty": "Pick a gateway on the left to see its details here.",
+      "noAccount": "No account selected. Choose one in the middle pane to inspect it here.",
+      "stationSection": "Gateway Info",
+      "accountSection": "Account Info",
+      "lastLogin": "Last Login",
+      "remark": "Remark",
+      "website": "Website",
+      "username": "Account",
+      "password": "Password",
+      "status": "Status",
+      "createdAt": "Created",
+      "notes": "Notes",
+      "copy": "Copy",
+      "copyWebsite": "Copy Website",
+      "revealPassword": "Show password",
+      "hidePassword": "Hide password",
+      "loginAction": "Login",
+      "openWebsite": "Open Website",
+      "webviewHint": "Login first tries to open an isolated WebView window so each account keeps its own session. If the runtime doesn't support it, the default browser is used as a fallback."
+    },
+    "toasts": {
+      "initFailed": "Failed to load gateway data",
+      "createStationFailed": "Failed to create gateway",
+      "createAccountFailed": "Failed to create account",
+      "markLoggedInFailed": "Failed to mark as logged in",
+      "refreshAccountFailed": "Failed to refresh account",
+      "refreshStationFailed": "Failed to refresh gateway",
+      "refreshAllFailed": "Failed to refresh all accounts",
+      "updateStationFailed": "Failed to update gateway",
+      "updateAccountFailed": "Failed to update account",
+      "revealPasswordFailed": "Failed to reveal password",
+      "copyPasswordFailed": "Failed to copy password",
+      "deleteStationFailed": "Failed to delete gateway",
+      "deleteAccountFailed": "Failed to delete account"
+    }
   },
   "appManager": {
     "title": "App Manager",

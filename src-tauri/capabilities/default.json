@@ -6,6 +6,7 @@
     "core:default",
     "dialog:default",
     "updater:default",
+    "store:default",
     "shell:allow-open",
     "core:window:allow-start-dragging",
     "core:window:allow-close",

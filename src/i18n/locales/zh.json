@@ -1,5 +1,6 @@
 {
   "sidebar": {
+    "apiBilling": "中转站账号",
     "portManager": "端口管理",
     "appManager": "应用管理",
     "devCleaner": "垃圾清理",
@@ -8,6 +9,111 @@
     "envDetector": "环境检测",
     "restart": "重新启动软件",
     "settings": "设置"
+  },
+  "apiBilling": {
+    "stationTitle": "全部中转站",
+    "accountTitle": "账号列表",
+    "detailTitle": "详情",
+    "addStation": "添加",
+    "addAccount": "添加账号",
+    "editStation": "编辑",
+    "editAccount": "编辑",
+    "opening": "打开中...",
+    "refreshAll": "刷新全部",
+    "refreshStation": "刷新当前中转站",
+    "refreshStatus": "刷新登录态",
+    "cancel": "取消",
+    "confirm": "确定",
+    "deleteStation": "删除",
+    "deleteAccount": "删除",
+    "deleteAction": "删除",
+    "deleteStationTitle": "删除中转站",
+    "deleteStationDesc": "确定要删除「{{name}}」吗？其下所有账号及数据也将一并删除。",
+    "deleteAccountTitle": "删除账号",
+    "deleteAccountDesc": "确定要删除「{{name}}」吗？该账号的浏览器数据也将一并删除。",
+    "noStation": "暂无中转站，点击右上角「添加」开始。",
+    "noAccount": "暂无账号",
+    "noAccountHint": "点击右上角「添加账号」为当前中转站新增账号。",
+    "pickStationFirst": "请先从左侧选择一个中转站。",
+    "notesEmpty": "暂无备注",
+    "neverLogin": "尚未登录",
+    "fields": {
+      "remark": "备注",
+      "website": "官网",
+      "username": "账号",
+      "password": "密码",
+      "notes": "备注",
+      "probeUrl": "探针地址",
+      "probeUrlHint": "可选，用于检测登录态的接口地址"
+    },
+    "addStationDialog": {
+      "title": "添加中转站",
+      "subtitle": "填写备注和官网地址，添加后会显示在左侧列表。",
+      "remarkPlaceholder": "例如：甲中转站",
+      "websitePlaceholder": "https://example.com"
+    },
+    "addAccountDialog": {
+      "title": "添加账号",
+      "subtitle": "为「{{name}}」新增一个账号。登录后可重复使用。",
+      "usernamePlaceholder": "例如：alpha-main",
+      "passwordPlaceholder": "可选，填写登录密码",
+      "notesPlaceholder": "可记录该账号的用途、余额等信息。"
+    },
+    "editStationDialog": {
+      "title": "编辑中转站",
+      "subtitle": "修改中转站的备注、官网地址和探针地址。"
+    },
+    "editAccountDialog": {
+      "title": "编辑账号",
+      "subtitle": "修改「{{name}}」的账号信息。",
+      "notesPlaceholder": "可记录该账号的用途、余额等信息。"
+    },
+    "status": {
+      "ready": "已登录",
+      "loginRequired": "待登录",
+      "expired": "需重登"
+    },
+    "card": {
+      "lastLogin": "最近登录",
+      "createdAt": "创建时间",
+      "login": "登录"
+    },
+    "detail": {
+      "empty": "请先在左侧选择一个中转站。",
+      "noAccount": "尚未选择账号，请在中间列选择一个查看详情。",
+      "stationSection": "中转站信息",
+      "accountSection": "账号信息",
+      "lastLogin": "最近登录",
+      "remark": "备注",
+      "website": "官网",
+      "username": "账号",
+      "password": "密码",
+      "status": "状态",
+      "createdAt": "创建时间",
+      "notes": "备注",
+      "copy": "复制",
+      "copyWebsite": "复制官网",
+      "revealPassword": "显示密码",
+      "hidePassword": "隐藏密码",
+      "loginAction": "登录",
+      "openWebsite": "打开官网",
+      "webviewHint": "登录时会优先弹出独立的 WebView 窗口，便于每个账号保持各自的登录态；若当前环境不支持，则会调用默认浏览器打开官网。"
+    },
+    "toasts": {
+      "initFailed": "加载中转站数据失败",
+      "createStationFailed": "创建中转站失败",
+      "createAccountFailed": "创建账号失败",
+      "markLoggedInFailed": "标记登录状态失败",
+      "refreshAccountFailed": "刷新账号失败",
+      "refreshStationFailed": "刷新中转站失败",
+      "refreshAllFailed": "刷新全部账号失败",
+      "updateStationFailed": "更新中转站失败",
+      "updateAccountFailed": "更新账号失败",
+      "revealPasswordFailed": "显示密码失败",
+      "copyPasswordFailed": "复制密码失败",
+      "deleteStationFailed": "删除中转站失败",
+      "deleteAccountFailed": "删除账号失败"
+    }
   },
   "appManager": {
     "title": "应用管理",

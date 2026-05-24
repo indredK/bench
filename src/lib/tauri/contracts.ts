@@ -12,6 +12,10 @@ import type {
   UpdateInfo,
 } from "@/lib/tauri/types/app-manager";
 import type {
+  RelayStation,
+  StationAccount,
+} from "@/lib/tauri/types/api-billing";
+import type {
   CleanupResult,
   ProjectInfo,
   ScanResult,
@@ -78,6 +82,69 @@ export const TAURI_COMMAND_CONTRACTS = {
     { theme: "default" | "glass"; appearance: "light" | "dark" },
     void
   >()("set_window_theme"),
+  list_stations: defineTauriCommand<undefined, RelayStation[]>()("list_stations"),
+  create_station: defineTauriCommand<
+    { remark: string; website: string; probeUrl?: string | null },
+    RelayStation
+  >()("create_station"),
+  update_station: defineTauriCommand<
+    {
+      id: string;
+      remark?: string | null;
+      website?: string | null;
+      probeUrl?: string | null | undefined;
+    },
+    RelayStation
+  >()("update_station"),
+  delete_station: defineTauriCommand<{ id: string }, void>()("delete_station"),
+  list_accounts: defineTauriCommand<{ stationId: string }, StationAccount[]>()(
+    "list_accounts"
+  ),
+  list_all_accounts: defineTauriCommand<undefined, StationAccount[]>()(
+    "list_all_accounts"
+  ),
+  create_account: defineTauriCommand<
+    {
+      stationId: string;
+      username: string;
+      password?: string | null;
+      notes: string;
+    },
+    StationAccount
+  >()("create_account"),
+  update_account: defineTauriCommand<
+    { id: string; username?: string | null; notes?: string | null },
+    StationAccount
+  >()("update_account"),
+  delete_account: defineTauriCommand<{ id: string }, void>()("delete_account"),
+  reveal_password: defineTauriCommand<{ accountId: string }, string>()(
+    "reveal_password"
+  ),
+  set_password: defineTauriCommand<
+    { accountId: string; password: string },
+    void
+  >()("set_password"),
+  clear_password: defineTauriCommand<{ accountId: string }, void>()(
+    "clear_password"
+  ),
+  copy_password_to_clipboard: defineTauriCommand<{ accountId: string }, void>()(
+    "copy_password_to_clipboard"
+  ),
+  open_login_window: defineTauriCommand<{ accountId: string }, void>()(
+    "open_login_window"
+  ),
+  mark_account_logged_in: defineTauriCommand<
+    { accountId: string },
+    StationAccount
+  >()("mark_account_logged_in"),
+  refresh_account: defineTauriCommand<{ accountId: string }, StationAccount>()(
+    "refresh_account"
+  ),
+  refresh_station: defineTauriCommand<
+    { stationId: string },
+    StationAccount[]
+  >()("refresh_station"),
+  refresh_all: defineTauriCommand<undefined, StationAccount[]>()("refresh_all"),
 } as const;
 
 export type TauriCommandName = keyof typeof TAURI_COMMAND_CONTRACTS;
@@ -159,6 +226,26 @@ export const TAURI_COMMANDS = {
   windowTheme: {
     setWindowTheme: commandName("set_window_theme"),
   },
+  apiBilling: {
+    listStations: commandName("list_stations"),
+    createStation: commandName("create_station"),
+    updateStation: commandName("update_station"),
+    deleteStation: commandName("delete_station"),
+    listAccounts: commandName("list_accounts"),
+    listAllAccounts: commandName("list_all_accounts"),
+    createAccount: commandName("create_account"),
+    updateAccount: commandName("update_account"),
+    deleteAccount: commandName("delete_account"),
+    revealPassword: commandName("reveal_password"),
+    setPassword: commandName("set_password"),
+    clearPassword: commandName("clear_password"),
+    copyPasswordToClipboard: commandName("copy_password_to_clipboard"),
+    openLoginWindow: commandName("open_login_window"),
+    markAccountLoggedIn: commandName("mark_account_logged_in"),
+    refreshAccount: commandName("refresh_account"),
+    refreshStation: commandName("refresh_station"),
+    refreshAll: commandName("refresh_all"),
+  },
 } as const;
 
 type FlattenCommandGroups<T> = {
@@ -214,6 +301,24 @@ export const TAURI_COMMAND_ARG_KEYS = {
   query_port_processes: ["ports"],
   kill_processes: ["targets"],
   set_window_theme: ["theme", "appearance"],
+  list_stations: [],
+  create_station: ["remark", "website", "probeUrl"],
+  update_station: ["id", "remark", "website", "probeUrl"],
+  delete_station: ["id"],
+  list_accounts: ["stationId"],
+  list_all_accounts: [],
+  create_account: ["stationId", "username", "password", "notes"],
+  update_account: ["id", "username", "notes"],
+  delete_account: ["id"],
+  reveal_password: ["accountId"],
+  set_password: ["accountId", "password"],
+  clear_password: ["accountId"],
+  copy_password_to_clipboard: ["accountId"],
+  open_login_window: ["accountId"],
+  mark_account_logged_in: ["accountId"],
+  refresh_account: ["accountId"],
+  refresh_station: ["stationId"],
+  refresh_all: [],
 } as const satisfies TauriCommandArgKeys;
 
 export const WINDOW_BOOTSTRAP_EVENTS = {

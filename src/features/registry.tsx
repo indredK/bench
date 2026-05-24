@@ -2,6 +2,7 @@
  * Feature Registry / 功能注册: compose descriptors only; 只聚合功能描述.
  */
 import type { TFunction } from "i18next";
+import { apiBillingFeature } from "@/features/api-billing/feature";
 import { appManagerFeature } from "@/features/app-manager/feature";
 import { devCleanerFeature } from "@/features/dev-cleaner/feature";
 import { envDetectorFeature } from "@/features/env-detector/feature";
@@ -17,6 +18,7 @@ export const appFeatures: AppFeature[] = [
   hardwareFeature,
   systemInfoFeature,
   envDetectorFeature,
+  apiBillingFeature,
 ];
 
 export function getFeatureByPath(path: string): AppFeature | undefined {
