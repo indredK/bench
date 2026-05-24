@@ -654,6 +654,7 @@ function AccountColumn({
             <Button
               size="icon-sm"
               variant="outline"
+              className="hidden"
               onClick={() => station && onRefreshStation(station.id)}
               disabled={!station || stationRefreshing || accounts.length === 0}
               aria-label={t("apiBilling.refreshStation")}
@@ -702,7 +703,7 @@ function AccountColumn({
                     <div className="min-w-0">
                       <div className="flex min-w-0 items-center gap-2">
                         <span className="truncate text-sm font-semibold">{account.username}</span>
-                        <StatusBadge status={account.status} />
+                        <span className="hidden"><StatusBadge status={account.status} /></span>
                       </div>
                       <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
                         {account.notes || t("apiBilling.notesEmpty")}
@@ -726,6 +727,7 @@ function AccountColumn({
                         <Button
                           size="icon-sm"
                           variant="ghost"
+                          className="hidden"
                           onClick={(event) => {
                             event.stopPropagation();
                             onRefresh(account);
@@ -881,7 +883,7 @@ function DetailColumn({
                 heading={
                   <div className="flex items-center justify-between gap-3">
                     <span className="truncate text-base font-semibold">{account.username}</span>
-                    <StatusBadge status={account.status} />
+                    <span className="hidden"><StatusBadge status={account.status} /></span>
                   </div>
                 }
                 rows={[
