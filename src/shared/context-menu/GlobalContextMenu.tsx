@@ -138,6 +138,7 @@ export function GlobalContextMenu({ children, className }: GlobalContextMenuProp
       {state.open && state.menu.items.length > 0 && (
         <div
           ref={menuRef}
+          data-slot="context-menu-content"
           className={cn(
             "fixed z-50 min-w-[8rem] overflow-hidden rounded-xl border bg-popover p-1.5 text-popover-foreground shadow-lg",
             "animate-in fade-in-0 zoom-in-95"

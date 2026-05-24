@@ -74,6 +74,10 @@ export const TAURI_COMMAND_CONTRACTS = {
   get_system_info: defineTauriCommand<undefined, SystemInfoData>()("get_system_info"),
   query_port_processes: defineTauriCommand<{ ports: number[] }, PortProcessDetail[]>()("query_port_processes"),
   kill_processes: defineTauriCommand<{ targets: KillTarget[] }, KillPidResult[]>()("kill_processes"),
+  set_window_theme: defineTauriCommand<
+    { theme: "default" | "glass"; appearance: "light" | "dark" },
+    void
+  >()("set_window_theme"),
 } as const;
 
 export type TauriCommandName = keyof typeof TAURI_COMMAND_CONTRACTS;
@@ -152,6 +156,9 @@ export const TAURI_COMMANDS = {
     queryPortProcesses: commandName("query_port_processes"),
     killProcesses: commandName("kill_processes"),
   },
+  windowTheme: {
+    setWindowTheme: commandName("set_window_theme"),
+  },
 } as const;
 
 type FlattenCommandGroups<T> = {
@@ -206,6 +213,7 @@ export const TAURI_COMMAND_ARG_KEYS = {
   get_system_info: [],
   query_port_processes: ["ports"],
   kill_processes: ["targets"],
+  set_window_theme: ["theme", "appearance"],
 } as const satisfies TauriCommandArgKeys;
 
 export const WINDOW_BOOTSTRAP_EVENTS = {

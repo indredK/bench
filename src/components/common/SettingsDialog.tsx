@@ -16,6 +16,8 @@ import { Button } from "@/components/ui/button";
 import i18n, { detectSystemLanguage } from "@/i18n/config";
 import { setCurrentWindowTitle } from "@/platform/window";
 import { readStorageItem, removeStorageItem, writeStorageItem } from "@/platform/storage";
+import { useWindowTheme } from "@/hooks/useWindowTheme";
+import { WINDOW_THEMES } from "@/lib/windowTheme";
 
 const THEME_ORDER = ["system", "light", "dark"] as const;
 type ThemeMode = (typeof THEME_ORDER)[number];
@@ -41,6 +43,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   const { t } = useTranslation();
   const { theme, setTheme } = useTheme();
   const currentTheme = (theme as ThemeMode) || "system";
+  const { themeId: windowThemeId, setThemeId: setWindowThemeId, isSupported } =
+    useWindowTheme();
 
   const storedLang = (() => {
     const s = readStorageItem("languageMode");
@@ -108,6 +112,31 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                     {currentTheme === mode && <Check className="size-3.5" />}
                     <Icon className="size-3.5" />
                     {t(`theme.${mode}`)}
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <h4 className="mb-2 text-sm font-medium">{t("windowTheme.label")}</h4>
+            <div className="flex flex-wrap gap-2">
+              {WINDOW_THEMES.map((desc) => {
+                const Icon = desc.icon;
+                const supported = isSupported(desc.id);
+                return (
+                  <Button
+                    key={desc.id}
+                    variant={windowThemeId === desc.id ? "default" : "outline"}
+                    size="sm"
+                    disabled={!supported}
+                    title={supported ? undefined : t("windowTheme.unsupportedTooltip")}
+                    onClick={() => setWindowThemeId(desc.id)}
+                    className="gap-1.5"
+                  >
+                    {windowThemeId === desc.id && <Check className="size-3.5" />}
+                    <Icon className="size-3.5" />
+                    {t(desc.labelKey)}
                   </Button>
                 );
               })}

@@ -1,0 +1,78 @@
+/**
+ * Apple-style open/close transitions for overlays.
+ *
+ * THEME-AGNOSTIC — these animations apply to default AND every window
+ * theme. That's why they live under animations/ instead of theme/.
+ *
+ * The shadcn default is `duration-100` + linear easing — snappy but
+ * flat. We retarget the same data-slot primitives with iOS sheet curves:
+ *   - cubic-bezier(0.32, 0.72, 0, 1)  → smooth decel, "settles" rather
+ *                                       than snapping (open)
+ *   - cubic-bezier(0.4, 0, 1, 1)      → accelerating ease-in (close)
+ *
+ * Scale starts deeper than the default zoom-in-95 — feels more
+ * deliberate on modal dialogs without being theatrical. Popovers /
+ * context menus stay subtle since they fire more often.
+ *
+ * Visual-weight tier hierarchy by duration:
+ *   dialog (320ms) > overlay backdrop (260ms) > popover (200ms) > tooltip (160ms)
+ */
+
+/* ─── Dialogs (Settings / About / Update / etc.) and AlertDialogs ── */
+[data-slot="dialog-content"],
+[data-slot="alert-dialog-content"] {
+  --tw-enter-scale: 0.92;
+  --tw-exit-scale: 0.96;
+  animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+  animation-duration: 320ms;
+}
+[data-slot="dialog-content"][data-state="closed"],
+[data-slot="alert-dialog-content"][data-state="closed"] {
+  animation-timing-function: cubic-bezier(0.4, 0, 1, 1);
+  animation-duration: 200ms;
+}
+
+/* Modal backdrops fade slightly slower than the content so the dim
+ * settles in just behind the presented sheet, matching how iOS layers
+ * the dim layer under the sheet's pop-up animation. */
+[data-slot="dialog-overlay"],
+[data-slot="alert-dialog-overlay"] {
+  animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+  animation-duration: 260ms;
+}
+[data-slot="dialog-overlay"][data-state="closed"],
+[data-slot="alert-dialog-overlay"][data-state="closed"] {
+  animation-timing-function: cubic-bezier(0.4, 0, 1, 1);
+  animation-duration: 180ms;
+}
+
+/* ─── Popovers / select / context menus ────────────────────────────
+ * Lighter touch (snappier, less scale) since they appear inline and
+ * don't carry the same visual weight as a modal. */
+[data-slot="popover-content"],
+[data-slot="select-content"],
+[data-slot="context-menu-content"],
+[data-slot="context-menu-sub-content"] {
+  animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+  animation-duration: 200ms;
+}
+[data-slot="popover-content"][data-state="closed"],
+[data-slot="select-content"][data-state="closed"],
+[data-slot="context-menu-content"][data-state="closed"],
+[data-slot="context-menu-sub-content"][data-state="closed"] {
+  animation-timing-function: cubic-bezier(0.4, 0, 1, 1);
+  animation-duration: 140ms;
+}
+
+/* ─── Tooltips ─────────────────────────────────────────────────────
+ * Fastest tier — meant to feel reactive, not deliberate. Apple shows
+ * tooltips with a near-instant fade once the hover delay has elapsed,
+ * so we keep the curve gentle but the duration short. */
+[data-slot="tooltip-content"] {
+  animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+  animation-duration: 160ms;
+}
+[data-slot="tooltip-content"][data-state="closed"] {
+  animation-timing-function: cubic-bezier(0.4, 0, 1, 1);
+  animation-duration: 100ms;
+}

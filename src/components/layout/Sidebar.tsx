@@ -40,7 +40,7 @@ function Sidebar({ items, onRestart, onSettings }: SidebarProps) {
   const settingsTooltipText = t("sidebar.settings");
 
   return (
-    <div className="flex w-[220px] shrink-0 flex-col bg-background text-foreground select-none">
+    <div className="flex w-[220px] shrink-0 flex-col border-r border-border bg-background text-foreground select-none">
       <div className="border-b border-border px-5 pt-6 pb-5 text-center">
         <h1
           className="text-2xl font-bold tracking-tight cursor-default tabular-nums"
@@ -67,7 +67,7 @@ function Sidebar({ items, onRestart, onSettings }: SidebarProps) {
               className={`ml-8 mr-2 flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm leading-relaxed transition ${
                 isActive
                   ? "bg-primary/10 font-medium text-primary"
-                  : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
               }`}
             >
               <span className="flex size-4 shrink-0 items-center justify-center">{item.icon}</span>
@@ -82,7 +82,7 @@ function Sidebar({ items, onRestart, onSettings }: SidebarProps) {
             <span className="inline-flex">
               <button
                 type="button"
-                className="flex cursor-pointer items-center justify-center rounded-md border border-border bg-accent/40 p-1.5 text-foreground transition hover:bg-accent"
+                className="flex cursor-pointer items-center justify-center rounded-md border border-border bg-background/70 p-1.5 text-foreground transition hover:bg-muted/70"
                 onClick={handleRestart}
                 aria-label={restartTooltipText}
               >
@@ -98,7 +98,7 @@ function Sidebar({ items, onRestart, onSettings }: SidebarProps) {
           <TooltipTrigger asChild>
             <button
               type="button"
-              className="flex cursor-pointer items-center justify-center rounded-md border border-border bg-accent/40 p-1.5 text-foreground transition hover:bg-accent"
+              className="flex cursor-pointer items-center justify-center rounded-md border border-border bg-background/70 p-1.5 text-foreground transition hover:bg-muted/70"
               onClick={onSettings}
               aria-label={settingsTooltipText}
             >

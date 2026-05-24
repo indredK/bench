@@ -2,6 +2,7 @@
  * Layout UI / 布局 UI: own layout only; 只负责通用布局.
  */
 import { useCallback } from "react";
+import type { MouseEvent as ReactMouseEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Minus, Maximize2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -16,6 +17,7 @@ type WindowControls = {
   minimize: () => Promise<void>;
   toggleMaximize: () => Promise<void>;
   close: () => Promise<void>;
+  startDragging: () => Promise<void>;
 };
 
 let cachedControls: WindowControls | null = null;
@@ -29,6 +31,7 @@ async function getWindowControls(): Promise<WindowControls> {
     minimize: () => win.minimize(),
     toggleMaximize: () => win.toggleMaximize(),
     close: () => win.close(),
+    startDragging: () => win.startDragging(),
   };
 
   return cachedControls;
@@ -68,21 +71,50 @@ export function CustomTitlebar({
     }
   }, []);
 
+  const handleDragStart = useCallback(async (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (!desktop || event.button !== 0) return;
+
+    const target = event.target;
+    if (target instanceof Element && target.closest("[data-no-window-drag]")) {
+      return;
+    }
+
+    try {
+      const ctrl = await getWindowControls();
+      await ctrl.startDragging();
+    } catch (e) {
+      console.error("Failed to start window dragging", e);
+    }
+  }, []);
+
   return (
     <div
       data-tauri-drag-region
+      onMouseDown={(event) => {
+        void handleDragStart(event);
+      }}
       className={cn(
-        "flex h-10 shrink-0 items-center justify-end",
+        "relative flex h-10 shrink-0 items-center justify-end",
         "select-none",
         "pr-3",
         className,
       )}
     >
-      <div className="flex items-center gap-0.5">
+      <div
+        data-tauri-drag-region
+        className="absolute inset-0"
+        aria-hidden="true"
+      />
+
+      <div
+        data-no-window-drag
+        className="relative z-10 flex items-center gap-0.5"
+      >
         {desktop && (
           <>
             <button
               type="button"
+              data-no-window-drag
               className={cn(
                 "rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors",
                 "focus:outline-none",
@@ -95,6 +127,7 @@ export function CustomTitlebar({
 
             <button
               type="button"
+              data-no-window-drag
               className={cn(
                 "rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors",
                 "focus:outline-none",
@@ -107,6 +140,7 @@ export function CustomTitlebar({
 
             <button
               type="button"
+              data-no-window-drag
               className={cn(
                 "rounded-md p-1.5 text-muted-foreground hover:bg-red-500/20 hover:text-red-500 transition-colors",
                 "focus:outline-none",

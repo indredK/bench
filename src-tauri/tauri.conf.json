@@ -23,7 +23,8 @@
         "fullscreen": false,
         "visible": false,
         "decorations": false,
-        "titleBarStyle": "Overlay"
+        "titleBarStyle": "Overlay",
+        "transparent": true
       },
       {
         "label": "splashscreen",

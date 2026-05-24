@@ -6,7 +6,7 @@ import ReactDOM from "react-dom/client";
 import { ThemeProvider } from "next-themes";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import App from "./App";
-import "./styles.css";
+import "./styles/index.css";
 import { i18nInitPromise } from "./i18n/config";
 import "@fontsource-variable/geist";
 

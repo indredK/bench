@@ -10,6 +10,7 @@ interface AppWindow {
   close: () => Promise<void>;
   show: () => Promise<void>;
   setFocus: () => Promise<void>;
+  startDragging: () => Promise<void>;
 }
 
 let cachedWindow: AppWindow | null = null;

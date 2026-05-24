@@ -35,6 +35,7 @@ macro_rules! app_invoke_handler {
             $crate::dev_cleaner::core::cleanup_projects,
             $crate::dev_cleaner::core::stop_scan,
             $crate::env_detector::core::detect_env_tools,
+            $crate::window_theme::commands::set_window_theme,
         ]
     };
 }

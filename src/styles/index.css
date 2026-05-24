@@ -1,0 +1,31 @@
+/**
+ * Stylesheet entry — loaded once by src/main.tsx.
+ *
+ * Organisation principle: split by RESPONSIBILITY, not by theme.
+ *
+ *   theme/tokens.css        → @theme namespaces (no values, just mappings)
+ *   theme/base.css          → default theme values (:root + .dark)
+ *   theme/window-glass.css  → first window-theme override (glass)
+ *   animations/overlays.css → theme-agnostic Apple-style overlay motion
+ *   utilities.css           → keyframes + custom scrollbar
+ *
+ * Adding a third window theme (e.g. neumorphism, high-contrast):
+ *   1. Create `theme/window-<name>.css` with the same selector discipline
+ *      window-glass.css uses (every rule prefixed `html[data-window-theme="<name>"]`).
+ *   2. Add one `@import "./theme/window-<name>.css";` line below.
+ *   3. Register the theme id in src/lib/windowTheme.ts and the Rust
+ *      WindowTheme enum (src-tauri/src/window_theme/commands.rs).
+ *
+ * Order matters: @import "tailwindcss" must come first so its @layer
+ * declarations establish the cascade order before our overrides land.
+ */
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@import "./theme/tokens.css";
+@import "./theme/base.css";
+@import "./theme/window-glass.css";
+@import "./animations/overlays.css";
+@import "./utilities.css";
+
+@custom-variant dark (&:where(.dark, .dark *));

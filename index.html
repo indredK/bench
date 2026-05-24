@@ -23,6 +23,16 @@
             document.documentElement.classList.add("dark");
           }
         } catch(e) {}
+        // Window theme pre-paint sync. Only honor "glass" on macOS so a
+        // profile copied to another OS doesn't leave the body transparent
+        // with nothing behind it (the Rust command would also refuse, but
+        // CSS runs first).
+        try {
+          var wt = localStorage.getItem("windowTheme");
+          var isMac = navigator.userAgent.toLowerCase().indexOf("mac") !== -1;
+          var resolved = (wt === "glass" && isMac) ? "glass" : "default";
+          document.documentElement.setAttribute("data-window-theme", resolved);
+        } catch(e) {}
       })();
     </script>
   </head>

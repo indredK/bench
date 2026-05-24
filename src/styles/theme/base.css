@@ -1,0 +1,106 @@
+/**
+ * Base styles + DEFAULT theme values.
+ *
+ *  - `:root` declares the LIGHT mode HSL triples consumed by tokens.css
+ *  - `.dark` overrides the same names for DARK mode
+ *  - Both sit inside `@layer base`, so unlayered window-theme overrides
+ *    (see theme/window-<name>.css) win the cascade automatically — that's
+ *    how a glass override beats `bg-background` without `!important`
+ *    on every rule.
+ *
+ * Adding a third window theme? Don't touch this file — only the new
+ * theme/window-<name>.css needs to exist.
+ */
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+    width: 100%;
+  }
+
+  :root {
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+    --background: 210 20% 98%;
+    --foreground: 222 22% 14%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 22% 14%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 22% 14%;
+    --primary: 192 85% 41%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 16% 94%;
+    --secondary-foreground: 222 20% 16%;
+    --muted: 210 16% 94%;
+    --muted-foreground: 215 12% 42%;
+    --accent: 188 30% 92%;
+    --accent-foreground: 222 20% 16%;
+    --destructive: 4 72% 52%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 18% 88%;
+    --input: 214 18% 88%;
+    --ring: 192 85% 41%;
+    --radius: 0.5rem;
+    --chart-1: 192 85% 41%;
+    --chart-2: 158 64% 40%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 262 66% 58%;
+    --chart-5: 336 68% 48%;
+    --sidebar: 210 20% 97%;
+    --sidebar-foreground: 222 22% 14%;
+    --sidebar-primary: 192 85% 41%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 188 30% 93%;
+    --sidebar-accent-foreground: 222 20% 16%;
+    --sidebar-border: 214 18% 88%;
+    --sidebar-ring: 192 85% 41%;
+  }
+
+  .dark {
+    --background: 222 24% 10%;
+    --foreground: 210 20% 96%;
+    --card: 222 22% 13%;
+    --card-foreground: 210 20% 96%;
+    --popover: 222 24% 13%;
+    --popover-foreground: 210 20% 96%;
+    --primary: 190 90% 56%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 217 18% 18%;
+    --secondary-foreground: 210 20% 96%;
+    --muted: 217 18% 18%;
+    --muted-foreground: 214 12% 68%;
+    --accent: 192 24% 20%;
+    --accent-foreground: 210 20% 96%;
+    --destructive: 4 62% 42%;
+    --destructive-foreground: 210 20% 96%;
+    --border: 217 15% 24%;
+    --input: 217 15% 24%;
+    --ring: 190 90% 56%;
+    --chart-1: 190 90% 56%;
+    --chart-2: 158 62% 46%;
+    --chart-3: 38 88% 58%;
+    --chart-4: 262 70% 68%;
+    --chart-5: 336 72% 60%;
+    --sidebar: 222 24% 12%;
+    --sidebar-foreground: 210 20% 96%;
+    --sidebar-primary: 190 90% 56%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 192 24% 20%;
+    --sidebar-accent-foreground: 210 20% 96%;
+    --sidebar-border: 217 15% 24%;
+    --sidebar-ring: 190 90% 56%;
+  }
+
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+  }
+
+  html {
+    font-family: var(--font-sans);
+  }
+}

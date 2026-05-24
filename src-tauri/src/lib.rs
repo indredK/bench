@@ -6,6 +6,7 @@ mod dev_cleaner;
 mod env_detector;
 mod menu;
 mod port_manager;
+mod window_theme;
 
 use app_manager::AppManagerState;
 use app_updater::UpdaterCache;

@@ -1314,6 +1314,12 @@
     "label": "Theme: {{mode}}",
     "tooltip": "Click to cycle: System → Light → Dark"
   },
+  "windowTheme": {
+    "label": "Window Theme",
+    "default": "Default",
+    "glass": "Frosted Glass",
+    "unsupportedTooltip": "This theme is only available on macOS"
+  },
   "about": {
     "description": "All-in-one developer toolkit",
     "version": "Version",

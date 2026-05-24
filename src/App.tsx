@@ -24,6 +24,7 @@ import { WINDOW_BOOTSTRAP_EVENTS } from "@/lib/tauri/contracts";
 import { emitPlatformEventTo } from "@/platform/events";
 import { canUseTauriCommands } from "@/platform/capabilities";
 import { canUseWindowControls } from "@/platform/window";
+import { useWindowTheme } from "@/hooks/useWindowTheme";
 
 function AnimatedRoutes() {
   const [location] = useLocation();
@@ -59,6 +60,10 @@ function FeaturePanel({ location }: { location: string }) {
 function App() {
   const { t } = useTranslation();
   const updater = useUpdaterController();
+  // Mount the window-theme hook at the shell root so the persisted choice
+  // is applied to the native window once on boot and re-applied whenever
+  // the resolved color scheme changes.
+  useWindowTheme();
 
   const [aboutOpen, setAboutOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -133,7 +138,7 @@ function App() {
   return (
     <>
       <Router hook={useHashLocation}>
-        <GlobalContextMenu className="flex h-screen overflow-hidden bg-background">
+        <GlobalContextMenu className="app-root flex h-screen overflow-hidden bg-background">
           <div className="flex flex-1 flex-col overflow-hidden">
             <CustomTitlebar />
 
@@ -143,7 +148,7 @@ function App() {
                 onRestart={handleRestart}
                 onSettings={handleSettings}
               />
-              <div className="flex flex-1 flex-col overflow-hidden">
+              <div className="flex flex-1 flex-col overflow-hidden bg-background">
                 <div className="flex-1 overflow-hidden p-4">
                   <AnimatedRoutes />
                 </div>

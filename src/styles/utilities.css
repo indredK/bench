@@ -1,0 +1,77 @@
+/**
+ * App-level utilities — theme-agnostic keyframes + custom scrollbar.
+ *
+ * Add new keyframes / utility selectors here as long as they don't
+ * belong to a specific theme (those go in theme/) or to overlay motion
+ * (that goes in animations/overlays.css).
+ */
+
+/* ─── Keyframes consumed by feature components ─────────────────── */
+@keyframes bubble-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes chip-in {
+  from {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.2s ease-out;
+}
+
+/* ─── Custom thin scrollbar for tables ─────────────────────────── */
+[data-slot="table-container"],
+[data-table-scroll] {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+[data-slot="table-container"]::-webkit-scrollbar,
+[data-table-scroll]::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+[data-slot="table-container"]::-webkit-scrollbar-track,
+[data-table-scroll]::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+[data-slot="table-container"]::-webkit-scrollbar-thumb,
+[data-table-scroll]::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 9999px;
+}
+
+[data-slot="table-container"]::-webkit-scrollbar-thumb:hover,
+[data-table-scroll]::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.4);
+}
+
+[data-slot="table-container"]::-webkit-scrollbar-corner,
+[data-table-scroll]::-webkit-scrollbar-corner {
+  background: transparent;
+}

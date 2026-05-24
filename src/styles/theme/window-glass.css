@@ -1,0 +1,181 @@
+/**
+ * Window theme: GLASS — macOS NSVisualEffectView vibrancy.
+ *
+ * Pairs with the Rust `set_window_theme` command
+ * (src-tauri/src/window_theme/commands.rs), which applies the actual
+ * NSVisualEffectMaterial (Sidebar in light, HudWindow in dark). This file
+ * is the CSS half: dropping opaque layers so the native effect shows
+ * through, rewriting semantic tokens with alpha for translucent surfaces,
+ * and stacking backdrop-filter for "glass on glass" depth.
+ *
+ * SCOPE DISCIPLINE — every selector starts with
+ *   `html[data-window-theme="glass"]`
+ * so the default theme is untouched. When the user switches back to
+ * default, none of this paints. To add a new window theme:
+ *   1. Copy this file → theme/window-<name>.css
+ *   2. Find/replace the prefix with `html[data-window-theme="<name>"]`
+ *   3. Import it from styles/index.css
+ *   4. Register the id in src/lib/windowTheme.ts + the Rust enum
+ *
+ * Rules are UNLAYERED on purpose. Tailwind's `bg-background` /
+ * `bg-sidebar` etc. live in @layer utilities; unlayered rules win the
+ * cascade against any layered rule regardless of specificity, so this
+ * is what lets `.app-root` actually go transparent without `!important`
+ * on the utility-cascading rules. Where we DO use `!important`, it's
+ * because we're fighting an `style=""` attribute or an inline default.
+ *
+ * Alpha calls use modern `hsl(H S% L% / α)` syntax — fine in WebKit ≥16.4
+ * which is what Tauri 2 ships on macOS.
+ */
+
+/* ─── Root passthrough ─────────────────────────────────────────────
+ * Drops the opaque body + .app-root fills so the native vibrancy view
+ * shows through. Targeted via [data-window-theme], which the inline boot
+ * script in index.html sets before first paint to avoid an opaque →
+ * transparent flash. */
+html[data-window-theme="glass"] body {
+  background: transparent !important;
+}
+html[data-window-theme="glass"] .app-root {
+  background: transparent !important;
+}
+
+html[data-window-theme="glass"]:not(.dark) {
+  --background: 0 0% 100% / 0;
+  --foreground: 222 28% 12%;
+  --card-foreground: 222 28% 12%;
+  --muted-foreground: 218 18% 30%;
+}
+
+html[data-window-theme="glass"].dark {
+  --background: 224 18% 8% / 0;
+}
+
+/* ─── Surface token overrides ──────────────────────────────────────
+ * Rewrites the HSL triples used by @theme to carry an alpha channel,
+ * so `bg-sidebar` / `bg-card` / `bg-secondary` etc. become translucent
+ * without touching individual components.
+ *
+ * Popovers keep high alpha because command menus / context menus need a
+ * firmer read than in-flow surfaces. */
+html[data-window-theme="glass"]:not(.dark) {
+  --sidebar: 0 0% 100% / 0.48;
+  --card: 210 10% 94% / 0.24;
+  --secondary: 210 8% 92% / 0.17;
+  --muted: 210 8% 90% / 0.13;
+  --accent: 210 10% 91% / 0.11;
+  --popover: 0 0% 100% / 0.82;
+  --border: 214 18% 88% / 0.34;
+  --input: 210 8% 97% / 0.14;
+  --sidebar-accent: 0 0% 100% / 0.24;
+  --sidebar-border: 220 13% 91% / 0.34;
+}
+
+html[data-window-theme="glass"].dark {
+  --sidebar: 224 18% 10% / 0.36;
+  --card: 224 20% 14% / 0.22;
+  --secondary: 223 20% 20% / 0.16;
+  --muted: 223 20% 20% / 0.12;
+  --accent: 223 20% 20% / 0.1;
+  --popover: 224 18% 12% / 0.72;
+  --border: 220 16% 30% / 0.24;
+  --input: 223 20% 20% / 0.14;
+  --sidebar-accent: 223 18% 16% / 0.2;
+  --sidebar-border: 220 16% 30% / 0.22;
+}
+
+/* ─── Sidebar: nested vibrancy plane ───────────────────────────────
+ * Own backdrop-filter so the menu column reads as its own glass plane. */
+html[data-window-theme="glass"] .bg-sidebar {
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+}
+
+/* ─── Sticky table: blur-driven layering instead of depth gradients ── */
+html[data-window-theme="glass"] [data-table-scroll],
+html[data-window-theme="glass"] [data-table-scroll] > table {
+  background-color: transparent !important;
+}
+html[data-window-theme="glass"] [data-table-scroll] {
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+}
+
+html[data-window-theme="glass"]:not(.dark) [data-table-scroll] thead th,
+html[data-window-theme="glass"]:not(.dark) [data-table-scroll] td.sticky {
+  background-color: hsl(210 10% 95% / 0.28) !important;
+  backdrop-filter: blur(26px) saturate(165%);
+  -webkit-backdrop-filter: blur(26px) saturate(165%);
+}
+html[data-window-theme="glass"].dark [data-table-scroll] thead th,
+html[data-window-theme="glass"].dark [data-table-scroll] td.sticky {
+  background-color: hsl(224 18% 12% / 0.58) !important;
+  backdrop-filter: blur(26px) saturate(165%);
+  -webkit-backdrop-filter: blur(26px) saturate(165%);
+}
+
+html[data-window-theme="glass"]:not(.dark) [data-table-scroll] th,
+html[data-window-theme="glass"]:not(.dark) [data-table-scroll] td {
+  background-color: hsl(210 8% 92% / 0.1);
+}
+
+html[data-window-theme="glass"].dark [data-table-scroll] th,
+html[data-window-theme="glass"].dark [data-table-scroll] td {
+  background-color: hsl(223 18% 16% / 0.18);
+}
+
+/* ─── Cards: layered backdrop blur on top of the NSVisualEffectView ─
+ * Targets both shadcn `[data-slot="card"]` and custom `.bg-card` panels. */
+html[data-window-theme="glass"] [data-slot="card"],
+html[data-window-theme="glass"] .bg-card {
+  backdrop-filter: blur(28px) saturate(165%);
+  -webkit-backdrop-filter: blur(28px) saturate(165%);
+}
+
+html[data-window-theme="glass"]:not(.dark) .content-glass-panel {
+  background-color: hsl(210 10% 93% / 0.16);
+  border-color: hsl(214 18% 88% / 0.24);
+  box-shadow:
+    inset 0 1px 0 hsl(0 0% 100% / 0.16),
+    0 1px 2px hsl(220 30% 20% / 0.03);
+}
+
+/* ─── Light glass icon contrast ────────────────────────────────────
+ * Content-area icons often inherit muted text or reduced opacity.
+ * In light glass mode that gets too faint against vibrant backgrounds,
+ * so we selectively deepen icon color inside translucent content panels. */
+html[data-window-theme="glass"]:not(.dark) [data-slot="card"] svg,
+html[data-window-theme="glass"]:not(.dark) .bg-card svg,
+html[data-window-theme="glass"]:not(.dark) [data-table-scroll] svg,
+html[data-window-theme="glass"]:not(.dark) .border.bg-card\/50 svg {
+  color: hsl(220 22% 24%);
+}
+
+html[data-window-theme="glass"]:not(.dark) [data-slot="card"] .text-muted-foreground svg,
+html[data-window-theme="glass"]:not(.dark) .bg-card .text-muted-foreground svg,
+html[data-window-theme="glass"]:not(.dark) [data-table-scroll] .text-muted-foreground svg,
+html[data-window-theme="glass"]:not(.dark) .border.bg-card\/50 .text-muted-foreground svg {
+  color: hsl(218 20% 28%);
+}
+
+html[data-window-theme="glass"]:not(.dark) [data-slot="card"] svg.opacity-30,
+html[data-window-theme="glass"]:not(.dark) .bg-card svg.opacity-30,
+html[data-window-theme="glass"]:not(.dark) [data-table-scroll] svg.opacity-30,
+html[data-window-theme="glass"]:not(.dark) .border.bg-card\/50 svg.opacity-30 {
+  opacity: 0.55;
+}
+
+html[data-window-theme="glass"] [data-slot="dialog-content"],
+html[data-window-theme="glass"] [data-slot="popover-content"],
+html[data-window-theme="glass"] [data-slot="tooltip-content"],
+html[data-window-theme="glass"] [data-slot="context-menu-content"],
+html[data-window-theme="glass"] [data-slot="context-menu-sub-content"],
+html[data-window-theme="glass"] [data-slot="command"] {
+  backdrop-filter: blur(30px) saturate(170%);
+  -webkit-backdrop-filter: blur(30px) saturate(170%);
+}
+
+html[data-window-theme="glass"] [data-slot="dialog-overlay"] {
+  backdrop-filter: blur(10px) saturate(130%);
+  -webkit-backdrop-filter: blur(10px) saturate(130%);
+}

@@ -1314,6 +1314,12 @@
     "label": "主题：{{mode}}",
     "tooltip": "点击切换：跟随系统 → 日间 → 暗黑"
   },
+  "windowTheme": {
+    "label": "窗口主题",
+    "default": "原版",
+    "glass": "毛玻璃",
+    "unsupportedTooltip": "该主题仅在 macOS 上可用"
+  },
   "about": {
     "description": "全能开发者工具集",
     "version": "版本",
