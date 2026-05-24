@@ -146,7 +146,13 @@ function parseTauriCommandArgs(rustSource: string): Record<string, string[]> {
     commands[commandName] = splitTopLevelArgs(rawArgs)
       .map((arg) => arg.trim())
       .filter(Boolean)
-      .filter((arg) => !arg.includes("tauri::State") && !arg.includes("tauri::AppHandle") && !arg.includes("AppHandle"))
+      .filter((arg) =>
+        !arg.includes("tauri::State") &&
+        !arg.includes("tauri::AppHandle") &&
+        !arg.includes("tauri::WebviewWindow") &&
+        !arg.includes("tauri::Window") &&
+        !arg.includes("AppHandle")
+      )
       .map((arg) => arg.split(":")[0]?.trim())
       .filter((arg): arg is string => Boolean(arg))
       .map(snakeToCamelCase);
