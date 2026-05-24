@@ -544,10 +544,13 @@ function StationColumn({
                   type="button"
                   onClick={() => onSelect(station.id)}
                   className={cn(
-                    "w-full rounded-lg border px-3 py-3 text-left transition",
+                    "relative w-full rounded-lg border px-3 py-3 text-left transition",
                     active ? "border-primary bg-primary/5" : "border-border hover:bg-muted/40"
                   )}
                 >
+                  <span className="absolute -top-2 -right-2">
+                    <Badge variant="secondary" className="size-5 flex items-center justify-center rounded-full p-0 text-[10px] leading-none">{count}</Badge>
+                  </span>
                   <div className="flex items-center justify-between gap-2">
                     <span className="min-w-0 truncate text-sm font-semibold">{station.remark}</span>
                     <div className="flex items-center gap-1">
@@ -575,7 +578,6 @@ function StationColumn({
                       >
                         <Trash2 size={13} className="text-destructive" />
                       </Button>
-                      <Badge variant="outline">{count}</Badge>
                     </div>
                   </div>
                   <p className="mt-1 truncate text-xs text-muted-foreground">{station.website}</p>
@@ -648,7 +650,7 @@ function AccountColumn({
   return (
     <section className="flex min-w-0 flex-[1.1] flex-col rounded-lg border bg-card">
       <ColumnHeader
-        title={t("apiBilling.accountTitle")}
+        title={`${t("apiBilling.accountTitle")} (${accounts.length})`}
         action={
           <div className="flex items-center gap-1.5">
             <Button
