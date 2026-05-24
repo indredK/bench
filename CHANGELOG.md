@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.10.0](https://github.com/indredK/bench/compare/v1.9.0...v1.10.0) (2026-05-24)
+
+
+### Features
+
+* **api-billing:** 新增中转站账号管理功能 ([0b3c8cb](https://github.com/indredK/bench/commit/0b3c8cb69f068b11af73b4573d8d0a56aa18412c))
+* 新增窗口主题支持，添加macOS毛玻璃效果 ([cdc0404](https://github.com/indredK/bench/commit/cdc04041f444241dcb6ed83b59a14945c6fd64f3))
+
 ## [1.9.0](https://github.com/indredK/bench/compare/v1.8.10...v1.9.0) (2026-05-24)
 
 
