@@ -18,6 +18,7 @@ export interface StationAccount {
   notes: string;
   status: AccountSessionStatus;
   lastLoginAt: string | null;
+  lastRefreshedAt: string | null;
   createdAt: string;
   hasPassword: boolean;
 }

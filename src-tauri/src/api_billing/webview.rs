@@ -101,6 +101,10 @@ pub async fn run_probe<R: Runtime>(
 ) -> ApiBillingResult<u16> {
     let label = probe_window_label(account_id);
     let data_dir = account_data_dir(app, account_id)?;
+    eprintln!(
+        "[probe] account={} | probe_url={} | label={}",
+        account_id, probe_url, label
+    );
     if let Some(parent) = data_dir.parent() {
         std::fs::create_dir_all(parent)
             .map_err(|e| ApiBillingError::store_fail(format!("create probe data dir: {e}")))?;
@@ -114,10 +118,9 @@ pub async fn run_probe<R: Runtime>(
     let tx = Arc::new(Mutex::new(Some(tx)));
 
     let script = format!(
-        "!function(){{var u='{}';fetch(u,{{credentials:'include',cache:'no-store'}}).then(function(r){{window.location.href='https://{}/'+r.status}}).catch(function(e){{window.location.href='https://{}/0'}})}}()",
-        probe_url.replace('\'', "\\'").replace('\n', ""),
-        PROBE_RESULT_HOST,
-        PROBE_RESULT_HOST,
+        "!function(){{var u='{p}';var c=new AbortController();setTimeout(function(){{c.abort()}},5000);fetch(u,{{credentials:'include',cache:'no-store',signal:c.signal}}).then(function(r){{window.location.href='https://{h}/'+r.status}}).catch(function(e){{window.location.href='https://{h}/'+(e.name==='AbortError'?408:0)}})}}()",
+        p = probe_url.replace('\'', "\\'").replace('\n', ""),
+        h = PROBE_RESULT_HOST,
     );
 
     let mut builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(parsed))
@@ -127,6 +130,7 @@ pub async fn run_probe<R: Runtime>(
         .on_navigation(move |url| {
             if url.host_str() == Some(PROBE_RESULT_HOST) {
                 let status = url.path().trim_start_matches('/').parse::<u16>().unwrap_or(0);
+                eprintln!("[probe] navigation captured status={}", status);
                 if let Ok(mut guard) = tx.lock() {
                     if let Some(sender) = guard.take() {
                         let _ = sender.send(status);
@@ -153,14 +157,23 @@ pub async fn run_probe<R: Runtime>(
     }
 
     match result {
-        Ok(Ok(status)) => Ok(status),
-        Ok(Err(_)) => Err(ApiBillingError::probe_network(
-            "probe channel closed".to_string(),
-            None,
-        )),
-        Err(_) => Err(ApiBillingError::probe_timeout(format!(
-            "probe timed out after {PROBE_TIMEOUT_SECS}s"
-        ))),
+        Ok(Ok(status)) => {
+            eprintln!("[probe] success status={}", status);
+            Ok(status)
+        }
+        Ok(Err(_)) => {
+            eprintln!("[probe] channel closed unexpectedly");
+            Err(ApiBillingError::probe_network(
+                "probe channel closed".to_string(),
+                None,
+            ))
+        }
+        Err(_) => {
+            eprintln!("[probe] timed out after {}s", PROBE_TIMEOUT_SECS);
+            Err(ApiBillingError::probe_timeout(format!(
+                "probe timed out after {PROBE_TIMEOUT_SECS}s"
+            )))
+        }
     }
 }
 

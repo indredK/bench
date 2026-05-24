@@ -199,6 +199,7 @@ pub fn create_account<R: Runtime>(
         notes: notes.trim().to_string(),
         status: AccountSessionStatus::LoginRequired,
         last_login_at: None,
+        last_refreshed_at: None,
         created_at: now_label(),
         has_password,
     };
@@ -427,6 +428,7 @@ pub async fn refresh_account<R: Runtime>(
             return Err(ApiBillingError::not_found(format!("account {account_id}")));
         };
         a.status = new_status;
+        a.last_refreshed_at = Some(now_label());
         let updated = a.clone();
         (accounts.clone(), updated)
     };
@@ -473,9 +475,11 @@ pub async fn refresh_station<R: Runtime>(
 
     let snapshot = {
         let mut accounts = state.accounts.lock().unwrap();
+        let now = now_label();
         for (id, status) in &results {
             if let Some(a) = accounts.iter_mut().find(|a| &a.id == id) {
                 a.status = *status;
+                a.last_refreshed_at = Some(now.clone());
             }
         }
         accounts.clone()
@@ -517,9 +521,11 @@ pub async fn refresh_all<R: Runtime>(
 
     let snapshot = {
         let mut accounts = state.accounts.lock().unwrap();
+        let now = now_label();
         for (id, status) in &results {
             if let Some(a) = accounts.iter_mut().find(|a| &a.id == id) {
                 a.status = *status;
+                a.last_refreshed_at = Some(now.clone());
             }
         }
         accounts.clone()

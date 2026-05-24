@@ -809,6 +809,7 @@ function DetailColumn({
                     value: account.lastLoginAt ?? t("apiBilling.neverLogin"),
                   },
                   { label: t("apiBilling.detail.createdAt"), value: account.createdAt },
+                  { label: t("apiBilling.detail.lastRefreshedAt"), value: account.lastRefreshedAt ?? t("apiBilling.neverRefreshed") },
                 ]}
                 extras={
                   <div>

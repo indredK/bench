@@ -37,6 +37,7 @@
     "pickStationFirst": "Pick a gateway on the left first.",
     "notesEmpty": "No notes",
     "neverLogin": "Never logged in",
+    "neverRefreshed": "Never refreshed",
     "fields": {
       "remark": "Remark",
       "website": "Website",
@@ -76,6 +77,7 @@
     "card": {
       "lastLogin": "Last Login",
       "createdAt": "Created",
+      "lastRefreshedAt": "Last Refreshed",
       "login": "Login"
     },
     "detail": {
@@ -90,6 +92,7 @@
       "password": "Password",
       "status": "Status",
       "createdAt": "Created",
+      "lastRefreshedAt": "Last Refreshed",
       "notes": "Notes",
       "copy": "Copy",
       "copyWebsite": "Copy Website",

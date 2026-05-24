@@ -37,6 +37,7 @@
     "pickStationFirst": "请先从左侧选择一个中转站。",
     "notesEmpty": "暂无备注",
     "neverLogin": "尚未登录",
+    "neverRefreshed": "未刷新过",
     "fields": {
       "remark": "备注",
       "website": "官网",
@@ -76,6 +77,7 @@
     "card": {
       "lastLogin": "最近登录",
       "createdAt": "创建时间",
+      "lastRefreshedAt": "上次刷新",
       "login": "登录"
     },
     "detail": {
@@ -90,6 +92,7 @@
       "password": "密码",
       "status": "状态",
       "createdAt": "创建时间",
+      "lastRefreshedAt": "上次刷新",
       "notes": "备注",
       "copy": "复制",
       "copyWebsite": "复制官网",

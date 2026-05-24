@@ -28,6 +28,7 @@ pub struct StationAccount {
     pub notes: String,
     pub status: AccountSessionStatus,
     pub last_login_at: Option<String>,
+    pub last_refreshed_at: Option<String>,
     pub created_at: String,
     #[serde(default)]
     pub has_password: bool,
