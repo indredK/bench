@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.9.0](https://github.com/indredK/bench/compare/v1.8.10...v1.9.0) (2026-05-24)
+
+
+### Features
+
+* add app restart function ([87a62df](https://github.com/indredK/bench/commit/87a62df32445b05856729a322f3d48c790c8dc12))
+* add framer motion animations for layout and components ([0a88441](https://github.com/indredK/bench/commit/0a884410cab65b1ff6bfb9c771437f3b7c813b84))
+* add page transition animations for routes and filter bar ([797371f](https://github.com/indredK/bench/commit/797371f5c3623345ca893e7ceb123c8c473e886a))
+* **app-manager:** add installed app filter count selector and tests ([18db7bb](https://github.com/indredK/bench/commit/18db7bb7ab45633dcb68661d245ae6dfdba86703))
+* **app-manager:** add marketplace filter for install list ([4384cef](https://github.com/indredK/bench/commit/4384cef6bef76cdf16859ac052a66ea0c122ad9e))
+* **app-manager:** add search function for app manager ([04d62aa](https://github.com/indredK/bench/commit/04d62aa256f8cde1220fe0ce523510ac14fedfee))
+* **app-manager:** 批量操作弹窗显示选中应用列表，优化批量操作流程 ([720051f](https://github.com/indredK/bench/commit/720051f0327311649ca2e14151303c4b8a19c51f))
+* **app-manager:** 移除操作历史功能，新增Mac App Store更新页快捷入口 ([93098f1](https://github.com/indredK/bench/commit/93098f18a7229d50efc323cc1934b287544ff82a))
+* **app-manager:** 软件更新 v1.0 — Homebrew / MAS / Sparkle 三源聚合 ([399399c](https://github.com/indredK/bench/commit/399399c34a387e1108cd0dcd0a9309013f20e515))
+* **app-manager:** 软件更新 v1.1 — 新增 Electron + Squirrel.Mac 检测 ([3c273e2](https://github.com/indredK/bench/commit/3c273e21eb34b099462b6ab88b2acc98bbeea8f7))
+* **app-manager:** 软件更新 v1.2 — Sparkle/Electron/Squirrel 代下载代安装 ([3568bdd](https://github.com/indredK/bench/commit/3568bddbecd50a5fe0a179b12ab68178fa8810f2))
+* **sidebar:** add scramble text animation to sidebar title ([02ca182](https://github.com/indredK/bench/commit/02ca182defe163fa1207d563a48164b7abe6cd9b))
+* **splashscreen:** 实现科幻风启动动画并调整窗口尺寸 ([38e4db4](https://github.com/indredK/bench/commit/38e4db4f0586695b665632c4ec1f252148e07bf6))
+
+
+### Bug Fixes
+
+* **app_manager:** 修复macOS和installer测试中的路径匹配问题 ([a94e3c8](https://github.com/indredK/bench/commit/a94e3c877d2abb1a5507074197eb97768fb9faff))
+
 ## [1.8.10](https://github.com/indredK/bench/compare/v1.8.9...v1.8.10) (2026-05-23)
 
 
