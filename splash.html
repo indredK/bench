@@ -20,10 +20,10 @@
       :root {
         --neon-cyan: #00f0ff;
         --neon-purple: #bd00ff;
-        --matrix-glow: rgba(0, 240, 255, 0.35);
-        --panel-bg: rgba(6, 10, 26, 0.88);
+        --matrix-glow: rgba(0, 240, 255, 0.45);
+        --panel-bg: rgba(4, 7, 20, 0.92);
         --text-pure: #ffffff;
-        --grid-line: rgba(0, 240, 255, 0.08);
+        --grid-line: rgba(0, 240, 255, 0.09);
         --focus-shift-y: -32px;
         --ring-size: clamp(320px, 34vmin, 420px);
         --wave-size: clamp(176px, 18vmin, 260px);
@@ -32,9 +32,9 @@
       html.dark {
         --neon-cyan: #00f0ff;
         --neon-purple: #7000ff;
-        --matrix-glow: rgba(112, 0, 255, 0.4);
-        --panel-bg: rgba(3, 7, 18, 0.92);
-        --grid-line: rgba(112, 0, 255, 0.1);
+        --matrix-glow: rgba(112, 0, 255, 0.5);
+        --panel-bg: rgba(2, 4, 12, 0.95);
+        --grid-line: rgba(112, 0, 255, 0.12);
       }
 
       html, body {
@@ -47,7 +47,7 @@
         font-family: "Courier New", Courier, monospace;
       }
 
-      /* 核心科技感背景：空间矩阵 */
+      /* 核心科技感背景：高频脉冲空间矩阵 */
       .matrix-space {
         position: absolute;
         inset: 0;
@@ -57,21 +57,27 @@
           linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
         background-size: 24px 24px;
         background-position: center;
-        mask-image: radial-gradient(circle at center, #000 40%, transparent 85%);
+        mask-image: radial-gradient(circle at center, #000 50%, transparent 95%);
         z-index: 1;
         overflow: hidden;
       }
 
-      /* 粒子光束穿梭 */
+      /* 脉冲光束穿梭 */
       .matrix-space::before {
         content: '';
         position: absolute;
         width: 200%;
         height: 100%;
         top: 0; left: -50%;
-        background: linear-gradient(90deg, transparent, rgba(0, 240, 255, 0.2), rgba(255, 255, 255, 0.1), rgba(0, 240, 255, 0.2), transparent);
-        transform: skewX(-45deg) translateX(-100%);
-        animation: beam-pass 3s cubic-bezier(0.25, 1, 0.5, 1) infinite;
+        background: linear-gradient(90deg, 
+          transparent 0%, 
+          rgba(0, 240, 255, 0.05) 30%, 
+          rgba(0, 240, 255, 0.25) 50%, 
+          rgba(189, 0, 255, 0.25) 52%, 
+          transparent 70%
+        );
+        transform: skewX(-35deg) translateX(-100%);
+        animation: beam-pass 2s cubic-bezier(0.15, 0.85, 0.35, 1) infinite;
       }
 
       .splash-container {
@@ -83,19 +89,20 @@
         isolation: isolate;
       }
 
+      /* 四角主框 */
       .frame-outline {
         position: absolute;
         inset: clamp(16px, 2.4vw, 28px);
-        border: 1px solid rgba(0, 240, 255, 0.14);
+        border: 1px solid rgba(0, 240, 255, 0.2);
         border-radius: 28px;
         background:
-          linear-gradient(180deg, rgba(0, 240, 255, 0.06), transparent 18%),
-          linear-gradient(0deg, rgba(189, 0, 255, 0.05), transparent 18%);
+          linear-gradient(180deg, rgba(0, 240, 255, 0.08), transparent 25%),
+          linear-gradient(0deg, rgba(189, 0, 255, 0.06), transparent 25%);
         box-shadow:
-          inset 0 0 0 1px rgba(255, 255, 255, 0.02),
-          0 0 80px rgba(0, 240, 255, 0.08);
+          inset 0 0 0 1px rgba(255, 255, 255, 0.03),
+          0 0 40px rgba(0, 240, 255, 0.12);
         opacity: 0;
-        transform: scale(0.98);
+        transform: scale(1.01);
       }
 
       /* 外围 HUD 矢量圆环 */
@@ -105,7 +112,7 @@
         left: 50%;
         width: var(--ring-size);
         height: var(--ring-size);
-        transform: translate(-50%, -50%) scale(0.7);
+        transform: translate(-50%, -50%) scale(0.6) rotate(-45deg);
         opacity: 0;
       }
 
@@ -114,8 +121,8 @@
         inset: 0;
         border: 2px solid var(--neon-cyan);
         border-radius: 50%;
-        mask-image: conic-gradient(from 0deg, #000 0deg, #000 120deg, transparent 140deg, #000 180deg, transparent 240deg, #000 280deg);
-        box-shadow: 0 0 30px var(--matrix-glow);
+        mask-image: conic-gradient(from 0deg, #000 0deg, #000 90deg, transparent 105deg, #000 140deg, transparent 200deg, #000 240deg, transparent 310deg);
+        filter: drop-shadow(0 0 12px var(--neon-cyan));
       }
 
       .hud-vector-ring::after {
@@ -124,22 +131,22 @@
         inset: 12px;
         border: 1px dashed var(--neon-purple);
         border-radius: 50%;
-        opacity: 0.8;
+        opacity: 0.9;
       }
 
-      /* 能量核：硬核棱镜设计 */
+      /* 能量核 */
       .core-prism {
         position: absolute;
         top: calc(50% + var(--focus-shift-y));
         left: 50%;
         width: 110px;
         height: 110px;
-        background: linear-gradient(135deg, rgba(6, 182, 212, 0.15), rgba(124, 58, 237, 0.15));
+        background: linear-gradient(135deg, rgba(0, 240, 255, 0.18), rgba(189, 0, 255, 0.22));
         border: 2px solid var(--neon-cyan);
         box-shadow: 
-          0 0 50px var(--matrix-glow),
-          inset 0 0 25px var(--matrix-glow);
-        transform: translate(-50%, -50%) rotate(0deg) scale(0.5);
+          0 0 35px var(--neon-cyan),
+          inset 0 0 20px rgba(0, 240, 255, 0.4);
+        transform: translate(-50%, -50%) rotate(-90deg) scale(0.2);
         display: grid;
         place-items: center;
         opacity: 0;
@@ -152,7 +159,7 @@
         place-items: center;
       }
 
-      /* 赛博朋克超频 Glitch 字母 B */
+      /* 赛博朋克超频高频 Glitch 字母 B */
       .letter-b {
         font-size: 72px;
         font-weight: 900;
@@ -160,10 +167,10 @@
         position: relative;
         user-select: none;
         text-shadow: 
-          -2px -2px 0 var(--neon-cyan),
-          2px 2px 0 var(--neon-purple),
-          0 0 20px rgba(255, 255, 255, 0.6);
-        animation: glitch-trigger 4s 1.2s infinite;
+          -3px -1px 0 var(--neon-cyan),
+          3px 2px 0 var(--neon-purple),
+          0 0 15px rgba(255, 255, 255, 0.8);
+        animation: glitch-trigger 2.5s infinite;
       }
 
       /* 全息准星角标 */
@@ -174,58 +181,53 @@
         border: 2px solid var(--neon-cyan);
         opacity: 0;
       }
-      .corner-tl { top: clamp(26px, 4vh, 44px); left: clamp(26px, 4vw, 44px); border-right: none; border-bottom: none; --burst-x: -35px; --burst-y: -35px; }
-      .corner-tr { top: clamp(26px, 4vh, 44px); right: clamp(26px, 4vw, 44px); border-left: none; border-bottom: none; --burst-x: 35px; --burst-y: -35px; }
-      .corner-bl { bottom: clamp(26px, 4vh, 44px); left: clamp(26px, 4vw, 44px); border-right: none; border-top: none; --burst-x: -35px; --burst-y: 35px; }
-      .corner-br { bottom: clamp(26px, 4vh, 44px); right: clamp(26px, 4vw, 44px); border-left: none; border-top: none; --burst-x: 35px; --burst-y: 35px; }
+      .corner-tl { top: clamp(26px, 4vh, 44px); left: clamp(26px, 4vw, 44px); border-right: none; border-bottom: none; --burst-x: -30px; --burst-y: -30px; }
+      .corner-tr { top: clamp(26px, 4vh, 44px); right: clamp(26px, 4vw, 44px); border-left: none; border-bottom: none; --burst-x: 30px; --burst-y: -30px; }
+      .corner-bl { bottom: clamp(26px, 4vh, 44px); left: clamp(26px, 4vw, 44px); border-right: none; border-top: none; --burst-x: -30px; --burst-y: 30px; }
+      .corner-br { bottom: clamp(26px, 4vh, 44px); right: clamp(26px, 4vw, 44px); border-left: none; border-top: none; --burst-x: 30px; --burst-y: 30px; }
 
       .hologram-bracket::before {
         content: '';
         position: absolute;
-        width: 4px;
-        height: 4px;
-        background: var(--neon-purple);
-        box-shadow: 0 0 8px var(--neon-purple);
+        width: 5px;
+        height: 5px;
+        background: var(--text-pure);
+        box-shadow: 0 0 10px var(--neon-cyan);
       }
       .corner-tl::before { right: -3px; top: -3px; }
       .corner-tr::before { left: -3px; top: -3px; }
       .corner-bl::before { right: -3px; bottom: -3px; }
       .corner-br::before { left: -3px; bottom: -3px; }
 
-      /* 极光激光雷达扫描 */
+      /* 极光激光雷达线 */
       .radar-line {
         position: absolute;
         width: 100%;
-        height: 2px;
-        background: linear-gradient(90deg, transparent, var(--neon-cyan), var(--text-pure), var(--neon-cyan), transparent);
-        box-shadow: 0 0 25px var(--neon-cyan);
+        height: 1px;
+        background: linear-gradient(90deg, transparent, var(--neon-cyan), #ffffff, var(--neon-purple), transparent);
+        box-shadow: 0 0 15px var(--neon-cyan);
         top: calc(50% + var(--focus-shift-y));
         transform: translateY(-126px);
         opacity: 0;
         pointer-events: none;
       }
 
+      /* 冲击波：优化能量辐射扩散，边缘不突兀 */
       .shockwave {
         position: absolute;
         top: calc(50% + var(--focus-shift-y));
         left: 50%;
         width: var(--wave-size);
         height: var(--wave-size);
-        border: 2px solid rgba(0, 240, 255, 0.85);
+        border: 2px dashed var(--neon-cyan);
         border-radius: 50%;
-        box-shadow:
-          0 0 50px rgba(0, 240, 255, 0.4),
-          inset 0 0 30px rgba(0, 240, 255, 0.2);
         opacity: 0;
-        transform: translate(-50%, -50%) scale(0.2);
+        transform: translate(-50%, -50%) scale(0.5);
         pointer-events: none;
       }
 
       .wave-b {
-        border-color: rgba(189, 0, 255, 0.75);
-        box-shadow:
-          0 0 50px rgba(112, 0, 255, 0.4),
-          inset 0 0 30px rgba(112, 0, 255, 0.2);
+        border: 1px solid var(--neon-purple);
       }
 
       /* 实时加载控制台日志 */
@@ -244,323 +246,265 @@
       .codename-glyphs {
         display: inline-grid;
         grid-auto-flow: column;
-        gap: 0.34em;
-        font-size: 12px;
-        font-weight: 700;
-        letter-spacing: 0.28em;
+        gap: 0.4em;
+        font-size: 13px;
+        font-weight: 900;
+        letter-spacing: 0.3em;
         color: var(--text-pure);
         text-transform: uppercase;
-        text-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+        text-shadow: 0 0 8px var(--neon-cyan);
       }
 
       .codename-glyphs span {
         min-width: 1ch;
         text-align: center;
         opacity: 0;
+        transform: scale(1.3);
       }
 
       .codename-bar {
-        width: 188px;
+        width: 220px;
         height: 1px;
-        background: linear-gradient(90deg, transparent, rgba(0, 240, 255, 0.3), var(--neon-cyan), rgba(189, 0, 255, 0.54), transparent);
-        box-shadow: 0 0 14px rgba(0, 240, 255, 0.3);
+        background: linear-gradient(90deg, transparent, var(--neon-cyan), var(--text-pure), var(--neon-purple), transparent);
+        box-shadow: 0 0 10px var(--neon-cyan);
         transform: scaleX(0);
-        transform-origin: center;
       }
 
       .codename-status {
         display: flex;
         align-items: center;
         gap: 8px;
-        font-size: 9px;
-        letter-spacing: 0.28em;
-        color: rgba(255, 255, 255, 0.74);
+        font-size: 10px;
+        letter-spacing: 0.35em;
+        color: var(--neon-cyan);
         text-transform: uppercase;
         opacity: 0;
       }
 
       .status-dot {
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background: var(--neon-cyan);
-        box-shadow: 0 0 10px rgba(0, 240, 255, 0.72);
-        animation: dot-pulse 1.4s ease-in-out infinite;
+        width: 4px;
+        height: 4px;
+        background: #ffffff;
+        box-shadow: 0 0 12px #ffffff, 0 0 4px var(--neon-cyan);
+        animation: dot-stutter 0.8s steps(2, start) infinite;
       }
 
       /* ==================== 软件启动激发态 (body.run) ==================== */
       body.run .frame-outline {
-        animation: frame-deploy 0.9s cubic-bezier(0.15, 0.85, 0.35, 1) forwards;
+        animation: frame-glitch-in 0.4s steps(2, end) forwards;
       }
 
       body.run .ring-orbit {
-        animation: ring-deploy 1.1s cubic-bezier(0.15, 0.85, 0.35, 1) 0.15s forwards;
+        animation: ring-step-in 0.8s cubic-bezier(0.05, 0.9, 0.2, 1) 0.1s forwards;
       }
 
       body.run .hud-vector-ring {
-        animation: rotate-clock 16s linear 1.25s infinite;
+        animation: rotate-clock 20s linear infinite;
       }
 
       body.run .hud-vector-ring::after {
-        animation:
-          ring-inner-fade 1.1s cubic-bezier(0.15, 0.85, 0.35, 1) 0.15s forwards,
-          rotate-counter 8s linear 1.25s infinite;
+        animation: rotate-counter 7s linear infinite;
       }
 
       body.run .core-prism {
         animation:
-          prism-settle 1.1s cubic-bezier(0.15, 0.85, 0.35, 1) 0.25s forwards,
-          core-pulse 3s ease-in-out 1.35s infinite;
+          prism-assemble 0.7s cubic-bezier(0.1, 1, 0.2, 1) 0.2s forwards,
+          core-pulse-hard 2s cubic-bezier(0.4, 0, 0.2, 1) 0.9s infinite;
       }
 
       body.run .hologram-bracket {
-        animation: bracket-deploy 0.7s cubic-bezier(0.15, 0.85, 0.35, 1) forwards;
+        animation: bracket-lock 0.5s cubic-bezier(0.15, 0.85, 0.35, 1) forwards;
       }
 
       body.run .console-log {
-        animation: fade-in-up 0.6s cubic-bezier(0.15, 0.85, 0.35, 1) 0.4s forwards;
+        opacity: 1;
       }
 
       body.run .codename-glyphs span {
-        animation: letter-glow-in 0.4s ease-out var(--delay) forwards;
+        animation: letter-matrix-in 0.25s cubic-bezier(0.1, 1, 0.2, 1) var(--delay) forwards;
       }
 
       body.run .codename-bar {
-        animation: bar-expand 0.8s cubic-bezier(0.15, 0.85, 0.35, 1) 0.6s forwards;
+        animation: bar-deploy-hard 0.6s cubic-bezier(0.15, 0.85, 0.35, 1) 0.5s forwards;
       }
 
       body.run .codename-status {
-        animation: fade-in-up 0.5s ease-out 1s forwards;
+        animation: frame-glitch-in 0.3s steps(2, end) 0.8s forwards;
       }
 
       body.run .radar-line {
-        animation: radar-sweep 2.8s cubic-bezier(0.33, 1, 0.68, 1) 1.2s infinite;
+        animation: radar-quantum-sweep 2.2s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
       }
 
       /* ==================== 启动完成离场态 (body.done) ==================== */
-      body.done .core-prism {
-        animation: prism-expand-out 0.65s cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
-      }
-
-      body.done .frame-outline {
-        animation: frame-release 0.45s cubic-bezier(0.4, 0, 1, 1) forwards;
-      }
-
-      body.done .ring-orbit {
-        animation: ring-blast 0.6s cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
+      /* 核心进化点：对不同元素解耦，通过精密时序控制平滑消融，消灭突兀感 */
+      
+      body.done .console-log {
+        /* 控制台日志第一顺位优雅下沉隐藏 */
+        animation: console-smooth-out 0.35s cubic-bezier(0.3, 0, 1, 1) forwards;
       }
 
       body.done .hologram-bracket {
-        animation: bracket-release 0.5s cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
+        /* 四角准星第二顺位向外滑移淡出 */
+        animation: bracket-fade-out 0.45s cubic-bezier(0.1, 0.9, 0.2, 1) 0.05s forwards;
       }
 
-      body.done .console-log {
-        animation: console-release 0.3s cubic-bezier(0.4, 0, 1, 1) forwards;
+      body.done .ring-orbit {
+        /* 圆环第三顺位反向加速急剧扩大，并在扩大中淡出 */
+        animation: ring-warp-out 0.6s cubic-bezier(0.05, 0.9, 0.15, 1) 0.08s forwards;
+      }
+
+      body.done .core-prism {
+        /* 核心第四顺位配合能量冲击波进行平滑的量子溶解 */
+        animation: core-dissolve-out 0.65s cubic-bezier(0.05, 0.9, 0.15, 1) 0.12s forwards;
       }
 
       body.done .shockwave.wave-a {
-        animation: shockwave-expand 0.6s cubic-bezier(0.1, 0.8, 0.2, 1) forwards;
+        animation: wave-flash-expand 0.55s cubic-bezier(0.05, 0.85, 0.15, 1) 0.12s forwards;
       }
 
       body.done .shockwave.wave-b {
-        animation: shockwave-expand 0.6s cubic-bezier(0.1, 0.8, 0.2, 1) 0.06s forwards;
+        animation: wave-flash-expand 0.55s cubic-bezier(0.05, 0.85, 0.15, 1) 0.16s forwards;
       }
 
-      body.done .radar-line {
-        animation: radar-release 0.2s ease-out forwards;
+      body.done .frame-outline {
+        /* 外框和网格作为背景最后一刻平滑淡出，完美承接主界面亮起 */
+        animation: frame-fade-out 0.55s cubic-bezier(0.25, 1, 0.5, 1) 0.15s forwards;
       }
 
       body.done .matrix-space {
-        animation: space-dissolve 0.65s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        animation: space-fade-out 0.6s cubic-bezier(0.25, 1, 0.5, 1) 0.15s forwards;
       }
 
       body.done .splash-container {
-        animation: stage-bloom 0.65s cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
+        animation: stage-smooth-fade 0.7s cubic-bezier(0.25, 1, 0.5, 1) forwards;
       }
 
-      body.done .status-dot {
+      body.done .radar-line {
         opacity: 0;
-        transition: opacity 0.2s ease;
+        transition: opacity 0.1s ease-out;
       }
 
-      /* ==================== 动画性能调优集 ==================== */
+      /* ==================== 极客科技感动画核心集 ==================== */
       @keyframes beam-pass {
-        0% { transform: skewX(-45deg) translateX(-100%); }
-        60%, 100% { transform: skewX(-45deg) translateX(100%); }
+        0% { transform: skewX(-35deg) translateX(-110%); }
+        45%, 100% { transform: skewX(-35deg) translateX(110%); }
       }
 
-      @keyframes ring-deploy {
-        0% { opacity: 0; transform: translate(-50%, -50%) scale(0.6); filter: blur(8px); }
-        80% { opacity: 0.85; transform: translate(-50%, -50%) scale(1.02); filter: blur(0); }
-        100% { opacity: 0.65; transform: translate(-50%, -50%) scale(1); filter: blur(0); }
+      @keyframes frame-glitch-in {
+        0% { opacity: 0; transform: scale(1.02); }
+        30% { opacity: 0.5; transform: scale(0.99); }
+        60% { opacity: 0.2; transform: scale(1.01); }
+        100% { opacity: 1; transform: scale(1); }
       }
 
-      @keyframes frame-deploy {
-        0% { opacity: 0; transform: scale(0.97); filter: blur(4px); }
-        100% { opacity: 1; transform: scale(1); filter: blur(0); }
+      @keyframes ring-step-in {
+        0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5) rotate(-90deg); }
+        70% { opacity: 1; transform: translate(-50%, -50%) scale(1.03) rotate(5deg); }
+        100% { opacity: 0.75; transform: translate(-50%, -50%) scale(1) rotate(0deg); }
       }
 
-      @keyframes ring-inner-fade {
-        0% { opacity: 0; }
-        100% { opacity: 0.8; }
+      @keyframes prism-assemble {
+        0% { opacity: 0; transform: translate(-50%, -50%) rotate(-135deg) scale(0.2); }
+        65% { opacity: 1; transform: translate(-50%, -50%) rotate(55deg) scale(1.08); }
+        100% { opacity: 1; transform: translate(-50%, -50%) rotate(45deg) scale(1); }
       }
 
-      @keyframes rotate-clock {
-        to { transform: rotate(360deg); }
+      @keyframes core-pulse-hard {
+        0%, 100% { transform: translate(-50%, -50%) rotate(45deg) scale(1); opacity: 1; }
+        50% { transform: translate(-50%, -50%) rotate(45deg) scale(1.025); opacity: 0.9; filter: drop-shadow(0 0 25px var(--neon-cyan)); }
       }
 
-      @keyframes rotate-counter {
-        to { transform: rotate(-360deg); }
+      @keyframes bracket-lock {
+        0% { opacity: 0; transform: scale(1.4); }
+        100% { opacity: 0.85; transform: scale(1); }
       }
 
-      @keyframes prism-settle {
-        0% {
-          opacity: 0;
-          transform: translate(-50%, -50%) rotate(-15deg) scale(0.4);
-          filter: blur(12px) brightness(1.8);
-        }
-        75% {
-          opacity: 1;
-          transform: translate(-50%, -50%) rotate(50deg) scale(1.05);
-          filter: blur(0) brightness(1);
-        }
-        100% {
-          opacity: 1;
-          transform: translate(-50%, -50%) rotate(45deg) scale(1);
-          filter: blur(0);
-        }
+      @keyframes letter-matrix-in {
+        0% { opacity: 0; transform: scale(1.4) translateY(-3px); color: var(--neon-cyan); }
+        70% { opacity: 0.8; transform: scale(0.95) translateY(1px); color: var(--neon-purple); }
+        100% { opacity: 1; transform: scale(1) translateY(0); color: var(--text-pure); }
       }
 
-      @keyframes core-pulse {
-        0%, 100% {
-          box-shadow:
-            0 0 45px var(--matrix-glow),
-            inset 0 0 22px var(--matrix-glow);
-          transform: translate(-50%, -50%) rotate(45deg) scale(1);
-        }
-        50% {
-          box-shadow:
-            0 0 75px rgba(0, 240, 255, 0.5),
-            0 0 90px rgba(189, 0, 255, 0.25),
-            inset 0 0 35px rgba(0, 240, 255, 0.35);
-          transform: translate(-50%, -50%) rotate(45deg) scale(1.015);
-        }
-      }
-
-      @keyframes bracket-deploy {
-        0% { opacity: 0; transform: scale(1.15); filter: blur(4px); }
-        100% { opacity: 0.82; transform: scale(1); filter: blur(0); }
-      }
-
-      @keyframes fade-in-up {
-        0% { opacity: 0; transform: translateY(6px); }
-        100% { opacity: 1; transform: translateY(0); }
-      }
-
-      @keyframes letter-glow-in {
-        0% { opacity: 0; filter: blur(4px); text-shadow: 0 0 20px var(--neon-cyan); }
-        100% { opacity: 1; filter: blur(0); }
-      }
-
-      @keyframes bar-expand {
+      @keyframes bar-deploy-hard {
         0% { transform: scaleX(0); opacity: 0; }
         100% { transform: scaleX(1); opacity: 1; }
       }
 
-      @keyframes radar-sweep {
+      @keyframes radar-quantum-sweep {
         0% { transform: translateY(-135px); opacity: 0; }
-        15%, 75% { opacity: 1; }
-        90%, 100% { transform: translateY(135px); opacity: 0; }
+        8%, 70% { opacity: 1; }
+        85%, 100% { transform: translateY(135px); opacity: 0; }
+      }
+
+      @keyframes dot-stutter {
+        from { opacity: 0.2; transform: scale(0.8); }
+        to { opacity: 1; transform: scale(1.1); }
       }
 
       @keyframes glitch-trigger {
-        0%, 92%, 98%, 100% { text-shadow: -2px -2px 0 var(--neon-cyan), 2px 2px 0 var(--neon-purple); transform: scale(1) skewX(0); }
-        93% { text-shadow: 5px -1px 0 var(--neon-cyan), -4px 3px 0 var(--neon-purple); transform: scale(1.06) skewX(-7deg); color: #00f0ff; }
-        95% { text-shadow: -4px 3px 0 var(--neon-cyan), 4px -2px 0 var(--neon-purple); transform: scale(0.95) skewX(7deg); color: #ff00ff; }
-        97% { text-shadow: 2px -3px 0 var(--neon-cyan), -3px 1px 0 var(--neon-purple); transform: scale(1.02) skewX(-2deg); }
+        0%, 93%, 97%, 100% { text-shadow: -3px -1px 0 var(--neon-cyan), 3px 2px 0 var(--neon-purple); transform: scale(1) skewX(0); }
+        94% { text-shadow: 6px -2px 0 var(--neon-cyan), -6px 4px 0 var(--neon-purple); transform: scale(1.08) skewX(-12deg); color: #00f0ff; }
+        96% { text-shadow: -5px 4px 0 var(--neon-cyan), 5px -3px 0 var(--neon-purple); transform: scale(0.92) skewX(12deg); color: #ff00ff; }
       }
 
-      @keyframes prism-expand-out {
-        0% {
-          opacity: 1;
-          transform: translate(-50%, -50%) rotate(45deg) scale(1);
-          filter: blur(0);
-        }
-        25% {
-          opacity: 1;
-          transform: translate(-50%, -50%) rotate(40deg) scale(0.85);
-          background: rgba(189, 0, 255, 0.3);
-          box-shadow: 0 0 80px rgba(189, 0, 255, 0.5);
-          filter: blur(1px);
-        }
-        100% {
-          opacity: 0;
-          transform: translate(-50%, -50%) rotate(115deg) scale(3.5);
-          filter: blur(24px) brightness(1.5);
-        }
-      }
-
-      @keyframes ring-blast {
-        0% { transform: translate(-50%, -50%) scale(1); opacity: 0.65; filter: blur(0); }
-        100% { transform: translate(-50%, -50%) scale(2.6); opacity: 0; filter: blur(16px); }
-      }
-
-      @keyframes shockwave-expand {
-        0% { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
-        15% { opacity: 0.85; filter: blur(0); }
-        100% { opacity: 0; transform: translate(-50%, -50%) scale(2.8); filter: blur(8px); }
-      }
-
-      @keyframes bracket-release {
-        0% { opacity: 0.82; transform: translate(0, 0) scale(1); }
-        100% {
-          opacity: 0;
-          transform: translate(var(--burst-x), var(--burst-y)) scale(0.9);
-          filter: blur(4px);
-        }
-      }
-
-      @keyframes console-release {
+      /* ==================== 优化后的平滑能量消融离场系列 ==================== */
+      
+      @keyframes console-smooth-out {
         0% { opacity: 1; transform: translateY(0); }
-        100% { opacity: 0; transform: translateY(12px); filter: blur(2px); }
+        100% { opacity: 0; transform: translateY(16px); }
       }
 
-      @keyframes radar-release {
-        to { opacity: 0; }
+      @keyframes bracket-fade-out {
+        0% { opacity: 0.85; transform: translate(0, 0) scale(1); }
+        100% { opacity: 0; transform: translate(var(--burst-x), var(--burst-y)) scale(0.95); }
       }
 
-      @keyframes space-dissolve {
+      @keyframes ring-warp-out {
+        0% { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: 0.75; }
+        30% { opacity: 0.9; }
+        100% { transform: translate(-50%, -50%) scale(1.8) rotate(-120deg); opacity: 0; }
+      }
+
+      @keyframes core-dissolve-out {
+        0% { transform: translate(-50%, -50%) rotate(45deg) scale(1); opacity: 1; filter: brightness(1); }
+        25% { transform: translate(-50%, -50%) rotate(35deg) scale(0.92); opacity: 1; filter: brightness(1.5); background: #ffffff; }
+        100% { transform: translate(-50%, -50%) rotate(180deg) scale(2.2); opacity: 0; filter: brightness(2); }
+      }
+
+      @keyframes wave-flash-expand {
+        0% { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+        20% { opacity: 1; }
+        100% { opacity: 0; transform: translate(-50%, -50%) scale(2.4); }
+      }
+
+      @keyframes frame-fade-out {
         0% { opacity: 1; transform: scale(1); }
-        100% { opacity: 0; transform: scale(1.02); filter: blur(6px); }
+        100% { opacity: 0; transform: scale(1.01); }
       }
 
-      @keyframes stage-bloom {
-        0% { transform: scale(1); }
-        100% { transform: scale(1.02); }
+      @keyframes space-fade-out {
+        0% { opacity: 1; }
+        100% { opacity: 0; }
       }
 
-      @keyframes frame-release {
-        0% { opacity: 1; transform: scale(1); }
-        100% { opacity: 0; transform: scale(1.02); filter: blur(4px); }
-      }
-
-      @keyframes dot-pulse {
-        0%, 100% { opacity: 0.4; transform: scale(0.9); }
-        50% { opacity: 1; transform: scale(1.15); }
+      @keyframes stage-smooth-fade {
+        0% { opacity: 1; }
+        100% { opacity: 0; }
       }
 
       @media (prefers-reduced-motion: reduce) {
-        .matrix-space::before, .hud-vector-ring, .hud-vector-ring::after, .letter-b, .radar-line, .status-dot, .codename-glyphs span, .codename-bar, .codename-status {
+        .matrix-space::before, .hud-vector-ring, .hud-vector-ring::after, .letter-b, .radar-line, .status-dot, .codename-glyphs span, .codename-bar {
           animation: none !important;
         }
-        .frame-outline, .ring-orbit { opacity: 0.62; }
-        .ring-orbit { transform: translate(-50%, -50%) scale(1); }
+        .frame-outline { opacity: 0.8; transform: scale(1); }
+        .ring-orbit { opacity: 0.65; transform: translate(-50%, -50%) scale(1); }
         .core-prism { opacity: 1; transform: translate(-50%, -50%) rotate(45deg) scale(1); }
-        .hologram-bracket { opacity: 0.82; }
-        .console-log { opacity: 0.92; transform: none; }
-        .codename-glyphs span { opacity: 1; }
+        .hologram-bracket { opacity: 0.85; }
+        .codename-glyphs span { opacity: 1; transform: none; }
         .codename-bar { transform: scaleX(1); }
-        body.done .splash-container { opacity: 0; transition: opacity 0.18s ease; }
+        .codename-status { opacity: 1; }
+        body.done .splash-container { opacity: 0; transition: opacity 0.2s ease; }
       }
     </style>
   </head>
@@ -590,14 +534,14 @@
 
       <div class="console-log codename">
         <div class="codename-glyphs" aria-label="BENCH-OS">
-          <span style="--delay: 0.45s">B</span>
-          <span style="--delay: 0.50s">E</span>
-          <span style="--delay: 0.55s">N</span>
-          <span style="--delay: 0.60s">C</span>
-          <span style="--delay: 0.65s">H</span>
-          <span style="--delay: 0.70s">-</span>
-          <span style="--delay: 0.75s">O</span>
-          <span style="--delay: 0.80s">S</span>
+          <span style="--delay: 0.2s">B</span>
+          <span style="--delay: 0.25s">E</span>
+          <span style="--delay: 0.3s">N</span>
+          <span style="--delay: 0.35s">C</span>
+          <span style="--delay: 0.4s">H</span>
+          <span style="--delay: 0.45s">-</span>
+          <span style="--delay: 0.5s">O</span>
+          <span style="--delay: 0.55s">S</span>
         </div>
         <div class="codename-bar"></div>
         <div class="codename-status">
