@@ -39,6 +39,7 @@ import { openPlatformDialog, savePlatformDialog } from "@/platform/dialog";
 import { canUseTauriWindow } from "@/platform/capabilities";
 import { cn } from "@/lib/utils";
 import * as api from "@/features/api-billing/api";
+import { classifyApiBillingError } from "@/features/api-billing/error-classifier";
 import type {
   AccountSessionStatus,
   RelayStation,
@@ -162,12 +163,6 @@ function ApiBillingPage() {
     setOpeningAccountId(account.id);
     try {
       await openLoginWebview(account, selectedStation.website);
-      try {
-        const updated = await api.markAccountLoggedIn(account.id);
-        setAccounts((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
-      } catch (error) {
-        toast.error(t("apiBilling.toasts.markLoggedInFailed"));
-      }
     } finally {
       setOpeningAccountId((current) => (current === account.id ? null : current));
     }
@@ -193,7 +188,8 @@ function ApiBillingPage() {
       const updated = await api.refreshAccount(account.id);
       setAccounts((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
     } catch (error) {
-      toast.error(t("apiBilling.toasts.refreshAccountFailed"));
+      const info = classifyApiBillingError(error, t("apiBilling.toasts.refreshAccountFailed"));
+      toast.error(t(`apiBilling.toasts.${info.kind}`));
     } finally {
       setRefreshingAccountIds((prev) => {
         if (!prev.has(account.id)) return prev;
@@ -220,7 +216,8 @@ function ApiBillingPage() {
       const byId = new Map(subset.map((a) => [a.id, a] as const));
       setAccounts((prev) => prev.map((a) => byId.get(a.id) ?? a));
     } catch (error) {
-      toast.error(t("apiBilling.toasts.refreshStationFailed"));
+      const info = classifyApiBillingError(error, t("apiBilling.toasts.refreshStationFailed"));
+      toast.error(t(`apiBilling.toasts.${info.kind}`));
     } finally {
       setRefreshingStationIds((prev) => {
         if (!prev.has(stationId)) return prev;
@@ -238,7 +235,8 @@ function ApiBillingPage() {
       const all = await api.refreshAll();
       setAccounts(all);
     } catch (error) {
-      toast.error(t("apiBilling.toasts.refreshAllFailed"));
+      const info = classifyApiBillingError(error, t("apiBilling.toasts.refreshAllFailed"));
+      toast.error(t(`apiBilling.toasts.${info.kind}`));
     } finally {
       setRefreshingAll(false);
     }
@@ -262,7 +260,8 @@ function ApiBillingPage() {
         })
       );
     } catch (error) {
-      toast.error(t("apiBilling.toasts.exportFailed"));
+      const info = classifyApiBillingError(error, t("apiBilling.toasts.exportFailed"));
+      toast.error(t(`apiBilling.toasts.${info.kind}`, { defaultValue: info.message }));
     } finally {
       setExportingData(false);
     }
@@ -299,7 +298,8 @@ function ApiBillingPage() {
         })
       );
     } catch (error) {
-      toast.error(t("apiBilling.toasts.importFailed"));
+      const info = classifyApiBillingError(error, t("apiBilling.toasts.importFailed"));
+      toast.error(t(`apiBilling.toasts.${info.kind}`, { defaultValue: info.message }));
     } finally {
       setImportingData(false);
     }
@@ -321,13 +321,19 @@ function ApiBillingPage() {
     }
   };
 
-  const handleEditAccount = async (username: string, notes: string) => {
+  const handleEditAccount = async (
+    username: string,
+    notes: string,
+    password: string
+  ) => {
     if (!editingAccount) return;
     try {
       const updated = await api.updateAccount(editingAccount.id, {
         username,
         notes,
       });
+      await api.setPassword(editingAccount.id, password);
+      updated.hasPassword = password.length > 0;
       setAccounts((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
       setEditAccountOpen(false);
       setEditingAccount(null);
@@ -412,8 +418,6 @@ function ApiBillingPage() {
       <DetailColumn
         station={selectedStation}
         account={selectedAccount}
-        opening={openingAccountId === selectedAccount?.id}
-        onLogin={() => selectedAccount && void handleLogin(selectedAccount)}
         onOpenWebsite={() => selectedStation && void openExternal(selectedStation.website)}
       />
 
@@ -512,26 +516,6 @@ function StationColumn({
             <Button
               size="icon-sm"
               variant="outline"
-              onClick={onImportData}
-              disabled={importingData}
-              aria-label={t("apiBilling.importData")}
-              title={t("apiBilling.importData")}
-            >
-              <Import className={importingData ? "animate-pulse" : undefined} />
-            </Button>
-            <Button
-              size="icon-sm"
-              variant="outline"
-              onClick={onExportData}
-              disabled={exportingData}
-              aria-label={t("apiBilling.exportData")}
-              title={t("apiBilling.exportData")}
-            >
-              <Download className={exportingData ? "animate-pulse" : undefined} />
-            </Button>
-            <Button
-              size="icon-sm"
-              variant="outline"
               onClick={onRefreshAll}
               disabled={refreshingAll}
               aria-label={t("apiBilling.refreshAll")}
@@ -600,6 +584,28 @@ function StationColumn({
             })}
           </div>
         )}
+      </div>
+      <div className="flex items-center justify-end gap-1.5 border-t px-3 py-3">
+        <Button
+          size="icon-sm"
+          variant="outline"
+          onClick={onImportData}
+          disabled={importingData}
+          aria-label={t("apiBilling.importData")}
+          title={t("apiBilling.importData")}
+        >
+          <Import className={importingData ? "animate-pulse" : undefined} />
+        </Button>
+        <Button
+          size="icon-sm"
+          variant="outline"
+          onClick={onExportData}
+          disabled={exportingData}
+          aria-label={t("apiBilling.exportData")}
+          title={t("apiBilling.exportData")}
+        >
+          <Download className={exportingData ? "animate-pulse" : undefined} />
+        </Button>
       </div>
     </section>
   );
@@ -770,14 +776,10 @@ function AccountColumn({
 function DetailColumn({
   station,
   account,
-  opening,
-  onLogin,
   onOpenWebsite,
 }: {
   station: RelayStation | null;
   account: StationAccount | null;
-  opening: boolean;
-  onLogin: () => void;
   onOpenWebsite: () => void;
 }) {
   const { t } = useTranslation();
@@ -917,14 +919,6 @@ function DetailColumn({
                     <p className="mt-1.5 whitespace-pre-wrap rounded-lg border bg-muted/20 p-3 text-sm leading-6 text-muted-foreground">
                       {account.notes || t("apiBilling.notesEmpty")}
                     </p>
-                  </div>
-                }
-                footer={
-                  <div className="flex flex-wrap gap-2">
-                    <Button size="sm" onClick={onLogin} disabled={opening}>
-                      <LogIn />
-                      {opening ? t("apiBilling.opening") : t("apiBilling.detail.loginAction")}
-                    </Button>
                   </div>
                 }
                 note={
@@ -1197,11 +1191,13 @@ function AddAccountDialog({
   const { t } = useTranslation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordHidden, setPasswordHidden] = useState(true);
   const [notes, setNotes] = useState("");
 
   const reset = () => {
     setUsername("");
     setPassword("");
+    setPasswordHidden(true);
     setNotes("");
   };
 
@@ -1247,12 +1243,29 @@ function AddAccountDialog({
             label={t("apiBilling.fields.password")}
             icon={<KeyRound size={14} />}
             input={
-              <Input
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder={t("apiBilling.addAccountDialog.passwordPlaceholder")}
-                type="password"
-              />
+              <div className="flex items-center gap-2">
+                <Input
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={t("apiBilling.addAccountDialog.passwordPlaceholder")}
+                  type={passwordHidden ? "password" : "text"}
+                />
+                <IconButton
+                  onClick={() => setPasswordHidden((hidden) => !hidden)}
+                  icon={passwordHidden ? <Eye size={14} /> : <EyeOff size={14} />}
+                  label={
+                    passwordHidden
+                      ? t("apiBilling.detail.revealPassword")
+                      : t("apiBilling.detail.hidePassword")
+                  }
+                />
+                {!passwordHidden && password.length > 0 ? (
+                  <CopyIconButton
+                    value={password}
+                    label={t("apiBilling.detail.copy")}
+                  />
+                ) : null}
+              </div>
             }
           />
           <Field
@@ -1410,24 +1423,53 @@ function EditAccountDialog({
   account: StationAccount | null;
   stationName: string;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (username: string, notes: string) => void | Promise<void>;
+  onSubmit: (
+    username: string,
+    notes: string,
+    password: string
+  ) => void | Promise<void>;
 }) {
   const { t } = useTranslation();
   const [username, setUsername] = useState("");
   const [notes, setNotes] = useState("");
+  const [password, setPassword] = useState("");
+  const [passwordHidden, setPasswordHidden] = useState(true);
+  const [passwordLoading, setPasswordLoading] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
     if (open && account) {
       setUsername(account.username);
       setNotes(account.notes);
+      setPassword("");
+      setPasswordHidden(true);
+      if (account.hasPassword) {
+        setPasswordLoading(true);
+        void api
+          .revealPassword(account.id)
+          .then((pw) => {
+            if (!cancelled) setPassword(pw);
+          })
+          .catch(() => {
+            if (!cancelled) toast.error(t("apiBilling.toasts.revealPasswordFailed"));
+          })
+          .finally(() => {
+            if (!cancelled) setPasswordLoading(false);
+          });
+      } else {
+        setPasswordLoading(false);
+      }
     }
-  }, [open, account]);
+    return () => {
+      cancelled = true;
+    };
+  }, [open, account, t]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const u = username.trim();
     if (!u) return;
-    void Promise.resolve(onSubmit(u, notes.trim()));
+    void Promise.resolve(onSubmit(u, notes.trim(), password.trim()));
   };
 
   return (
@@ -1456,6 +1498,37 @@ function EditAccountDialog({
                 autoFocus
                 required
               />
+            }
+          />
+          <Field
+            label={t("apiBilling.fields.password")}
+            icon={<KeyRound size={14} />}
+            input={
+              <div className="flex items-center gap-2">
+                <Input
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={t("apiBilling.editAccountDialog.passwordPlaceholder")}
+                  type={passwordHidden ? "password" : "text"}
+                  disabled={passwordLoading}
+                />
+                <IconButton
+                  onClick={() => setPasswordHidden((hidden) => !hidden)}
+                  icon={passwordHidden ? <Eye size={14} /> : <EyeOff size={14} />}
+                  label={
+                    passwordHidden
+                      ? t("apiBilling.detail.revealPassword")
+                      : t("apiBilling.detail.hidePassword")
+                  }
+                  disabled={passwordLoading}
+                />
+                {!passwordHidden && password.length > 0 ? (
+                  <CopyIconButton
+                    value={password}
+                    label={t("apiBilling.detail.copy")}
+                  />
+                ) : null}
+              </div>
             }
           />
           <Field

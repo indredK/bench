@@ -69,7 +69,8 @@
     "editAccountDialog": {
       "title": "编辑账号",
       "subtitle": "修改「{{name}}」的账号信息。",
-      "notesPlaceholder": "可记录该账号的用途、余额等信息。"
+      "notesPlaceholder": "可记录该账号的用途、余额等信息。",
+      "passwordPlaceholder": "留空则清空当前密码"
     },
     "status": {
       "ready": "已登录",
@@ -121,7 +122,13 @@
       "exportFailed": "导出中转站数据失败",
       "exportSuccess": "已导出 {{stations}} 个中转站、{{accounts}} 个账号",
       "importFailed": "导入中转站数据失败",
-      "importSuccess": "已导入，当前共有 {{stations}} 个中转站、{{accounts}} 个账号"
+      "importSuccess": "已导入，当前共有 {{stations}} 个中转站、{{accounts}} 个账号",
+      "probeTimeout": "登录态检测超时，请确认站点可访问后再试",
+      "probeNetwork": "登录态检测失败，请检查探针地址或站点网络状态",
+      "invalidImportFile": "导入文件格式不正确",
+      "storeFailure": "本地数据读写失败",
+      "webviewFailure": "登录窗口或探测窗口创建失败",
+      "unknown": "操作失败，请稍后重试"
     }
   },
   "appManager": {

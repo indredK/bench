@@ -69,7 +69,8 @@
     "editAccountDialog": {
       "title": "Edit Account",
       "subtitle": "Edit account info for \"{{name}}\".",
-      "notesPlaceholder": "Use, balance, or anything worth noting."
+      "notesPlaceholder": "Use, balance, or anything worth noting.",
+      "passwordPlaceholder": "Leave empty to clear the current password"
     },
     "status": {
       "ready": "Signed in",
@@ -121,7 +122,13 @@
       "exportFailed": "Failed to export gateway data",
       "exportSuccess": "Exported {{stations}} gateways and {{accounts}} accounts",
       "importFailed": "Failed to import gateway data",
-      "importSuccess": "Import complete. There are now {{stations}} gateways and {{accounts}} accounts"
+      "importSuccess": "Import complete. There are now {{stations}} gateways and {{accounts}} accounts",
+      "probeTimeout": "Login status check timed out. Verify the site is reachable and try again.",
+      "probeNetwork": "Login status check failed. Verify the probe URL and network connectivity.",
+      "invalidImportFile": "The import file format is invalid.",
+      "storeFailure": "Failed to read or write local data.",
+      "webviewFailure": "Failed to create the login or probe window.",
+      "unknown": "The operation failed. Please try again."
     }
   },
   "appManager": {

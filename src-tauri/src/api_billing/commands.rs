@@ -1,4 +1,5 @@
 use chrono::Local;
+use futures_util::stream::{self, StreamExt};
 use rand::RngCore;
 use std::collections::{HashMap, HashSet};
 use tauri::{AppHandle, Runtime, State};
@@ -551,6 +552,41 @@ fn classify(status: u16) -> AccountSessionStatus {
     }
 }
 
+async fn refresh_many<R: Runtime>(
+    app: AppHandle<R>,
+    sem: std::sync::Arc<tokio::sync::Semaphore>,
+    accounts: Vec<StationAccount>,
+    stations: Vec<RelayStation>,
+) -> ApiBillingResult<Vec<(String, AccountSessionStatus)>> {
+    stream::iter(accounts.into_iter().map(|acct| {
+        let app = app.clone();
+        let sem = sem.clone();
+        let stations = stations.clone();
+        async move {
+            let _permit = sem.acquire().await.map_err(|e| {
+                ApiBillingError::probe_network(format!("semaphore closed: {e}"), None)
+            })?;
+            let station = stations
+                .iter()
+                .find(|s| s.id == acct.station_id)
+                .ok_or_else(|| ApiBillingError::not_found(format!("station {}", acct.station_id)))?;
+            let status = if let Some(probe_url) = &station.probe_url {
+                let status_code =
+                    webview::run_probe(&app, &acct.id, &station.website, probe_url).await?;
+                classify(status_code)
+            } else {
+                acct.status
+            };
+            Ok((acct.id, status))
+        }
+    }))
+    .buffer_unordered(3)
+    .collect::<Vec<ApiBillingResult<(String, AccountSessionStatus)>>>()
+    .await
+    .into_iter()
+    .collect()
+}
+
 async fn do_refresh_one<R: Runtime>(
     app: &AppHandle<R>,
     _state: &ApiBillingState,
@@ -627,23 +663,7 @@ pub async fn refresh_station<R: Runtime>(
     let stations = state.stations.lock().unwrap().clone();
 
     let sem = state.probe_semaphore.clone();
-    let mut results: Vec<(String, AccountSessionStatus)> = Vec::new();
-    for acct in &subset {
-        let _permit = sem.acquire().await.map_err(|e| {
-            ApiBillingError::probe_network(format!("semaphore closed: {e}"), None)
-        })?;
-        let station = stations
-            .iter()
-            .find(|s| s.id == acct.station_id)
-            .ok_or_else(|| ApiBillingError::not_found(format!("station {}", acct.station_id)))?;
-        if let Some(probe_url) = &station.probe_url {
-            let status_code =
-                webview::run_probe(&app, &acct.id, &station.website, probe_url).await?;
-            results.push((acct.id.clone(), classify(status_code)));
-        } else {
-            results.push((acct.id.clone(), acct.status));
-        }
-    }
+    let results = refresh_many(app.clone(), sem, subset, stations).await?;
 
     let snapshot = {
         let mut accounts = state.accounts.lock().unwrap();
@@ -673,23 +693,7 @@ pub async fn refresh_all<R: Runtime>(
     let stations = state.stations.lock().unwrap().clone();
 
     let sem = state.probe_semaphore.clone();
-    let mut results: Vec<(String, AccountSessionStatus)> = Vec::new();
-    for acct in &all_accounts {
-        let _permit = sem.acquire().await.map_err(|e| {
-            ApiBillingError::probe_network(format!("semaphore closed: {e}"), None)
-        })?;
-        let station = stations
-            .iter()
-            .find(|s| s.id == acct.station_id)
-            .ok_or_else(|| ApiBillingError::not_found(format!("station {}", acct.station_id)))?;
-        if let Some(probe_url) = &station.probe_url {
-            let status_code =
-                webview::run_probe(&app, &acct.id, &station.website, probe_url).await?;
-            results.push((acct.id.clone(), classify(status_code)));
-        } else {
-            results.push((acct.id.clone(), acct.status));
-        }
-    }
+    let results = refresh_many(app.clone(), sem, all_accounts, stations).await?;
 
     let snapshot = {
         let mut accounts = state.accounts.lock().unwrap();
@@ -746,4 +750,39 @@ pub fn mark_account_logged_in<R: Runtime>(
     };
     storage::save_accounts(&app, &snapshot)?;
     Ok(updated)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn classify_2xx_as_ready() {
+        assert_eq!(classify(200), AccountSessionStatus::Ready);
+        assert_eq!(classify(204), AccountSessionStatus::Ready);
+    }
+
+    #[test]
+    fn classify_401_403_as_login_required() {
+        assert_eq!(classify(401), AccountSessionStatus::LoginRequired);
+        assert_eq!(classify(403), AccountSessionStatus::LoginRequired);
+    }
+
+    #[test]
+    fn classify_other_codes_as_expired() {
+        assert_eq!(classify(0), AccountSessionStatus::Expired);
+        assert_eq!(classify(302), AccountSessionStatus::Expired);
+        assert_eq!(classify(500), AccountSessionStatus::Expired);
+    }
+
+    #[test]
+    fn next_unique_remark_appends_numeric_suffix() {
+        let mut existing = HashSet::from([
+            "Alpha".to_string(),
+            "Alpha1".to_string(),
+            "Alpha2".to_string(),
+        ]);
+        assert_eq!(next_unique_remark("Alpha", &mut existing), "Alpha3");
+        assert!(existing.contains("Alpha3"));
+    }
 }

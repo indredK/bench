@@ -35,7 +35,16 @@ export interface RelayDataImportResult {
   accounts: StationAccount[];
 }
 
-export type ApiBillingErrorCode = "NOT_FOUND" | "INVALID_INPUT" | "STORE_FAIL";
+export type ApiBillingErrorCode =
+  | "NOT_FOUND"
+  | "INVALID_INPUT"
+  | "STORE_FAIL"
+  | "KEYRING_UNAVAILABLE"
+  | "CRYPTO_FAIL"
+  | "CLIPBOARD_FAIL"
+  | "WEBVIEW_FAIL"
+  | "PROBE_TIMEOUT"
+  | "PROBE_NETWORK";
 
 export interface ApiBillingError {
   code: ApiBillingErrorCode;
