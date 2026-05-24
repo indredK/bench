@@ -151,7 +151,8 @@ function parseTauriCommandArgs(rustSource: string): Record<string, string[]> {
         !arg.includes("tauri::AppHandle") &&
         !arg.includes("tauri::WebviewWindow") &&
         !arg.includes("tauri::Window") &&
-        !arg.includes("AppHandle")
+        !arg.includes("AppHandle") &&
+        !/(^|\W)State\s*</.test(arg)
       )
       .map((arg) => arg.split(":")[0]?.trim())
       .filter((arg): arg is string => Boolean(arg))
