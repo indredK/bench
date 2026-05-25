@@ -17,15 +17,66 @@ pub enum LoginMethod {
     PhoneCode,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum LoginDetectionMode {
+    PresetLogout,
+    PresetLogin,
+    Custom,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum LoginDetectionPresence {
+    Present,
+    Absent,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct LoginDetectionRule {
+    pub presence: LoginDetectionPresence,
+    pub text: String,
+}
+
+impl Default for LoginDetectionRule {
+    fn default() -> Self {
+        Self {
+            presence: LoginDetectionPresence::Present,
+            text: String::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct LoginDetectionConfig {
+    pub mode: LoginDetectionMode,
+    #[serde(default)]
+    pub logged_out_rule: LoginDetectionRule,
+    #[serde(default)]
+    pub logged_in_rule: LoginDetectionRule,
+}
+
+impl Default for LoginDetectionConfig {
+    fn default() -> Self {
+        Self {
+            mode: LoginDetectionMode::PresetLogout,
+            logged_out_rule: LoginDetectionRule::default(),
+            logged_in_rule: LoginDetectionRule::default(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RelayStation {
     pub id: String,
     pub remark: String,
     pub website: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub probe_url: Option<String>,
     pub created_at: String,
+    #[serde(default)]
+    pub login_detection: LoginDetectionConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -86,9 +137,9 @@ pub struct RelayStationExport {
     pub remark: String,
     pub website: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub probe_url: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub created_at: Option<String>,
+    #[serde(default)]
+    pub login_detection: LoginDetectionConfig,
     #[serde(default)]
     pub accounts: Vec<RelayAccountExport>,
 }
@@ -126,9 +177,6 @@ pub enum ApiBillingError {
     KeyringUnavailable { message: String },
     CryptoFail { message: String },
     ClipboardFail { message: String },
-    WebviewFail { message: String },
-    ProbeTimeout { message: String },
-    ProbeNetwork { message: String, status: Option<u16> },
 }
 
 impl ApiBillingError {
@@ -150,15 +198,6 @@ impl ApiBillingError {
     pub fn clipboard_fail(msg: impl Into<String>) -> Self {
         Self::ClipboardFail { message: msg.into() }
     }
-    pub fn webview_fail(msg: impl Into<String>) -> Self {
-        Self::WebviewFail { message: msg.into() }
-    }
-    pub fn probe_timeout(msg: impl Into<String>) -> Self {
-        Self::ProbeTimeout { message: msg.into() }
-    }
-    pub fn probe_network(msg: impl Into<String>, status: Option<u16>) -> Self {
-        Self::ProbeNetwork { message: msg.into(), status }
-    }
 }
 
 impl std::fmt::Display for ApiBillingError {
@@ -170,15 +209,6 @@ impl std::fmt::Display for ApiBillingError {
             Self::KeyringUnavailable { message } => write!(f, "keyring unavailable: {message}"),
             Self::CryptoFail { message } => write!(f, "crypto failure: {message}"),
             Self::ClipboardFail { message } => write!(f, "clipboard failure: {message}"),
-            Self::WebviewFail { message } => write!(f, "webview failure: {message}"),
-            Self::ProbeTimeout { message } => write!(f, "probe timeout: {message}"),
-            Self::ProbeNetwork { message, status } => {
-                if let Some(s) = status {
-                    write!(f, "probe network error: {message} (status {s})")
-                } else {
-                    write!(f, "probe network error: {message}")
-                }
-            }
         }
     }
 }

@@ -1,17 +1,17 @@
 use chrono::Local;
-use futures_util::stream::{self, StreamExt};
 use rand::RngCore;
 use std::collections::{HashMap, HashSet};
-use tauri::{AppHandle, Runtime, State};
+use tauri::{AppHandle, Manager, Runtime, State};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 
 use super::crypto;
+use super::detection;
 use super::state::ApiBillingState;
 use super::storage;
 use super::types::{
-    AccountSessionStatus, ApiBillingError, ApiBillingResult, LoginMethod, RelayAccountExport,
-    RelayDataExportFile, RelayDataExportResult, RelayDataImportResult, RelayStation,
-    RelayStationExport, StationAccount,
+    AccountSessionStatus, ApiBillingError, ApiBillingResult, LoginDetectionConfig, LoginMethod,
+    RelayAccountExport, RelayDataExportFile, RelayDataExportResult, RelayDataImportResult,
+    RelayStation, RelayStationExport, StationAccount,
 };
 use super::webview;
 
@@ -77,14 +77,14 @@ pub fn create_station<R: Runtime>(
     state: State<'_, ApiBillingState>,
     remark: String,
     website: String,
-    probe_url: Option<String>,
+    login_detection: Option<LoginDetectionConfig>,
 ) -> ApiBillingResult<RelayStation> {
     let station = RelayStation {
         id: new_id("stn"),
         remark: trim_or_invalid(&remark, "remark")?,
         website: trim_or_invalid(&website, "website")?,
-        probe_url: normalize_optional(probe_url),
         created_at: now_label(),
+        login_detection: login_detection.unwrap_or_default(),
     };
     let snapshot = {
         let mut stations = state.stations.lock().unwrap();
@@ -102,7 +102,7 @@ pub fn update_station<R: Runtime>(
     id: String,
     remark: Option<String>,
     website: Option<String>,
-    probe_url: Option<Option<String>>,
+    login_detection: Option<LoginDetectionConfig>,
 ) -> ApiBillingResult<RelayStation> {
     let snapshot = {
         let mut stations = state.stations.lock().unwrap();
@@ -115,8 +115,8 @@ pub fn update_station<R: Runtime>(
         if let Some(w) = website {
             station.website = trim_or_invalid(&w, "website")?;
         }
-        if let Some(p) = probe_url {
-            station.probe_url = normalize_optional(p);
+        if let Some(d) = login_detection {
+            station.login_detection = d;
         }
         let updated = station.clone();
         let snapshot = stations.clone();
@@ -378,8 +378,8 @@ pub fn export_relay_data(
             Ok(RelayStationExport {
                 remark: station.remark,
                 website: station.website,
-                probe_url: station.probe_url,
                 created_at: Some(station.created_at),
+                login_detection: station.login_detection,
                 accounts: station_accounts,
             })
         })
@@ -436,8 +436,8 @@ pub fn import_relay_data<R: Runtime>(
             id: station_id.clone(),
             remark: unique_remark,
             website: trim_or_invalid(&station.website, "website")?,
-            probe_url: normalize_optional(station.probe_url),
             created_at: station.created_at.unwrap_or_else(now_label),
+            login_detection: station.login_detection,
         });
 
         for account in station.accounts {
@@ -580,108 +580,89 @@ pub fn copy_password_to_clipboard<R: Runtime>(
     Ok(())
 }
 
-// ───── session (P3: hidden probe + refresh_* + 并发限流) ─────
+// ───── session refresh ─────
 
-fn classify(status: u16) -> AccountSessionStatus {
-    if (200..300).contains(&status) {
-        AccountSessionStatus::Ready
-    } else if status == 401 || status == 403 {
-        AccountSessionStatus::LoginRequired
-    } else {
-        AccountSessionStatus::Expired
-    }
+async fn refresh_one_impl<R: Runtime>(
+    app: AppHandle<R>,
+    account_id: String,
+) -> ApiBillingResult<StationAccount> {
+    let (website, detection_config, semaphore) = {
+        let state = app.state::<ApiBillingState>();
+        let stations = state.stations.lock().unwrap();
+        let accounts = state.accounts.lock().unwrap();
+        let Some(account) = accounts.iter().find(|a| a.id == account_id) else {
+            return Err(ApiBillingError::not_found(format!("account {account_id}")));
+        };
+        let Some(station) = stations.iter().find(|s| s.id == account.station_id) else {
+            return Err(ApiBillingError::not_found(format!(
+                "station {}",
+                account.station_id
+            )));
+        };
+        (
+            station.website.clone(),
+            station.login_detection.clone(),
+            state.probe_semaphore.clone(),
+        )
+    };
+
+    let _permit = semaphore
+        .acquire_owned()
+        .await
+        .map_err(|e| ApiBillingError::store_fail(format!("acquire probe permit: {e}")))?;
+    let text = webview::run_probe(&app, &account_id, &website).await?;
+    let status = detection::classify(&text, &detection_config);
+
+    let (snapshot, updated) = {
+        let state = app.state::<ApiBillingState>();
+        let mut accounts = state.accounts.lock().unwrap();
+        let Some(a) = accounts.iter_mut().find(|a| a.id == account_id) else {
+            return Err(ApiBillingError::not_found(format!("account {account_id}")));
+        };
+        a.status = status;
+        a.last_refreshed_at = Some(now_label());
+        let updated = a.clone();
+        (accounts.clone(), updated)
+    };
+    storage::save_accounts(&app, &snapshot)?;
+    Ok(updated)
 }
 
 async fn refresh_many<R: Runtime>(
     app: AppHandle<R>,
-    sem: std::sync::Arc<tokio::sync::Semaphore>,
-    accounts: Vec<StationAccount>,
-    stations: Vec<RelayStation>,
-) -> ApiBillingResult<Vec<(String, AccountSessionStatus)>> {
-    stream::iter(accounts.into_iter().map(|acct| {
-        let app = app.clone();
-        let sem = sem.clone();
-        let stations = stations.clone();
-        async move {
-            let _permit = sem.acquire().await.map_err(|e| {
-                ApiBillingError::probe_network(format!("semaphore closed: {e}"), None)
-            })?;
-            let station = stations
-                .iter()
-                .find(|s| s.id == acct.station_id)
-                .ok_or_else(|| ApiBillingError::not_found(format!("station {}", acct.station_id)))?;
-            let status = if let Some(probe_url) = &station.probe_url {
-                let status_code =
-                    webview::run_probe(&app, &acct.id, &station.website, probe_url).await?;
-                classify(status_code)
-            } else {
-                acct.status
-            };
-            Ok((acct.id, status))
+    account_ids: Vec<String>,
+) -> Vec<StationAccount> {
+    let mut set = tokio::task::JoinSet::new();
+    for id in account_ids {
+        let app_clone = app.clone();
+        let id_for_err = id.clone();
+        set.spawn(async move {
+            let result = refresh_one_impl(app_clone, id).await;
+            (id_for_err, result)
+        });
+    }
+
+    let mut results = Vec::new();
+    while let Some(join_res) = set.join_next().await {
+        match join_res {
+            Ok((_id, Ok(account))) => results.push(account),
+            Ok((id, Err(err))) => {
+                eprintln!("[api_billing] refresh failed for {id}: {err:?}");
+            }
+            Err(join_err) => {
+                eprintln!("[api_billing] join error: {join_err:?}");
+            }
         }
-    }))
-    .buffer_unordered(3)
-    .collect::<Vec<ApiBillingResult<(String, AccountSessionStatus)>>>()
-    .await
-    .into_iter()
-    .collect()
-}
-
-async fn do_refresh_one<R: Runtime>(
-    app: &AppHandle<R>,
-    _state: &ApiBillingState,
-    account: &StationAccount,
-    stations: &[RelayStation],
-) -> ApiBillingResult<AccountSessionStatus> {
-    let station = stations
-        .iter()
-        .find(|s| s.id == account.station_id)
-        .ok_or_else(|| ApiBillingError::not_found(format!("station {}", account.station_id)))?;
-
-    let Some(probe_url) = &station.probe_url else {
-        return Ok(account.status);
-    };
-
-    let status_code = webview::run_probe(app, &account.id, &station.website, probe_url).await?;
-    Ok(classify(status_code))
+    }
+    results
 }
 
 #[tauri::command]
 pub async fn refresh_account<R: Runtime>(
     app: AppHandle<R>,
-    state: State<'_, ApiBillingState>,
     account_id: String,
 ) -> ApiBillingResult<StationAccount> {
-    let sem = state.probe_semaphore.clone();
-    let _permit = sem.acquire().await.map_err(|e| {
-        ApiBillingError::probe_network(format!("semaphore closed: {e}"), None)
-    })?;
-
-    let (account, stations) = {
-        let accounts = state.accounts.lock().unwrap();
-        let account = accounts
-            .iter()
-            .find(|a| a.id == account_id)
-            .cloned()
-            .ok_or_else(|| ApiBillingError::not_found(format!("account {account_id}")))?;
-        let stations = state.stations.lock().unwrap().clone();
-        (account, stations)
-    };
-
-    let new_status = do_refresh_one(&app, &state, &account, &stations).await?;
-
-    let (accounts_snapshot, updated) = {
-        let mut accounts = state.accounts.lock().unwrap();
-        let Some(a) = accounts.iter_mut().find(|a| a.id == account_id) else {
-            return Err(ApiBillingError::not_found(format!("account {account_id}")));
-        };
-        a.status = new_status;
-        a.last_refreshed_at = Some(now_label());
-        let updated = a.clone();
-        (accounts.clone(), updated)
-    };
-    storage::save_accounts(&app, &accounts_snapshot)?;
-    Ok(updated)
+    refresh_one_impl(app, account_id).await
 }
 
 #[tauri::command]
@@ -690,38 +671,15 @@ pub async fn refresh_station<R: Runtime>(
     state: State<'_, ApiBillingState>,
     station_id: String,
 ) -> ApiBillingResult<Vec<StationAccount>> {
-    let subset: Vec<StationAccount> = {
-        state
-            .accounts
-            .lock()
-            .unwrap()
-            .iter()
-            .filter(|a| a.station_id == station_id)
-            .cloned()
-            .collect()
-    };
-    let stations = state.stations.lock().unwrap().clone();
-
-    let sem = state.probe_semaphore.clone();
-    let results = refresh_many(app.clone(), sem, subset, stations).await?;
-
-    let snapshot = {
-        let mut accounts = state.accounts.lock().unwrap();
-        let now = now_label();
-        for (id, status) in &results {
-            if let Some(a) = accounts.iter_mut().find(|a| &a.id == id) {
-                a.status = *status;
-                a.last_refreshed_at = Some(now.clone());
-            }
-        }
-        accounts.clone()
-    };
-    storage::save_accounts(&app, &snapshot)?;
-
-    Ok(snapshot
-        .into_iter()
+    let account_ids: Vec<String> = state
+        .accounts
+        .lock()
+        .unwrap()
+        .iter()
         .filter(|a| a.station_id == station_id)
-        .collect())
+        .map(|a| a.id.clone())
+        .collect();
+    Ok(refresh_many(app, account_ids).await)
 }
 
 #[tauri::command]
@@ -729,25 +687,14 @@ pub async fn refresh_all<R: Runtime>(
     app: AppHandle<R>,
     state: State<'_, ApiBillingState>,
 ) -> ApiBillingResult<Vec<StationAccount>> {
-    let all_accounts = state.accounts.lock().unwrap().clone();
-    let stations = state.stations.lock().unwrap().clone();
-
-    let sem = state.probe_semaphore.clone();
-    let results = refresh_many(app.clone(), sem, all_accounts, stations).await?;
-
-    let snapshot = {
-        let mut accounts = state.accounts.lock().unwrap();
-        let now = now_label();
-        for (id, status) in &results {
-            if let Some(a) = accounts.iter_mut().find(|a| &a.id == id) {
-                a.status = *status;
-                a.last_refreshed_at = Some(now.clone());
-            }
-        }
-        accounts.clone()
-    };
-    storage::save_accounts(&app, &snapshot)?;
-    Ok(snapshot)
+    let account_ids: Vec<String> = state
+        .accounts
+        .lock()
+        .unwrap()
+        .iter()
+        .map(|a| a.id.clone())
+        .collect();
+    Ok(refresh_many(app, account_ids).await)
 }
 
 #[tauri::command]
@@ -795,25 +742,6 @@ pub fn mark_account_logged_in<R: Runtime>(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn classify_2xx_as_ready() {
-        assert_eq!(classify(200), AccountSessionStatus::Ready);
-        assert_eq!(classify(204), AccountSessionStatus::Ready);
-    }
-
-    #[test]
-    fn classify_401_403_as_login_required() {
-        assert_eq!(classify(401), AccountSessionStatus::LoginRequired);
-        assert_eq!(classify(403), AccountSessionStatus::LoginRequired);
-    }
-
-    #[test]
-    fn classify_other_codes_as_expired() {
-        assert_eq!(classify(0), AccountSessionStatus::Expired);
-        assert_eq!(classify(302), AccountSessionStatus::Expired);
-        assert_eq!(classify(500), AccountSessionStatus::Expired);
-    }
 
     #[test]
     fn next_unique_remark_appends_numeric_suffix() {

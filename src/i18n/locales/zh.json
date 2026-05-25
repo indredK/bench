@@ -51,15 +51,29 @@
       "linkedAccount": "关联账号",
       "inviteLink": "邀请链接",
       "loginMethods": "登录方式",
-      "probeUrl": "探针地址",
-      "probeUrlHint": "可选，用于检测登录态的接口地址"
+      "loginDetection": "登录态判断"
+    },
+    "loginDetection": {
+      "presetLogout": "检测「退出登录」字样",
+      "presetLogoutHint": "页面出现「退出登录」时，视为已登录",
+      "presetLogin": "检测「登录」字样",
+      "presetLoginHint": "页面出现「登录」时，视为未登录",
+      "custom": "自定义",
+      "customHint": "分别配置未登录与已登录的页面特征",
+      "loggedOutRule": "未登录状态特征",
+      "loggedInRule": "已登录状态特征",
+      "presencePresent": "包含",
+      "presenceAbsent": "不包含",
+      "textPlaceholder": "例如：退出登录"
     },
     "addStationDialog": {
       "title": "添加中转站",
       "subtitle": "填写备注和官网地址，添加后会显示在左侧列表。",
       "remarkPlaceholder": "例如：甲中转站",
       "websitePlaceholder": "https://example.com",
-      "inviteLinkPriority": "账号将优先使用邀请链接登录"
+      "inviteLinkPriority": "账号将优先使用邀请链接登录",
+      "sectionBasic": "基础信息",
+      "sectionLoginDetection": "登录态判断"
     },
     "addAccountDialog": {
       "title": "添加账号",
@@ -75,7 +89,7 @@
     },
     "editStationDialog": {
       "title": "编辑中转站",
-      "subtitle": "修改中转站的备注、官网地址和探针地址。"
+      "subtitle": "修改中转站的备注、官网地址和登录态判断方式。"
     },
     "editAccountDialog": {
       "title": "编辑账号",
@@ -147,11 +161,8 @@
       "exportSuccess": "已导出 {{stations}} 个中转站、{{accounts}} 个账号",
       "importFailed": "导入中转站数据失败",
       "importSuccess": "已导入，当前共有 {{stations}} 个中转站、{{accounts}} 个账号",
-      "probeTimeout": "登录态检测超时，请确认站点可访问后再试",
-      "probeNetwork": "登录态检测失败，请检查探针地址或站点网络状态",
       "invalidImportFile": "导入文件格式不正确",
       "storeFailure": "本地数据读写失败",
-      "webviewFailure": "登录窗口或探测窗口创建失败",
       "unknown": "操作失败，请稍后重试"
     }
   },

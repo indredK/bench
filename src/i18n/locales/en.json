@@ -51,15 +51,29 @@
       "linkedAccount": "Linked Account",
       "inviteLink": "Invite Link",
       "loginMethods": "Login Methods",
-      "probeUrl": "Probe URL",
-      "probeUrlHint": "Optional URL used to verify login status"
+      "loginDetection": "Login Detection"
+    },
+    "loginDetection": {
+      "presetLogout": "Detect \"Logout\" text",
+      "presetLogoutHint": "If the page contains \"Logout\", treat as logged in",
+      "presetLogin": "Detect \"Login\" text",
+      "presetLoginHint": "If the page contains \"Login\", treat as logged out",
+      "custom": "Custom",
+      "customHint": "Define markers for both states separately",
+      "loggedOutRule": "Logged-out marker",
+      "loggedInRule": "Logged-in marker",
+      "presencePresent": "Contains",
+      "presenceAbsent": "Does not contain",
+      "textPlaceholder": "e.g. Logout"
     },
     "addStationDialog": {
       "title": "Add Gateway",
       "subtitle": "Fill in a remark and the website URL. It will appear in the left list.",
       "remarkPlaceholder": "e.g. Alpha Gateway",
       "websitePlaceholder": "https://example.com",
-      "inviteLinkPriority": "Accounts will prefer the invite link for login"
+      "inviteLinkPriority": "Accounts will prefer the invite link for login",
+      "sectionBasic": "Basic Info",
+      "sectionLoginDetection": "Login Detection"
     },
     "addAccountDialog": {
       "title": "Add Account",
@@ -75,7 +89,7 @@
     },
     "editStationDialog": {
       "title": "Edit Gateway",
-      "subtitle": "Edit the gateway remark, website URL, and probe URL."
+      "subtitle": "Edit the gateway remark, website URL, and login detection."
     },
     "editAccountDialog": {
       "title": "Edit Account",
@@ -147,11 +161,8 @@
       "exportSuccess": "Exported {{stations}} gateways and {{accounts}} accounts",
       "importFailed": "Failed to import gateway data",
       "importSuccess": "Import complete. There are now {{stations}} gateways and {{accounts}} accounts",
-      "probeTimeout": "Login status check timed out. Verify the site is reachable and try again.",
-      "probeNetwork": "Login status check failed. Verify the probe URL and network connectivity.",
       "invalidImportFile": "The import file format is invalid.",
       "storeFailure": "Failed to read or write local data.",
-      "webviewFailure": "Failed to create the login or probe window.",
       "unknown": "The operation failed. Please try again."
     }
   },

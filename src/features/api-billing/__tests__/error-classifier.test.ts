@@ -1,27 +1,27 @@
 import { classifyApiBillingError } from "../error-classifier";
 
 describe("classifyApiBillingError", () => {
-  it("classifies probe timeout", () => {
+  it("classifies invalid import file", () => {
     expect(
       classifyApiBillingError(
-        { code: "PROBE_TIMEOUT", message: "probe timed out after 8s" },
+        { code: "INVALID_INPUT", message: "bad payload" },
         "fallback"
       )
     ).toEqual({
-      kind: "probeTimeout",
-      message: "probe timed out after 8s",
+      kind: "invalidImportFile",
+      message: "bad payload",
     });
   });
 
-  it("classifies probe network", () => {
+  it("classifies store failure", () => {
     expect(
       classifyApiBillingError(
-        { code: "PROBE_NETWORK", message: "network error" },
+        { code: "STORE_FAIL", message: "disk full" },
         "fallback"
       )
     ).toEqual({
-      kind: "probeNetwork",
-      message: "network error",
+      kind: "storeFailure",
+      message: "disk full",
     });
   });
 

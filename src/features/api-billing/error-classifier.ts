@@ -3,11 +3,8 @@ import type { ApiBillingError, ApiBillingErrorCode } from "@/lib/tauri/types/api
 type ApiBillingErrorLike = Partial<ApiBillingError> & { message?: string };
 
 export type ApiBillingErrorKind =
-  | "probeTimeout"
-  | "probeNetwork"
   | "invalidImportFile"
   | "storeFailure"
-  | "webviewFailure"
   | "unknown";
 
 export interface ApiBillingErrorInfo {
@@ -38,16 +35,10 @@ export function classifyApiBillingError(
   const message = readMessage(error, fallback);
 
   switch (code) {
-    case "PROBE_TIMEOUT":
-      return { kind: "probeTimeout", message };
-    case "PROBE_NETWORK":
-      return { kind: "probeNetwork", message };
     case "INVALID_INPUT":
       return { kind: "invalidImportFile", message };
     case "STORE_FAIL":
       return { kind: "storeFailure", message };
-    case "WEBVIEW_FAIL":
-      return { kind: "webviewFailure", message };
     default:
       return { kind: "unknown", message };
   }

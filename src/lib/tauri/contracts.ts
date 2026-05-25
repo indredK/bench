@@ -17,6 +17,7 @@ import type {
   RelayStation,
   StationAccount,
   LoginMethod,
+  LoginDetectionConfig,
 } from "@/lib/tauri/types/api-billing";
 import type {
   CleanupResult,
@@ -87,7 +88,7 @@ export const TAURI_COMMAND_CONTRACTS = {
   >()("set_window_theme"),
   list_stations: defineTauriCommand<undefined, RelayStation[]>()("list_stations"),
   create_station: defineTauriCommand<
-    { remark: string; website: string; probeUrl?: string | null },
+    { remark: string; website: string; loginDetection?: LoginDetectionConfig | null },
     RelayStation
   >()("create_station"),
   update_station: defineTauriCommand<
@@ -95,7 +96,7 @@ export const TAURI_COMMAND_CONTRACTS = {
       id: string;
       remark?: string | null;
       website?: string | null;
-      probeUrl?: string | null | undefined;
+      loginDetection?: LoginDetectionConfig | null;
     },
     RelayStation
   >()("update_station"),
@@ -327,8 +328,8 @@ export const TAURI_COMMAND_ARG_KEYS = {
   kill_processes: ["targets"],
   set_window_theme: ["theme", "appearance"],
   list_stations: [],
-  create_station: ["remark", "website", "probeUrl"],
-  update_station: ["id", "remark", "website", "probeUrl"],
+  create_station: ["remark", "website", "loginDetection"],
+  update_station: ["id", "remark", "website", "loginDetection"],
   delete_station: ["id"],
   list_accounts: ["stationId"],
   list_all_accounts: [],

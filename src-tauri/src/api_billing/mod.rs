@@ -1,6 +1,7 @@
 pub mod commands;
 pub mod state;
 mod crypto;
+mod detection;
 mod storage;
 mod types;
 mod webview;

@@ -5,12 +5,32 @@ export type AccountSessionStatus = "ready" | "loginRequired" | "expired";
 
 export type LoginMethod = "emailCode" | "usernamePassword" | "linkedLink" | "phoneCode";
 
+export type LoginDetectionMode = "presetLogin" | "presetLogout" | "custom";
+export type LoginDetectionPresence = "present" | "absent";
+
+export interface LoginDetectionRule {
+  presence: LoginDetectionPresence;
+  text: string;
+}
+
+export interface LoginDetectionConfig {
+  mode: LoginDetectionMode;
+  loggedOutRule: LoginDetectionRule;
+  loggedInRule: LoginDetectionRule;
+}
+
+export const DEFAULT_LOGIN_DETECTION: LoginDetectionConfig = {
+  mode: "presetLogout",
+  loggedOutRule: { presence: "present", text: "" },
+  loggedInRule: { presence: "present", text: "" },
+};
+
 export interface RelayStation {
   id: string;
   remark: string;
   website: string;
-  probeUrl: string | null;
   createdAt: string;
+  loginDetection: LoginDetectionConfig;
 }
 
 export interface StationAccount {
@@ -48,10 +68,7 @@ export type ApiBillingErrorCode =
   | "STORE_FAIL"
   | "KEYRING_UNAVAILABLE"
   | "CRYPTO_FAIL"
-  | "CLIPBOARD_FAIL"
-  | "WEBVIEW_FAIL"
-  | "PROBE_TIMEOUT"
-  | "PROBE_NETWORK";
+  | "CLIPBOARD_FAIL";
 
 export interface ApiBillingError {
   code: ApiBillingErrorCode;

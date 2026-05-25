@@ -1,39 +1,25 @@
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use sha2::{Digest, Sha256};
-use tauri::{webview::PageLoadEvent, AppHandle, Manager, Runtime, WebviewUrl, WebviewWindowBuilder};
+use tauri::webview::PageLoadEvent;
+use tauri::{AppHandle, Manager, Runtime, WebviewUrl, WebviewWindowBuilder};
+use tokio::sync::oneshot;
 
 use super::types::{ApiBillingError, ApiBillingResult};
 
 const LOGIN_WINDOW_WIDTH: f64 = 1080.0;
 const LOGIN_WINDOW_HEIGHT: f64 = 720.0;
-const PROBE_TIMEOUT_SECS: u64 = 8;
-const PROBE_RESULT_HOST: &str = "probe-result.local";
+const PROBE_TIMEOUT_SECS: u64 = 15;
+const PROBE_TEXT_LIMIT: usize = 200_000;
 
-fn build_probe_script(probe_url: &str) -> String {
-    format!(
-        r#"!function(){{
-if(window.__relayProbeStarted)return;
-window.__relayProbeStarted=true;
-var u='{p}';
-var c=new AbortController();
-setTimeout(function(){{c.abort()}},5000);
-fetch(u,{{credentials:'include',cache:'no-store',signal:c.signal}})
-  .then(function(r){{window.location.href='https://{h}/'+r.status}})
-  .catch(function(e){{window.location.href='https://{h}/'+(e.name==='AbortError'?408:0)}})
-}}()"#,
-        p = probe_url.replace('\'', "\\'").replace('\n', ""),
-        h = PROBE_RESULT_HOST,
-    )
+pub fn probe_window_label(account_id: &str) -> String {
+    format!("relay-probe-{account_id}")
 }
 
 pub fn login_window_label(account_id: &str) -> String {
     format!("relay-login-{account_id}")
-}
-
-pub fn probe_window_label(account_id: &str) -> String {
-    format!("relay-probe-{}-{}", account_id, uuid::Uuid::new_v4())
 }
 
 pub fn account_data_dir<R: Runtime>(
@@ -110,90 +96,82 @@ pub fn open_login_window<R: Runtime>(
     Ok(())
 }
 
+fn probe_script() -> String {
+    format!(
+        "JSON.stringify((document.body && document.body.innerText ? document.body.innerText : '').slice(0, {limit}))",
+        limit = PROBE_TEXT_LIMIT,
+    )
+}
+
 pub async fn run_probe<R: Runtime>(
     app: &AppHandle<R>,
     account_id: &str,
-    website_url: &str,
-    probe_url: &str,
-) -> ApiBillingResult<u16> {
+    website: &str,
+) -> ApiBillingResult<String> {
     let label = probe_window_label(account_id);
+
+    if let Some(existing) = app.get_webview_window(&label) {
+        let _ = existing.close();
+    }
+
+    let parsed = website
+        .parse()
+        .map_err(|e| ApiBillingError::invalid_input(format!("website url: {e}")))?;
+
     let data_dir = account_data_dir(app, account_id)?;
-    eprintln!(
-        "[probe] account={} | probe_url={} | label={}",
-        account_id, probe_url, label
-    );
     if let Some(parent) = data_dir.parent() {
         std::fs::create_dir_all(parent)
-            .map_err(|e| ApiBillingError::store_fail(format!("create probe data dir: {e}")))?;
+            .map_err(|e| ApiBillingError::store_fail(format!("create relay-accounts: {e}")))?;
     }
 
-    let parsed = website_url
-        .parse()
-        .map_err(|e| ApiBillingError::invalid_input(format!("website url for probe: {e}")))?;
+    let (tx, rx) = oneshot::channel::<String>();
+    let tx_slot: Arc<Mutex<Option<oneshot::Sender<String>>>> = Arc::new(Mutex::new(Some(tx)));
+    let tx_for_load = Arc::clone(&tx_slot);
 
-    let (tx, rx) = tokio::sync::oneshot::channel::<u16>();
-    let tx = Arc::new(Mutex::new(Some(tx)));
-
-    let script = build_probe_script(probe_url);
-    let script_on_load = script.clone();
-
-    let mut builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(parsed))
-        .data_directory(data_dir)
-        .visible(false)
-        .initialization_script(&script)
-        .on_page_load(move |window, payload| {
-            if payload.event() == PageLoadEvent::Finished {
-                let _ = window.eval(&script_on_load);
-            }
-        })
-        .on_navigation(move |url| {
-            if url.host_str() == Some(PROBE_RESULT_HOST) {
-                let status = url.path().trim_start_matches('/').parse::<u16>().unwrap_or(0);
-                eprintln!("[probe] navigation captured status={}", status);
-                if let Ok(mut guard) = tx.lock() {
-                    if let Some(sender) = guard.take() {
-                        let _ = sender.send(status);
-                    }
+    let window = {
+        let mut builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(parsed))
+            .visible(false)
+            .data_directory(data_dir)
+            .on_page_load(move |window, payload| {
+                if !matches!(payload.event(), PageLoadEvent::Finished) {
+                    return;
                 }
-                return false;
-            }
-            true
-        });
+                let slot = Arc::clone(&tx_for_load);
+                let _ = window.eval_with_callback(probe_script(), move |result| {
+                    let Ok(mut guard) = slot.lock() else {
+                        return;
+                    };
+                    if let Some(sender) = guard.take() {
+                        let _ = sender.send(result);
+                    }
+                });
+            });
 
-    #[cfg(any(target_os = "macos", target_os = "ios"))]
-    {
-        builder = builder.data_store_identifier(account_data_store_identifier(account_id));
-    }
-
-    builder
-        .build()
-        .map_err(|e| ApiBillingError::webview_fail(format!("build probe window: {e}")))?;
-
-    let result = tokio::time::timeout(std::time::Duration::from_secs(PROBE_TIMEOUT_SECS), rx).await;
-
-    if let Some(win) = app.get_webview_window(&label) {
-        let _ = win.close();
-    }
-
-    match result {
-        Ok(Ok(status)) => {
-            eprintln!("[probe] success status={}", status);
-            Ok(status)
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
+        {
+            builder = builder.data_store_identifier(account_data_store_identifier(account_id));
         }
-        Ok(Err(_)) => {
-            eprintln!("[probe] channel closed unexpectedly");
-            Err(ApiBillingError::probe_network(
-                "probe channel closed".to_string(),
-                None,
-            ))
+        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
+        {
+            let _ = account_data_store_identifier;
         }
-        Err(_) => {
-            eprintln!("[probe] timed out after {}s", PROBE_TIMEOUT_SECS);
-            Err(ApiBillingError::probe_timeout(format!(
-                "probe timed out after {PROBE_TIMEOUT_SECS}s"
-            )))
-        }
-    }
+
+        builder
+            .build()
+            .map_err(|e| ApiBillingError::store_fail(format!("build probe window: {e}")))?
+    };
+
+    let outcome = tokio::time::timeout(Duration::from_secs(PROBE_TIMEOUT_SECS), rx).await;
+
+    let _ = window.close();
+
+    let payload = outcome
+        .map_err(|_| ApiBillingError::store_fail("login detection timeout"))?
+        .map_err(|_| ApiBillingError::store_fail("login detection channel closed"))?;
+
+    let text: String = serde_json::from_str(&payload)
+        .map_err(|e| ApiBillingError::store_fail(format!("decode probe payload: {e}")))?;
+    Ok(text)
 }
 
 #[cfg(test)]
@@ -220,8 +198,14 @@ mod tests {
     }
 
     #[test]
-    fn probe_window_label_contains_account_id() {
-        let label = probe_window_label("acct-abc");
-        assert!(label.starts_with("relay-probe-acct-abc-"));
+    fn probe_window_label_format() {
+        assert_eq!(probe_window_label("acct-123"), "relay-probe-acct-123");
+    }
+
+    #[test]
+    fn probe_script_contains_limit() {
+        let script = probe_script();
+        assert!(script.contains("document.body"));
+        assert!(script.contains(&PROBE_TEXT_LIMIT.to_string()));
     }
 }

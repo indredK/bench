@@ -3,6 +3,7 @@
  */
 import { invokeTauriCommand } from "@/lib/tauri/invoke";
 import type {
+  LoginDetectionConfig,
   RelayDataExportResult,
   RelayDataImportResult,
   RelayStation,
@@ -12,12 +13,17 @@ import type {
 
 export type {
   AccountSessionStatus,
+  LoginDetectionConfig,
+  LoginDetectionMode,
+  LoginDetectionPresence,
+  LoginDetectionRule,
   RelayDataExportResult,
   RelayDataImportResult,
   RelayStation,
   StationAccount,
   LoginMethod,
 } from "@/lib/tauri/types/api-billing";
+export { DEFAULT_LOGIN_DETECTION } from "@/lib/tauri/types/api-billing";
 
 export function listStations(): Promise<RelayStation[]> {
   return invokeTauriCommand("list_stations");
@@ -26,20 +32,24 @@ export function listStations(): Promise<RelayStation[]> {
 export function createStation(
   remark: string,
   website: string,
-  probeUrl?: string | null
+  loginDetection?: LoginDetectionConfig | null
 ): Promise<RelayStation> {
-  return invokeTauriCommand("create_station", { remark, website, probeUrl: probeUrl ?? null });
+  return invokeTauriCommand("create_station", {
+    remark,
+    website,
+    loginDetection: loginDetection ?? null,
+  });
 }
 
 export function updateStation(
   id: string,
-  patch: { remark?: string; website?: string; probeUrl?: string | null }
+  patch: { remark?: string; website?: string; loginDetection?: LoginDetectionConfig | null }
 ): Promise<RelayStation> {
   return invokeTauriCommand("update_station", {
     id,
     remark: patch.remark ?? null,
     website: patch.website ?? null,
-    probeUrl: patch.probeUrl,
+    loginDetection: "loginDetection" in patch ? patch.loginDetection ?? null : null,
   });
 }
 

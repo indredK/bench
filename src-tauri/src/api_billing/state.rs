@@ -1,17 +1,18 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex, OnceLock};
 
 use tokio::sync::Semaphore;
 
 use super::crypto;
-use super::types::{ApiBillingResult, RelayStation, StationAccount};
 use super::crypto::EncryptedBlob;
+use super::types::{ApiBillingResult, RelayStation, StationAccount};
+
+const PROBE_CONCURRENCY: usize = 2;
 
 pub struct ApiBillingState {
     pub stations: Mutex<Vec<RelayStation>>,
     pub accounts: Mutex<Vec<StationAccount>>,
     pub secrets: Mutex<HashMap<String, EncryptedBlob>>,
-    pub refresh_inflight: Mutex<HashSet<String>>,
     pub probe_semaphore: Arc<Semaphore>,
     master_key: OnceLock<[u8; 32]>,
 }
@@ -22,8 +23,7 @@ impl ApiBillingState {
             stations: Mutex::default(),
             accounts: Mutex::default(),
             secrets: Mutex::default(),
-            refresh_inflight: Mutex::default(),
-            probe_semaphore: Arc::new(Semaphore::new(3)),
+            probe_semaphore: Arc::new(Semaphore::new(PROBE_CONCURRENCY)),
             master_key: OnceLock::new(),
         }
     }
