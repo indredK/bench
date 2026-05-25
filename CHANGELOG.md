@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.12.0](https://github.com/indredK/bench/compare/v1.11.1...v1.12.0) (2026-05-25)
+
+
+### Features
+
+* **api-billing:** 挂载 Toaster 并为刷新操作添加成功通知 ([e5a1e48](https://github.com/indredK/bench/commit/e5a1e48c9ca48ac493e354824dbed3ae60fddc0c))
+* **api-billing:** 新增登录方式、邀请链接支持并优化界面 ([d4a5434](https://github.com/indredK/bench/commit/d4a54346ca693c3fe9dfe6d9e34cb27bfdd0d7a4))
+* **api-billing:** 新增账号手机号、TG账号及关联账号字段 ([281bb82](https://github.com/indredK/bench/commit/281bb825bb28ecde23b62aa8c4159988cbdca7f0))
+* **api-billing:** 新增错误分类、多账号并发刷新与账号密码管理 ([b04e863](https://github.com/indredK/bench/commit/b04e863132a9735b1e45890447332afc4474819e))
+
+
+### Bug Fixes
+
+* **api-billing:** 修复密码静默清空与英文翻译缺失等严重问题 ([79b74a9](https://github.com/indredK/bench/commit/79b74a9543834a9ca99b4886ab78670b60b78523))
+* **api-billing:** 移除 autoFocus 与电话字段格式优化 ([baadcb8](https://github.com/indredK/bench/commit/baadcb800b28296f92721ecd4b4a9803b447647b))
+* **api-billing:** 统一弹窗提交流程并修复状态/闭包问题 ([fe30926](https://github.com/indredK/bench/commit/fe3092664c89a0ee1532da3fd7d7e361883ee196))
+* **api-billing:** 通过 innerText 轮询避免 SPA 渲染未完成时误判登录态 ([865cc82](https://github.com/indredK/bench/commit/865cc823198f9d9a49f11fb76d44cd3309c796a1))
+* **billing:** 修复页面加载后探针稳定检测逻辑 ([ec46e63](https://github.com/indredK/bench/commit/ec46e634cc2fcbc302f70c11d541fed96d4f6f93))
+
 ## [1.11.1](https://github.com/indredK/bench/compare/v1.11.0...v1.11.1) (2026-05-24)
 
 
