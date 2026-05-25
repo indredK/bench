@@ -1,6 +1,6 @@
 {
   "sidebar": {
-    "apiBilling": "中转站账号",
+    "apiBilling": "账号管理",
     "portManager": "端口管理",
     "appManager": "应用管理",
     "devCleaner": "垃圾清理",
@@ -49,6 +49,8 @@
       "phone": "手机号",
       "tgAccount": "TG账号",
       "linkedAccount": "关联账号",
+      "inviteLink": "邀请链接",
+      "loginMethods": "登录方式",
       "probeUrl": "探针地址",
       "probeUrlHint": "可选，用于检测登录态的接口地址"
     },
@@ -56,7 +58,8 @@
       "title": "添加中转站",
       "subtitle": "填写备注和官网地址，添加后会显示在左侧列表。",
       "remarkPlaceholder": "例如：甲中转站",
-      "websitePlaceholder": "https://example.com"
+      "websitePlaceholder": "https://example.com",
+      "inviteLinkPriority": "账号将优先使用邀请链接登录"
     },
     "addAccountDialog": {
       "title": "添加账号",
@@ -66,7 +69,9 @@
       "phonePlaceholder": "可选，填写手机号",
       "tgAccountPlaceholder": "可选，填写TG账号",
       "linkedAccountPlaceholder": "可选，填写关联账号",
-      "notesPlaceholder": "可记录该账号的用途、余额等信息。"
+      "inviteLinkPlaceholder": "可选，填写邀请链接",
+      "notesPlaceholder": "可记录该账号的用途、余额等信息。",
+      "inviteLinkPriority": "账号将优先使用邀请链接登录"
     },
     "editStationDialog": {
       "title": "编辑中转站",
@@ -82,6 +87,12 @@
       "ready": "已登录",
       "loginRequired": "待登录",
       "expired": "需重登"
+    },
+    "loginMethods": {
+      "emailCode": "邮箱+验证码",
+      "usernamePassword": "账号密码",
+      "linkedLink": "关联链接",
+      "phoneCode": "手机号+验证码"
     },
     "card": {
       "lastLogin": "最近登录",
@@ -99,6 +110,11 @@
       "website": "官网",
       "username": "账号",
       "password": "密码",
+      "phone": "手机号",
+      "tgAccount": "TG账号",
+      "linkedAccount": "关联账号",
+      "inviteLink": "邀请链接",
+      "loginMethods": "登录方式",
       "status": "状态",
       "createdAt": "创建时间",
       "lastRefreshedAt": "上次刷新",

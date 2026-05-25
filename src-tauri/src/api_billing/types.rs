@@ -8,6 +8,15 @@ pub enum AccountSessionStatus {
     Expired,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum LoginMethod {
+    EmailCode,
+    UsernamePassword,
+    LinkedLink,
+    PhoneCode,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RelayStation {
@@ -32,6 +41,10 @@ pub struct StationAccount {
     pub tg_account: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub linked_account: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub invite_link: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub login_methods: Vec<LoginMethod>,
     pub status: AccountSessionStatus,
     pub last_login_at: Option<String>,
     pub last_refreshed_at: Option<String>,
@@ -54,6 +67,10 @@ pub struct RelayAccountExport {
     pub tg_account: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub linked_account: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub invite_link: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub login_methods: Vec<LoginMethod>,
     pub status: AccountSessionStatus,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_login_at: Option<String>,

@@ -134,9 +134,9 @@ function ApiBillingPage() {
   const selectedAccount =
     stationAccounts.find((a) => a.id === selectedAccountId) ?? stationAccounts[0] ?? null;
 
-  const handleAddStation = async (remark: string, website: string) => {
+  const handleAddStation = async (remark: string, website: string, probeUrl: string | null) => {
     try {
-      const station = await api.createStation(remark, website);
+      const station = await api.createStation(remark, website, probeUrl);
       setStations((prev) => [...prev, station]);
       setSelectedStationId(station.id);
       setSelectedAccountId("");
@@ -145,7 +145,7 @@ function ApiBillingPage() {
     }
   };
 
-  const handleAddAccount = async (username: string, password: string, notes: string, phone: string, tgAccount: string, linkedAccount: string) => {
+  const handleAddAccount = async (username: string, password: string, notes: string, phone: string, tgAccount: string, linkedAccount: string, inviteLink: string, loginMethods: api.LoginMethod[]) => {
     if (!selectedStation) return;
     try {
       const account = await api.createAccount(
@@ -155,7 +155,9 @@ function ApiBillingPage() {
         notes,
         phone || null,
         tgAccount || null,
-        linkedAccount || null
+        linkedAccount || null,
+        inviteLink || null,
+        loginMethods
       );
       setAccounts((prev) => [...prev, account]);
       setSelectedAccountId(account.id);
@@ -333,7 +335,9 @@ function ApiBillingPage() {
     password: string,
     phone: string,
     tgAccount: string,
-    linkedAccount: string
+    linkedAccount: string,
+    inviteLink: string,
+    loginMethods: api.LoginMethod[]
   ) => {
     if (!editingAccount) return;
     try {
@@ -343,6 +347,8 @@ function ApiBillingPage() {
         phone: phone || null,
         tgAccount: tgAccount || null,
         linkedAccount: linkedAccount || null,
+        inviteLink: inviteLink || null,
+        loginMethods,
       });
       await api.setPassword(editingAccount.id, password);
       updated.hasPassword = password.length > 0;
@@ -433,10 +439,17 @@ function ApiBillingPage() {
         onOpenWebsite={() => selectedStation && void openExternal(selectedStation.website)}
       />
 
-      <AddStationDialog
-        open={isAddStationOpen}
-        onOpenChange={setAddStationOpen}
-        onSubmit={handleAddStation}
+      <StationDialog
+        open={isAddStationOpen || isEditStationOpen}
+        station={editingStation}
+        onOpenChange={(open) => {
+          if (!open) {
+            setAddStationOpen(false);
+            setEditStationOpen(false);
+            setEditingStation(null);
+          }
+        }}
+        onSubmit={editingStation ? handleEditStation : handleAddStation}
       />
 
       <AddAccountDialog
@@ -444,13 +457,6 @@ function ApiBillingPage() {
         onOpenChange={setAddAccountOpen}
         stationName={selectedStation?.remark ?? ""}
         onSubmit={handleAddAccount}
-      />
-
-      <EditStationDialog
-        open={isEditStationOpen}
-        station={editingStation}
-        onOpenChange={setEditStationOpen}
-        onSubmit={handleEditStation}
       />
 
       <EditAccountDialog
@@ -917,6 +923,17 @@ function DetailColumn({
                         }
                       : undefined,
                   },
+                  ...(account.phone ? [{ label: t("apiBilling.detail.phone"), value: account.phone, copy: true, truncate: true }] : []),
+                  ...(account.tgAccount ? [{ label: t("apiBilling.detail.tgAccount"), value: account.tgAccount, copy: true, truncate: true }] : []),
+                  ...(account.linkedAccount ? [{ label: t("apiBilling.detail.linkedAccount"), value: account.linkedAccount, copy: true, truncate: true }] : []),
+                  ...(account.inviteLink ? [{ label: t("apiBilling.detail.inviteLink"), value: account.inviteLink, copy: true, truncate: true }] : []),
+                  ...(account.loginMethods && account.loginMethods.length > 0 ? [
+                    { 
+                      label: t("apiBilling.detail.loginMethods"), 
+                      value: account.loginMethods.map(m => t(`apiBilling.loginMethods.${m}`)).join(", "),
+                      truncate: true 
+                    }
+                  ] : []),
                   {
                     label: t("apiBilling.detail.status"),
                     value: t(`apiBilling.status.${account.status}`),
@@ -929,14 +946,16 @@ function DetailColumn({
                   { label: t("apiBilling.detail.lastRefreshedAt"), value: account.lastRefreshedAt ?? t("apiBilling.neverRefreshed") },
                 ]}
                 extras={
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground">
-                      {t("apiBilling.detail.notes")}
-                    </p>
-                    <p className="mt-1.5 whitespace-pre-wrap rounded-lg border bg-muted/20 p-3 text-sm leading-6 text-muted-foreground">
-                      {account.notes || t("apiBilling.notesEmpty")}
-                    </p>
-                  </div>
+                  account.notes ? (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {t("apiBilling.detail.notes")}
+                      </p>
+                      <p className="mt-1.5 whitespace-pre-wrap rounded-lg border bg-muted/20 p-3 text-sm leading-6 text-muted-foreground">
+                        {account.notes}
+                      </p>
+                    </div>
+                  ) : undefined
                 }
                 note={
                   <div className="flex items-start gap-2">
@@ -1112,31 +1131,49 @@ function SectionLabel({ children }: { children: ReactNode }) {
   );
 }
 
-function AddStationDialog({
+function StationDialog({
   open,
+  station,
   onOpenChange,
   onSubmit,
 }: {
   open: boolean;
+  station: RelayStation | null;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (remark: string, website: string) => void | Promise<void>;
+  onSubmit: (remark: string, website: string, probeUrl: string | null) => void | Promise<void>;
 }) {
   const { t } = useTranslation();
+  const isEditing = !!station;
   const [remark, setRemark] = useState("");
   const [website, setWebsite] = useState("");
+  const [probeUrl, setProbeUrl] = useState("");
 
   const reset = () => {
     setRemark("");
     setWebsite("");
+    setProbeUrl("");
   };
+
+  useEffect(() => {
+    if (open && station) {
+      setRemark(station.remark);
+      setWebsite(station.website);
+      setProbeUrl(station.probeUrl ?? "");
+    } else if (open) {
+      reset();
+    }
+  }, [open, station]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const r = remark.trim();
     const w = website.trim();
     if (!r || !w) return;
-    void Promise.resolve(onSubmit(r, w));
-    reset();
+    const p = probeUrl.trim() || null;
+    void Promise.resolve(onSubmit(r, w, p));
+    if (!isEditing) {
+      reset();
+    }
     onOpenChange(false);
   };
 
@@ -1144,14 +1181,17 @@ function AddStationDialog({
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        if (!next) reset();
-        onOpenChange(next);
+        if (!next) onOpenChange(false);
       }}
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{t("apiBilling.addStationDialog.title")}</DialogTitle>
-          <DialogDescription>{t("apiBilling.addStationDialog.subtitle")}</DialogDescription>
+          <DialogTitle>
+            {isEditing ? t("apiBilling.editStationDialog.title") : t("apiBilling.addStationDialog.title")}
+          </DialogTitle>
+          <DialogDescription>
+            {isEditing ? t("apiBilling.editStationDialog.subtitle") : t("apiBilling.addStationDialog.subtitle")}
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <Field
@@ -1180,6 +1220,21 @@ function AddStationDialog({
               />
             }
           />
+          <Field
+            label={t("apiBilling.fields.probeUrl")}
+            icon={<BadgeCheck size={14} />}
+            input={
+              <Input
+                value={probeUrl}
+                onChange={(e) => setProbeUrl(e.target.value)}
+                placeholder={t("apiBilling.fields.probeUrlHint")}
+                type="url"
+              />
+            }
+          />
+          <p className="text-xs text-muted-foreground">
+            {t("apiBilling.addStationDialog.inviteLinkPriority")}
+          </p>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               {t("apiBilling.cancel")}
@@ -1203,7 +1258,7 @@ function AddAccountDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   stationName: string;
-  onSubmit: (username: string, password: string, notes: string, phone: string, tgAccount: string, linkedAccount: string) => void | Promise<void>;
+  onSubmit: (username: string, password: string, notes: string, phone: string, tgAccount: string, linkedAccount: string, inviteLink: string, loginMethods: api.LoginMethod[]) => void | Promise<void>;
 }) {
   const { t } = useTranslation();
   const [username, setUsername] = useState("");
@@ -1213,6 +1268,21 @@ function AddAccountDialog({
   const [phone, setPhone] = useState("");
   const [tgAccount, setTgAccount] = useState("");
   const [linkedAccount, setLinkedAccount] = useState("");
+  const [inviteLink, setInviteLink] = useState("");
+  const [loginMethods, setLoginMethods] = useState<api.LoginMethod[]>([]);
+
+  const loginMethodOptions: { value: api.LoginMethod; label: string }[] = [
+    { value: "emailCode", label: t("apiBilling.loginMethods.emailCode") },
+    { value: "usernamePassword", label: t("apiBilling.loginMethods.usernamePassword") },
+    { value: "linkedLink", label: t("apiBilling.loginMethods.linkedLink") },
+    { value: "phoneCode", label: t("apiBilling.loginMethods.phoneCode") },
+  ];
+
+  const toggleLoginMethod = (method: api.LoginMethod) => {
+    setLoginMethods((prev) =>
+      prev.includes(method) ? prev.filter((m) => m !== method) : [...prev, method]
+    );
+  };
 
   const reset = () => {
     setUsername("");
@@ -1222,13 +1292,15 @@ function AddAccountDialog({
     setPhone("");
     setTgAccount("");
     setLinkedAccount("");
+    setInviteLink("");
+    setLoginMethods([]);
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const u = username.trim();
     if (!u) return;
-    void Promise.resolve(onSubmit(u, password, notes.trim(), phone.trim(), tgAccount.trim(), linkedAccount.trim()));
+    void Promise.resolve(onSubmit(u, password, notes.trim(), phone.trim(), tgAccount.trim(), linkedAccount.trim(), inviteLink.trim(), loginMethods));
     reset();
     onOpenChange(false);
   };
@@ -1241,7 +1313,7 @@ function AddAccountDialog({
         onOpenChange(next);
       }}
     >
-      <DialogContent>
+      <DialogContent size="xl">
         <DialogHeader>
           <DialogTitle>{t("apiBilling.addAccountDialog.title")}</DialogTitle>
           <DialogDescription>
@@ -1249,81 +1321,121 @@ function AddAccountDialog({
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <Field
-            label={t("apiBilling.fields.username")}
-            icon={<UserRound size={14} />}
-            input={
-              <Input
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder={t("apiBilling.addAccountDialog.usernamePlaceholder")}
-                autoFocus
-                required
-              />
-            }
-          />
-          <Field
-            label={t("apiBilling.fields.password")}
-            icon={<KeyRound size={14} />}
-            input={
-              <div className="flex items-center gap-2">
+          <div className="grid grid-cols-2 gap-4">
+            <Field
+              label={t("apiBilling.fields.username")}
+              icon={<UserRound size={14} />}
+              input={
                 <Input
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder={t("apiBilling.addAccountDialog.passwordPlaceholder")}
-                  type={passwordHidden ? "password" : "text"}
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder={t("apiBilling.addAccountDialog.usernamePlaceholder")}
+                  autoFocus
+                  required
                 />
-                <IconButton
-                  onClick={() => setPasswordHidden((hidden) => !hidden)}
-                  icon={passwordHidden ? <Eye size={14} /> : <EyeOff size={14} />}
-                  label={
-                    passwordHidden
-                      ? t("apiBilling.detail.revealPassword")
-                      : t("apiBilling.detail.hidePassword")
-                  }
-                />
-                {!passwordHidden && password.length > 0 ? (
-                  <CopyIconButton
+              }
+            />
+            <Field
+              label={t("apiBilling.fields.password")}
+              icon={<KeyRound size={14} />}
+              input={
+                <div className="flex items-center gap-2">
+                  <Input
                     value={password}
-                    label={t("apiBilling.detail.copy")}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder={t("apiBilling.addAccountDialog.passwordPlaceholder")}
+                    type={passwordHidden ? "password" : "text"}
                   />
-                ) : null}
-              </div>
-            }
-          />
-          <Field
-            label={t("apiBilling.fields.phone")}
-            icon={<Phone size={14} />}
-            input={
-              <Input
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder={t("apiBilling.addAccountDialog.phonePlaceholder")}
-              />
-            }
-          />
-          <Field
-            label={t("apiBilling.fields.tgAccount")}
-            icon={<MessageCircle size={14} />}
-            input={
-              <Input
-                value={tgAccount}
-                onChange={(e) => setTgAccount(e.target.value)}
-                placeholder={t("apiBilling.addAccountDialog.tgAccountPlaceholder")}
-              />
-            }
-          />
-          <Field
-            label={t("apiBilling.fields.linkedAccount")}
-            icon={<Link size={14} />}
-            input={
-              <Input
-                value={linkedAccount}
-                onChange={(e) => setLinkedAccount(e.target.value)}
-                placeholder={t("apiBilling.addAccountDialog.linkedAccountPlaceholder")}
-              />
-            }
-          />
+                  <IconButton
+                    onClick={() => setPasswordHidden((hidden) => !hidden)}
+                    icon={passwordHidden ? <Eye size={14} /> : <EyeOff size={14} />}
+                    label={
+                      passwordHidden
+                        ? t("apiBilling.detail.revealPassword")
+                        : t("apiBilling.detail.hidePassword")
+                    }
+                  />
+                  {!passwordHidden && password.length > 0 ? (
+                    <CopyIconButton
+                      value={password}
+                      label={t("apiBilling.detail.copy")}
+                    />
+                  ) : null}
+                </div>
+              }
+            />
+            <Field
+              label={t("apiBilling.fields.phone")}
+              icon={<Phone size={14} />}
+              input={
+                <Input
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder={t("apiBilling.addAccountDialog.phonePlaceholder")}
+                />
+              }
+            />
+            <Field
+              label={t("apiBilling.fields.tgAccount")}
+              icon={<MessageCircle size={14} />}
+              input={
+                <Input
+                  value={tgAccount}
+                  onChange={(e) => setTgAccount(e.target.value)}
+                  placeholder={t("apiBilling.addAccountDialog.tgAccountPlaceholder")}
+                />
+              }
+            />
+            <Field
+              label={t("apiBilling.fields.linkedAccount")}
+              icon={<Link size={14} />}
+              input={
+                <Input
+                  value={linkedAccount}
+                  onChange={(e) => setLinkedAccount(e.target.value)}
+                  placeholder={t("apiBilling.addAccountDialog.linkedAccountPlaceholder")}
+                />
+              }
+            />
+            <Field
+              label={t("apiBilling.fields.inviteLink")}
+              icon={<ExternalLink size={14} />}
+              input={
+                <Input
+                  value={inviteLink}
+                  onChange={(e) => setInviteLink(e.target.value)}
+                  placeholder={t("apiBilling.addAccountDialog.inviteLinkPlaceholder")}
+                  type="url"
+                />
+              }
+            />
+          </div>
+          <label className="block space-y-1.5">
+            <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <KeyRound size={14} />
+              {t("apiBilling.fields.loginMethods")}
+            </span>
+            <div className="flex flex-wrap gap-2">
+              {loginMethodOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => toggleLoginMethod(option.value)}
+                  className={cn(
+                    "rounded-md border px-3 py-1.5 text-sm transition-colors",
+                    loginMethods.includes(option.value)
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border hover:bg-muted"
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {t("apiBilling.addAccountDialog.inviteLinkPriority")}
+            </p>
+          </label>
           <Field
             label={t("apiBilling.fields.notes")}
             icon={<StickyNote size={14} />}
@@ -1370,104 +1482,6 @@ function Field({
   );
 }
 
-function EditStationDialog({
-  open,
-  station,
-  onOpenChange,
-  onSubmit,
-}: {
-  open: boolean;
-  station: RelayStation | null;
-  onOpenChange: (open: boolean) => void;
-  onSubmit: (remark: string, website: string, probeUrl: string | null) => void | Promise<void>;
-}) {
-  const { t } = useTranslation();
-  const [remark, setRemark] = useState("");
-  const [website, setWebsite] = useState("");
-  const [probeUrl, setProbeUrl] = useState("");
-
-  useEffect(() => {
-    if (open && station) {
-      setRemark(station.remark);
-      setWebsite(station.website);
-      setProbeUrl(station.probeUrl ?? "");
-    }
-  }, [open, station]);
-
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const r = remark.trim();
-    const w = website.trim();
-    if (!r || !w) return;
-    const p = probeUrl.trim() || null;
-    void Promise.resolve(onSubmit(r, w, p));
-  };
-
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        if (!next) onOpenChange(false);
-      }}
-    >
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t("apiBilling.editStationDialog.title")}</DialogTitle>
-          <DialogDescription>{t("apiBilling.editStationDialog.subtitle")}</DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Field
-            label={t("apiBilling.fields.remark")}
-            icon={<StickyNote size={14} />}
-            input={
-              <Input
-                value={remark}
-                onChange={(e) => setRemark(e.target.value)}
-                placeholder={t("apiBilling.addStationDialog.remarkPlaceholder")}
-                autoFocus
-                required
-              />
-            }
-          />
-          <Field
-            label={t("apiBilling.fields.website")}
-            icon={<Globe size={14} />}
-            input={
-              <Input
-                value={website}
-                onChange={(e) => setWebsite(e.target.value)}
-                placeholder={t("apiBilling.addStationDialog.websitePlaceholder")}
-                type="url"
-                required
-              />
-            }
-          />
-          <Field
-            label={t("apiBilling.fields.probeUrl")}
-            icon={<BadgeCheck size={14} />}
-            input={
-              <Input
-                value={probeUrl}
-                onChange={(e) => setProbeUrl(e.target.value)}
-                placeholder={t("apiBilling.fields.probeUrlHint")}
-                type="url"
-              />
-            }
-          />
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              {t("apiBilling.cancel")}
-            </Button>
-            <Button type="submit" disabled={!remark.trim() || !website.trim()}>
-              {t("apiBilling.confirm")}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 function EditAccountDialog({
   open,
   account,
@@ -1485,7 +1499,9 @@ function EditAccountDialog({
     password: string,
     phone: string,
     tgAccount: string,
-    linkedAccount: string
+    linkedAccount: string,
+    inviteLink: string,
+    loginMethods: api.LoginMethod[]
   ) => void | Promise<void>;
 }) {
   const { t } = useTranslation();
@@ -1497,6 +1513,21 @@ function EditAccountDialog({
   const [phone, setPhone] = useState("");
   const [tgAccount, setTgAccount] = useState("");
   const [linkedAccount, setLinkedAccount] = useState("");
+  const [inviteLink, setInviteLink] = useState("");
+  const [loginMethods, setLoginMethods] = useState<api.LoginMethod[]>([]);
+
+  const loginMethodOptions: { value: api.LoginMethod; label: string }[] = [
+    { value: "emailCode", label: t("apiBilling.loginMethods.emailCode") },
+    { value: "usernamePassword", label: t("apiBilling.loginMethods.usernamePassword") },
+    { value: "linkedLink", label: t("apiBilling.loginMethods.linkedLink") },
+    { value: "phoneCode", label: t("apiBilling.loginMethods.phoneCode") },
+  ];
+
+  const toggleLoginMethod = (method: api.LoginMethod) => {
+    setLoginMethods((prev) =>
+      prev.includes(method) ? prev.filter((m) => m !== method) : [...prev, method]
+    );
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -1508,6 +1539,8 @@ function EditAccountDialog({
       setPhone(account.phone ?? "");
       setTgAccount(account.tgAccount ?? "");
       setLinkedAccount(account.linkedAccount ?? "");
+      setInviteLink(account.inviteLink ?? "");
+      setLoginMethods(account.loginMethods ?? []);
       if (account.hasPassword) {
         setPasswordLoading(true);
         void api
@@ -1534,7 +1567,7 @@ function EditAccountDialog({
     event.preventDefault();
     const u = username.trim();
     if (!u) return;
-    void Promise.resolve(onSubmit(u, notes.trim(), password.trim(), phone.trim(), tgAccount.trim(), linkedAccount.trim()));
+    void Promise.resolve(onSubmit(u, notes.trim(), password.trim(), phone.trim(), tgAccount.trim(), linkedAccount.trim(), inviteLink.trim(), loginMethods));
   };
 
   return (
@@ -1544,7 +1577,7 @@ function EditAccountDialog({
         if (!next) onOpenChange(false);
       }}
     >
-      <DialogContent>
+      <DialogContent size="xl">
         <DialogHeader>
           <DialogTitle>{t("apiBilling.editAccountDialog.title")}</DialogTitle>
           <DialogDescription>
@@ -1629,6 +1662,41 @@ function EditAccountDialog({
               />
             }
           />
+          <Field
+            label={t("apiBilling.fields.inviteLink")}
+            icon={<ExternalLink size={14} />}
+            input={
+              <Input
+                value={inviteLink}
+                onChange={(e) => setInviteLink(e.target.value)}
+                placeholder={t("apiBilling.addAccountDialog.inviteLinkPlaceholder")}
+                type="url"
+              />
+            }
+          />
+          <label className="block space-y-1.5">
+            <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <KeyRound size={14} />
+              {t("apiBilling.fields.loginMethods")}
+            </span>
+            <div className="flex flex-wrap gap-2">
+              {loginMethodOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => toggleLoginMethod(option.value)}
+                  className={cn(
+                    "rounded-md border px-3 py-1.5 text-sm transition-colors",
+                    loginMethods.includes(option.value)
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border hover:bg-muted"
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </label>
           <Field
             label={t("apiBilling.fields.notes")}
             icon={<StickyNote size={14} />}

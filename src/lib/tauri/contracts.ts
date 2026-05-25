@@ -16,6 +16,7 @@ import type {
   RelayDataImportResult,
   RelayStation,
   StationAccount,
+  LoginMethod,
 } from "@/lib/tauri/types/api-billing";
 import type {
   CleanupResult,
@@ -114,6 +115,8 @@ export const TAURI_COMMAND_CONTRACTS = {
       phone?: string | null;
       tgAccount?: string | null;
       linkedAccount?: string | null;
+      inviteLink?: string | null;
+      loginMethods?: LoginMethod[];
     },
     StationAccount
   >()("create_account"),
@@ -125,6 +128,8 @@ export const TAURI_COMMAND_CONTRACTS = {
       phone?: string | null;
       tgAccount?: string | null;
       linkedAccount?: string | null;
+      inviteLink?: string | null;
+      loginMethods?: LoginMethod[];
     },
     StationAccount
   >()("update_account"),
@@ -327,8 +332,8 @@ export const TAURI_COMMAND_ARG_KEYS = {
   delete_station: ["id"],
   list_accounts: ["stationId"],
   list_all_accounts: [],
-  create_account: ["stationId", "username", "password", "notes", "phone", "tgAccount", "linkedAccount"],
-  update_account: ["id", "username", "notes", "phone", "tgAccount", "linkedAccount"],
+  create_account: ["stationId", "username", "password", "notes", "phone", "tgAccount", "linkedAccount", "inviteLink", "loginMethods"],
+  update_account: ["id", "username", "notes", "phone", "tgAccount", "linkedAccount", "inviteLink", "loginMethods"],
   delete_account: ["id"],
   reveal_password: ["accountId"],
   set_password: ["accountId", "password"],

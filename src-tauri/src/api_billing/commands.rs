@@ -9,7 +9,7 @@ use super::crypto;
 use super::state::ApiBillingState;
 use super::storage;
 use super::types::{
-    AccountSessionStatus, ApiBillingError, ApiBillingResult, RelayAccountExport,
+    AccountSessionStatus, ApiBillingError, ApiBillingResult, LoginMethod, RelayAccountExport,
     RelayDataExportFile, RelayDataExportResult, RelayDataImportResult, RelayStation,
     RelayStationExport, StationAccount,
 };
@@ -208,6 +208,8 @@ pub fn create_account<R: Runtime>(
     phone: Option<String>,
     tg_account: Option<String>,
     linked_account: Option<String>,
+    invite_link: Option<String>,
+    login_methods: Vec<LoginMethod>,
 ) -> ApiBillingResult<StationAccount> {
     {
         let stations = state.stations.lock().unwrap();
@@ -226,6 +228,8 @@ pub fn create_account<R: Runtime>(
         phone: normalize_optional(phone),
         tg_account: normalize_optional(tg_account),
         linked_account: normalize_optional(linked_account),
+        invite_link: normalize_optional(invite_link),
+        login_methods,
         status: AccountSessionStatus::LoginRequired,
         last_login_at: None,
         last_refreshed_at: None,
@@ -264,6 +268,8 @@ pub fn update_account<R: Runtime>(
     phone: Option<Option<String>>,
     tg_account: Option<Option<String>>,
     linked_account: Option<Option<String>>,
+    invite_link: Option<Option<String>>,
+    login_methods: Option<Vec<LoginMethod>>,
 ) -> ApiBillingResult<StationAccount> {
     let (accounts_snapshot, updated) = {
         let mut accounts = state.accounts.lock().unwrap();
@@ -284,6 +290,12 @@ pub fn update_account<R: Runtime>(
         }
         if let Some(l) = linked_account {
             account.linked_account = normalize_optional(l);
+        }
+        if let Some(i) = invite_link {
+            account.invite_link = normalize_optional(i);
+        }
+        if let Some(login_methods) = login_methods {
+            account.login_methods = login_methods;
         }
         let updated = account.clone();
         (accounts.clone(), updated)
@@ -353,6 +365,8 @@ pub fn export_relay_data(
                         phone: account.phone.clone(),
                         tg_account: account.tg_account.clone(),
                         linked_account: account.linked_account.clone(),
+                        invite_link: account.invite_link.clone(),
+                        login_methods: account.login_methods.clone(),
                         status: account.status,
                         last_login_at: account.last_login_at.clone(),
                         last_refreshed_at: account.last_refreshed_at.clone(),
@@ -437,6 +451,8 @@ pub fn import_relay_data<R: Runtime>(
                 phone: account.phone.clone(),
                 tg_account: account.tg_account.clone(),
                 linked_account: account.linked_account.clone(),
+                invite_link: account.invite_link.clone(),
+                login_methods: account.login_methods.clone(),
                 status: account.status,
                 last_login_at: account.last_login_at,
                 last_refreshed_at: account.last_refreshed_at,

@@ -3,6 +3,8 @@
  */
 export type AccountSessionStatus = "ready" | "loginRequired" | "expired";
 
+export type LoginMethod = "emailCode" | "usernamePassword" | "linkedLink" | "phoneCode";
+
 export interface RelayStation {
   id: string;
   remark: string;
@@ -19,6 +21,8 @@ export interface StationAccount {
   phone: string | null;
   tgAccount: string | null;
   linkedAccount: string | null;
+  inviteLink: string | null;
+  loginMethods: LoginMethod[];
   status: AccountSessionStatus;
   lastLoginAt: string | null;
   lastRefreshedAt: string | null;

@@ -1,6 +1,6 @@
 {
   "sidebar": {
-    "apiBilling": "Gateway Accounts",
+    "apiBilling": "Account Management",
     "portManager": "Port Manager",
     "appManager": "App Manager",
     "devCleaner": "Dev Cleaner",
@@ -49,6 +49,8 @@
       "phone": "Phone",
       "tgAccount": "Telegram",
       "linkedAccount": "Linked Account",
+      "inviteLink": "Invite Link",
+      "loginMethods": "Login Methods",
       "probeUrl": "Probe URL",
       "probeUrlHint": "Optional URL used to verify login status"
     },
@@ -56,7 +58,8 @@
       "title": "Add Gateway",
       "subtitle": "Fill in a remark and the website URL. It will appear in the left list.",
       "remarkPlaceholder": "e.g. Alpha Gateway",
-      "websitePlaceholder": "https://example.com"
+      "websitePlaceholder": "https://example.com",
+      "inviteLinkPriority": "Accounts will prefer the invite link for login"
     },
     "addAccountDialog": {
       "title": "Add Account",
@@ -66,6 +69,7 @@
       "phonePlaceholder": "Optional · phone number",
       "tgAccountPlaceholder": "Optional · Telegram account",
       "linkedAccountPlaceholder": "Optional · linked account",
+      "inviteLinkPlaceholder": "Optional · invite link",
       "notesPlaceholder": "Use, balance, or anything worth noting."
     },
     "editStationDialog": {
@@ -82,6 +86,12 @@
       "ready": "Signed in",
       "loginRequired": "Needs Login",
       "expired": "Re-login"
+    },
+    "loginMethods": {
+      "emailCode": "Email + Code",
+      "usernamePassword": "Username + Password",
+      "linkedLink": "Linked Link",
+      "phoneCode": "Phone + Code"
     },
     "card": {
       "lastLogin": "Last Login",

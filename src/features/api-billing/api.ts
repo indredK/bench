@@ -7,6 +7,7 @@ import type {
   RelayDataImportResult,
   RelayStation,
   StationAccount,
+  LoginMethod,
 } from "@/lib/tauri/types/api-billing";
 
 export type {
@@ -15,6 +16,7 @@ export type {
   RelayDataImportResult,
   RelayStation,
   StationAccount,
+  LoginMethod,
 } from "@/lib/tauri/types/api-billing";
 
 export function listStations(): Promise<RelayStation[]> {
@@ -60,7 +62,9 @@ export function createAccount(
   notes: string,
   phone?: string | null,
   tgAccount?: string | null,
-  linkedAccount?: string | null
+  linkedAccount?: string | null,
+  inviteLink?: string | null,
+  loginMethods?: LoginMethod[]
 ): Promise<StationAccount> {
   return invokeTauriCommand("create_account", {
     stationId,
@@ -70,12 +74,22 @@ export function createAccount(
     phone: phone ?? null,
     tgAccount: tgAccount ?? null,
     linkedAccount: linkedAccount ?? null,
+    inviteLink: inviteLink ?? null,
+    loginMethods: loginMethods ?? [],
   });
 }
 
 export function updateAccount(
   id: string,
-  patch: { username?: string; notes?: string; phone?: string | null; tgAccount?: string | null; linkedAccount?: string | null }
+  patch: { 
+    username?: string; 
+    notes?: string; 
+    phone?: string | null; 
+    tgAccount?: string | null; 
+    linkedAccount?: string | null;
+    inviteLink?: string | null;
+    loginMethods?: LoginMethod[];
+  }
 ): Promise<StationAccount> {
   return invokeTauriCommand("update_account", {
     id,
@@ -84,6 +98,8 @@ export function updateAccount(
     phone: "phone" in patch ? patch.phone : null,
     tgAccount: "tgAccount" in patch ? patch.tgAccount : null,
     linkedAccount: "linkedAccount" in patch ? patch.linkedAccount : null,
+    inviteLink: "inviteLink" in patch ? patch.inviteLink : null,
+    loginMethods: "loginMethods" in patch ? patch.loginMethods : undefined,
   });
 }
 
