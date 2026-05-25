@@ -111,11 +111,21 @@ export const TAURI_COMMAND_CONTRACTS = {
       username: string;
       password?: string | null;
       notes: string;
+      phone?: string | null;
+      tgAccount?: string | null;
+      linkedAccount?: string | null;
     },
     StationAccount
   >()("create_account"),
   update_account: defineTauriCommand<
-    { id: string; username?: string | null; notes?: string | null },
+    { 
+      id: string; 
+      username?: string | null; 
+      notes?: string | null;
+      phone?: string | null;
+      tgAccount?: string | null;
+      linkedAccount?: string | null;
+    },
     StationAccount
   >()("update_account"),
   delete_account: defineTauriCommand<{ id: string }, void>()("delete_account"),
@@ -317,8 +327,8 @@ export const TAURI_COMMAND_ARG_KEYS = {
   delete_station: ["id"],
   list_accounts: ["stationId"],
   list_all_accounts: [],
-  create_account: ["stationId", "username", "password", "notes"],
-  update_account: ["id", "username", "notes"],
+  create_account: ["stationId", "username", "password", "notes", "phone", "tgAccount", "linkedAccount"],
+  update_account: ["id", "username", "notes", "phone", "tgAccount", "linkedAccount"],
   delete_account: ["id"],
   reveal_password: ["accountId"],
   set_password: ["accountId", "password"],

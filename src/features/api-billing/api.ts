@@ -57,24 +57,33 @@ export function createAccount(
   stationId: string,
   username: string,
   password: string | null,
-  notes: string
+  notes: string,
+  phone?: string | null,
+  tgAccount?: string | null,
+  linkedAccount?: string | null
 ): Promise<StationAccount> {
   return invokeTauriCommand("create_account", {
     stationId,
     username,
     password,
     notes,
+    phone: phone ?? null,
+    tgAccount: tgAccount ?? null,
+    linkedAccount: linkedAccount ?? null,
   });
 }
 
 export function updateAccount(
   id: string,
-  patch: { username?: string; notes?: string }
+  patch: { username?: string; notes?: string; phone?: string | null; tgAccount?: string | null; linkedAccount?: string | null }
 ): Promise<StationAccount> {
   return invokeTauriCommand("update_account", {
     id,
     username: patch.username ?? null,
     notes: patch.notes ?? null,
+    phone: "phone" in patch ? patch.phone : null,
+    tgAccount: "tgAccount" in patch ? patch.tgAccount : null,
+    linkedAccount: "linkedAccount" in patch ? patch.linkedAccount : null,
   });
 }
 

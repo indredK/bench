@@ -46,6 +46,9 @@
       "username": "账号",
       "password": "密码",
       "notes": "备注",
+      "phone": "手机号",
+      "tgAccount": "TG账号",
+      "linkedAccount": "关联账号",
       "probeUrl": "探针地址",
       "probeUrlHint": "可选，用于检测登录态的接口地址"
     },
@@ -60,6 +63,9 @@
       "subtitle": "为「{{name}}」新增一个账号。登录后可重复使用。",
       "usernamePlaceholder": "例如：alpha-main",
       "passwordPlaceholder": "可选，填写登录密码",
+      "phonePlaceholder": "可选，填写手机号",
+      "tgAccountPlaceholder": "可选，填写TG账号",
+      "linkedAccountPlaceholder": "可选，填写关联账号",
       "notesPlaceholder": "可记录该账号的用途、余额等信息。"
     },
     "editStationDialog": {

@@ -46,6 +46,9 @@
       "username": "Account",
       "password": "Password",
       "notes": "Notes",
+      "phone": "Phone",
+      "tgAccount": "Telegram",
+      "linkedAccount": "Linked Account",
       "probeUrl": "Probe URL",
       "probeUrlHint": "Optional URL used to verify login status"
     },
@@ -60,6 +63,9 @@
       "subtitle": "Create a new account under \"{{name}}\". The session can be reused after login.",
       "usernamePlaceholder": "e.g. alpha-main",
       "passwordPlaceholder": "Optional · enter the login password",
+      "phonePlaceholder": "Optional · phone number",
+      "tgAccountPlaceholder": "Optional · Telegram account",
+      "linkedAccountPlaceholder": "Optional · linked account",
       "notesPlaceholder": "Use, balance, or anything worth noting."
     },
     "editStationDialog": {

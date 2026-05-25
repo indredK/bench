@@ -13,8 +13,11 @@ import {
   Import,
   Inbox,
   KeyRound,
+  Link,
   LogIn,
+  MessageCircle,
   Pencil,
+  Phone,
   Plus,
   RefreshCw,
   StickyNote,
@@ -142,14 +145,17 @@ function ApiBillingPage() {
     }
   };
 
-  const handleAddAccount = async (username: string, password: string, notes: string) => {
+  const handleAddAccount = async (username: string, password: string, notes: string, phone: string, tgAccount: string, linkedAccount: string) => {
     if (!selectedStation) return;
     try {
       const account = await api.createAccount(
         selectedStation.id,
         username,
         password ? password : null,
-        notes
+        notes,
+        phone || null,
+        tgAccount || null,
+        linkedAccount || null
       );
       setAccounts((prev) => [...prev, account]);
       setSelectedAccountId(account.id);
@@ -324,13 +330,19 @@ function ApiBillingPage() {
   const handleEditAccount = async (
     username: string,
     notes: string,
-    password: string
+    password: string,
+    phone: string,
+    tgAccount: string,
+    linkedAccount: string
   ) => {
     if (!editingAccount) return;
     try {
       const updated = await api.updateAccount(editingAccount.id, {
         username,
         notes,
+        phone: phone || null,
+        tgAccount: tgAccount || null,
+        linkedAccount: linkedAccount || null,
       });
       await api.setPassword(editingAccount.id, password);
       updated.hasPassword = password.length > 0;
@@ -1191,26 +1203,32 @@ function AddAccountDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   stationName: string;
-  onSubmit: (username: string, password: string, notes: string) => void | Promise<void>;
+  onSubmit: (username: string, password: string, notes: string, phone: string, tgAccount: string, linkedAccount: string) => void | Promise<void>;
 }) {
   const { t } = useTranslation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [passwordHidden, setPasswordHidden] = useState(true);
   const [notes, setNotes] = useState("");
+  const [phone, setPhone] = useState("");
+  const [tgAccount, setTgAccount] = useState("");
+  const [linkedAccount, setLinkedAccount] = useState("");
 
   const reset = () => {
     setUsername("");
     setPassword("");
     setPasswordHidden(true);
     setNotes("");
+    setPhone("");
+    setTgAccount("");
+    setLinkedAccount("");
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const u = username.trim();
     if (!u) return;
-    void Promise.resolve(onSubmit(u, password, notes.trim()));
+    void Promise.resolve(onSubmit(u, password, notes.trim(), phone.trim(), tgAccount.trim(), linkedAccount.trim()));
     reset();
     onOpenChange(false);
   };
@@ -1271,6 +1289,39 @@ function AddAccountDialog({
                   />
                 ) : null}
               </div>
+            }
+          />
+          <Field
+            label={t("apiBilling.fields.phone")}
+            icon={<Phone size={14} />}
+            input={
+              <Input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder={t("apiBilling.addAccountDialog.phonePlaceholder")}
+              />
+            }
+          />
+          <Field
+            label={t("apiBilling.fields.tgAccount")}
+            icon={<MessageCircle size={14} />}
+            input={
+              <Input
+                value={tgAccount}
+                onChange={(e) => setTgAccount(e.target.value)}
+                placeholder={t("apiBilling.addAccountDialog.tgAccountPlaceholder")}
+              />
+            }
+          />
+          <Field
+            label={t("apiBilling.fields.linkedAccount")}
+            icon={<Link size={14} />}
+            input={
+              <Input
+                value={linkedAccount}
+                onChange={(e) => setLinkedAccount(e.target.value)}
+                placeholder={t("apiBilling.addAccountDialog.linkedAccountPlaceholder")}
+              />
             }
           />
           <Field
@@ -1431,7 +1482,10 @@ function EditAccountDialog({
   onSubmit: (
     username: string,
     notes: string,
-    password: string
+    password: string,
+    phone: string,
+    tgAccount: string,
+    linkedAccount: string
   ) => void | Promise<void>;
 }) {
   const { t } = useTranslation();
@@ -1440,6 +1494,9 @@ function EditAccountDialog({
   const [password, setPassword] = useState("");
   const [passwordHidden, setPasswordHidden] = useState(true);
   const [passwordLoading, setPasswordLoading] = useState(false);
+  const [phone, setPhone] = useState("");
+  const [tgAccount, setTgAccount] = useState("");
+  const [linkedAccount, setLinkedAccount] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -1448,6 +1505,9 @@ function EditAccountDialog({
       setNotes(account.notes);
       setPassword("");
       setPasswordHidden(true);
+      setPhone(account.phone ?? "");
+      setTgAccount(account.tgAccount ?? "");
+      setLinkedAccount(account.linkedAccount ?? "");
       if (account.hasPassword) {
         setPasswordLoading(true);
         void api
@@ -1474,7 +1534,7 @@ function EditAccountDialog({
     event.preventDefault();
     const u = username.trim();
     if (!u) return;
-    void Promise.resolve(onSubmit(u, notes.trim(), password.trim()));
+    void Promise.resolve(onSubmit(u, notes.trim(), password.trim(), phone.trim(), tgAccount.trim(), linkedAccount.trim()));
   };
 
   return (
@@ -1534,6 +1594,39 @@ function EditAccountDialog({
                   />
                 ) : null}
               </div>
+            }
+          />
+          <Field
+            label={t("apiBilling.fields.phone")}
+            icon={<Phone size={14} />}
+            input={
+              <Input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder={t("apiBilling.addAccountDialog.phonePlaceholder")}
+              />
+            }
+          />
+          <Field
+            label={t("apiBilling.fields.tgAccount")}
+            icon={<MessageCircle size={14} />}
+            input={
+              <Input
+                value={tgAccount}
+                onChange={(e) => setTgAccount(e.target.value)}
+                placeholder={t("apiBilling.addAccountDialog.tgAccountPlaceholder")}
+              />
+            }
+          />
+          <Field
+            label={t("apiBilling.fields.linkedAccount")}
+            icon={<Link size={14} />}
+            input={
+              <Input
+                value={linkedAccount}
+                onChange={(e) => setLinkedAccount(e.target.value)}
+                placeholder={t("apiBilling.addAccountDialog.linkedAccountPlaceholder")}
+              />
             }
           />
           <Field

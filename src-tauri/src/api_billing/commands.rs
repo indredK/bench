@@ -205,6 +205,9 @@ pub fn create_account<R: Runtime>(
     username: String,
     password: Option<String>,
     notes: String,
+    phone: Option<String>,
+    tg_account: Option<String>,
+    linked_account: Option<String>,
 ) -> ApiBillingResult<StationAccount> {
     {
         let stations = state.stations.lock().unwrap();
@@ -220,6 +223,9 @@ pub fn create_account<R: Runtime>(
         station_id,
         username: trim_or_invalid(&username, "username")?,
         notes: notes.trim().to_string(),
+        phone: normalize_optional(phone),
+        tg_account: normalize_optional(tg_account),
+        linked_account: normalize_optional(linked_account),
         status: AccountSessionStatus::LoginRequired,
         last_login_at: None,
         last_refreshed_at: None,
@@ -255,6 +261,9 @@ pub fn update_account<R: Runtime>(
     id: String,
     username: Option<String>,
     notes: Option<String>,
+    phone: Option<Option<String>>,
+    tg_account: Option<Option<String>>,
+    linked_account: Option<Option<String>>,
 ) -> ApiBillingResult<StationAccount> {
     let (accounts_snapshot, updated) = {
         let mut accounts = state.accounts.lock().unwrap();
@@ -266,6 +275,15 @@ pub fn update_account<R: Runtime>(
         }
         if let Some(n) = notes {
             account.notes = n.trim().to_string();
+        }
+        if let Some(p) = phone {
+            account.phone = normalize_optional(p);
+        }
+        if let Some(t) = tg_account {
+            account.tg_account = normalize_optional(t);
+        }
+        if let Some(l) = linked_account {
+            account.linked_account = normalize_optional(l);
         }
         let updated = account.clone();
         (accounts.clone(), updated)
@@ -332,6 +350,9 @@ pub fn export_relay_data(
                         username: account.username.clone(),
                         password,
                         notes: account.notes.clone(),
+                        phone: account.phone.clone(),
+                        tg_account: account.tg_account.clone(),
+                        linked_account: account.linked_account.clone(),
                         status: account.status,
                         last_login_at: account.last_login_at.clone(),
                         last_refreshed_at: account.last_refreshed_at.clone(),
@@ -413,6 +434,9 @@ pub fn import_relay_data<R: Runtime>(
                 station_id: station_id.clone(),
                 username: trim_or_invalid(&account.username, "username")?,
                 notes: account.notes.trim().to_string(),
+                phone: account.phone.clone(),
+                tg_account: account.tg_account.clone(),
+                linked_account: account.linked_account.clone(),
                 status: account.status,
                 last_login_at: account.last_login_at,
                 last_refreshed_at: account.last_refreshed_at,

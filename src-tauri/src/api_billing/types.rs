@@ -26,6 +26,12 @@ pub struct StationAccount {
     pub station_id: String,
     pub username: String,
     pub notes: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub phone: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tg_account: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub linked_account: Option<String>,
     pub status: AccountSessionStatus,
     pub last_login_at: Option<String>,
     pub last_refreshed_at: Option<String>,
@@ -42,6 +48,12 @@ pub struct RelayAccountExport {
     pub password: Option<String>,
     #[serde(default)]
     pub notes: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub phone: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tg_account: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub linked_account: Option<String>,
     pub status: AccountSessionStatus,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_login_at: Option<String>,

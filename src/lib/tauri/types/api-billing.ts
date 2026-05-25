@@ -16,6 +16,9 @@ export interface StationAccount {
   stationId: string;
   username: string;
   notes: string;
+  phone: string | null;
+  tgAccount: string | null;
+  linkedAccount: string | null;
   status: AccountSessionStatus;
   lastLoginAt: string | null;
   lastRefreshedAt: string | null;
