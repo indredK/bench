@@ -5,6 +5,7 @@ import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
 import { ThemeProvider } from "next-themes";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "@/components/ui/sonner";
 import App from "./App";
 import "./styles/index.css";
 import { i18nInitPromise } from "./i18n/config";
@@ -27,6 +28,7 @@ async function bootstrap() {
         <TooltipProvider>
           <App />
         </TooltipProvider>
+        <Toaster />
       </ThemeProvider>
     </StrictMode>,
   );
