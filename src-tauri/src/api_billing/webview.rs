@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -13,7 +14,7 @@ use super::types::{ApiBillingError, ApiBillingResult};
 const LOGIN_WINDOW_WIDTH: f64 = 1080.0;
 const LOGIN_WINDOW_HEIGHT: f64 = 720.0;
 const PROBE_LOAD_TIMEOUT_SECS: u64 = 15;
-const PROBE_MAX_WAIT_AFTER_LOAD_MS: u64 = 6_000;
+const PROBE_MAX_WAIT_AFTER_LOAD_MS: u64 = 10_000;
 const PROBE_POLL_INTERVAL_MS: u64 = 2_000;
 const PROBE_STABLE_POLLS_REQUIRED: usize = 2;
 const PROBE_EVAL_TIMEOUT_SECS: u64 = 3;
@@ -135,18 +136,27 @@ async fn eval_inner_text<R: Runtime>(window: &WebviewWindow<R>) -> ApiBillingRes
 
 async fn poll_until_text_stable<R: Runtime>(
     window: &WebviewWindow<R>,
+    load_counter: Arc<AtomicUsize>,
 ) -> ApiBillingResult<String> {
     let start = Instant::now();
     let max_wait = Duration::from_millis(PROBE_MAX_WAIT_AFTER_LOAD_MS);
     let poll_interval = Duration::from_millis(PROBE_POLL_INTERVAL_MS);
 
     let mut last_text = eval_inner_text(window).await?;
+    let mut last_counter = load_counter.load(Ordering::SeqCst);
     let mut stable_count: usize = 1;
 
     while start.elapsed() < max_wait {
         tokio::time::sleep(poll_interval).await;
         let text = eval_inner_text(window).await?;
-        if text == last_text {
+        let now_counter = load_counter.load(Ordering::SeqCst);
+
+        if now_counter != last_counter {
+            // 期间又发生了导航,过去的稳定计数作废
+            last_counter = now_counter;
+            last_text = text;
+            stable_count = 1;
+        } else if text == last_text {
             stable_count += 1;
             if stable_count >= PROBE_STABLE_POLLS_REQUIRED {
                 return Ok(text);
@@ -184,6 +194,8 @@ pub async fn run_probe<R: Runtime>(
     let (load_tx, load_rx) = oneshot::channel::<()>();
     let load_slot: Arc<Mutex<Option<oneshot::Sender<()>>>> =
         Arc::new(Mutex::new(Some(load_tx)));
+    let load_counter = Arc::new(AtomicUsize::new(0));
+    let load_counter_cb = load_counter.clone();
 
     let window = {
         let mut builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(parsed))
@@ -193,6 +205,7 @@ pub async fn run_probe<R: Runtime>(
                 if !matches!(payload.event(), PageLoadEvent::Finished) {
                     return;
                 }
+                load_counter_cb.fetch_add(1, Ordering::SeqCst);
                 let Ok(mut guard) = load_slot.lock() else {
                     return;
                 };
@@ -221,7 +234,7 @@ pub async fn run_probe<R: Runtime>(
     let result = match load_outcome {
         Err(_) => Err(ApiBillingError::store_fail("probe load timeout")),
         Ok(Err(_)) => Err(ApiBillingError::store_fail("probe load channel closed")),
-        Ok(Ok(())) => poll_until_text_stable(&window).await,
+        Ok(Ok(())) => poll_until_text_stable(&window, load_counter).await,
     };
 
     let _ = window.close();
