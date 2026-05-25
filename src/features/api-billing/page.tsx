@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -60,6 +60,7 @@ import type {
   StationAccount,
 } from "@/features/api-billing/api";
 import { DEFAULT_LOGIN_DETECTION } from "@/features/api-billing/api";
+import { useGuardedAsync, useGuardedAsyncSet } from "@/hooks/useGuardedAsync";
 
 type DetailRow = {
   label: string;
@@ -91,16 +92,11 @@ function ApiBillingPage() {
   const [openingAccountId, setOpeningAccountId] = useState<string | null>(null);
   const [isAddStationOpen, setAddStationOpen] = useState(false);
   const [isAddAccountOpen, setAddAccountOpen] = useState(false);
-  const [refreshingAccountIds, setRefreshingAccountIds] = useState<Set<string>>(
-    () => new Set()
-  );
-  const refreshingAccountIdsRef = useRef<Set<string>>(new Set());
-  const [refreshingStationIds, setRefreshingStationIds] = useState<Set<string>>(
-    () => new Set()
-  );
-  const refreshingStationIdsRef = useRef<Set<string>>(new Set());
-  const [refreshingAll, setRefreshingAll] = useState(false);
-  const refreshingAllRef = useRef(false);
+  const { pendingKeys: refreshingAccountIds, run: runAccountRefresh } =
+    useGuardedAsyncSet<string>();
+  const { pendingKeys: refreshingStationIds, run: runStationRefresh } =
+    useGuardedAsyncSet<string>();
+  const { pending: refreshingAll, run: runAllRefresh } = useGuardedAsync();
   const [isEditStationOpen, setEditStationOpen] = useState(false);
   const [editingStation, setEditingStation] = useState<RelayStation | null>(null);
   const [isEditAccountOpen, setEditAccountOpen] = useState(false);
@@ -217,73 +213,41 @@ function ApiBillingPage() {
     setSelectedAccountId(first?.id ?? "");
   };
 
-  const handleRefreshAccount = async (account: StationAccount) => {
-    if (refreshingAccountIdsRef.current.has(account.id)) return;
-    refreshingAccountIdsRef.current.add(account.id);
-    setRefreshingAccountIds((prev) => {
-      const next = new Set(prev);
-      next.add(account.id);
-      return next;
+  const handleRefreshAccount = (account: StationAccount) =>
+    runAccountRefresh(account.id, async () => {
+      try {
+        const updated = await api.refreshAccount(account.id);
+        setAccounts((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+      } catch (error) {
+        const info = classifyApiBillingError(error, t("apiBilling.toasts.refreshAccountFailed"));
+        toast.error(t(`apiBilling.toasts.${info.kind}`));
+      }
     });
-    try {
-      const updated = await api.refreshAccount(account.id);
-      setAccounts((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
-    } catch (error) {
-      const info = classifyApiBillingError(error, t("apiBilling.toasts.refreshAccountFailed"));
-      toast.error(t(`apiBilling.toasts.${info.kind}`));
-    } finally {
-      refreshingAccountIdsRef.current.delete(account.id);
-      setRefreshingAccountIds((prev) => {
-        if (!prev.has(account.id)) return prev;
-        const next = new Set(prev);
-        next.delete(account.id);
-        return next;
-      });
-    }
-  };
 
-  const handleRefreshStation = async (stationId: string) => {
+  const handleRefreshStation = (stationId: string) => {
     if (!stationId) return;
-    if (refreshingStationIdsRef.current.has(stationId)) return;
-    refreshingStationIdsRef.current.add(stationId);
-    setRefreshingStationIds((prev) => {
-      const next = new Set(prev);
-      next.add(stationId);
-      return next;
+    return runStationRefresh(stationId, async () => {
+      try {
+        const subset = await api.refreshStation(stationId);
+        const byId = new Map(subset.map((a) => [a.id, a] as const));
+        setAccounts((prev) => prev.map((a) => byId.get(a.id) ?? a));
+      } catch (error) {
+        const info = classifyApiBillingError(error, t("apiBilling.toasts.refreshStationFailed"));
+        toast.error(t(`apiBilling.toasts.${info.kind}`));
+      }
     });
-    try {
-      const subset = await api.refreshStation(stationId);
-      const byId = new Map(subset.map((a) => [a.id, a] as const));
-      setAccounts((prev) => prev.map((a) => byId.get(a.id) ?? a));
-    } catch (error) {
-      const info = classifyApiBillingError(error, t("apiBilling.toasts.refreshStationFailed"));
-      toast.error(t(`apiBilling.toasts.${info.kind}`));
-    } finally {
-      refreshingStationIdsRef.current.delete(stationId);
-      setRefreshingStationIds((prev) => {
-        if (!prev.has(stationId)) return prev;
-        const next = new Set(prev);
-        next.delete(stationId);
-        return next;
-      });
-    }
   };
 
-  const handleRefreshAll = async () => {
-    if (refreshingAllRef.current) return;
-    refreshingAllRef.current = true;
-    setRefreshingAll(true);
-    try {
-      const all = await api.refreshAll();
-      setAccounts(all);
-    } catch (error) {
-      const info = classifyApiBillingError(error, t("apiBilling.toasts.refreshAllFailed"));
-      toast.error(t(`apiBilling.toasts.${info.kind}`));
-    } finally {
-      refreshingAllRef.current = false;
-      setRefreshingAll(false);
-    }
-  };
+  const handleRefreshAll = () =>
+    runAllRefresh(async () => {
+      try {
+        const all = await api.refreshAll();
+        setAccounts(all);
+      } catch (error) {
+        const info = classifyApiBillingError(error, t("apiBilling.toasts.refreshAllFailed"));
+        toast.error(t(`apiBilling.toasts.${info.kind}`));
+      }
+    });
 
   const handleExportData = async () => {
     if (exportingData) return;
