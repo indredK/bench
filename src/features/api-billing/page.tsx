@@ -117,6 +117,8 @@ function ApiBillingPage() {
     return () => {
       cancelled = true;
     };
+    // 仅初始化加载一次,不随 t 变化重新拉取数据
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const selectedStation = stations.find((s) => s.id === selectedStationId) ?? null;
@@ -1263,7 +1265,6 @@ function StationDialog({
                 value={remark}
                 onChange={(e) => setRemark(e.target.value)}
                 placeholder={t("apiBilling.addStationDialog.remarkPlaceholder")}
-                autoFocus
                 required
               />
             }
@@ -1402,7 +1403,6 @@ function AddAccountDialog({
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder={t("apiBilling.addAccountDialog.usernamePlaceholder")}
-                  autoFocus
                   required
                 />
               }
@@ -1441,6 +1441,8 @@ function AddAccountDialog({
               icon={<Phone size={14} />}
               input={
                 <Input
+                  type="tel"
+                  inputMode="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder={t("apiBilling.addAccountDialog.phonePlaceholder")}
@@ -1686,7 +1688,6 @@ function EditAccountDialog({
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder={t("apiBilling.addAccountDialog.usernamePlaceholder")}
-                autoFocus
                 required
               />
             }
@@ -1730,6 +1731,8 @@ function EditAccountDialog({
             icon={<Phone size={14} />}
             input={
               <Input
+                type="tel"
+                inputMode="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder={t("apiBilling.addAccountDialog.phonePlaceholder")}
