@@ -2,6 +2,7 @@ pub mod commands;
 pub mod state;
 mod crypto;
 mod detection;
+mod probe;
 mod storage;
 mod types;
 mod webview;

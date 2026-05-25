@@ -100,7 +100,8 @@
     "status": {
       "ready": "已登录",
       "loginRequired": "待登录",
-      "expired": "需重登"
+      "expired": "需重登",
+      "fetchFailed": "获取失败"
     },
     "loginMethods": {
       "emailCode": "邮箱+验证码",
@@ -150,8 +151,10 @@
       "refreshStationFailed": "刷新中转站失败",
       "refreshAllFailed": "刷新全部账号失败",
       "refreshAccountSuccess": "账号 {{name}} 已刷新",
+      "refreshAccountFetchFailed": "账号 {{name}} 获取失败,请稍后重试",
       "refreshStationSuccess": "已刷新 {{count}} 个账号",
       "refreshAllSuccess": "已刷新全部 {{count}} 个账号",
+      "refreshBatchFetchFailed": "{{failed}}/{{total}} 个账号获取失败",
       "updateStationFailed": "更新中转站失败",
       "updateAccountFailed": "更新账号失败",
       "updatePasswordFailed": "账号信息已保存，但密码更新失败",

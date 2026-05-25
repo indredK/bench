@@ -100,7 +100,8 @@
     "status": {
       "ready": "Signed in",
       "loginRequired": "Needs Login",
-      "expired": "Re-login"
+      "expired": "Re-login",
+      "fetchFailed": "Fetch Failed"
     },
     "loginMethods": {
       "emailCode": "Email + Code",
@@ -150,8 +151,10 @@
       "refreshStationFailed": "Failed to refresh gateway",
       "refreshAllFailed": "Failed to refresh all accounts",
       "refreshAccountSuccess": "Account {{name}} refreshed",
+      "refreshAccountFetchFailed": "Could not fetch status for {{name}}, please retry",
       "refreshStationSuccess": "Refreshed {{count}} account(s)",
       "refreshAllSuccess": "Refreshed all {{count}} account(s)",
+      "refreshBatchFetchFailed": "{{failed}}/{{total}} account(s) failed to fetch",
       "updateStationFailed": "Failed to update gateway",
       "updateAccountFailed": "Failed to update account",
       "updatePasswordFailed": "Account info saved, but failed to update the password",

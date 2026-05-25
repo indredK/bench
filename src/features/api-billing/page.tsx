@@ -218,9 +218,15 @@ function ApiBillingPage() {
       try {
         const updated = await api.refreshAccount(account.id);
         setAccounts((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
-        toast.success(
-          t("apiBilling.toasts.refreshAccountSuccess", { name: updated.username })
-        );
+        if (updated.status === "fetchFailed") {
+          toast.warning(
+            t("apiBilling.toasts.refreshAccountFetchFailed", { name: updated.username })
+          );
+        } else {
+          toast.success(
+            t("apiBilling.toasts.refreshAccountSuccess", { name: updated.username })
+          );
+        }
       } catch (error) {
         const info = classifyApiBillingError(error, t("apiBilling.toasts.refreshAccountFailed"));
         toast.error(t(`apiBilling.toasts.${info.kind}`));
@@ -234,9 +240,16 @@ function ApiBillingPage() {
         const subset = await api.refreshStation(stationId);
         const byId = new Map(subset.map((a) => [a.id, a] as const));
         setAccounts((prev) => prev.map((a) => byId.get(a.id) ?? a));
-        toast.success(
-          t("apiBilling.toasts.refreshStationSuccess", { count: subset.length })
-        );
+        const failed = subset.filter((a) => a.status === "fetchFailed").length;
+        if (failed > 0) {
+          toast.warning(
+            t("apiBilling.toasts.refreshBatchFetchFailed", { failed, total: subset.length })
+          );
+        } else {
+          toast.success(
+            t("apiBilling.toasts.refreshStationSuccess", { count: subset.length })
+          );
+        }
       } catch (error) {
         const info = classifyApiBillingError(error, t("apiBilling.toasts.refreshStationFailed"));
         toast.error(t(`apiBilling.toasts.${info.kind}`));
@@ -249,7 +262,14 @@ function ApiBillingPage() {
       try {
         const all = await api.refreshAll();
         setAccounts(all);
-        toast.success(t("apiBilling.toasts.refreshAllSuccess", { count: all.length }));
+        const failed = all.filter((a) => a.status === "fetchFailed").length;
+        if (failed > 0) {
+          toast.warning(
+            t("apiBilling.toasts.refreshBatchFetchFailed", { failed, total: all.length })
+          );
+        } else {
+          toast.success(t("apiBilling.toasts.refreshAllSuccess", { count: all.length }));
+        }
       } catch (error) {
         const info = classifyApiBillingError(error, t("apiBilling.toasts.refreshAllFailed"));
         toast.error(t(`apiBilling.toasts.${info.kind}`));
@@ -1947,12 +1967,14 @@ function StatusBadge({ status }: { status: AccountSessionStatus }) {
     ready: "secondary",
     loginRequired: "outline",
     expired: "destructive",
+    fetchFailed: "outline",
   } as const;
 
   const className = {
     ready: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300",
     loginRequired: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300",
     expired: "",
+    fetchFailed: "border-slate-400/40 bg-slate-500/10 text-slate-600 dark:text-slate-300",
   }[status];
 
   return (

@@ -6,6 +6,7 @@ pub enum AccountSessionStatus {
     Ready,
     LoginRequired,
     Expired,
+    FetchFailed,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]

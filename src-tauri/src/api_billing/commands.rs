@@ -5,7 +5,7 @@ use tauri::{AppHandle, Manager, Runtime, State};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 
 use super::crypto;
-use super::detection;
+use super::probe;
 use super::state::ApiBillingState;
 use super::storage;
 use super::types::{
@@ -610,8 +610,7 @@ async fn refresh_one_impl<R: Runtime>(
         .acquire_owned()
         .await
         .map_err(|e| ApiBillingError::store_fail(format!("acquire probe permit: {e}")))?;
-    let text = webview::run_probe(&app, &account_id, &website).await?;
-    let status = detection::classify(&text, &detection_config);
+    let outcome = probe::run_probe(&app, &account_id, &website, &detection_config).await?;
 
     let (snapshot, updated) = {
         let state = app.state::<ApiBillingState>();
@@ -619,7 +618,7 @@ async fn refresh_one_impl<R: Runtime>(
         let Some(a) = accounts.iter_mut().find(|a| a.id == account_id) else {
             return Err(ApiBillingError::not_found(format!("account {account_id}")));
         };
-        a.status = status;
+        a.status = outcome.status;
         a.last_refreshed_at = Some(now_label());
         let updated = a.clone();
         (accounts.clone(), updated)

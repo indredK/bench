@@ -1,7 +1,7 @@
 /**
  * IPC Types / 通信类型: mirror payload shapes only; 只定义通信数据形状.
  */
-export type AccountSessionStatus = "ready" | "loginRequired" | "expired";
+export type AccountSessionStatus = "ready" | "loginRequired" | "expired" | "fetchFailed";
 
 export type LoginMethod = "emailCode" | "usernamePassword" | "linkedLink" | "phoneCode";
 
