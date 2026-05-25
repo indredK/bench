@@ -160,3 +160,14 @@ export function exportRelayData(path: string): Promise<RelayDataExportResult> {
 export function importRelayData(path: string): Promise<RelayDataImportResult> {
   return invokeTauriCommand("import_relay_data", { path });
 }
+
+export function reorderStations(orderedIds: string[]): Promise<RelayStation[]> {
+  return invokeTauriCommand("reorder_stations", { orderedIds });
+}
+
+export function reorderAccounts(
+  stationId: string,
+  orderedIds: string[]
+): Promise<StationAccount[]> {
+  return invokeTauriCommand("reorder_accounts", { stationId, orderedIds });
+}

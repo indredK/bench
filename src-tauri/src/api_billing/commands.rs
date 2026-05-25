@@ -64,6 +64,59 @@ fn next_unique_remark(base: &str, existing: &mut HashSet<String>) -> String {
     }
 }
 
+trait HasId {
+    fn id(&self) -> &str;
+}
+
+impl HasId for RelayStation {
+    fn id(&self) -> &str {
+        &self.id
+    }
+}
+
+impl HasId for StationAccount {
+    fn id(&self) -> &str {
+        &self.id
+    }
+}
+
+/// Validate that `ordered_ids` is an exact permutation of the ids in `current`,
+/// then return `current` reordered to match. Rejects duplicates, missing ids,
+/// and unknown ids — all map to `INVALID_INPUT`.
+fn reorder_by_ids<T: HasId + Clone>(
+    current: &[T],
+    ordered_ids: &[String],
+    label: &str,
+) -> ApiBillingResult<Vec<T>> {
+    if ordered_ids.len() != current.len() {
+        return Err(ApiBillingError::invalid_input(format!(
+            "{label} reorder length mismatch: got {}, expected {}",
+            ordered_ids.len(),
+            current.len()
+        )));
+    }
+    let mut seen: HashSet<&str> = HashSet::with_capacity(ordered_ids.len());
+    for id in ordered_ids {
+        if !seen.insert(id.as_str()) {
+            return Err(ApiBillingError::invalid_input(format!(
+                "{label} reorder duplicate id: {id}"
+            )));
+        }
+    }
+    let mut by_id: HashMap<&str, T> =
+        current.iter().map(|item| (item.id(), item.clone())).collect();
+    let mut out: Vec<T> = Vec::with_capacity(ordered_ids.len());
+    for id in ordered_ids {
+        let Some(item) = by_id.remove(id.as_str()) else {
+            return Err(ApiBillingError::invalid_input(format!(
+                "{label} reorder unknown id: {id}"
+            )));
+        };
+        out.push(item);
+    }
+    Ok(out)
+}
+
 // ───── stations ─────
 
 #[tauri::command]
@@ -173,6 +226,22 @@ pub fn delete_station<R: Runtime>(
         }
     }
     Ok(())
+}
+
+#[tauri::command]
+pub fn reorder_stations<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, ApiBillingState>,
+    ordered_ids: Vec<String>,
+) -> ApiBillingResult<Vec<RelayStation>> {
+    let snapshot = {
+        let mut stations = state.stations.lock().unwrap();
+        let reordered = reorder_by_ids(&stations, &ordered_ids, "station")?;
+        *stations = reordered;
+        stations.clone()
+    };
+    storage::save_stations(&app, &snapshot)?;
+    Ok(snapshot)
 }
 
 // ───── accounts ─────
@@ -327,6 +396,61 @@ pub fn delete_account<R: Runtime>(
     }
     super::webview::remove_account_data_dir(&app, &id);
     Ok(())
+}
+
+#[tauri::command]
+pub fn reorder_accounts<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, ApiBillingState>,
+    station_id: String,
+    ordered_ids: Vec<String>,
+) -> ApiBillingResult<Vec<StationAccount>> {
+    {
+        let stations = state.stations.lock().unwrap();
+        if !stations.iter().any(|s| s.id == station_id) {
+            return Err(ApiBillingError::not_found(format!("station {station_id}")));
+        }
+    }
+
+    let (accounts_snapshot, station_view) = {
+        let mut accounts = state.accounts.lock().unwrap();
+        let (mine, others): (Vec<StationAccount>, Vec<StationAccount>) = accounts
+            .iter()
+            .cloned()
+            .partition(|a| a.station_id == station_id);
+        let mine_reordered = reorder_by_ids(&mine, &ordered_ids, "account")?;
+
+        // Splice reordered station accounts back into the global vec at the
+        // positions they previously occupied, preserving other stations' order.
+        let mut mine_iter = mine_reordered.into_iter();
+        let mut others_iter = others.into_iter();
+        let mut next: Vec<StationAccount> = Vec::with_capacity(accounts.len());
+        for original in accounts.iter() {
+            if original.station_id == station_id {
+                next.push(
+                    mine_iter
+                        .next()
+                        .expect("reorder_by_ids returns same-length vec"),
+                );
+            } else {
+                next.push(
+                    others_iter
+                        .next()
+                        .expect("partition preserved this element"),
+                );
+            }
+        }
+        *accounts = next;
+        let view = accounts
+            .iter()
+            .filter(|a| a.station_id == station_id)
+            .cloned()
+            .collect::<Vec<_>>();
+        (accounts.clone(), view)
+    };
+
+    storage::save_accounts(&app, &accounts_snapshot)?;
+    Ok(station_view)
 }
 
 // ───── import / export ─────
@@ -751,5 +875,54 @@ mod tests {
         ]);
         assert_eq!(next_unique_remark("Alpha", &mut existing), "Alpha3");
         assert!(existing.contains("Alpha3"));
+    }
+
+    fn make_station(id: &str) -> RelayStation {
+        RelayStation {
+            id: id.to_string(),
+            remark: id.to_string(),
+            website: format!("https://{id}.test"),
+            created_at: "2026-01-01 00:00".to_string(),
+            login_detection: super::super::types::LoginDetectionConfig::default(),
+        }
+    }
+
+    #[test]
+    fn reorder_by_ids_returns_items_in_requested_order() {
+        let current = vec![make_station("a"), make_station("b"), make_station("c")];
+        let ordered_ids = vec!["c".to_string(), "a".to_string(), "b".to_string()];
+        let out = reorder_by_ids(&current, &ordered_ids, "station").expect("ok");
+        let ids: Vec<&str> = out.iter().map(|s| s.id.as_str()).collect();
+        assert_eq!(ids, vec!["c", "a", "b"]);
+    }
+
+    #[test]
+    fn reorder_by_ids_rejects_length_mismatch() {
+        let current = vec![make_station("a"), make_station("b")];
+        let err = reorder_by_ids(&current, &["a".to_string()], "station").unwrap_err();
+        assert!(matches!(err, ApiBillingError::InvalidInput { .. }));
+    }
+
+    #[test]
+    fn reorder_by_ids_rejects_duplicate_id() {
+        let current = vec![make_station("a"), make_station("b")];
+        let ordered = vec!["a".to_string(), "a".to_string()];
+        let err = reorder_by_ids(&current, &ordered, "station").unwrap_err();
+        assert!(matches!(err, ApiBillingError::InvalidInput { .. }));
+    }
+
+    #[test]
+    fn reorder_by_ids_rejects_unknown_id() {
+        let current = vec![make_station("a"), make_station("b")];
+        let ordered = vec!["a".to_string(), "z".to_string()];
+        let err = reorder_by_ids(&current, &ordered, "station").unwrap_err();
+        assert!(matches!(err, ApiBillingError::InvalidInput { .. }));
+    }
+
+    #[test]
+    fn reorder_by_ids_empty_ok_on_empty_current() {
+        let current: Vec<RelayStation> = vec![];
+        let out = reorder_by_ids(&current, &[], "station").expect("ok");
+        assert!(out.is_empty());
     }
 }

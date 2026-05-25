@@ -169,6 +169,13 @@ export const TAURI_COMMAND_CONTRACTS = {
   import_relay_data: defineTauriCommand<{ path: string }, RelayDataImportResult>()(
     "import_relay_data"
   ),
+  reorder_stations: defineTauriCommand<{ orderedIds: string[] }, RelayStation[]>()(
+    "reorder_stations"
+  ),
+  reorder_accounts: defineTauriCommand<
+    { stationId: string; orderedIds: string[] },
+    StationAccount[]
+  >()("reorder_accounts"),
 } as const;
 
 export type TauriCommandName = keyof typeof TAURI_COMMAND_CONTRACTS;
@@ -271,6 +278,8 @@ export const TAURI_COMMANDS = {
     refreshAll: commandName("refresh_all"),
     exportRelayData: commandName("export_relay_data"),
     importRelayData: commandName("import_relay_data"),
+    reorderStations: commandName("reorder_stations"),
+    reorderAccounts: commandName("reorder_accounts"),
   },
 } as const;
 
@@ -347,6 +356,8 @@ export const TAURI_COMMAND_ARG_KEYS = {
   refresh_all: [],
   export_relay_data: ["path"],
   import_relay_data: ["path"],
+  reorder_stations: ["orderedIds"],
+  reorder_accounts: ["stationId", "orderedIds"],
 } as const satisfies TauriCommandArgKeys;
 
 export const WINDOW_BOOTSTRAP_EVENTS = {

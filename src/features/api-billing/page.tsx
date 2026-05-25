@@ -61,6 +61,7 @@ import type {
 } from "@/features/api-billing/api";
 import { DEFAULT_LOGIN_DETECTION } from "@/features/api-billing/api";
 import { useGuardedAsync, useGuardedAsyncSet } from "@/hooks/useGuardedAsync";
+import { SortableList, useSortableCard, DragHandle } from "@/features/api-billing/sortable-card";
 
 type DetailRow = {
   label: string;
@@ -81,6 +82,15 @@ async function openLoginWebview(account: StationAccount, website: string) {
     }
   }
   await openExternal(website);
+}
+
+function isInvalidInput(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "INVALID_INPUT"
+  );
 }
 
 function ApiBillingPage() {
@@ -107,6 +117,8 @@ function ApiBillingPage() {
   const [deletingAccount, setDeletingAccount] = useState<StationAccount | null>(null);
   const [importingData, setImportingData] = useState(false);
   const [exportingData, setExportingData] = useState(false);
+  const [reorderingStations, setReorderingStations] = useState(false);
+  const [reorderingAccounts, setReorderingAccounts] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -468,6 +480,75 @@ function ApiBillingPage() {
     }
   };
 
+  const handleReorderStations = async (orderedIds: string[]) => {
+    const prev = stations;
+    const map = new Map(prev.map((s) => [s.id, s]));
+    const next = orderedIds
+      .map((id) => map.get(id))
+      .filter((s): s is RelayStation => Boolean(s));
+    if (next.length !== prev.length) return;
+    setStations(next);
+    setReorderingStations(true);
+    try {
+      const server = await api.reorderStations(orderedIds);
+      setStations(server);
+      toast.success(t("apiBilling.toasts.reorderStationsSuccess"));
+    } catch (error) {
+      setStations(prev);
+      toast.error(t("apiBilling.toasts.reorderStationsFailed"));
+      if (isInvalidInput(error)) {
+        try {
+          const fresh = await api.listStations();
+          setStations(fresh);
+        } catch {
+          // ignore — user can refresh manually
+        }
+      }
+    } finally {
+      setReorderingStations(false);
+    }
+  };
+
+  const handleReorderAccounts = async (orderedIds: string[]) => {
+    if (!selectedStationId) return;
+    const stationId = selectedStationId;
+    const prev = accounts;
+    const mineMap = new Map(
+      prev.filter((a) => a.stationId === stationId).map((a) => [a.id, a])
+    );
+    const newMine = orderedIds
+      .map((id) => mineMap.get(id))
+      .filter((a): a is StationAccount => Boolean(a));
+    if (newMine.length !== mineMap.size) return;
+    let mineIter = 0;
+    const optimistic = prev.map((a) =>
+      a.stationId === stationId ? newMine[mineIter++] : a
+    );
+    setAccounts(optimistic);
+    setReorderingAccounts(true);
+    try {
+      const serverMine = await api.reorderAccounts(stationId, orderedIds);
+      let serverIter = 0;
+      setAccounts((current) =>
+        current.map((a) => (a.stationId === stationId ? serverMine[serverIter++] : a))
+      );
+      toast.success(t("apiBilling.toasts.reorderAccountsSuccess"));
+    } catch (error) {
+      setAccounts(prev);
+      toast.error(t("apiBilling.toasts.reorderAccountsFailed"));
+      if (isInvalidInput(error)) {
+        try {
+          const fresh = await api.listAllAccounts();
+          setAccounts(fresh);
+        } catch {
+          // ignore
+        }
+      }
+    } finally {
+      setReorderingAccounts(false);
+    }
+  };
+
   return (
     <div className="flex h-full min-h-0 gap-4">
       <StationColumn
@@ -478,6 +559,8 @@ function ApiBillingPage() {
         onAdd={() => setAddStationOpen(true)}
         onEdit={(station) => { setEditingStation(station); setEditStationOpen(true); }}
         onDelete={(station) => { setDeletingStation(station); setDeleteStationOpen(true); }}
+        onReorder={(ids) => void handleReorderStations(ids)}
+        reorderDisabled={reorderingStations}
         onRefreshAll={handleRefreshAll}
         refreshingAll={refreshingAll}
         onImportData={() => void handleImportData()}
@@ -501,6 +584,8 @@ function ApiBillingPage() {
         onRefreshStation={handleRefreshStation}
         onEdit={(account) => { setEditingAccount(account); setEditAccountOpen(true); }}
         onDelete={(account) => { setDeletingAccount(account); setDeleteAccountOpen(true); }}
+        onReorder={(ids) => void handleReorderAccounts(ids)}
+        reorderDisabled={reorderingAccounts}
       />
 
       <DetailColumn
@@ -576,6 +661,8 @@ function StationColumn({
   onAdd,
   onEdit,
   onDelete,
+  onReorder,
+  reorderDisabled,
   onRefreshAll,
   refreshingAll,
   onImportData,
@@ -590,6 +677,8 @@ function StationColumn({
   onAdd: () => void;
   onEdit: (station: RelayStation) => void;
   onDelete: (station: RelayStation) => void;
+  onReorder: (orderedIds: string[]) => void;
+  reorderDisabled: boolean;
   onRefreshAll: () => void;
   refreshingAll: boolean;
   onImportData: () => void;
@@ -598,6 +687,18 @@ function StationColumn({
   exportingData: boolean;
 }) {
   const { t } = useTranslation();
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const renderCard = (station: RelayStation, dragging: boolean) => (
+    <StationCardContent
+      station={station}
+      active={station.id === selectedId}
+      count={countByStation[station.id] ?? 0}
+      dragging={dragging}
+      onSelect={onSelect}
+      onEdit={onEdit}
+      onDelete={onDelete}
+    />
+  );
   return (
     <section className="flex w-[260px] shrink-0 flex-col rounded-lg border bg-card">
       <ColumnHeader
@@ -625,57 +726,24 @@ function StationColumn({
         {stations.length === 0 ? (
           <EmptyHint icon={<Inbox className="size-7 opacity-40" />} text={t("apiBilling.noStation")} />
         ) : (
-          <div className="space-y-2">
-            {stations.map((station) => {
-              const active = station.id === selectedId;
-              const count = countByStation[station.id] ?? 0;
-              return (
-                <button
-                  key={station.id}
-                  type="button"
-                  onClick={() => onSelect(station.id)}
-                  className={cn(
-                    "relative w-full rounded-lg border px-3 py-3 text-left transition",
-                    active ? "border-primary bg-primary/5" : "border-border hover:bg-muted/40"
-                  )}
-                >
-                  <span className="absolute -top-2 -right-2">
-                    <Badge variant="secondary" className="size-5 flex items-center justify-center rounded-full p-0 text-[10px] leading-none">{count}</Badge>
-                  </span>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="min-w-0 truncate text-sm font-semibold">{station.remark}</span>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onEdit(station);
-                        }}
-                        aria-label={t("apiBilling.editStation")}
-                        title={t("apiBilling.editStation")}
-                      >
-                        <Pencil size={13} />
-                      </Button>
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onDelete(station);
-                        }}
-                        aria-label={t("apiBilling.deleteStation")}
-                        title={t("apiBilling.deleteStation")}
-                      >
-                        <Trash2 size={13} className="text-destructive" />
-                      </Button>
-                    </div>
-                  </div>
-                  <p className="mt-1 truncate text-xs text-muted-foreground">{station.website}</p>
-                </button>
-              );
-            })}
-          </div>
+          <SortableList
+            items={stations}
+            disabled={reorderDisabled || stations.length < 2}
+            onReorder={onReorder}
+            activeId={activeId}
+            onActiveIdChange={setActiveId}
+            renderItem={(station) => (
+              <SortableStationItem
+                key={station.id}
+                station={station}
+                disabled={reorderDisabled || stations.length < 2}
+                render={renderCard}
+              />
+            )}
+            renderOverlay={(station) => (
+              <div className="rounded-lg border bg-card shadow-xl">{renderCard(station, true)}</div>
+            )}
+          />
         )}
       </div>
       <div className="flex items-center justify-end gap-1.5 border-t px-3 py-3">
@@ -704,6 +772,126 @@ function StationColumn({
   );
 }
 
+function SortableStationItem({
+  station,
+  disabled,
+  render,
+}: {
+  station: RelayStation;
+  disabled: boolean;
+  render: (station: RelayStation, dragging: boolean) => ReactNode;
+}) {
+  const { t } = useTranslation();
+  const { setNodeRef, style, handleProps, isDragging } = useSortableCard(station.id, disabled);
+  return (
+    <StationCardShell
+      ref={setNodeRef}
+      style={style}
+      isDragging={isDragging}
+      handle={
+        <DragHandle
+          label={t("apiBilling.reorder.dragHandle")}
+          disabled={disabled}
+          handleProps={handleProps}
+          className="absolute inset-y-0 left-0 z-10 w-4"
+        />
+      }
+      content={render(station, false)}
+    />
+  );
+}
+
+const StationCardShell = ({
+  ref,
+  style,
+  isDragging,
+  handle,
+  content,
+}: {
+  ref: (node: HTMLElement | null) => void;
+  style: React.CSSProperties;
+  isDragging: boolean;
+  handle: ReactNode;
+  content: ReactNode;
+}) => (
+  <div ref={ref} style={style} className={cn("relative", isDragging && "z-10")}>
+    {handle}
+    {content}
+  </div>
+);
+
+function StationCardContent({
+  station,
+  active,
+  count,
+  dragging,
+  onSelect,
+  onEdit,
+  onDelete,
+}: {
+  station: RelayStation;
+  active: boolean;
+  count: number;
+  dragging: boolean;
+  onSelect: (id: string) => void;
+  onEdit: (station: RelayStation) => void;
+  onDelete: (station: RelayStation) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onSelect(station.id)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onSelect(station.id);
+        }
+      }}
+      className={cn(
+        "relative w-full cursor-pointer rounded-lg border px-3 py-3 text-left transition",
+        active ? "border-primary bg-primary/5" : "border-border hover:bg-muted/40",
+        dragging && "shadow-xl"
+      )}
+    >
+      <span className="absolute -top-2 -right-2">
+        <Badge variant="secondary" className="size-5 flex items-center justify-center rounded-full p-0 text-[10px] leading-none">{count}</Badge>
+      </span>
+      <div className="flex items-center justify-between gap-2">
+        <span className="min-w-0 truncate text-sm font-semibold">{station.remark}</span>
+        <div className="flex items-center gap-1">
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            onClick={(event) => {
+              event.stopPropagation();
+              onEdit(station);
+            }}
+            aria-label={t("apiBilling.editStation")}
+            title={t("apiBilling.editStation")}
+          >
+            <Pencil size={13} />
+          </Button>
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            onClick={(event) => {
+              event.stopPropagation();
+              onDelete(station);
+            }}
+            aria-label={t("apiBilling.deleteStation")}
+            title={t("apiBilling.deleteStation")}
+          >
+            <Trash2 size={13} className="text-destructive" />
+          </Button>
+        </div>
+      </div>
+      <p className="mt-1 truncate text-xs text-muted-foreground">{station.website}</p>
+    </div>
+  );
+}
+
 function AccountColumn({
   station,
   accounts,
@@ -719,6 +907,8 @@ function AccountColumn({
   onRefreshStation,
   onEdit,
   onDelete,
+  onReorder,
+  reorderDisabled,
 }: {
   station: RelayStation | null;
   accounts: StationAccount[];
@@ -734,10 +924,27 @@ function AccountColumn({
   onRefreshStation: (stationId: string) => void;
   onEdit: (account: StationAccount) => void;
   onDelete: (account: StationAccount) => void;
+  onReorder: (orderedIds: string[]) => void;
+  reorderDisabled: boolean;
 }) {
   const { t } = useTranslation();
+  const [activeId, setActiveId] = useState<string | null>(null);
   const stationRefreshing =
     refreshingAll || (station ? refreshingStationIds.has(station.id) : false);
+  const renderCard = (account: StationAccount, dragging: boolean) => (
+    <AccountCardContent
+      account={account}
+      selected={account.id === selectedId}
+      opening={openingId === account.id}
+      refreshing={stationRefreshing || refreshingIds.has(account.id)}
+      dragging={dragging}
+      onSelect={onSelect}
+      onLogin={onLogin}
+      onRefresh={onRefresh}
+      onEdit={onEdit}
+      onDelete={onDelete}
+    />
+  );
   return (
     <section className="flex min-w-0 flex-[1.1] flex-col rounded-lg border bg-card">
       <ColumnHeader
@@ -774,95 +981,161 @@ function AccountColumn({
             hint={t("apiBilling.noAccountHint")}
           />
         ) : (
-          <div className="space-y-2">
-            {accounts.map((account) => {
-              const selected = account.id === selectedId;
-              const opening = openingId === account.id;
-              const refreshing = stationRefreshing || refreshingIds.has(account.id);
-              return (
-                <button
-                  key={account.id}
-                  type="button"
-                  onClick={() => onSelect(account.id)}
-                  className={cn(
-                    "w-full rounded-lg border px-4 py-4 text-left transition",
-                    selected
-                      ? "border-primary bg-primary/5 shadow-sm"
-                      : "border-border hover:bg-muted/40"
-                  )}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <span className="truncate text-sm font-semibold">{account.username}</span>
-                        <StatusBadge status={account.status} />
-                      </div>
-                      <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
-                        {account.notes || t("apiBilling.notesEmpty")}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1.5">
-                      <div className="flex items-center gap-1">
-                        <Button
-                          size="sm"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            onLogin(account);
-                          }}
-                          disabled={opening}
-                        >
-                          <LogIn />
-                          {opening ? t("apiBilling.opening") : t("apiBilling.card.login")}
-                        </Button>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          size="icon-sm"
-                          variant="ghost"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            onRefresh(account);
-                          }}
-                          disabled={refreshing}
-                          aria-label={t("apiBilling.refreshStatus")}
-                          title={t("apiBilling.refreshStatus")}
-                        >
-                          <RefreshCw className={refreshing ? "animate-spin" : undefined} />
-                        </Button>
-                        <Button
-                          size="icon-sm"
-                          variant="ghost"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            onEdit(account);
-                          }}
-                          aria-label={t("apiBilling.editAccount")}
-                          title={t("apiBilling.editAccount")}
-                        >
-                          <Pencil size={13} />
-                        </Button>
-                        <Button
-                          size="icon-sm"
-                          variant="ghost"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            onDelete(account);
-                          }}
-                          aria-label={t("apiBilling.deleteAccount")}
-                          title={t("apiBilling.deleteAccount")}
-                        >
-                          <Trash2 size={13} className="text-destructive" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+          <SortableList
+            items={accounts}
+            disabled={reorderDisabled || accounts.length < 2}
+            onReorder={onReorder}
+            activeId={activeId}
+            onActiveIdChange={setActiveId}
+            renderItem={(account) => (
+              <SortableAccountItem
+                key={account.id}
+                account={account}
+                disabled={reorderDisabled || accounts.length < 2}
+                render={renderCard}
+              />
+            )}
+            renderOverlay={(account) => (
+              <div className="rounded-lg border bg-card shadow-xl">{renderCard(account, true)}</div>
+            )}
+          />
         )}
       </div>
     </section>
+  );
+}
+
+function SortableAccountItem({
+  account,
+  disabled,
+  render,
+}: {
+  account: StationAccount;
+  disabled: boolean;
+  render: (account: StationAccount, dragging: boolean) => ReactNode;
+}) {
+  const { t } = useTranslation();
+  const { setNodeRef, style, handleProps, isDragging } = useSortableCard(account.id, disabled);
+  return (
+    <div ref={setNodeRef} style={style} className={cn("relative", isDragging && "z-10")}>
+      <DragHandle
+        label={t("apiBilling.reorder.dragHandle")}
+        disabled={disabled}
+        handleProps={handleProps}
+        className="absolute inset-y-0 left-0 z-10 w-4"
+      />
+      {render(account, false)}
+    </div>
+  );
+}
+
+function AccountCardContent({
+  account,
+  selected,
+  opening,
+  refreshing,
+  dragging,
+  onSelect,
+  onLogin,
+  onRefresh,
+  onEdit,
+  onDelete,
+}: {
+  account: StationAccount;
+  selected: boolean;
+  opening: boolean;
+  refreshing: boolean;
+  dragging: boolean;
+  onSelect: (id: string) => void;
+  onLogin: (account: StationAccount) => void;
+  onRefresh: (account: StationAccount) => void;
+  onEdit: (account: StationAccount) => void;
+  onDelete: (account: StationAccount) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onSelect(account.id)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onSelect(account.id);
+        }
+      }}
+      className={cn(
+        "w-full cursor-pointer rounded-lg border px-4 py-4 text-left transition",
+        selected ? "border-primary bg-primary/5 shadow-sm" : "border-border hover:bg-muted/40",
+        dragging && "shadow-xl"
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="truncate text-sm font-semibold">{account.username}</span>
+            <StatusBadge status={account.status} />
+          </div>
+          <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
+            {account.notes || t("apiBilling.notesEmpty")}
+          </p>
+        </div>
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
+          <div className="flex items-center gap-1">
+            <Button
+              size="sm"
+              onClick={(event) => {
+                event.stopPropagation();
+                onLogin(account);
+              }}
+              disabled={opening}
+            >
+              <LogIn />
+              {opening ? t("apiBilling.opening") : t("apiBilling.card.login")}
+            </Button>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              onClick={(event) => {
+                event.stopPropagation();
+                onRefresh(account);
+              }}
+              disabled={refreshing}
+              aria-label={t("apiBilling.refreshStatus")}
+              title={t("apiBilling.refreshStatus")}
+            >
+              <RefreshCw className={refreshing ? "animate-spin" : undefined} />
+            </Button>
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              onClick={(event) => {
+                event.stopPropagation();
+                onEdit(account);
+              }}
+              aria-label={t("apiBilling.editAccount")}
+              title={t("apiBilling.editAccount")}
+            >
+              <Pencil size={13} />
+            </Button>
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              onClick={(event) => {
+                event.stopPropagation();
+                onDelete(account);
+              }}
+              aria-label={t("apiBilling.deleteAccount")}
+              title={t("apiBilling.deleteAccount")}
+            >
+              <Trash2 size={13} className="text-destructive" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

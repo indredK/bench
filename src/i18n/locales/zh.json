@@ -109,6 +109,9 @@
       "linkedLink": "关联链接",
       "phoneCode": "手机号+验证码"
     },
+    "reorder": {
+      "dragHandle": "拖动以调整顺序"
+    },
     "card": {
       "lastLogin": "最近登录",
       "createdAt": "创建时间",
@@ -169,6 +172,10 @@
       "importSuccess": "已导入，当前共有 {{stations}} 个中转站、{{accounts}} 个账号",
       "invalidImportFile": "导入文件格式不正确",
       "storeFailure": "本地数据读写失败",
+      "reorderStationsSuccess": "中转站顺序已保存",
+      "reorderStationsFailed": "保存中转站顺序失败",
+      "reorderAccountsSuccess": "账号顺序已保存",
+      "reorderAccountsFailed": "保存账号顺序失败",
       "unknown": "操作失败，请稍后重试"
     }
   },

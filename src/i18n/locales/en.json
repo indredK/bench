@@ -109,6 +109,9 @@
       "linkedLink": "Linked Link",
       "phoneCode": "Phone + Code"
     },
+    "reorder": {
+      "dragHandle": "Drag to reorder"
+    },
     "card": {
       "lastLogin": "Last Login",
       "createdAt": "Created",
@@ -169,6 +172,10 @@
       "importSuccess": "Import complete. There are now {{stations}} gateways and {{accounts}} accounts",
       "invalidImportFile": "The import file format is invalid.",
       "storeFailure": "Failed to read or write local data.",
+      "reorderStationsSuccess": "Gateway order saved",
+      "reorderStationsFailed": "Failed to save gateway order",
+      "reorderAccountsSuccess": "Account order saved",
+      "reorderAccountsFailed": "Failed to save account order",
       "unknown": "The operation failed. Please try again."
     }
   },
