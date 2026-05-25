@@ -140,13 +140,24 @@ function ApiBillingPage() {
       setStations((prev) => [...prev, station]);
       setSelectedStationId(station.id);
       setSelectedAccountId("");
+      setAddStationOpen(false);
+      return true;
     } catch (error) {
       toast.error(t("apiBilling.toasts.createStationFailed"));
+      return false;
     }
   };
 
   const handleAddAccount = async (username: string, password: string, notes: string, phone: string, tgAccount: string, linkedAccount: string, inviteLink: string, loginMethods: api.LoginMethod[]) => {
-    if (!selectedStation) return;
+    if (!selectedStation) return false;
+    const trimmed = username.trim();
+    const duplicate = accounts.some(
+      (a) => a.stationId === selectedStation.id && a.username === trimmed,
+    );
+    if (duplicate) {
+      toast.error(t("apiBilling.toasts.duplicateUsername"));
+      return false;
+    }
     try {
       const account = await api.createAccount(
         selectedStation.id,
@@ -161,8 +172,11 @@ function ApiBillingPage() {
       );
       setAccounts((prev) => [...prev, account]);
       setSelectedAccountId(account.id);
+      setAddAccountOpen(false);
+      return true;
     } catch (error) {
       toast.error(t("apiBilling.toasts.createAccountFailed"));
+      return false;
     }
   };
 
@@ -289,16 +303,19 @@ function ApiBillingPage() {
       setStations(result.stations);
       setAccounts(result.accounts);
       const firstStationId = result.stations[0]?.id ?? "";
-      setSelectedStationId((current) =>
-        current && result.stations.some((station) => station.id === current)
-          ? current
-          : firstStationId
-      );
-      setSelectedAccountId((current) =>
-        current && result.accounts.some((account) => account.id === current)
-          ? current
-          : (result.accounts.find((account) => account.stationId === firstStationId)?.id ?? "")
-      );
+      const nextStationId =
+        selectedStationId && result.stations.some((station) => station.id === selectedStationId)
+          ? selectedStationId
+          : firstStationId;
+      const nextAccountId =
+        selectedAccountId &&
+        result.accounts.some(
+          (account) => account.id === selectedAccountId && account.stationId === nextStationId,
+        )
+          ? selectedAccountId
+          : (result.accounts.find((account) => account.stationId === nextStationId)?.id ?? "");
+      setSelectedStationId(nextStationId);
+      setSelectedAccountId(nextAccountId);
       toast.success(
         t("apiBilling.toasts.importSuccess", {
           stations: result.stationCount,
@@ -314,7 +331,7 @@ function ApiBillingPage() {
   };
 
   const handleEditStation = async (remark: string, website: string, probeUrl: string | null) => {
-    if (!editingStation) return;
+    if (!editingStation) return false;
     try {
       const updated = await api.updateStation(editingStation.id, {
         remark,
@@ -324,8 +341,10 @@ function ApiBillingPage() {
       setStations((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
       setEditStationOpen(false);
       setEditingStation(null);
+      return true;
     } catch (error) {
       toast.error(t("apiBilling.toasts.updateStationFailed"));
+      return false;
     }
   };
 
@@ -391,18 +410,20 @@ function ApiBillingPage() {
 
   const handleDeleteStation = async () => {
     if (!deletingStation) return;
+    const target = deletingStation;
+    const wasSelected = selectedStationId === target.id;
+    const remainingStations = stations.filter((s) => s.id !== target.id);
+    const newStationId = wasSelected ? (remainingStations[0]?.id ?? "") : selectedStationId;
+    const newAccountId = wasSelected
+      ? (accounts.find((a) => a.stationId === newStationId)?.id ?? "")
+      : selectedAccountId;
     try {
-      await api.deleteStation(deletingStation.id);
-      setStations((prev) => prev.filter((s) => s.id !== deletingStation.id));
-      setAccounts((prev) => prev.filter((a) => a.stationId !== deletingStation.id));
-      if (selectedStationId === deletingStation.id) {
-        const remaining = stations.filter((s) => s.id !== deletingStation.id);
-        const newStationId = remaining[0]?.id ?? "";
+      await api.deleteStation(target.id);
+      setStations((prev) => prev.filter((s) => s.id !== target.id));
+      setAccounts((prev) => prev.filter((a) => a.stationId !== target.id));
+      if (wasSelected) {
         setSelectedStationId(newStationId);
-        const firstAccount = accounts.filter(
-          (a) => a.stationId !== deletingStation.id && a.stationId === newStationId
-        );
-        setSelectedAccountId(firstAccount[0]?.id ?? "");
+        setSelectedAccountId(newAccountId);
       }
       setDeleteStationOpen(false);
       setDeletingStation(null);
@@ -413,12 +434,16 @@ function ApiBillingPage() {
 
   const handleDeleteAccount = async () => {
     if (!deletingAccount) return;
+    const target = deletingAccount;
+    const wasSelected = selectedAccountId === target.id;
+    const nextAccountId = wasSelected
+      ? (accounts.find((a) => a.id !== target.id && a.stationId === target.stationId)?.id ?? "")
+      : selectedAccountId;
     try {
-      await api.deleteAccount(deletingAccount.id);
-      setAccounts((prev) => prev.filter((a) => a.id !== deletingAccount.id));
-      if (selectedAccountId === deletingAccount.id) {
-        const remaining = accounts.filter((a) => a.id !== deletingAccount.id);
-        setSelectedAccountId(remaining[0]?.id ?? "");
+      await api.deleteAccount(target.id);
+      setAccounts((prev) => prev.filter((a) => a.id !== target.id));
+      if (wasSelected) {
+        setSelectedAccountId(nextAccountId);
       }
       setDeleteAccountOpen(false);
       setDeletingAccount(null);
@@ -492,7 +517,10 @@ function ApiBillingPage() {
         open={isEditAccountOpen}
         account={editingAccount}
         stationName={selectedStation?.remark ?? ""}
-        onOpenChange={setEditAccountOpen}
+        onOpenChange={(open) => {
+          setEditAccountOpen(open);
+          if (!open) setEditingAccount(null);
+        }}
         onSubmit={handleEditAccount}
       />
 
@@ -1169,13 +1197,14 @@ function StationDialog({
   open: boolean;
   station: RelayStation | null;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (remark: string, website: string, probeUrl: string | null) => void | Promise<void>;
+  onSubmit: (remark: string, website: string, probeUrl: string | null) => void | Promise<void | boolean>;
 }) {
   const { t } = useTranslation();
   const isEditing = !!station;
   const [remark, setRemark] = useState("");
   const [website, setWebsite] = useState("");
   const [probeUrl, setProbeUrl] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const reset = () => {
     setRemark("");
@@ -1191,19 +1220,22 @@ function StationDialog({
     } else if (open) {
       reset();
     }
+    setSubmitting(false);
   }, [open, station]);
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (submitting) return;
     const r = remark.trim();
     const w = website.trim();
     if (!r || !w) return;
     const p = probeUrl.trim() || null;
-    void Promise.resolve(onSubmit(r, w, p));
-    if (!isEditing) {
-      reset();
+    setSubmitting(true);
+    try {
+      await Promise.resolve(onSubmit(r, w, p));
+    } finally {
+      setSubmitting(false);
     }
-    onOpenChange(false);
   };
 
   return (
@@ -1265,10 +1297,10 @@ function StationDialog({
             {t("apiBilling.addStationDialog.inviteLinkPriority")}
           </p>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
               {t("apiBilling.cancel")}
             </Button>
-            <Button type="submit" disabled={!remark.trim() || !website.trim()}>
+            <Button type="submit" disabled={!remark.trim() || !website.trim() || submitting}>
               {t("apiBilling.confirm")}
             </Button>
           </DialogFooter>
@@ -1287,7 +1319,7 @@ function AddAccountDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   stationName: string;
-  onSubmit: (username: string, password: string, notes: string, phone: string, tgAccount: string, linkedAccount: string, inviteLink: string, loginMethods: api.LoginMethod[]) => void | Promise<void>;
+  onSubmit: (username: string, password: string, notes: string, phone: string, tgAccount: string, linkedAccount: string, inviteLink: string, loginMethods: api.LoginMethod[]) => void | Promise<void | boolean>;
 }) {
   const { t } = useTranslation();
   const [username, setUsername] = useState("");
@@ -1299,6 +1331,7 @@ function AddAccountDialog({
   const [linkedAccount, setLinkedAccount] = useState("");
   const [inviteLink, setInviteLink] = useState("");
   const [loginMethods, setLoginMethods] = useState<api.LoginMethod[]>([]);
+  const [submitting, setSubmitting] = useState(false);
 
   const loginMethodOptions: { value: api.LoginMethod; label: string }[] = [
     { value: "emailCode", label: t("apiBilling.loginMethods.emailCode") },
@@ -1323,22 +1356,32 @@ function AddAccountDialog({
     setLinkedAccount("");
     setInviteLink("");
     setLoginMethods([]);
+    setSubmitting(false);
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  useEffect(() => {
+    if (!open) reset();
+  }, [open]);
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (submitting) return;
     const u = username.trim();
     if (!u) return;
-    void Promise.resolve(onSubmit(u, password, notes.trim(), phone.trim(), tgAccount.trim(), linkedAccount.trim(), inviteLink.trim(), loginMethods));
-    reset();
-    onOpenChange(false);
+    setSubmitting(true);
+    try {
+      await Promise.resolve(
+        onSubmit(u, password, notes.trim(), phone.trim(), tgAccount.trim(), linkedAccount.trim(), inviteLink.trim(), loginMethods),
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        if (!next) reset();
         onOpenChange(next);
       }}
     >
@@ -1478,10 +1521,10 @@ function AddAccountDialog({
             }
           />
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
               {t("apiBilling.cancel")}
             </Button>
-            <Button type="submit" disabled={!username.trim()}>
+            <Button type="submit" disabled={!username.trim() || submitting}>
               {t("apiBilling.confirm")}
             </Button>
           </DialogFooter>
