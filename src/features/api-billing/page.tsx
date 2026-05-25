@@ -332,16 +332,28 @@ function ApiBillingPage() {
   const handleEditAccount = async (
     username: string,
     notes: string,
-    password: string,
+    password: string | null,
     phone: string,
     tgAccount: string,
     linkedAccount: string,
     inviteLink: string,
     loginMethods: api.LoginMethod[]
   ) => {
-    if (!editingAccount) return;
+    if (!editingAccount) return false;
+    const trimmed = username.trim();
+    const duplicate = accounts.some(
+      (a) =>
+        a.stationId === editingAccount.stationId &&
+        a.id !== editingAccount.id &&
+        a.username === trimmed
+    );
+    if (duplicate) {
+      toast.error(t("apiBilling.toasts.duplicateUsername"));
+      return false;
+    }
+    let updated: StationAccount;
     try {
-      const updated = await api.updateAccount(editingAccount.id, {
+      updated = await api.updateAccount(editingAccount.id, {
         username,
         notes,
         phone: phone || null,
@@ -350,14 +362,31 @@ function ApiBillingPage() {
         inviteLink: inviteLink || null,
         loginMethods,
       });
-      await api.setPassword(editingAccount.id, password);
-      updated.hasPassword = password.length > 0;
-      setAccounts((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
-      setEditAccountOpen(false);
-      setEditingAccount(null);
     } catch (error) {
       toast.error(t("apiBilling.toasts.updateAccountFailed"));
+      return false;
     }
+    let passwordChanged = false;
+    if (password !== null) {
+      try {
+        await api.setPassword(editingAccount.id, password);
+        updated.hasPassword = password.length > 0;
+        passwordChanged = true;
+      } catch (error) {
+        updated.hasPassword = editingAccount.hasPassword;
+        setAccounts((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+        setEditAccountOpen(false);
+        setEditingAccount(null);
+        toast.error(t("apiBilling.toasts.updatePasswordFailed"));
+        return passwordChanged;
+      }
+    } else {
+      updated.hasPassword = editingAccount.hasPassword;
+    }
+    setAccounts((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+    setEditAccountOpen(false);
+    setEditingAccount(null);
+    return true;
   };
 
   const handleDeleteStation = async () => {
@@ -1496,13 +1525,13 @@ function EditAccountDialog({
   onSubmit: (
     username: string,
     notes: string,
-    password: string,
+    password: string | null,
     phone: string,
     tgAccount: string,
     linkedAccount: string,
     inviteLink: string,
     loginMethods: api.LoginMethod[]
-  ) => void | Promise<void>;
+  ) => void | Promise<void | boolean>;
 }) {
   const { t } = useTranslation();
   const [username, setUsername] = useState("");
@@ -1510,6 +1539,8 @@ function EditAccountDialog({
   const [password, setPassword] = useState("");
   const [passwordHidden, setPasswordHidden] = useState(true);
   const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordDirty, setPasswordDirty] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [phone, setPhone] = useState("");
   const [tgAccount, setTgAccount] = useState("");
   const [linkedAccount, setLinkedAccount] = useState("");
@@ -1536,6 +1567,8 @@ function EditAccountDialog({
       setNotes(account.notes);
       setPassword("");
       setPasswordHidden(true);
+      setPasswordDirty(false);
+      setSubmitting(false);
       setPhone(account.phone ?? "");
       setTgAccount(account.tgAccount ?? "");
       setLinkedAccount(account.linkedAccount ?? "");
@@ -1563,11 +1596,28 @@ function EditAccountDialog({
     };
   }, [open, account, t]);
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (submitting || passwordLoading) return;
     const u = username.trim();
     if (!u) return;
-    void Promise.resolve(onSubmit(u, notes.trim(), password.trim(), phone.trim(), tgAccount.trim(), linkedAccount.trim(), inviteLink.trim(), loginMethods));
+    setSubmitting(true);
+    try {
+      await Promise.resolve(
+        onSubmit(
+          u,
+          notes.trim(),
+          passwordDirty ? password : null,
+          phone.trim(),
+          tgAccount.trim(),
+          linkedAccount.trim(),
+          inviteLink.trim(),
+          loginMethods,
+        ),
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -1605,7 +1655,10 @@ function EditAccountDialog({
               <div className="flex items-center gap-2">
                 <Input
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setPasswordDirty(true);
+                  }}
                   placeholder={t("apiBilling.editAccountDialog.passwordPlaceholder")}
                   type={passwordHidden ? "password" : "text"}
                   disabled={passwordLoading}
@@ -1620,7 +1673,7 @@ function EditAccountDialog({
                   }
                   disabled={passwordLoading}
                 />
-                {!passwordHidden && password.length > 0 ? (
+                {password.length > 0 ? (
                   <CopyIconButton
                     value={password}
                     label={t("apiBilling.detail.copy")}
@@ -1710,10 +1763,10 @@ function EditAccountDialog({
             }
           />
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
               {t("apiBilling.cancel")}
             </Button>
-            <Button type="submit" disabled={!username.trim()}>
+            <Button type="submit" disabled={!username.trim() || submitting || passwordLoading}>
               {t("apiBilling.confirm")}
             </Button>
           </DialogFooter>

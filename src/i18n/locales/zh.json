@@ -137,6 +137,8 @@
       "refreshAllFailed": "刷新全部账号失败",
       "updateStationFailed": "更新中转站失败",
       "updateAccountFailed": "更新账号失败",
+      "updatePasswordFailed": "账号信息已保存，但密码更新失败",
+      "duplicateUsername": "该中转站下已存在同名账号",
       "revealPasswordFailed": "显示密码失败",
       "copyPasswordFailed": "复制密码失败",
       "deleteStationFailed": "删除中转站失败",

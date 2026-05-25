@@ -70,7 +70,8 @@
       "tgAccountPlaceholder": "Optional · Telegram account",
       "linkedAccountPlaceholder": "Optional · linked account",
       "inviteLinkPlaceholder": "Optional · invite link",
-      "notesPlaceholder": "Use, balance, or anything worth noting."
+      "notesPlaceholder": "Use, balance, or anything worth noting.",
+      "inviteLinkPriority": "Accounts will prefer the invite link for login"
     },
     "editStationDialog": {
       "title": "Edit Gateway",
@@ -109,6 +110,11 @@
       "website": "Website",
       "username": "Account",
       "password": "Password",
+      "phone": "Phone",
+      "tgAccount": "Telegram",
+      "linkedAccount": "Linked Account",
+      "inviteLink": "Invite Link",
+      "loginMethods": "Login Methods",
       "status": "Status",
       "createdAt": "Created",
       "lastRefreshedAt": "Last Refreshed",
@@ -131,6 +137,8 @@
       "refreshAllFailed": "Failed to refresh all accounts",
       "updateStationFailed": "Failed to update gateway",
       "updateAccountFailed": "Failed to update account",
+      "updatePasswordFailed": "Account info saved, but failed to update the password",
+      "duplicateUsername": "An account with this username already exists in this gateway",
       "revealPasswordFailed": "Failed to reveal password",
       "copyPasswordFailed": "Failed to copy password",
       "deleteStationFailed": "Failed to delete gateway",
