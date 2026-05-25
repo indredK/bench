@@ -4,14 +4,19 @@ use std::time::Duration;
 
 use sha2::{Digest, Sha256};
 use tauri::webview::PageLoadEvent;
-use tauri::{AppHandle, Manager, Runtime, WebviewUrl, WebviewWindowBuilder};
+use tauri::{AppHandle, Manager, Runtime, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 use tokio::sync::oneshot;
+use tokio::time::Instant;
 
 use super::types::{ApiBillingError, ApiBillingResult};
 
 const LOGIN_WINDOW_WIDTH: f64 = 1080.0;
 const LOGIN_WINDOW_HEIGHT: f64 = 720.0;
-const PROBE_TIMEOUT_SECS: u64 = 15;
+const PROBE_LOAD_TIMEOUT_SECS: u64 = 15;
+const PROBE_MAX_WAIT_AFTER_LOAD_MS: u64 = 6_000;
+const PROBE_POLL_INTERVAL_MS: u64 = 300;
+const PROBE_STABLE_POLLS_REQUIRED: usize = 2;
+const PROBE_EVAL_TIMEOUT_SECS: u64 = 3;
 const PROBE_TEXT_LIMIT: usize = 200_000;
 
 pub fn probe_window_label(account_id: &str) -> String {
@@ -103,6 +108,58 @@ fn probe_script() -> String {
     )
 }
 
+async fn eval_inner_text<R: Runtime>(window: &WebviewWindow<R>) -> ApiBillingResult<String> {
+    let (tx, rx) = oneshot::channel::<String>();
+    let slot: Arc<Mutex<Option<oneshot::Sender<String>>>> = Arc::new(Mutex::new(Some(tx)));
+
+    window
+        .eval_with_callback(probe_script(), move |result| {
+            let Ok(mut guard) = slot.lock() else {
+                return;
+            };
+            if let Some(sender) = guard.take() {
+                let _ = sender.send(result);
+            }
+        })
+        .map_err(|e| ApiBillingError::store_fail(format!("eval probe script: {e}")))?;
+
+    let payload = tokio::time::timeout(Duration::from_secs(PROBE_EVAL_TIMEOUT_SECS), rx)
+        .await
+        .map_err(|_| ApiBillingError::store_fail("probe eval timeout"))?
+        .map_err(|_| ApiBillingError::store_fail("probe eval channel closed"))?;
+
+    let text: String = serde_json::from_str(&payload)
+        .map_err(|e| ApiBillingError::store_fail(format!("decode probe payload: {e}")))?;
+    Ok(text)
+}
+
+async fn poll_until_text_stable<R: Runtime>(
+    window: &WebviewWindow<R>,
+) -> ApiBillingResult<String> {
+    let start = Instant::now();
+    let max_wait = Duration::from_millis(PROBE_MAX_WAIT_AFTER_LOAD_MS);
+    let poll_interval = Duration::from_millis(PROBE_POLL_INTERVAL_MS);
+
+    let mut last_text = eval_inner_text(window).await?;
+    let mut stable_count: usize = 1;
+
+    while start.elapsed() < max_wait {
+        tokio::time::sleep(poll_interval).await;
+        let text = eval_inner_text(window).await?;
+        if text == last_text {
+            stable_count += 1;
+            if stable_count >= PROBE_STABLE_POLLS_REQUIRED {
+                return Ok(text);
+            }
+        } else {
+            last_text = text;
+            stable_count = 1;
+        }
+    }
+
+    Ok(last_text)
+}
+
 pub async fn run_probe<R: Runtime>(
     app: &AppHandle<R>,
     account_id: &str,
@@ -124,27 +181,24 @@ pub async fn run_probe<R: Runtime>(
             .map_err(|e| ApiBillingError::store_fail(format!("create relay-accounts: {e}")))?;
     }
 
-    let (tx, rx) = oneshot::channel::<String>();
-    let tx_slot: Arc<Mutex<Option<oneshot::Sender<String>>>> = Arc::new(Mutex::new(Some(tx)));
-    let tx_for_load = Arc::clone(&tx_slot);
+    let (load_tx, load_rx) = oneshot::channel::<()>();
+    let load_slot: Arc<Mutex<Option<oneshot::Sender<()>>>> =
+        Arc::new(Mutex::new(Some(load_tx)));
 
     let window = {
         let mut builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(parsed))
             .visible(false)
             .data_directory(data_dir)
-            .on_page_load(move |window, payload| {
+            .on_page_load(move |_window, payload| {
                 if !matches!(payload.event(), PageLoadEvent::Finished) {
                     return;
                 }
-                let slot = Arc::clone(&tx_for_load);
-                let _ = window.eval_with_callback(probe_script(), move |result| {
-                    let Ok(mut guard) = slot.lock() else {
-                        return;
-                    };
-                    if let Some(sender) = guard.take() {
-                        let _ = sender.send(result);
-                    }
-                });
+                let Ok(mut guard) = load_slot.lock() else {
+                    return;
+                };
+                if let Some(sender) = guard.take() {
+                    let _ = sender.send(());
+                }
             });
 
         #[cfg(any(target_os = "macos", target_os = "ios"))]
@@ -161,17 +215,18 @@ pub async fn run_probe<R: Runtime>(
             .map_err(|e| ApiBillingError::store_fail(format!("build probe window: {e}")))?
     };
 
-    let outcome = tokio::time::timeout(Duration::from_secs(PROBE_TIMEOUT_SECS), rx).await;
+    let load_outcome =
+        tokio::time::timeout(Duration::from_secs(PROBE_LOAD_TIMEOUT_SECS), load_rx).await;
+
+    let result = match load_outcome {
+        Err(_) => Err(ApiBillingError::store_fail("probe load timeout")),
+        Ok(Err(_)) => Err(ApiBillingError::store_fail("probe load channel closed")),
+        Ok(Ok(())) => poll_until_text_stable(&window).await,
+    };
 
     let _ = window.close();
 
-    let payload = outcome
-        .map_err(|_| ApiBillingError::store_fail("login detection timeout"))?
-        .map_err(|_| ApiBillingError::store_fail("login detection channel closed"))?;
-
-    let text: String = serde_json::from_str(&payload)
-        .map_err(|e| ApiBillingError::store_fail(format!("decode probe payload: {e}")))?;
-    Ok(text)
+    result
 }
 
 #[cfg(test)]
