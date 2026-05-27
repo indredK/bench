@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.1](https://github.com/indredK/bench/compare/v1.12.0...v1.12.1) (2026-05-25)
+
+
+### Bug Fixes
+
+* **api-billing:** 站点/账号卡片支持拖动排序 ([8017db8](https://github.com/indredK/bench/commit/8017db81c94c4ceb0c94a98ae7167341c9003218))
+
 ## [1.12.0](https://github.com/indredK/bench/compare/v1.11.1...v1.12.0) (2026-05-25)
 
 
