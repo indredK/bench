@@ -58,6 +58,10 @@ macro_rules! app_invoke_handler {
             $crate::api_billing::commands::import_relay_data,
             $crate::api_billing::commands::reorder_stations,
             $crate::api_billing::commands::reorder_accounts,
+            $crate::token_calculator::commands::list_pricing_standards,
+            $crate::token_calculator::commands::create_pricing_standard,
+            $crate::token_calculator::commands::update_pricing_standard,
+            $crate::token_calculator::commands::delete_pricing_standard,
         ]
     };
 }

@@ -32,6 +32,10 @@ import type {
 } from "@/lib/tauri/types/port-manager";
 import type { SystemInfoData } from "@/lib/tauri/types/system-info";
 import type {
+  ModelPricing,
+  PricingStandard,
+} from "@/lib/tauri/types/token-calculator";
+import type {
   AppUpdateDownloadEvent,
   AppUpdateInfo,
   AppUpdateInstallResult,
@@ -176,6 +180,16 @@ export const TAURI_COMMAND_CONTRACTS = {
     { stationId: string; orderedIds: string[] },
     StationAccount[]
   >()("reorder_accounts"),
+  list_pricing_standards: defineTauriCommand<undefined, PricingStandard[]>()("list_pricing_standards"),
+  create_pricing_standard: defineTauriCommand<
+    { name: string; models: ModelPricing[] },
+    PricingStandard
+  >()("create_pricing_standard"),
+  update_pricing_standard: defineTauriCommand<
+    { id: string; name?: string | null; models?: ModelPricing[] | null },
+    PricingStandard
+  >()("update_pricing_standard"),
+  delete_pricing_standard: defineTauriCommand<{ id: string }, void>()("delete_pricing_standard"),
 } as const;
 
 export type TauriCommandName = keyof typeof TAURI_COMMAND_CONTRACTS;
@@ -281,6 +295,12 @@ export const TAURI_COMMANDS = {
     reorderStations: commandName("reorder_stations"),
     reorderAccounts: commandName("reorder_accounts"),
   },
+  tokenCalculator: {
+    listPricingStandards: commandName("list_pricing_standards"),
+    createPricingStandard: commandName("create_pricing_standard"),
+    updatePricingStandard: commandName("update_pricing_standard"),
+    deletePricingStandard: commandName("delete_pricing_standard"),
+  },
 } as const;
 
 type FlattenCommandGroups<T> = {
@@ -358,6 +378,10 @@ export const TAURI_COMMAND_ARG_KEYS = {
   import_relay_data: ["path"],
   reorder_stations: ["orderedIds"],
   reorder_accounts: ["stationId", "orderedIds"],
+  list_pricing_standards: [],
+  create_pricing_standard: ["name", "models"],
+  update_pricing_standard: ["id", "name", "models"],
+  delete_pricing_standard: ["id"],
 } as const satisfies TauriCommandArgKeys;
 
 export const WINDOW_BOOTSTRAP_EVENTS = {

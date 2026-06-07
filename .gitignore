@@ -16,6 +16,6 @@ Thumbs.db
 .vscode/
 .idea/
 *.tsbuildinfo
-
+.codebuddy
 
 /updater/
