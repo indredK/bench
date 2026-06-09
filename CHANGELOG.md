@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.13.0](https://github.com/indredK/bench/compare/v1.12.1...v1.13.0) (2026-06-08)
+
+
+### Features
+
+* **token-calculator:** 添加 Token 价格计算器模块 ([4851e36](https://github.com/indredK/bench/commit/4851e36f0387779461716041c178d654dc8a53a5))
+
 ## [1.12.1](https://github.com/indredK/bench/compare/v1.12.0...v1.12.1) (2026-05-25)
 
 
