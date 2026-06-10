@@ -6,6 +6,7 @@ export * from "./app-manager";
 export * from "./dev-cleaner";
 export * from "./env-detector";
 export * from "./port-manager";
+export * from "./terminology";
 export * from "./system-info";
 export * from "./updater";
 export * from "./window-theme";

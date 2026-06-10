@@ -10,6 +10,7 @@ import { hardwareFeature } from "@/features/hardware/feature";
 import { portManagerFeature } from "@/features/port-manager/feature";
 import { systemInfoFeature } from "@/features/system-info/feature";
 import { tokenCalculatorFeature } from "@/features/token-calculator/feature";
+import { terminologyFeature } from "@/features/terminology/feature";
 import type { AppFeature, NavigationItem } from "@/features/types";
 
 export const appFeatures: AppFeature[] = [
@@ -21,6 +22,7 @@ export const appFeatures: AppFeature[] = [
   envDetectorFeature,
   apiBillingFeature,
   tokenCalculatorFeature,
+  terminologyFeature,
 ];
 
 export function getFeatureByPath(path: string): AppFeature | undefined {

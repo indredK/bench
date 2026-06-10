@@ -7,6 +7,7 @@ mod dev_cleaner;
 mod env_detector;
 mod menu;
 mod port_manager;
+mod terminology;
 mod token_calculator;
 mod window_theme;
 
@@ -16,6 +17,7 @@ use app_updater::UpdaterCache;
 use bootstrap::create_state as create_bootstrap_state;
 use dev_cleaner::ScanAbortFlag;
 use token_calculator::TokenCalculatorState;
+use terminology::state::TerminologyState;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use tauri::Manager;
@@ -25,6 +27,7 @@ pub fn run() {
     let app_manager_state = AppManagerState::new();
     let api_billing_state = ApiBillingState::new();
     let token_calculator_state = TokenCalculatorState::new();
+    let terminology_state = TerminologyState::new();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -36,6 +39,7 @@ pub fn run() {
         .manage(app_manager_state)
         .manage(api_billing_state)
         .manage(token_calculator_state)
+        .manage(terminology_state)
         .manage(UpdaterCache::default())
         .manage(create_bootstrap_state())
         .setup(|app| {
@@ -48,6 +52,10 @@ pub fn run() {
             let tc_state = app.state::<TokenCalculatorState>();
             if let Err(e) = token_calculator::init_state(&handle, &tc_state) {
                 eprintln!("[token_calculator] init failed: {e}");
+            }
+            let terminology_state = app.state::<TerminologyState>();
+            if let Err(e) = terminology::storage::init_state(&handle, &terminology_state) {
+                eprintln!("[terminology] init failed: {e}");
             }
             Ok(())
         })

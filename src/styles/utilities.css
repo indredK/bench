@@ -42,7 +42,31 @@
   animation: slide-in-right 0.2s ease-out;
 }
 
-/* ─── Custom thin scrollbar for tables ─────────────────────────── */
+/* ─── Generic thin scrollbar utility ───────────────────────────── */
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 9999px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.4);
+}
 [data-slot="table-container"],
 [data-table-scroll] {
   scroll-behavior: smooth;

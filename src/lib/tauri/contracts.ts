@@ -32,6 +32,14 @@ import type {
 } from "@/lib/tauri/types/port-manager";
 import type { SystemInfoData } from "@/lib/tauri/types/system-info";
 import type {
+  Industry,
+  Term,
+  TermCategory,
+  TermInput,
+  TermSubcategory,
+  TerminologyBundle,
+} from "@/lib/tauri/types/terminology";
+import type {
   ModelPricing,
   PricingStandard,
 } from "@/lib/tauri/types/token-calculator";
@@ -190,6 +198,29 @@ export const TAURI_COMMAND_CONTRACTS = {
     PricingStandard
   >()("update_pricing_standard"),
   delete_pricing_standard: defineTauriCommand<{ id: string }, void>()("delete_pricing_standard"),
+  list_terminology_data: defineTauriCommand<undefined, TerminologyBundle>()("list_terminology_data"),
+  create_industry: defineTauriCommand<{ label: string }, Industry>()("create_industry"),
+  update_industry: defineTauriCommand<{ id: string; label: string }, Industry>()("update_industry"),
+  delete_industry: defineTauriCommand<{ id: string }, void>()("delete_industry"),
+  create_category: defineTauriCommand<{ industryId: string; label: string }, TermCategory>()("create_category"),
+  update_category: defineTauriCommand<{ industryId: string; categoryId: string; label: string }, TermCategory>()("update_category"),
+  delete_category: defineTauriCommand<{ industryId: string; categoryId: string }, void>()("delete_category"),
+  create_subcategory: defineTauriCommand<
+    { industryId: string; categoryId: string; label: string },
+    TermSubcategory
+  >()("create_subcategory"),
+  update_subcategory: defineTauriCommand<
+    { industryId: string; categoryId: string; subcategoryId: string; label: string },
+    TermSubcategory
+  >()("update_subcategory"),
+  delete_subcategory: defineTauriCommand<
+    { industryId: string; categoryId: string; subcategoryId: string },
+    void
+  >()("delete_subcategory"),
+  create_term: defineTauriCommand<TermInput, Term>()("create_term"),
+  update_term: defineTauriCommand<{ term: Term }, Term>()("update_term"),
+  delete_term: defineTauriCommand<{ id: string }, void>()("delete_term"),
+  set_term_pinned: defineTauriCommand<{ id: string; value: boolean }, void>()("set_term_pinned"),
 } as const;
 
 export type TauriCommandName = keyof typeof TAURI_COMMAND_CONTRACTS;
@@ -301,6 +332,22 @@ export const TAURI_COMMANDS = {
     updatePricingStandard: commandName("update_pricing_standard"),
     deletePricingStandard: commandName("delete_pricing_standard"),
   },
+  terminology: {
+    listTerminologyData: commandName("list_terminology_data"),
+    createIndustry: commandName("create_industry"),
+    updateIndustry: commandName("update_industry"),
+    deleteIndustry: commandName("delete_industry"),
+    createCategory: commandName("create_category"),
+    updateCategory: commandName("update_category"),
+    deleteCategory: commandName("delete_category"),
+    createSubcategory: commandName("create_subcategory"),
+    updateSubcategory: commandName("update_subcategory"),
+    deleteSubcategory: commandName("delete_subcategory"),
+    createTerm: commandName("create_term"),
+    updateTerm: commandName("update_term"),
+    deleteTerm: commandName("delete_term"),
+    setTermPinned: commandName("set_term_pinned"),
+  },
 } as const;
 
 type FlattenCommandGroups<T> = {
@@ -382,6 +429,20 @@ export const TAURI_COMMAND_ARG_KEYS = {
   create_pricing_standard: ["name", "models"],
   update_pricing_standard: ["id", "name", "models"],
   delete_pricing_standard: ["id"],
+  list_terminology_data: [],
+  create_industry: ["label"],
+  update_industry: ["id", "label"],
+  delete_industry: ["id"],
+  create_category: ["industryId", "label"],
+  update_category: ["industryId", "categoryId", "label"],
+  delete_category: ["industryId", "categoryId"],
+  create_subcategory: ["industryId", "categoryId", "label"],
+  update_subcategory: ["industryId", "categoryId", "subcategoryId", "label"],
+  delete_subcategory: ["industryId", "categoryId", "subcategoryId"],
+  create_term: ["industryId", "categoryId", "subcategoryId", "title", "description", "websites"],
+  update_term: ["term"],
+  delete_term: ["id"],
+  set_term_pinned: ["id", "value"],
 } as const satisfies TauriCommandArgKeys;
 
 export const WINDOW_BOOTSTRAP_EVENTS = {

@@ -62,6 +62,20 @@ macro_rules! app_invoke_handler {
             $crate::token_calculator::commands::create_pricing_standard,
             $crate::token_calculator::commands::update_pricing_standard,
             $crate::token_calculator::commands::delete_pricing_standard,
+            $crate::terminology::commands::list_terminology_data,
+            $crate::terminology::commands::create_industry,
+            $crate::terminology::commands::update_industry,
+            $crate::terminology::commands::delete_industry,
+            $crate::terminology::commands::create_category,
+            $crate::terminology::commands::update_category,
+            $crate::terminology::commands::delete_category,
+            $crate::terminology::commands::create_subcategory,
+            $crate::terminology::commands::update_subcategory,
+            $crate::terminology::commands::delete_subcategory,
+            $crate::terminology::commands::create_term,
+            $crate::terminology::commands::update_term,
+            $crate::terminology::commands::delete_term,
+            $crate::terminology::commands::set_term_pinned,
         ]
     };
 }
