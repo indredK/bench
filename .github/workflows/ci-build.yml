@@ -49,6 +49,7 @@ jobs:
         with:
           workspaces: |
             ./src-tauri -> target
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install Linux dependencies
         if: runner.os == 'Linux'

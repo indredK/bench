@@ -1,0 +1,34 @@
+name: Cache Cleanup
+
+on:
+  schedule:
+    # 每周一 UTC 02:00 运行
+    - cron: "0 2 * * 1"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+
+jobs:
+  cleanup:
+    name: Delete stale GitHub Actions caches
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete caches older than 7 days
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPO="${{ github.repository }}"
+          CUTOFF=$(date -d "7 days ago" +%s)
+
+          gh api "repos/${REPO}/actions/caches" --paginate \
+            --jq '.actions_caches[] | select(.last_accessed_at != null) | [.id, .last_accessed_at, .key] | @tsv' \
+          | while IFS=$'\t' read -r id accessed_at key; do
+              ts=$(date -d "$accessed_at" +%s 2>/dev/null || echo 0)
+              if [ "$ts" -lt "$CUTOFF" ]; then
+                echo "Deleting cache: $key (last accessed: $accessed_at)"
+                gh api --method DELETE "repos/${REPO}/actions/caches/${id}" || true
+              fi
+            done
+
+          echo "Cache cleanup complete."
