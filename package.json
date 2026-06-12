@@ -10,6 +10,7 @@
     "commitlint": "node scripts/commit-msg-check.mjs",
     "hooks:install": "node scripts/install-hooks.mjs",
     "prepare": "node scripts/install-hooks.mjs",
+    "postinstall": "node scripts/install-hooks.mjs",
     "dev:fe": "vite",
     "build:fe": "tsc && vite build",
     "preview:fe": "vite preview",

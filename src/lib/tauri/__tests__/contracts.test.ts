@@ -46,7 +46,8 @@ describe("Tauri contracts", () => {
 
   it("keeps frontend command args aligned with Rust command function parameters", () => {
     const rustSource = readRustSource(resolve(process.cwd(), "src-tauri/src"));
-    const rustCommandArgs = parseTauriCommandArgs(rustSource);
+    const rustStructFields = parseRustStructFields(rustSource);
+    const rustCommandArgs = parseTauriCommandArgs(rustSource, rustStructFields);
 
     for (const [command, argKeys] of Object.entries(TAURI_COMMAND_ARG_KEYS)) {
       expect(
@@ -116,6 +117,14 @@ describe("Tauri contracts", () => {
   });
 });
 
+// Commands whose frontend contract passes the struct fields directly as
+// top-level invoke args (`defineTauriCommand<TheStruct, Result>()`) instead
+// of wrapping them in `{ paramName: TheStruct }`. When the parser encounters
+// a struct param for these commands it should expand it to the struct fields.
+const COMMANDS_WITH_FLAT_STRUCT_ARGS = new Set([
+  "create_term", // TermInput passed as individual fields (industryId, categoryId, ...)
+]);
+
 function flattenContractValues(contractGroup: Record<string, Record<string, string>>): string[] {
   return Object.values(contractGroup).flatMap((contract) => Object.values(contract));
 }
@@ -137,13 +146,13 @@ function parseRegisteredCommands(commandsSource: string): string[] {
     .map((match) => match[1]);
 }
 
-function parseTauriCommandArgs(rustSource: string): Record<string, string[]> {
+function parseTauriCommandArgs(rustSource: string, rustStructFields: Record<string, string[]>): Record<string, string[]> {
   const commands: Record<string, string[]> = {};
   const commandRegex = /#\[tauri::command\]\s*pub\s+(?:async\s+)?fn\s+([a-zA-Z0-9_]+)(?:\s*<[\s\S]*?>)?\s*\(([\s\S]*?)\)\s*(?:->|\{)/g;
 
   for (const match of rustSource.matchAll(commandRegex)) {
     const [, commandName, rawArgs] = match;
-    commands[commandName] = splitTopLevelArgs(rawArgs)
+    const filtered = splitTopLevelArgs(rawArgs)
       .map((arg) => arg.trim())
       .filter(Boolean)
       .filter((arg) =>
@@ -153,10 +162,27 @@ function parseTauriCommandArgs(rustSource: string): Record<string, string[]> {
         !arg.includes("tauri::Window") &&
         !arg.includes("AppHandle") &&
         !/(^|\W)State\s*</.test(arg)
-      )
-      .map((arg) => arg.split(":")[0]?.trim())
-      .filter((arg): arg is string => Boolean(arg))
-      .map(snakeToCamelCase);
+      );
+
+    const argKeys: string[] = [];
+    for (const arg of filtered) {
+      const colIdx = arg.indexOf(":");
+      const paramType = colIdx >= 0 ? arg.slice(colIdx + 1).trim().split(/\s+/)[0] : "";
+      // Some commands pass the struct fields directly as top-level args
+      // (frontend defines `defineTauriCommand<TheStruct, Result>()`) rather
+      // than wrapping in `{ key: TheStruct }`. Expand those struct params.
+      const shouldExpand = paramType in rustStructFields
+        && COMMANDS_WITH_FLAT_STRUCT_ARGS.has(commandName);
+      if (shouldExpand) {
+        for (const field of rustStructFields[paramType]) {
+          argKeys.push(snakeToCamelCase(field));
+        }
+      } else {
+        const paramName = colIdx >= 0 ? arg.slice(0, colIdx).trim() : arg;
+        if (paramName) argKeys.push(snakeToCamelCase(paramName));
+      }
+    }
+    commands[commandName] = argKeys;
   }
 
   return commands;

@@ -65,6 +65,7 @@ vi.mock("react-i18next", () => ({
         "devCleaner.filter.rust": "Rust (target)",
         "devCleaner.filter.go": "Go (vendor)",
         "devCleaner.filter.all": "All Projects",
+        "devCleaner.customCleanup.button": "Custom Cleanup",
       };
       return translations[key] || key;
     },
@@ -161,6 +162,14 @@ vi.mock("lucide-react", () => ({
   StopCircle: () => <span data-testid="stop">Stop</span>,
   ChevronDown: () => <span data-testid="chevron-down">Down</span>,
   ChevronUp: () => <span data-testid="chevron-up">Up</span>,
+  Shield: () => <span data-testid="shield">Shield</span>,
+  ShieldAlert: () => <span data-testid="shield-alert">ShieldAlert</span>,
+  XCircle: () => <span data-testid="x-circle">XCircle</span>,
+  CheckCircle2: () => <span data-testid="check-circle">CheckCircle2</span>,
+  Play: () => <span data-testid="play">Play</span>,
+  Pause: () => <span data-testid="pause">Pause</span>,
+  Square: () => <span data-testid="square">Square</span>,
+  ChevronRight: () => <span data-testid="chevron-right">ChevronRight</span>,
 }));
 
 describe("DevCleaner", () => {
