@@ -20,7 +20,10 @@ import type {
   LoginDetectionConfig,
 } from "@/lib/tauri/types/api-billing";
 import type {
+  CleanupCommandDef,
   CleanupResult,
+  CustomCleanupFinalResult,
+  CustomCleanupProgress,
   ProjectInfo,
   ScanResult,
 } from "@/lib/tauri/types/dev-cleaner";
@@ -90,6 +93,9 @@ export const TAURI_COMMAND_CONTRACTS = {
   scan_dev_projects: defineTauriCommand<{ rootPath: string }, ScanResult>()("scan_dev_projects"),
   cleanup_projects: defineTauriCommand<{ projects: ProjectInfo[] }, CleanupResult>()("cleanup_projects"),
   stop_scan: defineTauriCommand<undefined, void>()("stop_scan"),
+  get_custom_cleanup_commands: defineTauriCommand<undefined, CleanupCommandDef[]>()("get_custom_cleanup_commands"),
+  execute_custom_cleanup: defineTauriCommand<{ commandIds: string[] }, CustomCleanupFinalResult>()("execute_custom_cleanup"),
+  stop_custom_cleanup: defineTauriCommand<undefined, void>()("stop_custom_cleanup"),
   detect_env_tools: defineTauriCommand<undefined, void>()("detect_env_tools"),
   get_system_info: defineTauriCommand<undefined, SystemInfoData>()("get_system_info"),
   query_port_processes: defineTauriCommand<{ ports: number[] }, PortProcessDetail[]>()("query_port_processes"),
@@ -290,6 +296,9 @@ export const TAURI_COMMANDS = {
     scanDevProjects: commandName("scan_dev_projects"),
     cleanupProjects: commandName("cleanup_projects"),
     stopScan: commandName("stop_scan"),
+    getCustomCleanupCommands: commandName("get_custom_cleanup_commands"),
+    executeCustomCleanup: commandName("execute_custom_cleanup"),
+    stopCustomCleanup: commandName("stop_custom_cleanup"),
   },
   envDetector: {
     detectEnvTools: commandName("detect_env_tools"),
@@ -398,6 +407,9 @@ export const TAURI_COMMAND_ARG_KEYS = {
   scan_dev_projects: ["rootPath"],
   cleanup_projects: ["projects"],
   stop_scan: [],
+  get_custom_cleanup_commands: [],
+  execute_custom_cleanup: ["commandIds"],
+  stop_custom_cleanup: [],
   detect_env_tools: [],
   get_system_info: [],
   query_port_processes: ["ports"],
@@ -463,6 +475,10 @@ export const TAURI_EVENTS = {
     progress: "app-update-install:progress",
     finished: "app-update-install:finished",
   },
+  customCleanup: {
+    progress: "custom-cleanup:progress",
+    completed: "custom-cleanup:completed",
+  },
 } as const;
 
 export interface TauriEventContracts {
@@ -471,4 +487,6 @@ export interface TauriEventContracts {
   "menu-event": string;
   "app-update-install:progress": InstallProgressEvent;
   "app-update-install:finished": InstallFinishedEvent;
+  "custom-cleanup:progress": CustomCleanupProgress;
+  "custom-cleanup:completed": CustomCleanupFinalResult;
 }

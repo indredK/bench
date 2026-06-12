@@ -10,6 +10,7 @@ import { DataTable, getDataTableSortDirection } from "@/components/ui/DataTable"
 import { Input } from "@/components/ui/input";
 import { filterOptions } from "@/features/dev-cleaner/store";
 import { formatScanTime } from "@/features/dev-cleaner/lib/format";
+import { CustomCleanupDialog } from "@/features/dev-cleaner/components/CustomCleanupDialog";
 import type { DevCleanerController } from "@/features/dev-cleaner/hooks/useDevCleanerController";
 import { formatSize } from "@/lib/utils";
 
@@ -64,16 +65,19 @@ export function DevCleanerPageContent({ controller }: DevCleanerPageContentProps
             <Trash2 size={20} />
             {t("devCleaner.title")}
           </CardTitle>
-          {scanResult && (
-            <button
-              type="button"
-              className="flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
-              onClick={() => setShowFilterOptions(!showFilterOptions)}
-            >
-              <span>{t("devCleaner.filterLabel")}</span>
-              {showFilterOptions ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            <CustomCleanupDialog />
+            {scanResult && (
+              <button
+                type="button"
+                className="flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+                onClick={() => setShowFilterOptions(!showFilterOptions)}
+              >
+                <span>{t("devCleaner.filterLabel")}</span>
+                {showFilterOptions ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              </button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">

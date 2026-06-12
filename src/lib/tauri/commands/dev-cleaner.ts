@@ -16,3 +16,15 @@ export function stopDevProjectScan() {
 export function cleanupProjects(projects: ProjectInfo[]) {
   return invokeTauriCommand(TAURI_COMMANDS.devCleaner.cleanupProjects, { projects });
 }
+
+export function getCustomCleanupCommands() {
+  return invokeTauriCommand(TAURI_COMMANDS.devCleaner.getCustomCleanupCommands);
+}
+
+export function executeCustomCleanup(commandIds: string[]) {
+  return invokeTauriCommand(TAURI_COMMANDS.devCleaner.executeCustomCleanup, { commandIds });
+}
+
+export function stopCustomCleanup() {
+  return invokeTauriCommand(TAURI_COMMANDS.devCleaner.stopCustomCleanup);
+}

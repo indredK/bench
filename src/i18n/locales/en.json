@@ -599,6 +599,29 @@
       "go": "Go (vendor)",
       "mixed": "Multi-language",
       "all": "All Projects"
+    },
+    "customCleanup": {
+      "button": "Custom Cleanup",
+      "title": "Custom Cleanup",
+      "selected": "{{count}} command(s) selected",
+      "next": "Continue",
+      "confirmWarning": "This will execute {{count}} cleanup command(s). Some commands may have irreversible effects. Are you sure you want to continue?",
+      "startCleanup": "Start Cleanup",
+      "running": "Running cleanup commands...",
+      "pausedMessage": "Cleanup paused",
+      "pause": "Pause",
+      "resume": "Resume",
+      "stop": "Stop",
+      "aborted": "Cleanup was stopped by user.",
+      "completed": "Cleanup completed!",
+      "done": "Close",
+      "waiting": "Waiting for commands to start...",
+      "freedSpace": "Space Freed",
+      "successCount": "Succeeded",
+      "failedCount": "Failed",
+      "colName": "Command",
+      "colDescription": "Description",
+      "colRisk": "Risk Level"
     }
   },
   "systemInfo": {

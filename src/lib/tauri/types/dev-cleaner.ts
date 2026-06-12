@@ -27,3 +27,32 @@ export interface ScanResult {
   scan_time_ms: number;
   aborted: boolean;
 }
+
+// ── Custom Cleanup Types ──
+
+export interface CleanupCommandDef {
+  id: string;
+  name: string;
+  command: string;
+  environment: string;
+  description: string;
+  risk: string;
+}
+
+export interface CustomCleanupProgress {
+  command_id: string;
+  command_name: string;
+  status: "running" | "completed" | "failed" | "pending";
+  output: string;
+  freed_bytes: number;
+  error: string | null;
+}
+
+export interface CustomCleanupFinalResult {
+  success: boolean;
+  total_freed_bytes: number;
+  commands_executed: number;
+  commands_failed: number;
+  details: CustomCleanupProgress[];
+  aborted: boolean;
+}

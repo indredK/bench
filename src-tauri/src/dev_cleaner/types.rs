@@ -48,3 +48,37 @@ pub struct CleanupResult {
     pub cleaned_size: u64,
     pub errors: Vec<String>,
 }
+
+// ── Custom Cleanup Types ──
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CleanupCommandDef {
+    pub id: String,
+    pub name: String,
+    pub command: String,
+    pub environment: String,
+    pub description: String,
+    pub risk: String,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct CustomCleanupProgress {
+    pub command_id: String,
+    pub command_name: String,
+    pub status: String,
+    pub output: String,
+    pub freed_bytes: u64,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct CustomCleanupFinalResult {
+    pub success: bool,
+    pub total_freed_bytes: u64,
+    pub commands_executed: u32,
+    pub commands_failed: u32,
+    pub details: Vec<CustomCleanupProgress>,
+    pub aborted: bool,
+}
+
+pub struct CustomCleanupAbortFlag(pub Arc<AtomicBool>);

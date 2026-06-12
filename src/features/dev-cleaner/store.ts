@@ -3,7 +3,7 @@
  */
 import { create } from "zustand";
 import type { RowSelectionState, SortingState } from "@tanstack/react-table";
-import type { ScanResult, ProjectInfo } from "@/lib/tauri/types/dev-cleaner";
+import type { ScanResult, ProjectInfo, CleanupCommandDef, CustomCleanupProgress, CustomCleanupFinalResult } from "@/lib/tauri/types/dev-cleaner";
 import type { CleanupMessage } from "@/features/dev-cleaner/services/dev-cleaner.use-cases";
 
 export type FilterType = "all" | "nodejs" | "python" | "rust" | "go";
@@ -15,6 +15,16 @@ export const filterTypeMap: Record<Exclude<FilterType, "all">, ProjectInfo["proj
   rust: "Rust",
   go: "Go",
 };
+
+// ── Custom Cleanup State ──
+
+export type CustomCleanupPhase =
+  | "idle"
+  | "selecting"
+  | "confirming"
+  | "running"
+  | "paused"
+  | "completed";
 
 interface DevCleanerState {
   selectedPath: string;
@@ -28,6 +38,14 @@ interface DevCleanerState {
   showConfirm: boolean;
   showFilterOptions: boolean;
 
+  // Custom cleanup
+  customCleanupPhase: CustomCleanupPhase;
+  customCleanupCommands: CleanupCommandDef[];
+  selectedCommandIds: Set<string>;
+  customCleanupProgresses: CustomCleanupProgress[];
+  customCleanupResult: CustomCleanupFinalResult | null;
+  showCustomCleanup: boolean;
+
   setSelectedPath: (path: string) => void;
   setFilterType: (type: FilterType) => void;
   setShowConfirm: (show: boolean) => void;
@@ -36,6 +54,16 @@ interface DevCleanerState {
   setSelectedProjects: (selected: RowSelectionState | ((prev: RowSelectionState) => RowSelectionState)) => void;
   setCleanupMessage: (message: CleanupMessage | null) => void;
   reset: () => void;
+
+  // Custom cleanup actions
+  setShowCustomCleanup: (show: boolean) => void;
+  setCustomCleanupPhase: (phase: CustomCleanupPhase) => void;
+  setCustomCleanupCommands: (commands: CleanupCommandDef[]) => void;
+  toggleCustomCleanupCommand: (id: string) => void;
+  setCustomCleanupProgresses: (progresses: CustomCleanupProgress[]) => void;
+  updateCustomCleanupProgress: (progress: CustomCleanupProgress) => void;
+  setCustomCleanupResult: (result: CustomCleanupFinalResult | null) => void;
+  resetCustomCleanup: () => void;
 }
 
 export const useDevCleanerStore = create<DevCleanerState>((set) => ({
@@ -49,6 +77,14 @@ export const useDevCleanerStore = create<DevCleanerState>((set) => ({
   filterType: "all",
   showConfirm: false,
   showFilterOptions: true,
+
+  // Custom cleanup
+  customCleanupPhase: "idle",
+  customCleanupCommands: [],
+  selectedCommandIds: new Set(),
+  customCleanupProgresses: [],
+  customCleanupResult: null,
+  showCustomCleanup: false,
 
   setSelectedPath: (path) => set({ selectedPath: path }),
   setFilterType: (type) => set({ filterType: type }),
@@ -77,5 +113,36 @@ export const useDevCleanerStore = create<DevCleanerState>((set) => ({
       filterType: "all",
       showConfirm: false,
       showFilterOptions: true,
+    }),
+
+  // Custom cleanup actions
+  setShowCustomCleanup: (show) => set({ showCustomCleanup: show }),
+  setCustomCleanupPhase: (phase) => set({ customCleanupPhase: phase }),
+  setCustomCleanupCommands: (commands) => set({ customCleanupCommands: commands }),
+  toggleCustomCleanupCommand: (id) =>
+    set((state) => {
+      const next = new Set(state.selectedCommandIds);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return { selectedCommandIds: next };
+    }),
+  setCustomCleanupProgresses: (progresses) => set({ customCleanupProgresses: progresses }),
+  updateCustomCleanupProgress: (progress) =>
+    set((state) => ({
+      customCleanupProgresses: state.customCleanupProgresses.map((p) =>
+        p.command_id === progress.command_id ? progress : p
+      ),
+    })),
+  setCustomCleanupResult: (result) => set({ customCleanupResult: result }),
+  resetCustomCleanup: () =>
+    set({
+      customCleanupPhase: "idle",
+      customCleanupCommands: [],
+      selectedCommandIds: new Set(),
+      customCleanupProgresses: [],
+      customCleanupResult: null,
     }),
 }));

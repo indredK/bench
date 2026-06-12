@@ -15,7 +15,7 @@ use api_billing::ApiBillingState;
 use app_manager::AppManagerState;
 use app_updater::UpdaterCache;
 use bootstrap::create_state as create_bootstrap_state;
-use dev_cleaner::ScanAbortFlag;
+use dev_cleaner::{CustomCleanupAbortFlag, ScanAbortFlag};
 use token_calculator::TokenCalculatorState;
 use terminology::state::TerminologyState;
 use std::sync::atomic::AtomicBool;
@@ -36,6 +36,7 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(Arc::new(AtomicBool::new(false)) as ScanAbortFlag)
+        .manage(CustomCleanupAbortFlag(Arc::new(AtomicBool::new(false))))
         .manage(app_manager_state)
         .manage(api_billing_state)
         .manage(token_calculator_state)

@@ -599,6 +599,29 @@
       "go": "Go (vendor)",
       "mixed": "混合语言",
       "all": "所有项目"
+    },
+    "customCleanup": {
+      "button": "自定义清理",
+      "title": "自定义清理",
+      "selected": "已选择 {{count}} 个命令",
+      "next": "下一步",
+      "confirmWarning": "即将执行 {{count}} 个清理命令，部分命令可能产生不可逆的影响，确认继续吗？",
+      "startCleanup": "开始清理",
+      "running": "正在执行清理命令...",
+      "pausedMessage": "清理已暂停",
+      "pause": "暂停",
+      "resume": "继续",
+      "stop": "终止",
+      "aborted": "清理已被用户终止。",
+      "completed": "清理完成！",
+      "done": "关闭",
+      "waiting": "等待命令开始执行...",
+      "freedSpace": "释放空间",
+      "successCount": "成功",
+      "failedCount": "失败",
+      "colName": "清理项目 / 运行命令",
+      "colDescription": "简要说明",
+      "colRisk": "可能风险"
     }
   },
   "systemInfo": {
