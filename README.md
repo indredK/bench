@@ -57,6 +57,8 @@ npm install        # Install deps / 安装依赖
 npm run dev        # Start Tauri dev with HMR / 启动 Tauri 开发模式（热更新）
 ```
 
+`npm run hooks:install` (or `npm run setup`) will configure the repo Git hooks in `.husky/`, so staged code gets checked before commits.
+
 Dev server runs at `http://localhost:1420`.
 
 ### Build / 构建

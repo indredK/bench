@@ -6,6 +6,10 @@
   "scripts": {
     "setup": "node scripts/setup.mjs",
     "setup:unix": "node scripts/setup.mjs",
+    "check:precommit": "node scripts/pre-commit-check.mjs",
+    "commitlint": "node scripts/commit-msg-check.mjs",
+    "hooks:install": "node scripts/install-hooks.mjs",
+    "prepare": "node scripts/install-hooks.mjs",
     "dev:fe": "vite",
     "build:fe": "tsc && vite build",
     "preview:fe": "vite preview",
