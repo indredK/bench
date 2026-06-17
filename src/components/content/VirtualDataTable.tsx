@@ -15,6 +15,7 @@ import type { SortingState, OnChangeFn } from "@tanstack/react-table";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "motion/react";
 import { Check } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface VirtualDataTableProps<T> {
   data: T[];
@@ -73,6 +74,7 @@ export function VirtualDataTable<T>({
   onToggleSelect,
   getRowAttributes,
 }: VirtualDataTableProps<T>) {
+  const { t } = useTranslation();
   const table = useReactTable({
     data,
     columns,
@@ -102,7 +104,7 @@ export function VirtualDataTable<T>({
   if (data.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-muted-foreground border rounded-xl bg-card/50">
-        <p className="text-sm">No items to display</p>
+        <p className="text-sm">{t("common.empty.noData")}</p>
       </div>
     );
   }

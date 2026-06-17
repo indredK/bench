@@ -62,6 +62,7 @@ export function useAppManagerController(active: boolean) {
   const filterPanelOpen = useAppManagerStore((s) => s.filterPanelOpen);
   const selectedAppIds = useAppManagerStore((s) => s.selectedAppIds);
   const batchMode = useAppManagerStore((s) => s.batchMode);
+  const batchProgress = useAppManagerStore((s) => s.batchProgress);
   const batchResults = useAppManagerStore((s) => s.batchResults);
   const batchConfirmDialog = useAppManagerStore((s) => s.batchConfirmDialog);
   const installListApps = useAppManagerStore((s) => s.installListApps);
@@ -544,6 +545,7 @@ export function useAppManagerController(active: boolean) {
   const runBatchOperation = useCallback(
     async (kind: "upgrade" | "uninstall", ids: string[]) => {
       if (ids.length === 0) return;
+      if (useAppManagerStore.getState().batchProgress?.running) return;
 
       useAppManagerStore.setState({ batchProgress: createBatchProgress(ids.length), batchResults: null });
       const outcome = await appManagerUseCases.runBatchOperation(kind, ids);
@@ -1065,6 +1067,7 @@ export function useAppManagerController(active: boolean) {
     filterPanelOpen,
     selectedAppIds,
     batchMode,
+    batchProgress,
     batchResults,
     batchConfirmDialog,
     installListApps,

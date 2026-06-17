@@ -56,24 +56,20 @@ function getTauriErrorCode(error: unknown): string | null {
 }
 
 function toastTerminologyError(
+  t: (key: string, opts?: Record<string, unknown>) => string,
   error: unknown,
-  fallback: string,
-  duplicateMessage = "名称已存在"
+  fallbackKey: string
 ) {
   const code = getTauriErrorCode(error);
-  if (code === "DUPLICATE_NAME") {
-    toast.error(duplicateMessage);
-    return;
-  }
-  if (code === "INVALID_INPUT") {
-    toast.error("输入不合法");
-    return;
-  }
-  if (code === "NOT_FOUND") {
-    toast.error("目标不存在");
-    return;
-  }
-  toast.error(fallback);
+  const key =
+    code === "DUPLICATE_NAME"
+      ? "terminology.toasts.duplicateName"
+      : code === "INVALID_INPUT"
+        ? "terminology.toasts.invalidInput"
+        : code === "NOT_FOUND"
+          ? "terminology.toasts.targetNotFound"
+          : fallbackKey;
+  toast.error(t(key));
 }
 
 // ─── Website chip ─────────────────────────────────────────────────────────────
@@ -145,6 +141,7 @@ function TermCard({
   onClick: () => void;
   onTogglePinned: () => void;
 }) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const actionVisibility = isPinned
     ? "opacity-100"
@@ -155,10 +152,10 @@ function TermCard({
       e.stopPropagation();
       copyText(term.title);
       setCopied(true);
-      toast.success("已复制");
+      toast.success(t("terminology.toasts.copied"));
       setTimeout(() => setCopied(false), 1500);
     },
-    [term.title]
+    [t, term.title]
   );
 
   return (
@@ -183,14 +180,16 @@ function TermCard({
               e.stopPropagation();
               onTogglePinned();
             }}
-            title={isPinned ? "取消置顶" : "置顶"}
+            title={t(isPinned ? "terminology.actions.unpin" : "terminology.actions.pin")}
+            aria-label={t(isPinned ? "terminology.actions.unpin" : "terminology.actions.pin")}
           >
             <Pin size={12} className={isPinned ? "fill-current" : undefined} />
           </button>
           <button
             className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             onClick={handleCopy}
-            title="复制标题"
+            title={t("terminology.actions.copyTitle")}
+            aria-label={t("terminology.actions.copyTitle")}
           >
             {copied ? <Check size={12} /> : <Copy size={12} />}
           </button>
@@ -229,6 +228,7 @@ function TermEditor({
   subcategoryId: string;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const { industries, addTerm, updateTerm, deleteTerm } = useTerminologyStore();
   const currentIndustry = industries.find((industry) => industry.id === industryId);
   const currentCategory =
@@ -278,7 +278,7 @@ function TermEditor({
           description: description.trim(),
           websites: cleanSites,
         });
-        toast.success("已添加");
+        toast.success(t("terminology.toasts.added"));
       } else if (term) {
         await updateTerm({
           ...term,
@@ -287,11 +287,11 @@ function TermEditor({
           description: description.trim(),
           websites: cleanSites,
         });
-        toast.success("已保存");
+        toast.success(t("terminology.toasts.saved"));
       }
       onClose();
     } catch (error) {
-      toastTerminologyError(error, "保存失败", "当前分类下已存在同名术语");
+      toastTerminologyError(t, error, "terminology.toasts.saveFailed");
     }
   }, [
     title,
@@ -308,18 +308,19 @@ function TermEditor({
     term,
     onClose,
     hasUnclassifiedSubcategory,
+    t,
   ]);
 
   const handleDelete = useCallback(async () => {
     if (!term) return;
     try {
       await deleteTerm(term.id);
-      toast.success("已删除");
+      toast.success(t("terminology.toasts.deleted"));
       onClose();
     } catch (error) {
-      toastTerminologyError(error, "删除失败");
+      toastTerminologyError(t, error, "terminology.toasts.deleteFailed");
     }
-  }, [term, deleteTerm, onClose]);
+  }, [term, deleteTerm, onClose, t]);
 
   const setWebsite = (idx: number, field: keyof TermWebsite, val: string) =>
     setWebsites((p) => p.map((w, i) => (i === idx ? { ...w, [field]: val } : w)));
@@ -341,16 +342,16 @@ function TermEditor({
   return (
     <div className="flex flex-col gap-4 p-1">
       <div className="flex flex-col gap-1.5">
-        <label className="text-xs font-medium text-muted-foreground">标题</label>
-        <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="术语名称" />
+        <label className="text-xs font-medium text-muted-foreground">{t("terminology.title")}</label>
+        <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t("terminology.termName")} />
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <label className="text-xs font-medium text-muted-foreground">简介</label>
+        <label className="text-xs font-medium text-muted-foreground">{t("terminology.description")}</label>
         <Textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="简单描述这个术语的含义…"
+          placeholder={t("terminology.termDescription")}
           className="resize-none text-sm"
           rows={4}
         />
@@ -358,7 +359,7 @@ function TermEditor({
 
       {currentCategory?.subcategories.length ? (
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-medium text-muted-foreground">子分类</label>
+          <label className="text-xs font-medium text-muted-foreground">{t("terminology.subcategoryLabel")}</label>
           <Select
             value={
               selectedSubcategoryId || (hasUnclassifiedSubcategory ? UNCLASSIFIED_SUBCATEGORY_ID : "__none__")
@@ -367,12 +368,16 @@ function TermEditor({
           >
             <SelectTrigger className="h-9 text-sm">
               <SelectValue
-                placeholder={hasUnclassifiedSubcategory ? "选择子分类" : "未设置子分类"}
+                placeholder={t(
+                  hasUnclassifiedSubcategory
+                    ? "terminology.selectSubcategory"
+                    : "terminology.unsetSubcategory"
+                )}
               />
             </SelectTrigger>
             <SelectContent>
               {!hasUnclassifiedSubcategory ? (
-                <SelectItem value="__none__">未设置子分类</SelectItem>
+                <SelectItem value="__none__">{t("terminology.unsetSubcategory")}</SelectItem>
               ) : null}
               {currentCategory.subcategories.map((subcategory) => (
                 <SelectItem key={subcategory.id} value={subcategory.id}>
@@ -386,21 +391,22 @@ function TermEditor({
 
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <label className="text-xs font-medium text-muted-foreground">关联网站</label>
+          <label className="text-xs font-medium text-muted-foreground">{t("terminology.websites")}</label>
           <button
             className="text-xs text-primary hover:underline"
             onClick={() => setWebsites((p) => [...p, { url: "", label: "" }])}
           >
-            + 添加
+            {t("terminology.addWebsite")}
           </button>
         </div>
         {websites.map((w, i) => (
           <div key={i} className="flex gap-2 items-center">
-            <Input value={w.url} onChange={(e) => setWebsite(i, "url", e.target.value)} placeholder="https://..." className="text-xs flex-1" />
-            <Input value={w.label ?? ""} onChange={(e) => setWebsite(i, "label", e.target.value)} placeholder="标签（可选）" className="text-xs w-28" />
+            <Input value={w.url} onChange={(e) => setWebsite(i, "url", e.target.value)} placeholder={t("terminology.urlPlaceholder")} className="text-xs flex-1" />
+            <Input value={w.label ?? ""} onChange={(e) => setWebsite(i, "label", e.target.value)} placeholder={t("terminology.labelOptional")} className="text-xs w-28" />
             <button
               className="shrink-0 text-muted-foreground hover:text-destructive"
               onClick={() => setWebsites((p) => p.filter((_, j) => j !== i))}
+              aria-label={t("common.delete")}
             >
               <X size={14} />
             </button>
@@ -411,13 +417,13 @@ function TermEditor({
       <div className="flex justify-between gap-2 pt-3 border-t mt-1">
         {!isNew && (
           <Button variant="destructive" size="sm" onClick={handleDelete}>
-            <Trash2 size={13} className="mr-1" /> 删除
+            <Trash2 size={13} className="mr-1" /> {t("common.delete")}
           </Button>
         )}
         <div className="flex gap-2 ml-auto">
-          <Button variant="outline" size="sm" onClick={onClose}>取消</Button>
+          <Button variant="outline" size="sm" onClick={onClose}>{t("common.cancel")}</Button>
           <Button size="sm" onClick={handleSave} disabled={!title.trim()}>
-            {isNew ? "添加" : "保存"}
+            {isNew ? t("common.add") : t("common.save")}
           </Button>
         </div>
       </div>
@@ -494,7 +500,7 @@ function IndustryManager({ onClose: _onClose }: { onClose: () => void }) {
       try {
         await updateIndustry(editingIndId, editingIndLabel.trim());
       } catch (error) {
-        toastTerminologyError(error, "保存失败");
+        toastTerminologyError(t, error, "terminology.toasts.saveFailed");
       }
     }
     setEditingIndId(null);
@@ -507,7 +513,7 @@ function IndustryManager({ onClose: _onClose }: { onClose: () => void }) {
       setActiveId(id);
       setIndustry(id);
     } catch (error) {
-      toastTerminologyError(error, "新增失败");
+      toastTerminologyError(t, error, "terminology.toasts.addFailed");
     }
   };
 
@@ -517,7 +523,7 @@ function IndustryManager({ onClose: _onClose }: { onClose: () => void }) {
       try {
         await updateCategory(activeId, editingCatId, editingCatLabel.trim());
       } catch (error) {
-        toastTerminologyError(error, "保存失败");
+        toastTerminologyError(t, error, "terminology.toasts.saveFailed");
       }
     }
     setEditingCatId(null);
@@ -529,7 +535,7 @@ function IndustryManager({ onClose: _onClose }: { onClose: () => void }) {
       setNewCatLabel("");
       setActiveCategoryId(categoryId);
     } catch (error) {
-      toastTerminologyError(error, "新增失败");
+      toastTerminologyError(t, error, "terminology.toasts.addFailed");
     }
   };
 
@@ -547,7 +553,7 @@ function IndustryManager({ onClose: _onClose }: { onClose: () => void }) {
           editingSubcatLabel.trim()
         );
       } catch (error) {
-        toastTerminologyError(error, "保存失败");
+        toastTerminologyError(t, error, "terminology.toasts.saveFailed");
       }
     }
     setEditingSubcatId(null);
@@ -558,7 +564,7 @@ function IndustryManager({ onClose: _onClose }: { onClose: () => void }) {
       await addSubcategory(activeId, activeCategoryId, newSubcatLabel.trim());
       setNewSubcatLabel("");
     } catch (error) {
-      toastTerminologyError(error, "新增失败");
+      toastTerminologyError(t, error, "terminology.toasts.addFailed");
     }
   };
 
@@ -596,7 +602,7 @@ function IndustryManager({ onClose: _onClose }: { onClose: () => void }) {
       }
       toast.success(t("terminology.deleteSuccess"));
     } catch (error) {
-      toastTerminologyError(error, t("terminology.deleteFailed"));
+      toastTerminologyError(t, error, "terminology.deleteFailed");
     } finally {
       setDeleteConfirmOpen(false);
       setItemToDelete(null);
@@ -862,6 +868,7 @@ function IndustryManager({ onClose: _onClose }: { onClose: () => void }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function TerminologyPage() {
+  const { t } = useTranslation();
   const {
     industries,
     pinnedTermIds,
@@ -898,9 +905,9 @@ export default function TerminologyPage() {
 
   useEffect(() => {
     void hydrate().catch(() => {
-      toast.error("术语数据加载失败");
+      toast.error(t("terminology.toasts.loadFailed"));
     });
-  }, [hydrate]);
+  }, [hydrate, t]);
 
   const openNew = useCallback(() => { setDrawerTerm(null); setDrawerIsNew(true); setDrawerOpen(true); }, []);
   const openEdit = useCallback((term: Term) => { setDrawerTerm(term); setDrawerIsNew(false); setDrawerOpen(true); }, []);
@@ -910,16 +917,16 @@ export default function TerminologyPage() {
       try {
         await setTermPinned(termId, nextValue);
       } catch (error) {
-        toastTerminologyError(error, "置顶失败");
+        toastTerminologyError(t, error, "terminology.toasts.pinFailed");
       }
     },
-    [setTermPinned]
+    [setTermPinned, t]
   );
 
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-        正在加载术语数据…
+        {t("common.loading")}
       </div>
     );
   }
@@ -931,11 +938,12 @@ export default function TerminologyPage() {
         {/* header */}
         <div className="flex items-center justify-between px-4 pt-4 pb-2 shrink-0">
           <span className="text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-widest">
-            领域
+            {t("terminology.industryList")}
           </span>
           <button
             className="text-muted-foreground hover:text-foreground transition-colors rounded p-0.5 hover:bg-muted"
-            title="管理领域与分类"
+            title={t("terminology.manageIndustries")}
+            aria-label={t("terminology.manageIndustries")}
             onClick={() => setManagerOpen(true)}
           >
             <Settings2 size={13} />
@@ -982,7 +990,7 @@ export default function TerminologyPage() {
                 }`}
                 onClick={() => setCategory("")}
               >
-                全部
+                {t("terminology.all")}
               </button>
               {currentIndustry?.categories.map((cat) => (
                 <button
@@ -1009,7 +1017,7 @@ export default function TerminologyPage() {
                   }`}
                   onClick={() => setSubcategory("")}
                 >
-                  全部子类
+                  {t("terminology.allSubcategories")}
                 </button>
                 {currentCategory.subcategories.map((subcategory) => (
                   <button
@@ -1037,7 +1045,7 @@ export default function TerminologyPage() {
               <Input
                 value={searchQuery}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="搜索术语…"
+                placeholder={t("terminology.searchPlaceholder")}
                 className="h-8 w-full pl-7 text-xs"
               />
               {searchQuery && (
@@ -1051,7 +1059,7 @@ export default function TerminologyPage() {
             </div>
 
             <Button size="sm" variant="outline" className="h-8 shrink-0 gap-1 sm:w-auto w-full" onClick={openNew}>
-              <Plus size={13} /> 新增
+              <Plus size={13} /> {t("terminology.add")}
             </Button>
           </div>
         </div>
@@ -1060,7 +1068,7 @@ export default function TerminologyPage() {
         <div className="flex-1 overflow-y-auto p-4 scrollbar-thin">
           {terms.length === 0 ? (
             <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">
-              暂无术语，点击右上角「新增」添加。
+              {t("terminology.noTerms")}
             </div>
           ) : (
             <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
@@ -1082,7 +1090,7 @@ export default function TerminologyPage() {
       <Dialog open={drawerOpen} onOpenChange={setDrawerOpen}>
         <DialogContent className="max-w-md overflow-y-auto" style={{ maxHeight: "90vh" }}>
           <DialogHeader>
-            <DialogTitle>{drawerIsNew ? "新增术语" : "编辑术语"}</DialogTitle>
+            <DialogTitle>{t(drawerIsNew ? "terminology.addTerm" : "terminology.editTerm")}</DialogTitle>
           </DialogHeader>
           <TermEditor
             term={drawerTerm}
@@ -1102,7 +1110,7 @@ export default function TerminologyPage() {
           className="grid h-[min(82vh,46rem)] w-[min(96vw,96rem)] max-w-none grid-rows-[auto_minmax(0,1fr)] overflow-hidden p-4"
         >
           <DialogHeader>
-            <DialogTitle>管理领域与分类</DialogTitle>
+            <DialogTitle>{t("terminology.manageIndustries")}</DialogTitle>
           </DialogHeader>
           <IndustryManager onClose={() => setManagerOpen(false)} />
         </DialogContent>

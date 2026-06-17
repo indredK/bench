@@ -36,13 +36,13 @@ export function AboutDialog({
             Bench DevTools
           </DialogTitle>
           <DialogDescription className="text-center">
-            {t("about.description", "All-in-one developer toolkit for macOS")}
+            {t("about.description")}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-2 text-center text-sm text-muted-foreground">
           <div className="flex justify-between px-8">
-            <span>{t("about.version", "Version")}</span>
+            <span>{t("about.version")}</span>
             <span className="font-mono">{appVersion}</span>
           </div>
           <div className="flex justify-between px-8">
@@ -66,7 +66,7 @@ export function AboutDialog({
             size="sm"
             onClick={() => onOpenChange(false)}
           >
-            {t("about.close", "Close")}
+            {t("about.close")}
           </Button>
         </div>
       </DialogContent>

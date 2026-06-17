@@ -3,6 +3,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
 interface VirtualGridViewProps<T> {
@@ -44,6 +45,7 @@ export function VirtualGridView<T>({
   onToggleSelect,
   getRowAttributes,
 }: VirtualGridViewProps<T>) {
+  const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
   const gridGap = gap;
   const maxColumns = Math.max(1, gridColumnsProp ?? 3);
@@ -81,7 +83,7 @@ export function VirtualGridView<T>({
   if (data.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-muted-foreground border rounded-xl bg-card/50">
-        <p className="text-sm">No items to display</p>
+        <p className="text-sm">{t("common.empty.noData")}</p>
       </div>
     );
   }

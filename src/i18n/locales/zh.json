@@ -1498,6 +1498,13 @@
     "cachedPriceShort": "缓存价",
     "outputPriceShort": "输出价",
     "currencyShort": "货币",
+    "units": {
+      "single": "个",
+      "thousand": "千",
+      "tenThousand": "万",
+      "million": "百万",
+      "hundredMillion": "亿"
+    },
     "tabs": {
       "standards": "计费标准",
       "compare": "费用对比",
@@ -1568,7 +1575,8 @@
       "updateFailed": "更新计费标准失败",
       "deleted": "计费标准已删除",
       "deleteFailed": "删除计费标准失败",
-      "duplicateName": "已存在同名计费标准"
+      "duplicateName": "已存在同名计费标准",
+      "loadFailed": "加载计费标准失败"
     }
   },
   "common": {
@@ -1580,7 +1588,26 @@
     "na": "—",
     "withParenthesis": "{{prefix}}（{{detail}}）",
     "desktopOnly": "此功能仅在 Bench 桌面版中可用。",
-    "appTitle": "端口管理器 - DevTools"
+    "appTitle": "端口管理器 - DevTools",
+    "cancel": "取消",
+    "delete": "删除",
+    "confirm": "确认",
+    "save": "保存",
+    "add": "添加",
+    "edit": "编辑",
+    "search": "搜索",
+    "loading": "加载中...",
+    "success": "成功",
+    "error": "错误",
+    "warning": "警告",
+    "details": "详情",
+    "actions": {
+      "close": "关闭"
+    },
+    "empty": {
+      "noData": "暂无数据",
+      "selectItem": "请选择一个项目查看详情"
+    }
   },
   "language": {
     "system": "跟随系统",
@@ -1607,8 +1634,13 @@
     "unsupportedTooltip": "该主题仅在 macOS 上可用"
   },
   "about": {
-    "description": "全能开发者工具集",
+    "description": "面向 macOS 的全能开发者工具集",
     "version": "版本",
+    "close": "关闭"
+  },
+  "titlebar": {
+    "minimize": "最小化",
+    "maximize": "最大化",
     "close": "关闭"
   },
   "updater": {
@@ -1668,19 +1700,6 @@
       "installFailed": "安装更新失败"
     }
   },
-  "common": {
-    "cancel": "取消",
-    "delete": "删除",
-    "confirm": "确认",
-    "save": "保存",
-    "add": "添加",
-    "edit": "编辑",
-    "search": "搜索",
-    "loading": "加载中...",
-    "success": "成功",
-    "error": "错误",
-    "warning": "警告"
-  },
   "terminology": {
     "industryList": "领域列表",
     "categoryOf": "「{{name}}」的分类",
@@ -1712,15 +1731,37 @@
     "title": "标题",
     "description": "简介",
     "websites": "关联网站",
+    "subcategoryLabel": "子分类",
     "termName": "术语名称",
     "termDescription": "简单描述这个术语的含义…",
     "addWebsite": "+ 添加",
     "urlPlaceholder": "https://...",
     "labelOptional": "标签（可选）",
+    "selectSubcategory": "选择子分类",
+    "unsetSubcategory": "未设置子分类",
     "cancel": "取消",
     "save": "保存",
     "added": "已添加",
     "saved": "已保存",
-    "copied": "已复制"
+    "copied": "已复制",
+    "actions": {
+      "pin": "置顶",
+      "unpin": "取消置顶",
+      "copyTitle": "复制标题"
+    },
+    "toasts": {
+      "loadFailed": "术语数据加载失败",
+      "saveFailed": "保存失败",
+      "addFailed": "新增失败",
+      "deleteFailed": "删除失败",
+      "deleted": "已删除",
+      "added": "已添加",
+      "saved": "已保存",
+      "copied": "已复制",
+      "pinFailed": "置顶失败",
+      "duplicateName": "名称已存在",
+      "invalidInput": "输入不合法",
+      "targetNotFound": "目标不存在"
+    }
   }
 }

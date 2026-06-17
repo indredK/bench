@@ -139,13 +139,10 @@ pub fn create_station<R: Runtime>(
         created_at: now_label(),
         login_detection: login_detection.unwrap_or_default(),
     };
-    let snapshot = {
-        let mut stations = state.stations.lock().unwrap();
-        stations.push(station.clone());
-        stations.clone()
-    };
-    storage::save_stations(&app, &snapshot)?;
-    Ok(station)
+    storage::with_state_mut(&app, &state, |snapshot| {
+        snapshot.stations.push(station.clone());
+        Ok(station.clone())
+    })
 }
 
 #[tauri::command]
@@ -157,27 +154,21 @@ pub fn update_station<R: Runtime>(
     website: Option<String>,
     login_detection: Option<LoginDetectionConfig>,
 ) -> ApiBillingResult<RelayStation> {
-    let snapshot = {
-        let mut stations = state.stations.lock().unwrap();
-        let Some(station) = stations.iter_mut().find(|s| s.id == id) else {
+    storage::with_state_mut(&app, &state, |snapshot| {
+        let Some(station) = snapshot.stations.iter_mut().find(|s| s.id == id) else {
             return Err(ApiBillingError::not_found(format!("station {id}")));
         };
-        if let Some(r) = remark {
-            station.remark = trim_or_invalid(&r, "remark")?;
+        if let Some(r) = remark.as_ref() {
+            station.remark = trim_or_invalid(r, "remark")?;
         }
-        if let Some(w) = website {
-            station.website = trim_or_invalid(&w, "website")?;
+        if let Some(w) = website.as_ref() {
+            station.website = trim_or_invalid(w, "website")?;
         }
-        if let Some(d) = login_detection {
+        if let Some(d) = login_detection.clone() {
             station.login_detection = d;
         }
-        let updated = station.clone();
-        let snapshot = stations.clone();
-        (snapshot, updated)
-    };
-    let (stations_snapshot, updated) = snapshot;
-    storage::save_stations(&app, &stations_snapshot)?;
-    Ok(updated)
+        Ok(station.clone())
+    })
 }
 
 #[tauri::command]
@@ -186,18 +177,15 @@ pub fn delete_station<R: Runtime>(
     state: State<'_, ApiBillingState>,
     id: String,
 ) -> ApiBillingResult<()> {
-    let (stations_snapshot, accounts_snapshot, secrets_snapshot, dropped_account_ids) = {
-        let mut stations = state.stations.lock().unwrap();
-        let before = stations.len();
-        stations.retain(|s| s.id != id);
-        if stations.len() == before {
+    let dropped_account_ids = storage::with_state_mut(&app, &state, |snapshot| {
+        let before = snapshot.stations.len();
+        snapshot.stations.retain(|s| s.id != id);
+        if snapshot.stations.len() == before {
             return Err(ApiBillingError::not_found(format!("station {id}")));
         }
 
-        let mut accounts = state.accounts.lock().unwrap();
-        let mut secrets = state.secrets.lock().unwrap();
         let mut dropped_account_ids: Vec<String> = Vec::new();
-        accounts.retain(|a| {
+        snapshot.accounts.retain(|a| {
             if a.station_id == id {
                 dropped_account_ids.push(a.id.clone());
                 false
@@ -206,24 +194,14 @@ pub fn delete_station<R: Runtime>(
             }
         });
         for aid in &dropped_account_ids {
-            secrets.remove(aid);
+            snapshot.secrets.remove(aid);
         }
 
-        (
-            stations.clone(),
-            accounts.clone(),
-            secrets.clone(),
-            dropped_account_ids,
-        )
-    };
+        Ok(dropped_account_ids)
+    })?;
 
-    storage::save_stations(&app, &stations_snapshot)?;
-    if !dropped_account_ids.is_empty() {
-        storage::save_accounts(&app, &accounts_snapshot)?;
-        storage::save_secrets(&app, &secrets_snapshot)?;
-        for aid in &dropped_account_ids {
-            super::webview::remove_account_data_dir(&app, aid);
-        }
+    for aid in &dropped_account_ids {
+        super::webview::remove_account_data_dir(&app, aid);
     }
     Ok(())
 }
@@ -234,14 +212,10 @@ pub fn reorder_stations<R: Runtime>(
     state: State<'_, ApiBillingState>,
     ordered_ids: Vec<String>,
 ) -> ApiBillingResult<Vec<RelayStation>> {
-    let snapshot = {
-        let mut stations = state.stations.lock().unwrap();
-        let reordered = reorder_by_ids(&stations, &ordered_ids, "station")?;
-        *stations = reordered;
-        stations.clone()
-    };
-    storage::save_stations(&app, &snapshot)?;
-    Ok(snapshot)
+    storage::with_state_mut(&app, &state, |snapshot| {
+        snapshot.stations = reorder_by_ids(&snapshot.stations, &ordered_ids, "station")?;
+        Ok(snapshot.stations.clone())
+    })
 }
 
 // ───── accounts ─────
@@ -280,15 +254,14 @@ pub fn create_account<R: Runtime>(
     invite_link: Option<String>,
     login_methods: Vec<LoginMethod>,
 ) -> ApiBillingResult<StationAccount> {
-    {
-        let stations = state.stations.lock().unwrap();
-        if !stations.iter().any(|s| s.id == station_id) {
-            return Err(ApiBillingError::not_found(format!("station {station_id}")));
-        }
-    }
-
     let password = normalize_optional(password);
-    let has_password = password.is_some();
+    let encrypted_password = match password {
+        Some(pw) => {
+            let key = state.master_key()?;
+            Some(crypto::encrypt(&key, &pw)?)
+        }
+        None => None,
+    };
     let account = StationAccount {
         id: new_id("acct"),
         station_id,
@@ -303,28 +276,19 @@ pub fn create_account<R: Runtime>(
         last_login_at: None,
         last_refreshed_at: None,
         created_at: now_label(),
-        has_password,
+        has_password: encrypted_password.is_some(),
     };
 
-    let (accounts_snapshot, secrets_snapshot, persist_secrets) = {
-        let mut accounts = state.accounts.lock().unwrap();
-        accounts.push(account.clone());
-        let mut secrets = state.secrets.lock().unwrap();
-        if let Some(pw) = password {
-            let key = state.master_key()?;
-            let blob = crypto::encrypt(&key, &pw)?;
-            secrets.insert(account.id.clone(), blob);
-            (accounts.clone(), secrets.clone(), true)
-        } else {
-            (accounts.clone(), secrets.clone(), false)
+    storage::with_state_mut(&app, &state, |snapshot| {
+        if !snapshot.stations.iter().any(|s| s.id == account.station_id) {
+            return Err(ApiBillingError::not_found(format!("station {}", account.station_id)));
         }
-    };
-
-    storage::save_accounts(&app, &accounts_snapshot)?;
-    if persist_secrets {
-        storage::save_secrets(&app, &secrets_snapshot)?;
-    }
-    Ok(account)
+        snapshot.accounts.push(account.clone());
+        if let Some(blob) = encrypted_password.clone() {
+            snapshot.secrets.insert(account.id.clone(), blob);
+        }
+        Ok(account.clone())
+    })
 }
 
 #[tauri::command]
@@ -340,37 +304,33 @@ pub fn update_account<R: Runtime>(
     invite_link: Option<Option<String>>,
     login_methods: Option<Vec<LoginMethod>>,
 ) -> ApiBillingResult<StationAccount> {
-    let (accounts_snapshot, updated) = {
-        let mut accounts = state.accounts.lock().unwrap();
-        let Some(account) = accounts.iter_mut().find(|a| a.id == id) else {
+    storage::with_state_mut(&app, &state, |snapshot| {
+        let Some(account) = snapshot.accounts.iter_mut().find(|a| a.id == id) else {
             return Err(ApiBillingError::not_found(format!("account {id}")));
         };
-        if let Some(u) = username {
-            account.username = trim_or_invalid(&u, "username")?;
+        if let Some(u) = username.as_ref() {
+            account.username = trim_or_invalid(u, "username")?;
         }
-        if let Some(n) = notes {
+        if let Some(n) = notes.as_ref() {
             account.notes = n.trim().to_string();
         }
-        if let Some(p) = phone {
+        if let Some(p) = phone.clone() {
             account.phone = normalize_optional(p);
         }
-        if let Some(t) = tg_account {
+        if let Some(t) = tg_account.clone() {
             account.tg_account = normalize_optional(t);
         }
-        if let Some(l) = linked_account {
+        if let Some(l) = linked_account.clone() {
             account.linked_account = normalize_optional(l);
         }
-        if let Some(i) = invite_link {
+        if let Some(i) = invite_link.clone() {
             account.invite_link = normalize_optional(i);
         }
-        if let Some(login_methods) = login_methods {
-            account.login_methods = login_methods;
+        if let Some(methods) = login_methods.clone() {
+            account.login_methods = methods;
         }
-        let updated = account.clone();
-        (accounts.clone(), updated)
-    };
-    storage::save_accounts(&app, &accounts_snapshot)?;
-    Ok(updated)
+        Ok(account.clone())
+    })
 }
 
 #[tauri::command]
@@ -379,21 +339,15 @@ pub fn delete_account<R: Runtime>(
     state: State<'_, ApiBillingState>,
     id: String,
 ) -> ApiBillingResult<()> {
-    let (accounts_snapshot, secrets_snapshot, removed) = {
-        let mut accounts = state.accounts.lock().unwrap();
-        let before = accounts.len();
-        accounts.retain(|a| a.id != id);
-        if accounts.len() == before {
+    storage::with_state_mut(&app, &state, |snapshot| {
+        let before = snapshot.accounts.len();
+        snapshot.accounts.retain(|a| a.id != id);
+        if snapshot.accounts.len() == before {
             return Err(ApiBillingError::not_found(format!("account {id}")));
         }
-        let mut secrets = state.secrets.lock().unwrap();
-        let removed = secrets.remove(&id).is_some();
-        (accounts.clone(), secrets.clone(), removed)
-    };
-    storage::save_accounts(&app, &accounts_snapshot)?;
-    if removed {
-        storage::save_secrets(&app, &secrets_snapshot)?;
-    }
+        snapshot.secrets.remove(&id);
+        Ok(())
+    })?;
     super::webview::remove_account_data_dir(&app, &id);
     Ok(())
 }
@@ -405,27 +359,22 @@ pub fn reorder_accounts<R: Runtime>(
     station_id: String,
     ordered_ids: Vec<String>,
 ) -> ApiBillingResult<Vec<StationAccount>> {
-    {
-        let stations = state.stations.lock().unwrap();
-        if !stations.iter().any(|s| s.id == station_id) {
+    storage::with_state_mut(&app, &state, |snapshot| {
+        if !snapshot.stations.iter().any(|s| s.id == station_id) {
             return Err(ApiBillingError::not_found(format!("station {station_id}")));
         }
-    }
 
-    let (accounts_snapshot, station_view) = {
-        let mut accounts = state.accounts.lock().unwrap();
-        let (mine, others): (Vec<StationAccount>, Vec<StationAccount>) = accounts
+        let (mine, others): (Vec<StationAccount>, Vec<StationAccount>) = snapshot
+            .accounts
             .iter()
             .cloned()
             .partition(|a| a.station_id == station_id);
         let mine_reordered = reorder_by_ids(&mine, &ordered_ids, "account")?;
 
-        // Splice reordered station accounts back into the global vec at the
-        // positions they previously occupied, preserving other stations' order.
         let mut mine_iter = mine_reordered.into_iter();
         let mut others_iter = others.into_iter();
-        let mut next: Vec<StationAccount> = Vec::with_capacity(accounts.len());
-        for original in accounts.iter() {
+        let mut next: Vec<StationAccount> = Vec::with_capacity(snapshot.accounts.len());
+        for original in &snapshot.accounts {
             if original.station_id == station_id {
                 next.push(
                     mine_iter
@@ -440,17 +389,14 @@ pub fn reorder_accounts<R: Runtime>(
                 );
             }
         }
-        *accounts = next;
-        let view = accounts
+        snapshot.accounts = next;
+        Ok(snapshot
+            .accounts
             .iter()
             .filter(|a| a.station_id == station_id)
             .cloned()
-            .collect::<Vec<_>>();
-        (accounts.clone(), view)
-    };
-
-    storage::save_accounts(&app, &accounts_snapshot)?;
-    Ok(station_view)
+            .collect::<Vec<_>>())
+    })
 }
 
 // ───── import / export ─────
@@ -536,80 +482,63 @@ pub fn import_relay_data<R: Runtime>(
     let data: RelayDataExportFile = serde_json::from_str(&body)
         .map_err(|e| ApiBillingError::invalid_input(format!("invalid import file: {e}")))?;
 
-    let mut imported_stations: Vec<RelayStation> = Vec::new();
-    let mut imported_accounts: Vec<StationAccount> = Vec::new();
-    let mut imported_secrets: HashMap<String, super::crypto::EncryptedBlob> = HashMap::new();
-
-    let mut existing_remarks: HashSet<String> = {
-        state
-            .stations
-            .lock()
-            .unwrap()
-            .iter()
-            .map(|station| station.remark.clone())
-            .collect()
-    };
-
     let key = state.master_key()?;
 
-    for station in data.stations {
-        let station_remark = trim_or_invalid(&station.remark, "remark")?;
-        let unique_remark = next_unique_remark(&station_remark, &mut existing_remarks);
-        let station_id = new_id("stn");
-        imported_stations.push(RelayStation {
-            id: station_id.clone(),
-            remark: unique_remark,
-            website: trim_or_invalid(&station.website, "website")?,
-            created_at: station.created_at.unwrap_or_else(now_label),
-            login_detection: station.login_detection,
-        });
+    storage::with_state_mut(&app, &state, move |snapshot| {
+        let mut existing_remarks: HashSet<String> =
+            snapshot.stations.iter().map(|station| station.remark.clone()).collect();
 
-        for account in station.accounts {
-            let account_id = new_id("acct");
-            let password = normalize_optional(account.password);
-            imported_accounts.push(StationAccount {
-                id: account_id.clone(),
-                station_id: station_id.clone(),
-                username: trim_or_invalid(&account.username, "username")?,
-                notes: account.notes.trim().to_string(),
-                phone: account.phone.clone(),
-                tg_account: account.tg_account.clone(),
-                linked_account: account.linked_account.clone(),
-                invite_link: account.invite_link.clone(),
-                login_methods: account.login_methods.clone(),
-                status: account.status,
-                last_login_at: account.last_login_at,
-                last_refreshed_at: account.last_refreshed_at,
-                created_at: account.created_at.unwrap_or_else(now_label),
-                has_password: password.is_some(),
+        let mut imported_stations: Vec<RelayStation> = Vec::new();
+        let mut imported_accounts: Vec<StationAccount> = Vec::new();
+        let mut imported_secrets: HashMap<String, super::crypto::EncryptedBlob> = HashMap::new();
+
+        for station in data.stations {
+            let station_remark = trim_or_invalid(&station.remark, "remark")?;
+            let unique_remark = next_unique_remark(&station_remark, &mut existing_remarks);
+            let station_id = new_id("stn");
+            imported_stations.push(RelayStation {
+                id: station_id.clone(),
+                remark: unique_remark,
+                website: trim_or_invalid(&station.website, "website")?,
+                created_at: station.created_at.unwrap_or_else(now_label),
+                login_detection: station.login_detection,
             });
-            if let Some(password) = password {
-                imported_secrets.insert(account_id, crypto::encrypt(&key, &password)?);
+
+            for account in station.accounts {
+                let account_id = new_id("acct");
+                let password = normalize_optional(account.password);
+                imported_accounts.push(StationAccount {
+                    id: account_id.clone(),
+                    station_id: station_id.clone(),
+                    username: trim_or_invalid(&account.username, "username")?,
+                    notes: account.notes.trim().to_string(),
+                    phone: account.phone.clone(),
+                    tg_account: account.tg_account.clone(),
+                    linked_account: account.linked_account.clone(),
+                    invite_link: account.invite_link.clone(),
+                    login_methods: account.login_methods.clone(),
+                    status: account.status,
+                    last_login_at: account.last_login_at,
+                    last_refreshed_at: account.last_refreshed_at,
+                    created_at: account.created_at.unwrap_or_else(now_label),
+                    has_password: password.is_some(),
+                });
+                if let Some(password) = password {
+                    imported_secrets.insert(account_id, crypto::encrypt(&key, &password)?);
+                }
             }
         }
-    }
 
-    let (stations_snapshot, accounts_snapshot, secrets_snapshot) = {
-        let mut stations = state.stations.lock().unwrap();
-        let mut accounts = state.accounts.lock().unwrap();
-        let mut secrets = state.secrets.lock().unwrap();
+        snapshot.stations.extend(imported_stations);
+        snapshot.accounts.extend(imported_accounts);
+        snapshot.secrets.extend(imported_secrets);
 
-        stations.extend(imported_stations);
-        accounts.extend(imported_accounts);
-        secrets.extend(imported_secrets);
-
-        (stations.clone(), accounts.clone(), secrets.clone())
-    };
-
-    storage::save_stations(&app, &stations_snapshot)?;
-    storage::save_accounts(&app, &accounts_snapshot)?;
-    storage::save_secrets(&app, &secrets_snapshot)?;
-
-    Ok(RelayDataImportResult {
-        station_count: stations_snapshot.len(),
-        account_count: accounts_snapshot.len(),
-        stations: stations_snapshot,
-        accounts: accounts_snapshot,
+        Ok(RelayDataImportResult {
+            station_count: snapshot.stations.len(),
+            account_count: snapshot.accounts.len(),
+            stations: snapshot.stations.clone(),
+            accounts: snapshot.accounts.clone(),
+        })
     })
 }
 
@@ -638,13 +567,6 @@ pub fn set_password<R: Runtime>(
     account_id: String,
     password: String,
 ) -> ApiBillingResult<()> {
-    {
-        let accounts = state.accounts.lock().unwrap();
-        if !accounts.iter().any(|a| a.id == account_id) {
-            return Err(ApiBillingError::not_found(format!("account {account_id}")));
-        }
-    }
-
     let blob = if password.is_empty() {
         None
     } else {
@@ -652,26 +574,21 @@ pub fn set_password<R: Runtime>(
         Some(crypto::encrypt(&key, &password)?)
     };
 
-    let (accounts_snapshot, secrets_snapshot) = {
-        let mut secrets = state.secrets.lock().unwrap();
-        let mut accounts = state.accounts.lock().unwrap();
-        match blob {
-            Some(b) => {
-                secrets.insert(account_id.clone(), b);
+    storage::with_state_mut(&app, &state, |snapshot| {
+        let Some(account) = snapshot.accounts.iter_mut().find(|a| a.id == account_id) else {
+            return Err(ApiBillingError::not_found(format!("account {account_id}")));
+        };
+        match blob.clone() {
+            Some(encrypted) => {
+                snapshot.secrets.insert(account_id.clone(), encrypted);
             }
             None => {
-                secrets.remove(&account_id);
+                snapshot.secrets.remove(&account_id);
             }
         }
-        let has = secrets.contains_key(&account_id);
-        if let Some(a) = accounts.iter_mut().find(|a| a.id == account_id) {
-            a.has_password = has;
-        }
-        (accounts.clone(), secrets.clone())
-    };
-    storage::save_accounts(&app, &accounts_snapshot)?;
-    storage::save_secrets(&app, &secrets_snapshot)?;
-    Ok(())
+        account.has_password = snapshot.secrets.contains_key(&account_id);
+        Ok(())
+    })
 }
 
 #[tauri::command]
@@ -735,20 +652,15 @@ async fn refresh_one_impl<R: Runtime>(
         .await
         .map_err(|e| ApiBillingError::store_fail(format!("acquire probe permit: {e}")))?;
     let outcome = probe::run_probe(&app, &account_id, &website, &detection_config).await?;
-
-    let (snapshot, updated) = {
-        let state = app.state::<ApiBillingState>();
-        let mut accounts = state.accounts.lock().unwrap();
-        let Some(a) = accounts.iter_mut().find(|a| a.id == account_id) else {
+    let state = app.state::<ApiBillingState>();
+    storage::with_state_mut(&app, &state, |snapshot| {
+        let Some(account) = snapshot.accounts.iter_mut().find(|a| a.id == account_id) else {
             return Err(ApiBillingError::not_found(format!("account {account_id}")));
         };
-        a.status = outcome.status;
-        a.last_refreshed_at = Some(now_label());
-        let updated = a.clone();
-        (accounts.clone(), updated)
-    };
-    storage::save_accounts(&app, &snapshot)?;
-    Ok(updated)
+        account.status = outcome.status;
+        account.last_refreshed_at = Some(now_label());
+        Ok(account.clone())
+    })
 }
 
 async fn refresh_many<R: Runtime>(
@@ -827,12 +739,12 @@ pub fn open_login_window<R: Runtime>(
     account_id: String,
 ) -> ApiBillingResult<()> {
     let (username, website) = {
+        let stations = state.stations.lock().unwrap();
         let accounts = state.accounts.lock().unwrap();
         let account = accounts
             .iter()
             .find(|a| a.id == account_id)
             .ok_or_else(|| ApiBillingError::not_found(format!("account {account_id}")))?;
-        let stations = state.stations.lock().unwrap();
         let station = stations
             .iter()
             .find(|s| s.id == account.station_id)
@@ -848,18 +760,14 @@ pub fn mark_account_logged_in<R: Runtime>(
     state: State<'_, ApiBillingState>,
     account_id: String,
 ) -> ApiBillingResult<StationAccount> {
-    let (snapshot, updated) = {
-        let mut accounts = state.accounts.lock().unwrap();
-        let Some(a) = accounts.iter_mut().find(|a| a.id == account_id) else {
+    storage::with_state_mut(&app, &state, |snapshot| {
+        let Some(account) = snapshot.accounts.iter_mut().find(|a| a.id == account_id) else {
             return Err(ApiBillingError::not_found(format!("account {account_id}")));
         };
-        a.status = AccountSessionStatus::Ready;
-        a.last_login_at = Some(now_label());
-        let updated = a.clone();
-        (accounts.clone(), updated)
-    };
-    storage::save_accounts(&app, &snapshot)?;
-    Ok(updated)
+        account.status = AccountSessionStatus::Ready;
+        account.last_login_at = Some(now_label());
+        Ok(account.clone())
+    })
 }
 
 #[cfg(test)]

@@ -3,6 +3,7 @@
  */
 import { type ReactNode } from "react";
 import { X, Info } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -19,10 +20,13 @@ export function DetailPanel<T>({
   item,
   onClose,
   renderDetail,
-  title = "Details",
+  title,
   loading = false,
   open,
 }: DetailPanelProps<T>) {
+  const { t } = useTranslation();
+  const resolvedTitle = title ?? t("common.details");
+
   return (
     <div
       className={cn(
@@ -32,9 +36,15 @@ export function DetailPanel<T>({
     >
       <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
         <span className="text-xs font-semibold text-foreground/70 uppercase tracking-wider">
-          {title}
+          {resolvedTitle}
         </span>
-        <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={onClose}>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 w-6 p-0"
+          onClick={onClose}
+          aria-label={t("common.actions.close")}
+        >
           <X size={14} />
         </Button>
       </div>
@@ -42,14 +52,14 @@ export function DetailPanel<T>({
         {loading ? (
           <div className="flex flex-col items-center justify-center h-full gap-3">
             <div className="size-6 animate-spin rounded-full border-2 border-muted border-t-primary" />
-            <p className="text-xs text-muted-foreground">Loading...</p>
+            <p className="text-xs text-muted-foreground">{t("common.loading")}</p>
           </div>
         ) : item ? (
           renderDetail(item)
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
             <Info size={32} className="opacity-30 mb-3" />
-            <p className="text-sm">Select an item to view details</p>
+            <p className="text-sm">{t("common.empty.selectItem")}</p>
           </div>
         )}
       </div>
@@ -66,14 +76,17 @@ export function MetadataRow({
   label: string;
   value: string;
 }) {
+  const { t } = useTranslation();
+  const resolvedValue = value || t("common.na");
+
   return (
     <div className="flex justify-between py-1.5 text-sm border-b border-border/40 last:border-0">
       <span className="text-muted-foreground shrink-0 mr-2">{label}</span>
       <span
         className="font-medium text-right max-w-[60%] break-words overflow-wrap-anywhere"
-        title={value || "—"}
+        title={resolvedValue}
       >
-        {value || "—"}
+        {resolvedValue}
       </span>
     </div>
   );

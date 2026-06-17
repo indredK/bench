@@ -43,6 +43,7 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
     filterPanelOpen,
     selectedAppIds,
     batchMode,
+    batchProgress,
     batchResults,
     batchConfirmDialog,
     installListApps,
@@ -137,6 +138,7 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
           ? marketplaceInstalledCount
           : marketplacePendingCount,
   }));
+  const batchRunning = Boolean(batchProgress?.running);
 
   return (
     <AppManagerErrorBoundary>
@@ -290,13 +292,13 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                     <ToolbarButton
                       icon={<Download size={15} />}
                       tooltip={`${t("appManager.installSelected")} (${selectedInstallableCount})`}
-                      disabled={selectedInstallableCount === 0}
+                      disabled={selectedInstallableCount === 0 || batchRunning}
                       onClick={handleBatchInstall}
                     />
                     <ToolbarButton
                       icon={<Trash2 size={15} />}
                       tooltip={`${t("appManager.batchUninstall")} (${selectedMarketplaceUninstallableCount})`}
-                      disabled={selectedMarketplaceUninstallableCount === 0}
+                      disabled={selectedMarketplaceUninstallableCount === 0 || batchRunning}
                       onClick={handleBatchInstallListUninstall}
                     />
                     <ToolbarButton
@@ -439,7 +441,7 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                     <ToolbarButton
                       icon={<Trash2 size={15} />}
                       tooltip={`${t("appManager.batchUninstall")} (${selectedUninstallable})`}
-                      disabled={selectedUninstallable === 0}
+                      disabled={selectedUninstallable === 0 || batchRunning}
                       onClick={handleBatchUninstall}
                     />
                     <ToolbarButton

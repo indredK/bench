@@ -120,7 +120,8 @@ export function CustomTitlebar({
                 "focus:outline-none",
               )}
               onClick={handleMinimize}
-              title={t("titlebar.minimize", "Minimize")}
+              title={t("titlebar.minimize")}
+              aria-label={t("titlebar.minimize")}
             >
               <Minus size={14} />
             </button>
@@ -133,7 +134,8 @@ export function CustomTitlebar({
                 "focus:outline-none",
               )}
               onClick={handleToggleMaximize}
-              title={t("titlebar.maximize", "Maximize")}
+              title={t("titlebar.maximize")}
+              aria-label={t("titlebar.maximize")}
             >
               <Maximize2 size={14} />
             </button>
@@ -146,7 +148,8 @@ export function CustomTitlebar({
                 "focus:outline-none",
               )}
               onClick={handleClose}
-              title={t("titlebar.close", "Close")}
+              title={t("titlebar.close")}
+              aria-label={t("titlebar.close")}
             >
               <X size={14} />
             </button>

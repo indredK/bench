@@ -5,6 +5,7 @@ import { type ReactNode } from "react";
 import { type ColumnDef, type SortingState, type OnChangeFn } from "@tanstack/react-table";
 import { AnimatePresence, motion } from "motion/react";
 import { RefreshCw, Search } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { VirtualDataTable } from "./VirtualDataTable";
 import { VirtualGridView } from "./VirtualGridView";
 import { ViewToggle } from "./ViewToggle";
@@ -79,12 +80,14 @@ export function ContentView<T>({
   rightActions,
   getRowAttributes,
 }: ContentViewProps<T>) {
+  const { t } = useTranslation();
+
   // Initial load with no data — show full-screen loader
   if (loading && data.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground rounded-xl border bg-card/50">
         <RefreshCw size={28} className="animate-spin text-primary" />
-        <p className="text-sm">Loading...</p>
+        <p className="text-sm">{t("common.loading")}</p>
       </div>
     );
   }
@@ -94,7 +97,7 @@ export function ContentView<T>({
     return (
       <div className="flex flex-col items-center justify-center h-full text-muted-foreground rounded-xl border bg-card/50 gap-2">
         {emptyIcon ?? <Search size={32} className="opacity-30" />}
-        <p>{emptyText ?? "No items to display"}</p>
+        <p>{emptyText ?? t("common.empty.noData")}</p>
       </div>
     );
   }

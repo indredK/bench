@@ -1498,6 +1498,13 @@
     "cachedPriceShort": "Cached",
     "outputPriceShort": "Output",
     "currencyShort": "Currency",
+    "units": {
+      "single": "1",
+      "thousand": "1K",
+      "tenThousand": "10K",
+      "million": "1M",
+      "hundredMillion": "100M"
+    },
     "tabs": {
       "standards": "Pricing",
       "compare": "Compare",
@@ -1568,7 +1575,8 @@
       "updateFailed": "Failed to update pricing standard",
       "deleted": "Pricing standard deleted",
       "deleteFailed": "Failed to delete pricing standard",
-      "duplicateName": "A standard with this name already exists"
+      "duplicateName": "A standard with this name already exists",
+      "loadFailed": "Failed to load pricing standards"
     }
   },
   "common": {
@@ -1580,7 +1588,26 @@
     "na": "—",
     "withParenthesis": "{{prefix}} ({{detail}})",
     "desktopOnly": "This feature is only available in the desktop version of Bench.",
-    "appTitle": "Port Manager - DevTools"
+    "appTitle": "Port Manager - DevTools",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "confirm": "Confirm",
+    "save": "Save",
+    "add": "Add",
+    "edit": "Edit",
+    "search": "Search",
+    "loading": "Loading...",
+    "success": "Success",
+    "error": "Error",
+    "warning": "Warning",
+    "details": "Details",
+    "actions": {
+      "close": "Close"
+    },
+    "empty": {
+      "noData": "No items to display",
+      "selectItem": "Select an item to view details"
+    }
   },
   "language": {
     "system": "System",
@@ -1607,8 +1634,13 @@
     "unsupportedTooltip": "This theme is only available on macOS"
   },
   "about": {
-    "description": "All-in-one developer toolkit",
+    "description": "All-in-one developer toolkit for macOS",
     "version": "Version",
+    "close": "Close"
+  },
+  "titlebar": {
+    "minimize": "Minimize",
+    "maximize": "Maximize",
     "close": "Close"
   },
   "updater": {
@@ -1668,19 +1700,6 @@
       "installFailed": "Failed to install update"
     }
   },
-  "common": {
-    "cancel": "Cancel",
-    "delete": "Delete",
-    "confirm": "Confirm",
-    "save": "Save",
-    "add": "Add",
-    "edit": "Edit",
-    "search": "Search",
-    "loading": "Loading...",
-    "success": "Success",
-    "error": "Error",
-    "warning": "Warning"
-  },
   "terminology": {
     "industryList": "Industry List",
     "categoryOf": "Categories of {{name}}",
@@ -1712,15 +1731,37 @@
     "title": "Title",
     "description": "Description",
     "websites": "Related Websites",
+    "subcategoryLabel": "Subcategory",
     "termName": "Term name",
     "termDescription": "Briefly describe what this term means...",
     "addWebsite": "+ Add",
     "urlPlaceholder": "https://...",
     "labelOptional": "Label (optional)",
+    "selectSubcategory": "Select subcategory",
+    "unsetSubcategory": "No subcategory",
     "cancel": "Cancel",
     "save": "Save",
     "added": "Added",
     "saved": "Saved",
-    "copied": "Copied"
+    "copied": "Copied",
+    "actions": {
+      "pin": "Pin",
+      "unpin": "Unpin",
+      "copyTitle": "Copy title"
+    },
+    "toasts": {
+      "loadFailed": "Failed to load terminology data",
+      "saveFailed": "Failed to save",
+      "addFailed": "Failed to add",
+      "deleteFailed": "Failed to delete",
+      "deleted": "Deleted",
+      "added": "Added",
+      "saved": "Saved",
+      "copied": "Copied",
+      "pinFailed": "Failed to pin",
+      "duplicateName": "A duplicate name already exists",
+      "invalidInput": "Invalid input",
+      "targetNotFound": "Target not found"
+    }
   }
 }

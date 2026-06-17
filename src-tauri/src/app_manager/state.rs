@@ -107,10 +107,14 @@ impl AppManagerState {
 
     /// Start a new batch operation: install a fresh cancellation flag and
     /// return an Arc clone for the loop to check on each iteration.
-    pub fn start_batch_operation(&self) -> Arc<AtomicBool> {
+    pub fn start_batch_operation(&self) -> Result<Arc<AtomicBool>, ()> {
+        let mut guard = self.batch_cancel.lock().unwrap_or_else(|e| e.into_inner());
+        if guard.is_some() {
+            return Err(());
+        }
         let flag = Arc::new(AtomicBool::new(false));
-        *self.batch_cancel.lock().unwrap_or_else(|e| e.into_inner()) = Some(flag.clone());
-        flag
+        *guard = Some(flag.clone());
+        Ok(flag)
     }
 
     /// Signal cancellation on the currently running batch (no-op if idle).
@@ -162,7 +166,7 @@ mod tests {
         assert!(state.acquire_op_lock("foo"));
         state.release_op_lock("foo");
         state.mark_update_check();
-        let flag = state.start_batch_operation();
+        let flag = state.start_batch_operation().expect("first batch should start");
         assert!(state.cancel_batch_operation());
         assert!(flag.load(std::sync::atomic::Ordering::Relaxed));
         state.clear_batch_operation();
@@ -182,5 +186,15 @@ mod tests {
         // Releasing restores availability.
         state.release_op_lock("a");
         assert!(state.acquire_op_lock("a"));
+    }
+
+    #[test]
+    fn start_batch_operation_rejects_overlapping_batches() {
+        let state = AppManagerState::new();
+        assert!(state.start_batch_operation().is_ok());
+        assert!(state.start_batch_operation().is_err());
+        assert!(state.cancel_batch_operation());
+        state.clear_batch_operation();
+        assert!(state.start_batch_operation().is_ok());
     }
 }

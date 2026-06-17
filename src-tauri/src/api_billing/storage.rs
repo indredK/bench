@@ -15,6 +15,13 @@ const KEY_SECRETS: &str = "secrets";
 const KEY_SCHEMA: &str = "schema_version";
 const CURRENT_SCHEMA: u32 = 2;
 
+#[derive(Clone)]
+pub struct ApiBillingSnapshot {
+    pub stations: Vec<RelayStation>,
+    pub accounts: Vec<StationAccount>,
+    pub secrets: HashMap<String, EncryptedBlob>,
+}
+
 /// Load persisted state from the plugin-store and populate the managed state.
 /// Called once during `setup`. Migrates P0 plaintext secrets to encrypted blobs.
 pub fn init_state<R: Runtime>(app: &AppHandle<R>, state: &ApiBillingState) -> ApiBillingResult<()> {
@@ -117,38 +124,47 @@ fn load_and_migrate_secrets(
     Ok((out, migrated))
 }
 
-fn save_kv<R: Runtime>(
+fn save_snapshot<R: Runtime>(
     app: &AppHandle<R>,
-    key: &str,
-    value: Value,
+    snapshot: &ApiBillingSnapshot,
 ) -> ApiBillingResult<()> {
     let store = app
         .store(STORE_FILE)
         .map_err(|e| ApiBillingError::store_fail(format!("open store: {e}")))?;
-    store.set(key, value);
+    store.set(KEY_STATIONS, json!(&snapshot.stations));
+    store.set(KEY_ACCOUNTS, json!(&snapshot.accounts));
+    store.set(KEY_SECRETS, json!(&snapshot.secrets));
+    store.set(KEY_SCHEMA, json!(CURRENT_SCHEMA));
     store
         .save()
-        .map_err(|e| ApiBillingError::store_fail(format!("save {key}: {e}")))?;
+        .map_err(|e| ApiBillingError::store_fail(format!("save snapshot: {e}")))?;
     Ok(())
 }
 
-pub fn save_stations<R: Runtime>(
+pub fn with_state_mut<R: Runtime, F, T>(
     app: &AppHandle<R>,
-    stations: &[RelayStation],
-) -> ApiBillingResult<()> {
-    save_kv(app, KEY_STATIONS, json!(stations))
-}
+    state: &ApiBillingState,
+    f: F,
+) -> ApiBillingResult<T>
+where
+    F: FnOnce(&mut ApiBillingSnapshot) -> ApiBillingResult<T>,
+{
+    let mut stations = state.stations.lock().unwrap_or_else(|e| e.into_inner());
+    let mut accounts = state.accounts.lock().unwrap_or_else(|e| e.into_inner());
+    let mut secrets = state.secrets.lock().unwrap_or_else(|e| e.into_inner());
 
-pub fn save_accounts<R: Runtime>(
-    app: &AppHandle<R>,
-    accounts: &[StationAccount],
-) -> ApiBillingResult<()> {
-    save_kv(app, KEY_ACCOUNTS, json!(accounts))
-}
+    let mut next = ApiBillingSnapshot {
+        stations: stations.clone(),
+        accounts: accounts.clone(),
+        secrets: secrets.clone(),
+    };
 
-pub fn save_secrets<R: Runtime>(
-    app: &AppHandle<R>,
-    secrets: &HashMap<String, EncryptedBlob>,
-) -> ApiBillingResult<()> {
-    save_kv(app, KEY_SECRETS, json!(secrets))
+    let result = f(&mut next)?;
+    save_snapshot(app, &next)?;
+
+    *stations = next.stations;
+    *accounts = next.accounts;
+    *secrets = next.secrets;
+
+    Ok(result)
 }

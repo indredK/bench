@@ -77,17 +77,20 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
 
 const DEFAULT_EXCHANGE_RATE = 7;
 
-const TOKEN_UNITS: { value: string; label: string; multiplier: number }[] = [
-  { value: "single", label: "个", multiplier: 1 },
-  { value: "thousand", label: "千", multiplier: 1_000 },
-  { value: "tenThousand", label: "万", multiplier: 10_000 },
-  { value: "million", label: "百万", multiplier: 1_000_000 },
-  { value: "hundredMillion", label: "亿", multiplier: 100_000_000 },
-];
-
 const RATIO_PRESETS = [1, 2, 3, 5, 10, 20, 50, 100];
 
 type DisplayCurrency = "USD" | "CNY";
+type TranslateFn = (key: string, opts?: Record<string, unknown>) => string;
+
+function getTokenUnits(t: TranslateFn) {
+  return [
+    { value: "single", label: t("tokenCalculator.units.single"), multiplier: 1 },
+    { value: "thousand", label: t("tokenCalculator.units.thousand"), multiplier: 1_000 },
+    { value: "tenThousand", label: t("tokenCalculator.units.tenThousand"), multiplier: 10_000 },
+    { value: "million", label: t("tokenCalculator.units.million"), multiplier: 1_000_000 },
+    { value: "hundredMillion", label: t("tokenCalculator.units.hundredMillion"), multiplier: 100_000_000 },
+  ];
+}
 
 function normalizeExchangeRate(rate: number): number {
   return Number.isFinite(rate) && rate > 0 ? rate : DEFAULT_EXCHANGE_RATE;
@@ -200,11 +203,11 @@ export default function TokenCalculatorPage() {
       const data = await listPricingStandards();
       setStandards(data);
     } catch {
-      toast.error("Failed to load pricing standards");
+      toast.error(t("tokenCalculator.toasts.loadFailed"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     loadStandards();
@@ -322,7 +325,7 @@ function StandardsTab({
   onRefresh: () => void;
   displayCurrency: DisplayCurrency;
   exchangeRate: number;
-  t: (key: string, opts?: Record<string, unknown>) => string;
+  t: TranslateFn;
 }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
@@ -685,8 +688,9 @@ function CompareTab({
   standards: PricingStandard[];
   displayCurrency: DisplayCurrency;
   exchangeRate: number;
-  t: (key: string, opts?: Record<string, unknown>) => string;
+  t: TranslateFn;
 }) {
+  const tokenUnits = useMemo(() => getTokenUnits(t), [t]);
   const [mode, setMode] = useState<CompareMode>("workload");
   const [selectedModels, setSelectedModels] = useState<SelectedModel[]>([]);
 
@@ -715,8 +719,8 @@ function CompareTab({
   // Budget input
   const [budget, setBudget] = useState(100);
 
-  const inputMultiplier = TOKEN_UNITS.find((u) => u.value === inputUnit)?.multiplier ?? 1;
-  const outputMultiplier = TOKEN_UNITS.find((u) => u.value === outputUnit)?.multiplier ?? 1;
+  const inputMultiplier = tokenUnits.find((u) => u.value === inputUnit)?.multiplier ?? 1;
+  const outputMultiplier = tokenUnits.find((u) => u.value === outputUnit)?.multiplier ?? 1;
   const actualInputTokens = (inputTokens || 0) * inputMultiplier;
   const actualOutputTokens = (outputTokens || 0) * outputMultiplier;
   const ratioPresetIndex = RATIO_PRESETS.findIndex((r) => r >= ratio);
@@ -942,7 +946,7 @@ function CompareTab({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {TOKEN_UNITS.map((u) => (
+                  {tokenUnits.map((u) => (
                     <SelectItem key={u.value} value={u.value}>
                       {u.label}
                     </SelectItem>
@@ -969,7 +973,7 @@ function CompareTab({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {TOKEN_UNITS.map((u) => (
+                  {tokenUnits.map((u) => (
                     <SelectItem key={u.value} value={u.value}>
                       {u.label}
                     </SelectItem>
@@ -1272,7 +1276,7 @@ function CalculatorTab({
   standards: PricingStandard[];
   displayCurrency: DisplayCurrency;
   exchangeRate: number;
-  t: (key: string, opts?: Record<string, unknown>) => string;
+  t: TranslateFn;
 }) {
   const [text, setText] = useState("");
   const [selectedStandardId, setSelectedStandardId] = useState("");

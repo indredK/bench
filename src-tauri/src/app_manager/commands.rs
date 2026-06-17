@@ -6,6 +6,7 @@ use super::types::{
 };
 use super::{empty_scan_result, linux, locked_operation_result, macos, sources, windows};
 use serde::Serialize;
+use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use tauri::{Emitter, Manager};
@@ -64,6 +65,23 @@ struct BatchFinishedEvent<'a> {
 
 fn emit_silently<T: Serialize + Clone>(app: &tauri::AppHandle, event: &str, payload: T) {
     let _ = app.emit(event, payload);
+}
+
+fn try_start_batch_operation(
+    state: &tauri::State<'_, AppManagerState>,
+) -> Result<Arc<AtomicBool>, BatchOperationResult> {
+    state.start_batch_operation().map_err(|_| BatchOperationResult {
+        total: 0,
+        succeeded: 0,
+        failed: 1,
+        results: vec![BatchItemResult {
+            app_id: String::new(),
+            app_name: String::new(),
+            success: false,
+            message: "Another batch operation is already running".to_string(),
+            exit_code: None,
+        }],
+    })
 }
 
 #[tauri::command]
@@ -208,7 +226,10 @@ pub fn batch_upgrade_apps(
     let mut failed = 0usize;
     let mut cancelled = 0usize;
 
-    let cancel_flag = state.start_batch_operation();
+    let cancel_flag = match try_start_batch_operation(&state) {
+        Ok(flag) => flag,
+        Err(result) => return result,
+    };
     let total = app_ids.len();
 
     for (idx, app_id) in app_ids.iter().enumerate() {
@@ -312,7 +333,10 @@ pub fn batch_uninstall_apps(
     let mut failed = 0usize;
     let mut cancelled = 0usize;
 
-    let cancel_flag = state.start_batch_operation();
+    let cancel_flag = match try_start_batch_operation(&state) {
+        Ok(flag) => flag,
+        Err(result) => return result,
+    };
     let total = app_ids.len();
 
     for (idx, app_id) in app_ids.iter().enumerate() {
@@ -448,7 +472,10 @@ pub fn batch_install_apps(
     let mut failed = 0usize;
     let mut cancelled = 0usize;
 
-    let cancel_flag = state.start_batch_operation();
+    let cancel_flag = match try_start_batch_operation(&state) {
+        Ok(flag) => flag,
+        Err(result) => return result,
+    };
     let total = items.len();
 
     for (idx, item) in items.iter().enumerate() {
