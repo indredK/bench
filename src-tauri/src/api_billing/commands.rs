@@ -241,6 +241,7 @@ pub fn list_all_accounts(state: State<'_, ApiBillingState>) -> Vec<StationAccoun
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub fn create_account<R: Runtime>(
     app: AppHandle<R>,
     state: State<'_, ApiBillingState>,
@@ -292,6 +293,7 @@ pub fn create_account<R: Runtime>(
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub fn update_account<R: Runtime>(
     app: AppHandle<R>,
     state: State<'_, ApiBillingState>,

@@ -84,8 +84,10 @@ if (hasFrontendChanges) {
 }
 
 if (hasBackendChanges) {
-  runStep("Running Rust tests", npmCommand, ["run", "test:be"]);
+  runStep("Cross-platform crate check", "node", ["scripts/check-rust-crates.mjs"]);
   runStep("Checking Rust code", npmCommand, ["run", "check:be"]);
+  runStep("Running Rust clippy (warnings as errors)", npmCommand, ["run", "clippy:be"]);
+  runStep("Running Rust tests", npmCommand, ["run", "test:be"]);
 }
 
 if (!nodeScriptFiles.length && !hasFrontendChanges && !hasBackendChanges) {

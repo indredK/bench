@@ -17,6 +17,7 @@ fn subcat(id: &str, label: &str) -> TermSubcategory {
     }
 }
 
+#[allow(dead_code)]
 fn web(url: &str, label: &str) -> TermWebsite {
     TermWebsite {
         url: url.into(),

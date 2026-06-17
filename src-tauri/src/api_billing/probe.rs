@@ -3,6 +3,7 @@
 //! 预算拆成两段以避免冷启动吃掉总额:
 //!   - load 阶段 ≤ `PROBE_LOAD_BUDGET_MS` 等首个 `PageLoadEvent::Finished`
 //!   - poll 阶段 ≤ `PROBE_POLL_BUDGET_MS` 每 500ms 抓一帧 innerText 喂 `detection`
+//!
 //! poll 期间只信"正向 needle 命中"早退 —— SPA 等 XHR 时 DOM 会短暂静止,
 //! 用 absence-based classify 兜底容易把过渡态(还没渲染用户菜单)误判 `LoginRequired`.
 //! 预算耗满仍没命中正向 needle → 用最后一帧走完整 `classify` 取定论 (含 absence).
@@ -148,10 +149,11 @@ pub async fn run_probe<R: Runtime>(
         Arc::new(Mutex::new(Some(load_tx)));
 
     let window = {
+        #[cfg_attr(not(any(target_os = "macos", target_os = "ios")), allow(unused_mut))]
         let mut builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(parsed))
             .visible(false)
             .data_directory(data_dir)
-            .initialization_script(&init_script())
+            .initialization_script(init_script())
             .on_page_load(move |_window, payload| {
                 if !matches!(payload.event(), PageLoadEvent::Finished) {
                     return;

@@ -112,34 +112,17 @@ fn builtin_commands() -> Vec<CleanupCommandDef> {
 }
 
 fn measure_disk_free() -> u64 {
-    #[cfg(target_os = "macos")]
-    {
-        let output = Command::new("df")
-            .args(["-k", "/"])
-            .output()
-            .ok();
-        if let Some(out) = output {
-            let s = String::from_utf8_lossy(&out.stdout);
-            for line in s.lines().skip(1) {
-                let parts: Vec<&str> = line.split_whitespace().collect();
-                if parts.len() >= 4 {
-                    if let Ok(kb) = parts[3].parse::<u64>() {
-                        return kb * 1024;
-                    }
-                }
-            }
-        }
-    }
-    #[cfg(target_os = "linux")]
-    {
-        use std::fs;
-        if let Ok(stat) = fs::read_to_string("/proc/mounts") {
-            for line in stat.lines() {
-                let parts: Vec<&str> = line.split_whitespace().collect();
-                if parts.len() >= 2 && parts[1] == "/" {
-                    if let Ok(info) = nix::sys::statfs::statfs(parts[1]) {
-                        return info.blocks_available() * info.block_size() as u64;
-                    }
+    // `df -k /` works on both macOS and Linux and avoids pulling in a
+    // platform-specific crate (nix/statfs) that isn't declared in Cargo.toml.
+    // The 4th column of `df -k` output is "Available" in 1K-blocks.
+    let output = Command::new("df").args(["-k", "/"]).output().ok();
+    if let Some(out) = output {
+        let s = String::from_utf8_lossy(&out.stdout);
+        for line in s.lines().skip(1) {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 4 {
+                if let Ok(kb) = parts[3].parse::<u64>() {
+                    return kb * 1024;
                 }
             }
         }

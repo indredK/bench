@@ -62,14 +62,13 @@ pub fn record_operation_result(
         None
     };
 
-    let result = OperationResult {
+    OperationResult {
         success,
         message: message.into(),
         exit_code,
         error_code,
         permission_issue,
-    };
-    result
+    }
 }
 
 #[allow(clippy::too_many_arguments)]

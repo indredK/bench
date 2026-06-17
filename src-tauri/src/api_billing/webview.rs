@@ -1,6 +1,7 @@
 //! 中转站 webview 辅助 / relay webview helpers:
 //!   - 管理每个账号独立的 cookie/storage 目录
 //!   - 拼装并打开登录窗口
+//!
 //! 探针(judging session state)的逻辑见 `super::probe`,本模块只关心窗口本身.
 use std::path::PathBuf;
 
@@ -68,6 +69,7 @@ pub fn open_login_window<R: Runtime>(
             .map_err(|e| ApiBillingError::store_fail(format!("create relay-accounts: {e}")))?;
     }
 
+    #[cfg_attr(not(any(target_os = "macos", target_os = "ios")), allow(unused_mut))]
     let mut builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(parsed))
         .title(format!("{username} · 登录"))
         .inner_size(LOGIN_WINDOW_WIDTH, LOGIN_WINDOW_HEIGHT)

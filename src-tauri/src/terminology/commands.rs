@@ -46,6 +46,7 @@ fn normalize_frontend_subcategory_id(
     }
 }
 
+#[allow(clippy::type_complexity)]
 fn validate_term_input(
     input: &TermInput,
 ) -> TerminologyResult<(
