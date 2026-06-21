@@ -77,7 +77,9 @@ export function UpdateDetail({
         <div className="flex flex-col">
           <MetadataRow label={t("appManager.softwareUpdate.detail.sourceLabel")} value={sourceLabel} />
           <MetadataRow label={t("appManager.softwareUpdate.detail.sizeLabel")} value={sizeLabel} />
-          {app?.bundleId && <MetadataRow label="Bundle ID" value={app.bundleId} />}
+          {app?.bundleId && (
+            <MetadataRow label={t("appManager.detailBundleId")} value={app.bundleId} />
+          )}
         </div>
       </DetailSection>
 

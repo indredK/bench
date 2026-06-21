@@ -297,6 +297,7 @@
     "detailPath": "Path",
     "detailSource": "Source",
     "detailSourceId": "Source ID",
+    "detailBundleId": "Bundle ID",
     "detailType": "Type",
     "detailModified": "Modified",
     "installList": "Install List",
@@ -306,6 +307,11 @@
     "filterUninstalled": "Not Installed",
     "install": "Install",
     "installing": "Installing...",
+    "operation": {
+      "upgrading": "Upgrading...",
+      "uninstalling": "Uninstalling...",
+      "installing": "Installing..."
+    },
     "installSearchPlaceholder": "Search recommended apps...",
     "installCount": "{{count}} apps available for install",
     "installNoResults": "No recommended apps match your search",
@@ -363,6 +369,11 @@
         "viewFullNotes": "View full release notes",
         "ignoreToggle": "Ignore updates for this app",
         "noNotes": "No release notes available"
+      },
+      "status": {
+        "openingAppStore": "Opening App Store...",
+        "upgradingHomebrew": "Upgrading via Homebrew...",
+        "installingUpdate": "Installing update..."
       },
       "empty": {
         "allUpToDate": "All apps are up to date",
@@ -585,6 +596,12 @@
     "cleanup": "Clean Up",
     "cleanupSuccess": "Cleanup successful! Freed {{size}} of space.",
     "cleanupError": "Cleanup failed: {{error}}",
+    "errors": {
+      "openDirectoryFailed": "Failed to open directory dialog: {{error}}",
+      "desktopOnly": "Scanning is only available in the desktop app.",
+      "scanFailed": "Scan failed: {{error}}",
+      "unknown": "Unknown error"
+    },
     "noProjects": "No projects found in the selected directory.",
     "copyPath": "Copy Path",
     "refreshing": "Refreshing...",

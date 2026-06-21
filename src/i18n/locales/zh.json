@@ -297,6 +297,7 @@
     "detailPath": "路径",
     "detailSource": "来源",
     "detailSourceId": "来源 ID",
+    "detailBundleId": "Bundle ID",
     "detailType": "类型",
     "detailModified": "修改时间",
     "installList": "安装清单",
@@ -306,6 +307,11 @@
     "filterUninstalled": "未安装",
     "install": "安装",
     "installing": "安装中...",
+    "operation": {
+      "upgrading": "升级中...",
+      "uninstalling": "卸载中...",
+      "installing": "安装中..."
+    },
     "installSearchPlaceholder": "搜索推荐应用...",
     "installCount": "{{count}} 个应用可安装",
     "installNoResults": "没有匹配的推荐应用",
@@ -363,6 +369,11 @@
         "viewFullNotes": "查看完整更新日志",
         "ignoreToggle": "忽略此应用的更新",
         "noNotes": "暂无更新说明"
+      },
+      "status": {
+        "openingAppStore": "正在打开 App Store...",
+        "upgradingHomebrew": "正在通过 Homebrew 升级...",
+        "installingUpdate": "正在安装更新..."
       },
       "empty": {
         "allUpToDate": "所有应用都是最新的",
@@ -585,6 +596,12 @@
     "cleanup": "清理",
     "cleanupSuccess": "清理成功！释放了 {{size}} 的空间。",
     "cleanupError": "清理失败：{{error}}",
+    "errors": {
+      "openDirectoryFailed": "打开目录选择对话框失败：{{error}}",
+      "desktopOnly": "扫描功能仅可在桌面版应用中使用。",
+      "scanFailed": "扫描失败：{{error}}",
+      "unknown": "未知错误"
+    },
     "noProjects": "在选定的目录中未找到任何项目。",
     "copyPath": "复制路径",
     "refreshing": "正在刷新...",

@@ -25,12 +25,69 @@ import type { LocalizedError } from "@/lib/errors";
 type SetState = StoreApi<AppManagerState>["setState"];
 
 export function createAppManagerBasicActions(set: SetState) {
+  const applySearchQuery = (tab: AppManagerTabKey, query: string) => {
+    switch (tab) {
+      case "marketplace":
+        return { searchQuery: query, marketplaceSearchQuery: query };
+      case "softwareUpdate":
+        return { searchQuery: query, updatesSearchQuery: query };
+      case "installed":
+      default:
+        return { searchQuery: query, installedSearchQuery: query };
+    }
+  };
+
+  const applyCategoryFilter = (tab: AppManagerTabKey, category: AppCategoryKey | null) => {
+    switch (tab) {
+      case "marketplace":
+        return {
+          categoryFilter: category,
+          marketplaceCategoryFilter: category,
+        };
+      case "installed":
+        return {
+          categoryFilter: category,
+          installedCategoryFilter: category,
+        };
+      case "softwareUpdate":
+      default:
+        return { categoryFilter: null };
+    }
+  };
+
+  const applySeriesFilter = (tab: AppManagerTabKey, series: AppSeriesKey | null) => {
+    switch (tab) {
+      case "marketplace":
+        return {
+          seriesFilter: series,
+          marketplaceSeriesFilter: series,
+        };
+      case "installed":
+        return {
+          seriesFilter: series,
+          installedSeriesFilter: series,
+        };
+      case "softwareUpdate":
+      default:
+        return { seriesFilter: null };
+    }
+  };
+
   return {
-    setSearchQuery: (query: string) => set({ searchQuery: query }),
+    setSearchQuery: (query: string) =>
+      set((state) => ({
+        ...applySearchQuery(state.activeTab, query),
+      })),
     setActiveFilter: (filter: AppFilterKey) => set({ activeFilter: filter }),
     setMarketplaceFilter: (filter: MarketplaceFilterKey) => set({ marketplaceFilter: filter }),
-    setCategoryFilter: (category: AppCategoryKey | null) => set({ categoryFilter: category }),
-    setSeriesFilter: (series: AppSeriesKey | null) => set({ seriesFilter: series }),
+    setCategoryFilter: (category: AppCategoryKey | null) =>
+      set((state) => ({
+        ...applyCategoryFilter(state.activeTab, category),
+      })),
+    setSeriesFilter: (series: AppSeriesKey | null) =>
+      set((state) => ({
+        ...applySeriesFilter(state.activeTab, series),
+      })),
     setError: (error: LocalizedError | null) => set({ error }),
     setSorting: (sorting: Updater<SortingState>) =>
       set((state) => ({
@@ -80,7 +137,26 @@ export function createAppManagerBasicActions(set: SetState) {
     setSelectedItem: (item: AppInfo | null) => set({ selectedItem: item }),
     setFilterPanelOpen: (open: boolean) => set({ filterPanelOpen: open }),
 
-    setActiveTab: (tab: AppManagerTabKey) => set({ activeTab: tab }),
+    setActiveTab: (tab: AppManagerTabKey) =>
+      set((state) => ({
+        activeTab: tab,
+        ...applySearchQuery(
+          tab,
+          tab === "marketplace"
+            ? state.marketplaceSearchQuery
+            : tab === "softwareUpdate"
+              ? state.updatesSearchQuery
+              : state.installedSearchQuery
+        ),
+        ...applyCategoryFilter(
+          tab,
+          tab === "marketplace" ? state.marketplaceCategoryFilter : state.installedCategoryFilter
+        ),
+        ...applySeriesFilter(
+          tab,
+          tab === "marketplace" ? state.marketplaceSeriesFilter : state.installedSeriesFilter
+        ),
+      })),
     setUpdates: (updates: UpdateInfo[]) =>
       set((state) => {
         const updateMap = new Map(updates.map((update) => [update.appId, update]));

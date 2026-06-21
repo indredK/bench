@@ -120,7 +120,10 @@ export function InstallDetail({
         {app.installedPath && (
           <MetadataRow label={t("appManager.detailPath")} value={app.installedPath} />
         )}
-        <MetadataRow label="Source" value={getInstallSourceLabel(app.installSource)} />
+        <MetadataRow
+          label={t("appManager.detailSource")}
+          value={getInstallSourceLabel(app.installSource)}
+        />
         {app.description && (
           <MetadataRow label={t("appManager.column.description")} value={app.description} />
         )}

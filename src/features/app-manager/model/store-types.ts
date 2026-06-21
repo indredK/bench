@@ -49,10 +49,17 @@ export interface AppManagerState {
   loading: boolean;
   error: LocalizedError | null;
   searchQuery: string;
+  installedSearchQuery: string;
+  marketplaceSearchQuery: string;
+  updatesSearchQuery: string;
   activeFilter: AppFilterKey;
   marketplaceFilter: MarketplaceFilterKey;
   categoryFilter: AppCategoryKey | null;
+  installedCategoryFilter: AppCategoryKey | null;
+  marketplaceCategoryFilter: AppCategoryKey | null;
   seriesFilter: AppSeriesKey | null;
+  installedSeriesFilter: AppSeriesKey | null;
+  marketplaceSeriesFilter: AppSeriesKey | null;
   sorting: SortingState;
   scanned: boolean;
   result: AppScanResult | null;

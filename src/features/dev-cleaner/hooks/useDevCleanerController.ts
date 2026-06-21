@@ -57,11 +57,11 @@ export function useDevCleanerController() {
       useDevCleanerStore.setState({
         cleanupMessage: {
           type: "error",
-          text: `Failed to open directory dialog: ${error}`,
+          text: t("devCleaner.errors.openDirectoryFailed", { error: String(error) }),
         },
       });
     }
-  }, []);
+  }, [t]);
 
   const handleScan = useCallback(async () => {
     const { selectedPath: currentSelectedPath } = useDevCleanerStore.getState();
@@ -73,7 +73,7 @@ export function useDevCleanerController() {
       useDevCleanerStore.setState({
         cleanupMessage: {
           type: "error",
-          text: "Scanning is only available in the desktop app",
+          text: t("devCleaner.errors.desktopOnly"),
         },
         isScanning: false,
       });
@@ -92,12 +92,12 @@ export function useDevCleanerController() {
       useDevCleanerStore.setState({
         cleanupMessage: {
           type: "error",
-          text: `Scan failed: ${error}`,
+          text: t("devCleaner.errors.scanFailed", { error: String(error) }),
         },
         isScanning: false,
       });
     }
-  }, []);
+  }, [t]);
 
   const handleStopScan = useCallback(async () => {
     try {
@@ -141,18 +141,23 @@ export function useDevCleanerController() {
         useDevCleanerStore.setState({
           cleanupMessage: {
             type: "error",
-            text: result.errors?.join(", ") || "Unknown error",
+            text: t("devCleaner.cleanupError", {
+              error: result.errors?.join(", ") || t("devCleaner.errors.unknown"),
+            }),
           },
         });
       }
     } catch (error) {
       useDevCleanerStore.setState({
-        cleanupMessage: { type: "error", text: `Cleanup failed: ${error}` },
+        cleanupMessage: {
+          type: "error",
+          text: t("devCleaner.cleanupError", { error: String(error) }),
+        },
       });
     } finally {
       useDevCleanerStore.setState({ isCleaningUp: false });
     }
-  }, [handleScan]);
+  }, [handleScan, t]);
 
   const filteredProjects = useMemo(() => {
     if (!scanResult) return [];

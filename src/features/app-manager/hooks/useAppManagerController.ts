@@ -50,11 +50,15 @@ export function useAppManagerController(active: boolean) {
     apps,
     loading,
     error,
-    searchQuery,
+    installedSearchQuery,
+    marketplaceSearchQuery,
+    updatesSearchQuery,
     activeFilter,
     marketplaceFilter,
-    categoryFilter,
-    seriesFilter,
+    installedCategoryFilter,
+    marketplaceCategoryFilter,
+    installedSeriesFilter,
+    marketplaceSeriesFilter,
     sorting,
     scanned,
     result,
@@ -295,7 +299,11 @@ export function useAppManagerController(active: boolean) {
           setUpdateOperationStatus(update.appId, "error", t("appManager.errors.missingMacAppStoreId"));
           return;
         }
-        setUpdateOperationStatus(update.appId, "running", "Opening App Store…");
+        setUpdateOperationStatus(
+          update.appId,
+          "running",
+          t("appManager.softwareUpdate.status.openingAppStore")
+        );
         try {
           await appManagerUseCases.openInMacAppStore(update.adamId);
           setUpdateOperationStatus(update.appId, "success");
@@ -306,7 +314,11 @@ export function useAppManagerController(active: boolean) {
       }
 
       if (update.source === "homebrew") {
-        setUpdateOperationStatus(update.appId, "running", "Upgrading via Homebrew…");
+        setUpdateOperationStatus(
+          update.appId,
+          "running",
+          t("appManager.softwareUpdate.status.upgradingHomebrew")
+        );
         const outcome = await appManagerUseCases.runAppOperation({ appId: update.appId, kind: "upgrade" });
         if (outcome) {
           setUpdateOperationStatus(
@@ -334,7 +346,11 @@ export function useAppManagerController(active: boolean) {
         clearInstallProgress(update.appId);
         clearInstallFinished(update.appId);
         setInProgressUpdate(update);
-        setUpdateOperationStatus(update.appId, "running", "Installing update…");
+        setUpdateOperationStatus(
+          update.appId,
+          "running",
+          t("appManager.softwareUpdate.status.installingUpdate")
+        );
         try {
           await installAppUpdate(update);
         } catch (err) {
@@ -371,6 +387,7 @@ export function useAppManagerController(active: boolean) {
       clearInstallProgress,
       clearInstallFinished,
       setInstallFinished,
+      t,
     ]
   );
 
@@ -498,7 +515,10 @@ export function useAppManagerController(active: boolean) {
       if (isOperationRunning(operations, appId)) return;
 
       useAppManagerStore.setState((state) => ({
-        operations: { ...state.operations, [appId]: createRunningOperationState("Upgrading...") },
+        operations: {
+          ...state.operations,
+          [appId]: createRunningOperationState(t("appManager.operation.upgrading")),
+        },
       }));
 
       const outcome = await appManagerUseCases.runAppOperation({ appId, kind: "upgrade" });
@@ -513,7 +533,7 @@ export function useAppManagerController(active: boolean) {
 
       if (outcome.shouldRescan) void scanApps();
     },
-    [scanApps, scheduleTimeout]
+    [scanApps, scheduleTimeout, t]
   );
 
   const doUninstall = useCallback(
@@ -522,7 +542,10 @@ export function useAppManagerController(active: boolean) {
       if (isOperationRunning(operations, appId)) return;
 
       useAppManagerStore.setState((state) => ({
-        operations: { ...state.operations, [appId]: createRunningOperationState("Uninstalling...") },
+        operations: {
+          ...state.operations,
+          [appId]: createRunningOperationState(t("appManager.operation.uninstalling")),
+        },
       }));
 
       const outcome = await appManagerUseCases.runAppOperation({ appId, kind: "uninstall" });
@@ -535,7 +558,7 @@ export function useAppManagerController(active: boolean) {
         scheduleScanApps(800);
       }
     },
-    [scheduleScanApps]
+    [scheduleScanApps, t]
   );
 
   const doInstall = useCallback(
@@ -544,7 +567,10 @@ export function useAppManagerController(active: boolean) {
       if (isOperationRunning(installStates, appId)) return;
 
       useAppManagerStore.setState((state) => ({
-        installStates: { ...state.installStates, [appId]: createRunningOperationState("Installing...") },
+        installStates: {
+          ...state.installStates,
+          [appId]: createRunningOperationState(t("appManager.operation.installing")),
+        },
       }));
 
       const outcome = await appManagerUseCases.runAppOperation({ appId, kind: "install", installSource });
@@ -560,7 +586,7 @@ export function useAppManagerController(active: boolean) {
         }, 2000);
       }
     },
-    [refreshInstallList, scanApps, scheduleTimeout]
+    [refreshInstallList, scanApps, scheduleTimeout, t]
   );
 
   const runBatchOperation = useCallback(
@@ -617,6 +643,15 @@ export function useAppManagerController(active: boolean) {
     setUpdatesError(null);
   }, [setUpdatesError]);
 
+  const refreshCurrentTab = useCallback(async () => {
+    const { activeTab: currentTab } = useAppManagerStore.getState();
+    if (currentTab === "softwareUpdate") {
+      await checkAllUpdates(true);
+      return;
+    }
+    await scanApps();
+  }, [checkAllUpdates, scanApps]);
+
   useEffect(() => {
     const preferences = appManagerUseCases.loadPreferences();
     useAppManagerStore.setState({
@@ -638,8 +673,8 @@ export function useAppManagerController(active: boolean) {
   }, [preferencesHydrated, viewMode]);
 
   useEffect(() => {
-    refreshHandlerRef.current = scanApps;
-  }, [scanApps]);
+    refreshHandlerRef.current = refreshCurrentTab;
+  }, [refreshCurrentTab]);
 
   useEffect(
     () => registerFeatureRefresh("app-manager", () => refreshHandlerRef.current?.()),
@@ -692,7 +727,14 @@ export function useAppManagerController(active: boolean) {
   useEffect(() => {
     setSelectedItem(null);
     clearSelection();
-  }, [activeFilter, categoryFilter, seriesFilter, searchQuery, setSelectedItem, clearSelection]);
+  }, [
+    activeFilter,
+    installedCategoryFilter,
+    installedSeriesFilter,
+    installedSearchQuery,
+    setSelectedItem,
+    clearSelection,
+  ]);
 
   const getOpStatus = useCallback((appId: string) => {
     const state = useAppManagerStore.getState();
@@ -703,24 +745,36 @@ export function useAppManagerController(active: boolean) {
     () =>
       filterAppManagerItems({
         apps,
-        searchQuery,
+        searchQuery: installedSearchQuery,
         activeFilter,
-        categoryFilter,
-        seriesFilter,
+        categoryFilter: installedCategoryFilter,
+        seriesFilter: installedSeriesFilter,
       }),
-    [apps, searchQuery, activeFilter, categoryFilter, seriesFilter]
+    [
+      apps,
+      installedSearchQuery,
+      activeFilter,
+      installedCategoryFilter,
+      installedSeriesFilter,
+    ]
   );
 
   const filteredInstallListApps = useMemo(
     () =>
       filterInstallListApps({
         installListApps,
-        searchQuery,
+        searchQuery: marketplaceSearchQuery,
         marketplaceFilter,
-        categoryFilter,
-        seriesFilter,
+        categoryFilter: marketplaceCategoryFilter,
+        seriesFilter: marketplaceSeriesFilter,
       }),
-    [installListApps, searchQuery, marketplaceFilter, categoryFilter, seriesFilter]
+    [
+      installListApps,
+      marketplaceSearchQuery,
+      marketplaceFilter,
+      marketplaceCategoryFilter,
+      marketplaceSeriesFilter,
+    ]
   );
 
   const handleLaunch = useCallback(
@@ -777,7 +831,14 @@ export function useAppManagerController(active: boolean) {
   useEffect(() => {
     setInstallDetailItem(null);
     clearInstallSelection();
-  }, [activeTab, categoryFilter, marketplaceFilter, seriesFilter, searchQuery, clearInstallSelection]);
+  }, [
+    activeTab,
+    marketplaceCategoryFilter,
+    marketplaceFilter,
+    marketplaceSeriesFilter,
+    marketplaceSearchQuery,
+    clearInstallSelection,
+  ]);
 
   const handleInstallConfirm = useCallback(async () => {
     const { appId } = installConfirmDialog;
@@ -1062,15 +1123,33 @@ export function useAppManagerController(active: boolean) {
     [t, handleInstall, openExternal, copyText]
   );
 
+  const activeSearchQuery =
+    activeTab === "softwareUpdate"
+      ? updatesSearchQuery
+      : activeTab === "marketplace"
+        ? marketplaceSearchQuery
+        : installedSearchQuery;
+  const activeCategoryFilter =
+    activeTab === "marketplace"
+      ? marketplaceCategoryFilter
+      : activeTab === "installed"
+        ? installedCategoryFilter
+        : null;
+  const activeSeriesFilter =
+    activeTab === "marketplace"
+      ? marketplaceSeriesFilter
+      : activeTab === "installed"
+        ? installedSeriesFilter
+        : null;
   const activeFilterCount =
-    (searchQuery.trim() ? 1 : 0) +
+    (installedSearchQuery.trim() ? 1 : 0) +
     (activeFilter !== "all" ? 1 : 0) +
-    ((categoryFilter || seriesFilter) ? 1 : 0);
+    ((installedCategoryFilter || installedSeriesFilter) ? 1 : 0);
 
   const marketplaceFilterCount =
-    (searchQuery.trim() ? 1 : 0) +
+    (marketplaceSearchQuery.trim() ? 1 : 0) +
     (marketplaceFilter !== "all" ? 1 : 0) +
-    ((categoryFilter || seriesFilter) ? 1 : 0);
+    ((marketplaceCategoryFilter || marketplaceSeriesFilter) ? 1 : 0);
   const visibleInstallListInstalledCount = filteredInstallListApps.filter((app) => app.installed).length;
   const visibleInstallListPendingCount = filteredInstallListApps.length - visibleInstallListInstalledCount;
   const caps = result?.platformCapabilities;
@@ -1082,11 +1161,11 @@ export function useAppManagerController(active: boolean) {
     apps,
     loading,
     error: errorMessage,
-    searchQuery,
+    searchQuery: activeSearchQuery,
     activeFilter,
     marketplaceFilter,
-    categoryFilter,
-    seriesFilter,
+    categoryFilter: activeCategoryFilter,
+    seriesFilter: activeSeriesFilter,
     sorting,
     scanned,
     result,
