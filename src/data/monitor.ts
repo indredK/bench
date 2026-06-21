@@ -26,7 +26,7 @@ export interface MonitorModel {
   launchYear: number;
 }
 
-export const monitorData: MonitorModel[] = [
+const rawMonitorData: MonitorModel[] = [
   { id: "pg32ucdm", brand: "ASUS", series: "ROG Swift", model: "ROG Swift PG32UCDM", size: 31.5, resolution: "3840×2160", panelType: "QD-OLED", refreshRate: 240, responseTime: 0.03, hdr: "True Black 400", brightness: 1000, contrastRatio: "∞:1", colorGamut: "99% DCI-P3", adaptiveSync: "G-Sync Compatible, FreeSync Premium Pro", ports: "1x DP 1.4, 2x HDMI 2.1, 1x USB-C 90W", curved: "No", vesa: "100×100", launchYear: 2024 },
   { id: "pg27ucdm", brand: "ASUS", series: "ROG Swift", model: "ROG Swift PG27UCDM", size: 27, resolution: "3840×2160", panelType: "QD-OLED", refreshRate: 240, responseTime: 0.03, hdr: "True Black 400", brightness: 1000, contrastRatio: "∞:1", colorGamut: "99% DCI-P3", adaptiveSync: "G-Sync Compatible, FreeSync Premium Pro", ports: "1x DP 2.1, 2x HDMI 2.1, 1x USB-C 90W", curved: "No", vesa: "100×100", launchYear: 2025 },
   { id: "pg27aqn", brand: "ASUS", series: "ROG Swift", model: "ROG Swift PG27AQN", size: 27, resolution: "2560×1440", panelType: "Ultra-Fast IPS", refreshRate: 360, responseTime: 1, hdr: "HDR600", brightness: 600, contrastRatio: "1000:1", colorGamut: "95% DCI-P3", adaptiveSync: "G-Sync Ultimate", ports: "1x DP 1.4, 3x HDMI 2.0", curved: "No", vesa: "100×100", launchYear: 2022 },
@@ -40,6 +40,32 @@ export const monitorData: MonitorModel[] = [
   { id: "xeneonflex", brand: "Corsair", series: "Xeneon", model: "Xeneon Flex 45WQHD240", size: 45, resolution: "3440×1440", panelType: "WOLED", refreshRate: 240, responseTime: 0.03, hdr: "HDR10", brightness: 1000, contrastRatio: "∞:1", colorGamut: "98.5% DCI-P3", adaptiveSync: "G-Sync Compatible, FreeSync Premium", ports: "1x DP 1.4, 2x HDMI 2.1, 1x USB-C 30W", curved: "Bendable 800R", vesa: "100×100", launchYear: 2023 },
   { id: "dellu3224kb", brand: "Dell", series: "UltraSharp", model: "UltraSharp U3224KB", size: 31.5, resolution: "6144×3456", panelType: "IPS Black", refreshRate: 60, responseTime: 5, hdr: "HDR600", brightness: 450, contrastRatio: "2000:1", colorGamut: "99% DCI-P3", adaptiveSync: "No", ports: "1x DP 2.1, 1x HDMI 2.1, 1x Thunderbolt 4 140W", curved: "No", vesa: "100×100", launchYear: 2023 },
 ];
+
+const monitorCurvedMap: Record<string, string> = {
+  No: "flat",
+  "1800R": "1800r",
+  "Bendable 800R": "bendable800r",
+};
+
+function normalizeMonitor(model: MonitorModel): MonitorModel {
+  return {
+    ...model,
+    brand: model.brand.toLowerCase().replace(/\s+/g, "_"),
+    curved: monitorCurvedMap[model.curved] ?? model.curved,
+  };
+}
+
+export const monitorData: MonitorModel[] = rawMonitorData.map(normalizeMonitor);
+
+function formatMonitorValue(
+  namespace: "series" | "panelType" | "resolution" | "curved",
+  value: unknown
+) {
+  const str = String(value);
+  const key = `monitorCompare.values.${namespace}.${str}`;
+  const result = t(key);
+  return result !== key ? result : str;
+}
 
 export const monitorSpecRows: SpecRow<MonitorModel>[] = [
   { key: "brand", label: "monitorCompare.brand", format: brandName },
@@ -56,15 +82,16 @@ export const monitorSpecRows: SpecRow<MonitorModel>[] = [
   { key: "colorGamut", label: "monitorCompare.colorGamut" },
   { key: "adaptiveSync", label: "monitorCompare.adaptiveSync" },
   { key: "ports", label: "monitorCompare.ports" },
-  { key: "curved", label: "monitorCompare.curved" },
+  { key: "curved", label: "monitorCompare.curved", format: (v) => formatMonitorValue("curved", v) },
   { key: "vesa", label: "monitorCompare.vesa" },
 ];
 
 export const monitorFilterGroups: FilterGroup<MonitorModel>[] = [
   { key: "brand", label: "monitorCompare.brand", format: brandName },
-  { key: "series", label: "monitorCompare.series", format: (v) => { const str = String(v); const key = `monitorCompare.values.series.${str}`; const result = t(key); return result !== key ? result : str; } },
-  { key: "panelType", label: "monitorCompare.panelType", format: (v) => { const str = String(v); const key = `monitorCompare.values.panelType.${str}`; const result = t(key); return result !== key ? result : str; } },
-  { key: "resolution", label: "monitorCompare.resolution", format: (v) => { const str = String(v); const key = `monitorCompare.values.resolution.${str}`; const result = t(key); return result !== key ? result : str; } },
+  { key: "series", label: "monitorCompare.series", format: (v) => formatMonitorValue("series", v) },
+  { key: "panelType", label: "monitorCompare.panelType", format: (v) => formatMonitorValue("panelType", v) },
+  { key: "resolution", label: "monitorCompare.resolution", format: (v) => formatMonitorValue("resolution", v) },
+  { key: "curved", label: "monitorCompare.curved", format: (v) => formatMonitorValue("curved", v) },
   { key: "launchYear", label: "monitorCompare.launchYear", format: (val) => String(val) },
 ];
 

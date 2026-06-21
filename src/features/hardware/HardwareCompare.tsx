@@ -16,6 +16,9 @@ interface HardwareCompareProps<T extends { id: string; model: string }> {
   module: CompareDataModule<T>;
 }
 
+const EMPTY_SELECTED_IDS: string[] = [];
+const EMPTY_FILTERS: Record<string, string> = {};
+
 function HardwareCompare<T extends { id: string; model: string }>({
   module,
 }: HardwareCompareProps<T>) {
@@ -30,9 +33,14 @@ function HardwareCompare<T extends { id: string; model: string }>({
     filterGroups,
     referenceUrl,
   } = module;
+  const scope = i18nPrefix;
 
-  const selectedIds = useHardwareCompareStore((s) => s.selectedIds);
-  const filters = useHardwareCompareStore((s) => s.filters);
+  const selectedIds = useHardwareCompareStore(
+    (s) => s.selectedIdsByScope[scope] ?? EMPTY_SELECTED_IDS
+  );
+  const filters = useHardwareCompareStore(
+    (s) => s.filtersByScope[scope] ?? EMPTY_FILTERS
+  );
   const toggleModel = useHardwareCompareStore((s) => s.toggleModel);
   const setFilter = useHardwareCompareStore((s) => s.setFilter);
   const clearFilters = useHardwareCompareStore((s) => s.clearFilters);
@@ -110,13 +118,13 @@ function HardwareCompare<T extends { id: string; model: string }>({
             filterGroups={filterGroups}
             data={data}
             filters={filters}
-            onFilterChange={setFilter}
-            onClearFilters={clearFilters}
+            onFilterChange={(key, value) => setFilter(scope, key, value)}
+            onClearFilters={() => clearFilters(scope)}
             resultCount={allFiltered.length}
             models={allFiltered}
             selectedIds={selectedIds}
-            onToggleModel={toggleModel}
-            onClearSelected={clearSelectedModels}
+            onToggleModel={(id) => toggleModel(scope, id)}
+            onClearSelected={() => clearSelectedModels(scope)}
             i18nPrefix={i18nPrefix}
             uid={uid}
           />
@@ -140,7 +148,7 @@ function HardwareCompare<T extends { id: string; model: string }>({
               bestValues={bestValues}
               rangeValues={rangeValues}
               referenceUrl={referenceUrl}
-              onRemoveModel={toggleModel}
+              onRemoveModel={(id) => toggleModel(scope, id)}
               containerClassName="rounded-xl border shadow-xs flex-1 min-h-0"
             />
           </div>

@@ -13,18 +13,20 @@ import type { ContextMenuConfig } from "@/shared/context-menu/types";
 import { useMenuEvent, useInitMenuEvents } from "@/hooks/useMenuEvents";
 import { AboutDialog } from "@/components/common/AboutDialog";
 import { SettingsDialog } from "@/components/common/SettingsDialog";
+import { StartupIssuesAlert } from "@/components/common/StartupIssuesAlert";
 import { UpdateDialog } from "@/components/common/UpdateDialog";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { appFeatures, createNavigationItems, getFeatureByPath } from "@/features/registry";
 import { requestFeatureRefresh } from "@/features/refresh";
 import { useUpdaterController } from "@/features/updater/hooks/useUpdaterController";
-import { markMainReady } from "@/lib/tauri/commands/bootstrap";
+import { listStartupIssues, markMainReady } from "@/lib/tauri/commands/bootstrap";
 import { restartApp } from "@/lib/tauri/commands";
 import { WINDOW_BOOTSTRAP_EVENTS } from "@/lib/tauri/contracts";
 import { emitPlatformEventTo } from "@/platform/events";
 import { canUseTauriCommands } from "@/platform/capabilities";
 import { canUseWindowControls } from "@/platform/window";
 import { useWindowTheme } from "@/hooks/useWindowTheme";
+import type { StartupIssue } from "@/lib/tauri/types/bootstrap";
 
 function AnimatedRoutes() {
   const [location] = useLocation();
@@ -67,6 +69,7 @@ function App() {
 
   const [aboutOpen, setAboutOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [startupIssues, setStartupIssues] = useState<StartupIssue[]>([]);
 
   useEffect(() => {
     if (!canUseWindowControls()) return undefined;
@@ -81,6 +84,20 @@ function App() {
     });
 
     return undefined;
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void listStartupIssues().then((issues) => {
+      if (!cancelled) {
+        setStartupIssues(issues);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleRefresh = useCallback(async () => {
@@ -150,6 +167,7 @@ function App() {
               />
               <div className="flex flex-1 flex-col overflow-hidden bg-background">
                 <div className="flex-1 overflow-hidden p-4">
+                  <StartupIssuesAlert issues={startupIssues} />
                   <AnimatedRoutes />
                 </div>
               </div>

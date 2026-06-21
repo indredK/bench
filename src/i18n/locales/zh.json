@@ -959,6 +959,11 @@
         "3440×1440": "3440×1440",
         "5120×1440": "5120×1440",
         "6144×3456": "6144×3456"
+      },
+      "curved": {
+        "flat": "平面",
+        "1800r": "1800R",
+        "bendable800r": "可弯曲 800R"
       }
     }
   },
@@ -1600,7 +1605,7 @@
     "na": "—",
     "withParenthesis": "{{prefix}}（{{detail}}）",
     "desktopOnly": "此功能仅在 Bench 桌面版中可用。",
-    "appTitle": "端口管理器 - DevTools",
+    "appTitle": "Bench - DevTools",
     "cancel": "取消",
     "delete": "删除",
     "confirm": "确认",
@@ -1648,8 +1653,18 @@
   },
   "about": {
     "description": "面向 macOS 的全能开发者工具集",
+    "runtime": "运行时",
     "version": "版本",
     "close": "关闭"
+  },
+  "startupIssues": {
+    "title": "部分功能未能完成初始化",
+    "description": "{{features}} 当前处于启动失败状态。请修复本地存储后重启应用再试。",
+    "features": {
+      "api-billing": "API 计费",
+      "token-calculator": "Token 计算器",
+      "terminology": "术语库"
+    }
   },
   "titlebar": {
     "minimize": "最小化",

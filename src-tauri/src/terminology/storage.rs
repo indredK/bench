@@ -230,6 +230,7 @@ pub fn init_state<R: Runtime>(app: &AppHandle<R>, state: &TerminologyState) -> T
     *state.industries.lock().unwrap() = industries;
     *state.terms.lock().unwrap() = terms;
     *state.pinned_term_ids.lock().unwrap() = pinned_term_ids;
+    state.clear_init_error();
 
     Ok(())
 }
@@ -266,6 +267,7 @@ pub fn with_state_mut<R: Runtime, F, T>(
 where
     F: FnOnce(&mut Vec<Industry>, &mut Vec<Term>, &mut Vec<String>) -> TerminologyResult<T>,
 {
+    state.ensure_ready()?;
     let mut industries = state.industries.lock().unwrap();
     let mut terms = state.terms.lock().unwrap();
     let mut pinned_term_ids = state.pinned_term_ids.lock().unwrap();

@@ -959,6 +959,11 @@
         "3440×1440": "3440×1440",
         "5120×1440": "5120×1440",
         "6144×3456": "6144×3456"
+      },
+      "curved": {
+        "flat": "Flat",
+        "1800r": "1800R",
+        "bendable800r": "Bendable 800R"
       }
     }
   },
@@ -1600,7 +1605,7 @@
     "na": "—",
     "withParenthesis": "{{prefix}} ({{detail}})",
     "desktopOnly": "This feature is only available in the desktop version of Bench.",
-    "appTitle": "Port Manager - DevTools",
+    "appTitle": "Bench - DevTools",
     "cancel": "Cancel",
     "delete": "Delete",
     "confirm": "Confirm",
@@ -1648,8 +1653,18 @@
   },
   "about": {
     "description": "All-in-one developer toolkit for macOS",
+    "runtime": "Runtime",
     "version": "Version",
     "close": "Close"
+  },
+  "startupIssues": {
+    "title": "Some features did not finish loading",
+    "description": "{{features}} are running in a failed startup state. Fix the local store or retry after restarting the app.",
+    "features": {
+      "api-billing": "API Billing",
+      "token-calculator": "Token Calculator",
+      "terminology": "Terminology"
+    }
   },
   "titlebar": {
     "minimize": "Minimize",

@@ -14,7 +14,7 @@ mod window_theme;
 use api_billing::ApiBillingState;
 use app_manager::AppManagerState;
 use app_updater::UpdaterCache;
-use bootstrap::create_state as create_bootstrap_state;
+use bootstrap::{create_state as create_bootstrap_state, record_startup_issue};
 use dev_cleaner::{CustomCleanupAbortFlag, ScanAbortFlag};
 use token_calculator::TokenCalculatorState;
 use terminology::state::TerminologyState;
@@ -46,17 +46,27 @@ pub fn run() {
         .setup(|app| {
             menu::setup_menu(app)?;
             let handle = app.handle().clone();
+            let bootstrap_state = app.state::<bootstrap::SharedBootstrapState>().inner().clone();
             let state = app.state::<ApiBillingState>();
             if let Err(e) = api_billing::init_state(&handle, &state) {
-                eprintln!("[api_billing] init failed: {e}");
+                let message = e.to_string();
+                eprintln!("[api_billing] init failed: {message}");
+                state.set_init_error(message.clone());
+                record_startup_issue(&bootstrap_state, "api-billing", message);
             }
             let tc_state = app.state::<TokenCalculatorState>();
             if let Err(e) = token_calculator::init_state(&handle, &tc_state) {
-                eprintln!("[token_calculator] init failed: {e}");
+                let message = e.to_string();
+                eprintln!("[token_calculator] init failed: {message}");
+                tc_state.set_init_error(message.clone());
+                record_startup_issue(&bootstrap_state, "token-calculator", message);
             }
             let terminology_state = app.state::<TerminologyState>();
             if let Err(e) = terminology::storage::init_state(&handle, &terminology_state) {
-                eprintln!("[terminology] init failed: {e}");
+                let message = e.to_string();
+                eprintln!("[terminology] init failed: {message}");
+                terminology_state.set_init_error(message.clone());
+                record_startup_issue(&bootstrap_state, "terminology", message);
             }
             Ok(())
         })

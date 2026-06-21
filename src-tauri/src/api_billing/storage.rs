@@ -60,6 +60,8 @@ pub fn init_state<R: Runtime>(app: &AppHandle<R>, state: &ApiBillingState) -> Ap
             .map_err(|e| ApiBillingError::store_fail(format!("save migrations: {e}")))?;
     }
 
+    state.clear_init_error();
+
     Ok(())
 }
 
@@ -145,6 +147,7 @@ pub fn with_state_mut<R: Runtime, F, T>(
 where
     F: FnOnce(&mut ApiBillingSnapshot) -> ApiBillingResult<T>,
 {
+    state.ensure_ready()?;
     let mut snapshot = state.snapshot.write().unwrap_or_else(|e| e.into_inner());
 
     let mut next = snapshot.clone();

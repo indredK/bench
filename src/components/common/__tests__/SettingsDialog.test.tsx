@@ -36,7 +36,7 @@ const {
     "windowTheme.default": "Default",
     "windowTheme.glass": "Glass",
     "windowTheme.unsupportedTooltip": "Unsupported",
-    "common.appTitle": "端口管理器 - DevTools",
+    "common.appTitle": "Bench - DevTools",
   } as Record<string, string>,
 }));
 
@@ -130,6 +130,6 @@ describe("SettingsDialog", () => {
     expect(writeStorageItem).toHaveBeenCalledWith("languageMode", "zh");
     expect(writeStorageItem).toHaveBeenCalledWith("language", "zh");
     expect(changeLanguage).toHaveBeenCalledWith("zh");
-    expect(setCurrentWindowTitle).toHaveBeenCalledWith("端口管理器 - DevTools");
+    expect(setCurrentWindowTitle).toHaveBeenCalledWith("Bench - DevTools");
   });
 });

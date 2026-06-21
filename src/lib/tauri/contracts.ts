@@ -52,6 +52,7 @@ import type {
   AppUpdateInfo,
   AppUpdateInstallResult,
 } from "@/lib/tauri/types/updater";
+import type { StartupIssue } from "@/lib/tauri/types/bootstrap";
 
 type TauriCommandSpec<Name extends string, Args, Result> = {
   readonly name: Name;
@@ -72,6 +73,7 @@ export const TAURI_COMMAND_CONTRACTS = {
   get_current_app_version: defineTauriCommand<undefined, string>()("get_current_app_version"),
   mark_main_ready: defineTauriCommand<undefined, void>()("mark_main_ready"),
   is_main_ready: defineTauriCommand<undefined, boolean>()("is_main_ready"),
+  list_startup_issues: defineTauriCommand<undefined, StartupIssue[]>()("list_startup_issues"),
   scan_installed_apps: defineTauriCommand<undefined, AppScanResult>()("scan_installed_apps"),
   get_app_icon_base64: defineTauriCommand<{ installPath: string }, AppIconBase64>()("get_app_icon_base64"),
   launch_app: defineTauriCommand<{ appPath: string }, void>()("launch_app"),
@@ -271,6 +273,7 @@ export const TAURI_COMMANDS = {
   bootstrap: {
     markMainReady: commandName("mark_main_ready"),
     isMainReady: commandName("is_main_ready"),
+    listStartupIssues: commandName("list_startup_issues"),
   },
   appManager: {
     scanInstalledApps: commandName("scan_installed_apps"),
@@ -386,6 +389,7 @@ export const TAURI_COMMAND_ARG_KEYS = {
   get_current_app_version: [],
   mark_main_ready: [],
   is_main_ready: [],
+  list_startup_issues: [],
   scan_installed_apps: [],
   get_app_icon_base64: ["installPath"],
   launch_app: ["appPath"],

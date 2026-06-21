@@ -33,7 +33,7 @@ export function AboutDialog({
       <DialogContent className="sm:max-w-[380px]">
         <DialogHeader>
           <DialogTitle className="text-center">
-            Bench DevTools
+            {t("common.appTitle")}
           </DialogTitle>
           <DialogDescription className="text-center">
             {t("about.description")}
@@ -46,7 +46,7 @@ export function AboutDialog({
             <span className="font-mono">{appVersion}</span>
           </div>
           <div className="flex justify-between px-8">
-            <span>Tauri</span>
+            <span>{t("about.runtime")}</span>
             <span className="font-mono">{tauriVersion}</span>
           </div>
         </div>

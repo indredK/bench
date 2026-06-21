@@ -18,18 +18,43 @@
 // has only two transitions (false→true) and we want lock-free reads from
 // either window.
 
+use serde::Serialize;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
+
+#[derive(Serialize, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StartupIssue {
+    pub feature: String,
+    pub message: String,
+}
 
 #[derive(Default)]
 pub struct BootstrapState {
     main_ready: AtomicBool,
+    startup_issues: RwLock<Vec<StartupIssue>>,
 }
 
 pub type SharedBootstrapState = Arc<BootstrapState>;
 
 pub fn create_state() -> SharedBootstrapState {
     Arc::new(BootstrapState::default())
+}
+
+pub fn record_startup_issue(
+    state: &SharedBootstrapState,
+    feature: impl Into<String>,
+    message: impl Into<String>,
+) {
+    let mut issues = state
+        .startup_issues
+        .write()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+
+    issues.push(StartupIssue {
+        feature: feature.into(),
+        message: message.into(),
+    });
 }
 
 #[tauri::command]
@@ -40,6 +65,17 @@ pub fn mark_main_ready(state: tauri::State<'_, SharedBootstrapState>) {
 #[tauri::command]
 pub fn is_main_ready(state: tauri::State<'_, SharedBootstrapState>) -> bool {
     state.main_ready.load(Ordering::Acquire)
+}
+
+#[tauri::command]
+pub fn list_startup_issues(
+    state: tauri::State<'_, SharedBootstrapState>,
+) -> Vec<StartupIssue> {
+    state
+        .startup_issues
+        .read()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .clone()
 }
 
 #[cfg(test)]
@@ -57,5 +93,25 @@ mod tests {
         let state = BootstrapState::default();
         state.main_ready.store(true, Ordering::Release);
         assert!(state.main_ready.load(Ordering::Acquire));
+    }
+
+    #[test]
+    fn startup_issues_are_recorded() {
+        let state = create_state();
+        record_startup_issue(&state, "api-billing", "open store failed");
+
+        let issues = state
+            .startup_issues
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone();
+
+        assert_eq!(
+            issues,
+            vec![StartupIssue {
+                feature: "api-billing".into(),
+                message: "open store failed".into(),
+            }]
+        );
     }
 }

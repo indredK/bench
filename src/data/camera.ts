@@ -32,7 +32,7 @@ export interface CameraModel {
   batteryLife: number;
 }
 
-export const cameraData: CameraModel[] = [
+const rawCameraData: CameraModel[] = [
   // ══════════════════════════════════
   // 全画幅无反
   // ══════════════════════════════════
@@ -775,6 +775,31 @@ export const cameraData: CameraModel[] = [
     batteryLife: 500,
   },
 ];
+
+const CAMERA_SENSOR_TYPE_KEYS: Record<string, string> = {
+  "CMOS 全画幅": "fullframe_cmos",
+  "CMOS APS-C": "apsc_cmos",
+  "CMOS APS-C X-Trans": "apsc_xtrans_cmos",
+  "CMOS 中画幅 (43.8×32.9mm)": "medium_format_cmos_43_8_32_9",
+  "CMOS 全画幅 BSI": "fullframe_bsi_cmos",
+  "CMOS 4/3 堆栈式": "stacked_4_3_cmos",
+};
+
+const CAMERA_SHUTTER_TYPE_KEYS: Record<string, string> = {
+  "机械/电子快门": "mechanical_electronic",
+  "电子快门": "electronic",
+  "镜间快门/电子快门": "leaf_electronic",
+};
+
+function normalizeCamera(model: CameraModel): CameraModel {
+  return {
+    ...model,
+    sensorType: CAMERA_SENSOR_TYPE_KEYS[model.sensorType] ?? model.sensorType,
+    shutterType: CAMERA_SHUTTER_TYPE_KEYS[model.shutterType] ?? model.shutterType,
+  };
+}
+
+export const cameraData: CameraModel[] = rawCameraData.map(normalizeCamera);
 
 const brandFormat = (val: unknown) => {
   const v = String(val);

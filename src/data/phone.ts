@@ -38,7 +38,7 @@ export interface PhoneModel {
   price: number;
 }
 
-export const phoneData: PhoneModel[] = [
+const rawPhoneData: PhoneModel[] = [
   // ════════════════════════════════════════════
   // Apple iPhone 12 系列 (2020)
   // ════════════════════════════════════════════
@@ -2096,6 +2096,53 @@ export const phoneData: PhoneModel[] = [
   },
 ];
 
+const PHONE_WATERPROOF_KEYS: Record<string, string> = {
+  "IP68 (6米/30分钟)": "ip68_6m",
+  "IP68 (1.5米/30分钟)": "ip68_1.5m",
+  "IP68/IP69": "ip68_ip69",
+  "IP68/IP69 (1.5米/30分钟)": "ip68_ip69_1.5m",
+  IP68: "ip68",
+  IP48: "ip48",
+  IP65: "ip65",
+};
+
+const PHONE_FINGERPRINT_KEYS: Record<string, string> = {
+  "Face ID": "faceId",
+  "侧边指纹": "side",
+  "侧边指纹 + 3D人脸识别": "side3d",
+  "屏下光学指纹": "optical",
+  "屏下超声波指纹": "ultrasonic",
+  "超声波屏下指纹": "ultrasonicUnder",
+  "无": "none",
+};
+
+const PHONE_MATERIAL_KEYS: Record<string, string> = {
+  "玻璃机身 + 铝金属边框": "glassAlu",
+  "玻璃机身 + 不锈钢边框": "glassSteel",
+  "玻璃机身 + 钛金属边框": "glassTitan",
+  "玻璃机身 + 金属边框 (内置风扇)": "glassFan",
+  "玻璃机身 + 金属边框": "glassMetal",
+  "钛金属边框 (Grade 5)": "titanGrade5",
+  "钛金属边框": "titan",
+  "铝金属一体机身 + VC均热板": "aluBodyVc",
+  "玻璃/素皮机身 + 钛金属边框": "glassLeatherTitan",
+  "玻璃/素皮机身 + 铝金属边框": "glassLeatherAlu",
+  "玻璃/素皮机身 + 金属边框": "glassLeatherMetal",
+  "玻璃/钛金属机身": "glassTitanBody",
+  "玻璃/玻纤机身 + 金属边框": "glassFiberMetal",
+};
+
+function normalizePhone(model: PhoneModel): PhoneModel {
+  return {
+    ...model,
+    waterproof: PHONE_WATERPROOF_KEYS[model.waterproof] ?? model.waterproof,
+    fingerprint: PHONE_FINGERPRINT_KEYS[model.fingerprint] ?? model.fingerprint,
+    material: PHONE_MATERIAL_KEYS[model.material] ?? model.material,
+  };
+}
+
+export const phoneData: PhoneModel[] = rawPhoneData.map(normalizePhone);
+
 const brandFormat = (val: unknown) => {
   const v = String(val);
   const key = `brands.${v}`;
@@ -2157,46 +2204,24 @@ export const phoneSpecRows: SpecRow<PhoneModel>[] = [
   { key: "os", label: "phoneCompare.os" },
   { key: "waterproof", label: "phoneCompare.waterproof", format: (v) => {
     const str = String(v);
-    if (!str || str === "无") return t("common.no");
-    // Handle "IP68 (6米/30分钟)" format
-    const match = str.match(/^(IP[\d/]+) \(([\d.]+)米\/([\d.]+)分钟\)$/);
-    if (match) {
-      const base = t(`phoneCompare.waterproofTerms.${match[1].toLowerCase().replace(/\//g, '_')}`);
-      if (base !== `phoneCompare.waterproofTerms.${match[1].toLowerCase().replace(/\//g, '_')}`) {
-        return `${base} (${match[2]}m/${match[3]}min)`;
-      }
-    }
-    const key = `phoneCompare.waterproofTerms.${str.toLowerCase().replace(/\//g, '_').replace(/\./g, '_')}`;
+    if (!str || str === "none") return t("common.no");
+    const key = `phoneCompare.waterproofTerms.${str}`;
     const result = t(key);
     return result !== key ? result : str;
   }},
   { key: "fingerprint", label: "phoneCompare.fingerprint", format: (v) => {
     const str = String(v);
     if (!str) return "—";
-    if (str === "Face ID") return "Face ID";
-    const key = `phoneCompare.fingerprintTerms.${str === "侧边指纹" ? "side" : str === "侧边指纹 + 3D人脸识别" ? "side3d" : str === "屏下光学指纹" ? "optical" : str === "屏下超声波指纹" ? "ultrasonic" : str === "超声波屏下指纹" ? "ultrasonicUnder" : ""}`;
+    if (str === "faceId") return "Face ID";
+    if (str === "none") return t("common.no");
+    const key = `phoneCompare.fingerprintTerms.${str}`;
     const result = t(key);
     return result !== key ? result : str;
   }},
   { key: "material", label: "phoneCompare.material", format: (v) => {
     const str = String(v);
     if (!str) return "—";
-    const materialKeys: Record<string, string> = {
-      "玻璃机身 + 铝金属边框": "glassAlu",
-      "玻璃机身 + 不锈钢边框": "glassSteel",
-      "玻璃机身 + 钛金属边框": "glassTitan",
-      "玻璃机身 + 金属边框 (内置风扇)": "glassFan",
-      "玻璃机身 + 金属边框": "glassMetal",
-      "钛金属边框 (Grade 5)": "titanGrade5",
-      "钛金属边框": "titan",
-      "铝金属一体机身 + VC均热板": "aluBodyVc",
-      "玻璃/素皮机身 + 钛金属边框": "glassLeatherTitan",
-      "玻璃/素皮机身 + 铝金属边框": "glassLeatherAlu",
-      "玻璃/素皮机身 + 金属边框": "glassLeatherMetal",
-      "玻璃/钛金属机身": "glassTitanBody",
-      "玻璃/玻纤机身 + 金属边框": "glassFiberMetal",
-    };
-    const key = `phoneCompare.materialTerms.${materialKeys[str] || ""}`;
+    const key = `phoneCompare.materialTerms.${str}`;
     const result = t(key);
     return result !== key ? result : str;
   }},

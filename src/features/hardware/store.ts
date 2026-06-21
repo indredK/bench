@@ -4,37 +4,63 @@
 import { create } from "zustand";
 
 interface HardwareCompareState {
-  selectedIds: string[];
-  filters: Record<string, string>;
+  selectedIdsByScope: Record<string, string[]>;
+  filtersByScope: Record<string, Record<string, string>>;
 
-  toggleModel: (id: string) => void;
-  setFilter: (key: string, value: string) => void;
-  clearFilters: () => void;
-  clearSelectedModels: () => void;
+  toggleModel: (scope: string, id: string) => void;
+  setFilter: (scope: string, key: string, value: string) => void;
+  clearFilters: (scope: string) => void;
+  clearSelectedModels: (scope: string) => void;
 }
 
 export const useHardwareCompareStore = create<HardwareCompareState>((set) => ({
-  selectedIds: [],
-  filters: {},
+  selectedIdsByScope: {},
+  filtersByScope: {},
 
-  toggleModel: (id) =>
+  toggleModel: (scope, id) =>
     set((state) => ({
-      selectedIds: state.selectedIds.includes(id)
-        ? state.selectedIds.filter((x) => x !== id)
-        : [...state.selectedIds, id],
+      selectedIdsByScope: {
+        ...state.selectedIdsByScope,
+        [scope]: (state.selectedIdsByScope[scope] ?? []).includes(id)
+          ? (state.selectedIdsByScope[scope] ?? []).filter((x) => x !== id)
+          : [...(state.selectedIdsByScope[scope] ?? []), id],
+      },
     })),
 
-  setFilter: (key, value) =>
+  setFilter: (scope, key, value) =>
     set((state) => {
-      if (state.filters[key] === value) {
-        const next = { ...state.filters };
+      const current = state.filtersByScope[scope] ?? {};
+      if (current[key] === value) {
+        const next = { ...current };
         delete next[key];
-        return { filters: next };
+        return {
+          filtersByScope: {
+            ...state.filtersByScope,
+            [scope]: next,
+          },
+        };
       }
-      return { filters: { ...state.filters, [key]: value } };
+      return {
+        filtersByScope: {
+          ...state.filtersByScope,
+          [scope]: { ...current, [key]: value },
+        },
+      };
     }),
 
-  clearFilters: () => set({ filters: {} }),
+  clearFilters: (scope) =>
+    set((state) => ({
+      filtersByScope: {
+        ...state.filtersByScope,
+        [scope]: {},
+      },
+    })),
 
-  clearSelectedModels: () => set({ selectedIds: [] }),
+  clearSelectedModels: (scope) =>
+    set((state) => ({
+      selectedIdsByScope: {
+        ...state.selectedIdsByScope,
+        [scope]: [],
+      },
+    })),
 }));

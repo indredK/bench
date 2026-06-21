@@ -9,6 +9,7 @@ macro_rules! app_invoke_handler {
             $crate::app_updater::commands::get_current_app_version,
             $crate::bootstrap::mark_main_ready,
             $crate::bootstrap::is_main_ready,
+            $crate::bootstrap::list_startup_issues,
             $crate::app_manager::commands::scan_installed_apps,
             $crate::app_manager::commands::get_app_icon_base64,
             $crate::app_manager::commands::launch_app,
