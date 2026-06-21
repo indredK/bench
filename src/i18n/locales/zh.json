@@ -417,6 +417,13 @@
           "retry": "已退出 · 重试"
         }
       }
+    },
+    "errors": {
+      "scanFailed": "扫描已安装应用失败。",
+      "updateCheckFailed": "检查可用更新失败。",
+      "missingMacAppStoreId": "当前更新缺少 App Store 标识。",
+      "noDownloadUrl": "当前更新没有可用的发布页或下载地址。",
+      "genericBatchFailure": "批量操作未能成功完成。"
     }
   },
   "envDetector": {
@@ -542,7 +549,12 @@
     "statusSuccess": "已占用",
     "statusEmpty": "空闲",
     "statusError": "扫描失败",
-    "statusEnded": "已终止"
+    "statusEnded": "已终止",
+    "errors": {
+      "desktopOnly": "端口管理功能仅可在桌面版应用中使用。",
+      "killOneFailed": "释放所选端口失败。",
+      "killAllFailed": "释放一个或多个所选端口失败。"
+    }
   },
   "devCleaner": {
     "title": "垃圾清理",
@@ -1623,6 +1635,7 @@
     "system": "跟随系统",
     "light": "日间",
     "dark": "暗黑",
+    "sectionTitle": "主题",
     "currentMode": "当前：",
     "label": "主题：{{mode}}",
     "tooltip": "点击切换：跟随系统 → 日间 → 暗黑"

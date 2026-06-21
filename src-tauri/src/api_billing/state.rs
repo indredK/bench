@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, OnceLock, RwLock};
 
 use tokio::sync::Semaphore;
 
@@ -9,10 +9,15 @@ use super::types::{ApiBillingResult, RelayStation, StationAccount};
 
 const PROBE_CONCURRENCY: usize = 2;
 
+#[derive(Clone, Default)]
+pub struct ApiBillingSnapshot {
+    pub stations: Vec<RelayStation>,
+    pub accounts: Vec<StationAccount>,
+    pub secrets: HashMap<String, EncryptedBlob>,
+}
+
 pub struct ApiBillingState {
-    pub stations: Mutex<Vec<RelayStation>>,
-    pub accounts: Mutex<Vec<StationAccount>>,
-    pub secrets: Mutex<HashMap<String, EncryptedBlob>>,
+    pub snapshot: RwLock<ApiBillingSnapshot>,
     pub probe_semaphore: Arc<Semaphore>,
     master_key: OnceLock<[u8; 32]>,
 }
@@ -20,12 +25,21 @@ pub struct ApiBillingState {
 impl ApiBillingState {
     pub fn new() -> Self {
         Self {
-            stations: Mutex::default(),
-            accounts: Mutex::default(),
-            secrets: Mutex::default(),
+            snapshot: RwLock::default(),
             probe_semaphore: Arc::new(Semaphore::new(PROBE_CONCURRENCY)),
             master_key: OnceLock::new(),
         }
+    }
+
+    pub fn read_snapshot(&self) -> ApiBillingSnapshot {
+        self.snapshot
+            .read()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
+    }
+
+    pub fn replace_snapshot(&self, snapshot: ApiBillingSnapshot) {
+        *self.snapshot.write().unwrap_or_else(|e| e.into_inner()) = snapshot;
     }
 
     pub fn master_key(&self) -> ApiBillingResult<[u8; 32]> {

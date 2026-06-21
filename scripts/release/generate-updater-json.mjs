@@ -20,7 +20,7 @@ const releaseMetadataFile = args["release-metadata"];
 
 if (!assetsDir || !tag || !repo || !releaseMetadataFile) {
   throw new Error(
-    "Usage: node scripts/generate-updater-json.mjs --assets-dir <dir> --tag <tag> --repo <owner/repo> --release-metadata <file>"
+    "Usage: node scripts/release/generate-updater-json.mjs --assets-dir <dir> --tag <tag> --repo <owner/repo> --release-metadata <file>"
   );
 }
 

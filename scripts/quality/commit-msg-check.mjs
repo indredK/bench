@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 const messagePath = process.argv[2];
 
 if (!messagePath) {
-  console.error("Usage: node scripts/commit-msg-check.mjs <commit-message-file>");
+  console.error("Usage: node scripts/quality/commit-msg-check.mjs <commit-message-file>");
   process.exit(1);
 }
 

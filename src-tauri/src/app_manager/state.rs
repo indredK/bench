@@ -4,52 +4,80 @@ use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
+#[derive(Clone, Default)]
+pub struct UpdateCacheState {
+    pub updates: Vec<UpdateInfo>,
+    pub last_check_time: u64,
+}
+
+#[derive(Clone)]
 pub struct AppManagerState {
-    pub apps: Mutex<Vec<AppInfo>>,
+    pub apps: Arc<Mutex<Vec<AppInfo>>>,
     /// Set of app_ids currently undergoing an operation (upgrade/uninstall)
-    pub in_progress: Mutex<HashSet<String>>,
+    pub in_progress: Arc<Mutex<HashSet<String>>>,
     /// Cache of the last scan result
-    pub cached_result: Mutex<Option<ScanResult>>,
+    pub cached_result: Arc<Mutex<Option<ScanResult>>>,
     /// Timestamp in ms of last scan
-    pub last_scan_time: Mutex<u64>,
-    /// Timestamp in ms of last update check
-    pub last_update_check_time: Mutex<u64>,
-    /// Cached list of discovered updates from the multi-source updater.
-    pub updates: Mutex<Vec<UpdateInfo>>,
+    pub last_scan_time: Arc<Mutex<u64>>,
+    /// Cached list of discovered updates plus the timestamp of that cache.
+    pub update_cache: Arc<Mutex<UpdateCacheState>>,
     /// Cancellation flag for the currently running batch operation (if any).
-    pub batch_cancel: Mutex<Option<Arc<AtomicBool>>>,
+    pub batch_cancel: Arc<Mutex<Option<Arc<AtomicBool>>>>,
     /// Per-app-id orchestrator handles for in-flight `install_app_update`
     /// calls. Removed when the install ends (success or failure).
-    pub install_state: Mutex<HashMap<String, Arc<InstallHandle>>>,
+    pub install_state: Arc<Mutex<HashMap<String, Arc<InstallHandle>>>>,
+}
+
+pub struct OperationGuard {
+    state: AppManagerState,
+    app_id: String,
+}
+
+impl Drop for OperationGuard {
+    fn drop(&mut self) {
+        self.state.release_op_lock(&self.app_id);
+    }
 }
 
 impl AppManagerState {
     pub fn new() -> Self {
         Self {
-            apps: Mutex::new(Vec::new()),
-            in_progress: Mutex::new(HashSet::new()),
-            cached_result: Mutex::new(None),
-            last_scan_time: Mutex::new(0),
-            last_update_check_time: Mutex::new(0),
-            updates: Mutex::new(Vec::new()),
-            batch_cancel: Mutex::new(None),
-            install_state: Mutex::new(HashMap::new()),
+            apps: Arc::new(Mutex::new(Vec::new())),
+            in_progress: Arc::new(Mutex::new(HashSet::new())),
+            cached_result: Arc::new(Mutex::new(None)),
+            last_scan_time: Arc::new(Mutex::new(0)),
+            update_cache: Arc::new(Mutex::new(UpdateCacheState::default())),
+            batch_cancel: Arc::new(Mutex::new(None)),
+            install_state: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
     /// Replace the cached updates list with the result of a fresh scan and
     /// stamp the check time in one operation.
     pub fn cache_updates(&self, updates: Vec<UpdateInfo>) {
-        *self.updates.lock().unwrap_or_else(|e| e.into_inner()) = updates;
-        self.mark_update_check();
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0);
+        let mut guard = self.update_cache.lock().unwrap_or_else(|e| e.into_inner());
+        guard.updates = updates;
+        guard.last_check_time = now;
     }
 
     /// Snapshot of the cached updates list.
     pub fn get_cached_updates(&self) -> Vec<UpdateInfo> {
-        self.updates
+        self.update_cache
             .lock()
             .unwrap_or_else(|e| e.into_inner())
+            .updates
             .clone()
+    }
+
+    pub fn get_last_update_check_time(&self) -> u64 {
+        self.update_cache
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .last_check_time
     }
 
     #[allow(dead_code)]
@@ -67,6 +95,13 @@ impl AppManagerState {
     pub fn release_op_lock(&self, app_id: &str) {
         let mut guard = self.in_progress.lock().unwrap_or_else(|e| e.into_inner());
         guard.remove(app_id);
+    }
+
+    pub fn try_lock_operation(&self, app_id: &str) -> Option<OperationGuard> {
+        self.acquire_op_lock(app_id).then(|| OperationGuard {
+            state: self.clone(),
+            app_id: app_id.to_string(),
+        })
     }
 
     /// Cache scan result and update timestamp.
@@ -90,10 +125,10 @@ impl AppManagerState {
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_millis() as u64)
             .unwrap_or(0);
-        *self
-            .last_update_check_time
+        self.update_cache
             .lock()
-            .unwrap_or_else(|e| e.into_inner()) = now;
+            .unwrap_or_else(|e| e.into_inner())
+            .last_check_time = now;
     }
 
     /// Get cached scan if available.
@@ -156,7 +191,7 @@ mod tests {
             let _g2 = state_clone.in_progress.lock().unwrap();
             let _g3 = state_clone.cached_result.lock().unwrap();
             let _g4 = state_clone.last_scan_time.lock().unwrap();
-            let _g5 = state_clone.last_update_check_time.lock().unwrap();
+            let _g5 = state_clone.update_cache.lock().unwrap();
             let _g6 = state_clone.batch_cancel.lock().unwrap();
             panic!("intentional poisoning");
         })
@@ -186,6 +221,37 @@ mod tests {
         // Releasing restores availability.
         state.release_op_lock("a");
         assert!(state.acquire_op_lock("a"));
+    }
+
+    #[test]
+    fn operation_guard_releases_lock_on_drop_and_panic() {
+        let state = AppManagerState::new();
+
+        {
+            let _guard = state.try_lock_operation("a").expect("guard");
+            assert!(!state.acquire_op_lock("a"));
+        }
+        assert!(state.acquire_op_lock("a"));
+        state.release_op_lock("a");
+
+        let panic_result = std::panic::catch_unwind({
+            let state = state.clone();
+            move || {
+                let _guard = state.try_lock_operation("panic-app").expect("guard");
+                panic!("boom");
+            }
+        });
+        assert!(panic_result.is_err());
+        assert!(state.acquire_op_lock("panic-app"));
+    }
+
+    #[test]
+    fn cache_updates_commits_updates_and_timestamp_together() {
+        let state = AppManagerState::new();
+        state.cache_updates(vec![]);
+        let guard = state.update_cache.lock().unwrap_or_else(|e| e.into_inner());
+        assert!(guard.last_check_time > 0);
+        assert!(guard.updates.is_empty());
     }
 
     #[test]

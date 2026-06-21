@@ -173,10 +173,12 @@ pub async fn check_managed_app_updates(
 pub fn upgrade_app(
     app_id: String,
     state: tauri::State<'_, AppManagerState>,
+    app: tauri::AppHandle,
 ) -> Result<OperationResult, String> {
-    if !state.acquire_op_lock(&app_id) {
-        return Ok(locked_operation_result());
-    }
+    let _guard = match state.try_lock_operation(&app_id) {
+        Some(guard) => guard,
+        None => return Ok(locked_operation_result()),
+    };
 
     let result = if is_macos() {
         macos::upgrade_app(app_id.clone(), state.clone())
@@ -188,7 +190,7 @@ pub fn upgrade_app(
         Err("Unsupported platform".into())
     };
 
-    state.release_op_lock(&app_id);
+    let _ = app;
     result
 }
 
@@ -196,10 +198,12 @@ pub fn upgrade_app(
 pub fn uninstall_app(
     app_id: String,
     state: tauri::State<'_, AppManagerState>,
+    app: tauri::AppHandle,
 ) -> Result<OperationResult, String> {
-    if !state.acquire_op_lock(&app_id) {
-        return Ok(locked_operation_result());
-    }
+    let _guard = match state.try_lock_operation(&app_id) {
+        Some(guard) => guard,
+        None => return Ok(locked_operation_result()),
+    };
 
     let result = if is_macos() {
         macos::uninstall_app(app_id.clone(), state.clone())
@@ -211,7 +215,7 @@ pub fn uninstall_app(
         Err("Unsupported platform".into())
     };
 
-    state.release_op_lock(&app_id);
+    let _ = app;
     result
 }
 
@@ -248,7 +252,7 @@ pub fn batch_upgrade_apps(
             );
             continue;
         }
-        let result = upgrade_app(app_id.clone(), state.clone());
+        let result = upgrade_app(app_id.clone(), state.clone(), app.clone());
         match result {
             Ok(r) => {
                 if r.success {
@@ -355,7 +359,7 @@ pub fn batch_uninstall_apps(
             );
             continue;
         }
-        let result = uninstall_app(app_id.clone(), state.clone());
+        let result = uninstall_app(app_id.clone(), state.clone(), app.clone());
         match result {
             Ok(r) => {
                 if r.success {
@@ -442,10 +446,12 @@ pub fn install_app(
     app_id: String,
     install_source: InstallSource,
     state: tauri::State<'_, AppManagerState>,
+    app: tauri::AppHandle,
 ) -> Result<OperationResult, String> {
-    if !state.acquire_op_lock(&app_id) {
-        return Ok(locked_operation_result());
-    }
+    let _guard = match state.try_lock_operation(&app_id) {
+        Some(guard) => guard,
+        None => return Ok(locked_operation_result()),
+    };
 
     let result = if is_macos() {
         macos::install_app(app_id.clone(), install_source, state.clone())
@@ -457,7 +463,7 @@ pub fn install_app(
         Err("Unsupported platform".into())
     };
 
-    state.release_op_lock(&app_id);
+    let _ = app;
     result
 }
 
@@ -498,6 +504,7 @@ pub fn batch_install_apps(
             item.app_id.clone(),
             item.install_source.clone(),
             state.clone(),
+            app.clone(),
         );
         match result {
             Ok(r) => {
@@ -592,10 +599,7 @@ pub async fn check_all_app_updates(
 
     // Honor cache TTL unless caller asked for a refresh.
     if !force {
-        let last = *state
-            .last_update_check_time
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+        let last = state.get_last_update_check_time();
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_millis() as u64)
@@ -664,9 +668,9 @@ pub async fn install_app_update(update: UpdateInfo, app: tauri::AppHandle) -> Re
     let install_path = install_path
         .ok_or_else(|| "SU_APP_NOT_FOUND: not in cached scan; run scan first".to_string())?;
 
-    if !state.acquire_op_lock(&update.app_id) {
-        return Err("LOCKED".to_string());
-    }
+    let guard = state
+        .try_lock_operation(&update.app_id)
+        .ok_or_else(|| "LOCKED".to_string())?;
 
     let handle = Arc::new(InstallHandle::new());
     {
@@ -679,14 +683,11 @@ pub async fn install_app_update(update: UpdateInfo, app: tauri::AppHandle) -> Re
 
     let app_id = update.app_id.clone();
     let app_handle = app.clone();
+    let install_state = state.install_state.clone();
     tauri::async_runtime::spawn(async move {
+        let _guard = guard;
         install_update(app_handle.clone(), update, install_path, handle).await;
-        let state: tauri::State<'_, AppManagerState> = app_handle.state();
-        state.release_op_lock(&app_id);
-        let mut map = state
-            .install_state
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+        let mut map = install_state.lock().unwrap_or_else(|e| e.into_inner());
         map.remove(&app_id);
     });
 

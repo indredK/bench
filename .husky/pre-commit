@@ -2,4 +2,4 @@
 
 set -e
 
-node scripts/pre-commit-check.mjs
+node scripts/quality/pre-commit-check.mjs

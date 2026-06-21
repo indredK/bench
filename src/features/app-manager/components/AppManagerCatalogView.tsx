@@ -4,10 +4,12 @@
 import type { ReactNode } from "react";
 import type { TFunction } from "i18next";
 import type { ColumnDef, OnChangeFn, SortingState } from "@tanstack/react-table";
+import { X } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { DetailPanel } from "@/components/layout/DetailPanel";
 import { ThreeColumnLayout } from "@/components/layout/ThreeColumnLayout";
 import { ContentView } from "@/components/content/ContentView";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { AppCategoryKey } from "@/features/app-manager/app-categories";
 import type { AppSeriesKey } from "@/features/app-manager/app-series";
 import { AppManagerActionBar } from "@/features/app-manager/components/AppManagerActionBar";
@@ -37,6 +39,7 @@ interface AppManagerCatalogViewProps<TItem, TFilter extends string> {
   loading: boolean;
   error: string;
   batchResults: BatchOperationResult | null;
+  onClearError?: () => void;
   filterPanelOpen: boolean;
   activeFilterCount: number;
   typeFilter: TFilter;
@@ -92,6 +95,7 @@ export function AppManagerCatalogView<TItem, TFilter extends string>({
   loading,
   error,
   batchResults,
+  onClearError,
   filterPanelOpen,
   activeFilterCount,
   typeFilter,
@@ -141,7 +145,23 @@ export function AppManagerCatalogView<TItem, TFilter extends string>({
 
       {error && (
         <Alert variant="destructive" className="shrink-0">
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription className="flex items-center justify-between gap-3">
+            <span>{error}</span>
+            {onClearError ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex size-5 shrink-0 items-center justify-center rounded-full transition hover:bg-destructive/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    onClick={onClearError}
+                  >
+                    <X size={13} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>{t("common.actions.close")}</TooltipContent>
+              </Tooltip>
+            ) : null}
+          </AlertDescription>
         </Alert>
       )}
 

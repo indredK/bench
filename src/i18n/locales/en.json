@@ -417,6 +417,13 @@
           "retry": "I quit the app · Retry"
         }
       }
+    },
+    "errors": {
+      "scanFailed": "Failed to scan installed applications.",
+      "updateCheckFailed": "Failed to check for available updates.",
+      "missingMacAppStoreId": "Missing App Store identifier for this update.",
+      "noDownloadUrl": "No release or download URL is available for this update.",
+      "genericBatchFailure": "The batch operation did not complete successfully."
     }
   },
   "envDetector": {
@@ -542,7 +549,12 @@
     "statusSuccess": "Occupied",
     "statusEmpty": "Free",
     "statusError": "Error",
-    "statusEnded": "Ended"
+    "statusEnded": "Ended",
+    "errors": {
+      "desktopOnly": "Port management is only available in the desktop app.",
+      "killOneFailed": "Failed to free the selected port.",
+      "killAllFailed": "Failed to free one or more selected ports."
+    }
   },
   "devCleaner": {
     "title": "Dev Cleaner",
@@ -1623,6 +1635,7 @@
     "system": "System",
     "light": "Light",
     "dark": "Dark",
+    "sectionTitle": "Theme",
     "currentMode": "Current:",
     "label": "Theme: {{mode}}",
     "tooltip": "Click to cycle: System → Light → Dark"

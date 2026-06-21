@@ -44,138 +44,24 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-
-// ─── Token estimation ───────────────────────────────────────────────
-function estimateTokens(text: string): number {
-  // Rough estimation: ~4 chars per token for English, ~1.5 for CJK
-  let cjkCount = 0;
-  let otherCount = 0;
-  for (const ch of text) {
-    const code = ch.codePointAt(0) ?? 0;
-    if (
-      (code >= 0x4e00 && code <= 0x9fff) ||
-      (code >= 0x3400 && code <= 0x4dbf) ||
-      (code >= 0x3000 && code <= 0x303f) ||
-      (code >= 0xff00 && code <= 0xffef) ||
-      (code >= 0x3040 && code <= 0x309f) ||
-      (code >= 0x30a0 && code <= 0x30ff) ||
-      (code >= 0xac00 && code <= 0xd7af)
-    ) {
-      cjkCount++;
-    } else {
-      otherCount++;
-    }
-  }
-  return Math.max(1, Math.round(cjkCount / 1.5 + otherCount / 4));
-}
-
-// ─── Constants ──────────────────────────────────────────────────────
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  USD: "$",
-  CNY: "¥",
-};
-
-const DEFAULT_EXCHANGE_RATE = 7;
-
-const RATIO_PRESETS = [1, 2, 3, 5, 10, 20, 50, 100];
-
-type DisplayCurrency = "USD" | "CNY";
-type TranslateFn = (key: string, opts?: Record<string, unknown>) => string;
-
-function getTokenUnits(t: TranslateFn) {
-  return [
-    { value: "single", label: t("tokenCalculator.units.single"), multiplier: 1 },
-    { value: "thousand", label: t("tokenCalculator.units.thousand"), multiplier: 1_000 },
-    { value: "tenThousand", label: t("tokenCalculator.units.tenThousand"), multiplier: 10_000 },
-    { value: "million", label: t("tokenCalculator.units.million"), multiplier: 1_000_000 },
-    { value: "hundredMillion", label: t("tokenCalculator.units.hundredMillion"), multiplier: 100_000_000 },
-  ];
-}
-
-function normalizeExchangeRate(rate: number): number {
-  return Number.isFinite(rate) && rate > 0 ? rate : DEFAULT_EXCHANGE_RATE;
-}
-
-/** Convert a price for display using the exchange rate (bi-directional). */
-function convertPrice(
-  price: number,
-  sourceCurrency: string,
-  displayCurrency: DisplayCurrency,
-  rate: number
-): number {
-  if (!Number.isFinite(price)) return 0;
-  const safeRate = normalizeExchangeRate(rate);
-  const normalizedSource = sourceCurrency.toUpperCase();
-  if (displayCurrency === normalizedSource) return price;
-  if (displayCurrency === "CNY" && normalizedSource === "USD") return price * safeRate;
-  if (displayCurrency === "USD" && normalizedSource === "CNY") return price / safeRate;
-  return price;
-}
-
-function formatPrice(price: number, currency: string): string {
-  if (!Number.isFinite(price)) return "—";
-  const sym = CURRENCY_SYMBOLS[currency] ?? currency;
-  if (price < 0.01) return `${sym}${price.toFixed(4)}`;
-  if (price < 1) return `${sym}${price.toFixed(3)}`;
-  return `${sym}${price.toFixed(2)}`;
-}
-
-function formatCost(cost: number, currency: string): string {
-  if (!Number.isFinite(cost)) return "—";
-  const sym = CURRENCY_SYMBOLS[currency] ?? currency;
-  if (cost < 0.001) return `${sym}${cost.toFixed(6)}`;
-  if (cost < 0.01) return `${sym}${cost.toFixed(5)}`;
-  if (cost < 0.1) return `${sym}${cost.toFixed(4)}`;
-  return `${sym}${cost.toFixed(2)}`;
-}
-
-function displayPrice(
-  price: number,
-  sourceCurrency: string,
-  displayCurrency: DisplayCurrency,
-  rate: number
-): string {
-  const converted = convertPrice(price, sourceCurrency, displayCurrency, rate);
-  return formatPrice(converted, displayCurrency);
-}
-
-function hasCachePricing(model: ModelPricing): boolean {
-  return model.cachedWritePrice != null || model.cachedReadPrice != null;
-}
-
-/** Effective input price considering cache hit rate. Uses both cache write and cache read prices. */
-function effectiveInputPrice(
-  inputPrice: number,
-  cachedWritePrice: number | null,
-  cachedReadPrice: number | null,
-  hitRate: number
-): number {
-  const clampedHitRate = Math.min(100, Math.max(0, Number.isFinite(hitRate) ? hitRate : 0));
-  const writePrice = cachedWritePrice ?? inputPrice;
-  const readPrice = cachedReadPrice ?? inputPrice;
-  if (clampedHitRate <= 0) return writePrice;
-  if (clampedHitRate >= 100) return readPrice;
-  return ((100 - clampedHitRate) / 100) * writePrice + (clampedHitRate / 100) * readPrice;
-}
-
-function mixedPricePerMillionTokens(
-  inputPrice: number,
-  outputPrice: number,
-  inputOutputRatio: number
-): number {
-  const safeRatio = Number.isFinite(inputOutputRatio) && inputOutputRatio > 0 ? inputOutputRatio : 1;
-  return (inputPrice * safeRatio + outputPrice) / (safeRatio + 1);
-}
-
-function parseNonNegativeNumber(value: string): number {
-  const parsed = Number.parseFloat(value);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
-}
-
-function parseNonNegativeInteger(value: string): number {
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
-}
+import {
+  DEFAULT_EXCHANGE_RATE,
+  RATIO_PRESETS,
+  convertPrice,
+  displayPrice,
+  effectiveInputPrice,
+  estimateTokens,
+  formatCost,
+  formatPrice,
+  getTokenUnits,
+  hasCachePricing,
+  mixedPricePerMillionTokens,
+  normalizeExchangeRate,
+  parseNonNegativeInteger,
+  parseNonNegativeNumber,
+  type DisplayCurrency,
+  type TranslateFn,
+} from "@/features/token-calculator/model/pricing";
 
 // ─── Empty model row ────────────────────────────────────────────────
 const EMPTY_MODEL: ModelPricing = {

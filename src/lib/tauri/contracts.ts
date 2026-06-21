@@ -14,6 +14,7 @@ import type {
 import type {
   RelayDataExportResult,
   RelayDataImportResult,
+  RelayExportMode,
   RelayStation,
   StationAccount,
   LoginMethod,
@@ -181,7 +182,7 @@ export const TAURI_COMMAND_CONTRACTS = {
     StationAccount[]
   >()("refresh_station"),
   refresh_all: defineTauriCommand<undefined, StationAccount[]>()("refresh_all"),
-  export_relay_data: defineTauriCommand<{ path: string }, RelayDataExportResult>()(
+  export_relay_data: defineTauriCommand<{ path: string; mode?: RelayExportMode | null }, RelayDataExportResult>()(
     "export_relay_data"
   ),
   import_relay_data: defineTauriCommand<{ path: string }, RelayDataImportResult>()(
@@ -433,7 +434,7 @@ export const TAURI_COMMAND_ARG_KEYS = {
   refresh_account: ["accountId"],
   refresh_station: ["stationId"],
   refresh_all: [],
-  export_relay_data: ["path"],
+  export_relay_data: ["path", "mode"],
   import_relay_data: ["path"],
   reorder_stations: ["orderedIds"],
   reorder_accounts: ["stationId", "orderedIds"],

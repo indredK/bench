@@ -18,7 +18,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const tauriSrcDir = path.join(rootDir, "src-tauri", "src");
 const cargoTomlPath = path.join(rootDir, "src-tauri", "Cargo.toml");
 

@@ -57,7 +57,7 @@ npm install        # Install deps / 安装依赖
 npm run dev        # Start Tauri dev with HMR / 启动 Tauri 开发模式（热更新）
 ```
 
-`npm run hooks:install` (or `npm run setup`) will configure the repo Git hooks in `.husky/`, so staged code gets checked before commits.
+`npm run hooks:install` (or `npm run setup`) will configure the repo Git hooks in `.husky/`, so staged code gets checked before commits. `npm run setup` is intentionally lightweight and does not modify global Rust or npm settings.
 
 Dev server runs at `http://localhost:1420`.
 
@@ -184,9 +184,18 @@ bench/
 │       ├── lib.rs                    # Command registration / 命令注册
 │       ├── main.rs                   # App entry / 应用入口
 │       └── menu.rs                   # System menu / 系统菜单
-├── scripts/                          # Build & release scripts / 构建与发布脚本
-│   ├── generate-updater-json.mjs     # Updater manifest generation
-│   ├── setup.mjs, write-updater-manifest.mjs
+├── scripts/                          # Repo scripts / 仓库脚本
+│   ├── bootstrap/                    # Local bootstrap / 本地引导
+│   │   ├── setup.mjs
+│   │   └── install-hooks.mjs
+│   ├── quality/                      # Quality gates / 质量门禁
+│   │   ├── pre-commit-check.mjs
+│   │   ├── commit-msg-check.mjs
+│   │   ├── check-rust-crates.mjs
+│   │   └── check-i18n-guards.mjs
+│   └── release/                      # Release helpers / 发布辅助
+│       ├── generate-updater-json.mjs
+│       └── write-updater-manifest.mjs
 ├── .github/workflows/ci-build.yml    # CI/CD pipeline
 └── package.json
 ```

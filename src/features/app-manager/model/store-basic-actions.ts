@@ -20,6 +20,7 @@ import type {
 } from "@/features/app-manager/model/preferences";
 import type { OperationStatus } from "@/features/app-manager/model/operations";
 import { createInitialAppManagerState } from "@/features/app-manager/model/store-state";
+import type { LocalizedError } from "@/lib/errors";
 
 type SetState = StoreApi<AppManagerState>["setState"];
 
@@ -30,6 +31,7 @@ export function createAppManagerBasicActions(set: SetState) {
     setMarketplaceFilter: (filter: MarketplaceFilterKey) => set({ marketplaceFilter: filter }),
     setCategoryFilter: (category: AppCategoryKey | null) => set({ categoryFilter: category }),
     setSeriesFilter: (series: AppSeriesKey | null) => set({ seriesFilter: series }),
+    setError: (error: LocalizedError | null) => set({ error }),
     setSorting: (sorting: Updater<SortingState>) =>
       set((state) => ({
         sorting: typeof sorting === "function" ? sorting(state.sorting) : sorting,
@@ -93,7 +95,7 @@ export function createAppManagerBasicActions(set: SetState) {
         };
       }),
     setUpdatesLoading: (loading: boolean) => set({ updatesLoading: loading }),
-    setUpdatesError: (error: string) => set({ updatesError: error }),
+    setUpdatesError: (error: LocalizedError | null) => set({ updatesError: error }),
     setUpdatesScanned: (scanned: boolean) => set({ updatesScanned: scanned }),
     toggleUpdateGroup: (source: UpdateSource) =>
       set((state) => ({

@@ -23,6 +23,7 @@ import type {
   AppFilterKey,
   MarketplaceFilterKey,
 } from "@/features/app-manager/model/preferences";
+import type { LocalizedError } from "@/lib/errors";
 
 export type { AppFilterKey };
 export type { MarketplaceFilterKey };
@@ -46,7 +47,7 @@ export type AppManagerTabKey = "installed" | "softwareUpdate" | "marketplace";
 export interface AppManagerState {
   apps: AppInfo[];
   loading: boolean;
-  error: string;
+  error: LocalizedError | null;
   searchQuery: string;
   activeFilter: AppFilterKey;
   marketplaceFilter: MarketplaceFilterKey;
@@ -93,7 +94,7 @@ export interface AppManagerState {
   activeTab: AppManagerTabKey;
   updates: UpdateInfo[];
   updatesLoading: boolean;
-  updatesError: string;
+  updatesError: LocalizedError | null;
   updatesScanned: boolean;
   expandedUpdateGroups: Record<UpdateSource, boolean>;
   selectedUpdateIds: Set<string>;
@@ -119,6 +120,7 @@ export interface AppManagerState {
   setMarketplaceFilter: (filter: MarketplaceFilterKey) => void;
   setCategoryFilter: (category: AppCategoryKey | null) => void;
   setSeriesFilter: (series: AppSeriesKey | null) => void;
+  setError: (error: LocalizedError | null) => void;
   setSorting: (sorting: Updater<SortingState>) => void;
 
   setOperationStatus: (appId: string, status: OperationStatus, message?: string) => void;
@@ -149,7 +151,7 @@ export interface AppManagerState {
   setActiveTab: (tab: AppManagerTabKey) => void;
   setUpdates: (updates: UpdateInfo[]) => void;
   setUpdatesLoading: (loading: boolean) => void;
-  setUpdatesError: (error: string) => void;
+  setUpdatesError: (error: LocalizedError | null) => void;
   setUpdatesScanned: (scanned: boolean) => void;
   toggleUpdateGroup: (source: UpdateSource) => void;
   toggleSelectUpdate: (appId: string) => void;

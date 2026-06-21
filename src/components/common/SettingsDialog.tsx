@@ -62,7 +62,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     }
     const resolved = lang === "system" ? detectSystemLanguage() : lang;
     await i18n.changeLanguage(resolved);
-    const title = resolved === "zh" ? "端口管理器 - DevTools" : "Port Manager - DevTools";
+    const title = i18n.t("common.appTitle");
     await setCurrentWindowTitle(title);
   }, []);
 
@@ -97,7 +97,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
           </div>
 
           <div>
-            <h4 className="mb-2 text-sm font-medium">{t("theme.label", { mode: "" }).replace(": ", "").trim() || t("theme.currentMode")}</h4>
+            <h4 className="mb-2 text-sm font-medium">{t("theme.sectionTitle")}</h4>
             <div className="flex flex-wrap gap-2">
               {THEME_ORDER.map((mode) => {
                 const Icon = THEME_ICON[mode];

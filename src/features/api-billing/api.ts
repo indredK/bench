@@ -6,6 +6,7 @@ import type {
   LoginDetectionConfig,
   RelayDataExportResult,
   RelayDataImportResult,
+  RelayExportMode,
   RelayStation,
   StationAccount,
   LoginMethod,
@@ -19,6 +20,7 @@ export type {
   LoginDetectionRule,
   RelayDataExportResult,
   RelayDataImportResult,
+  RelayExportMode,
   RelayStation,
   StationAccount,
   LoginMethod,
@@ -153,8 +155,11 @@ export function refreshAll(): Promise<StationAccount[]> {
   return invokeTauriCommand("refresh_all");
 }
 
-export function exportRelayData(path: string): Promise<RelayDataExportResult> {
-  return invokeTauriCommand("export_relay_data", { path });
+export function exportRelayData(
+  path: string,
+  mode: RelayExportMode = "sanitized"
+): Promise<RelayDataExportResult> {
+  return invokeTauriCommand("export_relay_data", { path, mode });
 }
 
 export function importRelayData(path: string): Promise<RelayDataImportResult> {

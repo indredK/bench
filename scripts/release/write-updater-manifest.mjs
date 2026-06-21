@@ -21,7 +21,7 @@ const target = args.target || platform;
 
 if (!outputDir || !platform || !file || !signature) {
   throw new Error(
-    "Usage: node scripts/write-updater-manifest.mjs --output-dir <dir> --platform <platform> --file <path> --signature <path> [--target <target>]"
+    "Usage: node scripts/release/write-updater-manifest.mjs --output-dir <dir> --platform <platform> --file <path> --signature <path> [--target <target>]"
   );
 }
 

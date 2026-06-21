@@ -297,11 +297,7 @@ pub fn scan_installed_apps(state: tauri::State<'_, AppManagerState>) -> ScanResu
         apps,
         platform_capabilities(brew_available, false, false, false, false),
         start.elapsed().as_millis() as u64,
-        if let Ok(t) = state.last_update_check_time.lock() {
-            *t
-        } else {
-            0
-        },
+        state.get_last_update_check_time(),
     )
 }
 

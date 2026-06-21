@@ -3,6 +3,7 @@
  */
 import { create } from "zustand";
 import type { PortProcessDetail } from "@/lib/tauri/types/port-manager";
+import type { LocalizedError } from "@/lib/errors";
 
 export const MAX_TRACKED_PORTS = 20;
 
@@ -30,7 +31,7 @@ interface PortManagerState {
   portDetails: PortProcessDetail[];
   killing: boolean;
   portKillMessages: Record<number, string[]>;
-  error: string;
+  error: LocalizedError | null;
   showEmptyPorts: boolean;
   highlightPort: number | null;
   scanSession: number;
@@ -39,7 +40,7 @@ interface PortManagerState {
   setShowInvalidToast: (show: boolean) => void;
   setInputError: (error: string) => void;
   setKilling: (killing: boolean) => void;
-  setError: (error: string) => void;
+  setError: (error: LocalizedError | null) => void;
   setShowEmptyPorts: (show: boolean) => void;
   setHighlightPort: (port: number | null) => void;
   removePort: (port: number) => void;
@@ -54,7 +55,7 @@ export const usePortManagerStore = create<PortManagerState>((set) => ({
   portDetails: [],
   killing: false,
   portKillMessages: {},
-  error: "",
+  error: null,
   showEmptyPorts: true,
   highlightPort: null,
   scanSession: 0,
@@ -82,6 +83,6 @@ export const usePortManagerStore = create<PortManagerState>((set) => ({
       portStates: [],
       portDetails: [],
       portKillMessages: {},
-      error: "",
+      error: null,
     })),
 }));

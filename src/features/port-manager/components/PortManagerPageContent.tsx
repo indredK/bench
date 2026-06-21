@@ -47,7 +47,7 @@ interface PortManagerPageContentProps {
   onScrollToPort: (port: number) => void;
   onKillPort: (port: number, pids: number[]) => void;
   onRemovePort: (port: number) => void;
-  onSetError: (value: string) => void;
+  onClearError: () => void;
   statusIconFor: (status: PortScanStatus) => React.ReactNode;
 }
 
@@ -81,7 +81,7 @@ export function PortManagerPageContent({
   onScrollToPort,
   onKillPort,
   onRemovePort,
-  onSetError,
+  onClearError,
   statusIconFor,
 }: PortManagerPageContentProps) {
   return (
@@ -151,7 +151,7 @@ export function PortManagerPageContent({
                   className={cn(
                     "flex size-5 shrink-0 items-center justify-center rounded-full transition hover:bg-destructive/30 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                   )}
-                  onClick={() => onSetError("")}
+                  onClick={onClearError}
                 >
                   <X size={13} />
                 </button>

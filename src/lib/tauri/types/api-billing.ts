@@ -53,6 +53,7 @@ export interface StationAccount {
 export interface RelayDataExportResult {
   stationCount: number;
   accountCount: number;
+  mode: RelayExportMode;
 }
 
 export interface RelayDataImportResult {
@@ -74,3 +75,5 @@ export interface ApiBillingError {
   code: ApiBillingErrorCode;
   message: string;
 }
+
+export type RelayExportMode = "sanitized" | "encryptedFull";

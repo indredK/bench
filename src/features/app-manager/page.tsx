@@ -20,12 +20,13 @@ import { getInstalledFilterCounts } from "@/features/app-manager/model/selectors
 import { APP_FILTER_OPTIONS, MARKETPLACE_FILTER_OPTIONS } from "@/features/app-manager/model/store-types";
 import type { AppFilterKey, MarketplaceFilterKey } from "@/features/app-manager/model/preferences";
 import type { AppInfo, InstallListAppInfo } from "@/lib/tauri/types/app-manager";
+import { useAppManagerViewState } from "@/features/app-manager/hooks/useAppManagerViewState";
 
 function AppManager({ active, feature }: { active: boolean; feature?: { desktopOnly?: boolean } }) {
+  const viewState = useAppManagerViewState();
   const controller = useAppManagerController(active);
   const {
     t,
-    apps,
     loading,
     error,
     searchQuery,
@@ -55,15 +56,9 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
     installBatchMode,
     installDetailItem,
     activeTab,
-    updates,
     updatesLoading,
     updatesError,
     updatesScanned,
-    expandedUpdateGroups,
-    selectedUpdateIds,
-    updateSourceFilter,
-    selectedUpdate,
-    updateOperations,
     filteredApps,
     filteredInstallListApps,
     activeFilterCount,
@@ -72,6 +67,8 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
     visibleInstallListPendingCount,
     appManagerColumns,
     installListColumns,
+    clearError,
+    clearUpdatesError,
     setSearchQuery,
     setActiveFilter,
     setMarketplaceFilter,
@@ -119,15 +116,15 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
     clearSelectedApps,
   } = controller;
 
-  const installedFilterCounts = getInstalledFilterCounts(apps);
+  const installedFilterCounts = getInstalledFilterCounts(viewState.apps);
   const installedTypeFilterOptions = APP_FILTER_OPTIONS.map((option) => ({
     key: option.key,
     label: t(option.labelKey),
     count: installedFilterCounts[option.key],
   }));
 
-  const marketplaceInstalledCount = installListApps.filter((app) => app.installed).length;
-  const marketplacePendingCount = installListApps.length - marketplaceInstalledCount;
+  const marketplaceInstalledCount = viewState.installListApps.filter((app) => app.installed).length;
+  const marketplacePendingCount = viewState.installListApps.length - marketplaceInstalledCount;
   const marketplaceTypeFilterOptions = MARKETPLACE_FILTER_OPTIONS.map((option) => ({
     key: option.key,
     label: t(option.labelKey),
@@ -152,7 +149,7 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
             t={t}
             activeTab={activeTab}
             onChange={handleSetActiveTab}
-            updateCount={updates.length}
+            updateCount={viewState.updates.length}
           />
 
           <div className="flex-1 min-h-0">
@@ -168,18 +165,19 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
               >
               <SoftwareUpdateView
                 t={t}
-                apps={apps}
-                updates={updates}
+                apps={viewState.apps}
+                updates={viewState.updates}
                 searchQuery={searchQuery}
                 loading={updatesLoading}
                 scanned={updatesScanned}
                 error={updatesError}
-                lastUpdateCheck={lastUpdateCheck}
-                selectedIds={selectedUpdateIds}
-                selectedUpdate={selectedUpdate}
-                sourceFilter={updateSourceFilter}
-                expandedGroups={expandedUpdateGroups}
-                updateOperations={updateOperations}
+                onClearError={clearUpdatesError}
+                lastUpdateCheck={viewState.lastUpdateCheck}
+                selectedIds={viewState.selectedUpdateIds}
+                selectedUpdate={viewState.selectedUpdate}
+                sourceFilter={viewState.updateSourceFilter}
+                expandedGroups={viewState.expandedUpdateGroups}
+                updateOperations={viewState.updateOperations}
                 onSearchQueryChange={setSearchQuery}
                 onRecheck={() => void checkAllUpdates(true)}
                 onToggleGroup={toggleUpdateGroup}
@@ -207,7 +205,7 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
               <AppManagerCatalogView<InstallListAppInfo, MarketplaceFilterKey>
                 t={t}
                 items={filteredInstallListApps}
-                allItems={installListApps}
+                allItems={viewState.installListApps}
                 columns={installListColumns}
                 getRowId={(app) => app.id}
                 renderGridCard={(app) => (
@@ -243,6 +241,7 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                 loading={loading}
                 error={error}
                 batchResults={batchResults}
+                onClearError={clearError}
                 filterPanelOpen={filterPanelOpen}
                 activeFilterCount={marketplaceFilterCount}
                 typeFilter={marketplaceFilter}
@@ -322,7 +321,7 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
               <AppManagerCatalogView<AppInfo, AppFilterKey>
                 t={t}
                 items={filteredApps}
-                allItems={apps}
+                allItems={viewState.apps}
                 columns={appManagerColumns}
                 getRowId={(app) => app.appId}
                 renderGridCard={(app) => <AppManagerGridCard app={app} t={t} />}
@@ -347,6 +346,7 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                 loading={loading}
                 error={error}
                 batchResults={batchResults}
+                onClearError={clearError}
                 filterPanelOpen={filterPanelOpen}
                 activeFilterCount={activeFilterCount}
                 typeFilter={activeFilter}
@@ -404,7 +404,7 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                 }
                 emptyText={
                   scanned
-                    ? (filteredApps.length === 0 && apps.length > 0
+                    ? (filteredApps.length === 0 && viewState.apps.length > 0
                       ? t("appManager.noResults")
                       : t("appManager.empty"))
                     : t("appManager.startHint")
@@ -415,7 +415,7 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                 selectedIds={selectedAppIds}
                 onToggleSelect={toggleSelectApp}
                 summary={t("appManager.summaryShort", {
-                  total: result?.totalCount ?? apps.length,
+                  total: result?.totalCount ?? viewState.apps.length,
                   managed: result?.managedCount ?? 0,
                 })}
                 actions={

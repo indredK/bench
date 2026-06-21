@@ -11,6 +11,7 @@ type AppManagerDataState = Omit<
   | "setMarketplaceFilter"
   | "setCategoryFilter"
   | "setSeriesFilter"
+  | "setError"
   | "setSorting"
   | "setOperationStatus"
   | "openConfirmDialog"
@@ -63,7 +64,7 @@ export function createInitialAppManagerState(): AppManagerDataState {
   return {
     apps: [],
     loading: false,
-    error: "",
+    error: null,
     searchQuery: "",
     activeFilter: "all",
     marketplaceFilter: "all",
@@ -90,7 +91,7 @@ export function createInitialAppManagerState(): AppManagerDataState {
     activeTab: "installed",
     updates: [],
     updatesLoading: false,
-    updatesError: "",
+    updatesError: null,
     updatesScanned: false,
     expandedUpdateGroups: defaultExpandedGroups(),
     selectedUpdateIds: new Set(),

@@ -13,6 +13,7 @@ import {
   PORT_SCAN_STATUS_META,
 } from "@/features/port-manager/store";
 import { canUseDesktopFeatures } from "@/platform/capabilities";
+import { localizeError } from "@/lib/errors";
 
 export const commonPorts = [3000, 5173, 1420, 8080, 5000, 4200, 8000, 4321, 6006, 1234, 9000];
 
@@ -78,7 +79,9 @@ export function usePortManagerController() {
 
   const scan = useCallback(async (portsToScan: number[]) => {
     if (!portManagerUseCases.isAvailable()) {
-      usePortManagerStore.setState({ error: "Port scanning is only available in the desktop app" });
+      usePortManagerStore.setState({
+        error: { key: "portManager.errors.desktopOnly" },
+      });
       return;
     }
     if (portsToScan.length === 0) return;
@@ -86,7 +89,7 @@ export function usePortManagerController() {
     const sessionId = usePortManagerStore.getState().scanSession;
 
     usePortManagerStore.setState((state) => ({
-      error: "",
+      error: null,
       portDetails: state.portDetails.filter((detail) => !portsToScan.includes(detail.port)),
       portKillMessages: {},
     }));
@@ -163,7 +166,7 @@ export function usePortManagerController() {
 
   const killPort = useCallback(
     async (port: number, pids: number[]) => {
-      usePortManagerStore.setState({ error: "", killing: true });
+      usePortManagerStore.setState({ error: null, killing: true });
       try {
         const { portDetails: currentDetails } = usePortManagerStore.getState();
         const targets = portManagerUseCases.buildKillTargets(pids, currentDetails);
@@ -174,7 +177,12 @@ export function usePortManagerController() {
         }));
         void scan([port]);
       } catch (error) {
-        usePortManagerStore.setState({ error: typeof error === "string" ? error : "Failed to kill process" });
+        usePortManagerStore.setState({
+          error: {
+            key: "portManager.errors.killOneFailed",
+            fallback: typeof error === "string" ? error : undefined,
+          },
+        });
       } finally {
         usePortManagerStore.setState({ killing: false });
       }
@@ -184,7 +192,7 @@ export function usePortManagerController() {
 
   const killAll = useCallback(async () => {
     const { portDetails: currentPortDetails } = usePortManagerStore.getState();
-    usePortManagerStore.setState({ error: "", killing: true });
+    usePortManagerStore.setState({ error: null, killing: true });
     try {
       const allPids = currentPortDetails.flatMap((detail) => detail.pids);
       const portsToRescan = currentPortDetails.map((detail) => detail.port);
@@ -196,7 +204,12 @@ export function usePortManagerController() {
         void scan(portsToRescan);
       }
     } catch (error) {
-      usePortManagerStore.setState({ error: typeof error === "string" ? error : "Failed to kill processes" });
+      usePortManagerStore.setState({
+        error: {
+          key: "portManager.errors.killAllFailed",
+          fallback: typeof error === "string" ? error : undefined,
+        },
+      });
     } finally {
       usePortManagerStore.setState({ killing: false });
     }
@@ -398,6 +411,8 @@ export function usePortManagerController() {
 
   useEffect(() => registerFeatureRefresh("port-manager", rescanAll), [rescanAll]);
 
+  const errorMessage = error ? localizeError(t, error) : "";
+
   return {
     t,
     canUsePlatformFeatures,
@@ -410,14 +425,14 @@ export function usePortManagerController() {
     portDetails,
     killing,
     portKillMessages,
-    error,
+    error: errorMessage,
     showEmptyPorts,
     highlightPort,
     setShowEmptyPorts,
     clearAll,
     rescanAll,
     removePort,
-    setError,
+    clearError: () => setError(null),
     handleInputChange,
     handleInputKeyDown,
     handleScan,

@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import type { ContextMenuConfig, ContextMenuRegistration } from "@/shared/context-menu/types";
 import { useContextMenuRegistration } from "@/shared/context-menu/useContextMenuRegistration";
 import { useAppManagerStore } from "@/features/app-manager/store";
+import { useAppManagerViewState } from "@/features/app-manager/hooks/useAppManagerViewState";
 import { createAppManagerColumns } from "@/features/app-manager/columns";
 import { createInstallListApps } from "@/features/app-manager/model/install-list";
 import {
@@ -35,6 +36,8 @@ import { appManagerPlatformConfig } from "@/platform/config";
 import { canUseDesktopFeatures } from "@/platform/capabilities";
 import { writeClipboardText } from "@/platform/clipboard";
 import { createInstallListColumns } from "@/features/app-manager/components/install-list-columns";
+import type { LocalizedError } from "@/lib/errors";
+import { localizeError } from "@/lib/errors";
 
 function isInstallerUpdateSource(source: UpdateSource): boolean {
   return source === "sparkle" || source === "electron" || source === "squirrel";
@@ -42,43 +45,44 @@ function isInstallerUpdateSource(source: UpdateSource): boolean {
 
 export function useAppManagerController(active: boolean) {
   const { t } = useTranslation();
-
-  const apps = useAppManagerStore((s) => s.apps);
-  const loading = useAppManagerStore((s) => s.loading);
-  const error = useAppManagerStore((s) => s.error);
-  const searchQuery = useAppManagerStore((s) => s.searchQuery);
-  const activeFilter = useAppManagerStore((s) => s.activeFilter);
-  const marketplaceFilter = useAppManagerStore((s) => s.marketplaceFilter);
-  const categoryFilter = useAppManagerStore((s) => s.categoryFilter);
-  const seriesFilter = useAppManagerStore((s) => s.seriesFilter);
-  const sorting = useAppManagerStore((s) => s.sorting);
-  const scanned = useAppManagerStore((s) => s.scanned);
-  const result = useAppManagerStore((s) => s.result);
-  const confirmDialog = useAppManagerStore((s) => s.confirmDialog);
-  const lastScanTime = useAppManagerStore((s) => s.lastScanTime);
-  const lastUpdateCheck = useAppManagerStore((s) => s.lastUpdateCheck);
-  const viewMode = useAppManagerStore((s) => s.viewMode);
-  const selectedItem = useAppManagerStore((s) => s.selectedItem);
-  const filterPanelOpen = useAppManagerStore((s) => s.filterPanelOpen);
-  const selectedAppIds = useAppManagerStore((s) => s.selectedAppIds);
-  const batchMode = useAppManagerStore((s) => s.batchMode);
-  const batchProgress = useAppManagerStore((s) => s.batchProgress);
-  const batchResults = useAppManagerStore((s) => s.batchResults);
-  const batchConfirmDialog = useAppManagerStore((s) => s.batchConfirmDialog);
-  const installListApps = useAppManagerStore((s) => s.installListApps);
-  const installStates = useAppManagerStore((s) => s.installStates);
-  const installConfirmDialog = useAppManagerStore((s) => s.installConfirmDialog);
-
-  const activeTab = useAppManagerStore((s) => s.activeTab);
-  const updates = useAppManagerStore((s) => s.updates);
-  const updatesLoading = useAppManagerStore((s) => s.updatesLoading);
-  const updatesError = useAppManagerStore((s) => s.updatesError);
-  const updatesScanned = useAppManagerStore((s) => s.updatesScanned);
-  const expandedUpdateGroups = useAppManagerStore((s) => s.expandedUpdateGroups);
-  const selectedUpdateIds = useAppManagerStore((s) => s.selectedUpdateIds);
-  const updateSourceFilter = useAppManagerStore((s) => s.updateSourceFilter);
-  const selectedUpdate = useAppManagerStore((s) => s.selectedUpdate);
-  const updateOperations = useAppManagerStore((s) => s.updateOperations);
+  const viewState = useAppManagerViewState();
+  const {
+    apps,
+    loading,
+    error,
+    searchQuery,
+    activeFilter,
+    marketplaceFilter,
+    categoryFilter,
+    seriesFilter,
+    sorting,
+    scanned,
+    result,
+    confirmDialog,
+    lastScanTime,
+    lastUpdateCheck,
+    viewMode,
+    selectedItem,
+    filterPanelOpen,
+    selectedAppIds,
+    batchMode,
+    batchProgress,
+    batchResults,
+    batchConfirmDialog,
+    installListApps,
+    installStates,
+    installConfirmDialog,
+    activeTab,
+    updates,
+    updatesLoading,
+    updatesError,
+    updatesScanned,
+    expandedUpdateGroups,
+    selectedUpdateIds,
+    updateSourceFilter,
+    selectedUpdate,
+    updateOperations,
+  } = viewState;
 
   const setInstallFinished = useAppManagerStore((s) => s.setInstallFinished);
   const clearInstallProgress = useAppManagerStore((s) => s.clearInstallProgress);
@@ -116,6 +120,7 @@ export function useAppManagerController(active: boolean) {
   const setUpdateSourceFilter = useAppManagerStore((s) => s.setUpdateSourceFilter);
   const setSelectedUpdate = useAppManagerStore((s) => s.setSelectedUpdate);
   const setUpdateOperationStatus = useAppManagerStore((s) => s.setUpdateOperationStatus);
+  const setError = useAppManagerStore((s) => s.setError);
 
   const [selectedInstallIds, setSelectedInstallIds] = useState<Set<string>>(new Set());
   const [installBatchMode, setInstallBatchMode] = useState(false);
@@ -180,13 +185,22 @@ export function useAppManagerController(active: boolean) {
     };
   }, []);
 
+  const toLocalizedError = useCallback(
+    (key: string, fallback?: string, values?: Record<string, unknown>): LocalizedError => ({
+      key,
+      values,
+      fallback,
+    }),
+    []
+  );
+
   const scanApps = useCallback(async () => {
     const { loading: currentLoading } = useAppManagerStore.getState();
     if (currentLoading) return;
 
     useAppManagerStore.setState({
       loading: true,
-      error: "",
+      error: null,
       selectedAppIds: new Set(),
       batchMode: false,
       batchResults: null,
@@ -212,12 +226,15 @@ export function useAppManagerController(active: boolean) {
       useAppManagerStore.setState({
         apps: [],
         result: null,
-        error: String(scanError) || "Failed to scan",
+        error: toLocalizedError(
+          "appManager.errors.scanFailed",
+          String(scanError) || undefined
+        ),
         scanned: true,
         loading: false,
       });
     }
-  }, []);
+  }, [toLocalizedError]);
 
   const refreshInstallList = useCallback(() => {
     useAppManagerStore.setState({
@@ -248,22 +265,24 @@ export function useAppManagerController(active: boolean) {
       if (currentLoading) return;
 
       setUpdatesLoading(true);
-      setUpdatesError("");
+      setUpdatesError(null);
       try {
         const { updates: result, error } = await appManagerUseCases.checkAllAppUpdates(forceRefresh);
         if (error) {
-          setUpdatesError(error);
+          setUpdatesError(toLocalizedError("appManager.errors.updateCheckFailed", error));
         }
         setUpdates(result);
         setUpdatesScanned(true);
       } catch (err) {
-        setUpdatesError(String(err));
+        setUpdatesError(
+          toLocalizedError("appManager.errors.updateCheckFailed", String(err) || undefined)
+        );
         setUpdatesScanned(true);
       } finally {
         setUpdatesLoading(false);
       }
     },
-    [setUpdates, setUpdatesError, setUpdatesLoading, setUpdatesScanned]
+    [setUpdates, setUpdatesError, setUpdatesLoading, setUpdatesScanned, toLocalizedError]
   );
 
   const handleUpdateAction = useCallback(
@@ -273,7 +292,7 @@ export function useAppManagerController(active: boolean) {
 
       if (update.source === "macAppStore") {
         if (!update.adamId) {
-          setUpdateOperationStatus(update.appId, "error", "Missing Mac App Store identifier");
+          setUpdateOperationStatus(update.appId, "error", t("appManager.errors.missingMacAppStoreId"));
           return;
         }
         setUpdateOperationStatus(update.appId, "running", "Opening App Store…");
@@ -335,7 +354,7 @@ export function useAppManagerController(active: boolean) {
       // gitHub (no installer yet) → still fall back to the releases page.
       const url = update.downloadUrl ?? update.releaseNotesUrl ?? update.feedUrl;
       if (!url) {
-        setUpdateOperationStatus(update.appId, "error", "No download URL available");
+        setUpdateOperationStatus(update.appId, "error", t("appManager.errors.noDownloadUrl"));
         return;
       }
       try {
@@ -366,7 +385,9 @@ export function useAppManagerController(active: boolean) {
         try {
           await appManagerUseCases.openMacAppStoreUpdates();
         } catch (error) {
-          setUpdatesError(String(error));
+          setUpdatesError(
+            toLocalizedError("appManager.errors.updateCheckFailed", String(error) || undefined)
+          );
         }
         return;
       }
@@ -387,7 +408,7 @@ export function useAppManagerController(active: boolean) {
         await handleUpdateAction(update);
       }
     },
-    [handleUpdateAction, setUpdatesError]
+    [handleUpdateAction, setUpdatesError, toLocalizedError]
   );
 
   // v1.2: invoked by the progress / blocking dialogs when the user dismisses
@@ -587,6 +608,14 @@ export function useAppManagerController(active: boolean) {
       /* clipboard may be unavailable */
     }
   }, []);
+
+  const clearError = useCallback(() => {
+    setError(null);
+  }, [setError]);
+
+  const clearUpdatesError = useCallback(() => {
+    setUpdatesError(null);
+  }, [setUpdatesError]);
 
   useEffect(() => {
     const preferences = appManagerUseCases.loadPreferences();
@@ -1045,12 +1074,14 @@ export function useAppManagerController(active: boolean) {
   const visibleInstallListInstalledCount = filteredInstallListApps.filter((app) => app.installed).length;
   const visibleInstallListPendingCount = filteredInstallListApps.length - visibleInstallListInstalledCount;
   const caps = result?.platformCapabilities;
+  const errorMessage = error ? localizeError(t, error) : "";
+  const updatesErrorMessage = updatesError ? localizeError(t, updatesError) : "";
 
   return {
     t,
     apps,
     loading,
-    error,
+    error: errorMessage,
     searchQuery,
     activeFilter,
     marketplaceFilter,
@@ -1081,7 +1112,7 @@ export function useAppManagerController(active: boolean) {
     activeTab,
     updates,
     updatesLoading,
-    updatesError,
+    updatesError: updatesErrorMessage,
     updatesScanned,
     expandedUpdateGroups,
     selectedUpdateIds,
@@ -1099,6 +1130,8 @@ export function useAppManagerController(active: boolean) {
     canUsePlatformFeatures,
     appManagerColumns,
     installListColumns,
+    clearError,
+    clearUpdatesError,
     setSearchQuery,
     setActiveFilter,
     setMarketplaceFilter,

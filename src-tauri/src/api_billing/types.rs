@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use super::crypto::EncryptedBlob;
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum AccountSessionStatus {
@@ -111,6 +113,8 @@ pub struct RelayAccountExport {
     pub username: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub password: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub encrypted_password: Option<EncryptedBlob>,
     #[serde(default)]
     pub notes: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -145,11 +149,21 @@ pub struct RelayStationExport {
     pub accounts: Vec<RelayAccountExport>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum RelayExportMode {
+    #[default]
+    Sanitized,
+    EncryptedFull,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RelayDataExportFile {
     pub version: u32,
     pub exported_at: String,
+    #[serde(default)]
+    pub mode: RelayExportMode,
     pub stations: Vec<RelayStationExport>,
 }
 
@@ -158,6 +172,7 @@ pub struct RelayDataExportFile {
 pub struct RelayDataExportResult {
     pub station_count: usize,
     pub account_count: usize,
+    pub mode: RelayExportMode,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

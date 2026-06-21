@@ -45,7 +45,7 @@ function PortManager({ feature }: { feature?: { desktopOnly?: boolean } }) {
         onScrollToPort={controller.scrollToPort}
         onKillPort={controller.handleKillPort}
         onRemovePort={controller.removePort}
-        onSetError={controller.setError}
+        onClearError={controller.clearError}
         statusIconFor={controller.statusIconFor}
       />
     </RuntimeFeatureGate>

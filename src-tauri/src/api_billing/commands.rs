@@ -6,16 +6,16 @@ use tauri_plugin_clipboard_manager::ClipboardExt;
 
 use super::crypto;
 use super::probe;
-use super::state::ApiBillingState;
+use super::state::{ApiBillingSnapshot, ApiBillingState};
 use super::storage;
 use super::types::{
     AccountSessionStatus, ApiBillingError, ApiBillingResult, LoginDetectionConfig, LoginMethod,
     RelayAccountExport, RelayDataExportFile, RelayDataExportResult, RelayDataImportResult,
-    RelayStation, RelayStationExport, StationAccount,
+    RelayExportMode, RelayStation, RelayStationExport, StationAccount,
 };
 use super::webview;
 
-const RELAY_EXPORT_VERSION: u32 = 1;
+const RELAY_EXPORT_VERSION: u32 = 2;
 
 fn new_id(prefix: &str) -> String {
     let mut bytes = [0u8; 4];
@@ -117,11 +117,89 @@ fn reorder_by_ids<T: HasId + Clone>(
     Ok(out)
 }
 
+fn build_export_file(
+    snapshot: &ApiBillingSnapshot,
+    mode: RelayExportMode,
+) -> ApiBillingResult<(RelayDataExportFile, usize)> {
+    let mut exported_accounts = 0usize;
+    let stations = snapshot
+        .stations
+        .iter()
+        .map(|station| {
+            let station_accounts = snapshot
+                .accounts
+                .iter()
+                .filter(|account| account.station_id == station.id)
+                .map(|account| {
+                    exported_accounts += 1;
+                    let encrypted_password = match mode {
+                        RelayExportMode::Sanitized => None,
+                        RelayExportMode::EncryptedFull => {
+                            snapshot.secrets.get(&account.id).cloned()
+                        }
+                    };
+                    Ok(RelayAccountExport {
+                        username: account.username.clone(),
+                        password: None,
+                        encrypted_password,
+                        notes: account.notes.clone(),
+                        phone: account.phone.clone(),
+                        tg_account: account.tg_account.clone(),
+                        linked_account: account.linked_account.clone(),
+                        invite_link: account.invite_link.clone(),
+                        login_methods: account.login_methods.clone(),
+                        status: account.status,
+                        last_login_at: account.last_login_at.clone(),
+                        last_refreshed_at: account.last_refreshed_at.clone(),
+                        created_at: Some(account.created_at.clone()),
+                    })
+                })
+                .collect::<ApiBillingResult<Vec<_>>>()?;
+
+            Ok(RelayStationExport {
+                remark: station.remark.clone(),
+                website: station.website.clone(),
+                created_at: Some(station.created_at.clone()),
+                login_detection: station.login_detection.clone(),
+                accounts: station_accounts,
+            })
+        })
+        .collect::<ApiBillingResult<Vec<_>>>()?;
+
+    Ok((
+        RelayDataExportFile {
+            version: RELAY_EXPORT_VERSION,
+            exported_at: now_label(),
+            mode,
+            stations,
+        },
+        exported_accounts,
+    ))
+}
+
+fn import_account_secret(
+    key: &[u8; 32],
+    account: &RelayAccountExport,
+) -> ApiBillingResult<Option<super::crypto::EncryptedBlob>> {
+    if let Some(password) = normalize_optional(account.password.clone()) {
+        return crypto::encrypt(key, &password).map(Some);
+    }
+
+    let Some(blob) = account.encrypted_password.as_ref() else {
+        return Ok(None);
+    };
+
+    // Re-encrypt through the current keyring entry so malformed / foreign blobs
+    // fail fast instead of silently persisting unusable ciphertext.
+    let plaintext = crypto::decrypt(key, blob)?;
+    crypto::encrypt(key, &plaintext).map(Some)
+}
+
 // ───── stations ─────
 
 #[tauri::command]
 pub fn list_stations(state: State<'_, ApiBillingState>) -> Vec<RelayStation> {
-    state.stations.lock().unwrap().clone()
+    state.read_snapshot().stations
 }
 
 #[tauri::command]
@@ -226,18 +304,16 @@ pub fn list_accounts(
     station_id: String,
 ) -> Vec<StationAccount> {
     state
+        .read_snapshot()
         .accounts
-        .lock()
-        .unwrap()
-        .iter()
+        .into_iter()
         .filter(|a| a.station_id == station_id)
-        .cloned()
         .collect()
 }
 
 #[tauri::command]
 pub fn list_all_accounts(state: State<'_, ApiBillingState>) -> Vec<StationAccount> {
-    state.accounts.lock().unwrap().clone()
+    state.read_snapshot().accounts
 }
 
 #[tauri::command]
@@ -407,61 +483,11 @@ pub fn reorder_accounts<R: Runtime>(
 pub fn export_relay_data(
     state: State<'_, ApiBillingState>,
     path: String,
+    mode: Option<RelayExportMode>,
 ) -> ApiBillingResult<RelayDataExportResult> {
-    let stations = state.stations.lock().unwrap().clone();
-    let accounts = state.accounts.lock().unwrap().clone();
-    let secrets = state.secrets.lock().unwrap().clone();
-    let key = if secrets.is_empty() {
-        None
-    } else {
-        Some(state.master_key()?)
-    };
-
-    let mut exported_accounts = 0usize;
-    let stations = stations
-        .into_iter()
-        .map(|station| {
-            let station_accounts = accounts
-                .iter()
-                .filter(|account| account.station_id == station.id)
-                .map(|account| {
-                    exported_accounts += 1;
-                    let password = match (secrets.get(&account.id), key) {
-                        (Some(blob), Some(k)) => Some(crypto::decrypt(&k, blob)?),
-                        _ => None,
-                    };
-                    Ok(RelayAccountExport {
-                        username: account.username.clone(),
-                        password,
-                        notes: account.notes.clone(),
-                        phone: account.phone.clone(),
-                        tg_account: account.tg_account.clone(),
-                        linked_account: account.linked_account.clone(),
-                        invite_link: account.invite_link.clone(),
-                        login_methods: account.login_methods.clone(),
-                        status: account.status,
-                        last_login_at: account.last_login_at.clone(),
-                        last_refreshed_at: account.last_refreshed_at.clone(),
-                        created_at: Some(account.created_at.clone()),
-                    })
-                })
-                .collect::<ApiBillingResult<Vec<_>>>()?;
-
-            Ok(RelayStationExport {
-                remark: station.remark,
-                website: station.website,
-                created_at: Some(station.created_at),
-                login_detection: station.login_detection,
-                accounts: station_accounts,
-            })
-        })
-        .collect::<ApiBillingResult<Vec<_>>>()?;
-
-    let export = RelayDataExportFile {
-        version: RELAY_EXPORT_VERSION,
-        exported_at: now_label(),
-        stations,
-    };
+    let selected_mode = mode.unwrap_or(RelayExportMode::Sanitized);
+    let snapshot = state.read_snapshot();
+    let (export, exported_accounts) = build_export_file(&snapshot, selected_mode.clone())?;
     let body = serde_json::to_string_pretty(&export)
         .map_err(|e| ApiBillingError::store_fail(format!("serialize export: {e}")))?;
     std::fs::write(&path, body)
@@ -470,6 +496,7 @@ pub fn export_relay_data(
     Ok(RelayDataExportResult {
         station_count: export.stations.len(),
         account_count: exported_accounts,
+        mode: selected_mode,
     })
 }
 
@@ -508,7 +535,7 @@ pub fn import_relay_data<R: Runtime>(
 
             for account in station.accounts {
                 let account_id = new_id("acct");
-                let password = normalize_optional(account.password);
+                let secret = import_account_secret(&key, &account)?;
                 imported_accounts.push(StationAccount {
                     id: account_id.clone(),
                     station_id: station_id.clone(),
@@ -523,10 +550,10 @@ pub fn import_relay_data<R: Runtime>(
                     last_login_at: account.last_login_at,
                     last_refreshed_at: account.last_refreshed_at,
                     created_at: account.created_at.unwrap_or_else(now_label),
-                    has_password: password.is_some(),
+                    has_password: secret.is_some(),
                 });
-                if let Some(password) = password {
-                    imported_secrets.insert(account_id, crypto::encrypt(&key, &password)?);
+                if let Some(secret) = secret {
+                    imported_secrets.insert(account_id, secret);
                 }
             }
         }
@@ -551,13 +578,12 @@ pub fn reveal_password(
     state: State<'_, ApiBillingState>,
     account_id: String,
 ) -> ApiBillingResult<String> {
-    let blob = {
-        let secrets = state.secrets.lock().unwrap();
-        secrets
-            .get(&account_id)
-            .cloned()
-            .ok_or_else(|| ApiBillingError::not_found(format!("password for {account_id}")))?
-    };
+    let blob = state
+        .read_snapshot()
+        .secrets
+        .get(&account_id)
+        .cloned()
+        .ok_or_else(|| ApiBillingError::not_found(format!("password for {account_id}")))?;
     let key = state.master_key()?;
     crypto::decrypt(&key, &blob)
 }
@@ -608,13 +634,12 @@ pub fn copy_password_to_clipboard<R: Runtime>(
     state: State<'_, ApiBillingState>,
     account_id: String,
 ) -> ApiBillingResult<()> {
-    let blob = {
-        let secrets = state.secrets.lock().unwrap();
-        secrets
-            .get(&account_id)
-            .cloned()
-            .ok_or_else(|| ApiBillingError::not_found(format!("password for {account_id}")))?
-    };
+    let blob = state
+        .read_snapshot()
+        .secrets
+        .get(&account_id)
+        .cloned()
+        .ok_or_else(|| ApiBillingError::not_found(format!("password for {account_id}")))?;
     let key = state.master_key()?;
     let plaintext = crypto::decrypt(&key, &blob)?;
     app.clipboard()
@@ -631,12 +656,15 @@ async fn refresh_one_impl<R: Runtime>(
 ) -> ApiBillingResult<StationAccount> {
     let (website, detection_config, semaphore) = {
         let state = app.state::<ApiBillingState>();
-        let stations = state.stations.lock().unwrap();
-        let accounts = state.accounts.lock().unwrap();
-        let Some(account) = accounts.iter().find(|a| a.id == account_id) else {
+        let snapshot = state.read_snapshot();
+        let Some(account) = snapshot.accounts.iter().find(|a| a.id == account_id) else {
             return Err(ApiBillingError::not_found(format!("account {account_id}")));
         };
-        let Some(station) = stations.iter().find(|s| s.id == account.station_id) else {
+        let Some(station) = snapshot
+            .stations
+            .iter()
+            .find(|s| s.id == account.station_id)
+        else {
             return Err(ApiBillingError::not_found(format!(
                 "station {}",
                 account.station_id
@@ -709,12 +737,11 @@ pub async fn refresh_station<R: Runtime>(
     station_id: String,
 ) -> ApiBillingResult<Vec<StationAccount>> {
     let account_ids: Vec<String> = state
+        .read_snapshot()
         .accounts
-        .lock()
-        .unwrap()
-        .iter()
+        .into_iter()
         .filter(|a| a.station_id == station_id)
-        .map(|a| a.id.clone())
+        .map(|a| a.id)
         .collect();
     Ok(refresh_many(app, account_ids).await)
 }
@@ -724,13 +751,7 @@ pub async fn refresh_all<R: Runtime>(
     app: AppHandle<R>,
     state: State<'_, ApiBillingState>,
 ) -> ApiBillingResult<Vec<StationAccount>> {
-    let account_ids: Vec<String> = state
-        .accounts
-        .lock()
-        .unwrap()
-        .iter()
-        .map(|a| a.id.clone())
-        .collect();
+    let account_ids: Vec<String> = state.read_snapshot().accounts.into_iter().map(|a| a.id).collect();
     Ok(refresh_many(app, account_ids).await)
 }
 
@@ -741,13 +762,14 @@ pub fn open_login_window<R: Runtime>(
     account_id: String,
 ) -> ApiBillingResult<()> {
     let (username, website) = {
-        let stations = state.stations.lock().unwrap();
-        let accounts = state.accounts.lock().unwrap();
-        let account = accounts
+        let snapshot = state.read_snapshot();
+        let account = snapshot
+            .accounts
             .iter()
             .find(|a| a.id == account_id)
             .ok_or_else(|| ApiBillingError::not_found(format!("account {account_id}")))?;
-        let station = stations
+        let station = snapshot
+            .stations
             .iter()
             .find(|s| s.id == account.station_id)
             .ok_or_else(|| ApiBillingError::not_found(format!("station {}", account.station_id)))?;
@@ -834,5 +856,74 @@ mod tests {
         let current: Vec<RelayStation> = vec![];
         let out = reorder_by_ids(&current, &[], "station").expect("ok");
         assert!(out.is_empty());
+    }
+
+    #[test]
+    fn build_export_file_defaults_to_sanitized_without_plaintext_or_ciphertext() {
+        let snapshot = ApiBillingSnapshot {
+            stations: vec![make_station("a")],
+            accounts: vec![StationAccount {
+                id: "acct-1".into(),
+                station_id: "a".into(),
+                username: "user".into(),
+                notes: String::new(),
+                phone: None,
+                tg_account: None,
+                linked_account: None,
+                invite_link: None,
+                login_methods: vec![],
+                status: AccountSessionStatus::Ready,
+                last_login_at: None,
+                last_refreshed_at: None,
+                created_at: "2026-01-01 00:00".into(),
+                has_password: true,
+            }],
+            secrets: HashMap::from([(
+                "acct-1".into(),
+                crypto::encrypt(&[9u8; 32], "secret").expect("encrypt"),
+            )]),
+        };
+
+        let (export, count) =
+            build_export_file(&snapshot, RelayExportMode::Sanitized).expect("export");
+
+        assert_eq!(count, 1);
+        assert_eq!(export.mode, RelayExportMode::Sanitized);
+        assert_eq!(export.stations[0].accounts[0].password, None);
+        assert_eq!(export.stations[0].accounts[0].encrypted_password, None);
+    }
+
+    #[test]
+    fn build_export_file_keeps_ciphertext_in_encrypted_full_mode() {
+        let encrypted = crypto::encrypt(&[7u8; 32], "secret").expect("encrypt");
+        let snapshot = ApiBillingSnapshot {
+            stations: vec![make_station("a")],
+            accounts: vec![StationAccount {
+                id: "acct-1".into(),
+                station_id: "a".into(),
+                username: "user".into(),
+                notes: String::new(),
+                phone: None,
+                tg_account: None,
+                linked_account: None,
+                invite_link: None,
+                login_methods: vec![],
+                status: AccountSessionStatus::Ready,
+                last_login_at: None,
+                last_refreshed_at: None,
+                created_at: "2026-01-01 00:00".into(),
+                has_password: true,
+            }],
+            secrets: HashMap::from([("acct-1".into(), encrypted.clone())]),
+        };
+
+        let (export, _) =
+            build_export_file(&snapshot, RelayExportMode::EncryptedFull).expect("export");
+
+        assert_eq!(
+            export.stations[0].accounts[0].encrypted_password.as_ref(),
+            Some(&encrypted)
+        );
+        assert_eq!(export.stations[0].accounts[0].password, None);
     }
 }

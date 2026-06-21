@@ -2,6 +2,7 @@
  * Feature Model / 功能模型: keep pure model logic; 只放纯模型逻辑.
  */
 import type { BatchOperationResult, OperationResult } from "@/lib/tauri/types/app-manager";
+import type { LocalizedError } from "@/lib/errors";
 
 export type OperationStatus = "idle" | "pending" | "running" | "success" | "error";
 
@@ -57,6 +58,9 @@ export function createBatchErrorPatch(error: unknown) {
     batchResults: null,
     selectedAppIds: new Set<string>(),
     batchMode: false,
-    error: String(error),
+    error: {
+      key: "appManager.errors.genericBatchFailure",
+      fallback: String(error),
+    } satisfies LocalizedError,
   };
 }

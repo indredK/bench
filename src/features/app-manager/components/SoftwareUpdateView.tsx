@@ -3,11 +3,12 @@
  */
 import { useMemo } from "react";
 import type { TFunction } from "i18next";
-import { CheckCircle2, RefreshCw, Search } from "lucide-react";
+import { CheckCircle2, RefreshCw, Search, X } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { DetailPanel } from "@/components/layout/DetailPanel";
 import { ThreeColumnLayout } from "@/components/layout/ThreeColumnLayout";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { AppInfo, UpdateInfo, UpdateSource } from "@/lib/tauri/types/app-manager";
 import type { AppOperationState } from "@/features/app-manager/model/operations";
 import { UpdaterActionBar } from "@/features/app-manager/components/UpdaterActionBar";
@@ -26,6 +27,7 @@ interface SoftwareUpdateViewProps {
   loading: boolean;
   scanned: boolean;
   error: string;
+  onClearError?: () => void;
   lastUpdateCheck: number;
   selectedIds: Set<string>;
   selectedUpdate: UpdateInfo | null;
@@ -63,6 +65,7 @@ export function SoftwareUpdateView({
   loading,
   scanned,
   error,
+  onClearError,
   lastUpdateCheck,
   selectedIds,
   selectedUpdate,
@@ -196,7 +199,23 @@ export function SoftwareUpdateView({
 
       {error && (
         <Alert variant="destructive" className="shrink-0">
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription className="flex items-center justify-between gap-3">
+            <span>{error}</span>
+            {onClearError ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex size-5 shrink-0 items-center justify-center rounded-full transition hover:bg-destructive/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    onClick={onClearError}
+                  >
+                    <X size={13} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>{t("common.actions.close")}</TooltipContent>
+              </Tooltip>
+            ) : null}
+          </AlertDescription>
         </Alert>
       )}
 

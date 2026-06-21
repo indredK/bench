@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 
 function runStep(label, command, args) {
@@ -79,12 +79,13 @@ if (nodeScriptFiles.length > 0) {
 }
 
 if (hasFrontendChanges) {
+  runStep("Running frontend static guards", npmCommand, ["run", "lint:fe"]);
   runStep("Running frontend tests", npmCommand, ["run", "test:fe"]);
   runStep("Type-checking and building frontend", npmCommand, ["run", "build:fe"]);
 }
 
 if (hasBackendChanges) {
-  runStep("Cross-platform crate check", "node", ["scripts/check-rust-crates.mjs"]);
+  runStep("Cross-platform crate check", "node", ["scripts/quality/check-rust-crates.mjs"]);
   runStep("Checking Rust code", npmCommand, ["run", "check:be"]);
   runStep("Running Rust clippy (warnings as errors)", npmCommand, ["run", "clippy:be"]);
   runStep("Running Rust tests", npmCommand, ["run", "test:be"]);

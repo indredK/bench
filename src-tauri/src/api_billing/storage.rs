@@ -5,7 +5,7 @@ use tauri::{AppHandle, Runtime};
 use tauri_plugin_store::StoreExt;
 
 use super::crypto::{self, EncryptedBlob};
-use super::state::ApiBillingState;
+use super::state::{ApiBillingSnapshot, ApiBillingState};
 use super::types::{ApiBillingError, ApiBillingResult, RelayStation, StationAccount};
 
 const STORE_FILE: &str = "relay-store.json";
@@ -14,13 +14,6 @@ const KEY_ACCOUNTS: &str = "accounts";
 const KEY_SECRETS: &str = "secrets";
 const KEY_SCHEMA: &str = "schema_version";
 const CURRENT_SCHEMA: u32 = 2;
-
-#[derive(Clone)]
-pub struct ApiBillingSnapshot {
-    pub stations: Vec<RelayStation>,
-    pub accounts: Vec<StationAccount>,
-    pub secrets: HashMap<String, EncryptedBlob>,
-}
 
 /// Load persisted state from the plugin-store and populate the managed state.
 /// Called once during `setup`. Migrates P0 plaintext secrets to encrypted blobs.
@@ -40,9 +33,12 @@ pub fn init_state<R: Runtime>(app: &AppHandle<R>, state: &ApiBillingState) -> Ap
 
     let (secrets, needs_resave) = load_and_migrate_secrets(store.get(KEY_SECRETS), state)?;
 
-    *state.stations.lock().unwrap() = stations;
-    *state.accounts.lock().unwrap() = accounts;
-    *state.secrets.lock().unwrap() = secrets.clone();
+    let snapshot = ApiBillingSnapshot {
+        stations,
+        accounts,
+        secrets: secrets.clone(),
+    };
+    state.replace_snapshot(snapshot);
 
     let schema = store
         .get(KEY_SCHEMA)
@@ -149,22 +145,14 @@ pub fn with_state_mut<R: Runtime, F, T>(
 where
     F: FnOnce(&mut ApiBillingSnapshot) -> ApiBillingResult<T>,
 {
-    let mut stations = state.stations.lock().unwrap_or_else(|e| e.into_inner());
-    let mut accounts = state.accounts.lock().unwrap_or_else(|e| e.into_inner());
-    let mut secrets = state.secrets.lock().unwrap_or_else(|e| e.into_inner());
+    let mut snapshot = state.snapshot.write().unwrap_or_else(|e| e.into_inner());
 
-    let mut next = ApiBillingSnapshot {
-        stations: stations.clone(),
-        accounts: accounts.clone(),
-        secrets: secrets.clone(),
-    };
+    let mut next = snapshot.clone();
 
     let result = f(&mut next)?;
     save_snapshot(app, &next)?;
 
-    *stations = next.stations;
-    *accounts = next.accounts;
-    *secrets = next.secrets;
+    *snapshot = next;
 
     Ok(result)
 }
