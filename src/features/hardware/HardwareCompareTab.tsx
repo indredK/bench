@@ -1,7 +1,10 @@
 /**
  * Feature / 功能层: lazy-load hardware compare module; 只负责硬件模块延迟装载.
  */
+import { AlertTriangle } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { FeatureLoadError } from "@/components/common/FeatureLoadError";
 import HardwareCompare from "@/features/hardware/HardwareCompare";
 import type { CompareDataModule } from "@/shared/compare/types";
 
@@ -10,23 +13,58 @@ interface HardwareCompareTabProps {
 }
 
 export default function HardwareCompareTab({ loadModule }: HardwareCompareTabProps) {
+  const { t } = useTranslation();
   const [module, setModule] = useState<CompareDataModule<any> | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [retryToken, setRetryToken] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
+    setModule(null);
+    setLoadError(null);
 
-    void loadModule().then((loaded) => {
-      if (!cancelled) {
-        setModule(loaded.module);
-      }
-    });
+    void loadModule()
+      .then((loaded) => {
+        if (!cancelled) {
+          setModule(loaded.module);
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          const message =
+            typeof error === "object" &&
+            error !== null &&
+            "message" in error &&
+            typeof (error as { message?: unknown }).message === "string"
+              ? ((error as { message: string }).message || t("hardwareCompare.loadFailed"))
+              : t("hardwareCompare.loadFailed");
+          setLoadError(message);
+        }
+      });
 
     return () => {
       cancelled = true;
     };
-  }, [loadModule]);
+  }, [loadModule, retryToken, t]);
 
-  if (!module) return null;
+  if (loadError) {
+    return (
+      <FeatureLoadError
+        title={t("hardwareCompare.loadFailedTitle")}
+        description={loadError}
+        icon={<AlertTriangle size={32} className="opacity-50" />}
+        onRetry={() => setRetryToken((value) => value + 1)}
+      />
+    );
+  }
+
+  if (!module) {
+    return (
+      <div className="flex h-full items-center justify-center rounded-xl border bg-card/40">
+        <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
+      </div>
+    );
+  }
 
   return <HardwareCompare module={module} />;
 }

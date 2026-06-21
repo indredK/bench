@@ -4,6 +4,7 @@ type ApiBillingErrorLike = Partial<ApiBillingError> & { message?: string };
 
 export type ApiBillingErrorKind =
   | "invalidImportFile"
+  | "invalidInput"
   | "storeFailure"
   | "unknown";
 
@@ -36,7 +37,7 @@ export function classifyApiBillingError(
 
   switch (code) {
     case "INVALID_INPUT":
-      return { kind: "invalidImportFile", message };
+      return { kind: "invalidInput", message };
     case "STORE_FAIL":
       return { kind: "storeFailure", message };
     default:

@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -25,6 +32,7 @@ import {
   TriangleAlert,
   UserRound,
 } from "lucide-react";
+import { FeatureLoadError } from "@/components/common/FeatureLoadError";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -97,6 +105,8 @@ function ApiBillingPage() {
   const { t } = useTranslation();
   const [stations, setStations] = useState<RelayStation[]>([]);
   const [accounts, setAccounts] = useState<StationAccount[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedStationId, setSelectedStationId] = useState<string>("");
   const [selectedAccountId, setSelectedAccountId] = useState<string>("");
   const [openingAccountId, setOpeningAccountId] = useState<string | null>(null);
@@ -120,29 +130,33 @@ function ApiBillingPage() {
   const [reorderingStations, setReorderingStations] = useState(false);
   const [reorderingAccounts, setReorderingAccounts] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const [s, a] = await Promise.all([api.listStations(), api.listAllAccounts()]);
-        if (cancelled) return;
-        setStations(s);
-        setAccounts(a);
-        if (s.length > 0) {
-          setSelectedStationId(s[0].id);
-          const firstAccount = a.find((acc) => acc.stationId === s[0].id);
-          setSelectedAccountId(firstAccount?.id ?? "");
-        }
-      } catch (error) {
-        toast.error(t("apiBilling.toasts.initFailed"));
+  const loadInitialData = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const [s, a] = await Promise.all([api.listStations(), api.listAllAccounts()]);
+      setStations(s);
+      setAccounts(a);
+      if (s.length > 0) {
+        setSelectedStationId(s[0].id);
+        const firstAccount = a.find((acc) => acc.stationId === s[0].id);
+        setSelectedAccountId(firstAccount?.id ?? "");
+      } else {
+        setSelectedStationId("");
+        setSelectedAccountId("");
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // 仅初始化加载一次,不随 t 变化重新拉取数据
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    } catch (error) {
+      const info = classifyApiBillingError(error, t("apiBilling.toasts.initFailed"));
+      setLoadError(info.message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, [t]);
+
+  useEffect(() => {
+    void loadInitialData().catch(() => undefined);
+  }, [loadInitialData]);
 
   const selectedStation = stations.find((s) => s.id === selectedStationId) ?? null;
   const stationAccounts = useMemo(
@@ -158,6 +172,24 @@ function ApiBillingPage() {
   }, [accounts]);
   const selectedAccount =
     stationAccounts.find((a) => a.id === selectedAccountId) ?? stationAccounts[0] ?? null;
+
+  if (loading) {
+    return (
+      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+        {t("common.loading")}
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <FeatureLoadError
+        title={t("apiBilling.loadFailedTitle")}
+        description={loadError}
+        onRetry={() => void loadInitialData().catch(() => undefined)}
+      />
+    );
+  }
 
   const handleAddStation = async (
     remark: string,

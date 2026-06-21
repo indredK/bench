@@ -178,14 +178,8 @@ fn is_duplicate_term_scope(
 
 #[tauri::command]
 pub fn list_terminology_data(state: State<'_, TerminologyState>) -> TerminologyResult<TerminologyBundle> {
-    let industries = state.industries.lock().unwrap().clone();
-    let terms = state.terms.lock().unwrap().clone();
-    let pinned_term_ids = state.pinned_term_ids.lock().unwrap().clone();
-    Ok(TerminologyBundle {
-        industries,
-        terms,
-        pinned_term_ids,
-    })
+    state.ensure_ready()?;
+    Ok(state.read_bundle())
 }
 
 #[tauri::command]

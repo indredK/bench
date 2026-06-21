@@ -1,6 +1,6 @@
 use std::sync::Mutex;
 
-use super::types::{Industry, Term, TerminologyError, TerminologyResult};
+use super::types::{Industry, Term, TerminologyBundle, TerminologyError, TerminologyResult};
 
 pub struct TerminologyState {
     pub industries: Mutex<Vec<Industry>>,
@@ -40,5 +40,20 @@ impl TerminologyState {
         }
 
         Ok(())
+    }
+
+    pub fn read_bundle(&self) -> TerminologyBundle {
+        let industries = self.industries.lock().unwrap_or_else(|e| e.into_inner());
+        let terms = self.terms.lock().unwrap_or_else(|e| e.into_inner());
+        let pinned_term_ids = self
+            .pinned_term_ids
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+
+        TerminologyBundle {
+            industries: industries.clone(),
+            terms: terms.clone(),
+            pinned_term_ids: pinned_term_ids.clone(),
+        }
     }
 }

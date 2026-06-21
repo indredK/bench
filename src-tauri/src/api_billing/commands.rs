@@ -198,8 +198,8 @@ fn import_account_secret(
 // ───── stations ─────
 
 #[tauri::command]
-pub fn list_stations(state: State<'_, ApiBillingState>) -> Vec<RelayStation> {
-    state.read_snapshot().stations
+pub fn list_stations(state: State<'_, ApiBillingState>) -> ApiBillingResult<Vec<RelayStation>> {
+    Ok(state.read_snapshot_checked()?.stations)
 }
 
 #[tauri::command]
@@ -302,18 +302,20 @@ pub fn reorder_stations<R: Runtime>(
 pub fn list_accounts(
     state: State<'_, ApiBillingState>,
     station_id: String,
-) -> Vec<StationAccount> {
-    state
-        .read_snapshot()
+) -> ApiBillingResult<Vec<StationAccount>> {
+    Ok(state
+        .read_snapshot_checked()?
         .accounts
         .into_iter()
         .filter(|a| a.station_id == station_id)
-        .collect()
+        .collect())
 }
 
 #[tauri::command]
-pub fn list_all_accounts(state: State<'_, ApiBillingState>) -> Vec<StationAccount> {
-    state.read_snapshot().accounts
+pub fn list_all_accounts(
+    state: State<'_, ApiBillingState>,
+) -> ApiBillingResult<Vec<StationAccount>> {
+    Ok(state.read_snapshot_checked()?.accounts)
 }
 
 #[tauri::command]
@@ -486,7 +488,7 @@ pub fn export_relay_data(
     mode: Option<RelayExportMode>,
 ) -> ApiBillingResult<RelayDataExportResult> {
     let selected_mode = mode.unwrap_or(RelayExportMode::Sanitized);
-    let snapshot = state.read_snapshot();
+    let snapshot = state.read_snapshot_checked()?;
     let (export, exported_accounts) = build_export_file(&snapshot, selected_mode.clone())?;
     let body = serde_json::to_string_pretty(&export)
         .map_err(|e| ApiBillingError::store_fail(format!("serialize export: {e}")))?;
@@ -579,7 +581,7 @@ pub fn reveal_password(
     account_id: String,
 ) -> ApiBillingResult<String> {
     let blob = state
-        .read_snapshot()
+        .read_snapshot_checked()?
         .secrets
         .get(&account_id)
         .cloned()
@@ -635,7 +637,7 @@ pub fn copy_password_to_clipboard<R: Runtime>(
     account_id: String,
 ) -> ApiBillingResult<()> {
     let blob = state
-        .read_snapshot()
+        .read_snapshot_checked()?
         .secrets
         .get(&account_id)
         .cloned()
@@ -656,7 +658,7 @@ async fn refresh_one_impl<R: Runtime>(
 ) -> ApiBillingResult<StationAccount> {
     let (website, detection_config, semaphore) = {
         let state = app.state::<ApiBillingState>();
-        let snapshot = state.read_snapshot();
+        let snapshot = state.read_snapshot_checked()?;
         let Some(account) = snapshot.accounts.iter().find(|a| a.id == account_id) else {
             return Err(ApiBillingError::not_found(format!("account {account_id}")));
         };
@@ -737,7 +739,7 @@ pub async fn refresh_station<R: Runtime>(
     station_id: String,
 ) -> ApiBillingResult<Vec<StationAccount>> {
     let account_ids: Vec<String> = state
-        .read_snapshot()
+        .read_snapshot_checked()?
         .accounts
         .into_iter()
         .filter(|a| a.station_id == station_id)
@@ -751,7 +753,12 @@ pub async fn refresh_all<R: Runtime>(
     app: AppHandle<R>,
     state: State<'_, ApiBillingState>,
 ) -> ApiBillingResult<Vec<StationAccount>> {
-    let account_ids: Vec<String> = state.read_snapshot().accounts.into_iter().map(|a| a.id).collect();
+    let account_ids: Vec<String> = state
+        .read_snapshot_checked()?
+        .accounts
+        .into_iter()
+        .map(|a| a.id)
+        .collect();
     Ok(refresh_many(app, account_ids).await)
 }
 
@@ -762,7 +769,7 @@ pub fn open_login_window<R: Runtime>(
     account_id: String,
 ) -> ApiBillingResult<()> {
     let (username, website) = {
-        let snapshot = state.read_snapshot();
+        let snapshot = state.read_snapshot_checked()?;
         let account = snapshot
             .accounts
             .iter()

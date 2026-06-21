@@ -1,14 +1,14 @@
 import { classifyApiBillingError } from "../error-classifier";
 
 describe("classifyApiBillingError", () => {
-  it("classifies invalid import file", () => {
+  it("classifies invalid input", () => {
     expect(
       classifyApiBillingError(
         { code: "INVALID_INPUT", message: "bad payload" },
         "fallback"
       )
     ).toEqual({
-      kind: "invalidImportFile",
+      kind: "invalidInput",
       message: "bad payload",
     });
   });

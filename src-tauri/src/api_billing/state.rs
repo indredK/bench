@@ -40,6 +40,11 @@ impl ApiBillingState {
             .clone()
     }
 
+    pub fn read_snapshot_checked(&self) -> ApiBillingResult<ApiBillingSnapshot> {
+        self.ensure_ready()?;
+        Ok(self.read_snapshot())
+    }
+
     pub fn replace_snapshot(&self, snapshot: ApiBillingSnapshot) {
         *self.snapshot.write().unwrap_or_else(|e| e.into_inner()) = snapshot;
     }

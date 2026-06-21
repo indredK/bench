@@ -9,6 +9,7 @@ import {
   Edit3,
   ArrowRightLeft,
 } from "lucide-react";
+import { FeatureLoadError } from "@/components/common/FeatureLoadError";
 
 import {
   listPricingStandards,
@@ -78,6 +79,7 @@ export default function TokenCalculatorPage() {
   const { t } = useTranslation();
   const [standards, setStandards] = useState<PricingStandard[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("standards");
 
   // Currency display toggle
@@ -85,18 +87,27 @@ export default function TokenCalculatorPage() {
   const [exchangeRate, setExchangeRate] = useState(DEFAULT_EXCHANGE_RATE);
 
   const loadStandards = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
     try {
       const data = await listPricingStandards();
       setStandards(data);
-    } catch {
-      toast.error(t("tokenCalculator.toasts.loadFailed"));
+    } catch (error) {
+      const message =
+        typeof error === "object" &&
+        error !== null &&
+        "message" in error &&
+        typeof (error as { message?: unknown }).message === "string"
+          ? ((error as { message: string }).message || t("tokenCalculator.toasts.loadFailed"))
+          : t("tokenCalculator.toasts.loadFailed");
+      setLoadError(message);
     } finally {
       setLoading(false);
     }
   }, [t]);
 
   useEffect(() => {
-    loadStandards();
+    void loadStandards();
   }, [loadStandards]);
 
   if (loading) {
@@ -104,6 +115,16 @@ export default function TokenCalculatorPage() {
       <div className="flex h-full items-center justify-center p-8">
         <p className="text-muted-foreground">{t("tokenCalculator.loading")}</p>
       </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <FeatureLoadError
+        title={t("tokenCalculator.loadFailedTitle")}
+        description={loadError}
+        onRetry={() => void loadStandards()}
+      />
     );
   }
 

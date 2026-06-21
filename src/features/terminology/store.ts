@@ -33,6 +33,7 @@ interface TerminologyState {
   selectedSubcategoryId: string;
   searchQuery: string;
   isLoading: boolean;
+  loadError: string | null;
 
   hydrate: () => Promise<void>;
 
@@ -138,14 +139,22 @@ export const useTerminologyStore = create<TerminologyState>((set, get) => ({
   selectedSubcategoryId: "",
   searchQuery: "",
   isLoading: true,
+  loadError: null,
 
   hydrate: async () => {
-    set({ isLoading: true });
+    set({ isLoading: true, loadError: null });
     try {
       await reloadFromBackend(set, get);
-    } catch {
-      set({ isLoading: false });
-      throw new Error("Failed to load terminology data");
+    } catch (error) {
+      const message =
+        typeof error === "object" &&
+        error !== null &&
+        "message" in error &&
+        typeof (error as { message?: unknown }).message === "string"
+          ? ((error as { message: string }).message || "Failed to load terminology data")
+          : "Failed to load terminology data";
+      set({ isLoading: false, loadError: message });
+      throw error;
     }
   },
 

@@ -1,7 +1,8 @@
 import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import HardwareCompare from "@/features/hardware/HardwareCompare";
+import HardwareCompareTab from "@/features/hardware/HardwareCompareTab";
 import { useHardwareCompareStore } from "@/features/hardware/store";
 import type { CompareDataModule } from "@/shared/compare/types";
 
@@ -63,5 +64,21 @@ describe("HardwareCompare", () => {
 
     expect(screen.getByTestId("compare-matrix")).toBeInTheDocument();
     expect(screen.getByText("hardware.test.comparingTitle:2")).toBeInTheDocument();
+  });
+
+  it("renders a persistent load error and retries module loading", async () => {
+    const loadModule = vi.fn().mockRejectedValue(new Error("module boom"));
+
+    render(<HardwareCompareTab loadModule={loadModule} />);
+
+    expect(await screen.findByText("hardwareCompare.loadFailedTitle")).toBeInTheDocument();
+    expect(screen.getByText("module boom")).toBeInTheDocument();
+    const callCountBeforeRetry = loadModule.mock.calls.length;
+
+    fireEvent.click(screen.getByRole("button", { name: "common.retry" }));
+
+    await waitFor(() => {
+      expect(loadModule.mock.calls.length).toBeGreaterThan(callCountBeforeRetry);
+    });
   });
 });

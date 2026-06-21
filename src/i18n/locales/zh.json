@@ -172,6 +172,7 @@
       "exportSuccess": "已导出 {{stations}} 个中转站、{{accounts}} 个账号",
       "importFailed": "导入中转站数据失败",
       "importSuccess": "已导入，当前共有 {{stations}} 个中转站、{{accounts}} 个账号",
+      "invalidInput": "输入不合法",
       "invalidImportFile": "导入文件格式不正确",
       "storeFailure": "本地数据读写失败",
       "reorderStationsSuccess": "中转站顺序已保存",
@@ -179,7 +180,8 @@
       "reorderAccountsSuccess": "账号顺序已保存",
       "reorderAccountsFailed": "保存账号顺序失败",
       "unknown": "操作失败，请稍后重试"
-    }
+    },
+    "loadFailedTitle": "加载中转站数据失败"
   },
   "appManager": {
     "title": "应用管理",
@@ -1413,7 +1415,9 @@
     "collapseFilters": "收起筛选",
     "expandFilters": "展开筛选",
     "autoExpandHint": "悬停自动展开，点击固定",
-    "pinnedHint": "固定展开，点击启用自动展开"
+    "pinnedHint": "固定展开，点击启用自动展开",
+    "loadFailedTitle": "加载对比数据失败",
+    "loadFailed": "对比数据模块加载失败。"
   },
   "brands": {
     "intel": "英特尔",
@@ -1500,6 +1504,7 @@
   "tokenCalculator": {
     "title": "Token 计算器",
     "loading": "加载计费标准...",
+    "loadFailedTitle": "加载计费标准失败",
     "displayCurrency": "显示币种",
     "exchangeRate": "汇率",
     "modelName": "模型名称",
@@ -1614,6 +1619,7 @@
     "edit": "编辑",
     "search": "搜索",
     "loading": "加载中...",
+    "retry": "重试",
     "success": "成功",
     "error": "错误",
     "warning": "警告",
@@ -1772,6 +1778,7 @@
     "added": "已添加",
     "saved": "已保存",
     "copied": "已复制",
+    "loadFailedTitle": "术语数据加载失败",
     "actions": {
       "pin": "置顶",
       "unpin": "取消置顶",

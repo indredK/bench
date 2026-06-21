@@ -162,7 +162,7 @@ function HardwareComparePage() {
         icon: tab.icon,
         content: (
           <Suspense fallback={<HardwareTabFallback />}>
-            <LazyHardwareTab loadModule={tab.loadModule} />
+            <LazyHardwareTab key={tab.id} loadModule={tab.loadModule} />
           </Suspense>
         ),
       })),

@@ -44,6 +44,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { openExternal } from "@/platform/shell";
+import { FeatureLoadError } from "@/components/common/FeatureLoadError";
 
 function copyText(text: string) {
   navigator.clipboard?.writeText(text).catch(() => {});
@@ -877,6 +878,7 @@ export default function TerminologyPage() {
     selectedSubcategoryId,
     searchQuery,
     isLoading,
+    loadError,
     hydrate,
     setIndustry,
     setCategory,
@@ -905,7 +907,7 @@ export default function TerminologyPage() {
 
   useEffect(() => {
     void hydrate().catch(() => {
-      toast.error(t("terminology.toasts.loadFailed"));
+      return;
     });
   }, [hydrate, t]);
 
@@ -928,6 +930,16 @@ export default function TerminologyPage() {
       <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
         {t("common.loading")}
       </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <FeatureLoadError
+        title={t("terminology.loadFailedTitle")}
+        description={loadError}
+        onRetry={() => void hydrate().catch(() => undefined)}
+      />
     );
   }
 

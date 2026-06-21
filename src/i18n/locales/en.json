@@ -172,6 +172,7 @@
       "exportSuccess": "Exported {{stations}} gateways and {{accounts}} accounts",
       "importFailed": "Failed to import gateway data",
       "importSuccess": "Import complete. There are now {{stations}} gateways and {{accounts}} accounts",
+      "invalidInput": "Input is invalid.",
       "invalidImportFile": "The import file format is invalid.",
       "storeFailure": "Failed to read or write local data.",
       "reorderStationsSuccess": "Gateway order saved",
@@ -179,7 +180,8 @@
       "reorderAccountsSuccess": "Account order saved",
       "reorderAccountsFailed": "Failed to save account order",
       "unknown": "The operation failed. Please try again."
-    }
+    },
+    "loadFailedTitle": "Failed to load gateway data"
   },
   "appManager": {
     "title": "App Manager",
@@ -1413,7 +1415,9 @@
     "collapseFilters": "Collapse filters",
     "expandFilters": "Expand filters",
     "autoExpandHint": "Hover to expand, click to pin",
-    "pinnedHint": "Pinned open, click for auto-expand"
+    "pinnedHint": "Pinned open, click for auto-expand",
+    "loadFailedTitle": "Failed to load comparison data",
+    "loadFailed": "The comparison data module could not be loaded."
   },
   "brands": {
     "intel": "Intel",
@@ -1500,6 +1504,7 @@
   "tokenCalculator": {
     "title": "Token Calculator",
     "loading": "Loading pricing standards...",
+    "loadFailedTitle": "Failed to load pricing standards",
     "displayCurrency": "Display",
     "exchangeRate": "Rate",
     "modelName": "Model Name",
@@ -1614,6 +1619,7 @@
     "edit": "Edit",
     "search": "Search",
     "loading": "Loading...",
+    "retry": "Retry",
     "success": "Success",
     "error": "Error",
     "warning": "Warning",
@@ -1772,6 +1778,7 @@
     "added": "Added",
     "saved": "Saved",
     "copied": "Copied",
+    "loadFailedTitle": "Failed to load terminology data",
     "actions": {
       "pin": "Pin",
       "unpin": "Unpin",
