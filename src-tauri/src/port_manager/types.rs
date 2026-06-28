@@ -16,24 +16,6 @@ pub struct KillTarget {
 }
 
 #[derive(Debug, Serialize)]
-pub struct SystemInfo {
-    pub os_name: String,
-    pub os_version: String,
-    pub kernel_version: String,
-    pub hostname: String,
-    pub cpu_brand: String,
-    pub cpu_cores: u32,
-    pub total_memory: u64,
-    pub available_memory: u64,
-    pub used_memory: u64,
-    pub memory_usage_percent: f32,
-    pub uptime_seconds: u64,
-    pub arch: String,
-    pub model_name: String,
-    pub distribution: String,
-}
-
-#[derive(Debug, Serialize)]
 pub struct ProcessNode {
     pub pid: u32,
     pub ppid: u32,

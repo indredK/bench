@@ -1,9 +1,32 @@
-use super::types::SystemInfo;
+use serde::Serialize;
 #[cfg(target_os = "macos")]
 use std::process::Command;
 use sysinfo::System;
 
-pub(super) fn collect_system_info() -> SystemInfo {
+#[derive(Debug, Serialize)]
+pub struct SystemInfo {
+    pub os_name: String,
+    pub os_version: String,
+    pub kernel_version: String,
+    pub hostname: String,
+    pub cpu_brand: String,
+    pub cpu_cores: u32,
+    pub total_memory: u64,
+    pub available_memory: u64,
+    pub used_memory: u64,
+    pub memory_usage_percent: f32,
+    pub uptime_seconds: u64,
+    pub arch: String,
+    pub model_name: String,
+    pub distribution: String,
+}
+
+#[tauri::command]
+pub fn get_system_info() -> SystemInfo {
+    collect_system_info()
+}
+
+fn collect_system_info() -> SystemInfo {
     let mut sys = System::new_all();
     sys.refresh_all();
 
@@ -56,8 +79,8 @@ fn detect_model_name() -> String {
 
 #[cfg(target_os = "linux")]
 fn detect_distribution() -> String {
-    let id = sysinfo::System::distribution_id();
-    let version = sysinfo::System::long_os_version().unwrap_or_default();
+    let id = System::distribution_id();
+    let version = System::long_os_version().unwrap_or_default();
     format!("{} {}", id, version)
 }
 

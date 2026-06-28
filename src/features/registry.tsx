@@ -8,9 +8,9 @@ import { devCleanerFeature } from "@/features/dev-cleaner/feature";
 import { envDetectorFeature } from "@/features/env-detector/feature";
 import { hardwareFeature } from "@/features/hardware/feature";
 import { portManagerFeature } from "@/features/port-manager/feature";
-import { systemInfoFeature } from "@/features/system-info/feature";
 import { tokenCalculatorFeature } from "@/features/token-calculator/feature";
 import { terminologyFeature } from "@/features/terminology/feature";
+import { systemSettingsFeature } from "@/features/system-settings/feature";
 import type { AppFeature, NavigationItem } from "@/features/types";
 
 export const appFeatures: AppFeature[] = [
@@ -18,11 +18,11 @@ export const appFeatures: AppFeature[] = [
   appManagerFeature,
   devCleanerFeature,
   hardwareFeature,
-  systemInfoFeature,
   envDetectorFeature,
   apiBillingFeature,
   tokenCalculatorFeature,
   terminologyFeature,
+  systemSettingsFeature,
 ];
 
 export function getFeatureByPath(path: string): AppFeature | undefined {

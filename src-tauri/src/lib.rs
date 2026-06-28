@@ -7,6 +7,8 @@ mod dev_cleaner;
 mod env_detector;
 mod menu;
 mod port_manager;
+mod sleep_inhibitor;
+mod system_settings;
 mod terminology;
 mod token_calculator;
 mod window_theme;
@@ -71,6 +73,15 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(app_invoke_handler!())
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app_handle, event| {
+            // Kill our own caffeinate process when the app exits so the
+            // system-level sleep prevention state we report stays accurate
+            // and other apps (OnlySwitch, Amphetamine, ...) don't see a
+            // stale assertion from an already-closed Bench.
+            if let tauri::RunEvent::Exit = event {
+                sleep_inhibitor::commands::cleanup_on_exit();
+            }
+        });
 }
