@@ -15,16 +15,9 @@
   },
   "systemSettings": {
     "tabs": {
-      "general": "General",
-      "finder": "Finder",
-      "dock": "Dock",
-      "network": "Network",
-      "screenshot": "Screenshot",
-      "privacy": "Privacy",
-      "login": "Login Items",
-      "devtools": "Dev Tools",
-      "diagnostics": "Diagnostics",
-      "info": "System Info"
+      "appearance": "Appearance",
+      "security": "Security",
+      "system": "System"
     },
     "loading": "Loading settings...",
     "applying": "Applying settings, please wait...",
@@ -135,7 +128,8 @@
       "lockPasswordDelay": "Password Delay",
       "delayImmediate": "Immediate",
       "emptyPasteboard": "Clear Clipboard",
-      "ejectDiscs": "Eject Discs"
+      "ejectDiscs": "Eject Discs",
+      "warning": "The following operations are irreversible. Use with caution."
     },
     "toggles": {
       "title": "System Toggles",
@@ -2000,5 +1994,11 @@
       "invalidInput": "Invalid input",
       "targetNotFound": "Target not found"
     }
+  },
+  "devToolbox": {
+    "title": "Dev Toolbox",
+    "devtools": "Dev Tools",
+    "diagnostics": "Diagnostics",
+    "info": "System Info"
   }
 }

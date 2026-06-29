@@ -1,10 +1,13 @@
 /**
  * Feature Store / 功能状态: store state and simple actions; 只存状态与简单动作.
+ *
+ * v2: 重设计 — 9 个 Tab → 3 个 Tab (appearance/security/system)，
+ * SettingsDialog 合并入主设置页。
  */
 import { create } from "zustand";
 import type { SleepState, LoginItem, MenuBarAutoHideMode, LowPowerMode, GatekeeperMode } from "@/lib/tauri/types/system-settings";
 
-export type SettingsTab = "general" | "finder" | "network" | "screenshot" | "privacy" | "login" | "devtools" | "diagnostics" | "info";
+export type SettingsTab = "appearance" | "security" | "system";
 
 interface SystemSettingsState {
   activeTab: SettingsTab;
@@ -13,8 +16,71 @@ interface SystemSettingsState {
   loadedTabs: Set<string>;
   markTabLoaded: (tab: string) => void;
 
+  // ── Appearance ──
+  // Theme & Language (from old SettingsDialog)
+  theme: "system" | "light" | "dark";
+  setTheme: (v: "system" | "light" | "dark") => void;
+  language: "system" | "en" | "zh";
+  setLanguage: (v: "system" | "en" | "zh") => void;
+  windowThemeId: string;
+  setWindowThemeId: (v: string) => void;
+
+  darkMode: boolean;
+  setDarkMode: (v: boolean) => void;
+  displayBatteryPercent: boolean;
+  setDisplayBatteryPercent: (v: boolean) => void;
+  autohideDock: boolean;
+  setAutohideDock: (v: boolean) => void;
+  dockOrientation: string;
+  setDockOrientation: (v: string) => void;
+  autohideMenuBar: MenuBarAutoHideMode;
+  setAutohideMenuBar: (v: MenuBarAutoHideMode) => void;
+  dockShowRecents: boolean;
+  setDockShowRecents: (v: boolean) => void;
+  hideDesktopIcons: boolean;
+  setHideDesktopIcons: (v: boolean) => void;
+  smallLaunchpadIcon: boolean;
+  setSmallLaunchpadIcon: (v: boolean) => void;
+  screenSaver: boolean;
+  setScreenSaver: (v: boolean) => void;
+
+  screenshotFormat: string;
+  setScreenshotFormat: (v: string) => void;
+  screenshotDisableShadow: boolean;
+  setScreenshotDisableShadow: (v: boolean) => void;
+  screenshotShowThumbnail: boolean;
+  setScreenshotShowThumbnail: (v: boolean) => void;
+  screenshotSaveLocation: string;
+  setScreenshotSaveLocation: (v: string) => void;
+
+  // ── Security ──
+  lockScreenPassword: boolean;
+  setLockScreenPassword: (v: boolean) => void;
+  lockScreenPasswordDelay: number;
+  setLockScreenPasswordDelay: (v: number) => void;
+
+  networkFirewall: boolean;
+  setNetworkFirewall: (v: boolean) => void;
+  networkSsh: boolean;
+  setNetworkSsh: (v: boolean) => void;
+  networkScreenSharing: boolean;
+  setNetworkScreenSharing: (v: boolean) => void;
+  networkAirdropDisabled: boolean;
+  setNetworkAirdropDisabled: (v: boolean) => void;
+
+  gatekeeper: GatekeeperMode;
+  muteMic: boolean;
+  setMuteMic: (v: boolean) => void;
+
+  // ── System ──
   sleepState: SleepState | null;
   setSleepState: (state: SleepState | null) => void;
+
+  keyboardFnKey: boolean;
+  setKeyboardFnKey: (v: boolean) => void;
+
+  lowPowerMode: LowPowerMode;
+  setLowPowerMode: (v: LowPowerMode) => void;
 
   finderShowHiddenFiles: boolean;
   setFinderShowHiddenFiles: (v: boolean) => void;
@@ -31,81 +97,22 @@ interface SystemSettingsState {
   finderNoDsStore: boolean;
   setFinderNoDsStore: (v: boolean) => void;
 
-  dockOrientation: string;
-  setDockOrientation: (v: string) => void;
-
-  keyboardFnKey: boolean;
-  setKeyboardFnKey: (v: boolean) => void;
-
-  displayBatteryPercent: boolean;
-  setDisplayBatteryPercent: (v: boolean) => void;
-
-  networkFirewall: boolean;
-  setNetworkFirewall: (v: boolean) => void;
-  networkSsh: boolean;
-  setNetworkSsh: (v: boolean) => void;
-  networkScreenSharing: boolean;
-  setNetworkScreenSharing: (v: boolean) => void;
-  networkAirdropDisabled: boolean;
-  setNetworkAirdropDisabled: (v: boolean) => void;
-
-  screenshotFormat: string;
-  setScreenshotFormat: (v: string) => void;
-  screenshotDisableShadow: boolean;
-  setScreenshotDisableShadow: (v: boolean) => void;
-  screenshotShowThumbnail: boolean;
-  setScreenshotShowThumbnail: (v: boolean) => void;
-  screenshotSaveLocation: string;
-  setScreenshotSaveLocation: (v: string) => void;
-
   loginItems: LoginItem[];
   setLoginItems: (items: LoginItem[]) => void;
 
   defaultBrowser: string;
   setDefaultBrowser: (v: string) => void;
 
-  lockScreenPassword: boolean;
-  setLockScreenPassword: (v: boolean) => void;
-  lockScreenPasswordDelay: number;
-  setLockScreenPasswordDelay: (v: number) => void;
-
-  darkMode: boolean;
-  setDarkMode: (v: boolean) => void;
-  autohideDock: boolean;
-  setAutohideDock: (v: boolean) => void;
-  autohideMenuBar: MenuBarAutoHideMode;
-  setAutohideMenuBar: (v: MenuBarAutoHideMode) => void;
-  dockShowRecents: boolean;
-  setDockShowRecents: (v: boolean) => void;
-  hideDesktopIcons: boolean;
-  setHideDesktopIcons: (v: boolean) => void;
-  muteMic: boolean;
-  setMuteMic: (v: boolean) => void;
-  lowPowerMode: LowPowerMode;
-  setLowPowerMode: (v: LowPowerMode) => void;
-  gatekeeper: GatekeeperMode;
-  screenSaver: boolean;
-  setScreenSaver: (v: boolean) => void;
-  smallLaunchpadIcon: boolean;
-  setSmallLaunchpadIcon: (v: boolean) => void;
-
+  // ── Shared ──
   loading: boolean;
   setLoading: (v: boolean) => void;
 
-  /**
-   * 当前正在执行的设置操作 key 集合。
-   *
-   * 设计原因:用户操作单个开关时,只有该开关应进入 loading 状态,
-   * 其他开关不应受影响(否则会出现"切换一个开关,所有开关都转圈"的误导)。
-   * 每个 SettingToggle / Button 调用 useSettingAction.run 时传入唯一 key,
-   * run 内部把 key 加入/移出此集合;Switch 的 loading 用 applyingKeys.has(key) 判断。
-   */
   applyingKeys: Set<string>;
   setApplyingKey: (key: string, on: boolean) => void;
 }
 
 export const useSystemSettingsStore = create<SystemSettingsState>((set) => ({
-  activeTab: "general",
+  activeTab: "appearance",
   setActiveTab: (tab) => set({ activeTab: tab }),
 
   loadedTabs: new Set<string>(),
@@ -115,8 +122,70 @@ export const useSystemSettingsStore = create<SystemSettingsState>((set) => ({
     return { loadedTabs: next };
   }),
 
+  // ── Appearance defaults ──
+  theme: "system",
+  setTheme: (v) => set({ theme: v }),
+  language: "system",
+  setLanguage: (v) => set({ language: v }),
+  windowThemeId: "system",
+  setWindowThemeId: (v) => set({ windowThemeId: v }),
+
+  darkMode: false,
+  setDarkMode: (v) => set({ darkMode: v }),
+  displayBatteryPercent: false,
+  setDisplayBatteryPercent: (v) => set({ displayBatteryPercent: v }),
+  autohideDock: false,
+  setAutohideDock: (v) => set({ autohideDock: v }),
+  dockOrientation: "bottom",
+  setDockOrientation: (v) => set({ dockOrientation: v }),
+  autohideMenuBar: "in_full_screen_only",
+  setAutohideMenuBar: (v) => set({ autohideMenuBar: v }),
+  dockShowRecents: false,
+  setDockShowRecents: (v) => set({ dockShowRecents: v }),
+  hideDesktopIcons: false,
+  setHideDesktopIcons: (v) => set({ hideDesktopIcons: v }),
+  smallLaunchpadIcon: false,
+  setSmallLaunchpadIcon: (v) => set({ smallLaunchpadIcon: v }),
+  screenSaver: false,
+  setScreenSaver: (v) => set({ screenSaver: v }),
+
+  screenshotFormat: "png",
+  setScreenshotFormat: (v) => set({ screenshotFormat: v }),
+  screenshotDisableShadow: false,
+  setScreenshotDisableShadow: (v) => set({ screenshotDisableShadow: v }),
+  screenshotShowThumbnail: true,
+  setScreenshotShowThumbnail: (v) => set({ screenshotShowThumbnail: v }),
+  screenshotSaveLocation: "~/Desktop",
+  setScreenshotSaveLocation: (v) => set({ screenshotSaveLocation: v }),
+
+  // ── Security defaults ──
+  lockScreenPassword: false,
+  setLockScreenPassword: (v) => set({ lockScreenPassword: v }),
+  lockScreenPasswordDelay: 5,
+  setLockScreenPasswordDelay: (v) => set({ lockScreenPasswordDelay: v }),
+
+  networkFirewall: false,
+  setNetworkFirewall: (v) => set({ networkFirewall: v }),
+  networkSsh: false,
+  setNetworkSsh: (v) => set({ networkSsh: v }),
+  networkScreenSharing: false,
+  setNetworkScreenSharing: (v) => set({ networkScreenSharing: v }),
+  networkAirdropDisabled: false,
+  setNetworkAirdropDisabled: (v) => set({ networkAirdropDisabled: v }),
+
+  gatekeeper: "identified_developers",
+  muteMic: false,
+  setMuteMic: (v) => set({ muteMic: v }),
+
+  // ── System defaults ──
   sleepState: null,
   setSleepState: (state) => set({ sleepState: state }),
+
+  keyboardFnKey: false,
+  setKeyboardFnKey: (v) => set({ keyboardFnKey: v }),
+
+  lowPowerMode: "never",
+  setLowPowerMode: (v) => set({ lowPowerMode: v }),
 
   finderShowHiddenFiles: false,
   setFinderShowHiddenFiles: (v) => set({ finderShowHiddenFiles: v }),
@@ -133,64 +202,13 @@ export const useSystemSettingsStore = create<SystemSettingsState>((set) => ({
   finderNoDsStore: false,
   setFinderNoDsStore: (v) => set({ finderNoDsStore: v }),
 
-  dockOrientation: "bottom",
-  setDockOrientation: (v) => set({ dockOrientation: v }),
-
-  keyboardFnKey: false,
-  setKeyboardFnKey: (v) => set({ keyboardFnKey: v }),
-
-  displayBatteryPercent: false,
-  setDisplayBatteryPercent: (v) => set({ displayBatteryPercent: v }),
-
-  networkFirewall: false,
-  setNetworkFirewall: (v) => set({ networkFirewall: v }),
-  networkSsh: false,
-  setNetworkSsh: (v) => set({ networkSsh: v }),
-  networkScreenSharing: false,
-  setNetworkScreenSharing: (v) => set({ networkScreenSharing: v }),
-  networkAirdropDisabled: false,
-  setNetworkAirdropDisabled: (v) => set({ networkAirdropDisabled: v }),
-
-  screenshotFormat: "png",
-  setScreenshotFormat: (v) => set({ screenshotFormat: v }),
-  screenshotDisableShadow: false,
-  setScreenshotDisableShadow: (v) => set({ screenshotDisableShadow: v }),
-  screenshotShowThumbnail: true,
-  setScreenshotShowThumbnail: (v) => set({ screenshotShowThumbnail: v }),
-  screenshotSaveLocation: "~/Desktop",
-  setScreenshotSaveLocation: (v) => set({ screenshotSaveLocation: v }),
-
   loginItems: [],
   setLoginItems: (items) => set({ loginItems: items }),
 
   defaultBrowser: "Safari",
   setDefaultBrowser: (v) => set({ defaultBrowser: v }),
 
-  lockScreenPassword: false,
-  setLockScreenPassword: (v) => set({ lockScreenPassword: v }),
-  lockScreenPasswordDelay: 5,
-  setLockScreenPasswordDelay: (v) => set({ lockScreenPasswordDelay: v }),
-
-  darkMode: false,
-  setDarkMode: (v) => set({ darkMode: v }),
-  autohideDock: false,
-  setAutohideDock: (v) => set({ autohideDock: v }),
-  autohideMenuBar: "in_full_screen_only",
-  setAutohideMenuBar: (v) => set({ autohideMenuBar: v }),
-  dockShowRecents: false,
-  setDockShowRecents: (v) => set({ dockShowRecents: v }),
-  hideDesktopIcons: false,
-  setHideDesktopIcons: (v) => set({ hideDesktopIcons: v }),
-  muteMic: false,
-  setMuteMic: (v) => set({ muteMic: v }),
-  lowPowerMode: "never",
-  setLowPowerMode: (v) => set({ lowPowerMode: v }),
-  gatekeeper: "identified_developers",
-  screenSaver: false,
-  setScreenSaver: (v) => set({ screenSaver: v }),
-  smallLaunchpadIcon: false,
-  setSmallLaunchpadIcon: (v) => set({ smallLaunchpadIcon: v }),
-
+  // ── Shared ──
   loading: false,
   setLoading: (v) => set({ loading: v }),
 

@@ -1,5 +1,8 @@
 /**
- * App Shell / 应用壳层: compose routing and shell actions; 只做全局组合与路由.
+ * App Shell / 应用壳层: compose routing and shell actions.
+ *
+ * v2 — 重设计: 移除 SettingsDialog（内容已合并入系统设置页），
+ * 简化 Sidebar props，重启移到 About 弹窗。
  */
 import { Router, Route, Switch, useLocation } from "wouter";
 import { useHashLocation } from "wouter/use-hash-location";
@@ -12,11 +15,10 @@ import { useDefaultContextMenu } from "@/shared/context-menu/useContextMenuRegis
 import type { ContextMenuConfig } from "@/shared/context-menu/types";
 import { useMenuEvent, useInitMenuEvents } from "@/hooks/useMenuEvents";
 import { AboutDialog } from "@/components/common/AboutDialog";
-import { SettingsDialog } from "@/components/common/SettingsDialog";
 import { StartupIssuesAlert } from "@/components/common/StartupIssuesAlert";
 import { UpdateDialog } from "@/components/common/UpdateDialog";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { appFeatures, createNavigationItems, getFeatureByPath } from "@/features/registry";
+import { appFeatures, createNavigationItems, createConfigItems } from "@/features/registry";
 import { requestFeatureRefresh } from "@/features/refresh";
 import { useUpdaterController } from "@/features/updater/hooks/useUpdaterController";
 import { listStartupIssues, markMainReady } from "@/lib/tauri/commands/bootstrap";
@@ -38,7 +40,6 @@ function AnimatedRoutes() {
 }
 
 function FeaturePanel({ location }: { location: string }) {
-  // 锁定挂载时的 location, 避免退场期间 Switch 跟着新路由切换内容
   const [frozenLocation] = useState(location);
   return (
     <motion.div
@@ -62,95 +63,66 @@ function FeaturePanel({ location }: { location: string }) {
 function App() {
   const { t } = useTranslation();
   const updater = useUpdaterController();
-  // Mount the window-theme hook at the shell root so the persisted choice
-  // is applied to the native window once on boot and re-applied whenever
-  // the resolved color scheme changes.
   useWindowTheme();
 
   const [aboutOpen, setAboutOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [startupIssues, setStartupIssues] = useState<StartupIssue[]>([]);
 
   useEffect(() => {
     if (!canUseWindowControls()) return undefined;
-
     requestAnimationFrame(() => {
-      // Mark ready in backend FIRST (#103): if the splash listener wasn't
-      // attached yet, it will poll this flag immediately after subscribing
-      // and reveal the main window without depending on event timing.
       void markMainReady().finally(() => {
         void emitPlatformEventTo("splashscreen", WINDOW_BOOTSTRAP_EVENTS.mainReady, null);
       });
     });
-
     return undefined;
   }, []);
 
   useEffect(() => {
     let cancelled = false;
-
     void listStartupIssues().then((issues) => {
-      if (!cancelled) {
-        setStartupIssues(issues);
-      }
+      if (!cancelled) setStartupIssues(issues);
     });
-
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
   const handleRefresh = useCallback(async () => {
     const currentPath = window.location.hash.replace(/^#/, "") || "/";
-    const currentFeature = getFeatureByPath(currentPath);
+    const currentFeature = appFeatures.find((f) => f.path === currentPath);
     if (currentFeature) {
       await requestFeatureRefresh(currentFeature.id);
     }
   }, []);
 
   const handleRestart = useCallback(async () => {
-    if (canUseTauriCommands()) {
-      await restartApp();
-      return;
-    }
-
+    if (canUseTauriCommands()) { await restartApp(); return; }
     window.location.reload();
-  }, []);
-
-  const handleSettings = useCallback(() => {
-    setSettingsOpen(true);
   }, []);
 
   useDefaultContextMenu(useMemo((): (() => ContextMenuConfig) => () => ({
     id: "default-menu",
     items: [
-      {
-        id: "refresh",
-        label: t("appManager.refresh"),
-        icon: undefined,
-        onClick: () => {
-          void handleRefresh();
-        },
-      },
+      { id: "refresh", label: t("appManager.refresh"), icon: undefined, onClick: () => { void handleRefresh(); } },
     ],
   }), [handleRefresh, t]));
 
   useInitMenuEvents();
 
   useMenuEvent("about", () => setAboutOpen(true));
-  useMenuEvent("check_updates", () => {
-    void updater.checkUpdates();
-  });
+  useMenuEvent("check_updates", () => { void updater.checkUpdates(); });
   useMenuEvent("preferences", () => {
-    handleSettings();
+    // Navigate to system settings page instead of opening a dialog
+    window.location.hash = "#/system-settings";
   });
-  useMenuEvent("reload", () => {
-    void handleRefresh();
-  });
-  // Note: "toggle_devtools" is handled directly in Rust (src-tauri/src/menu.rs)
-  // because devtools open/close is only callable from the native side (#066).
+  useMenuEvent("reload", () => { void handleRefresh(); });
 
-  const sidebarItems = useMemo(() => createNavigationItems(t), [t]);
+  const sidebarItems = useMemo(() => {
+    // Feature items (everything except system-settings)
+    const allItems = createNavigationItems(t);
+    return allItems.filter((item) => item.path !== "/system-settings");
+  }, [t]);
+
+  const configItems = useMemo(() => createConfigItems(t), [t]);
 
   return (
     <>
@@ -158,12 +130,11 @@ function App() {
         <GlobalContextMenu className="app-root flex h-screen overflow-hidden bg-background">
           <div className="flex flex-1 flex-col overflow-hidden">
             <CustomTitlebar />
-
             <div className="flex flex-1 overflow-hidden">
               <Sidebar
                 items={sidebarItems}
+                configItems={configItems}
                 onRestart={handleRestart}
-                onSettings={handleSettings}
               />
               <div className="flex flex-1 flex-col overflow-hidden bg-background">
                 <div className="flex-1 overflow-hidden p-4">
@@ -181,11 +152,6 @@ function App() {
         onOpenChange={setAboutOpen}
         appVersion={updater.currentVersion || "-"}
         onCheckUpdates={() => void updater.checkUpdates()}
-      />
-
-      <SettingsDialog
-        open={settingsOpen}
-        onOpenChange={setSettingsOpen}
       />
 
       <UpdateDialog {...updater} />

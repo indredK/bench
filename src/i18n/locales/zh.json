@@ -15,16 +15,9 @@
   },
   "systemSettings": {
     "tabs": {
-      "general": "通用",
-      "finder": "Finder",
-      "dock": "Dock",
-      "network": "网络",
-      "screenshot": "截图",
-      "privacy": "隐私",
-      "login": "登录项",
-      "devtools": "开发工具",
-      "diagnostics": "诊断",
-      "info": "系统信息"
+      "appearance": "外观",
+      "security": "安全与隐私",
+      "system": "系统"
     },
     "loading": "加载设置中...",
     "applying": "正在应用设置,请稍候...",
@@ -135,7 +128,8 @@
       "lockPasswordDelay": "密码延迟",
       "delayImmediate": "立即",
       "emptyPasteboard": "清空剪贴板",
-      "ejectDiscs": "弹出磁盘"
+      "ejectDiscs": "弹出磁盘",
+      "warning": "以下操作不可逆，请谨慎使用"
     },
     "toggles": {
       "title": "系统开关",
@@ -2000,5 +1994,11 @@
       "invalidInput": "输入不合法",
       "targetNotFound": "目标不存在"
     }
+  },
+  "devToolbox": {
+    "title": "开发工具箱",
+    "devtools": "开发工具",
+    "diagnostics": "网络诊断",
+    "info": "系统信息"
   }
 }
