@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.14.0](https://github.com/indredK/bench/compare/v1.13.0...v1.14.0) (2026-06-29)
+
+
+### Features
+
+* add quick launch feature and system pane shortcuts ([84b76c6](https://github.com/indredK/bench/commit/84b76c66957f4723fb3bbc538fe0bfa050521617))
+* **app-manager:** 实现多标签页独立的搜索和过滤状态 ([f86e1ef](https://github.com/indredK/bench/commit/f86e1ef1ca58936a05c180c3e357ec4a01e82581))
+* **dev-cleaner:** 添加自定义清理功能 ([8c18ef7](https://github.com/indredK/bench/commit/8c18ef75d1499c084dd45fec9a4f481a11f86169))
+* **system-settings:** 新增系统设置模块，重构系统信息功能 ([206cca1](https://github.com/indredK/bench/commit/206cca1f7c65c519550ffa072228a7c95c8a78c3))
+* **terminology:** 添加术语管理模块 ([8f64370](https://github.com/indredK/bench/commit/8f643703f5351cb0cab031f05943638b11b5920d))
+* 实现启动失败诊断与硬件对比模块重构 ([40df21a](https://github.com/indredK/bench/commit/40df21a7e5d7cd8784dc764c945752885d407cba))
+
+
+### Bug Fixes
+
+* **api_billing:** 修复持久化失败时的状态撕裂风险 ([ebbbf29](https://github.com/indredK/bench/commit/ebbbf2903c147f9c40c0509ae008d162c21b457b))
+* **rust:** 修复跨平台编译问题并增加预提交检查 ([f595f2b](https://github.com/indredK/bench/commit/f595f2bc85b56c0e2e7887cdfa2eaa14159e361f))
+* 完成多模块加载错误处理与状态优化 ([52b57b8](https://github.com/indredK/bench/commit/52b57b8ac8e47528a8fb1a3929bfac10d920f581))
+
 ## [1.13.0](https://github.com/indredK/bench/compare/v1.12.1...v1.13.0) (2026-06-08)
 
 
