@@ -5,6 +5,7 @@ mod bootstrap;
 mod commands;
 mod dev_cleaner;
 mod env_detector;
+mod file_ops;
 mod menu;
 mod port_manager;
 mod sleep_inhibitor;

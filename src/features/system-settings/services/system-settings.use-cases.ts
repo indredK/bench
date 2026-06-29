@@ -87,6 +87,7 @@ export const systemSettingsUseCases = {
   getDefaultBrowser: systemSettingsRepository.getDefaultBrowser,
   setDefaultBrowser: systemSettingsRepository.setDefaultBrowser,
 
+  openSystemPane: systemSettingsRepository.openSystemPane,
   // Privacy
   resetTccPermission: systemSettingsRepository.resetTccPermission,
 

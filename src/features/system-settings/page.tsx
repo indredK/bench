@@ -7,7 +7,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Loader2Icon } from "lucide-react";
+import { Loader2Icon, ExternalLink } from "lucide-react";
 import { systemSettingsUseCases } from "@/features/system-settings/services/system-settings.use-cases";
 import { useSystemSettingsStore } from "@/features/system-settings/store";
 import { useSettingAction } from "@/features/system-settings/useSettingAction";
@@ -44,6 +44,10 @@ export default function SystemSettings(_props: SystemSettingsProps) {
   const [newLoginItemPath, setNewLoginItemPath] = useState("");
   const [tabLoading, setTabLoading] = useState(false);
 
+  // Default browser state
+  const [defaultBrowser, setDefaultBrowser] = useState(store.defaultBrowser);
+  const [browserLoading, setBrowserLoading] = useState(false);
+
   const loadTabSettings = async (tab: SettingsTab) => {
     const s = useSystemSettingsStore.getState();
     if (s.loadedTabs.has(tab)) return;
@@ -53,6 +57,8 @@ export default function SystemSettings(_props: SystemSettingsProps) {
         case "appearance": break; // Self-loading sections
         case "security": break;   // Self-loading sections
         case "system": {
+          // Load browser
+          try { const b = await systemSettingsUseCases.getDefaultBrowser(); store.setDefaultBrowser(b); setDefaultBrowser(b); } catch {}
           const [items, agents, daemons] = await Promise.all([
             systemSettingsUseCases.getLoginItems(),
             systemSettingsUseCases.getLaunchAgents(),
@@ -359,6 +365,59 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                   ))}
                 </div>
               )}
+            </SettingGroup>
+
+            {/* ── Default Browser ── */}
+            <SettingGroup title={t("systemSettings.browser.title")}>
+              <select
+                className="w-full border rounded px-3 py-2 text-sm bg-background"
+                value={defaultBrowser}
+                disabled={browserLoading}
+                onChange={async (e) => {
+                  setBrowserLoading(true);
+                  try {
+                    await systemSettingsUseCases.setDefaultBrowser(e.target.value);
+                    store.setDefaultBrowser(e.target.value);
+                    setDefaultBrowser(e.target.value);
+                    toast.success(t("systemSettings.toasts.success"));
+                  } catch (err) {
+                    toast.error(String(err));
+                  } finally {
+                    setBrowserLoading(false);
+                  }
+                }}
+              >
+                <option value="com.apple.Safari">Safari</option>
+                <option value="com.google.Chrome">Google Chrome</option>
+                <option value="com.microsoft.edgemac">Microsoft Edge</option>
+                <option value="org.mozilla.firefox">Firefox</option>
+                <option value="com.brave.Browser">Brave</option>
+                <option value="com.operasoftware.Opera">Opera</option>
+                <option value="company.thebrowser.Browser">Arc</option>
+              </select>
+            </SettingGroup>
+
+            {/* ── 系统设置快捷入口 ── */}
+            <SettingGroup title={t("systemSettings.shortcuts.title")}>
+              <p className="text-xs text-muted-foreground py-1">{t("systemSettings.shortcuts.description")}</p>
+              <div className="flex flex-wrap gap-2 py-2">
+                {([
+                  { id: "com.apple.Desktop-Settings.extension", label: t("systemSettings.shortcuts.hotCorners") },
+                  { id: "com.apple.Lock-Screen-Settings.extension", label: t("systemSettings.shortcuts.lockScreen") },
+                  { id: "com.apple.Localization-Settings.extension", label: t("systemSettings.shortcuts.languageRegion") },
+                  { id: "com.apple.Keyboard-Settings.extension", label: t("systemSettings.shortcuts.keyboard") },
+                ] as const).map(({ id, label }) => (
+                  <Button
+                    key={id}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => systemSettingsUseCases.openSystemPane(id)}
+                    className="gap-1.5"
+                  >
+                    <ExternalLink size={13} /> {label}
+                  </Button>
+                ))}
+              </div>
             </SettingGroup>
 
             {/* ── 快捷操作 (危险操作区) ── */}

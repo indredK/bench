@@ -2,6 +2,7 @@
   "sidebar": {
     "apiBilling": "Account Management",
     "portManager": "Port Manager",
+    "quickLaunch": "Quick Launch",
     "appManager": "App Manager",
     "devCleaner": "Dev Cleaner",
     "systemInfo": "System Info",
@@ -189,6 +190,17 @@
       "ping": "Ping",
       "localIp": "Local IP",
       "wifi": "WiFi"
+    },
+    "browser": {
+      "title": "Default Browser"
+    },
+    "shortcuts": {
+      "title": "System Settings Shortcuts",
+      "description": "Click to open the corresponding macOS System Settings panel.",
+      "hotCorners": "Hot Corners",
+      "lockScreen": "Lock Screen Settings",
+      "languageRegion": "Language & Region",
+      "keyboard": "Keyboard Settings"
     }
   },
   "apiBilling": {
@@ -2000,5 +2012,44 @@
     "devtools": "Dev Tools",
     "diagnostics": "Diagnostics",
     "info": "System Info"
+  },
+  "quickLaunch": {
+    "scene": {
+      "commonApps": "Common Apps",
+      "ai": "AI",
+      "dev": "Development",
+      "system": "System Tools",
+      "writing": "Writing",
+      "browser": "Browsers",
+      "communication": "Communication",
+      "design": "Design",
+      "entertainment": "Entertainment",
+      "other": "Other",
+      "aiIde": "AI Coding",
+      "aiAssistant": "AI Assistant",
+      "aiOffice": "AI Office",
+      "aiModel": "AI Model",
+      "aiClaw": "Claw",
+      "aiTool": "AI Tools"
+    },
+    "searchPlaceholder": "Search apps...",
+    "rescan": "Rescan",
+    "scanFirst": "Scan installed apps first",
+    "scanning": "Scanning apps...",
+    "empty": "No scanned apps yet. Go to App Manager to scan first, or click below.",
+    "totalApps": "{{count}} apps · {{scenes}} scenes",
+    "searchResult": "{{count}} apps found",
+    "noResults": "No matching apps",
+    "hint": "Click to launch · Right-click to reveal in Finder",
+    "edit": "Edit",
+    "done": "Done",
+    "resetClassification": "Reset to Default",
+    "exportOverrides": "Export Classification",
+    "moveToScene": "Move to",
+    "editModeHint": "Edit mode · Right-click an app to move it",
+    "toasts": {
+      "exportSuccess": "Exported classification for {{count}} apps",
+      "exportFailed": "Export failed"
+    }
   }
 }

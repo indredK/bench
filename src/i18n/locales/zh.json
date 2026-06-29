@@ -2,6 +2,7 @@
   "sidebar": {
     "apiBilling": "账号管理",
     "portManager": "端口管理",
+    "quickLaunch": "快捷启动",
     "appManager": "应用管理",
     "devCleaner": "垃圾清理",
     "systemInfo": "系统信息",
@@ -189,6 +190,17 @@
       "ping": "Ping",
       "localIp": "本机 IP",
       "wifi": "WiFi"
+    },
+    "browser": {
+      "title": "默认浏览器"
+    },
+    "shortcuts": {
+      "title": "系统设置快捷入口",
+      "description": "点击直接打开对应的 macOS 系统设置面板。",
+      "hotCorners": "触发角",
+      "lockScreen": "锁定屏幕设置",
+      "languageRegion": "语言与地区",
+      "keyboard": "键盘设置"
     }
   },
   "apiBilling": {
@@ -2000,5 +2012,44 @@
     "devtools": "开发工具",
     "diagnostics": "网络诊断",
     "info": "系统信息"
+  },
+  "quickLaunch": {
+    "scene": {
+      "commonApps": "常用应用",
+      "ai": "AI",
+      "dev": "开发",
+      "system": "系统工具",
+      "writing": "写作",
+      "browser": "浏览器",
+      "communication": "沟通",
+      "design": "设计",
+      "entertainment": "娱乐",
+      "other": "其他",
+      "aiIde": "AI 编程",
+      "aiAssistant": "AI 助手",
+      "aiOffice": "AI 办公",
+      "aiModel": "AI 模型",
+      "aiClaw": "Claw",
+      "aiTool": "AI 工具"
+    },
+    "searchPlaceholder": "搜索应用...",
+    "rescan": "重新扫描",
+    "scanFirst": "先扫描已安装应用",
+    "scanning": "正在扫描应用...",
+    "empty": "还没有扫描应用。去「应用管理」页面先扫描一次，或者点击下方按钮直接扫描。",
+    "totalApps": "{{count}} 个应用 · {{scenes}} 个场景",
+    "searchResult": "搜索到 {{count}} 个应用",
+    "noResults": "没有匹配的应用",
+    "hint": "点击启动 · 右键在 Finder 中显示",
+    "edit": "编辑",
+    "done": "完成",
+    "resetClassification": "恢复默认分类",
+    "exportOverrides": "导出分类数据",
+    "moveToScene": "移动到",
+    "editModeHint": "编辑模式 · 右键应用可移动分类",
+    "toasts": {
+      "exportSuccess": "已导出 {{count}} 个应用的分类数据",
+      "exportFailed": "导出失败"
+    }
   }
 }

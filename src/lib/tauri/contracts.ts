@@ -314,6 +314,7 @@ export const TAURI_COMMAND_CONTRACTS = {
   get_default_browser: defineTauriCommand<undefined, string>()("get_default_browser"),
   set_default_browser: defineTauriCommand<{ bundleId: string }, void>()("set_default_browser"),
   // system settings - privacy
+  open_system_pane: defineTauriCommand<{ paneId: string }, void>()("open_system_pane"),
   reset_tcc_permission: defineTauriCommand<{ service: string; bundleId: string }, void>()("reset_tcc_permission"),
   // system settings - gatekeeper
   get_gatekeeper_state: defineTauriCommand<undefined, GatekeeperMode>()("get_gatekeeper_state"),
@@ -358,6 +359,12 @@ export const TAURI_COMMAND_CONTRACTS = {
   eject_discs: defineTauriCommand<undefined, string>()("eject_discs"),
   get_small_launchpad_icon_state: defineTauriCommand<undefined, boolean>()("get_small_launchpad_icon_state"),
   set_small_launchpad_icon_state: defineTauriCommand<{ small: boolean }, void>()("set_small_launchpad_icon_state"),
+  // file operations
+  write_text_file: defineTauriCommand<{ path: string; content: string }, void>()("write_text_file"),
+  read_text_file: defineTauriCommand<{ path: string }, string>()("read_text_file"),
+  ensure_dir: defineTauriCommand<{ path: string }, void>()("ensure_dir"),
+  file_exists: defineTauriCommand<{ path: string }, boolean>()("file_exists"),
+  temp_dir: defineTauriCommand<undefined, string>()("temp_dir"),
 } as const;
 
 export type TauriCommandName = keyof typeof TAURI_COMMAND_CONTRACTS;
@@ -546,6 +553,7 @@ export const TAURI_COMMANDS = {
     setLockScreenPasswordDelay: commandName("set_lock_screen_password_delay"),
     getDefaultBrowser: commandName("get_default_browser"),
     setDefaultBrowser: commandName("set_default_browser"),
+    openSystemPane: commandName("open_system_pane"),
     resetTccPermission: commandName("reset_tcc_permission"),
     getGatekeeperState: commandName("get_gatekeeper_state"),
     getLoginItems: commandName("get_login_items"),
@@ -585,6 +593,13 @@ export const TAURI_COMMANDS = {
     ejectDiscs: commandName("eject_discs"),
     getSmallLaunchpadIconState: commandName("get_small_launchpad_icon_state"),
     setSmallLaunchpadIconState: commandName("set_small_launchpad_icon_state"),
+  },
+  fileOps: {
+    writeTextFile: commandName("write_text_file"),
+    readTextFile: commandName("read_text_file"),
+    ensureDir: commandName("ensure_dir"),
+    fileExists: commandName("file_exists"),
+    tempDir: commandName("temp_dir"),
   },
 } as const;
 
@@ -751,6 +766,7 @@ export const TAURI_COMMAND_ARG_KEYS = {
   set_lock_screen_password_delay: ["seconds"],
   // system settings - default browser
   get_default_browser: [],
+  open_system_pane: ["paneId"],
   set_default_browser: ["bundleId"],
   // system settings - privacy
   reset_tcc_permission: ["service", "bundleId"],
@@ -797,6 +813,12 @@ export const TAURI_COMMAND_ARG_KEYS = {
   eject_discs: [],
   get_small_launchpad_icon_state: [],
   set_small_launchpad_icon_state: ["small"],
+  // file operations
+  write_text_file: ["path", "content"],
+  read_text_file: ["path"],
+  ensure_dir: ["path"],
+  file_exists: ["path"],
+  temp_dir: [],
 } as const satisfies TauriCommandArgKeys;
 
 export const WINDOW_BOOTSTRAP_EVENTS = {

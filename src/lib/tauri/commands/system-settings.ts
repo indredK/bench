@@ -327,3 +327,6 @@ export function getSmallLaunchpadIconState() {
 export function setSmallLaunchpadIconState(small: boolean) {
   return invokeTauriCommand(TAURI_COMMANDS.systemSettings.setSmallLaunchpadIconState, { small });
 }
+export function openSystemPane(paneId: string) {
+  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.openSystemPane, { paneId });
+}

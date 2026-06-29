@@ -31,7 +31,13 @@ import { useWindowTheme } from "@/hooks/useWindowTheme";
 import type { StartupIssue } from "@/lib/tauri/types/bootstrap";
 
 function AnimatedRoutes() {
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
+  useEffect(() => {
+    if ((location === "" || location === "/") && appFeatures.length > 0) {
+      navigate(appFeatures[0].path, { replace: true });
+    }
+  }, [location, navigate]);
+  if (location === "" || location === "/") return null;
   return (
     <AnimatePresence mode="wait" initial={false}>
       <FeaturePanel key={location} location={location} />

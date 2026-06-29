@@ -11,6 +11,7 @@ import { devCleanerFeature } from "@/features/dev-cleaner/feature";
 import { envDetectorFeature } from "@/features/env-detector/feature";
 import { hardwareFeature } from "@/features/hardware/feature";
 import { portManagerFeature } from "@/features/port-manager/feature";
+import { quickLaunchFeature } from "@/features/quick-launch/feature";
 import { tokenCalculatorFeature } from "@/features/token-calculator/feature";
 import { terminologyFeature } from "@/features/terminology/feature";
 import { systemSettingsFeature } from "@/features/system-settings/feature";
@@ -19,6 +20,7 @@ import type { AppFeature, NavigationItem } from "@/features/types";
 
 /** All features (for routing); order matters for sidebar. */
 export const appFeatures: AppFeature[] = [
+  quickLaunchFeature,
   appManagerFeature,
   hardwareFeature,
   terminologyFeature,

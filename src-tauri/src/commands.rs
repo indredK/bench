@@ -52,6 +52,8 @@ macro_rules! app_invoke_handler {
             $crate::system_settings::privacy::get_tcc_permissions,
             $crate::system_settings::privacy::reset_tcc_permission,
             $crate::system_settings::privacy::get_gatekeeper_state,
+            // system settings - system pane
+            $crate::system_settings::system_pane::open_system_pane,
             // system settings - maintenance
             $crate::system_settings::maintenance::rebuild_icon_cache,
             $crate::system_settings::maintenance::flush_dns_cache,
@@ -190,6 +192,12 @@ macro_rules! app_invoke_handler {
             $crate::terminology::commands::update_term,
             $crate::terminology::commands::delete_term,
             $crate::terminology::commands::set_term_pinned,
+            // file operations
+            $crate::file_ops::write_text_file,
+            $crate::file_ops::read_text_file,
+            $crate::file_ops::ensure_dir,
+            $crate::file_ops::file_exists,
+            $crate::file_ops::temp_dir,
         ]
     };
 }
