@@ -4,20 +4,15 @@
  * v2 — 重设计: 9 个 Tab → 3 个 Tab (外观/安全/系统)，
  * SettingsDialog 内容合并入此页，devtools/diagnostics/info 移入独立页面。
  */
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Loader2Icon, Check, Monitor, Sun, Moon, Globe } from "lucide-react";
-import { useTheme } from "next-themes";
-import i18n, { detectSystemLanguage } from "@/i18n/config";
-import { useWindowTheme } from "@/hooks/useWindowTheme";
-import { readStorageItem, removeStorageItem, writeStorageItem } from "@/platform/storage";
-import { WINDOW_THEMES } from "@/lib/windowTheme";
-import { useSystemSettingsStore } from "@/features/system-settings/store";
+import { Loader2Icon } from "lucide-react";
 import { systemSettingsUseCases } from "@/features/system-settings/services/system-settings.use-cases";
+import { useSystemSettingsStore } from "@/features/system-settings/store";
 import { useSettingAction } from "@/features/system-settings/useSettingAction";
 import { SettingToggle } from "./components/SettingToggle";
-import { SettingGroup } from "./components/SettingGroup";
+import { SettingGroup } from "@/components/ui/setting-group";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,17 +25,7 @@ import {
   SleepSection, LockScreenSection, KeyboardSection, DisplaySection, DockSection,
 } from "./components/sections";
 
-// ── Constants from old SettingsDialog ──
-
-const THEME_ORDER = ["system", "light", "dark"] as const;
-type ThemeMode = (typeof THEME_ORDER)[number];
-const THEME_ICON: Record<ThemeMode, typeof Monitor> = { system: Monitor, light: Sun, dark: Moon };
-
-const LANG_OPTIONS = [
-  { value: "system", labelKey: "language.system" },
-  { value: "en", labelKey: "language.en" },
-  { value: "zh", labelKey: "language.zh" },
-] as const;
+// ── Constants ──
 
 const TAB_IDS: SettingsTab[] = ["appearance", "security", "system"];
 
@@ -51,27 +36,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
   const store = useSystemSettingsStore();
   const { run } = useSettingAction();
 
-  // ── Theme & Language state (from old SettingsDialog) ──
-  const { theme, setTheme } = useTheme();
-  const currentTheme = (theme as ThemeMode) || "system";
-  const { themeId: windowThemeId, setThemeId: setWindowThemeId, isSupported: isWindowThemeSupported } = useWindowTheme();
-
-  const storedLang = (() => {
-    const s = readStorageItem("languageMode");
-    if (s === "zh" || s === "en") return s;
-    return "system";
-  })();
-
-  const changeLanguage = useCallback(async (lang: string) => {
-    if (lang === "system") { removeStorageItem("languageMode"); removeStorageItem("language"); }
-    else { writeStorageItem("languageMode", lang); writeStorageItem("language", lang); }
-    const resolved = lang === "system" ? detectSystemLanguage() : lang;
-    await i18n.changeLanguage(resolved);
-    // Trigger a re-render since i18n language changed
-    window.location.reload();
-  }, []);
-
-  // ── Legacy state (Login / Diagnostics / Info — still used in System tab) ──
+  // ── State for System tab (Login items) ──
 
   const [loginItems, setLoginItems] = useState(useSystemSettingsStore.getState().loginItems);
   const [launchAgents, setLaunchAgents] = useState<{ name: string; path: string; enabled: boolean }[]>([]);
@@ -134,50 +99,6 @@ export default function SystemSettings(_props: SystemSettingsProps) {
       case "appearance":
         return (
           <div className="space-y-6">
-            {/* ── Theme & Language (merged from old SettingsDialog) ── */}
-            <SettingGroup title={t("theme.sectionTitle")}>
-              <div className="flex flex-wrap gap-2 py-2">
-                {THEME_ORDER.map((mode) => {
-                  const Icon = THEME_ICON[mode];
-                  return (
-                    <Button key={mode} variant={currentTheme === mode ? "default" : "outline"} size="sm" onClick={() => setTheme(mode)} className="gap-1.5">
-                      {currentTheme === mode && <Check className="size-3.5" />}
-                      <Icon className="size-3.5" />
-                      {t(`theme.${mode}`)}
-                    </Button>
-                  );
-                })}
-              </div>
-            </SettingGroup>
-
-            <SettingGroup title={t("language.switch")}>
-              <div className="flex flex-wrap gap-2 py-2">
-                {LANG_OPTIONS.map((opt) => (
-                  <Button key={opt.value} variant={storedLang === opt.value ? "default" : "outline"} size="sm" onClick={() => changeLanguage(opt.value)} className="gap-1.5">
-                    {storedLang === opt.value && <Check className="size-3.5" />}
-                    {opt.value === "system" && <Globe className="size-3.5" />}
-                    {t(opt.labelKey)}
-                  </Button>
-                ))}
-              </div>
-            </SettingGroup>
-
-            <SettingGroup title={t("windowTheme.label")}>
-              <div className="flex flex-wrap gap-2 py-2">
-                {WINDOW_THEMES.map((desc) => {
-                  const Icon = desc.icon;
-                  const supported = isWindowThemeSupported(desc.id);
-                  return (
-                    <Button key={desc.id} variant={windowThemeId === desc.id ? "default" : "outline"} size="sm" disabled={!supported} title={supported ? undefined : t("windowTheme.unsupportedTooltip")} onClick={() => setWindowThemeId(desc.id)} className="gap-1.5">
-                      {windowThemeId === desc.id && <Check className="size-3.5" />}
-                      <Icon className="size-3.5" />
-                      {t(desc.labelKey)}
-                    </Button>
-                  );
-                })}
-              </div>
-            </SettingGroup>
-
             {/* ── Display ── */}
             <DisplaySection />
 

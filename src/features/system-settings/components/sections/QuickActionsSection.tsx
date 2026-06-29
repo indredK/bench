@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { systemSettingsUseCases } from "@/features/system-settings/services/system-settings.use-cases";
 import { useSettingAction } from "@/features/system-settings/useSettingAction";
-import { SettingGroup } from "../SettingGroup";
+import { SettingGroup } from "@/components/ui/setting-group";
 import { Button } from "@/components/ui/button";
 
 export function QuickActionsSection() {

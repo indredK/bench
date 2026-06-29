@@ -1,5 +1,8 @@
 /**
  * Feature Registry / 功能注册: compose descriptors only; 只聚合功能描述.
+ *
+ * v2: 侧边栏精简 — 端口管理/开发清理/环境检测/Token计算收进开发工具箱，
+ * 侧边栏只展示 4 个一级入口 + 系统设置。
  */
 import type { TFunction } from "i18next";
 import { apiBillingFeature } from "@/features/api-billing/feature";
@@ -14,27 +17,38 @@ import { systemSettingsFeature } from "@/features/system-settings/feature";
 import { devToolboxFeature } from "@/features/dev-toolbox/feature";
 import type { AppFeature, NavigationItem } from "@/features/types";
 
+/** All features (for routing); order matters for sidebar. */
 export const appFeatures: AppFeature[] = [
-  portManagerFeature,
   appManagerFeature,
-  devCleanerFeature,
   hardwareFeature,
-  envDetectorFeature,
-  apiBillingFeature,
-  tokenCalculatorFeature,
   terminologyFeature,
+  apiBillingFeature,
+  // Development tools — routed but condensed into dev-toolbox in sidebar
   devToolboxFeature,
+  portManagerFeature,
+  devCleanerFeature,
+  envDetectorFeature,
+  tokenCalculatorFeature,
+  // Config
   systemSettingsFeature,
 ];
+
+/** IDs hidden from sidebar (shown as tabs inside Dev Toolbox instead). */
+const TOOLBOX_FEATURE_IDS = new Set([
+  "port-manager",
+  "dev-cleaner",
+  "env-detector",
+  "token-calculator",
+]);
 
 export function getFeatureByPath(path: string): AppFeature | undefined {
   return appFeatures.find((feature) => feature.path === path);
 }
 
-/** Feature navigation items (shown above separator in sidebar) */
+/** Sidebar nav items (excluding toolbox sub-items and system-settings). */
 export function createNavigationItems(t: TFunction): NavigationItem[] {
   return appFeatures
-    .filter((f) => f.id !== "system-settings")
+    .filter((f) => !TOOLBOX_FEATURE_IDS.has(f.id) && f.id !== "system-settings")
     .map((feature) => ({
       path: feature.path,
       name: t(feature.labelKey),
@@ -42,7 +56,7 @@ export function createNavigationItems(t: TFunction): NavigationItem[] {
     }));
 }
 
-/** Config/tool navigation items (shown below separator in sidebar — e.g. System Settings) */
+/** Config/tool navigation items shown below separator in sidebar. */
 export function createConfigItems(t: TFunction): NavigationItem[] {
   const settings = appFeatures.find((f) => f.id === "system-settings");
   if (!settings) return [];

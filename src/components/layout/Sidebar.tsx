@@ -10,15 +10,20 @@ import type { NavigationItem } from "@/features/types";
 import LanguageSwitcher from "./LanguageSwitcher";
 import ThemeSwitcher from "./ThemeSwitcher";
 import { useScrambleText } from "@/hooks/useScrambleText";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Settings } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface SidebarProps {
   items: NavigationItem[];
   /** Tool/config items shown below separator */
   configItems?: NavigationItem[];
   onRestart?: () => void | Promise<void>;
+  onPrefs?: () => void;
 }
 
-function Sidebar({ items, configItems }: SidebarProps) {
+function Sidebar({ items, configItems, onPrefs }: SidebarProps) {
+  const { t } = useTranslation();
   const { text: titleText, start: scrambleTitle } = useScrambleText({
     target: "DevTools",
     duration: 700,
@@ -90,10 +95,27 @@ function Sidebar({ items, configItems }: SidebarProps) {
         })}
       </nav>
 
-      {/* Bottom: only quick language/theme switchers */}
+      {/* Bottom: language/theme/prefs quick switchers */}
       <div className="border-t border-border px-3 py-2 flex items-center justify-center gap-1.5">
         <LanguageSwitcher />
         <ThemeSwitcher />
+        {onPrefs && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                className="flex cursor-pointer items-center justify-center rounded-md border border-border bg-background/70 p-1.5 text-foreground transition hover:bg-muted/70"
+                onClick={onPrefs}
+                aria-label={t("sidebar.settings")}
+              >
+                <Settings size={14} />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p>{t("sidebar.settings")}</p>
+            </TooltipContent>
+          </Tooltip>
+        )}
       </div>
     </div>
   );

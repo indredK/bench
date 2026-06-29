@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useSystemSettingsStore } from "@/features/system-settings/store";
 import { systemSettingsUseCases } from "@/features/system-settings/services/system-settings.use-cases";
 import { useSettingAction } from "@/features/system-settings/useSettingAction";
-import { SettingGroup } from "../SettingGroup";
+import { SettingGroup } from "@/components/ui/setting-group";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { canUseTauriWindow } from "@/platform/capabilities";

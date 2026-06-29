@@ -1,5 +1,5 @@
 mod cleanup;
-pub(crate) mod core;
+pub(crate) mod commands;
 pub(crate) mod custom_cleanup;
 mod projects;
 mod rules;

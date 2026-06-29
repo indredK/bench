@@ -1,8 +1,7 @@
 /**
  * App Shell / 应用壳层: compose routing and shell actions.
  *
- * v2 — 重设计: 移除 SettingsDialog（内容已合并入系统设置页），
- * 简化 Sidebar props，重启移到 About 弹窗。
+ * v3: App 偏好 (SettingsDialog) 与系统设置 (SystemSettings page) 分离。
  */
 import { Router, Route, Switch, useLocation } from "wouter";
 import { useHashLocation } from "wouter/use-hash-location";
@@ -15,6 +14,7 @@ import { useDefaultContextMenu } from "@/shared/context-menu/useContextMenuRegis
 import type { ContextMenuConfig } from "@/shared/context-menu/types";
 import { useMenuEvent, useInitMenuEvents } from "@/hooks/useMenuEvents";
 import { AboutDialog } from "@/components/common/AboutDialog";
+import { SettingsDialog } from "@/components/common/SettingsDialog";
 import { StartupIssuesAlert } from "@/components/common/StartupIssuesAlert";
 import { UpdateDialog } from "@/components/common/UpdateDialog";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -66,6 +66,7 @@ function App() {
   useWindowTheme();
 
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [startupIssues, setStartupIssues] = useState<StartupIssue[]>([]);
 
   useEffect(() => {
@@ -99,6 +100,10 @@ function App() {
     window.location.reload();
   }, []);
 
+  const handleOpenPrefs = useCallback(() => {
+    setSettingsOpen(true);
+  }, []);
+
   useDefaultContextMenu(useMemo((): (() => ContextMenuConfig) => () => ({
     id: "default-menu",
     items: [
@@ -111,13 +116,11 @@ function App() {
   useMenuEvent("about", () => setAboutOpen(true));
   useMenuEvent("check_updates", () => { void updater.checkUpdates(); });
   useMenuEvent("preferences", () => {
-    // Navigate to system settings page instead of opening a dialog
-    window.location.hash = "#/system-settings";
+    setSettingsOpen(true);
   });
   useMenuEvent("reload", () => { void handleRefresh(); });
 
   const sidebarItems = useMemo(() => {
-    // Feature items (everything except system-settings)
     const allItems = createNavigationItems(t);
     return allItems.filter((item) => item.path !== "/system-settings");
   }, [t]);
@@ -135,6 +138,7 @@ function App() {
                 items={sidebarItems}
                 configItems={configItems}
                 onRestart={handleRestart}
+                onPrefs={handleOpenPrefs}
               />
               <div className="flex flex-1 flex-col overflow-hidden bg-background">
                 <div className="flex-1 overflow-hidden p-4">
@@ -152,6 +156,11 @@ function App() {
         onOpenChange={setAboutOpen}
         appVersion={updater.currentVersion || "-"}
         onCheckUpdates={() => void updater.checkUpdates()}
+      />
+
+      <SettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
       />
 
       <UpdateDialog {...updater} />
