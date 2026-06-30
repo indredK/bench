@@ -3,6 +3,9 @@
   "private": true,
   "version": "1.14.0",
   "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "setup": "node scripts/bootstrap/setup.mjs",
     "setup:unix": "node scripts/bootstrap/setup.mjs",
