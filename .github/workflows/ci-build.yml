@@ -158,7 +158,7 @@ jobs:
             updater_sig_name="${updater_name}.sig"
             cp "$updater_file" "artifacts/$updater_name"
             cp "${updater_file}.sig" "artifacts/$updater_sig_name"
-            node scripts/write-updater-manifest.mjs \
+            node scripts/release/write-updater-manifest.mjs \
               --output-dir artifacts \
               --target "${{ matrix.target }}" \
               --platform "$updater_platform" \
@@ -180,7 +180,7 @@ jobs:
             if (Test-Path $sigPath) {
               Copy-Item $preferred.FullName -Destination artifacts/ -ErrorAction SilentlyContinue
               Copy-Item $sigPath -Destination artifacts/ -ErrorAction SilentlyContinue
-              node scripts/write-updater-manifest.mjs `
+              node scripts/release/write-updater-manifest.mjs `
                 --output-dir artifacts `
                 --target "${{ matrix.target }}" `
                 --platform "windows-x86_64" `
@@ -262,7 +262,7 @@ jobs:
           gh release view "${{ github.ref_name }}" --json body,publishedAt > release-metadata.json
 
       - name: Generate latest.json
-        run: node scripts/generate-updater-json.mjs --assets-dir release-assets --tag "${{ github.ref_name }}" --repo "${{ github.repository }}" --release-metadata release-metadata.json
+        run: node scripts/release/generate-updater-json.mjs --assets-dir release-assets --tag "${{ github.ref_name }}" --repo "${{ github.repository }}" --release-metadata release-metadata.json
 
       - name: Verify updater signatures
         run: |
