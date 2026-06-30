@@ -204,7 +204,7 @@
     }
   },
   "apiBilling": {
-    "stationTitle": "All Gateways",
+    "stationTitle": "All Stations",
     "accountTitle": "Accounts",
     "detailTitle": "Detail",
     "addStation": "Add",
@@ -222,7 +222,7 @@
     "deleteStation": "Delete",
     "deleteAccount": "Delete",
     "deleteAction": "Delete",
-    "deleteStationTitle": "Delete Gateway",
+    "deleteStationTitle": "Delete Station",
     "deleteStationDesc": "Delete \"{{name}}\"? All accounts under it and their data will also be removed.",
     "deleteAccountTitle": "Delete Account",
     "deleteAccountDesc": "Delete \"{{name}}\"? The associated browser data will also be removed.",
@@ -260,13 +260,12 @@
       "textPlaceholder": "e.g. Logout"
     },
     "addStationDialog": {
-      "title": "Add Gateway",
+      "title": "Add Station",
       "subtitle": "Fill in a remark and the website URL. It will appear in the left list.",
-      "remarkPlaceholder": "e.g. Alpha Gateway",
+      "remarkPlaceholder": "e.g. Alpha Station",
       "websitePlaceholder": "https://example.com",
       "inviteLinkPriority": "Accounts will prefer the invite link for login",
-      "sectionBasic": "Basic Info",
-      "sectionLoginDetection": "Login Detection"
+      "sectionBasic": "Basic Info"
     },
     "addAccountDialog": {
       "title": "Add Account",
@@ -281,8 +280,8 @@
       "inviteLinkPriority": "Accounts will prefer the invite link for login"
     },
     "editStationDialog": {
-      "title": "Edit Gateway",
-      "subtitle": "Edit the gateway remark, website URL, and login detection."
+      "title": "Edit Station",
+      "subtitle": "Edit the remark and website URL."
     },
     "editAccountDialog": {
       "title": "Edit Account",
@@ -294,7 +293,8 @@
       "ready": "Signed in",
       "loginRequired": "Needs Login",
       "expired": "Re-login",
-      "fetchFailed": "Fetch Failed"
+      "fetchFailed": "Fetch Failed",
+      "inactive": "Inactive"
     },
     "loginMethods": {
       "emailCode": "Email + Code",
@@ -309,12 +309,13 @@
       "lastLogin": "Last Login",
       "createdAt": "Created",
       "lastRefreshedAt": "Last Refreshed",
-      "login": "Login"
+      "login": "Login",
+      "switchTo": "Switch"
     },
     "detail": {
       "empty": "Pick a gateway on the left to see its details here.",
       "noAccount": "No account selected. Choose one in the middle pane to inspect it here.",
-      "stationSection": "Gateway Info",
+      "stationSection": "Station Info",
       "accountSection": "Account Info",
       "lastLogin": "Last Login",
       "remark": "Remark",
@@ -366,10 +367,12 @@
       "invalidInput": "Input is invalid.",
       "invalidImportFile": "The import file format is invalid.",
       "storeFailure": "Failed to read or write local data.",
-      "reorderStationsSuccess": "Gateway order saved",
+      "reorderStationsSuccess": "Station order saved",
       "reorderStationsFailed": "Failed to save gateway order",
       "reorderAccountsSuccess": "Account order saved",
       "reorderAccountsFailed": "Failed to save account order",
+      "switchAccountSuccess": "Switched to {{name}}",
+      "switchAccountFailed": "Failed to switch account",
       "unknown": "The operation failed. Please try again."
     },
     "loadFailedTitle": "Failed to load gateway data",
@@ -384,7 +387,8 @@
         "attachToStation": "Will be attached to the currently selected station",
         "startedToast": "Quick login started; session will be auto-captured after login",
         "failedToast": "Quick login failed",
-        "historyDatalist": "Last 5 temporary URLs"
+        "historyDatalist": "Last 5 temporary URLs",
+        "destroyOnClose": "Destroy on close — delete this account after the login window is closed"
       },
       "advancedSection": {
         "title": "Session Manager · Advanced",
@@ -406,16 +410,33 @@
         "redetectTooltip": "Open login window and complete login before re-detecting",
         "redetectSuccess": "Auth profile detection completed",
         "redetectFailed": "Auth profile detection failed: please open login window and complete login first",
-        "authType": "Auth Type",
+        "cookieBased": "Cookie Auth",
+        "cookieDetected": "Detected",
+        "cookieUndetected": "Not detected",
         "tokenStorage": "Token Storage",
         "csrf": "CSRF",
         "csrfEnabled": "Enabled",
         "csrfDisabled": "Disabled",
+        "csrfExtraction": "Extraction",
+        "authType": "Auth Type",
         "antiBot": "Anti-Bot",
         "antiBotDetected": "Detected",
         "antiBotUndetected": "Not detected",
+        "ssoProvider": "SSO Provider",
         "fingerprinting": "Fingerprinting",
+        "fingerprintingNone": "None",
+        "fingerprintingBasic": "Basic (IP + UA)",
+        "fingerprintingStrict": "Strict (IP + UA + TLS)",
         "probeStrategy": "Probe Strategy",
+        "probeStrategyAuto": "Auto (recommended)",
+        "probeStrategyHttpFirst": "HTTP First",
+        "probeStrategyHttpOnly": "HTTP Only",
+        "probeStrategyWebviewOnly": "WebView Only",
+        "probeStrategyHybrid": "Hybrid",
+        "strategyManualOverride": "⚠ Probe strategy manually overridden. Click to reset to auto.",
+        "resetStrategy": "Reset to Auto",
+        "probeSuccessRate": "Probe success rate",
+        "noData": "N/A",
         "confidence": "Confidence",
         "detectedAt": "Detected At"
       }

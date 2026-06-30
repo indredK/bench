@@ -1,6 +1,6 @@
 # Session Manager 技术设计文档
 
-> 版本: v1.0 | 日期: 2026-06-30 | 关联 PRD: session-manager-design-spec.md (v1.1)
+> 版本: v1.8 | 日期: 2026-06-30 | 关联 PRD: session-manager-design-spec.md (v1.8)
 
 ## 目录
 
@@ -2113,7 +2113,7 @@ fn handle_webview_creation_failure(account_id: &str) {
 | `src-tauri/src/api_billing/mod.rs` | 修改 | 注册新模块和 command |
 | `src-tauri/src/lib.rs` | 修改 | RunEvent::ExitRequested 中集成 session 持久化 |
 | `src/features/api-billing/api.ts` | 修改 | 新增前端 API 适配函数 |
-| `src/features/api-billing/page.tsx` | 修改 | 快速登录 UI、表单简化、互斥模式配置、AuthProfile 详情面板 |
+| `src/features/api-billing/page.tsx` | 修改 | 快速登录 UI、表单简化、AuthProfile 详情面板 |
 | `Cargo.toml` | 修改 | 新增 reqwest(/rquest) 依赖 |
 
 ## 附录 B: 关键依赖
@@ -2732,8 +2732,10 @@ bench 的独特优势：
 | v1.4 | 2026-06-30 | 开源参考项目 Brief 分析 |
 | v1.5 | 2026-06-30 | 开源参考项目深度对比 + 可直接复用方案 + 即时改进建议 |
 | v1.6 | 2026-06-30 | 附录 H 实施状态标注；F.6.1/F.6.2/F.6.3 落地；Ephemeral + 串联 + TTL 全部完成；遗漏 2/4/5/7 收尾 |
+| v1.7 | 2026-06-30 | StationDialog 高级设置新建/编辑均可用；Rotating 切换账号 UI；`inactive` i18n 补齐；historyDatalist label 渲染；`switchAccount` toast |
+| v1.8 | 2026-06-30 | 移除 exclusivityMode/旋转切换/互斥引擎；持久账户表单精简(3字段)；AuthProfile 面板增强(独立组件+彩色灯+手动策略切换)；LoginDetectionField 移除；"中转站"→"站点" |
 
-## 附录 H: 实施状态总览 (v1.6)
+## 附录 H: 实施状态总览 (v1.8)
 
 > 标注规则: ✅ 已实现 / ⏳ Phase 2 计划 / 🔮 v2.0 / ❌ 已放弃
 
@@ -2741,7 +2743,7 @@ bench 的独特优势：
 
 | 章节 | 项目 | 状态 | 实现位置 / 备注 |
 |------|------|------|----------------|
-| §1.1 数据模型 | AccountType / AccountSessionStatus(+Inactive) / CookieEntry(+partitioned) / AccountSession / AuthProfile / ProbeStrategy / ExclusivityMode / ProbeResult | ✅ | `types.rs` |
+| §1.1 数据模型 | AccountType / AccountSessionStatus(+Inactive) / CookieEntry(+partitioned) / AccountSession / AuthProfile / ProbeStrategy / ProbeResult | ✅ | `types.rs` |
 | §1.2 检测中间类型 | DetectionResult / LocalStorageTokenInfo / CsrfDetection / LogoutElement / CloudflareDetection | ✅ | `detection.rs` |
 | §2.1 登录捕获 | capture_session_after_login / extract_cookies(cookies_for_url) / capture_local_storage / capture_session_storage / extract_csrf_token / extract_user_agent / evaluate_and_decode(eval_with_callback+oneshot) | ✅ | `session.rs` |
 | §2.2 启动恢复 | restore_sessions_on_startup + cleanup_expired_sessions (F.6.3) | ✅ | `session.rs` + `lib.rs` |
@@ -2755,7 +2757,7 @@ bench 的独特优势：
 | §4.4 L3 Hybrid Probe | hybrid_probe (MVP 复用 webview_probe) | ✅ | `probe.rs` (probe_session 的 Hybrid 分支) |
 | §4.5 自适应降级 | adaptive_degrade (连续 3 次 → WebviewOnly) + set_probe_strategy + reset_probe_strategy | ✅ | `probe.rs` |
 | §4.6 TLS 指纹对抗 | rquest feature-gated | ⏳ Phase 2 | MVP 用方案 C (自动降级) |
-| §5 互斥引擎 | enforce_exclusivity_before_login (sync) + logout_conflicting_accounts + deactivate_active_account | ✅ | `exclusivity.rs` |
+| §5 互斥引擎 | 账号隔离模式 (exclusive/rotating 已移除，仅 coexisting) | ✅ (简化) | 前端 exclusivityMode/switchAccount/rotating 全部删除；后端 `exclusivity.rs` 保留但不再配置互斥策略 |
 | §6.1 API 契约 | capture/restore/clear_account_session + detect/get_station_auth_profile + set_exclusivity_mode + switch_active_account + set/reset_probe_strategy + create_ephemeral_account + set_session_ttl + mark_account_logged_in(串联) | ✅ | `commands.rs` |
 | §6.2 前端 API 适配 | api.ts 全部命令绑定 | ✅ | `api.ts` |
 | §7.1 Schema v3 | sessions + auth_profiles + schema_version 迁移 | ✅ | `storage.rs` (CURRENT_SCHEMA=3) |
@@ -2787,15 +2789,18 @@ bench 的独特优势：
 
 | 项目 | 状态 | 实现位置 |
 |------|------|---------|
-| AuthProfile 详情面板 (§7.4) | ✅ | `page.tsx::DetailColumn` |
+| AuthProfile 详情面板 (§7.4) | ✅ | `page.tsx::AuthProfilePanel` 独立组件 + 彩色状态灯 + 置信度进度条 + 手动探针策略切换 |
 | 重新检测按钮 | ✅ | `page.tsx::handleRedetectProfile` |
-| 手动切换探针策略下拉 | ✅ | `page.tsx::StationDialog` 高级 Section |
-| 互斥模式配置 (§4.5.1) | ✅ | `page.tsx::StationDialog` 高级 Section |
-| Session TTL 配置 (F.6.2) | ✅ | `page.tsx::StationDialog` 高级 Section |
+| 手动切换探针策略下拉 | ✅ | `page.tsx::AuthProfilePanel` 策略选择器 + setProbeStrategy/resetProbeStrategy |
+| 互斥模式配置 (§4.5.1) | ❌ (已移除) | exclusive/rotating 全部删除，仅保留 coexisting；`ExclusivityMode` 类型引用已清理 |
+| Session TTL 配置 (F.6.2) | ✅ | `page.tsx::StationDialog` 高级 Section（新建/编辑均可配置） |
 | 快速登录 Ephemeral (§4.1) | ✅ | `page.tsx::handleQuickLogin` + `create_ephemeral_account` |
+| 关闭后销毁 checkbox (§4.1) | ✅ | `page.tsx::QuickLoginDialog` `destroyOnClose` state + `WebviewWindow.onCloseRequested` 监听 |
 | 最近 5 个临时 URL 历史 (§7.2) | ✅ | `page.tsx` localStorage `api-billing.quick-login.history.v1` |
-| 持久账户表单精简 (§4.2) | ⏳ Phase 2 | 当前保留旧字段(向后兼容) |
-| i18n 文案 | ✅ | 新文案接入 `apiBilling.sessionManager.*` i18n key |
+| 历史 URL datalist 标签 | ✅ | `page.tsx::QuickLoginDialog` 修复 i18n label 渲染 |
+| Rotating 切换账号按钮 | ❌ (已移除) | `switchAccount` + `isRotating` + `onSwitch` 全部删除；`AccountCardContent` 操作按钮简化 |
+| `inactive` 状态 i18n | ✅ | `en/zh.json::apiBilling.status.inactive` |
+| 持久账户表单精简 (§4.2) | ✅ | 0.5d 实现：删除 phone/tgAccount/linkedAccount/inviteLink/loginMethods；3 字段（username/password/notes） |
 
 ### H.5 留作 Phase 2 / v2.0 的项目
 
@@ -2810,5 +2815,4 @@ bench 的独特优势：
 | Semaphore 限流恢复 (R14) | ⏳ Phase 2 | 多 Station 并发控制 |
 | Linux/Windows WebView (R15) | ⏳ Phase 2 | 跨平台矩阵 |
 | WKProcessPool 验证 (R17) | ⏳ Phase 2 | Tauri v2 暴露方式待确认 |
-| 持久账户表单砍到 4 字段 (§4.2) | ⏳ Phase 2 | 旧字段保留向后兼容 |
 

@@ -20,11 +20,8 @@ import {
   Import,
   Inbox,
   KeyRound,
-  Link,
   LogIn,
-  MessageCircle,
   Pencil,
-  Phone,
   Plus,
   RefreshCw,
   StickyNote,
@@ -59,18 +56,19 @@ import * as api from "@/features/api-billing/api";
 import { classifyApiBillingError } from "@/features/api-billing/error-classifier";
 import type {
   AccountSessionStatus,
-  ExclusivityMode,
-  LoginDetectionConfig,
-  LoginDetectionMode,
-  LoginDetectionPresence,
-  LoginDetectionRule,
+  AuthProfile,
   ProbeStrategy,
   RelayStation,
   StationAccount,
 } from "@/features/api-billing/api";
-import { DEFAULT_LOGIN_DETECTION } from "@/features/api-billing/api";
 import { useGuardedAsync, useGuardedAsyncSet } from "@/hooks/useGuardedAsync";
 import { SortableList, useSortableCard, DragHandle } from "@/features/api-billing/sortable-card";
+
+type SessionSettings = {
+  probeOverride: boolean;
+  probeStrategy: ProbeStrategy;
+  sessionTtlHours: number;
+};
 
 type DetailRow = {
   label: string;
@@ -196,10 +194,20 @@ function ApiBillingPage() {
   const handleAddStation = async (
     remark: string,
     website: string,
-    loginDetection: LoginDetectionConfig
+    sessionSettings?: SessionSettings
   ) => {
     try {
-      const station = await api.createStation(remark, website, loginDetection);
+      const station = await api.createStation(remark, website, null);
+      if (sessionSettings) {
+        const promises: Promise<unknown>[] = [];
+        if (sessionSettings.probeOverride) {
+          promises.push(api.setProbeStrategy(station.id, sessionSettings.probeStrategy));
+        }
+        if (sessionSettings.sessionTtlHours !== 720) {
+          promises.push(api.setSessionTtl(station.id, sessionSettings.sessionTtlHours));
+        }
+        await Promise.all(promises);
+      }
       setStations((prev) => [...prev, station]);
       setSelectedStationId(station.id);
       setSelectedAccountId("");
@@ -236,6 +244,7 @@ function ApiBillingPage() {
   const handleQuickLogin = async (
     url: string,
     username: string,
+    destroyOnClose: boolean,
     stationId?: string | null,
   ) => {
     if (!url.trim() || !username.trim()) return;
@@ -254,6 +263,20 @@ function ApiBillingPage() {
       await api.openLoginWindow(account.id);
       pushQuickLoginHistory(normalized);
       setQuickLoginOpen(false);
+
+      // 如果勾选了"关闭后销毁"，监听窗口关闭并删除账号
+      if (destroyOnClose) {
+        const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
+        const ww = await WebviewWindow.getByLabel(`relay-login-${account.id}`);
+        if (ww) {
+          const unlisten = await ww.onCloseRequested(async () => {
+            unlisten();
+            setAccounts((prev) => prev.filter((a) => a.id !== account.id));
+            try { await api.deleteAccount(account.id); } catch { /* ignore */ }
+          });
+        }
+      }
+
       toast.success(t("apiBilling.sessionManager.quickLogin.startedToast"));
     } catch (error) {
       toast.error(t("apiBilling.sessionManager.quickLogin.failedToast"));
@@ -273,7 +296,7 @@ function ApiBillingPage() {
     }
   };
 
-  const handleAddAccount = async (username: string, password: string, notes: string, phone: string, tgAccount: string, linkedAccount: string, inviteLink: string, loginMethods: api.LoginMethod[]) => {
+  const handleAddAccount = async (username: string, password: string, notes: string) => {
     if (!selectedStation) return false;
     const trimmed = username.trim();
     const duplicate = accounts.some(
@@ -289,11 +312,6 @@ function ApiBillingPage() {
         username,
         password ? password : null,
         notes,
-        phone || null,
-        tgAccount || null,
-        linkedAccount || null,
-        inviteLink || null,
-        loginMethods
       );
       setAccounts((prev) => [...prev, account]);
       setSelectedAccountId(account.id);
@@ -453,15 +471,24 @@ function ApiBillingPage() {
   const handleEditStation = async (
     remark: string,
     website: string,
-    loginDetection: LoginDetectionConfig
+    sessionSettings?: SessionSettings
   ) => {
     if (!editingStation) return false;
     try {
       const updated = await api.updateStation(editingStation.id, {
         remark,
         website,
-        loginDetection,
       });
+      if (sessionSettings) {
+        const promises: Promise<unknown>[] = [];
+        if (sessionSettings.probeOverride) {
+          promises.push(api.setProbeStrategy(editingStation.id, sessionSettings.probeStrategy));
+        }
+        if (sessionSettings.sessionTtlHours !== (editingStation.sessionTtlHours ?? 720)) {
+          promises.push(api.setSessionTtl(editingStation.id, sessionSettings.sessionTtlHours));
+        }
+        await Promise.all(promises);
+      }
       setStations((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
       setEditStationOpen(false);
       setEditingStation(null);
@@ -475,12 +502,7 @@ function ApiBillingPage() {
   const handleEditAccount = async (
     username: string,
     notes: string,
-    password: string | null,
-    phone: string,
-    tgAccount: string,
-    linkedAccount: string,
-    inviteLink: string,
-    loginMethods: api.LoginMethod[]
+    password: string | null
   ) => {
     if (!editingAccount) return false;
     const trimmed = username.trim();
@@ -499,11 +521,6 @@ function ApiBillingPage() {
       updated = await api.updateAccount(editingAccount.id, {
         username,
         notes,
-        phone: phone || null,
-        tgAccount: tgAccount || null,
-        linkedAccount: linkedAccount || null,
-        inviteLink: inviteLink || null,
-        loginMethods,
       });
     } catch (error) {
       toast.error(t("apiBilling.toasts.updateAccountFailed"));
@@ -751,7 +768,7 @@ function ApiBillingPage() {
 function ColumnHeader({ title, action }: { title: string; action: ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
-      <h2 className="truncate text-sm font-semibold">{title}</h2>
+      <h2 className="whitespace-nowrap text-sm font-semibold">{title}</h2>
       {action}
     </div>
   );
@@ -806,31 +823,31 @@ function StationColumn({
     />
   );
   return (
-    <section className="flex w-[260px] shrink-0 flex-col rounded-lg border bg-card">
+    <section className="flex w-[320px] shrink-0 flex-col rounded-lg border bg-card">
       <ColumnHeader
         title={t("apiBilling.stationTitle")}
         action={
-          <div className="flex items-center gap-1.5">
-            <Button
-              size="icon-sm"
-              variant="outline"
-              onClick={onRefreshAll}
-              disabled={refreshingAll}
-              aria-label={t("apiBilling.refreshAll")}
-              title={t("apiBilling.refreshAll")}
-            >
-              <RefreshCw className={refreshingAll ? "animate-spin" : undefined} />
-            </Button>
-            <Button size="sm" onClick={onAdd}>
-              <Plus />
-              {t("apiBilling.addStation")}
-            </Button>
-            {onQuickLogin && (
-              <Button size="sm" variant="secondary" onClick={onQuickLogin} className="ml-2">
-                ⚡ 快速登录
+            <div className="flex items-center gap-1.5">
+              <Button
+                size="icon-sm"
+                variant="outline"
+                onClick={onRefreshAll}
+                disabled={refreshingAll}
+                aria-label={t("apiBilling.refreshAll")}
+                title={t("apiBilling.refreshAll")}
+              >
+                <RefreshCw className={refreshingAll ? "animate-spin" : undefined} />
               </Button>
-            )}
-          </div>
+              <Button size="sm" onClick={onAdd}>
+                <Plus />
+                {t("apiBilling.addStation")}
+              </Button>
+              {onQuickLogin && (
+                <Button size="sm" variant="secondary" onClick={onQuickLogin}>
+                  ⚡ 快速登录
+                </Button>
+              )}
+            </div>
         }
       />
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
@@ -1371,35 +1388,14 @@ function DetailColumn({
               />
             )}
 
-            {/* AuthProfile */}
-            {station.authProfile && (() => {
-              const p = station.authProfile!;
-              return (
-                <div className="mx-5 mt-3 rounded-lg border border-blue-500/20 bg-blue-500/5 px-3 py-2">
-                  <div className="mb-1 flex items-center justify-between gap-2 text-xs font-semibold text-blue-400">
-                    <span className="flex items-center gap-1.5">{t("apiBilling.sessionManager.authProfile.title")}</span>
-                    <button
-                      type="button"
-                      onClick={() => onRedetectProfile(station.id)}
-                      className="rounded px-1.5 py-0.5 text-[10px] font-normal text-blue-500 hover:bg-blue-500/10"
-                      title={t("apiBilling.sessionManager.authProfile.redetectTooltip")}
-                    >
-                      {t("apiBilling.sessionManager.authProfile.redetect")}
-                    </button>
-                  </div>
-                  <div className="space-y-0.5 text-xs text-muted-foreground">
-                    <div className="flex justify-between"><span>{t("apiBilling.sessionManager.authProfile.authType")}</span><span className="text-foreground">{String(p.authType)}</span></div>
-                    <div className="flex justify-between"><span>{t("apiBilling.sessionManager.authProfile.tokenStorage")}</span><span className="text-foreground">{String(p.tokenStorage)}</span></div>
-                    <div className="flex justify-between"><span>{t("apiBilling.sessionManager.authProfile.csrf")}</span><span className="text-foreground">{p.csrfProtection ? t("apiBilling.sessionManager.authProfile.csrfEnabled") : t("apiBilling.sessionManager.authProfile.csrfDisabled")}</span></div>
-                    <div className="flex justify-between"><span>{t("apiBilling.sessionManager.authProfile.antiBot")}</span><span className="text-foreground">{p.antiBot ? t("apiBilling.sessionManager.authProfile.antiBotDetected") : t("apiBilling.sessionManager.authProfile.antiBotUndetected")}</span></div>
-                    <div className="flex justify-between"><span>{t("apiBilling.sessionManager.authProfile.fingerprinting")}</span><span className="text-foreground">{String(p.fingerprinting)}</span></div>
-                    <div className="flex justify-between"><span>{t("apiBilling.sessionManager.authProfile.probeStrategy")}</span><span className="rounded bg-blue-500/10 px-1 py-0.5 text-[10px] text-blue-400">{String(p.probeStrategy)}</span></div>
-                    <div className="flex justify-between"><span>{t("apiBilling.sessionManager.authProfile.confidence")}</span><span className="text-foreground">{Math.round(p.confidence * 100)}%</span></div>
-                    <div className="flex justify-between"><span>{t("apiBilling.sessionManager.authProfile.detectedAt")}</span><span className="text-foreground">{p.detectedAt}</span></div>
-                  </div>
-                </div>
-              );
-            })()}
+            {station.authProfile && (
+              <AuthProfilePanel
+                profile={station.authProfile}
+                stationId={station.id}
+                stationProbeFailureCount={station.probeFailureCount}
+                onRedetect={onRedetectProfile}
+              />
+            )}
 
           </div>
         ) : (
@@ -1495,6 +1491,209 @@ function DetailSection({
   );
 }
 
+function AuthProfilePanel({
+  profile,
+  stationId,
+  stationProbeFailureCount,
+  onRedetect,
+}: {
+  profile: AuthProfile;
+  stationId: string;
+  stationProbeFailureCount?: number;
+  onRedetect: (stationId: string) => void;
+}) {
+  const { t } = useTranslation();
+  const [strategy, setStrategy] = useState(profile.probeStrategy);
+  const [setting, setSetting] = useState(false);
+  const handleStrategyChange = async (next: string) => {
+    if (next === "auto") {
+      setSetting(true);
+      try {
+        await api.resetProbeStrategy(stationId);
+        setStrategy(profile.probeStrategy);
+      } catch { /* ignore */ }
+      setSetting(false);
+      return;
+    }
+    setSetting(true);
+    try {
+      await api.setProbeStrategy(stationId, next as ProbeStrategy);
+      setStrategy(next as ProbeStrategy);
+    } catch { /* ignore */ }
+    setSetting(false);
+  };
+
+  const p = profile;
+  const confPct = Math.round(p.confidence * 100);
+  const isOverridden = strategy !== profile.probeStrategy;
+
+  const dims: Array<{
+    icon: string;
+    label: string;
+    status: "ok" | "warn" | "off" | "na";
+    detail: string;
+  }> = [
+    {
+      icon: "📋",
+      label: t("apiBilling.sessionManager.authProfile.cookieBased"),
+      status: p.cookieBased ? "ok" : "off",
+      detail: p.cookieBased
+        ? t("apiBilling.sessionManager.authProfile.cookieDetected")
+        : t("apiBilling.sessionManager.authProfile.cookieUndetected"),
+    },
+    {
+      icon: "💾",
+      label: t("apiBilling.sessionManager.authProfile.tokenStorage"),
+      status: p.tokenStorage !== "none" ? "ok" : "off",
+      detail: p.tokenStorage,
+    },
+    {
+      icon: "🛡",
+      label: t("apiBilling.sessionManager.authProfile.csrf"),
+      status: p.csrfProtection ? "ok" : "off",
+      detail: p.csrfProtection
+        ? t("apiBilling.sessionManager.authProfile.csrfEnabled")
+        : t("apiBilling.sessionManager.authProfile.csrfDisabled"),
+    },
+    {
+      icon: "🔐",
+      label: t("apiBilling.sessionManager.authProfile.authType"),
+      status: p.authType !== "unknown" ? "ok" : "warn",
+      detail: p.authType,
+    },
+    {
+      icon: "👆",
+      label: t("apiBilling.sessionManager.authProfile.fingerprinting"),
+      status: p.fingerprinting === "none" ? "na" : p.fingerprinting === "basic" ? "ok" : "warn",
+      detail:
+        p.fingerprinting === "none"
+          ? t("apiBilling.sessionManager.authProfile.fingerprintingNone")
+          : p.fingerprinting === "basic"
+            ? t("apiBilling.sessionManager.authProfile.fingerprintingBasic")
+            : t("apiBilling.sessionManager.authProfile.fingerprintingStrict"),
+    },
+    {
+      icon: "🚫",
+      label: t("apiBilling.sessionManager.authProfile.antiBot"),
+      status: p.antiBot ? "warn" : "off",
+      detail: p.antiBot
+        ? t("apiBilling.sessionManager.authProfile.antiBotDetected")
+        : t("apiBilling.sessionManager.authProfile.antiBotUndetected"),
+    },
+  ];
+
+  if (p.ssoProvider) {
+    dims.push({
+      icon: "🔗",
+      label: t("apiBilling.sessionManager.authProfile.ssoProvider"),
+      status: "ok",
+      detail: p.ssoProvider,
+    });
+  }
+
+  const statusColor = (s: typeof dims[number]["status"]) =>
+    s === "ok" ? "bg-emerald-500"
+    : s === "warn" ? "bg-amber-500"
+    : s === "off" ? "bg-red-500/60"
+    : "bg-slate-400/40";
+
+  const strategyLabels: Record<string, string> = {
+    httpFirst: t("apiBilling.sessionManager.authProfile.probeStrategyHttpFirst"),
+    httpOnly: t("apiBilling.sessionManager.authProfile.probeStrategyHttpOnly"),
+    webviewOnly: t("apiBilling.sessionManager.authProfile.probeStrategyWebviewOnly"),
+    hybrid: t("apiBilling.sessionManager.authProfile.probeStrategyHybrid"),
+  };
+
+  return (
+    <div className="mx-5 mt-3 space-y-3">
+      <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-3">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <span className="text-xs font-semibold text-blue-400">
+            {t("apiBilling.sessionManager.authProfile.title")}
+          </span>
+          <button
+            type="button"
+            onClick={() => onRedetect(stationId)}
+            className="rounded px-1.5 py-0.5 text-[10px] font-normal text-blue-500 hover:bg-blue-500/10"
+          >
+            {t("apiBilling.sessionManager.authProfile.redetect")}
+          </button>
+        </div>
+
+        <div className="mb-2 space-y-1 text-[10px] text-muted-foreground">
+          <div className="flex justify-between">
+            <span>{t("apiBilling.sessionManager.authProfile.detectedAt")}</span>
+            <span className="text-foreground">{p.detectedAt}</span>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span>{t("apiBilling.sessionManager.authProfile.confidence")}</span>
+            <span className="font-medium text-foreground">{confPct}%</span>
+          </div>
+          <div className="mt-1 flex h-1.5 w-full overflow-hidden rounded-full bg-blue-500/10">
+            <div
+              className="h-full rounded-full bg-blue-500 transition-all"
+              style={{ width: `${confPct}%` }}
+            />
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          {dims.map((d) => (
+            <div key={d.label} className="flex items-center justify-between gap-2 text-[11px]">
+              <div className="flex min-w-0 items-center gap-1.5">
+                <span className="shrink-0">{d.icon}</span>
+                <span className="truncate text-muted-foreground">{d.label}</span>
+              </div>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <span className="text-foreground">{d.detail}</span>
+                <span className={cn("inline-block size-2 shrink-0 rounded-full", statusColor(d.status))} />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-2 border-t border-blue-500/10 pt-2">
+          <div className="flex items-center justify-between gap-2 text-[11px]">
+            <span className="text-muted-foreground">
+              {t("apiBilling.sessionManager.authProfile.probeStrategy")}
+            </span>
+            <span className="rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] text-blue-400">
+              {strategyLabels[strategy] ?? strategy}
+            </span>
+          </div>
+          {stationProbeFailureCount !== undefined && stationProbeFailureCount > 0 && (
+            <div className="mt-0.5 text-[10px] text-muted-foreground">
+              {t("apiBilling.sessionManager.authProfile.probeSuccessRate")}:{" "}
+              {t("apiBilling.sessionManager.authProfile.noData")}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <select
+          value={strategy}
+          onChange={(e) => handleStrategyChange(e.target.value)}
+          disabled={setting}
+          className="h-7 flex-1 rounded border border-border bg-muted/50 px-2 text-[11px] text-foreground outline-none focus:border-blue-400"
+        >
+          <option value="auto">{t("apiBilling.sessionManager.authProfile.probeStrategyAuto")}</option>
+          <option value="httpFirst">{t("apiBilling.sessionManager.authProfile.probeStrategyHttpFirst")}</option>
+          <option value="httpOnly">{t("apiBilling.sessionManager.authProfile.probeStrategyHttpOnly")}</option>
+          <option value="webviewOnly">{t("apiBilling.sessionManager.authProfile.probeStrategyWebviewOnly")}</option>
+          <option value="hybrid">{t("apiBilling.sessionManager.authProfile.probeStrategyHybrid")}</option>
+        </select>
+      </div>
+
+      {isOverridden && (
+        <div className="rounded border border-amber-500/20 bg-amber-500/5 px-2 py-1.5 text-[10px] text-amber-600">
+          {t("apiBilling.sessionManager.authProfile.strategyManualOverride")}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function IconButton({
   onClick,
   icon,
@@ -1560,109 +1759,6 @@ function SectionLabel({ children }: { children: ReactNode }) {
   );
 }
 
-function LoginDetectionField({
-  value,
-  onChange,
-}: {
-  value: LoginDetectionConfig;
-  onChange: (next: LoginDetectionConfig) => void;
-}) {
-  const { t } = useTranslation();
-  const modes: LoginDetectionMode[] = ["presetLogout", "presetLogin", "custom"];
-  return (
-    <div className="space-y-2">
-      <div className="flex flex-col gap-1.5">
-        {modes.map((mode) => {
-          const selected = value.mode === mode;
-          return (
-            <button
-              key={mode}
-              type="button"
-              onClick={() => onChange({ ...value, mode })}
-              className={cn(
-                "flex items-start gap-2.5 rounded-md border px-3 py-2 text-left transition-colors",
-                selected ? "border-primary bg-primary/10" : "border-border hover:bg-muted"
-              )}
-            >
-              <span
-                className={cn(
-                  "mt-1 inline-flex size-3.5 shrink-0 items-center justify-center rounded-full border",
-                  selected ? "border-primary" : "border-muted-foreground/40"
-                )}
-              >
-                {selected && <span className="block size-2 rounded-full bg-primary" />}
-              </span>
-              <span className="flex-1">
-                <span className="block text-sm font-medium">
-                  {t(`apiBilling.loginDetection.${mode}`)}
-                </span>
-                <span className="block text-xs text-muted-foreground">
-                  {t(`apiBilling.loginDetection.${mode}Hint`)}
-                </span>
-              </span>
-            </button>
-          );
-        })}
-      </div>
-      {value.mode === "custom" && (
-        <div className="space-y-3 rounded-md border border-border bg-muted/30 p-3">
-          <CustomDetectionRule
-            title={t("apiBilling.loginDetection.loggedOutRule")}
-            rule={value.loggedOutRule}
-            onChange={(rule) => onChange({ ...value, loggedOutRule: rule })}
-          />
-          <CustomDetectionRule
-            title={t("apiBilling.loginDetection.loggedInRule")}
-            rule={value.loggedInRule}
-            onChange={(rule) => onChange({ ...value, loggedInRule: rule })}
-          />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function CustomDetectionRule({
-  title,
-  rule,
-  onChange,
-}: {
-  title: string;
-  rule: LoginDetectionRule;
-  onChange: (rule: LoginDetectionRule) => void;
-}) {
-  const { t } = useTranslation();
-  return (
-    <div className="space-y-1.5">
-      <span className="block text-xs font-medium text-muted-foreground">{title}</span>
-      <div className="flex gap-2">
-        <Select
-          value={rule.presence}
-          onValueChange={(v) => onChange({ ...rule, presence: v as LoginDetectionPresence })}
-        >
-          <SelectTrigger className="w-28">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="present">
-              {t("apiBilling.loginDetection.presencePresent")}
-            </SelectItem>
-            <SelectItem value="absent">
-              {t("apiBilling.loginDetection.presenceAbsent")}
-            </SelectItem>
-          </SelectContent>
-        </Select>
-        <Input
-          value={rule.text}
-          onChange={(e) => onChange({ ...rule, text: e.target.value })}
-          placeholder={t("apiBilling.loginDetection.textPlaceholder")}
-          className="flex-1"
-        />
-      </div>
-    </div>
-  );
-}
-
 function Field({
   label,
   icon,
@@ -1695,18 +1791,16 @@ function StationDialog({
   onSubmit: (
     remark: string,
     website: string,
-    loginDetection: LoginDetectionConfig
+    sessionSettings?: SessionSettings
   ) => void | Promise<void | boolean>;
 }) {
   const { t } = useTranslation();
   const isEditing = !!station;
   const [remark, setRemark] = useState("");
   const [website, setWebsite] = useState("");
-  const [detection, setDetection] = useState<LoginDetectionConfig>(DEFAULT_LOGIN_DETECTION);
   const [submitting, setSubmitting] = useState(false);
 
   // Session Manager: 编辑模式下的高级设置
-  const [exclusivityMode, setExclusivityMode] = useState<ExclusivityMode>("coexisting");
   const [probeStrategy, setProbeStrategyLocal] = useState<ProbeStrategy>("httpFirst");
   const [probeOverride, setProbeOverride] = useState(false);
   const [sessionTtlHours, setSessionTtlHours] = useState<number>(720);
@@ -1714,8 +1808,6 @@ function StationDialog({
   const reset = () => {
     setRemark("");
     setWebsite("");
-    setDetection(DEFAULT_LOGIN_DETECTION);
-    setExclusivityMode("coexisting");
     setProbeStrategyLocal("httpFirst");
     setProbeOverride(false);
     setSessionTtlHours(720);
@@ -1725,8 +1817,6 @@ function StationDialog({
     if (open && station) {
       setRemark(station.remark);
       setWebsite(station.website);
-      setDetection(station.loginDetection ?? DEFAULT_LOGIN_DETECTION);
-      setExclusivityMode(station.exclusivityMode ?? "coexisting");
       setSessionTtlHours(station.sessionTtlHours ?? 720);
       if (station.authProfile) {
         setProbeStrategyLocal(station.authProfile.probeStrategy);
@@ -1745,23 +1835,11 @@ function StationDialog({
     if (!r || !w) return;
     setSubmitting(true);
     try {
-      await Promise.resolve(onSubmit(r, w, detection));
-      // 编辑模式下同步 Session Manager 设置
-      if (station) {
-        const promises: Promise<unknown>[] = [];
-        const targetMode = exclusivityMode;
-        if (targetMode !== (station.exclusivityMode ?? "coexisting")) {
-          promises.push(api.setExclusivityMode(station.id, targetMode));
-        }
-        if (probeOverride) {
-          promises.push(api.setProbeStrategy(station.id, probeStrategy));
-        }
-        const targetTtl = sessionTtlHours;
-        if (targetTtl !== (station.sessionTtlHours ?? 720)) {
-          promises.push(api.setSessionTtl(station.id, targetTtl));
-        }
-        await Promise.all(promises);
-      }
+      await Promise.resolve(onSubmit(r, w, {
+        probeOverride,
+        probeStrategy,
+        sessionTtlHours,
+      }));
     } finally {
       setSubmitting(false);
     }
@@ -1784,110 +1862,81 @@ function StationDialog({
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid gap-5 sm:grid-cols-2">
-            <section className="space-y-3">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {t("apiBilling.addStationDialog.sectionBasic")}
-              </h3>
-              <Field
-                label={t("apiBilling.fields.remark")}
-                icon={<StickyNote size={14} />}
-                input={
-                  <Input
-                    value={remark}
-                    onChange={(e) => setRemark(e.target.value)}
-                    placeholder={t("apiBilling.addStationDialog.remarkPlaceholder")}
-                    required
-                  />
-                }
-              />
-              <Field
-                label={t("apiBilling.fields.website")}
-                icon={<Globe size={14} />}
-                input={
-                  <Input
-                    value={website}
-                    onChange={(e) => setWebsite(e.target.value)}
-                    placeholder={t("apiBilling.addStationDialog.websitePlaceholder")}
-                    type="url"
-                    required
-                  />
-                }
-              />
-              <p className="text-xs text-muted-foreground">
-                {t("apiBilling.addStationDialog.inviteLinkPriority")}
-              </p>
-            </section>
-            <section className="space-y-3 sm:border-l sm:border-border sm:pl-5">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {t("apiBilling.addStationDialog.sectionLoginDetection")}
-              </h3>
-              <LoginDetectionField value={detection} onChange={setDetection} />
-            </section>
+          <div className="space-y-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {t("apiBilling.addStationDialog.sectionBasic")}
+            </h3>
+            <Field
+              label={t("apiBilling.fields.remark")}
+              icon={<StickyNote size={14} />}
+              input={
+                <Input
+                  value={remark}
+                  onChange={(e) => setRemark(e.target.value)}
+                  placeholder={t("apiBilling.addStationDialog.remarkPlaceholder")}
+                  required
+                />
+              }
+            />
+            <Field
+              label={t("apiBilling.fields.website")}
+              icon={<Globe size={14} />}
+              input={
+                <Input
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                  placeholder={t("apiBilling.addStationDialog.websitePlaceholder")}
+                  type="url"
+                  required
+                />
+              }
+            />
           </div>
 
-          {isEditing && (
-            <section className="space-y-3 rounded-lg border border-border/60 bg-muted/30 p-3">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {t("apiBilling.sessionManager.advancedSection.title")}
-              </h3>
-              <Field
-                label={t("apiBilling.sessionManager.advancedSection.exclusivityMode")}
-                input={
+          <section className="space-y-3 rounded-lg border border-border/60 bg-muted/30 p-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {t("apiBilling.sessionManager.advancedSection.title")}
+            </h3>
+            <Field
+              label={t("apiBilling.sessionManager.advancedSection.probeStrategy")}
+              input={
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={probeOverride}
+                      onChange={(e) => setProbeOverride(e.target.checked)}
+                    />
+                    {t("apiBilling.sessionManager.advancedSection.probeOverrideLabel")}
+                  </label>
                   <Select
-                    value={exclusivityMode}
-                    onValueChange={(v) => setExclusivityMode(v as ExclusivityMode)}
+                    value={probeStrategy}
+                    onValueChange={(v) => setProbeStrategyLocal(v as ProbeStrategy)}
+                    disabled={!probeOverride}
                   >
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="coexisting">{t("apiBilling.sessionManager.advancedSection.exclusivityCoexisting")}</SelectItem>
-                      <SelectItem value="exclusive">{t("apiBilling.sessionManager.advancedSection.exclusivityExclusive")}</SelectItem>
-                      <SelectItem value="rotating">{t("apiBilling.sessionManager.advancedSection.exclusivityRotating")}</SelectItem>
+                      <SelectItem value="httpFirst">{t("apiBilling.sessionManager.advancedSection.probeHttpFirst")}</SelectItem>
+                      <SelectItem value="httpOnly">{t("apiBilling.sessionManager.advancedSection.probeHttpOnly")}</SelectItem>
+                      <SelectItem value="webviewOnly">{t("apiBilling.sessionManager.advancedSection.probeWebviewOnly")}</SelectItem>
+                      <SelectItem value="hybrid">{t("apiBilling.sessionManager.advancedSection.probeHybrid")}</SelectItem>
                     </SelectContent>
                   </Select>
-                }
-              />
-              <Field
-                label={t("apiBilling.sessionManager.advancedSection.probeStrategy")}
-                input={
-                  <div className="space-y-2">
-                    <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <input
-                        type="checkbox"
-                        checked={probeOverride}
-                        onChange={(e) => setProbeOverride(e.target.checked)}
-                      />
-                      {t("apiBilling.sessionManager.advancedSection.probeOverrideLabel")}
-                    </label>
-                    <Select
-                      value={probeStrategy}
-                      onValueChange={(v) => setProbeStrategyLocal(v as ProbeStrategy)}
-                      disabled={!probeOverride}
-                    >
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="httpFirst">{t("apiBilling.sessionManager.advancedSection.probeHttpFirst")}</SelectItem>
-                        <SelectItem value="httpOnly">{t("apiBilling.sessionManager.advancedSection.probeHttpOnly")}</SelectItem>
-                        <SelectItem value="webviewOnly">{t("apiBilling.sessionManager.advancedSection.probeWebviewOnly")}</SelectItem>
-                        <SelectItem value="hybrid">{t("apiBilling.sessionManager.advancedSection.probeHybrid")}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                }
-              />
-              <Field
-                label={t("apiBilling.sessionManager.advancedSection.sessionTtlLabel")}
-                input={
-                  <Input
-                    type="number"
-                    min={0}
-                    value={sessionTtlHours}
-                    onChange={(e) => setSessionTtlHours(Math.max(0, parseInt(e.target.value || "0", 10)))}
-                  />
-                }
-              />
-            </section>
-          )}
+                </div>
+              }
+            />
+            <Field
+              label={t("apiBilling.sessionManager.advancedSection.sessionTtlLabel")}
+              input={
+                <Input
+                  type="number"
+                  min={0}
+                  value={sessionTtlHours}
+                  onChange={(e) => setSessionTtlHours(Math.max(0, parseInt(e.target.value || "0", 10)))}
+                />
+              }
+            />
+          </section>
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
@@ -1912,7 +1961,7 @@ function AddAccountDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   stationName: string;
-  onSubmit: (username: string, password: string, notes: string, phone: string, tgAccount: string, linkedAccount: string, inviteLink: string, loginMethods: api.LoginMethod[]) => void | Promise<void | boolean>;
+  onSubmit: (username: string, password: string, notes: string) => void | Promise<void | boolean>;
 }) {
   const { t } = useTranslation();
   const [username, setUsername] = useState("");
@@ -1940,7 +1989,7 @@ function AddAccountDialog({
     if (!u) return;
     setSubmitting(true);
     try {
-      await Promise.resolve(onSubmit(u, password, notes.trim(), "", "", "", "", []));
+      await Promise.resolve(onSubmit(u, password, notes.trim()));
     } finally {
       setSubmitting(false);
     }
@@ -2003,12 +2052,7 @@ function EditAccountDialog({
   onSubmit: (
     username: string,
     notes: string,
-    password: string | null,
-    phone: string,
-    tgAccount: string,
-    linkedAccount: string,
-    inviteLink: string,
-    loginMethods: api.LoginMethod[]
+    password: string | null
   ) => void | Promise<void | boolean>;
 }) {
   const { t } = useTranslation();
@@ -2019,24 +2063,6 @@ function EditAccountDialog({
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordDirty, setPasswordDirty] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [phone, setPhone] = useState("");
-  const [tgAccount, setTgAccount] = useState("");
-  const [linkedAccount, setLinkedAccount] = useState("");
-  const [inviteLink, setInviteLink] = useState("");
-  const [loginMethods, setLoginMethods] = useState<api.LoginMethod[]>([]);
-
-  const loginMethodOptions: { value: api.LoginMethod; label: string }[] = [
-    { value: "emailCode", label: t("apiBilling.loginMethods.emailCode") },
-    { value: "usernamePassword", label: t("apiBilling.loginMethods.usernamePassword") },
-    { value: "linkedLink", label: t("apiBilling.loginMethods.linkedLink") },
-    { value: "phoneCode", label: t("apiBilling.loginMethods.phoneCode") },
-  ];
-
-  const toggleLoginMethod = (method: api.LoginMethod) => {
-    setLoginMethods((prev) =>
-      prev.includes(method) ? prev.filter((m) => m !== method) : [...prev, method]
-    );
-  };
 
   useEffect(() => {
     let cancelled = false;
@@ -2047,11 +2073,6 @@ function EditAccountDialog({
       setPasswordHidden(true);
       setPasswordDirty(false);
       setSubmitting(false);
-      setPhone(account.phone ?? "");
-      setTgAccount(account.tgAccount ?? "");
-      setLinkedAccount(account.linkedAccount ?? "");
-      setInviteLink(account.inviteLink ?? "");
-      setLoginMethods(account.loginMethods ?? []);
       if (account.hasPassword) {
         setPasswordLoading(true);
         void api
@@ -2082,16 +2103,7 @@ function EditAccountDialog({
     setSubmitting(true);
     try {
       await Promise.resolve(
-        onSubmit(
-          u,
-          notes.trim(),
-          passwordDirty ? password : null,
-          phone.trim(),
-          tgAccount.trim(),
-          linkedAccount.trim(),
-          inviteLink.trim(),
-          loginMethods,
-        ),
+        onSubmit(u, notes.trim(), passwordDirty ? password : null),
       );
     } finally {
       setSubmitting(false);
@@ -2159,76 +2171,6 @@ function EditAccountDialog({
               </div>
             }
           />
-          <Field
-            label={t("apiBilling.fields.phone")}
-            icon={<Phone size={14} />}
-            input={
-              <Input
-                type="tel"
-                inputMode="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder={t("apiBilling.addAccountDialog.phonePlaceholder")}
-              />
-            }
-          />
-          <Field
-            label={t("apiBilling.fields.tgAccount")}
-            icon={<MessageCircle size={14} />}
-            input={
-              <Input
-                value={tgAccount}
-                onChange={(e) => setTgAccount(e.target.value)}
-                placeholder={t("apiBilling.addAccountDialog.tgAccountPlaceholder")}
-              />
-            }
-          />
-          <Field
-            label={t("apiBilling.fields.linkedAccount")}
-            icon={<Link size={14} />}
-            input={
-              <Input
-                value={linkedAccount}
-                onChange={(e) => setLinkedAccount(e.target.value)}
-                placeholder={t("apiBilling.addAccountDialog.linkedAccountPlaceholder")}
-              />
-            }
-          />
-          <Field
-            label={t("apiBilling.fields.inviteLink")}
-            icon={<ExternalLink size={14} />}
-            input={
-              <Input
-                value={inviteLink}
-                onChange={(e) => setInviteLink(e.target.value)}
-                placeholder={t("apiBilling.addAccountDialog.inviteLinkPlaceholder")}
-                type="url"
-              />
-            }
-          />
-          <label className="block space-y-1.5">
-            <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-              <KeyRound size={14} />
-              {t("apiBilling.fields.loginMethods")}
-            </span>
-            <div className="flex flex-wrap gap-2">
-              {loginMethodOptions.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => toggleLoginMethod(option.value)}
-                  className={cn(
-                    "rounded-md border px-3 py-1.5 text-sm transition-colors",
-                    loginMethods.includes(option.value)
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border hover:bg-muted"
-                  )}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </label>
           <Field
             label={t("apiBilling.fields.notes")}
             icon={<StickyNote size={14} />}
@@ -2362,15 +2304,18 @@ function QuickLoginDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (url: string, username: string, stationId?: string | null) => void | Promise<void>;
+  onSubmit: (url: string, username: string, destroyOnClose: boolean, stationId?: string | null) => void | Promise<void>;
   defaultStationId?: string | null;
   history?: string[];
 }) {
   const { t } = useTranslation();
   const [url, setUrl] = useState("");
   const [username, setUsername] = useState("");
+  const [destroyOnClose, setDestroyOnClose] = useState(false);
 
-  useEffect(() => { if (!open) { setUrl(""); setUsername(""); } }, [open]);
+  useEffect(() => {
+    if (!open) { setUrl(""); setUsername(""); setDestroyOnClose(false); }
+  }, [open]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -2379,15 +2324,18 @@ function QuickLoginDialog({
           <DialogTitle>{t("apiBilling.sessionManager.quickLogin.title")}</DialogTitle>
           <DialogDescription>{t("apiBilling.sessionManager.quickLogin.description")}</DialogDescription>
         </DialogHeader>
-        <form onSubmit={(e) => { e.preventDefault(); void Promise.resolve(onSubmit(url, username, defaultStationId)); }} className="space-y-4">
+        <form onSubmit={(e) => { e.preventDefault(); void Promise.resolve(onSubmit(url, username, destroyOnClose, defaultStationId)); }} className="space-y-4">
           <Field label={t("apiBilling.sessionManager.quickLogin.urlLabel")} icon={<Globe size={14} />} input={
             <div className="space-y-1">
               <Input value={url} onChange={(e) => setUrl(e.target.value)}
                 placeholder="https://example.com" required list="quick-login-history" />
               {history && history.length > 0 && (
-                <datalist id="quick-login-history">
-                  {history.map((h) => <option key={h} value={h} />)}
-                </datalist>
+                <>
+                  <p className="text-xs text-muted-foreground">{t("apiBilling.sessionManager.quickLogin.historyDatalist")}</p>
+                  <datalist id="quick-login-history">
+                    {history.map((h) => <option key={h} value={h} />)}
+                  </datalist>
+                </>
               )}
             </div>
           } />
@@ -2397,6 +2345,15 @@ function QuickLoginDialog({
           {defaultStationId && (
             <p className="text-xs text-muted-foreground">{t("apiBilling.sessionManager.quickLogin.attachToStation")}</p>
           )}
+          <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground hover:text-foreground">
+            <input
+              type="checkbox"
+              checked={destroyOnClose}
+              onChange={(e) => setDestroyOnClose(e.target.checked)}
+              className="size-3.5 accent-blue-500"
+            />
+            {t("apiBilling.sessionManager.quickLogin.destroyOnClose")}
+          </label>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t("apiBilling.sessionManager.quickLogin.cancel")}</Button>
             <Button type="submit" disabled={!url.trim() || !username.trim()}>{t("apiBilling.sessionManager.quickLogin.openButton")}</Button>
