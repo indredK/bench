@@ -4,6 +4,7 @@
 import { useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  cancelAppUpdateDownload,
   checkForAppUpdate,
   downloadAndInstallAppUpdate,
   getCurrentAppVersion,
@@ -13,11 +14,14 @@ import { TAURI_EVENTS } from "@/lib/tauri/contracts";
 import type { AppUpdateDownloadEvent } from "@/lib/tauri/types/updater";
 import { listenToPlatformEvent } from "@/platform/events";
 import { canUseDesktopFeatures } from "@/platform/capabilities";
+import { openExternal } from "@/platform/shell";
 import {
   classifyUpdaterError,
   createDesktopOnlyUpdaterError,
 } from "@/features/updater/error-classifier";
 import { useUpdaterStore } from "@/features/updater/store";
+
+const GITHUB_RELEASES_URL = "https://github.com/indredK/bench/releases";
 
 export function useUpdaterController() {
   const { t } = useTranslation();
@@ -100,6 +104,24 @@ export function useUpdaterController() {
       await downloadAndInstallAppUpdate();
       useUpdaterStore.setState({ status: "readyToRestart", error: "", errorInfo: null });
     } catch (error) {
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : typeof error === "string"
+            ? error
+            : "";
+      // User-initiated cancel: backend rejects with "update download cancelled".
+      // Don't surface as an error — return to the available state so they can retry.
+      if (message.toLowerCase().includes("cancelled")) {
+        useUpdaterStore.setState((state) => ({
+          status: state.updateInfo?.available ? "available" : "idle",
+          downloadedBytes: 0,
+          totalBytes: null,
+          error: "",
+          errorInfo: null,
+        }));
+        return;
+      }
       const errorInfo = classifyUpdaterError(error, "install", t("updater.errors.installFailed"));
       useUpdaterStore.setState({
         status: "error",
@@ -108,6 +130,18 @@ export function useUpdaterController() {
       });
     }
   }, [t]);
+
+  const cancelDownload = useCallback(async () => {
+    try {
+      await cancelAppUpdateDownload();
+    } catch {
+      /* ignore — the in-flight install promise will reject and surface its own state */
+    }
+  }, []);
+
+  const openReleasesPage = useCallback(() => {
+    void openExternal(GITHUB_RELEASES_URL);
+  }, []);
 
   const restartNow = useCallback(async () => {
     await restartAfterUpdate();
@@ -198,6 +232,8 @@ export function useUpdaterController() {
     lastCheckedAt,
     checkUpdates,
     downloadAndInstall,
+    cancelDownload,
+    openReleasesPage,
     restartNow,
     closeDialog,
     dismissDialog,

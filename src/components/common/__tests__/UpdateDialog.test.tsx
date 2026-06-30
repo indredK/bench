@@ -22,8 +22,8 @@ vi.mock("react-i18next", () => ({
         "updater.installFailedDescription": "The update package couldn't be downloaded or installed. Please try again.",
         "updater.desktopOnlyTitle": "Updates aren't available here",
         "updater.desktopOnlyDescription": "Updater features are only available in the desktop app.",
-        "updater.releaseInfoUnavailableTitle": "Update info isn't ready yet",
-        "updater.releaseInfoUnavailableDescription": "The latest release details are still syncing or temporarily unreadable. Please try again shortly.",
+        "updater.releaseInfoUnavailableTitle": "Couldn't load update info",
+        "updater.releaseInfoUnavailableDescription": "Couldn't read the release manifest from the source. The new version may not be fully published yet, or the network may be restricted. Try again later, or check GitHub Releases for the latest publish.",
         "updater.serviceBusyTitle": "Update service is busy",
         "updater.serviceBusyDescription": "The update service is temporarily unavailable. Please try again shortly.",
         "updater.networkUnavailableTitle": "Can't reach the update service",
@@ -146,6 +146,8 @@ describe("UpdateDialog", () => {
         restartNow={vi.fn(async () => {})}
         closeDialog={vi.fn()}
         dismissDialog={vi.fn()}
+        cancelDownload={vi.fn(async () => {})}
+        openReleasesPage={vi.fn()}
       />,
     );
 
@@ -181,6 +183,8 @@ describe("UpdateDialog", () => {
         restartNow={vi.fn(async () => {})}
         closeDialog={vi.fn()}
         dismissDialog={vi.fn()}
+        cancelDownload={vi.fn(async () => {})}
+        openReleasesPage={vi.fn()}
       />,
     );
 
@@ -210,13 +214,15 @@ describe("UpdateDialog", () => {
         restartNow={vi.fn(async () => {})}
         closeDialog={vi.fn()}
         dismissDialog={vi.fn()}
+        cancelDownload={vi.fn(async () => {})}
+        openReleasesPage={vi.fn()}
       />,
     );
 
-    expect(screen.getByText("Update info isn't ready yet")).toBeInTheDocument();
+    expect(screen.getByText("Couldn't load update info")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "The latest release details are still syncing or temporarily unreadable. Please try again shortly.",
+        "Couldn't read the release manifest from the source. The new version may not be fully published yet, or the network may be restricted. Try again later, or check GitHub Releases for the latest publish.",
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText("Latest Version")).not.toBeInTheDocument();
@@ -252,6 +258,8 @@ describe("UpdateDialog", () => {
         restartNow={vi.fn(async () => {})}
         closeDialog={vi.fn()}
         dismissDialog={vi.fn()}
+        cancelDownload={vi.fn(async () => {})}
+        openReleasesPage={vi.fn()}
       />,
     );
 

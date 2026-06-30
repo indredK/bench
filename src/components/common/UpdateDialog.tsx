@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   RefreshCcw,
   Download,
+  ExternalLink,
   RotateCw,
   CheckCircle2,
   TriangleAlert,
@@ -29,6 +30,12 @@ function formatBytes(bytes: number) {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
+
+function formatDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString();
 }
 
 type ReleaseNotesBlock =
@@ -272,6 +279,8 @@ export function UpdateDialog({
   lastCheckedAt,
   checkUpdates,
   downloadAndInstall,
+  cancelDownload,
+  openReleasesPage,
   restartNow,
   closeDialog,
   dismissDialog,
@@ -280,6 +289,7 @@ export function UpdateDialog({
   const [showErrorDetails, setShowErrorDetails] = useState(false);
 
   const latestVersion = updateInfo?.version ?? null;
+  const publishedAt = updateInfo?.date ?? null;
   const releaseNotes = updateInfo?.body?.trim() || "";
   const progressPercent =
     totalBytes && totalBytes > 0
@@ -289,7 +299,7 @@ export function UpdateDialog({
   const busy = status === "downloading" || status === "installing";
   const canInstall = status === "available";
   const canRestart = status === "readyToRestart";
-  const retryAction = errorInfo?.retryAction ?? (updateInfo?.available ? "install" : "check");
+  const retryAction = errorInfo?.retryAction ?? null;
   const hasKnownLatestVersion = Boolean(latestVersion);
   const errorCopy = getErrorCopy(t, errorInfo);
   const statusAlert = useMemo(() => {
@@ -311,7 +321,7 @@ export function UpdateDialog({
       case "available":
         return {
           icon: <Download className="size-4" />,
-          title: t("updater.availableTitle", { version: (latestVersion ?? currentVersion) || "-" }),
+          title: t("updater.availableTitle", { version: latestVersion || "-" }),
           description: t("updater.availableDescription"),
           variant: "default" as const,
         };
@@ -346,7 +356,7 @@ export function UpdateDialog({
       default:
         return null;
     }
-  }, [currentVersion, errorCopy.description, errorCopy.title, latestVersion, status, t]);
+  }, [errorCopy.description, errorCopy.title, latestVersion, status, t]);
   const dialogDescription = useMemo(() => {
     const parts = [`${t("updater.currentVersion")} ${currentVersion || "-"}.`];
 
@@ -354,8 +364,16 @@ export function UpdateDialog({
       parts.push(`${t("updater.latestVersion")} ${latestVersion}.`);
     }
 
+    if (publishedAt) {
+      parts.push(`${t("updater.publishedAt")} ${formatDate(publishedAt)}.`);
+    }
+
+    if (lastCheckedAt > 0) {
+      parts.push(`${t("updater.lastChecked")} ${new Date(lastCheckedAt).toLocaleString()}.`);
+    }
+
     return parts.join(" ");
-  }, [currentVersion, latestVersion, t]);
+  }, [currentVersion, latestVersion, publishedAt, lastCheckedAt, t]);
 
   useEffect(() => {
     setShowErrorDetails(false);
@@ -398,6 +416,14 @@ export function UpdateDialog({
                   <span className="text-muted-foreground">{t("updater.latestVersion")}</span>
                   <span className="min-w-0 text-right font-mono [overflow-wrap:anywhere]">
                     {latestVersion}
+                  </span>
+                </div>
+              )}
+              {hasKnownLatestVersion && publishedAt && (
+                <div className="flex items-start justify-between gap-3">
+                  <span className="text-muted-foreground">{t("updater.publishedAt")}</span>
+                  <span className="min-w-0 text-right [overflow-wrap:anywhere]">
+                    {formatDate(publishedAt)}
                   </span>
                 </div>
               )}
@@ -467,6 +493,12 @@ export function UpdateDialog({
             {canRestart ? t("updater.later") : t("updater.close")}
           </Button>
 
+          {status === "downloading" && (
+            <Button variant="outline" onClick={() => void cancelDownload()}>
+              {t("updater.cancelDownload")}
+            </Button>
+          )}
+
           {canInstall && (
             <Button onClick={() => void downloadAndInstall()}>
               <Download className="size-4" />
@@ -488,7 +520,14 @@ export function UpdateDialog({
             </Button>
           )}
 
-          {(status === "idle" || status === "checking" || status === "upToDate") && (
+          {status === "error" && errorInfo?.kind === "releaseInfoUnavailable" && (
+            <Button variant="outline" onClick={openReleasesPage}>
+              <ExternalLink className="size-4" />
+              {t("updater.openReleases")}
+            </Button>
+          )}
+
+          {(status === "idle" || status === "upToDate") && (
             <Button onClick={() => void checkUpdates()} disabled={checking || busy}>
               <RefreshCcw className={`size-4 ${checking ? "animate-spin" : ""}`} />
               {checking ? t("updater.checking") : t("updater.checkNow")}
