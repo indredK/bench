@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.14.1](https://github.com/indredK/bench/compare/v1.14.0...v1.14.1) (2026-06-30)
+
+
+### Bug Fixes
+
+* **updater:** 完善更新弹窗功能与文案 ([c4d6b15](https://github.com/indredK/bench/commit/c4d6b15f920b9e519fc50d3f468ea3414bc961a7))
+
 ## [1.14.0](https://github.com/indredK/bench/compare/v1.13.0...v1.14.0) (2026-06-29)
 
 
