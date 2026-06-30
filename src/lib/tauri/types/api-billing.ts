@@ -92,6 +92,7 @@ export interface StationAccount {
   website?: string | null;
   session?: unknown | null;
   exclusivityGroup?: string | null;
+  proxyEnabled?: boolean;
 }
 
 /**
@@ -131,3 +132,63 @@ export interface ApiBillingError {
 }
 
 export type RelayExportMode = "sanitized" | "encryptedFull";
+
+// ═══════════════════════════════════════════════
+// 外部登录代理 — Phase 1/3 类型
+// ═══════════════════════════════════════════════
+
+export type MatchConfidence = "exact" | "sso" | "manual";
+
+export interface AuthProxyMatch {
+  stationId: string;
+  stationName: string;
+  website: string;
+  accounts: StationAccount[];
+  confidence: MatchConfidence;
+}
+
+export interface AuthProxyRequest {
+  target: string;
+  returnUrl: string;
+  state?: string | null;
+  site?: string | null;
+}
+
+export interface AuthProxyResult {
+  token: string;
+  tokenType: "cookie" | "bearer" | "code" | "sessionProof" | "unknown";
+  state?: string | null;
+  stationId: string;
+  accountId: string;
+}
+
+/// `handle_browser_open` 的统一返回:把一次"用 bench 打开 URL"
+/// （bench-auth:// 或直接的 https authorize 链接）归一化为可处理的结构。
+export interface BrowserOpenResult {
+  target: string;
+  returnUrl?: string | null;
+  host: string;
+  isAuthorize: boolean;
+  matches: AuthProxyMatch[];
+}
+
+/// 已授权的外部 App（Phase 3）
+export interface ExternalApp {
+  id: string;
+  name: string;
+  urlScheme: string;
+  returnHosts: string[];
+  firstUsedAt: string;
+  lastUsedAt: string;
+  useCount: number;
+}
+
+/// 外部 App 与账号的绑定关系（Phase 3）
+export interface ExternalAppBinding {
+  id: string;
+  appId: string;
+  accountId: string;
+  firstUsedAt: string;
+  lastUsedAt: string;
+  useCount: number;
+}

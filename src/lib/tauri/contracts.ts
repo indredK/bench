@@ -14,7 +14,13 @@ import type {
 import type {
   AccountSessionStatus,
   AuthProfile,
+  AuthProxyMatch,
+  AuthProxyRequest,
+  AuthProxyResult,
+  BrowserOpenResult,
   ExclusivityMode,
+  ExternalApp,
+  ExternalAppBinding,
   ProbeStrategy,
   RelayDataExportResult,
   RelayDataImportResult,
@@ -190,7 +196,7 @@ export const TAURI_COMMAND_CONTRACTS = {
   copy_password_to_clipboard: defineTauriCommand<{ accountId: string }, void>()(
     "copy_password_to_clipboard"
   ),
-  open_login_window: defineTauriCommand<{ accountId: string }, void>()(
+  open_login_window: defineTauriCommand<{ accountId: string; returnUrl?: string | null }, void>()(
     "open_login_window"
   ),
   mark_account_logged_in: defineTauriCommand<
@@ -257,6 +263,63 @@ export const TAURI_COMMAND_CONTRACTS = {
     { stationId: string; ttlHours: number },
     RelayStation
   >()("set_session_ttl"),
+  set_account_proxy_enabled: defineTauriCommand<
+    { accountId: string; enabled: boolean },
+    StationAccount
+  >()("set_account_proxy_enabled"),
+  parse_auth_proxy_url: defineTauriCommand<
+    { rawUrl: string },
+    AuthProxyRequest
+  >()("parse_auth_proxy_url"),
+  match_proxy_target: defineTauriCommand<
+    { target: string },
+    AuthProxyMatch[]
+  >()("match_proxy_target"),
+  build_proxy_return_url: defineTauriCommand<
+    { returnUrl: string; token: string; tokenType: string; state: string | null; stationId: string; accountId: string },
+    string
+  >()("build_proxy_return_url"),
+  handle_auth_proxy: defineTauriCommand<
+    {
+      targetUrl: string;
+      returnUrl: string;
+      state?: string | null;
+      siteHint?: string | null;
+    },
+    AuthProxyMatch[]
+  >()("handle_auth_proxy"),
+  proxy_login: defineTauriCommand<
+    { accountId: string; targetUrl: string; returnUrl: string },
+    AuthProxyResult
+  >()("proxy_login"),
+  handle_browser_open: defineTauriCommand<
+    { url: string },
+    BrowserOpenResult
+  >()("handle_browser_open"),
+  proxy_login_new_account: defineTauriCommand<
+    {
+      host: string;
+      targetUrl: string;
+      returnUrl: string;
+      username?: string | null;
+    },
+    StationAccount
+  >()("proxy_login_new_account"),
+  list_external_apps: defineTauriCommand<
+    { stationId?: string | null; accountId?: string | null },
+    ExternalApp[]
+  >()("list_external_apps"),
+  register_external_app: defineTauriCommand<
+    { name: string; urlScheme: string; returnHosts: string[] },
+    ExternalApp
+  >()("register_external_app"),
+  remove_external_app: defineTauriCommand<{ appId: string }, void>()(
+    "remove_external_app"
+  ),
+  list_external_app_bindings: defineTauriCommand<
+    { accountId?: string | null },
+    ExternalAppBinding[]
+  >()("list_external_app_bindings"),
   list_pricing_standards: defineTauriCommand<undefined, PricingStandard[]>()("list_pricing_standards"),
   create_pricing_standard: defineTauriCommand<
     { name: string; models: ModelPricing[] },
@@ -528,6 +591,18 @@ export const TAURI_COMMANDS = {
     resetProbeStrategy: commandName("reset_probe_strategy"),
     createEphemeralAccount: commandName("create_ephemeral_account"),
     setSessionTtl: commandName("set_session_ttl"),
+    setAccountProxyEnabled: commandName("set_account_proxy_enabled"),
+    parseAuthProxyUrl: commandName("parse_auth_proxy_url"),
+    matchProxyTarget: commandName("match_proxy_target"),
+    buildProxyReturnUrl: commandName("build_proxy_return_url"),
+    handleAuthProxy: commandName("handle_auth_proxy"),
+    proxyLogin: commandName("proxy_login"),
+    handleBrowserOpen: commandName("handle_browser_open"),
+    proxyLoginNewAccount: commandName("proxy_login_new_account"),
+    listExternalApps: commandName("list_external_apps"),
+    registerExternalApp: commandName("register_external_app"),
+    removeExternalApp: commandName("remove_external_app"),
+    listExternalAppBindings: commandName("list_external_app_bindings"),
   },
   tokenCalculator: {
     listPricingStandards: commandName("list_pricing_standards"),
@@ -728,7 +803,7 @@ export const TAURI_COMMAND_ARG_KEYS = {
   set_password: ["accountId", "password"],
   clear_password: ["accountId"],
   copy_password_to_clipboard: ["accountId"],
-  open_login_window: ["accountId"],
+  open_login_window: ["accountId", "returnUrl"],
   mark_account_logged_in: ["accountId"],
   refresh_account: ["accountId"],
   refresh_station: ["stationId"],
@@ -748,6 +823,18 @@ export const TAURI_COMMAND_ARG_KEYS = {
   reset_probe_strategy: ["stationId"],
   create_ephemeral_account: ["website", "username", "stationId"],
   set_session_ttl: ["stationId", "ttlHours"],
+  set_account_proxy_enabled: ["accountId", "enabled"],
+  parse_auth_proxy_url: ["rawUrl"],
+  match_proxy_target: ["target"],
+  build_proxy_return_url: ["returnUrl", "token", "tokenType", "state", "stationId", "accountId"],
+  handle_auth_proxy: ["targetUrl", "returnUrl", "state", "siteHint"],
+  proxy_login: ["accountId", "targetUrl", "returnUrl"],
+  handle_browser_open: ["url"],
+  proxy_login_new_account: ["host", "targetUrl", "returnUrl", "username"],
+  list_external_apps: ["stationId", "accountId"],
+  register_external_app: ["name", "urlScheme", "returnHosts"],
+  remove_external_app: ["appId"],
+  list_external_app_bindings: ["accountId"],
   list_pricing_standards: [],
   create_pricing_standard: ["name", "models"],
   update_pricing_standard: ["id", "name", "models"],

@@ -287,7 +287,8 @@
       "title": "Edit Account",
       "subtitle": "Edit account info for \"{{name}}\".",
       "notesPlaceholder": "Use, balance, or anything worth noting.",
-      "passwordPlaceholder": "Leave empty to clear the current password"
+      "passwordPlaceholder": "Leave empty to clear the current password",
+      "proxyEnabledLabel": "Allow external app login"
     },
     "status": {
       "ready": "Signed in",
@@ -337,7 +338,11 @@
       "hidePassword": "Hide password",
       "loginAction": "Login",
       "openWebsite": "Open Website",
-      "webviewHint": "Login first tries to open an isolated WebView window so each account keeps its own session. If the runtime doesn't support it, the default browser is used as a fallback."
+      "webviewHint": "Login first tries to open an isolated WebView window so each account keeps its own session. If the runtime doesn't support it, the default browser is used as a fallback.",
+      "proxySectionTitle": "External Login Proxy",
+      "proxyEnabled": "Allow proxy login",
+      "proxyEnabledHint": "When enabled, external apps can request this account via bench-auth:// protocol.",
+      "manageExternalApps": "Manage external apps"
     },
     "toasts": {
       "initFailed": "Failed to load gateway data",
@@ -355,6 +360,7 @@
       "updateStationFailed": "Failed to update gateway",
       "updateAccountFailed": "Failed to update account",
       "updatePasswordFailed": "Account info saved, but failed to update the password",
+      "updateProxyFailed": "Failed to update proxy login setting",
       "duplicateUsername": "An account with this username already exists in this gateway",
       "revealPasswordFailed": "Failed to reveal password",
       "copyPasswordFailed": "Failed to copy password",
@@ -373,7 +379,51 @@
       "reorderAccountsFailed": "Failed to save account order",
       "switchAccountSuccess": "Switched to {{name}}",
       "switchAccountFailed": "Failed to switch account",
+      "proxyLoginFailed": "Proxy login failed. Please try again.",
+      "authProxyHandleFailed": "Failed to handle external login request",
+      "loadExternalAppsFailed": "Failed to load external apps",
+      "revokeExternalAppSuccess": "Authorization revoked",
+      "revokeExternalAppFailed": "Failed to revoke authorization",
       "unknown": "The operation failed. Please try again."
+    },
+    "authProxy": {
+      "title": "External app sign-in request",
+      "subtitle": "{{app}} requests to sign in to {{host}} using a bench account",
+      "subtitleLoading": "Resolving external sign-in request...",
+      "noMatch": "No saved account for this site yet",
+      "noMatchHint": "Sign in with a new account below; bench will auto-create a group for this site and save the session.",
+      "selectAccount": "Choose an account to sign in with",
+      "newAccount": "Use a new account",
+      "newAccountHint": "Sign in fresh in an isolated window. On success it is saved and grouped under {{host}} automatically.",
+      "newAccountNamePlaceholder": "Account name (optional)",
+      "rememberChoice": "Auto-allow this app next time",
+      "proxyHint": "bench signs in with this account in an isolated window (usually already signed in) and hands the result back to the external app automatically. bench never reads or stores the app's password or tokens.",
+      "openReturnUrl": "Open return URL",
+      "starting": "Starting sign-in...",
+      "confirm": "Confirm sign-in",
+      "loginStarted": "Sign-in started; bench will return to the external app automatically once complete (credentials are auto-filled for you to submit if a fresh login is needed)"
+    },
+    "proxyPaste": {
+      "button": "External sign-in",
+      "title": "Open an external sign-in link with bench",
+      "description": "Paste the sign-in URL the app would open in your browser (e.g. copy it from your browser's address bar). bench will run the login in the chosen account and return the result to the app. No need to set bench as the default browser.",
+      "urlLabel": "Sign-in URL",
+      "hint": "Supports bench-auth:// links and raw https authorize URLs (including loopback callbacks like http://127.0.0.1:...).",
+      "openButton": "Open",
+      "opening": "Opening..."
+    },
+    "externalApps": {
+      "title": "Authorized external apps",
+      "subtitle": "Manage external apps integrated via the bench-auth:// protocol and their bound accounts.",
+      "loading": "Loading...",
+      "empty": "No authorized external apps yet",
+      "useCount": "Used {{count}} time(s)",
+      "boundAccounts": "Bound accounts",
+      "noBindings": "No bound accounts",
+      "lastUsed": "Last used",
+      "revoking": "Revoking...",
+      "revoke": "Revoke",
+      "close": "Close"
     },
     "loadFailedTitle": "Failed to load gateway data",
     "sessionManager": {

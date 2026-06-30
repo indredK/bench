@@ -5,7 +5,10 @@ use tokio::sync::Semaphore;
 
 use super::crypto;
 use super::crypto::EncryptedBlob;
-use super::types::{ApiBillingError, ApiBillingResult, RelayStation, StationAccount};
+use super::types::{
+    ApiBillingError, ApiBillingResult, ExternalApp, ExternalAppBinding, RelayStation,
+    StationAccount,
+};
 
 const PROBE_CONCURRENCY: usize = 2;
 
@@ -15,6 +18,9 @@ pub struct ApiBillingSnapshot {
     pub accounts: Vec<StationAccount>,
     pub secrets: HashMap<String, EncryptedBlob>,
     pub sessions: HashMap<String, EncryptedBlob>,
+    // Phase 3: 外部登录代理 — 已授权的外部 App + 绑定关系
+    pub external_apps: Vec<ExternalApp>,
+    pub external_app_bindings: Vec<ExternalAppBinding>,
 }
 
 pub struct ApiBillingState {

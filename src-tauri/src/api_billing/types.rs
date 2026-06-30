@@ -327,6 +327,46 @@ pub struct StationAccount {
     pub session: Option<EncryptedBlob>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub exclusivity_group: Option<String>,
+    /// 外部登录代理开关（Phase 0）
+    #[serde(default)]
+    pub proxy_enabled: bool,
+    /// 已授权使用此账号的外部 App ID 列表（Phase 3）
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub external_app_ids: Vec<String>,
+}
+
+// ═══════════════════════════════════════════════
+// 外部登录代理 — Phase 3 类型
+// ═══════════════════════════════════════════════
+
+/// 已授权的外部 App。首次使用 bench 登录的外部 App 需用户确认后注册。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExternalApp {
+    pub id: String,
+    pub name: String,
+    /// 回调 URL scheme，如 "x-client"
+    pub url_scheme: String,
+    /// 允许的 return URL host 列表（allowlist）。空列表表示不限制 host。
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub return_hosts: Vec<String>,
+    pub first_used_at: String,
+    pub last_used_at: String,
+    #[serde(default)]
+    pub use_count: u32,
+}
+
+/// 外部 App 与账号的绑定关系（一个外部 App 可绑定多个账号）。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExternalAppBinding {
+    pub id: String,
+    pub app_id: String,
+    pub account_id: String,
+    pub first_used_at: String,
+    pub last_used_at: String,
+    #[serde(default)]
+    pub use_count: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

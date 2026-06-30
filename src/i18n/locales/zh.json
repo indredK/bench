@@ -287,7 +287,8 @@
       "title": "编辑账号",
       "subtitle": "修改「{{name}}」的账号信息。",
       "notesPlaceholder": "可记录该账号的用途、余额等信息。",
-      "passwordPlaceholder": "留空则清空当前密码"
+      "passwordPlaceholder": "留空则清空当前密码",
+      "proxyEnabledLabel": "允许外部应用登录"
     },
     "status": {
       "ready": "已登录",
@@ -337,7 +338,11 @@
       "hidePassword": "隐藏密码",
       "loginAction": "登录",
       "openWebsite": "打开官网",
-      "webviewHint": "登录时会优先弹出独立的 WebView 窗口，便于每个账号保持各自的登录态；若当前环境不支持，则会调用默认浏览器打开官网。"
+      "webviewHint": "登录时会优先弹出独立的 WebView 窗口，便于每个账号保持各自的登录态；若当前环境不支持，则会调用默认浏览器打开官网。",
+      "proxySectionTitle": "外部登录代理",
+      "proxyEnabled": "允许代理登录",
+      "proxyEnabledHint": "开启后，外部应用可通过 bench-auth:// 协议请求使用此账号登录。",
+      "manageExternalApps": "管理外部应用"
     },
     "toasts": {
       "initFailed": "加载站点数据失败",
@@ -355,6 +360,7 @@
       "updateStationFailed": "更新站点失败",
       "updateAccountFailed": "更新账号失败",
       "updatePasswordFailed": "账号信息已保存，但密码更新失败",
+      "updateProxyFailed": "更新外部登录代理设置失败",
       "duplicateUsername": "该站点下已存在同名账号",
       "revealPasswordFailed": "显示密码失败",
       "copyPasswordFailed": "复制密码失败",
@@ -373,7 +379,51 @@
       "reorderAccountsFailed": "保存账号顺序失败",
       "switchAccountSuccess": "已切换到 {{name}}",
       "switchAccountFailed": "切换账号失败",
+      "proxyLoginFailed": "代理登录失败，请稍后重试",
+      "authProxyHandleFailed": "处理外部登录请求失败",
+      "loadExternalAppsFailed": "加载外部应用列表失败",
+      "revokeExternalAppSuccess": "已取消授权",
+      "revokeExternalAppFailed": "取消授权失败",
       "unknown": "操作失败，请稍后重试"
+    },
+    "authProxy": {
+      "title": "外部应用请求登录",
+      "subtitle": "{{app}} 请求使用 bench 账号登录 {{host}}",
+      "subtitleLoading": "正在解析外部登录请求...",
+      "noMatch": "该站点还没有已保存的账号",
+      "noMatchHint": "可在下方用新账号登录，bench 会自动为该站点建组并保存登录态。",
+      "selectAccount": "请选择用于登录的账号",
+      "newAccount": "使用新账号登录",
+      "newAccountHint": "在隔离窗口中重新登录一个新账号，成功后会自动保存并归组到 {{host}}。",
+      "newAccountNamePlaceholder": "账号名称（可选）",
+      "rememberChoice": "下次自动允许该应用",
+      "proxyHint": "bench 将在隔离窗口中用该账号完成登录（多数情况下已保持登录态），登录后会自动把结果返回给外部应用。bench 不会读取或保存该应用的密码与令牌。",
+      "openReturnUrl": "打开返回链接",
+      "starting": "正在启动登录...",
+      "confirm": "确认登录",
+      "loginStarted": "已启动登录：完成后将自动返回外部应用（如需登录会自动填充账号，请你确认提交）"
+    },
+    "proxyPaste": {
+      "button": "外部登录",
+      "title": "用 bench 打开外部登录链接",
+      "description": "把外部应用本会在浏览器里打开的登录链接粘贴进来（例如从浏览器地址栏复制）。bench 会用所选账号完成登录并把结果交还给该应用，无需把 bench 设为默认浏览器。",
+      "urlLabel": "登录链接",
+      "hint": "支持 bench-auth:// 链接与原始 https authorize 链接（含 http://127.0.0.1:... 这类 loopback 回调）。",
+      "openButton": "打开",
+      "opening": "正在打开..."
+    },
+    "externalApps": {
+      "title": "已授权的外部应用",
+      "subtitle": "管理通过 bench-auth:// 协议接入的外部应用及其绑定的账号。",
+      "loading": "加载中...",
+      "empty": "暂无已授权的外部应用",
+      "useCount": "使用 {{count}} 次",
+      "boundAccounts": "绑定账号",
+      "noBindings": "未绑定账号",
+      "lastUsed": "上次使用",
+      "revoking": "撤销中...",
+      "revoke": "取消授权",
+      "close": "关闭"
     },
     "loadFailedTitle": "加载站点数据失败",
     "sessionManager": {

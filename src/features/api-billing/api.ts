@@ -5,7 +5,13 @@ import { invokeTauriCommand } from "@/lib/tauri/invoke";
 import type {
   AccountSessionStatus,
   AuthProfile,
+  AuthProxyMatch,
+  AuthProxyRequest,
+  AuthProxyResult,
+  BrowserOpenResult,
   ExclusivityMode,
+  ExternalApp,
+  ExternalAppBinding,
   LoginDetectionConfig,
   ProbeStrategy,
   RelayDataExportResult,
@@ -20,11 +26,18 @@ export type {
   AccountSessionStatus,
   AccountType,
   AuthProfile,
+  AuthProxyMatch,
+  AuthProxyRequest,
+  AuthProxyResult,
+  BrowserOpenResult,
   ExclusivityMode,
+  ExternalApp,
+  ExternalAppBinding,
   LoginDetectionConfig,
   LoginDetectionMode,
   LoginDetectionPresence,
   LoginDetectionRule,
+  MatchConfidence,
   ProbeStrategy,
   RelayDataExportResult,
   RelayDataImportResult,
@@ -260,6 +273,14 @@ export function setSessionTtl(
   return invokeTauriCommand("set_session_ttl", { stationId, ttlHours });
 }
 
+/// 设置账号的外部登录代理开关
+export function setAccountProxyEnabled(
+  accountId: string,
+  enabled: boolean
+): Promise<StationAccount> {
+  return invokeTauriCommand("set_account_proxy_enabled", { accountId, enabled });
+}
+
 /// update_station 包装:支持更新 sessionTtlHours。
 export function updateStationWithTtl(
   id: string,
@@ -276,5 +297,139 @@ export function updateStationWithTtl(
     website: patch.website ?? null,
     loginDetection: patch.loginDetection ?? null,
     sessionTtlHours: patch.sessionTtlHours ?? null,
+  });
+}
+
+// ═══════════════════════════════════════════════
+// 外部登录代理 — Phase 1 API
+// ═══════════════════════════════════════════════
+
+/// 解析 bench-auth://authorize URL
+export function parseAuthProxyUrl(rawUrl: string): Promise<AuthProxyRequest> {
+  return invokeTauriCommand("parse_auth_proxy_url", { rawUrl });
+}
+
+/// 根据目标 URL 匹配可用的 Station
+export function matchProxyTarget(target: string): Promise<AuthProxyMatch[]> {
+  return invokeTauriCommand("match_proxy_target", { target });
+}
+
+/// 打开登录窗口（支持 return_url）
+export function openLoginWindowWithReturn(
+  accountId: string,
+  returnUrl?: string | null
+): Promise<void> {
+  return invokeTauriCommand("open_login_window", {
+    accountId,
+    returnUrl: returnUrl ?? null,
+  });
+}
+
+/// 构建外部登录代理的回调 URL
+export function buildProxyReturnUrl(
+  returnUrl: string,
+  token: string,
+  tokenType: string,
+  state: string | null,
+  stationId: string,
+  accountId: string
+): Promise<string> {
+  return invokeTauriCommand("build_proxy_return_url", {
+    returnUrl,
+    token,
+    tokenType,
+    state,
+    stationId,
+    accountId,
+  });
+}
+
+/// 接收外部 `bench-auth://authorize` 请求,返回匹配到的 Station + 账号列表。
+/// 前端展示账号选择器;用户选定账号后再调 `proxyLogin` 启动登录。
+export function handleAuthProxy(
+  targetUrl: string,
+  returnUrl: string,
+  state?: string | null,
+  siteHint?: string | null
+): Promise<AuthProxyMatch[]> {
+  return invokeTauriCommand("handle_auth_proxy", {
+    targetUrl,
+    returnUrl,
+    state: state ?? null,
+    siteHint: siteHint ?? null,
+  });
+}
+
+/// 启动外部代理登录:打开登录窗口 → 注入凭证 → 返回占位 AuthProxyResult。
+/// 真正的 token 由前端在用户完成登录后通过 `captureAccountSession`
+/// + `buildProxyReturnUrl` 组装,再用 `openExternal` 回呼外部 App。
+export function proxyLogin(
+  accountId: string,
+  targetUrl: string,
+  returnUrl: string
+): Promise<AuthProxyResult> {
+  return invokeTauriCommand("proxy_login", { accountId, targetUrl, returnUrl });
+}
+
+/// 处理一次"用 bench 打开"的 URL（`bench-auth://` 或直接的 https authorize 链接）。
+/// 返回归一化的 target / 回调地址 / host / 是否像登录链接 / 已匹配账号。
+export function handleBrowserOpen(url: string): Promise<BrowserOpenResult> {
+  return invokeTauriCommand("handle_browser_open", { url });
+}
+
+/// 在指定 host 下「使用新账号登录」:自动建站/分组 + 创建新账号 + 启动代理登录。
+/// 返回新建的账号。
+export function proxyLoginNewAccount(
+  host: string,
+  targetUrl: string,
+  returnUrl: string,
+  username?: string | null
+): Promise<StationAccount> {
+  return invokeTauriCommand("proxy_login_new_account", {
+    host,
+    targetUrl,
+    returnUrl,
+    username: username ?? null,
+  });
+}
+
+/// 列出已注册的外部 App。
+/// - `accountId` 提供时,只返回绑定到该账号的 App
+/// - `stationId` 提供时(且 `accountId` 未提供),返回绑定到该 Station 下任意账号的 App
+/// - 两者均未提供时,返回全部外部 App
+export function listExternalApps(
+  stationId?: string | null,
+  accountId?: string | null
+): Promise<ExternalApp[]> {
+  return invokeTauriCommand("list_external_apps", {
+    stationId: stationId ?? null,
+    accountId: accountId ?? null,
+  });
+}
+
+/// 注册外部 App。若相同 urlScheme 已存在,后端直接返回已有记录(去重)。
+export function registerExternalApp(
+  name: string,
+  urlScheme: string,
+  returnHosts: string[]
+): Promise<ExternalApp> {
+  return invokeTauriCommand("register_external_app", {
+    name,
+    urlScheme,
+    returnHosts,
+  });
+}
+
+/// 移除外部 App + 其所有绑定 + 账号上的引用
+export function removeExternalApp(appId: string): Promise<void> {
+  return invokeTauriCommand("remove_external_app", { appId });
+}
+
+/// 列出外部 App 与账号的绑定关系。`accountId` 提供时只返回该账号的绑定。
+export function listExternalAppBindings(
+  accountId?: string | null
+): Promise<ExternalAppBinding[]> {
+  return invokeTauriCommand("list_external_app_bindings", {
+    accountId: accountId ?? null,
   });
 }

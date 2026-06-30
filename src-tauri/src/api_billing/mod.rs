@@ -5,6 +5,7 @@ pub mod detection;
 mod detection_legacy;
 pub mod exclusivity;
 mod probe;
+pub mod proxy;
 pub mod session;
 mod storage;
 mod types;

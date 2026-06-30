@@ -384,6 +384,60 @@ async fn capture_indexeddb<R: Runtime>(
     crypto::encrypt(&key, &payload)
 }
 
+/// 外部代理登录完成后（命中 loopback / 自定义 scheme 回调）针对**目标站点**
+/// 捕获 cookie 并持久化 session，并把账号标记为 Ready + 记录登录时间。
+///
+/// 注意：此刻 WebView 当前页面可能已是 loopback 回调页，因此我们显式针对
+/// `target_url`（如 https://www.trae.cn/...）抓取 cookie，而不是当前页 URL。
+/// 即便 session 捕获失败，账号的独立 WebView data dir 也已在磁盘上保留登录态，
+/// 下次仍是已登录状态。
+pub async fn finalize_proxy_session<R: Runtime>(
+    app: &AppHandle<R>,
+    account_id: &str,
+    target_url: &str,
+) {
+    let state = app.state::<ApiBillingState>();
+
+    let account = state
+        .read_snapshot()
+        .accounts
+        .iter()
+        .find(|a| a.id == account_id)
+        .cloned();
+
+    let login_label = webview::login_window_label(account_id);
+    if let Some(window) = app.get_webview_window(&login_label) {
+        if let Ok(cookies) = extract_cookies(&window, target_url).await {
+            if !cookies.is_empty() {
+                let user_agent = extract_user_agent(&window).await.unwrap_or_default();
+                let session = AccountSession {
+                    cookies,
+                    user_agent,
+                    captured_at: super::commands::now_label(),
+                    ..Default::default()
+                };
+                if account
+                    .as_ref()
+                    .map(|a| a.account_type == AccountType::Persistent)
+                    .unwrap_or(false)
+                {
+                    let _ = persist_session(&state, account_id, &session);
+                }
+            }
+        }
+    }
+
+    let _ = storage::with_state_mut(app, &state, |snapshot| {
+        if let Some(a) = snapshot.accounts.iter_mut().find(|a| a.id == account_id) {
+            a.status = AccountSessionStatus::Ready;
+            let now = super::commands::now_label();
+            a.last_login_at = Some(now.clone());
+            a.last_refreshed_at = Some(now);
+        }
+        Ok(())
+    });
+}
+
 /// 加密 session 并写入 store
 pub fn persist_session(
     state: &ApiBillingState,

@@ -13,7 +13,9 @@ const KEY_STATIONS: &str = "stations";
 const KEY_ACCOUNTS: &str = "accounts";
 const KEY_SECRETS: &str = "secrets";
 const KEY_SCHEMA: &str = "schema_version";
-const CURRENT_SCHEMA: u32 = 3;
+const KEY_EXTERNAL_APPS: &str = "external_apps";
+const KEY_EXTERNAL_APP_BINDINGS: &str = "external_app_bindings";
+const CURRENT_SCHEMA: u32 = 4;
 
 /// Load persisted state from the plugin-store and populate the managed state.
 /// Called once during `setup`. Migrates P0 plaintext secrets to encrypted blobs.
@@ -34,12 +36,22 @@ pub fn init_state<R: Runtime>(app: &AppHandle<R>, state: &ApiBillingState) -> Ap
     let (secrets, needs_resave) = load_and_migrate_secrets(store.get(KEY_SECRETS), state)?;
 
     let sessions = load_sessions_from_store(app);
+    let external_apps: Vec<super::types::ExternalApp> = store
+        .get(KEY_EXTERNAL_APPS)
+        .and_then(|v| serde_json::from_value(v).ok())
+        .unwrap_or_default();
+    let external_app_bindings: Vec<super::types::ExternalAppBinding> = store
+        .get(KEY_EXTERNAL_APP_BINDINGS)
+        .and_then(|v| serde_json::from_value(v).ok())
+        .unwrap_or_default();
 
     let snapshot = ApiBillingSnapshot {
         stations,
         accounts,
         secrets: secrets.clone(),
         sessions,
+        external_apps,
+        external_app_bindings,
     };
     state.replace_snapshot(snapshot);
 
@@ -136,6 +148,8 @@ fn save_snapshot<R: Runtime>(
     store.set(KEY_ACCOUNTS, json!(&snapshot.accounts));
     store.set(KEY_SECRETS, json!(&snapshot.secrets));
     store.set("sessions", json!(&snapshot.sessions));
+    store.set(KEY_EXTERNAL_APPS, json!(&snapshot.external_apps));
+    store.set(KEY_EXTERNAL_APP_BINDINGS, json!(&snapshot.external_app_bindings));
     store.set(KEY_SCHEMA, json!(CURRENT_SCHEMA));
     store
         .save()

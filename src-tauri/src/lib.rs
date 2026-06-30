@@ -37,6 +37,7 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(Arc::new(AtomicBool::new(false)) as ScanAbortFlag)
         .manage(CustomCleanupAbortFlag(Arc::new(AtomicBool::new(false))))
@@ -48,6 +49,18 @@ pub fn run() {
         .manage(create_bootstrap_state())
         .setup(|app| {
             menu::setup_menu(app)?;
+
+            // 外部登录代理: best-effort 运行时注册 bench-auth:// scheme。
+            // macOS 打包后由 Info.plist(CFBundleURLTypes) 注册；此调用主要服务于
+            // Linux/Windows 及开发环境，失败不阻塞启动。
+            #[cfg(desktop)]
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                if let Err(e) = app.deep_link().register("bench-auth") {
+                    eprintln!("[deep-link] register bench-auth failed (non-fatal): {e:?}");
+                }
+            }
+
             let handle = app.handle().clone();
             let bootstrap_state = app.state::<bootstrap::SharedBootstrapState>().inner().clone();
             let state = app.state::<ApiBillingState>();

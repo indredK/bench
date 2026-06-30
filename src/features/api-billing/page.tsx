@@ -20,6 +20,7 @@ import {
   Import,
   Inbox,
   KeyRound,
+  Link2,
   LogIn,
   Pencil,
   Plus,
@@ -33,6 +34,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -63,6 +65,8 @@ import type {
 } from "@/features/api-billing/api";
 import { useGuardedAsync, useGuardedAsyncSet } from "@/hooks/useGuardedAsync";
 import { SortableList, useSortableCard, DragHandle } from "@/features/api-billing/sortable-card";
+import { AuthProxyDialog } from "@/features/api-billing/auth-proxy-dialog";
+import { ExternalAppsPanel } from "@/features/api-billing/external-apps-panel";
 
 type SessionSettings = {
   probeOverride: boolean;
@@ -129,6 +133,13 @@ function ApiBillingPage() {
   const [reorderingStations, setReorderingStations] = useState(false);
   const [reorderingAccounts, setReorderingAccounts] = useState(false);
   const [isQuickLoginOpen, setQuickLoginOpen] = useState(false);
+  const [isExternalAppsOpen, setExternalAppsOpen] = useState(false);
+  const [externalAppsAccountId, setExternalAppsAccountId] = useState<string | null>(null);
+  const [authProxyRequest, setAuthProxyRequest] = useState<api.AuthProxyRequest | null>(null);
+  const [authProxyMatches, setAuthProxyMatches] = useState<api.AuthProxyMatch[]>([]);
+  const [authProxyHost, setAuthProxyHost] = useState<string>("");
+  const [isAuthProxyOpen, setAuthProxyOpen] = useState(false);
+  const [isProxyPasteOpen, setProxyPasteOpen] = useState(false);
 
   const loadInitialData = useCallback(async () => {
     setLoading(true);
@@ -157,6 +168,77 @@ function ApiBillingPage() {
   useEffect(() => {
     void loadInitialData().catch(() => undefined);
   }, [loadInitialData]);
+
+  // 外部登录代理:把一条「用 bench 打开」的 URL（bench-auth:// 或原始 http(s) 登录链接）
+  // 交给后端归一化处理,并弹出账号选择器。深链事件与「粘贴登录链接」按钮共用。
+  const openProxyForUrl = useCallback(
+    async (url: string): Promise<boolean> => {
+      if (!url) return false;
+      const isBenchAuth = url.startsWith("bench-auth://");
+      const isWeb = url.startsWith("http://") || url.startsWith("https://");
+      if (!isBenchAuth && !isWeb) return false;
+      try {
+        const result = await api.handleBrowserOpen(url);
+        setAuthProxyRequest({
+          target: result.target,
+          returnUrl: result.returnUrl ?? "",
+          state: null,
+          site: result.host,
+        });
+        setAuthProxyMatches(result.matches);
+        setAuthProxyHost(result.host);
+        setAuthProxyOpen(true);
+        return true;
+      } catch (error) {
+        console.warn("[auth-proxy] handle url failed:", error);
+        toast.error(t("apiBilling.toasts.authProxyHandleFailed"));
+        return false;
+      }
+    },
+    [t],
+  );
+
+  // 外部登录代理:监听 bench-auth:// / http(s) 深链事件
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    let cancelled = false;
+
+    const handleUrl = (url: string) => void openProxyForUrl(url);
+
+    (async () => {
+      try {
+        const { onOpenUrl, getCurrent } = await import(
+          "@tauri-apps/plugin-deep-link"
+        );
+        // 冷启动:应用因 bench-auth:// 被唤起时,先消费启动时携带的 URL。
+        try {
+          const current = await getCurrent();
+          if (current) {
+            for (const url of current) await openProxyForUrl(url);
+          }
+        } catch {
+          // getCurrent 在部分平台可能不可用,忽略。
+        }
+        // 运行期:监听后续的 bench-auth:// 唤起。
+        unlisten = await onOpenUrl((urls) => {
+          for (const url of urls) void handleUrl(url);
+        });
+        if (cancelled) unlisten?.();
+      } catch (error) {
+        // deep-link 插件不可用 (非 Tauri 环境) — 静默跳过
+        console.debug("[auth-proxy] deep-link plugin unavailable:", error);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, [openProxyForUrl]);
+
+  const handleOpenExternalApps = useCallback((accountId: string | null) => {
+    setExternalAppsAccountId(accountId);
+    setExternalAppsOpen(true);
+  }, []);
 
   const selectedStation = stations.find((s) => s.id === selectedStationId) ?? null;
   const stationAccounts = useMemo(
@@ -402,6 +484,15 @@ function ApiBillingPage() {
       }
     });
 
+  const handleToggleProxy = async (accountId: string, enabled: boolean) => {
+    try {
+      const updated = await api.setAccountProxyEnabled(accountId, enabled);
+      setAccounts((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+    } catch {
+      toast.error(t("apiBilling.toasts.updateProxyFailed"));
+    }
+  };
+
   const handleExportData = async () => {
     if (exportingData) return;
     const selected = await savePlatformDialog({
@@ -502,7 +593,8 @@ function ApiBillingPage() {
   const handleEditAccount = async (
     username: string,
     notes: string,
-    password: string | null
+    password: string | null,
+    proxyEnabled: boolean
   ) => {
     if (!editingAccount) return false;
     const trimmed = username.trim();
@@ -534,6 +626,7 @@ function ApiBillingPage() {
         passwordChanged = true;
       } catch (error) {
         updated.hasPassword = editingAccount.hasPassword;
+        updated.proxyEnabled = proxyEnabled;
         setAccounts((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
         setEditAccountOpen(false);
         setEditingAccount(null);
@@ -542,6 +635,11 @@ function ApiBillingPage() {
       }
     } else {
       updated.hasPassword = editingAccount.hasPassword;
+    }
+    try {
+      updated = await api.setAccountProxyEnabled(editingAccount.id, proxyEnabled);
+    } catch {
+      toast.error(t("apiBilling.toasts.updateProxyFailed"));
     }
     setAccounts((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
     setEditAccountOpen(false);
@@ -671,6 +769,7 @@ function ApiBillingPage() {
         onSelect={handleSelectStation}
         onAdd={() => setAddStationOpen(true)}
         onQuickLogin={() => setQuickLoginOpen(true)}
+        onExternalLogin={() => setProxyPasteOpen(true)}
         onEdit={(station) => { setEditingStation(station); setEditStationOpen(true); }}
         onDelete={(station) => { setDeletingStation(station); setDeleteStationOpen(true); }}
         onReorder={(ids) => void handleReorderStations(ids)}
@@ -707,6 +806,8 @@ function ApiBillingPage() {
         account={selectedAccount}
         onOpenWebsite={() => selectedStation && void openExternal(selectedStation.website)}
         onRedetectProfile={handleRedetectProfile}
+        onToggleProxy={handleToggleProxy}
+        onManageExternalApps={handleOpenExternalApps}
       />
 
       <StationDialog
@@ -761,6 +862,32 @@ function ApiBillingPage() {
         onOpenChange={setDeleteAccountOpen}
         onConfirm={handleDeleteAccount}
       />
+
+      <ExternalAppsPanel
+        open={isExternalAppsOpen}
+        onOpenChange={setExternalAppsOpen}
+        accountId={externalAppsAccountId}
+        accounts={accounts}
+      />
+
+      <ProxyPasteDialog
+        open={isProxyPasteOpen}
+        onOpenChange={setProxyPasteOpen}
+        onSubmit={async (url) => {
+          const ok = await openProxyForUrl(url);
+          if (ok) setProxyPasteOpen(false);
+          return ok;
+        }}
+      />
+
+      <AuthProxyDialog
+        open={isAuthProxyOpen}
+        request={authProxyRequest}
+        matches={authProxyMatches}
+        host={authProxyHost}
+        onOpenChange={setAuthProxyOpen}
+        onCompleted={() => void loadInitialData().catch(() => undefined)}
+      />
     </div>
   );
 }
@@ -791,6 +918,7 @@ function StationColumn({
   importingData,
   exportingData,
   onQuickLogin,
+  onExternalLogin,
 }: {
   stations: RelayStation[];
   selectedId: string;
@@ -808,6 +936,7 @@ function StationColumn({
   importingData: boolean;
   exportingData: boolean;
   onQuickLogin: () => void;
+  onExternalLogin?: () => void;
 }) {
   const { t } = useTranslation();
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -875,6 +1004,17 @@ function StationColumn({
         )}
       </div>
       <div className="flex items-center justify-end gap-1.5 border-t px-3 py-3">
+        {onExternalLogin && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onExternalLogin}
+            title={t("apiBilling.proxyPaste.button")}
+          >
+            <Link2 className="size-3.5" />
+            {t("apiBilling.proxyPaste.button")}
+          </Button>
+        )}
         <Button
           size="icon-sm"
           variant="outline"
@@ -1202,6 +1342,11 @@ function AccountCardContent({
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-2">
             <span className="truncate text-sm font-semibold">{account.username}</span>
+            {!!account.proxyEnabled && (
+              <span title={t("apiBilling.detail.proxySectionTitle")}>
+                <Link2 size={13} className="shrink-0 text-muted-foreground/60" />
+              </span>
+            )}
             <StatusBadge status={account.status} />
           </div>
           <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
@@ -1272,11 +1417,15 @@ function DetailColumn({
   account,
   onOpenWebsite,
   onRedetectProfile,
+  onToggleProxy,
+  onManageExternalApps,
 }: {
   station: RelayStation | null;
   account: StationAccount | null;
   onOpenWebsite: () => void;
   onRedetectProfile: (stationId: string) => void;
+  onToggleProxy?: (accountId: string, enabled: boolean) => void;
+  onManageExternalApps?: (accountId: string | null) => void;
 }) {
   const { t } = useTranslation();
   const [passwordHidden, setPasswordHidden] = useState(true);
@@ -1394,6 +1543,40 @@ function DetailColumn({
                 stationId={station.id}
                 stationProbeFailureCount={station.probeFailureCount}
                 onRedetect={onRedetectProfile}
+              />
+            )}
+
+            {account && (
+              <DetailSection
+                title={t("apiBilling.detail.proxySectionTitle")}
+                rows={[]}
+                extras={
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between rounded-lg border bg-muted/20 p-3">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-sm font-medium">{t("apiBilling.detail.proxyEnabled")}</span>
+                        <span className="text-xs text-muted-foreground">{t("apiBilling.detail.proxyEnabledHint")}</span>
+                      </div>
+                      <Switch
+                        checked={!!account.proxyEnabled}
+                        onCheckedChange={(enabled) => onToggleProxy?.(account.id, enabled)}
+                      />
+                    </div>
+                    {onManageExternalApps && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full justify-between"
+                        onClick={() => onManageExternalApps(account.id)}
+                      >
+                        <span className="text-sm text-muted-foreground">
+                          {t("apiBilling.detail.manageExternalApps")}
+                        </span>
+                        <ExternalLink size={14} />
+                      </Button>
+                    )}
+                  </div>
+                }
               />
             )}
 
@@ -2052,7 +2235,8 @@ function EditAccountDialog({
   onSubmit: (
     username: string,
     notes: string,
-    password: string | null
+    password: string | null,
+    proxyEnabled: boolean
   ) => void | Promise<void | boolean>;
 }) {
   const { t } = useTranslation();
@@ -2063,6 +2247,7 @@ function EditAccountDialog({
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordDirty, setPasswordDirty] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [proxyEnabled, setProxyEnabled] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -2073,6 +2258,7 @@ function EditAccountDialog({
       setPasswordHidden(true);
       setPasswordDirty(false);
       setSubmitting(false);
+      setProxyEnabled(account.proxyEnabled ?? false);
       if (account.hasPassword) {
         setPasswordLoading(true);
         void api
@@ -2103,7 +2289,7 @@ function EditAccountDialog({
     setSubmitting(true);
     try {
       await Promise.resolve(
-        onSubmit(u, notes.trim(), passwordDirty ? password : null),
+        onSubmit(u, notes.trim(), passwordDirty ? password : null, proxyEnabled),
       );
     } finally {
       setSubmitting(false);
@@ -2183,6 +2369,18 @@ function EditAccountDialog({
               />
             }
           />
+          <div className="flex items-center gap-2 rounded-lg border p-3">
+            <input
+              type="checkbox"
+              id="proxyEnabled"
+              checked={proxyEnabled}
+              onChange={(e) => setProxyEnabled(e.target.checked)}
+              className="size-4 accent-primary"
+            />
+            <label htmlFor="proxyEnabled" className="cursor-pointer text-sm">
+              {t("apiBilling.editAccountDialog.proxyEnabledLabel")}
+            </label>
+          </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
               {t("apiBilling.cancel")}
@@ -2357,6 +2555,83 @@ function QuickLoginDialog({
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t("apiBilling.sessionManager.quickLogin.cancel")}</Button>
             <Button type="submit" disabled={!url.trim() || !username.trim()}>{t("apiBilling.sessionManager.quickLogin.openButton")}</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// 外部登录代理:粘贴一条「用 bench 打开」的登录链接(bench-auth:// 或原始 https
+// authorize 链接,如从浏览器地址栏复制的 Trae 登录页),无需把 bench 设为默认浏览器。
+function ProxyPasteDialog({
+  open,
+  onOpenChange,
+  onSubmit,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (url: string) => Promise<boolean>;
+}) {
+  const { t } = useTranslation();
+  const [url, setUrl] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setUrl("");
+      setSubmitting(false);
+    }
+  }, [open]);
+
+  const trimmed = url.trim();
+  const looksValid =
+    trimmed.startsWith("bench-auth://") ||
+    trimmed.startsWith("http://") ||
+    trimmed.startsWith("https://");
+
+  return (
+    <Dialog open={open} onOpenChange={(next) => { if (!submitting) onOpenChange(next); }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t("apiBilling.proxyPaste.title")}</DialogTitle>
+          <DialogDescription>{t("apiBilling.proxyPaste.description")}</DialogDescription>
+        </DialogHeader>
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (!looksValid || submitting) return;
+            setSubmitting(true);
+            try {
+              await onSubmit(trimmed);
+            } finally {
+              setSubmitting(false);
+            }
+          }}
+          className="space-y-3"
+        >
+          <Field
+            label={t("apiBilling.proxyPaste.urlLabel")}
+            icon={<Link2 size={14} />}
+            input={
+              <Input
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://www.trae.cn/authorization?...&auth_callback_url=http://127.0.0.1:..."
+                autoFocus
+              />
+            }
+          />
+          <p className="text-xs text-muted-foreground">
+            {t("apiBilling.proxyPaste.hint")}
+          </p>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
+              {t("apiBilling.sessionManager.quickLogin.cancel")}
+            </Button>
+            <Button type="submit" disabled={!looksValid || submitting}>
+              {submitting ? t("apiBilling.proxyPaste.opening") : t("apiBilling.proxyPaste.openButton")}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
