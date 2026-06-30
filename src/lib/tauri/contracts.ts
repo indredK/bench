@@ -12,6 +12,10 @@ import type {
   UpdateInfo,
 } from "@/lib/tauri/types/app-manager";
 import type {
+  AccountSessionStatus,
+  AuthProfile,
+  ExclusivityMode,
+  ProbeStrategy,
   RelayDataExportResult,
   RelayDataImportResult,
   RelayExportMode,
@@ -134,6 +138,7 @@ export const TAURI_COMMAND_CONTRACTS = {
       remark?: string | null;
       website?: string | null;
       loginDetection?: LoginDetectionConfig | null;
+      sessionTtlHours?: number | null;
     },
     RelayStation
   >()("update_station"),
@@ -213,6 +218,45 @@ export const TAURI_COMMAND_CONTRACTS = {
     { stationId: string; orderedIds: string[] },
     StationAccount[]
   >()("reorder_accounts"),
+  // Session Manager
+  capture_account_session: defineTauriCommand<{ accountId: string }, AccountSessionStatus>()(
+    "capture_account_session"
+  ),
+  restore_account_session: defineTauriCommand<{ accountId: string }, AccountSessionStatus>()(
+    "restore_account_session"
+  ),
+  clear_account_session: defineTauriCommand<{ accountId: string }, void>()(
+    "clear_account_session"
+  ),
+  detect_station_auth_profile: defineTauriCommand<{ stationId: string }, AuthProfile>()(
+    "detect_station_auth_profile"
+  ),
+  get_station_auth_profile: defineTauriCommand<{ stationId: string }, AuthProfile | null>()(
+    "get_station_auth_profile"
+  ),
+  set_exclusivity_mode: defineTauriCommand<
+    { stationId: string; mode: ExclusivityMode },
+    RelayStation
+  >()("set_exclusivity_mode"),
+  switch_active_account: defineTauriCommand<
+    { stationId: string; accountId: string },
+    StationAccount
+  >()("switch_active_account"),
+  set_probe_strategy: defineTauriCommand<
+    { stationId: string; strategy: ProbeStrategy },
+    RelayStation
+  >()("set_probe_strategy"),
+  reset_probe_strategy: defineTauriCommand<{ stationId: string }, RelayStation>()(
+    "reset_probe_strategy"
+  ),
+  create_ephemeral_account: defineTauriCommand<
+    { website: string; username: string; stationId?: string | null },
+    StationAccount
+  >()("create_ephemeral_account"),
+  set_session_ttl: defineTauriCommand<
+    { stationId: string; ttlHours: number },
+    RelayStation
+  >()("set_session_ttl"),
   list_pricing_standards: defineTauriCommand<undefined, PricingStandard[]>()("list_pricing_standards"),
   create_pricing_standard: defineTauriCommand<
     { name: string; models: ModelPricing[] },
@@ -473,6 +517,17 @@ export const TAURI_COMMANDS = {
     importRelayData: commandName("import_relay_data"),
     reorderStations: commandName("reorder_stations"),
     reorderAccounts: commandName("reorder_accounts"),
+    captureAccountSession: commandName("capture_account_session"),
+    restoreAccountSession: commandName("restore_account_session"),
+    clearAccountSession: commandName("clear_account_session"),
+    detectStationAuthProfile: commandName("detect_station_auth_profile"),
+    getStationAuthProfile: commandName("get_station_auth_profile"),
+    setExclusivityMode: commandName("set_exclusivity_mode"),
+    switchActiveAccount: commandName("switch_active_account"),
+    setProbeStrategy: commandName("set_probe_strategy"),
+    resetProbeStrategy: commandName("reset_probe_strategy"),
+    createEphemeralAccount: commandName("create_ephemeral_account"),
+    setSessionTtl: commandName("set_session_ttl"),
   },
   tokenCalculator: {
     listPricingStandards: commandName("list_pricing_standards"),
@@ -662,7 +717,7 @@ export const TAURI_COMMAND_ARG_KEYS = {
   set_window_theme: ["theme", "appearance"],
   list_stations: [],
   create_station: ["remark", "website", "loginDetection"],
-  update_station: ["id", "remark", "website", "loginDetection"],
+  update_station: ["id", "remark", "website", "loginDetection", "sessionTtlHours"],
   delete_station: ["id"],
   list_accounts: ["stationId"],
   list_all_accounts: [],
@@ -682,6 +737,17 @@ export const TAURI_COMMAND_ARG_KEYS = {
   import_relay_data: ["path"],
   reorder_stations: ["orderedIds"],
   reorder_accounts: ["stationId", "orderedIds"],
+  capture_account_session: ["accountId"],
+  restore_account_session: ["accountId"],
+  clear_account_session: ["accountId"],
+  detect_station_auth_profile: ["stationId"],
+  get_station_auth_profile: ["stationId"],
+  set_exclusivity_mode: ["stationId", "mode"],
+  switch_active_account: ["stationId", "accountId"],
+  set_probe_strategy: ["stationId", "strategy"],
+  reset_probe_strategy: ["stationId"],
+  create_ephemeral_account: ["website", "username", "stationId"],
+  set_session_ttl: ["stationId", "ttlHours"],
   list_pricing_standards: [],
   create_pricing_standard: ["name", "models"],
   update_pricing_standard: ["id", "name", "models"],

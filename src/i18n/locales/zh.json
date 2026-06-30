@@ -372,7 +372,54 @@
       "reorderAccountsFailed": "保存账号顺序失败",
       "unknown": "操作失败，请稍后重试"
     },
-    "loadFailedTitle": "加载中转站数据失败"
+    "loadFailedTitle": "加载中转站数据失败",
+    "sessionManager": {
+      "quickLogin": {
+        "title": "⚡ 快速登录",
+        "description": "输入网站 URL 和用户名，立即打开登录窗口。不需要先创建站点。",
+        "urlLabel": "网站 URL",
+        "usernameLabel": "用户名",
+        "openButton": "打开登录",
+        "cancel": "取消",
+        "attachToStation": "将归属到当前选中站点",
+        "startedToast": "快速登录已启动，登录后系统将自动捕获 session",
+        "failedToast": "快速登录失败",
+        "historyDatalist": "最近 5 个临时 URL"
+      },
+      "advancedSection": {
+        "title": "Session Manager · 高级",
+        "exclusivityMode": "互斥模式",
+        "exclusivityCoexisting": "共存 (Coexisting)",
+        "exclusivityExclusive": "互斥 (Exclusive)",
+        "exclusivityRotating": "轮换 (Rotating)",
+        "probeStrategy": "探针策略（手动覆盖）",
+        "probeOverrideLabel": "手动覆盖自动检测",
+        "probeHttpFirst": "HTTP 优先 (HttpFirst)",
+        "probeHttpOnly": "仅 HTTP (HttpOnly)",
+        "probeWebviewOnly": "仅 WebView (WebviewOnly)",
+        "probeHybrid": "混合 SSO (Hybrid)",
+        "sessionTtlLabel": "Session 有效期（小时，0=永不过期）"
+      },
+      "authProfile": {
+        "title": "🔍 认证检测结果",
+        "redetect": "重新检测",
+        "redetectTooltip": "需先打开登录窗口并完成登录后重新检测",
+        "redetectSuccess": "认证检测完成",
+        "redetectFailed": "认证检测失败：请先打开登录窗口并完成登录",
+        "authType": "认证类型",
+        "tokenStorage": "Token 存储",
+        "csrf": "CSRF",
+        "csrfEnabled": "已启用",
+        "csrfDisabled": "未启用",
+        "antiBot": "反机器人",
+        "antiBotDetected": "已检测",
+        "antiBotUndetected": "未检测",
+        "fingerprinting": "指纹等级",
+        "probeStrategy": "探针策略",
+        "confidence": "置信度",
+        "detectedAt": "检测时间"
+      }
+    }
   },
   "appManager": {
     "title": "应用管理",

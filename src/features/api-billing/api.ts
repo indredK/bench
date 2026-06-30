@@ -3,7 +3,11 @@
  */
 import { invokeTauriCommand } from "@/lib/tauri/invoke";
 import type {
+  AccountSessionStatus,
+  AuthProfile,
+  ExclusivityMode,
   LoginDetectionConfig,
+  ProbeStrategy,
   RelayDataExportResult,
   RelayDataImportResult,
   RelayExportMode,
@@ -14,10 +18,14 @@ import type {
 
 export type {
   AccountSessionStatus,
+  AccountType,
+  AuthProfile,
+  ExclusivityMode,
   LoginDetectionConfig,
   LoginDetectionMode,
   LoginDetectionPresence,
   LoginDetectionRule,
+  ProbeStrategy,
   RelayDataExportResult,
   RelayDataImportResult,
   RelayExportMode,
@@ -175,4 +183,98 @@ export function reorderAccounts(
   orderedIds: string[]
 ): Promise<StationAccount[]> {
   return invokeTauriCommand("reorder_accounts", { stationId, orderedIds });
+}
+
+// ═══════════════════════════════════════════════
+// Session Manager — 新增 API 绑定
+// ═══════════════════════════════════════════════
+
+export function captureAccountSession(accountId: string): Promise<AccountSessionStatus> {
+  return invokeTauriCommand("capture_account_session", { accountId });
+}
+
+export function restoreAccountSession(accountId: string): Promise<AccountSessionStatus> {
+  return invokeTauriCommand("restore_account_session", { accountId });
+}
+
+export function clearAccountSession(accountId: string): Promise<void> {
+  return invokeTauriCommand("clear_account_session", { accountId });
+}
+
+export function detectStationAuthProfile(stationId: string): Promise<AuthProfile> {
+  return invokeTauriCommand("detect_station_auth_profile", { stationId });
+}
+
+export function getStationAuthProfile(stationId: string): Promise<AuthProfile | null> {
+  return invokeTauriCommand("get_station_auth_profile", { stationId });
+}
+
+export function setExclusivityMode(
+  stationId: string,
+  mode: ExclusivityMode
+): Promise<RelayStation> {
+  return invokeTauriCommand("set_exclusivity_mode", { stationId, mode });
+}
+
+/// Rotating 模式下切换活跃账号
+export function switchActiveAccount(
+  stationId: string,
+  accountId: string
+): Promise<StationAccount> {
+  return invokeTauriCommand("switch_active_account", { stationId, accountId });
+}
+
+/// 手动覆盖探针策略
+export function setProbeStrategy(
+  stationId: string,
+  strategy: ProbeStrategy
+): Promise<RelayStation> {
+  return invokeTauriCommand("set_probe_strategy", { stationId, strategy });
+}
+
+/// 重置探针策略为自动
+export function resetProbeStrategy(stationId: string): Promise<RelayStation> {
+  return invokeTauriCommand("reset_probe_strategy", { stationId });
+}
+
+// === Session Manager v1.5 ===
+
+/// 创建一个临时账号(快速登录入口)。stationId 可选。
+export function createEphemeralAccount(
+  website: string,
+  username: string,
+  stationId?: string | null
+): Promise<StationAccount> {
+  return invokeTauriCommand("create_ephemeral_account", {
+    website,
+    username,
+    stationId: stationId ?? null,
+  });
+}
+
+/// 设置 Station 的 session TTL(小时)。0 = 永不过期。
+export function setSessionTtl(
+  stationId: string,
+  ttlHours: number
+): Promise<RelayStation> {
+  return invokeTauriCommand("set_session_ttl", { stationId, ttlHours });
+}
+
+/// update_station 包装:支持更新 sessionTtlHours。
+export function updateStationWithTtl(
+  id: string,
+  patch: {
+    remark?: string;
+    website?: string;
+    loginDetection?: LoginDetectionConfig;
+    sessionTtlHours?: number;
+  }
+): Promise<RelayStation> {
+  return invokeTauriCommand("update_station", {
+    id,
+    remark: patch.remark ?? null,
+    website: patch.website ?? null,
+    loginDetection: patch.loginDetection ?? null,
+    sessionTtlHours: patch.sessionTtlHours ?? null,
+  });
 }

@@ -71,18 +71,56 @@ pub fn run() {
                 terminology_state.set_init_error(message.clone());
                 record_startup_issue(&bootstrap_state, "terminology", message);
             }
+            // Session Manager: 启动后异步恢复 session
+            // NOTE: ApiBillingState 未实现 Clone，不能在 setup 闭包内 clone 后移入 'static 任务。
+            // 改为把 AppHandle（'static）移入任务，在任务内部通过 handle.state() 取引用。
+            let restore_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let state = restore_handle.state::<ApiBillingState>();
+                // F.6.3 启动时先清理 TTL 超时的 session(同步,在恢复之前)
+                let cleared = api_billing::session::cleanup_expired_sessions(
+                    &restore_handle,
+                    &state,
+                    chrono::Utc::now(),
+                );
+                if !cleared.is_empty() {
+                    eprintln!(
+                        "[api_billing] startup: cleared {} expired session(s)",
+                        cleared.len()
+                    );
+                }
+                api_billing::session::restore_sessions_on_startup(
+                    &restore_handle,
+                    &state,
+                )
+                .await;
+            });
             Ok(())
         })
         .invoke_handler(app_invoke_handler!())
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
-        .run(|_app_handle, event| {
-            // Kill our own caffeinate process when the app exits so the
-            // system-level sleep prevention state we report stays accurate
-            // and other apps (OnlySwitch, Amphetamine, ...) don't see a
-            // stale assertion from an already-closed Bench.
-            if let tauri::RunEvent::Exit = event {
-                sleep_inhibitor::commands::cleanup_on_exit();
+        .run(|app_handle, event| {
+            match event {
+                tauri::RunEvent::Exit => {
+                    sleep_inhibitor::commands::cleanup_on_exit();
+                }
+                tauri::RunEvent::ExitRequested { .. } => {
+                    // Session Manager: 退出前持久化所有活跃 session
+                    // NOTE: 同 setup，ApiBillingState 不可 Clone，改为在 block 内通过 handle 取引用。
+                    let handle = app_handle.clone();
+                    tauri::async_runtime::block_on(async move {
+                        let state = handle.state::<ApiBillingState>();
+                        api_billing::session::persist_all_sessions_on_exit(
+                            &handle,
+                            &state,
+                        )
+                        .await;
+                        api_billing::session::cleanup_ephemeral(&state);
+                    });
+                    sleep_inhibitor::commands::cleanup_on_exit();
+                }
+                _ => {}
             }
         });
 }

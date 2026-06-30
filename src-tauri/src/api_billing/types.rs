@@ -2,14 +2,212 @@ use serde::{Deserialize, Serialize};
 
 use super::crypto::EncryptedBlob;
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+// ═══════════════════════════════════════════════
+// Session Manager — 新增类型
+// ═══════════════════════════════════════════════
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum AccountType {
+    #[default]
+    Persistent,
+    Ephemeral,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "camelCase")]
 pub enum AccountSessionStatus {
     Ready,
     LoginRequired,
     Expired,
     FetchFailed,
+    #[default]
+    Inactive,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct CookieEntry {
+    pub name: String,
+    pub value: String,
+    pub domain: String,
+    pub path: String,
+    pub http_only: bool,
+    pub secure: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub same_site: Option<String>,
+    #[serde(default)]
+    pub partitioned: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CsrfTokenEntry {
+    pub extraction_method: String,
+    pub token_name: String,
+    pub token_value: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct AccountSession {
+    pub cookies: Vec<CookieEntry>,
+    /// 扁平 localStorage（v1 兼容字段，新数据写入 origins）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub local_storage: Option<EncryptedBlob>,
+    /// 扁平 sessionStorage（v1 兼容字段，新数据写入 origins）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_storage: Option<EncryptedBlob>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub indexeddb_snapshot: Option<EncryptedBlob>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub csrf_token: Option<CsrfTokenEntry>,
+    pub captured_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_hint: Option<String>,
+    pub user_agent: String,
+    /// v2.0 per-origin 存储（参考 Playwright storageState）。
+    /// 恢复时精确按 origin 注入,避免跨 origin 污染。
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub origins: Vec<OriginStorage>,
+}
+
+/// per-origin 存储。localStorage 和 sessionStorage 都按 origin 隔离。
+/// 参考 Playwright storageState 的 origins 结构。
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct OriginStorage {
+    /// 例如 "https://example.com" 或 "https://app.example.com"
+    pub origin: String,
+    /// 该 origin 下的 localStorage 键值对(加密)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub local_storage: Option<EncryptedBlob>,
+    /// 该 origin 下的 sessionStorage 键值对(加密)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_storage: Option<EncryptedBlob>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum TokenStorage {
+    Cookie,
+    LocalStorage,
+    SessionStorage,
+    IndexedDB,
+    Multiple,
+    #[default]
+    None,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CsrfExtraction {
+    pub source: String,
+    pub name: String,
+    pub header_name: String,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum AuthType {
+    #[default]
+    SessionCookie,
+    BearerOAuth,
+    Saml,
+    OpenIdConnect,
+    WebSocket,
+    Unknown,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum FingerprintingLevel {
+    #[default]
+    None,
+    Basic,
+    Strict,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum AntiBotProvider {
+    Cloudflare,
+    CloudflareTurnstile,
+    Recaptcha,
+    HCaptcha,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum SsoProvider {
+    AzureAd,
+    Okta,
+    Auth0,
+    Custom(String),
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum ProbeStrategy {
+    #[default]
+    HttpFirst,
+    HttpOnly,
+    WebviewOnly,
+    Hybrid,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum ExclusivityMode {
+    #[default]
+    Coexisting,
+    Exclusive,
+    Rotating,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum ProbeResult {
+    Ready,
+    LoginRequired,
+    Expired,
+    Uncertain,
+    AntiBotBlocked,
+    SsoChallenge,
+    NetworkError(String),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct AuthProfile {
+    pub cookie_based: bool,
+    #[serde(default)]
+    pub token_storage: TokenStorage,
+    #[serde(default)]
+    pub csrf_protection: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub csrf_extraction: Option<CsrfExtraction>,
+    #[serde(default)]
+    pub auth_type: AuthType,
+    #[serde(default)]
+    pub fingerprinting: FingerprintingLevel,
+    #[serde(default)]
+    pub anti_bot: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub anti_bot_provider: Option<AntiBotProvider>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sso_provider: Option<SsoProvider>,
+    #[serde(default)]
+    pub probe_strategy: ProbeStrategy,
+    pub detected_at: String,
+    pub confidence: f32,
+}
+
+// ═══════════════════════════════════════════════
+// 保留现有类型 (LoginMethod etc.)
+// ═══════════════════════════════════════════════
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -80,6 +278,21 @@ pub struct RelayStation {
     pub created_at: String,
     #[serde(default)]
     pub login_detection: LoginDetectionConfig,
+    // Session Manager 新增字段
+    #[serde(default)]
+    pub exclusivity_mode: ExclusivityMode,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auth_profile: Option<AuthProfile>,
+    #[serde(default)]
+    pub probe_failure_count: u32,
+    /// Session 有效期（小时）。超过该时长后启动恢复时自动清理。
+    /// F.6.2 默认 720h (30 天)。设为 0 视为永不过期。
+    #[serde(default = "default_session_ttl_hours")]
+    pub session_ttl_hours: u32,
+}
+
+pub fn default_session_ttl_hours() -> u32 {
+    720
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -105,6 +318,15 @@ pub struct StationAccount {
     pub created_at: String,
     #[serde(default)]
     pub has_password: bool,
+    // Session Manager 新增字段
+    #[serde(default)]
+    pub account_type: AccountType,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub website: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session: Option<EncryptedBlob>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exclusivity_group: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -147,6 +369,9 @@ pub struct RelayStationExport {
     pub login_detection: LoginDetectionConfig,
     #[serde(default)]
     pub accounts: Vec<RelayAccountExport>,
+    /// 可选:导出文件携带的 session TTL(小时); 缺省时回退到 default_session_ttl_hours().
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_ttl_hours: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]

@@ -372,7 +372,54 @@
       "reorderAccountsFailed": "Failed to save account order",
       "unknown": "The operation failed. Please try again."
     },
-    "loadFailedTitle": "Failed to load gateway data"
+    "loadFailedTitle": "Failed to load gateway data",
+    "sessionManager": {
+      "quickLogin": {
+        "title": "⚡ Quick Login",
+        "description": "Enter the website URL and username to instantly open the login window. No need to create a station first.",
+        "urlLabel": "Website URL",
+        "usernameLabel": "Username",
+        "openButton": "Open Login",
+        "cancel": "Cancel",
+        "attachToStation": "Will be attached to the currently selected station",
+        "startedToast": "Quick login started; session will be auto-captured after login",
+        "failedToast": "Quick login failed",
+        "historyDatalist": "Last 5 temporary URLs"
+      },
+      "advancedSection": {
+        "title": "Session Manager · Advanced",
+        "exclusivityMode": "Exclusivity Mode",
+        "exclusivityCoexisting": "Coexisting",
+        "exclusivityExclusive": "Exclusive",
+        "exclusivityRotating": "Rotating",
+        "probeStrategy": "Probe Strategy (manual override)",
+        "probeOverrideLabel": "Override auto-detection",
+        "probeHttpFirst": "HTTP First",
+        "probeHttpOnly": "HTTP Only",
+        "probeWebviewOnly": "WebView Only",
+        "probeHybrid": "Hybrid (SSO)",
+        "sessionTtlLabel": "Session TTL (hours, 0=never expire)"
+      },
+      "authProfile": {
+        "title": "🔍 Auth Profile Detection",
+        "redetect": "Re-detect",
+        "redetectTooltip": "Open login window and complete login before re-detecting",
+        "redetectSuccess": "Auth profile detection completed",
+        "redetectFailed": "Auth profile detection failed: please open login window and complete login first",
+        "authType": "Auth Type",
+        "tokenStorage": "Token Storage",
+        "csrf": "CSRF",
+        "csrfEnabled": "Enabled",
+        "csrfDisabled": "Disabled",
+        "antiBot": "Anti-Bot",
+        "antiBotDetected": "Detected",
+        "antiBotUndetected": "Not detected",
+        "fingerprinting": "Fingerprinting",
+        "probeStrategy": "Probe Strategy",
+        "confidence": "Confidence",
+        "detectedAt": "Detected At"
+      }
+    }
   },
   "appManager": {
     "title": "App Manager",

@@ -14,6 +14,7 @@ pub struct ApiBillingSnapshot {
     pub stations: Vec<RelayStation>,
     pub accounts: Vec<StationAccount>,
     pub secrets: HashMap<String, EncryptedBlob>,
+    pub sessions: HashMap<String, EncryptedBlob>,
 }
 
 pub struct ApiBillingState {
@@ -74,7 +75,6 @@ impl ApiBillingState {
                 "state initialization failed: {message}"
             )));
         }
-
         Ok(())
     }
 
@@ -85,5 +85,17 @@ impl ApiBillingState {
         let k = crypto::get_or_create_master_key()?;
         let _ = self.master_key.set(k);
         Ok(k)
+    }
+
+    // ═══ Session Manager 新增方法 ═══
+
+    pub fn set_session(&self, account_id: &str, blob: EncryptedBlob) {
+        let mut snapshot = self.snapshot.write().unwrap_or_else(|e| e.into_inner());
+        snapshot.sessions.insert(account_id.to_string(), blob);
+    }
+
+    pub fn get_session(&self, account_id: &str) -> Option<EncryptedBlob> {
+        let snapshot = self.snapshot.read().unwrap_or_else(|e| e.into_inner());
+        snapshot.sessions.get(account_id).cloned()
     }
 }

@@ -13,7 +13,7 @@ const KEY_STATIONS: &str = "stations";
 const KEY_ACCOUNTS: &str = "accounts";
 const KEY_SECRETS: &str = "secrets";
 const KEY_SCHEMA: &str = "schema_version";
-const CURRENT_SCHEMA: u32 = 2;
+const CURRENT_SCHEMA: u32 = 3;
 
 /// Load persisted state from the plugin-store and populate the managed state.
 /// Called once during `setup`. Migrates P0 plaintext secrets to encrypted blobs.
@@ -33,10 +33,13 @@ pub fn init_state<R: Runtime>(app: &AppHandle<R>, state: &ApiBillingState) -> Ap
 
     let (secrets, needs_resave) = load_and_migrate_secrets(store.get(KEY_SECRETS), state)?;
 
+    let sessions = load_sessions_from_store(app);
+
     let snapshot = ApiBillingSnapshot {
         stations,
         accounts,
         secrets: secrets.clone(),
+        sessions,
     };
     state.replace_snapshot(snapshot);
 
@@ -132,6 +135,7 @@ fn save_snapshot<R: Runtime>(
     store.set(KEY_STATIONS, json!(&snapshot.stations));
     store.set(KEY_ACCOUNTS, json!(&snapshot.accounts));
     store.set(KEY_SECRETS, json!(&snapshot.secrets));
+    store.set("sessions", json!(&snapshot.sessions));
     store.set(KEY_SCHEMA, json!(CURRENT_SCHEMA));
     store
         .save()
@@ -139,6 +143,37 @@ fn save_snapshot<R: Runtime>(
     Ok(())
 }
 
+
+
+// Session Manager: schema v3 additions
+#[allow(dead_code)]
+pub fn save_sessions_to_store(
+    app: &AppHandle<impl Runtime>,
+    sessions: &HashMap<String, EncryptedBlob>,
+) -> ApiBillingResult<()> {
+    let store = app.store(STORE_FILE)
+        .map_err(|e| ApiBillingError::store_fail(format!("open store: {e}")))?;
+    store.set("sessions", serde_json::json!(sessions));
+    store.save()
+        .map_err(|e| ApiBillingError::store_fail(format!("save sessions: {e}")))?;
+    Ok(())
+}
+
+pub fn load_sessions_from_store(app: &AppHandle<impl Runtime>) -> HashMap<String, EncryptedBlob> {
+    let Ok(store) = app.store(STORE_FILE) else { return HashMap::new() };
+    store.get("sessions")
+        .and_then(|v| serde_json::from_value(v).ok())
+        .unwrap_or_default()
+}
+
+#[allow(dead_code)]
+pub fn flush_to_disk(app: &AppHandle<impl Runtime>) -> ApiBillingResult<()> {
+    let store = app.store(STORE_FILE)
+        .map_err(|e| ApiBillingError::store_fail(format!("open store: {e}")))?;
+    store.save()
+        .map_err(|e| ApiBillingError::store_fail(format!("flush: {e}")))?;
+    Ok(())
+}
 pub fn with_state_mut<R: Runtime, F, T>(
     app: &AppHandle<R>,
     state: &ApiBillingState,

@@ -9,7 +9,7 @@ use super::probe;
 use super::state::{ApiBillingSnapshot, ApiBillingState};
 use super::storage;
 use super::types::{
-    AccountSessionStatus, ApiBillingError, ApiBillingResult, LoginDetectionConfig, LoginMethod,
+    AccountSessionStatus, AccountType, ApiBillingError, AuthProfile, ExclusivityMode, ProbeResult, ProbeStrategy, ApiBillingResult, LoginDetectionConfig, LoginMethod,
     RelayAccountExport, RelayDataExportFile, RelayDataExportResult, RelayDataImportResult,
     RelayExportMode, RelayStation, RelayStationExport, StationAccount,
 };
@@ -24,7 +24,7 @@ fn new_id(prefix: &str) -> String {
     format!("{prefix}-{suffix}")
 }
 
-fn now_label() -> String {
+pub fn now_label() -> String {
     Local::now().format("%Y-%m-%d %H:%M").to_string()
 }
 
@@ -162,6 +162,7 @@ fn build_export_file(
                 created_at: Some(station.created_at.clone()),
                 login_detection: station.login_detection.clone(),
                 accounts: station_accounts,
+                session_ttl_hours: Some(station.session_ttl_hours),
             })
         })
         .collect::<ApiBillingResult<Vec<_>>>()?;
@@ -211,6 +212,10 @@ pub fn create_station<R: Runtime>(
     login_detection: Option<LoginDetectionConfig>,
 ) -> ApiBillingResult<RelayStation> {
     let station = RelayStation {
+            exclusivity_mode: Default::default(),
+            auth_profile: None,
+            probe_failure_count: 0,
+            session_ttl_hours: super::types::default_session_ttl_hours(),
         id: new_id("stn"),
         remark: trim_or_invalid(&remark, "remark")?,
         website: trim_or_invalid(&website, "website")?,
@@ -231,6 +236,7 @@ pub fn update_station<R: Runtime>(
     remark: Option<String>,
     website: Option<String>,
     login_detection: Option<LoginDetectionConfig>,
+    session_ttl_hours: Option<u32>,
 ) -> ApiBillingResult<RelayStation> {
     storage::with_state_mut(&app, &state, |snapshot| {
         let Some(station) = snapshot.stations.iter_mut().find(|s| s.id == id) else {
@@ -245,8 +251,22 @@ pub fn update_station<R: Runtime>(
         if let Some(d) = login_detection.clone() {
             station.login_detection = d;
         }
+        if let Some(ttl) = session_ttl_hours {
+            station.session_ttl_hours = ttl;
+        }
         Ok(station.clone())
     })
+}
+
+/// 便捷命令:仅设置 session_ttl_hours(供前端面板使用)。
+#[tauri::command]
+pub fn set_session_ttl<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, ApiBillingState>,
+    station_id: String,
+    ttl_hours: u32,
+) -> ApiBillingResult<RelayStation> {
+    update_station(app, state, station_id, None, None, None, Some(ttl_hours))
 }
 
 #[tauri::command]
@@ -342,6 +362,10 @@ pub fn create_account<R: Runtime>(
         None => None,
     };
     let account = StationAccount {
+            account_type: Default::default(),
+            website: None,
+            session: None,
+            exclusivity_group: None,
         id: new_id("acct"),
         station_id,
         username: trim_or_invalid(&username, "username")?,
@@ -528,6 +552,12 @@ pub fn import_relay_data<R: Runtime>(
             let unique_remark = next_unique_remark(&station_remark, &mut existing_remarks);
             let station_id = new_id("stn");
             imported_stations.push(RelayStation {
+                exclusivity_mode: Default::default(),
+                auth_profile: None,
+                probe_failure_count: 0,
+                session_ttl_hours: station
+                    .session_ttl_hours
+                    .unwrap_or_else(super::types::default_session_ttl_hours),
                 id: station_id.clone(),
                 remark: unique_remark,
                 website: trim_or_invalid(&station.website, "website")?,
@@ -539,6 +569,10 @@ pub fn import_relay_data<R: Runtime>(
                 let account_id = new_id("acct");
                 let secret = import_account_secret(&key, &account)?;
                 imported_accounts.push(StationAccount {
+                account_type: Default::default(),
+                website: None,
+                session: None,
+                exclusivity_group: None,
                     id: account_id.clone(),
                     station_id: station_id.clone(),
                     username: trim_or_invalid(&account.username, "username")?,
@@ -648,6 +682,60 @@ pub fn copy_password_to_clipboard<R: Runtime>(
         .write_text(plaintext)
         .map_err(|e| ApiBillingError::clipboard_fail(e.to_string()))?;
     Ok(())
+}
+
+// ───── ephemeral (Phase 2) ─────
+
+/// 创建一个临时账号(快速登录入口)。
+/// `station_id` 可选 — 为 None 时表示不归属任何 Station,账号自带 `website`。
+#[tauri::command]
+pub fn create_ephemeral_account<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, ApiBillingState>,
+    website: String,
+    username: String,
+    station_id: Option<String>,
+) -> ApiBillingResult<StationAccount> {
+    let website = trim_or_invalid(&website, "website")?;
+    let username = trim_or_invalid(&username, "username")?;
+
+    // 若指定了 station,必须存在
+    if let Some(ref sid) = station_id {
+        let exists = state
+            .read_snapshot_checked()?
+            .stations
+            .iter()
+            .any(|s| &s.id == sid);
+        if !exists {
+            return Err(ApiBillingError::not_found(format!("station {sid}")));
+        }
+    }
+
+    let account = StationAccount {
+        account_type: AccountType::Ephemeral,
+        website: Some(website),
+        session: None,
+        exclusivity_group: None,
+        id: new_id("eph"),
+        station_id: station_id.unwrap_or_default(),
+        username,
+        notes: String::new(),
+        phone: None,
+        tg_account: None,
+        linked_account: None,
+        invite_link: None,
+        login_methods: Vec::new(),
+        status: AccountSessionStatus::LoginRequired,
+        last_login_at: None,
+        last_refreshed_at: None,
+        created_at: now_label(),
+        has_password: false,
+    };
+
+    storage::with_state_mut(&app, &state, |snapshot| {
+        snapshot.accounts.push(account.clone());
+        Ok(account)
+    })
 }
 
 // ───── session refresh ─────
@@ -768,7 +856,7 @@ pub fn open_login_window<R: Runtime>(
     state: State<'_, ApiBillingState>,
     account_id: String,
 ) -> ApiBillingResult<()> {
-    let (username, website) = {
+    let (username, website, station) = {
         let snapshot = state.read_snapshot_checked()?;
         let account = snapshot
             .accounts
@@ -780,23 +868,85 @@ pub fn open_login_window<R: Runtime>(
             .iter()
             .find(|s| s.id == account.station_id)
             .ok_or_else(|| ApiBillingError::not_found(format!("station {}", account.station_id)))?;
-        (account.username.clone(), station.website.clone())
+        (account.username.clone(), station.website.clone(), station.clone())
     };
+
+    // 互斥模式：登录前处理同站其它账号（exclusive 登出冲突账号 / rotating 降级活跃账号）
+    crate::api_billing::exclusivity::enforce_exclusivity_before_login(&app, &station, &account_id)?;
+
     webview::open_login_window(&app, &account_id, &username, &website)
 }
 
 #[tauri::command]
-pub fn mark_account_logged_in<R: Runtime>(
+pub async fn mark_account_logged_in<R: Runtime>(
     app: AppHandle<R>,
     state: State<'_, ApiBillingState>,
     account_id: String,
 ) -> ApiBillingResult<StationAccount> {
+    // 0. 找到账号 + 站点
+    let snapshot = state.read_snapshot_checked()?;
+    let account = snapshot
+        .accounts
+        .iter()
+        .find(|a| a.id == account_id)
+        .cloned()
+        .ok_or_else(|| ApiBillingError::not_found(format!("account {account_id}")))?;
+    let station = snapshot
+        .stations
+        .iter()
+        .find(|s| s.id == account.station_id)
+        .cloned();
+
+    // 1. 尝试从登录窗口捕获 session(Persistent 账号才持久化)
+    let login_label = crate::api_billing::webview::login_window_label(&account_id);
+    if let Some(window) = app.get_webview_window(&login_label) {
+        // 1a. session 捕获
+        match crate::api_billing::session::capture_session_after_login(
+            &window, &account, &None,
+        )
+        .await
+        {
+            Ok(session) => {
+                if account.account_type == AccountType::Persistent {
+                    crate::api_billing::session::persist_session(&state, &account_id, &session)?;
+                }
+            }
+            Err(e) => {
+                eprintln!(
+                    "[api_billing] mark_logged_in: capture failed for {account_id}: {e:?}"
+                );
+            }
+        }
+
+        // 2. 登录成功后自动跑一次 AuthProfile 检测(写入 Station.auth_profile)。
+        if let Some(station) = station.as_ref() {
+            match crate::api_billing::detection::detect_auth_profile(&window).await {
+                Ok(profile) => {
+                    let _ = storage::with_state_mut(&app, &state, |snapshot| {
+                        if let Some(s) = snapshot.stations.iter_mut().find(|s| s.id == station.id) {
+                            s.auth_profile = Some(profile);
+                        }
+                        Ok(())
+                    });
+                }
+                Err(e) => {
+                    eprintln!(
+                        "[api_billing] mark_logged_in: auth profile detect failed for {}: {e:?}",
+                        station.id
+                    );
+                }
+            }
+        }
+    }
+
+    // 3. 标记 Ready + 刷新时间戳
     storage::with_state_mut(&app, &state, |snapshot| {
         let Some(account) = snapshot.accounts.iter_mut().find(|a| a.id == account_id) else {
             return Err(ApiBillingError::not_found(format!("account {account_id}")));
         };
         account.status = AccountSessionStatus::Ready;
         account.last_login_at = Some(now_label());
+        account.last_refreshed_at = Some(now_label());
         Ok(account.clone())
     })
 }
@@ -823,6 +973,10 @@ mod tests {
             website: format!("https://{id}.test"),
             created_at: "2026-01-01 00:00".to_string(),
             login_detection: super::super::types::LoginDetectionConfig::default(),
+            exclusivity_mode: Default::default(),
+            auth_profile: None,
+            probe_failure_count: 0,
+            session_ttl_hours: crate::api_billing::types::default_session_ttl_hours(),
         }
     }
 
@@ -884,11 +1038,16 @@ mod tests {
                 last_refreshed_at: None,
                 created_at: "2026-01-01 00:00".into(),
                 has_password: true,
+                account_type: Default::default(),
+                website: None,
+                session: None,
+                exclusivity_group: None,
             }],
             secrets: HashMap::from([(
                 "acct-1".into(),
                 crypto::encrypt(&[9u8; 32], "secret").expect("encrypt"),
             )]),
+            sessions: HashMap::new(),
         };
 
         let (export, count) =
@@ -920,8 +1079,13 @@ mod tests {
                 last_refreshed_at: None,
                 created_at: "2026-01-01 00:00".into(),
                 has_password: true,
+                account_type: Default::default(),
+                website: None,
+                session: None,
+                exclusivity_group: None,
             }],
             secrets: HashMap::from([("acct-1".into(), encrypted.clone())]),
+            sessions: HashMap::new(),
         };
 
         let (export, _) =
@@ -933,4 +1097,252 @@ mod tests {
         );
         assert_eq!(export.stations[0].accounts[0].password, None);
     }
+}
+
+// ═══════════════════════════════════════════════
+// Session Manager — 新增命令 (v1.3)
+// ═══════════════════════════════════════════════
+
+/// 从登录窗口捕获 session 并加密存储
+#[tauri::command]
+pub async fn capture_account_session<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, ApiBillingState>,
+    account_id: String,
+) -> ApiBillingResult<AccountSessionStatus> {
+    let snapshot = state.read_snapshot_checked()?;
+    let account = snapshot.accounts.iter()
+        .find(|a| a.id == account_id)
+        .cloned()
+        .ok_or_else(|| ApiBillingError::not_found(format!("account {account_id}")))?;
+
+    let login_label = crate::api_billing::webview::login_window_label(&account_id);
+    let window = app.get_webview_window(&login_label)
+        .ok_or_else(|| ApiBillingError::not_found("login window not found"))?;
+
+    let session = crate::api_billing::session::capture_session_after_login(
+        &window, &account, &None,
+    ).await?;
+
+    crate::api_billing::session::persist_session(&state, &account_id, &session)?;
+
+    storage::with_state_mut(&app, &state, |snapshot| {
+        if let Some(a) = snapshot.accounts.iter_mut().find(|a| a.id == account_id) {
+            a.status = AccountSessionStatus::Ready;
+            a.last_login_at = Some(now_label());
+        }
+        Ok(())
+    })?;
+
+    Ok(AccountSessionStatus::Ready)
+}
+
+/// 从存储恢复 session 并做 probe
+#[tauri::command]
+pub async fn restore_account_session<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, ApiBillingState>,
+    account_id: String,
+) -> ApiBillingResult<AccountSessionStatus> {
+    let session = crate::api_billing::session::restore_session(&state, &account_id)?
+        .ok_or_else(|| ApiBillingError::not_found("no stored session"))?;
+
+    let snapshot = state.read_snapshot_checked()?;
+    let account = snapshot.accounts.iter()
+        .find(|a| a.id == account_id)
+        .cloned()
+        .ok_or_else(|| ApiBillingError::not_found(format!("account {account_id}")))?;
+
+    let website = account.website.clone()
+        .or_else(|| snapshot.stations.iter()
+            .find(|s| s.id == account.station_id)
+            .map(|s| s.website.clone()))
+        .unwrap_or_default();
+
+    // 根据 Station 的 AuthProfile 选择探针策略；缺失时默认 HttpFirst
+    let station = snapshot.stations.iter().find(|s| s.id == account.station_id);
+    let strategy = station
+        .and_then(|s| s.auth_profile.as_ref())
+        .map(|p| p.probe_strategy)
+        .unwrap_or(ProbeStrategy::HttpFirst);
+    let config = station
+        .map(|s| s.login_detection.clone())
+        .unwrap_or_default();
+    let station_id = station.map(|s| s.id.clone());
+
+    let result = crate::api_billing::probe::probe_session(
+        &app, &account_id, &website, &session, strategy, &config,
+    ).await;
+
+    // 不确定 / 反机器人 / 网络错误 → 触发自适应降级
+    if matches!(
+        result,
+        ProbeResult::AntiBotBlocked | ProbeResult::Uncertain | ProbeResult::NetworkError(_)
+    ) {
+        if let Some(ref sid) = station_id {
+            let _ = crate::api_billing::probe::adaptive_degrade(&app, sid).await;
+        }
+    }
+
+    let status = match result {
+        ProbeResult::Ready => AccountSessionStatus::Ready,
+        ProbeResult::LoginRequired | ProbeResult::Expired => AccountSessionStatus::LoginRequired,
+        ProbeResult::SsoChallenge => AccountSessionStatus::LoginRequired,
+        ProbeResult::AntiBotBlocked
+        | ProbeResult::Uncertain
+        | ProbeResult::NetworkError(_) => AccountSessionStatus::FetchFailed,
+    };
+
+    // 持久化刷新后的状态
+    storage::with_state_mut(&app, &state, |snap| {
+        if let Some(a) = snap.accounts.iter_mut().find(|a| a.id == account_id) {
+            a.status = status;
+            a.last_refreshed_at = Some(now_label());
+        }
+        Ok(())
+    })?;
+
+    Ok(status)
+}
+
+/// 清除账号的 session 存储
+#[tauri::command]
+pub fn clear_account_session(
+    state: State<'_, ApiBillingState>,
+    account_id: String,
+) -> ApiBillingResult<()> {
+    let mut snapshot = state.snapshot.write().unwrap_or_else(|e| e.into_inner());
+    snapshot.sessions.remove(&account_id);
+    if let Some(a) = snapshot.accounts.iter_mut().find(|a| a.id == account_id) {
+        a.session = None;
+    }
+    Ok(())
+}
+
+/// 对指定 Station 执行 AuthProfile 检测
+#[tauri::command]
+pub async fn detect_station_auth_profile<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, ApiBillingState>,
+    station_id: String,
+) -> ApiBillingResult<AuthProfile> {
+    let snapshot = state.read_snapshot_checked()?;
+    let _station = snapshot.stations.iter()
+        .find(|s| s.id == station_id)
+        .cloned()
+        .ok_or_else(|| ApiBillingError::not_found(format!("station {station_id}")))?;
+
+    let account = snapshot.accounts.iter()
+        .find(|a| a.station_id == station_id)
+        .cloned()
+        .ok_or_else(|| ApiBillingError::not_found("no account for station"))?;
+
+    let login_label = crate::api_billing::webview::login_window_label(&account.id);
+    let window = app.get_webview_window(&login_label)
+        .ok_or_else(|| ApiBillingError::not_found("login window not found"))?;
+
+    let profile = crate::api_billing::detection::detect_auth_profile(&window).await?;
+
+    storage::with_state_mut(&app, &state, |snapshot| {
+        if let Some(s) = snapshot.stations.iter_mut().find(|s| s.id == station_id) {
+            s.auth_profile = Some(profile.clone());
+        }
+        Ok(())
+    })?;
+
+    Ok(profile)
+}
+
+/// 返回已存储的 AuthProfile
+#[tauri::command]
+pub fn get_station_auth_profile(
+    state: State<'_, ApiBillingState>,
+    station_id: String,
+) -> ApiBillingResult<Option<AuthProfile>> {
+    let snapshot = state.read_snapshot_checked()?;
+    Ok(snapshot.stations.iter()
+        .find(|s| s.id == station_id)
+        .and_then(|s| s.auth_profile.clone()))
+}
+
+/// 设置互斥模式
+#[tauri::command]
+pub fn set_exclusivity_mode<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, ApiBillingState>,
+    station_id: String,
+    mode: ExclusivityMode,
+) -> ApiBillingResult<RelayStation> {
+    storage::with_state_mut(&app, &state, |snapshot| {
+        let station = snapshot.stations.iter_mut()
+            .find(|s| s.id == station_id)
+            .ok_or_else(|| ApiBillingError::not_found(format!("station {station_id}")))?;
+        station.exclusivity_mode = mode;
+        Ok(station.clone())
+    })
+}
+
+/// Rotating 模式下切换活跃账号：将同站其它 Ready 账号置为 Inactive，
+/// 目标账号若有已存储 session 则恢复为 Ready，否则保持原状并返回最新状态。
+#[tauri::command]
+pub async fn switch_active_account<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, ApiBillingState>,
+    station_id: String,
+    account_id: String,
+) -> ApiBillingResult<StationAccount> {
+    storage::with_state_mut(&app, &state, |snapshot| {
+        let station = snapshot.stations.iter()
+            .find(|s| s.id == station_id)
+            .ok_or_else(|| ApiBillingError::not_found(format!("station {station_id}")))?;
+
+        if station.exclusivity_mode != ExclusivityMode::Rotating {
+            return Err(ApiBillingError::invalid_input(
+                "switch_active_account only applies to rotating mode",
+            ));
+        }
+
+        for account in snapshot.accounts.iter_mut() {
+            if account.station_id != station_id {
+                continue;
+            }
+            if account.id == account_id {
+                // 目标账号：若有已存储 session 则标记 Ready
+                if account.session.is_some() && account.status != AccountSessionStatus::Ready {
+                    account.status = AccountSessionStatus::Ready;
+                }
+            } else if account.status == AccountSessionStatus::Ready {
+                // 其它活跃账号降级为 Inactive（保留 session）
+                account.status = AccountSessionStatus::Inactive;
+            }
+        }
+
+        snapshot
+            .accounts
+            .iter()
+            .find(|a| a.id == account_id)
+            .cloned()
+            .ok_or_else(|| ApiBillingError::not_found(format!("account {account_id}")))
+    })
+}
+
+/// 手动覆盖 Station 的探针策略（覆盖自动检测）。
+#[tauri::command]
+pub fn set_probe_strategy<R: Runtime>(
+    app: AppHandle<R>,
+    _state: State<'_, ApiBillingState>,
+    station_id: String,
+    strategy: ProbeStrategy,
+) -> ApiBillingResult<RelayStation> {
+    crate::api_billing::probe::set_probe_strategy(&app, &station_id, strategy)
+}
+
+/// 重置 Station 的探针策略为自动（清除手动覆盖与失败计数）。
+#[tauri::command]
+pub fn reset_probe_strategy<R: Runtime>(
+    app: AppHandle<R>,
+    _state: State<'_, ApiBillingState>,
+    station_id: String,
+) -> ApiBillingResult<RelayStation> {
+    crate::api_billing::probe::reset_probe_strategy(&app, &station_id)
 }
