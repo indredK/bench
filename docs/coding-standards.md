@@ -83,7 +83,10 @@
 
 ### 7.2 错误边界
 
-- **强制**: IPC 边界使用 `Result<T, String>` 归一化，错误信息至少让前端能区分「权限问题/平台不支持/输入非法/通用失败」。
+- **强制**: IPC 边界优先使用统一错误类型 `AppError`（`src-tauri/src/error.rs`），序列化为 `{ code, message }`。新命令返回 `AppResult<T>`；`code` 用 `SCREAMING_SNAKE_CASE` 让前端可机器判断（如 `FORBIDDEN_PATH`、`UNSUPPORTED`、`INVALID_INPUT`、`IO_ERROR`）。领域错误枚举（如 `TokenCalculatorError`）用 `#[serde(tag = "code")]` 输出同构结构，与之兼容。
+- **强制**: 历史 `Result<T, String>` 命令可保留，但前端一律通过 `src/lib/tauri/errors.ts` 的 `parseCommandError` / `getErrorMessage` / `translateError` 解析，禁止 `typeof error === "string"`、`String(error)`、`error instanceof Error` 之类的散装判断。
+- **强制**: 需本地化的错误在 `i18n` 的 `errors.<CODE>` 提供文案；`translateError` 会优先取本地化文案，缺失时回退后端 `message`。
+- **强制**: 后端不得用 `.expect()` / `.unwrap()` 打穿 IPC；`spawn_blocking` 的 JoinError 转 `AppError::task_failed`，`Mutex` 用 `unwrap_or_else(|e| e.into_inner())` 从 poison 恢复。
 - **强制**: 启动期配置读取、迁移、解密失败须显式传播到前端或暴露降级状态，不能仅 `eprintln!` 后继续。
 
 ### 7.3 批量与取消
