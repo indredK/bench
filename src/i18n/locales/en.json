@@ -2213,6 +2213,15 @@
     "toasts": {
       "exportSuccess": "Exported classification for {{count}} apps",
       "exportFailed": "Export failed"
-    }
+    },
+    "time": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "daysAgo": "{{days}} days ago",
+      "weeksAgo": "{{weeks}} weeks ago",
+      "monthsAgo": "{{months}} months ago"
+    },
+    "showMore": "+{{count}} more",
+    "exportOverridesTooltip": "Developer tool: Export full classification data for rule optimization"
   }
 }

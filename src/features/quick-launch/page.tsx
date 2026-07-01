@@ -61,16 +61,16 @@ function SceneIcon({ icon, size = 16 }: { icon: string; size?: number }) {
   return Icon ? <Icon size={size} /> : <MoreHorizontal size={size} />;
 }
 
-function formatLastModified(ts: number): string {
+function formatLastModified(ts: number, t: (key: string, opts?: Record<string, unknown>) => string): string {
   if (!ts || ts === 0) return "";
   const now = Date.now();
   const diff = now - ts;
   const days = Math.floor(diff / 86400000);
-  if (days < 1) return "今天";
-  if (days < 2) return "昨天";
-  if (days < 7) return `${days} 天前`;
-  if (days < 30) return `${Math.floor(days / 7)} 周前`;
-  return `${Math.floor(days / 30)} 月前`;
+  if (days < 1) return t("quickLaunch.time.today");
+  if (days < 2) return t("quickLaunch.time.yesterday");
+  if (days < 7) return t("quickLaunch.time.daysAgo", { days });
+  if (days < 30) return t("quickLaunch.time.weeksAgo", { weeks: Math.floor(days / 7) });
+  return t("quickLaunch.time.monthsAgo", { months: Math.floor(days / 30) });
 }
 
 function AppCard({
@@ -88,6 +88,7 @@ function AppCard({
   sceneLabel?: string;
   onContextMenuEdit?: (app: AppInfo, x: number, y: number) => void;
 }) {
+  const { t } = useTranslation();
   const [showInfo, setShowInfo] = useState(false);
 
   return (
@@ -141,7 +142,7 @@ function AppCard({
             <div className="rounded-md border border-border bg-popover px-2 py-1 text-[10px] leading-tight text-muted-foreground shadow">
               {app.version && <div>v{app.version}</div>}
               {app.lastModified > 0 && (
-                <div className="opacity-70">{formatLastModified(app.lastModified * 1000)}</div>
+                <div className="opacity-70">{formatLastModified(app.lastModified * 1000, t)}</div>
               )}
             </div>
           </motion.div>

@@ -2213,6 +2213,15 @@
     "toasts": {
       "exportSuccess": "已导出 {{count}} 个应用的分类数据",
       "exportFailed": "导出失败"
-    }
+    },
+    "time": {
+      "today": "今天",
+      "yesterday": "昨天",
+      "daysAgo": "{{days}} 天前",
+      "weeksAgo": "{{weeks}} 周前",
+      "monthsAgo": "{{months}} 月前"
+    },
+    "showMore": "+{{count}} 更多",
+    "exportOverridesTooltip": "开发者工具：导出全量分类数据用于优化规则"
   }
 }
