@@ -124,7 +124,7 @@ docs/
 ├── product-iteration-reference.md   # 本文件（参考）
 ├── roadmap/
 │   ├── release-themes.md            # 发布主题（强制，含当前冲刺）
-│   ├── product-roadmap-review-plan.md
+│   ├── archive/product-roadmap-review-plan.md  # 已归档
 │   └── README.md
 └── modules/
     ├── README.md
@@ -139,7 +139,7 @@ docs/
     │   ├── roadmap.md
     │   ├── bugs.md
     │   ├── design-spec.md
-    │   ├── redesign.md
+    │   ├── archive/  # redesign.md 已归档
     │   └── feature-candidates.md
     └── <other-module-id>/
         ├── README.md
@@ -271,4 +271,4 @@ product-iteration-reference.md → 参考：方法论与未来方向菜单（本
 | [development-workflow.md](./development-workflow.md) | **日常开发流程** |
 | [roadmap/release-themes.md](./roadmap/release-themes.md) | **当前**发布主题与验收 |
 | [modules/README.md](./modules/README.md) | 模块文档一览 |
-| [roadmap/product-roadmap-review-plan.md](./roadmap/product-roadmap-review-plan.md) | 路线图评审记录 |
+| [roadmap/archive/product-roadmap-review-plan.md](./roadmap/archive/product-roadmap-review-plan.md) | 路线图评审记录（已归档） |
