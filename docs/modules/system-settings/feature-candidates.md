@@ -1,8 +1,20 @@
 # Bench 后续待选功能库
 
-> 已规划好技术方案，后续按需挑选实现，不用重新考虑。
-> 日期：2026-06-26
-> 主文档见 [feature-planning.md](./feature-planning.md)
+> 已规划好技术方案，后续按需挑选实现，不用重新考虑。  
+> **选品与发布节奏见 [roadmap/release-themes.md](../../roadmap/release-themes.md)** — 勿与本文件平行维护两套优先级。  
+> 日期：2026-06-26（选品规则更新：2026-07-01）
+
+---
+
+## 选品规则
+
+| 档位 | 标准 | 示例 |
+|------|------|------|
+| **v1.17 已选** | 开发者刚需 + 纯 defaults + 与 System Settings 现有区块一致 | C 键盘、B Dock、Q 隐藏桌面 |
+| **候选池** | 中复杂度、与「开发者工作台」一致 | G 维护、H 迷你监控、N 剪贴板 |
+| **不做 / v1.20+** | OnlySwitch 长尾、私有 API、与主定位无关 | R 播放器、T 白噪音、W TOTP、X AI Agent |
+
+实现前：在 [roadmap.md](./roadmap.md) 增加对应 checkbox，并在 [release-themes](../../roadmap/release-themes.md) 打勾。
 
 ---
 

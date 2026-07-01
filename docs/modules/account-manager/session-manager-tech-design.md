@@ -1,6 +1,6 @@
 # Session Manager 技术设计文档
 
-> 版本: v1.8 | 日期: 2026-06-30 | 关联 PRD: session-manager-design-spec.md (v1.8)
+> 版本: v1.8 | 日期: 2026-06-30 | 关联 PRD: [session-manager-design-spec.md](./session-manager-design-spec.md) (v1.8)
 
 ## 目录
 

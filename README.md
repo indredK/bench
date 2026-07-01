@@ -154,7 +154,11 @@ bench/
 │       ├── tray.rs                   # Menu bar tray / 菜单栏托盘
 │       ├── file_ops.rs, error.rs, bootstrap.rs, menu.rs, window_theme.rs
 │       ├── commands.rs, lib.rs, main.rs
-├── docs/                             # Design specs & optimization plan / 设计文档
+├── docs/                             # [Docs index](./docs/README.md)
+│   ├── README.md
+│   ├── coding-standards.md
+│   ├── modules/                      # 按模块：roadmap.md, bugs.md, 设计稿
+│   └── roadmap/                      # 全局 release-themes.md
 ├── scripts/                          # Bootstrap, quality gates, release / 脚本
 ├── .github/workflows/ci-build.yml
 └── package.json
