@@ -227,9 +227,9 @@ pub fn init_state<R: Runtime>(app: &AppHandle<R>, state: &TerminologyState) -> T
         }
     }
 
-    *state.industries.lock().unwrap() = industries;
-    *state.terms.lock().unwrap() = terms;
-    *state.pinned_term_ids.lock().unwrap() = pinned_term_ids;
+    *state.industries.lock().unwrap_or_else(|e| e.into_inner()) = industries;
+    *state.terms.lock().unwrap_or_else(|e| e.into_inner()) = terms;
+    *state.pinned_term_ids.lock().unwrap_or_else(|e| e.into_inner()) = pinned_term_ids;
     state.clear_init_error();
 
     Ok(())
@@ -268,9 +268,9 @@ where
     F: FnOnce(&mut Vec<Industry>, &mut Vec<Term>, &mut Vec<String>) -> TerminologyResult<T>,
 {
     state.ensure_ready()?;
-    let mut industries = state.industries.lock().unwrap();
-    let mut terms = state.terms.lock().unwrap();
-    let mut pinned_term_ids = state.pinned_term_ids.lock().unwrap();
+    let mut industries = state.industries.lock().unwrap_or_else(|e| e.into_inner());
+    let mut terms = state.terms.lock().unwrap_or_else(|e| e.into_inner());
+    let mut pinned_term_ids = state.pinned_term_ids.lock().unwrap_or_else(|e| e.into_inner());
     let mut next_industries = industries.clone();
     let mut next_terms = terms.clone();
     let mut next_pinned_term_ids = pinned_term_ids.clone();

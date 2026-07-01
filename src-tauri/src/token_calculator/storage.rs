@@ -45,7 +45,7 @@ pub fn init_state<R: Runtime>(
         }
     }
 
-    let mut standards = state.standards.lock().unwrap();
+    let mut standards = state.standards.lock().unwrap_or_else(|e| e.into_inner());
     *standards = all;
     state.clear_init_error();
 
@@ -98,7 +98,7 @@ where
     F: FnOnce(&mut Vec<PricingStandard>) -> TokenCalculatorResult<T>,
 {
     state.ensure_ready()?;
-    let mut standards = state.standards.lock().unwrap();
+    let mut standards = state.standards.lock().unwrap_or_else(|e| e.into_inner());
     let mut next = standards.clone();
     let result = f(&mut next)?;
 

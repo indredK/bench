@@ -105,7 +105,7 @@ pub fn list_pricing_standards(
     state: State<'_, TokenCalculatorState>,
 ) -> TokenCalculatorResult<Vec<PricingStandard>> {
     state.ensure_ready()?;
-    let standards = state.standards.lock().unwrap();
+    let standards = state.standards.lock().unwrap_or_else(|e| e.into_inner());
     Ok(standards.clone())
 }
 
