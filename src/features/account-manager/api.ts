@@ -2,6 +2,7 @@
  * account-manager IPC bindings / 中转站账号通信桥: thin invoke wrappers; 只封装命令调用.
  */
 import { invokeTauriCommand } from "@/lib/tauri/invoke";
+import { TAURI_COMMANDS } from "@/lib/tauri/contracts";
 import type {
   AccountSessionStatus,
   AuthProfile,
@@ -49,7 +50,7 @@ export type {
 export { DEFAULT_LOGIN_DETECTION } from "@/lib/tauri/types/account-manager";
 
 export function listStations(): Promise<RelayStation[]> {
-  return invokeTauriCommand("list_stations");
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.listStations);
 }
 
 export function createStation(
@@ -57,7 +58,7 @@ export function createStation(
   website: string,
   loginDetection?: LoginDetectionConfig | null
 ): Promise<RelayStation> {
-  return invokeTauriCommand("create_station", {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.createStation, {
     remark,
     website,
     loginDetection: loginDetection ?? null,
@@ -68,7 +69,7 @@ export function updateStation(
   id: string,
   patch: { remark?: string; website?: string; loginDetection?: LoginDetectionConfig | null }
 ): Promise<RelayStation> {
-  return invokeTauriCommand("update_station", {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.updateStation, {
     id,
     remark: patch.remark ?? null,
     website: patch.website ?? null,
@@ -77,15 +78,15 @@ export function updateStation(
 }
 
 export function deleteStation(id: string): Promise<void> {
-  return invokeTauriCommand("delete_station", { id });
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.deleteStation, { id });
 }
 
 export function listAllAccounts(): Promise<StationAccount[]> {
-  return invokeTauriCommand("list_all_accounts");
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.listAllAccounts);
 }
 
 export function listAccounts(stationId: string): Promise<StationAccount[]> {
-  return invokeTauriCommand("list_accounts", { stationId });
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.listAccounts, { stationId });
 }
 
 export function createAccount(
@@ -99,7 +100,7 @@ export function createAccount(
   inviteLink?: string | null,
   loginMethods?: LoginMethod[]
 ): Promise<StationAccount> {
-  return invokeTauriCommand("create_account", {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.createAccount, {
     stationId,
     username,
     password,
@@ -124,7 +125,7 @@ export function updateAccount(
     loginMethods?: LoginMethod[];
   }
 ): Promise<StationAccount> {
-  return invokeTauriCommand("update_account", {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.updateAccount, {
     id,
     username: patch.username ?? null,
     notes: patch.notes ?? null,
@@ -137,65 +138,65 @@ export function updateAccount(
 }
 
 export function deleteAccount(id: string): Promise<void> {
-  return invokeTauriCommand("delete_account", { id });
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.deleteAccount, { id });
 }
 
 export function revealPassword(accountId: string): Promise<string> {
-  return invokeTauriCommand("reveal_password", { accountId });
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.revealPassword, { accountId });
 }
 
 export function setPassword(accountId: string, password: string): Promise<void> {
-  return invokeTauriCommand("set_password", { accountId, password });
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.setPassword, { accountId, password });
 }
 
 export function clearPassword(accountId: string): Promise<void> {
-  return invokeTauriCommand("clear_password", { accountId });
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.clearPassword, { accountId });
 }
 
 export function copyPasswordToClipboard(accountId: string): Promise<void> {
-  return invokeTauriCommand("copy_password_to_clipboard", { accountId });
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.copyPasswordToClipboard, { accountId });
 }
 
 export function openLoginWindow(accountId: string): Promise<void> {
-  return invokeTauriCommand("open_login_window", { accountId });
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.openLoginWindow, { accountId });
 }
 
 export function markAccountLoggedIn(accountId: string): Promise<StationAccount> {
-  return invokeTauriCommand("mark_account_logged_in", { accountId });
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.markAccountLoggedIn, { accountId });
 }
 
 export function refreshAccount(accountId: string): Promise<StationAccount> {
-  return invokeTauriCommand("refresh_account", { accountId });
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.refreshAccount, { accountId });
 }
 
 export function refreshStation(stationId: string): Promise<StationAccount[]> {
-  return invokeTauriCommand("refresh_station", { stationId });
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.refreshStation, { stationId });
 }
 
 export function refreshAll(): Promise<StationAccount[]> {
-  return invokeTauriCommand("refresh_all");
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.refreshAll);
 }
 
 export function exportRelayData(
   path: string,
   mode: RelayExportMode = "sanitized"
 ): Promise<RelayDataExportResult> {
-  return invokeTauriCommand("export_relay_data", { path, mode });
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.exportRelayData, { path, mode });
 }
 
 export function importRelayData(path: string): Promise<RelayDataImportResult> {
-  return invokeTauriCommand("import_relay_data", { path });
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.importRelayData, { path });
 }
 
 export function reorderStations(orderedIds: string[]): Promise<RelayStation[]> {
-  return invokeTauriCommand("reorder_stations", { orderedIds });
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.reorderStations, { orderedIds });
 }
 
 export function reorderAccounts(
   stationId: string,
   orderedIds: string[]
 ): Promise<StationAccount[]> {
-  return invokeTauriCommand("reorder_accounts", { stationId, orderedIds });
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.reorderAccounts, { stationId, orderedIds });
 }
 
 // ═══════════════════════════════════════════════
@@ -203,30 +204,30 @@ export function reorderAccounts(
 // ═══════════════════════════════════════════════
 
 export function captureAccountSession(accountId: string): Promise<AccountSessionStatus> {
-  return invokeTauriCommand("capture_account_session", { accountId });
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.captureAccountSession, { accountId });
 }
 
 export function restoreAccountSession(accountId: string): Promise<AccountSessionStatus> {
-  return invokeTauriCommand("restore_account_session", { accountId });
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.restoreAccountSession, { accountId });
 }
 
 export function clearAccountSession(accountId: string): Promise<void> {
-  return invokeTauriCommand("clear_account_session", { accountId });
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.clearAccountSession, { accountId });
 }
 
 export function detectStationAuthProfile(stationId: string): Promise<AuthProfile> {
-  return invokeTauriCommand("detect_station_auth_profile", { stationId });
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.detectStationAuthProfile, { stationId });
 }
 
 export function getStationAuthProfile(stationId: string): Promise<AuthProfile | null> {
-  return invokeTauriCommand("get_station_auth_profile", { stationId });
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.getStationAuthProfile, { stationId });
 }
 
 export function setExclusivityMode(
   stationId: string,
   mode: ExclusivityMode
 ): Promise<RelayStation> {
-  return invokeTauriCommand("set_exclusivity_mode", { stationId, mode });
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.setExclusivityMode, { stationId, mode });
 }
 
 /// Rotating 模式下切换活跃账号
@@ -234,7 +235,7 @@ export function switchActiveAccount(
   stationId: string,
   accountId: string
 ): Promise<StationAccount> {
-  return invokeTauriCommand("switch_active_account", { stationId, accountId });
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.switchActiveAccount, { stationId, accountId });
 }
 
 /// 手动覆盖探针策略
@@ -242,12 +243,12 @@ export function setProbeStrategy(
   stationId: string,
   strategy: ProbeStrategy
 ): Promise<RelayStation> {
-  return invokeTauriCommand("set_probe_strategy", { stationId, strategy });
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.setProbeStrategy, { stationId, strategy });
 }
 
 /// 重置探针策略为自动
 export function resetProbeStrategy(stationId: string): Promise<RelayStation> {
-  return invokeTauriCommand("reset_probe_strategy", { stationId });
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.resetProbeStrategy, { stationId });
 }
 
 // === Session Manager v1.5 ===
@@ -258,7 +259,7 @@ export function createEphemeralAccount(
   username: string,
   stationId?: string | null
 ): Promise<StationAccount> {
-  return invokeTauriCommand("create_ephemeral_account", {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.createEphemeralAccount, {
     website,
     username,
     stationId: stationId ?? null,
@@ -270,7 +271,7 @@ export function setSessionTtl(
   stationId: string,
   ttlHours: number
 ): Promise<RelayStation> {
-  return invokeTauriCommand("set_session_ttl", { stationId, ttlHours });
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.setSessionTtl, { stationId, ttlHours });
 }
 
 /// 设置账号的外部登录代理开关
@@ -278,7 +279,7 @@ export function setAccountProxyEnabled(
   accountId: string,
   enabled: boolean
 ): Promise<StationAccount> {
-  return invokeTauriCommand("set_account_proxy_enabled", { accountId, enabled });
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.setAccountProxyEnabled, { accountId, enabled });
 }
 
 /// update_station 包装:支持更新 sessionTtlHours。
@@ -291,7 +292,7 @@ export function updateStationWithTtl(
     sessionTtlHours?: number;
   }
 ): Promise<RelayStation> {
-  return invokeTauriCommand("update_station", {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.updateStation, {
     id,
     remark: patch.remark ?? null,
     website: patch.website ?? null,
@@ -306,12 +307,12 @@ export function updateStationWithTtl(
 
 /// 解析 bench-auth://authorize URL
 export function parseAuthProxyUrl(rawUrl: string): Promise<AuthProxyRequest> {
-  return invokeTauriCommand("parse_auth_proxy_url", { rawUrl });
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.parseAuthProxyUrl, { rawUrl });
 }
 
 /// 根据目标 URL 匹配可用的 Station
 export function matchProxyTarget(target: string): Promise<AuthProxyMatch[]> {
-  return invokeTauriCommand("match_proxy_target", { target });
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.matchProxyTarget, { target });
 }
 
 /// 打开登录窗口（支持 return_url）
@@ -319,7 +320,7 @@ export function openLoginWindowWithReturn(
   accountId: string,
   returnUrl?: string | null
 ): Promise<void> {
-  return invokeTauriCommand("open_login_window", {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.openLoginWindow, {
     accountId,
     returnUrl: returnUrl ?? null,
   });
@@ -334,7 +335,7 @@ export function buildProxyReturnUrl(
   stationId: string,
   accountId: string
 ): Promise<string> {
-  return invokeTauriCommand("build_proxy_return_url", {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.buildProxyReturnUrl, {
     returnUrl,
     token,
     tokenType,
@@ -352,7 +353,7 @@ export function handleAuthProxy(
   state?: string | null,
   siteHint?: string | null
 ): Promise<AuthProxyMatch[]> {
-  return invokeTauriCommand("handle_auth_proxy", {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.handleAuthProxy, {
     targetUrl,
     returnUrl,
     state: state ?? null,
@@ -368,13 +369,13 @@ export function proxyLogin(
   targetUrl: string,
   returnUrl: string
 ): Promise<AuthProxyResult> {
-  return invokeTauriCommand("proxy_login", { accountId, targetUrl, returnUrl });
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.proxyLogin, { accountId, targetUrl, returnUrl });
 }
 
 /// 处理一次"用 bench 打开"的 URL（`bench-auth://` 或直接的 https authorize 链接）。
 /// 返回归一化的 target / 回调地址 / host / 是否像登录链接 / 已匹配账号。
 export function handleBrowserOpen(url: string): Promise<BrowserOpenResult> {
-  return invokeTauriCommand("handle_browser_open", { url });
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.handleBrowserOpen, { url });
 }
 
 /// 在指定 host 下「使用新账号登录」:自动建站/分组 + 创建新账号 + 启动代理登录。
@@ -385,7 +386,7 @@ export function proxyLoginNewAccount(
   returnUrl: string,
   username?: string | null
 ): Promise<StationAccount> {
-  return invokeTauriCommand("proxy_login_new_account", {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.proxyLoginNewAccount, {
     host,
     targetUrl,
     returnUrl,
@@ -401,7 +402,7 @@ export function listExternalApps(
   stationId?: string | null,
   accountId?: string | null
 ): Promise<ExternalApp[]> {
-  return invokeTauriCommand("list_external_apps", {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.listExternalApps, {
     stationId: stationId ?? null,
     accountId: accountId ?? null,
   });
@@ -413,7 +414,7 @@ export function registerExternalApp(
   urlScheme: string,
   returnHosts: string[]
 ): Promise<ExternalApp> {
-  return invokeTauriCommand("register_external_app", {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.registerExternalApp, {
     name,
     urlScheme,
     returnHosts,
@@ -422,14 +423,14 @@ export function registerExternalApp(
 
 /// 移除外部 App + 其所有绑定 + 账号上的引用
 export function removeExternalApp(appId: string): Promise<void> {
-  return invokeTauriCommand("remove_external_app", { appId });
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.removeExternalApp, { appId });
 }
 
 /// 列出外部 App 与账号的绑定关系。`accountId` 提供时只返回该账号的绑定。
 export function listExternalAppBindings(
   accountId?: string | null
 ): Promise<ExternalAppBinding[]> {
-  return invokeTauriCommand("list_external_app_bindings", {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.listExternalAppBindings, {
     accountId: accountId ?? null,
   });
 }

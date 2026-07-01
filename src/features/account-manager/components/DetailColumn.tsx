@@ -8,7 +8,6 @@ import { BadgeCheck, ExternalLink, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
-import * as api from "@/features/account-manager/api";
 import type {
   AuthProfile,
   ProbeStrategy,
@@ -31,6 +30,13 @@ export function DetailColumn({
   onRedetectProfile,
   onToggleProxy,
   onManageExternalApps,
+  onRevealPassword,
+  onCopyPassword,
+  onProbeStrategyChange,
+  revealingPassword,
+  settingProbeStrategy,
+  redetectingProfile,
+  togglingProxy,
 }: {
   station: RelayStation | null;
   account: StationAccount | null;
@@ -38,6 +44,13 @@ export function DetailColumn({
   onRedetectProfile: (stationId: string) => void;
   onToggleProxy?: (accountId: string, enabled: boolean) => void;
   onManageExternalApps?: (accountId: string | null) => void;
+  onRevealPassword: (accountId: string) => Promise<string>;
+  onCopyPassword: (accountId: string) => Promise<void>;
+  onProbeStrategyChange: (stationId: string, strategy: ProbeStrategy | "auto") => void;
+  revealingPassword?: boolean;
+  settingProbeStrategy?: boolean;
+  redetectingProfile?: boolean;
+  togglingProxy?: boolean;
 }) {
   const { t } = useTranslation();
   const [passwordHidden, setPasswordHidden] = useState(true);
@@ -65,10 +78,10 @@ export function DetailColumn({
     }
     setRevealing(true);
     try {
-      const pw = await api.revealPassword(account.id);
+      const pw = await onRevealPassword(account.id);
       setRevealedPassword(pw);
       setPasswordHidden(false);
-    } catch (error) {
+    } catch {
       toast.error(t("accountManager.toasts.revealPasswordFailed"));
     } finally {
       setRevealing(false);
@@ -78,8 +91,8 @@ export function DetailColumn({
   const handleCopyPassword = async () => {
     if (!account || !account.hasPassword) return;
     try {
-      await api.copyPasswordToClipboard(account.id);
-    } catch (error) {
+      await onCopyPassword(account.id);
+    } catch {
       toast.error(t("accountManager.toasts.copyPasswordFailed"));
     }
   };
@@ -123,23 +136,23 @@ export function DetailColumn({
             {/* Account 详情 */}
             {account && (
               <DetailSection
-                title="账号信息"
+                title={t("accountManager.detail.accountSection")}
                 rows={[
-                  { label: "用户名", value: account.username },
+                  { label: t("accountManager.detail.username"), value: account.username },
                   {
-                    label: "密码",
+                    label: t("accountManager.detail.password"),
                     value: passwordValue,
                     reveal: {
                       hidden: passwordHidden,
                       onToggle: handleTogglePassword,
-                      loading: revealing,
+                      loading: revealing || revealingPassword,
                     },
                     copy: account.hasPassword,
                     onCopy: handleCopyPassword,
                   },
-                  { label: "备注", value: account.notes || "—" },
+                  { label: t("accountManager.detail.notes"), value: account.notes || "—" },
                   {
-                    label: "网站",
+                    label: t("accountManager.detail.website"),
                     value: station.website,
                     truncate: true,
                     copy: true,
@@ -155,6 +168,9 @@ export function DetailColumn({
                 stationId={station.id}
                 stationProbeFailureCount={station.probeFailureCount}
                 onRedetect={onRedetectProfile}
+                onStrategyChange={onProbeStrategyChange}
+                settingStrategy={settingProbeStrategy}
+                redetecting={redetectingProfile}
               />
             )}
 
@@ -171,6 +187,7 @@ export function DetailColumn({
                       </div>
                       <Switch
                         checked={!!account.proxyEnabled}
+                        disabled={togglingProxy}
                         onCheckedChange={(enabled) => onToggleProxy?.(account.id, enabled)}
                       />
                     </div>
@@ -291,31 +308,33 @@ function AuthProfilePanel({
   stationId,
   stationProbeFailureCount,
   onRedetect,
+  onStrategyChange,
+  settingStrategy,
+  redetecting,
 }: {
   profile: AuthProfile;
   stationId: string;
   stationProbeFailureCount?: number;
   onRedetect: (stationId: string) => void;
+  onStrategyChange: (stationId: string, strategy: ProbeStrategy | "auto") => void;
+  settingStrategy?: boolean;
+  redetecting?: boolean;
 }) {
   const { t } = useTranslation();
   const [strategy, setStrategy] = useState(profile.probeStrategy);
-  const [setting, setSetting] = useState(false);
-  const handleStrategyChange = async (next: string) => {
+
+  useEffect(() => {
+    setStrategy(profile.probeStrategy);
+  }, [profile.probeStrategy, stationId]);
+
+  const handleStrategyChange = (next: string) => {
     if (next === "auto") {
-      setSetting(true);
-      try {
-        await api.resetProbeStrategy(stationId);
-        setStrategy(profile.probeStrategy);
-      } catch { /* ignore */ }
-      setSetting(false);
+      setStrategy(profile.probeStrategy);
+      onStrategyChange(stationId, "auto");
       return;
     }
-    setSetting(true);
-    try {
-      await api.setProbeStrategy(stationId, next as ProbeStrategy);
-      setStrategy(next as ProbeStrategy);
-    } catch { /* ignore */ }
-    setSetting(false);
+    setStrategy(next as ProbeStrategy);
+    onStrategyChange(stationId, next as ProbeStrategy);
   };
 
   const p = profile;
@@ -409,7 +428,8 @@ function AuthProfilePanel({
           <button
             type="button"
             onClick={() => onRedetect(stationId)}
-            className="rounded px-1.5 py-0.5 text-[10px] font-normal text-blue-500 hover:bg-blue-500/10"
+            disabled={redetecting}
+            className="rounded px-1.5 py-0.5 text-[10px] font-normal text-blue-500 hover:bg-blue-500/10 disabled:opacity-50"
           >
             {t("accountManager.sessionManager.authProfile.redetect")}
           </button>
@@ -469,7 +489,7 @@ function AuthProfilePanel({
         <select
           value={strategy}
           onChange={(e) => handleStrategyChange(e.target.value)}
-          disabled={setting}
+          disabled={settingStrategy}
           className="h-7 flex-1 rounded border border-border bg-muted/50 px-2 text-[11px] text-foreground outline-none focus:border-blue-400"
         >
           <option value="auto">{t("accountManager.sessionManager.authProfile.probeStrategyAuto")}</option>

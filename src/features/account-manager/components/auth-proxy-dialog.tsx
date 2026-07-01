@@ -4,7 +4,6 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
 import { ExternalLink, KeyRound, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,14 +17,14 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { openExternal } from "@/platform/shell";
-import * as api from "@/features/account-manager/api";
+import { cn } from "@/lib/utils";
 import type {
   AuthProxyMatch,
   AuthProxyRequest,
   StationAccount,
 } from "@/features/account-manager/api";
-
-const NEW_ACCOUNT = "__new__";
+import { NEW_ACCOUNT } from "@/features/account-manager/hooks/useAuthProxy";
+import type { AuthProxyConfirmInput } from "@/features/account-manager/hooks/useAuthProxy";
 
 function statusBadgeClass(status: StationAccount["status"]): string {
   switch (status) {
@@ -58,9 +57,9 @@ export interface AuthProxyDialogProps {
   open: boolean;
   request: AuthProxyRequest | null;
   matches: AuthProxyMatch[];
-  /// target 的 host(用于「新账号」自动建站/分组)。
   host?: string;
   onOpenChange: (open: boolean) => void;
+  onConfirm: (input: AuthProxyConfirmInput) => Promise<boolean>;
   onCompleted?: () => void;
 }
 
@@ -70,6 +69,7 @@ export function AuthProxyDialog({
   matches,
   host,
   onOpenChange,
+  onConfirm,
   onCompleted,
 }: AuthProxyDialogProps) {
   const { t } = useTranslation();
@@ -113,30 +113,17 @@ export function AuthProxyDialog({
     if (!request || !selectedAccountId || submitting) return;
     setSubmitting(true);
     try {
-      if (isNewAccount) {
-        // 「使用新账号登录」: 后端自动建站/分组 + 创建新账号 + 启动代理登录。
-        await api.proxyLoginNewAccount(
-          targetHost,
-          request.target,
-          request.returnUrl,
-          newAccountName.trim() || null,
-        );
-      } else {
-        // 已存账号: 打开其隔离登录窗口(通常已是登录态),登录完成后后端自动
-        // 把 loopback / 自定义 scheme 回调交还给外部应用并保存 session。
-        await api.proxyLogin(
-          selectedAccountId,
-          request.target,
-          request.returnUrl,
-        );
+      const ok = await onConfirm({
+        request,
+        selectedAccountId,
+        isNewAccount,
+        targetHost,
+        newAccountName,
+      });
+      if (ok) {
+        onCompleted?.();
+        onOpenChange(false);
       }
-
-      toast.success(t("accountManager.authProxy.loginStarted"));
-      onCompleted?.();
-      onOpenChange(false);
-    } catch (error) {
-      console.error("[auth-proxy] proxyLogin failed:", error);
-      toast.error(t("accountManager.toasts.proxyLoginFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -192,18 +179,18 @@ export function AuthProxyDialog({
                   <button
                     type="button"
                     onClick={() => setSelectedAccountId(account.id)}
-                    className={
-                      "flex w-full items-center gap-3 rounded-md border px-3 py-2 text-left transition-colors " +
-                      (isSelected
+                    className={cn(
+                      "flex w-full items-center gap-3 rounded-md border px-3 py-2 text-left transition-colors",
+                      isSelected
                         ? "border-primary bg-primary/5"
-                        : "border-transparent hover:bg-muted/50")
-                    }
+                        : "border-transparent hover:bg-muted/50",
+                    )}
                   >
                     <span
-                      className={
-                        "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border " +
-                        (isSelected ? "border-primary" : "border-muted-foreground/30")
-                      }
+                      className={cn(
+                        "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border",
+                        isSelected ? "border-primary" : "border-muted-foreground/30",
+                      )}
                     >
                       {isSelected && (
                         <span className="h-2 w-2 rounded-full bg-primary" />
@@ -219,7 +206,7 @@ export function AuthProxyDialog({
                     </div>
                     <Badge
                       variant="secondary"
-                      className={"shrink-0 " + statusBadgeClass(account.status)}
+                      className={cn("shrink-0", statusBadgeClass(account.status))}
                     >
                       {statusLabel(account.status, t)}
                     </Badge>
@@ -232,18 +219,18 @@ export function AuthProxyDialog({
               <button
                 type="button"
                 onClick={() => setSelectedAccountId(NEW_ACCOUNT)}
-                className={
-                  "flex w-full items-center gap-3 rounded-md border px-3 py-2 text-left transition-colors " +
-                  (isNewAccount
+                className={cn(
+                  "flex w-full items-center gap-3 rounded-md border px-3 py-2 text-left transition-colors",
+                  isNewAccount
                     ? "border-primary bg-primary/5"
-                    : "border-dashed border-muted-foreground/30 hover:bg-muted/50")
-                }
+                    : "border-dashed border-muted-foreground/30 hover:bg-muted/50",
+                )}
               >
                 <span
-                  className={
-                    "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border " +
-                    (isNewAccount ? "border-primary" : "border-muted-foreground/30")
-                  }
+                  className={cn(
+                    "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border",
+                    isNewAccount ? "border-primary" : "border-muted-foreground/30",
+                  )}
                 >
                   {isNewAccount && <span className="h-2 w-2 rounded-full bg-primary" />}
                 </span>

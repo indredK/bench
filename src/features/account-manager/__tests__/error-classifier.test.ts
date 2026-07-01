@@ -1,4 +1,4 @@
-import { classifyAccountManagerError } from "../error-classifier";
+import { classifyAccountManagerError } from "@/features/account-manager/error-classifier";
 
 describe("classifyAccountManagerError", () => {
   it("classifies invalid input", () => {

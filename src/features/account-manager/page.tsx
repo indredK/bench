@@ -90,6 +90,20 @@ function AccountManagerPage() {
         onRedetectProfile={c.handleRedetectProfile}
         onToggleProxy={c.handleToggleProxy}
         onManageExternalApps={c.handleOpenExternalApps}
+        onRevealPassword={c.handleRevealPassword}
+        onCopyPassword={c.handleCopyPassword}
+        onProbeStrategyChange={c.handleProbeStrategyChange}
+        settingProbeStrategy={
+          c.selectedStation
+            ? c.settingProbeStrategyIds.has(c.selectedStation.id)
+            : false
+        }
+        redetectingProfile={
+          c.selectedStation ? c.redetectingStationIds.has(c.selectedStation.id) : false
+        }
+        togglingProxy={
+          c.selectedAccount ? c.togglingProxyIds.has(c.selectedAccount.id) : false
+        }
       />
 
       <StationDialog
@@ -168,6 +182,7 @@ function AccountManagerPage() {
         matches={c.authProxyMatches}
         host={c.authProxyHost}
         onOpenChange={c.setAuthProxyOpen}
+        onConfirm={c.confirmAuthProxy}
         onCompleted={() => void c.loadInitialData().catch(() => undefined)}
       />
     </div>

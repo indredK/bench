@@ -83,7 +83,7 @@ export function StationColumn({
               </Button>
               {onQuickLogin && (
                 <Button size="sm" variant="secondary" onClick={onQuickLogin}>
-                  ⚡ 快速登录
+                  {t("accountManager.sessionManager.quickLogin.title")}
                 </Button>
               )}
             </div>

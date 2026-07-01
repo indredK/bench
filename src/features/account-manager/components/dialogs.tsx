@@ -274,7 +274,7 @@ export function AddAccountDialog({
           <Field
             label={t("accountManager.fields.notes")}
             icon={<StickyNote size={14} />}
-            input={<Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="备注（手机号、TG、邀请链接等）" rows={2} />}
+            input={<Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t("accountManager.addAccountDialog.notesPlaceholder")} rows={2} />}
           />
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>

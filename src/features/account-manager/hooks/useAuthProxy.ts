@@ -8,6 +8,16 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import * as api from "@/features/account-manager/api";
 
+const NEW_ACCOUNT = "__new__";
+
+export type AuthProxyConfirmInput = {
+  request: api.AuthProxyRequest;
+  selectedAccountId: string;
+  isNewAccount: boolean;
+  targetHost: string;
+  newAccountName: string;
+};
+
 export function useAuthProxy() {
   const { t } = useTranslation();
   const [authProxyRequest, setAuthProxyRequest] = useState<api.AuthProxyRequest | null>(null);
@@ -80,6 +90,31 @@ export function useAuthProxy() {
     };
   }, [openProxyForUrl]);
 
+  const confirmAuthProxy = useCallback(
+    async (input: AuthProxyConfirmInput): Promise<boolean> => {
+      const { request, selectedAccountId, isNewAccount, targetHost, newAccountName } = input;
+      try {
+        if (isNewAccount) {
+          await api.proxyLoginNewAccount(
+            targetHost,
+            request.target,
+            request.returnUrl,
+            newAccountName.trim() || null,
+          );
+        } else {
+          await api.proxyLogin(selectedAccountId, request.target, request.returnUrl);
+        }
+        toast.success(t("accountManager.authProxy.loginStarted"));
+        return true;
+      } catch (error) {
+        console.warn("[auth-proxy] proxyLogin failed:", error);
+        toast.error(t("accountManager.toasts.proxyLoginFailed"));
+        return false;
+      }
+    },
+    [t],
+  );
+
   return {
     authProxyRequest,
     authProxyMatches,
@@ -89,5 +124,9 @@ export function useAuthProxy() {
     isProxyPasteOpen,
     setProxyPasteOpen,
     openProxyForUrl,
+    confirmAuthProxy,
+    NEW_ACCOUNT,
   };
 }
+
+export { NEW_ACCOUNT };

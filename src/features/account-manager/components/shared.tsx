@@ -6,6 +6,7 @@ import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Check, Copy } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import type { AccountSessionStatus } from "@/features/account-manager/api";
 
 export function ColumnHeader({ title, action }: { title: string; action: ReactNode }) {
@@ -151,7 +152,7 @@ export function StatusBadge({ status }: { status: AccountSessionStatus }) {
 
   return (
     <Badge variant={variant[status]} className={className}>
-      <span className={`mr-1.5 inline-block h-2 w-2 rounded-full ${dotColor}`} />
+      <span className={cn("mr-1.5 inline-block h-2 w-2 rounded-full", dotColor)} />
       {t(`accountManager.status.${status}`)}
     </Badge>
   );

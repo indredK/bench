@@ -10,7 +10,7 @@ import { openPlatformDialog, savePlatformDialog } from "@/platform/dialog";
 import { canUseTauriWindow } from "@/platform/capabilities";
 import * as api from "@/features/account-manager/api";
 import { classifyAccountManagerError } from "@/features/account-manager/error-classifier";
-import type { RelayStation, StationAccount } from "@/features/account-manager/api";
+import type { ProbeStrategy, RelayStation, StationAccount } from "@/features/account-manager/api";
 import { useGuardedAsync, useGuardedAsyncSet } from "@/hooks/useGuardedAsync";
 import type { SessionSettings } from "@/features/account-manager/model/types";
 import { useAuthProxy } from "@/features/account-manager/hooks/useAuthProxy";
@@ -53,6 +53,14 @@ export function useAccountManagerController() {
   const { pendingKeys: refreshingStationIds, run: runStationRefresh } =
     useGuardedAsyncSet<string>();
   const { pending: refreshingAll, run: runAllRefresh } = useGuardedAsync();
+  const { pending: quickLoginPending, run: runQuickLogin } = useGuardedAsync();
+  const { pending: deletingStationPending, run: runDeleteStation } = useGuardedAsync();
+  const { pending: deletingAccountPending, run: runDeleteAccount } = useGuardedAsync();
+  const { pendingKeys: togglingProxyIds, run: runToggleProxy } = useGuardedAsyncSet<string>();
+  const { pendingKeys: redetectingStationIds, run: runRedetectProfile } =
+    useGuardedAsyncSet<string>();
+  const { pendingKeys: settingProbeStrategyIds, run: runProbeStrategyChange } =
+    useGuardedAsyncSet<string>();
   const [isEditStationOpen, setEditStationOpen] = useState(false);
   const [editingStation, setEditingStation] = useState<RelayStation | null>(null);
   const [isEditAccountOpen, setEditAccountOpen] = useState(false);
@@ -148,60 +156,58 @@ export function useAccountManagerController() {
     }
   };
 
-  const handleQuickLogin = async (
+  const handleQuickLogin = (
     url: string,
     username: string,
     destroyOnClose: boolean,
     stationId?: string | null,
-  ) => {
-    if (!url.trim() || !username.trim()) return;
-    try {
-      const normalized = url.trim().match(/^https?:\/\//i)
-        ? url.trim()
-        : `https://${url.trim()}`;
-      const account = await api.createEphemeralAccount(
-        normalized,
-        username.trim(),
-        stationId ?? null,
-      );
-      // 把账号挂到内存列表（不持久化退出即清空，与设计文档一致）
-      setAccounts((prev) => [...prev, account]);
-      // 打开 WebView 登录窗口(走 mark_account_logged_in 触发自动 capture+detect)
-      await api.openLoginWindow(account.id);
-      pushQuickLoginHistory(normalized);
-      setQuickLoginOpen(false);
+  ) =>
+    runQuickLogin(async () => {
+      if (!url.trim() || !username.trim()) return;
+      try {
+        const normalized = url.trim().match(/^https?:\/\//i)
+          ? url.trim()
+          : `https://${url.trim()}`;
+        const account = await api.createEphemeralAccount(
+          normalized,
+          username.trim(),
+          stationId ?? null,
+        );
+        setAccounts((prev) => [...prev, account]);
+        await api.openLoginWindow(account.id);
+        pushQuickLoginHistory(normalized);
+        setQuickLoginOpen(false);
 
-      // 如果勾选了"关闭后销毁"，监听窗口关闭并删除账号
-      if (destroyOnClose) {
-        const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
-        const ww = await WebviewWindow.getByLabel(`relay-login-${account.id}`);
-        if (ww) {
-          const unlisten = await ww.onCloseRequested(async () => {
-            unlisten();
-            setAccounts((prev) => prev.filter((a) => a.id !== account.id));
-            try { await api.deleteAccount(account.id); } catch { /* ignore */ }
-          });
+        if (destroyOnClose) {
+          const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
+          const ww = await WebviewWindow.getByLabel(`relay-login-${account.id}`);
+          if (ww) {
+            const unlisten = await ww.onCloseRequested(async () => {
+              unlisten();
+              setAccounts((prev) => prev.filter((a) => a.id !== account.id));
+              try { await api.deleteAccount(account.id); } catch { /* ignore */ }
+            });
+          }
         }
+
+        toast.success(t("accountManager.sessionManager.quickLogin.startedToast"));
+      } catch {
+        toast.error(t("accountManager.sessionManager.quickLogin.failedToast"));
       }
+    });
 
-      toast.success(t("accountManager.sessionManager.quickLogin.startedToast"));
-    } catch (error) {
-      toast.error(t("accountManager.sessionManager.quickLogin.failedToast"));
-    }
-  };
-
-  // AuthProfile 重新检测：需先打开该站点的登录窗口并完成登录
-  const handleRedetectProfile = async (stationId: string) => {
-    try {
-      const profile = await api.detectStationAuthProfile(stationId);
-      setStations((prev) =>
-        prev.map((s) => (s.id === stationId ? { ...s, authProfile: profile } : s))
-      );
-      toast.success(t("accountManager.sessionManager.authProfile.redetectSuccess"));
-    } catch (error) {
-      toast.error(t("accountManager.sessionManager.authProfile.redetectFailed"));
-    }
-  };
+  const handleRedetectProfile = (stationId: string) =>
+    runRedetectProfile(stationId, async () => {
+      try {
+        const profile = await api.detectStationAuthProfile(stationId);
+        setStations((prev) =>
+          prev.map((s) => (s.id === stationId ? { ...s, authProfile: profile } : s))
+        );
+        toast.success(t("accountManager.sessionManager.authProfile.redetectSuccess"));
+      } catch {
+        toast.error(t("accountManager.sessionManager.authProfile.redetectFailed"));
+      }
+    });
 
   const handleAddAccount = async (username: string, password: string, notes: string) => {
     if (!selectedStation) return false;
@@ -309,14 +315,43 @@ export function useAccountManagerController() {
       }
     });
 
-  const handleToggleProxy = async (accountId: string, enabled: boolean) => {
-    try {
-      const updated = await api.setAccountProxyEnabled(accountId, enabled);
-      setAccounts((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
-    } catch {
-      toast.error(t("accountManager.toasts.updateProxyFailed"));
-    }
+  const handleToggleProxy = (accountId: string, enabled: boolean) =>
+    runToggleProxy(accountId, async () => {
+      try {
+        const updated = await api.setAccountProxyEnabled(accountId, enabled);
+        setAccounts((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+        toast.success(t("accountManager.toasts.updateProxySuccess"));
+      } catch {
+        toast.error(t("accountManager.toasts.updateProxyFailed"));
+      }
+    });
+
+  const handleRevealPassword = async (accountId: string) => {
+    return api.revealPassword(accountId);
   };
+
+  const handleCopyPassword = async (accountId: string) => {
+    await api.copyPasswordToClipboard(accountId);
+  };
+
+  const handleProbeStrategyChange = (stationId: string, next: ProbeStrategy | "auto") =>
+    runProbeStrategyChange(stationId, async () => {
+      try {
+        if (next === "auto") {
+          const updated = await api.resetProbeStrategy(stationId);
+          setStations((prev) =>
+            prev.map((s) => (s.id === stationId ? { ...s, ...updated } : s))
+          );
+        } else {
+          const updated = await api.setProbeStrategy(stationId, next);
+          setStations((prev) =>
+            prev.map((s) => (s.id === stationId ? { ...s, ...updated } : s))
+          );
+        }
+      } catch {
+        toast.error(t("accountManager.toasts.updateProbeStrategyFailed"));
+      }
+    });
 
   const handleExportData = async () => {
     if (exportingData) return;
@@ -472,49 +507,53 @@ export function useAccountManagerController() {
     return true;
   };
 
-  const handleDeleteStation = async () => {
-    if (!deletingStation) return;
-    const target = deletingStation;
-    const wasSelected = selectedStationId === target.id;
-    const remainingStations = stations.filter((s) => s.id !== target.id);
-    const newStationId = wasSelected ? (remainingStations[0]?.id ?? "") : selectedStationId;
-    const newAccountId = wasSelected
-      ? (accounts.find((a) => a.stationId === newStationId)?.id ?? "")
-      : selectedAccountId;
-    try {
-      await api.deleteStation(target.id);
-      setStations((prev) => prev.filter((s) => s.id !== target.id));
-      setAccounts((prev) => prev.filter((a) => a.stationId !== target.id));
-      if (wasSelected) {
-        setSelectedStationId(newStationId);
-        setSelectedAccountId(newAccountId);
+  const handleDeleteStation = () =>
+    runDeleteStation(async () => {
+      if (!deletingStation) return;
+      const target = deletingStation;
+      const wasSelected = selectedStationId === target.id;
+      const remainingStations = stations.filter((s) => s.id !== target.id);
+      const newStationId = wasSelected ? (remainingStations[0]?.id ?? "") : selectedStationId;
+      const newAccountId = wasSelected
+        ? (accounts.find((a) => a.stationId === newStationId)?.id ?? "")
+        : selectedAccountId;
+      try {
+        await api.deleteStation(target.id);
+        setStations((prev) => prev.filter((s) => s.id !== target.id));
+        setAccounts((prev) => prev.filter((a) => a.stationId !== target.id));
+        if (wasSelected) {
+          setSelectedStationId(newStationId);
+          setSelectedAccountId(newAccountId);
+        }
+        setDeleteStationOpen(false);
+        setDeletingStation(null);
+        toast.success(t("accountManager.toasts.deleteStationSuccess", { name: target.remark }));
+      } catch {
+        toast.error(t("accountManager.toasts.deleteStationFailed"));
       }
-      setDeleteStationOpen(false);
-      setDeletingStation(null);
-    } catch (error) {
-      toast.error(t("accountManager.toasts.deleteStationFailed"));
-    }
-  };
+    });
 
-  const handleDeleteAccount = async () => {
-    if (!deletingAccount) return;
-    const target = deletingAccount;
-    const wasSelected = selectedAccountId === target.id;
-    const nextAccountId = wasSelected
-      ? (accounts.find((a) => a.id !== target.id && a.stationId === target.stationId)?.id ?? "")
-      : selectedAccountId;
-    try {
-      await api.deleteAccount(target.id);
-      setAccounts((prev) => prev.filter((a) => a.id !== target.id));
-      if (wasSelected) {
-        setSelectedAccountId(nextAccountId);
+  const handleDeleteAccount = () =>
+    runDeleteAccount(async () => {
+      if (!deletingAccount) return;
+      const target = deletingAccount;
+      const wasSelected = selectedAccountId === target.id;
+      const nextAccountId = wasSelected
+        ? (accounts.find((a) => a.id !== target.id && a.stationId === target.stationId)?.id ?? "")
+        : selectedAccountId;
+      try {
+        await api.deleteAccount(target.id);
+        setAccounts((prev) => prev.filter((a) => a.id !== target.id));
+        if (wasSelected) {
+          setSelectedAccountId(nextAccountId);
+        }
+        setDeleteAccountOpen(false);
+        setDeletingAccount(null);
+        toast.success(t("accountManager.toasts.deleteAccountSuccess", { name: target.username }));
+      } catch {
+        toast.error(t("accountManager.toasts.deleteAccountFailed"));
       }
-      setDeleteAccountOpen(false);
-      setDeletingAccount(null);
-    } catch (error) {
-      toast.error(t("accountManager.toasts.deleteAccountFailed"));
-    }
-  };
+    });
 
   const handleReorderStations = async (orderedIds: string[]) => {
     const prev = stations;
@@ -522,7 +561,10 @@ export function useAccountManagerController() {
     const next = orderedIds
       .map((id) => map.get(id))
       .filter((s): s is RelayStation => Boolean(s));
-    if (next.length !== prev.length) return;
+    if (next.length !== prev.length) {
+      toast.error(t("accountManager.toasts.reorderMismatch"));
+      return;
+    }
     setStations(next);
     setReorderingStations(true);
     try {
@@ -555,7 +597,10 @@ export function useAccountManagerController() {
     const newMine = orderedIds
       .map((id) => mineMap.get(id))
       .filter((a): a is StationAccount => Boolean(a));
-    if (newMine.length !== mineMap.size) return;
+    if (newMine.length !== mineMap.size) {
+      toast.error(t("accountManager.toasts.reorderMismatch"));
+      return;
+    }
     let mineIter = 0;
     const optimistic = prev.map((a) =>
       a.stationId === stationId ? newMine[mineIter++] : a
@@ -607,6 +652,12 @@ export function useAccountManagerController() {
     exportingData,
     reorderingStations,
     reorderingAccounts,
+    quickLoginPending,
+    deletingStationPending,
+    deletingAccountPending,
+    togglingProxyIds,
+    redetectingStationIds,
+    settingProbeStrategyIds,
     // 对话框状态
     isAddStationOpen,
     setAddStationOpen,
@@ -649,6 +700,9 @@ export function useAccountManagerController() {
     handleRefreshStation,
     handleRefreshAll,
     handleToggleProxy,
+    handleRevealPassword,
+    handleCopyPassword,
+    handleProbeStrategyChange,
     handleExportData,
     handleImportData,
     handleEditStation,
