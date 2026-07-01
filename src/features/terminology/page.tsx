@@ -22,6 +22,7 @@ import {
 } from "./constants";
 import type { Term, TermWebsite } from "./types";
 import { Button } from "@/components/ui/button";
+import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirmDialog";
 import { Input } from "@/components/ui/input";
 import {
   Dialog,
@@ -254,6 +255,7 @@ function TermEditor({
   const [websites, setWebsites] = useState<TermWebsite[]>(
     term?.websites?.length ? term.websites : [{ url: "", label: "" }]
   );
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   const handleSave = useCallback(async () => {
     if (!title.trim()) return;
@@ -417,7 +419,7 @@ function TermEditor({
 
       <div className="flex justify-between gap-2 pt-3 border-t mt-1">
         {!isNew && (
-          <Button variant="destructive" size="sm" onClick={handleDelete}>
+          <Button variant="destructive" size="sm" onClick={() => setDeleteConfirmOpen(true)}>
             <Trash2 size={13} className="mr-1" /> {t("common.delete")}
           </Button>
         )}
@@ -428,6 +430,19 @@ function TermEditor({
           </Button>
         </div>
       </div>
+
+      {!isNew && term && (
+        <DestructiveConfirmDialog
+          open={deleteConfirmOpen}
+          onOpenChange={setDeleteConfirmOpen}
+          title={t("terminology.deleteTermConfirmTitle")}
+          description={t("terminology.deleteTermConfirmDescription", { name: term.title })}
+          consequence={t("terminology.deleteTermConsequence")}
+          confirmLabel={t("common.delete")}
+          cancelLabel={t("common.cancel")}
+          onConfirm={handleDelete}
+        />
+      )}
     </div>
   );
 }

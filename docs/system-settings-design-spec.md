@@ -56,7 +56,7 @@
 | C-2 | **设置后即时回读**。对存在「系统实际状态可能与请求值不一致」的设置（如 Ventura+ 电池百分比），写入后须调用 `refresh()` 重新读取真实状态。 | 必须 |
 | C-3 | **窗口聚焦自动刷新**。各 Section 须监听 `onFocusChanged`，在窗口重新聚焦时重新读取系统状态，与外部应用（如 OnlySwitch）保持同步。 | 必须 |
 | C-4 | **加载态可视化**。Switch 组件在 `loading` 时须显示旋转图标（`Loader2Icon animate-spin`），并设置 `aria-busy` 与 `cursor-progress`。 | 必须 |
-| C-5 | **危险操作二次确认**。重启、关机、清空废纸篓、重置 TCC 权限等不可逆操作须经 `confirm()` 二次确认。 | 必须 |
+| C-5 | **危险操作二次确认**。重启、关机、清空废纸篓、移除登录项、释放端口、删除术语等不可逆操作须经 `DestructiveConfirmDialog` 二次确认，并展示后果说明（callout）；禁止裸 `window.confirm()` 或直接执行。 | 必须 |
 | C-6 | **defaults 写入须用正确类型**。布尔值须用 `-bool`、整数须用 `-int`、字符串用 `-string`；错误类型会导致系统忽略写入（即「功能失效」）。 | 必须 |
 
 ### 2.4 系统兼容性要求

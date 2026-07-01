@@ -13,6 +13,7 @@ mod sleep_inhibitor;
 mod system_settings;
 mod terminology;
 mod token_calculator;
+mod tray;
 mod window_theme;
 
 use account_manager::AccountManagerState;
@@ -50,6 +51,7 @@ pub fn run() {
         .manage(create_bootstrap_state())
         .setup(|app| {
             menu::setup_menu(app)?;
+            tray::setup_tray(app)?;
 
             // 外部登录代理: best-effort 运行时注册 bench-auth:// scheme。
             // macOS 打包后由 Info.plist(CFBundleURLTypes) 注册；此调用主要服务于

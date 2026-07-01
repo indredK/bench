@@ -16,6 +16,7 @@
     "core:window:allow-show",
     "core:window:allow-set-focus",
     "core:window:allow-get-all-windows",
+    "core:tray:default",
     "deep-link:default"
   ]
 }

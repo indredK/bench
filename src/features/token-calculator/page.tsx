@@ -8,6 +8,7 @@ import {
   X,
   Edit3,
   ArrowRightLeft,
+  RefreshCw,
 } from "lucide-react";
 import { FeatureLoadError } from "@/components/common/FeatureLoadError";
 
@@ -63,6 +64,10 @@ import {
   type DisplayCurrency,
   type TranslateFn,
 } from "@/features/token-calculator/model/pricing";
+import {
+  fetchUsdCnyExchangeRate,
+  type ExchangeRateInfo,
+} from "@/features/token-calculator/services/exchange-rate";
 
 // ─── Empty model row ────────────────────────────────────────────────
 const EMPTY_MODEL: ModelPricing = {
@@ -85,6 +90,28 @@ export default function TokenCalculatorPage() {
   // Currency display toggle
   const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>("USD");
   const [exchangeRate, setExchangeRate] = useState(DEFAULT_EXCHANGE_RATE);
+  const [rateInfo, setRateInfo] = useState<ExchangeRateInfo | null>(null);
+  const [rateLoading, setRateLoading] = useState(false);
+
+  const refreshExchangeRate = useCallback(async (forceRefresh?: boolean) => {
+    setRateLoading(true);
+    try {
+      const info = await fetchUsdCnyExchangeRate({ forceRefresh });
+      setRateInfo(info);
+      setExchangeRate(info.rate);
+      if (forceRefresh && !info.stale) {
+        toast.success(t("tokenCalculator.exchangeRateUpdated"));
+      }
+    } catch {
+      toast.error(t("tokenCalculator.exchangeRateFetchFailed"));
+    } finally {
+      setRateLoading(false);
+    }
+  }, [t]);
+
+  useEffect(() => {
+    void refreshExchangeRate();
+  }, [refreshExchangeRate]);
 
   const loadStandards = useCallback(async () => {
     setLoading(true);
@@ -168,6 +195,30 @@ export default function TokenCalculatorPage() {
           value={exchangeRate || ""}
           onChange={(e) => setExchangeRate(normalizeExchangeRate(parseFloat(e.target.value)))}
         />
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          disabled={rateLoading}
+          title={t("tokenCalculator.exchangeRateRefresh")}
+          onClick={() => void refreshExchangeRate(true)}
+        >
+          <RefreshCw size={14} className={rateLoading ? "animate-spin" : undefined} />
+        </Button>
+        {rateInfo ? (
+          <Badge
+            variant={rateInfo.stale ? "secondary" : "outline"}
+            className="text-[10px] font-normal"
+            title={
+              rateInfo.stale
+                ? t("tokenCalculator.exchangeRateStale")
+                : t("tokenCalculator.exchangeRateSource", { source: rateInfo.source })
+            }
+          >
+            {rateInfo.stale
+              ? t("tokenCalculator.exchangeRateStale")
+              : t("tokenCalculator.exchangeRateSource", { source: rateInfo.source })}
+          </Badge>
+        ) : null}
       </div>
     </div>
   );

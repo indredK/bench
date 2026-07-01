@@ -443,6 +443,8 @@ export function usePortManagerController() {
     handleRescanPort,
     handleKillPort,
     handleKillAll,
+    killPort,
+    killAll,
     occupiedCount,
     displayedDetails,
     isScanning,

@@ -17,13 +17,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { AppFeature } from "@/features/types";
 import type { SettingsTab } from "./store";
 import type { GatekeeperMode, LowPowerMode, MenuBarAutoHideMode } from "@/lib/tauri/types/system-settings";
 import {
   SleepSection, LockScreenSection, KeyboardSection, DisplaySection, DockSection,
+  QuickActionsSection,
 } from "./components/sections";
+import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirmDialog";
 
 // ── Constants ──
 
@@ -42,6 +43,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
   const [launchAgents, setLaunchAgents] = useState<{ name: string; path: string; enabled: boolean }[]>([]);
   const [launchDaemons, setLaunchDaemons] = useState<{ name: string; path: string; enabled: boolean }[]>([]);
   const [newLoginItemPath, setNewLoginItemPath] = useState("");
+  const [loginItemToRemove, setLoginItemToRemove] = useState<string | null>(null);
   const [tabLoading, setTabLoading] = useState(false);
 
   // Default browser state
@@ -334,9 +336,9 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                   {loginItems.map((item) => (
                     <div key={item.name} className="flex items-center justify-between py-1">
                       <span className="text-sm">{item.name}</span>
-                      <Button variant="destructive" size="sm" disabled={store.applyingKeys.size > 0} onClick={async () => {
-                        await run(`login.remove.${item.name}`, async () => { await systemSettingsUseCases.removeLoginItem(item.name); const items = await systemSettingsUseCases.getLoginItems(); store.setLoginItems(items); setLoginItems(items); });
-                      }}>{t("systemSettings.login.remove")}</Button>
+                      <Button variant="destructive" size="sm" disabled={store.applyingKeys.size > 0} onClick={() => setLoginItemToRemove(item.name)}>
+                        {t("systemSettings.login.remove")}
+                      </Button>
                     </div>
                   ))}
                 </div>
@@ -420,21 +422,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
               </div>
             </SettingGroup>
 
-            {/* ── 快捷操作 (危险操作区) ── */}
-            <SettingGroup title={t("systemSettings.actions.title")}>
-              <Alert className="mb-3 border-orange-500/50 bg-orange-500/10 text-sm">
-                <AlertDescription className="text-xs">{t("systemSettings.actions.warning")}</AlertDescription>
-              </Alert>
-              <div className="flex flex-wrap gap-2">
-                <Button variant="outline" size="sm" disabled={store.applyingKeys.size > 0} onClick={() => run("quickActions.lockScreen", () => systemSettingsUseCases.lockScreen())}>{t("systemSettings.actions.lockScreen")}</Button>
-                <Button variant="outline" size="sm" disabled={store.applyingKeys.size > 0} onClick={() => run("quickActions.emptyTrash", () => systemSettingsUseCases.emptyTrash())}>{t("systemSettings.actions.emptyTrash")}</Button>
-                <Button variant="outline" size="sm" disabled={store.applyingKeys.size > 0} onClick={() => run("quickActions.sleepNow", () => systemSettingsUseCases.sleepNow())}>{t("systemSettings.actions.sleepNow")}</Button>
-                <Button variant="outline" size="sm" disabled={store.applyingKeys.size > 0} onClick={async () => { if (confirm(t("systemSettings.actions.rebootConfirm"))) { await run("quickActions.reboot", () => systemSettingsUseCases.rebootNow()); } }}>{t("systemSettings.actions.reboot")}</Button>
-                <Button variant="outline" size="sm" disabled={store.applyingKeys.size > 0} onClick={async () => { if (confirm(t("systemSettings.actions.shutdownConfirm"))) { await run("quickActions.shutdown", () => systemSettingsUseCases.shutdownNow()); } }}>{t("systemSettings.actions.shutdown")}</Button>
-                <Button variant="outline" size="sm" disabled={store.applyingKeys.size > 0} onClick={() => run("quickActions.emptyPasteboard", () => systemSettingsUseCases.emptyPasteboard())}>{t("systemSettings.actions.emptyPasteboard")}</Button>
-                <Button variant="outline" size="sm" disabled={store.applyingKeys.size > 0} onClick={() => run("quickActions.ejectDiscs", () => systemSettingsUseCases.ejectDiscs())}>{t("systemSettings.actions.ejectDiscs")}</Button>
-              </div>
-            </SettingGroup>
+            <QuickActionsSection />
           </div>
         );
 
@@ -472,6 +460,32 @@ export default function SystemSettings(_props: SystemSettingsProps) {
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {renderTabContent()}
       </div>
+
+      {loginItemToRemove && (
+        <DestructiveConfirmDialog
+          open={loginItemToRemove !== null}
+          onOpenChange={(open) => {
+            if (!open) setLoginItemToRemove(null);
+          }}
+          title={t("systemSettings.login.removeConfirmTitle")}
+          description={t("systemSettings.login.removeConfirmDescription", { name: loginItemToRemove })}
+          consequence={t("systemSettings.login.removeConsequence")}
+          confirmLabel={t("systemSettings.login.remove")}
+          cancelLabel={t("common.cancel")}
+          loading={store.applyingKeys.has(`login.remove.${loginItemToRemove}`)}
+          onConfirm={async () => {
+            const name = loginItemToRemove;
+            if (!name) return;
+            await run(`login.remove.${name}`, async () => {
+              await systemSettingsUseCases.removeLoginItem(name);
+              const items = await systemSettingsUseCases.getLoginItems();
+              store.setLoginItems(items);
+              setLoginItems(items);
+            });
+            setLoginItemToRemove(null);
+          }}
+        />
+      )}
     </div>
   );
 }
