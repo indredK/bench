@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.15.0](https://github.com/indredK/bench/compare/v1.14.1...v1.15.0) (2026-07-01)
+
+
+### Features
+
+* **api-billing:** 实现完整 Session Manager 功能模块 ([3ed388e](https://github.com/indredK/bench/commit/3ed388e856eae49a5dc2b45fef95398e8fbc77c4))
+* **api-billing:** 新增API账单管理模块完整功能 ([5850bc5](https://github.com/indredK/bench/commit/5850bc55a46eb456ad7ae0ddf5d632fa15135730))
+* 实现外部登录代理功能，支持通过 bench-auth:// 协议接入外部应用 ([f2300cf](https://github.com/indredK/bench/commit/f2300cfe67fb6cc37844dfc38dedddcd2db7cf27))
+* 新增系统托盘、端口/术语/系统设置二次确认弹窗，添加汇率计算功能 ([15b2d72](https://github.com/indredK/bench/commit/15b2d725e7e2ee0d80d2a7dd50faa4b745b26581))
+
 ## [1.14.1](https://github.com/indredK/bench/compare/v1.14.0...v1.14.1) (2026-06-30)
 
 
