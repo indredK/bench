@@ -6,7 +6,7 @@
 //! 用 `code` 做机器判断、`message` 做兜底展示。
 //!
 //! 现有的领域错误枚举（如 `TokenCalculatorError`、`TerminologyError`、
-//! `ApiBillingError`）已经采用 `#[serde(tag = "code")]` 输出同构的
+//! `AccountManagerError`）已经采用 `#[serde(tag = "code")]` 输出同构的
 //! `{ code, message }`，因此与本类型在前端侧完全兼容，可按模块逐步迁移。
 
 use std::fmt;

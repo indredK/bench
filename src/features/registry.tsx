@@ -5,7 +5,7 @@
  * 侧边栏只展示 4 个一级入口 + 系统设置。
  */
 import type { TFunction } from "i18next";
-import { apiBillingFeature } from "@/features/api-billing/feature";
+import { accountManagerFeature } from "@/features/account-manager/feature";
 import { appManagerFeature } from "@/features/app-manager/feature";
 import { devCleanerFeature } from "@/features/dev-cleaner/feature";
 import { envDetectorFeature } from "@/features/env-detector/feature";
@@ -24,7 +24,7 @@ export const appFeatures: AppFeature[] = [
   appManagerFeature,
   hardwareFeature,
   terminologyFeature,
-  apiBillingFeature,
+  accountManagerFeature,
   // Development tools — routed but condensed into dev-toolbox in sidebar
   devToolboxFeature,
   portManagerFeature,

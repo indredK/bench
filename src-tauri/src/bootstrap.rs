@@ -98,7 +98,7 @@ mod tests {
     #[test]
     fn startup_issues_are_recorded() {
         let state = create_state();
-        record_startup_issue(&state, "api-billing", "open store failed");
+        record_startup_issue(&state, "account-manager", "open store failed");
 
         let issues = state
             .startup_issues
@@ -109,7 +109,7 @@ mod tests {
         assert_eq!(
             issues,
             vec![StartupIssue {
-                feature: "api-billing".into(),
+                feature: "account-manager".into(),
                 message: "open store failed".into(),
             }]
         );

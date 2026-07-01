@@ -12,7 +12,7 @@
 
 ### 2.1 当前系统问题
 
-bench 现有的"中转站账号管理"(api-billing) 功能存在三个结构性缺陷：
+bench 现有的「账号管理」(account-manager) 功能存在三个结构性缺陷：
 
 | 优先级 | 问题 | 现象 | 根因 |
 |--------|------|------|------|
@@ -79,7 +79,7 @@ Station (站点组) ─── 可选的分组标签，聚合同站多账号
 4. WebView 窗口关闭时:
    - 默认：保留 session 到当前 bench 会话结束
    - 可选：勾选"关闭后销毁"即注销后删除账户
-5. 不写入 `relay-store.json`，不参与启动恢复
+5. 不写入 `account-manager-store.json`，不参与启动恢复
 
 **设计原则**: 从 7 步砍到 2 步。不需要 Station，不需要密码，不需要任何额外字段。
 
@@ -153,14 +153,14 @@ pub struct StationAccount {
 → 构造 CookieEntry 列表
 → serde_json 序列化
 → master_key AES-256-GCM 加密
-→ 写入 relay-store.json sessions 键
+→ 写入 account-manager-store.json sessions 键
 → 更新 account.status = Ready
 ```
 
 #### 4.3.3 启动恢复流程
 
 ```
-app setup → 从 relay-store.json 加载所有 Persistent Account
+app setup → 从 account-manager-store.json 加载所有 Persistent Account
 → 遍历：解密 session → 验证 cookies 未全部过期
 → 对每个 Ready 状态账户：
     1. 创建隐藏 WebView
@@ -176,7 +176,7 @@ app setup → 从 relay-store.json 加载所有 Persistent Account
 ```rust
 // lib.rs RunEvent::ExitRequested 中新增
 if let RunEvent::ExitRequested { .. } = event {
-    let state = app_handle.state::<ApiBillingState>();
+    let state = app_handle.state::<AccountManagerState>();
     let snapshot = state.read_snapshot();
     for account in &snapshot.accounts {
         if account.account_type == AccountType::Persistent
@@ -260,7 +260,7 @@ pub async fn http_probe(website: &str, cookies: &[CookieEntry]) -> ProbeResult {
 
 ### 5.1 向前兼容
 
-现有 `relay-store.json` schema v2 中的数据迁移到新模型：
+现有 `account-manager-store.json` schema v2 中的数据迁移到新模型：
 
 ```
 现有 StationAccount          → 新 StationAccount
@@ -821,7 +821,7 @@ probe(account) → AuthProfile → Strategy Selector
 ```rust
 /// HTTP probe 连续失败后的自动降级逻辑
 pub async fn adaptive_degrade(
-    state: &ApiBillingState,
+    state: &AccountManagerState,
     station_id: &str,
     failure_count: u32,
 ) {
@@ -957,7 +957,7 @@ pub async fn capture_full_session(
 - **Tauri v2**: `WebviewWindow::cookies()`(获取所有 cookie)、`WebviewWindow::on_navigation()`(检测登录完成)
 - **reqwest**: HTTP 客户端，用于 L1 probe
 - **ring / aes-gcm**: 加密 session cookies(现有 `crypto.rs` 已使用)
-- **tauri-plugin-store**: 持久化 relay-store.json(现有)
+- **tauri-plugin-store**: 持久化 account-manager-store.json(现有)
 
 ### B. 相关 WebKit Bug
 

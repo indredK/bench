@@ -1,6 +1,6 @@
 {
   "sidebar": {
-    "apiBilling": "账号管理",
+    "accountManager": "账号管理",
     "portManager": "端口管理",
     "quickLaunch": "快捷启动",
     "appManager": "应用管理",
@@ -203,7 +203,7 @@
       "keyboard": "键盘设置"
     }
   },
-  "apiBilling": {
+  "accountManager": {
     "stationTitle": "全部站点",
     "accountTitle": "账号列表",
     "detailTitle": "详情",
@@ -2005,7 +2005,7 @@
     "title": "部分功能未能完成初始化",
     "description": "{{features}} 当前处于启动失败状态。请修复本地存储后重启应用再试。",
     "features": {
-      "api-billing": "API 计费",
+      "account-manager": "账号管理",
       "token-calculator": "Token 计算器",
       "terminology": "术语库"
     }

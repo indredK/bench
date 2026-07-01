@@ -1,6 +1,6 @@
 {
   "sidebar": {
-    "apiBilling": "Account Management",
+    "accountManager": "Account Management",
     "portManager": "Port Manager",
     "quickLaunch": "Quick Launch",
     "appManager": "App Manager",
@@ -203,7 +203,7 @@
       "keyboard": "Keyboard Settings"
     }
   },
-  "apiBilling": {
+  "accountManager": {
     "stationTitle": "All Stations",
     "accountTitle": "Accounts",
     "detailTitle": "Detail",
@@ -2005,7 +2005,7 @@
     "title": "Some features did not finish loading",
     "description": "{{features}} are running in a failed startup state. Fix the local store or retry after restarting the app.",
     "features": {
-      "api-billing": "API Billing",
+      "account-manager": "Account Management",
       "token-calculator": "Token Calculator",
       "terminology": "Terminology"
     }

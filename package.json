@@ -20,7 +20,7 @@
     "lint:fe": "node scripts/quality/check-i18n-guards.mjs && tsc --noEmit",
     "test:fe": "vitest run",
     "test:fe:watch": "vitest",
-    "test:critical": "vitest run src/features/api-billing src/features/token-calculator src/features/app-manager src/components/common/__tests__/SettingsDialog.test.tsx",
+    "test:critical": "vitest run src/features/account-manager src/features/token-calculator src/features/app-manager src/components/common/__tests__/SettingsDialog.test.tsx",
     "test:be": "cd src-tauri && cargo test",
     "check:be": "cd src-tauri && cargo check",
     "clippy:be": "cd src-tauri && cargo clippy -- -D warnings",

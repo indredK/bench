@@ -29,7 +29,7 @@ import type {
   StationAccount,
   LoginMethod,
   LoginDetectionConfig,
-} from "@/lib/tauri/types/api-billing";
+} from "@/lib/tauri/types/account-manager";
 import type {
   CleanupCommandDef,
   CleanupResult,
@@ -557,7 +557,7 @@ export const TAURI_COMMANDS = {
   windowTheme: {
     setWindowTheme: commandName("set_window_theme"),
   },
-  apiBilling: {
+  accountManager: {
     listStations: commandName("list_stations"),
     createStation: commandName("create_station"),
     updateStation: commandName("update_station"),

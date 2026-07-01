@@ -272,17 +272,22 @@ interface ExternalAppBinding {
 ## 10. 前端结构
 
 ```text
-src/features/api-billing/
-├── auth-proxy-dialog.tsx     # 外部登录请求 + 账号选择器
-├── external-apps-panel.tsx   # 外部应用管理 / 取消授权
-├── page.tsx                  # deep-link 监听 + DetailColumn/EditAccount 集成
-└── api.ts                    # IPC 绑定
+src/features/account-manager/
+├── page.tsx                         # 薄组合层
+├── hooks/
+│   ├── useAccountManagerController.ts
+│   └── useAuthProxy.ts              # deep-link 监听 + 代理 URL 处理
+├── components/
+│   ├── auth-proxy-dialog.tsx        # 外部登录请求 + 账号选择器
+│   ├── external-apps-panel.tsx      # 外部应用管理 / 取消授权
+│   └── DetailColumn.tsx             # 详情栏（代理开关等）
+└── api.ts                           # IPC 绑定
 ```
 
-- deep-link：`page.tsx` 监听 `bench-auth://` 事件 → `parseAuthProxyUrl` → `handleAuthProxy`
+- deep-link：`useAuthProxy` 监听 `bench-auth://` / http(s) 事件 → `handleBrowserOpen`
   → 打开 `AuthProxyDialog`。
 - 选定账号 → `proxyLogin` → 后端打开 WebView 并在完成后自动转交 callback；前端只提示“已开始”。
-- 文案全部走 `apiBilling.authProxy.*` / `apiBilling.externalApps.*`，中英文同步维护。
+- 文案全部走 `accountManager.authProxy.*` / `accountManager.externalApps.*`，中英文同步维护。
 
 ## 11. 安全策略
 

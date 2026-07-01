@@ -20,7 +20,7 @@
 ### 1.1 类型定义
 
 ```rust
-// ─── src-tauri/src/api_billing/types.rs ───
+// ─── src-tauri/src/account_manager/types.rs ───
 
 // === 账户类型 ===
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -221,7 +221,7 @@ pub struct RelayStation {
 ### 1.2 检测结果中间类型
 
 ```rust
-// src-tauri/src/api_billing/detection.rs 新增
+// src-tauri/src/account_manager/detection.rs 新增
 
 /// JS 注入脚本返回的原始检测数据
 #[derive(Debug, Deserialize)]
@@ -285,7 +285,7 @@ pub struct CloudflareDetection {
 ### 2.1 登录捕获
 
 ```rust
-// src-tauri/src/api_billing/session.rs (新文件)
+// src-tauri/src/account_manager/session.rs (新文件)
 
 use std::time::Duration;
 use tauri::{AppHandle, Manager, Runtime, WebviewWindow};
@@ -293,7 +293,7 @@ use tokio::time::timeout;
 
 use super::crypto;
 use super::types::*;
-use super::state::ApiBillingState;
+use super::state::AccountManagerState;
 use super::storage;
 
 const CAPTURE_TIMEOUT_MS: u64 = 3_000;
@@ -303,9 +303,9 @@ pub async fn capture_session_after_login<R: Runtime>(
     window: &WebviewWindow<R>,
     account: &StationAccount,
     auth_profile: &Option<AuthProfile>,
-) -> ApiBillingResult<AccountSession> {
+) -> AccountManagerResult<AccountSession> {
     let url = window.url().map_err(|e|
-        ApiBillingError::store_fail(format!("get window url: {e}"))
+        AccountManagerError::store_fail(format!("get window url: {e}"))
     )?;
     let url_str = url.to_string();
 
@@ -314,7 +314,7 @@ pub async fn capture_session_after_login<R: Runtime>(
         Duration::from_millis(CAPTURE_TIMEOUT_MS),
         extract_cookies(window, &url_str),
     ).await
-        .map_err(|_| ApiBillingError::store_fail("cookie capture timeout"))?
+        .map_err(|_| AccountManagerError::store_fail("cookie capture timeout"))?
         .unwrap_or_default();
 
     // 2. 获取 User-Agent
@@ -325,7 +325,7 @@ pub async fn capture_session_after_login<R: Runtime>(
     let mut session = AccountSession {
         cookies,
         user_agent,
-        captured_at: crate::api_billing::commands::now_label(),
+        captured_at: crate::account_manager::commands::now_label(),
         ..Default::default()
     };
 
@@ -365,13 +365,13 @@ pub async fn capture_session_after_login<R: Runtime>(
 async fn extract_cookies<R: Runtime>(
     window: &WebviewWindow<R>,
     url: &str,
-) -> ApiBillingResult<Vec<CookieEntry>> {
+) -> AccountManagerResult<Vec<CookieEntry>> {
     use tauri::Url;
     let parsed: Url = url.parse()
-        .map_err(|e| ApiBillingError::invalid_input(format!("parse url: {e}")))?;
+        .map_err(|e| AccountManagerError::invalid_input(format!("parse url: {e}")))?;
 
     let cookies = window.cookies_for_url(parsed).map_err(|e|
-        ApiBillingError::store_fail(format!("cookies_for_url failed: {e}"))
+        AccountManagerError::store_fail(format!("cookies_for_url failed: {e}"))
     )?;
 
     Ok(cookies.into_iter().map(|c| CookieEntry {
@@ -390,7 +390,7 @@ async fn extract_cookies<R: Runtime>(
 /// 提取 localStorage 并加密
 async fn capture_local_storage<R: Runtime>(
     window: &WebviewWindow<R>,
-) -> ApiBillingResult<EncryptedBlob> {
+) -> AccountManagerResult<EncryptedBlob> {
     let script = r#"
         (function() {
             const data = {};
@@ -410,7 +410,7 @@ async fn capture_local_storage<R: Runtime>(
 /// 提取 sessionStorage 并加密
 async fn capture_session_storage<R: Runtime>(
     window: &WebviewWindow<R>,
-) -> ApiBillingResult<EncryptedBlob> {
+) -> AccountManagerResult<EncryptedBlob> {
     let script = r#"
         (function() {
             const data = {};
@@ -430,7 +430,7 @@ async fn capture_session_storage<R: Runtime>(
 /// 提取 CSRF token
 async fn extract_csrf_token<R: Runtime>(
     window: &WebviewWindow<R>,
-) -> ApiBillingResult<CsrfTokenEntry> {
+) -> AccountManagerResult<CsrfTokenEntry> {
     let script = r#"
         (function() {
             // 优先检查 meta tag
@@ -480,7 +480,7 @@ async fn extract_csrf_token<R: Runtime>(
     let result: String = evaluate_and_decode(window, script).await?;
     let entry: Option<CsrfTokenEntry> = serde_json::from_str(&result).ok().flatten();
 
-    entry.ok_or_else(|| ApiBillingError::store_fail("no CSRF token found"))
+    entry.ok_or_else(|| AccountManagerError::store_fail("no CSRF token found"))
 }
 
 /// 提取 User-Agent
@@ -489,7 +489,7 @@ async fn extract_csrf_token<R: Runtime>(
 /// fallback 必须使用完整 WKWebView 格式以匹配 HTTP probe。
 async fn extract_user_agent<R: Runtime>(
     window: &WebviewWindow<R>,
-) -> ApiBillingResult<String> {
+) -> AccountManagerResult<String> {
     let script = "JSON.stringify(navigator.userAgent)";
     evaluate_and_decode(window, script).await
         .or_else(|_| {
@@ -521,7 +521,7 @@ fn estimate_session_expiry(cookies: &[CookieEntry]) -> Option<String> {
 pub(crate) async fn evaluate_and_decode<R: Runtime>(
     window: &WebviewWindow<R>,
     script: &str,
-) -> ApiBillingResult<String> {
+) -> AccountManagerResult<String> {
     let (tx, rx) = tokio::sync::oneshot::channel::<String>();
 
     // eval_with_callback: 执行 JS 后回调
@@ -530,19 +530,19 @@ pub(crate) async fn evaluate_and_decode<R: Runtime>(
         .eval_with_callback(script, move |result| {
             let _ = tx.send(result);
         })
-        .map_err(|e| ApiBillingError::store_fail(format!("eval failed: {e}")))?;
+        .map_err(|e| AccountManagerError::store_fail(format!("eval failed: {e}")))?;
 
     let payload = rx.await.map_err(|_|
-        ApiBillingError::store_fail("eval callback channel closed")
+        AccountManagerError::store_fail("eval callback channel closed")
     )?;
 
     // eval_with_callback 返回 JSON-encoded JS 值
     let value: serde_json::Value = serde_json::from_str(&payload)
-        .map_err(|e| ApiBillingError::store_fail(format!("decode eval result: {e}")))?;
+        .map_err(|e| AccountManagerError::store_fail(format!("decode eval result: {e}")))?;
 
     match value {
         serde_json::Value::String(s) => Ok(s),
-        serde_json::Value::Null => Err(ApiBillingError::store_fail("eval returned null")),
+        serde_json::Value::Null => Err(AccountManagerError::store_fail("eval returned null")),
         other => Ok(other.to_string()),
     }
 }
@@ -553,24 +553,24 @@ async fn evaluate_with_timeout<R: Runtime>(
     window: &WebviewWindow<R>,
     script: &str,
     timeout_ms: u64,
-) -> ApiBillingResult<String> {
+) -> AccountManagerResult<String> {
     tokio::time::timeout(
         Duration::from_millis(timeout_ms),
         evaluate_and_decode(window, script),
     ).await
-        .map_err(|_| ApiBillingError::store_fail("eval timeout"))?
+        .map_err(|_| AccountManagerError::store_fail("eval timeout"))?
 }
 ```
 
 ### 2.2 启动恢复
 
 ```rust
-// src-tauri/src/api_billing/session.rs (续)
+// src-tauri/src/account_manager/session.rs (续)
 
 /// 启动时恢复所有持久账户的 session
 pub async fn restore_sessions_on_startup<R: Runtime>(
     app: &AppHandle<R>,
-    state: &ApiBillingState,
+    state: &AccountManagerState,
 ) {
     let snapshot = state.read_snapshot();
     let persistent_accounts: Vec<&StationAccount> = snapshot.accounts.iter()
@@ -658,18 +658,18 @@ async fn inject_cookies_to_webview<R: Runtime>(
     account_id: &str,
     cookies: &[CookieEntry],
     website: &str,
-) -> ApiBillingResult<()> {
-    use crate::api_billing::webview;
+) -> AccountManagerResult<()> {
+    use crate::account_manager::webview;
 
     let label = webview::probe_window_label(account_id);
     let parsed: url::Url = website.parse()
-        .map_err(|e| ApiBillingError::invalid_input(format!("website url: {e}")))?;
+        .map_err(|e| AccountManagerError::invalid_input(format!("website url: {e}")))?;
 
     // 创建临时 WebView
     let window = {
         let data_dir = webview::account_data_dir(app, account_id)?;
         std::fs::create_dir_all(&data_dir)
-            .map_err(|e| ApiBillingError::store_fail(format!("create dir: {e}")))?;
+            .map_err(|e| AccountManagerError::store_fail(format!("create dir: {e}")))?;
 
         let mut builder = tauri::WebviewWindowBuilder::new(
             app,
@@ -686,7 +686,7 @@ async fn inject_cookies_to_webview<R: Runtime>(
         }
 
         builder.build()
-            .map_err(|e| ApiBillingError::store_fail(format!("build webview: {e}")))?
+            .map_err(|e| AccountManagerError::store_fail(format!("build webview: {e}")))?
     };
 
     // 逐个注入 cookie
@@ -714,12 +714,12 @@ fn all_cookies_expired(cookies: &[CookieEntry]) -> bool {
 ### 2.3 退出持久化
 
 ```rust
-// src-tauri/src/api_billing/session.rs (续)
+// src-tauri/src/account_manager/session.rs (续)
 
 /// App 退出前持久化所有活跃 session
 pub async fn persist_all_sessions_on_exit<R: Runtime>(
     app: &AppHandle<R>,
-    state: &ApiBillingState,
+    state: &AccountManagerState,
 ) {
     let snapshot = state.read_snapshot();
     let key = match state.master_key() {
@@ -739,7 +739,7 @@ pub async fn persist_all_sessions_on_exit<R: Runtime>(
         }
 
         // 尝试从仍存在的登录窗口捕获最新 cookie
-        let login_label = crate::api_billing::webview::login_window_label(&account.id);
+        let login_label = crate::account_manager::webview::login_window_label(&account.id);
         if let Some(window) = app.get_webview_window(&login_label) {
             let website = account.website.as_deref().unwrap_or("");
             match extract_cookies(&window, website).await {
@@ -768,9 +768,9 @@ pub async fn persist_all_sessions_on_exit<R: Runtime>(
     cleanup_ephemeral_accounts(state);
 }
 
-fn encrypt_session(key: &[u8; 32], session: &AccountSession) -> ApiBillingResult<EncryptedBlob> {
+fn encrypt_session(key: &[u8; 32], session: &AccountSession) -> AccountManagerResult<EncryptedBlob> {
     let json = serde_json::to_string(session)
-        .map_err(|e| ApiBillingError::store_fail(format!("serialize session: {e}")))?;
+        .map_err(|e| AccountManagerError::store_fail(format!("serialize session: {e}")))?;
     crypto::encrypt(key, &json)
 }
 ```
@@ -792,10 +792,10 @@ pub fn run() {
             }
             tauri::RunEvent::ExitRequested { .. } => {
                 // 新增: 退出前持久化所有 session
-                let state = app_handle.state::<ApiBillingState>();
+                let state = app_handle.state::<AccountManagerState>();
                 let handle = app_handle.clone();
                 tauri::async_runtime::block_on(async move {
-                    api_billing::session::persist_all_sessions_on_exit(
+                    account_manager::session::persist_all_sessions_on_exit(
                         &handle, &state
                     ).await;
                 });
@@ -814,7 +814,7 @@ pub fn run() {
 ### 3.1 JS 注入脚本
 
 ```javascript
-// src-tauri/src/api_billing/auth_profile.js (内联为 Rust 字符串)
+// src-tauri/src/account_manager/auth_profile.js (内联为 Rust 字符串)
 
 (function() { 'use strict';
 
@@ -947,7 +947,7 @@ pub fn run() {
 ### 3.2 分类引擎
 
 ```rust
-// src-tauri/src/api_billing/detection.rs 新增
+// src-tauri/src/account_manager/detection.rs 新增
 
 use super::types::*;
 
@@ -956,11 +956,11 @@ const DETECTION_SCRIPT: &str = include_str!("auth_profile.js");
 /// 执行检测脚本并分类生成 AuthProfile
 pub async fn detect_auth_profile<R: Runtime>(
     window: &WebviewWindow<R>,
-) -> ApiBillingResult<AuthProfile> {
+) -> AccountManagerResult<AuthProfile> {
     let raw: String = super::session::evaluate_and_decode(window, DETECTION_SCRIPT).await?;
 
     let detection: DetectionResult = serde_json::from_str(&raw)
-        .map_err(|e| ApiBillingError::store_fail(format!("parse detection result: {e}")))?;
+        .map_err(|e| AccountManagerError::store_fail(format!("parse detection result: {e}")))?;
 
     Ok(classify(detection))
 }
@@ -1109,14 +1109,14 @@ fn calculate_confidence(d: &DetectionResult, p: &AuthProfile) -> f32 {
 ### 3.3 登录后触发
 
 ```rust
-// src-tauri/src/api_billing/commands.rs 修改
+// src-tauri/src/account_manager/commands.rs 修改
 
 // 在 open_login_window 或相关命令中，登录完成后:
 async fn on_login_completed<R: Runtime>(
     app: &AppHandle<R>,
     window: &WebviewWindow<R>,
     account: &StationAccount,
-) -> ApiBillingResult<()> {
+) -> AccountManagerResult<()> {
     // 1. 检测 AuthProfile
     let profile = detect_auth_profile(window).await?;
 
@@ -1127,10 +1127,10 @@ async fn on_login_completed<R: Runtime>(
     let session = capture_session_after_login(window, account, &Some(profile.clone())).await?;
 
     // 4. 加密存储 session
-    let state = app.state::<ApiBillingState>();
+    let state = app.state::<AccountManagerState>();
     let key = state.master_key()?;
     let json = serde_json::to_string(&session).map_err(|e|
-        ApiBillingError::store_fail(format!("serialize session: {e}"))
+        AccountManagerError::store_fail(format!("serialize session: {e}"))
     )?;
     let blob = crypto::encrypt(&key, &json)?;
 
@@ -1155,7 +1155,7 @@ async fn on_login_completed<R: Runtime>(
 ### 4.1 策略路由
 
 ```rust
-// src-tauri/src/api_billing/probe.rs 修改
+// src-tauri/src/account_manager/probe.rs 修改
 
 use super::types::*;
 
@@ -1197,7 +1197,7 @@ pub async fn probe_session<R: Runtime>(
 ### 4.2 L1: HTTP Probe
 
 ```rust
-// src-tauri/src/api_billing/probe.rs 新增
+// src-tauri/src/account_manager/probe.rs 新增
 
 use reqwest::{Client, redirect, header};
 
@@ -1429,7 +1429,7 @@ pub async fn http_probe_impersonated(
 ### 4.3 L2: WebView Probe（多源证据）
 
 ```rust
-// src-tauri/src/api_billing/probe.rs 新增
+// src-tauri/src/account_manager/probe.rs 新增
 
 const PROBE_LOAD_BUDGET_MS: u64 = 5_000;
 const PROBE_POLL_BUDGET_MS: u64 = 8_000;
@@ -1534,7 +1534,7 @@ fn judge_from_evidence(e: &SessionEvidence) -> ProbeResult {
 ### 4.4 L3: Hybrid Probe（SSO 场景）
 
 ```rust
-// src-tauri/src/api_billing/probe.rs 新增
+// src-tauri/src/account_manager/probe.rs 新增
 
 /// SSO 场景的混合探针：跟踪重定向链后检查着陆页
 async fn hybrid_probe<R: Runtime>(
@@ -1582,7 +1582,7 @@ async fn track_redirect_chain<R: Runtime>(
 ### 4.5 自适应降级
 
 ```rust
-// src-tauri/src/api_billing/probe.rs 新增
+// src-tauri/src/account_manager/probe.rs 新增
 
 const DEGRADE_THRESHOLD: u32 = 3;
 
@@ -1590,13 +1590,13 @@ const DEGRADE_THRESHOLD: u32 = 3;
 pub async fn adaptive_degrade<R: Runtime>(
     app: &AppHandle<R>,
     station_id: &str,
-) -> ApiBillingResult<()> {
-    let state = app.state::<ApiBillingState>();
+) -> AccountManagerResult<()> {
+    let state = app.state::<AccountManagerState>();
 
     storage::with_state_mut(app, &state, |snapshot| {
         let station = snapshot.stations.iter_mut()
             .find(|s| s.id == station_id)
-            .ok_or_else(|| ApiBillingError::not_found(format!("station {station_id}")))?;
+            .ok_or_else(|| AccountManagerError::not_found(format!("station {station_id}")))?;
 
         station.probe_failure_count += 1;
 
@@ -1619,12 +1619,12 @@ pub async fn adaptive_degrade<R: Runtime>(
 ## 5. 多账号互斥引擎
 
 ```rust
-// src-tauri/src/api_billing/exclusivity.rs (新文件)
+// src-tauri/src/account_manager/exclusivity.rs (新文件)
 
 use tauri::{AppHandle, Runtime, WebviewWindow};
 
 use super::types::*;
-use super::state::ApiBillingState;
+use super::state::AccountManagerState;
 use super::storage;
 
 /// 在执行新登录前处理互斥逻辑
@@ -1632,7 +1632,7 @@ pub async fn enforce_exclusivity_before_login<R: Runtime>(
     app: &AppHandle<R>,
     station: &RelayStation,
     new_account_id: &str,
-) -> ApiBillingResult<()> {
+) -> AccountManagerResult<()> {
     match station.exclusivity_mode {
         ExclusivityMode::Coexisting => {
             // 无限制
@@ -1652,8 +1652,8 @@ async fn logout_conflicting_accounts<R: Runtime>(
     app: &AppHandle<R>,
     station: &RelayStation,
     exclude_account_id: &str,
-) -> ApiBillingResult<()> {
-    let state = app.state::<ApiBillingState>();
+) -> AccountManagerResult<()> {
+    let state = app.state::<AccountManagerState>();
     let snapshot = state.read_snapshot();
 
     let conflicting: Vec<StationAccount> = snapshot.accounts.iter()
@@ -1669,7 +1669,7 @@ async fn logout_conflicting_accounts<R: Runtime>(
             let key = state.master_key()?;
             let raw = crypto::decrypt(&key, session_blob)?;
             let session: AccountSession = serde_json::from_str(&raw)
-                .map_err(|e| ApiBillingError::store_fail(format!("deserialize: {e}")))?;
+                .map_err(|e| AccountManagerError::store_fail(format!("deserialize: {e}")))?;
 
             // 2. 导航到登出 URL
             if let Ok(window) = create_probe_webview(app, &account.id, &station.website).await {
@@ -1697,11 +1697,11 @@ async fn logout_conflicting_accounts<R: Runtime>(
 async fn logout_via_webview<R: Runtime>(
     window: &WebviewWindow<R>,
     website: &str,
-) -> ApiBillingResult<()> {
+) -> AccountManagerResult<()> {
     // 策略 1: 导航到 /logout
     let logout_url = format!("{}/logout", website.trim_end_matches('/'));
     window.navigate(logout_url.parse().map_err(|_|
-        ApiBillingError::invalid_input("logout url")
+        AccountManagerError::invalid_input("logout url")
     )?)?;
 
     // 等待页面加载
@@ -1729,8 +1729,8 @@ async fn deactivate_active_account<R: Runtime>(
     app: &AppHandle<R>,
     station: &RelayStation,
     new_account_id: &str,
-) -> ApiBillingResult<()> {
-    let state = app.state::<ApiBillingState>();
+) -> AccountManagerResult<()> {
+    let state = app.state::<AccountManagerState>();
 
     storage::with_state_mut(app, &state, |snapshot| {
         for account in snapshot.accounts.iter_mut() {
@@ -1755,33 +1755,33 @@ async fn deactivate_active_account<R: Runtime>(
 ### 6.1 新增 Tauri Command
 
 ```rust
-// src-tauri/src/api_billing/commands.rs 新增
+// src-tauri/src/account_manager/commands.rs 新增
 
 // === Session 相关 ===
 #[tauri::command]
 pub async fn capture_account_session<R: Runtime>(
     app: AppHandle<R>,
-    state: State<'_, ApiBillingState>,
+    state: State<'_, AccountManagerState>,
     account_id: String,
-) -> ApiBillingResult<AccountSessionStatus> {
+) -> AccountManagerResult<AccountSessionStatus> {
     // 从登录窗口捕获 session 并存储
 }
 
 #[tauri::command]
 pub async fn restore_account_session<R: Runtime>(
     app: AppHandle<R>,
-    state: State<'_, ApiBillingState>,
+    state: State<'_, AccountManagerState>,
     account_id: String,
-) -> ApiBillingResult<AccountSessionStatus> {
+) -> AccountManagerResult<AccountSessionStatus> {
     // 从存储恢复 session 并做 probe
 }
 
 #[tauri::command]
 pub async fn clear_account_session<R: Runtime>(
     app: AppHandle<R>,
-    state: State<'_, ApiBillingState>,
+    state: State<'_, AccountManagerState>,
     account_id: String,
-) -> ApiBillingResult<()> {
+) -> AccountManagerResult<()> {
     // 清除账号的 session 存储
 }
 
@@ -1789,17 +1789,17 @@ pub async fn clear_account_session<R: Runtime>(
 #[tauri::command]
 pub async fn detect_station_auth_profile<R: Runtime>(
     app: AppHandle<R>,
-    state: State<'_, ApiBillingState>,
+    state: State<'_, AccountManagerState>,
     station_id: String,
-) -> ApiBillingResult<AuthProfile> {
+) -> AccountManagerResult<AuthProfile> {
     // 对指定的 Station 执行 AuthProfile 检测
 }
 
 #[tauri::command]
 pub fn get_station_auth_profile(
-    state: State<'_, ApiBillingState>,
+    state: State<'_, AccountManagerState>,
     station_id: String,
-) -> ApiBillingResult<Option<AuthProfile>> {
+) -> AccountManagerResult<Option<AuthProfile>> {
     // 返回已存储的 AuthProfile
 }
 
@@ -1807,20 +1807,20 @@ pub fn get_station_auth_profile(
 #[tauri::command]
 pub async fn set_exclusivity_mode<R: Runtime>(
     app: AppHandle<R>,
-    state: State<'_, ApiBillingState>,
+    state: State<'_, AccountManagerState>,
     station_id: String,
     mode: ExclusivityMode,
-) -> ApiBillingResult<RelayStation> {
+) -> AccountManagerResult<RelayStation> {
     // 设置互斥模式
 }
 
 #[tauri::command]
 pub async fn switch_active_account<R: Runtime>(
     app: AppHandle<R>,
-    state: State<'_, ApiBillingState>,
+    state: State<'_, AccountManagerState>,
     station_id: String,
     account_id: String,
-) -> ApiBillingResult<StationAccount> {
+) -> AccountManagerResult<StationAccount> {
     // Rotating 模式下切换活跃账号
 }
 
@@ -1828,19 +1828,19 @@ pub async fn switch_active_account<R: Runtime>(
 #[tauri::command]
 pub async fn set_probe_strategy<R: Runtime>(
     app: AppHandle<R>,
-    state: State<'_, ApiBillingState>,
+    state: State<'_, AccountManagerState>,
     station_id: String,
     strategy: ProbeStrategy,
-) -> ApiBillingResult<RelayStation> {
+) -> AccountManagerResult<RelayStation> {
     // 手动设置探针策略(覆盖自动检测)
 }
 
 #[tauri::command]
 pub async fn reset_probe_strategy<R: Runtime>(
     app: AppHandle<R>,
-    state: State<'_, ApiBillingState>,
+    state: State<'_, AccountManagerState>,
     station_id: String,
-) -> ApiBillingResult<RelayStation> {
+) -> AccountManagerResult<RelayStation> {
     // 重置为自动检测
 }
 ```
@@ -1848,7 +1848,7 @@ pub async fn reset_probe_strategy<R: Runtime>(
 ### 6.2 前端 API 适配
 
 ```typescript
-// src/features/api-billing/api.ts 新增
+// src/features/account-manager/api.ts 新增
 
 // === Session ===
 export function captureAccountSession(accountId: string): Promise<AccountSessionStatus> {
@@ -1904,14 +1904,14 @@ export function resetProbeStrategy(stationId: string): Promise<RelayStation> {
 ### 7.1 Schema 升级 (v2 → v3)
 
 ```rust
-// src-tauri/src/api_billing/storage.rs 修改
+// src-tauri/src/account_manager/storage.rs 修改
 
 const KEY_SCHEMA: &str = "schema_version";
 const CURRENT_SCHEMA: u32 = 3;  // 升级到 v3
 const KEY_SESSIONS: &str = "sessions";
 
 // 新增: 独立的 session 存储键
-// relay-store.json 结构:
+// account-manager-store.json 结构:
 // {
 //   "schema_version": 3,
 //   "stations": [...],
@@ -1925,9 +1925,9 @@ pub fn save_session(
     app: &AppHandle<impl Runtime>,
     account_id: &str,
     blob: &EncryptedBlob,
-) -> ApiBillingResult<()> {
+) -> AccountManagerResult<()> {
     let store = app.store(STORE_FILE)
-        .map_err(|e| ApiBillingError::store_fail(format!("open store: {e}")))?;
+        .map_err(|e| AccountManagerError::store_fail(format!("open store: {e}")))?;
 
     let mut sessions: HashMap<String, EncryptedBlob> = store
         .get(KEY_SESSIONS)
@@ -1937,25 +1937,25 @@ pub fn save_session(
     sessions.insert(account_id.to_string(), blob.clone());
     store.set(KEY_SESSIONS, serde_json::json!(sessions));
     store.save()
-        .map_err(|e| ApiBillingError::store_fail(format!("save sessions: {e}")))?;
+        .map_err(|e| AccountManagerError::store_fail(format!("save sessions: {e}")))?;
     Ok(())
 }
 
-pub fn flush_to_disk(app: &AppHandle<impl Runtime>) -> ApiBillingResult<()> {
+pub fn flush_to_disk(app: &AppHandle<impl Runtime>) -> AccountManagerResult<()> {
     let store = app.store(STORE_FILE)
-        .map_err(|e| ApiBillingError::store_fail(format!("open store: {e}")))?;
+        .map_err(|e| AccountManagerError::store_fail(format!("open store: {e}")))?;
     store.save()
-        .map_err(|e| ApiBillingError::store_fail(format!("flush store: {e}")))?;
+        .map_err(|e| AccountManagerError::store_fail(format!("flush store: {e}")))?;
     Ok(())
 }
 
 // 迁移: schema v2 → v3
-fn migrate_v2_to_v3(app: &AppHandle<impl Runtime>, store: &Store) -> ApiBillingResult<()> {
+fn migrate_v2_to_v3(app: &AppHandle<impl Runtime>, store: &Store) -> AccountManagerResult<()> {
     // v3 仅新增 sessions 和 auth_profiles 键
     // 无需数据转换，只需更新 schema_version
     store.set(KEY_SCHEMA, serde_json::json!(CURRENT_SCHEMA));
     store.save()
-        .map_err(|e| ApiBillingError::store_fail(format!("migrate v2→v3: {e}")))?;
+        .map_err(|e| AccountManagerError::store_fail(format!("migrate v2→v3: {e}")))?;
     Ok(())
 }
 ```
@@ -1978,12 +1978,12 @@ pub struct EncryptedBlob {
 
 /// master_key 生成
 /// WARNING (v1.3 修正 R10): 必须使用 CSPRNG (OsRng)，禁止 rand::random()
-pub fn get_or_create_master_key() -> ApiBillingResult<[u8; 32]> {
+pub fn get_or_create_master_key() -> AccountManagerResult<[u8; 32]> {
     use ring::rand::{SecureRandom, SystemRandom};
     let rng = SystemRandom::new();
     let mut key = [0u8; 32];
     rng.fill(&mut key)
-        .map_err(|_| ApiBillingError::store_fail("key generation failed"))?;
+        .map_err(|_| AccountManagerError::store_fail("key generation failed"))?;
     // WARNING (v1.3 修正 R09): macOS keychain 集成待实现
     // 应使用 security-framework crate + kSecAttrAccessibleWhenUnlockedThisDeviceOnly
     Ok(key)
@@ -1994,16 +1994,16 @@ pub fn get_or_create_master_key() -> ApiBillingResult<[u8; 32]> {
 /// 2. AccountSession -> serde_json::to_string
 /// 3. AES-256-GCM encrypt (nonce, plaintext) -> ciphertext+tag
 /// 4. 封包为 EncryptedBlob { version: 1, nonce, ciphertext }
-pub fn encrypt(key: &[u8; 32], plaintext: &str) -> ApiBillingResult<EncryptedBlob> {
+pub fn encrypt(key: &[u8; 32], plaintext: &str) -> AccountManagerResult<EncryptedBlob> {
     // 使用 ring::aead 或 aes-gcm crate
     // nonce 由 OsRng::fill() 生成
     // tag 由 AES-256-GCM 自动追加到 ciphertext
     todo!("v1.3: EncryptedBlob 定义完成,加密实现留作 Phase 1")
 }
 
-pub fn decrypt(key: &[u8; 32], blob: &EncryptedBlob) -> ApiBillingResult<String> {
+pub fn decrypt(key: &[u8; 32], blob: &EncryptedBlob) -> AccountManagerResult<String> {
     // GCM 解密自动验证认证 tag（tag 在 ciphertext 末尾 16 bytes）
-    // 失败 = tampered ciphertext -> ApiBillingError::crypto_fail
+    // 失败 = tampered ciphertext -> AccountManagerError::crypto_fail
     todo!("v1.3: EncryptedBlob 定义完成,解密实现留作 Phase 1")
 }
 ```
@@ -2034,14 +2034,14 @@ Session 加密使用与密码加密相同的框架：
 ```
 App 启动
   ├── setup → storage::init_state → 加载所有数据
-  ├── setup → api_billing::init_state 完成
+  ├── setup → account_manager::init_state 完成
   └── 后台任务 → restore_sessions_on_startup → 恢复所有 Persistent session
 
 用户创建 Station
-  └── create_station command → 存入 relay-store.json
+  └── create_station command → 存入 account-manager-store.json
 
 用户创建 Persistent Account  
-  └── create_account command → 存入 relay-store.json
+  └── create_account command → 存入 account-manager-store.json
 
 用户登录 (WebView)
   ├── open_login_window → 创建 WebView
@@ -2049,7 +2049,7 @@ App 启动
   ├── on_navigation 回调 → 检测是否到达目标页面
   ├── detect_auth_profile → 分析认证机制 → 更新 Station AuthProfile
   ├── capture_session_after_login → 提取 cookies + localStorage + CSRF
-  ├── 加密 session → 存入 relay-store.json sessions 键
+  ├── 加密 session → 存入 account-manager-store.json sessions 键
   └── 更新 account.status = Ready
 
 用户快速登录 (Ephemeral)
@@ -2067,7 +2067,7 @@ App 退出
   ├── RunEvent::ExitRequested
   ├── persist_all_sessions_on_exit → 遍历所有 Ready 的 Persistent Account
   ├── 从仍存在的登录窗口提取最新 cookies
-  ├── 加密并写入 relay-store.json
+  ├── 加密并写入 account-manager-store.json
   ├── cleanup_ephemeral_accounts → 清理所有 Ephemeral
   └── flush_to_disk → 强制持久化
 ```
@@ -2103,17 +2103,17 @@ fn handle_webview_creation_failure(account_id: &str) {
 
 | 文件 | 操作 | 说明 |
 |------|------|------|
-| `src-tauri/src/api_billing/types.rs` | 修改 | 新增 AuthProfile、CookieEntry、AccountSession 等类型；StationAccount/RelayStation 新增字段 |
-| `src-tauri/src/api_billing/session.rs` | 新建 | Session 捕获、恢复、持久化引擎 |
-| `src-tauri/src/api_billing/detection.rs` | 修改 | JS 注入检测脚本、AuthProfile 分类逻辑 |
-| `src-tauri/src/api_billing/probe.rs` | 修改 | HTTP/WebView/Hybrid 三层探针、自适应降级、TLS 指纹对抗 |
-| `src-tauri/src/api_billing/exclusivity.rs` | 新建 | 多账号互斥引擎 |
-| `src-tauri/src/api_billing/commands.rs` | 修改 | 新增 10+ Tauri command |
-| `src-tauri/src/api_billing/storage.rs` | 修改 | Schema v3、session/auth_profile 存储、flush |
-| `src-tauri/src/api_billing/mod.rs` | 修改 | 注册新模块和 command |
+| `src-tauri/src/account_manager/types.rs` | 修改 | 新增 AuthProfile、CookieEntry、AccountSession 等类型；StationAccount/RelayStation 新增字段 |
+| `src-tauri/src/account_manager/session.rs` | 新建 | Session 捕获、恢复、持久化引擎 |
+| `src-tauri/src/account_manager/detection.rs` | 修改 | JS 注入检测脚本、AuthProfile 分类逻辑 |
+| `src-tauri/src/account_manager/probe.rs` | 修改 | HTTP/WebView/Hybrid 三层探针、自适应降级、TLS 指纹对抗 |
+| `src-tauri/src/account_manager/exclusivity.rs` | 新建 | 多账号互斥引擎 |
+| `src-tauri/src/account_manager/commands.rs` | 修改 | 新增 10+ Tauri command |
+| `src-tauri/src/account_manager/storage.rs` | 修改 | Schema v3、session/auth_profile 存储、flush |
+| `src-tauri/src/account_manager/mod.rs` | 修改 | 注册新模块和 command |
 | `src-tauri/src/lib.rs` | 修改 | RunEvent::ExitRequested 中集成 session 持久化 |
-| `src/features/api-billing/api.ts` | 修改 | 新增前端 API 适配函数 |
-| `src/features/api-billing/page.tsx` | 修改 | 快速登录 UI、表单简化、AuthProfile 详情面板 |
+| `src/features/account-manager/api.ts` | 修改 | 新增前端 API 适配函数 |
+| `src/features/account-manager/page.tsx` | 修改 | 快速登录 UI、表单简化、AuthProfile 详情面板 |
 | `Cargo.toml` | 修改 | 新增 reqwest(/rquest) 依赖 |
 
 ## 附录 B: 关键依赖
@@ -2126,7 +2126,7 @@ fn handle_webview_creation_failure(account_id: &str) {
 | `chrono` | 存在 | 时间戳比较、cookie 过期判断 | 现有依赖 |
 | `tokio` | 存在 | 异步探针和并发控制 | 现有依赖 |
 | `ring / aes-gcm` | 存在 | session 加密（crypto.rs） | 现有依赖 |
-| `tauri-plugin-store` | 存在 | relay-store.json 持久化 | 现有依赖 |
+| `tauri-plugin-store` | 存在 | account-manager-store.json 持久化 | 现有依赖 |
 
 ## 附录 C: 参考实现与最新技术
 
@@ -2464,7 +2464,7 @@ fn network_changed_since_capture(
 | R13 | WebView 资源泄漏（无 RAII guard） | ⚠ 留作 Phase 1：`ProbeWebViewGuard` RAII + `Drop` close |
 | R14 | 多 Station 并发恢复无限制（10+ WebView 同时创建） | ⚠ 留作 Phase 2：`Semaphore` 限流 + 渐进恢复 |
 | R15 | 跨平台完全未定义（Linux/Windows WebView API） | ⚠ 留作 Phase 2：平台兼容性矩阵 + `#[cfg]` 骨架 |
-| R16 | relay-store.json 损坏无容错 | ⚠ 留作 Phase 1：JSON 容错 + atomic write + .bak 恢复 |
+| R16 | account-manager-store.json 损坏无容错 | ⚠ 留作 Phase 1：JSON 容错 + atomic write + .bak 恢复 |
 | R17 | WKProcessPool 行为未覆盖 | ⚠ 留作 Phase 2：验证 Tauri v2 暴露方式 |
 | R18 | UA 冻结未处理（fallback UA 残缺） | §2.1：修正 fallback UA 为完整 WKWebView 格式 |
 
@@ -2682,8 +2682,8 @@ cleanup_expired_sessions()           // ≈ 自动清理过期 profile
 
 ```rust
 // commands.rs: capture_account_session 末尾
-crate::api_billing::session::persist_session(&state, &account_id, &session)?;
-crate::api_billing::storage::flush_to_disk(&app)?;  // ← 新增: 强制落盘
+crate::account_manager::session::persist_session(&state, &account_id, &session)?;
+crate::account_manager::storage::flush_to_disk(&app)?;  // ← 新增: 强制落盘
 ```
 
 #### 2. Session TTL（参考 Browserless retention policy）
@@ -2796,10 +2796,10 @@ bench 的独特优势：
 | Session TTL 配置 (F.6.2) | ✅ | `page.tsx::StationDialog` 高级 Section（新建/编辑均可配置） |
 | 快速登录 Ephemeral (§4.1) | ✅ | `page.tsx::handleQuickLogin` + `create_ephemeral_account` |
 | 关闭后销毁 checkbox (§4.1) | ✅ | `page.tsx::QuickLoginDialog` `destroyOnClose` state + `WebviewWindow.onCloseRequested` 监听 |
-| 最近 5 个临时 URL 历史 (§7.2) | ✅ | `page.tsx` localStorage `api-billing.quick-login.history.v1` |
+| 最近 5 个临时 URL 历史 (§7.2) | ✅ | `page.tsx` localStorage `account-manager.quick-login.history.v1` |
 | 历史 URL datalist 标签 | ✅ | `page.tsx::QuickLoginDialog` 修复 i18n label 渲染 |
 | Rotating 切换账号按钮 | ❌ (已移除) | `switchAccount` + `isRotating` + `onSwitch` 全部删除；`AccountCardContent` 操作按钮简化 |
-| `inactive` 状态 i18n | ✅ | `en/zh.json::apiBilling.status.inactive` |
+| `inactive` 状态 i18n | ✅ | `en/zh.json::accountManager.status.inactive` |
 | 持久账户表单精简 (§4.2) | ✅ | 0.5d 实现：删除 phone/tgAccount/linkedAccount/inviteLink/loginMethods；3 字段（username/password/notes） |
 
 ### H.5 留作 Phase 2 / v2.0 的项目
