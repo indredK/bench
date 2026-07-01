@@ -140,6 +140,7 @@
 
 - **强制**: 功能合入后，对应模块 `roadmap.md` 的 checkbox 与「已交付」说明须与代码一致。
 - **建议**: 跨模块版本主题（v1.16 Polish 等）只在 `release-themes.md` 维护；模块细节留在各 `roadmap.md`。
+- **建议**: 方法论背景与未来方向菜单见 [product-iteration-reference.md](./product-iteration-reference.md)（仅供参考，非强制）。
 - **建议**: 危险操作、i18n、IPC 等实现约定以本文件为准；模块设计规范写模块内设计稿，不重复拷贝编码规则。
 
 ## 12. 评审聚焦

@@ -122,6 +122,7 @@
 | [release-themes.md](./release-themes.md) | **本文件** — 发布主题与节奏 |
 | [modules/](../modules/README.md) | 各模块 `roadmap.md` / `bugs.md` / 设计稿 |
 | [product-roadmap-review-plan.md](./product-roadmap-review-plan.md) | 2026-07-01 评审记录 |
+| [product-iteration-reference.md](../product-iteration-reference.md) | 迭代方法论与未来方向（仅供参考） |
 
 模块 backlog 示例：[account-manager/roadmap.md](../modules/account-manager/roadmap.md) · [system-settings/roadmap.md](../modules/system-settings/roadmap.md) · [feature-candidates.md](../modules/system-settings/feature-candidates.md)
 
