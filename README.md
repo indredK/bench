@@ -1,25 +1,50 @@
 # Bench - DevTools / 开发者工具
 
-> A cross-platform desktop utility for managing network ports, system info, app management, and dev cleanup.
-> 跨平台桌面开发者工具：端口管理、系统信息、应用管理、开发垃圾清理。
+> A cross-platform desktop utility centered on macOS system management: quick launch, app & account management, terminology, dev toolbox, and deep system settings — with Windows/Linux support where applicable.
+> 以 macOS 系统管理为核心的跨平台桌面工具：快速启动、应用与账号管理、术语库、开发工具箱与系统设置；部分能力在 Windows/Linux 可用。
 
-Built with [Tauri v2](https://v2.tauri.app/) + [React 18](https://react.dev/) + [Rust](https://www.rust-lang.org/).
+Built with [Tauri v2](https://v2.tauri.app/) + [React 19](https://react.dev/) + [Rust](https://www.rust-lang.org/).
+
+Menu bar **tray** for show-window / prevent-sleep / quit. Dangerous actions use a shared confirmation dialog with consequence callout.
 
 ---
 
 ## Features / 功能
 
+### Sidebar / 侧边栏入口
+
 | Module / 模块 | Description / 描述 |
 | :--- | :--- |
-| **Port Manager / 端口管理** | Multi-format port input (single/range/comma), common port quick-add, live preview, kill processes with status feedback. 支持多种输入格式、常用端口一键添加、实时预览、结束进程并反馈状态。 |
-| **System Info / 系统信息** | Native hardware & OS details via Rust backend (CPU, memory, kernel, hostname); browser fallback mode. 通过 Rust 后端获取原生系统详情，支持浏览器回退模式。 |
+| **Quick Launch / 快速启动** | Drag-and-drop app launcher with categories, pinned items, and quick open. 分类拖拽启动器，支持固定与快速打开。 |
 | **App Manager / 应用管理** | Cross-platform installed app discovery (macOS/Windows/Linux), source identification, batch upgrade/uninstall with safety gates. 跨平台应用发现、来源识别、批量升级/卸载及安全保护。 |
-| **Dev Cleaner / 垃圾清理** | Scan workspace directories for build artifacts (`node_modules`, `target`, `.venv`, `dist`, etc.), batch cleanup. 扫描工作区目录中的构建产物，支持批量清理回收空间。 |
 | **Hardware Compare / 硬件查询** | Query and compare hardware specifications across devices. 查询和对比不同设备的硬件规格。 |
-| **Env Detector / 环境检测** | Detect installed development tools (runtimes, package managers, etc.). 检测已安装的开发工具和运行环境。 |
-| **Auto Updater / 自动更新** | In-app version update with signature verification, progress tracking, and error recovery. 应用内版本更新，支持签名校验、进度跟踪和错误恢复。 |
-| **Theme Switcher / 主题切换** | Light/Dark/System theme with instant switching. 浅色/深色/跟随系统主题，即时切换。 |
+| **Terminology / 术语库** | Industry/category/subcategory taxonomy with searchable terms, websites, and pin support. 按行业/分类管理术语，支持搜索、关联站点与固定。 |
+| **Account Manager / 账号管理** | Multi-station account sessions, external login proxy, webview auth, encrypted storage. 多站点账号会话、外部登录代理、WebView 授权与加密存储。 |
+| **Dev Toolbox / 开发工具箱** | Unified tabbed hub — see below. 统一 Tab 入口，见下表。 |
+| **System Settings / 系统设置** | macOS appearance/security/system controls: Dock, Finder, keyboard, sleep inhibitor, login items, maintenance, quick actions (lock/reboot/shutdown/trash). macOS 外观/安全/系统控制：Dock、Finder、键盘、防睡眠、登录项、维护与快捷操作。 |
+
+### Dev Toolbox tabs / 开发工具箱子页
+
+| Tab / 子页 | Description / 描述 |
+| :--- | :--- |
+| **Port Manager / 端口管理** | Multi-format port input (single/range/comma), common port quick-add, kill processes with confirmation + status feedback. 多种端口输入、常用端口快捷添加、释放进程（二次确认）与状态反馈。 |
+| **Dev Cleaner / 垃圾清理** | Scan workspace directories for build artifacts (`node_modules`, `target`, `.venv`, `dist`, etc.), batch cleanup. 扫描工作区构建产物，支持批量清理。 |
+| **Env Detector / 环境检测** | Detect installed development tools (runtimes, package managers, etc.). 检测已安装的开发工具与运行环境。 |
+| **Token Calculator / Token 计算** | Pricing standards, model compare, cost calculator; live USD/CNY rate (Frankfurter API + cache). 计费标准、模型对比与成本计算；实时 USD/CNY 汇率（API + 缓存）。 |
+| **Dev Tools / 开发工具** | JSON format/minify, Base64, hash, UUID, timestamp helpers. JSON 格式化/压缩、Base64、哈希、UUID、时间戳工具。 |
+| **Diagnostics / 网络诊断** | Ping, DNS lookup, traceroute-style checks. Ping、DNS 查询等网络诊断。 |
+| **System Info / 系统信息** | Native hardware & OS details via Rust backend; browser fallback in web mode. Rust 后端原生系统详情，Web 模式可回退。 |
+
+### App-wide / 全局
+
+| Capability / 能力 | Description / 描述 |
+| :--- | :--- |
+| **Menu bar tray / 菜单栏托盘** | Show window, toggle prevent sleep (syncs with sleep inhibitor), quit. 显示窗口、切换防睡眠、退出。 |
+| **Auto Updater / 自动更新** | In-app version update with signature verification, progress tracking, and error recovery. 应用内更新，签名校验与进度跟踪。 |
+| **Theme Switcher / 主题切换** | Light/Dark/System theme with instant switching. 浅色/深色/跟随系统，即时切换。 |
 | **i18n / 国际化** | English & Simplified Chinese, instant switch without restart. 中英文双语，无需重启即时切换。 |
+
+> **Platform note / 平台说明**: System Settings, tray, and most macOS defaults toggles require **macOS**. Port Manager, App Manager, Dev Cleaner, and Env Detector work on desktop targets where implemented.
 
 ---
 
@@ -86,117 +111,52 @@ npm run test       # Frontend + Backend tests / 前后端测试
 bench/
 ├── src/                              # React Frontend / 前端
 │   ├── components/
-│   │   ├── common/                   # Shared dialogs & gate / 共享对话框与门控
-│   │   │   ├── AboutDialog.tsx       # About dialog / 关于窗口
-│   │   │   ├── UpdateDialog.tsx      # Update notification / 更新通知
-│   │   │   ├── SettingsDialog.tsx    # Settings panel / 设置面板
-│   │   │   ├── DesktopOnly.tsx       # Desktop-only guard / 桌面端守卫
-│   │   │   └── RuntimeFeatureGate.tsx# Feature toggle gate / 功能开关守卫
-│   │   ├── content/                  # Content views / 内容视图
-│   │   │   ├── ContentView.tsx       # Multi-view layout / 多视图布局
-│   │   │   ├── ViewToggle.tsx        # Table/Grid toggle / 表格/网格切换
-│   │   │   ├── VirtualDataTable.tsx  # Virtualized table / 虚拟化表格
-│   │   │   └── VirtualGridView.tsx   # Virtualized grid / 虚拟化网格
-│   │   ├── layout/                   # Shell & navigation / 壳层与导航
-│   │   │   ├── Sidebar.tsx           # Navigation sidebar / 侧边栏
-│   │   │   ├── CustomTitlebar.tsx    # Custom window titlebar / 自定义标题栏
-│   │   │   ├── ThreeColumnLayout.tsx # 3-column master-detail / 三栏布局
-│   │   │   ├── DetailPanel.tsx       # Detail panel / 详情面板
-│   │   │   ├── FilterPanel.tsx       # Filter sidebar / 筛选侧栏
-│   │   │   ├── ThemeSwitcher.tsx     # Theme toggle / 主题切换
-│   │   │   └── LanguageSwitcher.tsx  # Language toggle / 语言切换
+│   │   ├── common/                   # Shared dialogs & gates / 共享对话框与门控
+│   │   │   ├── DestructiveConfirmDialog.tsx  # Dangerous action confirm / 危险操作确认
+│   │   │   ├── AboutDialog.tsx, UpdateDialog.tsx, SettingsDialog.tsx, ...
+│   │   │   └── RuntimeFeatureGate.tsx, DesktopOnly.tsx
+│   │   ├── content/                  # Virtual table/grid views / 虚拟化视图
+│   │   ├── layout/                   # Sidebar, titlebar, theme/lang switchers / 壳层与导航
 │   │   └── ui/                       # shadcn/ui primitives / 基础 UI 组件
-│   ├── data/                         # Hardware data sets / 硬件数据集
-│   │   └── cpu.ts, gpu.ts, memory.ts, ssd.ts, phone.ts, ... (14 files)
-│   ├── features/                     # Feature modules / 功能模块
-│   │   ├── port-manager/             # Port kill / 端口管理
-│   │   │   ├── components/, hooks/, services/
-│   │   │   ├── feature.tsx, page.tsx, store.ts, ports.ts
-│   │   ├── app-manager/              # App management / 应用管理
-│   │   │   ├── components/, hooks/, model/, services/
-│   │   │   ├── feature.tsx, page.tsx, store.ts
-│   │   ├── system-info/              # System info / 系统信息
-│   │   │   ├── hooks/, services/
-│   │   │   ├── feature.tsx, page.tsx, store.ts
-│   │   ├── dev-cleaner/              # Dev cleanup / 构建清理
-│   │   │   ├── components/, hooks/, lib/, services/
-│   │   │   ├── feature.tsx, page.tsx, store.ts
-│   │   ├── env-detector/             # Environment detection / 环境检测
-│   │   │   ├── hooks/, services/
-│   │   │   ├── feature.tsx, page.tsx, store.ts
+│   ├── data/                         # Hardware datasets / 硬件数据集
+│   ├── features/                     # Feature modules (feature.tsx → page.tsx) / 功能模块
+│   │   ├── quick-launch/             # App launcher / 快速启动
+│   │   ├── app-manager/              # Installed apps / 应用管理
 │   │   ├── hardware/                 # Hardware compare / 硬件对比
-│   │   │   ├── HardwareCompare.tsx
-│   │   │   ├── feature.tsx, page.tsx, store.ts
-│   │   ├── updater/                  # App updater / 应用更新
-│   │   │   ├── hooks/
-│   │   │   ├── error-classifier.ts, store.ts
-│   │   ├── refresh.ts                # Shared refresh logic / 共享刷新逻辑
-│   │   ├── registry.tsx              # Feature registry / 功能注册表
-│   │   └── types.ts                  # Shared feature types / 共享功能类型
-│   ├── lib/                          # Shared libraries / 公共库
-│   │   ├── tauri/                    # Tauri IPC bindings / IPC 绑定
-│   │   │   ├── commands/             # Per-domain commands / 按域拆分
-│   │   │   │   └── app-manager.ts, dev-cleaner.ts, env-detector.ts,
-│   │   │   │       port-manager.ts, system-info.ts, updater.ts
-│   │   │   ├── types/                # Per-domain types / 按域拆分类型
-│   │   │   ├── commands.ts, contracts.ts, invoke.ts, types.ts
-│   │   ├── utils.ts                  # Common utilities / 通用工具
-│   │   └── i18nBrand.ts              # Brand name i18n / 品牌名国际化
-│   ├── platform/                     # Platform abstractions / 平台抽象
-│   │   ├── browser-info.ts           # Browser fallback info / 浏览器回退信息
-│   │   ├── capabilities.ts           # Feature detection / 能力检测
-│   │   ├── clipboard.ts              # Clipboard API / 剪贴板
-│   │   ├── config.ts                 # Platform config / 平台配置
-│   │   ├── dialog.ts                 # Native dialogs / 原生对话框
-│   │   ├── events.ts                 # System events / 系统事件
-│   │   ├── runtime.ts                # Runtime detection / 运行时检测
-│   │   ├── shell.ts                  # Shell commands / 终端命令
-│   │   └── storage.ts                # Local storage / 本地存储
-│   ├── shared/                       # Shared components / 共享组件
-│   │   ├── compare/                  # Compare UI / 对比界面
-│   │   │   └── CompareMatrixTable, CompareTabs, FilterBar, ModelPicker, ...
-│   │   └── context-menu/             # Right-click menus / 右键菜单
-│   │       └── ContextMenuManager, GlobalContextMenu, ...
-│   ├── i18n/                         # Internationalization / 国际化
-│   │   └── locales/{en,zh}.json     # Language packs / 语言包
-│   ├── hooks/                        # Shared hooks / 共享 hooks
-│   │   └── useMenuEvents.ts          # Menu event handler / 菜单事件
-│   ├── App.tsx                       # Root component with routing / 根组件
-│   ├── main.tsx                      # Entry point / 入口
-│   └── splash.ts                     # Splash screen logic / 启动屏逻辑
+│   │   ├── terminology/              # Term glossary / 术语库
+│   │   ├── account-manager/          # Account sessions & auth proxy / 账号管理
+│   │   ├── dev-toolbox/              # Tab hub (ports, cleaner, env, token, …) / 开发工具箱
+│   │   ├── port-manager/             # Port kill (also routed standalone) / 端口管理
+│   │   ├── dev-cleaner/              # Build artifact cleanup / 构建清理
+│   │   ├── env-detector/             # Dev environment scan / 环境检测
+│   │   ├── token-calculator/         # Token pricing & FX rate / Token 计算
+│   │   ├── system-settings/          # macOS system controls / 系统设置
+│   │   ├── updater/                  # In-app update client / 应用更新
+│   │   ├── registry.tsx              # Feature registry & sidebar nav / 功能注册表
+│   │   └── types.ts
+│   ├── lib/tauri/                    # IPC commands, contracts, types / IPC 绑定
+│   ├── platform/                     # Browser vs desktop abstractions / 平台抽象
+│   ├── shared/                       # Compare matrix, context menus / 共享 UI
+│   ├── i18n/locales/{en,zh}.json
+│   ├── App.tsx, main.tsx, splash.ts
 ├── src-tauri/                        # Rust Backend / 后端
 │   └── src/
-│       ├── app_manager/              # Platform-specific app mgmt / 平台应用管理
-│       │   ├── macos.rs, windows.rs, linux.rs
-│       │   ├── commands.rs, domain.rs, operations.rs, state.rs, types.rs, utils.rs
-│       ├── app_updater/              # App update commands / 应用更新
-│       │   ├── commands.rs, mod.rs, types.rs
-│       ├── dev_cleaner/              # Dev artifact cleaner / 构建产物清理
-│       │   ├── cleanup.rs, core.rs, projects.rs, rules.rs, scanner.rs, sizing.rs, types.rs
-│       ├── env_detector/             # Environment detection / 环境检测
-│       │   ├── classification.rs, command_files.rs, core.rs, inventory.rs,
-│       │   │   node_bins.rs, paths.rs, types.rs, version.rs
-│       ├── port_manager/             # Port & system info / 端口与系统信息
-│       │   ├── core.rs, fingerprints.rs, processes.rs, system_info.rs, types.rs
-│       ├── bin/                      # Binary utilities / 二进制工具
-│       │   └── verify_updater_manifest.rs
-│       ├── commands.rs               # Command stubs / 命令桩
-│       ├── lib.rs                    # Command registration / 命令注册
-│       ├── main.rs                   # App entry / 应用入口
-│       └── menu.rs                   # System menu / 系统菜单
-├── scripts/                          # Repo scripts / 仓库脚本
-│   ├── bootstrap/                    # Local bootstrap / 本地引导
-│   │   ├── setup.mjs
-│   │   └── install-hooks.mjs
-│   ├── quality/                      # Quality gates / 质量门禁
-│   │   ├── pre-commit-check.mjs
-│   │   ├── commit-msg-check.mjs
-│   │   ├── check-rust-crates.mjs
-│   │   └── check-i18n-guards.mjs
-│   └── release/                      # Release helpers / 发布辅助
-│       ├── generate-updater-json.mjs
-│       └── write-updater-manifest.mjs
-├── .github/workflows/ci-build.yml    # CI/CD pipeline
+│       ├── account_manager/          # Sessions, webview, auth proxy / 账号管理
+│       ├── app_manager/              # macOS / Windows / Linux app ops / 应用管理
+│       ├── app_updater/              # Signed updater / 应用更新
+│       ├── dev_cleaner/              # Project scan & cleanup / 构建清理
+│       ├── env_detector/             # Tool inventory / 环境检测
+│       ├── port_manager/             # Port scan & kill / 端口管理
+│       ├── system_settings/          # macOS defaults & shell ops / 系统设置
+│       ├── sleep_inhibitor/          # caffeinate / prevent sleep / 防睡眠
+│       ├── terminology/              # Term storage & CRUD / 术语库
+│       ├── token_calculator/         # Pricing standards / Token 计费标准
+│       ├── tray.rs                   # Menu bar tray / 菜单栏托盘
+│       ├── file_ops.rs, error.rs, bootstrap.rs, menu.rs, window_theme.rs
+│       ├── commands.rs, lib.rs, main.rs
+├── docs/                             # Design specs & optimization plan / 设计文档
+├── scripts/                          # Bootstrap, quality gates, release / 脚本
+├── .github/workflows/ci-build.yml
 └── package.json
 ```
 
