@@ -7,8 +7,8 @@ import { Download, Import, Inbox, Link2, Pencil, Plus, RefreshCw, Trash2 } from 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import type { RelayStation } from "@/features/account-manager/api";
-import { SortableList, useSortableCard, DragHandle } from "@/features/account-manager/components/sortable-card";
+import { SortableList, useSortableCard, DragHandle } from "@/components/ui/sortable-card";
+import type { RelayStation } from "@/lib/tauri/types/account-manager";
 import { ColumnHeader, EmptyHint } from "@/features/account-manager/components/shared";
 
 export function StationColumn({

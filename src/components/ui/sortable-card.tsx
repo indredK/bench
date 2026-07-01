@@ -23,7 +23,6 @@ import { cn } from "@/lib/utils";
 
 const HANDLE_ATTR = "data-reorder-handle";
 
-// Inline modifier — pin horizontal axis so cards only slide vertically.
 const restrictToVerticalAxis: Modifier = ({ transform }) => ({
   ...transform,
   x: 0,
@@ -135,7 +134,6 @@ export function DragHandle({
         className
       )}
       onClick={(event) => {
-        // Prevent the parent card's onClick from firing when interacting with the handle.
         event.stopPropagation();
       }}
     >

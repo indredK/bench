@@ -23,8 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import * as api from "@/features/account-manager/api";
-import type { ProbeStrategy, RelayStation, StationAccount } from "@/features/account-manager/api";
+import type { ProbeStrategy, RelayStation, StationAccount } from "@/lib/tauri/types/account-manager";
 import type { SessionSettings } from "@/features/account-manager/model/types";
 import { CopyIconButton, Field, IconButton } from "@/features/account-manager/components/shared";
 
@@ -292,6 +291,7 @@ export function EditAccountDialog({
   stationName,
   onOpenChange,
   onSubmit,
+  onRevealPassword,
 }: {
   open: boolean;
   account: StationAccount | null;
@@ -303,6 +303,7 @@ export function EditAccountDialog({
     password: string | null,
     proxyEnabled: boolean
   ) => void | Promise<void | boolean>;
+  onRevealPassword: (accountId: string) => Promise<string>;
 }) {
   const { t } = useTranslation();
   const [username, setUsername] = useState("");
@@ -326,9 +327,8 @@ export function EditAccountDialog({
       setProxyEnabled(account.proxyEnabled ?? false);
       if (account.hasPassword) {
         setPasswordLoading(true);
-        void api
-          .revealPassword(account.id)
-          .then((pw) => {
+        void onRevealPassword(account.id)
+          .then((pw: string) => {
             if (!cancelled) setPassword(pw);
           })
           .catch(() => {
@@ -344,7 +344,7 @@ export function EditAccountDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, account, t]);
+  }, [open, account, onRevealPassword, t]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

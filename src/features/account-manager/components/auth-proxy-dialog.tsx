@@ -22,7 +22,7 @@ import type {
   AuthProxyMatch,
   AuthProxyRequest,
   StationAccount,
-} from "@/features/account-manager/api";
+} from "@/lib/tauri/types/account-manager";
 import { NEW_ACCOUNT } from "@/features/account-manager/hooks/useAuthProxy";
 import type { AuthProxyConfirmInput } from "@/features/account-manager/hooks/useAuthProxy";
 

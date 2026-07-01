@@ -6,8 +6,8 @@ import { useTranslation } from "react-i18next";
 import { Inbox, Link2, LogIn, Pencil, Plus, RefreshCw, Trash2, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { RelayStation, StationAccount } from "@/features/account-manager/api";
-import { SortableList, useSortableCard, DragHandle } from "@/features/account-manager/components/sortable-card";
+import type { RelayStation, StationAccount } from "@/lib/tauri/types/account-manager";
+import { SortableList, useSortableCard, DragHandle } from "@/components/ui/sortable-card";
 import { ColumnHeader, EmptyHint, StatusBadge } from "@/features/account-manager/components/shared";
 
 export function AccountColumn({

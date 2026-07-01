@@ -13,7 +13,7 @@ import type {
   ProbeStrategy,
   RelayStation,
   StationAccount,
-} from "@/features/account-manager/api";
+} from "@/lib/tauri/types/account-manager";
 import type { DetailRow } from "@/features/account-manager/model/types";
 import {
   ColumnHeader,

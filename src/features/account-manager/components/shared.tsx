@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 import { Check, Copy } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import type { AccountSessionStatus } from "@/features/account-manager/api";
+import type { AccountSessionStatus } from "@/lib/tauri/types/account-manager";
 
 export function ColumnHeader({ title, action }: { title: string; action: ReactNode }) {
   return (

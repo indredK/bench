@@ -1,5 +1,5 @@
 /**
- * account-manager IPC bindings / 中转站账号通信桥: thin invoke wrappers; 只封装命令调用.
+ * IPC Commands / 通信命令: account-manager data bridge.
  */
 import { invokeTauriCommand } from "@/lib/tauri/invoke";
 import { TAURI_COMMANDS } from "@/lib/tauri/contracts";

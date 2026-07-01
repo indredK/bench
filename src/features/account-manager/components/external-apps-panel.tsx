@@ -21,7 +21,7 @@ import type {
   ExternalApp,
   ExternalAppBinding,
   StationAccount,
-} from "@/features/account-manager/api";
+} from "@/lib/tauri/types/account-manager";
 
 interface AppsByApp {
   app: ExternalApp;

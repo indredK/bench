@@ -135,6 +135,7 @@ function AccountManagerPage() {
           if (!open) c.setEditingAccount(null);
         }}
         onSubmit={c.handleEditAccount}
+        onRevealPassword={c.handleRevealPassword}
       />
 
       <QuickLoginDialog

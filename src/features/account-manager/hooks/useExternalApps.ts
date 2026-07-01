@@ -1,11 +1,11 @@
 /**
- * External apps panel / 外部应用面板: load + revoke orchestration (no API in components).
+ * External apps / 外部应用: load + revoke via use-cases.
  */
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import * as api from "@/features/account-manager/api";
-import type { ExternalApp, ExternalAppBinding } from "@/features/account-manager/api";
+import { accountManagerUseCases } from "@/features/account-manager/services/account-manager.use-cases";
+import type { ExternalApp, ExternalAppBinding } from "@/lib/tauri/types/account-manager";
 import { useGuardedAsync } from "@/hooks/useGuardedAsync";
 
 export function useExternalApps(accountId?: string | null, open = false) {
@@ -19,11 +19,7 @@ export function useExternalApps(accountId?: string | null, open = false) {
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      const filterAccountId = accountId ?? null;
-      const [appsList, bindingsList] = await Promise.all([
-        api.listExternalApps(null, filterAccountId),
-        api.listExternalAppBindings(filterAccountId),
-      ]);
+      const [appsList, bindingsList] = await accountManagerUseCases.listExternalApps(accountId);
       setApps(appsList);
       setBindings(bindingsList);
     } catch (error) {
@@ -45,7 +41,7 @@ export function useExternalApps(accountId?: string | null, open = false) {
       runRevoke(async () => {
         setRevokingAppId(appId);
         try {
-          await api.removeExternalApp(appId);
+          await accountManagerUseCases.revokeExternalApp(appId);
           await reload();
           toast.success(t("accountManager.toasts.revokeExternalAppSuccess"));
         } catch (error) {
