@@ -268,6 +268,7 @@ product-iteration-reference.md → 参考：方法论与未来方向菜单（本
 |------|------|
 | [README.md](./README.md) | 文档总索引 |
 | [coding-standards.md](./coding-standards.md) | 编码与文档目录规范 |
+| [development-workflow.md](./development-workflow.md) | **日常开发流程** |
 | [roadmap/release-themes.md](./roadmap/release-themes.md) | **当前**发布主题与验收 |
 | [modules/README.md](./modules/README.md) | 模块文档一览 |
 | [roadmap/product-roadmap-review-plan.md](./roadmap/product-roadmap-review-plan.md) | 路线图评审记录 |
