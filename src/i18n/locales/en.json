@@ -46,7 +46,12 @@
     },
     "dock": {
       "title": "Dock",
-      "position": "Dock Position"
+      "position": "Dock Position",
+      "positions": {
+        "left": "Left",
+        "bottom": "Bottom",
+        "right": "Right"
+      }
     },
     "keyboard": {
       "title": "Keyboard",
@@ -93,7 +98,11 @@
       "view": "View",
       "reset": "Reset",
       "resetPrompt": "Enter bundle ID to reset {{label}} permission for:",
-      "resetSuccess": "Reset {{label}} permission for {{bundleId}}"
+      "resetSuccess": "Reset {{label}} permission for {{bundleId}}",
+      "tccAllowed": "Allowed",
+      "tccDenied": "Denied",
+      "tccNone": "none",
+      "tccDetail": "{{label}}:\n{{allowedLabel}}: {{allowed}}\n{{deniedLabel}}: {{denied}}"
     },
     "login": {
       "title": "Login Items",
@@ -131,6 +140,7 @@
       "lockPasswordDesc": "Require password immediately when waking from sleep",
       "lockPasswordDelay": "Password Delay",
       "delayImmediate": "Immediate",
+      "delaySeconds": "{{seconds}}s",
       "emptyPasteboard": "Clear Clipboard",
       "ejectDiscs": "Eject Discs",
       "warning": "The following operations are irreversible. Use with caution.",
@@ -207,7 +217,17 @@
       "wifi": "WiFi"
     },
     "browser": {
-      "title": "Default Browser"
+      "title": "Default Browser",
+      "loadFailed": "Failed to read default browser setting",
+      "options": {
+        "safari": "Safari",
+        "chrome": "Google Chrome",
+        "edge": "Microsoft Edge",
+        "firefox": "Firefox",
+        "brave": "Brave",
+        "opera": "Opera",
+        "arc": "Arc"
+      }
     },
     "shortcuts": {
       "title": "System Settings Shortcuts",

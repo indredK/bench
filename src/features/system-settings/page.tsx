@@ -4,7 +4,7 @@
  * v2 — 重设计: 9 个 Tab → 3 个 Tab (外观/安全/系统)，
  * SettingsDialog 内容合并入此页，devtools/diagnostics/info 移入独立页面。
  */
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Loader2Icon, ExternalLink } from "lucide-react";
@@ -30,6 +30,16 @@ import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirm
 
 const TAB_IDS: SettingsTab[] = ["appearance", "security", "system"];
 
+const BROWSER_OPTIONS = [
+  { value: "com.apple.Safari", labelKey: "systemSettings.browser.options.safari" },
+  { value: "com.google.Chrome", labelKey: "systemSettings.browser.options.chrome" },
+  { value: "com.microsoft.edgemac", labelKey: "systemSettings.browser.options.edge" },
+  { value: "org.mozilla.firefox", labelKey: "systemSettings.browser.options.firefox" },
+  { value: "com.brave.Browser", labelKey: "systemSettings.browser.options.brave" },
+  { value: "com.operasoftware.Opera", labelKey: "systemSettings.browser.options.opera" },
+  { value: "company.thebrowser.Browser", labelKey: "systemSettings.browser.options.arc" },
+] as const;
+
 interface SystemSettingsProps { feature: AppFeature; }
 
 export default function SystemSettings(_props: SystemSettingsProps) {
@@ -50,7 +60,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
   const [defaultBrowser, setDefaultBrowser] = useState(store.defaultBrowser);
   const [browserLoading, setBrowserLoading] = useState(false);
 
-  const loadTabSettings = async (tab: SettingsTab) => {
+  const loadTabSettings = useCallback(async (tab: SettingsTab) => {
     const s = useSystemSettingsStore.getState();
     if (s.loadedTabs.has(tab)) return;
     setTabLoading(true);
@@ -59,8 +69,13 @@ export default function SystemSettings(_props: SystemSettingsProps) {
         case "appearance": break; // Self-loading sections
         case "security": break;   // Self-loading sections
         case "system": {
-          // Load browser
-          try { const b = await systemSettingsUseCases.getDefaultBrowser(); store.setDefaultBrowser(b); setDefaultBrowser(b); } catch {}
+          try {
+            const b = await systemSettingsUseCases.getDefaultBrowser();
+            store.setDefaultBrowser(b);
+            setDefaultBrowser(b);
+          } catch {
+            toast.error(t("systemSettings.browser.loadFailed"));
+          }
           const [items, agents, daemons] = await Promise.all([
             systemSettingsUseCases.getLoginItems(),
             systemSettingsUseCases.getLaunchAgents(),
@@ -79,13 +94,13 @@ export default function SystemSettings(_props: SystemSettingsProps) {
     } finally {
       setTabLoading(false);
     }
-  };
+  }, [store, t]);
 
   useEffect(() => {
     if (systemSettingsUseCases.isAvailable()) {
       void loadTabSettings(store.activeTab);
     }
-  }, [store.activeTab]);
+  }, [store.activeTab, loadTabSettings]);
 
   const handleTabChange = (tab: SettingsTab) => {
     store.setActiveTab(tab);
@@ -253,7 +268,13 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                       <Button variant="outline" size="sm" disabled={store.applyingKeys.size > 0} onClick={async () => {
                         const perms = await run(`privacy.view.${service}`, () => systemSettingsUseCases.getTccPermissions(service));
                         if (!perms) return;
-                        const msg = `${label}:\nAllowed: ${perms.allowed.join(", ") || "none"}\nDenied: ${perms.denied.join(", ") || "none"}`;
+                        const msg = t("systemSettings.privacy.tccDetail", {
+                          label,
+                          allowedLabel: t("systemSettings.privacy.tccAllowed"),
+                          deniedLabel: t("systemSettings.privacy.tccDenied"),
+                          allowed: perms.allowed.join(", ") || t("systemSettings.privacy.tccNone"),
+                          denied: perms.denied.join(", ") || t("systemSettings.privacy.tccNone"),
+                        });
                         toast.info(msg, { duration: 8000 });
                       }}>{t("systemSettings.privacy.view")}</Button>
                       <Button variant="destructive" size="sm" disabled={store.applyingKeys.size > 0} onClick={async () => {
@@ -389,13 +410,9 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                   }
                 }}
               >
-                <option value="com.apple.Safari">Safari</option>
-                <option value="com.google.Chrome">Google Chrome</option>
-                <option value="com.microsoft.edgemac">Microsoft Edge</option>
-                <option value="org.mozilla.firefox">Firefox</option>
-                <option value="com.brave.Browser">Brave</option>
-                <option value="com.operasoftware.Opera">Opera</option>
-                <option value="company.thebrowser.Browser">Arc</option>
+                {BROWSER_OPTIONS.map(({ value, labelKey }) => (
+                  <option key={value} value={value}>{t(labelKey)}</option>
+                ))}
               </select>
             </SettingGroup>
 

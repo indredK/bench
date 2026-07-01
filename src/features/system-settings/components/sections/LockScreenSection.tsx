@@ -54,7 +54,7 @@ export function LockScreenSection() {
                   });
                 }}
               >
-                {s === 0 ? t("systemSettings.actions.delayImmediate") : `${s}s`}
+                {s === 0 ? t("systemSettings.actions.delayImmediate") : t("systemSettings.actions.delaySeconds", { seconds: s })}
               </Button>
             ))}
           </div>

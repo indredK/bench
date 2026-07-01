@@ -11,6 +11,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { FeatureLoadError } from "@/components/common/FeatureLoadError";
+import { useGuardedAsync } from "@/hooks/useGuardedAsync";
 
 import {
   listPricingStandards,
@@ -92,22 +93,25 @@ export default function TokenCalculatorPage() {
   const [exchangeRate, setExchangeRate] = useState(DEFAULT_EXCHANGE_RATE);
   const [rateInfo, setRateInfo] = useState<ExchangeRateInfo | null>(null);
   const [rateLoading, setRateLoading] = useState(false);
+  const { run: runRateRefresh } = useGuardedAsync();
 
   const refreshExchangeRate = useCallback(async (forceRefresh?: boolean) => {
-    setRateLoading(true);
-    try {
-      const info = await fetchUsdCnyExchangeRate({ forceRefresh });
-      setRateInfo(info);
-      setExchangeRate(info.rate);
-      if (forceRefresh && !info.stale) {
-        toast.success(t("tokenCalculator.exchangeRateUpdated"));
+    await runRateRefresh(async () => {
+      setRateLoading(true);
+      try {
+        const info = await fetchUsdCnyExchangeRate({ forceRefresh });
+        setRateInfo(info);
+        setExchangeRate(info.rate);
+        if (forceRefresh && !info.stale) {
+          toast.success(t("tokenCalculator.exchangeRateUpdated"));
+        }
+      } catch {
+        toast.error(t("tokenCalculator.exchangeRateFetchFailed"));
+      } finally {
+        setRateLoading(false);
       }
-    } catch {
-      toast.error(t("tokenCalculator.exchangeRateFetchFailed"));
-    } finally {
-      setRateLoading(false);
-    }
-  }, [t]);
+    });
+  }, [runRateRefresh, t]);
 
   useEffect(() => {
     void refreshExchangeRate();
@@ -294,32 +298,35 @@ function StandardsTab({
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
   const [newModels, setNewModels] = useState<ModelPricing[]>([{ ...EMPTY_MODEL }]);
+  const { pending: mutating, run: runMutation } = useGuardedAsync();
 
-  const handleCreate = async () => {
-    try {
-      await createPricingStandard(newName, newModels.filter((m) => m.modelName));
-      toast.success(t("tokenCalculator.toasts.created"));
-      setShowCreate(false);
-      setNewName("");
-      setNewModels([{ ...EMPTY_MODEL }]);
-      onRefresh();
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      toast.error(msg.includes("already exists") ? t("tokenCalculator.toasts.duplicateName") : t("tokenCalculator.toasts.createFailed"));
-    }
-  };
+  const handleCreate = () =>
+    runMutation(async () => {
+      try {
+        await createPricingStandard(newName, newModels.filter((m) => m.modelName));
+        toast.success(t("tokenCalculator.toasts.created"));
+        setShowCreate(false);
+        setNewName("");
+        setNewModels([{ ...EMPTY_MODEL }]);
+        onRefresh();
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        toast.error(msg.includes("already exists") ? t("tokenCalculator.toasts.duplicateName") : t("tokenCalculator.toasts.createFailed"));
+      }
+    });
 
-  const handleDelete = async () => {
-    if (!deleteTarget) return;
-    try {
-      await deletePricingStandard(deleteTarget.id);
-      toast.success(t("tokenCalculator.toasts.deleted"));
-      setDeleteTarget(null);
-      onRefresh();
-    } catch {
-      toast.error(t("tokenCalculator.toasts.deleteFailed"));
-    }
-  };
+  const handleDelete = () =>
+    runMutation(async () => {
+      if (!deleteTarget) return;
+      try {
+        await deletePricingStandard(deleteTarget.id);
+        toast.success(t("tokenCalculator.toasts.deleted"));
+        setDeleteTarget(null);
+        onRefresh();
+      } catch {
+        toast.error(t("tokenCalculator.toasts.deleteFailed"));
+      }
+    });
 
   const startEdit = (s: PricingStandard) => {
     setEditingId(s.id);
@@ -333,21 +340,22 @@ function StandardsTab({
     setEditModels([]);
   };
 
-  const handleUpdate = async () => {
-    if (!editingId) return;
-    try {
-      await updatePricingStandard(
-        editingId,
-        editName,
-        editModels.filter((m) => m.modelName)
-      );
-      toast.success(t("tokenCalculator.toasts.updated"));
-      cancelEdit();
-      onRefresh();
-    } catch {
-      toast.error(t("tokenCalculator.toasts.updateFailed"));
-    }
-  };
+  const handleUpdate = () =>
+    runMutation(async () => {
+      if (!editingId) return;
+      try {
+        await updatePricingStandard(
+          editingId,
+          editName,
+          editModels.filter((m) => m.modelName)
+        );
+        toast.success(t("tokenCalculator.toasts.updated"));
+        cancelEdit();
+        onRefresh();
+      } catch {
+        toast.error(t("tokenCalculator.toasts.updateFailed"));
+      }
+    });
 
   return (
     <div className="flex h-full flex-col">
@@ -401,7 +409,7 @@ function StandardsTab({
                 <Plus className="mr-1 h-3 w-3" /> {t("tokenCalculator.standards.addModel")}
               </Button>
               <div className="flex gap-2">
-                <Button size="sm" onClick={handleUpdate}>
+                <Button size="sm" onClick={handleUpdate} disabled={mutating}>
                   <Save className="mr-1 h-4 w-4" /> {t("tokenCalculator.standards.save")}
                 </Button>
                 <Button size="sm" variant="outline" onClick={cancelEdit}>
@@ -512,7 +520,7 @@ function StandardsTab({
               </Button>
               <Button
                 onClick={handleCreate}
-                disabled={!newName.trim() || newModels.every((m) => !m.modelName.trim())}
+                disabled={mutating || !newName.trim() || newModels.every((m) => !m.modelName.trim())}
               >
                 {t("tokenCalculator.standards.create")}
               </Button>
@@ -532,7 +540,7 @@ function StandardsTab({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t("tokenCalculator.standards.cancel")}</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
+            <AlertDialogAction onClick={handleDelete} disabled={mutating} className="bg-destructive text-destructive-foreground">
               {t("tokenCalculator.standards.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>

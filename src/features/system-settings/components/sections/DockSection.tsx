@@ -52,7 +52,7 @@ export function DockSection() {
                 });
               }}
             >
-              {pos.charAt(0).toUpperCase() + pos.slice(1)}
+              {t(`systemSettings.dock.positions.${pos}`)}
             </Button>
           ))}
         </div>

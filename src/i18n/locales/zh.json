@@ -46,7 +46,12 @@
     },
     "dock": {
       "title": "Dock",
-      "position": "Dock 位置"
+      "position": "Dock 位置",
+      "positions": {
+        "left": "左侧",
+        "bottom": "底部",
+        "right": "右侧"
+      }
     },
     "keyboard": {
       "title": "键盘",
@@ -93,7 +98,11 @@
       "view": "查看",
       "reset": "重置",
       "resetPrompt": "输入要重置 {{label}} 权限的 Bundle ID：",
-      "resetSuccess": "已重置 {{label}} 权限：{{bundleId}}"
+      "resetSuccess": "已重置 {{label}} 权限：{{bundleId}}",
+      "tccAllowed": "已允许",
+      "tccDenied": "已拒绝",
+      "tccNone": "无",
+      "tccDetail": "{{label}}：\n{{allowedLabel}}：{{allowed}}\n{{deniedLabel}}：{{denied}}"
     },
     "login": {
       "title": "登录项",
@@ -131,6 +140,7 @@
       "lockPasswordDesc": "从睡眠唤醒后立即要求输入密码",
       "lockPasswordDelay": "密码延迟",
       "delayImmediate": "立即",
+      "delaySeconds": "{{seconds}} 秒",
       "emptyPasteboard": "清空剪贴板",
       "ejectDiscs": "弹出磁盘",
       "warning": "以下操作不可逆，请谨慎使用",
@@ -207,7 +217,17 @@
       "wifi": "WiFi"
     },
     "browser": {
-      "title": "默认浏览器"
+      "title": "默认浏览器",
+      "loadFailed": "读取默认浏览器设置失败",
+      "options": {
+        "safari": "Safari",
+        "chrome": "Google Chrome",
+        "edge": "Microsoft Edge",
+        "firefox": "Firefox",
+        "brave": "Brave",
+        "opera": "Opera",
+        "arc": "Arc"
+      }
     },
     "shortcuts": {
       "title": "系统设置快捷入口",

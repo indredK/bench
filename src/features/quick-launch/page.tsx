@@ -47,6 +47,7 @@ import type { AppInfo } from "@/lib/tauri/types/app-manager";
 import type { LaunchSceneKey } from "@/features/quick-launch/types";
 import { AppIcon } from "@/features/app-manager/components/AppIcon";
 import { appManagerUseCases } from "@/features/app-manager/services/app-manager.use-cases";
+import { useGuardedAsyncSet } from "@/hooks/useGuardedAsync";
 
 /** 合并到「常用应用」Tab 下的场景 key */
 const MERGED_SCENE_KEYS: LaunchSceneKey[] = ["ai-ide", "ai-claw", "ai-assistant", "ai-office", "ai-model", "ai-tool", "dev", "system"];
@@ -345,6 +346,7 @@ function LayoutGridIcon() {
 
 export default function QuickLaunch({ active }: { active: boolean; feature: AppFeature }) {
   const { t } = useTranslation();
+  const { run: runLaunchAction } = useGuardedAsyncSet<string>();
   const appManagerApps = useAppManagerStore((s) => s.apps);
   const appManagerScanned = useAppManagerStore((s) => s.scanned);
   const appManagerLoading = useAppManagerStore((s) => s.loading);
@@ -491,17 +493,25 @@ export default function QuickLaunch({ active }: { active: boolean; feature: AppF
   }, [sceneOrder, sceneApps]);
 
   const handleLaunch = useCallback(async (app: AppInfo) => {
-    if (isEditMode) return; // 编辑模式不启动
-    try {
-      await launchApp(app.installPath);
-    } catch {
-      // Silently fail
-    }
-  }, [isEditMode]);
+    if (isEditMode) return;
+    await runLaunchAction(`launch:${app.appId}`, async () => {
+      try {
+        await launchApp(app.installPath);
+      } catch {
+        // Silently fail
+      }
+    });
+  }, [isEditMode, runLaunchAction]);
 
   const handleReveal = useCallback(async (app: AppInfo) => {
-    try { await revealAppInFinder(app.installPath); } catch { /* ignore */ }
-  }, []);
+    await runLaunchAction(`reveal:${app.appId}`, async () => {
+      try {
+        await revealAppInFinder(app.installPath);
+      } catch {
+        /* ignore */
+      }
+    });
+  }, [runLaunchAction]);
 
   // 编辑模式：右键打开上下文菜单
   const handleContextMenuEdit = useCallback((app: AppInfo, x: number, y: number) => {

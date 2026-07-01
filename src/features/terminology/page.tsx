@@ -45,10 +45,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { openExternal } from "@/platform/shell";
+import { writeClipboardText } from "@/platform/clipboard";
 import { FeatureLoadError } from "@/components/common/FeatureLoadError";
 
 function copyText(text: string) {
-  navigator.clipboard?.writeText(text).catch(() => {});
+  void writeClipboardText(text).catch(() => {});
 }
 
 function getTauriErrorCode(error: unknown): string | null {
