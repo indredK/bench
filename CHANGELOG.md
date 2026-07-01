@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.15.2](https://github.com/indredK/bench/compare/v1.15.1...v1.15.2) (2026-07-01)
+
+
+### Bug Fixes
+
+* **account-manager:** 修复store使用方式，遵循zustand编码规范 ([27aa88c](https://github.com/indredK/bench/commit/27aa88c27966fab2a82508c38c9240c92fb1f824))
+
 ## [1.15.1](https://github.com/indredK/bench/compare/v1.15.0...v1.15.1) (2026-07-01)
 
 
