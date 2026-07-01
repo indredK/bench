@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.15.1](https://github.com/indredK/bench/compare/v1.15.0...v1.15.1) (2026-07-01)
+
+
+### Bug Fixes
+
+* **quick-launch:** i18n 硬编码修复 — formatLastModified 改用 t() 翻译 ([df7dd5a](https://github.com/indredK/bench/commit/df7dd5a403d4b054b723eefe2ad1c0382b6a4481))
+* **system-settings:** 移除未使用的 SystemTogglesSection 组件 ([5dd1740](https://github.com/indredK/bench/commit/5dd17403edcc6f2d90e4597587d25ea39391722f))
+
 ## [1.15.0](https://github.com/indredK/bench/compare/v1.14.1...v1.15.0) (2026-07-01)
 
 
