@@ -40,14 +40,20 @@
 - **强制**: Tauri 调用、存储访问放 `*repository.ts` 或 `lib/tauri/commands/*`。
 - **强制**: 组件层消费 controller 或 use case，不直接堆叠平台调用。
 
-### 3.2 异步安全
+### 3.2 Zustand Controller
+
+- **强制**: Controller 中异步编排（初始加载、提交、轮询等）通过 `useXxxStore.getState()` 读写 store，**不得**把无 selector 的 `useXxxStore()` 返回值放进 `useCallback` / `useMemo` / `useEffect` 依赖。整 store 订阅在每次 state 更新时都会产生新引用，易导致 effect 无限重跑（例如首屏一直「加载中」）。
+- **强制**: UI 需要的 store 字段用 selector 订阅，或 `useShallow` 取多字段；参考 `useAppManagerController.ts` + `useAppManagerViewState.ts`。
+- **建议**: Controller 内避免 `const store = useXxxStore()` 无 selector 订阅整 store；仅 actions 可用 `useXxxStore((s) => s.setFoo)` 等形式按需订阅。
+
+### 3.3 异步安全
 
 - **强制**: 可重复点击/提交/启动的异步动作必须做重入保护。
 - **强制**: `useEffect` 中注册的事件、定时器、订阅必须有清理逻辑。
 - **强制**: Rust 阻塞 I/O 通过 `spawn_blocking` 执行，不得卡在 async 命令主路径。
 - **强制**: 可变后端操作必须明确并发策略：是否可重入、是否需要锁、是否支持取消。
 
-### 3.3 平台边界
+### 3.4 平台边界
 
 - **强制**: 平台判断走 `canUseDesktopFeatures()` / `canUseTauriCommands()`，不散落在 JSX 和业务代码里。
 - **强制**: 浏览器降级、桌面能力缺失、IPC 不可用在边界层处理，不留给页面兜底。
@@ -145,4 +151,4 @@
 
 ## 12. 评审聚焦
 
-代码评审优先检查：i18n 漏洞和硬编码文案、状态与异步副作用错位、IPC 契约漂移、重复提交和并发执行问题、大列表渲染退化、平台判断散落、模块顶层冻结 i18n 文案、启动失败只写日志不暴露 UI、**文档路径与 `roadmap.md` 是否与改动同步**。
+代码评审优先检查：i18n 漏洞和硬编码文案、状态与异步副作用错位（含 Zustand 整 store 进 hook 依赖）、IPC 契约漂移、重复提交和并发执行问题、大列表渲染退化、平台判断散落、模块顶层冻结 i18n 文案、启动失败只写日志不暴露 UI、**文档路径与 `roadmap.md` 是否与改动同步**。

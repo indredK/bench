@@ -44,21 +44,22 @@ export function useAccountManagerController() {
   const { readQuickLoginHistory, pushQuickLoginHistory } = useQuickLoginHistory();
 
   const loadInitialData = useCallback(async () => {
-    store.setLoading(true);
-    store.setLoadError(null);
+    const s = useAccountManagerStore.getState();
+    s.setLoading(true);
+    s.setLoadError(null);
     try {
       const [stations, accounts] = await accountManagerUseCases.loadInitialData();
-      store.setStations(stations);
-      store.setAccounts(accounts);
-      store.applyInitialSelection(stations, accounts);
+      s.setStations(stations);
+      s.setAccounts(accounts);
+      s.applyInitialSelection(stations, accounts);
     } catch (error) {
       const info = classifyAccountManagerError(error, t("accountManager.toasts.initFailed"));
-      store.setLoadError(info.message);
+      useAccountManagerStore.getState().setLoadError(info.message);
       throw error;
     } finally {
-      store.setLoading(false);
+      useAccountManagerStore.getState().setLoading(false);
     }
-  }, [store, t]);
+  }, [t]);
 
   useEffect(() => {
     void loadInitialData().catch(() => undefined);
