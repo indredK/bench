@@ -1927,6 +1927,18 @@
       "loadFailed": "加载计费标准失败"
     }
   },
+  "errors": {
+    "UNKNOWN": "",
+    "INTERNAL": "发生了未预期的错误。",
+    "INVALID_INPUT": "输入不合法。",
+    "NOT_FOUND": "未找到目标项。",
+    "UNSUPPORTED": "当前平台不支持此操作。",
+    "IO_ERROR": "文件系统操作出错。",
+    "FORBIDDEN_PATH": "该路径超出了允许的目录范围。",
+    "PATH_NOT_ABSOLUTE": "路径必须是绝对路径。",
+    "PATH_TRAVERSAL": "路径不能包含 '..'。",
+    "TASK_FAILED": "后台任务执行失败。"
+  },
   "common": {
     "yes": "有",
     "no": "无",

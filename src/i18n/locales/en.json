@@ -1927,6 +1927,18 @@
       "loadFailed": "Failed to load pricing standards"
     }
   },
+  "errors": {
+    "UNKNOWN": "",
+    "INTERNAL": "An unexpected error occurred.",
+    "INVALID_INPUT": "The input is invalid.",
+    "NOT_FOUND": "The requested item was not found.",
+    "UNSUPPORTED": "This operation is not supported on the current platform.",
+    "IO_ERROR": "A file system error occurred.",
+    "FORBIDDEN_PATH": "This path is outside the allowed directories.",
+    "PATH_NOT_ABSOLUTE": "The path must be absolute.",
+    "PATH_TRAVERSAL": "The path must not contain '..'.",
+    "TASK_FAILED": "A background task failed to complete."
+  },
   "common": {
     "yes": "Yes",
     "no": "No",

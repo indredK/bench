@@ -40,6 +40,7 @@ import { useQuickLaunchStore } from "@/features/quick-launch/store";
 import { LAUNCH_SCENES, autoClassifyApps, applyOverrides, exportFullClassification } from "@/features/quick-launch/scenes";
 import { launchApp, revealAppInFinder } from "@/lib/tauri/commands/app-manager";
 import { writeTextFile } from "@/lib/tauri/commands/file-ops";
+import { getErrorMessage } from "@/lib/tauri/errors";
 import { savePlatformDialog } from "@/platform/dialog";
 import type { AppFeature } from "@/features/types";
 import type { AppInfo } from "@/lib/tauri/types/app-manager";
@@ -542,7 +543,7 @@ export default function QuickLaunch({ active }: { active: boolean; feature: AppF
       await writeTextFile(selectedPath, JSON.stringify(data, null, 2));
       toast.success(t("quickLaunch.toasts.exportSuccess", { count: data.length }));
     } catch (error) {
-      toast.error(t("quickLaunch.toasts.exportFailed", { defaultValue: error instanceof Error ? error.message : String(error) }));
+      toast.error(t("quickLaunch.toasts.exportFailed", { defaultValue: getErrorMessage(error) }));
     } finally {
       setExporting(false);
     }

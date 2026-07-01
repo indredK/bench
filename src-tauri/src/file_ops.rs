@@ -15,6 +15,8 @@ use std::io;
 use std::path::{Component, Path, PathBuf};
 use tauri::{AppHandle, Manager};
 
+use crate::error::{AppError, AppResult};
+
 /// 词法归一化：在不触碰文件系统的前提下解析 `.` 与 `..`。
 fn normalize_lexical(path: &Path) -> PathBuf {
     let mut out = PathBuf::new();
@@ -84,13 +86,19 @@ fn allowed_roots(app: &AppHandle) -> Vec<PathBuf> {
 
 /// 校验 `path`：必须为绝对路径、不含 `..`，且位于某个 allowlist 根目录内。
 /// 返回归一化后的安全绝对路径。
-fn guard_path(app: &AppHandle, path: &str) -> Result<PathBuf, String> {
+fn guard_path(app: &AppHandle, path: &str) -> AppResult<PathBuf> {
     let raw = PathBuf::from(path);
     if !raw.is_absolute() {
-        return Err(format!("path must be absolute: {path}"));
+        return Err(AppError::new(
+            "PATH_NOT_ABSOLUTE",
+            format!("path must be absolute: {path}"),
+        ));
     }
     if raw.components().any(|c| matches!(c, Component::ParentDir)) {
-        return Err(format!("path must not contain '..': {path}"));
+        return Err(AppError::new(
+            "PATH_TRAVERSAL",
+            format!("path must not contain '..': {path}"),
+        ));
     }
 
     let normalized = normalize_lexical(&raw);
@@ -100,35 +108,37 @@ fn guard_path(app: &AppHandle, path: &str) -> Result<PathBuf, String> {
         .iter()
         .any(|root| resolved.starts_with(root) || normalized.starts_with(root));
     if !within {
-        return Err(format!("path is outside the allowed directories: {path}"));
+        return Err(AppError::forbidden_path(format!(
+            "path is outside the allowed directories: {path}"
+        )));
     }
     Ok(normalized)
 }
 
 /// 将文本内容写入指定路径。用于前端导出 JSON 等文件。
 #[tauri::command]
-pub fn write_text_file(app: AppHandle, path: String, content: String) -> Result<(), String> {
+pub fn write_text_file(app: AppHandle, path: String, content: String) -> AppResult<()> {
     let safe = guard_path(&app, &path)?;
-    fs::write(&safe, &content).map_err(|e| format!("write {path}: {e}"))
+    fs::write(&safe, &content).map_err(|e| AppError::io(format!("write {path}: {e}")))
 }
 
 /// 从指定路径读取文本内容。
 #[tauri::command]
-pub fn read_text_file(app: AppHandle, path: String) -> Result<String, String> {
+pub fn read_text_file(app: AppHandle, path: String) -> AppResult<String> {
     let safe = guard_path(&app, &path)?;
-    fs::read_to_string(&safe).map_err(|e| format!("read {path}: {e}"))
+    fs::read_to_string(&safe).map_err(|e| AppError::io(format!("read {path}: {e}")))
 }
 
 /// 确保目录存在（递归创建）。
 #[tauri::command]
-pub fn ensure_dir(app: AppHandle, path: String) -> Result<(), String> {
+pub fn ensure_dir(app: AppHandle, path: String) -> AppResult<()> {
     let safe = guard_path(&app, &path)?;
-    fs::create_dir_all(&safe).map_err(|e| format!("create_dir {path}: {e}"))
+    fs::create_dir_all(&safe).map_err(|e| AppError::io(format!("create_dir {path}: {e}")))
 }
 
 /// 判断文件是否存在。
 #[tauri::command]
-pub fn file_exists(app: AppHandle, path: String) -> Result<bool, String> {
+pub fn file_exists(app: AppHandle, path: String) -> AppResult<bool> {
     let safe = guard_path(&app, &path)?;
     Ok(fs::metadata(&safe).is_ok())
 }

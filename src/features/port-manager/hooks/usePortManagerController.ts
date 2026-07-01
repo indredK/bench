@@ -14,6 +14,7 @@ import {
 } from "@/features/port-manager/store";
 import { canUseDesktopFeatures } from "@/platform/capabilities";
 import { localizeError } from "@/lib/errors";
+import { getErrorMessage } from "@/lib/tauri/errors";
 
 export const commonPorts = [3000, 5173, 1420, 8080, 5000, 4200, 8000, 4321, 6006, 1234, 9000];
 
@@ -180,7 +181,7 @@ export function usePortManagerController() {
         usePortManagerStore.setState({
           error: {
             key: "portManager.errors.killOneFailed",
-            fallback: typeof error === "string" ? error : undefined,
+            fallback: getErrorMessage(error) || undefined,
           },
         });
       } finally {
@@ -207,7 +208,7 @@ export function usePortManagerController() {
       usePortManagerStore.setState({
         error: {
           key: "portManager.errors.killAllFailed",
-          fallback: typeof error === "string" ? error : undefined,
+          fallback: getErrorMessage(error) || undefined,
         },
       });
     } finally {
