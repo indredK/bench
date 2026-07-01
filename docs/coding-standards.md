@@ -111,6 +111,37 @@
 - **强制**: Conventional Commits 格式，commit-msg hook 校验类型/scope/消息格式。
 - **强制**: commit body 单行不超过 500 字符。
 
-## 11. 评审聚焦
+## 11. 文档
 
-代码评审优先检查：i18n 漏洞和硬编码文案、状态与异步副作用错位、IPC 契约漂移、重复提交和并发执行问题、大列表渲染退化、平台判断散落、模块顶层冻结 i18n 文案、启动失败只写日志不暴露 UI。
+> 索引：[docs/README.md](./README.md) · 模块一览：[docs/modules/README.md](./modules/README.md) · 发布节奏：[docs/roadmap/release-themes.md](./roadmap/release-themes.md)
+
+### 11.1 目录原则
+
+- **强制**: 文档**按模块收纳**，与 `src/features/<id>/` 对齐；禁止同一模块的 roadmap / bugs / 设计稿分散在 `docs/roadmap/`、`docs/bugs/` 等多处目录。
+- **强制**: 横切内容仅保留在 `docs/` 根或 `docs/roadmap/`：`coding-standards.md`（本文件）、`release-themes.md`（全局版本主题）。
+- **禁止**: 在旧路径留空壳跳转 stub；移动文档后须更新所有引用链接，指向新路径。
+
+### 11.2 模块目录约定
+
+路径：`docs/modules/<id>/`
+
+| 文件 | 级别 | 说明 |
+|------|------|------|
+| `README.md` | 强制 | 模块文档索引，链到本目录内其余文件 |
+| `roadmap.md` | 强制 | 迭代规划与 checkbox backlog |
+| `bugs.md` | 建议 | 已知问题；无 open bug 时可只保留关闭记录或省略 |
+| 设计稿 `*.md` | 按需 | PRD、技术方案、候选功能库等 |
+
+- **强制**: 新增 feature 时同步创建 `docs/modules/<id>/`，至少含 `README.md` + `roadmap.md`。
+- **建议**: 设计稿较多时在模块内平铺即可；单模块设计文件超过 ~5 份时再拆 `design/` 子目录。
+- **建议**: 模块专属候选库（如 System Settings 开关库）放在该模块目录内，选品后写入同目录 `roadmap.md`，并在 `release-themes.md` 打勾。
+
+### 11.3 维护
+
+- **强制**: 功能合入后，对应模块 `roadmap.md` 的 checkbox 与「已交付」说明须与代码一致。
+- **建议**: 跨模块版本主题（v1.16 Polish 等）只在 `release-themes.md` 维护；模块细节留在各 `roadmap.md`。
+- **建议**: 危险操作、i18n、IPC 等实现约定以本文件为准；模块设计规范写模块内设计稿，不重复拷贝编码规则。
+
+## 12. 评审聚焦
+
+代码评审优先检查：i18n 漏洞和硬编码文案、状态与异步副作用错位、IPC 契约漂移、重复提交和并发执行问题、大列表渲染退化、平台判断散落、模块顶层冻结 i18n 文案、启动失败只写日志不暴露 UI、**文档路径与 `roadmap.md` 是否与改动同步**。

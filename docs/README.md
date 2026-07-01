@@ -4,7 +4,7 @@
 |------|------|
 | **[roadmap/release-themes.md](./roadmap/release-themes.md)** | 全局发布主题与版本节奏（唯一横切规划） |
 | **[modules/](./modules/README.md)** | 按模块收纳：设计、迭代、Bug |
-| **[coding-standards.md](./coding-standards.md)** | 全仓库编码规范 |
+| **[coding-standards.md](./coding-standards.md)** | 全仓库编码与文档目录规范（§11 文档） |
 
 ## 模块一览
 

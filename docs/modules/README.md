@@ -1,6 +1,6 @@
 # 模块文档
 
-与 `src/features/<id>/` 对齐。每个模块目录自包含 **设计 + 迭代 + Bug**；全局发布节奏见 [../roadmap/release-themes.md](../roadmap/release-themes.md)。
+与 `src/features/<id>/` 对齐。每个模块目录自包含 **设计 + 迭代 + Bug**；全局发布节奏见 [../roadmap/release-themes.md](../roadmap/release-themes.md)。目录约定见 [coding-standards.md §11](../coding-standards.md#11-文档)。
 
 | 模块 | 设计 | 迭代 | Bug |
 |------|:----:|:----:|:---:|
