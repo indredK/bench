@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.16.0](https://github.com/indredK/bench/compare/v1.15.2...v1.16.0) (2026-07-02)
+
+
+### Features
+
+* **account-manager:** 完成账号管理页面功能迭代与体验优化 ([4057160](https://github.com/indredK/bench/commit/4057160a8dccb23fc330e80ee5e3b11b7a5ff2ba))
+* **settings, i18n:** 新增网络诊断描述、优化主题提示与设置项文案 ([9983b43](https://github.com/indredK/bench/commit/9983b437ef02ede620ca5e73adcaeb28208d9819))
+
 ## [1.15.2](https://github.com/indredK/bench/compare/v1.15.1...v1.15.2) (2026-07-01)
 
 
