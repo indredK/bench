@@ -1,8 +1,8 @@
 # Account Manager 迭代规划
 
-> 版本: v1.15.0 | 最后更新: 2026-07-01  
+> 版本: v1.15.1 | 最后更新: 2026-07-02  
 > 发布节奏见 [release-themes.md](../../roadmap/release-themes.md)  
-> 设计文档见 [README.md](./README.md)
+> 设计文档见 [README.md](./README.md) · [云端同步设计](./cloud-sync-design.md)
 
 ## 📊 当前评估
 
@@ -45,3 +45,39 @@
 - [ ] TLS 指纹对抗 (rquest impersonate)
 - [ ] Windows/Linux 跨平台 WebView 兼容
 - [ ] Canvas/WebGL 指纹隔离
+
+## v1.19 — 云端同步 (Cloud Sync) — **低优先级 / 可选**
+
+> 详细设计见 [cloud-sync-design.md](./cloud-sync-design.md)（v1.4）  
+> **开源默认 BYO 自托管**，不内置维护者公共 endpoint；本地 Import/Export 已满足迁移。见设计文档 §1.1（隐私、滥用、fork 误用）。
+
+**排期建议**：晚于 v1.16 Session UX、v1.17 IndexedDB 导出；可与 v1.18 并列或更后。
+
+### Phase 0：架构 ✅ 已定案
+
+- [x] 参考实现：Cloudflare Workers + R2（$0 免费档）
+- [x] API 形状：`/v1/blobs` + keyProof；Sync ID 格式见 cloud-sync-design
+- [x] **Endpoint：用户 deploy 后填入设置，不写进仓库常量**
+- [x] 大陆：不保证；本地 Import/Export fallback
+- [x] 身份：Sync ID + key proof；MVP 数据范围见 cloud-sync-design §6.3
+
+### Phase 1: MVP（backlog）
+
+- [ ] `workers/bench-sync/` 模板 + BYO 部署文档（可先合入，无客户端依赖）
+- [ ] Worker：`/v1/blobs` CRUD + keyProof + KV 限流
+- [ ] `crypto.rs`：`argon2` + cloud 加解密 + keyProof
+- [ ] `import_relay_data_from_json` + `cloud_sync.rs`（reqwest，读用户 endpoint）
+- [ ] 设置 UI：`cloud_sync_endpoint`；空值禁用云同步
+- [ ] 前端：上传/拉取/删除 + 同意勾选 + 大陆 fallback i18n
+
+### Phase 2: 体验与 Session
+
+- [ ] AuthProfile + Session 纳入 export/import
+- [ ] 设备绑定、Sync ID 二维码、可选邮箱（仅恢复 Sync ID）
+- [ ] 版本历史 / 回滚
+
+### Phase 3: 协同
+
+- [ ] 增量同步
+- [ ] 多端冲突处理
+- [ ] 只读分享（独立 proof 模型）

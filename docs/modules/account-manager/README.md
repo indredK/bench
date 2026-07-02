@@ -8,5 +8,6 @@
 | [session-manager-design-spec.md](./session-manager-design-spec.md) | Session Manager 产品设计 |
 | [session-manager-tech-design.md](./session-manager-tech-design.md) | 技术方案 |
 | [external-login-proxy.md](./external-login-proxy.md) | 外部登录代理 |
+| [cloud-sync-design.md](./cloud-sync-design.md) | 云端同步（E2E 加密、**BYO 自托管**；低优先级 optional） |
 
 发布节奏：[release-themes.md](../../roadmap/release-themes.md)
