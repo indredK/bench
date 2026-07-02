@@ -55,7 +55,7 @@ export function DisplayDockSection({ className }: DisplayDockSectionProps) {
             });
           }}
         />
-        <div className="space-y-2 py-1">
+        <div className="flex items-center justify-between py-2">
           <Label className="text-sm font-medium">{t("systemSettings.dock.position")}</Label>
           <div className="flex gap-2">
             {(["left", "bottom", "right"] as const).map((pos) => (

@@ -158,16 +158,20 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                   onCheckedChange={async (v) => { await run("toggles.hideDesktopIcons", async () => { await systemSettingsUseCases.setHideDesktopIconsState(v); store.setHideDesktopIcons(v); }); }}
                 />
               </div>
-              <div className="space-y-2 pt-3 mt-2 border-t">
-                <Label className="text-sm font-medium">{t("systemSettings.toggles.autohideMenuBar")}</Label>
-                <p className="text-xs text-muted-foreground">{t("systemSettings.toggles.autohideMenuBarDesc")}</p>
-                <div className="flex gap-2 flex-wrap">
-                  {([{ mode: "never", label: t("systemSettings.toggles.menuBarNever") }, { mode: "in_full_screen_only", label: t("systemSettings.toggles.menuBarFullScreen") }, { mode: "on_desktop_only", label: t("systemSettings.toggles.menuBarDesktop") }, { mode: "always", label: t("systemSettings.toggles.menuBarAlways") }] as { mode: MenuBarAutoHideMode; label: string }[]).map(({ mode, label }) => (
-                    <Button key={mode} variant={store.autohideMenuBar === mode ? "default" : "outline"} size="sm" disabled={store.applyingKeys.has("toggles.autoHideMenuBar")} onClick={async () => {
-                      if (store.autohideMenuBar === mode) return;
-                      await run("toggles.autoHideMenuBar", async () => { await systemSettingsUseCases.setAutohideMenuBarState(mode); store.setAutohideMenuBar(mode); });
-                    }}>{label}</Button>
-                  ))}
+              <div className="pt-3 mt-2 border-t">
+                <div className="flex items-center justify-between py-2">
+                  <div>
+                    <Label className="text-sm font-medium">{t("systemSettings.toggles.autohideMenuBar")}</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">{t("systemSettings.toggles.autohideMenuBarDesc")}</p>
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    {([{ mode: "never", label: t("systemSettings.toggles.menuBarNever") }, { mode: "in_full_screen_only", label: t("systemSettings.toggles.menuBarFullScreen") }, { mode: "on_desktop_only", label: t("systemSettings.toggles.menuBarDesktop") }, { mode: "always", label: t("systemSettings.toggles.menuBarAlways") }] as { mode: MenuBarAutoHideMode; label: string }[]).map(({ mode, label }) => (
+                      <Button key={mode} variant={store.autohideMenuBar === mode ? "default" : "outline"} size="sm" disabled={store.applyingKeys.has("toggles.autoHideMenuBar")} onClick={async () => {
+                        if (store.autohideMenuBar === mode) return;
+                        await run("toggles.autoHideMenuBar", async () => { await systemSettingsUseCases.setAutohideMenuBarState(mode); store.setAutohideMenuBar(mode); });
+                      }}>{label}</Button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </SettingGroup>
@@ -188,8 +192,8 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                   onCheckedChange={async (v) => { await run("screenshot.showThumbnail", async () => { await systemSettingsUseCases.setScreenshotShowThumbnail(v); store.setScreenshotShowThumbnail(v); }); }}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-x-6 pt-3 mt-2 border-t">
-                <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-x-6 gap-y-1 pt-3 mt-2 border-t">
+                <div className="flex items-center justify-between py-2">
                   <Label className="text-sm font-medium">{t("systemSettings.screenshot.format")}</Label>
                   <div className="flex gap-2 flex-wrap">
                     {["png", "jpg", "bmp", "pdf", "tiff"].map((fmt) => (
@@ -199,12 +203,11 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                     ))}
                   </div>
                 </div>
-                <div className="space-y-2">
+                <div className="flex items-center justify-between py-2">
                   <Label className="text-sm font-medium">{t("systemSettings.screenshot.saveLocation")}</Label>
                   <div className="flex gap-2">
-                    <Input value={store.screenshotSaveLocation} onChange={(e) => store.setScreenshotSaveLocation(e.target.value)} disabled={store.applyingKeys.size > 0}
-                      onBlur={async () => { await run("screenshot.saveLocation", async () => { await systemSettingsUseCases.setScreenshotSaveLocation(store.screenshotSaveLocation); }); }}
-                      placeholder={t("systemSettings.screenshot.saveLocationPlaceholder")} className="flex-1" />
+                    <Input value={store.screenshotSaveLocation} readOnly
+                      placeholder={t("systemSettings.screenshot.saveLocationPlaceholder")} className="flex-1 cursor-default" />
                     <Button
                       variant="outline"
                       size="icon"
