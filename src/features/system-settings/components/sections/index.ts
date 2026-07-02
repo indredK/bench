@@ -1,6 +1,5 @@
 export { SleepSection } from "./SleepSection";
 export { LockScreenSection } from "./LockScreenSection";
 export { KeyboardSection } from "./KeyboardSection";
-export { DisplaySection } from "./DisplaySection";
-export { DockSection } from "./DockSection";
+export { DisplayDockSection } from "./DisplayDockSection";
 export { QuickActionsSection } from "./QuickActionsSection";

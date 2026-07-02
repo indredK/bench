@@ -6,11 +6,12 @@ import type { ReactNode } from "react";
 interface SettingGroupProps {
   title: string;
   children: ReactNode;
+  className?: string;
 }
 
-export function SettingGroup({ title, children }: SettingGroupProps) {
+export function SettingGroup({ title, children, className }: SettingGroupProps) {
   return (
-    <div className="space-y-1">
+    <div className={`space-y-1 ${className ?? ""}`}>
       <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
         {title}
       </h3>

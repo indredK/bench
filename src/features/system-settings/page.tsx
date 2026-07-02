@@ -7,7 +7,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Loader2Icon, ExternalLink } from "lucide-react";
+import { Loader2Icon, ExternalLink, FolderOpen } from "lucide-react";
 import { systemSettingsUseCases } from "@/features/system-settings/services/system-settings.use-cases";
 import { useSystemSettingsStore } from "@/features/system-settings/store";
 import { useSettingAction } from "@/features/system-settings/useSettingAction";
@@ -21,10 +21,11 @@ import type { AppFeature } from "@/features/types";
 import type { SettingsTab } from "./store";
 import type { GatekeeperMode, LowPowerMode, MenuBarAutoHideMode } from "@/lib/tauri/types/system-settings";
 import {
-  SleepSection, LockScreenSection, KeyboardSection, DisplaySection, DockSection,
+  SleepSection, LockScreenSection, KeyboardSection, DisplayDockSection,
   QuickActionsSection,
 } from "./components/sections";
 import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirmDialog";
+import { openPlatformDialog } from "@/platform/dialog";
 
 // ── Constants ──
 
@@ -121,21 +122,43 @@ export default function SystemSettings(_props: SystemSettingsProps) {
       // ═══════════════════════════════════════════
       case "appearance":
         return (
-          <div className="space-y-6">
-            {/* ── Display ── */}
-            <DisplaySection />
+          <div className="grid grid-cols-2 gap-4">
+            {/* ── Display & Dock ── */}
+            <DisplayDockSection className="col-span-2" />
 
-            {/* ── Dock & Menu Bar ── */}
-            <DockSection />
-            <SettingGroup title={t("systemSettings.toggles.title")}>
-              <SettingToggle
-                label={t("systemSettings.toggles.autohideDock")}
-                description={t("systemSettings.toggles.autohideDockDesc")}
-                checked={store.autohideDock}
-                loading={store.applyingKeys.has("toggles.autoHideDock")}
-                onCheckedChange={async (v) => { await run("toggles.autoHideDock", async () => { await systemSettingsUseCases.setAutohideDockState(v); store.setAutohideDock(v); }); }}
-              />
-              <div className="space-y-2 py-2">
+            {/* ── Dock & Menu Bar Toggles ── */}
+            <SettingGroup title={t("systemSettings.toggles.title")} className="col-span-2">
+              <div className="grid grid-cols-2 gap-x-6 gap-y-1">
+                <SettingToggle
+                  label={t("systemSettings.toggles.autohideDock")}
+                  description={t("systemSettings.toggles.autohideDockDesc")}
+                  checked={store.autohideDock}
+                  loading={store.applyingKeys.has("toggles.autoHideDock")}
+                  onCheckedChange={async (v) => { await run("toggles.autoHideDock", async () => { await systemSettingsUseCases.setAutohideDockState(v); store.setAutohideDock(v); }); }}
+                />
+                <SettingToggle
+                  label={t("systemSettings.toggles.dockShowRecents")}
+                  description={t("systemSettings.toggles.dockShowRecentsDesc")}
+                  checked={store.dockShowRecents}
+                  loading={store.applyingKeys.has("toggles.dockShowRecents")}
+                  onCheckedChange={async (v) => { await run("toggles.dockShowRecents", async () => { await systemSettingsUseCases.setDockShowRecentsState(v); store.setDockShowRecents(v); }); }}
+                />
+                <SettingToggle
+                  label={t("systemSettings.toggles.smallLaunchpadIcon")}
+                  description={t("systemSettings.toggles.smallLaunchpadIconDesc")}
+                  checked={store.smallLaunchpadIcon}
+                  loading={store.applyingKeys.has("toggles.smallLaunchpadIcon")}
+                  onCheckedChange={async (v) => { await run("toggles.smallLaunchpadIcon", async () => { await systemSettingsUseCases.setSmallLaunchpadIconState(v); store.setSmallLaunchpadIcon(v); }); }}
+                />
+                <SettingToggle
+                  label={t("systemSettings.toggles.hideDesktopIcons")}
+                  description={t("systemSettings.toggles.hideDesktopIconsDesc")}
+                  checked={store.hideDesktopIcons}
+                  loading={store.applyingKeys.has("toggles.hideDesktopIcons")}
+                  onCheckedChange={async (v) => { await run("toggles.hideDesktopIcons", async () => { await systemSettingsUseCases.setHideDesktopIconsState(v); store.setHideDesktopIcons(v); }); }}
+                />
+              </div>
+              <div className="space-y-2 pt-3 mt-2 border-t">
                 <Label className="text-sm font-medium">{t("systemSettings.toggles.autohideMenuBar")}</Label>
                 <p className="text-xs text-muted-foreground">{t("systemSettings.toggles.autohideMenuBarDesc")}</p>
                 <div className="flex gap-2 flex-wrap">
@@ -147,60 +170,60 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                   ))}
                 </div>
               </div>
-              <SettingToggle
-                label={t("systemSettings.toggles.dockShowRecents")}
-                description={t("systemSettings.toggles.dockShowRecentsDesc")}
-                checked={store.dockShowRecents}
-                loading={store.applyingKeys.has("toggles.dockShowRecents")}
-                onCheckedChange={async (v) => { await run("toggles.dockShowRecents", async () => { await systemSettingsUseCases.setDockShowRecentsState(v); store.setDockShowRecents(v); }); }}
-              />
-              <SettingToggle
-                label={t("systemSettings.toggles.smallLaunchpadIcon")}
-                description={t("systemSettings.toggles.smallLaunchpadIconDesc")}
-                checked={store.smallLaunchpadIcon}
-                loading={store.applyingKeys.has("toggles.smallLaunchpadIcon")}
-                onCheckedChange={async (v) => { await run("toggles.smallLaunchpadIcon", async () => { await systemSettingsUseCases.setSmallLaunchpadIconState(v); store.setSmallLaunchpadIcon(v); }); }}
-              />
             </SettingGroup>
 
-            {/* ── Desktop ── */}
-            <SettingToggle
-              label={t("systemSettings.toggles.hideDesktopIcons")}
-              description={t("systemSettings.toggles.hideDesktopIconsDesc")}
-              checked={store.hideDesktopIcons}
-              loading={store.applyingKeys.has("toggles.hideDesktopIcons")}
-              onCheckedChange={async (v) => { await run("toggles.hideDesktopIcons", async () => { await systemSettingsUseCases.setHideDesktopIconsState(v); store.setHideDesktopIcons(v); }); }}
-            />
-
             {/* ── Screenshot ── */}
-            <SettingGroup title={t("systemSettings.screenshot.title")}>
-              <SettingToggle
-                label={t("systemSettings.screenshot.disableShadow")}
-                checked={store.screenshotDisableShadow}
-                loading={store.applyingKeys.has("screenshot.disableShadow")}
-                onCheckedChange={async (v) => { await run("screenshot.disableShadow", async () => { await systemSettingsUseCases.setScreenshotDisableShadow(v); store.setScreenshotDisableShadow(v); }); }}
-              />
-              <SettingToggle
-                label={t("systemSettings.screenshot.showThumbnail")}
-                checked={store.screenshotShowThumbnail}
-                loading={store.applyingKeys.has("screenshot.showThumbnail")}
-                onCheckedChange={async (v) => { await run("screenshot.showThumbnail", async () => { await systemSettingsUseCases.setScreenshotShowThumbnail(v); store.setScreenshotShowThumbnail(v); }); }}
-              />
-              <div className="space-y-2 py-2">
-                <Label className="text-sm font-medium">{t("systemSettings.screenshot.format")}</Label>
-                <div className="flex gap-2">
-                  {["png", "jpg", "bmp", "pdf", "tiff"].map((fmt) => (
-                    <Button key={fmt} variant={store.screenshotFormat === fmt ? "default" : "outline"} size="sm" disabled={store.applyingKeys.size > 0} onClick={async () => {
-                      await run("screenshot.format", async () => { await systemSettingsUseCases.setScreenshotFormat(fmt); store.setScreenshotFormat(fmt); });
-                    }}>{fmt.toUpperCase()}</Button>
-                  ))}
-                </div>
+            <SettingGroup title={t("systemSettings.screenshot.title")} className="col-span-2">
+              <div className="grid grid-cols-2 gap-x-6 gap-y-1">
+                <SettingToggle
+                  label={t("systemSettings.screenshot.disableShadow")}
+                  checked={store.screenshotDisableShadow}
+                  loading={store.applyingKeys.has("screenshot.disableShadow")}
+                  onCheckedChange={async (v) => { await run("screenshot.disableShadow", async () => { await systemSettingsUseCases.setScreenshotDisableShadow(v); store.setScreenshotDisableShadow(v); }); }}
+                />
+                <SettingToggle
+                  label={t("systemSettings.screenshot.showThumbnail")}
+                  checked={store.screenshotShowThumbnail}
+                  loading={store.applyingKeys.has("screenshot.showThumbnail")}
+                  onCheckedChange={async (v) => { await run("screenshot.showThumbnail", async () => { await systemSettingsUseCases.setScreenshotShowThumbnail(v); store.setScreenshotShowThumbnail(v); }); }}
+                />
               </div>
-              <div className="space-y-2 py-2">
-                <Label className="text-sm font-medium">{t("systemSettings.screenshot.saveLocation")}</Label>
-                <Input value={store.screenshotSaveLocation} onChange={(e) => store.setScreenshotSaveLocation(e.target.value)} disabled={store.applyingKeys.size > 0}
-                  onBlur={async () => { await run("screenshot.saveLocation", async () => { await systemSettingsUseCases.setScreenshotSaveLocation(store.screenshotSaveLocation); }); }}
-                  placeholder={t("systemSettings.screenshot.saveLocationPlaceholder")} />
+              <div className="grid grid-cols-2 gap-x-6 pt-3 mt-2 border-t">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">{t("systemSettings.screenshot.format")}</Label>
+                  <div className="flex gap-2 flex-wrap">
+                    {["png", "jpg", "bmp", "pdf", "tiff"].map((fmt) => (
+                      <Button key={fmt} variant={store.screenshotFormat === fmt ? "default" : "outline"} size="sm" disabled={store.applyingKeys.size > 0} onClick={async () => {
+                        await run("screenshot.format", async () => { await systemSettingsUseCases.setScreenshotFormat(fmt); store.setScreenshotFormat(fmt); });
+                      }}>{fmt.toUpperCase()}</Button>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">{t("systemSettings.screenshot.saveLocation")}</Label>
+                  <div className="flex gap-2">
+                    <Input value={store.screenshotSaveLocation} onChange={(e) => store.setScreenshotSaveLocation(e.target.value)} disabled={store.applyingKeys.size > 0}
+                      onBlur={async () => { await run("screenshot.saveLocation", async () => { await systemSettingsUseCases.setScreenshotSaveLocation(store.screenshotSaveLocation); }); }}
+                      placeholder={t("systemSettings.screenshot.saveLocationPlaceholder")} className="flex-1" />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      disabled={store.applyingKeys.size > 0}
+                      onClick={async () => {
+                        const selected = await openPlatformDialog({
+                          directory: true,
+                          multiple: false,
+                        });
+                        if (selected && typeof selected === "string") {
+                          store.setScreenshotSaveLocation(selected);
+                          await run("screenshot.saveLocation", async () => { await systemSettingsUseCases.setScreenshotSaveLocation(selected); });
+                        }
+                      }}
+                    >
+                      <FolderOpen size={16} />
+                    </Button>
+                  </div>
+                </div>
               </div>
             </SettingGroup>
           </div>
@@ -211,44 +234,57 @@ export default function SystemSettings(_props: SystemSettingsProps) {
       // ═══════════════════════════════════════════
       case "security":
         return (
-          <div className="space-y-6">
+          <div className="grid grid-cols-2 gap-4">
             <LockScreenSection />
 
+            {/* ── Mic Mute ── */}
+            <SettingGroup title={t("systemSettings.toggles.muteMic")}>
+              <SettingToggle
+                label={t("systemSettings.toggles.muteMic")}
+                description={t("systemSettings.toggles.muteMicDesc")}
+                checked={store.muteMic}
+                loading={store.applyingKeys.has("toggles.muteMic")}
+                onCheckedChange={async (v) => { await run("toggles.muteMic", async () => { await systemSettingsUseCases.setMuteMicState(v); store.setMuteMic(v); }); }}
+              />
+            </SettingGroup>
+
             {/* ── Network ── */}
-            <SettingGroup title={t("systemSettings.network.title")}>
-              <SettingToggle
-                label={t("systemSettings.network.firewall")}
-                description={t("systemSettings.network.firewallDesc")}
-                checked={store.networkFirewall}
-                loading={store.applyingKeys.has("network.firewall")}
-                onCheckedChange={async (v) => { await run("network.firewall", async () => { await systemSettingsUseCases.setNetworkFirewallState(v); store.setNetworkFirewall(v); }); }}
-              />
-              <SettingToggle
-                label={t("systemSettings.network.ssh")}
-                description={t("systemSettings.network.sshDesc")}
-                checked={store.networkSsh}
-                loading={store.applyingKeys.has("network.ssh")}
-                onCheckedChange={async (v) => { await run("network.ssh", async () => { await systemSettingsUseCases.setNetworkSshState(v); store.setNetworkSsh(v); }); }}
-              />
-              <SettingToggle
-                label={t("systemSettings.network.screenSharing")}
-                checked={store.networkScreenSharing}
-                loading={store.applyingKeys.has("network.screenSharing")}
-                onCheckedChange={async (v) => { await run("network.screenSharing", async () => { await systemSettingsUseCases.setNetworkScreenSharingState(v); store.setNetworkScreenSharing(v); }); }}
-              />
-              <SettingToggle
-                label={t("systemSettings.network.airdrop")}
-                description={t("systemSettings.network.airdropDesc")}
-                checked={store.networkAirdropDisabled}
-                loading={store.applyingKeys.has("network.airdrop")}
-                onCheckedChange={async (v) => { await run("network.airdrop", async () => { await systemSettingsUseCases.setNetworkAirdropDisabled(v); store.setNetworkAirdropDisabled(v); }); }}
-              />
+            <SettingGroup title={t("systemSettings.network.title")} className="col-span-2">
+              <div className="grid grid-cols-2 gap-x-6 gap-y-1">
+                <SettingToggle
+                  label={t("systemSettings.network.firewall")}
+                  description={t("systemSettings.network.firewallDesc")}
+                  checked={store.networkFirewall}
+                  loading={store.applyingKeys.has("network.firewall")}
+                  onCheckedChange={async (v) => { await run("network.firewall", async () => { await systemSettingsUseCases.setNetworkFirewallState(v); store.setNetworkFirewall(v); }); }}
+                />
+                <SettingToggle
+                  label={t("systemSettings.network.ssh")}
+                  description={t("systemSettings.network.sshDesc")}
+                  checked={store.networkSsh}
+                  loading={store.applyingKeys.has("network.ssh")}
+                  onCheckedChange={async (v) => { await run("network.ssh", async () => { await systemSettingsUseCases.setNetworkSshState(v); store.setNetworkSsh(v); }); }}
+                />
+                <SettingToggle
+                  label={t("systemSettings.network.screenSharing")}
+                  checked={store.networkScreenSharing}
+                  loading={store.applyingKeys.has("network.screenSharing")}
+                  onCheckedChange={async (v) => { await run("network.screenSharing", async () => { await systemSettingsUseCases.setNetworkScreenSharingState(v); store.setNetworkScreenSharing(v); }); }}
+                />
+                <SettingToggle
+                  label={t("systemSettings.network.airdrop")}
+                  description={t("systemSettings.network.airdropDesc")}
+                  checked={store.networkAirdropDisabled}
+                  loading={store.applyingKeys.has("network.airdrop")}
+                  onCheckedChange={async (v) => { await run("network.airdrop", async () => { await systemSettingsUseCases.setNetworkAirdropDisabled(v); store.setNetworkAirdropDisabled(v); }); }}
+                />
+              </div>
             </SettingGroup>
 
             {/* ── Gatekeeper ── */}
             <SettingGroup title={t("systemSettings.privacy.gatekeeper")}>
               <p className="text-xs text-muted-foreground py-2">{t("systemSettings.privacy.gatekeeperDesc")}</p>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 {([{ mode: "app_store" as GatekeeperMode, label: t("systemSettings.privacy.gatekeeperAppStore") }, { mode: "identified_developers" as GatekeeperMode, label: t("systemSettings.privacy.gatekeeperIdentifiedDevs") }]).map(({ mode, label }) => (
                   <Button key={mode} variant={store.gatekeeper === mode ? "default" : "outline"} size="sm" disabled>{label}</Button>
                 ))}
@@ -286,15 +322,6 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                 );
               })}
             </SettingGroup>
-
-            {/* ── Mic Mute ── */}
-            <SettingToggle
-              label={t("systemSettings.toggles.muteMic")}
-              description={t("systemSettings.toggles.muteMicDesc")}
-              checked={store.muteMic}
-              loading={store.applyingKeys.has("toggles.muteMic")}
-              onCheckedChange={async (v) => { await run("toggles.muteMic", async () => { await systemSettingsUseCases.setMuteMicState(v); store.setMuteMic(v); }); }}
-            />
           </div>
         );
 
@@ -303,24 +330,26 @@ export default function SystemSettings(_props: SystemSettingsProps) {
       // ═══════════════════════════════════════════
       case "system":
         return (
-          <div className="space-y-6">
+          <div className="grid grid-cols-2 gap-4">
             <SleepSection />
             <KeyboardSection />
 
             {/* ── Finder ── */}
-            <SettingGroup title={t("systemSettings.finder.title")}>
-              <SettingToggle label={t("systemSettings.finder.hiddenFiles")} checked={store.finderShowHiddenFiles} loading={store.applyingKeys.has("finder.hiddenFiles")}
-                onCheckedChange={async (v) => { await run("finder.hiddenFiles", async () => { await systemSettingsUseCases.setFinderShowHiddenFiles(v); store.setFinderShowHiddenFiles(v); }); }} />
-              <SettingToggle label={t("systemSettings.finder.pathBar")} description={t("systemSettings.finder.pathBarDesc")} checked={store.finderShowPathbar} loading={store.applyingKeys.has("finder.pathBar")}
-                onCheckedChange={async (v) => { await run("finder.pathBar", async () => { await systemSettingsUseCases.setFinderShowPathbar(v); store.setFinderShowPathbar(v); }); }} />
-              <SettingToggle label={t("systemSettings.finder.statusBar")} description={t("systemSettings.finder.statusBarDesc")} checked={store.finderShowStatusbar} loading={store.applyingKeys.has("finder.statusBar")}
-                onCheckedChange={async (v) => { await run("finder.statusBar", async () => { await systemSettingsUseCases.setFinderShowStatusbar(v); store.setFinderShowStatusbar(v); }); }} />
-              <SettingToggle label={t("systemSettings.finder.libraryDir")} description={t("systemSettings.finder.libraryDirDesc")} checked={store.finderShowLibraryDir} loading={store.applyingKeys.has("finder.libraryDir")}
-                onCheckedChange={async (v) => { await run("finder.libraryDir", async () => { await systemSettingsUseCases.setFinderShowLibraryDir(v); store.setFinderShowLibraryDir(v); }); }} />
-              <SettingToggle label={t("systemSettings.finder.fileExtensions")} checked={store.finderShowFileExtensions} loading={store.applyingKeys.has("finder.fileExtensions")}
-                onCheckedChange={async (v) => { await run("finder.fileExtensions", async () => { await systemSettingsUseCases.setFinderShowFileExtensions(v); store.setFinderShowFileExtensions(v); }); }} />
-              <SettingToggle label={t("systemSettings.finder.noDsStore")} checked={store.finderNoDsStore} loading={store.applyingKeys.has("finder.noDsStore")}
-                onCheckedChange={async (v) => { await run("finder.noDsStore", async () => { await systemSettingsUseCases.setFinderNoDsStore(v); store.setFinderNoDsStore(v); }); }} />
+            <SettingGroup title={t("systemSettings.finder.title")} className="col-span-2">
+              <div className="grid grid-cols-2 gap-x-6 gap-y-1">
+                <SettingToggle label={t("systemSettings.finder.hiddenFiles")} checked={store.finderShowHiddenFiles} loading={store.applyingKeys.has("finder.hiddenFiles")}
+                  onCheckedChange={async (v) => { await run("finder.hiddenFiles", async () => { await systemSettingsUseCases.setFinderShowHiddenFiles(v); store.setFinderShowHiddenFiles(v); }); }} />
+                <SettingToggle label={t("systemSettings.finder.pathBar")} description={t("systemSettings.finder.pathBarDesc")} checked={store.finderShowPathbar} loading={store.applyingKeys.has("finder.pathBar")}
+                  onCheckedChange={async (v) => { await run("finder.pathBar", async () => { await systemSettingsUseCases.setFinderShowPathbar(v); store.setFinderShowPathbar(v); }); }} />
+                <SettingToggle label={t("systemSettings.finder.statusBar")} description={t("systemSettings.finder.statusBarDesc")} checked={store.finderShowStatusbar} loading={store.applyingKeys.has("finder.statusBar")}
+                  onCheckedChange={async (v) => { await run("finder.statusBar", async () => { await systemSettingsUseCases.setFinderShowStatusbar(v); store.setFinderShowStatusbar(v); }); }} />
+                <SettingToggle label={t("systemSettings.finder.libraryDir")} description={t("systemSettings.finder.libraryDirDesc")} checked={store.finderShowLibraryDir} loading={store.applyingKeys.has("finder.libraryDir")}
+                  onCheckedChange={async (v) => { await run("finder.libraryDir", async () => { await systemSettingsUseCases.setFinderShowLibraryDir(v); store.setFinderShowLibraryDir(v); }); }} />
+                <SettingToggle label={t("systemSettings.finder.fileExtensions")} checked={store.finderShowFileExtensions} loading={store.applyingKeys.has("finder.fileExtensions")}
+                  onCheckedChange={async (v) => { await run("finder.fileExtensions", async () => { await systemSettingsUseCases.setFinderShowFileExtensions(v); store.setFinderShowFileExtensions(v); }); }} />
+                <SettingToggle label={t("systemSettings.finder.noDsStore")} checked={store.finderNoDsStore} loading={store.applyingKeys.has("finder.noDsStore")}
+                  onCheckedChange={async (v) => { await run("finder.noDsStore", async () => { await systemSettingsUseCases.setFinderNoDsStore(v); store.setFinderNoDsStore(v); }); }} />
+              </div>
             </SettingGroup>
 
             {/* ── Power & LowPowerMode ── */}
@@ -340,6 +369,32 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                 checked={store.screenSaver} loading={store.applyingKeys.has("toggles.screenSaver")}
                 onCheckedChange={async (v) => { await run("toggles.screenSaver", async () => { await systemSettingsUseCases.setScreenSaverState(v); store.setScreenSaver(v); }); }}
               />
+            </SettingGroup>
+
+            {/* ── Default Browser ── */}
+            <SettingGroup title={t("systemSettings.browser.title")}>
+              <select
+                className="w-full border rounded px-3 py-2 text-sm bg-background"
+                value={defaultBrowser}
+                disabled={browserLoading}
+                onChange={async (e) => {
+                  setBrowserLoading(true);
+                  try {
+                    await systemSettingsUseCases.setDefaultBrowser(e.target.value);
+                    store.setDefaultBrowser(e.target.value);
+                    setDefaultBrowser(e.target.value);
+                    toast.success(t("systemSettings.toasts.success"));
+                  } catch (err) {
+                    toast.error(t("systemSettings.toasts.error", { error: String(err) }));
+                  } finally {
+                    setBrowserLoading(false);
+                  }
+                }}
+              >
+                {BROWSER_OPTIONS.map(({ value, labelKey }) => (
+                  <option key={value} value={value}>{t(labelKey)}</option>
+                ))}
+              </select>
             </SettingGroup>
 
             {/* ── Login Items ── */}
@@ -378,42 +433,16 @@ export default function SystemSettings(_props: SystemSettingsProps) {
               )}
             </SettingGroup>
 
-            <SettingGroup title={t("systemSettings.login.launchDaemons")}>
+            <SettingGroup title={t("systemSettings.login.launchDaemons")} className="col-span-2">
               {launchDaemons.length === 0 ? (
                 <p className="text-xs text-muted-foreground py-2">{t("systemSettings.login.noDaemons")}</p>
               ) : (
-                <div className="space-y-1">
+                <div className="grid grid-cols-2 gap-x-6 gap-y-1">
                   {launchDaemons.map((daemon) => (
                     <div key={daemon.name} className="flex items-center justify-between py-1"><span className="text-sm truncate">{daemon.name}</span><Badge variant="secondary" className="text-xs">{daemon.path.split("/").pop()}</Badge></div>
                   ))}
                 </div>
               )}
-            </SettingGroup>
-
-            {/* ── Default Browser ── */}
-            <SettingGroup title={t("systemSettings.browser.title")}>
-              <select
-                className="w-full border rounded px-3 py-2 text-sm bg-background"
-                value={defaultBrowser}
-                disabled={browserLoading}
-                onChange={async (e) => {
-                  setBrowserLoading(true);
-                  try {
-                    await systemSettingsUseCases.setDefaultBrowser(e.target.value);
-                    store.setDefaultBrowser(e.target.value);
-                    setDefaultBrowser(e.target.value);
-                    toast.success(t("systemSettings.toasts.success"));
-                  } catch (err) {
-                    toast.error(t("systemSettings.toasts.error", { error: String(err) }));
-                  } finally {
-                    setBrowserLoading(false);
-                  }
-                }}
-              >
-                {BROWSER_OPTIONS.map(({ value, labelKey }) => (
-                  <option key={value} value={value}>{t(labelKey)}</option>
-                ))}
-              </select>
             </SettingGroup>
 
             {/* ── 系统设置快捷入口 ── */}
