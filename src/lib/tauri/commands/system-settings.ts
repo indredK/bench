@@ -297,12 +297,6 @@ export function getHideDesktopIconsState() {
 export function setHideDesktopIconsState(hide: boolean) {
   return invokeTauriCommand(TAURI_COMMANDS.systemSettings.setHideDesktopIconsState, { hide });
 }
-export function getMuteMicState() {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.getMuteMicState);
-}
-export function setMuteMicState(mute: boolean) {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.setMuteMicState, { mute });
-}
 export function getLowPowerModeState() {
   return invokeTauriCommand(TAURI_COMMANDS.systemSettings.getLowPowerModeState);
 }
@@ -314,18 +308,6 @@ export function getScreenSaverState() {
 }
 export function setScreenSaverState(enabled: boolean) {
   return invokeTauriCommand(TAURI_COMMANDS.systemSettings.setScreenSaverState, { enabled });
-}
-export function emptyPasteboard() {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.emptyPasteboard);
-}
-export function ejectDiscs() {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.ejectDiscs);
-}
-export function getSmallLaunchpadIconState() {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.getSmallLaunchpadIconState);
-}
-export function setSmallLaunchpadIconState(small: boolean) {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.setSmallLaunchpadIconState, { small });
 }
 export function openSystemPane(paneId: string) {
   return invokeTauriCommand(TAURI_COMMANDS.systemSettings.openSystemPane, { paneId });

@@ -18,7 +18,8 @@
     "tabs": {
       "appearance": "外观",
       "security": "安全与隐私",
-      "system": "系统"
+      "system": "系统",
+      "advanced": "高级"
     },
     "loading": "加载设置中...",
     "applying": "正在应用设置,请稍候...",
@@ -106,8 +107,7 @@
     },
     "login": {
       "title": "登录项",
-      "placeholder": "/path/to/app.app",
-      "add": "添加",
+      "manageInSettings": "在系统设置中管理",
       "remove": "移除",
       "removeConfirmTitle": "移除登录项？",
       "removeConfirmDescription": "从登录项中移除「{{name}}」？它将不再在登录时启动。",
@@ -141,8 +141,6 @@
       "lockPasswordDelay": "密码延迟",
       "delayImmediate": "立即",
       "delaySeconds": "{{seconds}} 秒",
-      "emptyPasteboard": "清空剪贴板",
-      "ejectDiscs": "弹出磁盘",
       "warning": "以下操作不可逆，请谨慎使用",
       "emptyTrashConfirmTitle": "清空废纸篓？",
       "emptyTrashConfirmDescription": "永久删除废纸篓中的所有项目。",
@@ -173,8 +171,6 @@
       "dockShowRecentsDesc": "在 Dock 中显示最近使用的应用",
       "hideDesktopIcons": "隐藏桌面图标",
       "hideDesktopIconsDesc": "隐藏桌面上的所有图标",
-      "muteMic": "静音麦克风",
-      "muteMicDesc": "切换麦克风输入",
       "lowPowerMode": "低电量模式",
       "lowPowerModeDesc": "降低系统功耗",
       "lowPowerNever": "永不",
@@ -182,9 +178,7 @@
       "lowPowerOnBattery": "仅使用电池时",
       "lowPowerOnAC": "仅适用电源适配器时",
       "screenSaver": "屏幕保护程序",
-      "screenSaverDesc": "切换屏幕保护程序超时",
-      "smallLaunchpadIcon": "Launchpad 小图标",
-      "smallLaunchpadIconDesc": "在 Launchpad 中使用更小的图标"
+      "screenSaverDesc": "切换屏幕保护程序超时"
     },
     "devtools": {
       "jsonTitle": "JSON 格式化",

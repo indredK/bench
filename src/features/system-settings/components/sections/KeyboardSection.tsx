@@ -40,6 +40,7 @@ export function KeyboardSection() {
         description={t("systemSettings.keyboard.fnKeysDesc")}
         checked={store.keyboardFnKey}
         loading={store.applyingKeys.has("keyboard.fnKey")}
+        onOpenSettings={() => systemSettingsUseCases.openSystemPane("com.apple.Keyboard-Settings.extension")}
         onCheckedChange={async (v) => {
           await run("keyboard.fnKey", async () => {
             await systemSettingsUseCases.setKeyboardFnKeyState(v);

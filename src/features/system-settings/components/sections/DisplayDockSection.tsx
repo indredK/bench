@@ -1,5 +1,6 @@
 import { useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import { ExternalLink } from "lucide-react";
 import { useSystemSettingsStore } from "@/features/system-settings/store";
 import { systemSettingsUseCases } from "@/features/system-settings/services/system-settings.use-cases";
 import { useSettingAction } from "@/features/system-settings/useSettingAction";
@@ -48,6 +49,7 @@ export function DisplayDockSection({ className }: DisplayDockSectionProps) {
           description={t("systemSettings.display.batteryPercentDesc")}
           checked={store.displayBatteryPercent}
           loading={store.applyingKeys.has("display.batteryPercent")}
+          onOpenSettings={() => systemSettingsUseCases.openSystemPane("com.apple.ControlCenter-Settings.extension")}
           onCheckedChange={async (v) => {
             await run("display.batteryPercent", async () => {
               await systemSettingsUseCases.setDisplayBatteryPercent(v);
@@ -56,7 +58,18 @@ export function DisplayDockSection({ className }: DisplayDockSectionProps) {
           }}
         />
         <div className="flex items-center justify-between py-2">
-          <Label className="text-sm font-medium">{t("systemSettings.dock.position")}</Label>
+          <div
+            className="flex items-center gap-1.5 cursor-pointer"
+            onClick={() => systemSettingsUseCases.openSystemPane("com.apple.Desktop-Settings.extension")}
+          >
+            <Label className="text-sm font-medium hover:text-foreground transition-colors">
+              {t("systemSettings.dock.position")}
+            </Label>
+            <ExternalLink
+              size={12}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            />
+          </div>
           <div className="flex gap-2">
             {(["left", "bottom", "right"] as const).map((pos) => (
               <Button

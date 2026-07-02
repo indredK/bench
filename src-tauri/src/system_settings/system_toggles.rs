@@ -217,38 +217,6 @@ pub async fn set_hide_desktop_icons_state(hide: bool) -> Result<(), String> {
 }
 
 // ---------------------------------------------------------------------------
-// Mute Microphone
-// ---------------------------------------------------------------------------
-
-#[tauri::command]
-pub async fn get_mute_mic_state() -> Result<bool, String> {
-    tauri::async_runtime::spawn_blocking(|| {
-        let script = r#"set ovol to input volume of (get volume settings)"#;
-        let output = run_cmd("osascript", &["-e", script])?;
-        let volume: i32 = output.trim().parse().unwrap_or(50);
-        Ok(volume == 0)
-    })
-    .await
-    .map_err(|e| e.to_string())?
-}
-
-#[tauri::command]
-pub async fn set_mute_mic_state(mute: bool) -> Result<(), String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        if mute {
-            let script = r#"set volume input volume 0"#;
-            run_cmd_err("osascript", &["-e", script])?;
-        } else {
-            let script = r#"set volume input volume 50"#;
-            run_cmd_err("osascript", &["-e", script])?;
-        }
-        Ok(())
-    })
-    .await
-    .map_err(|e| e.to_string())?
-}
-
-// ---------------------------------------------------------------------------
 // Low Power Mode
 // ---------------------------------------------------------------------------
 
@@ -346,61 +314,6 @@ pub async fn set_screen_saver_state(enabled: bool) -> Result<(), String> {
             let script = r#"tell application "System Events" to tell screen saver preferences to set delay interval to 0"#;
             run_cmd_err("osascript", &["-e", script])?;
         }
-        Ok(())
-    })
-    .await
-    .map_err(|e| e.to_string())?
-}
-
-// ---------------------------------------------------------------------------
-// Empty Pasteboard
-// ---------------------------------------------------------------------------
-
-#[tauri::command]
-pub async fn empty_pasteboard() -> Result<String, String> {
-    tauri::async_runtime::spawn_blocking(|| {
-        run_cmd_err("bash", &["-c", "pbcopy < /dev/null"])?;
-        Ok("Pasteboard cleared".to_string())
-    })
-    .await
-    .map_err(|e| e.to_string())?
-}
-
-// ---------------------------------------------------------------------------
-// Eject Discs
-// ---------------------------------------------------------------------------
-
-#[tauri::command]
-pub async fn eject_discs() -> Result<String, String> {
-    tauri::async_runtime::spawn_blocking(|| {
-        let script = r#"tell application "Finder" to eject (every disk whose ejectable is true)"#;
-        run_cmd_err("osascript", &["-e", script])?;
-        Ok("Ejectable discs ejected".to_string())
-    })
-    .await
-    .map_err(|e| e.to_string())?
-}
-
-// ---------------------------------------------------------------------------
-// Small Launchpad Icon
-// ---------------------------------------------------------------------------
-
-#[tauri::command]
-pub async fn get_small_launchpad_icon_state() -> Result<bool, String> {
-    tauri::async_runtime::spawn_blocking(|| {
-        let val = defaults_read("com.apple.dock", "springboard-rows").unwrap_or_default();
-        Ok(val == "6")
-    })
-    .await
-    .map_err(|e| e.to_string())?
-}
-
-#[tauri::command]
-pub async fn set_small_launchpad_icon_state(small: bool) -> Result<(), String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        let val = if small { "6" } else { "5" };
-        defaults_write("com.apple.dock", "springboard-rows", val)?;
-        restart_dock();
         Ok(())
     })
     .await

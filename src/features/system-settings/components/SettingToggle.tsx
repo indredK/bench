@@ -3,6 +3,7 @@
  */
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { ExternalLink } from "lucide-react";
 
 interface SettingToggleProps {
   label: string;
@@ -10,6 +11,7 @@ interface SettingToggleProps {
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
   loading?: boolean;
+  onOpenSettings?: () => void;
 }
 
 export function SettingToggle({
@@ -18,11 +20,27 @@ export function SettingToggle({
   checked,
   onCheckedChange,
   loading,
+  onOpenSettings,
 }: SettingToggleProps) {
   return (
     <div className="flex items-center justify-between py-2">
       <div className="flex-1">
-        <Label className="text-sm font-medium">{label}</Label>
+        <div
+          className={`flex items-center gap-1.5 ${
+            onOpenSettings ? "cursor-pointer" : ""
+          }`}
+          onClick={onOpenSettings}
+        >
+          <Label className="text-sm font-medium hover:text-foreground transition-colors">
+            {label}
+          </Label>
+          {onOpenSettings && (
+            <ExternalLink
+              size={12}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            />
+          )}
+        </div>
         {description && (
           <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
         )}

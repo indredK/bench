@@ -40,6 +40,7 @@ export function SleepSection() {
         description={t("systemSettings.sleep.preventSleepDesc")}
         checked={store.sleepState?.enabled ?? false}
         loading={store.applyingKeys.has("sleep.preventSleep")}
+        onOpenSettings={() => systemSettingsUseCases.openSystemPane("com.apple.Battery-Settings.extension")}
         onCheckedChange={async (v) => {
           await run("sleep.preventSleep", async () => {
             const state = await systemSettingsUseCases.toggleSleepInhibitor(

@@ -17,8 +17,9 @@
   "systemSettings": {
     "tabs": {
       "appearance": "Appearance",
-      "security": "Security",
-      "system": "System"
+      "security": "Security & Privacy",
+      "system": "System",
+      "advanced": "Advanced"
     },
     "loading": "Loading settings...",
     "applying": "Applying settings, please wait...",
@@ -106,8 +107,7 @@
     },
     "login": {
       "title": "Login Items",
-      "placeholder": "/path/to/app.app",
-      "add": "Add",
+      "manageInSettings": "Manage in System Settings",
       "remove": "Remove",
       "removeConfirmTitle": "Remove login item?",
       "removeConfirmDescription": "Remove \"{{name}}\" from login items? It will no longer launch at login.",
@@ -141,8 +141,6 @@
       "lockPasswordDelay": "Password Delay",
       "delayImmediate": "Immediate",
       "delaySeconds": "{{seconds}}s",
-      "emptyPasteboard": "Clear Clipboard",
-      "ejectDiscs": "Eject Discs",
       "warning": "The following operations are irreversible. Use with caution.",
       "emptyTrashConfirmTitle": "Empty Trash?",
       "emptyTrashConfirmDescription": "Permanently delete all items in the Trash.",
@@ -173,8 +171,6 @@
       "dockShowRecentsDesc": "Display recently used apps in Dock",
       "hideDesktopIcons": "Hide Desktop Icons",
       "hideDesktopIconsDesc": "Hide all icons on the desktop",
-      "muteMic": "Mute Microphone",
-      "muteMicDesc": "Toggle microphone input",
       "lowPowerMode": "Low Power Mode",
       "lowPowerModeDesc": "Reduce system power consumption",
       "lowPowerNever": "Never",
@@ -182,9 +178,7 @@
       "lowPowerOnBattery": "On Battery Only",
       "lowPowerOnAC": "On AC Power Only",
       "screenSaver": "Screen Saver",
-      "screenSaverDesc": "Toggle screen saver timeout",
-      "smallLaunchpadIcon": "Small Launchpad Icons",
-      "smallLaunchpadIconDesc": "Use smaller icons in Launchpad"
+      "screenSaverDesc": "Toggle screen saver timeout"
     },
     "devtools": {
       "jsonTitle": "JSON Format",

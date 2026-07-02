@@ -69,12 +69,6 @@ export function QuickActionsSection() {
           <Button variant="outline" size="sm" disabled={applying} onClick={() => setPending("shutdown")}>
             {t("systemSettings.actions.shutdown")}
           </Button>
-          <Button variant="outline" size="sm" disabled={applying} onClick={() => run("quickActions.emptyPasteboard", () => systemSettingsUseCases.emptyPasteboard())}>
-            {t("systemSettings.actions.emptyPasteboard")}
-          </Button>
-          <Button variant="outline" size="sm" disabled={applying} onClick={() => run("quickActions.ejectDiscs", () => systemSettingsUseCases.ejectDiscs())}>
-            {t("systemSettings.actions.ejectDiscs")}
-          </Button>
         </div>
       </SettingGroup>
 

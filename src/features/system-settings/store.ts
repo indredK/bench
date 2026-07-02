@@ -7,7 +7,7 @@
 import { create } from "zustand";
 import type { SleepState, LoginItem, MenuBarAutoHideMode, LowPowerMode, GatekeeperMode } from "@/lib/tauri/types/system-settings";
 
-export type SettingsTab = "appearance" | "security" | "system";
+export type SettingsTab = "appearance" | "security" | "system" | "advanced";
 
 interface SystemSettingsState {
   activeTab: SettingsTab;
@@ -39,8 +39,6 @@ interface SystemSettingsState {
   setDockShowRecents: (v: boolean) => void;
   hideDesktopIcons: boolean;
   setHideDesktopIcons: (v: boolean) => void;
-  smallLaunchpadIcon: boolean;
-  setSmallLaunchpadIcon: (v: boolean) => void;
   screenSaver: boolean;
   setScreenSaver: (v: boolean) => void;
 
@@ -69,8 +67,6 @@ interface SystemSettingsState {
   setNetworkAirdropDisabled: (v: boolean) => void;
 
   gatekeeper: GatekeeperMode;
-  muteMic: boolean;
-  setMuteMic: (v: boolean) => void;
 
   // ── System ──
   sleepState: SleepState | null;
@@ -144,8 +140,6 @@ export const useSystemSettingsStore = create<SystemSettingsState>((set) => ({
   setDockShowRecents: (v) => set({ dockShowRecents: v }),
   hideDesktopIcons: false,
   setHideDesktopIcons: (v) => set({ hideDesktopIcons: v }),
-  smallLaunchpadIcon: false,
-  setSmallLaunchpadIcon: (v) => set({ smallLaunchpadIcon: v }),
   screenSaver: false,
   setScreenSaver: (v) => set({ screenSaver: v }),
 
@@ -174,8 +168,6 @@ export const useSystemSettingsStore = create<SystemSettingsState>((set) => ({
   setNetworkAirdropDisabled: (v) => set({ networkAirdropDisabled: v }),
 
   gatekeeper: "identified_developers",
-  muteMic: false,
-  setMuteMic: (v) => set({ muteMic: v }),
 
   // ── System defaults ──
   sleepState: null,
