@@ -210,6 +210,7 @@
     },
     "diagnostics": {
       "title": "网络诊断",
+      "description": "Ping 目标主机、查看本机 IP 和 WiFi 信息。",
       "targetHost": "目标主机",
       "targetPlaceholder": "如 google.com 或 8.8.8.8:53",
       "ping": "Ping",

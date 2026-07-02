@@ -210,6 +210,7 @@
     },
     "diagnostics": {
       "title": "Network Diagnostics",
+      "description": "Ping target hosts, check local IP and WiFi information.",
       "targetHost": "Target Host",
       "targetPlaceholder": "e.g. google.com or 8.8.8.8:53",
       "ping": "Ping",

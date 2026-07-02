@@ -13,6 +13,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import i18n, { detectSystemLanguage } from "@/i18n/config";
 import { setCurrentWindowTitle } from "@/platform/window";
 import { readStorageItem, removeStorageItem, writeStorageItem } from "@/platform/storage";
@@ -124,13 +130,12 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               {WINDOW_THEMES.map((desc) => {
                 const Icon = desc.icon;
                 const supported = isSupported(desc.id);
-                return (
+                const button = (
                   <Button
                     key={desc.id}
                     variant={windowThemeId === desc.id ? "default" : "outline"}
                     size="sm"
                     disabled={!supported}
-                    title={supported ? undefined : t("windowTheme.unsupportedTooltip")}
                     onClick={() => setWindowThemeId(desc.id)}
                     className="gap-1.5"
                   >
@@ -138,6 +143,15 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                     <Icon className="size-3.5" />
                     {t(desc.labelKey)}
                   </Button>
+                );
+                if (supported) return button;
+                return (
+                  <TooltipProvider key={desc.id}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>{button}</TooltipTrigger>
+                      <TooltipContent side="top">{t("windowTheme.unsupportedTooltip")}</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 );
               })}
             </div>

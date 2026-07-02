@@ -129,15 +129,15 @@ export default function SystemSettings(_props: SystemSettingsProps) {
             <DockSection />
             <SettingGroup title={t("systemSettings.toggles.title")}>
               <SettingToggle
-                label={t("systemSettings.toggles.autoHideDock")}
-                description={t("systemSettings.toggles.autoHideDockDesc")}
+                label={t("systemSettings.toggles.autohideDock")}
+                description={t("systemSettings.toggles.autohideDockDesc")}
                 checked={store.autohideDock}
                 loading={store.applyingKeys.has("toggles.autoHideDock")}
                 onCheckedChange={async (v) => { await run("toggles.autoHideDock", async () => { await systemSettingsUseCases.setAutohideDockState(v); store.setAutohideDock(v); }); }}
               />
               <div className="space-y-2 py-2">
-                <Label className="text-sm font-medium">{t("systemSettings.toggles.autoHideMenuBar")}</Label>
-                <p className="text-xs text-muted-foreground">{t("systemSettings.toggles.autoHideMenuBarDesc")}</p>
+                <Label className="text-sm font-medium">{t("systemSettings.toggles.autohideMenuBar")}</Label>
+                <p className="text-xs text-muted-foreground">{t("systemSettings.toggles.autohideMenuBarDesc")}</p>
                 <div className="flex gap-2 flex-wrap">
                   {([{ mode: "never", label: t("systemSettings.toggles.menuBarNever") }, { mode: "in_full_screen_only", label: t("systemSettings.toggles.menuBarFullScreen") }, { mode: "on_desktop_only", label: t("systemSettings.toggles.menuBarDesktop") }, { mode: "always", label: t("systemSettings.toggles.menuBarAlways") }] as { mode: MenuBarAutoHideMode; label: string }[]).map(({ mode, label }) => (
                     <Button key={mode} variant={store.autohideMenuBar === mode ? "default" : "outline"} size="sm" disabled={store.applyingKeys.has("toggles.autoHideMenuBar")} onClick={async () => {
@@ -404,7 +404,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                     setDefaultBrowser(e.target.value);
                     toast.success(t("systemSettings.toasts.success"));
                   } catch (err) {
-                    toast.error(String(err));
+                    toast.error(t("systemSettings.toasts.error", { error: String(err) }));
                   } finally {
                     setBrowserLoading(false);
                   }
