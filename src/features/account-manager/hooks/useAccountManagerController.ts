@@ -1,7 +1,7 @@
 /**
  * account-manager controller / 账号管理控制器: wires store, use-cases, and sub-hooks.
  */
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { classifyAccountManagerError } from "@/features/account-manager/error-classifier";
@@ -39,6 +39,35 @@ export function useAccountManagerController() {
     useGuardedAsyncSet<string>();
   const { pendingKeys: settingProbeStrategyIds, run: runProbeStrategyChange } =
     useGuardedAsyncSet<string>();
+
+  const [justRefreshedIds, setJustRefreshedIds] = useState<Set<string>>(new Set());
+  const justRefreshedTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  const markJustRefreshed = useCallback((accountId: string) => {
+    setJustRefreshedIds((prev) => {
+      const next = new Set(prev);
+      next.add(accountId);
+      return next;
+    });
+    const existing = justRefreshedTimersRef.current.get(accountId);
+    if (existing) clearTimeout(existing);
+    const timer = setTimeout(() => {
+      setJustRefreshedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(accountId);
+        return next;
+      });
+      justRefreshedTimersRef.current.delete(accountId);
+    }, 1500);
+    justRefreshedTimersRef.current.set(accountId, timer);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      justRefreshedTimersRef.current.forEach((timer) => clearTimeout(timer));
+      justRefreshedTimersRef.current.clear();
+    };
+  }, []);
 
   const authProxy = useAuthProxy();
   const { readQuickLoginHistory, pushQuickLoginHistory } = useQuickLoginHistory();
@@ -152,10 +181,10 @@ export function useAccountManagerController() {
       }
     });
 
-  const handleRedetectProfile = (stationId: string) =>
+  const handleRedetectProfile = (stationId: string, accountId?: string) =>
     runRedetectProfile(stationId, async () => {
       try {
-        const profile = await accountManagerUseCases.redetectAuthProfile(stationId);
+        const profile = await accountManagerUseCases.redetectAuthProfile(stationId, accountId);
         store.setStations((prev) =>
           prev.map((station) =>
             station.id === stationId ? { ...station, authProfile: profile } : station,
@@ -217,6 +246,7 @@ export function useAccountManagerController() {
         store.setAccounts((prev) =>
           prev.map((item) => (item.id === updated.id ? updated : item)),
         );
+        markJustRefreshed(updated.id);
         if (updated.status === "fetchFailed") {
           toast.warning(
             t("accountManager.toasts.refreshAccountFetchFailed", { name: updated.username }),
@@ -242,6 +272,7 @@ export function useAccountManagerController() {
         const subset = await accountManagerUseCases.refreshStation(stationId);
         const byId = new Map(subset.map((account) => [account.id, account] as const));
         store.setAccounts((prev) => prev.map((account) => byId.get(account.id) ?? account));
+        subset.forEach((account) => markJustRefreshed(account.id));
         const failed = subset.filter((account) => account.status === "fetchFailed").length;
         if (failed > 0) {
           toast.warning(
@@ -270,6 +301,7 @@ export function useAccountManagerController() {
       try {
         const all = await accountManagerUseCases.refreshAll();
         store.setAccounts(all);
+        all.forEach((account) => markJustRefreshed(account.id));
         const failed = all.filter((account) => account.status === "fetchFailed").length;
         if (failed > 0) {
           toast.warning(
@@ -578,6 +610,7 @@ export function useAccountManagerController() {
     refreshingAccountIds,
     refreshingStationIds,
     refreshingAll,
+    justRefreshedIds,
     importingData: store.importingData,
     exportingData: store.exportingData,
     reorderingStations: store.reorderingStations,

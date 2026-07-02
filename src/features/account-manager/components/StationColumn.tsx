@@ -3,9 +3,16 @@
  */
 import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Download, Import, Inbox, Link2, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { Check, Copy, Download, Import, Inbox, Link2, LogIn, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { SortableList, useSortableCard, DragHandle } from "@/components/ui/sortable-card";
 import type { RelayStation } from "@/lib/tauri/types/account-manager";
@@ -64,28 +71,29 @@ export function StationColumn({
   return (
     <section className="flex w-[320px] shrink-0 flex-col rounded-lg border bg-card">
       <ColumnHeader
-        title={t("accountManager.stationTitle")}
+        title={`${t("accountManager.stationTitle")} (${stations.length})`}
         action={
             <div className="flex items-center gap-1.5">
-              <Button
-                size="icon-sm"
-                variant="outline"
-                onClick={onRefreshAll}
-                disabled={refreshingAll}
-                aria-label={t("accountManager.refreshAll")}
-                title={t("accountManager.refreshAll")}
-              >
-                <RefreshCw className={refreshingAll ? "animate-spin" : undefined} />
-              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="icon-sm"
+                      variant="outline"
+                      onClick={onRefreshAll}
+                      disabled={refreshingAll}
+                      aria-label={t("accountManager.refreshAll")}
+                    >
+                      <RefreshCw className={refreshingAll ? "animate-spin" : undefined} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">{t("accountManager.refreshAll")}</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <Button size="sm" onClick={onAdd}>
                 <Plus />
                 {t("accountManager.addStation")}
               </Button>
-              {onQuickLogin && (
-                <Button size="sm" variant="secondary" onClick={onQuickLogin}>
-                  {t("accountManager.sessionManager.quickLogin.title")}
-                </Button>
-              )}
             </div>
         }
       />
@@ -113,38 +121,76 @@ export function StationColumn({
           />
         )}
       </div>
-      <div className="flex items-center justify-end gap-1.5 border-t px-3 py-3">
-        {onExternalLogin && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={onExternalLogin}
-            title={t("accountManager.proxyPaste.button")}
-          >
-            <Link2 className="size-3.5" />
-            {t("accountManager.proxyPaste.button")}
-          </Button>
-        )}
-        <Button
-          size="icon-sm"
-          variant="outline"
-          onClick={onImportData}
-          disabled={importingData}
-          aria-label={t("accountManager.importData")}
-          title={t("accountManager.importData")}
-        >
-          <Import className={importingData ? "animate-pulse" : undefined} />
-        </Button>
-        <Button
-          size="icon-sm"
-          variant="outline"
-          onClick={onExportData}
-          disabled={exportingData}
-          aria-label={t("accountManager.exportData")}
-          title={t("accountManager.exportData")}
-        >
-          <Download className={exportingData ? "animate-pulse" : undefined} />
-        </Button>
+      <div className="flex items-center border-t px-3 py-3">
+        <div className="flex items-center gap-1.5">
+          {onQuickLogin && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="icon-sm"
+                    onClick={onQuickLogin}
+                    aria-label={t("accountManager.sessionManager.quickLogin.title")}
+                  >
+                    <LogIn size={14} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">{t("accountManager.sessionManager.quickLogin.title")}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          {onExternalLogin && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="icon-sm"
+                    variant="outline"
+                    onClick={onExternalLogin}
+                    aria-label={t("accountManager.proxyPaste.button")}
+                  >
+                    <Link2 className="size-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">{t("accountManager.proxyPaste.button")}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5 ml-auto">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon-sm"
+                  variant="outline"
+                  onClick={onImportData}
+                  disabled={importingData}
+                  aria-label={t("accountManager.importData")}
+                >
+                  <Import className={importingData ? "animate-pulse" : undefined} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">{t("accountManager.importData")}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon-sm"
+                  variant="outline"
+                  onClick={onExportData}
+                  disabled={exportingData}
+                  aria-label={t("accountManager.exportData")}
+                >
+                  <Download className={exportingData ? "animate-pulse" : undefined} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">{t("accountManager.exportData")}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
       </div>
     </section>
   );
@@ -216,6 +262,17 @@ function StationCardContent({
   onDelete: (station: RelayStation) => void;
 }) {
   const { t } = useTranslation();
+  const [remarkCopied, setRemarkCopied] = useState(false);
+  const handleCopyRemark = (event: React.MouseEvent) => {
+    event.stopPropagation();
+    navigator.clipboard.writeText(station.remark).then(() => {
+      setRemarkCopied(true);
+      toast.success(t("accountManager.toasts.copySuccess"));
+      window.setTimeout(() => setRemarkCopied(false), 1200);
+    }).catch(() => {
+      toast.error(t("accountManager.toasts.copyFailed"));
+    });
+  };
   return (
     <div
       role="button"
@@ -228,7 +285,7 @@ function StationCardContent({
         }
       }}
       className={cn(
-        "relative w-full cursor-pointer rounded-lg border px-3 py-3 text-left transition",
+        "group relative w-full cursor-pointer rounded-lg border px-3 py-3 text-left transition",
         active ? "border-primary bg-primary/5" : "border-border hover:bg-muted/40",
         dragging && "shadow-xl"
       )}
@@ -237,32 +294,62 @@ function StationCardContent({
         <Badge variant="secondary" className="size-5 flex items-center justify-center rounded-full p-0 text-[10px] leading-none">{count}</Badge>
       </span>
       <div className="flex items-center justify-between gap-2">
-        <span className="min-w-0 truncate text-sm font-semibold">{station.remark}</span>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className="min-w-0 truncate text-sm font-semibold">{station.remark}</span>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={handleCopyRemark}
+                  className="shrink-0 cursor-pointer text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
+                  aria-label={t("accountManager.detail.copy")}
+                >
+                  {remarkCopied ? <Check size={12} /> : <Copy size={12} />}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top">{t("accountManager.detail.copy")}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
         <div className="flex items-center gap-1">
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            onClick={(event) => {
-              event.stopPropagation();
-              onEdit(station);
-            }}
-            aria-label={t("accountManager.editStation")}
-            title={t("accountManager.editStation")}
-          >
-            <Pencil size={13} />
-          </Button>
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            onClick={(event) => {
-              event.stopPropagation();
-              onDelete(station);
-            }}
-            aria-label={t("accountManager.deleteStation")}
-            title={t("accountManager.deleteStation")}
-          >
-            <Trash2 size={13} className="text-destructive" />
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onEdit(station);
+                  }}
+                  aria-label={t("accountManager.editStation")}
+                  className="cursor-pointer hover:bg-muted/50 rounded-md"
+                >
+                  <Pencil size={13} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">{t("accountManager.editStation")}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onDelete(station);
+                  }}
+                  aria-label={t("accountManager.deleteStation")}
+                  className="cursor-pointer hover:bg-muted/50 rounded-md"
+                >
+                  <Trash2 size={13} className="text-destructive" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">{t("accountManager.deleteStation")}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
       <p className="mt-1 truncate text-xs text-muted-foreground">{station.website}</p>

@@ -930,12 +930,17 @@ pub async fn mark_account_logged_in<R: Runtime>(
         if let Some(station) = station.as_ref() {
             match crate::account_manager::detection::detect_auth_profile(&window).await {
                 Ok(profile) => {
-                    let _ = storage::with_state_mut(&app, &state, |snapshot| {
+                    if let Err(e) = storage::with_state_mut(&app, &state, |snapshot| {
                         if let Some(s) = snapshot.stations.iter_mut().find(|s| s.id == station.id) {
                             s.auth_profile = Some(profile);
                         }
                         Ok(())
-                    });
+                    }) {
+                        eprintln!(
+                            "[account_manager] mark_logged_in: failed to save auth profile for {}: {e:?}",
+                            station.id
+                        );
+                    }
                 }
                 Err(e) => {
                     eprintln!(
@@ -1235,29 +1240,134 @@ pub fn clear_account_session(
     Ok(())
 }
 
+/// 为 AuthProfile 检测选择最合适的账号 session。
+fn pick_account_for_auth_detection<R: Runtime>(
+    app: &AppHandle<R>,
+    accounts: &[StationAccount],
+    station_id: &str,
+    account_id: Option<&str>,
+) -> AccountManagerResult<StationAccount> {
+    let station_accounts: Vec<&StationAccount> = accounts
+        .iter()
+        .filter(|account| account.station_id == station_id)
+        .collect();
+
+    if station_accounts.is_empty() {
+        return Err(AccountManagerError::not_found("no account for station"));
+    }
+
+    if let Some(id) = account_id {
+        return station_accounts
+            .iter()
+            .find(|account| account.id == id)
+            .map(|account| (*account).clone())
+            .ok_or_else(|| AccountManagerError::not_found(format!("account {id}")));
+    }
+
+    if let Some(account) = station_accounts.iter().find(|account| {
+        app.get_webview_window(&webview::login_window_label(&account.id))
+            .is_some()
+    }) {
+        return Ok((*account).clone());
+    }
+
+    if let Some(account) = station_accounts
+        .iter()
+        .filter(|account| account.last_login_at.is_some())
+        .max_by(|left, right| left.last_login_at.cmp(&right.last_login_at))
+    {
+        return Ok((*account).clone());
+    }
+
+    Ok(station_accounts[0].clone())
+}
+
 /// 对指定 Station 执行 AuthProfile 检测
+///
+/// 优先使用已有的登录窗口；如果登录窗口不存在，则打开一个隐藏的临时窗口
+/// 加载站点页面后执行检测（使用该账号的独立 session 存储）。
 #[tauri::command]
 pub async fn detect_station_auth_profile<R: Runtime>(
     app: AppHandle<R>,
     state: State<'_, AccountManagerState>,
     station_id: String,
+    account_id: Option<String>,
 ) -> AccountManagerResult<AuthProfile> {
     let snapshot = state.read_snapshot_checked()?;
-    let _station = snapshot.stations.iter()
+    let station = snapshot.stations.iter()
         .find(|s| s.id == station_id)
         .cloned()
         .ok_or_else(|| AccountManagerError::not_found(format!("station {station_id}")))?;
 
-    let account = snapshot.accounts.iter()
-        .find(|a| a.station_id == station_id)
-        .cloned()
-        .ok_or_else(|| AccountManagerError::not_found("no account for station"))?;
+    let account = pick_account_for_auth_detection(
+        &app,
+        &snapshot.accounts,
+        &station_id,
+        account_id.as_deref(),
+    )?;
 
+    // 优先使用已有的登录窗口
     let login_label = crate::account_manager::webview::login_window_label(&account.id);
-    let window = app.get_webview_window(&login_label)
-        .ok_or_else(|| AccountManagerError::not_found("login window not found"))?;
+    let profile = if let Some(window) = app.get_webview_window(&login_label) {
+        crate::account_manager::detection::detect_auth_profile(&window).await?
+    } else {
+        // 没有登录窗口，打开一个隐藏的临时窗口检测
+        let temp_label = format!("relay-auth-detect-{}", account.id);
+        // 清理可能残留的旧窗口
+        if let Some(old) = app.get_webview_window(&temp_label) { let _ = old.close(); }
 
-    let profile = crate::account_manager::detection::detect_auth_profile(&window).await?;
+        let parsed = station.website.parse()
+            .map_err(|e| AccountManagerError::invalid_input(format!("website url: {e}")))?;
+        let data_dir = webview::account_data_dir(&app, &account.id)?;
+        if let Some(parent) = data_dir.parent() {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| AccountManagerError::store_fail(format!("create dir: {e}")))?;
+        }
+
+        use std::sync::{Arc, Mutex};
+        use std::time::{Duration, Instant};
+        use tauri::WebviewUrl;
+        use tokio::sync::oneshot;
+
+        let deadline = Instant::now() + Duration::from_millis(15000);
+        let (tx, rx) = oneshot::channel::<()>();
+        let slot: Arc<Mutex<Option<oneshot::Sender<()>>>> = Arc::new(Mutex::new(Some(tx)));
+        let slot_clone = slot.clone();
+
+        let mut builder = tauri::WebviewWindowBuilder::new(&app, &temp_label, WebviewUrl::External(parsed))
+            .visible(false)
+            .data_directory(data_dir)
+            .on_page_load(move |_, p| {
+                if !matches!(p.event(), tauri::webview::PageLoadEvent::Finished) { return; }
+                if let Ok(mut guard) = slot_clone.lock() {
+                    if let Some(sender) = guard.take() {
+                        let _ = sender.send(());
+                    }
+                }
+            });
+
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
+        {
+            builder = builder.data_store_identifier(webview::account_data_store_identifier(&account.id));
+        }
+
+        let window = builder.build()
+            .map_err(|e| AccountManagerError::store_fail(format!("build detect window: {e}")))?;
+
+        // 等待页面加载完成
+        let load_result = tokio::time::timeout_at(deadline.into(), rx).await;
+        if load_result.is_err() {
+            let _ = window.close();
+            return Err(AccountManagerError::store_fail("detect window load timeout"));
+        }
+
+        // 额外等一小会儿，让页面 JS 运行一下
+        tokio::time::sleep(Duration::from_millis(500)).await;
+
+        let result = crate::account_manager::detection::detect_auth_profile(&window).await;
+        let _ = window.close();
+        result?
+    };
 
     storage::with_state_mut(&app, &state, |snapshot| {
         if let Some(s) = snapshot.stations.iter_mut().find(|s| s.id == station_id) {

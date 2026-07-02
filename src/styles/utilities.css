@@ -42,6 +42,16 @@
   animation: slide-in-right 0.2s ease-out;
 }
 
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 1.2s ease-in-out forwards;
+}
+
 /* ─── Generic thin scrollbar utility ───────────────────────────── */
 @layer utilities {
   .scrollbar-thin {

@@ -234,7 +234,10 @@ export const TAURI_COMMAND_CONTRACTS = {
   clear_account_session: defineTauriCommand<{ accountId: string }, void>()(
     "clear_account_session"
   ),
-  detect_station_auth_profile: defineTauriCommand<{ stationId: string }, AuthProfile>()(
+  detect_station_auth_profile: defineTauriCommand<
+    { stationId: string; accountId?: string | null },
+    AuthProfile
+  >()(
     "detect_station_auth_profile"
   ),
   get_station_auth_profile: defineTauriCommand<{ stationId: string }, AuthProfile | null>()(
@@ -815,7 +818,7 @@ export const TAURI_COMMAND_ARG_KEYS = {
   capture_account_session: ["accountId"],
   restore_account_session: ["accountId"],
   clear_account_session: ["accountId"],
-  detect_station_auth_profile: ["stationId"],
+  detect_station_auth_profile: ["stationId", "accountId"],
   get_station_auth_profile: ["stationId"],
   set_exclusivity_mode: ["stationId", "mode"],
   switch_active_account: ["stationId", "accountId"],

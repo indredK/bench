@@ -239,12 +239,15 @@
     }
   },
   "accountManager": {
-    "stationTitle": "All Stations",
+    "stationTitle": "Station List",
     "accountTitle": "Accounts",
     "detailTitle": "Detail",
-    "addStation": "Add",
+    "addStation": "Add Station",
     "importData": "Import",
     "exportData": "Export",
+    "searchAccounts": "Search accounts...",
+    "sortByUsername": "Sort by username",
+    "groupByStatus": "Group by status",
     "addAccount": "Add Account",
     "editStation": "Edit",
     "editAccount": "Edit",
@@ -384,6 +387,8 @@
       "createStationFailed": "Failed to create gateway",
       "createAccountFailed": "Failed to create account",
       "markLoggedInFailed": "Failed to mark as logged in",
+      "copySuccess": "Copied to clipboard",
+      "copyFailed": "Failed to copy to clipboard",
       "refreshAccountFailed": "Failed to refresh account",
       "refreshStationFailed": "Failed to refresh gateway",
       "refreshAllFailed": "Failed to refresh all accounts",
@@ -531,7 +536,11 @@
         "probeSuccessRate": "Probe success rate",
         "noData": "N/A",
         "confidence": "Confidence",
-        "detectedAt": "Detected At"
+        "detectedAt": "Detected At",
+        "notDetectedTitle": "Auth profile not yet detected",
+        "notDetectedDesc": "Auto-detects after login, or detect manually now",
+        "detectNow": "Detect Now",
+        "detecting": "Detecting..."
       }
     }
   },

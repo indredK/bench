@@ -104,8 +104,8 @@ export const accountManagerUseCases = {
     return { account, normalized };
   },
 
-  async redetectAuthProfile(stationId: string) {
-    return accountManagerRepository.detectStationAuthProfile(stationId);
+  async redetectAuthProfile(stationId: string, accountId?: string) {
+    return accountManagerRepository.detectStationAuthProfile(stationId, accountId);
   },
 
   async addAccount(stationId: string, username: string, password: string, notes: string) {

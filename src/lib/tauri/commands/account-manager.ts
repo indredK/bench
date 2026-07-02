@@ -215,8 +215,14 @@ export function clearAccountSession(accountId: string): Promise<void> {
   return invokeTauriCommand(TAURI_COMMANDS.accountManager.clearAccountSession, { accountId });
 }
 
-export function detectStationAuthProfile(stationId: string): Promise<AuthProfile> {
-  return invokeTauriCommand(TAURI_COMMANDS.accountManager.detectStationAuthProfile, { stationId });
+export function detectStationAuthProfile(
+  stationId: string,
+  accountId?: string,
+): Promise<AuthProfile> {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.detectStationAuthProfile, {
+    stationId,
+    accountId: accountId ?? null,
+  });
 }
 
 export function getStationAuthProfile(stationId: string): Promise<AuthProfile | null> {

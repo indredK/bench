@@ -4,8 +4,15 @@
  */
 import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import { Check, Copy } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { AccountSessionStatus } from "@/lib/tauri/types/account-manager";
 
@@ -23,23 +30,35 @@ export function IconButton({
   icon,
   label,
   disabled,
+  tooltipSide = "top",
 }: {
   onClick: () => void;
   icon: ReactNode;
   label?: string;
   disabled?: boolean;
+  tooltipSide?: "top" | "bottom" | "left" | "right";
 }) {
-  return (
+  const button = (
     <button
       type="button"
       onClick={onClick}
       aria-label={label}
-      title={label}
       disabled={disabled}
-      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-50"
+      className="inline-flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
     >
       {icon}
     </button>
+  );
+
+  if (!label) return button;
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>{button}</TooltipTrigger>
+        <TooltipContent side={tooltipSide}>{label}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
@@ -52,6 +71,7 @@ export function CopyIconButton({
   label?: string;
   onCopy?: () => void | Promise<void>;
 }) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const handleClick = async () => {
     try {
@@ -63,7 +83,7 @@ export function CopyIconButton({
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1200);
     } catch {
-      /* clipboard unavailable */
+      toast.error(t("accountManager.toasts.copyFailed"));
     }
   };
   return (

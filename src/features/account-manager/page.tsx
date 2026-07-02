@@ -72,6 +72,7 @@ function AccountManagerPage() {
         refreshingIds={c.refreshingAccountIds}
         refreshingStationIds={c.refreshingStationIds}
         refreshingAll={c.refreshingAll}
+        justRefreshedIds={c.justRefreshedIds}
         onSelect={c.setSelectedAccountId}
         onAdd={() => c.setAddAccountOpen(true)}
         onLogin={c.handleLogin}
@@ -93,6 +94,12 @@ function AccountManagerPage() {
         onRevealPassword={c.handleRevealPassword}
         onCopyPassword={c.handleCopyPassword}
         onProbeStrategyChange={c.handleProbeStrategyChange}
+        onRefreshAccount={c.handleRefreshAccount}
+        refreshingAccount={
+          c.selectedAccount
+            ? c.refreshingAccountIds.has(c.selectedAccount.id)
+            : false
+        }
         settingProbeStrategy={
           c.selectedStation
             ? c.settingProbeStrategyIds.has(c.selectedStation.id)

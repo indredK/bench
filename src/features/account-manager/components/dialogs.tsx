@@ -115,18 +115,6 @@ export function StationDialog({
               {t("accountManager.addStationDialog.sectionBasic")}
             </h3>
             <Field
-              label={t("accountManager.fields.remark")}
-              icon={<StickyNote size={14} />}
-              input={
-                <Input
-                  value={remark}
-                  onChange={(e) => setRemark(e.target.value)}
-                  placeholder={t("accountManager.addStationDialog.remarkPlaceholder")}
-                  required
-                />
-              }
-            />
-            <Field
               label={t("accountManager.fields.website")}
               icon={<Globe size={14} />}
               input={
@@ -135,6 +123,18 @@ export function StationDialog({
                   onChange={(e) => setWebsite(e.target.value)}
                   placeholder={t("accountManager.addStationDialog.websitePlaceholder")}
                   type="url"
+                  required
+                />
+              }
+            />
+            <Field
+              label={t("accountManager.fields.remark")}
+              icon={<StickyNote size={14} />}
+              input={
+                <Input
+                  value={remark}
+                  onChange={(e) => setRemark(e.target.value)}
+                  placeholder={t("accountManager.addStationDialog.remarkPlaceholder")}
                   required
                 />
               }
@@ -263,10 +263,19 @@ export function AddAccountDialog({
               label={t("accountManager.fields.password")}
               icon={<KeyRound size={14} />}
               input={
-                <div className="flex items-center gap-2">
-                  <Input value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t("accountManager.addAccountDialog.passwordPlaceholder")} type={passwordHidden ? "password" : "text"} />
-                  <IconButton onClick={() => setPasswordHidden(h => !h)} icon={passwordHidden ? <Eye size={14} /> : <EyeOff size={14} />} label={passwordHidden ? t("accountManager.detail.revealPassword") : t("accountManager.detail.hidePassword")} />
-                </div>
+                <Input
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={t("accountManager.addAccountDialog.passwordPlaceholder")}
+                  type={passwordHidden ? "password" : "text"}
+                  suffix={
+                    <IconButton
+                      onClick={() => setPasswordHidden(h => !h)}
+                      icon={passwordHidden ? <Eye size={14} /> : <EyeOff size={14} />}
+                      label={passwordHidden ? t("accountManager.detail.revealPassword") : t("accountManager.detail.hidePassword")}
+                    />
+                  }
+                />
               }
             />
           </div>
@@ -392,7 +401,6 @@ export function EditAccountDialog({
             label={t("accountManager.fields.password")}
             icon={<KeyRound size={14} />}
             input={
-              <div className="flex items-center gap-2">
                 <Input
                   value={password}
                   onChange={(e) => {
@@ -402,24 +410,27 @@ export function EditAccountDialog({
                   placeholder={t("accountManager.editAccountDialog.passwordPlaceholder")}
                   type={passwordHidden ? "password" : "text"}
                   disabled={passwordLoading}
-                />
-                <IconButton
-                  onClick={() => setPasswordHidden((hidden) => !hidden)}
-                  icon={passwordHidden ? <Eye size={14} /> : <EyeOff size={14} />}
-                  label={
-                    passwordHidden
-                      ? t("accountManager.detail.revealPassword")
-                      : t("accountManager.detail.hidePassword")
+                  suffix={
+                    <div className="flex items-center">
+                      <IconButton
+                        onClick={() => setPasswordHidden((hidden) => !hidden)}
+                        icon={passwordHidden ? <Eye size={14} /> : <EyeOff size={14} />}
+                        label={
+                          passwordHidden
+                            ? t("accountManager.detail.revealPassword")
+                            : t("accountManager.detail.hidePassword")
+                        }
+                        disabled={passwordLoading}
+                      />
+                      {password.length > 0 ? (
+                        <CopyIconButton
+                          value={password}
+                          label={t("accountManager.detail.copy")}
+                        />
+                      ) : null}
+                    </div>
                   }
-                  disabled={passwordLoading}
                 />
-                {password.length > 0 ? (
-                  <CopyIconButton
-                    value={password}
-                    label={t("accountManager.detail.copy")}
-                  />
-                ) : null}
-              </div>
             }
           />
           <Field
