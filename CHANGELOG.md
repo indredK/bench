@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.17.0](https://github.com/indredK/bench/compare/v1.16.0...v1.17.0) (2026-07-03)
+
+
+### Features
+
+* **titlebar:** add always-on-top window toggle function ([161306b](https://github.com/indredK/bench/commit/161306b12d067cc70c8fb7cebb7cbc44406700dd))
+
+
+### Bug Fixes
+
+* **account-manager:** 优化账号管理页面的按钮和弹窗样式 ([1b8dc60](https://github.com/indredK/bench/commit/1b8dc608bb7cb2f88dfe5da8a3037211b9ed933a))
+
 ## [1.16.0](https://github.com/indredK/bench/compare/v1.15.2...v1.16.0) (2026-07-02)
 
 
