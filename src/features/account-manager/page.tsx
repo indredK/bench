@@ -13,7 +13,6 @@ import {
   AddAccountDialog,
   DeleteConfirmDialog,
   EditAccountDialog,
-  ProxyPasteDialog,
   QuickLoginDialog,
   StationDialog,
 } from "@/features/account-manager/components/dialogs";
@@ -51,7 +50,7 @@ function AccountManagerPage() {
         onSelect={c.handleSelectStation}
         onAdd={() => c.setAddStationOpen(true)}
         onQuickLogin={() => c.setQuickLoginOpen(true)}
-        onExternalLogin={() => c.setProxyPasteOpen(true)}
+        onExternalLogin={() => c.setAuthProxyOpen(true)}
         onEdit={(station) => { c.setEditingStation(station); c.setEditStationOpen(true); }}
         onDelete={(station) => { c.setDeletingStation(station); c.setDeleteStationOpen(true); }}
         onReorder={(ids) => void c.handleReorderStations(ids)}
@@ -174,21 +173,8 @@ function AccountManagerPage() {
         accounts={c.accounts}
       />
 
-      <ProxyPasteDialog
-        open={c.isProxyPasteOpen}
-        onOpenChange={c.setProxyPasteOpen}
-        onSubmit={async (url) => {
-          const ok = await c.openProxyForUrl(url);
-          if (ok) c.setProxyPasteOpen(false);
-          return ok;
-        }}
-      />
-
       <AuthProxyDialog
         open={c.isAuthProxyOpen}
-        request={c.authProxyRequest}
-        matches={c.authProxyMatches}
-        host={c.authProxyHost}
         onOpenChange={c.setAuthProxyOpen}
         onConfirm={c.confirmAuthProxy}
         onCompleted={() => void c.loadInitialData().catch(() => undefined)}

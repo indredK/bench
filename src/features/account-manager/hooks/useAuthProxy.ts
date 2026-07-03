@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { accountManagerRepository } from "@/features/account-manager/services/account-manager.repository";
 import type { AuthProxyMatch, AuthProxyRequest } from "@/lib/tauri/types/account-manager";
 
-const NEW_ACCOUNT = "__new__";
+export const NEW_ACCOUNT = "__new__";
 
 export type AuthProxyConfirmInput = {
   request: AuthProxyRequest;
@@ -23,7 +23,6 @@ export function useAuthProxy() {
   const [authProxyMatches, setAuthProxyMatches] = useState<AuthProxyMatch[]>([]);
   const [authProxyHost, setAuthProxyHost] = useState<string>("");
   const [isAuthProxyOpen, setAuthProxyOpen] = useState(false);
-  const [isProxyPasteOpen, setProxyPasteOpen] = useState(false);
 
   const openProxyForUrl = useCallback(
     async (url: string): Promise<boolean> => {
@@ -118,12 +117,8 @@ export function useAuthProxy() {
     authProxyHost,
     isAuthProxyOpen,
     setAuthProxyOpen,
-    isProxyPasteOpen,
-    setProxyPasteOpen,
     openProxyForUrl,
     confirmAuthProxy,
     NEW_ACCOUNT,
   };
 }
-
-export { NEW_ACCOUNT };

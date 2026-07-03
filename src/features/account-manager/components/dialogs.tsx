@@ -4,7 +4,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Eye, EyeOff, Globe, KeyRound, Link2, StickyNote, UserRound } from "lucide-react";
+import { Eye, EyeOff, Globe, KeyRound, StickyNote, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -162,7 +162,7 @@ export function StationDialog({
                     onValueChange={(v) => setProbeStrategyLocal(v as ProbeStrategy)}
                     disabled={!probeOverride}
                   >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="httpFirst">{t("accountManager.sessionManager.advancedSection.probeHttpFirst")}</SelectItem>
                       <SelectItem value="httpOnly">{t("accountManager.sessionManager.advancedSection.probeHttpOnly")}</SelectItem>
@@ -573,83 +573,6 @@ export function QuickLoginDialog({
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t("accountManager.sessionManager.quickLogin.cancel")}</Button>
             <Button type="submit" disabled={!url.trim() || !username.trim()}>{t("accountManager.sessionManager.quickLogin.openButton")}</Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// 外部登录代理:粘贴一条「用 bench 打开」的登录链接(bench-auth:// 或原始 https
-// authorize 链接,如从浏览器地址栏复制的 Trae 登录页),无需把 bench 设为默认浏览器。
-export function ProxyPasteDialog({
-  open,
-  onOpenChange,
-  onSubmit,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSubmit: (url: string) => Promise<boolean>;
-}) {
-  const { t } = useTranslation();
-  const [url, setUrl] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    if (!open) {
-      setUrl("");
-      setSubmitting(false);
-    }
-  }, [open]);
-
-  const trimmed = url.trim();
-  const looksValid =
-    trimmed.startsWith("bench-auth://") ||
-    trimmed.startsWith("http://") ||
-    trimmed.startsWith("https://");
-
-  return (
-    <Dialog open={open} onOpenChange={(next) => { if (!submitting) onOpenChange(next); }}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t("accountManager.proxyPaste.title")}</DialogTitle>
-          <DialogDescription>{t("accountManager.proxyPaste.description")}</DialogDescription>
-        </DialogHeader>
-        <form
-          onSubmit={async (e) => {
-            e.preventDefault();
-            if (!looksValid || submitting) return;
-            setSubmitting(true);
-            try {
-              await onSubmit(trimmed);
-            } finally {
-              setSubmitting(false);
-            }
-          }}
-          className="space-y-3"
-        >
-          <Field
-            label={t("accountManager.proxyPaste.urlLabel")}
-            icon={<Link2 size={14} />}
-            input={
-              <Input
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                placeholder="https://www.trae.cn/authorization?...&auth_callback_url=http://127.0.0.1:..."
-                autoFocus
-              />
-            }
-          />
-          <p className="text-xs text-muted-foreground">
-            {t("accountManager.proxyPaste.hint")}
-          </p>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
-              {t("accountManager.sessionManager.quickLogin.cancel")}
-            </Button>
-            <Button type="submit" disabled={!looksValid || submitting}>
-              {submitting ? t("accountManager.proxyPaste.opening") : t("accountManager.proxyPaste.openButton")}
-            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
