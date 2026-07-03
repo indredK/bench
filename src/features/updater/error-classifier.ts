@@ -32,6 +32,8 @@ const RELEASE_INFO_PATTERNS = [
   "release metadata",
   "failed to deserialize release",
   "invalid release",
+  "was not found in the response `platforms` object",
+  "missing required updater platforms",
 ];
 
 const RATE_LIMIT_PATTERNS = [
@@ -41,6 +43,7 @@ const RATE_LIMIT_PATTERNS = [
 ];
 
 const NETWORK_PATTERNS = [
+  "error sending request for url",
   "network is unreachable",
   "failed to lookup address information",
   "temporary failure in name resolution",

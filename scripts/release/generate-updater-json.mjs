@@ -64,6 +64,14 @@ for (const manifestFile of manifestFiles) {
   };
 }
 
+const requiredPlatforms = ["darwin-aarch64", "darwin-x86_64", "windows-x86_64"];
+const missingPlatforms = requiredPlatforms.filter((platform) => !platforms[platform]);
+if (missingPlatforms.length > 0) {
+  throw new Error(
+    `latest.json is missing required updater platforms: ${missingPlatforms.join(", ")}`
+  );
+}
+
 const latest = {
   version: tag.replace(/^v/, ""),
   notes: releaseMetadata.body || "",

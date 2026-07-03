@@ -142,7 +142,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           if [ "${{ runner.os }}" = "macOS" ]; then
-            npx tauri build --target ${{ matrix.target }} --bundles dmg
+            npx tauri build --target ${{ matrix.target }} --bundles dmg,updater
           elif [ "${{ runner.os }}" = "Windows" ]; then
             npx tauri build --target ${{ matrix.target }} --bundles msi,nsis
           else
@@ -156,23 +156,25 @@ jobs:
           cp src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg artifacts/ || true
           find src-tauri/target -name "*.dmg" -exec cp {} artifacts/ \; 2>/dev/null || true
           updater_file="$(find src-tauri/target/${{ matrix.target }}/release/bundle -name "*.app.tar.gz" | head -n 1)"
-          if [ -n "$updater_file" ] && [ -f "${updater_file}.sig" ]; then
-            case "${{ matrix.target }}" in
-              aarch64-apple-darwin) updater_platform="darwin-aarch64" ;;
-              x86_64-apple-darwin) updater_platform="darwin-x86_64" ;;
-              *) echo "Unsupported macOS updater target: ${{ matrix.target }}" && exit 1 ;;
-            esac
-            updater_name="${updater_platform}-$(basename "$updater_file")"
-            updater_sig_name="${updater_name}.sig"
-            cp "$updater_file" "artifacts/$updater_name"
-            cp "${updater_file}.sig" "artifacts/$updater_sig_name"
-            node scripts/release/write-updater-manifest.mjs \
-              --output-dir artifacts \
-              --target "${{ matrix.target }}" \
-              --platform "$updater_platform" \
-              --file "artifacts/$updater_name" \
-              --signature "artifacts/$updater_sig_name"
+          if [ -z "$updater_file" ] || [ ! -f "${updater_file}.sig" ]; then
+            echo "::error::macOS updater bundle (.app.tar.gz) not found for ${{ matrix.target }}. Build must use --bundles dmg,updater."
+            exit 1
           fi
+          case "${{ matrix.target }}" in
+            aarch64-apple-darwin) updater_platform="darwin-aarch64" ;;
+            x86_64-apple-darwin) updater_platform="darwin-x86_64" ;;
+            *) echo "Unsupported macOS updater target: ${{ matrix.target }}" && exit 1 ;;
+          esac
+          updater_name="${updater_platform}-$(basename "$updater_file")"
+          updater_sig_name="${updater_name}.sig"
+          cp "$updater_file" "artifacts/$updater_name"
+          cp "${updater_file}.sig" "artifacts/$updater_sig_name"
+          node scripts/release/write-updater-manifest.mjs \
+            --output-dir artifacts \
+            --target "${{ matrix.target }}" \
+            --platform "$updater_platform" \
+            --file "artifacts/$updater_name" \
+            --signature "artifacts/$updater_sig_name"
 
       - name: Collect Windows bundle and updater artifacts
         if: runner.os == 'Windows'

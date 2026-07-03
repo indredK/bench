@@ -45,4 +45,26 @@ describe("classifyUpdaterError", () => {
     expect(result.kind).toBe("signatureVerificationFailed");
     expect(result.retryAction).toBe("check");
   });
+
+  it("classifies reqwest transport failures as network unavailable", () => {
+    const result = classifyUpdaterError(
+      "failed to check for updates: error sending request for url (https://github.com/indredK/bench/releases/latest/download/latest.json)",
+      "check",
+      "check failed",
+    );
+
+    expect(result.kind).toBe("networkUnavailable");
+    expect(result.retryAction).toBe("check");
+  });
+
+  it("classifies missing platform entries as release info unavailable", () => {
+    const result = classifyUpdaterError(
+      "failed to check for updates: the platform `darwin-aarch64` was not found in the response `platforms` object",
+      "check",
+      "check failed",
+    );
+
+    expect(result.kind).toBe("releaseInfoUnavailable");
+    expect(result.retryAction).toBe("check");
+  });
 });
