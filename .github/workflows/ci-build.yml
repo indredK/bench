@@ -139,7 +139,14 @@ jobs:
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: npx tauri build --target ${{ matrix.target }}
+        run: |
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            npx tauri build --target ${{ matrix.target }} --targets dmg
+          elif [ "${{ runner.os }}" = "Windows" ]; then
+            npx tauri build --target ${{ matrix.target }} --targets msi,nsis
+          else
+            npx tauri build --target ${{ matrix.target }}
+          fi
 
       - name: Collect macOS bundle and updater artifacts
         if: runner.os == 'macOS'

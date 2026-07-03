@@ -59,7 +59,7 @@ window-vibrancy = "0.6"
 
 [profile.release]
 panic = "abort"
-codegen-units = 1
+codegen-units = 16
 lto = true
 opt-level = "s"
 strip = true
