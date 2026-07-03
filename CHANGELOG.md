@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.17.3](https://github.com/indredK/bench/compare/v1.17.2...v1.17.3) (2026-07-03)
+
+
+### Bug Fixes
+
+* **github-actions:** 修复macOS打包配置和错误提示 ([62cdbeb](https://github.com/indredK/bench/commit/62cdbeb04b227c34aff215ab55971b1f6f3c9fe9))
+
 ## [1.17.2](https://github.com/indredK/bench/compare/v1.17.1...v1.17.2) (2026-07-03)
 
 
