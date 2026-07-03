@@ -4,7 +4,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ExternalLink, KeyRound, ShieldCheck } from "lucide-react";
+import { KeyRound, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -161,7 +161,7 @@ export function AuthProxyDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-2">
+        <div className="space-y-2 overflow-hidden">
           {!hasMatches ? (
             <div className="space-y-1 pb-1 text-sm text-muted-foreground">
               <p>{t("accountManager.authProxy.noMatch")}</p>
@@ -238,7 +238,7 @@ export function AuthProxyDialog({
                   <span className="truncate text-sm font-medium">
                     {t("accountManager.authProxy.newAccount")}
                   </span>
-                  <span className="truncate text-xs text-muted-foreground">
+                  <span className="text-xs text-muted-foreground line-clamp-2">
                     {t("accountManager.authProxy.newAccountHint", { host: targetHost })}
                   </span>
                 </div>
@@ -255,7 +255,7 @@ export function AuthProxyDialog({
             />
           )}
 
-          <p className="pt-2 text-xs text-muted-foreground">
+          <p className="pt-2 text-xs text-muted-foreground break-words">
             {t("accountManager.authProxy.proxyHint")}
           </p>
         </div>
@@ -267,7 +267,6 @@ export function AuthProxyDialog({
             onClick={handleOpenReturnUrl}
             disabled={!request}
           >
-            <ExternalLink size={14} />
             {t("accountManager.authProxy.openReturnUrl")}
           </Button>
           <Button

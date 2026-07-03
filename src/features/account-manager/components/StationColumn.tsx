@@ -140,21 +140,14 @@ export function StationColumn({
             </TooltipProvider>
           )}
           {onExternalLogin && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="icon-sm"
-                    variant="outline"
-                    onClick={onExternalLogin}
-                    aria-label={t("accountManager.proxyPaste.button")}
-                  >
-                    <Link2 className="size-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="top">{t("accountManager.proxyPaste.button")}</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onExternalLogin}
+            >
+              <Link2 className="size-3.5" />
+              {t("accountManager.proxyPaste.button")}
+            </Button>
           )}
         </div>
         <div className="flex items-center gap-1.5 ml-auto">
