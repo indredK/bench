@@ -171,6 +171,7 @@
       "dockShowRecentsDesc": "在 Dock 中显示最近使用的应用",
       "hideDesktopIcons": "隐藏桌面图标",
       "hideDesktopIconsDesc": "隐藏桌面上的所有图标",
+      "batteryStrategy": "电池策略",
       "lowPowerMode": "低电量模式",
       "lowPowerModeDesc": "降低系统功耗",
       "lowPowerNever": "永不",

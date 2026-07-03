@@ -171,6 +171,7 @@
       "dockShowRecentsDesc": "Display recently used apps in Dock",
       "hideDesktopIcons": "Hide Desktop Icons",
       "hideDesktopIconsDesc": "Hide all icons on the desktop",
+      "batteryStrategy": "Battery Strategy",
       "lowPowerMode": "Low Power Mode",
       "lowPowerModeDesc": "Reduce system power consumption",
       "lowPowerNever": "Never",

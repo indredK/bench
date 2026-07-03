@@ -30,7 +30,7 @@ export function LockScreenSection() {
         description={t("systemSettings.actions.lockPasswordDesc")}
         checked={store.lockScreenPassword}
         loading={store.applyingKeys.has("lockScreen.password")}
-        onOpenSettings={() => systemSettingsUseCases.openSystemPane("com.apple.Lock-Screen-Settings.extension")}
+        onOpenSettings={() => systemSettingsUseCases.openLockScreenSettings()}
         onCheckedChange={async (v) => {
           await run("lockScreen.password", async () => {
             await systemSettingsUseCases.setLockScreenPasswordEnabled(v);

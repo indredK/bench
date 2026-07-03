@@ -312,3 +312,35 @@ export function setScreenSaverState(enabled: boolean) {
 export function openSystemPane(paneId: string) {
   return invokeTauriCommand(TAURI_COMMANDS.systemSettings.openSystemPane, { paneId });
 }
+
+// ── Semantic pane commands ──
+export function openSettingsPane(pane: string) {
+  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.openSettingsPane, { pane });
+}
+export function openBatterySettings() {
+  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.openBatterySettings);
+}
+export function openControlCenterSettings() {
+  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.openControlCenterSettings);
+}
+export function openDesktopSettings() {
+  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.openDesktopSettings);
+}
+export function openKeyboardSettings() {
+  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.openKeyboardSettings);
+}
+export function openLocalizationSettings() {
+  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.openLocalizationSettings);
+}
+export function openLockScreenSettings() {
+  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.openLockScreenSettings);
+}
+export function openLoginItemsSettings() {
+  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.openLoginItemsSettings);
+}
+export function openNetworkSettings() {
+  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.openNetworkSettings);
+}
+export function openPrivacySecuritySettings() {
+  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.openPrivacySecuritySettings);
+}

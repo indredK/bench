@@ -88,6 +88,17 @@ export const systemSettingsUseCases = {
   setDefaultBrowser: systemSettingsRepository.setDefaultBrowser,
 
   openSystemPane: systemSettingsRepository.openSystemPane,
+  // Semantic pane commands
+  openSettingsPane: systemSettingsRepository.openSettingsPane,
+  openBatterySettings: systemSettingsRepository.openBatterySettings,
+  openControlCenterSettings: systemSettingsRepository.openControlCenterSettings,
+  openDesktopSettings: systemSettingsRepository.openDesktopSettings,
+  openKeyboardSettings: systemSettingsRepository.openKeyboardSettings,
+  openLocalizationSettings: systemSettingsRepository.openLocalizationSettings,
+  openLockScreenSettings: systemSettingsRepository.openLockScreenSettings,
+  openLoginItemsSettings: systemSettingsRepository.openLoginItemsSettings,
+  openNetworkSettings: systemSettingsRepository.openNetworkSettings,
+  openPrivacySecuritySettings: systemSettingsRepository.openPrivacySecuritySettings,
   // Privacy
   resetTccPermission: systemSettingsRepository.resetTccPermission,
 

@@ -49,7 +49,7 @@ export function DisplayDockSection({ className }: DisplayDockSectionProps) {
           description={t("systemSettings.display.batteryPercentDesc")}
           checked={store.displayBatteryPercent}
           loading={store.applyingKeys.has("display.batteryPercent")}
-          onOpenSettings={() => systemSettingsUseCases.openSystemPane("com.apple.ControlCenter-Settings.extension")}
+          onOpenSettings={() => systemSettingsUseCases.openControlCenterSettings()}
           onCheckedChange={async (v) => {
             await run("display.batteryPercent", async () => {
               await systemSettingsUseCases.setDisplayBatteryPercent(v);
@@ -60,7 +60,7 @@ export function DisplayDockSection({ className }: DisplayDockSectionProps) {
         <div className="flex items-center justify-between py-2">
           <div
             className="flex items-center gap-1.5 cursor-pointer"
-            onClick={() => systemSettingsUseCases.openSystemPane("com.apple.Desktop-Settings.extension")}
+            onClick={() => systemSettingsUseCases.openDesktopSettings()}
           >
             <Label className="text-sm font-medium hover:text-foreground transition-colors">
               {t("systemSettings.dock.position")}

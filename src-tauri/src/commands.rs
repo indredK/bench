@@ -54,6 +54,17 @@ macro_rules! app_invoke_handler {
             $crate::system_settings::privacy::get_gatekeeper_state,
             // system settings - system pane
             $crate::system_settings::system_pane::open_system_pane,
+            // system settings - semantic pane registry
+            $crate::system_settings::system_pane_registry::open_settings_pane,
+            $crate::system_settings::system_pane_registry::open_battery_settings,
+            $crate::system_settings::system_pane_registry::open_control_center_settings,
+            $crate::system_settings::system_pane_registry::open_desktop_settings,
+            $crate::system_settings::system_pane_registry::open_keyboard_settings,
+            $crate::system_settings::system_pane_registry::open_localization_settings,
+            $crate::system_settings::system_pane_registry::open_lock_screen_settings,
+            $crate::system_settings::system_pane_registry::open_login_items_settings,
+            $crate::system_settings::system_pane_registry::open_network_settings,
+            $crate::system_settings::system_pane_registry::open_privacy_security_settings,
             // system settings - maintenance
             $crate::system_settings::maintenance::rebuild_icon_cache,
             $crate::system_settings::maintenance::flush_dns_cache,

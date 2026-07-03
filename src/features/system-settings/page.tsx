@@ -136,7 +136,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                   description={t("systemSettings.toggles.autohideDockDesc")}
                   checked={store.autohideDock}
                   loading={store.applyingKeys.has("toggles.autoHideDock")}
-                  onOpenSettings={() => systemSettingsUseCases.openSystemPane("com.apple.ControlCenter-Settings.extension")}
+                  onOpenSettings={() => systemSettingsUseCases.openControlCenterSettings()}
                   onCheckedChange={async (v) => { await run("toggles.autoHideDock", async () => { await systemSettingsUseCases.setAutohideDockState(v); store.setAutohideDock(v); }); }}
                 />
                 <SettingToggle
@@ -144,7 +144,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                   description={t("systemSettings.toggles.dockShowRecentsDesc")}
                   checked={store.dockShowRecents}
                   loading={store.applyingKeys.has("toggles.dockShowRecents")}
-                  onOpenSettings={() => systemSettingsUseCases.openSystemPane("com.apple.Desktop-Settings.extension")}
+                  onOpenSettings={() => systemSettingsUseCases.openDesktopSettings()}
                   onCheckedChange={async (v) => { await run("toggles.dockShowRecents", async () => { await systemSettingsUseCases.setDockShowRecentsState(v); store.setDockShowRecents(v); }); }}
                 />
                 <SettingToggle
@@ -160,7 +160,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                   <div>
                     <div
                       className="flex items-center gap-1.5 cursor-pointer"
-                      onClick={() => systemSettingsUseCases.openSystemPane("com.apple.ControlCenter-Settings.extension")}
+                      onClick={() => systemSettingsUseCases.openControlCenterSettings()}
                     >
                       <Label className="text-sm font-medium hover:text-foreground transition-colors">
                         {t("systemSettings.toggles.autohideMenuBar")}
@@ -257,7 +257,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                     description={t("systemSettings.network.firewallDesc")}
                     checked={store.networkFirewall}
                     loading={store.applyingKeys.has("network.firewall")}
-                    onOpenSettings={() => systemSettingsUseCases.openSystemPane("com.apple.Network-Settings.extension")}
+                    onOpenSettings={() => systemSettingsUseCases.openNetworkSettings()}
                     onCheckedChange={async (v) => { await run("network.firewall", async () => { await systemSettingsUseCases.setNetworkFirewallState(v); store.setNetworkFirewall(v); }); }}
                   />
                   <SettingToggle
@@ -265,14 +265,14 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                     description={t("systemSettings.network.sshDesc")}
                     checked={store.networkSsh}
                     loading={store.applyingKeys.has("network.ssh")}
-                    onOpenSettings={() => systemSettingsUseCases.openSystemPane("com.apple.Network-Settings.extension")}
+                    onOpenSettings={() => systemSettingsUseCases.openNetworkSettings()}
                     onCheckedChange={async (v) => { await run("network.ssh", async () => { await systemSettingsUseCases.setNetworkSshState(v); store.setNetworkSsh(v); }); }}
                   />
                   <SettingToggle
                     label={t("systemSettings.network.screenSharing")}
                     checked={store.networkScreenSharing}
                     loading={store.applyingKeys.has("network.screenSharing")}
-                    onOpenSettings={() => systemSettingsUseCases.openSystemPane("com.apple.Network-Settings.extension")}
+                    onOpenSettings={() => systemSettingsUseCases.openNetworkSettings()}
                     onCheckedChange={async (v) => { await run("network.screenSharing", async () => { await systemSettingsUseCases.setNetworkScreenSharingState(v); store.setNetworkScreenSharing(v); }); }}
                   />
                   <SettingToggle
@@ -280,7 +280,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                     description={t("systemSettings.network.airdropDesc")}
                     checked={store.networkAirdropDisabled}
                     loading={store.applyingKeys.has("network.airdrop")}
-                    onOpenSettings={() => systemSettingsUseCases.openSystemPane("com.apple.Network-Settings.extension")}
+                    onOpenSettings={() => systemSettingsUseCases.openNetworkSettings()}
                     onCheckedChange={async (v) => { await run("network.airdrop", async () => { await systemSettingsUseCases.setNetworkAirdropDisabled(v); store.setNetworkAirdropDisabled(v); }); }}
                   />
                 </div>
@@ -292,7 +292,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
               <SettingGroup title={t("systemSettings.privacy.gatekeeper")}>
                 <div
                   className="rounded cursor-pointer hover:bg-muted/30 -m-1 p-1 transition-colors"
-                  onClick={() => systemSettingsUseCases.openSystemPane("com.apple.Privacy-Security.extension")}
+                  onClick={() => systemSettingsUseCases.openPrivacySecuritySettings()}
                 >
                   <p className="text-xs text-muted-foreground py-2">{t("systemSettings.privacy.gatekeeperDesc")}</p>
                   <div className="flex gap-2 flex-wrap">
@@ -317,7 +317,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                       <div
                         key={service}
                         className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50 transition-colors cursor-pointer"
-                        onClick={() => systemSettingsUseCases.openSystemPane("com.apple.Privacy-Security.extension")}
+                        onClick={() => systemSettingsUseCases.openPrivacySecuritySettings()}
                       >
                         <div className="flex items-center gap-2">
                           <span className="text-sm">{label}</span>
@@ -353,16 +353,16 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                 <p className="text-xs text-muted-foreground py-1">{t("systemSettings.shortcuts.description")}</p>
                 <div className="flex flex-wrap gap-2 py-2">
                   {([
-                    { id: "com.apple.Desktop-Settings.extension", label: t("systemSettings.shortcuts.hotCorners") },
-                    { id: "com.apple.Lock-Screen-Settings.extension", label: t("systemSettings.shortcuts.lockScreen") },
-                    { id: "com.apple.Localization-Settings.extension", label: t("systemSettings.shortcuts.languageRegion") },
-                    { id: "com.apple.Keyboard-Settings.extension", label: t("systemSettings.shortcuts.keyboard") },
-                  ] as const).map(({ id, label }) => (
+                    { action: () => systemSettingsUseCases.openDesktopSettings(), label: t("systemSettings.shortcuts.hotCorners") },
+                    { action: () => systemSettingsUseCases.openLockScreenSettings(), label: t("systemSettings.shortcuts.lockScreen") },
+                    { action: () => systemSettingsUseCases.openLocalizationSettings(), label: t("systemSettings.shortcuts.languageRegion") },
+                    { action: () => systemSettingsUseCases.openKeyboardSettings(), label: t("systemSettings.shortcuts.keyboard") },
+                  ] as const).map(({ action, label }) => (
                     <Button
-                      key={id}
+                      key={label}
                       variant="outline"
                       size="sm"
-                      onClick={() => systemSettingsUseCases.openSystemPane(id)}
+                      onClick={action}
                       className="gap-1.5"
                     >
                       <ExternalLink size={13} /> {label}
@@ -392,8 +392,16 @@ export default function SystemSettings(_props: SystemSettingsProps) {
 
             <div className="space-y-4">
               {/* ── Power & LowPowerMode ── */}
-              <SettingGroup title={t("systemSettings.toggles.lowPowerMode")}>
-                <p className="text-xs text-muted-foreground py-1">{t("systemSettings.toggles.lowPowerModeDesc")}</p>
+              <SettingGroup title={t("systemSettings.toggles.batteryStrategy")}>
+                <div
+                  className="flex items-center gap-1.5 cursor-pointer pb-1"
+                  onClick={() => systemSettingsUseCases.openBatterySettings()}
+                >
+                  <span className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                    {t("systemSettings.toggles.lowPowerMode")}
+                  </span>
+                  <ExternalLink size={11} className="text-muted-foreground hover:text-foreground transition-colors" />
+                </div>
                 <div className="flex gap-2 flex-wrap">
                   {([{ mode: "never", label: t("systemSettings.toggles.lowPowerNever") }, { mode: "always", label: t("systemSettings.toggles.lowPowerAlways") }, { mode: "on_battery_only", label: t("systemSettings.toggles.lowPowerOnBattery") }, { mode: "on_ac_only", label: t("systemSettings.toggles.lowPowerOnAC") }] as { mode: LowPowerMode; label: string }[]).map(({ mode, label }) => (
                     <Button key={mode} variant={store.lowPowerMode === mode ? "default" : "outline"} size="sm" disabled={store.applyingKeys.has("toggles.lowPowerMode")} onClick={async () => {
@@ -406,7 +414,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                   label={t("systemSettings.toggles.screenSaver")}
                   description={t("systemSettings.toggles.screenSaverDesc")}
                   checked={store.screenSaver} loading={store.applyingKeys.has("toggles.screenSaver")}
-                  onOpenSettings={() => systemSettingsUseCases.openSystemPane("com.apple.Desktop-Settings.extension")}
+                  onOpenSettings={() => systemSettingsUseCases.openDesktopSettings()}
                   onCheckedChange={async (v) => { await run("toggles.screenSaver", async () => { await systemSettingsUseCases.setScreenSaverState(v); store.setScreenSaver(v); }); }}
                 />
               </SettingGroup>
@@ -442,7 +450,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
               {/* ── Login Items ── */}
               <SettingGroup title={t("systemSettings.login.title")}>
                 <div className="py-2">
-                  <Button variant="outline" size="sm" onClick={() => systemSettingsUseCases.openSystemPane("com.apple.LoginItems-Settings.extension")}>
+                  <Button variant="outline" size="sm" onClick={() => systemSettingsUseCases.openLoginItemsSettings()}>
                     <ExternalLink size={13} className="mr-1.5" />
                     {t("systemSettings.login.manageInSettings")}
                   </Button>

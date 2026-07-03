@@ -15,3 +15,4 @@ pub mod browser;
 pub mod system_toggles;
 pub mod system_info;
 pub mod system_pane;
+pub mod system_pane_registry;
