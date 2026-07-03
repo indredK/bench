@@ -2,6 +2,7 @@
  * Feature Contract / 功能契约: define metadata only; 只定义功能元数据.
  */
 import type { ReactNode } from "react";
+import type { PlatformName } from "@/platform/config";
 
 export interface AppFeature {
   id: string;
@@ -10,6 +11,7 @@ export interface AppFeature {
   icon: ReactNode;
   render: (feature: AppFeature) => ReactNode;
   desktopOnly?: boolean;
+  platforms?: PlatformName[];
 }
 
 export interface NavigationItem {

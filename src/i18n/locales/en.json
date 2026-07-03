@@ -21,6 +21,11 @@
       "system": "System",
       "advanced": "Advanced"
     },
+    "search": {
+      "placeholder": "Search settings...",
+      "clear": "Clear search",
+      "noResults": "No matching settings found"
+    },
     "loading": "Loading settings...",
     "applying": "Applying settings, please wait...",
     "toasts": {
@@ -52,12 +57,22 @@
         "left": "Left",
         "bottom": "Bottom",
         "right": "Right"
-      }
+      },
+      "minimizeScale": "Minimize Using Scale Effect",
+      "minimizeScaleDesc": "Use scale effect instead of genie effect for window minimization"
     },
     "keyboard": {
       "title": "Keyboard",
       "fnKeys": "F1-F12 as Function Keys",
-      "fnKeysDesc": "Use F1-F12 as standard function keys instead of media controls"
+      "fnKeysDesc": "Use F1-F12 as standard function keys instead of media controls",
+      "autoCorrect": "Auto-Correction",
+      "autoCorrectDesc": "Automatically correct spelling as you type",
+      "smartQuotes": "Smart Quotes",
+      "smartQuotesDesc": "Automatically convert straight quotes to curly quotes",
+      "smartDashes": "Smart Dashes",
+      "smartDashesDesc": "Automatically convert double hyphens to em/en dashes",
+      "autoCapitalize": "Auto-Capitalization",
+      "autoCapitalizeDesc": "Capitalize the first letter of sentences automatically"
     },
     "display": {
       "title": "Display",
@@ -353,6 +368,7 @@
       "stationSection": "Station Info",
       "accountSection": "Account Info",
       "lastLogin": "Last Login",
+      "sessionExpiry": "Session Expiry",
       "remark": "Remark",
       "website": "Website",
       "username": "Account",
@@ -524,6 +540,19 @@
         "probeWebviewOnly": "WebView Only",
         "probeHybrid": "Hybrid (SSO)",
         "sessionTtlLabel": "Session TTL (hours, 0=never expire)"
+      },
+      "networkProxy": {
+        "title": "Network Proxy",
+        "enableLabel": "Enable per-station proxy (HTTP / SOCKS5)",
+        "typeLabel": "Proxy Type",
+        "hostLabel": "Host",
+        "portLabel": "Port",
+        "usernameLabel": "Username",
+        "usernameOptional": "Optional",
+        "passwordLabel": "Password",
+        "passwordPlaceholder": "Enter password",
+        "passwordSetHint": "Password is set — enter new password to replace",
+        "passwordLeaveBlankHint": "Leave blank to keep existing password. Changing host/port will clear the stored password."
       },
       "authProfile": {
         "title": "🔍 Auth Profile Detection",
@@ -910,6 +939,15 @@
   },
   "portManager": {
     "title": "Kill Port Processes",
+    "modeLocal": "Local",
+    "modeRemote": "Remote",
+    "remoteHostPlaceholder": "e.g. example.com or 192.168.1.1",
+    "remoteResultHint": "Remote port check — no process details available",
+    "alertsEnable": "Enable occupation alerts",
+    "alertsDisable": "Disable occupation alerts",
+    "alertsMinPorts": "Add ports first to enable alerts",
+    "occupationAlertTitle": "Port occupied",
+    "occupationAlertBody": "Port {{port}} is now in use",
     "targetPorts": "Target Port(s)",
     "placeholder": "e.g. 3000 or 3000-4000 or 3000,8080,9000-9010",
     "scanButton": "Add to Scan",
@@ -941,6 +979,7 @@
     "rescanAll": "Rescan All",
     "killAllCommandHint": "Free all scanned ports",
     "freePortHint": "Free port {{port}} — {{command}}",
+    "history": "Recent",
     "statusWaiting": "Waiting",
     "statusScanning": "Scanning",
     "statusSuccess": "Occupied",
@@ -950,7 +989,8 @@
     "errors": {
       "desktopOnly": "Port management is only available in the desktop app.",
       "killOneFailed": "Failed to free the selected port.",
-      "killAllFailed": "Failed to free one or more selected ports."
+      "killAllFailed": "Failed to free one or more selected ports.",
+      "remoteHostRequired": "Remote host is required for remote scanning."
     },
     "confirmKillPortTitle": "Free port {{port}}?",
     "confirmKillPortDescription": "Terminate {{count}} process(es) using port {{port}}.",
@@ -2035,6 +2075,12 @@
     "na": "—",
     "withParenthesis": "{{prefix}} ({{detail}})",
     "desktopOnly": "This feature is only available in the desktop version of Bench.",
+    "platformUnsupported": "This feature is not available on {{platform}}.",
+    "platformNames": {
+      "macos": "macOS",
+      "windows": "Windows",
+      "linux": "Linux"
+    },
     "appTitle": "Bench - DevTools",
     "cancel": "Cancel",
     "delete": "Delete",

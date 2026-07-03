@@ -33,6 +33,8 @@ interface SystemSettingsState {
   setAutohideDock: (v: boolean) => void;
   dockOrientation: string;
   setDockOrientation: (v: string) => void;
+  minimizeScaleEnabled: boolean;
+  setMinimizeScaleEnabled: (v: boolean) => void;
   autohideMenuBar: MenuBarAutoHideMode;
   setAutohideMenuBar: (v: MenuBarAutoHideMode) => void;
   dockShowRecents: boolean;
@@ -74,6 +76,14 @@ interface SystemSettingsState {
 
   keyboardFnKey: boolean;
   setKeyboardFnKey: (v: boolean) => void;
+  autoCorrect: boolean;
+  setAutoCorrect: (v: boolean) => void;
+  smartQuotes: boolean;
+  setSmartQuotes: (v: boolean) => void;
+  smartDashes: boolean;
+  setSmartDashes: (v: boolean) => void;
+  autoCapitalize: boolean;
+  setAutoCapitalize: (v: boolean) => void;
 
   lowPowerMode: LowPowerMode;
   setLowPowerMode: (v: LowPowerMode) => void;
@@ -134,6 +144,8 @@ export const useSystemSettingsStore = create<SystemSettingsState>((set) => ({
   setAutohideDock: (v) => set({ autohideDock: v }),
   dockOrientation: "bottom",
   setDockOrientation: (v) => set({ dockOrientation: v }),
+  minimizeScaleEnabled: false,
+  setMinimizeScaleEnabled: (v) => set({ minimizeScaleEnabled: v }),
   autohideMenuBar: "in_full_screen_only",
   setAutohideMenuBar: (v) => set({ autohideMenuBar: v }),
   dockShowRecents: false,
@@ -175,6 +187,14 @@ export const useSystemSettingsStore = create<SystemSettingsState>((set) => ({
 
   keyboardFnKey: false,
   setKeyboardFnKey: (v) => set({ keyboardFnKey: v }),
+  autoCorrect: false,
+  setAutoCorrect: (v) => set({ autoCorrect: v }),
+  smartQuotes: false,
+  setSmartQuotes: (v) => set({ smartQuotes: v }),
+  smartDashes: false,
+  setSmartDashes: (v) => set({ smartDashes: v }),
+  autoCapitalize: false,
+  setAutoCapitalize: (v) => set({ autoCapitalize: v }),
 
   lowPowerMode: "never",
   setLowPowerMode: (v) => set({ lowPowerMode: v }),

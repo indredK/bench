@@ -4,10 +4,10 @@
  * v2 — 重设计: 9 个 Tab → 3 个 Tab (外观/安全/系统)，
  * SettingsDialog 内容合并入此页，devtools/diagnostics/info 移入独立页面。
  */
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Loader2Icon, ExternalLink, FolderOpen } from "lucide-react";
+import { Loader2Icon, ExternalLink, FolderOpen, Search, X } from "lucide-react";
 import { systemSettingsUseCases } from "@/features/system-settings/services/system-settings.use-cases";
 import { useSystemSettingsStore } from "@/features/system-settings/store";
 import { useSettingAction } from "@/features/system-settings/useSettingAction";
@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { AppFeature } from "@/features/types";
 import type { SettingsTab } from "./store";
 import type { GatekeeperMode, LowPowerMode, MenuBarAutoHideMode } from "@/lib/tauri/types/system-settings";
@@ -26,6 +27,7 @@ import {
 } from "./components/sections";
 import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirmDialog";
 import { openPlatformDialog } from "@/platform/dialog";
+import { searchSettings } from "./search-index";
 
 // ── Constants ──
 
@@ -61,6 +63,13 @@ export default function SystemSettings(_props: SystemSettingsProps) {
   // Default browser state
   const [defaultBrowser, setDefaultBrowser] = useState(store.defaultBrowser);
   const [browserLoading, setBrowserLoading] = useState(false);
+
+  // ── Search state ──
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchResults = useMemo(
+    () => (searchQuery ? searchSettings(searchQuery, t) : []),
+    [searchQuery, t],
+  );
 
   const loadTabSettings = useCallback(async (tab: SettingsTab) => {
     const s = useSystemSettingsStore.getState();
@@ -418,16 +427,15 @@ export default function SystemSettings(_props: SystemSettingsProps) {
               {/* ── Default Browser ── */}
               <SettingGroup title={t("systemSettings.browser.title")}>
                 <div className="relative">
-                  <select
-                    className="w-full border rounded px-3 py-2 text-sm bg-background disabled:opacity-50"
+                  <Select
                     value={defaultBrowser}
                     disabled={browserLoading}
-                    onChange={async (e) => {
+                    onValueChange={async (v) => {
                       setBrowserLoading(true);
                       try {
-                        await systemSettingsUseCases.setDefaultBrowser(e.target.value);
-                        store.setDefaultBrowser(e.target.value);
-                        setDefaultBrowser(e.target.value);
+                        await systemSettingsUseCases.setDefaultBrowser(v);
+                        store.setDefaultBrowser(v);
+                        setDefaultBrowser(v);
                         toast.success(t("systemSettings.toasts.success"));
                       } catch (err) {
                         toast.error(t("systemSettings.toasts.error", { error: String(err) }));
@@ -436,10 +444,17 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                       }
                     }}
                   >
-                    {BROWSER_OPTIONS.map(({ value, labelKey }) => (
-                      <option key={value} value={value}>{t(labelKey)}</option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {BROWSER_OPTIONS.map(({ value, labelKey }) => (
+                        <SelectItem key={value} value={value}>
+                          {t(labelKey)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   {browserLoading && (
                     <Loader2Icon className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
                   )}
@@ -537,25 +552,82 @@ export default function SystemSettings(_props: SystemSettingsProps) {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Horizontal tab bar */}
-      <div className="border-b px-4 flex gap-1 shrink-0">
-        {TAB_IDS.map((tabId) => (
-          <button
-            key={tabId}
-            onClick={() => handleTabChange(tabId)}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-[1px] ${
-              store.activeTab === tabId
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
-            }`}
-          >
-            {tabLabels[tabId]}
-          </button>
-        ))}
+      {/* Search bar */}
+      <div className="border-b px-4 py-2 shrink-0">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={t("systemSettings.search.placeholder")}
+            className="pl-8 pr-8 h-8 text-sm"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              aria-label={t("systemSettings.search.clear")}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* Horizontal tab bar — hidden while searching */}
+      {!searchQuery && (
+        <div className="border-b px-4 flex gap-1 shrink-0">
+          {TAB_IDS.map((tabId) => (
+            <button
+              key={tabId}
+              onClick={() => handleTabChange(tabId)}
+              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-[1px] ${
+                store.activeTab === tabId
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+              }`}
+            >
+              {tabLabels[tabId]}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Content area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {renderTabContent()}
+        {searchQuery ? (
+          searchResults.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">
+              {t("systemSettings.search.noResults")}
+            </p>
+          ) : (
+            <div className="space-y-1">
+              {searchResults.map((result, idx) => (
+                <button
+                  key={`${result.tab}-${result.labelKey}-${idx}`}
+                  type="button"
+                  onClick={() => {
+                    handleTabChange(result.tab);
+                    setSearchQuery("");
+                  }}
+                  className="w-full text-left p-3 rounded-lg hover:bg-muted/50 transition-colors border border-transparent hover:border-border"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-medium truncate">{result.label}</span>
+                    <Badge variant="secondary" className="text-xs shrink-0">{result.tabLabel}</Badge>
+                  </div>
+                  {result.desc && (
+                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{result.desc}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground/70 mt-1">{result.section}</p>
+                </button>
+              ))}
+            </div>
+          )
+        ) : (
+          renderTabContent()
+        )}
       </div>
 
       {loginItemToRemove && (

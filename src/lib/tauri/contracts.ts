@@ -21,14 +21,15 @@ import type {
   ExclusivityMode,
   ExternalApp,
   ExternalAppBinding,
+  LoginDetectionConfig,
+  LoginMethod,
+  NetworkProxyConfig,
   ProbeStrategy,
   RelayDataExportResult,
   RelayDataImportResult,
   RelayExportMode,
   RelayStation,
   StationAccount,
-  LoginMethod,
-  LoginDetectionConfig,
 } from "@/lib/tauri/types/account-manager";
 import type {
   CleanupCommandDef,
@@ -266,6 +267,18 @@ export const TAURI_COMMAND_CONTRACTS = {
     { stationId: string; ttlHours: number },
     RelayStation
   >()("set_session_ttl"),
+  set_station_network_proxy: defineTauriCommand<
+    {
+      stationId: string;
+      config: NetworkProxyConfig | null;
+      password: string | null;
+    },
+    RelayStation
+  >()("set_station_network_proxy"),
+  get_station_network_proxy: defineTauriCommand<
+    { stationId: string },
+    NetworkProxyConfig | null
+  >()("get_station_network_proxy"),
   set_account_proxy_enabled: defineTauriCommand<
     { accountId: string; enabled: boolean },
     StationAccount
@@ -378,9 +391,19 @@ export const TAURI_COMMAND_CONTRACTS = {
   // system settings - dock
   get_dock_orientation: defineTauriCommand<undefined, string>()("get_dock_orientation"),
   set_dock_orientation: defineTauriCommand<{ pos: string }, void>()("set_dock_orientation"),
+  get_minimize_scale_enabled: defineTauriCommand<undefined, boolean>()("get_minimize_scale_enabled"),
+  set_minimize_scale_enabled: defineTauriCommand<{ enabled: boolean }, void>()("set_minimize_scale_enabled"),
   // system settings - keyboard
   get_keyboard_fn_key_state: defineTauriCommand<undefined, boolean>()("get_keyboard_fn_key_state"),
   set_keyboard_fn_key_state: defineTauriCommand<{ useFn: boolean }, void>()("set_keyboard_fn_key_state"),
+  get_auto_correct_state: defineTauriCommand<undefined, boolean>()("get_auto_correct_state"),
+  set_auto_correct_state: defineTauriCommand<{ enabled: boolean }, void>()("set_auto_correct_state"),
+  get_smart_quotes_state: defineTauriCommand<undefined, boolean>()("get_smart_quotes_state"),
+  set_smart_quotes_state: defineTauriCommand<{ enabled: boolean }, void>()("set_smart_quotes_state"),
+  get_smart_dashes_state: defineTauriCommand<undefined, boolean>()("get_smart_dashes_state"),
+  set_smart_dashes_state: defineTauriCommand<{ enabled: boolean }, void>()("set_smart_dashes_state"),
+  get_auto_capitalize_state: defineTauriCommand<undefined, boolean>()("get_auto_capitalize_state"),
+  set_auto_capitalize_state: defineTauriCommand<{ enabled: boolean }, void>()("set_auto_capitalize_state"),
   // system settings - display
   get_display_battery_percent: defineTauriCommand<undefined, boolean>()("get_display_battery_percent"),
   set_display_battery_percent: defineTauriCommand<{ show: boolean }, void>()("set_display_battery_percent"),
@@ -597,6 +620,8 @@ export const TAURI_COMMANDS = {
     resetProbeStrategy: commandName("reset_probe_strategy"),
     createEphemeralAccount: commandName("create_ephemeral_account"),
     setSessionTtl: commandName("set_session_ttl"),
+    setStationNetworkProxy: commandName("set_station_network_proxy"),
+    getStationNetworkProxy: commandName("get_station_network_proxy"),
     setAccountProxyEnabled: commandName("set_account_proxy_enabled"),
     parseAuthProxyUrl: commandName("parse_auth_proxy_url"),
     matchProxyTarget: commandName("match_proxy_target"),
@@ -652,8 +677,18 @@ export const TAURI_COMMANDS = {
     setFinderNoDsStore: commandName("set_finder_no_ds_store"),
     getDockOrientation: commandName("get_dock_orientation"),
     setDockOrientation: commandName("set_dock_orientation"),
+    getMinimizeScaleEnabled: commandName("get_minimize_scale_enabled"),
+    setMinimizeScaleEnabled: commandName("set_minimize_scale_enabled"),
     getKeyboardFnKeyState: commandName("get_keyboard_fn_key_state"),
     setKeyboardFnKeyState: commandName("set_keyboard_fn_key_state"),
+    getAutoCorrectState: commandName("get_auto_correct_state"),
+    setAutoCorrectState: commandName("set_auto_correct_state"),
+    getSmartQuotesState: commandName("get_smart_quotes_state"),
+    setSmartQuotesState: commandName("set_smart_quotes_state"),
+    getSmartDashesState: commandName("get_smart_dashes_state"),
+    setSmartDashesState: commandName("set_smart_dashes_state"),
+    getAutoCapitalizeState: commandName("get_auto_capitalize_state"),
+    setAutoCapitalizeState: commandName("set_auto_capitalize_state"),
     getDisplayBatteryPercent: commandName("get_display_battery_percent"),
     setDisplayBatteryPercent: commandName("set_display_battery_percent"),
     getNetworkFirewallState: commandName("get_network_firewall_state"),
@@ -832,6 +867,8 @@ export const TAURI_COMMAND_ARG_KEYS = {
   reset_probe_strategy: ["stationId"],
   create_ephemeral_account: ["website", "username", "stationId"],
   set_session_ttl: ["stationId", "ttlHours"],
+  set_station_network_proxy: ["stationId", "config", "password"],
+  get_station_network_proxy: ["stationId"],
   set_account_proxy_enabled: ["accountId", "enabled"],
   parse_auth_proxy_url: ["rawUrl"],
   match_proxy_target: ["target"],
@@ -884,9 +921,19 @@ export const TAURI_COMMAND_ARG_KEYS = {
   // system settings - dock
   get_dock_orientation: [],
   set_dock_orientation: ["pos"],
+  get_minimize_scale_enabled: [],
+  set_minimize_scale_enabled: ["enabled"],
   // system settings - keyboard
   get_keyboard_fn_key_state: [],
   set_keyboard_fn_key_state: ["useFn"],
+  get_auto_correct_state: [],
+  set_auto_correct_state: ["enabled"],
+  get_smart_quotes_state: [],
+  set_smart_quotes_state: ["enabled"],
+  get_smart_dashes_state: [],
+  set_smart_dashes_state: ["enabled"],
+  get_auto_capitalize_state: [],
+  set_auto_capitalize_state: ["enabled"],
   // system settings - display
   get_display_battery_percent: [],
   set_display_battery_percent: ["show"],

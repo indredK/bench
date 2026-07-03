@@ -1,9 +1,8 @@
 # System Settings 迭代规划
 
-> 版本: v1.15.0 | 最后更新: 2026-07-01  
+> 版本: v1.15.0 | 最后更新: 2026-07-04  
 > 发布节奏见 [release-themes.md](../../roadmap/release-themes.md)  
-> 设计文档见 [README.md](./README.md)  
-> v1.17 候选开关见 [feature-candidates.md](./feature-candidates.md) 节 C/B/Q
+> 功能说明见 [features.md](./features.md) · 技术设计见 [design.md](./design.md)
 
 ## 📊 当前评估
 
@@ -28,15 +27,13 @@
 - [x] i18n: Dock 位置按钮、密码延迟秒数 → `t()`
 - [x] defaultBrowser 加载失败 toast
 - [x] useEffect 补充 loadTabSettings 依赖
-- [ ] 原生 select 改为 shadcn Select 组件
 - [ ] store 中未使用字段清理
 
 ## v1.17
 
-- [ ] **设置搜索 MVP**（从 v1.18 提前）
 - [ ] 浏览器名称 canonical value + locale 映射
 - [ ] 启动配置读取失败传播到前端 UI
-- [ ] 精选 candidates：键盘(C)、Dock(B)、隐藏桌面(Q)
+- [ ] 精选 candidates：隐藏桌面(Q)
 
 ## v1.18
 

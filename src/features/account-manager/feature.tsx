@@ -9,4 +9,5 @@ export const accountManagerFeature: AppFeature = {
   icon: <Users size={18} />,
   render: () => <AccountManagerPage />,
   desktopOnly: true,
+  platforms: ["macos"],
 };

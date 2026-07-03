@@ -3,12 +3,13 @@
  */
 import type { ReactNode } from "react";
 import { DesktopOnly } from "@/components/common/DesktopOnly";
-import { canUseFeature } from "@/platform/capabilities";
+import { getFeatureGateReason, type FeatureDescriptor } from "@/platform/capabilities";
 
 interface RuntimeFeatureGateProps {
-  feature?: { desktopOnly?: boolean };
+  feature?: FeatureDescriptor;
   title: string;
   icon: ReactNode;
+  description?: string;
   children: ReactNode;
 }
 
@@ -16,10 +17,20 @@ export function RuntimeFeatureGate({
   feature,
   title,
   icon,
+  description,
   children,
 }: RuntimeFeatureGateProps) {
-  if (!canUseFeature(feature)) {
-    return <DesktopOnly title={title} icon={icon} />;
+  const gate = getFeatureGateReason(feature);
+  if (gate.gated) {
+    return (
+      <DesktopOnly
+        title={title}
+        icon={icon}
+        description={description}
+        reason={gate.reason}
+        platform={gate.platform}
+      />
+    );
   }
 
   return <>{children}</>;

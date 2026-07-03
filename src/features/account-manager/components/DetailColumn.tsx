@@ -28,6 +28,23 @@ import {
   SectionLabel,
 } from "@/features/account-manager/components/shared";
 
+function computeSessionExpiry(
+  lastLoginAt: string | null,
+  sessionTtlHours?: number,
+): { label: string; nearExpiry: boolean } | null {
+  if (!lastLoginAt || !sessionTtlHours || sessionTtlHours === 0) return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/.exec(lastLoginAt);
+  if (!match) return null;
+  const [, y, mo, d, h, mi] = match;
+  const captured = new Date(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi));
+  const expiry = new Date(captured.getTime() + sessionTtlHours * 3600_000);
+  const now = new Date();
+  const msToExpiry = expiry.getTime() - now.getTime();
+  if (msToExpiry <= 0) return null;
+  const label = `${expiry.getFullYear()}-${String(expiry.getMonth() + 1).padStart(2, "0")}-${String(expiry.getDate()).padStart(2, "0")} ${String(expiry.getHours()).padStart(2, "0")}:${String(expiry.getMinutes()).padStart(2, "0")}`;
+  return { label, nearExpiry: msToExpiry < 24 * 3600_000 };
+}
+
 export function DetailColumn({
   station,
   account,
@@ -211,6 +228,12 @@ export function DetailColumn({
                       label: t("accountManager.detail.lastLogin"),
                       value: account.lastLoginAt || "—",
                     },
+                    ...(computeSessionExpiry(account.lastLoginAt, station?.sessionTtlHours)
+                      ? [{
+                          label: t("accountManager.detail.sessionExpiry"),
+                          value: computeSessionExpiry(account.lastLoginAt, station?.sessionTtlHours)!.label,
+                        }]
+                      : []),
                   ]}
                 />
               )}

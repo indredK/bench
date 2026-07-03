@@ -170,6 +170,10 @@ vi.mock("lucide-react", () => ({
   Search: () => <span data-testid="search">Search</span>,
   X: () => <span data-testid="x-icon">X</span>,
   Zap: () => <span data-testid="zap">Zap</span>,
+  Bell: () => <span data-testid="bell">Bell</span>,
+  BellOff: () => <span data-testid="bell-off">BellOff</span>,
+  Globe: () => <span data-testid="globe">Globe</span>,
+  Monitor: () => <span data-testid="monitor">Monitor</span>,
 }));
 
 describe("PortManager", () => {
@@ -213,7 +217,9 @@ describe("PortManager", () => {
     render(<PortManager />);
     const input = screen.getByTestId("port-input");
     await userEvent.type(input, "abc");
-    const tooltip = screen.getByTestId("tooltip");
+    const tooltip = screen.getAllByTestId("tooltip").find(
+      (el) => el.getAttribute("data-open") === "true"
+    );
     expect(tooltip).toHaveAttribute("data-open", "true");
   });
 });

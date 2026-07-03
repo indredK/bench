@@ -32,8 +32,8 @@
 
 1. 打开 [release-themes.md](./roadmap/release-themes.md)，确认当前主题（例如 Polish & Trust / Developer Daily Loop）。
 2. 打开对应 [modules/<id>/roadmap.md](./modules/README.md)，找到或新增 checkbox。
-3. 若涉及 Account Manager Session、跨平台、大范围重构 → 先读/写模块内设计稿，必要时 short RFC。
-4. System Settings 新开关 → 从 [feature-candidates.md](./modules/system-settings/feature-candidates.md) 选品，写入 roadmap 后再写代码。
+3. 若涉及 Account Manager Session、跨平台、大范围重构 → 先读/写模块内 [design.md](./modules/account-manager/design.md)，必要时 short RFC。
+4. System Settings 新开关 → 参照 [design.md §8 键位映射](./modules/system-settings/design.md) 与 [roadmap.md](./modules/system-settings/roadmap.md) 候选清单，写入 roadmap 后再写代码。
 
 **新增 feature 模块时同步创建：**
 

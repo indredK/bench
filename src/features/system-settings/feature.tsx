@@ -12,4 +12,5 @@ export const systemSettingsFeature: AppFeature = {
   icon: <Settings size={18} />,
   render: (feature) => <SystemSettings feature={feature} />,
   desktopOnly: true,
+  platforms: ["macos"],
 };

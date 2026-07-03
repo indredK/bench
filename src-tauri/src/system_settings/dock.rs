@@ -19,3 +19,23 @@ pub async fn set_dock_orientation(pos: String) -> Result<(), String> {
     .await
     .map_err(|e| e.to_string())?
 }
+
+#[tauri::command]
+pub async fn get_minimize_scale_enabled() -> Result<bool, String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        Ok(defaults_read("com.apple.dock", "mineffect").unwrap_or_default() == "scale")
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn set_minimize_scale_enabled(enabled: bool) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        defaults_write("com.apple.dock", "mineffect", if enabled { "scale" } else { "genie" })?;
+        restart_dock();
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}

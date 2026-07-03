@@ -1,8 +1,8 @@
 # Account Manager 迭代规划
 
-> 版本: v1.15.1 | 最后更新: 2026-07-02  
+> 版本: v1.15.1 | 最后更新: 2026-07-04  
 > 发布节奏见 [release-themes.md](../../roadmap/release-themes.md)  
-> 设计文档见 [README.md](./README.md) · [云端同步设计](./cloud-sync-design.md)
+> 功能说明见 [features.md](./features.md) · 技术设计见 [design.md](./design.md)
 
 ## 📊 当前评估
 
@@ -30,36 +30,29 @@
 
 ## v1.16 — 剩余
 
-- [ ] AccountSession v1→v2 迁移逻辑（读取旧 `local_storage` 写入 `origins`）
 - [ ] Session 状态/空态 UX（TTL、探针结果、代理状态一眼可读）
 - [ ] 大列表虚拟化（多站点/多账号）
 
-## v1.17 — 中期增强
-
-- [ ] IndexedDB 导出集成 `idb-backup-and-restore.js`
-- [ ] Session TTL 过期自动清理 + 启动时检查
-
 ## v1.18 — 远期 (Phase 3)
 
-- [ ] per-station HTTP/SOCKS5 代理集成
 - [ ] TLS 指纹对抗 (rquest impersonate)
 - [ ] Windows/Linux 跨平台 WebView 兼容
 - [ ] Canvas/WebGL 指纹隔离
 
 ## v1.19 — 云端同步 (Cloud Sync) — **低优先级 / 可选**
 
-> 详细设计见 [cloud-sync-design.md](./cloud-sync-design.md)（v1.4）  
-> **开源默认 BYO 自托管**，不内置维护者公共 endpoint；本地 Import/Export 已满足迁移。见设计文档 §1.1（隐私、滥用、fork 误用）。
+> 详细设计见 [design.md §15 未来规划：云端同步](./design.md)  
+> **开源默认 BYO 自托管**，不内置维护者公共 endpoint；本地 Import/Export 已满足迁移。
 
 **排期建议**：晚于 v1.16 Session UX、v1.17 IndexedDB 导出；可与 v1.18 并列或更后。
 
 ### Phase 0：架构 ✅ 已定案
 
 - [x] 参考实现：Cloudflare Workers + R2（$0 免费档）
-- [x] API 形状：`/v1/blobs` + keyProof；Sync ID 格式见 cloud-sync-design
+- [x] API 形状：`/v1/blobs` + keyProof；Sync ID 格式见 [design.md §15](./design.md)
 - [x] **Endpoint：用户 deploy 后填入设置，不写进仓库常量**
 - [x] 大陆：不保证；本地 Import/Export fallback
-- [x] 身份：Sync ID + key proof；MVP 数据范围见 cloud-sync-design §6.3
+- [x] 身份：Sync ID + key proof；MVP 数据范围见 [design.md §15.7](./design.md)
 
 ### Phase 1: MVP（backlog）
 

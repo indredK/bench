@@ -5,11 +5,13 @@ use tauri::{AppHandle, Manager, Runtime, State};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 
 use super::crypto;
+use super::network_proxy;
 use super::probe;
 use super::state::{AccountManagerSnapshot, AccountManagerState};
 use super::storage;
 use super::types::{
     AccountSessionStatus, AccountType, AccountManagerError, AuthProfile, ExclusivityMode, ProbeResult, ProbeStrategy, AccountManagerResult, LoginDetectionConfig, LoginMethod,
+    NetworkProxyConfig,
     RelayAccountExport, RelayDataExportFile, RelayDataExportResult, RelayDataImportResult,
     RelayExportMode, RelayStation, RelayStationExport, StationAccount,
     ExternalApp, ExternalAppBinding,
@@ -139,10 +141,15 @@ fn build_export_file(
                             snapshot.secrets.get(&account.id).cloned()
                         }
                     };
+                    let encrypted_session = match mode {
+                        RelayExportMode::Sanitized => None,
+                        RelayExportMode::EncryptedFull => account.session.clone(),
+                    };
                     Ok(RelayAccountExport {
                         username: account.username.clone(),
                         password: None,
                         encrypted_password,
+                        encrypted_session,
                         notes: account.notes.clone(),
                         phone: account.phone.clone(),
                         tg_account: account.tg_account.clone(),
@@ -197,6 +204,20 @@ fn import_account_secret(
     crypto::encrypt(key, &plaintext).map(Some)
 }
 
+/// Re-encrypt an imported session blob through the current keyring entry.
+/// Returns None when no session is present; returns Err on decrypt failure
+/// (caller treats as "skip session" — see import_relay_data).
+fn import_account_session(
+    key: &[u8; 32],
+    account: &RelayAccountExport,
+) -> AccountManagerResult<Option<super::crypto::EncryptedBlob>> {
+    let Some(blob) = account.encrypted_session.as_ref() else {
+        return Ok(None);
+    };
+    let plaintext = crypto::decrypt(key, blob)?;
+    crypto::encrypt(key, &plaintext).map(Some)
+}
+
 // ───── stations ─────
 
 #[tauri::command]
@@ -222,6 +243,7 @@ pub fn create_station<R: Runtime>(
         website: trim_or_invalid(&website, "website")?,
         created_at: now_label(),
         login_detection: login_detection.unwrap_or_default(),
+        network_proxy: None,
     };
     storage::with_state_mut(&app, &state, |snapshot| {
         snapshot.stations.push(station.clone());
@@ -268,6 +290,77 @@ pub fn set_session_ttl<R: Runtime>(
     ttl_hours: u32,
 ) -> AccountManagerResult<RelayStation> {
     update_station(app, state, station_id, None, None, None, Some(ttl_hours))
+}
+
+// ───── per-station 网络代理（HTTP / SOCKS5）─────
+
+/// 从 station 的 network_proxy 配置构建代理 URL 字符串。
+/// 返回 None 表示无代理（直连）；解密失败时也降级为 None，避免一次失败阻塞整个登录流程。
+fn build_proxy_url_for_station<R: Runtime>(
+    app: &AppHandle<R>,
+    station: &RelayStation,
+) -> Option<String> {
+    let config = station.network_proxy.as_ref()?;
+    let state = app.state::<AccountManagerState>();
+    let key = state.master_key().ok()?;
+    let password = config
+        .encrypted_password
+        .as_ref()
+        .and_then(|blob| crypto::decrypt(&key, blob).ok());
+    Some(network_proxy::build_proxy_url(config, password.as_deref()))
+}
+
+/// 设置或清除 station 的网络代理。
+/// `config = None` 表示清除代理（直连）。
+/// `password` 为明文（前端传入），由本命令加密为 `encrypted_password`；
+/// 与 `set_password` 命令保持一致。None 表示清除已存的密码。
+#[tauri::command]
+pub fn set_station_network_proxy<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, AccountManagerState>,
+    station_id: String,
+    config: Option<NetworkProxyConfig>,
+    password: Option<String>,
+) -> AccountManagerResult<RelayStation> {
+    // 前端可能传入 config.encrypted_password（应为 None）；后端统一覆盖。
+    let prepared: Option<NetworkProxyConfig> = match config {
+        None => None,
+        Some(mut c) => {
+            c.encrypted_password = match password {
+                Some(pw) => {
+                    let key = state.master_key()?;
+                    Some(crypto::encrypt(&key, &pw)?)
+                }
+                None => None,
+            };
+            Some(c)
+        }
+    };
+
+    storage::with_state_mut(&app, &state, |snapshot| {
+        let Some(station) = snapshot.stations.iter_mut().find(|s| s.id == station_id) else {
+            return Err(AccountManagerError::not_found(format!("station {station_id}")));
+        };
+        station.network_proxy = prepared;
+        Ok(station.clone())
+    })
+}
+
+/// 读取 station 的网络代理配置。`encrypted_password` 保持 opaque 返回
+/// （前端用 `!= null` 判定是否配置密码，不解密明文）。
+#[tauri::command]
+pub fn get_station_network_proxy<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, AccountManagerState>,
+    station_id: String,
+) -> AccountManagerResult<Option<NetworkProxyConfig>> {
+    let _ = app;
+    state.ensure_ready()?;
+    let snapshot = state.snapshot.read().unwrap_or_else(|e| e.into_inner());
+    let Some(station) = snapshot.stations.iter().find(|s| s.id == station_id) else {
+        return Err(AccountManagerError::not_found(format!("station {station_id}")));
+    };
+    Ok(station.network_proxy.clone())
 }
 
 #[tauri::command]
@@ -549,6 +642,7 @@ pub fn import_relay_data<R: Runtime>(
         let mut imported_stations: Vec<RelayStation> = Vec::new();
         let mut imported_accounts: Vec<StationAccount> = Vec::new();
         let mut imported_secrets: HashMap<String, super::crypto::EncryptedBlob> = HashMap::new();
+        let mut imported_sessions: HashMap<String, super::crypto::EncryptedBlob> = HashMap::new();
 
         for station in data.stations {
             let station_remark = trim_or_invalid(&station.remark, "remark")?;
@@ -566,15 +660,18 @@ pub fn import_relay_data<R: Runtime>(
                 website: trim_or_invalid(&station.website, "website")?,
                 created_at: station.created_at.unwrap_or_else(now_label),
                 login_detection: station.login_detection,
+                network_proxy: None,
             });
 
             for account in station.accounts {
                 let account_id = new_id("acct");
                 let secret = import_account_secret(&key, &account)?;
+                // Session re-encrypt: 跨设备 key 不匹配 → 静默跳过（ok() 转 None）
+                let session_blob = import_account_session(&key, &account).ok().flatten();
                 imported_accounts.push(StationAccount {
                 account_type: Default::default(),
                 website: None,
-                session: None,
+                session: session_blob.clone(),
                 exclusivity_group: None,
                     proxy_enabled: false,
                     external_app_ids: Vec::new(),
@@ -594,7 +691,10 @@ pub fn import_relay_data<R: Runtime>(
                     has_password: secret.is_some(),
                 });
                 if let Some(secret) = secret {
-                    imported_secrets.insert(account_id, secret);
+                    imported_secrets.insert(account_id.clone(), secret);
+                }
+                if let Some(blob) = session_blob {
+                    imported_sessions.insert(account_id, blob);
                 }
             }
         }
@@ -602,6 +702,7 @@ pub fn import_relay_data<R: Runtime>(
         snapshot.stations.extend(imported_stations);
         snapshot.accounts.extend(imported_accounts);
         snapshot.secrets.extend(imported_secrets);
+        snapshot.sessions.extend(imported_sessions);
 
         Ok(RelayDataImportResult {
             station_count: snapshot.stations.len(),
@@ -751,7 +852,7 @@ async fn refresh_one_impl<R: Runtime>(
     app: AppHandle<R>,
     account_id: String,
 ) -> AccountManagerResult<StationAccount> {
-    let (website, detection_config, semaphore) = {
+    let (website, detection_config, semaphore, proxy_url) = {
         let state = app.state::<AccountManagerState>();
         let snapshot = state.read_snapshot_checked()?;
         let Some(account) = snapshot.accounts.iter().find(|a| a.id == account_id) else {
@@ -767,10 +868,13 @@ async fn refresh_one_impl<R: Runtime>(
                 account.station_id
             )));
         };
+        // 在 snapshot 释放前构建 proxy_url（需借 station 引用）。
+        let proxy_url = build_proxy_url_for_station(&app, station);
         (
             station.website.clone(),
             station.login_detection.clone(),
             state.probe_semaphore.clone(),
+            proxy_url,
         )
     };
 
@@ -778,7 +882,7 @@ async fn refresh_one_impl<R: Runtime>(
         .acquire_owned()
         .await
         .map_err(|e| AccountManagerError::store_fail(format!("acquire probe permit: {e}")))?;
-    let outcome = probe::run_probe(&app, &account_id, &website, &detection_config).await?;
+    let outcome = probe::run_probe(&app, &account_id, &website, &detection_config, proxy_url.as_deref()).await?;
     let state = app.state::<AccountManagerState>();
     storage::with_state_mut(&app, &state, |snapshot| {
         let Some(account) = snapshot.accounts.iter_mut().find(|a| a.id == account_id) else {
@@ -882,7 +986,8 @@ pub fn open_login_window<R: Runtime>(
     // 互斥模式：登录前处理同站其它账号（exclusive 登出冲突账号 / rotating 降级活跃账号）
     crate::account_manager::exclusivity::enforce_exclusivity_before_login(&app, &station, &account_id)?;
 
-    webview::open_login_window(&app, &account_id, &username, &website, return_url.as_deref())
+    let proxy_url = build_proxy_url_for_station(&app, &station);
+    webview::open_login_window(&app, &account_id, &username, &website, return_url.as_deref(), proxy_url.as_deref())
 }
 
 #[tauri::command]
@@ -990,6 +1095,7 @@ mod tests {
             auth_profile: None,
             probe_failure_count: 0,
             session_ttl_hours: crate::account_manager::types::default_session_ttl_hours(),
+            network_proxy: None,
         }
     }
 
@@ -1190,9 +1296,11 @@ pub async fn restore_account_session<R: Runtime>(
         .map(|s| s.login_detection.clone())
         .unwrap_or_default();
     let station_id = station.map(|s| s.id.clone());
+    // station 借用 snapshot，在调用前构建 proxy_url
+    let proxy_url = station.and_then(|s| build_proxy_url_for_station(&app, s));
 
     let result = crate::account_manager::probe::probe_session(
-        &app, &account_id, &website, &session, strategy, &config,
+        &app, &account_id, &website, &session, strategy, &config, proxy_url.as_deref(),
     ).await;
 
     // 不确定 / 反机器人 / 网络错误 → 触发自适应降级
@@ -1298,6 +1406,11 @@ pub async fn detect_station_auth_profile<R: Runtime>(
         .find(|s| s.id == station_id)
         .cloned()
         .ok_or_else(|| AccountManagerError::not_found(format!("station {station_id}")))?;
+    // 构建 station 的代理 URL(无配置或解密失败时为 None = 直连)。
+    // macOS 以外平台仅构建不消费(proxy_url 仅在 macOS WebView 上生效)。
+    let proxy_url = build_proxy_url_for_station(&app, &station);
+    #[cfg(not(target_os = "macos"))]
+    let _ = &proxy_url;
 
     let account = pick_account_for_auth_detection(
         &app,
@@ -1345,6 +1458,13 @@ pub async fn detect_station_auth_profile<R: Runtime>(
                     }
                 }
             });
+
+        #[cfg(target_os = "macos")]
+        if let Some(url) = proxy_url.as_deref() {
+            if let Ok(parsed_url) = url.parse::<tauri::Url>() {
+                builder = builder.proxy_url(parsed_url);
+            }
+        }
 
         #[cfg(any(target_os = "macos", target_os = "ios"))]
         {
@@ -1764,7 +1884,7 @@ async fn run_proxy_login<R: Runtime>(
     target_url: String,
     return_url: String,
 ) -> AccountManagerResult<crate::account_manager::proxy::protocol::AuthProxyResult> {
-    let (username, station_id, has_password) = {
+    let (username, station_id, has_password, proxy_url) = {
         let snapshot = state.read_snapshot_checked()?;
         let account = snapshot
             .accounts
@@ -1776,7 +1896,13 @@ async fn run_proxy_login<R: Runtime>(
                 "account {account_id} has proxy disabled"
             )));
         }
-        (account.username.clone(), account.station_id.clone(), account.has_password)
+        // 查找所属 station 并构建代理 URL(若 station 无代理配置则返回 None = 直连)。
+        let proxy_url = snapshot
+            .stations
+            .iter()
+            .find(|s| s.id == account.station_id)
+            .and_then(|s| build_proxy_url_for_station(app, s));
+        (account.username.clone(), account.station_id.clone(), account.has_password, proxy_url)
     };
 
     // 记录外部 App + 绑定用量(loopback 回调会被自动跳过)。失败不阻塞主流程。
@@ -1792,7 +1918,7 @@ async fn run_proxy_login<R: Runtime>(
     } else {
         Some(return_url.as_str())
     };
-    webview::open_login_window(app, &account_id, &username, &target_url, ret_opt)?;
+    webview::open_login_window(app, &account_id, &username, &target_url, ret_opt, proxy_url.as_deref())?;
 
     crate::account_manager::proxy::protocol::audit_log(
         "proxy_login_started",
@@ -2035,6 +2161,7 @@ fn ensure_station_for_host<R: Runtime>(
         website: format!("https://{host_norm}"),
         created_at: now_label(),
         login_detection: LoginDetectionConfig::default(),
+        network_proxy: None,
     };
     storage::with_state_mut(app, state, |snapshot| {
         snapshot.stations.push(station.clone());

@@ -33,10 +33,20 @@ export const systemSettingsUseCases = {
   // Dock
   getDockOrientation: systemSettingsRepository.getDockOrientation,
   setDockOrientation: systemSettingsRepository.setDockOrientation,
+  getMinimizeScaleEnabled: systemSettingsRepository.getMinimizeScaleEnabled,
+  setMinimizeScaleEnabled: systemSettingsRepository.setMinimizeScaleEnabled,
 
   // Keyboard
   getKeyboardFnKeyState: systemSettingsRepository.getKeyboardFnKeyState,
   setKeyboardFnKeyState: systemSettingsRepository.setKeyboardFnKeyState,
+  getAutoCorrectState: systemSettingsRepository.getAutoCorrectState,
+  setAutoCorrectState: systemSettingsRepository.setAutoCorrectState,
+  getSmartQuotesState: systemSettingsRepository.getSmartQuotesState,
+  setSmartQuotesState: systemSettingsRepository.setSmartQuotesState,
+  getSmartDashesState: systemSettingsRepository.getSmartDashesState,
+  setSmartDashesState: systemSettingsRepository.setSmartDashesState,
+  getAutoCapitalizeState: systemSettingsRepository.getAutoCapitalizeState,
+  setAutoCapitalizeState: systemSettingsRepository.setAutoCapitalizeState,
 
   // Display
   getDisplayBatteryPercent: systemSettingsRepository.getDisplayBatteryPercent,

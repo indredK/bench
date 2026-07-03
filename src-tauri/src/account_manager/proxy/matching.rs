@@ -120,6 +120,7 @@ mod tests {
             auth_profile: None,
             probe_failure_count: 0,
             session_ttl_hours: 720,
+            network_proxy: None,
         }
     }
 

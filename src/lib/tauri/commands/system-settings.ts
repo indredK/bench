@@ -71,6 +71,12 @@ export function getDockOrientation() {
 export function setDockOrientation(pos: string) {
   return invokeTauriCommand(TAURI_COMMANDS.systemSettings.setDockOrientation, { pos });
 }
+export function getMinimizeScaleEnabled() {
+  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.getMinimizeScaleEnabled);
+}
+export function setMinimizeScaleEnabled(enabled: boolean) {
+  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.setMinimizeScaleEnabled, { enabled });
+}
 
 // Keyboard
 export function getKeyboardFnKeyState() {
@@ -78,6 +84,30 @@ export function getKeyboardFnKeyState() {
 }
 export function setKeyboardFnKeyState(useFn: boolean) {
   return invokeTauriCommand(TAURI_COMMANDS.systemSettings.setKeyboardFnKeyState, { useFn });
+}
+export function getAutoCorrectState() {
+  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.getAutoCorrectState);
+}
+export function setAutoCorrectState(enabled: boolean) {
+  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.setAutoCorrectState, { enabled });
+}
+export function getSmartQuotesState() {
+  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.getSmartQuotesState);
+}
+export function setSmartQuotesState(enabled: boolean) {
+  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.setSmartQuotesState, { enabled });
+}
+export function getSmartDashesState() {
+  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.getSmartDashesState);
+}
+export function setSmartDashesState(enabled: boolean) {
+  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.setSmartDashesState, { enabled });
+}
+export function getAutoCapitalizeState() {
+  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.getAutoCapitalizeState);
+}
+export function setAutoCapitalizeState(enabled: boolean) {
+  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.setAutoCapitalizeState, { enabled });
 }
 
 // Display

@@ -24,9 +24,19 @@ macro_rules! app_invoke_handler {
             // system settings - dock
             $crate::system_settings::dock::get_dock_orientation,
             $crate::system_settings::dock::set_dock_orientation,
+            $crate::system_settings::dock::get_minimize_scale_enabled,
+            $crate::system_settings::dock::set_minimize_scale_enabled,
             // system settings - keyboard
             $crate::system_settings::keyboard::get_keyboard_fn_key_state,
             $crate::system_settings::keyboard::set_keyboard_fn_key_state,
+            $crate::system_settings::keyboard::get_auto_correct_state,
+            $crate::system_settings::keyboard::set_auto_correct_state,
+            $crate::system_settings::keyboard::get_smart_quotes_state,
+            $crate::system_settings::keyboard::set_smart_quotes_state,
+            $crate::system_settings::keyboard::get_smart_dashes_state,
+            $crate::system_settings::keyboard::set_smart_dashes_state,
+            $crate::system_settings::keyboard::get_auto_capitalize_state,
+            $crate::system_settings::keyboard::set_auto_capitalize_state,
             // system settings - display
             $crate::system_settings::display::get_display_battery_percent,
             $crate::system_settings::display::set_display_battery_percent,
@@ -188,6 +198,8 @@ macro_rules! app_invoke_handler {
             $crate::account_manager::commands::reset_probe_strategy,
             $crate::account_manager::commands::create_ephemeral_account,
             $crate::account_manager::commands::set_session_ttl,
+            $crate::account_manager::commands::set_station_network_proxy,
+            $crate::account_manager::commands::get_station_network_proxy,
             $crate::account_manager::commands::set_account_proxy_enabled,
             $crate::account_manager::commands::parse_auth_proxy_url,
             $crate::account_manager::commands::match_proxy_target,

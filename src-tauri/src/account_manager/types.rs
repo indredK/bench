@@ -54,17 +54,15 @@ pub struct CsrfTokenEntry {
 #[serde(rename_all = "camelCase")]
 pub struct AccountSession {
     pub cookies: Vec<CookieEntry>,
-    /// 扁平 localStorage（v1 兼容字段，新数据写入 origins）
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub local_storage: Option<EncryptedBlob>,
-    /// 扁平 sessionStorage（v1 兼容字段，新数据写入 origins）
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub session_storage: Option<EncryptedBlob>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub indexeddb_snapshot: Option<EncryptedBlob>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub csrf_token: Option<CsrfTokenEntry>,
     pub captured_at: String,
+    /// UTC Unix 秒。用于 TTL 计算,避免 `captured_at` 字符串按本地时区解析的歧义。
+    /// 旧 session 无此字段时回退到 `captured_at` 字符串解析。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub captured_at_ts: Option<i64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expires_hint: Option<String>,
     pub user_agent: String,
@@ -165,6 +163,29 @@ pub enum ExclusivityMode {
     Coexisting,
     Exclusive,
     Rotating,
+}
+
+/// per-station 网络代理类型（HTTP / SOCKS5）。
+/// 与 `proxy_enabled`（外部登录代理）语义无关，命名上区分。
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum NetworkProxyType {
+    #[default]
+    Http,
+    Socks5,
+}
+
+/// per-station 网络代理配置。`encrypted_password` 走 keyring-backed master key 加密。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NetworkProxyConfig {
+    pub proxy_type: NetworkProxyType,
+    pub host: String,
+    pub port: u16,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub username: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub encrypted_password: Option<EncryptedBlob>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -289,6 +310,10 @@ pub struct RelayStation {
     /// F.6.2 默认 720h (30 天)。设为 0 视为永不过期。
     #[serde(default = "default_session_ttl_hours")]
     pub session_ttl_hours: u32,
+    /// per-station 网络代理（HTTP / SOCKS5）。None 表示直连。
+    /// 仅在 macOS 14+ WebView 上生效；其他平台静默忽略。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub network_proxy: Option<NetworkProxyConfig>,
 }
 
 pub fn default_session_ttl_hours() -> u32 {
@@ -377,6 +402,10 @@ pub struct RelayAccountExport {
     pub password: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub encrypted_password: Option<EncryptedBlob>,
+    /// EncryptedFull 模式下导出的 session（含 cookies / IndexedDB / origins）。
+    /// 导入时 decrypt + re-encrypt 到当前 keyring; 跨设备 key 不匹配则静默跳过。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub encrypted_session: Option<EncryptedBlob>,
     #[serde(default)]
     pub notes: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]

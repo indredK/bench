@@ -7,6 +7,7 @@ import { RuntimeFeatureGate } from "@/components/common/RuntimeFeatureGate";
 import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirmDialog";
 import { PortManagerPageContent } from "@/features/port-manager/components/PortManagerPageContent";
 import { usePortManagerController } from "@/features/port-manager/hooks/usePortManagerController";
+import { usePortOccupationAlerts } from "@/features/port-manager/hooks/usePortOccupationAlerts";
 
 type KillConfirmState =
   | { kind: "one"; port: number; pids: number[] }
@@ -16,6 +17,8 @@ type KillConfirmState =
 function PortManager({ feature }: { feature?: { desktopOnly?: boolean } }) {
   const controller = usePortManagerController();
   const [killConfirm, setKillConfirm] = useState<KillConfirmState>(null);
+
+  usePortOccupationAlerts();
 
   const closeKillConfirm = useCallback(() => setKillConfirm(null), []);
 
@@ -66,7 +69,9 @@ function PortManager({ feature }: { feature?: { desktopOnly?: boolean } }) {
       <PortManagerPageContent
         t={controller.t}
         inputRef={controller.inputRef}
-        scrollContentRef={controller.scrollContentRef}
+        scrollContainerRef={controller.scrollContainerRef}
+        rowVirtualizer={controller.rowVirtualizer}
+        portHistory={controller.portHistory}
         inputValue={controller.inputValue}
         showInvalidToast={controller.showInvalidToast}
         inputError={controller.inputError}
@@ -80,6 +85,12 @@ function PortManager({ feature }: { feature?: { desktopOnly?: boolean } }) {
         highlightPort={controller.highlightPort}
         occupiedCount={controller.occupiedCount}
         displayedDetails={controller.displayedDetails}
+        scanMode={controller.scanMode}
+        remoteHost={controller.remoteHost}
+        alertsEnabled={controller.alertsEnabled}
+        onScanModeChange={controller.setScanMode}
+        onRemoteHostChange={controller.handleRemoteHostChange}
+        onToggleAlerts={controller.handleToggleAlerts}
         onInputChange={controller.handleInputChange}
         onInputKeyDown={controller.handleInputKeyDown}
         onScan={controller.handleScan}

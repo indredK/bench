@@ -22,6 +22,7 @@ export function DisplayDockSection({ className }: DisplayDockSectionProps) {
   const refresh = useCallback(() => {
     systemSettingsUseCases.getDisplayBatteryPercent().then(store.setDisplayBatteryPercent).catch(console.error);
     systemSettingsUseCases.getDockOrientation().then(store.setDockOrientation).catch(console.error);
+    systemSettingsUseCases.getMinimizeScaleEnabled().then(store.setMinimizeScaleEnabled).catch(console.error);
   }, []);
 
   useEffect(() => {
@@ -89,6 +90,19 @@ export function DisplayDockSection({ className }: DisplayDockSectionProps) {
             ))}
           </div>
         </div>
+        <SettingToggle
+          label={t("systemSettings.dock.minimizeScale")}
+          description={t("systemSettings.dock.minimizeScaleDesc")}
+          checked={store.minimizeScaleEnabled}
+          loading={store.applyingKeys.has("dock.minimizeScale")}
+          onOpenSettings={() => systemSettingsUseCases.openDesktopSettings()}
+          onCheckedChange={async (v) => {
+            await run("dock.minimizeScale", async () => {
+              await systemSettingsUseCases.setMinimizeScaleEnabled(v);
+              store.setMinimizeScaleEnabled(v);
+            });
+          }}
+        />
       </div>
     </SettingGroup>
   );

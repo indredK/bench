@@ -88,6 +88,7 @@ pub async fn capture_session_after_login<R: Runtime>(
         cookies,
         user_agent,
         captured_at: super::commands::now_label(),
+        captured_at_ts: Some(chrono::Utc::now().timestamp()),
         ..Default::default()
     };
 
@@ -414,6 +415,7 @@ pub async fn finalize_proxy_session<R: Runtime>(
                     cookies,
                     user_agent,
                     captured_at: super::commands::now_label(),
+                    captured_at_ts: Some(chrono::Utc::now().timestamp()),
                     ..Default::default()
                 };
                 if account
@@ -452,7 +454,7 @@ pub fn persist_session(
     Ok(())
 }
 
-/// 解密并恢复 session
+/// 解密并恢复 session。
 pub fn restore_session(
     state: &AccountManagerState,
     account_id: &str,
@@ -534,6 +536,7 @@ pub async fn persist_all_sessions_on_exit<R: Runtime>(
                     let session = AccountSession {
                         cookies,
                         captured_at: super::commands::now_label(),
+                        captured_at_ts: Some(chrono::Utc::now().timestamp()),
                         user_agent: String::new(),
                         ..Default::default()
                     };
@@ -556,16 +559,24 @@ fn parse_captured_at(value: &str) -> Option<chrono::NaiveDateTime> {
 }
 
 /// 判断 session 是否超过 ttl_hours 时长。ttl_hours == 0 视为永不过期。
+///
+/// 优先用 `captured_at_ts`（UTC Unix 秒，无歧义）；旧 session 无此字段时回退到
+/// `captured_at` 字符串解析。注意 `now_label()` 生成的是本地时间字符串，回退路径
+/// 把它当作 UTC 解析（`.and_utc()`），在非 UTC 机器上会有偏差 —— 这是旧数据的
+/// 既有行为，新捕获的 session 已通过 `captured_at_ts` 修复。
 pub fn is_session_expired(session: &AccountSession, ttl_hours: u32, now: chrono::DateTime<chrono::Utc>) -> bool {
     if ttl_hours == 0 {
         return false;
     }
-    let Some(captured) = parse_captured_at(&session.captured_at) else {
+    let captured_utc = session
+        .captured_at_ts
+        .and_then(|ts| chrono::DateTime::from_timestamp(ts, 0))
+        .or_else(|| parse_captured_at(&session.captured_at).map(|d| d.and_utc()));
+    let Some(captured) = captured_utc else {
         // 没有时间戳 → 视为过期,避免用老数据误判为有效
         return true;
     };
-    let captured_utc = captured.and_utc();
-    let age = now.signed_duration_since(captured_utc);
+    let age = now.signed_duration_since(captured);
     let ttl = chrono::Duration::hours(ttl_hours as i64);
     age > ttl
 }

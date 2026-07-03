@@ -89,6 +89,7 @@ pub fn open_login_window<R: Runtime>(
     username: &str,
     url: &str,
     return_url: Option<&str>,
+    proxy_url: Option<&str>,
 ) -> AccountManagerResult<()> {
     let label = login_window_label(account_id);
     if let Some(existing) = app.get_webview_window(&label) {
@@ -114,6 +115,15 @@ pub fn open_login_window<R: Runtime>(
         .inner_size(LOGIN_WINDOW_WIDTH, LOGIN_WINDOW_HEIGHT)
         .center()
         .data_directory(data_dir);
+
+    // per-station 网络代理：仅在 macOS 14+ 生效（`macos-proxy` feature）。
+    // 非 macOS 平台静默忽略，前端 UI 已展示 macOS-only 提示。
+    #[cfg(target_os = "macos")]
+    if let Some(url) = proxy_url {
+        if let Ok(parsed_url) = url.parse::<tauri::Url>() {
+            builder = builder.proxy_url(parsed_url);
+        }
+    }
 
     if let Some(ret) = return_url {
         let ret_owned = ret.to_string();

@@ -40,6 +40,7 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(Arc::new(AtomicBool::new(false)) as ScanAbortFlag)
         .manage(CustomCleanupAbortFlag(Arc::new(AtomicBool::new(false))))
@@ -110,6 +111,29 @@ pub fn run() {
                     &state,
                 )
                 .await;
+            });
+
+            // F.6.3 周期性清理 TTL 超时的 session（每 30 分钟一次）。
+            // 任务随 runtime 退出自动取消；best-effort，失败仅打日志。
+            let cleanup_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let mut interval = tokio::time::interval(std::time::Duration::from_secs(1800));
+                interval.tick().await; // 跳过首次立即触发（启动时已清理）
+                loop {
+                    interval.tick().await;
+                    let state = cleanup_handle.state::<AccountManagerState>();
+                    let cleared = account_manager::session::cleanup_expired_sessions(
+                        &cleanup_handle,
+                        &state,
+                        chrono::Utc::now(),
+                    );
+                    if !cleared.is_empty() {
+                        eprintln!(
+                            "[account_manager] periodic: cleared {} expired session(s)",
+                            cleared.len()
+                        );
+                    }
+                }
             });
             Ok(())
         })

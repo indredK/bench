@@ -14,6 +14,10 @@ export function KeyboardSection() {
 
   const refresh = useCallback(() => {
     systemSettingsUseCases.getKeyboardFnKeyState().then(store.setKeyboardFnKey).catch(console.error);
+    systemSettingsUseCases.getAutoCorrectState().then(store.setAutoCorrect).catch(console.error);
+    systemSettingsUseCases.getSmartQuotesState().then(store.setSmartQuotes).catch(console.error);
+    systemSettingsUseCases.getSmartDashesState().then(store.setSmartDashes).catch(console.error);
+    systemSettingsUseCases.getAutoCapitalizeState().then(store.setAutoCapitalize).catch(console.error);
   }, []);
 
   useEffect(() => {
@@ -45,6 +49,58 @@ export function KeyboardSection() {
           await run("keyboard.fnKey", async () => {
             await systemSettingsUseCases.setKeyboardFnKeyState(v);
             store.setKeyboardFnKey(v);
+          });
+        }}
+      />
+      <SettingToggle
+        label={t("systemSettings.keyboard.autoCorrect")}
+        description={t("systemSettings.keyboard.autoCorrectDesc")}
+        checked={store.autoCorrect}
+        loading={store.applyingKeys.has("keyboard.autoCorrect")}
+        onOpenSettings={() => systemSettingsUseCases.openKeyboardSettings()}
+        onCheckedChange={async (v) => {
+          await run("keyboard.autoCorrect", async () => {
+            await systemSettingsUseCases.setAutoCorrectState(v);
+            store.setAutoCorrect(v);
+          });
+        }}
+      />
+      <SettingToggle
+        label={t("systemSettings.keyboard.smartQuotes")}
+        description={t("systemSettings.keyboard.smartQuotesDesc")}
+        checked={store.smartQuotes}
+        loading={store.applyingKeys.has("keyboard.smartQuotes")}
+        onOpenSettings={() => systemSettingsUseCases.openKeyboardSettings()}
+        onCheckedChange={async (v) => {
+          await run("keyboard.smartQuotes", async () => {
+            await systemSettingsUseCases.setSmartQuotesState(v);
+            store.setSmartQuotes(v);
+          });
+        }}
+      />
+      <SettingToggle
+        label={t("systemSettings.keyboard.smartDashes")}
+        description={t("systemSettings.keyboard.smartDashesDesc")}
+        checked={store.smartDashes}
+        loading={store.applyingKeys.has("keyboard.smartDashes")}
+        onOpenSettings={() => systemSettingsUseCases.openKeyboardSettings()}
+        onCheckedChange={async (v) => {
+          await run("keyboard.smartDashes", async () => {
+            await systemSettingsUseCases.setSmartDashesState(v);
+            store.setSmartDashes(v);
+          });
+        }}
+      />
+      <SettingToggle
+        label={t("systemSettings.keyboard.autoCapitalize")}
+        description={t("systemSettings.keyboard.autoCapitalizeDesc")}
+        checked={store.autoCapitalize}
+        loading={store.applyingKeys.has("keyboard.autoCapitalize")}
+        onOpenSettings={() => systemSettingsUseCases.openKeyboardSettings()}
+        onCheckedChange={async (v) => {
+          await run("keyboard.autoCapitalize", async () => {
+            await systemSettingsUseCases.setAutoCapitalizeState(v);
+            store.setAutoCapitalize(v);
           });
         }}
       />

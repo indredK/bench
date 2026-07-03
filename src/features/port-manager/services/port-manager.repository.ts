@@ -5,8 +5,10 @@ import {
   killProcesses,
   queryPortProcesses,
 } from "@/lib/tauri/commands/port-manager";
+import { portCheck } from "@/lib/tauri/commands/system-settings";
 
 export const portManagerRepository = {
   queryPortProcesses,
   killProcesses,
+  portCheck,
 };

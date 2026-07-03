@@ -3,7 +3,8 @@
  */
 import type { TFunction } from "i18next";
 import type { Ref } from "react";
-import { Loader2, RefreshCw, Search, X } from "lucide-react";
+import type { Virtualizer } from "@tanstack/react-virtual";
+import { Loader2, RefreshCw, Search, X, Bell, BellOff } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,12 +16,14 @@ import { PortManagerCommonPorts, PortManagerControls, PortManagerPortChip } from
 import { ProcessTreeView } from "@/features/port-manager/components/ProcessTreeView";
 import { chipStatusClasses, commonPorts } from "@/features/port-manager/hooks/usePortManagerController";
 import type { PortProcessDetail } from "@/lib/tauri/types/port-manager";
-import type { PortScanStatus } from "@/features/port-manager/store";
+import type { PortScanMode, PortScanStatus } from "@/features/port-manager/store";
 
 interface PortManagerPageContentProps {
   t: TFunction;
   inputRef: Ref<HTMLInputElement>;
-  scrollContentRef: Ref<HTMLDivElement>;
+  scrollContainerRef: Ref<HTMLDivElement>;
+  rowVirtualizer: Virtualizer<HTMLDivElement, Element>;
+  portHistory: number[];
   inputValue: string;
   showInvalidToast: boolean;
   inputError: string;
@@ -34,6 +37,12 @@ interface PortManagerPageContentProps {
   highlightPort: number | null;
   occupiedCount: number;
   displayedDetails: PortProcessDetail[];
+  scanMode: PortScanMode;
+  remoteHost: string;
+  alertsEnabled: boolean;
+  onScanModeChange: (mode: PortScanMode) => void;
+  onRemoteHostChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onToggleAlerts: () => void;
   onInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onInputKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => void;
   onScan: () => void;
@@ -54,7 +63,9 @@ interface PortManagerPageContentProps {
 export function PortManagerPageContent({
   t,
   inputRef,
-  scrollContentRef,
+  scrollContainerRef,
+  rowVirtualizer,
+  portHistory,
   inputValue,
   showInvalidToast,
   inputError,
@@ -68,6 +79,12 @@ export function PortManagerPageContent({
   highlightPort,
   occupiedCount,
   displayedDetails,
+  scanMode,
+  remoteHost,
+  alertsEnabled,
+  onScanModeChange,
+  onRemoteHostChange,
+  onToggleAlerts,
   onInputChange,
   onInputKeyDown,
   onScan,
@@ -84,6 +101,7 @@ export function PortManagerPageContent({
   onClearError,
   statusIconFor,
 }: PortManagerPageContentProps) {
+  const isRemoteMode = scanMode === "remote";
   return (
     <div className="h-full flex flex-col gap-3">
       <Card className="flex flex-col overflow-visible">
@@ -100,6 +118,10 @@ export function PortManagerPageContent({
             killing={killing}
             isScanning={isScanning}
             portCount={portStates.length}
+            scanMode={scanMode}
+            remoteHost={remoteHost}
+            onScanModeChange={onScanModeChange}
+            onRemoteHostChange={onRemoteHostChange}
             onInputChange={onInputChange}
             onInputKeyDown={onInputKeyDown}
             onScan={onScan}
@@ -113,6 +135,24 @@ export function PortManagerPageContent({
             portStates={portStates}
             onAddPort={onAddCommonPort}
           />
+
+          {portHistory.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-xs text-muted-foreground">{t("portManager.history")}:</span>
+              {portHistory.map((port) => (
+                <Button
+                  key={port}
+                  variant="outline"
+                  size="sm"
+                  className="rounded-lg h-7 px-2 text-xs"
+                  onClick={() => onAddCommonPort(port)}
+                  disabled={killing || portStates.some((ps) => ps.port === port)}
+                >
+                  {port}
+                </Button>
+              ))}
+            </div>
+          )}
 
           <div className="min-h-20 max-h-40 overflow-y-auto rounded-lg border bg-muted/30 p-1.5">
             {portStates.length === 0 ? (
@@ -173,6 +213,26 @@ export function PortManagerPageContent({
             )}
           </CardTitle>
           <div className="flex shrink-0 items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={alertsEnabled ? "default" : "outline"}
+                  size="sm"
+                  className="rounded-lg shrink-0"
+                  onClick={onToggleAlerts}
+                  disabled={portStates.length === 0 || killing}
+                >
+                  {alertsEnabled ? <Bell size={14} /> : <BellOff size={14} />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {portStates.length === 0
+                  ? t("portManager.alertsMinPorts")
+                  : alertsEnabled
+                    ? t("portManager.alertsDisable")
+                    : t("portManager.alertsEnable")}
+              </TooltipContent>
+            </Tooltip>
             {portDetails.length > 0 && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -206,7 +266,7 @@ export function PortManagerPageContent({
                 <TooltipContent>{t("portManager.rescanAll")}</TooltipContent>
               </Tooltip>
             )}
-            {portDetails.length > 0 && (
+            {portDetails.length > 0 && !isRemoteMode && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -230,93 +290,120 @@ export function PortManagerPageContent({
           </div>
         </CardHeader>
         <CardContent className="flex-1 min-h-0 p-0">
-          <div className="h-full overflow-y-auto px-4 pb-4">
-            <div ref={scrollContentRef}>
-              {portDetails.length === 0 ? (
-                <div className="flex flex-col items-center justify-center gap-4 py-10 text-center text-muted-foreground">
-                  <Search size={48} className="opacity-30" />
-                  <p className="text-sm">{t("portManager.emptyResults")}</p>
-                </div>
-              ) : displayedDetails.length === 0 ? (
-                <div className="flex flex-col items-center justify-center gap-4 py-6 text-center text-muted-foreground">
-                  <Search size={48} className="opacity-30" />
-                  <p className="text-sm">{t("portManager.emptyOnly")}</p>
-                </div>
-              ) : (
-                <>
-                  {displayedDetails.map((detail) => (
+          <div ref={scrollContainerRef} className="h-full overflow-y-auto px-4 pb-4">
+            {portDetails.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-4 py-10 text-center text-muted-foreground">
+                <Search size={48} className="opacity-30" />
+                <p className="text-sm">{t("portManager.emptyResults")}</p>
+              </div>
+            ) : displayedDetails.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-4 py-6 text-center text-muted-foreground">
+                <Search size={48} className="opacity-30" />
+                <p className="text-sm">{t("portManager.emptyOnly")}</p>
+              </div>
+            ) : (
+              <div
+                style={{
+                  height: `${rowVirtualizer.getTotalSize()}px`,
+                  position: "relative",
+                }}
+              >
+                {rowVirtualizer.getVirtualItems().map((virtualItem) => {
+                  const detail = displayedDetails[virtualItem.index];
+                  return (
                     <div
-                      key={detail.port}
-                      data-port={detail.port}
-                      className={cn(
-                        "mb-2.5 rounded-lg border bg-muted/30 p-3 transition",
-                        highlightPort === detail.port && "border-indigo-400 dark:border-indigo-600 bg-indigo-50 dark:bg-indigo-950/30 shadow-[0_0_0_3px_rgba(79,70,229,0.15)] dark:shadow-[0_0_0_3px_rgba(129,140,248,0.15)]"
-                      )}
+                      key={virtualItem.key}
+                      data-index={virtualItem.index}
+                      ref={rowVirtualizer.measureElement}
+                      className="pb-2.5"
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        transform: `translateY(${virtualItem.start}px)`,
+                      }}
                     >
-                      {detail.error ? (
-                        <div className="flex items-center gap-2 rounded-md bg-blue-50 px-3 py-2 text-[13px] text-blue-700 dark:bg-blue-950/30 dark:text-blue-300">
-                          <span className="size-2 shrink-0 rounded-full bg-blue-500 dark:bg-blue-400" />
-                          {t("portManager.port", { port: detail.port })}: {detail.error}
-                        </div>
-                      ) : (
-                        <>
-                          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="text-sm font-semibold">
-                                {t("portManager.port", { port: detail.port })}
-                              </span>
-                              {detail.fingerprint && (
-                                <Badge variant="outline" className="gap-1">
-                                  <span>{detail.fingerprint.icon}</span>
-                                  <span>{detail.fingerprint.name}</span>
-                                </Badge>
-                              )}
-                              {portKillMessages[detail.port] && (
-                                <span className="rounded bg-yellow-50 px-2 py-0.5 text-xs text-yellow-700 dark:bg-yellow-950/30 dark:text-yellow-300">
-                                  {portKillMessages[detail.port].join(", ")}
+                      <div
+                        data-port={detail.port}
+                        className={cn(
+                          "rounded-lg border bg-muted/30 p-3 transition",
+                          highlightPort === detail.port && "border-indigo-400 dark:border-indigo-600 bg-indigo-50 dark:bg-indigo-950/30 shadow-[0_0_0_3px_rgba(79,70,229,0.15)] dark:shadow-[0_0_0_3px_rgba(129,140,248,0.15)]"
+                        )}
+                      >
+                        {detail.error ? (
+                          <div className="flex items-center gap-2 rounded-md bg-blue-50 px-3 py-2 text-[13px] text-blue-700 dark:bg-blue-950/30 dark:text-blue-300">
+                            <span className="size-2 shrink-0 rounded-full bg-blue-500 dark:bg-blue-400" />
+                            {t("portManager.port", { port: detail.port })}: {detail.error}
+                          </div>
+                        ) : (
+                          <>
+                            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-sm font-semibold">
+                                  {t("portManager.port", { port: detail.port })}
                                 </span>
+                                {detail.fingerprint && (
+                                  <Badge variant="outline" className="gap-1">
+                                    <span>{detail.fingerprint.icon}</span>
+                                    <span>{detail.fingerprint.name}</span>
+                                  </Badge>
+                                )}
+                                {portKillMessages[detail.port] && (
+                                  <span className="rounded bg-yellow-50 px-2 py-0.5 text-xs text-yellow-700 dark:bg-yellow-950/30 dark:text-yellow-300">
+                                    {portKillMessages[detail.port].join(", ")}
+                                  </span>
+                                )}
+                              </div>
+                              {!isRemoteMode && (
+                                <div className="flex gap-1.5">
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="default"
+                                        size="sm"
+                                        className="rounded-lg bg-amber-600 hover:bg-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600"
+                                        onClick={() => onKillPort(detail.port, detail.pids)}
+                                        disabled={killing}
+                                      >
+                                        {t("portManager.killButton")}
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      {t("portManager.freePortHint", {
+                                        port: detail.port,
+                                        command: platformConfig.freePortCommandTemplate.replace("{{port}}", String(detail.port)),
+                                      })}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </div>
                               )}
                             </div>
-                            <div className="flex gap-1.5">
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="default"
-                                    size="sm"
-                                    className="rounded-lg bg-amber-600 hover:bg-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600"
-                                    onClick={() => onKillPort(detail.port, detail.pids)}
-                                    disabled={killing}
-                                  >
-                                    {t("portManager.killButton")}
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  {t("portManager.freePortHint", {
-                                    port: detail.port,
-                                    command: platformConfig.freePortCommandTemplate.replace("{{port}}", String(detail.port)),
-                                  })}
-                                </TooltipContent>
-                              </Tooltip>
-                            </div>
-                          </div>
 
-                          <div className="overflow-x-auto rounded-md border bg-background px-1 py-1.5 font-mono text-xs">
-                            {detail.process_trees.map((tree) => (
-                              <ProcessTreeView
-                                key={tree.pid}
-                                node={tree}
-                                depth={0}
-                                targetPid={detail.pids[0]}
-                              />
-                            ))}
-                          </div>
-                        </>
-                      )}
+                            {isRemoteMode ? (
+                              <div className="rounded-md border bg-background px-3 py-2 text-xs text-muted-foreground">
+                                {t("portManager.remoteResultHint")}
+                              </div>
+                            ) : (
+                              <div className="overflow-x-auto rounded-md border bg-background px-1 py-1.5 font-mono text-xs">
+                                {detail.process_trees.map((tree) => (
+                                  <ProcessTreeView
+                                    key={tree.pid}
+                                    node={tree}
+                                    depth={0}
+                                    targetPid={detail.pids[0]}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
                     </div>
-                  ))}
-                </>
-              )}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

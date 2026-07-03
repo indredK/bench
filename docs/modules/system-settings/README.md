@@ -4,10 +4,9 @@
 
 | 文档 | 说明 |
 |------|------|
+| [features.md](./features.md) | 功能说明（产品视角） |
+| [design.md](./design.md) | 技术设计 |
 | [roadmap.md](./roadmap.md) | 迭代规划 |
 | [bugs.md](./bugs.md) | 已知问题 |
-| [design-spec.md](./design-spec.md) | 设计规范 |
-| [redesign.md](./archive/redesign.md) (已归档) | v2 信息架构 |
-| [feature-candidates.md](./feature-candidates.md) | macOS 待选开关库 |
 
 发布节奏：[release-themes.md](../../roadmap/release-themes.md)

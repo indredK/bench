@@ -14,13 +14,14 @@ import type {
   ExternalApp,
   ExternalAppBinding,
   LoginDetectionConfig,
+  LoginMethod,
+  NetworkProxyConfig,
   ProbeStrategy,
   RelayDataExportResult,
   RelayDataImportResult,
   RelayExportMode,
   RelayStation,
   StationAccount,
-  LoginMethod,
 } from "@/lib/tauri/types/account-manager";
 
 export type {
@@ -38,14 +39,16 @@ export type {
   LoginDetectionMode,
   LoginDetectionPresence,
   LoginDetectionRule,
+  LoginMethod,
   MatchConfidence,
+  NetworkProxyConfig,
+  NetworkProxyType,
   ProbeStrategy,
   RelayDataExportResult,
   RelayDataImportResult,
   RelayExportMode,
   RelayStation,
   StationAccount,
-  LoginMethod,
 } from "@/lib/tauri/types/account-manager";
 export { DEFAULT_LOGIN_DETECTION } from "@/lib/tauri/types/account-manager";
 
@@ -278,6 +281,28 @@ export function setSessionTtl(
   ttlHours: number
 ): Promise<RelayStation> {
   return invokeTauriCommand(TAURI_COMMANDS.accountManager.setSessionTtl, { stationId, ttlHours });
+}
+
+/// 设置 Station 的网络代理(HTTP / SOCKS5)。
+/// `config = null` 清除代理(直连)。`password` 为明文(后端加密);null 清除已存密码。
+/// 注意:前端传入的 `config.encryptedPassword` 会被后端忽略,以后端加密结果为准。
+export function setStationNetworkProxy(
+  stationId: string,
+  config: NetworkProxyConfig | null,
+  password: string | null
+): Promise<RelayStation> {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.setStationNetworkProxy, {
+    stationId,
+    config,
+    password,
+  });
+}
+
+/// 读取 Station 的网络代理配置。`encryptedPassword` 为 opaque(前端不解密明文)。
+export function getStationNetworkProxy(
+  stationId: string
+): Promise<NetworkProxyConfig | null> {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.getStationNetworkProxy, { stationId });
 }
 
 /// 设置账号的外部登录代理开关

@@ -23,7 +23,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { ProbeStrategy, RelayStation, StationAccount } from "@/lib/tauri/types/account-manager";
+import type {
+  NetworkProxyConfig,
+  NetworkProxyType,
+  ProbeStrategy,
+  RelayStation,
+  StationAccount,
+} from "@/lib/tauri/types/account-manager";
 import type { SessionSettings } from "@/features/account-manager/model/types";
 import { CopyIconButton, Field, IconButton } from "@/features/account-manager/components/shared";
 
@@ -53,12 +59,28 @@ export function StationDialog({
   const [probeOverride, setProbeOverride] = useState(false);
   const [sessionTtlHours, setSessionTtlHours] = useState<number>(720);
 
+  // v1.18: per-station 网络代理
+  const [proxyEnabled, setProxyEnabled] = useState(false);
+  const [proxyType, setProxyType] = useState<NetworkProxyType>("http");
+  const [proxyHost, setProxyHost] = useState("");
+  const [proxyPort, setProxyPort] = useState<number>(8080);
+  const [proxyUsername, setProxyUsername] = useState("");
+  const [proxyPassword, setProxyPassword] = useState("");
+  const [proxyHasPassword, setProxyHasPassword] = useState(false);
+
   const reset = () => {
     setRemark("");
     setWebsite("");
     setProbeStrategyLocal("httpFirst");
     setProbeOverride(false);
     setSessionTtlHours(720);
+    setProxyEnabled(false);
+    setProxyType("http");
+    setProxyHost("");
+    setProxyPort(8080);
+    setProxyUsername("");
+    setProxyPassword("");
+    setProxyHasPassword(false);
   };
 
   useEffect(() => {
@@ -69,6 +91,23 @@ export function StationDialog({
       if (station.authProfile) {
         setProbeStrategyLocal(station.authProfile.probeStrategy);
       }
+      const np = station.networkProxy ?? null;
+      if (np) {
+        setProxyEnabled(true);
+        setProxyType(np.proxyType);
+        setProxyHost(np.host);
+        setProxyPort(np.port);
+        setProxyUsername(np.username ?? "");
+        setProxyHasPassword(np.encryptedPassword != null);
+      } else {
+        setProxyEnabled(false);
+        setProxyType("http");
+        setProxyHost("");
+        setProxyPort(8080);
+        setProxyUsername("");
+        setProxyHasPassword(false);
+      }
+      setProxyPassword("");
     } else if (open) {
       reset();
     }
@@ -83,10 +122,22 @@ export function StationDialog({
     if (!r || !w) return;
     setSubmitting(true);
     try {
+      const networkProxy: NetworkProxyConfig | null = proxyEnabled
+        ? {
+            proxyType: proxyType,
+            host: proxyHost.trim(),
+            port: proxyPort,
+            username: proxyUsername.trim() || null,
+          }
+        : null;
+      // password:仅在用户输入了内容时传(空串=不修改,undefined)
+      const networkProxyPassword = proxyPassword.length > 0 ? proxyPassword : undefined;
       await Promise.resolve(onSubmit(r, w, {
         probeOverride,
         probeStrategy,
         sessionTtlHours,
+        networkProxy,
+        networkProxyPassword,
       }));
     } finally {
       setSubmitting(false);
@@ -184,6 +235,92 @@ export function StationDialog({
                 />
               }
             />
+          </section>
+
+          <section className="space-y-3 rounded-lg border border-border/60 bg-muted/30 p-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {t("accountManager.sessionManager.networkProxy.title")}
+            </h3>
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={proxyEnabled}
+                onChange={(e) => setProxyEnabled(e.target.checked)}
+              />
+              {t("accountManager.sessionManager.networkProxy.enableLabel")}
+            </label>
+            {proxyEnabled && (
+              <div className="space-y-3">
+                <Field
+                  label={t("accountManager.sessionManager.networkProxy.typeLabel")}
+                  input={
+                    <Select value={proxyType} onValueChange={(v) => setProxyType(v as NetworkProxyType)}>
+                      <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="http">HTTP</SelectItem>
+                        <SelectItem value="socks5">SOCKS5</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  }
+                />
+                <div className="grid grid-cols-[1fr_120px] gap-2">
+                  <Field
+                    label={t("accountManager.sessionManager.networkProxy.hostLabel")}
+                    input={
+                      <Input
+                        value={proxyHost}
+                        onChange={(e) => setProxyHost(e.target.value)}
+                        placeholder="127.0.0.1"
+                      />
+                    }
+                  />
+                  <Field
+                    label={t("accountManager.sessionManager.networkProxy.portLabel")}
+                    input={
+                      <Input
+                        type="number"
+                        min={1}
+                        max={65535}
+                        value={proxyPort}
+                        onChange={(e) => setProxyPort(Math.min(65535, Math.max(1, parseInt(e.target.value || "0", 10))))}
+                      />
+                    }
+                  />
+                </div>
+                <Field
+                  label={t("accountManager.sessionManager.networkProxy.usernameLabel")}
+                  input={
+                    <Input
+                      value={proxyUsername}
+                      onChange={(e) => setProxyUsername(e.target.value)}
+                      placeholder={t("accountManager.sessionManager.networkProxy.usernameOptional")}
+                    />
+                  }
+                />
+                <Field
+                  label={t("accountManager.sessionManager.networkProxy.passwordLabel")}
+                  input={
+                    <div className="space-y-1">
+                      <Input
+                        type="password"
+                        value={proxyPassword}
+                        onChange={(e) => setProxyPassword(e.target.value)}
+                        placeholder={
+                          proxyHasPassword
+                            ? t("accountManager.sessionManager.networkProxy.passwordSetHint")
+                            : t("accountManager.sessionManager.networkProxy.passwordPlaceholder")
+                        }
+                      />
+                      {proxyHasPassword && proxyPassword.length === 0 && (
+                        <p className="text-[10px] text-muted-foreground">
+                          {t("accountManager.sessionManager.networkProxy.passwordLeaveBlankHint")}
+                        </p>
+                      )}
+                    </div>
+                  }
+                />
+              </div>
+            )}
           </section>
 
           <DialogFooter>

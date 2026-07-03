@@ -70,6 +70,25 @@ export interface RelayStation {
   probeFailureCount?: number;
   /** F.6.2 — session 有效期(小时)。0 = 永不过期。默认 720。 */
   sessionTtlHours?: number;
+  /** v1.18 — per-station 网络代理(HTTP / SOCKS5)。None = 直连。 */
+  networkProxy?: NetworkProxyConfig | null;
+}
+
+/** 网络代理类型:HTTP 或 SOCKS5。 */
+export type NetworkProxyType = "http" | "socks5";
+
+/**
+ * per-station 网络代理配置。
+ * `encryptedPassword` 为 opaque 字段:前端仅用 `!= null` 判定是否已配置密码,
+ * 不解密明文(明文由 `setStationNetworkProxy` 的 `password` 参数传入,后端加密)。
+ */
+export interface NetworkProxyConfig {
+  proxyType: NetworkProxyType;
+  host: string;
+  port: number;
+  username?: string | null;
+  /** opaque — 后端加密返回,前端不解密。 */
+  encryptedPassword?: unknown | null;
 }
 
 export interface StationAccount {

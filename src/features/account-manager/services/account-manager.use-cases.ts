@@ -9,6 +9,7 @@ import {
   pickImportSelection,
 } from "@/features/account-manager/model/selectors";
 import type {
+  NetworkProxyConfig,
   ProbeStrategy,
   RelayDataImportResult,
   RelayStation,
@@ -24,10 +25,25 @@ export function isInvalidInput(error: unknown): boolean {
   );
 }
 
+/** 比较两个代理配置是否等价(忽略 opaque encryptedPassword)。 */
+function proxyConfigEquals(
+  a: NetworkProxyConfig | null,
+  b: NetworkProxyConfig | null,
+): boolean {
+  if (a == null || b == null) return a == null && b == null;
+  return (
+    a.proxyType === b.proxyType &&
+    a.host === b.host &&
+    a.port === b.port &&
+    (a.username ?? "") === (b.username ?? "")
+  );
+}
+
 async function applySessionSettings(
   stationId: string,
   settings: SessionSettings,
   baselineTtlHours = 720,
+  baselineNetworkProxy: NetworkProxyConfig | null = null,
 ) {
   const promises: Promise<unknown>[] = [];
   if (settings.probeOverride) {
@@ -38,6 +54,20 @@ async function applySessionSettings(
   if (settings.sessionTtlHours !== baselineTtlHours) {
     promises.push(
       accountManagerRepository.setSessionTtl(stationId, settings.sessionTtlHours),
+    );
+  }
+  // 网络代理:仅在配置变化或密码变更时写入。
+  // 注意:setStationNetworkProxy 的 password=null 会清除已存密码,
+  // 所以仅在确实变更时调用,避免无谓清除。
+  const configChanged = !proxyConfigEquals(settings.networkProxy, baselineNetworkProxy);
+  const passwordChanged = settings.networkProxyPassword !== undefined;
+  if (configChanged || passwordChanged) {
+    promises.push(
+      accountManagerRepository.setStationNetworkProxy(
+        stationId,
+        settings.networkProxy,
+        settings.networkProxyPassword ?? null,
+      ),
     );
   }
   await Promise.all(promises);
@@ -66,7 +96,7 @@ export const accountManagerUseCases = {
   async addStation(remark: string, website: string, sessionSettings?: SessionSettings) {
     const station = await accountManagerRepository.createStation(remark, website, null);
     if (sessionSettings) {
-      await applySessionSettings(station.id, sessionSettings);
+      await applySessionSettings(station.id, sessionSettings, 720, null);
     }
     return station;
   },
@@ -86,6 +116,7 @@ export const accountManagerUseCases = {
         station.id,
         sessionSettings,
         station.sessionTtlHours ?? 720,
+        station.networkProxy ?? null,
       );
     }
     return updated;

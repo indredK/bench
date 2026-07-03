@@ -35,8 +35,28 @@ async fn eval_text<R: Runtime>(window: &tauri::WebviewWindow<R>) -> AccountManag
 
 pub struct ProbeOutcome { pub status: AccountSessionStatus }
 
-pub async fn http_probe(website: &str, cookies: &[CookieEntry], user_agent: &str, csrf_token: Option<&CsrfTokenEntry>) -> ProbeResult {
-    let client = match reqwest::Client::builder().redirect(reqwest::redirect::Policy::none()).timeout(Duration::from_secs(3)).build() {
+pub async fn http_probe(
+    website: &str,
+    cookies: &[CookieEntry],
+    user_agent: &str,
+    csrf_token: Option<&CsrfTokenEntry>,
+    proxy_url: Option<&str>,
+) -> ProbeResult {
+    let mut client_builder = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .timeout(Duration::from_secs(3));
+    if let Some(url) = proxy_url {
+        // SOCKS5 用 Proxy::all，HTTP 用 Proxy::http（覆盖 http + https）。
+        let proxy = if url.starts_with("socks5") {
+            reqwest::Proxy::all(url)
+        } else {
+            reqwest::Proxy::http(url)
+        };
+        if let Ok(p) = proxy {
+            client_builder = client_builder.proxy(p);
+        }
+    }
+    let client = match client_builder.build() {
         Ok(c) => c, Err(e) => return ProbeResult::NetworkError(format!("{e}")),
     };
     let mut req = client.head(website);
@@ -145,10 +165,24 @@ fn detect_private_relay_macos() -> bool {
 }
 
 #[allow(dead_code)]
-pub async fn webview_probe<R: Runtime>(app: &AppHandle<R>, account_id: &str, website: &str, _session: &AccountSession, _config: &LoginDetectionConfig) -> ProbeResult {
+pub async fn webview_probe<R: Runtime>(
+    app: &AppHandle<R>,
+    account_id: &str,
+    website: &str,
+    _session: &AccountSession,
+    _config: &LoginDetectionConfig,
+    proxy_url: Option<&str>,
+) -> ProbeResult {
     let label = format!("relay-probe-{}", account_id);
     let parsed = match website.parse() { Ok(u) => u, Err(e) => return ProbeResult::NetworkError(format!("url: {e}")), };
-    let window = match WebviewWindowBuilder::new(app, &label, WebviewUrl::External(parsed)).visible(false).build() {
+    let mut builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(parsed)).visible(false);
+    #[cfg(target_os = "macos")]
+    if let Some(url) = proxy_url {
+        if let Ok(parsed_url) = url.parse::<tauri::Url>() {
+            builder = builder.proxy_url(parsed_url);
+        }
+    }
+    let window = match builder.build() {
         Ok(w) => w, Err(e) => return ProbeResult::NetworkError(format!("webview: {e}")),
     };
     sleep(Duration::from_millis(3000)).await;
@@ -182,6 +216,7 @@ pub async fn probe_session<R: Runtime>(
     session: &AccountSession,
     strategy: ProbeStrategy,
     config: &LoginDetectionConfig,
+    proxy_url: Option<&str>,
 ) -> ProbeResult {
     // v1.6 遗漏 3: Private Relay 启用时强制降级到 WebView(避免 IP 不一致)
     let private_relay_on = detect_private_relay_enabled();
@@ -193,7 +228,7 @@ pub async fn probe_session<R: Runtime>(
 
     match effective_strategy {
         ProbeStrategy::HttpOnly => {
-            http_probe(website, &session.cookies, &session.user_agent, session.csrf_token.as_ref()).await
+            http_probe(website, &session.cookies, &session.user_agent, session.csrf_token.as_ref(), proxy_url).await
         }
         ProbeStrategy::HttpFirst => {
             let result = http_probe(
@@ -201,22 +236,23 @@ pub async fn probe_session<R: Runtime>(
                 &session.cookies,
                 &session.user_agent,
                 session.csrf_token.as_ref(),
+                proxy_url,
             )
             .await;
             match result {
                 // 明确结论直接返回
                 ProbeResult::Ready | ProbeResult::LoginRequired | ProbeResult::Expired => result,
                 // 不确定 / 被反机器人拦截 / 网络错误 → 降级到 WebView probe
-                _ => webview_probe(app, account_id, website, session, config).await,
+                _ => webview_probe(app, account_id, website, session, config, proxy_url).await,
             }
         }
         ProbeStrategy::WebviewOnly => {
-            webview_probe(app, account_id, website, session, config).await
+            webview_probe(app, account_id, website, session, config, proxy_url).await
         }
         ProbeStrategy::Hybrid => {
             // SSO / OAuth 场景：WebView 跟踪重定向链后检查着陆页。
             // MVP 阶段复用 webview_probe 的多源证据收集。
-            webview_probe(app, account_id, website, session, config).await
+            webview_probe(app, account_id, website, session, config, proxy_url).await
         }
     }
 }
@@ -296,7 +332,13 @@ pub fn set_probe_strategy<R: Runtime>(
     })
 }
 
-pub async fn run_probe<R: Runtime>(app: &AppHandle<R>, account_id: &str, website: &str, config: &LoginDetectionConfig) -> AccountManagerResult<ProbeOutcome> {
+pub async fn run_probe<R: Runtime>(
+    app: &AppHandle<R>,
+    account_id: &str,
+    website: &str,
+    config: &LoginDetectionConfig,
+    proxy_url: Option<&str>,
+) -> AccountManagerResult<ProbeOutcome> {
     let label = probe_window_label(account_id);
     if let Some(e) = app.get_webview_window(&label) { let _ = e.close(); }
     let parsed = website.parse().map_err(|e| AccountManagerError::invalid_input(format!("url: {e}")))?;
@@ -312,6 +354,12 @@ pub async fn run_probe<R: Runtime>(app: &AppHandle<R>, account_id: &str, website
                 if let Ok(mut g) = slot.lock() { if let Some(s) = g.take() { let _ = s.send(()); } }
             });
         #[cfg(any(target_os="macos",target_os="ios"))] { b = b.data_store_identifier(webview::account_data_store_identifier(account_id)); }
+        #[cfg(target_os = "macos")]
+        if let Some(url) = proxy_url {
+            if let Ok(parsed_url) = url.parse::<tauri::Url>() {
+                b = b.proxy_url(parsed_url);
+            }
+        }
         b.build().map_err(|e| AccountManagerError::store_fail(format!("build: {e}")))?
     };
     let load = tokio::time::timeout_at(dead, rx).await;

@@ -2,6 +2,7 @@
  * Platform Adapter / 平台适配: wrap runtime APIs; 统一封装运行时能力.
  */
 import { isDesktopRuntime } from "@/platform/runtime";
+import { platformName, type PlatformName } from "@/platform/config";
 
 export type RuntimeKind = "desktop" | "browser";
 
@@ -12,6 +13,14 @@ export type PlatformCapability =
   | "tauri-event"
   | "tauri-shell"
   | "tauri-window";
+
+export type FeatureGateReason = "desktop-only" | "platform-unsupported";
+
+export interface FeatureGateResult {
+  gated: boolean;
+  reason?: FeatureGateReason;
+  platform?: PlatformName;
+}
 
 export function getRuntimeKind(): RuntimeKind {
   return isDesktopRuntime() ? "desktop" : "browser";
@@ -53,6 +62,18 @@ export function canUseTauriWindow(): boolean {
   return hasPlatformCapability("tauri-window");
 }
 
-export function canUseFeature(feature?: { desktopOnly?: boolean }): boolean {
-  return !feature?.desktopOnly || canUseDesktopFeatures();
+export type FeatureDescriptor = { desktopOnly?: boolean; platforms?: PlatformName[] };
+
+export function canUseFeature(feature?: FeatureDescriptor): boolean {
+  return !getFeatureGateReason(feature).gated;
+}
+
+export function getFeatureGateReason(feature?: FeatureDescriptor): FeatureGateResult {
+  if (feature?.desktopOnly && !canUseDesktopFeatures()) {
+    return { gated: true, reason: "desktop-only" };
+  }
+  if (feature?.platforms && !feature.platforms.includes(platformName)) {
+    return { gated: true, reason: "platform-unsupported", platform: platformName };
+  }
+  return { gated: false };
 }

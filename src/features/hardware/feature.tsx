@@ -11,4 +11,5 @@ export const hardwareFeature: AppFeature = {
   labelKey: "sidebar.hardwareQuery",
   icon: <Cpu size={18} />,
   render: () => <HardwareComparePage />,
+  platforms: ["macos"],
 };

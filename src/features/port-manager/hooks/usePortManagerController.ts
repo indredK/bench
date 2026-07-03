@@ -1,20 +1,23 @@
 /**
  * Controller / 控制器: bind view events and use cases; 连接视图事件与用例.
  */
-import { createElement, useCallback, useEffect, useMemo, useRef } from "react";
+import { createElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { portManagerUseCases } from "@/features/port-manager/services/port-manager.use-cases";
 import { hasInvalidPortInputCharacters, parsePortsFromInput } from "@/features/port-manager/ports";
 import { registerFeatureRefresh } from "@/features/refresh";
 import {
   MAX_TRACKED_PORTS,
   usePortManagerStore,
+  type PortScanMode,
   type PortScanStatus,
   PORT_SCAN_STATUS_META,
 } from "@/features/port-manager/store";
 import { canUseDesktopFeatures } from "@/platform/capabilities";
 import { localizeError } from "@/lib/errors";
 import { getErrorMessage } from "@/lib/tauri/errors";
+import { usePortHistory } from "@/features/port-manager/hooks/usePortHistory";
 
 export const commonPorts = [3000, 5173, 1420, 8080, 5000, 4200, 8000, 4321, 6006, 1234, 9000];
 
@@ -33,7 +36,10 @@ export function usePortManagerController() {
   const inputRef = useRef<HTMLInputElement>(null!);
   const invalidTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const scrollContentRef = useRef<HTMLDivElement>(null!);
+  const scrollContainerRef = useRef<HTMLDivElement>(null!);
+
+  const { readPortHistory, pushPortsHistory } = usePortHistory();
+  const [portHistory, setPortHistory] = useState<number[]>(() => readPortHistory());
 
   const inputValue = usePortManagerStore((s) => s.inputValue);
   const showInvalidToast = usePortManagerStore((s) => s.showInvalidToast);
@@ -45,6 +51,9 @@ export function usePortManagerController() {
   const error = usePortManagerStore((s) => s.error);
   const showEmptyPorts = usePortManagerStore((s) => s.showEmptyPorts);
   const highlightPort = usePortManagerStore((s) => s.highlightPort);
+  const scanMode = usePortManagerStore((s) => s.scanMode);
+  const remoteHost = usePortManagerStore((s) => s.remoteHost);
+  const alertsEnabled = usePortManagerStore((s) => s.alertsEnabled);
 
   const setInputValue = usePortManagerStore((s) => s.setInputValue);
   const setShowInvalidToast = usePortManagerStore((s) => s.setShowInvalidToast);
@@ -52,6 +61,9 @@ export function usePortManagerController() {
   const setError = usePortManagerStore((s) => s.setError);
   const setShowEmptyPorts = usePortManagerStore((s) => s.setShowEmptyPorts);
   const setHighlightPort = usePortManagerStore((s) => s.setHighlightPort);
+  const setScanMode = usePortManagerStore((s) => s.setScanMode);
+  const setRemoteHost = usePortManagerStore((s) => s.setRemoteHost);
+  const setAlertsEnabled = usePortManagerStore((s) => s.setAlertsEnabled);
   const removePort = usePortManagerStore((s) => s.removePort);
   const clearAll = usePortManagerStore((s) => s.clearAll);
 
@@ -87,6 +99,15 @@ export function usePortManagerController() {
     }
     if (portsToScan.length === 0) return;
 
+    const mode = usePortManagerStore.getState().scanMode;
+    const host = usePortManagerStore.getState().remoteHost.trim();
+    if (mode === "remote" && !host) {
+      usePortManagerStore.setState({
+        error: { key: "portManager.errors.remoteHostRequired" },
+      });
+      return;
+    }
+
     const sessionId = usePortManagerStore.getState().scanSession;
 
     usePortManagerStore.setState((state) => ({
@@ -114,7 +135,11 @@ export function usePortManagerController() {
       }));
 
       try {
-        const details = await portManagerUseCases.queryPortProcesses([port]);
+        // v1.18: remote 模式用 portCheck,local 模式用 queryPortProcesses。
+        const details = mode === "remote"
+          ? (await portManagerUseCases.portCheck(host, [port]))
+              .map((r) => portManagerUseCases.mapPortCheckToDetail(r))
+          : await portManagerUseCases.queryPortProcesses([port]);
 
         if (usePortManagerStore.getState().scanSession !== sessionId) {
           usePortManagerStore.setState((state) => ({
@@ -286,9 +311,11 @@ export function usePortManagerController() {
 
     const portsToAddFinal = addPortsToScan(portsToAdd);
     if (portsToAddFinal.length > 0) {
+      pushPortsHistory(portsToAddFinal);
+      setPortHistory(readPortHistory());
       void scan(portsToAddFinal);
     }
-  }, [addPortsToScan, clearInvalidTimer, handleInvalidInput, inputValue, scan, setInputValue, setShowInvalidToast, t]);
+  }, [addPortsToScan, clearInvalidTimer, handleInvalidInput, inputValue, pushPortsHistory, readPortHistory, scan, setInputValue, setShowInvalidToast, t]);
 
   const handleInputKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -328,12 +355,30 @@ export function usePortManagerController() {
     inputRef.current?.focus();
   }, [clearInvalidTimer, setInputError, setInputValue, setShowInvalidToast]);
 
+  const displayedDetails = useMemo(
+    () => (showEmptyPorts ? portDetails : portDetails.filter((d) => !d.error && d.pids.length > 0)),
+    [portDetails, showEmptyPorts]
+  );
+
+  const occupiedCount = useMemo(
+    () => portDetails.filter((d) => !d.error && d.pids.length > 0).length,
+    [portDetails]
+  );
+
+  const rowVirtualizer = useVirtualizer({
+    count: displayedDetails.length,
+    getScrollElement: () => scrollContainerRef.current,
+    estimateSize: () => 120,
+    overscan: 5,
+    getItemKey: (index) => displayedDetails[index]?.port ?? index,
+  });
+
   const scrollToPort = useCallback(
     (port: number) => {
-      if (!scrollContentRef.current) return;
-      const el = scrollContentRef.current.querySelector(`[data-port="${port}"]`);
-      if (!el) return;
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      const index = displayedDetails.findIndex((d) => d.port === port);
+      if (index >= 0) {
+        rowVirtualizer.scrollToIndex(index, { align: "start" });
+      }
       setHighlightPort(port);
       clearHighlightTimer();
       highlightTimerRef.current = setTimeout(() => {
@@ -341,7 +386,7 @@ export function usePortManagerController() {
         highlightTimerRef.current = null;
       }, 2000);
     },
-    [clearHighlightTimer, setHighlightPort]
+    [clearHighlightTimer, displayedDetails, rowVirtualizer, setHighlightPort]
   );
 
   const handleKillPort = useCallback(
@@ -360,16 +405,6 @@ export function usePortManagerController() {
       void scan([port]);
     },
     [scan]
-  );
-
-  const displayedDetails = useMemo(
-    () => (showEmptyPorts ? portDetails : portDetails.filter((d) => !d.error && d.pids.length > 0)),
-    [portDetails, showEmptyPorts]
-  );
-
-  const occupiedCount = useMemo(
-    () => portDetails.filter((d) => !d.error && d.pids.length > 0).length,
-    [portDetails]
   );
 
   const statusIconFor = useCallback((status: PortScanStatus) => {
@@ -414,11 +449,39 @@ export function usePortManagerController() {
 
   const errorMessage = error ? localizeError(t, error) : "";
 
+  const handleScanModeChange = useCallback(
+    (mode: PortScanMode) => {
+      setScanMode(mode);
+      // 切换模式时清除已有结果,避免混合 local/remote 数据展示。
+      usePortManagerStore.setState((state) => ({
+        scanSession: state.scanSession + 1,
+        portStates: [],
+        portDetails: [],
+        portKillMessages: {},
+        error: null,
+      }));
+    },
+    [setScanMode]
+  );
+
+  const handleRemoteHostChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      setRemoteHost(event.target.value);
+    },
+    [setRemoteHost]
+  );
+
+  const handleToggleAlerts = useCallback(() => {
+    setAlertsEnabled(!alertsEnabled);
+  }, [alertsEnabled, setAlertsEnabled]);
+
   return {
     t,
     canUsePlatformFeatures,
     inputRef,
-    scrollContentRef,
+    scrollContainerRef,
+    rowVirtualizer,
+    portHistory,
     inputValue,
     showInvalidToast,
     inputError,
@@ -429,7 +492,13 @@ export function usePortManagerController() {
     error: errorMessage,
     showEmptyPorts,
     highlightPort,
+    scanMode,
+    remoteHost,
+    alertsEnabled,
     setShowEmptyPorts,
+    setScanMode: handleScanModeChange,
+    setRemoteHost,
+    handleToggleAlerts,
     clearAll,
     rescanAll,
     removePort,
@@ -450,5 +519,6 @@ export function usePortManagerController() {
     isScanning,
     statusIconFor,
     PORT_SCAN_STATUS_META,
+    handleRemoteHostChange,
   };
 }

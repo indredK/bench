@@ -3,15 +3,25 @@
  */
 import { Monitor } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import type { FeatureGateReason } from "@/platform/capabilities";
+import type { PlatformName } from "@/platform/config";
 
 interface DesktopOnlyProps {
   title: string;
   icon?: React.ReactNode;
   description?: string;
+  reason?: FeatureGateReason;
+  platform?: PlatformName;
 }
 
-export function DesktopOnly({ title, icon, description }: DesktopOnlyProps) {
+export function DesktopOnly({ title, icon, description, reason, platform }: DesktopOnlyProps) {
   const { t } = useTranslation();
+
+  const message =
+    description ||
+    (reason === "platform-unsupported" && platform
+      ? t("common.platformUnsupported", { platform: t(`common.platformNames.${platform}`) })
+      : t("common.desktopOnly"));
 
   return (
     <div className="flex h-full flex-col items-center justify-center gap-5 text-muted-foreground">
@@ -20,7 +30,7 @@ export function DesktopOnly({ title, icon, description }: DesktopOnlyProps) {
       </div>
       <div className="text-center max-w-sm space-y-1">
         <h3 className="font-semibold text-foreground text-base">{title}</h3>
-        <p className="text-sm">{description || t("common.desktopOnly")}</p>
+        <p className="text-sm">{message}</p>
       </div>
     </div>
   );

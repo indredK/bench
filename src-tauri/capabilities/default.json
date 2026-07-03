@@ -18,6 +18,7 @@
     "core:window:allow-set-always-on-top",
     "core:window:allow-is-always-on-top",
     "core:tray:default",
-    "deep-link:default"
+    "deep-link:default",
+    "notification:default"
   ]
 }
