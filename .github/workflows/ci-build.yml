@@ -136,14 +136,15 @@ jobs:
         run: npm ci
 
       - name: Build Tauri app
+        shell: bash
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           if [ "${{ runner.os }}" = "macOS" ]; then
-            npx tauri build --target ${{ matrix.target }} --targets dmg
+            npx tauri build --target ${{ matrix.target }} --bundles dmg
           elif [ "${{ runner.os }}" = "Windows" ]; then
-            npx tauri build --target ${{ matrix.target }} --targets msi,nsis
+            npx tauri build --target ${{ matrix.target }} --bundles msi,nsis
           else
             npx tauri build --target ${{ matrix.target }}
           fi
