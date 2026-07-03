@@ -309,9 +309,6 @@ export function getScreenSaverState() {
 export function setScreenSaverState(enabled: boolean) {
   return invokeTauriCommand(TAURI_COMMANDS.systemSettings.setScreenSaverState, { enabled });
 }
-export function openSystemPane(paneId: string) {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.openSystemPane, { paneId });
-}
 
 // ── Semantic pane commands ──
 export function openSettingsPane(pane: string) {

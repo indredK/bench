@@ -87,7 +87,6 @@ export const systemSettingsUseCases = {
   getDefaultBrowser: systemSettingsRepository.getDefaultBrowser,
   setDefaultBrowser: systemSettingsRepository.setDefaultBrowser,
 
-  openSystemPane: systemSettingsRepository.openSystemPane,
   // Semantic pane commands
   openSettingsPane: systemSettingsRepository.openSettingsPane,
   openBatterySettings: systemSettingsRepository.openBatterySettings,

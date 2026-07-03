@@ -51,10 +51,12 @@ export default function SystemSettings(_props: SystemSettingsProps) {
   // ── State for System tab (Login items) ──
 
   const [loginItems, setLoginItems] = useState(useSystemSettingsStore.getState().loginItems);
+  const [loginItemsLoading, setLoginItemsLoading] = useState(false);
   const [launchAgents, setLaunchAgents] = useState<{ name: string; path: string; enabled: boolean }[]>([]);
+  const [launchAgentsLoading, setLaunchAgentsLoading] = useState(false);
   const [launchDaemons, setLaunchDaemons] = useState<{ name: string; path: string; enabled: boolean }[]>([]);
+  const [launchDaemonsLoading, setLaunchDaemonsLoading] = useState(false);
   const [loginItemToRemove, setLoginItemToRemove] = useState<string | null>(null);
-  const [tabLoading, setTabLoading] = useState(false);
 
   // Default browser state
   const [defaultBrowser, setDefaultBrowser] = useState(store.defaultBrowser);
@@ -63,39 +65,41 @@ export default function SystemSettings(_props: SystemSettingsProps) {
   const loadTabSettings = useCallback(async (tab: SettingsTab) => {
     const s = useSystemSettingsStore.getState();
     if (s.loadedTabs.has(tab)) return;
-    setTabLoading(true);
     try {
       switch (tab) {
         case "appearance": break; // Self-loading sections
         case "security": break;   // Self-loading sections
         case "system": {
-          try {
-            const b = await systemSettingsUseCases.getDefaultBrowser();
-            store.setDefaultBrowser(b);
-            setDefaultBrowser(b);
-          } catch {
-            toast.error(t("systemSettings.browser.loadFailed"));
-          }
-          const items = await systemSettingsUseCases.getLoginItems();
-          s.setLoginItems(items);
-          setLoginItems(items);
+          systemSettingsUseCases.getDefaultBrowser()
+            .then((b) => { store.setDefaultBrowser(b); setDefaultBrowser(b); })
+            .catch(() => toast.error(t("systemSettings.browser.loadFailed")));
+          setLoginItemsLoading(true);
+          systemSettingsUseCases.getLoginItems()
+            .then((items) => { s.setLoginItems(items); setLoginItems(items); })
+            .catch(console.error)
+            .finally(() => setLoginItemsLoading(false));
           break;
         }
         case "advanced": {
-          const [agents, daemons] = await Promise.all([
+          setLaunchAgentsLoading(true);
+          setLaunchDaemonsLoading(true);
+          Promise.all([
             systemSettingsUseCases.getLaunchAgents(),
             systemSettingsUseCases.getLaunchDaemons(),
-          ]);
-          setLaunchAgents(agents);
-          setLaunchDaemons(daemons);
+          ]).then(([agents, daemons]) => {
+            setLaunchAgents(agents);
+            setLaunchDaemons(daemons);
+          }).catch(console.error)
+            .finally(() => {
+              setLaunchAgentsLoading(false);
+              setLaunchDaemonsLoading(false);
+            });
           break;
         }
       }
       s.markTabLoaded(tab);
     } catch (err) {
       console.error(`Failed to load ${tab} settings:`, err);
-    } finally {
-      setTabLoading(false);
     }
   }, [store, t]);
 
@@ -110,14 +114,6 @@ export default function SystemSettings(_props: SystemSettingsProps) {
   };
 
   const renderTabContent = () => {
-    if (tabLoading) {
-      return (
-        <div className="flex items-center justify-center h-32">
-          <Loader2Icon className="h-5 w-5 animate-spin text-muted-foreground" />
-        </div>
-      );
-    }
-
     switch (store.activeTab) {
       // ═══════════════════════════════════════════
       // 外观 Appearance
@@ -353,13 +349,13 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                 <p className="text-xs text-muted-foreground py-1">{t("systemSettings.shortcuts.description")}</p>
                 <div className="flex flex-wrap gap-2 py-2">
                   {([
-                    { action: () => systemSettingsUseCases.openDesktopSettings(), label: t("systemSettings.shortcuts.hotCorners") },
-                    { action: () => systemSettingsUseCases.openLockScreenSettings(), label: t("systemSettings.shortcuts.lockScreen") },
-                    { action: () => systemSettingsUseCases.openLocalizationSettings(), label: t("systemSettings.shortcuts.languageRegion") },
-                    { action: () => systemSettingsUseCases.openKeyboardSettings(), label: t("systemSettings.shortcuts.keyboard") },
-                  ] as const).map(({ action, label }) => (
+                    { id: "hotCorners", action: () => systemSettingsUseCases.openDesktopSettings(), label: t("systemSettings.shortcuts.hotCorners") },
+                    { id: "lockScreen", action: () => systemSettingsUseCases.openLockScreenSettings(), label: t("systemSettings.shortcuts.lockScreen") },
+                    { id: "languageRegion", action: () => systemSettingsUseCases.openLocalizationSettings(), label: t("systemSettings.shortcuts.languageRegion") },
+                    { id: "keyboard", action: () => systemSettingsUseCases.openKeyboardSettings(), label: t("systemSettings.shortcuts.keyboard") },
+                  ] as const).map(({ id, action, label }) => (
                     <Button
-                      key={label}
+                      key={id}
                       variant="outline"
                       size="sm"
                       onClick={action}
@@ -421,28 +417,33 @@ export default function SystemSettings(_props: SystemSettingsProps) {
 
               {/* ── Default Browser ── */}
               <SettingGroup title={t("systemSettings.browser.title")}>
-                <select
-                  className="w-full border rounded px-3 py-2 text-sm bg-background"
-                  value={defaultBrowser}
-                  disabled={browserLoading}
-                  onChange={async (e) => {
-                    setBrowserLoading(true);
-                    try {
-                      await systemSettingsUseCases.setDefaultBrowser(e.target.value);
-                      store.setDefaultBrowser(e.target.value);
-                      setDefaultBrowser(e.target.value);
-                      toast.success(t("systemSettings.toasts.success"));
-                    } catch (err) {
-                      toast.error(t("systemSettings.toasts.error", { error: String(err) }));
-                    } finally {
-                      setBrowserLoading(false);
-                    }
-                  }}
-                >
-                  {BROWSER_OPTIONS.map(({ value, labelKey }) => (
-                    <option key={value} value={value}>{t(labelKey)}</option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <select
+                    className="w-full border rounded px-3 py-2 text-sm bg-background disabled:opacity-50"
+                    value={defaultBrowser}
+                    disabled={browserLoading}
+                    onChange={async (e) => {
+                      setBrowserLoading(true);
+                      try {
+                        await systemSettingsUseCases.setDefaultBrowser(e.target.value);
+                        store.setDefaultBrowser(e.target.value);
+                        setDefaultBrowser(e.target.value);
+                        toast.success(t("systemSettings.toasts.success"));
+                      } catch (err) {
+                        toast.error(t("systemSettings.toasts.error", { error: String(err) }));
+                      } finally {
+                        setBrowserLoading(false);
+                      }
+                    }}
+                  >
+                    {BROWSER_OPTIONS.map(({ value, labelKey }) => (
+                      <option key={value} value={value}>{t(labelKey)}</option>
+                    ))}
+                  </select>
+                  {browserLoading && (
+                    <Loader2Icon className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                  )}
+                </div>
               </SettingGroup>
 
               <KeyboardSection />
@@ -450,12 +451,17 @@ export default function SystemSettings(_props: SystemSettingsProps) {
               {/* ── Login Items ── */}
               <SettingGroup title={t("systemSettings.login.title")}>
                 <div className="py-2">
-                  <Button variant="outline" size="sm" onClick={() => systemSettingsUseCases.openLoginItemsSettings()}>
+                  <Button variant="outline" size="sm" onClick={() => systemSettingsUseCases.openLoginItemsSettings()} disabled={loginItemsLoading}>
                     <ExternalLink size={13} className="mr-1.5" />
                     {t("systemSettings.login.manageInSettings")}
                   </Button>
                 </div>
-                {loginItems.length === 0 ? (
+                {loginItemsLoading ? (
+                  <div className="flex items-center gap-2 py-2">
+                    <Loader2Icon className="h-4 w-4 animate-spin text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">{t("common.loading")}</span>
+                  </div>
+                ) : loginItems.length === 0 ? (
                   <p className="text-xs text-muted-foreground py-2">{t("systemSettings.login.noItems")}</p>
                 ) : (
                   <div className="space-y-1">
@@ -481,7 +487,12 @@ export default function SystemSettings(_props: SystemSettingsProps) {
         return (
           <div className="space-y-4">
             <SettingGroup title={t("systemSettings.login.launchAgents")}>
-              {launchAgents.length === 0 ? (
+              {launchAgentsLoading ? (
+                <div className="flex items-center gap-2 py-2">
+                  <Loader2Icon className="h-4 w-4 animate-spin text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">{t("common.loading")}</span>
+                </div>
+              ) : launchAgents.length === 0 ? (
                 <p className="text-xs text-muted-foreground py-2">{t("systemSettings.login.noAgents")}</p>
               ) : (
                 <div className="space-y-0.5">
@@ -493,7 +504,12 @@ export default function SystemSettings(_props: SystemSettingsProps) {
             </SettingGroup>
 
             <SettingGroup title={t("systemSettings.login.launchDaemons")}>
-              {launchDaemons.length === 0 ? (
+              {launchDaemonsLoading ? (
+                <div className="flex items-center gap-2 py-2">
+                  <Loader2Icon className="h-4 w-4 animate-spin text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">{t("common.loading")}</span>
+                </div>
+              ) : launchDaemons.length === 0 ? (
                 <p className="text-xs text-muted-foreground py-2">{t("systemSettings.login.noDaemons")}</p>
               ) : (
                 <div className="space-y-0.5">

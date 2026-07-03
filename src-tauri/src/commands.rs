@@ -52,8 +52,6 @@ macro_rules! app_invoke_handler {
             $crate::system_settings::privacy::get_tcc_permissions,
             $crate::system_settings::privacy::reset_tcc_permission,
             $crate::system_settings::privacy::get_gatekeeper_state,
-            // system settings - system pane
-            $crate::system_settings::system_pane::open_system_pane,
             // system settings - semantic pane registry
             $crate::system_settings::system_pane_registry::open_settings_pane,
             $crate::system_settings::system_pane_registry::open_battery_settings,

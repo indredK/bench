@@ -423,8 +423,6 @@ export const TAURI_COMMAND_CONTRACTS = {
   // system settings - default browser
   get_default_browser: defineTauriCommand<undefined, string>()("get_default_browser"),
   set_default_browser: defineTauriCommand<{ bundleId: string }, void>()("set_default_browser"),
-  // system settings - privacy
-  open_system_pane: defineTauriCommand<{ paneId: string }, void>()("open_system_pane"),
   // system settings - semantic pane registry
   open_settings_pane: defineTauriCommand<{ pane: string }, void>()("open_settings_pane"),
   open_battery_settings: defineTauriCommand<undefined, void>()("open_battery_settings"),
@@ -691,7 +689,6 @@ export const TAURI_COMMANDS = {
     setLockScreenPasswordDelay: commandName("set_lock_screen_password_delay"),
     getDefaultBrowser: commandName("get_default_browser"),
     setDefaultBrowser: commandName("set_default_browser"),
-    openSystemPane: commandName("open_system_pane"),
     openSettingsPane: commandName("open_settings_pane"),
     openBatterySettings: commandName("open_battery_settings"),
     openControlCenterSettings: commandName("open_control_center_settings"),
@@ -931,7 +928,6 @@ export const TAURI_COMMAND_ARG_KEYS = {
   set_lock_screen_password_delay: ["seconds"],
   // system settings - default browser
   get_default_browser: [],
-  open_system_pane: ["paneId"],
   // system settings - semantic pane registry
   open_settings_pane: ["pane"],
   open_battery_settings: [],
