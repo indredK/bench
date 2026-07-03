@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.17.2](https://github.com/indredK/bench/compare/v1.17.1...v1.17.2) (2026-07-03)
+
+
+### Bug Fixes
+
+* **updater:** 完善更新相关配置与校验逻辑 ([d88fedd](https://github.com/indredK/bench/commit/d88feddc702e6ca1255ec4b00bc5b91ff887f761))
+
 ## [1.17.1](https://github.com/indredK/bench/compare/v1.17.0...v1.17.1) (2026-07-03)
 
 
