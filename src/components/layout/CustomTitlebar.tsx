@@ -1,10 +1,10 @@
 /**
  * Layout UI / 布局 UI: own layout only; 只负责通用布局.
  */
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { Minus, Maximize2, X } from "lucide-react";
+import { Minus, Maximize2, X, Pin, PinOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { canUseWindowControls } from "@/platform/window";
 import { getCurrentAppWindow } from "@/platform/window";
@@ -18,6 +18,7 @@ type WindowControls = {
   toggleMaximize: () => Promise<void>;
   close: () => Promise<void>;
   startDragging: () => Promise<void>;
+  setAlwaysOnTop: (onTop: boolean) => Promise<void>;
 };
 
 let cachedControls: WindowControls | null = null;
@@ -32,6 +33,7 @@ async function getWindowControls(): Promise<WindowControls> {
     toggleMaximize: () => win.toggleMaximize(),
     close: () => win.close(),
     startDragging: () => win.startDragging(),
+    setAlwaysOnTop: (onTop) => win.setAlwaysOnTop(onTop),
   };
 
   return cachedControls;
@@ -43,6 +45,24 @@ export function CustomTitlebar({
   className,
 }: CustomTitlebarProps) {
   const { t } = useTranslation();
+  const [alwaysOnTop, setAlwaysOnTop] = useState(false);
+
+  useEffect(() => {
+    getCurrentAppWindow().then((win) => {
+      win.isAlwaysOnTop().then(setAlwaysOnTop).catch(() => {});
+    }).catch(() => {});
+  }, []);
+
+  const handleToggleAlwaysOnTop = useCallback(async () => {
+    try {
+      const ctrl = await getWindowControls();
+      const next = !alwaysOnTop;
+      await ctrl.setAlwaysOnTop(next);
+      setAlwaysOnTop(next);
+    } catch (e) {
+      console.error("Failed to toggle always on top", e);
+    }
+  }, [alwaysOnTop]);
 
   const handleMinimize = useCallback(async () => {
     try {
@@ -112,6 +132,21 @@ export function CustomTitlebar({
       >
         {desktop && (
           <>
+            <button
+              type="button"
+              data-no-window-drag
+              className={cn(
+                "rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors",
+                "focus:outline-none",
+                alwaysOnTop && "text-primary hover:text-primary",
+              )}
+              onClick={handleToggleAlwaysOnTop}
+              title={t("titlebar.alwaysOnTop")}
+              aria-label={t("titlebar.alwaysOnTop")}
+            >
+              {alwaysOnTop ? <Pin size={14} /> : <PinOff size={14} />}
+            </button>
+
             <button
               type="button"
               data-no-window-drag

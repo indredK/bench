@@ -2074,7 +2074,8 @@
   "titlebar": {
     "minimize": "Minimize",
     "maximize": "Maximize",
-    "close": "Close"
+    "close": "Close",
+    "alwaysOnTop": "Always on Top"
   },
   "updater": {
     "title": "Software Update",

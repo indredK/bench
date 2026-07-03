@@ -11,6 +11,8 @@ interface AppWindow {
   show: () => Promise<void>;
   setFocus: () => Promise<void>;
   startDragging: () => Promise<void>;
+  setAlwaysOnTop: (onTop: boolean) => Promise<void>;
+  isAlwaysOnTop: () => Promise<boolean>;
 }
 
 let cachedWindow: AppWindow | null = null;

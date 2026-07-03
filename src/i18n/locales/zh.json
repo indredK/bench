@@ -2074,7 +2074,8 @@
   "titlebar": {
     "minimize": "最小化",
     "maximize": "最大化",
-    "close": "关闭"
+    "close": "关闭",
+    "alwaysOnTop": "置顶"
   },
   "updater": {
     "title": "软件更新",
