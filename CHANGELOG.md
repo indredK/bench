@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.17.1](https://github.com/indredK/bench/compare/v1.17.0...v1.17.1) (2026-07-03)
+
+
+### Bug Fixes
+
+* **ci:** fix bundle targets argument for cross-platform build ([d8a1762](https://github.com/indredK/bench/commit/d8a176266f0012827ace78a12fbb4d9b6e02d3fa))
+
 ## [1.17.0](https://github.com/indredK/bench/compare/v1.16.0...v1.17.0) (2026-07-03)
 
 
