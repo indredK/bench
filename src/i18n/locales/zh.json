@@ -2022,6 +2022,7 @@
     "error": "错误",
     "warning": "警告",
     "details": "详情",
+    "unknown": "未知",
     "actions": {
       "close": "关闭"
     },

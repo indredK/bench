@@ -465,9 +465,9 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                   <p className="text-xs text-muted-foreground py-2">{t("systemSettings.login.noItems")}</p>
                 ) : (
                   <div className="space-y-1">
-                    {loginItems.map((item) => (
-                      <div key={item.name} className="flex items-center justify-between py-1">
-                        <span className="text-sm">{item.name}</span>
+                    {loginItems.map((item, idx) => (
+                      <div key={item.name || `login-item-${idx}`} className="flex items-center justify-between py-1">
+                        <span className="text-sm">{item.name || t("common.unknown")}</span>
                         <Button variant="destructive" size="sm" disabled={store.applyingKeys.size > 0} onClick={() => setLoginItemToRemove(item.name)}>
                           {t("systemSettings.login.remove")}
                         </Button>
@@ -497,7 +497,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
               ) : (
                 <div className="space-y-0.5">
                   {launchAgents.map((agent) => (
-                    <div key={agent.name} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50 transition-colors"><span className="text-sm truncate">{agent.name}</span><Badge variant="secondary" className="text-xs">{agent.path.split("/").pop()}</Badge></div>
+                    <div key={agent.path} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50 transition-colors"><span className="text-sm truncate">{agent.name || t("common.unknown")}</span><Badge variant="secondary" className="text-xs">{agent.path.split("/").pop()}</Badge></div>
                   ))}
                 </div>
               )}
@@ -514,7 +514,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
               ) : (
                 <div className="space-y-0.5">
                   {launchDaemons.map((daemon) => (
-                    <div key={daemon.name} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50 transition-colors"><span className="text-sm truncate">{daemon.name}</span><Badge variant="secondary" className="text-xs">{daemon.path.split("/").pop()}</Badge></div>
+                    <div key={daemon.path} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50 transition-colors"><span className="text-sm truncate">{daemon.name || t("common.unknown")}</span><Badge variant="secondary" className="text-xs">{daemon.path.split("/").pop()}</Badge></div>
                   ))}
                 </div>
               )}

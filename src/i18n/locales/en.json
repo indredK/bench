@@ -2022,6 +2022,7 @@
     "error": "Error",
     "warning": "Warning",
     "details": "Details",
+    "unknown": "Unknown",
     "actions": {
       "close": "Close"
     },
