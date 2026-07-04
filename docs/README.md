@@ -2,9 +2,9 @@
 
 | 路径 | 说明 |
 |------|------|
-| **[development-workflow.md](./development-workflow.md)** | 日常开发流程（执行手册） |
+| **[development-workflow.md](./development-workflow.md)** | 日常开发流程 + Build Troubleshooting |
 | **[roadmap/release-themes.md](./roadmap/release-themes.md)** | 全局发布主题与验收（执行依据） |
-| **[product-iteration-reference.md](./product-iteration-reference.md)** | 迭代方法论与未来方向（仅供参考） |
+| **[dev-prod-coexistence.md](./dev-prod-coexistence.md)** | Dev / Prod 共存策略 |
 | **[modules/](./modules/README.md)** | 按模块收纳：设计、迭代、Bug |
 | **[coding-standards.md](./coding-standards.md)** | 全仓库编码与文档目录规范（§11 文档） |
 

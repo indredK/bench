@@ -211,12 +211,34 @@ pnpm 11 默认开启 `minimumReleaseAge: 1440`（24 小时）：**发布不足 2
 
 ---
 
-## 11. 相关文档
+## 11. Build Troubleshooting
+
+### window-vibrancy 版本冲突导致 macOS 编译失败
+
+**错误信息：**
+```
+warning: Linking globals named '__CLASS_NSVisualEffectViewTagged': symbol multiply defined!
+error: failed to load bitcode of module "window_vibrancy-*.rcgu.o"
+```
+
+**原因：** 项目显式依赖的 `window-vibrancy` 版本与 Tauri 内部依赖的版本不一致。
+
+**修复：** 将 `src-tauri/Cargo.toml` 中 `window-vibrancy` 改为 Tauri 使用的版本：
+```toml
+window-vibrancy = "0.6"
+```
+然后 `cd src-tauri && cargo update -p window-vibrancy`。
+
+**上游跟踪：** https://github.com/tauri-apps/tauri/issues/15478
+
+---
+
+## 12. 相关文档
 
 | 文档 | 用途 |
 |------|------|
 | [coding-standards.md](./coding-standards.md) | 编码与文档目录（强制） |
 | [roadmap/release-themes.md](./roadmap/release-themes.md) | 当前主题与验收（强制） |
 | [modules/](./modules/README.md) | 各模块 roadmap / bugs / 设计 |
-| [product-iteration-reference.md](./product-iteration-reference.md) | 方法论与未来方向（参考） |
+| [dev-prod-coexistence.md](./dev-prod-coexistence.md) | Dev / Prod 共存策略 |
 | [README.md](./README.md) | 文档总索引 |
