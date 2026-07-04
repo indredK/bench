@@ -7,6 +7,7 @@ export function useAppManagerViewState() {
     useShallow((store) => ({
       apps: store.apps,
       loading: store.loading,
+      scanProgress: store.scanProgress,
       error: store.error,
       searchQuery: store.searchQuery,
       installedSearchQuery: store.installedSearchQuery,

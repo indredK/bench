@@ -1,11 +1,15 @@
 use super::UpdaterSource;
 use crate::app_manager::types::{AppInfo, SourceType, UpdateInfo, UpdateSource};
+use crate::app_manager::run_command_with_timeout;
 use async_trait::async_trait;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::OnceLock;
+use std::time::Duration;
+
+const BREW_COMMAND_TIMEOUT: Duration = Duration::from_secs(30);
 
 const BREW_PATHS: &[&str] = &[
     "/opt/homebrew/bin/brew",
@@ -105,10 +109,11 @@ fn fetch_outdated() -> Result<HashMap<String, CaskUpdate>, String> {
         return Ok(HashMap::new());
     };
 
-    let v2 = Command::new(&brew)
-        .args(["outdated", "--cask", "--json=v2"])
-        .output()
-        .map_err(|e| format!("brew outdated --json=v2 failed to spawn: {e}"))?;
+    let v2 = run_command_with_timeout(
+        Command::new(&brew).args(["outdated", "--cask", "--json=v2"]),
+        BREW_COMMAND_TIMEOUT,
+    )
+    .map_err(|e| format!("brew outdated --json=v2 failed to spawn: {e}"))?;
     if v2.status.success() {
         let stdout = String::from_utf8_lossy(&v2.stdout);
         if let Some(map) = parse_v2(&stdout) {
@@ -117,10 +122,11 @@ fn fetch_outdated() -> Result<HashMap<String, CaskUpdate>, String> {
     }
 
     // Fallback: plain stdout
-    let plain = Command::new(&brew)
-        .args(["outdated", "--cask"])
-        .output()
-        .map_err(|e| format!("brew outdated failed to spawn: {e}"))?;
+    let plain = run_command_with_timeout(
+        Command::new(&brew).args(["outdated", "--cask"]),
+        BREW_COMMAND_TIMEOUT,
+    )
+    .map_err(|e| format!("brew outdated failed to spawn: {e}"))?;
     if !plain.status.success() {
         let stderr = String::from_utf8_lossy(&plain.stderr);
         return Err(format!("SU_BREW_OUTDATED_FAIL: {}", stderr.trim()));

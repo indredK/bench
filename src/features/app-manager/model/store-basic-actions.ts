@@ -89,6 +89,8 @@ export function createAppManagerBasicActions(set: SetState) {
         ...applySeriesFilter(state.activeTab, series),
       })),
     setError: (error: LocalizedError | null) => set({ error }),
+    setScanProgress: (progress: { current: number; stage: string } | null) =>
+      set({ scanProgress: progress }),
     setSorting: (sorting: Updater<SortingState>) =>
       set((state) => ({
         sorting: typeof sorting === "function" ? sorting(state.sorting) : sorting,

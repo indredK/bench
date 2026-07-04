@@ -35,6 +35,7 @@ import type { AppManagerTabKey } from "@/features/app-manager/model/store-types"
 import { appManagerPlatformConfig } from "@/platform/config";
 import { canUseDesktopFeatures } from "@/platform/capabilities";
 import { writeClipboardText } from "@/platform/clipboard";
+import { listenToPlatformEvent } from "@/platform/events";
 import { createInstallListColumns } from "@/features/app-manager/components/install-list-columns";
 import type { LocalizedError } from "@/lib/errors";
 import { localizeError } from "@/lib/errors";
@@ -49,6 +50,7 @@ export function useAppManagerController(active: boolean) {
   const {
     apps,
     loading,
+    scanProgress,
     error,
     installedSearchQuery,
     marketplaceSearchQuery,
@@ -204,6 +206,7 @@ export function useAppManagerController(active: boolean) {
 
     useAppManagerStore.setState({
       loading: true,
+      scanProgress: { current: 0, stage: "scanningDirectories" },
       error: null,
       selectedAppIds: new Set(),
       batchMode: false,
@@ -211,8 +214,20 @@ export function useAppManagerController(active: boolean) {
     });
 
     if (!appManagerUseCases.isAvailable()) {
-      useAppManagerStore.setState({ scanned: true, loading: false });
+      useAppManagerStore.setState({ scanned: true, loading: false, scanProgress: null });
       return;
+    }
+
+    let unlisten: (() => void) | null = null;
+    try {
+      unlisten = await listenToPlatformEvent<{ current: number; stage: string }>(
+        "app-scan:progress",
+        (event) => {
+          useAppManagerStore.setState({ scanProgress: event.payload });
+        }
+      );
+    } catch {
+      // ignore event setup errors; progress is best-effort
     }
 
     try {
@@ -222,6 +237,7 @@ export function useAppManagerController(active: boolean) {
         result: scanResult,
         scanned: true,
         loading: false,
+        scanProgress: null,
         lastScanTime: scanResult.lastScanTime,
         lastUpdateCheck: scanResult.lastUpdateCheck,
         installListApps: createInstallListApps(scanResult.apps),
@@ -236,7 +252,10 @@ export function useAppManagerController(active: boolean) {
         ),
         scanned: true,
         loading: false,
+        scanProgress: null,
       });
+    } finally {
+      if (unlisten) unlisten();
     }
   }, [toLocalizedError]);
 
@@ -1160,6 +1179,7 @@ export function useAppManagerController(active: boolean) {
     t,
     apps,
     loading,
+    scanProgress,
     error: errorMessage,
     searchQuery: activeSearchQuery,
     activeFilter,

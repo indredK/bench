@@ -47,6 +47,7 @@ export type AppManagerTabKey = "installed" | "softwareUpdate" | "marketplace";
 export interface AppManagerState {
   apps: AppInfo[];
   loading: boolean;
+  scanProgress: { current: number; stage: string } | null;
   error: LocalizedError | null;
   searchQuery: string;
   installedSearchQuery: string;
@@ -128,6 +129,7 @@ export interface AppManagerState {
   setCategoryFilter: (category: AppCategoryKey | null) => void;
   setSeriesFilter: (series: AppSeriesKey | null) => void;
   setError: (error: LocalizedError | null) => void;
+  setScanProgress: (progress: { current: number; stage: string } | null) => void;
   setSorting: (sorting: Updater<SortingState>) => void;
 
   setOperationStatus: (appId: string, status: OperationStatus, message?: string) => void;

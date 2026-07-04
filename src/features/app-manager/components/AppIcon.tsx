@@ -19,11 +19,19 @@ interface AppIconProps {
 // generous (covers most users in one shot) and we rely on Map insertion-order
 // to evict the oldest entries.
 const ICON_CACHE_CAP = 500;
+const MAX_CONCURRENT_LOADS = 8;
 const iconCache = new Map<string, string | null>();
 const iconRequests = new Map<string, Promise<string | null>>();
+let activeLoadCount = 0;
+const pendingLoadQueue: Array<() => void> = [];
+
+function runNextPendingLoad() {
+  if (activeLoadCount >= MAX_CONCURRENT_LOADS) return;
+  const next = pendingLoadQueue.shift();
+  if (next) next();
+}
 
 function rememberIcon(installPath: string, icon: string | null) {
-  // Refresh recency for an existing key by re-inserting.
   if (iconCache.has(installPath)) {
     iconCache.delete(installPath);
   } else if (iconCache.size >= ICON_CACHE_CAP) {
@@ -36,7 +44,6 @@ function rememberIcon(installPath: string, icon: string | null) {
 function readIcon(installPath: string): string | null | undefined {
   if (!iconCache.has(installPath)) return undefined;
   const value = iconCache.get(installPath) ?? null;
-  // Touch on read so frequently-rendered rows survive eviction.
   iconCache.delete(installPath);
   iconCache.set(installPath, value);
   return value;
@@ -49,21 +56,37 @@ function loadIcon(installPath: string) {
   const existing = iconRequests.get(installPath);
   if (existing) return existing;
 
-  const request = appManagerUseCases.loadAppIconBase64(installPath)
-    .then((icon) => {
-      rememberIcon(installPath, icon);
-      return icon;
-    })
-    .catch(() => {
-      rememberIcon(installPath, null);
-      return null;
-    })
-    .finally(() => {
-      iconRequests.delete(installPath);
-    });
+  const startLoad = () => {
+    activeLoadCount++;
+    const request = appManagerUseCases.loadAppIconBase64(installPath)
+      .then((icon) => {
+        rememberIcon(installPath, icon);
+        return icon;
+      })
+      .catch(() => {
+        rememberIcon(installPath, null);
+        return null;
+      })
+      .finally(() => {
+        iconRequests.delete(installPath);
+        activeLoadCount--;
+        runNextPendingLoad();
+      });
+    iconRequests.set(installPath, request);
+    return request;
+  };
 
-  iconRequests.set(installPath, request);
-  return request;
+  if (activeLoadCount < MAX_CONCURRENT_LOADS) {
+    return startLoad();
+  }
+
+  const queued = new Promise<string | null>((resolve) => {
+    pendingLoadQueue.push(() => {
+      startLoad().then(resolve);
+    });
+  });
+  iconRequests.set(installPath, queued);
+  return queued;
 }
 
 export function AppIcon({ iconBase64, installPath, size = 24, className }: AppIconProps) {

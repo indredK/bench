@@ -42,6 +42,7 @@ import { launchApp, revealAppInFinder } from "@/lib/tauri/commands/app-manager";
 import { writeTextFile } from "@/lib/tauri/commands/file-ops";
 import { getErrorMessage } from "@/lib/tauri/errors";
 import { savePlatformDialog } from "@/platform/dialog";
+import { listenToPlatformEvent } from "@/platform/events";
 import type { AppFeature } from "@/features/types";
 import type { AppInfo } from "@/lib/tauri/types/app-manager";
 import type { LaunchSceneKey } from "@/features/quick-launch/types";
@@ -95,10 +96,10 @@ function AppCard({
   return (
     <motion.button
       layout
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.9 }}
-      transition={{ duration: 0.15 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.12, ease: "easeOut" }}
       onClick={() => onLaunch(app)}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -206,19 +207,17 @@ function SceneSection({
         layout
         className="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8"
       >
-        <AnimatePresence mode="popLayout">
-          {displayApps.map((app) => (
-            <AppCard
-              key={app.appId}
-              app={app}
-              onLaunch={onLaunch}
-              onReveal={onReveal}
-              isEditMode={isEditMode}
-              sceneLabel={isEditMode ? t(LAUNCH_SCENES.find((s) => s.key === appIdToScene[app.appId])?.labelKey || "") : undefined}
-              onContextMenuEdit={onContextMenuEdit}
-            />
-          ))}
-        </AnimatePresence>
+        {displayApps.map((app) => (
+          <AppCard
+            key={app.appId}
+            app={app}
+            onLaunch={onLaunch}
+            onReveal={onReveal}
+            isEditMode={isEditMode}
+            sceneLabel={isEditMode ? t(LAUNCH_SCENES.find((s) => s.key === appIdToScene[app.appId])?.labelKey || "") : undefined}
+            onContextMenuEdit={onContextMenuEdit}
+          />
+        ))}
         {!expanded && apps.length > 6 && (
           <button
             onClick={(e) => { e.stopPropagation(); onToggle(); }}
@@ -294,11 +293,15 @@ function MergedSceneSection({
       </div>
 
       {/* App cards grid */}
-      <motion.div
-        layout
-        className="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8"
-      >
-        <AnimatePresence mode="popLayout">
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.15, ease: "easeOut" }}
+          className="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8"
+        >
           {currentApps.map((app) => (
             <AppCard
               key={app.appId}
@@ -310,8 +313,8 @@ function MergedSceneSection({
               onContextMenuEdit={onContextMenuEdit}
             />
           ))}
-        </AnimatePresence>
-      </motion.div>
+        </motion.div>
+      </AnimatePresence>
     </section>
   );
 }
@@ -350,6 +353,7 @@ export default function QuickLaunch({ active }: { active: boolean; feature: AppF
   const appManagerApps = useAppManagerStore((s) => s.apps);
   const appManagerScanned = useAppManagerStore((s) => s.scanned);
   const appManagerLoading = useAppManagerStore((s) => s.loading);
+  const appManagerScanProgress = useAppManagerStore((s) => s.scanProgress);
 
   const {
     scenes,
@@ -562,14 +566,33 @@ export default function QuickLaunch({ active }: { active: boolean; feature: AppF
 
   const handleRescan = useCallback(async () => {
     if (loading) return;
+    const currentAppLoading = useAppManagerStore.getState().loading;
+    if (currentAppLoading) return;
+    let unlisten: (() => void) | null = null;
     try {
       setLoading(true);
+      useAppManagerStore.setState({
+        loading: true,
+        error: null,
+        scanProgress: { current: 0, stage: "scanningDirectories" },
+      });
+      try {
+        unlisten = await listenToPlatformEvent<{ current: number; stage: string }>(
+          "app-scan:progress",
+          (event) => {
+            useAppManagerStore.setState({ scanProgress: event.payload });
+          }
+        );
+      } catch {
+        // ignore
+      }
       const result = await appManagerUseCases.scanInstalledApps();
       useAppManagerStore.setState({
         apps: result.apps,
         result,
         scanned: true,
         loading: false,
+        scanProgress: null,
         lastScanTime: result.lastScanTime,
         lastUpdateCheck: result.lastUpdateCheck,
       });
@@ -580,8 +603,9 @@ export default function QuickLaunch({ active }: { active: boolean; feature: AppF
       const final = applyOverrides(classified, overrides, map);
       batchSetScenes(final);
     } catch {
-      // ignore
+      useAppManagerStore.setState({ loading: false, scanned: true, scanProgress: null });
     } finally {
+      if (unlisten) unlisten();
       setLoading(false);
     }
   }, [loading, setLoading, setAutoClassified, batchSetScenes]);
@@ -591,11 +615,33 @@ export default function QuickLaunch({ active }: { active: boolean; feature: AppF
   const firstMergedKey = MERGED_SCENE_KEYS[0];
 
   if (loading && appManagerApps.length === 0) {
+    const current = appManagerScanProgress?.current ?? 0;
+    const stage = appManagerScanProgress?.stage ?? "scanningDirectories";
+    const stageText = stage === "processingMetadata"
+      ? t("quickLaunch.scanStage.processing")
+      : stage === "resolvingSources"
+        ? t("quickLaunch.scanStage.resolving")
+        : t("quickLaunch.scanStage.scanning");
+
     return (
       <div className="flex h-full items-center justify-center">
-        <div className="flex flex-col items-center gap-3 text-muted-foreground">
+        <div className="flex w-64 flex-col items-center gap-3 text-muted-foreground">
           <RefreshCw size={24} className="animate-spin" />
-          <p className="text-sm">{t("quickLaunch.scanning")}</p>
+          <p className="text-sm font-medium text-foreground">{t("quickLaunch.scanning")}</p>
+          <div className="w-full">
+            <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
+              <motion.div
+                className="h-full bg-primary/60"
+                initial={{ width: "0%" }}
+                animate={{ width: current > 0 ? `${Math.min(100, Math.max(5, current / 3))}%` : "5%" }}
+                transition={{ duration: 0.3, ease: "easeOut" }}
+              />
+            </div>
+            <div className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground/80">
+              <span>{stageText}</span>
+              <span className="tabular-nums">{current > 0 ? `${current}` : "..."}</span>
+            </div>
+          </div>
         </div>
       </div>
     );

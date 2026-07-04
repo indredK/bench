@@ -602,6 +602,11 @@
     "filteredSummary": "{{visible}} of {{total}} apps matching filters",
     "refresh": "Refresh",
     "scanning": "Scanning applications...",
+    "scanStage": {
+      "scanning": "Scanning directories",
+      "resolving": "Resolving sources",
+      "processing": "Processing metadata"
+    },
     "searchPlaceholder": "Search by name, path or Bundle ID...",
     "startHint": "Click \"Refresh\" to start scanning installed applications",
     "empty": "No applications found",
@@ -2319,6 +2324,11 @@
     "rescan": "Rescan",
     "scanFirst": "Scan installed apps first",
     "scanning": "Scanning apps...",
+    "scanStage": {
+      "scanning": "Scanning directories",
+      "resolving": "Resolving sources",
+      "processing": "Processing metadata"
+    },
     "empty": "No scanned apps yet. Go to App Manager to scan first, or click below.",
     "totalApps": "{{count}} apps · {{scenes}} scenes",
     "searchResult": "{{count}} apps found",

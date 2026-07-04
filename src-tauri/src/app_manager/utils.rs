@@ -1,7 +1,53 @@
 use super::types::AppInfo;
 use std::collections::HashSet;
 use std::path::Path;
-use std::time::UNIX_EPOCH;
+use std::process::{Command, Stdio};
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::{Duration, UNIX_EPOCH};
+
+pub fn run_command_with_timeout(
+    cmd: &mut Command,
+    timeout: Duration,
+) -> Result<std::process::Output, String> {
+    let child = cmd
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Failed to spawn command: {}", e))?;
+
+    let child_arc = Arc::new(Mutex::new(Some(child)));
+    let child_clone = child_arc.clone();
+
+    let (tx, rx) = std::sync::mpsc::channel();
+
+    thread::spawn(move || {
+        let output = child_clone
+            .lock()
+            .unwrap()
+            .take()
+            .unwrap()
+            .wait_with_output();
+        let _ = tx.send(output);
+    });
+
+    match rx.recv_timeout(timeout) {
+        Ok(Ok(output)) => Ok(output),
+        Ok(Err(e)) => Err(format!("Command failed: {}", e)),
+        Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+            if let Ok(mut guard) = child_arc.lock() {
+                if let Some(ref mut c) = *guard {
+                    let _ = c.kill();
+                }
+            }
+            thread::sleep(Duration::from_millis(200));
+            Err("Command timed out".to_string())
+        }
+        Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+            Err("Command channel disconnected".to_string())
+        }
+    }
+}
 
 /// Compute a stable app_id from identifiers.
 pub fn make_app_id(bundle_id: &str, install_path: &str) -> String {

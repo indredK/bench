@@ -1,8 +1,8 @@
 use crate::app_manager::{
     build_app_info, build_scan_result, deduplicate, get_last_modified, make_app_id,
     operation_result, platform_capabilities, record_operation_result,
-    record_operation_result_with_error_code, resolve_macos_source, AppInfoInput, AppManagerState,
-    OperationResult, ScanResult, SourceType,
+    record_operation_result_with_error_code, resolve_macos_source, run_command_with_timeout,
+    AppInfoInput, AppManagerState, OperationResult, ScanProgressEvent, ScanResult, SourceType,
 };
 use base64::Engine;
 use std::collections::hash_map::DefaultHasher;
@@ -12,6 +12,10 @@ use std::hash::{Hash, Hasher};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::time::Duration;
+use tauri::{AppHandle, Emitter};
+
+const BREW_COMMAND_TIMEOUT: Duration = Duration::from_secs(15);
 
 // ============================================================================
 // Homebrew Integration
@@ -50,7 +54,10 @@ fn brew_path() -> Option<String> {
 /// status with stdout that starts with "Homebrew" before reporting brew as
 /// available.
 fn brew_works(brew: &str) -> bool {
-    let Ok(output) = Command::new(brew).arg("--version").output() else {
+    let Ok(output) = run_command_with_timeout(
+        Command::new(brew).arg("--version"),
+        BREW_COMMAND_TIMEOUT,
+    ) else {
         return false;
     };
     if !output.status.success() {
@@ -61,10 +68,11 @@ fn brew_works(brew: &str) -> bool {
 }
 
 fn list_installed_casks(brew: &str) -> Result<HashSet<String>, String> {
-    let output = Command::new(brew)
-        .args(["list", "--cask"])
-        .output()
-        .map_err(|e| format!("Failed to run brew list --cask: {}", e))?;
+    let output = run_command_with_timeout(
+        Command::new(brew).args(["list", "--cask"]),
+        BREW_COMMAND_TIMEOUT,
+    )
+    .map_err(|e| format!("Failed to run brew list --cask: {}", e))?;
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         return Err(format!("brew list --cask failed: {}", stderr.trim()));
@@ -78,10 +86,11 @@ fn list_installed_casks(brew: &str) -> Result<HashSet<String>, String> {
 }
 
 fn list_outdated_casks(brew: &str) -> Result<HashSet<String>, String> {
-    let output = Command::new(brew)
-        .args(["outdated", "--cask"])
-        .output()
-        .map_err(|e| format!("Failed to run brew outdated --cask: {}", e))?;
+    let output = run_command_with_timeout(
+        Command::new(brew).args(["outdated", "--cask"]),
+        BREW_COMMAND_TIMEOUT,
+    )
+    .map_err(|e| format!("Failed to run brew outdated --cask: {}", e))?;
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         return Err(format!("brew outdated --cask failed: {}", stderr.trim()));
@@ -142,6 +151,7 @@ fn extract_app_metadata(app_path: &Path) -> Option<(String, String, String)> {
 fn scan_directory_raw(
     dir: &Path,
     is_system: bool,
+    depth_limit: usize,
 ) -> Vec<(String, String, String, String, String, bool, u64)> {
     let mut results = Vec::new();
     let mut queue = VecDeque::from([(dir.to_path_buf(), 0usize)]);
@@ -189,7 +199,7 @@ fn scan_directory_raw(
                 continue;
             }
 
-            if file_type.is_dir() && depth < SCAN_MAX_DEPTH {
+            if file_type.is_dir() && depth < depth_limit {
                 queue.push_back((path, depth + 1));
             }
         }
@@ -202,21 +212,55 @@ fn scan_directory_raw(
 // scan_installed_apps (macOS)
 // ============================================================================
 
-pub fn scan_installed_apps(state: tauri::State<'_, AppManagerState>) -> ScanResult {
+pub fn scan_installed_apps(state: tauri::State<'_, AppManagerState>, app_handle: &AppHandle) -> ScanResult {
     let start = std::time::Instant::now();
     let mut raw: Vec<(String, String, String, String, String, bool, u64)> = Vec::new();
+
+    let _ = app_handle.emit(
+        "app-scan:progress",
+        ScanProgressEvent {
+            current: 0,
+            stage: "scanningDirectories".to_string(),
+        },
+    );
 
     for dir in SCAN_DIRECTORIES {
         let path = Path::new(dir);
         if path.exists() {
-            raw.extend(scan_directory_raw(path, dir.starts_with("/System")));
+            raw.extend(scan_directory_raw(
+                path,
+                dir.starts_with("/System"),
+                SCAN_MAX_DEPTH,
+            ));
+            let _ = app_handle.emit(
+                "app-scan:progress",
+                ScanProgressEvent {
+                    current: raw.len(),
+                    stage: "scanningDirectories".to_string(),
+                },
+            );
         }
     }
     if let Some(user_dir) = user_applications_dir() {
         if user_dir.exists() {
-            raw.extend(scan_directory_raw(&user_dir, false));
+            raw.extend(scan_directory_raw(&user_dir, false, SCAN_MAX_DEPTH));
+            let _ = app_handle.emit(
+                "app-scan:progress",
+                ScanProgressEvent {
+                    current: raw.len(),
+                    stage: "scanningDirectories".to_string(),
+                },
+            );
         }
     }
+
+    let _ = app_handle.emit(
+        "app-scan:progress",
+        ScanProgressEvent {
+            current: raw.len(),
+            stage: "resolvingSources".to_string(),
+        },
+    );
 
     let brew = brew_path();
     let brew_available = brew.as_deref().map(brew_works).unwrap_or(false);
@@ -233,8 +277,9 @@ pub fn scan_installed_apps(state: tauri::State<'_, AppManagerState>) -> ScanResu
     }
 
     let mut apps = Vec::new();
+    let total_raw = raw.len();
 
-    for (app_id, name, bundle_id, version, install_path, is_system, last_modified) in raw {
+    for (idx, (app_id, name, bundle_id, version, install_path, is_system, last_modified)) in raw.into_iter().enumerate() {
         let has_mas_receipt = !is_system
             && crate::app_manager::sources::mac_app_store::has_mas_receipt(&install_path);
 
@@ -289,6 +334,16 @@ pub fn scan_installed_apps(state: tauri::State<'_, AppManagerState>) -> ScanResu
             launchable: true,
             revealable: true,
         }));
+
+        if (idx + 1) % 20 == 0 || idx + 1 == total_raw {
+            let _ = app_handle.emit(
+                "app-scan:progress",
+                ScanProgressEvent {
+                    current: idx + 1,
+                    stage: "processingMetadata".to_string(),
+                },
+            );
+        }
     }
 
     apps = deduplicate(apps);
@@ -341,7 +396,7 @@ mod scan_tests {
         fs::create_dir_all(root.join("Vendor")).expect("create vendor dir");
         write_info_plist(&nested_app, "com.example.nested", "1.2.3");
 
-        let results = scan_directory_raw(&root, false);
+        let results = scan_directory_raw(&root, false, SCAN_MAX_DEPTH);
         let install_paths: Vec<String> = results.into_iter().map(|item| item.4).collect();
 
         assert_eq!(install_paths.len(), 1);
@@ -358,7 +413,7 @@ mod scan_tests {
         write_info_plist(&outer_app, "com.example.outer", "1.0.0");
         write_info_plist(&inner_app, "com.example.inner", "2.0.0");
 
-        let results = scan_directory_raw(&root, false);
+        let results = scan_directory_raw(&root, false, SCAN_MAX_DEPTH);
         let bundle_ids: Vec<String> = results.into_iter().map(|item| item.2).collect();
 
         assert_eq!(bundle_ids, vec!["com.example.outer".to_string()]);

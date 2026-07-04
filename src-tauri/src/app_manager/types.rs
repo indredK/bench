@@ -229,3 +229,11 @@ pub struct InstallFinishedEvent {
     pub message: String,
     pub error_code: Option<String>,
 }
+
+/// Event payload for `app-scan:progress`.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScanProgressEvent {
+    pub current: usize,
+    pub stage: String,
+}

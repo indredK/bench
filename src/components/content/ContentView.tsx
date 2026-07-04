@@ -22,6 +22,10 @@ interface ContentViewProps<T> {
   emptyIcon?: ReactNode;
   emptyText?: string;
   loading?: boolean;
+  /** Optional text shown below the loading spinner */
+  loadingSubtitle?: string;
+  /** Optional numeric progress value (0-N) shown in the loading state */
+  loadingProgress?: number;
   estimatedRowHeight?: number;
   estimatedCardHeight?: number;
   gridColumns?: number;
@@ -61,6 +65,8 @@ export function ContentView<T>({
   emptyIcon,
   emptyText,
   loading = false,
+  loadingSubtitle,
+  loadingProgress,
   estimatedRowHeight,
   estimatedCardHeight,
   gridColumns,
@@ -87,7 +93,29 @@ export function ContentView<T>({
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground rounded-xl border bg-card/50">
         <RefreshCw size={28} className="animate-spin text-primary" />
-        <p className="text-sm">{t("common.loading")}</p>
+        <p className="text-sm font-medium text-foreground">{t("common.loading")}</p>
+        {(loadingSubtitle || loadingProgress !== undefined) && (
+          <div className="w-48">
+            {loadingProgress !== undefined && loadingProgress > 0 && (
+              <div className="h-1 w-full overflow-hidden rounded-full bg-muted mb-2">
+                <motion.div
+                  className="h-full bg-primary/60"
+                  initial={{ width: "0%" }}
+                  animate={{ width: `${Math.min(100, Math.max(5, loadingProgress / 3))}%` }}
+                  transition={{ duration: 0.3, ease: "easeOut" }}
+                />
+              </div>
+            )}
+            {(loadingSubtitle || loadingProgress !== undefined) && (
+              <p className="text-[11px] text-center text-muted-foreground/80">
+                {loadingSubtitle}
+                {loadingProgress !== undefined && loadingProgress > 0 && (
+                  <span className="tabular-nums"> · {loadingProgress}</span>
+                )}
+              </p>
+            )}
+          </div>
+        )}
       </div>
     );
   }

@@ -29,6 +29,7 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
     t,
     loading,
     error,
+    scanProgress,
     searchQuery,
     activeFilter,
     marketplaceFilter,
@@ -345,6 +346,14 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                 searchPlaceholder={t("appManager.searchPlaceholder")}
                 loading={loading}
                 error={error}
+                loadingSubtitle={scanProgress ? (
+                  scanProgress.stage === "processingMetadata"
+                    ? t("appManager.scanStage.processing")
+                    : scanProgress.stage === "resolvingSources"
+                      ? t("appManager.scanStage.resolving")
+                      : t("appManager.scanStage.scanning")
+                ) : undefined}
+                loadingProgress={scanProgress?.current}
                 batchResults={batchResults}
                 onClearError={clearError}
                 filterPanelOpen={filterPanelOpen}

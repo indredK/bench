@@ -86,10 +86,11 @@ fn try_start_batch_operation(
 
 #[tauri::command]
 pub async fn scan_installed_apps(app: tauri::AppHandle) -> Result<ScanResult, String> {
+    let app_clone = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let state: tauri::State<'_, AppManagerState> = app.state();
+        let state: tauri::State<'_, AppManagerState> = app_clone.state();
         let result = if is_macos() {
-            macos::scan_installed_apps(state.clone())
+            macos::scan_installed_apps(state.clone(), &app_clone)
         } else if is_windows() {
             windows::scan_installed_apps()
         } else if is_linux() {
@@ -98,9 +99,6 @@ pub async fn scan_installed_apps(app: tauri::AppHandle) -> Result<ScanResult, St
             empty_scan_result()
         };
 
-        // Always cache: an empty scan after the user removed every managed app
-        // must replace the prior cache so subsequent update checks don't query
-        // for apps that no longer exist.
         state.cache_scan_result(result.clone());
         result
     })

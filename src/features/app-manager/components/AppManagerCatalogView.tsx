@@ -38,6 +38,8 @@ interface AppManagerCatalogViewProps<TItem, TFilter extends string> {
   searchPlaceholder: string;
   loading: boolean;
   error: string;
+  loadingSubtitle?: string;
+  loadingProgress?: number;
   batchResults: BatchOperationResult | null;
   onClearError?: () => void;
   filterPanelOpen: boolean;
@@ -94,6 +96,8 @@ export function AppManagerCatalogView<TItem, TFilter extends string>({
   searchPlaceholder,
   loading,
   error,
+  loadingSubtitle,
+  loadingProgress,
   batchResults,
   onClearError,
   filterPanelOpen,
@@ -206,6 +210,8 @@ export function AppManagerCatalogView<TItem, TFilter extends string>({
                 emptyIcon={emptyIcon}
                 emptyText={emptyText}
                 loading={loading}
+                loadingSubtitle={loadingSubtitle}
+                loadingProgress={loadingProgress}
                 estimatedRowHeight={estimatedRowHeight}
                 estimatedCardHeight={estimatedCardHeight}
                 gridColumns={gridColumns}

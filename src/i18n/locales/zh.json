@@ -602,6 +602,11 @@
     "filteredSummary": "筛选结果 {{visible}} 个 / 共 {{total}} 个",
     "refresh": "刷新",
     "scanning": "正在扫描应用...",
+    "scanStage": {
+      "scanning": "扫描应用目录",
+      "resolving": "识别应用来源",
+      "processing": "处理应用信息"
+    },
     "searchPlaceholder": "搜索应用名称、路径或 Bundle ID...",
     "startHint": "点击「刷新」按钮开始扫描已安装的应用",
     "empty": "未发现任何应用",
@@ -2319,6 +2324,11 @@
     "rescan": "重新扫描",
     "scanFirst": "先扫描已安装应用",
     "scanning": "正在扫描应用...",
+    "scanStage": {
+      "scanning": "扫描应用目录",
+      "resolving": "识别应用来源",
+      "processing": "处理应用信息"
+    },
     "empty": "还没有扫描应用。去「应用管理」页面先扫描一次，或者点击下方按钮直接扫描。",
     "totalApps": "{{count}} 个应用 · {{scenes}} 个场景",
     "searchResult": "搜索到 {{count}} 个应用",

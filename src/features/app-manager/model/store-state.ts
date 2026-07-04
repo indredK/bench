@@ -12,6 +12,7 @@ type AppManagerDataState = Omit<
   | "setCategoryFilter"
   | "setSeriesFilter"
   | "setError"
+  | "setScanProgress"
   | "setSorting"
   | "setOperationStatus"
   | "openConfirmDialog"
@@ -64,6 +65,7 @@ export function createInitialAppManagerState(): AppManagerDataState {
   return {
     apps: [],
     loading: false,
+    scanProgress: null,
     error: null,
     searchQuery: "",
     installedSearchQuery: "",
