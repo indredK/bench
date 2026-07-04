@@ -35,11 +35,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.8.0
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: "24"
-          cache: npm
+          cache: pnpm
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -65,17 +70,17 @@ jobs:
             libsoup-3.0-dev \
             libjavascriptcoregtk-4.1-dev
 
-      - name: Install npm dependencies
-        run: npm ci
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Run frontend tests
-        run: npm run test:fe
+        run: pnpm run test:fe
 
       - name: Run Rust tests
-        run: npm run test:be
+        run: pnpm run test:be
 
       - name: Run Tauri build smoke test (no bundle)
-        run: npx tauri build --debug --no-bundle
+        run: pnpm tauri build --debug --no-bundle
 
   release-build:
     name: Release Build (${{ matrix.target }})
@@ -101,11 +106,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.8.0
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: "24"
-          cache: npm
+          cache: pnpm
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -132,8 +142,8 @@ jobs:
             libsoup-3.0-dev \
             libjavascriptcoregtk-4.1-dev
 
-      - name: Install npm dependencies
-        run: npm ci
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Build Tauri app
         shell: bash
@@ -143,11 +153,11 @@ jobs:
         run: |
           if [ "${{ runner.os }}" = "macOS" ]; then
             # Updater artifacts (.app.tar.gz) are emitted when the app bundle is built.
-            npx tauri build --target ${{ matrix.target }} --bundles app,dmg
+            pnpm tauri build --target ${{ matrix.target }} --bundles app,dmg
           elif [ "${{ runner.os }}" = "Windows" ]; then
-            npx tauri build --target ${{ matrix.target }} --bundles msi,nsis
+            pnpm tauri build --target ${{ matrix.target }} --bundles msi,nsis
           else
-            npx tauri build --target ${{ matrix.target }}
+            pnpm tauri build --target ${{ matrix.target }}
           fi
 
       - name: Collect macOS bundle and updater artifacts
@@ -226,11 +236,16 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.8.0
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: "24"
-          cache: npm
+          cache: pnpm
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable

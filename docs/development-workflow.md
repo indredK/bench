@@ -61,18 +61,18 @@
 ## 4. 本地开发与自检
 
 ```bash
-npm install          # 或 npm run setup（含 hooks）
-npm run dev          # Tauri 开发模式
+pnpm install          # 或 pnpm run setup（含 hooks）
+pnpm run dev          # Tauri 开发模式
 
-npm run lint:fe      # i18n guard + tsc
-npm run test:critical
+pnpm run lint:fe      # i18n guard + tsc
+pnpm run test:critical
 cd src-tauri && cargo clippy -- -D warnings
 ```
 
 发版前可选全量：
 
 ```bash
-npm run verify       # test:fe + test:be + build:fe + build:debug
+pnpm run verify       # test:fe + test:be + build:fe + build:debug
 ```
 
 **合码前对照 release-themes 验收项**（随主题变化，以文件为准），常见包括：
@@ -128,7 +128,73 @@ npm run verify       # test:fe + test:be + build:fe + build:debug
 
 ---
 
-## 9. 相关文档
+## 9. 包管理与依赖升级
+
+> 项目统一使用 **pnpm**。以下规则适用于本地开发与 CI。
+
+### 9.1 基本约定
+
+| 项 | 规则 |
+|------|------|
+| 包管理器 | pnpm，版本由 `package.json` 的 `packageManager: pnpm@11.8.0` 固化（corepack 自动识别） |
+| Lock 文件 | 只保留 `pnpm-lock.yaml`，**禁止** `package-lock.json` 并存（双 lock 会导致本地与 CI 解析分叉） |
+| CI 安装 | `pnpm install --frozen-lockfile`（严格按 lockfile，不更新） |
+| 本地安装 | `pnpm install`（lockfile 存在时尊重它；package.json 变更时更新 lockfile） |
+
+### 9.2 常用命令
+
+```bash
+pnpm install                      # 安装依赖（尊重 lockfile）
+pnpm install --frozen-lockfile    # CI 用，严格按 lockfile
+pnpm add <pkg>                    # 添加生产依赖
+pnpm add -D <pkg>                 # 添加开发依赖
+pnpm update                       # 在 ^ 范围内升级所有 patch/minor
+pnpm outdated                     # 查看可升级项
+pnpm tsc --noEmit                 # 类型检查（major 升级后必跑）
+```
+
+### 9.3 依赖升级流程
+
+1. **查可升级项**：`pnpm outdated`
+2. **patch / minor**（`^` 范围内）：`pnpm update` 直接升，风险低
+3. **major**（跨版本，如 25.x → 26.x）：
+   - 手动改 `package.json` 约束（如 `"@types/node": "^26.1.0"`）
+   - `pnpm install --no-frozen-lockfile` 更新 lockfile
+   - 跑 `pnpm tsc --noEmit` 确认无类型错误
+4. **验证 CI 能通过**：`pnpm install --frozen-lockfile`
+5. **提交**：`pnpm-lock.yaml` 必须随 `package.json` 一起提交
+
+### 9.4 pnpm 11 供应链策略（minimumReleaseAge）
+
+pnpm 11 默认开启 `minimumReleaseAge: 1440`（24 小时）：**发布不足 24 小时的包版本会被自动跳过**，不参与解析。这是供应链保护 —— 恶意包通常在发布后数小时内被检测并下架，延迟 24 小时让你错过最高风险窗口。
+
+| 场景 | 怎么处理 |
+|------|------|
+| `pnpm update` 跳过了刚发布的新版本 | 等 24h 后再 `pnpm update`，或用 `pnpm add pkg@version` 显式安装 |
+| `pnpm add pkg@version` 被策略拦截 | pnpm 自动在 `pnpm-workspace.yaml` 写入 `minimumReleaseAgeExclude` 豁免；该文件需提交，否则 CI `--frozen-lockfile` 会失败 |
+| lockfile 残留被策略拒绝的旧条目 | `pnpm clean --lockfile` 清理后 `pnpm install` 重建 |
+| 想全局关闭策略（不推荐） | `pnpm-workspace.yaml` 加 `minimumReleaseAge: 0` |
+
+> **注意**：`minimumReleaseAgeExclude` 是逐包豁免，不是漏洞警告 —— 它只表示该包"太新"，由你显式放行。是否信任该包仍需自行判断。
+
+### 9.5 CI 配置要点
+
+[ci-build.yml](../.github/workflows/ci-build.yml) 每个 job 需在 `setup-node` 之前加 pnpm 初始化：
+
+```yaml
+- uses: pnpm/action-setup@v4
+  with:
+    version: 11.8.0
+- uses: actions/setup-node@v6
+  with:
+    node-version: "24"
+    cache: pnpm          # 不是 npm
+- run: pnpm install --frozen-lockfile
+```
+
+---
+
+## 10. 相关文档
 
 | 文档 | 用途 |
 |------|------|
