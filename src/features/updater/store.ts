@@ -1,9 +1,9 @@
 /**
  * Feature Store / 功能状态: store updater state only; 只存更新状态与简单动作.
  */
-import { create } from "zustand";
-import type { AppUpdateInfo } from "@/lib/tauri/types/updater";
-import type { UpdaterErrorInfo } from "@/features/updater/error-classifier";
+import { create } from "zustand"
+import type { AppUpdateInfo } from "@/lib/tauri/types/updater"
+import type { UpdaterErrorInfo } from "@/features/updater/error-classifier"
 
 export type UpdaterStatus =
   | "idle"
@@ -13,29 +13,29 @@ export type UpdaterStatus =
   | "downloading"
   | "installing"
   | "readyToRestart"
-  | "error";
+  | "error"
 
 interface UpdaterState {
-  open: boolean;
-  status: UpdaterStatus;
-  currentVersion: string;
-  updateInfo: AppUpdateInfo | null;
-  error: string;
-  errorInfo: UpdaterErrorInfo | null;
-  downloadedBytes: number;
-  totalBytes: number | null;
-  lastCheckedAt: number;
+  open: boolean
+  status: UpdaterStatus
+  currentVersion: string
+  updateInfo: AppUpdateInfo | null
+  error: string
+  errorInfo: UpdaterErrorInfo | null
+  downloadedBytes: number
+  totalBytes: number | null
+  lastCheckedAt: number
 
-  setOpen: (open: boolean) => void;
-  setStatus: (status: UpdaterStatus) => void;
-  setCurrentVersion: (currentVersion: string) => void;
-  setUpdateInfo: (updateInfo: AppUpdateInfo | null) => void;
-  setError: (error: string) => void;
-  setErrorInfo: (errorInfo: UpdaterErrorInfo | null) => void;
-  setProgress: (downloadedBytes: number, totalBytes: number | null) => void;
-  setLastCheckedAt: (lastCheckedAt: number) => void;
-  resetProgress: () => void;
-  resetTransientState: () => void;
+  setOpen: (open: boolean) => void
+  setStatus: (status: UpdaterStatus) => void
+  setCurrentVersion: (currentVersion: string) => void
+  setUpdateInfo: (updateInfo: AppUpdateInfo | null) => void
+  setError: (error: string) => void
+  setErrorInfo: (errorInfo: UpdaterErrorInfo | null) => void
+  setProgress: (downloadedBytes: number, totalBytes: number | null) => void
+  setLastCheckedAt: (lastCheckedAt: number) => void
+  resetProgress: () => void
+  resetTransientState: () => void
 }
 
 export const useUpdaterStore = create<UpdaterState>((set) => ({
@@ -70,4 +70,4 @@ export const useUpdaterStore = create<UpdaterState>((set) => ({
       downloadedBytes: 0,
       totalBytes: null,
     })),
-}));
+}))

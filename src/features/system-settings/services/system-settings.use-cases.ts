@@ -1,12 +1,12 @@
 /**
  * Use Cases / 用例层: business logic; 业务逻辑.
  */
-import { canUseDesktopFeatures } from "@/platform/capabilities";
-import { systemSettingsRepository } from "./system-settings.repository";
+import { canUseDesktopFeatures } from "@/platform/capabilities"
+import { systemSettingsRepository } from "./system-settings.repository"
 
 export const systemSettingsUseCases = {
   isAvailable() {
-    return canUseDesktopFeatures();
+    return canUseDesktopFeatures()
   },
 
   // Sleep
@@ -110,4 +110,4 @@ export const systemSettingsUseCases = {
   setHideDesktopIconsState: systemSettingsRepository.setHideDesktopIconsState,
   setLowPowerModeState: systemSettingsRepository.setLowPowerModeState,
   setScreenSaverState: systemSettingsRepository.setScreenSaverState,
-};
+}

@@ -160,7 +160,7 @@
 6. **独立提交** — 仅 stage 改动的文件，commit 使用 Conventional Commits 格式：
    ```
    fix(<scope>): <违规项简要描述>
-   
+
    违反: §X 规范
    文件: 路径:行号
    ```

@@ -1,9 +1,9 @@
-import { lazy, Suspense } from "react";
-import { Settings } from "lucide-react";
-import { FeatureFallback } from "@/features/FeatureFallback";
-import type { AppFeature } from "@/features/types";
+import { lazy, Suspense } from "react"
+import { Settings } from "lucide-react"
+import { FeatureFallback } from "@/features/FeatureFallback"
+import type { AppFeature } from "@/features/types"
 
-const SystemSettings = lazy(() => import("@/features/system-settings/page"));
+const SystemSettings = lazy(() => import("@/features/system-settings/page"))
 
 export const systemSettingsFeature: AppFeature = {
   id: "system-settings",
@@ -17,4 +17,4 @@ export const systemSettingsFeature: AppFeature = {
   ),
   desktopOnly: true,
   platforms: ["macos"],
-};
+}

@@ -1,9 +1,9 @@
-import { lazy, Suspense } from "react";
-import { Zap } from "lucide-react";
-import { FeatureFallback } from "@/features/FeatureFallback";
-import type { AppFeature } from "@/features/types";
+import { lazy, Suspense } from "react"
+import { Zap } from "lucide-react"
+import { FeatureFallback } from "@/features/FeatureFallback"
+import type { AppFeature } from "@/features/types"
 
-const PortManager = lazy(() => import("@/features/port-manager/page"));
+const PortManager = lazy(() => import("@/features/port-manager/page"))
 
 export const portManagerFeature: AppFeature = {
   id: "port-manager",
@@ -16,4 +16,4 @@ export const portManagerFeature: AppFeature = {
     </Suspense>
   ),
   desktopOnly: true,
-};
+}

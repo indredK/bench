@@ -1,27 +1,27 @@
 /**
  * Static Data / 静态数据: export catalogs only; 只导出静态目录数据.
  */
-import type { CompareDataModule, FilterGroup, SpecRow } from "@/shared/compare/types";
-import { t } from "i18next";
+import type { CompareDataModule, FilterGroup, SpecRow } from "@/shared/compare/types"
+import { t } from "i18next"
 
 export interface ChipsetModel {
-  id: string;
-  model: string;
-  brand: string;
-  series: string;
-  launchYear: number;
-  processNode: number;
-  architecture: string;
-  cpu: string;
-  coreCount: number;
-  cpuMaxClock: number;
-  gpu: string;
-  npu: string;
-  modem: string;
-  memorySupport: string;
-  geekbench6Single: number;
-  geekbench6Multi: number;
-  antutuScore: number;
+  id: string
+  model: string
+  brand: string
+  series: string
+  launchYear: number
+  processNode: number
+  architecture: string
+  cpu: string
+  coreCount: number
+  cpuMaxClock: number
+  gpu: string
+  npu: string
+  modem: string
+  memorySupport: string
+  geekbench6Single: number
+  geekbench6Multi: number
+  antutuScore: number
 }
 
 /**
@@ -187,7 +187,7 @@ export const chipsetData: ChipsetModel[] = [
     architecture: "ARMv9-A",
     cpu: "8核 (1×3.2 GHz X2 + 3×2.75 GHz A710 + 4×2.0 GHz A510)",
     coreCount: 8,
-    cpuMaxClock: 3.20,
+    cpuMaxClock: 3.2,
     gpu: "Adreno 730",
     npu: "Hexagon NPU (第7代AI引擎)",
     modem: "Snapdragon X65 (10 Gbps)",
@@ -206,7 +206,7 @@ export const chipsetData: ChipsetModel[] = [
     architecture: "ARMv9.2-A",
     cpu: "8核 (1×3.2 GHz X3 + 2×2.8 GHz A715 + 2×2.8 GHz A710 + 3×2.0 GHz A510)",
     coreCount: 8,
-    cpuMaxClock: 3.20,
+    cpuMaxClock: 3.2,
     gpu: "Adreno 740",
     npu: "Hexagon NPU (AI Engine)",
     modem: "Snapdragon X70 (10 Gbps)",
@@ -225,7 +225,7 @@ export const chipsetData: ChipsetModel[] = [
     architecture: "ARMv9.2-A",
     cpu: "8核 (1×3.0 GHz X4 + 4×2.8 GHz A720 + 3×2.0 GHz A520)",
     coreCount: 8,
-    cpuMaxClock: 3.00,
+    cpuMaxClock: 3.0,
     gpu: "Adreno 735 (硬件光追)",
     npu: "Hexagon NPU",
     modem: "Snapdragon X70 (10 Gbps)",
@@ -244,7 +244,7 @@ export const chipsetData: ChipsetModel[] = [
     architecture: "ARMv9.2-A",
     cpu: "8核 (1×2.8 GHz X4 + 4×2.6 GHz A720 + 3×1.9 GHz A520)",
     coreCount: 8,
-    cpuMaxClock: 2.80,
+    cpuMaxClock: 2.8,
     gpu: "Adreno 732",
     npu: "Hexagon NPU",
     modem: "Snapdragon X70 (5 Gbps)",
@@ -263,7 +263,7 @@ export const chipsetData: ChipsetModel[] = [
     architecture: "ARMv9.2-A",
     cpu: "8核 (1×3.3 GHz X4 + 3×3.15 GHz A720 + 2×2.96 GHz A720 + 2×2.27 GHz A520)",
     coreCount: 8,
-    cpuMaxClock: 3.30,
+    cpuMaxClock: 3.3,
     gpu: "Adreno 750",
     npu: "Hexagon NPU (AI Engine)",
     modem: "Snapdragon X75 (10 Gbps 下行 / 3.5 Gbps 上行)",
@@ -461,7 +461,7 @@ export const chipsetData: ChipsetModel[] = [
     architecture: "ARMv9-A",
     cpu: "8核 (1×2.8 GHz X2 + 3×2.52 GHz A710 + 4×1.82 GHz A510)",
     coreCount: 8,
-    cpuMaxClock: 2.80,
+    cpuMaxClock: 2.8,
     gpu: "Xclipse 920 (RDNA2) @ 1300 MHz",
     npu: "NPU (双核)",
     modem: "Exynos 5300 (5G)",
@@ -499,7 +499,7 @@ export const chipsetData: ChipsetModel[] = [
     architecture: "ARMv9.2-A",
     cpu: "10核 (1×3.3 GHz X5 + 3×2.75 GHz A730 + 2×2.6 GHz A730 + 4×2.0 GHz A520)",
     coreCount: 10,
-    cpuMaxClock: 3.30,
+    cpuMaxClock: 3.3,
     gpu: "Xclipse 950 (RDNA4) @ 1350 MHz",
     npu: "NPU (6核, 56 TOPS)",
     modem: "Exynos 5400 (12.1 Gbps)",
@@ -541,7 +541,7 @@ export const chipsetData: ChipsetModel[] = [
     architecture: "ARMv9.2-A",
     cpu: "8核 (1×3.1 GHz X4 + 3×2.6 GHz A720 + 4×1.92 GHz A520)",
     coreCount: 8,
-    cpuMaxClock: 3.10,
+    cpuMaxClock: 3.1,
     gpu: "Mali-G715 MP7 @ 940 MHz",
     npu: "Google TPU",
     modem: "Exynos 5400c (5G)",
@@ -602,7 +602,7 @@ export const chipsetData: ChipsetModel[] = [
     architecture: "ARMv8.2-A",
     cpu: "8核 (1×2.3 GHz Taishan + 3×2.18 GHz Taishan + 4×1.55 GHz Cortex-A510)",
     coreCount: 8,
-    cpuMaxClock: 2.30,
+    cpuMaxClock: 2.3,
     gpu: "Maleoon 910 MP4 @ 830 MHz",
     npu: "DaVinci NPU",
     modem: "Balong 5000 (4G/5G)",
@@ -621,7 +621,7 @@ export const chipsetData: ChipsetModel[] = [
     architecture: "ARMv8.2-A",
     cpu: "8核 (1×2.8 GHz + 3×2.4 GHz + 4×1.8 GHz)",
     coreCount: 8,
-    cpuMaxClock: 2.80,
+    cpuMaxClock: 2.8,
     gpu: "Maleoon 920",
     npu: "DaVinci NPU",
     modem: "Balong 5000 (5G)",
@@ -649,24 +649,32 @@ export const chipsetData: ChipsetModel[] = [
     geekbench6Multi: 7500,
     antutuScore: 1700000,
   },
-];
+]
 
 const brandFormat = (val: unknown) => {
-  const v = String(val);
-  const key = `brands.${v}`;
-  const result = t(key);
-  return result !== key ? result : v;
-};
+  const v = String(val)
+  const key = `brands.${v}`
+  const result = t(key)
+  return result !== key ? result : v
+}
 
 export const chipsetFilterGroups: FilterGroup<ChipsetModel>[] = [
   { key: "brand", label: "phoneChipsetCompare.brand", format: brandFormat },
-  { key: "series", label: "phoneChipsetCompare.series", format: (val) => t(`phoneChipsetCompare.values.series.${val}`) },
+  {
+    key: "series",
+    label: "phoneChipsetCompare.series",
+    format: (val) => t(`phoneChipsetCompare.values.series.${val}`),
+  },
   { key: "launchYear", label: "phoneChipsetCompare.launchYear", format: (val) => String(val) },
-];
+]
 
 export const chipsetSpecRows: SpecRow<ChipsetModel>[] = [
   { key: "brand", label: "phoneChipsetCompare.brand", format: (v, _m) => brandFormat(v) },
-  { key: "series", label: "phoneChipsetCompare.series", format: (v, _m) => t(`phoneChipsetCompare.values.series.${v}`) },
+  {
+    key: "series",
+    label: "phoneChipsetCompare.series",
+    format: (v, _m) => t(`phoneChipsetCompare.values.series.${v}`),
+  },
   { key: "launchYear", label: "phoneChipsetCompare.launchYear" },
   { key: "model", label: "phoneChipsetCompare.model" },
   { key: "processNode", label: "phoneChipsetCompare.processNode", format: (v) => `${v} nm` },
@@ -681,7 +689,7 @@ export const chipsetSpecRows: SpecRow<ChipsetModel>[] = [
   { key: "geekbench6Single", label: "phoneChipsetCompare.geekbench6Single" },
   { key: "geekbench6Multi", label: "phoneChipsetCompare.geekbench6Multi" },
   { key: "antutuScore", label: "phoneChipsetCompare.antutuScore" },
-];
+]
 
 export const chipsetReferenceUrl = (model: ChipsetModel): string | undefined => {
   const urls: Record<string, string> = {
@@ -714,16 +722,24 @@ export const chipsetReferenceUrl = (model: ChipsetModel): string | undefined => 
     "tensor-g5": "https://nanoreview.net/en/soc/google-tensor-g5",
     "kirin-9000s": "https://nanoreview.net/en/soc/hisilicon-kirin-9000s",
     "kirin-9010": "https://nanoreview.net/en/soc/hisilicon-kirin-9010",
-  };
-  return urls[model.id];
-};
+  }
+  return urls[model.id]
+}
 
 export const chipsetModule: CompareDataModule<ChipsetModel> = {
   data: chipsetData,
   specRows: chipsetSpecRows,
-  numericKeys: ["processNode", "coreCount", "cpuMaxClock", "geekbench6Single", "geekbench6Multi", "antutuScore", "launchYear"],
+  numericKeys: [
+    "processNode",
+    "coreCount",
+    "cpuMaxClock",
+    "geekbench6Single",
+    "geekbench6Multi",
+    "antutuScore",
+    "launchYear",
+  ],
   inverseKeys: ["processNode"],
   i18nPrefix: "phoneChipsetCompare",
   filterGroups: chipsetFilterGroups,
   referenceUrl: chipsetReferenceUrl,
-};
+}

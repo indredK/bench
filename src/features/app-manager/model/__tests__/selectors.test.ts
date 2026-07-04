@@ -1,13 +1,13 @@
 /**
  * Test / 测试: verify behavior only; 只验证行为与契约.
  */
-import { describe, expect, it } from "vitest";
-import { getInstalledFilterCounts } from "@/features/app-manager/model/selectors";
-import type { AppInfo } from "@/lib/tauri/types/app-manager";
+import { describe, expect, it } from "vitest"
+import { getInstalledFilterCounts } from "@/features/app-manager/model/selectors"
+import type { AppInfo } from "@/lib/tauri/types/app-manager"
 
 type AppOverrides = Partial<Omit<AppInfo, "allowedActions">> & {
-  allowedActions?: Partial<AppInfo["allowedActions"]>;
-};
+  allowedActions?: Partial<AppInfo["allowedActions"]>
+}
 
 describe("getInstalledFilterCounts", () => {
   it("returns counts for every installed type filter", () => {
@@ -19,7 +19,7 @@ describe("getInstalledFilterCounts", () => {
         isSystemApp: true,
         allowedActions: { launch: false },
       }),
-    ]);
+    ])
 
     expect(counts).toEqual({
       all: 3,
@@ -27,27 +27,27 @@ describe("getInstalledFilterCounts", () => {
       system: 1,
       launchable: 2,
       managed: 1,
-    });
-  });
+    })
+  })
 
   it("treats uninstallable apps as managed too", () => {
     const counts = getInstalledFilterCounts([
       createApp({ appId: "uninstallable", canUninstall: true }),
-    ]);
+    ])
 
-    expect(counts.managed).toBe(1);
-  });
-});
+    expect(counts.managed).toBe(1)
+  })
+})
 
 function createApp(overrides: AppOverrides): AppInfo {
-  const { allowedActions: allowedActionOverrides, ...rest } = overrides;
+  const { allowedActions: allowedActionOverrides, ...rest } = overrides
   const allowedActions: AppInfo["allowedActions"] = {
     launch: true,
     reveal: true,
     upgrade: true,
     uninstall: true,
     ...allowedActionOverrides,
-  };
+  }
 
   return {
     appId: "app",
@@ -68,5 +68,5 @@ function createApp(overrides: AppOverrides): AppInfo {
     iconBase64: null,
     allowedActions,
     ...rest,
-  };
+  }
 }

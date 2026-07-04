@@ -13,8 +13,8 @@
  * Both are rendered as sibling modals of `UpdateProgressDialog` from the
  * Software Update view.
  */
-import { AlertTriangle } from "lucide-react";
-import { useTranslation } from "react-i18next";
+import { AlertTriangle } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,18 +24,18 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+} from "@/components/ui/alert-dialog"
 import {
   cancelAppUpdate,
   confirmDeveloperIdChange,
   installAppUpdate,
-} from "@/lib/tauri/commands/app-manager";
-import type { UpdateInfo } from "@/lib/tauri/types/app-manager";
-import { useAppManagerStore } from "@/features/app-manager/store";
+} from "@/lib/tauri/commands/app-manager"
+import type { UpdateInfo } from "@/lib/tauri/types/app-manager"
+import { useAppManagerStore } from "@/features/app-manager/store"
 
 interface UpdateBlockingDialogsProps {
-  update: UpdateInfo | null;
-  onClose: () => void;
+  update: UpdateInfo | null
+  onClose: () => void
 }
 
 /**
@@ -43,10 +43,10 @@ interface UpdateBlockingDialogsProps {
  * `update`, or `null` if none apply.
  */
 export function UpdateBlockingDialogs({ update, onClose }: UpdateBlockingDialogsProps) {
-  const phase = useAppManagerStore((s) => (update ? s.installProgress[update.appId] : undefined));
-  const finished = useAppManagerStore((s) => (update ? s.installFinished[update.appId] : undefined));
+  const phase = useAppManagerStore((s) => (update ? s.installProgress[update.appId] : undefined))
+  const finished = useAppManagerStore((s) => (update ? s.installFinished[update.appId] : undefined))
 
-  if (!update) return null;
+  if (!update) return null
 
   // Developer ID change checkpoint — orchestrator is awaiting our decision.
   if (phase?.phase === "developerIdChanged") {
@@ -57,22 +57,22 @@ export function UpdateBlockingDialogs({ update, onClose }: UpdateBlockingDialogs
         newTeamId={phase.new}
         onClose={onClose}
       />
-    );
+    )
   }
 
   // App-running failure — the orchestrator already finished with SU_APP_RUNNING.
   if (finished && !finished.success && finished.errorCode === "SU_APP_RUNNING") {
-    return <AppRunningDialog update={update} onClose={onClose} />;
+    return <AppRunningDialog update={update} onClose={onClose} />
   }
 
-  return null;
+  return null
 }
 
 interface DeveloperIdChangedDialogProps {
-  update: UpdateInfo;
-  oldTeamId: string;
-  newTeamId: string;
-  onClose: () => void;
+  update: UpdateInfo
+  oldTeamId: string
+  newTeamId: string
+  onClose: () => void
 }
 
 function DeveloperIdChangedDialog({
@@ -81,23 +81,28 @@ function DeveloperIdChangedDialog({
   newTeamId,
   onClose,
 }: DeveloperIdChangedDialogProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation()
 
   const handleApprove = async () => {
-    await confirmDeveloperIdChange(update.appId, true);
-  };
+    await confirmDeveloperIdChange(update.appId, true)
+  }
 
   const handleReject = async () => {
-    await confirmDeveloperIdChange(update.appId, false);
-    onClose();
-  };
+    await confirmDeveloperIdChange(update.appId, false)
+    onClose()
+  }
 
   return (
-    <AlertDialog open onOpenChange={(open) => { if (!open) void handleReject(); }}>
+    <AlertDialog
+      open
+      onOpenChange={(open) => {
+        if (!open) void handleReject()
+      }}
+    >
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-destructive" />
+            <AlertTriangle className="text-destructive h-4 w-4" />
             {t("appManager.softwareUpdate.install.devIdChanged.title")}
           </AlertDialogTitle>
           <AlertDialogDescription className="space-y-2">
@@ -106,7 +111,7 @@ function DeveloperIdChangedDialog({
                 app: update.appName,
               })}
             </p>
-            <div className="rounded-md border bg-muted/40 p-2 font-mono text-xs">
+            <div className="bg-muted/40 rounded-md border p-2 font-mono text-xs">
               <div>
                 <span className="text-muted-foreground">
                   {t("appManager.softwareUpdate.install.devIdChanged.oldLabel")}:
@@ -120,7 +125,7 @@ function DeveloperIdChangedDialog({
                 {newTeamId || t("appManager.softwareUpdate.install.devIdChanged.unknown")}
               </div>
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-muted-foreground text-xs">
               {t("appManager.softwareUpdate.install.devIdChanged.hint")}
             </p>
           </AlertDialogDescription>
@@ -135,28 +140,28 @@ function DeveloperIdChangedDialog({
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
-  );
+  )
 }
 
 interface AppRunningDialogProps {
-  update: UpdateInfo;
-  onClose: () => void;
+  update: UpdateInfo
+  onClose: () => void
 }
 
 function AppRunningDialog({ update, onClose }: AppRunningDialogProps) {
-  const { t } = useTranslation();
-  const setInstallFinished = useAppManagerStore((s) => s.setInstallFinished);
-  const clearInstallFinished = useAppManagerStore((s) => s.clearInstallFinished);
-  const clearInstallProgress = useAppManagerStore((s) => s.clearInstallProgress);
+  const { t } = useTranslation()
+  const setInstallFinished = useAppManagerStore((s) => s.setInstallFinished)
+  const clearInstallFinished = useAppManagerStore((s) => s.clearInstallFinished)
+  const clearInstallProgress = useAppManagerStore((s) => s.clearInstallProgress)
 
   const handleRetry = async () => {
     // Drop the terminal failure state before restarting; otherwise the dialog
     // sees both the new in-flight install AND the old SU_APP_RUNNING and
     // re-opens immediately.
-    clearInstallFinished(update.appId);
-    clearInstallProgress(update.appId);
+    clearInstallFinished(update.appId)
+    clearInstallProgress(update.appId)
     try {
-      await installAppUpdate(update);
+      await installAppUpdate(update)
     } catch (err) {
       // installAppUpdate spawns the orchestrator and returns Ok in the happy
       // path; an immediate Err means it never got to the running-check phase,
@@ -166,23 +171,28 @@ function AppRunningDialog({ update, onClose }: AppRunningDialogProps) {
         success: false,
         message: String(err),
         errorCode: "SU_INSTALL_FAIL",
-      });
+      })
     }
-  };
+  }
 
   const handleCancel = () => {
     // The orchestrator has already returned, but the user may also have spawned
     // a follow-up install; send a best-effort cancel just in case.
-    void cancelAppUpdate(update.appId);
-    onClose();
-  };
+    void cancelAppUpdate(update.appId)
+    onClose()
+  }
 
   return (
-    <AlertDialog open onOpenChange={(open) => { if (!open) handleCancel(); }}>
+    <AlertDialog
+      open
+      onOpenChange={(open) => {
+        if (!open) handleCancel()
+      }}
+    >
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-destructive" />
+            <AlertTriangle className="text-destructive h-4 w-4" />
             {t("appManager.softwareUpdate.install.appRunning.title")}
           </AlertDialogTitle>
           <AlertDialogDescription>
@@ -201,5 +211,5 @@ function AppRunningDialog({ update, onClose }: AppRunningDialogProps) {
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
-  );
+  )
 }

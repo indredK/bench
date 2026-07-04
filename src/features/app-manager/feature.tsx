@@ -1,9 +1,9 @@
-import { lazy, Suspense } from "react";
-import { AppWindow } from "lucide-react";
-import { FeatureFallback } from "@/features/FeatureFallback";
-import type { AppFeature } from "@/features/types";
+import { lazy, Suspense } from "react"
+import { AppWindow } from "lucide-react"
+import { FeatureFallback } from "@/features/FeatureFallback"
+import type { AppFeature } from "@/features/types"
 
-const AppManager = lazy(() => import("@/features/app-manager/page"));
+const AppManager = lazy(() => import("@/features/app-manager/page"))
 
 export const appManagerFeature: AppFeature = {
   id: "app-manager",
@@ -16,4 +16,4 @@ export const appManagerFeature: AppFeature = {
     </Suspense>
   ),
   desktopOnly: true,
-};
+}

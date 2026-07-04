@@ -12,46 +12,46 @@
  * are not persisted across reloads in that case, but the UI keeps working.
  */
 
-const memoryCache = new Map<string, string>();
+const memoryCache = new Map<string, string>()
 
 function storageOrNull(): Storage | null {
   try {
-    return typeof window !== "undefined" ? window.localStorage : null;
+    return typeof window !== "undefined" ? window.localStorage : null
   } catch {
-    return null;
+    return null
   }
 }
 
 export function readStorageItem(key: string): string | null {
-  const storage = storageOrNull();
+  const storage = storageOrNull()
   if (storage) {
     try {
-      const value = storage.getItem(key);
-      if (value !== null) return value;
+      const value = storage.getItem(key)
+      if (value !== null) return value
     } catch {
       // Fall through to memory cache.
     }
   }
-  return memoryCache.has(key) ? (memoryCache.get(key) ?? null) : null;
+  return memoryCache.has(key) ? (memoryCache.get(key) ?? null) : null
 }
 
 export function writeStorageItem(key: string, value: string) {
-  memoryCache.set(key, value);
-  const storage = storageOrNull();
-  if (!storage) return;
+  memoryCache.set(key, value)
+  const storage = storageOrNull()
+  if (!storage) return
   try {
-    storage.setItem(key, value);
+    storage.setItem(key, value)
   } catch {
     // Quota / privacy mode — keep in memory only.
   }
 }
 
 export function removeStorageItem(key: string) {
-  memoryCache.delete(key);
-  const storage = storageOrNull();
-  if (!storage) return;
+  memoryCache.delete(key)
+  const storage = storageOrNull()
+  if (!storage) return
   try {
-    storage.removeItem(key);
+    storage.removeItem(key)
   } catch {
     // Privacy mode — already cleared from memory cache.
   }
@@ -60,14 +60,14 @@ export function removeStorageItem(key: string) {
 /** Whether persistent storage is currently writable. Useful for surfacing a
  *  one-time "settings won't persist" notice without crashing the boot path. */
 export function isPersistentStorageAvailable(): boolean {
-  const storage = storageOrNull();
-  if (!storage) return false;
-  const probeKey = "__storage_probe__";
+  const storage = storageOrNull()
+  if (!storage) return false
+  const probeKey = "__storage_probe__"
   try {
-    storage.setItem(probeKey, "1");
-    storage.removeItem(probeKey);
-    return true;
+    storage.setItem(probeKey, "1")
+    storage.removeItem(probeKey)
+    return true
   } catch {
-    return false;
+    return false
   }
 }

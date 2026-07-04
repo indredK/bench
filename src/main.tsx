@@ -1,15 +1,15 @@
 /**
  * Bootstrap / 启动入口: wire providers and mount app; 只挂载应用与全局 Provider.
  */
-import { StrictMode } from "react";
-import ReactDOM from "react-dom/client";
-import { ThemeProvider } from "next-themes";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { Toaster } from "@/components/ui/sonner";
-import App from "./App";
-import "./styles/index.css";
-import { i18nInitPromise } from "./i18n/config";
-import "@fontsource-variable/geist";
+import { StrictMode } from "react"
+import ReactDOM from "react-dom/client"
+import { ThemeProvider } from "next-themes"
+import { TooltipProvider } from "@/components/ui/tooltip"
+import { Toaster } from "@/components/ui/sonner"
+import App from "./App"
+import "./styles/index.css"
+import { i18nInitPromise } from "./i18n/config"
+import "@fontsource-variable/geist"
 
 // Await i18next so the first React paint already has translations resolved.
 // Without this, the first frame renders raw keys like "appManager.title"
@@ -18,9 +18,9 @@ import "@fontsource-variable/geist";
 // user never sees a permanent white screen.
 async function bootstrap() {
   try {
-    await i18nInitPromise;
+    await i18nInitPromise
   } catch (error) {
-    console.warn("[bootstrap] i18n init failed; falling back to default:", error);
+    console.warn("[bootstrap] i18n init failed; falling back to default:", error)
   }
   ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <StrictMode>
@@ -31,7 +31,7 @@ async function bootstrap() {
         <Toaster />
       </ThemeProvider>
     </StrictMode>,
-  );
+  )
 }
 
-void bootstrap();
+void bootstrap()

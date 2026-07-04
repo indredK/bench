@@ -1,36 +1,36 @@
 /**
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  */
-import type { TFunction } from "i18next";
-import type { Ref } from "react";
-import { Globe, Loader2, Monitor, RefreshCw, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
-import type { PortScanMode } from "@/features/port-manager/store";
+import type { TFunction } from "i18next"
+import type { Ref } from "react"
+import { Globe, Loader2, Monitor, RefreshCw, X } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { cn } from "@/lib/utils"
+import type { PortScanMode } from "@/features/port-manager/store"
 
 interface PortManagerControlsProps {
-  t: TFunction;
-  inputRef: Ref<HTMLInputElement>;
-  inputValue: string;
-  showInvalidToast: boolean;
-  inputError: string;
-  killing: boolean;
-  isScanning: boolean;
-  portCount: number;
-  scanMode: PortScanMode;
-  remoteHost: string;
-  onScanModeChange: (mode: PortScanMode) => void;
-  onRemoteHostChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  onInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  onInputKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => void;
-  onScan: () => void;
-  onClear: () => void;
-  onClearAll: () => void;
+  t: TFunction
+  inputRef: Ref<HTMLInputElement>
+  inputValue: string
+  showInvalidToast: boolean
+  inputError: string
+  killing: boolean
+  isScanning: boolean
+  portCount: number
+  scanMode: PortScanMode
+  remoteHost: string
+  onScanModeChange: (mode: PortScanMode) => void
+  onRemoteHostChange: (event: React.ChangeEvent<HTMLInputElement>) => void
+  onInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void
+  onInputKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => void
+  onScan: () => void
+  onClear: () => void
+  onClearAll: () => void
 }
 
-const chipActionBase = "flex size-5 shrink-0 items-center justify-center rounded-full";
+const chipActionBase = "flex size-5 shrink-0 items-center justify-center rounded-full"
 
 export function PortManagerControls({
   t,
@@ -79,7 +79,10 @@ export function PortManagerControls({
       </div>
       {scanMode === "remote" && (
         <div className="relative flex-1">
-          <Globe size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Globe
+            size={14}
+            className="text-muted-foreground absolute top-1/2 left-2.5 -translate-y-1/2"
+          />
           <Input
             className="pl-8"
             placeholder={t("portManager.remoteHostPlaceholder")}
@@ -103,17 +106,17 @@ export function PortManagerControls({
             disabled={killing}
             autoComplete="off"
           />
-          <span className="absolute right-2 top-1/2 -translate-y-1/2">
+          <span className="absolute top-1/2 right-2 -translate-y-1/2">
             <Tooltip open={showInvalidToast}>
               <TooltipTrigger asChild>
                 <button
                   className={cn(
-                    "flex size-5 items-center justify-center rounded-full transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                    "focus-visible:ring-ring flex size-5 items-center justify-center rounded-full transition focus-visible:ring-2 focus-visible:outline-none",
                     inputValue.length > 0
                       ? showInvalidToast
-                        ? "animate-pulse bg-yellow-500 text-white hover:bg-yellow-600 dark:bg-yellow-600 dark:hover:bg-yellow-700 opacity-100"
-                        : "bg-muted-foreground text-background opacity-60 hover:bg-foreground hover:opacity-100"
-                      : "opacity-0 pointer-events-none"
+                        ? "animate-pulse bg-yellow-500 text-white opacity-100 hover:bg-yellow-600 dark:bg-yellow-600 dark:hover:bg-yellow-700"
+                        : "bg-muted-foreground text-background hover:bg-foreground opacity-60 hover:opacity-100"
+                      : "pointer-events-none opacity-0",
                   )}
                   onClick={onClear}
                   disabled={killing}
@@ -148,7 +151,7 @@ export function PortManagerControls({
         </div>
       </div>
     </div>
-  );
+  )
 }
 
 export function PortManagerCommonPorts({
@@ -157,10 +160,10 @@ export function PortManagerCommonPorts({
   portStates,
   onAddPort,
 }: {
-  ports: number[];
-  killing: boolean;
-  portStates: { port: number }[];
-  onAddPort: (port: number) => void;
+  ports: number[]
+  killing: boolean
+  portStates: { port: number }[]
+  onAddPort: (port: number) => void
 }) {
   return (
     <div className="flex flex-wrap gap-1.5">
@@ -177,7 +180,7 @@ export function PortManagerCommonPorts({
         </Button>
       ))}
     </div>
-  );
+  )
 }
 
 export function PortManagerPortChip({
@@ -189,19 +192,19 @@ export function PortManagerPortChip({
   onRemove,
   t,
 }: {
-  port: number;
-  statusClassName: string;
-  statusIcon: React.ReactNode;
-  onScrollTo: () => void;
-  onRescan: () => void;
-  onRemove: () => void;
-  t: TFunction;
+  port: number
+  statusClassName: string
+  statusIcon: React.ReactNode
+  onScrollTo: () => void
+  onRescan: () => void
+  onRemove: () => void
+  t: TFunction
 }) {
   return (
     <span
       className={cn(
-        "inline-flex cursor-pointer items-center gap-1 rounded-md border px-2 py-0.5 text-[13px] font-medium leading-[22px] whitespace-nowrap transition-colors animate-[chip-in_0.12s_ease-out]",
-        statusClassName
+        "inline-flex animate-[chip-in_0.12s_ease-out] cursor-pointer items-center gap-1 rounded-md border px-2 py-0.5 text-[13px] leading-[22px] font-medium whitespace-nowrap transition-colors",
+        statusClassName,
       )}
       onClick={onScrollTo}
     >
@@ -210,10 +213,13 @@ export function PortManagerPortChip({
       <Tooltip>
         <TooltipTrigger asChild>
           <button
-            className={cn(chipActionBase, "group transition hover:bg-foreground/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none")}
+            className={cn(
+              chipActionBase,
+              "group hover:bg-foreground/10 focus-visible:ring-ring transition focus-visible:ring-2 focus-visible:outline-none",
+            )}
             onClick={(event) => {
-              event.stopPropagation();
-              onRescan();
+              event.stopPropagation()
+              onRescan()
             }}
           >
             <RefreshCw size={13} className="transition-transform group-hover:rotate-180" />
@@ -224,10 +230,13 @@ export function PortManagerPortChip({
       <Tooltip>
         <TooltipTrigger asChild>
           <button
-            className={cn(chipActionBase, "text-yellow-600 dark:text-yellow-400 transition hover:bg-yellow-600 hover:text-white dark:hover:bg-yellow-600 dark:hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none")}
+            className={cn(
+              chipActionBase,
+              "focus-visible:ring-ring text-yellow-600 transition hover:bg-yellow-600 hover:text-white focus-visible:ring-2 focus-visible:outline-none dark:text-yellow-400 dark:hover:bg-yellow-600 dark:hover:text-white",
+            )}
             onClick={(event) => {
-              event.stopPropagation();
-              onRemove();
+              event.stopPropagation()
+              onRemove()
             }}
           >
             <X size={13} />
@@ -236,5 +245,5 @@ export function PortManagerPortChip({
         <TooltipContent>{t("portManager.removePort", { port })}</TooltipContent>
       </Tooltip>
     </span>
-  );
+  )
 }

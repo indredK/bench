@@ -1,9 +1,9 @@
-import { lazy, Suspense } from "react";
-import { Users } from "lucide-react";
-import { FeatureFallback } from "@/features/FeatureFallback";
-import type { AppFeature } from "@/features/types";
+import { lazy, Suspense } from "react"
+import { Users } from "lucide-react"
+import { FeatureFallback } from "@/features/FeatureFallback"
+import type { AppFeature } from "@/features/types"
 
-const AccountManagerPage = lazy(() => import("@/features/account-manager/page"));
+const AccountManagerPage = lazy(() => import("@/features/account-manager/page"))
 
 export const accountManagerFeature: AppFeature = {
   id: "account-manager",
@@ -17,4 +17,4 @@ export const accountManagerFeature: AppFeature = {
   ),
   desktopOnly: true,
   platforms: ["macos"],
-};
+}

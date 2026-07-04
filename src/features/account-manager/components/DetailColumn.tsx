@@ -1,48 +1,52 @@
 /**
  * Detail column / 详情栏: station + account detail, password reveal, auth profile.
  */
-import { useEffect, useState, type ReactNode } from "react";
-import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
-import { BadgeCheck, ExternalLink, Eye, EyeOff, HelpCircle, RefreshCw, ScanSearch, Settings } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
+import { useEffect, useState, type ReactNode } from "react"
+import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
+  BadgeCheck,
+  ExternalLink,
+  Eye,
+  EyeOff,
+  HelpCircle,
+  RefreshCw,
+  ScanSearch,
+  Settings,
+} from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Switch } from "@/components/ui/switch"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { cn } from "@/lib/utils"
 import type {
   AuthProfile,
   ProbeStrategy,
   RelayStation,
   StationAccount,
-} from "@/lib/tauri/types/account-manager";
-import type { DetailRow } from "@/features/account-manager/model/types";
+} from "@/lib/tauri/types/account-manager"
+import type { DetailRow } from "@/features/account-manager/model/types"
 import {
   ColumnHeader,
   EmptyHint,
   IconButton,
   SectionLabel,
-} from "@/features/account-manager/components/shared";
+} from "@/features/account-manager/components/shared"
 
 function computeSessionExpiry(
   lastLoginAt: string | null,
   sessionTtlHours?: number,
 ): { label: string; nearExpiry: boolean } | null {
-  if (!lastLoginAt || !sessionTtlHours || sessionTtlHours === 0) return null;
-  const match = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/.exec(lastLoginAt);
-  if (!match) return null;
-  const [, y, mo, d, h, mi] = match;
-  const captured = new Date(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi));
-  const expiry = new Date(captured.getTime() + sessionTtlHours * 3600_000);
-  const now = new Date();
-  const msToExpiry = expiry.getTime() - now.getTime();
-  if (msToExpiry <= 0) return null;
-  const label = `${expiry.getFullYear()}-${String(expiry.getMonth() + 1).padStart(2, "0")}-${String(expiry.getDate()).padStart(2, "0")} ${String(expiry.getHours()).padStart(2, "0")}:${String(expiry.getMinutes()).padStart(2, "0")}`;
-  return { label, nearExpiry: msToExpiry < 24 * 3600_000 };
+  if (!lastLoginAt || !sessionTtlHours || sessionTtlHours === 0) return null
+  const match = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/.exec(lastLoginAt)
+  if (!match) return null
+  const [, y, mo, d, h, mi] = match
+  const captured = new Date(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi))
+  const expiry = new Date(captured.getTime() + sessionTtlHours * 3600_000)
+  const now = new Date()
+  const msToExpiry = expiry.getTime() - now.getTime()
+  if (msToExpiry <= 0) return null
+  const label = `${expiry.getFullYear()}-${String(expiry.getMonth() + 1).padStart(2, "0")}-${String(expiry.getDate()).padStart(2, "0")} ${String(expiry.getHours()).padStart(2, "0")}:${String(expiry.getMinutes()).padStart(2, "0")}`
+  return { label, nearExpiry: msToExpiry < 24 * 3600_000 }
 }
 
 export function DetailColumn({
@@ -62,73 +66,71 @@ export function DetailColumn({
   togglingProxy,
   refreshingAccount,
 }: {
-  station: RelayStation | null;
-  account: StationAccount | null;
-  onOpenWebsite: () => void;
-  onRedetectProfile: (stationId: string, accountId?: string) => void;
-  onToggleProxy?: (accountId: string, enabled: boolean) => void;
-  onManageExternalApps?: (accountId: string | null) => void;
-  onRevealPassword: (accountId: string) => Promise<string>;
-  onCopyPassword: (accountId: string) => Promise<void>;
-  onProbeStrategyChange: (stationId: string, strategy: ProbeStrategy | "auto") => void;
-  onRefreshAccount?: (account: StationAccount) => void;
-  revealingPassword?: boolean;
-  settingProbeStrategy?: boolean;
-  redetectingProfile?: boolean;
-  togglingProxy?: boolean;
-  refreshingAccount?: boolean;
+  station: RelayStation | null
+  account: StationAccount | null
+  onOpenWebsite: () => void
+  onRedetectProfile: (stationId: string, accountId?: string) => void
+  onToggleProxy?: (accountId: string, enabled: boolean) => void
+  onManageExternalApps?: (accountId: string | null) => void
+  onRevealPassword: (accountId: string) => Promise<string>
+  onCopyPassword: (accountId: string) => Promise<void>
+  onProbeStrategyChange: (stationId: string, strategy: ProbeStrategy | "auto") => void
+  onRefreshAccount?: (account: StationAccount) => void
+  revealingPassword?: boolean
+  settingProbeStrategy?: boolean
+  redetectingProfile?: boolean
+  togglingProxy?: boolean
+  refreshingAccount?: boolean
 }) {
-  const { t } = useTranslation();
-  const [passwordHidden, setPasswordHidden] = useState(true);
-  const [revealedPassword, setRevealedPassword] = useState<string | null>(null);
-  const [revealing, setRevealing] = useState(false);
+  const { t } = useTranslation()
+  const [passwordHidden, setPasswordHidden] = useState(true)
+  const [revealedPassword, setRevealedPassword] = useState<string | null>(null)
+  const [revealing, setRevealing] = useState(false)
 
   useEffect(() => {
-    setPasswordHidden(true);
-    setRevealedPassword(null);
-  }, [account?.id]);
+    setPasswordHidden(true)
+    setRevealedPassword(null)
+  }, [account?.id])
 
   const handleTogglePassword = async () => {
-    if (!account) return;
+    if (!account) return
     if (!passwordHidden) {
-      setPasswordHidden(true);
-      return;
+      setPasswordHidden(true)
+      return
     }
     if (!account.hasPassword) {
-      setPasswordHidden(false);
-      return;
+      setPasswordHidden(false)
+      return
     }
     if (revealedPassword !== null) {
-      setPasswordHidden(false);
-      return;
+      setPasswordHidden(false)
+      return
     }
-    setRevealing(true);
+    setRevealing(true)
     try {
-      const pw = await onRevealPassword(account.id);
-      setRevealedPassword(pw);
-      setPasswordHidden(false);
+      const pw = await onRevealPassword(account.id)
+      setRevealedPassword(pw)
+      setPasswordHidden(false)
     } catch {
-      toast.error(t("accountManager.toasts.revealPasswordFailed"));
+      toast.error(t("accountManager.toasts.revealPasswordFailed"))
     } finally {
-      setRevealing(false);
+      setRevealing(false)
     }
-  };
+  }
 
   const handleCopyPassword = async () => {
-    if (!account || !account.hasPassword) return;
+    if (!account || !account.hasPassword) return
     try {
-      await onCopyPassword(account.id);
+      await onCopyPassword(account.id)
     } catch {
-      toast.error(t("accountManager.toasts.copyPasswordFailed"));
+      toast.error(t("accountManager.toasts.copyPasswordFailed"))
     }
-  };
+  }
 
-  const passwordValue = account?.hasPassword
-    ? (revealedPassword ?? "••••••••")
-    : "";
+  const passwordValue = account?.hasPassword ? (revealedPassword ?? "••••••••") : ""
 
   return (
-    <aside className="hidden w-[340px] shrink-0 rounded-lg border bg-card xl:flex xl:flex-col">
+    <aside className="bg-card hidden w-[340px] shrink-0 rounded-lg border xl:flex xl:flex-col">
       <ColumnHeader
         title={t("accountManager.detailTitle")}
         action={
@@ -140,7 +142,7 @@ export function DetailColumn({
           ) : null
         }
       />
-      <div className="min-h-0 flex-1 flex flex-col">
+      <div className="flex min-h-0 flex-1 flex-col">
         {station ? (
           <>
             {/* 上方：站点信息 - 灵活高度，内容多时滚动 */}
@@ -148,8 +150,17 @@ export function DetailColumn({
               <DetailSection
                 bordered={false}
                 rows={[
-                  { label: t("accountManager.detail.website"), value: station.website, truncate: true, copy: true },
-                  { label: t("accountManager.detail.remark"), value: station.remark, truncate: true },
+                  {
+                    label: t("accountManager.detail.website"),
+                    value: station.website,
+                    truncate: true,
+                    copy: true,
+                  },
+                  {
+                    label: t("accountManager.detail.remark"),
+                    value: station.remark,
+                    truncate: true,
+                  },
                   { label: t("accountManager.detail.createdAt"), value: station.createdAt },
                 ]}
                 extras={
@@ -165,14 +176,14 @@ export function DetailColumn({
                       redetecting={redetectingProfile}
                     />
                   ) : (
-                    <div className="rounded-lg border border-dashed bg-muted/20 p-4">
+                    <div className="bg-muted/20 rounded-lg border border-dashed p-4">
                       <div className="flex flex-col items-center gap-2 text-center">
                         <ScanSearch size={24} className="text-muted-foreground" />
                         <div className="space-y-1">
                           <p className="text-sm font-medium">
                             {t("accountManager.sessionManager.authProfile.notDetectedTitle")}
                           </p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-muted-foreground text-xs">
                             {t("accountManager.sessionManager.authProfile.notDetectedDesc")}
                           </p>
                         </div>
@@ -206,7 +217,12 @@ export function DetailColumn({
                 <DetailSection
                   bordered={false}
                   rows={[
-                    { label: t("accountManager.detail.username"), value: account.username, copy: true, truncate: true },
+                    {
+                      label: t("accountManager.detail.username"),
+                      value: account.username,
+                      copy: true,
+                      truncate: true,
+                    },
                     {
                       label: t("accountManager.detail.password"),
                       value: passwordValue,
@@ -219,7 +235,11 @@ export function DetailColumn({
                       copy: account.hasPassword,
                       onCopy: handleCopyPassword,
                     },
-                    { label: t("accountManager.detail.notes"), value: account.notes || "—", truncate: true },
+                    {
+                      label: t("accountManager.detail.notes"),
+                      value: account.notes || "—",
+                      truncate: true,
+                    },
                     {
                       label: t("accountManager.detail.lastRefreshedAt"),
                       value: account.lastRefreshedAt || t("accountManager.card.neverRefreshed"),
@@ -229,10 +249,15 @@ export function DetailColumn({
                       value: account.lastLoginAt || "—",
                     },
                     ...(computeSessionExpiry(account.lastLoginAt, station?.sessionTtlHours)
-                      ? [{
-                          label: t("accountManager.detail.sessionExpiry"),
-                          value: computeSessionExpiry(account.lastLoginAt, station?.sessionTtlHours)!.label,
-                        }]
+                      ? [
+                          {
+                            label: t("accountManager.detail.sessionExpiry"),
+                            value: computeSessionExpiry(
+                              account.lastLoginAt,
+                              station?.sessionTtlHours,
+                            )!.label,
+                          },
+                        ]
                       : []),
                   ]}
                 />
@@ -258,7 +283,7 @@ export function DetailColumn({
               onCheckedChange={(enabled) => onToggleProxy(account.id, enabled)}
               disabled={togglingProxy}
             />
-            <span className="text-xs text-muted-foreground whitespace-nowrap">
+            <span className="text-muted-foreground text-xs whitespace-nowrap">
               {t("accountManager.detail.proxyEnabled")}
             </span>
           </div>
@@ -278,7 +303,9 @@ export function DetailColumn({
                       <Settings size={14} />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent side="top">{t("accountManager.detail.manageExternalApps")}</TooltipContent>
+                  <TooltipContent side="top">
+                    {t("accountManager.detail.manageExternalApps")}
+                  </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             )}
@@ -292,7 +319,10 @@ export function DetailColumn({
                     disabled={refreshingAccount}
                     aria-label={t("accountManager.refreshStatus")}
                   >
-                    <RefreshCw size={14} className={refreshingAccount ? "animate-spin" : undefined} />
+                    <RefreshCw
+                      size={14}
+                      className={refreshingAccount ? "animate-spin" : undefined}
+                    />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="top">{t("accountManager.refreshStatus")}</TooltipContent>
@@ -302,7 +332,7 @@ export function DetailColumn({
         )}
       </div>
     </aside>
-  );
+  )
 }
 
 function DetailSection({
@@ -315,16 +345,16 @@ function DetailSection({
   note,
   bordered = true,
 }: {
-  title?: string;
-  heading?: ReactNode;
-  action?: ReactNode;
-  rows: DetailRow[];
-  extras?: ReactNode;
-  footer?: ReactNode;
-  note?: ReactNode;
-  bordered?: boolean;
+  title?: string
+  heading?: ReactNode
+  action?: ReactNode
+  rows: DetailRow[]
+  extras?: ReactNode
+  footer?: ReactNode
+  note?: ReactNode
+  bordered?: boolean
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation()
   return (
     <div className="space-y-3 px-5 py-4">
       {title && (
@@ -335,49 +365,48 @@ function DetailSection({
       )}
       {heading}
       {rows.length > 0 && (
-        <div className={cn(
-          bordered && "rounded-lg border bg-muted/20 p-3",
-          !bordered && "space-y-2"
-        )}>
+        <div
+          className={cn(bordered && "bg-muted/20 rounded-lg border p-3", !bordered && "space-y-2")}
+        >
           <div className={cn(!bordered && "space-y-2", bordered && "space-y-2")}>
             {rows.map(({ label, value, truncate, copy, onCopy, reveal }) => {
-              const hasValue = value.length > 0;
+              const hasValue = value.length > 0
               const display = reveal?.hidden
                 ? hasValue
                   ? "•".repeat(Math.min(value.length, 12))
                   : "—"
                 : hasValue
                   ? value
-                  : "—";
+                  : "—"
               const handleCopy = async () => {
-                if (!copy && !hasValue) return;
+                if (!copy && !hasValue) return
                 try {
                   if (onCopy) {
-                    await onCopy();
+                    await onCopy()
                   } else {
-                    await navigator.clipboard.writeText(value);
+                    await navigator.clipboard.writeText(value)
                   }
-                  toast.success(t("accountManager.toasts.copySuccess"));
+                  toast.success(t("accountManager.toasts.copySuccess"))
                 } catch {
-                  toast.error(t("accountManager.toasts.copyFailed"));
+                  toast.error(t("accountManager.toasts.copyFailed"))
                 }
-              };
+              }
               const valueEl = (
                 <span
                   className={cn(
                     "min-w-0 text-right font-medium",
                     truncate ? "truncate" : "break-all",
-                    copy && hasValue && "cursor-pointer hover:underline"
+                    copy && hasValue && "cursor-pointer hover:underline",
                   )}
                   onClick={copy && hasValue ? handleCopy : undefined}
                 >
                   {display}
                 </span>
-              );
+              )
               return (
                 <div key={label} className="flex items-center justify-between gap-3 text-sm">
-                  <span className="shrink-0 text-muted-foreground">{label}</span>
-                  <div className="flex min-w-0 max-w-[68%] items-center justify-end gap-1">
+                  <span className="text-muted-foreground shrink-0">{label}</span>
+                  <div className="flex max-w-[68%] min-w-0 items-center justify-end gap-1">
                     {truncate && hasValue ? (
                       <TooltipProvider>
                         <Tooltip>
@@ -404,21 +433,21 @@ function DetailSection({
                     )}
                   </div>
                 </div>
-              );
+              )
             })}
           </div>
-          {extras && <div className="mt-3 pt-3 border-t">{extras}</div>}
+          {extras && <div className="mt-3 border-t pt-3">{extras}</div>}
         </div>
       )}
       {rows.length === 0 && extras}
       {footer}
       {note && (
-        <div className="rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground">
+        <div className="text-muted-foreground rounded-lg border border-dashed px-3 py-2 text-xs">
           {note}
         </div>
       )}
     </div>
-  );
+  )
 }
 
 function AuthProfilePanel({
@@ -431,42 +460,42 @@ function AuthProfilePanel({
   settingStrategy,
   redetecting,
 }: {
-  profile: AuthProfile;
-  stationId: string;
-  accountId?: string;
-  stationProbeFailureCount?: number;
-  onRedetect: (stationId: string, accountId?: string) => void;
-  onStrategyChange: (stationId: string, strategy: ProbeStrategy | "auto") => void;
-  settingStrategy?: boolean;
-  redetecting?: boolean;
+  profile: AuthProfile
+  stationId: string
+  accountId?: string
+  stationProbeFailureCount?: number
+  onRedetect: (stationId: string, accountId?: string) => void
+  onStrategyChange: (stationId: string, strategy: ProbeStrategy | "auto") => void
+  settingStrategy?: boolean
+  redetecting?: boolean
 }) {
-  const { t } = useTranslation();
-  const [strategy, setStrategy] = useState(profile.probeStrategy);
+  const { t } = useTranslation()
+  const [strategy, setStrategy] = useState(profile.probeStrategy)
 
   useEffect(() => {
-    setStrategy(profile.probeStrategy);
-  }, [profile.probeStrategy, stationId]);
+    setStrategy(profile.probeStrategy)
+  }, [profile.probeStrategy, stationId])
 
   const handleStrategyChange = (next: string) => {
     if (next === "auto") {
-      setStrategy(profile.probeStrategy);
-      onStrategyChange(stationId, "auto");
-      return;
+      setStrategy(profile.probeStrategy)
+      onStrategyChange(stationId, "auto")
+      return
     }
-    setStrategy(next as ProbeStrategy);
-    onStrategyChange(stationId, next as ProbeStrategy);
-  };
+    setStrategy(next as ProbeStrategy)
+    onStrategyChange(stationId, next as ProbeStrategy)
+  }
 
-  const p = profile;
-  const confPct = Math.round(p.confidence * 100);
-  const isOverridden = strategy !== profile.probeStrategy;
+  const p = profile
+  const confPct = Math.round(p.confidence * 100)
+  const isOverridden = strategy !== profile.probeStrategy
 
   const dims: Array<{
-    icon: string;
-    label: string;
-    status: "ok" | "warn" | "off" | "na";
-    detail: string;
-    tooltip?: string;
+    icon: string
+    label: string
+    status: "ok" | "warn" | "off" | "na"
+    detail: string
+    tooltip?: string
   }> = [
     {
       icon: "📋",
@@ -489,9 +518,10 @@ function AuthProfilePanel({
       detail: p.csrfProtection
         ? t("accountManager.sessionManager.authProfile.csrfEnabled")
         : t("accountManager.sessionManager.authProfile.csrfDisabled"),
-      tooltip: p.csrfProtection && p.csrfExtraction
-        ? `${t("accountManager.sessionManager.authProfile.csrfExtraction")}: ${p.csrfExtraction.source} / ${p.csrfExtraction.name} → ${p.csrfExtraction.headerName}`
-        : undefined,
+      tooltip:
+        p.csrfProtection && p.csrfExtraction
+          ? `${t("accountManager.sessionManager.authProfile.csrfExtraction")}: ${p.csrfExtraction.source} / ${p.csrfExtraction.name} → ${p.csrfExtraction.headerName}`
+          : undefined,
     },
     {
       icon: "🔐",
@@ -515,10 +545,10 @@ function AuthProfilePanel({
       label: t("accountManager.sessionManager.authProfile.antiBot"),
       status: p.antiBot ? "warn" : "off",
       detail: p.antiBot
-        ? p.antiBotProvider ?? t("accountManager.sessionManager.authProfile.antiBotDetected")
+        ? (p.antiBotProvider ?? t("accountManager.sessionManager.authProfile.antiBotDetected"))
         : t("accountManager.sessionManager.authProfile.antiBotUndetected"),
     },
-  ];
+  ]
 
   if (p.ssoProvider) {
     dims.push({
@@ -526,21 +556,24 @@ function AuthProfilePanel({
       label: t("accountManager.sessionManager.authProfile.ssoProvider"),
       status: "ok",
       detail: p.ssoProvider,
-    });
+    })
   }
 
-  const statusColor = (s: typeof dims[number]["status"]) =>
-    s === "ok" ? "bg-emerald-500"
-    : s === "warn" ? "bg-amber-500"
-    : s === "off" ? "bg-red-500/60"
-    : "bg-slate-400/40";
+  const statusColor = (s: (typeof dims)[number]["status"]) =>
+    s === "ok"
+      ? "bg-emerald-500"
+      : s === "warn"
+        ? "bg-amber-500"
+        : s === "off"
+          ? "bg-red-500/60"
+          : "bg-slate-400/40"
 
   const strategyLabels: Record<string, string> = {
     httpFirst: t("accountManager.sessionManager.authProfile.probeStrategyHttpFirst"),
     httpOnly: t("accountManager.sessionManager.authProfile.probeStrategyHttpOnly"),
     webviewOnly: t("accountManager.sessionManager.authProfile.probeStrategyWebviewOnly"),
     hybrid: t("accountManager.sessionManager.authProfile.probeStrategyHybrid"),
-  };
+  }
 
   return (
     <div className="space-y-3">
@@ -559,14 +592,14 @@ function AuthProfilePanel({
           </button>
         </div>
 
-        <div className="mb-2 space-y-1 text-[10px] text-muted-foreground">
+        <div className="text-muted-foreground mb-2 space-y-1 text-[10px]">
           <div className="flex justify-between">
             <span>{t("accountManager.sessionManager.authProfile.detectedAt")}</span>
             <span className="text-foreground">{p.detectedAt}</span>
           </div>
           <div className="flex items-center justify-between gap-2">
             <span>{t("accountManager.sessionManager.authProfile.confidence")}</span>
-            <span className="font-medium text-foreground">{confPct}%</span>
+            <span className="text-foreground font-medium">{confPct}%</span>
           </div>
           <div className="mt-1 flex h-1.5 w-full overflow-hidden rounded-full bg-blue-500/10">
             <div
@@ -581,7 +614,7 @@ function AuthProfilePanel({
             <div key={d.label} className="flex items-center justify-between gap-2 text-[11px]">
               <div className="flex min-w-0 items-center gap-1.5">
                 <span className="shrink-0">{d.icon}</span>
-                <span className="truncate text-muted-foreground">{d.label}</span>
+                <span className="text-muted-foreground truncate">{d.label}</span>
                 {d.tooltip && (
                   <TooltipProvider>
                     <Tooltip>
@@ -603,7 +636,9 @@ function AuthProfilePanel({
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
                 <span className="text-foreground">{d.detail}</span>
-                <span className={cn("inline-block size-2 shrink-0 rounded-full", statusColor(d.status))} />
+                <span
+                  className={cn("inline-block size-2 shrink-0 rounded-full", statusColor(d.status))}
+                />
               </div>
             </div>
           ))}
@@ -619,7 +654,7 @@ function AuthProfilePanel({
             </span>
           </div>
           {stationProbeFailureCount !== undefined && stationProbeFailureCount > 0 && (
-            <div className="mt-0.5 text-[10px] text-muted-foreground">
+            <div className="text-muted-foreground mt-0.5 text-[10px]">
               {t("accountManager.sessionManager.authProfile.probeSuccessRate")}:{" "}
               {t("accountManager.sessionManager.authProfile.noData")}
             </div>
@@ -632,13 +667,23 @@ function AuthProfilePanel({
           value={strategy}
           onChange={(e) => handleStrategyChange(e.target.value)}
           disabled={settingStrategy}
-          className="h-7 flex-1 rounded border border-border bg-muted/50 px-2 text-[11px] text-foreground outline-none focus:border-blue-400"
+          className="border-border bg-muted/50 text-foreground h-7 flex-1 rounded border px-2 text-[11px] outline-none focus:border-blue-400"
         >
-          <option value="auto">{t("accountManager.sessionManager.authProfile.probeStrategyAuto")}</option>
-          <option value="httpFirst">{t("accountManager.sessionManager.authProfile.probeStrategyHttpFirst")}</option>
-          <option value="httpOnly">{t("accountManager.sessionManager.authProfile.probeStrategyHttpOnly")}</option>
-          <option value="webviewOnly">{t("accountManager.sessionManager.authProfile.probeStrategyWebviewOnly")}</option>
-          <option value="hybrid">{t("accountManager.sessionManager.authProfile.probeStrategyHybrid")}</option>
+          <option value="auto">
+            {t("accountManager.sessionManager.authProfile.probeStrategyAuto")}
+          </option>
+          <option value="httpFirst">
+            {t("accountManager.sessionManager.authProfile.probeStrategyHttpFirst")}
+          </option>
+          <option value="httpOnly">
+            {t("accountManager.sessionManager.authProfile.probeStrategyHttpOnly")}
+          </option>
+          <option value="webviewOnly">
+            {t("accountManager.sessionManager.authProfile.probeStrategyWebviewOnly")}
+          </option>
+          <option value="hybrid">
+            {t("accountManager.sessionManager.authProfile.probeStrategyHybrid")}
+          </option>
         </select>
       </div>
 
@@ -648,5 +693,5 @@ function AuthProfilePanel({
         </div>
       )}
     </div>
-  );
+  )
 }

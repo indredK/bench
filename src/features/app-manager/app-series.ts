@@ -1,7 +1,7 @@
 /**
  * Feature / 功能层: stay within this feature; 只处理当前功能.
  */
-import type { AppInfo } from "@/lib/tauri/types";
+import type { AppInfo } from "@/lib/tauri/types"
 
 export type AppSeriesKey =
   | "google"
@@ -12,11 +12,11 @@ export type AppSeriesKey =
   | "alibaba"
   | "baidu"
   | "openai"
-  | "other";
+  | "other"
 
 export interface AppSeries {
-  key: AppSeriesKey;
-  labelKey: string;
+  key: AppSeriesKey
+  labelKey: string
 }
 
 export const APP_SERIES: AppSeries[] = [
@@ -29,37 +29,25 @@ export const APP_SERIES: AppSeries[] = [
   { key: "baidu", labelKey: "appManager.series.baidu" },
   { key: "openai", labelKey: "appManager.series.openai" },
   { key: "other", labelKey: "appManager.series.other" },
-];
+]
 
 export function classifySeries(app: AppInfo): AppSeriesKey {
-  const bid = app.bundleId.toLowerCase();
+  const bid = app.bundleId.toLowerCase()
 
-  if (
-    bid.includes("com.google.")
-  ) {
-    return "google";
+  if (bid.includes("com.google.")) {
+    return "google"
   }
 
-  if (
-    bid.includes("com.microsoft.") ||
-    bid.includes("com.github.") ||
-    bid.includes("com.skype.")
-  ) {
-    return "microsoft";
+  if (bid.includes("com.microsoft.") || bid.includes("com.github.") || bid.includes("com.skype.")) {
+    return "microsoft"
   }
 
-  if (
-    bid.includes("com.apple.") ||
-    bid.includes("developer.apple.")
-  ) {
-    return "apple";
+  if (bid.includes("com.apple.") || bid.includes("developer.apple.")) {
+    return "apple"
   }
 
-  if (
-    bid.includes("com.tencent.") ||
-    bid.includes("com.workbuddy.")
-  ) {
-    return "tencent";
+  if (bid.includes("com.tencent.") || bid.includes("com.workbuddy.")) {
+    return "tencent"
   }
 
   if (
@@ -69,27 +57,20 @@ export function classifySeries(app: AppInfo): AppSeriesKey {
     bid.includes("com.larksuite.") ||
     bid.includes("com.electron.lark")
   ) {
-    return "bytedance";
+    return "bytedance"
   }
 
-  if (
-    bid.includes("com.alibaba.") ||
-    bid.includes("com.aliyun.") ||
-    bid.includes("com.mnn.")
-  ) {
-    return "alibaba";
+  if (bid.includes("com.alibaba.") || bid.includes("com.aliyun.") || bid.includes("com.mnn.")) {
+    return "alibaba"
   }
 
-  if (
-    bid.includes("com.baidu.") ||
-    bid.includes("com.easydataset.")
-  ) {
-    return "baidu";
+  if (bid.includes("com.baidu.") || bid.includes("com.easydataset.")) {
+    return "baidu"
   }
 
   if (bid.includes("com.openai.")) {
-    return "openai";
+    return "openai"
   }
 
-  return "other";
+  return "other"
 }

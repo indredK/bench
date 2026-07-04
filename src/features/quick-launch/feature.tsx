@@ -1,9 +1,9 @@
-import { lazy, Suspense } from "react";
-import { LayoutGrid } from "lucide-react";
-import { FeatureFallback } from "@/features/FeatureFallback";
-import type { AppFeature } from "@/features/types";
+import { lazy, Suspense } from "react"
+import { LayoutGrid } from "lucide-react"
+import { FeatureFallback } from "@/features/FeatureFallback"
+import type { AppFeature } from "@/features/types"
 
-const QuickLaunch = lazy(() => import("@/features/quick-launch/page"));
+const QuickLaunch = lazy(() => import("@/features/quick-launch/page"))
 
 export const quickLaunchFeature: AppFeature = {
   id: "quick-launch",
@@ -16,4 +16,4 @@ export const quickLaunchFeature: AppFeature = {
     </Suspense>
   ),
   desktopOnly: true,
-};
+}

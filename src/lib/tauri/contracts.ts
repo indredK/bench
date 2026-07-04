@@ -10,7 +10,7 @@ import type {
   InstallSource,
   OperationResult,
   UpdateInfo,
-} from "@/lib/tauri/types/app-manager";
+} from "@/lib/tauri/types/app-manager"
 import type {
   AuthProfile,
   AuthProxyResult,
@@ -26,7 +26,7 @@ import type {
   RelayExportMode,
   RelayStation,
   StationAccount,
-} from "@/lib/tauri/types/account-manager";
+} from "@/lib/tauri/types/account-manager"
 import type {
   CleanupCommandDef,
   CleanupResult,
@@ -34,13 +34,9 @@ import type {
   CustomCleanupProgress,
   ProjectInfo,
   ScanResult,
-} from "@/lib/tauri/types/dev-cleaner";
-import type { EnvScanDonePayload } from "@/lib/tauri/types/env-detector";
-import type {
-  KillPidResult,
-  KillTarget,
-  PortProcessDetail,
-} from "@/lib/tauri/types/port-manager";
+} from "@/lib/tauri/types/dev-cleaner"
+import type { EnvScanDonePayload } from "@/lib/tauri/types/env-detector"
+import type { KillPidResult, KillTarget, PortProcessDetail } from "@/lib/tauri/types/port-manager"
 import type {
   SleepConfig,
   SleepState,
@@ -52,8 +48,8 @@ import type {
   WifiInfo,
   MenuBarAutoHideMode,
   LowPowerMode,
-} from "@/lib/tauri/types/system-settings";
-import type { SystemInfoData } from "@/lib/tauri/types/system-info";
+} from "@/lib/tauri/types/system-settings"
+import type { SystemInfoData } from "@/lib/tauri/types/system-info"
 import type {
   Industry,
   Term,
@@ -61,32 +57,31 @@ import type {
   TermInput,
   TermSubcategory,
   TerminologyBundle,
-} from "@/lib/tauri/types/terminology";
-import type {
-  ModelPricing,
-  PricingStandard,
-} from "@/lib/tauri/types/token-calculator";
+} from "@/lib/tauri/types/terminology"
+import type { ModelPricing, PricingStandard } from "@/lib/tauri/types/token-calculator"
 import type {
   AppUpdateDownloadEvent,
   AppUpdateInfo,
   AppUpdateInstallResult,
-} from "@/lib/tauri/types/updater";
-import type { StartupIssue } from "@/lib/tauri/types/bootstrap";
+} from "@/lib/tauri/types/updater"
+import type { StartupIssue } from "@/lib/tauri/types/bootstrap"
 
 type TauriCommandSpec<Name extends string, Args, Result> = {
-  readonly name: Name;
-  readonly __args?: Args;
-  readonly __result?: Result;
-};
+  readonly name: Name
+  readonly __args?: Args
+  readonly __result?: Result
+}
 
 function defineTauriCommand<Args, Result>() {
   return <const Name extends string>(name: Name) =>
-    ({ name }) as TauriCommandSpec<Name, Args, Result>;
+    ({ name }) as TauriCommandSpec<Name, Args, Result>
 }
 
 export const TAURI_COMMAND_CONTRACTS = {
   check_for_app_update: defineTauriCommand<undefined, AppUpdateInfo>()("check_for_app_update"),
-  download_and_install_app_update: defineTauriCommand<undefined, AppUpdateInstallResult>()("download_and_install_app_update"),
+  download_and_install_app_update: defineTauriCommand<undefined, AppUpdateInstallResult>()(
+    "download_and_install_app_update",
+  ),
   cancel_app_update_download: defineTauriCommand<undefined, void>()("cancel_app_update_download"),
   restart_after_update: defineTauriCommand<undefined, void>()("restart_after_update"),
   get_current_app_version: defineTauriCommand<undefined, string>()("get_current_app_version"),
@@ -94,32 +89,59 @@ export const TAURI_COMMAND_CONTRACTS = {
   is_main_ready: defineTauriCommand<undefined, boolean>()("is_main_ready"),
   list_startup_issues: defineTauriCommand<undefined, StartupIssue[]>()("list_startup_issues"),
   scan_installed_apps: defineTauriCommand<undefined, AppScanResult>()("scan_installed_apps"),
-  get_app_icon_base64: defineTauriCommand<{ installPath: string }, AppIconBase64>()("get_app_icon_base64"),
+  get_app_icon_base64: defineTauriCommand<{ installPath: string }, AppIconBase64>()(
+    "get_app_icon_base64",
+  ),
   launch_app: defineTauriCommand<{ appPath: string }, void>()("launch_app"),
   reveal_app_in_finder: defineTauriCommand<{ appPath: string }, void>()("reveal_app_in_finder"),
-  check_managed_app_updates: defineTauriCommand<{ appIds: string[] }, string[]>()("check_managed_app_updates"),
+  check_managed_app_updates: defineTauriCommand<{ appIds: string[] }, string[]>()(
+    "check_managed_app_updates",
+  ),
   upgrade_app: defineTauriCommand<{ appId: string }, OperationResult>()("upgrade_app"),
   uninstall_app: defineTauriCommand<{ appId: string }, OperationResult>()("uninstall_app"),
-  batch_upgrade_apps: defineTauriCommand<{ appIds: string[] }, BatchOperationResult>()("batch_upgrade_apps"),
-  batch_uninstall_apps: defineTauriCommand<{ appIds: string[] }, BatchOperationResult>()("batch_uninstall_apps"),
-  install_app: defineTauriCommand<{ appId: string; installSource: InstallSource }, OperationResult>()("install_app"),
+  batch_upgrade_apps: defineTauriCommand<{ appIds: string[] }, BatchOperationResult>()(
+    "batch_upgrade_apps",
+  ),
+  batch_uninstall_apps: defineTauriCommand<{ appIds: string[] }, BatchOperationResult>()(
+    "batch_uninstall_apps",
+  ),
+  install_app: defineTauriCommand<
+    { appId: string; installSource: InstallSource },
+    OperationResult
+  >()("install_app"),
   cancel_batch_operation: defineTauriCommand<undefined, boolean>()("cancel_batch_operation"),
-  check_all_app_updates: defineTauriCommand<{ forceRefresh?: boolean }, UpdateInfo[]>()("check_all_app_updates"),
+  check_all_app_updates: defineTauriCommand<{ forceRefresh?: boolean }, UpdateInfo[]>()(
+    "check_all_app_updates",
+  ),
   open_in_mac_app_store: defineTauriCommand<{ adamId: string }, void>()("open_in_mac_app_store"),
-  open_in_mac_app_store_updates: defineTauriCommand<undefined, void>()("open_in_mac_app_store_updates"),
+  open_in_mac_app_store_updates: defineTauriCommand<undefined, void>()(
+    "open_in_mac_app_store_updates",
+  ),
   install_app_update: defineTauriCommand<{ update: UpdateInfo }, void>()("install_app_update"),
   cancel_app_update: defineTauriCommand<{ appId: string }, void>()("cancel_app_update"),
-  confirm_developer_id_change: defineTauriCommand<{ appId: string; approved: boolean }, void>()("confirm_developer_id_change"),
+  confirm_developer_id_change: defineTauriCommand<{ appId: string; approved: boolean }, void>()(
+    "confirm_developer_id_change",
+  ),
   scan_dev_projects: defineTauriCommand<{ rootPath: string }, ScanResult>()("scan_dev_projects"),
-  cleanup_projects: defineTauriCommand<{ projects: ProjectInfo[] }, CleanupResult>()("cleanup_projects"),
+  cleanup_projects: defineTauriCommand<{ projects: ProjectInfo[] }, CleanupResult>()(
+    "cleanup_projects",
+  ),
   stop_scan: defineTauriCommand<undefined, void>()("stop_scan"),
-  get_custom_cleanup_commands: defineTauriCommand<undefined, CleanupCommandDef[]>()("get_custom_cleanup_commands"),
-  execute_custom_cleanup: defineTauriCommand<{ commandIds: string[] }, CustomCleanupFinalResult>()("execute_custom_cleanup"),
+  get_custom_cleanup_commands: defineTauriCommand<undefined, CleanupCommandDef[]>()(
+    "get_custom_cleanup_commands",
+  ),
+  execute_custom_cleanup: defineTauriCommand<{ commandIds: string[] }, CustomCleanupFinalResult>()(
+    "execute_custom_cleanup",
+  ),
   stop_custom_cleanup: defineTauriCommand<undefined, void>()("stop_custom_cleanup"),
   detect_env_tools: defineTauriCommand<undefined, void>()("detect_env_tools"),
   get_system_info: defineTauriCommand<undefined, SystemInfoData>()("get_system_info"),
-  query_port_processes: defineTauriCommand<{ ports: number[] }, PortProcessDetail[]>()("query_port_processes"),
-  kill_processes: defineTauriCommand<{ targets: KillTarget[] }, KillPidResult[]>()("kill_processes"),
+  query_port_processes: defineTauriCommand<{ ports: number[] }, PortProcessDetail[]>()(
+    "query_port_processes",
+  ),
+  kill_processes: defineTauriCommand<{ targets: KillTarget[] }, KillPidResult[]>()(
+    "kill_processes",
+  ),
   set_window_theme: defineTauriCommand<
     { theme: "default" | "glass"; appearance: "light" | "dark" },
     void
@@ -131,75 +153,64 @@ export const TAURI_COMMAND_CONTRACTS = {
   >()("create_station"),
   update_station: defineTauriCommand<
     {
-      id: string;
-      remark?: string | null;
-      website?: string | null;
-      loginDetection?: LoginDetectionConfig | null;
-      sessionTtlHours?: number | null;
+      id: string
+      remark?: string | null
+      website?: string | null
+      loginDetection?: LoginDetectionConfig | null
+      sessionTtlHours?: number | null
     },
     RelayStation
   >()("update_station"),
   delete_station: defineTauriCommand<{ id: string }, void>()("delete_station"),
-  list_all_accounts: defineTauriCommand<undefined, StationAccount[]>()(
-    "list_all_accounts"
-  ),
+  list_all_accounts: defineTauriCommand<undefined, StationAccount[]>()("list_all_accounts"),
   create_account: defineTauriCommand<
     {
-      stationId: string;
-      username: string;
-      password?: string | null;
-      notes: string;
-      phone?: string | null;
-      tgAccount?: string | null;
-      linkedAccount?: string | null;
-      inviteLink?: string | null;
-      loginMethods?: LoginMethod[];
+      stationId: string
+      username: string
+      password?: string | null
+      notes: string
+      phone?: string | null
+      tgAccount?: string | null
+      linkedAccount?: string | null
+      inviteLink?: string | null
+      loginMethods?: LoginMethod[]
     },
     StationAccount
   >()("create_account"),
   update_account: defineTauriCommand<
     {
-      id: string;
-      username?: string | null;
-      notes?: string | null;
-      phone?: string | null;
-      tgAccount?: string | null;
-      linkedAccount?: string | null;
-      inviteLink?: string | null;
-      loginMethods?: LoginMethod[];
+      id: string
+      username?: string | null
+      notes?: string | null
+      phone?: string | null
+      tgAccount?: string | null
+      linkedAccount?: string | null
+      inviteLink?: string | null
+      loginMethods?: LoginMethod[]
     },
     StationAccount
   >()("update_account"),
   delete_account: defineTauriCommand<{ id: string }, void>()("delete_account"),
-  reveal_password: defineTauriCommand<{ accountId: string }, string>()(
-    "reveal_password"
-  ),
-  set_password: defineTauriCommand<
-    { accountId: string; password: string },
-    void
-  >()("set_password"),
+  reveal_password: defineTauriCommand<{ accountId: string }, string>()("reveal_password"),
+  set_password: defineTauriCommand<{ accountId: string; password: string }, void>()("set_password"),
   copy_password_to_clipboard: defineTauriCommand<{ accountId: string }, void>()(
-    "copy_password_to_clipboard"
+    "copy_password_to_clipboard",
   ),
   open_login_window: defineTauriCommand<{ accountId: string; returnUrl?: string | null }, void>()(
-    "open_login_window"
+    "open_login_window",
   ),
-  refresh_account: defineTauriCommand<{ accountId: string }, StationAccount>()(
-    "refresh_account"
-  ),
-  refresh_station: defineTauriCommand<
-    { stationId: string },
-    StationAccount[]
-  >()("refresh_station"),
+  refresh_account: defineTauriCommand<{ accountId: string }, StationAccount>()("refresh_account"),
+  refresh_station: defineTauriCommand<{ stationId: string }, StationAccount[]>()("refresh_station"),
   refresh_all: defineTauriCommand<undefined, StationAccount[]>()("refresh_all"),
-  export_relay_data: defineTauriCommand<{ path: string; mode?: RelayExportMode | null }, RelayDataExportResult>()(
-    "export_relay_data"
-  ),
+  export_relay_data: defineTauriCommand<
+    { path: string; mode?: RelayExportMode | null },
+    RelayDataExportResult
+  >()("export_relay_data"),
   import_relay_data: defineTauriCommand<{ path: string }, RelayDataImportResult>()(
-    "import_relay_data"
+    "import_relay_data",
   ),
   reorder_stations: defineTauriCommand<{ orderedIds: string[] }, RelayStation[]>()(
-    "reorder_stations"
+    "reorder_stations",
   ),
   reorder_accounts: defineTauriCommand<
     { stationId: string; orderedIds: string[] },
@@ -208,29 +219,26 @@ export const TAURI_COMMAND_CONTRACTS = {
   detect_station_auth_profile: defineTauriCommand<
     { stationId: string; accountId?: string | null },
     AuthProfile
-  >()(
-    "detect_station_auth_profile"
-  ),
+  >()("detect_station_auth_profile"),
   set_probe_strategy: defineTauriCommand<
     { stationId: string; strategy: ProbeStrategy },
     RelayStation
   >()("set_probe_strategy"),
   reset_probe_strategy: defineTauriCommand<{ stationId: string }, RelayStation>()(
-    "reset_probe_strategy"
+    "reset_probe_strategy",
   ),
   create_ephemeral_account: defineTauriCommand<
     { website: string; username: string; stationId?: string | null },
     StationAccount
   >()("create_ephemeral_account"),
-  set_session_ttl: defineTauriCommand<
-    { stationId: string; ttlHours: number },
-    RelayStation
-  >()("set_session_ttl"),
+  set_session_ttl: defineTauriCommand<{ stationId: string; ttlHours: number }, RelayStation>()(
+    "set_session_ttl",
+  ),
   set_station_network_proxy: defineTauriCommand<
     {
-      stationId: string;
-      config: NetworkProxyConfig | null;
-      password: string | null;
+      stationId: string
+      config: NetworkProxyConfig | null
+      password: string | null
     },
     RelayStation
   >()("set_station_network_proxy"),
@@ -242,16 +250,15 @@ export const TAURI_COMMAND_CONTRACTS = {
     { accountId: string; targetUrl: string; returnUrl: string },
     AuthProxyResult
   >()("proxy_login"),
-  handle_browser_open: defineTauriCommand<
-    { url: string },
-    BrowserOpenResult
-  >()("handle_browser_open"),
+  handle_browser_open: defineTauriCommand<{ url: string }, BrowserOpenResult>()(
+    "handle_browser_open",
+  ),
   proxy_login_new_account: defineTauriCommand<
     {
-      host: string;
-      targetUrl: string;
-      returnUrl: string;
-      username?: string | null;
+      host: string
+      targetUrl: string
+      returnUrl: string
+      username?: string | null
     },
     StationAccount
   >()("proxy_login_new_account"),
@@ -259,14 +266,14 @@ export const TAURI_COMMAND_CONTRACTS = {
     { stationId?: string | null; accountId?: string | null },
     ExternalApp[]
   >()("list_external_apps"),
-  remove_external_app: defineTauriCommand<{ appId: string }, void>()(
-    "remove_external_app"
-  ),
+  remove_external_app: defineTauriCommand<{ appId: string }, void>()("remove_external_app"),
   list_external_app_bindings: defineTauriCommand<
     { accountId?: string | null },
     ExternalAppBinding[]
   >()("list_external_app_bindings"),
-  list_pricing_standards: defineTauriCommand<undefined, PricingStandard[]>()("list_pricing_standards"),
+  list_pricing_standards: defineTauriCommand<undefined, PricingStandard[]>()(
+    "list_pricing_standards",
+  ),
   create_pricing_standard: defineTauriCommand<
     { name: string; models: ModelPricing[] },
     PricingStandard
@@ -276,13 +283,22 @@ export const TAURI_COMMAND_CONTRACTS = {
     PricingStandard
   >()("update_pricing_standard"),
   delete_pricing_standard: defineTauriCommand<{ id: string }, void>()("delete_pricing_standard"),
-  list_terminology_data: defineTauriCommand<undefined, TerminologyBundle>()("list_terminology_data"),
+  list_terminology_data: defineTauriCommand<undefined, TerminologyBundle>()(
+    "list_terminology_data",
+  ),
   create_industry: defineTauriCommand<{ label: string }, Industry>()("create_industry"),
   update_industry: defineTauriCommand<{ id: string; label: string }, Industry>()("update_industry"),
   delete_industry: defineTauriCommand<{ id: string }, void>()("delete_industry"),
-  create_category: defineTauriCommand<{ industryId: string; label: string }, TermCategory>()("create_category"),
-  update_category: defineTauriCommand<{ industryId: string; categoryId: string; label: string }, TermCategory>()("update_category"),
-  delete_category: defineTauriCommand<{ industryId: string; categoryId: string }, void>()("delete_category"),
+  create_category: defineTauriCommand<{ industryId: string; label: string }, TermCategory>()(
+    "create_category",
+  ),
+  update_category: defineTauriCommand<
+    { industryId: string; categoryId: string; label: string },
+    TermCategory
+  >()("update_category"),
+  delete_category: defineTauriCommand<{ industryId: string; categoryId: string }, void>()(
+    "delete_category",
+  ),
   create_subcategory: defineTauriCommand<
     { industryId: string; categoryId: string; label: string },
     TermSubcategory
@@ -300,68 +316,125 @@ export const TAURI_COMMAND_CONTRACTS = {
   delete_term: defineTauriCommand<{ id: string }, void>()("delete_term"),
   set_term_pinned: defineTauriCommand<{ id: string; value: boolean }, void>()("set_term_pinned"),
   // sleep inhibitor
-  toggle_sleep_inhibitor: defineTauriCommand<{ config: SleepConfig; enabled: boolean }, SleepState>()("toggle_sleep_inhibitor"),
-  get_sleep_inhibitor_state: defineTauriCommand<undefined, SleepState>()("get_sleep_inhibitor_state"),
+  toggle_sleep_inhibitor: defineTauriCommand<
+    { config: SleepConfig; enabled: boolean },
+    SleepState
+  >()("toggle_sleep_inhibitor"),
+  get_sleep_inhibitor_state: defineTauriCommand<undefined, SleepState>()(
+    "get_sleep_inhibitor_state",
+  ),
   // system settings - finder
-  set_finder_show_hidden_files: defineTauriCommand<{ show: boolean }, void>()("set_finder_show_hidden_files"),
+  set_finder_show_hidden_files: defineTauriCommand<{ show: boolean }, void>()(
+    "set_finder_show_hidden_files",
+  ),
   set_finder_show_pathbar: defineTauriCommand<{ show: boolean }, void>()("set_finder_show_pathbar"),
-  set_finder_show_statusbar: defineTauriCommand<{ show: boolean }, void>()("set_finder_show_statusbar"),
-  set_finder_show_library_dir: defineTauriCommand<{ show: boolean }, void>()("set_finder_show_library_dir"),
-  set_finder_show_file_extensions: defineTauriCommand<{ show: boolean }, void>()("set_finder_show_file_extensions"),
+  set_finder_show_statusbar: defineTauriCommand<{ show: boolean }, void>()(
+    "set_finder_show_statusbar",
+  ),
+  set_finder_show_library_dir: defineTauriCommand<{ show: boolean }, void>()(
+    "set_finder_show_library_dir",
+  ),
+  set_finder_show_file_extensions: defineTauriCommand<{ show: boolean }, void>()(
+    "set_finder_show_file_extensions",
+  ),
   set_finder_no_ds_store: defineTauriCommand<{ noDs: boolean }, void>()("set_finder_no_ds_store"),
   // system settings - dock
   get_dock_orientation: defineTauriCommand<undefined, string>()("get_dock_orientation"),
   set_dock_orientation: defineTauriCommand<{ pos: string }, void>()("set_dock_orientation"),
-  get_minimize_scale_enabled: defineTauriCommand<undefined, boolean>()("get_minimize_scale_enabled"),
-  set_minimize_scale_enabled: defineTauriCommand<{ enabled: boolean }, void>()("set_minimize_scale_enabled"),
+  get_minimize_scale_enabled: defineTauriCommand<undefined, boolean>()(
+    "get_minimize_scale_enabled",
+  ),
+  set_minimize_scale_enabled: defineTauriCommand<{ enabled: boolean }, void>()(
+    "set_minimize_scale_enabled",
+  ),
   // system settings - keyboard
   get_keyboard_fn_key_state: defineTauriCommand<undefined, boolean>()("get_keyboard_fn_key_state"),
-  set_keyboard_fn_key_state: defineTauriCommand<{ useFn: boolean }, void>()("set_keyboard_fn_key_state"),
+  set_keyboard_fn_key_state: defineTauriCommand<{ useFn: boolean }, void>()(
+    "set_keyboard_fn_key_state",
+  ),
   get_auto_correct_state: defineTauriCommand<undefined, boolean>()("get_auto_correct_state"),
-  set_auto_correct_state: defineTauriCommand<{ enabled: boolean }, void>()("set_auto_correct_state"),
+  set_auto_correct_state: defineTauriCommand<{ enabled: boolean }, void>()(
+    "set_auto_correct_state",
+  ),
   get_smart_quotes_state: defineTauriCommand<undefined, boolean>()("get_smart_quotes_state"),
-  set_smart_quotes_state: defineTauriCommand<{ enabled: boolean }, void>()("set_smart_quotes_state"),
+  set_smart_quotes_state: defineTauriCommand<{ enabled: boolean }, void>()(
+    "set_smart_quotes_state",
+  ),
   get_smart_dashes_state: defineTauriCommand<undefined, boolean>()("get_smart_dashes_state"),
-  set_smart_dashes_state: defineTauriCommand<{ enabled: boolean }, void>()("set_smart_dashes_state"),
+  set_smart_dashes_state: defineTauriCommand<{ enabled: boolean }, void>()(
+    "set_smart_dashes_state",
+  ),
   get_auto_capitalize_state: defineTauriCommand<undefined, boolean>()("get_auto_capitalize_state"),
-  set_auto_capitalize_state: defineTauriCommand<{ enabled: boolean }, void>()("set_auto_capitalize_state"),
+  set_auto_capitalize_state: defineTauriCommand<{ enabled: boolean }, void>()(
+    "set_auto_capitalize_state",
+  ),
   // system settings - display
-  get_display_battery_percent: defineTauriCommand<undefined, boolean>()("get_display_battery_percent"),
-  set_display_battery_percent: defineTauriCommand<{ show: boolean }, void>()("set_display_battery_percent"),
+  get_display_battery_percent: defineTauriCommand<undefined, boolean>()(
+    "get_display_battery_percent",
+  ),
+  set_display_battery_percent: defineTauriCommand<{ show: boolean }, void>()(
+    "set_display_battery_percent",
+  ),
   // system settings - network
-  set_network_firewall_state: defineTauriCommand<{ enable: boolean }, void>()("set_network_firewall_state"),
+  set_network_firewall_state: defineTauriCommand<{ enable: boolean }, void>()(
+    "set_network_firewall_state",
+  ),
   set_network_ssh_state: defineTauriCommand<{ enable: boolean }, void>()("set_network_ssh_state"),
-  set_network_screen_sharing_state: defineTauriCommand<{ enable: boolean }, void>()("set_network_screen_sharing_state"),
-  set_network_airdrop_disabled: defineTauriCommand<{ disable: boolean }, void>()("set_network_airdrop_disabled"),
+  set_network_screen_sharing_state: defineTauriCommand<{ enable: boolean }, void>()(
+    "set_network_screen_sharing_state",
+  ),
+  set_network_airdrop_disabled: defineTauriCommand<{ disable: boolean }, void>()(
+    "set_network_airdrop_disabled",
+  ),
   // system settings - screenshot
   set_screenshot_format: defineTauriCommand<{ format: string }, void>()("set_screenshot_format"),
-  set_screenshot_disable_shadow: defineTauriCommand<{ disable: boolean }, void>()("set_screenshot_disable_shadow"),
-  set_screenshot_show_thumbnail: defineTauriCommand<{ show: boolean }, void>()("set_screenshot_show_thumbnail"),
-  set_screenshot_save_location: defineTauriCommand<{ path: string }, void>()("set_screenshot_save_location"),
+  set_screenshot_disable_shadow: defineTauriCommand<{ disable: boolean }, void>()(
+    "set_screenshot_disable_shadow",
+  ),
+  set_screenshot_show_thumbnail: defineTauriCommand<{ show: boolean }, void>()(
+    "set_screenshot_show_thumbnail",
+  ),
+  set_screenshot_save_location: defineTauriCommand<{ path: string }, void>()(
+    "set_screenshot_save_location",
+  ),
   // system settings - quick actions
   lock_screen: defineTauriCommand<undefined, void>()("lock_screen"),
   empty_trash: defineTauriCommand<undefined, string>()("empty_trash"),
   sleep_now: defineTauriCommand<undefined, void>()("sleep_now"),
   reboot_now: defineTauriCommand<undefined, void>()("reboot_now"),
   shutdown_now: defineTauriCommand<undefined, void>()("shutdown_now"),
-  get_lock_screen_password_enabled: defineTauriCommand<undefined, boolean>()("get_lock_screen_password_enabled"),
-  set_lock_screen_password_enabled: defineTauriCommand<{ enabled: boolean }, void>()("set_lock_screen_password_enabled"),
-  get_lock_screen_password_delay: defineTauriCommand<undefined, number>()("get_lock_screen_password_delay"),
-  set_lock_screen_password_delay: defineTauriCommand<{ seconds: number }, void>()("set_lock_screen_password_delay"),
+  get_lock_screen_password_enabled: defineTauriCommand<undefined, boolean>()(
+    "get_lock_screen_password_enabled",
+  ),
+  set_lock_screen_password_enabled: defineTauriCommand<{ enabled: boolean }, void>()(
+    "set_lock_screen_password_enabled",
+  ),
+  get_lock_screen_password_delay: defineTauriCommand<undefined, number>()(
+    "get_lock_screen_password_delay",
+  ),
+  set_lock_screen_password_delay: defineTauriCommand<{ seconds: number }, void>()(
+    "set_lock_screen_password_delay",
+  ),
   // system settings - default browser
   get_default_browser: defineTauriCommand<undefined, string>()("get_default_browser"),
   set_default_browser: defineTauriCommand<{ bundleId: string }, void>()("set_default_browser"),
   // system settings - semantic pane registry
   open_battery_settings: defineTauriCommand<undefined, void>()("open_battery_settings"),
-  open_control_center_settings: defineTauriCommand<undefined, void>()("open_control_center_settings"),
+  open_control_center_settings: defineTauriCommand<undefined, void>()(
+    "open_control_center_settings",
+  ),
   open_desktop_settings: defineTauriCommand<undefined, void>()("open_desktop_settings"),
   open_keyboard_settings: defineTauriCommand<undefined, void>()("open_keyboard_settings"),
   open_localization_settings: defineTauriCommand<undefined, void>()("open_localization_settings"),
   open_lock_screen_settings: defineTauriCommand<undefined, void>()("open_lock_screen_settings"),
   open_login_items_settings: defineTauriCommand<undefined, void>()("open_login_items_settings"),
   open_network_settings: defineTauriCommand<undefined, void>()("open_network_settings"),
-  open_privacy_security_settings: defineTauriCommand<undefined, void>()("open_privacy_security_settings"),
-  reset_tcc_permission: defineTauriCommand<{ service: string; bundleId: string }, void>()("reset_tcc_permission"),
+  open_privacy_security_settings: defineTauriCommand<undefined, void>()(
+    "open_privacy_security_settings",
+  ),
+  reset_tcc_permission: defineTauriCommand<{ service: string; bundleId: string }, void>()(
+    "reset_tcc_permission",
+  ),
   // system settings - login items
   get_login_items: defineTauriCommand<undefined, LoginItem[]>()("get_login_items"),
   remove_login_item: defineTauriCommand<{ name: string }, void>()("remove_login_item"),
@@ -374,59 +447,78 @@ export const TAURI_COMMAND_CONTRACTS = {
   base64_encode: defineTauriCommand<{ input: string }, string>()("base64_encode"),
   base64_decode: defineTauriCommand<{ input: string }, string>()("base64_decode"),
   generate_uuid: defineTauriCommand<undefined, string>()("generate_uuid"),
-  calculate_hash: defineTauriCommand<{ input: string; algorithm: string }, string>()("calculate_hash"),
-  timestamp_convert: defineTauriCommand<{ ts: number; format: string }, string>()("timestamp_convert"),
+  calculate_hash: defineTauriCommand<{ input: string; algorithm: string }, string>()(
+    "calculate_hash",
+  ),
+  timestamp_convert: defineTauriCommand<{ ts: number; format: string }, string>()(
+    "timestamp_convert",
+  ),
   // system settings - network diagnostics
   ping_host: defineTauriCommand<{ host: string; count: number }, PingResult>()("ping_host"),
   port_check: defineTauriCommand<{ host: string; port: number }, PortCheckResult>()("port_check"),
   get_local_ip: defineTauriCommand<undefined, IpInfo>()("get_local_ip"),
   get_wifi_info: defineTauriCommand<undefined, WifiInfo>()("get_wifi_info"),
   // system settings - system toggles
-  set_autohide_dock_state: defineTauriCommand<{ enabled: boolean }, void>()("set_autohide_dock_state"),
-  set_autohide_menu_bar_state: defineTauriCommand<{ mode: MenuBarAutoHideMode }, void>()("set_autohide_menu_bar_state"),
-  set_dock_show_recents_state: defineTauriCommand<{ enabled: boolean }, void>()("set_dock_show_recents_state"),
-  set_hide_desktop_icons_state: defineTauriCommand<{ hide: boolean }, void>()("set_hide_desktop_icons_state"),
-  set_low_power_mode_state: defineTauriCommand<{ mode: LowPowerMode }, void>()("set_low_power_mode_state"),
-  set_screen_saver_state: defineTauriCommand<{ enabled: boolean }, void>()("set_screen_saver_state"),
+  set_autohide_dock_state: defineTauriCommand<{ enabled: boolean }, void>()(
+    "set_autohide_dock_state",
+  ),
+  set_autohide_menu_bar_state: defineTauriCommand<{ mode: MenuBarAutoHideMode }, void>()(
+    "set_autohide_menu_bar_state",
+  ),
+  set_dock_show_recents_state: defineTauriCommand<{ enabled: boolean }, void>()(
+    "set_dock_show_recents_state",
+  ),
+  set_hide_desktop_icons_state: defineTauriCommand<{ hide: boolean }, void>()(
+    "set_hide_desktop_icons_state",
+  ),
+  set_low_power_mode_state: defineTauriCommand<{ mode: LowPowerMode }, void>()(
+    "set_low_power_mode_state",
+  ),
+  set_screen_saver_state: defineTauriCommand<{ enabled: boolean }, void>()(
+    "set_screen_saver_state",
+  ),
   // file operations
   write_text_file: defineTauriCommand<{ path: string; content: string }, void>()("write_text_file"),
   // tray
-  set_tray_labels: defineTauriCommand<{ show: string; sleep: string; autostart: string; quit: string }, void>()("set_tray_labels"),
+  set_tray_labels: defineTauriCommand<
+    { show: string; sleep: string; autostart: string; quit: string },
+    void
+  >()("set_tray_labels"),
   // app preferences
   get_close_behavior: defineTauriCommand<undefined, string>()("get_close_behavior"),
   set_close_behavior: defineTauriCommand<{ behavior: string }, void>()("set_close_behavior"),
   quit_app: defineTauriCommand<undefined, void>()("quit_app"),
   hide_main_window: defineTauriCommand<undefined, void>()("hide_main_window"),
-} as const;
+} as const
 
-export type TauriCommandName = keyof typeof TAURI_COMMAND_CONTRACTS;
+export type TauriCommandName = keyof typeof TAURI_COMMAND_CONTRACTS
 
-type CommandArgs<Spec> =
-  Spec extends TauriCommandSpec<string, infer Args, unknown> ? Args : never;
+type CommandArgs<Spec> = Spec extends TauriCommandSpec<string, infer Args, unknown> ? Args : never
 
 type CommandResult<Spec> =
-  Spec extends TauriCommandSpec<string, unknown, infer Result> ? Result : never;
+  Spec extends TauriCommandSpec<string, unknown, infer Result> ? Result : never
 
 export type TauriCommandContracts = {
   [Name in TauriCommandName]: {
-    args: CommandArgs<(typeof TAURI_COMMAND_CONTRACTS)[Name]>;
-    result: CommandResult<(typeof TAURI_COMMAND_CONTRACTS)[Name]>;
-  };
-};
+    args: CommandArgs<(typeof TAURI_COMMAND_CONTRACTS)[Name]>
+    result: CommandResult<(typeof TAURI_COMMAND_CONTRACTS)[Name]>
+  }
+}
 
 type ContractNameMismatches = {
   [Name in TauriCommandName]: (typeof TAURI_COMMAND_CONTRACTS)[Name]["name"] extends Name
     ? Name extends (typeof TAURI_COMMAND_CONTRACTS)[Name]["name"]
       ? never
       : Name
-    : Name;
-}[TauriCommandName];
+    : Name
+}[TauriCommandName]
 
-const _tauriCommandContractNamesMatchKeys: ContractNameMismatches extends never ? true : never = true;
-void _tauriCommandContractNamesMatchKeys;
+const _tauriCommandContractNamesMatchKeys: ContractNameMismatches extends never ? true : never =
+  true
+void _tauriCommandContractNamesMatchKeys
 
 function commandName<Name extends TauriCommandName>(name: Name): Name {
-  return TAURI_COMMAND_CONTRACTS[name].name as Name;
+  return TAURI_COMMAND_CONTRACTS[name].name as Name
 }
 
 export const TAURI_COMMANDS = {
@@ -625,25 +717,29 @@ export const TAURI_COMMANDS = {
     quitApp: commandName("quit_app"),
     hideMainWindow: commandName("hide_main_window"),
   },
-} as const;
+} as const
 
 type FlattenCommandGroups<T> = {
-  [Group in keyof T]: T[Group] extends Record<string, infer Name> ? Name : never;
-}[keyof T];
+  [Group in keyof T]: T[Group] extends Record<string, infer Name> ? Name : never
+}[keyof T]
 
-type TauriGroupedCommandName = FlattenCommandGroups<typeof TAURI_COMMANDS>;
-type MissingGroupedCommands = Exclude<TauriCommandName, TauriGroupedCommandName>;
-type ExtraGroupedCommands = Exclude<TauriGroupedCommandName, TauriCommandName>;
+type TauriGroupedCommandName = FlattenCommandGroups<typeof TAURI_COMMANDS>
+type MissingGroupedCommands = Exclude<TauriCommandName, TauriGroupedCommandName>
+type ExtraGroupedCommands = Exclude<TauriGroupedCommandName, TauriCommandName>
 
-const _tauriCommandGroupsCoverContracts:
-  [MissingGroupedCommands, ExtraGroupedCommands] extends [never, never] ? true : never = true;
-void _tauriCommandGroupsCoverContracts;
+const _tauriCommandGroupsCoverContracts: [MissingGroupedCommands, ExtraGroupedCommands] extends [
+  never,
+  never,
+]
+  ? true
+  : never = true
+void _tauriCommandGroupsCoverContracts
 
 type TauriCommandArgKeys = {
   [Name in TauriCommandName]: TauriCommandContracts[Name]["args"] extends undefined
     ? readonly []
-    : readonly Extract<keyof TauriCommandContracts[Name]["args"], string>[];
-};
+    : readonly Extract<keyof TauriCommandContracts[Name]["args"], string>[]
+}
 
 export const TAURI_COMMAND_ARG_KEYS = {
   check_for_app_update: [],
@@ -687,8 +783,27 @@ export const TAURI_COMMAND_ARG_KEYS = {
   update_station: ["id", "remark", "website", "loginDetection", "sessionTtlHours"],
   delete_station: ["id"],
   list_all_accounts: [],
-  create_account: ["stationId", "username", "password", "notes", "phone", "tgAccount", "linkedAccount", "inviteLink", "loginMethods"],
-  update_account: ["id", "username", "notes", "phone", "tgAccount", "linkedAccount", "inviteLink", "loginMethods"],
+  create_account: [
+    "stationId",
+    "username",
+    "password",
+    "notes",
+    "phone",
+    "tgAccount",
+    "linkedAccount",
+    "inviteLink",
+    "loginMethods",
+  ],
+  update_account: [
+    "id",
+    "username",
+    "notes",
+    "phone",
+    "tgAccount",
+    "linkedAccount",
+    "inviteLink",
+    "loginMethods",
+  ],
   delete_account: ["id"],
   reveal_password: ["accountId"],
   set_password: ["accountId", "password"],
@@ -830,11 +945,11 @@ export const TAURI_COMMAND_ARG_KEYS = {
   set_close_behavior: ["behavior"],
   quit_app: [],
   hide_main_window: [],
-} as const satisfies TauriCommandArgKeys;
+} as const satisfies TauriCommandArgKeys
 
 export const WINDOW_BOOTSTRAP_EVENTS = {
   mainReady: "app-bootstrap-main-ready",
-} as const;
+} as const
 
 export const TAURI_EVENTS = {
   updater: {
@@ -857,15 +972,15 @@ export const TAURI_EVENTS = {
   appPreferences: {
     showCloseBehaviorDialog: "show-close-behavior-dialog",
   },
-} as const;
+} as const
 
 export interface TauriEventContracts {
-  "app-updater-download": AppUpdateDownloadEvent;
-  "env-scan-done": EnvScanDonePayload;
-  "menu-event": string;
-  "app-update-install:progress": InstallProgressEvent;
-  "app-update-install:finished": InstallFinishedEvent;
-  "custom-cleanup:progress": CustomCleanupProgress;
-  "custom-cleanup:completed": CustomCleanupFinalResult;
-  "show-close-behavior-dialog": void;
+  "app-updater-download": AppUpdateDownloadEvent
+  "env-scan-done": EnvScanDonePayload
+  "menu-event": string
+  "app-update-install:progress": InstallProgressEvent
+  "app-update-install:finished": InstallFinishedEvent
+  "custom-cleanup:progress": CustomCleanupProgress
+  "custom-cleanup:completed": CustomCleanupFinalResult
+  "show-close-behavior-dialog": void
 }

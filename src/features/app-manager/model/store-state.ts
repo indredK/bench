@@ -1,8 +1,8 @@
 /**
  * Feature Model / 功能模型: keep pure model logic; 只放纯模型逻辑.
  */
-import type { UpdateSource } from "@/lib/tauri/types/app-manager";
-import type { AppManagerState } from "@/features/app-manager/model/store-types";
+import type { UpdateSource } from "@/lib/tauri/types/app-manager"
+import type { AppManagerState } from "@/features/app-manager/model/store-types"
 
 type AppManagerDataState = Omit<
   AppManagerState,
@@ -48,7 +48,7 @@ type AppManagerDataState = Omit<
   | "setInstallFinished"
   | "clearInstallFinished"
   | "reset"
->;
+>
 
 function defaultExpandedGroups(): Record<UpdateSource, boolean> {
   return {
@@ -58,7 +58,7 @@ function defaultExpandedGroups(): Record<UpdateSource, boolean> {
     electron: true,
     squirrel: true,
     gitHub: true,
-  };
+  }
 }
 
 export function createInitialAppManagerState(): AppManagerDataState {
@@ -109,5 +109,5 @@ export function createInitialAppManagerState(): AppManagerDataState {
     updateOperations: {},
     installProgress: {},
     installFinished: {},
-  };
+  }
 }

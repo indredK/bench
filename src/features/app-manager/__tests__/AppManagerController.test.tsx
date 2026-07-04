@@ -1,12 +1,12 @@
 /**
  * Test / 测试: verify behavior only; 只验证行为与契约.
  */
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { act, render } from "@testing-library/react";
-import { useAppManagerController } from "@/features/app-manager/hooks/useAppManagerController";
-import { useAppManagerStore } from "@/features/app-manager/store";
-import { requestFeatureRefresh } from "@/features/refresh";
-import { appManagerUseCases } from "@/features/app-manager/services/app-manager.use-cases";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
+import { act, render } from "@testing-library/react"
+import { useAppManagerController } from "@/features/app-manager/hooks/useAppManagerController"
+import { useAppManagerStore } from "@/features/app-manager/store"
+import { requestFeatureRefresh } from "@/features/refresh"
+import { appManagerUseCases } from "@/features/app-manager/services/app-manager.use-cases"
 
 vi.mock("react-i18next", () => ({
   initReactI18next: {
@@ -16,23 +16,23 @@ vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string) => key,
   }),
-}));
+}))
 
 vi.mock("@/shared/context-menu/useContextMenuRegistration", () => ({
   useContextMenuRegistration: () => {},
-}));
+}))
 
 vi.mock("@/features/app-manager/hooks/useInstallEvents", () => ({
   useInstallEvents: () => {},
-}));
+}))
 
 vi.mock("@/platform/capabilities", () => ({
   canUseDesktopFeatures: () => true,
-}));
+}))
 
 vi.mock("@/platform/clipboard", () => ({
   writeClipboardText: vi.fn(async () => {}),
-}));
+}))
 
 vi.mock("@/lib/tauri/commands/app-manager", () => ({
   batchUninstallApps: vi.fn(async () => ({ total: 0, succeeded: 0, failed: 0, results: [] })),
@@ -84,30 +84,30 @@ vi.mock("@/lib/tauri/commands/app-manager", () => ({
     errorCode: null,
     permissionIssue: false,
   })),
-}));
+}))
 
 function HookHarness({ active }: { active: boolean }) {
-  useAppManagerController(active);
-  return null;
+  useAppManagerController(active)
+  return null
 }
 
 describe("useAppManagerController refresh routing", () => {
   beforeEach(() => {
-    useAppManagerStore.getState().reset();
+    useAppManagerStore.getState().reset()
     useAppManagerStore.setState({
       scanned: true,
       updatesScanned: true,
       lastUpdateCheck: Date.now(),
-    });
+    })
 
     vi.spyOn(appManagerUseCases, "loadPreferences").mockReturnValue({
       activeFilter: "all",
       sorting: [{ id: "name", desc: false }],
-    });
-    vi.spyOn(appManagerUseCases, "loadViewMode").mockReturnValue("table");
-    vi.spyOn(appManagerUseCases, "savePreferences").mockImplementation(() => {});
-    vi.spyOn(appManagerUseCases, "saveViewMode").mockImplementation(() => {});
-    vi.spyOn(appManagerUseCases, "isAvailable").mockReturnValue(true);
+    })
+    vi.spyOn(appManagerUseCases, "loadViewMode").mockReturnValue("table")
+    vi.spyOn(appManagerUseCases, "savePreferences").mockImplementation(() => {})
+    vi.spyOn(appManagerUseCases, "saveViewMode").mockImplementation(() => {})
+    vi.spyOn(appManagerUseCases, "isAvailable").mockReturnValue(true)
     vi.spyOn(appManagerUseCases, "scanInstalledApps").mockResolvedValue({
       apps: [],
       totalCount: 0,
@@ -124,33 +124,33 @@ describe("useAppManagerController refresh routing", () => {
         snapAvailable: false,
         aptAvailable: false,
       },
-    });
-    vi.spyOn(appManagerUseCases, "findManagedAppUpdates").mockResolvedValue(new Set());
+    })
+    vi.spyOn(appManagerUseCases, "findManagedAppUpdates").mockResolvedValue(new Set())
     vi.spyOn(appManagerUseCases, "checkAllAppUpdates").mockResolvedValue({
       updates: [],
       error: null,
-    });
-  });
+    })
+  })
 
   afterEach(() => {
-    vi.restoreAllMocks();
-  });
+    vi.restoreAllMocks()
+  })
 
   it("routes shell refresh to update checks when the software update tab is active", async () => {
-    const scanInstalledApps = vi.spyOn(appManagerUseCases, "scanInstalledApps");
-    const checkAllAppUpdates = vi.spyOn(appManagerUseCases, "checkAllAppUpdates");
+    const scanInstalledApps = vi.spyOn(appManagerUseCases, "scanInstalledApps")
+    const checkAllAppUpdates = vi.spyOn(appManagerUseCases, "checkAllAppUpdates")
 
-    render(<HookHarness active={true} />);
+    render(<HookHarness active={true} />)
 
     act(() => {
-      useAppManagerStore.getState().setActiveTab("softwareUpdate");
-    });
+      useAppManagerStore.getState().setActiveTab("softwareUpdate")
+    })
 
     await act(async () => {
-      await requestFeatureRefresh("app-manager");
-    });
+      await requestFeatureRefresh("app-manager")
+    })
 
-    expect(checkAllAppUpdates).toHaveBeenCalledWith(true);
-    expect(scanInstalledApps).not.toHaveBeenCalled();
-  });
-});
+    expect(checkAllAppUpdates).toHaveBeenCalledWith(true)
+    expect(scanInstalledApps).not.toHaveBeenCalled()
+  })
+})

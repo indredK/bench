@@ -14,41 +14,44 @@
  *   (Button 类控件通常代表"动作"而非"状态",动作期间禁用所有同类按钮更安全)
  * - applyingKeys: Set<string>,用于 Switch 的 loading 精细化判断
  */
-import { useCallback } from "react";
-import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
-import { getErrorMessage } from "@/lib/tauri/errors";
-import { useSystemSettingsStore } from "../store";
+import { useCallback } from "react"
+import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
+import { getErrorMessage } from "@/lib/tauri/errors"
+import { useSystemSettingsStore } from "../store"
 
 export function useSettingAction() {
-  const { t } = useTranslation();
-  const applyingKeys = useSystemSettingsStore((s) => s.applyingKeys);
-  const setApplyingKey = useSystemSettingsStore((s) => s.setApplyingKey);
+  const { t } = useTranslation()
+  const applyingKeys = useSystemSettingsStore((s) => s.applyingKeys)
+  const setApplyingKey = useSystemSettingsStore((s) => s.setApplyingKey)
 
-  const run = useCallback(async <T,>(
-    key: string,
-    action: () => Promise<T>,
-    opts?: { success?: string; error?: string }
-  ): Promise<T | undefined> => {
-    // 同一 key 不可并发:防止用户对同一开关快速重复点击造成状态错乱
-    if (applyingKeys.has(key)) return undefined;
-    setApplyingKey(key, true);
-    // 加载态由 Switch 内部 spinner 表达,无需 toast.loading 文字提示
-    try {
-      const result = await action();
-      // 操作成功通知 (操作反馈是必要的,与加载态分离)
-      toast.success(opts?.success ?? t("systemSettings.toasts.success"));
-      return result;
-    } catch (err) {
-      toast.error(
-        opts?.error ?? t("systemSettings.toasts.error", { error: getErrorMessage(err) })
-      );
-      return undefined;
-    } finally {
-      setApplyingKey(key, false);
-    }
-  }, [applyingKeys, setApplyingKey, t]);
+  const run = useCallback(
+    async <T>(
+      key: string,
+      action: () => Promise<T>,
+      opts?: { success?: string; error?: string },
+    ): Promise<T | undefined> => {
+      // 同一 key 不可并发:防止用户对同一开关快速重复点击造成状态错乱
+      if (applyingKeys.has(key)) return undefined
+      setApplyingKey(key, true)
+      // 加载态由 Switch 内部 spinner 表达,无需 toast.loading 文字提示
+      try {
+        const result = await action()
+        // 操作成功通知 (操作反馈是必要的,与加载态分离)
+        toast.success(opts?.success ?? t("systemSettings.toasts.success"))
+        return result
+      } catch (err) {
+        toast.error(
+          opts?.error ?? t("systemSettings.toasts.error", { error: getErrorMessage(err) }),
+        )
+        return undefined
+      } finally {
+        setApplyingKey(key, false)
+      }
+    },
+    [applyingKeys, setApplyingKey, t],
+  )
 
   // applying 是 applyingKeys 非空的派生值,保留以兼容旧 Button disabled 用法
-  return { run, applyingKeys, applying: applyingKeys.size > 0 };
+  return { run, applyingKeys, applying: applyingKeys.size > 0 }
 }

@@ -1,9 +1,9 @@
 /**
  * Updater Errors / 更新错误: classify updater failures into user-facing states.
  */
-import { getErrorMessage } from "@/lib/tauri/errors";
+import { getErrorMessage } from "@/lib/tauri/errors"
 
-export type UpdaterOperation = "check" | "install";
+export type UpdaterOperation = "check" | "install"
 
 export type UpdaterErrorKind =
   | "desktopOnly"
@@ -16,15 +16,15 @@ export type UpdaterErrorKind =
   | "installBlocked"
   | "updateStateChanged"
   | "unknownCheckFailure"
-  | "unknownInstallFailure";
+  | "unknownInstallFailure"
 
-export type UpdaterRetryAction = "check" | "install" | null;
+export type UpdaterRetryAction = "check" | "install" | null
 
 export interface UpdaterErrorInfo {
-  kind: UpdaterErrorKind;
-  operation: UpdaterOperation;
-  message: string;
-  retryAction: UpdaterRetryAction;
+  kind: UpdaterErrorKind
+  operation: UpdaterOperation
+  message: string
+  retryAction: UpdaterRetryAction
 }
 
 const RELEASE_INFO_PATTERNS = [
@@ -36,13 +36,9 @@ const RELEASE_INFO_PATTERNS = [
   "invalid release",
   "was not found in the response `platforms` object",
   "missing required updater platforms",
-];
+]
 
-const RATE_LIMIT_PATTERNS = [
-  "rate limit",
-  "too many requests",
-  "429",
-];
+const RATE_LIMIT_PATTERNS = ["rate limit", "too many requests", "429"]
 
 const NETWORK_PATTERNS = [
   "error sending request for url",
@@ -62,7 +58,7 @@ const NETWORK_PATTERNS = [
   "certificate",
   "host unreachable",
   "not connected",
-];
+]
 
 const SIGNATURE_PATTERNS = [
   "signature verification failed",
@@ -71,7 +67,7 @@ const SIGNATURE_PATTERNS = [
   "unexpected public key id",
   "unexpected key id",
   "minisign",
-];
+]
 
 const SERVICE_PATTERNS = [
   "service unavailable",
@@ -82,12 +78,9 @@ const SERVICE_PATTERNS = [
   "502",
   "500",
   "failed to build updater",
-];
+]
 
-const UPDATE_STATE_CHANGED_PATTERNS = [
-  "no update is currently available",
-  "no update available",
-];
+const UPDATE_STATE_CHANGED_PATTERNS = ["no update is currently available", "no update available"]
 
 const INSTALL_BLOCKED_PATTERNS = [
   "permission denied",
@@ -98,14 +91,14 @@ const INSTALL_BLOCKED_PATTERNS = [
   "file is in use",
   "device or resource busy",
   "operation not permitted",
-];
+]
 
 function normalizeErrorMessage(error: unknown, fallback: string) {
-  return getErrorMessage(error, fallback);
+  return getErrorMessage(error, fallback)
 }
 
 function includesAny(message: string, patterns: string[]) {
-  return patterns.some((pattern) => message.includes(pattern));
+  return patterns.some((pattern) => message.includes(pattern))
 }
 
 export function createDesktopOnlyUpdaterError(message: string): UpdaterErrorInfo {
@@ -114,7 +107,7 @@ export function createDesktopOnlyUpdaterError(message: string): UpdaterErrorInfo
     operation: "check",
     message,
     retryAction: null,
-  };
+  }
 }
 
 export function classifyUpdaterError(
@@ -122,8 +115,8 @@ export function classifyUpdaterError(
   operation: UpdaterOperation,
   fallback: string,
 ): UpdaterErrorInfo {
-  const message = normalizeErrorMessage(error, fallback);
-  const normalizedMessage = message.toLowerCase();
+  const message = normalizeErrorMessage(error, fallback)
+  const normalizedMessage = message.toLowerCase()
 
   if (includesAny(normalizedMessage, RATE_LIMIT_PATTERNS)) {
     return {
@@ -131,7 +124,7 @@ export function classifyUpdaterError(
       operation,
       message,
       retryAction: "check",
-    };
+    }
   }
 
   if (includesAny(normalizedMessage, RELEASE_INFO_PATTERNS)) {
@@ -140,7 +133,7 @@ export function classifyUpdaterError(
       operation,
       message,
       retryAction: "check",
-    };
+    }
   }
 
   if (operation === "install" && includesAny(normalizedMessage, SIGNATURE_PATTERNS)) {
@@ -149,7 +142,7 @@ export function classifyUpdaterError(
       operation,
       message,
       retryAction: "check",
-    };
+    }
   }
 
   if (operation === "install" && includesAny(normalizedMessage, UPDATE_STATE_CHANGED_PATTERNS)) {
@@ -158,7 +151,7 @@ export function classifyUpdaterError(
       operation,
       message,
       retryAction: "check",
-    };
+    }
   }
 
   if (includesAny(normalizedMessage, SERVICE_PATTERNS)) {
@@ -167,7 +160,7 @@ export function classifyUpdaterError(
       operation,
       message,
       retryAction: "check",
-    };
+    }
   }
 
   if (includesAny(normalizedMessage, NETWORK_PATTERNS)) {
@@ -176,7 +169,7 @@ export function classifyUpdaterError(
       operation,
       message,
       retryAction: operation === "install" ? "install" : "check",
-    };
+    }
   }
 
   if (operation === "install" && includesAny(normalizedMessage, INSTALL_BLOCKED_PATTERNS)) {
@@ -185,7 +178,7 @@ export function classifyUpdaterError(
       operation,
       message,
       retryAction: "install",
-    };
+    }
   }
 
   return {
@@ -193,5 +186,5 @@ export function classifyUpdaterError(
     operation,
     message,
     retryAction: operation === "install" ? "install" : "check",
-  };
+  }
 }

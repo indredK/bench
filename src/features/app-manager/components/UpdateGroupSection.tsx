@@ -1,34 +1,34 @@
 /**
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  */
-import type { TFunction } from "i18next";
-import { AnimatePresence, motion } from "motion/react";
-import { ChevronDown } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import type { AppInfo, UpdateInfo, UpdateSource } from "@/lib/tauri/types/app-manager";
-import type { OperationStatus } from "@/features/app-manager/model/operations";
-import { UpdateRow } from "@/features/app-manager/components/UpdateRow";
+import type { TFunction } from "i18next"
+import { AnimatePresence, motion } from "motion/react"
+import { ChevronDown } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
+import type { AppInfo, UpdateInfo, UpdateSource } from "@/lib/tauri/types/app-manager"
+import type { OperationStatus } from "@/features/app-manager/model/operations"
+import { UpdateRow } from "@/features/app-manager/components/UpdateRow"
 import {
   getUpdateGroupActionKey,
   getUpdateSourceIcon,
   getUpdateSourceLabel,
-} from "@/features/app-manager/model/update-source-info";
+} from "@/features/app-manager/model/update-source-info"
 
 interface UpdateGroupSectionProps {
-  t: TFunction;
-  source: UpdateSource;
-  updates: UpdateInfo[];
-  expanded: boolean;
-  appLookup: Map<string, AppInfo>;
-  selectedIds: Set<string>;
-  activeUpdate: UpdateInfo | null;
-  updateOperations: Record<string, { status: OperationStatus; message: string }>;
-  onToggleExpanded: () => void;
-  onToggleSelect: (appId: string) => void;
-  onRowClick: (update: UpdateInfo) => void;
-  onRowAction: (update: UpdateInfo) => void;
-  onSourceAction: (source: UpdateSource, updates: UpdateInfo[]) => void;
+  t: TFunction
+  source: UpdateSource
+  updates: UpdateInfo[]
+  expanded: boolean
+  appLookup: Map<string, AppInfo>
+  selectedIds: Set<string>
+  activeUpdate: UpdateInfo | null
+  updateOperations: Record<string, { status: OperationStatus; message: string }>
+  onToggleExpanded: () => void
+  onToggleSelect: (appId: string) => void
+  onRowClick: (update: UpdateInfo) => void
+  onRowAction: (update: UpdateInfo) => void
+  onSourceAction: (source: UpdateSource, updates: UpdateInfo[]) => void
 }
 
 export function UpdateGroupSection({
@@ -46,16 +46,16 @@ export function UpdateGroupSection({
   onRowAction,
   onSourceAction,
 }: UpdateGroupSectionProps) {
-  const groupBusy = updates.some((update) => updateOperations[update.appId]?.status === "running");
+  const groupBusy = updates.some((update) => updateOperations[update.appId]?.status === "running")
 
   return (
-    <section className="relative rounded-lg border bg-card">
-      <div className="sticky top-0 z-10 flex items-center rounded-t-lg border-b bg-card/95 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-card/90 relative after:pointer-events-none after:absolute after:inset-x-0 after:top-0 after:h-px after:bg-border/80 after:content-['']">
+    <section className="bg-card relative rounded-lg border">
+      <div className="bg-card/95 supports-[backdrop-filter]:bg-card/90 after:bg-border/80 relative sticky top-0 z-10 flex items-center rounded-t-lg border-b px-3 py-2 backdrop-blur after:pointer-events-none after:absolute after:inset-x-0 after:top-0 after:h-px after:content-['']">
         <button
           type="button"
           className={cn(
-            "flex items-center gap-2 flex-1 text-left",
-            "rounded outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+            "flex flex-1 items-center gap-2 text-left",
+            "focus-visible:ring-ring/50 rounded outline-none focus-visible:ring-2",
           )}
           onClick={onToggleExpanded}
         >
@@ -68,7 +68,7 @@ export function UpdateGroupSection({
           </motion.span>
           <span className="text-base">{getUpdateSourceIcon(source)}</span>
           <span className="font-semibold">{getUpdateSourceLabel(t, source)}</span>
-          <span className="text-xs text-muted-foreground tabular-nums">
+          <span className="text-muted-foreground text-xs tabular-nums">
             {t("appManager.softwareUpdate.groupCount", { count: updates.length })}
           </span>
         </button>
@@ -79,8 +79,8 @@ export function UpdateGroupSection({
           className="ml-2 shrink-0"
           disabled={groupBusy || updates.length === 0}
           onClick={(event) => {
-            event.stopPropagation();
-            onSourceAction(source, updates);
+            event.stopPropagation()
+            onSourceAction(source, updates)
           }}
         >
           {t(getUpdateGroupActionKey(source))}
@@ -120,5 +120,5 @@ export function UpdateGroupSection({
         )}
       </AnimatePresence>
     </section>
-  );
+  )
 }

@@ -1,32 +1,34 @@
 /**
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  */
-import type { TFunction } from "i18next";
-import { ArrowUpCircle, CheckCircle2, Download, ExternalLink, Folder, Package, Play, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { DetailSection, MetadataRow } from "@/components/layout/DetailPanel";
-import { AppIcon } from "@/features/app-manager/components/AppIcon";
-import { getInstallSourceLabel } from "@/features/app-manager/components/InstallSourceBadges";
-import { appManagerPlatformConfig } from "@/platform/config";
-import type { AppInfo, InstallListAppInfo } from "@/lib/tauri/types/app-manager";
+import type { TFunction } from "i18next"
+import {
+  ArrowUpCircle,
+  CheckCircle2,
+  Download,
+  ExternalLink,
+  Folder,
+  Package,
+  Play,
+  Trash2,
+} from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { DetailSection, MetadataRow } from "@/components/layout/DetailPanel"
+import { AppIcon } from "@/features/app-manager/components/AppIcon"
+import { getInstallSourceLabel } from "@/features/app-manager/components/InstallSourceBadges"
+import { appManagerPlatformConfig } from "@/platform/config"
+import type { AppInfo, InstallListAppInfo } from "@/lib/tauri/types/app-manager"
 
 interface AppDetailProps {
-  app: AppInfo;
-  t: TFunction;
-  onLaunch: (app: AppInfo) => void;
-  onReveal: (app: AppInfo) => void;
-  onUpgrade: () => void;
-  onUninstall: () => void;
+  app: AppInfo
+  t: TFunction
+  onLaunch: (app: AppInfo) => void
+  onReveal: (app: AppInfo) => void
+  onUpgrade: () => void
+  onUninstall: () => void
 }
 
-export function AppDetail({
-  app,
-  t,
-  onLaunch,
-  onReveal,
-  onUpgrade,
-  onUninstall,
-}: AppDetailProps) {
+export function AppDetail({ app, t, onLaunch, onReveal, onUpgrade, onUninstall }: AppDetailProps) {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
@@ -37,8 +39,8 @@ export function AppDetail({
           className="shrink-0 rounded-md"
         />
         <div>
-          <h3 className="font-semibold text-sm">{app.name}</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">{app.bundleId}</p>
+          <h3 className="text-sm font-semibold">{app.name}</h3>
+          <p className="text-muted-foreground mt-0.5 text-xs">{app.bundleId}</p>
         </div>
       </div>
       <DetailSection label={t("appManager.info")}>
@@ -63,7 +65,12 @@ export function AppDetail({
             <Play size={13} className="mr-1" />
             {t("appManager.actionLaunch")}
           </Button>
-          <Button size="sm" variant="outline" disabled={!app.allowedActions.reveal} onClick={() => onReveal(app)}>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!app.allowedActions.reveal}
+            onClick={() => onReveal(app)}
+          >
             <Folder size={13} className="mr-1" />
             {t(appManagerPlatformConfig.revealActionLabel)}
           </Button>
@@ -82,26 +89,21 @@ export function AppDetail({
         </div>
       </DetailSection>
     </div>
-  );
+  )
 }
 
 interface InstallDetailProps {
-  app: InstallListAppInfo;
-  t: TFunction;
-  onInstall: (app: InstallListAppInfo) => void;
-  onOpenWebsite: (url: string | undefined) => void;
+  app: InstallListAppInfo
+  t: TFunction
+  onInstall: (app: InstallListAppInfo) => void
+  onOpenWebsite: (url: string | undefined) => void
 }
 
-export function InstallDetail({
-  app,
-  t,
-  onInstall,
-  onOpenWebsite,
-}: InstallDetailProps) {
+export function InstallDetail({ app, t, onInstall, onOpenWebsite }: InstallDetailProps) {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <div className="size-10 shrink-0 rounded-md bg-muted flex items-center justify-center">
+        <div className="bg-muted flex size-10 shrink-0 items-center justify-center rounded-md">
           {app.installed ? (
             <CheckCircle2 size={20} className="text-green-600" />
           ) : (
@@ -109,8 +111,8 @@ export function InstallDetail({
           )}
         </div>
         <div>
-          <h3 className="font-semibold text-sm">{app.name}</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">{app.bundleId}</p>
+          <h3 className="text-sm font-semibold">{app.name}</h3>
+          <p className="text-muted-foreground mt-0.5 text-xs">{app.bundleId}</p>
         </div>
       </div>
       <DetailSection label={t("appManager.info")}>
@@ -135,7 +137,11 @@ export function InstallDetail({
             {app.installed ? t("appManager.installListInstalled") : t("appManager.install")}
           </Button>
           {app.installSource.url && (
-            <Button size="sm" variant="outline" onClick={() => onOpenWebsite(app.installSource.url)}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onOpenWebsite(app.installSource.url)}
+            >
               <ExternalLink size={13} className="mr-1" />
               {t("appManager.openWebsite")}
             </Button>
@@ -143,5 +149,5 @@ export function InstallDetail({
         </div>
       </DetailSection>
     </div>
-  );
+  )
 }

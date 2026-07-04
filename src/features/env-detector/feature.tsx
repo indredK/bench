@@ -1,9 +1,9 @@
-import { lazy, Suspense } from "react";
-import { Box } from "lucide-react";
-import { FeatureFallback } from "@/features/FeatureFallback";
-import type { AppFeature } from "@/features/types";
+import { lazy, Suspense } from "react"
+import { Box } from "lucide-react"
+import { FeatureFallback } from "@/features/FeatureFallback"
+import type { AppFeature } from "@/features/types"
 
-const EnvDetector = lazy(() => import("@/features/env-detector/page"));
+const EnvDetector = lazy(() => import("@/features/env-detector/page"))
 
 export const envDetectorFeature: AppFeature = {
   id: "env-detector",
@@ -16,4 +16,4 @@ export const envDetectorFeature: AppFeature = {
     </Suspense>
   ),
   desktopOnly: true,
-};
+}

@@ -6,4 +6,4 @@ export type {
   TermSubcategory,
   TermWebsite,
   TerminologyBundle,
-} from "@/lib/tauri/types/terminology";
+} from "@/lib/tauri/types/terminology"

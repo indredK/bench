@@ -1,44 +1,41 @@
 /**
  * Page View / 页面视图: compose screen only; 只组合页面.
  */
-import { useCallback, useState } from "react";
-import { Zap } from "lucide-react";
-import { RuntimeFeatureGate } from "@/components/common/RuntimeFeatureGate";
-import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirmDialog";
-import { PortManagerPageContent } from "@/features/port-manager/components/PortManagerPageContent";
-import { usePortManagerController } from "@/features/port-manager/hooks/usePortManagerController";
-import { usePortOccupationAlerts } from "@/features/port-manager/hooks/usePortOccupationAlerts";
+import { useCallback, useState } from "react"
+import { Zap } from "lucide-react"
+import { RuntimeFeatureGate } from "@/components/common/RuntimeFeatureGate"
+import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirmDialog"
+import { PortManagerPageContent } from "@/features/port-manager/components/PortManagerPageContent"
+import { usePortManagerController } from "@/features/port-manager/hooks/usePortManagerController"
+import { usePortOccupationAlerts } from "@/features/port-manager/hooks/usePortOccupationAlerts"
 
-type KillConfirmState =
-  | { kind: "one"; port: number; pids: number[] }
-  | { kind: "all" }
-  | null;
+type KillConfirmState = { kind: "one"; port: number; pids: number[] } | { kind: "all" } | null
 
 function PortManager({ feature }: { feature?: { desktopOnly?: boolean } }) {
-  const controller = usePortManagerController();
-  const [killConfirm, setKillConfirm] = useState<KillConfirmState>(null);
+  const controller = usePortManagerController()
+  const [killConfirm, setKillConfirm] = useState<KillConfirmState>(null)
 
-  usePortOccupationAlerts();
+  usePortOccupationAlerts()
 
-  const closeKillConfirm = useCallback(() => setKillConfirm(null), []);
+  const closeKillConfirm = useCallback(() => setKillConfirm(null), [])
 
   const handleKillPortRequest = useCallback((port: number, pids: number[]) => {
-    setKillConfirm({ kind: "one", port, pids });
-  }, []);
+    setKillConfirm({ kind: "one", port, pids })
+  }, [])
 
   const handleKillAllRequest = useCallback(() => {
-    setKillConfirm({ kind: "all" });
-  }, []);
+    setKillConfirm({ kind: "all" })
+  }, [])
 
   const handleKillConfirm = useCallback(async () => {
-    if (!killConfirm) return;
+    if (!killConfirm) return
     if (killConfirm.kind === "one") {
-      await controller.killPort(killConfirm.port, killConfirm.pids);
+      await controller.killPort(killConfirm.port, killConfirm.pids)
     } else {
-      await controller.killAll();
+      await controller.killAll()
     }
-    setKillConfirm(null);
-  }, [controller, killConfirm]);
+    setKillConfirm(null)
+  }, [controller, killConfirm])
 
   const killDialogProps =
     killConfirm?.kind === "one"
@@ -58,7 +55,7 @@ function PortManager({ feature }: { feature?: { desktopOnly?: boolean } }) {
             }),
             consequence: controller.t("portManager.confirmKillAllConsequence"),
           }
-        : null;
+        : null
 
   return (
     <RuntimeFeatureGate
@@ -112,7 +109,7 @@ function PortManager({ feature }: { feature?: { desktopOnly?: boolean } }) {
         <DestructiveConfirmDialog
           open={killConfirm !== null}
           onOpenChange={(open) => {
-            if (!open) closeKillConfirm();
+            if (!open) closeKillConfirm()
           }}
           title={killDialogProps.title}
           description={killDialogProps.description}
@@ -124,7 +121,7 @@ function PortManager({ feature }: { feature?: { desktopOnly?: boolean } }) {
         />
       )}
     </RuntimeFeatureGate>
-  );
+  )
 }
 
-export default PortManager;
+export default PortManager

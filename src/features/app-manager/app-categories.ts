@@ -1,7 +1,7 @@
 /**
  * Feature / 功能层: stay within this feature; 只处理当前功能.
  */
-import type { AppInfo } from "@/lib/tauri/types";
+import type { AppInfo } from "@/lib/tauri/types"
 
 export type AppCategoryKey =
   | "ai"
@@ -12,11 +12,11 @@ export type AppCategoryKey =
   | "utility"
   | "development"
   | "system"
-  | "other";
+  | "other"
 
 export interface AppCategory {
-  key: AppCategoryKey;
-  labelKey: string;
+  key: AppCategoryKey
+  labelKey: string
 }
 
 export const APP_CATEGORIES: AppCategory[] = [
@@ -29,14 +29,14 @@ export const APP_CATEGORIES: AppCategory[] = [
   { key: "development", labelKey: "appManager.category.development" },
   { key: "system", labelKey: "appManager.category.system" },
   { key: "other", labelKey: "appManager.category.other" },
-];
+]
 
 export function classifyApp(app: AppInfo): AppCategoryKey {
-  const bid = app.bundleId.toLowerCase();
-  const name = app.name.toLowerCase();
+  const bid = app.bundleId.toLowerCase()
+  const name = app.name.toLowerCase()
 
   if (app.isSystemApp) {
-    return "system";
+    return "system"
   }
 
   if (
@@ -80,7 +80,7 @@ export function classifyApp(app: AppInfo): AppCategoryKey {
     name.includes("comfy") ||
     name.includes("interview")
   ) {
-    return "ai";
+    return "ai"
   }
 
   if (
@@ -96,7 +96,7 @@ export function classifyApp(app: AppInfo): AppCategoryKey {
     name.includes("browser") ||
     name.includes("夸克")
   ) {
-    return "browser";
+    return "browser"
   }
 
   if (
@@ -126,7 +126,7 @@ export function classifyApp(app: AppInfo): AppCategoryKey {
     name.includes("腾讯会议") ||
     name.includes("larksuite")
   ) {
-    return "communication";
+    return "communication"
   }
 
   if (
@@ -170,7 +170,7 @@ export function classifyApp(app: AppInfo): AppCategoryKey {
     name.includes("godot") ||
     name.includes("hbuilder")
   ) {
-    return "ide";
+    return "ide"
   }
 
   if (
@@ -180,7 +180,7 @@ export function classifyApp(app: AppInfo): AppCategoryKey {
     name.includes("alfred") ||
     name.includes("raycast")
   ) {
-    return "launcher";
+    return "launcher"
   }
 
   if (
@@ -204,7 +204,7 @@ export function classifyApp(app: AppInfo): AppCategoryKey {
     name.includes("apifox") ||
     name.includes("orbstack")
   ) {
-    return "development";
+    return "development"
   }
 
   if (
@@ -271,8 +271,8 @@ export function classifyApp(app: AppInfo): AppCategoryKey {
     name.includes("stats") ||
     name.includes("pot")
   ) {
-    return "utility";
+    return "utility"
   }
 
-  return "other";
+  return "other"
 }

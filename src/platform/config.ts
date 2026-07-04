@@ -2,30 +2,30 @@
  * Platform Adapter / 平台适配: wrap runtime APIs; 统一封装运行时能力.
  */
 export interface PlatformConfig {
-  killCommand: string;
-  killHintTemplate: string;
-  freePortCommandTemplate: string;
-  portsCommand: string;
+  killCommand: string
+  killHintTemplate: string
+  freePortCommandTemplate: string
+  portsCommand: string
 }
 
 export interface AppManagerPlatformConfig {
-  revealActionLabel: string;
-  fileManagerName: string;
-  packageManagers: string[];
-  primaryPackageManager: string | null;
+  revealActionLabel: string
+  fileManagerName: string
+  packageManagers: string[]
+  primaryPackageManager: string | null
 }
 
-export type PlatformName = "macos" | "linux" | "windows";
+export type PlatformName = "macos" | "linux" | "windows"
 
 function detectPlatform(): PlatformName {
-  const ua = navigator.userAgent.toLowerCase();
-  if (ua.includes("mac os") || ua.includes("macintosh")) return "macos";
-  if (ua.includes("windows") || ua.includes("win64")) return "windows";
-  if (ua.includes("linux")) return "linux";
-  const p = navigator.platform.toLowerCase();
-  if (p.includes("mac")) return "macos";
-  if (p.includes("win")) return "windows";
-  return "linux";
+  const ua = navigator.userAgent.toLowerCase()
+  if (ua.includes("mac os") || ua.includes("macintosh")) return "macos"
+  if (ua.includes("windows") || ua.includes("win64")) return "windows"
+  if (ua.includes("linux")) return "linux"
+  const p = navigator.platform.toLowerCase()
+  if (p.includes("mac")) return "macos"
+  if (p.includes("win")) return "windows"
+  return "linux"
 }
 
 const CONFIGS: Record<string, PlatformConfig> = {
@@ -47,7 +47,7 @@ const CONFIGS: Record<string, PlatformConfig> = {
     freePortCommandTemplate: "netstat -ano | findstr :{{port}} → taskkill /F",
     portsCommand: "netstat -ano | findstr :{{port}}",
   },
-};
+}
 
 const APP_MANAGER_CONFIGS: Record<PlatformName, AppManagerPlatformConfig> = {
   macos: {
@@ -68,8 +68,8 @@ const APP_MANAGER_CONFIGS: Record<PlatformName, AppManagerPlatformConfig> = {
     packageManagers: ["winget"],
     primaryPackageManager: "winget",
   },
-};
+}
 
-export const platformName: PlatformName = detectPlatform();
-export const platformConfig: PlatformConfig = CONFIGS[platformName];
-export const appManagerPlatformConfig: AppManagerPlatformConfig = APP_MANAGER_CONFIGS[platformName];
+export const platformName: PlatformName = detectPlatform()
+export const platformConfig: PlatformConfig = CONFIGS[platformName]
+export const appManagerPlatformConfig: AppManagerPlatformConfig = APP_MANAGER_CONFIGS[platformName]

@@ -1,11 +1,11 @@
 /**
  * Feature Store / 功能状态: store state and simple actions; 只存状态与简单动作.
  */
-import { create } from "zustand";
-import type { PortProcessDetail } from "@/lib/tauri/types/port-manager";
-import type { LocalizedError } from "@/lib/errors";
+import { create } from "zustand"
+import type { PortProcessDetail } from "@/lib/tauri/types/port-manager"
+import type { LocalizedError } from "@/lib/errors"
 
-export const MAX_TRACKED_PORTS = 20;
+export const MAX_TRACKED_PORTS = 20
 
 export const PORT_SCAN_STATUS_META = {
   waiting: { labelKey: "portManager.statusWaiting" },
@@ -14,46 +14,46 @@ export const PORT_SCAN_STATUS_META = {
   empty: { labelKey: "portManager.statusEmpty" },
   error: { labelKey: "portManager.statusError" },
   ended: { labelKey: "portManager.statusEnded" },
-} as const;
+} as const
 
-export type PortScanStatus = keyof typeof PORT_SCAN_STATUS_META;
+export type PortScanStatus = keyof typeof PORT_SCAN_STATUS_META
 
 /** v1.18 — 扫描模式:local = 本地进程检测,remote = 远程端口检测。 */
-export type PortScanMode = "local" | "remote";
+export type PortScanMode = "local" | "remote"
 
 export interface PortState {
-  port: number;
-  status: PortScanStatus;
+  port: number
+  status: PortScanStatus
 }
 
 interface PortManagerState {
-  inputValue: string;
-  showInvalidToast: boolean;
-  inputError: string;
-  portStates: PortState[];
-  portDetails: PortProcessDetail[];
-  killing: boolean;
-  portKillMessages: Record<number, string[]>;
-  error: LocalizedError | null;
-  showEmptyPorts: boolean;
-  highlightPort: number | null;
-  scanSession: number;
-  scanMode: PortScanMode;
-  remoteHost: string;
-  alertsEnabled: boolean;
+  inputValue: string
+  showInvalidToast: boolean
+  inputError: string
+  portStates: PortState[]
+  portDetails: PortProcessDetail[]
+  killing: boolean
+  portKillMessages: Record<number, string[]>
+  error: LocalizedError | null
+  showEmptyPorts: boolean
+  highlightPort: number | null
+  scanSession: number
+  scanMode: PortScanMode
+  remoteHost: string
+  alertsEnabled: boolean
 
-  setInputValue: (value: string) => void;
-  setShowInvalidToast: (show: boolean) => void;
-  setInputError: (error: string) => void;
-  setKilling: (killing: boolean) => void;
-  setError: (error: LocalizedError | null) => void;
-  setShowEmptyPorts: (show: boolean) => void;
-  setHighlightPort: (port: number | null) => void;
-  setScanMode: (mode: PortScanMode) => void;
-  setRemoteHost: (host: string) => void;
-  setAlertsEnabled: (enabled: boolean) => void;
-  removePort: (port: number) => void;
-  clearAll: () => void;
+  setInputValue: (value: string) => void
+  setShowInvalidToast: (show: boolean) => void
+  setInputError: (error: string) => void
+  setKilling: (killing: boolean) => void
+  setError: (error: LocalizedError | null) => void
+  setShowEmptyPorts: (show: boolean) => void
+  setHighlightPort: (port: number | null) => void
+  setScanMode: (mode: PortScanMode) => void
+  setRemoteHost: (host: string) => void
+  setAlertsEnabled: (enabled: boolean) => void
+  removePort: (port: number) => void
+  clearAll: () => void
 }
 
 export const usePortManagerStore = create<PortManagerState>((set) => ({
@@ -100,4 +100,4 @@ export const usePortManagerStore = create<PortManagerState>((set) => ({
       portKillMessages: {},
       error: null,
     })),
-}));
+}))

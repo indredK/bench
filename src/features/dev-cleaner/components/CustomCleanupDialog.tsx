@@ -1,9 +1,9 @@
 /**
  * Custom Cleanup Dialog / 自定义清理弹窗: command selection, execution, and results.
  */
-import { useCallback, useRef } from "react";
-import type { TFunction } from "i18next";
-import { useTranslation } from "react-i18next";
+import { useCallback, useRef } from "react"
+import type { TFunction } from "i18next"
+import { useTranslation } from "react-i18next"
 import {
   AlertTriangle,
   CheckCircle2,
@@ -16,109 +16,113 @@ import {
   Square,
   Trash2,
   XCircle,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { useDevCleanerStore } from "@/features/dev-cleaner/store";
-import { cn, formatSize } from "@/lib/utils";
+} from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { useDevCleanerStore } from "@/features/dev-cleaner/store"
+import { cn, formatSize } from "@/lib/utils"
 import {
   getCustomCleanupCommands,
   executeCustomCleanup,
   stopCustomCleanup,
-} from "@/lib/tauri/commands/dev-cleaner";
-import { TAURI_EVENTS } from "@/lib/tauri/contracts";
-import { listenToPlatformEvent } from "@/platform/events";
-import { canUseDesktopFeatures } from "@/platform/capabilities";
-import type { CleanupCommandDef, CustomCleanupProgress, CustomCleanupFinalResult } from "@/lib/tauri/types/dev-cleaner";
+} from "@/lib/tauri/commands/dev-cleaner"
+import { TAURI_EVENTS } from "@/lib/tauri/contracts"
+import { listenToPlatformEvent } from "@/platform/events"
+import { canUseDesktopFeatures } from "@/platform/capabilities"
+import type {
+  CleanupCommandDef,
+  CustomCleanupProgress,
+  CustomCleanupFinalResult,
+} from "@/lib/tauri/types/dev-cleaner"
 
 export function CustomCleanupDialog() {
-  const { t } = useTranslation();
-  const canUsePlatform = canUseDesktopFeatures();
+  const { t } = useTranslation()
+  const canUsePlatform = canUseDesktopFeatures()
 
-  const phase = useDevCleanerStore((s) => s.customCleanupPhase);
-  const commands = useDevCleanerStore((s) => s.customCleanupCommands);
-  const selectedIds = useDevCleanerStore((s) => s.selectedCommandIds);
-  const progresses = useDevCleanerStore((s) => s.customCleanupProgresses);
-  const result = useDevCleanerStore((s) => s.customCleanupResult);
-  const show = useDevCleanerStore((s) => s.showCustomCleanup);
+  const phase = useDevCleanerStore((s) => s.customCleanupPhase)
+  const commands = useDevCleanerStore((s) => s.customCleanupCommands)
+  const selectedIds = useDevCleanerStore((s) => s.selectedCommandIds)
+  const progresses = useDevCleanerStore((s) => s.customCleanupProgresses)
+  const result = useDevCleanerStore((s) => s.customCleanupResult)
+  const show = useDevCleanerStore((s) => s.showCustomCleanup)
 
-  const setShow = useDevCleanerStore((s) => s.setShowCustomCleanup);
-  const setPhase = useDevCleanerStore((s) => s.setCustomCleanupPhase);
-  const setCommands = useDevCleanerStore((s) => s.setCustomCleanupCommands);
-  const toggleCommand = useDevCleanerStore((s) => s.toggleCustomCleanupCommand);
-  const setProgresses = useDevCleanerStore((s) => s.setCustomCleanupProgresses);
-  const setResult = useDevCleanerStore((s) => s.setCustomCleanupResult);
-  const resetCustom = useDevCleanerStore((s) => s.resetCustomCleanup);
+  const setShow = useDevCleanerStore((s) => s.setShowCustomCleanup)
+  const setPhase = useDevCleanerStore((s) => s.setCustomCleanupPhase)
+  const setCommands = useDevCleanerStore((s) => s.setCustomCleanupCommands)
+  const toggleCommand = useDevCleanerStore((s) => s.toggleCustomCleanupCommand)
+  const setProgresses = useDevCleanerStore((s) => s.setCustomCleanupProgresses)
+  const setResult = useDevCleanerStore((s) => s.setCustomCleanupResult)
+  const resetCustom = useDevCleanerStore((s) => s.resetCustomCleanup)
 
-  const unlistenRef = useRef<(() => void) | null>(null);
+  const unlistenRef = useRef<(() => void) | null>(null)
 
   const cleanupListeners = useCallback(() => {
     if (unlistenRef.current) {
-      unlistenRef.current();
-      unlistenRef.current = null;
+      unlistenRef.current()
+      unlistenRef.current = null
     }
-  }, []);
+  }, [])
 
   const open = useCallback(async () => {
-    setShow(true);
-    setPhase("selecting");
+    setShow(true)
+    setPhase("selecting")
     try {
-      const cmds = await getCustomCleanupCommands();
-      setCommands(cmds);
+      const cmds = await getCustomCleanupCommands()
+      setCommands(cmds)
     } catch {
-      setCommands([]);
+      setCommands([])
     }
-  }, [setShow, setPhase, setCommands]);
+  }, [setShow, setPhase, setCommands])
 
   const handleClose = useCallback(() => {
-    cleanupListeners();
-    setShow(false);
-    resetCustom();
-  }, [cleanupListeners, setShow, resetCustom]);
+    cleanupListeners()
+    setShow(false)
+    resetCustom()
+  }, [cleanupListeners, setShow, resetCustom])
 
   const handleStartCleanup = useCallback(async () => {
-    const ids = Array.from(selectedIds);
-    if (ids.length === 0) return;
+    const ids = Array.from(selectedIds)
+    if (ids.length === 0) return
 
-    setPhase("running");
-    setProgresses([]);
-    setResult(null);
+    setPhase("running")
+    setProgresses([])
+    setResult(null)
 
-    cleanupListeners();
+    cleanupListeners()
 
     try {
       const unlistenProgress = await listenToPlatformEvent<CustomCleanupProgress>(
         TAURI_EVENTS.customCleanup.progress,
         (event) => {
-          const p = event.payload;
-          const state = useDevCleanerStore.getState();
-          const prev = state.customCleanupProgresses;
-          const idx = prev.findIndex((x) => x.command_id === p.command_id);
+          const p = event.payload
+          const state = useDevCleanerStore.getState()
+          const prev = state.customCleanupProgresses
+          const idx = prev.findIndex((x) => x.command_id === p.command_id)
           if (idx >= 0) {
-            state.updateCustomCleanupProgress(p);
+            state.updateCustomCleanupProgress(p)
           } else {
-            state.setCustomCleanupProgresses([...prev, p]);
+            state.setCustomCleanupProgresses([...prev, p])
           }
-        }
-      );
+        },
+      )
       const unlistenCompleted = await listenToPlatformEvent<CustomCleanupFinalResult>(
         TAURI_EVENTS.customCleanup.completed,
         (event) => {
-          setResult(event.payload);
-          setPhase("completed");
-        }
-      );
+          setResult(event.payload)
+          setPhase("completed")
+        },
+      )
       unlistenRef.current = () => {
-        unlistenProgress();
-        unlistenCompleted();
-      };
+        unlistenProgress()
+        unlistenCompleted()
+      }
 
-      const finalResult = await executeCustomCleanup(ids);
-      setResult(finalResult);
-      setPhase("completed");
+      const finalResult = await executeCustomCleanup(ids)
+      setResult(finalResult)
+      setPhase("completed")
     } catch {
-      setPhase("completed");
+      setPhase("completed")
       setResult({
         success: false,
         total_freed_bytes: 0,
@@ -126,19 +130,19 @@ export function CustomCleanupDialog() {
         commands_failed: 0,
         details: [],
         aborted: false,
-      });
+      })
     }
-  }, [selectedIds, setPhase, setProgresses, setResult, cleanupListeners]);
+  }, [selectedIds, setPhase, setProgresses, setResult, cleanupListeners])
 
   const handleStop = useCallback(async () => {
     try {
-      await stopCustomCleanup();
+      await stopCustomCleanup()
     } catch {
       // best-effort
     }
-  }, []);
+  }, [])
 
-  const selectedCount = selectedIds.size;
+  const selectedCount = selectedIds.size
 
   if (!show) {
     return (
@@ -152,13 +156,13 @@ export function CustomCleanupDialog() {
         <Shield size={16} className="mr-1" />
         <span className="hidden sm:inline">{t("devCleaner.customCleanup.button")}</span>
       </Button>
-    );
+    )
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <Card className="w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden">
-        <CardHeader className="shrink-0 flex flex-row items-center justify-between border-b pb-3">
+      <Card className="flex max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden">
+        <CardHeader className="flex shrink-0 flex-row items-center justify-between border-b pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Shield size={20} />
             {t("devCleaner.customCleanup.title")}
@@ -170,7 +174,7 @@ export function CustomCleanupDialog() {
           )}
         </CardHeader>
 
-        <CardContent className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
+        <CardContent className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
           {(phase === "selecting" || phase === "confirming") && (
             <SelectingPhase
               t={t}
@@ -182,26 +186,18 @@ export function CustomCleanupDialog() {
           )}
 
           {(phase === "running" || phase === "paused" || phase === "completed") && (
-            <RunningPhase
-              t={t}
-              phase={phase}
-              progresses={progresses}
-              result={result}
-            />
+            <RunningPhase t={t} phase={phase} progresses={progresses} result={result} />
           )}
         </CardContent>
 
         {/* Footer */}
-        <div className="shrink-0 border-t p-4 flex items-center justify-between gap-2">
+        <div className="flex shrink-0 items-center justify-between gap-2 border-t p-4">
           {phase === "selecting" && (
             <>
-              <div className="text-sm text-muted-foreground">
+              <div className="text-muted-foreground text-sm">
                 {t("devCleaner.customCleanup.selected", { count: selectedCount })}
               </div>
-              <Button
-                onClick={() => setPhase("confirming")}
-                disabled={selectedCount === 0}
-              >
+              <Button onClick={() => setPhase("confirming")} disabled={selectedCount === 0}>
                 {t("devCleaner.customCleanup.next")}
                 <ChevronRight size={16} className="ml-1" />
               </Button>
@@ -228,7 +224,7 @@ export function CustomCleanupDialog() {
 
           {phase === "running" && (
             <>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="text-muted-foreground flex items-center gap-2 text-sm">
                 <Loader2 size={16} className="animate-spin" />
                 {t("devCleaner.customCleanup.running")}
               </div>
@@ -247,7 +243,7 @@ export function CustomCleanupDialog() {
 
           {phase === "paused" && (
             <>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="text-muted-foreground flex items-center gap-2 text-sm">
                 <Pause size={16} />
                 {t("devCleaner.customCleanup.pausedMessage")}
               </div>
@@ -266,7 +262,7 @@ export function CustomCleanupDialog() {
 
           {phase === "completed" && (
             <>
-              <div className="text-sm text-muted-foreground">
+              <div className="text-muted-foreground text-sm">
                 {result?.aborted
                   ? t("devCleaner.customCleanup.aborted")
                   : t("devCleaner.customCleanup.completed")}
@@ -279,7 +275,7 @@ export function CustomCleanupDialog() {
         </div>
       </Card>
     </div>
-  );
+  )
 }
 
 /** Phase: selecting / confirming — shows command list with checkboxes */
@@ -290,29 +286,29 @@ function SelectingPhase({
   selectedIds,
   toggleCommand,
 }: {
-  t: TFunction;
-  phase: string;
-  commands: CleanupCommandDef[];
-  selectedIds: Set<string>;
-  toggleCommand: (id: string) => void;
+  t: TFunction
+  phase: string
+  commands: CleanupCommandDef[]
+  selectedIds: Set<string>
+  toggleCommand: (id: string) => void
 }) {
-  const isConfirming = phase === "confirming";
+  const isConfirming = phase === "confirming"
   const displayCommands = isConfirming
     ? commands.filter((cmd) => selectedIds.has(cmd.id))
-    : commands;
+    : commands
 
   if (commands.length === 0) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 size={24} className="animate-spin text-muted-foreground" />
+        <Loader2 size={24} className="text-muted-foreground animate-spin" />
       </div>
-    );
+    )
   }
 
   return (
     <div className="space-y-2">
       {/* Header */}
-      <div className="grid grid-cols-[auto_1fr_auto] gap-3 text-xs font-medium text-muted-foreground px-2 pb-1 border-b">
+      <div className="text-muted-foreground grid grid-cols-[auto_1fr_auto] gap-3 border-b px-2 pb-1 text-xs font-medium">
         <span className="w-5" />
         <div className="grid grid-cols-2 gap-2">
           <span>{t("devCleaner.customCleanup.colName")}</span>
@@ -322,17 +318,17 @@ function SelectingPhase({
       </div>
 
       {displayCommands.map((cmd) => {
-        const isSelected = selectedIds.has(cmd.id);
-        const isHighRisk = cmd.risk_level === "high";
+        const isSelected = selectedIds.has(cmd.id)
+        const isHighRisk = cmd.risk_level === "high"
         return (
           <label
             key={cmd.id}
             className={cn(
-              "grid grid-cols-[auto_1fr_auto] gap-3 items-start p-3 rounded-lg border transition-colors",
+              "grid grid-cols-[auto_1fr_auto] items-start gap-3 rounded-lg border p-3 transition-colors",
               isConfirming
                 ? "border-primary/30 bg-primary/5 cursor-default"
                 : cn(
-                    "cursor-pointer hover:bg-accent/50",
+                    "hover:bg-accent/50 cursor-pointer",
                     isSelected ? "border-primary bg-primary/5" : "border-border",
                   ),
             )}
@@ -342,17 +338,17 @@ function SelectingPhase({
               checked={isSelected}
               disabled={isConfirming}
               onChange={() => toggleCommand(cmd.id)}
-              className="mt-1 h-4 w-4 rounded border-border accent-primary cursor-pointer disabled:cursor-default disabled:opacity-60"
+              className="border-border accent-primary mt-1 h-4 w-4 cursor-pointer rounded disabled:cursor-default disabled:opacity-60"
             />
-            <div className="grid grid-cols-2 gap-2 min-w-0">
-              <div className="space-y-1 min-w-0">
-                <div className="font-medium text-sm">{cmd.name}</div>
-                <div className="text-xs text-muted-foreground font-mono break-all line-clamp-1">
+            <div className="grid min-w-0 grid-cols-2 gap-2">
+              <div className="min-w-0 space-y-1">
+                <div className="text-sm font-medium">{cmd.name}</div>
+                <div className="text-muted-foreground line-clamp-1 font-mono text-xs break-all">
                   {cmd.command}
                 </div>
               </div>
-              <div className="space-y-1 min-w-0">
-                <p className="text-xs text-muted-foreground">{cmd.description}</p>
+              <div className="min-w-0 space-y-1">
+                <p className="text-muted-foreground text-xs">{cmd.description}</p>
                 <Badge variant="secondary" className="text-[10px]">
                   {cmd.environment}
                 </Badge>
@@ -360,14 +356,14 @@ function SelectingPhase({
             </div>
             <div className="flex items-start gap-1 text-xs whitespace-nowrap">
               {isHighRisk ? (
-                <ShieldAlert size={14} className="text-red-500 mt-0.5 shrink-0" />
+                <ShieldAlert size={14} className="mt-0.5 shrink-0 text-red-500" />
               ) : (
                 <Shield size={14} className="text-muted-foreground mt-0.5 shrink-0" />
               )}
               <span
                 className={
                   isHighRisk
-                    ? "text-red-600 dark:text-red-400 font-medium"
+                    ? "font-medium text-red-600 dark:text-red-400"
                     : "text-muted-foreground"
                 }
               >
@@ -375,10 +371,10 @@ function SelectingPhase({
               </span>
             </div>
           </label>
-        );
+        )
       })}
     </div>
-  );
+  )
 }
 
 /** Phase: running / paused / completed — shows progress per command */
@@ -388,12 +384,19 @@ function RunningPhase({
   progresses,
   result,
 }: {
-  t: TFunction;
-  phase: string;
-  progresses: { command_id: string; command_name: string; status: string; output: string; freed_bytes: number; error: string | null }[];
-  result: CustomCleanupFinalResult | null;
+  t: TFunction
+  phase: string
+  progresses: {
+    command_id: string
+    command_name: string
+    status: string
+    output: string
+    freed_bytes: number
+    error: string | null
+  }[]
+  result: CustomCleanupFinalResult | null
 }) {
-  const detailList = result?.details ?? progresses;
+  const detailList = result?.details ?? progresses
 
   return (
     <div className="space-y-3">
@@ -403,16 +406,16 @@ function RunningPhase({
           className={cn(
             "rounded-lg border p-4",
             result.success
-              ? "bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800"
+              ? "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/30"
               : result.aborted
-                ? "bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200 dark:border-yellow-800"
-                : "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800",
+                ? "border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950/30"
+                : "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30",
           )}
         >
           <div className="grid grid-cols-3 gap-4 text-center">
             <div>
               <div className="text-2xl font-bold">{formatSize(result.total_freed_bytes)}</div>
-              <div className="text-xs text-muted-foreground">
+              <div className="text-muted-foreground text-xs">
                 {t("devCleaner.customCleanup.freedSpace")}
               </div>
             </div>
@@ -420,7 +423,7 @@ function RunningPhase({
               <div className="text-2xl font-bold text-green-600 dark:text-green-400">
                 {result.commands_executed}
               </div>
-              <div className="text-xs text-muted-foreground">
+              <div className="text-muted-foreground text-xs">
                 {t("devCleaner.customCleanup.successCount")}
               </div>
             </div>
@@ -428,7 +431,7 @@ function RunningPhase({
               <div className="text-2xl font-bold text-red-600 dark:text-red-400">
                 {result.commands_failed}
               </div>
-              <div className="text-xs text-muted-foreground">
+              <div className="text-muted-foreground text-xs">
                 {t("devCleaner.customCleanup.failedCount")}
               </div>
             </div>
@@ -438,8 +441,8 @@ function RunningPhase({
 
       {/* Wait message */}
       {detailList.length === 0 && phase !== "completed" && (
-        <div className="text-sm text-muted-foreground text-center py-8">
-          <Loader2 size={20} className="animate-spin mx-auto mb-2" />
+        <div className="text-muted-foreground py-8 text-center text-sm">
+          <Loader2 size={20} className="mx-auto mb-2 animate-spin" />
           {t("devCleaner.customCleanup.waiting")}
         </div>
       )}
@@ -449,9 +452,9 @@ function RunningPhase({
         <div
           key={item.command_id}
           className={cn(
-            "rounded-lg border p-3 space-y-2",
+            "space-y-2 rounded-lg border p-3",
             item.status === "running"
-              ? "border-blue-300 dark:border-blue-700 bg-blue-50/50 dark:bg-blue-950/20"
+              ? "border-blue-300 bg-blue-50/50 dark:border-blue-700 dark:bg-blue-950/20"
               : item.status === "completed"
                 ? "border-green-200 dark:border-green-800"
                 : item.status === "failed"
@@ -463,11 +466,9 @@ function RunningPhase({
             {item.status === "running" && (
               <Loader2 size={16} className="animate-spin text-blue-500" />
             )}
-            {item.status === "completed" && (
-              <CheckCircle2 size={16} className="text-green-500" />
-            )}
+            {item.status === "completed" && <CheckCircle2 size={16} className="text-green-500" />}
             {item.status === "failed" && <XCircle size={16} className="text-red-500" />}
-            <span className="font-medium text-sm">{item.command_name}</span>
+            <span className="text-sm font-medium">{item.command_name}</span>
             {item.freed_bytes > 0 && (
               <Badge variant="secondary" className="text-xs">
                 {formatSize(item.freed_bytes)}
@@ -476,16 +477,14 @@ function RunningPhase({
           </div>
 
           {item.output && (
-            <pre className="text-xs text-muted-foreground bg-muted/50 rounded p-2 max-h-32 overflow-y-auto whitespace-pre-wrap font-mono">
+            <pre className="text-muted-foreground bg-muted/50 max-h-32 overflow-y-auto rounded p-2 font-mono text-xs whitespace-pre-wrap">
               {item.output}
             </pre>
           )}
 
-          {item.error && (
-            <div className="text-xs text-red-600 dark:text-red-400">{item.error}</div>
-          )}
+          {item.error && <div className="text-xs text-red-600 dark:text-red-400">{item.error}</div>}
         </div>
       ))}
     </div>
-  );
+  )
 }

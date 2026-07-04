@@ -1,69 +1,392 @@
 /**
  * Static Data / 静态数据: export catalogs only; 只导出静态目录数据.
  */
-import type { CompareDataModule, SpecRow, FilterGroup } from "@/shared/compare/types";
-import { brandName } from "@/lib/i18nBrand";
-import { t } from "i18next";
+import type { CompareDataModule, SpecRow, FilterGroup } from "@/shared/compare/types"
+import { brandName } from "@/lib/i18nBrand"
+import { t } from "i18next"
 
 export interface MemoryModel {
-  id: string;
-  brand: string;
-  series: string;
-  model: string;
-  type: string;
-  launchYear: number;
-  capacity: number;
-  speed: number;
-  latency: string;
-  voltage: number;
-  modules: number;
-  formFactor: string;
-  rank: string;
-  xmpProfile: string;
-  ecc: string;
-  hasHeatsink: string;
-  hasRgb: string;
-  price?: number;
+  id: string
+  brand: string
+  series: string
+  model: string
+  type: string
+  launchYear: number
+  capacity: number
+  speed: number
+  latency: string
+  voltage: number
+  modules: number
+  formFactor: string
+  rank: string
+  xmpProfile: string
+  ecc: string
+  hasHeatsink: string
+  hasRgb: string
+  price?: number
 }
 
 export const memoryData: MemoryModel[] = [
   // ══════════════════════════════════════════════════
   // Corsair
   // ══════════════════════════════════════════════════
-  { id: "vengeance32",   brand: "Corsair", series: "Vengeance",   model: "Vengeance DDR5 32GB",     type: "DDR5", launchYear: 2023, capacity: 32, speed: 6000, latency: "CL30-36-36-76", voltage: 1.4, modules: 2, formFactor: "DIMM", rank: "Dual Rank", xmpProfile: "Intel XMP 3.0", ecc: "No", hasHeatsink: "Yes", hasRgb: "No", price: 95 },
-  { id: "vengeance64",   brand: "Corsair", series: "Vengeance",   model: "Vengeance DDR5 64GB",     type: "DDR5", launchYear: 2023, capacity: 64, speed: 6000, latency: "CL30-36-36-76", voltage: 1.4, modules: 2, formFactor: "DIMM", rank: "Dual Rank", xmpProfile: "Intel XMP 3.0", ecc: "No", hasHeatsink: "Yes", hasRgb: "No", price: 180 },
-  { id: "dominatrix64",  brand: "Corsair", series: "Dominator",   model: "Dominator Titanium 64GB", type: "DDR5", launchYear: 2024, capacity: 64, speed: 7200, latency: "CL34-42-42-96", voltage: 1.45, modules: 2, formFactor: "DIMM", rank: "Dual Rank", xmpProfile: "Intel XMP 3.0", ecc: "No", hasHeatsink: "Yes", hasRgb: "Yes", price: 260 },
-  { id: "dominatrix96",  brand: "Corsair", series: "Dominator",   model: "Dominator Titanium 96GB", type: "DDR5", launchYear: 2024, capacity: 96, speed: 6400, latency: "CL32-39-39-102", voltage: 1.4, modules: 4, formFactor: "DIMM", rank: "Dual Rank", xmpProfile: "Intel XMP 3.0", ecc: "No", hasHeatsink: "Yes", hasRgb: "Yes", price: 420 },
-  { id: "vengeanced4",   brand: "Corsair", series: "Vengeance",   model: "Vengeance LPX DDR4 32GB", type: "DDR4", launchYear: 2020, capacity: 32, speed: 3600, latency: "CL18-22-22-42", voltage: 1.35, modules: 2, formFactor: "DIMM", rank: "Dual Rank", xmpProfile: "Intel XMP 2.0", ecc: "No", hasHeatsink: "Yes", hasRgb: "No", price: 70 },
+  {
+    id: "vengeance32",
+    brand: "Corsair",
+    series: "Vengeance",
+    model: "Vengeance DDR5 32GB",
+    type: "DDR5",
+    launchYear: 2023,
+    capacity: 32,
+    speed: 6000,
+    latency: "CL30-36-36-76",
+    voltage: 1.4,
+    modules: 2,
+    formFactor: "DIMM",
+    rank: "Dual Rank",
+    xmpProfile: "Intel XMP 3.0",
+    ecc: "No",
+    hasHeatsink: "Yes",
+    hasRgb: "No",
+    price: 95,
+  },
+  {
+    id: "vengeance64",
+    brand: "Corsair",
+    series: "Vengeance",
+    model: "Vengeance DDR5 64GB",
+    type: "DDR5",
+    launchYear: 2023,
+    capacity: 64,
+    speed: 6000,
+    latency: "CL30-36-36-76",
+    voltage: 1.4,
+    modules: 2,
+    formFactor: "DIMM",
+    rank: "Dual Rank",
+    xmpProfile: "Intel XMP 3.0",
+    ecc: "No",
+    hasHeatsink: "Yes",
+    hasRgb: "No",
+    price: 180,
+  },
+  {
+    id: "dominatrix64",
+    brand: "Corsair",
+    series: "Dominator",
+    model: "Dominator Titanium 64GB",
+    type: "DDR5",
+    launchYear: 2024,
+    capacity: 64,
+    speed: 7200,
+    latency: "CL34-42-42-96",
+    voltage: 1.45,
+    modules: 2,
+    formFactor: "DIMM",
+    rank: "Dual Rank",
+    xmpProfile: "Intel XMP 3.0",
+    ecc: "No",
+    hasHeatsink: "Yes",
+    hasRgb: "Yes",
+    price: 260,
+  },
+  {
+    id: "dominatrix96",
+    brand: "Corsair",
+    series: "Dominator",
+    model: "Dominator Titanium 96GB",
+    type: "DDR5",
+    launchYear: 2024,
+    capacity: 96,
+    speed: 6400,
+    latency: "CL32-39-39-102",
+    voltage: 1.4,
+    modules: 4,
+    formFactor: "DIMM",
+    rank: "Dual Rank",
+    xmpProfile: "Intel XMP 3.0",
+    ecc: "No",
+    hasHeatsink: "Yes",
+    hasRgb: "Yes",
+    price: 420,
+  },
+  {
+    id: "vengeanced4",
+    brand: "Corsair",
+    series: "Vengeance",
+    model: "Vengeance LPX DDR4 32GB",
+    type: "DDR4",
+    launchYear: 2020,
+    capacity: 32,
+    speed: 3600,
+    latency: "CL18-22-22-42",
+    voltage: 1.35,
+    modules: 2,
+    formFactor: "DIMM",
+    rank: "Dual Rank",
+    xmpProfile: "Intel XMP 2.0",
+    ecc: "No",
+    hasHeatsink: "Yes",
+    hasRgb: "No",
+    price: 70,
+  },
 
   // ══════════════════════════════════════════════════
   // G.Skill
   // ══════════════════════════════════════════════════
-  { id: "trident32",     brand: "G.Skill", series: "Trident Z5",  model: "Trident Z5 RGB 32GB",    type: "DDR5", launchYear: 2022, capacity: 32, speed: 6400, latency: "CL32-39-39-102", voltage: 1.4, modules: 2, formFactor: "DIMM", rank: "Single Rank", xmpProfile: "Intel XMP 3.0", ecc: "No", hasHeatsink: "Yes", hasRgb: "Yes", price: 110 },
-  { id: "trident64",     brand: "G.Skill", series: "Trident Z5",  model: "Trident Z5 Neo 64GB",    type: "DDR5", launchYear: 2023, capacity: 64, speed: 6000, latency: "CL30-40-40-96", voltage: 1.35, modules: 2, formFactor: "DIMM", rank: "Dual Rank", xmpProfile: "AMD EXPO", ecc: "No", hasHeatsink: "Yes", hasRgb: "Yes", price: 185 },
-  { id: "trident96",     brand: "G.Skill", series: "Trident Z5",  model: "Trident Z5 Royal 96GB",  type: "DDR5", launchYear: 2024, capacity: 96, speed: 8000, latency: "CL38-48-48-128", voltage: 1.45, modules: 2, formFactor: "DIMM", rank: "Dual Rank", xmpProfile: "Intel XMP 3.0", ecc: "No", hasHeatsink: "Yes", hasRgb: "Yes", price: 450 },
-  { id: "ripjaws32",     brand: "G.Skill", series: "Ripjaws",     model: "Ripjaws S5 32GB",        type: "DDR5", launchYear: 2022, capacity: 32, speed: 5600, latency: "CL28-34-34-89", voltage: 1.35, modules: 2, formFactor: "DIMM", rank: "Single Rank", xmpProfile: "Intel XMP 3.0", ecc: "No", hasHeatsink: "Yes", hasRgb: "No", price: 85 },
+  {
+    id: "trident32",
+    brand: "G.Skill",
+    series: "Trident Z5",
+    model: "Trident Z5 RGB 32GB",
+    type: "DDR5",
+    launchYear: 2022,
+    capacity: 32,
+    speed: 6400,
+    latency: "CL32-39-39-102",
+    voltage: 1.4,
+    modules: 2,
+    formFactor: "DIMM",
+    rank: "Single Rank",
+    xmpProfile: "Intel XMP 3.0",
+    ecc: "No",
+    hasHeatsink: "Yes",
+    hasRgb: "Yes",
+    price: 110,
+  },
+  {
+    id: "trident64",
+    brand: "G.Skill",
+    series: "Trident Z5",
+    model: "Trident Z5 Neo 64GB",
+    type: "DDR5",
+    launchYear: 2023,
+    capacity: 64,
+    speed: 6000,
+    latency: "CL30-40-40-96",
+    voltage: 1.35,
+    modules: 2,
+    formFactor: "DIMM",
+    rank: "Dual Rank",
+    xmpProfile: "AMD EXPO",
+    ecc: "No",
+    hasHeatsink: "Yes",
+    hasRgb: "Yes",
+    price: 185,
+  },
+  {
+    id: "trident96",
+    brand: "G.Skill",
+    series: "Trident Z5",
+    model: "Trident Z5 Royal 96GB",
+    type: "DDR5",
+    launchYear: 2024,
+    capacity: 96,
+    speed: 8000,
+    latency: "CL38-48-48-128",
+    voltage: 1.45,
+    modules: 2,
+    formFactor: "DIMM",
+    rank: "Dual Rank",
+    xmpProfile: "Intel XMP 3.0",
+    ecc: "No",
+    hasHeatsink: "Yes",
+    hasRgb: "Yes",
+    price: 450,
+  },
+  {
+    id: "ripjaws32",
+    brand: "G.Skill",
+    series: "Ripjaws",
+    model: "Ripjaws S5 32GB",
+    type: "DDR5",
+    launchYear: 2022,
+    capacity: 32,
+    speed: 5600,
+    latency: "CL28-34-34-89",
+    voltage: 1.35,
+    modules: 2,
+    formFactor: "DIMM",
+    rank: "Single Rank",
+    xmpProfile: "Intel XMP 3.0",
+    ecc: "No",
+    hasHeatsink: "Yes",
+    hasRgb: "No",
+    price: 85,
+  },
 
   // ══════════════════════════════════════════════════
   // Kingston
   // ══════════════════════════════════════════════════
-  { id: "fury32",        brand: "Kingston", series: "Fury",       model: "Fury Beast DDR5 32GB",   type: "DDR5", launchYear: 2023, capacity: 32, speed: 6000, latency: "CL36-38-38-80", voltage: 1.35, modules: 2, formFactor: "DIMM", rank: "Single Rank", xmpProfile: "Intel XMP 3.0", ecc: "No", hasHeatsink: "Yes", hasRgb: "No", price: 90 },
-  { id: "fury64",        brand: "Kingston", series: "Fury",       model: "Fury Renegade 64GB",     type: "DDR5", launchYear: 2024, capacity: 64, speed: 8000, latency: "CL38-48-48-128", voltage: 1.45, modules: 2, formFactor: "DIMM", rank: "Dual Rank", xmpProfile: "Intel XMP 3.0", ecc: "No", hasHeatsink: "Yes", hasRgb: "Yes", price: 320 },
-  { id: "fury24",        brand: "Kingston", series: "Fury",       model: "Fury Beast DDR4 32GB",   type: "DDR4", launchYear: 2022, capacity: 32, speed: 3200, latency: "CL16-18-18-36", voltage: 1.35, modules: 2, formFactor: "DIMM", rank: "Dual Rank", xmpProfile: "Intel XMP 2.0", ecc: "No", hasHeatsink: "Yes", hasRgb: "No", price: 60 },
+  {
+    id: "fury32",
+    brand: "Kingston",
+    series: "Fury",
+    model: "Fury Beast DDR5 32GB",
+    type: "DDR5",
+    launchYear: 2023,
+    capacity: 32,
+    speed: 6000,
+    latency: "CL36-38-38-80",
+    voltage: 1.35,
+    modules: 2,
+    formFactor: "DIMM",
+    rank: "Single Rank",
+    xmpProfile: "Intel XMP 3.0",
+    ecc: "No",
+    hasHeatsink: "Yes",
+    hasRgb: "No",
+    price: 90,
+  },
+  {
+    id: "fury64",
+    brand: "Kingston",
+    series: "Fury",
+    model: "Fury Renegade 64GB",
+    type: "DDR5",
+    launchYear: 2024,
+    capacity: 64,
+    speed: 8000,
+    latency: "CL38-48-48-128",
+    voltage: 1.45,
+    modules: 2,
+    formFactor: "DIMM",
+    rank: "Dual Rank",
+    xmpProfile: "Intel XMP 3.0",
+    ecc: "No",
+    hasHeatsink: "Yes",
+    hasRgb: "Yes",
+    price: 320,
+  },
+  {
+    id: "fury24",
+    brand: "Kingston",
+    series: "Fury",
+    model: "Fury Beast DDR4 32GB",
+    type: "DDR4",
+    launchYear: 2022,
+    capacity: 32,
+    speed: 3200,
+    latency: "CL16-18-18-36",
+    voltage: 1.35,
+    modules: 2,
+    formFactor: "DIMM",
+    rank: "Dual Rank",
+    xmpProfile: "Intel XMP 2.0",
+    ecc: "No",
+    hasHeatsink: "Yes",
+    hasRgb: "No",
+    price: 60,
+  },
 
   // ══════════════════════════════════════════════════
   // Crucial
   // ══════════════════════════════════════════════════
-  { id: "pro32",         brand: "Crucial",  series: "Pro",        model: "DDR5 Pro 32GB",          type: "DDR5", launchYear: 2023, capacity: 32, speed: 6000, latency: "CL36-38-38-80", voltage: 1.35, modules: 2, formFactor: "DIMM", rank: "Single Rank", xmpProfile: "Intel XMP 3.0 / AMD EXPO", ecc: "No", hasHeatsink: "Yes", hasRgb: "No", price: 85 },
-  { id: "pro64",         brand: "Crucial",  series: "Pro",        model: "DDR5 Pro 64GB",          type: "DDR5", launchYear: 2024, capacity: 64, speed: 5600, latency: "CL46-45-45-90", voltage: 1.1, modules: 2, formFactor: "DIMM", rank: "Dual Rank", xmpProfile: "Intel XMP 3.0 / AMD EXPO", ecc: "No", hasHeatsink: "Yes", hasRgb: "No", price: 160 },
-  { id: "ballistix32",   brand: "Crucial",  series: "Ballistix",  model: "Ballistix DDR4 32GB",    type: "DDR4", launchYear: 2020, capacity: 32, speed: 3600, latency: "CL16-18-18-38", voltage: 1.35, modules: 2, formFactor: "DIMM", rank: "Single Rank", xmpProfile: "Intel XMP 2.0", ecc: "No", hasHeatsink: "Yes", hasRgb: "No", price: 65 },
+  {
+    id: "pro32",
+    brand: "Crucial",
+    series: "Pro",
+    model: "DDR5 Pro 32GB",
+    type: "DDR5",
+    launchYear: 2023,
+    capacity: 32,
+    speed: 6000,
+    latency: "CL36-38-38-80",
+    voltage: 1.35,
+    modules: 2,
+    formFactor: "DIMM",
+    rank: "Single Rank",
+    xmpProfile: "Intel XMP 3.0 / AMD EXPO",
+    ecc: "No",
+    hasHeatsink: "Yes",
+    hasRgb: "No",
+    price: 85,
+  },
+  {
+    id: "pro64",
+    brand: "Crucial",
+    series: "Pro",
+    model: "DDR5 Pro 64GB",
+    type: "DDR5",
+    launchYear: 2024,
+    capacity: 64,
+    speed: 5600,
+    latency: "CL46-45-45-90",
+    voltage: 1.1,
+    modules: 2,
+    formFactor: "DIMM",
+    rank: "Dual Rank",
+    xmpProfile: "Intel XMP 3.0 / AMD EXPO",
+    ecc: "No",
+    hasHeatsink: "Yes",
+    hasRgb: "No",
+    price: 160,
+  },
+  {
+    id: "ballistix32",
+    brand: "Crucial",
+    series: "Ballistix",
+    model: "Ballistix DDR4 32GB",
+    type: "DDR4",
+    launchYear: 2020,
+    capacity: 32,
+    speed: 3600,
+    latency: "CL16-18-18-38",
+    voltage: 1.35,
+    modules: 2,
+    formFactor: "DIMM",
+    rank: "Single Rank",
+    xmpProfile: "Intel XMP 2.0",
+    ecc: "No",
+    hasHeatsink: "Yes",
+    hasRgb: "No",
+    price: 65,
+  },
 
   // ══════════════════════════════════════════════════
   // TeamGroup
   // ══════════════════════════════════════════════════
-  { id: "tdelta32",      brand: "TeamGroup", series: "T-Force",    model: "T-Force Delta 32GB",    type: "DDR5", launchYear: 2023, capacity: 32, speed: 7200, latency: "CL34-42-42-84", voltage: 1.4, modules: 2, formFactor: "DIMM", rank: "Single Rank", xmpProfile: "Intel XMP 3.0", ecc: "No", hasHeatsink: "Yes", hasRgb: "Yes", price: 110 },
-  { id: "tdelta64",      brand: "TeamGroup", series: "T-Force",    model: "T-Force Delta 64GB",    type: "DDR5", launchYear: 2024, capacity: 64, speed: 6400, latency: "CL34-44-44-90", voltage: 1.35, modules: 2, formFactor: "DIMM", rank: "Dual Rank", xmpProfile: "Intel XMP 3.0", ecc: "No", hasHeatsink: "Yes", hasRgb: "Yes", price: 200 },
-];
+  {
+    id: "tdelta32",
+    brand: "TeamGroup",
+    series: "T-Force",
+    model: "T-Force Delta 32GB",
+    type: "DDR5",
+    launchYear: 2023,
+    capacity: 32,
+    speed: 7200,
+    latency: "CL34-42-42-84",
+    voltage: 1.4,
+    modules: 2,
+    formFactor: "DIMM",
+    rank: "Single Rank",
+    xmpProfile: "Intel XMP 3.0",
+    ecc: "No",
+    hasHeatsink: "Yes",
+    hasRgb: "Yes",
+    price: 110,
+  },
+  {
+    id: "tdelta64",
+    brand: "TeamGroup",
+    series: "T-Force",
+    model: "T-Force Delta 64GB",
+    type: "DDR5",
+    launchYear: 2024,
+    capacity: 64,
+    speed: 6400,
+    latency: "CL34-44-44-90",
+    voltage: 1.35,
+    modules: 2,
+    formFactor: "DIMM",
+    rank: "Dual Rank",
+    xmpProfile: "Intel XMP 3.0",
+    ecc: "No",
+    hasHeatsink: "Yes",
+    hasRgb: "Yes",
+    price: 200,
+  },
+]
 
 export const memorySpecRows: SpecRow<MemoryModel>[] = [
   { key: "brand", label: "memoryCompare.brand", format: brandName },
@@ -82,14 +405,32 @@ export const memorySpecRows: SpecRow<MemoryModel>[] = [
   { key: "ecc", label: "memoryCompare.ecc" },
   { key: "hasHeatsink", label: "memoryCompare.hasHeatsink" },
   { key: "hasRgb", label: "memoryCompare.hasRgb" },
-];
+]
 
 export const memoryFilterGroups: FilterGroup<MemoryModel>[] = [
   { key: "brand", label: "memoryCompare.brand", format: brandName },
-  { key: "series", label: "memoryCompare.series", format: (v) => { const str = String(v); const key = `memoryCompare.values.series.${str}`; const result = t(key); return result !== key ? result : str; } },
-  { key: "type", label: "memoryCompare.type", format: (v) => { const str = String(v); const key = `memoryCompare.values.type.${str}`; const result = t(key); return result !== key ? result : str; } },
+  {
+    key: "series",
+    label: "memoryCompare.series",
+    format: (v) => {
+      const str = String(v)
+      const key = `memoryCompare.values.series.${str}`
+      const result = t(key)
+      return result !== key ? result : str
+    },
+  },
+  {
+    key: "type",
+    label: "memoryCompare.type",
+    format: (v) => {
+      const str = String(v)
+      const key = `memoryCompare.values.type.${str}`
+      const result = t(key)
+      return result !== key ? result : str
+    },
+  },
   { key: "capacity", label: "memoryCompare.capacity", format: (v) => `${v} GB` },
-];
+]
 
 export const memoryModule: CompareDataModule<MemoryModel> = {
   data: memoryData,
@@ -98,4 +439,4 @@ export const memoryModule: CompareDataModule<MemoryModel> = {
   numericKeys: ["capacity", "speed"],
   inverseKeys: ["voltage", "price"],
   i18nPrefix: "memoryCompare",
-};
+}

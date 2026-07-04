@@ -1,63 +1,70 @@
 /**
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  */
-import type { TFunction } from "i18next";
-import type { Ref } from "react";
-import type { Virtualizer } from "@tanstack/react-virtual";
-import { Loader2, RefreshCw, Search, X, Bell, BellOff } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { platformConfig } from "@/platform/config";
-import { cn } from "@/lib/utils";
-import { PortManagerCommonPorts, PortManagerControls, PortManagerPortChip } from "@/features/port-manager/components/PortManagerControls";
-import { ProcessTreeView } from "@/features/port-manager/components/ProcessTreeView";
-import { chipStatusClasses, commonPorts } from "@/features/port-manager/hooks/usePortManagerController";
-import type { PortProcessDetail } from "@/lib/tauri/types/port-manager";
-import type { PortScanMode, PortScanStatus } from "@/features/port-manager/store";
+import type { TFunction } from "i18next"
+import type { Ref } from "react"
+import type { Virtualizer } from "@tanstack/react-virtual"
+import { Loader2, RefreshCw, Search, X, Bell, BellOff } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { platformConfig } from "@/platform/config"
+import { cn } from "@/lib/utils"
+import {
+  PortManagerCommonPorts,
+  PortManagerControls,
+  PortManagerPortChip,
+} from "@/features/port-manager/components/PortManagerControls"
+import { ProcessTreeView } from "@/features/port-manager/components/ProcessTreeView"
+import {
+  chipStatusClasses,
+  commonPorts,
+} from "@/features/port-manager/hooks/usePortManagerController"
+import type { PortProcessDetail } from "@/lib/tauri/types/port-manager"
+import type { PortScanMode, PortScanStatus } from "@/features/port-manager/store"
 
 interface PortManagerPageContentProps {
-  t: TFunction;
-  inputRef: Ref<HTMLInputElement>;
-  scrollContainerRef: Ref<HTMLDivElement>;
-  rowVirtualizer: Virtualizer<HTMLDivElement, Element>;
-  portHistory: number[];
-  inputValue: string;
-  showInvalidToast: boolean;
-  inputError: string;
-  portStates: { port: number; status: PortScanStatus }[];
-  portDetails: PortProcessDetail[];
-  portKillMessages: Record<number, string[]>;
-  error: string;
-  killing: boolean;
-  isScanning: boolean;
-  showEmptyPorts: boolean;
-  highlightPort: number | null;
-  occupiedCount: number;
-  displayedDetails: PortProcessDetail[];
-  scanMode: PortScanMode;
-  remoteHost: string;
-  alertsEnabled: boolean;
-  onScanModeChange: (mode: PortScanMode) => void;
-  onRemoteHostChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  onToggleAlerts: () => void;
-  onInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  onInputKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => void;
-  onScan: () => void;
-  onClearInput: () => void;
-  onClearAll: () => void;
-  onAddCommonPort: (port: number) => void;
-  onToggleShowEmptyPorts: () => void;
-  onRescanAll: () => void;
-  onRescanPort: (port: number) => void;
-  onKillAll: () => void;
-  onScrollToPort: (port: number) => void;
-  onKillPort: (port: number, pids: number[]) => void;
-  onRemovePort: (port: number) => void;
-  onClearError: () => void;
-  statusIconFor: (status: PortScanStatus) => React.ReactNode;
+  t: TFunction
+  inputRef: Ref<HTMLInputElement>
+  scrollContainerRef: Ref<HTMLDivElement>
+  rowVirtualizer: Virtualizer<HTMLDivElement, Element>
+  portHistory: number[]
+  inputValue: string
+  showInvalidToast: boolean
+  inputError: string
+  portStates: { port: number; status: PortScanStatus }[]
+  portDetails: PortProcessDetail[]
+  portKillMessages: Record<number, string[]>
+  error: string
+  killing: boolean
+  isScanning: boolean
+  showEmptyPorts: boolean
+  highlightPort: number | null
+  occupiedCount: number
+  displayedDetails: PortProcessDetail[]
+  scanMode: PortScanMode
+  remoteHost: string
+  alertsEnabled: boolean
+  onScanModeChange: (mode: PortScanMode) => void
+  onRemoteHostChange: (event: React.ChangeEvent<HTMLInputElement>) => void
+  onToggleAlerts: () => void
+  onInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void
+  onInputKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => void
+  onScan: () => void
+  onClearInput: () => void
+  onClearAll: () => void
+  onAddCommonPort: (port: number) => void
+  onToggleShowEmptyPorts: () => void
+  onRescanAll: () => void
+  onRescanPort: (port: number) => void
+  onKillAll: () => void
+  onScrollToPort: (port: number) => void
+  onKillPort: (port: number, pids: number[]) => void
+  onRemovePort: (port: number) => void
+  onClearError: () => void
+  statusIconFor: (status: PortScanStatus) => React.ReactNode
 }
 
 export function PortManagerPageContent({
@@ -101,9 +108,9 @@ export function PortManagerPageContent({
   onClearError,
   statusIconFor,
 }: PortManagerPageContentProps) {
-  const isRemoteMode = scanMode === "remote";
+  const isRemoteMode = scanMode === "remote"
   return (
-    <div className="h-full flex flex-col gap-3">
+    <div className="flex h-full flex-col gap-3">
       <Card className="flex flex-col overflow-visible">
         <CardHeader>
           <CardTitle>{t("portManager.title")}</CardTitle>
@@ -138,13 +145,13 @@ export function PortManagerPageContent({
 
           {portHistory.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-xs text-muted-foreground">{t("portManager.history")}:</span>
+              <span className="text-muted-foreground text-xs">{t("portManager.history")}:</span>
               {portHistory.map((port) => (
                 <Button
                   key={port}
                   variant="outline"
                   size="sm"
-                  className="rounded-lg h-7 px-2 text-xs"
+                  className="h-7 rounded-lg px-2 text-xs"
                   onClick={() => onAddCommonPort(port)}
                   disabled={killing || portStates.some((ps) => ps.port === port)}
                 >
@@ -154,10 +161,10 @@ export function PortManagerPageContent({
             </div>
           )}
 
-          <div className="min-h-20 max-h-40 overflow-y-auto rounded-lg border bg-muted/30 p-1.5">
+          <div className="bg-muted/30 max-h-40 min-h-20 overflow-y-auto rounded-lg border p-1.5">
             {portStates.length === 0 ? (
               <div className="flex min-h-[44px] items-center justify-center p-2">
-                <p className="text-center text-[13px] text-muted-foreground">
+                <p className="text-muted-foreground text-center text-[13px]">
                   {t("portManager.emptyChips")}
                 </p>
               </div>
@@ -189,7 +196,7 @@ export function PortManagerPageContent({
               <TooltipTrigger asChild>
                 <button
                   className={cn(
-                    "flex size-5 shrink-0 items-center justify-center rounded-full transition hover:bg-destructive/30 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                    "hover:bg-destructive/30 focus-visible:ring-ring flex size-5 shrink-0 items-center justify-center rounded-full transition focus-visible:ring-2 focus-visible:outline-none",
                   )}
                   onClick={onClearError}
                 >
@@ -207,7 +214,7 @@ export function PortManagerPageContent({
           <CardTitle className="min-w-0 truncate">
             {t("portManager.scanResultsTitle", { count: portDetails.length })}
             {portDetails.length > 0 && (
-              <span className="ml-1.5 font-normal text-muted-foreground">
+              <span className="text-muted-foreground ml-1.5 font-normal">
                 {t("portManager.occupiedCount", { occupied: occupiedCount })}
               </span>
             )}
@@ -218,7 +225,7 @@ export function PortManagerPageContent({
                 <Button
                   variant={alertsEnabled ? "default" : "outline"}
                   size="sm"
-                  className="rounded-lg shrink-0"
+                  className="shrink-0 rounded-lg"
                   onClick={onToggleAlerts}
                   disabled={portStates.length === 0 || killing}
                 >
@@ -239,7 +246,7 @@ export function PortManagerPageContent({
                   <Button
                     variant="secondary"
                     size="sm"
-                    className="rounded-lg min-w-[110px] shrink-0"
+                    className="min-w-[110px] shrink-0 rounded-lg"
                     onClick={onToggleShowEmptyPorts}
                   >
                     {showEmptyPorts ? t("portManager.hideEmpty") : t("portManager.showEmpty")}
@@ -256,7 +263,7 @@ export function PortManagerPageContent({
                   <Button
                     variant="secondary"
                     size="sm"
-                    className="rounded-lg shrink-0"
+                    className="shrink-0 rounded-lg"
                     onClick={onRescanAll}
                     disabled={isScanning || killing}
                   >
@@ -272,7 +279,7 @@ export function PortManagerPageContent({
                   <Button
                     variant="destructive"
                     size="sm"
-                    className="rounded-lg min-w-[110px] shrink-0"
+                    className="min-w-[110px] shrink-0 rounded-lg"
                     onClick={onKillAll}
                     disabled={killing || occupiedCount === 0}
                   >
@@ -289,15 +296,15 @@ export function PortManagerPageContent({
             )}
           </div>
         </CardHeader>
-        <CardContent className="flex-1 min-h-0 p-0">
+        <CardContent className="min-h-0 flex-1 p-0">
           <div ref={scrollContainerRef} className="h-full overflow-y-auto px-4 pb-4">
             {portDetails.length === 0 ? (
-              <div className="flex flex-col items-center justify-center gap-4 py-10 text-center text-muted-foreground">
+              <div className="text-muted-foreground flex flex-col items-center justify-center gap-4 py-10 text-center">
                 <Search size={48} className="opacity-30" />
                 <p className="text-sm">{t("portManager.emptyResults")}</p>
               </div>
             ) : displayedDetails.length === 0 ? (
-              <div className="flex flex-col items-center justify-center gap-4 py-6 text-center text-muted-foreground">
+              <div className="text-muted-foreground flex flex-col items-center justify-center gap-4 py-6 text-center">
                 <Search size={48} className="opacity-30" />
                 <p className="text-sm">{t("portManager.emptyOnly")}</p>
               </div>
@@ -309,7 +316,7 @@ export function PortManagerPageContent({
                 }}
               >
                 {rowVirtualizer.getVirtualItems().map((virtualItem) => {
-                  const detail = displayedDetails[virtualItem.index];
+                  const detail = displayedDetails[virtualItem.index]
                   return (
                     <div
                       key={virtualItem.key}
@@ -327,8 +334,9 @@ export function PortManagerPageContent({
                       <div
                         data-port={detail.port}
                         className={cn(
-                          "rounded-lg border bg-muted/30 p-3 transition",
-                          highlightPort === detail.port && "border-indigo-400 dark:border-indigo-600 bg-indigo-50 dark:bg-indigo-950/30 shadow-[0_0_0_3px_rgba(79,70,229,0.15)] dark:shadow-[0_0_0_3px_rgba(129,140,248,0.15)]"
+                          "bg-muted/30 rounded-lg border p-3 transition",
+                          highlightPort === detail.port &&
+                            "border-indigo-400 bg-indigo-50 shadow-[0_0_0_3px_rgba(79,70,229,0.15)] dark:border-indigo-600 dark:bg-indigo-950/30 dark:shadow-[0_0_0_3px_rgba(129,140,248,0.15)]",
                         )}
                       >
                         {detail.error ? (
@@ -372,7 +380,10 @@ export function PortManagerPageContent({
                                     <TooltipContent>
                                       {t("portManager.freePortHint", {
                                         port: detail.port,
-                                        command: platformConfig.freePortCommandTemplate.replace("{{port}}", String(detail.port)),
+                                        command: platformConfig.freePortCommandTemplate.replace(
+                                          "{{port}}",
+                                          String(detail.port),
+                                        ),
                                       })}
                                     </TooltipContent>
                                   </Tooltip>
@@ -381,11 +392,11 @@ export function PortManagerPageContent({
                             </div>
 
                             {isRemoteMode ? (
-                              <div className="rounded-md border bg-background px-3 py-2 text-xs text-muted-foreground">
+                              <div className="bg-background text-muted-foreground rounded-md border px-3 py-2 text-xs">
                                 {t("portManager.remoteResultHint")}
                               </div>
                             ) : (
-                              <div className="overflow-x-auto rounded-md border bg-background px-1 py-1.5 font-mono text-xs">
+                              <div className="bg-background overflow-x-auto rounded-md border px-1 py-1.5 font-mono text-xs">
                                 {detail.process_trees.map((tree) => (
                                   <ProcessTreeView
                                     key={tree.pid}
@@ -400,7 +411,7 @@ export function PortManagerPageContent({
                         )}
                       </div>
                     </div>
-                  );
+                  )
                 })}
               </div>
             )}
@@ -408,5 +419,5 @@ export function PortManagerPageContent({
         </CardContent>
       </Card>
     </div>
-  );
+  )
 }

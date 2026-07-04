@@ -11,36 +11,36 @@
 export async function writeClipboardText(text: string): Promise<void> {
   if (typeof navigator !== "undefined" && navigator.clipboard && window.isSecureContext) {
     try {
-      await navigator.clipboard.writeText(text);
-      return;
+      await navigator.clipboard.writeText(text)
+      return
     } catch {
       /* fall through to textarea fallback */
     }
   }
   if (!writeWithTextareaFallback(text)) {
-    throw new Error("Clipboard write failed: no available copy mechanism");
+    throw new Error("Clipboard write failed: no available copy mechanism")
   }
 }
 
 function writeWithTextareaFallback(text: string): boolean {
-  if (typeof document === "undefined") return false;
-  const textarea = document.createElement("textarea");
-  textarea.value = text;
+  if (typeof document === "undefined") return false
+  const textarea = document.createElement("textarea")
+  textarea.value = text
   // Off-screen and non-interactive so the user doesn't see a flash or lose focus.
-  textarea.setAttribute("readonly", "");
-  textarea.style.position = "fixed";
-  textarea.style.top = "-9999px";
-  textarea.style.left = "-9999px";
-  textarea.style.opacity = "0";
-  document.body.appendChild(textarea);
-  let ok = false;
+  textarea.setAttribute("readonly", "")
+  textarea.style.position = "fixed"
+  textarea.style.top = "-9999px"
+  textarea.style.left = "-9999px"
+  textarea.style.opacity = "0"
+  document.body.appendChild(textarea)
+  let ok = false
   try {
-    textarea.select();
-    ok = document.execCommand("copy");
+    textarea.select()
+    ok = document.execCommand("copy")
   } catch {
-    ok = false;
+    ok = false
   } finally {
-    document.body.removeChild(textarea);
+    document.body.removeChild(textarea)
   }
-  return ok;
+  return ok
 }

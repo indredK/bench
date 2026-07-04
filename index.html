@@ -10,30 +10,35 @@
       // paints. Wrapped in try/catch because localStorage throws in private
       // mode WebViews (#111) — without this the rest of the inline script
       // aborts and the splash stays blank forever.
-      (function() {
+      ;(function () {
         try {
-          var lang = localStorage.getItem("language");
+          var lang = localStorage.getItem("language")
           if (lang) {
-            document.documentElement.lang = lang;
+            document.documentElement.lang = lang
           }
-        } catch (e) { /* private mode or storage disabled */ }
+        } catch (e) {
+          /* private mode or storage disabled */
+        }
         try {
-          var theme = localStorage.getItem("theme");
-          if (theme === "dark" || (theme !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
-            document.documentElement.classList.add("dark");
+          var theme = localStorage.getItem("theme")
+          if (
+            theme === "dark" ||
+            (theme !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches)
+          ) {
+            document.documentElement.classList.add("dark")
           }
-        } catch(e) {}
+        } catch (e) {}
         // Window theme pre-paint sync. Only honor "glass" on macOS so a
         // profile copied to another OS doesn't leave the body transparent
         // with nothing behind it (the Rust command would also refuse, but
         // CSS runs first).
         try {
-          var wt = localStorage.getItem("windowTheme");
-          var isMac = navigator.userAgent.toLowerCase().indexOf("mac") !== -1;
-          var resolved = (wt === "glass" && isMac) ? "glass" : "default";
-          document.documentElement.setAttribute("data-window-theme", resolved);
-        } catch(e) {}
-      })();
+          var wt = localStorage.getItem("windowTheme")
+          var isMac = navigator.userAgent.toLowerCase().indexOf("mac") !== -1
+          var resolved = wt === "glass" && isMac ? "glass" : "default"
+          document.documentElement.setAttribute("data-window-theme", resolved)
+        } catch (e) {}
+      })()
     </script>
   </head>
   <body>

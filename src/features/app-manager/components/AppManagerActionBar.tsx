@@ -1,18 +1,18 @@
 /**
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  */
-import type { TFunction } from "i18next";
-import { RefreshCw } from "lucide-react";
-import { ToolbarButton } from "@/components/ui/toolbar-button";
-import { AppManagerToolbar } from "@/features/app-manager/components/AppManagerToolbar";
+import type { TFunction } from "i18next"
+import { RefreshCw } from "lucide-react"
+import { ToolbarButton } from "@/components/ui/toolbar-button"
+import { AppManagerToolbar } from "@/features/app-manager/components/AppManagerToolbar"
 
 interface AppManagerActionBarProps {
-  t: TFunction;
-  searchQuery: string;
-  searchPlaceholder: string;
-  loading: boolean;
-  onSearchQueryChange: (query: string) => void;
-  onScanApps: () => void;
+  t: TFunction
+  searchQuery: string
+  searchPlaceholder: string
+  loading: boolean
+  onSearchQueryChange: (query: string) => void
+  onScanApps: () => void
 }
 
 export function AppManagerActionBar({
@@ -40,5 +40,5 @@ export function AppManagerActionBar({
         </div>
       }
     />
-  );
+  )
 }

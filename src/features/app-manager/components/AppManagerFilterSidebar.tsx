@@ -1,34 +1,37 @@
 /**
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  */
-import type { TFunction } from "i18next";
-import { Badge } from "@/components/ui/badge";
-import { FilterPanel } from "@/components/layout/FilterPanel";
-import { CategoryFilter, type CategorizableItem } from "@/features/app-manager/components/CategoryFilter";
-import type { AppCategoryKey } from "@/features/app-manager/app-categories";
-import type { AppSeriesKey } from "@/features/app-manager/app-series";
-import type { ReactNode } from "react";
+import type { TFunction } from "i18next"
+import { Badge } from "@/components/ui/badge"
+import { FilterPanel } from "@/components/layout/FilterPanel"
+import {
+  CategoryFilter,
+  type CategorizableItem,
+} from "@/features/app-manager/components/CategoryFilter"
+import type { AppCategoryKey } from "@/features/app-manager/app-categories"
+import type { AppSeriesKey } from "@/features/app-manager/app-series"
+import type { ReactNode } from "react"
 
 export interface AppManagerTypeFilterOption<TKey extends string = string> {
-  key: TKey;
-  label: string;
-  count?: number;
+  key: TKey
+  label: string
+  count?: number
 }
 
 interface AppManagerFilterSidebarProps<TKey extends string> {
-  t: TFunction;
-  open: boolean;
-  activeFilterCount: number;
-  activeTypeFilter: TKey;
-  typeFilterOptions: AppManagerTypeFilterOption<TKey>[];
-  items: CategorizableItem[];
-  categoryFilter: AppCategoryKey | null;
-  seriesFilter: AppSeriesKey | null;
-  footer?: ReactNode;
-  onToggle: () => void;
-  onTypeFilterChange: (filter: TKey) => void;
-  onCategoryChange: (category: AppCategoryKey | null) => void;
-  onSeriesChange: (series: AppSeriesKey | null) => void;
+  t: TFunction
+  open: boolean
+  activeFilterCount: number
+  activeTypeFilter: TKey
+  typeFilterOptions: AppManagerTypeFilterOption<TKey>[]
+  items: CategorizableItem[]
+  categoryFilter: AppCategoryKey | null
+  seriesFilter: AppSeriesKey | null
+  footer?: ReactNode
+  onToggle: () => void
+  onTypeFilterChange: (filter: TKey) => void
+  onCategoryChange: (category: AppCategoryKey | null) => void
+  onSeriesChange: (series: AppSeriesKey | null) => void
 }
 
 export function AppManagerFilterSidebar<TKey extends string>({
@@ -56,7 +59,7 @@ export function AppManagerFilterSidebar<TKey extends string>({
       <div className="space-y-3">
         {typeFilterOptions.length > 0 && (
           <div>
-            <p className="mb-2 text-[11px] uppercase tracking-wider text-muted-foreground">
+            <p className="text-muted-foreground mb-2 text-[11px] tracking-wider uppercase">
               {t("appManager.filterBy")}
             </p>
             <div className="flex flex-col gap-1">
@@ -64,7 +67,7 @@ export function AppManagerFilterSidebar<TKey extends string>({
                 <Badge
                   key={option.key}
                   variant={activeTypeFilter === option.key ? "default" : "outline"}
-                  className="cursor-pointer select-none text-xs justify-start"
+                  className="cursor-pointer justify-start text-xs select-none"
                   onClick={() => onTypeFilterChange(option.key)}
                 >
                   {option.label}
@@ -75,7 +78,7 @@ export function AppManagerFilterSidebar<TKey extends string>({
           </div>
         )}
 
-        <div className={typeFilterOptions.length > 0 ? "pt-2 border-t" : undefined}>
+        <div className={typeFilterOptions.length > 0 ? "border-t pt-2" : undefined}>
           <CategoryFilter
             apps={items}
             categorySelected={categoryFilter}
@@ -85,8 +88,8 @@ export function AppManagerFilterSidebar<TKey extends string>({
           />
         </div>
 
-        {footer && <div className="pt-2 border-t">{footer}</div>}
+        {footer && <div className="border-t pt-2">{footer}</div>}
       </div>
     </FilterPanel>
-  );
+  )
 }

@@ -34,9 +34,9 @@ import {
   setStationNetworkProxy,
   updateAccount,
   updateStation,
-} from "@/lib/tauri/commands/account-manager";
-import { openExternal } from "@/platform/shell";
-import { openPlatformDialog, savePlatformDialog } from "@/platform/dialog";
+} from "@/lib/tauri/commands/account-manager"
+import { openExternal } from "@/platform/shell"
+import { openPlatformDialog, savePlatformDialog } from "@/platform/dialog"
 
 export const accountManagerRepository = {
   listStations,
@@ -74,6 +74,6 @@ export const accountManagerRepository = {
   openExternal,
   openPlatformDialog,
   savePlatformDialog,
-};
+}
 
-export type AccountManagerRepository = typeof accountManagerRepository;
+export type AccountManagerRepository = typeof accountManagerRepository

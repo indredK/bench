@@ -1,69 +1,69 @@
 /**
  * Table View / 表格视图: define table presentation; 只定义表格展示.
  */
-import type { TFunction } from "i18next";
-import type { ColumnDef } from "@tanstack/react-table";
-import { Badge } from "@/components/ui/badge";
-import { StickyTableText } from "@/components/ui/StickyTable";
-import type { ProjectInfo } from "@/lib/tauri/types";
-import { formatDate, formatSize } from "@/lib/utils";
+import type { TFunction } from "i18next"
+import type { ColumnDef } from "@tanstack/react-table"
+import { Badge } from "@/components/ui/badge"
+import { StickyTableText } from "@/components/ui/StickyTable"
+import type { ProjectInfo } from "@/lib/tauri/types"
+import { formatDate, formatSize } from "@/lib/utils"
 
-export type DevCleanerSortBy = "name" | "totalSize" | "cleanupSize" | "modified";
+export type DevCleanerSortBy = "name" | "totalSize" | "cleanupSize" | "modified"
 
-const projectTypeMap: Partial<Record<ProjectInfo["project_type"], "nodejs" | "python" | "rust" | "go" | "mixed">> = {
+const projectTypeMap: Partial<
+  Record<ProjectInfo["project_type"], "nodejs" | "python" | "rust" | "go" | "mixed">
+> = {
   NodeJs: "nodejs",
   Python: "python",
   Rust: "rust",
   Go: "go",
   Mixed: "mixed",
-};
+}
 
 const naturalTextComparator = new Intl.Collator(undefined, {
   numeric: true,
   sensitivity: "base",
-});
+})
 
-const MAX_VISIBLE_PATH_LENGTH = 56;
+const MAX_VISIBLE_PATH_LENGTH = 56
 
 function compareProjectIdentity(left: ProjectInfo, right: ProjectInfo) {
   return (
     naturalTextComparator.compare(left.name, right.name) ||
     naturalTextComparator.compare(left.path, right.path)
-  );
+  )
 }
 
 function compactPath(path: string, maxLength = MAX_VISIBLE_PATH_LENGTH) {
-  const separator = path.includes("\\") ? "\\" : "/";
-  const parts = path.split(/[/\\]+/).filter(Boolean);
-  const hasDrivePrefix = /^[A-Za-z]:/.test(path);
-  const hasRootPrefix = separator === "/" && path.startsWith("/");
+  const separator = path.includes("\\") ? "\\" : "/"
+  const parts = path.split(/[/\\]+/).filter(Boolean)
+  const hasDrivePrefix = /^[A-Za-z]:/.test(path)
+  const hasRootPrefix = separator === "/" && path.startsWith("/")
 
   if (path.length <= maxLength || parts.length <= 4) {
-    return path;
+    return path
   }
 
   const prefix = hasDrivePrefix
     ? `${parts[0]}${separator}`
     : hasRootPrefix
       ? separator
-      : `${parts[0]}${separator}`;
-  const maxTailSegments = Math.min(4, parts.length - 1);
+      : `${parts[0]}${separator}`
+  const maxTailSegments = Math.min(4, parts.length - 1)
 
   for (let tailSegments = maxTailSegments; tailSegments >= 2; tailSegments -= 1) {
-    const tail = parts.slice(-tailSegments).join(separator);
-    const candidate = `${prefix}...${separator}${tail}`;
+    const tail = parts.slice(-tailSegments).join(separator)
+    const candidate = `${prefix}...${separator}${tail}`
 
     if (candidate.length <= maxLength || tailSegments === 2) {
-      return candidate;
+      return candidate
     }
   }
 
-  return path;
+  return path
 }
 
-export function createDevCleanerColumns(
-  t: TFunction
-): ColumnDef<ProjectInfo>[] {
+export function createDevCleanerColumns(t: TFunction): ColumnDef<ProjectInfo>[] {
   return [
     {
       id: "name",
@@ -77,23 +77,18 @@ export function createDevCleanerColumns(
       cell: ({ row }) => (
         <div className="min-w-0 space-y-1">
           <div className="flex min-w-0 items-center gap-2">
-            <StickyTableText className="font-medium">
-              {row.original.name}
-            </StickyTableText>
+            <StickyTableText className="font-medium">{row.original.name}</StickyTableText>
             <Badge variant="outline" className="shrink-0 text-xs">
               {projectTypeMap[row.original.project_type]
                 ? t(`devCleaner.filter.${projectTypeMap[row.original.project_type]}`)
                 : row.original.project_type}
             </Badge>
           </div>
-          <StickyTableText
-            className="text-xs text-muted-foreground"
-            title={row.original.path}
-          >
+          <StickyTableText className="text-muted-foreground text-xs" title={row.original.path}>
             {compactPath(row.original.path)}
           </StickyTableText>
           {row.original.dependencies_count > 0 && (
-            <span className="text-xs text-muted-foreground">
+            <span className="text-muted-foreground text-xs">
               {t("devCleaner.dependencies")}: {row.original.dependencies_count}
             </span>
           )}
@@ -151,7 +146,7 @@ export function createDevCleanerColumns(
         align: "right",
       },
       cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">
+        <span className="text-muted-foreground text-sm">
           {formatDate(row.original.last_modified)}
         </span>
       ),
@@ -159,5 +154,5 @@ export function createDevCleanerColumns(
         left.original.last_modified - right.original.last_modified ||
         compareProjectIdentity(left.original, right.original),
     },
-  ];
+  ]
 }

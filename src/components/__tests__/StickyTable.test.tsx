@@ -1,9 +1,9 @@
 /**
  * Test / 测试: verify behavior only; 只验证行为与契约.
  */
-import { describe, it, expect } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
-import { createRef } from "react";
+import { describe, it, expect } from "vitest"
+import { render, screen, waitFor } from "@testing-library/react"
+import { createRef } from "react"
 import {
   StickyTable,
   StickyTableBody,
@@ -15,7 +15,7 @@ import {
   StickyTableRow,
   StickyTableSortButton,
   StickyTableText,
-} from "../ui/StickyTable";
+} from "../ui/StickyTable"
 
 describe("StickyTable", () => {
   it("applies fixed layout when requested", () => {
@@ -26,21 +26,21 @@ describe("StickyTable", () => {
             <StickyTableHead>Project</StickyTableHead>
           </StickyTableRow>
         </StickyTableHeader>
-      </StickyTable>
-    );
+      </StickyTable>,
+    )
 
-    expect(screen.getByRole("table")).toHaveClass("table-fixed");
-  });
+    expect(screen.getByRole("table")).toHaveClass("table-fixed")
+  })
 
   it("supports indeterminate selection state", async () => {
-    const checkboxRef = createRef<HTMLInputElement>();
+    const checkboxRef = createRef<HTMLInputElement>()
 
-    render(<StickyTableCheckbox ref={checkboxRef} indeterminate aria-label="Select row" />);
+    render(<StickyTableCheckbox ref={checkboxRef} indeterminate aria-label="Select row" />)
 
     await waitFor(() => {
-      expect(checkboxRef.current?.indeterminate).toBe(true);
-    });
-  });
+      expect(checkboxRef.current?.indeterminate).toBe(true)
+    })
+  })
 
   it("renders shared sort and truncation helpers", () => {
     render(
@@ -62,10 +62,10 @@ describe("StickyTable", () => {
             </StickyTableCell>
           </StickyTableRow>
         </StickyTableBody>
-      </StickyTable>
-    );
+      </StickyTable>,
+    )
 
-    expect(screen.getByRole("button", { name: "Project" })).toHaveTextContent("Project");
-    expect(screen.getByText("/.../workspace/very/long/path")).toHaveClass("truncate");
-  });
-});
+    expect(screen.getByRole("button", { name: "Project" })).toHaveTextContent("Project")
+    expect(screen.getByText("/.../workspace/very/long/path")).toHaveClass("truncate")
+  })
+})

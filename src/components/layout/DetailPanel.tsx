@@ -1,19 +1,19 @@
 /**
  * Layout UI / 布局 UI: own layout only; 只负责通用布局.
  */
-import { type ReactNode } from "react";
-import { X, Info } from "lucide-react";
-import { useTranslation } from "react-i18next";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { type ReactNode } from "react"
+import { X, Info } from "lucide-react"
+import { useTranslation } from "react-i18next"
+import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 
 interface DetailPanelProps<T> {
-  item: T | null;
-  onClose: () => void;
-  renderDetail: (item: T) => ReactNode;
-  title?: string;
-  loading?: boolean;
-  open: boolean;
+  item: T | null
+  onClose: () => void
+  renderDetail: (item: T) => ReactNode
+  title?: string
+  loading?: boolean
+  open: boolean
 }
 
 export function DetailPanel<T>({
@@ -24,18 +24,18 @@ export function DetailPanel<T>({
   loading = false,
   open,
 }: DetailPanelProps<T>) {
-  const { t } = useTranslation();
-  const resolvedTitle = title ?? t("common.details");
+  const { t } = useTranslation()
+  const resolvedTitle = title ?? t("common.details")
 
   return (
     <div
       className={cn(
-        "rounded-xl border bg-card flex flex-col overflow-hidden w-full h-full shrink-0",
-        open ? "opacity-100" : "opacity-0"
+        "bg-card flex h-full w-full shrink-0 flex-col overflow-hidden rounded-xl border",
+        open ? "opacity-100" : "opacity-0",
       )}
     >
-      <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
-        <span className="text-xs font-semibold text-foreground/70 uppercase tracking-wider">
+      <div className="flex shrink-0 items-center justify-between border-b px-4 py-3">
+        <span className="text-foreground/70 text-xs font-semibold tracking-wider uppercase">
           {resolvedTitle}
         </span>
         <Button
@@ -48,63 +48,51 @@ export function DetailPanel<T>({
           <X size={14} />
         </Button>
       </div>
-      <div className="flex-1 overflow-y-auto p-4 min-h-0">
+      <div className="min-h-0 flex-1 overflow-y-auto p-4">
         {loading ? (
-          <div className="flex flex-col items-center justify-center h-full gap-3">
-            <div className="size-6 animate-spin rounded-full border-2 border-muted border-t-primary" />
-            <p className="text-xs text-muted-foreground">{t("common.loading")}</p>
+          <div className="flex h-full flex-col items-center justify-center gap-3">
+            <div className="border-muted border-t-primary size-6 animate-spin rounded-full border-2" />
+            <p className="text-muted-foreground text-xs">{t("common.loading")}</p>
           </div>
         ) : item ? (
           renderDetail(item)
         ) : (
-          <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
-            <Info size={32} className="opacity-30 mb-3" />
+          <div className="text-muted-foreground flex h-full flex-col items-center justify-center text-center">
+            <Info size={32} className="mb-3 opacity-30" />
             <p className="text-sm">{t("common.empty.selectItem")}</p>
           </div>
         )}
       </div>
     </div>
-  );
+  )
 }
 
 // --- Reusable detail sub-components ---
 
-export function MetadataRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  const { t } = useTranslation();
-  const resolvedValue = value || t("common.na");
+export function MetadataRow({ label, value }: { label: string; value: string }) {
+  const { t } = useTranslation()
+  const resolvedValue = value || t("common.na")
 
   return (
-    <div className="flex justify-between py-1.5 text-sm border-b border-border/40 last:border-0">
-      <span className="text-muted-foreground shrink-0 mr-2">{label}</span>
+    <div className="border-border/40 flex justify-between border-b py-1.5 text-sm last:border-0">
+      <span className="text-muted-foreground mr-2 shrink-0">{label}</span>
       <span
-        className="font-medium text-right max-w-[60%] break-words overflow-wrap-anywhere"
+        className="overflow-wrap-anywhere max-w-[60%] text-right font-medium break-words"
         title={resolvedValue}
       >
         {resolvedValue}
       </span>
     </div>
-  );
+  )
 }
 
-export function DetailSection({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
+export function DetailSection({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
-      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+      <h4 className="text-muted-foreground mb-2 text-xs font-semibold tracking-wider uppercase">
         {label}
       </h4>
       {children}
     </div>
-  );
+  )
 }

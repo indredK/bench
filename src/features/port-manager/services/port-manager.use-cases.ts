@@ -1,30 +1,30 @@
 /**
  * Use Case / 用例层: coordinate business rules; 只编排业务规则.
  */
-import type { KillPidResult, KillTarget, PortProcessDetail } from "@/lib/tauri/types/port-manager";
-import type { PortCheckResult } from "@/lib/tauri/types/system-settings";
-import { portManagerRepository } from "@/features/port-manager/services/port-manager.repository";
-import { canUseDesktopFeatures } from "@/platform/capabilities";
+import type { KillPidResult, KillTarget, PortProcessDetail } from "@/lib/tauri/types/port-manager"
+import type { PortCheckResult } from "@/lib/tauri/types/system-settings"
+import { portManagerRepository } from "@/features/port-manager/services/port-manager.repository"
+import { canUseDesktopFeatures } from "@/platform/capabilities"
 
 export const portManagerUseCases = {
   isAvailable() {
-    return canUseDesktopFeatures();
+    return canUseDesktopFeatures()
   },
 
   queryPortProcesses(ports: number[]): Promise<PortProcessDetail[]> {
-    return portManagerRepository.queryPortProcesses(ports);
+    return portManagerRepository.queryPortProcesses(ports)
   },
 
   killProcesses(targets: KillTarget[]): Promise<KillPidResult[]> {
-    return portManagerRepository.killProcesses(targets);
+    return portManagerRepository.killProcesses(targets)
   },
 
   /** v1.18 — 远程端口检测:对指定 host 的端口做 TCP 连通性检查。 */
   async portCheck(host: string, ports: number[]): Promise<PortCheckResult[]> {
     const results = await Promise.all(
       ports.map((port) => portManagerRepository.portCheck(host, port)),
-    );
-    return results;
+    )
+    return results
   },
 
   /** 将 PortCheckResult 映射为 PortProcessDetail(open 端口用 dummy pid 表示占用)。 */
@@ -36,7 +36,7 @@ export const portManagerUseCases = {
       process_trees: [],
       fingerprint: null,
       error: result.error,
-    };
+    }
   },
 
   /**
@@ -45,44 +45,44 @@ export const portManagerUseCases = {
    * the expected_name to reject PID-reuse mismatches before sending SIGKILL.
    */
   buildKillTargets(pids: number[], portDetails: PortProcessDetail[]): KillTarget[] {
-    const nameByPid = new Map<number, string>();
+    const nameByPid = new Map<number, string>()
     const visit = (nodes: { pid: number; name: string; children?: unknown }[]) => {
       for (const node of nodes) {
         if (!nameByPid.has(node.pid) && node.name) {
-          nameByPid.set(node.pid, node.name);
+          nameByPid.set(node.pid, node.name)
         }
-        const children = (node as { children?: typeof nodes }).children;
-        if (children?.length) visit(children);
+        const children = (node as { children?: typeof nodes }).children
+        if (children?.length) visit(children)
       }
-    };
-    for (const detail of portDetails) {
-      visit(detail.process_trees);
     }
-    return pids.map((pid) => ({ pid, expected_name: nameByPid.get(pid) ?? null }));
+    for (const detail of portDetails) {
+      visit(detail.process_trees)
+    }
+    return pids.map((pid) => ({ pid, expected_name: nameByPid.get(pid) ?? null }))
   },
 
   createKillMessages(results: KillPidResult[]): string[] {
     return results.map((result) =>
-      result.success ? `PID ${result.pid} killed` : `PID ${result.pid}: ${result.message}`
-    );
+      result.success ? `PID ${result.pid} killed` : `PID ${result.pid}: ${result.message}`,
+    )
   },
 
   groupKillMessagesByPort(
     results: KillPidResult[],
-    portDetails: PortProcessDetail[]
+    portDetails: PortProcessDetail[],
   ): Record<number, string[]> {
-    const killMessages: Record<number, string[]> = {};
+    const killMessages: Record<number, string[]> = {}
 
     for (const result of results) {
       const message = result.success
         ? `PID ${result.pid} killed`
-        : `PID ${result.pid}: ${result.message}`;
-      const detail = portDetails.find((item) => item.pids.includes(result.pid));
+        : `PID ${result.pid}: ${result.message}`
+      const detail = portDetails.find((item) => item.pids.includes(result.pid))
       if (detail) {
-        killMessages[detail.port] = [...(killMessages[detail.port] || []), message];
+        killMessages[detail.port] = [...(killMessages[detail.port] || []), message]
       }
     }
 
-    return killMessages;
+    return killMessages
   },
-};
+}

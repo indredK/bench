@@ -1,16 +1,11 @@
 /**
  * Shared Compare / 共享对比: own generic compare tools; 只负责通用对比能力.
  */
-import { useMemo } from "react";
-import { useTranslation } from "react-i18next";
-import {
-  flexRender,
-  getCoreRowModel,
-  useReactTable,
-  type ColumnDef,
-} from "@tanstack/react-table";
-import { ExternalLink, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useMemo } from "react"
+import { useTranslation } from "react-i18next"
+import { flexRender, getCoreRowModel, useReactTable, type ColumnDef } from "@tanstack/react-table"
+import { ExternalLink, X } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import {
   StickyTable,
   StickyTableBody,
@@ -19,45 +14,43 @@ import {
   StickyTableHeader,
   StickyTableRow,
   type StickyTableProps,
-} from "@/components/ui/StickyTable";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
-import type { SpecRow } from "@/shared/compare/types";
-import { openExternal } from "@/platform/shell";
+} from "@/components/ui/StickyTable"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { cn } from "@/lib/utils"
+import type { SpecRow } from "@/shared/compare/types"
+import { openExternal } from "@/platform/shell"
 
 interface CompareMatrixRowContext {
-  rowId: string;
-  rowIndex: number;
+  rowId: string
+  rowIndex: number
 }
 
 interface CompareMatrixColumnMeta<Row> {
-  sticky?: boolean;
-  width?: React.CSSProperties["width"];
-  minWidth?: React.CSSProperties["minWidth"];
-  maxWidth?: React.CSSProperties["maxWidth"];
-  headerClassName?: string;
-  cellClassName?: string | ((row: Row, context: CompareMatrixRowContext) => string | undefined);
+  sticky?: boolean
+  width?: React.CSSProperties["width"]
+  minWidth?: React.CSSProperties["minWidth"]
+  maxWidth?: React.CSSProperties["maxWidth"]
+  headerClassName?: string
+  cellClassName?: string | ((row: Row, context: CompareMatrixRowContext) => string | undefined)
 }
 
-interface CompareMatrixTableProps<T extends { id: string; model: string }>
-  extends Omit<StickyTableProps, "children"> {
-  specRows: SpecRow<T>[];
-  selectedModels: T[];
-  numericKeys: (keyof T)[];
-  inverseKeys: (keyof T)[];
-  i18nPrefix: string;
-  bestValues: Map<keyof T, Set<string>>;
-  rangeValues: Map<keyof T, { min: number; max: number }>;
-  referenceUrl?: (model: T, key: keyof T) => string | undefined;
-  onRemoveModel: (id: string) => void;
+interface CompareMatrixTableProps<T extends { id: string; model: string }> extends Omit<
+  StickyTableProps,
+  "children"
+> {
+  specRows: SpecRow<T>[]
+  selectedModels: T[]
+  numericKeys: (keyof T)[]
+  inverseKeys: (keyof T)[]
+  i18nPrefix: string
+  bestValues: Map<keyof T, Set<string>>
+  rangeValues: Map<keyof T, { min: number; max: number }>
+  referenceUrl?: (model: T, key: keyof T) => string | undefined
+  onRemoveModel: (id: string) => void
 }
 
 function getColumnMeta<Row>(columnDef: ColumnDef<Row, unknown>) {
-  return (columnDef.meta ?? {}) as CompareMatrixColumnMeta<Row>;
+  return (columnDef.meta ?? {}) as CompareMatrixColumnMeta<Row>
 }
 
 function getStyleFromMeta<Row>(meta: CompareMatrixColumnMeta<Row>) {
@@ -65,7 +58,7 @@ function getStyleFromMeta<Row>(meta: CompareMatrixColumnMeta<Row>) {
     width: meta.width,
     minWidth: meta.minWidth,
     maxWidth: meta.maxWidth,
-  };
+  }
 }
 
 function CompareMatrixValueCell<T extends { id: string; model: string }>({
@@ -77,40 +70,29 @@ function CompareMatrixValueCell<T extends { id: string; model: string }>({
   rangeValues,
   referenceUrl,
 }: {
-  row: SpecRow<T>;
-  model: T;
-  numericKeys: (keyof T)[];
-  inverseKeys: (keyof T)[];
-  bestValues: Map<keyof T, Set<string>>;
-  rangeValues: Map<keyof T, { min: number; max: number }>;
-  referenceUrl?: (model: T, key: keyof T) => string | undefined;
+  row: SpecRow<T>
+  model: T
+  numericKeys: (keyof T)[]
+  inverseKeys: (keyof T)[]
+  bestValues: Map<keyof T, Set<string>>
+  rangeValues: Map<keyof T, { min: number; max: number }>
+  referenceUrl?: (model: T, key: keyof T) => string | undefined
 }) {
-  const value = model[row.key];
-  const displayValue = row.format
-    ? row.format(value as T[keyof T], model)
-    : String(value ?? "—");
-  const isHighlighted = bestValues.get(row.key)?.has(model.id);
-  const range = rangeValues.get(row.key);
-  const isNumeric =
-    numericKeys.includes(row.key) ||
-    inverseKeys.includes(row.key);
-  const reference = referenceUrl
-    ? referenceUrl(model, row.key)
-    : undefined;
-  let barPercent = 0;
+  const value = model[row.key]
+  const displayValue = row.format ? row.format(value as T[keyof T], model) : String(value ?? "—")
+  const isHighlighted = bestValues.get(row.key)?.has(model.id)
+  const range = rangeValues.get(row.key)
+  const isNumeric = numericKeys.includes(row.key) || inverseKeys.includes(row.key)
+  const reference = referenceUrl ? referenceUrl(model, row.key) : undefined
+  let barPercent = 0
 
-  if (
-    range &&
-    isNumeric &&
-    value != null &&
-    !Number.isNaN(Number(value))
-  ) {
-    const numericValue = Number(value);
-    const diff = range.max - range.min;
+  if (range && isNumeric && value != null && !Number.isNaN(Number(value))) {
+    const numericValue = Number(value)
+    const diff = range.max - range.min
     if (diff > 0) {
-      barPercent = ((numericValue - range.min) / diff) * 100;
+      barPercent = ((numericValue - range.min) / diff) * 100
     } else {
-      barPercent = 100;
+      barPercent = 100
     }
   }
 
@@ -122,7 +104,7 @@ function CompareMatrixValueCell<T extends { id: string; model: string }>({
             "absolute inset-y-1 left-1 rounded-sm",
             isHighlighted
               ? "bg-gradient-to-r from-emerald-600/20 to-emerald-600/5 dark:from-emerald-400/20 dark:to-emerald-400/5"
-              : "bg-gradient-to-r from-gray-500/10 to-gray-500/5 dark:from-gray-400/10 dark:to-gray-400/5"
+              : "bg-gradient-to-r from-gray-500/10 to-gray-500/5 dark:from-gray-400/10 dark:to-gray-400/5",
           )}
           style={{ width: `${Math.max(barPercent, 4)}%` }}
         />
@@ -131,7 +113,7 @@ function CompareMatrixValueCell<T extends { id: string; model: string }>({
         <span
           className={cn(
             "text-sm tabular-nums",
-            isHighlighted && "text-emerald-700 dark:text-emerald-300"
+            isHighlighted && "text-emerald-700 dark:text-emerald-300",
           )}
         >
           {displayValue}
@@ -139,29 +121,23 @@ function CompareMatrixValueCell<T extends { id: string; model: string }>({
         {reference && (
           <Tooltip>
             <TooltipTrigger
-              className="shrink-0 cursor-pointer text-muted-foreground/40 transition-colors hover:text-muted-foreground"
+              className="text-muted-foreground/40 hover:text-muted-foreground shrink-0 cursor-pointer transition-colors"
               onClick={(event) => {
-                event.stopPropagation();
-                void openExternal(reference);
+                event.stopPropagation()
+                void openExternal(reference)
               }}
               aria-label={reference}
             >
               <ExternalLink className="size-3" />
             </TooltipTrigger>
-            <TooltipContent
-              side="top"
-              align="center"
-              className="max-w-[400px] break-all"
-            >
-              <span className="font-mono text-[10px]">
-                {reference}
-              </span>
+            <TooltipContent side="top" align="center" className="max-w-[400px] break-all">
+              <span className="font-mono text-[10px]">{reference}</span>
             </TooltipContent>
           </Tooltip>
         )}
       </div>
     </>
-  );
+  )
 }
 
 function CompareMatrixTable<T extends { id: string; model: string }>({
@@ -176,80 +152,81 @@ function CompareMatrixTable<T extends { id: string; model: string }>({
   onRemoveModel,
   ...tableProps
 }: CompareMatrixTableProps<T>) {
-  const { t } = useTranslation();
+  const { t } = useTranslation()
 
-  const columns = useMemo<ColumnDef<SpecRow<T>>[]>(() => [
-    {
-      id: "specification",
-      header: t(`${i18nPrefix}.specification`),
-      cell: ({ row }) => t(row.original.label),
-      meta: {
-        sticky: true,
-        minWidth: "160px",
-        cellClassName: "text-xs",
-      },
-    },
-    ...selectedModels.map<ColumnDef<SpecRow<T>>>((model) => ({
-      id: model.id,
-      header: () => (
-        <div className="flex items-center gap-2">
-          <div className="size-2 shrink-0 rounded-full bg-primary/40" />
-          <span className="truncate font-medium">
-            {model.model}
-          </span>
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            className="ml-auto shrink-0 opacity-60 transition-opacity hover:opacity-100"
-            onClick={() => onRemoveModel(model.id)}
-            aria-label={`Remove ${model.model}`}
-          >
-            <X className="size-3" />
-          </Button>
-        </div>
-      ),
-      cell: ({ row }) => (
-        <CompareMatrixValueCell
-          row={row.original}
-          model={model}
-          numericKeys={numericKeys}
-          inverseKeys={inverseKeys}
-          bestValues={bestValues}
-          rangeValues={rangeValues}
-          referenceUrl={referenceUrl}
-        />
-      ),
-      meta: {
-        minWidth: "140px",
-        cellClassName: (row, context) => {
-          const isHighlighted = bestValues.get(row.key)?.has(model.id);
-
-          return cn(
-            "relative",
-            context.rowIndex % 2 === 1 && "bg-muted/15",
-            isHighlighted && "font-bold text-emerald-600 dark:text-emerald-400"
-          );
+  const columns = useMemo<ColumnDef<SpecRow<T>>[]>(
+    () => [
+      {
+        id: "specification",
+        header: t(`${i18nPrefix}.specification`),
+        cell: ({ row }) => t(row.original.label),
+        meta: {
+          sticky: true,
+          minWidth: "160px",
+          cellClassName: "text-xs",
         },
       },
-    })),
-  ], [
-    bestValues,
-    i18nPrefix,
-    inverseKeys,
-    numericKeys,
-    onRemoveModel,
-    rangeValues,
-    referenceUrl,
-    selectedModels,
-    t,
-  ]);
+      ...selectedModels.map<ColumnDef<SpecRow<T>>>((model) => ({
+        id: model.id,
+        header: () => (
+          <div className="flex items-center gap-2">
+            <div className="bg-primary/40 size-2 shrink-0 rounded-full" />
+            <span className="truncate font-medium">{model.model}</span>
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              className="ml-auto shrink-0 opacity-60 transition-opacity hover:opacity-100"
+              onClick={() => onRemoveModel(model.id)}
+              aria-label={`Remove ${model.model}`}
+            >
+              <X className="size-3" />
+            </Button>
+          </div>
+        ),
+        cell: ({ row }) => (
+          <CompareMatrixValueCell
+            row={row.original}
+            model={model}
+            numericKeys={numericKeys}
+            inverseKeys={inverseKeys}
+            bestValues={bestValues}
+            rangeValues={rangeValues}
+            referenceUrl={referenceUrl}
+          />
+        ),
+        meta: {
+          minWidth: "140px",
+          cellClassName: (row, context) => {
+            const isHighlighted = bestValues.get(row.key)?.has(model.id)
+
+            return cn(
+              "relative",
+              context.rowIndex % 2 === 1 && "bg-muted/15",
+              isHighlighted && "font-bold text-emerald-600 dark:text-emerald-400",
+            )
+          },
+        },
+      })),
+    ],
+    [
+      bestValues,
+      i18nPrefix,
+      inverseKeys,
+      numericKeys,
+      onRemoveModel,
+      rangeValues,
+      referenceUrl,
+      selectedModels,
+      t,
+    ],
+  )
 
   const table = useReactTable({
     data: specRows,
     columns,
     getRowId: (row) => String(row.key),
     getCoreRowModel: getCoreRowModel(),
-  });
+  })
 
   return (
     <StickyTable {...tableProps}>
@@ -257,7 +234,7 @@ function CompareMatrixTable<T extends { id: string; model: string }>({
         {table.getHeaderGroups().map((headerGroup) => (
           <StickyTableRow key={headerGroup.id}>
             {headerGroup.headers.map((header) => {
-              const meta = getColumnMeta(header.column.columnDef);
+              const meta = getColumnMeta(header.column.columnDef)
 
               return (
                 <StickyTableHead
@@ -269,12 +246,9 @@ function CompareMatrixTable<T extends { id: string; model: string }>({
                 >
                   {header.isPlaceholder
                     ? null
-                    : flexRender(
-                        header.column.columnDef.header,
-                        header.getContext()
-                      )}
+                    : flexRender(header.column.columnDef.header, header.getContext())}
                 </StickyTableHead>
-              );
+              )
             })}
           </StickyTableRow>
         ))}
@@ -284,19 +258,16 @@ function CompareMatrixTable<T extends { id: string; model: string }>({
           const rowContext = {
             rowId: tableRow.id,
             rowIndex,
-          };
+          }
 
           return (
-            <StickyTableRow
-              key={tableRow.id}
-              className="transition-none"
-            >
+            <StickyTableRow key={tableRow.id} className="transition-none">
               {tableRow.getVisibleCells().map((cell) => {
-                const meta = getColumnMeta(cell.column.columnDef);
+                const meta = getColumnMeta(cell.column.columnDef)
                 const cellClassName =
                   typeof meta.cellClassName === "function"
                     ? meta.cellClassName(tableRow.original, rowContext)
-                    : meta.cellClassName;
+                    : meta.cellClassName
 
                 return (
                   <StickyTableCell
@@ -307,15 +278,15 @@ function CompareMatrixTable<T extends { id: string; model: string }>({
                   >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </StickyTableCell>
-                );
+                )
               })}
             </StickyTableRow>
-          );
+          )
         })}
       </StickyTableBody>
     </StickyTable>
-  );
+  )
 }
 
-export { CompareMatrixTable };
-export type { CompareMatrixTableProps };
+export { CompareMatrixTable }
+export type { CompareMatrixTableProps }

@@ -1,15 +1,15 @@
 /**
  * Test / 测试: verify behavior only; 只验证行为与契约.
  */
-import { describe, expect, it } from "vitest";
-import { render } from "@testing-library/react";
-import type { ColumnDef } from "@tanstack/react-table";
-import { DataTable } from "../ui/DataTable";
+import { describe, expect, it } from "vitest"
+import { render } from "@testing-library/react"
+import type { ColumnDef } from "@tanstack/react-table"
+import { DataTable } from "../ui/DataTable"
 
 interface ProjectRow {
-  id: string;
-  name: string;
-  path: string;
+  id: string
+  name: string
+  path: string
 }
 
 const columns: ColumnDef<ProjectRow>[] = [
@@ -29,7 +29,7 @@ const columns: ColumnDef<ProjectRow>[] = [
       width: "70%",
     },
   },
-];
+]
 
 describe("DataTable", () => {
   it("renders body rows directly so table columns share one layout", () => {
@@ -42,14 +42,11 @@ describe("DataTable", () => {
         columns={columns}
         getRowId={(row) => row.id}
         layout="fixed"
-      />
-    );
+      />,
+    )
 
-    const body = container.querySelector("tbody");
-    expect(body).not.toBeNull();
-    expect(Array.from(body?.children ?? []).map((child) => child.tagName)).toEqual([
-      "TR",
-      "TR",
-    ]);
-  });
-});
+    const body = container.querySelector("tbody")
+    expect(body).not.toBeNull()
+    expect(Array.from(body?.children ?? []).map((child) => child.tagName)).toEqual(["TR", "TR"])
+  })
+})

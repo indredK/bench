@@ -1,11 +1,11 @@
 /**
  * Feature Model / 功能模型: keep pure model logic; 只放纯模型逻辑.
  */
-import type { AppInfo, InstallListAppInfo } from "@/lib/tauri/types/app-manager";
+import type { AppInfo, InstallListAppInfo } from "@/lib/tauri/types/app-manager"
 import {
   getRecommendedInstallList,
   type RecommendedAppInstallStatus,
-} from "@/features/app-manager/recommended-apps";
+} from "@/features/app-manager/recommended-apps"
 
 export function createInstallListApps(apps: AppInfo[]): InstallListAppInfo[] {
   return getRecommendedInstallList(apps).map((app: RecommendedAppInstallStatus) => ({
@@ -22,5 +22,5 @@ export function createInstallListApps(apps: AppInfo[]): InstallListAppInfo[] {
     installedAppId: app.installedAppId,
     installedVersion: app.installedVersion,
     installedPath: app.installedPath,
-  }));
+  }))
 }

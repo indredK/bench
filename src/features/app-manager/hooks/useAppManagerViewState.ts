@@ -1,6 +1,6 @@
-import { useMemo } from "react";
-import { useShallow } from "zustand/react/shallow";
-import { useAppManagerStore } from "@/features/app-manager/store";
+import { useMemo } from "react"
+import { useShallow } from "zustand/react/shallow"
+import { useAppManagerStore } from "@/features/app-manager/store"
 
 export function useAppManagerViewState() {
   const state = useAppManagerStore(
@@ -50,8 +50,8 @@ export function useAppManagerViewState() {
       updateOperations: store.updateOperations,
       installFinished: store.installFinished,
       installProgress: store.installProgress,
-    }))
-  );
+    })),
+  )
 
-  return useMemo(() => state, [state]);
+  return useMemo(() => state, [state])
 }

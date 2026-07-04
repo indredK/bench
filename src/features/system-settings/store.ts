@@ -4,117 +4,123 @@
  * v2: 重设计 — 9 个 Tab → 3 个 Tab (appearance/security/system)，
  * SettingsDialog 合并入主设置页。
  */
-import { create } from "zustand";
-import type { SleepState, LoginItem, MenuBarAutoHideMode, LowPowerMode, GatekeeperMode } from "@/lib/tauri/types/system-settings";
+import { create } from "zustand"
+import type {
+  SleepState,
+  LoginItem,
+  MenuBarAutoHideMode,
+  LowPowerMode,
+  GatekeeperMode,
+} from "@/lib/tauri/types/system-settings"
 
-export type SettingsTab = "appearance" | "security" | "system" | "advanced";
+export type SettingsTab = "appearance" | "security" | "system" | "advanced"
 
 interface SystemSettingsState {
-  activeTab: SettingsTab;
-  setActiveTab: (tab: SettingsTab) => void;
+  activeTab: SettingsTab
+  setActiveTab: (tab: SettingsTab) => void
 
-  loadedTabs: Set<string>;
-  markTabLoaded: (tab: string) => void;
+  loadedTabs: Set<string>
+  markTabLoaded: (tab: string) => void
 
   // ── Appearance ──
   // Theme & Language (from old SettingsDialog)
-  theme: "system" | "light" | "dark";
-  setTheme: (v: "system" | "light" | "dark") => void;
-  language: "system" | "en" | "zh";
-  setLanguage: (v: "system" | "en" | "zh") => void;
-  windowThemeId: string;
-  setWindowThemeId: (v: string) => void;
+  theme: "system" | "light" | "dark"
+  setTheme: (v: "system" | "light" | "dark") => void
+  language: "system" | "en" | "zh"
+  setLanguage: (v: "system" | "en" | "zh") => void
+  windowThemeId: string
+  setWindowThemeId: (v: string) => void
 
-  darkMode: boolean;
-  setDarkMode: (v: boolean) => void;
-  displayBatteryPercent: boolean;
-  setDisplayBatteryPercent: (v: boolean) => void;
-  autohideDock: boolean;
-  setAutohideDock: (v: boolean) => void;
-  dockOrientation: string;
-  setDockOrientation: (v: string) => void;
-  minimizeScaleEnabled: boolean;
-  setMinimizeScaleEnabled: (v: boolean) => void;
-  autohideMenuBar: MenuBarAutoHideMode;
-  setAutohideMenuBar: (v: MenuBarAutoHideMode) => void;
-  dockShowRecents: boolean;
-  setDockShowRecents: (v: boolean) => void;
-  hideDesktopIcons: boolean;
-  setHideDesktopIcons: (v: boolean) => void;
-  screenSaver: boolean;
-  setScreenSaver: (v: boolean) => void;
+  darkMode: boolean
+  setDarkMode: (v: boolean) => void
+  displayBatteryPercent: boolean
+  setDisplayBatteryPercent: (v: boolean) => void
+  autohideDock: boolean
+  setAutohideDock: (v: boolean) => void
+  dockOrientation: string
+  setDockOrientation: (v: string) => void
+  minimizeScaleEnabled: boolean
+  setMinimizeScaleEnabled: (v: boolean) => void
+  autohideMenuBar: MenuBarAutoHideMode
+  setAutohideMenuBar: (v: MenuBarAutoHideMode) => void
+  dockShowRecents: boolean
+  setDockShowRecents: (v: boolean) => void
+  hideDesktopIcons: boolean
+  setHideDesktopIcons: (v: boolean) => void
+  screenSaver: boolean
+  setScreenSaver: (v: boolean) => void
 
-  screenshotFormat: string;
-  setScreenshotFormat: (v: string) => void;
-  screenshotDisableShadow: boolean;
-  setScreenshotDisableShadow: (v: boolean) => void;
-  screenshotShowThumbnail: boolean;
-  setScreenshotShowThumbnail: (v: boolean) => void;
-  screenshotSaveLocation: string;
-  setScreenshotSaveLocation: (v: string) => void;
+  screenshotFormat: string
+  setScreenshotFormat: (v: string) => void
+  screenshotDisableShadow: boolean
+  setScreenshotDisableShadow: (v: boolean) => void
+  screenshotShowThumbnail: boolean
+  setScreenshotShowThumbnail: (v: boolean) => void
+  screenshotSaveLocation: string
+  setScreenshotSaveLocation: (v: string) => void
 
   // ── Security ──
-  lockScreenPassword: boolean;
-  setLockScreenPassword: (v: boolean) => void;
-  lockScreenPasswordDelay: number;
-  setLockScreenPasswordDelay: (v: number) => void;
+  lockScreenPassword: boolean
+  setLockScreenPassword: (v: boolean) => void
+  lockScreenPasswordDelay: number
+  setLockScreenPasswordDelay: (v: number) => void
 
-  networkFirewall: boolean;
-  setNetworkFirewall: (v: boolean) => void;
-  networkSsh: boolean;
-  setNetworkSsh: (v: boolean) => void;
-  networkScreenSharing: boolean;
-  setNetworkScreenSharing: (v: boolean) => void;
-  networkAirdropDisabled: boolean;
-  setNetworkAirdropDisabled: (v: boolean) => void;
+  networkFirewall: boolean
+  setNetworkFirewall: (v: boolean) => void
+  networkSsh: boolean
+  setNetworkSsh: (v: boolean) => void
+  networkScreenSharing: boolean
+  setNetworkScreenSharing: (v: boolean) => void
+  networkAirdropDisabled: boolean
+  setNetworkAirdropDisabled: (v: boolean) => void
 
-  gatekeeper: GatekeeperMode;
+  gatekeeper: GatekeeperMode
 
   // ── System ──
-  sleepState: SleepState | null;
-  setSleepState: (state: SleepState | null) => void;
+  sleepState: SleepState | null
+  setSleepState: (state: SleepState | null) => void
 
-  keyboardFnKey: boolean;
-  setKeyboardFnKey: (v: boolean) => void;
-  autoCorrect: boolean;
-  setAutoCorrect: (v: boolean) => void;
-  smartQuotes: boolean;
-  setSmartQuotes: (v: boolean) => void;
-  smartDashes: boolean;
-  setSmartDashes: (v: boolean) => void;
-  autoCapitalize: boolean;
-  setAutoCapitalize: (v: boolean) => void;
+  keyboardFnKey: boolean
+  setKeyboardFnKey: (v: boolean) => void
+  autoCorrect: boolean
+  setAutoCorrect: (v: boolean) => void
+  smartQuotes: boolean
+  setSmartQuotes: (v: boolean) => void
+  smartDashes: boolean
+  setSmartDashes: (v: boolean) => void
+  autoCapitalize: boolean
+  setAutoCapitalize: (v: boolean) => void
 
-  lowPowerMode: LowPowerMode;
-  setLowPowerMode: (v: LowPowerMode) => void;
+  lowPowerMode: LowPowerMode
+  setLowPowerMode: (v: LowPowerMode) => void
 
-  finderShowHiddenFiles: boolean;
-  setFinderShowHiddenFiles: (v: boolean) => void;
-  finderShowPathbar: boolean;
-  setFinderShowPathbar: (v: boolean) => void;
-  finderShowStatusbar: boolean;
-  setFinderShowStatusbar: (v: boolean) => void;
-  finderShowLibraryDir: boolean;
-  setFinderShowLibraryDir: (v: boolean) => void;
-  finderShowFileExtensions: boolean;
-  setFinderShowFileExtensions: (v: boolean) => void;
-  finderSpotlightExternalDisk: boolean;
-  setFinderSpotlightExternalDisk: (v: boolean) => void;
-  finderNoDsStore: boolean;
-  setFinderNoDsStore: (v: boolean) => void;
+  finderShowHiddenFiles: boolean
+  setFinderShowHiddenFiles: (v: boolean) => void
+  finderShowPathbar: boolean
+  setFinderShowPathbar: (v: boolean) => void
+  finderShowStatusbar: boolean
+  setFinderShowStatusbar: (v: boolean) => void
+  finderShowLibraryDir: boolean
+  setFinderShowLibraryDir: (v: boolean) => void
+  finderShowFileExtensions: boolean
+  setFinderShowFileExtensions: (v: boolean) => void
+  finderSpotlightExternalDisk: boolean
+  setFinderSpotlightExternalDisk: (v: boolean) => void
+  finderNoDsStore: boolean
+  setFinderNoDsStore: (v: boolean) => void
 
-  loginItems: LoginItem[];
-  setLoginItems: (items: LoginItem[]) => void;
+  loginItems: LoginItem[]
+  setLoginItems: (items: LoginItem[]) => void
 
-  defaultBrowser: string;
-  setDefaultBrowser: (v: string) => void;
+  defaultBrowser: string
+  setDefaultBrowser: (v: string) => void
 
   // ── Shared ──
-  loading: boolean;
-  setLoading: (v: boolean) => void;
+  loading: boolean
+  setLoading: (v: boolean) => void
 
-  applyingKeys: Set<string>;
-  setApplyingKey: (key: string, on: boolean) => void;
+  applyingKeys: Set<string>
+  setApplyingKey: (key: string, on: boolean) => void
 }
 
 export const useSystemSettingsStore = create<SystemSettingsState>((set) => ({
@@ -122,11 +128,12 @@ export const useSystemSettingsStore = create<SystemSettingsState>((set) => ({
   setActiveTab: (tab) => set({ activeTab: tab }),
 
   loadedTabs: new Set<string>(),
-  markTabLoaded: (tab) => set((state) => {
-    const next = new Set(state.loadedTabs);
-    next.add(tab);
-    return { loadedTabs: next };
-  }),
+  markTabLoaded: (tab) =>
+    set((state) => {
+      const next = new Set(state.loadedTabs)
+      next.add(tab)
+      return { loadedTabs: next }
+    }),
 
   // ── Appearance defaults ──
   theme: "system",
@@ -225,13 +232,14 @@ export const useSystemSettingsStore = create<SystemSettingsState>((set) => ({
   setLoading: (v) => set({ loading: v }),
 
   applyingKeys: new Set<string>(),
-  setApplyingKey: (key, on) => set((state) => {
-    const next = new Set(state.applyingKeys);
-    if (on) {
-      next.add(key);
-    } else {
-      next.delete(key);
-    }
-    return { applyingKeys: next };
-  }),
-}));
+  setApplyingKey: (key, on) =>
+    set((state) => {
+      const next = new Set(state.applyingKeys)
+      if (on) {
+        next.add(key)
+      } else {
+        next.delete(key)
+      }
+      return { applyingKeys: next }
+    }),
+}))

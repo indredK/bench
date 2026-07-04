@@ -1,8 +1,8 @@
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
-import path from "path";
+import { defineConfig } from "vite"
+import react from "@vitejs/plugin-react"
+import path from "path"
 
-const host = process.env.TAURI_DEV_HOST;
+const host = process.env.TAURI_DEV_HOST
 
 export default defineConfig(async () => ({
   plugins: [react()],
@@ -38,18 +38,18 @@ export default defineConfig(async () => ({
         manualChunks(id: string | string[]) {
           if (id.includes("node_modules")) {
             if (id.includes("react") || id.includes("react-dom")) {
-              return "vendor-react";
+              return "vendor-react"
             }
             if (id.includes("@tauri-apps")) {
-              return "vendor-tauri";
+              return "vendor-tauri"
             }
             if (id.includes("radix-ui") || id.includes("@radix-ui")) {
-              return "vendor-radix";
+              return "vendor-radix"
             }
             if (id.includes("lucide-react")) {
-              return "vendor-icons";
+              return "vendor-icons"
             }
-            return "vendor";
+            return "vendor"
           }
         },
       },
@@ -67,4 +67,4 @@ export default defineConfig(async () => ({
     ],
     css: false,
   },
-}));
+}))

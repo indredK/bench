@@ -1,41 +1,41 @@
 /**
  * Static Data / 静态数据: export catalogs only; 只导出静态目录数据.
  */
-import type { CompareDataModule, FilterGroup, SpecRow } from "@/shared/compare/types";
-import { t } from "i18next";
+import type { CompareDataModule, FilterGroup, SpecRow } from "@/shared/compare/types"
+import { t } from "i18next"
 
 export interface PhoneModel {
-  id: string;
-  model: string;
-  brand: string;
-  series: string;
-  launchYear: number;
-  dimensions: string;
-  weight: number;
-  displaySize: number;
-  displayType: string;
-  resolution: string;
-  refreshRate: number;
-  peakBrightness: number;
-  chipset: string;
-  processNode: string;
-  cpu: string;
-  gpu: string;
-  ram: number;
-  storage: string;
-  mainCamera: string;
-  frontCamera: string;
-  batteryCapacity: number;
-  wiredCharging: number;
-  wirelessCharging: number;
-  os: string;
-  waterproof: string;
-  fingerprint: string;
-  material: string;
-  geekbench6Multi: number;
-  antutuScore: number;
-  dxomarkCamera: number;
-  price: number;
+  id: string
+  model: string
+  brand: string
+  series: string
+  launchYear: number
+  dimensions: string
+  weight: number
+  displaySize: number
+  displayType: string
+  resolution: string
+  refreshRate: number
+  peakBrightness: number
+  chipset: string
+  processNode: string
+  cpu: string
+  gpu: string
+  ram: number
+  storage: string
+  mainCamera: string
+  frontCamera: string
+  batteryCapacity: number
+  wiredCharging: number
+  wirelessCharging: number
+  os: string
+  waterproof: string
+  fingerprint: string
+  material: string
+  geekbench6Multi: number
+  antutuScore: number
+  dxomarkCamera: number
+  price: number
 }
 
 const rawPhoneData: PhoneModel[] = [
@@ -1186,7 +1186,8 @@ const rawPhoneData: PhoneModel[] = [
     gpu: "Adreno 750",
     ram: 16,
     storage: "256GB / 512GB / 1TB UFS 4.0",
-    mainCamera: "50MP f/1.6 主摄(1英寸) + 50MP f/1.8 超广角 + 50MP 3.2倍长焦 + 50MP 5倍潜望长焦 (徕卡)",
+    mainCamera:
+      "50MP f/1.6 主摄(1英寸) + 50MP f/1.8 超广角 + 50MP 3.2倍长焦 + 50MP 5倍潜望长焦 (徕卡)",
     frontCamera: "32MP f/2.0",
     batteryCapacity: 5000,
     wiredCharging: 90,
@@ -1289,7 +1290,8 @@ const rawPhoneData: PhoneModel[] = [
     gpu: "Adreno 830",
     ram: 16,
     storage: "256GB / 512GB / 1TB UFS 4.0",
-    mainCamera: "50MP f/1.6 主摄(1英寸) + 50MP f/1.8 超广角 + 50MP 3倍长焦 + 200MP f/2.6 4.3倍潜望长焦 (徕卡)",
+    mainCamera:
+      "50MP f/1.6 主摄(1英寸) + 50MP f/1.8 超广角 + 50MP 3倍长焦 + 200MP f/2.6 4.3倍潜望长焦 (徕卡)",
     frontCamera: "32MP f/2.0",
     batteryCapacity: 6000,
     wiredCharging: 90,
@@ -1495,7 +1497,8 @@ const rawPhoneData: PhoneModel[] = [
     gpu: "Adreno 830",
     ram: 16,
     storage: "256GB / 512GB / 1TB UFS 4.0",
-    mainCamera: "50MP f/1.6 主摄(1英寸) + 50MP f/2.0 超广角 + 200MP f/2.2 3.7倍潜望长焦 + 50MP f/2.6 6倍潜望长焦 (蔡司)",
+    mainCamera:
+      "50MP f/1.6 主摄(1英寸) + 50MP f/2.0 超广角 + 200MP f/2.2 3.7倍潜望长焦 + 50MP f/2.6 6倍潜望长焦 (蔡司)",
     frontCamera: "32MP f/2.0",
     batteryCapacity: 6200,
     wiredCharging: 100,
@@ -1808,7 +1811,8 @@ const rawPhoneData: PhoneModel[] = [
     gpu: "Adreno 840",
     ram: 16,
     storage: "256GB / 512GB / 1TB UFS 4.1",
-    mainCamera: "50MP f/1.6 主摄 + 50MP f/2.0 超广角 + 50MP f/2.6 3倍潜望长焦 + 50MP f/2.8 6倍潜望长焦",
+    mainCamera:
+      "50MP f/1.6 主摄 + 50MP f/2.0 超广角 + 50MP f/2.6 3倍潜望长焦 + 50MP f/2.8 6倍潜望长焦",
     frontCamera: "32MP f/2.4",
     batteryCapacity: 7000,
     wiredCharging: 150,
@@ -1878,7 +1882,8 @@ const rawPhoneData: PhoneModel[] = [
     gpu: "Maleoon 920",
     ram: 16,
     storage: "256GB / 512GB / 1TB",
-    mainCamera: "50MP f/1.4-f/4.0 主摄 + 40MP f/2.2 超广角 + 48MP f/3.0 3.5倍潜望长焦 + 12MP f/2.2 RYYB长焦",
+    mainCamera:
+      "50MP f/1.4-f/4.0 主摄 + 40MP f/2.2 超广角 + 48MP f/3.0 3.5倍潜望长焦 + 12MP f/2.2 RYYB长焦",
     frontCamera: "13MP f/2.4 + TOF 3D",
     batteryCapacity: 5700,
     wiredCharging: 100,
@@ -1911,7 +1916,8 @@ const rawPhoneData: PhoneModel[] = [
     gpu: "Maleoon 930",
     ram: 16,
     storage: "512GB / 1TB",
-    mainCamera: "50MP f/1.4-f/4.0 主摄(1英寸) + 40MP f/2.2 超广角 + 50MP f/2.6 3.5倍潜望长焦 + 50MP f/3.0 10倍潜望长焦",
+    mainCamera:
+      "50MP f/1.4-f/4.0 主摄(1英寸) + 40MP f/2.2 超广角 + 50MP f/2.6 3.5倍潜望长焦 + 50MP f/3.0 10倍潜望长焦",
     frontCamera: "13MP f/2.4 + TOF 3D",
     batteryCapacity: 5800,
     wiredCharging: 100,
@@ -2094,7 +2100,7 @@ const rawPhoneData: PhoneModel[] = [
     dxomarkCamera: 135,
     price: 1099,
   },
-];
+]
 
 const PHONE_WATERPROOF_KEYS: Record<string, string> = {
   "IP68 (6米/30分钟)": "ip68_6m",
@@ -2104,17 +2110,17 @@ const PHONE_WATERPROOF_KEYS: Record<string, string> = {
   IP68: "ip68",
   IP48: "ip48",
   IP65: "ip65",
-};
+}
 
 const PHONE_FINGERPRINT_KEYS: Record<string, string> = {
   "Face ID": "faceId",
-  "侧边指纹": "side",
+  侧边指纹: "side",
   "侧边指纹 + 3D人脸识别": "side3d",
-  "屏下光学指纹": "optical",
-  "屏下超声波指纹": "ultrasonic",
-  "超声波屏下指纹": "ultrasonicUnder",
-  "无": "none",
-};
+  屏下光学指纹: "optical",
+  屏下超声波指纹: "ultrasonic",
+  超声波屏下指纹: "ultrasonicUnder",
+  无: "none",
+}
 
 const PHONE_MATERIAL_KEYS: Record<string, string> = {
   "玻璃机身 + 铝金属边框": "glassAlu",
@@ -2123,14 +2129,14 @@ const PHONE_MATERIAL_KEYS: Record<string, string> = {
   "玻璃机身 + 金属边框 (内置风扇)": "glassFan",
   "玻璃机身 + 金属边框": "glassMetal",
   "钛金属边框 (Grade 5)": "titanGrade5",
-  "钛金属边框": "titan",
+  钛金属边框: "titan",
   "铝金属一体机身 + VC均热板": "aluBodyVc",
   "玻璃/素皮机身 + 钛金属边框": "glassLeatherTitan",
   "玻璃/素皮机身 + 铝金属边框": "glassLeatherAlu",
   "玻璃/素皮机身 + 金属边框": "glassLeatherMetal",
   "玻璃/钛金属机身": "glassTitanBody",
   "玻璃/玻纤机身 + 金属边框": "glassFiberMetal",
-};
+}
 
 function normalizePhone(model: PhoneModel): PhoneModel {
   return {
@@ -2138,27 +2144,35 @@ function normalizePhone(model: PhoneModel): PhoneModel {
     waterproof: PHONE_WATERPROOF_KEYS[model.waterproof] ?? model.waterproof,
     fingerprint: PHONE_FINGERPRINT_KEYS[model.fingerprint] ?? model.fingerprint,
     material: PHONE_MATERIAL_KEYS[model.material] ?? model.material,
-  };
+  }
 }
 
-export const phoneData: PhoneModel[] = rawPhoneData.map(normalizePhone);
+export const phoneData: PhoneModel[] = rawPhoneData.map(normalizePhone)
 
 const brandFormat = (val: unknown) => {
-  const v = String(val);
-  const key = `brands.${v}`;
-  const result = t(key);
-  return result !== key ? result : v;
-};
+  const v = String(val)
+  const key = `brands.${v}`
+  const result = t(key)
+  return result !== key ? result : v
+}
 
 export const phoneFilterGroups: FilterGroup<PhoneModel>[] = [
   { key: "brand", label: "phoneCompare.brand", format: brandFormat },
-  { key: "series", label: "phoneCompare.series", format: (val) => t(`phoneCompare.values.series.${val}`) },
+  {
+    key: "series",
+    label: "phoneCompare.series",
+    format: (val) => t(`phoneCompare.values.series.${val}`),
+  },
   { key: "launchYear", label: "phoneCompare.launchYear", format: (val) => String(val) },
-];
+]
 
 export const phoneSpecRows: SpecRow<PhoneModel>[] = [
   { key: "brand", label: "phoneCompare.brand", format: (v, _m) => brandFormat(v) },
-  { key: "series", label: "phoneCompare.series", format: (v, _m) => t(`phoneCompare.values.series.${v}`) },
+  {
+    key: "series",
+    label: "phoneCompare.series",
+    format: (v, _m) => t(`phoneCompare.values.series.${v}`),
+  },
   { key: "launchYear", label: "phoneCompare.launchYear" },
   { key: "dimensions", label: "phoneCompare.dimensions" },
   { key: "weight", label: "phoneCompare.weight", format: (v) => `${v}g` },
@@ -2173,63 +2187,87 @@ export const phoneSpecRows: SpecRow<PhoneModel>[] = [
   { key: "gpu", label: "phoneCompare.gpu" },
   { key: "ram", label: "phoneCompare.ram", format: (v) => `${v}GB` },
   { key: "storage", label: "phoneCompare.storage" },
-  { key: "mainCamera", label: "phoneCompare.mainCamera", format: (v) => {
-    const str = String(v);
-    if (!str) return "—";
-    const terms: Record<string, string> = {
-      "主摄": "phoneCompare.cameraTerms.main",
-      "超广角": "phoneCompare.cameraTerms.ultrawide",
-      "长焦": "phoneCompare.cameraTerms.telephoto",
-      "潜望长焦": "phoneCompare.cameraTerms.periscope",
-      "微距": "phoneCompare.cameraTerms.macro",
-      "徕卡": "phoneCompare.cameraTerms.leica",
-      "哈苏": "phoneCompare.cameraTerms.hasselblad",
-      "蔡司": "phoneCompare.cameraTerms.zeiss",
-    };
-    let result = str;
-    const sorted = Object.keys(terms).sort((a, b) => b.length - a.length);
-    for (const cn of sorted) {
-      result = result.replace(cn, t(terms[cn]));
-    }
-    return result;
-  }},
-  { key: "frontCamera", label: "phoneCompare.frontCamera", format: (v) => {
-    const str = String(v);
-    if (!str) return "—";
-    return str.replace(/\(屏下\)/g, `(${t("phoneCompare.screenTerms.underDisplay")})`);
-  }},
+  {
+    key: "mainCamera",
+    label: "phoneCompare.mainCamera",
+    format: (v) => {
+      const str = String(v)
+      if (!str) return "—"
+      const terms: Record<string, string> = {
+        主摄: "phoneCompare.cameraTerms.main",
+        超广角: "phoneCompare.cameraTerms.ultrawide",
+        长焦: "phoneCompare.cameraTerms.telephoto",
+        潜望长焦: "phoneCompare.cameraTerms.periscope",
+        微距: "phoneCompare.cameraTerms.macro",
+        徕卡: "phoneCompare.cameraTerms.leica",
+        哈苏: "phoneCompare.cameraTerms.hasselblad",
+        蔡司: "phoneCompare.cameraTerms.zeiss",
+      }
+      let result = str
+      const sorted = Object.keys(terms).sort((a, b) => b.length - a.length)
+      for (const cn of sorted) {
+        result = result.replace(cn, t(terms[cn]))
+      }
+      return result
+    },
+  },
+  {
+    key: "frontCamera",
+    label: "phoneCompare.frontCamera",
+    format: (v) => {
+      const str = String(v)
+      if (!str) return "—"
+      return str.replace(/\(屏下\)/g, `(${t("phoneCompare.screenTerms.underDisplay")})`)
+    },
+  },
   { key: "batteryCapacity", label: "phoneCompare.batteryCapacity", format: (v) => `${v}mAh` },
   { key: "wiredCharging", label: "phoneCompare.wiredCharging", format: (v) => `${v}W` },
-  { key: "wirelessCharging", label: "phoneCompare.wirelessCharging", format: (v) => (Number(v) > 0 ? `${v}W` : "—") },
+  {
+    key: "wirelessCharging",
+    label: "phoneCompare.wirelessCharging",
+    format: (v) => (Number(v) > 0 ? `${v}W` : "—"),
+  },
   { key: "os", label: "phoneCompare.os" },
-  { key: "waterproof", label: "phoneCompare.waterproof", format: (v) => {
-    const str = String(v);
-    if (!str || str === "none") return t("common.no");
-    const key = `phoneCompare.waterproofTerms.${str}`;
-    const result = t(key);
-    return result !== key ? result : str;
-  }},
-  { key: "fingerprint", label: "phoneCompare.fingerprint", format: (v) => {
-    const str = String(v);
-    if (!str) return "—";
-    if (str === "faceId") return "Face ID";
-    if (str === "none") return t("common.no");
-    const key = `phoneCompare.fingerprintTerms.${str}`;
-    const result = t(key);
-    return result !== key ? result : str;
-  }},
-  { key: "material", label: "phoneCompare.material", format: (v) => {
-    const str = String(v);
-    if (!str) return "—";
-    const key = `phoneCompare.materialTerms.${str}`;
-    const result = t(key);
-    return result !== key ? result : str;
-  }},
+  {
+    key: "waterproof",
+    label: "phoneCompare.waterproof",
+    format: (v) => {
+      const str = String(v)
+      if (!str || str === "none") return t("common.no")
+      const key = `phoneCompare.waterproofTerms.${str}`
+      const result = t(key)
+      return result !== key ? result : str
+    },
+  },
+  {
+    key: "fingerprint",
+    label: "phoneCompare.fingerprint",
+    format: (v) => {
+      const str = String(v)
+      if (!str) return "—"
+      if (str === "faceId") return "Face ID"
+      if (str === "none") return t("common.no")
+      const key = `phoneCompare.fingerprintTerms.${str}`
+      const result = t(key)
+      return result !== key ? result : str
+    },
+  },
+  {
+    key: "material",
+    label: "phoneCompare.material",
+    format: (v) => {
+      const str = String(v)
+      if (!str) return "—"
+      const key = `phoneCompare.materialTerms.${str}`
+      const result = t(key)
+      return result !== key ? result : str
+    },
+  },
   { key: "geekbench6Multi", label: "phoneCompare.geekbench6Multi" },
   { key: "antutuScore", label: "phoneCompare.antutuScore" },
   { key: "dxomarkCamera", label: "phoneCompare.dxomarkCamera" },
   { key: "price", label: "phoneCompare.price", format: (v) => `$${v}` },
-];
+]
 
 export const phoneReferenceUrl = (model: PhoneModel): string | undefined => {
   const urls: Record<string, string> = {
@@ -2280,16 +2318,29 @@ export const phoneReferenceUrl = (model: PhoneModel): string | undefined => {
     "huawei-mate-70": "https://www.gsmarena.com/huawei_mate_70-13355.php",
     "huawei-mate-70-pro": "https://www.gsmarena.com/huawei_mate_70_pro-13356.php",
     "asus-rog-9-pro": "https://www.gsmarena.com/asus_rog_phone_9_pro-13482.php",
-  };
-  return urls[model.id];
-};
+  }
+  return urls[model.id]
+}
 
 export const phoneModule: CompareDataModule<PhoneModel> = {
   data: phoneData,
   specRows: phoneSpecRows,
-  numericKeys: ["displaySize", "weight", "refreshRate", "peakBrightness", "ram", "batteryCapacity", "wiredCharging", "wirelessCharging", "geekbench6Multi", "antutuScore", "dxomarkCamera", "launchYear"],
+  numericKeys: [
+    "displaySize",
+    "weight",
+    "refreshRate",
+    "peakBrightness",
+    "ram",
+    "batteryCapacity",
+    "wiredCharging",
+    "wirelessCharging",
+    "geekbench6Multi",
+    "antutuScore",
+    "dxomarkCamera",
+    "launchYear",
+  ],
   inverseKeys: ["price"],
   i18nPrefix: "phoneCompare",
   filterGroups: phoneFilterGroups,
   referenceUrl: phoneReferenceUrl,
-};
+}

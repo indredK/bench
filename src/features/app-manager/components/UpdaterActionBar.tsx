@@ -1,30 +1,30 @@
 /**
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  */
-import type { TFunction } from "i18next";
-import { RefreshCw, X } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { ToolbarButton } from "@/components/ui/toolbar-button";
-import { AppManagerToolbar } from "@/features/app-manager/components/AppManagerToolbar";
-import type { UpdateSource } from "@/lib/tauri/types/app-manager";
+import type { TFunction } from "i18next"
+import { RefreshCw, X } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { ToolbarButton } from "@/components/ui/toolbar-button"
+import { AppManagerToolbar } from "@/features/app-manager/components/AppManagerToolbar"
+import type { UpdateSource } from "@/lib/tauri/types/app-manager"
 import {
   UPDATE_SOURCE_ORDER,
   getUpdateSourceIcon,
   getUpdateSourceLabel,
-} from "@/features/app-manager/model/update-source-info";
+} from "@/features/app-manager/model/update-source-info"
 
 interface UpdaterActionBarProps {
-  t: TFunction;
-  searchQuery: string;
-  loading: boolean;
-  totalCount: number;
-  selectedCount: number;
-  visibleSources: UpdateSource[];
-  sourceFilter: UpdateSource | "all";
-  onSearchQueryChange: (query: string) => void;
-  onRecheck: () => void;
-  onChangeSourceFilter: (filter: UpdateSource | "all") => void;
-  onClearSelection: () => void;
+  t: TFunction
+  searchQuery: string
+  loading: boolean
+  totalCount: number
+  selectedCount: number
+  visibleSources: UpdateSource[]
+  sourceFilter: UpdateSource | "all"
+  onSearchQueryChange: (query: string) => void
+  onRecheck: () => void
+  onChangeSourceFilter: (filter: UpdateSource | "all") => void
+  onClearSelection: () => void
 }
 
 export function UpdaterActionBar({
@@ -40,7 +40,7 @@ export function UpdaterActionBar({
   onChangeSourceFilter,
   onClearSelection,
 }: UpdaterActionBarProps) {
-  const showAllChip = totalCount > 0;
+  const showAllChip = totalCount > 0
 
   return (
     <AppManagerToolbar
@@ -61,7 +61,7 @@ export function UpdaterActionBar({
         <div className="flex flex-wrap items-center justify-end gap-1.5">
           {showAllChip ? (
             <div className="flex flex-wrap items-center gap-1">
-              <span className="mr-1 text-xs text-muted-foreground">
+              <span className="text-muted-foreground mr-1 text-xs">
                 {t("appManager.softwareUpdate.filterBySource")}:
               </span>
               <Badge
@@ -86,12 +86,16 @@ export function UpdaterActionBar({
           ) : null}
           <ToolbarButton
             icon={<RefreshCw size={15} className={loading ? "animate-spin" : ""} />}
-            tooltip={loading ? t("appManager.softwareUpdate.checking") : t("appManager.softwareUpdate.recheck")}
+            tooltip={
+              loading
+                ? t("appManager.softwareUpdate.checking")
+                : t("appManager.softwareUpdate.recheck")
+            }
             onClick={onRecheck}
             disabled={loading}
           />
         </div>
       }
     />
-  );
+  )
 }

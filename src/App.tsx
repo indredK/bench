@@ -3,51 +3,51 @@
  *
  * v3: App 偏好 (SettingsDialog) 与系统设置 (SystemSettings page) 分离。
  */
-import { Router, Route, Switch, useLocation } from "wouter";
-import { useHashLocation } from "wouter/use-hash-location";
-import { AnimatePresence, motion } from "motion/react";
-import { useTranslation } from "react-i18next";
-import Sidebar from "./components/layout/Sidebar";
-import { CustomTitlebar } from "./components/layout/CustomTitlebar";
-import { GlobalContextMenu } from "@/shared/context-menu/GlobalContextMenu";
-import { useDefaultContextMenu } from "@/shared/context-menu/useContextMenuRegistration";
-import type { ContextMenuConfig } from "@/shared/context-menu/types";
-import { useMenuEvent, useInitMenuEvents } from "@/hooks/useMenuEvents";
-import { AboutDialog } from "@/components/common/AboutDialog";
-import { CloseBehaviorDialog } from "@/components/common/CloseBehaviorDialog";
-import { SettingsDialog } from "@/components/common/SettingsDialog";
-import { StartupIssuesAlert } from "@/components/common/StartupIssuesAlert";
-import { UpdateDialog } from "@/components/common/UpdateDialog";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { appFeatures, createNavigationItems, createConfigItems } from "@/features/registry";
-import { requestFeatureRefresh } from "@/features/refresh";
-import { useUpdaterController } from "@/features/updater/hooks/useUpdaterController";
-import { listStartupIssues, markMainReady } from "@/lib/tauri/commands/bootstrap";
-import { restartAfterUpdate, setTrayLabels } from "@/lib/tauri/commands";
-import { TAURI_EVENTS, WINDOW_BOOTSTRAP_EVENTS } from "@/lib/tauri/contracts";
-import { emitPlatformEventTo, listenToPlatformEvent } from "@/platform/events";
-import { canUseTauriCommands } from "@/platform/capabilities";
-import { canUseWindowControls } from "@/platform/window";
-import { useWindowTheme } from "@/hooks/useWindowTheme";
-import type { StartupIssue } from "@/lib/tauri/types/bootstrap";
+import { Router, Route, Switch, useLocation } from "wouter"
+import { useHashLocation } from "wouter/use-hash-location"
+import { AnimatePresence, motion } from "motion/react"
+import { useTranslation } from "react-i18next"
+import Sidebar from "./components/layout/Sidebar"
+import { CustomTitlebar } from "./components/layout/CustomTitlebar"
+import { GlobalContextMenu } from "@/shared/context-menu/GlobalContextMenu"
+import { useDefaultContextMenu } from "@/shared/context-menu/useContextMenuRegistration"
+import type { ContextMenuConfig } from "@/shared/context-menu/types"
+import { useMenuEvent, useInitMenuEvents } from "@/hooks/useMenuEvents"
+import { AboutDialog } from "@/components/common/AboutDialog"
+import { CloseBehaviorDialog } from "@/components/common/CloseBehaviorDialog"
+import { SettingsDialog } from "@/components/common/SettingsDialog"
+import { StartupIssuesAlert } from "@/components/common/StartupIssuesAlert"
+import { UpdateDialog } from "@/components/common/UpdateDialog"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { appFeatures, createNavigationItems, createConfigItems } from "@/features/registry"
+import { requestFeatureRefresh } from "@/features/refresh"
+import { useUpdaterController } from "@/features/updater/hooks/useUpdaterController"
+import { listStartupIssues, markMainReady } from "@/lib/tauri/commands/bootstrap"
+import { restartAfterUpdate, setTrayLabels } from "@/lib/tauri/commands"
+import { TAURI_EVENTS, WINDOW_BOOTSTRAP_EVENTS } from "@/lib/tauri/contracts"
+import { emitPlatformEventTo, listenToPlatformEvent } from "@/platform/events"
+import { canUseTauriCommands } from "@/platform/capabilities"
+import { canUseWindowControls } from "@/platform/window"
+import { useWindowTheme } from "@/hooks/useWindowTheme"
+import type { StartupIssue } from "@/lib/tauri/types/bootstrap"
 
 function AnimatedRoutes() {
-  const [location, navigate] = useLocation();
+  const [location, navigate] = useLocation()
   useEffect(() => {
     if ((location === "" || location === "/") && appFeatures.length > 0) {
-      navigate(appFeatures[0].path, { replace: true });
+      navigate(appFeatures[0].path, { replace: true })
     }
-  }, [location, navigate]);
-  if (location === "" || location === "/") return null;
+  }, [location, navigate])
+  if (location === "" || location === "/") return null
   return (
     <AnimatePresence mode="wait" initial={false}>
       <FeaturePanel key={location} location={location} />
     </AnimatePresence>
-  );
+  )
 }
 
 function FeaturePanel({ location }: { location: string }) {
-  const [frozenLocation] = useState(location);
+  const [frozenLocation] = useState(location)
   return (
     <motion.div
       initial={{ opacity: 0, y: 4 }}
@@ -64,36 +64,38 @@ function FeaturePanel({ location }: { location: string }) {
         ))}
       </Switch>
     </motion.div>
-  );
+  )
 }
 
 function App() {
-  const { t } = useTranslation();
-  const updater = useUpdaterController();
-  useWindowTheme();
+  const { t } = useTranslation()
+  const updater = useUpdaterController()
+  useWindowTheme()
 
-  const [aboutOpen, setAboutOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [closeBehaviorOpen, setCloseBehaviorOpen] = useState(false);
-  const [startupIssues, setStartupIssues] = useState<StartupIssue[]>([]);
+  const [aboutOpen, setAboutOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [closeBehaviorOpen, setCloseBehaviorOpen] = useState(false)
+  const [startupIssues, setStartupIssues] = useState<StartupIssue[]>([])
 
   useEffect(() => {
-    if (!canUseWindowControls()) return undefined;
+    if (!canUseWindowControls()) return undefined
     requestAnimationFrame(() => {
       void markMainReady().finally(() => {
-        void emitPlatformEventTo("splashscreen", WINDOW_BOOTSTRAP_EVENTS.mainReady, null);
-      });
-    });
-    return undefined;
-  }, []);
+        void emitPlatformEventTo("splashscreen", WINDOW_BOOTSTRAP_EVENTS.mainReady, null)
+      })
+    })
+    return undefined
+  }, [])
 
   useEffect(() => {
-    let cancelled = false;
+    let cancelled = false
     void listStartupIssues().then((issues) => {
-      if (!cancelled) setStartupIssues(issues);
-    });
-    return () => { cancelled = true; };
-  }, []);
+      if (!cancelled) setStartupIssues(issues)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     void setTrayLabels({
@@ -101,61 +103,84 @@ function App() {
       sleep: t("tray.preventSleep"),
       autostart: t("tray.launchAtLogin"),
       quit: t("tray.quit"),
-    });
-  }, [t]);
+    })
+  }, [t])
 
   useEffect(() => {
-    let unlisten: (() => void) | undefined;
+    let unlisten: (() => void) | undefined
     listenToPlatformEvent(TAURI_EVENTS.appPreferences.showCloseBehaviorDialog, () => {
-      setCloseBehaviorOpen(true);
-    }).then((fn) => { unlisten = fn; });
-    return () => { unlisten?.(); };
-  }, []);
+      setCloseBehaviorOpen(true)
+    }).then((fn) => {
+      unlisten = fn
+    })
+    return () => {
+      unlisten?.()
+    }
+  }, [])
 
   const handleRefresh = useCallback(async () => {
-    const currentPath = window.location.hash.replace(/^#/, "") || "/";
-    const currentFeature = appFeatures.find((f) => f.path === currentPath);
+    const currentPath = window.location.hash.replace(/^#/, "") || "/"
+    const currentFeature = appFeatures.find((f) => f.path === currentPath)
     if (currentFeature) {
-      await requestFeatureRefresh(currentFeature.id);
+      await requestFeatureRefresh(currentFeature.id)
     }
-  }, []);
+  }, [])
 
   const handleRestart = useCallback(async () => {
-    if (canUseTauriCommands()) { await restartAfterUpdate(); return; }
-    window.location.reload();
-  }, []);
+    if (canUseTauriCommands()) {
+      await restartAfterUpdate()
+      return
+    }
+    window.location.reload()
+  }, [])
 
   const handleOpenPrefs = useCallback(() => {
-    setSettingsOpen(true);
-  }, []);
+    setSettingsOpen(true)
+  }, [])
 
-  useDefaultContextMenu(useMemo((): (() => ContextMenuConfig) => () => ({
-    id: "default-menu",
-    items: [
-      { id: "refresh", label: t("appManager.refresh"), icon: undefined, onClick: () => { void handleRefresh(); } },
-    ],
-  }), [handleRefresh, t]));
+  useDefaultContextMenu(
+    useMemo(
+      (): (() => ContextMenuConfig) => () => ({
+        id: "default-menu",
+        items: [
+          {
+            id: "refresh",
+            label: t("appManager.refresh"),
+            icon: undefined,
+            onClick: () => {
+              void handleRefresh()
+            },
+          },
+        ],
+      }),
+      [handleRefresh, t],
+    ),
+  )
 
-  useInitMenuEvents();
+  useInitMenuEvents()
 
-  useMenuEvent("about", () => setAboutOpen(true));
-  useMenuEvent("check_updates", () => { void updater.checkUpdates(); });
+  useMenuEvent("about", () => setAboutOpen(true))
+  useMenuEvent("check_updates", () => {
+    void updater.checkUpdates()
+  })
   useMenuEvent("preferences", () => {
-    setSettingsOpen(true);
-  });
-  useMenuEvent("reload", () => { void handleRefresh(); });
+    setSettingsOpen(true)
+  })
+  useMenuEvent("reload", () => {
+    void handleRefresh()
+  })
 
   const sidebarItems = useMemo(() => {
-    const allItems = createNavigationItems(t);
-    return allItems.filter((item) => item.path !== "/system-settings");
-  }, [t]);
+    const allItems = createNavigationItems(t)
+    return allItems.filter((item) => item.path !== "/system-settings")
+  }, [t])
 
-  const configItems = useMemo(() => createConfigItems(t), [t]);
+  const configItems = useMemo(() => createConfigItems(t), [t])
 
   return (
     <>
       <Router hook={useHashLocation}>
-        <GlobalContextMenu className="app-root flex h-screen overflow-hidden bg-background">
+        <GlobalContextMenu className="app-root bg-background flex h-screen overflow-hidden">
           <div className="flex flex-1 flex-col overflow-hidden">
             <CustomTitlebar />
             <div className="flex flex-1 overflow-hidden">
@@ -165,7 +190,7 @@ function App() {
                 onRestart={handleRestart}
                 onPrefs={handleOpenPrefs}
               />
-              <div className="flex flex-1 flex-col overflow-hidden bg-background">
+              <div className="bg-background flex flex-1 flex-col overflow-hidden">
                 <div className="flex-1 overflow-hidden p-4">
                   <StartupIssuesAlert issues={startupIssues} />
                   <AnimatedRoutes />
@@ -183,19 +208,13 @@ function App() {
         onCheckUpdates={() => void updater.checkUpdates()}
       />
 
-      <SettingsDialog
-        open={settingsOpen}
-        onOpenChange={setSettingsOpen}
-      />
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
 
-      <CloseBehaviorDialog
-        open={closeBehaviorOpen}
-        onOpenChange={setCloseBehaviorOpen}
-      />
+      <CloseBehaviorDialog open={closeBehaviorOpen} onOpenChange={setCloseBehaviorOpen} />
 
       <UpdateDialog {...updater} />
     </>
-  );
+  )
 }
 
-export default App;
+export default App

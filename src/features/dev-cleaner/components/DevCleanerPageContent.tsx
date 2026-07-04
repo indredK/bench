@@ -1,27 +1,35 @@
 /**
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  */
-import { AlertTriangle, ChevronDown, ChevronUp, FolderOpen, Loader2, StopCircle, Trash2 } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DataTable, getDataTableSortDirection } from "@/components/ui/DataTable";
-import { Input } from "@/components/ui/input";
-import { filterOptions } from "@/features/dev-cleaner/store";
-import { formatScanTime } from "@/features/dev-cleaner/lib/format";
-import { CustomCleanupDialog } from "@/features/dev-cleaner/components/CustomCleanupDialog";
-import type { DevCleanerController } from "@/features/dev-cleaner/hooks/useDevCleanerController";
-import { cn, formatSize } from "@/lib/utils";
+import {
+  AlertTriangle,
+  ChevronDown,
+  ChevronUp,
+  FolderOpen,
+  Loader2,
+  StopCircle,
+  Trash2,
+} from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { DataTable, getDataTableSortDirection } from "@/components/ui/DataTable"
+import { Input } from "@/components/ui/input"
+import { filterOptions } from "@/features/dev-cleaner/store"
+import { formatScanTime } from "@/features/dev-cleaner/lib/format"
+import { CustomCleanupDialog } from "@/features/dev-cleaner/components/CustomCleanupDialog"
+import type { DevCleanerController } from "@/features/dev-cleaner/hooks/useDevCleanerController"
+import { cn, formatSize } from "@/lib/utils"
 
 interface DevCleanerPageContentProps {
-  controller: DevCleanerController;
+  controller: DevCleanerController
 }
 
 function sortGlyph(direction: string) {
-  if (direction === "asc") return "\u2191";
-  if (direction === "desc") return "\u2193";
-  return "\u21c5";
+  if (direction === "asc") return "\u2191"
+  if (direction === "desc") return "\u2193"
+  return "\u21c5"
 }
 
 export function DevCleanerPageContent({ controller }: DevCleanerPageContentProps) {
@@ -55,10 +63,10 @@ export function DevCleanerPageContent({ controller }: DevCleanerPageContentProps
     handleStopScan,
     handleCleanup,
     updateSorting,
-  } = controller;
+  } = controller
 
   return (
-    <div className="h-full flex flex-col gap-4">
+    <div className="flex h-full flex-col gap-4">
       <Card className="shrink-0">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2">
@@ -70,7 +78,7 @@ export function DevCleanerPageContent({ controller }: DevCleanerPageContentProps
             {scanResult && (
               <button
                 type="button"
-                className="flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+                className="text-muted-foreground hover:text-foreground hover:bg-accent/50 flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm transition-colors"
                 onClick={() => setShowFilterOptions(!showFilterOptions)}
               >
                 <span>{t("devCleaner.filterLabel")}</span>
@@ -102,7 +110,7 @@ export function DevCleanerPageContent({ controller }: DevCleanerPageContentProps
                     <StopCircle size={18} />
                   </Button>
                   <Button onClick={handleScan} disabled className="shrink-0">
-                    <Loader2 size={18} className="animate-spin mr-1" />
+                    <Loader2 size={18} className="mr-1 animate-spin" />
                     <span className="hidden sm:inline">{t("devCleaner.scanning")}</span>
                   </Button>
                 </>
@@ -124,15 +132,17 @@ export function DevCleanerPageContent({ controller }: DevCleanerPageContentProps
             <>
               <div className="flex flex-wrap items-center gap-4">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xs text-muted-foreground">{t("devCleaner.projectsLabel")}</span>
+                  <span className="text-muted-foreground text-xs">
+                    {t("devCleaner.projectsLabel")}
+                  </span>
                   <span className="font-semibold">{scanResult.total_projects}</span>
                 </div>
-                <div className="h-4 w-px bg-border" />
+                <div className="bg-border h-4 w-px" />
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xs text-muted-foreground">{t("devCleaner.totalSize")}</span>
+                  <span className="text-muted-foreground text-xs">{t("devCleaner.totalSize")}</span>
                   <span className="font-semibold">{formatSize(scanResult.total_size)}</span>
                 </div>
-                <div className="h-4 w-px bg-border" />
+                <div className="bg-border h-4 w-px" />
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs text-orange-700/80 dark:text-orange-300/80">
                     {t("devCleaner.cleanupSize")}
@@ -141,19 +151,19 @@ export function DevCleanerPageContent({ controller }: DevCleanerPageContentProps
                     {formatSize(scanResult.total_cleanup_size)}
                   </span>
                 </div>
-                <div className="h-4 w-px bg-border" />
+                <div className="bg-border h-4 w-px" />
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xs text-muted-foreground">{t("devCleaner.scanTime")}</span>
+                  <span className="text-muted-foreground text-xs">{t("devCleaner.scanTime")}</span>
                   <span className="font-semibold">{formatScanTime(scanResult.scan_time_ms)}</span>
                 </div>
-                <div className="h-4 w-px bg-border" />
-                <span className="text-xs text-muted-foreground">
+                <div className="bg-border h-4 w-px" />
+                <span className="text-muted-foreground text-xs">
                   {t("devCleaner.filteredCleanup")}: {formatSize(filteredCleanupSize)}
                 </span>
               </div>
 
               {showFilterOptions && (
-                <div className="flex flex-wrap gap-2 pt-3 border-t">
+                <div className="flex flex-wrap gap-2 border-t pt-3">
                   {filterOptions.map((filter) => (
                     <Button
                       key={filter}
@@ -172,9 +182,9 @@ export function DevCleanerPageContent({ controller }: DevCleanerPageContentProps
       </Card>
 
       {scanResult && (
-        <div className="flex-1 min-h-0 flex flex-col gap-4">
-          <Card className="flex-1 min-h-[200px] flex flex-col overflow-hidden">
-            <CardHeader className="pb-2 shrink-0">
+        <div className="flex min-h-0 flex-1 flex-col gap-4">
+          <Card className="flex min-h-[200px] flex-1 flex-col overflow-hidden">
+            <CardHeader className="shrink-0 pb-2">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   {filteredProjects.length > 0 ? (
@@ -185,7 +195,8 @@ export function DevCleanerPageContent({ controller }: DevCleanerPageContentProps
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="secondary">
-                    {t("devCleaner.sorting.current")}: {t(`devCleaner.sorting.${activeSortId ?? "name"}`)}
+                    {t("devCleaner.sorting.current")}:{" "}
+                    {t(`devCleaner.sorting.${activeSortId ?? "name"}`)}
                   </Badge>
                   <Badge variant="secondary">
                     {filteredProjects.length} {t("devCleaner.resultsLabel")}
@@ -208,18 +219,18 @@ export function DevCleanerPageContent({ controller }: DevCleanerPageContentProps
             </CardHeader>
             <CardContent
               className={cn(
-                "relative flex-1 min-h-0 px-4 pb-2",
-                isScanning && "opacity-50 pointer-events-none",
+                "relative min-h-0 flex-1 px-4 pb-2",
+                isScanning && "pointer-events-none opacity-50",
               )}
             >
               {isScanning && (
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <Loader2 size={24} className="animate-spin text-muted-foreground" />
+                  <Loader2 size={24} className="text-muted-foreground animate-spin" />
                 </div>
               )}
               {filteredProjects.length > 0 ? (
-                <div className="space-y-2 flex flex-col h-full">
-                  <div className="flex flex-wrap gap-2 mb-2 md:hidden shrink-0">
+                <div className="flex h-full flex-col space-y-2">
+                  <div className="mb-2 flex shrink-0 flex-wrap gap-2 md:hidden">
                     <Button
                       variant={activeSortId === "cleanupSize" ? "default" : "outline"}
                       size="sm"
@@ -271,15 +282,17 @@ export function DevCleanerPageContent({ controller }: DevCleanerPageContentProps
                 </div>
               ) : (
                 <div className="flex h-full flex-col items-center justify-center py-12 text-center">
-                  <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-                    <AlertTriangle className="h-8 w-8 text-muted-foreground" />
+                  <div className="bg-muted mb-4 flex h-16 w-16 items-center justify-center rounded-full">
+                    <AlertTriangle className="text-muted-foreground h-8 w-8" />
                   </div>
-                  <p className="max-w-xs text-sm text-muted-foreground">{t("devCleaner.noProjects")}</p>
+                  <p className="text-muted-foreground max-w-xs text-sm">
+                    {t("devCleaner.noProjects")}
+                  </p>
                 </div>
               )}
             </CardContent>
 
-            <div className="shrink-0 space-y-2 px-4 pb-4 pt-2">
+            <div className="shrink-0 space-y-2 px-4 pt-2 pb-4">
               {selectedCount > 0 && !showConfirm && (
                 <>
                   <p className="text-sm font-medium text-orange-700 dark:text-orange-300">
@@ -338,7 +351,7 @@ export function DevCleanerPageContent({ controller }: DevCleanerPageContentProps
         </div>
       )}
     </div>
-  );
+  )
 }
 
 function InputPath({
@@ -346,9 +359,9 @@ function InputPath({
   placeholder,
   onChange,
 }: {
-  value: string;
-  placeholder: string;
-  onChange: (value: string) => void;
+  value: string
+  placeholder: string
+  onChange: (value: string) => void
 }) {
   return (
     <Input
@@ -356,8 +369,8 @@ function InputPath({
       value={value}
       onChange={(event) => onChange(event.target.value)}
       readOnly
-      className="flex-1 min-w-0"
+      className="min-w-0 flex-1"
       data-testid="path-input"
     />
-  );
+  )
 }

@@ -1,22 +1,34 @@
 /**
  * Account column / 账号栏: accounts of the selected station with reorder.
  */
-import { useState, useMemo, type ReactNode } from "react";
-import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
-import { ArrowDownAZ, ArrowUpZA, Check, ChevronRight, Copy, Filter, Inbox, Link2, LogIn, Pencil, Plus, RefreshCw, Search, Trash2, UserRound, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { useState, useMemo, type ReactNode } from "react"
+import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
-import type { RelayStation, StationAccount } from "@/lib/tauri/types/account-manager";
-import { SortableList, useSortableCard, DragHandle } from "@/components/ui/sortable-card";
-import { ColumnHeader, EmptyHint, StatusBadge } from "@/features/account-manager/components/shared";
+  ArrowDownAZ,
+  ArrowUpZA,
+  Check,
+  ChevronRight,
+  Copy,
+  Filter,
+  Inbox,
+  Link2,
+  LogIn,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Search,
+  Trash2,
+  UserRound,
+  X,
+} from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { cn } from "@/lib/utils"
+import type { RelayStation, StationAccount } from "@/lib/tauri/types/account-manager"
+import { SortableList, useSortableCard, DragHandle } from "@/components/ui/sortable-card"
+import { ColumnHeader, EmptyHint, StatusBadge } from "@/features/account-manager/components/shared"
 
 export function AccountColumn({
   station,
@@ -37,80 +49,80 @@ export function AccountColumn({
   onReorder,
   reorderDisabled,
 }: {
-  station: RelayStation | null;
-  accounts: StationAccount[];
-  selectedId: string;
-  openingId: string | null;
-  refreshingIds: Set<string>;
-  refreshingStationIds: Set<string>;
-  refreshingAll: boolean;
-  justRefreshedIds: Set<string>;
-  onSelect: (id: string) => void;
-  onAdd: () => void;
-  onLogin: (account: StationAccount) => void;
-  onRefresh: (account: StationAccount) => void;
-  onRefreshStation: (stationId: string) => void;
-  onEdit: (account: StationAccount) => void;
-  onDelete: (account: StationAccount) => void;
-  onReorder: (orderedIds: string[]) => void;
-  reorderDisabled: boolean;
+  station: RelayStation | null
+  accounts: StationAccount[]
+  selectedId: string
+  openingId: string | null
+  refreshingIds: Set<string>
+  refreshingStationIds: Set<string>
+  refreshingAll: boolean
+  justRefreshedIds: Set<string>
+  onSelect: (id: string) => void
+  onAdd: () => void
+  onLogin: (account: StationAccount) => void
+  onRefresh: (account: StationAccount) => void
+  onRefreshStation: (stationId: string) => void
+  onEdit: (account: StationAccount) => void
+  onDelete: (account: StationAccount) => void
+  onReorder: (orderedIds: string[]) => void
+  reorderDisabled: boolean
 }) {
-  const { t } = useTranslation();
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [sortMode, setSortMode] = useState<"manual" | "asc" | "desc">("manual");
-  const [groupByStatus, setGroupByStatus] = useState(false);
+  const { t } = useTranslation()
+  const [activeId, setActiveId] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [sortMode, setSortMode] = useState<"manual" | "asc" | "desc">("manual")
+  const [groupByStatus, setGroupByStatus] = useState(false)
 
   const filteredAccounts = useMemo(() => {
-    let result = [...accounts];
-    const q = searchQuery.trim().toLowerCase();
+    let result = [...accounts]
+    const q = searchQuery.trim().toLowerCase()
     if (q) {
       result = result.filter(
-        (a) => a.username.toLowerCase().includes(q) || a.notes.toLowerCase().includes(q)
-      );
+        (a) => a.username.toLowerCase().includes(q) || a.notes.toLowerCase().includes(q),
+      )
     }
     if (sortMode === "asc") {
-      result.sort((a, b) => a.username.localeCompare(b.username));
+      result.sort((a, b) => a.username.localeCompare(b.username))
     } else if (sortMode === "desc") {
-      result.sort((a, b) => b.username.localeCompare(a.username));
+      result.sort((a, b) => b.username.localeCompare(a.username))
     }
-    return result;
-  }, [accounts, searchQuery, sortMode]);
+    return result
+  }, [accounts, searchQuery, sortMode])
 
   const groupedAccounts = useMemo(() => {
-    if (!groupByStatus) return null;
+    if (!groupByStatus) return null
     const groups: Record<StationAccount["status"], StationAccount[]> = {
       ready: [],
       loginRequired: [],
       expired: [],
       fetchFailed: [],
       inactive: [],
-    };
-    for (const acc of filteredAccounts) {
-      groups[acc.status]?.push(acc);
     }
-    return Object.entries(groups).filter(([, items]) => items.length > 0);
-  }, [filteredAccounts, groupByStatus]);
+    for (const acc of filteredAccounts) {
+      groups[acc.status]?.push(acc)
+    }
+    return Object.entries(groups).filter(([, items]) => items.length > 0)
+  }, [filteredAccounts, groupByStatus])
 
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
 
   const toggleGroup = (status: string) => {
     setCollapsedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(status)) next.delete(status);
-      else next.add(status);
-      return next;
-    });
-  };
+      const next = new Set(prev)
+      if (next.has(status)) next.delete(status)
+      else next.add(status)
+      return next
+    })
+  }
 
-  const isFiltering = !!searchQuery.trim() || groupByStatus || sortMode !== "manual";
+  const isFiltering = !!searchQuery.trim() || groupByStatus || sortMode !== "manual"
 
   const cycleSortMode = () => {
-    setSortMode((mode) => (mode === "manual" ? "asc" : mode === "asc" ? "desc" : "manual"));
-  };
+    setSortMode((mode) => (mode === "manual" ? "asc" : mode === "asc" ? "desc" : "manual"))
+  }
 
   const stationRefreshing =
-    refreshingAll || (station ? refreshingStationIds.has(station.id) : false);
+    refreshingAll || (station ? refreshingStationIds.has(station.id) : false)
   const renderCard = (account: StationAccount, dragging: boolean) => (
     <AccountCardContent
       account={account}
@@ -125,9 +137,9 @@ export function AccountColumn({
       onEdit={onEdit}
       onDelete={onDelete}
     />
-  );
+  )
   return (
-    <section className="flex min-w-0 flex-[1.1] flex-col rounded-lg border bg-card">
+    <section className="bg-card flex min-w-0 flex-[1.1] flex-col rounded-lg border">
       <ColumnHeader
         title={`${t("accountManager.accountTitle")} (${accounts.length})`}
         action={
@@ -186,16 +198,21 @@ export function AccountColumn({
                   role="button"
                   tabIndex={0}
                   onClick={() => toggleGroup(status)}
-                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleGroup(status); } }}
-                  className="sticky top-0 z-10 mb-2 -mx-3 flex items-center gap-2 border-b bg-card px-3 pb-1.5 pt-1.5 shadow-[0_1px_0_0] shadow-black/5 dark:shadow-white/5"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault()
+                      toggleGroup(status)
+                    }
+                  }}
+                  className="bg-card sticky top-0 z-10 -mx-3 mb-2 flex items-center gap-2 border-b px-3 pt-1.5 pb-1.5 shadow-[0_1px_0_0] shadow-black/5 dark:shadow-white/5"
                 >
                   <StatusBadge status={status as StationAccount["status"]} />
-                  <span className="text-xs text-muted-foreground">({items.length})</span>
+                  <span className="text-muted-foreground text-xs">({items.length})</span>
                   <ChevronRight
                     size={14}
                     className={cn(
-                      "ml-auto text-muted-foreground transition-transform",
-                      !collapsedGroups.has(status) && "rotate-90"
+                      "text-muted-foreground ml-auto transition-transform",
+                      !collapsedGroups.has(status) && "rotate-90",
                     )}
                   />
                 </div>
@@ -239,7 +256,9 @@ export function AccountColumn({
                 />
               )}
               renderOverlay={(account) => (
-                <div className="rounded-lg border bg-card shadow-xl">{renderCard(account, true)}</div>
+                <div className="bg-card rounded-lg border shadow-xl">
+                  {renderCard(account, true)}
+                </div>
               )}
             />
           </div>
@@ -247,18 +266,18 @@ export function AccountColumn({
       </div>
       <div className="flex items-center gap-1.5 border-t px-3 py-3">
         <div className="relative flex-1">
-          <Search className="absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Search className="text-muted-foreground absolute top-1/2 left-2 size-3.5 -translate-y-1/2" />
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t("accountManager.searchAccounts")}
             disabled={!station || accounts.length === 0}
-            className="h-7 pl-7 pr-7 text-xs"
+            className="h-7 pr-7 pl-7 text-xs"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              className="text-muted-foreground hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2"
             >
               <X size={14} />
             </button>
@@ -298,7 +317,7 @@ export function AccountColumn({
         </TooltipProvider>
       </div>
     </section>
-  );
+  )
 }
 
 function SortableAccountItem({
@@ -306,12 +325,12 @@ function SortableAccountItem({
   disabled,
   render,
 }: {
-  account: StationAccount;
-  disabled: boolean;
-  render: (account: StationAccount, dragging: boolean) => ReactNode;
+  account: StationAccount
+  disabled: boolean
+  render: (account: StationAccount, dragging: boolean) => ReactNode
 }) {
-  const { t } = useTranslation();
-  const { setNodeRef, style, handleProps, isDragging } = useSortableCard(account.id, disabled);
+  const { t } = useTranslation()
+  const { setNodeRef, style, handleProps, isDragging } = useSortableCard(account.id, disabled)
   return (
     <div ref={setNodeRef} style={style} className={cn("relative", isDragging && "z-10")}>
       <DragHandle
@@ -322,7 +341,7 @@ function SortableAccountItem({
       />
       {render(account, false)}
     </div>
-  );
+  )
 }
 
 function AccountCardContent({
@@ -338,30 +357,33 @@ function AccountCardContent({
   onEdit,
   onDelete,
 }: {
-  account: StationAccount;
-  selected: boolean;
-  opening: boolean;
-  refreshing: boolean;
-  justRefreshed: boolean;
-  dragging: boolean;
-  onSelect: (id: string) => void;
-  onLogin: (account: StationAccount) => void;
-  onRefresh: (account: StationAccount) => void;
-  onEdit: (account: StationAccount) => void;
-  onDelete: (account: StationAccount) => void;
+  account: StationAccount
+  selected: boolean
+  opening: boolean
+  refreshing: boolean
+  justRefreshed: boolean
+  dragging: boolean
+  onSelect: (id: string) => void
+  onLogin: (account: StationAccount) => void
+  onRefresh: (account: StationAccount) => void
+  onEdit: (account: StationAccount) => void
+  onDelete: (account: StationAccount) => void
 }) {
-  const { t } = useTranslation();
-  const [usernameCopied, setUsernameCopied] = useState(false);
+  const { t } = useTranslation()
+  const [usernameCopied, setUsernameCopied] = useState(false)
   const handleCopyUsername = (event: React.MouseEvent) => {
-    event.stopPropagation();
-    navigator.clipboard.writeText(account.username).then(() => {
-      setUsernameCopied(true);
-      toast.success(t("accountManager.toasts.copySuccess"));
-      window.setTimeout(() => setUsernameCopied(false), 1200);
-    }).catch(() => {
-      toast.error(t("accountManager.toasts.copyFailed"));
-    });
-  };
+    event.stopPropagation()
+    navigator.clipboard
+      .writeText(account.username)
+      .then(() => {
+        setUsernameCopied(true)
+        toast.success(t("accountManager.toasts.copySuccess"))
+        window.setTimeout(() => setUsernameCopied(false), 1200)
+      })
+      .catch(() => {
+        toast.error(t("accountManager.toasts.copyFailed"))
+      })
+  }
   return (
     <div
       role="button"
@@ -369,18 +391,18 @@ function AccountCardContent({
       onClick={() => onSelect(account.id)}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onSelect(account.id);
+          event.preventDefault()
+          onSelect(account.id)
         }
       }}
       className={cn(
         "group relative w-full cursor-pointer overflow-hidden rounded-lg border px-4 py-4 text-left transition",
         selected ? "border-primary bg-primary/5 shadow-sm" : "border-border hover:bg-muted/40",
-        dragging && "shadow-xl"
+        dragging && "shadow-xl",
       )}
     >
       {justRefreshed && (
-        <div className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/40 to-transparent animate-shimmer dark:via-white/10" />
+        <div className="animate-shimmer pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/40 to-transparent dark:via-white/10" />
       )}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -391,7 +413,7 @@ function AccountCardContent({
                 <TooltipTrigger asChild>
                   <button
                     onClick={handleCopyUsername}
-                    className="shrink-0 cursor-pointer text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
+                    className="text-muted-foreground hover:text-foreground shrink-0 cursor-pointer opacity-0 transition-opacity group-hover:opacity-100"
                     aria-label={t("accountManager.detail.copy")}
                   >
                     {usernameCopied ? <Check size={12} /> : <Copy size={12} />}
@@ -405,15 +427,17 @@ function AccountCardContent({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span className="cursor-default">
-                      <Link2 size={13} className="shrink-0 text-muted-foreground/60" />
+                      <Link2 size={13} className="text-muted-foreground/60 shrink-0" />
                     </span>
                   </TooltipTrigger>
-                  <TooltipContent side="top">{t("accountManager.detail.proxySectionTitle")}</TooltipContent>
+                  <TooltipContent side="top">
+                    {t("accountManager.detail.proxySectionTitle")}
+                  </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             )}
           </div>
-          <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
+          <p className="text-muted-foreground mt-1 line-clamp-1 text-xs">
             {account.notes || t("accountManager.notesEmpty")}
           </p>
         </div>
@@ -422,8 +446,8 @@ function AccountCardContent({
             <Button
               size="sm"
               onClick={(event) => {
-                event.stopPropagation();
-                onLogin(account);
+                event.stopPropagation()
+                onLogin(account)
               }}
               disabled={opening}
             >
@@ -443,12 +467,12 @@ function AccountCardContent({
                   size="icon-sm"
                   variant="ghost"
                   onClick={(event) => {
-                    event.stopPropagation();
-                    onRefresh(account);
+                    event.stopPropagation()
+                    onRefresh(account)
                   }}
                   disabled={refreshing}
                   aria-label={t("accountManager.refreshStatus")}
-                  className="cursor-pointer hover:bg-muted/50 rounded-md"
+                  className="hover:bg-muted/50 cursor-pointer rounded-md"
                 >
                   <RefreshCw className={refreshing ? "animate-spin" : undefined} />
                 </Button>
@@ -463,11 +487,11 @@ function AccountCardContent({
                   size="icon-sm"
                   variant="ghost"
                   onClick={(event) => {
-                    event.stopPropagation();
-                    onEdit(account);
+                    event.stopPropagation()
+                    onEdit(account)
                   }}
                   aria-label={t("accountManager.editAccount")}
-                  className="cursor-pointer hover:bg-muted/50 rounded-md"
+                  className="hover:bg-muted/50 cursor-pointer rounded-md"
                 >
                   <Pencil size={13} />
                 </Button>
@@ -482,11 +506,11 @@ function AccountCardContent({
                   size="icon-sm"
                   variant="ghost"
                   onClick={(event) => {
-                    event.stopPropagation();
-                    onDelete(account);
+                    event.stopPropagation()
+                    onDelete(account)
                   }}
                   aria-label={t("accountManager.deleteAccount")}
-                  className="cursor-pointer hover:bg-muted/50 rounded-md"
+                  className="hover:bg-muted/50 cursor-pointer rounded-md"
                 >
                   <Trash2 size={13} className="text-destructive" />
                 </Button>
@@ -497,5 +521,5 @@ function AccountCardContent({
         </div>
       </div>
     </div>
-  );
+  )
 }

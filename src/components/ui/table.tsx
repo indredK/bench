@@ -8,7 +8,7 @@ function Table({ className, ...props }: React.ComponentProps<"table">) {
     <div
       data-slot="table-container"
       data-table-scroll
-      className="relative w-full overflow-auto min-h-[120px] min-w-[280px]"
+      className="relative min-h-[120px] w-full min-w-[280px] overflow-auto"
     >
       <table
         data-slot="table"
@@ -20,13 +20,7 @@ function Table({ className, ...props }: React.ComponentProps<"table">) {
 }
 
 function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
-  return (
-    <thead
-      data-slot="table-header"
-      className={cn("[&_tr]:border-b", className)}
-      {...props}
-    />
-  )
+  return <thead data-slot="table-header" className={cn("[&_tr]:border-b", className)} {...props} />
 }
 
 function TableBody({ className, ...props }: React.ComponentProps<"tbody">) {
@@ -43,10 +37,7 @@ function TableFooter({ className, ...props }: React.ComponentProps<"tfoot">) {
   return (
     <tfoot
       data-slot="table-footer"
-      className={cn(
-        "border-t bg-muted/50 font-medium [&>tr]:last:border-b-0",
-        className
-      )}
+      className={cn("bg-muted/50 border-t font-medium [&>tr]:last:border-b-0", className)}
       {...props}
     />
   )
@@ -57,8 +48,8 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
     <tr
       data-slot="table-row"
       className={cn(
-        "border-b transition-colors hover:bg-muted/30 data-[state=selected]:bg-muted",
-        className
+        "hover:bg-muted/30 data-[state=selected]:bg-muted border-b transition-colors",
+        className,
       )}
       {...props}
     />
@@ -70,8 +61,8 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
     <th
       data-slot="table-head"
       className={cn(
-        "h-10 px-3 text-left align-middle font-semibold text-muted-foreground [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
-        className
+        "text-muted-foreground h-10 px-3 text-left align-middle font-semibold [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
+        className,
       )}
       {...props}
     />
@@ -84,33 +75,21 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
       data-slot="table-cell"
       className={cn(
         "p-3 align-middle [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
-        className
+        className,
       )}
       {...props}
     />
   )
 }
 
-function TableCaption({
-  className,
-  ...props
-}: React.ComponentProps<"caption">) {
+function TableCaption({ className, ...props }: React.ComponentProps<"caption">) {
   return (
     <caption
       data-slot="table-caption"
-      className={cn("mt-4 text-sm text-muted-foreground", className)}
+      className={cn("text-muted-foreground mt-4 text-sm", className)}
       {...props}
     />
   )
 }
 
-export {
-  Table,
-  TableHeader,
-  TableBody,
-  TableFooter,
-  TableHead,
-  TableRow,
-  TableCell,
-  TableCaption,
-}
+export { Table, TableHeader, TableBody, TableFooter, TableHead, TableRow, TableCell, TableCaption }

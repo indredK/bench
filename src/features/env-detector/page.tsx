@@ -1,26 +1,27 @@
 /**
  * Page View / 页面视图: compose screen only; 只组合页面.
  */
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Input } from "@/components/ui/input";
-import FilterBar from "@/shared/compare/FilterBar";
-import { ContentView } from "@/components/content/ContentView";
-import { EnvStatusBadge } from "@/features/env-detector/columns";
-import { useEnvDetectorController } from "@/features/env-detector/hooks/useEnvDetectorController";
-import type { EnvTool } from "@/lib/tauri/types";
-import { Box } from "lucide-react";
-import { RuntimeFeatureGate } from "@/components/common/RuntimeFeatureGate";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Input } from "@/components/ui/input"
+import FilterBar from "@/shared/compare/FilterBar"
+import { ContentView } from "@/components/content/ContentView"
+import { EnvStatusBadge } from "@/features/env-detector/columns"
+import { useEnvDetectorController } from "@/features/env-detector/hooks/useEnvDetectorController"
+import type { EnvTool } from "@/lib/tauri/types"
+import { Box } from "lucide-react"
+import { RuntimeFeatureGate } from "@/components/common/RuntimeFeatureGate"
 
-function EnvDetector({ active, feature }: { active: boolean; feature?: { desktopOnly?: boolean } }) {
-  const controller = useEnvDetectorController(active);
+function EnvDetector({
+  active,
+  feature,
+}: {
+  active: boolean
+  feature?: { desktopOnly?: boolean }
+}) {
+  const controller = useEnvDetectorController(active)
   const {
     t,
     loading,
@@ -47,7 +48,7 @@ function EnvDetector({ active, feature }: { active: boolean; feature?: { desktop
     clearFilters,
     loadTools,
     getRowAttributes,
-  } = controller;
+  } = controller
 
   return (
     <RuntimeFeatureGate
@@ -55,12 +56,12 @@ function EnvDetector({ active, feature }: { active: boolean; feature?: { desktop
       title={t("envDetector.title")}
       icon={<Box size={32} className="opacity-40" />}
     >
-      <div className="h-full flex flex-col gap-3">
+      <div className="flex h-full flex-col gap-3">
         <Card className="flex flex-1 flex-col overflow-hidden">
           <CardHeader className="shrink-0">
             <CardTitle>{t("envDetector.title")}</CardTitle>
           </CardHeader>
-          <CardContent className="flex-1 min-h-0 flex flex-col">
+          <CardContent className="flex min-h-0 flex-1 flex-col">
             {error && (
               <Alert variant="destructive" className="mb-4 shrink-0">
                 <AlertDescription>{error}</AlertDescription>
@@ -68,8 +69,8 @@ function EnvDetector({ active, feature }: { active: boolean; feature?: { desktop
             )}
 
             <div className="mb-3 shrink-0">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="relative flex-1 min-w-[200px]">
+              <div className="mb-2 flex items-center gap-3">
+                <div className="relative min-w-[200px] flex-1">
                   <Input
                     placeholder={t("envDetector.searchPlaceholder")}
                     value={searchQuery}
@@ -88,12 +89,7 @@ function EnvDetector({ active, feature }: { active: boolean; feature?: { desktop
                     ? t("envDetector.hideAllCommands")
                     : t("envDetector.showAllCommands")}
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={loadTools}
-                  disabled={scanning}
-                >
+                <Button variant="outline" size="sm" onClick={loadTools} disabled={scanning}>
                   {scanning ? (
                     <>
                       <span className="mr-1.5 size-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
@@ -121,7 +117,7 @@ function EnvDetector({ active, feature }: { active: boolean; feature?: { desktop
               </div>
             </div>
 
-            <div className="flex-1 min-h-0 flex flex-col gap-3">
+            <div className="flex min-h-0 flex-1 flex-col gap-3">
               <ContentView
                 data={displayedTools}
                 viewMode={viewMode}
@@ -143,20 +139,18 @@ function EnvDetector({ active, feature }: { active: boolean; feature?: { desktop
                 loading={loading}
                 showViewToggle
                 summary={t(
-                  hasActiveResultFilter
-                    ? "envDetector.filteredSummary"
-                    : "envDetector.summary",
+                  hasActiveResultFilter ? "envDetector.filteredSummary" : "envDetector.summary",
                   {
                     available: statusCounts.available,
                     total: statusCounts.total,
                     visible: displayedTools.length + missingTools.length,
-                  }
+                  },
                 )}
                 getRowAttributes={getRowAttributes}
               />
               {missingTools.length > 0 && (
-                <div className="shrink-0 rounded-lg border bg-muted/20 p-3">
-                  <p className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                <div className="bg-muted/20 shrink-0 rounded-lg border p-3">
+                  <p className="text-muted-foreground mb-2 text-xs font-semibold tracking-wider uppercase">
                     {t("envDetector.missingTools", { count: missingTools.length })}
                   </p>
                   <div className="flex flex-wrap gap-1.5">
@@ -173,7 +167,7 @@ function EnvDetector({ active, feature }: { active: boolean; feature?: { desktop
         </Card>
       </div>
     </RuntimeFeatureGate>
-  );
+  )
 }
 
 function EnvToolGridCard({
@@ -181,30 +175,30 @@ function EnvToolGridCard({
   notFoundLabel,
   getRowAttributes,
 }: {
-  tool: EnvTool;
-  notFoundLabel: string;
-  getRowAttributes: (tool: EnvTool) => Record<string, string>;
+  tool: EnvTool
+  notFoundLabel: string
+  getRowAttributes: (tool: EnvTool) => Record<string, string>
 }) {
   return (
     <div
-      className="rounded-xl border bg-card p-3 hover:ring-2 hover:ring-primary/30 transition-all h-full flex flex-col gap-1.5"
+      className="bg-card hover:ring-primary/30 flex h-full flex-col gap-1.5 rounded-xl border p-3 transition-all hover:ring-2"
       {...getRowAttributes(tool)}
     >
       <div className="flex items-start justify-between gap-2">
-        <span className="font-medium text-sm truncate">{tool.name}</span>
+        <span className="truncate text-sm font-medium">{tool.name}</span>
         <EnvStatusBadge tool={tool} />
       </div>
-      <p className="text-xs text-muted-foreground truncate">
+      <p className="text-muted-foreground truncate text-xs">
         {tool.available ? tool.version || "-" : notFoundLabel}
       </p>
-      <p className="text-[11px] text-muted-foreground truncate font-mono">
+      <p className="text-muted-foreground truncate font-mono text-[11px]">
         {tool.available ? tool.path : "-"}
       </p>
       {tool.available && tool.size_display && (
-        <p className="text-[11px] text-muted-foreground">{tool.size_display}</p>
+        <p className="text-muted-foreground text-[11px]">{tool.size_display}</p>
       )}
     </div>
-  );
+  )
 }
 
-export default EnvDetector;
+export default EnvDetector

@@ -1,41 +1,32 @@
 /**
  * Feature Model / 功能模型: keep pure model logic; 只放纯模型逻辑.
  */
-import type { StoreApi } from "zustand";
-import type { SortingState, Updater } from "@tanstack/react-table";
-import type { AppInfo, UpdateInfo, UpdateSource } from "@/lib/tauri/types/app-manager";
-import type {
-  InstallFinishedEvent,
-  InstallPhase,
-} from "@/lib/tauri/types/app-manager";
-import type { AppCategoryKey } from "@/features/app-manager/app-categories";
-import type { AppSeriesKey } from "@/features/app-manager/app-series";
-import type {
-  AppManagerState,
-  AppManagerTabKey,
-} from "@/features/app-manager/model/store-types";
-import type {
-  AppFilterKey,
-  MarketplaceFilterKey,
-} from "@/features/app-manager/model/preferences";
-import type { OperationStatus } from "@/features/app-manager/model/operations";
-import { createInitialAppManagerState } from "@/features/app-manager/model/store-state";
-import type { LocalizedError } from "@/lib/errors";
+import type { StoreApi } from "zustand"
+import type { SortingState, Updater } from "@tanstack/react-table"
+import type { AppInfo, UpdateInfo, UpdateSource } from "@/lib/tauri/types/app-manager"
+import type { InstallFinishedEvent, InstallPhase } from "@/lib/tauri/types/app-manager"
+import type { AppCategoryKey } from "@/features/app-manager/app-categories"
+import type { AppSeriesKey } from "@/features/app-manager/app-series"
+import type { AppManagerState, AppManagerTabKey } from "@/features/app-manager/model/store-types"
+import type { AppFilterKey, MarketplaceFilterKey } from "@/features/app-manager/model/preferences"
+import type { OperationStatus } from "@/features/app-manager/model/operations"
+import { createInitialAppManagerState } from "@/features/app-manager/model/store-state"
+import type { LocalizedError } from "@/lib/errors"
 
-type SetState = StoreApi<AppManagerState>["setState"];
+type SetState = StoreApi<AppManagerState>["setState"]
 
 export function createAppManagerBasicActions(set: SetState) {
   const applySearchQuery = (tab: AppManagerTabKey, query: string) => {
     switch (tab) {
       case "marketplace":
-        return { searchQuery: query, marketplaceSearchQuery: query };
+        return { searchQuery: query, marketplaceSearchQuery: query }
       case "softwareUpdate":
-        return { searchQuery: query, updatesSearchQuery: query };
+        return { searchQuery: query, updatesSearchQuery: query }
       case "installed":
       default:
-        return { searchQuery: query, installedSearchQuery: query };
+        return { searchQuery: query, installedSearchQuery: query }
     }
-  };
+  }
 
   const applyCategoryFilter = (tab: AppManagerTabKey, category: AppCategoryKey | null) => {
     switch (tab) {
@@ -43,17 +34,17 @@ export function createAppManagerBasicActions(set: SetState) {
         return {
           categoryFilter: category,
           marketplaceCategoryFilter: category,
-        };
+        }
       case "installed":
         return {
           categoryFilter: category,
           installedCategoryFilter: category,
-        };
+        }
       case "softwareUpdate":
       default:
-        return { categoryFilter: null };
+        return { categoryFilter: null }
     }
-  };
+  }
 
   const applySeriesFilter = (tab: AppManagerTabKey, series: AppSeriesKey | null) => {
     switch (tab) {
@@ -61,17 +52,17 @@ export function createAppManagerBasicActions(set: SetState) {
         return {
           seriesFilter: series,
           marketplaceSeriesFilter: series,
-        };
+        }
       case "installed":
         return {
           seriesFilter: series,
           installedSeriesFilter: series,
-        };
+        }
       case "softwareUpdate":
       default:
-        return { seriesFilter: null };
+        return { seriesFilter: null }
     }
-  };
+  }
 
   return {
     setSearchQuery: (query: string) =>
@@ -116,10 +107,10 @@ export function createAppManagerBasicActions(set: SetState) {
 
     toggleSelectApp: (appId: string) =>
       set((state) => {
-        const next = new Set(state.selectedAppIds);
-        if (next.has(appId)) next.delete(appId);
-        else next.add(appId);
-        return { selectedAppIds: next };
+        const next = new Set(state.selectedAppIds)
+        if (next.has(appId)) next.delete(appId)
+        else next.add(appId)
+        return { selectedAppIds: next }
       }),
     selectAllFiltered: (filteredIds: string[]) => set({ selectedAppIds: new Set(filteredIds) }),
     clearSelectedApps: () => set({ selectedAppIds: new Set() }),
@@ -128,9 +119,8 @@ export function createAppManagerBasicActions(set: SetState) {
     openBatchConfirmDialog: (
       action: "upgrade" | "uninstall" | "install",
       count: number,
-      names: string[] = []
-    ) =>
-      set({ batchConfirmDialog: { open: true, action, count, names } }),
+      names: string[] = [],
+    ) => set({ batchConfirmDialog: { open: true, action, count, names } }),
     closeBatchConfirmDialog: () =>
       set({ batchConfirmDialog: { open: false, action: "upgrade", count: 0, names: [] } }),
     clearBatchResults: () => set({ batchResults: null }),
@@ -148,29 +138,29 @@ export function createAppManagerBasicActions(set: SetState) {
             ? state.marketplaceSearchQuery
             : tab === "softwareUpdate"
               ? state.updatesSearchQuery
-              : state.installedSearchQuery
+              : state.installedSearchQuery,
         ),
         ...applyCategoryFilter(
           tab,
-          tab === "marketplace" ? state.marketplaceCategoryFilter : state.installedCategoryFilter
+          tab === "marketplace" ? state.marketplaceCategoryFilter : state.installedCategoryFilter,
         ),
         ...applySeriesFilter(
           tab,
-          tab === "marketplace" ? state.marketplaceSeriesFilter : state.installedSeriesFilter
+          tab === "marketplace" ? state.marketplaceSeriesFilter : state.installedSeriesFilter,
         ),
       })),
     setUpdates: (updates: UpdateInfo[]) =>
       set((state) => {
-        const updateMap = new Map(updates.map((update) => [update.appId, update]));
+        const updateMap = new Map(updates.map((update) => [update.appId, update]))
         return {
           updates,
           selectedUpdateIds: new Set(
-            [...state.selectedUpdateIds].filter((appId) => updateMap.has(appId))
+            [...state.selectedUpdateIds].filter((appId) => updateMap.has(appId)),
           ),
           selectedUpdate: state.selectedUpdate
-            ? updateMap.get(state.selectedUpdate.appId) ?? null
+            ? (updateMap.get(state.selectedUpdate.appId) ?? null)
             : null,
-        };
+        }
       }),
     setUpdatesLoading: (loading: boolean) => set({ updatesLoading: loading }),
     setUpdatesError: (error: LocalizedError | null) => set({ updatesError: error }),
@@ -184,10 +174,10 @@ export function createAppManagerBasicActions(set: SetState) {
       })),
     toggleSelectUpdate: (appId: string) =>
       set((state) => {
-        const next = new Set(state.selectedUpdateIds);
-        if (next.has(appId)) next.delete(appId);
-        else next.add(appId);
-        return { selectedUpdateIds: next };
+        const next = new Set(state.selectedUpdateIds)
+        if (next.has(appId)) next.delete(appId)
+        else next.add(appId)
+        return { selectedUpdateIds: next }
       }),
     selectAllUpdates: (appIds: string[]) => set({ selectedUpdateIds: new Set(appIds) }),
     clearUpdateSelection: () => set({ selectedUpdateIds: new Set() }),
@@ -207,10 +197,10 @@ export function createAppManagerBasicActions(set: SetState) {
       })),
     clearInstallProgress: (appId: string) =>
       set((state) => {
-        if (!(appId in state.installProgress)) return state;
-        const next = { ...state.installProgress };
-        delete next[appId];
-        return { installProgress: next };
+        if (!(appId in state.installProgress)) return state
+        const next = { ...state.installProgress }
+        delete next[appId]
+        return { installProgress: next }
       }),
     setInstallFinished: (appId: string, event: InstallFinishedEvent) =>
       set((state) => ({
@@ -218,10 +208,10 @@ export function createAppManagerBasicActions(set: SetState) {
       })),
     clearInstallFinished: (appId: string) =>
       set((state) => {
-        if (!(appId in state.installFinished)) return state;
-        const next = { ...state.installFinished };
-        delete next[appId];
-        return { installFinished: next };
+        if (!(appId in state.installFinished)) return state
+        const next = { ...state.installFinished }
+        delete next[appId]
+        return { installFinished: next }
       }),
 
     reset: () =>
@@ -230,5 +220,5 @@ export function createAppManagerBasicActions(set: SetState) {
         activeFilter: "all",
         sorting: [{ id: "name", desc: false }],
       }),
-  };
+  }
 }

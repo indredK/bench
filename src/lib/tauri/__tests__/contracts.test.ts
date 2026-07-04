@@ -2,123 +2,227 @@
 /**
  * Test / 测试: verify behavior only; 只验证行为与契约.
  */
-import { describe, expect, it } from "vitest";
-import { readdirSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { describe, expect, it } from "vitest"
+import { readdirSync, readFileSync } from "node:fs"
+import { resolve } from "node:path"
 import {
   TAURI_COMMAND_ARG_KEYS,
   TAURI_COMMAND_CONTRACTS,
   TAURI_COMMANDS,
   TAURI_EVENTS,
-} from "@/lib/tauri/contracts";
+} from "@/lib/tauri/contracts"
 import type {
   AppInfo,
   BatchOperationResult,
   InstallSource,
   OperationResult,
-} from "@/lib/tauri/types/app-manager";
-import type { EnvScanDonePayload, EnvTool } from "@/lib/tauri/types/env-detector";
-import type { ProjectInfo, ScanResult as DevCleanerScanResult } from "@/lib/tauri/types/dev-cleaner";
+} from "@/lib/tauri/types/app-manager"
+import type { EnvScanDonePayload, EnvTool } from "@/lib/tauri/types/env-detector"
+import type { ProjectInfo, ScanResult as DevCleanerScanResult } from "@/lib/tauri/types/dev-cleaner"
 import type {
   KillPidResult,
   PortProcessDetail,
   ProcessFingerprint,
   ProcessNode,
   SystemInfoData,
-} from "@/lib/tauri/types";
-import type { AppUpdateInfo, AppUpdateInstallResult } from "@/lib/tauri/types/updater";
+} from "@/lib/tauri/types"
+import type { AppUpdateInfo, AppUpdateInstallResult } from "@/lib/tauri/types/updater"
 
 describe("Tauri contracts", () => {
   it("keeps grouped command constants derived from the canonical command contracts", () => {
-    const groupedCommands = flattenContractValues(TAURI_COMMANDS).sort();
-    const contractCommands = Object.keys(TAURI_COMMAND_CONTRACTS).sort();
+    const groupedCommands = flattenContractValues(TAURI_COMMANDS).sort()
+    const contractCommands = Object.keys(TAURI_COMMAND_CONTRACTS).sort()
 
-    expect(groupedCommands).toEqual(contractCommands);
-  });
+    expect(groupedCommands).toEqual(contractCommands)
+  })
 
   it("keeps frontend command names exactly aligned with Rust handler registration", () => {
     const rustCommands = parseRegisteredCommands(
-      readFileSync(resolve(process.cwd(), "src-tauri/src/commands.rs"), "utf8")
-    ).sort();
-    const frontendCommands = Object.keys(TAURI_COMMAND_CONTRACTS).sort();
+      readFileSync(resolve(process.cwd(), "src-tauri/src/commands.rs"), "utf8"),
+    ).sort()
+    const frontendCommands = Object.keys(TAURI_COMMAND_CONTRACTS).sort()
 
-    expect(rustCommands).toEqual(frontendCommands);
-  });
+    expect(rustCommands).toEqual(frontendCommands)
+  })
 
   it("keeps frontend command args aligned with Rust command function parameters", () => {
-    const rustSource = readRustSource(resolve(process.cwd(), "src-tauri/src"));
-    const rustStructFields = parseRustStructFields(rustSource);
-    const rustCommandArgs = parseTauriCommandArgs(rustSource, rustStructFields);
+    const rustSource = readRustSource(resolve(process.cwd(), "src-tauri/src"))
+    const rustStructFields = parseRustStructFields(rustSource)
+    const rustCommandArgs = parseTauriCommandArgs(rustSource, rustStructFields)
 
     for (const [command, argKeys] of Object.entries(TAURI_COMMAND_ARG_KEYS)) {
       expect(
         rustCommandArgs[command],
-        `${command} should have matching frontend and Rust IPC args`
-      ).toEqual(argKeys);
+        `${command} should have matching frontend and Rust IPC args`,
+      ).toEqual(argKeys)
     }
-  });
+  })
 
   it("keeps frontend event names aligned with Rust event emitters", () => {
-    const rustSource = readRustSource(resolve(process.cwd(), "src-tauri/src"));
+    const rustSource = readRustSource(resolve(process.cwd(), "src-tauri/src"))
 
     for (const eventName of flattenContractValues(TAURI_EVENTS)) {
-      expect(rustSource, `${eventName} should be emitted by Rust`)
-        .toContain(`"${eventName}"`);
+      expect(rustSource, `${eventName} should be emitted by Rust`).toContain(`"${eventName}"`)
     }
-  });
+  })
 
   it("keeps key IPC DTO fields aligned with Rust struct fields", () => {
-    const rustSource = readRustSource(resolve(process.cwd(), "src-tauri/src"));
-    const rustStructFields = parseRustStructFields(rustSource);
+    const rustSource = readRustSource(resolve(process.cwd(), "src-tauri/src"))
+    const rustStructFields = parseRustStructFields(rustSource)
 
     const checks: Array<[string, string, string[]]> = [
-      ["AppInfo", "camel", dtoKeys<AppInfo>([
-        "appId",
-        "name",
-        "version",
-        "bundleId",
-        "installPath",
-        "source",
-        "sourceType",
-        "sourceId",
-        "sourceConfidence",
-        "canUpgrade",
-        "canUninstall",
-        "upgradeAvailable",
-        "lastOperationResult",
-        "lastModified",
-        "isSystemApp",
-        "allowedActions",
-        "iconBase64",
-      ])],
-      ["OperationResult", "camel", dtoKeys<OperationResult>(["success", "message", "exitCode", "errorCode", "permissionIssue"])],
-      ["BatchOperationResult", "camel", dtoKeys<BatchOperationResult>(["total", "succeeded", "failed", "results"])],
-      ["InstallSource", "camel", dtoKeys<InstallSource>(["brew", "winget", "apt", "flatpak", "snap", "url"])],
-      ["ProjectInfo", "snake", dtoKeys<ProjectInfo>(["path", "name", "total_size", "target_size", "last_modified", "dependencies_count", "project_type", "cleanup_potential", "cleanup_paths"])],
-      ["ScanResult", "snake", dtoKeys<DevCleanerScanResult>(["total_projects", "total_size", "total_cleanup_size", "projects", "scan_time_ms", "aborted"])],
-      ["EnvTool", "snake", dtoKeys<EnvTool>(["name", "version", "path", "size_bytes", "size_display", "install_time", "available", "category", "source", "kind", "status", "detector", "all_paths", "issue"])],
+      [
+        "AppInfo",
+        "camel",
+        dtoKeys<AppInfo>([
+          "appId",
+          "name",
+          "version",
+          "bundleId",
+          "installPath",
+          "source",
+          "sourceType",
+          "sourceId",
+          "sourceConfidence",
+          "canUpgrade",
+          "canUninstall",
+          "upgradeAvailable",
+          "lastOperationResult",
+          "lastModified",
+          "isSystemApp",
+          "allowedActions",
+          "iconBase64",
+        ]),
+      ],
+      [
+        "OperationResult",
+        "camel",
+        dtoKeys<OperationResult>([
+          "success",
+          "message",
+          "exitCode",
+          "errorCode",
+          "permissionIssue",
+        ]),
+      ],
+      [
+        "BatchOperationResult",
+        "camel",
+        dtoKeys<BatchOperationResult>(["total", "succeeded", "failed", "results"]),
+      ],
+      [
+        "InstallSource",
+        "camel",
+        dtoKeys<InstallSource>(["brew", "winget", "apt", "flatpak", "snap", "url"]),
+      ],
+      [
+        "ProjectInfo",
+        "snake",
+        dtoKeys<ProjectInfo>([
+          "path",
+          "name",
+          "total_size",
+          "target_size",
+          "last_modified",
+          "dependencies_count",
+          "project_type",
+          "cleanup_potential",
+          "cleanup_paths",
+        ]),
+      ],
+      [
+        "ScanResult",
+        "snake",
+        dtoKeys<DevCleanerScanResult>([
+          "total_projects",
+          "total_size",
+          "total_cleanup_size",
+          "projects",
+          "scan_time_ms",
+          "aborted",
+        ]),
+      ],
+      [
+        "EnvTool",
+        "snake",
+        dtoKeys<EnvTool>([
+          "name",
+          "version",
+          "path",
+          "size_bytes",
+          "size_display",
+          "install_time",
+          "available",
+          "category",
+          "source",
+          "kind",
+          "status",
+          "detector",
+          "all_paths",
+          "issue",
+        ]),
+      ],
       ["ScanDonePayload", "snake", dtoKeys<EnvScanDonePayload>(["tools", "unavailable"])],
-      ["KillPidResult", "snake", dtoKeys<KillPidResult>(["pid", "success", "message", "error_code"])],
-      ["ProcessNode", "snake", dtoKeys<ProcessNode>(["pid", "ppid", "name", "command", "children"])],
+      [
+        "KillPidResult",
+        "snake",
+        dtoKeys<KillPidResult>(["pid", "success", "message", "error_code"]),
+      ],
+      [
+        "ProcessNode",
+        "snake",
+        dtoKeys<ProcessNode>(["pid", "ppid", "name", "command", "children"]),
+      ],
       ["ProcessFingerprint", "snake", dtoKeys<ProcessFingerprint>(["category", "name", "icon"])],
-      ["PortProcessDetail", "snake", dtoKeys<PortProcessDetail>(["port", "pids", "process_trees", "fingerprint", "error"])],
-      ["SystemInfo", "snake", dtoKeys<SystemInfoData>(["os_name", "os_version", "kernel_version", "hostname", "cpu_brand", "cpu_cores", "total_memory", "available_memory", "used_memory", "memory_usage_percent", "uptime_seconds", "arch", "model_name", "distribution"])],
-      ["AppUpdateInfo", "camel", dtoKeys<AppUpdateInfo>(["available", "currentVersion", "version", "date", "body"])],
-      ["AppUpdateInstallResult", "camel", dtoKeys<AppUpdateInstallResult>(["installed", "requiresRestart"])],
-    ];
+      [
+        "PortProcessDetail",
+        "snake",
+        dtoKeys<PortProcessDetail>(["port", "pids", "process_trees", "fingerprint", "error"]),
+      ],
+      [
+        "SystemInfo",
+        "snake",
+        dtoKeys<SystemInfoData>([
+          "os_name",
+          "os_version",
+          "kernel_version",
+          "hostname",
+          "cpu_brand",
+          "cpu_cores",
+          "total_memory",
+          "available_memory",
+          "used_memory",
+          "memory_usage_percent",
+          "uptime_seconds",
+          "arch",
+          "model_name",
+          "distribution",
+        ]),
+      ],
+      [
+        "AppUpdateInfo",
+        "camel",
+        dtoKeys<AppUpdateInfo>(["available", "currentVersion", "version", "date", "body"]),
+      ],
+      [
+        "AppUpdateInstallResult",
+        "camel",
+        dtoKeys<AppUpdateInstallResult>(["installed", "requiresRestart"]),
+      ],
+    ]
 
     for (const [rustTypeName, serdeCase, frontendKeys] of checks) {
       const rustFields = rustStructFields[rustTypeName]?.map((field) =>
-        serdeCase === "camel" ? snakeToCamelCase(field) : field
-      );
+        serdeCase === "camel" ? snakeToCamelCase(field) : field,
+      )
 
-      expect(rustFields, `${rustTypeName} should exist in Rust DTO structs`)
-        .toBeDefined();
-      expect(rustFields, `${rustTypeName} fields should match frontend DTO keys`)
-        .toEqual(frontendKeys);
+      expect(rustFields, `${rustTypeName} should exist in Rust DTO structs`).toBeDefined()
+      expect(rustFields, `${rustTypeName} fields should match frontend DTO keys`).toEqual(
+        frontendKeys,
+      )
     }
-  });
-});
+  })
+})
 
 // Commands whose frontend contract passes the struct fields directly as
 // top-level invoke args (`defineTauriCommand<TheStruct, Result>()`) instead
@@ -126,73 +230,85 @@ describe("Tauri contracts", () => {
 // a struct param for these commands it should expand it to the struct fields.
 const COMMANDS_WITH_FLAT_STRUCT_ARGS = new Set([
   "create_term", // TermInput passed as individual fields (industryId, categoryId, ...)
-]);
+])
 
 function flattenContractValues(contractGroup: Record<string, Record<string, string>>): string[] {
-  return Object.values(contractGroup).flatMap((contract) => Object.values(contract));
+  return Object.values(contractGroup).flatMap((contract) => Object.values(contract))
 }
 
 function readRustSource(path: string): string {
-  return readdirSync(path, { withFileTypes: true }).flatMap((entry) => {
-    const entryPath = resolve(path, entry.name);
-    if (entry.isDirectory()) return readRustSource(entryPath);
-    if (!entry.isFile() || !entry.name.endsWith(".rs")) return [];
-    return readFileSync(entryPath, "utf8");
-  }).join("\n");
+  return readdirSync(path, { withFileTypes: true })
+    .flatMap((entry) => {
+      const entryPath = resolve(path, entry.name)
+      if (entry.isDirectory()) return readRustSource(entryPath)
+      if (!entry.isFile() || !entry.name.endsWith(".rs")) return []
+      return readFileSync(entryPath, "utf8")
+    })
+    .join("\n")
 }
 
 function parseRegisteredCommands(commandsSource: string): string[] {
-  const handlerMatch = commandsSource.match(/tauri::generate_handler!\s*\[([\s\S]*?)\]/);
-  const handlerBody = handlerMatch?.[1] ?? "";
+  const handlerMatch = commandsSource.match(/tauri::generate_handler!\s*\[([\s\S]*?)\]/)
+  const handlerBody = handlerMatch?.[1] ?? ""
 
-  return Array.from(handlerBody.matchAll(/::([a-zA-Z0-9_]+)\s*,/g))
-    .map((match) => match[1]);
+  return Array.from(handlerBody.matchAll(/::([a-zA-Z0-9_]+)\s*,/g)).map((match) => match[1])
 }
 
-function parseTauriCommandArgs(rustSource: string, rustStructFields: Record<string, string[]>): Record<string, string[]> {
-  const commands: Record<string, string[]> = {};
-  const commandRegex = /#\[tauri::command\](?:\s*#\[[\s\S]*?\])*\s*pub\s+(?:async\s+)?fn\s+([a-zA-Z0-9_]+)(?:\s*<[\s\S]*?>)?\s*\(([\s\S]*?)\)\s*(?:->|\{)/g;
+function parseTauriCommandArgs(
+  rustSource: string,
+  rustStructFields: Record<string, string[]>,
+): Record<string, string[]> {
+  const commands: Record<string, string[]> = {}
+  const commandRegex =
+    /#\[tauri::command\](?:\s*#\[[\s\S]*?\])*\s*pub\s+(?:async\s+)?fn\s+([a-zA-Z0-9_]+)(?:\s*<[\s\S]*?>)?\s*\(([\s\S]*?)\)\s*(?:->|\{)/g
 
   for (const match of rustSource.matchAll(commandRegex)) {
-    const [, commandName, rawArgs] = match;
+    const [, commandName, rawArgs] = match
     const filtered = splitTopLevelArgs(rawArgs)
       .map((arg) => arg.trim())
       .filter(Boolean)
-      .filter((arg) =>
-        !arg.includes("tauri::State") &&
-        !arg.includes("tauri::AppHandle") &&
-        !arg.includes("tauri::WebviewWindow") &&
-        !arg.includes("tauri::Window") &&
-        !arg.includes("AppHandle") &&
-        !/(^|\W)State\s*</.test(arg)
-      );
+      .filter(
+        (arg) =>
+          !arg.includes("tauri::State") &&
+          !arg.includes("tauri::AppHandle") &&
+          !arg.includes("tauri::WebviewWindow") &&
+          !arg.includes("tauri::Window") &&
+          !arg.includes("AppHandle") &&
+          !/(^|\W)State\s*</.test(arg),
+      )
 
-    const argKeys: string[] = [];
+    const argKeys: string[] = []
     for (const arg of filtered) {
-      const colIdx = arg.indexOf(":");
-      const paramType = colIdx >= 0 ? arg.slice(colIdx + 1).trim().split(/\s+/)[0] : "";
+      const colIdx = arg.indexOf(":")
+      const paramType =
+        colIdx >= 0
+          ? arg
+              .slice(colIdx + 1)
+              .trim()
+              .split(/\s+/)[0]
+          : ""
       // Some commands pass the struct fields directly as top-level args
       // (frontend defines `defineTauriCommand<TheStruct, Result>()`) rather
       // than wrapping in `{ key: TheStruct }`. Expand those struct params.
-      const shouldExpand = paramType in rustStructFields
-        && COMMANDS_WITH_FLAT_STRUCT_ARGS.has(commandName);
+      const shouldExpand =
+        paramType in rustStructFields && COMMANDS_WITH_FLAT_STRUCT_ARGS.has(commandName)
       if (shouldExpand) {
         for (const field of rustStructFields[paramType]) {
-          argKeys.push(snakeToCamelCase(field));
+          argKeys.push(snakeToCamelCase(field))
         }
       } else {
-        const paramName = colIdx >= 0 ? arg.slice(0, colIdx).trim() : arg;
-        if (paramName) argKeys.push(snakeToCamelCase(paramName));
+        const paramName = colIdx >= 0 ? arg.slice(0, colIdx).trim() : arg
+        if (paramName) argKeys.push(snakeToCamelCase(paramName))
       }
     }
-    commands[commandName] = argKeys;
+    commands[commandName] = argKeys
   }
 
   // Macro-generated commands use `$get_fn`/`$set_fn` variables that the
   // regex above can't match. Parse the macro invocations directly.
-  parseMacroGeneratedCommands(rustSource, commands);
+  parseMacroGeneratedCommands(rustSource, commands)
 
-  return commands;
+  return commands
 }
 
 /// Resolve `#[tauri::command]` functions generated by `macro_rules!` invocations.
@@ -201,54 +317,56 @@ function parseTauriCommandArgs(rustSource: string, rustStructFields: Record<stri
 function parseMacroGeneratedCommands(rustSource: string, commands: Record<string, string[]>) {
   // ns_global_bool_toggle!(get_fn, set_fn, "key")
   //   => get_fn() with no args; set_fn(enabled: bool) with arg "enabled"
-  const macroRegex = /ns_global_bool_toggle!\s*\(\s*([a-zA-Z0-9_]+)\s*,\s*([a-zA-Z0-9_]+)\s*,\s*"[^"]*"\s*\)/g;
+  const macroRegex =
+    /ns_global_bool_toggle!\s*\(\s*([a-zA-Z0-9_]+)\s*,\s*([a-zA-Z0-9_]+)\s*,\s*"[^"]*"\s*\)/g
   for (const match of rustSource.matchAll(macroRegex)) {
-    const [, getFn, setFn] = match;
-    if (!(getFn in commands)) commands[getFn] = [];
-    if (!(setFn in commands)) commands[setFn] = ["enabled"];
+    const [, getFn, setFn] = match
+    if (!(getFn in commands)) commands[getFn] = []
+    if (!(setFn in commands)) commands[setFn] = ["enabled"]
   }
 }
 
 function splitTopLevelArgs(value: string): string[] {
-  const args: string[] = [];
-  let current = "";
-  let genericDepth = 0;
+  const args: string[] = []
+  let current = ""
+  let genericDepth = 0
 
   for (const char of value) {
-    if (char === "<") genericDepth += 1;
-    if (char === ">") genericDepth = Math.max(0, genericDepth - 1);
+    if (char === "<") genericDepth += 1
+    if (char === ">") genericDepth = Math.max(0, genericDepth - 1)
 
     if (char === "," && genericDepth === 0) {
-      args.push(current);
-      current = "";
-      continue;
+      args.push(current)
+      current = ""
+      continue
     }
 
-    current += char;
+    current += char
   }
 
-  if (current.trim()) args.push(current);
+  if (current.trim()) args.push(current)
 
-  return args;
+  return args
 }
 
 function parseRustStructFields(rustSource: string): Record<string, string[]> {
-  const fieldsByStruct: Record<string, string[]> = {};
-  const structRegex = /pub\s+struct\s+([A-Za-z0-9_]+)\s*\{([\s\S]*?)\n\}/g;
+  const fieldsByStruct: Record<string, string[]> = {}
+  const structRegex = /pub\s+struct\s+([A-Za-z0-9_]+)\s*\{([\s\S]*?)\n\}/g
 
   for (const match of rustSource.matchAll(structRegex)) {
-    const [, structName, body] = match;
-    fieldsByStruct[structName] = Array.from(body.matchAll(/pub(?:\([^)]*\))?\s+([a-zA-Z0-9_]+)\s*:/g))
-      .map((fieldMatch) => fieldMatch[1]);
+    const [, structName, body] = match
+    fieldsByStruct[structName] = Array.from(
+      body.matchAll(/pub(?:\([^)]*\))?\s+([a-zA-Z0-9_]+)\s*:/g),
+    ).map((fieldMatch) => fieldMatch[1])
   }
 
-  return fieldsByStruct;
+  return fieldsByStruct
 }
 
 function dtoKeys<T extends object>(keys: Array<Extract<keyof T, string>>): string[] {
-  return keys;
+  return keys
 }
 
 function snakeToCamelCase(value: string): string {
-  return value.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase());
+  return value.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase())
 }

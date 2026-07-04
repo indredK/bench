@@ -1,9 +1,9 @@
-import { lazy, Suspense } from "react";
-import { Trash2 } from "lucide-react";
-import { FeatureFallback } from "@/features/FeatureFallback";
-import type { AppFeature } from "@/features/types";
+import { lazy, Suspense } from "react"
+import { Trash2 } from "lucide-react"
+import { FeatureFallback } from "@/features/FeatureFallback"
+import type { AppFeature } from "@/features/types"
 
-const DevCleaner = lazy(() => import("@/features/dev-cleaner/page"));
+const DevCleaner = lazy(() => import("@/features/dev-cleaner/page"))
 
 export const devCleanerFeature: AppFeature = {
   id: "dev-cleaner",
@@ -16,4 +16,4 @@ export const devCleanerFeature: AppFeature = {
     </Suspense>
   ),
   desktopOnly: true,
-};
+}

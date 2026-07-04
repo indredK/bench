@@ -1,14 +1,14 @@
 /**
  * Controller / 控制器: bind view events and use cases; 连接视图事件与用例.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
-import type { ContextMenuConfig, ContextMenuRegistration } from "@/shared/context-menu/types";
-import { useContextMenuRegistration } from "@/shared/context-menu/useContextMenuRegistration";
-import { useAppManagerStore } from "@/features/app-manager/store";
-import { useAppManagerViewState } from "@/features/app-manager/hooks/useAppManagerViewState";
-import { createAppManagerColumns } from "@/features/app-manager/columns";
-import { createInstallListApps } from "@/features/app-manager/model/install-list";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
+import type { ContextMenuConfig, ContextMenuRegistration } from "@/shared/context-menu/types"
+import { useContextMenuRegistration } from "@/shared/context-menu/useContextMenuRegistration"
+import { useAppManagerStore } from "@/features/app-manager/store"
+import { useAppManagerViewState } from "@/features/app-manager/hooks/useAppManagerViewState"
+import { createAppManagerColumns } from "@/features/app-manager/columns"
+import { createInstallListApps } from "@/features/app-manager/model/install-list"
 import {
   createBatchErrorPatch,
   createBatchProgress,
@@ -16,38 +16,38 @@ import {
   createRunningOperationState,
   isOperationRunning,
   toOperationState,
-} from "@/features/app-manager/model/operations";
+} from "@/features/app-manager/model/operations"
 import {
   filterAppManagerItems,
   filterInstallListApps,
-} from "@/features/app-manager/model/selectors";
-import { appManagerUseCases } from "@/features/app-manager/services/app-manager.use-cases";
-import { useInstallEvents } from "@/features/app-manager/hooks/useInstallEvents";
-import { installAppUpdate } from "@/lib/tauri/commands/app-manager";
-import { registerFeatureRefresh } from "@/features/refresh";
+} from "@/features/app-manager/model/selectors"
+import { appManagerUseCases } from "@/features/app-manager/services/app-manager.use-cases"
+import { useInstallEvents } from "@/features/app-manager/hooks/useInstallEvents"
+import { installAppUpdate } from "@/lib/tauri/commands/app-manager"
+import { registerFeatureRefresh } from "@/features/refresh"
 import type {
   AppInfo,
   InstallListAppInfo,
   UpdateInfo,
   UpdateSource,
-} from "@/lib/tauri/types/app-manager";
-import type { AppManagerTabKey } from "@/features/app-manager/model/store-types";
-import { appManagerPlatformConfig } from "@/platform/config";
-import { canUseDesktopFeatures } from "@/platform/capabilities";
-import { writeClipboardText } from "@/platform/clipboard";
-import { listenToPlatformEvent } from "@/platform/events";
-import { createInstallListColumns } from "@/features/app-manager/components/install-list-columns";
-import type { LocalizedError } from "@/lib/errors";
-import { localizeError } from "@/lib/errors";
-import { getErrorMessage } from "@/lib/tauri/errors";
+} from "@/lib/tauri/types/app-manager"
+import type { AppManagerTabKey } from "@/features/app-manager/model/store-types"
+import { appManagerPlatformConfig } from "@/platform/config"
+import { canUseDesktopFeatures } from "@/platform/capabilities"
+import { writeClipboardText } from "@/platform/clipboard"
+import { listenToPlatformEvent } from "@/platform/events"
+import { createInstallListColumns } from "@/features/app-manager/components/install-list-columns"
+import type { LocalizedError } from "@/lib/errors"
+import { localizeError } from "@/lib/errors"
+import { getErrorMessage } from "@/lib/tauri/errors"
 
 function isInstallerUpdateSource(source: UpdateSource): boolean {
-  return source === "sparkle" || source === "electron" || source === "squirrel";
+  return source === "sparkle" || source === "electron" || source === "squirrel"
 }
 
 export function useAppManagerController(active: boolean) {
-  const { t } = useTranslation();
-  const viewState = useAppManagerViewState();
+  const { t } = useTranslation()
+  const viewState = useAppManagerViewState()
   const {
     apps,
     loading,
@@ -89,108 +89,108 @@ export function useAppManagerController(active: boolean) {
     updateSourceFilter,
     selectedUpdate,
     updateOperations,
-  } = viewState;
+  } = viewState
 
-  const setInstallFinished = useAppManagerStore((s) => s.setInstallFinished);
-  const clearInstallProgress = useAppManagerStore((s) => s.clearInstallProgress);
-  const clearInstallFinished = useAppManagerStore((s) => s.clearInstallFinished);
+  const setInstallFinished = useAppManagerStore((s) => s.setInstallFinished)
+  const clearInstallProgress = useAppManagerStore((s) => s.clearInstallProgress)
+  const clearInstallFinished = useAppManagerStore((s) => s.clearInstallFinished)
 
-  const setSearchQuery = useAppManagerStore((s) => s.setSearchQuery);
-  const setActiveFilter = useAppManagerStore((s) => s.setActiveFilter);
-  const setMarketplaceFilter = useAppManagerStore((s) => s.setMarketplaceFilter);
-  const setCategoryFilter = useAppManagerStore((s) => s.setCategoryFilter);
-  const setSeriesFilter = useAppManagerStore((s) => s.setSeriesFilter);
-  const setSorting = useAppManagerStore((s) => s.setSorting);
-  const openConfirmDialog = useAppManagerStore((s) => s.openConfirmDialog);
-  const closeConfirmDialog = useAppManagerStore((s) => s.closeConfirmDialog);
-  const clearSelectedApps = useAppManagerStore((s) => s.clearSelectedApps);
-  const clearSelection = useAppManagerStore((s) => s.clearSelection);
-  const setBatchMode = useAppManagerStore((s) => s.setBatchMode);
-  const toggleSelectApp = useAppManagerStore((s) => s.toggleSelectApp);
-  const openBatchConfirmDialog = useAppManagerStore((s) => s.openBatchConfirmDialog);
-  const closeBatchConfirmDialog = useAppManagerStore((s) => s.closeBatchConfirmDialog);
-  const clearBatchResults = useAppManagerStore((s) => s.clearBatchResults);
-  const setViewMode = useAppManagerStore((s) => s.setViewMode);
-  const setSelectedItem = useAppManagerStore((s) => s.setSelectedItem);
-  const setFilterPanelOpen = useAppManagerStore((s) => s.setFilterPanelOpen);
-  const openInstallConfirmDialog = useAppManagerStore((s) => s.openInstallConfirmDialog);
-  const closeInstallConfirmDialog = useAppManagerStore((s) => s.closeInstallConfirmDialog);
+  const setSearchQuery = useAppManagerStore((s) => s.setSearchQuery)
+  const setActiveFilter = useAppManagerStore((s) => s.setActiveFilter)
+  const setMarketplaceFilter = useAppManagerStore((s) => s.setMarketplaceFilter)
+  const setCategoryFilter = useAppManagerStore((s) => s.setCategoryFilter)
+  const setSeriesFilter = useAppManagerStore((s) => s.setSeriesFilter)
+  const setSorting = useAppManagerStore((s) => s.setSorting)
+  const openConfirmDialog = useAppManagerStore((s) => s.openConfirmDialog)
+  const closeConfirmDialog = useAppManagerStore((s) => s.closeConfirmDialog)
+  const clearSelectedApps = useAppManagerStore((s) => s.clearSelectedApps)
+  const clearSelection = useAppManagerStore((s) => s.clearSelection)
+  const setBatchMode = useAppManagerStore((s) => s.setBatchMode)
+  const toggleSelectApp = useAppManagerStore((s) => s.toggleSelectApp)
+  const openBatchConfirmDialog = useAppManagerStore((s) => s.openBatchConfirmDialog)
+  const closeBatchConfirmDialog = useAppManagerStore((s) => s.closeBatchConfirmDialog)
+  const clearBatchResults = useAppManagerStore((s) => s.clearBatchResults)
+  const setViewMode = useAppManagerStore((s) => s.setViewMode)
+  const setSelectedItem = useAppManagerStore((s) => s.setSelectedItem)
+  const setFilterPanelOpen = useAppManagerStore((s) => s.setFilterPanelOpen)
+  const openInstallConfirmDialog = useAppManagerStore((s) => s.openInstallConfirmDialog)
+  const closeInstallConfirmDialog = useAppManagerStore((s) => s.closeInstallConfirmDialog)
 
-  const setActiveTab = useAppManagerStore((s) => s.setActiveTab);
-  const setUpdates = useAppManagerStore((s) => s.setUpdates);
-  const setUpdatesLoading = useAppManagerStore((s) => s.setUpdatesLoading);
-  const setUpdatesError = useAppManagerStore((s) => s.setUpdatesError);
-  const setUpdatesScanned = useAppManagerStore((s) => s.setUpdatesScanned);
-  const toggleUpdateGroup = useAppManagerStore((s) => s.toggleUpdateGroup);
-  const toggleSelectUpdate = useAppManagerStore((s) => s.toggleSelectUpdate);
-  const clearUpdateSelection = useAppManagerStore((s) => s.clearUpdateSelection);
-  const setUpdateSourceFilter = useAppManagerStore((s) => s.setUpdateSourceFilter);
-  const setSelectedUpdate = useAppManagerStore((s) => s.setSelectedUpdate);
-  const setUpdateOperationStatus = useAppManagerStore((s) => s.setUpdateOperationStatus);
-  const setError = useAppManagerStore((s) => s.setError);
+  const setActiveTab = useAppManagerStore((s) => s.setActiveTab)
+  const setUpdates = useAppManagerStore((s) => s.setUpdates)
+  const setUpdatesLoading = useAppManagerStore((s) => s.setUpdatesLoading)
+  const setUpdatesError = useAppManagerStore((s) => s.setUpdatesError)
+  const setUpdatesScanned = useAppManagerStore((s) => s.setUpdatesScanned)
+  const toggleUpdateGroup = useAppManagerStore((s) => s.toggleUpdateGroup)
+  const toggleSelectUpdate = useAppManagerStore((s) => s.toggleSelectUpdate)
+  const clearUpdateSelection = useAppManagerStore((s) => s.clearUpdateSelection)
+  const setUpdateSourceFilter = useAppManagerStore((s) => s.setUpdateSourceFilter)
+  const setSelectedUpdate = useAppManagerStore((s) => s.setSelectedUpdate)
+  const setUpdateOperationStatus = useAppManagerStore((s) => s.setUpdateOperationStatus)
+  const setError = useAppManagerStore((s) => s.setError)
 
-  const [selectedInstallIds, setSelectedInstallIds] = useState<Set<string>>(new Set());
-  const [installBatchMode, setInstallBatchMode] = useState(false);
-  const [installDetailItem, setInstallDetailItem] = useState<InstallListAppInfo | null>(null);
+  const [selectedInstallIds, setSelectedInstallIds] = useState<Set<string>>(new Set())
+  const [installBatchMode, setInstallBatchMode] = useState(false)
+  const [installDetailItem, setInstallDetailItem] = useState<InstallListAppInfo | null>(null)
   // v1.2: which UpdateInfo the orchestrator is currently driving (drives the
   // progress + blocking dialogs). `null` when nothing is in flight.
-  const [inProgressUpdate, setInProgressUpdate] = useState<UpdateInfo | null>(null);
-  const [preferencesHydrated, setPreferencesHydrated] = useState(false);
+  const [inProgressUpdate, setInProgressUpdate] = useState<UpdateInfo | null>(null)
+  const [preferencesHydrated, setPreferencesHydrated] = useState(false)
   const pendingBatchExecutionRef = useRef<{
-    action: "upgrade" | "uninstall" | "install";
-    appIds: string[];
-    source: "installed" | "marketplace";
-  } | null>(null);
-  const pendingInstallerUpdatesRef = useRef<UpdateInfo[]>([]);
-  const activeInstallerAppIdRef = useRef<string | null>(null);
-  const confirmPendingRef = useRef(false);
-  const refreshHandlerRef = useRef<(() => void | Promise<void>) | null>(null);
+    action: "upgrade" | "uninstall" | "install"
+    appIds: string[]
+    source: "installed" | "marketplace"
+  } | null>(null)
+  const pendingInstallerUpdatesRef = useRef<UpdateInfo[]>([])
+  const activeInstallerAppIdRef = useRef<string | null>(null)
+  const confirmPendingRef = useRef(false)
+  const refreshHandlerRef = useRef<(() => void | Promise<void>) | null>(null)
 
   // All setTimeout IDs scheduled from this controller. We clear them on
   // unmount so deferred work (status auto-clear, post-op rescans) can't
   // fire against a torn-down view and cause the cross-tab status flicker
   // documented in #068.
-  const pendingTimersRef = useRef<Set<number>>(new Set());
+  const pendingTimersRef = useRef<Set<number>>(new Set())
   const scheduleTimeout = useCallback((callback: () => void, delayMs: number) => {
     const handle = window.setTimeout(() => {
-      pendingTimersRef.current.delete(handle);
-      callback();
-    }, delayMs);
-    pendingTimersRef.current.add(handle);
-    return handle;
-  }, []);
+      pendingTimersRef.current.delete(handle)
+      callback()
+    }, delayMs)
+    pendingTimersRef.current.add(handle)
+    return handle
+  }, [])
   useEffect(
     () => () => {
       for (const handle of pendingTimersRef.current) {
-        window.clearTimeout(handle);
+        window.clearTimeout(handle)
       }
-      pendingTimersRef.current.clear();
+      pendingTimersRef.current.clear()
     },
-    []
-  );
+    [],
+  )
 
   useEffect(() => {
-    activeInstallerAppIdRef.current = inProgressUpdate?.appId ?? null;
-  }, [inProgressUpdate]);
+    activeInstallerAppIdRef.current = inProgressUpdate?.appId ?? null
+  }, [inProgressUpdate])
 
-  const canUsePlatformFeatures = canUseDesktopFeatures();
+  const canUsePlatformFeatures = canUseDesktopFeatures()
 
   // v1.2: subscribe to `app-update-install:*` events; the listener writes phase
   // updates and the terminal finished payload into the store, where the
   // progress / blocking dialogs read from.
-  useInstallEvents();
+  useInstallEvents()
 
   const deferUntilAfterFirstPaint = useCallback((callback: () => void) => {
-    let timeoutId = 0;
+    let timeoutId = 0
     const frameId = window.requestAnimationFrame(() => {
-      timeoutId = window.setTimeout(callback, 0);
-    });
+      timeoutId = window.setTimeout(callback, 0)
+    })
 
     return () => {
-      window.cancelAnimationFrame(frameId);
-      if (timeoutId) window.clearTimeout(timeoutId);
-    };
-  }, []);
+      window.cancelAnimationFrame(frameId)
+      if (timeoutId) window.clearTimeout(timeoutId)
+    }
+  }, [])
 
   const toLocalizedError = useCallback(
     (key: string, fallback?: string, values?: Record<string, unknown>): LocalizedError => ({
@@ -198,12 +198,12 @@ export function useAppManagerController(active: boolean) {
       values,
       fallback,
     }),
-    []
-  );
+    [],
+  )
 
   const scanApps = useCallback(async () => {
-    const { loading: currentLoading } = useAppManagerStore.getState();
-    if (currentLoading) return;
+    const { loading: currentLoading } = useAppManagerStore.getState()
+    if (currentLoading) return
 
     useAppManagerStore.setState({
       loading: true,
@@ -212,27 +212,27 @@ export function useAppManagerController(active: boolean) {
       selectedAppIds: new Set(),
       batchMode: false,
       batchResults: null,
-    });
+    })
 
     if (!appManagerUseCases.isAvailable()) {
-      useAppManagerStore.setState({ scanned: true, loading: false, scanProgress: null });
-      return;
+      useAppManagerStore.setState({ scanned: true, loading: false, scanProgress: null })
+      return
     }
 
-    let unlisten: (() => void) | null = null;
+    let unlisten: (() => void) | null = null
     try {
       unlisten = await listenToPlatformEvent<{ current: number; stage: string }>(
         "app-scan:progress",
         (event) => {
-          useAppManagerStore.setState({ scanProgress: event.payload });
-        }
-      );
+          useAppManagerStore.setState({ scanProgress: event.payload })
+        },
+      )
     } catch {
       // ignore event setup errors; progress is best-effort
     }
 
     try {
-      const scanResult = await appManagerUseCases.scanInstalledApps();
+      const scanResult = await appManagerUseCases.scanInstalledApps()
       useAppManagerStore.setState({
         apps: scanResult.apps,
         result: scanResult,
@@ -242,137 +242,144 @@ export function useAppManagerController(active: boolean) {
         lastScanTime: scanResult.lastScanTime,
         lastUpdateCheck: scanResult.lastUpdateCheck,
         installListApps: createInstallListApps(scanResult.apps),
-      });
+      })
     } catch (scanError) {
       useAppManagerStore.setState({
         apps: [],
         result: null,
-        error: toLocalizedError(
-          "appManager.errors.scanFailed",
-          String(scanError) || undefined
-        ),
+        error: toLocalizedError("appManager.errors.scanFailed", String(scanError) || undefined),
         scanned: true,
         loading: false,
         scanProgress: null,
-      });
+      })
     } finally {
-      if (unlisten) unlisten();
+      if (unlisten) unlisten()
     }
-  }, [toLocalizedError]);
+  }, [toLocalizedError])
 
   const refreshInstallList = useCallback(() => {
     useAppManagerStore.setState({
       installListApps: createInstallListApps(useAppManagerStore.getState().apps),
-    });
-  }, []);
+    })
+  }, [])
 
   const refreshUpdates = useCallback(async () => {
-    const { apps: currentApps } = useAppManagerStore.getState();
+    const { apps: currentApps } = useAppManagerStore.getState()
     try {
-      const updatableSet = await appManagerUseCases.findManagedAppUpdates(currentApps);
-      if (updatableSet.size === 0) return;
+      const updatableSet = await appManagerUseCases.findManagedAppUpdates(currentApps)
+      if (updatableSet.size === 0) return
       useAppManagerStore.setState((state) => ({
         apps: state.apps.map((app) => ({
           ...app,
           upgradeAvailable: updatableSet.has(app.appId),
         })),
-      }));
+      }))
     } catch (updateError) {
-      console.warn("[AppManager] Failed to check updates:", updateError);
+      console.warn("[AppManager] Failed to check updates:", updateError)
     }
-  }, []);
+  }, [])
 
   const checkAllUpdates = useCallback(
     async (forceRefresh = false) => {
-      if (!appManagerUseCases.isAvailable()) return;
-      const { updatesLoading: currentLoading } = useAppManagerStore.getState();
-      if (currentLoading) return;
+      if (!appManagerUseCases.isAvailable()) return
+      const { updatesLoading: currentLoading } = useAppManagerStore.getState()
+      if (currentLoading) return
 
-      setUpdatesLoading(true);
-      setUpdatesError(null);
+      setUpdatesLoading(true)
+      setUpdatesError(null)
       try {
-        const { updates: result, error } = await appManagerUseCases.checkAllAppUpdates(forceRefresh);
+        const { updates: result, error } = await appManagerUseCases.checkAllAppUpdates(forceRefresh)
         if (error) {
-          setUpdatesError(toLocalizedError("appManager.errors.updateCheckFailed", error));
+          setUpdatesError(toLocalizedError("appManager.errors.updateCheckFailed", error))
         }
-        setUpdates(result);
-        setUpdatesScanned(true);
+        setUpdates(result)
+        setUpdatesScanned(true)
       } catch (err) {
         setUpdatesError(
-          toLocalizedError("appManager.errors.updateCheckFailed", getErrorMessage(err) || undefined)
-        );
-        setUpdatesScanned(true);
+          toLocalizedError(
+            "appManager.errors.updateCheckFailed",
+            getErrorMessage(err) || undefined,
+          ),
+        )
+        setUpdatesScanned(true)
       } finally {
-        setUpdatesLoading(false);
+        setUpdatesLoading(false)
       }
     },
-    [setUpdates, setUpdatesError, setUpdatesLoading, setUpdatesScanned, toLocalizedError]
-  );
+    [setUpdates, setUpdatesError, setUpdatesLoading, setUpdatesScanned, toLocalizedError],
+  )
 
   const handleUpdateAction = useCallback(
     async (update: UpdateInfo) => {
-      const { updateOperations: ops } = useAppManagerStore.getState();
-      if (isOperationRunning(ops, update.appId)) return;
+      const { updateOperations: ops } = useAppManagerStore.getState()
+      if (isOperationRunning(ops, update.appId)) return
 
       if (update.source === "macAppStore") {
         if (!update.adamId) {
-          setUpdateOperationStatus(update.appId, "error", t("appManager.errors.missingMacAppStoreId"));
-          return;
+          setUpdateOperationStatus(
+            update.appId,
+            "error",
+            t("appManager.errors.missingMacAppStoreId"),
+          )
+          return
         }
         setUpdateOperationStatus(
           update.appId,
           "running",
-          t("appManager.softwareUpdate.status.openingAppStore")
-        );
+          t("appManager.softwareUpdate.status.openingAppStore"),
+        )
         try {
-          await appManagerUseCases.openInMacAppStore(update.adamId);
-          setUpdateOperationStatus(update.appId, "success");
+          await appManagerUseCases.openInMacAppStore(update.adamId)
+          setUpdateOperationStatus(update.appId, "success")
         } catch (err) {
-          setUpdateOperationStatus(update.appId, "error", String(err));
+          setUpdateOperationStatus(update.appId, "error", String(err))
         }
-        return;
+        return
       }
 
       if (update.source === "homebrew") {
         setUpdateOperationStatus(
           update.appId,
           "running",
-          t("appManager.softwareUpdate.status.upgradingHomebrew")
-        );
-        const outcome = await appManagerUseCases.runAppOperation({ appId: update.appId, kind: "upgrade" });
+          t("appManager.softwareUpdate.status.upgradingHomebrew"),
+        )
+        const outcome = await appManagerUseCases.runAppOperation({
+          appId: update.appId,
+          kind: "upgrade",
+        })
         if (outcome) {
           setUpdateOperationStatus(
             update.appId,
             outcome.result.success ? "success" : "error",
-            outcome.result.message
-          );
+            outcome.result.message,
+          )
           if (outcome.shouldRescan) {
-            void checkAllUpdates(true);
-            void scanApps();
+            void checkAllUpdates(true)
+            void scanApps()
           }
         }
-        return;
+        return
       }
 
       // v1.2: sparkle / electron / squirrel — kick off the in-place install
       // orchestrator. Progress flows back through the Tauri events into the
       // store, which the UpdateProgressDialog and UpdateBlockingDialogs read.
       if (isInstallerUpdateSource(update.source)) {
-        const activeInstallerAppId = activeInstallerAppIdRef.current;
-        if (activeInstallerAppId && activeInstallerAppId !== update.appId) return;
+        const activeInstallerAppId = activeInstallerAppIdRef.current
+        if (activeInstallerAppId && activeInstallerAppId !== update.appId) return
         // Wipe any leftover terminal state from a prior run for this app, so
         // the dialog doesn't see both the in-flight progress AND the previous
         // SU_* failure.
-        clearInstallProgress(update.appId);
-        clearInstallFinished(update.appId);
-        setInProgressUpdate(update);
+        clearInstallProgress(update.appId)
+        clearInstallFinished(update.appId)
+        setInProgressUpdate(update)
         setUpdateOperationStatus(
           update.appId,
           "running",
-          t("appManager.softwareUpdate.status.installingUpdate")
-        );
+          t("appManager.softwareUpdate.status.installingUpdate"),
+        )
         try {
-          await installAppUpdate(update);
+          await installAppUpdate(update)
         } catch (err) {
           // installAppUpdate returns Ok once the orchestrator is spawned; a
           // synchronous Err means we never reached the running-check phase, so
@@ -382,22 +389,22 @@ export function useAppManagerController(active: boolean) {
             success: false,
             message: String(err),
             errorCode: "SU_INSTALL_FAIL",
-          });
+          })
         }
-        return;
+        return
       }
 
       // gitHub (no installer yet) → still fall back to the releases page.
-      const url = update.downloadUrl ?? update.releaseNotesUrl ?? update.feedUrl;
+      const url = update.downloadUrl ?? update.releaseNotesUrl ?? update.feedUrl
       if (!url) {
-        setUpdateOperationStatus(update.appId, "error", t("appManager.errors.noDownloadUrl"));
-        return;
+        setUpdateOperationStatus(update.appId, "error", t("appManager.errors.noDownloadUrl"))
+        return
       }
       try {
-        await appManagerUseCases.openExternal(url);
-        setUpdateOperationStatus(update.appId, "success");
+        await appManagerUseCases.openExternal(url)
+        setUpdateOperationStatus(update.appId, "success")
       } catch (err) {
-        setUpdateOperationStatus(update.appId, "error", String(err));
+        setUpdateOperationStatus(update.appId, "error", String(err))
       }
     },
     [
@@ -408,88 +415,93 @@ export function useAppManagerController(active: boolean) {
       clearInstallFinished,
       setInstallFinished,
       t,
-    ]
-  );
+    ],
+  )
 
   const handleUpdateSourceAction = useCallback(
     async (source: UpdateSource, sourceUpdates: UpdateInfo[]) => {
-      const { updateOperations: ops } = useAppManagerStore.getState();
-      const availableUpdates = sourceUpdates.filter((update) => !isOperationRunning(ops, update.appId));
-      if (availableUpdates.length === 0) return;
+      const { updateOperations: ops } = useAppManagerStore.getState()
+      const availableUpdates = sourceUpdates.filter(
+        (update) => !isOperationRunning(ops, update.appId),
+      )
+      if (availableUpdates.length === 0) return
 
       if (source === "macAppStore") {
-        pendingInstallerUpdatesRef.current = [];
+        pendingInstallerUpdatesRef.current = []
         try {
-          await appManagerUseCases.openMacAppStoreUpdates();
+          await appManagerUseCases.openMacAppStoreUpdates()
         } catch (error) {
           setUpdatesError(
-            toLocalizedError("appManager.errors.updateCheckFailed", getErrorMessage(error) || undefined)
-          );
+            toLocalizedError(
+              "appManager.errors.updateCheckFailed",
+              getErrorMessage(error) || undefined,
+            ),
+          )
         }
-        return;
+        return
       }
 
       if (isInstallerUpdateSource(source)) {
         if (activeInstallerAppIdRef.current || pendingInstallerUpdatesRef.current.length > 0) {
-          return;
+          return
         }
-        const [firstUpdate, ...restUpdates] = availableUpdates;
-        if (!firstUpdate) return;
-        pendingInstallerUpdatesRef.current = restUpdates;
-        await handleUpdateAction(firstUpdate);
-        return;
+        const [firstUpdate, ...restUpdates] = availableUpdates
+        if (!firstUpdate) return
+        pendingInstallerUpdatesRef.current = restUpdates
+        await handleUpdateAction(firstUpdate)
+        return
       }
 
-      pendingInstallerUpdatesRef.current = [];
+      pendingInstallerUpdatesRef.current = []
       for (const update of availableUpdates) {
-        await handleUpdateAction(update);
+        await handleUpdateAction(update)
       }
     },
-    [handleUpdateAction, setUpdatesError, toLocalizedError]
-  );
+    [handleUpdateAction, setUpdatesError, toLocalizedError],
+  )
 
   // v1.2: invoked by the progress / blocking dialogs when the user dismisses
   // them. Mirrors the terminal install outcome into the row's `updateOperations`
   // status and clears the per-app install snapshots so subsequent runs start
   // fresh. On success we also re-scan so the row drops out of the list.
   const handleCloseInstallDialog = useCallback(() => {
-    const update = inProgressUpdate;
-    if (!update) return;
-    const { installFinished: finishedMap } = useAppManagerStore.getState();
-    const finished = finishedMap[update.appId];
+    const update = inProgressUpdate
+    if (!update) return
+    const { installFinished: finishedMap } = useAppManagerStore.getState()
+    const finished = finishedMap[update.appId]
     const nextQueuedUpdate =
       finished?.success && pendingInstallerUpdatesRef.current.length > 0
-        ? pendingInstallerUpdatesRef.current.shift() ?? null
-        : null;
+        ? (pendingInstallerUpdatesRef.current.shift() ?? null)
+        : null
 
     if (finished) {
       setUpdateOperationStatus(
         update.appId,
         finished.success ? "success" : "error",
-        finished.message
-      );
+        finished.message,
+      )
       if (finished.success) {
-        void checkAllUpdates(true);
-        void scanApps();
+        void checkAllUpdates(true)
+        void scanApps()
       }
     } else {
       // User cancelled before any terminal event arrived.
-      pendingInstallerUpdatesRef.current = [];
-      setUpdateOperationStatus(update.appId, "idle");
+      pendingInstallerUpdatesRef.current = []
+      setUpdateOperationStatus(update.appId, "idle")
     }
 
     if (finished && !finished.success) {
-      pendingInstallerUpdatesRef.current = [];
+      pendingInstallerUpdatesRef.current = []
     }
 
-    clearInstallProgress(update.appId);
-    clearInstallFinished(update.appId);
-    setInProgressUpdate(null);
+    clearInstallProgress(update.appId)
+    clearInstallFinished(update.appId)
+    setInProgressUpdate(null)
 
     if (nextQueuedUpdate) {
       scheduleTimeout(() => {
-        void handleUpdateAction(nextQueuedUpdate);
-      }, 0);
+        void handleUpdateAction(nextQueuedUpdate)
+      }, 0)
     }
   }, [
     inProgressUpdate,
@@ -500,241 +512,247 @@ export function useAppManagerController(active: boolean) {
     handleUpdateAction,
     scheduleTimeout,
     setUpdateOperationStatus,
-  ]);
+  ])
 
   const handleSetActiveTab = useCallback(
     (tab: AppManagerTabKey) => {
-      setActiveTab(tab);
-      const state = useAppManagerStore.getState();
+      setActiveTab(tab)
+      const state = useAppManagerStore.getState()
 
       if (tab === "softwareUpdate") {
         const cacheValid =
           state.updatesScanned &&
           state.lastUpdateCheck > 0 &&
-          Date.now() - state.lastUpdateCheck < 5 * 60 * 1000;
+          Date.now() - state.lastUpdateCheck < 5 * 60 * 1000
         if (!state.updatesLoading && !cacheValid) {
-          void checkAllUpdates(false);
+          void checkAllUpdates(false)
         }
       }
     },
-    [checkAllUpdates, setActiveTab]
-  );
+    [checkAllUpdates, setActiveTab],
+  )
 
   const scheduleScanApps = useCallback(
     (delayMs: number) => {
       scheduleTimeout(() => {
-        void scanApps();
-      }, delayMs);
+        void scanApps()
+      }, delayMs)
     },
-    [scanApps, scheduleTimeout]
-  );
+    [scanApps, scheduleTimeout],
+  )
 
   const doUpgrade = useCallback(
     async (appId: string) => {
-      const { operations, setOperationStatus } = useAppManagerStore.getState();
-      if (isOperationRunning(operations, appId)) return;
+      const { operations, setOperationStatus } = useAppManagerStore.getState()
+      if (isOperationRunning(operations, appId)) return
 
       useAppManagerStore.setState((state) => ({
         operations: {
           ...state.operations,
           [appId]: createRunningOperationState(t("appManager.operation.upgrading")),
         },
-      }));
+      }))
 
-      const outcome = await appManagerUseCases.runAppOperation({ appId, kind: "upgrade" });
-      if (!outcome) return;
+      const outcome = await appManagerUseCases.runAppOperation({ appId, kind: "upgrade" })
+      if (!outcome) return
 
       useAppManagerStore.setState((state) => ({
         operations: { ...state.operations, [appId]: toOperationState(outcome.result) },
-      }));
+      }))
       if (outcome.result.success) {
-        scheduleTimeout(() => setOperationStatus(appId, "idle"), 5000);
+        scheduleTimeout(() => setOperationStatus(appId, "idle"), 5000)
       }
 
-      if (outcome.shouldRescan) void scanApps();
+      if (outcome.shouldRescan) void scanApps()
     },
-    [scanApps, scheduleTimeout, t]
-  );
+    [scanApps, scheduleTimeout, t],
+  )
 
   const doUninstall = useCallback(
     async (appId: string) => {
-      const { operations } = useAppManagerStore.getState();
-      if (isOperationRunning(operations, appId)) return;
+      const { operations } = useAppManagerStore.getState()
+      if (isOperationRunning(operations, appId)) return
 
       useAppManagerStore.setState((state) => ({
         operations: {
           ...state.operations,
           [appId]: createRunningOperationState(t("appManager.operation.uninstalling")),
         },
-      }));
+      }))
 
-      const outcome = await appManagerUseCases.runAppOperation({ appId, kind: "uninstall" });
-      if (!outcome) return;
+      const outcome = await appManagerUseCases.runAppOperation({ appId, kind: "uninstall" })
+      if (!outcome) return
 
       useAppManagerStore.setState((state) => ({
         operations: { ...state.operations, [appId]: toOperationState(outcome.result) },
-      }));
+      }))
       if (outcome.shouldRescan) {
-        scheduleScanApps(800);
+        scheduleScanApps(800)
       }
     },
-    [scheduleScanApps, t]
-  );
+    [scheduleScanApps, t],
+  )
 
   const doInstall = useCallback(
     async (appId: string, _appName: string, installSource: InstallListAppInfo["installSource"]) => {
-      const { installStates } = useAppManagerStore.getState();
-      if (isOperationRunning(installStates, appId)) return;
+      const { installStates } = useAppManagerStore.getState()
+      if (isOperationRunning(installStates, appId)) return
 
       useAppManagerStore.setState((state) => ({
         installStates: {
           ...state.installStates,
           [appId]: createRunningOperationState(t("appManager.operation.installing")),
         },
-      }));
+      }))
 
-      const outcome = await appManagerUseCases.runAppOperation({ appId, kind: "install", installSource });
-      if (!outcome) return;
+      const outcome = await appManagerUseCases.runAppOperation({
+        appId,
+        kind: "install",
+        installSource,
+      })
+      if (!outcome) return
 
       useAppManagerStore.setState((state) => ({
         installStates: { ...state.installStates, [appId]: toOperationState(outcome.result) },
-      }));
+      }))
       if (outcome.shouldRescan) {
         scheduleTimeout(() => {
-          void scanApps();
-          refreshInstallList();
-        }, 2000);
+          void scanApps()
+          refreshInstallList()
+        }, 2000)
       }
     },
-    [refreshInstallList, scanApps, scheduleTimeout, t]
-  );
+    [refreshInstallList, scanApps, scheduleTimeout, t],
+  )
 
   const runBatchOperation = useCallback(
     async (kind: "upgrade" | "uninstall", ids: string[]) => {
-      if (ids.length === 0) return;
-      if (useAppManagerStore.getState().batchProgress?.running) return;
+      if (ids.length === 0) return
+      if (useAppManagerStore.getState().batchProgress?.running) return
 
-      useAppManagerStore.setState({ batchProgress: createBatchProgress(ids.length), batchResults: null });
-      const outcome = await appManagerUseCases.runBatchOperation(kind, ids);
-      if (!outcome) return;
+      useAppManagerStore.setState({
+        batchProgress: createBatchProgress(ids.length),
+        batchResults: null,
+      })
+      const outcome = await appManagerUseCases.runBatchOperation(kind, ids)
+      if (!outcome) return
 
       useAppManagerStore.setState(
-        outcome.result ? createBatchSuccessPatch(outcome.result) : createBatchErrorPatch(outcome.error)
-      );
-      void scanApps();
+        outcome.result
+          ? createBatchSuccessPatch(outcome.result)
+          : createBatchErrorPatch(outcome.error),
+      )
+      void scanApps()
     },
-    [scanApps]
-  );
+    [scanApps],
+  )
 
   const launchApp = useCallback(async (app: AppInfo) => {
     try {
-      await appManagerUseCases.launchApp(app);
+      await appManagerUseCases.launchApp(app)
     } catch (error) {
-      console.warn("[AppManager] Failed to launch app:", error);
+      console.warn("[AppManager] Failed to launch app:", error)
     }
-  }, []);
+  }, [])
 
   const revealApp = useCallback(async (app: AppInfo) => {
     try {
-      await appManagerUseCases.revealApp(app);
+      await appManagerUseCases.revealApp(app)
     } catch (error) {
-      console.warn("[AppManager] Failed to reveal app:", error);
+      console.warn("[AppManager] Failed to reveal app:", error)
     }
-  }, []);
+  }, [])
 
   const openExternal = useCallback((reference: string) => {
-    return appManagerUseCases.openExternal(reference);
-  }, []);
+    return appManagerUseCases.openExternal(reference)
+  }, [])
 
   const copyText = useCallback(async (text?: string) => {
-    if (!text) return;
+    if (!text) return
     try {
-      await writeClipboardText(text);
+      await writeClipboardText(text)
     } catch {
       /* clipboard may be unavailable */
     }
-  }, []);
+  }, [])
 
   const clearError = useCallback(() => {
-    setError(null);
-  }, [setError]);
+    setError(null)
+  }, [setError])
 
   const clearUpdatesError = useCallback(() => {
-    setUpdatesError(null);
-  }, [setUpdatesError]);
+    setUpdatesError(null)
+  }, [setUpdatesError])
 
   const refreshCurrentTab = useCallback(async () => {
-    const { activeTab: currentTab } = useAppManagerStore.getState();
+    const { activeTab: currentTab } = useAppManagerStore.getState()
     if (currentTab === "softwareUpdate") {
-      await checkAllUpdates(true);
-      return;
+      await checkAllUpdates(true)
+      return
     }
-    await scanApps();
-  }, [checkAllUpdates, scanApps]);
+    await scanApps()
+  }, [checkAllUpdates, scanApps])
 
   useEffect(() => {
-    const preferences = appManagerUseCases.loadPreferences();
+    const preferences = appManagerUseCases.loadPreferences()
     useAppManagerStore.setState({
       activeFilter: preferences.activeFilter,
       sorting: preferences.sorting,
       viewMode: appManagerUseCases.loadViewMode(),
-    });
-    setPreferencesHydrated(true);
-  }, []);
+    })
+    setPreferencesHydrated(true)
+  }, [])
 
   useEffect(() => {
-    if (!preferencesHydrated) return;
-    appManagerUseCases.savePreferences({ activeFilter, sorting });
-  }, [preferencesHydrated, activeFilter, sorting]);
+    if (!preferencesHydrated) return
+    appManagerUseCases.savePreferences({ activeFilter, sorting })
+  }, [preferencesHydrated, activeFilter, sorting])
 
   useEffect(() => {
-    if (!preferencesHydrated) return;
-    appManagerUseCases.saveViewMode(viewMode);
-  }, [preferencesHydrated, viewMode]);
+    if (!preferencesHydrated) return
+    appManagerUseCases.saveViewMode(viewMode)
+  }, [preferencesHydrated, viewMode])
 
   useEffect(() => {
-    refreshHandlerRef.current = refreshCurrentTab;
-  }, [refreshCurrentTab]);
+    refreshHandlerRef.current = refreshCurrentTab
+  }, [refreshCurrentTab])
 
-  useEffect(
-    () => registerFeatureRefresh("app-manager", () => refreshHandlerRef.current?.()),
-    []
-  );
+  useEffect(() => registerFeatureRefresh("app-manager", () => refreshHandlerRef.current?.()), [])
 
   useEffect(() => {
-    if (!active || !canUsePlatformFeatures || scanned) return;
+    if (!active || !canUsePlatformFeatures || scanned) return
     return deferUntilAfterFirstPaint(() => {
-      void scanApps();
-    });
-  }, [active, canUsePlatformFeatures, deferUntilAfterFirstPaint, scanned, scanApps]);
+      void scanApps()
+    })
+  }, [active, canUsePlatformFeatures, deferUntilAfterFirstPaint, scanned, scanApps])
 
   useEffect(() => {
-    if (!active || !scanned || apps.length === 0) return;
+    if (!active || !scanned || apps.length === 0) return
     return deferUntilAfterFirstPaint(() => {
-      void refreshUpdates();
-    });
-  }, [active, apps.length, deferUntilAfterFirstPaint, refreshUpdates, scanned]);
+      void refreshUpdates()
+    })
+  }, [active, apps.length, deferUntilAfterFirstPaint, refreshUpdates, scanned])
 
   useEffect(() => {
     // Keep detail ESC behavior in one stack so only the topmost panel closes
     // per keypress.
-    if (!selectedItem && !installDetailItem && !selectedUpdate) return;
+    if (!selectedItem && !installDetailItem && !selectedUpdate) return
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
+      if (event.key !== "Escape") return
       if (selectedUpdate) {
-        setSelectedUpdate(null);
-        return;
+        setSelectedUpdate(null)
+        return
       }
       if (installDetailItem) {
-        setInstallDetailItem(null);
-        return;
+        setInstallDetailItem(null)
+        return
       }
       if (selectedItem) {
-        setSelectedItem(null);
+        setSelectedItem(null)
       }
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
+    }
+    document.addEventListener("keydown", onKeyDown)
+    return () => document.removeEventListener("keydown", onKeyDown)
   }, [
     installDetailItem,
     selectedItem,
@@ -742,11 +760,11 @@ export function useAppManagerController(active: boolean) {
     setInstallDetailItem,
     setSelectedItem,
     setSelectedUpdate,
-  ]);
+  ])
 
   useEffect(() => {
-    setSelectedItem(null);
-    clearSelection();
+    setSelectedItem(null)
+    clearSelection()
   }, [
     activeFilter,
     installedCategoryFilter,
@@ -754,12 +772,12 @@ export function useAppManagerController(active: boolean) {
     installedSearchQuery,
     setSelectedItem,
     clearSelection,
-  ]);
+  ])
 
   const getOpStatus = useCallback((appId: string) => {
-    const state = useAppManagerStore.getState();
-    return state.operations[appId]?.status ?? "idle";
-  }, []);
+    const state = useAppManagerStore.getState()
+    return state.operations[appId]?.status ?? "idle"
+  }, [])
 
   const filteredApps = useMemo(
     () =>
@@ -770,14 +788,8 @@ export function useAppManagerController(active: boolean) {
         categoryFilter: installedCategoryFilter,
         seriesFilter: installedSeriesFilter,
       }),
-    [
-      apps,
-      installedSearchQuery,
-      activeFilter,
-      installedCategoryFilter,
-      installedSeriesFilter,
-    ]
-  );
+    [apps, installedSearchQuery, activeFilter, installedCategoryFilter, installedSeriesFilter],
+  )
 
   const filteredInstallListApps = useMemo(
     () =>
@@ -794,63 +806,63 @@ export function useAppManagerController(active: boolean) {
       marketplaceFilter,
       marketplaceCategoryFilter,
       marketplaceSeriesFilter,
-    ]
-  );
+    ],
+  )
 
   const handleLaunch = useCallback(
     async (app: AppInfo) => {
-      if (!canUsePlatformFeatures) return;
-      await launchApp(app);
+      if (!canUsePlatformFeatures) return
+      await launchApp(app)
     },
-    [canUsePlatformFeatures, launchApp]
-  );
+    [canUsePlatformFeatures, launchApp],
+  )
 
   const handleReveal = useCallback(
     async (app: AppInfo) => {
-      if (!canUsePlatformFeatures) return;
-      await revealApp(app);
+      if (!canUsePlatformFeatures) return
+      await revealApp(app)
     },
-    [canUsePlatformFeatures, revealApp]
-  );
+    [canUsePlatformFeatures, revealApp],
+  )
 
   const handleUpgradeFromColumn = useCallback(
     (app: AppInfo) => {
-      openConfirmDialog(app.appId, app.name, "upgrade");
+      openConfirmDialog(app.appId, app.name, "upgrade")
     },
-    [openConfirmDialog]
-  );
+    [openConfirmDialog],
+  )
 
   const handleUninstallFromColumn = useCallback(
     (app: AppInfo) => {
-      openConfirmDialog(app.appId, app.name, "uninstall");
+      openConfirmDialog(app.appId, app.name, "uninstall")
     },
-    [openConfirmDialog]
-  );
+    [openConfirmDialog],
+  )
 
   const handleInstall = useCallback(
     (app: InstallListAppInfo) => {
-      if (app.installed) return;
-      openInstallConfirmDialog(app.id, app.name);
+      if (app.installed) return
+      openInstallConfirmDialog(app.id, app.name)
     },
-    [openInstallConfirmDialog]
-  );
+    [openInstallConfirmDialog],
+  )
 
   const toggleInstallSelect = useCallback((id: string) => {
     setSelectedInstallIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
 
   const clearInstallSelection = useCallback(() => {
-    setSelectedInstallIds(new Set());
-  }, []);
+    setSelectedInstallIds(new Set())
+  }, [])
 
   useEffect(() => {
-    setInstallDetailItem(null);
-    clearInstallSelection();
+    setInstallDetailItem(null)
+    clearInstallSelection()
   }, [
     activeTab,
     marketplaceCategoryFilter,
@@ -858,264 +870,271 @@ export function useAppManagerController(active: boolean) {
     marketplaceSeriesFilter,
     marketplaceSearchQuery,
     clearInstallSelection,
-  ]);
+  ])
 
   const handleInstallConfirm = useCallback(async () => {
-    const { appId } = installConfirmDialog;
-    closeInstallConfirmDialog();
-    const app = installListApps.find((item) => item.id === appId);
+    const { appId } = installConfirmDialog
+    closeInstallConfirmDialog()
+    const app = installListApps.find((item) => item.id === appId)
     if (app && !app.installed) {
-      await doInstall(app.id, app.name, app.installSource);
+      await doInstall(app.id, app.name, app.installSource)
     }
-  }, [installConfirmDialog, closeInstallConfirmDialog, installListApps, doInstall]);
+  }, [installConfirmDialog, closeInstallConfirmDialog, installListApps, doInstall])
 
   const getRowAttributes = useCallback(
     (app: AppInfo) => ({
       "data-context-type": "app-manager-row",
       "data-row-id": app.appId,
     }),
-    []
-  );
+    [],
+  )
 
   const appRegistration = useMemo(
-    () => ({
-      id: "app-manager-row",
-      selector: '[data-context-type="app-manager-row"]',
-      resolveContext: (target: HTMLElement) => target.dataset.rowId || null,
-      buildMenu: (ctx: unknown): ContextMenuConfig | null => {
-        const appId = ctx as string;
-        if (!appId) return null;
-        const app = apps.find((item) => item.appId === appId);
-        if (!app) return null;
-        return {
-          id: "app-manager-menu",
-          items: [
-            {
-              id: "launch",
-              label: t("appManager.actionLaunch"),
-              icon: undefined,
-              disabled: !app.allowedActions.launch,
-              onClick: () => handleLaunch(app),
-            },
-            {
-              id: "reveal",
-              label: t(appManagerPlatformConfig.revealActionLabel),
-              icon: undefined,
-              disabled: !app.allowedActions.reveal,
-              onClick: () => handleReveal(app),
-            },
-            ...(app.allowedActions.upgrade
-              ? [
-                  {
-                    id: "upgrade",
-                    label: t("appManager.actionUpgrade"),
-                    icon: undefined,
-                    onClick: () => handleUpgradeFromColumn(app),
-                  },
-                ]
-              : []),
-            ...(app.allowedActions.uninstall
-              ? [
-                  {
-                    id: "uninstall",
-                    label: t("appManager.actionUninstall"),
-                    icon: undefined,
-                    destructive: true,
-                    onClick: () => handleUninstallFromColumn(app),
-                  },
-                ]
-              : []),
-          ],
-        };
-      },
-    } satisfies ContextMenuRegistration),
-    [apps, t, handleLaunch, handleReveal, handleUpgradeFromColumn, handleUninstallFromColumn]
-  );
+    () =>
+      ({
+        id: "app-manager-row",
+        selector: '[data-context-type="app-manager-row"]',
+        resolveContext: (target: HTMLElement) => target.dataset.rowId || null,
+        buildMenu: (ctx: unknown): ContextMenuConfig | null => {
+          const appId = ctx as string
+          if (!appId) return null
+          const app = apps.find((item) => item.appId === appId)
+          if (!app) return null
+          return {
+            id: "app-manager-menu",
+            items: [
+              {
+                id: "launch",
+                label: t("appManager.actionLaunch"),
+                icon: undefined,
+                disabled: !app.allowedActions.launch,
+                onClick: () => handleLaunch(app),
+              },
+              {
+                id: "reveal",
+                label: t(appManagerPlatformConfig.revealActionLabel),
+                icon: undefined,
+                disabled: !app.allowedActions.reveal,
+                onClick: () => handleReveal(app),
+              },
+              ...(app.allowedActions.upgrade
+                ? [
+                    {
+                      id: "upgrade",
+                      label: t("appManager.actionUpgrade"),
+                      icon: undefined,
+                      onClick: () => handleUpgradeFromColumn(app),
+                    },
+                  ]
+                : []),
+              ...(app.allowedActions.uninstall
+                ? [
+                    {
+                      id: "uninstall",
+                      label: t("appManager.actionUninstall"),
+                      icon: undefined,
+                      destructive: true,
+                      onClick: () => handleUninstallFromColumn(app),
+                    },
+                  ]
+                : []),
+            ],
+          }
+        },
+      }) satisfies ContextMenuRegistration,
+    [apps, t, handleLaunch, handleReveal, handleUpgradeFromColumn, handleUninstallFromColumn],
+  )
 
-  useContextMenuRegistration(appRegistration);
+  useContextMenuRegistration(appRegistration)
 
   const handleConfirmAction = useCallback(async () => {
-    if (confirmPendingRef.current) return;
-    const { appId, action } = useAppManagerStore.getState().confirmDialog;
-    if (!appId) return;
-    confirmPendingRef.current = true;
-    closeConfirmDialog();
+    if (confirmPendingRef.current) return
+    const { appId, action } = useAppManagerStore.getState().confirmDialog
+    if (!appId) return
+    confirmPendingRef.current = true
+    closeConfirmDialog()
     try {
-      if (action === "upgrade") await doUpgrade(appId);
-      else await doUninstall(appId);
+      if (action === "upgrade") await doUpgrade(appId)
+      else await doUninstall(appId)
     } finally {
-      confirmPendingRef.current = false;
+      confirmPendingRef.current = false
     }
-  }, [closeConfirmDialog, doUpgrade, doUninstall]);
+  }, [closeConfirmDialog, doUpgrade, doUninstall])
 
   const handleToggleBatchMode = useCallback(() => {
     if (batchMode) {
-      clearSelection();
-      setBatchMode(false);
+      clearSelection()
+      setBatchMode(false)
     } else {
-      setSelectedItem(null);
-      setBatchMode(true);
+      setSelectedItem(null)
+      setBatchMode(true)
     }
-  }, [batchMode, clearSelection, setBatchMode, setSelectedItem]);
+  }, [batchMode, clearSelection, setBatchMode, setSelectedItem])
 
   const handleToggleInstallBatchMode = useCallback(() => {
     if (installBatchMode) {
-      clearInstallSelection();
-      setInstallBatchMode(false);
+      clearInstallSelection()
+      setInstallBatchMode(false)
     } else {
-      setInstallDetailItem(null);
-      setInstallBatchMode(true);
+      setInstallDetailItem(null)
+      setInstallBatchMode(true)
     }
-  }, [installBatchMode, clearInstallSelection, setInstallDetailItem]);
+  }, [installBatchMode, clearInstallSelection, setInstallDetailItem])
 
   const selectedUpgradableIds = useMemo(
     () =>
       apps
         .filter((app) => app.allowedActions.upgrade && selectedAppIds.has(app.appId))
         .map((app) => app.appId),
-    [apps, selectedAppIds]
-  );
+    [apps, selectedAppIds],
+  )
   const selectedUpgradableNames = useMemo(
     () =>
       apps
         .filter((app) => app.allowedActions.upgrade && selectedAppIds.has(app.appId))
         .map((app) => app.name),
-    [apps, selectedAppIds]
-  );
-  const selectedUpgradable = selectedUpgradableIds.length;
+    [apps, selectedAppIds],
+  )
+  const selectedUpgradable = selectedUpgradableIds.length
   const selectedUninstallableIds = useMemo(
     () =>
       apps
         .filter((app) => app.allowedActions.uninstall && selectedAppIds.has(app.appId))
         .map((app) => app.appId),
-    [apps, selectedAppIds]
-  );
+    [apps, selectedAppIds],
+  )
   const selectedUninstallableNames = useMemo(
     () =>
       apps
         .filter((app) => app.allowedActions.uninstall && selectedAppIds.has(app.appId))
         .map((app) => app.name),
-    [apps, selectedAppIds]
-  );
-  const selectedUninstallable = selectedUninstallableIds.length;
+    [apps, selectedAppIds],
+  )
+  const selectedUninstallable = selectedUninstallableIds.length
   const selectedInstallableIds = useMemo(
     () =>
       installListApps
         .filter((app) => !app.installed && selectedInstallIds.has(app.id))
         .map((app) => app.id),
-    [installListApps, selectedInstallIds]
-  );
+    [installListApps, selectedInstallIds],
+  )
   const selectedInstallableNames = useMemo(
     () =>
       installListApps
         .filter((app) => !app.installed && selectedInstallIds.has(app.id))
         .map((app) => app.name),
-    [installListApps, selectedInstallIds]
-  );
-  const selectedInstallableCount = selectedInstallableIds.length;
+    [installListApps, selectedInstallIds],
+  )
+  const selectedInstallableCount = selectedInstallableIds.length
   const selectedMarketplaceUninstallableIds = useMemo(
     () =>
       installListApps
         .filter(
-          (app) => app.installed && Boolean(app.installedAppId) && selectedInstallIds.has(app.id)
+          (app) => app.installed && Boolean(app.installedAppId) && selectedInstallIds.has(app.id),
         )
         .map((app) => app.installedAppId as string),
-    [installListApps, selectedInstallIds]
-  );
+    [installListApps, selectedInstallIds],
+  )
   const selectedMarketplaceUninstallableNames = useMemo(
     () =>
       installListApps
         .filter(
-          (app) => app.installed && Boolean(app.installedAppId) && selectedInstallIds.has(app.id)
+          (app) => app.installed && Boolean(app.installedAppId) && selectedInstallIds.has(app.id),
         )
         .map((app) => app.name),
-    [installListApps, selectedInstallIds]
-  );
-  const selectedMarketplaceUninstallableCount = selectedMarketplaceUninstallableIds.length;
+    [installListApps, selectedInstallIds],
+  )
+  const selectedMarketplaceUninstallableCount = selectedMarketplaceUninstallableIds.length
 
   const handleBatchInstall = useCallback(() => {
-    if (selectedInstallableIds.length === 0) return;
+    if (selectedInstallableIds.length === 0) return
     pendingBatchExecutionRef.current = {
       action: "install",
       appIds: selectedInstallableIds,
       source: "marketplace",
-    };
-    openBatchConfirmDialog("install", selectedInstallableIds.length, selectedInstallableNames);
-  }, [selectedInstallableIds, selectedInstallableNames, openBatchConfirmDialog]);
+    }
+    openBatchConfirmDialog("install", selectedInstallableIds.length, selectedInstallableNames)
+  }, [selectedInstallableIds, selectedInstallableNames, openBatchConfirmDialog])
 
   const handleBatchInstallListUninstall = useCallback(() => {
-    if (selectedMarketplaceUninstallableIds.length === 0) return;
+    if (selectedMarketplaceUninstallableIds.length === 0) return
     pendingBatchExecutionRef.current = {
       action: "uninstall",
       appIds: selectedMarketplaceUninstallableIds,
       source: "marketplace",
-    };
+    }
     openBatchConfirmDialog(
       "uninstall",
       selectedMarketplaceUninstallableIds.length,
-      selectedMarketplaceUninstallableNames
-    );
+      selectedMarketplaceUninstallableNames,
+    )
   }, [
     selectedMarketplaceUninstallableIds,
     selectedMarketplaceUninstallableNames,
     openBatchConfirmDialog,
-  ]);
+  ])
 
   const handleBatchUpgrade = useCallback(() => {
-    if (selectedUpgradable === 0) return;
+    if (selectedUpgradable === 0) return
     pendingBatchExecutionRef.current = {
       action: "upgrade",
       appIds: selectedUpgradableIds,
       source: "installed",
-    };
-    openBatchConfirmDialog("upgrade", selectedUpgradable, selectedUpgradableNames);
-  }, [selectedUpgradable, selectedUpgradableIds, selectedUpgradableNames, openBatchConfirmDialog]);
+    }
+    openBatchConfirmDialog("upgrade", selectedUpgradable, selectedUpgradableNames)
+  }, [selectedUpgradable, selectedUpgradableIds, selectedUpgradableNames, openBatchConfirmDialog])
 
   const handleBatchUninstall = useCallback(() => {
-    if (selectedUninstallable === 0) return;
+    if (selectedUninstallable === 0) return
     pendingBatchExecutionRef.current = {
       action: "uninstall",
       appIds: selectedUninstallableIds,
       source: "installed",
-    };
-    openBatchConfirmDialog("uninstall", selectedUninstallable, selectedUninstallableNames);
+    }
+    openBatchConfirmDialog("uninstall", selectedUninstallable, selectedUninstallableNames)
   }, [
     selectedUninstallable,
     selectedUninstallableIds,
     selectedUninstallableNames,
     openBatchConfirmDialog,
-  ]);
+  ])
 
   const handleBatchConfirm = useCallback(async () => {
-    const pending = pendingBatchExecutionRef.current;
-    pendingBatchExecutionRef.current = null;
-    closeBatchConfirmDialog();
-    if (!pending) return;
+    const pending = pendingBatchExecutionRef.current
+    pendingBatchExecutionRef.current = null
+    closeBatchConfirmDialog()
+    if (!pending) return
 
     if (pending.action === "install") {
-      clearInstallSelection();
+      clearInstallSelection()
       for (const id of pending.appIds) {
-        const app = installListApps.find((item) => item.id === id);
-        if (app && !app.installed) await doInstall(app.id, app.name, app.installSource);
+        const app = installListApps.find((item) => item.id === id)
+        if (app && !app.installed) await doInstall(app.id, app.name, app.installSource)
       }
-      return;
+      return
     }
 
     if (pending.source === "marketplace") {
-      clearInstallSelection();
+      clearInstallSelection()
     }
-    await runBatchOperation(pending.action, pending.appIds);
-  }, [closeBatchConfirmDialog, installListApps, doInstall, clearInstallSelection, runBatchOperation]);
+    await runBatchOperation(pending.action, pending.appIds)
+  }, [
+    closeBatchConfirmDialog,
+    installListApps,
+    doInstall,
+    clearInstallSelection,
+    runBatchOperation,
+  ])
 
   const handleDetailUpgrade = useCallback(() => {
-    if (!selectedItem) return;
-    openConfirmDialog(selectedItem.appId, selectedItem.name, "upgrade");
-  }, [selectedItem, openConfirmDialog]);
+    if (!selectedItem) return
+    openConfirmDialog(selectedItem.appId, selectedItem.name, "upgrade")
+  }, [selectedItem, openConfirmDialog])
 
   const handleDetailUninstall = useCallback(() => {
-    if (!selectedItem) return;
-    openConfirmDialog(selectedItem.appId, selectedItem.name, "uninstall");
-  }, [selectedItem, openConfirmDialog]);
+    if (!selectedItem) return
+    openConfirmDialog(selectedItem.appId, selectedItem.name, "uninstall")
+  }, [selectedItem, openConfirmDialog])
 
   const appManagerColumns = useMemo(
     () =>
@@ -1125,10 +1144,17 @@ export function useAppManagerController(active: boolean) {
         handleLaunch,
         handleReveal,
         handleUpgradeFromColumn,
-        handleUninstallFromColumn
+        handleUninstallFromColumn,
       ),
-    [t, getOpStatus, handleLaunch, handleReveal, handleUpgradeFromColumn, handleUninstallFromColumn]
-  );
+    [
+      t,
+      getOpStatus,
+      handleLaunch,
+      handleReveal,
+      handleUpgradeFromColumn,
+      handleUninstallFromColumn,
+    ],
+  )
 
   const installListColumns = useMemo(
     () =>
@@ -1136,45 +1162,48 @@ export function useAppManagerController(active: boolean) {
         t,
         onInstall: handleInstall,
         onOpenWebsite: (url) => {
-          if (url) void openExternal(url);
+          if (url) void openExternal(url)
         },
         onCopyText: copyText,
       }),
-    [t, handleInstall, openExternal, copyText]
-  );
+    [t, handleInstall, openExternal, copyText],
+  )
 
   const activeSearchQuery =
     activeTab === "softwareUpdate"
       ? updatesSearchQuery
       : activeTab === "marketplace"
         ? marketplaceSearchQuery
-        : installedSearchQuery;
+        : installedSearchQuery
   const activeCategoryFilter =
     activeTab === "marketplace"
       ? marketplaceCategoryFilter
       : activeTab === "installed"
         ? installedCategoryFilter
-        : null;
+        : null
   const activeSeriesFilter =
     activeTab === "marketplace"
       ? marketplaceSeriesFilter
       : activeTab === "installed"
         ? installedSeriesFilter
-        : null;
+        : null
   const activeFilterCount =
     (installedSearchQuery.trim() ? 1 : 0) +
     (activeFilter !== "all" ? 1 : 0) +
-    ((installedCategoryFilter || installedSeriesFilter) ? 1 : 0);
+    (installedCategoryFilter || installedSeriesFilter ? 1 : 0)
 
   const marketplaceFilterCount =
     (marketplaceSearchQuery.trim() ? 1 : 0) +
     (marketplaceFilter !== "all" ? 1 : 0) +
-    ((marketplaceCategoryFilter || marketplaceSeriesFilter) ? 1 : 0);
-  const visibleInstallListInstalledCount = filteredInstallListApps.filter((app) => app.installed).length;
-  const visibleInstallListPendingCount = filteredInstallListApps.length - visibleInstallListInstalledCount;
-  const caps = result?.platformCapabilities;
-  const errorMessage = error ? localizeError(t, error) : "";
-  const updatesErrorMessage = updatesError ? localizeError(t, updatesError) : "";
+    (marketplaceCategoryFilter || marketplaceSeriesFilter ? 1 : 0)
+  const visibleInstallListInstalledCount = filteredInstallListApps.filter(
+    (app) => app.installed,
+  ).length
+  const visibleInstallListPendingCount =
+    filteredInstallListApps.length - visibleInstallListInstalledCount
+  const caps = result?.platformCapabilities
+  const errorMessage = error ? localizeError(t, error) : ""
+  const updatesErrorMessage = updatesError ? localizeError(t, updatesError) : ""
 
   return {
     t,
@@ -1294,5 +1323,5 @@ export function useAppManagerController(active: boolean) {
     handleDetailUninstall,
     setInstallBatchMode,
     setInstallDetailItem,
-  };
+  }
 }

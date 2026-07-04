@@ -1,20 +1,14 @@
 /**
  * Shared Interaction / 共享交互: own generic menus; 只负责通用右键菜单能力.
  */
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
-import { cn } from "@/lib/utils";
-import { contextMenuManager } from "./ContextMenuManager";
-import type { ContextMenuState } from "./types";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
+import { cn } from "@/lib/utils"
+import { contextMenuManager } from "./ContextMenuManager"
+import type { ContextMenuState } from "./types"
 
 interface GlobalContextMenuProps {
-  children: ReactNode;
-  className?: string;
+  children: ReactNode
+  className?: string
 }
 
 /**
@@ -34,41 +28,38 @@ export function GlobalContextMenu({ children, className }: GlobalContextMenuProp
     matchedId: null,
     context: null,
     menu: { id: "__empty__", items: [] },
-  });
-  const menuRef = useRef<HTMLDivElement>(null);
-  const wrapperRef = useRef<HTMLDivElement>(null);
+  })
+  const menuRef = useRef<HTMLDivElement>(null)
+  const wrapperRef = useRef<HTMLDivElement>(null)
 
   // Adjust position to keep menu within viewport
-  const getAdjustedPosition = useCallback(
-    (rawX: number, rawY: number) => {
-      const menu = menuRef.current;
-      if (!menu) return { x: rawX, y: rawY };
+  const getAdjustedPosition = useCallback((rawX: number, rawY: number) => {
+    const menu = menuRef.current
+    if (!menu) return { x: rawX, y: rawY }
 
-      const rect = menu.getBoundingClientRect();
-      const margin = 8;
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
+    const rect = menu.getBoundingClientRect()
+    const margin = 8
+    const vw = window.innerWidth
+    const vh = window.innerHeight
 
-      let x = rawX;
-      let y = rawY;
+    let x = rawX
+    let y = rawY
 
-      // If menu would overflow right edge, flip to left of cursor
-      if (rawX + rect.width + margin > vw) {
-        x = rawX - rect.width;
-      }
-      // If menu would overflow bottom, flip above cursor
-      if (rawY + rect.height + margin > vh) {
-        y = rawY - rect.height;
-      }
+    // If menu would overflow right edge, flip to left of cursor
+    if (rawX + rect.width + margin > vw) {
+      x = rawX - rect.width
+    }
+    // If menu would overflow bottom, flip above cursor
+    if (rawY + rect.height + margin > vh) {
+      y = rawY - rect.height
+    }
 
-      // Clamp to viewport
-      x = Math.max(margin, Math.min(x, vw - rect.width - margin));
-      y = Math.max(margin, Math.min(y, vh - rect.height - margin));
+    // Clamp to viewport
+    x = Math.max(margin, Math.min(x, vw - rect.width - margin))
+    y = Math.max(margin, Math.min(y, vh - rect.height - margin))
 
-      return { x, y };
-    },
-    []
-  );
+    return { x, y }
+  }, [])
 
   // Subscribe to manager state changes
   useEffect(() => {
@@ -77,61 +68,57 @@ export function GlobalContextMenu({ children, className }: GlobalContextMenuProp
         // We'll adjust position after a microtask so the menu has rendered
         setState((prev) => {
           // Keep previous position, will be adjusted after render
-          return { ...newState, x: prev.x, y: prev.y };
-        });
+          return { ...newState, x: prev.x, y: prev.y }
+        })
         // After menu renders, adjust position
         requestAnimationFrame(() => {
-          const adjusted = getAdjustedPosition(newState.x, newState.y);
-          setState({ ...newState, ...adjusted });
-        });
+          const adjusted = getAdjustedPosition(newState.x, newState.y)
+          setState({ ...newState, ...adjusted })
+        })
       } else {
-        setState(newState);
+        setState(newState)
       }
-    });
-    return unsub;
-  }, [getAdjustedPosition]);
+    })
+    return unsub
+  }, [getAdjustedPosition])
 
   // Close on click outside or Escape
   useEffect(() => {
-    if (!state.open) return;
+    if (!state.open) return
 
     const handleClick = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        contextMenuManager.close();
+        contextMenuManager.close()
       }
-    };
+    }
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        contextMenuManager.close();
+        contextMenuManager.close()
       }
-    };
+    }
     const handleScroll = () => {
-      contextMenuManager.close();
-    };
+      contextMenuManager.close()
+    }
 
-    document.addEventListener("click", handleClick, true);
-    document.addEventListener("keydown", handleKeyDown);
-    document.addEventListener("scroll", handleScroll, true);
+    document.addEventListener("click", handleClick, true)
+    document.addEventListener("keydown", handleKeyDown)
+    document.addEventListener("scroll", handleScroll, true)
     return () => {
-      document.removeEventListener("click", handleClick, true);
-      document.removeEventListener("keydown", handleKeyDown);
-      document.removeEventListener("scroll", handleScroll, true);
-    };
-  }, [state.open]);
+      document.removeEventListener("click", handleClick, true)
+      document.removeEventListener("keydown", handleKeyDown)
+      document.removeEventListener("scroll", handleScroll, true)
+    }
+  }, [state.open])
 
   // Intercept contextmenu events on the wrapper
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     // Let the manager process the event
-    contextMenuManager.handleContextMenu(e.nativeEvent);
-    e.preventDefault();
-  }, []);
+    contextMenuManager.handleContextMenu(e.nativeEvent)
+    e.preventDefault()
+  }, [])
 
   return (
-    <div
-      ref={wrapperRef}
-      className={className}
-      onContextMenu={handleContextMenu}
-    >
+    <div ref={wrapperRef} className={className} onContextMenu={handleContextMenu}>
       {children}
 
       {/* Menu overlay */}
@@ -140,8 +127,8 @@ export function GlobalContextMenu({ children, className }: GlobalContextMenuProp
           ref={menuRef}
           data-slot="context-menu-content"
           className={cn(
-            "fixed z-50 min-w-[8rem] overflow-hidden rounded-xl border bg-popover p-1.5 text-popover-foreground shadow-lg",
-            "animate-in fade-in-0 zoom-in-95"
+            "bg-popover text-popover-foreground fixed z-50 min-w-[8rem] overflow-hidden rounded-xl border p-1.5 shadow-lg",
+            "animate-in fade-in-0 zoom-in-95",
           )}
           style={{
             left: state.x,
@@ -151,45 +138,42 @@ export function GlobalContextMenu({ children, className }: GlobalContextMenuProp
           aria-orientation="vertical"
         >
           {state.menu.items.map((item, index) => {
-            const prevItem = index > 0 ? state.menu.items[index - 1] : null;
+            const prevItem = index > 0 ? state.menu.items[index - 1] : null
 
             return (
               <div key={item.id}>
                 {/* Auto-separator when destructive follows non-destructive */}
-                {prevItem &&
-                  !prevItem.destructive &&
-                  item.destructive && (
-                    <div className="-mx-1.5 my-1 h-px bg-border" />
-                  )}
+                {prevItem && !prevItem.destructive && item.destructive && (
+                  <div className="bg-border -mx-1.5 my-1 h-px" />
+                )}
                 <button
                   className={cn(
-                    "relative flex w-full cursor-default select-none items-center gap-2 rounded-lg px-2.5 py-2 text-sm outline-none",
+                    "relative flex w-full cursor-default items-center gap-2 rounded-lg px-2.5 py-2 text-sm outline-none select-none",
                     "hover:bg-accent hover:text-accent-foreground",
                     "focus:bg-accent focus:text-accent-foreground",
                     "disabled:pointer-events-none disabled:opacity-50",
-                    item.destructive &&
-                      "text-red-600 hover:text-red-600 focus:text-red-600"
+                    item.destructive && "text-red-600 hover:text-red-600 focus:text-red-600",
                   )}
                   disabled={item.disabled}
                   onClick={() => {
-                    item.onClick();
-                    contextMenuManager.close();
+                    item.onClick()
+                    contextMenuManager.close()
                   }}
                   role="menuitem"
                 >
                   {item.icon}
                   <span>{item.label}</span>
                   {item.shortcut && (
-                    <span className="ml-auto text-xs tracking-widest text-muted-foreground">
+                    <span className="text-muted-foreground ml-auto text-xs tracking-widest">
                       {item.shortcut}
                     </span>
                   )}
                 </button>
               </div>
-            );
+            )
           })}
         </div>
       )}
     </div>
-  );
+  )
 }

@@ -1,26 +1,22 @@
 /**
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  */
-import type { TFunction } from "i18next";
-import { X } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import type { BatchOperationResult } from "@/lib/tauri/types/app-manager";
+import type { TFunction } from "i18next"
+import { X } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import type { BatchOperationResult } from "@/lib/tauri/types/app-manager"
 
 interface AppManagerBatchResultsProps {
-  t: TFunction;
-  batchResults: BatchOperationResult | null;
-  onClear: () => void;
+  t: TFunction
+  batchResults: BatchOperationResult | null
+  onClear: () => void
 }
 
-export function AppManagerBatchResults({
-  t,
-  batchResults,
-  onClear,
-}: AppManagerBatchResultsProps) {
-  if (!batchResults) return null;
+export function AppManagerBatchResults({ t, batchResults, onClear }: AppManagerBatchResultsProps) {
+  if (!batchResults) return null
 
   return (
-    <div className="shrink-0 rounded-lg border p-2 bg-background flex items-center justify-between">
+    <div className="bg-background flex shrink-0 items-center justify-between rounded-lg border p-2">
       <div className="flex items-center gap-3 text-sm">
         <span className="text-green-600">
           {t("appManager.batchSucceeded", { n: batchResults.succeeded })}
@@ -38,5 +34,5 @@ export function AppManagerBatchResults({
         <X size={12} />
       </Button>
     </div>
-  );
+  )
 }

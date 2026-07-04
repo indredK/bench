@@ -1,28 +1,28 @@
 /**
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  */
-import type { TFunction } from "i18next";
-import { CheckCircle2, Download, ExternalLink, Package, RotateCcw } from "lucide-react";
+import type { TFunction } from "i18next"
+import { CheckCircle2, Download, ExternalLink, Package, RotateCcw } from "lucide-react"
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
-} from "@/components/ui/context-menu";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { ToolbarButton } from "@/components/ui/toolbar-button";
-import { InstallSourceBadges } from "@/features/app-manager/components/InstallSourceBadges";
-import type { OperationStatus } from "@/features/app-manager/store";
-import type { InstallListAppInfo } from "@/lib/tauri/types/app-manager";
+} from "@/components/ui/context-menu"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { ToolbarButton } from "@/components/ui/toolbar-button"
+import { InstallSourceBadges } from "@/features/app-manager/components/InstallSourceBadges"
+import type { OperationStatus } from "@/features/app-manager/store"
+import type { InstallListAppInfo } from "@/lib/tauri/types/app-manager"
 
 interface InstallListCardProps {
-  app: InstallListAppInfo;
-  t: TFunction;
-  status: OperationStatus | undefined;
-  onInstall: (app: InstallListAppInfo) => void;
-  onOpenWebsite: (url: string | undefined) => void;
-  onCopyText: (text: string | undefined) => void;
+  app: InstallListAppInfo
+  t: TFunction
+  status: OperationStatus | undefined
+  onInstall: (app: InstallListAppInfo) => void
+  onOpenWebsite: (url: string | undefined) => void
+  onCopyText: (text: string | undefined) => void
 }
 
 export function InstallListCard({
@@ -33,28 +33,28 @@ export function InstallListCard({
   onOpenWebsite,
   onCopyText,
 }: InstallListCardProps) {
-  const isInstalling = status === "running";
+  const isInstalling = status === "running"
 
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
-        <div className="rounded-xl border bg-card p-4 flex flex-col hover:ring-2 hover:ring-primary/30 transition-all h-full relative">
-          <div className="flex items-start gap-3 flex-1 min-w-0">
-            <div className="size-9 shrink-0 rounded-md bg-muted flex items-center justify-center">
+        <div className="bg-card hover:ring-primary/30 relative flex h-full flex-col rounded-xl border p-4 transition-all hover:ring-2">
+          <div className="flex min-w-0 flex-1 items-start gap-3">
+            <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-md">
               {app.installed ? (
                 <CheckCircle2 size={18} className="text-green-600" />
               ) : (
                 <Package size={18} className="text-muted-foreground" />
               )}
             </div>
-            <div className="flex-1 min-w-0">
-              <h4 className="text-sm font-medium truncate pr-16">{app.name}</h4>
-              <p className="text-xs text-muted-foreground mt-0.5 truncate">{app.description}</p>
-              <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+            <div className="min-w-0 flex-1">
+              <h4 className="truncate pr-16 text-sm font-medium">{app.name}</h4>
+              <p className="text-muted-foreground mt-0.5 truncate text-xs">{app.description}</p>
+              <div className="mt-1.5 flex flex-wrap items-center gap-1">
                 <InstallSourceBadges installSource={app.installSource} />
               </div>
               {app.installed && (app.installedVersion || app.installedPath) && (
-                <div className="mt-1.5 space-y-0.5 text-[11px] text-muted-foreground">
+                <div className="text-muted-foreground mt-1.5 space-y-0.5 text-[11px]">
                   {app.installedVersion && <p className="truncate">{app.installedVersion}</p>}
                   {app.installedPath && <p className="truncate">{app.installedPath}</p>}
                 </div>
@@ -63,18 +63,18 @@ export function InstallListCard({
           </div>
 
           {app.installed ? (
-            <Badge variant="secondary" className="absolute top-3 right-3 text-[10px] px-1.5 py-0.5">
+            <Badge variant="secondary" className="absolute top-3 right-3 px-1.5 py-0.5 text-[10px]">
               {t("appManager.installListInstalled")}
             </Badge>
           ) : (
-            <Badge variant="outline" className="absolute top-3 right-3 text-[10px] px-1.5 py-0.5">
+            <Badge variant="outline" className="absolute top-3 right-3 px-1.5 py-0.5 text-[10px]">
               {t("appManager.installListPending")}
             </Badge>
           )}
 
-          <div className="flex items-center gap-1.5 mt-2.5">
+          <div className="mt-2.5 flex items-center gap-1.5">
             <Button
-              className="flex-1 h-8"
+              className="h-8 flex-1"
               size="sm"
               disabled={isInstalling || app.installed}
               onClick={() => onInstall(app)}
@@ -123,5 +123,5 @@ export function InstallListCard({
         </ContextMenuContent>
       )}
     </ContextMenu>
-  );
+  )
 }

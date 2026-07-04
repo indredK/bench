@@ -1,35 +1,35 @@
 /**
  * Static Data / 静态数据: export catalogs only; 只导出静态目录数据.
  */
-import type { CompareDataModule, FilterGroup, SpecRow } from "@/shared/compare/types";
-import { t } from "i18next";
+import type { CompareDataModule, FilterGroup, SpecRow } from "@/shared/compare/types"
+import { t } from "i18next"
 
 export interface TelescopeModel {
-  id: string;
-  model: string;
-  brand: string;
-  series: string;
-  category: string;
-  type: string;
-  aperture: number;
-  focalLength: number;
-  fRatio: number;
-  mountType: string;
-  maxMagnification: number;
-  weight: number;
-  launchYear: number;
-  price: number;
-  goto: string;
+  id: string
+  model: string
+  brand: string
+  series: string
+  category: string
+  type: string
+  aperture: number
+  focalLength: number
+  fRatio: number
+  mountType: string
+  maxMagnification: number
+  weight: number
+  launchYear: number
+  price: number
+  goto: string
   /** 视野 (角度制，0表示N/A) */
-  fieldOfView: number;
+  fieldOfView: number
   /** 镜片镀膜 */
-  coating: string;
+  coating: string
   /** 出瞳直径 (mm，0表示N/A) */
-  exitPupil: number;
+  exitPupil: number
   /** 防水等级 */
-  waterproof: string;
+  waterproof: string
   /** 近焦距离 (m，0表示N/A) */
-  closeFocus: number;
+  closeFocus: number
 }
 
 export const telescopeData: TelescopeModel[] = [
@@ -302,7 +302,7 @@ export const telescopeData: TelescopeModel[] = [
   },
   {
     id: "meade-lx200-10",
-    model: "LX200 10\"",
+    model: 'LX200 10"',
     brand: "meade",
     series: "lx200",
     category: "consumer",
@@ -324,7 +324,7 @@ export const telescopeData: TelescopeModel[] = [
   },
   {
     id: "meade-lx200-8",
-    model: "LX200 8\"",
+    model: 'LX200 8"',
     brand: "meade",
     series: "lx200",
     category: "consumer",
@@ -560,7 +560,7 @@ export const telescopeData: TelescopeModel[] = [
     fRatio: 0,
     mountType: "手持 / 三脚架",
     maxMagnification: 15,
-    weight: 1.20,
+    weight: 1.2,
     launchYear: 2020,
     price: 99,
     goto: "N/A",
@@ -883,7 +883,7 @@ export const telescopeData: TelescopeModel[] = [
   },
   {
     id: "meade-lx65-8",
-    model: "LX65 8\"",
+    model: 'LX65 8"',
     brand: "meade",
     series: "lx65",
     category: "consumer",
@@ -1085,18 +1085,18 @@ export const telescopeData: TelescopeModel[] = [
     waterproof: "防水充氮 (4m)",
     closeFocus: 2.5,
   },
-];
+]
 
 const brandFormat = (val: unknown) => {
-  const v = String(val);
-  const key = `brands.${v}`;
-  const result = t(key);
-  return result !== key ? result : v;
-};
+  const v = String(val)
+  const key = `brands.${v}`
+  const result = t(key)
+  return result !== key ? result : v
+}
 
-const categoryFormat = (val: unknown) => t(`telescopeCompare.values.category.${val}`);
-const typeFormat = (val: unknown) => t(`telescopeCompare.values.type.${val}`);
-const mountTypeFormat = (val: unknown) => t(`telescopeCompare.values.mount.${val}`);
+const categoryFormat = (val: unknown) => t(`telescopeCompare.values.category.${val}`)
+const typeFormat = (val: unknown) => t(`telescopeCompare.values.type.${val}`)
+const mountTypeFormat = (val: unknown) => t(`telescopeCompare.values.mount.${val}`)
 
 export const telescopeFilterGroups: FilterGroup<TelescopeModel>[] = [
   { key: "category", label: "telescopeCompare.category", format: categoryFormat },
@@ -1104,55 +1104,109 @@ export const telescopeFilterGroups: FilterGroup<TelescopeModel>[] = [
   { key: "type", label: "telescopeCompare.type", format: typeFormat },
   { key: "mountType", label: "telescopeCompare.mountType", format: mountTypeFormat },
   { key: "launchYear", label: "telescopeCompare.launchYear", format: (val) => String(val) },
-];
+]
 
 export const telescopeSpecRows: SpecRow<TelescopeModel>[] = [
-  { key: "category", label: "telescopeCompare.category", format: (v, _m) => t(`telescopeCompare.values.category.${v}`) },
+  {
+    key: "category",
+    label: "telescopeCompare.category",
+    format: (v, _m) => t(`telescopeCompare.values.category.${v}`),
+  },
   { key: "brand", label: "telescopeCompare.brand", format: (v, _m) => brandFormat(v) },
   { key: "series", label: "telescopeCompare.series" },
   { key: "model", label: "telescopeCompare.model" },
-  { key: "type", label: "telescopeCompare.type", format: (v, _m) => t(`telescopeCompare.values.type.${v}`) },
+  {
+    key: "type",
+    label: "telescopeCompare.type",
+    format: (v, _m) => t(`telescopeCompare.values.type.${v}`),
+  },
   { key: "aperture", label: "telescopeCompare.aperture", format: (v) => `${v} mm` },
-  { key: "focalLength", label: "telescopeCompare.focalLength", format: (v) => (Number(v) > 0 ? `${v} mm` : "N/A") },
-  { key: "fRatio", label: "telescopeCompare.fRatio", format: (v) => (Number(v) > 0 ? `f/${v}` : "N/A") },
-  { key: "mountType", label: "telescopeCompare.mountType", format: (v, _m) => t(`telescopeCompare.values.mount.${v}`) },
+  {
+    key: "focalLength",
+    label: "telescopeCompare.focalLength",
+    format: (v) => (Number(v) > 0 ? `${v} mm` : "N/A"),
+  },
+  {
+    key: "fRatio",
+    label: "telescopeCompare.fRatio",
+    format: (v) => (Number(v) > 0 ? `f/${v}` : "N/A"),
+  },
+  {
+    key: "mountType",
+    label: "telescopeCompare.mountType",
+    format: (v, _m) => t(`telescopeCompare.values.mount.${v}`),
+  },
   { key: "maxMagnification", label: "telescopeCompare.maxMagnification", format: (v) => `${v}x` },
-  { key: "fieldOfView", label: "telescopeCompare.fieldOfView", format: (v) => (Number(v) > 0 ? `${v}°` : "N/A") },
-  { key: "exitPupil", label: "telescopeCompare.exitPupil", format: (v) => (Number(v) > 0 ? `${v} mm` : "N/A") },
-  { key: "coating", label: "telescopeCompare.coating", format: (v) => {
-    const str = String(v);
-    if (!str) return "—";
-    const key = `telescopeCompare.values.coating.${str}`;
-    const result = t(key);
-    return result !== key ? result : str;
-  }},
-  { key: "waterproof", label: "telescopeCompare.waterproof", format: (v) => {
-    const str = String(v);
-    if (!str) return "—";
-    const key = `telescopeCompare.values.waterproof.${str}`;
-    const result = t(key);
-    return result !== key ? result : str;
-  }},
-  { key: "closeFocus", label: "telescopeCompare.closeFocus", format: (v) => (Number(v) > 0 ? `${v} m` : "N/A") },
-  { key: "goto", label: "telescopeCompare.goto", format: (v) => {
-    const str = String(v);
-    if (str === "有") return t("common.yes");
-    if (str === "无") return t("common.no");
-    if (str === "N/A") return t("common.na");
-    const key = `telescopeCompare.values.goto.${str}`;
-    const result = t(key);
-    return result !== key ? result : str;
-  }},
+  {
+    key: "fieldOfView",
+    label: "telescopeCompare.fieldOfView",
+    format: (v) => (Number(v) > 0 ? `${v}°` : "N/A"),
+  },
+  {
+    key: "exitPupil",
+    label: "telescopeCompare.exitPupil",
+    format: (v) => (Number(v) > 0 ? `${v} mm` : "N/A"),
+  },
+  {
+    key: "coating",
+    label: "telescopeCompare.coating",
+    format: (v) => {
+      const str = String(v)
+      if (!str) return "—"
+      const key = `telescopeCompare.values.coating.${str}`
+      const result = t(key)
+      return result !== key ? result : str
+    },
+  },
+  {
+    key: "waterproof",
+    label: "telescopeCompare.waterproof",
+    format: (v) => {
+      const str = String(v)
+      if (!str) return "—"
+      const key = `telescopeCompare.values.waterproof.${str}`
+      const result = t(key)
+      return result !== key ? result : str
+    },
+  },
+  {
+    key: "closeFocus",
+    label: "telescopeCompare.closeFocus",
+    format: (v) => (Number(v) > 0 ? `${v} m` : "N/A"),
+  },
+  {
+    key: "goto",
+    label: "telescopeCompare.goto",
+    format: (v) => {
+      const str = String(v)
+      if (str === "有") return t("common.yes")
+      if (str === "无") return t("common.no")
+      if (str === "N/A") return t("common.na")
+      const key = `telescopeCompare.values.goto.${str}`
+      const result = t(key)
+      return result !== key ? result : str
+    },
+  },
   { key: "weight", label: "telescopeCompare.weight", format: (v) => `${v} kg` },
   { key: "launchYear", label: "telescopeCompare.launchYear" },
   { key: "price", label: "telescopeCompare.price", format: (v) => `$${v}` },
-];
+]
 
 export const telescopeModule: CompareDataModule<TelescopeModel> = {
   data: telescopeData,
   specRows: telescopeSpecRows,
-  numericKeys: ["aperture", "focalLength", "fRatio", "maxMagnification", "weight", "launchYear", "fieldOfView", "exitPupil", "closeFocus"],
+  numericKeys: [
+    "aperture",
+    "focalLength",
+    "fRatio",
+    "maxMagnification",
+    "weight",
+    "launchYear",
+    "fieldOfView",
+    "exitPupil",
+    "closeFocus",
+  ],
   inverseKeys: ["price", "fRatio", "weight"],
   i18nPrefix: "telescopeCompare",
   filterGroups: telescopeFilterGroups,
-};
+}

@@ -1,8 +1,8 @@
 /**
  * Feature Model / 功能模型: keep pure model logic; 只放纯模型逻辑.
  */
-import type { TFunction } from "i18next";
-import type { UpdateSource } from "@/lib/tauri/types/app-manager";
+import type { TFunction } from "i18next"
+import type { UpdateSource } from "@/lib/tauri/types/app-manager"
 
 export const UPDATE_SOURCE_ORDER: UpdateSource[] = [
   "homebrew",
@@ -11,7 +11,7 @@ export const UPDATE_SOURCE_ORDER: UpdateSource[] = [
   "electron",
   "squirrel",
   "gitHub",
-];
+]
 
 const SOURCE_ICON: Record<UpdateSource, string> = {
   homebrew: "🍺",
@@ -20,7 +20,7 @@ const SOURCE_ICON: Record<UpdateSource, string> = {
   electron: "⚡",
   squirrel: "🐿️",
   gitHub: "🐙",
-};
+}
 
 const SOURCE_LABEL_KEY: Record<UpdateSource, string> = {
   homebrew: "appManager.softwareUpdate.source.homebrew",
@@ -29,7 +29,7 @@ const SOURCE_LABEL_KEY: Record<UpdateSource, string> = {
   electron: "appManager.softwareUpdate.source.electron",
   squirrel: "appManager.softwareUpdate.source.squirrel",
   gitHub: "appManager.softwareUpdate.source.github",
-};
+}
 
 const SOURCE_GROUP_ACTION_KEY: Record<UpdateSource, string> = {
   homebrew: "appManager.softwareUpdate.groupAction.updateAll",
@@ -38,47 +38,47 @@ const SOURCE_GROUP_ACTION_KEY: Record<UpdateSource, string> = {
   electron: "appManager.softwareUpdate.groupAction.installAll",
   squirrel: "appManager.softwareUpdate.groupAction.installAll",
   gitHub: "appManager.softwareUpdate.groupAction.openAllReleases",
-};
+}
 
 export function getUpdateSourceIcon(source: UpdateSource): string {
-  return SOURCE_ICON[source];
+  return SOURCE_ICON[source]
 }
 
 export function getUpdateSourceLabel(t: TFunction, source: UpdateSource): string {
-  return t(SOURCE_LABEL_KEY[source]);
+  return t(SOURCE_LABEL_KEY[source])
 }
 
 export function getUpdateGroupActionKey(source: UpdateSource): string {
-  return SOURCE_GROUP_ACTION_KEY[source];
+  return SOURCE_GROUP_ACTION_KEY[source]
 }
 
 export function getUpdateActionKey(source: UpdateSource): string {
   switch (source) {
     case "homebrew":
-      return "appManager.softwareUpdate.action.update";
+      return "appManager.softwareUpdate.action.update"
     case "macAppStore":
-      return "appManager.softwareUpdate.action.openAppStore";
+      return "appManager.softwareUpdate.action.openAppStore"
     case "gitHub":
-      return "appManager.softwareUpdate.action.openReleases";
+      return "appManager.softwareUpdate.action.openReleases"
     case "sparkle":
     case "electron":
     case "squirrel":
       // v1.2: 这些来源现在走代下载代安装(in-place install).
-      return "appManager.softwareUpdate.action.install";
+      return "appManager.softwareUpdate.action.install"
     default:
-      return "appManager.softwareUpdate.action.openDownloadPage";
+      return "appManager.softwareUpdate.action.openDownloadPage"
   }
 }
 
 export function formatBytes(size: number | null | undefined): string {
-  if (size === null || size === undefined || size <= 0) return "—";
-  const units = ["B", "KB", "MB", "GB"];
-  let value = size;
-  let unitIndex = 0;
+  if (size === null || size === undefined || size <= 0) return "—"
+  const units = ["B", "KB", "MB", "GB"]
+  let value = size
+  let unitIndex = 0
   while (value >= 1024 && unitIndex < units.length - 1) {
-    value /= 1024;
-    unitIndex += 1;
+    value /= 1024
+    unitIndex += 1
   }
-  const formatted = value >= 100 ? value.toFixed(0) : value.toFixed(1);
-  return `${formatted} ${units[unitIndex]}`;
+  const formatted = value >= 100 ? value.toFixed(0) : value.toFixed(1)
+  return `${formatted} ${units[unitIndex]}`
 }

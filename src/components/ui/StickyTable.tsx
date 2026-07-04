@@ -1,14 +1,14 @@
 /**
  * Primitive UI / 基础 UI: render primitives only; 只提供基础组件.
  */
-import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
-import { cn } from "@/lib/utils";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { forwardRef, useCallback, useEffect, useRef, useState } from "react"
+import { cn } from "@/lib/utils"
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 
 interface StickyTableProps extends React.ComponentProps<"table"> {
-  className?: string;
-  containerClassName?: string;
-  layout?: "auto" | "fixed";
+  className?: string
+  containerClassName?: string
+  layout?: "auto" | "fixed"
 }
 
 function StickyTable({
@@ -21,130 +21,121 @@ function StickyTable({
     <div
       data-table-scroll
       className={cn(
-        "relative isolate w-full max-h-full min-h-[120px] min-w-[280px] overflow-auto bg-background",
-        containerClassName
+        "bg-background relative isolate max-h-full min-h-[120px] w-full min-w-[280px] overflow-auto",
+        containerClassName,
       )}
     >
       <table
         className={cn(
-          "w-full border-separate border-spacing-0 text-sm bg-background",
+          "bg-background w-full border-separate border-spacing-0 text-sm",
           layout === "fixed" && "table-fixed",
-          className
+          className,
         )}
         {...props}
       />
     </div>
-  );
+  )
 }
 
 interface StickyTableHeaderProps extends React.ComponentProps<"thead"> {
-  className?: string;
+  className?: string
 }
 
 function StickyTableHeader({ className, ...props }: StickyTableHeaderProps) {
-  return <thead className={cn(className)} {...props} />;
+  return <thead className={cn(className)} {...props} />
 }
 
 interface StickyTableBodyProps extends React.ComponentProps<"tbody"> {
-  className?: string;
+  className?: string
 }
 
 function StickyTableBody({ className, ...props }: StickyTableBodyProps) {
-  return <tbody className={cn("[&_tr:last-child>td]:border-b-0", className)} {...props} />;
+  return <tbody className={cn("[&_tr:last-child>td]:border-b-0", className)} {...props} />
 }
 
 interface StickyTableRowProps extends React.ComponentProps<"tr"> {
-  className?: string;
+  className?: string
 }
 
 function StickyTableRow({ className, ...props }: StickyTableRowProps) {
   return (
     <tr
       className={cn(
-        "transition-colors hover:bg-muted/30 data-[state=selected]:bg-accent/60",
-        className
+        "hover:bg-muted/30 data-[state=selected]:bg-accent/60 transition-colors",
+        className,
       )}
       {...props}
     />
-  );
+  )
 }
 
 interface StickyTableHeadProps extends React.ComponentProps<"th"> {
-  className?: string;
-  isFirstColumn?: boolean;
-  isFirstRow?: boolean;
+  className?: string
+  isFirstColumn?: boolean
+  isFirstRow?: boolean
 }
 
-function StickyTableHead({ className, isFirstColumn = false, isFirstRow = false, ...props }: StickyTableHeadProps) {
-  const baseClasses = "h-10 px-3 text-left align-middle font-semibold text-muted-foreground bg-background border-b border-r border-border last:border-r-0";
+function StickyTableHead({
+  className,
+  isFirstColumn = false,
+  isFirstRow = false,
+  ...props
+}: StickyTableHeadProps) {
+  const baseClasses =
+    "h-10 px-3 text-left align-middle font-semibold text-muted-foreground bg-background border-b border-r border-border last:border-r-0"
   const stickyClasses = cn(
-    isFirstColumn && isFirstRow && "sticky top-0 left-0 z-[60] shadow-[4px_0_8px_-4px_rgba(0,0,0,0.15),0_2px_6px_-2px_rgba(0,0,0,0.12)]",
+    isFirstColumn &&
+      isFirstRow &&
+      "sticky top-0 left-0 z-[60] shadow-[4px_0_8px_-4px_rgba(0,0,0,0.15),0_2px_6px_-2px_rgba(0,0,0,0.12)]",
     isFirstRow && !isFirstColumn && "sticky top-0 z-[50] shadow-[0_2px_6px_-2px_rgba(0,0,0,0.12)]",
-    !isFirstRow && isFirstColumn && "sticky left-0 z-[40] shadow-[4px_0_8px_-4px_rgba(0,0,0,0.12)]"
-  );
+    !isFirstRow && isFirstColumn && "sticky left-0 z-[40] shadow-[4px_0_8px_-4px_rgba(0,0,0,0.12)]",
+  )
 
-  return (
-    <th
-      className={cn(baseClasses, stickyClasses, className)}
-      {...props}
-    />
-  );
+  return <th className={cn(baseClasses, stickyClasses, className)} {...props} />
 }
 
 interface StickyTableCellProps extends React.ComponentProps<"td"> {
-  className?: string;
-  isFirstColumn?: boolean;
+  className?: string
+  isFirstColumn?: boolean
 }
 
 function StickyTableCell({ className, isFirstColumn = false, ...props }: StickyTableCellProps) {
-  const baseClasses = "p-3 align-middle bg-background border-b border-r border-border last:border-r-0";
+  const baseClasses =
+    "p-3 align-middle bg-background border-b border-r border-border last:border-r-0"
   const stickyClasses = isFirstColumn
     ? "sticky left-0 z-[30] whitespace-nowrap font-medium shadow-[4px_0_8px_-4px_rgba(0,0,0,0.12)]"
-    : "";
+    : ""
 
-  return (
-    <td
-      className={cn(baseClasses, stickyClasses, className)}
-      {...props}
-    />
-  );
+  return <td className={cn(baseClasses, stickyClasses, className)} {...props} />
 }
 
 interface StickyTableFooterProps extends React.ComponentProps<"tfoot"> {
-  className?: string;
+  className?: string
 }
 
 function StickyTableFooter({ className, ...props }: StickyTableFooterProps) {
   return (
     <tfoot
-      className={cn(
-        "border-t bg-muted/50 font-medium [&>tr]:last:border-b-0",
-        className
-      )}
+      className={cn("bg-muted/50 border-t font-medium [&>tr]:last:border-b-0", className)}
       {...props}
     />
-  );
+  )
 }
 
 interface StickyTableCaptionProps extends React.ComponentProps<"caption"> {
-  className?: string;
+  className?: string
 }
 
 function StickyTableCaption({ className, ...props }: StickyTableCaptionProps) {
-  return (
-    <caption
-      className={cn("mt-4 text-sm text-muted-foreground", className)}
-      {...props}
-    />
-  );
+  return <caption className={cn("text-muted-foreground mt-4 text-sm", className)} {...props} />
 }
 
-type StickyTableSortDirection = "asc" | "desc" | "none";
+type StickyTableSortDirection = "asc" | "desc" | "none"
 
 interface StickyTableSortButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  className?: string;
-  direction?: StickyTableSortDirection;
-  align?: "left" | "center" | "right";
+  className?: string
+  direction?: StickyTableSortDirection
+  align?: "left" | "center" | "right"
 }
 
 function StickyTableSortButton({
@@ -160,15 +151,15 @@ function StickyTableSortButton({
       ? "justify-end text-right"
       : align === "center"
         ? "justify-center text-center"
-        : "justify-start text-left";
+        : "justify-start text-left"
 
   return (
     <button
       type={type ?? "button"}
       className={cn(
-        "flex w-full items-center gap-1 text-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        "hover:text-foreground focus-visible:ring-ring focus-visible:ring-offset-background flex w-full items-center gap-1 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none",
         alignClassName,
-        className
+        className,
       )}
       {...props}
     >
@@ -177,12 +168,12 @@ function StickyTableSortButton({
         {direction === "asc" ? "↑" : direction === "desc" ? "↓" : "⇅"}
       </span>
     </button>
-  );
+  )
 }
 
 interface StickyTableTextProps extends React.ComponentProps<"span"> {
-  className?: string;
-  title?: string;
+  className?: string
+  title?: string
 }
 
 function StickyTableText({
@@ -194,26 +185,26 @@ function StickyTableText({
   onMouseUp: externalOnMouseUp,
   ...restProps
 }: StickyTableTextProps) {
-  const spanRef = useRef<HTMLSpanElement | null>(null);
-  const [isTruncated, setIsTruncated] = useState(false);
-  const tooltipContent = title ?? (typeof children === "string" ? children : undefined);
+  const spanRef = useRef<HTMLSpanElement | null>(null)
+  const [isTruncated, setIsTruncated] = useState(false)
+  const tooltipContent = title ?? (typeof children === "string" ? children : undefined)
 
   const checkTruncation = useCallback(() => {
-    const el = spanRef.current;
-    if (!el) return;
-    setIsTruncated(el.scrollWidth > el.clientWidth);
-  }, []);
+    const el = spanRef.current
+    if (!el) return
+    setIsTruncated(el.scrollWidth > el.clientWidth)
+  }, [])
 
   useEffect(() => {
-    checkTruncation();
+    checkTruncation()
 
-    const el = spanRef.current;
-    if (!el) return;
+    const el = spanRef.current
+    if (!el) return
 
-    const observer = new ResizeObserver(checkTruncation);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [checkTruncation]);
+    const observer = new ResizeObserver(checkTruncation)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [checkTruncation])
 
   if (!tooltipContent || !isTruncated) {
     return (
@@ -227,7 +218,7 @@ function StickyTableText({
       >
         {children}
       </span>
-    );
+    )
   }
 
   return (
@@ -237,62 +228,69 @@ function StickyTableText({
           ref={spanRef}
           className={cn("block min-w-0 truncate", className)}
           onClick={(e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            externalOnClick?.(e);
+            e.stopPropagation()
+            e.preventDefault()
+            externalOnClick?.(e)
           }}
           onMouseDown={(e) => {
-            e.stopPropagation();
-            externalOnMouseDown?.(e);
+            e.stopPropagation()
+            externalOnMouseDown?.(e)
           }}
           onMouseUp={(e) => {
-            e.stopPropagation();
-            externalOnMouseUp?.(e);
+            e.stopPropagation()
+            externalOnMouseUp?.(e)
           }}
           {...restProps}
         >
           {children}
         </span>
       </TooltipTrigger>
-      <TooltipContent side="top" align="center" className="max-w-xs whitespace-pre-wrap break-all">
+      <TooltipContent side="top" align="center" className="max-w-xs break-all whitespace-pre-wrap">
         {tooltipContent}
       </TooltipContent>
     </Tooltip>
-  );
+  )
 }
 
 interface StickyTableCheckboxProps extends Omit<React.ComponentProps<"input">, "type"> {
-  className?: string;
-  indeterminate?: boolean;
+  className?: string
+  indeterminate?: boolean
 }
 
 const StickyTableCheckbox = forwardRef<HTMLInputElement, StickyTableCheckboxProps>(
   ({ className, indeterminate = false, ...props }, ref) => {
-    const internalRef = useRef<HTMLInputElement | null>(null);
+    const internalRef = useRef<HTMLInputElement | null>(null)
 
     useEffect(() => {
       if (!internalRef.current) {
-        return;
+        return
       }
 
-      internalRef.current.indeterminate = indeterminate;
-    }, [indeterminate]);
+      internalRef.current.indeterminate = indeterminate
+    }, [indeterminate])
 
     const resolvedAriaChecked =
-      props["aria-checked"] ?? (indeterminate ? "mixed" : props.checked === undefined ? undefined : (props.checked ? "true" : "false"));
+      props["aria-checked"] ??
+      (indeterminate
+        ? "mixed"
+        : props.checked === undefined
+          ? undefined
+          : props.checked
+            ? "true"
+            : "false")
 
     return (
       <input
         ref={(node) => {
-          internalRef.current = node;
+          internalRef.current = node
 
           if (typeof ref === "function") {
-            ref(node);
-            return;
+            ref(node)
+            return
           }
 
           if (ref) {
-            ref.current = node;
+            ref.current = node
           }
         }}
         type="checkbox"
@@ -300,11 +298,11 @@ const StickyTableCheckbox = forwardRef<HTMLInputElement, StickyTableCheckboxProp
         className={cn("h-4 w-4 cursor-pointer rounded", className)}
         {...props}
       />
-    );
-  }
-);
+    )
+  },
+)
 
-StickyTableCheckbox.displayName = "StickyTableCheckbox";
+StickyTableCheckbox.displayName = "StickyTableCheckbox"
 
 export {
   StickyTable,
@@ -318,7 +316,7 @@ export {
   StickyTableSortButton,
   StickyTableText,
   StickyTableCheckbox,
-};
+}
 
 export type {
   StickyTableProps,
@@ -333,4 +331,4 @@ export type {
   StickyTableSortButtonProps,
   StickyTableTextProps,
   StickyTableCheckboxProps,
-};
+}

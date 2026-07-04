@@ -4,13 +4,25 @@
  * 编辑模式下用户可右键移动应用归类，数据仅存于内存，重启后恢复自动分类默认值。
  * 导出功能为开发者工具，用于导出全量数据优化分类规则。
  */
-import { create } from "zustand";
-import type { LaunchSceneKey, QuickLaunchState } from "@/features/quick-launch/types";
+import { create } from "zustand"
+import type { LaunchSceneKey, QuickLaunchState } from "@/features/quick-launch/types"
 
 const DEFAULT_SCENE_ORDER: LaunchSceneKey[] = [
-  "ai-ide", "ai-claw", "ai-assistant", "ai-office", "ai-model", "ai-tool", "dev", "system",
-  "writing", "browser", "communication", "design", "entertainment", "other",
-];
+  "ai-ide",
+  "ai-claw",
+  "ai-assistant",
+  "ai-office",
+  "ai-model",
+  "ai-tool",
+  "dev",
+  "system",
+  "writing",
+  "browser",
+  "communication",
+  "design",
+  "entertainment",
+  "other",
+]
 
 export const useQuickLaunchStore = create<QuickLaunchState>((set) => ({
   scenes: {} as Record<LaunchSceneKey, string[]>,
@@ -36,12 +48,12 @@ export const useQuickLaunchStore = create<QuickLaunchState>((set) => ({
 
   moveAppToScene: (appId, scene) =>
     set((state) => {
-      const next = { ...state.scenes };
+      const next = { ...state.scenes }
       for (const key of Object.keys(next) as LaunchSceneKey[]) {
-        next[key] = next[key].filter((id) => id !== appId);
+        next[key] = next[key].filter((id) => id !== appId)
       }
-      next[scene] = [appId, ...(next[scene] || [])];
-      return { scenes: next };
+      next[scene] = [appId, ...(next[scene] || [])]
+      return { scenes: next }
     }),
 
   removeAppFromScene: (appId, scene) =>
@@ -57,7 +69,7 @@ export const useQuickLaunchStore = create<QuickLaunchState>((set) => ({
       scenes,
       expandedScenes: Object.keys(scenes).reduce(
         (acc, key) => ({ ...acc, [key]: true }),
-        {} as Record<LaunchSceneKey, boolean>
+        {} as Record<LaunchSceneKey, boolean>,
       ),
     }),
 
@@ -77,22 +89,22 @@ export const useQuickLaunchStore = create<QuickLaunchState>((set) => ({
 
   /** 清除用户覆盖数据，回到自动分类默认值 */
   resetOverrides: () => {
-    set({ appOverrides: {} });
+    set({ appOverrides: {} })
   },
 
   /** 移动应用到目标场景，仅更新内存状态 */
   moveAppToSceneOverride: (appId, sceneKey) =>
     set((state) => {
       // 1. 更新 overrides 映射
-      const nextOverrides = { ...state.appOverrides, [appId]: sceneKey };
+      const nextOverrides = { ...state.appOverrides, [appId]: sceneKey }
 
       // 2. 同步更新 scenes：从所有场景移除，加入目标场景
-      const nextScenes = { ...state.scenes };
+      const nextScenes = { ...state.scenes }
       for (const key of Object.keys(nextScenes) as LaunchSceneKey[]) {
-        nextScenes[key] = nextScenes[key].filter((id) => id !== appId);
+        nextScenes[key] = nextScenes[key].filter((id) => id !== appId)
       }
-      nextScenes[sceneKey] = [appId, ...(nextScenes[sceneKey] || [])];
+      nextScenes[sceneKey] = [appId, ...(nextScenes[sceneKey] || [])]
 
-      return { appOverrides: nextOverrides, scenes: nextScenes };
+      return { appOverrides: nextOverrides, scenes: nextScenes }
     }),
-}));
+}))

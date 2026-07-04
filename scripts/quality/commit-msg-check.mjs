@@ -1,27 +1,29 @@
-import { readFileSync } from "node:fs";
+import { readFileSync } from "node:fs"
 
-const messagePath = process.argv[2];
+const messagePath = process.argv[2]
 
 if (!messagePath) {
-  console.error("Usage: node scripts/quality/commit-msg-check.mjs <commit-message-file>");
-  process.exit(1);
+  console.error("Usage: node scripts/quality/commit-msg-check.mjs <commit-message-file>")
+  process.exit(1)
 }
 
-const rawMessage = readFileSync(messagePath, "utf8").replace(/\r\n/g, "\n").trim();
+const rawMessage = readFileSync(messagePath, "utf8").replace(/\r\n/g, "\n").trim()
 
 if (!rawMessage) {
-  console.error("Commit message cannot be empty.");
-  process.exit(1);
+  console.error("Commit message cannot be empty.")
+  process.exit(1)
 }
 
-const lines = rawMessage.split("\n");
-const header = lines[0];
+const lines = rawMessage.split("\n")
+const header = lines[0]
 
 if (/^(Merge |Revert |fixup! |squash! )/.test(header)) {
-  process.exit(0);
+  process.exit(0)
 }
 
-const match = /^(?<type>[a-z]+)(?:\((?<scope>[^()\r\n]+)\))?(?<breaking>!)?: (?<subject>.+)$/.exec(header);
+const match = /^(?<type>[a-z]+)(?:\((?<scope>[^()\r\n]+)\))?(?<breaking>!)?: (?<subject>.+)$/.exec(
+  header,
+)
 if (!match?.groups) {
   console.error(
     [
@@ -29,9 +31,9 @@ if (!match?.groups) {
       "  feat: add commit hooks",
       "  fix(ui): handle staged file checks",
       "  chore!: adjust pre-commit gate",
-    ].join("\n")
-  );
-  process.exit(1);
+    ].join("\n"),
+  )
+  process.exit(1)
 }
 
 const allowedTypes = new Set([
@@ -46,23 +48,23 @@ const allowedTypes = new Set([
   "revert",
   "style",
   "test",
-]);
+])
 
 if (!allowedTypes.has(match.groups.type)) {
-  console.error(`Unsupported commit type: ${match.groups.type}`);
-  console.error(`Allowed types: ${Array.from(allowedTypes).join(", ")}`);
-  process.exit(1);
+  console.error(`Unsupported commit type: ${match.groups.type}`)
+  console.error(`Allowed types: ${Array.from(allowedTypes).join(", ")}`)
+  process.exit(1)
 }
 
 if (lines.length > 1 && lines[1] !== "") {
-  console.error("Commit message body must be separated from the header by a blank line.");
-  process.exit(1);
+  console.error("Commit message body must be separated from the header by a blank line.")
+  process.exit(1)
 }
 
-const bodyLines = lines.slice(2);
-const tooLongLine = bodyLines.find((line) => line.length > 500);
+const bodyLines = lines.slice(2)
+const tooLongLine = bodyLines.find((line) => line.length > 500)
 
 if (tooLongLine) {
-  console.error("Commit body lines must be 500 characters or fewer.");
-  process.exit(1);
+  console.error("Commit body lines must be 500 characters or fewer.")
+  process.exit(1)
 }

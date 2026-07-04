@@ -1,9 +1,9 @@
-import { lazy, Suspense } from "react";
-import { Wrench } from "lucide-react";
-import { FeatureFallback } from "@/features/FeatureFallback";
-import type { AppFeature } from "@/features/types";
+import { lazy, Suspense } from "react"
+import { Wrench } from "lucide-react"
+import { FeatureFallback } from "@/features/FeatureFallback"
+import type { AppFeature } from "@/features/types"
 
-const DevToolbox = lazy(() => import("@/features/dev-toolbox/page"));
+const DevToolbox = lazy(() => import("@/features/dev-toolbox/page"))
 
 export const devToolboxFeature: AppFeature = {
   id: "dev-toolbox",
@@ -16,4 +16,4 @@ export const devToolboxFeature: AppFeature = {
     </Suspense>
   ),
   desktopOnly: false,
-};
+}

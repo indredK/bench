@@ -1,34 +1,26 @@
-import { useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
-import {
-  Plus,
-  Trash2,
-  Save,
-  X,
-  Edit3,
-  ArrowRightLeft,
-  RefreshCw,
-} from "lucide-react";
-import { FeatureLoadError } from "@/components/common/FeatureLoadError";
-import { useGuardedAsync } from "@/hooks/useGuardedAsync";
-import { cn } from "@/lib/utils";
+import { useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
+import { Plus, Trash2, Save, X, Edit3, ArrowRightLeft, RefreshCw } from "lucide-react"
+import { FeatureLoadError } from "@/components/common/FeatureLoadError"
+import { useGuardedAsync } from "@/hooks/useGuardedAsync"
+import { cn } from "@/lib/utils"
 
 import {
   createPricingStandard,
   updatePricingStandard,
   deletePricingStandard,
-} from "@/features/token-calculator/services/token-calculator.repository";
+} from "@/features/token-calculator/services/token-calculator.repository"
 import type {
   ModelPricing,
   PricingStandard,
-} from "@/features/token-calculator/services/token-calculator.repository";
+} from "@/features/token-calculator/services/token-calculator.repository"
 
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,15 +30,15 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+} from "@/components/ui/alert-dialog"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+} from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
 import {
   RATIO_PRESETS,
   convertPrice,
@@ -62,8 +54,8 @@ import {
   parseNonNegativeNumber,
   type DisplayCurrency,
   type TranslateFn,
-} from "@/features/token-calculator/model/pricing";
-import { useTokenCalculatorController } from "@/features/token-calculator/hooks/useTokenCalculatorController";
+} from "@/features/token-calculator/model/pricing"
+import { useTokenCalculatorController } from "@/features/token-calculator/hooks/useTokenCalculatorController"
 
 // ─── Empty model row ────────────────────────────────────────────────
 const EMPTY_MODEL: ModelPricing = {
@@ -73,11 +65,11 @@ const EMPTY_MODEL: ModelPricing = {
   cachedReadPrice: null,
   outputPrice: 0,
   currency: "USD",
-};
+}
 
 // ─── Main Page ──────────────────────────────────────────────────────
 export default function TokenCalculatorPage() {
-  const { t } = useTranslation();
+  const { t } = useTranslation()
   const {
     standards,
     loading,
@@ -93,14 +85,14 @@ export default function TokenCalculatorPage() {
     refreshExchangeRate,
     loadStandards,
     normalizeExchangeRate,
-  } = useTokenCalculatorController();
+  } = useTokenCalculatorController()
 
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center p-8">
         <p className="text-muted-foreground">{t("tokenCalculator.loading")}</p>
       </div>
-    );
+    )
   }
 
   if (loadError) {
@@ -110,21 +102,21 @@ export default function TokenCalculatorPage() {
         description={loadError}
         onRetry={() => void loadStandards()}
       />
-    );
+    )
   }
 
   // Currency toolbar shared across tabs
   const currencyToolbar = (
     <div className="flex items-center gap-2 select-none">
-      <span className="text-xs text-muted-foreground">{t("tokenCalculator.displayCurrency")}:</span>
-      <div className="flex rounded-md border border-border">
+      <span className="text-muted-foreground text-xs">{t("tokenCalculator.displayCurrency")}:</span>
+      <div className="border-border flex rounded-md border">
         <Button
           size="xs"
           className={cn(
             "rounded-r-none border-0",
             displayCurrency === "USD"
               ? "bg-primary text-primary-foreground hover:bg-primary/80"
-              : "bg-transparent text-muted-foreground hover:bg-muted",
+              : "text-muted-foreground hover:bg-muted bg-transparent",
           )}
           onClick={() => setDisplayCurrency("USD")}
         >
@@ -136,7 +128,7 @@ export default function TokenCalculatorPage() {
             "rounded-l-none border-0",
             displayCurrency === "CNY"
               ? "bg-primary text-primary-foreground hover:bg-primary/80"
-              : "bg-transparent text-muted-foreground hover:bg-muted",
+              : "text-muted-foreground hover:bg-muted bg-transparent",
           )}
           onClick={() => setDisplayCurrency("CNY")}
         >
@@ -144,7 +136,7 @@ export default function TokenCalculatorPage() {
         </Button>
       </div>
       <div className="flex items-center gap-1">
-        <span className="text-xs text-muted-foreground whitespace-nowrap">
+        <span className="text-muted-foreground text-xs whitespace-nowrap">
           {t("tokenCalculator.exchangeRate")}:
         </span>
         <Input
@@ -181,24 +173,26 @@ export default function TokenCalculatorPage() {
         ) : null}
       </div>
     </div>
-  );
+  )
 
   const sharedProps = {
     displayCurrency,
     exchangeRate,
     t,
-  } as const;
+  } as const
 
   return (
     <div className="flex h-full flex-col overflow-hidden p-6">
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">
-          {t("tokenCalculator.title")}
-        </h1>
+        <h1 className="text-2xl font-bold tracking-tight">{t("tokenCalculator.title")}</h1>
         {currencyToolbar}
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-1 flex-col overflow-hidden">
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="flex flex-1 flex-col overflow-hidden"
+      >
         <TabsList className="mb-4 w-fit select-none">
           <TabsTrigger value="standards" className="select-none">
             {t("tokenCalculator.tabs.standards")}
@@ -212,11 +206,7 @@ export default function TokenCalculatorPage() {
         </TabsList>
 
         <TabsContent value="standards" className="flex-1 overflow-auto" forceMount>
-          <StandardsTab
-            standards={standards}
-            onRefresh={loadStandards}
-            {...sharedProps}
-          />
+          <StandardsTab standards={standards} onRefresh={loadStandards} {...sharedProps} />
         </TabsContent>
 
         <TabsContent value="compare" className="flex-1 overflow-auto" forceMount>
@@ -228,7 +218,7 @@ export default function TokenCalculatorPage() {
         </TabsContent>
       </Tabs>
     </div>
-  );
+  )
 }
 
 // ─── Standards Tab ──────────────────────────────────────────────────
@@ -239,86 +229,91 @@ function StandardsTab({
   exchangeRate,
   t,
 }: {
-  standards: PricingStandard[];
-  onRefresh: () => void;
-  displayCurrency: DisplayCurrency;
-  exchangeRate: number;
-  t: TranslateFn;
+  standards: PricingStandard[]
+  onRefresh: () => void
+  displayCurrency: DisplayCurrency
+  exchangeRate: number
+  t: TranslateFn
 }) {
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editModels, setEditModels] = useState<ModelPricing[]>([]);
-  const [deleteTarget, setDeleteTarget] = useState<PricingStandard | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editName, setEditName] = useState("")
+  const [editModels, setEditModels] = useState<ModelPricing[]>([])
+  const [deleteTarget, setDeleteTarget] = useState<PricingStandard | null>(null)
 
   // Create new dialog
-  const [showCreate, setShowCreate] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [newModels, setNewModels] = useState<ModelPricing[]>([{ ...EMPTY_MODEL }]);
-  const { pending: mutating, run: runMutation } = useGuardedAsync();
+  const [showCreate, setShowCreate] = useState(false)
+  const [newName, setNewName] = useState("")
+  const [newModels, setNewModels] = useState<ModelPricing[]>([{ ...EMPTY_MODEL }])
+  const { pending: mutating, run: runMutation } = useGuardedAsync()
 
   const handleCreate = () =>
     runMutation(async () => {
       try {
-        await createPricingStandard(newName, newModels.filter((m) => m.modelName));
-        toast.success(t("tokenCalculator.toasts.created"));
-        setShowCreate(false);
-        setNewName("");
-        setNewModels([{ ...EMPTY_MODEL }]);
-        onRefresh();
+        await createPricingStandard(
+          newName,
+          newModels.filter((m) => m.modelName),
+        )
+        toast.success(t("tokenCalculator.toasts.created"))
+        setShowCreate(false)
+        setNewName("")
+        setNewModels([{ ...EMPTY_MODEL }])
+        onRefresh()
       } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
-        toast.error(msg.includes("already exists") ? t("tokenCalculator.toasts.duplicateName") : t("tokenCalculator.toasts.createFailed"));
+        const msg = e instanceof Error ? e.message : String(e)
+        toast.error(
+          msg.includes("already exists")
+            ? t("tokenCalculator.toasts.duplicateName")
+            : t("tokenCalculator.toasts.createFailed"),
+        )
       }
-    });
+    })
 
   const handleDelete = () =>
     runMutation(async () => {
-      if (!deleteTarget) return;
+      if (!deleteTarget) return
       try {
-        await deletePricingStandard(deleteTarget.id);
-        toast.success(t("tokenCalculator.toasts.deleted"));
-        setDeleteTarget(null);
-        onRefresh();
+        await deletePricingStandard(deleteTarget.id)
+        toast.success(t("tokenCalculator.toasts.deleted"))
+        setDeleteTarget(null)
+        onRefresh()
       } catch {
-        toast.error(t("tokenCalculator.toasts.deleteFailed"));
+        toast.error(t("tokenCalculator.toasts.deleteFailed"))
       }
-    });
+    })
 
   const startEdit = (s: PricingStandard) => {
-    setEditingId(s.id);
-    setEditName(s.name);
-    setEditModels(s.models.map((m) => ({ ...m })));
-  };
+    setEditingId(s.id)
+    setEditName(s.name)
+    setEditModels(s.models.map((m) => ({ ...m })))
+  }
 
   const cancelEdit = () => {
-    setEditingId(null);
-    setEditName("");
-    setEditModels([]);
-  };
+    setEditingId(null)
+    setEditName("")
+    setEditModels([])
+  }
 
   const handleUpdate = () =>
     runMutation(async () => {
-      if (!editingId) return;
+      if (!editingId) return
       try {
         await updatePricingStandard(
           editingId,
           editName,
-          editModels.filter((m) => m.modelName)
-        );
-        toast.success(t("tokenCalculator.toasts.updated"));
-        cancelEdit();
-        onRefresh();
+          editModels.filter((m) => m.modelName),
+        )
+        toast.success(t("tokenCalculator.toasts.updated"))
+        cancelEdit()
+        onRefresh()
       } catch {
-        toast.error(t("tokenCalculator.toasts.updateFailed"));
+        toast.error(t("tokenCalculator.toasts.updateFailed"))
       }
-    });
+    })
 
   return (
     <div className="flex h-full flex-col">
-      <div className="sticky top-0 z-10 flex items-center justify-between bg-background pb-3">
-        <p className="text-sm text-muted-foreground">
-          {t("tokenCalculator.standards.subtitle")}
-        </p>
+      <div className="bg-background sticky top-0 z-10 flex items-center justify-between pb-3">
+        <p className="text-muted-foreground text-sm">{t("tokenCalculator.standards.subtitle")}</p>
         <Button size="sm" onClick={() => setShowCreate(true)}>
           <Plus className="mr-1 h-4 w-4" />
           {t("tokenCalculator.standards.add")}
@@ -326,105 +321,108 @@ function StandardsTab({
       </div>
 
       <div className="space-y-4">
-      {standards.map((s) => (
-        <Card key={s.id} className="p-4">
-          {editingId === s.id ? (
-            <div className="space-y-3">
-              <Input
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                placeholder={t("tokenCalculator.standards.namePlaceholder")}
-              />
-              <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-                <span className="flex-1">{t("tokenCalculator.modelName")}</span>
-                <span className="w-20 text-center">{t("tokenCalculator.inputPriceShort")}</span>
-                <span className="w-20 text-center">{t("tokenCalculator.cacheWriteShort")}</span>
-                <span className="w-20 text-center">{t("tokenCalculator.cacheReadShort")}</span>
-                <span className="w-20 text-center">{t("tokenCalculator.outputPriceShort")}</span>
-                <span className="w-20 text-center">{t("tokenCalculator.currencyShort")}</span>
-                <span className="w-9" />
-              </div>
-              {editModels.map((m, i) => (
-                <ModelRow
-                  key={i}
-                  model={m}
-                  onChange={(updated) => {
-                    const next = [...editModels];
-                    next[i] = updated;
-                    setEditModels(next);
-                  }}
-                  onRemove={() => setEditModels(editModels.filter((_, j) => j !== i))}
-                  t={t}
+        {standards.map((s) => (
+          <Card key={s.id} className="p-4">
+            {editingId === s.id ? (
+              <div className="space-y-3">
+                <Input
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder={t("tokenCalculator.standards.namePlaceholder")}
                 />
-              ))}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setEditModels([...editModels, { ...EMPTY_MODEL }])}
-              >
-                <Plus className="mr-1 h-3 w-3" /> {t("tokenCalculator.standards.addModel")}
-              </Button>
-              <div className="flex gap-2">
-                <Button size="sm" onClick={handleUpdate} disabled={mutating}>
-                  <Save className="mr-1 h-4 w-4" /> {t("tokenCalculator.standards.save")}
-                </Button>
-                <Button size="sm" variant="outline" onClick={cancelEdit}>
-                  <X className="mr-1 h-4 w-4" /> {t("tokenCalculator.standards.cancel")}
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div>
-              <div className="mb-3 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-semibold">{s.name}</h3>
-                {s.isBuiltIn && (
-                  <Badge variant="secondary">
-                    {t("tokenCalculator.standards.builtIn")}
-                  </Badge>
-                )}
-              </div>
-              <div className="flex gap-1">
-                <Button variant="ghost" size="icon-sm" onClick={() => startEdit(s)}>
-                  <Edit3 className="h-4 w-4" />
-                </Button>
+                <div className="text-muted-foreground flex items-center gap-2 text-xs font-medium">
+                  <span className="flex-1">{t("tokenCalculator.modelName")}</span>
+                  <span className="w-20 text-center">{t("tokenCalculator.inputPriceShort")}</span>
+                  <span className="w-20 text-center">{t("tokenCalculator.cacheWriteShort")}</span>
+                  <span className="w-20 text-center">{t("tokenCalculator.cacheReadShort")}</span>
+                  <span className="w-20 text-center">{t("tokenCalculator.outputPriceShort")}</span>
+                  <span className="w-20 text-center">{t("tokenCalculator.currencyShort")}</span>
+                  <span className="w-9" />
+                </div>
+                {editModels.map((m, i) => (
+                  <ModelRow
+                    key={i}
+                    model={m}
+                    onChange={(updated) => {
+                      const next = [...editModels]
+                      next[i] = updated
+                      setEditModels(next)
+                    }}
+                    onRemove={() => setEditModels(editModels.filter((_, j) => j !== i))}
+                    t={t}
+                  />
+                ))}
                 <Button
                   variant="ghost"
-                  size="icon-sm"
-                  onClick={() => setDeleteTarget(s)}
+                  size="sm"
+                  onClick={() => setEditModels([...editModels, { ...EMPTY_MODEL }])}
                 >
-                  <Trash2 className="h-4 w-4 text-destructive" />
+                  <Plus className="mr-1 h-3 w-3" /> {t("tokenCalculator.standards.addModel")}
                 </Button>
-              </div>
-              </div>
-              <div className="grid grid-cols-5 gap-2 text-xs font-medium text-muted-foreground">
-                <span>{t("tokenCalculator.modelName")}</span>
-                <span>{t("tokenCalculator.inputPrice")} / 1M tokens</span>
-                <span>{t("tokenCalculator.cacheWritePrice")} / 1M tokens</span>
-                <span>{t("tokenCalculator.cacheReadPrice")} / 1M tokens</span>
-                <span>{t("tokenCalculator.outputPrice")} / 1M tokens</span>
-              </div>
-              {s.models.map((m, i) => (
-                <div key={i} className="grid grid-cols-5 gap-2 py-1 text-sm">
-                  <span className="font-medium">{m.modelName}</span>
-                  <span>{displayPrice(m.inputPrice, m.currency, displayCurrency, exchangeRate)}</span>
-                  <span className="text-muted-foreground">
-                    {m.cachedWritePrice != null
-                      ? displayPrice(m.cachedWritePrice, m.currency, displayCurrency, exchangeRate)
-                      : "—"}
-                  </span>
-                  <span className="text-muted-foreground">
-                    {m.cachedReadPrice != null
-                      ? displayPrice(m.cachedReadPrice, m.currency, displayCurrency, exchangeRate)
-                      : "—"}
-                  </span>
-                  <span>{displayPrice(m.outputPrice, m.currency, displayCurrency, exchangeRate)}</span>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={handleUpdate} disabled={mutating}>
+                    <Save className="mr-1 h-4 w-4" /> {t("tokenCalculator.standards.save")}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={cancelEdit}>
+                    <X className="mr-1 h-4 w-4" /> {t("tokenCalculator.standards.cancel")}
+                  </Button>
                 </div>
-              ))}
-            </div>
-          )}
-        </Card>
-      ))}
+              </div>
+            ) : (
+              <div>
+                <div className="mb-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold">{s.name}</h3>
+                    {s.isBuiltIn && (
+                      <Badge variant="secondary">{t("tokenCalculator.standards.builtIn")}</Badge>
+                    )}
+                  </div>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon-sm" onClick={() => startEdit(s)}>
+                      <Edit3 className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon-sm" onClick={() => setDeleteTarget(s)}>
+                      <Trash2 className="text-destructive h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="text-muted-foreground grid grid-cols-5 gap-2 text-xs font-medium">
+                  <span>{t("tokenCalculator.modelName")}</span>
+                  <span>{t("tokenCalculator.inputPrice")} / 1M tokens</span>
+                  <span>{t("tokenCalculator.cacheWritePrice")} / 1M tokens</span>
+                  <span>{t("tokenCalculator.cacheReadPrice")} / 1M tokens</span>
+                  <span>{t("tokenCalculator.outputPrice")} / 1M tokens</span>
+                </div>
+                {s.models.map((m, i) => (
+                  <div key={i} className="grid grid-cols-5 gap-2 py-1 text-sm">
+                    <span className="font-medium">{m.modelName}</span>
+                    <span>
+                      {displayPrice(m.inputPrice, m.currency, displayCurrency, exchangeRate)}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {m.cachedWritePrice != null
+                        ? displayPrice(
+                            m.cachedWritePrice,
+                            m.currency,
+                            displayCurrency,
+                            exchangeRate,
+                          )
+                        : "—"}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {m.cachedReadPrice != null
+                        ? displayPrice(m.cachedReadPrice, m.currency, displayCurrency, exchangeRate)
+                        : "—"}
+                    </span>
+                    <span>
+                      {displayPrice(m.outputPrice, m.currency, displayCurrency, exchangeRate)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        ))}
       </div>
 
       {/* Create Dialog */}
@@ -434,13 +432,13 @@ function StandardsTab({
             <h2 className="mb-4 text-lg font-semibold">
               {t("tokenCalculator.standards.createTitle")}
             </h2>
-            <div className="space-y-3 max-h-[60vh] overflow-auto">
+            <div className="max-h-[60vh] space-y-3 overflow-auto">
               <Input
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder={t("tokenCalculator.standards.namePlaceholder")}
               />
-              <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+              <div className="text-muted-foreground flex items-center gap-2 text-xs font-medium">
                 <span className="flex-1">{t("tokenCalculator.modelName")}</span>
                 <span className="w-20 text-center">{t("tokenCalculator.inputPriceShort")}</span>
                 <span className="w-20 text-center">{t("tokenCalculator.cacheWriteShort")}</span>
@@ -454,9 +452,9 @@ function StandardsTab({
                   key={i}
                   model={m}
                   onChange={(updated) => {
-                    const next = [...newModels];
-                    next[i] = updated;
-                    setNewModels(next);
+                    const next = [...newModels]
+                    next[i] = updated
+                    setNewModels(next)
                   }}
                   onRemove={() => setNewModels(newModels.filter((_, j) => j !== i))}
                   t={t}
@@ -476,7 +474,9 @@ function StandardsTab({
               </Button>
               <Button
                 onClick={handleCreate}
-                disabled={mutating || !newName.trim() || newModels.every((m) => !m.modelName.trim())}
+                disabled={
+                  mutating || !newName.trim() || newModels.every((m) => !m.modelName.trim())
+                }
               >
                 {t("tokenCalculator.standards.create")}
               </Button>
@@ -496,14 +496,18 @@ function StandardsTab({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t("tokenCalculator.standards.cancel")}</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} disabled={mutating} className="bg-destructive text-destructive-foreground">
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={mutating}
+              className="bg-destructive text-destructive-foreground"
+            >
               {t("tokenCalculator.standards.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>
-  );
+  )
 }
 
 // ─── Model Row ──────────────────────────────────────────────────────
@@ -513,10 +517,10 @@ function ModelRow({
   onRemove,
   t,
 }: {
-  model: ModelPricing;
-  onChange: (m: ModelPricing) => void;
-  onRemove: () => void;
-  t: (key: string) => string;
+  model: ModelPricing
+  onChange: (m: ModelPricing) => void
+  onRemove: () => void
+  t: (key: string) => string
 }) {
   return (
     <div className="flex items-center gap-2">
@@ -533,9 +537,7 @@ function ModelRow({
         step="any"
         placeholder={t("tokenCalculator.inputPriceShort")}
         value={model.inputPrice || ""}
-        onChange={(e) =>
-          onChange({ ...model, inputPrice: parseNonNegativeNumber(e.target.value) })
-        }
+        onChange={(e) => onChange({ ...model, inputPrice: parseNonNegativeNumber(e.target.value) })}
       />
       <Input
         className="w-20"
@@ -545,8 +547,8 @@ function ModelRow({
         placeholder={t("tokenCalculator.cacheWriteShort")}
         value={model.cachedWritePrice ?? ""}
         onChange={(e) => {
-          const v = e.target.value;
-          onChange({ ...model, cachedWritePrice: v === "" ? null : parseNonNegativeNumber(v) });
+          const v = e.target.value
+          onChange({ ...model, cachedWritePrice: v === "" ? null : parseNonNegativeNumber(v) })
         }}
       />
       <Input
@@ -557,8 +559,8 @@ function ModelRow({
         placeholder={t("tokenCalculator.cacheReadShort")}
         value={model.cachedReadPrice ?? ""}
         onChange={(e) => {
-          const v = e.target.value;
-          onChange({ ...model, cachedReadPrice: v === "" ? null : parseNonNegativeNumber(v) });
+          const v = e.target.value
+          onChange({ ...model, cachedReadPrice: v === "" ? null : parseNonNegativeNumber(v) })
         }}
       />
       <Input
@@ -572,10 +574,7 @@ function ModelRow({
           onChange({ ...model, outputPrice: parseNonNegativeNumber(e.target.value) })
         }
       />
-      <Select
-        value={model.currency}
-        onValueChange={(v) => onChange({ ...model, currency: v })}
-      >
+      <Select value={model.currency} onValueChange={(v) => onChange({ ...model, currency: v })}>
         <SelectTrigger className="w-20">
           <SelectValue />
         </SelectTrigger>
@@ -588,18 +587,18 @@ function ModelRow({
         <X className="h-4 w-4" />
       </Button>
     </div>
-  );
+  )
 }
 
 // ─── Compare Tab ────────────────────────────────────────────────────
 
 type SelectedModel = {
-  standardId: string;
-  standardName: string;
-  model: ModelPricing;
-};
+  standardId: string
+  standardName: string
+  model: ModelPricing
+}
 
-type CompareMode = "workload" | "budget";
+type CompareMode = "workload" | "budget"
 
 function CompareTab({
   standards,
@@ -607,180 +606,257 @@ function CompareTab({
   exchangeRate,
   t,
 }: {
-  standards: PricingStandard[];
-  displayCurrency: DisplayCurrency;
-  exchangeRate: number;
-  t: TranslateFn;
+  standards: PricingStandard[]
+  displayCurrency: DisplayCurrency
+  exchangeRate: number
+  t: TranslateFn
 }) {
-  const tokenUnits = useMemo(() => getTokenUnits(t), [t]);
-  const [mode, setMode] = useState<CompareMode>("workload");
-  const [selectedModels, setSelectedModels] = useState<SelectedModel[]>([]);
+  const tokenUnits = useMemo(() => getTokenUnits(t), [t])
+  const [mode, setMode] = useState<CompareMode>("workload")
+  const [selectedModels, setSelectedModels] = useState<SelectedModel[]>([])
 
   // Selection state
-  const [selStandardId, setSelStandardId] = useState("");
-  const [selModelName, setSelModelName] = useState("");
+  const [selStandardId, setSelStandardId] = useState("")
+  const [selModelName, setSelModelName] = useState("")
 
   // Workload inputs
-  const [inputTokens, setInputTokens] = useState(1);
-  const [inputUnit, setInputUnit] = useState("million");
-  const [outputTokens, setOutputTokens] = useState(1);
-  const [outputUnit, setOutputUnit] = useState("million");
-  const [ratio, setRatio] = useState(1); // input:output ratio, default 1:1
+  const [inputTokens, setInputTokens] = useState(1)
+  const [inputUnit, setInputUnit] = useState("million")
+  const [outputTokens, setOutputTokens] = useState(1)
+  const [outputUnit, setOutputUnit] = useState("million")
+  const [ratio, setRatio] = useState(1) // input:output ratio, default 1:1
 
   // When ratio changes, redistribute total tokens keeping units
   const handleRatioChange = (newRatio: number) => {
-    setRatio(newRatio);
-    const total = actualInputTokens + actualOutputTokens;
-    if (total <= 0) return;
-    const newInputActual = Math.round(total * newRatio / (newRatio + 1));
-    const newOutputActual = total - newInputActual;
-    setInputTokens(Number((newInputActual / inputMultiplier).toFixed(4)));
-    setOutputTokens(Number((newOutputActual / outputMultiplier).toFixed(4)));
-  };
+    setRatio(newRatio)
+    const total = actualInputTokens + actualOutputTokens
+    if (total <= 0) return
+    const newInputActual = Math.round((total * newRatio) / (newRatio + 1))
+    const newOutputActual = total - newInputActual
+    setInputTokens(Number((newInputActual / inputMultiplier).toFixed(4)))
+    setOutputTokens(Number((newOutputActual / outputMultiplier).toFixed(4)))
+  }
 
   // Budget input
-  const [budget, setBudget] = useState(100);
+  const [budget, setBudget] = useState(100)
 
-  const inputMultiplier = tokenUnits.find((u) => u.value === inputUnit)?.multiplier ?? 1;
-  const outputMultiplier = tokenUnits.find((u) => u.value === outputUnit)?.multiplier ?? 1;
-  const actualInputTokens = (inputTokens || 0) * inputMultiplier;
-  const actualOutputTokens = (outputTokens || 0) * outputMultiplier;
-  const ratioPresetIndex = RATIO_PRESETS.findIndex((r) => r >= ratio);
+  const inputMultiplier = tokenUnits.find((u) => u.value === inputUnit)?.multiplier ?? 1
+  const outputMultiplier = tokenUnits.find((u) => u.value === outputUnit)?.multiplier ?? 1
+  const actualInputTokens = (inputTokens || 0) * inputMultiplier
+  const actualOutputTokens = (outputTokens || 0) * outputMultiplier
+  const ratioPresetIndex = RATIO_PRESETS.findIndex((r) => r >= ratio)
   const selectedRatioPresetIndex =
-    ratioPresetIndex === -1 ? RATIO_PRESETS.length - 1 : ratioPresetIndex;
+    ratioPresetIndex === -1 ? RATIO_PRESETS.length - 1 : ratioPresetIndex
 
-  const currentStandard = standards.find((s) => s.id === selStandardId) ?? null;
+  const currentStandard = standards.find((s) => s.id === selStandardId) ?? null
 
   const addModel = () => {
-    if (!currentStandard || !selModelName) return;
-    const m = currentStandard.models.find((x) => x.modelName === selModelName);
-    if (!m) return;
+    if (!currentStandard || !selModelName) return
+    const m = currentStandard.models.find((x) => x.modelName === selModelName)
+    if (!m) return
     const alreadyAdded = selectedModels.some(
-      (sm) => sm.standardId === currentStandard.id && sm.model.modelName === m.modelName
-    );
-    if (alreadyAdded) return;
+      (sm) => sm.standardId === currentStandard.id && sm.model.modelName === m.modelName,
+    )
+    if (alreadyAdded) return
     setSelectedModels([
       ...selectedModels,
       { standardId: currentStandard.id, standardName: currentStandard.name, model: m },
-    ]);
-    setSelModelName("");
-  };
+    ])
+    setSelModelName("")
+  }
 
   const removeModel = (idx: number) => {
-    const removed = selectedModels[idx];
-    setSelectedModels(selectedModels.filter((_, i) => i !== idx));
+    const removed = selectedModels[idx]
+    setSelectedModels(selectedModels.filter((_, i) => i !== idx))
     // Clean up cache hit rate for removed model
     if (removed) {
-      const key = `${removed.standardId}::${removed.model.modelName}`;
+      const key = `${removed.standardId}::${removed.model.modelName}`
       setCacheHitRates((prev) => {
-        const next = { ...prev };
-        delete next[key];
-        return next;
-      });
+        const next = { ...prev }
+        delete next[key]
+        return next
+      })
     }
-  };
+  }
 
   // ── Cache hit rates (per model) ─────────────────────────────────
-  const [cacheHitRates, setCacheHitRates] = useState<Record<string, number>>({});
+  const [cacheHitRates, setCacheHitRates] = useState<Record<string, number>>({})
   const getHitRate = (standardId: string, modelName: string): number =>
-    cacheHitRates[`${standardId}::${modelName}`] ?? 90;
+    cacheHitRates[`${standardId}::${modelName}`] ?? 90
   const setHitRate = (standardId: string, modelName: string, rate: number) => {
     setCacheHitRates((prev) => ({
       ...prev,
       [`${standardId}::${modelName}`]: Math.min(100, Math.max(0, rate || 0)),
-    }));
-  };
+    }))
+  }
 
   // ── Workload results ─────────────────────────────────────────────
   const workloadResults = useMemo(() => {
     return selectedModels
       .map((sm) => {
-        const src = sm.model.currency;
-        const inp = convertPrice(sm.model.inputPrice, src, displayCurrency, exchangeRate);
-        const cacheWrite = sm.model.cachedWritePrice != null ? convertPrice(sm.model.cachedWritePrice, src, displayCurrency, exchangeRate) : null;
-        const cacheRead = sm.model.cachedReadPrice != null ? convertPrice(sm.model.cachedReadPrice, src, displayCurrency, exchangeRate) : null;
-        const outp = convertPrice(sm.model.outputPrice, src, displayCurrency, exchangeRate);
-        const hitRate = getHitRate(sm.standardId, sm.model.modelName);
-        const effInp = effectiveInputPrice(inp, cacheWrite, cacheRead, hitRate);
-        const cost = (actualInputTokens / 1_000_000) * effInp + (actualOutputTokens / 1_000_000) * outp;
+        const src = sm.model.currency
+        const inp = convertPrice(sm.model.inputPrice, src, displayCurrency, exchangeRate)
+        const cacheWrite =
+          sm.model.cachedWritePrice != null
+            ? convertPrice(sm.model.cachedWritePrice, src, displayCurrency, exchangeRate)
+            : null
+        const cacheRead =
+          sm.model.cachedReadPrice != null
+            ? convertPrice(sm.model.cachedReadPrice, src, displayCurrency, exchangeRate)
+            : null
+        const outp = convertPrice(sm.model.outputPrice, src, displayCurrency, exchangeRate)
+        const hitRate = getHitRate(sm.standardId, sm.model.modelName)
+        const effInp = effectiveInputPrice(inp, cacheWrite, cacheRead, hitRate)
+        const cost =
+          (actualInputTokens / 1_000_000) * effInp + (actualOutputTokens / 1_000_000) * outp
 
         // Also compute in the other currency
-        const inpUsd = convertPrice(sm.model.inputPrice, src, "USD", exchangeRate);
-        const cwUsd = sm.model.cachedWritePrice != null ? convertPrice(sm.model.cachedWritePrice, src, "USD", exchangeRate) : null;
-        const crUsd = sm.model.cachedReadPrice != null ? convertPrice(sm.model.cachedReadPrice, src, "USD", exchangeRate) : null;
-        const outpUsd = convertPrice(sm.model.outputPrice, src, "USD", exchangeRate);
-        const effUsd = effectiveInputPrice(inpUsd, cwUsd, crUsd, hitRate);
-        const costUsd = (actualInputTokens / 1_000_000) * effUsd + (actualOutputTokens / 1_000_000) * outpUsd;
+        const inpUsd = convertPrice(sm.model.inputPrice, src, "USD", exchangeRate)
+        const cwUsd =
+          sm.model.cachedWritePrice != null
+            ? convertPrice(sm.model.cachedWritePrice, src, "USD", exchangeRate)
+            : null
+        const crUsd =
+          sm.model.cachedReadPrice != null
+            ? convertPrice(sm.model.cachedReadPrice, src, "USD", exchangeRate)
+            : null
+        const outpUsd = convertPrice(sm.model.outputPrice, src, "USD", exchangeRate)
+        const effUsd = effectiveInputPrice(inpUsd, cwUsd, crUsd, hitRate)
+        const costUsd =
+          (actualInputTokens / 1_000_000) * effUsd + (actualOutputTokens / 1_000_000) * outpUsd
 
-        const inpCny = convertPrice(sm.model.inputPrice, src, "CNY", exchangeRate);
-        const cwCny = sm.model.cachedWritePrice != null ? convertPrice(sm.model.cachedWritePrice, src, "CNY", exchangeRate) : null;
-        const crCny = sm.model.cachedReadPrice != null ? convertPrice(sm.model.cachedReadPrice, src, "CNY", exchangeRate) : null;
-        const outpCny = convertPrice(sm.model.outputPrice, src, "CNY", exchangeRate);
-        const effCny = effectiveInputPrice(inpCny, cwCny, crCny, hitRate);
-        const costCny = (actualInputTokens / 1_000_000) * effCny + (actualOutputTokens / 1_000_000) * outpCny;
+        const inpCny = convertPrice(sm.model.inputPrice, src, "CNY", exchangeRate)
+        const cwCny =
+          sm.model.cachedWritePrice != null
+            ? convertPrice(sm.model.cachedWritePrice, src, "CNY", exchangeRate)
+            : null
+        const crCny =
+          sm.model.cachedReadPrice != null
+            ? convertPrice(sm.model.cachedReadPrice, src, "CNY", exchangeRate)
+            : null
+        const outpCny = convertPrice(sm.model.outputPrice, src, "CNY", exchangeRate)
+        const effCny = effectiveInputPrice(inpCny, cwCny, crCny, hitRate)
+        const costCny =
+          (actualInputTokens / 1_000_000) * effCny + (actualOutputTokens / 1_000_000) * outpCny
 
-        return { ...sm, inputPriceConv: inp, cacheWritePriceConv: cacheWrite, cacheReadPriceConv: cacheRead, outputPriceConv: outp, hitRate, cost, costUsd, costCny };
+        return {
+          ...sm,
+          inputPriceConv: inp,
+          cacheWritePriceConv: cacheWrite,
+          cacheReadPriceConv: cacheRead,
+          outputPriceConv: outp,
+          hitRate,
+          cost,
+          costUsd,
+          costCny,
+        }
       })
-      .sort((a, b) => a.cost - b.cost);
-  }, [selectedModels, actualInputTokens, actualOutputTokens, displayCurrency, exchangeRate, cacheHitRates]);
+      .sort((a, b) => a.cost - b.cost)
+  }, [
+    selectedModels,
+    actualInputTokens,
+    actualOutputTokens,
+    displayCurrency,
+    exchangeRate,
+    cacheHitRates,
+  ])
 
   // ── Budget results ───────────────────────────────────────────────
   const budgetResults = useMemo(() => {
     return selectedModels
       .map((sm) => {
-        const inp = convertPrice(sm.model.inputPrice, sm.model.currency, displayCurrency, exchangeRate);
-        const cacheWrite = sm.model.cachedWritePrice != null
-          ? convertPrice(sm.model.cachedWritePrice, sm.model.currency, displayCurrency, exchangeRate)
-          : null;
-        const cacheRead = sm.model.cachedReadPrice != null
-          ? convertPrice(sm.model.cachedReadPrice, sm.model.currency, displayCurrency, exchangeRate)
-          : null;
-        const outp = convertPrice(sm.model.outputPrice, sm.model.currency, displayCurrency, exchangeRate);
-        const hitRate = getHitRate(sm.standardId, sm.model.modelName);
-        const effInp = effectiveInputPrice(inp, cacheWrite, cacheRead, hitRate);
-        const maxInput = effInp > 0 ? Math.floor(budget / effInp * 1_000_000) : Number.MAX_SAFE_INTEGER;
-        const maxOutput = outp > 0 ? Math.floor(budget / outp * 1_000_000) : Number.MAX_SAFE_INTEGER;
-        const mixedPrice = mixedPricePerMillionTokens(effInp, outp, ratio);
-        const maxMixed = mixedPrice > 0 ? Math.floor(budget / mixedPrice * 1_000_000) : Number.MAX_SAFE_INTEGER;
-        return { ...sm, inputPriceConv: inp, cacheWritePriceConv: cacheWrite, cacheReadPriceConv: cacheRead, outputPriceConv: outp, hitRate, maxInput, maxOutput, maxMixed };
+        const inp = convertPrice(
+          sm.model.inputPrice,
+          sm.model.currency,
+          displayCurrency,
+          exchangeRate,
+        )
+        const cacheWrite =
+          sm.model.cachedWritePrice != null
+            ? convertPrice(
+                sm.model.cachedWritePrice,
+                sm.model.currency,
+                displayCurrency,
+                exchangeRate,
+              )
+            : null
+        const cacheRead =
+          sm.model.cachedReadPrice != null
+            ? convertPrice(
+                sm.model.cachedReadPrice,
+                sm.model.currency,
+                displayCurrency,
+                exchangeRate,
+              )
+            : null
+        const outp = convertPrice(
+          sm.model.outputPrice,
+          sm.model.currency,
+          displayCurrency,
+          exchangeRate,
+        )
+        const hitRate = getHitRate(sm.standardId, sm.model.modelName)
+        const effInp = effectiveInputPrice(inp, cacheWrite, cacheRead, hitRate)
+        const maxInput =
+          effInp > 0 ? Math.floor((budget / effInp) * 1_000_000) : Number.MAX_SAFE_INTEGER
+        const maxOutput =
+          outp > 0 ? Math.floor((budget / outp) * 1_000_000) : Number.MAX_SAFE_INTEGER
+        const mixedPrice = mixedPricePerMillionTokens(effInp, outp, ratio)
+        const maxMixed =
+          mixedPrice > 0 ? Math.floor((budget / mixedPrice) * 1_000_000) : Number.MAX_SAFE_INTEGER
+        return {
+          ...sm,
+          inputPriceConv: inp,
+          cacheWritePriceConv: cacheWrite,
+          cacheReadPriceConv: cacheRead,
+          outputPriceConv: outp,
+          hitRate,
+          maxInput,
+          maxOutput,
+          maxMixed,
+        }
       })
-      .sort((a, b) => b.maxMixed - a.maxMixed);
-  }, [selectedModels, budget, ratio, displayCurrency, exchangeRate, cacheHitRates]);
+      .sort((a, b) => b.maxMixed - a.maxMixed)
+  }, [selectedModels, budget, ratio, displayCurrency, exchangeRate, cacheHitRates])
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        {t("tokenCalculator.compare.subtitle")}
-      </p>
+      <p className="text-muted-foreground text-sm">{t("tokenCalculator.compare.subtitle")}</p>
 
       {/* ── Model selector ─────────────────────────────────── */}
-      <Card className="p-4 space-y-3">
-        <p className="text-xs font-medium text-muted-foreground">
+      <Card className="space-y-3 p-4">
+        <p className="text-muted-foreground text-xs font-medium">
           {t("tokenCalculator.compare.selectModels")}
         </p>
         <div className="flex gap-2">
-          <Select value={selStandardId} onValueChange={(v) => { setSelStandardId(v); setSelModelName(""); }}>
+          <Select
+            value={selStandardId}
+            onValueChange={(v) => {
+              setSelStandardId(v)
+              setSelModelName("")
+            }}
+          >
             <SelectTrigger className="w-[200px]">
               <SelectValue placeholder={t("tokenCalculator.compare.selectStandard")} />
             </SelectTrigger>
             <SelectContent>
               {standards.map((s) => (
-                <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                <SelectItem key={s.id} value={s.id}>
+                  {s.name}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
 
-          <Select
-            value={selModelName}
-            onValueChange={setSelModelName}
-            disabled={!currentStandard}
-          >
+          <Select value={selModelName} onValueChange={setSelModelName} disabled={!currentStandard}>
             <SelectTrigger className="w-[200px]">
               <SelectValue placeholder={t("tokenCalculator.compare.selectModel")} />
             </SelectTrigger>
             <SelectContent>
               {currentStandard?.models.map((m, i) => (
-                <SelectItem key={i} value={m.modelName}>{m.modelName}</SelectItem>
+                <SelectItem key={i} value={m.modelName}>
+                  {m.modelName}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -804,7 +880,7 @@ function CompareTab({
                 <span className="text-muted-foreground text-[10px]">{sm.standardName}</span>
                 <span className="font-medium">{sm.model.modelName}</span>
                 <button
-                  className="ml-0.5 rounded-full p-0.5 hover:bg-muted-foreground/20 transition-colors"
+                  className="hover:bg-muted-foreground/20 ml-0.5 rounded-full p-0.5 transition-colors"
                   onClick={() => removeModel(i)}
                   aria-label={t("tokenCalculator.compare.removeModel")}
                 >
@@ -818,17 +894,15 @@ function CompareTab({
 
       {/* ── Mode toggle ────────────────────────────────────── */}
       <div className="flex items-center gap-2 select-none">
-        <span className="text-xs text-muted-foreground">
-          {t("tokenCalculator.compare.mode")}:
-        </span>
-        <div className="flex rounded-md border border-border">
+        <span className="text-muted-foreground text-xs">{t("tokenCalculator.compare.mode")}:</span>
+        <div className="border-border flex rounded-md border">
           <Button
             size="xs"
             className={cn(
               "rounded-r-none border-0",
               mode === "workload"
                 ? "bg-primary text-primary-foreground hover:bg-primary/80"
-                : "bg-transparent text-muted-foreground hover:bg-muted",
+                : "text-muted-foreground hover:bg-muted bg-transparent",
             )}
             onClick={() => setMode("workload")}
           >
@@ -840,7 +914,7 @@ function CompareTab({
               "rounded-l-none border-0",
               mode === "budget"
                 ? "bg-primary text-primary-foreground hover:bg-primary/80"
-                : "bg-transparent text-muted-foreground hover:bg-muted",
+                : "text-muted-foreground hover:bg-muted bg-transparent",
             )}
             onClick={() => setMode("budget")}
           >
@@ -853,7 +927,7 @@ function CompareTab({
       {mode === "workload" && (
         <div className="flex flex-wrap items-end gap-3">
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">
+            <label className="text-muted-foreground text-xs">
               {t("tokenCalculator.compare.inputTokens")}
             </label>
             <div className="flex gap-1">
@@ -866,7 +940,7 @@ function CompareTab({
                 onChange={(e) => setInputTokens(parseNonNegativeNumber(e.target.value))}
               />
               <Select value={inputUnit} onValueChange={setInputUnit}>
-                <SelectTrigger className="w-[72px] h-9 text-xs">
+                <SelectTrigger className="h-9 w-[72px] text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -880,7 +954,7 @@ function CompareTab({
             </div>
           </div>
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">
+            <label className="text-muted-foreground text-xs">
               {t("tokenCalculator.compare.outputTokens")}
             </label>
             <div className="flex gap-1">
@@ -893,7 +967,7 @@ function CompareTab({
                 onChange={(e) => setOutputTokens(parseNonNegativeNumber(e.target.value))}
               />
               <Select value={outputUnit} onValueChange={setOutputUnit}>
-                <SelectTrigger className="w-[72px] h-9 text-xs">
+                <SelectTrigger className="h-9 w-[72px] text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -906,14 +980,14 @@ function CompareTab({
               </Select>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground pb-2">
+          <p className="text-muted-foreground pb-2 text-xs">
             {t("tokenCalculator.compare.totalTokens", {
               total: (actualInputTokens + actualOutputTokens).toLocaleString(),
             })}
           </p>
           {/* Ratio slider */}
           <div className="flex items-center gap-3 select-none">
-            <label className="text-xs text-muted-foreground whitespace-nowrap">
+            <label className="text-muted-foreground text-xs whitespace-nowrap">
               {t("tokenCalculator.compare.ratioLabel")}:
             </label>
             <input
@@ -923,25 +997,35 @@ function CompareTab({
               step={1}
               value={selectedRatioPresetIndex}
               onChange={(e) => {
-                const idx = parseNonNegativeInteger(e.target.value);
-                handleRatioChange(RATIO_PRESETS[idx] ?? 1);
+                const idx = parseNonNegativeInteger(e.target.value)
+                handleRatioChange(RATIO_PRESETS[idx] ?? 1)
               }}
-              className="flex-1 h-1.5 appearance-none bg-muted rounded-full accent-primary cursor-pointer
-                [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:shadow-sm"
+              className="bg-muted accent-primary [&::-webkit-slider-thumb]:bg-primary h-1.5 flex-1 cursor-pointer appearance-none rounded-full [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:shadow-sm"
             />
-            <span className="text-xs font-medium text-foreground min-w-[50px] text-right">
+            <span className="text-foreground min-w-[50px] text-right text-xs font-medium">
               {ratio} : 1
             </span>
           </div>
-          <div className="w-full rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground leading-relaxed space-y-1">
+          <div className="bg-muted/50 text-muted-foreground w-full space-y-1 rounded-md px-3 py-2 text-xs leading-relaxed">
             <p>
-              <strong>{t("tokenCalculator.compare.formulaInputTokens")}</strong> = {t("tokenCalculator.compare.formulaTotal")} × {ratio} / ({ratio} + 1) &nbsp;|&nbsp; <strong>{t("tokenCalculator.compare.formulaOutputTokens")}</strong> = {t("tokenCalculator.compare.formulaTotal")} × 1 / ({ratio} + 1)
+              <strong>{t("tokenCalculator.compare.formulaInputTokens")}</strong> ={" "}
+              {t("tokenCalculator.compare.formulaTotal")} × {ratio} / ({ratio} + 1) &nbsp;|&nbsp;{" "}
+              <strong>{t("tokenCalculator.compare.formulaOutputTokens")}</strong> ={" "}
+              {t("tokenCalculator.compare.formulaTotal")} × 1 / ({ratio} + 1)
             </p>
             <p>
-              {t("tokenCalculator.compare.formulaCost")} = (<strong>{t("tokenCalculator.compare.formulaInputTokens")}</strong> / 1M) × <strong>{t("tokenCalculator.compare.formulaEffInput")}</strong> + (<strong>{t("tokenCalculator.compare.formulaOutputTokens")}</strong> / 1M) × <strong>{t("tokenCalculator.compare.formulaOutputPrice")}</strong>
+              {t("tokenCalculator.compare.formulaCost")} = (
+              <strong>{t("tokenCalculator.compare.formulaInputTokens")}</strong> / 1M) ×{" "}
+              <strong>{t("tokenCalculator.compare.formulaEffInput")}</strong> + (
+              <strong>{t("tokenCalculator.compare.formulaOutputTokens")}</strong> / 1M) ×{" "}
+              <strong>{t("tokenCalculator.compare.formulaOutputPrice")}</strong>
             </p>
             <p>
-              {t("tokenCalculator.compare.formulaEffInput")} = ((100 − {t("tokenCalculator.compare.cacheHitRate")}%) × <strong>{t("tokenCalculator.compare.cacheWritePriceCol")}</strong> + {t("tokenCalculator.compare.cacheHitRate")}% × <strong>{t("tokenCalculator.compare.cacheReadPriceCol")}</strong>) / 100
+              {t("tokenCalculator.compare.formulaEffInput")} = ((100 −{" "}
+              {t("tokenCalculator.compare.cacheHitRate")}%) ×{" "}
+              <strong>{t("tokenCalculator.compare.cacheWritePriceCol")}</strong> +{" "}
+              {t("tokenCalculator.compare.cacheHitRate")}% ×{" "}
+              <strong>{t("tokenCalculator.compare.cacheReadPriceCol")}</strong>) / 100
             </p>
           </div>
         </div>
@@ -951,7 +1035,7 @@ function CompareTab({
       {mode === "budget" && (
         <div className="flex flex-wrap items-end gap-3">
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">
+            <label className="text-muted-foreground text-xs">
               {t("tokenCalculator.compare.budgetAmount")}
             </label>
             <Input
@@ -963,11 +1047,9 @@ function CompareTab({
               onChange={(e) => setBudget(parseNonNegativeNumber(e.target.value))}
             />
           </div>
-          <p className="text-xs text-muted-foreground pb-2">
-            {displayCurrency}
-          </p>
+          <p className="text-muted-foreground pb-2 text-xs">{displayCurrency}</p>
           <div className="flex min-w-[220px] items-center gap-3 pb-2 select-none">
-            <label className="text-xs text-muted-foreground whitespace-nowrap">
+            <label className="text-muted-foreground text-xs whitespace-nowrap">
               {t("tokenCalculator.compare.ratioLabel")}:
             </label>
             <input
@@ -977,28 +1059,39 @@ function CompareTab({
               step={1}
               value={selectedRatioPresetIndex}
               onChange={(e) => {
-                const idx = parseNonNegativeInteger(e.target.value);
-                setRatio(RATIO_PRESETS[idx] ?? 1);
+                const idx = parseNonNegativeInteger(e.target.value)
+                setRatio(RATIO_PRESETS[idx] ?? 1)
               }}
-              className="h-1.5 flex-1 appearance-none rounded-full bg-muted accent-primary cursor-pointer
-                [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:shadow-sm"
+              className="bg-muted accent-primary [&::-webkit-slider-thumb]:bg-primary h-1.5 flex-1 cursor-pointer appearance-none rounded-full [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:shadow-sm"
             />
-            <span className="min-w-[50px] text-right text-xs font-medium text-foreground">
+            <span className="text-foreground min-w-[50px] text-right text-xs font-medium">
               {ratio} : 1
             </span>
           </div>
-          <div className="w-full rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground leading-relaxed">
+          <div className="bg-muted/50 text-muted-foreground w-full rounded-md px-3 py-2 text-xs leading-relaxed">
             <p>
-              <strong>{t("tokenCalculator.compare.maxInputTokens")}</strong> = {t("tokenCalculator.compare.budgetAmount")} / <strong>{t("tokenCalculator.compare.formulaEffInput")}</strong> × 1M
+              <strong>{t("tokenCalculator.compare.maxInputTokens")}</strong> ={" "}
+              {t("tokenCalculator.compare.budgetAmount")} /{" "}
+              <strong>{t("tokenCalculator.compare.formulaEffInput")}</strong> × 1M
             </p>
             <p>
-              <strong>{t("tokenCalculator.compare.maxOutputTokens")}</strong> = {t("tokenCalculator.compare.budgetAmount")} / <strong>{t("tokenCalculator.compare.formulaOutputPrice")}</strong> × 1M
+              <strong>{t("tokenCalculator.compare.maxOutputTokens")}</strong> ={" "}
+              {t("tokenCalculator.compare.budgetAmount")} /{" "}
+              <strong>{t("tokenCalculator.compare.formulaOutputPrice")}</strong> × 1M
             </p>
             <p>
-              <strong>{t("tokenCalculator.compare.maxMixedTokens")}</strong> = {t("tokenCalculator.compare.budgetAmount")} / ((<strong>{t("tokenCalculator.compare.formulaEffInput")}</strong> × {ratio} + <strong>{t("tokenCalculator.compare.formulaOutputPrice")}</strong>) / ({ratio} + 1)) × 1M
+              <strong>{t("tokenCalculator.compare.maxMixedTokens")}</strong> ={" "}
+              {t("tokenCalculator.compare.budgetAmount")} / ((
+              <strong>{t("tokenCalculator.compare.formulaEffInput")}</strong> × {ratio} +{" "}
+              <strong>{t("tokenCalculator.compare.formulaOutputPrice")}</strong>) / ({ratio} + 1)) ×
+              1M
             </p>
             <p className="mt-0.5 text-[10px] opacity-60">
-              {t("tokenCalculator.compare.formulaEffInput")} = ((100 − {t("tokenCalculator.compare.cacheHitRate")}%) × {t("tokenCalculator.compare.cacheWritePriceCol")} + {t("tokenCalculator.compare.cacheHitRate")}% × {t("tokenCalculator.compare.cacheReadPriceCol")}) / 100
+              {t("tokenCalculator.compare.formulaEffInput")} = ((100 −{" "}
+              {t("tokenCalculator.compare.cacheHitRate")}%) ×{" "}
+              {t("tokenCalculator.compare.cacheWritePriceCol")} +{" "}
+              {t("tokenCalculator.compare.cacheHitRate")}% ×{" "}
+              {t("tokenCalculator.compare.cacheReadPriceCol")}) / 100
             </p>
           </div>
         </div>
@@ -1013,72 +1106,80 @@ function CompareTab({
                 <th className="pb-2 text-left">{t("tokenCalculator.modelName")}</th>
                 <th className="pb-2 text-center">{t("tokenCalculator.compare.cacheHitRate")}</th>
                 <th className="pb-2 text-right">{t("tokenCalculator.compare.inputPriceCol")}</th>
-                <th className="pb-2 text-right">{t("tokenCalculator.compare.cacheWritePriceCol")}</th>
-                <th className="pb-2 text-right">{t("tokenCalculator.compare.cacheReadPriceCol")}</th>
+                <th className="pb-2 text-right">
+                  {t("tokenCalculator.compare.cacheWritePriceCol")}
+                </th>
+                <th className="pb-2 text-right">
+                  {t("tokenCalculator.compare.cacheReadPriceCol")}
+                </th>
                 <th className="pb-2 text-right">{t("tokenCalculator.compare.outputPriceCol")}</th>
-                <th className="pb-2 text-right">{t("tokenCalculator.compare.totalCost")} (USD / CNY)</th>
+                <th className="pb-2 text-right">
+                  {t("tokenCalculator.compare.totalCost")} (USD / CNY)
+                </th>
               </tr>
             </thead>
             <tbody>
               {workloadResults.map((r, i) => {
-                const cheapest = workloadResults[0]?.costUsd ?? 0;
-                const costRatio = cheapest > 0 ? r.costUsd / cheapest : 1;
-                const hasCache = hasCachePricing(r.model);
+                const cheapest = workloadResults[0]?.costUsd ?? 0
+                const costRatio = cheapest > 0 ? r.costUsd / cheapest : 1
+                const hasCache = hasCachePricing(r.model)
                 return (
-                  <tr key={i} className="border-b border-muted last:border-0">
+                  <tr key={i} className="border-muted border-b last:border-0">
                     <td className="py-2">
                       <span className="font-medium">{r.model.modelName}</span>
-                      <span className="ml-1.5 text-xs text-muted-foreground">
-                        {r.standardName}
-                      </span>
+                      <span className="text-muted-foreground ml-1.5 text-xs">{r.standardName}</span>
                     </td>
                     <td className="py-2 text-center">
                       {hasCache ? (
                         <div className="inline-flex items-center gap-0.5">
                           <Input
-                            className="w-14 h-7 text-xs text-center px-1"
+                            className="h-7 w-14 px-1 text-center text-xs"
                             type="number"
                             min={0}
                             max={100}
                             step={5}
                             value={r.hitRate || ""}
                             onChange={(e) =>
-                              setHitRate(r.standardId, r.model.modelName, parseNonNegativeInteger(e.target.value))
+                              setHitRate(
+                                r.standardId,
+                                r.model.modelName,
+                                parseNonNegativeInteger(e.target.value),
+                              )
                             }
                           />
-                          <span className="text-xs text-muted-foreground">%</span>
+                          <span className="text-muted-foreground text-xs">%</span>
                         </div>
                       ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
+                        <span className="text-muted-foreground text-xs">—</span>
                       )}
                     </td>
-                    <td className="py-2 text-right text-muted-foreground">
+                    <td className="text-muted-foreground py-2 text-right">
                       {formatPrice(r.inputPriceConv, displayCurrency)}
                     </td>
-                    <td className="py-2 text-right text-muted-foreground">
+                    <td className="text-muted-foreground py-2 text-right">
                       {r.cacheWritePriceConv != null
                         ? formatPrice(r.cacheWritePriceConv, displayCurrency)
                         : "—"}
                     </td>
-                    <td className="py-2 text-right text-muted-foreground">
+                    <td className="text-muted-foreground py-2 text-right">
                       {r.cacheReadPriceConv != null
                         ? formatPrice(r.cacheReadPriceConv, displayCurrency)
                         : "—"}
                     </td>
-                    <td className="py-2 text-right text-muted-foreground">
+                    <td className="text-muted-foreground py-2 text-right">
                       {formatPrice(r.outputPriceConv, displayCurrency)}
                     </td>
                     <td className="py-2 text-right">
                       <div className="flex flex-col items-end gap-0.5">
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-muted-foreground text-xs">
                           {formatCost(r.costUsd, "USD")}
                         </span>
                         <span
                           className={
                             i === 0
-                              ? "font-semibold text-green-500 text-xs"
+                              ? "text-xs font-semibold text-green-500"
                               : costRatio >= 10
-                                ? "text-red-500 text-xs"
+                                ? "text-xs text-red-500"
                                 : "text-xs"
                           }
                         >
@@ -1087,7 +1188,7 @@ function CompareTab({
                       </div>
                     </td>
                   </tr>
-                );
+                )
               })}
             </tbody>
           </table>
@@ -1102,8 +1203,12 @@ function CompareTab({
                 <th className="pb-2 text-left">{t("tokenCalculator.modelName")}</th>
                 <th className="pb-2 text-center">{t("tokenCalculator.compare.cacheHitRate")}</th>
                 <th className="pb-2 text-right">{t("tokenCalculator.compare.inputPriceCol")}</th>
-                <th className="pb-2 text-right">{t("tokenCalculator.compare.cacheWritePriceCol")}</th>
-                <th className="pb-2 text-right">{t("tokenCalculator.compare.cacheReadPriceCol")}</th>
+                <th className="pb-2 text-right">
+                  {t("tokenCalculator.compare.cacheWritePriceCol")}
+                </th>
+                <th className="pb-2 text-right">
+                  {t("tokenCalculator.compare.cacheReadPriceCol")}
+                </th>
                 <th className="pb-2 text-right">{t("tokenCalculator.compare.outputPriceCol")}</th>
                 <th className="pb-2 text-right">{t("tokenCalculator.compare.maxInputTokens")}</th>
                 <th className="pb-2 text-right">{t("tokenCalculator.compare.maxOutputTokens")}</th>
@@ -1112,68 +1217,65 @@ function CompareTab({
             </thead>
             <tbody>
               {budgetResults.map((r, i) => {
-                const hasCache = hasCachePricing(r.model);
+                const hasCache = hasCachePricing(r.model)
                 return (
-                <tr key={i} className="border-b border-muted last:border-0">
-                  <td className="py-2">
-                    <span className="font-medium">{r.model.modelName}</span>
-                    <span className="ml-1.5 text-xs text-muted-foreground">
-                      {r.standardName}
-                    </span>
-                  </td>
-                  <td className="py-2 text-center">
-                    {hasCache ? (
-                      <div className="inline-flex items-center gap-0.5">
-                        <Input
-                          className="w-14 h-7 text-xs text-center px-1"
-                          type="number"
-                          min={0}
-                          max={100}
-                          step={5}
-                          value={r.hitRate || ""}
-                          onChange={(e) =>
-                            setHitRate(r.standardId, r.model.modelName, parseNonNegativeInteger(e.target.value))
-                          }
-                        />
-                        <span className="text-xs text-muted-foreground">%</span>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    )}
-                  </td>
-                  <td className="py-2 text-right text-muted-foreground">
-                    {formatPrice(r.inputPriceConv, displayCurrency)}
-                  </td>
-                  <td className="py-2 text-right text-muted-foreground">
-                    {r.cacheWritePriceConv != null
-                      ? formatPrice(r.cacheWritePriceConv, displayCurrency)
-                      : "—"}
-                  </td>
-                  <td className="py-2 text-right text-muted-foreground">
-                    {r.cacheReadPriceConv != null
-                      ? formatPrice(r.cacheReadPriceConv, displayCurrency)
-                      : "—"}
-                  </td>
-                  <td className="py-2 text-right text-muted-foreground">
-                    {formatPrice(r.outputPriceConv, displayCurrency)}
-                  </td>
-                  <td className="py-2 text-right">
-                    {r.maxInput === Number.MAX_SAFE_INTEGER
-                      ? "∞"
-                      : r.maxInput.toLocaleString()}
-                  </td>
-                  <td className="py-2 text-right">
-                    {r.maxOutput === Number.MAX_SAFE_INTEGER
-                      ? "∞"
-                      : r.maxOutput.toLocaleString()}
-                  </td>
-                  <td className="py-2 text-right font-semibold">
-                    {r.maxMixed === Number.MAX_SAFE_INTEGER
-                      ? "∞"
-                      : r.maxMixed.toLocaleString()}
-                  </td>
-                </tr>
-              )})}
+                  <tr key={i} className="border-muted border-b last:border-0">
+                    <td className="py-2">
+                      <span className="font-medium">{r.model.modelName}</span>
+                      <span className="text-muted-foreground ml-1.5 text-xs">{r.standardName}</span>
+                    </td>
+                    <td className="py-2 text-center">
+                      {hasCache ? (
+                        <div className="inline-flex items-center gap-0.5">
+                          <Input
+                            className="h-7 w-14 px-1 text-center text-xs"
+                            type="number"
+                            min={0}
+                            max={100}
+                            step={5}
+                            value={r.hitRate || ""}
+                            onChange={(e) =>
+                              setHitRate(
+                                r.standardId,
+                                r.model.modelName,
+                                parseNonNegativeInteger(e.target.value),
+                              )
+                            }
+                          />
+                          <span className="text-muted-foreground text-xs">%</span>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">—</span>
+                      )}
+                    </td>
+                    <td className="text-muted-foreground py-2 text-right">
+                      {formatPrice(r.inputPriceConv, displayCurrency)}
+                    </td>
+                    <td className="text-muted-foreground py-2 text-right">
+                      {r.cacheWritePriceConv != null
+                        ? formatPrice(r.cacheWritePriceConv, displayCurrency)
+                        : "—"}
+                    </td>
+                    <td className="text-muted-foreground py-2 text-right">
+                      {r.cacheReadPriceConv != null
+                        ? formatPrice(r.cacheReadPriceConv, displayCurrency)
+                        : "—"}
+                    </td>
+                    <td className="text-muted-foreground py-2 text-right">
+                      {formatPrice(r.outputPriceConv, displayCurrency)}
+                    </td>
+                    <td className="py-2 text-right">
+                      {r.maxInput === Number.MAX_SAFE_INTEGER ? "∞" : r.maxInput.toLocaleString()}
+                    </td>
+                    <td className="py-2 text-right">
+                      {r.maxOutput === Number.MAX_SAFE_INTEGER ? "∞" : r.maxOutput.toLocaleString()}
+                    </td>
+                    <td className="py-2 text-right font-semibold">
+                      {r.maxMixed === Number.MAX_SAFE_INTEGER ? "∞" : r.maxMixed.toLocaleString()}
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </Card>
@@ -1181,13 +1283,13 @@ function CompareTab({
 
       {/* ── Empty state ────────────────────────────────────── */}
       {selectedModels.length === 0 && (
-        <div className="flex h-40 items-center justify-center text-muted-foreground">
+        <div className="text-muted-foreground flex h-40 items-center justify-center">
           <ArrowRightLeft className="mr-2 h-5 w-5" />
           {t("tokenCalculator.compare.selectHint")}
         </div>
       )}
     </div>
-  );
+  )
 }
 
 // ─── Calculator Tab ─────────────────────────────────────────────────
@@ -1197,49 +1299,59 @@ function CalculatorTab({
   exchangeRate,
   t,
 }: {
-  standards: PricingStandard[];
-  displayCurrency: DisplayCurrency;
-  exchangeRate: number;
-  t: TranslateFn;
+  standards: PricingStandard[]
+  displayCurrency: DisplayCurrency
+  exchangeRate: number
+  t: TranslateFn
 }) {
-  const [text, setText] = useState("");
-  const [selectedStandardId, setSelectedStandardId] = useState("");
-  const [selectedModel, setSelectedModel] = useState("");
-  const [cacheHitRate, setCacheHitRate] = useState(90);
+  const [text, setText] = useState("")
+  const [selectedStandardId, setSelectedStandardId] = useState("")
+  const [selectedModel, setSelectedModel] = useState("")
+  const [cacheHitRate, setCacheHitRate] = useState(90)
 
-  const tokenCount = estimateTokens(text);
-  const standard = standards.find((s) => s.id === selectedStandardId) ?? null;
-  const modelPricing = standard?.models.find((m) => m.modelName === selectedModel) ?? null;
+  const tokenCount = estimateTokens(text)
+  const standard = standards.find((s) => s.id === selectedStandardId) ?? null
+  const modelPricing = standard?.models.find((m) => m.modelName === selectedModel) ?? null
 
   const inputPrice = modelPricing
     ? convertPrice(modelPricing.inputPrice, modelPricing.currency, displayCurrency, exchangeRate)
-    : 0;
+    : 0
   const outputPrice = modelPricing
     ? convertPrice(modelPricing.outputPrice, modelPricing.currency, displayCurrency, exchangeRate)
-    : 0;
-  const cachedWritePrice = modelPricing?.cachedWritePrice != null
-    ? convertPrice(modelPricing.cachedWritePrice, modelPricing.currency, displayCurrency, exchangeRate)
-    : null;
-  const cachedReadPrice = modelPricing?.cachedReadPrice != null
-    ? convertPrice(modelPricing.cachedReadPrice, modelPricing.currency, displayCurrency, exchangeRate)
-    : null;
-  const usesCachePricing = modelPricing ? hasCachePricing(modelPricing) : false;
+    : 0
+  const cachedWritePrice =
+    modelPricing?.cachedWritePrice != null
+      ? convertPrice(
+          modelPricing.cachedWritePrice,
+          modelPricing.currency,
+          displayCurrency,
+          exchangeRate,
+        )
+      : null
+  const cachedReadPrice =
+    modelPricing?.cachedReadPrice != null
+      ? convertPrice(
+          modelPricing.cachedReadPrice,
+          modelPricing.currency,
+          displayCurrency,
+          exchangeRate,
+        )
+      : null
+  const usesCachePricing = modelPricing ? hasCachePricing(modelPricing) : false
   const effectiveCalculatorInputPrice = modelPricing
     ? effectiveInputPrice(
         inputPrice,
         cachedWritePrice,
         cachedReadPrice,
-        usesCachePricing ? cacheHitRate : 0
+        usesCachePricing ? cacheHitRate : 0,
       )
-    : 0;
-  const inputCost = (tokenCount / 1_000_000) * effectiveCalculatorInputPrice;
-  const outputCost = (tokenCount / 1_000_000) * outputPrice;
+    : 0
+  const inputCost = (tokenCount / 1_000_000) * effectiveCalculatorInputPrice
+  const outputCost = (tokenCount / 1_000_000) * outputPrice
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        {t("tokenCalculator.calculator.subtitle")}
-      </p>
+      <p className="text-muted-foreground text-sm">{t("tokenCalculator.calculator.subtitle")}</p>
 
       <Textarea
         className="min-h-[160px]"
@@ -1249,7 +1361,13 @@ function CalculatorTab({
       />
 
       <div className="grid grid-cols-2 gap-4">
-        <Select value={selectedStandardId} onValueChange={(v) => { setSelectedStandardId(v); setSelectedModel(""); }}>
+        <Select
+          value={selectedStandardId}
+          onValueChange={(v) => {
+            setSelectedStandardId(v)
+            setSelectedModel("")
+          }}
+        >
           <SelectTrigger>
             <SelectValue placeholder={t("tokenCalculator.calculator.selectStandard")} />
           </SelectTrigger>
@@ -1262,11 +1380,7 @@ function CalculatorTab({
           </SelectContent>
         </Select>
 
-        <Select
-          value={selectedModel}
-          onValueChange={setSelectedModel}
-          disabled={!standard}
-        >
+        <Select value={selectedModel} onValueChange={setSelectedModel} disabled={!standard}>
           <SelectTrigger>
             <SelectValue placeholder={t("tokenCalculator.calculator.selectModel")} />
           </SelectTrigger>
@@ -1282,7 +1396,7 @@ function CalculatorTab({
 
       {modelPricing && usesCachePricing && (
         <div className="flex items-center gap-2">
-          <label className="text-xs text-muted-foreground">
+          <label className="text-muted-foreground text-xs">
             {t("tokenCalculator.compare.cacheHitRate")}:
           </label>
           <Input
@@ -1296,7 +1410,7 @@ function CalculatorTab({
               setCacheHitRate(Math.min(100, parseNonNegativeInteger(e.target.value)))
             }
           />
-          <span className="text-xs text-muted-foreground">%</span>
+          <span className="text-muted-foreground text-xs">%</span>
         </div>
       )}
 
@@ -1304,7 +1418,7 @@ function CalculatorTab({
         <Card className="p-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-muted-foreground text-xs">
                 {t("tokenCalculator.calculator.estimatedTokens")}
               </p>
               <p className="text-2xl font-bold">{tokenCount.toLocaleString()}</p>
@@ -1312,26 +1426,22 @@ function CalculatorTab({
             {modelPricing && (
               <>
                 <div>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-muted-foreground text-xs">
                     {t("tokenCalculator.calculator.inputCost")}
                   </p>
-                  <p className="text-xl font-semibold">
-                    {formatCost(inputCost, displayCurrency)}
-                  </p>
+                  <p className="text-xl font-semibold">{formatCost(inputCost, displayCurrency)}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-muted-foreground text-xs">
                     {t("tokenCalculator.calculator.outputCost")}
                   </p>
-                  <p className="text-xl font-semibold">
-                    {formatCost(outputCost, displayCurrency)}
-                  </p>
+                  <p className="text-xl font-semibold">{formatCost(outputCost, displayCurrency)}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-muted-foreground text-xs">
                     {t("tokenCalculator.calculator.totalCost")}
                   </p>
-                  <p className="text-xl font-semibold text-primary">
+                  <p className="text-primary text-xl font-semibold">
                     {formatCost(inputCost + outputCost, displayCurrency)}
                   </p>
                 </div>
@@ -1339,7 +1449,7 @@ function CalculatorTab({
             )}
           </div>
           {modelPricing && (
-            <p className="mt-2 text-xs text-muted-foreground">
+            <p className="text-muted-foreground mt-2 text-xs">
               {t("tokenCalculator.calculator.pricingInfo", {
                 model: modelPricing.modelName,
                 inputPrice: formatPrice(effectiveCalculatorInputPrice, displayCurrency),
@@ -1350,5 +1460,5 @@ function CalculatorTab({
         </Card>
       )}
     </div>
-  );
+  )
 }

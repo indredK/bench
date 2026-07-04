@@ -1,9 +1,9 @@
-import { lazy, Suspense } from "react";
-import { Cpu } from "lucide-react";
-import { FeatureFallback } from "@/features/FeatureFallback";
-import type { AppFeature } from "@/features/types";
+import { lazy, Suspense } from "react"
+import { Cpu } from "lucide-react"
+import { FeatureFallback } from "@/features/FeatureFallback"
+import type { AppFeature } from "@/features/types"
 
-const HardwareComparePage = lazy(() => import("@/features/hardware/page"));
+const HardwareComparePage = lazy(() => import("@/features/hardware/page"))
 
 export const hardwareFeature: AppFeature = {
   id: "hardware",
@@ -16,4 +16,4 @@ export const hardwareFeature: AppFeature = {
     </Suspense>
   ),
   platforms: ["macos"],
-};
+}

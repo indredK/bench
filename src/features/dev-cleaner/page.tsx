@@ -1,13 +1,13 @@
 /**
  * Page View / 页面视图: compose screen only; 只组合页面.
  */
-import { Trash2 } from "lucide-react";
-import { RuntimeFeatureGate } from "@/components/common/RuntimeFeatureGate";
-import { DevCleanerPageContent } from "@/features/dev-cleaner/components/DevCleanerPageContent";
-import { useDevCleanerController } from "@/features/dev-cleaner/hooks/useDevCleanerController";
+import { Trash2 } from "lucide-react"
+import { RuntimeFeatureGate } from "@/components/common/RuntimeFeatureGate"
+import { DevCleanerPageContent } from "@/features/dev-cleaner/components/DevCleanerPageContent"
+import { useDevCleanerController } from "@/features/dev-cleaner/hooks/useDevCleanerController"
 
 export default function DevCleaner({ feature }: { feature?: { desktopOnly?: boolean } }) {
-  const controller = useDevCleanerController();
+  const controller = useDevCleanerController()
 
   return (
     <RuntimeFeatureGate
@@ -17,5 +17,5 @@ export default function DevCleaner({ feature }: { feature?: { desktopOnly?: bool
     >
       <DevCleanerPageContent controller={controller} />
     </RuntimeFeatureGate>
-  );
+  )
 }

@@ -5,9 +5,9 @@ import {
   cleanupProjects,
   scanDevProjects,
   stopDevProjectScan,
-} from "@/lib/tauri/commands/dev-cleaner";
-import type { ProjectInfo } from "@/lib/tauri/types/dev-cleaner";
-import { openPlatformDialog } from "@/platform/dialog";
+} from "@/lib/tauri/commands/dev-cleaner"
+import type { ProjectInfo } from "@/lib/tauri/types/dev-cleaner"
+import { openPlatformDialog } from "@/platform/dialog"
 
 export const devCleanerRepository = {
   selectDirectory() {
@@ -15,15 +15,15 @@ export const devCleanerRepository = {
       directory: true,
       multiple: false,
       title: "Select Directory to Scan",
-    });
+    })
   },
   scanProjects(rootPath: string) {
-    return scanDevProjects(rootPath);
+    return scanDevProjects(rootPath)
   },
   stopScan() {
-    return stopDevProjectScan();
+    return stopDevProjectScan()
   },
   cleanupProjects(projects: ProjectInfo[]) {
-    return cleanupProjects(projects);
+    return cleanupProjects(projects)
   },
-};
+}

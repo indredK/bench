@@ -1,34 +1,34 @@
 /**
  * Test / 测试: verify updater controller behavior; 验证更新控制器行为.
  */
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { act, renderHook } from "@testing-library/react";
-import { useUpdaterController } from "@/features/updater/hooks/useUpdaterController";
-import { useUpdaterStore } from "@/features/updater/store";
-import type { AppUpdateInfo } from "@/lib/tauri/types/updater";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
+import { act, renderHook } from "@testing-library/react"
+import { useUpdaterController } from "@/features/updater/hooks/useUpdaterController"
+import { useUpdaterStore } from "@/features/updater/store"
+import type { AppUpdateInfo } from "@/lib/tauri/types/updater"
 
 vi.mock("react-i18next", () => ({
   initReactI18next: { type: "3rdParty", init: () => {} },
   useTranslation: () => ({ t: (key: string) => key }),
-}));
+}))
 
 vi.mock("@/platform/capabilities", () => ({
   canUseDesktopFeatures: vi.fn(() => true),
-}));
+}))
 
 vi.mock("@/platform/shell", () => ({
   openExternal: vi.fn(async () => {}),
-}));
+}))
 
 vi.mock("@/platform/events", () => ({
   listenToPlatformEvent: vi.fn(async () => () => {}),
-}));
+}))
 
-const mockCheckForAppUpdate = vi.fn();
-const mockDownloadAndInstall = vi.fn();
-const mockCancelDownload = vi.fn();
-const mockRestartAfterUpdate = vi.fn();
-const mockGetCurrentVersion = vi.fn();
+const mockCheckForAppUpdate = vi.fn()
+const mockDownloadAndInstall = vi.fn()
+const mockCancelDownload = vi.fn()
+const mockRestartAfterUpdate = vi.fn()
+const mockGetCurrentVersion = vi.fn()
 
 vi.mock("@/lib/tauri/commands/updater", () => ({
   checkForAppUpdate: (...args: unknown[]) => mockCheckForAppUpdate(...args),
@@ -36,7 +36,7 @@ vi.mock("@/lib/tauri/commands/updater", () => ({
   cancelAppUpdateDownload: (...args: unknown[]) => mockCancelDownload(...args),
   restartAfterUpdate: (...args: unknown[]) => mockRestartAfterUpdate(...args),
   getCurrentAppVersion: (...args: unknown[]) => mockGetCurrentVersion(...args),
-}));
+}))
 
 const AVAILABLE_UPDATE: AppUpdateInfo = {
   available: true,
@@ -44,7 +44,7 @@ const AVAILABLE_UPDATE: AppUpdateInfo = {
   version: "1.1.0",
   date: "2026-07-01",
   body: "release notes",
-};
+}
 
 const NO_UPDATE: AppUpdateInfo = {
   available: false,
@@ -52,7 +52,7 @@ const NO_UPDATE: AppUpdateInfo = {
   version: null,
   date: null,
   body: null,
-};
+}
 
 function resetUpdaterStore() {
   useUpdaterStore.setState({
@@ -65,207 +65,207 @@ function resetUpdaterStore() {
     downloadedBytes: 0,
     totalBytes: null,
     lastCheckedAt: 0,
-  });
+  })
 }
 
 describe("useUpdaterController", () => {
   beforeEach(() => {
-    resetUpdaterStore();
-    mockCheckForAppUpdate.mockReset();
-    mockDownloadAndInstall.mockReset();
-    mockCancelDownload.mockReset();
-    mockRestartAfterUpdate.mockReset();
-    mockGetCurrentVersion.mockReset();
-    mockGetCurrentVersion.mockResolvedValue("1.0.0");
-  });
+    resetUpdaterStore()
+    mockCheckForAppUpdate.mockReset()
+    mockDownloadAndInstall.mockReset()
+    mockCancelDownload.mockReset()
+    mockRestartAfterUpdate.mockReset()
+    mockGetCurrentVersion.mockReset()
+    mockGetCurrentVersion.mockResolvedValue("1.0.0")
+  })
 
   afterEach(() => {
-    vi.restoreAllMocks();
-  });
+    vi.restoreAllMocks()
+  })
 
   it("loads current version on mount", async () => {
-    mockGetCurrentVersion.mockResolvedValue("2.3.4");
+    mockGetCurrentVersion.mockResolvedValue("2.3.4")
 
-    renderHook(() => useUpdaterController());
+    renderHook(() => useUpdaterController())
 
     await act(async () => {
       await vi.waitFor(() => {
-        expect(useUpdaterStore.getState().currentVersion).toBe("2.3.4");
-      });
-    });
-  });
+        expect(useUpdaterStore.getState().currentVersion).toBe("2.3.4")
+      })
+    })
+  })
 
   it("sets status to available when an update is found", async () => {
-    mockCheckForAppUpdate.mockResolvedValue(AVAILABLE_UPDATE);
+    mockCheckForAppUpdate.mockResolvedValue(AVAILABLE_UPDATE)
 
-    const { result } = renderHook(() => useUpdaterController());
+    const { result } = renderHook(() => useUpdaterController())
     await act(async () => {
       await vi.waitFor(() => {
-        expect(useUpdaterStore.getState().currentVersion).toBe("1.0.0");
-      });
-    });
+        expect(useUpdaterStore.getState().currentVersion).toBe("1.0.0")
+      })
+    })
 
     await act(async () => {
-      await result.current.checkUpdates();
-    });
+      await result.current.checkUpdates()
+    })
 
-    const state = useUpdaterStore.getState();
-    expect(state.status).toBe("available");
-    expect(state.updateInfo).toEqual(AVAILABLE_UPDATE);
-    expect(state.open).toBe(true);
-    expect(state.lastCheckedAt).toBeGreaterThan(0);
-  });
+    const state = useUpdaterStore.getState()
+    expect(state.status).toBe("available")
+    expect(state.updateInfo).toEqual(AVAILABLE_UPDATE)
+    expect(state.open).toBe(true)
+    expect(state.lastCheckedAt).toBeGreaterThan(0)
+  })
 
   it("sets status to upToDate when no update is available", async () => {
-    mockCheckForAppUpdate.mockResolvedValue(NO_UPDATE);
+    mockCheckForAppUpdate.mockResolvedValue(NO_UPDATE)
 
-    const { result } = renderHook(() => useUpdaterController());
+    const { result } = renderHook(() => useUpdaterController())
     await act(async () => {
       await vi.waitFor(() => {
-        expect(useUpdaterStore.getState().currentVersion).toBe("1.0.0");
-      });
-    });
+        expect(useUpdaterStore.getState().currentVersion).toBe("1.0.0")
+      })
+    })
 
     await act(async () => {
-      await result.current.checkUpdates();
-    });
+      await result.current.checkUpdates()
+    })
 
-    expect(useUpdaterStore.getState().status).toBe("upToDate");
-  });
+    expect(useUpdaterStore.getState().status).toBe("upToDate")
+  })
 
   it("sets status to error when check fails", async () => {
-    mockCheckForAppUpdate.mockRejectedValue(new Error("network down"));
+    mockCheckForAppUpdate.mockRejectedValue(new Error("network down"))
 
-    const { result } = renderHook(() => useUpdaterController());
+    const { result } = renderHook(() => useUpdaterController())
     await act(async () => {
       await vi.waitFor(() => {
-        expect(useUpdaterStore.getState().currentVersion).toBe("1.0.0");
-      });
-    });
+        expect(useUpdaterStore.getState().currentVersion).toBe("1.0.0")
+      })
+    })
 
     await act(async () => {
-      await result.current.checkUpdates();
-    });
+      await result.current.checkUpdates()
+    })
 
-    const state = useUpdaterStore.getState();
-    expect(state.status).toBe("error");
-    expect(state.error).toBeTruthy();
-    expect(state.errorInfo).not.toBeNull();
-  });
+    const state = useUpdaterStore.getState()
+    expect(state.status).toBe("error")
+    expect(state.error).toBeTruthy()
+    expect(state.errorInfo).not.toBeNull()
+  })
 
   it("sets desktopOnly error when platform features unavailable", async () => {
-    const { canUseDesktopFeatures } = await import("@/platform/capabilities");
-    vi.mocked(canUseDesktopFeatures).mockReturnValue(false);
+    const { canUseDesktopFeatures } = await import("@/platform/capabilities")
+    vi.mocked(canUseDesktopFeatures).mockReturnValue(false)
 
-    const { result } = renderHook(() => useUpdaterController());
+    const { result } = renderHook(() => useUpdaterController())
     await act(async () => {
-      await result.current.checkUpdates();
-    });
+      await result.current.checkUpdates()
+    })
 
-    const state = useUpdaterStore.getState();
-    expect(state.status).toBe("error");
-    expect(state.error).toBe("updater.desktopOnly");
-    expect(mockCheckForAppUpdate).not.toHaveBeenCalled();
-  });
+    const state = useUpdaterStore.getState()
+    expect(state.status).toBe("error")
+    expect(state.error).toBe("updater.desktopOnly")
+    expect(mockCheckForAppUpdate).not.toHaveBeenCalled()
+  })
 
   it("transitions to readyToRestart after successful download", async () => {
-    useUpdaterStore.setState({ status: "available", updateInfo: AVAILABLE_UPDATE });
-    mockDownloadAndInstall.mockResolvedValue(undefined);
+    useUpdaterStore.setState({ status: "available", updateInfo: AVAILABLE_UPDATE })
+    mockDownloadAndInstall.mockResolvedValue(undefined)
 
-    const { result } = renderHook(() => useUpdaterController());
+    const { result } = renderHook(() => useUpdaterController())
 
     await act(async () => {
-      await result.current.downloadAndInstall();
-    });
+      await result.current.downloadAndInstall()
+    })
 
-    expect(useUpdaterStore.getState().status).toBe("readyToRestart");
-  });
+    expect(useUpdaterStore.getState().status).toBe("readyToRestart")
+  })
 
   it("returns to available state when download is cancelled", async () => {
-    useUpdaterStore.setState({ status: "available", updateInfo: AVAILABLE_UPDATE });
-    mockDownloadAndInstall.mockRejectedValue(new Error("update download cancelled"));
+    useUpdaterStore.setState({ status: "available", updateInfo: AVAILABLE_UPDATE })
+    mockDownloadAndInstall.mockRejectedValue(new Error("update download cancelled"))
 
-    const { result } = renderHook(() => useUpdaterController());
+    const { result } = renderHook(() => useUpdaterController())
 
     await act(async () => {
-      await result.current.downloadAndInstall();
-    });
+      await result.current.downloadAndInstall()
+    })
 
-    expect(useUpdaterStore.getState().status).toBe("available");
-  });
+    expect(useUpdaterStore.getState().status).toBe("available")
+  })
 
   it("sets error state when download fails for non-cancel reasons", async () => {
-    useUpdaterStore.setState({ status: "available", updateInfo: AVAILABLE_UPDATE });
-    mockDownloadAndInstall.mockRejectedValue(new Error("signature verification failed"));
+    useUpdaterStore.setState({ status: "available", updateInfo: AVAILABLE_UPDATE })
+    mockDownloadAndInstall.mockRejectedValue(new Error("signature verification failed"))
 
-    const { result } = renderHook(() => useUpdaterController());
+    const { result } = renderHook(() => useUpdaterController())
 
     await act(async () => {
-      await result.current.downloadAndInstall();
-    });
+      await result.current.downloadAndInstall()
+    })
 
-    const state = useUpdaterStore.getState();
-    expect(state.status).toBe("error");
-    expect(state.errorInfo).not.toBeNull();
-  });
+    const state = useUpdaterStore.getState()
+    expect(state.status).toBe("error")
+    expect(state.errorInfo).not.toBeNull()
+  })
 
   it("calls restartAfterUpdate when restartNow is invoked", async () => {
-    mockRestartAfterUpdate.mockResolvedValue(undefined);
+    mockRestartAfterUpdate.mockResolvedValue(undefined)
 
-    const { result } = renderHook(() => useUpdaterController());
+    const { result } = renderHook(() => useUpdaterController())
 
     await act(async () => {
-      await result.current.restartNow();
-    });
+      await result.current.restartNow()
+    })
 
-    expect(mockRestartAfterUpdate).toHaveBeenCalledTimes(1);
-  });
+    expect(mockRestartAfterUpdate).toHaveBeenCalledTimes(1)
+  })
 
   it("calls cancelAppUpdateDownload when cancelDownload is invoked", async () => {
-    mockCancelDownload.mockResolvedValue(undefined);
+    mockCancelDownload.mockResolvedValue(undefined)
 
-    const { result } = renderHook(() => useUpdaterController());
+    const { result } = renderHook(() => useUpdaterController())
 
     await act(async () => {
-      await result.current.cancelDownload();
-    });
+      await result.current.cancelDownload()
+    })
 
-    expect(mockCancelDownload).toHaveBeenCalledTimes(1);
-  });
+    expect(mockCancelDownload).toHaveBeenCalledTimes(1)
+  })
 
   it("blocks closeDialog while downloading", async () => {
-    useUpdaterStore.setState({ open: true, status: "downloading" });
+    useUpdaterStore.setState({ open: true, status: "downloading" })
 
-    const { result } = renderHook(() => useUpdaterController());
+    const { result } = renderHook(() => useUpdaterController())
     act(() => {
-      result.current.closeDialog();
-    });
+      result.current.closeDialog()
+    })
 
-    expect(useUpdaterStore.getState().open).toBe(true);
-  });
+    expect(useUpdaterStore.getState().open).toBe(true)
+  })
 
   it("blocks dismissDialog while installing", async () => {
-    useUpdaterStore.setState({ open: true, status: "installing" });
+    useUpdaterStore.setState({ open: true, status: "installing" })
 
-    const { result } = renderHook(() => useUpdaterController());
+    const { result } = renderHook(() => useUpdaterController())
     act(() => {
-      result.current.dismissDialog();
-    });
+      result.current.dismissDialog()
+    })
 
-    expect(useUpdaterStore.getState().open).toBe(true);
-    expect(useUpdaterStore.getState().status).toBe("installing");
-  });
+    expect(useUpdaterStore.getState().open).toBe(true)
+    expect(useUpdaterStore.getState().status).toBe("installing")
+  })
 
   it("allows closeDialog when idle", () => {
-    useUpdaterStore.setState({ open: true, status: "upToDate" });
+    useUpdaterStore.setState({ open: true, status: "upToDate" })
 
-    const { result } = renderHook(() => useUpdaterController());
+    const { result } = renderHook(() => useUpdaterController())
     act(() => {
-      result.current.closeDialog();
-    });
+      result.current.closeDialog()
+    })
 
-    expect(useUpdaterStore.getState().open).toBe(false);
-  });
+    expect(useUpdaterStore.getState().open).toBe(false)
+  })
 
   it("resets transient state on dismissDialog when not busy", () => {
     useUpdaterStore.setState({
@@ -273,17 +273,17 @@ describe("useUpdaterController", () => {
       status: "available",
       updateInfo: AVAILABLE_UPDATE,
       error: "some error",
-    });
+    })
 
-    const { result } = renderHook(() => useUpdaterController());
+    const { result } = renderHook(() => useUpdaterController())
     act(() => {
-      result.current.dismissDialog();
-    });
+      result.current.dismissDialog()
+    })
 
-    const state = useUpdaterStore.getState();
-    expect(state.open).toBe(false);
-    expect(state.status).toBe("idle");
-    expect(state.updateInfo).toBeNull();
-    expect(state.error).toBe("");
-  });
-});
+    const state = useUpdaterStore.getState()
+    expect(state.open).toBe(false)
+    expect(state.status).toBe("idle")
+    expect(state.updateInfo).toBeNull()
+    expect(state.error).toBe("")
+  })
+})

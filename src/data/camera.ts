@@ -1,35 +1,35 @@
 /**
  * Static Data / 静态数据: export catalogs only; 只导出静态目录数据.
  */
-import type { CompareDataModule, FilterGroup, SpecRow } from "@/shared/compare/types";
-import { t } from "i18next";
+import type { CompareDataModule, FilterGroup, SpecRow } from "@/shared/compare/types"
+import { t } from "i18next"
 
 export interface CameraModel {
-  id: string;
-  model: string;
-  brand: string;
-  series: string;
-  category: string;
-  sensorType: string;
-  megapixels: number;
-  isoRange: string;
-  mount: string;
-  shutterType: string;
-  shutterSpeed: string;
-  burstRate: number;
-  videoMax: string;
-  stabilization: string;
-  viewfinder: string;
-  screenType: string;
-  weight: number;
-  launchYear: number;
-  price: number;
+  id: string
+  model: string
+  brand: string
+  series: string
+  category: string
+  sensorType: string
+  megapixels: number
+  isoRange: string
+  mount: string
+  shutterType: string
+  shutterSpeed: string
+  burstRate: number
+  videoMax: string
+  stabilization: string
+  viewfinder: string
+  screenType: string
+  weight: number
+  launchYear: number
+  price: number
   /** 对焦点数量 */
-  autofocusPoints: number;
+  autofocusPoints: number
   /** 存储介质 */
-  storageMedia: string;
+  storageMedia: string
   /** 电池续航 (CIPA) */
-  batteryLife: number;
+  batteryLife: number
 }
 
 const rawCameraData: CameraModel[] = [
@@ -52,7 +52,7 @@ const rawCameraData: CameraModel[] = [
     videoMax: "8K 24p / 4K 60p",
     stabilization: "机身5轴防抖 (8级)",
     viewfinder: "944万点 OLED EVF",
-    screenType: "3.2\" 210万点 多轴翻转屏",
+    screenType: '3.2" 210万点 多轴翻转屏',
     weight: 723,
     launchYear: 2022,
     price: 3899,
@@ -76,7 +76,7 @@ const rawCameraData: CameraModel[] = [
     videoMax: "8K 30p / 4K 120p",
     stabilization: "机身5轴防抖 (5.5级)",
     viewfinder: "944万点 OLED EVF",
-    screenType: "3.0\" 144万点 翻转屏",
+    screenType: '3.0" 144万点 翻转屏',
     weight: 737,
     launchYear: 2021,
     price: 6499,
@@ -100,7 +100,7 @@ const rawCameraData: CameraModel[] = [
     videoMax: "8K 60p / 4K 120p",
     stabilization: "机身5轴防抖 (8级)",
     viewfinder: "576万点 OLED EVF",
-    screenType: "3.2\" 210万点 侧翻屏",
+    screenType: '3.2" 210万点 侧翻屏',
     weight: 746,
     launchYear: 2024,
     price: 4299,
@@ -124,7 +124,7 @@ const rawCameraData: CameraModel[] = [
     videoMax: "6K 60p / 4K 120p",
     stabilization: "机身5轴防抖 (8级)",
     viewfinder: "576万点 OLED EVF",
-    screenType: "3.2\" 415万点 侧翻屏",
+    screenType: '3.2" 415万点 侧翻屏',
     weight: 1015,
     launchYear: 2021,
     price: 5999,
@@ -148,7 +148,7 @@ const rawCameraData: CameraModel[] = [
     videoMax: "8K 60p / 4K 120p",
     stabilization: "机身5轴防抖 (6级)",
     viewfinder: "369万点 OLED EVF",
-    screenType: "3.2\" 210万点 多轴翻转屏",
+    screenType: '3.2" 210万点 多轴翻转屏',
     weight: 910,
     launchYear: 2023,
     price: 3999,
@@ -172,7 +172,7 @@ const rawCameraData: CameraModel[] = [
     videoMax: "8K 60p / 4K 120p",
     stabilization: "机身5轴防抖 (6级)",
     viewfinder: "369万点 OLED EVF",
-    screenType: "3.2\" 210万点 多轴翻转屏",
+    screenType: '3.2" 210万点 多轴翻转屏',
     weight: 1340,
     launchYear: 2021,
     price: 5499,
@@ -196,7 +196,7 @@ const rawCameraData: CameraModel[] = [
     videoMax: "6K 30p / 4K 60p",
     stabilization: "机身5轴防抖 (6.5级)",
     viewfinder: "368万点 OLED EVF",
-    screenType: "3.0\" 184万点 侧翻屏",
+    screenType: '3.0" 184万点 侧翻屏',
     weight: 740,
     launchYear: 2023,
     price: 1999,
@@ -223,7 +223,7 @@ const rawCameraData: CameraModel[] = [
     videoMax: "4K 60p",
     stabilization: "机身5轴防抖 (5.5级)",
     viewfinder: "368万点 OLED EVF",
-    screenType: "3.0\" 103万点 侧翻触控屏",
+    screenType: '3.0" 103万点 侧翻触控屏',
     weight: 658,
     launchYear: 2021,
     price: 2499,
@@ -247,7 +247,7 @@ const rawCameraData: CameraModel[] = [
     videoMax: "4K 60p",
     stabilization: "机身5轴防抖 (7级)",
     viewfinder: "236万点 OLED EVF",
-    screenType: "3.0\" 103万点 侧翻屏",
+    screenType: '3.0" 103万点 侧翻屏',
     weight: 514,
     launchYear: 2023,
     price: 2199,
@@ -271,7 +271,7 @@ const rawCameraData: CameraModel[] = [
     videoMax: "4K 60p",
     stabilization: "机身5轴防抖 (7级)",
     viewfinder: "236万点 OLED EVF",
-    screenType: "3.0\" 103万点 侧翻屏",
+    screenType: '3.0" 103万点 侧翻屏',
     weight: 515,
     launchYear: 2023,
     price: 2999,
@@ -295,7 +295,7 @@ const rawCameraData: CameraModel[] = [
     videoMax: "8K 30p / 4K 120p",
     stabilization: "机身5轴防抖 (8.5级)",
     viewfinder: "944万点 OLED EVF",
-    screenType: "3.2\" 210万点 多轴翻转屏",
+    screenType: '3.2" 210万点 多轴翻转屏',
     weight: 743,
     launchYear: 2024,
     price: 6499,
@@ -319,7 +319,7 @@ const rawCameraData: CameraModel[] = [
     videoMax: "4K 60p",
     stabilization: "机身5轴防抖 (8级)",
     viewfinder: "369万点 OLED EVF",
-    screenType: "3.0\" 162万点 侧翻屏",
+    screenType: '3.0" 162万点 侧翻屏',
     weight: 670,
     launchYear: 2022,
     price: 2499,
@@ -343,7 +343,7 @@ const rawCameraData: CameraModel[] = [
     videoMax: "4K 60p",
     stabilization: "数码 IS",
     viewfinder: "236万点 OLED EVF",
-    screenType: "3.0\" 162万点 侧翻屏",
+    screenType: '3.0" 162万点 侧翻屏',
     weight: 461,
     launchYear: 2023,
     price: 1499,
@@ -367,7 +367,7 @@ const rawCameraData: CameraModel[] = [
     videoMax: "6K 60p / 4K 120p",
     stabilization: "机身5轴防抖 (8级)",
     viewfinder: "576万点 OLED EVF",
-    screenType: "3.2\" 210万点 多轴翻转屏",
+    screenType: '3.2" 210万点 多轴翻转屏',
     weight: 760,
     launchYear: 2024,
     price: 2499,
@@ -391,7 +391,7 @@ const rawCameraData: CameraModel[] = [
     videoMax: "4K 120p",
     stabilization: "机身5轴防抖 (增强模式)",
     viewfinder: "无",
-    screenType: "3.0\" 103万点 侧翻屏",
+    screenType: '3.0" 103万点 侧翻屏',
     weight: 483,
     launchYear: 2023,
     price: 2199,
@@ -415,7 +415,7 @@ const rawCameraData: CameraModel[] = [
     videoMax: "4K 60p",
     stabilization: "机身5轴防抖 (8级)",
     viewfinder: "369万点 OLED EVF",
-    screenType: "3.2\" 210万点 侧翻屏",
+    screenType: '3.2" 210万点 侧翻屏',
     weight: 710,
     launchYear: 2023,
     price: 1999,
@@ -442,7 +442,7 @@ const rawCameraData: CameraModel[] = [
     videoMax: "4K 120p / 4K 60p",
     stabilization: "机身5轴防抖 (5级)",
     viewfinder: "236万点 OLED EVF",
-    screenType: "3.0\" 103万点 侧翻屏",
+    screenType: '3.0" 103万点 侧翻屏',
     weight: 493,
     launchYear: 2023,
     price: 1399,
@@ -466,7 +466,7 @@ const rawCameraData: CameraModel[] = [
     videoMax: "4K 60p / 4K 120p",
     stabilization: "机身5轴防抖 (7级)",
     viewfinder: "236万点 OLED EVF",
-    screenType: "3.0\" 162万点 侧翻屏",
+    screenType: '3.0" 162万点 侧翻屏',
     weight: 612,
     launchYear: 2022,
     price: 1499,
@@ -490,7 +490,7 @@ const rawCameraData: CameraModel[] = [
     videoMax: "4K 30p",
     stabilization: "无 (镜头防抖)",
     viewfinder: "236万点 OLED EVF",
-    screenType: "3.2\" 104万点 下翻屏",
+    screenType: '3.2" 104万点 下翻屏',
     weight: 450,
     launchYear: 2019,
     price: 859,
@@ -514,7 +514,7 @@ const rawCameraData: CameraModel[] = [
     videoMax: "6K 30p / 4K 60p",
     stabilization: "机身5轴防抖 (7级)",
     viewfinder: "369万点 OLED EVF",
-    screenType: "3.0\" 184万点 多轴翻转屏",
+    screenType: '3.0" 184万点 多轴翻转屏',
     weight: 557,
     launchYear: 2022,
     price: 1699,
@@ -538,7 +538,7 @@ const rawCameraData: CameraModel[] = [
     videoMax: "6K 30p / 4K 120p",
     stabilization: "机身5轴防抖 (7级)",
     viewfinder: "576万点 OLED EVF",
-    screenType: "3.0\" 162万点 侧翻屏",
+    screenType: '3.0" 162万点 侧翻屏',
     weight: 660,
     launchYear: 2022,
     price: 2499,
@@ -565,7 +565,7 @@ const rawCameraData: CameraModel[] = [
     videoMax: "6K 30p / 4K 60p",
     stabilization: "机身5轴防抖 (6级)",
     viewfinder: "369万点 OLED EVF (混合)",
-    screenType: "3.0\" 162万点 多轴翻转屏",
+    screenType: '3.0" 162万点 多轴翻转屏',
     weight: 521,
     launchYear: 2024,
     price: 1599,
@@ -589,7 +589,7 @@ const rawCameraData: CameraModel[] = [
     videoMax: "6K 30p / 4K 60p",
     stabilization: "机身5轴防抖 (7级)",
     viewfinder: "236万点 OLED EVF",
-    screenType: "3.0\" 184万点 多轴翻转屏",
+    screenType: '3.0" 184万点 多轴翻转屏',
     weight: 438,
     launchYear: 2024,
     price: 1499,
@@ -616,7 +616,7 @@ const rawCameraData: CameraModel[] = [
     videoMax: "4K 60p",
     stabilization: "无",
     viewfinder: "光学五棱镜 (100%视野)",
-    screenType: "3.2\" 210万点 触控屏",
+    screenType: '3.2" 210万点 触控屏',
     weight: 1440,
     launchYear: 2020,
     price: 6499,
@@ -640,7 +640,7 @@ const rawCameraData: CameraModel[] = [
     videoMax: "4K 30p",
     stabilization: "无",
     viewfinder: "光学五棱镜 (100%视野)",
-    screenType: "3.2\" 235万点 翻转屏",
+    screenType: '3.2" 235万点 翻转屏',
     weight: 1005,
     launchYear: 2017,
     price: 2999,
@@ -664,7 +664,7 @@ const rawCameraData: CameraModel[] = [
     videoMax: "4K 30p",
     stabilization: "机身5轴防抖 (5级)",
     viewfinder: "光学五棱镜 (100%视野)",
-    screenType: "3.2\" 103万点 翻转屏",
+    screenType: '3.2" 103万点 翻转屏',
     weight: 1010,
     launchYear: 2018,
     price: 1799,
@@ -691,7 +691,7 @@ const rawCameraData: CameraModel[] = [
     videoMax: "4K 30p",
     stabilization: "机身5轴防抖 (6级)",
     viewfinder: "369万点 OLED EVF",
-    screenType: "3.2\" 236万点 多轴翻转屏",
+    screenType: '3.2" 236万点 多轴翻转屏',
     weight: 900,
     launchYear: 2021,
     price: 5999,
@@ -715,7 +715,7 @@ const rawCameraData: CameraModel[] = [
     videoMax: "无",
     stabilization: "机身5轴防抖 (7级)",
     viewfinder: "576万点 OLED EVF",
-    screenType: "3.6\" 236万点 触控屏",
+    screenType: '3.6" 236万点 触控屏',
     weight: 895,
     launchYear: 2022,
     price: 8199,
@@ -742,7 +742,7 @@ const rawCameraData: CameraModel[] = [
     videoMax: "8K 30p / 4K 60p",
     stabilization: "镜头防抖 (OIS)",
     viewfinder: "576万点 OLED EVF",
-    screenType: "3.0\" 184万点 翻转触控屏",
+    screenType: '3.0" 184万点 翻转触控屏',
     weight: 743,
     launchYear: 2023,
     price: 5995,
@@ -766,7 +766,7 @@ const rawCameraData: CameraModel[] = [
     videoMax: "4K 60p",
     stabilization: "机身5轴防抖 (8.5级)",
     viewfinder: "576万点 OLED EVF",
-    screenType: "3.0\" 162万点 多轴翻转屏",
+    screenType: '3.0" 162万点 多轴翻转屏',
     weight: 599,
     launchYear: 2024,
     price: 2399,
@@ -774,7 +774,7 @@ const rawCameraData: CameraModel[] = [
     storageMedia: "SD UHS-II x2",
     batteryLife: 500,
   },
-];
+]
 
 const CAMERA_SENSOR_TYPE_KEYS: Record<string, string> = {
   "CMOS 全画幅": "fullframe_cmos",
@@ -783,125 +783,181 @@ const CAMERA_SENSOR_TYPE_KEYS: Record<string, string> = {
   "CMOS 中画幅 (43.8×32.9mm)": "medium_format_cmos_43_8_32_9",
   "CMOS 全画幅 BSI": "fullframe_bsi_cmos",
   "CMOS 4/3 堆栈式": "stacked_4_3_cmos",
-};
+}
 
 const CAMERA_SHUTTER_TYPE_KEYS: Record<string, string> = {
   "机械/电子快门": "mechanical_electronic",
-  "电子快门": "electronic",
+  电子快门: "electronic",
   "镜间快门/电子快门": "leaf_electronic",
-};
+}
 
 function normalizeCamera(model: CameraModel): CameraModel {
   return {
     ...model,
     sensorType: CAMERA_SENSOR_TYPE_KEYS[model.sensorType] ?? model.sensorType,
     shutterType: CAMERA_SHUTTER_TYPE_KEYS[model.shutterType] ?? model.shutterType,
-  };
+  }
 }
 
-export const cameraData: CameraModel[] = rawCameraData.map(normalizeCamera);
+export const cameraData: CameraModel[] = rawCameraData.map(normalizeCamera)
 
 const brandFormat = (val: unknown) => {
-  const v = String(val);
-  const key = `brands.${v}`;
-  const result = t(key);
-  return result !== key ? result : v;
-};
+  const v = String(val)
+  const key = `brands.${v}`
+  const result = t(key)
+  return result !== key ? result : v
+}
 
-const categoryFormat = (val: unknown) => t(`cameraCompare.values.category.${val}`);
+const categoryFormat = (val: unknown) => t(`cameraCompare.values.category.${val}`)
 
 export const cameraFilterGroups: FilterGroup<CameraModel>[] = [
   { key: "category", label: "cameraCompare.category", format: categoryFormat },
   { key: "brand", label: "cameraCompare.brand", format: brandFormat },
-  { key: "sensorType", label: "cameraCompare.sensorType", format: (v) => {
-    const str = String(v);
-    const key = `cameraCompare.values.sensorType.${str}`;
-    const result = t(key);
-    return result !== key ? result : str;
-  }},
-  { key: "mount", label: "cameraCompare.mount", format: (v) => { const str = String(v); const key = `cameraCompare.values.mount.${str}`; const result = t(key); return result !== key ? result : str; } },
+  {
+    key: "sensorType",
+    label: "cameraCompare.sensorType",
+    format: (v) => {
+      const str = String(v)
+      const key = `cameraCompare.values.sensorType.${str}`
+      const result = t(key)
+      return result !== key ? result : str
+    },
+  },
+  {
+    key: "mount",
+    label: "cameraCompare.mount",
+    format: (v) => {
+      const str = String(v)
+      const key = `cameraCompare.values.mount.${str}`
+      const result = t(key)
+      return result !== key ? result : str
+    },
+  },
   { key: "launchYear", label: "cameraCompare.launchYear", format: (val) => String(val) },
-];
+]
 
 export const cameraSpecRows: SpecRow<CameraModel>[] = [
-  { key: "category", label: "cameraCompare.category", format: (v, _m) => t(`cameraCompare.values.category.${v}`) },
+  {
+    key: "category",
+    label: "cameraCompare.category",
+    format: (v, _m) => t(`cameraCompare.values.category.${v}`),
+  },
   { key: "brand", label: "cameraCompare.brand", format: (v, _m) => brandFormat(v) },
   { key: "series", label: "cameraCompare.series" },
   { key: "model", label: "cameraCompare.model" },
-  { key: "sensorType", label: "cameraCompare.sensorType", format: (v) => {
-    const str = String(v);
-    const key = `cameraCompare.values.sensorType.${str}`;
-    const result = t(key);
-    return result !== key ? result : str;
-  }},
+  {
+    key: "sensorType",
+    label: "cameraCompare.sensorType",
+    format: (v) => {
+      const str = String(v)
+      const key = `cameraCompare.values.sensorType.${str}`
+      const result = t(key)
+      return result !== key ? result : str
+    },
+  },
   { key: "megapixels", label: "cameraCompare.megapixels", format: (v) => `${v} MP` },
   { key: "isoRange", label: "cameraCompare.isoRange" },
   { key: "mount", label: "cameraCompare.mount" },
-  { key: "shutterType", label: "cameraCompare.shutterType", format: (v) => {
-    const str = String(v);
-    const key = `cameraCompare.values.shutterType.${str}`;
-    const result = t(key);
-    return result !== key ? result : str;
-  }},
+  {
+    key: "shutterType",
+    label: "cameraCompare.shutterType",
+    format: (v) => {
+      const str = String(v)
+      const key = `cameraCompare.values.shutterType.${str}`
+      const result = t(key)
+      return result !== key ? result : str
+    },
+  },
   { key: "shutterSpeed", label: "cameraCompare.shutterSpeed" },
   { key: "burstRate", label: "cameraCompare.burstRate", format: (v) => `${v} fps` },
   { key: "videoMax", label: "cameraCompare.videoMax" },
-  { key: "autofocusPoints", label: "cameraCompare.autofocusPoints", format: (v) => `${v} ${t("cameraCompare.units.autofocusPoints")}` },
+  {
+    key: "autofocusPoints",
+    label: "cameraCompare.autofocusPoints",
+    format: (v) => `${v} ${t("cameraCompare.units.autofocusPoints")}`,
+  },
   { key: "storageMedia", label: "cameraCompare.storageMedia" },
-  { key: "batteryLife", label: "cameraCompare.batteryLife", format: (v) => `${v} ${t("cameraCompare.units.batteryLife")}` },
-  { key: "stabilization", label: "cameraCompare.stabilization", format: (v) => {
-    const str = String(v);
-    if (str === "无") return t("common.no");
-    if (str === "数码 IS") return t("cameraCompare.values.stabilization.digitalIs");
-    if (str === "无 (镜头防抖)") return t("cameraCompare.values.stabilization.noLensIs");
-    if (str === "镜头防抖 (OIS)") return t("cameraCompare.values.stabilization.lensOis");
-    if (str === "机身5轴防抖 (增强模式)") return t("cameraCompare.values.stabilization.ibisActiveMode");
-    const ibisMatch = str.match(/^机身5轴防抖 \(([\d.]+)级\)$/);
-    if (ibisMatch) return t("cameraCompare.values.stabilization.ibisFormat", { stops: ibisMatch[1] });
-    return str;
-  }},
-  { key: "viewfinder", label: "cameraCompare.viewfinder", format: (v) => {
-    const str = String(v);
-    if (str === "无") return t("common.no");
-    if (str === "光学五棱镜 (100%视野)") return t("cameraCompare.values.viewfinder.opticalPentaprism");
-    const hybridMatch = str.match(/^([\d]+)万点 OLED EVF \(混合\)$/);
-    if (hybridMatch) return t("cameraCompare.values.viewfinder.evfHybrid", { dots: hybridMatch[1] });
-    const evfMatch = str.match(/^([\d]+)万点 OLED EVF$/);
-    if (evfMatch) return t("cameraCompare.values.viewfinder.evfFormat", { dots: evfMatch[1] });
-    return str;
-  }},
-  { key: "screenType", label: "cameraCompare.screenType", format: (v) => {
-    const str = String(v);
-    if (!str) return "—";
-    const termMap: Record<string, string> = {
-      "多轴翻转屏": "cameraCompare.values.screenType.multiAngleTilting",
-      "侧翻触控屏": "cameraCompare.values.screenType.sideFlipTouch",
-      "侧翻屏": "cameraCompare.values.screenType.sideFlip",
-      "翻转触控屏": "cameraCompare.values.screenType.tiltingTouch",
-      "翻转屏": "cameraCompare.values.screenType.tilting",
-      "触控屏": "cameraCompare.values.screenType.touch",
-      "下翻屏": "cameraCompare.values.screenType.downwardTilting",
-    };
-    let result = str;
-    // Replace from longest to shortest to avoid partial matches
-    const sortedTerms = Object.keys(termMap).sort((a, b) => b.length - a.length);
-    for (const cn of sortedTerms) {
-      result = result.replace(cn, t(termMap[cn]));
-    }
-    result = result.replace(/万点/g, t("cameraCompare.units.millionDots"));
-    result = result.replace(/\\"/g, '"');
-    return result;
-  }},
+  {
+    key: "batteryLife",
+    label: "cameraCompare.batteryLife",
+    format: (v) => `${v} ${t("cameraCompare.units.batteryLife")}`,
+  },
+  {
+    key: "stabilization",
+    label: "cameraCompare.stabilization",
+    format: (v) => {
+      const str = String(v)
+      if (str === "无") return t("common.no")
+      if (str === "数码 IS") return t("cameraCompare.values.stabilization.digitalIs")
+      if (str === "无 (镜头防抖)") return t("cameraCompare.values.stabilization.noLensIs")
+      if (str === "镜头防抖 (OIS)") return t("cameraCompare.values.stabilization.lensOis")
+      if (str === "机身5轴防抖 (增强模式)")
+        return t("cameraCompare.values.stabilization.ibisActiveMode")
+      const ibisMatch = str.match(/^机身5轴防抖 \(([\d.]+)级\)$/)
+      if (ibisMatch)
+        return t("cameraCompare.values.stabilization.ibisFormat", { stops: ibisMatch[1] })
+      return str
+    },
+  },
+  {
+    key: "viewfinder",
+    label: "cameraCompare.viewfinder",
+    format: (v) => {
+      const str = String(v)
+      if (str === "无") return t("common.no")
+      if (str === "光学五棱镜 (100%视野)")
+        return t("cameraCompare.values.viewfinder.opticalPentaprism")
+      const hybridMatch = str.match(/^([\d]+)万点 OLED EVF \(混合\)$/)
+      if (hybridMatch)
+        return t("cameraCompare.values.viewfinder.evfHybrid", { dots: hybridMatch[1] })
+      const evfMatch = str.match(/^([\d]+)万点 OLED EVF$/)
+      if (evfMatch) return t("cameraCompare.values.viewfinder.evfFormat", { dots: evfMatch[1] })
+      return str
+    },
+  },
+  {
+    key: "screenType",
+    label: "cameraCompare.screenType",
+    format: (v) => {
+      const str = String(v)
+      if (!str) return "—"
+      const termMap: Record<string, string> = {
+        多轴翻转屏: "cameraCompare.values.screenType.multiAngleTilting",
+        侧翻触控屏: "cameraCompare.values.screenType.sideFlipTouch",
+        侧翻屏: "cameraCompare.values.screenType.sideFlip",
+        翻转触控屏: "cameraCompare.values.screenType.tiltingTouch",
+        翻转屏: "cameraCompare.values.screenType.tilting",
+        触控屏: "cameraCompare.values.screenType.touch",
+        下翻屏: "cameraCompare.values.screenType.downwardTilting",
+      }
+      let result = str
+      // Replace from longest to shortest to avoid partial matches
+      const sortedTerms = Object.keys(termMap).sort((a, b) => b.length - a.length)
+      for (const cn of sortedTerms) {
+        result = result.replace(cn, t(termMap[cn]))
+      }
+      result = result.replace(/万点/g, t("cameraCompare.units.millionDots"))
+      result = result.replace(/\\"/g, '"')
+      return result
+    },
+  },
   { key: "weight", label: "cameraCompare.weight", format: (v) => `${v}g` },
   { key: "launchYear", label: "cameraCompare.launchYear" },
   { key: "price", label: "cameraCompare.price", format: (v) => `$${v}` },
-];
+]
 
 export const cameraModule: CompareDataModule<CameraModel> = {
   data: cameraData,
   specRows: cameraSpecRows,
-  numericKeys: ["megapixels", "burstRate", "weight", "launchYear", "autofocusPoints", "batteryLife"],
+  numericKeys: [
+    "megapixels",
+    "burstRate",
+    "weight",
+    "launchYear",
+    "autofocusPoints",
+    "batteryLife",
+  ],
   inverseKeys: ["price", "weight"],
   i18nPrefix: "cameraCompare",
   filterGroups: cameraFilterGroups,
-};
+}

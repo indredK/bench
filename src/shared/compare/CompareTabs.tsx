@@ -1,41 +1,44 @@
 /**
  * Shared Compare / 共享对比: own generic compare tools; 只负责通用对比能力.
  */
-import { useState, type ReactNode } from "react";
-import { useTranslation } from "react-i18next";
-import { Button } from "@/components/ui/button";
+import { useState, type ReactNode } from "react"
+import { useTranslation } from "react-i18next"
+import { Button } from "@/components/ui/button"
 
 export interface CompareTabItem {
-  id: string;
-  i18nPrefix: string;
-  icon: ReactNode;
-  content: ReactNode;
+  id: string
+  i18nPrefix: string
+  icon: ReactNode
+  content: ReactNode
 }
 
 interface CompareTabsProps {
-  tabs: readonly CompareTabItem[];
-  defaultTabId: string;
+  tabs: readonly CompareTabItem[]
+  defaultTabId: string
   /** Optional group labels to render between tab sections.
    *  Key is the first tab id in the group, value is the label. */
-  groupLabels?: Record<string, string>;
+  groupLabels?: Record<string, string>
 }
 
 function CompareTabs({ tabs, defaultTabId, groupLabels }: CompareTabsProps) {
-  const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState(defaultTabId);
-  const active = tabs.find((tab) => tab.id === activeTab) ?? tabs[0];
+  const { t } = useTranslation()
+  const [activeTab, setActiveTab] = useState(defaultTabId)
+  const active = tabs.find((tab) => tab.id === activeTab) ?? tabs[0]
 
   return (
-    <div className="h-full overflow-hidden flex flex-col">
-      <div className="shrink-0 rounded-xl border bg-card/50 p-3 flex flex-wrap gap-1 mb-4" role="tablist">
+    <div className="flex h-full flex-col overflow-hidden">
+      <div
+        className="bg-card/50 mb-4 flex shrink-0 flex-wrap gap-1 rounded-xl border p-3"
+        role="tablist"
+      >
         {tabs.map((tab) => {
-          const isActive = tab.id === active.id;
-          const groupLabel = groupLabels?.[tab.id];
+          const isActive = tab.id === active.id
+          const groupLabel = groupLabels?.[tab.id]
 
           return (
             <span key={tab.id} className="contents">
               {groupLabel && (
-                <span className="w-full text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-2 pb-1 first:pt-0">
+                <span className="text-muted-foreground w-full pt-2 pb-1 text-xs font-semibold tracking-wider uppercase first:pt-0">
                   {groupLabel}
                 </span>
               )}
@@ -51,7 +54,7 @@ function CompareTabs({ tabs, defaultTabId, groupLabels }: CompareTabsProps) {
                 {t(`${tab.i18nPrefix}.title`)}
               </Button>
             </span>
-          );
+          )
         })}
       </div>
 
@@ -59,7 +62,7 @@ function CompareTabs({ tabs, defaultTabId, groupLabels }: CompareTabsProps) {
         {active.content}
       </div>
     </div>
-  );
+  )
 }
 
-export default CompareTabs;
+export default CompareTabs

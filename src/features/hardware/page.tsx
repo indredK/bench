@@ -1,7 +1,7 @@
 /**
  * Page View / 页面视图: compose screen only; 只组合页面.
  */
-import { Suspense, lazy, useMemo } from "react";
+import { Suspense, lazy, useMemo } from "react"
 import {
   Cpu,
   CircuitBoard,
@@ -15,14 +15,14 @@ import {
   Smartphone,
   Camera,
   Telescope,
-} from "lucide-react";
-import { useTranslation } from "react-i18next";
-import CompareTabs, { type CompareTabItem } from "@/shared/compare/CompareTabs";
+} from "lucide-react"
+import { useTranslation } from "react-i18next"
+import CompareTabs, { type CompareTabItem } from "@/shared/compare/CompareTabs"
 
-const LazyHardwareTab = lazy(() => import("@/features/hardware/components/HardwareCompareTab"));
+const LazyHardwareTab = lazy(() => import("@/features/hardware/components/HardwareCompareTab"))
 
 type HardwareModuleLoader = () => Promise<{
-  default?: never;
+  default?: never
   module:
     | typeof import("@/data/cpu").cpuModule
     | typeof import("@/data/gpu").gpuModule
@@ -37,14 +37,14 @@ type HardwareModuleLoader = () => Promise<{
     | typeof import("@/data/phone").phoneModule
     | typeof import("@/data/phone-chipset").chipsetModule
     | typeof import("@/data/camera").cameraModule
-    | typeof import("@/data/telescope").telescopeModule;
-}>;
+    | typeof import("@/data/telescope").telescopeModule
+}>
 
 interface HardwareTabDef {
-  id: string;
-  i18nPrefix: string;
-  icon: React.ReactNode;
-  loadModule: HardwareModuleLoader;
+  id: string
+  i18nPrefix: string
+  icon: React.ReactNode
+  loadModule: HardwareModuleLoader
 }
 
 const hardwareTabs: readonly HardwareTabDef[] = [
@@ -134,25 +134,25 @@ const hardwareTabs: readonly HardwareTabDef[] = [
     icon: <Telescope size={16} />,
     loadModule: async () => ({ module: (await import("@/data/telescope")).telescopeModule }),
   },
-] as const;
+] as const
 
 const GROUP_LABEL_KEYS = {
   cpu: "hardwareCompare.groupPcHardware",
   phone: "hardwareCompare.groupDigitalProducts",
-} as const;
+} as const
 
 function HardwareTabFallback() {
-  const { t } = useTranslation();
+  const { t } = useTranslation()
 
   return (
-    <div className="flex h-full items-center justify-center rounded-xl border bg-card/40">
-      <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
+    <div className="bg-card/40 flex h-full items-center justify-center rounded-xl border">
+      <p className="text-muted-foreground text-sm">{t("common.loading")}</p>
     </div>
-  );
+  )
 }
 
 function HardwareComparePage() {
-  const { t } = useTranslation();
+  const { t } = useTranslation()
 
   const tabs = useMemo<CompareTabItem[]>(
     () =>
@@ -166,18 +166,18 @@ function HardwareComparePage() {
           </Suspense>
         ),
       })),
-    []
-  );
+    [],
+  )
 
   const groupLabels = useMemo(() => {
-    const next: Record<string, string> = {};
+    const next: Record<string, string> = {}
     for (const [key, i18nKey] of Object.entries(GROUP_LABEL_KEYS)) {
-      next[key] = t(i18nKey);
+      next[key] = t(i18nKey)
     }
-    return next;
-  }, [t]);
+    return next
+  }, [t])
 
-  return <CompareTabs tabs={tabs} defaultTabId="cpu" groupLabels={groupLabels} />;
+  return <CompareTabs tabs={tabs} defaultTabId="cpu" groupLabels={groupLabels} />
 }
 
-export default HardwareComparePage;
+export default HardwareComparePage

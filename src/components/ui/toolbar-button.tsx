@@ -1,24 +1,24 @@
 /**
  * Primitive UI / 基础 UI: render primitives only; 只提供基础组件.
  */
-import { type ReactNode } from "react";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { type ReactNode } from "react"
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
+import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 
 interface ToolbarButtonProps {
   /** Icon element to display inside the button */
-  icon: ReactNode;
+  icon: ReactNode
   /** Tooltip label shown on hover */
-  tooltip: string;
+  tooltip: string
   /** Click handler */
-  onClick: () => void;
+  onClick: () => void
   /** When true, uses "default" variant to indicate active/selected state */
-  active?: boolean;
+  active?: boolean
   /** Disables the button */
-  disabled?: boolean;
+  disabled?: boolean
   /** Additional class names */
-  className?: string;
+  className?: string
 }
 
 /**
@@ -48,5 +48,5 @@ export function ToolbarButton({
       </TooltipTrigger>
       <TooltipContent>{tooltip}</TooltipContent>
     </Tooltip>
-  );
+  )
 }

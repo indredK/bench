@@ -1,29 +1,31 @@
 /**
  * Feature Store / 功能状态: store state and simple actions; 只存状态与简单动作.
  */
-import { create } from "zustand";
-import type { SortingState, Updater } from "@tanstack/react-table";
-import type { EnvTool } from "@/lib/tauri/types/env-detector";
+import { create } from "zustand"
+import type { SortingState, Updater } from "@tanstack/react-table"
+import type { EnvTool } from "@/lib/tauri/types/env-detector"
 
 interface EnvDetectorState {
-  tools: EnvTool[];
-  loading: boolean;
-  scanning: boolean;
-  error: string;
-  searchQuery: string;
-  filters: Record<string, string>;
-  sorting: SortingState;
-  scanned: boolean;
-  showAllCommands: boolean;
-  viewMode: "table" | "grid";
+  tools: EnvTool[]
+  loading: boolean
+  scanning: boolean
+  error: string
+  searchQuery: string
+  filters: Record<string, string>
+  sorting: SortingState
+  scanned: boolean
+  showAllCommands: boolean
+  viewMode: "table" | "grid"
 
-  setSearchQuery: (query: string) => void;
-  setFilters: (filters: Record<string, string> | ((prev: Record<string, string>) => Record<string, string>)) => void;
-  setSorting: (sorting: Updater<SortingState>) => void;
-  setShowAllCommands: (show: boolean) => void;
-  setViewMode: (mode: "table" | "grid") => void;
-  clearFilters: () => void;
-  reset: () => void;
+  setSearchQuery: (query: string) => void
+  setFilters: (
+    filters: Record<string, string> | ((prev: Record<string, string>) => Record<string, string>),
+  ) => void
+  setSorting: (sorting: Updater<SortingState>) => void
+  setShowAllCommands: (show: boolean) => void
+  setViewMode: (mode: "table" | "grid") => void
+  clearFilters: () => void
+  reset: () => void
 }
 
 export const useEnvDetectorStore = create<EnvDetectorState>((set) => ({
@@ -65,4 +67,4 @@ export const useEnvDetectorStore = create<EnvDetectorState>((set) => ({
       showAllCommands: false,
       viewMode: "table",
     }),
-}));
+}))

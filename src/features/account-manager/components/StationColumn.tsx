@@ -1,22 +1,29 @@
 /**
  * Station column / 站点栏: list of relay stations with reorder + toolbar.
  */
-import { useState, type ReactNode } from "react";
-import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
-import { Check, Copy, Download, Import, Inbox, Link2, LogIn, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { useState, type ReactNode } from "react"
+import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
-import { SortableList, useSortableCard, DragHandle } from "@/components/ui/sortable-card";
-import type { RelayStation } from "@/lib/tauri/types/account-manager";
-import { ColumnHeader, EmptyHint } from "@/features/account-manager/components/shared";
+  Check,
+  Copy,
+  Download,
+  Import,
+  Inbox,
+  Link2,
+  LogIn,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Trash2,
+} from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { cn } from "@/lib/utils"
+import { SortableList, useSortableCard, DragHandle } from "@/components/ui/sortable-card"
+import type { RelayStation } from "@/lib/tauri/types/account-manager"
+import { ColumnHeader, EmptyHint } from "@/features/account-manager/components/shared"
 
 export function StationColumn({
   stations,
@@ -37,26 +44,26 @@ export function StationColumn({
   onQuickLogin,
   onExternalLogin,
 }: {
-  stations: RelayStation[];
-  selectedId: string;
-  countByStation: Record<string, number>;
-  onSelect: (id: string) => void;
-  onAdd: () => void;
-  onEdit: (station: RelayStation) => void;
-  onDelete: (station: RelayStation) => void;
-  onReorder: (orderedIds: string[]) => void;
-  reorderDisabled: boolean;
-  onRefreshAll: () => void;
-  refreshingAll: boolean;
-  onImportData: () => void;
-  onExportData: () => void;
-  importingData: boolean;
-  exportingData: boolean;
-  onQuickLogin: () => void;
-  onExternalLogin?: () => void;
+  stations: RelayStation[]
+  selectedId: string
+  countByStation: Record<string, number>
+  onSelect: (id: string) => void
+  onAdd: () => void
+  onEdit: (station: RelayStation) => void
+  onDelete: (station: RelayStation) => void
+  onReorder: (orderedIds: string[]) => void
+  reorderDisabled: boolean
+  onRefreshAll: () => void
+  refreshingAll: boolean
+  onImportData: () => void
+  onExportData: () => void
+  importingData: boolean
+  exportingData: boolean
+  onQuickLogin: () => void
+  onExternalLogin?: () => void
 }) {
-  const { t } = useTranslation();
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const { t } = useTranslation()
+  const [activeId, setActiveId] = useState<string | null>(null)
   const renderCard = (station: RelayStation, dragging: boolean) => (
     <StationCardContent
       station={station}
@@ -67,39 +74,42 @@ export function StationColumn({
       onEdit={onEdit}
       onDelete={onDelete}
     />
-  );
+  )
   return (
-    <section className="flex w-[320px] shrink-0 flex-col rounded-lg border bg-card">
+    <section className="bg-card flex w-[320px] shrink-0 flex-col rounded-lg border">
       <ColumnHeader
         title={`${t("accountManager.stationTitle")} (${stations.length})`}
         action={
-            <div className="flex items-center gap-1.5">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      size="icon-sm"
-                      variant="outline"
-                      onClick={onRefreshAll}
-                      disabled={refreshingAll}
-                      aria-label={t("accountManager.refreshAll")}
-                    >
-                      <RefreshCw className={refreshingAll ? "animate-spin" : undefined} />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">{t("accountManager.refreshAll")}</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <Button size="sm" onClick={onAdd}>
-                <Plus />
-                {t("accountManager.addStation")}
-              </Button>
-            </div>
+          <div className="flex items-center gap-1.5">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="icon-sm"
+                    variant="outline"
+                    onClick={onRefreshAll}
+                    disabled={refreshingAll}
+                    aria-label={t("accountManager.refreshAll")}
+                  >
+                    <RefreshCw className={refreshingAll ? "animate-spin" : undefined} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">{t("accountManager.refreshAll")}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <Button size="sm" onClick={onAdd}>
+              <Plus />
+              {t("accountManager.addStation")}
+            </Button>
+          </div>
         }
       />
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {stations.length === 0 ? (
-          <EmptyHint icon={<Inbox className="size-7 opacity-40" />} text={t("accountManager.noStation")} />
+          <EmptyHint
+            icon={<Inbox className="size-7 opacity-40" />}
+            text={t("accountManager.noStation")}
+          />
         ) : (
           <SortableList
             items={stations}
@@ -116,7 +126,7 @@ export function StationColumn({
               />
             )}
             renderOverlay={(station) => (
-              <div className="rounded-lg border bg-card shadow-xl">{renderCard(station, true)}</div>
+              <div className="bg-card rounded-lg border shadow-xl">{renderCard(station, true)}</div>
             )}
           />
         )}
@@ -135,22 +145,20 @@ export function StationColumn({
                     <LogIn size={14} />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent side="top">{t("accountManager.sessionManager.quickLogin.title")}</TooltipContent>
+                <TooltipContent side="top">
+                  {t("accountManager.sessionManager.quickLogin.title")}
+                </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           )}
           {onExternalLogin && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={onExternalLogin}
-            >
+            <Button size="sm" variant="outline" onClick={onExternalLogin}>
               <Link2 className="size-3.5" />
               {t("accountManager.proxyPaste.button")}
             </Button>
           )}
         </div>
-        <div className="flex items-center gap-1.5 ml-auto">
+        <div className="ml-auto flex items-center gap-1.5">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -186,7 +194,7 @@ export function StationColumn({
         </div>
       </div>
     </section>
-  );
+  )
 }
 
 function SortableStationItem({
@@ -194,12 +202,12 @@ function SortableStationItem({
   disabled,
   render,
 }: {
-  station: RelayStation;
-  disabled: boolean;
-  render: (station: RelayStation, dragging: boolean) => ReactNode;
+  station: RelayStation
+  disabled: boolean
+  render: (station: RelayStation, dragging: boolean) => ReactNode
 }) {
-  const { t } = useTranslation();
-  const { setNodeRef, style, handleProps, isDragging } = useSortableCard(station.id, disabled);
+  const { t } = useTranslation()
+  const { setNodeRef, style, handleProps, isDragging } = useSortableCard(station.id, disabled)
   return (
     <StationCardShell
       ref={setNodeRef}
@@ -215,7 +223,7 @@ function SortableStationItem({
       }
       content={render(station, false)}
     />
-  );
+  )
 }
 
 const StationCardShell = ({
@@ -225,17 +233,17 @@ const StationCardShell = ({
   handle,
   content,
 }: {
-  ref: (node: HTMLElement | null) => void;
-  style: React.CSSProperties;
-  isDragging: boolean;
-  handle: ReactNode;
-  content: ReactNode;
+  ref: (node: HTMLElement | null) => void
+  style: React.CSSProperties
+  isDragging: boolean
+  handle: ReactNode
+  content: ReactNode
 }) => (
   <div ref={ref} style={style} className={cn("relative", isDragging && "z-10")}>
     {handle}
     {content}
   </div>
-);
+)
 
 function StationCardContent({
   station,
@@ -246,26 +254,29 @@ function StationCardContent({
   onEdit,
   onDelete,
 }: {
-  station: RelayStation;
-  active: boolean;
-  count: number;
-  dragging: boolean;
-  onSelect: (id: string) => void;
-  onEdit: (station: RelayStation) => void;
-  onDelete: (station: RelayStation) => void;
+  station: RelayStation
+  active: boolean
+  count: number
+  dragging: boolean
+  onSelect: (id: string) => void
+  onEdit: (station: RelayStation) => void
+  onDelete: (station: RelayStation) => void
 }) {
-  const { t } = useTranslation();
-  const [remarkCopied, setRemarkCopied] = useState(false);
+  const { t } = useTranslation()
+  const [remarkCopied, setRemarkCopied] = useState(false)
   const handleCopyRemark = (event: React.MouseEvent) => {
-    event.stopPropagation();
-    navigator.clipboard.writeText(station.remark).then(() => {
-      setRemarkCopied(true);
-      toast.success(t("accountManager.toasts.copySuccess"));
-      window.setTimeout(() => setRemarkCopied(false), 1200);
-    }).catch(() => {
-      toast.error(t("accountManager.toasts.copyFailed"));
-    });
-  };
+    event.stopPropagation()
+    navigator.clipboard
+      .writeText(station.remark)
+      .then(() => {
+        setRemarkCopied(true)
+        toast.success(t("accountManager.toasts.copySuccess"))
+        window.setTimeout(() => setRemarkCopied(false), 1200)
+      })
+      .catch(() => {
+        toast.error(t("accountManager.toasts.copyFailed"))
+      })
+  }
   return (
     <div
       role="button"
@@ -273,18 +284,23 @@ function StationCardContent({
       onClick={() => onSelect(station.id)}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onSelect(station.id);
+          event.preventDefault()
+          onSelect(station.id)
         }
       }}
       className={cn(
         "group relative w-full cursor-pointer rounded-lg border px-3 py-3 text-left transition",
         active ? "border-primary bg-primary/5" : "border-border hover:bg-muted/40",
-        dragging && "shadow-xl"
+        dragging && "shadow-xl",
       )}
     >
       <span className="absolute -top-2 -right-2">
-        <Badge variant="secondary" className="size-5 flex items-center justify-center rounded-full p-0 text-[10px] leading-none">{count}</Badge>
+        <Badge
+          variant="secondary"
+          className="flex size-5 items-center justify-center rounded-full p-0 text-[10px] leading-none"
+        >
+          {count}
+        </Badge>
       </span>
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-1.5">
@@ -294,7 +310,7 @@ function StationCardContent({
               <TooltipTrigger asChild>
                 <button
                   onClick={handleCopyRemark}
-                  className="shrink-0 cursor-pointer text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
+                  className="text-muted-foreground hover:text-foreground shrink-0 cursor-pointer opacity-0 transition-opacity group-hover:opacity-100"
                   aria-label={t("accountManager.detail.copy")}
                 >
                   {remarkCopied ? <Check size={12} /> : <Copy size={12} />}
@@ -312,11 +328,11 @@ function StationCardContent({
                   size="icon-sm"
                   variant="ghost"
                   onClick={(event) => {
-                    event.stopPropagation();
-                    onEdit(station);
+                    event.stopPropagation()
+                    onEdit(station)
                   }}
                   aria-label={t("accountManager.editStation")}
-                  className="cursor-pointer hover:bg-muted/50 rounded-md"
+                  className="hover:bg-muted/50 cursor-pointer rounded-md"
                 >
                   <Pencil size={13} />
                 </Button>
@@ -331,11 +347,11 @@ function StationCardContent({
                   size="icon-sm"
                   variant="ghost"
                   onClick={(event) => {
-                    event.stopPropagation();
-                    onDelete(station);
+                    event.stopPropagation()
+                    onDelete(station)
                   }}
                   aria-label={t("accountManager.deleteStation")}
-                  className="cursor-pointer hover:bg-muted/50 rounded-md"
+                  className="hover:bg-muted/50 cursor-pointer rounded-md"
                 >
                   <Trash2 size={13} className="text-destructive" />
                 </Button>
@@ -345,7 +361,7 @@ function StationCardContent({
           </TooltipProvider>
         </div>
       </div>
-      <p className="mt-1 truncate text-xs text-muted-foreground">{station.website}</p>
+      <p className="text-muted-foreground mt-1 truncate text-xs">{station.website}</p>
     </div>
-  );
+  )
 }

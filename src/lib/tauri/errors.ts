@@ -6,16 +6,16 @@
  * 但仍存在历史命令返回纯字符串、或抛出原生 `Error` 的情况。
  * 本模块把所有形态归一化为 {@link AppErrorShape}，供 toast / 日志统一使用。
  */
-import type { TFunction } from "i18next";
+import type { TFunction } from "i18next"
 
 /** 统一错误形态：`code` 供机器判断，`message` 供人类展示。 */
 export interface AppErrorShape {
-  code: string;
-  message: string;
+  code: string
+  message: string
 }
 
 /** 未知错误的兜底 code。 */
-export const UNKNOWN_ERROR_CODE = "UNKNOWN";
+export const UNKNOWN_ERROR_CODE = "UNKNOWN"
 
 /** 判断是否为结构化的 `{ code, message }` 错误。 */
 export function isAppErrorShape(value: unknown): value is AppErrorShape {
@@ -26,7 +26,7 @@ export function isAppErrorShape(value: unknown): value is AppErrorShape {
     typeof (value as Record<string, unknown>).code === "string" &&
     "message" in value &&
     typeof (value as Record<string, unknown>).message === "string"
-  );
+  )
 }
 
 /**
@@ -35,54 +35,50 @@ export function isAppErrorShape(value: unknown): value is AppErrorShape {
  */
 export function parseCommandError(error: unknown): AppErrorShape {
   if (isAppErrorShape(error)) {
-    return { code: error.code, message: error.message };
+    return { code: error.code, message: error.message }
   }
   if (error instanceof Error) {
-    return { code: UNKNOWN_ERROR_CODE, message: error.message };
+    return { code: UNKNOWN_ERROR_CODE, message: error.message }
   }
   if (typeof error === "string") {
-    return { code: UNKNOWN_ERROR_CODE, message: error };
+    return { code: UNKNOWN_ERROR_CODE, message: error }
   }
   if (
     typeof error === "object" &&
     error !== null &&
     typeof (error as Record<string, unknown>).message === "string"
   ) {
-    const code = (error as Record<string, unknown>).code;
+    const code = (error as Record<string, unknown>).code
     return {
       code: typeof code === "string" ? code : UNKNOWN_ERROR_CODE,
       message: (error as Record<string, unknown>).message as string,
-    };
+    }
   }
-  return { code: UNKNOWN_ERROR_CODE, message: String(error) };
+  return { code: UNKNOWN_ERROR_CODE, message: String(error) }
 }
 
 /** 取错误 code（机器判断用）。 */
 export function getErrorCode(error: unknown): string {
-  return parseCommandError(error).code;
+  return parseCommandError(error).code
 }
 
 /**
  * 取可展示的错误信息。可选 `fallback` 在 message 为空时使用。
  */
 export function getErrorMessage(error: unknown, fallback?: string): string {
-  const message = parseCommandError(error).message;
-  if (message && message.trim()) return message;
-  return fallback ?? message;
+  const message = parseCommandError(error).message
+  if (message && message.trim()) return message
+  return fallback ?? message
 }
 
 /**
  * 结合 i18n 的错误文案解析：优先用 `errors.<CODE>` 的本地化文案，
  * 否则回退到后端 message，再回退到 `fallback`。
  */
-export function translateError(
-  t: TFunction,
-  error: unknown,
-  fallback?: string
-): string {
-  const { code } = parseCommandError(error);
-  const key = `errors.${code}`;
-  const localized = t(key, { defaultValue: "" });
-  if (localized) return localized;
-  return getErrorMessage(error, fallback);
+export function translateError(t: TFunction, error: unknown, fallback?: string): string {
+  const { code } = parseCommandError(error)
+  const key = `errors.${code}`
+  const localized = t(key, { defaultValue: "" })
+  if (localized) return localized
+  return getErrorMessage(error, fallback)
 }

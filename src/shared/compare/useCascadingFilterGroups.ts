@@ -1,39 +1,39 @@
 /**
  * Shared Compare / 共享对比: own generic compare tools; 只负责通用对比能力.
  */
-import { useMemo } from "react";
-import type { FilterGroup, FilterGroupOption } from "@/shared/compare/types";
+import { useMemo } from "react"
+import type { FilterGroup, FilterGroupOption } from "@/shared/compare/types"
 
 export interface ResolvedFilterGroup<T> extends FilterGroup<T> {
-  options: FilterGroupOption[];
+  options: FilterGroupOption[]
 }
 
 export function useCascadingFilterGroups<T>(
   filterGroups: FilterGroup<T>[],
   data: T[],
   filters: Record<string, string>,
-  language: string
+  language: string,
 ) {
   return useMemo<ResolvedFilterGroup<T>[]>(() => {
     return filterGroups.map((filterGroup) => {
-      const otherFilters = { ...filters };
-      delete otherFilters[String(filterGroup.key)];
+      const otherFilters = { ...filters }
+      delete otherFilters[String(filterGroup.key)]
 
       const pool =
         Object.keys(otherFilters).length > 0
           ? data.filter((item) =>
               Object.entries(otherFilters).every(
-                ([key, value]) => String(item[key as keyof T]) === value
-              )
+                ([key, value]) => String(item[key as keyof T]) === value,
+              ),
             )
-          : data;
+          : data
 
-      const uniqueValues = new Set<string>();
+      const uniqueValues = new Set<string>()
 
       for (const item of pool) {
-        const raw = item[filterGroup.key];
+        const raw = item[filterGroup.key]
         if (raw != null && raw !== "") {
-          uniqueValues.add(String(raw));
+          uniqueValues.add(String(raw))
         }
       }
 
@@ -42,10 +42,9 @@ export function useCascadingFilterGroups<T>(
         .map((value) => ({
           value,
           label: filterGroup.format ? filterGroup.format(value) : value,
-        }));
+        }))
 
-      return { ...filterGroup, options };
-    });
-  }, [filterGroups, data, filters, language]);
+      return { ...filterGroup, options }
+    })
+  }, [filterGroups, data, filters, language])
 }
-

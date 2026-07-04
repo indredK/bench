@@ -2,7 +2,7 @@
  * Destructive action confirmation / 危险操作确认: shared AlertDialog with optional
  * consequence callout for E5 (kill process, empty trash, etc.).
  */
-import type { ReactNode } from "react";
+import type { ReactNode } from "react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -12,7 +12,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+} from "@/components/ui/alert-dialog"
 
 export function DestructiveConfirmDialog({
   open,
@@ -25,15 +25,15 @@ export function DestructiveConfirmDialog({
   onConfirm,
   loading,
 }: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  title: string;
-  description: string;
-  consequence?: ReactNode;
-  confirmLabel: string;
-  cancelLabel: string;
-  onConfirm: () => void | Promise<void>;
-  loading?: boolean;
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  title: string
+  description: string
+  consequence?: ReactNode
+  confirmLabel: string
+  cancelLabel: string
+  onConfirm: () => void | Promise<void>
+  loading?: boolean
 }) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -41,7 +41,7 @@ export function DestructiveConfirmDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription asChild>
-            <div className="space-y-3 pt-1 text-sm text-muted-foreground">
+            <div className="text-muted-foreground space-y-3 pt-1 text-sm">
               <p>{description}</p>
               {consequence ? (
                 <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-amber-900 dark:text-amber-200">
@@ -57,8 +57,8 @@ export function DestructiveConfirmDialog({
             variant="destructive"
             disabled={loading}
             onClick={(event) => {
-              event.preventDefault();
-              void Promise.resolve(onConfirm());
+              event.preventDefault()
+              void Promise.resolve(onConfirm())
             }}
           >
             {confirmLabel}
@@ -66,5 +66,5 @@ export function DestructiveConfirmDialog({
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
-  );
+  )
 }

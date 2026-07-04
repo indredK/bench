@@ -1,17 +1,17 @@
 /**
  * Content UI / 内容 UI: own presentation patterns; 只负责内容展示模式.
  */
-import { Table2, Grid3x3 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Table2, Grid3x3 } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 interface ViewToggleProps {
-  viewMode: "table" | "grid";
-  onChange: (mode: "table" | "grid") => void;
+  viewMode: "table" | "grid"
+  onChange: (mode: "table" | "grid") => void
 }
 
 export function ViewToggle({ viewMode, onChange }: ViewToggleProps) {
   return (
-    <div className="flex items-center border rounded-lg p-0.5 bg-muted/30">
+    <div className="bg-muted/30 flex items-center rounded-lg border p-0.5">
       <Button
         variant={viewMode === "table" ? "default" : "ghost"}
         size="sm"
@@ -29,5 +29,5 @@ export function ViewToggle({ viewMode, onChange }: ViewToggleProps) {
         <Grid3x3 size={14} />
       </Button>
     </div>
-  );
+  )
 }

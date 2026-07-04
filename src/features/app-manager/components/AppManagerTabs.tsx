@@ -1,17 +1,17 @@
 /**
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  */
-import type { TFunction } from "i18next";
-import { AppWindow, ArrowUpCircle, Download } from "lucide-react";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
-import type { AppManagerTabKey } from "@/features/app-manager/model/store-types";
+import type { TFunction } from "i18next"
+import { AppWindow, ArrowUpCircle, Download } from "lucide-react"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { cn } from "@/lib/utils"
+import type { AppManagerTabKey } from "@/features/app-manager/model/store-types"
 
 interface AppManagerTabsProps {
-  t: TFunction;
-  activeTab: AppManagerTabKey;
-  onChange: (tab: AppManagerTabKey) => void;
-  updateCount: number;
+  t: TFunction
+  activeTab: AppManagerTabKey
+  onChange: (tab: AppManagerTabKey) => void
+  updateCount: number
 }
 
 export function AppManagerTabs({ t, activeTab, onChange, updateCount }: AppManagerTabsProps) {
@@ -21,8 +21,8 @@ export function AppManagerTabs({ t, activeTab, onChange, updateCount }: AppManag
       "after:absolute after:bottom-[-1px] after:left-3 after:right-3 after:h-0.5 after:rounded-full after:bg-primary after:transition-opacity",
       activeTab === tab
         ? "font-medium text-foreground after:opacity-100"
-        : "text-muted-foreground after:opacity-0 hover:text-foreground"
-    );
+        : "text-muted-foreground after:opacity-0 hover:text-foreground",
+    )
 
   return (
     <Tabs
@@ -42,7 +42,7 @@ export function AppManagerTabs({ t, activeTab, onChange, updateCount }: AppManag
             <span
               className={cn(
                 "ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full",
-                "bg-red-500 dark:bg-red-600 px-1 text-[10px] font-semibold tabular-nums text-white"
+                "bg-red-500 px-1 text-[10px] font-semibold text-white tabular-nums dark:bg-red-600",
               )}
             >
               {updateCount > 99 ? "99+" : updateCount}
@@ -55,5 +55,5 @@ export function AppManagerTabs({ t, activeTab, onChange, updateCount }: AppManag
         </TabsTrigger>
       </TabsList>
     </Tabs>
-  );
+  )
 }

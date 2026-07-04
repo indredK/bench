@@ -1,24 +1,16 @@
 /**
  * Table View / 表格视图: define table presentation; 只定义表格展示.
  */
-import { useTranslation } from "react-i18next";
-import type { TFunction } from "i18next";
-import type { ColumnDef } from "@tanstack/react-table";
-import { Badge } from "@/components/ui/badge";
-import { StickyTableText } from "@/components/ui/StickyTable";
-import type { EnvTool } from "@/lib/tauri/types";
+import { useTranslation } from "react-i18next"
+import type { TFunction } from "i18next"
+import type { ColumnDef } from "@tanstack/react-table"
+import { Badge } from "@/components/ui/badge"
+import { StickyTableText } from "@/components/ui/StickyTable"
+import type { EnvTool } from "@/lib/tauri/types"
 
-export type EnvTableColumnId =
-  | "name"
-  | "version"
-  | "path"
-  | "size"
-  | "installTime"
-  | "status";
+export type EnvTableColumnId = "name" | "version" | "path" | "size" | "installTime" | "status"
 
-export function createEnvDetectorColumns(
-  t: TFunction
-): ColumnDef<EnvTool>[] {
+export function createEnvDetectorColumns(t: TFunction): ColumnDef<EnvTool>[] {
   return [
     {
       id: "name",
@@ -29,9 +21,7 @@ export function createEnvDetectorColumns(
         sticky: true,
         width: "20%",
       },
-      cell: ({ row }) => (
-        <StickyTableText>{row.original.name}</StickyTableText>
-      ),
+      cell: ({ row }) => <StickyTableText>{row.original.name}</StickyTableText>,
       sortingFn: (left, right) => left.original.name.localeCompare(right.original.name),
     },
     {
@@ -80,7 +70,7 @@ export function createEnvDetectorColumns(
         align: "right",
       },
       cell: ({ row }) => (
-        <span className="tabular-nums text-muted-foreground">
+        <span className="text-muted-foreground tabular-nums">
           {row.original.available ? row.original.size_display : "—"}
         </span>
       ),
@@ -118,18 +108,18 @@ export function createEnvDetectorColumns(
       },
       cell: ({ row }) => <EnvStatusBadge tool={row.original} />,
     },
-  ];
+  ]
 }
 
 export function EnvStatusBadge({ tool }: { tool: EnvTool }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation()
 
   if (!tool.available) {
     return (
       <Badge variant="secondary" className="bg-muted/50 text-muted-foreground">
         {t("envDetector.filterValues.status.missing")}
       </Badge>
-    );
+    )
   }
 
   if (tool.status === "multipleVersions") {
@@ -137,7 +127,7 @@ export function EnvStatusBadge({ tool }: { tool: EnvTool }) {
       <Badge variant="outline" className="border-amber-500/40 text-amber-700 dark:text-amber-300">
         {t("envDetector.filterValues.status.multipleVersions")}
       </Badge>
-    );
+    )
   }
 
   if (tool.status === "versionUnknown") {
@@ -145,7 +135,7 @@ export function EnvStatusBadge({ tool }: { tool: EnvTool }) {
       <Badge variant="outline" className="text-muted-foreground">
         {t("envDetector.filterValues.status.versionUnknown")}
       </Badge>
-    );
+    )
   }
 
   return (
@@ -155,5 +145,5 @@ export function EnvStatusBadge({ tool }: { tool: EnvTool }) {
     >
       {t("envDetector.filterValues.status.ok")}
     </Badge>
-  );
+  )
 }

@@ -1,41 +1,41 @@
 /**
  * Shared Compare / 共享对比: own generic compare tools; 只负责通用对比能力.
  */
-import { useState, useRef, useCallback, useEffect } from "react";
-import { useTranslation } from "react-i18next";
-import { AnimatePresence, motion } from "motion/react";
-import i18n from "@/i18n/config";
-import { RotateCcw, Pin, PinOff } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import FacetedFilterGroups from "@/shared/compare/FacetedFilterGroups";
-import ModelPicker from "@/shared/compare/ModelPicker";
-import { useCascadingFilterGroups } from "@/shared/compare/useCascadingFilterGroups";
-import type { FilterGroup } from "@/shared/compare/types";
+import { useState, useRef, useCallback, useEffect } from "react"
+import { useTranslation } from "react-i18next"
+import { AnimatePresence, motion } from "motion/react"
+import i18n from "@/i18n/config"
+import { RotateCcw, Pin, PinOff } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
+import FacetedFilterGroups from "@/shared/compare/FacetedFilterGroups"
+import ModelPicker from "@/shared/compare/ModelPicker"
+import { useCascadingFilterGroups } from "@/shared/compare/useCascadingFilterGroups"
+import type { FilterGroup } from "@/shared/compare/types"
 
-export type { FilterGroup } from "@/shared/compare/types";
+export type { FilterGroup } from "@/shared/compare/types"
 
 interface FilterBarProps<T extends { id: string; model: string }> {
-  filterGroups: FilterGroup<T>[];
-  data: T[];
-  filters: Record<string, string>;
-  onFilterChange: (key: string, value: string) => void;
-  onClearFilters: () => void;
-  resultCount: number;
-  filterTitleKey?: string;
-  clearFiltersKey?: string;
-  filteredCountKey?: string;
-  autoExpandHintKey?: string;
-  pinnedHintKey?: string;
+  filterGroups: FilterGroup<T>[]
+  data: T[]
+  filters: Record<string, string>
+  onFilterChange: (key: string, value: string) => void
+  onClearFilters: () => void
+  resultCount: number
+  filterTitleKey?: string
+  clearFiltersKey?: string
+  filteredCountKey?: string
+  autoExpandHintKey?: string
+  pinnedHintKey?: string
   /* ── 型号选择相关（可选） ── */
-  models?: T[];
-  selectedIds?: string[];
-  onToggleModel?: (id: string) => void;
-  onClearSelected?: () => void;
-  i18nPrefix?: string;
-  uid?: string;
-  selectModelsTitleKey?: string;
-  clearSelectedKey?: string;
+  models?: T[]
+  selectedIds?: string[]
+  onToggleModel?: (id: string) => void
+  onClearSelected?: () => void
+  i18nPrefix?: string
+  uid?: string
+  selectModelsTitleKey?: string
+  clearSelectedKey?: string
 }
 
 function FilterBar<T extends { id: string; model: string }>({
@@ -59,82 +59,77 @@ function FilterBar<T extends { id: string; model: string }>({
   selectModelsTitleKey,
   clearSelectedKey = "hardwareCompare.clearSelected",
 }: FilterBarProps<T>) {
-  const { t } = useTranslation();
-  const hasActiveFilters = Object.keys(filters).length > 0;
-  const [masterCollapsed, setMasterCollapsed] = useState(false);
-  const [autoMode, setAutoMode] = useState(false);
-  const collapseTimer = useRef<ReturnType<typeof setTimeout>>(null);
+  const { t } = useTranslation()
+  const hasActiveFilters = Object.keys(filters).length > 0
+  const [masterCollapsed, setMasterCollapsed] = useState(false)
+  const [autoMode, setAutoMode] = useState(false)
+  const collapseTimer = useRef<ReturnType<typeof setTimeout>>(null)
   const modelPicker =
     models && selectedIds && onToggleModel && onClearSelected
       ? { models, selectedIds, onToggleModel, onClearSelected }
-      : null;
+      : null
 
   const expandOnHover = useCallback(() => {
-    if (!autoMode) return;
-    if (collapseTimer.current) clearTimeout(collapseTimer.current);
-    setMasterCollapsed(false);
-  }, [autoMode]);
+    if (!autoMode) return
+    if (collapseTimer.current) clearTimeout(collapseTimer.current)
+    setMasterCollapsed(false)
+  }, [autoMode])
 
   const collapseOnLeave = useCallback(() => {
-    if (!autoMode) return;
+    if (!autoMode) return
     collapseTimer.current = setTimeout(() => {
-      setMasterCollapsed(true);
-    }, 400);
-  }, [autoMode]);
+      setMasterCollapsed(true)
+    }, 400)
+  }, [autoMode])
 
   // Cancel the pending auto-collapse if the component unmounts mid-delay,
   // otherwise the setTimeout callback fires setState on a dead component (#109).
   useEffect(() => {
     return () => {
       if (collapseTimer.current) {
-        clearTimeout(collapseTimer.current);
-        collapseTimer.current = null;
+        clearTimeout(collapseTimer.current)
+        collapseTimer.current = null
       }
-    };
-  }, []);
+    }
+  }, [])
 
   const toggleMaster = useCallback(() => {
-    if (collapseTimer.current) clearTimeout(collapseTimer.current);
+    if (collapseTimer.current) clearTimeout(collapseTimer.current)
     if (autoMode) {
       // 点击：退出自动模式，保持展开
-      setAutoMode(false);
-      setMasterCollapsed(false);
+      setAutoMode(false)
+      setMasterCollapsed(false)
     } else {
       // 点击：收起并进入自动模式
-      setAutoMode(true);
-      setMasterCollapsed(true);
+      setAutoMode(true)
+      setMasterCollapsed(true)
     }
-  }, [autoMode]);
+  }, [autoMode])
 
-  const resolvedGroups = useCascadingFilterGroups(
-    filterGroups,
-    data,
-    filters,
-    i18n.language
-  );
+  const resolvedGroups = useCascadingFilterGroups(filterGroups, data, filters, i18n.language)
 
   return (
     <div
-      className="rounded-xl border bg-card/50"
+      className="bg-card/50 rounded-xl border"
       onMouseEnter={expandOnHover}
       onMouseLeave={collapseOnLeave}
     >
       {/* ── 标题栏（始终显示，整行可点击缩起/展开） ── */}
       <div
         className={cn(
-          "flex items-center justify-between px-4 cursor-pointer select-none transition-all",
-          masterCollapsed ? "py-1" : "py-2.5"
+          "flex cursor-pointer items-center justify-between px-4 transition-all select-none",
+          masterCollapsed ? "py-1" : "py-2.5",
         )}
         onClick={toggleMaster}
       >
-        <span className="text-xs font-semibold text-foreground/70 uppercase tracking-wider">
+        <span className="text-foreground/70 text-xs font-semibold tracking-wider uppercase">
           {t(filterTitleKey)}
         </span>
         <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-xs gap-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-all duration-200"
+            className="text-muted-foreground hover:text-foreground hover:bg-muted/80 h-6 gap-1 rounded-full px-2 text-xs transition-all duration-200"
             onClick={onClearFilters}
             disabled={!hasActiveFilters}
           >
@@ -145,10 +140,10 @@ function FilterBar<T extends { id: string; model: string }>({
             variant="ghost"
             size="sm"
             className={cn(
-              "h-6 w-6 p-0 rounded-full transition-all duration-300 group",
+              "group h-6 w-6 rounded-full p-0 transition-all duration-300",
               autoMode
                 ? "text-muted-foreground hover:text-foreground hover:bg-muted/80"
-                : "bg-primary/10 text-primary hover:bg-primary/20 ring-1 ring-primary/20"
+                : "bg-primary/10 text-primary hover:bg-primary/20 ring-primary/20 ring-1",
             )}
             onClick={toggleMaster}
             title={autoMode ? t(autoExpandHintKey) : t(pinnedHintKey)}
@@ -176,7 +171,7 @@ function FilterBar<T extends { id: string; model: string }>({
             }}
             className="overflow-hidden"
           >
-            <div className="px-4 pb-4 space-y-3 border-t border-border/40">
+            <div className="border-border/40 space-y-3 border-t px-4 pb-4">
               <FacetedFilterGroups
                 groups={resolvedGroups}
                 filters={filters}
@@ -185,7 +180,7 @@ function FilterBar<T extends { id: string; model: string }>({
 
               {modelPicker && (
                 <>
-                  <div className="border-t border-border/40" />
+                  <div className="border-border/40 border-t" />
                   <ModelPicker
                     models={modelPicker.models}
                     selectedIds={modelPicker.selectedIds}
@@ -206,7 +201,7 @@ function FilterBar<T extends { id: string; model: string }>({
         )}
       </AnimatePresence>
     </div>
-  );
+  )
 }
 
-export default FilterBar;
+export default FilterBar

@@ -1,8 +1,8 @@
 /**
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  */
-import type { TFunction } from "i18next";
-import { ArrowUpCircle, Download, Layers, Trash2 } from "lucide-react";
+import type { TFunction } from "i18next"
+import { ArrowUpCircle, Download, Layers, Trash2 } from "lucide-react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -12,39 +12,39 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+} from "@/components/ui/alert-dialog"
 
 interface ConfirmDialogState {
-  open: boolean;
-  appId: string;
-  appName: string;
-  action: "upgrade" | "uninstall";
+  open: boolean
+  appId: string
+  appName: string
+  action: "upgrade" | "uninstall"
 }
 
 interface InstallConfirmDialogState {
-  open: boolean;
-  appId: string;
-  appName: string;
+  open: boolean
+  appId: string
+  appName: string
 }
 
 interface BatchConfirmDialogState {
-  open: boolean;
-  action: "upgrade" | "uninstall" | "install";
-  count: number;
-  names: string[];
+  open: boolean
+  action: "upgrade" | "uninstall" | "install"
+  count: number
+  names: string[]
 }
 
 interface AppManagerConfirmDialogsProps {
-  t: TFunction;
-  confirmDialog: ConfirmDialogState;
-  installConfirmDialog: InstallConfirmDialogState;
-  batchConfirmDialog: BatchConfirmDialogState;
-  onCloseConfirm: () => void;
-  onCloseInstallConfirm: () => void;
-  onCloseBatchConfirm: () => void;
-  onConfirmAction: () => void;
-  onInstallConfirm: () => void;
-  onBatchConfirm: () => void;
+  t: TFunction
+  confirmDialog: ConfirmDialogState
+  installConfirmDialog: InstallConfirmDialogState
+  batchConfirmDialog: BatchConfirmDialogState
+  onCloseConfirm: () => void
+  onCloseInstallConfirm: () => void
+  onCloseBatchConfirm: () => void
+  onConfirmAction: () => void
+  onInstallConfirm: () => void
+  onBatchConfirm: () => void
 }
 
 export function AppManagerConfirmDialogs({
@@ -61,7 +61,12 @@ export function AppManagerConfirmDialogs({
 }: AppManagerConfirmDialogsProps) {
   return (
     <>
-      <AlertDialog open={confirmDialog.open} onOpenChange={(open) => { if (!open) onCloseConfirm(); }}>
+      <AlertDialog
+        open={confirmDialog.open}
+        onOpenChange={(open) => {
+          if (!open) onCloseConfirm()
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
@@ -96,7 +101,9 @@ export function AppManagerConfirmDialogs({
 
       <AlertDialog
         open={installConfirmDialog.open}
-        onOpenChange={(open) => { if (!open) onCloseInstallConfirm(); }}
+        onOpenChange={(open) => {
+          if (!open) onCloseInstallConfirm()
+        }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -119,7 +126,9 @@ export function AppManagerConfirmDialogs({
 
       <AlertDialog
         open={batchConfirmDialog.open}
-        onOpenChange={(open) => { if (!open) onCloseBatchConfirm(); }}
+        onOpenChange={(open) => {
+          if (!open) onCloseBatchConfirm()
+        }}
       >
         <AlertDialogContent className="sm:max-w-md">
           <AlertDialogHeader className="w-full place-items-stretch text-left">
@@ -132,25 +141,32 @@ export function AppManagerConfirmDialogs({
               {batchConfirmDialog.action === "install"
                 ? t("appManager.batchInstallConfirmTitle", { count: batchConfirmDialog.count })
                 : t("appManager.batchConfirmTitle", {
-                    action: batchConfirmDialog.action === "uninstall"
-                      ? t("appManager.batchActionUninstall")
-                      : t("appManager.batchActionUpgrade"),
+                    action:
+                      batchConfirmDialog.action === "uninstall"
+                        ? t("appManager.batchActionUninstall")
+                        : t("appManager.batchActionUpgrade"),
                     count: batchConfirmDialog.count,
                   })}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {batchConfirmDialog.action === "install"
-                ? t("appManager.batchInstallConfirmDescription", { count: batchConfirmDialog.count })
+                ? t("appManager.batchInstallConfirmDescription", {
+                    count: batchConfirmDialog.count,
+                  })
                 : batchConfirmDialog.action === "uninstall"
-                  ? t("appManager.batchUninstallConfirmDescription", { count: batchConfirmDialog.count })
-                  : t("appManager.batchUpgradeConfirmDescription", { count: batchConfirmDialog.count })}
+                  ? t("appManager.batchUninstallConfirmDescription", {
+                      count: batchConfirmDialog.count,
+                    })
+                  : t("appManager.batchUpgradeConfirmDescription", {
+                      count: batchConfirmDialog.count,
+                    })}
             </AlertDialogDescription>
             {batchConfirmDialog.names.length > 0 && (
               <div className="w-full space-y-2">
-                <p className="text-xs font-medium text-muted-foreground">
+                <p className="text-muted-foreground text-xs font-medium">
                   {t("appManager.batchSelectedAppsLabel")}
                 </p>
-                <div className="w-full overflow-hidden rounded-lg border bg-muted/25">
+                <div className="bg-muted/25 w-full overflow-hidden rounded-lg border">
                   <ul className="max-h-48 overflow-y-auto text-sm">
                     {batchConfirmDialog.names.map((name, index) => (
                       <li
@@ -169,7 +185,9 @@ export function AppManagerConfirmDialogs({
             <AlertDialogCancel>{t("appManager.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={onBatchConfirm}
-              className={batchConfirmDialog.action === "uninstall" ? "bg-red-600 hover:bg-red-700" : ""}
+              className={
+                batchConfirmDialog.action === "uninstall" ? "bg-red-600 hover:bg-red-700" : ""
+              }
             >
               {batchConfirmDialog.action === "install"
                 ? t("appManager.confirmInstall")
@@ -181,5 +199,5 @@ export function AppManagerConfirmDialogs({
         </AlertDialogContent>
       </AlertDialog>
     </>
-  );
+  )
 }

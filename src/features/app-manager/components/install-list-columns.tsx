@@ -1,21 +1,24 @@
 /**
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  */
-import type { TFunction } from "i18next";
-import type { ColumnDef } from "@tanstack/react-table";
-import { Copy, Download, ExternalLink } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { ToolbarButton } from "@/components/ui/toolbar-button";
-import { StickyTableText } from "@/components/ui/StickyTable";
-import { InstallSourceBadges, getInstallSourceLabel } from "@/features/app-manager/components/InstallSourceBadges";
-import type { InstallListAppInfo } from "@/lib/tauri/types/app-manager";
+import type { TFunction } from "i18next"
+import type { ColumnDef } from "@tanstack/react-table"
+import { Copy, Download, ExternalLink } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { ToolbarButton } from "@/components/ui/toolbar-button"
+import { StickyTableText } from "@/components/ui/StickyTable"
+import {
+  InstallSourceBadges,
+  getInstallSourceLabel,
+} from "@/features/app-manager/components/InstallSourceBadges"
+import type { InstallListAppInfo } from "@/lib/tauri/types/app-manager"
 
 interface InstallListColumnsOptions {
-  t: TFunction;
-  onInstall: (app: InstallListAppInfo) => void;
-  onOpenWebsite: (url: string | undefined) => void;
-  onCopyText: (text: string | undefined) => void;
+  t: TFunction
+  onInstall: (app: InstallListAppInfo) => void
+  onOpenWebsite: (url: string | undefined) => void
+  onCopyText: (text: string | undefined) => void
 }
 
 export function createInstallListColumns({
@@ -31,7 +34,7 @@ export function createInstallListColumns({
       accessorFn: (app) => app.name,
       meta: { minWidth: "80px" },
       cell: ({ getValue }) => (
-        <StickyTableText className="font-medium text-sm">{getValue() as string}</StickyTableText>
+        <StickyTableText className="text-sm font-medium">{getValue() as string}</StickyTableText>
       ),
     },
     {
@@ -40,7 +43,9 @@ export function createInstallListColumns({
       accessorFn: (app) => app.description,
       meta: { minWidth: "120px" },
       cell: ({ getValue }) => (
-        <StickyTableText className="text-xs text-muted-foreground">{getValue() as string}</StickyTableText>
+        <StickyTableText className="text-muted-foreground text-xs">
+          {getValue() as string}
+        </StickyTableText>
       ),
     },
     {
@@ -49,7 +54,7 @@ export function createInstallListColumns({
       accessorFn: (app) => app.installed,
       meta: { width: "76px" },
       cell: ({ row }) => {
-        const app = row.original;
+        const app = row.original
         return app.installed ? (
           <Badge variant="secondary" className="text-[10px]">
             {t("appManager.installListInstalled")}
@@ -58,7 +63,7 @@ export function createInstallListColumns({
           <Badge variant="outline" className="text-[10px]">
             {t("appManager.installListPending")}
           </Badge>
-        );
+        )
       },
     },
     {
@@ -67,10 +72,7 @@ export function createInstallListColumns({
       accessorFn: (app) => getInstallSourceLabel(app.installSource),
       meta: { width: "120px" },
       cell: ({ row }) => (
-        <InstallSourceBadges
-          installSource={row.original.installSource}
-          className="text-[10px]"
-        />
+        <InstallSourceBadges installSource={row.original.installSource} className="text-[10px]" />
       ),
     },
     {
@@ -78,10 +80,10 @@ export function createInstallListColumns({
       header: t("appManager.column.actions"),
       meta: { width: "160px" },
       cell: ({ row }) => {
-        const app = row.original;
+        const app = row.original
         return (
           <div
-            className="flex items-center gap-1.5 justify-end"
+            className="flex items-center justify-end gap-1.5"
             onClick={(e) => e.stopPropagation()}
           >
             <Button
@@ -108,8 +110,8 @@ export function createInstallListColumns({
               </div>
             )}
           </div>
-        );
+        )
       },
     },
-  ];
+  ]
 }

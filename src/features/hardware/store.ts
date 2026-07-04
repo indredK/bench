@@ -1,16 +1,16 @@
 /**
  * Feature Store / 功能状态: store state and simple actions; 只存状态与简单动作.
  */
-import { create } from "zustand";
+import { create } from "zustand"
 
 interface HardwareCompareState {
-  selectedIdsByScope: Record<string, string[]>;
-  filtersByScope: Record<string, Record<string, string>>;
+  selectedIdsByScope: Record<string, string[]>
+  filtersByScope: Record<string, Record<string, string>>
 
-  toggleModel: (scope: string, id: string) => void;
-  setFilter: (scope: string, key: string, value: string) => void;
-  clearFilters: (scope: string) => void;
-  clearSelectedModels: (scope: string) => void;
+  toggleModel: (scope: string, id: string) => void
+  setFilter: (scope: string, key: string, value: string) => void
+  clearFilters: (scope: string) => void
+  clearSelectedModels: (scope: string) => void
 }
 
 export const useHardwareCompareStore = create<HardwareCompareState>((set) => ({
@@ -29,23 +29,23 @@ export const useHardwareCompareStore = create<HardwareCompareState>((set) => ({
 
   setFilter: (scope, key, value) =>
     set((state) => {
-      const current = state.filtersByScope[scope] ?? {};
+      const current = state.filtersByScope[scope] ?? {}
       if (current[key] === value) {
-        const next = { ...current };
-        delete next[key];
+        const next = { ...current }
+        delete next[key]
         return {
           filtersByScope: {
             ...state.filtersByScope,
             [scope]: next,
           },
-        };
+        }
       }
       return {
         filtersByScope: {
           ...state.filtersByScope,
           [scope]: { ...current, [key]: value },
         },
-      };
+      }
     }),
 
   clearFilters: (scope) =>
@@ -63,4 +63,4 @@ export const useHardwareCompareStore = create<HardwareCompareState>((set) => ({
         [scope]: [],
       },
     })),
-}));
+}))

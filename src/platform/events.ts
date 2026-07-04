@@ -1,27 +1,33 @@
 /**
  * Platform Adapter / 平台适配: wrap runtime APIs; 统一封装运行时能力.
  */
-import type { EventCallback, EventName, EventTarget, Options, UnlistenFn } from "@tauri-apps/api/event";
-import { canUseTauriEvents } from "@/platform/capabilities";
+import type {
+  EventCallback,
+  EventName,
+  EventTarget,
+  Options,
+  UnlistenFn,
+} from "@tauri-apps/api/event"
+import { canUseTauriEvents } from "@/platform/capabilities"
 
 export async function listenToPlatformEvent<T>(
   event: EventName,
   handler: EventCallback<T>,
-  options?: Options
+  options?: Options,
 ): Promise<UnlistenFn> {
   if (!canUseTauriEvents()) {
-    return () => {};
+    return () => {}
   }
 
-  const { listen } = await import("@tauri-apps/api/event");
-  return listen<T>(event, handler, options);
+  const { listen } = await import("@tauri-apps/api/event")
+  return listen<T>(event, handler, options)
 }
 
 export async function emitPlatformEvent<T>(event: EventName, payload?: T): Promise<void> {
-  if (!canUseTauriEvents()) return;
+  if (!canUseTauriEvents()) return
 
-  const { emit } = await import("@tauri-apps/api/event");
-  await emit<T>(event, payload);
+  const { emit } = await import("@tauri-apps/api/event")
+  await emit<T>(event, payload)
 }
 
 export async function emitPlatformEventTo<T>(
@@ -29,8 +35,8 @@ export async function emitPlatformEventTo<T>(
   event: EventName,
   payload?: T,
 ): Promise<void> {
-  if (!canUseTauriEvents()) return;
+  if (!canUseTauriEvents()) return
 
-  const { emitTo } = await import("@tauri-apps/api/event");
-  await emitTo<T>(target, event, payload);
+  const { emitTo } = await import("@tauri-apps/api/event")
+  await emitTo<T>(target, event, payload)
 }

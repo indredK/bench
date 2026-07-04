@@ -1,16 +1,16 @@
 /**
  * Common UI / 通用 UI: share cross-feature UI; 只放跨功能通用界面.
  */
-import type { ReactNode } from "react";
-import { DesktopOnly } from "@/components/common/DesktopOnly";
-import { getFeatureGateReason, type FeatureDescriptor } from "@/platform/capabilities";
+import type { ReactNode } from "react"
+import { DesktopOnly } from "@/components/common/DesktopOnly"
+import { getFeatureGateReason, type FeatureDescriptor } from "@/platform/capabilities"
 
 interface RuntimeFeatureGateProps {
-  feature?: FeatureDescriptor;
-  title: string;
-  icon: ReactNode;
-  description?: string;
-  children: ReactNode;
+  feature?: FeatureDescriptor
+  title: string
+  icon: ReactNode
+  description?: string
+  children: ReactNode
 }
 
 export function RuntimeFeatureGate({
@@ -20,7 +20,7 @@ export function RuntimeFeatureGate({
   description,
   children,
 }: RuntimeFeatureGateProps) {
-  const gate = getFeatureGateReason(feature);
+  const gate = getFeatureGateReason(feature)
   if (gate.gated) {
     return (
       <DesktopOnly
@@ -30,8 +30,8 @@ export function RuntimeFeatureGate({
         reason={gate.reason}
         platform={gate.platform}
       />
-    );
+    )
   }
 
-  return <>{children}</>;
+  return <>{children}</>
 }

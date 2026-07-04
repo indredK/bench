@@ -1,32 +1,32 @@
 /**
  * Layout UI / 布局 UI: own layout only; 只负责通用布局.
  */
-import { useCallback, useEffect, useState } from "react";
-import type { MouseEvent as ReactMouseEvent } from "react";
-import { useTranslation } from "react-i18next";
-import { Minus, Maximize2, X, Pin, PinOff } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { canUseWindowControls } from "@/platform/window";
-import { getCurrentAppWindow } from "@/platform/window";
+import { useCallback, useEffect, useState } from "react"
+import type { MouseEvent as ReactMouseEvent } from "react"
+import { useTranslation } from "react-i18next"
+import { Minus, Maximize2, X, Pin, PinOff } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { canUseWindowControls } from "@/platform/window"
+import { getCurrentAppWindow } from "@/platform/window"
 
 interface CustomTitlebarProps {
-  className?: string;
+  className?: string
 }
 
 type WindowControls = {
-  minimize: () => Promise<void>;
-  toggleMaximize: () => Promise<void>;
-  close: () => Promise<void>;
-  startDragging: () => Promise<void>;
-  setAlwaysOnTop: (onTop: boolean) => Promise<void>;
-};
+  minimize: () => Promise<void>
+  toggleMaximize: () => Promise<void>
+  close: () => Promise<void>
+  startDragging: () => Promise<void>
+  setAlwaysOnTop: (onTop: boolean) => Promise<void>
+}
 
-let cachedControls: WindowControls | null = null;
+let cachedControls: WindowControls | null = null
 
 async function getWindowControls(): Promise<WindowControls> {
-  if (cachedControls) return cachedControls;
+  if (cachedControls) return cachedControls
 
-  const win = await getCurrentAppWindow();
+  const win = await getCurrentAppWindow()
 
   cachedControls = {
     minimize: () => win.minimize(),
@@ -34,84 +34,87 @@ async function getWindowControls(): Promise<WindowControls> {
     close: () => win.close(),
     startDragging: () => win.startDragging(),
     setAlwaysOnTop: (onTop) => win.setAlwaysOnTop(onTop),
-  };
+  }
 
-  return cachedControls;
+  return cachedControls
 }
 
-const desktop = canUseWindowControls();
+const desktop = canUseWindowControls()
 
-export function CustomTitlebar({
-  className,
-}: CustomTitlebarProps) {
-  const { t } = useTranslation();
-  const [alwaysOnTop, setAlwaysOnTop] = useState(false);
+export function CustomTitlebar({ className }: CustomTitlebarProps) {
+  const { t } = useTranslation()
+  const [alwaysOnTop, setAlwaysOnTop] = useState(false)
 
   useEffect(() => {
-    getCurrentAppWindow().then((win) => {
-      win.isAlwaysOnTop().then(setAlwaysOnTop).catch(() => {});
-    }).catch(() => {});
-  }, []);
+    getCurrentAppWindow()
+      .then((win) => {
+        win
+          .isAlwaysOnTop()
+          .then(setAlwaysOnTop)
+          .catch(() => {})
+      })
+      .catch(() => {})
+  }, [])
 
   const handleToggleAlwaysOnTop = useCallback(async () => {
     try {
-      const ctrl = await getWindowControls();
-      const next = !alwaysOnTop;
-      await ctrl.setAlwaysOnTop(next);
-      setAlwaysOnTop(next);
+      const ctrl = await getWindowControls()
+      const next = !alwaysOnTop
+      await ctrl.setAlwaysOnTop(next)
+      setAlwaysOnTop(next)
     } catch (e) {
-      console.error("Failed to toggle always on top", e);
+      console.error("Failed to toggle always on top", e)
     }
-  }, [alwaysOnTop]);
+  }, [alwaysOnTop])
 
   const handleMinimize = useCallback(async () => {
     try {
-      const ctrl = await getWindowControls();
-      await ctrl.minimize();
+      const ctrl = await getWindowControls()
+      await ctrl.minimize()
     } catch (e) {
-      console.error("Failed to minimize window", e);
+      console.error("Failed to minimize window", e)
     }
-  }, []);
+  }, [])
 
   const handleToggleMaximize = useCallback(async () => {
     try {
-      const ctrl = await getWindowControls();
-      await ctrl.toggleMaximize();
+      const ctrl = await getWindowControls()
+      await ctrl.toggleMaximize()
     } catch (e) {
-      console.error("Failed to toggle maximize window", e);
+      console.error("Failed to toggle maximize window", e)
     }
-  }, []);
+  }, [])
 
   const handleClose = useCallback(async () => {
     try {
-      const ctrl = await getWindowControls();
-      await ctrl.close();
+      const ctrl = await getWindowControls()
+      await ctrl.close()
     } catch (e) {
-      console.error("Failed to close window", e);
+      console.error("Failed to close window", e)
     }
-  }, []);
+  }, [])
 
   const handleDragStart = useCallback(async (event: ReactMouseEvent<HTMLDivElement>) => {
-    if (!desktop || event.button !== 0) return;
+    if (!desktop || event.button !== 0) return
 
-    const target = event.target;
+    const target = event.target
     if (target instanceof Element && target.closest("[data-no-window-drag]")) {
-      return;
+      return
     }
 
     try {
-      const ctrl = await getWindowControls();
-      await ctrl.startDragging();
+      const ctrl = await getWindowControls()
+      await ctrl.startDragging()
     } catch (e) {
-      console.error("Failed to start window dragging", e);
+      console.error("Failed to start window dragging", e)
     }
-  }, []);
+  }, [])
 
   return (
     <div
       data-tauri-drag-region
       onMouseDown={(event) => {
-        void handleDragStart(event);
+        void handleDragStart(event)
       }}
       className={cn(
         "relative flex h-10 shrink-0 items-center justify-end",
@@ -120,23 +123,16 @@ export function CustomTitlebar({
         className,
       )}
     >
-      <div
-        data-tauri-drag-region
-        className="absolute inset-0"
-        aria-hidden="true"
-      />
+      <div data-tauri-drag-region className="absolute inset-0" aria-hidden="true" />
 
-      <div
-        data-no-window-drag
-        className="relative z-10 flex items-center gap-0.5"
-      >
+      <div data-no-window-drag className="relative z-10 flex items-center gap-0.5">
         {desktop && (
           <>
             <button
               type="button"
               data-no-window-drag
               className={cn(
-                "rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors",
+                "text-muted-foreground hover:bg-accent hover:text-foreground rounded-md p-1.5 transition-colors",
                 "focus:outline-none",
                 alwaysOnTop && "text-primary hover:text-primary",
               )}
@@ -151,7 +147,7 @@ export function CustomTitlebar({
               type="button"
               data-no-window-drag
               className={cn(
-                "rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors",
+                "text-muted-foreground hover:bg-accent hover:text-foreground rounded-md p-1.5 transition-colors",
                 "focus:outline-none",
               )}
               onClick={handleMinimize}
@@ -165,7 +161,7 @@ export function CustomTitlebar({
               type="button"
               data-no-window-drag
               className={cn(
-                "rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors",
+                "text-muted-foreground hover:bg-accent hover:text-foreground rounded-md p-1.5 transition-colors",
                 "focus:outline-none",
               )}
               onClick={handleToggleMaximize}
@@ -179,7 +175,7 @@ export function CustomTitlebar({
               type="button"
               data-no-window-drag
               className={cn(
-                "rounded-md p-1.5 text-muted-foreground hover:bg-red-500/20 hover:text-red-500 transition-colors",
+                "text-muted-foreground rounded-md p-1.5 transition-colors hover:bg-red-500/20 hover:text-red-500",
                 "focus:outline-none",
               )}
               onClick={handleClose}
@@ -190,8 +186,7 @@ export function CustomTitlebar({
             </button>
           </>
         )}
-
       </div>
     </div>
-  );
+  )
 }

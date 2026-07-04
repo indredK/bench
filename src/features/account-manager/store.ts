@@ -1,15 +1,15 @@
 /**
  * Feature Store / 功能状态: state and simple actions only; 只存状态与简单动作.
  */
-import { create } from "zustand";
+import { create } from "zustand"
 import type {
   AccountManagerActions,
   AccountManagerState,
-} from "@/features/account-manager/model/store-types";
-import { initialAccountManagerState } from "@/features/account-manager/model/store-types";
-import { pickInitialSelection } from "@/features/account-manager/model/selectors";
+} from "@/features/account-manager/model/store-types"
+import { initialAccountManagerState } from "@/features/account-manager/model/store-types"
+import { pickInitialSelection } from "@/features/account-manager/model/selectors"
 
-export type { AccountManagerState, AccountManagerActions };
+export type { AccountManagerState, AccountManagerActions }
 
 export const useAccountManagerStore = create<AccountManagerState & AccountManagerActions>(
   (set) => ({
@@ -51,12 +51,12 @@ export const useAccountManagerStore = create<AccountManagerState & AccountManage
     setExternalAppsOpen: (isExternalAppsOpen) => set({ isExternalAppsOpen }),
     setExternalAppsAccountId: (externalAppsAccountId) => set({ externalAppsAccountId }),
     applyInitialSelection: (stations, accounts) => {
-      const { stationId, accountId } = pickInitialSelection(stations, accounts);
-      set({ selectedStationId: stationId, selectedAccountId: accountId });
+      const { stationId, accountId } = pickInitialSelection(stations, accounts)
+      set({ selectedStationId: stationId, selectedAccountId: accountId })
     },
     selectStation: (id, accounts) => {
-      const first = accounts.find((account) => account.stationId === id);
-      set({ selectedStationId: id, selectedAccountId: first?.id ?? "" });
+      const first = accounts.find((account) => account.stationId === id)
+      set({ selectedStationId: id, selectedAccountId: first?.id ?? "" })
     },
   }),
-);
+)

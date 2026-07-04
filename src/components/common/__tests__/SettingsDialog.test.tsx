@@ -1,8 +1,8 @@
-import React from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { SettingsDialog } from "@/components/common/SettingsDialog";
+import React from "react"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+import { render, screen } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
+import { SettingsDialog } from "@/components/common/SettingsDialog"
 
 const {
   changeLanguage,
@@ -38,20 +38,20 @@ const {
     "windowTheme.unsupportedTooltip": "Unsupported",
     "common.appTitle": "Bench - DevTools",
   } as Record<string, string>,
-}));
+}))
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string) => translations[key] ?? key,
   }),
-}));
+}))
 
 vi.mock("next-themes", () => ({
   useTheme: () => ({
     theme: "system",
     setTheme,
   }),
-}));
+}))
 
 vi.mock("@/i18n/config", () => ({
   __esModule: true,
@@ -60,17 +60,17 @@ vi.mock("@/i18n/config", () => ({
     t: (key: string) => translations[key] ?? key,
   },
   detectSystemLanguage: () => "zh",
-}));
+}))
 
 vi.mock("@/platform/window", () => ({
   setCurrentWindowTitle,
-}));
+}))
 
 vi.mock("@/platform/storage", () => ({
   readStorageItem,
   writeStorageItem,
   removeStorageItem,
-}));
+}))
 
 vi.mock("@/hooks/useWindowTheme", () => ({
   useWindowTheme: () => ({
@@ -78,7 +78,7 @@ vi.mock("@/hooks/useWindowTheme", () => ({
     setThemeId: setWindowThemeId,
     isSupported: () => true,
   }),
-}));
+}))
 
 vi.mock("@/components/ui/dialog", () => ({
   Dialog: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -86,7 +86,7 @@ vi.mock("@/components/ui/dialog", () => ({
   DialogHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   DialogTitle: ({ children }: { children: React.ReactNode }) => <h2>{children}</h2>,
   DialogDescription: ({ children }: { children: React.ReactNode }) => <p>{children}</p>,
-}));
+}))
 
 vi.mock("@/components/ui/button", () => ({
   Button: ({
@@ -94,42 +94,42 @@ vi.mock("@/components/ui/button", () => ({
     onClick,
     disabled,
   }: {
-    children: React.ReactNode;
-    onClick?: () => void;
-    disabled?: boolean;
+    children: React.ReactNode
+    onClick?: () => void
+    disabled?: boolean
   }) => (
     <button type="button" onClick={onClick} disabled={disabled}>
       {children}
     </button>
   ),
-}));
+}))
 
 describe("SettingsDialog", () => {
   beforeEach(() => {
-    changeLanguage.mockClear();
-    setCurrentWindowTitle.mockClear();
-    readStorageItem.mockReset();
-    readStorageItem.mockReturnValue("system");
-    writeStorageItem.mockClear();
-    removeStorageItem.mockClear();
-  });
+    changeLanguage.mockClear()
+    setCurrentWindowTitle.mockClear()
+    readStorageItem.mockReset()
+    readStorageItem.mockReturnValue("system")
+    writeStorageItem.mockClear()
+    removeStorageItem.mockClear()
+  })
 
   it("renders semantic section titles instead of deriving them from labels", () => {
-    render(<SettingsDialog open={true} onOpenChange={() => {}} />);
+    render(<SettingsDialog open={true} onOpenChange={() => {}} />)
 
-    expect(screen.getByText("Theme")).toBeInTheDocument();
-    expect(screen.getByText("Switch Language")).toBeInTheDocument();
-  });
+    expect(screen.getByText("Theme")).toBeInTheDocument()
+    expect(screen.getByText("Switch Language")).toBeInTheDocument()
+  })
 
   it("updates the window title from i18n after switching language", async () => {
-    const user = userEvent.setup();
-    render(<SettingsDialog open={true} onOpenChange={() => {}} />);
+    const user = userEvent.setup()
+    render(<SettingsDialog open={true} onOpenChange={() => {}} />)
 
-    await user.click(screen.getByRole("button", { name: "中文" }));
+    await user.click(screen.getByRole("button", { name: "中文" }))
 
-    expect(writeStorageItem).toHaveBeenCalledWith("languageMode", "zh");
-    expect(writeStorageItem).toHaveBeenCalledWith("language", "zh");
-    expect(changeLanguage).toHaveBeenCalledWith("zh");
-    expect(setCurrentWindowTitle).toHaveBeenCalledWith("Bench - DevTools");
-  });
-});
+    expect(writeStorageItem).toHaveBeenCalledWith("languageMode", "zh")
+    expect(writeStorageItem).toHaveBeenCalledWith("language", "zh")
+    expect(changeLanguage).toHaveBeenCalledWith("zh")
+    expect(setCurrentWindowTitle).toHaveBeenCalledWith("Bench - DevTools")
+  })
+})

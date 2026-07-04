@@ -1,27 +1,27 @@
 /**
  * Feature Model / 功能模型: keep pure model logic; 只放纯模型逻辑.
  */
-import type { AppInfo, InstallListAppInfo } from "@/lib/tauri/types/app-manager";
-import type { AppCategoryKey } from "@/features/app-manager/app-categories";
-import { classifyApp } from "@/features/app-manager/app-categories";
-import type { AppSeriesKey } from "@/features/app-manager/app-series";
-import { classifySeries } from "@/features/app-manager/app-series";
-import type { AppFilterKey, MarketplaceFilterKey } from "@/features/app-manager/model/preferences";
+import type { AppInfo, InstallListAppInfo } from "@/lib/tauri/types/app-manager"
+import type { AppCategoryKey } from "@/features/app-manager/app-categories"
+import { classifyApp } from "@/features/app-manager/app-categories"
+import type { AppSeriesKey } from "@/features/app-manager/app-series"
+import { classifySeries } from "@/features/app-manager/app-series"
+import type { AppFilterKey, MarketplaceFilterKey } from "@/features/app-manager/model/preferences"
 
 interface FilterAppManagerItemsOptions {
-  apps: AppInfo[];
-  searchQuery: string;
-  activeFilter: AppFilterKey;
-  categoryFilter: AppCategoryKey | null;
-  seriesFilter: AppSeriesKey | null;
+  apps: AppInfo[]
+  searchQuery: string
+  activeFilter: AppFilterKey
+  categoryFilter: AppCategoryKey | null
+  seriesFilter: AppSeriesKey | null
 }
 
 interface FilterInstallListAppsOptions {
-  installListApps: InstallListAppInfo[];
-  searchQuery: string;
-  marketplaceFilter: MarketplaceFilterKey;
-  categoryFilter: AppCategoryKey | null;
-  seriesFilter: AppSeriesKey | null;
+  installListApps: InstallListAppInfo[]
+  searchQuery: string
+  marketplaceFilter: MarketplaceFilterKey
+  categoryFilter: AppCategoryKey | null
+  seriesFilter: AppSeriesKey | null
 }
 
 export function filterAppManagerItems({
@@ -37,7 +37,7 @@ export function filterAppManagerItems({
     activeFilter,
     categoryFilter,
     seriesFilter,
-  });
+  })
 }
 
 export function filterInstallListApps({
@@ -47,35 +47,34 @@ export function filterInstallListApps({
   categoryFilter,
   seriesFilter,
 }: FilterInstallListAppsOptions): InstallListAppInfo[] {
-  let result = installListApps;
-  const query = searchQuery.trim().toLowerCase();
+  let result = installListApps
+  const query = searchQuery.trim().toLowerCase()
 
   if (query) {
     result = result.filter(
       (app) =>
-        app.name.toLowerCase().includes(query) ||
-        app.description.toLowerCase().includes(query)
-    );
+        app.name.toLowerCase().includes(query) || app.description.toLowerCase().includes(query),
+    )
   }
 
   if (categoryFilter) {
-    result = result.filter((app) => app.category === categoryFilter);
+    result = result.filter((app) => app.category === categoryFilter)
   }
 
   switch (marketplaceFilter) {
     case "pending":
-      result = result.filter((app) => !app.installed);
-      break;
+      result = result.filter((app) => !app.installed)
+      break
     case "installed":
-      result = result.filter((app) => app.installed);
-      break;
+      result = result.filter((app) => app.installed)
+      break
   }
 
   if (seriesFilter) {
-    result = result.filter((app) => app.series === seriesFilter);
+    result = result.filter((app) => app.series === seriesFilter)
   }
 
-  return result;
+  return result
 }
 
 export function getInstalledFilterCounts(apps: AppInfo[]): Record<AppFilterKey, number> {
@@ -85,25 +84,25 @@ export function getInstalledFilterCounts(apps: AppInfo[]): Record<AppFilterKey, 
     system: 0,
     launchable: 0,
     managed: 0,
-  };
+  }
 
   for (const app of apps) {
     if (app.isSystemApp) {
-      counts.system += 1;
+      counts.system += 1
     } else {
-      counts.user += 1;
+      counts.user += 1
     }
 
     if (app.allowedActions.launch) {
-      counts.launchable += 1;
+      counts.launchable += 1
     }
 
     if (app.canUpgrade || app.canUninstall) {
-      counts.managed += 1;
+      counts.managed += 1
     }
   }
 
-  return counts;
+  return counts
 }
 
 function filterInstalledApps({
@@ -113,7 +112,7 @@ function filterInstalledApps({
   categoryFilter,
   seriesFilter,
 }: Omit<FilterAppManagerItemsOptions, "installListApps">): AppInfo[] {
-  const query = searchQuery.trim().toLowerCase();
+  const query = searchQuery.trim().toLowerCase()
 
   return apps.filter((app) => {
     if (
@@ -122,27 +121,27 @@ function filterInstalledApps({
       !app.installPath.toLowerCase().includes(query) &&
       !app.bundleId.toLowerCase().includes(query)
     ) {
-      return false;
+      return false
     }
 
     switch (activeFilter) {
       case "user":
-        if (app.isSystemApp) return false;
-        break;
+        if (app.isSystemApp) return false
+        break
       case "system":
-        if (!app.isSystemApp) return false;
-        break;
+        if (!app.isSystemApp) return false
+        break
       case "launchable":
-        if (!app.allowedActions.launch) return false;
-        break;
+        if (!app.allowedActions.launch) return false
+        break
       case "managed":
-        if (!app.canUpgrade && !app.canUninstall) return false;
-        break;
+        if (!app.canUpgrade && !app.canUninstall) return false
+        break
     }
 
-    if (categoryFilter && classifyApp(app) !== categoryFilter) return false;
-    if (seriesFilter && classifySeries(app) !== seriesFilter) return false;
+    if (categoryFilter && classifyApp(app) !== categoryFilter) return false
+    if (seriesFilter && classifySeries(app) !== seriesFilter) return false
 
-    return true;
-  });
+    return true
+  })
 }

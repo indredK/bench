@@ -1,132 +1,133 @@
 /**
  * Common UI / 通用 UI: share cross-feature UI; 只放跨功能通用界面.
  */
-import { useCallback, useEffect, useState } from "react";
-import { useTranslation } from "react-i18next";
-import { useTheme } from "next-themes";
-import { toast } from "sonner";
-import { Monitor, Sun, Moon, Globe, Check } from "lucide-react";
+import { useCallback, useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
+import { useTheme } from "next-themes"
+import { toast } from "sonner"
+import { Monitor, Sun, Moon, Globe, Check } from "lucide-react"
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import i18n, { detectSystemLanguage } from "@/i18n/config";
-import { setCurrentWindowTitle } from "@/platform/window";
-import { readStorageItem, removeStorageItem, writeStorageItem } from "@/platform/storage";
-import { useWindowTheme } from "@/hooks/useWindowTheme";
-import { WINDOW_THEMES } from "@/lib/windowTheme";
-import { getAutostartStatus, setAutostart } from "@/lib/tauri/commands/system-settings";
-import { setTrayLabels } from "@/lib/tauri/commands";
-import { getCloseBehavior, setCloseBehavior } from "@/lib/tauri/commands/app-preferences";
-import { getErrorMessage } from "@/lib/tauri/errors";
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Switch } from "@/components/ui/switch"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import i18n, { detectSystemLanguage } from "@/i18n/config"
+import { setCurrentWindowTitle } from "@/platform/window"
+import { readStorageItem, removeStorageItem, writeStorageItem } from "@/platform/storage"
+import { useWindowTheme } from "@/hooks/useWindowTheme"
+import { WINDOW_THEMES } from "@/lib/windowTheme"
+import { getAutostartStatus, setAutostart } from "@/lib/tauri/commands/system-settings"
+import { setTrayLabels } from "@/lib/tauri/commands"
+import { getCloseBehavior, setCloseBehavior } from "@/lib/tauri/commands/app-preferences"
+import { getErrorMessage } from "@/lib/tauri/errors"
 
-const THEME_ORDER = ["system", "light", "dark"] as const;
-type ThemeMode = (typeof THEME_ORDER)[number];
+const THEME_ORDER = ["system", "light", "dark"] as const
+type ThemeMode = (typeof THEME_ORDER)[number]
 
 const THEME_ICON: Record<ThemeMode, typeof Monitor> = {
   system: Monitor,
   light: Sun,
   dark: Moon,
-};
+}
 
 const LANG_OPTIONS = [
   { value: "system", labelKey: "language.system" },
   { value: "en", labelKey: "language.en" },
   { value: "zh", labelKey: "language.zh" },
-] as const;
+] as const
 
 interface SettingsDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  open: boolean
+  onOpenChange: (open: boolean) => void
 }
 
 export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
-  const { t } = useTranslation();
-  const { theme, setTheme } = useTheme();
-  const currentTheme = (theme as ThemeMode) || "system";
-  const { themeId: windowThemeId, setThemeId: setWindowThemeId, isSupported } =
-    useWindowTheme();
+  const { t } = useTranslation()
+  const { theme, setTheme } = useTheme()
+  const currentTheme = (theme as ThemeMode) || "system"
+  const { themeId: windowThemeId, setThemeId: setWindowThemeId, isSupported } = useWindowTheme()
 
   const storedLang = (() => {
-    const s = readStorageItem("languageMode");
-    if (s === "zh" || s === "en") return s;
-    return "system";
-  })();
+    const s = readStorageItem("languageMode")
+    if (s === "zh" || s === "en") return s
+    return "system"
+  })()
 
   const changeLanguage = useCallback(async (lang: string) => {
     if (lang === "system") {
-      removeStorageItem("languageMode");
-      removeStorageItem("language");
+      removeStorageItem("languageMode")
+      removeStorageItem("language")
     } else {
-      writeStorageItem("languageMode", lang);
-      writeStorageItem("language", lang);
+      writeStorageItem("languageMode", lang)
+      writeStorageItem("language", lang)
     }
-    const resolved = lang === "system" ? detectSystemLanguage() : lang;
-    await i18n.changeLanguage(resolved);
-    const title = i18n.t("common.appTitle");
-    await setCurrentWindowTitle(title);
+    const resolved = lang === "system" ? detectSystemLanguage() : lang
+    await i18n.changeLanguage(resolved)
+    const title = i18n.t("common.appTitle")
+    await setCurrentWindowTitle(title)
     await setTrayLabels({
       show: i18n.t("tray.show"),
       sleep: i18n.t("tray.preventSleep"),
       autostart: i18n.t("tray.launchAtLogin"),
       quit: i18n.t("tray.quit"),
-    });
-  }, []);
+    })
+  }, [])
 
-  const [autostartEnabled, setAutostartEnabled] = useState(false);
-  const [autostartLoading, setAutostartLoading] = useState(false);
-  const [closeBehaviorValue, setCloseBehaviorValue] = useState("minimize_to_tray");
-
-  useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
-    getCloseBehavior().then((v) => {
-      if (!cancelled) setCloseBehaviorValue(v);
-    }).catch(() => {});
-    return () => { cancelled = true; };
-  }, [open]);
+  const [autostartEnabled, setAutostartEnabled] = useState(false)
+  const [autostartLoading, setAutostartLoading] = useState(false)
+  const [closeBehaviorValue, setCloseBehaviorValue] = useState("minimize_to_tray")
 
   useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
-    setAutostartLoading(true);
+    if (!open) return
+    let cancelled = false
+    getCloseBehavior()
+      .then((v) => {
+        if (!cancelled) setCloseBehaviorValue(v)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    setAutostartLoading(true)
     getAutostartStatus()
       .then((v) => {
-        if (!cancelled) setAutostartEnabled(v);
+        if (!cancelled) setAutostartEnabled(v)
       })
       .catch(() => {
         // best-effort: leave toggle off on read failure
       })
       .finally(() => {
-        if (!cancelled) setAutostartLoading(false);
-      });
+        if (!cancelled) setAutostartLoading(false)
+      })
     return () => {
-      cancelled = true;
-    };
-  }, [open]);
-
-  const handleToggleAutostart = useCallback(async (v: boolean) => {
-    setAutostartLoading(true);
-    try {
-      await setAutostart(v);
-      setAutostartEnabled(v);
-    } catch (e) {
-      toast.error(t("startup.launchAtLoginError", { error: getErrorMessage(e) }));
-    } finally {
-      setAutostartLoading(false);
+      cancelled = true
     }
-  }, [t]);
+  }, [open])
+
+  const handleToggleAutostart = useCallback(
+    async (v: boolean) => {
+      setAutostartLoading(true)
+      try {
+        await setAutostart(v)
+        setAutostartEnabled(v)
+      } catch (e) {
+        toast.error(t("startup.launchAtLoginError", { error: getErrorMessage(e) }))
+      } finally {
+        setAutostartLoading(false)
+      }
+    },
+    [t],
+  )
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -162,7 +163,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
             <h4 className="mb-2 text-sm font-medium">{t("theme.sectionTitle")}</h4>
             <div className="flex flex-wrap gap-2">
               {THEME_ORDER.map((mode) => {
-                const Icon = THEME_ICON[mode];
+                const Icon = THEME_ICON[mode]
                 return (
                   <Button
                     key={mode}
@@ -175,7 +176,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                     <Icon className="size-3.5" />
                     {t(`theme.${mode}`)}
                   </Button>
-                );
+                )
               })}
             </div>
           </div>
@@ -184,8 +185,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
             <h4 className="mb-2 text-sm font-medium">{t("windowTheme.label")}</h4>
             <div className="flex flex-wrap gap-2">
               {WINDOW_THEMES.map((desc) => {
-                const Icon = desc.icon;
-                const supported = isSupported(desc.id);
+                const Icon = desc.icon
+                const supported = isSupported(desc.id)
                 const button = (
                   <Button
                     key={desc.id}
@@ -199,16 +200,18 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                     <Icon className="size-3.5" />
                     {t(desc.labelKey)}
                   </Button>
-                );
-                if (supported) return button;
+                )
+                if (supported) return button
                 return (
                   <TooltipProvider key={desc.id}>
                     <Tooltip>
                       <TooltipTrigger asChild>{button}</TooltipTrigger>
-                      <TooltipContent side="top">{t("windowTheme.unsupportedTooltip")}</TooltipContent>
+                      <TooltipContent side="top">
+                        {t("windowTheme.unsupportedTooltip")}
+                      </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
-                );
+                )
               })}
             </div>
           </div>
@@ -222,8 +225,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                   variant={closeBehaviorValue === behavior ? "default" : "outline"}
                   size="sm"
                   onClick={() => {
-                    setCloseBehaviorValue(behavior);
-                    void setCloseBehavior(behavior);
+                    setCloseBehaviorValue(behavior)
+                    void setCloseBehavior(behavior)
                   }}
                   className="gap-1.5"
                 >
@@ -235,7 +238,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                         : behavior === "quit"
                           ? "quit"
                           : "alwaysAsk"
-                    }`
+                    }`,
                   )}
                 </Button>
               ))}
@@ -247,7 +250,9 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
             <div className="flex items-center justify-between py-2">
               <div className="min-w-0 pr-3">
                 <div className="text-sm">{t("startup.launchAtLogin")}</div>
-                <div className="text-xs text-muted-foreground">{t("startup.launchAtLoginDesc")}</div>
+                <div className="text-muted-foreground text-xs">
+                  {t("startup.launchAtLoginDesc")}
+                </div>
               </div>
               <Switch
                 checked={autostartEnabled}
@@ -259,5 +264,5 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
         </div>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

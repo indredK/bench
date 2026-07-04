@@ -1,12 +1,12 @@
 /**
  * Platform Adapter / 平台适配: wrap runtime APIs; 统一封装运行时能力.
  */
-import { isTauri } from "@tauri-apps/api/core";
+import { isTauri } from "@tauri-apps/api/core"
 
 export function isDesktopRuntime(): boolean {
   try {
-    return isTauri();
+    return isTauri()
   } catch {
-    return false;
+    return false
   }
 }
