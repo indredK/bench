@@ -3,6 +3,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useShallow } from "zustand/react/shallow";
 import { toast } from "sonner";
 import { classifyAccountManagerError } from "@/features/account-manager/error-classifier";
 import {
@@ -13,7 +14,7 @@ import {
 import {
   selectAccountCountByStation,
   selectSelectedAccount,
-  selectStation,
+  selectStation as selectStationById,
   selectStationAccounts,
 } from "@/features/account-manager/model/selectors";
 import type { SessionSettings } from "@/features/account-manager/model/types";
@@ -25,7 +26,101 @@ import type { ProbeStrategy, StationAccount } from "@/lib/tauri/types/account-ma
 
 export function useAccountManagerController() {
   const { t } = useTranslation();
-  const store = useAccountManagerStore();
+  const {
+    stations,
+    accounts,
+    loading,
+    loadError,
+    selectedStationId,
+    selectedAccountId,
+    openingAccountId,
+    importingData,
+    exportingData,
+    reorderingStations,
+    reorderingAccounts,
+    isAddStationOpen,
+    isAddAccountOpen,
+    isEditStationOpen,
+    editingStation,
+    isEditAccountOpen,
+    editingAccount,
+    isDeleteStationOpen,
+    deletingStation,
+    isDeleteAccountOpen,
+    deletingAccount,
+    isQuickLoginOpen,
+    isExternalAppsOpen,
+    externalAppsAccountId,
+    setStations,
+    setAccounts,
+    setSelectedStationId,
+    setSelectedAccountId,
+    setAddStationOpen,
+    setAddAccountOpen,
+    setQuickLoginOpen,
+    setOpeningAccountId,
+    setExternalAppsOpen,
+    setExportingData,
+    setImportingData,
+    setEditStationOpen,
+    setEditingStation,
+    setEditAccountOpen,
+    setEditingAccount,
+    setDeleteStationOpen,
+    setDeletingStation,
+    setDeleteAccountOpen,
+    setDeletingAccount,
+    setReorderingStations,
+    setReorderingAccounts,
+  } = useAccountManagerStore(
+    useShallow((s) => ({
+      stations: s.stations,
+      accounts: s.accounts,
+      loading: s.loading,
+      loadError: s.loadError,
+      selectedStationId: s.selectedStationId,
+      selectedAccountId: s.selectedAccountId,
+      openingAccountId: s.openingAccountId,
+      importingData: s.importingData,
+      exportingData: s.exportingData,
+      reorderingStations: s.reorderingStations,
+      reorderingAccounts: s.reorderingAccounts,
+      isAddStationOpen: s.isAddStationOpen,
+      isAddAccountOpen: s.isAddAccountOpen,
+      isEditStationOpen: s.isEditStationOpen,
+      editingStation: s.editingStation,
+      isEditAccountOpen: s.isEditAccountOpen,
+      editingAccount: s.editingAccount,
+      isDeleteStationOpen: s.isDeleteStationOpen,
+      deletingStation: s.deletingStation,
+      isDeleteAccountOpen: s.isDeleteAccountOpen,
+      deletingAccount: s.deletingAccount,
+      isQuickLoginOpen: s.isQuickLoginOpen,
+      isExternalAppsOpen: s.isExternalAppsOpen,
+      externalAppsAccountId: s.externalAppsAccountId,
+      setStations: s.setStations,
+      setAccounts: s.setAccounts,
+      setSelectedStationId: s.setSelectedStationId,
+      setSelectedAccountId: s.setSelectedAccountId,
+      setAddStationOpen: s.setAddStationOpen,
+      setAddAccountOpen: s.setAddAccountOpen,
+      setQuickLoginOpen: s.setQuickLoginOpen,
+      setOpeningAccountId: s.setOpeningAccountId,
+      setExternalAppsOpen: s.setExternalAppsOpen,
+      setExportingData: s.setExportingData,
+      setImportingData: s.setImportingData,
+      setEditStationOpen: s.setEditStationOpen,
+      setEditingStation: s.setEditingStation,
+      setEditAccountOpen: s.setEditAccountOpen,
+      setEditingAccount: s.setEditingAccount,
+      setDeleteStationOpen: s.setDeleteStationOpen,
+      setDeletingStation: s.setDeletingStation,
+      setDeleteAccountOpen: s.setDeleteAccountOpen,
+      setDeletingAccount: s.setDeletingAccount,
+      setReorderingStations: s.setReorderingStations,
+      setReorderingAccounts: s.setReorderingAccounts,
+    })),
+  );
   const { pendingKeys: refreshingAccountIds, run: runAccountRefresh } =
     useGuardedAsyncSet<string>();
   const { pendingKeys: refreshingStationIds, run: runStationRefresh } =
@@ -77,10 +172,10 @@ export function useAccountManagerController() {
     s.setLoading(true);
     s.setLoadError(null);
     try {
-      const [stations, accounts] = await accountManagerUseCases.loadInitialData();
-      s.setStations(stations);
-      s.setAccounts(accounts);
-      s.applyInitialSelection(stations, accounts);
+      const [loadedStations, loadedAccounts] = await accountManagerUseCases.loadInitialData();
+      s.setStations(loadedStations);
+      s.setAccounts(loadedAccounts);
+      s.applyInitialSelection(loadedStations, loadedAccounts);
     } catch (error) {
       const info = classifyAccountManagerError(error, t("accountManager.toasts.initFailed"));
       useAccountManagerStore.getState().setLoadError(info.message);
@@ -95,20 +190,20 @@ export function useAccountManagerController() {
   }, [loadInitialData]);
 
   const selectedStation = useMemo(
-    () => selectStation(store.stations, store.selectedStationId),
-    [store.stations, store.selectedStationId],
+    () => selectStationById(stations, selectedStationId),
+    [stations, selectedStationId],
   );
   const stationAccounts = useMemo(
-    () => selectStationAccounts(store.accounts, store.selectedStationId),
-    [store.accounts, store.selectedStationId],
+    () => selectStationAccounts(accounts, selectedStationId),
+    [accounts, selectedStationId],
   );
   const accountCountByStation = useMemo(
-    () => selectAccountCountByStation(store.accounts),
-    [store.accounts],
+    () => selectAccountCountByStation(accounts),
+    [accounts],
   );
   const selectedAccount = useMemo(
-    () => selectSelectedAccount(stationAccounts, store.selectedAccountId),
-    [stationAccounts, store.selectedAccountId],
+    () => selectSelectedAccount(stationAccounts, selectedAccountId),
+    [stationAccounts, selectedAccountId],
   );
 
   const handleOpenExternalApps = useCallback(
@@ -131,10 +226,10 @@ export function useAccountManagerController() {
         website,
         sessionSettings,
       );
-      store.setStations((prev) => [...prev, station]);
-      store.setSelectedStationId(station.id);
-      store.setSelectedAccountId("");
-      store.setAddStationOpen(false);
+      setStations((prev) => [...prev, station]);
+      setSelectedStationId(station.id);
+      setSelectedAccountId("");
+      setAddStationOpen(false);
       return true;
     } catch {
       toast.error(t("accountManager.toasts.createStationFailed"));
@@ -156,9 +251,9 @@ export function useAccountManagerController() {
           username,
           stationId,
         );
-        store.setAccounts((prev) => [...prev, account]);
+        setAccounts((prev) => [...prev, account]);
         pushQuickLoginHistory(normalized);
-        store.setQuickLoginOpen(false);
+        setQuickLoginOpen(false);
 
         if (destroyOnClose) {
           const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
@@ -166,7 +261,7 @@ export function useAccountManagerController() {
           if (ww) {
             const unlisten = await ww.onCloseRequested(async () => {
               unlisten();
-              store.setAccounts((prev) => prev.filter((a) => a.id !== account.id));
+              setAccounts((prev) => prev.filter((a) => a.id !== account.id));
               try {
                 await accountManagerUseCases.deleteAccount(account.id);
               } catch {
@@ -186,7 +281,7 @@ export function useAccountManagerController() {
     runRedetectProfile(stationId, async () => {
       try {
         const profile = await accountManagerUseCases.redetectAuthProfile(stationId, accountId);
-        store.setStations((prev) =>
+        setStations((prev) =>
           prev.map((station) =>
             station.id === stationId ? { ...station, authProfile: profile } : station,
           ),
@@ -201,7 +296,7 @@ export function useAccountManagerController() {
     if (!selectedStation) return false;
     if (
       accountManagerUseCases.hasDuplicateUsername(
-        store.accounts,
+        accounts,
         selectedStation.id,
         username,
       )
@@ -216,9 +311,9 @@ export function useAccountManagerController() {
         password,
         notes,
       );
-      store.setAccounts((prev) => [...prev, account]);
-      store.setSelectedAccountId(account.id);
-      store.setAddAccountOpen(false);
+      setAccounts((prev) => [...prev, account]);
+      setSelectedAccountId(account.id);
+      setAddAccountOpen(false);
       return true;
     } catch {
       toast.error(t("accountManager.toasts.createAccountFailed"));
@@ -228,23 +323,23 @@ export function useAccountManagerController() {
 
   const handleLogin = async (account: StationAccount) => {
     if (!selectedStation) return;
-    store.setOpeningAccountId(account.id);
+    setOpeningAccountId(account.id);
     try {
       await openLoginWebview(account, selectedStation.website);
     } finally {
-      store.setOpeningAccountId((current) => (current === account.id ? null : current));
+      setOpeningAccountId((current) => (current === account.id ? null : current));
     }
   };
 
   const handleSelectStation = (id: string) => {
-    store.selectStation(id, store.accounts);
+    useAccountManagerStore.getState().selectStation(id, accounts);
   };
 
   const handleRefreshAccount = (account: StationAccount) =>
     runAccountRefresh(account.id, async () => {
       try {
         const updated = await accountManagerUseCases.refreshAccount(account.id);
-        store.setAccounts((prev) =>
+        setAccounts((prev) =>
           prev.map((item) => (item.id === updated.id ? updated : item)),
         );
         markJustRefreshed(updated.id);
@@ -272,7 +367,7 @@ export function useAccountManagerController() {
       try {
         const subset = await accountManagerUseCases.refreshStation(stationId);
         const byId = new Map(subset.map((account) => [account.id, account] as const));
-        store.setAccounts((prev) => prev.map((account) => byId.get(account.id) ?? account));
+        setAccounts((prev) => prev.map((account) => byId.get(account.id) ?? account));
         subset.forEach((account) => markJustRefreshed(account.id));
         const failed = subset.filter((account) => account.status === "fetchFailed").length;
         if (failed > 0) {
@@ -301,7 +396,7 @@ export function useAccountManagerController() {
     runAllRefresh(async () => {
       try {
         const all = await accountManagerUseCases.refreshAll();
-        store.setAccounts(all);
+        setAccounts(all);
         all.forEach((account) => markJustRefreshed(account.id));
         const failed = all.filter((account) => account.status === "fetchFailed").length;
         if (failed > 0) {
@@ -324,7 +419,7 @@ export function useAccountManagerController() {
     runToggleProxy(accountId, async () => {
       try {
         const updated = await accountManagerUseCases.toggleProxy(accountId, enabled);
-        store.setAccounts((prev) =>
+        setAccounts((prev) =>
           prev.map((account) => (account.id === updated.id ? updated : account)),
         );
         toast.success(t("accountManager.toasts.updateProxySuccess"));
@@ -343,7 +438,7 @@ export function useAccountManagerController() {
     runProbeStrategyChange(stationId, async () => {
       try {
         const updated = await accountManagerUseCases.changeProbeStrategy(stationId, next);
-        store.setStations((prev) =>
+        setStations((prev) =>
           prev.map((station) => (station.id === stationId ? { ...station, ...updated } : station)),
         );
       } catch {
@@ -352,8 +447,8 @@ export function useAccountManagerController() {
     });
 
   const handleExportData = async () => {
-    if (store.exportingData) return;
-    store.setExportingData(true);
+    if (exportingData) return;
+    setExportingData(true);
     try {
       const result = await accountManagerUseCases.exportData();
       if (!result) return;
@@ -367,25 +462,25 @@ export function useAccountManagerController() {
       const info = classifyAccountManagerError(error, t("accountManager.toasts.exportFailed"));
       toast.error(t(`accountManager.toasts.${info.kind}`, { defaultValue: info.message }));
     } finally {
-      store.setExportingData(false);
+      setExportingData(false);
     }
   };
 
   const handleImportData = async () => {
-    if (store.importingData) return;
-    store.setImportingData(true);
+    if (importingData) return;
+    setImportingData(true);
     try {
       const result = await accountManagerUseCases.importData();
       if (!result) return;
-      store.setStations(result.stations);
-      store.setAccounts(result.accounts);
+      setStations(result.stations);
+      setAccounts(result.accounts);
       const { stationId, accountId } = accountManagerUseCases.resolveImportSelection(
         result,
-        store.selectedStationId,
-        store.selectedAccountId,
+        selectedStationId,
+        selectedAccountId,
       );
-      store.setSelectedStationId(stationId);
-      store.setSelectedAccountId(accountId);
+      setSelectedStationId(stationId);
+      setSelectedAccountId(accountId);
       toast.success(
         t("accountManager.toasts.importSuccess", {
           stations: result.stationCount,
@@ -396,7 +491,7 @@ export function useAccountManagerController() {
       const info = classifyAccountManagerError(error, t("accountManager.toasts.importFailed"));
       toast.error(t(`accountManager.toasts.${info.kind}`, { defaultValue: info.message }));
     } finally {
-      store.setImportingData(false);
+      setImportingData(false);
     }
   };
 
@@ -405,19 +500,19 @@ export function useAccountManagerController() {
     website: string,
     sessionSettings?: SessionSettings,
   ) => {
-    if (!store.editingStation) return false;
+    if (!editingStation) return false;
     try {
       const updated = await accountManagerUseCases.editStation(
-        store.editingStation,
+        editingStation,
         remark,
         website,
         sessionSettings,
       );
-      store.setStations((prev) =>
+      setStations((prev) =>
         prev.map((station) => (station.id === updated.id ? updated : station)),
       );
-      store.setEditStationOpen(false);
-      store.setEditingStation(null);
+      setEditStationOpen(false);
+      setEditingStation(null);
       return true;
     } catch {
       toast.error(t("accountManager.toasts.updateStationFailed"));
@@ -431,13 +526,13 @@ export function useAccountManagerController() {
     password: string | null,
     proxyEnabled: boolean,
   ) => {
-    if (!store.editingAccount) return false;
+    if (!editingAccount) return false;
     if (
       accountManagerUseCases.hasDuplicateUsername(
-        store.accounts,
-        store.editingAccount.stationId,
+        accounts,
+        editingAccount.stationId,
         username,
-        store.editingAccount.id,
+        editingAccount.id,
       )
     ) {
       toast.error(t("accountManager.toasts.duplicateUsername"));
@@ -445,17 +540,17 @@ export function useAccountManagerController() {
     }
     try {
       const result = await accountManagerUseCases.editAccount(
-        store.editingAccount,
+        editingAccount,
         username,
         notes,
         password,
         proxyEnabled,
       );
-      store.setAccounts((prev) =>
+      setAccounts((prev) =>
         prev.map((account) => (account.id === result.updated.id ? result.updated : account)),
       );
-      store.setEditAccountOpen(false);
-      store.setEditingAccount(null);
+      setEditAccountOpen(false);
+      setEditingAccount(null);
       if (result.passwordFailed) {
         toast.error(t("accountManager.toasts.updatePasswordFailed"));
         return false;
@@ -473,26 +568,26 @@ export function useAccountManagerController() {
 
   const handleDeleteStation = () =>
     runDeleteStation(async () => {
-      if (!store.deletingStation) return;
-      const target = store.deletingStation;
+      if (!deletingStation) return;
+      const target = deletingStation;
       const { wasSelected, newStationId, newAccountId } =
         accountManagerUseCases.buildStationDeleteSelection(
-          store.stations,
-          store.accounts,
+          stations,
+          accounts,
           target,
-          store.selectedStationId,
-          store.selectedAccountId,
+          selectedStationId,
+          selectedAccountId,
         );
       try {
         await accountManagerUseCases.deleteStation(target.id);
-        store.setStations((prev) => prev.filter((station) => station.id !== target.id));
-        store.setAccounts((prev) => prev.filter((account) => account.stationId !== target.id));
+        setStations((prev) => prev.filter((station) => station.id !== target.id));
+        setAccounts((prev) => prev.filter((account) => account.stationId !== target.id));
         if (wasSelected) {
-          store.setSelectedStationId(newStationId);
-          store.setSelectedAccountId(newAccountId);
+          setSelectedStationId(newStationId);
+          setSelectedAccountId(newAccountId);
         }
-        store.setDeleteStationOpen(false);
-        store.setDeletingStation(null);
+        setDeleteStationOpen(false);
+        setDeletingStation(null);
         toast.success(t("accountManager.toasts.deleteStationSuccess", { name: target.remark }));
       } catch {
         toast.error(t("accountManager.toasts.deleteStationFailed"));
@@ -501,22 +596,22 @@ export function useAccountManagerController() {
 
   const handleDeleteAccount = () =>
     runDeleteAccount(async () => {
-      if (!store.deletingAccount) return;
-      const target = store.deletingAccount;
+      if (!deletingAccount) return;
+      const target = deletingAccount;
       const { wasSelected, nextAccountId } =
         accountManagerUseCases.buildAccountDeleteSelection(
-          store.accounts,
+          accounts,
           target,
-          store.selectedAccountId,
+          selectedAccountId,
         );
       try {
         await accountManagerUseCases.deleteAccount(target.id);
-        store.setAccounts((prev) => prev.filter((account) => account.id !== target.id));
+        setAccounts((prev) => prev.filter((account) => account.id !== target.id));
         if (wasSelected) {
-          store.setSelectedAccountId(nextAccountId);
+          setSelectedAccountId(nextAccountId);
         }
-        store.setDeleteAccountOpen(false);
-        store.setDeletingAccount(null);
+        setDeleteAccountOpen(false);
+        setDeletingAccount(null);
         toast.success(t("accountManager.toasts.deleteAccountSuccess", { name: target.username }));
       } catch {
         toast.error(t("accountManager.toasts.deleteAccountFailed"));
@@ -524,7 +619,7 @@ export function useAccountManagerController() {
     });
 
   const handleReorderStations = async (orderedIds: string[]) => {
-    const prev = store.stations;
+    const prev = stations;
     const { next, mismatch } = accountManagerUseCases.buildOptimisticStationOrder(
       prev,
       orderedIds,
@@ -533,31 +628,31 @@ export function useAccountManagerController() {
       toast.error(t("accountManager.toasts.reorderMismatch"));
       return;
     }
-    store.setStations(next);
-    store.setReorderingStations(true);
+    setStations(next);
+    setReorderingStations(true);
     try {
       const server = await accountManagerUseCases.reorderStations(orderedIds);
-      store.setStations(server);
+      setStations(server);
       toast.success(t("accountManager.toasts.reorderStationsSuccess"));
     } catch (error) {
-      store.setStations(prev);
+      setStations(prev);
       toast.error(t("accountManager.toasts.reorderStationsFailed"));
       if (isInvalidInput(error)) {
         try {
-          store.setStations(await accountManagerUseCases.loadInitialData().then(([s]) => s));
+          setStations(await accountManagerUseCases.loadInitialData().then(([s]) => s));
         } catch {
           /* ignore */
         }
       }
     } finally {
-      store.setReorderingStations(false);
+      setReorderingStations(false);
     }
   };
 
   const handleReorderAccounts = async (orderedIds: string[]) => {
-    if (!store.selectedStationId) return;
-    const stationId = store.selectedStationId;
-    const prev = store.accounts;
+    if (!selectedStationId) return;
+    const stationId = selectedStationId;
+    const prev = accounts;
     const built = accountManagerUseCases.buildOptimisticAccountOrder(
       prev,
       stationId,
@@ -567,86 +662,86 @@ export function useAccountManagerController() {
       toast.error(t("accountManager.toasts.reorderMismatch"));
       return;
     }
-    store.setAccounts(built.optimistic);
-    store.setReorderingAccounts(true);
+    setAccounts(built.optimistic);
+    setReorderingAccounts(true);
     try {
       const serverMine = await accountManagerUseCases.reorderAccounts(stationId, orderedIds);
       let serverIter = 0;
-      store.setAccounts((current) =>
+      setAccounts((current) =>
         current.map((account) =>
           account.stationId === stationId ? serverMine[serverIter++] : account,
         ),
       );
       toast.success(t("accountManager.toasts.reorderAccountsSuccess"));
     } catch (error) {
-      store.setAccounts(prev);
+      setAccounts(prev);
       toast.error(t("accountManager.toasts.reorderAccountsFailed"));
       if (isInvalidInput(error)) {
         try {
-          const [, accounts] = await accountManagerUseCases.loadInitialData();
-          store.setAccounts(accounts);
+          const [, loadedAccounts] = await accountManagerUseCases.loadInitialData();
+          setAccounts(loadedAccounts);
         } catch {
           /* ignore */
         }
       }
     } finally {
-      store.setReorderingAccounts(false);
+      setReorderingAccounts(false);
     }
   };
 
   return {
-    stations: store.stations,
-    accounts: store.accounts,
-    loading: store.loading,
-    loadError: store.loadError,
+    stations,
+    accounts,
+    loading,
+    loadError,
     loadInitialData,
     selectedStation,
     selectedAccount,
     stationAccounts,
     accountCountByStation,
-    selectedStationId: store.selectedStationId,
-    selectedAccountId: store.selectedAccountId,
-    setSelectedAccountId: store.setSelectedAccountId,
-    openingAccountId: store.openingAccountId,
+    selectedStationId,
+    selectedAccountId,
+    setSelectedAccountId,
+    openingAccountId,
     refreshingAccountIds,
     refreshingStationIds,
     refreshingAll,
     justRefreshedIds,
-    importingData: store.importingData,
-    exportingData: store.exportingData,
-    reorderingStations: store.reorderingStations,
-    reorderingAccounts: store.reorderingAccounts,
+    importingData,
+    exportingData,
+    reorderingStations,
+    reorderingAccounts,
     quickLoginPending,
     deletingStationPending,
     deletingAccountPending,
     togglingProxyIds,
     redetectingStationIds,
     settingProbeStrategyIds,
-    isAddStationOpen: store.isAddStationOpen,
-    setAddStationOpen: store.setAddStationOpen,
-    isAddAccountOpen: store.isAddAccountOpen,
-    setAddAccountOpen: store.setAddAccountOpen,
-    isEditStationOpen: store.isEditStationOpen,
-    setEditStationOpen: store.setEditStationOpen,
-    editingStation: store.editingStation,
-    setEditingStation: store.setEditingStation,
-    isEditAccountOpen: store.isEditAccountOpen,
-    setEditAccountOpen: store.setEditAccountOpen,
-    editingAccount: store.editingAccount,
-    setEditingAccount: store.setEditingAccount,
-    isDeleteStationOpen: store.isDeleteStationOpen,
-    setDeleteStationOpen: store.setDeleteStationOpen,
-    deletingStation: store.deletingStation,
-    setDeletingStation: store.setDeletingStation,
-    isDeleteAccountOpen: store.isDeleteAccountOpen,
-    setDeleteAccountOpen: store.setDeleteAccountOpen,
-    deletingAccount: store.deletingAccount,
-    setDeletingAccount: store.setDeletingAccount,
-    isQuickLoginOpen: store.isQuickLoginOpen,
-    setQuickLoginOpen: store.setQuickLoginOpen,
-    isExternalAppsOpen: store.isExternalAppsOpen,
-    setExternalAppsOpen: store.setExternalAppsOpen,
-    externalAppsAccountId: store.externalAppsAccountId,
+    isAddStationOpen,
+    setAddStationOpen,
+    isAddAccountOpen,
+    setAddAccountOpen,
+    isEditStationOpen,
+    setEditStationOpen,
+    editingStation,
+    setEditingStation,
+    isEditAccountOpen,
+    setEditAccountOpen,
+    editingAccount,
+    setEditingAccount,
+    isDeleteStationOpen,
+    setDeleteStationOpen,
+    deletingStation,
+    setDeletingStation,
+    isDeleteAccountOpen,
+    setDeleteAccountOpen,
+    deletingAccount,
+    setDeletingAccount,
+    isQuickLoginOpen,
+    setQuickLoginOpen,
+    isExternalAppsOpen,
+    setExternalAppsOpen,
+    externalAppsAccountId,
     handleOpenExternalApps,
     ...authProxy,
     readQuickLoginHistory,
