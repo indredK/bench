@@ -23,7 +23,7 @@ import { appFeatures, createNavigationItems, createConfigItems } from "@/feature
 import { requestFeatureRefresh } from "@/features/refresh";
 import { useUpdaterController } from "@/features/updater/hooks/useUpdaterController";
 import { listStartupIssues, markMainReady } from "@/lib/tauri/commands/bootstrap";
-import { restartApp, setTrayLabels } from "@/lib/tauri/commands";
+import { restartAfterUpdate, setTrayLabels } from "@/lib/tauri/commands";
 import { TAURI_EVENTS, WINDOW_BOOTSTRAP_EVENTS } from "@/lib/tauri/contracts";
 import { emitPlatformEventTo, listenToPlatformEvent } from "@/platform/events";
 import { canUseTauriCommands } from "@/platform/capabilities";
@@ -121,7 +121,7 @@ function App() {
   }, []);
 
   const handleRestart = useCallback(async () => {
-    if (canUseTauriCommands()) { await restartApp(); return; }
+    if (canUseTauriCommands()) { await restartAfterUpdate(); return; }
     window.location.reload();
   }, []);
 

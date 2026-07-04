@@ -202,7 +202,7 @@
 ### 5.5 命令名/参数/类型一致性 — 通过（局部建议）
 
 - 抽样比对：`restart_after_update` / `reboot_now` / `shutdown_now` / `scan_installed_apps` / `set_account_proxy_enabled` 等命令名 TS 与 Rust 一致；DTO 字段（`AppUpdateInfo`、`StationAccount`、`ProjectInfo`）两侧字段名一致。
-- [违反 §8 建议] `src/lib/tauri/contracts.ts:91` `restart_after_update` 在 TS 侧 `app.ts:8` 又写了一个 `restartApp()` 包装函数，命名与契约不一致 — 建议统一通过 `commands.app.restartAfterUpdate` 调用，避免 `restartApp` 这种语义模糊的别名 — **建议**
+- [违反 §8 建议] `src/lib/tauri/contracts.ts:91` `restart_after_update` 在 TS 侧 `app.ts:8` 又写了一个 `restartApp()` 包装函数，命名与契约不一致 — 建议统一通过 `commands.app.restartAfterUpdate` 调用，避免 `restartApp` 这种语义模糊的别名 — **建议** ✅ 已修复：`restartApp()` 重命名为 `restartAfterUpdate()`，App.tsx 同步更新
 
 ### 5.6 批量与取消幂等 — 通过
 
