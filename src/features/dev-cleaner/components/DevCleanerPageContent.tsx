@@ -12,7 +12,7 @@ import { filterOptions } from "@/features/dev-cleaner/store";
 import { formatScanTime } from "@/features/dev-cleaner/lib/format";
 import { CustomCleanupDialog } from "@/features/dev-cleaner/components/CustomCleanupDialog";
 import type { DevCleanerController } from "@/features/dev-cleaner/hooks/useDevCleanerController";
-import { formatSize } from "@/lib/utils";
+import { cn, formatSize } from "@/lib/utils";
 
 interface DevCleanerPageContentProps {
   controller: DevCleanerController;
@@ -207,7 +207,10 @@ export function DevCleanerPageContent({ controller }: DevCleanerPageContentProps
               </div>
             </CardHeader>
             <CardContent
-              className={`relative flex-1 min-h-0 px-4 pb-2 ${isScanning ? "opacity-50 pointer-events-none" : ""}`}
+              className={cn(
+                "relative flex-1 min-h-0 px-4 pb-2",
+                isScanning && "opacity-50 pointer-events-none",
+              )}
             >
               {isScanning && (
                 <div className="absolute inset-0 flex items-center justify-center">

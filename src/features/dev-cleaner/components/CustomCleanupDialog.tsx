@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useDevCleanerStore } from "@/features/dev-cleaner/store";
-import { formatSize } from "@/lib/utils";
+import { cn, formatSize } from "@/lib/utils";
 import {
   getCustomCleanupCommands,
   executeCustomCleanup,
@@ -30,7 +30,7 @@ import {
 import { TAURI_EVENTS } from "@/lib/tauri/contracts";
 import { listenToPlatformEvent } from "@/platform/events";
 import { canUseDesktopFeatures } from "@/platform/capabilities";
-import type { CustomCleanupProgress, CustomCleanupFinalResult } from "@/lib/tauri/types/dev-cleaner";
+import type { CleanupCommandDef, CustomCleanupProgress, CustomCleanupFinalResult } from "@/lib/tauri/types/dev-cleaner";
 
 export function CustomCleanupDialog() {
   const { t } = useTranslation();
@@ -292,7 +292,7 @@ function SelectingPhase({
 }: {
   t: TFunction;
   phase: string;
-  commands: { id: string; name: string; command: string; environment: string; description: string; risk: string }[];
+  commands: CleanupCommandDef[];
   selectedIds: Set<string>;
   toggleCommand: (id: string) => void;
 }) {
@@ -323,17 +323,19 @@ function SelectingPhase({
 
       {displayCommands.map((cmd) => {
         const isSelected = selectedIds.has(cmd.id);
-        const isHighRisk = cmd.risk.startsWith("⚠️") || cmd.risk.includes("高风险");
+        const isHighRisk = cmd.risk_level === "high";
         return (
           <label
             key={cmd.id}
-            className={`grid grid-cols-[auto_1fr_auto] gap-3 items-start p-3 rounded-lg border transition-colors ${
+            className={cn(
+              "grid grid-cols-[auto_1fr_auto] gap-3 items-start p-3 rounded-lg border transition-colors",
               isConfirming
                 ? "border-primary/30 bg-primary/5 cursor-default"
-                : `cursor-pointer hover:bg-accent/50 ${
-                    isSelected ? "border-primary bg-primary/5" : "border-border"
-                  }`
-            }`}
+                : cn(
+                    "cursor-pointer hover:bg-accent/50",
+                    isSelected ? "border-primary bg-primary/5" : "border-border",
+                  ),
+            )}
           >
             <input
               type="checkbox"
@@ -398,13 +400,14 @@ function RunningPhase({
       {/* Summary bar when completed */}
       {result && (
         <div
-          className={`rounded-lg border p-4 ${
+          className={cn(
+            "rounded-lg border p-4",
             result.success
               ? "bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800"
               : result.aborted
                 ? "bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200 dark:border-yellow-800"
-                : "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800"
-          }`}
+                : "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800",
+          )}
         >
           <div className="grid grid-cols-3 gap-4 text-center">
             <div>
@@ -445,15 +448,16 @@ function RunningPhase({
       {detailList.map((item) => (
         <div
           key={item.command_id}
-          className={`rounded-lg border p-3 space-y-2 ${
+          className={cn(
+            "rounded-lg border p-3 space-y-2",
             item.status === "running"
               ? "border-blue-300 dark:border-blue-700 bg-blue-50/50 dark:bg-blue-950/20"
               : item.status === "completed"
                 ? "border-green-200 dark:border-green-800"
                 : item.status === "failed"
                   ? "border-red-200 dark:border-red-800"
-                  : "border-border"
-          }`}
+                  : "border-border",
+          )}
         >
           <div className="flex items-center gap-2">
             {item.status === "running" && (

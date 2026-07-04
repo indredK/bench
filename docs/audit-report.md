@@ -79,7 +79,7 @@
 - [违反 §6] `src/features/token-calculator/page.tsx:169`、`:180`、`:871`、`:882` — 数组拼接 className，改用 `cn(...)` — **强制**
 - [违反 §6] `src/features/quick-launch/page.tsx:111`、`:700`、`:794` — 同上 — **强制** ✅ 已修复
 - [违反 §6] `src/features/system-settings/page.tsx:585`、`src/features/dev-toolbox/page.tsx:231` — Tab 按钮样式条件拼接，改用 `cn()` — **强制**
-- [违反 §6] `src/features/dev-cleaner/components/CustomCleanupDialog.tsx:330`、`:401`、`:448`、`src/features/dev-cleaner/components/DevCleanerPageContent.tsx:210` — 同上 — **强制**
+- [违反 §6] `src/features/dev-cleaner/components/CustomCleanupDialog.tsx:330`、`:401`、`:448`、`src/features/dev-cleaner/components/DevCleanerPageContent.tsx:210` — 同上 — **强制** ✅ 已修复
 - [违反 §6] `src/features/app-manager/CategoryFilter.tsx:91`、`:102` — 同上 — **强制**
 - [违反 §6] `src/features/terminology/page.tsx:166`、`:175`、`:177`、`:656`、`:725`、`:795`、`:989`、`:1014`、`:1026`、`:1041`、`:1053` — 11 处模板拼接，量大且集中 — 同上 — **强制**
 - [违反 §6] `src/features/system-settings/components/SettingToggle.tsx:29` — 同上 — **强制**
@@ -110,7 +110,7 @@
 
 - [违反 §4] `src/features/quick-launch/page.tsx:222` — JSX 内硬编码中文 `+{apps.length - 6} 更多` — 改为 `t("quickLaunch.moreCount", { count: apps.length - 6 })` 并补 zh/en key — **强制** ✅ 已修复（复用已有 `quickLaunch.showMore` key）
 - [违反 §4] `src/features/quick-launch/page.tsx:690` — `title` 属性拼接硬编码中文 `（开发者工具：导出全量分类数据用于优化规则）` — 整段改为 i18n key（如 `quickLaunch.exportOverridesTooltip`） — **强制** ✅ 已修复（复用已有 `quickLaunch.exportOverridesTooltip` key）
-- [违反 §4] `src/features/dev-cleaner/components/CustomCleanupDialog.tsx:326` — 业务判断 `cmd.risk.includes("高风险")`，把中文原始值作为 canonical 判断依据 — 后端 `CleanupCommandDef.risk` 应改为 `risk_level: "high" | "medium" | "low"` 枚举，前端按枚举判断并 i18n 展示 — **强制**
+- [违反 §4] `src/features/dev-cleaner/components/CustomCleanupDialog.tsx:326` — 业务判断 `cmd.risk.includes("高风险")`，把中文原始值作为 canonical 判断依据 — 后端 `CleanupCommandDef.risk` 应改为 `risk_level: "high" | "medium" | "low"` 枚举，前端按枚举判断并 i18n 展示 — **强制** ✅ 已修复（后端新增 `RiskLevel` 枚举与 `risk_level` 字段，前端 `isHighRisk = cmd.risk_level === "high"`，保留 `risk` 字段作为展示用详细描述）
 
 ### 3.2 locale key 同步 — 通过
 
@@ -190,7 +190,7 @@
 - [违反 §7.2] `src/features/updater/error-classifier.ts:102`、`:106` — 自行 `error instanceof Error` 与 `typeof error === "string"` 判断 — 应改为 `parseCommandError(error)` 后基于 `code`/`message` 分类 — **强制**
 - [违反 §7.2] `src/features/updater/hooks/useUpdaterController.ts:108`、`:110` — 同上，`error instanceof Error && error.message` 与 `typeof error === "string"` 散装判断 — 改为 `getErrorMessage(error, t("..."))` — **强制**
 - [违反 §7.2] `src/features/app-manager/services/app-manager.use-cases.ts:51`、`:160`、`:180` — `String(error)` 用于构建错误对象/批量结果 — 改为 `getErrorMessage(error)` — **强制**
-- [违反 §7.2] `src/features/dev-cleaner/hooks/useDevCleanerController.ts:60`、`:95`、`:154` — `t("...error", { error: String(error) })` — 改为 `{ error: getErrorMessage(error) }` — **强制**
+- [违反 §7.2] `src/features/dev-cleaner/hooks/useDevCleanerController.ts:60`、`:95`、`:154` — `t("...error", { error: String(error) })` — 改为 `{ error: getErrorMessage(error) }` — **强制** ✅ 已修复
 - [违反 §7.2] `src/features/app-manager/model/operations.ts:39`、`:63` — `String(error)` 写入操作结果 — 同上 — **强制**
 - [违反 §7.2] `src/features/app-manager/hooks/useAppManagerController.ts:425` — `toLocalizedError("...", String(error) || undefined)` — 改为 `getErrorMessage(error)` — **强制**
 - [违反 §7.2] `src/features/app-manager/components/AppManagerErrorBoundary.tsx:16` — `error: String(error)` — 改为 `getErrorMessage(error)` — **强制**

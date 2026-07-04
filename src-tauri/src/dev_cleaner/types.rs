@@ -51,6 +51,17 @@ pub struct CleanupResult {
 
 // ── Custom Cleanup Types ──
 
+/// Risk level for a cleanup command. Used for programmatic judgments
+/// (e.g. showing a destructive-action confirm dialog) so the front-end
+/// does not have to pattern-match on localized display strings.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RiskLevel {
+    Low,
+    Medium,
+    High,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CleanupCommandDef {
     pub id: String,
@@ -58,7 +69,10 @@ pub struct CleanupCommandDef {
     pub command: String,
     pub environment: String,
     pub description: String,
+    /// Human-readable risk detail. May be localized; display only.
     pub risk: String,
+    /// Canonical risk level for programmatic judgments.
+    pub risk_level: RiskLevel,
 }
 
 #[derive(Debug, Serialize, Clone)]

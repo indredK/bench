@@ -30,13 +30,18 @@ export interface ScanResult {
 
 // ── Custom Cleanup Types ──
 
+export type RiskLevel = "low" | "medium" | "high";
+
 export interface CleanupCommandDef {
   id: string;
   name: string;
   command: string;
   environment: string;
   description: string;
+  /** Human-readable risk detail. May be localized; display only. */
   risk: string;
+  /** Canonical risk level for programmatic judgments. */
+  risk_level: RiskLevel;
 }
 
 export interface CustomCleanupProgress {

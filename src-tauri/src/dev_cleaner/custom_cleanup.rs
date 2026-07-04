@@ -1,5 +1,6 @@
 use super::types::{
     CleanupCommandDef, CustomCleanupAbortFlag, CustomCleanupFinalResult, CustomCleanupProgress,
+    RiskLevel,
 };
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -19,6 +20,7 @@ fn builtin_commands() -> Vec<CleanupCommandDef> {
             environment: "shell".into(),
             description: "清理 npm 全局缓存，释放包管理器的磁盘空间".into(),
             risk: "低风险。下次安装依赖时需重新下载，但不影响已有项目".into(),
+            risk_level: RiskLevel::Low,
         },
         CleanupCommandDef {
             id: "yarn_cache".into(),
@@ -27,6 +29,7 @@ fn builtin_commands() -> Vec<CleanupCommandDef> {
             environment: "shell".into(),
             description: "清理 Yarn 包管理器缓存".into(),
             risk: "低风险。仅删除缓存文件，不影响项目依赖".into(),
+            risk_level: RiskLevel::Low,
         },
         CleanupCommandDef {
             id: "pnpm_cache".into(),
@@ -35,6 +38,7 @@ fn builtin_commands() -> Vec<CleanupCommandDef> {
             environment: "shell".into(),
             description: "清理 pnpm 全局 store 中未被引用的包".into(),
             risk: "低风险。只删除未被任何项目引用的包，安全".into(),
+            risk_level: RiskLevel::Low,
         },
         CleanupCommandDef {
             id: "pip_cache".into(),
@@ -43,6 +47,7 @@ fn builtin_commands() -> Vec<CleanupCommandDef> {
             environment: "shell".into(),
             description: "清理 Python pip 包管理器缓存".into(),
             risk: "低风险。仅删除缓存的 wheel 文件，重新安装时需下载".into(),
+            risk_level: RiskLevel::Low,
         },
         CleanupCommandDef {
             id: "brew_cache".into(),
@@ -51,6 +56,7 @@ fn builtin_commands() -> Vec<CleanupCommandDef> {
             environment: "shell".into(),
             description: "清理 Homebrew 下载的旧版本软件包和缓存".into(),
             risk: "低风险。仅删除旧版本，当前版本不受影响".into(),
+            risk_level: RiskLevel::Low,
         },
         CleanupCommandDef {
             id: "docker_prune".into(),
@@ -59,6 +65,7 @@ fn builtin_commands() -> Vec<CleanupCommandDef> {
             environment: "shell".into(),
             description: "清理 Docker 未使用的镜像、容器、网络和构建缓存".into(),
             risk: "⚠️ 高风险。将删除所有未运行容器和未使用镜像，无法恢复".into(),
+            risk_level: RiskLevel::High,
         },
         CleanupCommandDef {
             id: "docker_builder".into(),
@@ -67,6 +74,7 @@ fn builtin_commands() -> Vec<CleanupCommandDef> {
             environment: "shell".into(),
             description: "清理 Docker 构建缓存".into(),
             risk: "中风险。下次构建需重新下载层，但运行中的容器不受影响".into(),
+            risk_level: RiskLevel::Medium,
         },
         CleanupCommandDef {
             id: "cargo_cache".into(),
@@ -75,6 +83,7 @@ fn builtin_commands() -> Vec<CleanupCommandDef> {
             environment: "shell".into(),
             description: "清理 Rust Cargo 包管理器缓存".into(),
             risk: "低风险。仅删除缓存的依赖，编译时需重新下载但不会重编译".into(),
+            risk_level: RiskLevel::Low,
         },
         CleanupCommandDef {
             id: "xcode_derived".into(),
@@ -83,6 +92,7 @@ fn builtin_commands() -> Vec<CleanupCommandDef> {
             environment: "shell".into(),
             description: "清理 Xcode 构建产物缓存".into(),
             risk: "中风险。下次打开项目需重新索引和编译".into(),
+            risk_level: RiskLevel::Medium,
         },
         CleanupCommandDef {
             id: "ios_simulator".into(),
@@ -91,6 +101,7 @@ fn builtin_commands() -> Vec<CleanupCommandDef> {
             environment: "shell".into(),
             description: "删除不可用的 iOS 模拟器镜像".into(),
             risk: "低风险。仅删除旧版本不可用模拟器".into(),
+            risk_level: RiskLevel::Low,
         },
         CleanupCommandDef {
             id: "user_logs".into(),
@@ -99,6 +110,7 @@ fn builtin_commands() -> Vec<CleanupCommandDef> {
             environment: "shell".into(),
             description: "删除超过30天的系统日志文件".into(),
             risk: "低风险。仅删除旧日志文件，不影响系统运行".into(),
+            risk_level: RiskLevel::Low,
         },
         CleanupCommandDef {
             id: "tmp_files".into(),
@@ -107,6 +119,7 @@ fn builtin_commands() -> Vec<CleanupCommandDef> {
             environment: "shell".into(),
             description: "清理用户临时目录中超过7天的文件".into(),
             risk: "低风险。仅删除旧临时文件".into(),
+            risk_level: RiskLevel::Low,
         },
     ]
 }

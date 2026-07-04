@@ -14,6 +14,7 @@ import type { ProjectInfo } from "@/lib/tauri/types";
 import { canUseDesktopFeatures } from "@/platform/capabilities";
 import { writeClipboardText } from "@/platform/clipboard";
 import { formatSize } from "@/lib/utils";
+import { getErrorMessage } from "@/lib/tauri/errors";
 
 export function useDevCleanerController() {
   const { t } = useTranslation();
@@ -57,7 +58,7 @@ export function useDevCleanerController() {
       useDevCleanerStore.setState({
         cleanupMessage: {
           type: "error",
-          text: t("devCleaner.errors.openDirectoryFailed", { error: String(error) }),
+          text: t("devCleaner.errors.openDirectoryFailed", { error: getErrorMessage(error) }),
         },
       });
     }
@@ -92,7 +93,7 @@ export function useDevCleanerController() {
       useDevCleanerStore.setState({
         cleanupMessage: {
           type: "error",
-          text: t("devCleaner.errors.scanFailed", { error: String(error) }),
+          text: t("devCleaner.errors.scanFailed", { error: getErrorMessage(error) }),
         },
         isScanning: false,
       });
@@ -151,7 +152,7 @@ export function useDevCleanerController() {
       useDevCleanerStore.setState({
         cleanupMessage: {
           type: "error",
-          text: t("devCleaner.cleanupError", { error: String(error) }),
+          text: t("devCleaner.cleanupError", { error: getErrorMessage(error) }),
         },
       });
     } finally {
