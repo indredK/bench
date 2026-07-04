@@ -15,5 +15,6 @@
 | [token-calculator](./token-calculator/) | — | — | ✅ | ✅ |
 | [terminology](./terminology/) | — | — | ✅ | ✅ |
 | [hardware](./hardware/) | — | — | ✅ | ✅ |
+| [updater](./updater/) | ✅ | — | ✅ | — |
 
 新增模块时：在此目录创建同名文件夹，至少放入 `roadmap.md` 与 `README.md`；推荐每个模块补齐 `features.md`（产品视角功能说明）与 `design.md`（技术设计）。

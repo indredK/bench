@@ -57,7 +57,7 @@
 
 ### 1.7 文档目录对齐 — 违规
 
-- [违反 §11.2] `src/features/updater/` 存在（`store.ts`、`hooks/useUpdaterController.ts`、`error-classifier.ts`），但 `docs/modules/updater/` 目录不存在 — 新增 feature 时同步创建模块文档目录，至少 `README.md` + `roadmap.md` — **强制**
+- [违反 §11.2] `src/features/updater/` 存在（`store.ts`、`hooks/useUpdaterController.ts`、`error-classifier.ts`），但 `docs/modules/updater/` 目录不存在 — 新增 feature 时同步创建模块文档目录，至少 `README.md` + `roadmap.md` — **强制** ✅ 已修复：新增 `docs/modules/updater/README.md` + `roadmap.md`，并在 `docs/modules/README.md` 表格补 updater 行
 - [违反 §11.2] `src/features/refresh.ts`、`src/features/registry.tsx`、`src/features/types.ts` 为 features 元数据，不属于单一 feature；可在 `docs/modules/README.md` 增加一节"功能注册与刷新机制"说明，避免文档缺口 — **建议**
 
 ---
@@ -223,8 +223,8 @@
 
 ### 6.3 roadmap.md 同步 — 违规
 
-- [违反 §11.3] `docs/modules/dev-toolbox/roadmap.md:13` 评分列写 "性能 ⭐⭐⭐⭐⚬ | 子页懒加载"，但实际 `src/features/dev-toolbox/page.tsx:19-22` 静态 `import PortManager / DevCleaner / EnvDetector / TokenCalculatorPage`，4 个子页同步打包 — 应同步更新评分说明为 "子页同步打包，待 v1.17 拆分时改为 lazy" 或直接修复代码 — **建议**
-- [违反 §11.3] `docs/modules/system-settings/roadmap.md:23-29` v1.16 列表里 `[x] useEffect 补充 loadTabSettings 依赖` 已打勾，但 `src/features/system-settings/page.tsx:118` 的 `useEffect` deps 是 `[store.activeTab, loadTabSettings]`，而 `loadTabSettings` 依赖 `[store, t]`，整 store 变化即重跑 —— 修复并未真正解决 effect 重跑问题 — 应把该 checkbox 改回 `[ ]` 并补充说明 "需配合 selector 拆解 store 订阅" — **建议**
+- [违反 §11.3] `docs/modules/dev-toolbox/roadmap.md:13` 评分列写 "性能 ⭐⭐⭐⭐⚬ | 子页懒加载"，但实际 `src/features/dev-toolbox/page.tsx:19-22` 静态 `import PortManager / DevCleaner / EnvDetector / TokenCalculatorPage`，4 个子页同步打包 — 应同步更新评分说明为 "子页同步打包，待 v1.17 拆分时改为 lazy" 或直接修复代码 — **建议** ✅ 已修复：Task #15 已将 4 个子页改为 `lazy()` + `<Suspense>`，roadmap 描述与代码现已一致
+- [违反 §11.3] `docs/modules/system-settings/roadmap.md:23-29` v1.16 列表里 `[x] useEffect 补充 loadTabSettings 依赖` 已打勾，但 `src/features/system-settings/page.tsx:118` 的 `useEffect` deps 是 `[store.activeTab, loadTabSettings]`，而 `loadTabSettings` 依赖 `[store, t]`，整 store 变化即重跑 —— 修复并未真正解决 effect 重跑问题 — 应把该 checkbox 改回 `[ ]` 并补充说明 "需配合 selector 拆解 store 订阅" — **建议** ✅ 已修复：Task #14 已新增 `activeTab` selector + `loadTabSettings` deps 改 `[t]`，effect 重跑问题真正解决
 
 ### 6.4 bugs.md 维护 — 通过
 
@@ -232,9 +232,9 @@
 
 ### 6.5 引用链接 — 违规
 
-- [违反 §11] `docs/roadmap/release-themes.md:45` — 引用 `[product-iteration-reference.md](../product-iteration-reference.md)`，但 `docs/product-iteration-reference.md` 不存在 — 应补建该文件，或移除链接 — **强制**
-- [违反 §11] `docs/coding-standards.md:149` — `[product-iteration-reference.md](./product-iteration-reference.md)` 同样指向不存在文件 — 同上 — **强制**
-- [违反 §11 建议] `docs/coding-standards.md:122` 索引区写 "方法论背景与未来方向菜单见 product-iteration-reference.md"，与上面两条一致 — 同上 — **建议**
+- [违反 §11] `docs/roadmap/release-themes.md:45` — 引用 `[product-iteration-reference.md](../product-iteration-reference.md)`，但 `docs/product-iteration-reference.md` 不存在 — 应补建该文件，或移除链接 — **强制** ✅ 已修复：移除失效链接
+- [违反 §11] `docs/coding-standards.md:149` — `[product-iteration-reference.md](./product-iteration-reference.md)` 同样指向不存在文件 — 同上 — **强制** ✅ 已修复：移除该条建议
+- [违反 §11 建议] `docs/coding-standards.md:122` 索引区写 "方法论背景与未来方向菜单见 product-iteration-reference.md"，与上面两条一致 — 同上 — **建议** ✅ 已修复：development-workflow.md 中 4 处引用一并移除
 
 ### 6.6 文档目录与代码对齐 — 违规
 

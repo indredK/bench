@@ -1,7 +1,7 @@
 # Bench 开发流程
 
 > **执行手册** — 日常怎么开发、合码、回写文档。  
-> 规范见 [coding-standards.md](./coding-standards.md)；发布主题见 [roadmap/release-themes.md](./roadmap/release-themes.md)；方法论背景见 [product-iteration-reference.md](./product-iteration-reference.md)（仅供参考）。  
+> 规范见 [coding-standards.md](./coding-standards.md)；发布主题见 [roadmap/release-themes.md](./roadmap/release-themes.md)。  
 > **不在此维护版本号或当前冲刺状态** — 以 `release-themes.md` 与各模块 `roadmap.md` 为准。
 
 ---
@@ -104,7 +104,6 @@ pnpm run verify       # test:fe + test:be + build:fe + build:debug
 - **Commit**：Conventional Commits（`feat:` / `fix:` / `docs:` …），hook 会校验。
 - **PR**：说明对应模块与 roadmap 项；合码后在该模块 `roadmap.md` 打 ✅。
 - **Bug 修复**：更新或关闭 `modules/<id>/bugs.md`（若有）。
-- **不要**只在 `product-iteration-reference.md` 里记进度——它不承载 checkbox。
 
 ---
 
@@ -112,7 +111,7 @@ pnpm run verify       # test:fe + test:be + build:fe + build:debug
 
 - CI：[`.github/workflows/ci-build.yml`](./../.github/workflows/ci-build.yml) 四平台构建。
 - 版本与 CHANGELOG：release-please 自动生成 [CHANGELOG.md](../CHANGELOG.md)（commit 风格）。
-- 用户向发布说明（可选）：从 release-themes 摘 3–5 条可读改进（尚未制度化，见 product-iteration-reference §2.2）。
+- 用户向发布说明（可选）：从 release-themes 摘 3–5 条可读改进。
 
 ---
 
@@ -139,8 +138,6 @@ pnpm run verify       # test:fe + test:be + build:fe + build:debug
 - Issue 与 roadmap 未自动联动
 - 部分模块技术债（Quick Launch `scenes.ts`、Dev Toolbox 单文件等）
 - macOS 以外能力需 DesktopOnly / 平台矩阵诚实标注
-
-细节与演进方向见 [product-iteration-reference.md](./product-iteration-reference.md) §2.2、§6。
 
 ---
 
