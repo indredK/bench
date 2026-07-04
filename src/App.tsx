@@ -22,7 +22,7 @@ import { appFeatures, createNavigationItems, createConfigItems } from "@/feature
 import { requestFeatureRefresh } from "@/features/refresh";
 import { useUpdaterController } from "@/features/updater/hooks/useUpdaterController";
 import { listStartupIssues, markMainReady } from "@/lib/tauri/commands/bootstrap";
-import { restartApp } from "@/lib/tauri/commands";
+import { restartApp, setTrayLabels } from "@/lib/tauri/commands";
 import { WINDOW_BOOTSTRAP_EVENTS } from "@/lib/tauri/contracts";
 import { emitPlatformEventTo } from "@/platform/events";
 import { canUseTauriCommands } from "@/platform/capabilities";
@@ -92,6 +92,15 @@ function App() {
     });
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    void setTrayLabels({
+      show: t("tray.show"),
+      sleep: t("tray.preventSleep"),
+      autostart: t("tray.launchAtLogin"),
+      quit: t("tray.quit"),
+    });
+  }, [t]);
 
   const handleRefresh = useCallback(async () => {
     const currentPath = window.location.hash.replace(/^#/, "") || "/";

@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/tooltip";
 import { setCurrentWindowTitle } from "@/platform/window";
 import { readStorageItem, removeStorageItem, writeStorageItem } from "@/platform/storage";
+import { setTrayLabels } from "@/lib/tauri/commands";
 
 type LangMode = "system" | "zh" | "en";
 const CYCLE_ORDER: LangMode[] = ["system", "zh", "en"];
@@ -49,6 +50,12 @@ function LanguageSwitcher() {
     await i18n.changeLanguage(resolvedLang);
     const title = t("common.appTitle");
     await setCurrentWindowTitle(title);
+    await setTrayLabels({
+      show: i18n.t("tray.show"),
+      sleep: i18n.t("tray.preventSleep"),
+      autostart: i18n.t("tray.launchAtLogin"),
+      quit: i18n.t("tray.quit"),
+    });
   };
 
   const currentIndex = CYCLE_ORDER.indexOf(currentMode);

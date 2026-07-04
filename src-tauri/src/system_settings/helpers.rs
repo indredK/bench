@@ -202,16 +202,6 @@ pub fn macos_major_version() -> u32 {
     0
 }
 
-/// Expand ~ in paths to home directory
-pub fn expand_home(path: &str) -> String {
-    if path.starts_with("~/") {
-        if let Ok(home) = std::env::var("HOME") {
-            return format!("{}{}", home, &path[1..]);
-        }
-    }
-    path.to_string()
-}
-
 /// Escape double quotes for AppleScript string interpolation
 pub fn escape_applescript(s: &str) -> String {
     s.replace('"', "\"\"")

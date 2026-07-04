@@ -1,48 +1,8 @@
 use super::helpers::*;
 
 // ---------------------------------------------------------------------------
-// Dark Mode
-// ---------------------------------------------------------------------------
-
-#[tauri::command]
-pub async fn get_dark_mode_state() -> Result<bool, String> {
-    tauri::async_runtime::spawn_blocking(|| {
-        let script = r#"tell application "System Events" to tell appearance preferences to get dark mode"#;
-        let output = run_cmd("osascript", &["-e", script])?;
-        Ok(output.trim() == "true")
-    })
-    .await
-    .map_err(|e| e.to_string())?
-}
-
-#[tauri::command]
-pub async fn set_dark_mode_state(enabled: bool) -> Result<(), String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        let val = if enabled { "true" } else { "false" };
-        let script = format!(
-            r#"tell application "System Events" to tell appearance preferences to set dark mode to {}"#,
-            val
-        );
-        run_cmd_err("osascript", &["-e", &script])?;
-        Ok(())
-    })
-    .await
-    .map_err(|e| e.to_string())?
-}
-
-// ---------------------------------------------------------------------------
 // Autohide Dock
 // ---------------------------------------------------------------------------
-
-#[tauri::command]
-pub async fn get_autohide_dock_state() -> Result<bool, String> {
-    tauri::async_runtime::spawn_blocking(|| {
-        let val = defaults_read_bool("com.apple.dock", "autohide");
-        Ok(val)
-    })
-    .await
-    .map_err(|e| e.to_string())?
-}
 
 #[tauri::command]
 pub async fn set_autohide_dock_state(enabled: bool) -> Result<(), String> {
@@ -93,25 +53,6 @@ const MENU_BAR_MODE_NEVER: &str = "never";
 const MENU_BAR_MODE_IN_FULL_SCREEN_ONLY: &str = "in_full_screen_only";
 const MENU_BAR_MODE_ON_DESKTOP_ONLY: &str = "on_desktop_only";
 const MENU_BAR_MODE_ALWAYS: &str = "always";
-
-#[tauri::command]
-pub async fn get_autohide_menu_bar_state() -> Result<String, String> {
-    tauri::async_runtime::spawn_blocking(|| {
-        // 读取 NSGlobalDomain 中的两个键,组合判断当前模式
-        let in_full = defaults_read_bool("NSGlobalDomain", "AppleMenuBarVisibleInFullscreen");
-        let hide = defaults_read_bool("NSGlobalDomain", "_HIHideMenuBar");
-
-        let mode = match (in_full, hide) {
-            (false, true) => MENU_BAR_MODE_ALWAYS,
-            (true, false) => MENU_BAR_MODE_NEVER,
-            (true, true) => MENU_BAR_MODE_ON_DESKTOP_ONLY,
-            (false, false) => MENU_BAR_MODE_IN_FULL_SCREEN_ONLY,
-        };
-        Ok(mode.to_string())
-    })
-    .await
-    .map_err(|e| e.to_string())?
-}
 
 #[tauri::command]
 pub async fn set_autohide_menu_bar_state(mode: String) -> Result<(), String> {
@@ -167,16 +108,6 @@ pub async fn set_autohide_menu_bar_state(mode: String) -> Result<(), String> {
 // ---------------------------------------------------------------------------
 
 #[tauri::command]
-pub async fn get_dock_show_recents_state() -> Result<bool, String> {
-    tauri::async_runtime::spawn_blocking(|| {
-        let val = defaults_read_bool("com.apple.dock", "show-recents");
-        Ok(val)
-    })
-    .await
-    .map_err(|e| e.to_string())?
-}
-
-#[tauri::command]
 pub async fn set_dock_show_recents_state(enabled: bool) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         let val = if enabled { "true" } else { "false" };
@@ -191,16 +122,6 @@ pub async fn set_dock_show_recents_state(enabled: bool) -> Result<(), String> {
 // ---------------------------------------------------------------------------
 // Hide Desktop Icons
 // ---------------------------------------------------------------------------
-
-#[tauri::command]
-pub async fn get_hide_desktop_icons_state() -> Result<bool, String> {
-    tauri::async_runtime::spawn_blocking(|| {
-        let val = defaults_read("com.apple.finder", "CreateDesktop").unwrap_or_default();
-        Ok(val == "0" || val.to_lowercase() == "false")
-    })
-    .await
-    .map_err(|e| e.to_string())?
-}
 
 #[tauri::command]
 pub async fn set_hide_desktop_icons_state(hide: bool) -> Result<(), String> {
@@ -219,48 +140,6 @@ pub async fn set_hide_desktop_icons_state(hide: bool) -> Result<(), String> {
 // ---------------------------------------------------------------------------
 // Low Power Mode
 // ---------------------------------------------------------------------------
-
-#[tauri::command]
-pub async fn get_low_power_mode_state() -> Result<String, String> {
-    tauri::async_runtime::spawn_blocking(|| {
-        let output = run_cmd("pmset", &["-g", "custom"])?;
-        // 从 Battery Power 和 AC Power 段分别读取 lowpowermode
-        let mut battery_val = "0";
-        let mut ac_val = "0";
-        let mut in_battery = false;
-        let mut in_ac = false;
-        for line in output.lines() {
-            let trimmed = line.trim();
-            if trimmed.starts_with("Battery Power:") {
-                in_battery = true;
-                in_ac = false;
-            } else if trimmed.starts_with("AC Power:") {
-                in_ac = true;
-                in_battery = false;
-            } else if trimmed.starts_with("lowpowermode") {
-                let parts: Vec<&str> = trimmed.split_whitespace().collect();
-                if let Some(val) = parts.last() {
-                    if in_battery {
-                        battery_val = val;
-                    } else if in_ac {
-                        ac_val = val;
-                    }
-                }
-            }
-        }
-        // 映射到四态枚举
-        let mode = match (battery_val, ac_val) {
-            ("0", "0") => "never",
-            ("1", "1") => "always",
-            ("1", "0") => "on_battery_only",
-            ("0", "1") => "on_ac_only",
-            _ => "never",
-        };
-        Ok(mode.to_string())
-    })
-    .await
-    .map_err(|e| e.to_string())?
-}
 
 #[tauri::command]
 pub async fn set_low_power_mode_state(mode: String) -> Result<(), String> {
@@ -291,18 +170,6 @@ pub async fn set_low_power_mode_state(mode: String) -> Result<(), String> {
 // ---------------------------------------------------------------------------
 // Screen Saver
 // ---------------------------------------------------------------------------
-
-#[tauri::command]
-pub async fn get_screen_saver_state() -> Result<bool, String> {
-    tauri::async_runtime::spawn_blocking(|| {
-        let script = r#"tell application "System Events" to tell screen saver preferences to get delay interval"#;
-        let output = run_cmd("osascript", &["-e", script])?;
-        let interval: i32 = output.trim().parse().unwrap_or(300);
-        Ok(interval != 0)
-    })
-    .await
-    .map_err(|e| e.to_string())?
-}
 
 #[tauri::command]
 pub async fn set_screen_saver_state(enabled: bool) -> Result<(), String> {

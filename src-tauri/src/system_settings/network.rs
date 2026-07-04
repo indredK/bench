@@ -18,19 +18,6 @@ fn validate_host(host: &str) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub async fn get_network_firewall_state() -> Result<bool, String> {
-    tauri::async_runtime::spawn_blocking(|| {
-        let output = run_cmd(
-            "/usr/libexec/ApplicationFirewall/socketfilterfw",
-            &["--getglobalstate"],
-        )?;
-        Ok(output.contains("enabled"))
-    })
-    .await
-    .map_err(|e| e.to_string())?
-}
-
-#[tauri::command]
 pub async fn set_network_firewall_state(enable: bool) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         let val = if enable { "on" } else { "off" };
@@ -39,16 +26,6 @@ pub async fn set_network_firewall_state(enable: bool) -> Result<(), String> {
             val
         ))?;
         Ok(())
-    })
-    .await
-    .map_err(|e| e.to_string())?
-}
-
-#[tauri::command]
-pub async fn get_network_ssh_state() -> Result<bool, String> {
-    tauri::async_runtime::spawn_blocking(|| {
-        let output = sudo_cmd("systemsetup -getremotelogin")?;
-        Ok(output.contains("On"))
     })
     .await
     .map_err(|e| e.to_string())?
@@ -66,44 +43,6 @@ pub async fn set_network_ssh_state(enable: bool) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub async fn get_network_screen_sharing_state() -> Result<bool, String> {
-    tauri::async_runtime::spawn_blocking(|| {
-        // Method 1: Check if the plist file exists (most reliable)
-        let plist_path = "/System/Library/LaunchDaemons/com.apple.screensharing.plist";
-        if !std::path::Path::new(plist_path).exists() {
-            return Ok(false);
-        }
-
-        // Method 2: Check via launchctl print (more accurate than launchctl list)
-        let output = std::process::Command::new("launchctl")
-            .args(["print", "system/com.apple.screensharing"])
-            .output();
-        match output {
-            Ok(o) => {
-                let stdout = String::from_utf8_lossy(&o.stdout);
-                // If the service is loaded, it will contain "state" info
-                // If not loaded, it will say "Could not find service"
-                if o.status.success() && !stdout.contains("Could not find") {
-                    return Ok(true);
-                }
-                // Fallback: check if the service is disabled via launchctl list
-                let list_output = std::process::Command::new("launchctl")
-                    .args(["list", "com.apple.screensharing"])
-                    .output();
-                if let Ok(lo) = list_output {
-                    let list_stdout = String::from_utf8_lossy(&lo.stdout);
-                    return Ok(!list_stdout.is_empty() && !list_stdout.contains("Could not find"));
-                }
-                Ok(false)
-            }
-            Err(_) => Ok(false),
-        }
-    })
-    .await
-    .map_err(|e| e.to_string())?
-}
-
-#[tauri::command]
 pub async fn set_network_screen_sharing_state(enable: bool) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         if enable {
@@ -115,13 +54,6 @@ pub async fn set_network_screen_sharing_state(enable: bool) -> Result<(), String
     })
     .await
     .map_err(|e| e.to_string())?
-}
-
-#[tauri::command]
-pub async fn get_network_airdrop_disabled() -> Result<bool, String> {
-    tauri::async_runtime::spawn_blocking(|| Ok(defaults_read_bool("com.apple.NetworkBrowser", "DisableAirDrop")))
-        .await
-        .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -174,21 +106,6 @@ pub async fn ping_host(host: String, count: u32) -> Result<super::types::PingRes
 }
 
 #[tauri::command]
-pub async fn dns_lookup(domain: String, record_type: String) -> Result<Vec<super::types::DnsRecord>, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        validate_host(&domain)?;
-        validate_host(&record_type)?;
-        let output = run_cmd("dig", &[&domain, &record_type, "+short"])?;
-        Ok(output.lines().filter(|l| !l.is_empty()).map(|l| super::types::DnsRecord {
-            record_type: record_type.clone(),
-            value: l.trim().to_string(),
-        }).collect())
-    })
-    .await
-    .map_err(|e| e.to_string())?
-}
-
-#[tauri::command]
 pub async fn port_check(host: String, port: u16) -> Result<super::types::PortCheckResult, String> {
     tauri::async_runtime::spawn_blocking(move || {
         validate_host(&host)?;
@@ -202,26 +119,6 @@ pub async fn port_check(host: String, port: u16) -> Result<super::types::PortChe
             open: output.status.success(),
             error: if output.status.success() { None } else { Some("Connection refused or timed out".to_string()) },
         })
-    })
-    .await
-    .map_err(|e| e.to_string())?
-}
-
-#[tauri::command]
-pub async fn traceroute_host(host: String) -> Result<Vec<super::types::TracerouteHop>, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        validate_host(&host)?;
-        let output = run_cmd("traceroute", &["-m", "15", &host])?;
-        let mut hops = Vec::new();
-        for line in output.lines().skip(1) {
-            let parts: Vec<&str> = line.split_whitespace().collect();
-            if parts.len() < 2 { continue; }
-            let hop_num: u32 = parts[0].parse().unwrap_or(0);
-            let hostname = if parts[1] == "*" { None } else { Some(parts[1].to_string()) };
-            let rtt: Vec<f64> = parts[2..].iter().filter_map(|p| p.trim_end_matches("ms").parse().ok()).collect();
-            hops.push(super::types::TracerouteHop { hop: hop_num, host: hostname, rtt });
-        }
-        Ok(hops)
     })
     .await
     .map_err(|e| e.to_string())?

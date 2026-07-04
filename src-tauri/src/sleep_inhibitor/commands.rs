@@ -117,11 +117,6 @@ pub fn get_sleep_inhibitor_state() -> Result<SleepState, String> {
     get_current_state()
 }
 
-#[tauri::command]
-pub fn reset_sleep_inhibitor() -> Result<(), String> {
-    kill_caffeinate()
-}
-
 /// Called from the app exit handler. Kills OUR OWN caffeinate so that the
 /// system state we report stays accurate after the app quits (otherwise the
 /// spawned caffeinate becomes orphaned and keeps holding the assertion,

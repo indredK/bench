@@ -110,14 +110,6 @@ pub struct InstallSource {
     pub url: Option<String>,
 }
 
-/// Item for batch install.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct BatchInstallItem {
-    pub app_id: String,
-    pub install_source: InstallSource,
-}
-
 /// Capabilities available on the current platform.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

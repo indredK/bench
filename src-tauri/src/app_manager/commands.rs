@@ -1,7 +1,7 @@
 use super::installer::orchestrator::{install_update, InstallHandle};
 use super::state::AppManagerState;
 use super::types::{
-    BatchInstallItem, BatchItemResult, BatchOperationResult, InstallSource, OperationResult,
+    BatchItemResult, BatchOperationResult, InstallSource, OperationResult,
     ScanResult, UpdateInfo,
 };
 use super::{empty_scan_result, linux, locked_operation_result, macos, sources, windows};
@@ -434,14 +434,6 @@ pub fn batch_uninstall_apps(
 }
 
 #[tauri::command]
-pub async fn refresh_app_updates(
-    app_ids: Vec<String>,
-    app: tauri::AppHandle,
-) -> Result<Vec<String>, String> {
-    check_managed_app_updates(app_ids, app).await
-}
-
-#[tauri::command]
 pub fn install_app(
     app_id: String,
     install_source: InstallSource,
@@ -465,118 +457,6 @@ pub fn install_app(
 
     let _ = app;
     result
-}
-
-#[tauri::command]
-pub fn batch_install_apps(
-    items: Vec<BatchInstallItem>,
-    state: tauri::State<'_, AppManagerState>,
-    app: tauri::AppHandle,
-) -> BatchOperationResult {
-    let mut results = Vec::new();
-    let mut succeeded = 0usize;
-    let mut failed = 0usize;
-    let mut cancelled = 0usize;
-
-    let cancel_flag = match try_start_batch_operation(&state) {
-        Ok(flag) => flag,
-        Err(result) => return result,
-    };
-    let total = items.len();
-
-    for (idx, item) in items.iter().enumerate() {
-        if cancel_flag.load(Ordering::Relaxed) {
-            cancelled += 1;
-            results.push(cancelled_batch_item(&item.app_id));
-            emit_silently(
-                &app,
-                "app-manager://batch-cancelled-item",
-                BatchCancelledEvent {
-                    action: "install",
-                    app_id: &item.app_id,
-                    index: idx,
-                    total,
-                },
-            );
-            continue;
-        }
-        let result = install_app(
-            item.app_id.clone(),
-            item.install_source.clone(),
-            state.clone(),
-            app.clone(),
-        );
-        match result {
-            Ok(r) => {
-                if r.success {
-                    succeeded += 1;
-                } else {
-                    failed += 1;
-                }
-                emit_silently(
-                    &app,
-                    "app-manager://batch-progress",
-                    BatchProgressEvent {
-                        action: "install",
-                        app_id: &item.app_id,
-                        success: r.success,
-                        error_code: r.error_code.as_deref(),
-                        index: idx,
-                        total,
-                    },
-                );
-                results.push(BatchItemResult {
-                    app_id: item.app_id.clone(),
-                    app_name: String::new(),
-                    success: r.success,
-                    message: r.message,
-                    exit_code: r.exit_code,
-                });
-            }
-            Err(e) => {
-                failed += 1;
-                emit_silently(
-                    &app,
-                    "app-manager://batch-progress",
-                    BatchProgressEvent {
-                        action: "install",
-                        app_id: &item.app_id,
-                        success: false,
-                        error_code: Some("GENERIC_ERROR"),
-                        index: idx,
-                        total,
-                    },
-                );
-                results.push(BatchItemResult {
-                    app_id: item.app_id.clone(),
-                    app_name: String::new(),
-                    success: false,
-                    message: e,
-                    exit_code: None,
-                });
-            }
-        }
-    }
-
-    state.clear_batch_operation();
-    emit_silently(
-        &app,
-        "app-manager://batch-finished",
-        BatchFinishedEvent {
-            action: "install",
-            total,
-            succeeded,
-            failed: failed + cancelled,
-            cancelled,
-        },
-    );
-
-    BatchOperationResult {
-        total,
-        succeeded,
-        failed: failed + cancelled,
-        results,
-    }
 }
 
 #[tauri::command]

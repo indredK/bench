@@ -4,13 +4,9 @@
 import { invokeTauriCommand } from "@/lib/tauri/invoke";
 import { TAURI_COMMANDS } from "@/lib/tauri/contracts";
 import type {
-  AccountSessionStatus,
   AuthProfile,
-  AuthProxyMatch,
-  AuthProxyRequest,
   AuthProxyResult,
   BrowserOpenResult,
-  ExclusivityMode,
   ExternalApp,
   ExternalAppBinding,
   LoginDetectionConfig,
@@ -88,10 +84,6 @@ export function listAllAccounts(): Promise<StationAccount[]> {
   return invokeTauriCommand(TAURI_COMMANDS.accountManager.listAllAccounts);
 }
 
-export function listAccounts(stationId: string): Promise<StationAccount[]> {
-  return invokeTauriCommand(TAURI_COMMANDS.accountManager.listAccounts, { stationId });
-}
-
 export function createAccount(
   stationId: string,
   username: string,
@@ -152,20 +144,12 @@ export function setPassword(accountId: string, password: string): Promise<void> 
   return invokeTauriCommand(TAURI_COMMANDS.accountManager.setPassword, { accountId, password });
 }
 
-export function clearPassword(accountId: string): Promise<void> {
-  return invokeTauriCommand(TAURI_COMMANDS.accountManager.clearPassword, { accountId });
-}
-
 export function copyPasswordToClipboard(accountId: string): Promise<void> {
   return invokeTauriCommand(TAURI_COMMANDS.accountManager.copyPasswordToClipboard, { accountId });
 }
 
 export function openLoginWindow(accountId: string): Promise<void> {
   return invokeTauriCommand(TAURI_COMMANDS.accountManager.openLoginWindow, { accountId });
-}
-
-export function markAccountLoggedIn(accountId: string): Promise<StationAccount> {
-  return invokeTauriCommand(TAURI_COMMANDS.accountManager.markAccountLoggedIn, { accountId });
 }
 
 export function refreshAccount(accountId: string): Promise<StationAccount> {
@@ -202,22 +186,6 @@ export function reorderAccounts(
   return invokeTauriCommand(TAURI_COMMANDS.accountManager.reorderAccounts, { stationId, orderedIds });
 }
 
-// ═══════════════════════════════════════════════
-// Session Manager — 新增 API 绑定
-// ═══════════════════════════════════════════════
-
-export function captureAccountSession(accountId: string): Promise<AccountSessionStatus> {
-  return invokeTauriCommand(TAURI_COMMANDS.accountManager.captureAccountSession, { accountId });
-}
-
-export function restoreAccountSession(accountId: string): Promise<AccountSessionStatus> {
-  return invokeTauriCommand(TAURI_COMMANDS.accountManager.restoreAccountSession, { accountId });
-}
-
-export function clearAccountSession(accountId: string): Promise<void> {
-  return invokeTauriCommand(TAURI_COMMANDS.accountManager.clearAccountSession, { accountId });
-}
-
 export function detectStationAuthProfile(
   stationId: string,
   accountId?: string,
@@ -226,25 +194,6 @@ export function detectStationAuthProfile(
     stationId,
     accountId: accountId ?? null,
   });
-}
-
-export function getStationAuthProfile(stationId: string): Promise<AuthProfile | null> {
-  return invokeTauriCommand(TAURI_COMMANDS.accountManager.getStationAuthProfile, { stationId });
-}
-
-export function setExclusivityMode(
-  stationId: string,
-  mode: ExclusivityMode
-): Promise<RelayStation> {
-  return invokeTauriCommand(TAURI_COMMANDS.accountManager.setExclusivityMode, { stationId, mode });
-}
-
-/// Rotating 模式下切换活跃账号
-export function switchActiveAccount(
-  stationId: string,
-  accountId: string
-): Promise<StationAccount> {
-  return invokeTauriCommand(TAURI_COMMANDS.accountManager.switchActiveAccount, { stationId, accountId });
 }
 
 /// 手动覆盖探针策略
@@ -298,98 +247,12 @@ export function setStationNetworkProxy(
   });
 }
 
-/// 读取 Station 的网络代理配置。`encryptedPassword` 为 opaque(前端不解密明文)。
-export function getStationNetworkProxy(
-  stationId: string
-): Promise<NetworkProxyConfig | null> {
-  return invokeTauriCommand(TAURI_COMMANDS.accountManager.getStationNetworkProxy, { stationId });
-}
-
 /// 设置账号的外部登录代理开关
 export function setAccountProxyEnabled(
   accountId: string,
   enabled: boolean
 ): Promise<StationAccount> {
   return invokeTauriCommand(TAURI_COMMANDS.accountManager.setAccountProxyEnabled, { accountId, enabled });
-}
-
-/// update_station 包装:支持更新 sessionTtlHours。
-export function updateStationWithTtl(
-  id: string,
-  patch: {
-    remark?: string;
-    website?: string;
-    loginDetection?: LoginDetectionConfig;
-    sessionTtlHours?: number;
-  }
-): Promise<RelayStation> {
-  return invokeTauriCommand(TAURI_COMMANDS.accountManager.updateStation, {
-    id,
-    remark: patch.remark ?? null,
-    website: patch.website ?? null,
-    loginDetection: patch.loginDetection ?? null,
-    sessionTtlHours: patch.sessionTtlHours ?? null,
-  });
-}
-
-// ═══════════════════════════════════════════════
-// 外部登录代理 — Phase 1 API
-// ═══════════════════════════════════════════════
-
-/// 解析 bench-auth://authorize URL
-export function parseAuthProxyUrl(rawUrl: string): Promise<AuthProxyRequest> {
-  return invokeTauriCommand(TAURI_COMMANDS.accountManager.parseAuthProxyUrl, { rawUrl });
-}
-
-/// 根据目标 URL 匹配可用的 Station
-export function matchProxyTarget(target: string): Promise<AuthProxyMatch[]> {
-  return invokeTauriCommand(TAURI_COMMANDS.accountManager.matchProxyTarget, { target });
-}
-
-/// 打开登录窗口（支持 return_url）
-export function openLoginWindowWithReturn(
-  accountId: string,
-  returnUrl?: string | null
-): Promise<void> {
-  return invokeTauriCommand(TAURI_COMMANDS.accountManager.openLoginWindow, {
-    accountId,
-    returnUrl: returnUrl ?? null,
-  });
-}
-
-/// 构建外部登录代理的回调 URL
-export function buildProxyReturnUrl(
-  returnUrl: string,
-  token: string,
-  tokenType: string,
-  state: string | null,
-  stationId: string,
-  accountId: string
-): Promise<string> {
-  return invokeTauriCommand(TAURI_COMMANDS.accountManager.buildProxyReturnUrl, {
-    returnUrl,
-    token,
-    tokenType,
-    state,
-    stationId,
-    accountId,
-  });
-}
-
-/// 接收外部 `bench-auth://authorize` 请求,返回匹配到的 Station + 账号列表。
-/// 前端展示账号选择器;用户选定账号后再调 `proxyLogin` 启动登录。
-export function handleAuthProxy(
-  targetUrl: string,
-  returnUrl: string,
-  state?: string | null,
-  siteHint?: string | null
-): Promise<AuthProxyMatch[]> {
-  return invokeTauriCommand(TAURI_COMMANDS.accountManager.handleAuthProxy, {
-    targetUrl,
-    returnUrl,
-    state: state ?? null,
-    siteHint: siteHint ?? null,
-  });
 }
 
 /// 启动外部代理登录:打开登录窗口 → 注入凭证 → 返回占位 AuthProxyResult。
@@ -436,19 +299,6 @@ export function listExternalApps(
   return invokeTauriCommand(TAURI_COMMANDS.accountManager.listExternalApps, {
     stationId: stationId ?? null,
     accountId: accountId ?? null,
-  });
-}
-
-/// 注册外部 App。若相同 urlScheme 已存在,后端直接返回已有记录(去重)。
-export function registerExternalApp(
-  name: string,
-  urlScheme: string,
-  returnHosts: string[]
-): Promise<ExternalApp> {
-  return invokeTauriCommand(TAURI_COMMANDS.accountManager.registerExternalApp, {
-    name,
-    urlScheme,
-    returnHosts,
   });
 }
 

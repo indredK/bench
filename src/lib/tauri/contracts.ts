@@ -12,13 +12,9 @@ import type {
   UpdateInfo,
 } from "@/lib/tauri/types/app-manager";
 import type {
-  AccountSessionStatus,
   AuthProfile,
-  AuthProxyMatch,
-  AuthProxyRequest,
   AuthProxyResult,
   BrowserOpenResult,
-  ExclusivityMode,
   ExternalApp,
   ExternalAppBinding,
   LoginDetectionConfig,
@@ -50,16 +46,12 @@ import type {
   SleepState,
   LoginItem,
   LaunchService,
-  TccPermission,
   PingResult,
-  DnsRecord,
   PortCheckResult,
-  TracerouteHop,
   IpInfo,
   WifiInfo,
   MenuBarAutoHideMode,
   LowPowerMode,
-  GatekeeperMode,
 } from "@/lib/tauri/types/system-settings";
 import type { SystemInfoData } from "@/lib/tauri/types/system-info";
 import type {
@@ -110,9 +102,7 @@ export const TAURI_COMMAND_CONTRACTS = {
   uninstall_app: defineTauriCommand<{ appId: string }, OperationResult>()("uninstall_app"),
   batch_upgrade_apps: defineTauriCommand<{ appIds: string[] }, BatchOperationResult>()("batch_upgrade_apps"),
   batch_uninstall_apps: defineTauriCommand<{ appIds: string[] }, BatchOperationResult>()("batch_uninstall_apps"),
-  refresh_app_updates: defineTauriCommand<{ appIds: string[] }, string[]>()("refresh_app_updates"),
   install_app: defineTauriCommand<{ appId: string; installSource: InstallSource }, OperationResult>()("install_app"),
-  batch_install_apps: defineTauriCommand<{ items: { appId: string; installSource: InstallSource }[] }, BatchOperationResult>()("batch_install_apps"),
   cancel_batch_operation: defineTauriCommand<undefined, boolean>()("cancel_batch_operation"),
   check_all_app_updates: defineTauriCommand<{ forceRefresh?: boolean }, UpdateInfo[]>()("check_all_app_updates"),
   open_in_mac_app_store: defineTauriCommand<{ adamId: string }, void>()("open_in_mac_app_store"),
@@ -150,9 +140,6 @@ export const TAURI_COMMAND_CONTRACTS = {
     RelayStation
   >()("update_station"),
   delete_station: defineTauriCommand<{ id: string }, void>()("delete_station"),
-  list_accounts: defineTauriCommand<{ stationId: string }, StationAccount[]>()(
-    "list_accounts"
-  ),
   list_all_accounts: defineTauriCommand<undefined, StationAccount[]>()(
     "list_all_accounts"
   ),
@@ -171,9 +158,9 @@ export const TAURI_COMMAND_CONTRACTS = {
     StationAccount
   >()("create_account"),
   update_account: defineTauriCommand<
-    { 
-      id: string; 
-      username?: string | null; 
+    {
+      id: string;
+      username?: string | null;
       notes?: string | null;
       phone?: string | null;
       tgAccount?: string | null;
@@ -191,19 +178,12 @@ export const TAURI_COMMAND_CONTRACTS = {
     { accountId: string; password: string },
     void
   >()("set_password"),
-  clear_password: defineTauriCommand<{ accountId: string }, void>()(
-    "clear_password"
-  ),
   copy_password_to_clipboard: defineTauriCommand<{ accountId: string }, void>()(
     "copy_password_to_clipboard"
   ),
   open_login_window: defineTauriCommand<{ accountId: string; returnUrl?: string | null }, void>()(
     "open_login_window"
   ),
-  mark_account_logged_in: defineTauriCommand<
-    { accountId: string },
-    StationAccount
-  >()("mark_account_logged_in"),
   refresh_account: defineTauriCommand<{ accountId: string }, StationAccount>()(
     "refresh_account"
   ),
@@ -225,33 +205,12 @@ export const TAURI_COMMAND_CONTRACTS = {
     { stationId: string; orderedIds: string[] },
     StationAccount[]
   >()("reorder_accounts"),
-  // Session Manager
-  capture_account_session: defineTauriCommand<{ accountId: string }, AccountSessionStatus>()(
-    "capture_account_session"
-  ),
-  restore_account_session: defineTauriCommand<{ accountId: string }, AccountSessionStatus>()(
-    "restore_account_session"
-  ),
-  clear_account_session: defineTauriCommand<{ accountId: string }, void>()(
-    "clear_account_session"
-  ),
   detect_station_auth_profile: defineTauriCommand<
     { stationId: string; accountId?: string | null },
     AuthProfile
   >()(
     "detect_station_auth_profile"
   ),
-  get_station_auth_profile: defineTauriCommand<{ stationId: string }, AuthProfile | null>()(
-    "get_station_auth_profile"
-  ),
-  set_exclusivity_mode: defineTauriCommand<
-    { stationId: string; mode: ExclusivityMode },
-    RelayStation
-  >()("set_exclusivity_mode"),
-  switch_active_account: defineTauriCommand<
-    { stationId: string; accountId: string },
-    StationAccount
-  >()("switch_active_account"),
   set_probe_strategy: defineTauriCommand<
     { stationId: string; strategy: ProbeStrategy },
     RelayStation
@@ -275,35 +234,10 @@ export const TAURI_COMMAND_CONTRACTS = {
     },
     RelayStation
   >()("set_station_network_proxy"),
-  get_station_network_proxy: defineTauriCommand<
-    { stationId: string },
-    NetworkProxyConfig | null
-  >()("get_station_network_proxy"),
   set_account_proxy_enabled: defineTauriCommand<
     { accountId: string; enabled: boolean },
     StationAccount
   >()("set_account_proxy_enabled"),
-  parse_auth_proxy_url: defineTauriCommand<
-    { rawUrl: string },
-    AuthProxyRequest
-  >()("parse_auth_proxy_url"),
-  match_proxy_target: defineTauriCommand<
-    { target: string },
-    AuthProxyMatch[]
-  >()("match_proxy_target"),
-  build_proxy_return_url: defineTauriCommand<
-    { returnUrl: string; token: string; tokenType: string; state: string | null; stationId: string; accountId: string },
-    string
-  >()("build_proxy_return_url"),
-  handle_auth_proxy: defineTauriCommand<
-    {
-      targetUrl: string;
-      returnUrl: string;
-      state?: string | null;
-      siteHint?: string | null;
-    },
-    AuthProxyMatch[]
-  >()("handle_auth_proxy"),
   proxy_login: defineTauriCommand<
     { accountId: string; targetUrl: string; returnUrl: string },
     AuthProxyResult
@@ -325,10 +259,6 @@ export const TAURI_COMMAND_CONTRACTS = {
     { stationId?: string | null; accountId?: string | null },
     ExternalApp[]
   >()("list_external_apps"),
-  register_external_app: defineTauriCommand<
-    { name: string; urlScheme: string; returnHosts: string[] },
-    ExternalApp
-  >()("register_external_app"),
   remove_external_app: defineTauriCommand<{ appId: string }, void>()(
     "remove_external_app"
   ),
@@ -372,21 +302,12 @@ export const TAURI_COMMAND_CONTRACTS = {
   // sleep inhibitor
   toggle_sleep_inhibitor: defineTauriCommand<{ config: SleepConfig; enabled: boolean }, SleepState>()("toggle_sleep_inhibitor"),
   get_sleep_inhibitor_state: defineTauriCommand<undefined, SleepState>()("get_sleep_inhibitor_state"),
-  reset_sleep_inhibitor: defineTauriCommand<undefined, void>()("reset_sleep_inhibitor"),
   // system settings - finder
-  get_finder_show_hidden_files: defineTauriCommand<undefined, boolean>()("get_finder_show_hidden_files"),
   set_finder_show_hidden_files: defineTauriCommand<{ show: boolean }, void>()("set_finder_show_hidden_files"),
-  get_finder_show_pathbar: defineTauriCommand<undefined, boolean>()("get_finder_show_pathbar"),
   set_finder_show_pathbar: defineTauriCommand<{ show: boolean }, void>()("set_finder_show_pathbar"),
-  get_finder_show_statusbar: defineTauriCommand<undefined, boolean>()("get_finder_show_statusbar"),
   set_finder_show_statusbar: defineTauriCommand<{ show: boolean }, void>()("set_finder_show_statusbar"),
-  get_finder_show_library_dir: defineTauriCommand<undefined, boolean>()("get_finder_show_library_dir"),
   set_finder_show_library_dir: defineTauriCommand<{ show: boolean }, void>()("set_finder_show_library_dir"),
-  get_finder_show_file_extensions: defineTauriCommand<undefined, boolean>()("get_finder_show_file_extensions"),
   set_finder_show_file_extensions: defineTauriCommand<{ show: boolean }, void>()("set_finder_show_file_extensions"),
-  get_finder_spotlight_external_disk: defineTauriCommand<undefined, boolean>()("get_finder_spotlight_external_disk"),
-  set_finder_spotlight_external_disk: defineTauriCommand<{ disk: string; enable: boolean }, void>()("set_finder_spotlight_external_disk"),
-  get_finder_no_ds_store: defineTauriCommand<undefined, boolean>()("get_finder_no_ds_store"),
   set_finder_no_ds_store: defineTauriCommand<{ noDs: boolean }, void>()("set_finder_no_ds_store"),
   // system settings - dock
   get_dock_orientation: defineTauriCommand<undefined, string>()("get_dock_orientation"),
@@ -408,31 +329,15 @@ export const TAURI_COMMAND_CONTRACTS = {
   get_display_battery_percent: defineTauriCommand<undefined, boolean>()("get_display_battery_percent"),
   set_display_battery_percent: defineTauriCommand<{ show: boolean }, void>()("set_display_battery_percent"),
   // system settings - network
-  get_network_firewall_state: defineTauriCommand<undefined, boolean>()("get_network_firewall_state"),
   set_network_firewall_state: defineTauriCommand<{ enable: boolean }, void>()("set_network_firewall_state"),
-  get_network_ssh_state: defineTauriCommand<undefined, boolean>()("get_network_ssh_state"),
   set_network_ssh_state: defineTauriCommand<{ enable: boolean }, void>()("set_network_ssh_state"),
-  get_network_screen_sharing_state: defineTauriCommand<undefined, boolean>()("get_network_screen_sharing_state"),
   set_network_screen_sharing_state: defineTauriCommand<{ enable: boolean }, void>()("set_network_screen_sharing_state"),
-  get_network_airdrop_disabled: defineTauriCommand<undefined, boolean>()("get_network_airdrop_disabled"),
   set_network_airdrop_disabled: defineTauriCommand<{ disable: boolean }, void>()("set_network_airdrop_disabled"),
   // system settings - screenshot
-  get_screenshot_format: defineTauriCommand<undefined, string>()("get_screenshot_format"),
   set_screenshot_format: defineTauriCommand<{ format: string }, void>()("set_screenshot_format"),
-  get_screenshot_disable_shadow: defineTauriCommand<undefined, boolean>()("get_screenshot_disable_shadow"),
   set_screenshot_disable_shadow: defineTauriCommand<{ disable: boolean }, void>()("set_screenshot_disable_shadow"),
-  get_screenshot_show_thumbnail: defineTauriCommand<undefined, boolean>()("get_screenshot_show_thumbnail"),
   set_screenshot_show_thumbnail: defineTauriCommand<{ show: boolean }, void>()("set_screenshot_show_thumbnail"),
-  get_screenshot_save_location: defineTauriCommand<undefined, string>()("get_screenshot_save_location"),
   set_screenshot_save_location: defineTauriCommand<{ path: string }, void>()("set_screenshot_save_location"),
-  // system settings - privacy
-  get_tcc_permissions: defineTauriCommand<{ service: string }, TccPermission>()("get_tcc_permissions"),
-  // system settings - maintenance
-  rebuild_icon_cache: defineTauriCommand<undefined, string>()("rebuild_icon_cache"),
-  flush_dns_cache: defineTauriCommand<undefined, string>()("flush_dns_cache"),
-  rebuild_spotlight_index: defineTauriCommand<undefined, string>()("rebuild_spotlight_index"),
-  reset_launch_services: defineTauriCommand<undefined, string>()("reset_launch_services"),
-  flush_font_cache: defineTauriCommand<undefined, string>()("flush_font_cache"),
   // system settings - quick actions
   lock_screen: defineTauriCommand<undefined, void>()("lock_screen"),
   empty_trash: defineTauriCommand<undefined, string>()("empty_trash"),
@@ -447,7 +352,6 @@ export const TAURI_COMMAND_CONTRACTS = {
   get_default_browser: defineTauriCommand<undefined, string>()("get_default_browser"),
   set_default_browser: defineTauriCommand<{ bundleId: string }, void>()("set_default_browser"),
   // system settings - semantic pane registry
-  open_settings_pane: defineTauriCommand<{ pane: string }, void>()("open_settings_pane"),
   open_battery_settings: defineTauriCommand<undefined, void>()("open_battery_settings"),
   open_control_center_settings: defineTauriCommand<undefined, void>()("open_control_center_settings"),
   open_desktop_settings: defineTauriCommand<undefined, void>()("open_desktop_settings"),
@@ -458,14 +362,13 @@ export const TAURI_COMMAND_CONTRACTS = {
   open_network_settings: defineTauriCommand<undefined, void>()("open_network_settings"),
   open_privacy_security_settings: defineTauriCommand<undefined, void>()("open_privacy_security_settings"),
   reset_tcc_permission: defineTauriCommand<{ service: string; bundleId: string }, void>()("reset_tcc_permission"),
-  // system settings - gatekeeper
-  get_gatekeeper_state: defineTauriCommand<undefined, GatekeeperMode>()("get_gatekeeper_state"),
   // system settings - login items
   get_login_items: defineTauriCommand<undefined, LoginItem[]>()("get_login_items"),
-  add_login_item: defineTauriCommand<{ path: string }, void>()("add_login_item"),
   remove_login_item: defineTauriCommand<{ name: string }, void>()("remove_login_item"),
   get_launch_agents: defineTauriCommand<undefined, LaunchService[]>()("get_launch_agents"),
   get_launch_daemons: defineTauriCommand<undefined, LaunchService[]>()("get_launch_daemons"),
+  get_autostart_status: defineTauriCommand<undefined, boolean>()("get_autostart_status"),
+  set_autostart: defineTauriCommand<{ enabled: boolean }, void>()("set_autostart"),
   // system settings - dev tools
   json_format: defineTauriCommand<{ input: string; indent: boolean }, string>()("json_format"),
   base64_encode: defineTauriCommand<{ input: string }, string>()("base64_encode"),
@@ -475,32 +378,20 @@ export const TAURI_COMMAND_CONTRACTS = {
   timestamp_convert: defineTauriCommand<{ ts: number; format: string }, string>()("timestamp_convert"),
   // system settings - network diagnostics
   ping_host: defineTauriCommand<{ host: string; count: number }, PingResult>()("ping_host"),
-  dns_lookup: defineTauriCommand<{ domain: string; recordType: string }, DnsRecord[]>()("dns_lookup"),
   port_check: defineTauriCommand<{ host: string; port: number }, PortCheckResult>()("port_check"),
-  traceroute_host: defineTauriCommand<{ host: string }, TracerouteHop[]>()("traceroute_host"),
   get_local_ip: defineTauriCommand<undefined, IpInfo>()("get_local_ip"),
   get_wifi_info: defineTauriCommand<undefined, WifiInfo>()("get_wifi_info"),
   // system settings - system toggles
-  get_dark_mode_state: defineTauriCommand<undefined, boolean>()("get_dark_mode_state"),
-  set_dark_mode_state: defineTauriCommand<{ enabled: boolean }, void>()("set_dark_mode_state"),
-  get_autohide_dock_state: defineTauriCommand<undefined, boolean>()("get_autohide_dock_state"),
   set_autohide_dock_state: defineTauriCommand<{ enabled: boolean }, void>()("set_autohide_dock_state"),
-  get_autohide_menu_bar_state: defineTauriCommand<undefined, MenuBarAutoHideMode>()("get_autohide_menu_bar_state"),
   set_autohide_menu_bar_state: defineTauriCommand<{ mode: MenuBarAutoHideMode }, void>()("set_autohide_menu_bar_state"),
-  get_dock_show_recents_state: defineTauriCommand<undefined, boolean>()("get_dock_show_recents_state"),
   set_dock_show_recents_state: defineTauriCommand<{ enabled: boolean }, void>()("set_dock_show_recents_state"),
-  get_hide_desktop_icons_state: defineTauriCommand<undefined, boolean>()("get_hide_desktop_icons_state"),
   set_hide_desktop_icons_state: defineTauriCommand<{ hide: boolean }, void>()("set_hide_desktop_icons_state"),
-  get_low_power_mode_state: defineTauriCommand<undefined, LowPowerMode>()("get_low_power_mode_state"),
   set_low_power_mode_state: defineTauriCommand<{ mode: LowPowerMode }, void>()("set_low_power_mode_state"),
-  get_screen_saver_state: defineTauriCommand<undefined, boolean>()("get_screen_saver_state"),
   set_screen_saver_state: defineTauriCommand<{ enabled: boolean }, void>()("set_screen_saver_state"),
   // file operations
   write_text_file: defineTauriCommand<{ path: string; content: string }, void>()("write_text_file"),
-  read_text_file: defineTauriCommand<{ path: string }, string>()("read_text_file"),
-  ensure_dir: defineTauriCommand<{ path: string }, void>()("ensure_dir"),
-  file_exists: defineTauriCommand<{ path: string }, boolean>()("file_exists"),
-  temp_dir: defineTauriCommand<undefined, string>()("temp_dir"),
+  // tray
+  set_tray_labels: defineTauriCommand<{ show: string; sleep: string; autostart: string; quit: string }, void>()("set_tray_labels"),
 } as const;
 
 export type TauriCommandName = keyof typeof TAURI_COMMAND_CONTRACTS;
@@ -556,9 +447,7 @@ export const TAURI_COMMANDS = {
     uninstallApp: commandName("uninstall_app"),
     batchUpgradeApps: commandName("batch_upgrade_apps"),
     batchUninstallApps: commandName("batch_uninstall_apps"),
-    refreshAppUpdates: commandName("refresh_app_updates"),
     installApp: commandName("install_app"),
-    batchInstallApps: commandName("batch_install_apps"),
     cancelBatchOperation: commandName("cancel_batch_operation"),
     checkAllAppUpdates: commandName("check_all_app_updates"),
     openInMacAppStore: commandName("open_in_mac_app_store"),
@@ -591,17 +480,14 @@ export const TAURI_COMMANDS = {
     createStation: commandName("create_station"),
     updateStation: commandName("update_station"),
     deleteStation: commandName("delete_station"),
-    listAccounts: commandName("list_accounts"),
     listAllAccounts: commandName("list_all_accounts"),
     createAccount: commandName("create_account"),
     updateAccount: commandName("update_account"),
     deleteAccount: commandName("delete_account"),
     revealPassword: commandName("reveal_password"),
     setPassword: commandName("set_password"),
-    clearPassword: commandName("clear_password"),
     copyPasswordToClipboard: commandName("copy_password_to_clipboard"),
     openLoginWindow: commandName("open_login_window"),
-    markAccountLoggedIn: commandName("mark_account_logged_in"),
     refreshAccount: commandName("refresh_account"),
     refreshStation: commandName("refresh_station"),
     refreshAll: commandName("refresh_all"),
@@ -609,29 +495,17 @@ export const TAURI_COMMANDS = {
     importRelayData: commandName("import_relay_data"),
     reorderStations: commandName("reorder_stations"),
     reorderAccounts: commandName("reorder_accounts"),
-    captureAccountSession: commandName("capture_account_session"),
-    restoreAccountSession: commandName("restore_account_session"),
-    clearAccountSession: commandName("clear_account_session"),
     detectStationAuthProfile: commandName("detect_station_auth_profile"),
-    getStationAuthProfile: commandName("get_station_auth_profile"),
-    setExclusivityMode: commandName("set_exclusivity_mode"),
-    switchActiveAccount: commandName("switch_active_account"),
     setProbeStrategy: commandName("set_probe_strategy"),
     resetProbeStrategy: commandName("reset_probe_strategy"),
     createEphemeralAccount: commandName("create_ephemeral_account"),
     setSessionTtl: commandName("set_session_ttl"),
     setStationNetworkProxy: commandName("set_station_network_proxy"),
-    getStationNetworkProxy: commandName("get_station_network_proxy"),
     setAccountProxyEnabled: commandName("set_account_proxy_enabled"),
-    parseAuthProxyUrl: commandName("parse_auth_proxy_url"),
-    matchProxyTarget: commandName("match_proxy_target"),
-    buildProxyReturnUrl: commandName("build_proxy_return_url"),
-    handleAuthProxy: commandName("handle_auth_proxy"),
     proxyLogin: commandName("proxy_login"),
     handleBrowserOpen: commandName("handle_browser_open"),
     proxyLoginNewAccount: commandName("proxy_login_new_account"),
     listExternalApps: commandName("list_external_apps"),
-    registerExternalApp: commandName("register_external_app"),
     removeExternalApp: commandName("remove_external_app"),
     listExternalAppBindings: commandName("list_external_app_bindings"),
   },
@@ -660,20 +534,11 @@ export const TAURI_COMMANDS = {
   systemSettings: {
     toggleSleepInhibitor: commandName("toggle_sleep_inhibitor"),
     getSleepInhibitorState: commandName("get_sleep_inhibitor_state"),
-    resetSleepInhibitor: commandName("reset_sleep_inhibitor"),
-    getFinderShowHiddenFiles: commandName("get_finder_show_hidden_files"),
     setFinderShowHiddenFiles: commandName("set_finder_show_hidden_files"),
-    getFinderShowPathbar: commandName("get_finder_show_pathbar"),
     setFinderShowPathbar: commandName("set_finder_show_pathbar"),
-    getFinderShowStatusbar: commandName("get_finder_show_statusbar"),
     setFinderShowStatusbar: commandName("set_finder_show_statusbar"),
-    getFinderShowLibraryDir: commandName("get_finder_show_library_dir"),
     setFinderShowLibraryDir: commandName("set_finder_show_library_dir"),
-    getFinderShowFileExtensions: commandName("get_finder_show_file_extensions"),
     setFinderShowFileExtensions: commandName("set_finder_show_file_extensions"),
-    getFinderSpotlightExternalDisk: commandName("get_finder_spotlight_external_disk"),
-    setFinderSpotlightExternalDisk: commandName("set_finder_spotlight_external_disk"),
-    getFinderNoDsStore: commandName("get_finder_no_ds_store"),
     setFinderNoDsStore: commandName("set_finder_no_ds_store"),
     getDockOrientation: commandName("get_dock_orientation"),
     setDockOrientation: commandName("set_dock_orientation"),
@@ -691,28 +556,14 @@ export const TAURI_COMMANDS = {
     setAutoCapitalizeState: commandName("set_auto_capitalize_state"),
     getDisplayBatteryPercent: commandName("get_display_battery_percent"),
     setDisplayBatteryPercent: commandName("set_display_battery_percent"),
-    getNetworkFirewallState: commandName("get_network_firewall_state"),
     setNetworkFirewallState: commandName("set_network_firewall_state"),
-    getNetworkSshState: commandName("get_network_ssh_state"),
     setNetworkSshState: commandName("set_network_ssh_state"),
-    getNetworkScreenSharingState: commandName("get_network_screen_sharing_state"),
     setNetworkScreenSharingState: commandName("set_network_screen_sharing_state"),
-    getNetworkAirdropDisabled: commandName("get_network_airdrop_disabled"),
     setNetworkAirdropDisabled: commandName("set_network_airdrop_disabled"),
-    getScreenshotFormat: commandName("get_screenshot_format"),
     setScreenshotFormat: commandName("set_screenshot_format"),
-    getScreenshotDisableShadow: commandName("get_screenshot_disable_shadow"),
     setScreenshotDisableShadow: commandName("set_screenshot_disable_shadow"),
-    getScreenshotShowThumbnail: commandName("get_screenshot_show_thumbnail"),
     setScreenshotShowThumbnail: commandName("set_screenshot_show_thumbnail"),
-    getScreenshotSaveLocation: commandName("get_screenshot_save_location"),
     setScreenshotSaveLocation: commandName("set_screenshot_save_location"),
-    getTccPermissions: commandName("get_tcc_permissions"),
-    rebuildIconCache: commandName("rebuild_icon_cache"),
-    flushDnsCache: commandName("flush_dns_cache"),
-    rebuildSpotlightIndex: commandName("rebuild_spotlight_index"),
-    resetLaunchServices: commandName("reset_launch_services"),
-    flushFontCache: commandName("flush_font_cache"),
     lockScreen: commandName("lock_screen"),
     emptyTrash: commandName("empty_trash"),
     sleepNow: commandName("sleep_now"),
@@ -724,7 +575,6 @@ export const TAURI_COMMANDS = {
     setLockScreenPasswordDelay: commandName("set_lock_screen_password_delay"),
     getDefaultBrowser: commandName("get_default_browser"),
     setDefaultBrowser: commandName("set_default_browser"),
-    openSettingsPane: commandName("open_settings_pane"),
     openBatterySettings: commandName("open_battery_settings"),
     openControlCenterSettings: commandName("open_control_center_settings"),
     openDesktopSettings: commandName("open_desktop_settings"),
@@ -735,12 +585,12 @@ export const TAURI_COMMANDS = {
     openNetworkSettings: commandName("open_network_settings"),
     openPrivacySecuritySettings: commandName("open_privacy_security_settings"),
     resetTccPermission: commandName("reset_tcc_permission"),
-    getGatekeeperState: commandName("get_gatekeeper_state"),
     getLoginItems: commandName("get_login_items"),
-    addLoginItem: commandName("add_login_item"),
     removeLoginItem: commandName("remove_login_item"),
     getLaunchAgents: commandName("get_launch_agents"),
     getLaunchDaemons: commandName("get_launch_daemons"),
+    getAutostartStatus: commandName("get_autostart_status"),
+    setAutostart: commandName("set_autostart"),
     jsonFormat: commandName("json_format"),
     base64Encode: commandName("base64_encode"),
     base64Decode: commandName("base64_decode"),
@@ -748,32 +598,21 @@ export const TAURI_COMMANDS = {
     calculateHash: commandName("calculate_hash"),
     timestampConvert: commandName("timestamp_convert"),
     pingHost: commandName("ping_host"),
-    dnsLookup: commandName("dns_lookup"),
     portCheck: commandName("port_check"),
-    tracerouteHost: commandName("traceroute_host"),
     getLocalIp: commandName("get_local_ip"),
     getWifiInfo: commandName("get_wifi_info"),
-    getDarkModeState: commandName("get_dark_mode_state"),
-    setDarkModeState: commandName("set_dark_mode_state"),
-    getAutohideDockState: commandName("get_autohide_dock_state"),
     setAutohideDockState: commandName("set_autohide_dock_state"),
-    getAutohideMenuBarState: commandName("get_autohide_menu_bar_state"),
     setAutohideMenuBarState: commandName("set_autohide_menu_bar_state"),
-    getDockShowRecentsState: commandName("get_dock_show_recents_state"),
     setDockShowRecentsState: commandName("set_dock_show_recents_state"),
-    getHideDesktopIconsState: commandName("get_hide_desktop_icons_state"),
     setHideDesktopIconsState: commandName("set_hide_desktop_icons_state"),
-    getLowPowerModeState: commandName("get_low_power_mode_state"),
     setLowPowerModeState: commandName("set_low_power_mode_state"),
-    getScreenSaverState: commandName("get_screen_saver_state"),
     setScreenSaverState: commandName("set_screen_saver_state"),
   },
   fileOps: {
     writeTextFile: commandName("write_text_file"),
-    readTextFile: commandName("read_text_file"),
-    ensureDir: commandName("ensure_dir"),
-    fileExists: commandName("file_exists"),
-    tempDir: commandName("temp_dir"),
+  },
+  tray: {
+    setTrayLabels: commandName("set_tray_labels"),
   },
 } as const;
 
@@ -813,9 +652,7 @@ export const TAURI_COMMAND_ARG_KEYS = {
   uninstall_app: ["appId"],
   batch_upgrade_apps: ["appIds"],
   batch_uninstall_apps: ["appIds"],
-  refresh_app_updates: ["appIds"],
   install_app: ["appId", "installSource"],
-  batch_install_apps: ["items"],
   cancel_batch_operation: [],
   check_all_app_updates: ["forceRefresh"],
   open_in_mac_app_store: ["adamId"],
@@ -838,17 +675,14 @@ export const TAURI_COMMAND_ARG_KEYS = {
   create_station: ["remark", "website", "loginDetection"],
   update_station: ["id", "remark", "website", "loginDetection", "sessionTtlHours"],
   delete_station: ["id"],
-  list_accounts: ["stationId"],
   list_all_accounts: [],
   create_account: ["stationId", "username", "password", "notes", "phone", "tgAccount", "linkedAccount", "inviteLink", "loginMethods"],
   update_account: ["id", "username", "notes", "phone", "tgAccount", "linkedAccount", "inviteLink", "loginMethods"],
   delete_account: ["id"],
   reveal_password: ["accountId"],
   set_password: ["accountId", "password"],
-  clear_password: ["accountId"],
   copy_password_to_clipboard: ["accountId"],
   open_login_window: ["accountId", "returnUrl"],
-  mark_account_logged_in: ["accountId"],
   refresh_account: ["accountId"],
   refresh_station: ["stationId"],
   refresh_all: [],
@@ -856,29 +690,17 @@ export const TAURI_COMMAND_ARG_KEYS = {
   import_relay_data: ["path"],
   reorder_stations: ["orderedIds"],
   reorder_accounts: ["stationId", "orderedIds"],
-  capture_account_session: ["accountId"],
-  restore_account_session: ["accountId"],
-  clear_account_session: ["accountId"],
   detect_station_auth_profile: ["stationId", "accountId"],
-  get_station_auth_profile: ["stationId"],
-  set_exclusivity_mode: ["stationId", "mode"],
-  switch_active_account: ["stationId", "accountId"],
   set_probe_strategy: ["stationId", "strategy"],
   reset_probe_strategy: ["stationId"],
   create_ephemeral_account: ["website", "username", "stationId"],
   set_session_ttl: ["stationId", "ttlHours"],
   set_station_network_proxy: ["stationId", "config", "password"],
-  get_station_network_proxy: ["stationId"],
   set_account_proxy_enabled: ["accountId", "enabled"],
-  parse_auth_proxy_url: ["rawUrl"],
-  match_proxy_target: ["target"],
-  build_proxy_return_url: ["returnUrl", "token", "tokenType", "state", "stationId", "accountId"],
-  handle_auth_proxy: ["targetUrl", "returnUrl", "state", "siteHint"],
   proxy_login: ["accountId", "targetUrl", "returnUrl"],
   handle_browser_open: ["url"],
   proxy_login_new_account: ["host", "targetUrl", "returnUrl", "username"],
   list_external_apps: ["stationId", "accountId"],
-  register_external_app: ["name", "urlScheme", "returnHosts"],
   remove_external_app: ["appId"],
   list_external_app_bindings: ["accountId"],
   list_pricing_standards: [],
@@ -902,21 +724,12 @@ export const TAURI_COMMAND_ARG_KEYS = {
   // sleep inhibitor
   toggle_sleep_inhibitor: ["config", "enabled"],
   get_sleep_inhibitor_state: [],
-  reset_sleep_inhibitor: [],
   // system settings - finder
-  get_finder_show_hidden_files: [],
   set_finder_show_hidden_files: ["show"],
-  get_finder_show_pathbar: [],
   set_finder_show_pathbar: ["show"],
-  get_finder_show_statusbar: [],
   set_finder_show_statusbar: ["show"],
-  get_finder_show_library_dir: [],
   set_finder_show_library_dir: ["show"],
-  get_finder_show_file_extensions: [],
   set_finder_show_file_extensions: ["show"],
-  get_finder_spotlight_external_disk: [],
-  set_finder_spotlight_external_disk: ["disk", "enable"],
-  get_finder_no_ds_store: [],
   set_finder_no_ds_store: ["noDs"],
   // system settings - dock
   get_dock_orientation: [],
@@ -938,31 +751,15 @@ export const TAURI_COMMAND_ARG_KEYS = {
   get_display_battery_percent: [],
   set_display_battery_percent: ["show"],
   // system settings - network
-  get_network_firewall_state: [],
   set_network_firewall_state: ["enable"],
-  get_network_ssh_state: [],
   set_network_ssh_state: ["enable"],
-  get_network_screen_sharing_state: [],
   set_network_screen_sharing_state: ["enable"],
-  get_network_airdrop_disabled: [],
   set_network_airdrop_disabled: ["disable"],
   // system settings - screenshot
-  get_screenshot_format: [],
   set_screenshot_format: ["format"],
-  get_screenshot_disable_shadow: [],
   set_screenshot_disable_shadow: ["disable"],
-  get_screenshot_show_thumbnail: [],
   set_screenshot_show_thumbnail: ["show"],
-  get_screenshot_save_location: [],
   set_screenshot_save_location: ["path"],
-  // system settings - privacy
-  get_tcc_permissions: ["service"],
-  // system settings - maintenance
-  rebuild_icon_cache: [],
-  flush_dns_cache: [],
-  rebuild_spotlight_index: [],
-  reset_launch_services: [],
-  flush_font_cache: [],
   // system settings - quick actions
   lock_screen: [],
   empty_trash: [],
@@ -975,8 +772,8 @@ export const TAURI_COMMAND_ARG_KEYS = {
   set_lock_screen_password_delay: ["seconds"],
   // system settings - default browser
   get_default_browser: [],
+  set_default_browser: ["bundleId"],
   // system settings - semantic pane registry
-  open_settings_pane: ["pane"],
   open_battery_settings: [],
   open_control_center_settings: [],
   open_desktop_settings: [],
@@ -986,17 +783,14 @@ export const TAURI_COMMAND_ARG_KEYS = {
   open_login_items_settings: [],
   open_network_settings: [],
   open_privacy_security_settings: [],
-  set_default_browser: ["bundleId"],
-  // system settings - privacy
   reset_tcc_permission: ["service", "bundleId"],
-  // system settings - gatekeeper
-  get_gatekeeper_state: [],
   // system settings - login items
   get_login_items: [],
-  add_login_item: ["path"],
   remove_login_item: ["name"],
   get_launch_agents: [],
   get_launch_daemons: [],
+  get_autostart_status: [],
+  set_autostart: ["enabled"],
   // system settings - dev tools
   json_format: ["input", "indent"],
   base64_encode: ["input"],
@@ -1006,32 +800,20 @@ export const TAURI_COMMAND_ARG_KEYS = {
   timestamp_convert: ["ts", "format"],
   // system settings - network diagnostics
   ping_host: ["host", "count"],
-  dns_lookup: ["domain", "recordType"],
   port_check: ["host", "port"],
-  traceroute_host: ["host"],
   get_local_ip: [],
   get_wifi_info: [],
   // system settings - system toggles
-  get_dark_mode_state: [],
-  set_dark_mode_state: ["enabled"],
-  get_autohide_dock_state: [],
   set_autohide_dock_state: ["enabled"],
-  get_autohide_menu_bar_state: [],
   set_autohide_menu_bar_state: ["mode"],
-  get_dock_show_recents_state: [],
   set_dock_show_recents_state: ["enabled"],
-  get_hide_desktop_icons_state: [],
   set_hide_desktop_icons_state: ["hide"],
-  get_low_power_mode_state: [],
   set_low_power_mode_state: ["mode"],
-  get_screen_saver_state: [],
   set_screen_saver_state: ["enabled"],
   // file operations
   write_text_file: ["path", "content"],
-  read_text_file: ["path"],
-  ensure_dir: ["path"],
-  file_exists: ["path"],
-  temp_dir: [],
+  // tray
+  set_tray_labels: ["show", "sleep", "autostart", "quit"],
 } as const satisfies TauriCommandArgKeys;
 
 export const WINDOW_BOOTSTRAP_EVENTS = {

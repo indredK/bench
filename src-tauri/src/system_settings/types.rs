@@ -30,13 +30,6 @@ pub struct LaunchService {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TccPermission {
-    pub service: String,
-    pub allowed: Vec<String>,
-    pub denied: Vec<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PingResult {
     pub host: String,
     pub packets_sent: u32,
@@ -48,24 +41,11 @@ pub struct PingResult {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DnsRecord {
-    pub record_type: String,
-    pub value: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PortCheckResult {
     pub host: String,
     pub port: u16,
     pub open: bool,
     pub error: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TracerouteHop {
-    pub hop: u32,
-    pub host: Option<String>,
-    pub rtt: Vec<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

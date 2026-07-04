@@ -122,33 +122,6 @@ pub fn write_text_file(app: AppHandle, path: String, content: String) -> AppResu
     fs::write(&safe, &content).map_err(|e| AppError::io(format!("write {path}: {e}")))
 }
 
-/// 从指定路径读取文本内容。
-#[tauri::command]
-pub fn read_text_file(app: AppHandle, path: String) -> AppResult<String> {
-    let safe = guard_path(&app, &path)?;
-    fs::read_to_string(&safe).map_err(|e| AppError::io(format!("read {path}: {e}")))
-}
-
-/// 确保目录存在（递归创建）。
-#[tauri::command]
-pub fn ensure_dir(app: AppHandle, path: String) -> AppResult<()> {
-    let safe = guard_path(&app, &path)?;
-    fs::create_dir_all(&safe).map_err(|e| AppError::io(format!("create_dir {path}: {e}")))
-}
-
-/// 判断文件是否存在。
-#[tauri::command]
-pub fn file_exists(app: AppHandle, path: String) -> AppResult<bool> {
-    let safe = guard_path(&app, &path)?;
-    Ok(fs::metadata(&safe).is_ok())
-}
-
-/// 返回系统临时目录路径。
-#[tauri::command]
-pub fn temp_dir() -> String {
-    std::env::temp_dir().to_string_lossy().into_owned()
-}
-
 // 以下函数仅供模块内部或测试使用，不导出为 Tauri 命令
 #[allow(dead_code)]
 fn _list_dir(path: &str) -> io::Result<Vec<String>> {

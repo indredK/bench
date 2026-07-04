@@ -16,49 +16,22 @@ export function toggleSleepInhibitor(config: SleepConfig, enabled: boolean) {
 export function getSleepInhibitorState() {
   return invokeTauriCommand(TAURI_COMMANDS.systemSettings.getSleepInhibitorState);
 }
-export function resetSleepInhibitor() {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.resetSleepInhibitor);
-}
 
 // Finder
-export function getFinderShowHiddenFiles() {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.getFinderShowHiddenFiles);
-}
 export function setFinderShowHiddenFiles(show: boolean) {
   return invokeTauriCommand(TAURI_COMMANDS.systemSettings.setFinderShowHiddenFiles, { show });
-}
-export function getFinderShowPathbar() {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.getFinderShowPathbar);
 }
 export function setFinderShowPathbar(show: boolean) {
   return invokeTauriCommand(TAURI_COMMANDS.systemSettings.setFinderShowPathbar, { show });
 }
-export function getFinderShowStatusbar() {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.getFinderShowStatusbar);
-}
 export function setFinderShowStatusbar(show: boolean) {
   return invokeTauriCommand(TAURI_COMMANDS.systemSettings.setFinderShowStatusbar, { show });
-}
-export function getFinderShowLibraryDir() {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.getFinderShowLibraryDir);
 }
 export function setFinderShowLibraryDir(show: boolean) {
   return invokeTauriCommand(TAURI_COMMANDS.systemSettings.setFinderShowLibraryDir, { show });
 }
-export function getFinderShowFileExtensions() {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.getFinderShowFileExtensions);
-}
 export function setFinderShowFileExtensions(show: boolean) {
   return invokeTauriCommand(TAURI_COMMANDS.systemSettings.setFinderShowFileExtensions, { show });
-}
-export function getFinderSpotlightExternalDisk() {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.getFinderSpotlightExternalDisk);
-}
-export function setFinderSpotlightExternalDisk(disk: string, enable: boolean) {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.setFinderSpotlightExternalDisk, { disk, enable });
-}
-export function getFinderNoDsStore() {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.getFinderNoDsStore);
 }
 export function setFinderNoDsStore(noDs: boolean) {
   return invokeTauriCommand(TAURI_COMMANDS.systemSettings.setFinderNoDsStore, { noDs });
@@ -119,77 +92,31 @@ export function setDisplayBatteryPercent(show: boolean) {
 }
 
 // Network
-export function getNetworkFirewallState() {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.getNetworkFirewallState);
-}
 export function setNetworkFirewallState(enable: boolean) {
   return invokeTauriCommand(TAURI_COMMANDS.systemSettings.setNetworkFirewallState, { enable });
-}
-export function getNetworkSshState() {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.getNetworkSshState);
 }
 export function setNetworkSshState(enable: boolean) {
   return invokeTauriCommand(TAURI_COMMANDS.systemSettings.setNetworkSshState, { enable });
 }
-export function getNetworkScreenSharingState() {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.getNetworkScreenSharingState);
-}
 export function setNetworkScreenSharingState(enable: boolean) {
   return invokeTauriCommand(TAURI_COMMANDS.systemSettings.setNetworkScreenSharingState, { enable });
-}
-export function getNetworkAirdropDisabled() {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.getNetworkAirdropDisabled);
 }
 export function setNetworkAirdropDisabled(disable: boolean) {
   return invokeTauriCommand(TAURI_COMMANDS.systemSettings.setNetworkAirdropDisabled, { disable });
 }
 
 // Screenshot
-export function getScreenshotFormat() {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.getScreenshotFormat);
-}
 export function setScreenshotFormat(format: string) {
   return invokeTauriCommand(TAURI_COMMANDS.systemSettings.setScreenshotFormat, { format });
-}
-export function getScreenshotDisableShadow() {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.getScreenshotDisableShadow);
 }
 export function setScreenshotDisableShadow(disable: boolean) {
   return invokeTauriCommand(TAURI_COMMANDS.systemSettings.setScreenshotDisableShadow, { disable });
 }
-export function getScreenshotShowThumbnail() {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.getScreenshotShowThumbnail);
-}
 export function setScreenshotShowThumbnail(show: boolean) {
   return invokeTauriCommand(TAURI_COMMANDS.systemSettings.setScreenshotShowThumbnail, { show });
 }
-export function getScreenshotSaveLocation() {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.getScreenshotSaveLocation);
-}
 export function setScreenshotSaveLocation(path: string) {
   return invokeTauriCommand(TAURI_COMMANDS.systemSettings.setScreenshotSaveLocation, { path });
-}
-
-// Privacy
-export function getTccPermissions(service: string) {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.getTccPermissions, { service });
-}
-
-// Maintenance
-export function rebuildIconCache() {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.rebuildIconCache);
-}
-export function flushDnsCache() {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.flushDnsCache);
-}
-export function rebuildSpotlightIndex() {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.rebuildSpotlightIndex);
-}
-export function resetLaunchServices() {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.resetLaunchServices);
-}
-export function flushFontCache() {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.flushFontCache);
 }
 
 // Quick actions
@@ -234,17 +161,9 @@ export function resetTccPermission(service: string, bundleId: string) {
   return invokeTauriCommand(TAURI_COMMANDS.systemSettings.resetTccPermission, { service, bundleId });
 }
 
-// Gatekeeper
-export function getGatekeeperState() {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.getGatekeeperState);
-}
-
 // Login items
 export function getLoginItems() {
   return invokeTauriCommand(TAURI_COMMANDS.systemSettings.getLoginItems);
-}
-export function addLoginItem(path: string) {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.addLoginItem, { path });
 }
 export function removeLoginItem(name: string) {
   return invokeTauriCommand(TAURI_COMMANDS.systemSettings.removeLoginItem, { name });
@@ -254,6 +173,12 @@ export function getLaunchAgents() {
 }
 export function getLaunchDaemons() {
   return invokeTauriCommand(TAURI_COMMANDS.systemSettings.getLaunchDaemons);
+}
+export function getAutostartStatus() {
+  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.getAutostartStatus);
+}
+export function setAutostart(enabled: boolean) {
+  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.setAutostart, { enabled });
 }
 
 // Dev tools
@@ -280,14 +205,8 @@ export function timestampConvert(ts: number, format: string) {
 export function pingHost(host: string, count: number) {
   return invokeTauriCommand(TAURI_COMMANDS.systemSettings.pingHost, { host, count });
 }
-export function dnsLookup(domain: string, recordType: string) {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.dnsLookup, { domain, recordType });
-}
 export function portCheck(host: string, port: number) {
   return invokeTauriCommand(TAURI_COMMANDS.systemSettings.portCheck, { host, port });
-}
-export function tracerouteHost(host: string) {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.tracerouteHost, { host });
 }
 export function getLocalIp() {
   return invokeTauriCommand(TAURI_COMMANDS.systemSettings.getLocalIp);
@@ -297,53 +216,26 @@ export function getWifiInfo() {
 }
 
 // System toggles
-export function getDarkModeState() {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.getDarkModeState);
-}
-export function setDarkModeState(enabled: boolean) {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.setDarkModeState, { enabled });
-}
-export function getAutohideDockState() {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.getAutohideDockState);
-}
 export function setAutohideDockState(enabled: boolean) {
   return invokeTauriCommand(TAURI_COMMANDS.systemSettings.setAutohideDockState, { enabled });
-}
-export function getAutohideMenuBarState() {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.getAutohideMenuBarState);
 }
 export function setAutohideMenuBarState(mode: MenuBarAutoHideMode) {
   return invokeTauriCommand(TAURI_COMMANDS.systemSettings.setAutohideMenuBarState, { mode });
 }
-export function getDockShowRecentsState() {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.getDockShowRecentsState);
-}
 export function setDockShowRecentsState(enabled: boolean) {
   return invokeTauriCommand(TAURI_COMMANDS.systemSettings.setDockShowRecentsState, { enabled });
-}
-export function getHideDesktopIconsState() {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.getHideDesktopIconsState);
 }
 export function setHideDesktopIconsState(hide: boolean) {
   return invokeTauriCommand(TAURI_COMMANDS.systemSettings.setHideDesktopIconsState, { hide });
 }
-export function getLowPowerModeState() {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.getLowPowerModeState);
-}
 export function setLowPowerModeState(mode: LowPowerMode) {
   return invokeTauriCommand(TAURI_COMMANDS.systemSettings.setLowPowerModeState, { mode });
-}
-export function getScreenSaverState() {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.getScreenSaverState);
 }
 export function setScreenSaverState(enabled: boolean) {
   return invokeTauriCommand(TAURI_COMMANDS.systemSettings.setScreenSaverState, { enabled });
 }
 
 // ── Semantic pane commands ──
-export function openSettingsPane(pane: string) {
-  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.openSettingsPane, { pane });
-}
 export function openBatterySettings() {
   return invokeTauriCommand(TAURI_COMMANDS.systemSettings.openBatterySettings);
 }

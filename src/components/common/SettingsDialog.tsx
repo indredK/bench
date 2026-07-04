@@ -1,9 +1,10 @@
 /**
  * Common UI / 通用 UI: share cross-feature UI; 只放跨功能通用界面.
  */
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "next-themes";
+import { toast } from "sonner";
 import { Monitor, Sun, Moon, Globe, Check } from "lucide-react";
 import {
   Dialog,
@@ -13,6 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import {
   Tooltip,
   TooltipContent,
@@ -24,6 +26,9 @@ import { setCurrentWindowTitle } from "@/platform/window";
 import { readStorageItem, removeStorageItem, writeStorageItem } from "@/platform/storage";
 import { useWindowTheme } from "@/hooks/useWindowTheme";
 import { WINDOW_THEMES } from "@/lib/windowTheme";
+import { getAutostartStatus, setAutostart } from "@/lib/tauri/commands/system-settings";
+import { setTrayLabels } from "@/lib/tauri/commands";
+import { getErrorMessage } from "@/lib/tauri/errors";
 
 const THEME_ORDER = ["system", "light", "dark"] as const;
 type ThemeMode = (typeof THEME_ORDER)[number];
@@ -70,7 +75,47 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     await i18n.changeLanguage(resolved);
     const title = i18n.t("common.appTitle");
     await setCurrentWindowTitle(title);
+    await setTrayLabels({
+      show: i18n.t("tray.show"),
+      sleep: i18n.t("tray.preventSleep"),
+      autostart: i18n.t("tray.launchAtLogin"),
+      quit: i18n.t("tray.quit"),
+    });
   }, []);
+
+  const [autostartEnabled, setAutostartEnabled] = useState(false);
+  const [autostartLoading, setAutostartLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setAutostartLoading(true);
+    getAutostartStatus()
+      .then((v) => {
+        if (!cancelled) setAutostartEnabled(v);
+      })
+      .catch(() => {
+        // best-effort: leave toggle off on read failure
+      })
+      .finally(() => {
+        if (!cancelled) setAutostartLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  const handleToggleAutostart = useCallback(async (v: boolean) => {
+    setAutostartLoading(true);
+    try {
+      await setAutostart(v);
+      setAutostartEnabled(v);
+    } catch (e) {
+      toast.error(t("startup.launchAtLoginError", { error: getErrorMessage(e) }));
+    } finally {
+      setAutostartLoading(false);
+    }
+  }, [t]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -154,6 +199,21 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                   </TooltipProvider>
                 );
               })}
+            </div>
+          </div>
+
+          <div>
+            <h4 className="mb-2 text-sm font-medium">{t("startup.title")}</h4>
+            <div className="flex items-center justify-between py-2">
+              <div className="min-w-0 pr-3">
+                <div className="text-sm">{t("startup.launchAtLogin")}</div>
+                <div className="text-xs text-muted-foreground">{t("startup.launchAtLoginDesc")}</div>
+              </div>
+              <Switch
+                checked={autostartEnabled}
+                loading={autostartLoading}
+                onCheckedChange={handleToggleAutostart}
+              />
             </div>
           </div>
         </div>

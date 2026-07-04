@@ -12,5 +12,6 @@ export * from "./port-manager";
 export * from "./system-settings";
 export * from "./terminology";
 export * from "./system-info";
+export * from "./tray";
 export * from "./updater";
 export * from "./window-theme";

@@ -188,18 +188,6 @@ pub struct NetworkProxyConfig {
     pub encrypted_password: Option<EncryptedBlob>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub enum ProbeResult {
-    Ready,
-    LoginRequired,
-    Expired,
-    Uncertain,
-    AntiBotBlocked,
-    SsoChallenge,
-    NetworkError(String),
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AuthProfile {

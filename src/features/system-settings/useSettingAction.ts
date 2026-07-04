@@ -17,6 +17,7 @@
 import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/tauri/errors";
 import { useSystemSettingsStore } from "./store";
 
 export function useSettingAction() {
@@ -40,7 +41,7 @@ export function useSettingAction() {
       return result;
     } catch (err) {
       toast.error(
-        opts?.error ?? t("systemSettings.toasts.error", { error: String(err) })
+        opts?.error ?? t("systemSettings.toasts.error", { error: getErrorMessage(err) })
       );
       return undefined;
     } finally {

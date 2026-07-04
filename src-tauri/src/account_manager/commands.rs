@@ -10,7 +10,7 @@ use super::probe;
 use super::state::{AccountManagerSnapshot, AccountManagerState};
 use super::storage;
 use super::types::{
-    AccountSessionStatus, AccountType, AccountManagerError, AuthProfile, ExclusivityMode, ProbeResult, ProbeStrategy, AccountManagerResult, LoginDetectionConfig, LoginMethod,
+    AccountSessionStatus, AccountType, AccountManagerError, AuthProfile, ProbeStrategy, AccountManagerResult, LoginDetectionConfig, LoginMethod,
     NetworkProxyConfig,
     RelayAccountExport, RelayDataExportFile, RelayDataExportResult, RelayDataImportResult,
     RelayExportMode, RelayStation, RelayStationExport, StationAccount,
@@ -346,23 +346,6 @@ pub fn set_station_network_proxy<R: Runtime>(
     })
 }
 
-/// 读取 station 的网络代理配置。`encrypted_password` 保持 opaque 返回
-/// （前端用 `!= null` 判定是否配置密码，不解密明文）。
-#[tauri::command]
-pub fn get_station_network_proxy<R: Runtime>(
-    app: AppHandle<R>,
-    state: State<'_, AccountManagerState>,
-    station_id: String,
-) -> AccountManagerResult<Option<NetworkProxyConfig>> {
-    let _ = app;
-    state.ensure_ready()?;
-    let snapshot = state.snapshot.read().unwrap_or_else(|e| e.into_inner());
-    let Some(station) = snapshot.stations.iter().find(|s| s.id == station_id) else {
-        return Err(AccountManagerError::not_found(format!("station {station_id}")));
-    };
-    Ok(station.network_proxy.clone())
-}
-
 #[tauri::command]
 pub fn delete_station<R: Runtime>(
     app: AppHandle<R>,
@@ -411,19 +394,6 @@ pub fn reorder_stations<R: Runtime>(
 }
 
 // ───── accounts ─────
-
-#[tauri::command]
-pub fn list_accounts(
-    state: State<'_, AccountManagerState>,
-    station_id: String,
-) -> AccountManagerResult<Vec<StationAccount>> {
-    Ok(state
-        .read_snapshot_checked()?
-        .accounts
-        .into_iter()
-        .filter(|a| a.station_id == station_id)
-        .collect())
-}
 
 #[tauri::command]
 pub fn list_all_accounts(
@@ -762,15 +732,6 @@ pub fn set_password<R: Runtime>(
 }
 
 #[tauri::command]
-pub fn clear_password<R: Runtime>(
-    app: AppHandle<R>,
-    state: State<'_, AccountManagerState>,
-    account_id: String,
-) -> AccountManagerResult<()> {
-    set_password(app, state, account_id, String::new())
-}
-
-#[tauri::command]
 pub fn copy_password_to_clipboard<R: Runtime>(
     app: AppHandle<R>,
     state: State<'_, AccountManagerState>,
@@ -990,85 +951,6 @@ pub fn open_login_window<R: Runtime>(
     webview::open_login_window(&app, &account_id, &username, &website, return_url.as_deref(), proxy_url.as_deref())
 }
 
-#[tauri::command]
-pub async fn mark_account_logged_in<R: Runtime>(
-    app: AppHandle<R>,
-    state: State<'_, AccountManagerState>,
-    account_id: String,
-) -> AccountManagerResult<StationAccount> {
-    // 0. 找到账号 + 站点
-    let snapshot = state.read_snapshot_checked()?;
-    let account = snapshot
-        .accounts
-        .iter()
-        .find(|a| a.id == account_id)
-        .cloned()
-        .ok_or_else(|| AccountManagerError::not_found(format!("account {account_id}")))?;
-    let station = snapshot
-        .stations
-        .iter()
-        .find(|s| s.id == account.station_id)
-        .cloned();
-
-    // 1. 尝试从登录窗口捕获 session(Persistent 账号才持久化)
-    let login_label = crate::account_manager::webview::login_window_label(&account_id);
-    if let Some(window) = app.get_webview_window(&login_label) {
-        // 1a. session 捕获
-        match crate::account_manager::session::capture_session_after_login(
-            &window, &account, &None,
-        )
-        .await
-        {
-            Ok(session) => {
-                if account.account_type == AccountType::Persistent {
-                    crate::account_manager::session::persist_session(&state, &account_id, &session)?;
-                }
-            }
-            Err(e) => {
-                eprintln!(
-                    "[account_manager] mark_logged_in: capture failed for {account_id}: {e:?}"
-                );
-            }
-        }
-
-        // 2. 登录成功后自动跑一次 AuthProfile 检测(写入 Station.auth_profile)。
-        if let Some(station) = station.as_ref() {
-            match crate::account_manager::detection::detect_auth_profile(&window).await {
-                Ok(profile) => {
-                    if let Err(e) = storage::with_state_mut(&app, &state, |snapshot| {
-                        if let Some(s) = snapshot.stations.iter_mut().find(|s| s.id == station.id) {
-                            s.auth_profile = Some(profile);
-                        }
-                        Ok(())
-                    }) {
-                        eprintln!(
-                            "[account_manager] mark_logged_in: failed to save auth profile for {}: {e:?}",
-                            station.id
-                        );
-                    }
-                }
-                Err(e) => {
-                    eprintln!(
-                        "[account_manager] mark_logged_in: auth profile detect failed for {}: {e:?}",
-                        station.id
-                    );
-                }
-            }
-        }
-    }
-
-    // 3. 标记 Ready + 刷新时间戳
-    storage::with_state_mut(&app, &state, |snapshot| {
-        let Some(account) = snapshot.accounts.iter_mut().find(|a| a.id == account_id) else {
-            return Err(AccountManagerError::not_found(format!("account {account_id}")));
-        };
-        account.status = AccountSessionStatus::Ready;
-        account.last_login_at = Some(now_label());
-        account.last_refreshed_at = Some(now_label());
-        Ok(account.clone())
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1226,128 +1108,6 @@ mod tests {
     }
 }
 
-// ═══════════════════════════════════════════════
-// Session Manager — 新增命令 (v1.3)
-// ═══════════════════════════════════════════════
-
-/// 从登录窗口捕获 session 并加密存储
-#[tauri::command]
-pub async fn capture_account_session<R: Runtime>(
-    app: AppHandle<R>,
-    state: State<'_, AccountManagerState>,
-    account_id: String,
-) -> AccountManagerResult<AccountSessionStatus> {
-    let snapshot = state.read_snapshot_checked()?;
-    let account = snapshot.accounts.iter()
-        .find(|a| a.id == account_id)
-        .cloned()
-        .ok_or_else(|| AccountManagerError::not_found(format!("account {account_id}")))?;
-
-    let login_label = crate::account_manager::webview::login_window_label(&account_id);
-    let window = app.get_webview_window(&login_label)
-        .ok_or_else(|| AccountManagerError::not_found("login window not found"))?;
-
-    let session = crate::account_manager::session::capture_session_after_login(
-        &window, &account, &None,
-    ).await?;
-
-    crate::account_manager::session::persist_session(&state, &account_id, &session)?;
-
-    storage::with_state_mut(&app, &state, |snapshot| {
-        if let Some(a) = snapshot.accounts.iter_mut().find(|a| a.id == account_id) {
-            a.status = AccountSessionStatus::Ready;
-            a.last_login_at = Some(now_label());
-        }
-        Ok(())
-    })?;
-
-    Ok(AccountSessionStatus::Ready)
-}
-
-/// 从存储恢复 session 并做 probe
-#[tauri::command]
-pub async fn restore_account_session<R: Runtime>(
-    app: AppHandle<R>,
-    state: State<'_, AccountManagerState>,
-    account_id: String,
-) -> AccountManagerResult<AccountSessionStatus> {
-    let session = crate::account_manager::session::restore_session(&state, &account_id)?
-        .ok_or_else(|| AccountManagerError::not_found("no stored session"))?;
-
-    let snapshot = state.read_snapshot_checked()?;
-    let account = snapshot.accounts.iter()
-        .find(|a| a.id == account_id)
-        .cloned()
-        .ok_or_else(|| AccountManagerError::not_found(format!("account {account_id}")))?;
-
-    let website = account.website.clone()
-        .or_else(|| snapshot.stations.iter()
-            .find(|s| s.id == account.station_id)
-            .map(|s| s.website.clone()))
-        .unwrap_or_default();
-
-    // 根据 Station 的 AuthProfile 选择探针策略；缺失时默认 HttpFirst
-    let station = snapshot.stations.iter().find(|s| s.id == account.station_id);
-    let strategy = station
-        .and_then(|s| s.auth_profile.as_ref())
-        .map(|p| p.probe_strategy)
-        .unwrap_or(ProbeStrategy::HttpFirst);
-    let config = station
-        .map(|s| s.login_detection.clone())
-        .unwrap_or_default();
-    let station_id = station.map(|s| s.id.clone());
-    // station 借用 snapshot，在调用前构建 proxy_url
-    let proxy_url = station.and_then(|s| build_proxy_url_for_station(&app, s));
-
-    let result = crate::account_manager::probe::probe_session(
-        &app, &account_id, &website, &session, strategy, &config, proxy_url.as_deref(),
-    ).await;
-
-    // 不确定 / 反机器人 / 网络错误 → 触发自适应降级
-    if matches!(
-        result,
-        ProbeResult::AntiBotBlocked | ProbeResult::Uncertain | ProbeResult::NetworkError(_)
-    ) {
-        if let Some(ref sid) = station_id {
-            let _ = crate::account_manager::probe::adaptive_degrade(&app, sid).await;
-        }
-    }
-
-    let status = match result {
-        ProbeResult::Ready => AccountSessionStatus::Ready,
-        ProbeResult::LoginRequired | ProbeResult::Expired => AccountSessionStatus::LoginRequired,
-        ProbeResult::SsoChallenge => AccountSessionStatus::LoginRequired,
-        ProbeResult::AntiBotBlocked
-        | ProbeResult::Uncertain
-        | ProbeResult::NetworkError(_) => AccountSessionStatus::FetchFailed,
-    };
-
-    // 持久化刷新后的状态
-    storage::with_state_mut(&app, &state, |snap| {
-        if let Some(a) = snap.accounts.iter_mut().find(|a| a.id == account_id) {
-            a.status = status;
-            a.last_refreshed_at = Some(now_label());
-        }
-        Ok(())
-    })?;
-
-    Ok(status)
-}
-
-/// 清除账号的 session 存储
-#[tauri::command]
-pub fn clear_account_session(
-    state: State<'_, AccountManagerState>,
-    account_id: String,
-) -> AccountManagerResult<()> {
-    let mut snapshot = state.snapshot.write().unwrap_or_else(|e| e.into_inner());
-    snapshot.sessions.remove(&account_id);
-    if let Some(a) = snapshot.accounts.iter_mut().find(|a| a.id == account_id) {
-        a.session = None;
-    }
-    Ok(())
-}
-
 /// 为 AuthProfile 检测选择最合适的账号 session。
 fn pick_account_for_auth_detection<R: Runtime>(
     app: &AppHandle<R>,
@@ -1497,79 +1257,6 @@ pub async fn detect_station_auth_profile<R: Runtime>(
     })?;
 
     Ok(profile)
-}
-
-/// 返回已存储的 AuthProfile
-#[tauri::command]
-pub fn get_station_auth_profile(
-    state: State<'_, AccountManagerState>,
-    station_id: String,
-) -> AccountManagerResult<Option<AuthProfile>> {
-    let snapshot = state.read_snapshot_checked()?;
-    Ok(snapshot.stations.iter()
-        .find(|s| s.id == station_id)
-        .and_then(|s| s.auth_profile.clone()))
-}
-
-/// 设置互斥模式
-#[tauri::command]
-pub fn set_exclusivity_mode<R: Runtime>(
-    app: AppHandle<R>,
-    state: State<'_, AccountManagerState>,
-    station_id: String,
-    mode: ExclusivityMode,
-) -> AccountManagerResult<RelayStation> {
-    storage::with_state_mut(&app, &state, |snapshot| {
-        let station = snapshot.stations.iter_mut()
-            .find(|s| s.id == station_id)
-            .ok_or_else(|| AccountManagerError::not_found(format!("station {station_id}")))?;
-        station.exclusivity_mode = mode;
-        Ok(station.clone())
-    })
-}
-
-/// Rotating 模式下切换活跃账号：将同站其它 Ready 账号置为 Inactive，
-/// 目标账号若有已存储 session 则恢复为 Ready，否则保持原状并返回最新状态。
-#[tauri::command]
-pub async fn switch_active_account<R: Runtime>(
-    app: AppHandle<R>,
-    state: State<'_, AccountManagerState>,
-    station_id: String,
-    account_id: String,
-) -> AccountManagerResult<StationAccount> {
-    storage::with_state_mut(&app, &state, |snapshot| {
-        let station = snapshot.stations.iter()
-            .find(|s| s.id == station_id)
-            .ok_or_else(|| AccountManagerError::not_found(format!("station {station_id}")))?;
-
-        if station.exclusivity_mode != ExclusivityMode::Rotating {
-            return Err(AccountManagerError::invalid_input(
-                "switch_active_account only applies to rotating mode",
-            ));
-        }
-
-        for account in snapshot.accounts.iter_mut() {
-            if account.station_id != station_id {
-                continue;
-            }
-            if account.id == account_id {
-                // 目标账号：若有已存储 session 则标记 Ready
-                if account.session.is_some() && account.status != AccountSessionStatus::Ready {
-                    account.status = AccountSessionStatus::Ready;
-                }
-            } else if account.status == AccountSessionStatus::Ready {
-                // 其它活跃账号降级为 Inactive（保留 session）
-                account.status = AccountSessionStatus::Inactive;
-            }
-        }
-
-        snapshot
-            .accounts
-            .iter()
-            .find(|a| a.id == account_id)
-            .cloned()
-            .ok_or_else(|| AccountManagerError::not_found(format!("account {account_id}")))
-    })
 }
 
 #[tauri::command]
@@ -1735,139 +1422,6 @@ fn record_proxy_usage<R: Runtime>(
         &[("scheme", &scheme), ("account_id", account_id)],
     );
     Ok(())
-}
-
-/// 解析 bench-auth://authorize 协议请求
-#[tauri::command]
-pub fn parse_auth_proxy_url(
-    raw_url: String,
-) -> AccountManagerResult<crate::account_manager::proxy::protocol::AuthProxyRequest> {
-    crate::account_manager::proxy::protocol::parse_auth_proxy_url(&raw_url)
-        .map_err(AccountManagerError::invalid_input)
-}
-
-/// 根据目标 URL 匹配可用的 Station 列表
-#[tauri::command]
-pub fn match_proxy_target(
-    state: State<'_, AccountManagerState>,
-    target: String,
-) -> AccountManagerResult<serde_json::Value> {
-    let snapshot = state.read_snapshot_checked()?;
-    let matches = crate::account_manager::proxy::matching::match_target_to_stations(
-        &target,
-        &snapshot.stations,
-        &snapshot.accounts,
-    );
-    serde_json::to_value(matches)
-        .map_err(|e| AccountManagerError::store_fail(format!("serialize matches: {e}")))
-}
-
-/// 构建外部登录代理的回调 URL
-#[tauri::command]
-pub fn build_proxy_return_url(
-    return_url: String,
-    token: String,
-    token_type: String,
-    state: Option<String>,
-    station_id: String,
-    account_id: String,
-) -> String {
-    let result = crate::account_manager::proxy::protocol::AuthProxyResult {
-        token,
-        token_type,
-        state,
-        station_id,
-        account_id,
-    };
-    crate::account_manager::proxy::protocol::build_return_url(&return_url, &result)
-}
-
-// ═══════════════════════════════════════════════
-// 外部登录代理 — Phase 1 编排命令
-// ═══════════════════════════════════════════════
-
-/// 接收外部 `bench-auth://authorize` 请求，返回匹配到的 Station + 账号列表。
-///
-/// 调用方（前端）拿到结果后展示账号选择器；用户选定账号后再调
-/// `proxy_login` 启动登录流程。
-///
-/// 注: 参数名 `state` 与 Tauri 注入的 `State<>` 同名,故把 State 参数
-/// 前缀下划线以避开冲突。Tauri 不会把 `_state` 暴露给 JS。
-#[tauri::command]
-pub fn handle_auth_proxy<R: Runtime>(
-    _app: AppHandle<R>,
-    _state: State<'_, AccountManagerState>,
-    target_url: String,
-    return_url: String,
-    state: Option<String>,
-    site_hint: Option<String>,
-) -> AccountManagerResult<Vec<crate::account_manager::proxy::matching::AuthProxyMatch>> {
-    let _ = state;
-
-    let snapshot = _state.read_snapshot_checked()?;
-
-    // Phase 4 安全:return URL allowlist 校验
-    match crate::account_manager::proxy::protocol::validate_return_url(
-        &return_url,
-        &snapshot.external_apps,
-    ) {
-        Ok(true) => {
-            // 已注册且通过校验 — 放行
-            crate::account_manager::proxy::protocol::audit_log(
-                "handle_auth_proxy",
-                &[("return_url", &return_url), ("status", "registered")],
-            );
-        }
-        Ok(false) => {
-            // 未注册 — 调用方(前端)应弹首次确认对话框
-            crate::account_manager::proxy::protocol::audit_log(
-                "handle_auth_proxy",
-                &[("return_url", &return_url), ("status", "unregistered")],
-            );
-        }
-        Err(msg) => {
-            crate::account_manager::proxy::protocol::audit_log(
-                "handle_auth_proxy_rejected",
-                &[("return_url", &return_url), ("reason", &msg)],
-            );
-            return Err(AccountManagerError::invalid_input(format!(
-                "return URL rejected: {msg}"
-            )));
-        }
-    }
-
-    // 优先使用 site_hint 直接定位 Station(用户提示)
-    if let Some(site_id) = site_hint.as_ref() {
-        if let Some(station) = snapshot.stations.iter().find(|s| &s.id == site_id) {
-            let accounts: Vec<StationAccount> = snapshot
-                .accounts
-                .iter()
-                .filter(|a| a.station_id == station.id && a.proxy_enabled)
-                .cloned()
-                .collect();
-            return Ok(vec![crate::account_manager::proxy::matching::AuthProxyMatch {
-                station_id: station.id.clone(),
-                station_name: station.remark.clone(),
-                website: station.website.clone(),
-                accounts,
-                confidence: crate::account_manager::proxy::matching::MatchConfidence::Manual,
-            }]);
-        }
-    }
-
-    let matches = crate::account_manager::proxy::matching::match_target_to_stations(
-        &target_url,
-        &snapshot.stations,
-        &snapshot.accounts,
-    );
-    crate::account_manager::proxy::protocol::audit_log(
-        "handle_auth_proxy_matched",
-        &[
-            ("target_url", &target_url),
-            ("matches", &matches.len().to_string()),
-        ],
-    );
-    Ok(matches)
 }
 
 /// 启动外部代理登录的核心实现(供 `proxy_login` 与 `proxy_login_new_account` 复用)。
@@ -2224,48 +1778,6 @@ pub fn list_external_apps(
     }
 
     Ok(snapshot.external_apps.clone())
-}
-
-/// 注册外部 App。若相同 `url_scheme` 已存在,直接返回已有记录(去重)。
-#[tauri::command]
-pub fn register_external_app<R: Runtime>(
-    app: AppHandle<R>,
-    state: State<'_, AccountManagerState>,
-    name: String,
-    url_scheme: String,
-    return_hosts: Vec<String>,
-) -> AccountManagerResult<ExternalApp> {
-    let name = trim_or_invalid(&name, "name")?;
-    let url_scheme = trim_or_invalid(&url_scheme, "urlScheme")?;
-    let return_hosts: Vec<String> = return_hosts
-        .into_iter()
-        .map(|h| h.trim().to_lowercase())
-        .filter(|h| !h.is_empty())
-        .collect();
-
-    storage::with_state_mut(&app, &state, |snapshot| {
-        // 去重:相同 url_scheme 直接复用
-        if let Some(existing) = snapshot
-            .external_apps
-            .iter()
-            .find(|a| a.url_scheme == url_scheme)
-        {
-            return Ok(existing.clone());
-        }
-
-        let now = now_label();
-        let external_app = ExternalApp {
-            id: new_id("app"),
-            name,
-            url_scheme,
-            return_hosts,
-            first_used_at: now.clone(),
-            last_used_at: now,
-            use_count: 0,
-        };
-        snapshot.external_apps.push(external_app.clone());
-        Ok(external_app)
-    })
 }
 
 /// 移除外部 App + 其所有绑定 + 账号上的引用

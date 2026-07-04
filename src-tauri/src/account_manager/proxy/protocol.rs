@@ -50,28 +50,6 @@ pub fn parse_auth_proxy_url(input: &str) -> Result<AuthProxyRequest, String> {
     Ok(AuthProxyRequest { target, return_url, state, site })
 }
 
-/// 构建回调 URL，将登录结果传回外部 App
-pub fn build_return_url(
-    return_url: &str,
-    result: &AuthProxyResult,
-) -> String {
-    let mut url = url::Url::parse(return_url).unwrap_or_else(|_| {
-        url::Url::parse("bench-auth://callback").unwrap()
-    });
-
-    url.query_pairs_mut()
-        .append_pair("token", &result.token)
-        .append_pair("type", &result.token_type)
-        .append_pair("stationId", &result.station_id)
-        .append_pair("accountId", &result.account_id);
-
-    if let Some(ref state) = result.state {
-        url.query_pairs_mut().append_pair("state", state);
-    }
-
-    url.to_string()
-}
-
 /// Phase 4 安全:校验 return_url 是否被允许。
 ///
 /// 校验逻辑:
@@ -81,7 +59,7 @@ pub fn build_return_url(
 ///    a. 若 ExternalApp.return_hosts 非空,则 return_url 的 host 必须在 allowlist 中
 ///    b. 否则视为已注册且无 host 限制,允许
 /// 3. 若未注册,返回 `Ok(false)` 表示"未注册,需用户确认"
-///    (调用方应弹首次确认对话框,确认后调用 `register_external_app`)
+///    (调用方应弹首次确认对话框,确认后由 `record_proxy_usage` 自动登记)
 ///
 /// 返回:
 /// - `Ok(true)` — 已注册且通过校验,可直接放行
@@ -261,23 +239,6 @@ mod tests {
     fn reject_bad_scheme() {
         let raw = "https://example.com/authorize?target=...&return=...";
         assert!(parse_auth_proxy_url(raw).is_err());
-    }
-
-    #[test]
-    fn build_return_url_appends_params() {
-        let result = AuthProxyResult {
-            token: "sess_abc123".into(),
-            token_type: "cookie".into(),
-            state: Some("xyz".into()),
-            station_id: "station-1".into(),
-            account_id: "acct-1".into(),
-        };
-        let url = build_return_url("myapp://auth-callback", &result);
-        assert!(url.contains("token=sess_abc123"));
-        assert!(url.contains("type=cookie"));
-        assert!(url.contains("state=xyz"));
-        assert!(url.contains("stationId=station-1"));
-        assert!(url.contains("accountId=acct-1"));
     }
 
     #[test]

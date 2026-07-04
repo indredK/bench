@@ -44,16 +44,8 @@ export function batchUninstallApps(appIds: string[]) {
   return invokeTauriCommand(TAURI_COMMANDS.appManager.batchUninstallApps, { appIds });
 }
 
-export function refreshAppUpdates(appIds: string[]) {
-  return invokeTauriCommand(TAURI_COMMANDS.appManager.refreshAppUpdates, { appIds });
-}
-
 export function installApp(appId: string, installSource: InstallSource) {
   return invokeTauriCommand(TAURI_COMMANDS.appManager.installApp, { appId, installSource });
-}
-
-export function batchInstallApps(items: { appId: string; installSource: InstallSource }[]) {
-  return invokeTauriCommand(TAURI_COMMANDS.appManager.batchInstallApps, { items });
 }
 
 export function cancelBatchOperation() {

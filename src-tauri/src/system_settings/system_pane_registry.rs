@@ -61,7 +61,6 @@ fn get_pane_id(pane: &str) -> Result<String, String> {
 }
 
 /// Open a semantic system settings pane
-#[tauri::command]
 pub fn open_settings_pane(pane: String) -> Result<(), String> {
     let pane_id = get_pane_id(&pane)?;
 

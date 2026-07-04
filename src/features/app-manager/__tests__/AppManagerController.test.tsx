@@ -35,7 +35,6 @@ vi.mock("@/platform/clipboard", () => ({
 }));
 
 vi.mock("@/lib/tauri/commands/app-manager", () => ({
-  batchInstallApps: vi.fn(async () => ({ total: 0, succeeded: 0, failed: 0, results: [] })),
   batchUninstallApps: vi.fn(async () => ({ total: 0, succeeded: 0, failed: 0, results: [] })),
   batchUpgradeApps: vi.fn(async () => ({ total: 0, succeeded: 0, failed: 0, results: [] })),
   cancelBatchOperation: vi.fn(async () => true),
@@ -53,7 +52,6 @@ vi.mock("@/lib/tauri/commands/app-manager", () => ({
   launchApp: vi.fn(async () => {}),
   openInMacAppStore: vi.fn(async () => {}),
   openMacAppStoreUpdates: vi.fn(async () => {}),
-  refreshAppUpdates: vi.fn(async () => {}),
   revealAppInFinder: vi.fn(async () => {}),
   scanInstalledApps: vi.fn(async () => ({
     apps: [],

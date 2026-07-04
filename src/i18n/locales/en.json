@@ -2129,6 +2129,18 @@
     "glass": "Frosted Glass",
     "unsupportedTooltip": "This theme is only available on macOS"
   },
+  "startup": {
+    "title": "Startup",
+    "launchAtLogin": "Launch at Login",
+    "launchAtLoginDesc": "Automatically launch Bench when you log in",
+    "launchAtLoginError": "Failed to set launch at login: {{error}}"
+  },
+  "tray": {
+    "show": "Show Bench",
+    "preventSleep": "Prevent Sleep",
+    "launchAtLogin": "Launch at Login",
+    "quit": "Quit"
+  },
   "about": {
     "description": "All-in-one developer toolkit for macOS",
     "runtime": "Runtime",

@@ -12,22 +12,13 @@ export const systemSettingsUseCases = {
   // Sleep
   toggleSleepInhibitor: systemSettingsRepository.toggleSleepInhibitor,
   getSleepInhibitorState: systemSettingsRepository.getSleepInhibitorState,
-  resetSleepInhibitor: systemSettingsRepository.resetSleepInhibitor,
 
   // Finder
-  getFinderShowHiddenFiles: systemSettingsRepository.getFinderShowHiddenFiles,
   setFinderShowHiddenFiles: systemSettingsRepository.setFinderShowHiddenFiles,
-  getFinderShowPathbar: systemSettingsRepository.getFinderShowPathbar,
   setFinderShowPathbar: systemSettingsRepository.setFinderShowPathbar,
-  getFinderShowStatusbar: systemSettingsRepository.getFinderShowStatusbar,
   setFinderShowStatusbar: systemSettingsRepository.setFinderShowStatusbar,
-  getFinderShowLibraryDir: systemSettingsRepository.getFinderShowLibraryDir,
   setFinderShowLibraryDir: systemSettingsRepository.setFinderShowLibraryDir,
-  getFinderShowFileExtensions: systemSettingsRepository.getFinderShowFileExtensions,
   setFinderShowFileExtensions: systemSettingsRepository.setFinderShowFileExtensions,
-  getFinderSpotlightExternalDisk: systemSettingsRepository.getFinderSpotlightExternalDisk,
-  setFinderSpotlightExternalDisk: systemSettingsRepository.setFinderSpotlightExternalDisk,
-  getFinderNoDsStore: systemSettingsRepository.getFinderNoDsStore,
   setFinderNoDsStore: systemSettingsRepository.setFinderNoDsStore,
 
   // Dock
@@ -53,34 +44,16 @@ export const systemSettingsUseCases = {
   setDisplayBatteryPercent: systemSettingsRepository.setDisplayBatteryPercent,
 
   // Network
-  getNetworkFirewallState: systemSettingsRepository.getNetworkFirewallState,
   setNetworkFirewallState: systemSettingsRepository.setNetworkFirewallState,
-  getNetworkSshState: systemSettingsRepository.getNetworkSshState,
   setNetworkSshState: systemSettingsRepository.setNetworkSshState,
-  getNetworkScreenSharingState: systemSettingsRepository.getNetworkScreenSharingState,
   setNetworkScreenSharingState: systemSettingsRepository.setNetworkScreenSharingState,
-  getNetworkAirdropDisabled: systemSettingsRepository.getNetworkAirdropDisabled,
   setNetworkAirdropDisabled: systemSettingsRepository.setNetworkAirdropDisabled,
 
   // Screenshot
-  getScreenshotFormat: systemSettingsRepository.getScreenshotFormat,
   setScreenshotFormat: systemSettingsRepository.setScreenshotFormat,
-  getScreenshotDisableShadow: systemSettingsRepository.getScreenshotDisableShadow,
   setScreenshotDisableShadow: systemSettingsRepository.setScreenshotDisableShadow,
-  getScreenshotShowThumbnail: systemSettingsRepository.getScreenshotShowThumbnail,
   setScreenshotShowThumbnail: systemSettingsRepository.setScreenshotShowThumbnail,
-  getScreenshotSaveLocation: systemSettingsRepository.getScreenshotSaveLocation,
   setScreenshotSaveLocation: systemSettingsRepository.setScreenshotSaveLocation,
-
-  // Privacy
-  getTccPermissions: systemSettingsRepository.getTccPermissions,
-
-  // Maintenance
-  rebuildIconCache: systemSettingsRepository.rebuildIconCache,
-  flushDnsCache: systemSettingsRepository.flushDnsCache,
-  rebuildSpotlightIndex: systemSettingsRepository.rebuildSpotlightIndex,
-  resetLaunchServices: systemSettingsRepository.resetLaunchServices,
-  flushFontCache: systemSettingsRepository.flushFontCache,
 
   // Quick actions
   lockScreen: systemSettingsRepository.lockScreen,
@@ -98,7 +71,6 @@ export const systemSettingsUseCases = {
   setDefaultBrowser: systemSettingsRepository.setDefaultBrowser,
 
   // Semantic pane commands
-  openSettingsPane: systemSettingsRepository.openSettingsPane,
   openBatterySettings: systemSettingsRepository.openBatterySettings,
   openControlCenterSettings: systemSettingsRepository.openControlCenterSettings,
   openDesktopSettings: systemSettingsRepository.openDesktopSettings,
@@ -113,7 +85,6 @@ export const systemSettingsUseCases = {
 
   // Login items
   getLoginItems: systemSettingsRepository.getLoginItems,
-  addLoginItem: systemSettingsRepository.addLoginItem,
   removeLoginItem: systemSettingsRepository.removeLoginItem,
   getLaunchAgents: systemSettingsRepository.getLaunchAgents,
   getLaunchDaemons: systemSettingsRepository.getLaunchDaemons,
@@ -128,26 +99,15 @@ export const systemSettingsUseCases = {
 
   // Network diagnostics
   pingHost: systemSettingsRepository.pingHost,
-  dnsLookup: systemSettingsRepository.dnsLookup,
   portCheck: systemSettingsRepository.portCheck,
-  tracerouteHost: systemSettingsRepository.tracerouteHost,
   getLocalIp: systemSettingsRepository.getLocalIp,
   getWifiInfo: systemSettingsRepository.getWifiInfo,
 
   // System toggles
-  getDarkModeState: systemSettingsRepository.getDarkModeState,
-  setDarkModeState: systemSettingsRepository.setDarkModeState,
-  getAutohideDockState: systemSettingsRepository.getAutohideDockState,
   setAutohideDockState: systemSettingsRepository.setAutohideDockState,
-  getAutohideMenuBarState: systemSettingsRepository.getAutohideMenuBarState,
   setAutohideMenuBarState: systemSettingsRepository.setAutohideMenuBarState,
-  getDockShowRecentsState: systemSettingsRepository.getDockShowRecentsState,
   setDockShowRecentsState: systemSettingsRepository.setDockShowRecentsState,
-  getHideDesktopIconsState: systemSettingsRepository.getHideDesktopIconsState,
   setHideDesktopIconsState: systemSettingsRepository.setHideDesktopIconsState,
-  getLowPowerModeState: systemSettingsRepository.getLowPowerModeState,
   setLowPowerModeState: systemSettingsRepository.setLowPowerModeState,
-  getGatekeeperState: systemSettingsRepository.getGatekeeperState,
-  getScreenSaverState: systemSettingsRepository.getScreenSaverState,
   setScreenSaverState: systemSettingsRepository.setScreenSaverState,
 };

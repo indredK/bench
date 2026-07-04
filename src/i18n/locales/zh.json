@@ -2129,6 +2129,18 @@
     "glass": "毛玻璃",
     "unsupportedTooltip": "该主题仅在 macOS 上可用"
   },
+  "startup": {
+    "title": "启动",
+    "launchAtLogin": "开机启动",
+    "launchAtLoginDesc": "登录时自动启动 Bench",
+    "launchAtLoginError": "设置开机启动失败: {{error}}"
+  },
+  "tray": {
+    "show": "显示 Bench",
+    "preventSleep": "阻止休眠",
+    "launchAtLogin": "开机启动",
+    "quit": "退出"
+  },
   "about": {
     "description": "面向 macOS 的全能开发者工具集",
     "runtime": "运行时",

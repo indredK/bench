@@ -2,7 +2,6 @@
  * Repository / 仓储层: adapt external APIs; 只适配外部接口.
  */
 import {
-  batchInstallApps,
   batchUninstallApps,
   batchUpgradeApps,
   cancelBatchOperation,
@@ -13,7 +12,6 @@ import {
   launchApp,
   openInMacAppStore,
   openMacAppStoreUpdates,
-  refreshAppUpdates,
   revealAppInFinder,
   scanInstalledApps,
   uninstallApp,
@@ -36,9 +34,7 @@ export const appManagerRepository = {
   uninstallApp,
   batchUpgradeApps,
   batchUninstallApps,
-  refreshAppUpdates,
   installApp,
-  batchInstallApps,
   cancelBatchOperation,
   checkAllAppUpdates,
   openInMacAppStore,
