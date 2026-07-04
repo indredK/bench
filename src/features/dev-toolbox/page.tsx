@@ -3,27 +3,21 @@
  *
  * 收容: 端口管理 / 开发清理 / 环境检测 / Token 计算 / 开发工具 / 网络诊断 / 系统信息
  */
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import { Loader2Icon, Code, Network, Monitor, Zap, Trash2, Box, Coins } from "lucide-react";
-import { systemSettingsUseCases } from "@/features/system-settings/services/system-settings.use-cases";
-import { systemInfoUseCases } from "@/features/system-settings/services/system-info.use-cases";
-import { useSettingAction } from "@/features/system-settings/hooks/useSettingAction";
 import { SettingGroup } from "@/components/ui/setting-group";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { getErrorMessage } from "@/lib/tauri/errors";
 import type { AppFeature } from "@/features/types";
-import type { SystemInfoData } from "@/lib/tauri/types/system-info";
 import { formatMemory, formatUptime } from "@/lib/utils";
+import { useDevToolboxController, type ToolboxTab } from "@/features/dev-toolbox/hooks/useDevToolboxController";
 
 const PortManager = lazy(() => import("@/features/port-manager/page"));
 const DevCleaner = lazy(() => import("@/features/dev-cleaner/page"));
 const EnvDetector = lazy(() => import("@/features/env-detector/page"));
 const TokenCalculatorPage = lazy(() => import("@/features/token-calculator/page"));
-
-type ToolboxTab = "port-manager" | "dev-cleaner" | "env-detector" | "token-calc" | "devtools" | "diagnostics" | "info";
 
 interface DevToolboxProps { feature: AppFeature; }
 
@@ -37,48 +31,44 @@ function PageFallback() {
 
 export default function DevToolbox({ feature }: DevToolboxProps) {
   const { t } = useTranslation();
-  const { run, applying } = useSettingAction();
-
-  // ── DevTools sub-tab state ──
-  const [jsonInput, setJsonInput] = useState("");
-  const [jsonOutput, setJsonOutput] = useState("");
-  const [b64Input, setB64Input] = useState("");
-  const [b64Output, setB64Output] = useState("");
-  const [hashInput, setHashInput] = useState("");
-  const [hashAlgo, setHashAlgo] = useState("sha256");
-  const [hashOutput, setHashOutput] = useState("");
-  const [tsInput, setTsInput] = useState("");
-  const [tsFormat, setTsFormat] = useState("datetime");
-  const [tsOutput, setTsOutput] = useState("");
-  const [uuidOutput, setUuidOutput] = useState("");
-
-  // ── Diagnostics sub-tab state ──
-  const [diagnosticTarget, setDiagnosticTarget] = useState("");
-  const [diagnosticResult, setDiagnosticResult] = useState<string | null>(null);
-
-  // ── Info sub-tab state ──
-  const [systemInfo, setSystemInfo] = useState<SystemInfoData | null>(null);
-  const [systemInfoLoading, setSystemInfoLoading] = useState(false);
-  const [systemInfoError, setSystemInfoError] = useState("");
-
-  const [activeTab, setActiveTab] = useState<ToolboxTab>("port-manager");
-
-  const runDiagnostic = async (action: () => Promise<unknown>) => {
-    const result = await run("diagnostic.run", action);
-    if (result !== undefined) setDiagnosticResult(typeof result === 'string' ? result : JSON.stringify(result, null, 2));
-  };
-
-  // Lazy-load system info when info tab is selected
-  useEffect(() => {
-    if (activeTab === "info" && !systemInfo && !systemInfoLoading) {
-      setSystemInfoLoading(true);
-      setSystemInfoError("");
-      systemInfoUseCases.loadSystemInfo()
-        .then(setSystemInfo)
-        .catch((err) => setSystemInfoError(getErrorMessage(err, "Failed to load")))
-        .finally(() => setSystemInfoLoading(false));
-    }
-  }, [activeTab]);
+  const {
+    applying,
+    activeTab,
+    setActiveTab,
+    jsonInput,
+    setJsonInput,
+    jsonOutput,
+    b64Input,
+    setB64Input,
+    b64Output,
+    hashInput,
+    setHashInput,
+    hashAlgo,
+    setHashAlgo,
+    hashOutput,
+    tsInput,
+    setTsInput,
+    tsFormat,
+    setTsFormat,
+    tsOutput,
+    uuidOutput,
+    handleJsonPretty,
+    handleJsonMinify,
+    handleBase64Encode,
+    handleBase64Decode,
+    handleHash,
+    handleUuid,
+    handleTimestamp,
+    diagnosticTarget,
+    setDiagnosticTarget,
+    diagnosticResult,
+    handlePing,
+    handleLocalIp,
+    handleWifiInfo,
+    systemInfo,
+    systemInfoLoading,
+    systemInfoError,
+  } = useDevToolboxController();
 
   // ── Sub-tab content renderers ──
 
@@ -88,8 +78,8 @@ export default function DevToolbox({ feature }: DevToolboxProps) {
         <div className="space-y-2 py-2">
           <textarea className="w-full h-24 text-xs font-mono bg-muted rounded p-2" value={jsonInput} onChange={(e) => setJsonInput(e.target.value)} placeholder={t("systemSettings.devtools.jsonPlaceholder")} />
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled={applying} onClick={async () => { const r = await run("devtools.jsonPretty", () => systemSettingsUseCases.jsonFormat(jsonInput, true)); if (r !== undefined) setJsonOutput(r); }}>{t("systemSettings.devtools.prettyPrint")}</Button>
-            <Button variant="outline" size="sm" disabled={applying} onClick={async () => { const r = await run("devtools.jsonMinify", () => systemSettingsUseCases.jsonFormat(jsonInput, false)); if (r !== undefined) setJsonOutput(r); }}>{t("systemSettings.devtools.minify")}</Button>
+            <Button variant="outline" size="sm" disabled={applying} onClick={handleJsonPretty}>{t("systemSettings.devtools.prettyPrint")}</Button>
+            <Button variant="outline" size="sm" disabled={applying} onClick={handleJsonMinify}>{t("systemSettings.devtools.minify")}</Button>
           </div>
           {jsonOutput && <pre className="text-xs bg-muted p-2 rounded overflow-auto max-h-32">{jsonOutput}</pre>}
         </div>
@@ -98,8 +88,8 @@ export default function DevToolbox({ feature }: DevToolboxProps) {
         <div className="space-y-2 py-2">
           <Input value={b64Input} onChange={(e) => setB64Input(e.target.value)} placeholder={t("systemSettings.devtools.base64Placeholder")} />
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled={applying} onClick={async () => { const r = await run("devtools.base64Encode", () => systemSettingsUseCases.base64Encode(b64Input)); if (r !== undefined) setB64Output(r); }}>{t("systemSettings.devtools.encode")}</Button>
-            <Button variant="outline" size="sm" disabled={applying} onClick={async () => { const r = await run("devtools.base64Decode", () => systemSettingsUseCases.base64Decode(b64Input)); if (r !== undefined) setB64Output(r); }}>{t("systemSettings.devtools.decode")}</Button>
+            <Button variant="outline" size="sm" disabled={applying} onClick={handleBase64Encode}>{t("systemSettings.devtools.encode")}</Button>
+            <Button variant="outline" size="sm" disabled={applying} onClick={handleBase64Decode}>{t("systemSettings.devtools.decode")}</Button>
           </div>
           {b64Output && <pre className="text-xs bg-muted p-2 rounded overflow-auto max-h-24">{b64Output}</pre>}
         </div>
@@ -111,14 +101,14 @@ export default function DevToolbox({ feature }: DevToolboxProps) {
             <select value={hashAlgo} onChange={(e) => setHashAlgo(e.target.value)} className="text-xs border rounded px-2 py-1">
               <option value="md5">MD5</option><option value="sha1">SHA1</option><option value="sha256">SHA256</option><option value="sha384">SHA384</option><option value="sha512">SHA512</option>
             </select>
-            <Button variant="outline" size="sm" disabled={applying} onClick={async () => { const r = await run("devtools.hash", () => systemSettingsUseCases.calculateHash(hashInput, hashAlgo)); if (r !== undefined) setHashOutput(r); }}>{t("systemSettings.devtools.calculate")}</Button>
+            <Button variant="outline" size="sm" disabled={applying} onClick={handleHash}>{t("systemSettings.devtools.calculate")}</Button>
           </div>
           {hashOutput && <pre className="text-xs bg-muted p-2 rounded overflow-auto">{hashOutput}</pre>}
         </div>
       </SettingGroup>
       <SettingGroup title={t("systemSettings.devtools.uuidTitle")}>
         <div className="flex gap-2 py-2">
-          <Button variant="outline" size="sm" disabled={applying} onClick={async () => { const r = await run("devtools.uuid", () => systemSettingsUseCases.generateUuid()); if (r !== undefined) setUuidOutput(r); }}>{t("systemSettings.devtools.generateUuid")}</Button>
+          <Button variant="outline" size="sm" disabled={applying} onClick={handleUuid}>{t("systemSettings.devtools.generateUuid")}</Button>
           {uuidOutput && <code className="text-xs bg-muted px-2 py-1 rounded">{uuidOutput}</code>}
         </div>
       </SettingGroup>
@@ -132,7 +122,7 @@ export default function DevToolbox({ feature }: DevToolboxProps) {
               <option value="time">{t("systemSettings.devtools.formatTimeOnly")}</option>
               <option value="iso">{t("systemSettings.devtools.formatIso")}</option>
             </select>
-            <Button variant="outline" size="sm" disabled={applying} onClick={async () => { const r = await run("devtools.timestamp", () => systemSettingsUseCases.timestampConvert(parseInt(tsInput) || 0, tsFormat)); if (r !== undefined) setTsOutput(r); }}>{t("systemSettings.devtools.convert")}</Button>
+            <Button variant="outline" size="sm" disabled={applying} onClick={handleTimestamp}>{t("systemSettings.devtools.convert")}</Button>
           </div>
           {tsOutput && <pre className="text-xs bg-muted p-2 rounded overflow-auto">{tsOutput}</pre>}
         </div>
@@ -148,9 +138,9 @@ export default function DevToolbox({ feature }: DevToolboxProps) {
           <Input value={diagnosticTarget} onChange={(e) => setDiagnosticTarget(e.target.value)} placeholder={t("systemSettings.diagnostics.targetPlaceholder")} className="flex-1" />
         </div>
         <div className="flex flex-wrap gap-2 py-2">
-          <Button variant="outline" size="sm" disabled={applying} onClick={() => runDiagnostic(() => systemSettingsUseCases.pingHost(diagnosticTarget, 5))}>{t("systemSettings.diagnostics.ping")}</Button>
-          <Button variant="outline" size="sm" disabled={applying} onClick={async () => { const r = await run("diagnostics.localIp", () => systemSettingsUseCases.getLocalIp()); if (r !== undefined) setDiagnosticResult(JSON.stringify(r, null, 2)); }}>{t("systemSettings.diagnostics.localIp")}</Button>
-          <Button variant="outline" size="sm" disabled={applying} onClick={async () => { const r = await run("diagnostics.wifiInfo", () => systemSettingsUseCases.getWifiInfo()); if (r !== undefined) setDiagnosticResult(JSON.stringify(r, null, 2)); }}>{t("systemSettings.diagnostics.wifi")}</Button>
+          <Button variant="outline" size="sm" disabled={applying} onClick={handlePing}>{t("systemSettings.diagnostics.ping")}</Button>
+          <Button variant="outline" size="sm" disabled={applying} onClick={handleLocalIp}>{t("systemSettings.diagnostics.localIp")}</Button>
+          <Button variant="outline" size="sm" disabled={applying} onClick={handleWifiInfo}>{t("systemSettings.diagnostics.wifi")}</Button>
         </div>
         {diagnosticResult && <pre className="text-xs bg-muted p-2 rounded overflow-auto max-h-48">{diagnosticResult}</pre>}
       </SettingGroup>
