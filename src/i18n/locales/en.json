@@ -870,7 +870,7 @@
     "loading": "Scanning development tools...",
     "loadFailed": "Failed to scan environment tools",
     "scanTimedOut": "Environment scan took too long and was cancelled. Please try again.",
-    "browserInfo": "Environment detection is only available in the Tauri desktop app. Run with `npm run tauri:dev` to use this feature.",
+    "browserInfo": "Environment detection is only available in the Tauri desktop app. Run with `pnpm dev` to use this feature.",
     "empty": "No matching tools found",
     "startHint": "Click \"Refresh\" to scan all development tools on your system.",
     "filters": "Filters",
