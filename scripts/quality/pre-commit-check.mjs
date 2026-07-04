@@ -1,9 +1,27 @@
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
-const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+
+// Detect package manager from package.json's `packageManager` field.
+// Falls back to npm for backward compatibility.
+function detectPackageManager() {
+  try {
+    const pkg = JSON.parse(readFileSync(path.join(rootDir, "package.json"), "utf8"));
+    const spec = pkg.packageManager ?? "";
+    const match = /^(@[\w-]+\/)?(?<name>[\w-]+)@\d/.exec(spec);
+    if (match?.groups?.name) {
+      return process.platform === "win32" ? `${match.groups.name}.cmd` : match.groups.name;
+    }
+  } catch {
+    // ignore
+  }
+  return process.platform === "win32" ? "npm.cmd" : "npm";
+}
+
+const pkgManager = detectPackageManager();
 
 function runStep(label, command, args) {
   console.log(`\n==> ${label}`);
@@ -79,16 +97,16 @@ if (nodeScriptFiles.length > 0) {
 }
 
 if (hasFrontendChanges) {
-  runStep("Running frontend static guards", npmCommand, ["run", "lint:fe"]);
-  runStep("Running frontend tests", npmCommand, ["run", "test:fe"]);
-  runStep("Type-checking and building frontend", npmCommand, ["run", "build:fe"]);
+  runStep("Running frontend static guards", pkgManager, ["run", "lint:fe"]);
+  runStep("Running frontend tests", pkgManager, ["run", "test:fe"]);
+  runStep("Type-checking and building frontend", pkgManager, ["run", "build:fe"]);
 }
 
 if (hasBackendChanges) {
   runStep("Cross-platform crate check", "node", ["scripts/quality/check-rust-crates.mjs"]);
-  runStep("Checking Rust code", npmCommand, ["run", "check:be"]);
-  runStep("Running Rust clippy (warnings as errors)", npmCommand, ["run", "clippy:be"]);
-  runStep("Running Rust tests", npmCommand, ["run", "test:be"]);
+  runStep("Checking Rust code", pkgManager, ["run", "check:be"]);
+  runStep("Running Rust clippy (warnings as errors)", pkgManager, ["run", "clippy:be"]);
+  runStep("Running Rust tests", pkgManager, ["run", "test:be"]);
 }
 
 if (!nodeScriptFiles.length && !hasFrontendChanges && !hasBackendChanges) {
