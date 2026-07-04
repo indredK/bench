@@ -250,7 +250,9 @@
 4. **P1 强制 · 代码分割**：`registry.tsx` + `App.tsx` 改 lazy 加载，`dev-toolbox/page.tsx` 4 个子页改 `lazy()`
 5. **P1 强制 · 文档**：补 `docs/modules/updater/`、修复 `product-iteration-reference.md` 失效链接
 6. **P2 强制 · 类名拼接**：33 处 `className={`...${var}...`}` 改 `cn()`（量大但机械化，可分批）
-7. **P2 强制 · Feature 目录**：`dev-toolbox` / `terminology` / `token-calculator` / `quick-launch` / `hardware` 补 `hooks/` + `services/`，组件移入 `components/`
-8. **P3 建议**：`useSettingAction.ts` 移入 `hooks/`、`api.ts` 重命名为 `*.repository.ts`、roadmap 文案同步、section 组件 selector 化
+7. **P2 强制 · Feature 目录**：`dev-toolbox` / `terminology` / `token-calculator` / `quick-launch` / `hardware` 补 `hooks/` + `services/`，组件移入 `components/` — 涉及模块拆分，方案见 `docs/refactoring-plan.md` 第一节，待人工确认后执行
+8. **P3 建议**：`useSettingAction.ts` 移入 `hooks/`、`api.ts` 重命名为 `*.repository.ts`、roadmap 文案同步、section 组件 selector 化 — ✅ 文件移动已修复（Commit 90a3e21），section 组件 selector 化属建议级，留待模块拆分时一并处理
 
 > Phase 8 修复时按上述优先级逐项独立 commit，不合并、不推送。`data/phone.ts` canonical value 反转与 `registry.tsx` lazy 化属于较大重构，建议先输出方案文档待人工确认后再执行。
+>
+> **方案文档**：`docs/refactoring-plan.md`（覆盖 Feature 目录补全 + phone.ts canonical 反转，待人工确认）
