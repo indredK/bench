@@ -1,23 +1,25 @@
 # Bench 项目代码规范审计报告
 
-> **审计日期**: 2026-07-04
+> **审计日期**: 2026-07-04（初版）/ 2026-07-05（修订）
 > **覆盖范围**: Phase 1–6（只读检查 + 报告生成）
 > **参考规范**: `docs/coding-standards.md` v1.18.1（12 节规则）
-> **问题总数**: 32 项（强制 21 / 建议 11）
+> **问题总数**: 29 项（强制 18 / 建议 11）
+>
+> **修订记录**（2026-07-05）：Phase 3.4 中 `data/phone.ts` 的 3 项强制违规降级为"不计违规"——纯数据部分不做国际化，展示层已通过反向映射表 + `t()` 处理翻译。
 
 ## 摘要统计
 
-| Phase | 强制 | 建议 | 小计 |
-|-------|------|------|------|
-| Phase 1 全局结构与目录 | 5 | 4 | 9 |
-| Phase 2 前端代码与 UI | 4 | 1 | 5 |
-| Phase 3 国际化 | 5 | 0 | 5 |
-| Phase 4 状态/异步/反馈 | 4 | 0 | 4 |
-| Phase 5 Rust 后端与 IPC | 2 | 1 | 3 |
-| Phase 6 文档对齐与提交 | 1 | 5 | 6 |
-| **合计** | **21** | **11** | **32** |
+| Phase | 强制 | 建议 | 不计违规 | 小计 |
+|-------|------|------|----------|------|
+| Phase 1 全局结构与目录 | 5 | 4 | 0 | 9 |
+| Phase 2 前端代码与 UI | 4 | 1 | 0 | 5 |
+| Phase 3 国际化 | 2 | 0 | 3 | 5 |
+| Phase 4 状态/异步/反馈 | 4 | 0 | 0 | 4 |
+| Phase 5 Rust 后端与 IPC | 2 | 1 | 0 | 3 |
+| Phase 6 文档对齐与提交 | 1 | 5 | 0 | 6 |
+| **合计** | **18** | **11** | **3** | **32** |
 
-按规范章节：§1–2 结构与目录 9 · §3–4 状态与异步 4 · §4 i18n 5 · §5 用户反馈（合并入 Phase 4）0 · §6 UI 与性能 5 · §7–8 Rust/IPC 3 · §9–12 测试/提交/文档 6。
+按规范章节：§1–2 结构与目录 9 · §3–4 状态与异步 4 · §4 i18n 5（含 3 项不计违规）· §5 用户反馈（合并入 Phase 4）0 · §6 UI 与性能 5 · §7–8 Rust/IPC 3 · §9–12 测试/提交/文档 6。
 
 ---
 
@@ -120,11 +122,13 @@
 
 - 未检出模块顶层 / 静态常量 / store 初始值里的 `t()` 调用；`registry.tsx` 中 `createNavigationItems(t)` / `createConfigItems(t)` 工厂函数在 `App.tsx:148-153` 内以 `useMemo([t])` 调用，符合 §4 "在渲染期 / useMemo / 工厂函数中计算"。✅
 
-### 3.4 语言无关 canonical value — 违规
+### 3.4 语言无关 canonical value — 不计违规（纯数据部分不做国际化）
 
-- [违反 §4] `src/data/phone.ts` — 全文件 ~2200 行，所有 `cpu`、`gpu`、`mainCamera`、`waterproof`、`fingerprint`、`material`、`displayType`、`chipset` 等字段以中文原始值作为 canonical value（如 `material: "玻璃机身 + 钛金属边框"`）；文件末尾的 `MATERIAL_TO_KEY` 等映射表是把中文反向映射到 key，意味着英文界面也在用中文做查表，违反 §4 "禁止中文原始值做英文界面回退" — 应反转数据模型：data 层用 canonical key（`material: "glassTitan"`），展示层 `t("phoneCompare.material.glassTitan")` — **强制**
-- [违反 §4] `src/data/phone.ts:2180-2187` — `CAMERA_TERM_TO_KEY` 同样以中文做 key，包含 `徕卡/哈苏/蔡司` 等品牌词 — 改为 canonical key（`leica/hasseblad/zeiss`）后由展示层 i18n — **强制**
-- [违反 §4] `src/data/phone.ts:2199` — `str.replace(/\(屏下\)/g, ...)` 在数据层用正则改中文括号注释 — 数据层应输出 canonical，由展示层组合翻译 — **强制**
+> **决策**（2026-07-05）：`src/data/phone.ts` 属纯数据文件，数据层保留原始值（含中文），不做国际化改造。展示层通过 `PHONE_*_KEYS` 反向映射表 + `t()` 翻译，机制可工作，新增机型时需同步补映射表条目。原审计标记的 3 项强制违规降级为"已知设计，不计违规"。
+
+- ~~[违反 §4] `src/data/phone.ts` — 全文件 ~2200 行，所有字段以中文原始值作为 canonical value~~ — **不计违规**（纯数据部分不做国际化，展示层已通过反向映射表 + `t()` 处理翻译）
+- ~~[违反 §4] `src/data/phone.ts:2180-2187` — `CAMERA_TERM_TO_KEY` 以中文做 key~~ — **不计违规**（同上）
+- ~~[违反 §4] `src/data/phone.ts:2199` — `str.replace(/\(屏下\)/g, ...)` 在数据层用正则改中文括号注释~~ — **不计违规**（同上）
 
 ### 3.5 i18n 检查脚本 — 通过
 
@@ -244,15 +248,17 @@
 
 ## 修复优先级建议
 
-1. **P0 强制 · i18n**：`quick-launch/page.tsx` 两处硬编码中文、`dev-cleaner/components/CustomCleanupDialog.tsx` `高风险` 判断、`data/phone.ts` canonical value 反转（影响英文界面正确性）
-2. **P0 强制 · IPC 安全**：`account_manager/commands.rs` 三处 `.expect()` 改 `?` 传播；前端 7 处 `String(error)` / `error instanceof Error` 改走 `parseCommandError` / `getErrorMessage`
-3. **P1 强制 · 状态/异步**：`useAccountManagerController.ts` 与 `system-settings/page.tsx` 的整 store 订阅 + deps 修复（可能正在导致 effect 无限重跑）
-4. **P1 强制 · 代码分割**：`registry.tsx` + `App.tsx` 改 lazy 加载，`dev-toolbox/page.tsx` 4 个子页改 `lazy()`
-5. **P1 强制 · 文档**：补 `docs/modules/updater/`、修复 `product-iteration-reference.md` 失效链接
-6. **P2 强制 · 类名拼接**：33 处 `className={`...${var}...`}` 改 `cn()`（量大但机械化，可分批）
-7. **P2 强制 · Feature 目录**：`dev-toolbox` / `terminology` / `token-calculator` / `quick-launch` / `hardware` 补 `hooks/` + `services/`，组件移入 `components/` — 涉及模块拆分，方案见 `docs/refactoring-plan.md` 第一节，待人工确认后执行
-8. **P3 建议**：`useSettingAction.ts` 移入 `hooks/`、`api.ts` 重命名为 `*.repository.ts`、roadmap 文案同步、section 组件 selector 化 — ✅ 文件移动已修复（Commit 90a3e21），section 组件 selector 化属建议级，留待模块拆分时一并处理
+1. **P0 强制 · i18n**：`quick-launch/page.tsx` 两处硬编码中文、`dev-cleaner/components/CustomCleanupDialog.tsx` `高风险` 判断 — ✅ 已修复
+2. **P0 强制 · IPC 安全**：`account_manager/commands.rs` 三处 `.expect()` 改 `?` 传播；前端 7 处 `String(error)` / `error instanceof Error` 改走 `parseCommandError` / `getErrorMessage` — ✅ 已修复
+3. **P1 强制 · 状态/异步**：`useAccountManagerController.ts` 与 `system-settings/page.tsx` 的整 store 订阅 + deps 修复（可能正在导致 effect 无限重跑） — ✅ 已修复
+4. **P1 强制 · 代码分割**：`registry.tsx` + `App.tsx` 改 lazy 加载，`dev-toolbox/page.tsx` 4 个子页改 `lazy()` — ✅ 已修复
+5. **P1 强制 · 文档**：补 `docs/modules/updater/`、修复 `product-iteration-reference.md` 失效链接 — ✅ 已修复
+6. **P2 强制 · 类名拼接**：33 处 `className={`...${var}...`}` 改 `cn()`（量大但机械化，可分批） — ✅ 已修复
+7. **P2 强制 · Feature 目录**：`dev-toolbox` / `terminology` / `token-calculator` / `quick-launch` / `hardware` 补 `hooks/` + `services/`，组件移入 `components/` — 涉及模块拆分，方案见 `docs/refactoring-plan.md`，待人工确认后执行
+8. **P3 建议**：`useSettingAction.ts` 移入 `hooks/`、`api.ts` 重命名为 `*.repository.ts`、roadmap 文案同步、section 组件 selector 化 — ✅ 文件移动已修复（Commit 90a3e21），section 组件 selector 化已修复（Commit 49cdfcb）
 
-> Phase 8 修复时按上述优先级逐项独立 commit，不合并、不推送。`data/phone.ts` canonical value 反转与 `registry.tsx` lazy 化属于较大重构，建议先输出方案文档待人工确认后再执行。
+> Phase 8 修复时按上述优先级逐项独立 commit，不合并、不推送。`registry.tsx` lazy 化已在 Phase 8 完成。
 >
-> **方案文档**：`docs/refactoring-plan.md`（覆盖 Feature 目录补全 + phone.ts canonical 反转，待人工确认）
+> **方案文档**：`docs/refactoring-plan.md`（覆盖 Feature 目录补全，待人工确认）
+>
+> **不计违规**：`data/phone.ts` 纯数据部分不做国际化（2026-07-05 决策），展示层通过反向映射表 + `t()` 处理翻译。

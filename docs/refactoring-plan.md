@@ -1,12 +1,12 @@
 # Bench 项目复杂重构方案
 
 > **生成日期**: 2026-07-05
-> **触发依据**: `docs/audit-report.md` Phase 1.4 / Phase 3.4 强制违规项
+> **触发依据**: `docs/audit-report.md` Phase 1.4 强制违规项
 > **执行原则**: AGENTS.md Phase 8 注意事项 — "复杂重构输出方案描述即可，不做大范围重写，待人工确认后再执行"
 >
-> 本文档覆盖两类需人工确认的重构：
-> 1. Feature 目录补全（5 个模块拆分 hooks/services）
-> 2. `data/phone.ts` canonical value 反转（数据模型层改造）
+> 本文档覆盖 Feature 目录补全（5 个模块拆分 hooks/services）。
+>
+> **注**: `data/phone.ts` 纯数据部分不做国际化改造 — 数据层保留原始值，展示层通过反向映射表 + `t()` 翻译，详见审计报告 Phase 3.4 说明。
 
 ---
 
@@ -185,199 +185,7 @@ refactor(<module>): 拆分 page.tsx 为 hooks/services/components
 
 ---
 
-## 二、`data/phone.ts` canonical value 反转方案
-
-### 2.1 现状
-
-`src/data/phone.ts` 共 2295 行，所有字段的 canonical value 是中文原始值：
-
-```typescript
-{
-  material: "玻璃机身 + 钛金属边框",   // 中文做 canonical
-  waterproof: "IP68 (6米/30分钟)",     // 中文做 canonical
-  fingerprint: "Face ID",              // 混用
-  mainCamera: "12MP f/1.6 主摄 + 12MP f/2.4 超广角",  // 中文做 canonical
-  displayType: "Super Retina XDR OLED", // 英文做 canonical
-  chipset: "Apple A14 Bionic",         // 英文做 canonical
-  // ...
-}
-```
-
-文件末尾的 `PHONE_WATERPROOF_KEYS` / `PHONE_FINGERPRINT_KEYS` / `PHONE_MATERIAL_KEYS`（行 2099-2150）是把中文反向映射到 key，再由 `phoneSpecRows` 的 `format` 函数用 `t(`phoneCompare.materialTerms.${key}`)` 翻译。
-
-`CAMERA_TERM_TO_KEY`（行 2179-2188）同样以中文做 key。
-
-`frontCamera` 的 `format`（行 2196-2200）用 `str.replace(/\(屏下\)/g, ...)` 在数据层改正文。
-
-### 2.2 问题
-
-- 英文界面在用中文做查表（`PHONE_MATERIAL_KEYS["玻璃机身 + 钛金属边框"]` → `"glassTitan"` → `t("phoneCompare.materialTerms.glassTitan")`）
-- 新增机型时必须写中文才能命中映射表，否则英文界面会显示原始中文
-- `str.replace(/\(屏下\)/g, ...)` 在数据层用正则改中文括号注释，违反 §4 "数据层应输出 canonical，由展示层组合翻译"
-
-### 2.3 反转方案
-
-**目标**: data 层用 canonical key，展示层 `t()` 翻译。
-
-#### 步骤 1：定义 canonical key 枚举
-
-新建 `src/data/phone/constants.ts`:
-
-```typescript
-export type PhoneMaterial =
-  | "glassAluminum"
-  | "glassStainless"
-  | "glassTitanium"
-  | "aluminum"
-  | "plastic"
-  | "titanium";
-
-export type PhoneWaterproof =
-  | "ip68_6m_30min"
-  | "ip68_1_5m_30min"
-  | "ip68_2m_30min"
-  | "ip66"
-  | "ip54"
-  | "none";
-
-export type PhoneFingerprint =
-  | "faceId"
-  | "underDisplayUltrasonic"
-  | "sideCapacitive"
-  | "rearCapacitive"
-  | "inDisplayOptical"
-  | "none";
-
-export type PhoneCameraTerm =
-  | "main"
-  | "ultrawide"
-  | "telephoto"
-  | "periscope"
-  | "macro"
-  | "leica"
-  | "hasselblad"
-  | "zeiss";
-
-export type PhoneScreenTerm =
-  | "underDisplay";
-```
-
-#### 步骤 2：改造 `PhoneModel` 接口
-
-```typescript
-export interface PhoneModel {
-  // ... 其他字段保持
-  material: PhoneMaterial;           // 从 string 改为枚举
-  waterproof: PhoneWaterproof;       // 从 string 改为枚举
-  fingerprint: PhoneFingerprint;     // 从 string 改为枚举
-  displayType: string;               // 保持 string（已是英文 canonical）
-  chipset: string;                   // 保持 string（已是英文 canonical）
-  cpu: string;                       // 保持 string（已是英文 canonical）
-  gpu: string;                       // 保持 string（已是英文 canonical）
-  mainCamera: PhoneCameraSpec;       // 改为结构化对象（见步骤 3）
-  frontCamera: PhoneCameraSpec;      // 改为结构化对象
-  // ...
-}
-```
-
-#### 步骤 3：mainCamera / frontCamera 改为结构化
-
-```typescript
-export interface PhoneCameraSpec {
-  mp: number;                        // 主像素
-  aperture: string;                  // "f/1.6"
-  lenses: PhoneCameraLens[];         // 多摄
-  brandCoating?: PhoneCameraTerm;    // "leica" | "hasselblad" | "zeiss"
-  isUnderDisplay?: boolean;          // 屏下摄像头
-}
-
-export interface PhoneCameraLens {
-  type: PhoneCameraTerm;             // "main" | "ultrawide" | "telephoto" | "periscope" | "macro"
-  mp: number;
-  aperture: string;
-}
-```
-
-**示例**:
-```typescript
-// 改造前
-mainCamera: "12MP f/1.6 主摄 + 12MP f/2.4 超广角",
-
-// 改造后
-mainCamera: {
-  mp: 12,
-  aperture: "f/1.6",
-  lenses: [
-    { type: "main", mp: 12, aperture: "f/1.6" },
-    { type: "ultrawide", mp: 12, aperture: "f/2.4" },
-  ],
-},
-```
-
-#### 步骤 4：删除反向映射表
-
-删除 `PHONE_WATERPROOF_KEYS` / `PHONE_FINGERPRINT_KEYS` / `PHONE_MATERIAL_KEYS`（行 2099-2150）与 `CAMERA_TERM_TO_KEY`（行 2179-2188）。
-
-#### 步骤 5：改造 `phoneSpecRows` 的 `format`
-
-```typescript
-{ key: "material", label: "phoneCompare.material", format: (v) => t(`phoneCompare.materialTerms.${v}`) },
-{ key: "waterproof", label: "phoneCompare.waterproof", format: (v) => v === "none" ? t("common.no") : t(`phoneCompare.waterproofTerms.${v}`) },
-{ key: "fingerprint", label: "phoneCompare.fingerprint", format: (v) => {
-  if (v === "faceId") return "Face ID";
-  if (v === "none") return t("common.no");
-  return t(`phoneCompare.fingerprintTerms.${v}`);
-}},
-{ key: "mainCamera", label: "phoneCompare.mainCamera", format: (v) => formatCameraSpec(v) },
-{ key: "frontCamera", label: "phoneCompare.frontCamera", format: (v) => formatCameraSpec(v) },
-```
-
-新建 `formatCameraSpec` helper:
-```typescript
-function formatCameraSpec(spec: PhoneCameraSpec): string {
-  const lenses = spec.lenses.map(l => `${l.mp}MP ${l.aperture} ${t(`phoneCompare.cameraTerms.${l.type}`)}`);
-  let result = lenses.join(" + ");
-  if (spec.brandCoating) {
-    result += ` (${t(`phoneCompare.cameraTerms.${spec.brandCoating}`)})`;
-  }
-  return result;
-}
-```
-
-#### 步骤 6：补 i18n key
-
-在 `src/i18n/locales/zh.json` 与 `en.json` 的 `phoneCompare.materialTerms` / `waterproofTerms` / `fingerprintTerms` / `cameraTerms` / `screenTerms` 节点下补全新枚举 key。
-
-### 2.4 风险与权衡
-
-**风险**:
-- 全文件 ~50 个机型需逐一改写 `material` / `waterproof` / `fingerprint` / `mainCamera` / `frontCamera` 字段
-- `phoneFilterGroups` 的 `format` 函数需同步改造
-- 若有其他模块（如 `phoneCompare` 页面）直接读 `material` 字符串做判断，需同步改造
-- 测试覆盖不足（当前 `data/phone.ts` 无单元测试）
-
-**权衡**:
-- 方案 A（推荐）: 完全反转，data 层用枚举，展示层 `t()` — 一次性改造，彻底解决问题
-- 方案 B（折中）: 仅反转 `material` / `waterproof` / `fingerprint` 三个字段（已有反向映射表），`mainCamera` / `frontCamera` 保留字符串但删除中文括号注释 — 改造量减半
-- 方案 C（最小）: 保留现状，把 `PHONE_*_KEYS` 映射表移到 `i18n` 层由展示层维护 — 不解决根本问题，不推荐
-
-**建议**: 采用方案 B（折中），先反转三个有反向映射表的字段，`mainCamera` / `frontCamera` 的结构化改造留待 v1.18。
-
-### 2.5 执行顺序
-
-1. 新建 `src/data/phone/constants.ts` 定义枚举
-2. 改造 `PhoneModel` 接口（`material` / `waterproof` / `fingerprint` 改为枚举类型）
-3. 逐一改写 ~50 个机型的三个字段（可用脚本辅助，但需人工核对）
-4. 删除 `PHONE_*_KEYS` 映射表
-5. 改造 `phoneSpecRows` 的 `format` 函数
-6. 补 i18n key（zh / en 同步）
-7. 运行 pre-commit hooks 验证
-
-**预计工作量**: 1-2 人日（含测试）
-
----
-
-## 三、待人工确认事项
+## 二、待人工确认事项
 
 1. **terminology / token-calculator / quick-launch 拆分是否立即执行？**
    - 收益：page.tsx 从 1000+ 行降至 < 300 行，符合 §2.1 规范
@@ -388,16 +196,13 @@ function formatCameraSpec(spec: PhoneCameraSpec): string {
    - 若不拆：可降级为"补 `hooks/useDevToolboxController.ts` 持有所有状态"的最小方案
    - 建议待产品确认 v1.17 路线图
 
-3. **`data/phone.ts` 反转采用方案 A / B / C？**
-   - 建议方案 B（折中），先反转三个有反向映射表的字段
-
-4. **hardware 是否仍计为违规？**
+3. **hardware 是否仍计为违规？**
    - 现状 page.tsx 仅 183 行，符合"仅做组合"规范
    - 建议降级为建议或不计违规
 
 ---
 
-## 四、已完成项回顾
+## 三、已完成项回顾
 
 本批次（Commit 90a3e21）已完成的简单文件移动：
 - ✅ `app-manager/CategoryFilter.tsx` → `components/CategoryFilter.tsx`
