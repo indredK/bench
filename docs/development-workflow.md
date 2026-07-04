@@ -102,7 +102,7 @@ pnpm run verify       # test:fe + test:be + build:fe + build:debug
 | `[deep-link] register bench-auth failed (non-fatal): UnsupportedPlatform` | ✅ 正常 | macOS 不支持运行时动态注册 URL scheme。打包后由 `Info.plist` 的 `CFBundleURLTypes` 生效；此调用仅服务于 Linux / Windows 开发环境，失败不影响任何功能。代码位置：`src-tauri/src/lib.rs` setup 阶段。 |
 | `error messaging the mach port for IMKCFRunLoopWakeUpReliable` | ✅ 正常 | macOS 输入法（Input Method Kit）系统日志，WebKit / WKWebView 通病，与应用代码无关，不影响功能。 |
 | `npm warn Unknown env config "manage-package-manager-versions"` | ⚠️ 可避免 | 说明某处还在调用 `npm`。项目统一使用 **pnpm**，出现此警告意味着脚本或配置中混用了 `npm run` / `npm ci` 等命令。排查方向：`tauri.conf.json` 的 `beforeDevCommand` / `beforeBuildCommand`、`package.json` scripts。 |
-| `[account_manager] init failed: ...` | ❌ 需关注 | Account Manager 初始化失败，可能影响登录态恢复。见 `modules/account-manager/bugs.md`。 |
+| `[account_manager] init failed: ...` | ❌ 需关注 | Account Manager 初始化失败，可能影响登录态恢复。见 `modules/account-manager/design.md`。 |
 | `[deep-link] register bench-auth failed` 之外的 `failed` / `error` | ❌ 需关注 | 除上表明确标注"正常"的条目外，其他 `failed` / `error` 日志都建议排查。 |
 
 > **快速判断原则**：日志里带 `non-fatal` 的 → 非致命，设计上就是允许失败的；纯系统框架日志（`IMKCFRunLoop`、`WebKit` 等）→ 忽略。

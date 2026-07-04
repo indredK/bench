@@ -477,4 +477,4 @@ PortManagerPageContent
 - 进程树父子关系计算：大量 PID 时 `get_process_tree` 需多次调用 `ps`，未做批量优化
 - 远程端口扫描超时：默认 3 秒，主机不可达时仍需等待
 
-详见 [roadmap.md](./roadmap.md) v1.17 进程树性能优化。
+详见 [roadmap.md](./roadmap.md) 进程树性能优化。

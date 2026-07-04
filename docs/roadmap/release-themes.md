@@ -41,6 +41,6 @@
 | 文档 | 用途 |
 |------|------|
 | [release-themes.md](./release-themes.md) | **本文件** — 发布主题与节奏 |
-| [modules/](../modules/README.md) | 各模块 `features.md` / `design.md` / `roadmap.md` / `bugs.md` |
+| [modules/](../modules/README.md) | 各模块 `features.md` / `design.md` / `roadmap.md` |
 
 模块 backlog 示例：[account-manager/roadmap.md](../modules/account-manager/roadmap.md) · [system-settings/roadmap.md](../modules/system-settings/roadmap.md) · [port-manager/roadmap.md](../modules/port-manager/roadmap.md)

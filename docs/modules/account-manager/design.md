@@ -829,7 +829,7 @@ UI 组件 → `use-cases.ts`（业务逻辑包装）→ `repository.ts`（数据
 
 ## 15. 未来规划：云端同步
 
-> 状态：**低优先级 / 可选 backlog**（详见 [roadmap.md](./roadmap.md) v1.19）。本地 Import/Export 已满足迁移需求，云同步为可选增强。
+> 状态：**低优先级 / 可选 backlog**（详见 [roadmap.md](./roadmap.md)）。本地 Import/Export 已满足迁移需求，云同步为可选增强。
 
 ### 15.1 一句话定义
 

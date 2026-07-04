@@ -208,7 +208,7 @@ onCheckedChange={async (v) => {
 
 ## 5. Select 组件迁移
 
-v1.16 完成：从原生 `<select>` 迁移到 shadcn `<Select>`。
+从原生 `<select>` 迁移到 shadcn `<Select>`。
 
 ### 5.1 共享 Select 配置（select.tsx）
 

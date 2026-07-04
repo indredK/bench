@@ -27,6 +27,5 @@
 每个模块目录通常包含：
 
 - `README.md` — 索引
-- `roadmap.md` — 迭代规划与 checkbox
-- `bugs.md` — 已知问题（无 open bug 时可能仅保留关闭记录）
-- 设计稿（`.md`，视模块而定）
+- `roadmap.md` — 迭代规划与 Backlog
+- `features.md` / `design.md` — 功能说明与技术设计（视模块而定）
