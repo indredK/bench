@@ -106,7 +106,7 @@ const SCAN_DIRECTORIES: &[&str] = &["/Applications", "/System/Applications"];
 const SCAN_MAX_DEPTH: usize = 3;
 
 fn user_applications_dir() -> Option<PathBuf> {
-    dirs_next::home_dir().map(|home| home.join("Applications"))
+    dirs::home_dir().map(|home| home.join("Applications"))
 }
 
 fn extract_app_metadata(app_path: &Path) -> Option<(String, String, String)> {

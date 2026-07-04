@@ -45,6 +45,7 @@ pub async fn generate_uuid() -> Result<String, String> {
 pub async fn calculate_hash(input: String, algorithm: String) -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(move || {
         use sha2::{Digest, Sha256, Sha384, Sha512};
+        let hex = |bytes: &[u8]| bytes.iter().map(|b| format!("{:02x}", b)).collect::<String>();
         match algorithm.to_lowercase().as_str() {
             "md5" => {
                 let result = md5::compute(input.as_bytes());
@@ -54,22 +55,22 @@ pub async fn calculate_hash(input: String, algorithm: String) -> Result<String, 
                 use sha1::Digest;
                 let mut hasher = sha1::Sha1::new();
                 hasher.update(input.as_bytes());
-                Ok(format!("{:x}", hasher.finalize()))
+                Ok(hex(&hasher.finalize()))
             }
             "sha256" | "sha2" => {
                 let mut hasher = Sha256::new();
                 hasher.update(input.as_bytes());
-                Ok(format!("{:x}", hasher.finalize()))
+                Ok(hex(&hasher.finalize()))
             }
             "sha384" => {
                 let mut hasher = Sha384::new();
                 hasher.update(input.as_bytes());
-                Ok(format!("{:x}", hasher.finalize()))
+                Ok(hex(&hasher.finalize()))
             }
             "sha512" => {
                 let mut hasher = Sha512::new();
                 hasher.update(input.as_bytes());
-                Ok(format!("{:x}", hasher.finalize()))
+                Ok(hex(&hasher.finalize()))
             }
             _ => Err(format!("Unsupported algorithm: {}", algorithm)),
         }

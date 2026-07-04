@@ -49,7 +49,7 @@ impl ReplaceError {
 /// Default trash directory (`~/.Trash`). Returns an error if `$HOME` cannot
 /// be determined.
 pub fn default_trash_dir() -> Result<PathBuf, String> {
-    let home = dirs_next::home_dir().ok_or_else(|| "SU_REPLACE_FAIL: no home dir".to_string())?;
+    let home = dirs::home_dir().ok_or_else(|| "SU_REPLACE_FAIL: no home dir".to_string())?;
     Ok(home.join(".Trash"))
 }
 

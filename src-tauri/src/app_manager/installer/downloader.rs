@@ -53,7 +53,7 @@ fn sanitize(s: &str) -> String {
 /// `~/Library/Caches/<host>/app-update-cache/` on macOS, fallback to the OS
 /// temp dir.
 pub fn cache_root() -> PathBuf {
-    dirs_next::cache_dir()
+    dirs::cache_dir()
         .unwrap_or_else(std::env::temp_dir)
         .join("app-update-cache")
 }

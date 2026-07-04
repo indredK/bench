@@ -1,8 +1,9 @@
 use aes_gcm::aead::Aead;
+use aes_gcm::aead::array::typenum::U12;
 use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine;
-use rand::RngCore;
+use rand::RngExt;
 use serde::{Deserialize, Serialize};
 
 use super::types::{AccountManagerError, AccountManagerResult};
@@ -38,7 +39,7 @@ pub fn get_or_create_master_key() -> AccountManagerResult<[u8; 32]> {
         }
         Err(keyring::Error::NoEntry) => {
             let mut key = [0u8; 32];
-            rand::thread_rng().fill_bytes(&mut key);
+            rand::rng().fill(&mut key);
             entry
                 .set_password(&BASE64.encode(key))
                 .map_err(|e| AccountManagerError::keyring_unavailable(format!("write key: {e}")))?;
@@ -51,9 +52,10 @@ pub fn get_or_create_master_key() -> AccountManagerResult<[u8; 32]> {
 pub fn encrypt(key: &[u8; 32], plaintext: &str) -> AccountManagerResult<EncryptedBlob> {
     let cipher = Aes256Gcm::new(key.into());
     let mut nonce_bytes = [0u8; 12];
-    rand::thread_rng().fill_bytes(&mut nonce_bytes);
+    rand::rng().fill(&mut nonce_bytes);
+    let nonce: &Nonce<U12> = (&nonce_bytes).into();
     let ct = cipher
-        .encrypt(Nonce::from_slice(&nonce_bytes), plaintext.as_bytes())
+        .encrypt(nonce, plaintext.as_bytes())
         .map_err(|e| AccountManagerError::crypto_fail(format!("encrypt: {e}")))?;
     Ok(EncryptedBlob {
         v: BLOB_VERSION,
@@ -82,8 +84,11 @@ pub fn decrypt(key: &[u8; 32], blob: &EncryptedBlob) -> AccountManagerResult<Str
         .decode(blob.ct.as_bytes())
         .map_err(|e| AccountManagerError::crypto_fail(format!("decode ct: {e}")))?;
     let cipher = Aes256Gcm::new(key.into());
+    let mut nonce_fixed = [0u8; 12];
+    nonce_fixed.copy_from_slice(&nonce_bytes);
+    let nonce: &Nonce<U12> = (&nonce_fixed).into();
     let pt = cipher
-        .decrypt(Nonce::from_slice(&nonce_bytes), ct_bytes.as_ref())
+        .decrypt(nonce, ct_bytes.as_ref())
         .map_err(|e| AccountManagerError::crypto_fail(format!("decrypt: {e}")))?;
     String::from_utf8(pt).map_err(|e| AccountManagerError::crypto_fail(format!("utf8: {e}")))
 }

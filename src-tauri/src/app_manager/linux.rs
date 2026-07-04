@@ -39,7 +39,7 @@ fn apt_available() -> bool {
 const DESKTOP_ENTRY_DIRS: &[&str] = &["/usr/share/applications", "/usr/local/share/applications"];
 
 fn user_desktop_entries_dir() -> Option<PathBuf> {
-    dirs_next::data_dir().map(|d| d.join("applications"))
+    dirs::data_dir().map(|d| d.join("applications"))
 }
 
 /// Parse a .desktop file for Name, Comment, Exec, Icon.

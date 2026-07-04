@@ -1,5 +1,5 @@
 use chrono::Local;
-use rand::RngCore;
+use rand::RngExt;
 use std::collections::{HashMap, HashSet};
 use tauri::{AppHandle, Manager, Runtime, State};
 use tauri_plugin_clipboard_manager::ClipboardExt;
@@ -22,7 +22,7 @@ const RELAY_EXPORT_VERSION: u32 = 2;
 
 fn new_id(prefix: &str) -> String {
     let mut bytes = [0u8; 4];
-    rand::thread_rng().fill_bytes(&mut bytes);
+    rand::rng().fill(&mut bytes);
     let suffix: String = bytes.iter().map(|b| format!("{:02x}", b)).collect();
     format!("{prefix}-{suffix}")
 }

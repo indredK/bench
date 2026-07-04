@@ -2,7 +2,7 @@ use super::UpdaterSource;
 use crate::app_manager::types::{AppInfo, UpdateInfo, UpdateSource};
 use async_trait::async_trait;
 use quick_xml::events::Event;
-use quick_xml::Reader;
+use quick_xml::{Reader, XmlVersion};
 use serde::Deserialize;
 use std::path::Path;
 use std::time::Duration;
@@ -96,7 +96,10 @@ pub fn parse_appcast(xml: &str) -> Result<Vec<AppcastItem>, String> {
                                 for attr in e.attributes().flatten() {
                                     let key =
                                         String::from_utf8_lossy(attr.key.as_ref()).to_string();
-                                    let val = attr.unescape_value().unwrap_or_default().to_string();
+                                    let val = attr
+                                .normalized_value(XmlVersion::Implicit1_0)
+                                .unwrap_or_default()
+                                .to_string();
                                     match key.as_str() {
                                         "url" => item.enclosure_url = Some(val),
                                         "sparkle:version" => item.version = val,
@@ -134,7 +137,9 @@ pub fn parse_appcast(xml: &str) -> Result<Vec<AppcastItem>, String> {
             }
             Ok(Event::Text(t)) => {
                 if in_item && !in_deltas {
-                    let text = t.unescape().unwrap_or_default().to_string();
+                    let text = quick_xml::escape::unescape(&String::from_utf8_lossy(&t))
+                        .unwrap_or_default()
+                        .to_string();
                     if let (Some(item), Some(tag)) = (current.as_mut(), current_tag.as_deref()) {
                         match tag {
                             "sparkle:version" => item.version = text,
@@ -168,7 +173,10 @@ pub fn parse_appcast(xml: &str) -> Result<Vec<AppcastItem>, String> {
                     if let Some(item) = current.as_mut() {
                         for attr in e.attributes().flatten() {
                             let key = String::from_utf8_lossy(attr.key.as_ref()).to_string();
-                            let val = attr.unescape_value().unwrap_or_default().to_string();
+                            let val = attr
+                                .normalized_value(XmlVersion::Implicit1_0)
+                                .unwrap_or_default()
+                                .to_string();
                             match key.as_str() {
                                 "url" => item.enclosure_url = Some(val),
                                 "sparkle:version" => item.version = val,
