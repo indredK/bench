@@ -58,7 +58,7 @@
 ### 1.7 文档目录对齐 — 违规
 
 - [违反 §11.2] `src/features/updater/` 存在（`store.ts`、`hooks/useUpdaterController.ts`、`error-classifier.ts`），但 `docs/modules/updater/` 目录不存在 — 新增 feature 时同步创建模块文档目录，至少 `README.md` + `roadmap.md` — **强制** ✅ 已修复：新增 `docs/modules/updater/README.md` + `roadmap.md`，并在 `docs/modules/README.md` 表格补 updater 行
-- [违反 §11.2] `src/features/refresh.ts`、`src/features/registry.tsx`、`src/features/types.ts` 为 features 元数据，不属于单一 feature；可在 `docs/modules/README.md` 增加一节"功能注册与刷新机制"说明，避免文档缺口 — **建议**
+- [违反 §11.2] `src/features/refresh.ts`、`src/features/registry.tsx`、`src/features/types.ts` 为 features 元数据，不属于单一 feature；可在 `docs/modules/README.md` 增加一节"功能注册与刷新机制"说明，避免文档缺口 — **建议** ✅ 已修复：在 `docs/modules/README.md` 新增"功能注册与刷新机制"章节，说明 types.ts / registry.tsx / refresh.ts / FeatureFallback.tsx 的职责
 
 ---
 
