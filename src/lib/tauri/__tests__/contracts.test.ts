@@ -26,6 +26,7 @@ import type {
   ProcessNode,
   SystemInfoData,
 } from "@/lib/tauri/types";
+import type { AppUpdateInfo, AppUpdateInstallResult } from "@/lib/tauri/types/updater";
 
 describe("Tauri contracts", () => {
   it("keeps grouped command constants derived from the canonical command contracts", () => {
@@ -102,6 +103,8 @@ describe("Tauri contracts", () => {
       ["ProcessFingerprint", "snake", dtoKeys<ProcessFingerprint>(["category", "name", "icon"])],
       ["PortProcessDetail", "snake", dtoKeys<PortProcessDetail>(["port", "pids", "process_trees", "fingerprint", "error"])],
       ["SystemInfo", "snake", dtoKeys<SystemInfoData>(["os_name", "os_version", "kernel_version", "hostname", "cpu_brand", "cpu_cores", "total_memory", "available_memory", "used_memory", "memory_usage_percent", "uptime_seconds", "arch", "model_name", "distribution"])],
+      ["AppUpdateInfo", "camel", dtoKeys<AppUpdateInfo>(["available", "currentVersion", "version", "date", "body"])],
+      ["AppUpdateInstallResult", "camel", dtoKeys<AppUpdateInstallResult>(["installed", "requiresRestart"])],
     ];
 
     for (const [rustTypeName, serdeCase, frontendKeys] of checks) {
