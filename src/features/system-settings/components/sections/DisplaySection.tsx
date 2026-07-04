@@ -9,11 +9,14 @@ import { canUseTauriWindow } from "@/platform/capabilities";
 
 export function DisplaySection() {
   const { t } = useTranslation();
-  const store = useSystemSettingsStore();
+  const displayBatteryPercent = useSystemSettingsStore((s) => s.displayBatteryPercent);
+  const applyingKeys = useSystemSettingsStore((s) => s.applyingKeys);
   const { run } = useSettingAction();
 
   const refresh = useCallback(() => {
-    systemSettingsUseCases.getDisplayBatteryPercent().then(store.setDisplayBatteryPercent).catch(console.error);
+    systemSettingsUseCases.getDisplayBatteryPercent()
+      .then((v) => useSystemSettingsStore.getState().setDisplayBatteryPercent(v))
+      .catch(console.error);
   }, []);
 
   useEffect(() => {
@@ -38,8 +41,8 @@ export function DisplaySection() {
       <SettingToggle
         label={t("systemSettings.display.batteryPercent")}
         description={t("systemSettings.display.batteryPercentDesc")}
-        checked={store.displayBatteryPercent}
-        loading={store.applyingKeys.has("display.batteryPercent")}
+        checked={displayBatteryPercent}
+        loading={applyingKeys.has("display.batteryPercent")}
         onCheckedChange={async (v) => {
           await run("display.batteryPercent", async () => {
             await systemSettingsUseCases.setDisplayBatteryPercent(v);

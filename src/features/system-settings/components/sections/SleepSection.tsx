@@ -9,11 +9,14 @@ import { canUseTauriWindow } from "@/platform/capabilities";
 
 export function SleepSection() {
   const { t } = useTranslation();
-  const store = useSystemSettingsStore();
+  const sleepState = useSystemSettingsStore((s) => s.sleepState);
+  const applyingKeys = useSystemSettingsStore((s) => s.applyingKeys);
   const { run } = useSettingAction();
 
   const refresh = useCallback(() => {
-    systemSettingsUseCases.getSleepInhibitorState().then(store.setSleepState).catch(console.error);
+    systemSettingsUseCases.getSleepInhibitorState()
+      .then((v) => useSystemSettingsStore.getState().setSleepState(v))
+      .catch(console.error);
   }, []);
 
   useEffect(() => {
@@ -38,15 +41,15 @@ export function SleepSection() {
       <SettingToggle
         label={t("systemSettings.sleep.preventSleep")}
         description={t("systemSettings.sleep.preventSleepDesc")}
-        checked={store.sleepState?.enabled ?? false}
-        loading={store.applyingKeys.has("sleep.preventSleep")}
+        checked={sleepState?.enabled ?? false}
+        loading={applyingKeys.has("sleep.preventSleep")}
         onCheckedChange={async (v) => {
           await run("sleep.preventSleep", async () => {
             const state = await systemSettingsUseCases.toggleSleepInhibitor(
               { prevent_sleep: true, prevent_display: true, auto_disable_on_exit: true },
               v
             );
-            store.setSleepState(state);
+            useSystemSettingsStore.getState().setSleepState(state);
           });
         }}
       />

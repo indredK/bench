@@ -10,11 +10,14 @@ import { canUseTauriWindow } from "@/platform/capabilities";
 
 export function DockSection() {
   const { t } = useTranslation();
-  const store = useSystemSettingsStore();
+  const dockOrientation = useSystemSettingsStore((s) => s.dockOrientation);
+  const applyingKeys = useSystemSettingsStore((s) => s.applyingKeys);
   const { run } = useSettingAction();
 
   const refresh = useCallback(() => {
-    systemSettingsUseCases.getDockOrientation().then(store.setDockOrientation).catch(console.error);
+    systemSettingsUseCases.getDockOrientation()
+      .then((v) => useSystemSettingsStore.getState().setDockOrientation(v))
+      .catch(console.error);
   }, []);
 
   useEffect(() => {
@@ -42,13 +45,13 @@ export function DockSection() {
           {(["left", "bottom", "right"] as const).map((pos) => (
             <Button
               key={pos}
-              variant={store.dockOrientation === pos ? "default" : "outline"}
+              variant={dockOrientation === pos ? "default" : "outline"}
               size="sm"
-              disabled={store.applyingKeys.size > 0}
+              disabled={applyingKeys.size > 0}
               onClick={async () => {
                 await run("dock.orientation", async () => {
                   await systemSettingsUseCases.setDockOrientation(pos);
-                  store.setDockOrientation(pos);
+                  useSystemSettingsStore.getState().setDockOrientation(pos);
                 });
               }}
             >

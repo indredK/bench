@@ -16,13 +16,17 @@ interface DisplayDockSectionProps {
 
 export function DisplayDockSection({ className }: DisplayDockSectionProps) {
   const { t } = useTranslation();
-  const store = useSystemSettingsStore();
+  const displayBatteryPercent = useSystemSettingsStore((s) => s.displayBatteryPercent);
+  const dockOrientation = useSystemSettingsStore((s) => s.dockOrientation);
+  const minimizeScaleEnabled = useSystemSettingsStore((s) => s.minimizeScaleEnabled);
+  const applyingKeys = useSystemSettingsStore((s) => s.applyingKeys);
   const { run } = useSettingAction();
 
   const refresh = useCallback(() => {
-    systemSettingsUseCases.getDisplayBatteryPercent().then(store.setDisplayBatteryPercent).catch(console.error);
-    systemSettingsUseCases.getDockOrientation().then(store.setDockOrientation).catch(console.error);
-    systemSettingsUseCases.getMinimizeScaleEnabled().then(store.setMinimizeScaleEnabled).catch(console.error);
+    const s = useSystemSettingsStore.getState();
+    systemSettingsUseCases.getDisplayBatteryPercent().then(s.setDisplayBatteryPercent).catch(console.error);
+    systemSettingsUseCases.getDockOrientation().then(s.setDockOrientation).catch(console.error);
+    systemSettingsUseCases.getMinimizeScaleEnabled().then(s.setMinimizeScaleEnabled).catch(console.error);
   }, []);
 
   useEffect(() => {
@@ -48,8 +52,8 @@ export function DisplayDockSection({ className }: DisplayDockSectionProps) {
         <SettingToggle
           label={t("systemSettings.display.batteryPercent")}
           description={t("systemSettings.display.batteryPercentDesc")}
-          checked={store.displayBatteryPercent}
-          loading={store.applyingKeys.has("display.batteryPercent")}
+          checked={displayBatteryPercent}
+          loading={applyingKeys.has("display.batteryPercent")}
           onOpenSettings={() => systemSettingsUseCases.openControlCenterSettings()}
           onCheckedChange={async (v) => {
             await run("display.batteryPercent", async () => {
@@ -75,13 +79,13 @@ export function DisplayDockSection({ className }: DisplayDockSectionProps) {
             {(["left", "bottom", "right"] as const).map((pos) => (
               <Button
                 key={pos}
-                variant={store.dockOrientation === pos ? "default" : "outline"}
+                variant={dockOrientation === pos ? "default" : "outline"}
                 size="sm"
-                disabled={store.applyingKeys.size > 0}
+                disabled={applyingKeys.size > 0}
                 onClick={async () => {
                   await run("dock.orientation", async () => {
                     await systemSettingsUseCases.setDockOrientation(pos);
-                    store.setDockOrientation(pos);
+                    useSystemSettingsStore.getState().setDockOrientation(pos);
                   });
                 }}
               >
@@ -93,13 +97,13 @@ export function DisplayDockSection({ className }: DisplayDockSectionProps) {
         <SettingToggle
           label={t("systemSettings.dock.minimizeScale")}
           description={t("systemSettings.dock.minimizeScaleDesc")}
-          checked={store.minimizeScaleEnabled}
-          loading={store.applyingKeys.has("dock.minimizeScale")}
+          checked={minimizeScaleEnabled}
+          loading={applyingKeys.has("dock.minimizeScale")}
           onOpenSettings={() => systemSettingsUseCases.openDesktopSettings()}
           onCheckedChange={async (v) => {
             await run("dock.minimizeScale", async () => {
               await systemSettingsUseCases.setMinimizeScaleEnabled(v);
-              store.setMinimizeScaleEnabled(v);
+              useSystemSettingsStore.getState().setMinimizeScaleEnabled(v);
             });
           }}
         />

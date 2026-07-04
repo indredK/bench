@@ -10,16 +10,19 @@ import { Label } from "@/components/ui/label";
 
 export function LockScreenSection() {
   const { t } = useTranslation();
-  const store = useSystemSettingsStore();
+  const lockScreenPassword = useSystemSettingsStore((s) => s.lockScreenPassword);
+  const lockScreenPasswordDelay = useSystemSettingsStore((s) => s.lockScreenPasswordDelay);
+  const applyingKeys = useSystemSettingsStore((s) => s.applyingKeys);
   const { run } = useSettingAction();
 
   useEffect(() => {
+    const s = useSystemSettingsStore.getState();
     Promise.all([
       systemSettingsUseCases.getLockScreenPasswordEnabled(),
       systemSettingsUseCases.getLockScreenPasswordDelay(),
     ]).then(([enabled, delay]) => {
-      store.setLockScreenPassword(enabled);
-      store.setLockScreenPasswordDelay(delay);
+      s.setLockScreenPassword(enabled);
+      s.setLockScreenPasswordDelay(delay);
     }).catch(console.error);
   }, []);
 
@@ -28,30 +31,30 @@ export function LockScreenSection() {
       <SettingToggle
         label={t("systemSettings.actions.lockPassword")}
         description={t("systemSettings.actions.lockPasswordDesc")}
-        checked={store.lockScreenPassword}
-        loading={store.applyingKeys.has("lockScreen.password")}
+        checked={lockScreenPassword}
+        loading={applyingKeys.has("lockScreen.password")}
         onOpenSettings={() => systemSettingsUseCases.openLockScreenSettings()}
         onCheckedChange={async (v) => {
           await run("lockScreen.password", async () => {
             await systemSettingsUseCases.setLockScreenPasswordEnabled(v);
-            store.setLockScreenPassword(v);
+            useSystemSettingsStore.getState().setLockScreenPassword(v);
           });
         }}
       />
-      {store.lockScreenPassword && (
+      {lockScreenPassword && (
         <div className="space-y-2 py-2">
           <Label className="text-sm font-medium">{t("systemSettings.actions.lockPasswordDelay")}</Label>
           <div className="flex gap-2 items-center">
             {[0, 5, 10, 30, 60].map((s) => (
               <Button
                 key={s}
-                variant={store.lockScreenPasswordDelay === s ? "default" : "outline"}
+                variant={lockScreenPasswordDelay === s ? "default" : "outline"}
                 size="sm"
-                disabled={store.applyingKeys.size > 0}
+                disabled={applyingKeys.size > 0}
                 onClick={async () => {
                   await run("lockScreen.passwordDelay", async () => {
                     await systemSettingsUseCases.setLockScreenPasswordDelay(s);
-                    store.setLockScreenPasswordDelay(s);
+                    useSystemSettingsStore.getState().setLockScreenPasswordDelay(s);
                   });
                 }}
               >
