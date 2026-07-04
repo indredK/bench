@@ -83,7 +83,23 @@ pnpm run verify       # test:fe + test:be + build:fe + build:debug
 
 ---
 
-## 5. 提交与合码
+## 5. 常见启动日志说明
+
+`pnpm run dev` 启动时可能看到以下日志，**绝大多数是正常的**，不用慌。
+
+| 日志 | 级别 | 说明 |
+|------|------|------|
+| `[deep-link] register bench-auth failed (non-fatal): UnsupportedPlatform` | ✅ 正常 | macOS 不支持运行时动态注册 URL scheme。打包后由 `Info.plist` 的 `CFBundleURLTypes` 生效；此调用仅服务于 Linux / Windows 开发环境，失败不影响任何功能。代码位置：`src-tauri/src/lib.rs` setup 阶段。 |
+| `error messaging the mach port for IMKCFRunLoopWakeUpReliable` | ✅ 正常 | macOS 输入法（Input Method Kit）系统日志，WebKit / WKWebView 通病，与应用代码无关，不影响功能。 |
+| `npm warn Unknown env config "manage-package-manager-versions"` | ⚠️ 可避免 | 说明某处还在调用 `npm`。项目统一使用 **pnpm**，出现此警告意味着脚本或配置中混用了 `npm run` / `npm ci` 等命令。排查方向：`tauri.conf.json` 的 `beforeDevCommand` / `beforeBuildCommand`、`package.json` scripts。 |
+| `[account_manager] init failed: ...` | ❌ 需关注 | Account Manager 初始化失败，可能影响登录态恢复。见 `modules/account-manager/bugs.md`。 |
+| `[deep-link] register bench-auth failed` 之外的 `failed` / `error` | ❌ 需关注 | 除上表明确标注"正常"的条目外，其他 `failed` / `error` 日志都建议排查。 |
+
+> **快速判断原则**：日志里带 `non-fatal` 的 → 非致命，设计上就是允许失败的；纯系统框架日志（`IMKCFRunLoop`、`WebKit` 等）→ 忽略。
+
+---
+
+## 6. 提交与合码
 
 - **Commit**：Conventional Commits（`feat:` / `fix:` / `docs:` …），hook 会校验。
 - **PR**：说明对应模块与 roadmap 项；合码后在该模块 `roadmap.md` 打 ✅。
@@ -92,7 +108,7 @@ pnpm run verify       # test:fe + test:be + build:fe + build:debug
 
 ---
 
-## 6. 发版
+## 7. 发版
 
 - CI：[`.github/workflows/ci-build.yml`](./../.github/workflows/ci-build.yml) 四平台构建。
 - 版本与 CHANGELOG：release-please 自动生成 [CHANGELOG.md](../CHANGELOG.md)（commit 风格）。
@@ -100,7 +116,7 @@ pnpm run verify       # test:fe + test:be + build:fe + build:debug
 
 ---
 
-## 7. 改动类型速查
+## 8. 改动类型速查
 
 | 类型 | 怎么做 |
 |------|--------|
@@ -112,7 +128,7 @@ pnpm run verify       # test:fe + test:be + build:fe + build:debug
 
 ---
 
-## 8. 当前基建认知（非完美清单）
+## 9. 当前基建认知（非完美清单）
 
 **够用的底座：** 技术栈、IPC 契约、规范文档、模块文档目录、托盘/危险确认/Dev Toolbox IA、CI 发版。
 
@@ -128,11 +144,11 @@ pnpm run verify       # test:fe + test:be + build:fe + build:debug
 
 ---
 
-## 9. 包管理与依赖升级
+## 10. 包管理与依赖升级
 
 > 项目统一使用 **pnpm**。以下规则适用于本地开发与 CI。
 
-### 9.1 基本约定
+### 10.1 基本约定
 
 | 项 | 规则 |
 |------|------|
@@ -140,8 +156,9 @@ pnpm run verify       # test:fe + test:be + build:fe + build:debug
 | Lock 文件 | 只保留 `pnpm-lock.yaml`，**禁止** `package-lock.json` 并存（双 lock 会导致本地与 CI 解析分叉） |
 | CI 安装 | `pnpm install --frozen-lockfile`（严格按 lockfile，不更新） |
 | 本地安装 | `pnpm install`（lockfile 存在时尊重它；package.json 变更时更新 lockfile） |
+| 脚本与配置 | **禁止**在 `package.json` scripts、`tauri.conf.json` 等项目文件中使用 `npm run` / `npm ci` / `npm install` 等 npm 命令。混用会触发 `npm warn Unknown env config "manage-package-manager-versions"` 等环境警告，且可能导致行为不一致。 |
 
-### 9.2 常用命令
+### 10.2 常用命令
 
 ```bash
 pnpm install                      # 安装依赖（尊重 lockfile）
@@ -153,7 +170,7 @@ pnpm outdated                     # 查看可升级项
 pnpm tsc --noEmit                 # 类型检查（major 升级后必跑）
 ```
 
-### 9.3 依赖升级流程
+### 10.3 依赖升级流程
 
 1. **查可升级项**：`pnpm outdated`
 2. **patch / minor**（`^` 范围内）：`pnpm update` 直接升，风险低
@@ -164,7 +181,7 @@ pnpm tsc --noEmit                 # 类型检查（major 升级后必跑）
 4. **验证 CI 能通过**：`pnpm install --frozen-lockfile`
 5. **提交**：`pnpm-lock.yaml` 必须随 `package.json` 一起提交
 
-### 9.4 pnpm 11 供应链策略（minimumReleaseAge）
+### 10.4 pnpm 11 供应链策略（minimumReleaseAge）
 
 pnpm 11 默认开启 `minimumReleaseAge: 1440`（24 小时）：**发布不足 24 小时的包版本会被自动跳过**，不参与解析。这是供应链保护 —— 恶意包通常在发布后数小时内被检测并下架，延迟 24 小时让你错过最高风险窗口。
 
@@ -177,7 +194,7 @@ pnpm 11 默认开启 `minimumReleaseAge: 1440`（24 小时）：**发布不足 2
 
 > **注意**：`minimumReleaseAgeExclude` 是逐包豁免，不是漏洞警告 —— 它只表示该包"太新"，由你显式放行。是否信任该包仍需自行判断。
 
-### 9.5 CI 配置要点
+### 10.5 CI 配置要点
 
 [ci-build.yml](../.github/workflows/ci-build.yml) 每个 job 需在 `setup-node` 之前加 pnpm 初始化：
 
@@ -194,7 +211,7 @@ pnpm 11 默认开启 `minimumReleaseAge: 1440`（24 小时）：**发布不足 2
 
 ---
 
-## 10. 相关文档
+## 11. 相关文档
 
 | 文档 | 用途 |
 |------|------|
