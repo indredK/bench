@@ -55,7 +55,7 @@
 ### 1.6 命名约定 — 违规
 
 - [违反 §2.3] `src/features/terminology/api.ts` — 仅 re-export `lib/tauri/commands/terminology`，无独立逻辑；如保留作为 facade 应放 `services/terminology.repository.ts`，否则直接删除让调用方从 `lib/tauri/commands/terminology` 导入 — **建议** ✅ 已修复（直接删除，store.ts 改为从 @/lib/tauri/commands/terminology 导入）
-- [违反 §2.3] `src/features/app-manager/app-categories.ts`、`app-series.ts`、`recommended-apps.ts`、`columns.tsx` — 这些是常量/分类数据，命名符合习惯但 `columns.tsx` 类似文件在多个 feature 重复出现（`dev-cleaner/columns.tsx`、`env-detector/columns.tsx`），可考虑统一抽到 `model/columns.tsx` — **建议**
+- [违反 §2.3] `src/features/app-manager/app-categories.ts`、`app-series.ts`、`recommended-apps.ts`、`columns.tsx` — 这些是常量/分类数据，命名符合习惯但 `columns.tsx` 类似文件在多个 feature 重复出现（`dev-cleaner/columns.tsx`、`env-detector/columns.tsx`），可考虑统一抽到 `model/columns.tsx` — 评估见 `docs/refactoring-plan.md` 第四节（建议不采纳） — **建议**
 
 ### 1.7 文档目录对齐 — 违规
 
@@ -93,7 +93,7 @@
 ### 2.4 `useMemo` / `useCallback` — 通过（局部建议）
 
 - controller 层普遍使用 `useCallback` 包装 handler，`useMemo` 处理派生数据（如 `account-manager/hooks/useAccountManagerController.ts`、`port-manager/hooks/usePortManagerController.ts`）。
-- [违反 §6 建议] `src/features/dev-toolbox/page.tsx` 内 `runDiagnostic`、各 sub-tab 渲染函数未做 `useCallback`/`useMemo` 包装，每次主组件渲染都会重建 — 建议在拆分模块时一并补上 — **建议**
+- [违反 §6 建议] `src/features/dev-toolbox/page.tsx` 内 `runDiagnostic`、各 sub-tab 渲染函数未做 `useCallback`/`useMemo` 包装，每次主组件渲染都会重建 — 留待 dev-toolbox 模块拆分时一并补上，见 `docs/refactoring-plan.md` 第一节优先级 D — **建议**
 
 ### 2.5 代码分割 — 违规
 
@@ -146,7 +146,7 @@
 
 > 规范 §3.2 强制："不得把无 selector 的 `useXxxStore()` 返回值放进 `useCallback` / `useMemo` / `useEffect` 依赖。"
 
-- [违反 §3.2] `src/features/account-manager/hooks/useAccountManagerController.ts:28` — `const store = useAccountManagerStore();` 无 selector 订阅整 store；随后 `useMemo` 依赖列表里直接列 `store.stations`、`store.accounts`、`store.selectedStationId`、`store.selectedAccountId`（行 99/103/107/111），`useCallback(handleOpenExternalApps, [store])` (行 119) 把整 store 当依赖 — 行 119 改为 `useAccountManagerStore.getState()` 取 setter + `[]` 依赖 ✅ 已修复；行 28 整 store 订阅属 controller 胶水层工程权衡（返回值需暴露 store 大量字段，约 36 个），彻底 selector 化属大范围重写，按 AGENTS.md「复杂重构输出方案」原则保留，待人工确认 — **强制**
+- [违反 §3.2] `src/features/account-manager/hooks/useAccountManagerController.ts:28` — `const store = useAccountManagerStore();` 无 selector 订阅整 store；随后 `useMemo` 依赖列表里直接列 `store.stations`、`store.accounts`、`store.selectedStationId`、`store.selectedAccountId`（行 99/103/107/111），`useCallback(handleOpenExternalApps, [store])` (行 119) 把整 store 当依赖 — 行 119 改为 `useAccountManagerStore.getState()` 取 setter + `[]` 依赖 ✅ 已修复；行 28 整 store 订阅属 controller 胶水层工程权衡（返回值需暴露 store 大量字段，约 36 个），彻底 selector 化属大范围重写，方案见 `docs/refactoring-plan.md` 第二节 — **强制**
 - [违反 §3.2] `src/features/system-settings/page.tsx:50` — `const store = useSystemSettingsStore();` 后 `loadTabSettings = useCallback(..., [store, t])` (行 113)、`useEffect(..., [store.activeTab, loadTabSettings])` (行 118) — store 任意字段更新都会让 `loadTabSettings` 重建并触发 effect 重跑 — 改为 selector 取 `activeTab` 与各 setter — **强制** ✅ 已修复：新增 `activeTab` selector，`loadTabSettings` 内 setter 改用 `useSystemSettingsStore.getState()`，deps 改为 `[t]`；同时修复 `String(err)` → `getErrorMessage(err)` (行 443)
 - [违反 §3.2 建议] `src/features/system-settings/components/sections/DisplaySection.tsx:12`、`KeyboardSection.tsx:12`、`LockScreenSection.tsx:13`、`DockSection.tsx:13`、`SleepSection.tsx:12`、`DisplayDockSection.tsx:19` — 多个 section 组件 `const store = useSystemSettingsStore();` 订阅整 store；虽然未直接进 deps，但每次 store 任意字段变化都会触发整组件重渲 — 改为 selector 精细订阅 — **建议** ✅ 已修复：6 个 section 组件全部改为精细 selector，setter 在 callback 内用 `useSystemSettingsStore.getState()` 取值
 - [违反 §3.2 建议] `src/features/terminology/page.tsx:235`、`:468`、`:905` — 三处 `const { ... } = useTerminologyStore();` 解构整 store；同上，性能浪费 — 改为 `useShallow` 或 selector — **建议**（留待 terminology 模块拆分时一并处理，见 `docs/refactoring-plan.md`）
@@ -218,7 +218,7 @@
 
 ### 6.1 测试覆盖 — 违规
 
-- [违反 §9] `src/features/updater/` — 涉及 IPC（`check_for_app_update`、`download_and_install_app_update`）与共享类型（`AppUpdateInfo`、`UpdaterErrorInfo`），但 `__tests__/` 仅有 `error-classifier.test.ts`，缺少 `useUpdaterController` 行为测试与更新下载/安装流程契约测试 — **强制**
+- [违反 §9] `src/features/updater/` — 涉及 IPC（`check_for_app_update`、`download_and_install_app_update`）与共享类型（`AppUpdateInfo`、`UpdaterErrorInfo`），但 `__tests__/` 仅有 `error-classifier.test.ts`，缺少 `useUpdaterController` 行为测试与更新下载/安装流程契约测试 — 方案见 `docs/refactoring-plan.md` 第三节 — **强制**
 - 注：`src/i18n/` 无独立组件测试，但 `SettingsDialog.test.tsx` 覆盖了语言切换行为，符合 §9 "i18n 共享组件覆盖切换语言后 UI 更新"。
 
 ### 6.2 提交历史 — 通过
