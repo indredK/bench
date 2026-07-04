@@ -13,6 +13,7 @@ import { useScrambleText } from "@/hooks/useScrambleText";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Settings } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { cn } from "@/lib/utils";
 
 interface SidebarProps {
   items: NavigationItem[];
@@ -58,11 +59,12 @@ function Sidebar({ items, configItems, onPrefs }: SidebarProps) {
             <Link
               key={item.path}
               href={item.path}
-              className={`ml-6 mr-2 flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm leading-relaxed transition ${
+              className={cn(
+                "ml-6 mr-2 flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm leading-relaxed transition",
                 isActive
                   ? "bg-primary/10 font-medium text-primary"
-                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-              }`}
+                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+              )}
             >
               <span className="flex size-4 shrink-0 items-center justify-center">{item.icon}</span>
               <span>{item.name}</span>
@@ -82,11 +84,12 @@ function Sidebar({ items, configItems, onPrefs }: SidebarProps) {
             <Link
               key={item.path}
               href={item.path}
-              className={`ml-6 mr-2 flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm leading-relaxed transition ${
+              className={cn(
+                "ml-6 mr-2 flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm leading-relaxed transition",
                 isActive
                   ? "bg-primary/10 font-medium text-primary"
-                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-              }`}
+                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+              )}
             >
               <span className="flex size-4 shrink-0 items-center justify-center">{item.icon}</span>
               <span>{item.name}</span>

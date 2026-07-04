@@ -24,6 +24,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { cn } from "@/lib/utils";
 
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -443,7 +444,10 @@ export function UpdateDialog({
                   <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm font-medium transition-colors hover:bg-muted/40">
                     <span>{t("updater.technicalDetails")}</span>
                     <ChevronDown
-                      className={`size-4 shrink-0 transition-transform ${showErrorDetails ? "rotate-180" : ""}`}
+                      className={cn(
+                        "size-4 shrink-0 transition-transform",
+                        showErrorDetails && "rotate-180",
+                      )}
                     />
                   </CollapsibleTrigger>
                   <CollapsibleContent className="border-t px-3 py-3 text-sm text-muted-foreground [overflow-wrap:anywhere]">
@@ -529,7 +533,7 @@ export function UpdateDialog({
 
           {(status === "idle" || status === "upToDate") && (
             <Button onClick={() => void checkUpdates()} disabled={checking || busy}>
-              <RefreshCcw className={`size-4 ${checking ? "animate-spin" : ""}`} />
+              <RefreshCcw className={cn("size-4", checking && "animate-spin")} />
               {checking ? t("updater.checking") : t("updater.checkNow")}
             </Button>
           )}

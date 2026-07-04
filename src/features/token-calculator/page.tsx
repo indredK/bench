@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { FeatureLoadError } from "@/components/common/FeatureLoadError";
 import { useGuardedAsync } from "@/hooks/useGuardedAsync";
+import { cn } from "@/lib/utils";
 
 import {
   listPricingStandards,
@@ -166,22 +167,24 @@ export default function TokenCalculatorPage() {
       <div className="flex rounded-md border border-border">
         <Button
           size="xs"
-          className={`rounded-r-none border-0 ${
+          className={cn(
+            "rounded-r-none border-0",
             displayCurrency === "USD"
               ? "bg-primary text-primary-foreground hover:bg-primary/80"
-              : "bg-transparent text-muted-foreground hover:bg-muted"
-          }`}
+              : "bg-transparent text-muted-foreground hover:bg-muted",
+          )}
           onClick={() => setDisplayCurrency("USD")}
         >
           USD
         </Button>
         <Button
           size="xs"
-          className={`rounded-l-none border-0 ${
+          className={cn(
+            "rounded-l-none border-0",
             displayCurrency === "CNY"
               ? "bg-primary text-primary-foreground hover:bg-primary/80"
-              : "bg-transparent text-muted-foreground hover:bg-muted"
-          }`}
+              : "bg-transparent text-muted-foreground hover:bg-muted",
+          )}
           onClick={() => setDisplayCurrency("CNY")}
         >
           CNY
@@ -868,22 +871,24 @@ function CompareTab({
         <div className="flex rounded-md border border-border">
           <Button
             size="xs"
-            className={`rounded-r-none border-0 ${
+            className={cn(
+              "rounded-r-none border-0",
               mode === "workload"
                 ? "bg-primary text-primary-foreground hover:bg-primary/80"
-                : "bg-transparent text-muted-foreground hover:bg-muted"
-            }`}
+                : "bg-transparent text-muted-foreground hover:bg-muted",
+            )}
             onClick={() => setMode("workload")}
           >
             {t("tokenCalculator.compare.modeWorkload")}
           </Button>
           <Button
             size="xs"
-            className={`rounded-l-none border-0 ${
+            className={cn(
+              "rounded-l-none border-0",
               mode === "budget"
                 ? "bg-primary text-primary-foreground hover:bg-primary/80"
-                : "bg-transparent text-muted-foreground hover:bg-muted"
-            }`}
+                : "bg-transparent text-muted-foreground hover:bg-muted",
+            )}
             onClick={() => setMode("budget")}
           >
             {t("tokenCalculator.compare.modeBudget")}

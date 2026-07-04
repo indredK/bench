@@ -24,6 +24,7 @@ import type { Term, TermWebsite } from "./types";
 import { Button } from "@/components/ui/button";
 import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirmDialog";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -163,22 +164,25 @@ function TermCard({
 
   return (
     <div
-      className={`group relative flex cursor-pointer flex-col gap-2 rounded-xl border p-4 transition-all hover:shadow-md ${
-        isPinned ? "border-primary/45 shadow-sm shadow-primary/5" : "hover:border-primary/35"
-      } bg-card`}
+      className={cn(
+        "group relative flex cursor-pointer flex-col gap-2 rounded-xl border p-4 transition-all hover:shadow-md",
+        isPinned ? "border-primary/45 shadow-sm shadow-primary/5" : "hover:border-primary/35",
+        "bg-card",
+      )}
       onClick={onClick}
     >
       <div className="flex items-start justify-between gap-2">
         <span className="font-semibold text-sm text-foreground leading-snug line-clamp-1 flex-1">
           {term.title}
         </span>
-        <div className={`flex shrink-0 items-center gap-0.5 transition-all ${actionVisibility}`}>
+        <div className={cn("flex shrink-0 items-center gap-0.5 transition-all", actionVisibility)}>
           <button
-            className={`flex h-6 w-6 items-center justify-center rounded transition-colors ${
+            className={cn(
+              "flex h-6 w-6 items-center justify-center rounded transition-colors",
               isPinned
                 ? "bg-primary/10 text-primary"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
-            }`}
+                : "text-muted-foreground hover:bg-muted hover:text-foreground",
+            )}
             onClick={(e) => {
               e.stopPropagation();
               onTogglePinned();
@@ -653,9 +657,10 @@ function IndustryManager({ onClose: _onClose }: { onClose: () => void }) {
           {industries.map((ind) => (
             <div
               key={ind.id}
-              className={`group flex items-center gap-1 rounded-md px-2 py-1 cursor-pointer transition-colors text-sm ${
-                activeId === ind.id ? "bg-primary/10 text-primary" : "hover:bg-muted text-muted-foreground hover:text-foreground"
-              }`}
+              className={cn(
+                "group flex items-center gap-1 rounded-md px-2 py-1 cursor-pointer transition-colors text-sm",
+                activeId === ind.id ? "bg-primary/10 text-primary" : "hover:bg-muted text-muted-foreground hover:text-foreground",
+              )}
               onClick={() => setActiveId(ind.id)}
             >
               {editingIndId === ind.id ? (
@@ -722,9 +727,10 @@ function IndustryManager({ onClose: _onClose }: { onClose: () => void }) {
               {activeIndustry.categories.map((cat) => (
                 <div
                   key={cat.id}
-                  className={`group flex items-center gap-1 rounded-md px-2 py-1 text-sm ${
-                    activeCategoryId === cat.id ? "bg-primary/10" : "hover:bg-muted"
-                  }`}
+                  className={cn(
+                    "group flex items-center gap-1 rounded-md px-2 py-1 text-sm",
+                    activeCategoryId === cat.id ? "bg-primary/10" : "hover:bg-muted",
+                  )}
                   onClick={() => setActiveCategoryId(cat.id)}
                 >
                   {editingCatId === cat.id ? (
@@ -792,9 +798,10 @@ function IndustryManager({ onClose: _onClose }: { onClose: () => void }) {
                 return (
                   <div
                     key={subcategory.id}
-                    className={`group flex items-center gap-1 rounded-md px-2 py-1 text-sm ${
-                      isReserved ? "bg-muted/40" : "hover:bg-muted"
-                    }`}
+                    className={cn(
+                      "group flex items-center gap-1 rounded-md px-2 py-1 text-sm",
+                      isReserved ? "bg-muted/40" : "hover:bg-muted",
+                    )}
                   >
                     {editingSubcatId === subcategory.id ? (
                       <Input
@@ -986,11 +993,12 @@ export default function TerminologyPage() {
               return (
                 <button
                   key={industry.id}
-                  className={`relative w-full text-left px-3 py-2 rounded-lg text-[13px] transition-all truncate ${
+                  className={cn(
+                    "relative w-full text-left px-3 py-2 rounded-lg text-[13px] transition-all truncate",
                     active
                       ? "bg-primary/10 text-primary font-medium"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
-                  }`}
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/60",
+                  )}
                   onClick={() => setIndustry(industry.id)}
                 >
                   {active && (
@@ -1011,11 +1019,12 @@ export default function TerminologyPage() {
           <div className="min-w-0 space-y-2">
             <div className="flex flex-wrap items-center gap-1.5">
               <button
-                className={`px-2.5 py-1 rounded-full text-xs transition-colors ${
+                className={cn(
+                  "px-2.5 py-1 rounded-full text-xs transition-colors",
                   !selectedCategoryId
                     ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground hover:text-foreground"
-                }`}
+                    : "bg-muted text-muted-foreground hover:text-foreground",
+                )}
                 onClick={() => setCategory("")}
               >
                 {t("terminology.all")}
@@ -1023,11 +1032,12 @@ export default function TerminologyPage() {
               {currentIndustry?.categories.map((cat) => (
                 <button
                   key={cat.id}
-                  className={`px-2.5 py-1 rounded-full text-xs transition-colors ${
+                  className={cn(
+                    "px-2.5 py-1 rounded-full text-xs transition-colors",
                     selectedCategoryId === cat.id
                       ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground hover:text-foreground"
-                  }`}
+                      : "bg-muted text-muted-foreground hover:text-foreground",
+                  )}
                   onClick={() => setCategory(cat.id)}
                 >
                   {cat.label}
@@ -1038,11 +1048,12 @@ export default function TerminologyPage() {
             {currentCategory?.subcategories.length ? (
               <div className="flex flex-wrap items-center gap-1.5">
                 <button
-                  className={`px-2.5 py-1 rounded-full text-xs transition-colors ${
+                  className={cn(
+                    "px-2.5 py-1 rounded-full text-xs transition-colors",
                     !selectedSubcategoryId
                       ? "bg-primary/10 text-primary"
-                      : "bg-muted text-muted-foreground hover:text-foreground"
-                  }`}
+                      : "bg-muted text-muted-foreground hover:text-foreground",
+                  )}
                   onClick={() => setSubcategory("")}
                 >
                   {t("terminology.allSubcategories")}
@@ -1050,11 +1061,12 @@ export default function TerminologyPage() {
                 {currentCategory.subcategories.map((subcategory) => (
                   <button
                     key={subcategory.id}
-                    className={`px-2.5 py-1 rounded-full text-xs transition-colors ${
+                    className={cn(
+                      "px-2.5 py-1 rounded-full text-xs transition-colors",
                       selectedSubcategoryId === subcategory.id
                         ? "bg-primary/10 text-primary"
-                        : "bg-muted text-muted-foreground hover:text-foreground"
-                    }`}
+                        : "bg-muted text-muted-foreground hover:text-foreground",
+                    )}
                     onClick={() => setSubcategory(subcategory.id)}
                   >
                     {subcategory.label}

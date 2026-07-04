@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import type { AppInfo, InstallListAppInfo } from "@/lib/tauri/types";
 import { APP_CATEGORIES, classifyApp, type AppCategoryKey } from "./app-categories";
 import { APP_SERIES, classifySeries, type AppSeriesKey } from "./app-series";
+import { cn } from "@/lib/utils";
 
 type FilterMode = "category" | "series";
 
@@ -88,22 +89,24 @@ export function CategoryFilter({
       <div className="flex items-center gap-1.5 mb-1">
         <button
           onClick={() => switchTo("category")}
-          className={`text-[11px] px-2.5 py-1 rounded-md transition-colors ${
+          className={cn(
+            "text-[11px] px-2.5 py-1 rounded-md transition-colors",
             mode === "category"
               ? "bg-primary text-primary-foreground font-medium"
-              : "text-muted-foreground hover:text-foreground hover:bg-accent"
-          }`}
+              : "text-muted-foreground hover:text-foreground hover:bg-accent",
+          )}
         >
           {t("appManager.filterTabCategory")}
         </button>
         <span className="text-muted-foreground/50 text-xs select-none">|</span>
         <button
           onClick={() => switchTo("series")}
-          className={`text-[11px] px-2.5 py-1 rounded-md transition-colors ${
+          className={cn(
+            "text-[11px] px-2.5 py-1 rounded-md transition-colors",
             mode === "series"
               ? "bg-primary text-primary-foreground font-medium"
-              : "text-muted-foreground hover:text-foreground hover:bg-accent"
-          }`}
+              : "text-muted-foreground hover:text-foreground hover:bg-accent",
+          )}
         >
           {t("appManager.filterTabSeries")}
         </button>

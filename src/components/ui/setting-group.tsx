@@ -3,6 +3,7 @@
  */
 import type { ReactNode } from "react";
 import { ExternalLink } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface SettingGroupProps {
   title: string;
@@ -13,11 +14,12 @@ interface SettingGroupProps {
 
 export function SettingGroup({ title, children, className, onTitleClick }: SettingGroupProps) {
   return (
-    <div className={`space-y-1 ${className ?? ""}`}>
+    <div className={cn("space-y-1", className)}>
       <h3
-        className={`text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5 ${
-          onTitleClick ? "cursor-pointer hover:text-foreground transition-colors" : ""
-        }`}
+        className={cn(
+          "text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5",
+          onTitleClick && "cursor-pointer hover:text-foreground transition-colors",
+        )}
         onClick={onTitleClick}
       >
         {title}

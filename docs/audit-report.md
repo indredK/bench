@@ -73,15 +73,15 @@
 > 规范 §6 强制："基础组件优先复用 shadcn/ui + Lucide 图标。类名拼接统一 `cn()`。"
 > 全仓 `className={`...${var}...`}` 模板字符串拼接检出 33 处，主要分布在：
 
-- [违反 §6] `src/components/common/UpdateDialog.tsx:446`、`:532` — 改用 `cn("size-4 shrink-0 transition-transform", showErrorDetails && "rotate-180")` — **强制**
-- [违反 §6] `src/components/layout/Sidebar.tsx:61`、`:85` — 改用 `cn("ml-6 mr-2 flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm leading-relaxed transition", isActive && "...")` — **强制**
-- [违反 §6] `src/components/ui/setting-group.tsx:16`、`:18` — 基础 UI 组件本身更应严格使用 `cn()` — **强制**
-- [违反 §6] `src/features/token-calculator/page.tsx:169`、`:180`、`:871`、`:882` — 数组拼接 className，改用 `cn(...)` — **强制**
+- [违反 §6] `src/components/common/UpdateDialog.tsx:446`、`:532` — 改用 `cn("size-4 shrink-0 transition-transform", showErrorDetails && "rotate-180")` — **强制** ✅ 已修复
+- [违反 §6] `src/components/layout/Sidebar.tsx:61`、`:85` — 改用 `cn("ml-6 mr-2 flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm leading-relaxed transition", isActive && "...")` — **强制** ✅ 已修复
+- [违反 §6] `src/components/ui/setting-group.tsx:16`、`:18` — 基础 UI 组件本身更应严格使用 `cn()` — **强制** ✅ 已修复
+- [违反 §6] `src/features/token-calculator/page.tsx:169`、`:180`、`:871`、`:882` — 数组拼接 className，改用 `cn(...)` — **强制** ✅ 已修复
 - [违反 §6] `src/features/quick-launch/page.tsx:111`、`:700`、`:794` — 同上 — **强制** ✅ 已修复
 - [违反 §6] `src/features/system-settings/page.tsx:585`、`src/features/dev-toolbox/page.tsx:231` — Tab 按钮样式条件拼接，改用 `cn()` — **强制** ✅ 已修复（system-settings + dev-toolbox）
 - [违反 §6] `src/features/dev-cleaner/components/CustomCleanupDialog.tsx:330`、`:401`、`:448`、`src/features/dev-cleaner/components/DevCleanerPageContent.tsx:210` — 同上 — **强制** ✅ 已修复
-- [违反 §6] `src/features/app-manager/CategoryFilter.tsx:91`、`:102` — 同上 — **强制**
-- [违反 §6] `src/features/terminology/page.tsx:166`、`:175`、`:177`、`:656`、`:725`、`:795`、`:989`、`:1014`、`:1026`、`:1041`、`:1053` — 11 处模板拼接，量大且集中 — 同上 — **强制**
+- [违反 §6] `src/features/app-manager/CategoryFilter.tsx:91`、`:102` — 同上 — **强制** ✅ 已修复
+- [违反 §6] `src/features/terminology/page.tsx:166`、`:175`、`:177`、`:656`、`:725`、`:795`、`:989`、`:1014`、`:1026`、`:1041`、`:1053` — 11 处模板拼接，量大且集中 — 同上 — **强制** ✅ 已修复
 - [违反 §6] `src/features/system-settings/components/SettingToggle.tsx:29` — 同上 — **强制** ✅ 已修复
 
 ### 2.3 大列表虚拟化 — 通过
