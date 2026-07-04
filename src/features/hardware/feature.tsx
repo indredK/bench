@@ -1,15 +1,19 @@
-/**
- * Feature Descriptor / 功能描述: expose route metadata; 只暴露路由元数据.
- */
+import { lazy, Suspense } from "react";
 import { Cpu } from "lucide-react";
-import HardwareComparePage from "@/features/hardware/page";
+import { FeatureFallback } from "@/features/FeatureFallback";
 import type { AppFeature } from "@/features/types";
+
+const HardwareComparePage = lazy(() => import("@/features/hardware/page"));
 
 export const hardwareFeature: AppFeature = {
   id: "hardware",
   path: "/hardware",
   labelKey: "sidebar.hardwareQuery",
   icon: <Cpu size={18} />,
-  render: () => <HardwareComparePage />,
+  render: () => (
+    <Suspense fallback={<FeatureFallback />}>
+      <HardwareComparePage />
+    </Suspense>
+  ),
   platforms: ["macos"],
 };

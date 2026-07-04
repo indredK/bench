@@ -1,15 +1,19 @@
-/**
- * Feature Descriptor / 功能描述: expose route metadata; 只暴露路由元数据.
- */
+import { lazy, Suspense } from "react";
 import { Zap } from "lucide-react";
-import PortManager from "@/features/port-manager/page";
+import { FeatureFallback } from "@/features/FeatureFallback";
 import type { AppFeature } from "@/features/types";
+
+const PortManager = lazy(() => import("@/features/port-manager/page"));
 
 export const portManagerFeature: AppFeature = {
   id: "port-manager",
   path: "/",
   labelKey: "sidebar.portManager",
   icon: <Zap size={18} />,
-  render: (feature) => <PortManager feature={feature} />,
+  render: (feature) => (
+    <Suspense fallback={<FeatureFallback />}>
+      <PortManager feature={feature} />
+    </Suspense>
+  ),
   desktopOnly: true,
 };

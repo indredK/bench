@@ -1,15 +1,19 @@
-/**
- * Feature Descriptor / 功能描述: expose route metadata; 只暴露路由元数据.
- */
+import { lazy, Suspense } from "react";
 import { Trash2 } from "lucide-react";
-import DevCleaner from "@/features/dev-cleaner/page";
+import { FeatureFallback } from "@/features/FeatureFallback";
 import type { AppFeature } from "@/features/types";
+
+const DevCleaner = lazy(() => import("@/features/dev-cleaner/page"));
 
 export const devCleanerFeature: AppFeature = {
   id: "dev-cleaner",
   path: "/dev-cleaner",
   labelKey: "sidebar.devCleaner",
   icon: <Trash2 size={18} />,
-  render: (feature) => <DevCleaner feature={feature} />,
+  render: (feature) => (
+    <Suspense fallback={<FeatureFallback />}>
+      <DevCleaner feature={feature} />
+    </Suspense>
+  ),
   desktopOnly: true,
 };

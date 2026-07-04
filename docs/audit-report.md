@@ -96,7 +96,7 @@
 ### 2.5 代码分割 — 违规
 
 - [违反 §6] `src/features/dev-toolbox/page.tsx:19-22` — 静态 `import PortManager / DevCleaner / EnvDetector / TokenCalculatorPage`，4 个子功能同步打包进 dev-toolbox chunk — 改为 `lazy(() => import("@/features/port-manager/page"))` 并在 tab 切换时按需挂载 — **强制** ✅ 已修复：4 个子页改 `lazy()` + `<Suspense>` 包裹；同时修复 `typeof err === "string"` → `getErrorMessage(err, "Failed to load")` (行 68, §5.3 同模块类似问题)
-- [违反 §6] `src/features/registry.tsx:8-18` + `src/App.tsx:60-64` — 所有 11 个 feature 描述符及其 page 通过静态 import 引入，`appFeatures.map` 渲染 `<Route>`，意味着首屏加载即拉取全部 feature 代码 — 建议把 `AppFeature.render` 改为 `lazyComponent: ReactNode` 工厂，在 `<Route>` 内用 `<Suspense>` 包裹 — **强制**
+- [违反 §6] `src/features/registry.tsx:8-18` + `src/App.tsx:60-64` — 所有 11 个 feature 描述符及其 page 通过静态 import 引入，`appFeatures.map` 渲染 `<Route>`，意味着首屏加载即拉取全部 feature 代码 — 建议把 `AppFeature.render` 改为 `lazyComponent: ReactNode` 工厂，在 `<Route>` 内用 `<Suspense>` 包裹 — **强制** ✅ 已修复：11 个 feature.tsx 的 page 静态 import 改为 `lazy(() => import(...))`，render 函数内用 `<Suspense fallback={<FeatureFallback />}>` 包裹；新增 `src/features/FeatureFallback.tsx` 共享加载态组件
 
 ### 2.6 共享 store 作用域 — 通过
 

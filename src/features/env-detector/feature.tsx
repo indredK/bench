@@ -1,15 +1,19 @@
-/**
- * Feature Descriptor / 功能描述: expose route metadata; 只暴露路由元数据.
- */
+import { lazy, Suspense } from "react";
 import { Box } from "lucide-react";
-import EnvDetector from "@/features/env-detector/page";
+import { FeatureFallback } from "@/features/FeatureFallback";
 import type { AppFeature } from "@/features/types";
+
+const EnvDetector = lazy(() => import("@/features/env-detector/page"));
 
 export const envDetectorFeature: AppFeature = {
   id: "env-detector",
   path: "/env-detector",
   labelKey: "sidebar.envDetector",
   icon: <Box size={18} />,
-  render: (feature) => <EnvDetector active feature={feature} />,
+  render: (feature) => (
+    <Suspense fallback={<FeatureFallback />}>
+      <EnvDetector active feature={feature} />
+    </Suspense>
+  ),
   desktopOnly: true,
 };

@@ -1,15 +1,19 @@
-/**
- * Feature Descriptor / 功能描述: expose route metadata; 只暴露路由元数据.
- */
+import { lazy, Suspense } from "react";
 import { AppWindow } from "lucide-react";
-import AppManager from "@/features/app-manager/page";
+import { FeatureFallback } from "@/features/FeatureFallback";
 import type { AppFeature } from "@/features/types";
+
+const AppManager = lazy(() => import("@/features/app-manager/page"));
 
 export const appManagerFeature: AppFeature = {
   id: "app-manager",
   path: "/app-manager",
   labelKey: "sidebar.appManager",
   icon: <AppWindow size={18} />,
-  render: (feature) => <AppManager active feature={feature} />,
+  render: (feature) => (
+    <Suspense fallback={<FeatureFallback />}>
+      <AppManager active feature={feature} />
+    </Suspense>
+  ),
   desktopOnly: true,
 };

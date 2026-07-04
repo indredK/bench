@@ -1,15 +1,19 @@
-/**
- * Feature Descriptor / 功能描述: Dev Toolbox — 从旧 SystemSettings 中移出的 DevTools/Diagnostics/Info.
- */
+import { lazy, Suspense } from "react";
 import { Wrench } from "lucide-react";
-import DevToolbox from "@/features/dev-toolbox/page";
+import { FeatureFallback } from "@/features/FeatureFallback";
 import type { AppFeature } from "@/features/types";
+
+const DevToolbox = lazy(() => import("@/features/dev-toolbox/page"));
 
 export const devToolboxFeature: AppFeature = {
   id: "dev-toolbox",
   path: "/dev-toolbox",
   labelKey: "devToolbox.title",
   icon: <Wrench size={18} />,
-  render: (feature) => <DevToolbox feature={feature} />,
+  render: (feature) => (
+    <Suspense fallback={<FeatureFallback />}>
+      <DevToolbox feature={feature} />
+    </Suspense>
+  ),
   desktopOnly: false,
 };
