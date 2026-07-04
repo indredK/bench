@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.18.0](https://github.com/indredK/bench/compare/v1.17.3...v1.18.0) (2026-07-04)
+
+
+### Features
+
+* **app-manager:** add app scan progress tracking and optimize icon loading ([751b5c7](https://github.com/indredK/bench/commit/751b5c792b4ae6610da38decce080eb699dbeae8))
+* **quick-launch:** 新增进入页面自动触发首次扫描的逻辑 ([c8265ff](https://github.com/indredK/bench/commit/c8265ff28f57e9cded10f561ea2d39f2ead26c8c))
+* 交付v1.18核心功能：站点代理、端口远程检测与告警、系统设置增强 ([ab7f3f4](https://github.com/indredK/bench/commit/ab7f3f4242682cae731de39fafb85ac84bb2cbed))
+
 ## [1.17.3](https://github.com/indredK/bench/compare/v1.17.2...v1.17.3) (2026-07-03)
 
 
