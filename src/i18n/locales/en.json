@@ -2353,5 +2353,17 @@
     },
     "showMore": "+{{count}} more",
     "exportOverridesTooltip": "Developer tool: Export full classification data for rule optimization"
+  },
+  "closeBehavior": {
+    "title": "Close Behavior",
+    "description": "Choose what happens when you close the window",
+    "minimizeToTray": "Minimize to Tray",
+    "minimizeToTrayDesc": "Keep running in the background",
+    "quit": "Quit",
+    "quitDesc": "Exit the application completely",
+    "alwaysAsk": "Always Ask",
+    "alwaysAskDesc": "Show a dialog each time",
+    "remember": "Remember my choice",
+    "confirm": "Confirm"
   }
 }

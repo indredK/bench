@@ -4,6 +4,7 @@
 export * from "./account-manager";
 export * from "./app";
 export * from "./app-manager";
+export * from "./app-preferences";
 export * from "./bootstrap";
 export * from "./dev-cleaner";
 export * from "./env-detector";

@@ -1,5 +1,6 @@
 mod account_manager;
 mod app_manager;
+mod app_preferences;
 mod app_updater;
 mod bootstrap;
 mod commands;
@@ -25,6 +26,7 @@ use token_calculator::TokenCalculatorState;
 use terminology::state::TerminologyState;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use tauri::Emitter;
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -53,6 +55,41 @@ pub fn run() {
         .setup(|app| {
             menu::setup_menu(app)?;
             tray::setup_tray(app)?;
+
+            // 关闭按钮行为: 拦截 window close, 根据偏好决定 minimize_to_tray 或 quit
+            if let Some(main_window) = app.get_webview_window("main") {
+                let app_handle = app.handle().clone();
+                let win = main_window.clone();
+                win.clone().on_window_event(move |event| {
+                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                        let behavior = app_preferences::storage::get_close_behavior(&app_handle)
+                            .unwrap_or_else(|_| app_preferences::storage::BEHAVIOR_MINIMIZE_TO_TRAY.to_string());
+                        if behavior == app_preferences::storage::BEHAVIOR_ALWAYS_ASK {
+                            // 每次提醒: 阻止关闭, 弹出选择对话框
+                            api.prevent_close();
+                            let _ = win.emit("show-close-behavior-dialog", ());
+                            return;
+                        }
+                        let has_pref = app_preferences::storage::has_close_behavior(&app_handle)
+                            .unwrap_or(false);
+                        if !has_pref {
+                            // 首次关闭: 阻止关闭, 通知前端弹出选择对话框
+                            api.prevent_close();
+                            let _ = win.emit("show-close-behavior-dialog", ());
+                            return;
+                        }
+                        match behavior.as_str() {
+                            app_preferences::storage::BEHAVIOR_QUIT => {
+                                // 允许窗口正常关闭, ExitRequested 会处理 session 持久化
+                            }
+                            _ => {
+                                api.prevent_close();
+                                let _ = win.hide();
+                            }
+                        }
+                    }
+                });
+            }
 
             // 外部登录代理: best-effort 运行时注册 bench-auth:// scheme。
             // macOS 打包后由 Info.plist(CFBundleURLTypes) 注册；此调用主要服务于

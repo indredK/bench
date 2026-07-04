@@ -9,6 +9,7 @@ interface AppWindow {
   toggleMaximize: () => Promise<void>;
   close: () => Promise<void>;
   show: () => Promise<void>;
+  hide: () => Promise<void>;
   setFocus: () => Promise<void>;
   startDragging: () => Promise<void>;
   setAlwaysOnTop: (onTop: boolean) => Promise<void>;

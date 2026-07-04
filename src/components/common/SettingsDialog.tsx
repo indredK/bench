@@ -28,6 +28,7 @@ import { useWindowTheme } from "@/hooks/useWindowTheme";
 import { WINDOW_THEMES } from "@/lib/windowTheme";
 import { getAutostartStatus, setAutostart } from "@/lib/tauri/commands/system-settings";
 import { setTrayLabels } from "@/lib/tauri/commands";
+import { getCloseBehavior, setCloseBehavior } from "@/lib/tauri/commands/app-preferences";
 import { getErrorMessage } from "@/lib/tauri/errors";
 
 const THEME_ORDER = ["system", "light", "dark"] as const;
@@ -85,6 +86,16 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
   const [autostartEnabled, setAutostartEnabled] = useState(false);
   const [autostartLoading, setAutostartLoading] = useState(false);
+  const [closeBehaviorValue, setCloseBehaviorValue] = useState("minimize_to_tray");
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    getCloseBehavior().then((v) => {
+      if (!cancelled) setCloseBehaviorValue(v);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -199,6 +210,35 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                   </TooltipProvider>
                 );
               })}
+            </div>
+          </div>
+
+          <div>
+            <h4 className="mb-2 text-sm font-medium">{t("closeBehavior.title")}</h4>
+            <div className="flex flex-wrap gap-2">
+              {(["minimize_to_tray", "quit", "always_ask"] as const).map((behavior) => (
+                <Button
+                  key={behavior}
+                  variant={closeBehaviorValue === behavior ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    setCloseBehaviorValue(behavior);
+                    void setCloseBehavior(behavior);
+                  }}
+                  className="gap-1.5"
+                >
+                  {closeBehaviorValue === behavior && <Check className="size-3.5" />}
+                  {t(
+                    `closeBehavior.${
+                      behavior === "minimize_to_tray"
+                        ? "minimizeToTray"
+                        : behavior === "quit"
+                          ? "quit"
+                          : "alwaysAsk"
+                    }`
+                  )}
+                </Button>
+              ))}
             </div>
           </div>
 

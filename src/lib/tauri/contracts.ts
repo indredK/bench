@@ -392,6 +392,11 @@ export const TAURI_COMMAND_CONTRACTS = {
   write_text_file: defineTauriCommand<{ path: string; content: string }, void>()("write_text_file"),
   // tray
   set_tray_labels: defineTauriCommand<{ show: string; sleep: string; autostart: string; quit: string }, void>()("set_tray_labels"),
+  // app preferences
+  get_close_behavior: defineTauriCommand<undefined, string>()("get_close_behavior"),
+  set_close_behavior: defineTauriCommand<{ behavior: string }, void>()("set_close_behavior"),
+  quit_app: defineTauriCommand<undefined, void>()("quit_app"),
+  hide_main_window: defineTauriCommand<undefined, void>()("hide_main_window"),
 } as const;
 
 export type TauriCommandName = keyof typeof TAURI_COMMAND_CONTRACTS;
@@ -614,6 +619,12 @@ export const TAURI_COMMANDS = {
   tray: {
     setTrayLabels: commandName("set_tray_labels"),
   },
+  appPreferences: {
+    getCloseBehavior: commandName("get_close_behavior"),
+    setCloseBehavior: commandName("set_close_behavior"),
+    quitApp: commandName("quit_app"),
+    hideMainWindow: commandName("hide_main_window"),
+  },
 } as const;
 
 type FlattenCommandGroups<T> = {
@@ -814,6 +825,11 @@ export const TAURI_COMMAND_ARG_KEYS = {
   write_text_file: ["path", "content"],
   // tray
   set_tray_labels: ["show", "sleep", "autostart", "quit"],
+  // app preferences
+  get_close_behavior: [],
+  set_close_behavior: ["behavior"],
+  quit_app: [],
+  hide_main_window: [],
 } as const satisfies TauriCommandArgKeys;
 
 export const WINDOW_BOOTSTRAP_EVENTS = {
@@ -838,6 +854,9 @@ export const TAURI_EVENTS = {
     progress: "custom-cleanup:progress",
     completed: "custom-cleanup:completed",
   },
+  appPreferences: {
+    showCloseBehaviorDialog: "show-close-behavior-dialog",
+  },
 } as const;
 
 export interface TauriEventContracts {
@@ -848,4 +867,5 @@ export interface TauriEventContracts {
   "app-update-install:finished": InstallFinishedEvent;
   "custom-cleanup:progress": CustomCleanupProgress;
   "custom-cleanup:completed": CustomCleanupFinalResult;
+  "show-close-behavior-dialog": void;
 }

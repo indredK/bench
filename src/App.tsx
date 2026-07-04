@@ -14,6 +14,7 @@ import { useDefaultContextMenu } from "@/shared/context-menu/useContextMenuRegis
 import type { ContextMenuConfig } from "@/shared/context-menu/types";
 import { useMenuEvent, useInitMenuEvents } from "@/hooks/useMenuEvents";
 import { AboutDialog } from "@/components/common/AboutDialog";
+import { CloseBehaviorDialog } from "@/components/common/CloseBehaviorDialog";
 import { SettingsDialog } from "@/components/common/SettingsDialog";
 import { StartupIssuesAlert } from "@/components/common/StartupIssuesAlert";
 import { UpdateDialog } from "@/components/common/UpdateDialog";
@@ -23,8 +24,8 @@ import { requestFeatureRefresh } from "@/features/refresh";
 import { useUpdaterController } from "@/features/updater/hooks/useUpdaterController";
 import { listStartupIssues, markMainReady } from "@/lib/tauri/commands/bootstrap";
 import { restartApp, setTrayLabels } from "@/lib/tauri/commands";
-import { WINDOW_BOOTSTRAP_EVENTS } from "@/lib/tauri/contracts";
-import { emitPlatformEventTo } from "@/platform/events";
+import { TAURI_EVENTS, WINDOW_BOOTSTRAP_EVENTS } from "@/lib/tauri/contracts";
+import { emitPlatformEventTo, listenToPlatformEvent } from "@/platform/events";
 import { canUseTauriCommands } from "@/platform/capabilities";
 import { canUseWindowControls } from "@/platform/window";
 import { useWindowTheme } from "@/hooks/useWindowTheme";
@@ -73,6 +74,7 @@ function App() {
 
   const [aboutOpen, setAboutOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [closeBehaviorOpen, setCloseBehaviorOpen] = useState(false);
   const [startupIssues, setStartupIssues] = useState<StartupIssue[]>([]);
 
   useEffect(() => {
@@ -101,6 +103,14 @@ function App() {
       quit: t("tray.quit"),
     });
   }, [t]);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    listenToPlatformEvent(TAURI_EVENTS.appPreferences.showCloseBehaviorDialog, () => {
+      setCloseBehaviorOpen(true);
+    }).then((fn) => { unlisten = fn; });
+    return () => { unlisten?.(); };
+  }, []);
 
   const handleRefresh = useCallback(async () => {
     const currentPath = window.location.hash.replace(/^#/, "") || "/";
@@ -176,6 +186,11 @@ function App() {
       <SettingsDialog
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
+      />
+
+      <CloseBehaviorDialog
+        open={closeBehaviorOpen}
+        onOpenChange={setCloseBehaviorOpen}
       />
 
       <UpdateDialog {...updater} />

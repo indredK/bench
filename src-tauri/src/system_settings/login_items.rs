@@ -77,25 +77,37 @@ pub async fn get_launch_daemons() -> Result<Vec<super::types::LaunchService>, St
 }
 
 /// Resolve the running app's `.app` bundle path from the executable path.
-/// Returns Err in dev mode (no `.app` bundle) or non-macOS.
+/// Falls back to the executable path in dev mode (no `.app` bundle).
 #[cfg(target_os = "macos")]
 fn resolve_app_bundle_path() -> Result<String, String> {
     let exe = std::env::current_exe().map_err(|e| format!("current_exe: {}", e))?;
     let mut path = exe.as_path();
     while path.extension().and_then(|e| e.to_str()) != Some("app") {
-        path = path.parent().ok_or("Could not locate .app bundle (running in dev mode?)")?;
+        match path.parent() {
+            Some(p) => path = p,
+            None => return Ok(exe.to_string_lossy().to_string()),
+        }
     }
     Ok(path.to_string_lossy().to_string())
 }
 
 /// Extract the bundle display name from a `.app` path (e.g. "Bench" from "/Applications/Bench.app").
+/// In dev mode, uses the executable name (capitalized for consistency with production).
 #[cfg(target_os = "macos")]
 fn bundle_name_from_path(path: &str) -> String {
-    std::path::Path::new(path)
+    let name = std::path::Path::new(path)
         .file_stem()
         .and_then(|s| s.to_str())
-        .unwrap_or("Bench")
-        .to_string()
+        .unwrap_or("Bench");
+    // capitalize first letter so dev-mode "bench" → "Bench"
+    let mut chars = name.chars();
+    match chars.next() {
+        Some(c) => {
+            let rest: String = chars.collect();
+            c.to_uppercase().to_string() + &rest
+        }
+        None => "Bench".to_string(),
+    }
 }
 
 #[cfg(target_os = "windows")]

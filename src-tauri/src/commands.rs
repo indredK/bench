@@ -182,6 +182,11 @@ macro_rules! app_invoke_handler {
             $crate::file_ops::write_text_file,
             // tray
             $crate::tray::set_tray_labels,
+            // app preferences
+            $crate::app_preferences::commands::get_close_behavior,
+            $crate::app_preferences::commands::set_close_behavior,
+            $crate::app_preferences::commands::quit_app,
+            $crate::app_preferences::commands::hide_main_window,
         ]
     };
 }
