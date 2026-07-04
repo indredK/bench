@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -15,7 +15,6 @@ import { useGuardedAsync } from "@/hooks/useGuardedAsync";
 import { cn } from "@/lib/utils";
 
 import {
-  listPricingStandards,
   createPricingStandard,
   updatePricingStandard,
   deletePricingStandard,
@@ -49,7 +48,6 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  DEFAULT_EXCHANGE_RATE,
   RATIO_PRESETS,
   convertPrice,
   displayPrice,
@@ -60,16 +58,12 @@ import {
   getTokenUnits,
   hasCachePricing,
   mixedPricePerMillionTokens,
-  normalizeExchangeRate,
   parseNonNegativeInteger,
   parseNonNegativeNumber,
   type DisplayCurrency,
   type TranslateFn,
 } from "@/features/token-calculator/model/pricing";
-import {
-  fetchUsdCnyExchangeRate,
-  type ExchangeRateInfo,
-} from "@/features/token-calculator/services/exchange-rate";
+import { useTokenCalculatorController } from "@/features/token-calculator/hooks/useTokenCalculatorController";
 
 // ─── Empty model row ────────────────────────────────────────────────
 const EMPTY_MODEL: ModelPricing = {
@@ -84,63 +78,22 @@ const EMPTY_MODEL: ModelPricing = {
 // ─── Main Page ──────────────────────────────────────────────────────
 export default function TokenCalculatorPage() {
   const { t } = useTranslation();
-  const [standards, setStandards] = useState<PricingStandard[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState("standards");
-
-  // Currency display toggle
-  const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>("USD");
-  const [exchangeRate, setExchangeRate] = useState(DEFAULT_EXCHANGE_RATE);
-  const [rateInfo, setRateInfo] = useState<ExchangeRateInfo | null>(null);
-  const [rateLoading, setRateLoading] = useState(false);
-  const { run: runRateRefresh } = useGuardedAsync();
-
-  const refreshExchangeRate = useCallback(async (forceRefresh?: boolean) => {
-    await runRateRefresh(async () => {
-      setRateLoading(true);
-      try {
-        const info = await fetchUsdCnyExchangeRate({ forceRefresh });
-        setRateInfo(info);
-        setExchangeRate(info.rate);
-        if (forceRefresh && !info.stale) {
-          toast.success(t("tokenCalculator.exchangeRateUpdated"));
-        }
-      } catch {
-        toast.error(t("tokenCalculator.exchangeRateFetchFailed"));
-      } finally {
-        setRateLoading(false);
-      }
-    });
-  }, [runRateRefresh, t]);
-
-  useEffect(() => {
-    void refreshExchangeRate();
-  }, [refreshExchangeRate]);
-
-  const loadStandards = useCallback(async () => {
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const data = await listPricingStandards();
-      setStandards(data);
-    } catch (error) {
-      const message =
-        typeof error === "object" &&
-        error !== null &&
-        "message" in error &&
-        typeof (error as { message?: unknown }).message === "string"
-          ? ((error as { message: string }).message || t("tokenCalculator.toasts.loadFailed"))
-          : t("tokenCalculator.toasts.loadFailed");
-      setLoadError(message);
-    } finally {
-      setLoading(false);
-    }
-  }, [t]);
-
-  useEffect(() => {
-    void loadStandards();
-  }, [loadStandards]);
+  const {
+    standards,
+    loading,
+    loadError,
+    activeTab,
+    setActiveTab,
+    displayCurrency,
+    setDisplayCurrency,
+    exchangeRate,
+    setExchangeRate,
+    rateInfo,
+    rateLoading,
+    refreshExchangeRate,
+    loadStandards,
+    normalizeExchangeRate,
+  } = useTokenCalculatorController();
 
   if (loading) {
     return (
