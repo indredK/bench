@@ -546,17 +546,17 @@ pub fn reorder_accounts<R: Runtime>(
         let mut next: Vec<StationAccount> = Vec::with_capacity(snapshot.accounts.len());
         for original in &snapshot.accounts {
             if original.station_id == station_id {
-                next.push(
-                    mine_iter
-                        .next()
-                        .expect("reorder_by_ids returns same-length vec"),
-                );
+                let item = mine_iter.next().ok_or_else(|| {
+                    AccountManagerError::store_fail(
+                        "reorder_by_ids returned fewer items than expected",
+                    )
+                })?;
+                next.push(item);
             } else {
-                next.push(
-                    others_iter
-                        .next()
-                        .expect("partition preserved this element"),
-                );
+                let item = others_iter.next().ok_or_else(|| {
+                    AccountManagerError::store_fail("partition preserved this element")
+                })?;
+                next.push(item);
             }
         }
         snapshot.accounts = next;
@@ -1281,12 +1281,13 @@ pub fn set_account_proxy_enabled<R: Runtime>(
                 .retain(|b| b.account_id != account_id);
         }
 
-        Ok(snapshot
+        let updated = snapshot
             .accounts
             .iter()
             .find(|a| a.id == account_id)
             .cloned()
-            .expect("account exists"))
+            .ok_or_else(|| AccountManagerError::not_found(format!("account {account_id}")))?;
+        Ok(updated)
     })?;
 
     crate::account_manager::proxy::protocol::audit_log(

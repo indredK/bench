@@ -181,8 +181,8 @@
 
 ### 5.2 错误边界 — 违规
 
-- [违反 §7.2] `src-tauri/src/account_manager/commands.rs:1289` — IPC 命令 `set_account_proxy_enabled` 路径上使用 `.expect("account exists")`；前面 1273 行已用 `ok_or_else(|| AccountManagerError::not_found(...))?` 做了 `find` 的失败处理，1287 行的 `.find(...).cloned()` 在已确认存在的账号上调用，理论上不会 panic，但 IPC 路径禁用 `.expect()` — 改为 `ok_or_else(|| AccountManagerError::not_found(...))?` 与上游保持一致 — **强制**
-- [违反 §7.2] `src-tauri/src/account_manager/commands.rs:552`、`:558` — IPC 命令 `reorder_stations`（或同类排序命令）中使用 `.expect("reorder_by_ids returns same-length vec")` / `.expect("partition preserved this element")` — 同上，应返回 `AppResult` 或在 `reorder_by_ids` 内部用 `?` 传播错误 — **强制**
+- [违反 §7.2] `src-tauri/src/account_manager/commands.rs:1289` — IPC 命令 `set_account_proxy_enabled` 路径上使用 `.expect("account exists")`；前面 1273 行已用 `ok_or_else(|| AccountManagerError::not_found(...))?` 做了 `find` 的失败处理，1287 行的 `.find(...).cloned()` 在已确认存在的账号上调用，理论上不会 panic，但 IPC 路径禁用 `.expect()` — 改为 `ok_or_else(|| AccountManagerError::not_found(...))?` 与上游保持一致 — **强制** ✅ 已修复
+- [违反 §7.2] `src-tauri/src/account_manager/commands.rs:552`、`:558` — IPC 命令 `reorder_stations`（或同类排序命令）中使用 `.expect("reorder_by_ids returns same-length vec")` / `.expect("partition preserved this element")` — 同上，应返回 `AppResult` 或在 `reorder_by_ids` 内部用 `?` 传播错误 — **强制** ✅ 已修复（改用 `ok_or_else(|| AccountManagerError::store_fail(...))?`）
 - 注：`src-tauri/src/lib.rs:179` `.expect("error while building tauri application")` 在 `tauri::Builder` 启动链路上，启动失败本身无法降级，符合"启动期配置读取失败须显式传播"的兜底语义，不计违规。
 
 ### 5.3 前端错误解析 — 违规
