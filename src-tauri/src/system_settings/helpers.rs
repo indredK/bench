@@ -1,3 +1,4 @@
+#[cfg(target_os = "macos")]
 use std::process::Command;
 
 /// Run a shell command synchronously (blocking). Use only inside spawn_blocking.

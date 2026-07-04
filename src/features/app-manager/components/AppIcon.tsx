@@ -2,7 +2,6 @@
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  */
 import { useEffect, useState } from "react";
-import { AppWindow } from "lucide-react";
 import { appManagerUseCases } from "@/features/app-manager/services/app-manager.use-cases";
 import { canUseDesktopFeatures } from "@/platform/capabilities";
 
@@ -89,34 +88,45 @@ function loadIcon(installPath: string) {
   return queued;
 }
 
+export function preloadAppIcons(apps: { installPath?: string }[]) {
+  for (const app of apps) {
+    if (app.installPath) {
+      loadIcon(app.installPath);
+    }
+  }
+}
+
 export function AppIcon({ iconBase64, installPath, size = 24, className }: AppIconProps) {
-  const [loadedIcon, setLoadedIcon] = useState(() =>
-    installPath ? readIcon(installPath) ?? null : null
+  const [loadedIcon, setLoadedIcon] = useState<string | undefined>(() =>
+    installPath ? readIcon(installPath) ?? undefined : undefined
   );
   const icon = iconBase64 ?? loadedIcon;
 
   useEffect(() => {
     if (iconBase64 || !installPath || !canUseDesktopFeatures()) return;
     let cancelled = false;
+    const cached = readIcon(installPath);
+    if (cached !== undefined) {
+      setLoadedIcon(cached ?? undefined);
+      return;
+    }
     void loadIcon(installPath).then((nextIcon) => {
-      if (!cancelled) setLoadedIcon(nextIcon);
+      if (!cancelled) setLoadedIcon(nextIcon ?? undefined);
     });
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [iconBase64, installPath]);
 
-  if (!icon) {
-    return <AppWindow size={size} className={className} />;
-  }
-
   return (
-    <img
-      src={`data:image/png;base64,${icon}`}
-      alt=""
-      width={size}
-      height={size}
-      className={className}
-    />
+    <div style={{ width: size, height: size }} className={className}>
+      {icon && (
+        <img
+          src={`data:image/png;base64,${icon}`}
+          alt=""
+          width={size}
+          height={size}
+          className={className}
+        />
+      )}
+    </div>
   );
 }

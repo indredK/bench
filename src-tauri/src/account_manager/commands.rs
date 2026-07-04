@@ -1207,6 +1207,7 @@ pub async fn detect_station_auth_profile<R: Runtime>(
         let slot: Arc<Mutex<Option<oneshot::Sender<()>>>> = Arc::new(Mutex::new(Some(tx)));
         let slot_clone = slot.clone();
 
+        #[cfg_attr(not(any(target_os = "macos", target_os = "ios")), allow(unused_mut))]
         let mut builder = tauri::WebviewWindowBuilder::new(&app, &temp_label, WebviewUrl::External(parsed))
             .visible(false)
             .data_directory(data_dir)

@@ -60,6 +60,7 @@ fn spawn_caffeinate(_config: &SleepConfig) -> Result<(), String> {
     Err("Sleep inhibitor is not supported on this platform".to_string())
 }
 
+#[cfg_attr(not(any(target_os = "macos", target_os = "windows")), allow(unused_variables))]
 fn kill_caffeinate() -> Result<(), String> {
     let mut pid = CAFFEINATE_PID.lock().map_err(|e| e.to_string())?;
     if let Some(pid) = pid.take() {

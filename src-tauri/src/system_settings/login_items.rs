@@ -21,6 +21,7 @@ pub async fn get_login_items() -> Result<Vec<super::types::LoginItem>, String> {
     .map_err(|e| e.to_string())?
 }
 
+#[cfg(target_os = "macos")]
 pub async fn add_login_item(path: String) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         let safe_path = escape_applescript(&path);

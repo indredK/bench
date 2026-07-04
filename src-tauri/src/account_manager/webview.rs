@@ -83,6 +83,7 @@ fn forward_callback_to_external_app<R: Runtime>(app: &AppHandle<R>, callback_url
     }
 }
 
+#[cfg_attr(not(target_os = "macos"), allow(unused_variables))]
 pub fn open_login_window<R: Runtime>(
     app: &AppHandle<R>,
     account_id: &str,

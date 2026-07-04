@@ -46,7 +46,7 @@ import { listenToPlatformEvent } from "@/platform/events";
 import type { AppFeature } from "@/features/types";
 import type { AppInfo } from "@/lib/tauri/types/app-manager";
 import type { LaunchSceneKey } from "@/features/quick-launch/types";
-import { AppIcon } from "@/features/app-manager/components/AppIcon";
+import { AppIcon, preloadAppIcons } from "@/features/app-manager/components/AppIcon";
 import { appManagerUseCases } from "@/features/app-manager/services/app-manager.use-cases";
 import { useGuardedAsyncSet } from "@/hooks/useGuardedAsync";
 
@@ -96,10 +96,6 @@ function AppCard({
   return (
     <motion.button
       layout
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.12, ease: "easeOut" }}
       onClick={() => onLaunch(app)}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -293,7 +289,7 @@ function MergedSceneSection({
       </div>
 
       {/* App cards grid */}
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="popLayout">
         <motion.div
           key={activeTab}
           initial={{ opacity: 0 }}
@@ -602,6 +598,7 @@ export default function QuickLaunch({ active }: { active: boolean; feature: AppF
       const map = new Map(result.apps.map((a) => [a.appId, a]));
       const final = applyOverrides(classified, overrides, map);
       batchSetScenes(final);
+      preloadAppIcons(result.apps);
     } catch {
       useAppManagerStore.setState({ loading: false, scanned: true, scanProgress: null });
     } finally {

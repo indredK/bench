@@ -78,6 +78,7 @@ pub fn set_probe_strategy<R: Runtime>(
     })
 }
 
+#[cfg_attr(not(target_os = "macos"), allow(unused_variables))]
 pub async fn run_probe<R: Runtime>(
     app: &AppHandle<R>,
     account_id: &str,
@@ -94,6 +95,7 @@ pub async fn run_probe<R: Runtime>(
     let (tx, rx) = oneshot::channel::<()>();
     let slot: Arc<Mutex<Option<oneshot::Sender<()>>>> = Arc::new(Mutex::new(Some(tx)));
     let window = {
+        #[cfg_attr(not(any(target_os = "macos", target_os = "ios")), allow(unused_mut))]
         let mut b = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(parsed)).visible(false).data_directory(data_dir).initialization_script(init_script())
             .on_page_load(move |_, p| {
                 if !matches!(p.event(), tauri::webview::PageLoadEvent::Finished) { return; }

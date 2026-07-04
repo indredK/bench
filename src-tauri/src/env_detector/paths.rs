@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
+#[cfg(target_os = "macos")]
 const SHELL_TIMEOUT: Duration = Duration::from_millis(4000);
 
 pub(super) fn collect_search_dirs() -> Vec<PathBuf> {
