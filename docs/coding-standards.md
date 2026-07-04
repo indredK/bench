@@ -86,6 +86,7 @@
 - **建议**: 传给重组件的配置对象、回调和派生数据使用 `useMemo` / `useCallback`。
 - **强制**: 大数据模块和低频页面不能默认首屏同步打包，必须评估按路由/模块拆分。
 - **强制**: 共享 store 被多个子页面复用时，必须明确作用域；不同数据域不共享筛选条件。
+- **强制**: z-index 必须使用 `UI_LAYERS` 语义常量（`src/lib/ui-layers.ts`）或 Tailwind 工具类（`z-sticky-table-corner` / `z-drawer-panel` 等，由 `tokens.css` 的 `--z-index-*` 生成），禁止 `z-[N]` 魔法数字。shadcn/ui 组件内置的 `z-10` / `z-50` 等 Tailwind 标准档位不受此限制。
 
 ## 7. Rust 后端
 

@@ -47,4 +47,11 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
   --font-heading: var(--font-sans);
+
+  --z-index-sticky-table-corner: 60;
+  --z-index-sticky-table-header: 50;
+  --z-index-sticky-table-column-header: 40;
+  --z-index-sticky-table-column: 30;
+  --z-index-drawer-panel: 80;
+  --z-index-drawer-overlay: 70;
 }

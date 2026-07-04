@@ -42,7 +42,7 @@ export function ThreeColumnLayout({
 
       <div
         className={cn(
-          "absolute inset-y-0 right-0 z-[80] w-[320px] overflow-hidden transition-transform duration-200 ease-out",
+          "z-drawer-panel absolute inset-y-0 right-0 w-[320px] overflow-hidden transition-transform duration-200 ease-out",
           detailOpen ? "translate-x-0" : "translate-x-full",
         )}
       >
@@ -52,7 +52,7 @@ export function ThreeColumnLayout({
       {showDetailOverlay && (
         <div
           className={cn(
-            "absolute inset-0 z-[70] transition-opacity duration-200",
+            "z-drawer-overlay absolute inset-0 transition-opacity duration-200",
             detailOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
           )}
           onClick={onCloseDetail}
