@@ -1,6 +1,6 @@
 # App Manager 迭代规划
 
-> 版本: v1.15.0 | 最后更新: 2026-07-01  
+> 最后更新: 2026-07-05  
 > 发布节奏见 [release-themes.md](../../roadmap/release-themes.md)
 
 ## 📊 当前评估
@@ -14,7 +14,7 @@
 | 测试覆盖 | ⭐⭐⭐⭐⚬ | store + use-cases + controller |
 | 可维护性 | ⭐⭐⭐⭐⭐ | installer/orchestrator 分层清晰 |
 
-## v1.17
+## Backlog
 
 - [ ] 更新通知优化（版本 diff 展示）
 - [ ] 按来源分类（cask/zip/dmg）的过滤

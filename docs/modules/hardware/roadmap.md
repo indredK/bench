@@ -1,6 +1,6 @@
 # Hardware 迭代规划
 
-> 版本: v1.15.0 | 最后更新: 2026-07-01  
+> 最后更新: 2026-07-05  
 > 发布节奏见 [release-themes.md](../../roadmap/release-themes.md)
 
 ## 📊 当前评估
@@ -14,11 +14,8 @@
 | 测试覆盖 | ⭐⭐⭐⚬⚬ | HardwareCompare 测试 |
 | 可维护性 | ⭐⭐⭐⭐⚬ | 数据驱动渲染 |
 
-## v1.17
+## Backlog
 
 - [ ] 硬件价格数据源接入
 - [ ] 对比导出为图片/PDF
-
-## v1.18
-
 - [ ] 与 release-themes Session Platform 批次对齐（低优先级）

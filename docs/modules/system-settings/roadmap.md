@@ -1,6 +1,6 @@
 # System Settings 迭代规划
 
-> 版本: v1.15.0 | 最后更新: 2026-07-04  
+> 最后更新: 2026-07-05  
 > 发布节奏见 [release-themes.md](../../roadmap/release-themes.md)  
 > 功能说明见 [features.md](./features.md) · 技术设计见 [design.md](./design.md)
 
@@ -15,26 +15,10 @@
 | 测试覆盖 | ⭐⭐⚬⚬⚬ | 无测试文件 |
 | 可维护性 | ⭐⭐⭐⚬⚬ | store 字段清理、死代码待收 |
 
-## ✅ 已交付 (v1.15.x)
+## Backlog
 
-- [x] 危险快捷操作二次确认（`QuickActionsSection` + `DestructiveConfirmDialog`）
-- [x] 窗口聚焦自动刷新系统状态（design-spec C-3）
-
-## v1.16 — 近期
-
-- [x] i18n: TCC 弹窗 Allowed/Denied/none → `t()`
-- [x] i18n: 浏览器选择器 option 文本 → `t()`
-- [x] i18n: Dock 位置按钮、密码延迟秒数 → `t()`
-- [x] defaultBrowser 加载失败 toast
-- [x] useEffect 补充 loadTabSettings 依赖
 - [ ] store 中未使用字段清理
-
-## v1.17
-
 - [ ] 浏览器名称 canonical value + locale 映射
 - [ ] 启动配置读取失败传播到前端 UI
 - [ ] 精选 candidates：隐藏桌面(Q)
-
-## v1.18
-
 - [ ] 设置导入/导出

@@ -113,7 +113,7 @@ pnpm run verify       # test:fe + test:be + build:fe + build:debug
 
 - **Commit**：Conventional Commits（`feat:` / `fix:` / `docs:` …），hook 会校验。
 - **PR**：说明对应模块与 roadmap 项；合码后在该模块 `roadmap.md` 打 ✅。
-- **Bug 修复**：更新或关闭 `modules/<id>/bugs.md`（若有）。
+- **Bug 修复**：在模块 `roadmap.md` 的 Backlog 中勾选或移除已完成项；如需独立 bug 跟踪，按需创建 `modules/<id>/bugs.md`（无 open bug 时可省略）。
 
 ---
 
@@ -139,14 +139,13 @@ pnpm run verify       # test:fe + test:be + build:fe + build:debug
 
 ## 9. 当前基建认知（非完美清单）
 
-**够用的底座：** 技术栈、IPC 契约、规范文档、模块文档目录、托盘/危险确认/Dev Toolbox IA、CI 发版。
+**够用的底座：** 技术栈、IPC 契约、规范文档、模块文档目录、托盘/危险确认/Dev Toolbox IA、CI 发版、controller 分层模式。
 
-**仍须补强的基建（开发时心里有数）：**
+**待补强项**（细节在各模块 `roadmap.md` Backlog）：
 
 - Session 迁移与状态 UX（Account Manager）
 - 约半数模块缺 feature 测试；Session/Probe Rust 引擎测试弱
-- Issue 与 roadmap 未自动联动
-- 部分模块技术债（Quick Launch `scenes.ts` 800+ 行待拆、Dev Toolbox 子模块拆分待 v1.17）
+- 部分模块技术债（Quick Launch `scenes.ts` 待拆、Dev Toolbox 子模块拆分）
 - macOS 以外能力需 DesktopOnly / 平台矩阵诚实标注
 
 ---

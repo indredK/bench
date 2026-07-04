@@ -1,6 +1,6 @@
 # Quick Launch 迭代规划
 
-> 版本: v1.15.0 | 最后更新: 2026-07-05  
+> 最后更新: 2026-07-05  
 > 发布节奏见 [release-themes.md](../../roadmap/release-themes.md)
 
 ## 📊 当前评估
@@ -14,16 +14,11 @@
 | 测试覆盖 | ⭐⭐⚬⚬⚬ | 无测试文件 |
 | 可维护性 | ⭐⭐⭐⭐⚬ | controller / scenes / store 分层清晰 |
 
-## v1.16
+## Backlog
 
-- [x] handleLaunch / handleReveal 重入保护
-- [x] 抽出 `hooks/useQuickLaunchController.ts`，16 个 store 字段改精细 selector、5 个 effect / 派生数据 / 7 个 handler 全部迁入（Commit e2da962）
 - [ ] scenes.ts → `services/` 目录迁移
 - [ ] LaunchAppEntry 未使用导出清理
 - [ ] App 启动 / Finder 操作封装到 use-case 层
-
-## v1.17
-
 - [ ] 大列表 AppCard 虚拟化
 - [ ] 场景分类规则可配置化
 - [ ] 应用使用频率统计

@@ -56,7 +56,6 @@
 - IPC 契约集中维护（168 个 `defineTauriCommand`，TS↔Rust 字段一致）
 - 批量与取消接口幂等
 - 提交历史 Conventional Commits
-- 11 个模块 `bugs.md` 均存在
 
 ---
 

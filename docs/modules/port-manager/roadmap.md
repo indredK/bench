@@ -1,6 +1,6 @@
 # Port Manager 迭代规划
 
-> 版本: v1.15.0 | 最后更新: 2026-07-04  
+> 最后更新: 2026-07-05  
 > 发布节奏见 [release-themes.md](../../roadmap/release-themes.md)
 
 ## 📊 当前评估
@@ -14,14 +14,7 @@
 | 测试覆盖 | ⭐⭐⭐⭐⭐ | PortManager + ports + fingerprints |
 | 可维护性 | ⭐⭐⭐⭐⚬ | Rust fingerprints 模块独立 |
 
-## ✅ 已交付 (v1.15.x)
-
-- [x] kill 端口 `DestructiveConfirmDialog` + 后果文案
-
-## v1.16 — 近期
+## Backlog
 
 - [ ] 未使用返回值清理
-
-## v1.17
-
 - [ ] 进程树性能优化
