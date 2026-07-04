@@ -113,10 +113,11 @@ export function useAccountManagerController() {
 
   const handleOpenExternalApps = useCallback(
     (accountId: string | null) => {
-      store.setExternalAppsAccountId(accountId);
-      store.setExternalAppsOpen(true);
+      const s = useAccountManagerStore.getState();
+      s.setExternalAppsAccountId(accountId);
+      s.setExternalAppsOpen(true);
     },
-    [store],
+    [],
   );
 
   const handleAddStation = async (
