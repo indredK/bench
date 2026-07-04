@@ -3,7 +3,7 @@
  *
  * 收容: 端口管理 / 开发清理 / 环境检测 / Token 计算 / 开发工具 / 网络诊断 / 系统信息
  */
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Loader2Icon, Code, Network, Monitor, Zap, Trash2, Box, Coins } from "lucide-react";
 import { systemSettingsUseCases } from "@/features/system-settings/services/system-settings.use-cases";
@@ -12,18 +12,28 @@ import { useSettingAction } from "@/features/system-settings/useSettingAction";
 import { SettingGroup } from "@/components/ui/setting-group";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+import { getErrorMessage } from "@/lib/tauri/errors";
 import type { AppFeature } from "@/features/types";
 import type { SystemInfoData } from "@/lib/tauri/types/system-info";
 import { formatMemory, formatUptime } from "@/lib/utils";
 
-import PortManager from "@/features/port-manager/page";
-import DevCleaner from "@/features/dev-cleaner/page";
-import EnvDetector from "@/features/env-detector/page";
-import TokenCalculatorPage from "@/features/token-calculator/page";
+const PortManager = lazy(() => import("@/features/port-manager/page"));
+const DevCleaner = lazy(() => import("@/features/dev-cleaner/page"));
+const EnvDetector = lazy(() => import("@/features/env-detector/page"));
+const TokenCalculatorPage = lazy(() => import("@/features/token-calculator/page"));
 
 type ToolboxTab = "port-manager" | "dev-cleaner" | "env-detector" | "token-calc" | "devtools" | "diagnostics" | "info";
 
 interface DevToolboxProps { feature: AppFeature; }
+
+function PageFallback() {
+  return (
+    <div className="flex items-center justify-center h-32">
+      <Loader2Icon className="h-5 w-5 animate-spin text-muted-foreground" />
+    </div>
+  );
+}
 
 export default function DevToolbox({ feature }: DevToolboxProps) {
   const { t } = useTranslation();
@@ -65,7 +75,7 @@ export default function DevToolbox({ feature }: DevToolboxProps) {
       setSystemInfoError("");
       systemInfoUseCases.loadSystemInfo()
         .then(setSystemInfo)
-        .catch((err) => setSystemInfoError(typeof err === "string" ? err : "Failed to load"))
+        .catch((err) => setSystemInfoError(getErrorMessage(err, "Failed to load")))
         .finally(() => setSystemInfoLoading(false));
     }
   }, [activeTab]);
@@ -195,13 +205,13 @@ export default function DevToolbox({ feature }: DevToolboxProps) {
   const renderFullPageTool = () => {
     switch (activeTab) {
       case "port-manager":
-        return <PortManager feature={feature} />;
+        return <Suspense fallback={<PageFallback />}><PortManager feature={feature} /></Suspense>;
       case "dev-cleaner":
-        return <DevCleaner feature={feature} />;
+        return <Suspense fallback={<PageFallback />}><DevCleaner feature={feature} /></Suspense>;
       case "env-detector":
-        return <EnvDetector active feature={feature} />;
+        return <Suspense fallback={<PageFallback />}><EnvDetector active feature={feature} /></Suspense>;
       case "token-calc":
-        return <TokenCalculatorPage />;
+        return <Suspense fallback={<PageFallback />}><TokenCalculatorPage /></Suspense>;
       case "devtools":
         return renderDevtools();
       case "diagnostics":
@@ -228,9 +238,10 @@ export default function DevToolbox({ feature }: DevToolboxProps) {
       <div className="border-b px-4 flex gap-1 shrink-0 overflow-x-auto">
         {tabs.map(({ id, labelKey, icon: Icon }) => (
           <button key={id} onClick={() => setActiveTab(id)}
-            className={`px-3 py-2.5 text-xs font-medium border-b-2 transition-colors -mb-[1px] flex items-center gap-1.5 whitespace-nowrap ${
-              activeTab === id ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
-            }`}
+            className={cn(
+              "px-3 py-2.5 text-xs font-medium border-b-2 transition-colors -mb-[1px] flex items-center gap-1.5 whitespace-nowrap",
+              activeTab === id ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground hover:border-border",
+            )}
           >
             <Icon size={13} /> {t(labelKey)}
           </button>

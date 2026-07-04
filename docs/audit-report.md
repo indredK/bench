@@ -78,7 +78,7 @@
 - [违反 §6] `src/components/ui/setting-group.tsx:16`、`:18` — 基础 UI 组件本身更应严格使用 `cn()` — **强制**
 - [违反 §6] `src/features/token-calculator/page.tsx:169`、`:180`、`:871`、`:882` — 数组拼接 className，改用 `cn(...)` — **强制**
 - [违反 §6] `src/features/quick-launch/page.tsx:111`、`:700`、`:794` — 同上 — **强制** ✅ 已修复
-- [违反 §6] `src/features/system-settings/page.tsx:585`、`src/features/dev-toolbox/page.tsx:231` — Tab 按钮样式条件拼接，改用 `cn()` — **强制** ✅ system-settings 已修复；dev-toolbox 待 Task #15 处理
+- [违反 §6] `src/features/system-settings/page.tsx:585`、`src/features/dev-toolbox/page.tsx:231` — Tab 按钮样式条件拼接，改用 `cn()` — **强制** ✅ 已修复（system-settings + dev-toolbox）
 - [违反 §6] `src/features/dev-cleaner/components/CustomCleanupDialog.tsx:330`、`:401`、`:448`、`src/features/dev-cleaner/components/DevCleanerPageContent.tsx:210` — 同上 — **强制** ✅ 已修复
 - [违反 §6] `src/features/app-manager/CategoryFilter.tsx:91`、`:102` — 同上 — **强制**
 - [违反 §6] `src/features/terminology/page.tsx:166`、`:175`、`:177`、`:656`、`:725`、`:795`、`:989`、`:1014`、`:1026`、`:1041`、`:1053` — 11 处模板拼接，量大且集中 — 同上 — **强制**
@@ -95,7 +95,7 @@
 
 ### 2.5 代码分割 — 违规
 
-- [违反 §6] `src/features/dev-toolbox/page.tsx:19-22` — 静态 `import PortManager / DevCleaner / EnvDetector / TokenCalculatorPage`，4 个子功能同步打包进 dev-toolbox chunk — 改为 `lazy(() => import("@/features/port-manager/page"))` 并在 tab 切换时按需挂载 — **强制**
+- [违反 §6] `src/features/dev-toolbox/page.tsx:19-22` — 静态 `import PortManager / DevCleaner / EnvDetector / TokenCalculatorPage`，4 个子功能同步打包进 dev-toolbox chunk — 改为 `lazy(() => import("@/features/port-manager/page"))` 并在 tab 切换时按需挂载 — **强制** ✅ 已修复：4 个子页改 `lazy()` + `<Suspense>` 包裹；同时修复 `typeof err === "string"` → `getErrorMessage(err, "Failed to load")` (行 68, §5.3 同模块类似问题)
 - [违反 §6] `src/features/registry.tsx:8-18` + `src/App.tsx:60-64` — 所有 11 个 feature 描述符及其 page 通过静态 import 引入，`appFeatures.map` 渲染 `<Route>`，意味着首屏加载即拉取全部 feature 代码 — 建议把 `AppFeature.render` 改为 `lazyComponent: ReactNode` 工厂，在 `<Route>` 内用 `<Suspense>` 包裹 — **强制**
 
 ### 2.6 共享 store 作用域 — 通过
