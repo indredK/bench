@@ -19,6 +19,7 @@ pub struct SleepState {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LoginItem {
     pub name: String,
+    pub path: String,
     pub enabled: bool,
 }
 

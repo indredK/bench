@@ -4,8 +4,11 @@ use super::helpers::*;
 pub async fn get_login_items() -> Result<Vec<super::types::LoginItem>, String> {
     tauri::async_runtime::spawn_blocking(|| {
         let script = r#"tell application "System Events"
-            set itemNames to name of every login item
-            return itemNames
+            set items to {}
+            repeat with li in (every login item)
+                set end of items to {name:name of li, path:path of li}
+            end repeat
+            return items
         end tell"#;
         let output = std::process::Command::new("osascript")
             .args(["-e", script])
@@ -13,9 +16,21 @@ pub async fn get_login_items() -> Result<Vec<super::types::LoginItem>, String> {
             .map_err(|e| format!("osascript: {}", e))?;
         let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
         if stdout.is_empty() { return Ok(vec![]); }
-        Ok(stdout.split(", ").map(|name| super::types::LoginItem {
-            name: name.trim().to_string(), enabled: true,
-        }).collect())
+        // AppleScript record list is parsed as: {{name:"a", path:"/a"}, {name:"b", path:"/b"}}
+        let mut items = Vec::new();
+        for entry in stdout.split("}, {") {
+            let entry = entry.trim().trim_start_matches('{').trim_end_matches('}');
+            let name = entry.split(',').find_map(|kv| {
+                let kv = kv.trim();
+                kv.strip_prefix("name:").map(|v| v.trim().trim_matches('"').to_string())
+            }).unwrap_or_default();
+            let path = entry.split(',').find_map(|kv| {
+                let kv = kv.trim();
+                kv.strip_prefix("path:").map(|v| v.trim().trim_matches('"').to_string())
+            }).unwrap_or_default();
+            items.push(super::types::LoginItem { name, path, enabled: true });
+        }
+        Ok(items)
     })
     .await
     .map_err(|e| e.to_string())?
@@ -55,6 +70,28 @@ pub async fn remove_login_item(name: String) -> Result<(), String> {
     .map_err(|e| e.to_string())?
 }
 
+/// Remove a login item by matching its path (avoids conflicts between
+/// production and dev builds that share the same display name).
+#[cfg(target_os = "macos")]
+async fn remove_login_item_by_path(path: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let safe_path = escape_applescript(&path);
+        let script = format!(
+            r#"tell application "System Events"
+                set targetItems to (every login item whose path is "{}")
+                repeat with li in targetItems
+                    delete li
+                end repeat
+            end tell"#,
+            safe_path
+        );
+        run_cmd_err("osascript", &["-e", &script])?;
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 #[tauri::command]
 pub async fn get_launch_agents() -> Result<Vec<super::types::LaunchService>, String> {
     tauri::async_runtime::spawn_blocking(|| {
@@ -76,8 +113,12 @@ pub async fn get_launch_daemons() -> Result<Vec<super::types::LaunchService>, St
     .map_err(|e| e.to_string())?
 }
 
+const APP_BUNDLE_ID: &str = "com.bench.bench";
+const APP_DISPLAY_NAME: &str = "Bench";
+
 /// Resolve the running app's `.app` bundle path from the executable path.
-/// Falls back to the executable path in dev mode (no `.app` bundle).
+/// In dev mode (no `.app` bundle found), creates a minimal `.app` wrapper so that
+/// macOS Login Items show a proper application entry (with icon and "Application" type).
 #[cfg(target_os = "macos")]
 fn resolve_app_bundle_path() -> Result<String, String> {
     let exe = std::env::current_exe().map_err(|e| format!("current_exe: {}", e))?;
@@ -85,29 +126,74 @@ fn resolve_app_bundle_path() -> Result<String, String> {
     while path.extension().and_then(|e| e.to_str()) != Some("app") {
         match path.parent() {
             Some(p) => path = p,
-            None => return Ok(exe.to_string_lossy().to_string()),
+            None => {
+                // Dev mode: create a minimal .app wrapper next to the binary
+                let bundle_dir = exe.parent().unwrap_or(std::path::Path::new("/tmp"));
+                let bundle_path = bundle_dir.join(format!("{}.app", APP_DISPLAY_NAME));
+                ensure_dev_app_bundle(&exe, &bundle_path)?;
+                return Ok(bundle_path.to_string_lossy().to_string());
+            }
         }
     }
     Ok(path.to_string_lossy().to_string())
 }
 
-/// Extract the bundle display name from a `.app` path (e.g. "Bench" from "/Applications/Bench.app").
-/// In dev mode, uses the executable name (capitalized for consistency with production).
+/// Create a minimal `.app` bundle wrapping the dev-mode executable so macOS
+/// treats it as a proper Application (icon, type) in Login Items.
 #[cfg(target_os = "macos")]
-fn bundle_name_from_path(path: &str) -> String {
-    let name = std::path::Path::new(path)
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("Bench");
-    // capitalize first letter so dev-mode "bench" → "Bench"
-    let mut chars = name.chars();
-    match chars.next() {
-        Some(c) => {
-            let rest: String = chars.collect();
-            c.to_uppercase().to_string() + &rest
+fn ensure_dev_app_bundle(exe: &std::path::Path, bundle: &std::path::Path) -> Result<(), String> {
+    use std::fs;
+
+    let macos_dir = bundle.join("Contents").join("MacOS");
+    if macos_dir.exists() {
+        // Bundle already exists — ensure the symlink still points to the right binary
+        let symlink = macos_dir.join(
+            exe.file_name().unwrap_or(std::ffi::OsStr::new("bench")),
+        );
+        if symlink.exists() && fs::read_link(&symlink).is_ok_and(|t| t == exe) {
+            return Ok(());
         }
-        None => "Bench".to_string(),
     }
+
+    // Create directory structure
+    fs::create_dir_all(&macos_dir).map_err(|e| format!("create MacOS dir: {}", e))?;
+
+    // Symlink the actual binary
+    let symlink = macos_dir.join(
+        exe.file_name().unwrap_or(std::ffi::OsStr::new("bench")),
+    );
+    let _ = fs::remove_file(&symlink);
+    std::os::unix::fs::symlink(exe, &symlink)
+        .map_err(|e| format!("symlink binary: {}", e))?;
+
+    // Write minimal Info.plist
+    let plist_path = bundle.join("Contents").join("Info.plist");
+    let plist_content = format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleExecutable</key>
+    <string>{executable}</string>
+    <key>CFBundleIdentifier</key>
+    <string>{bundle_id}</string>
+    <key>CFBundleName</key>
+    <string>{display_name}</string>
+    <key>CFBundleDisplayName</key>
+    <string>{display_name}</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+</dict>
+</plist>
+"#,
+        executable = exe.file_name().unwrap_or(std::ffi::OsStr::new("bench")).to_string_lossy(),
+        bundle_id = APP_BUNDLE_ID,
+        display_name = APP_DISPLAY_NAME,
+    );
+    fs::write(&plist_path, plist_content.as_bytes())
+        .map_err(|e| format!("write Info.plist: {}", e))?;
+
+    Ok(())
 }
 
 #[cfg(target_os = "windows")]
@@ -122,9 +208,8 @@ async fn get_autostart_status_impl() -> Result<bool, String> {
         Ok(p) => p,
         Err(_) => return Ok(false),
     };
-    let bundle_name = bundle_name_from_path(&bundle_path);
     let items = get_login_items().await?;
-    Ok(items.iter().any(|item| item.name == bundle_name))
+    Ok(items.iter().any(|item| item.path == bundle_path))
 }
 
 #[cfg(target_os = "windows")]
@@ -161,8 +246,7 @@ async fn set_autostart_impl(enabled: bool) -> Result<(), String> {
         add_login_item(bundle_path).await?;
     } else {
         let bundle_path = resolve_app_bundle_path()?;
-        let bundle_name = bundle_name_from_path(&bundle_path);
-        remove_login_item(bundle_name).await?;
+        remove_login_item_by_path(bundle_path).await?;
     }
     Ok(())
 }
