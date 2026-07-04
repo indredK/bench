@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.19.0](https://github.com/indredK/bench/compare/v1.18.1...v1.19.0) (2026-07-04)
+
+
+### Features
+
+* 添加窗口关闭行为偏好设置 ([4b42805](https://github.com/indredK/bench/commit/4b42805f88acb1279f55c7da43f40ef3ac59faf0))
+
+
+### Bug Fixes
+
+* **account_manager:** IPC 路径三处 .expect() 改为 ? 传播错误 ([f66820c](https://github.com/indredK/bench/commit/f66820c941a905b91b54f37b6b86771a5eb16d17))
+* **account-manager:** 修复 controller useCallback 整 store 依赖违规 ([55998e3](https://github.com/indredK/bench/commit/55998e3b2015b11ebe38a63581fae3698284d24f))
+* **app-manager:** 改用 getErrorMessage 替代 String(error) 散装判断 ([3ffed1e](https://github.com/indredK/bench/commit/3ffed1e6a205d227ac5e0e12d8615d876b912a63))
+* **dev-cleaner:** 引入 RiskLevel 枚举并修复 cn() 与错误解析违规 ([32bb40d](https://github.com/indredK/bench/commit/32bb40d94d2c84197e00e54bd258a2c2423a331c))
+* **dev-toolbox:** 子页改 lazy import + cn() 修复 ([f44bc3a](https://github.com/indredK/bench/commit/f44bc3aac295947b5da9c254be93b521e7fb999d))
+* **docs:** 审计后文档清理与规范沉淀 ([22295dc](https://github.com/indredK/bench/commit/22295dc0539e371b574c86963288252047fb60d0))
+* **features:** 调整组件/hook/服务层文件位置符合目录规范 ([90a3e21](https://github.com/indredK/bench/commit/90a3e218acb62ded00c3b3b42f10f4304da8a1c9))
+* **ipc:** 移除重复的 restartApp 包装，统一使用 restartAfterUpdate ([019571a](https://github.com/indredK/bench/commit/019571ac04027a8ece1be6eaadf3443cca486a29))
+* **macos:** 修复登录项管理逻辑，支持路径匹配和开发环境适配 ([e7681bf](https://github.com/indredK/bench/commit/e7681bf0f46f8b07cae7fe943684cb1c90787bc6))
+* **quick-launch:** 替换硬编码中文为 i18n 并改用 cn() 拼接类名 ([4a4ead6](https://github.com/indredK/bench/commit/4a4ead66fa2110feb3f4cab5e8e35eba473c7c1d))
+* **system-settings:** 6 个 section 组件改为精细 selector 订阅 ([49cdfcb](https://github.com/indredK/bench/commit/49cdfcb0454c4f12435c0c397451d4f35e962d31))
+* **system-settings:** 修复 store deps 与 cn() 违规 ([cecbdac](https://github.com/indredK/bench/commit/cecbdac479f3ee7f9eb59514b889481832ea85f4))
+* **updater:** 改用统一 getErrorMessage 替代散装错误判断 ([18ae53c](https://github.com/indredK/bench/commit/18ae53cabb3a81efecf0c6170755d6333c75c2df))
+* 批量修复 cn() 类名拼接违规 ([702fea9](https://github.com/indredK/bench/commit/702fea90ba201a142f8d52fea167fb0d8ff86522))
+
 ## [1.18.1](https://github.com/indredK/bench/compare/v1.18.0...v1.18.1) (2026-07-04)
 
 
