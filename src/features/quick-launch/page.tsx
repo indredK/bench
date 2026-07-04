@@ -41,6 +41,7 @@ import { LAUNCH_SCENES, autoClassifyApps, applyOverrides, exportFullClassificati
 import { launchApp, revealAppInFinder } from "@/lib/tauri/commands/app-manager";
 import { writeTextFile } from "@/lib/tauri/commands/file-ops";
 import { getErrorMessage } from "@/lib/tauri/errors";
+import { cn } from "@/lib/utils";
 import { savePlatformDialog } from "@/platform/dialog";
 import { listenToPlatformEvent } from "@/platform/events";
 import type { AppFeature } from "@/features/types";
@@ -108,9 +109,10 @@ function AppCard({
       }}
       onMouseEnter={() => setShowInfo(true)}
       onMouseLeave={() => setShowInfo(false)}
-      className={`group relative flex cursor-pointer flex-col items-center gap-2 rounded-xl border bg-card p-3 transition hover:border-primary/40 hover:bg-accent/30 hover:shadow-sm ${
-        isEditMode ? "border-primary/40 ring-1 ring-primary/20" : "border-border"
-      }`}
+      className={cn(
+        "group relative flex cursor-pointer flex-col items-center gap-2 rounded-xl border bg-card p-3 transition hover:border-primary/40 hover:bg-accent/30 hover:shadow-sm",
+        isEditMode ? "border-primary/40 ring-1 ring-primary/20" : "border-border",
+      )}
       title={app.name}
     >
       <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-muted/50">
@@ -219,7 +221,7 @@ function SceneSection({
             onClick={(e) => { e.stopPropagation(); onToggle(); }}
             className="flex cursor-pointer items-center justify-center rounded-xl border border-dashed border-border bg-transparent p-3 text-xs text-muted-foreground transition hover:border-primary/30 hover:text-primary"
           >
-            +{apps.length - 6} 更多
+            {t("quickLaunch.showMore", { count: apps.length - 6 })}
           </button>
         )}
       </motion.div>
@@ -687,7 +689,7 @@ export default function QuickLaunch({ active }: { active: boolean; feature: AppF
               onClick={handleExportOverrides}
               disabled={exporting}
               className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs font-medium text-muted-foreground transition hover:bg-accent hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
-              title={t("quickLaunch.exportOverrides") + "（开发者工具：导出全量分类数据用于优化规则）"}
+              title={t("quickLaunch.exportOverridesTooltip")}
             >
               <Download size={13} className={exporting ? "animate-spin" : ""} />
               {t("quickLaunch.exportOverrides")}
@@ -697,11 +699,12 @@ export default function QuickLaunch({ active }: { active: boolean; feature: AppF
 
         <button
           onClick={toggleEditMode}
-          className={`flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition ${
+          className={cn(
+            "flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition",
             isEditMode
               ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20"
-              : "border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground"
-          }`}
+              : "border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground",
+          )}
         >
           {isEditMode ? <Check size={13} /> : <Pencil size={13} />}
           {isEditMode ? t("quickLaunch.done") : t("quickLaunch.edit")}
@@ -791,11 +794,12 @@ export default function QuickLaunch({ active }: { active: boolean; feature: AppF
             <button
               key={scene.key}
               onClick={() => handleMoveApp(contextMenu.appId, scene.key)}
-              className={`flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs transition hover:bg-accent ${
+              className={cn(
+                "flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs transition hover:bg-accent",
                 appIdToScene[contextMenu.appId] === scene.key
                   ? "font-medium text-primary"
-                  : "text-foreground"
-              }`}
+                  : "text-foreground",
+              )}
             >
               <SceneIcon icon={scene.icon} size={12} />
               {t(scene.labelKey)}
