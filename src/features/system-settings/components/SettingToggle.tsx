@@ -4,6 +4,7 @@
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { ExternalLink } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface SettingToggleProps {
   label: string;
@@ -26,9 +27,10 @@ export function SettingToggle({
     <div className="flex items-center justify-between py-2">
       <div className="flex-1">
         <div
-          className={`flex items-center gap-1.5 ${
-            onOpenSettings ? "cursor-pointer" : ""
-          }`}
+          className={cn(
+            "flex items-center gap-1.5",
+            onOpenSettings && "cursor-pointer",
+          )}
           onClick={onOpenSettings}
         >
           <Label className="text-sm font-medium hover:text-foreground transition-colors">

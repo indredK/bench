@@ -17,7 +17,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { getErrorMessage } from "@/lib/tauri/errors";
 import type { AppFeature } from "@/features/types";
 import type { SettingsTab } from "./store";
 import type { GatekeeperMode, LowPowerMode, MenuBarAutoHideMode } from "@/lib/tauri/types/system-settings";
@@ -48,6 +50,7 @@ interface SystemSettingsProps { feature: AppFeature; }
 export default function SystemSettings(_props: SystemSettingsProps) {
   const { t } = useTranslation();
   const store = useSystemSettingsStore();
+  const activeTab = useSystemSettingsStore((s) => s.activeTab);
   const { run } = useSettingAction();
 
   // ── State for System tab (Login items) ──
@@ -80,7 +83,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
         case "security": break;   // Self-loading sections
         case "system": {
           systemSettingsUseCases.getDefaultBrowser()
-            .then((b) => { store.setDefaultBrowser(b); setDefaultBrowser(b); })
+            .then((b) => { s.setDefaultBrowser(b); setDefaultBrowser(b); })
             .catch(() => toast.error(t("systemSettings.browser.loadFailed")));
           setLoginItemsLoading(true);
           systemSettingsUseCases.getLoginItems()
@@ -110,13 +113,13 @@ export default function SystemSettings(_props: SystemSettingsProps) {
     } catch (err) {
       console.error(`Failed to load ${tab} settings:`, err);
     }
-  }, [store, t]);
+  }, [t]);
 
   useEffect(() => {
     if (systemSettingsUseCases.isAvailable()) {
-      void loadTabSettings(store.activeTab);
+      void loadTabSettings(activeTab);
     }
-  }, [store.activeTab, loadTabSettings]);
+  }, [activeTab, loadTabSettings]);
 
   const handleTabChange = (tab: SettingsTab) => {
     store.setActiveTab(tab);
@@ -438,7 +441,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                         setDefaultBrowser(v);
                         toast.success(t("systemSettings.toasts.success"));
                       } catch (err) {
-                        toast.error(t("systemSettings.toasts.error", { error: String(err) }));
+                        toast.error(t("systemSettings.toasts.error", { error: getErrorMessage(err) }));
                       } finally {
                         setBrowserLoading(false);
                       }
@@ -582,11 +585,12 @@ export default function SystemSettings(_props: SystemSettingsProps) {
             <button
               key={tabId}
               onClick={() => handleTabChange(tabId)}
-              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-[1px] ${
+              className={cn(
+                "px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-[1px]",
                 store.activeTab === tabId
                   ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
-              }`}
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-border",
+              )}
             >
               {tabLabels[tabId]}
             </button>
