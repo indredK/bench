@@ -1,6 +1,6 @@
 # Account Manager 迭代规划
 
-> 版本: v1.15.1 | 最后更新: 2026-07-04  
+> 版本: v1.15.1 | 最后更新: 2026-07-05  
 > 发布节奏见 [release-themes.md](../../roadmap/release-themes.md)  
 > 功能说明见 [features.md](./features.md) · 技术设计见 [design.md](./design.md)
 
@@ -8,7 +8,7 @@
 
 | 维度 | 评分 | 说明 |
 |------|------|------|
-| 代码质量 | ⭐⭐⭐⭐⚬ | store / repository / use-cases 分层完成；Tauri 命令在 `lib/tauri/commands/` |
+| 代码质量 | ⭐⭐⭐⭐⚬ | store / repository / use-cases 分层完成；controller 改用 useShallow 批量订阅 |
 | 功能完备度 | ⭐⭐⭐⭐⚬ | Session 捕获/恢复/持久化/TTL/互斥/AuthProfile 完整；IndexedDB 导出待补 |
 | 用户体验 | ⭐⭐⭐⚬⚬ | 撤销确认、toast、StatusBadge 好；Session 状态语义与空态仍可加强 |
 | 性能 | ⭐⭐⭐⭐⚬ | Semaphore + 探针策略；多账号列表虚拟化仍缺 |
@@ -27,6 +27,7 @@
 - [x] `api.ts` → `lib/tauri/commands/account-manager.ts` + repository
 - [x] Tauri 命令契约 → `@/lib/tauri/contracts`（全局）
 - [x] `sortable-card` 提升至 `components/ui/`
+- [x] controller 整 store 订阅改用 `useShallow` 批量订阅（Commit 5879e7a）
 
 ## v1.16 — 剩余
 

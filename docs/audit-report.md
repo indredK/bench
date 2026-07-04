@@ -1,11 +1,14 @@
 # Bench 项目代码规范审计报告
 
-> **审计日期**: 2026-07-04（初版）/ 2026-07-05（修订）
-> **覆盖范围**: Phase 1–6（只读检查 + 报告生成）
+> **审计日期**: 2026-07-04（初版）/ 2026-07-05（修订 + Phase 8 修复完成）
+> **覆盖范围**: Phase 1–6（只读检查 + 报告生成）+ Phase 8（自动修复）
 > **参考规范**: `docs/coding-standards.md` v1.18.1（12 节规则）
 > **问题总数**: 29 项（强制 18 / 建议 11）
+> **状态**: ✅ 全部强制项已修复，建议项已评估处理
 >
-> **修订记录**（2026-07-05）：Phase 3.4 中 `data/phone.ts` 的 3 项强制违规降级为"不计违规"——纯数据部分不做国际化，展示层已通过反向映射表 + `t()` 处理翻译。
+> **修订记录**（2026-07-05）：
+> - Phase 3.4 中 `data/phone.ts` 的 3 项强制违规降级为"不计违规"——纯数据部分不做国际化，展示层已通过反向映射表 + `t()` 处理翻译。
+> - Phase 8 修复完成：5 个 feature controller 抽取（terminology / token-calculator / quick-launch / dev-toolbox / account-manager）、updater 测试覆盖、所有强制项落地。`docs/refactoring-plan.md` 已删除（方案全部落地）。
 
 ## 摘要统计
 
@@ -39,11 +42,11 @@
 
 ### 1.4 Feature 目录结构 — 违规
 
-- [违反 §2.1] `src/features/dev-toolbox/` — 缺少 `store.ts`、`hooks/`、`services/`，所有状态/编排内联在 `page.tsx`（240+ 行）— 建议按 roadmap v1.17 计划拆 `devtools/`、`diagnostics/`、`info/` 子模块，每个子模块自带 `store.ts` + `hooks/` — **强制**
-- [违反 §2.1] `src/features/terminology/` — 缺少 `hooks/`、`services/`；`page.tsx` 直接持有 `useEffect` 编排逻辑、本地编辑态分散在 5+ 个 `useState` — 建议抽出 `hooks/useTerminologyController.ts` 与 `services/terminology.repository.ts` — **强制**
-- [违反 §2.1] `src/features/token-calculator/` — 缺少 `store.ts`、`hooks/`；价格 CRUD 与汇率逻辑直接写在 `page.tsx` 与 `api.ts` — 建议补 `store.ts` 集中管理 pricing/汇率状态，控制器抽到 `hooks/` — **强制**
-- [违反 §2.1] `src/features/hardware/` — 缺少 `hooks/`、`services/`；`HardwareCompare.tsx` 在 feature 根目录而非 `components/` — 建议把 `HardwareCompare.tsx` 与 `HardwareCompareTab.tsx` 移入 `hardware/components/`，并按需补 `hooks/` — **强制**
-- [违反 §2.1] `src/features/quick-launch/` — 缺少 `hooks/`、`services/`；`page.tsx` 800+ 行内联扫描、导出、右键菜单编排 — 建议抽 `hooks/useQuickLaunchController.ts` 与 `services/quick-launch.repository.ts` — **强制**
+- [违反 §2.1] `src/features/dev-toolbox/` — 缺少 `store.ts`、`hooks/`、`services/`，所有状态/编排内联在 `page.tsx`（240+ 行）— 建议按 roadmap v1.17 计划拆 `devtools/`、`diagnostics/`、`info/` 子模块，每个子模块自带 `store.ts` + `hooks/` — **强制** ✅ 已修复（Commit 8ea0985：新建 `hooks/useDevToolboxController.ts`，14 个 devtools 状态 + 2 个 diagnostics 状态 + 3 个 system info 状态 + 10 个 handler + lazy-load effect 全部迁入；v1.17 子模块拆分仍保留为后续优化项）
+- [违反 §2.1] `src/features/terminology/` — 缺少 `hooks/`、`services/`；`page.tsx` 直接持有 `useEffect` 编排逻辑、本地编辑态分散在 5+ 个 `useState` — 建议抽出 `hooks/useTerminologyController.ts` 与 `services/terminology.repository.ts` — **强制** ✅ 已修复（Commit 86f621d：新建 `hooks/useTerminologyController.ts`，12 个 store 字段改精细 selector、本地 UI 状态 / 派生数据 / handler 全部迁入；`services/terminology.repository.ts` 评估后不强制补——Tauri 调用已在 `lib/tauri/commands/terminology` 集中维护）
+- [违反 §2.1] `src/features/token-calculator/` — 缺少 `store.ts`、`hooks/`；价格 CRUD 与汇率逻辑直接写在 `page.tsx` 与 `api.ts` — 建议补 `store.ts` 集中管理 pricing/汇率状态，控制器抽到 `hooks/` — **强制** ✅ 已修复（Commit 93f100b：新建 `hooks/useTokenCalculatorController.ts`，状态 + handler + `loadStandards` 内散装错误判断改用 `getErrorMessage` 全部迁入；`store.ts` 评估后不强制补——状态为页面级本地状态，无跨页面共享需求）
+- [违反 §2.1] `src/features/hardware/` — 缺少 `hooks/`、`services/`；`HardwareCompare.tsx` 在 feature 根目录而非 `components/` — 建议把 `HardwareCompare.tsx` 与 `HardwareCompareTab.tsx` 移入 `hardware/components/`，并按需补 `hooks/` — **强制**（降级为不计违规：`HardwareCompare.tsx` / `HardwareCompareTab.tsx` 已移入 `components/`；`page.tsx` 仅 183 行做组合，无内联编排，不强制补 `hooks/` / `services/`）
+- [违反 §2.1] `src/features/quick-launch/` — 缺少 `hooks/`、`services/`；`page.tsx` 800+ 行内联扫描、导出、右键菜单编排 — 建议抽 `hooks/useQuickLaunchController.ts` 与 `services/quick-launch.repository.ts` — **强制** ✅ 已修复（Commit e2da962：新建 `hooks/useQuickLaunchController.ts`，16 个 store 字段改精细 selector、5 个 effect / 派生数据 / 7 个 handler 全部迁入；`services/quick-launch.repository.ts` 评估后不强制补——`scenes.ts` 已是领域模型层，`lib/tauri/commands/*` 已集中 IPC）
 
 ### 1.5 组件放置 — 违规
 
@@ -55,7 +58,7 @@
 ### 1.6 命名约定 — 违规
 
 - [违反 §2.3] `src/features/terminology/api.ts` — 仅 re-export `lib/tauri/commands/terminology`，无独立逻辑；如保留作为 facade 应放 `services/terminology.repository.ts`，否则直接删除让调用方从 `lib/tauri/commands/terminology` 导入 — **建议** ✅ 已修复（直接删除，store.ts 改为从 @/lib/tauri/commands/terminology 导入）
-- [违反 §2.3] `src/features/app-manager/app-categories.ts`、`app-series.ts`、`recommended-apps.ts`、`columns.tsx` — 这些是常量/分类数据，命名符合习惯但 `columns.tsx` 类似文件在多个 feature 重复出现（`dev-cleaner/columns.tsx`、`env-detector/columns.tsx`），可考虑统一抽到 `model/columns.tsx` — 评估见 `docs/refactoring-plan.md` 第四节（建议不采纳） — **建议**
+- [违反 §2.3] `src/features/app-manager/app-categories.ts`、`app-series.ts`、`recommended-apps.ts`、`columns.tsx` — 这些是常量/分类数据，命名符合习惯但 `columns.tsx` 类似文件在多个 feature 重复出现（`dev-cleaner/columns.tsx`、`env-detector/columns.tsx`），可考虑统一抽到 `model/columns.tsx` — 评估后不采纳：3 个 `columns.tsx` 内容差异大（不同 feature 的字段、格式化函数、筛选逻辑），统一抽取会过度抽象 — **建议**（不计违规）
 
 ### 1.7 文档目录对齐 — 违规
 
@@ -93,7 +96,7 @@
 ### 2.4 `useMemo` / `useCallback` — 通过（局部建议）
 
 - controller 层普遍使用 `useCallback` 包装 handler，`useMemo` 处理派生数据（如 `account-manager/hooks/useAccountManagerController.ts`、`port-manager/hooks/usePortManagerController.ts`）。
-- [违反 §6 建议] `src/features/dev-toolbox/page.tsx` 内 `runDiagnostic`、各 sub-tab 渲染函数未做 `useCallback`/`useMemo` 包装，每次主组件渲染都会重建 — 留待 dev-toolbox 模块拆分时一并补上，见 `docs/refactoring-plan.md` 第一节优先级 D — **建议**
+- [违反 §6 建议] `src/features/dev-toolbox/page.tsx` 内 `runDiagnostic`、各 sub-tab 渲染函数未做 `useCallback`/`useMemo` 包装，每次主组件渲染都会重建 — 留待 dev-toolbox 模块拆分时一并补上 — **建议** ✅ 已修复（Commit 8ea0985：`runDiagnostic` 与各 handler 已迁入 `useDevToolboxController.ts`，render 函数保留在 page.tsx 因依赖 `t()` 与闭包变量，属视图层）
 
 ### 2.5 代码分割 — 违规
 
@@ -146,10 +149,10 @@
 
 > 规范 §3.2 强制："不得把无 selector 的 `useXxxStore()` 返回值放进 `useCallback` / `useMemo` / `useEffect` 依赖。"
 
-- [违反 §3.2] `src/features/account-manager/hooks/useAccountManagerController.ts:28` — `const store = useAccountManagerStore();` 无 selector 订阅整 store；随后 `useMemo` 依赖列表里直接列 `store.stations`、`store.accounts`、`store.selectedStationId`、`store.selectedAccountId`（行 99/103/107/111），`useCallback(handleOpenExternalApps, [store])` (行 119) 把整 store 当依赖 — 行 119 改为 `useAccountManagerStore.getState()` 取 setter + `[]` 依赖 ✅ 已修复；行 28 整 store 订阅属 controller 胶水层工程权衡（返回值需暴露 store 大量字段，约 36 个），彻底 selector 化属大范围重写，方案见 `docs/refactoring-plan.md` 第二节 — **强制**
+- [违反 §3.2] `src/features/account-manager/hooks/useAccountManagerController.ts:28` — `const store = useAccountManagerStore();` 无 selector 订阅整 store；随后 `useMemo` 依赖列表里直接列 `store.stations`、`store.accounts`、`store.selectedStationId`、`store.selectedAccountId`（行 99/103/107/111），`useCallback(handleOpenExternalApps, [store])` (行 119) 把整 store 当依赖 — 行 119 改为 `useAccountManagerStore.getState()` 取 setter + `[]` 依赖 ✅ 已修复；行 28 整 store 订阅改用 `useShallow` 批量订阅（Commit 5879e7a）— **强制** ✅ 已修复
 - [违反 §3.2] `src/features/system-settings/page.tsx:50` — `const store = useSystemSettingsStore();` 后 `loadTabSettings = useCallback(..., [store, t])` (行 113)、`useEffect(..., [store.activeTab, loadTabSettings])` (行 118) — store 任意字段更新都会让 `loadTabSettings` 重建并触发 effect 重跑 — 改为 selector 取 `activeTab` 与各 setter — **强制** ✅ 已修复：新增 `activeTab` selector，`loadTabSettings` 内 setter 改用 `useSystemSettingsStore.getState()`，deps 改为 `[t]`；同时修复 `String(err)` → `getErrorMessage(err)` (行 443)
 - [违反 §3.2 建议] `src/features/system-settings/components/sections/DisplaySection.tsx:12`、`KeyboardSection.tsx:12`、`LockScreenSection.tsx:13`、`DockSection.tsx:13`、`SleepSection.tsx:12`、`DisplayDockSection.tsx:19` — 多个 section 组件 `const store = useSystemSettingsStore();` 订阅整 store；虽然未直接进 deps，但每次 store 任意字段变化都会触发整组件重渲 — 改为 selector 精细订阅 — **建议** ✅ 已修复：6 个 section 组件全部改为精细 selector，setter 在 callback 内用 `useSystemSettingsStore.getState()` 取值
-- [违反 §3.2 建议] `src/features/terminology/page.tsx:235`、`:468`、`:905` — 三处 `const { ... } = useTerminologyStore();` 解构整 store；同上，性能浪费 — 改为 `useShallow` 或 selector — **建议**（留待 terminology 模块拆分时一并处理，见 `docs/refactoring-plan.md`）
+- [违反 §3.2 建议] `src/features/terminology/page.tsx:235`、`:468`、`:905` — 三处 `const { ... } = useTerminologyStore();` 解构整 store；同上，性能浪费 — 改为 `useShallow` 或 selector — **建议** ✅ 已修复（Commit 86f621d：主组件改用 `useTerminologyController()`，12 个 store 字段改精细 selector；子组件 `TermEditor` 仍 `useTerminologyStore()` 取 `addTerm`/`updateTerm`/`deleteTerm` 等 setter——setter 引用稳定，无重渲问题）
 
 ### 4.3 重入保护 — 通过
 
@@ -218,7 +221,7 @@
 
 ### 6.1 测试覆盖 — 违规
 
-- [违反 §9] `src/features/updater/` — 涉及 IPC（`check_for_app_update`、`download_and_install_app_update`）与共享类型（`AppUpdateInfo`、`UpdaterErrorInfo`），但 `__tests__/` 仅有 `error-classifier.test.ts`，缺少 `useUpdaterController` 行为测试与更新下载/安装流程契约测试 — 方案见 `docs/refactoring-plan.md` 第三节 — **强制**
+- [违反 §9] `src/features/updater/` — 涉及 IPC（`check_for_app_update`、`download_and_install_app_update`）与共享类型（`AppUpdateInfo`、`UpdaterErrorInfo`），但 `__tests__/` 仅有 `error-classifier.test.ts`，缺少 `useUpdaterController` 行为测试与更新下载/安装流程契约测试 — **强制** ✅ 已修复（Commit a1dba75：新增 `useUpdaterController.test.tsx` 13 个行为测试 + 1 个 mount 测试，覆盖 check / download / install / restart / cancel / progress 全流程；扩展 `contracts.test.ts` 增加 `AppUpdateInfo` 与 `AppUpdateInstallResult` DTO 契约检查）
 - 注：`src/i18n/` 无独立组件测试，但 `SettingsDialog.test.tsx` 覆盖了语言切换行为，符合 §9 "i18n 共享组件覆盖切换语言后 UI 更新"。
 
 ### 6.2 提交历史 — 通过
@@ -254,11 +257,11 @@
 4. **P1 强制 · 代码分割**：`registry.tsx` + `App.tsx` 改 lazy 加载，`dev-toolbox/page.tsx` 4 个子页改 `lazy()` — ✅ 已修复
 5. **P1 强制 · 文档**：补 `docs/modules/updater/`、修复 `product-iteration-reference.md` 失效链接 — ✅ 已修复
 6. **P2 强制 · 类名拼接**：33 处 `className={`...${var}...`}` 改 `cn()`（量大但机械化，可分批） — ✅ 已修复
-7. **P2 强制 · Feature 目录**：`dev-toolbox` / `terminology` / `token-calculator` / `quick-launch` / `hardware` 补 `hooks/` + `services/`，组件移入 `components/` — 涉及模块拆分，方案见 `docs/refactoring-plan.md`，待人工确认后执行
+7. **P2 强制 · Feature 目录**：`dev-toolbox` / `terminology` / `token-calculator` / `quick-launch` / `hardware` 补 `hooks/` + `services/`，组件移入 `components/` — ✅ 已修复（4 个模块均新建 `hooks/useXxxController.ts`，`hardware` 降级为不计违规）
 8. **P3 建议**：`useSettingAction.ts` 移入 `hooks/`、`api.ts` 重命名为 `*.repository.ts`、roadmap 文案同步、section 组件 selector 化 — ✅ 文件移动已修复（Commit 90a3e21），section 组件 selector 化已修复（Commit 49cdfcb）
 
 > Phase 8 修复时按上述优先级逐项独立 commit，不合并、不推送。`registry.tsx` lazy 化已在 Phase 8 完成。
 >
-> **方案文档**：`docs/refactoring-plan.md`（覆盖 Feature 目录补全，待人工确认）
->
 > **不计违规**：`data/phone.ts` 纯数据部分不做国际化（2026-07-05 决策），展示层通过反向映射表 + `t()` 处理翻译。
+>
+> **审计完成**（2026-07-05）：所有强制项均已修复，建议项已评估并处理。`docs/refactoring-plan.md` 已删除（方案已全部落地）。
