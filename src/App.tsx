@@ -19,6 +19,7 @@ import { SettingsDialog } from "@/components/common/SettingsDialog"
 import { StartupIssuesAlert } from "@/components/common/StartupIssuesAlert"
 import { UpdateDialog } from "@/components/common/UpdateDialog"
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { useReducedMotionProps } from "@/lib/motion-utils"
 import { appFeatures, createNavigationItems, createConfigItems } from "@/features/registry"
 import { requestFeatureRefresh } from "@/features/refresh"
 import { useUpdaterController } from "@/features/updater/hooks/useUpdaterController"
@@ -48,11 +49,12 @@ function AnimatedRoutes() {
 
 function FeaturePanel({ location }: { location: string }) {
   const [frozenLocation] = useState(location)
+  const { reduce } = useReducedMotionProps()
   return (
     <motion.div
-      initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -4 }}
+      initial={reduce({ opacity: 0, y: 4 })}
+      animate={reduce({ opacity: 1, y: 0 })}
+      exit={reduce({ opacity: 0, y: -4 })}
       transition={{ duration: 0.12, ease: "easeOut" }}
       className="h-full"
     >

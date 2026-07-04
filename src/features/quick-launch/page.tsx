@@ -36,6 +36,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { LAUNCH_SCENES } from "@/features/quick-launch/scenes"
 import { cn } from "@/lib/utils"
+import { useReducedMotionProps } from "@/lib/motion-utils"
 import type { AppFeature } from "@/features/types"
 import type { AppInfo } from "@/lib/tauri/types/app-manager"
 import type { LaunchSceneKey } from "@/features/quick-launch/types"
@@ -102,6 +103,7 @@ function AppCard({
 }) {
   const { t } = useTranslation()
   const [showInfo, setShowInfo] = useState(false)
+  const { reduce } = useReducedMotionProps()
 
   return (
     <motion.button
@@ -146,8 +148,8 @@ function AppCard({
       <AnimatePresence>
         {showInfo && !isEditMode && (
           <motion.div
-            initial={{ opacity: 0, y: 2 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={reduce({ opacity: 0, y: 2 })}
+            animate={reduce({ opacity: 1, y: 0 })}
             exit={{ opacity: 0 }}
             className="absolute inset-x-0 -bottom-1 z-10 translate-y-full px-1"
           >
@@ -186,6 +188,7 @@ function SceneSection({
   onContextMenuEdit: (app: AppInfo, x: number, y: number) => void
 }) {
   const { t } = useTranslation()
+  const { reduce } = useReducedMotionProps()
   const displayApps = expanded ? apps : apps.slice(0, 6)
 
   if (apps.length === 0) return null
@@ -202,7 +205,7 @@ function SceneSection({
         <h3 className="text-foreground text-sm font-semibold">{t(scene.labelKey)}</h3>
         <span className="text-muted-foreground text-xs tabular-nums">{apps.length}</span>
         <motion.span
-          animate={{ rotate: expanded ? 180 : 0 }}
+          animate={reduce({ rotate: expanded ? 180 : 0 })}
           transition={{ duration: 0.2 }}
           className="text-muted-foreground ml-auto"
         >

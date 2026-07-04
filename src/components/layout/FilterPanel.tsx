@@ -5,6 +5,7 @@ import { type ReactNode } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { PanelRightClose } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useReducedMotionProps } from "@/lib/motion-utils"
 
 interface FilterPanelProps {
   children: ReactNode
@@ -21,15 +22,16 @@ export function FilterPanel({
   activeFilterCount: _activeFilterCount = 0,
   title,
 }: FilterPanelProps) {
+  const { reduce } = useReducedMotionProps()
   return (
     <div className="bg-card/50 flex h-full w-full flex-col overflow-hidden rounded-xl border">
       <AnimatePresence initial={false}>
         {open && (
           <motion.div
             key="filter-panel-content"
-            initial={{ opacity: 0, x: -8 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -8 }}
+            initial={reduce({ opacity: 0, x: -8 })}
+            animate={reduce({ opacity: 1, x: 0 })}
+            exit={reduce({ opacity: 0, x: -8 })}
             transition={{ duration: 0.18, ease: "easeOut" }}
             className="flex h-full min-h-0 flex-col"
           >

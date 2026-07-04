@@ -6,6 +6,7 @@ import { type ColumnDef, type SortingState, type OnChangeFn } from "@tanstack/re
 import { AnimatePresence, motion } from "motion/react"
 import { RefreshCw, Search } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { useReducedMotionProps } from "@/lib/motion-utils"
 import { VirtualDataTable } from "./VirtualDataTable"
 import { VirtualGridView } from "./VirtualGridView"
 import { ViewToggle } from "./ViewToggle"
@@ -87,6 +88,7 @@ export function ContentView<T>({
   getRowAttributes,
 }: ContentViewProps<T>) {
   const { t } = useTranslation()
+  const { reduce } = useReducedMotionProps()
 
   // Initial load with no data — show full-screen loader
   if (loading && data.length === 0) {
@@ -179,9 +181,9 @@ export function ContentView<T>({
             {rightActions && (
               <motion.div
                 key="right-actions"
-                initial={{ opacity: 0, x: 8 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 8 }}
+                initial={reduce({ opacity: 0, x: 8 })}
+                animate={reduce({ opacity: 1, x: 0 })}
+                exit={reduce({ opacity: 0, x: 8 })}
                 transition={{ duration: 0.16, ease: "easeOut" }}
               >
                 {rightActions}

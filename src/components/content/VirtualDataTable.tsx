@@ -13,6 +13,7 @@ import {
 } from "@tanstack/react-table"
 import type { SortingState, OnChangeFn } from "@tanstack/react-table"
 import { cn } from "@/lib/utils"
+import { useReducedMotionProps } from "@/lib/motion-utils"
 import { AnimatePresence, motion } from "motion/react"
 import { Check } from "lucide-react"
 import { useTranslation } from "react-i18next"
@@ -75,6 +76,7 @@ export function VirtualDataTable<T>({
   getRowAttributes,
 }: VirtualDataTableProps<T>) {
   const { t } = useTranslation()
+  const { reduce } = useReducedMotionProps()
   const table = useReactTable({
     data,
     columns,
@@ -213,9 +215,9 @@ export function VirtualDataTable<T>({
                       {isBatchSelected && (
                         <motion.span
                           key="check"
-                          initial={{ scale: 0, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          exit={{ scale: 0, opacity: 0 }}
+                          initial={reduce({ scale: 0, opacity: 0 })}
+                          animate={reduce({ scale: 1, opacity: 1 })}
+                          exit={reduce({ scale: 0, opacity: 0 })}
                           transition={{ type: "spring", stiffness: 700, damping: 28 }}
                           className="inline-flex"
                         >

@@ -24,10 +24,12 @@ import {
 import type { AppFilterKey, MarketplaceFilterKey } from "@/features/app-manager/model/preferences"
 import type { AppInfo, InstallListAppInfo } from "@/lib/tauri/types/app-manager"
 import { useAppManagerViewState } from "@/features/app-manager/hooks/useAppManagerViewState"
+import { useReducedMotionProps } from "@/lib/motion-utils"
 
 function AppManager({ active, feature }: { active: boolean; feature?: { desktopOnly?: boolean } }) {
   const viewState = useAppManagerViewState()
   const controller = useAppManagerController(active)
+  const { reduce } = useReducedMotionProps()
   const {
     t,
     loading,
@@ -161,9 +163,9 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
               {activeTab === "softwareUpdate" ? (
                 <motion.div
                   key="softwareUpdate"
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
+                  initial={reduce({ opacity: 0, y: 4 })}
+                  animate={reduce({ opacity: 1, y: 0 })}
+                  exit={reduce({ opacity: 0, y: -4 })}
                   transition={{ duration: 0.12, ease: "easeOut" }}
                   className="h-full min-h-0"
                 >
@@ -200,9 +202,9 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
               ) : activeTab === "marketplace" ? (
                 <motion.div
                   key="marketplace"
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
+                  initial={reduce({ opacity: 0, y: 4 })}
+                  animate={reduce({ opacity: 1, y: 0 })}
+                  exit={reduce({ opacity: 0, y: -4 })}
                   transition={{ duration: 0.12, ease: "easeOut" }}
                   className="h-full min-h-0"
                 >
@@ -322,9 +324,9 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
               ) : (
                 <motion.div
                   key="installed"
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
+                  initial={reduce({ opacity: 0, y: 4 })}
+                  animate={reduce({ opacity: 1, y: 0 })}
+                  exit={reduce({ opacity: 0, y: -4 })}
                   transition={{ duration: 0.12, ease: "easeOut" }}
                   className="h-full min-h-0"
                 >

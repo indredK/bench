@@ -14,6 +14,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Settings } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { cn } from "@/lib/utils"
+import { useReducedMotionProps } from "@/lib/motion-utils"
 
 interface SidebarProps {
   items: NavigationItem[]
@@ -30,6 +31,7 @@ function Sidebar({ items, configItems, onPrefs }: SidebarProps) {
     duration: 700,
   })
   const [location] = useLocation()
+  const { reduce } = useReducedMotionProps()
 
   return (
     <div className="border-border bg-background text-foreground flex w-[200px] shrink-0 flex-col border-r select-none">
@@ -42,8 +44,8 @@ function Sidebar({ items, configItems, onPrefs }: SidebarProps) {
           {titleText || " "}
         </h1>
         <motion.p
-          initial={{ opacity: 0, y: 4 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={reduce({ opacity: 0, y: 4 })}
+          animate={reduce({ opacity: 1, y: 0 })}
           transition={{ duration: 0.3, delay: 0.6, ease: "easeOut" }}
           className="text-muted-foreground mt-0.5 text-[10px]"
         >

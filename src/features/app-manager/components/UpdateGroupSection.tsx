@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "motion/react"
 import { ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { useReducedMotionProps } from "@/lib/motion-utils"
 import type { AppInfo, UpdateInfo, UpdateSource } from "@/lib/tauri/types/app-manager"
 import type { OperationStatus } from "@/features/app-manager/model/operations"
 import { UpdateRow } from "@/features/app-manager/components/UpdateRow"
@@ -47,6 +48,7 @@ export function UpdateGroupSection({
   onSourceAction,
 }: UpdateGroupSectionProps) {
   const groupBusy = updates.some((update) => updateOperations[update.appId]?.status === "running")
+  const { reduce } = useReducedMotionProps()
 
   return (
     <section className="bg-card relative rounded-lg border">
@@ -60,7 +62,7 @@ export function UpdateGroupSection({
           onClick={onToggleExpanded}
         >
           <motion.span
-            animate={{ rotate: expanded ? 0 : -90 }}
+            animate={reduce({ rotate: expanded ? 0 : -90 })}
             transition={{ duration: 0.2, ease: "easeOut" }}
             className="inline-flex"
           >
