@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.18.1](https://github.com/indredK/bench/compare/v1.18.0...v1.18.1) (2026-07-04)
+
+
+### Bug Fixes
+
+* **src-tauri/docs:** 修复window-vibrancy版本冲突导致的macOS编译问题 ([eddbb9f](https://github.com/indredK/bench/commit/eddbb9fa2b36b7ff0b2fa0edb6cf437779c77e2f))
+
 ## [1.18.0](https://github.com/indredK/bench/compare/v1.17.3...v1.18.0) (2026-07-04)
 
 
