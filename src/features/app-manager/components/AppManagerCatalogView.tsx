@@ -18,7 +18,7 @@ import {
   AppManagerFilterSidebar,
   type AppManagerTypeFilterOption,
 } from "@/features/app-manager/components/AppManagerFilterSidebar";
-import type { CategorizableItem } from "@/features/app-manager/CategoryFilter";
+import type { CategorizableItem } from "@/features/app-manager/components/CategoryFilter";
 import type { BatchOperationResult } from "@/lib/tauri/types/app-manager";
 
 interface AppManagerCatalogViewProps<TItem, TFilter extends string> {

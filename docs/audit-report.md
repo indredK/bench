@@ -45,14 +45,14 @@
 
 ### 1.5 组件放置 — 违规
 
-- [违反 §2.2] `src/features/app-manager/CategoryFilter.tsx` — 单功能内部复用组件放在 feature 根目录而非 `app-manager/components/` — 移到 `components/CategoryFilter.tsx` — **强制**
-- [违反 §2.2] `src/features/hardware/HardwareCompare.tsx`、`HardwareCompareTab.tsx` — 同上，应放 `hardware/components/` — **强制**
-- [违反 §2.3] `src/features/system-settings/useSettingAction.ts` — 命名为 `useXxx` 的 hook 直接放在 feature 根目录；同模块 `hooks/` 目录存在但为空 — 移入 `hooks/useSettingAction.ts` — **强制**
-- [违反 §2.3] `src/features/token-calculator/api.ts` — 直接调用 `invokeTauriCommand` 的服务层文件，命名不符合 `*.repository.ts` 约定，也未放进 `services/` — 重命名为 `services/token-calculator.repository.ts` — **建议**
+- [违反 §2.2] `src/features/app-manager/CategoryFilter.tsx` — 单功能内部复用组件放在 feature 根目录而非 `app-manager/components/` — 移到 `components/CategoryFilter.tsx` — **强制** ✅ 已修复
+- [违反 §2.2] `src/features/hardware/HardwareCompare.tsx`、`HardwareCompareTab.tsx` — 同上，应放 `hardware/components/` — **强制** ✅ 已修复（同时修复 HardwareCompareTab.tsx 散装错误判断 → getErrorMessage）
+- [违反 §2.3] `src/features/system-settings/useSettingAction.ts` — 命名为 `useXxx` 的 hook 直接放在 feature 根目录；同模块 `hooks/` 目录存在但为空 — 移入 `hooks/useSettingAction.ts` — **强制** ✅ 已修复
+- [违反 §2.3] `src/features/token-calculator/api.ts` — 直接调用 `invokeTauriCommand` 的服务层文件，命名不符合 `*.repository.ts` 约定，也未放进 `services/` — 重命名为 `services/token-calculator.repository.ts` — **建议** ✅ 已修复
 
 ### 1.6 命名约定 — 违规
 
-- [违反 §2.3] `src/features/terminology/api.ts` — 仅 re-export `lib/tauri/commands/terminology`，无独立逻辑；如保留作为 facade 应放 `services/terminology.repository.ts`，否则直接删除让调用方从 `lib/tauri/commands/terminology` 导入 — **建议**
+- [违反 §2.3] `src/features/terminology/api.ts` — 仅 re-export `lib/tauri/commands/terminology`，无独立逻辑；如保留作为 facade 应放 `services/terminology.repository.ts`，否则直接删除让调用方从 `lib/tauri/commands/terminology` 导入 — **建议** ✅ 已修复（直接删除，store.ts 改为从 @/lib/tauri/commands/terminology 导入）
 - [违反 §2.3] `src/features/app-manager/app-categories.ts`、`app-series.ts`、`recommended-apps.ts`、`columns.tsx` — 这些是常量/分类数据，命名符合习惯但 `columns.tsx` 类似文件在多个 feature 重复出现（`dev-cleaner/columns.tsx`、`env-detector/columns.tsx`），可考虑统一抽到 `model/columns.tsx` — **建议**
 
 ### 1.7 文档目录对齐 — 违规

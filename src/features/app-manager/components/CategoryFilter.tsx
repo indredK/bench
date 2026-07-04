@@ -5,8 +5,8 @@ import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
 import type { AppInfo, InstallListAppInfo } from "@/lib/tauri/types";
-import { APP_CATEGORIES, classifyApp, type AppCategoryKey } from "./app-categories";
-import { APP_SERIES, classifySeries, type AppSeriesKey } from "./app-series";
+import { APP_CATEGORIES, classifyApp, type AppCategoryKey } from "../app-categories";
+import { APP_SERIES, classifySeries, type AppSeriesKey } from "../app-series";
 import { cn } from "@/lib/utils";
 
 type FilterMode = "category" | "series";

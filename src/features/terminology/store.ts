@@ -15,7 +15,7 @@ import {
   updateIndustry,
   updateSubcategory,
   updateTerm,
-} from "./api";
+} from "@/lib/tauri/commands/terminology";
 import {
   FRONTEND_CATEGORY_ID,
   FRONTEND_INDUSTRY_ID,

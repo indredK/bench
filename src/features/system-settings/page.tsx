@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { Loader2Icon, ExternalLink, FolderOpen, Search, X } from "lucide-react";
 import { systemSettingsUseCases } from "@/features/system-settings/services/system-settings.use-cases";
 import { useSystemSettingsStore } from "@/features/system-settings/store";
-import { useSettingAction } from "@/features/system-settings/useSettingAction";
+import { useSettingAction } from "@/features/system-settings/hooks/useSettingAction";
 import { SettingToggle } from "./components/SettingToggle";
 import { SettingGroup } from "@/components/ui/setting-group";
 import { Button } from "@/components/ui/button";

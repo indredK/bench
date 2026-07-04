@@ -8,7 +8,7 @@ import { useTranslation } from "react-i18next";
 import { Loader2Icon, Code, Network, Monitor, Zap, Trash2, Box, Coins } from "lucide-react";
 import { systemSettingsUseCases } from "@/features/system-settings/services/system-settings.use-cases";
 import { systemInfoUseCases } from "@/features/system-settings/services/system-info.use-cases";
-import { useSettingAction } from "@/features/system-settings/useSettingAction";
+import { useSettingAction } from "@/features/system-settings/hooks/useSettingAction";
 import { SettingGroup } from "@/components/ui/setting-group";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

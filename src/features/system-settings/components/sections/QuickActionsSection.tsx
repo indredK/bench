@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { systemSettingsUseCases } from "@/features/system-settings/services/system-settings.use-cases";
-import { useSettingAction } from "@/features/system-settings/useSettingAction";
+import { useSettingAction } from "@/features/system-settings/hooks/useSettingAction";
 import { SettingGroup } from "@/components/ui/setting-group";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";

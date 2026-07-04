@@ -18,7 +18,7 @@ import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/tauri/errors";
-import { useSystemSettingsStore } from "./store";
+import { useSystemSettingsStore } from "../store";
 
 export function useSettingAction() {
   const { t } = useTranslation();

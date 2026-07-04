@@ -1,8 +1,8 @@
 import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import HardwareCompare from "@/features/hardware/HardwareCompare";
-import HardwareCompareTab from "@/features/hardware/HardwareCompareTab";
+import HardwareCompare from "@/features/hardware/components/HardwareCompare";
+import HardwareCompareTab from "@/features/hardware/components/HardwareCompareTab";
 import { useHardwareCompareStore } from "@/features/hardware/store";
 import type { CompareDataModule } from "@/shared/compare/types";
 

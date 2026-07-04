@@ -1,4 +1,4 @@
-import type { ModelPricing } from "@/features/token-calculator/api";
+import type { ModelPricing } from "@/features/token-calculator/services/token-calculator.repository";
 
 export const CURRENCY_SYMBOLS: Record<string, string> = {
   USD: "$",

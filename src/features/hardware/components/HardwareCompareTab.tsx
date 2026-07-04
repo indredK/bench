@@ -5,7 +5,8 @@ import { AlertTriangle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FeatureLoadError } from "@/components/common/FeatureLoadError";
-import HardwareCompare from "@/features/hardware/HardwareCompare";
+import { getErrorMessage } from "@/lib/tauri/errors";
+import HardwareCompare from "@/features/hardware/components/HardwareCompare";
 import type { CompareDataModule } from "@/shared/compare/types";
 
 interface HardwareCompareTabProps {
@@ -31,14 +32,7 @@ export default function HardwareCompareTab({ loadModule }: HardwareCompareTabPro
       })
       .catch((error) => {
         if (!cancelled) {
-          const message =
-            typeof error === "object" &&
-            error !== null &&
-            "message" in error &&
-            typeof (error as { message?: unknown }).message === "string"
-              ? ((error as { message: string }).message || t("hardwareCompare.loadFailed"))
-              : t("hardwareCompare.loadFailed");
-          setLoadError(message);
+          setLoadError(getErrorMessage(error, t("hardwareCompare.loadFailed")));
         }
       });
 

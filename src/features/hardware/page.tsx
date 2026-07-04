@@ -19,7 +19,7 @@ import {
 import { useTranslation } from "react-i18next";
 import CompareTabs, { type CompareTabItem } from "@/shared/compare/CompareTabs";
 
-const LazyHardwareTab = lazy(() => import("@/features/hardware/HardwareCompareTab"));
+const LazyHardwareTab = lazy(() => import("@/features/hardware/components/HardwareCompareTab"));
 
 type HardwareModuleLoader = () => Promise<{
   default?: never;

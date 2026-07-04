@@ -19,11 +19,11 @@ import {
   createPricingStandard,
   updatePricingStandard,
   deletePricingStandard,
-} from "@/features/token-calculator/api";
+} from "@/features/token-calculator/services/token-calculator.repository";
 import type {
   ModelPricing,
   PricingStandard,
-} from "@/features/token-calculator/api";
+} from "@/features/token-calculator/services/token-calculator.repository";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";

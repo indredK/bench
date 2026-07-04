@@ -4,7 +4,7 @@
 import type { TFunction } from "i18next";
 import { Badge } from "@/components/ui/badge";
 import { FilterPanel } from "@/components/layout/FilterPanel";
-import { CategoryFilter, type CategorizableItem } from "@/features/app-manager/CategoryFilter";
+import { CategoryFilter, type CategorizableItem } from "@/features/app-manager/components/CategoryFilter";
 import type { AppCategoryKey } from "@/features/app-manager/app-categories";
 import type { AppSeriesKey } from "@/features/app-manager/app-series";
 import type { ReactNode } from "react";

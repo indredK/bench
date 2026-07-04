@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { ExternalLink } from "lucide-react";
 import { useSystemSettingsStore } from "@/features/system-settings/store";
 import { systemSettingsUseCases } from "@/features/system-settings/services/system-settings.use-cases";
-import { useSettingAction } from "@/features/system-settings/useSettingAction";
+import { useSettingAction } from "@/features/system-settings/hooks/useSettingAction";
 import { SettingToggle } from "../SettingToggle";
 import { SettingGroup } from "@/components/ui/setting-group";
 import { Button } from "@/components/ui/button";
