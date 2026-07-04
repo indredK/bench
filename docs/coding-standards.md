@@ -39,12 +39,19 @@
 - **强制**: `store.ts` 只放状态和简单动作，复杂业务编排放 `*use-cases.ts`。
 - **强制**: Tauri 调用、存储访问放 `*repository.ts` 或 `lib/tauri/commands/*`。
 - **强制**: 组件层消费 controller 或 use case，不直接堆叠平台调用。
+- **建议**: `store.ts` 是否补建按实际共享范围决定：状态被多个页面/组件共享时补 `store.ts`；页面级本地状态（如 token-calculator 的 pricing/汇率）留在 controller 即可，不强制补 `store.ts` 避免过度抽象。
+- **建议**: `services/*.repository.ts` 是否补建按 IPC 集中度决定：Tauri 命令已在 `lib/tauri/commands/*` 集中维护时，feature 内不强制补 `*.repository.ts` 作为纯 re-export facade；仅在需要错误处理 / 缓存 / 参数转换等附加逻辑时才补。
 
 ### 3.2 Zustand Controller
 
 - **强制**: Controller 中异步编排（初始加载、提交、轮询等）通过 `useXxxStore.getState()` 读写 store，**不得**把无 selector 的 `useXxxStore()` 返回值放进 `useCallback` / `useMemo` / `useEffect` 依赖。整 store 订阅在每次 state 更新时都会产生新引用，易导致 effect 无限重跑（例如首屏一直「加载中」）。
 - **强制**: UI 需要的 store 字段用 selector 订阅，或 `useShallow` 取多字段；参考 `useAppManagerController.ts` + `useAppManagerViewState.ts`。
 - **建议**: Controller 内避免 `const store = useXxxStore()` 无 selector 订阅整 store；仅 actions 可用 `useXxxStore((s) => s.setFoo)` 等形式按需订阅。
+- **建议**: `useShallow` 批量订阅 vs 精细 selector 的选择按字段数与稳定性决定：
+  - 字段多（≥20）且 controller 需大量暴露给 page.tsx 时用 `useShallow` 一次性批量订阅（如 account-manager 36 字段）；
+  - 字段少（≤15）时优先逐个 `useXxxStore((s) => s.foo)` 精细 selector，订阅意图更清晰（如 terminology 12 字段）。
+- **建议**: Controller 抽取采用「最小化方案」：把 `page.tsx` 的 store 订阅、本地 UI 状态、派生数据（`useMemo`）、effect、handler（`useCallback`）集中迁入 `hooks/useXxxController.ts`，page.tsx 只保留 JSX 渲染与 `t()` 调用。子组件可保留原样直接从 `./store` import `useXxxStore`——setter 引用稳定，无重渲问题，不必强行迁出。
+- **建议**: Controller 返回值只暴露 page.tsx 实际消费的字段；内部使用但页面不需要的字段（如 `appManagerLoading` 仅用于 effect 同步）不要返回，避免 page.tsx 解构后未使用触发 lint。
 
 ### 3.3 异步安全
 
@@ -111,6 +118,8 @@
 - **强制**: 涉及 IPC、共享类型、复杂业务编排的改动，须通过相关测试或检查链路。
 - **建议**: 优先补行为测试和契约测试；优先按「类型检查 → 单测 → 前端构建 → 后端 check」顺序自检。
 - **强制**: i18n 共享组件和品牌文案改动，覆盖切换语言后 UI 更新的行为测试。
+- **强制**: 自定义 hook 测试必须用 `renderHook(() => useXxxHook())` + `result.current.xxx()` 模式（从 `@testing-library/react` 导入），**禁止**在测试函数体内直接调用 hook——违反 Rules of Hooks 会抛 `Invalid hook call. Hooks can only be called inside of the body of a function component.`。异步动作包在 `await act(async () => { await result.current.foo(); })` 内，确保 state 更新被 React 调度。参考 `src/features/updater/__tests__/useUpdaterController.test.tsx`。
+- **建议**: IPC 契约测试覆盖 DTO 字段一致性：在 `src/lib/tauri/__tests__/contracts.test.ts` 为新增的 Rust ↔ TS 共享类型补字段比对，防止两侧漂移。
 
 ## 10. 提交规范
 

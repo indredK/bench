@@ -56,6 +56,16 @@
 
 **必须：** 文案走 i18n；危险操作用 `DestructiveConfirmDialog`；异步可重复触发处加重入保护；平台能力用 `canUseTauriWindow()` 等边界判断。
 
+### 3.1 Controller 抽取实操要点
+
+把 `page.tsx` 的 controller 逻辑迁入 `hooks/useXxxController.ts` 时，容易踩的坑：
+
+- **import 清理要区分主组件 vs 子组件依赖**：主组件的 `useState` / `useCallback` / `useEffect` / `useMemo` / `useRef` 迁出后，page.tsx 的 React import 可能看似无用；但同文件内的子组件（如 `AppCard` / `SceneSection`）可能仍直接使用这些 hook。删 import 前先 grep `use[A-Z]` 确认子组件依赖。
+- **store import 保留**：子组件通常仍从 `./store` import `useXxxStore` 取 setter（如 `addTerm` / `updateTerm`），不要因为主组件改用 controller 就删 `./store` 的 import。
+- **`useTranslation` 双重需要**：主组件和子组件各自 `useTranslation()`，controller 内如需 `t()`（如错误 toast）也单独 `useTranslation()`，不要试图透传。
+- **散装错误判断顺手收口**：抽取时遇到的 `e instanceof Error ? e.message : String(e)` / `typeof error === "string"` 等散装判断，顺手改用 `getErrorMessage(error, defaultValue)`（见 §7.2），避免遗留技术债。
+- **逐模块独立提交**：每个 feature 的 controller 抽取单独 commit，便于回滚和 review；不要把多个模块的抽取合并成一个 commit。
+
 ---
 
 ## 4. 本地开发与自检
@@ -136,7 +146,7 @@ pnpm run verify       # test:fe + test:be + build:fe + build:debug
 - Session 迁移与状态 UX（Account Manager）
 - 约半数模块缺 feature 测试；Session/Probe Rust 引擎测试弱
 - Issue 与 roadmap 未自动联动
-- 部分模块技术债（Quick Launch `scenes.ts`、Dev Toolbox 单文件等）
+- 部分模块技术债（Quick Launch `scenes.ts` 800+ 行待拆、Dev Toolbox 子模块拆分待 v1.17）
 - macOS 以外能力需 DesktopOnly / 平台矩阵诚实标注
 
 ---
