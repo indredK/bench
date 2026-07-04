@@ -610,6 +610,14 @@ export default function QuickLaunch({ active }: { active: boolean; feature: AppF
     }
   }, [loading, setLoading, setAutoClassified, batchSetScenes]);
 
+  // Auto-start scan when entering quick launch and no scan has been done yet
+  useEffect(() => {
+    if (!active) return;
+    if (appManagerScanned) return;
+    if (loading || appManagerLoading) return;
+    handleRescan();
+  }, [active, appManagerScanned, loading, appManagerLoading, handleRescan]);
+
   // Determine which scene keys to skip (rendered inside MergedSceneSection instead)
   const mergedSceneSet = useMemo(() => new Set(MERGED_SCENE_KEYS), []);
   const firstMergedKey = MERGED_SCENE_KEYS[0];
