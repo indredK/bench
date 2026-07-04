@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   Copy,
   Check,
@@ -21,6 +21,10 @@ import {
   isUnclassifiedSubcategoryId,
 } from "./constants";
 import type { Term, TermWebsite } from "./types";
+import {
+  useTerminologyController,
+  toastTerminologyError,
+} from "./hooks/useTerminologyController";
 import { Button } from "@/components/ui/button";
 import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirmDialog";
 import { Input } from "@/components/ui/input";
@@ -51,29 +55,6 @@ import { FeatureLoadError } from "@/components/common/FeatureLoadError";
 
 function copyText(text: string) {
   void writeClipboardText(text).catch(() => {});
-}
-
-function getTauriErrorCode(error: unknown): string | null {
-  if (typeof error !== "object" || error === null || !("code" in error)) return null;
-  const code = (error as { code?: unknown }).code;
-  return typeof code === "string" ? code : null;
-}
-
-function toastTerminologyError(
-  t: (key: string, opts?: Record<string, unknown>) => string,
-  error: unknown,
-  fallbackKey: string
-) {
-  const code = getTauriErrorCode(error);
-  const key =
-    code === "DUPLICATE_NAME"
-      ? "terminology.toasts.duplicateName"
-      : code === "INVALID_INPUT"
-        ? "terminology.toasts.invalidInput"
-        : code === "NOT_FOUND"
-          ? "terminology.toasts.targetNotFound"
-          : fallbackKey;
-  toast.error(t(key));
 }
 
 // ─── Website chip ─────────────────────────────────────────────────────────────
@@ -895,7 +876,6 @@ export default function TerminologyPage() {
   const { t } = useTranslation();
   const {
     industries,
-    pinnedTermIds,
     selectedIndustryId,
     selectedCategoryId,
     selectedSubcategoryId,
@@ -907,46 +887,21 @@ export default function TerminologyPage() {
     setCategory,
     setSubcategory,
     setSearch,
-    setTermPinned,
-    filteredTerms,
-  } = useTerminologyStore();
-
-  const [drawerTerm, setDrawerTerm] = useState<Term | null>(null);
-  const [drawerIsNew, setDrawerIsNew] = useState(false);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [managerOpen, setManagerOpen] = useState(false);
-
-  const terms = filteredTerms();
-
-  const currentIndustry = useMemo(
-    () => industries.find((i) => i.id === selectedIndustryId),
-    [industries, selectedIndustryId]
-  );
-  const currentCategory = useMemo(
-    () => currentIndustry?.categories.find((category) => category.id === selectedCategoryId),
-    [currentIndustry, selectedCategoryId]
-  );
-  const pinnedTermIdSet = useMemo(() => new Set(pinnedTermIds), [pinnedTermIds]);
-
-  useEffect(() => {
-    void hydrate().catch(() => {
-      return;
-    });
-  }, [hydrate, t]);
-
-  const openNew = useCallback(() => { setDrawerTerm(null); setDrawerIsNew(true); setDrawerOpen(true); }, []);
-  const openEdit = useCallback((term: Term) => { setDrawerTerm(term); setDrawerIsNew(false); setDrawerOpen(true); }, []);
-  const closeDrawer = useCallback(() => setDrawerOpen(false), []);
-  const handleTogglePinned = useCallback(
-    async (termId: string, nextValue: boolean) => {
-      try {
-        await setTermPinned(termId, nextValue);
-      } catch (error) {
-        toastTerminologyError(t, error, "terminology.toasts.pinFailed");
-      }
-    },
-    [setTermPinned, t]
-  );
+    terms,
+    currentIndustry,
+    currentCategory,
+    pinnedTermIdSet,
+    drawerTerm,
+    drawerIsNew,
+    drawerOpen,
+    managerOpen,
+    setDrawerOpen,
+    setManagerOpen,
+    openNew,
+    openEdit,
+    closeDrawer,
+    handleTogglePinned,
+  } = useTerminologyController();
 
   if (isLoading) {
     return (
