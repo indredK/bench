@@ -3,6 +3,7 @@
  */
 import type { BatchOperationResult, OperationResult } from "@/lib/tauri/types/app-manager";
 import type { LocalizedError } from "@/lib/errors";
+import { getErrorMessage } from "@/lib/tauri/errors";
 
 export type OperationStatus = "idle" | "pending" | "running" | "success" | "error";
 
@@ -36,7 +37,7 @@ export function createRunningOperationState(message: string): AppOperationState 
 }
 
 export function createErrorOperationState(error: unknown): AppOperationState {
-  return { status: "error", message: String(error) };
+  return { status: "error", message: getErrorMessage(error) };
 }
 
 export function createBatchProgress(total: number): BatchProgress {
@@ -60,7 +61,7 @@ export function createBatchErrorPatch(error: unknown) {
     batchMode: false,
     error: {
       key: "appManager.errors.genericBatchFailure",
-      fallback: String(error),
+      fallback: getErrorMessage(error),
     } satisfies LocalizedError,
   };
 }

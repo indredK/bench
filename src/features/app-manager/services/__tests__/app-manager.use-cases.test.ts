@@ -67,7 +67,7 @@ describe("appManagerUseCases", () => {
       appId: "app-1",
       kind: "upgrade",
       shouldRescan: false,
-      result: { success: false, message: "Error: boom" },
+      result: { success: false, message: "boom" },
     });
   });
 

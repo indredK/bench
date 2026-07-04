@@ -5,6 +5,7 @@ import { Component, type ErrorInfo, type ReactNode } from "react";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import i18n from "@/i18n/config";
+import { getErrorMessage } from "@/lib/tauri/errors";
 
 export class AppManagerErrorBoundary extends Component<
   { children: ReactNode },
@@ -13,7 +14,7 @@ export class AppManagerErrorBoundary extends Component<
   state = { hasError: false, error: "" };
 
   static getDerivedStateFromError(error: Error) {
-    return { hasError: true, error: String(error) };
+    return { hasError: true, error: getErrorMessage(error) };
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {

@@ -13,6 +13,7 @@ import {
   appManagerRepository,
   type AppManagerRepository,
 } from "@/features/app-manager/services/app-manager.repository";
+import { getErrorMessage } from "@/lib/tauri/errors";
 import { canUseDesktopFeatures } from "@/platform/capabilities";
 import {
   normalizeAppManagerPreferences,
@@ -48,7 +49,7 @@ export type BatchOperationOutcome = {
 
 const operationErrorResult = (error: unknown): OperationResult => ({
   success: false,
-  message: String(error),
+  message: getErrorMessage(error),
   exitCode: null,
   errorCode: null,
   permissionIssue: false,
@@ -157,7 +158,7 @@ function createAppManagerUseCases(
 
         return { kind, result };
       } catch (error) {
-        return { kind, result: null, error: String(error) };
+        return { kind, result: null, error: getErrorMessage(error) };
       }
     },
 
@@ -177,7 +178,7 @@ function createAppManagerUseCases(
         const updates = await repository.checkAllAppUpdates(forceRefresh);
         return { updates, error: null };
       } catch (error) {
-        return { updates: [], error: String(error) };
+        return { updates: [], error: getErrorMessage(error) };
       }
     },
 

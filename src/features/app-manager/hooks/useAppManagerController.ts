@@ -39,6 +39,7 @@ import { listenToPlatformEvent } from "@/platform/events";
 import { createInstallListColumns } from "@/features/app-manager/components/install-list-columns";
 import type { LocalizedError } from "@/lib/errors";
 import { localizeError } from "@/lib/errors";
+import { getErrorMessage } from "@/lib/tauri/errors";
 
 function isInstallerUpdateSource(source: UpdateSource): boolean {
   return source === "sparkle" || source === "electron" || source === "squirrel";
@@ -298,7 +299,7 @@ export function useAppManagerController(active: boolean) {
         setUpdatesScanned(true);
       } catch (err) {
         setUpdatesError(
-          toLocalizedError("appManager.errors.updateCheckFailed", String(err) || undefined)
+          toLocalizedError("appManager.errors.updateCheckFailed", getErrorMessage(err) || undefined)
         );
         setUpdatesScanned(true);
       } finally {
@@ -422,7 +423,7 @@ export function useAppManagerController(active: boolean) {
           await appManagerUseCases.openMacAppStoreUpdates();
         } catch (error) {
           setUpdatesError(
-            toLocalizedError("appManager.errors.updateCheckFailed", String(error) || undefined)
+            toLocalizedError("appManager.errors.updateCheckFailed", getErrorMessage(error) || undefined)
           );
         }
         return;
