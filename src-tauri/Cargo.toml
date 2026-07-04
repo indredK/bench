@@ -27,7 +27,7 @@ tauri-plugin-deep-link = "2"
 tauri-plugin-notification = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-sysinfo = "0.37.2"
+sysinfo = "0.38"
 walkdir = "2"
 chrono = "0.4"
 dirs-next = "2"
@@ -39,7 +39,7 @@ async-trait = "0.1"
 quick-xml = { version = "0.36", features = ["serialize"] }
 serde_yaml = "0.9"
 semver = "1"
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "gzip", "brotli", "stream", "socks"] }
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "gzip", "brotli", "stream", "socks", "query"] }
 sha2 = "0.10"
 md5 = "0.7"
 sha1 = "0.10"
