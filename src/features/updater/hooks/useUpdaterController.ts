@@ -19,6 +19,7 @@ import {
   classifyUpdaterError,
   createDesktopOnlyUpdaterError,
 } from "@/features/updater/error-classifier";
+import { getErrorMessage } from "@/lib/tauri/errors";
 import { useUpdaterStore } from "@/features/updater/store";
 
 const GITHUB_RELEASES_URL = "https://github.com/indredK/bench/releases";
@@ -104,12 +105,7 @@ export function useUpdaterController() {
       await downloadAndInstallAppUpdate();
       useUpdaterStore.setState({ status: "readyToRestart", error: "", errorInfo: null });
     } catch (error) {
-      const message =
-        error instanceof Error && error.message
-          ? error.message
-          : typeof error === "string"
-            ? error
-            : "";
+      const message = getErrorMessage(error);
       // User-initiated cancel: backend rejects with "update download cancelled".
       // Don't surface as an error — return to the available state so they can retry.
       if (message.toLowerCase().includes("cancelled")) {

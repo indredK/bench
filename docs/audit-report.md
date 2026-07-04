@@ -187,8 +187,8 @@
 
 ### 5.3 前端错误解析 — 违规
 
-- [违反 §7.2] `src/features/updater/error-classifier.ts:102`、`:106` — 自行 `error instanceof Error` 与 `typeof error === "string"` 判断 — 应改为 `parseCommandError(error)` 后基于 `code`/`message` 分类 — **强制**
-- [违反 §7.2] `src/features/updater/hooks/useUpdaterController.ts:108`、`:110` — 同上，`error instanceof Error && error.message` 与 `typeof error === "string"` 散装判断 — 改为 `getErrorMessage(error, t("..."))` — **强制**
+- [违反 §7.2] `src/features/updater/error-classifier.ts:102`、`:106` — 自行 `error instanceof Error` 与 `typeof error === "string"` 判断 — 应改为 `parseCommandError(error)` 后基于 `code`/`message` 分类 — **强制** ✅ 已修复（normalizeErrorMessage 改用 getErrorMessage）
+- [违反 §7.2] `src/features/updater/hooks/useUpdaterController.ts:108`、`:110` — 同上，`error instanceof Error && error.message` 与 `typeof error === "string"` 散装判断 — 改为 `getErrorMessage(error, t("..."))` — **强制** ✅ 已修复（7 行三元表达式改用 getErrorMessage(error)）
 - [违反 §7.2] `src/features/app-manager/services/app-manager.use-cases.ts:51`、`:160`、`:180` — `String(error)` 用于构建错误对象/批量结果 — 改为 `getErrorMessage(error)` — **强制**
 - [违反 §7.2] `src/features/dev-cleaner/hooks/useDevCleanerController.ts:60`、`:95`、`:154` — `t("...error", { error: String(error) })` — 改为 `{ error: getErrorMessage(error) }` — **强制** ✅ 已修复
 - [违反 §7.2] `src/features/app-manager/model/operations.ts:39`、`:63` — `String(error)` 写入操作结果 — 同上 — **强制**

@@ -1,6 +1,8 @@
 /**
  * Updater Errors / 更新错误: classify updater failures into user-facing states.
  */
+import { getErrorMessage } from "@/lib/tauri/errors";
+
 export type UpdaterOperation = "check" | "install";
 
 export type UpdaterErrorKind =
@@ -99,15 +101,7 @@ const INSTALL_BLOCKED_PATTERNS = [
 ];
 
 function normalizeErrorMessage(error: unknown, fallback: string) {
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
-
-  if (typeof error === "string" && error.trim()) {
-    return error;
-  }
-
-  return fallback;
+  return getErrorMessage(error, fallback);
 }
 
 function includesAny(message: string, patterns: string[]) {
