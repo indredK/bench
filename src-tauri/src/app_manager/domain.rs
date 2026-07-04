@@ -253,7 +253,7 @@ pub fn build_scan_result(
     scan_time_ms: u64,
     last_update_check: u64,
 ) -> ScanResult {
-    apps.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    apps.sort_by_key(|a| a.name.to_lowercase());
 
     let total_count = apps.len();
     let system_count = apps.iter().filter(|app| app.is_system_app).count();

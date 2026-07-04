@@ -53,26 +53,14 @@ fn fingerprint_by_command(command: &str, port: u16) -> Option<ProcessFingerprint
                 return None;
             }
         }
-        3001 => {
-            if contains_all(&cmd_lower, &["next", "node"]) {
-                fp("Node.js", "Next.js Dev Server", "▲")
-            } else {
-                return None;
-            }
+        3001 if contains_all(&cmd_lower, &["next", "node"]) => {
+            fp("Node.js", "Next.js Dev Server", "▲")
         }
-        5173 | 5174 => {
-            if contains_any(&cmd_lower, &["vite"]) {
-                fp("Node.js", "Vite Dev Server", "⚡")
-            } else {
-                return None;
-            }
+        5173 | 5174 if contains_any(&cmd_lower, &["vite"]) => {
+            fp("Node.js", "Vite Dev Server", "⚡")
         }
-        4200 => {
-            if contains_any(&cmd_lower, &["ng ", "angular", "@angular"]) {
-                fp("Node.js", "Angular Dev Server", "🔺")
-            } else {
-                return None;
-            }
+        4200 if contains_any(&cmd_lower, &["ng ", "angular", "@angular"]) => {
+            fp("Node.js", "Angular Dev Server", "🔺")
         }
         5000 => {
             if contains_any(&cmd_lower, &["flask"]) {
@@ -142,68 +130,32 @@ fn fingerprint_by_command(command: &str, port: u16) -> Option<ProcessFingerprint
                 return None;
             }
         }
-        8888 => {
-            if contains_any(&cmd_lower, &["jupyter"]) {
-                fp("Python", "Jupyter Notebook", "📓")
-            } else {
-                return None;
-            }
+        8888 if contains_any(&cmd_lower, &["jupyter"]) => {
+            fp("Python", "Jupyter Notebook", "📓")
         }
-        8443 => {
-            if contains_any(&cmd_lower, &["java", "tomcat"]) {
-                fp("Java", "Apache Tomcat (SSL)", "☕")
-            } else {
-                return None;
-            }
+        8443 if contains_any(&cmd_lower, &["java", "tomcat"]) => {
+            fp("Java", "Apache Tomcat (SSL)", "☕")
         }
-        5432 => {
-            if contains_any(&cmd_lower, &["postgres", "postgresql"]) {
-                fp("Database", "PostgreSQL", "🐘")
-            } else {
-                return None;
-            }
+        5432 if contains_any(&cmd_lower, &["postgres", "postgresql"]) => {
+            fp("Database", "PostgreSQL", "🐘")
         }
-        3306 => {
-            if contains_any(&cmd_lower, &["mysql", "mysqld", "mariadb"]) {
-                fp("Database", "MySQL / MariaDB", "🐬")
-            } else {
-                return None;
-            }
+        3306 if contains_any(&cmd_lower, &["mysql", "mysqld", "mariadb"]) => {
+            fp("Database", "MySQL / MariaDB", "🐬")
         }
-        6379 => {
-            if contains_any(&cmd_lower, &["redis", "redis-server"]) {
-                fp("Database", "Redis", "🔴")
-            } else {
-                return None;
-            }
+        6379 if contains_any(&cmd_lower, &["redis", "redis-server"]) => {
+            fp("Database", "Redis", "🔴")
         }
-        27017 => {
-            if contains_any(&cmd_lower, &["mongod", "mongodb", "mongo"]) {
-                fp("Database", "MongoDB", "🍃")
-            } else {
-                return None;
-            }
+        27017 if contains_any(&cmd_lower, &["mongod", "mongodb", "mongo"]) => {
+            fp("Database", "MongoDB", "🍃")
         }
-        9090 => {
-            if contains_any(&cmd_lower, &["prometheus"]) {
-                fp("Monitoring", "Prometheus", "📊")
-            } else {
-                return None;
-            }
+        9090 if contains_any(&cmd_lower, &["prometheus"]) => {
+            fp("Monitoring", "Prometheus", "📊")
         }
-        3005 => {
-            if contains_any(&cmd_lower, &["livereload", "live-server"]) {
-                fp("Tools", "LiveReload", "🔄")
-            } else {
-                return None;
-            }
+        3005 if contains_any(&cmd_lower, &["livereload", "live-server"]) => {
+            fp("Tools", "LiveReload", "🔄")
         }
-        9229 | 9230 => {
-            if contains_any(&cmd_lower, &["node", "chrome", "inspect"]) {
-                fp("Node.js", "Node.js Debugger", "🔍")
-            } else {
-                return None;
-            }
+        9229 | 9230 if contains_any(&cmd_lower, &["node", "chrome", "inspect"]) => {
+            fp("Node.js", "Node.js Debugger", "🔍")
         }
         _ => return None,
     };
