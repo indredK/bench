@@ -17,6 +17,10 @@ on:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
+permissions:
+  contents: read
+  issues: write
+
 jobs:
   audit:
     name: Cargo Audit + Deny
@@ -29,14 +33,10 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Cache cargo-audit binary
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/bin/cargo-audit
-          key: cargo-audit-${{ runner.os }}-v1
-
       - name: Install cargo-audit
-        run: cargo install cargo-audit --locked --force || true
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
 
       - name: Install cargo-deny
         uses: taiki-e/install-action@v2
@@ -53,13 +53,12 @@ jobs:
 
       - name: Create issue on failure
         if: failure() && github.event_name == 'schedule'
-        uses: actions/create-issue@v2
-        with:
-          title: "Security: cargo audit / deny 发现问题"
-          body: |
-            安全扫描在定时检查中发现问题。
+        run: |
+          gh issue create \
+            --title "Security: cargo audit / deny 发现问题" \
+            --label security \
+            --body "安全扫描在定时检查中发现问题。
 
-            查看: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          labels: security
+          查看: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         env:
           GH_TOKEN: ${{ github.token }}
