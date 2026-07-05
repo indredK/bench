@@ -16,6 +16,8 @@ ignore = [
   # quick-xml 0.39.4 in wayland-scanner (build-time proc-macro, no runtime risk):
   "RUSTSEC-2026-0194",
   "RUSTSEC-2026-0195",
+  # num-bigint 0.4.7 in keyring→secret-service→num (transitive, no direct dep):
+  { crate = "num-bigint@0.4.7", reason = "transitive dep via keyring, no semver-compatible replacement published yet" },
 ]
 
 [licenses]
