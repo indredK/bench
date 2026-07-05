@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.20.2](https://github.com/indredK/bench/compare/v1.20.1...v1.20.2) (2026-07-05)
+
+
+### Bug Fixes
+
+* **github workflows:** 移除冗余的pnpm配置步骤 ([d7fa01d](https://github.com/indredK/bench/commit/d7fa01d34dc976619356bdca5899c5e06ae98466))
+
 ## [1.20.1](https://github.com/indredK/bench/compare/v1.20.0...v1.20.1) (2026-07-05)
 
 
