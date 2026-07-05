@@ -1,5 +1,7 @@
 {
   "sidebar": {
+    "title": "DevTools",
+    "subtitle": "Cross-platform utilities",
     "accountManager": "Account Management",
     "portManager": "Port Manager",
     "quickLaunch": "Quick Launch",
@@ -123,7 +125,7 @@
     "login": {
       "title": "Login Items",
       "manageInSettings": "Manage in System Settings",
-      "remove": "Remove",
+    "remove": "Remove {{name}}",
       "removeConfirmTitle": "Remove login item?",
       "removeConfirmDescription": "Remove \"{{name}}\" from login items? It will no longer launch at login.",
       "removeConsequence": "This only removes the login item entry. The app itself is not deleted.",
@@ -482,7 +484,8 @@
         "newAccount": "Use a new account",
         "newAccountHint": "Sign in fresh in an isolated window. On success it is saved and grouped under {{host}} automatically.",
         "targetLabel": "Target",
-        "returnLabel": "Return URL"
+        "returnLabel": "Return URL",
+        "externalAppFallback": "external app"
       },
       "startLogin": "Start sign-in",
       "back": "Back"
@@ -849,6 +852,45 @@
         }
       }
     },
+    "missingInstallSource": "Missing install source",
+    "recommendedApps": {
+      "google-chrome": "Cross-platform web browser by Google",
+      "firefox": "Open-source browser focused on privacy",
+      "arc": "Innovative modern browser",
+      "wechat": "Instant messaging app by Tencent",
+      "qq": "Tencent instant messaging software",
+      "dingtalk": "Enterprise collaboration platform by Alibaba",
+      "lark": "All-in-one enterprise collaboration platform by ByteDance",
+      "slack": "Team communication and collaboration platform",
+      "telegram": "Cross-platform messaging focused on speed and security",
+      "discord": "Voice chat platform for gamers and communities",
+      "zoom": "Video conferencing software",
+      "vscode": "Lightweight yet powerful code editor by Microsoft",
+      "intellij-idea": "Java IDE by JetBrains",
+      "cursor": "AI-first code editor",
+      "windsurf": "AI-powered IDE",
+      "zed": "High-performance code editor written in Rust",
+      "sublime-text": "Blazing fast lightweight text editor",
+      "chatgpt": "Official desktop client by OpenAI",
+      "claude": "Desktop AI assistant by Anthropic",
+      "ollama": "Run LLMs locally with ease",
+      "docker": "Containerized application development platform",
+      "orbstack": "Lightweight Docker alternative for macOS",
+      "figma": "Collaborative UI/UX design tool",
+      "postman": "API development and testing tool",
+      "iterm2": "Powerful terminal emulator replacement for macOS",
+      "warp": "Modern terminal written in Rust",
+      "apifox": "All-in-one API design, debugging, and documentation platform",
+      "raycast": "Productivity launcher, a powerful Spotlight alternative",
+      "alfred": "Veteran productivity launcher for macOS",
+      "notion": "All-in-one notes, docs, and project management tool",
+      "obsidian": "Local-first knowledge management and note-taking app",
+      "wps": "Office suite by Kingsoft, compatible with Microsoft Office",
+      "baidunetdisk": "Baidu Netdisk desktop client",
+      "xmind": "Professional mind mapping tool",
+      "keka": "macOS compression and decompression tool",
+      "deepseek": "DeepSeek AI assistant"
+    },
     "errors": {
       "scanFailed": "Failed to scan installed applications.",
       "updateCheckFailed": "Failed to check for available updates.",
@@ -875,6 +917,7 @@
     "loading": "Scanning development tools...",
     "loadFailed": "Failed to scan environment tools",
     "scanTimedOut": "Environment scan took too long and was cancelled. Please try again.",
+    "scanTimedOutError": "Environment scan timed out",
     "browserInfo": "Environment detection is only available in the Tauri desktop app. Run with `pnpm dev` to use this feature.",
     "empty": "No matching tools found",
     "startHint": "Click \"Refresh\" to scan all development tools on your system.",
@@ -1003,7 +1046,11 @@
     "confirmKillAllTitle": "Free all occupied ports?",
     "confirmKillAllDescription": "Terminate processes on {{count}} occupied port(s) in the scan list.",
     "confirmKillAllConsequence": "All matching services will stop immediately. Unsaved data may be lost.",
-    "confirmKillAction": "Free Port"
+    "confirmKillAction": "Free Port",
+    "pid": "PID {{pid}}",
+    "portOwner": "PORT OWNER",
+    "rootProcess": "ROOT",
+    "clearInput": "Clear input"
   },
   "devCleaner": {
     "title": "Dev Cleaner",
@@ -1065,6 +1112,7 @@
       "rust": "Rust (target)",
       "go": "Go (vendor)",
       "mixed": "Multi-language",
+      "general": "General",
       "all": "All Projects"
     },
     "customCleanup": {
@@ -2088,6 +2136,7 @@
     },
     "appTitle": "Bench - DevTools",
     "cancel": "Cancel",
+    "remove": "Remove",
     "delete": "Delete",
     "confirm": "Confirm",
     "save": "Save",
@@ -2095,6 +2144,8 @@
     "edit": "Edit",
     "search": "Search",
     "loading": "Loading...",
+    "filters": "Filters",
+    "failedToLoad": "Failed to load",
     "retry": "Retry",
     "success": "Success",
     "error": "Error",
@@ -2275,6 +2326,7 @@
     "saved": "Saved",
     "copied": "Copied",
     "loadFailedTitle": "Failed to load terminology data",
+    "unclassified": "Unclassified",
     "actions": {
       "pin": "Pin",
       "unpin": "Unpin",

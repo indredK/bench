@@ -1,5 +1,7 @@
 {
   "sidebar": {
+    "title": "DevTools",
+    "subtitle": "跨平台工具集",
     "accountManager": "账号管理",
     "portManager": "端口管理",
     "quickLaunch": "快捷启动",
@@ -123,7 +125,7 @@
     "login": {
       "title": "登录项",
       "manageInSettings": "在系统设置中管理",
-      "remove": "移除",
+    "remove": "移除 {{name}}",
       "removeConfirmTitle": "移除登录项？",
       "removeConfirmDescription": "从登录项中移除「{{name}}」？它将不再在登录时启动。",
       "removeConsequence": "仅移除登录项条目，不会删除应用本身。",
@@ -482,7 +484,8 @@
         "newAccount": "使用新账号",
         "newAccountHint": "在隔离窗口中重新登录一个新账号，成功后会自动保存并归组到 {{host}}。",
         "targetLabel": "目标",
-        "returnLabel": "返回链接"
+        "returnLabel": "返回链接",
+        "externalAppFallback": "外部应用"
       },
       "startLogin": "开始登录",
       "back": "返回"
@@ -849,6 +852,45 @@
         }
       }
     },
+    "missingInstallSource": "缺少安装来源",
+    "recommendedApps": {
+      "google-chrome": "Google 出品的跨平台网页浏览器",
+      "firefox": "Mozilla 开源网页浏览器,注重隐私保护",
+      "arc": "革新性的现代化浏览器",
+      "wechat": "腾讯出品的即时通讯软件",
+      "qq": "腾讯即时通讯软件",
+      "dingtalk": "阿里巴巴出品,企业级协同办公平台",
+      "lark": "字节跳动出品,一站式企业协作平台",
+      "slack": "团队沟通与协作平台",
+      "telegram": "跨平台即时通讯,注重速度和安全性",
+      "discord": "游戏玩家和社区的首选语音聊天平台",
+      "zoom": "视频会议软件",
+      "vscode": "微软出品,轻量级但功能强大的代码编辑器",
+      "intellij-idea": "JetBrains 出品的 Java IDE",
+      "cursor": "AI-first 代码编辑器",
+      "windsurf": "AI 驱动的 IDE",
+      "zed": "高性能 Rust 编写代码编辑器",
+      "sublime-text": "极速轻量级文本编辑器",
+      "chatgpt": "OpenAI 官方桌面客户端",
+      "claude": "Anthropic 出品,AI 助手桌面版",
+      "ollama": "本地运行 LLM 的利器",
+      "docker": "容器化应用开发平台",
+      "orbstack": "macOS 上轻量快速的 Docker 替代方案",
+      "figma": "协作式 UI/UX 设计工具",
+      "postman": "API 开发和测试工具",
+      "iterm2": "macOS 终端模拟器的替代品,功能更强大",
+      "warp": "Rust 编写的现代化终端",
+      "apifox": "API 设计、调试、文档一体化平台",
+      "raycast": "效率启动器，Spotlight 的强力替代",
+      "alfred": "macOS 老牌效率启动器",
+      "notion": "一站式笔记、文档、项目管理工具",
+      "obsidian": "本地优先的知识管理和笔记应用",
+      "wps": "金山办公套件，兼容 Microsoft Office",
+      "baidunetdisk": "百度网盘桌面客户端",
+      "xmind": "专业思维导图工具",
+      "keka": "macOS 压缩解压工具",
+      "deepseek": "DeepSeek AI 助手"
+    },
     "errors": {
       "scanFailed": "扫描已安装应用失败。",
       "updateCheckFailed": "检查可用更新失败。",
@@ -875,6 +917,7 @@
     "loading": "正在扫描开发工具...",
     "loadFailed": "扫描环境工具失败",
     "scanTimedOut": "扫描时间过长已取消,请稍后重试。",
+    "scanTimedOutError": "环境扫描超时",
     "browserInfo": "环境检测功能仅在 Tauri 桌面应用中可用，请使用 `pnpm dev` 运行。",
     "empty": "没有匹配的工具",
     "startHint": "点击「刷新」按钮扫描系统中的所有开发工具。",
@@ -1003,7 +1046,11 @@
     "confirmKillAllTitle": "释放全部已占用端口？",
     "confirmKillAllDescription": "终止扫描列表中 {{count}} 个已占用端口上的进程。",
     "confirmKillAllConsequence": "所有匹配的服务会立即停止，未保存的数据可能丢失。",
-    "confirmKillAction": "释放端口"
+    "confirmKillAction": "释放端口",
+    "pid": "PID {{pid}}",
+    "portOwner": "端口所有者",
+    "rootProcess": "根进程",
+    "clearInput": "清除输入"
   },
   "devCleaner": {
     "title": "垃圾清理",
@@ -1065,6 +1112,7 @@
       "rust": "Rust (target)",
       "go": "Go (vendor)",
       "mixed": "混合语言",
+      "general": "通用",
       "all": "所有项目"
     },
     "customCleanup": {
@@ -2088,6 +2136,7 @@
     },
     "appTitle": "Bench - DevTools",
     "cancel": "取消",
+    "remove": "移除",
     "delete": "删除",
     "confirm": "确认",
     "save": "保存",
@@ -2095,6 +2144,8 @@
     "edit": "编辑",
     "search": "搜索",
     "loading": "加载中...",
+    "filters": "筛选",
+    "failedToLoad": "加载失败",
     "retry": "重试",
     "success": "成功",
     "error": "错误",
@@ -2275,6 +2326,7 @@
     "saved": "已保存",
     "copied": "已复制",
     "loadFailedTitle": "术语数据加载失败",
+    "unclassified": "未分类",
     "actions": {
       "pin": "置顶",
       "unpin": "取消置顶",

@@ -27,7 +27,7 @@ interface SidebarProps {
 function Sidebar({ items, configItems, onPrefs }: SidebarProps) {
   const { t } = useTranslation()
   const { text: titleText, start: scrambleTitle } = useScrambleText({
-    target: "DevTools",
+    target: t("sidebar.title"),
     duration: 700,
   })
   const [location] = useLocation()
@@ -49,7 +49,7 @@ function Sidebar({ items, configItems, onPrefs }: SidebarProps) {
           transition={{ duration: 0.3, delay: 0.6, ease: "easeOut" }}
           className="text-muted-foreground mt-0.5 text-[10px]"
         >
-          Cross-platform utilities
+          {t("sidebar.subtitle")}
         </motion.p>
       </div>
 

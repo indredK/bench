@@ -403,6 +403,7 @@ export function PortManagerPageContent({
                                     node={tree}
                                     depth={0}
                                     targetPid={detail.pids[0]}
+                                    t={t}
                                   />
                                 ))}
                               </div>

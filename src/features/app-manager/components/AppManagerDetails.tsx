@@ -127,7 +127,7 @@ export function InstallDetail({ app, t, onInstall, onOpenWebsite }: InstallDetai
           value={getInstallSourceLabel(app.installSource)}
         />
         {app.description && (
-          <MetadataRow label={t("appManager.column.description")} value={app.description} />
+          <MetadataRow label={t("appManager.column.description")} value={t(`appManager.recommendedApps.${app.id}`, { defaultValue: app.description })} />
         )}
       </DetailSection>
       <DetailSection label={t("appManager.column.actions")}>

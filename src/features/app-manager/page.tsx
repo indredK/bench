@@ -392,19 +392,19 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                             </p>
                             <div className="space-y-1.5">
                               {result.platformCapabilities.brewAvailable && (
-                                <p className="text-green-600">✓ Homebrew</p>
+                                <p className="text-green-600">✓ {t("appManager.sourceHomebrewCask")}</p>
                               )}
                               {result.platformCapabilities.wingetAvailable && (
-                                <p className="text-green-600">✓ winget</p>
+                                <p className="text-green-600">✓ {t("appManager.sourceWinget")}</p>
                               )}
                               {result.platformCapabilities.flatpakAvailable && (
-                                <p className="text-green-600">✓ Flatpak</p>
+                                <p className="text-green-600">✓ {t("appManager.sourceFlatpak")}</p>
                               )}
                               {result.platformCapabilities.snapAvailable && (
-                                <p className="text-green-600">✓ Snap</p>
+                                <p className="text-green-600">✓ {t("appManager.sourceSnap")}</p>
                               )}
                               {result.platformCapabilities.aptAvailable && (
-                                <p className="text-green-600">✓ APT</p>
+                                <p className="text-green-600">✓ {t("appManager.sourceApt")}</p>
                               )}
                               {!result.platformCapabilities.brewAvailable &&
                                 !result.platformCapabilities.wingetAvailable &&

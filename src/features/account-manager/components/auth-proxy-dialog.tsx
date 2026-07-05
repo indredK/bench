@@ -66,12 +66,12 @@ function statusLabel(status: StationAccount["status"], t: (k: string) => string)
   return t(`accountManager.status.${status}`)
 }
 
-function deriveExternalAppName(url: string): string {
+function deriveExternalAppName(url: string, t?: (k: string) => string): string {
   try {
     const u = new URL(url)
-    return u.protocol.replace(":", "") || "external app"
+    return u.protocol.replace(":", "") || (t ? t("accountManager.authProxy.wizard.externalAppFallback") : "external app")
   } catch {
-    return "external app"
+    return t ? t("accountManager.authProxy.wizard.externalAppFallback") : "external app"
   }
 }
 
@@ -515,7 +515,7 @@ export function AuthProxyDialog({
   }
 
   const renderStep3Confirm = () => {
-    const appProtocol = parsedRequest ? deriveExternalAppName(parsedRequest.returnUrl) : ""
+    const appProtocol = parsedRequest ? deriveExternalAppName(parsedRequest.returnUrl, t) : ""
     const selectedAccount = flatAccounts.find((fa) => fa.account.id === selectedAccountId)
     const acct = selectedAccount?.account
 

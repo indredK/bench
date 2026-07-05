@@ -154,8 +154,8 @@ export const useTerminologyStore = create<TerminologyState>((set, get) => ({
         error !== null &&
         "message" in error &&
         typeof (error as { message?: unknown }).message === "string"
-          ? (error as { message: string }).message || "Failed to load terminology data"
-          : "Failed to load terminology data"
+          ? (error as { message: string }).message || "terminology.errors.loadFailed"
+          : "terminology.errors.loadFailed"
       set({ isLoading: false, loadError: message })
       throw error
     }

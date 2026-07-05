@@ -1124,12 +1124,12 @@ export const telescopeSpecRows: SpecRow<TelescopeModel>[] = [
   {
     key: "focalLength",
     label: "telescopeCompare.focalLength",
-    format: (v) => (Number(v) > 0 ? `${v} mm` : "N/A"),
+    format: (v) => (Number(v) > 0 ? `${v} mm` : t("common.na")),
   },
   {
     key: "fRatio",
     label: "telescopeCompare.fRatio",
-    format: (v) => (Number(v) > 0 ? `f/${v}` : "N/A"),
+    format: (v) => (Number(v) > 0 ? `f/${v}` : t("common.na")),
   },
   {
     key: "mountType",
@@ -1140,12 +1140,12 @@ export const telescopeSpecRows: SpecRow<TelescopeModel>[] = [
   {
     key: "fieldOfView",
     label: "telescopeCompare.fieldOfView",
-    format: (v) => (Number(v) > 0 ? `${v}°` : "N/A"),
+    format: (v) => (Number(v) > 0 ? `${v}°` : t("common.na")),
   },
   {
     key: "exitPupil",
     label: "telescopeCompare.exitPupil",
-    format: (v) => (Number(v) > 0 ? `${v} mm` : "N/A"),
+    format: (v) => (Number(v) > 0 ? `${v} mm` : t("common.na")),
   },
   {
     key: "coating",
@@ -1172,7 +1172,7 @@ export const telescopeSpecRows: SpecRow<TelescopeModel>[] = [
   {
     key: "closeFocus",
     label: "telescopeCompare.closeFocus",
-    format: (v) => (Number(v) > 0 ? `${v} m` : "N/A"),
+    format: (v) => (Number(v) > 0 ? `${v} m` : t("common.na")),
   },
   {
     key: "goto",

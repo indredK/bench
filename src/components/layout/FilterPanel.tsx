@@ -37,7 +37,7 @@ export function FilterPanel({
           >
             <div className="flex shrink-0 items-center justify-between px-4 py-2.5">
               <span className="text-foreground/70 text-xs font-semibold tracking-wider uppercase">
-                {title ?? "Filters"}
+                {title}
               </span>
               <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={onToggle}>
                 <PanelRightClose size={14} />

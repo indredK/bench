@@ -59,7 +59,7 @@ export function useDevToolboxController() {
     systemInfoUseCases
       .loadSystemInfo()
       .then(setSystemInfo)
-      .catch((err) => setSystemInfoError(getErrorMessage(err, "Failed to load")))
+      .catch((err) => setSystemInfoError(getErrorMessage(err, "common.failedToLoad")))
       .finally(() => setSystemInfoLoading(false))
   }, [activeTab, systemInfo, systemInfoLoading])
 

@@ -219,7 +219,7 @@ function runRepositoryOperation(
       return repository.uninstallApp(request.appId)
     case "install":
       if (!request.installSource) {
-        return Promise.resolve(operationSkippedResult("Missing install source"))
+        return Promise.resolve(operationSkippedResult("appManager.missingInstallSource"))
       }
       return repository.installApp(request.appId, request.installSource)
   }

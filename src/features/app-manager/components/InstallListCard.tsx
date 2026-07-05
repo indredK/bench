@@ -49,7 +49,7 @@ export function InstallListCard({
             </div>
             <div className="min-w-0 flex-1">
               <h4 className="truncate pr-16 text-sm font-medium">{app.name}</h4>
-              <p className="text-muted-foreground mt-0.5 truncate text-xs">{app.description}</p>
+              <p className="text-muted-foreground mt-0.5 truncate text-xs">{t(`appManager.recommendedApps.${app.id}`, { defaultValue: app.description })}</p>
               <div className="mt-1.5 flex flex-wrap items-center gap-1">
                 <InstallSourceBadges installSource={app.installSource} />
               </div>

@@ -229,7 +229,7 @@ export default function DevToolbox({ feature }: DevToolboxProps) {
     if (systemInfoError) {
       return (
         <SettingGroup title={t("systemInfo.title")}>
-          <p className="text-destructive py-2 text-sm">{systemInfoError}</p>
+          <p className="text-destructive py-2 text-sm">{t(systemInfoError)}</p>
         </SettingGroup>
       )
     }

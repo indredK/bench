@@ -177,7 +177,7 @@ function CompareMatrixTable<T extends { id: string; model: string }>({
               size="icon-xs"
               className="ml-auto shrink-0 opacity-60 transition-opacity hover:opacity-100"
               onClick={() => onRemoveModel(model.id)}
-              aria-label={`Remove ${model.model}`}
+              aria-label={t("common.remove", { name: model.model })}
             >
               <X className="size-3" />
             </Button>

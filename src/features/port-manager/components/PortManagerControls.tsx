@@ -120,7 +120,7 @@ export function PortManagerControls({
                   )}
                   onClick={onClear}
                   disabled={killing}
-                  aria-label="Clear input"
+                  aria-label={t("portManager.clearInput")}
                 >
                   <X size={13} />
                 </button>

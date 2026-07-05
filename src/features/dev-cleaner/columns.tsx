@@ -11,13 +11,14 @@ import { formatDate, formatSize } from "@/lib/utils"
 export type DevCleanerSortBy = "name" | "totalSize" | "cleanupSize" | "modified"
 
 const projectTypeMap: Partial<
-  Record<ProjectInfo["project_type"], "nodejs" | "python" | "rust" | "go" | "mixed">
+  Record<ProjectInfo["project_type"], "nodejs" | "python" | "rust" | "go" | "mixed" | "general">
 > = {
   NodeJs: "nodejs",
   Python: "python",
   Rust: "rust",
   Go: "go",
   Mixed: "mixed",
+  General: "general",
 }
 
 const naturalTextComparator = new Intl.Collator(undefined, {

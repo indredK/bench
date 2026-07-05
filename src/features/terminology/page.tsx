@@ -956,7 +956,7 @@ export default function TerminologyPage() {
     return (
       <FeatureLoadError
         title={t("terminology.loadFailedTitle")}
-        description={loadError}
+        description={t(loadError)}
         onRetry={() => void hydrate().catch(() => undefined)}
       />
     )
