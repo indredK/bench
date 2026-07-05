@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/dev/crates/tauri-config-schema/schema.json",
   "productName": "Bench",
-  "version": "1.19.0",
+  "version": "1.20.0",
   "identifier": "com.bench.app",
   "build": {
     "frontendDist": "../dist",
@@ -71,14 +71,20 @@
   "plugins": {
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IENFQkI3QjQ3NDU1MzRGMQpSV1R4TkZWMHRMZnJESHY4dUlEV3gya01mNmwzdU40YnZkR1pDQ0NVaWpCUUdxT2tFb2swTFl6bwo=",
-      "endpoints": ["https://github.com/indredK/bench/releases/latest/download/latest.json"],
+      "endpoints": [
+        "https://github.com/indredK/bench/releases/latest/download/latest.json"
+      ],
       "windows": {
         "installMode": "passive"
       }
     },
     "deep-link": {
       "desktop": {
-        "schemes": ["bench-auth", "http", "https"]
+        "schemes": [
+          "bench-auth",
+          "http",
+          "https"
+        ]
       }
     }
   }
