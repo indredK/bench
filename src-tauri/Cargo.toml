@@ -8,6 +8,7 @@ version = "1.19.0"
 name = "bench"
 version.workspace = true
 edition = "2021"
+license = "MIT"
 default-run = "bench"
 
 [lib]

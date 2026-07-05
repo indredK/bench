@@ -12,6 +12,7 @@ on:
       - "src-tauri/Cargo.toml"
       - "src-tauri/Cargo.lock"
       - "src-tauri/deny.toml"
+      - "src-tauri/.cargo/audit.toml"
       - ".github/workflows/security.yml"
 
 env:

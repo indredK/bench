@@ -1,0 +1,13 @@
+# cargo-audit configuration. Mirrors advisory ignores in deny.toml because
+# cargo-audit does not read deny.toml.
+#
+# RUSTSEC-2026-0194 / -0195 are DoS advisories against quick-xml on untrusted XML
+# input. Our direct dependency is quick-xml >= 0.41 (Sparkle feed parsing). The
+# residual quick-xml 0.39.4 enters only through wayland-scanner (build-time
+# proc-macro via tauri-plugin-clipboard-manager -> arboard -> wl-clipboard-rs on
+# Linux), which generates code from vendored Wayland protocol XML at compile time
+# and never parses runtime input. wayland-scanner pins quick-xml ^0.39 upstream,
+# so this copy cannot advance until that chain updates. Re-check when
+# wayland-scanner moves off quick-xml 0.39.
+[advisories]
+ignore = ["RUSTSEC-2026-0194", "RUSTSEC-2026-0195"]
