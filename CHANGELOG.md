@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.20.0](https://github.com/indredK/bench/compare/v1.19.0...v1.20.0) (2026-07-05)
+
+
+### Features
+
+* **a11y:** add useReducedMotion degradation for transform animations ([8b62185](https://github.com/indredK/bench/commit/8b621850df4e817d46d73cfc9cd7ce9ae24bc9f3))
+
+
+### Bug Fixes
+
+* **deps:** ignore yanked num-bigint 0.4.7 in deny.toml ([d9d5247](https://github.com/indredK/bench/commit/d9d5247967101617ab1c6663afab8e3e627d4185))
+* **deps:** upgrade window-vibrancy 0.6→0.7.1, @clack/prompts 1.6→1.7, shadcn 4.12→4.13 ([5abcd2e](https://github.com/indredK/bench/commit/5abcd2ea4acaf1b1eb724701cb215b3292d96ea0))
+
 ## [1.19.0](https://github.com/indredK/bench/compare/v1.18.1...v1.19.0) (2026-07-04)
 
 ### Features
