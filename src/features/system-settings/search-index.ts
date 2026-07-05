@@ -295,6 +295,12 @@ export const SETTING_SEARCH_INDEX: SearchEntry[] = [
   // ── advanced ──
   {
     tab: "advanced",
+    sectionKey: "systemSettings.advanced.appAuthorize.title",
+    labelKey: "systemSettings.advanced.appAuthorize.title",
+    descKey: "systemSettings.advanced.appAuthorize.description",
+  },
+  {
+    tab: "advanced",
     sectionKey: "systemSettings.login.launchAgents",
     labelKey: "systemSettings.login.launchAgents",
   },

@@ -135,6 +135,23 @@
       "launchDaemons": "Launch Daemons (System)",
       "noDaemons": "No launch daemons found."
     },
+    "advanced": {
+      "appAuthorize": {
+        "title": "App Quarantine Authorization",
+        "description": "Remove macOS Gatekeeper quarantine flags from downloaded apps to fix \"app is damaged and can't be opened\".",
+        "pickApp": "Choose App…",
+        "confirmTitle": "Confirm authorization command",
+        "confirmDescription": "Clear download quarantine attributes for \"{{name}}\".",
+        "commandLabel": "The following command will run:",
+        "confirmRun": "Run command",
+        "running": "Running…",
+        "invalidApp": "Please choose a valid .app bundle.",
+        "successToast": "{{name}} is authorized and ready to open",
+        "failedToast": "Authorization failed: {{message}}",
+        "successNotificationTitle": "App authorization complete",
+        "successNotificationBody": "{{name}} quarantine cleared. You can open it normally."
+      }
+    },
     "maintenance": {
       "title": "System Maintenance",
       "rebuildIconCache": "Rebuild Icon Cache",

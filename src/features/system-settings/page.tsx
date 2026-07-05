@@ -40,6 +40,7 @@ const LockScreenSection = lazy(() => import("./components/sections/LockScreenSec
 const KeyboardSection = lazy(() => import("./components/sections/KeyboardSection").then((m) => ({ default: m.KeyboardSection })))
 const DisplayDockSection = lazy(() => import("./components/sections/DisplayDockSection").then((m) => ({ default: m.DisplayDockSection })))
 const QuickActionsSection = lazy(() => import("./components/sections/QuickActionsSection").then((m) => ({ default: m.QuickActionsSection })))
+const AppAuthorizeSection = lazy(() => import("./components/sections/AppAuthorizeSection").then((m) => ({ default: m.AppAuthorizeSection })))
 import { openPlatformDialog } from "@/platform/dialog"
 import { searchSettings } from "./search-index"
 
@@ -815,6 +816,10 @@ export default function SystemSettings(_props: SystemSettingsProps) {
       case "advanced":
         return (
           <div className="space-y-4">
+            <Suspense fallback={null}>
+              <AppAuthorizeSection />
+            </Suspense>
+
             <SettingGroup title={t("systemSettings.login.launchAgents")}>
               {launchAgentsLoading ? (
                 <div className="flex items-center gap-2 py-2">

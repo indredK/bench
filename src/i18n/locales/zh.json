@@ -135,6 +135,23 @@
       "launchDaemons": "Launch Daemons（系统级）",
       "noDaemons": "没有找到 Launch Daemons。"
     },
+    "advanced": {
+      "appAuthorize": {
+        "title": "应用隔离授权",
+        "description": "解除 macOS Gatekeeper 对下载应用的隔离标记，修复「已损坏，无法打开」提示。",
+        "pickApp": "选择应用…",
+        "confirmTitle": "确认运行授权命令",
+        "confirmDescription": "将为「{{name}}」清除下载隔离属性。",
+        "commandLabel": "将执行以下命令：",
+        "confirmRun": "确认运行",
+        "running": "运行中…",
+        "invalidApp": "请选择有效的 .app 应用包。",
+        "successToast": "{{name}} 已授权，可以正常打开",
+        "failedToast": "授权失败：{{message}}",
+        "successNotificationTitle": "应用授权完成",
+        "successNotificationBody": "{{name}} 已解除隔离，可以正常打开。"
+      }
+    },
     "maintenance": {
       "title": "系统维护",
       "rebuildIconCache": "重建图标缓存",
