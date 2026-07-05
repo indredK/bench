@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.21.0](https://github.com/indredK/bench/compare/v1.20.2...v1.21.0) (2026-07-05)
+
+
+### Features
+
+* **app-manager:** 新增 macOS 应用隔离授权功能 ([9b30a01](https://github.com/indredK/bench/commit/9b30a01f0a9091c10a16712c2f5514a92108d320))
+* **system-settings:** 新增应用隔离授权设置页面 ([50763b4](https://github.com/indredK/bench/commit/50763b4d3bd1ed2138799641ea21e3e9a44be1df))
+
 ## [1.20.2](https://github.com/indredK/bench/compare/v1.20.1...v1.20.2) (2026-07-05)
 
 
