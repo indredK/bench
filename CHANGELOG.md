@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.20.1](https://github.com/indredK/bench/compare/v1.20.0...v1.20.1) (2026-07-05)
+
+
+### Bug Fixes
+
+* **build:** window-vibrancy 0.6 修复 macOS release 编译 ([eb4fba6](https://github.com/indredK/bench/commit/eb4fba6758e8921f6a1c0860cdffd36778c0bf3a))
+
 ## [1.20.0](https://github.com/indredK/bench/compare/v1.19.0...v1.20.0) (2026-07-05)
 
 
