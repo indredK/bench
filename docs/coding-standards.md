@@ -71,6 +71,7 @@
 - **强制**: 新增 key 时同步维护 `zh` 和 `en`。
 - **强制**: 不在模块顶层、静态常量或 store 初始值里执行 `t()`。需翻译的 label/header/filter option 应在渲染期、`useMemo` 或工厂函数中计算。
 - **强制**: 静态数据层使用语言无关 canonical value，展示层映射到 locale；禁止中文原始值做英文界面回退。
+- **建议**: 组件内直接调用 `useTranslation()` 获取 `t`，不通过 prop 透传。`useTranslation()` 与 `useXxxStore()` 同级，不破坏"纯组件"约定。工厂/工具函数因不在 React 树内，仍通过参数传入 `t`。
 
 ## 5. 用户反馈
 

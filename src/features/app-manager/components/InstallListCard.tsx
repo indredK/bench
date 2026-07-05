@@ -1,7 +1,7 @@
 /**
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  */
-import type { TFunction } from "i18next"
+import { useTranslation } from "react-i18next"
 import { CheckCircle2, Download, ExternalLink, Package, RotateCcw } from "lucide-react"
 import {
   ContextMenu,
@@ -18,7 +18,6 @@ import type { InstallListAppInfo } from "@/lib/tauri/types/app-manager"
 
 interface InstallListCardProps {
   app: InstallListAppInfo
-  t: TFunction
   status: OperationStatus | undefined
   onInstall: (app: InstallListAppInfo) => void
   onOpenWebsite: (url: string | undefined) => void
@@ -27,12 +26,12 @@ interface InstallListCardProps {
 
 export function InstallListCard({
   app,
-  t,
   status,
   onInstall,
   onOpenWebsite,
   onCopyText,
 }: InstallListCardProps) {
+  const { t } = useTranslation()
   const isInstalling = status === "running"
 
   return (

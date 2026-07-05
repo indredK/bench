@@ -1,17 +1,17 @@
 /**
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  */
-import type { TFunction } from "i18next"
+import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/ui/badge"
 import { AppIcon } from "@/features/app-manager/components/AppIcon"
 import type { AppInfo } from "@/lib/tauri/types/app-manager"
 
 interface AppManagerGridCardProps {
   app: AppInfo
-  t: TFunction
 }
 
-export function AppManagerGridCard({ app, t }: AppManagerGridCardProps) {
+export function AppManagerGridCard({ app }: AppManagerGridCardProps) {
+  const { t } = useTranslation()
   return (
     <div className="bg-card hover:ring-primary/30 flex h-full flex-col gap-2 rounded-xl border p-3 transition-all hover:ring-2">
       <div className="flex items-center gap-2">

@@ -2,7 +2,6 @@
  * Custom Cleanup Dialog / 自定义清理弹窗: command selection, execution, and results.
  */
 import { useCallback, useRef } from "react"
-import type { TFunction } from "i18next"
 import { useTranslation } from "react-i18next"
 import {
   AlertTriangle,
@@ -177,7 +176,6 @@ export function CustomCleanupDialog() {
         <CardContent className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
           {(phase === "selecting" || phase === "confirming") && (
             <SelectingPhase
-              t={t}
               phase={phase}
               commands={commands}
               selectedIds={selectedIds}
@@ -186,7 +184,7 @@ export function CustomCleanupDialog() {
           )}
 
           {(phase === "running" || phase === "paused" || phase === "completed") && (
-            <RunningPhase t={t} phase={phase} progresses={progresses} result={result} />
+            <RunningPhase phase={phase} progresses={progresses} result={result} />
           )}
         </CardContent>
 
@@ -280,18 +278,17 @@ export function CustomCleanupDialog() {
 
 /** Phase: selecting / confirming — shows command list with checkboxes */
 function SelectingPhase({
-  t,
   phase,
   commands,
   selectedIds,
   toggleCommand,
 }: {
-  t: TFunction
   phase: string
   commands: CleanupCommandDef[]
   selectedIds: Set<string>
   toggleCommand: (id: string) => void
 }) {
+  const { t } = useTranslation()
   const isConfirming = phase === "confirming"
   const displayCommands = isConfirming
     ? commands.filter((cmd) => selectedIds.has(cmd.id))
@@ -379,12 +376,10 @@ function SelectingPhase({
 
 /** Phase: running / paused / completed — shows progress per command */
 function RunningPhase({
-  t,
   phase,
   progresses,
   result,
 }: {
-  t: TFunction
   phase: string
   progresses: {
     command_id: string
@@ -396,6 +391,7 @@ function RunningPhase({
   }[]
   result: CustomCleanupFinalResult | null
 }) {
+  const { t } = useTranslation()
   const detailList = result?.details ?? progresses
 
   return (

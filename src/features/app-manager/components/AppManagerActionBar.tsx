@@ -1,13 +1,12 @@
 /**
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  */
-import type { TFunction } from "i18next"
+import { useTranslation } from "react-i18next"
 import { RefreshCw } from "lucide-react"
 import { ToolbarButton } from "@/components/ui/toolbar-button"
 import { AppManagerToolbar } from "@/features/app-manager/components/AppManagerToolbar"
 
 interface AppManagerActionBarProps {
-  t: TFunction
   searchQuery: string
   searchPlaceholder: string
   loading: boolean
@@ -16,16 +15,15 @@ interface AppManagerActionBarProps {
 }
 
 export function AppManagerActionBar({
-  t,
   searchQuery,
   searchPlaceholder,
   loading,
   onSearchQueryChange,
   onScanApps,
 }: AppManagerActionBarProps) {
+  const { t } = useTranslation()
   return (
     <AppManagerToolbar
-      t={t}
       searchQuery={searchQuery}
       searchPlaceholder={searchPlaceholder}
       onSearchQueryChange={onSearchQueryChange}

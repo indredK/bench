@@ -2,7 +2,7 @@
  * Feature View / 功能视图: shared app catalog shell; 复用应用浏览三栏界面.
  */
 import type { ReactNode } from "react"
-import type { TFunction } from "i18next"
+import { useTranslation } from "react-i18next"
 import type { ColumnDef, OnChangeFn, SortingState } from "@tanstack/react-table"
 import { X } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -22,7 +22,6 @@ import type { CategorizableItem } from "@/features/app-manager/components/Catego
 import type { BatchOperationResult } from "@/lib/tauri/types/app-manager"
 
 interface AppManagerCatalogViewProps<TItem, TFilter extends string> {
-  t: TFunction
   items: TItem[]
   allItems: CategorizableItem[]
   columns: ColumnDef<TItem>[]
@@ -80,7 +79,6 @@ interface AppManagerCatalogViewProps<TItem, TFilter extends string> {
 }
 
 export function AppManagerCatalogView<TItem, TFilter extends string>({
-  t,
   items,
   allItems,
   columns,
@@ -136,10 +134,10 @@ export function AppManagerCatalogView<TItem, TFilter extends string>({
   rightActions,
   getRowAttributes,
 }: AppManagerCatalogViewProps<TItem, TFilter>) {
+  const { t } = useTranslation()
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
       <AppManagerActionBar
-        t={t}
         searchQuery={searchQuery}
         searchPlaceholder={searchPlaceholder}
         loading={loading}
@@ -169,7 +167,7 @@ export function AppManagerCatalogView<TItem, TFilter extends string>({
         </Alert>
       )}
 
-      <AppManagerBatchResults t={t} batchResults={batchResults} onClear={onClearBatchResults} />
+      <AppManagerBatchResults batchResults={batchResults} onClear={onClearBatchResults} />
 
       <ThreeColumnLayout
         filterOpen={filterPanelOpen}
@@ -177,7 +175,6 @@ export function AppManagerCatalogView<TItem, TFilter extends string>({
         onCloseDetail={onCloseDetail}
         filter={
           <AppManagerFilterSidebar
-            t={t}
             open={filterPanelOpen}
             activeFilterCount={activeFilterCount}
             activeTypeFilter={typeFilter}

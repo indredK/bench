@@ -1,6 +1,7 @@
 /**
  * Page View / 页面视图: compose screen only; 只组合页面.
  */
+import { useTranslation } from "react-i18next"
 import { AnimatePresence, motion } from "motion/react"
 import { AppWindow, CheckSquare, Download, Filter, Search, Trash2, X } from "lucide-react"
 import { ToolbarButton } from "@/components/ui/toolbar-button"
@@ -27,11 +28,11 @@ import { useAppManagerViewState } from "@/features/app-manager/hooks/useAppManag
 import { useReducedMotionProps } from "@/lib/motion-utils"
 
 function AppManager({ active, feature }: { active: boolean; feature?: { desktopOnly?: boolean } }) {
+  const { t } = useTranslation()
   const viewState = useAppManagerViewState()
   const controller = useAppManagerController(active)
   const { reduce } = useReducedMotionProps()
   const {
-    t,
     loading,
     error,
     scanProgress,
@@ -152,7 +153,6 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
       >
         <div className="flex h-full min-h-0 flex-col gap-3">
           <AppManagerTabs
-            t={t}
             activeTab={activeTab}
             onChange={handleSetActiveTab}
             updateCount={viewState.updates.length}
@@ -170,7 +170,6 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                   className="h-full min-h-0"
                 >
                   <SoftwareUpdateView
-                    t={t}
                     apps={viewState.apps}
                     updates={viewState.updates}
                     searchQuery={searchQuery}
@@ -209,7 +208,6 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                   className="h-full min-h-0"
                 >
                   <AppManagerCatalogView<InstallListAppInfo, MarketplaceFilterKey>
-                    t={t}
                     items={filteredInstallListApps}
                     allItems={viewState.installListApps}
                     columns={installListColumns}
@@ -217,7 +215,6 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                     renderGridCard={(app) => (
                       <InstallListCard
                         app={app}
-                        t={t}
                         status={installStates[app.id]?.status}
                         onInstall={handleInstall}
                         onOpenWebsite={(url) => {
@@ -229,7 +226,6 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                     renderDetail={(app) => (
                       <InstallDetail
                         app={app}
-                        t={t}
                         onInstall={handleInstall}
                         onOpenWebsite={(url) => {
                           if (url) void openExternal(url)
@@ -331,16 +327,14 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                   className="h-full min-h-0"
                 >
                   <AppManagerCatalogView<AppInfo, AppFilterKey>
-                    t={t}
                     items={filteredApps}
                     allItems={viewState.apps}
                     columns={appManagerColumns}
                     getRowId={(app) => app.appId}
-                    renderGridCard={(app) => <AppManagerGridCard app={app} t={t} />}
+                    renderGridCard={(app) => <AppManagerGridCard app={app} />}
                     renderDetail={(app) => (
                       <AppDetail
                         app={app}
-                        t={t}
                         onLaunch={handleLaunch}
                         onReveal={handleReveal}
                         onUpgrade={handleDetailUpgrade}
@@ -510,7 +504,6 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
           </div>
 
           <AppManagerConfirmDialogs
-            t={t}
             confirmDialog={confirmDialog}
             installConfirmDialog={installConfirmDialog}
             batchConfirmDialog={batchConfirmDialog}

@@ -1,20 +1,20 @@
 /**
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  */
-import type { TFunction } from "i18next"
+import { useTranslation } from "react-i18next"
 import { AppWindow, ArrowUpCircle, Download } from "lucide-react"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
 import type { AppManagerTabKey } from "@/features/app-manager/model/store-types"
 
 interface AppManagerTabsProps {
-  t: TFunction
   activeTab: AppManagerTabKey
   onChange: (tab: AppManagerTabKey) => void
   updateCount: number
 }
 
-export function AppManagerTabs({ t, activeTab, onChange, updateCount }: AppManagerTabsProps) {
+export function AppManagerTabs({ activeTab, onChange, updateCount }: AppManagerTabsProps) {
+  const { t } = useTranslation()
   const getTriggerClass = (tab: AppManagerTabKey) =>
     cn(
       "relative h-full px-3 select-none !rounded-none !border-0 !bg-transparent !shadow-none",

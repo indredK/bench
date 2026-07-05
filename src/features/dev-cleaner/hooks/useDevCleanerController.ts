@@ -284,7 +284,6 @@ export function useDevCleanerController() {
   useContextMenuRegistration(devRegistration)
 
   return {
-    t,
     canUsePlatformFeatures,
     selectedPath,
     isScanning,

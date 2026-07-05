@@ -1,18 +1,18 @@
 /**
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  */
-import type { TFunction } from "i18next"
+import { useTranslation } from "react-i18next"
 import { X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { BatchOperationResult } from "@/lib/tauri/types/app-manager"
 
 interface AppManagerBatchResultsProps {
-  t: TFunction
   batchResults: BatchOperationResult | null
   onClear: () => void
 }
 
-export function AppManagerBatchResults({ t, batchResults, onClear }: AppManagerBatchResultsProps) {
+export function AppManagerBatchResults({ batchResults, onClear }: AppManagerBatchResultsProps) {
+  const { t } = useTranslation()
   if (!batchResults) return null
 
   return (

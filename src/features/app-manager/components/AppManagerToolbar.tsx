@@ -2,13 +2,12 @@
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  */
 import type { ReactNode } from "react"
-import type { TFunction } from "i18next"
+import { useTranslation } from "react-i18next"
 import { Search } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 
 interface AppManagerToolbarProps {
-  t: TFunction
   searchQuery: string
   searchPlaceholder: string
   onSearchQueryChange: (query: string) => void
@@ -20,7 +19,6 @@ interface AppManagerToolbarProps {
 }
 
 export function AppManagerToolbar({
-  t,
   searchQuery,
   searchPlaceholder,
   onSearchQueryChange,
@@ -30,6 +28,7 @@ export function AppManagerToolbar({
   rightContent,
   searchClassName,
 }: AppManagerToolbarProps) {
+  const { t } = useTranslation()
   return (
     <div className="bg-card shrink-0 rounded-lg border">
       <div className="flex flex-wrap items-center gap-1.5 px-3 py-2">

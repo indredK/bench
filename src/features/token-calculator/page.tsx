@@ -349,7 +349,6 @@ function StandardsTab({
                       setEditModels(next)
                     }}
                     onRemove={() => setEditModels(editModels.filter((_, j) => j !== i))}
-                    t={t}
                   />
                 ))}
                 <Button
@@ -457,7 +456,6 @@ function StandardsTab({
                     setNewModels(next)
                   }}
                   onRemove={() => setNewModels(newModels.filter((_, j) => j !== i))}
-                  t={t}
                 />
               ))}
               <Button
@@ -515,13 +513,12 @@ function ModelRow({
   model,
   onChange,
   onRemove,
-  t,
 }: {
   model: ModelPricing
   onChange: (m: ModelPricing) => void
   onRemove: () => void
-  t: (key: string) => string
 }) {
+  const { t } = useTranslation()
   return (
     <div className="flex items-center gap-2">
       <Input

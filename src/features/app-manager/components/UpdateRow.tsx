@@ -1,7 +1,7 @@
 /**
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  */
-import type { TFunction } from "i18next"
+import { useTranslation } from "react-i18next"
 import { ArrowRight, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -16,7 +16,6 @@ import {
 } from "@/features/app-manager/model/update-source-info"
 
 interface UpdateRowProps {
-  t: TFunction
   update: UpdateInfo
   app: AppInfo | undefined
   selected: boolean
@@ -28,7 +27,6 @@ interface UpdateRowProps {
 }
 
 export function UpdateRow({
-  t,
   update,
   app,
   selected,
@@ -38,6 +36,7 @@ export function UpdateRow({
   onClickRow,
   onAction,
 }: UpdateRowProps) {
+  const { t } = useTranslation()
   const running = operationStatus === "running"
   const actionLabel = t(getUpdateActionKey(update.source))
   const sizeLabel = formatBytes(update.size)

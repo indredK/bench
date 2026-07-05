@@ -499,7 +499,6 @@ export function usePortManagerController() {
   }, [alertsEnabled, setAlertsEnabled])
 
   return {
-    t,
     canUsePlatformFeatures,
     inputRef,
     scrollContainerRef,

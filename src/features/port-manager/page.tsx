@@ -2,6 +2,7 @@
  * Page View / 页面视图: compose screen only; 只组合页面.
  */
 import { useCallback, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Zap } from "lucide-react"
 import { RuntimeFeatureGate } from "@/components/common/RuntimeFeatureGate"
 import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirmDialog"
@@ -12,6 +13,7 @@ import { usePortOccupationAlerts } from "@/features/port-manager/hooks/usePortOc
 type KillConfirmState = { kind: "one"; port: number; pids: number[] } | { kind: "all" } | null
 
 function PortManager({ feature }: { feature?: { desktopOnly?: boolean } }) {
+  const { t } = useTranslation()
   const controller = usePortManagerController()
   const [killConfirm, setKillConfirm] = useState<KillConfirmState>(null)
 
@@ -40,31 +42,30 @@ function PortManager({ feature }: { feature?: { desktopOnly?: boolean } }) {
   const killDialogProps =
     killConfirm?.kind === "one"
       ? {
-          title: controller.t("portManager.confirmKillPortTitle", { port: killConfirm.port }),
-          description: controller.t("portManager.confirmKillPortDescription", {
+          title: t("portManager.confirmKillPortTitle", { port: killConfirm.port }),
+          description: t("portManager.confirmKillPortDescription", {
             port: killConfirm.port,
             count: killConfirm.pids.length,
           }),
-          consequence: controller.t("portManager.confirmKillPortConsequence"),
+          consequence: t("portManager.confirmKillPortConsequence"),
         }
       : killConfirm?.kind === "all"
         ? {
-            title: controller.t("portManager.confirmKillAllTitle"),
-            description: controller.t("portManager.confirmKillAllDescription", {
+            title: t("portManager.confirmKillAllTitle"),
+            description: t("portManager.confirmKillAllDescription", {
               count: controller.occupiedCount,
             }),
-            consequence: controller.t("portManager.confirmKillAllConsequence"),
+            consequence: t("portManager.confirmKillAllConsequence"),
           }
         : null
 
   return (
     <RuntimeFeatureGate
       feature={feature}
-      title={controller.t("portManager.title")}
+      title={t("portManager.title")}
       icon={<Zap size={32} className="opacity-40" />}
     >
       <PortManagerPageContent
-        t={controller.t}
         inputRef={controller.inputRef}
         scrollContainerRef={controller.scrollContainerRef}
         rowVirtualizer={controller.rowVirtualizer}
@@ -114,8 +115,8 @@ function PortManager({ feature }: { feature?: { desktopOnly?: boolean } }) {
           title={killDialogProps.title}
           description={killDialogProps.description}
           consequence={killDialogProps.consequence}
-          confirmLabel={controller.t("portManager.confirmKillAction")}
-          cancelLabel={controller.t("common.cancel")}
+          confirmLabel={t("portManager.confirmKillAction")}
+          cancelLabel={t("common.cancel")}
           onConfirm={handleKillConfirm}
           loading={controller.killing}
         />

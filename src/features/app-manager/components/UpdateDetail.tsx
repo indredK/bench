@@ -1,7 +1,7 @@
 /**
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  */
-import type { TFunction } from "i18next"
+import { useTranslation } from "react-i18next"
 import { ArrowRight, ExternalLink } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -16,7 +16,6 @@ import {
 } from "@/features/app-manager/model/update-source-info"
 
 interface UpdateDetailProps {
-  t: TFunction
   update: UpdateInfo
   app: AppInfo | undefined
   operationStatus: OperationStatus | undefined
@@ -25,13 +24,13 @@ interface UpdateDetailProps {
 }
 
 export function UpdateDetail({
-  t,
   update,
   app,
   operationStatus,
   onAction,
   onOpenReleaseNotes,
 }: UpdateDetailProps) {
+  const { t } = useTranslation()
   const sizeLabel = formatBytes(update.size)
   const sourceLabel = getUpdateSourceLabel(t, update.source)
   const actionLabel = t(getUpdateActionKey(update.source))

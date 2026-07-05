@@ -1,7 +1,7 @@
 /**
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  */
-import type { TFunction } from "i18next"
+import { useTranslation } from "react-i18next"
 import { RefreshCw, X } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { ToolbarButton } from "@/components/ui/toolbar-button"
@@ -14,7 +14,6 @@ import {
 } from "@/features/app-manager/model/update-source-info"
 
 interface UpdaterActionBarProps {
-  t: TFunction
   searchQuery: string
   loading: boolean
   totalCount: number
@@ -28,7 +27,6 @@ interface UpdaterActionBarProps {
 }
 
 export function UpdaterActionBar({
-  t,
   searchQuery,
   loading,
   totalCount,
@@ -40,11 +38,11 @@ export function UpdaterActionBar({
   onChangeSourceFilter,
   onClearSelection,
 }: UpdaterActionBarProps) {
+  const { t } = useTranslation()
   const showAllChip = totalCount > 0
 
   return (
     <AppManagerToolbar
-      t={t}
       searchQuery={searchQuery}
       searchPlaceholder={t("appManager.softwareUpdate.searchPlaceholder")}
       onSearchQueryChange={onSearchQueryChange}

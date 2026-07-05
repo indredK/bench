@@ -1,7 +1,7 @@
 /**
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  */
-import type { TFunction } from "i18next"
+import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/ui/badge"
 import { FilterPanel } from "@/components/layout/FilterPanel"
 import {
@@ -19,7 +19,6 @@ export interface AppManagerTypeFilterOption<TKey extends string = string> {
 }
 
 interface AppManagerFilterSidebarProps<TKey extends string> {
-  t: TFunction
   open: boolean
   activeFilterCount: number
   activeTypeFilter: TKey
@@ -35,7 +34,6 @@ interface AppManagerFilterSidebarProps<TKey extends string> {
 }
 
 export function AppManagerFilterSidebar<TKey extends string>({
-  t,
   open,
   activeFilterCount,
   activeTypeFilter,
@@ -49,6 +47,7 @@ export function AppManagerFilterSidebar<TKey extends string>({
   onCategoryChange,
   onSeriesChange,
 }: AppManagerFilterSidebarProps<TKey>) {
+  const { t } = useTranslation()
   return (
     <FilterPanel
       open={open}

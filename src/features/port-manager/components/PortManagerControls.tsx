@@ -1,7 +1,7 @@
 /**
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  */
-import type { TFunction } from "i18next"
+import { useTranslation } from "react-i18next"
 import type { Ref } from "react"
 import { Globe, Loader2, Monitor, RefreshCw, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -11,7 +11,6 @@ import { cn } from "@/lib/utils"
 import type { PortScanMode } from "@/features/port-manager/store"
 
 interface PortManagerControlsProps {
-  t: TFunction
   inputRef: Ref<HTMLInputElement>
   inputValue: string
   showInvalidToast: boolean
@@ -33,7 +32,6 @@ interface PortManagerControlsProps {
 const chipActionBase = "flex size-5 shrink-0 items-center justify-center rounded-full"
 
 export function PortManagerControls({
-  t,
   inputRef,
   inputValue,
   showInvalidToast,
@@ -51,6 +49,7 @@ export function PortManagerControls({
   onClear,
   onClearAll,
 }: PortManagerControlsProps) {
+  const { t } = useTranslation()
   return (
     <div className="space-y-2.5">
       <div className="flex items-center gap-1.5">
@@ -190,7 +189,6 @@ export function PortManagerPortChip({
   onScrollTo,
   onRescan,
   onRemove,
-  t,
 }: {
   port: number
   statusClassName: string
@@ -198,8 +196,8 @@ export function PortManagerPortChip({
   onScrollTo: () => void
   onRescan: () => void
   onRemove: () => void
-  t: TFunction
 }) {
+  const { t } = useTranslation()
   return (
     <span
       className={cn(

@@ -1,7 +1,7 @@
 /**
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  */
-import type { TFunction } from "i18next"
+import { useTranslation } from "react-i18next"
 import type { Ref } from "react"
 import type { Virtualizer } from "@tanstack/react-virtual"
 import { Loader2, RefreshCw, Search, X, Bell, BellOff } from "lucide-react"
@@ -26,7 +26,6 @@ import type { PortProcessDetail } from "@/lib/tauri/types/port-manager"
 import type { PortScanMode, PortScanStatus } from "@/features/port-manager/store"
 
 interface PortManagerPageContentProps {
-  t: TFunction
   inputRef: Ref<HTMLInputElement>
   scrollContainerRef: Ref<HTMLDivElement>
   rowVirtualizer: Virtualizer<HTMLDivElement, Element>
@@ -68,7 +67,6 @@ interface PortManagerPageContentProps {
 }
 
 export function PortManagerPageContent({
-  t,
   inputRef,
   scrollContainerRef,
   rowVirtualizer,
@@ -108,6 +106,7 @@ export function PortManagerPageContent({
   onClearError,
   statusIconFor,
 }: PortManagerPageContentProps) {
+  const { t } = useTranslation()
   const isRemoteMode = scanMode === "remote"
   return (
     <div className="flex h-full flex-col gap-3">
@@ -117,7 +116,6 @@ export function PortManagerPageContent({
         </CardHeader>
         <CardContent className="mt-2 flex flex-1 flex-col gap-3 overflow-hidden">
           <PortManagerControls
-            t={t}
             inputRef={inputRef}
             inputValue={inputValue}
             showInvalidToast={showInvalidToast}
@@ -171,16 +169,15 @@ export function PortManagerPageContent({
             ) : (
               <div className="flex flex-wrap items-center gap-1.5">
                 {portStates.map((ps) => (
-                  <PortManagerPortChip
-                    key={ps.port}
-                    port={ps.port}
-                    statusClassName={chipStatusClasses[ps.status]}
-                    statusIcon={statusIconFor(ps.status)}
-                    onScrollTo={() => onScrollToPort(ps.port)}
-                    onRescan={() => onRescanPort(ps.port)}
-                    onRemove={() => onRemovePort(ps.port)}
-                    t={t}
-                  />
+                    <PortManagerPortChip
+                      key={ps.port}
+                      port={ps.port}
+                      statusClassName={chipStatusClasses[ps.status]}
+                      statusIcon={statusIconFor(ps.status)}
+                      onScrollTo={() => onScrollToPort(ps.port)}
+                      onRescan={() => onRescanPort(ps.port)}
+                      onRemove={() => onRemovePort(ps.port)}
+                    />
                 ))}
               </div>
             )}
@@ -403,7 +400,6 @@ export function PortManagerPageContent({
                                     node={tree}
                                     depth={0}
                                     targetPid={detail.pids[0]}
-                                    t={t}
                                   />
                                 ))}
                               </div>

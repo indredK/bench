@@ -1206,7 +1206,6 @@ export function useAppManagerController(active: boolean) {
   const updatesErrorMessage = updatesError ? localizeError(t, updatesError) : ""
 
   return {
-    t,
     apps,
     loading,
     scanProgress,

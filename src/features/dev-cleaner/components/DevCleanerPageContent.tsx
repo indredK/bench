@@ -1,6 +1,7 @@
 /**
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  */
+import { useTranslation } from "react-i18next"
 import {
   AlertTriangle,
   ChevronDown,
@@ -33,8 +34,8 @@ function sortGlyph(direction: string) {
 }
 
 export function DevCleanerPageContent({ controller }: DevCleanerPageContentProps) {
+  const { t } = useTranslation()
   const {
-    t,
     selectedPath,
     isScanning,
     scanResult,

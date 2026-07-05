@@ -1,7 +1,7 @@
 /**
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  */
-import type { TFunction } from "i18next"
+import { useTranslation } from "react-i18next"
 import { AnimatePresence, motion } from "motion/react"
 import { ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -17,7 +17,6 @@ import {
 } from "@/features/app-manager/model/update-source-info"
 
 interface UpdateGroupSectionProps {
-  t: TFunction
   source: UpdateSource
   updates: UpdateInfo[]
   expanded: boolean
@@ -33,7 +32,6 @@ interface UpdateGroupSectionProps {
 }
 
 export function UpdateGroupSection({
-  t,
   source,
   updates,
   expanded,
@@ -47,6 +45,7 @@ export function UpdateGroupSection({
   onRowAction,
   onSourceAction,
 }: UpdateGroupSectionProps) {
+  const { t } = useTranslation()
   const groupBusy = updates.some((update) => updateOperations[update.appId]?.status === "running")
   const { reduce } = useReducedMotionProps()
 
@@ -106,7 +105,6 @@ export function UpdateGroupSection({
               {updates.map((update) => (
                 <UpdateRow
                   key={update.appId}
-                  t={t}
                   update={update}
                   app={appLookup.get(update.appId)}
                   selected={selectedIds.has(update.appId)}

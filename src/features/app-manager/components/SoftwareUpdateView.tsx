@@ -2,7 +2,7 @@
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  */
 import { useMemo } from "react"
-import type { TFunction } from "i18next"
+import { useTranslation } from "react-i18next"
 import { CheckCircle2, RefreshCw, Search, X } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -20,7 +20,6 @@ import {
 } from "@/features/app-manager/model/update-source-info"
 
 interface SoftwareUpdateViewProps {
-  t: TFunction
   apps: AppInfo[]
   updates: UpdateInfo[]
   searchQuery: string
@@ -58,7 +57,6 @@ function groupBySource(updates: UpdateInfo[]): Map<UpdateSource, UpdateInfo[]> {
 }
 
 export function SoftwareUpdateView({
-  t,
   apps,
   updates,
   searchQuery,
@@ -84,6 +82,7 @@ export function SoftwareUpdateView({
   onGroupAction,
   onOpenExternal,
 }: SoftwareUpdateViewProps) {
+  const { t } = useTranslation()
   const normalizedSearch = searchQuery.trim().toLowerCase()
 
   const appLookup = useMemo(() => {
@@ -180,7 +179,6 @@ export function SoftwareUpdateView({
   return (
     <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-3 overflow-hidden">
       <UpdaterActionBar
-        t={t}
         searchQuery={searchQuery}
         loading={loading}
         totalCount={searchedUpdates.length}
@@ -243,7 +241,6 @@ export function SoftwareUpdateView({
                   orderedGroups.map(({ source, items }) => (
                     <UpdateGroupSection
                       key={source}
-                      t={t}
                       source={source}
                       updates={items}
                       expanded={expandedGroups[source] ?? true}
@@ -271,7 +268,6 @@ export function SoftwareUpdateView({
             title={t("appManager.softwareUpdate.detail.releaseNotes")}
             renderDetail={(update) => (
               <UpdateDetail
-                t={t}
                 update={update}
                 app={appLookup.get(update.appId)}
                 operationStatus={updateOperations[update.appId]?.status}

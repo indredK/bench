@@ -1,7 +1,7 @@
 /**
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  */
-import type { TFunction } from "i18next"
+import { useTranslation } from "react-i18next"
 import { ArrowUpCircle, Download, Layers, Trash2 } from "lucide-react"
 import {
   AlertDialog,
@@ -35,7 +35,6 @@ interface BatchConfirmDialogState {
 }
 
 interface AppManagerConfirmDialogsProps {
-  t: TFunction
   confirmDialog: ConfirmDialogState
   installConfirmDialog: InstallConfirmDialogState
   batchConfirmDialog: BatchConfirmDialogState
@@ -48,7 +47,6 @@ interface AppManagerConfirmDialogsProps {
 }
 
 export function AppManagerConfirmDialogs({
-  t,
   confirmDialog,
   installConfirmDialog,
   batchConfirmDialog,
@@ -59,6 +57,7 @@ export function AppManagerConfirmDialogs({
   onInstallConfirm,
   onBatchConfirm,
 }: AppManagerConfirmDialogsProps) {
+  const { t } = useTranslation()
   return (
     <>
       <AlertDialog

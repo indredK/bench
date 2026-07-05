@@ -1,7 +1,7 @@
 /**
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  */
-import type { TFunction } from "i18next"
+import { useTranslation } from "react-i18next"
 import {
   ArrowUpCircle,
   CheckCircle2,
@@ -21,14 +21,14 @@ import type { AppInfo, InstallListAppInfo } from "@/lib/tauri/types/app-manager"
 
 interface AppDetailProps {
   app: AppInfo
-  t: TFunction
   onLaunch: (app: AppInfo) => void
   onReveal: (app: AppInfo) => void
   onUpgrade: () => void
   onUninstall: () => void
 }
 
-export function AppDetail({ app, t, onLaunch, onReveal, onUpgrade, onUninstall }: AppDetailProps) {
+export function AppDetail({ app, onLaunch, onReveal, onUpgrade, onUninstall }: AppDetailProps) {
+  const { t } = useTranslation()
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
@@ -94,12 +94,12 @@ export function AppDetail({ app, t, onLaunch, onReveal, onUpgrade, onUninstall }
 
 interface InstallDetailProps {
   app: InstallListAppInfo
-  t: TFunction
   onInstall: (app: InstallListAppInfo) => void
   onOpenWebsite: (url: string | undefined) => void
 }
 
-export function InstallDetail({ app, t, onInstall, onOpenWebsite }: InstallDetailProps) {
+export function InstallDetail({ app, onInstall, onOpenWebsite }: InstallDetailProps) {
+  const { t } = useTranslation()
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
