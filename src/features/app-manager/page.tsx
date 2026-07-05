@@ -1,8 +1,11 @@
 /**
  * Page View / 页面视图: compose screen only; 只组合页面.
  */
+import { lazy, Suspense } from "react"
 import { useTranslation } from "react-i18next"
 import { AnimatePresence, motion } from "motion/react"
+
+const SoftwareUpdateView = lazy(() => import("@/features/app-manager/components/SoftwareUpdateView").then((m) => ({ default: m.SoftwareUpdateView })))
 import { AppWindow, CheckSquare, Download, Filter, Search, Trash2, X } from "lucide-react"
 import { ToolbarButton } from "@/components/ui/toolbar-button"
 import { RuntimeFeatureGate } from "@/components/common/RuntimeFeatureGate"
@@ -13,7 +16,6 @@ import { AppManagerErrorBoundary } from "@/features/app-manager/components/AppMa
 import { AppManagerGridCard } from "@/features/app-manager/components/AppManagerGridCard"
 import { AppManagerTabs } from "@/features/app-manager/components/AppManagerTabs"
 import { InstallListCard } from "@/features/app-manager/components/InstallListCard"
-import { SoftwareUpdateView } from "@/features/app-manager/components/SoftwareUpdateView"
 import { UpdateBlockingDialogs } from "@/features/app-manager/components/UpdateBlockingDialogs"
 import { UpdateProgressDialog } from "@/features/app-manager/components/UpdateProgressDialog"
 import { useAppManagerController } from "@/features/app-manager/hooks/useAppManagerController"
@@ -169,34 +171,36 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                   transition={{ duration: 0.12, ease: "easeOut" }}
                   className="h-full min-h-0"
                 >
-                  <SoftwareUpdateView
-                    apps={viewState.apps}
-                    updates={viewState.updates}
-                    searchQuery={searchQuery}
-                    loading={updatesLoading}
-                    scanned={updatesScanned}
-                    error={updatesError}
-                    onClearError={clearUpdatesError}
-                    lastUpdateCheck={viewState.lastUpdateCheck}
-                    selectedIds={viewState.selectedUpdateIds}
-                    selectedUpdate={viewState.selectedUpdate}
-                    sourceFilter={viewState.updateSourceFilter}
-                    expandedGroups={viewState.expandedUpdateGroups}
-                    updateOperations={viewState.updateOperations}
-                    onSearchQueryChange={setSearchQuery}
-                    onRecheck={() => void checkAllUpdates(true)}
-                    onToggleGroup={toggleUpdateGroup}
-                    onToggleSelect={toggleSelectUpdate}
-                    onClearSelection={clearUpdateSelection}
-                    onChangeSourceFilter={setUpdateSourceFilter}
-                    onRowClick={setSelectedUpdate}
-                    onCloseDetail={() => setSelectedUpdate(null)}
-                    onRowAction={(update) => void handleUpdateAction(update)}
-                    onGroupAction={(source, sourceUpdates) =>
-                      void handleUpdateSourceAction(source, sourceUpdates)
-                    }
-                    onOpenExternal={(url) => void openExternal(url)}
-                  />
+                  <Suspense fallback={<div className="flex h-full items-center justify-center"><span className="text-muted-foreground text-xs">{t("common.loading")}</span></div>}>
+                    <SoftwareUpdateView
+                      apps={viewState.apps}
+                      updates={viewState.updates}
+                      searchQuery={searchQuery}
+                      loading={updatesLoading}
+                      scanned={updatesScanned}
+                      error={updatesError}
+                      onClearError={clearUpdatesError}
+                      lastUpdateCheck={viewState.lastUpdateCheck}
+                      selectedIds={viewState.selectedUpdateIds}
+                      selectedUpdate={viewState.selectedUpdate}
+                      sourceFilter={viewState.updateSourceFilter}
+                      expandedGroups={viewState.expandedUpdateGroups}
+                      updateOperations={viewState.updateOperations}
+                      onSearchQueryChange={setSearchQuery}
+                      onRecheck={() => void checkAllUpdates(true)}
+                      onToggleGroup={toggleUpdateGroup}
+                      onToggleSelect={toggleSelectUpdate}
+                      onClearSelection={clearUpdateSelection}
+                      onChangeSourceFilter={setUpdateSourceFilter}
+                      onRowClick={setSelectedUpdate}
+                      onCloseDetail={() => setSelectedUpdate(null)}
+                      onRowAction={(update) => void handleUpdateAction(update)}
+                      onGroupAction={(source, sourceUpdates) =>
+                        void handleUpdateSourceAction(source, sourceUpdates)
+                      }
+                      onOpenExternal={(url) => void openExternal(url)}
+                    />
+                  </Suspense>
                 </motion.div>
               ) : activeTab === "marketplace" ? (
                 <motion.div

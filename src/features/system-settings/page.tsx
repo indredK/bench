@@ -4,7 +4,7 @@
  * v2 — 重设计: 9 个 Tab → 3 个 Tab (外观/安全/系统)，
  * SettingsDialog 内容合并入此页，devtools/diagnostics/info 移入独立页面。
  */
-import { useEffect, useState, useCallback, useMemo } from "react"
+import { useEffect, useState, useCallback, useMemo, lazy, Suspense } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { Loader2Icon, ExternalLink, FolderOpen, Search, X } from "lucide-react"
@@ -33,14 +33,13 @@ import type {
   LowPowerMode,
   MenuBarAutoHideMode,
 } from "@/lib/tauri/types/system-settings"
-import {
-  SleepSection,
-  LockScreenSection,
-  KeyboardSection,
-  DisplayDockSection,
-  QuickActionsSection,
-} from "./components/sections"
 import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirmDialog"
+
+const SleepSection = lazy(() => import("./components/sections/SleepSection").then((m) => ({ default: m.SleepSection })))
+const LockScreenSection = lazy(() => import("./components/sections/LockScreenSection").then((m) => ({ default: m.LockScreenSection })))
+const KeyboardSection = lazy(() => import("./components/sections/KeyboardSection").then((m) => ({ default: m.KeyboardSection })))
+const DisplayDockSection = lazy(() => import("./components/sections/DisplayDockSection").then((m) => ({ default: m.DisplayDockSection })))
+const QuickActionsSection = lazy(() => import("./components/sections/QuickActionsSection").then((m) => ({ default: m.QuickActionsSection })))
 import { openPlatformDialog } from "@/platform/dialog"
 import { searchSettings } from "./search-index"
 
@@ -168,7 +167,9 @@ export default function SystemSettings(_props: SystemSettingsProps) {
         return (
           <div className="grid grid-cols-2 gap-4">
             {/* ── Display & Dock ── */}
-            <DisplayDockSection className="col-span-2" />
+            <Suspense fallback={<div className="text-muted-foreground col-span-2 flex h-24 items-center justify-center text-xs">{t("common.loading")}</div>}>
+              <DisplayDockSection className="col-span-2" />
+            </Suspense>
 
             {/* ── Dock & Menu Bar Toggles ── */}
             <SettingGroup title={t("systemSettings.toggles.title")} className="col-span-2">
@@ -361,7 +362,9 @@ export default function SystemSettings(_props: SystemSettingsProps) {
         return (
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-4">
-              <LockScreenSection />
+              <Suspense fallback={<div className="text-muted-foreground flex h-20 items-center justify-center text-xs">{t("common.loading")}</div>}>
+                <LockScreenSection />
+              </Suspense>
 
               {/* ── Network ── */}
               <SettingGroup title={t("systemSettings.network.title")}>
@@ -531,8 +534,12 @@ export default function SystemSettings(_props: SystemSettingsProps) {
         return (
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-4">
-              <SleepSection />
-              <QuickActionsSection />
+              <Suspense fallback={<div className="text-muted-foreground flex h-20 items-center justify-center text-xs">{t("common.loading")}</div>}>
+                <SleepSection />
+              </Suspense>
+              <Suspense fallback={<div className="text-muted-foreground flex h-20 items-center justify-center text-xs">{t("common.loading")}</div>}>
+                <QuickActionsSection />
+              </Suspense>
 
               {/* ── 系统设置快捷入口 ── */}
               <SettingGroup title={t("systemSettings.shortcuts.title")}>
@@ -751,7 +758,9 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                 </div>
               </SettingGroup>
 
-              <KeyboardSection />
+              <Suspense fallback={<div className="text-muted-foreground flex h-20 items-center justify-center text-xs">{t("common.loading")}</div>}>
+                <KeyboardSection />
+              </Suspense>
 
               {/* ── Login Items ── */}
               <SettingGroup title={t("systemSettings.login.title")}>

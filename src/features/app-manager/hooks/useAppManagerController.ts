@@ -10,9 +10,6 @@ import { useAppManagerViewState } from "@/features/app-manager/hooks/useAppManag
 import { createAppManagerColumns } from "@/features/app-manager/columns"
 import { createInstallListApps } from "@/features/app-manager/model/install-list"
 import {
-  createBatchErrorPatch,
-  createBatchProgress,
-  createBatchSuccessPatch,
   createRunningOperationState,
   isOperationRunning,
   toOperationState,
@@ -22,14 +19,11 @@ import {
   filterInstallListApps,
 } from "@/features/app-manager/model/selectors"
 import { appManagerUseCases } from "@/features/app-manager/services/app-manager.use-cases"
-import { useInstallEvents } from "@/features/app-manager/hooks/useInstallEvents"
-import { installAppUpdate } from "@/lib/tauri/commands/app-manager"
+import { useAppManagerUpdates } from "@/features/app-manager/hooks/useAppManagerUpdates"
 import { registerFeatureRefresh } from "@/features/refresh"
 import type {
   AppInfo,
   InstallListAppInfo,
-  UpdateInfo,
-  UpdateSource,
 } from "@/lib/tauri/types/app-manager"
 import type { AppManagerTabKey } from "@/features/app-manager/model/store-types"
 import { appManagerPlatformConfig } from "@/platform/config"
@@ -39,11 +33,6 @@ import { listenToPlatformEvent } from "@/platform/events"
 import { createInstallListColumns } from "@/features/app-manager/components/install-list-columns"
 import type { LocalizedError } from "@/lib/errors"
 import { localizeError } from "@/lib/errors"
-import { getErrorMessage } from "@/lib/tauri/errors"
-
-function isInstallerUpdateSource(source: UpdateSource): boolean {
-  return source === "sparkle" || source === "electron" || source === "squirrel"
-}
 
 export function useAppManagerController(active: boolean) {
   const { t } = useTranslation()
@@ -91,10 +80,6 @@ export function useAppManagerController(active: boolean) {
     updateOperations,
   } = viewState
 
-  const setInstallFinished = useAppManagerStore((s) => s.setInstallFinished)
-  const clearInstallProgress = useAppManagerStore((s) => s.clearInstallProgress)
-  const clearInstallFinished = useAppManagerStore((s) => s.clearInstallFinished)
-
   const setSearchQuery = useAppManagerStore((s) => s.setSearchQuery)
   const setActiveFilter = useAppManagerStore((s) => s.setActiveFilter)
   const setMarketplaceFilter = useAppManagerStore((s) => s.setMarketplaceFilter)
@@ -117,32 +102,24 @@ export function useAppManagerController(active: boolean) {
   const closeInstallConfirmDialog = useAppManagerStore((s) => s.closeInstallConfirmDialog)
 
   const setActiveTab = useAppManagerStore((s) => s.setActiveTab)
-  const setUpdates = useAppManagerStore((s) => s.setUpdates)
-  const setUpdatesLoading = useAppManagerStore((s) => s.setUpdatesLoading)
-  const setUpdatesError = useAppManagerStore((s) => s.setUpdatesError)
-  const setUpdatesScanned = useAppManagerStore((s) => s.setUpdatesScanned)
   const toggleUpdateGroup = useAppManagerStore((s) => s.toggleUpdateGroup)
   const toggleSelectUpdate = useAppManagerStore((s) => s.toggleSelectUpdate)
   const clearUpdateSelection = useAppManagerStore((s) => s.clearUpdateSelection)
   const setUpdateSourceFilter = useAppManagerStore((s) => s.setUpdateSourceFilter)
   const setSelectedUpdate = useAppManagerStore((s) => s.setSelectedUpdate)
+  const setUpdatesError = useAppManagerStore((s) => s.setUpdatesError)
   const setUpdateOperationStatus = useAppManagerStore((s) => s.setUpdateOperationStatus)
   const setError = useAppManagerStore((s) => s.setError)
 
   const [selectedInstallIds, setSelectedInstallIds] = useState<Set<string>>(new Set())
   const [installBatchMode, setInstallBatchMode] = useState(false)
   const [installDetailItem, setInstallDetailItem] = useState<InstallListAppInfo | null>(null)
-  // v1.2: which UpdateInfo the orchestrator is currently driving (drives the
-  // progress + blocking dialogs). `null` when nothing is in flight.
-  const [inProgressUpdate, setInProgressUpdate] = useState<UpdateInfo | null>(null)
   const [preferencesHydrated, setPreferencesHydrated] = useState(false)
   const pendingBatchExecutionRef = useRef<{
     action: "upgrade" | "uninstall" | "install"
     appIds: string[]
     source: "installed" | "marketplace"
   } | null>(null)
-  const pendingInstallerUpdatesRef = useRef<UpdateInfo[]>([])
-  const activeInstallerAppIdRef = useRef<string | null>(null)
   const confirmPendingRef = useRef(false)
   const refreshHandlerRef = useRef<(() => void | Promise<void>) | null>(null)
 
@@ -169,16 +146,7 @@ export function useAppManagerController(active: boolean) {
     [],
   )
 
-  useEffect(() => {
-    activeInstallerAppIdRef.current = inProgressUpdate?.appId ?? null
-  }, [inProgressUpdate])
-
   const canUsePlatformFeatures = canUseDesktopFeatures()
-
-  // v1.2: subscribe to `app-update-install:*` events; the listener writes phase
-  // updates and the terminal finished payload into the store, where the
-  // progress / blocking dialogs read from.
-  useInstallEvents()
 
   const deferUntilAfterFirstPaint = useCallback((callback: () => void) => {
     let timeoutId = 0
@@ -263,256 +231,15 @@ export function useAppManagerController(active: boolean) {
     })
   }, [])
 
-  const refreshUpdates = useCallback(async () => {
-    const { apps: currentApps } = useAppManagerStore.getState()
-    try {
-      const updatableSet = await appManagerUseCases.findManagedAppUpdates(currentApps)
-      if (updatableSet.size === 0) return
-      useAppManagerStore.setState((state) => ({
-        apps: state.apps.map((app) => ({
-          ...app,
-          upgradeAvailable: updatableSet.has(app.appId),
-        })),
-      }))
-    } catch (updateError) {
-      console.warn("[AppManager] Failed to check updates:", updateError)
-    }
-  }, [])
-
-  const checkAllUpdates = useCallback(
-    async (forceRefresh = false) => {
-      if (!appManagerUseCases.isAvailable()) return
-      const { updatesLoading: currentLoading } = useAppManagerStore.getState()
-      if (currentLoading) return
-
-      setUpdatesLoading(true)
-      setUpdatesError(null)
-      try {
-        const { updates: result, error } = await appManagerUseCases.checkAllAppUpdates(forceRefresh)
-        if (error) {
-          setUpdatesError(toLocalizedError("appManager.errors.updateCheckFailed", error))
-        }
-        setUpdates(result)
-        setUpdatesScanned(true)
-      } catch (err) {
-        setUpdatesError(
-          toLocalizedError(
-            "appManager.errors.updateCheckFailed",
-            getErrorMessage(err) || undefined,
-          ),
-        )
-        setUpdatesScanned(true)
-      } finally {
-        setUpdatesLoading(false)
-      }
-    },
-    [setUpdates, setUpdatesError, setUpdatesLoading, setUpdatesScanned, toLocalizedError],
-  )
-
-  const handleUpdateAction = useCallback(
-    async (update: UpdateInfo) => {
-      const { updateOperations: ops } = useAppManagerStore.getState()
-      if (isOperationRunning(ops, update.appId)) return
-
-      if (update.source === "macAppStore") {
-        if (!update.adamId) {
-          setUpdateOperationStatus(
-            update.appId,
-            "error",
-            t("appManager.errors.missingMacAppStoreId"),
-          )
-          return
-        }
-        setUpdateOperationStatus(
-          update.appId,
-          "running",
-          t("appManager.softwareUpdate.status.openingAppStore"),
-        )
-        try {
-          await appManagerUseCases.openInMacAppStore(update.adamId)
-          setUpdateOperationStatus(update.appId, "success")
-        } catch (err) {
-          setUpdateOperationStatus(update.appId, "error", String(err))
-        }
-        return
-      }
-
-      if (update.source === "homebrew") {
-        setUpdateOperationStatus(
-          update.appId,
-          "running",
-          t("appManager.softwareUpdate.status.upgradingHomebrew"),
-        )
-        const outcome = await appManagerUseCases.runAppOperation({
-          appId: update.appId,
-          kind: "upgrade",
-        })
-        if (outcome) {
-          setUpdateOperationStatus(
-            update.appId,
-            outcome.result.success ? "success" : "error",
-            outcome.result.message,
-          )
-          if (outcome.shouldRescan) {
-            void checkAllUpdates(true)
-            void scanApps()
-          }
-        }
-        return
-      }
-
-      // v1.2: sparkle / electron / squirrel — kick off the in-place install
-      // orchestrator. Progress flows back through the Tauri events into the
-      // store, which the UpdateProgressDialog and UpdateBlockingDialogs read.
-      if (isInstallerUpdateSource(update.source)) {
-        const activeInstallerAppId = activeInstallerAppIdRef.current
-        if (activeInstallerAppId && activeInstallerAppId !== update.appId) return
-        // Wipe any leftover terminal state from a prior run for this app, so
-        // the dialog doesn't see both the in-flight progress AND the previous
-        // SU_* failure.
-        clearInstallProgress(update.appId)
-        clearInstallFinished(update.appId)
-        setInProgressUpdate(update)
-        setUpdateOperationStatus(
-          update.appId,
-          "running",
-          t("appManager.softwareUpdate.status.installingUpdate"),
-        )
-        try {
-          await installAppUpdate(update)
-        } catch (err) {
-          // installAppUpdate returns Ok once the orchestrator is spawned; a
-          // synchronous Err means we never reached the running-check phase, so
-          // synthesise a finished event so the dialog surfaces the error.
-          setInstallFinished(update.appId, {
-            appId: update.appId,
-            success: false,
-            message: String(err),
-            errorCode: "SU_INSTALL_FAIL",
-          })
-        }
-        return
-      }
-
-      // gitHub (no installer yet) → still fall back to the releases page.
-      const url = update.downloadUrl ?? update.releaseNotesUrl ?? update.feedUrl
-      if (!url) {
-        setUpdateOperationStatus(update.appId, "error", t("appManager.errors.noDownloadUrl"))
-        return
-      }
-      try {
-        await appManagerUseCases.openExternal(url)
-        setUpdateOperationStatus(update.appId, "success")
-      } catch (err) {
-        setUpdateOperationStatus(update.appId, "error", String(err))
-      }
-    },
-    [
-      checkAllUpdates,
-      scanApps,
-      setUpdateOperationStatus,
-      clearInstallProgress,
-      clearInstallFinished,
-      setInstallFinished,
-      t,
-    ],
-  )
-
-  const handleUpdateSourceAction = useCallback(
-    async (source: UpdateSource, sourceUpdates: UpdateInfo[]) => {
-      const { updateOperations: ops } = useAppManagerStore.getState()
-      const availableUpdates = sourceUpdates.filter(
-        (update) => !isOperationRunning(ops, update.appId),
-      )
-      if (availableUpdates.length === 0) return
-
-      if (source === "macAppStore") {
-        pendingInstallerUpdatesRef.current = []
-        try {
-          await appManagerUseCases.openMacAppStoreUpdates()
-        } catch (error) {
-          setUpdatesError(
-            toLocalizedError(
-              "appManager.errors.updateCheckFailed",
-              getErrorMessage(error) || undefined,
-            ),
-          )
-        }
-        return
-      }
-
-      if (isInstallerUpdateSource(source)) {
-        if (activeInstallerAppIdRef.current || pendingInstallerUpdatesRef.current.length > 0) {
-          return
-        }
-        const [firstUpdate, ...restUpdates] = availableUpdates
-        if (!firstUpdate) return
-        pendingInstallerUpdatesRef.current = restUpdates
-        await handleUpdateAction(firstUpdate)
-        return
-      }
-
-      pendingInstallerUpdatesRef.current = []
-      for (const update of availableUpdates) {
-        await handleUpdateAction(update)
-      }
-    },
-    [handleUpdateAction, setUpdatesError, toLocalizedError],
-  )
-
-  // v1.2: invoked by the progress / blocking dialogs when the user dismisses
-  // them. Mirrors the terminal install outcome into the row's `updateOperations`
-  // status and clears the per-app install snapshots so subsequent runs start
-  // fresh. On success we also re-scan so the row drops out of the list.
-  const handleCloseInstallDialog = useCallback(() => {
-    const update = inProgressUpdate
-    if (!update) return
-    const { installFinished: finishedMap } = useAppManagerStore.getState()
-    const finished = finishedMap[update.appId]
-    const nextQueuedUpdate =
-      finished?.success && pendingInstallerUpdatesRef.current.length > 0
-        ? (pendingInstallerUpdatesRef.current.shift() ?? null)
-        : null
-
-    if (finished) {
-      setUpdateOperationStatus(
-        update.appId,
-        finished.success ? "success" : "error",
-        finished.message,
-      )
-      if (finished.success) {
-        void checkAllUpdates(true)
-        void scanApps()
-      }
-    } else {
-      // User cancelled before any terminal event arrived.
-      pendingInstallerUpdatesRef.current = []
-      setUpdateOperationStatus(update.appId, "idle")
-    }
-
-    if (finished && !finished.success) {
-      pendingInstallerUpdatesRef.current = []
-    }
-
-    clearInstallProgress(update.appId)
-    clearInstallFinished(update.appId)
-    setInProgressUpdate(null)
-
-    if (nextQueuedUpdate) {
-      scheduleTimeout(() => {
-        void handleUpdateAction(nextQueuedUpdate)
-      }, 0)
-    }
-  }, [
+  const {
     inProgressUpdate,
+    refreshUpdates,
     checkAllUpdates,
-    scanApps,
-    clearInstallFinished,
-    clearInstallProgress,
     handleUpdateAction,
-    scheduleTimeout,
-    setUpdateOperationStatus,
-  ])
+    handleUpdateSourceAction,
+    handleCloseInstallDialog,
+    runBatchOperation,
+  } = useAppManagerUpdates(scanApps, toLocalizedError, scheduleTimeout)
 
   const handleSetActiveTab = useCallback(
     (tab: AppManagerTabKey) => {
@@ -623,28 +350,6 @@ export function useAppManagerController(active: boolean) {
       }
     },
     [refreshInstallList, scanApps, scheduleTimeout, t],
-  )
-
-  const runBatchOperation = useCallback(
-    async (kind: "upgrade" | "uninstall", ids: string[]) => {
-      if (ids.length === 0) return
-      if (useAppManagerStore.getState().batchProgress?.running) return
-
-      useAppManagerStore.setState({
-        batchProgress: createBatchProgress(ids.length),
-        batchResults: null,
-      })
-      const outcome = await appManagerUseCases.runBatchOperation(kind, ids)
-      if (!outcome) return
-
-      useAppManagerStore.setState(
-        outcome.result
-          ? createBatchSuccessPatch(outcome.result)
-          : createBatchErrorPatch(outcome.error),
-      )
-      void scanApps()
-    },
-    [scanApps],
   )
 
   const launchApp = useCallback(async (app: AppInfo) => {
