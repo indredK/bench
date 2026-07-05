@@ -423,6 +423,25 @@ mod scan_tests {
 }
 
 // ============================================================================
+// Gatekeeper / quarantine (macOS)
+// ============================================================================
+
+pub fn authorize_mac_app(app_path: String) -> Result<crate::app_manager::OperationResult, String> {
+    use crate::app_manager::gatekeeper;
+    use crate::app_manager::operation_result;
+
+    let path = std::path::Path::new(&app_path);
+    gatekeeper::authorize_app_bundle(path)?;
+    Ok(operation_result(
+        true,
+        String::from("Gatekeeper quarantine cleared"),
+        None,
+        None,
+        false,
+    ))
+}
+
+// ============================================================================
 // launch / reveal (macOS)
 // ============================================================================
 

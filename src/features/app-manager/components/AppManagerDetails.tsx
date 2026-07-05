@@ -10,12 +10,14 @@ import {
   Folder,
   Package,
   Play,
+  ShieldCheck,
   Trash2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DetailSection, MetadataRow } from "@/components/layout/DetailPanel"
 import { AppIcon } from "@/features/app-manager/components/AppIcon"
 import { getInstallSourceLabel } from "@/features/app-manager/components/InstallSourceBadges"
+import { canAuthorizeMacApp } from "@/features/app-manager/model/authorize-app"
 import { appManagerPlatformConfig } from "@/platform/config"
 import type { AppInfo, InstallListAppInfo } from "@/lib/tauri/types/app-manager"
 
@@ -23,12 +25,21 @@ interface AppDetailProps {
   app: AppInfo
   onLaunch: (app: AppInfo) => void
   onReveal: (app: AppInfo) => void
+  onAuthorize: (app: AppInfo) => void
   onUpgrade: () => void
   onUninstall: () => void
 }
 
-export function AppDetail({ app, onLaunch, onReveal, onUpgrade, onUninstall }: AppDetailProps) {
+export function AppDetail({
+  app,
+  onLaunch,
+  onReveal,
+  onAuthorize,
+  onUpgrade,
+  onUninstall,
+}: AppDetailProps) {
   const { t } = useTranslation()
+  const showAuthorize = canAuthorizeMacApp(app)
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
@@ -74,6 +85,12 @@ export function AppDetail({ app, onLaunch, onReveal, onUpgrade, onUninstall }: A
             <Folder size={13} className="mr-1" />
             {t(appManagerPlatformConfig.revealActionLabel)}
           </Button>
+          {showAuthorize && (
+            <Button size="sm" variant="outline" onClick={() => onAuthorize(app)}>
+              <ShieldCheck size={13} className="mr-1" />
+              {t("appManager.actionAuthorize")}
+            </Button>
+          )}
           {app.allowedActions.upgrade && (
             <Button size="sm" variant="outline" onClick={onUpgrade}>
               <ArrowUpCircle size={13} className="mr-1" />

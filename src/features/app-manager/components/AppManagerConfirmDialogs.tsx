@@ -2,7 +2,7 @@
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  */
 import { useTranslation } from "react-i18next"
-import { ArrowUpCircle, Download, Layers, Trash2 } from "lucide-react"
+import { ArrowUpCircle, Download, Layers, ShieldCheck, Trash2 } from "lucide-react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,6 +27,12 @@ interface InstallConfirmDialogState {
   appName: string
 }
 
+interface AuthorizeConfirmDialogState {
+  open: boolean
+  appId: string
+  appName: string
+}
+
 interface BatchConfirmDialogState {
   open: boolean
   action: "upgrade" | "uninstall" | "install"
@@ -37,24 +43,30 @@ interface BatchConfirmDialogState {
 interface AppManagerConfirmDialogsProps {
   confirmDialog: ConfirmDialogState
   installConfirmDialog: InstallConfirmDialogState
+  authorizeConfirmDialog: AuthorizeConfirmDialogState
   batchConfirmDialog: BatchConfirmDialogState
   onCloseConfirm: () => void
   onCloseInstallConfirm: () => void
+  onCloseAuthorizeConfirm: () => void
   onCloseBatchConfirm: () => void
   onConfirmAction: () => void
   onInstallConfirm: () => void
+  onAuthorizeConfirm: () => void
   onBatchConfirm: () => void
 }
 
 export function AppManagerConfirmDialogs({
   confirmDialog,
   installConfirmDialog,
+  authorizeConfirmDialog,
   batchConfirmDialog,
   onCloseConfirm,
   onCloseInstallConfirm,
+  onCloseAuthorizeConfirm,
   onCloseBatchConfirm,
   onConfirmAction,
   onInstallConfirm,
+  onAuthorizeConfirm,
   onBatchConfirm,
 }: AppManagerConfirmDialogsProps) {
   const { t } = useTranslation()
@@ -118,6 +130,33 @@ export function AppManagerConfirmDialogs({
             <AlertDialogCancel>{t("appManager.cancel")}</AlertDialogCancel>
             <AlertDialogAction onClick={onInstallConfirm}>
               {t("appManager.confirmInstall")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={authorizeConfirmDialog.open}
+        onOpenChange={(open) => {
+          if (!open) onCloseAuthorizeConfirm()
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <ShieldCheck size={18} className="text-blue-500" />
+              {t("appManager.confirmAuthorizeTitle")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("appManager.confirmAuthorizeDescription", {
+                name: authorizeConfirmDialog.appName,
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("appManager.cancel")}</AlertDialogCancel>
+            <AlertDialogAction onClick={onAuthorizeConfirm}>
+              {t("appManager.confirmAuthorize")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

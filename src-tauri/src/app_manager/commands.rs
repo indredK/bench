@@ -146,6 +146,14 @@ pub fn reveal_app_in_finder(app_path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn authorize_mac_app(app_path: String) -> Result<OperationResult, String> {
+    if !is_macos() {
+        return Err("authorize_mac_app is only available on macOS".into());
+    }
+    macos::authorize_mac_app(app_path)
+}
+
+#[tauri::command]
 pub async fn check_managed_app_updates(
     app_ids: Vec<String>,
     app: tauri::AppHandle,

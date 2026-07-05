@@ -59,6 +59,7 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
     installListApps,
     installStates,
     installConfirmDialog,
+    authorizeConfirmDialog,
     selectedInstallIds,
     selectedInstallableCount,
     selectedMarketplaceUninstallableCount,
@@ -91,16 +92,19 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
     setSelectedItem,
     setFilterPanelOpen,
     closeInstallConfirmDialog,
+    closeAuthorizeConfirmDialog,
     openExternal,
     copyText,
     handleLaunch,
     handleReveal,
+    handleAuthorizeFromColumn,
     handleInstall,
     toggleInstallSelect,
     clearInstallSelection,
     handleBatchInstall,
     handleBatchInstallListUninstall,
     handleInstallConfirm,
+    handleAuthorizeConfirm,
     getRowAttributes,
     handleConfirmAction,
     handleToggleBatchMode,
@@ -341,6 +345,7 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                         app={app}
                         onLaunch={handleLaunch}
                         onReveal={handleReveal}
+                        onAuthorize={handleAuthorizeFromColumn}
                         onUpgrade={handleDetailUpgrade}
                         onUninstall={handleDetailUninstall}
                       />
@@ -510,12 +515,15 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
           <AppManagerConfirmDialogs
             confirmDialog={confirmDialog}
             installConfirmDialog={installConfirmDialog}
+            authorizeConfirmDialog={authorizeConfirmDialog}
             batchConfirmDialog={batchConfirmDialog}
             onCloseConfirm={controller.closeConfirmDialog}
             onCloseInstallConfirm={closeInstallConfirmDialog}
+            onCloseAuthorizeConfirm={closeAuthorizeConfirmDialog}
             onCloseBatchConfirm={closeBatchConfirmDialog}
             onConfirmAction={handleConfirmAction}
             onInstallConfirm={handleInstallConfirm}
+            onAuthorizeConfirm={handleAuthorizeConfirm}
             onBatchConfirm={handleBatchConfirm}
           />
 

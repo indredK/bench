@@ -21,6 +21,10 @@ export function revealAppInFinder(appPath: string) {
   return invokeTauriCommand(TAURI_COMMANDS.appManager.revealAppInFinder, { appPath })
 }
 
+export function authorizeMacApp(appPath: string) {
+  return invokeTauriCommand(TAURI_COMMANDS.appManager.authorizeMacApp, { appPath })
+}
+
 export function checkManagedAppUpdates(appIds: string[]) {
   return invokeTauriCommand(TAURI_COMMANDS.appManager.checkManagedAppUpdates, { appIds })
 }

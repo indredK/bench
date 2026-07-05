@@ -202,6 +202,13 @@ function createAppManagerUseCases(
       return repository.revealAppInFinder(app.installPath)
     },
 
+    async authorizeMacApp(app: AppInfo) {
+      if (!isAvailable()) {
+        return operationSkippedResult("appManager.authorizeUnavailable")
+      }
+      return repository.authorizeMacApp(app.installPath)
+    },
+
     openExternal(reference: string) {
       return repository.openExternal(reference)
     },

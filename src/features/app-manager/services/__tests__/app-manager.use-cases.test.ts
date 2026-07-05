@@ -18,6 +18,7 @@ const createRepository = (overrides: Partial<AppManagerRepository> = {}): AppMan
   scanInstalledApps: vi.fn(),
   getAppIconBase64: vi.fn(),
   launchApp: vi.fn(),
+  authorizeMacApp: vi.fn(),
   revealAppInFinder: vi.fn(),
   checkManagedAppUpdates: vi.fn(),
   upgradeApp: vi.fn(),

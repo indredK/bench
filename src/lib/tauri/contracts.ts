@@ -94,6 +94,9 @@ export const TAURI_COMMAND_CONTRACTS = {
   ),
   launch_app: defineTauriCommand<{ appPath: string }, void>()("launch_app"),
   reveal_app_in_finder: defineTauriCommand<{ appPath: string }, void>()("reveal_app_in_finder"),
+  authorize_mac_app: defineTauriCommand<{ appPath: string }, OperationResult>()(
+    "authorize_mac_app",
+  ),
   check_managed_app_updates: defineTauriCommand<{ appIds: string[] }, string[]>()(
     "check_managed_app_updates",
   ),
@@ -539,6 +542,7 @@ export const TAURI_COMMANDS = {
     getAppIconBase64: commandName("get_app_icon_base64"),
     launchApp: commandName("launch_app"),
     revealAppInFinder: commandName("reveal_app_in_finder"),
+    authorizeMacApp: commandName("authorize_mac_app"),
     checkManagedAppUpdates: commandName("check_managed_app_updates"),
     upgradeApp: commandName("upgrade_app"),
     uninstallApp: commandName("uninstall_app"),
@@ -754,6 +758,7 @@ export const TAURI_COMMAND_ARG_KEYS = {
   get_app_icon_base64: ["installPath"],
   launch_app: ["appPath"],
   reveal_app_in_finder: ["appPath"],
+  authorize_mac_app: ["appPath"],
   check_managed_app_updates: ["appIds"],
   upgrade_app: ["appId"],
   uninstall_app: ["appId"],

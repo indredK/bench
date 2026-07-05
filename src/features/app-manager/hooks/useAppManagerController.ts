@@ -3,6 +3,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 import type { ContextMenuConfig, ContextMenuRegistration } from "@/shared/context-menu/types"
 import { useContextMenuRegistration } from "@/shared/context-menu/useContextMenuRegistration"
 import { useAppManagerStore } from "@/features/app-manager/store"
@@ -18,6 +19,7 @@ import {
   filterAppManagerItems,
   filterInstallListApps,
 } from "@/features/app-manager/model/selectors"
+import { canAuthorizeMacApp } from "@/features/app-manager/model/authorize-app"
 import { appManagerUseCases } from "@/features/app-manager/services/app-manager.use-cases"
 import { useAppManagerUpdates } from "@/features/app-manager/hooks/useAppManagerUpdates"
 import { registerFeatureRefresh } from "@/features/refresh"
@@ -33,6 +35,7 @@ import { listenToPlatformEvent } from "@/platform/events"
 import { createInstallListColumns } from "@/features/app-manager/components/install-list-columns"
 import type { LocalizedError } from "@/lib/errors"
 import { localizeError } from "@/lib/errors"
+import { getErrorMessage } from "@/lib/tauri/errors"
 
 export function useAppManagerController(active: boolean) {
   const { t } = useTranslation()
@@ -114,6 +117,11 @@ export function useAppManagerController(active: boolean) {
   const [selectedInstallIds, setSelectedInstallIds] = useState<Set<string>>(new Set())
   const [installBatchMode, setInstallBatchMode] = useState(false)
   const [installDetailItem, setInstallDetailItem] = useState<InstallListAppInfo | null>(null)
+  const [authorizeConfirmDialog, setAuthorizeConfirmDialog] = useState({
+    open: false,
+    appId: "",
+    appName: "",
+  })
   const [preferencesHydrated, setPreferencesHydrated] = useState(false)
   const pendingBatchExecutionRef = useRef<{
     action: "upgrade" | "uninstall" | "install"
@@ -544,6 +552,35 @@ export function useAppManagerController(active: boolean) {
     [openConfirmDialog],
   )
 
+  const closeAuthorizeConfirmDialog = useCallback(() => {
+    setAuthorizeConfirmDialog({ open: false, appId: "", appName: "" })
+  }, [])
+
+  const handleAuthorizeFromColumn = useCallback(
+    (app: AppInfo) => {
+      if (!canAuthorizeMacApp(app)) return
+      setAuthorizeConfirmDialog({ open: true, appId: app.appId, appName: app.name })
+    },
+    [],
+  )
+
+  const handleAuthorizeConfirm = useCallback(async () => {
+    const app = apps.find((item) => item.appId === authorizeConfirmDialog.appId)
+    closeAuthorizeConfirmDialog()
+    if (!app) return
+
+    try {
+      const result = await appManagerUseCases.authorizeMacApp(app)
+      if (result.success) {
+        toast.success(t("appManager.authorizeSuccess", { name: app.name }))
+        return
+      }
+      toast.error(t("appManager.authorizeFailed", { message: result.message }))
+    } catch (error) {
+      toast.error(t("appManager.authorizeFailed", { message: getErrorMessage(error) }))
+    }
+  }, [apps, authorizeConfirmDialog.appId, closeAuthorizeConfirmDialog, t])
+
   const handleInstall = useCallback(
     (app: InstallListAppInfo) => {
       if (app.installed) return
@@ -622,6 +659,16 @@ export function useAppManagerController(active: boolean) {
                 disabled: !app.allowedActions.reveal,
                 onClick: () => handleReveal(app),
               },
+              ...(canAuthorizeMacApp(app)
+                ? [
+                    {
+                      id: "authorize",
+                      label: t("appManager.actionAuthorize"),
+                      icon: undefined,
+                      onClick: () => handleAuthorizeFromColumn(app),
+                    },
+                  ]
+                : []),
               ...(app.allowedActions.upgrade
                 ? [
                     {
@@ -647,7 +694,7 @@ export function useAppManagerController(active: boolean) {
           }
         },
       }) satisfies ContextMenuRegistration,
-    [apps, t, handleLaunch, handleReveal, handleUpgradeFromColumn, handleUninstallFromColumn],
+    [apps, t, handleLaunch, handleReveal, handleAuthorizeFromColumn, handleUpgradeFromColumn, handleUninstallFromColumn],
   )
 
   useContextMenuRegistration(appRegistration)
@@ -937,6 +984,7 @@ export function useAppManagerController(active: boolean) {
     installListApps,
     installStates,
     installConfirmDialog,
+    authorizeConfirmDialog,
     selectedInstallIds,
     selectedInstallableCount,
     selectedMarketplaceUninstallableCount,
@@ -999,12 +1047,15 @@ export function useAppManagerController(active: boolean) {
     openInstallConfirmDialog,
     closeConfirmDialog,
     closeInstallConfirmDialog,
+    closeAuthorizeConfirmDialog,
     launchApp,
     revealApp,
     openExternal,
     copyText,
     handleLaunch,
     handleReveal,
+    handleAuthorizeFromColumn,
+    handleAuthorizeConfirm,
     handleUpgradeFromColumn,
     handleUninstallFromColumn,
     handleInstall,

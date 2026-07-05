@@ -50,6 +50,13 @@ vi.mock("@/lib/tauri/commands/app-manager", () => ({
   })),
   installAppUpdate: vi.fn(async () => {}),
   launchApp: vi.fn(async () => {}),
+  authorizeMacApp: vi.fn(async () => ({
+    success: true,
+    message: "ok",
+    exitCode: null,
+    errorCode: null,
+    permissionIssue: false,
+  })),
   openInMacAppStore: vi.fn(async () => {}),
   openMacAppStoreUpdates: vi.fn(async () => {}),
   revealAppInFinder: vi.fn(async () => {}),

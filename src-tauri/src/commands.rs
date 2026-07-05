@@ -104,6 +104,7 @@ macro_rules! app_invoke_handler {
             $crate::app_manager::commands::get_app_icon_base64,
             $crate::app_manager::commands::launch_app,
             $crate::app_manager::commands::reveal_app_in_finder,
+            $crate::app_manager::commands::authorize_mac_app,
             $crate::app_manager::commands::check_managed_app_updates,
             $crate::app_manager::commands::upgrade_app,
             $crate::app_manager::commands::uninstall_app,

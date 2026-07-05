@@ -88,7 +88,7 @@ pub fn replace_bundle(
 
     // Best-effort dequarantine so the user doesn't see a Gatekeeper prompt
     // on first launch. Failure here is non-fatal.
-    let _ = remove_quarantine(old);
+    let _ = crate::app_manager::gatekeeper::remove_quarantine(old);
 
     Ok(ReplaceOutcome {
         trashed_old: trash_path,
@@ -127,17 +127,6 @@ fn move_path(src: &Path, dst: &Path) -> io::Result<()> {
             std::fs::remove_dir_all(src)
         }
     }
-}
-
-/// Best-effort `xattr -rd com.apple.quarantine <path>` so the freshly
-/// installed bundle launches without a Gatekeeper prompt.
-fn remove_quarantine(path: &Path) -> io::Result<()> {
-    let _ = Command::new("/usr/bin/xattr")
-        .arg("-rd")
-        .arg("com.apple.quarantine")
-        .arg(path)
-        .output()?;
-    Ok(())
 }
 
 #[cfg(test)]

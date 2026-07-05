@@ -1,5 +1,6 @@
 pub mod commands;
 pub mod domain;
+pub mod gatekeeper;
 pub mod installer;
 pub mod linux;
 pub mod macos;
