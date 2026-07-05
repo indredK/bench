@@ -12,7 +12,11 @@ vulnerability = "deny"
 unmaintained = "warn"
 yanked = "deny"
 notice = "warn"
-ignore = []
+ignore = [
+  # quick-xml 0.39.4 in wayland-scanner (build-time proc-macro, no runtime risk):
+  "RUSTSEC-2026-0194",
+  "RUSTSEC-2026-0195",
+]
 
 [licenses]
 allow = [

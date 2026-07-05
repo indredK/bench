@@ -70,7 +70,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
-    "@clack/prompts": "^1.6.0",
+    "@clack/prompts": "^1.7.0",
     "@tauri-apps/cli": "^2.11.4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -84,7 +84,7 @@
     "postcss": "^8.5.16",
     "prettier": "^3.9.4",
     "prettier-plugin-tailwindcss": "^0.8.0",
-    "shadcn": "^4.12.0",
+    "shadcn": "^4.13.0",
     "tailwindcss": "^4.3.2",
     "typescript": "^6.0.3",
     "vite": "^8.1.3",
