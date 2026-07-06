@@ -1,12 +1,18 @@
 # Bench 文档
 
-| 路径 | 说明 |
-|------|------|
-| **[development-workflow.md](./development-workflow.md)** | 日常开发流程 + Build Troubleshooting |
-| **[roadmap/release-themes.md](./roadmap/release-themes.md)** | 全局发布主题与验收（执行依据） |
-| **[dev-prod-coexistence.md](./dev-prod-coexistence.md)** | Dev / Prod 共存策略 |
-| **[modules/](./modules/README.md)** | 按模块收纳：设计、迭代、Bug |
-| **[coding-standards.md](./coding-standards.md)** | 全仓库编码与文档目录规范（§11 文档） |
+> AI 入口：`../AGENTS.md` · 行为锁：`../.cursorrules`
+
+| 路径 | 说明 | AI 用途 |
+|------|------|---------|
+| **[ARCHITECTURE.md](./ARCHITECTURE.md)** | 全局架构、数据流、🔴禁止模式 | 必读：理解系统 |
+| **[development-workflow.md](./development-workflow.md)** | 日常开发流程 + Build Troubleshooting | 开发参考 |
+| **[AI-WORKFLOWS.md](./AI-WORKFLOWS.md)** | /review /fix /doc /feature 四大工作流 | 必读：工作模式 |
+| **[ROADMAP.md](./ROADMAP.md)** | 集中路线图 + AI 状态机 | 必读：知道做什么 |
+| **[roadmap/release-themes.md](./roadmap/release-themes.md)** | 全局发布主题与验收（执行依据） | 发布参考 |
+| **[dev-prod-coexistence.md](./dev-prod-coexistence.md)** | Dev / Prod 共存策略 | 部署参考 |
+| **[modules/](./modules/README.md)** | 按模块收纳：设计、迭代、Bug | 模块细节 |
+| **[coding-standards.md](./coding-standards.md)** | 全仓库编码与文档目录规范（§11 文档） | 必读：编码规则 |
+| **[audit-report.md](./audit-report.md)** | 审计报告 & 不计违规决策 | 必读：避免重复标记 |
 
 ## 模块一览
 
@@ -23,6 +29,7 @@
 | Token Calculator | [modules/token-calculator/](./modules/token-calculator/) |
 | Terminology | [modules/terminology/](./modules/terminology/) |
 | Hardware | [modules/hardware/](./modules/hardware/) |
+| Updater | [modules/updater/](./modules/updater/) |
 
 每个模块目录通常包含：
 

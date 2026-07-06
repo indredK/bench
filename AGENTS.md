@@ -1,4 +1,33 @@
-# Bench 项目 — AI 规范审计工作流
+# Bench — AI 总入口
+
+> 这是 AI 操作 Bench 项目的 **唯一起点**。所有指令在此路由。
+>
+> **前置步骤**（无论何种指令，必须先做此步）：读取 `.cursorrules` → 读取 `docs/ARCHITECTURE.md` §2（禁止模式）
+>
+> **工作流路由**：
+>
+> | 指令关键词 | 路由到 |
+> |------------|--------|
+> | review / 审查 / 审计 / 检查代码 | `docs/AI-WORKFLOWS.md → /review` |
+> | fix / 修复 / 改 bug / 修 bug | `docs/AI-WORKFLOWS.md → /fix` |
+> | doc / 文档 / 更新文档 / 对齐 | `docs/AI-WORKFLOWS.md → /doc` |
+> | feature / 新功能 / 开发 / 实现 | `docs/AI-WORKFLOWS.md → /feature` |
+> | audit / 审计 Phase N (N=1..8) | 继续阅读下方对应 Phase |
+>
+> **始终遵守**：
+> - 编码规范：`docs/coding-standards.md`（12 节，含强制/建议级别）
+> - 开发流程：`docs/development-workflow.md`
+> - 不计违规决策：`docs/audit-report.md`（避免重复标记）
+>
+> **指令示例**：
+> - "审查代码" → 进入 /review workflow
+> - "修复 Phase 2 违规" → 先运行对应 Phase，再进入 /fix workflow
+> - "更新 token-calculator 文档" → 进入 /doc workflow
+> - "开发新 feature xxx" → 进入 /feature workflow
+
+---
+
+# 附录 A：规范审计工作流 (Phase 1–8)
 
 > 基于 `docs/coding-standards.md`（12 节规则）和 `docs/development-workflow.md` 设计的渐进式检查流程。
 >

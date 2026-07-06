@@ -1,0 +1,108 @@
+# Bench — AI Behavior Lock
+
+> 这是 Bench 项目的**最高优先级规则文件**。所有 AI 工具（Claude Code, Cursor, Trae CN, Mimocode, CodeBuddy 等）在操作此项目时，必须以本文档作为行为的第一约束。
+>
+> 优先级：.cursorrules > AGENTS.md > docs/*.md > 无
+
+---
+
+## §1 真理源 (SSoT)
+
+在执行任何代码操作前，**必须读取以下文件**（按此顺序）：
+
+1. `.cursorrules` (本文) — 行为约束
+2. `docs/ARCHITECTURE.md` §2 — 🔴 禁止模式（不可触犯）
+3. `docs/AI-WORKFLOWS.md` — 工作流定义
+4. `docs/coding-standards.md` — 编码规范（强制/建议）
+5. `docs/development-workflow.md` — 开发流程
+6. `docs/audit-report.md` "不计违规决策" — 避免重复标记
+
+---
+
+## §2 🚫 绝对禁止
+
+以下行为在任何情况下都不允许：
+
+1. **不要修改 `docs/` 下文件而不更新对应 `roadmap.md`**
+2. **不要跳过 `docs/ARCHITECTURE.md` §2 中的 10 条禁止模式**
+3. **不要一次提交多个不相关的改动** — 每个 commit 聚焦一个逻辑变更
+4. **不要使用 `git add .`** — 只 stage 与本次改动直接相关的文件
+5. **不要推送 (`git push`) 除非用户明确要求**
+6. **不要创建新文件而不注册到对应索引**（features → registry.tsx, modules → docs/modules/README.md）
+7. **不要在一个 `.tsx`/`.ts` 文件中混合视图、状态、业务编排和平台调用**
+8. **不要使用散装错误判断模式** — 必须用 `parseCommandError` / `getErrorMessage`
+9. **不要自行推断技术栈或库** — 以 `package.json` / `Cargo.toml` 和相邻文件 import 为准
+10. **不要修改 `src/data/` 的原始中文数据** — 展示层通过映射表 + `t()` 翻译
+
+---
+
+## §3 工作流路由
+
+当用户发出指令时，AI 应按以下规则路由：
+
+| 用户指令关键词 | 路由到 |
+|----------------|--------|
+| review / 审查 / 审计 / 检查代码 | `docs/AI-WORKFLOWS.md → /review` |
+| fix / 修复 / 改 bug / 修 bug | `docs/AI-WORKFLOWS.md → /fix` |
+| doc / 文档 / 更新文档 / 对齐 | `docs/AI-WORKFLOWS.md → /doc` |
+| feature / 新功能 / 开发 / 实现 | `docs/AI-WORKFLOWS.md → /feature` |
+| audit / 审计 (Phase N) | `AGENTS.md → Phase N` |
+
+如果无法判断，询问用户。
+
+---
+
+## §4 强制验证链
+
+所有代码改动完成后，必须执行以下验证（按顺序，一条失败即停止）：
+
+```bash
+# 1. 类型检查 + i18n 门禁
+pnpm run lint:fe
+
+# 2. 关键路径测试
+pnpm run test:critical
+
+# 3. Rust 后端正则检查（如果有 Rust 改动）
+cd src-tauri && cargo clippy -- -D warnings
+```
+
+---
+
+## §5 文档回写规则
+
+每次改动合入后：
+
+- 对应 `docs/modules/<id>/roadmap.md` 的 Backlog 项必须打勾或移除
+- 如果修复了已知 bug，更新对应 `docs/modules/<id>/bugs.md`
+- 如果发现新的架构约束，沉淀到 `docs/coding-standards.md` 或 `docs/ARCHITECTURE.md`
+- 不留下过时的 roadmap checkbox
+
+---
+
+## §6 输出格式约定
+
+审计/审查报告统一格式：
+
+```
+[§X] `文件路径:行号` — 问题描述 — 修改建议 — **强制/建议**
+```
+
+示例：
+```
+[§4] `src/features/port-manager/page.tsx:42` — 硬编码中文 "确认释放端口" — 移至 i18n locales — **强制**
+```
+
+---
+
+## §7 项目元信息
+
+| 属性 | 值 |
+|------|-----|
+| 项目名 | Bench |
+| 包管理器 | pnpm (禁止 npm) |
+| 前端测试 | `pnpm run test:fe` (vitest) |
+| 后端测试 | `pnpm run test:be` (cargo test) |
+| 关键路径 | `pnpm run test:critical` |
+| 代码风格 | `pnpm run format` (prettier) |
+| 工作流入口 | `AGENTS.md` |
