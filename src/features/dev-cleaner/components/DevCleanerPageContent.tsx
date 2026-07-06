@@ -77,14 +77,14 @@ export function DevCleanerPageContent({ controller }: DevCleanerPageContentProps
           <div className="flex items-center gap-2">
             <CustomCleanupDialog />
             {scanResult && (
-              <button
-                type="button"
-                className="text-muted-foreground hover:text-foreground hover:bg-accent/50 flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm transition-colors"
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => setShowFilterOptions(!showFilterOptions)}
               >
                 <span>{t("devCleaner.filterLabel")}</span>
                 {showFilterOptions ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-              </button>
+              </Button>
             )}
           </div>
         </CardHeader>

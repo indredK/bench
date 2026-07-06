@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next"
 import type { ColumnDef, OnChangeFn, SortingState } from "@tanstack/react-table"
 import { X } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
 import { DetailPanel } from "@/components/layout/DetailPanel"
 import { ThreeColumnLayout } from "@/components/layout/ThreeColumnLayout"
 import { ContentView } from "@/components/content/ContentView"
@@ -152,13 +153,13 @@ export function AppManagerCatalogView<TItem, TFilter extends string>({
             {onClearError ? (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    className="hover:bg-destructive/30 focus-visible:ring-ring flex size-5 shrink-0 items-center justify-center rounded-full transition focus-visible:ring-2 focus-visible:outline-none"
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
                     onClick={onClearError}
                   >
                     <X size={13} />
-                  </button>
+                  </Button>
                 </TooltipTrigger>
                 <TooltipContent>{t("common.actions.close")}</TooltipContent>
               </Tooltip>

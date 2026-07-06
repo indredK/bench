@@ -74,23 +74,27 @@ function WebsiteChip({ site }: { site: TermWebsite }) {
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <button
-            className="text-muted-foreground hover:text-foreground hover:bg-muted flex h-6 w-6 items-center justify-center rounded transition-colors"
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            className="flex h-6 w-6 items-center justify-center rounded"
             onClick={handleCopy}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
           >
             <Icon size={12} />
-          </button>
+          </Button>
         </TooltipTrigger>
         <TooltipContent side="top" className="flex max-w-64 items-center gap-1.5">
           <span className="truncate text-xs">{site.url}</span>
-          <button
-            className="text-muted-foreground hover:text-foreground shrink-0"
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            className="shrink-0"
             onClick={handleOpen}
           >
             <ExternalLink size={11} />
-          </button>
+          </Button>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -141,9 +145,11 @@ function TermCard({
           {term.title}
         </span>
         <div className={cn("flex shrink-0 items-center gap-0.5 transition-all", actionVisibility)}>
-          <button
+          <Button
+            variant="ghost"
+            size="icon-xs"
             className={cn(
-              "flex h-6 w-6 items-center justify-center rounded transition-colors",
+              "flex h-6 w-6 items-center justify-center rounded",
               isPinned
                 ? "bg-primary/10 text-primary"
                 : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -156,15 +162,17 @@ function TermCard({
             aria-label={t(isPinned ? "terminology.actions.unpin" : "terminology.actions.pin")}
           >
             <Pin size={12} className={isPinned ? "fill-current" : undefined} />
-          </button>
-          <button
-            className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-6 w-6 items-center justify-center rounded transition-colors"
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            className="flex h-6 w-6 items-center justify-center rounded"
             onClick={handleCopy}
             title={t("terminology.actions.copyTitle")}
             aria-label={t("terminology.actions.copyTitle")}
           >
             {copied ? <Check size={12} /> : <Copy size={12} />}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -379,12 +387,14 @@ function TermEditor({
           <label className="text-muted-foreground text-xs font-medium">
             {t("terminology.websites")}
           </label>
-          <button
-            className="text-primary text-xs hover:underline"
+          <Button
+            variant="link"
+            size="sm"
+            className="text-xs"
             onClick={() => setWebsites((p) => [...p, { url: "", label: "" }])}
           >
             {t("terminology.addWebsite")}
-          </button>
+          </Button>
         </div>
         {websites.map((w, i) => (
           <div key={i} className="flex items-center gap-2">
@@ -400,13 +410,15 @@ function TermEditor({
               placeholder={t("terminology.labelOptional")}
               className="w-28 text-xs"
             />
-            <button
+            <Button
+              variant="ghost"
+              size="icon-xs"
               className="text-muted-foreground hover:text-destructive shrink-0"
               onClick={() => setWebsites((p) => p.filter((_, j) => j !== i))}
               aria-label={t("common.delete")}
             >
               <X size={14} />
-            </button>
+            </Button>
           </div>
         ))}
       </div>
@@ -684,7 +696,9 @@ function IndustryManager({ onClose: _onClose }: { onClose: () => void }) {
                   <span className="flex-1 truncate text-xs">{ind.label}</span>
                 )}
                 <div className="flex shrink-0 items-center gap-0.5 opacity-0 group-hover:opacity-100">
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
                     className="hover:text-foreground"
                     onClick={(e) => {
                       e.stopPropagation()
@@ -692,8 +706,10 @@ function IndustryManager({ onClose: _onClose }: { onClose: () => void }) {
                     }}
                   >
                     <Pencil size={10} />
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
                     className="hover:text-destructive"
                     onClick={(e) => {
                       e.stopPropagation()
@@ -701,7 +717,7 @@ function IndustryManager({ onClose: _onClose }: { onClose: () => void }) {
                     }}
                   >
                     <Trash2 size={10} />
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))}
@@ -768,20 +784,24 @@ function IndustryManager({ onClose: _onClose }: { onClose: () => void }) {
                       </span>
                     )}
                     <div className="flex shrink-0 items-center gap-0.5 opacity-0 group-hover:opacity-100">
-                      <button
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
                         className="text-muted-foreground hover:text-foreground"
                         onClick={() => startEditCat(cat.id, cat.label)}
                       >
                         <Pencil size={10} />
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
                         className="text-muted-foreground hover:text-destructive"
                         onClick={() => {
                           confirmDelete("category", cat.id, cat.label, activeId)
                         }}
                       >
                         <Trash2 size={10} />
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -849,13 +869,17 @@ function IndustryManager({ onClose: _onClose }: { onClose: () => void }) {
                       )}
                       {!isReserved && (
                         <div className="flex shrink-0 items-center gap-0.5 opacity-0 group-hover:opacity-100">
-                          <button
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
                             className="text-muted-foreground hover:text-foreground"
                             onClick={() => startEditSubcat(subcategory.id, subcategory.label)}
                           >
                             <Pencil size={10} />
-                          </button>
-                          <button
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
                             className="text-muted-foreground hover:text-destructive"
                             onClick={() => {
                               confirmDelete(
@@ -867,7 +891,7 @@ function IndustryManager({ onClose: _onClose }: { onClose: () => void }) {
                             }}
                           >
                             <Trash2 size={10} />
-                          </button>
+                          </Button>
                         </div>
                       )}
                     </div>
@@ -976,14 +1000,16 @@ export default function TerminologyPage() {
           <span className="text-muted-foreground/70 text-[11px] font-semibold tracking-widest uppercase">
             {t("terminology.industryList")}
           </span>
-          <button
-            className="text-muted-foreground hover:text-foreground hover:bg-muted rounded p-0.5 transition-colors"
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            className="rounded p-0.5"
             title={t("terminology.manageIndustries")}
             aria-label={t("terminology.manageIndustries")}
             onClick={() => setManagerOpen(true)}
           >
             <Settings2 size={13} />
-          </button>
+          </Button>
         </div>
 
         {/* scrollable nav */}
@@ -992,10 +1018,11 @@ export default function TerminologyPage() {
             {industries.map((industry) => {
               const active = selectedIndustryId === industry.id
               return (
-                <button
+                <Button
                   key={industry.id}
+                  variant="ghost"
                   className={cn(
-                    "relative w-full truncate rounded-lg px-3 py-2 text-left text-[13px] transition-all",
+                    "relative w-full truncate rounded-lg px-3 py-2 text-left text-[13px]",
                     active
                       ? "bg-primary/10 text-primary font-medium"
                       : "text-muted-foreground hover:text-foreground hover:bg-muted/60",
@@ -1006,7 +1033,7 @@ export default function TerminologyPage() {
                     <span className="bg-primary absolute top-1/2 left-0 h-4 w-0.5 -translate-y-1/2 rounded-full" />
                   )}
                   {industry.label}
-                </button>
+                </Button>
               )
             })}
           </div>
@@ -1019,59 +1046,47 @@ export default function TerminologyPage() {
         <div className="grid gap-3 border-b px-4 py-3 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,20vw)] lg:items-start">
           <div className="min-w-0 space-y-2">
             <div className="flex flex-wrap items-center gap-1.5">
-              <button
-                className={cn(
-                  "rounded-full px-2.5 py-1 text-xs transition-colors",
-                  !selectedCategoryId
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground hover:text-foreground",
-                )}
+              <Button
+                variant={!selectedCategoryId ? "default" : "ghost"}
+                size="xs"
+                className={cn("rounded-full px-2.5 py-1 text-xs")}
                 onClick={() => setCategory("")}
               >
                 {t("terminology.all")}
-              </button>
+              </Button>
               {currentIndustry?.categories.map((cat) => (
-                <button
+                <Button
                   key={cat.id}
-                  className={cn(
-                    "rounded-full px-2.5 py-1 text-xs transition-colors",
-                    selectedCategoryId === cat.id
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground hover:text-foreground",
-                  )}
+                  variant={selectedCategoryId === cat.id ? "default" : "ghost"}
+                  size="xs"
+                  className={cn("rounded-full px-2.5 py-1 text-xs")}
                   onClick={() => setCategory(cat.id)}
                 >
                   {cat.label}
-                </button>
+                </Button>
               ))}
             </div>
 
             {currentCategory?.subcategories.length ? (
               <div className="flex flex-wrap items-center gap-1.5">
-                <button
-                  className={cn(
-                    "rounded-full px-2.5 py-1 text-xs transition-colors",
-                    !selectedSubcategoryId
-                      ? "bg-primary/10 text-primary"
-                      : "bg-muted text-muted-foreground hover:text-foreground",
-                  )}
+                <Button
+                  variant={!selectedSubcategoryId ? "default" : "ghost"}
+                  size="xs"
+                  className={cn("rounded-full px-2.5 py-1 text-xs")}
                   onClick={() => setSubcategory("")}
                 >
                   {t("terminology.allSubcategories")}
-                </button>
+                </Button>
                 {currentCategory.subcategories.map((subcategory) => (
-                  <button
+                  <Button
                     key={subcategory.id}
-                    className={cn(
-                      "rounded-full px-2.5 py-1 text-xs transition-colors",
-                      selectedSubcategoryId === subcategory.id
-                        ? "bg-primary/10 text-primary"
-                        : "bg-muted text-muted-foreground hover:text-foreground",
-                    )}
+                    variant={selectedSubcategoryId === subcategory.id ? "default" : "ghost"}
+                    size="xs"
+                    className={cn("rounded-full px-2.5 py-1 text-xs")}
                     onClick={() => setSubcategory(subcategory.id)}
                   >
                     {subcategory.label}
-                  </button>
+                  </Button>
                 ))}
               </div>
             ) : null}
@@ -1090,12 +1105,14 @@ export default function TerminologyPage() {
                 className="h-8 w-full pl-7 text-xs"
               />
               {searchQuery && (
-                <button
-                  className="text-muted-foreground hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2"
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  className="absolute top-1/2 right-2 -translate-y-1/2"
                   onClick={() => setSearch("")}
                 >
                   <X size={12} />
-                </button>
+                </Button>
               )}
             </div>
 

@@ -279,13 +279,14 @@ export function CompareTab({
               <Badge key={i} variant="secondary" className="gap-1 pr-1 select-none">
                 <span className="text-muted-foreground text-[10px]">{sm.standardName}</span>
                 <span className="font-medium">{sm.model.modelName}</span>
-                <button
-                  className="hover:bg-muted-foreground/20 ml-0.5 rounded-full p-0.5 transition-colors"
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
                   onClick={() => removeModel(i)}
                   aria-label={t("tokenCalculator.compare.removeModel")}
                 >
                   <X className="h-3 w-3" />
-                </button>
+                </Button>
               </Badge>
             ))}
           </div>

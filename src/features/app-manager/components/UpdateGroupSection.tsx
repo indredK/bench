@@ -52,13 +52,12 @@ export function UpdateGroupSection({
   return (
     <section className="bg-card relative rounded-lg border">
       <div className="bg-card/95 supports-[backdrop-filter]:bg-card/90 after:bg-border/80 relative sticky top-0 z-10 flex items-center rounded-t-lg border-b px-3 py-2 backdrop-blur after:pointer-events-none after:absolute after:inset-x-0 after:top-0 after:h-px after:content-['']">
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          onClick={onToggleExpanded}
           className={cn(
             "flex flex-1 items-center gap-2 text-left",
-            "focus-visible:ring-ring/50 rounded outline-none focus-visible:ring-2",
           )}
-          onClick={onToggleExpanded}
         >
           <motion.span
             animate={reduce({ rotate: expanded ? 0 : -90 })}
@@ -72,7 +71,7 @@ export function UpdateGroupSection({
           <span className="text-muted-foreground text-xs tabular-nums">
             {t("appManager.softwareUpdate.groupCount", { count: updates.length })}
           </span>
-        </button>
+        </Button>
         <Button
           type="button"
           variant="ghost"

@@ -4,10 +4,10 @@
 import { useState, useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import type { AppInfo, InstallListAppInfo } from "@/lib/tauri/types"
 import { APP_CATEGORIES, classifyApp, type AppCategoryKey } from "../app-categories"
 import { APP_SERIES, classifySeries, type AppSeriesKey } from "../app-series"
-import { cn } from "@/lib/utils"
 
 type FilterMode = "category" | "series"
 
@@ -101,29 +101,21 @@ export function CategoryFilter({
   return (
     <div className="flex flex-col gap-1">
       <div className="mb-1 flex items-center gap-1.5">
-        <button
+        <Button
+          variant={mode === "category" ? "default" : "ghost"}
+          size="xs"
           onClick={() => switchTo("category")}
-          className={cn(
-            "rounded-md px-2.5 py-1 text-[11px] transition-colors",
-            mode === "category"
-              ? "bg-primary text-primary-foreground font-medium"
-              : "text-muted-foreground hover:text-foreground hover:bg-accent",
-          )}
         >
           {t("appManager.filterTabCategory")}
-        </button>
+        </Button>
         <span className="text-muted-foreground/50 text-xs select-none">|</span>
-        <button
+        <Button
+          variant={mode === "series" ? "default" : "ghost"}
+          size="xs"
           onClick={() => switchTo("series")}
-          className={cn(
-            "rounded-md px-2.5 py-1 text-[11px] transition-colors",
-            mode === "series"
-              ? "bg-primary text-primary-foreground font-medium"
-              : "text-muted-foreground hover:text-foreground hover:bg-accent",
-          )}
         >
           {t("appManager.filterTabSeries")}
-        </button>
+        </Button>
       </div>
       {items.map((item) => (
         <Badge

@@ -108,21 +108,22 @@ export function PortManagerControls({
           <span className="absolute top-1/2 right-2 -translate-y-1/2">
             <Tooltip open={showInvalidToast}>
               <TooltipTrigger asChild>
-                <button
+                <Button
+                  variant="ghost"
+                  onClick={onClear}
+                  disabled={killing}
+                  aria-label={t("portManager.clearInput")}
                   className={cn(
-                    "focus-visible:ring-ring flex size-5 items-center justify-center rounded-full transition focus-visible:ring-2 focus-visible:outline-none",
+                    "size-5 rounded-full p-0",
                     inputValue.length > 0
                       ? showInvalidToast
                         ? "animate-pulse bg-yellow-500 text-white opacity-100 hover:bg-yellow-600 dark:bg-yellow-600 dark:hover:bg-yellow-700"
                         : "bg-muted-foreground text-background hover:bg-foreground opacity-60 hover:opacity-100"
                       : "pointer-events-none opacity-0",
                   )}
-                  onClick={onClear}
-                  disabled={killing}
-                  aria-label={t("portManager.clearInput")}
                 >
                   <X size={13} />
-                </button>
+                </Button>
               </TooltipTrigger>
               <TooltipContent>{inputError || t("portManager.invalidInput")}</TooltipContent>
             </Tooltip>
@@ -210,35 +211,37 @@ export function PortManagerPortChip({
       <span>{port}</span>
       <Tooltip>
         <TooltipTrigger asChild>
-          <button
-            className={cn(
-              chipActionBase,
-              "group hover:bg-foreground/10 focus-visible:ring-ring transition focus-visible:ring-2 focus-visible:outline-none",
-            )}
+          <Button
+            variant="ghost"
             onClick={(event) => {
               event.stopPropagation()
               onRescan()
             }}
+            className={cn(
+              chipActionBase,
+              "group hover:bg-foreground/10",
+            )}
           >
             <RefreshCw size={13} className="transition-transform group-hover:rotate-180" />
-          </button>
+          </Button>
         </TooltipTrigger>
         <TooltipContent>{t("portManager.rescan")}</TooltipContent>
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
-          <button
-            className={cn(
-              chipActionBase,
-              "focus-visible:ring-ring text-yellow-600 transition hover:bg-yellow-600 hover:text-white focus-visible:ring-2 focus-visible:outline-none dark:text-yellow-400 dark:hover:bg-yellow-600 dark:hover:text-white",
-            )}
+          <Button
+            variant="ghost"
             onClick={(event) => {
               event.stopPropagation()
               onRemove()
             }}
+            className={cn(
+              chipActionBase,
+              "text-yellow-600 hover:bg-yellow-600 hover:text-white dark:text-yellow-400 dark:hover:bg-yellow-600 dark:hover:text-white",
+            )}
           >
             <X size={13} />
-          </button>
+          </Button>
         </TooltipTrigger>
         <TooltipContent>{t("portManager.removePort", { port })}</TooltipContent>
       </Tooltip>

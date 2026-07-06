@@ -11,6 +11,7 @@ import LanguageSwitcher from "./LanguageSwitcher"
 import ThemeSwitcher from "./ThemeSwitcher"
 import { useScrambleText } from "@/hooks/useScrambleText"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { Button } from "@/components/ui/button"
 import { Settings } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { cn } from "@/lib/utils"
@@ -107,14 +108,14 @@ function Sidebar({ items, configItems, onPrefs }: SidebarProps) {
         {onPrefs && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <button
-                type="button"
-                className="border-border bg-background/70 text-foreground hover:bg-muted/70 flex cursor-pointer items-center justify-center rounded-md border p-1.5 transition"
+              <Button
+                variant="outline"
+                size="icon"
                 onClick={onPrefs}
                 aria-label={t("sidebar.settings")}
               >
                 <Settings size={14} />
-              </button>
+              </Button>
             </TooltipTrigger>
             <TooltipContent side="top">
               <p>{t("sidebar.settings")}</p>

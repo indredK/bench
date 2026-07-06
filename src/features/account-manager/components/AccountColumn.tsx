@@ -275,12 +275,14 @@ export function AccountColumn({
             className="h-7 pr-7 pl-7 text-xs"
           />
           {searchQuery && (
-            <button
+            <Button
+              variant="ghost"
+              size="icon-xs"
               onClick={() => setSearchQuery("")}
-              className="text-muted-foreground hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2"
+              className="absolute top-1/2 right-2 -translate-y-1/2"
             >
               <X size={14} />
-            </button>
+            </Button>
           )}
         </div>
         <TooltipProvider>
@@ -411,13 +413,15 @@ function AccountCardContent({
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <button
-                    onClick={handleCopyUsername}
-                    className="text-muted-foreground hover:text-foreground shrink-0 cursor-pointer opacity-0 transition-opacity group-hover:opacity-100"
-                    aria-label={t("accountManager.detail.copy")}
-                  >
-                    {usernameCopied ? <Check size={12} /> : <Copy size={12} />}
-                  </button>
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  onClick={handleCopyUsername}
+                  className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+                  aria-label={t("accountManager.detail.copy")}
+                >
+                  {usernameCopied ? <Check size={12} /> : <Copy size={12} />}
+                </Button>
                 </TooltipTrigger>
                 <TooltipContent side="top">{t("accountManager.detail.copy")}</TooltipContent>
               </Tooltip>

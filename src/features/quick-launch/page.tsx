@@ -33,6 +33,7 @@ import {
   RotateCcw,
   Wrench,
 } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { LAUNCH_SCENES } from "@/features/quick-launch/scenes"
 import { cn } from "@/lib/utils"
@@ -232,15 +233,16 @@ function SceneSection({
           />
         ))}
         {!expanded && apps.length > 6 && (
-          <button
+          <Button
             onClick={(e) => {
               e.stopPropagation()
               onToggle()
             }}
-            className="border-border text-muted-foreground hover:border-primary/30 hover:text-primary flex cursor-pointer items-center justify-center rounded-xl border border-dashed bg-transparent p-3 text-xs transition"
+            variant="outline" size="sm"
+            className="border-border text-muted-foreground hover:border-primary/30 hover:text-primary flex items-center justify-center rounded-xl border border-dashed bg-transparent p-3 text-xs transition"
           >
             {t("quickLaunch.showMore", { count: apps.length - 6 })}
-          </button>
+          </Button>
         )}
       </motion.div>
     </section>
@@ -347,13 +349,14 @@ function EmptyState({ onRescan }: { onRescan: () => void }) {
     <div className="text-muted-foreground flex flex-col items-center justify-center gap-4 py-24">
       <LayoutGridIcon />
       <p className="text-sm">{t("quickLaunch.empty")}</p>
-      <button
+      <Button
         onClick={onRescan}
-        className="border-border bg-card text-foreground hover:bg-accent inline-flex cursor-pointer items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition"
+        variant="outline" size="sm"
+        className="border-border bg-card text-foreground hover:bg-accent inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition"
       >
         <RefreshCw size={14} />
         {t("quickLaunch.scanFirst")}
-      </button>
+      </Button>
     </div>
   )
 }
@@ -472,31 +475,34 @@ export default function QuickLaunch({ active }: { active: boolean; feature: AppF
         {/* 编辑模式按钮组 */}
         {isEditMode && (
           <>
-            <button
+            <Button
               onClick={handleResetOverrides}
               disabled={Object.keys(appOverrides).length === 0}
-              className="border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40"
+              variant="outline" size="sm"
+              className="border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40"
               title={t("quickLaunch.resetClassification")}
             >
               <RotateCcw size={13} />
               {t("quickLaunch.resetClassification")}
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={handleExportOverrides}
               disabled={exporting}
-              className="border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40"
+              variant="outline" size="sm"
+              className="border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40"
               title={t("quickLaunch.exportOverridesTooltip")}
             >
               <Download size={13} className={exporting ? "animate-spin" : ""} />
               {t("quickLaunch.exportOverrides")}
-            </button>
+            </Button>
           </>
         )}
 
-        <button
+        <Button
           onClick={toggleEditMode}
+          variant="outline" size="sm"
           className={cn(
-            "flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition",
+            "flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition",
             isEditMode
               ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20"
               : "border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground",
@@ -504,16 +510,17 @@ export default function QuickLaunch({ active }: { active: boolean; feature: AppF
         >
           {isEditMode ? <Check size={13} /> : <Pencil size={13} />}
           {isEditMode ? t("quickLaunch.done") : t("quickLaunch.edit")}
-        </button>
+        </Button>
 
-        <button
+        <Button
           onClick={handleRescan}
           disabled={loading}
-          className="border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition disabled:opacity-50"
+          variant="outline" size="sm"
+          className="border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition disabled:opacity-50"
         >
           <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
           {t("quickLaunch.rescan")}
-        </button>
+        </Button>
       </div>
 
       {/* Stats */}
@@ -590,11 +597,12 @@ export default function QuickLaunch({ active }: { active: boolean; feature: AppF
             {t("quickLaunch.moveToScene")}
           </div>
           {LAUNCH_SCENES.map((scene) => (
-            <button
+            <Button
               key={scene.key}
               onClick={() => handleMoveApp(contextMenu.appId, scene.key)}
+              variant="ghost" size="sm"
               className={cn(
-                "hover:bg-accent flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs transition",
+                "hover:bg-accent flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs transition",
                 appIdToScene[contextMenu.appId] === scene.key
                   ? "text-primary font-medium"
                   : "text-foreground",
@@ -605,7 +613,7 @@ export default function QuickLaunch({ active }: { active: boolean; feature: AppF
               {appIdToScene[contextMenu.appId] === scene.key && (
                 <Check size={12} className="ml-auto" />
               )}
-            </button>
+            </Button>
           ))}
         </div>
       )}

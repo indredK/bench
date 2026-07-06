@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { Check, Copy } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import type { AccountSessionStatus } from "@/lib/tauri/types/account-manager"
@@ -34,15 +35,15 @@ export function IconButton({
   tooltipSide?: "top" | "bottom" | "left" | "right"
 }) {
   const button = (
-    <button
-      type="button"
+    <Button
+      variant="ghost"
+      size="icon-xs"
       onClick={onClick}
       aria-label={label}
       disabled={disabled}
-      className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md transition disabled:cursor-not-allowed disabled:opacity-50"
     >
       {icon}
-    </button>
+    </Button>
   )
 
   if (!label) return button

@@ -81,15 +81,12 @@ export function CloseBehaviorDialog({ open, onOpenChange, onConfirm }: CloseBeha
             const Icon = opt.icon
             const isSelected = selected === opt.value
             return (
-              <button
+              <Button
                 key={opt.value}
-                type="button"
+                variant={isSelected ? "default" : "outline"}
                 onClick={() => setSelected(opt.value)}
                 className={cn(
-                  "flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors",
-                  isSelected
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-foreground/30",
+                  "flex w-full items-start gap-3 p-3 text-left",
                 )}
               >
                 <span
@@ -109,9 +106,9 @@ export function CloseBehaviorDialog({ open, onOpenChange, onConfirm }: CloseBeha
                   </div>
                   <p className="text-muted-foreground mt-0.5 text-xs">{opt.desc}</p>
                 </div>
-              </button>
-            )
-          })}
+                </Button>
+              )
+            })}
         </div>
 
         <div className="flex items-center justify-between border-t pt-4">

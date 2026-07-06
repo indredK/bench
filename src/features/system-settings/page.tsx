@@ -902,14 +902,15 @@ export default function SystemSettings(_props: SystemSettingsProps) {
             className="h-8 pr-8 pl-8 text-sm"
           />
           {searchQuery && (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon-xs"
               onClick={() => setSearchQuery("")}
-              className="text-muted-foreground hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2 transition-colors"
+              className="absolute top-1/2 right-2 -translate-y-1/2"
               aria-label={t("systemSettings.search.clear")}
             >
               <X className="h-4 w-4" />
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -918,18 +919,19 @@ export default function SystemSettings(_props: SystemSettingsProps) {
       {!searchQuery && (
         <div className="flex shrink-0 gap-1 border-b px-4">
           {TAB_IDS.map((tabId) => (
-            <button
+            <Button
               key={tabId}
+              variant="ghost"
               onClick={() => handleTabChange(tabId)}
               className={cn(
-                "-mb-[1px] border-b-2 px-4 py-2.5 text-sm font-medium transition-colors",
+                "-mb-[1px] rounded-none border-b-2 px-4 py-2.5 text-sm font-medium transition-colors",
                 store.activeTab === tabId
                   ? "border-primary text-primary"
                   : "text-muted-foreground hover:text-foreground hover:border-border border-transparent",
               )}
             >
               {tabLabels[tabId]}
-            </button>
+            </Button>
           ))}
         </div>
       )}
@@ -944,14 +946,14 @@ export default function SystemSettings(_props: SystemSettingsProps) {
           ) : (
             <div className="space-y-1">
               {searchResults.map((result, idx) => (
-                <button
+                <Button
                   key={`${result.tab}-${result.labelKey}-${idx}`}
-                  type="button"
+                  variant="ghost"
                   onClick={() => {
                     handleTabChange(result.tab)
                     setSearchQuery("")
                   }}
-                  className="hover:bg-muted/50 hover:border-border w-full rounded-lg border border-transparent p-3 text-left transition-colors"
+                  className="hover:bg-muted/50 hover:border-border w-full rounded-lg border border-transparent p-3 text-left"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="truncate text-sm font-medium">{result.label}</span>
@@ -965,7 +967,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                     </p>
                   )}
                   <p className="text-muted-foreground/70 mt-1 text-xs">{result.section}</p>
-                </button>
+                </Button>
               ))}
             </div>
           )

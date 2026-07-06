@@ -198,13 +198,13 @@ export function SoftwareUpdateView({
             {onClearError ? (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    className="hover:bg-destructive/30 focus-visible:ring-ring flex size-5 shrink-0 items-center justify-center rounded-full transition focus-visible:ring-2 focus-visible:outline-none"
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
                     onClick={onClearError}
                   >
                     <X size={13} />
-                  </button>
+                  </Button>
                 </TooltipTrigger>
                 <TooltipContent>{t("common.actions.close")}</TooltipContent>
               </Tooltip>

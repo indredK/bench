@@ -582,14 +582,15 @@ function AuthProfilePanel({
           <span className="text-xs font-semibold text-blue-400">
             {t("accountManager.sessionManager.authProfile.title")}
           </span>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => onRedetect(stationId, accountId)}
             disabled={redetecting}
-            className="rounded px-1.5 py-0.5 text-[10px] font-normal text-blue-500 hover:bg-blue-500/10 disabled:opacity-50"
+            className="text-[10px] font-normal text-blue-500 hover:bg-blue-500/10"
           >
             {t("accountManager.sessionManager.authProfile.redetect")}
-          </button>
+          </Button>
         </div>
 
         <div className="text-muted-foreground mb-2 space-y-1 text-[10px]">
@@ -619,13 +620,13 @@ function AuthProfilePanel({
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <button
-                          type="button"
-                          className="text-muted-foreground hover:text-foreground shrink-0"
-                          tabIndex={-1}
-                        >
-                          <HelpCircle size={11} />
-                        </button>
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        tabIndex={-1}
+                      >
+                        <HelpCircle size={11} />
+                      </Button>
                       </TooltipTrigger>
                       <TooltipContent side="top" className="max-w-48 text-[10px]">
                         {d.tooltip}
