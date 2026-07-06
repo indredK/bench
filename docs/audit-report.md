@@ -95,8 +95,8 @@
 
 - [§2.3] `src-tauri/src/app_preferences/` — 缺少 `types.rs`，Rust 后端类型定义未按规范命名 — 创建 `app_preferences/types.rs` 并迁移类型 — **强制**
 - [§2.3] `src-tauri/src/window_theme/` — 缺少 `types.rs` — 创建 `window_theme/types.rs` 并迁移类型 — **强制**
-- [§3.4] `src/features/system-settings/components/sections/AppAuthorizeSection.tsx:5` — 静态导入 `@tauri-apps/plugin-notification`（`sendNotification`），平台 API 调用混入视图组件 — 改为通过 `platform/` 封装或 controller 透传 — **强制**
-- [§3.4] `src/features/system-settings/components/sections/AppAuthorizeSection.tsx:105` — `platformName !== "macos"` 平台判断散落在 JSX 中 — 使用 `canUseDesktopFeatures()` 替代 — **强制**
+- [§3.4] `src/features/system-settings/components/sections/AppAuthorizeSection.tsx:5` — 静态导入 `@tauri-apps/plugin-notification`（`sendNotification`），平台 API 调用混入视图组件 — 改为通过 `platform/` 封装或 controller 透传 — **强制** ✅ 已修复
+- [§3.4] `src/features/system-settings/components/sections/AppAuthorizeSection.tsx:105` — `platformName !== "macos"` 平台判断散落在 JSX 中 — 使用 `canUseDesktopFeatures()` 替代 — **强制** ✅ 已修复
 
 **建议**
 

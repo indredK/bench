@@ -2,7 +2,6 @@ import { useCallback, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Loader2, ShieldCheck } from "lucide-react"
 import { toast } from "sonner"
-import { sendNotification } from "@tauri-apps/plugin-notification"
 import { SettingGroup } from "@/components/ui/setting-group"
 import { Button } from "@/components/ui/button"
 import {
@@ -19,7 +18,6 @@ import { authorizeMacApp } from "@/lib/tauri/commands/app-manager"
 import { getErrorMessage } from "@/lib/tauri/errors"
 import { canUseDesktopFeatures } from "@/platform/capabilities"
 import { openPlatformDialog } from "@/platform/dialog"
-import { platformName } from "@/platform/config"
 import {
   appBundleDisplayName,
   formatMacAppAuthorizeCommand,
@@ -35,6 +33,7 @@ export function AppAuthorizeSection() {
   const { t } = useTranslation()
   const [pending, setPending] = useState<PendingAuthorize | null>(null)
   const [running, setRunning] = useState(false)
+  const isMacOS = canUseDesktopFeatures() && navigator.platform?.toLowerCase().includes("mac")
 
   const command = useMemo(
     () => (pending ? formatMacAppAuthorizeCommand(pending.path) : ""),
@@ -81,7 +80,8 @@ export function AppAuthorizeSection() {
 
       toast.success(t("systemSettings.advanced.appAuthorize.successToast", { name: pending.name }))
       try {
-        sendNotification({
+        const { sendNotification: sendNotify } = await import("@tauri-apps/plugin-notification")
+        sendNotify({
           title: t("systemSettings.advanced.appAuthorize.successNotificationTitle"),
           body: t("systemSettings.advanced.appAuthorize.successNotificationBody", {
             name: pending.name,
@@ -102,7 +102,7 @@ export function AppAuthorizeSection() {
     }
   }, [pending, running, t])
 
-  if (platformName !== "macos") {
+  if (!isMacOS) {
     return null
   }
 
