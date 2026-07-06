@@ -37,6 +37,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { openExternal } from "@/platform/shell"
 import { writeClipboardText } from "@/platform/clipboard"
 import { FeatureLoadError } from "@/components/common/FeatureLoadError"
+import { VirtualGridView } from "@/components/content/VirtualGridView"
 
 function copyText(text: string) {
   void writeClipboardText(text).catch(() => {})
@@ -1140,29 +1141,26 @@ export default function TerminologyPage() {
         </div>
 
         {/* Cards grid */}
-        <div className="flex-1 scrollbar-thin overflow-y-auto p-4">
-          {terms.length === 0 ? (
-            <div className="text-muted-foreground flex h-40 items-center justify-center text-sm">
-              {t("terminology.noTerms")}
-            </div>
-          ) : (
-            <div
-              className="grid gap-3"
-              style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}
-            >
-              {terms.map((term) => (
-                <TermCard
-                  key={term.id}
-                  term={term}
-                  isPinned={pinnedTermIdSet.has(term.id)}
-                  onClick={() => openEdit(term)}
-                  onTogglePinned={() =>
-                    void handleTogglePinned(term.id, !pinnedTermIdSet.has(term.id))
-                  }
-                />
-              ))}
-            </div>
-          )}
+        <div className="flex-1 min-h-0 p-4">
+          <VirtualGridView
+            data={terms}
+            getRowId={(term) => term.id}
+            minCardWidth={220}
+            gap={12}
+            estimatedCardHeight={160}
+            wrapperPadding="p-0"
+            onItemClick={(term) => openEdit(term)}
+            renderGridCard={(term) => (
+              <TermCard
+                term={term}
+                isPinned={pinnedTermIdSet.has(term.id)}
+                onClick={() => openEdit(term)}
+                onTogglePinned={() =>
+                  void handleTogglePinned(term.id, !pinnedTermIdSet.has(term.id))
+                }
+              />
+            )}
+          />
         </div>
       </main>
 
