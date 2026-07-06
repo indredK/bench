@@ -3,6 +3,7 @@
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
 import { contextMenuManager } from "./ContextMenuManager"
 import type { ContextMenuState } from "./types"
 
@@ -146,19 +147,19 @@ export function GlobalContextMenu({ children, className }: GlobalContextMenuProp
                 {prevItem && !prevItem.destructive && item.destructive && (
                   <div className="bg-border -mx-1.5 my-1 h-px" />
                 )}
-                <button
-                  className={cn(
-                    "relative flex w-full cursor-default items-center gap-2 rounded-lg px-2.5 py-2 text-sm outline-none select-none",
-                    "hover:bg-accent hover:text-accent-foreground",
-                    "focus:bg-accent focus:text-accent-foreground",
-                    "disabled:pointer-events-none disabled:opacity-50",
-                    item.destructive && "text-red-600 hover:text-red-600 focus:text-red-600",
-                  )}
+                <Button
+                  variant="ghost"
                   disabled={item.disabled}
                   onClick={() => {
                     item.onClick()
                     contextMenuManager.close()
                   }}
+                  className={cn(
+                    "flex w-full cursor-default items-center gap-2 rounded-lg px-2.5 py-2 text-sm select-none",
+                    "hover:bg-accent hover:text-accent-foreground",
+                    "disabled:pointer-events-none disabled:opacity-50",
+                    item.destructive && "text-red-600 hover:text-red-600",
+                  )}
                   role="menuitem"
                 >
                   {item.icon}
@@ -168,7 +169,7 @@ export function GlobalContextMenu({ children, className }: GlobalContextMenuProp
                       {item.shortcut}
                     </span>
                   )}
-                </button>
+                </Button>
               </div>
             )
           })}
