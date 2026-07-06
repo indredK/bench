@@ -30,6 +30,7 @@
     },
     "loading": "加载设置中...",
     "applying": "正在应用设置,请稍候...",
+    "loadFailedTitle": "加载设置失败",
     "toasts": {
       "loading": "正在执行操作...",
       "success": "操作成功",
@@ -2171,6 +2172,8 @@
     "loading": "加载中...",
     "filters": "筛选",
     "failedToLoad": "加载失败",
+    "loadFailed": "加载失败",
+    "featureLoadFailed": "{{feature}} 加载失败",
     "retry": "重试",
     "success": "成功",
     "error": "错误",

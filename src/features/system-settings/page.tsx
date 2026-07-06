@@ -34,6 +34,7 @@ import type {
   MenuBarAutoHideMode,
 } from "@/lib/tauri/types/system-settings"
 import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirmDialog"
+import { FeatureErrorBoundary } from "@/components/common/FeatureErrorBoundary"
 
 const SleepSection = lazy(() => import("./components/sections/SleepSection").then((m) => ({ default: m.SleepSection })))
 const LockScreenSection = lazy(() => import("./components/sections/LockScreenSection").then((m) => ({ default: m.LockScreenSection })))
@@ -940,7 +941,8 @@ export default function SystemSettings(_props: SystemSettingsProps) {
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <FeatureErrorBoundary titleKey="systemSettings.loadFailedTitle">
+      <div className="flex h-full flex-col">
       {/* Search bar */}
       <div className="shrink-0 border-b px-4 py-2">
         <div className="relative">
@@ -1053,6 +1055,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
           }}
         />
       )}
-    </div>
+      </div>
+    </FeatureErrorBoundary>
   )
 }

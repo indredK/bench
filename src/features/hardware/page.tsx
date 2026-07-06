@@ -17,6 +17,7 @@ import {
   Telescope,
 } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { FeatureErrorBoundary } from "@/components/common/FeatureErrorBoundary"
 import CompareTabs, { type CompareTabItem } from "@/shared/compare/CompareTabs"
 
 const LazyHardwareTab = lazy(() => import("@/features/hardware/components/HardwareCompareTab"))
@@ -177,7 +178,11 @@ function HardwareComparePage() {
     return next
   }, [t])
 
-  return <CompareTabs tabs={tabs} defaultTabId="cpu" groupLabels={groupLabels} />
+  return (
+    <FeatureErrorBoundary titleKey="hardwareCompare.loadFailedTitle">
+      <CompareTabs tabs={tabs} defaultTabId="cpu" groupLabels={groupLabels} />
+    </FeatureErrorBoundary>
+  )
 }
 
 export default HardwareComparePage

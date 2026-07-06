@@ -30,6 +30,7 @@
     },
     "loading": "Loading settings...",
     "applying": "Applying settings, please wait...",
+    "loadFailedTitle": "Failed to load settings",
     "toasts": {
       "loading": "Running operation...",
       "success": "Operation succeeded",
@@ -2171,6 +2172,8 @@
     "loading": "Loading...",
     "filters": "Filters",
     "failedToLoad": "Failed to load",
+    "loadFailed": "Failed to load",
+    "featureLoadFailed": "Failed to load {{feature}}",
     "retry": "Retry",
     "success": "Success",
     "error": "Error",
