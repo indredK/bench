@@ -1,11 +1,12 @@
 use std::sync::Mutex;
 
 use super::types::{SleepConfig, SleepState};
+use crate::error::{AppError, AppResult};
 
 static CAFFEINATE_PID: Mutex<Option<u32>> = Mutex::new(None);
 
 #[cfg(target_os = "macos")]
-fn spawn_caffeinate(config: &SleepConfig) -> Result<(), String> {
+fn spawn_caffeinate(config: &SleepConfig) -> AppResult<()> {
     let mut args: Vec<&str> = Vec::new();
     if config.prevent_display {
         args.push("-d");
@@ -20,16 +21,15 @@ fn spawn_caffeinate(config: &SleepConfig) -> Result<(), String> {
 
     let child = std::process::Command::new("caffeinate")
         .args(&args)
-        .spawn()
-        .map_err(|e| format!("Failed to start caffeinate: {}", e))?;
+        .spawn()?;
 
-    let mut pid = CAFFEINATE_PID.lock().map_err(|e| e.to_string())?;
+    let mut pid = CAFFEINATE_PID.lock().map_err(|e| AppError::internal(e.to_string()))?;
     *pid = Some(child.id());
     Ok(())
 }
 
 #[cfg(target_os = "windows")]
-fn spawn_caffeinate(config: &SleepConfig) -> Result<(), String> {
+fn spawn_caffeinate(config: &SleepConfig) -> AppResult<()> {
     const ES_CONTINUOUS: u32 = 0x80000000;
     const ES_SYSTEM_REQUIRED: u32 = 0x00000001;
     const ES_DISPLAY_REQUIRED: u32 = 0x00000002;
@@ -50,19 +50,19 @@ fn spawn_caffeinate(config: &SleepConfig) -> Result<(), String> {
         SetThreadExecutionState(flags);
     }
 
-    let mut pid = CAFFEINATE_PID.lock().map_err(|e| e.to_string())?;
+    let mut pid = CAFFEINATE_PID.lock().map_err(|e| AppError::internal(e.to_string()))?;
     *pid = Some(0);
     Ok(())
 }
 
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-fn spawn_caffeinate(_config: &SleepConfig) -> Result<(), String> {
-    Err("Sleep inhibitor is not supported on this platform".to_string())
+fn spawn_caffeinate(_config: &SleepConfig) -> AppResult<()> {
+    Err(AppError::unsupported("Sleep inhibitor is not supported on this platform"))
 }
 
 #[cfg_attr(not(any(target_os = "macos", target_os = "windows")), allow(unused_variables))]
-fn kill_caffeinate() -> Result<(), String> {
-    let mut pid = CAFFEINATE_PID.lock().map_err(|e| e.to_string())?;
+fn kill_caffeinate() -> AppResult<()> {
+    let mut pid = CAFFEINATE_PID.lock().map_err(|e| AppError::internal(e.to_string()))?;
     if let Some(pid) = pid.take() {
         #[cfg(target_os = "macos")]
         {
@@ -95,26 +95,23 @@ fn kill_caffeinate() -> Result<(), String> {
 /// The returned `SleepState.enabled` always reflects the system-detected
 /// state so the UI shows the true picture (incl. other apps' assertions).
 #[tauri::command]
-pub fn toggle_sleep_inhibitor(config: SleepConfig, enabled: bool) -> Result<SleepState, String> {
+pub fn toggle_sleep_inhibitor(config: SleepConfig, enabled: bool) -> AppResult<SleepState> {
     if enabled {
-        // Don't spawn a second caffeinate if we already own one.
-        let own_pid = CAFFEINATE_PID.lock().map_err(|e| e.to_string())?;
+        let own_pid = CAFFEINATE_PID.lock().map_err(|e| AppError::internal(e.to_string()))?;
         let we_own = own_pid.is_some();
         drop(own_pid);
         if !we_own {
             spawn_caffeinate(&config)?;
         }
     } else {
-        // Only kill OUR own caffeinate; never touch other apps' processes.
         kill_caffeinate()?;
     }
 
-    // Always re-read the system state so the UI reflects other apps too.
     get_current_state_with_config(config)
 }
 
 #[tauri::command]
-pub fn get_sleep_inhibitor_state() -> Result<SleepState, String> {
+pub fn get_sleep_inhibitor_state() -> AppResult<SleepState> {
     get_current_state()
 }
 
@@ -128,29 +125,29 @@ pub fn cleanup_on_exit() {
 
 /// Check system-level sleep prevention.
 /// Detects caffeinate processes (from any app) and user-initiated sleep assertions.
-fn get_current_state() -> Result<SleepState, String> {
+fn get_current_state() -> AppResult<SleepState> {
     get_current_state_with_config(SleepConfig::default())
 }
 
 /// Same as `get_current_state` but lets the caller carry the user-supplied
 /// config back to the UI instead of clobbering it with the default.
-fn get_current_state_with_config(config: SleepConfig) -> Result<SleepState, String> {
+fn get_current_state_with_config(config: SleepConfig) -> AppResult<SleepState> {
     #[cfg(target_os = "macos")]
     {
         let caffeinate_running = check_caffeinate_processes()?;
         let user_assertions = check_user_sleep_assertions()?;
-        let own_pid = CAFFEINATE_PID.lock().map_err(|e| e.to_string())?;
+        let own_pid = CAFFEINATE_PID.lock().map_err(|e| AppError::internal(e.to_string()))?;
         let own_active = own_pid.is_some();
 
-        Ok(SleepState {
+        return Ok(SleepState {
             enabled: caffeinate_running || user_assertions || own_active,
             since: None,
             config,
-        })
+        });
     }
     #[cfg(not(target_os = "macos"))]
     {
-        let pid = CAFFEINATE_PID.lock().map_err(|e| e.to_string())?;
+        let pid = CAFFEINATE_PID.lock().map_err(|e| AppError::internal(e.to_string()))?;
         Ok(SleepState {
             enabled: pid.is_some(),
             since: None,
@@ -161,13 +158,11 @@ fn get_current_state_with_config(config: SleepConfig) -> Result<SleepState, Stri
 
 /// Check if any caffeinate processes are running (from any app).
 #[cfg(target_os = "macos")]
-fn check_caffeinate_processes() -> Result<bool, String> {
+fn check_caffeinate_processes() -> AppResult<bool> {
     let output = std::process::Command::new("pgrep")
         .args(["-x", "caffeinate"])
-        .output()
-        .map_err(|e| format!("pgrep: {}", e))?;
+        .output()?;
 
-    // pgrep returns 0 if found, 1 if not found
     Ok(output.status.success())
 }
 
@@ -175,18 +170,15 @@ fn check_caffeinate_processes() -> Result<bool, String> {
 /// Filters out normal system assertions (powerd, WindowServer, coreaudiod)
 /// and only reports assertions from user apps.
 #[cfg(target_os = "macos")]
-fn check_user_sleep_assertions() -> Result<bool, String> {
+fn check_user_sleep_assertions() -> AppResult<bool> {
     let output = std::process::Command::new("pmset")
         .args(["-g", "assertions"])
-        .output()
-        .map_err(|e| format!("pmset: {}", e))?;
+        .output()?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // System processes that normally hold sleep assertions
     let system_processes = ["powerd", "WindowServer", "coreaudiod", "kernel"];
 
-    // Look at the "Listed by owning process" section for user apps
     let mut in_process_list = false;
     for line in stdout.lines() {
         if line.contains("Listed by owning process") {
@@ -194,13 +186,10 @@ fn check_user_sleep_assertions() -> Result<bool, String> {
             continue;
         }
         if in_process_list && line.trim().starts_with("pid") {
-            // Extract process name from line like:
-            // pid 112(powerd): [0x...] PreventUserIdleSystemSleep named: "..."
             if let Some(start) = line.find('(') {
                 if let Some(end) = line[start..].find(')') {
                     let process = &line[start + 1..start + end];
                     if !system_processes.contains(&process) {
-                        // Check if this assertion is sleep-related
                         if line.contains("PreventUserIdleSystemSleep")
                             || line.contains("PreventSystemSleep")
                             || line.contains("PreventUserIdleDisplaySleep")

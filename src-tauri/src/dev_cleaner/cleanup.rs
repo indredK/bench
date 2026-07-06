@@ -2,6 +2,7 @@ use super::projects::resolve_cleanup_paths;
 use super::safe_delete::{safe_delete_within_root, DeleteOutcome};
 use super::sizing::calculate_dir_size;
 use super::types::{CleanupResult, ProjectInfo, ScanAbortFlag};
+use crate::error::AppResult;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
@@ -9,7 +10,7 @@ use std::sync::atomic::Ordering;
 pub(super) fn cleanup_projects(
     projects: Vec<ProjectInfo>,
     abort: Option<ScanAbortFlag>,
-) -> Result<CleanupResult, String> {
+) -> AppResult<CleanupResult> {
     let mut cleaned_size = 0u64;
     let mut errors = Vec::new();
     let mut seen_targets = HashSet::<PathBuf>::new();
@@ -48,10 +49,6 @@ pub(super) fn cleanup_projects(
                 continue;
             }
 
-            // Compute size before delete so the metric still includes
-            // entries that get permanently removed by the fallback. If size
-            // calculation fails we still attempt the delete, but skip the
-            // metric — surface the calculation failure separately.
             let size_estimate = match calculate_dir_size(&target_path, None) {
                 Ok(size) => Some(size),
                 Err(e) => {
@@ -74,8 +71,6 @@ pub(super) fn cleanup_projects(
                     if let Some(size) = size_estimate {
                         cleaned_size += size;
                     }
-                    // Trash was unavailable; warn so the user knows nothing
-                    // is recoverable from the recycle bin.
                     errors.push(format!(
                         "Recycle bin unavailable for {}; permanently deleted instead ({})",
                         target_path.display(),

@@ -1,6 +1,7 @@
 use super::projects::{dedupe_projects, detect_project, detect_skip_dir_project};
 use super::rules::{is_child_of_skip_dir, is_cleanup_dir_name};
 use super::types::{ProjectType, ScanAbortFlag, ScanResult};
+use crate::error::{AppError, AppResult};
 use std::path::Path;
 use std::sync::atomic::Ordering;
 use walkdir::WalkDir;
@@ -8,7 +9,7 @@ use walkdir::WalkDir;
 pub(super) async fn scan_dev_projects(
     root_path: String,
     abort: ScanAbortFlag,
-) -> Result<ScanResult, String> {
+) -> AppResult<ScanResult> {
     tauri::async_runtime::spawn_blocking(move || {
         let root_path_ref = Path::new(&root_path);
         // Reject up-front when the user picked a file (drag-and-drop misfire)
@@ -17,10 +18,10 @@ pub(super) async fn scan_dev_projects(
         // "scan complete" without any context (#042).
         match std::fs::metadata(root_path_ref) {
             Ok(md) if !md.is_dir() => {
-                return Err(format!("Not a directory: {}", root_path));
+                return Err(AppError::invalid_input(format!("Not a directory: {}", root_path)));
             }
             Err(e) => {
-                return Err(format!("Cannot access {}: {}", root_path, e));
+                return Err(AppError::internal(format!("Cannot access {}: {}", root_path, e)));
             }
             _ => {}
         }

@@ -5,6 +5,8 @@ use super::types::{
 use tauri::{AppHandle, Emitter, Runtime};
 use tauri_plugin_updater::{Update, Updater, UpdaterExt};
 
+use crate::error::{AppError, AppResult};
+
 fn updater_error(context: &str, error: impl std::fmt::Display) -> String {
     format!("{context}: {error}")
 }
@@ -13,14 +15,11 @@ fn updater_error(context: &str, error: impl std::fmt::Display) -> String {
 pub async fn check_for_app_update<R: Runtime>(
     app: AppHandle<R>,
     cache: tauri::State<'_, UpdaterCache>,
-) -> Result<AppUpdateInfo, String> {
+) -> AppResult<AppUpdateInfo> {
     let current_version = app.package_info().version.to_string();
 
     match cache.begin_check() {
         CheckTicket::Leader(leader) => {
-            // Single-flight: this caller performs the real HTTP work; other
-            // concurrent callers will subscribe to the same result via the
-            // Follower path below (#050).
             let check_result: Result<Option<Update>, String> = async {
                 let updater: Updater = app
                     .updater()
@@ -34,7 +33,7 @@ pub async fn check_for_app_update<R: Runtime>(
 
             let info_for_caller: AppUpdateInfo;
             let in_flight_payload: InFlightCheckResult;
-            let return_value: Result<AppUpdateInfo, String>;
+            let return_value: AppResult<AppUpdateInfo>;
 
             match &check_result {
                 Ok(Some(update)) => {
@@ -79,14 +78,10 @@ pub async fn check_for_app_update<R: Runtime>(
                         body: None,
                         error: Some(error.clone()),
                     };
-                    return_value = Err(error.clone());
+                    return_value = Err(AppError::internal(error.clone()));
                 }
             }
 
-            // Store the Update handle (if any) so a follow-up install can skip
-            // a redundant manifest fetch. On error we explicitly clear pending
-            // so a previous handle from an earlier successful check doesn't
-            // mask this failure.
             match check_result {
                 Ok(opt) => cache.store(opt),
                 Err(_) => cache.store(None),
@@ -96,11 +91,7 @@ pub async fn check_for_app_update<R: Runtime>(
             return_value
         }
         CheckTicket::Follower(mut rx) => {
-            // Wait for the leader's published result, then read it from the
-            // watch channel without doing any additional HTTP work.
             if rx.changed().await.is_err() {
-                // Sender dropped without publishing — should not happen, but
-                // fall back to a one-shot check to keep the UI responsive.
                 let updater = app
                     .updater()
                     .map_err(|error| updater_error("failed to build updater", error))?;
@@ -129,7 +120,7 @@ pub async fn check_for_app_update<R: Runtime>(
             match snapshot {
                 Some(result) => {
                     if let Some(error) = result.error {
-                        Err(error)
+                        Err(AppError::internal(error))
                     } else {
                         Ok(AppUpdateInfo {
                             available: result.available,
@@ -140,7 +131,7 @@ pub async fn check_for_app_update<R: Runtime>(
                         })
                     }
                 }
-                None => Err("update check finished without publishing a result".to_string()),
+                None => Err(AppError::internal("update check finished without publishing a result")),
             }
         }
     }
@@ -150,12 +141,10 @@ pub async fn check_for_app_update<R: Runtime>(
 pub async fn download_and_install_app_update<R: Runtime>(
     app: AppHandle<R>,
     cache: tauri::State<'_, UpdaterCache>,
-) -> Result<AppUpdateInstallResult, String> {
+) -> AppResult<AppUpdateInstallResult> {
     let update: Update = match cache.take() {
         Some(update) => update,
         None => {
-            // Fallback for callers that skip the explicit check step — keeps
-            // the command usable on its own without forcing a stale manifest.
             let updater: Updater = app
                 .updater()
                 .map_err(|error| updater_error("failed to build updater", error))?;
@@ -163,7 +152,7 @@ pub async fn download_and_install_app_update<R: Runtime>(
                 .check()
                 .await
                 .map_err(|error| updater_error("failed to check updates before install", error))?
-                .ok_or_else(|| "No update is currently available".to_string())?
+                .ok_or_else(|| AppError::not_found("No update is currently available"))?
         }
     };
 
@@ -186,9 +175,6 @@ pub async fn download_and_install_app_update<R: Runtime>(
                     );
                 }
 
-                // Defensive (#049): saturating add + cap to declared total so
-                // chunk-retry or upstream double-counting cannot wrap or push
-                // the bar past 100%.
                 let raw = downloaded_bytes.saturating_add(chunk_length as u64);
                 downloaded_bytes = match content_length {
                     Some(total) => raw.min(total),
@@ -210,8 +196,6 @@ pub async fn download_and_install_app_update<R: Runtime>(
             },
         ));
 
-        // Race the install against an explicit cancel notification (#052).
-        // `biased` lets cancel win when both are ready in the same poll.
         tokio::select! {
             biased;
             _ = cancel_signal.notified() => DownloadOutcome::Cancelled,
@@ -222,8 +206,6 @@ pub async fn download_and_install_app_update<R: Runtime>(
                 }
             },
         }
-        // `install_future` is dropped at end of block, releasing the borrow
-        // on `update` so the outer code can re-store it in the cache.
     };
 
     match outcome {
@@ -236,10 +218,8 @@ pub async fn download_and_install_app_update<R: Runtime>(
                 APP_UPDATER_DOWNLOAD_EVENT,
                 AppUpdateDownloadEvent::Cancelled,
             );
-            // Restore (#051): preserve the Update handle so the user can
-            // retry the install without paying for another manifest fetch.
             cache.store(Some(update));
-            Err("update download cancelled".to_string())
+            Err(AppError::internal("update download cancelled"))
         }
         DownloadOutcome::Failed(message) => {
             let _ = app.emit(
@@ -249,7 +229,7 @@ pub async fn download_and_install_app_update<R: Runtime>(
                 },
             );
             cache.store(Some(update));
-            Err(message)
+            Err(AppError::internal(message))
         }
     }
 }
