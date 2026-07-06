@@ -1,4 +1,5 @@
 //! System tray / 菜单栏托盘: quick show-window, sleep inhibitor toggle, quit (P4).
+use crate::error::AppResult;
 
 #[cfg(desktop)]
 use std::sync::Mutex;
@@ -140,7 +141,7 @@ pub fn set_tray_labels(
     sleep: String,
     autostart: String,
     quit: String,
-) -> Result<(), String> {
+) -> AppResult<()> {
     #[cfg(desktop)]
     {
         let state = app.state::<Mutex<TrayMenuItems>>();

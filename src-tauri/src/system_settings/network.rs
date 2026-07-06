@@ -1,24 +1,22 @@
 use super::helpers::*;
+use crate::error::{AppError, AppResult};
 
-/// 校验主机名/IP (规范 A-1:防止 flag 注入)
-/// 拒绝以 `-` 开头的输入 (会被 ping/dig/nc/traceroute 解释为选项)
-/// 拒绝含 shell 元字符或空白的输入
-fn validate_host(host: &str) -> Result<(), String> {
+fn validate_host(host: &str) -> AppResult<()> {
     if host.is_empty() {
-        return Err("Host cannot be empty".to_string());
+        return Err(AppError::invalid_input("Host cannot be empty"));
     }
     if host.starts_with('-') {
-        return Err("Invalid host: must not start with '-'".to_string());
+        return Err(AppError::invalid_input("Invalid host: must not start with '-'"));
     }
     let forbidden = [';', '|', '&', '$', '`', '(', ')', '<', '>', '\n', '\r', '"', '\'', '\\', ' '];
     if host.chars().any(|c| forbidden.contains(&c)) {
-        return Err("Invalid host: contains forbidden characters".to_string());
+        return Err(AppError::invalid_input("Invalid host: contains forbidden characters"));
     }
     Ok(())
 }
 
 #[tauri::command]
-pub async fn set_network_firewall_state(enable: bool) -> Result<(), String> {
+pub async fn set_network_firewall_state(enable: bool) -> AppResult<()> {
     tauri::async_runtime::spawn_blocking(move || {
         let val = if enable { "on" } else { "off" };
         sudo_cmd(&format!(
@@ -28,22 +26,22 @@ pub async fn set_network_firewall_state(enable: bool) -> Result<(), String> {
         Ok(())
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| AppError::internal(format!("set_network_firewall_state: {e}")))?
 }
 
 #[tauri::command]
-pub async fn set_network_ssh_state(enable: bool) -> Result<(), String> {
+pub async fn set_network_ssh_state(enable: bool) -> AppResult<()> {
     tauri::async_runtime::spawn_blocking(move || {
         let val = if enable { "on" } else { "off" };
         sudo_cmd(&format!("systemsetup -setremotelogin {}", val))?;
         Ok(())
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| AppError::internal(format!("set_network_ssh_state: {e}")))?
 }
 
 #[tauri::command]
-pub async fn set_network_screen_sharing_state(enable: bool) -> Result<(), String> {
+pub async fn set_network_screen_sharing_state(enable: bool) -> AppResult<()> {
     tauri::async_runtime::spawn_blocking(move || {
         if enable {
             sudo_cmd("launchctl load -w /System/Library/LaunchDaemons/com.apple.screensharing.plist")?;
@@ -53,22 +51,22 @@ pub async fn set_network_screen_sharing_state(enable: bool) -> Result<(), String
         Ok(())
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| AppError::internal(format!("set_network_screen_sharing_state: {e}")))?
 }
 
 #[tauri::command]
-pub async fn set_network_airdrop_disabled(disable: bool) -> Result<(), String> {
+pub async fn set_network_airdrop_disabled(disable: bool) -> AppResult<()> {
     tauri::async_runtime::spawn_blocking(move || {
         let val = if disable { "true" } else { "false" };
         defaults_write("com.apple.NetworkBrowser", "DisableAirDrop", val)?;
         Ok(())
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| AppError::internal(format!("set_network_airdrop_disabled: {e}")))?
 }
 
 #[tauri::command]
-pub async fn ping_host(host: String, count: u32) -> Result<super::types::PingResult, String> {
+pub async fn ping_host(host: String, count: u32) -> AppResult<super::types::PingResult> {
     tauri::async_runtime::spawn_blocking(move || {
         validate_host(&host)?;
         let output = run_cmd("ping", &["-c", &count.to_string(), &host])?;
@@ -102,17 +100,17 @@ pub async fn ping_host(host: String, count: u32) -> Result<super::types::PingRes
         Ok(result)
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| AppError::internal(format!("ping_host: {e}")))?
 }
 
 #[tauri::command]
-pub async fn port_check(host: String, port: u16) -> Result<super::types::PortCheckResult, String> {
+pub async fn port_check(host: String, port: u16) -> AppResult<super::types::PortCheckResult> {
     tauri::async_runtime::spawn_blocking(move || {
         validate_host(&host)?;
         let output = std::process::Command::new("nc")
             .args(["-z", "-w", "3", &host, &port.to_string()])
             .output()
-            .map_err(|e| format!("nc: {}", e))?;
+            .map_err(|e| AppError::internal(format!("nc: {e}")))?;
         Ok(super::types::PortCheckResult {
             host,
             port,
@@ -121,31 +119,28 @@ pub async fn port_check(host: String, port: u16) -> Result<super::types::PortChe
         })
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| AppError::internal(format!("port_check: {e}")))?
 }
 
 #[tauri::command]
-pub async fn get_local_ip() -> Result<super::types::IpInfo, String> {
+pub async fn get_local_ip() -> AppResult<super::types::IpInfo> {
     tauri::async_runtime::spawn_blocking(|| {
         #[cfg(target_os = "macos")]
         {
             let local = run_cmd("ipconfig", &["getifaddr", "en0"]).unwrap_or_default();
-            // 规范 P-1/P-2:禁止主动外发用户数据。
-            // 旧实现调用 `curl ifconfig.me` 获取公网 IP,会将用户 IP 泄露给第三方服务。
-            // 现改为仅返回本地 IP,external_ip 留空;如需公网 IP 应由前端显式触发并经用户确认。
             Ok(super::types::IpInfo { local_ip: local, external_ip: None })
         }
         #[cfg(not(target_os = "macos"))]
         {
-            Err("Not supported on this platform".to_string())
+            Err(AppError::unsupported("Not supported on this platform"))
         }
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| AppError::internal(format!("get_local_ip: {e}")))?
 }
 
 #[tauri::command]
-pub async fn get_wifi_info() -> Result<super::types::WifiInfo, String> {
+pub async fn get_wifi_info() -> AppResult<super::types::WifiInfo> {
     tauri::async_runtime::spawn_blocking(|| {
         #[cfg(target_os = "macos")]
         {
@@ -170,9 +165,9 @@ pub async fn get_wifi_info() -> Result<super::types::WifiInfo, String> {
         }
         #[cfg(not(target_os = "macos"))]
         {
-            Err("WiFi info is only supported on macOS".to_string())
+            Err(AppError::unsupported("WiFi info is only supported on macOS"))
         }
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| AppError::internal(format!("get_wifi_info: {e}")))?
 }

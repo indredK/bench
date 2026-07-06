@@ -1,7 +1,8 @@
 use super::helpers::*;
+use crate::error::{AppError, AppResult};
 
 #[tauri::command]
-pub async fn get_default_browser() -> Result<String, String> {
+pub async fn get_default_browser() -> AppResult<String> {
     tauri::async_runtime::spawn_blocking(|| {
         let output = run_cmd("defaults", &["read", "com.apple.LaunchServices/com.apple.launchservices.secure", "LSHandlers"])?;
         for line in output.lines() {
@@ -19,11 +20,11 @@ pub async fn get_default_browser() -> Result<String, String> {
         Ok("Safari".to_string())
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| AppError::internal(format!("get_default_browser: {e}")))?
 }
 
 #[tauri::command]
-pub async fn set_default_browser(bundle_id: String) -> Result<(), String> {
+pub async fn set_default_browser(bundle_id: String) -> AppResult<()> {
     tauri::async_runtime::spawn_blocking(move || {
         let script = r#"tell application "System Events"
             tell process "CoreServicesUIAgent"
@@ -36,5 +37,5 @@ pub async fn set_default_browser(bundle_id: String) -> Result<(), String> {
         Ok(())
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| AppError::internal(format!("set_default_browser: {e}")))?
 }

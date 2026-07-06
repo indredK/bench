@@ -2,6 +2,7 @@ use super::types::{
     CleanupCommandDef, CustomCleanupAbortFlag, CustomCleanupFinalResult, CustomCleanupProgress,
     RiskLevel,
 };
+use crate::error::{AppError, AppResult};
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -235,7 +236,7 @@ pub async fn execute_custom_cleanup<R: Runtime>(
     app: AppHandle<R>,
     command_ids: Vec<String>,
     flag: tauri::State<'_, CustomCleanupAbortFlag>,
-) -> Result<CustomCleanupFinalResult, String> {
+) -> AppResult<CustomCleanupFinalResult> {
     flag.0.store(false, Ordering::SeqCst);
 
     let all_commands = builtin_commands();
@@ -245,7 +246,7 @@ pub async fn execute_custom_cleanup<R: Runtime>(
         .collect();
 
     if selected.is_empty() {
-        return Err("No valid commands selected".into());
+        return Err(AppError::invalid_input("No valid commands selected"));
     }
 
     let mut details: Vec<CustomCleanupProgress> = Vec::new();

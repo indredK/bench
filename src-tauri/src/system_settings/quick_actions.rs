@@ -1,71 +1,62 @@
 use super::helpers::*;
-
-// ---------------------------------------------------------------------------
-// Lock screen password settings
-// ---------------------------------------------------------------------------
+use crate::error::{AppError, AppResult};
 
 #[tauri::command]
-pub async fn get_lock_screen_password_enabled() -> Result<bool, String> {
+pub async fn get_lock_screen_password_enabled() -> AppResult<bool> {
     tauri::async_runtime::spawn_blocking(|| {
         let val = defaults_read("com.apple.screensaver", "askForPassword").unwrap_or_default();
         Ok(val == "1" || val.to_lowercase() == "true")
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| AppError::internal(format!("get_lock_screen_password_enabled: {e}")))?
 }
 
 #[tauri::command]
-pub async fn set_lock_screen_password_enabled(enabled: bool) -> Result<(), String> {
+pub async fn set_lock_screen_password_enabled(enabled: bool) -> AppResult<()> {
     tauri::async_runtime::spawn_blocking(move || {
-        // askForPassword 是布尔键 (规范 C-6:用 "true"/"false" 走 -bool)
         let val = if enabled { "true" } else { "false" };
         defaults_write("com.apple.screensaver", "askForPassword", val)?;
         if enabled {
-            // askForPasswordDelay 是整数键,由 defaults_write 自动走 -int
             defaults_write("com.apple.screensaver", "askForPasswordDelay", "0")?;
         }
         Ok(())
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| AppError::internal(format!("set_lock_screen_password_enabled: {e}")))?
 }
 
 #[tauri::command]
-pub async fn get_lock_screen_password_delay() -> Result<i32, String> {
+pub async fn get_lock_screen_password_delay() -> AppResult<i32> {
     tauri::async_runtime::spawn_blocking(|| {
         let val = defaults_read("com.apple.screensaver", "askForPasswordDelay").unwrap_or_default();
         Ok(val.parse::<i32>().unwrap_or(5))
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| AppError::internal(format!("get_lock_screen_password_delay: {e}")))?
 }
 
 #[tauri::command]
-pub async fn set_lock_screen_password_delay(seconds: i32) -> Result<(), String> {
+pub async fn set_lock_screen_password_delay(seconds: i32) -> AppResult<()> {
     tauri::async_runtime::spawn_blocking(move || {
         defaults_write("com.apple.screensaver", "askForPasswordDelay", &seconds.to_string())?;
         Ok(())
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| AppError::internal(format!("set_lock_screen_password_delay: {e}")))?
 }
 
-// ---------------------------------------------------------------------------
-// Quick actions
-// ---------------------------------------------------------------------------
-
 #[tauri::command]
-pub async fn lock_screen() -> Result<(), String> {
+pub async fn lock_screen() -> AppResult<()> {
     tauri::async_runtime::spawn_blocking(|| {
         run_cmd_err("pmset", &["displaysleepnow"])?;
         Ok(())
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| AppError::internal(format!("lock_screen: {e}")))?
 }
 
 #[tauri::command]
-pub async fn empty_trash() -> Result<String, String> {
+pub async fn empty_trash() -> AppResult<String> {
     tauri::async_runtime::spawn_blocking(|| {
         let home = std::env::var("HOME").unwrap_or_default();
         let trash_path = format!("{}/.Trash", home);
@@ -79,35 +70,35 @@ pub async fn empty_trash() -> Result<String, String> {
         Ok("Trash emptied".to_string())
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| AppError::internal(format!("empty_trash: {e}")))?
 }
 
 #[tauri::command]
-pub async fn sleep_now() -> Result<(), String> {
+pub async fn sleep_now() -> AppResult<()> {
     tauri::async_runtime::spawn_blocking(|| {
         run_cmd_err("pmset", &["sleepnow"])?;
         Ok(())
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| AppError::internal(format!("sleep_now: {e}")))?
 }
 
 #[tauri::command]
-pub async fn reboot_now() -> Result<(), String> {
+pub async fn reboot_now() -> AppResult<()> {
     tauri::async_runtime::spawn_blocking(|| {
         sudo_cmd("shutdown -r now")?;
         Ok(())
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| AppError::internal(format!("reboot_now: {e}")))?
 }
 
 #[tauri::command]
-pub async fn shutdown_now() -> Result<(), String> {
+pub async fn shutdown_now() -> AppResult<()> {
     tauri::async_runtime::spawn_blocking(|| {
         sudo_cmd("shutdown -h now")?;
         Ok(())
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| AppError::internal(format!("shutdown_now: {e}")))?
 }

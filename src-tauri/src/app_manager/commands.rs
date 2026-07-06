@@ -5,6 +5,7 @@ use super::types::{
     ScanResult, UpdateInfo,
 };
 use super::{empty_scan_result, linux, locked_operation_result, macos, sources, windows};
+use crate::error::{AppError, AppResult};
 use serde::Serialize;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
@@ -85,7 +86,7 @@ fn try_start_batch_operation(
 }
 
 #[tauri::command]
-pub async fn scan_installed_apps(app: tauri::AppHandle) -> Result<ScanResult, String> {
+pub async fn scan_installed_apps(app: tauri::AppHandle) -> AppResult<ScanResult> {
     let app_clone = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let state: tauri::State<'_, AppManagerState> = app_clone.state();
@@ -103,25 +104,25 @@ pub async fn scan_installed_apps(app: tauri::AppHandle) -> Result<ScanResult, St
         result
     })
     .await
-    .map_err(|e| e.to_string())
+    .map_err(|e| AppError::internal(format!("scan_installed_apps: {e}")))
 }
 
 #[tauri::command]
-pub async fn get_app_icon_base64(install_path: String) -> Result<Option<String>, String> {
-    tauri::async_runtime::spawn_blocking(move || {
+pub async fn get_app_icon_base64(install_path: String) -> AppResult<Option<String>> {
+    tauri::async_runtime::spawn_blocking(move || -> Option<String> {
         if is_macos() {
-            Ok(macos::get_app_icon_base64(&install_path).ok())
+            macos::get_app_icon_base64(&install_path).ok()
         } else {
-            Ok(None)
+            None
         }
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| AppError::internal(format!("get_app_icon_base64: {e}")))
 }
 
 #[tauri::command]
-pub fn launch_app(app_path: String) -> Result<(), String> {
-    if is_macos() {
+pub fn launch_app(app_path: String) -> AppResult<()> {
+    let result = if is_macos() {
         macos::launch_app(app_path)
     } else if is_windows() {
         windows::launch_app(app_path)
@@ -129,12 +130,13 @@ pub fn launch_app(app_path: String) -> Result<(), String> {
         linux::launch_app(app_path)
     } else {
         Err("Unsupported platform".into())
-    }
+    };
+    result.map_err(|e| AppError::internal(format!("launch_app: {e}")))
 }
 
 #[tauri::command]
-pub fn reveal_app_in_finder(app_path: String) -> Result<(), String> {
-    if is_macos() {
+pub fn reveal_app_in_finder(app_path: String) -> AppResult<()> {
+    let result = if is_macos() {
         macos::reveal_app_in_finder(app_path)
     } else if is_windows() {
         windows::reveal_in_explorer(app_path)
@@ -142,37 +144,39 @@ pub fn reveal_app_in_finder(app_path: String) -> Result<(), String> {
         linux::reveal_in_file_manager(app_path)
     } else {
         Err("Unsupported platform".into())
-    }
+    };
+    result.map_err(|e| AppError::internal(format!("reveal_app_in_finder: {e}")))
 }
 
 #[tauri::command]
-pub fn authorize_mac_app(app_path: String) -> Result<OperationResult, String> {
+pub fn authorize_mac_app(app_path: String) -> AppResult<OperationResult> {
     if !is_macos() {
-        return Err("authorize_mac_app is only available on macOS".into());
+        return Err(AppError::unsupported("authorize_mac_app is only available on macOS"));
     }
     macos::authorize_mac_app(app_path)
+        .map_err(|e| AppError::internal(format!("authorize_mac_app: {e}")))
 }
 
 #[tauri::command]
 pub async fn check_managed_app_updates(
     app_ids: Vec<String>,
     app: tauri::AppHandle,
-) -> Result<Vec<String>, String> {
-    tauri::async_runtime::spawn_blocking(move || {
+) -> AppResult<Vec<String>> {
+    tauri::async_runtime::spawn_blocking(move || -> AppResult<Vec<String>> {
         let state: tauri::State<'_, AppManagerState> = app.state();
         state.mark_update_check();
         if is_macos() {
-            macos::check_updates(app_ids, state)
+            macos::check_updates(app_ids, state).map_err(|e| AppError::internal(e))
         } else if is_windows() {
-            windows::check_updates(app_ids, state)
+            windows::check_updates(app_ids, state).map_err(|e| AppError::internal(e))
         } else if is_linux() {
-            linux::check_updates(app_ids, state)
+            linux::check_updates(app_ids, state).map_err(|e| AppError::internal(e))
         } else {
             Ok(vec![])
         }
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| AppError::internal(format!("check_managed_app_updates: {e}")))?
 }
 
 #[tauri::command]
@@ -180,7 +184,7 @@ pub fn upgrade_app(
     app_id: String,
     state: tauri::State<'_, AppManagerState>,
     app: tauri::AppHandle,
-) -> Result<OperationResult, String> {
+) -> AppResult<OperationResult> {
     let _guard = match state.try_lock_operation(&app_id) {
         Some(guard) => guard,
         None => return Ok(locked_operation_result()),
@@ -197,7 +201,7 @@ pub fn upgrade_app(
     };
 
     let _ = app;
-    result
+    result.map_err(|e| AppError::internal(format!("upgrade_app: {e}")))
 }
 
 #[tauri::command]
@@ -205,7 +209,7 @@ pub fn uninstall_app(
     app_id: String,
     state: tauri::State<'_, AppManagerState>,
     app: tauri::AppHandle,
-) -> Result<OperationResult, String> {
+) -> AppResult<OperationResult> {
     let _guard = match state.try_lock_operation(&app_id) {
         Some(guard) => guard,
         None => return Ok(locked_operation_result()),
@@ -222,7 +226,7 @@ pub fn uninstall_app(
     };
 
     let _ = app;
-    result
+    result.map_err(|e| AppError::internal(format!("uninstall_app: {e}")))
 }
 
 #[tauri::command]
@@ -304,7 +308,7 @@ pub fn batch_upgrade_apps(
                     app_id: app_id.clone(),
                     app_name: String::new(),
                     success: false,
-                    message: e,
+                    message: e.message,
                     exit_code: None,
                 });
             }
@@ -411,7 +415,7 @@ pub fn batch_uninstall_apps(
                     app_id: app_id.clone(),
                     app_name: String::new(),
                     success: false,
-                    message: e,
+                    message: e.message,
                     exit_code: None,
                 });
             }
@@ -445,7 +449,7 @@ pub fn install_app(
     install_source: InstallSource,
     state: tauri::State<'_, AppManagerState>,
     app: tauri::AppHandle,
-) -> Result<OperationResult, String> {
+) -> AppResult<OperationResult> {
     let _guard = match state.try_lock_operation(&app_id) {
         Some(guard) => guard,
         None => return Ok(locked_operation_result()),
@@ -462,7 +466,7 @@ pub fn install_app(
     };
 
     let _ = app;
-    result
+    result.map_err(|e| AppError::internal(format!("install_app: {e}")))
 }
 
 #[tauri::command]
@@ -470,20 +474,16 @@ pub fn cancel_batch_operation(state: tauri::State<'_, AppManagerState>) -> bool 
     state.cancel_batch_operation()
 }
 
-/// Cache TTL for `check_all_app_updates`: 5 minutes.
-/// A second invocation within this window returns the cached list instead of
-/// re-scanning, matching what's promised in the planning doc (AC-2.2).
 const UPDATE_CACHE_TTL_MS: u64 = 5 * 60 * 1000;
 
 #[tauri::command]
 pub async fn check_all_app_updates(
     force_refresh: Option<bool>,
     app: tauri::AppHandle,
-) -> Result<Vec<UpdateInfo>, String> {
+) -> AppResult<Vec<UpdateInfo>> {
     let force = force_refresh.unwrap_or(false);
     let state: tauri::State<'_, AppManagerState> = app.state();
 
-    // Honor cache TTL unless caller asked for a refresh.
     if !force {
         let last = state.get_last_update_check_time();
         let now = std::time::SystemTime::now()
@@ -496,7 +496,6 @@ pub async fn check_all_app_updates(
     }
 
     if !is_macos() {
-        // v1.0 ships macOS only — Windows/Linux just return an empty list.
         state.cache_updates(Vec::new());
         return Ok(Vec::new());
     }
@@ -513,34 +512,33 @@ pub async fn check_all_app_updates(
 }
 
 #[tauri::command]
-pub async fn open_in_mac_app_store(adam_id: String) -> Result<(), String> {
+pub async fn open_in_mac_app_store(adam_id: String) -> AppResult<()> {
     if !is_macos() {
-        return Err("SU_MAS_OPEN_FAIL: not macOS".into());
+        return Err(AppError::unsupported("SU_MAS_OPEN_FAIL: not macOS"));
     }
     tauri::async_runtime::spawn_blocking(move || {
         sources::mac_app_store::open_in_mac_app_store(&adam_id)
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| AppError::internal(format!("open_in_mac_app_store: {e}")))?
+    .map_err(AppError::internal)
 }
 
 #[tauri::command]
-pub async fn open_in_mac_app_store_updates() -> Result<(), String> {
+pub async fn open_in_mac_app_store_updates() -> AppResult<()> {
     if !is_macos() {
-        return Err("SU_MAS_OPEN_FAIL: not macOS".into());
+        return Err(AppError::unsupported("SU_MAS_OPEN_FAIL: not macOS"));
     }
     tauri::async_runtime::spawn_blocking(sources::mac_app_store::open_mac_app_store_updates)
         .await
-        .map_err(|e| e.to_string())?
+        .map_err(|e| AppError::internal(format!("open_in_mac_app_store_updates: {e}")))?
+        .map_err(AppError::internal)
 }
 
-/// v1.2: kick off an in-place install of an update. Returns immediately; the
-/// orchestrator emits `app-update-install:progress` and `app-update-install:finished`
-/// events as it runs.
 #[tauri::command]
-pub async fn install_app_update(update: UpdateInfo, app: tauri::AppHandle) -> Result<(), String> {
+pub async fn install_app_update(update: UpdateInfo, app: tauri::AppHandle) -> AppResult<()> {
     if !is_macos() {
-        return Err("SU_PLATFORM_UNSUPPORTED: only macOS supports in-place updates".into());
+        return Err(AppError::unsupported("SU_PLATFORM_UNSUPPORTED: only macOS supports in-place updates"));
     }
 
     let state: tauri::State<'_, AppManagerState> = app.state();
@@ -552,11 +550,11 @@ pub async fn install_app_update(update: UpdateInfo, app: tauri::AppHandle) -> Re
             .map(|a| a.install_path.clone())
     };
     let install_path = install_path
-        .ok_or_else(|| "SU_APP_NOT_FOUND: not in cached scan; run scan first".to_string())?;
+        .ok_or_else(|| AppError::not_found("SU_APP_NOT_FOUND: not in cached scan; run scan first"))?;
 
     let guard = state
         .try_lock_operation(&update.app_id)
-        .ok_or_else(|| "LOCKED".to_string())?;
+        .ok_or_else(|| AppError::internal("LOCKED"))?;
 
     let handle = Arc::new(InstallHandle::new());
     {
@@ -580,13 +578,11 @@ pub async fn install_app_update(update: UpdateInfo, app: tauri::AppHandle) -> Re
     Ok(())
 }
 
-/// Cancel an in-flight install. Returns Ok even when there's no install in
-/// progress so the frontend can call this idempotently.
 #[tauri::command]
 pub fn cancel_app_update(
     app_id: String,
     state: tauri::State<'_, AppManagerState>,
-) -> Result<(), String> {
+) -> AppResult<()> {
     let handle = {
         let map = state
             .install_state
@@ -600,15 +596,12 @@ pub fn cancel_app_update(
     Ok(())
 }
 
-/// Frontend's response to the `DeveloperIdChanged` phase. `approved=true`
-/// resumes the install; `false` rejects it and the orchestrator fails with
-/// `SU_DEV_ID_DENIED`.
 #[tauri::command]
 pub async fn confirm_developer_id_change(
     app_id: String,
     approved: bool,
     app: tauri::AppHandle,
-) -> Result<(), String> {
+) -> AppResult<()> {
     let state: tauri::State<'_, AppManagerState> = app.state();
     let handle = {
         let map = state
@@ -617,7 +610,8 @@ pub async fn confirm_developer_id_change(
             .unwrap_or_else(|e| e.into_inner());
         map.get(&app_id).cloned()
     };
-    let handle = handle.ok_or_else(|| "SU_NOT_INSTALLING: no install in progress".to_string())?;
+    let handle = handle
+        .ok_or_else(|| AppError::not_found("SU_NOT_INSTALLING: no install in progress"))?;
 
     let mut slot = handle.dev_id_decision.lock().await;
     match slot.take() {
@@ -625,6 +619,6 @@ pub async fn confirm_developer_id_change(
             let _ = tx.send(approved);
             Ok(())
         }
-        None => Err("SU_NOT_AWAITING_CONFIRM: orchestrator is not waiting for a decision".into()),
+        None => Err(AppError::internal("SU_NOT_AWAITING_CONFIRM: orchestrator is not waiting for a decision")),
     }
 }

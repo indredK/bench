@@ -1,7 +1,8 @@
 use super::helpers::*;
+use crate::error::{AppError, AppResult};
 
 #[tauri::command]
-pub async fn set_finder_show_hidden_files(show: bool) -> Result<(), String> {
+pub async fn set_finder_show_hidden_files(show: bool) -> AppResult<()> {
     tauri::async_runtime::spawn_blocking(move || {
         let val = if show { "true" } else { "false" };
         defaults_write("com.apple.finder", "AppleShowAllFiles", val)?;
@@ -9,11 +10,11 @@ pub async fn set_finder_show_hidden_files(show: bool) -> Result<(), String> {
         Ok(())
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| AppError::internal(format!("set_finder_show_hidden_files: {e}")))?
 }
 
 #[tauri::command]
-pub async fn set_finder_show_pathbar(show: bool) -> Result<(), String> {
+pub async fn set_finder_show_pathbar(show: bool) -> AppResult<()> {
     tauri::async_runtime::spawn_blocking(move || {
         let val = if show { "true" } else { "false" };
         defaults_write("com.apple.finder", "ShowPathbar", val)?;
@@ -21,11 +22,11 @@ pub async fn set_finder_show_pathbar(show: bool) -> Result<(), String> {
         Ok(())
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| AppError::internal(format!("set_finder_show_pathbar: {e}")))?
 }
 
 #[tauri::command]
-pub async fn set_finder_show_statusbar(show: bool) -> Result<(), String> {
+pub async fn set_finder_show_statusbar(show: bool) -> AppResult<()> {
     tauri::async_runtime::spawn_blocking(move || {
         let val = if show { "true" } else { "false" };
         defaults_write("com.apple.finder", "ShowStatusBar", val)?;
@@ -33,11 +34,11 @@ pub async fn set_finder_show_statusbar(show: bool) -> Result<(), String> {
         Ok(())
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| AppError::internal(format!("set_finder_show_statusbar: {e}")))?
 }
 
 #[tauri::command]
-pub async fn set_finder_show_library_dir(show: bool) -> Result<(), String> {
+pub async fn set_finder_show_library_dir(show: bool) -> AppResult<()> {
     tauri::async_runtime::spawn_blocking(move || {
         let home = std::env::var("HOME").unwrap_or_default();
         let lib_path = std::path::PathBuf::from(&home).join("Library");
@@ -46,30 +47,28 @@ pub async fn set_finder_show_library_dir(show: bool) -> Result<(), String> {
         Ok(())
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| AppError::internal(format!("set_finder_show_library_dir: {e}")))?
 }
 
 #[tauri::command]
-pub async fn set_finder_show_file_extensions(show: bool) -> Result<(), String> {
+pub async fn set_finder_show_file_extensions(show: bool) -> AppResult<()> {
     tauri::async_runtime::spawn_blocking(move || {
         let val = if show { "true" } else { "false" };
         defaults_write("NSGlobalDomain", "AppleShowAllExtensions", val)?;
-        // AppleShowAllExtensions 影响 Finder 显示,需要重启 Finder 才能立即生效
-        // (与 OnlySwitch 的 ShowExtensionNameCMD 实现保持一致: killall Finder)
         restart_finder();
         Ok(())
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| AppError::internal(format!("set_finder_show_file_extensions: {e}")))?
 }
 
 #[tauri::command]
-pub async fn set_finder_no_ds_store(no_ds: bool) -> Result<(), String> {
+pub async fn set_finder_no_ds_store(no_ds: bool) -> AppResult<()> {
     tauri::async_runtime::spawn_blocking(move || {
         let val = if no_ds { "true" } else { "false" };
         defaults_write("com.apple.desktopservices", "DSDontWriteNetworkStores", val)?;
         Ok(())
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| AppError::internal(format!("set_finder_no_ds_store: {e}")))?
 }
