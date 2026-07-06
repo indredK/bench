@@ -1,5 +1,31 @@
 # Changelog
 
+## [1.22.0](https://github.com/indredK/bench/compare/v1.21.0...v1.22.0) (2026-07-06)
+
+
+### Features
+
+* **dev-cleaner:** 添加扫描失败页面级错误态 ([7c60582](https://github.com/indredK/bench/commit/7c6058282d3424dedcc3552b11d83d6d744bddaa))
+* **ui:** 新增通用 FeatureErrorBoundary 并接入 hardware/system-settings ([ad5d2cd](https://github.com/indredK/bench/commit/ad5d2cd0d17524c53a6f947faf5738803a48b51a))
+
+
+### Bug Fixes
+
+* 5项强制违规修复 — Zustand selector / confirm dialog / toast / 事件清理 ([a801c95](https://github.com/indredK/bench/commit/a801c9532bab4fb66c9b3e31a226bcd980a2a59e))
+* Phase 4 remaining items — store selector, reentry guard, audit report ([ed46ef1](https://github.com/indredK/bench/commit/ed46ef1c17c05ec137c9340da3159ed7bc296d79))
+* **rust:** types.rs separation and Mutex poison recovery ([04a7c4d](https://github.com/indredK/bench/commit/04a7c4d29370e4df2d20c215afd0242d1e018fce))
+* **system-settings:** AppAuthorizeSection platform boundary violations ([62cfc73](https://github.com/indredK/bench/commit/62cfc7347914fe3258b70662a131dbe912c2f17c))
+* **system-settings:** 修复激活标签页状态未正确读取的问题 ([9009306](https://github.com/indredK/bench/commit/90093066e6101a0d96d833d25a495b7e8b75da4e))
+* **terminology,account-manager:** add handleSave re-entrancy guard & fix hardcoded i18n placeholders ([0da0a57](https://github.com/indredK/bench/commit/0da0a574898af3c1b5216b07020e5b2d7aaf6547))
+* **ui:** CloseBehaviorDialog .join(' ') → cn() ([d01921a](https://github.com/indredK/bench/commit/d01921a189d90d3a1b3fe08b3188519d90c8289f))
+* **ui:** CloseBehaviorDialog radio-card button style fix ([5a547a5](https://github.com/indredK/bench/commit/5a547a59bd3477eb4f3324a657cb4b8a3603f213))
+* **updater,dev-cleaner:** add re-entrancy guards to async handlers ([70c4a4d](https://github.com/indredK/bench/commit/70c4a4d99c23fee81621869712555b93ed745ede))
+
+
+### Performance Improvements
+
+* **terminology:** 术语卡片网格使用 VirtualGridView 虚拟化 ([78a5f63](https://github.com/indredK/bench/commit/78a5f63888ab0d28bbccc90d6fd6cf2324f52eca))
+
 ## [1.21.0](https://github.com/indredK/bench/compare/v1.20.2...v1.21.0) (2026-07-05)
 
 
