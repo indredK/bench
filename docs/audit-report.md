@@ -111,23 +111,23 @@
 
 **强制违规**
 
-- [§6] `src/features/terminology/page.tsx` — 17 处直接使用 `<button>` 而非 `Button` 组件 — 替换为 `Button` — **强制**
-- [§6] `src/features/quick-launch/page.tsx` — 7 处直接使用 `<button>` — 替换为 `Button` — **强制**
-- [§6] `src/features/account-manager/components/shared.tsx:37` — `IconButton` 内部手写 `<button>` — 改用 `Button` — **强制**
-- [§6] `src/features/account-manager/components/DetailColumn.tsx:585,622` — 直接 `<button>` — 替换为 `Button` — **强制**
-- [§6] `src/features/account-manager/components/AccountColumn.tsx:278,414` — 直接 `<button>` — 替换为 `Button` — **强制**
-- [§6] `src/features/system-settings/page.tsx:905,921,947` — 直接 `<button>` — 替换为 `Button` — **强制**
-- [§6] `src/features/port-manager/components/PortManagerPageContent.tsx:194` — 直接 `<button>` — 替换为 `Button` — **强制**
-- [§6] `src/features/port-manager/components/PortManagerControls.tsx:111,213,230` — 直接 `<button>` — 替换为 `Button` — **强制**
-- [§6] `src/features/dev-toolbox/page.tsx:375` — 直接 `<button>` — 替换为 `Button` — **强制**
-- [§6] `src/features/dev-cleaner/components/DevCleanerPageContent.tsx:80` — 直接 `<button>` — 替换为 `Button` — **强制**
-- [§6] `src/features/app-manager/components/CategoryFilter.tsx:104,116` — 直接 `<button>` — 替换为 `Button` — **强制**
-- [§6] `src/features/app-manager/components/SoftwareUpdateView.tsx:201` — 直接 `<button>` — 替换为 `Button` — **强制**
-- [§6] `src/features/app-manager/components/AppManagerCatalogView.tsx:155` — 直接 `<button>` — 替换为 `Button` — **强制**
-- [§6] `src/features/app-manager/components/UpdateGroupSection.tsx:55` — 直接 `<button>` — 替换为 `Button` — **强制**
-- [§6] `src/features/token-calculator/components/CompareTab.tsx:282` — 直接 `<button>` — 替换为 `Button` — **强制**
-- [§6] `src/components/common/CloseBehaviorDialog.tsx:83` — 直接 `<button>` — 替换为 `Button` — **强制**
-- [§6] `src/components/layout/Sidebar.tsx:110` — 直接 `<button>` — 替换为 `Button` — **强制**
+- [§6] `src/features/terminology/page.tsx` — 17 处直接使用 `<button>` 而非 `Button` 组件 — 替换为 `Button` — **强制** ✅ 已修复
+- [§6] `src/features/quick-launch/page.tsx` — 7 处直接使用 `<button>` — 替换为 `Button` — **强制** ✅ 已修复
+- [§6] `src/features/account-manager/components/shared.tsx:37` — `IconButton` 内部手写 `<button>` — 改用 `Button` — **强制** ✅ 已修复
+- [§6] `src/features/account-manager/components/DetailColumn.tsx:585,622` — 直接 `<button>` — 替换为 `Button` — **强制** ✅ 已修复
+- [§6] `src/features/account-manager/components/AccountColumn.tsx:278,414` — 直接 `<button>` — 替换为 `Button` — **强制** ✅ 已修复
+- [§6] `src/features/system-settings/page.tsx:905,921,947` — 直接 `<button>` — 替换为 `Button` — **强制** ✅ 已修复
+- [§6] `src/features/port-manager/components/PortManagerPageContent.tsx:194` — 直接 `<button>` — 替换为 `Button` — **强制** ✅ 已修复
+- [§6] `src/features/port-manager/components/PortManagerControls.tsx:111,213,230` — 直接 `<button>` — 替换为 `Button` — **强制** ✅ 已修复
+- [§6] `src/features/dev-toolbox/page.tsx:375` — 直接 `<button>` — 替换为 `Button` — **强制** ✅ 已修复
+- [§6] `src/features/dev-cleaner/components/DevCleanerPageContent.tsx:80` — 直接 `<button>` — 替换为 `Button` — **强制** ✅ 已修复
+- [§6] `src/features/app-manager/components/CategoryFilter.tsx:104,116` — 直接 `<button>` — 替换为 `Button` — **强制** ✅ 已修复
+- [§6] `src/features/app-manager/components/SoftwareUpdateView.tsx:201` — 直接 `<button>` — 替换为 `Button` — **强制** ✅ 已修复
+- [§6] `src/features/app-manager/components/AppManagerCatalogView.tsx:155` — 直接 `<button>` — 替换为 `Button` — **强制** ✅ 已修复
+- [§6] `src/features/app-manager/components/UpdateGroupSection.tsx:55` — 直接 `<button>` — 替换为 `Button` — **强制** ✅ 已修复
+- [§6] `src/features/token-calculator/components/CompareTab.tsx:282` — 直接 `<button>` — 替换为 `Button` — **强制** ✅ 已修复
+- [§6] `src/components/common/CloseBehaviorDialog.tsx:83` — 直接 `<button>` — 替换为 `Button` — **强制** ✅ 已修复
+- [§6] `src/components/layout/Sidebar.tsx:110` — 直接 `<button>` — 替换为 `Button` — **强制** ✅ 已修复
 - [§6] `src/features/dev-toolbox/page.tsx:131,167` — 手写 `<select>` — 替换为 `Select` — **强制**
 - [§6] `src/features/account-manager/components/DetailColumn.tsx:666` — 手写 `<select>` — 替换为 `Select` — **强制**
 - [§6] `src/features/dev-toolbox/page.tsx:84` — 手写 `<textarea>` — 替换为 `Textarea` — **强制**

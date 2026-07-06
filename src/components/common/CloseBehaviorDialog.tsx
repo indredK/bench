@@ -83,10 +83,11 @@ export function CloseBehaviorDialog({ open, onOpenChange, onConfirm }: CloseBeha
             return (
               <Button
                 key={opt.value}
-                variant={isSelected ? "default" : "outline"}
+                variant="outline"
                 onClick={() => setSelected(opt.value)}
                 className={cn(
                   "flex w-full items-start gap-3 p-3 text-left",
+                  isSelected && "border-primary bg-primary/5",
                 )}
               >
                 <span
