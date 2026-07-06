@@ -6,15 +6,13 @@
 > **问题统计**（含本次 session 修复）：
 > | Phase | 强制 | 建议 | 合计 | 已修复 | 待处理 |
 > |-------|:----:|:----:|:----:|:------:|:------:|
-> | Phase 1 — 全局结构与目录规范 | 4 | 6 | 10 | 2 强制 | 2 强制⏳ + 6 建议 |
+> | Phase 1 — 全局结构与目录规范 | 4 | 6 | 10 | 4 强制 | 6 建议 |
 > | Phase 2 — 前端代码与 UI 规范 | 22 | 3 | 25 | 22 强制 | 3 建议 |
 > | Phase 3 — 国际化（i18n） | 3 | 1 | 4 | 3 强制 | 1 建议 |
 > | Phase 4 — 状态管理、异步安全与用户反馈 | 18 | 3 | 21 | 18 强制 | 3 建议 |
 > | Phase 5 — Rust 后端与 IPC 契约 | 10 | 0 | 10 | 10 强制 | 0 |
 > | Phase 6 — 文档对齐与提交规范 | 0 | 1 | 1 | 0 | 1 建议 |
-> | **合计** | **57** | **14** | **71** | **55 强制** | **2 强制⏳ + 14 建议** |
-> >
-> ⏳ = 方案已输出，待人工审批后执行
+> | **合计** | **57** | **14** | **71** | **57 强制** | **14 建议** |
 >
 > **本文件用途**：保留"不计违规决策"与"已评估模式"，供后续 AI 审计参考，**避免重复标记已评估过的问题**。已修复条目的详细记录已移除（commit 历史可查）。
 >
@@ -88,8 +86,8 @@
 
 **强制违规**
 
-- [§2.3] `src-tauri/src/app_preferences/` — 缺少 `types.rs`，Rust 后端类型定义未按规范命名 — 创建 `app_preferences/types.rs` 并迁移类型 — **强制**
-- [§2.3] `src-tauri/src/window_theme/` — 缺少 `types.rs` — 创建 `window_theme/types.rs` 并迁移类型 — **强制**
+- [§2.3] `src-tauri/src/app_preferences/` — 缺少 `types.rs`，Rust 后端类型定义未按规范命名 — 创建 `app_preferences/types.rs` 并迁移类型 — **强制** ✅ 已修复
+- [§2.3] `src-tauri/src/window_theme/` — 缺少 `types.rs` — 创建 `window_theme/types.rs` 并迁移类型 — **强制** ✅ 已修复
 - [§3.4] `src/features/system-settings/components/sections/AppAuthorizeSection.tsx:5` — 静态导入 `@tauri-apps/plugin-notification`（`sendNotification`），平台 API 调用混入视图组件 — 改为通过 `platform/` 封装或 controller 透传 — **强制** ✅ 已修复
 - [§3.4] `src/features/system-settings/components/sections/AppAuthorizeSection.tsx:105` — `platformName !== "macos"` 平台判断散落在 JSX 中 — 使用 `canUseDesktopFeatures()` 替代 — **强制** ✅ 已修复
 
