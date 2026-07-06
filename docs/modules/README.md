@@ -19,7 +19,7 @@
 
 新增模块时：在此目录创建同名文件夹，至少放入 `roadmap.md` 与 `README.md`；推荐每个模块补齐 `features.md`（产品视角功能说明）与 `design.md`（技术设计）。
 
-**Bug 台账**：出现第一条已知 bug 时，从 [`_bugs-template.md`](./_bugs-template.md) 复制建立 `docs/modules/<id>/bugs.md`。由 `/fix` 工作流维护（见 [AI-WORKFLOWS.md](../AI-WORKFLOWS.md)）。无 open bug 的模块可省略。
+**Bug 台账**：出现第一条已知 bug 时，参考 [AI-WORKFLOWS.md](../AI-WORKFLOWS.md) 的 `/fix` 工作流约定建立 `docs/modules/<id>/bugs.md`。无 open bug 的模块可省略。
 
 ---
 
