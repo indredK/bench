@@ -11,7 +11,7 @@ import {
   autoClassifyApps,
   applyOverrides,
   exportFullClassification,
-} from "@/features/quick-launch/scenes"
+} from "@/features/quick-launch/services/quick-launch.use-cases"
 import { launchApp, revealAppInFinder } from "@/lib/tauri/commands/app-manager"
 import { writeTextFile } from "@/lib/tauri/commands/file-ops"
 import { getErrorMessage } from "@/lib/tauri/errors"

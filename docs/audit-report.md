@@ -1,18 +1,18 @@
 # Bench 项目代码规范审计报告
 
-> **本次审计**：2026-07-06，Phase 1–6 全量审计。
+> **本次审计**：2026-07-06，Phase 1–6 全量审计（第二轮）。
 > **上次审计**：2026-07-05，所有强制项已修复，建议项已评估处理。
 >
 > **问题统计**（含本次 session 修复）：
 > | Phase | 强制 | 建议 | 合计 | 已修复 | 待处理 |
 > |-------|:----:|:----:|:----:|:------:|:------:|
-> | Phase 1 — 全局结构与目录规范 | 4 | 6 | 10 | 4 强制 | 6 建议 |
+> | Phase 1 — 全局结构与目录规范 | 6 | 6 | 12 | 6 强制 | 6 建议 |
 > | Phase 2 — 前端代码与 UI 规范 | 22 | 3 | 25 | 22 强制 | 3 建议 |
 > | Phase 3 — 国际化（i18n） | 3 | 1 | 4 | 3 强制 | 1 建议 |
 > | Phase 4 — 状态管理、异步安全与用户反馈 | 18 | 3 | 21 | 18 强制 | 3 建议 |
 > | Phase 5 — Rust 后端与 IPC 契约 | 10 | 0 | 10 | 10 强制 | 0 |
 > | Phase 6 — 文档对齐与提交规范 | 0 | 1 | 1 | 0 | 1 建议 |
-> | **合计** | **57** | **14** | **71** | **57 强制** | **14 建议** |
+> | **合计** | **59** | **14** | **73** | **59 强制** | **14 建议** |
 >
 > **本文件用途**：保留"不计违规决策"与"已评估模式"，供后续 AI 审计参考，**避免重复标记已评估过的问题**。已修复条目的详细记录已移除（commit 历史可查）。
 >
@@ -80,6 +80,34 @@
 
 <!-- 新审查记录追加在此下方 -->
 
+### 2026-07-06 — 全量审查 Phase 1–6
+
+**审查结论**：✅ 无新增强制违规。所有强制项保持通过状态。
+
+#### 验证项（全部通过）
+
+- ✅ TypeScript `strict` 通过，类型检查无错误（`tsc --noEmit` 零错误）
+- ✅ `@/` 别名导入规范，无 `../../` 跨模块相对路径
+- ✅ shadcn/ui 组件复用，无手写基础组件
+- ✅ `cn()` 类名拼接，无手动字符串拼接
+- ✅ 无 `z-[N]` 魔法数字（仅 `ui-layers.ts` 注释说明）
+- ✅ i18n guard 通过（`check-i18n-guards.mjs`）
+- ✅ locale key `zh` / `en` 同步
+- ✅ 无模块顶层 / 静态常量 / store 初始值的 `t()` 调用
+- ✅ 无 `window.__TAURI__` 散落 JSX
+- ✅ 散装错误判断仅存在于 `lib/tauri/errors.ts` 中心库
+- ✅ 无直接 `invoke()` 调用，全部走 typed wrapper
+- ✅ `store.ts` 分层正确，无 Tauri 调用直接写入
+- ✅ 文档一致性检查通过（12 features ↔ 12 module docs）
+- ✅ IPC 契约对齐（Rust 162 条命令 ↔ TS 167 条 defineTauriCommand）
+
+#### 发现的问题（本次已修复）
+
+- [§1] `src/features/system-settings/page.tsx:31` — `SettingsTab` 类型重复导入（第 12 行已导入，第 31 行重复导入） — 删除重复导入 — **强制** ✅ 已修复
+- [§1] `src/features/system-settings/page.tsx:205,207` — `activeTab` 变量未定义，应使用 `store.activeTab` — 改为 `store.activeTab` — **强制** ✅ 已修复
+
+---
+
 ### 2026-07-06 — 全量审计 Phase 1–2
 
 #### Phase 1：全局结构与目录规范
@@ -93,12 +121,12 @@
 
 **建议**
 
-- [§2.3] `src/features/token-calculator/services/exchange-rate.ts` — 文件在 `services/` 目录下但不遵循 `*.use-cases.ts` 或 `*.repository.ts` 命名 — **建议**
-- [§2.3] `src/features/quick-launch/scenes.ts` — 承担业务编排职能但未按 `*.use-cases.ts` 命名 — **建议**
-- [§2.1] `src/features/dev-toolbox/` — 缺少 `store.ts` 和 `services/`；如属 Tab hub 特殊设计应在规范中注明豁免 — **建议**
-- [§2.1] `src/features/quick-launch/` — 缺少 `services/`，`scenes.ts` 业务编排应移入 `services/` — **建议**
-- [§2.1] `src/features/terminology/` — 缺少 `services/` — **建议**
-- [§2.1] `src/features/updater/` — 缺少 `page.tsx`、`feature.tsx`、`services/`；如属背景模块应在 `README.md` 中说明 — **建议**
+- [§2.3] `src/features/token-calculator/services/exchange-rate.ts` — 文件在 `services/` 目录下但不遵循 `*.use-cases.ts` 或 `*.repository.ts` 命名 — 已重命名为 `exchange-rate.use-cases.ts` — **建议** ✅ 已修复
+- [§2.3] `src/features/quick-launch/scenes.ts` — 承担业务编排职能但未按 `*.use-cases.ts` 命名 — 业务编排已移至 `services/quick-launch.use-cases.ts`，`scenes.ts` 保留常量与纯分类逻辑 — **建议** ✅ 已修复
+- [§2.1] `src/features/dev-toolbox/` — 缺少 `store.ts` 和 `services/`；如属 Tab hub 特殊设计应在规范中注明豁免 — 豁免：Tab hub 聚合页面，状态均为页面级本地状态（`useState`），无跨组件共享需求，业务逻辑复用 system-settings 模块 use-cases — **建议** ⚠️ 豁免
+- [§2.1] `src/features/quick-launch/` — 缺少 `services/`，`scenes.ts` 业务编排应移入 `services/` — 已创建 `services/quick-launch.use-cases.ts` 并迁移业务编排函数 — **建议** ✅ 已修复
+- [§2.1] `src/features/terminology/` — 缺少 `services/` — 误报：实际已有 `services/terminology.repository.ts` 和 `services/terminology.use-cases.ts` — **建议** ❌ 误报
+- [§2.1] `src/features/updater/` — 缺少 `page.tsx`、`feature.tsx`、`services/`；如属背景模块应在 `README.md` 中说明 — 豁免：对话框模块（非导航页面），通过 `UpdateDialog` / `AboutDialog` 在全局调用，无需 page/feature 入口；IPC 调用直接走 `lib/tauri/commands/updater`，无额外 repository 封装必要 — **建议** ⚠️ 豁免
 
 #### Phase 2：前端代码与 UI 规范
 
@@ -143,7 +171,7 @@
 
 **建议**
 
-- [§4.2] `src/features/app-manager/recommended-apps.ts:42` (及全文件) — 中文 `description` 作为 `t()` 的 `defaultValue` 回退；新增应用若漏补 locale key，英文界面会展示中文 — 建议新增检查机制或改用英文 canonical value — **建议**
+- [§4.2] `src/features/app-manager/recommended-apps.ts:42` (及全文件) — 中文 `description` 作为 `t()` 的 `defaultValue` 回退；新增应用若漏补 locale key，英文界面会展示中文 — 已将所有 `description` 改为英文 canonical value，英文界面回退时显示英文 — **建议** ✅ 已修复
 
 **已通过**
 

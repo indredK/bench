@@ -14,7 +14,7 @@ import {
 import {
   fetchUsdCnyExchangeRate,
   type ExchangeRateInfo,
-} from "@/features/token-calculator/services/exchange-rate"
+} from "@/features/token-calculator/services/exchange-rate.use-cases"
 import {
   DEFAULT_EXCHANGE_RATE,
   normalizeExchangeRate,
