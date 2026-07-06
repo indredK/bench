@@ -9,6 +9,14 @@ import { Loader2Icon, Code, Network, Monitor, Zap, Trash2, Box, Coins } from "lu
 import { SettingGroup } from "@/components/ui/setting-group"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import type { AppFeature } from "@/features/types"
 import { formatMemory, formatUptime } from "@/lib/utils"
@@ -81,8 +89,8 @@ export default function DevToolbox({ feature }: DevToolboxProps) {
     <div className="space-y-4">
       <SettingGroup title={t("systemSettings.devtools.jsonTitle")}>
         <div className="space-y-2 py-2">
-          <textarea
-            className="bg-muted h-24 w-full rounded p-2 font-mono text-xs"
+          <Textarea
+            className="bg-muted h-24 font-mono text-xs"
             value={jsonInput}
             onChange={(e) => setJsonInput(e.target.value)}
             placeholder={t("systemSettings.devtools.jsonPlaceholder")}
@@ -128,17 +136,18 @@ export default function DevToolbox({ feature }: DevToolboxProps) {
             placeholder={t("systemSettings.devtools.hashPlaceholder")}
           />
           <div className="flex items-center gap-2">
-            <select
-              value={hashAlgo}
-              onChange={(e) => setHashAlgo(e.target.value)}
-              className="rounded border px-2 py-1 text-xs"
-            >
-              <option value="md5">MD5</option>
-              <option value="sha1">SHA1</option>
-              <option value="sha256">SHA256</option>
-              <option value="sha384">SHA384</option>
-              <option value="sha512">SHA512</option>
-            </select>
+            <Select value={hashAlgo} onValueChange={setHashAlgo}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="md5">MD5</SelectItem>
+                <SelectItem value="sha1">SHA1</SelectItem>
+                <SelectItem value="sha256">SHA256</SelectItem>
+                <SelectItem value="sha384">SHA384</SelectItem>
+                <SelectItem value="sha512">SHA512</SelectItem>
+              </SelectContent>
+            </Select>
             <Button variant="outline" size="sm" disabled={applying} onClick={handleHash}>
               {t("systemSettings.devtools.calculate")}
             </Button>
@@ -164,16 +173,17 @@ export default function DevToolbox({ feature }: DevToolboxProps) {
             placeholder={t("systemSettings.devtools.timestampPlaceholder")}
           />
           <div className="flex items-center gap-2">
-            <select
-              value={tsFormat}
-              onChange={(e) => setTsFormat(e.target.value)}
-              className="rounded border px-2 py-1 text-xs"
-            >
-              <option value="datetime">{t("systemSettings.devtools.formatFullDateTime")}</option>
-              <option value="date">{t("systemSettings.devtools.formatDateOnly")}</option>
-              <option value="time">{t("systemSettings.devtools.formatTimeOnly")}</option>
-              <option value="iso">{t("systemSettings.devtools.formatIso")}</option>
-            </select>
+            <Select value={tsFormat} onValueChange={setTsFormat}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="datetime">{t("systemSettings.devtools.formatFullDateTime")}</SelectItem>
+                <SelectItem value="date">{t("systemSettings.devtools.formatDateOnly")}</SelectItem>
+                <SelectItem value="time">{t("systemSettings.devtools.formatTimeOnly")}</SelectItem>
+                <SelectItem value="iso">{t("systemSettings.devtools.formatIso")}</SelectItem>
+              </SelectContent>
+            </Select>
             <Button variant="outline" size="sm" disabled={applying} onClick={handleTimestamp}>
               {t("systemSettings.devtools.convert")}
             </Button>

@@ -30,6 +30,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 
 type SelectedModel = {
   standardId: string
@@ -495,31 +503,31 @@ export function CompareTab({
       )}
 
       {selectedModels.length > 0 && mode === "workload" && (
-        <Card className="overflow-auto p-4">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b">
-                <th className="pb-2 text-left">{t("tokenCalculator.modelName")}</th>
-                <th className="pb-2 text-center">{t("tokenCalculator.compare.cacheHitRate")}</th>
-                <th className="pb-2 text-right">{t("tokenCalculator.compare.inputPriceCol")}</th>
-                <th className="pb-2 text-right">{t("tokenCalculator.compare.cacheWritePriceCol")}</th>
-                <th className="pb-2 text-right">{t("tokenCalculator.compare.cacheReadPriceCol")}</th>
-                <th className="pb-2 text-right">{t("tokenCalculator.compare.outputPriceCol")}</th>
-                <th className="pb-2 text-right">{t("tokenCalculator.compare.totalCost")} (USD / CNY)</th>
-              </tr>
-            </thead>
-            <tbody>
+        <Card className="p-4">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="pb-2 text-left">{t("tokenCalculator.modelName")}</TableHead>
+                <TableHead className="pb-2 text-center">{t("tokenCalculator.compare.cacheHitRate")}</TableHead>
+                <TableHead className="pb-2 text-right">{t("tokenCalculator.compare.inputPriceCol")}</TableHead>
+                <TableHead className="pb-2 text-right">{t("tokenCalculator.compare.cacheWritePriceCol")}</TableHead>
+                <TableHead className="pb-2 text-right">{t("tokenCalculator.compare.cacheReadPriceCol")}</TableHead>
+                <TableHead className="pb-2 text-right">{t("tokenCalculator.compare.outputPriceCol")}</TableHead>
+                <TableHead className="pb-2 text-right">{t("tokenCalculator.compare.totalCost")} (USD / CNY)</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {workloadResults.map((r, i) => {
                 const cheapest = workloadResults[0]?.costUsd ?? 0
                 const costRatio = cheapest > 0 ? r.costUsd / cheapest : 1
                 const hasCache = hasCachePricing(r.model)
                 return (
-                  <tr key={i} className="border-muted border-b last:border-0">
-                    <td className="py-2">
+                  <TableRow key={i}>
+                    <TableCell className="py-2">
                       <span className="font-medium">{r.model.modelName}</span>
                       <span className="text-muted-foreground ml-1.5 text-xs">{r.standardName}</span>
-                    </td>
-                    <td className="py-2 text-center">
+                    </TableCell>
+                    <TableCell className="py-2 text-center">
                       {hasCache ? (
                         <div className="inline-flex items-center gap-0.5">
                           <Input
@@ -538,24 +546,24 @@ export function CompareTab({
                       ) : (
                         <span className="text-muted-foreground text-xs">—</span>
                       )}
-                    </td>
-                    <td className="text-muted-foreground py-2 text-right">
+                    </TableCell>
+                    <TableCell className="text-muted-foreground py-2 text-right">
                       {formatPrice(r.inputPriceConv, displayCurrency)}
-                    </td>
-                    <td className="text-muted-foreground py-2 text-right">
+                    </TableCell>
+                    <TableCell className="text-muted-foreground py-2 text-right">
                       {r.cacheWritePriceConv != null
                         ? formatPrice(r.cacheWritePriceConv, displayCurrency)
                         : "—"}
-                    </td>
-                    <td className="text-muted-foreground py-2 text-right">
+                    </TableCell>
+                    <TableCell className="text-muted-foreground py-2 text-right">
                       {r.cacheReadPriceConv != null
                         ? formatPrice(r.cacheReadPriceConv, displayCurrency)
                         : "—"}
-                    </td>
-                    <td className="text-muted-foreground py-2 text-right">
+                    </TableCell>
+                    <TableCell className="text-muted-foreground py-2 text-right">
                       {formatPrice(r.outputPriceConv, displayCurrency)}
-                    </td>
-                    <td className="py-2 text-right">
+                    </TableCell>
+                    <TableCell className="py-2 text-right">
                       <div className="flex flex-col items-end gap-0.5">
                         <span className="text-muted-foreground text-xs">
                           {formatCost(r.costUsd, "USD")}
@@ -572,41 +580,41 @@ export function CompareTab({
                           {formatCost(r.costCny, "CNY")}
                         </span>
                       </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 )
               })}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </Card>
       )}
 
       {selectedModels.length > 0 && mode === "budget" && (
-        <Card className="overflow-auto p-4">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b">
-                <th className="pb-2 text-left">{t("tokenCalculator.modelName")}</th>
-                <th className="pb-2 text-center">{t("tokenCalculator.compare.cacheHitRate")}</th>
-                <th className="pb-2 text-right">{t("tokenCalculator.compare.inputPriceCol")}</th>
-                <th className="pb-2 text-right">{t("tokenCalculator.compare.cacheWritePriceCol")}</th>
-                <th className="pb-2 text-right">{t("tokenCalculator.compare.cacheReadPriceCol")}</th>
-                <th className="pb-2 text-right">{t("tokenCalculator.compare.outputPriceCol")}</th>
-                <th className="pb-2 text-right">{t("tokenCalculator.compare.maxInputTokens")}</th>
-                <th className="pb-2 text-right">{t("tokenCalculator.compare.maxOutputTokens")}</th>
-                <th className="pb-2 text-right">{t("tokenCalculator.compare.maxMixedTokens")}</th>
-              </tr>
-            </thead>
-            <tbody>
+        <Card className="p-4">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="pb-2 text-left">{t("tokenCalculator.modelName")}</TableHead>
+                <TableHead className="pb-2 text-center">{t("tokenCalculator.compare.cacheHitRate")}</TableHead>
+                <TableHead className="pb-2 text-right">{t("tokenCalculator.compare.inputPriceCol")}</TableHead>
+                <TableHead className="pb-2 text-right">{t("tokenCalculator.compare.cacheWritePriceCol")}</TableHead>
+                <TableHead className="pb-2 text-right">{t("tokenCalculator.compare.cacheReadPriceCol")}</TableHead>
+                <TableHead className="pb-2 text-right">{t("tokenCalculator.compare.outputPriceCol")}</TableHead>
+                <TableHead className="pb-2 text-right">{t("tokenCalculator.compare.maxInputTokens")}</TableHead>
+                <TableHead className="pb-2 text-right">{t("tokenCalculator.compare.maxOutputTokens")}</TableHead>
+                <TableHead className="pb-2 text-right">{t("tokenCalculator.compare.maxMixedTokens")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {budgetResults.map((r, i) => {
                 const hasCache = hasCachePricing(r.model)
                 return (
-                  <tr key={i} className="border-muted border-b last:border-0">
-                    <td className="py-2">
+                  <TableRow key={i}>
+                    <TableCell className="py-2">
                       <span className="font-medium">{r.model.modelName}</span>
                       <span className="text-muted-foreground ml-1.5 text-xs">{r.standardName}</span>
-                    </td>
-                    <td className="py-2 text-center">
+                    </TableCell>
+                    <TableCell className="py-2 text-center">
                       {hasCache ? (
                         <div className="inline-flex items-center gap-0.5">
                           <Input
@@ -625,37 +633,37 @@ export function CompareTab({
                       ) : (
                         <span className="text-muted-foreground text-xs">—</span>
                       )}
-                    </td>
-                    <td className="text-muted-foreground py-2 text-right">
+                    </TableCell>
+                    <TableCell className="text-muted-foreground py-2 text-right">
                       {formatPrice(r.inputPriceConv, displayCurrency)}
-                    </td>
-                    <td className="text-muted-foreground py-2 text-right">
+                    </TableCell>
+                    <TableCell className="text-muted-foreground py-2 text-right">
                       {r.cacheWritePriceConv != null
                         ? formatPrice(r.cacheWritePriceConv, displayCurrency)
                         : "—"}
-                    </td>
-                    <td className="text-muted-foreground py-2 text-right">
+                    </TableCell>
+                    <TableCell className="text-muted-foreground py-2 text-right">
                       {r.cacheReadPriceConv != null
                         ? formatPrice(r.cacheReadPriceConv, displayCurrency)
                         : "—"}
-                    </td>
-                    <td className="text-muted-foreground py-2 text-right">
+                    </TableCell>
+                    <TableCell className="text-muted-foreground py-2 text-right">
                       {formatPrice(r.outputPriceConv, displayCurrency)}
-                    </td>
-                    <td className="py-2 text-right">
+                    </TableCell>
+                    <TableCell className="py-2 text-right">
                       {r.maxInput === Number.MAX_SAFE_INTEGER ? "∞" : r.maxInput.toLocaleString()}
-                    </td>
-                    <td className="py-2 text-right">
+                    </TableCell>
+                    <TableCell className="py-2 text-right">
                       {r.maxOutput === Number.MAX_SAFE_INTEGER ? "∞" : r.maxOutput.toLocaleString()}
-                    </td>
-                    <td className="py-2 text-right font-semibold">
+                    </TableCell>
+                    <TableCell className="py-2 text-right font-semibold">
                       {r.maxMixed === Number.MAX_SAFE_INTEGER ? "∞" : r.maxMixed.toLocaleString()}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 )
               })}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </Card>
       )}
 

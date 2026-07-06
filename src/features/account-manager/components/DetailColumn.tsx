@@ -16,6 +16,13 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import type {
@@ -664,28 +671,25 @@ function AuthProfilePanel({
       </div>
 
       <div className="flex items-center gap-2">
-        <select
-          value={strategy}
-          onChange={(e) => handleStrategyChange(e.target.value)}
-          disabled={settingStrategy}
-          className="border-border bg-muted/50 text-foreground h-7 flex-1 rounded border px-2 text-[11px] outline-none focus:border-blue-400"
-        >
-          <option value="auto">
-            {t("accountManager.sessionManager.authProfile.probeStrategyAuto")}
-          </option>
-          <option value="httpFirst">
-            {t("accountManager.sessionManager.authProfile.probeStrategyHttpFirst")}
-          </option>
-          <option value="httpOnly">
-            {t("accountManager.sessionManager.authProfile.probeStrategyHttpOnly")}
-          </option>
-          <option value="webviewOnly">
-            {t("accountManager.sessionManager.authProfile.probeStrategyWebviewOnly")}
-          </option>
-          <option value="hybrid">
-            {t("accountManager.sessionManager.authProfile.probeStrategyHybrid")}
-          </option>
-        </select>
+        <Select value={strategy} onValueChange={handleStrategyChange} disabled={settingStrategy}>
+          <SelectTrigger className="h-7 text-[11px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="auto">
+              {t("accountManager.sessionManager.authProfile.probeStrategyAuto")}
+            </SelectItem>
+            <SelectItem value="httpFirst">
+              {t("accountManager.sessionManager.authProfile.probeStrategyHttpFirst")}
+            </SelectItem>
+            <SelectItem value="httpOnly">
+              {t("accountManager.sessionManager.authProfile.probeStrategyHttpOnly")}
+            </SelectItem>
+            <SelectItem value="webviewOnly">
+              {t("accountManager.sessionManager.authProfile.probeStrategyWebviewOnly")}
+            </SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {isOverridden && (
