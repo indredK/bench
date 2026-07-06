@@ -1,28 +1,29 @@
 import { create } from "zustand"
 
+import type { Industry, Term, TermInput } from "./services/terminology.repository"
 import {
-  createCategory,
-  createIndustry,
-  createSubcategory,
-  createTerm,
-  deleteCategory,
-  deleteIndustry,
-  deleteSubcategory,
-  deleteTerm,
-  listTerminologyData,
-  setTermPinned as setTermPinnedCommand,
-  updateCategory,
-  updateIndustry,
-  updateSubcategory,
-  updateTerm,
-} from "@/lib/tauri/commands/terminology"
-import {
-  FRONTEND_CATEGORY_ID,
   FRONTEND_INDUSTRY_ID,
+  FRONTEND_CATEGORY_ID,
   UNCLASSIFIED_SUBCATEGORY_ID,
-  isUnclassifiedSubcategoryId,
 } from "./constants"
-import type { Industry, Term, TermInput } from "./types"
+import {
+  validateSelection,
+  getFilteredTerms,
+  loadData,
+  addIndustry as addIndustryUC,
+  updateIndustry as updateIndustryUC,
+  deleteIndustry as deleteIndustryUC,
+  addCategory as addCategoryUC,
+  updateCategory as updateCategoryUC,
+  deleteCategory as deleteCategoryUC,
+  addSubcategory as addSubcategoryUC,
+  updateSubcategory as updateSubcategoryUC,
+  deleteSubcategory as deleteSubcategoryUC,
+  addTerm as addTermUC,
+  updateTerm as updateTermUC,
+  deleteTerm as deleteTermUC,
+  setTermPinned as setTermPinnedUC,
+} from "./services/terminology.use-cases"
 
 interface TerminologyState {
   industries: Industry[]
@@ -70,67 +71,24 @@ interface TerminologyState {
   filteredTerms: () => Term[]
 }
 
-function syncSelection(
-  industries: Industry[],
-  preferredIndustryId: string,
-  preferredCategoryId: string,
-  preferredSubcategoryId: string,
-) {
-  const selectedIndustryId = industries.some((industry) => industry.id === preferredIndustryId)
-    ? preferredIndustryId
-    : (industries[0]?.id ?? "")
-  const selectedIndustry = industries.find((industry) => industry.id === selectedIndustryId)
-  const selectedCategoryId = selectedIndustry?.categories.some(
-    (category) => category.id === preferredCategoryId,
-  )
-    ? preferredCategoryId
-    : ""
-  const selectedCategory = selectedIndustry?.categories.find(
-    (category) => category.id === selectedCategoryId,
-  )
-  const selectedSubcategoryId = selectedCategory?.subcategories.some(
-    (subcategory) => subcategory.id === preferredSubcategoryId,
-  )
-    ? preferredSubcategoryId
-    : ""
-
-  return { selectedIndustryId, selectedCategoryId, selectedSubcategoryId }
-}
-
-function matchesSelectedSubcategory(
-  termSubcategoryId: string | null | undefined,
-  selectedSubcategoryId: string,
-) {
-  if (!selectedSubcategoryId) return true
-  if (selectedSubcategoryId === UNCLASSIFIED_SUBCATEGORY_ID) {
-    return isUnclassifiedSubcategoryId(termSubcategoryId)
-  }
-  return termSubcategoryId === selectedSubcategoryId
-}
-
-async function reloadFromBackend(
-  set: (partial: Partial<TerminologyState>) => void,
-  get: () => TerminologyState,
+function stateFromData(
+  data: { industries: Industry[]; terms: Term[]; pinnedTermIds: string[] },
   preferredIndustryId?: string,
   preferredCategoryId?: string,
   preferredSubcategoryId?: string,
 ) {
-  const data = await listTerminologyData()
-  const selection = syncSelection(
+  const selection = validateSelection(
     data.industries,
-    preferredIndustryId ?? get().selectedIndustryId,
-    preferredCategoryId ?? get().selectedCategoryId,
-    preferredSubcategoryId ?? get().selectedSubcategoryId,
+    preferredIndustryId ?? data.industries[0]?.id ?? "",
+    preferredCategoryId ?? "",
+    preferredSubcategoryId ?? "",
   )
-  set({
+  return {
     industries: data.industries,
     terms: data.terms,
     pinnedTermIds: data.pinnedTermIds,
-    selectedIndustryId: selection.selectedIndustryId,
-    selectedCategoryId: selection.selectedCategoryId,
-    selectedSubcategoryId: selection.selectedSubcategoryId,
-    isLoading: false,
-  })
+    ...selection,
+  }
 }
 
 export const useTerminologyStore = create<TerminologyState>((set, get) => ({
@@ -147,7 +105,8 @@ export const useTerminologyStore = create<TerminologyState>((set, get) => ({
   hydrate: async () => {
     set({ isLoading: true, loadError: null })
     try {
-      await reloadFromBackend(set, get)
+      const data = await loadData()
+      set({ ...stateFromData(data), isLoading: false })
     } catch (error) {
       const message =
         typeof error === "object" &&
@@ -192,104 +151,82 @@ export const useTerminologyStore = create<TerminologyState>((set, get) => ({
   setSearch: (q) => set({ searchQuery: q }),
 
   addIndustry: async (label) => {
-    const created = await createIndustry(label)
-    await reloadFromBackend(set, get, created.id, "")
+    const { created, data } = await addIndustryUC(label)
+    set({ ...stateFromData(data, created.id, "", ""), isLoading: false })
     return created.id
   },
   updateIndustry: async (id, label) => {
-    await updateIndustry(id, label)
-    await reloadFromBackend(set, get)
+    const data = await updateIndustryUC(id, label)
+    set({ ...stateFromData(data, id), isLoading: false })
   },
   deleteIndustry: async (id) => {
-    await deleteIndustry(id)
-    await reloadFromBackend(set, get)
+    const data = await deleteIndustryUC(id)
+    set({ ...stateFromData(data), isLoading: false })
   },
 
   addCategory: async (industryId, label) => {
-    const created = await createCategory(industryId, label)
-    await reloadFromBackend(set, get, industryId, created.id, "")
+    const { created, data } = await addCategoryUC(industryId, label)
+    set({ ...stateFromData(data, industryId, created.id, ""), isLoading: false })
     return created.id
   },
   updateCategory: async (industryId, catId, label) => {
-    await updateCategory(industryId, catId, label)
-    await reloadFromBackend(set, get)
+    const data = await updateCategoryUC(industryId, catId, label)
+    set({ ...stateFromData(data, industryId, catId), isLoading: false })
   },
   deleteCategory: async (industryId, catId) => {
-    await deleteCategory(industryId, catId)
-    await reloadFromBackend(set, get, industryId, "", "")
+    const data = await deleteCategoryUC(industryId, catId)
+    set({ ...stateFromData(data, industryId, "", ""), isLoading: false })
   },
   addSubcategory: async (industryId, categoryId, label) => {
-    const created = await createSubcategory(industryId, categoryId, label)
-    await reloadFromBackend(set, get, industryId, categoryId, created.id)
+    const { created, data } = await addSubcategoryUC(industryId, categoryId, label)
+    set({ ...stateFromData(data, industryId, categoryId, created.id), isLoading: false })
     return created.id
   },
   updateSubcategory: async (industryId, categoryId, subcategoryId, label) => {
-    await updateSubcategory(industryId, categoryId, subcategoryId, label)
-    await reloadFromBackend(set, get)
+    const data = await updateSubcategoryUC(industryId, categoryId, subcategoryId, label)
+    set({ ...stateFromData(data, industryId, categoryId, subcategoryId), isLoading: false })
   },
   deleteSubcategory: async (industryId, categoryId, subcategoryId) => {
-    await deleteSubcategory(industryId, categoryId, subcategoryId)
-    await reloadFromBackend(
-      set,
-      get,
-      industryId,
-      categoryId,
+    const data = await deleteSubcategoryUC(industryId, categoryId, subcategoryId)
+    const preferredSubcategoryId =
       industryId === FRONTEND_INDUSTRY_ID && categoryId === FRONTEND_CATEGORY_ID
         ? UNCLASSIFIED_SUBCATEGORY_ID
-        : "",
-    )
+        : ""
+    set({
+      ...stateFromData(data, industryId, categoryId, preferredSubcategoryId),
+      isLoading: false,
+    })
   },
 
   addTerm: async (term) => {
-    const created = await createTerm(term)
-    await reloadFromBackend(
-      set,
-      get,
-      created.industryId,
-      created.categoryId,
-      created.subcategoryId ?? "",
-    )
+    const { created, data } = await addTermUC(term)
+    set({
+      ...stateFromData(data, created.industryId, created.categoryId, created.subcategoryId ?? ""),
+      isLoading: false,
+    })
   },
   updateTerm: async (term) => {
-    await updateTerm(term)
-    await reloadFromBackend(set, get)
+    const data = await updateTermUC(term)
+    set({ ...stateFromData(data), isLoading: false })
   },
   deleteTerm: async (id) => {
-    await deleteTerm(id)
-    await reloadFromBackend(set, get)
+    const data = await deleteTermUC(id)
+    set({ ...stateFromData(data), isLoading: false })
   },
   setTermPinned: async (id, value) => {
-    await setTermPinnedCommand(id, value)
-    await reloadFromBackend(set, get)
+    const data = await setTermPinnedUC(id, value)
+    set({ ...stateFromData(data), isLoading: false })
   },
 
   filteredTerms: () => {
-    const {
-      terms,
-      pinnedTermIds,
-      selectedIndustryId,
-      selectedCategoryId,
-      selectedSubcategoryId,
-      searchQuery,
-    } = get()
-    const pinnedSet = new Set(pinnedTermIds)
-    return terms
-      .filter((term) => {
-        if (term.industryId !== selectedIndustryId) return false
-        if (selectedCategoryId && term.categoryId !== selectedCategoryId) return false
-        if (!matchesSelectedSubcategory(term.subcategoryId, selectedSubcategoryId)) return false
-        if (searchQuery) {
-          const q = searchQuery.toLowerCase()
-          return term.title.toLowerCase().includes(q) || term.description.toLowerCase().includes(q)
-        }
-        return true
-      })
-      .sort((a, b) => {
-        const aPinned = pinnedSet.has(a.id) ? 1 : 0
-        const bPinned = pinnedSet.has(b.id) ? 1 : 0
-        if (aPinned !== bPinned) return bPinned - aPinned
-
-        return a.title.localeCompare(b.title, "zh-Hans-CN")
-      })
+    const s = get()
+    return getFilteredTerms({
+      terms: s.terms,
+      pinnedTermIds: s.pinnedTermIds,
+      selectedIndustryId: s.selectedIndustryId,
+      selectedCategoryId: s.selectedCategoryId,
+      selectedSubcategoryId: s.selectedSubcategoryId,
+      searchQuery: s.searchQuery,
+    })
   },
 }))

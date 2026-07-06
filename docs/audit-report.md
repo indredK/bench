@@ -9,10 +9,10 @@
 > | Phase 1 — 全局结构与目录规范 | 4 | 6 | 10 | 2 强制 | 2 强制⏳ + 6 建议 |
 > | Phase 2 — 前端代码与 UI 规范 | 22 | 3 | 25 | 22 强制 | 3 建议 |
 > | Phase 3 — 国际化（i18n） | 3 | 1 | 4 | 3 强制 | 1 建议 |
-> | Phase 4 — 状态管理、异步安全与用户反馈 | 18 | 3 | 21 | 14 强制 | 4 强制⏳ + 3 建议 |
+> | Phase 4 — 状态管理、异步安全与用户反馈 | 18 | 3 | 21 | 18 强制 | 3 建议 |
 > | Phase 5 — Rust 后端与 IPC 契约 | 10 | 0 | 10 | 10 强制 | 0 |
 > | Phase 6 — 文档对齐与提交规范 | 0 | 1 | 1 | 0 | 1 建议 |
-> | **合计** | **57** | **14** | **71** | **51 强制** | **6 强制⏳ + 14 建议** |
+> | **合计** | **57** | **14** | **71** | **55 强制** | **2 强制⏳ + 14 建议** |
 > >
 > ⏳ = 方案已输出，待人工审批后执行
 >
@@ -157,10 +157,7 @@
 
 **强制违规**
 
-- [§3.1] `src/features/terminology/store.ts:4-18` — store 直接导入并调用 14+ 个 Tauri 命令（`createIndustry`、`deleteTerm` 等），应委派到 `*repository.ts` — **强制** ⏳ 方案已输出，待人工审批（`docs/refactor-terminology-store.md`）
-- [§3.1] `src/features/terminology/store.ts:111-134` — `reloadFromBackend()` 含复杂业务编排（数据加载、选择同步、状态更新），应放入 `*.use-cases.ts` — **强制** ⏳ 同上
-- [§3.1] `src/features/terminology/store.ts:194-264` — store actions（`addIndustry`、`updateCategory`、`deleteTerm` 等）直接做 IPC 调用后 `reloadFromBackend()`，属于业务编排 — **强制** ⏳ 同上
-- [§3.1] `src/features/terminology/store.ts:266-294` — `filteredTerms()` 含复杂筛选/排序逻辑（行业/分类/子分类/搜索 + pinned 优先 + localeCompare），应移至 selector 或 controller 的 `useMemo` — **强制** ⏳ 同上
+- [§3.1] `src/features/terminology/store.ts` (原 295 行) — store 直接导入并调用 Tauri 命令 + 含 `reloadFromBackend` 编排 + 含 `filteredTerms` 筛选/排序逻辑 — 已拆分为 `services/terminology.repository.ts` 纯代理 + `services/terminology.use-cases.ts` 编排 + `store.ts` 瘦身保留状态与轻量绑定 — **强制** ✅ 已修复
 - [§3.2] `src/features/system-settings/page.tsx:67` — `const store = useSystemSettingsStore()` 无 selector 订阅整 store，任意字段更新都会触发重渲染 — 改用 `useShallow` — **强制** ✅ 已修复
 - [§3.2] `src/features/terminology/page.tsx:204` — `const { industries, addTerm, updateTerm, deleteTerm } = useTerminologyStore()` 无 selector 订阅整 store — 改用精细 selector — **强制** ✅ 已修复
 - [§3.2] `src/features/terminology/page.tsx:458` — 同上模式，无 selector 订阅整 store — **强制** ✅ 已修复
