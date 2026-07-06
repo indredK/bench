@@ -33,22 +33,17 @@ impl AppError {
         Self::new("INTERNAL", message)
     }
 
-    // 以下三个构造器属于共享错误词汇，供其它模块逐步迁移到 AppError 时使用，
-    // 当前尚无内部调用方，先 allow(dead_code) 保留完整 API。
     /// 入参非法（校验失败）。
-    #[allow(dead_code)]
     pub fn invalid_input(message: impl Into<String>) -> Self {
         Self::new("INVALID_INPUT", message)
     }
 
     /// 目标资源不存在。
-    #[allow(dead_code)]
     pub fn not_found(message: impl Into<String>) -> Self {
         Self::new("NOT_FOUND", message)
     }
 
     /// 当前平台/环境不支持该操作。
-    #[allow(dead_code)]
     pub fn unsupported(message: impl Into<String>) -> Self {
         Self::new("UNSUPPORTED", message)
     }

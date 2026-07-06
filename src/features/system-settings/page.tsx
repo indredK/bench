@@ -9,7 +9,8 @@ import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { Loader2Icon, ExternalLink, FolderOpen, Search, X } from "lucide-react"
 import { systemSettingsUseCases } from "@/features/system-settings/services/system-settings.use-cases"
-import { useSystemSettingsStore } from "@/features/system-settings/store"
+import { useSystemSettingsStore, type SettingsTab } from "@/features/system-settings/store"
+import { useShallow } from "zustand/react/shallow"
 import { useSettingAction } from "@/features/system-settings/hooks/useSettingAction"
 import { SettingToggle } from "./components/SettingToggle"
 import { SettingGroup } from "@/components/ui/setting-group"
@@ -64,8 +65,58 @@ interface SystemSettingsProps {
 
 export default function SystemSettings(_props: SystemSettingsProps) {
   const { t } = useTranslation()
-  const store = useSystemSettingsStore()
-  const activeTab = useSystemSettingsStore((s) => s.activeTab)
+  const store = useSystemSettingsStore(
+    useShallow((s) => ({
+      activeTab: s.activeTab,
+      autohideDock: s.autohideDock,
+      dockShowRecents: s.dockShowRecents,
+      hideDesktopIcons: s.hideDesktopIcons,
+      autohideMenuBar: s.autohideMenuBar,
+      screenshotDisableShadow: s.screenshotDisableShadow,
+      screenshotShowThumbnail: s.screenshotShowThumbnail,
+      screenshotFormat: s.screenshotFormat,
+      screenshotSaveLocation: s.screenshotSaveLocation,
+      networkFirewall: s.networkFirewall,
+      networkSsh: s.networkSsh,
+      networkScreenSharing: s.networkScreenSharing,
+      networkAirdropDisabled: s.networkAirdropDisabled,
+      gatekeeper: s.gatekeeper,
+      finderShowHiddenFiles: s.finderShowHiddenFiles,
+      finderShowPathbar: s.finderShowPathbar,
+      finderShowStatusbar: s.finderShowStatusbar,
+      finderShowLibraryDir: s.finderShowLibraryDir,
+      finderShowFileExtensions: s.finderShowFileExtensions,
+      finderNoDsStore: s.finderNoDsStore,
+      lowPowerMode: s.lowPowerMode,
+      screenSaver: s.screenSaver,
+      defaultBrowser: s.defaultBrowser,
+      applyingKeys: s.applyingKeys,
+      loginItems: s.loginItems,
+      setActiveTab: s.setActiveTab,
+      setAutohideDock: s.setAutohideDock,
+      setDockShowRecents: s.setDockShowRecents,
+      setHideDesktopIcons: s.setHideDesktopIcons,
+      setAutohideMenuBar: s.setAutohideMenuBar,
+      setScreenshotDisableShadow: s.setScreenshotDisableShadow,
+      setScreenshotShowThumbnail: s.setScreenshotShowThumbnail,
+      setScreenshotFormat: s.setScreenshotFormat,
+      setScreenshotSaveLocation: s.setScreenshotSaveLocation,
+      setNetworkFirewall: s.setNetworkFirewall,
+      setNetworkSsh: s.setNetworkSsh,
+      setNetworkScreenSharing: s.setNetworkScreenSharing,
+      setNetworkAirdropDisabled: s.setNetworkAirdropDisabled,
+      setFinderShowHiddenFiles: s.setFinderShowHiddenFiles,
+      setFinderShowPathbar: s.setFinderShowPathbar,
+      setFinderShowStatusbar: s.setFinderShowStatusbar,
+      setFinderShowLibraryDir: s.setFinderShowLibraryDir,
+      setFinderShowFileExtensions: s.setFinderShowFileExtensions,
+      setFinderNoDsStore: s.setFinderNoDsStore,
+      setLowPowerMode: s.setLowPowerMode,
+      setScreenSaver: s.setScreenSaver,
+      setDefaultBrowser: s.setDefaultBrowser,
+      setLoginItems: s.setLoginItems,
+    })),
+  )
   const { run } = useSettingAction()
 
   // ── State for System tab (Login items) ──

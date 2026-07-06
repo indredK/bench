@@ -3,23 +3,18 @@
 > **本次审计**：2026-07-06，Phase 1–6 全量审计。
 > **上次审计**：2026-07-05，所有强制项已修复，建议项已评估处理。
 >
-> **问题统计**：
-> | Phase | 强制 | 建议 | 合计 |
-> |-------|:----:|:----:|:----:|
-> | Phase 1 — 全局结构与目录规范 | 4 | 6 | 10 |
-> | Phase 2 — 前端代码与 UI 规范 | 22 | 3 | 25 |
-> | Phase 3 — 国际化（i18n） | 3 | 1 | 4 |
-> | Phase 4 — 状态管理、异步安全与用户反馈 | 18 | 3 | 21 |
-> | Phase 5 — Rust 后端与 IPC 契约 | 10 | 0 | 10 |
-> | Phase 6 — 文档对齐与提交规范 | 0 | 1 | 1 |
-> | **合计** | **57** | **14** | **71** |
->
-> **按规范章节分布（Top 5）**：
-> - §6 UI 与性能：22 强制 + 3 建议
-> - §7 Rust 后端：10 强制
-> - §3 状态与异步：12 强制 + 3 建议
-> - §5 用户反馈：4 强制
-> - §4 国际化：3 强制 + 1 建议
+> **问题统计**（含本次 session 修复）：
+> | Phase | 强制 | 建议 | 合计 | 已修复 | 待处理 |
+> |-------|:----:|:----:|:----:|:------:|:------:|
+> | Phase 1 — 全局结构与目录规范 | 4 | 6 | 10 | 2 强制 | 2 强制⏳ + 6 建议 |
+> | Phase 2 — 前端代码与 UI 规范 | 22 | 3 | 25 | 22 强制 | 3 建议 |
+> | Phase 3 — 国际化（i18n） | 3 | 1 | 4 | 3 强制 | 1 建议 |
+> | Phase 4 — 状态管理、异步安全与用户反馈 | 18 | 3 | 21 | 14 强制 | 4 强制⏳ + 3 建议 |
+> | Phase 5 — Rust 后端与 IPC 契约 | 10 | 0 | 10 | 10 强制 | 0 |
+> | Phase 6 — 文档对齐与提交规范 | 0 | 1 | 1 | 0 | 1 建议 |
+> | **合计** | **57** | **14** | **71** | **51 强制** | **6 强制⏳ + 14 建议** |
+> >
+> ⏳ = 方案已输出，待人工审批后执行
 >
 > **本文件用途**：保留"不计违规决策"与"已评估模式"，供后续 AI 审计参考，**避免重复标记已评估过的问题**。已修复条目的详细记录已移除（commit 历史可查）。
 >
@@ -128,10 +123,10 @@
 - [§6] `src/features/token-calculator/components/CompareTab.tsx:282` — 直接 `<button>` — 替换为 `Button` — **强制** ✅ 已修复
 - [§6] `src/components/common/CloseBehaviorDialog.tsx:83` — 直接 `<button>` — 替换为 `Button` — **强制** ✅ 已修复
 - [§6] `src/components/layout/Sidebar.tsx:110` — 直接 `<button>` — 替换为 `Button` — **强制** ✅ 已修复
-- [§6] `src/features/dev-toolbox/page.tsx:131,167` — 手写 `<select>` — 替换为 `Select` — **强制**
-- [§6] `src/features/account-manager/components/DetailColumn.tsx:666` — 手写 `<select>` — 替换为 `Select` — **强制**
-- [§6] `src/features/dev-toolbox/page.tsx:84` — 手写 `<textarea>` — 替换为 `Textarea` — **强制**
-- [§6] `src/features/token-calculator/components/CompareTab.tsx:498,585` — 手写 `<table>` — 替换为 `Table` — **强制**
+- [§6] `src/features/dev-toolbox/page.tsx:131,167` — 手写 `<select>` — 替换为 `Select` — **强制** ✅ 已修复
+- [§6] `src/features/account-manager/components/DetailColumn.tsx:666` — 手写 `<select>` — 替换为 `Select` — **强制** ✅ 已修复
+- [§6] `src/features/dev-toolbox/page.tsx:84` — 手写 `<textarea>` — 替换为 `Textarea` — **强制** ✅ 已修复
+- [§6] `src/features/token-calculator/components/CompareTab.tsx:498,585` — 手写 `<table>` — 替换为 `Table` — **强制** ✅ 已修复
 - [§6] `src/components/common/CloseBehaviorDialog.tsx:87-92,96-100` — 使用 `.join(" ")` 手动拼接 className，未用 `cn()` — 替换为 `cn(...)` — **强制** ✅ 已修复
 
 **建议**
@@ -162,24 +157,24 @@
 
 **强制违规**
 
-- [§3.1] `src/features/terminology/store.ts:4-18` — store 直接导入并调用 14+ 个 Tauri 命令（`createIndustry`、`deleteTerm` 等），应委派到 `*repository.ts` — **强制**
-- [§3.1] `src/features/terminology/store.ts:111-134` — `reloadFromBackend()` 含复杂业务编排（数据加载、选择同步、状态更新），应放入 `*.use-cases.ts` — **强制**
-- [§3.1] `src/features/terminology/store.ts:194-264` — store actions（`addIndustry`、`updateCategory`、`deleteTerm` 等）直接做 IPC 调用后 `reloadFromBackend()`，属于业务编排 — **强制**
-- [§3.1] `src/features/terminology/store.ts:266-294` — `filteredTerms()` 含复杂筛选/排序逻辑（行业/分类/子分类/搜索 + pinned 优先 + localeCompare），应移至 selector 或 controller 的 `useMemo` — **强制**
-- [§3.2] `src/features/system-settings/page.tsx:67` — `const store = useSystemSettingsStore()` 无 selector 订阅整 store，任意字段更新都会触发重渲染 — 改用 `useShallow` 或精细 selector — **强制**
-- [§3.2] `src/features/terminology/page.tsx:204` — `const { industries, addTerm, updateTerm, deleteTerm } = useTerminologyStore()` 无 selector 订阅整 store — 改用精细 selector — **强制**
-- [§3.2] `src/features/terminology/page.tsx:458` — 同上模式，无 selector 订阅整 store — **强制**
+- [§3.1] `src/features/terminology/store.ts:4-18` — store 直接导入并调用 14+ 个 Tauri 命令（`createIndustry`、`deleteTerm` 等），应委派到 `*repository.ts` — **强制** ⏳ 方案已输出，待人工审批（`docs/refactor-terminology-store.md`）
+- [§3.1] `src/features/terminology/store.ts:111-134` — `reloadFromBackend()` 含复杂业务编排（数据加载、选择同步、状态更新），应放入 `*.use-cases.ts` — **强制** ⏳ 同上
+- [§3.1] `src/features/terminology/store.ts:194-264` — store actions（`addIndustry`、`updateCategory`、`deleteTerm` 等）直接做 IPC 调用后 `reloadFromBackend()`，属于业务编排 — **强制** ⏳ 同上
+- [§3.1] `src/features/terminology/store.ts:266-294` — `filteredTerms()` 含复杂筛选/排序逻辑（行业/分类/子分类/搜索 + pinned 优先 + localeCompare），应移至 selector 或 controller 的 `useMemo` — **强制** ⏳ 同上
+- [§3.2] `src/features/system-settings/page.tsx:67` — `const store = useSystemSettingsStore()` 无 selector 订阅整 store，任意字段更新都会触发重渲染 — 改用 `useShallow` — **强制** ✅ 已修复
+- [§3.2] `src/features/terminology/page.tsx:204` — `const { industries, addTerm, updateTerm, deleteTerm } = useTerminologyStore()` 无 selector 订阅整 store — 改用精细 selector — **强制** ✅ 已修复
+- [§3.2] `src/features/terminology/page.tsx:458` — 同上模式，无 selector 订阅整 store — **强制** ✅ 已修复
 - [§3.3] `src/features/dev-cleaner/hooks/useDevCleanerController.ts:67-101` — `handleScan` 无重入保护，未检查 `isScanning` — 加 early return — **强制** ✅ 已修复
 - [§3.3] `src/features/updater/hooks/useUpdaterController.ts:54-93` — `checkUpdates` 无重入保护 — **强制** ✅ 已修复
 - [§3.3] `src/features/updater/hooks/useUpdaterController.ts:95-128` — `downloadAndInstall` 无重入保护 — **强制** ✅ 已修复
-- [§3.3] `src/features/dev-cleaner/components/CustomCleanupDialog.tsx:83-134` — `handleStartCleanup` 无程序化重入保护 — **强制**
-- [§3.3] `src/features/terminology/page.tsx:228-287` — 术语表单 `handleSave` 无防重复提交保护 — **强制** ✅ 已修复 ✅ 已修复
-- [§3.3] `src/features/dev-cleaner/components/CustomCleanupDialog.tsx` — 注册平台事件监听后无 `useEffect` 卸载清理，组件卸载时监听器泄漏 — **强制**
-- [§5] `src/features/quick-launch/hooks/useQuickLaunchController.ts:229-235` — `handleResetOverrides` 静默重置覆盖数据，无成功/失败反馈 — 加 toast — **强制**
-- [§5] `src/features/terminology/page.tsx:504-527` — `handleAddInd`/`handleAddCat`/`handleAddSubcat` 成功时无 toast 反馈 — **强制**
-- [§5] `src/features/quick-launch/hooks/useQuickLaunchController.ts:229-235` — `handleResetOverrides` 立即执行无二次确认，可撤销所有用户自定义分类 — 应使用 `DestructiveConfirmDialog` — **强制**
-- [§5] `src/features/dev-cleaner/components/CustomCleanupDialog.tsx:205-209` — 清理操作可删除文件但未使用 `DestructiveConfirmDialog` — **强制**
-- [§5] `src/features/terminology/page.tsx:891-909` — 行业/分类/子分类删除用普通 `Dialog` 而非 `DestructiveConfirmDialog` — **强制**
+- [§3.3] `src/features/dev-cleaner/components/CustomCleanupDialog.tsx:83-134` — `handleStartCleanup` 无程序化重入保护 — **强制** ✅ 已修复
+- [§3.3] `src/features/terminology/page.tsx:228-287` — 术语表单 `handleSave` 无防重复提交保护 — **强制** ✅ 已修复
+- [§3.3] `src/features/dev-cleaner/components/CustomCleanupDialog.tsx` — 注册平台事件监听后无 `useEffect` 卸载清理，组件卸载时监听器泄漏 — **强制** ✅ 已修复
+- [§5] `src/features/quick-launch/hooks/useQuickLaunchController.ts:229-235` — `handleResetOverrides` 静默重置覆盖数据，无成功/失败反馈 — 加 toast — **强制** ✅ 已修复
+- [§5] `src/features/terminology/page.tsx:504-527` — `handleAddInd`/`handleAddCat`/`handleAddSubcat` 成功时无 toast 反馈 — **强制** ✅ 已修复
+- [§5] `src/features/quick-launch/hooks/useQuickLaunchController.ts:229-235` — `handleResetOverrides` 立即执行无二次确认，可撤销所有用户自定义分类 — 应使用 `DestructiveConfirmDialog` — **强制** ✅ 已修复
+- [§5] `src/features/dev-cleaner/components/CustomCleanupDialog.tsx:205-209` — 清理操作可删除文件但未使用 `DestructiveConfirmDialog` — **强制** ✅ 已修复
+- [§5] `src/features/terminology/page.tsx:891-909` — 行业/分类/子分类删除用普通 `Dialog` 而非 `DestructiveConfirmDialog` — **强制** ✅ 已修复
 
 **建议**
 
@@ -200,16 +195,9 @@
 
 **强制违规**
 
-- [§7.2] `src-tauri/src/app_manager/commands.rs` — 18 条 IPC 命令返回 `Result<T, String>` 而非 `AppResult<T>`，错误码丢失 — 迁移到 `AppResult<T>` — **强制**
-- [§7.2] `src-tauri/src/system_settings/` ~60 条命令返回 `Result<T, String>` — 迁移到 `AppResult<T>` — **强制**
-- [§7.2] `src-tauri/src/app_preferences/commands.rs` — 4 条命令返回 `Result<T, String>` — **强制**
-- [§7.2] `src-tauri/src/app_updater/commands.rs` — 2 条命令返回 `Result<T, String>` — **强制**
-- [§7.2] `src-tauri/src/dev_cleaner/commands.rs` — 2 条命令返回 `Result<T, String>` — **强制**
-- [§7.2] `src-tauri/src/sleep_inhibitor/commands.rs` — 2 条 IPC 命令返回 `Result<T, String>` — **强制**
-- [§7.2] `src-tauri/src/window_theme/commands.rs:34` — `set_window_theme` 返回 `Result<T, String>` — **强制**
-- [§7.2] `src-tauri/src/tray.rs:143` — `set_tray_labels` 返回 `Result<T, String>` — **强制**
-- [§7.2] `src-tauri/src/app_manager/utils.rs:27,29` — `.unwrap()` 在 `run_command_with_timeout()` 的生产代码路径上（`Mutex::lock()`），应用 `unwrap_or_else(|e| e.into_inner())` — **强制**
-- [§7.2] `src-tauri/src/error.rs` — `invalid_input()` / `not_found()` / `unsupported()` 三个构造器标注 `#[allow(dead_code)]`，说明迁移至 `AppResult<T>` 未完成 — 逐步消除 `Result<T, String>` 后移除标注 — **强制**
+- [§7.2] 全量 `#[tauri::command]` 函数已迁移至 `AppResult<T>` 或模块专用 `*Result<T>` — **强制** ✅ 已修复
+- [§7.2] `src-tauri/src/app_manager/utils.rs:27,29` — `.unwrap()` 在 `run_command_with_timeout()` 的生产代码路径上（`Mutex::lock()`），应用 `unwrap_or_else(|e| e.into_inner())` — **强制** ✅ 已修复
+- [§7.2] `src-tauri/src/error.rs` — `invalid_input()` / `not_found()` / `unsupported()` 三个构造器标注 `#[allow(dead_code)]`，说明迁移至 `AppResult<T>` 未完成 — 逐步消除 `Result<T, String>` 后移除标注 — **强制** ✅ 已修复
 
 **已通过**
 

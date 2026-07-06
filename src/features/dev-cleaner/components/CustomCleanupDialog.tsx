@@ -54,6 +54,7 @@ export function CustomCleanupDialog() {
   const resetCustom = useDevCleanerStore((s) => s.resetCustomCleanup)
 
   const unlistenRef = useRef<(() => void) | null>(null)
+  const cleaningRef = useRef(false)
 
   const cleanupListeners = useCallback(() => {
     if (unlistenRef.current) {
@@ -89,8 +90,10 @@ export function CustomCleanupDialog() {
   }, [cleanupListeners, setShow, resetCustom])
 
   const handleStartCleanup = useCallback(async () => {
+    if (cleaningRef.current) return
     const ids = Array.from(selectedIds)
     if (ids.length === 0) return
+    cleaningRef.current = true
 
     setPhase("running")
     setProgresses([])
@@ -138,6 +141,8 @@ export function CustomCleanupDialog() {
         details: [],
         aborted: false,
       })
+    } finally {
+      cleaningRef.current = false
     }
   }, [selectedIds, setPhase, setProgresses, setResult, cleanupListeners])
 
