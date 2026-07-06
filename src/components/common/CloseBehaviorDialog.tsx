@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { hideMainWindow, quitApp, setCloseBehavior } from "@/lib/tauri/commands/app-preferences"
@@ -84,20 +85,20 @@ export function CloseBehaviorDialog({ open, onOpenChange, onConfirm }: CloseBeha
                 key={opt.value}
                 type="button"
                 onClick={() => setSelected(opt.value)}
-                className={[
+                className={cn(
                   "flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors",
                   isSelected
                     ? "border-primary bg-primary/5"
                     : "border-border hover:border-foreground/30",
-                ].join(" ")}
+                )}
               >
                 <span
-                  className={[
-                    "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border",
-                    isSelected
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-muted-foreground",
-                  ].join(" ")}
+                className={cn(
+                  "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border",
+                  isSelected
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-muted-foreground",
+                )}
                 >
                   {isSelected && <Check className="size-3" />}
                 </span>
