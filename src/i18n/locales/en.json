@@ -1141,6 +1141,7 @@
     "customCleanup": {
       "button": "Custom Cleanup",
       "title": "Custom Cleanup",
+      "confirmTitle": "Confirm Cleanup",
       "selected": "{{count}} command(s) selected",
       "next": "Continue",
       "confirmWarning": "This will execute {{count}} cleanup command(s). Some commands may have irreversible effects. Are you sure you want to continue?",
@@ -2321,6 +2322,7 @@
     "deleteSubcategoryConfirm": "Are you sure you want to delete the subcategory \"{{name}}\"? Its terms will be moved to unclassified.",
     "deleteSuccess": "Deleted successfully",
     "deleteFailed": "Failed to delete",
+    "addSuccess": "Added successfully",
     "addFailed": "Failed to add",
     "saveFailed": "Failed to save",
     "pageTitle": "Terminology",
@@ -2417,8 +2419,13 @@
     "editModeHint": "Edit mode · Right-click an app to move it",
     "toasts": {
       "exportSuccess": "Exported classification for {{count}} apps",
-      "exportFailed": "Export failed"
+      "exportFailed": "Export failed",
+      "resetSuccess": "Classification reset to default",
+      "resetFailed": "Failed to reset classification"
     },
+    "resetConfirmTitle": "Reset to Default?",
+    "resetConfirmDescription": "This will remove all your custom app classification overrides.",
+    "resetConsequence": "All custom scene assignments will be lost. This cannot be undone.",
     "time": {
       "today": "Today",
       "yesterday": "Yesterday",

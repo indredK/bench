@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner"
 import { useTranslation } from "react-i18next"
 
+import { useShallow } from "zustand/react/shallow"
 import { useTerminologyStore } from "./store"
 import { UNCLASSIFIED_SUBCATEGORY_ID, isUnclassifiedSubcategoryId } from "./constants"
 import type { Term, TermWebsite } from "./types"
@@ -209,7 +210,9 @@ function TermEditor({
   onClose: () => void
 }) {
   const { t } = useTranslation()
-  const { industries, addTerm, updateTerm, deleteTerm } = useTerminologyStore()
+  const { industries, addTerm, updateTerm, deleteTerm } = useTerminologyStore(
+    useShallow((s) => ({ industries: s.industries, addTerm: s.addTerm, updateTerm: s.updateTerm, deleteTerm: s.deleteTerm })),
+  )
   const currentIndustry = industries.find((industry) => industry.id === industryId)
   const currentCategory =
     currentIndustry?.categories.find((category) => category.id === categoryId) ??
@@ -472,7 +475,22 @@ function IndustryManager({ onClose: _onClose }: { onClose: () => void }) {
     addSubcategory,
     updateSubcategory,
     deleteSubcategory,
-  } = useTerminologyStore()
+  } = useTerminologyStore(
+    useShallow((s) => ({
+      industries: s.industries,
+      selectedIndustryId: s.selectedIndustryId,
+      setIndustry: s.setIndustry,
+      addIndustry: s.addIndustry,
+      updateIndustry: s.updateIndustry,
+      deleteIndustry: s.deleteIndustry,
+      addCategory: s.addCategory,
+      updateCategory: s.updateCategory,
+      deleteCategory: s.deleteCategory,
+      addSubcategory: s.addSubcategory,
+      updateSubcategory: s.updateSubcategory,
+      deleteSubcategory: s.deleteSubcategory,
+    })),
+  )
 
   const [activeId, setActiveId] = useState(selectedIndustryId || industries[0]?.id || "")
   const activeIndustry = industries.find((i) => i.id === activeId)
@@ -536,6 +554,7 @@ function IndustryManager({ onClose: _onClose }: { onClose: () => void }) {
     if (!newIndLabel.trim()) return
     try {
       const id = await addIndustry(newIndLabel.trim())
+      toast.success(t("terminology.addSuccess"))
       setNewIndLabel("")
       setActiveId(id)
       setIndustry(id)
@@ -562,6 +581,7 @@ function IndustryManager({ onClose: _onClose }: { onClose: () => void }) {
     if (!newCatLabel.trim() || !activeId) return
     try {
       const categoryId = await addCategory(activeId, newCatLabel.trim())
+      toast.success(t("terminology.addSuccess"))
       setNewCatLabel("")
       setActiveCategoryId(categoryId)
     } catch (error) {
@@ -592,6 +612,7 @@ function IndustryManager({ onClose: _onClose }: { onClose: () => void }) {
     if (!newSubcatLabel.trim() || !activeId || !activeCategoryId) return
     try {
       await addSubcategory(activeId, activeCategoryId, newSubcatLabel.trim())
+      toast.success(t("terminology.addSuccess"))
       setNewSubcatLabel("")
     } catch (error) {
       toastTerminologyError(t, error, "terminology.toasts.addFailed")
@@ -918,24 +939,15 @@ function IndustryManager({ onClose: _onClose }: { onClose: () => void }) {
       </div>
 
       {/* Delete confirmation dialog */}
-      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>{t("terminology.confirmDelete")}</DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            <p className="text-muted-foreground text-sm">{getDeleteMessage()}</p>
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" size="sm" onClick={() => setDeleteConfirmOpen(false)}>
-              {t("common.cancel")}
-            </Button>
-            <Button variant="destructive" size="sm" onClick={executeDelete}>
-              {t("common.delete")}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <DestructiveConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title={t("terminology.confirmDelete")}
+        description={getDeleteMessage()}
+        confirmLabel={t("common.delete")}
+        cancelLabel={t("common.cancel")}
+        onConfirm={executeDelete}
+      />
     </>
   )
 }

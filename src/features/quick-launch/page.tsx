@@ -34,6 +34,7 @@ import {
   Wrench,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirmDialog"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { LAUNCH_SCENES } from "@/features/quick-launch/scenes"
 import { cn } from "@/lib/utils"
@@ -414,6 +415,8 @@ export default function QuickLaunch({ active }: { active: boolean; feature: AppF
     handleRescan,
   } = useQuickLaunchController(active)
 
+  const [confirmResetOpen, setConfirmResetOpen] = useState(false)
+
   if (loading && appManagerApps.length === 0) {
     const current = appManagerScanProgress?.current ?? 0
     const stage = appManagerScanProgress?.stage ?? "scanningDirectories"
@@ -476,7 +479,7 @@ export default function QuickLaunch({ active }: { active: boolean; feature: AppF
         {isEditMode && (
           <>
             <Button
-              onClick={handleResetOverrides}
+              onClick={() => setConfirmResetOpen(true)}
               disabled={Object.keys(appOverrides).length === 0}
               variant="outline" size="sm"
               className="border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40"
@@ -497,6 +500,17 @@ export default function QuickLaunch({ active }: { active: boolean; feature: AppF
             </Button>
           </>
         )}
+
+        <DestructiveConfirmDialog
+          open={confirmResetOpen}
+          onOpenChange={setConfirmResetOpen}
+          title={t("quickLaunch.resetConfirmTitle")}
+          description={t("quickLaunch.resetConfirmDescription")}
+          consequence={t("quickLaunch.resetConsequence")}
+          confirmLabel={t("quickLaunch.resetClassification")}
+          cancelLabel={t("common.cancel")}
+          onConfirm={handleResetOverrides}
+        />
 
         <Button
           onClick={toggleEditMode}

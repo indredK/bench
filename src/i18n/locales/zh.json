@@ -1141,6 +1141,7 @@
     "customCleanup": {
       "button": "自定义清理",
       "title": "自定义清理",
+      "confirmTitle": "确认清理",
       "selected": "已选择 {{count}} 个命令",
       "next": "下一步",
       "confirmWarning": "即将执行 {{count}} 个清理命令，部分命令可能产生不可逆的影响，确认继续吗？",
@@ -2321,6 +2322,7 @@
     "deleteSubcategoryConfirm": "确定要删除子分类「{{name}}」吗？其下的术语将移至未分类。",
     "deleteSuccess": "删除成功",
     "deleteFailed": "删除失败",
+    "addSuccess": "新增成功",
     "addFailed": "新增失败",
     "saveFailed": "保存失败",
     "pageTitle": "专业术语",
@@ -2417,8 +2419,13 @@
     "editModeHint": "编辑模式 · 右键应用可移动分类",
     "toasts": {
       "exportSuccess": "已导出 {{count}} 个应用的分类数据",
-      "exportFailed": "导出失败"
+      "exportFailed": "导出失败",
+      "resetSuccess": "已恢复默认分类",
+      "resetFailed": "恢复默认分类失败"
     },
+    "resetConfirmTitle": "恢复默认分类？",
+    "resetConfirmDescription": "将移除所有自定义应用分类。",
+    "resetConsequence": "所有自定义场景分配将丢失，此操作不可撤销。",
     "time": {
       "today": "今天",
       "yesterday": "昨天",

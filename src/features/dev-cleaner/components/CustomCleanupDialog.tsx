@@ -1,10 +1,9 @@
 /**
  * Custom Cleanup Dialog / 自定义清理弹窗: command selection, execution, and results.
  */
-import { useCallback, useRef } from "react"
+import { useCallback, useEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import {
-  AlertTriangle,
   CheckCircle2,
   ChevronRight,
   Loader2,
@@ -13,12 +12,12 @@ import {
   Shield,
   ShieldAlert,
   Square,
-  Trash2,
   XCircle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirmDialog"
 import { useDevCleanerStore } from "@/features/dev-cleaner/store"
 import { cn, formatSize } from "@/lib/utils"
 import {
@@ -73,6 +72,15 @@ export function CustomCleanupDialog() {
       setCommands([])
     }
   }, [setShow, setPhase, setCommands])
+
+  useEffect(() => {
+    return () => {
+      if (unlistenRef.current) {
+        unlistenRef.current()
+        unlistenRef.current = null
+      }
+    }
+  }, [])
 
   const handleClose = useCallback(() => {
     cleanupListeners()
@@ -202,24 +210,6 @@ export function CustomCleanupDialog() {
             </>
           )}
 
-          {phase === "confirming" && (
-            <>
-              <div className="flex items-center gap-2 text-sm text-orange-600 dark:text-orange-400">
-                <AlertTriangle size={16} />
-                {t("devCleaner.customCleanup.confirmWarning", { count: selectedCount })}
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setPhase("selecting")}>
-                  {t("devCleaner.cancel")}
-                </Button>
-                <Button variant="destructive" onClick={handleStartCleanup}>
-                  <Trash2 size={16} className="mr-1" />
-                  {t("devCleaner.customCleanup.startCleanup")}
-                </Button>
-              </div>
-            </>
-          )}
-
           {phase === "running" && (
             <>
               <div className="text-muted-foreground flex items-center gap-2 text-sm">
@@ -271,6 +261,18 @@ export function CustomCleanupDialog() {
             </>
           )}
         </div>
+
+        <DestructiveConfirmDialog
+          open={phase === "confirming"}
+          onOpenChange={(open) => {
+            if (!open) setPhase("selecting")
+          }}
+          title={t("devCleaner.customCleanup.confirmTitle")}
+          description={t("devCleaner.customCleanup.confirmWarning", { count: selectedCount })}
+          confirmLabel={t("devCleaner.customCleanup.startCleanup")}
+          cancelLabel={t("devCleaner.cancel")}
+          onConfirm={handleStartCleanup}
+        />
       </Card>
     </div>
   )

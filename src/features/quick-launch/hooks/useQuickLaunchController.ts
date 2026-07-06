@@ -232,7 +232,8 @@ export function useQuickLaunchController(active: boolean) {
     if (Object.keys(classified).length > 0) {
       batchSetScenes(classified)
     }
-  }, [resetOverrides, batchSetScenes])
+    toast.success(t("quickLaunch.toasts.resetSuccess"))
+  }, [resetOverrides, batchSetScenes, t])
 
   const handleExportOverrides = useCallback(async () => {
     if (appManagerApps.length === 0 || exporting) return
