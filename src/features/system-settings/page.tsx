@@ -28,7 +28,6 @@ import {
 } from "@/components/ui/select"
 import { getErrorMessage } from "@/lib/tauri/errors"
 import type { AppFeature } from "@/features/types"
-import type { SettingsTab } from "./store"
 import type {
   GatekeeperMode,
   LowPowerMode,
@@ -202,9 +201,9 @@ export default function SystemSettings(_props: SystemSettingsProps) {
 
   useEffect(() => {
     if (systemSettingsUseCases.isAvailable()) {
-      void loadTabSettings(activeTab)
+      void loadTabSettings(store.activeTab)
     }
-  }, [activeTab, loadTabSettings])
+  }, [store.activeTab, loadTabSettings])
 
   const handleTabChange = (tab: SettingsTab) => {
     store.setActiveTab(tab)
