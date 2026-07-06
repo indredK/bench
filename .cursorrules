@@ -1,21 +1,40 @@
 # Bench — AI Behavior Lock
 
+> ⚠️ 本文只是 Cursor 的物理入口。完整 AI 操作流程见项目根目录 `AGENTS.md`（唯一逻辑入口）。不要只读本文件就开始改代码。
+>
 > 这是 Bench 项目的**最高优先级规则文件**。所有 AI 工具（Claude Code, Cursor, Trae CN, Mimocode, CodeBuddy 等）在操作此项目时，必须以本文档作为行为的第一约束。
 >
-> 优先级：.cursorrules > AGENTS.md > docs/*.md > 无
+> **入口 vs 优先级（两件事，不矛盾）**：
+> - **入口顺序**：所有工具 → `AGENTS.md`（唯一逻辑入口，从哪开始读）。
+> - **裁决优先级**：内容冲突时 `.cursorrules > AGENTS.md > docs/*.md`（谁说了算）。
+> - `AGENTS.md` 是"门"，本文件 `.cursorrules` 是"最高法律"。
+
+---
+
+## §0 🛑 STOP 铁律（最高频引用，第一眼看到）
+
+以下情况**必须停下问用户**，不许猜、不许自作主张：
+
+1. **文档 / workflow 没覆盖你要做的事** → 停，问用户。
+2. **你要做的事会违反 `docs/ARCHITECTURE.md` §2 任一条** → 停，问用户。
+3. **验证链（`lint:fe` / `test:critical` / `clippy`）任何一条失败** → 停，不许带病提交、不许改测试让它过。
+4. **涉及危险操作**（关机 / 删数据 / 撤销授权 / `git push` / `git add .`）→ 停，等用户明确同意。
+5. **看不懂某个既有模式为什么这么写** → 先查 `docs/DECISIONS.md` 和 `docs/audit-report.md`，还不懂 → 问用户，不许重写。
 
 ---
 
 ## §1 真理源 (SSoT)
 
-在执行任何代码操作前，**必须读取以下文件**（按此顺序）：
+在执行任何代码操作前，**必须读取以下文件**（按此顺序，与 `AGENTS.md` 三步铁律的必读清单一致）：
 
-1. `.cursorrules` (本文) — 行为约束
-2. `docs/ARCHITECTURE.md` §2 — 🔴 禁止模式（不可触犯）
-3. `docs/AI-WORKFLOWS.md` — 工作流定义
+1. `AGENTS.md` — 唯一逻辑入口，路由到工作流
+2. `.cursorrules` (本文) — 行为约束（最高优先级）
+3. `docs/ARCHITECTURE.md` §2 — 🔴 禁止模式（不可触犯）
 4. `docs/coding-standards.md` — 编码规范（强制/建议）
-5. `docs/development-workflow.md` — 开发流程
-6. `docs/audit-report.md` "不计违规决策" — 避免重复标记
+5. `docs/AI-WORKFLOWS.md` — 工作流定义
+6. `docs/DECISIONS.md` — 方向性决策（做取舍前先读，取舍后回写）
+
+**参考**（按需查阅）：`docs/development-workflow.md`（开发流程）、`docs/audit-report.md`（不计违规决策，避免重复标记）。
 
 ---
 

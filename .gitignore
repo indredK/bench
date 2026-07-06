@@ -16,7 +16,11 @@ Thumbs.db
 .vscode/
 .idea/
 *.tsbuildinfo
-.codebuddy
-.claude
+
+# AI tool directories — only commit entry pointers, ignore local session data
+.codebuddy/*
+!.codebuddy/rules/
+.claude/*
+!.claude/CLAUDE.md
 
 /updater/

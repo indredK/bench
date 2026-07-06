@@ -35,21 +35,25 @@ v2.0 (Next)       — 计划中：架构级变更
 
 <!-- AI: 当前正在开发的主题，维护期只有一个 Active Theme -->
 
-### Theme: Bench — AI 自动化研发系统基建
+### Theme: Developer Daily Loop — 开发者日常闭环打磨
 
-**目标**：建立以文档为 SSoT 的 AI 自动化系统，使 AI 能自主完成审查、修复、文档演进和功能开发。
+**目标**：围绕主线用户故事（启动 App → 端口/清理/环境 → 小工具）补齐可见短板，把"每天都用"的路径打磨到可信赖。选品依据见 [release-themes.md](./roadmap/release-themes.md) 定位与选品原则（主线模块优先）。
 
-**验收标准**：
-- [ ] AI 工作流契约定义完整（/review /fix /doc /feature）
-- [ ] `.cursorrules` 锁死所有 AI 行为
-- [ ] 一个完整 cycle：AI 自审 → 自修 → 自测 → 自提交
-- [ ] AGENTS.md 作为 AI 总入口路由到各工作流
+**验收标准**（每项对应具体模块 backlog，合入后回勾）：
+- [ ] Quick Launch：`scenes.ts → services/` 迁移完成，App 启动/Finder 操作封装到 use-case 层（见 [quick-launch/roadmap.md](./modules/quick-launch/roadmap.md)）
+- [ ] Quick Launch / Account Manager：大列表虚拟化（AppCard / 多账号列表）落地至少一处
+- [ ] 主线模块测试补齐：Quick Launch ≥1 controller/use-case 测试进入 `test:critical` 门禁
+- [ ] 每个主线模块 `roadmap.md` 的 📊 评估与 Backlog 与代码现状一致（由 `check:docs` 校验）
 
 **涉及模块**：
 | 模块 | 改动类型 | 依赖 |
 |------|----------|------|
-| infra (文档) | 新建 | 无 |
-| 全模块 | 审计扫描 | 文档就绪后 |
+| Quick Launch | 分层重构 + 虚拟化 + 测试 | Platform Layer |
+| Account Manager | 列表虚拟化 + Session 空态 UX | IPC Contracts |
+| Dev Toolbox | 子模块拆分收尾 | 四个子模块 |
+
+> **已完成主题存档**：
+> - ✅ **AI 自动化研发系统基建**（2026-07-06 完成）— 以文档为 SSoT 的 AI 闭环已建立：`/review /fix /doc /feature` 四工作流契约、`.cursorrules` 行为锁、`AGENTS.md` 总入口路由、bugs 台账模板、`check:docs` 文档一致性门禁均就绪。一个完整 cycle（自审→自修→自测→自提交）已可运行。
 
 ---
 
@@ -117,3 +121,4 @@ Dev Toolbox          → Port Manager + Dev Cleaner + Env Detector + Token Calcu
 | 日期 | 更新者 | 改动 |
 |------|--------|------|
 | 2026-07-05 | 人工 | 初始创建 |
+| 2026-07-06 | AI | AI 基建主题验收完成并存档；Active Theme 切换为 Developer Daily Loop；新增 bugs 台账模板与 check:docs 门禁 |

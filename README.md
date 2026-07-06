@@ -108,6 +108,8 @@ npm run test       # Frontend + Backend tests / 前后端测试
 
 ## Project Structure / 项目结构
 
+> 📖 文档导航：[docs/START-HERE.md](./docs/START-HERE.md) · AI 入口：[AGENTS.md](./AGENTS.md)
+
 ```
 bench/
 ├── src/                              # React Frontend / 前端

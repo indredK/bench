@@ -156,6 +156,7 @@
 ### 11.3 维护
 
 - **强制**: 功能合入后，对应模块 `roadmap.md` 的 Backlog 须与代码一致——已实现的从 Backlog 移除，未实现的保留。
+- **强制**: `docs/modules/<id>` 与 `src/features/<id>` 双向对齐，且每个模块含 `README.md` + `roadmap.md`——由 `pnpm run check:docs`（已串入 `lint:fe`）机器校验，不一致即 CI/提交失败。
 - **建议**: 跨模块版本主题只在 `release-themes.md` 维护；模块细节留在各 `roadmap.md`。
 - **建议**: 危险操作、i18n、IPC 等实现约定以本文件为准；模块设计规范写模块内设计稿，不重复拷贝编码规则。
 

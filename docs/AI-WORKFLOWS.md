@@ -44,6 +44,14 @@
    - 跳过 "已通过检查项" 中的领域（除非有新增代码改动）
    - 发现新违规时，先报告不擅自修改
 
+### ⛔ 完成前自检
+
+- [ ] 已对照 `ARCHITECTURE.md` §2 + `coding-standards.md` 逐条检查
+- [ ] 已跳过 `audit-report.md` "不计违规决策"中的模式
+- [ ] 输出格式符合 `[§X] 文件路径:行号 — 问题描述 — 修改建议 — **强制/建议**`
+- [ ] 发现新违规时先报告，未擅自修改
+- [ ] 遇到任何不确定，已停下问用户
+
 ---
 
 ## /fix — AI 自动修复（含 Bug 修复）
@@ -70,7 +78,7 @@
 
 4. **更新文档**
    - 如果修复涉及 roadmap 项 → 勾选 `docs/modules/<id>/roadmap.md`
-   - 如果修复涉已知 bug → 关闭 `docs/modules/<id>/bugs.md` 记录
+   - 如果修复涉已知 bug → 关闭 `docs/modules/<id>/bugs.md` 记录（该模块无此文件时，从 `docs/modules/_bugs-template.md` 复制新建，把本次 bug 记入 Closed）
    - 在 `docs/audit-report.md` 问题行尾追加 `✅ 已修复`
 
 5. **提交**（仅当用户明确要求时）
@@ -78,6 +86,16 @@
    - 格式：`fix(<scope>): <描述>`
    - 只 stage 与本次修复直接相关的文件
    - 不推送
+
+### ⛔ 完成前自检
+
+- [ ] 已对照 `ARCHITECTURE.md` §2 十条禁止模式
+- [ ] `pnpm run lint:fe` 通过
+- [ ] `pnpm run test:critical` 通过
+- [ ] 有 Rust 改动则 `cargo clippy -- -D warnings` 通过
+- [ ] 已回写 `roadmap.md` / `bugs.md` / `audit-report.md`
+- [ ] commit 仅 stage 相关文件，未 `git add .`，未 push
+- [ ] 遇到任何不确定，已停下问用户
 
 ---
 
@@ -102,11 +120,21 @@
    - README：更新索引和状态
    - ARCHITECTURE.md：如果有架构变更
    - coding-standards.md：如果有新约定沉淀
+   - **DECISIONS.md：若本次对话确定了方向性取舍（改主题、砍功能、选方案），追加一条 `D-NNN`**
 
 4. **验证**
    - 检查 `docs/` 下所有跨文件链接有效
    - 确认 `docs/modules/README.md` 的模块列表与 `src/features/` 对齐
    - 确认文档路径无空壳跳转 stub
+
+### ⛔ 完成前自检
+
+- [ ] `roadmap.md` checkbox 与实际功能一致
+- [ ] `docs/modules/README.md` 模块列表与 `src/features/` 对齐
+- [ ] 所有跨文件链接有效
+- [ ] 方向性取舍已追加 `D-NNN` 到 `DECISIONS.md`
+- [ ] `pnpm run check:docs` 通过
+- [ ] 遇到任何不确定，已停下问用户
 
 ---
 
@@ -118,6 +146,7 @@
 
 1. **需求理解**
    - 读取 `docs/ROADMAP.md` 确认当前主题
+   - 读取 `docs/DECISIONS.md` 确认相关方向性决策（避免重做已被推翻的方案）
    - 读取对应 `docs/modules/<id>/roadmap.md` 确认 backlog 项
    - 如果无对应模块：创建 `src/features/<id>/` + `docs/modules/<id>/`
 
@@ -170,3 +199,15 @@
 6. **文档回写**
    - `docs/modules/<id>/roadmap.md` 打勾
    - 更新 `docs/modules/README.md` 模块列表
+
+### ⛔ 完成前自检
+
+- [ ] 已对照 `ARCHITECTURE.md` §2 十条禁止模式
+- [ ] 新 feature 注册链路已完成（对照 `ARCHITECTURE.md` §4.2 Checklist）
+- [ ] IPC 契约已同步 `contracts.ts` ↔ `commands.rs`（如适用）
+- [ ] `pnpm run lint:fe` 通过
+- [ ] `pnpm run test:critical` 通过
+- [ ] 有 Rust 改动则 `cargo clippy -- -D warnings` 通过
+- [ ] 已回写 `roadmap.md` / `docs/modules/README.md`
+- [ ] commit 仅 stage 相关文件，未 `git add .`，未 push
+- [ ] 遇到任何不确定，已停下问用户
