@@ -65,8 +65,10 @@ export function useDevCleanerController() {
   }, [t])
 
   const handleScan = useCallback(async () => {
-    const { selectedPath: currentSelectedPath } = useDevCleanerStore.getState()
+    const { selectedPath: currentSelectedPath, isScanning: currentlyScanning } =
+      useDevCleanerStore.getState()
     if (!currentSelectedPath) return
+    if (currentlyScanning) return
 
     useDevCleanerStore.setState({ isScanning: true, showConfirm: false, showFilterOptions: true })
 

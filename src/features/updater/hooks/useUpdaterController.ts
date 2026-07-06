@@ -52,6 +52,9 @@ export function useUpdaterController() {
   }, [canUsePlatformFeatures])
 
   const checkUpdates = useCallback(async () => {
+    const { status: currentStatus } = useUpdaterStore.getState()
+    if (currentStatus === "checking") return
+
     if (!canUsePlatformFeatures) {
       useUpdaterStore.setState({
         open: true,
@@ -93,6 +96,9 @@ export function useUpdaterController() {
   }, [canUsePlatformFeatures, t])
 
   const downloadAndInstall = useCallback(async () => {
+    const { status: dlStatus } = useUpdaterStore.getState()
+    if (dlStatus === "downloading" || dlStatus === "installing") return
+
     useUpdaterStore.setState({
       status: "downloading",
       error: "",

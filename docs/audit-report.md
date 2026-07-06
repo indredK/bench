@@ -132,7 +132,7 @@
 - [§6] `src/features/account-manager/components/DetailColumn.tsx:666` — 手写 `<select>` — 替换为 `Select` — **强制**
 - [§6] `src/features/dev-toolbox/page.tsx:84` — 手写 `<textarea>` — 替换为 `Textarea` — **强制**
 - [§6] `src/features/token-calculator/components/CompareTab.tsx:498,585` — 手写 `<table>` — 替换为 `Table` — **强制**
-- [§6] `src/components/common/CloseBehaviorDialog.tsx:87-92,96-100` — 使用 `.join(" ")` 手动拼接 className，未用 `cn()` — 替换为 `cn(...)` — **强制**
+- [§6] `src/components/common/CloseBehaviorDialog.tsx:87-92,96-100` — 使用 `.join(" ")` 手动拼接 className，未用 `cn()` — 替换为 `cn(...)` — **强制** ✅ 已修复
 
 **建议**
 
@@ -169,9 +169,9 @@
 - [§3.2] `src/features/system-settings/page.tsx:67` — `const store = useSystemSettingsStore()` 无 selector 订阅整 store，任意字段更新都会触发重渲染 — 改用 `useShallow` 或精细 selector — **强制**
 - [§3.2] `src/features/terminology/page.tsx:204` — `const { industries, addTerm, updateTerm, deleteTerm } = useTerminologyStore()` 无 selector 订阅整 store — 改用精细 selector — **强制**
 - [§3.2] `src/features/terminology/page.tsx:458` — 同上模式，无 selector 订阅整 store — **强制**
-- [§3.3] `src/features/dev-cleaner/hooks/useDevCleanerController.ts:67-101` — `handleScan` 无重入保护，未检查 `isScanning` — 加 early return — **强制**
-- [§3.3] `src/features/updater/hooks/useUpdaterController.ts:54-93` — `checkUpdates` 无重入保护 — **强制**
-- [§3.3] `src/features/updater/hooks/useUpdaterController.ts:95-128` — `downloadAndInstall` 无重入保护 — **强制**
+- [§3.3] `src/features/dev-cleaner/hooks/useDevCleanerController.ts:67-101` — `handleScan` 无重入保护，未检查 `isScanning` — 加 early return — **强制** ✅ 已修复
+- [§3.3] `src/features/updater/hooks/useUpdaterController.ts:54-93` — `checkUpdates` 无重入保护 — **强制** ✅ 已修复
+- [§3.3] `src/features/updater/hooks/useUpdaterController.ts:95-128` — `downloadAndInstall` 无重入保护 — **强制** ✅ 已修复
 - [§3.3] `src/features/dev-cleaner/components/CustomCleanupDialog.tsx:83-134` — `handleStartCleanup` 无程序化重入保护 — **强制**
 - [§3.3] `src/features/terminology/page.tsx:257-292` — 术语表单 `handleSave` 无防重复提交保护 — **强制**
 - [§3.3] `src/features/dev-cleaner/components/CustomCleanupDialog.tsx` — 注册平台事件监听后无 `useEffect` 卸载清理，组件卸载时监听器泄漏 — **强制**
