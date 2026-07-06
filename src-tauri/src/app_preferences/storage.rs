@@ -1,12 +1,10 @@
 use tauri::{AppHandle, Runtime};
 use tauri_plugin_store::StoreExt;
 
+use super::types::BEHAVIOR_MINIMIZE_TO_TRAY;
+
 const STORE_FILE: &str = "app-preferences.json";
 const CLOSE_BEHAVIOR_KEY: &str = "closeButtonBehavior";
-
-pub const BEHAVIOR_MINIMIZE_TO_TRAY: &str = "minimize_to_tray";
-pub const BEHAVIOR_QUIT: &str = "quit";
-pub const BEHAVIOR_ALWAYS_ASK: &str = "always_ask";
 
 pub fn has_close_behavior<R: Runtime>(app: &AppHandle<R>) -> Result<bool, String> {
     let store = app

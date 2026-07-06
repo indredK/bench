@@ -22,12 +22,8 @@ pub fn run_command_with_timeout(
     let (tx, rx) = std::sync::mpsc::channel();
 
     thread::spawn(move || {
-        let output = child_clone
-            .lock()
-            .unwrap()
-            .take()
-            .unwrap()
-            .wait_with_output();
+        let mut guard = child_clone.lock().unwrap_or_else(|e| e.into_inner());
+        let output = guard.take().unwrap().wait_with_output();
         let _ = tx.send(output);
     });
 

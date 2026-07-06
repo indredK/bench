@@ -63,8 +63,8 @@ pub fn run() {
                 win.clone().on_window_event(move |event| {
                     if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                         let behavior = app_preferences::storage::get_close_behavior(&app_handle)
-                            .unwrap_or_else(|_| app_preferences::storage::BEHAVIOR_MINIMIZE_TO_TRAY.to_string());
-                        if behavior == app_preferences::storage::BEHAVIOR_ALWAYS_ASK {
+                            .unwrap_or_else(|_| crate::app_preferences::types::BEHAVIOR_MINIMIZE_TO_TRAY.to_string());
+                        if behavior == crate::app_preferences::types::BEHAVIOR_ALWAYS_ASK {
                             // 每次提醒: 阻止关闭, 弹出选择对话框
                             api.prevent_close();
                             let _ = win.emit("show-close-behavior-dialog", ());
@@ -79,7 +79,7 @@ pub fn run() {
                             return;
                         }
                         match behavior.as_str() {
-                            app_preferences::storage::BEHAVIOR_QUIT => {
+                            crate::app_preferences::types::BEHAVIOR_QUIT => {
                                 // 允许窗口正常关闭, ExitRequested 会处理 session 持久化
                             }
                             _ => {

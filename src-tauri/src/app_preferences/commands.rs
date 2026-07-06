@@ -1,5 +1,8 @@
 use tauri::Manager;
 use crate::app_preferences::storage;
+use crate::app_preferences::types::{
+    BEHAVIOR_ALWAYS_ASK, BEHAVIOR_MINIMIZE_TO_TRAY, BEHAVIOR_QUIT,
+};
 
 #[tauri::command]
 pub fn get_close_behavior(app: tauri::AppHandle) -> Result<String, String> {
@@ -8,16 +11,16 @@ pub fn get_close_behavior(app: tauri::AppHandle) -> Result<String, String> {
 
 #[tauri::command]
 pub fn set_close_behavior(app: tauri::AppHandle, behavior: String) -> Result<(), String> {
-    if behavior != storage::BEHAVIOR_MINIMIZE_TO_TRAY
-        && behavior != storage::BEHAVIOR_QUIT
-        && behavior != storage::BEHAVIOR_ALWAYS_ASK
+    if behavior != BEHAVIOR_MINIMIZE_TO_TRAY
+        && behavior != BEHAVIOR_QUIT
+        && behavior != BEHAVIOR_ALWAYS_ASK
     {
         return Err(format!(
             "Invalid close behavior: {}. Expected {}, {}, or {}",
             behavior,
-            storage::BEHAVIOR_MINIMIZE_TO_TRAY,
-            storage::BEHAVIOR_QUIT,
-            storage::BEHAVIOR_ALWAYS_ASK
+            BEHAVIOR_MINIMIZE_TO_TRAY,
+            BEHAVIOR_QUIT,
+            BEHAVIOR_ALWAYS_ASK
         ));
     }
     storage::set_close_behavior(&app, &behavior)

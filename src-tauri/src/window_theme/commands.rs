@@ -1,30 +1,4 @@
-// Window-theme IPC commands.
-//
-// `set_window_theme` switches the named window between the registered visual
-// themes. Currently:
-//   - "default": no native effect; the webview's own background paints.
-//   - "glass":   macOS NSVisualEffectView vibrancy, material chosen from the
-//                provided light/dark appearance hint so it tracks the user's
-//                color scheme.
-//
-// Adding a new theme later means extending the `WindowTheme` enum and the
-// match in `apply_theme`. The frontend registry keeps the user-facing list.
-
-use serde::Deserialize;
-
-#[derive(Debug, Deserialize, Clone, Copy)]
-#[serde(rename_all = "lowercase")]
-pub enum WindowTheme {
-    Default,
-    Glass,
-}
-
-#[derive(Debug, Deserialize, Clone, Copy)]
-#[serde(rename_all = "lowercase")]
-pub enum Appearance {
-    Light,
-    Dark,
-}
+use crate::window_theme::types::{Appearance, WindowTheme};
 
 #[tauri::command]
 pub fn set_window_theme(

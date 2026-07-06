@@ -5,3 +5,4 @@
 // can be added later without restructuring the IPC surface.
 
 pub mod commands;
+pub mod types;
