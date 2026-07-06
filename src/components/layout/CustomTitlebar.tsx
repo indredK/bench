@@ -8,6 +8,7 @@ import { Minus, Maximize2, X, Pin, PinOff } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { canUseWindowControls } from "@/platform/window"
 import { getCurrentAppWindow } from "@/platform/window"
+import { Button } from "@/components/ui/button"
 
 interface CustomTitlebarProps {
   className?: string
@@ -128,12 +129,11 @@ export function CustomTitlebar({ className }: CustomTitlebarProps) {
       <div data-no-window-drag className="relative z-10 flex items-center gap-0.5">
         {desktop && (
           <>
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon-sm"
               data-no-window-drag
               className={cn(
-                "text-muted-foreground hover:bg-accent hover:text-foreground rounded-md p-1.5 transition-colors",
-                "focus:outline-none",
                 alwaysOnTop && "text-primary hover:text-primary",
               )}
               onClick={handleToggleAlwaysOnTop}
@@ -141,49 +141,41 @@ export function CustomTitlebar({ className }: CustomTitlebarProps) {
               aria-label={t("titlebar.alwaysOnTop")}
             >
               {alwaysOnTop ? <Pin size={14} /> : <PinOff size={14} />}
-            </button>
+            </Button>
 
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon-sm"
               data-no-window-drag
-              className={cn(
-                "text-muted-foreground hover:bg-accent hover:text-foreground rounded-md p-1.5 transition-colors",
-                "focus:outline-none",
-              )}
               onClick={handleMinimize}
               title={t("titlebar.minimize")}
               aria-label={t("titlebar.minimize")}
             >
               <Minus size={14} />
-            </button>
+            </Button>
 
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon-sm"
               data-no-window-drag
-              className={cn(
-                "text-muted-foreground hover:bg-accent hover:text-foreground rounded-md p-1.5 transition-colors",
-                "focus:outline-none",
-              )}
               onClick={handleToggleMaximize}
               title={t("titlebar.maximize")}
               aria-label={t("titlebar.maximize")}
             >
               <Maximize2 size={14} />
-            </button>
+            </Button>
 
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon-sm"
               data-no-window-drag
-              className={cn(
-                "text-muted-foreground rounded-md p-1.5 transition-colors hover:bg-red-500/20 hover:text-red-500",
-                "focus:outline-none",
-              )}
+              className="hover:bg-red-500/20 hover:text-red-500"
               onClick={handleClose}
               title={t("titlebar.close")}
               aria-label={t("titlebar.close")}
             >
               <X size={14} />
-            </button>
+            </Button>
           </>
         )}
       </div>

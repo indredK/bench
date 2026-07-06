@@ -402,8 +402,8 @@ export function AuthProxyDialog({
           ) : (
             <div className="space-y-2">
               {/* Option A: existing account */}
-              <button
-                type="button"
+              <Button
+                variant="outline"
                 disabled={!hasExistingAccounts || confirming}
                 onClick={() => {
                   if (!hasExistingAccounts) return
@@ -412,11 +412,11 @@ export function AuthProxyDialog({
                   }
                 }}
                 className={cn(
-                  "flex w-full items-center gap-3 rounded-md border px-3 py-2.5 text-left text-sm transition-colors",
+                  "flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm",
                   usingExisting
                     ? "border-primary bg-primary/5"
-                    : "border-muted-foreground/20 hover:bg-muted/50",
-                  !hasExistingAccounts && "cursor-not-allowed opacity-60",
+                    : "",
+                  !hasExistingAccounts && "opacity-60",
                 )}
               >
                 <span
@@ -439,7 +439,7 @@ export function AuthProxyDialog({
                       : t("accountManager.authProxy.wizard.noAccount")}
                   </span>
                 </div>
-              </button>
+              </Button>
 
               {/* Account dropdown — only shown when option A is selected */}
               {usingExisting && hasExistingAccounts && (
@@ -469,12 +469,12 @@ export function AuthProxyDialog({
               )}
 
               {/* Option B: new account */}
-              <button
-                type="button"
+              <Button
+                variant="outline"
                 onClick={() => setSelectedAccountId(NEW_ACCOUNT)}
                 disabled={confirming}
                 className={cn(
-                  "flex w-full items-center gap-3 rounded-md border px-3 py-2.5 text-left text-sm transition-colors",
+                  "flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm",
                   isNewAccount
                     ? "border-primary bg-primary/5"
                     : "border-muted-foreground/20 hover:bg-muted/50",
@@ -496,7 +496,7 @@ export function AuthProxyDialog({
                     {t("accountManager.authProxy.wizard.newAccountHint", { host: hostForHint })}
                   </span>
                 </div>
-              </button>
+              </Button>
 
               {/* Name input — only shown when option B is selected */}
               {isNewAccount && (

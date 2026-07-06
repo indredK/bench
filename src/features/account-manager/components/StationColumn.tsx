@@ -308,13 +308,15 @@ function StationCardContent({
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <button
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
                   onClick={handleCopyRemark}
-                  className="text-muted-foreground hover:text-foreground shrink-0 cursor-pointer opacity-0 transition-opacity group-hover:opacity-100"
+                  className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
                   aria-label={t("accountManager.detail.copy")}
                 >
                   {remarkCopied ? <Check size={12} /> : <Copy size={12} />}
-                </button>
+                </Button>
               </TooltipTrigger>
               <TooltipContent side="top">{t("accountManager.detail.copy")}</TooltipContent>
             </Tooltip>
