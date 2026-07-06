@@ -23,6 +23,7 @@ export function useDevCleanerController() {
   const selectedPath = useDevCleanerStore((s) => s.selectedPath)
   const isScanning = useDevCleanerStore((s) => s.isScanning)
   const scanResult = useDevCleanerStore((s) => s.scanResult)
+  const scanError = useDevCleanerStore((s) => s.scanError)
   const selectedProjects = useDevCleanerStore((s) => s.selectedProjects)
   const isCleaningUp = useDevCleanerStore((s) => s.isCleaningUp)
   const cleanupMessage = useDevCleanerStore((s) => s.cleanupMessage)
@@ -37,6 +38,7 @@ export function useDevCleanerController() {
   const setShowFilterOptions = useDevCleanerStore((s) => s.setShowFilterOptions)
   const setSorting = useDevCleanerStore((s) => s.setSorting)
   const setSelectedProjects = useDevCleanerStore((s) => s.setSelectedProjects)
+  const setScanError = useDevCleanerStore((s) => s.setScanError)
 
   const rescanTimerRef = useRef<number | null>(null)
   useEffect(() => {
@@ -70,7 +72,12 @@ export function useDevCleanerController() {
     if (!currentSelectedPath) return
     if (currentlyScanning) return
 
-    useDevCleanerStore.setState({ isScanning: true, showConfirm: false, showFilterOptions: true })
+    useDevCleanerStore.setState({
+      isScanning: true,
+      showConfirm: false,
+      showFilterOptions: true,
+      scanError: null,
+    })
 
     if (!devCleanerUseCases.isAvailable()) {
       useDevCleanerStore.setState({
@@ -79,6 +86,7 @@ export function useDevCleanerController() {
           text: t("devCleaner.errors.desktopOnly"),
         },
         isScanning: false,
+        scanError: t("devCleaner.errors.desktopOnly"),
       })
       return
     }
@@ -89,15 +97,18 @@ export function useDevCleanerController() {
         scanResult: result,
         selectedProjects: {},
         isScanning: false,
+        scanError: null,
         cleanupMessage: devCleanerUseCases.createScanStoppedMessage(result, t),
       })
     } catch (error) {
+      const errorMsg = t("devCleaner.errors.scanFailed", { error: getErrorMessage(error) })
       useDevCleanerStore.setState({
         cleanupMessage: {
           type: "error",
-          text: t("devCleaner.errors.scanFailed", { error: getErrorMessage(error) }),
+          text: errorMsg,
         },
         isScanning: false,
+        scanError: errorMsg,
       })
     }
   }, [t])
@@ -290,6 +301,7 @@ export function useDevCleanerController() {
     selectedPath,
     isScanning,
     scanResult,
+    scanError,
     selectedProjects,
     isCleaningUp,
     cleanupMessage,
@@ -310,6 +322,7 @@ export function useDevCleanerController() {
     setShowFilterOptions,
     setSorting,
     setSelectedProjects,
+    setScanError,
     handleSelectPath,
     handleScan,
     handleStopScan,

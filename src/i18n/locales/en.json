@@ -1102,6 +1102,7 @@
     "cleanup": "Clean Up",
     "cleanupSuccess": "Cleanup successful! Freed {{size}} of space.",
     "cleanupError": "Cleanup failed: {{error}}",
+    "scanFailedTitle": "Scan failed",
     "errors": {
       "openDirectoryFailed": "Failed to open directory dialog: {{error}}",
       "desktopOnly": "Scanning is only available in the desktop app.",

@@ -1102,6 +1102,7 @@
     "cleanup": "清理",
     "cleanupSuccess": "清理成功！释放了 {{size}} 的空间。",
     "cleanupError": "清理失败：{{error}}",
+    "scanFailedTitle": "扫描失败",
     "errors": {
       "openDirectoryFailed": "打开目录选择对话框失败：{{error}}",
       "desktopOnly": "扫描功能仅可在桌面版应用中使用。",

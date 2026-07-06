@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { DataTable, getDataTableSortDirection } from "@/components/ui/DataTable"
 import { Input } from "@/components/ui/input"
+import { FeatureLoadError } from "@/components/common/FeatureLoadError"
 import { filterOptions } from "@/features/dev-cleaner/store"
 import { formatScanTime } from "@/features/dev-cleaner/lib/format"
 import { CustomCleanupDialog } from "@/features/dev-cleaner/components/CustomCleanupDialog"
@@ -39,6 +40,7 @@ export function DevCleanerPageContent({ controller }: DevCleanerPageContentProps
     selectedPath,
     isScanning,
     scanResult,
+    scanError,
     selectedProjects,
     isCleaningUp,
     cleanupMessage,
@@ -181,6 +183,16 @@ export function DevCleanerPageContent({ controller }: DevCleanerPageContentProps
           )}
         </CardContent>
       </Card>
+
+      {scanError && !scanResult && (
+        <div className="flex min-h-0 flex-1">
+          <FeatureLoadError
+            title={t("devCleaner.scanFailedTitle")}
+            description={scanError}
+            onRetry={() => void handleScan()}
+          />
+        </div>
+      )}
 
       {scanResult && (
         <div className="flex min-h-0 flex-1 flex-col gap-4">

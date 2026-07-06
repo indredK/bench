@@ -31,6 +31,7 @@ interface DevCleanerState {
   selectedPath: string
   isScanning: boolean
   scanResult: ScanResult | null
+  scanError: string | null
   selectedProjects: RowSelectionState
   isCleaningUp: boolean
   cleanupMessage: CleanupMessage | null
@@ -56,6 +57,7 @@ interface DevCleanerState {
     selected: RowSelectionState | ((prev: RowSelectionState) => RowSelectionState),
   ) => void
   setCleanupMessage: (message: CleanupMessage | null) => void
+  setScanError: (error: string | null) => void
   reset: () => void
 
   // Custom cleanup actions
@@ -73,6 +75,7 @@ export const useDevCleanerStore = create<DevCleanerState>((set) => ({
   selectedPath: "",
   isScanning: false,
   scanResult: null,
+  scanError: null,
   selectedProjects: {},
   isCleaningUp: false,
   cleanupMessage: null,
@@ -103,12 +106,14 @@ export const useDevCleanerStore = create<DevCleanerState>((set) => ({
         typeof selected === "function" ? selected(state.selectedProjects) : selected,
     })),
   setCleanupMessage: (message) => set({ cleanupMessage: message }),
+  setScanError: (error) => set({ scanError: error }),
 
   reset: () =>
     set({
       selectedPath: "",
       isScanning: false,
       scanResult: null,
+      scanError: null,
       selectedProjects: {},
       isCleaningUp: false,
       cleanupMessage: null,
