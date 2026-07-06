@@ -759,7 +759,7 @@ export function QuickLoginDialog({
                 <Input
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
-                  placeholder="https://example.com"
+                  placeholder={t("accountManager.addStationDialog.websitePlaceholder")}
                   required
                   list="quick-login-history"
                 />
@@ -785,7 +785,7 @@ export function QuickLoginDialog({
               <Input
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="user@example.com"
+                placeholder={t("accountManager.addAccountDialog.usernamePlaceholder")}
                 required
               />
             }

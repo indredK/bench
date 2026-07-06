@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import {
   Copy,
   Check,
@@ -224,9 +224,12 @@ function TermEditor({
     term?.websites?.length ? term.websites : [{ url: "", label: "" }],
   )
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const savingRef = useRef(false)
 
   const handleSave = useCallback(async () => {
     if (!title.trim()) return
+    if (savingRef.current) return
+    savingRef.current = true
     const cleanSites = websites.filter((w) => w.url.trim())
     const resolvedCat =
       categoryId || industries.find((i) => i.id === industryId)?.categories[0]?.id || ""
@@ -261,6 +264,8 @@ function TermEditor({
       onClose()
     } catch (error) {
       toastTerminologyError(t, error, "terminology.toasts.saveFailed")
+    } finally {
+      savingRef.current = false
     }
   }, [
     title,

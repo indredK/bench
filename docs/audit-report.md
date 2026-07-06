@@ -144,9 +144,9 @@
 
 **强制违规**
 
-- [§4.1] `src/features/account-manager/components/dialogs.tsx:762` — 硬编码 placeholder `"https://example.com"`，应使用 locale key `accountManager.addStationDialog.websitePlaceholder` — **强制**
-- [§4.1] `src/features/account-manager/components/dialogs.tsx:788` — 硬编码 placeholder `"user@example.com"`，应使用 locale key `accountManager.addAccountDialog.usernamePlaceholder` — **强制**
-- [§4.1] `src/features/account-manager/components/auth-proxy-dialog.tsx:333` — 硬编码 placeholder URL，应抽离到 i18n — **强制**
+- [§4.1] `src/features/account-manager/components/dialogs.tsx:762` — 硬编码 placeholder `"https://example.com"`，应使用 locale key `accountManager.addStationDialog.websitePlaceholder` — **强制** ✅ 已修复
+- [§4.1] `src/features/account-manager/components/dialogs.tsx:788` — 硬编码 placeholder `"user@example.com"`，应使用 locale key `accountManager.addAccountDialog.usernamePlaceholder` — **强制** ✅ 已修复
+- [§4.1] `src/features/account-manager/components/auth-proxy-dialog.tsx:333` — 硬编码 placeholder URL，应抽离到 i18n — **强制** ✅ 已修复
 
 **建议**
 
@@ -173,7 +173,7 @@
 - [§3.3] `src/features/updater/hooks/useUpdaterController.ts:54-93` — `checkUpdates` 无重入保护 — **强制** ✅ 已修复
 - [§3.3] `src/features/updater/hooks/useUpdaterController.ts:95-128` — `downloadAndInstall` 无重入保护 — **强制** ✅ 已修复
 - [§3.3] `src/features/dev-cleaner/components/CustomCleanupDialog.tsx:83-134` — `handleStartCleanup` 无程序化重入保护 — **强制**
-- [§3.3] `src/features/terminology/page.tsx:257-292` — 术语表单 `handleSave` 无防重复提交保护 — **强制**
+- [§3.3] `src/features/terminology/page.tsx:228-287` — 术语表单 `handleSave` 无防重复提交保护 — **强制** ✅ 已修复 ✅ 已修复
 - [§3.3] `src/features/dev-cleaner/components/CustomCleanupDialog.tsx` — 注册平台事件监听后无 `useEffect` 卸载清理，组件卸载时监听器泄漏 — **强制**
 - [§5] `src/features/quick-launch/hooks/useQuickLaunchController.ts:229-235` — `handleResetOverrides` 静默重置覆盖数据，无成功/失败反馈 — 加 toast — **强制**
 - [§5] `src/features/terminology/page.tsx:504-527` — `handleAddInd`/`handleAddCat`/`handleAddSubcat` 成功时无 toast 反馈 — **强制**

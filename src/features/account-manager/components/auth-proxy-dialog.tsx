@@ -330,7 +330,7 @@ export function AuthProxyDialog({
         <Input
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://www.trae.cn/authorization?...&auth_callback_url=http://127.0.0.1:..."
+          placeholder={t("accountManager.authProxy.wizard.urlPlaceholder")}
           onKeyDown={(e) => {
             if (e.key === "Enter") handleParseUrl()
           }}
