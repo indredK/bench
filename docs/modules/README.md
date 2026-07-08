@@ -10,6 +10,7 @@
 | [quick-launch](./quick-launch/) | — | — | ✅ |
 | [app-manager](./app-manager/) | — | — | ✅ |
 | [dev-toolbox](./dev-toolbox/) | — | — | ✅ |
+| [clean-space](./clean-space/) | — | ✅ | — |
 | [dev-cleaner](./dev-cleaner/) | — | — | ✅ |
 | [env-detector](./env-detector/) | — | — | ✅ |
 | [token-calculator](./token-calculator/) | — | — | ✅ |

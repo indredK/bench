@@ -173,8 +173,9 @@ src/
 ├── features/                        # 11 个领域模块
 │   ├── account-manager/             # 会话、webview、认证代理（复杂）
 │   ├── app-manager/                 # 已安装应用扫描、启动、卸载
-│   ├── dev-cleaner/                 # 项目垃圾扫描与清理
-│   ├── dev-toolbox/                 # Tab 容器 — 聚合端口管理、开发清理、环境检测、Token计算
+│   ├── clean-space/                # 存储空间清理（顶层主菜单模块；含开发项目清理子流程）
+│   ├── dev-cleaner/                 # 清理引擎（被 clean-space 复用，不再独立注册）
+│   ├── dev-toolbox/                 # Tab 容器 — 聚合端口管理、环境检测、Token 计算
 │   ├── env-detector/                # 开发工具清单
 │   ├── hardware/                    # 硬件对比（手机、CPU、GPU...）
 │   ├── port-manager/                # 端口扫描与查杀（参考范例）

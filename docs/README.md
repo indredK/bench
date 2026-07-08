@@ -26,7 +26,8 @@
 | App Manager | [modules/app-manager/](./modules/app-manager/) |
 | Dev Toolbox | [modules/dev-toolbox/](./modules/dev-toolbox/) |
 | Port Manager | [modules/port-manager/](./modules/port-manager/) |
-| Dev Cleaner | [modules/dev-cleaner/](./modules/dev-cleaner/) |
+| Clean Space | [modules/clean-space/](./modules/clean-space/) |
+| Dev Cleaner | [modules/dev-cleaner/](./modules/dev-cleaner/)（已迁入 Clean Space） |
 | Env Detector | [modules/env-detector/](./modules/env-detector/) |
 | Token Calculator | [modules/token-calculator/](./modules/token-calculator/) |
 | Terminology | [modules/terminology/](./modules/terminology/) |
