@@ -13,6 +13,7 @@
     "tokenCalculator": "Token Calc",
     "terminology": "Terminology",
     "systemSettings": "System Settings",
+    "cleanSpace": "Clean Space",
     "restart": "Restart App",
     "settings": "Settings"
   },
@@ -126,7 +127,7 @@
     "login": {
       "title": "Login Items",
       "manageInSettings": "Manage in System Settings",
-    "remove": "Remove {{name}}",
+      "remove": "Remove {{name}}",
       "removeConfirmTitle": "Remove login item?",
       "removeConfirmDescription": "Remove \"{{name}}\" from login items? It will no longer launch at login.",
       "removeConsequence": "This only removes the login item entry. The app itself is not deleted.",
@@ -2451,5 +2452,176 @@
     "alwaysAskDesc": "Show a dialog each time",
     "remember": "Remember my choice",
     "confirm": "Confirm"
+  },
+  "cleanSpace": {
+    "title": "Clean Space",
+    "subtitle": "View disk usage, clean caches, logs and temp files to free up storage",
+    "tools": {
+      "overview": "Storage Overview",
+      "overviewDesc": "View disk usage distribution and category details",
+      "devProject": "Dev Project Cleanup",
+      "devProjectDesc": "Scan and clean node_modules, caches in dev projects",
+      "customFolder": "Custom Folder Cleanup",
+      "customFolderDesc": "Select folders and clean expired files by rules",
+      "records": "Cleanup Records",
+      "recordsDesc": "View historical cleanup operations and freed space stats"
+    },
+    "placeholder": {
+      "overview": "Storage overview coming soon…",
+      "devProject": "Dev project cleanup coming soon…",
+      "customFolder": "Custom folder cleanup coming soon…",
+      "records": "Cleanup records coming soon…"
+    },
+    "openInSystemSettings": "Open in System Settings",
+    "emptyState": "No data",
+    "scanFailed": "Scan failed",
+    "cleanupSuccess": "Cleanup succeeded, freed {{size}}",
+    "cleanupFailed": "Cleanup failed",
+    "risk": {
+      "safe": "Safe",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "level": "Risk",
+      "def": {
+        "safe": "Rebuildable caches, no side effects. e.g. app/user caches, browser caches, Trash, logs, duplicate downloads.",
+        "low": "Recoverable or minimal impact. e.g. old iOS backups, unmounted DMGs, old Xcode simulators, mail attachment caches.",
+        "medium": "Hard to recover or affects app config. e.g. rarely used apps, >1GB & >1yr old documents, Xcode DerivedData, non-core App Support.",
+        "high": "Deletion causes system/others issues and is irreversible. e.g. core System Data, other users' files, Time Machine local snapshots, system logs, keychain/profiles, critical App Support."
+      }
+    },
+    "overview": {
+      "title": "Storage Overview",
+      "scan": "Scan",
+      "totalDisk": "Total Disk",
+      "free": "Free",
+      "freeOfTotal": "Free / {{total}}",
+      "clickToScan": "Click \"Scan\" to view disk usage",
+      "scanning": "Scanning…",
+      "scanningMore": "Scanning…",
+      "autoScanHint": "Auto-scanning disk usage",
+      "categoryDetail": "Category Detail",
+      "used": "Used",
+      "cleanable": "Cleanable",
+      "largestCategory": "Largest category",
+      "suggestionTitle": "Optimization Suggestions",
+      "suggestionDesc": "About {{size}} can be safely freed (caches, Trash, duplicate files). Select safe items to clean up at once.",
+      "safeItems": "Safe items",
+      "totalCleanable": "Total cleanable",
+      "highRiskItems": "High-risk items"
+    },
+    "category": {
+      "loading": "Loading…",
+      "safeOnly": "Safe items only",
+      "sortLabel": "Sort",
+      "totalItems": "Total",
+      "itemsUnit": "items",
+      "availableFree": "Releasable",
+      "sort": {
+        "priority": "By priority",
+        "size": "By size",
+        "risk": "By risk"
+      }
+    },
+    "detail": {
+      "hitReason": "Reason: ",
+      "name": "Name",
+      "path": "Path",
+      "files": "Files",
+      "risk": "Risk",
+      "weight": "Weight",
+      "weightValue": "(weight {{weight}})",
+      "score": "Score",
+      "riskReason": "Risk reason:",
+      "notCleanable": "System/read-only file — cannot be cleaned"
+    },
+    "batch": {
+      "selectAllSafe": "Select all safe",
+      "excludeHigh": "Exclude high risk",
+      "selected": "Selected",
+      "itemsUnit": "items",
+      "free": "Free",
+      "cleanSelected": "Clean selected"
+    },
+    "impact": {
+      "delete": "Delete",
+      "items": "items",
+      "free": "Free",
+      "paths": "Involves",
+      "pathCount": "paths"
+    },
+    "riskWarning": {
+      "irreversible": "This action is irreversible.",
+      "highDesc": "Selection contains high-risk items (e.g. system logs, other users' files, Time Machine local snapshots). Deletion is irreversible and may affect system or others' data. Please confirm carefully.",
+      "mediumDesc": "Selection contains medium-risk items. Hard to recover after deletion, may affect related app configurations."
+    },
+    "confirm": {
+      "ack1": "I understand the risks of the selected actions and confirm to proceed",
+      "ack2": "I confirm deleting irreversible high-risk files"
+    },
+    "progress": {
+      "preparing": "Preparing",
+      "itemsUnit": "items",
+      "logTitle": "Execution Log",
+      "deleted": "Permanently deleted",
+      "cleaned": "Cleaned",
+      "freed": "Freed",
+      "irreversible": " (irreversible)",
+      "resultTitle": "Cleanup Result",
+      "cleanedItems": "Cleaned items",
+      "freedSpace": "Freed space",
+      "pathCount": "Paths",
+      "highRiskItems": "High-risk items",
+      "again": "Run again",
+      "done": "Done",
+      "allDone": "All selected tasks completed"
+    },
+    "confirmCleanupTitle": "Confirm Cleanup",
+    "confirmCleanupDesc2": "Please review the commands and impact scope below before executing.",
+    "confirmCleanup": "Confirm Cleanup",
+    "cancelCleanup": "Cancel",
+    "cleaning": "Cleaning…",
+    "toast": {
+      "cleanupSuccess": "Successfully cleaned {{count}} items, freed {{size}}",
+      "cleanupFailed": "Cleanup failed, please try again"
+    },
+    "categories": {
+      "applications": "Applications",
+      "downloads": "Downloads",
+      "documents": "Documents",
+      "system_data": "System Data",
+      "app_data": "App Data",
+      "other_users": "Other Users & Shared",
+      "macos": "macOS",
+      "developer": "Developer"
+    },
+    "records": {
+      "title": "Cleanup Records",
+      "empty": "No cleanup records yet",
+      "loading": "Loading…",
+      "items": "items",
+      "highRisk": "high risk",
+      "statusOk": "Success",
+      "statusWarn": "Partial failure"
+    },
+    "customFolder": {
+      "title": "Custom Folder Cleanup",
+      "folderPlaceholder": "Select a folder…",
+      "browse": "Browse",
+      "scan": "Scan",
+      "mtimeDays": "Older than (days)",
+      "includeSubfolders": "Include subfolders",
+      "foundItems": "Files found",
+      "estFreed": "Est. freed"
+    },
+    "suggestions": {
+      "title": "Optimization Suggestions",
+      "noSuggestions": "No suggestions at this time",
+      "applications": "Applications use {{size}}, consider removing unused apps",
+      "documents": "Documents folder uses {{size}}",
+      "system_data": "System caches and logs use {{size}}, safe to clean",
+      "developer": "Developer tools use {{size}}, including Xcode and Docker",
+      "other_users": "Shared folder uses {{size}}"
+    }
   }
 }

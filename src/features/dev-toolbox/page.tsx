@@ -1,11 +1,11 @@
 /**
- * Dev Toolbox Page / 开发工具箱: 统一入口，7 个子 Tab。
+ * Dev Toolbox Page / 开发工具箱: 统一入口，6 个子 Tab。
  *
- * 收容: 端口管理 / 开发清理 / 环境检测 / Token 计算 / 开发工具 / 网络诊断 / 系统信息
+ * 收容: 端口管理 / 环境检测 / Token 计算 / 开发工具 / 网络诊断 / 系统信息
  */
 import { lazy, Suspense } from "react"
 import { useTranslation } from "react-i18next"
-import { Loader2Icon, Code, Network, Monitor, Zap, Trash2, Box, Coins } from "lucide-react"
+import { Loader2Icon, Code, Network, Monitor, Zap, Box, Coins } from "lucide-react"
 import { SettingGroup } from "@/components/ui/setting-group"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -26,7 +26,6 @@ import {
 } from "@/features/dev-toolbox/hooks/useDevToolboxController"
 
 const PortManager = lazy(() => import("@/features/port-manager/page"))
-const DevCleaner = lazy(() => import("@/features/dev-cleaner/page"))
 const EnvDetector = lazy(() => import("@/features/env-detector/page"))
 const TokenCalculatorPage = lazy(() => import("@/features/token-calculator/page"))
 
@@ -339,12 +338,6 @@ export default function DevToolbox({ feature }: DevToolboxProps) {
             <PortManager feature={feature} />
           </Suspense>
         )
-      case "dev-cleaner":
-        return (
-          <Suspense fallback={<PageFallback />}>
-            <DevCleaner feature={feature} />
-          </Suspense>
-        )
       case "env-detector":
         return (
           <Suspense fallback={<PageFallback />}>
@@ -370,7 +363,6 @@ export default function DevToolbox({ feature }: DevToolboxProps) {
 
   const tabs: { id: ToolboxTab; labelKey: string; icon: typeof Zap }[] = [
     { id: "port-manager", labelKey: "sidebar.portManager", icon: Zap },
-    { id: "dev-cleaner", labelKey: "sidebar.devCleaner", icon: Trash2 },
     { id: "env-detector", labelKey: "sidebar.envDetector", icon: Box },
     { id: "token-calc", labelKey: "sidebar.tokenCalculator", icon: Coins },
     { id: "devtools", labelKey: "devToolbox.devtools", icon: Code },

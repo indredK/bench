@@ -65,6 +65,16 @@ import type {
   AppUpdateInstallResult,
 } from "@/lib/tauri/types/updater"
 import type { StartupIssue } from "@/lib/tauri/types/bootstrap"
+import type {
+  StorageOverview,
+  StorageItem,
+  StorageCategory,
+  ScanStartPayload,
+  CleanupRecord,
+  FolderScanResult,
+  CategoryCleanupResult,
+  CleanupItemInput,
+} from "@/lib/tauri/types/clean-space"
 
 type TauriCommandSpec<Name extends string, Args, Result> = {
   readonly name: Name
@@ -492,6 +502,33 @@ export const TAURI_COMMAND_CONTRACTS = {
   set_close_behavior: defineTauriCommand<{ behavior: string }, void>()("set_close_behavior"),
   quit_app: defineTauriCommand<undefined, void>()("quit_app"),
   hide_main_window: defineTauriCommand<undefined, void>()("hide_main_window"),
+  // clean space
+  scan_storage_overview: defineTauriCommand<undefined, StorageOverview>()(
+    "scan_storage_overview",
+  ),
+  scan_storage_stream: defineTauriCommand<undefined, void>()(
+    "scan_storage_stream",
+  ),
+  get_category_items: defineTauriCommand<{ categoryId: string }, StorageItem[]>()(
+    "get_category_items",
+  ),
+  execute_category_cleanup: defineTauriCommand<
+    { items: CleanupItemInput[] },
+    CategoryCleanupResult
+  >()("execute_category_cleanup"),
+  scan_custom_folder: defineTauriCommand<
+    { folder: string; mtimeDays?: number; includeSubfolders?: boolean },
+    FolderScanResult
+  >()("scan_custom_folder"),
+  open_system_storage_settings: defineTauriCommand<undefined, void>()(
+    "open_system_storage_settings",
+  ),
+  get_cleanup_records: defineTauriCommand<undefined, CleanupRecord[]>()(
+    "get_cleanup_records",
+  ),
+  add_cleanup_record: defineTauriCommand<{ record: CleanupRecord }, void>()(
+    "add_cleanup_record",
+  ),
 } as const
 
 export type TauriCommandName = keyof typeof TAURI_COMMAND_CONTRACTS
@@ -720,6 +757,16 @@ export const TAURI_COMMANDS = {
     setCloseBehavior: commandName("set_close_behavior"),
     quitApp: commandName("quit_app"),
     hideMainWindow: commandName("hide_main_window"),
+  },
+  cleanSpace: {
+    scanStorageOverview: commandName("scan_storage_overview"),
+    scanStorageStream: commandName("scan_storage_stream"),
+    getCategoryItems: commandName("get_category_items"),
+    executeCategoryCleanup: commandName("execute_category_cleanup"),
+    scanCustomFolder: commandName("scan_custom_folder"),
+    openSystemStorageSettings: commandName("open_system_storage_settings"),
+    getCleanupRecords: commandName("get_cleanup_records"),
+    addCleanupRecord: commandName("add_cleanup_record"),
   },
 } as const
 
@@ -950,6 +997,15 @@ export const TAURI_COMMAND_ARG_KEYS = {
   set_close_behavior: ["behavior"],
   quit_app: [],
   hide_main_window: [],
+  // clean space
+  scan_storage_overview: [],
+  scan_storage_stream: [],
+  get_category_items: ["categoryId"],
+  execute_category_cleanup: ["items"],
+  scan_custom_folder: ["folder", "mtimeDays", "includeSubfolders"],
+  open_system_storage_settings: [],
+  get_cleanup_records: [],
+  add_cleanup_record: ["record"],
 } as const satisfies TauriCommandArgKeys
 
 export const WINDOW_BOOTSTRAP_EVENTS = {
@@ -974,6 +1030,11 @@ export const TAURI_EVENTS = {
     progress: "custom-cleanup:progress",
     completed: "custom-cleanup:completed",
   },
+  cleanSpace: {
+    scanStart: "clean-space:scan-start",
+    scanCategory: "clean-space:scan-category",
+    scanComplete: "clean-space:scan-complete",
+  },
   appPreferences: {
     showCloseBehaviorDialog: "show-close-behavior-dialog",
   },
@@ -987,5 +1048,8 @@ export interface TauriEventContracts {
   "app-update-install:finished": InstallFinishedEvent
   "custom-cleanup:progress": CustomCleanupProgress
   "custom-cleanup:completed": CustomCleanupFinalResult
+  "clean-space:scan-start": ScanStartPayload
+  "clean-space:scan-category": StorageCategory
+  "clean-space:scan-complete": void
   "show-close-behavior-dialog": void
 }

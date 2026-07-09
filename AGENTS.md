@@ -16,6 +16,7 @@
    - [ ] `.cursorrules` — 行为约束（最高优先级）
    - [ ] `docs/ARCHITECTURE.md` §2 — 🔴 禁止模式（不可触犯）
    - [ ] `docs/coding-standards.md` — 编码规范（强制/建议）
+   - [ ] `docs/UX-STANDARDS.md` — UX 设计规范（布局/加载态/文本溢出/紧凑化）
    - [ ] `docs/AI-WORKFLOWS.md` — 工作流定义
    - [ ] `docs/DECISIONS.md` — 方向性决策（做取舍前先读，取舍后回写）
 3. **按下方关键词路由表进 workflow**；**判断不了就停下问人**，不许猜。
@@ -34,6 +35,7 @@
 
 **始终遵守**：
 - 编码规范：`docs/coding-standards.md`（12 节，含强制/建议级别）
+- UX 规范：`docs/UX-STANDARDS.md`（布局、加载态、文本溢出、紧凑化、滚动行为）
 - 开发流程：`docs/development-workflow.md`
 - 不计违规决策：`docs/audit-report.md`（避免重复标记）
 - 方向性决策：`docs/DECISIONS.md`（规划/架构为什么这么定——做方向取舍前先读，取舍后回写）

@@ -150,9 +150,17 @@ fn classify_auth(d: DetectionInput) -> AuthProfile {
     // CSRF
     if d.csrf.meta_name.is_some() || d.csrf.input_name.is_some() {
         p.csrf_protection = true;
-        let name = d.csrf.meta_name.clone().unwrap_or_else(|| d.csrf.input_name.clone().unwrap_or_default());
+        let name = d
+            .csrf
+            .meta_name
+            .clone()
+            .unwrap_or_else(|| d.csrf.input_name.clone().unwrap_or_default());
         p.csrf_extraction = Some(CsrfExtraction {
-            source: if d.csrf.meta_name.is_some() { "meta".into() } else { "input".into() },
+            source: if d.csrf.meta_name.is_some() {
+                "meta".into()
+            } else {
+                "input".into()
+            },
             name: name.clone(),
             header_name: format!("X-{}", name.to_uppercase().replace('_', "-")),
         });
@@ -224,13 +232,29 @@ fn classify_auth(d: DetectionInput) -> AuthProfile {
 /// 基于检测证据计算置信度 (0.0-1.0)
 fn calculate_confidence(d: &DetectionInput, p: &AuthProfile) -> f32 {
     let mut score = 0.5f32;
-    if !d.session_cookie_names.is_empty() { score += 0.15; }
-    if !d.token_keys.is_empty() { score += 0.15; }
+    if !d.session_cookie_names.is_empty() {
+        score += 0.15;
+    }
+    if !d.token_keys.is_empty() {
+        score += 0.15;
+    }
     // logout UI 明确 → 登录状态确定
-    if d.logout_elements.as_array().map(|a| !a.is_empty()).unwrap_or(false) { score += 0.1; }
-    if d.sso_provider.is_some() { score += 0.1; }
-    if d.cloudflare.challenge || d.cloudflare.turnstile { score += 0.05; }
-    if p.auth_type != AuthType::Unknown { score += 0.05; }
+    if d.logout_elements
+        .as_array()
+        .map(|a| !a.is_empty())
+        .unwrap_or(false)
+    {
+        score += 0.1;
+    }
+    if d.sso_provider.is_some() {
+        score += 0.1;
+    }
+    if d.cloudflare.challenge || d.cloudflare.turnstile {
+        score += 0.05;
+    }
+    if p.auth_type != AuthType::Unknown {
+        score += 0.05;
+    }
     score.min(1.0)
 }
 
@@ -239,6 +263,9 @@ pub fn classify(page_text: &str, config: &LoginDetectionConfig) -> AccountSessio
     super::detection_legacy::classify(page_text, config)
 }
 
-pub fn classify_confident(page_text: &str, config: &LoginDetectionConfig) -> Option<AccountSessionStatus> {
+pub fn classify_confident(
+    page_text: &str,
+    config: &LoginDetectionConfig,
+) -> Option<AccountSessionStatus> {
     super::detection_legacy::classify_confident(page_text, config)
 }

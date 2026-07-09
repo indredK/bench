@@ -4,6 +4,7 @@
 export type * from "./account-manager"
 export type * from "./app-manager"
 export type * from "./bootstrap"
+export type * from "./clean-space"
 export type * from "./dev-cleaner"
 export type * from "./env-detector"
 export type * from "./port-manager"

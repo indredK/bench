@@ -16,19 +16,33 @@ pub async fn get_login_items() -> AppResult<Vec<super::types::LoginItem>> {
             .output()
             .map_err(|e| AppError::internal(format!("osascript: {e}")))?;
         let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        if stdout.is_empty() { return Ok(vec![]); }
+        if stdout.is_empty() {
+            return Ok(vec![]);
+        }
         let mut items = Vec::new();
         for entry in stdout.split("}, {") {
             let entry = entry.trim().trim_start_matches('{').trim_end_matches('}');
-            let name = entry.split(',').find_map(|kv| {
-                let kv = kv.trim();
-                kv.strip_prefix("name:").map(|v| v.trim().trim_matches('"').to_string())
-            }).unwrap_or_default();
-            let path = entry.split(',').find_map(|kv| {
-                let kv = kv.trim();
-                kv.strip_prefix("path:").map(|v| v.trim().trim_matches('"').to_string())
-            }).unwrap_or_default();
-            items.push(super::types::LoginItem { name, path, enabled: true });
+            let name = entry
+                .split(',')
+                .find_map(|kv| {
+                    let kv = kv.trim();
+                    kv.strip_prefix("name:")
+                        .map(|v| v.trim().trim_matches('"').to_string())
+                })
+                .unwrap_or_default();
+            let path = entry
+                .split(',')
+                .find_map(|kv| {
+                    let kv = kv.trim();
+                    kv.strip_prefix("path:")
+                        .map(|v| v.trim().trim_matches('"').to_string())
+                })
+                .unwrap_or_default();
+            items.push(super::types::LoginItem {
+                name,
+                path,
+                enabled: true,
+            });
         }
         Ok(items)
     })
@@ -116,7 +130,8 @@ const APP_DISPLAY_NAME: &str = "Bench";
 
 #[cfg(target_os = "macos")]
 fn resolve_app_bundle_path() -> AppResult<String> {
-    let exe = std::env::current_exe().map_err(|e| AppError::internal(format!("current_exe: {e}")))?;
+    let exe =
+        std::env::current_exe().map_err(|e| AppError::internal(format!("current_exe: {e}")))?;
     let mut path = exe.as_path();
     while path.extension().and_then(|e| e.to_str()) != Some("app") {
         match path.parent() {
@@ -138,19 +153,16 @@ fn ensure_dev_app_bundle(exe: &std::path::Path, bundle: &std::path::Path) -> App
 
     let macos_dir = bundle.join("Contents").join("MacOS");
     if macos_dir.exists() {
-        let symlink = macos_dir.join(
-            exe.file_name().unwrap_or(std::ffi::OsStr::new("bench")),
-        );
+        let symlink = macos_dir.join(exe.file_name().unwrap_or(std::ffi::OsStr::new("bench")));
         if symlink.exists() && fs::read_link(&symlink).is_ok_and(|t| t == exe) {
             return Ok(());
         }
     }
 
-    fs::create_dir_all(&macos_dir).map_err(|e| AppError::internal(format!("create MacOS dir: {e}")))?;
+    fs::create_dir_all(&macos_dir)
+        .map_err(|e| AppError::internal(format!("create MacOS dir: {e}")))?;
 
-    let symlink = macos_dir.join(
-        exe.file_name().unwrap_or(std::ffi::OsStr::new("bench")),
-    );
+    let symlink = macos_dir.join(exe.file_name().unwrap_or(std::ffi::OsStr::new("bench")));
     let _ = fs::remove_file(&symlink);
     std::os::unix::fs::symlink(exe, &symlink)
         .map_err(|e| AppError::internal(format!("symlink binary: {e}")))?;
@@ -174,7 +186,10 @@ fn ensure_dev_app_bundle(exe: &std::path::Path, bundle: &std::path::Path) -> App
 </dict>
 </plist>
 "#,
-        executable = exe.file_name().unwrap_or(std::ffi::OsStr::new("bench")).to_string_lossy(),
+        executable = exe
+            .file_name()
+            .unwrap_or(std::ffi::OsStr::new("bench"))
+            .to_string_lossy(),
         bundle_id = APP_BUNDLE_ID,
         display_name = APP_DISPLAY_NAME,
     );
@@ -242,12 +257,20 @@ async fn set_autostart_impl(enabled: bool) -> AppResult<()> {
 async fn set_autostart_impl(enabled: bool) -> AppResult<()> {
     tauri::async_runtime::spawn_blocking(move || {
         if enabled {
-            let exe = std::env::current_exe().map_err(|e| AppError::internal(format!("current_exe: {e}")))?;
+            let exe = std::env::current_exe()
+                .map_err(|e| AppError::internal(format!("current_exe: {e}")))?;
             let exe_path = exe.to_string_lossy().to_string();
             let output = std::process::Command::new("reg")
                 .args([
-                    "add", WIN_RUN_KEY, "/v", WIN_APP_NAME, "/t", "REG_SZ", "/d",
-                    &exe_path, "/f",
+                    "add",
+                    WIN_RUN_KEY,
+                    "/v",
+                    WIN_APP_NAME,
+                    "/t",
+                    "REG_SZ",
+                    "/d",
+                    &exe_path,
+                    "/f",
                 ])
                 .output()
                 .map_err(|e| AppError::internal(format!("reg add: {e}")))?;
@@ -269,7 +292,9 @@ async fn set_autostart_impl(enabled: bool) -> AppResult<()> {
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
 async fn set_autostart_impl(enabled: bool) -> AppResult<()> {
     let _ = enabled;
-    Err(AppError::unsupported("Autostart is not supported on this platform"))
+    Err(AppError::unsupported(
+        "Autostart is not supported on this platform",
+    ))
 }
 
 #[tauri::command]
@@ -279,20 +304,32 @@ pub async fn set_autostart(enabled: bool) -> AppResult<()> {
 
 fn read_launch_services(dir: &std::path::PathBuf) -> AppResult<Vec<super::types::LaunchService>> {
     let mut services = Vec::new();
-    if !dir.exists() { return Ok(services); }
-    let entries = std::fs::read_dir(dir).map_err(|e| AppError::io(format!("read_dir {dir:?}: {e}")))?;
+    if !dir.exists() {
+        return Ok(services);
+    }
+    let entries =
+        std::fs::read_dir(dir).map_err(|e| AppError::io(format!("read_dir {dir:?}: {e}")))?;
     for entry in entries.flatten() {
         let path = entry.path();
         if path.extension().and_then(|e| e.to_str()) == Some("plist") {
-            let name = path.file_stem().and_then(|s| s.to_str()).unwrap_or("unknown").to_string();
+            let name = path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("unknown")
+                .to_string();
             let output = std::process::Command::new("defaults")
                 .args(["read", &path.to_string_lossy(), "Label"])
                 .output();
-            let label = output.ok()
+            let label = output
+                .ok()
                 .and_then(|o| String::from_utf8(o.stdout).ok())
                 .map(|s| s.trim().to_string())
                 .unwrap_or_else(|| name.clone());
-            services.push(super::types::LaunchService { name: label, path: path.to_string_lossy().to_string(), enabled: true });
+            services.push(super::types::LaunchService {
+                name: label,
+                path: path.to_string_lossy().to_string(),
+                enabled: true,
+            });
         }
     }
     Ok(services)

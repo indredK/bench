@@ -30,7 +30,7 @@ export interface ScanResult {
 
 // ── Custom Cleanup Types ──
 
-export type RiskLevel = "low" | "medium" | "high"
+export type RiskLevel = "safe" | "low" | "medium" | "high"
 
 export interface CleanupCommandDef {
   id: string

@@ -97,7 +97,10 @@ fn find_industry_mut<'a>(industries: &'a mut [Industry], id: &str) -> Option<&'a
 }
 
 fn find_category_mut<'a>(industry: &'a mut Industry, id: &str) -> Option<&'a mut TermCategory> {
-    industry.categories.iter_mut().find(|category| category.id == id)
+    industry
+        .categories
+        .iter_mut()
+        .find(|category| category.id == id)
 }
 
 fn find_subcategory_mut<'a>(
@@ -112,12 +115,22 @@ fn find_subcategory_mut<'a>(
 
 fn validate_bundle(industries: &[Industry], terms: &[Term]) -> TerminologyResult<()> {
     for term in terms {
-        let Some(industry) = industries.iter().find(|industry| industry.id == term.industry_id) else {
+        let Some(industry) = industries
+            .iter()
+            .find(|industry| industry.id == term.industry_id)
+        else {
             return Err(TerminologyError::NotFound {
-                message: format!("Industry '{}' not found for term '{}'", term.industry_id, term.id),
+                message: format!(
+                    "Industry '{}' not found for term '{}'",
+                    term.industry_id, term.id
+                ),
             });
         };
-        if !industry.categories.iter().any(|category| category.id == term.category_id) {
+        if !industry
+            .categories
+            .iter()
+            .any(|category| category.id == term.category_id)
+        {
             return Err(TerminologyError::NotFound {
                 message: format!(
                     "Category '{}' not found for term '{}'",
@@ -177,7 +190,9 @@ fn is_duplicate_term_scope(
 }
 
 #[tauri::command]
-pub fn list_terminology_data(state: State<'_, TerminologyState>) -> TerminologyResult<TerminologyBundle> {
+pub fn list_terminology_data(
+    state: State<'_, TerminologyState>,
+) -> TerminologyResult<TerminologyBundle> {
     state.ensure_ready()?;
     Ok(state.read_bundle())
 }
@@ -322,11 +337,9 @@ pub fn update_category(
             }
         })?;
 
-        if industry
-            .categories
-            .iter()
-            .any(|category| category.id != category_id && category.label.trim().eq_ignore_ascii_case(&label))
-        {
+        if industry.categories.iter().any(|category| {
+            category.id != category_id && category.label.trim().eq_ignore_ascii_case(&label)
+        }) {
             return Err(TerminologyError::DuplicateName {
                 message: format!(
                     "A category named '{}' already exists in industry '{}'",
@@ -361,7 +374,9 @@ pub fn delete_category(
             }
         })?;
         let before = industry.categories.len();
-        industry.categories.retain(|category| category.id != category_id);
+        industry
+            .categories
+            .retain(|category| category.id != category_id);
         if industry.categories.len() == before {
             return Err(TerminologyError::NotFound {
                 message: format!("Category with id '{}' not found", category_id),
@@ -544,7 +559,11 @@ pub fn create_term(
             .ok_or_else(|| TerminologyError::NotFound {
                 message: format!("Industry with id '{}' not found", industry_id),
             })?;
-        if !industry.categories.iter().any(|category| category.id == category_id) {
+        if !industry
+            .categories
+            .iter()
+            .any(|category| category.id == category_id)
+        {
             return Err(TerminologyError::NotFound {
                 message: format!("Category with id '{}' not found", category_id),
             });
@@ -622,7 +641,11 @@ pub fn update_term(
             .ok_or_else(|| TerminologyError::NotFound {
                 message: format!("Industry with id '{}' not found", term.industry_id),
             })?;
-        if !industry.categories.iter().any(|category| category.id == term.category_id) {
+        if !industry
+            .categories
+            .iter()
+            .any(|category| category.id == term.category_id)
+        {
             return Err(TerminologyError::NotFound {
                 message: format!("Category with id '{}' not found", term.category_id),
             });

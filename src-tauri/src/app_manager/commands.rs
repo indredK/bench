@@ -1,8 +1,7 @@
 use super::installer::orchestrator::{install_update, InstallHandle};
 use super::state::AppManagerState;
 use super::types::{
-    BatchItemResult, BatchOperationResult, InstallSource, OperationResult,
-    ScanResult, UpdateInfo,
+    BatchItemResult, BatchOperationResult, InstallSource, OperationResult, ScanResult, UpdateInfo,
 };
 use super::{empty_scan_result, linux, locked_operation_result, macos, sources, windows};
 use crate::error::{AppError, AppResult};
@@ -71,18 +70,20 @@ fn emit_silently<T: Serialize + Clone>(app: &tauri::AppHandle, event: &str, payl
 fn try_start_batch_operation(
     state: &tauri::State<'_, AppManagerState>,
 ) -> Result<Arc<AtomicBool>, BatchOperationResult> {
-    state.start_batch_operation().map_err(|_| BatchOperationResult {
-        total: 0,
-        succeeded: 0,
-        failed: 1,
-        results: vec![BatchItemResult {
-            app_id: String::new(),
-            app_name: String::new(),
-            success: false,
-            message: "Another batch operation is already running".to_string(),
-            exit_code: None,
-        }],
-    })
+    state
+        .start_batch_operation()
+        .map_err(|_| BatchOperationResult {
+            total: 0,
+            succeeded: 0,
+            failed: 1,
+            results: vec![BatchItemResult {
+                app_id: String::new(),
+                app_name: String::new(),
+                success: false,
+                message: "Another batch operation is already running".to_string(),
+                exit_code: None,
+            }],
+        })
 }
 
 #[tauri::command]
@@ -151,7 +152,9 @@ pub fn reveal_app_in_finder(app_path: String) -> AppResult<()> {
 #[tauri::command]
 pub fn authorize_mac_app(app_path: String) -> AppResult<OperationResult> {
     if !is_macos() {
-        return Err(AppError::unsupported("authorize_mac_app is only available on macOS"));
+        return Err(AppError::unsupported(
+            "authorize_mac_app is only available on macOS",
+        ));
     }
     macos::authorize_mac_app(app_path)
         .map_err(|e| AppError::internal(format!("authorize_mac_app: {e}")))
@@ -166,11 +169,11 @@ pub async fn check_managed_app_updates(
         let state: tauri::State<'_, AppManagerState> = app.state();
         state.mark_update_check();
         if is_macos() {
-            macos::check_updates(app_ids, state).map_err(|e| AppError::internal(e))
+            macos::check_updates(app_ids, state).map_err(AppError::internal)
         } else if is_windows() {
-            windows::check_updates(app_ids, state).map_err(|e| AppError::internal(e))
+            windows::check_updates(app_ids, state).map_err(AppError::internal)
         } else if is_linux() {
-            linux::check_updates(app_ids, state).map_err(|e| AppError::internal(e))
+            linux::check_updates(app_ids, state).map_err(AppError::internal)
         } else {
             Ok(vec![])
         }
@@ -538,7 +541,9 @@ pub async fn open_in_mac_app_store_updates() -> AppResult<()> {
 #[tauri::command]
 pub async fn install_app_update(update: UpdateInfo, app: tauri::AppHandle) -> AppResult<()> {
     if !is_macos() {
-        return Err(AppError::unsupported("SU_PLATFORM_UNSUPPORTED: only macOS supports in-place updates"));
+        return Err(AppError::unsupported(
+            "SU_PLATFORM_UNSUPPORTED: only macOS supports in-place updates",
+        ));
     }
 
     let state: tauri::State<'_, AppManagerState> = app.state();
@@ -549,8 +554,9 @@ pub async fn install_app_update(update: UpdateInfo, app: tauri::AppHandle) -> Ap
             .find(|a| a.app_id == update.app_id)
             .map(|a| a.install_path.clone())
     };
-    let install_path = install_path
-        .ok_or_else(|| AppError::not_found("SU_APP_NOT_FOUND: not in cached scan; run scan first"))?;
+    let install_path = install_path.ok_or_else(|| {
+        AppError::not_found("SU_APP_NOT_FOUND: not in cached scan; run scan first")
+    })?;
 
     let guard = state
         .try_lock_operation(&update.app_id)
@@ -610,8 +616,8 @@ pub async fn confirm_developer_id_change(
             .unwrap_or_else(|e| e.into_inner());
         map.get(&app_id).cloned()
     };
-    let handle = handle
-        .ok_or_else(|| AppError::not_found("SU_NOT_INSTALLING: no install in progress"))?;
+    let handle =
+        handle.ok_or_else(|| AppError::not_found("SU_NOT_INSTALLING: no install in progress"))?;
 
     let mut slot = handle.dev_id_decision.lock().await;
     match slot.take() {
@@ -619,6 +625,8 @@ pub async fn confirm_developer_id_change(
             let _ = tx.send(approved);
             Ok(())
         }
-        None => Err(AppError::internal("SU_NOT_AWAITING_CONFIRM: orchestrator is not waiting for a decision")),
+        None => Err(AppError::internal(
+            "SU_NOT_AWAITING_CONFIRM: orchestrator is not waiting for a decision",
+        )),
     }
 }

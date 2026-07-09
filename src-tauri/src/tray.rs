@@ -74,7 +74,9 @@ pub fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>
     sync_autostart_check(app.handle(), &autostart);
 
     TrayIconBuilder::with_id(TRAY_ID)
-        .icon(tauri::image::Image::from_bytes(include_bytes!("../icons/tray-icon.png"))?)
+        .icon(tauri::image::Image::from_bytes(include_bytes!(
+            "../icons/tray-icon.png"
+        ))?)
         .icon_as_template(true)
         .menu(&menu)
         // 左键单击显示主窗口, 右键单击弹出菜单 (macOS/Windows 原生右键菜单行为)
@@ -93,34 +95,32 @@ pub fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>
                 }
             }
         })
-        .on_menu_event(move |app, event| {
-            match event.id().as_ref() {
-                "tray_show" => {
-                    if let Some(window) = app.get_webview_window("main") {
-                        let _ = window.show();
-                        let _ = window.set_focus();
-                    }
+        .on_menu_event(move |app, event| match event.id().as_ref() {
+            "tray_show" => {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
                 }
-                "tray_sleep" => {
-                    let desired = sleep.is_checked().unwrap_or(false);
-                    let config = crate::sleep_inhibitor::types::SleepConfig::default();
-                    let _ = crate::sleep_inhibitor::commands::toggle_sleep_inhibitor(config, desired);
-                    sync_sleep_check(app, &sleep);
-                }
-                "tray_autostart" => {
-                    let desired = autostart.is_checked().unwrap_or(false);
-                    let app_handle = app.clone();
-                    let autostart_clone = autostart.clone();
-                    tauri::async_runtime::spawn(async move {
-                        let _ = crate::system_settings::login_items::set_autostart(desired).await;
-                        sync_autostart_check(&app_handle, &autostart_clone);
-                    });
-                }
-                "tray_quit" => {
-                    app.exit(0);
-                }
-                _ => {}
             }
+            "tray_sleep" => {
+                let desired = sleep.is_checked().unwrap_or(false);
+                let config = crate::sleep_inhibitor::types::SleepConfig::default();
+                let _ = crate::sleep_inhibitor::commands::toggle_sleep_inhibitor(config, desired);
+                sync_sleep_check(app, &sleep);
+            }
+            "tray_autostart" => {
+                let desired = autostart.is_checked().unwrap_or(false);
+                let app_handle = app.clone();
+                let autostart_clone = autostart.clone();
+                tauri::async_runtime::spawn(async move {
+                    let _ = crate::system_settings::login_items::set_autostart(desired).await;
+                    sync_autostart_check(&app_handle, &autostart_clone);
+                });
+            }
+            "tray_quit" => {
+                app.exit(0);
+            }
+            _ => {}
         })
         .build(app)?;
 
@@ -148,7 +148,10 @@ pub fn set_tray_labels(
         let items = state.lock().map_err(|e| e.to_string())?;
         items.show.set_text(&show).map_err(|e| e.to_string())?;
         items.sleep.set_text(&sleep).map_err(|e| e.to_string())?;
-        items.autostart.set_text(&autostart).map_err(|e| e.to_string())?;
+        items
+            .autostart
+            .set_text(&autostart)
+            .map_err(|e| e.to_string())?;
         items.quit.set_text(&quit).map_err(|e| e.to_string())?;
     }
     Ok(())

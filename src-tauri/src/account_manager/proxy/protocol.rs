@@ -47,7 +47,12 @@ pub fn parse_auth_proxy_url(input: &str) -> Result<AuthProxyRequest, String> {
     let state = params.get("state").cloned();
     let site = params.get("site").cloned();
 
-    Ok(AuthProxyRequest { target, return_url, state, site })
+    Ok(AuthProxyRequest {
+        target,
+        return_url,
+        state,
+        site,
+    })
 }
 
 /// Phase 4 安全:校验 return_url 是否被允许。
@@ -66,8 +71,7 @@ pub fn parse_auth_proxy_url(input: &str) -> Result<AuthProxyRequest, String> {
 /// - `Ok(false)` — 未注册,需用户首次确认
 /// - `Err(msg)` — return_url 不合法或违反安全约束(被拒绝)
 pub fn validate_return_url(return_url: &str, apps: &[ExternalApp]) -> Result<bool, String> {
-    let parsed = url::Url::parse(return_url)
-        .map_err(|e| format!("invalid return URL: {e}"))?;
+    let parsed = url::Url::parse(return_url).map_err(|e| format!("invalid return URL: {e}"))?;
 
     let scheme = parsed.scheme().to_lowercase();
     let host = parsed.host_str().unwrap_or("").to_lowercase();
@@ -92,7 +96,10 @@ pub fn validate_return_url(return_url: &str, apps: &[ExternalApp]) -> Result<boo
     }
 
     // 查找已注册的 ExternalApp
-    let Some(app) = apps.iter().find(|a| a.url_scheme.eq_ignore_ascii_case(&scheme)) else {
+    let Some(app) = apps
+        .iter()
+        .find(|a| a.url_scheme.eq_ignore_ascii_case(&scheme))
+    else {
         // 未注册 — 调用方应弹首次确认对话框
         return Ok(false);
     };
@@ -122,7 +129,11 @@ pub fn validate_return_url(return_url: &str, apps: &[ExternalApp]) -> Result<boo
 
 /// 判断 host 是否为 loopback(127.0.0.0/8、localhost、IPv6 ::1）。
 pub fn is_loopback_host(host: &str) -> bool {
-    let h = host.trim().trim_start_matches('[').trim_end_matches(']').to_lowercase();
+    let h = host
+        .trim()
+        .trim_start_matches('[')
+        .trim_end_matches(']')
+        .to_lowercase();
     h == "localhost" || h == "::1" || h == "127.0.0.1" || h.starts_with("127.")
 }
 
@@ -169,9 +180,16 @@ pub fn is_oauth_authorize_like(target: &str) -> bool {
         return false;
     };
     let path = parsed.path().to_lowercase();
-    let path_hit = ["authorize", "authorization", "oauth", "/signin", "/login", "/auth"]
-        .iter()
-        .any(|p| path.contains(p));
+    let path_hit = [
+        "authorize",
+        "authorization",
+        "oauth",
+        "/signin",
+        "/login",
+        "/auth",
+    ]
+    .iter()
+    .any(|p| path.contains(p));
 
     let mut has_client = false;
     let mut has_redirect = false;
@@ -195,10 +213,7 @@ pub fn is_oauth_authorize_like(target: &str) -> bool {
 /// 注: 当前实现是简单的 stderr 输出。未来可扩展为持久化到 store
 /// 或写入系统日志(macOS unified logging)。
 pub fn audit_log(event: &str, fields: &[(&str, &str)]) {
-    let pairs: Vec<String> = fields
-        .iter()
-        .map(|(k, v)| format!("{k}={v}"))
-        .collect();
+    let pairs: Vec<String> = fields.iter().map(|(k, v)| format!("{k}={v}")).collect();
     eprintln!("[auth-proxy audit] {event} {}", pairs.join(" "));
 }
 
@@ -222,7 +237,10 @@ mod tests {
     fn parse_valid_url() {
         let raw = "bench-auth://authorize?target=https%3A%2F%2Fgithub.com%2Flogin%2Foauth%2Fauthorize%3Fclient_id%3Dxxx&return=myapp%3A%2F%2Fauth-callback&state=abc123";
         let req = parse_auth_proxy_url(raw).expect("should parse");
-        assert_eq!(req.target, "https://github.com/login/oauth/authorize?client_id=xxx");
+        assert_eq!(
+            req.target,
+            "https://github.com/login/oauth/authorize?client_id=xxx"
+        );
         assert_eq!(req.return_url, "myapp://auth-callback");
         assert_eq!(req.state, Some("abc123".into()));
         assert!(req.site.is_none());
@@ -303,7 +321,9 @@ mod tests {
         assert!(is_oauth_authorize_like(
             "https://accounts.google.com/o/oauth2/v2/auth?client_id=x&redirect_uri=y"
         ));
-        assert!(!is_oauth_authorize_like("https://www.example.com/blog/post-1"));
+        assert!(!is_oauth_authorize_like(
+            "https://www.example.com/blog/post-1"
+        ));
     }
 
     #[test]

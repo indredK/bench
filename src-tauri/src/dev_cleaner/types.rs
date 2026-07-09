@@ -57,6 +57,7 @@ pub struct CleanupResult {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum RiskLevel {
+    Safe,
     Low,
     Medium,
     High,

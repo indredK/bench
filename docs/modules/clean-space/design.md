@@ -34,18 +34,20 @@
 
 ```
 src/features/clean-space/
-├── feature.tsx                      # 注册路由 / 侧边栏入口（id: "clean-space"）
-├── page.tsx                         # 顶层壳：左侧分类导航 + 右侧工具视图容器
-├── store.ts                         # 伞状 store：activeTool / overview / records / selection
+├── feature.tsx                      # 注册路由 / 顶部横向 tab 栏入口（id: "clean-space"）
+├── page.tsx                         # 顶层壳：顶部横向 tab 栏 + 下方内容区域（统一 p-4 边距）
+├── store.ts                         # 伞状 store：activeTool / overview / records / cleanupProgress
 ├── components/
-│   ├── StorageOverview.tsx          # 总览（堆叠条 + 环形图 + 图例 hover 联动）
-│   ├── CategoryDetail.tsx           # 分类→项→命令 三级
-│   ├── OptimizationSuggestions.tsx  # 优化建议卡
+│   ├── StorageOverview.tsx          # 总览：磁盘摘要 + 环形图 + 分类列表（hover 联动） + 优化建议卡
+│   ├── CategoryDetail.tsx           # 分类详情：展开详情 + 优先级徽章 + 风险 tooltip + 批量操作栏
+│   ├── CleanupProgress.tsx          # 清理进度：进度条 + 实时日志 + 结果摘要
 │   ├── CleanupRecords.tsx           # 清理记录列表
 │   ├── tools/
 │   │   ├── DevProjectCleanerTool.tsx   # 嵌入现有 dev-cleaner 页面组件
-│   │   └── CustomFolderCleanerTool.tsx # 增强现有 CustomCleanupDialog
-│   └── shared/                      # 风险 pill / 优先级 badge / 命令预览（跨工具复用）
+│   │   └── CustomFolderCleanerTool.tsx # 自定义文件夹扫描 + 规则清理
+│   └── shared/                      # 跨工具复用组件
+│       ├── RiskPill.tsx              # 风险等级标签（4 档：safe/low/medium/high）
+│       └── CleanupConfirmSheet.tsx   # 毛玻璃确认弹窗（命令预览 + 风险横幅 + 双勾选）
 ├── hooks/
 │   └── useCleanSpaceController.ts
 ├── services/
@@ -54,6 +56,8 @@ src/features/clean-space/
 └── lib/
     └── priority.ts                  # P1/P2/P3 评分（纯函数，可单测）
 ```
+
+> **导航结构变更（2026-07-08）**：原设计为左侧列状菜单，现已调整为**顶部横向 tab 栏**（与 dev-toolbox 等模块保持一致）。tab 选中状态通过底部蓝色下划线标识。所有 tab 内容区域统一由 page.tsx 提供 `p-4` 边距，子组件不再自带外层 padding。
 
 ### 2.2 dev-cleaner 的归宿
 
@@ -78,29 +82,40 @@ src/features/clean-space/
 
 ## 2.4 clean-space 作为主菜单模块
 
-`clean-space` 是**顶层主菜单模块**（与 dev-toolbox、port-manager 平级），拥有独立侧边栏入口，不是 tab 容器内的子页：
+`clean-space` 是**顶层主菜单模块**（与 dev-toolbox、port-manager 平级），拥有独立侧边栏入口，内部采用**顶部横向 tab 栏**导航（与 dev-toolbox 保持一致）：
 
 - `src/features/clean-space/feature.tsx` 导出 `AppFeature` 描述符：`id: "clean-space"`、`path: "/clean-space"`、`labelKey: "sidebar.cleanSpace"`、`icon`（建议 `Trash2`）、`desktopOnly: true`。
 - `src/features/registry.tsx`：移除 `devCleanerFeature`，引入并注册 `cleanSpaceFeature`；`appFeatures` 总数维持 11（dev-cleaner 的占位被替换）。
 - `src/i18n/locales/{zh,en}.json`：新增 `sidebar.cleanSpace` 等 key（命名空间 `cleanSpace.*`）。
-- 侧边栏主菜单直接展示"存储空间 / Clean Space"入口，点击进入总览视图；开发项目清理 / 自定义文件夹清理作为内部工具按钮，不再有独立侧边栏项。
+- **顶部 tab 栏**：包含总览 / 开发项目清理 / 自定义文件夹清理 / 清理记录 4 个 tab，选中状态通过底部蓝色下划线标识（`border-b-2 border-primary`）。
+- **内容区域**：统一由 `page.tsx` 提供 `p-4` 边距，子组件不再自带外层 padding（避免边距不一致）。
+- 侧边栏主菜单直接展示"存储空间 / Clean Space"入口；内部工具切换通过 tab 完成，不再有独立侧边栏项。
 
 ## 3. 视图与交互映射（原型 → 设计）
 
 | 原型视图 (`data-view`) | 设计落地 | 数据来源 | 复用/新增 |
 |------------------------|----------|----------|-----------|
-| `overview` 存储空间 | `StorageOverview` | `get_storage_overview()` | 新增（纯增量） |
-| `category` 分类详情 | `CategoryDetail` | `get_category_items(id)` | 新增（纯增量） |
+| `overview` 存储空间 | `StorageOverview`（磁盘摘要 + 环形图 + 分类列表 + 优化建议卡） | `scan_storage_overview()` | 新增（纯增量） |
+| `category` 分类详情 | `CategoryDetail`（展开详情 + 优先级徽章 + 风险 tooltip + 批量操作栏） | `get_category_items(id)` | 新增（纯增量） |
 | 工具：开发项目清理 | `DevProjectCleanerTool` | 现有 dev-cleaner 引擎 | 嵌入复用 |
 | 工具：自定义文件夹清理 | `CustomFolderCleanerTool` | 现有 + `scan_custom_folder` | 增强复用 |
 | `records` 清理记录 | `CleanupRecords` | `get_cleanup_records()` + 本地写 | 新增（需持久化） |
-| 优化建议卡 | `OptimizationSuggestions` | overview 派生 | 新增（纯增量） |
-| 系统设置快捷入口 | `StorageOverview` 头部按钮 | `open_system_storage_settings()` | 新增（macOS 跳转系统设置·存储空间） |
+| 清理进度与结果 | `CleanupProgress`（进度条 + 实时日志 + 结果摘要） | store cleanupProgress | 新增（纯增量） |
+| 确认执行清理弹窗 | `CleanupConfirmSheet`（毛玻璃效果） | 前端派生 | 新增（纯增量） |
+| 系统设置快捷入口 | `StorageOverview` 头部按钮 | `open_system_storage_settings()` | 新增（macOS 跳转） |
 
-**关键交互**（来自原型，需保留）：
-- 总览堆叠条 / 环形图 / 图例 **hover 联动高亮**（§6 UI 性能：用 `useMemo` 派生，避免重渲染）。
+**关键交互（来自原型，已实现）**：
+- 环形图 + 分类列表 **hover 联动高亮**（用 `useState` + `onMouseEnter/Leave`，`useMemo` 派生）。
+- **Drill-down 导航**：点击分类行进入详情，详情视图替换总览视图（非堆叠）；ESC 键返回总览。
+- **混合快扫 + 后台精扫**：后端先用 APFS/df 容量和 Bench 自有 overview cache emit 总览；无缓存时先给出容器级 macOS 兜底占位。随后后台线程执行精确 `du` 扫描，按分类事件刷新 UI 并写入 7 天缓存。
+- **扫描中允许下钻**：后台精扫时分类行显示 spinner 但保持可点击；点击后只懒扫描当前分类明细，不等待整盘扫描完成。
 - 分类详情支持三种排序：按优先级 / 大小 / 风险；"仅看安全项"过滤；批量栏"全选安全 / 排除高风险"。
-- 批量清理前必须走 `DestructiveConfirmDialog`（含命令预览 + 风险横幅 + 高风险双勾选），与现有 `CustomCleanupDialog` 一致。
+- **优先级徽章 P1/P2/P3**：基于 `score = 归一化空间×0.5 + (1−风险权重)×0.3` 公式，前端计算（不依赖后端）。
+- **风险 Pill hover tooltip**：显示风险等级定义 + 本项命中原因。
+- **清理确认弹窗（Glass Sheet）**：毛玻璃效果；按风险等级分组显示命令代码块（可展开）；风险横幅；双重确认 checkbox（基础 + 高风险额外）。
+- **清理进度视图**：逐项执行 + 实时日志；完成后显示摘要（清理项数/释放空间/涉及路径/高风险项数）。
+
+> **优化建议展示方式变更（2026-07-08）**：原设计为独立 `OptimizationSuggestions` 区块，后改为存储总览卡片内的统计数字展示（安全项数/可释放总量/高风险项数），不再占据额外空间。
 
 ---
 
@@ -212,6 +227,7 @@ export function assignPriority(all: StorageItem[]): void { /* 见原型 L1134-11
 ```ts
 cleanSpace: {
   scanStorageOverview: commandName("scan_storage_overview"),
+  scanStorageStream: commandName("scan_storage_stream"),
   getCategoryItems: commandName("get_category_items"),
   executeCategoryCleanup: commandName("execute_category_cleanup"),
   scanCustomFolder: commandName("scan_custom_folder"),
@@ -226,7 +242,7 @@ cleanSpace: {
 ```
 clean_space/
 ├── mod.rs
-├── commands.rs          # 上述 7 个命令
+├── commands.rs          # 上述 8 个命令
 ├── system_storage.rs    # 系统存储分类扫描（PlatformStorageScanner 抽象；macOS: system_profiler / du）
 ├── folder_scan.rs       # 自定义文件夹扫描预估（du + 规则）
 ├── system_settings.rs   # open_system_storage_settings：平台相关打开系统设置
@@ -234,16 +250,17 @@ clean_space/
 └── types.rs             # StorageCategory / StorageItem / StorageOverview / CleanupRecord
 ```
 
-- `scan_storage_overview()`：返回 6 大类（应用程序 / 文稿 / 系统数据 / 其他用户与共享 / macOS / 开发者）各自 `total_bytes`。开发者类可**复用** `dev_cleaner` 的 `scan_dev_projects` 聚合，其余类用 `du` 估算。**平台判定在 Rust 端**（见 §12），前端契约不变。
-- `scan_custom_folder(folders, rules)`：返回 `{ freed_bytes, item_count, risk_distribution }`，规则含 `include_subfolders` / `type_filter` / `mtime_days`（原型 `mtime>30`）。执行复用 `custom_cleanup` 的 `safe_delete` + 命令执行通道。
-- `get_category_items(id)`：展开某类的清理项 + 每条绑定 `command`（复用 `custom_cleanup::builtin_commands` 中对应项）。
-- `execute_category_cleanup(item_ids)`：复用 `safe_delete_within_root` 与命令执行，进度经事件回传（新增 `clean-space:progress` / `clean-space:completed` 事件，复用现有事件模式）。
+- `scan_storage_overview()`：返回 8 大类（应用程序 / 下载 / 文稿 / 系统数据 / App Data / 其他用户与共享 / macOS / 开发者）各自 `total_bytes`。扫描用 `df + du -skx` 估算，APFS 已用空间按 `total - available` 计算，避免只读系统卷 `Used` 列低估。目录归因使用一次批量 `du -skx <paths...>`，减少进程启动开销；System Data 额外解释 Time Machine 本地快照、VM/swap、`/private/var/folders`、系统日志、更新暂存、iPhone/iPad 备份、Mail、Messages、Spotlight；Developer 额外纳入 Homebrew、npm/pnpm/Yarn/Cargo/Go cache。更具体分类优先，Docker/MobileSync/Yarn/Homebrew 等子路径会从父分类扣除，避免重复计数。**平台判定在 Rust 端**（见 §12），前端契约不变。
+- `scan_storage_stream()`：混合快扫命令。Rust 先 emit `clean-space:scan-start`，再立刻 emit 缓存总览（或 macOS 容器级占位总览），随后后台线程执行精确 `scan_overview()`，按分类再次 emit `clean-space:scan-category` 刷新 UI，完成后写入 7 天 overview cache 并 emit `clean-space:scan-complete`。前端扫描中仍允许点击分类，详情页按需调用 `get_category_items(id)`。
+- `scan_custom_folder(folder, rules)`：返回 `{ freed_bytes, item_count, items }`，规则含 `include_subfolders` / `mtime_days`。实现使用 `find -print0` + Rust 元数据过滤，拒绝系统、App State、Keychains 等保护根。
+- `get_category_items(id)`：按需展开单个分类的清理项，每条返回 `is_cleanable` / `protection_kind` / `protection_reason`。系统稳定性、安全性、跨用户数据和应用状态类 item 仅展示，不可勾选；System Data / Developer 的大额只读解释项用于解释占用，不作为释放空间候选。
+- `execute_category_cleanup(items)`：不信任前端 `command`。后端按 `category_id + id + canonical path` 映射到白名单 `CleanupAction`（Downloads 直接子项、Caches/Logs/Trash、DerivedData/Docker、自定义 Home 内非保护路径），拒绝其他分类或路径。System Data 的 Caches 动作会跳过已归为 Developer 的受保护缓存子目录，避免父级清理误伤受保护解释项。清理进度由前端 use-case 逐项调用并写 store，不暴露 `clean-space:progress/completed` 事件。
 - `open_system_storage_settings()`：按平台打开系统存储空间设置面板（macOS：`open "x-apple.systempreferences:com.apple.Settings?Storage"`，失败回退 `?General`；Windows 未来：`ms-settings:storage`）。不支持的平台返回 `AppError::Unsupported`，前端据此隐藏入口按钮（见 §3 快捷入口 / §12 跨平台）。
 - **错误处理**：所有命令返回 `AppResult<T>`，禁止 IPC 路径 `.unwrap()/.expect()`（§7）。
 
 ### 5.3 契约一致性检查清单
 
-- [ ] TS 侧 DTO 字段名 snake_case ↔ Rust 一致（`contracts.test.ts` 已有 `ScanResult` 校验，需同类补充 `StorageOverview` / `CleanupRecord`）。
+- [x] TS 侧 DTO 字段名 snake_case ↔ Rust 一致（`contracts.test.ts` 已覆盖 `StorageItem` / `StorageCategory` / `StorageOverview` / `CleanupRecord` / `CleanupItemInput` / `CategoryCleanupResult` / `FolderScanResult`）。
 - [ ] 新命令**必须**经 `contracts.ts` 注册，禁止前端绕过（§7.4）。
 - [ ] 前端错误统一走 `parseCommandError` / `getErrorMessage` / `translateError`（§7.3），不散装 `String(error)`。
 
@@ -317,7 +334,7 @@ Mac 端功能参照「系统设置 → 通用 → 存储空间」扩展设计；
 
 - **平台逻辑隔离**：所有平台相关实现（macOS `system_profiler` / `du` / `open` scheme、未来 Windows `GetDiskFreeSpace` / WMI / `ms-settings:storage`）封装在 `clean_space::system_storage` 的 `PlatformStorageScanner` trait 后，前端与 `StorageOverview` / `StorageCategory` / `StorageItem` / `RiskLevel` 保持平台无关。
 - **契约稳定（关键）**：前端只调用 `scan_storage_overview()` 等抽象命令，**平台判定在 Rust 端**（基于 `std::env::consts::OS` 或 Tauri 运行时），不在前端做平台分支。新增 Windows 时前端代码与 IPC 契约不变 → 向后兼容。
-- **命令/路径数据驱动**：原型中硬编码的 `~/Library/...` 路径与命令字符串不得直接暴露给跨平台 UI；由 Rust 按平台生成 `command` / `path` 字段。分类名 / 颜色 / 风险文案走 i18n（§7），不硬编码 macOS 术语。
+- **命令/路径数据驱动**：原型中硬编码的 `~/Library/...` 路径与命令字符串不得直接暴露给跨平台 UI；由 Rust 按平台生成 `command` / `path` 字段。分类名 / 颜色 / 风险文案走 i18n（§7），不硬编码 macOS 术语。对嵌套路径采用“更具体分类优先”规则，父分类必须扣除已归属子路径。
 - **快速入口平台门控**：`open_system_storage_settings()` 在 Rust 端按平台选 scheme；返回 `AppError::Unsupported` 时前端隐藏"在系统设置中打开"按钮（§6 平台边界）。
 - **空态兜底**：Windows 实现前，`scan_storage_overview` 返回 unsupported，前端须有"平台暂不支持"空态（§6 空/错状态）。
 

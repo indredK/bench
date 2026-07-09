@@ -23,7 +23,9 @@ fn spawn_caffeinate(config: &SleepConfig) -> AppResult<()> {
         .args(&args)
         .spawn()?;
 
-    let mut pid = CAFFEINATE_PID.lock().map_err(|e| AppError::internal(e.to_string()))?;
+    let mut pid = CAFFEINATE_PID
+        .lock()
+        .map_err(|e| AppError::internal(e.to_string()))?;
     *pid = Some(child.id());
     Ok(())
 }
@@ -50,19 +52,28 @@ fn spawn_caffeinate(config: &SleepConfig) -> AppResult<()> {
         SetThreadExecutionState(flags);
     }
 
-    let mut pid = CAFFEINATE_PID.lock().map_err(|e| AppError::internal(e.to_string()))?;
+    let mut pid = CAFFEINATE_PID
+        .lock()
+        .map_err(|e| AppError::internal(e.to_string()))?;
     *pid = Some(0);
     Ok(())
 }
 
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
 fn spawn_caffeinate(_config: &SleepConfig) -> AppResult<()> {
-    Err(AppError::unsupported("Sleep inhibitor is not supported on this platform"))
+    Err(AppError::unsupported(
+        "Sleep inhibitor is not supported on this platform",
+    ))
 }
 
-#[cfg_attr(not(any(target_os = "macos", target_os = "windows")), allow(unused_variables))]
+#[cfg_attr(
+    not(any(target_os = "macos", target_os = "windows")),
+    allow(unused_variables)
+)]
 fn kill_caffeinate() -> AppResult<()> {
-    let mut pid = CAFFEINATE_PID.lock().map_err(|e| AppError::internal(e.to_string()))?;
+    let mut pid = CAFFEINATE_PID
+        .lock()
+        .map_err(|e| AppError::internal(e.to_string()))?;
     if let Some(pid) = pid.take() {
         #[cfg(target_os = "macos")]
         {
@@ -97,7 +108,9 @@ fn kill_caffeinate() -> AppResult<()> {
 #[tauri::command]
 pub fn toggle_sleep_inhibitor(config: SleepConfig, enabled: bool) -> AppResult<SleepState> {
     if enabled {
-        let own_pid = CAFFEINATE_PID.lock().map_err(|e| AppError::internal(e.to_string()))?;
+        let own_pid = CAFFEINATE_PID
+            .lock()
+            .map_err(|e| AppError::internal(e.to_string()))?;
         let we_own = own_pid.is_some();
         drop(own_pid);
         if !we_own {
@@ -136,18 +149,22 @@ fn get_current_state_with_config(config: SleepConfig) -> AppResult<SleepState> {
     {
         let caffeinate_running = check_caffeinate_processes()?;
         let user_assertions = check_user_sleep_assertions()?;
-        let own_pid = CAFFEINATE_PID.lock().map_err(|e| AppError::internal(e.to_string()))?;
+        let own_pid = CAFFEINATE_PID
+            .lock()
+            .map_err(|e| AppError::internal(e.to_string()))?;
         let own_active = own_pid.is_some();
 
-        return Ok(SleepState {
+        Ok(SleepState {
             enabled: caffeinate_running || user_assertions || own_active,
             since: None,
             config,
-        });
+        })
     }
     #[cfg(not(target_os = "macos"))]
     {
-        let pid = CAFFEINATE_PID.lock().map_err(|e| AppError::internal(e.to_string()))?;
+        let pid = CAFFEINATE_PID
+            .lock()
+            .map_err(|e| AppError::internal(e.to_string()))?;
         Ok(SleepState {
             enabled: pid.is_some(),
             since: None,
@@ -189,14 +206,13 @@ fn check_user_sleep_assertions() -> AppResult<bool> {
             if let Some(start) = line.find('(') {
                 if let Some(end) = line[start..].find(')') {
                     let process = &line[start + 1..start + end];
-                    if !system_processes.contains(&process) {
-                        if line.contains("PreventUserIdleSystemSleep")
+                    if !system_processes.contains(&process)
+                        && (line.contains("PreventUserIdleSystemSleep")
                             || line.contains("PreventSystemSleep")
                             || line.contains("PreventUserIdleDisplaySleep")
-                            || line.contains("PreventDisplaySleep")
-                        {
-                            return Ok(true);
-                        }
+                            || line.contains("PreventDisplaySleep"))
+                    {
+                        return Ok(true);
                     }
                 }
             }

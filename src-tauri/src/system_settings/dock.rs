@@ -33,7 +33,11 @@ pub async fn get_minimize_scale_enabled() -> AppResult<bool> {
 #[tauri::command]
 pub async fn set_minimize_scale_enabled(enabled: bool) -> AppResult<()> {
     tauri::async_runtime::spawn_blocking(move || {
-        defaults_write("com.apple.dock", "mineffect", if enabled { "scale" } else { "genie" })?;
+        defaults_write(
+            "com.apple.dock",
+            "mineffect",
+            if enabled { "scale" } else { "genie" },
+        )?;
         restart_dock();
         Ok(())
     })

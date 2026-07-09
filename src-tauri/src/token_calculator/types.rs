@@ -30,34 +30,30 @@ pub struct PricingStandard {
 #[serde(tag = "code", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum TokenCalculatorError {
     #[serde(rename_all = "camelCase")]
-    NotFound {
-        message: String,
-    },
+    NotFound { message: String },
     #[serde(rename_all = "camelCase")]
-    InvalidInput {
-        message: String,
-    },
+    InvalidInput { message: String },
     #[serde(rename_all = "camelCase")]
-    DuplicateName {
-        message: String,
-    },
+    DuplicateName { message: String },
     #[serde(rename_all = "camelCase")]
-    BuiltInImmutable {
-        message: String,
-    },
+    BuiltInImmutable { message: String },
     #[serde(rename_all = "camelCase")]
-    StoreFail {
-        message: String,
-    },
+    StoreFail { message: String },
 }
 
 impl fmt::Display for TokenCalculatorError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             TokenCalculatorError::NotFound { message } => write!(f, "Not found: {}", message),
-            TokenCalculatorError::InvalidInput { message } => write!(f, "Invalid input: {}", message),
-            TokenCalculatorError::DuplicateName { message } => write!(f, "Duplicate name: {}", message),
-            TokenCalculatorError::BuiltInImmutable { message } => write!(f, "Built-in immutable: {}", message),
+            TokenCalculatorError::InvalidInput { message } => {
+                write!(f, "Invalid input: {}", message)
+            }
+            TokenCalculatorError::DuplicateName { message } => {
+                write!(f, "Duplicate name: {}", message)
+            }
+            TokenCalculatorError::BuiltInImmutable { message } => {
+                write!(f, "Built-in immutable: {}", message)
+            }
             TokenCalculatorError::StoreFail { message } => write!(f, "Store failure: {}", message),
         }
     }

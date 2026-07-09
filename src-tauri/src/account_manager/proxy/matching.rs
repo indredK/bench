@@ -60,7 +60,9 @@ pub fn match_target_to_stations(
     let mut results: Vec<AuthProxyMatch> = Vec::new();
 
     for station in stations {
-        let station_host = station.website.trim_start_matches("https://")
+        let station_host = station
+            .website
+            .trim_start_matches("https://")
             .trim_start_matches("http://")
             .trim_end_matches('/')
             .to_lowercase();
@@ -72,13 +74,16 @@ pub fn match_target_to_stations(
             MatchConfidence::Exact
         } else {
             // SSO 模糊匹配
-            let sso_match = SSO_PROVIDERS.iter().find(|(h, _)| {
-                hostname == *h || hostname.ends_with(&format!(".{h}"))
-            });
+            let sso_match = SSO_PROVIDERS
+                .iter()
+                .find(|(h, _)| hostname == *h || hostname.ends_with(&format!(".{h}")));
             match sso_match {
-                Some(_) if station_host.contains("microsoft") || station_host.contains("okta")
-                    || station_host.contains("auth0") || station_host.contains("sso")
-                    || station_host.contains("login") =>
+                Some(_)
+                    if station_host.contains("microsoft")
+                        || station_host.contains("okta")
+                        || station_host.contains("auth0")
+                        || station_host.contains("sso")
+                        || station_host.contains("login") =>
                 {
                     MatchConfidence::Sso
                 }
@@ -153,7 +158,11 @@ mod tests {
     fn exact_hostname_match() {
         let stations = vec![make_station("s1", "https://github.com", "GitHub")];
         let accounts = vec![make_account("s1", "a1", true)];
-        let result = match_target_to_stations("https://github.com/login/oauth/authorize", &stations, &accounts);
+        let result = match_target_to_stations(
+            "https://github.com/login/oauth/authorize",
+            &stations,
+            &accounts,
+        );
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].confidence, MatchConfidence::Exact);
     }
@@ -162,7 +171,8 @@ mod tests {
     fn subdomain_match() {
         let stations = vec![make_station("s1", "https://github.com", "GitHub")];
         let accounts = vec![make_account("s1", "a1", true)];
-        let result = match_target_to_stations("https://api.github.com/resource", &stations, &accounts);
+        let result =
+            match_target_to_stations("https://api.github.com/resource", &stations, &accounts);
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].confidence, MatchConfidence::Exact);
     }

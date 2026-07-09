@@ -6,7 +6,8 @@ pub async fn json_format(input: String, indent: bool) -> AppResult<String> {
         let parsed: serde_json::Value = serde_json::from_str(&input)
             .map_err(|e| AppError::invalid_input(format!("Invalid JSON: {e}")))?;
         if indent {
-            serde_json::to_string_pretty(&parsed).map_err(|e| AppError::internal(format!("serde: {e}")))
+            serde_json::to_string_pretty(&parsed)
+                .map_err(|e| AppError::internal(format!("serde: {e}")))
         } else {
             serde_json::to_string(&parsed).map_err(|e| AppError::internal(format!("serde: {e}")))
         }
@@ -47,7 +48,12 @@ pub async fn generate_uuid() -> AppResult<String> {
 pub async fn calculate_hash(input: String, algorithm: String) -> AppResult<String> {
     tauri::async_runtime::spawn_blocking(move || {
         use sha2::{Digest, Sha256, Sha384, Sha512};
-        let hex = |bytes: &[u8]| bytes.iter().map(|b| format!("{:02x}", b)).collect::<String>();
+        let hex = |bytes: &[u8]| {
+            bytes
+                .iter()
+                .map(|b| format!("{:02x}", b))
+                .collect::<String>()
+        };
         match algorithm.to_lowercase().as_str() {
             "md5" => {
                 let result = md5::compute(input.as_bytes());
@@ -74,7 +80,9 @@ pub async fn calculate_hash(input: String, algorithm: String) -> AppResult<Strin
                 hasher.update(input.as_bytes());
                 Ok(hex(&hasher.finalize()))
             }
-            _ => Err(AppError::invalid_input(format!("Unsupported algorithm: {algorithm}"))),
+            _ => Err(AppError::invalid_input(format!(
+                "Unsupported algorithm: {algorithm}"
+            ))),
         }
     })
     .await

@@ -10,11 +10,10 @@ use super::probe;
 use super::state::{AccountManagerSnapshot, AccountManagerState};
 use super::storage;
 use super::types::{
-    AccountSessionStatus, AccountType, AccountManagerError, AuthProfile, ProbeStrategy, AccountManagerResult, LoginDetectionConfig, LoginMethod,
-    NetworkProxyConfig,
-    RelayAccountExport, RelayDataExportFile, RelayDataExportResult, RelayDataImportResult,
-    RelayExportMode, RelayStation, RelayStationExport, StationAccount,
-    ExternalApp, ExternalAppBinding,
+    AccountManagerError, AccountManagerResult, AccountSessionStatus, AccountType, AuthProfile,
+    ExternalApp, ExternalAppBinding, LoginDetectionConfig, LoginMethod, NetworkProxyConfig,
+    ProbeStrategy, RelayAccountExport, RelayDataExportFile, RelayDataExportResult,
+    RelayDataImportResult, RelayExportMode, RelayStation, RelayStationExport, StationAccount,
 };
 use super::webview;
 
@@ -34,7 +33,9 @@ pub fn now_label() -> String {
 fn trim_or_invalid(input: &str, field: &str) -> AccountManagerResult<String> {
     let trimmed = input.trim();
     if trimmed.is_empty() {
-        return Err(AccountManagerError::invalid_input(format!("{field} is required")));
+        return Err(AccountManagerError::invalid_input(format!(
+            "{field} is required"
+        )));
     }
     Ok(trimmed.to_string())
 }
@@ -56,7 +57,11 @@ fn next_unique_remark(base: &str, existing: &mut HashSet<String>) -> String {
     }
 
     let trimmed = base.trim();
-    let root = if trimmed.is_empty() { "中转站" } else { trimmed };
+    let root = if trimmed.is_empty() {
+        "中转站"
+    } else {
+        trimmed
+    };
     let mut index = 1usize;
     loop {
         let candidate = format!("{root}{index}");
@@ -106,8 +111,10 @@ fn reorder_by_ids<T: HasId + Clone>(
             )));
         }
     }
-    let mut by_id: HashMap<&str, T> =
-        current.iter().map(|item| (item.id(), item.clone())).collect();
+    let mut by_id: HashMap<&str, T> = current
+        .iter()
+        .map(|item| (item.id(), item.clone()))
+        .collect();
     let mut out: Vec<T> = Vec::with_capacity(ordered_ids.len());
     for id in ordered_ids {
         let Some(item) = by_id.remove(id.as_str()) else {
@@ -221,7 +228,9 @@ fn import_account_session(
 // ───── stations ─────
 
 #[tauri::command]
-pub fn list_stations(state: State<'_, AccountManagerState>) -> AccountManagerResult<Vec<RelayStation>> {
+pub fn list_stations(
+    state: State<'_, AccountManagerState>,
+) -> AccountManagerResult<Vec<RelayStation>> {
     Ok(state.read_snapshot_checked()?.stations)
 }
 
@@ -234,10 +243,10 @@ pub fn create_station<R: Runtime>(
     login_detection: Option<LoginDetectionConfig>,
 ) -> AccountManagerResult<RelayStation> {
     let station = RelayStation {
-            exclusivity_mode: Default::default(),
-            auth_profile: None,
-            probe_failure_count: 0,
-            session_ttl_hours: super::types::default_session_ttl_hours(),
+        exclusivity_mode: Default::default(),
+        auth_profile: None,
+        probe_failure_count: 0,
+        session_ttl_hours: super::types::default_session_ttl_hours(),
         id: new_id("stn"),
         remark: trim_or_invalid(&remark, "remark")?,
         website: trim_or_invalid(&website, "website")?,
@@ -339,7 +348,9 @@ pub fn set_station_network_proxy<R: Runtime>(
 
     storage::with_state_mut(&app, &state, |snapshot| {
         let Some(station) = snapshot.stations.iter_mut().find(|s| s.id == station_id) else {
-            return Err(AccountManagerError::not_found(format!("station {station_id}")));
+            return Err(AccountManagerError::not_found(format!(
+                "station {station_id}"
+            )));
         };
         station.network_proxy = prepared;
         Ok(station.clone())
@@ -426,12 +437,12 @@ pub fn create_account<R: Runtime>(
         None => None,
     };
     let account = StationAccount {
-            account_type: Default::default(),
-            website: None,
-            session: None,
-            exclusivity_group: None,
-            proxy_enabled: false,
-            external_app_ids: Vec::new(),
+        account_type: Default::default(),
+        website: None,
+        session: None,
+        exclusivity_group: None,
+        proxy_enabled: false,
+        external_app_ids: Vec::new(),
         id: new_id("acct"),
         station_id,
         username: trim_or_invalid(&username, "username")?,
@@ -450,7 +461,10 @@ pub fn create_account<R: Runtime>(
 
     storage::with_state_mut(&app, &state, |snapshot| {
         if !snapshot.stations.iter().any(|s| s.id == account.station_id) {
-            return Err(AccountManagerError::not_found(format!("station {}", account.station_id)));
+            return Err(AccountManagerError::not_found(format!(
+                "station {}",
+                account.station_id
+            )));
         }
         snapshot.accounts.push(account.clone());
         if let Some(blob) = encrypted_password.clone() {
@@ -531,7 +545,9 @@ pub fn reorder_accounts<R: Runtime>(
 ) -> AccountManagerResult<Vec<StationAccount>> {
     storage::with_state_mut(&app, &state, |snapshot| {
         if !snapshot.stations.iter().any(|s| s.id == station_id) {
-            return Err(AccountManagerError::not_found(format!("station {station_id}")));
+            return Err(AccountManagerError::not_found(format!(
+                "station {station_id}"
+            )));
         }
 
         let (mine, others): (Vec<StationAccount>, Vec<StationAccount>) = snapshot
@@ -606,8 +622,11 @@ pub fn import_relay_data<R: Runtime>(
     let key = state.master_key()?;
 
     storage::with_state_mut(&app, &state, move |snapshot| {
-        let mut existing_remarks: HashSet<String> =
-            snapshot.stations.iter().map(|station| station.remark.clone()).collect();
+        let mut existing_remarks: HashSet<String> = snapshot
+            .stations
+            .iter()
+            .map(|station| station.remark.clone())
+            .collect();
 
         let mut imported_stations: Vec<RelayStation> = Vec::new();
         let mut imported_accounts: Vec<StationAccount> = Vec::new();
@@ -639,10 +658,10 @@ pub fn import_relay_data<R: Runtime>(
                 // Session re-encrypt: 跨设备 key 不匹配 → 静默跳过（ok() 转 None）
                 let session_blob = import_account_session(&key, &account).ok().flatten();
                 imported_accounts.push(StationAccount {
-                account_type: Default::default(),
-                website: None,
-                session: session_blob.clone(),
-                exclusivity_group: None,
+                    account_type: Default::default(),
+                    website: None,
+                    session: session_blob.clone(),
+                    exclusivity_group: None,
                     proxy_enabled: false,
                     external_app_ids: Vec::new(),
                     id: account_id.clone(),
@@ -716,7 +735,9 @@ pub fn set_password<R: Runtime>(
 
     storage::with_state_mut(&app, &state, |snapshot| {
         let Some(account) = snapshot.accounts.iter_mut().find(|a| a.id == account_id) else {
-            return Err(AccountManagerError::not_found(format!("account {account_id}")));
+            return Err(AccountManagerError::not_found(format!(
+                "account {account_id}"
+            )));
         };
         match blob.clone() {
             Some(encrypted) => {
@@ -817,7 +838,9 @@ async fn refresh_one_impl<R: Runtime>(
         let state = app.state::<AccountManagerState>();
         let snapshot = state.read_snapshot_checked()?;
         let Some(account) = snapshot.accounts.iter().find(|a| a.id == account_id) else {
-            return Err(AccountManagerError::not_found(format!("account {account_id}")));
+            return Err(AccountManagerError::not_found(format!(
+                "account {account_id}"
+            )));
         };
         let Some(station) = snapshot
             .stations
@@ -843,11 +866,20 @@ async fn refresh_one_impl<R: Runtime>(
         .acquire_owned()
         .await
         .map_err(|e| AccountManagerError::store_fail(format!("acquire probe permit: {e}")))?;
-    let outcome = probe::run_probe(&app, &account_id, &website, &detection_config, proxy_url.as_deref()).await?;
+    let outcome = probe::run_probe(
+        &app,
+        &account_id,
+        &website,
+        &detection_config,
+        proxy_url.as_deref(),
+    )
+    .await?;
     let state = app.state::<AccountManagerState>();
     storage::with_state_mut(&app, &state, |snapshot| {
         let Some(account) = snapshot.accounts.iter_mut().find(|a| a.id == account_id) else {
-            return Err(AccountManagerError::not_found(format!("account {account_id}")));
+            return Err(AccountManagerError::not_found(format!(
+                "account {account_id}"
+            )));
         };
         account.status = outcome.status;
         account.last_refreshed_at = Some(now_label());
@@ -940,15 +972,32 @@ pub fn open_login_window<R: Runtime>(
             .stations
             .iter()
             .find(|s| s.id == account.station_id)
-            .ok_or_else(|| AccountManagerError::not_found(format!("station {}", account.station_id)))?;
-        (account.username.clone(), station.website.clone(), station.clone())
+            .ok_or_else(|| {
+                AccountManagerError::not_found(format!("station {}", account.station_id))
+            })?;
+        (
+            account.username.clone(),
+            station.website.clone(),
+            station.clone(),
+        )
     };
 
     // 互斥模式：登录前处理同站其它账号（exclusive 登出冲突账号 / rotating 降级活跃账号）
-    crate::account_manager::exclusivity::enforce_exclusivity_before_login(&app, &station, &account_id)?;
+    crate::account_manager::exclusivity::enforce_exclusivity_before_login(
+        &app,
+        &station,
+        &account_id,
+    )?;
 
     let proxy_url = build_proxy_url_for_station(&app, &station);
-    webview::open_login_window(&app, &account_id, &username, &website, return_url.as_deref(), proxy_url.as_deref())
+    webview::open_login_window(
+        &app,
+        &account_id,
+        &username,
+        &website,
+        return_url.as_deref(),
+        proxy_url.as_deref(),
+    )
 }
 
 #[cfg(test)]
@@ -1162,7 +1211,9 @@ pub async fn detect_station_auth_profile<R: Runtime>(
     account_id: Option<String>,
 ) -> AccountManagerResult<AuthProfile> {
     let snapshot = state.read_snapshot_checked()?;
-    let station = snapshot.stations.iter()
+    let station = snapshot
+        .stations
+        .iter()
         .find(|s| s.id == station_id)
         .cloned()
         .ok_or_else(|| AccountManagerError::not_found(format!("station {station_id}")))?;
@@ -1187,9 +1238,13 @@ pub async fn detect_station_auth_profile<R: Runtime>(
         // 没有登录窗口，打开一个隐藏的临时窗口检测
         let temp_label = format!("relay-auth-detect-{}", account.id);
         // 清理可能残留的旧窗口
-        if let Some(old) = app.get_webview_window(&temp_label) { let _ = old.close(); }
+        if let Some(old) = app.get_webview_window(&temp_label) {
+            let _ = old.close();
+        }
 
-        let parsed = station.website.parse()
+        let parsed = station
+            .website
+            .parse()
             .map_err(|e| AccountManagerError::invalid_input(format!("website url: {e}")))?;
         let data_dir = webview::account_data_dir(&app, &account.id)?;
         if let Some(parent) = data_dir.parent() {
@@ -1208,17 +1263,20 @@ pub async fn detect_station_auth_profile<R: Runtime>(
         let slot_clone = slot.clone();
 
         #[cfg_attr(not(any(target_os = "macos", target_os = "ios")), allow(unused_mut))]
-        let mut builder = tauri::WebviewWindowBuilder::new(&app, &temp_label, WebviewUrl::External(parsed))
-            .visible(false)
-            .data_directory(data_dir)
-            .on_page_load(move |_, p| {
-                if !matches!(p.event(), tauri::webview::PageLoadEvent::Finished) { return; }
-                if let Ok(mut guard) = slot_clone.lock() {
-                    if let Some(sender) = guard.take() {
-                        let _ = sender.send(());
+        let mut builder =
+            tauri::WebviewWindowBuilder::new(&app, &temp_label, WebviewUrl::External(parsed))
+                .visible(false)
+                .data_directory(data_dir)
+                .on_page_load(move |_, p| {
+                    if !matches!(p.event(), tauri::webview::PageLoadEvent::Finished) {
+                        return;
                     }
-                }
-            });
+                    if let Ok(mut guard) = slot_clone.lock() {
+                        if let Some(sender) = guard.take() {
+                            let _ = sender.send(());
+                        }
+                    }
+                });
 
         #[cfg(target_os = "macos")]
         if let Some(url) = proxy_url.as_deref() {
@@ -1229,17 +1287,21 @@ pub async fn detect_station_auth_profile<R: Runtime>(
 
         #[cfg(any(target_os = "macos", target_os = "ios"))]
         {
-            builder = builder.data_store_identifier(webview::account_data_store_identifier(&account.id));
+            builder =
+                builder.data_store_identifier(webview::account_data_store_identifier(&account.id));
         }
 
-        let window = builder.build()
+        let window = builder
+            .build()
             .map_err(|e| AccountManagerError::store_fail(format!("build detect window: {e}")))?;
 
         // 等待页面加载完成
         let load_result = tokio::time::timeout_at(deadline.into(), rx).await;
         if load_result.is_err() {
             let _ = window.close();
-            return Err(AccountManagerError::store_fail("detect window load timeout"));
+            return Err(AccountManagerError::store_fail(
+                "detect window load timeout",
+            ));
         }
 
         // 额外等一小会儿，让页面 JS 运行一下
@@ -1268,7 +1330,9 @@ pub fn set_account_proxy_enabled<R: Runtime>(
     enabled: bool,
 ) -> AccountManagerResult<StationAccount> {
     let result = storage::with_state_mut(&app, &state, |snapshot| {
-        let account = snapshot.accounts.iter_mut()
+        let account = snapshot
+            .accounts
+            .iter_mut()
             .find(|a| a.id == account_id)
             .ok_or_else(|| AccountManagerError::not_found(format!("account {account_id}")))?;
         account.proxy_enabled = enabled;
@@ -1370,7 +1434,11 @@ fn record_proxy_usage<R: Runtime>(
             existing.last_used_at = now.clone();
             existing.use_count = existing.use_count.saturating_add(1);
             if let Some(host) = return_host.as_ref() {
-                if !existing.return_hosts.iter().any(|h| h.eq_ignore_ascii_case(host)) {
+                if !existing
+                    .return_hosts
+                    .iter()
+                    .any(|h| h.eq_ignore_ascii_case(host))
+                {
                     existing.return_hosts.push(host.clone());
                 }
             }
@@ -1458,7 +1526,12 @@ async fn run_proxy_login<R: Runtime>(
             .iter()
             .find(|s| s.id == account.station_id)
             .and_then(|s| build_proxy_url_for_station(app, s));
-        (account.username.clone(), account.station_id.clone(), account.has_password, proxy_url)
+        (
+            account.username.clone(),
+            account.station_id.clone(),
+            account.has_password,
+            proxy_url,
+        )
     };
 
     // 记录外部 App + 绑定用量(loopback 回调会被自动跳过)。失败不阻塞主流程。
@@ -1474,7 +1547,14 @@ async fn run_proxy_login<R: Runtime>(
     } else {
         Some(return_url.as_str())
     };
-    webview::open_login_window(app, &account_id, &username, &target_url, ret_opt, proxy_url.as_deref())?;
+    webview::open_login_window(
+        app,
+        &account_id,
+        &username,
+        &target_url,
+        ret_opt,
+        proxy_url.as_deref(),
+    )?;
 
     crate::account_manager::proxy::protocol::audit_log(
         "proxy_login_started",
@@ -1499,7 +1579,10 @@ async fn run_proxy_login<R: Runtime>(
                     return;
                 }
             };
-            let Some(account) = snapshot.accounts.iter().find(|a| a.id == account_id_for_fill)
+            let Some(account) = snapshot
+                .accounts
+                .iter()
+                .find(|a| a.id == account_id_for_fill)
             else {
                 return;
             };
@@ -1520,13 +1603,9 @@ async fn run_proxy_login<R: Runtime>(
                     return;
                 }
             };
-            if let Err(e) = webview::fill_credentials(
-                &app_clone,
-                &account.id,
-                &account.username,
-                &password,
-            )
-            .await
+            if let Err(e) =
+                webview::fill_credentials(&app_clone, &account.id, &account.username, &password)
+                    .await
             {
                 eprintln!("[proxy_login] delayed fill: fill_credentials: {e:?}");
             }
@@ -1582,8 +1661,8 @@ pub fn handle_browser_open(
     use crate::account_manager::proxy::protocol;
 
     let (target, return_url) = if url.starts_with("bench-auth://") {
-        let req = protocol::parse_auth_proxy_url(&url)
-            .map_err(AccountManagerError::invalid_input)?;
+        let req =
+            protocol::parse_auth_proxy_url(&url).map_err(AccountManagerError::invalid_input)?;
         (req.target, Some(req.return_url))
     } else {
         let ret = protocol::extract_loopback_callback(&url);
@@ -1595,10 +1674,7 @@ pub fn handle_browser_open(
     if let Some(ref ret) = return_url {
         if let Err(msg) = protocol::validate_return_url(ret, &snapshot.external_apps) {
             // 校验失败不直接中断(仍可让用户在隔离窗口登录),仅记录审计。
-            protocol::audit_log(
-                "handle_browser_open_return_rejected",
-                &[("reason", &msg)],
-            );
+            protocol::audit_log("handle_browser_open_return_rejected", &[("reason", &msg)]);
         }
     }
 
@@ -1650,8 +1726,7 @@ pub async fn proxy_login_new_account<R: Runtime>(
     let station = ensure_station_for_host(&app, &state, &host)?;
 
     // 2. 创建新账号(Persistent + 开启代理)。
-    let display_name = normalize_optional(username)
-        .unwrap_or_else(|| format!("{host} 账号"));
+    let display_name = normalize_optional(username).unwrap_or_else(|| format!("{host} 账号"));
     let account = StationAccount {
         account_type: AccountType::Persistent,
         website: None,
@@ -1693,16 +1768,20 @@ fn ensure_station_for_host<R: Runtime>(
 ) -> AccountManagerResult<RelayStation> {
     let host_norm = host.trim().to_lowercase();
 
-    let existing = state.read_snapshot_checked()?.stations.into_iter().find(|s| {
-        let sh = s
-            .website
-            .trim()
-            .trim_start_matches("https://")
-            .trim_start_matches("http://")
-            .trim_end_matches('/')
-            .to_lowercase();
-        sh == host_norm || host_norm.ends_with(&format!(".{sh}"))
-    });
+    let existing = state
+        .read_snapshot_checked()?
+        .stations
+        .into_iter()
+        .find(|s| {
+            let sh = s
+                .website
+                .trim()
+                .trim_start_matches("https://")
+                .trim_start_matches("http://")
+                .trim_end_matches('/')
+                .to_lowercase();
+            sh == host_norm || host_norm.ends_with(&format!(".{sh}"))
+        });
     if let Some(station) = existing {
         return Ok(station);
     }
@@ -1793,10 +1872,14 @@ pub fn remove_external_app<R: Runtime>(
         let before = snapshot.external_apps.len();
         snapshot.external_apps.retain(|a| a.id != app_id);
         if snapshot.external_apps.len() == before {
-            return Err(AccountManagerError::not_found(format!("external app {app_id}")));
+            return Err(AccountManagerError::not_found(format!(
+                "external app {app_id}"
+            )));
         }
         // 同步移除该 app 的所有绑定
-        snapshot.external_app_bindings.retain(|b| b.app_id != app_id);
+        snapshot
+            .external_app_bindings
+            .retain(|b| b.app_id != app_id);
         // 清掉账号上的 external_app_ids 引用
         for account in snapshot.accounts.iter_mut() {
             account.external_app_ids.retain(|id| id != &app_id);

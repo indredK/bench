@@ -34,7 +34,8 @@ pub fn authorize_app_bundle(path: &Path) -> Result<(), String> {
         let stderr = String::from_utf8_lossy(&output.stderr);
         Err(format!(
             "xattr exited with status {}: {}",
-            output.status, stderr.trim()
+            output.status,
+            stderr.trim()
         ))
     }
 }

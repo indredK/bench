@@ -18,10 +18,16 @@ pub(super) async fn scan_dev_projects(
         // "scan complete" without any context (#042).
         match std::fs::metadata(root_path_ref) {
             Ok(md) if !md.is_dir() => {
-                return Err(AppError::invalid_input(format!("Not a directory: {}", root_path)));
+                return Err(AppError::invalid_input(format!(
+                    "Not a directory: {}",
+                    root_path
+                )));
             }
             Err(e) => {
-                return Err(AppError::internal(format!("Cannot access {}: {}", root_path, e)));
+                return Err(AppError::internal(format!(
+                    "Cannot access {}: {}",
+                    root_path, e
+                )));
             }
             _ => {}
         }

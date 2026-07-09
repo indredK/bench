@@ -64,7 +64,10 @@ fn normalize_models(models: Vec<ModelPricing>) -> TokenCalculatorResult<Vec<Mode
     for (idx, model) in models.into_iter().enumerate() {
         let model_name = model.model_name.trim().to_string();
         if model_name.is_empty() {
-            return Err(invalid_input(format!("Model #{} name cannot be empty", idx + 1)));
+            return Err(invalid_input(format!(
+                "Model #{} name cannot be empty",
+                idx + 1
+            )));
         }
 
         let name_key = model_name.to_lowercase();
@@ -158,16 +161,16 @@ pub fn update_pricing_standard(
     let models = models.map(normalize_models).transpose()?;
 
     storage::with_standards_mut(&app, &state, |all| {
-        let pos = all.iter().position(|s| s.id == id).ok_or_else(|| {
-            TokenCalculatorError::NotFound {
-                message: format!("Standard with id '{}' not found", id),
-            }
-        })?;
+        let pos =
+            all.iter()
+                .position(|s| s.id == id)
+                .ok_or_else(|| TokenCalculatorError::NotFound {
+                    message: format!("Standard with id '{}' not found", id),
+                })?;
 
         if let Some(ref new_name) = name {
             if all.iter().any(|s| {
-                s.id.as_str() != id.as_str()
-                    && s.name.trim().eq_ignore_ascii_case(new_name)
+                s.id.as_str() != id.as_str() && s.name.trim().eq_ignore_ascii_case(new_name)
             }) {
                 return Err(TokenCalculatorError::DuplicateName {
                     message: format!("A standard named '{}' already exists", new_name),

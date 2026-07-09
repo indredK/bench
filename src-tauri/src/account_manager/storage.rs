@@ -19,7 +19,10 @@ const CURRENT_SCHEMA: u32 = 4;
 
 /// Load persisted state from the plugin-store and populate the managed state.
 /// Called once during `setup`. Migrates P0 plaintext secrets to encrypted blobs.
-pub fn init_state<R: Runtime>(app: &AppHandle<R>, state: &AccountManagerState) -> AccountManagerResult<()> {
+pub fn init_state<R: Runtime>(
+    app: &AppHandle<R>,
+    state: &AccountManagerState,
+) -> AccountManagerResult<()> {
     let store = app
         .store(STORE_FILE)
         .map_err(|e| AccountManagerError::store_fail(format!("open store: {e}")))?;
@@ -55,10 +58,7 @@ pub fn init_state<R: Runtime>(app: &AppHandle<R>, state: &AccountManagerState) -
     };
     state.replace_snapshot(snapshot);
 
-    let schema = store
-        .get(KEY_SCHEMA)
-        .and_then(|v| v.as_u64())
-        .unwrap_or(0);
+    let schema = store.get(KEY_SCHEMA).and_then(|v| v.as_u64()).unwrap_or(0);
 
     let mut dirty = false;
     if needs_resave {
@@ -114,18 +114,16 @@ fn load_and_migrate_secrets(
                 out.insert(id, blob);
                 migrated = true;
             }
-            Value::Object(_) => {
-                match serde_json::from_value::<EncryptedBlob>(entry) {
-                    Ok(blob) => {
-                        out.insert(id, blob);
-                    }
-                    Err(e) => {
-                        return Err(AccountManagerError::store_fail(format!(
-                            "decode secret {id}: {e}"
-                        )));
-                    }
+            Value::Object(_) => match serde_json::from_value::<EncryptedBlob>(entry) {
+                Ok(blob) => {
+                    out.insert(id, blob);
                 }
-            }
+                Err(e) => {
+                    return Err(AccountManagerError::store_fail(format!(
+                        "decode secret {id}: {e}"
+                    )));
+                }
+            },
             other => {
                 return Err(AccountManagerError::store_fail(format!(
                     "unexpected secret shape for {id}: {other}"
@@ -149,7 +147,10 @@ fn save_snapshot<R: Runtime>(
     store.set(KEY_SECRETS, json!(&snapshot.secrets));
     store.set("sessions", json!(&snapshot.sessions));
     store.set(KEY_EXTERNAL_APPS, json!(&snapshot.external_apps));
-    store.set(KEY_EXTERNAL_APP_BINDINGS, json!(&snapshot.external_app_bindings));
+    store.set(
+        KEY_EXTERNAL_APP_BINDINGS,
+        json!(&snapshot.external_app_bindings),
+    );
     store.set(KEY_SCHEMA, json!(CURRENT_SCHEMA));
     store
         .save()
@@ -157,34 +158,39 @@ fn save_snapshot<R: Runtime>(
     Ok(())
 }
 
-
-
 // Session Manager: schema v3 additions
 #[allow(dead_code)]
 pub fn save_sessions_to_store(
     app: &AppHandle<impl Runtime>,
     sessions: &HashMap<String, EncryptedBlob>,
 ) -> AccountManagerResult<()> {
-    let store = app.store(STORE_FILE)
+    let store = app
+        .store(STORE_FILE)
         .map_err(|e| AccountManagerError::store_fail(format!("open store: {e}")))?;
     store.set("sessions", serde_json::json!(sessions));
-    store.save()
+    store
+        .save()
         .map_err(|e| AccountManagerError::store_fail(format!("save sessions: {e}")))?;
     Ok(())
 }
 
 pub fn load_sessions_from_store(app: &AppHandle<impl Runtime>) -> HashMap<String, EncryptedBlob> {
-    let Ok(store) = app.store(STORE_FILE) else { return HashMap::new() };
-    store.get("sessions")
+    let Ok(store) = app.store(STORE_FILE) else {
+        return HashMap::new();
+    };
+    store
+        .get("sessions")
         .and_then(|v| serde_json::from_value(v).ok())
         .unwrap_or_default()
 }
 
 #[allow(dead_code)]
 pub fn flush_to_disk(app: &AppHandle<impl Runtime>) -> AccountManagerResult<()> {
-    let store = app.store(STORE_FILE)
+    let store = app
+        .store(STORE_FILE)
         .map_err(|e| AccountManagerError::store_fail(format!("open store: {e}")))?;
-    store.save()
+    store
+        .save()
         .map_err(|e| AccountManagerError::store_fail(format!("flush: {e}")))?;
     Ok(())
 }

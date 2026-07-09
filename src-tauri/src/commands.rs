@@ -188,6 +188,15 @@ macro_rules! app_invoke_handler {
             $crate::app_preferences::commands::set_close_behavior,
             $crate::app_preferences::commands::quit_app,
             $crate::app_preferences::commands::hide_main_window,
+            // clean space
+            $crate::clean_space::commands::scan_storage_overview,
+            $crate::clean_space::commands::scan_storage_stream,
+            $crate::clean_space::commands::get_category_items,
+            $crate::clean_space::commands::execute_category_cleanup,
+            $crate::clean_space::commands::scan_custom_folder,
+            $crate::clean_space::commands::open_system_storage_settings,
+            $crate::clean_space::commands::get_cleanup_records,
+            $crate::clean_space::commands::add_cleanup_record,
         ]
     };
 }

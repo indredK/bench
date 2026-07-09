@@ -54,10 +54,9 @@ fn brew_path() -> Option<String> {
 /// status with stdout that starts with "Homebrew" before reporting brew as
 /// available.
 fn brew_works(brew: &str) -> bool {
-    let Ok(output) = run_command_with_timeout(
-        Command::new(brew).arg("--version"),
-        BREW_COMMAND_TIMEOUT,
-    ) else {
+    let Ok(output) =
+        run_command_with_timeout(Command::new(brew).arg("--version"), BREW_COMMAND_TIMEOUT)
+    else {
         return false;
     };
     if !output.status.success() {
@@ -212,7 +211,10 @@ fn scan_directory_raw(
 // scan_installed_apps (macOS)
 // ============================================================================
 
-pub fn scan_installed_apps(state: tauri::State<'_, AppManagerState>, app_handle: &AppHandle) -> ScanResult {
+pub fn scan_installed_apps(
+    state: tauri::State<'_, AppManagerState>,
+    app_handle: &AppHandle,
+) -> ScanResult {
     let start = std::time::Instant::now();
     let mut raw: Vec<(String, String, String, String, String, bool, u64)> = Vec::new();
 
@@ -279,7 +281,9 @@ pub fn scan_installed_apps(state: tauri::State<'_, AppManagerState>, app_handle:
     let mut apps = Vec::new();
     let total_raw = raw.len();
 
-    for (idx, (app_id, name, bundle_id, version, install_path, is_system, last_modified)) in raw.into_iter().enumerate() {
+    for (idx, (app_id, name, bundle_id, version, install_path, is_system, last_modified)) in
+        raw.into_iter().enumerate()
+    {
         let has_mas_receipt = !is_system
             && crate::app_manager::sources::mac_app_store::has_mas_receipt(&install_path);
 

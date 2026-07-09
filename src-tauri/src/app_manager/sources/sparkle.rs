@@ -97,9 +97,9 @@ pub fn parse_appcast(xml: &str) -> Result<Vec<AppcastItem>, String> {
                                     let key =
                                         String::from_utf8_lossy(attr.key.as_ref()).to_string();
                                     let val = attr
-                                .normalized_value(XmlVersion::Implicit1_0)
-                                .unwrap_or_default()
-                                .to_string();
+                                        .normalized_value(XmlVersion::Implicit1_0)
+                                        .unwrap_or_default()
+                                        .to_string();
                                     match key.as_str() {
                                         "url" => item.enclosure_url = Some(val),
                                         "sparkle:version" => item.version = val,

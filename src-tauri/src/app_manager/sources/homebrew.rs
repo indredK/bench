@@ -1,6 +1,6 @@
 use super::UpdaterSource;
-use crate::app_manager::types::{AppInfo, SourceType, UpdateInfo, UpdateSource};
 use crate::app_manager::run_command_with_timeout;
+use crate::app_manager::types::{AppInfo, SourceType, UpdateInfo, UpdateSource};
 use async_trait::async_trait;
 use serde::Deserialize;
 use std::collections::HashMap;

@@ -11,11 +11,11 @@ pub fn init_state<R: Runtime>(
     app: &AppHandle<R>,
     state: &crate::token_calculator::TokenCalculatorState,
 ) -> TokenCalculatorResult<()> {
-    let store = app
-        .store(STORE_FILE)
-        .map_err(|e| crate::token_calculator::types::TokenCalculatorError::StoreFail {
+    let store = app.store(STORE_FILE).map_err(|e| {
+        crate::token_calculator::types::TokenCalculatorError::StoreFail {
             message: format!("Failed to open store: {}", e),
-        })?;
+        }
+    })?;
 
     // Load saved overrides
     let saved: Vec<PricingStandard> = store
@@ -57,11 +57,11 @@ fn save_all_standards<R: Runtime>(
     standards: &[PricingStandard],
     removed_ids: &[String],
 ) -> TokenCalculatorResult<()> {
-    let store = app
-        .store(STORE_FILE)
-        .map_err(|e| crate::token_calculator::types::TokenCalculatorError::StoreFail {
+    let store = app.store(STORE_FILE).map_err(|e| {
+        crate::token_calculator::types::TokenCalculatorError::StoreFail {
             message: format!("Failed to open store: {}", e),
-        })?;
+        }
+    })?;
 
     // Save all standards (both built-in overrides and custom)
     let value = serde_json::to_value(standards).map_err(|e| {
@@ -79,11 +79,11 @@ fn save_all_standards<R: Runtime>(
     })?;
     store.set(STORE_KEY_REMOVED, removed_value);
 
-    store
-        .save()
-        .map_err(|e| crate::token_calculator::types::TokenCalculatorError::StoreFail {
+    store.save().map_err(
+        |e| crate::token_calculator::types::TokenCalculatorError::StoreFail {
             message: format!("Failed to save store: {}", e),
-        })?;
+        },
+    )?;
 
     Ok(())
 }
@@ -103,10 +103,8 @@ where
     let result = f(&mut next)?;
 
     // Save all current standards + track removed built-in IDs
-    let builtin_default_ids: Vec<String> = builtin_standards()
-        .iter()
-        .map(|s| s.id.clone())
-        .collect();
+    let builtin_default_ids: Vec<String> =
+        builtin_standards().iter().map(|s| s.id.clone()).collect();
     let current_ids: Vec<String> = next.iter().map(|s| s.id.clone()).collect();
     let removed_ids: Vec<String> = builtin_default_ids
         .into_iter()

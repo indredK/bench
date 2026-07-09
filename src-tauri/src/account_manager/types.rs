@@ -479,22 +479,34 @@ pub enum AccountManagerError {
 
 impl AccountManagerError {
     pub fn not_found(what: impl Into<String>) -> Self {
-        Self::NotFound { message: what.into() }
+        Self::NotFound {
+            message: what.into(),
+        }
     }
     pub fn invalid_input(msg: impl Into<String>) -> Self {
-        Self::InvalidInput { message: msg.into() }
+        Self::InvalidInput {
+            message: msg.into(),
+        }
     }
     pub fn store_fail(msg: impl Into<String>) -> Self {
-        Self::StoreFail { message: msg.into() }
+        Self::StoreFail {
+            message: msg.into(),
+        }
     }
     pub fn keyring_unavailable(msg: impl Into<String>) -> Self {
-        Self::KeyringUnavailable { message: msg.into() }
+        Self::KeyringUnavailable {
+            message: msg.into(),
+        }
     }
     pub fn crypto_fail(msg: impl Into<String>) -> Self {
-        Self::CryptoFail { message: msg.into() }
+        Self::CryptoFail {
+            message: msg.into(),
+        }
     }
     pub fn clipboard_fail(msg: impl Into<String>) -> Self {
-        Self::ClipboardFail { message: msg.into() }
+        Self::ClipboardFail {
+            message: msg.into(),
+        }
     }
 }
 

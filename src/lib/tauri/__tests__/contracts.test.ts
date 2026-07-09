@@ -20,6 +20,15 @@ import type {
 import type { EnvScanDonePayload, EnvTool } from "@/lib/tauri/types/env-detector"
 import type { ProjectInfo, ScanResult as DevCleanerScanResult } from "@/lib/tauri/types/dev-cleaner"
 import type {
+  CategoryCleanupResult,
+  CleanupItemInput,
+  CleanupRecord,
+  FolderScanResult,
+  StorageCategory,
+  StorageItem,
+  StorageOverview,
+} from "@/lib/tauri/types/clean-space"
+import type {
   KillPidResult,
   PortProcessDetail,
   ProcessFingerprint,
@@ -208,6 +217,71 @@ describe("Tauri contracts", () => {
         "AppUpdateInstallResult",
         "camel",
         dtoKeys<AppUpdateInstallResult>(["installed", "requiresRestart"]),
+      ],
+      [
+        "StorageItem",
+        "snake",
+        dtoKeys<StorageItem>([
+          "id",
+          "name",
+          "category_id",
+          "risk_level",
+          "size_bytes",
+          "command",
+          "is_cleanable",
+          "protection_kind",
+          "protection_reason",
+          "path",
+          "files",
+          "reason",
+          "priority",
+          "score",
+        ]),
+      ],
+      [
+        "StorageCategory",
+        "snake",
+        dtoKeys<StorageCategory>(["id", "name", "color", "total_bytes", "items"]),
+      ],
+      [
+        "StorageOverview",
+        "snake",
+        dtoKeys<StorageOverview>(["disk_total_bytes", "categories"]),
+      ],
+      [
+        "CleanupRecord",
+        "snake",
+        dtoKeys<CleanupRecord>([
+          "id",
+          "timestamp",
+          "title",
+          "scope",
+          "items",
+          "freed_bytes",
+          "high_risk_count",
+          "status",
+        ]),
+      ],
+      [
+        "CleanupItemInput",
+        "snake",
+        dtoKeys<CleanupItemInput>(["id", "category_id", "command", "path", "size_bytes"]),
+      ],
+      [
+        "CategoryCleanupResult",
+        "snake",
+        dtoKeys<CategoryCleanupResult>([
+          "success",
+          "freed_bytes",
+          "items_cleaned",
+          "items_failed",
+          "aborted",
+        ]),
+      ],
+      [
+        "FolderScanResult",
+        "snake",
+        dtoKeys<FolderScanResult>(["freed_bytes", "item_count", "items"]),
       ],
     ]
 

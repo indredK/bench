@@ -3,6 +3,7 @@ mod app_manager;
 mod app_preferences;
 mod app_updater;
 mod bootstrap;
+mod clean_space;
 mod commands;
 mod dev_cleaner;
 mod env_detector;
@@ -22,12 +23,12 @@ use app_manager::AppManagerState;
 use app_updater::UpdaterCache;
 use bootstrap::{create_state as create_bootstrap_state, record_startup_issue};
 use dev_cleaner::{CustomCleanupAbortFlag, ScanAbortFlag};
-use token_calculator::TokenCalculatorState;
-use terminology::state::TerminologyState;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use tauri::Emitter;
 use tauri::Manager;
+use terminology::state::TerminologyState;
+use token_calculator::TokenCalculatorState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -63,7 +64,9 @@ pub fn run() {
                 win.clone().on_window_event(move |event| {
                     if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                         let behavior = app_preferences::storage::get_close_behavior(&app_handle)
-                            .unwrap_or_else(|_| crate::app_preferences::types::BEHAVIOR_MINIMIZE_TO_TRAY.to_string());
+                            .unwrap_or_else(|_| {
+                                crate::app_preferences::types::BEHAVIOR_MINIMIZE_TO_TRAY.to_string()
+                            });
                         if behavior == crate::app_preferences::types::BEHAVIOR_ALWAYS_ASK {
                             // 每次提醒: 阻止关闭, 弹出选择对话框
                             api.prevent_close();
@@ -103,7 +106,10 @@ pub fn run() {
             }
 
             let handle = app.handle().clone();
-            let bootstrap_state = app.state::<bootstrap::SharedBootstrapState>().inner().clone();
+            let bootstrap_state = app
+                .state::<bootstrap::SharedBootstrapState>()
+                .inner()
+                .clone();
             let state = app.state::<AccountManagerState>();
             if let Err(e) = account_manager::init_state(&handle, &state) {
                 let message = e.to_string();
@@ -143,11 +149,8 @@ pub fn run() {
                         cleared.len()
                     );
                 }
-                account_manager::session::restore_sessions_on_startup(
-                    &restore_handle,
-                    &state,
-                )
-                .await;
+                account_manager::session::restore_sessions_on_startup(&restore_handle, &state)
+                    .await;
             });
 
             // F.6.3 周期性清理 TTL 超时的 session（每 30 分钟一次）。
@@ -188,11 +191,8 @@ pub fn run() {
                     let handle = app_handle.clone();
                     tauri::async_runtime::block_on(async move {
                         let state = handle.state::<AccountManagerState>();
-                        account_manager::session::persist_all_sessions_on_exit(
-                            &handle,
-                            &state,
-                        )
-                        .await;
+                        account_manager::session::persist_all_sessions_on_exit(&handle, &state)
+                            .await;
                         account_manager::session::cleanup_ephemeral(&state);
                     });
                     sleep_inhibitor::commands::cleanup_on_exit();

@@ -84,14 +84,7 @@ pub fn record_operation_result_with_error_code(
     failure_error_code: Option<&str>,
 ) -> OperationResult {
     let mut result = record_operation_result(
-        _state,
-        action,
-        app_id,
-        app_name,
-        success,
-        output,
-        message,
-        exit_code,
+        _state, action, app_id, app_name, success, output, message, exit_code,
     );
 
     if !success {

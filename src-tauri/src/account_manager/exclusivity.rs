@@ -20,12 +20,8 @@ pub fn enforce_exclusivity_before_login<R: Runtime>(
 ) -> AccountManagerResult<()> {
     match station.exclusivity_mode {
         ExclusivityMode::Coexisting => Ok(()),
-        ExclusivityMode::Exclusive => {
-            logout_conflicting_accounts(app, station, new_account_id)
-        }
-        ExclusivityMode::Rotating => {
-            deactivate_active_account(app, station, new_account_id)
-        }
+        ExclusivityMode::Exclusive => logout_conflicting_accounts(app, station, new_account_id),
+        ExclusivityMode::Rotating => deactivate_active_account(app, station, new_account_id),
     }
 }
 

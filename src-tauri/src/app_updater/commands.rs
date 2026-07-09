@@ -131,7 +131,9 @@ pub async fn check_for_app_update<R: Runtime>(
                         })
                     }
                 }
-                None => Err(AppError::internal("update check finished without publishing a result")),
+                None => Err(AppError::internal(
+                    "update check finished without publishing a result",
+                )),
             }
         }
     }

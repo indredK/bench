@@ -6,11 +6,17 @@ fn validate_host(host: &str) -> AppResult<()> {
         return Err(AppError::invalid_input("Host cannot be empty"));
     }
     if host.starts_with('-') {
-        return Err(AppError::invalid_input("Invalid host: must not start with '-'"));
+        return Err(AppError::invalid_input(
+            "Invalid host: must not start with '-'",
+        ));
     }
-    let forbidden = [';', '|', '&', '$', '`', '(', ')', '<', '>', '\n', '\r', '"', '\'', '\\', ' '];
+    let forbidden = [
+        ';', '|', '&', '$', '`', '(', ')', '<', '>', '\n', '\r', '"', '\'', '\\', ' ',
+    ];
     if host.chars().any(|c| forbidden.contains(&c)) {
-        return Err(AppError::invalid_input("Invalid host: contains forbidden characters"));
+        return Err(AppError::invalid_input(
+            "Invalid host: contains forbidden characters",
+        ));
     }
     Ok(())
 }
@@ -44,9 +50,13 @@ pub async fn set_network_ssh_state(enable: bool) -> AppResult<()> {
 pub async fn set_network_screen_sharing_state(enable: bool) -> AppResult<()> {
     tauri::async_runtime::spawn_blocking(move || {
         if enable {
-            sudo_cmd("launchctl load -w /System/Library/LaunchDaemons/com.apple.screensharing.plist")?;
+            sudo_cmd(
+                "launchctl load -w /System/Library/LaunchDaemons/com.apple.screensharing.plist",
+            )?;
         } else {
-            sudo_cmd("launchctl unload -w /System/Library/LaunchDaemons/com.apple.screensharing.plist")?;
+            sudo_cmd(
+                "launchctl unload -w /System/Library/LaunchDaemons/com.apple.screensharing.plist",
+            )?;
         }
         Ok(())
     })
@@ -86,7 +96,12 @@ pub async fn ping_host(host: String, count: u32) -> AppResult<super::types::Ping
                 }
             }
             if line.contains("min/avg/max") {
-                let parts: Vec<&str> = line.split('=').next_back().unwrap_or("").split('/').collect();
+                let parts: Vec<&str> = line
+                    .split('=')
+                    .next_back()
+                    .unwrap_or("")
+                    .split('/')
+                    .collect();
                 if parts.len() >= 3 {
                     result.min_rtt = parts[0].trim().parse().unwrap_or(0.0);
                     result.avg_rtt = parts[1].trim().parse().unwrap_or(0.0);
@@ -95,7 +110,8 @@ pub async fn ping_host(host: String, count: u32) -> AppResult<super::types::Ping
             }
         }
         if result.packets_sent > 0 {
-            result.loss_percent = 100.0 * (1.0 - result.packets_received as f64 / result.packets_sent as f64);
+            result.loss_percent =
+                100.0 * (1.0 - result.packets_received as f64 / result.packets_sent as f64);
         }
         Ok(result)
     })
@@ -115,7 +131,11 @@ pub async fn port_check(host: String, port: u16) -> AppResult<super::types::Port
             host,
             port,
             open: output.status.success(),
-            error: if output.status.success() { None } else { Some("Connection refused or timed out".to_string()) },
+            error: if output.status.success() {
+                None
+            } else {
+                Some("Connection refused or timed out".to_string())
+            },
         })
     })
     .await
@@ -128,7 +148,10 @@ pub async fn get_local_ip() -> AppResult<super::types::IpInfo> {
         #[cfg(target_os = "macos")]
         {
             let local = run_cmd("ipconfig", &["getifaddr", "en0"]).unwrap_or_default();
-            Ok(super::types::IpInfo { local_ip: local, external_ip: None })
+            Ok(super::types::IpInfo {
+                local_ip: local,
+                external_ip: None,
+            })
         }
         #[cfg(not(target_os = "macos"))]
         {

@@ -26,7 +26,11 @@ pub async fn set_autohide_menu_bar_state(mode: String) -> AppResult<()> {
             MENU_BAR_MODE_NEVER => ("true", "false", "3"),
             MENU_BAR_MODE_ON_DESKTOP_ONLY => ("true", "true", "1"),
             MENU_BAR_MODE_IN_FULL_SCREEN_ONLY => ("false", "false", "2"),
-            other => return Err(AppError::invalid_input(format!("Invalid menu bar autohide mode: {other}"))),
+            other => {
+                return Err(AppError::invalid_input(format!(
+                    "Invalid menu bar autohide mode: {other}"
+                )))
+            }
         };
 
         let autohide = if hide == "true" { "true" } else { "false" };
@@ -42,10 +46,16 @@ pub async fn set_autohide_menu_bar_state(mode: String) -> AppResult<()> {
             .map_err(|e| AppError::internal(format!("osascript: {e}")))?;
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(AppError::internal(format!("System Events failed: {stderr}")));
+            return Err(AppError::internal(format!(
+                "System Events failed: {stderr}"
+            )));
         }
 
-        defaults_write("com.apple.controlcenter", "AutoHideMenuBarOption", ui_option)?;
+        defaults_write(
+            "com.apple.controlcenter",
+            "AutoHideMenuBarOption",
+            ui_option,
+        )?;
 
         Ok(())
     })
@@ -95,7 +105,11 @@ pub async fn set_low_power_mode_state(mode: String) -> AppResult<()> {
                 sudo_cmd("pmset -b lowpowermode 0")?;
                 sudo_cmd("pmset -c lowpowermode 1")?;
             }
-            other => return Err(AppError::invalid_input(format!("Invalid low power mode: {other}"))),
+            other => {
+                return Err(AppError::invalid_input(format!(
+                    "Invalid low power mode: {other}"
+                )))
+            }
         }
         Ok(())
     })

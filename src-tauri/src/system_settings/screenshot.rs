@@ -8,7 +8,10 @@ pub async fn set_screenshot_format(format: String) -> AppResult<()> {
     tauri::async_runtime::spawn_blocking(move || {
         let fmt = format.to_lowercase();
         if !ALLOWED_SCREENSHOT_FORMATS.contains(&fmt.as_str()) {
-            return Err(AppError::invalid_input(format!("Invalid screenshot format: {}", format)));
+            return Err(AppError::invalid_input(format!(
+                "Invalid screenshot format: {}",
+                format
+            )));
         }
         defaults_write("com.apple.screencapture", "type", &fmt)?;
         Ok(())
@@ -56,7 +59,9 @@ fn validate_screenshot_path(path: &str) -> AppResult<()> {
     }
     let forbidden = [';', '|', '&', '$', '`', '(', ')', '<', '>', '\n', '\r'];
     if path.chars().any(|c| forbidden.contains(&c)) {
-        return Err(AppError::invalid_input("Invalid path: contains forbidden characters"));
+        return Err(AppError::invalid_input(
+            "Invalid path: contains forbidden characters",
+        ));
     }
     Ok(())
 }

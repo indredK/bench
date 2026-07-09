@@ -15,7 +15,8 @@ pub fn set_window_theme(
             let _ = tx.send(result);
         })
         .map_err(|e| AppError::internal(format!("{e}")))?;
-    rx.recv().map_err(|e| AppError::internal(format!("channel recv: {e}")))?
+    rx.recv()
+        .map_err(|e| AppError::internal(format!("channel recv: {e}")))?
 }
 
 #[cfg(target_os = "macos")]
@@ -29,14 +30,21 @@ fn apply_theme(
     };
 
     match theme {
-        WindowTheme::Default => clear_vibrancy(window).map(|_| ()).map_err(|e| AppError::internal(format!("{e}"))),
+        WindowTheme::Default => clear_vibrancy(window)
+            .map(|_| ())
+            .map_err(|e| AppError::internal(format!("{e}"))),
         WindowTheme::Glass => {
             let material = match appearance {
                 Appearance::Light => NSVisualEffectMaterial::Sidebar,
                 Appearance::Dark => NSVisualEffectMaterial::HudWindow,
             };
-            apply_vibrancy(window, material, Some(NSVisualEffectState::FollowsWindowActiveState), None)
-                .map_err(|e| AppError::internal(format!("{e}")))
+            apply_vibrancy(
+                window,
+                material,
+                Some(NSVisualEffectState::FollowsWindowActiveState),
+                None,
+            )
+            .map_err(|e| AppError::internal(format!("{e}")))
         }
     }
 }
@@ -49,6 +57,8 @@ fn apply_theme(
 ) -> AppResult<()> {
     match theme {
         WindowTheme::Default => Ok(()),
-        _ => Err(AppError::unsupported("window theme not supported on this platform")),
+        _ => Err(AppError::unsupported(
+            "window theme not supported on this platform",
+        )),
     }
 }

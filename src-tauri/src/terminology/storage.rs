@@ -1,6 +1,6 @@
+use std::collections::HashSet;
 use tauri::{AppHandle, Runtime};
 use tauri_plugin_store::StoreExt;
-use std::collections::HashSet;
 
 use super::data::{builtin_industries, builtin_terms};
 use super::state::TerminologyState;
@@ -58,8 +58,8 @@ fn migrate_frontend_builtin_subcategory(id: &str) -> Option<&'static str> {
         "t-1" | "t-26" | "t-28" | "t-107" | "t-108" => Some("architecture"),
         "t-2" | "t-27" | "t-109" | "t-110" => Some("engineering"),
         "t-3" => Some("performance"),
-        "t-88" | "t-89" | "t-90" | "t-91" | "t-92" | "t-93" | "t-94" | "t-97" | "t-98"
-        | "t-99" | "t-100" | "t-101" | "t-102" | "t-103" | "t-104" | "t-105" => Some("design"),
+        "t-88" | "t-89" | "t-90" | "t-91" | "t-92" | "t-93" | "t-94" | "t-97" | "t-98" | "t-99"
+        | "t-100" | "t-101" | "t-102" | "t-103" | "t-104" | "t-105" => Some("design"),
         "t-95" | "t-96" | "t-111" => Some("styling"),
         "t-106" => Some("framework"),
         "t-112" | "t-113" => Some("accessibility"),
@@ -68,9 +68,7 @@ fn migrate_frontend_builtin_subcategory(id: &str) -> Option<&'static str> {
 }
 
 fn normalize_frontend_unclassified(term: &mut Term) {
-    if term.industry_id == FRONTEND_INDUSTRY_ID
-        && term.category_id == FRONTEND_CATEGORY_ID
-    {
+    if term.industry_id == FRONTEND_INDUSTRY_ID && term.category_id == FRONTEND_CATEGORY_ID {
         match term.subcategory_id.as_deref() {
             None => {
                 term.subcategory_id = Some(UNCLASSIFIED_SUBCATEGORY_ID.into());
@@ -164,7 +162,8 @@ fn merge_terms(saved: Vec<Term>) -> Vec<Term> {
     let mut merged = builtin_terms();
 
     for mut saved_term in saved {
-        if let Some(next_title) = migrate_frontend_builtin_title(&saved_term.id, &saved_term.title) {
+        if let Some(next_title) = migrate_frontend_builtin_title(&saved_term.id, &saved_term.title)
+        {
             saved_term.title = next_title.into();
         }
         if saved_term.industry_id == FRONTEND_INDUSTRY_ID
@@ -186,7 +185,10 @@ fn merge_terms(saved: Vec<Term>) -> Vec<Term> {
     merged
 }
 
-pub fn init_state<R: Runtime>(app: &AppHandle<R>, state: &TerminologyState) -> TerminologyResult<()> {
+pub fn init_state<R: Runtime>(
+    app: &AppHandle<R>,
+    state: &TerminologyState,
+) -> TerminologyResult<()> {
     let store = app
         .store(STORE_FILE)
         .map_err(|e| TerminologyError::StoreFail {
@@ -229,7 +231,10 @@ pub fn init_state<R: Runtime>(app: &AppHandle<R>, state: &TerminologyState) -> T
 
     *state.industries.lock().unwrap_or_else(|e| e.into_inner()) = industries;
     *state.terms.lock().unwrap_or_else(|e| e.into_inner()) = terms;
-    *state.pinned_term_ids.lock().unwrap_or_else(|e| e.into_inner()) = pinned_term_ids;
+    *state
+        .pinned_term_ids
+        .lock()
+        .unwrap_or_else(|e| e.into_inner()) = pinned_term_ids;
     state.clear_init_error();
 
     Ok(())
@@ -250,11 +255,9 @@ fn save_state<R: Runtime>(
     store.set(KEY_INDUSTRIES, serde_json::json!(industries));
     store.set(KEY_TERMS, serde_json::json!(terms));
     store.set(KEY_PINNED_TERM_IDS, serde_json::json!(pinned_term_ids));
-    store
-        .save()
-        .map_err(|e| TerminologyError::StoreFail {
-            message: format!("save store: {e}"),
-        })?;
+    store.save().map_err(|e| TerminologyError::StoreFail {
+        message: format!("save store: {e}"),
+    })?;
 
     Ok(())
 }
@@ -270,11 +273,18 @@ where
     state.ensure_ready()?;
     let mut industries = state.industries.lock().unwrap_or_else(|e| e.into_inner());
     let mut terms = state.terms.lock().unwrap_or_else(|e| e.into_inner());
-    let mut pinned_term_ids = state.pinned_term_ids.lock().unwrap_or_else(|e| e.into_inner());
+    let mut pinned_term_ids = state
+        .pinned_term_ids
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
     let mut next_industries = industries.clone();
     let mut next_terms = terms.clone();
     let mut next_pinned_term_ids = pinned_term_ids.clone();
-    let result = f(&mut next_industries, &mut next_terms, &mut next_pinned_term_ids)?;
+    let result = f(
+        &mut next_industries,
+        &mut next_terms,
+        &mut next_pinned_term_ids,
+    )?;
 
     save_state(app, &next_industries, &next_terms, &next_pinned_term_ids)?;
     *industries = next_industries;

@@ -1,5 +1,5 @@
-use std::process::Command;
 use crate::error::{AppError, AppResult};
+use std::process::Command;
 
 fn get_macos_major_version() -> Option<u32> {
     let output = Command::new("sw_vers")

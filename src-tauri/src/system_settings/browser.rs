@@ -4,7 +4,14 @@ use crate::error::{AppError, AppResult};
 #[tauri::command]
 pub async fn get_default_browser() -> AppResult<String> {
     tauri::async_runtime::spawn_blocking(|| {
-        let output = run_cmd("defaults", &["read", "com.apple.LaunchServices/com.apple.launchservices.secure", "LSHandlers"])?;
+        let output = run_cmd(
+            "defaults",
+            &[
+                "read",
+                "com.apple.LaunchServices/com.apple.launchservices.secure",
+                "LSHandlers",
+            ],
+        )?;
         for line in output.lines() {
             if line.contains("https") {
                 if let Some(idx) = line.find("LSHandlerRoleAll") {

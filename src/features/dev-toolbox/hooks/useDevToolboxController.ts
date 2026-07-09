@@ -10,7 +10,6 @@ import type { SystemInfoData } from "@/lib/tauri/types/system-info"
 
 export type ToolboxTab =
   | "port-manager"
-  | "dev-cleaner"
   | "env-detector"
   | "token-calc"
   | "devtools"

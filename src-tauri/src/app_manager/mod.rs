@@ -20,7 +20,9 @@ pub use operations::{
     record_operation_result_with_error_code,
 };
 pub use state::AppManagerState;
-pub use types::{AppInfo, InstallSource, OperationResult, ScanProgressEvent, ScanResult, SourceType};
+pub use types::{
+    AppInfo, InstallSource, OperationResult, ScanProgressEvent, ScanResult, SourceType,
+};
 #[allow(unused_imports)]
 pub use types::{UpdateInfo, UpdateSource};
 pub use utils::{deduplicate, get_last_modified, make_app_id, run_command_with_timeout};

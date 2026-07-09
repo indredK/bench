@@ -38,7 +38,11 @@ pub async fn get_lock_screen_password_delay() -> AppResult<i32> {
 #[tauri::command]
 pub async fn set_lock_screen_password_delay(seconds: i32) -> AppResult<()> {
     tauri::async_runtime::spawn_blocking(move || {
-        defaults_write("com.apple.screensaver", "askForPasswordDelay", &seconds.to_string())?;
+        defaults_write(
+            "com.apple.screensaver",
+            "askForPasswordDelay",
+            &seconds.to_string(),
+        )?;
         Ok(())
     })
     .await
@@ -66,7 +70,10 @@ pub async fn empty_trash() -> AppResult<String> {
         if is_empty {
             return Ok("Trash is already empty".to_string());
         }
-        run_cmd_err("osascript", &["-e", "tell application \"Finder\" to empty the trash"])?;
+        run_cmd_err(
+            "osascript",
+            &["-e", "tell application \"Finder\" to empty the trash"],
+        )?;
         Ok("Trash emptied".to_string())
     })
     .await

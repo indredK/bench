@@ -1,5 +1,5 @@
-use aes_gcm::aead::Aead;
 use aes_gcm::aead::array::typenum::U12;
+use aes_gcm::aead::Aead;
 use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine;
@@ -24,9 +24,9 @@ pub fn get_or_create_master_key() -> AccountManagerResult<[u8; 32]> {
         .map_err(|e| AccountManagerError::keyring_unavailable(format!("open entry: {e}")))?;
     match entry.get_password() {
         Ok(b64) => {
-            let bytes = BASE64
-                .decode(b64.as_bytes())
-                .map_err(|e| AccountManagerError::keyring_unavailable(format!("decode key: {e}")))?;
+            let bytes = BASE64.decode(b64.as_bytes()).map_err(|e| {
+                AccountManagerError::keyring_unavailable(format!("decode key: {e}"))
+            })?;
             if bytes.len() != 32 {
                 return Err(AccountManagerError::keyring_unavailable(format!(
                     "master key wrong length: {}",

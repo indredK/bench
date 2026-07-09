@@ -31,14 +31,16 @@ pub fn classify(page_text: &str, config: &LoginDetectionConfig) -> AccountSessio
     }
 }
 
-pub fn classify_confident(page_text: &str, config: &LoginDetectionConfig) -> Option<AccountSessionStatus> {
+pub fn classify_confident(
+    page_text: &str,
+    config: &LoginDetectionConfig,
+) -> Option<AccountSessionStatus> {
     match config.mode {
         LoginDetectionMode::PresetLogout => {
             contains(page_text, PRESET_LOGGED_IN_NEEDLE).then_some(AccountSessionStatus::Ready)
         }
-        LoginDetectionMode::PresetLogin => {
-            contains(page_text, PRESET_LOGGED_OUT_NEEDLE).then_some(AccountSessionStatus::LoginRequired)
-        }
+        LoginDetectionMode::PresetLogin => contains(page_text, PRESET_LOGGED_OUT_NEEDLE)
+            .then_some(AccountSessionStatus::LoginRequired),
         LoginDetectionMode::Custom => {
             if positive_rule_matches(page_text, &config.logged_out_rule) {
                 Some(AccountSessionStatus::LoginRequired)
@@ -56,13 +58,17 @@ fn positive_rule_matches(text: &str, rule: &LoginDetectionRule) -> bool {
         return false;
     }
     let needle = rule.text.trim();
-    if needle.is_empty() { return false; }
+    if needle.is_empty() {
+        return false;
+    }
     contains(text, needle)
 }
 
 fn rule_matches(text: &str, rule: &LoginDetectionRule) -> bool {
     let needle = rule.text.trim();
-    if needle.is_empty() { return false; }
+    if needle.is_empty() {
+        return false;
+    }
     let present = contains(text, needle);
     match rule.presence {
         LoginDetectionPresence::Present => present,

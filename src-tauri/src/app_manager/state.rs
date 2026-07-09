@@ -201,7 +201,9 @@ mod tests {
         assert!(state.acquire_op_lock("foo"));
         state.release_op_lock("foo");
         state.mark_update_check();
-        let flag = state.start_batch_operation().expect("first batch should start");
+        let flag = state
+            .start_batch_operation()
+            .expect("first batch should start");
         assert!(state.cancel_batch_operation());
         assert!(flag.load(std::sync::atomic::Ordering::Relaxed));
         state.clear_batch_operation();

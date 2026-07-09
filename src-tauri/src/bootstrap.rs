@@ -68,9 +68,7 @@ pub fn is_main_ready(state: tauri::State<'_, SharedBootstrapState>) -> bool {
 }
 
 #[tauri::command]
-pub fn list_startup_issues(
-    state: tauri::State<'_, SharedBootstrapState>,
-) -> Vec<StartupIssue> {
+pub fn list_startup_issues(state: tauri::State<'_, SharedBootstrapState>) -> Vec<StartupIssue> {
     state
         .startup_issues
         .read()

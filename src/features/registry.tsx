@@ -1,13 +1,13 @@
 /**
  * Feature Registry / 功能注册: compose descriptors only; 只聚合功能描述.
  *
- * v2: 侧边栏精简 — 端口管理/开发清理/环境检测/Token计算收进开发工具箱，
- * 侧边栏只展示 4 个一级入口 + 系统设置。
+ * v2: 侧边栏精简 — 端口管理/环境检测/Token计算收进开发工具箱，
+ * 存储空间清理（clean-space）作为顶层主菜单模块。
  */
 import type { TFunction } from "i18next"
 import { accountManagerFeature } from "@/features/account-manager/feature"
 import { appManagerFeature } from "@/features/app-manager/feature"
-import { devCleanerFeature } from "@/features/dev-cleaner/feature"
+import { cleanSpaceFeature } from "@/features/clean-space/feature"
 import { envDetectorFeature } from "@/features/env-detector/feature"
 import { hardwareFeature } from "@/features/hardware/feature"
 import { portManagerFeature } from "@/features/port-manager/feature"
@@ -28,7 +28,7 @@ export const appFeatures: AppFeature[] = [
   // Development tools — routed but condensed into dev-toolbox in sidebar
   devToolboxFeature,
   portManagerFeature,
-  devCleanerFeature,
+  cleanSpaceFeature,
   envDetectorFeature,
   tokenCalculatorFeature,
   // Config
@@ -38,7 +38,6 @@ export const appFeatures: AppFeature[] = [
 /** IDs hidden from sidebar (shown as tabs inside Dev Toolbox instead). */
 const TOOLBOX_FEATURE_IDS = new Set([
   "port-manager",
-  "dev-cleaner",
   "env-detector",
   "token-calculator",
 ])

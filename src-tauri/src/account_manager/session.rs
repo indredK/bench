@@ -60,31 +60,27 @@ async fn extract_cookies<R: Runtime>(
         .parse()
         .map_err(|e| AccountManagerError::invalid_input(format!("parse url: {e}")))?;
 
-    let cookies = window.cookies_for_url(parsed).map_err(|e| {
-        AccountManagerError::store_fail(format!("cookies_for_url failed: {e}"))
-    })?;
+    let cookies = window
+        .cookies_for_url(parsed)
+        .map_err(|e| AccountManagerError::store_fail(format!("cookies_for_url failed: {e}")))?;
 
     Ok(cookies
         .into_iter()
-        .map(|c| {
-            CookieEntry {
-                name: c.name().to_string(),
-                value: c.value().to_string(),
-                domain: c.domain().unwrap_or_default().to_string(),
-                path: c.path().unwrap_or("/").to_string(),
-                http_only: c.http_only().unwrap_or(false),
-                secure: c.secure().unwrap_or(false),
-                same_site: c.same_site().map(|s| format!("{:?}", s).to_lowercase()),
-                partitioned: c.partitioned().unwrap_or(false),
-                expires: c.expires_datetime().map(|d| d.to_string()),
-            }
+        .map(|c| CookieEntry {
+            name: c.name().to_string(),
+            value: c.value().to_string(),
+            domain: c.domain().unwrap_or_default().to_string(),
+            path: c.path().unwrap_or("/").to_string(),
+            http_only: c.http_only().unwrap_or(false),
+            secure: c.secure().unwrap_or(false),
+            same_site: c.same_site().map(|s| format!("{:?}", s).to_lowercase()),
+            partitioned: c.partitioned().unwrap_or(false),
+            expires: c.expires_datetime().map(|d| d.to_string()),
         })
         .collect())
 }
 
-async fn extract_user_agent<R: Runtime>(
-    window: &WebviewWindow<R>,
-) -> AccountManagerResult<String> {
+async fn extract_user_agent<R: Runtime>(window: &WebviewWindow<R>) -> AccountManagerResult<String> {
     evaluate_js(window, "JSON.stringify(navigator.userAgent)").await
 }
 
@@ -267,7 +263,11 @@ fn parse_captured_at(value: &str) -> Option<chrono::NaiveDateTime> {
 /// `captured_at` 字符串解析。注意 `now_label()` 生成的是本地时间字符串，回退路径
 /// 把它当作 UTC 解析（`.and_utc()`），在非 UTC 机器上会有偏差 —— 这是旧数据的
 /// 既有行为，新捕获的 session 已通过 `captured_at_ts` 修复。
-pub fn is_session_expired(session: &AccountSession, ttl_hours: u32, now: chrono::DateTime<chrono::Utc>) -> bool {
+pub fn is_session_expired(
+    session: &AccountSession,
+    ttl_hours: u32,
+    now: chrono::DateTime<chrono::Utc>,
+) -> bool {
     if ttl_hours == 0 {
         return false;
     }
@@ -323,7 +323,10 @@ pub fn cleanup_expired_sessions<R: Runtime>(
                 Err(_) => true,    // 解密失败 → 过期处理
             };
             if expired {
-                Some(ToClear { account_id: a.id.clone(), old_status: a.status })
+                Some(ToClear {
+                    account_id: a.id.clone(),
+                    old_status: a.status,
+                })
             } else {
                 None
             }

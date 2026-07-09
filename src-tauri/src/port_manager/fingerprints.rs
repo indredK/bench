@@ -130,9 +130,7 @@ fn fingerprint_by_command(command: &str, port: u16) -> Option<ProcessFingerprint
                 return None;
             }
         }
-        8888 if contains_any(&cmd_lower, &["jupyter"]) => {
-            fp("Python", "Jupyter Notebook", "📓")
-        }
+        8888 if contains_any(&cmd_lower, &["jupyter"]) => fp("Python", "Jupyter Notebook", "📓"),
         8443 if contains_any(&cmd_lower, &["java", "tomcat"]) => {
             fp("Java", "Apache Tomcat (SSL)", "☕")
         }
@@ -148,9 +146,7 @@ fn fingerprint_by_command(command: &str, port: u16) -> Option<ProcessFingerprint
         27017 if contains_any(&cmd_lower, &["mongod", "mongodb", "mongo"]) => {
             fp("Database", "MongoDB", "🍃")
         }
-        9090 if contains_any(&cmd_lower, &["prometheus"]) => {
-            fp("Monitoring", "Prometheus", "📊")
-        }
+        9090 if contains_any(&cmd_lower, &["prometheus"]) => fp("Monitoring", "Prometheus", "📊"),
         3005 if contains_any(&cmd_lower, &["livereload", "live-server"]) => {
             fp("Tools", "LiveReload", "🔄")
         }

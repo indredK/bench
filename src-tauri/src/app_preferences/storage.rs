@@ -31,7 +31,10 @@ pub fn set_close_behavior<R: Runtime>(app: &AppHandle<R>, behavior: &str) -> App
         .store(STORE_FILE)
         .map_err(|e| AppError::internal(format!("Failed to open store: {e}")))?;
 
-    store.set(CLOSE_BEHAVIOR_KEY, serde_json::Value::String(behavior.to_string()));
+    store.set(
+        CLOSE_BEHAVIOR_KEY,
+        serde_json::Value::String(behavior.to_string()),
+    );
     store
         .save()
         .map_err(|e| AppError::internal(format!("Failed to save store: {e}")))
