@@ -1,0 +1,6 @@
+{
+  "window-vibrancy": {
+    "mustMatch": "tauri",
+    "reason": "版本与 Tauri 内部依赖不一致时，依赖树中会出现两个 window-vibrancy 节点，导致 macOS release 链接失败（bitcode symbol multiply defined / failed to load bitcode）。历史已踩过并回滚到 0.6。见 docs/development-workflow.md §11。只有当 Tauri 本体升级到内部分支改用更高版本时，才能跟着升。"
+  }
+}

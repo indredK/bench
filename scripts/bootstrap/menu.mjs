@@ -69,6 +69,35 @@ const menu = [
       },
     ],
   },
+  {
+    group: "维护",
+    items: [
+      {
+        key: "upgrade:dry",
+        label: "安全升级预演(全部, dry-run 不改动)",
+        cmd: "pnpm",
+        args: ["run", "upgrade:safe", "all", "--dry-run"],
+      },
+      {
+        key: "upgrade:be",
+        label: "安全升级(后端, 仅范围内 + 护栏校验)",
+        cmd: "pnpm",
+        args: ["run", "upgrade:safe", "be"],
+      },
+      {
+        key: "upgrade:fe",
+        label: "安全升级(前端, 仅范围内)",
+        cmd: "pnpm",
+        args: ["run", "upgrade:safe", "fe"],
+      },
+      {
+        key: "upgrade:all",
+        label: "安全升级(前后端, 仅范围内)",
+        cmd: "pnpm",
+        args: ["run", "upgrade:safe", "all"],
+      },
+    ],
+  },
 ]
 
 const options = [

@@ -36,7 +36,8 @@
     "build:debug": "tauri build --debug",
     "test": "pnpm run test:fe && pnpm run test:be",
     "verify": "pnpm run test:fe && pnpm run test:be && pnpm run build:fe && pnpm run build:debug",
-    "ci": "pnpm install --frozen-lockfile && pnpm run verify"
+    "ci": "pnpm install --frozen-lockfile && pnpm run verify",
+    "upgrade:safe": "node scripts/maintenance/safe-upgrade.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
