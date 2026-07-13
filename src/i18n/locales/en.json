@@ -382,7 +382,8 @@
       "createdAt": "Created",
       "lastRefreshedAt": "Last Refreshed",
       "login": "Login",
-      "switchTo": "Switch"
+      "switchTo": "Switch",
+      "neverRefreshed": "Never refreshed"
     },
     "detail": {
       "empty": "Pick a gateway on the left to see its details here.",
@@ -505,7 +506,9 @@
         "newAccountHint": "Sign in fresh in an isolated window. On success it is saved and grouped under {{host}} automatically.",
         "targetLabel": "Target",
         "returnLabel": "Return URL",
-        "externalAppFallback": "external app"
+        "externalAppFallback": "external app",
+        "urlPlaceholder": "Paste sign-in URL",
+        "startLogin": "Start sign-in"
       },
       "startLogin": "Start sign-in",
       "back": "Back"

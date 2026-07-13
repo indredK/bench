@@ -382,7 +382,8 @@
       "createdAt": "创建时间",
       "lastRefreshedAt": "上次刷新",
       "login": "登录",
-      "switchTo": "切换"
+      "switchTo": "切换",
+      "neverRefreshed": "未刷新过"
     },
     "detail": {
       "empty": "请先在左侧选择一个站点。",
@@ -505,7 +506,9 @@
         "newAccountHint": "在隔离窗口中重新登录一个新账号，成功后会自动保存并归组到 {{host}}。",
         "targetLabel": "目标",
         "returnLabel": "返回链接",
-        "externalAppFallback": "外部应用"
+        "externalAppFallback": "外部应用",
+        "urlPlaceholder": "粘贴登录链接",
+        "startLogin": "开始登录"
       },
       "startLogin": "开始登录",
       "back": "返回"
@@ -635,7 +638,6 @@
     "startHint": "点击「刷新」按钮开始扫描已安装的应用",
     "empty": "未发现任何应用",
     "noResults": "没有匹配的应用",
-    "notLaunchable": "此应用没有经过验证的启动入口",
     "browserWarning": "应用管理功能需要在 Tauri 桌面环境中使用",
     "systemLabel": "系统",
     "updateAvailable": "有更新",
@@ -2439,6 +2441,7 @@
     "totalApps": "{{count}} 个应用 · {{scenes}} 个场景",
     "searchResult": "搜索到 {{count}} 个应用",
     "noResults": "没有匹配的应用",
+    "notLaunchable": "此应用没有经过验证的启动入口",
     "hint": "点击启动 · 右键在 Finder 中显示",
     "edit": "编辑",
     "done": "完成",
