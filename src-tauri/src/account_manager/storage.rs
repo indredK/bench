@@ -1,7 +1,9 @@
 use std::collections::HashMap;
+use std::fs::{File, OpenOptions};
 
+use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
-use tauri::{AppHandle, Runtime};
+use tauri::{AppHandle, Manager, Runtime};
 use tauri_plugin_store::StoreExt;
 
 use super::crypto::{self, EncryptedBlob};
@@ -12,10 +14,11 @@ const STORE_FILE: &str = "account-manager-store.json";
 const KEY_STATIONS: &str = "stations";
 const KEY_ACCOUNTS: &str = "accounts";
 const KEY_SECRETS: &str = "secrets";
+const KEY_SESSIONS: &str = "sessions";
 const KEY_SCHEMA: &str = "schema_version";
 const KEY_EXTERNAL_APPS: &str = "external_apps";
 const KEY_EXTERNAL_APP_BINDINGS: &str = "external_app_bindings";
-const CURRENT_SCHEMA: u32 = 4;
+const CURRENT_SCHEMA: u32 = 5;
 
 /// Load persisted state from the plugin-store and populate the managed state.
 /// Called once during `setup`. Migrates P0 plaintext secrets to encrypted blobs.
@@ -23,30 +26,30 @@ pub fn init_state<R: Runtime>(
     app: &AppHandle<R>,
     state: &AccountManagerState,
 ) -> AccountManagerResult<()> {
+    state.initialize_master_key(app)?;
+    let _store_lock = acquire_store_lock(app)?;
     let store = app
         .store(STORE_FILE)
         .map_err(|e| AccountManagerError::store_fail(format!("open store: {e}")))?;
+    store
+        .reload_ignore_defaults()
+        .map_err(|e| AccountManagerError::store_fail(format!("reload store: {e}")))?;
 
-    let stations: Vec<RelayStation> = store
-        .get(KEY_STATIONS)
-        .and_then(|v| serde_json::from_value(v).ok())
-        .unwrap_or_default();
-    let accounts: Vec<StationAccount> = store
-        .get(KEY_ACCOUNTS)
-        .and_then(|v| serde_json::from_value(v).ok())
-        .unwrap_or_default();
+    let stations: Vec<RelayStation> = decode_or_default(store.get(KEY_STATIONS), KEY_STATIONS)?;
+    let mut accounts: Vec<StationAccount> =
+        decode_or_default(store.get(KEY_ACCOUNTS), KEY_ACCOUNTS)?;
 
     let (secrets, needs_resave) = load_and_migrate_secrets(store.get(KEY_SECRETS), state)?;
 
-    let sessions = load_sessions_from_store(app);
-    let external_apps: Vec<super::types::ExternalApp> = store
-        .get(KEY_EXTERNAL_APPS)
-        .and_then(|v| serde_json::from_value(v).ok())
-        .unwrap_or_default();
-    let external_app_bindings: Vec<super::types::ExternalAppBinding> = store
-        .get(KEY_EXTERNAL_APP_BINDINGS)
-        .and_then(|v| serde_json::from_value(v).ok())
-        .unwrap_or_default();
+    let mut sessions = load_sessions_from_store(app)?;
+    let external_apps: Vec<super::types::ExternalApp> =
+        decode_or_default(store.get(KEY_EXTERNAL_APPS), KEY_EXTERNAL_APPS)?;
+    let external_app_bindings: Vec<super::types::ExternalAppBinding> = decode_or_default(
+        store.get(KEY_EXTERNAL_APP_BINDINGS),
+        KEY_EXTERNAL_APP_BINDINGS,
+    )?;
+
+    let migrated_legacy_sessions = migrate_legacy_sessions(&mut accounts, &mut sessions);
 
     let snapshot = AccountManagerSnapshot {
         stations,
@@ -56,13 +59,16 @@ pub fn init_state<R: Runtime>(
         external_apps,
         external_app_bindings,
     };
-    state.replace_snapshot(snapshot);
-
     let schema = store.get(KEY_SCHEMA).and_then(|v| v.as_u64()).unwrap_or(0);
 
     let mut dirty = false;
     if needs_resave {
         store.set(KEY_SECRETS, json!(secrets));
+        dirty = true;
+    }
+    if migrated_legacy_sessions {
+        store.set(KEY_ACCOUNTS, json!(&snapshot.accounts));
+        store.set(KEY_SESSIONS, json!(&snapshot.sessions));
         dirty = true;
     }
     if schema < CURRENT_SCHEMA as u64 {
@@ -75,9 +81,54 @@ pub fn init_state<R: Runtime>(
             .map_err(|e| AccountManagerError::store_fail(format!("save migrations: {e}")))?;
     }
 
+    state.replace_snapshot(snapshot);
     state.clear_init_error();
 
     Ok(())
+}
+
+fn acquire_store_lock<R: Runtime>(app: &AppHandle<R>) -> AccountManagerResult<File> {
+    let app_data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| AccountManagerError::store_fail(format!("app data dir: {e}")))?;
+    std::fs::create_dir_all(&app_data_dir)
+        .map_err(|e| AccountManagerError::store_fail(format!("create app data dir: {e}")))?;
+    let lock = OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .read(true)
+        .write(true)
+        .open(app_data_dir.join("account-manager-store.lock"))
+        .map_err(|e| AccountManagerError::store_fail(format!("open store lock: {e}")))?;
+    lock.lock()
+        .map_err(|e| AccountManagerError::store_fail(format!("acquire store lock: {e}")))?;
+    Ok(lock)
+}
+
+fn decode_or_default<T: DeserializeOwned + Default>(
+    value: Option<Value>,
+    label: &str,
+) -> AccountManagerResult<T> {
+    match value {
+        Some(value) => serde_json::from_value(value)
+            .map_err(|e| AccountManagerError::store_fail(format!("decode {label}: {e}"))),
+        None => Ok(T::default()),
+    }
+}
+
+fn migrate_legacy_sessions(
+    accounts: &mut [StationAccount],
+    sessions: &mut HashMap<String, EncryptedBlob>,
+) -> bool {
+    let mut migrated = false;
+    for account in accounts {
+        if let Some(legacy) = account.session.take() {
+            sessions.entry(account.id.clone()).or_insert(legacy);
+            migrated = true;
+        }
+    }
+    migrated
 }
 
 /// Read the raw secrets value and convert it to `HashMap<String, EncryptedBlob>`.
@@ -145,7 +196,7 @@ fn save_snapshot<R: Runtime>(
     store.set(KEY_STATIONS, json!(&snapshot.stations));
     store.set(KEY_ACCOUNTS, json!(&snapshot.accounts));
     store.set(KEY_SECRETS, json!(&snapshot.secrets));
-    store.set("sessions", json!(&snapshot.sessions));
+    store.set(KEY_SESSIONS, json!(&snapshot.sessions));
     store.set(KEY_EXTERNAL_APPS, json!(&snapshot.external_apps));
     store.set(
         KEY_EXTERNAL_APP_BINDINGS,
@@ -158,41 +209,17 @@ fn save_snapshot<R: Runtime>(
     Ok(())
 }
 
-// Session Manager: schema v3 additions
-#[allow(dead_code)]
-pub fn save_sessions_to_store(
+pub fn load_sessions_from_store(
     app: &AppHandle<impl Runtime>,
-    sessions: &HashMap<String, EncryptedBlob>,
-) -> AccountManagerResult<()> {
+) -> AccountManagerResult<HashMap<String, EncryptedBlob>> {
     let store = app
         .store(STORE_FILE)
         .map_err(|e| AccountManagerError::store_fail(format!("open store: {e}")))?;
-    store.set("sessions", serde_json::json!(sessions));
-    store
-        .save()
-        .map_err(|e| AccountManagerError::store_fail(format!("save sessions: {e}")))?;
-    Ok(())
-}
-
-pub fn load_sessions_from_store(app: &AppHandle<impl Runtime>) -> HashMap<String, EncryptedBlob> {
-    let Ok(store) = app.store(STORE_FILE) else {
-        return HashMap::new();
-    };
-    store
-        .get("sessions")
-        .and_then(|v| serde_json::from_value(v).ok())
-        .unwrap_or_default()
-}
-
-#[allow(dead_code)]
-pub fn flush_to_disk(app: &AppHandle<impl Runtime>) -> AccountManagerResult<()> {
-    let store = app
-        .store(STORE_FILE)
-        .map_err(|e| AccountManagerError::store_fail(format!("open store: {e}")))?;
-    store
-        .save()
-        .map_err(|e| AccountManagerError::store_fail(format!("flush: {e}")))?;
-    Ok(())
+    match store.get(KEY_SESSIONS) {
+        Some(value) => serde_json::from_value(value)
+            .map_err(|e| AccountManagerError::store_fail(format!("decode sessions: {e}"))),
+        None => Ok(HashMap::new()),
+    }
 }
 pub fn with_state_mut<R: Runtime, F, T>(
     app: &AppHandle<R>,
@@ -204,8 +231,25 @@ where
 {
     state.ensure_ready()?;
     let mut snapshot = state.snapshot.write().unwrap_or_else(|e| e.into_inner());
+    let _store_lock = acquire_store_lock(app)?;
+    let store = app
+        .store(STORE_FILE)
+        .map_err(|e| AccountManagerError::store_fail(format!("open store: {e}")))?;
+    store
+        .reload_ignore_defaults()
+        .map_err(|e| AccountManagerError::store_fail(format!("reload store: {e}")))?;
 
-    let mut next = snapshot.clone();
+    let mut next = AccountManagerSnapshot {
+        stations: decode_or_default(store.get(KEY_STATIONS), KEY_STATIONS)?,
+        accounts: decode_or_default(store.get(KEY_ACCOUNTS), KEY_ACCOUNTS)?,
+        secrets: decode_or_default(store.get(KEY_SECRETS), KEY_SECRETS)?,
+        sessions: decode_or_default(store.get(KEY_SESSIONS), KEY_SESSIONS)?,
+        external_apps: decode_or_default(store.get(KEY_EXTERNAL_APPS), KEY_EXTERNAL_APPS)?,
+        external_app_bindings: decode_or_default(
+            store.get(KEY_EXTERNAL_APP_BINDINGS),
+            KEY_EXTERNAL_APP_BINDINGS,
+        )?,
+    };
 
     let result = f(&mut next)?;
     save_snapshot(app, &next)?;
@@ -213,4 +257,55 @@ where
     *snapshot = next;
 
     Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::account_manager::types::{AccountSessionStatus, AccountType};
+
+    fn account(id: &str, session: Option<EncryptedBlob>) -> StationAccount {
+        StationAccount {
+            id: id.into(),
+            station_id: "station".into(),
+            username: "user".into(),
+            notes: String::new(),
+            phone: None,
+            tg_account: None,
+            linked_account: None,
+            invite_link: None,
+            login_methods: Vec::new(),
+            status: AccountSessionStatus::Ready,
+            last_login_at: None,
+            last_refreshed_at: None,
+            created_at: String::new(),
+            has_password: false,
+            account_type: AccountType::Persistent,
+            website: None,
+            session,
+            exclusivity_group: None,
+            proxy_enabled: false,
+            external_app_ids: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn legacy_session_migration_prefers_canonical_map_and_clears_account_field() {
+        let legacy = EncryptedBlob {
+            v: 1,
+            nonce: "legacy".into(),
+            ct: "legacy".into(),
+        };
+        let canonical = EncryptedBlob {
+            v: 1,
+            nonce: "canonical".into(),
+            ct: "canonical".into(),
+        };
+        let mut accounts = vec![account("acct-1", Some(legacy))];
+        let mut sessions = HashMap::from([("acct-1".into(), canonical.clone())]);
+
+        assert!(migrate_legacy_sessions(&mut accounts, &mut sessions));
+        assert!(accounts[0].session.is_none());
+        assert_eq!(sessions.get("acct-1"), Some(&canonical));
+    }
 }

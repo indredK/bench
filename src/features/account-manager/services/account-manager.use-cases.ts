@@ -49,9 +49,7 @@ async function applySessionSettings(
   if (settings.sessionTtlHours !== baselineTtlHours) {
     promises.push(accountManagerRepository.setSessionTtl(stationId, settings.sessionTtlHours))
   }
-  // 网络代理:仅在配置变化或密码变更时写入。
-  // 注意:setStationNetworkProxy 的 password=null 会清除已存密码,
-  // 所以仅在确实变更时调用,避免无谓清除。
+  // 网络代理:仅在配置变化或密码变更时写入。password=null 由后端解释为保留旧密码。
   const configChanged = !proxyConfigEquals(settings.networkProxy, baselineNetworkProxy)
   const passwordChanged = settings.networkProxyPassword !== undefined
   if (configChanged || passwordChanged) {

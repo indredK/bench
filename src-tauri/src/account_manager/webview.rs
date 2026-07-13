@@ -33,12 +33,37 @@ pub fn account_data_dir<R: Runtime>(
     Ok(base.join("relay-accounts").join(account_id))
 }
 
-pub fn remove_account_data_dir<R: Runtime>(app: &AppHandle<R>, account_id: &str) {
-    if let Ok(dir) = account_data_dir(app, account_id) {
-        if dir.exists() {
-            let _ = std::fs::remove_dir_all(&dir);
+pub fn remove_account_data_dir<R: Runtime>(
+    app: &AppHandle<R>,
+    account_id: &str,
+) -> AccountManagerResult<()> {
+    for label in [
+        login_window_label(account_id),
+        probe_window_label(account_id),
+    ] {
+        if let Some(window) = app.get_webview_window(&label) {
+            window.clear_all_browsing_data().map_err(|e| {
+                AccountManagerError::store_fail(format!("clear WebView data for {account_id}: {e}"))
+            })?;
+            window.close().map_err(|e| {
+                AccountManagerError::store_fail(format!("close WebView for {account_id}: {e}"))
+            })?;
         }
     }
+    let dir = account_data_dir(app, account_id)?;
+    if dir.exists() {
+        std::fs::remove_dir_all(&dir).map_err(|e| {
+            AccountManagerError::store_fail(format!(
+                "remove WebView data for {account_id} at {}: {e}",
+                dir.display()
+            ))
+        })?;
+    }
+    Ok(())
+}
+
+fn probe_window_label(account_id: &str) -> String {
+    format!("relay-probe-{account_id}")
 }
 
 /// 由 account_id 派生一个 16 字节稳定标识,用作 WebKit `data_store_identifier`.
@@ -55,23 +80,7 @@ pub fn account_data_store_identifier(account_id: &str) -> [u8; 16] {
 /// 匹配规则：忽略大小写比较 scheme，并要求导航 URL 以 return 前缀开头
 /// （允许其后追加 `?code=...` 等 query）。return 本身若无 query 也能匹配。
 pub fn is_return_callback(nav_url: &str, return_url: &str) -> bool {
-    let nav = nav_url.trim();
-    let ret = return_url.trim();
-    if ret.is_empty() {
-        return false;
-    }
-
-    // 先按 scheme 粗筛：scheme 必须一致（大小写不敏感）。
-    let nav_scheme = nav.split(':').next().unwrap_or("");
-    let ret_scheme = ret.split(':').next().unwrap_or("");
-    if !nav_scheme.eq_ignore_ascii_case(ret_scheme) {
-        return false;
-    }
-
-    // 去掉 query/fragment 后比较前缀，避免 `myapp://cb-evil` 误命中 `myapp://cb`。
-    let ret_base = ret.split(['?', '#']).next().unwrap_or(ret);
-    let nav_base = nav.split(['?', '#']).next().unwrap_or(nav);
-    nav_base.eq_ignore_ascii_case(ret_base)
+    super::proxy::protocol::callback_matches(nav_url, return_url)
 }
 
 /// 把外部 App 自己的原始 callback URL 通过系统 opener 转交回该 App。
@@ -90,19 +99,22 @@ pub fn open_login_window<R: Runtime>(
     username: &str,
     url: &str,
     return_url: Option<&str>,
+    callback_state: Option<&str>,
     proxy_url: Option<&str>,
 ) -> AccountManagerResult<()> {
     let label = login_window_label(account_id);
-    if let Some(existing) = app.get_webview_window(&label) {
-        existing
-            .set_focus()
-            .map_err(|e| AccountManagerError::store_fail(format!("focus login window: {e}")))?;
-        return Ok(());
+    if app.get_webview_window(&label).is_some() {
+        return Err(AccountManagerError::invalid_input(format!(
+            "login already in progress for account {account_id}"
+        )));
     }
 
-    let parsed = url
+    let parsed: tauri::Url = url
         .parse()
         .map_err(|e| AccountManagerError::invalid_input(format!("website url: {e}")))?;
+    let blank: tauri::Url = "about:blank"
+        .parse()
+        .map_err(|e| AccountManagerError::invalid_input(format!("blank url: {e}")))?;
 
     let data_dir = account_data_dir(app, account_id)?;
     if let Some(parent) = data_dir.parent() {
@@ -111,23 +123,30 @@ pub fn open_login_window<R: Runtime>(
     }
 
     #[cfg_attr(not(any(target_os = "macos", target_os = "ios")), allow(unused_mut))]
-    let mut builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(parsed))
+    let mut builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(blank))
         .title(format!("{username} · 登录"))
         .inner_size(LOGIN_WINDOW_WIDTH, LOGIN_WINDOW_HEIGHT)
         .center()
         .data_directory(data_dir);
 
-    // per-station 网络代理：仅在 macOS 14+ 生效（`macos-proxy` feature）。
-    // 非 macOS 平台静默忽略，前端 UI 已展示 macOS-only 提示。
+    // per-station 网络代理：仅在 macOS 14+ WebView 生效。其他平台 fail closed。
     #[cfg(target_os = "macos")]
     if let Some(url) = proxy_url {
-        if let Ok(parsed_url) = url.parse::<tauri::Url>() {
-            builder = builder.proxy_url(parsed_url);
-        }
+        let parsed_url = url.parse::<tauri::Url>().map_err(|e| {
+            AccountManagerError::invalid_input(format!("invalid network proxy URL: {e}"))
+        })?;
+        builder = builder.proxy_url(parsed_url);
+    }
+    #[cfg(not(target_os = "macos"))]
+    if proxy_url.is_some() {
+        return Err(AccountManagerError::invalid_input(
+            "network proxy is not supported for login WebViews on this platform",
+        ));
     }
 
     if let Some(ret) = return_url {
         let ret_owned = ret.to_string();
+        let callback_state_owned = callback_state.map(str::to_string);
         let label_clone = label.clone();
         let account_id_owned = account_id.to_string();
         let target_owned = url.to_string();
@@ -135,11 +154,21 @@ pub fn open_login_window<R: Runtime>(
         builder = builder.on_navigation(move |nav_url| {
             let nav_str = nav_url.as_str();
 
-            // 情况 1: native-app loopback 回调(如 http://127.0.0.1:56290/authorize?code=...）。
-            // 这是 Trae / GitHub CLI / VS Code 等工具的标准模式: 外部 App 在本地起了
-            // HTTP 服务器收 code。我们**放行**这次导航,让请求真正打到该本地服务器
-            // (外部 App 由此完成登录),随后捕获目标站点 session、标记 Ready、关闭窗口。
-            if super::proxy::protocol::is_loopback_url(nav_str) {
+            if !is_return_callback(nav_str, &ret_owned) {
+                return true;
+            }
+            if !super::proxy::protocol::callback_state_matches(
+                nav_str,
+                callback_state_owned.as_deref(),
+            ) {
+                super::proxy::protocol::audit_log(
+                    "proxy_callback_state_rejected",
+                    &[("scheme", nav_url.scheme())],
+                );
+                return false;
+            }
+
+            if super::proxy::protocol::is_loopback_url(&ret_owned) {
                 super::proxy::protocol::audit_log(
                     "proxy_loopback_callback",
                     &[("host", nav_url.host_str().unwrap_or(""))],
@@ -148,10 +177,10 @@ pub fn open_login_window<R: Runtime>(
                 let label2 = label_clone.clone();
                 let account2 = account_id_owned.clone();
                 let target2 = target_owned.clone();
+                let return2 = ret_owned.clone();
                 tauri::async_runtime::spawn(async move {
-                    // 给本地服务器一点时间消费 callback 并响应。
                     tokio::time::sleep(std::time::Duration::from_millis(1200)).await;
-                    super::session::finalize_proxy_session(&app2, &account2, &target2).await;
+                    complete_proxy_login(&app2, &account2, &target2, &return2).await;
                     if let Some(win) = app2.get_webview_window(&label2) {
                         let _ = win.close();
                     }
@@ -159,28 +188,23 @@ pub fn open_login_window<R: Runtime>(
                 return true;
             }
 
-            // 情况 2: 自定义 scheme 回调(如 myapp://callback?code=...）。
-            // 取消 WebView 导航,把原始 callback 原样 openExternal 交还外部 App。
-            if is_return_callback(nav_str, &ret_owned) {
-                forward_callback_to_external_app(&app_clone, nav_str);
-                super::proxy::protocol::audit_log(
-                    "proxy_callback_forwarded",
-                    &[("scheme", nav_url.scheme())],
-                );
-                let app2 = app_clone.clone();
-                let label2 = label_clone.clone();
-                let account2 = account_id_owned.clone();
-                let target2 = target_owned.clone();
-                tauri::async_runtime::spawn(async move {
-                    super::session::finalize_proxy_session(&app2, &account2, &target2).await;
-                    if let Some(win) = app2.get_webview_window(&label2) {
-                        let _ = win.close();
-                    }
-                });
-                false
-            } else {
-                true
-            }
+            forward_callback_to_external_app(&app_clone, nav_str);
+            super::proxy::protocol::audit_log(
+                "proxy_callback_forwarded",
+                &[("scheme", nav_url.scheme())],
+            );
+            let app2 = app_clone.clone();
+            let label2 = label_clone.clone();
+            let account2 = account_id_owned.clone();
+            let target2 = target_owned.clone();
+            let return2 = ret_owned.clone();
+            tauri::async_runtime::spawn(async move {
+                complete_proxy_login(&app2, &account2, &target2, &return2).await;
+                if let Some(win) = app2.get_webview_window(&label2) {
+                    let _ = win.close();
+                }
+            });
+            false
         });
     }
 
@@ -193,10 +217,55 @@ pub fn open_login_window<R: Runtime>(
         let _ = account_data_store_identifier;
     }
 
-    builder
+    let window = builder
         .build()
         .map_err(|e| AccountManagerError::store_fail(format!("build login window: {e}")))?;
+    let state = app.state::<super::state::AccountManagerState>();
+    if let Some(saved) = super::session::restore_session(&state, account_id)? {
+        super::session::inject_session(&window, &saved)?;
+    }
+    window
+        .navigate(parsed)
+        .map_err(|e| AccountManagerError::store_fail(format!("navigate login window: {e}")))?;
     Ok(())
+}
+
+async fn complete_proxy_login<R: Runtime>(
+    app: &AppHandle<R>,
+    account_id: &str,
+    target_url: &str,
+    return_url: &str,
+) {
+    match super::session::finalize_proxy_session(app, account_id, target_url).await {
+        Ok(()) => {
+            if let Some(window) = app.get_webview_window(&login_window_label(account_id)) {
+                let _ = window.close();
+            }
+            let verified = match super::commands::refresh_one_impl(
+                app.clone(),
+                account_id.to_string(),
+            )
+            .await
+            {
+                Ok(account) => account.status == super::types::AccountSessionStatus::Ready,
+                Err(error) => {
+                    eprintln!("[account_manager] post-login probe failed: {error}");
+                    false
+                }
+            };
+            if !verified {
+                eprintln!("[account_manager] captured proxy session was not verified as ready");
+                return;
+            }
+            let state = app.state::<super::state::AccountManagerState>();
+            if let Err(error) =
+                super::commands::record_proxy_usage(app, &state, return_url, account_id)
+            {
+                eprintln!("[account_manager] record proxy usage failed: {error}");
+            }
+        }
+        Err(error) => eprintln!("[account_manager] finalize proxy session failed: {error}"),
+    }
 }
 
 // ═══════════════════════════════════════════════
@@ -213,11 +282,23 @@ pub async fn fill_credentials<R: Runtime>(
     account_id: &str,
     username: &str,
     password: &str,
+    expected_url: &str,
 ) -> AccountManagerResult<()> {
     let label = login_window_label(account_id);
     let window = app
         .get_webview_window(&label)
         .ok_or_else(|| AccountManagerError::not_found("login window not found"))?;
+    let current_url = window
+        .url()
+        .map_err(|e| AccountManagerError::store_fail(format!("read login URL: {e}")))?;
+    let expected_url = expected_url.parse::<tauri::Url>().map_err(|e| {
+        AccountManagerError::invalid_input(format!("invalid credential origin: {e}"))
+    })?;
+    if !same_origin(&current_url, &expected_url) {
+        return Err(AccountManagerError::invalid_input(
+            "refusing to fill credentials into a different origin",
+        ));
+    }
 
     // AUTO_FILL_SCRIPT 形如 `(function(username, password){...})();` — 把末尾的空参调用
     // `)();` 替换为带参调用 `)(USERNAME_JSON, PASSWORD_JSON);` 即可注入凭证。
@@ -236,6 +317,13 @@ pub async fn fill_credentials<R: Runtime>(
         .eval(&script)
         .map_err(|e| AccountManagerError::store_fail(format!("eval auto-fill: {e}")))?;
     Ok(())
+}
+
+fn same_origin(actual: &tauri::Url, expected: &tauri::Url) -> bool {
+    actual.scheme().eq_ignore_ascii_case(expected.scheme())
+        && actual.host_str().map(str::to_ascii_lowercase)
+            == expected.host_str().map(str::to_ascii_lowercase)
+        && actual.port_or_known_default() == expected.port_or_known_default()
 }
 
 #[cfg(test)]
@@ -259,6 +347,23 @@ mod tests {
     #[test]
     fn login_window_label_format() {
         assert_eq!(login_window_label("acct-123"), "relay-login-acct-123");
+    }
+
+    #[test]
+    fn credential_fill_requires_same_origin() {
+        let expected = tauri::Url::parse("https://example.com/login").unwrap();
+        assert!(same_origin(
+            &tauri::Url::parse("https://example.com/oauth").unwrap(),
+            &expected
+        ));
+        assert!(!same_origin(
+            &tauri::Url::parse("https://evil.example/login").unwrap(),
+            &expected
+        ));
+        assert!(!same_origin(
+            &tauri::Url::parse("http://example.com/login").unwrap(),
+            &expected
+        ));
     }
 
     #[test]

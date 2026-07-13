@@ -150,15 +150,27 @@ pub fn run() {
                     &restore_handle,
                     &state,
                     chrono::Utc::now(),
-                );
+                )
+                .unwrap_or_else(|error| {
+                    eprintln!("[account_manager] startup TTL cleanup failed: {error}");
+                    Vec::new()
+                });
                 if !cleared.is_empty() {
                     eprintln!(
                         "[account_manager] startup: cleared {} expired session(s)",
                         cleared.len()
                     );
                 }
-                account_manager::session::restore_sessions_on_startup(&restore_handle, &state)
-                    .await;
+                match account_manager::session::restore_sessions_on_startup(&restore_handle, &state)
+                    .await
+                {
+                    Ok(restored) => eprintln!(
+                        "[account_manager] startup: restored and probed {restored} session(s)"
+                    ),
+                    Err(error) => {
+                        eprintln!("[account_manager] startup session restore failed: {error}")
+                    }
+                }
             });
 
             // F.6.3 周期性清理 TTL 超时的 session（每 30 分钟一次）。
@@ -174,7 +186,11 @@ pub fn run() {
                         &cleanup_handle,
                         &state,
                         chrono::Utc::now(),
-                    );
+                    )
+                    .unwrap_or_else(|error| {
+                        eprintln!("[account_manager] periodic TTL cleanup failed: {error}");
+                        Vec::new()
+                    });
                     if !cleared.is_empty() {
                         eprintln!(
                             "[account_manager] periodic: cleared {} expired session(s)",
@@ -199,9 +215,18 @@ pub fn run() {
                     let handle = app_handle.clone();
                     tauri::async_runtime::block_on(async move {
                         let state = handle.state::<AccountManagerState>();
-                        account_manager::session::persist_all_sessions_on_exit(&handle, &state)
-                            .await;
-                        account_manager::session::cleanup_ephemeral(&state);
+                        match account_manager::session::persist_all_sessions_on_exit(
+                            &handle, &state,
+                        )
+                        .await
+                        {
+                            Ok(persisted) => eprintln!(
+                                "[account_manager] exit: persisted {persisted} session(s)"
+                            ),
+                            Err(error) => {
+                                eprintln!("[account_manager] exit session flush failed: {error}")
+                            }
+                        }
                     });
                     sleep_inhibitor::commands::cleanup_on_exit();
                 }

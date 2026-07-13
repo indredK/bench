@@ -33,6 +33,8 @@ export function useAuthProxy() {
       try {
         const result = await accountManagerRepository.handleBrowserOpen(url)
         setAuthProxyRequest({
+          ticketId: result.ticketId,
+          expiresAtTs: result.expiresAtTs,
           target: result.target,
           returnUrl: result.returnUrl ?? "",
           state: null,
@@ -84,21 +86,15 @@ export function useAuthProxy() {
 
   const confirmAuthProxy = useCallback(
     async (input: AuthProxyConfirmInput): Promise<boolean> => {
-      const { request, selectedAccountId, isNewAccount, targetHost, newAccountName } = input
+      const { request, selectedAccountId, isNewAccount, newAccountName } = input
       try {
         if (isNewAccount) {
           await accountManagerRepository.proxyLoginNewAccount(
-            targetHost,
-            request.target,
-            request.returnUrl,
+            request.ticketId,
             newAccountName.trim() || null,
           )
         } else {
-          await accountManagerRepository.proxyLogin(
-            selectedAccountId,
-            request.target,
-            request.returnUrl,
-          )
+          await accountManagerRepository.proxyLogin(selectedAccountId, request.ticketId)
         }
         toast.success(t("accountManager.authProxy.loginStarted"))
         return true

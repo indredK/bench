@@ -4,7 +4,7 @@
 > 结论：**REQUEST CHANGES**  
 > 置信度：**High**  
 > 目标平台：macOS、Windows  
-> 当前状态：两个目标平台均不得标记为生产就绪。
+> 当前状态：重点后端逻辑已完成首轮整改；目标平台与剩余前端/导出边界未验收，两个平台仍不得标记为生产就绪。
 
 本文是本轮审计发现和整改顺序的唯一专题真理源。长期安全边界见 [design.md](./design.md)，完成状态只在 [roadmap.md](./roadmap.md) 更新；不要在其他文档复制问题明细。
 
@@ -21,11 +21,26 @@
 已执行：
 
 ```text
-pnpm exec vitest run src/features/account-manager  -> 2 files / 5 tests passed
-cargo test account_manager                         -> 40 tests passed
+pnpm exec vitest run src/features/account-manager  -> 2 files / 8 tests passed
+cargo test account_manager                         -> 49 tests passed
 ```
 
-现有测试主要覆盖 IPC wrapper、错误分类、加密 roundtrip、URL helper 和 reorder。它们没有证明 Session 生命周期、存储迁移/并发、Deep Link/WebView、批量 partial、敏感信息清理或 Windows 行为正确。本机没有安装 Windows Rust target，本次不能宣称 Windows 行为已通过。
+新增测试覆盖 schema v5 canonical migration、一次性 ticket、重复参数拒绝、loopback/精确 callback/state、同源填充、HTTP Cookie host/domain/path scope、RefreshReport IPC 和 canonical export。真实 Keyring/store 跨进程、Deep Link/WebView、退出 hook 和 Windows 行为仍需目标平台测试；本机的 Windows target 安装未实际生效，不能宣称 Windows 行为已通过。
+
+### 1.1 首轮整改状态
+
+| 发现 | 状态 | 当前事实 |
+|------|------|----------|
+| A-01/A-02 Session | 核心后端已修复 | v5 canonical map、恢复注入+probe、TTL/退出原子落盘，失败不再写 Ready |
+| A-03/A-13 并发存储 | 核心后端已修复 | Keyring/store 跨进程锁，mutation 在锁内 reload-before-save |
+| A-04/A-05/A-06 授权 | 核心后端已修复 | 5 分钟一次性 ticket、精确 callback/state、同源填充、验证后才写 binding |
+| A-07 Deep Link | 部分修复 | 只注册 `bench-auth`；App 根队列和 Windows single-instance 待实现 |
+| A-08/A-09 刷新探针 | 核心后端已修复 | 守恒 RefreshReport；HTTP/WebView/Hybrid 策略真实执行且有限额 |
+| A-10 删除互斥 | 部分修复 | 已清 metadata/session/binding/WebView；仍需逐资源 partial report |
+| A-11 网络代理 | 部分修复 | 解密/解析/平台不支持均 fail-closed，留空保留密码；显式 PasswordAction 待实现 |
+| A-12 导入导出 | 部分修复 | 已加版本/16 MB/数量限制并拒绝静默跳过；passphrase 可移植格式待实现 |
+| A-14 敏感明文 | 部分修复 | Rust 使用 Zeroizing、剪贴板 30 秒条件清除；前端 reveal TTL 待实现 |
+| A-15/A-16/A-17 | 未完成 | 平台 capability、UX/虚拟化和分层重构仍按 roadmap 实施 |
 
 ## 2. 结论与平台事实
 
@@ -34,12 +49,12 @@ cargo test account_manager                         -> 40 tests passed
 | 页面入口 | ⚠️ | ❌ | `feature.tsx:18-19` 只允许 macOS |
 | 站点/账号 CRUD | ⚠️ | ⚠️ | 基础 IPC 存在，但删除残留和跨进程覆盖未解决 |
 | 加密凭据 | ⚠️ | ⚠️ | AES-GCM/Keyring 已接入；首次建钥有竞态，未做目标平台行为验收 |
-| Session 捕获/恢复/TTL | ❌ | ❌ | 双数据源；启动恢复未注入 Cookie/Storage，也未 probe；退出捕获不落盘 |
+| Session 捕获/恢复/TTL | ⚠️ | ⚠️ | 核心代码已整改；Cookie/WebView/退出行为等待目标平台验收 |
 | 隔离 WebView | ⚠️ | ⚠️ | macOS 使用 data store identifier；Windows 仅 data directory，缺行为证据 |
-| 网络代理 | ⚠️ | ❌ | 仅 macOS builder 应用 proxy；解析/解密失败会静默直连 |
-| 外部登录代理 | ❌ | ❌ | callback 授权、精确匹配和凭据注入边界存在高危缺口 |
-| 批量刷新/探针 | ❌ | ❌ | partial 被丢弃；用户选择的 ProbeStrategy 不驱动执行 |
-| 导入导出 | ❌ | ❌ | encrypted full 不可可靠跨设备，且缺资源上限和版本拒绝 |
+| 网络代理 | ⚠️ | ⚠️ | HTTP probe 可用；WebView proxy 仅 macOS，其他平台明确拒绝且不直连 |
+| 外部登录代理 | ⚠️ | ⚠️ | 后端授权边界已整改；Deep Link 根生命周期和真机行为待验收 |
+| 批量刷新/探针 | ⚠️ | ⚠️ | 结构化 partial 与策略执行已整改；目标平台网络/WebView 行为待验收 |
+| 导入导出 | ⚠️ | ⚠️ | 资源/版本边界已补；encrypted full 仍不可可靠跨设备 |
 | 目标平台测试 | ⚠️ | ⚠️ | CI 能编译/跑通用测试，不等于 WebView、Keyring、Deep Link 行为验收 |
 
 `✅` 只能用于在对应真机/runner 上通过本文验收矩阵的能力。当前最严重的问题会导致登录态丢失、错误账号状态、密码注入错误站点或授权范围被 renderer 绕过，不能以“后续补测试”降级处理。
@@ -55,7 +70,7 @@ cargo test account_manager                         -> 40 tests passed
 - 前端页面已经 lazy load，主要用户文案通过 i18n；`pnpm run lint:fe` 的 i18n/static guard 通过。
 - 多数写操作已使用 `useGuardedAsync`，controller 通过 selector 订阅 Zustand，并正确清理自身 timer。
 - TS/Rust IPC 已集中声明，Rust 命令使用结构化 `AccountManagerResult`，没有把错误统一退化为字符串。
-- `storage::with_state_mut` 的 clone -> save -> replace 顺序能避免单进程内“磁盘失败但内存先提交”，probe 也已有并发 semaphore。这些设计需要升级为单一 coordinator 和跨进程协议，而不是推倒重写。
+- `storage::with_state_mut` 保持 reload -> mutate -> save -> replace，并由进程内写锁和跨进程文件锁保护；probe 保持 semaphore 并发上限。
 - 密文使用 AES-256-GCM 且每次生成 nonce，已有加密 roundtrip 测试；问题在密钥初始化、迁移和明文生命周期，不在算法选择。
 
 ## 3. 发现与重构要求
@@ -588,3 +603,11 @@ git diff --check
 ```
 
 目标平台验收必须在 `macos-latest` 和 `windows-latest` 分别执行行为测试；本地缺少目标 target 时，结论只能写“未验证”。
+
+## 9. 官方实践依据
+
+- [RFC 8252: OAuth 2.0 for Native Apps](https://datatracker.ietf.org/doc/html/rfc8252)：loopback 使用回环 IP、请求期临时端口、PKCE、随机 state，以及 callback URI 与待处理请求精确匹配。
+- [Tauri v2 Deep Linking](https://v2.tauri.app/plugin/deep-linking/)：桌面 Deep Link 输入仍需应用校验；Windows/Linux 新进程传递场景建议结合 single-instance。
+- [Tauri WebviewWindow cookie API](https://docs.rs/tauri/latest/tauri/webview/struct.WebviewWindow.html#method.cookies_for_url)：HttpOnly Cookie 通过原生 API 读取；Windows 避免在同步命令/事件处理器中读取。
+- [Rust `File::lock`](https://doc.rust-lang.org/std/fs/struct.File.html#method.lock)：Keyring 首建与 store mutation 使用跨平台 advisory file lock 串行化。
+- [tauri-plugin-store `reload_ignore_defaults`](https://docs.rs/tauri-plugin-store/latest/tauri_plugin_store/struct.Store.html#method.reload_ignore_defaults)：跨进程锁内先重新读取磁盘 canonical state，再执行 mutation 和 save。

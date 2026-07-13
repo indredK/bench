@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { exportRelayData } from "@/lib/tauri/commands/account-manager"
+import {
+  exportRelayData,
+  proxyLogin,
+  proxyLoginNewAccount,
+  refreshAll,
+} from "@/lib/tauri/commands/account-manager"
 import { TAURI_COMMANDS } from "@/lib/tauri/contracts"
 
 const { invokeTauriCommand } = vi.hoisted(() => ({
@@ -36,5 +41,29 @@ describe("account-manager commands", () => {
       path: "/tmp/demo.json",
       mode: "encryptedFull",
     })
+  })
+
+  it("starts proxy login with an opaque one-time ticket", async () => {
+    await proxyLogin("acct-1", "ticket-1")
+
+    expect(invokeTauriCommand).toHaveBeenCalledWith(TAURI_COMMANDS.accountManager.proxyLogin, {
+      accountId: "acct-1",
+      ticketId: "ticket-1",
+    })
+  })
+
+  it("creates proxy accounts from the ticket canonical host", async () => {
+    await proxyLoginNewAccount("ticket-2", "alice")
+
+    expect(invokeTauriCommand).toHaveBeenCalledWith(
+      TAURI_COMMANDS.accountManager.proxyLoginNewAccount,
+      { ticketId: "ticket-2", username: "alice" },
+    )
+  })
+
+  it("requests a structured refresh report", async () => {
+    await refreshAll()
+
+    expect(invokeTauriCommand).toHaveBeenCalledWith(TAURI_COMMANDS.accountManager.refreshAll)
   })
 })

@@ -81,9 +81,7 @@
     "deep-link": {
       "desktop": {
         "schemes": [
-          "bench-auth",
-          "http",
-          "https"
+          "bench-auth"
         ]
       }
     }

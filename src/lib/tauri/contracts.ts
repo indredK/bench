@@ -24,6 +24,7 @@ import type {
   RelayDataExportResult,
   RelayDataImportResult,
   RelayExportMode,
+  RefreshReport,
   RelayStation,
   StationAccount,
 } from "@/lib/tauri/types/account-manager"
@@ -211,8 +212,8 @@ export const TAURI_COMMAND_CONTRACTS = {
     "open_login_window",
   ),
   refresh_account: defineTauriCommand<{ accountId: string }, StationAccount>()("refresh_account"),
-  refresh_station: defineTauriCommand<{ stationId: string }, StationAccount[]>()("refresh_station"),
-  refresh_all: defineTauriCommand<undefined, StationAccount[]>()("refresh_all"),
+  refresh_station: defineTauriCommand<{ stationId: string }, RefreshReport>()("refresh_station"),
+  refresh_all: defineTauriCommand<undefined, RefreshReport>()("refresh_all"),
   export_relay_data: defineTauriCommand<
     { path: string; mode?: RelayExportMode | null },
     RelayDataExportResult
@@ -258,7 +259,7 @@ export const TAURI_COMMAND_CONTRACTS = {
     StationAccount
   >()("set_account_proxy_enabled"),
   proxy_login: defineTauriCommand<
-    { accountId: string; targetUrl: string; returnUrl: string },
+    { accountId: string; ticketId: string },
     AuthProxyResult
   >()("proxy_login"),
   handle_browser_open: defineTauriCommand<{ url: string }, BrowserOpenResult>()(
@@ -266,9 +267,7 @@ export const TAURI_COMMAND_CONTRACTS = {
   ),
   proxy_login_new_account: defineTauriCommand<
     {
-      host: string
-      targetUrl: string
-      returnUrl: string
+      ticketId: string
       username?: string | null
     },
     StationAccount
@@ -865,9 +864,9 @@ export const TAURI_COMMAND_ARG_KEYS = {
   set_session_ttl: ["stationId", "ttlHours"],
   set_station_network_proxy: ["stationId", "config", "password"],
   set_account_proxy_enabled: ["accountId", "enabled"],
-  proxy_login: ["accountId", "targetUrl", "returnUrl"],
+  proxy_login: ["accountId", "ticketId"],
   handle_browser_open: ["url"],
-  proxy_login_new_account: ["host", "targetUrl", "returnUrl", "username"],
+  proxy_login_new_account: ["ticketId", "username"],
   list_external_apps: ["stationId", "accountId"],
   remove_external_app: ["appId"],
   list_external_app_bindings: ["accountId"],

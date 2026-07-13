@@ -1,6 +1,6 @@
 # Account Manager 技术设计
 
-> 本文记录目标安全边界、生命周期和修改入口；字段与命令以 Rust 类型和 IPC 契约为准。当前实现尚未满足这些边界，发布阻断项和升级顺序见 [生产可靠性审计](./audit-and-upgrade-2026-07-13.md)。
+> 本文记录安全边界、生命周期和修改入口；字段与命令以 Rust 类型和 IPC 契约为准。核心后端可靠性已完成首轮整改，剩余平台/UX 阻断项见 [生产可靠性审计](./audit-and-upgrade-2026-07-13.md)。
 
 ## 1. 模块职责
 
@@ -42,7 +42,7 @@ Rust 关键文件：
 退出 -> 捕获 Ready sessions -> 清理 ephemeral -> flush -> 退出
 ```
 
-这是目标流程，不是当前能力声明。Session 只能有一个 canonical record；捕获、恢复、TTL、导入导出和互斥不得再读取不同字段。
+schema v5 起，`AccountManagerSnapshot.sessions` 是唯一 Session 真理源；旧 `account.session` 只读迁移且不再序列化。捕获、恢复注入、TTL、导入导出和互斥必须使用 canonical map，Ready 必须由 probe 验证。
 
 强制约束：
 
@@ -70,6 +70,7 @@ AuthProfile 检测从页面、cookie、Web Storage、CSRF、SSO、anti-bot 和 W
 - 密码和 Session 使用 AES-256-GCM，每次写入生成独立 nonce。
 - 解密只发生在 Rust 内存中；日志、事件和前端 DTO 不得包含密码、token、cookie 或明文 Session。
 - store 写入由 `AccountManagerState` 串行化并显式 flush；Dev/Prod 共用 bundle ID 时遵守 [共存策略](../../dev-prod-coexistence.md)。
+- Keyring 首建和 store mutation 使用跨进程文件锁；mutation 在锁内 reload 磁盘 canonical snapshot 后再 save/replace，禁止 last-write-wins 覆盖。
 - 导出默认使用 sanitized 模式；包含凭据的导出必须保持加密并明确告知用户。
 
 ## 6. 外部登录代理
@@ -79,7 +80,9 @@ AuthProfile 检测从页面、cookie、Web Storage、CSRF、SSO、anti-bot 和 W
 安全约束：
 
 - `target` 必须是合法登录 URL；hostname 使用 URL parser，不做字符串裁剪。
+- `handle_browser_open` 签发 5 分钟一次性 ticket；启动登录 IPC 只接受 `ticketId + accountId`，不接受 renderer 重传 target/return。
 - `return` 只允许受控自定义 scheme 或 `localhost/127.0.0.1/::1` loopback；拒绝任意 http(s)、file 和 javascript。
+- callback 必须精确匹配 scheme、host、有效端口和 path；请求带 state 时 callback 必须回传相同 state。
 - `site` 只能预选已有候选，不能扩大授权范围。
 - 只有 `proxy_enabled` 账号可参与匹配；关闭代理时撤销 binding 并写审计记录。
 - Bench 不解析或转发 token，只在 WebView 命中 return URL 后将原始 callback 交还外部 App。

@@ -32,7 +32,8 @@ fn logout_conflicting_accounts<R: Runtime>(
     exclude_account_id: &str,
 ) -> AccountManagerResult<()> {
     let state = app.state::<AccountManagerState>();
-    storage::with_state_mut(app, &state, |snapshot| {
+    let revoked = storage::with_state_mut(app, &state, |snapshot| {
+        let mut revoked = Vec::new();
         for account in snapshot.accounts.iter_mut() {
             if account.station_id == station.id
                 && account.id != exclude_account_id
@@ -40,10 +41,18 @@ fn logout_conflicting_accounts<R: Runtime>(
             {
                 account.status = AccountSessionStatus::LoginRequired;
                 account.session = None;
+                revoked.push(account.id.clone());
             }
         }
-        Ok(())
-    })
+        for account_id in &revoked {
+            snapshot.sessions.remove(account_id);
+        }
+        Ok(revoked)
+    })?;
+    for account_id in revoked {
+        super::webview::remove_account_data_dir(app, &account_id)?;
+    }
+    Ok(())
 }
 
 /// Rotating 模式：取消当前活跃账号的激活状态（保留 session，仅标记 Inactive）。

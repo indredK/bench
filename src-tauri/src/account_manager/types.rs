@@ -31,6 +31,9 @@ pub struct CookieEntry {
     pub name: String,
     pub value: String,
     pub domain: String,
+    /// True when the original cookie omitted Domain and was scoped to the capture host.
+    #[serde(default)]
+    pub host_only: bool,
     pub path: String,
     pub http_only: bool,
     pub secure: bool,
@@ -299,7 +302,7 @@ pub struct RelayStation {
     #[serde(default = "default_session_ttl_hours")]
     pub session_ttl_hours: u32,
     /// per-station 网络代理（HTTP / SOCKS5）。None 表示直连。
-    /// 仅在 macOS 14+ WebView 上生效；其他平台静默忽略。
+    /// 仅在 macOS 14+ WebView 上生效；其他平台必须显式返回 unsupported。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub network_proxy: Option<NetworkProxyConfig>,
 }
@@ -336,7 +339,9 @@ pub struct StationAccount {
     pub account_type: AccountType,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub website: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// Schema <= 4 migration input only. New snapshots keep sessions exclusively
+    /// in AccountManagerSnapshot.sessions and never serialize this field.
+    #[serde(default, skip_serializing)]
     pub session: Option<EncryptedBlob>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub exclusivity_group: Option<String>,
@@ -391,7 +396,7 @@ pub struct RelayAccountExport {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub encrypted_password: Option<EncryptedBlob>,
     /// EncryptedFull 模式下导出的 session（含 cookies / IndexedDB / origins）。
-    /// 导入时 decrypt + re-encrypt 到当前 keyring; 跨设备 key 不匹配则静默跳过。
+    /// 导入时 decrypt + re-encrypt 到当前 keyring；key 不匹配时整个导入失败。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub encrypted_session: Option<EncryptedBlob>,
     #[serde(default)]
@@ -466,7 +471,22 @@ pub struct RelayDataImportResult {
     pub accounts: Vec<StationAccount>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RefreshFailure {
+    pub account_id: String,
+    pub error: AccountManagerError,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RefreshReport {
+    pub total: usize,
+    pub succeeded: Vec<StationAccount>,
+    pub failed: Vec<RefreshFailure>,
+}
+
+#[derive(Debug, Clone, Serialize)]
 #[serde(tag = "code", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum AccountManagerError {
     NotFound { message: String },

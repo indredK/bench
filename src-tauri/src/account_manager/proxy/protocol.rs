@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
+use std::net::IpAddr;
 
 use super::super::types::ExternalApp;
+
+const MAX_AUTH_PROXY_URL_BYTES: usize = 32 * 1024;
 
 /// Parsed `bench-auth://authorize?target=...&return=...&state=...&site=...`
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25,6 +28,9 @@ pub struct AuthProxyResult {
 /// 解析 bench-auth://authorize URL 并提取参数。
 /// 格式: bench-auth://authorize?target=<url>&return=<url>&state=<str>&site=<station-id>
 pub fn parse_auth_proxy_url(input: &str) -> Result<AuthProxyRequest, String> {
+    if input.len() > MAX_AUTH_PROXY_URL_BYTES {
+        return Err("proxy URL exceeds size limit".into());
+    }
     let url = url::Url::parse(input).map_err(|e| format!("invalid proxy URL: {e}"))?;
 
     if url.scheme() != "bench-auth" {
@@ -34,18 +40,24 @@ pub fn parse_auth_proxy_url(input: &str) -> Result<AuthProxyRequest, String> {
         return Err("host must be authorize".into());
     }
 
-    let params: std::collections::HashMap<_, _> = url.query_pairs().into_owned().collect();
-
-    let target = params
-        .get("target")
-        .ok_or_else(|| "missing target param".to_string())?
-        .clone();
-    let return_url = params
-        .get("return")
-        .ok_or_else(|| "missing return param".to_string())?
-        .clone();
-    let state = params.get("state").cloned();
-    let site = params.get("site").cloned();
+    let mut target = None;
+    let mut return_url = None;
+    let mut state = None;
+    let mut site = None;
+    for (key, value) in url.query_pairs() {
+        let slot = match key.as_ref() {
+            "target" => &mut target,
+            "return" => &mut return_url,
+            "state" => &mut state,
+            "site" => &mut site,
+            _ => continue,
+        };
+        if slot.replace(value.into_owned()).is_some() {
+            return Err(format!("duplicate {key} param"));
+        }
+    }
+    let target = target.ok_or_else(|| "missing target param".to_string())?;
+    let return_url = return_url.ok_or_else(|| "missing return param".to_string())?;
 
     Ok(AuthProxyRequest {
         target,
@@ -77,7 +89,10 @@ pub fn validate_return_url(return_url: &str, apps: &[ExternalApp]) -> Result<boo
     let host = parsed.host_str().unwrap_or("").to_lowercase();
 
     // 始终禁止的危险 scheme。
-    if matches!(scheme.as_str(), "bench-auth" | "file" | "javascript") {
+    if matches!(
+        scheme.as_str(),
+        "about" | "bench-auth" | "blob" | "data" | "file" | "javascript" | "mailto"
+    ) {
         return Err(format!("return URL scheme '{scheme}' is not allowed"));
     }
     if scheme.is_empty() {
@@ -127,6 +142,21 @@ pub fn validate_return_url(return_url: &str, apps: &[ExternalApp]) -> Result<boo
     Ok(true)
 }
 
+pub fn validate_target_url(target_url: &str) -> Result<url::Url, String> {
+    let parsed = url::Url::parse(target_url).map_err(|e| format!("invalid target URL: {e}"))?;
+    let scheme = parsed.scheme();
+    if parsed.host_str().is_none() {
+        return Err("target URL must have a host".into());
+    }
+    if !parsed.username().is_empty() || parsed.password().is_some() {
+        return Err("target URL must not contain embedded credentials".into());
+    }
+    if scheme != "https" && !(scheme == "http" && is_loopback_url(target_url)) {
+        return Err("target URL must use HTTPS (HTTP is allowed only for loopback)".into());
+    }
+    Ok(parsed)
+}
+
 /// 判断 host 是否为 loopback(127.0.0.0/8、localhost、IPv6 ::1）。
 pub fn is_loopback_host(host: &str) -> bool {
     let h = host
@@ -134,15 +164,47 @@ pub fn is_loopback_host(host: &str) -> bool {
         .trim_start_matches('[')
         .trim_end_matches(']')
         .to_lowercase();
-    h == "localhost" || h == "::1" || h == "127.0.0.1" || h.starts_with("127.")
+    h == "localhost"
+        || h.parse::<IpAddr>()
+            .map(|address| address.is_loopback())
+            .unwrap_or(false)
 }
 
 /// 判断一个完整 URL 是否指向 loopback。用于在登录 WebView 中识别 OAuth
 /// native-app loopback 回调(如 http://127.0.0.1:56290/authorize?code=...）。
 pub fn is_loopback_url(url: &str) -> bool {
-    url::Url::parse(url)
+    let Ok(parsed) = url::Url::parse(url) else {
+        return false;
+    };
+    matches!(parsed.scheme(), "http" | "https")
+        && parsed.host_str().map(is_loopback_host).unwrap_or(false)
+}
+
+/// OAuth callbacks may add query parameters, but their registered endpoint
+/// identity (scheme, host, effective port and path) must match exactly.
+pub fn callback_matches(actual: &str, expected: &str) -> bool {
+    let (Ok(actual), Ok(expected)) = (url::Url::parse(actual), url::Url::parse(expected)) else {
+        return false;
+    };
+    actual.scheme().eq_ignore_ascii_case(expected.scheme())
+        && actual.host_str().map(str::to_ascii_lowercase)
+            == expected.host_str().map(str::to_ascii_lowercase)
+        && actual.port_or_known_default() == expected.port_or_known_default()
+        && actual.path() == expected.path()
+}
+
+pub fn callback_state_matches(actual: &str, expected_state: Option<&str>) -> bool {
+    let Some(expected_state) = expected_state else {
+        return true;
+    };
+    url::Url::parse(actual)
         .ok()
-        .and_then(|u| u.host_str().map(is_loopback_host))
+        .and_then(|url| {
+            url.query_pairs()
+                .find(|(key, _)| key == "state")
+                .map(|(_, value)| value.into_owned())
+        })
+        .map(|actual_state| actual_state == expected_state)
         .unwrap_or(false)
 }
 
@@ -260,6 +322,12 @@ mod tests {
     }
 
     #[test]
+    fn reject_duplicate_security_parameters() {
+        let raw = "bench-auth://authorize?target=https%3A%2F%2Fexample.com&target=https%3A%2F%2Fevil.example&return=demo%3A%2Fcallback";
+        assert!(parse_auth_proxy_url(raw).is_err());
+    }
+
+    #[test]
     fn validate_rejects_dangerous_scheme() {
         let apps: Vec<ExternalApp> = vec![];
         // 非 loopback 的 http/https 仍被拒绝
@@ -294,6 +362,55 @@ mod tests {
         assert!(is_loopback_url("http://127.0.0.5/x"));
         assert!(!is_loopback_url("https://www.trae.cn/authorization"));
         assert!(!is_loopback_url("https://example.com/127.0.0.1"));
+        assert!(!is_loopback_url("http://127.evil.com/callback"));
+        assert!(is_loopback_url("http://[::1]:56290/callback"));
+    }
+
+    #[test]
+    fn callback_matching_requires_exact_endpoint_identity() {
+        let expected = "http://127.0.0.1:56290/authorize";
+        assert!(callback_matches(
+            "http://127.0.0.1:56290/authorize?code=abc&state=def",
+            expected
+        ));
+        assert!(!callback_matches(
+            "http://127.0.0.1:56291/authorize?code=abc",
+            expected
+        ));
+        assert!(!callback_matches(
+            "http://127.0.0.1:56290/authorize/extra?code=abc",
+            expected
+        ));
+        assert!(!callback_matches(
+            "http://127.evil.com:56290/authorize?code=abc",
+            expected
+        ));
+    }
+
+    #[test]
+    fn callback_state_must_match_pending_request() {
+        assert!(callback_state_matches(
+            "demo:/callback?code=abc&state=expected",
+            Some("expected")
+        ));
+        assert!(!callback_state_matches(
+            "demo:/callback?code=abc&state=wrong",
+            Some("expected")
+        ));
+        assert!(!callback_state_matches(
+            "demo:/callback?code=abc",
+            Some("expected")
+        ));
+        assert!(callback_state_matches("demo:/callback?code=abc", None));
+    }
+
+    #[test]
+    fn target_validation_requires_https_without_embedded_credentials() {
+        assert!(validate_target_url("https://example.com/login").is_ok());
+        assert!(validate_target_url("http://127.0.0.1:3000/login").is_ok());
+        assert!(validate_target_url("http://example.com/login").is_err());
+        assert!(validate_target_url("https://user:pass@example.com/login").is_err());
+        assert!(validate_target_url("file:///tmp/login.html").is_err());
     }
 
     #[test]

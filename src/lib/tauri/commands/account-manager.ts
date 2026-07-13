@@ -16,6 +16,7 @@ import type {
   RelayDataExportResult,
   RelayDataImportResult,
   RelayExportMode,
+  RefreshReport,
   RelayStation,
   StationAccount,
 } from "@/lib/tauri/types/account-manager"
@@ -156,11 +157,11 @@ export function refreshAccount(accountId: string): Promise<StationAccount> {
   return invokeTauriCommand(TAURI_COMMANDS.accountManager.refreshAccount, { accountId })
 }
 
-export function refreshStation(stationId: string): Promise<StationAccount[]> {
+export function refreshStation(stationId: string): Promise<RefreshReport> {
   return invokeTauriCommand(TAURI_COMMANDS.accountManager.refreshStation, { stationId })
 }
 
-export function refreshAll(): Promise<StationAccount[]> {
+export function refreshAll(): Promise<RefreshReport> {
   return invokeTauriCommand(TAURI_COMMANDS.accountManager.refreshAll)
 }
 
@@ -233,7 +234,7 @@ export function setSessionTtl(stationId: string, ttlHours: number): Promise<Rela
 }
 
 /// 设置 Station 的网络代理(HTTP / SOCKS5)。
-/// `config = null` 清除代理(直连)。`password` 为明文(后端加密);null 清除已存密码。
+/// `config = null` 清除代理(直连)。`password` 为明文(后端加密);null 保留已存密码。
 /// 注意:前端传入的 `config.encryptedPassword` 会被后端忽略,以后端加密结果为准。
 export function setStationNetworkProxy(
   stationId: string,
@@ -263,13 +264,11 @@ export function setAccountProxyEnabled(
 /// + `buildProxyReturnUrl` 组装,再用 `openExternal` 回呼外部 App。
 export function proxyLogin(
   accountId: string,
-  targetUrl: string,
-  returnUrl: string,
+  ticketId: string,
 ): Promise<AuthProxyResult> {
   return invokeTauriCommand(TAURI_COMMANDS.accountManager.proxyLogin, {
     accountId,
-    targetUrl,
-    returnUrl,
+    ticketId,
   })
 }
 
@@ -282,15 +281,11 @@ export function handleBrowserOpen(url: string): Promise<BrowserOpenResult> {
 /// 在指定 host 下「使用新账号登录」:自动建站/分组 + 创建新账号 + 启动代理登录。
 /// 返回新建的账号。
 export function proxyLoginNewAccount(
-  host: string,
-  targetUrl: string,
-  returnUrl: string,
+  ticketId: string,
   username?: string | null,
 ): Promise<StationAccount> {
   return invokeTauriCommand(TAURI_COMMANDS.accountManager.proxyLoginNewAccount, {
-    host,
-    targetUrl,
-    returnUrl,
+    ticketId,
     username: username ?? null,
   })
 }

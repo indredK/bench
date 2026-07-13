@@ -1,23 +1,31 @@
 use chrono::Local;
 use rand::RngExt;
+use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use tauri::{AppHandle, Manager, Runtime, State};
 use tauri_plugin_clipboard_manager::ClipboardExt;
+use zeroize::Zeroizing;
 
 use super::crypto;
 use super::network_proxy;
 use super::probe;
-use super::state::{AccountManagerSnapshot, AccountManagerState};
+use super::state::{AccountManagerSnapshot, AccountManagerState, AuthProxyTicket};
 use super::storage;
 use super::types::{
     AccountManagerError, AccountManagerResult, AccountSessionStatus, AccountType, AuthProfile,
     ExternalApp, ExternalAppBinding, LoginDetectionConfig, LoginMethod, NetworkProxyConfig,
-    ProbeStrategy, RelayAccountExport, RelayDataExportFile, RelayDataExportResult,
-    RelayDataImportResult, RelayExportMode, RelayStation, RelayStationExport, StationAccount,
+    ProbeStrategy, RefreshFailure, RefreshReport, RelayAccountExport, RelayDataExportFile,
+    RelayDataExportResult, RelayDataImportResult, RelayExportMode, RelayStation,
+    RelayStationExport, StationAccount,
 };
 use super::webview;
 
 const RELAY_EXPORT_VERSION: u32 = 2;
+const MAX_IMPORT_BYTES: u64 = 16 * 1024 * 1024;
+const MAX_IMPORT_STATIONS: usize = 2_000;
+const MAX_IMPORT_ACCOUNTS: usize = 20_000;
+const CLIPBOARD_SECRET_TTL_SECONDS: u64 = 30;
+const MAX_BROWSER_OPEN_URL_BYTES: usize = 32 * 1024;
 
 fn new_id(prefix: &str) -> String {
     let mut bytes = [0u8; 4];
@@ -150,7 +158,9 @@ fn build_export_file(
                     };
                     let encrypted_session = match mode {
                         RelayExportMode::Sanitized => None,
-                        RelayExportMode::EncryptedFull => account.session.clone(),
+                        RelayExportMode::EncryptedFull => {
+                            snapshot.sessions.get(&account.id).cloned()
+                        }
                     };
                     Ok(RelayAccountExport {
                         username: account.username.clone(),
@@ -304,25 +314,30 @@ pub fn set_session_ttl<R: Runtime>(
 // ───── per-station 网络代理（HTTP / SOCKS5）─────
 
 /// 从 station 的 network_proxy 配置构建代理 URL 字符串。
-/// 返回 None 表示无代理（直连）；解密失败时也降级为 None，避免一次失败阻塞整个登录流程。
+/// 返回 None 表示站点未配置代理。已配置代理时，密钥或解密失败必须 fail closed。
 fn build_proxy_url_for_station<R: Runtime>(
     app: &AppHandle<R>,
     station: &RelayStation,
-) -> Option<String> {
-    let config = station.network_proxy.as_ref()?;
+) -> AccountManagerResult<Option<String>> {
+    let Some(config) = station.network_proxy.as_ref() else {
+        return Ok(None);
+    };
     let state = app.state::<AccountManagerState>();
-    let key = state.master_key().ok()?;
-    let password = config
-        .encrypted_password
-        .as_ref()
-        .and_then(|blob| crypto::decrypt(&key, blob).ok());
-    Some(network_proxy::build_proxy_url(config, password.as_deref()))
+    let key = state.master_key()?;
+    let password = match config.encrypted_password.as_ref() {
+        Some(blob) => Some(crypto::decrypt(&key, blob)?),
+        None => None,
+    };
+    Ok(Some(network_proxy::build_proxy_url(
+        config,
+        password.as_deref(),
+    )))
 }
 
 /// 设置或清除 station 的网络代理。
 /// `config = None` 表示清除代理（直连）。
 /// `password` 为明文（前端传入），由本命令加密为 `encrypted_password`；
-/// 与 `set_password` 命令保持一致。None 表示清除已存的密码。
+/// 与 `set_password` 命令保持一致。None 表示保留已存密码；清除代理会同时清除密码。
 #[tauri::command]
 pub fn set_station_network_proxy<R: Runtime>(
     app: AppHandle<R>,
@@ -331,6 +346,13 @@ pub fn set_station_network_proxy<R: Runtime>(
     config: Option<NetworkProxyConfig>,
     password: Option<String>,
 ) -> AccountManagerResult<RelayStation> {
+    let existing_password = state
+        .read_snapshot_checked()?
+        .stations
+        .iter()
+        .find(|station| station.id == station_id)
+        .and_then(|station| station.network_proxy.as_ref())
+        .and_then(|config| config.encrypted_password.clone());
     // 前端可能传入 config.encrypted_password（应为 None）；后端统一覆盖。
     let prepared: Option<NetworkProxyConfig> = match config {
         None => None,
@@ -340,7 +362,7 @@ pub fn set_station_network_proxy<R: Runtime>(
                     let key = state.master_key()?;
                     Some(crypto::encrypt(&key, &pw)?)
                 }
-                None => None,
+                None => existing_password,
             };
             Some(c)
         }
@@ -381,13 +403,30 @@ pub fn delete_station<R: Runtime>(
         });
         for aid in &dropped_account_ids {
             snapshot.secrets.remove(aid);
+            snapshot.sessions.remove(aid);
+        }
+        snapshot
+            .external_app_bindings
+            .retain(|binding| !dropped_account_ids.contains(&binding.account_id));
+        let bound_app_ids = snapshot
+            .external_app_bindings
+            .iter()
+            .map(|binding| binding.app_id.clone())
+            .collect::<HashSet<_>>();
+        snapshot
+            .external_apps
+            .retain(|external| bound_app_ids.contains(&external.id));
+        for account in &mut snapshot.accounts {
+            account
+                .external_app_ids
+                .retain(|app_id| bound_app_ids.contains(app_id));
         }
 
         Ok(dropped_account_ids)
     })?;
 
     for aid in &dropped_account_ids {
-        super::webview::remove_account_data_dir(&app, aid);
+        super::webview::remove_account_data_dir(&app, aid)?;
     }
     Ok(())
 }
@@ -530,9 +569,26 @@ pub fn delete_account<R: Runtime>(
             return Err(AccountManagerError::not_found(format!("account {id}")));
         }
         snapshot.secrets.remove(&id);
+        snapshot.sessions.remove(&id);
+        snapshot
+            .external_app_bindings
+            .retain(|binding| binding.account_id != id);
+        let bound_app_ids = snapshot
+            .external_app_bindings
+            .iter()
+            .map(|binding| binding.app_id.clone())
+            .collect::<HashSet<_>>();
+        snapshot
+            .external_apps
+            .retain(|external| bound_app_ids.contains(&external.id));
+        for account in &mut snapshot.accounts {
+            account
+                .external_app_ids
+                .retain(|app_id| bound_app_ids.contains(app_id));
+        }
         Ok(())
     })?;
-    super::webview::remove_account_data_dir(&app, &id);
+    super::webview::remove_account_data_dir(&app, &id)?;
     Ok(())
 }
 
@@ -614,10 +670,42 @@ pub fn import_relay_data<R: Runtime>(
     state: State<'_, AccountManagerState>,
     path: String,
 ) -> AccountManagerResult<RelayDataImportResult> {
+    let file_size = std::fs::metadata(&path)
+        .map_err(|e| AccountManagerError::store_fail(format!("stat import {path}: {e}")))?
+        .len();
+    if file_size > MAX_IMPORT_BYTES {
+        return Err(AccountManagerError::invalid_input(format!(
+            "import file exceeds {} bytes",
+            MAX_IMPORT_BYTES
+        )));
+    }
     let body = std::fs::read_to_string(&path)
         .map_err(|e| AccountManagerError::store_fail(format!("read import {path}: {e}")))?;
     let data: RelayDataExportFile = serde_json::from_str(&body)
         .map_err(|e| AccountManagerError::invalid_input(format!("invalid import file: {e}")))?;
+    if data.version != RELAY_EXPORT_VERSION {
+        return Err(AccountManagerError::invalid_input(format!(
+            "unsupported import version {} (expected {RELAY_EXPORT_VERSION})",
+            data.version
+        )));
+    }
+    if data.stations.len() > MAX_IMPORT_STATIONS {
+        return Err(AccountManagerError::invalid_input(format!(
+            "import contains more than {MAX_IMPORT_STATIONS} stations"
+        )));
+    }
+    let account_count = data
+        .stations
+        .iter()
+        .try_fold(0usize, |total, station| {
+            total.checked_add(station.accounts.len())
+        })
+        .ok_or_else(|| AccountManagerError::invalid_input("import account count overflow"))?;
+    if account_count > MAX_IMPORT_ACCOUNTS {
+        return Err(AccountManagerError::invalid_input(format!(
+            "import contains more than {MAX_IMPORT_ACCOUNTS} accounts"
+        )));
+    }
 
     let key = state.master_key()?;
 
@@ -655,12 +743,11 @@ pub fn import_relay_data<R: Runtime>(
             for account in station.accounts {
                 let account_id = new_id("acct");
                 let secret = import_account_secret(&key, &account)?;
-                // Session re-encrypt: 跨设备 key 不匹配 → 静默跳过（ok() 转 None）
-                let session_blob = import_account_session(&key, &account).ok().flatten();
+                let session_blob = import_account_session(&key, &account)?;
                 imported_accounts.push(StationAccount {
                     account_type: Default::default(),
                     website: None,
-                    session: session_blob.clone(),
+                    session: None,
                     exclusivity_group: None,
                     proxy_enabled: false,
                     external_app_ids: Vec::new(),
@@ -765,10 +852,24 @@ pub fn copy_password_to_clipboard<R: Runtime>(
         .cloned()
         .ok_or_else(|| AccountManagerError::not_found(format!("password for {account_id}")))?;
     let key = state.master_key()?;
-    let plaintext = crypto::decrypt(&key, &blob)?;
+    let plaintext = Zeroizing::new(crypto::decrypt(&key, &blob)?);
+    let expected_digest = Sha256::digest(plaintext.as_bytes());
     app.clipboard()
-        .write_text(plaintext)
+        .write_text(plaintext.to_string())
         .map_err(|e| AccountManagerError::clipboard_fail(e.to_string()))?;
+    let app_for_cleanup = app.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_secs(CLIPBOARD_SECRET_TTL_SECONDS)).await;
+        let clipboard = app_for_cleanup.clipboard();
+        let Ok(current) = clipboard.read_text() else {
+            return;
+        };
+        if Sha256::digest(current.as_bytes()) == expected_digest {
+            if let Err(error) = clipboard.write_text(String::new()) {
+                eprintln!("[account_manager] clipboard cleanup failed: {error}");
+            }
+        }
+    });
     Ok(())
 }
 
@@ -830,11 +931,11 @@ pub fn create_ephemeral_account<R: Runtime>(
 
 // ───── session refresh ─────
 
-async fn refresh_one_impl<R: Runtime>(
+pub(crate) async fn refresh_one_impl<R: Runtime>(
     app: AppHandle<R>,
     account_id: String,
 ) -> AccountManagerResult<StationAccount> {
-    let (website, detection_config, semaphore, proxy_url) = {
+    let (website, detection_config, strategy, semaphore, proxy_url) = {
         let state = app.state::<AccountManagerState>();
         let snapshot = state.read_snapshot_checked()?;
         let Some(account) = snapshot.accounts.iter().find(|a| a.id == account_id) else {
@@ -853,10 +954,15 @@ async fn refresh_one_impl<R: Runtime>(
             )));
         };
         // 在 snapshot 释放前构建 proxy_url（需借 station 引用）。
-        let proxy_url = build_proxy_url_for_station(&app, station);
+        let proxy_url = build_proxy_url_for_station(&app, station)?;
         (
             station.website.clone(),
             station.login_detection.clone(),
+            station
+                .auth_profile
+                .as_ref()
+                .map(|profile| profile.probe_strategy)
+                .unwrap_or_default(),
             state.probe_semaphore.clone(),
             proxy_url,
         )
@@ -871,49 +977,75 @@ async fn refresh_one_impl<R: Runtime>(
         &account_id,
         &website,
         &detection_config,
+        strategy,
         proxy_url.as_deref(),
     )
     .await?;
     let state = app.state::<AccountManagerState>();
     storage::with_state_mut(&app, &state, |snapshot| {
-        let Some(account) = snapshot.accounts.iter_mut().find(|a| a.id == account_id) else {
-            return Err(AccountManagerError::not_found(format!(
-                "account {account_id}"
-            )));
+        let station_id = {
+            let Some(account) = snapshot.accounts.iter_mut().find(|a| a.id == account_id) else {
+                return Err(AccountManagerError::not_found(format!(
+                    "account {account_id}"
+                )));
+            };
+            account.status = outcome.status;
+            account.last_refreshed_at = Some(now_label());
+            account.station_id.clone()
         };
-        account.status = outcome.status;
-        account.last_refreshed_at = Some(now_label());
-        Ok(account.clone())
+        if let Some(station) = snapshot
+            .stations
+            .iter_mut()
+            .find(|station| station.id == station_id)
+        {
+            if outcome.status == AccountSessionStatus::FetchFailed {
+                station.probe_failure_count = station.probe_failure_count.saturating_add(1);
+            } else {
+                station.probe_failure_count = 0;
+            }
+        }
+        snapshot
+            .accounts
+            .iter()
+            .find(|account| account.id == account_id)
+            .cloned()
+            .ok_or_else(|| AccountManagerError::not_found(format!("account {account_id}")))
     })
 }
 
-async fn refresh_many<R: Runtime>(
-    app: AppHandle<R>,
-    account_ids: Vec<String>,
-) -> Vec<StationAccount> {
-    let mut set = tokio::task::JoinSet::new();
+async fn refresh_many<R: Runtime>(app: AppHandle<R>, account_ids: Vec<String>) -> RefreshReport {
+    use futures_util::stream::{FuturesUnordered, StreamExt};
+
+    let total = account_ids.len();
+    let mut set = FuturesUnordered::new();
     for id in account_ids {
         let app_clone = app.clone();
         let id_for_err = id.clone();
-        set.spawn(async move {
+        set.push(async move {
             let result = refresh_one_impl(app_clone, id).await;
             (id_for_err, result)
         });
     }
 
-    let mut results = Vec::new();
-    while let Some(join_res) = set.join_next().await {
-        match join_res {
-            Ok((_id, Ok(account))) => results.push(account),
-            Ok((id, Err(err))) => {
-                eprintln!("[account_manager] refresh failed for {id}: {err:?}");
-            }
-            Err(join_err) => {
-                eprintln!("[account_manager] join error: {join_err:?}");
+    let mut succeeded = Vec::new();
+    let mut failed = Vec::new();
+    while let Some((id, result)) = set.next().await {
+        match result {
+            Ok(account) => succeeded.push(account),
+            Err(error) => {
+                eprintln!("[account_manager] refresh failed for {id}: {error:?}");
+                failed.push(RefreshFailure {
+                    account_id: id,
+                    error,
+                });
             }
         }
     }
-    results
+    RefreshReport {
+        total,
+        succeeded,
+        failed,
+    }
 }
 
 #[tauri::command]
@@ -929,7 +1061,7 @@ pub async fn refresh_station<R: Runtime>(
     app: AppHandle<R>,
     state: State<'_, AccountManagerState>,
     station_id: String,
-) -> AccountManagerResult<Vec<StationAccount>> {
+) -> AccountManagerResult<RefreshReport> {
     let account_ids: Vec<String> = state
         .read_snapshot_checked()?
         .accounts
@@ -944,7 +1076,7 @@ pub async fn refresh_station<R: Runtime>(
 pub async fn refresh_all<R: Runtime>(
     app: AppHandle<R>,
     state: State<'_, AccountManagerState>,
-) -> AccountManagerResult<Vec<StationAccount>> {
+) -> AccountManagerResult<RefreshReport> {
     let account_ids: Vec<String> = state
         .read_snapshot_checked()?
         .accounts
@@ -989,13 +1121,14 @@ pub fn open_login_window<R: Runtime>(
         &account_id,
     )?;
 
-    let proxy_url = build_proxy_url_for_station(&app, &station);
+    let proxy_url = build_proxy_url_for_station(&app, &station)?;
     webview::open_login_window(
         &app,
         &account_id,
         &username,
         &website,
         return_url.as_deref(),
+        None,
         proxy_url.as_deref(),
     )
 }
@@ -1116,6 +1249,7 @@ mod tests {
     #[test]
     fn build_export_file_keeps_ciphertext_in_encrypted_full_mode() {
         let encrypted = crypto::encrypt(&[7u8; 32], "secret").expect("encrypt");
+        let encrypted_session = crypto::encrypt(&[7u8; 32], "session").expect("encrypt");
         let snapshot = AccountManagerSnapshot {
             stations: vec![make_station("a")],
             accounts: vec![StationAccount {
@@ -1141,7 +1275,7 @@ mod tests {
                 external_app_ids: Vec::new(),
             }],
             secrets: HashMap::from([("acct-1".into(), encrypted.clone())]),
-            sessions: HashMap::new(),
+            sessions: HashMap::from([("acct-1".into(), encrypted_session.clone())]),
             external_apps: Vec::new(),
             external_app_bindings: Vec::new(),
         };
@@ -1152,6 +1286,10 @@ mod tests {
         assert_eq!(
             export.stations[0].accounts[0].encrypted_password.as_ref(),
             Some(&encrypted)
+        );
+        assert_eq!(
+            export.stations[0].accounts[0].encrypted_session.as_ref(),
+            Some(&encrypted_session)
         );
         assert_eq!(export.stations[0].accounts[0].password, None);
     }
@@ -1219,7 +1357,7 @@ pub async fn detect_station_auth_profile<R: Runtime>(
         .ok_or_else(|| AccountManagerError::not_found(format!("station {station_id}")))?;
     // 构建 station 的代理 URL(无配置或解密失败时为 None = 直连)。
     // macOS 以外平台仅构建不消费(proxy_url 仅在 macOS WebView 上生效)。
-    let proxy_url = build_proxy_url_for_station(&app, &station);
+    let proxy_url = build_proxy_url_for_station(&app, &station)?;
     #[cfg(not(target_os = "macos"))]
     let _ = &proxy_url;
 
@@ -1403,7 +1541,7 @@ fn return_url_scheme(return_url: &str) -> Option<String> {
 /// - 在账号的 `external_app_ids` 上登记该 App。
 ///
 /// 此函数在用户已于账号选择器确认后调用，因此“创建 App 记录”等同于授权落库。
-fn record_proxy_usage<R: Runtime>(
+pub(crate) fn record_proxy_usage<R: Runtime>(
     app: &AppHandle<R>,
     state: &AccountManagerState,
     return_url: &str,
@@ -1505,9 +1643,15 @@ async fn run_proxy_login<R: Runtime>(
     app: &AppHandle<R>,
     state: &AccountManagerState,
     account_id: String,
-    target_url: String,
-    return_url: String,
+    ticket: AuthProxyTicket,
 ) -> AccountManagerResult<crate::account_manager::proxy::protocol::AuthProxyResult> {
+    let AuthProxyTicket {
+        target_url,
+        return_url,
+        request_state,
+        host: target_host,
+        ..
+    } = ticket;
     let (username, station_id, has_password, proxy_url) = {
         let snapshot = state.read_snapshot_checked()?;
         let account = snapshot
@@ -1521,11 +1665,14 @@ async fn run_proxy_login<R: Runtime>(
             )));
         }
         // 查找所属 station 并构建代理 URL(若 station 无代理配置则返回 None = 直连)。
-        let proxy_url = snapshot
+        let station = snapshot
             .stations
             .iter()
             .find(|s| s.id == account.station_id)
-            .and_then(|s| build_proxy_url_for_station(app, s));
+            .ok_or_else(|| {
+                AccountManagerError::not_found(format!("station {}", account.station_id))
+            })?;
+        let proxy_url = build_proxy_url_for_station(app, station)?;
         (
             account.username.clone(),
             account.station_id.clone(),
@@ -1534,25 +1681,13 @@ async fn run_proxy_login<R: Runtime>(
         )
     };
 
-    // 记录外部 App + 绑定用量(loopback 回调会被自动跳过)。失败不阻塞主流程。
-    if let Err(e) = record_proxy_usage(app, state, &return_url, &account_id) {
-        eprintln!("[proxy_login] record usage failed: {e:?}");
-    }
-
-    // 打开账号独立分区登录窗口,启用回调处理:
-    // - loopback 回调(http://127.0.0.1:.../...): 放行 → 本地服务器收 code → 捕获 session → 关窗
-    // - 自定义 scheme 回调(myapp://...): openExternal 转交外部 App → 关窗
-    let ret_opt = if return_url.trim().is_empty() {
-        None
-    } else {
-        Some(return_url.as_str())
-    };
     webview::open_login_window(
         app,
         &account_id,
         &username,
         &target_url,
-        ret_opt,
+        return_url.as_deref(),
+        request_state.as_deref(),
         proxy_url.as_deref(),
     )?;
 
@@ -1560,7 +1695,7 @@ async fn run_proxy_login<R: Runtime>(
         "proxy_login_started",
         &[
             ("account_id", &account_id),
-            ("target_url", &target_url),
+            ("target_host", &target_host),
             ("has_password", if has_password { "true" } else { "false" }),
         ],
     );
@@ -1569,6 +1704,7 @@ async fn run_proxy_login<R: Runtime>(
     if has_password {
         let app_clone = app.clone();
         let account_id_for_fill = account_id.clone();
+        let expected_url_for_fill = target_url.clone();
         tauri::async_runtime::spawn(async move {
             tokio::time::sleep(std::time::Duration::from_secs(2)).await;
             let state = app_clone.state::<AccountManagerState>();
@@ -1597,15 +1733,20 @@ async fn run_proxy_login<R: Runtime>(
                 }
             };
             let password = match crypto::decrypt(&key, &blob) {
-                Ok(p) => p,
+                Ok(p) => Zeroizing::new(p),
                 Err(e) => {
                     eprintln!("[proxy_login] delayed fill: decrypt: {e:?}");
                     return;
                 }
             };
-            if let Err(e) =
-                webview::fill_credentials(&app_clone, &account.id, &account.username, &password)
-                    .await
+            if let Err(e) = webview::fill_credentials(
+                &app_clone,
+                &account.id,
+                &account.username,
+                &password,
+                &expected_url_for_fill,
+            )
+            .await
             {
                 eprintln!("[proxy_login] delayed fill: fill_credentials: {e:?}");
             }
@@ -1615,7 +1756,7 @@ async fn run_proxy_login<R: Runtime>(
     Ok(crate::account_manager::proxy::protocol::AuthProxyResult {
         token: String::new(),
         token_type: "sessionProof".to_string(),
-        state: None,
+        state: request_state,
         station_id,
         account_id,
     })
@@ -1628,16 +1769,18 @@ pub async fn proxy_login<R: Runtime>(
     app: AppHandle<R>,
     state: State<'_, AccountManagerState>,
     account_id: String,
-    target_url: String,
-    return_url: String,
+    ticket_id: String,
 ) -> AccountManagerResult<crate::account_manager::proxy::protocol::AuthProxyResult> {
-    run_proxy_login(&app, &state, account_id, target_url, return_url).await
+    let ticket = state.consume_auth_proxy_ticket(&ticket_id, Some(&account_id), false)?;
+    run_proxy_login(&app, &state, account_id, ticket).await
 }
 
 /// `handle_browser_open` 的统一返回结构。
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BrowserOpenResult {
+    pub ticket_id: String,
+    pub expires_at_ts: i64,
     pub target: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub return_url: Option<String>,
@@ -1660,22 +1803,37 @@ pub fn handle_browser_open(
 ) -> AccountManagerResult<BrowserOpenResult> {
     use crate::account_manager::proxy::protocol;
 
-    let (target, return_url) = if url.starts_with("bench-auth://") {
+    if url.len() > MAX_BROWSER_OPEN_URL_BYTES {
+        return Err(AccountManagerError::invalid_input(
+            "browser open URL exceeds size limit",
+        ));
+    }
+
+    let (target, return_url, request_state) = if url.starts_with("bench-auth://") {
         let req =
             protocol::parse_auth_proxy_url(&url).map_err(AccountManagerError::invalid_input)?;
-        (req.target, Some(req.return_url))
+        (req.target, Some(req.return_url), req.state)
     } else {
         let ret = protocol::extract_loopback_callback(&url);
-        (url.clone(), ret)
+        (url.clone(), ret, None)
     };
 
-    // 校验回调地址(若有):loopback http/https 或合法自定义 scheme 才放行。
+    let target = protocol::validate_target_url(&target)
+        .map_err(AccountManagerError::invalid_input)?
+        .to_string();
+    let request_state = url::Url::parse(&target)
+        .ok()
+        .and_then(|parsed| {
+            parsed
+                .query_pairs()
+                .find(|(key, _)| key == "state")
+                .map(|(_, value)| value.into_owned())
+        })
+        .or(request_state);
     let snapshot = state.read_snapshot_checked()?;
     if let Some(ref ret) = return_url {
-        if let Err(msg) = protocol::validate_return_url(ret, &snapshot.external_apps) {
-            // 校验失败不直接中断(仍可让用户在隔离窗口登录),仅记录审计。
-            protocol::audit_log("handle_browser_open_return_rejected", &[("reason", &msg)]);
-        }
+        protocol::validate_return_url(ret, &snapshot.external_apps)
+            .map_err(AccountManagerError::invalid_input)?;
     }
 
     let host = url::Url::parse(&target)
@@ -1689,6 +1847,19 @@ pub fn handle_browser_open(
         &snapshot.stations,
         &snapshot.accounts,
     );
+    let allowed_account_ids = snapshot
+        .accounts
+        .iter()
+        .filter(|account| account.proxy_enabled)
+        .map(|account| account.id.clone())
+        .collect::<Vec<_>>();
+    let ticket = state.issue_auth_proxy_ticket(
+        target.clone(),
+        return_url.clone(),
+        request_state,
+        host.clone(),
+        allowed_account_ids,
+    );
 
     protocol::audit_log(
         "handle_browser_open",
@@ -1700,6 +1871,8 @@ pub fn handle_browser_open(
     );
 
     Ok(BrowserOpenResult {
+        ticket_id: ticket.id,
+        expires_at_ts: ticket.expires_at_ts,
         target,
         return_url,
         host,
@@ -1715,12 +1888,11 @@ pub fn handle_browser_open(
 pub async fn proxy_login_new_account<R: Runtime>(
     app: AppHandle<R>,
     state: State<'_, AccountManagerState>,
-    host: String,
-    target_url: String,
-    return_url: String,
+    ticket_id: String,
     username: Option<String>,
 ) -> AccountManagerResult<StationAccount> {
-    let host = trim_or_invalid(&host, "host")?;
+    let ticket = state.consume_auth_proxy_ticket(&ticket_id, None, true)?;
+    let host = trim_or_invalid(&ticket.host, "host")?;
 
     // 1. 确保 Station 存在(按 host 匹配,否则新建)。
     let station = ensure_station_for_host(&app, &state, &host)?;
@@ -1755,7 +1927,7 @@ pub async fn proxy_login_new_account<R: Runtime>(
     })?;
 
     // 3. 启动代理登录(新账号无密码,直接进入手动登录)。
-    run_proxy_login(&app, &state, account.id.clone(), target_url, return_url).await?;
+    run_proxy_login(&app, &state, account.id.clone(), ticket).await?;
 
     Ok(account)
 }

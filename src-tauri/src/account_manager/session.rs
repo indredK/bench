@@ -8,6 +8,8 @@
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use cookie::SameSite;
+use tauri::webview::Cookie as WebviewCookie;
 use tauri::{AppHandle, Manager, Runtime, Url, WebviewWindow};
 use tokio::sync::oneshot;
 
@@ -60,22 +62,27 @@ async fn extract_cookies<R: Runtime>(
         .parse()
         .map_err(|e| AccountManagerError::invalid_input(format!("parse url: {e}")))?;
 
+    let capture_host = parsed.host_str().unwrap_or_default().to_string();
     let cookies = window
         .cookies_for_url(parsed)
         .map_err(|e| AccountManagerError::store_fail(format!("cookies_for_url failed: {e}")))?;
 
     Ok(cookies
         .into_iter()
-        .map(|c| CookieEntry {
-            name: c.name().to_string(),
-            value: c.value().to_string(),
-            domain: c.domain().unwrap_or_default().to_string(),
-            path: c.path().unwrap_or("/").to_string(),
-            http_only: c.http_only().unwrap_or(false),
-            secure: c.secure().unwrap_or(false),
-            same_site: c.same_site().map(|s| format!("{:?}", s).to_lowercase()),
-            partitioned: c.partitioned().unwrap_or(false),
-            expires: c.expires_datetime().map(|d| d.to_string()),
+        .map(|c| {
+            let host_only = c.domain().is_none();
+            CookieEntry {
+                name: c.name().to_string(),
+                value: c.value().to_string(),
+                domain: c.domain().unwrap_or(&capture_host).to_string(),
+                host_only,
+                path: c.path().unwrap_or("/").to_string(),
+                http_only: c.http_only().unwrap_or(false),
+                secure: c.secure().unwrap_or(false),
+                same_site: c.same_site().map(|s| format!("{:?}", s).to_lowercase()),
+                partitioned: c.partitioned().unwrap_or(false),
+                expires: c.expires_datetime().map(|d| d.to_string()),
+            }
         })
         .collect())
 }
@@ -95,62 +102,68 @@ pub async fn finalize_proxy_session<R: Runtime>(
     app: &AppHandle<R>,
     account_id: &str,
     target_url: &str,
-) {
+) -> AccountManagerResult<()> {
     let state = app.state::<AccountManagerState>();
 
     let account = state
-        .read_snapshot()
+        .read_snapshot_checked()?
         .accounts
         .iter()
         .find(|a| a.id == account_id)
-        .cloned();
+        .cloned()
+        .ok_or_else(|| AccountManagerError::not_found(format!("account {account_id}")))?;
 
     let login_label = webview::login_window_label(account_id);
-    if let Some(window) = app.get_webview_window(&login_label) {
-        if let Ok(cookies) = extract_cookies(&window, target_url).await {
-            if !cookies.is_empty() {
-                let user_agent = extract_user_agent(&window).await.unwrap_or_default();
-                let session = AccountSession {
-                    cookies,
-                    user_agent,
-                    captured_at: super::commands::now_label(),
-                    captured_at_ts: Some(chrono::Utc::now().timestamp()),
-                    ..Default::default()
-                };
-                if account
-                    .as_ref()
-                    .map(|a| a.account_type == AccountType::Persistent)
-                    .unwrap_or(false)
-                {
-                    let _ = persist_session(&state, account_id, &session);
-                }
-            }
-        }
+    let window = app
+        .get_webview_window(&login_label)
+        .ok_or_else(|| AccountManagerError::not_found(format!("login window {login_label}")))?;
+    let cookies = extract_cookies(&window, target_url).await?;
+    if cookies.is_empty() {
+        return Err(AccountManagerError::store_fail(
+            "login completed without a capturable cookie session",
+        ));
     }
+    let user_agent = extract_user_agent(&window).await.unwrap_or_default();
+    let session = AccountSession {
+        cookies,
+        user_agent,
+        captured_at: super::commands::now_label(),
+        captured_at_ts: Some(chrono::Utc::now().timestamp()),
+        ..Default::default()
+    };
+    let encrypted = if account.account_type == AccountType::Persistent {
+        Some(encrypt_session(&state, &session)?)
+    } else {
+        None
+    };
 
-    let _ = storage::with_state_mut(app, &state, |snapshot| {
-        if let Some(a) = snapshot.accounts.iter_mut().find(|a| a.id == account_id) {
-            a.status = AccountSessionStatus::Ready;
-            let now = super::commands::now_label();
-            a.last_login_at = Some(now.clone());
-            a.last_refreshed_at = Some(now);
+    storage::with_state_mut(app, &state, |snapshot| {
+        let a = snapshot
+            .accounts
+            .iter_mut()
+            .find(|a| a.id == account_id)
+            .ok_or_else(|| AccountManagerError::not_found(format!("account {account_id}")))?;
+        // Captured is not equivalent to verified. The WebView completion path
+        // runs a probe before this account may transition to Ready.
+        a.status = AccountSessionStatus::Inactive;
+        let now = super::commands::now_label();
+        a.last_login_at = Some(now.clone());
+        a.last_refreshed_at = Some(now);
+        if let Some(blob) = encrypted.clone() {
+            snapshot.sessions.insert(account_id.to_string(), blob);
         }
         Ok(())
-    });
+    })
 }
 
-/// 加密 session 并写入 store
-pub fn persist_session(
+fn encrypt_session(
     state: &AccountManagerState,
-    account_id: &str,
     session: &AccountSession,
-) -> AccountManagerResult<()> {
+) -> AccountManagerResult<super::crypto::EncryptedBlob> {
     let key = state.master_key()?;
     let json = serde_json::to_string(session)
         .map_err(|e| AccountManagerError::store_fail(format!("serialize session: {e}")))?;
-    let blob = crypto::encrypt(&key, &json)?;
-    state.set_session(account_id, blob);
-    Ok(())
+    crypto::encrypt(&key, &json)
 }
 
 /// 解密并恢复 session。
@@ -169,43 +182,103 @@ pub fn restore_session(
     Ok(Some(session))
 }
 
+/// Inject the encrypted session snapshot into a newly-created isolated WebView.
+/// Tauri documents cookie access as safe from async paths on Windows; callers
+/// create or probe the WebView outside synchronous IPC event handlers.
+pub fn inject_session<R: Runtime>(
+    window: &WebviewWindow<R>,
+    session: &AccountSession,
+) -> AccountManagerResult<usize> {
+    let mut injected = 0;
+    for entry in &session.cookies {
+        let mut builder = WebviewCookie::build((entry.name.clone(), entry.value.clone()))
+            .path(if entry.path.is_empty() {
+                "/".to_string()
+            } else {
+                entry.path.clone()
+            })
+            .secure(entry.secure)
+            .http_only(entry.http_only)
+            .partitioned(entry.partitioned);
+        if !entry.domain.trim().is_empty() {
+            builder = builder.domain(entry.domain.clone());
+        }
+        if let Some(same_site) = entry.same_site.as_deref().and_then(|value| match value {
+            "strict" => Some(SameSite::Strict),
+            "lax" => Some(SameSite::Lax),
+            "none" => Some(SameSite::None),
+            _ => None,
+        }) {
+            builder = builder.same_site(same_site);
+        }
+        window
+            .set_cookie(builder.build())
+            .map_err(|e| AccountManagerError::store_fail(format!("set cookie: {e}")))?;
+        injected += 1;
+    }
+    Ok(injected)
+}
+
 // ═══════════════════════════════════════════════
 // 2.2 启动恢复
 // ═══════════════════════════════════════════════
 
 /// 启动时恢复所有持久账户的 session
 pub async fn restore_sessions_on_startup<R: Runtime>(
-    _app: &AppHandle<R>,
+    app: &AppHandle<R>,
     state: &AccountManagerState,
-) {
+) -> AccountManagerResult<usize> {
     let snapshot = state.read_snapshot();
-    for account in &snapshot.accounts {
-        if account.account_type != AccountType::Persistent {
-            continue;
-        }
-        if account.session.is_none() {
-            continue;
-        }
-        if account.status != AccountSessionStatus::Ready {
-            continue;
-        }
+    let account_ids = snapshot
+        .accounts
+        .iter()
+        .filter(|account| account.account_type == AccountType::Persistent)
+        .filter(|account| account.status == AccountSessionStatus::Ready)
+        .filter(|account| snapshot.sessions.contains_key(&account.id))
+        .map(|account| account.id.clone())
+        .collect::<Vec<_>>();
+    let mut restored = 0;
 
-        match restore_session(state, &account.id) {
-            Ok(Some(session)) => {
-                // Session 恢复成功 —— 在真实实现中执行探针验证
-                let _ = session; // 后续用 probe 验证
-            }
+    for account_id in account_ids {
+        match restore_session(state, &account_id) {
+            Ok(Some(_)) => match super::commands::refresh_one_impl(app.clone(), account_id.clone())
+                .await
+            {
+                Ok(account) if account.status == AccountSessionStatus::Ready => restored += 1,
+                Ok(_) => {}
+                Err(error) => {
+                    eprintln!("[account_manager] restore probe failed for {account_id}: {error}");
+                    set_status(
+                        app,
+                        state,
+                        &account_id,
+                        AccountSessionStatus::FetchFailed,
+                        false,
+                    )?;
+                }
+            },
             Ok(None) => {
-                // 无 session 数据
-                update_status(state, &account.id, AccountSessionStatus::LoginRequired);
+                set_status(
+                    app,
+                    state,
+                    &account_id,
+                    AccountSessionStatus::LoginRequired,
+                    false,
+                )?;
             }
-            Err(_) => {
-                // 解密失败
-                clear_session(state, &account.id);
-                update_status(state, &account.id, AccountSessionStatus::LoginRequired);
+            Err(error) => {
+                eprintln!("[account_manager] restore decrypt failed for {account_id}: {error}");
+                set_status(
+                    app,
+                    state,
+                    &account_id,
+                    AccountSessionStatus::LoginRequired,
+                    true,
+                )?;
             }
         }
     }
+    Ok(restored)
 }
 
 // ═══════════════════════════════════════════════
@@ -216,8 +289,9 @@ pub async fn restore_sessions_on_startup<R: Runtime>(
 pub async fn persist_all_sessions_on_exit<R: Runtime>(
     app: &AppHandle<R>,
     state: &AccountManagerState,
-) {
+) -> AccountManagerResult<usize> {
     let snapshot = state.read_snapshot();
+    let mut captured = Vec::new();
 
     for account in &snapshot.accounts {
         if account.account_type != AccountType::Persistent {
@@ -229,21 +303,55 @@ pub async fn persist_all_sessions_on_exit<R: Runtime>(
 
         let login_label = webview::login_window_label(&account.id);
         if let Some(window) = app.get_webview_window(&login_label) {
-            let website = account.website.as_deref().unwrap_or("");
-            if let Ok(cookies) = extract_cookies(&window, website).await {
-                if !cookies.is_empty() {
+            let website = account.website.as_deref().or_else(|| {
+                snapshot
+                    .stations
+                    .iter()
+                    .find(|station| station.id == account.station_id)
+                    .map(|station| station.website.as_str())
+            });
+            let Some(website) = website else { continue };
+            match extract_cookies(&window, website).await {
+                Ok(cookies) if !cookies.is_empty() => {
                     let session = AccountSession {
                         cookies,
                         captured_at: super::commands::now_label(),
                         captured_at_ts: Some(chrono::Utc::now().timestamp()),
-                        user_agent: String::new(),
+                        user_agent: extract_user_agent(&window).await.unwrap_or_default(),
                         ..Default::default()
                     };
-                    let _ = persist_session(state, &account.id, &session);
+                    captured.push((account.id.clone(), encrypt_session(state, &session)?));
                 }
+                Ok(_) => {}
+                Err(error) => eprintln!(
+                    "[account_manager] exit capture failed for {}: {error}",
+                    account.id
+                ),
             }
         }
     }
+
+    let persisted = captured.len();
+    storage::with_state_mut(app, state, |next| {
+        for (account_id, blob) in &captured {
+            next.sessions.insert(account_id.clone(), blob.clone());
+        }
+
+        let ephemeral_ids = next
+            .accounts
+            .iter()
+            .filter(|account| account.account_type == AccountType::Ephemeral)
+            .map(|account| account.id.clone())
+            .collect::<std::collections::HashSet<_>>();
+        next.accounts
+            .retain(|account| !ephemeral_ids.contains(&account.id));
+        next.secrets.retain(|id, _| !ephemeral_ids.contains(id));
+        next.sessions.retain(|id, _| !ephemeral_ids.contains(id));
+        next.external_app_bindings
+            .retain(|binding| !ephemeral_ids.contains(&binding.account_id));
+        Ok(())
+    })?;
+    Ok(persisted)
 }
 
 // ═══════════════════════════════════════════════
@@ -290,7 +398,7 @@ pub fn cleanup_expired_sessions<R: Runtime>(
     app: &AppHandle<R>,
     state: &AccountManagerState,
     now: chrono::DateTime<chrono::Utc>,
-) -> Vec<(String, AccountSessionStatus)> {
+) -> AccountManagerResult<Vec<(String, AccountSessionStatus)>> {
     use std::collections::HashMap;
     let snapshot = state.read_snapshot();
 
@@ -310,7 +418,7 @@ pub fn cleanup_expired_sessions<R: Runtime>(
         .accounts
         .iter()
         .filter(|a| a.account_type == AccountType::Persistent)
-        .filter(|a| a.session.is_some())
+        .filter(|a| snapshot.sessions.contains_key(&a.id))
         .filter_map(|a| {
             let ttl = ttl_by_station
                 .get(a.station_id.as_str())
@@ -334,7 +442,7 @@ pub fn cleanup_expired_sessions<R: Runtime>(
         .collect();
 
     if to_clear.is_empty() {
-        return Vec::new();
+        return Ok(Vec::new());
     }
 
     let cleared = to_clear
@@ -342,7 +450,7 @@ pub fn cleanup_expired_sessions<R: Runtime>(
         .map(|t| (t.account_id.clone(), t.old_status))
         .collect::<Vec<_>>();
 
-    let _ = storage::with_state_mut(app, state, |snapshot| {
+    storage::with_state_mut(app, state, |snapshot| {
         for t in &to_clear {
             if let Some(a) = snapshot.accounts.iter_mut().find(|a| a.id == t.account_id) {
                 a.session = None;
@@ -351,33 +459,33 @@ pub fn cleanup_expired_sessions<R: Runtime>(
             snapshot.sessions.remove(&t.account_id);
         }
         Ok(())
-    });
+    })?;
 
-    cleared
-}
-
-/// 清理 ephemeral 账户
-pub fn cleanup_ephemeral(state: &AccountManagerState) {
-    let mut snapshot = state.snapshot.write().unwrap_or_else(|e| e.into_inner());
-    snapshot
-        .accounts
-        .retain(|a| a.account_type != AccountType::Ephemeral);
+    Ok(cleared)
 }
 
 // ═══════════════════════════════════════════════
 // Helpers
 // ═══════════════════════════════════════════════
 
-fn update_status(state: &AccountManagerState, account_id: &str, status: AccountSessionStatus) {
-    let mut snapshot = state.snapshot.write().unwrap_or_else(|e| e.into_inner());
-    if let Some(account) = snapshot.accounts.iter_mut().find(|a| a.id == account_id) {
+fn set_status<R: Runtime>(
+    app: &AppHandle<R>,
+    state: &AccountManagerState,
+    account_id: &str,
+    status: AccountSessionStatus,
+    clear_session: bool,
+) -> AccountManagerResult<()> {
+    storage::with_state_mut(app, state, |snapshot| {
+        let account = snapshot
+            .accounts
+            .iter_mut()
+            .find(|account| account.id == account_id)
+            .ok_or_else(|| AccountManagerError::not_found(format!("account {account_id}")))?;
         account.status = status;
-    }
-}
-
-fn clear_session(state: &AccountManagerState, account_id: &str) {
-    let mut snapshot = state.snapshot.write().unwrap_or_else(|e| e.into_inner());
-    if let Some(account) = snapshot.accounts.iter_mut().find(|a| a.id == account_id) {
         account.session = None;
-    }
+        if clear_session {
+            snapshot.sessions.remove(account_id);
+        }
+        Ok(())
+    })
 }

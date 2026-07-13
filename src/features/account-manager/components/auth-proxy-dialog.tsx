@@ -224,6 +224,8 @@ export function AuthProxyDialog({
     try {
       const result = await accountManagerRepository.handleBrowserOpen(trimmed)
       setParsedRequest({
+        ticketId: result.ticketId,
+        expiresAtTs: result.expiresAtTs,
         target: result.target,
         returnUrl: result.returnUrl ?? "",
         state: null,

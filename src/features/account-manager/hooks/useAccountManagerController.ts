@@ -345,20 +345,22 @@ export function useAccountManagerController() {
     if (!stationId) return
     return runStationRefresh(stationId, async () => {
       try {
-        const subset = await accountManagerUseCases.refreshStation(stationId)
-        const byId = new Map(subset.map((account) => [account.id, account] as const))
+        const report = await accountManagerUseCases.refreshStation(stationId)
+        const byId = new Map(report.succeeded.map((account) => [account.id, account] as const))
         setAccounts((prev) => prev.map((account) => byId.get(account.id) ?? account))
-        subset.forEach((account) => markJustRefreshed(account.id))
-        const failed = subset.filter((account) => account.status === "fetchFailed").length
+        report.succeeded.forEach((account) => markJustRefreshed(account.id))
+        const failed = report.failed.length
         if (failed > 0) {
           toast.warning(
             t("accountManager.toasts.refreshBatchFetchFailed", {
               failed,
-              total: subset.length,
+              total: report.total,
             }),
           )
         } else {
-          toast.success(t("accountManager.toasts.refreshStationSuccess", { count: subset.length }))
+          toast.success(
+            t("accountManager.toasts.refreshStationSuccess", { count: report.succeeded.length }),
+          )
         }
       } catch (error) {
         const info = classifyAccountManagerError(
@@ -373,16 +375,19 @@ export function useAccountManagerController() {
   const handleRefreshAll = () =>
     runAllRefresh(async () => {
       try {
-        const all = await accountManagerUseCases.refreshAll()
-        setAccounts(all)
-        all.forEach((account) => markJustRefreshed(account.id))
-        const failed = all.filter((account) => account.status === "fetchFailed").length
+        const report = await accountManagerUseCases.refreshAll()
+        const byId = new Map(report.succeeded.map((account) => [account.id, account] as const))
+        setAccounts((prev) => prev.map((account) => byId.get(account.id) ?? account))
+        report.succeeded.forEach((account) => markJustRefreshed(account.id))
+        const failed = report.failed.length
         if (failed > 0) {
           toast.warning(
-            t("accountManager.toasts.refreshBatchFetchFailed", { failed, total: all.length }),
+            t("accountManager.toasts.refreshBatchFetchFailed", { failed, total: report.total }),
           )
         } else {
-          toast.success(t("accountManager.toasts.refreshAllSuccess", { count: all.length }))
+          toast.success(
+            t("accountManager.toasts.refreshAllSuccess", { count: report.succeeded.length }),
+          )
         }
       } catch (error) {
         const info = classifyAccountManagerError(error, t("accountManager.toasts.refreshAllFailed"))

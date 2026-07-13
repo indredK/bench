@@ -140,6 +140,17 @@ export interface RelayDataImportResult {
   accounts: StationAccount[]
 }
 
+export interface RefreshFailure {
+  accountId: string
+  error: AccountManagerError
+}
+
+export interface RefreshReport {
+  total: number
+  succeeded: StationAccount[]
+  failed: RefreshFailure[]
+}
+
 export type AccountManagerErrorCode =
   | "NOT_FOUND"
   | "INVALID_INPUT"
@@ -170,6 +181,8 @@ export interface AuthProxyMatch {
 }
 
 export interface AuthProxyRequest {
+  ticketId: string
+  expiresAtTs: number
   target: string
   returnUrl: string
   state?: string | null
@@ -187,6 +200,8 @@ export interface AuthProxyResult {
 /// `handle_browser_open` 的统一返回:把一次"用 bench 打开 URL"
 /// （bench-auth:// 或直接的 https authorize 链接）归一化为可处理的结构。
 export interface BrowserOpenResult {
+  ticketId: string
+  expiresAtTs: number
   target: string
   returnUrl?: string | null
   host: string
