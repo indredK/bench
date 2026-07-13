@@ -17,7 +17,7 @@
 
 - [ ] App Manager 完成 Windows/macOS fixture、真机 smoke 和 CI 行为测试，见 [模块 roadmap](./modules/app-manager/roadmap.md)。
 - [ ] Quick Launch 完成两平台启动 smoke 与 500+ 应用性能验收，见 [模块 roadmap](./modules/quick-launch/roadmap.md)。
-- [ ] Account Manager 补 Session 状态 UX、Rust 行为测试和大列表虚拟化。
+- [ ] Account Manager 按[生产可靠性审计](./modules/account-manager/audit-and-upgrade-2026-07-13.md)完成 Session、登录代理、敏感数据和 macOS/Windows 发布整改。
 - [ ] Dev Toolbox 拆分持续膨胀的子模块，并补关键行为测试。
 
-未完成目标平台 smoke 前，不得宣称 App Manager / Quick Launch 已在 macOS 与 Windows 发布对等。
+未完成目标平台 smoke 前，不得宣称 App Manager、Quick Launch 或 Account Manager 已在 macOS 与 Windows 发布对等。

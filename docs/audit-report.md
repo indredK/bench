@@ -19,11 +19,23 @@
 
 - [§7.4/§9] `src-tauri/src/app_manager/` - macOS/Windows 核心实现已整改，但目标平台 fixture、真机 smoke 和 CI 行为测试未完成 - 按 [App Manager roadmap](./modules/app-manager/roadmap.md) 验收 - **强制** - 状态：待验收
 - [§6/§9] `src/features/quick-launch/` - 共享 inventory 与虚拟列表已落地，但 macOS/Windows 启动 smoke 和 500+ 应用性能验收未完成 - 按 [Quick Launch roadmap](./modules/quick-launch/roadmap.md) 验收 - **强制** - 状态：待验收
-- [§9] `src/features/account-manager/` - Session/Probe Rust 行为测试和大账号列表虚拟化仍缺 - 按 [Account Manager roadmap](./modules/account-manager/roadmap.md) 实施 - **建议** - 状态：Backlog
+- [§3.3/§7/§8] `src-tauri/src/account_manager/` - Session 双真理源、启动恢复 no-op、退出不落盘和批量 partial 丢失会破坏状态完整性 - 按 [Account Manager 审计](./modules/account-manager/audit-and-upgrade-2026-07-13.md) Phase 1/3 实施 - **强制** - 状态：已报告
+- [§7/§8] `src-tauri/src/account_manager/{commands,proxy,webview}.rs` - Auth Proxy 缺一次性后端授权、精确 callback/origin 校验，并错误注册标准 URL scheme - 按 [Account Manager 审计](./modules/account-manager/audit-and-upgrade-2026-07-13.md) Phase 0/2 实施 - **强制** - 状态：已报告
+- [§3.3/§7] `src-tauri/src/account_manager/{crypto,state,storage}.rs` - 主密钥首次创建和共享 store 缺跨进程原子性 - 按 [Account Manager 审计](./modules/account-manager/audit-and-upgrade-2026-07-13.md) Phase 1 实施 - **强制** - 状态：已报告
+- [§5/§6/§9] `src/features/account-manager/` - skeleton、窄屏详情、大列表虚拟化、敏感明文生命周期和双平台行为测试仍缺 - 按 [Account Manager roadmap](./modules/account-manager/roadmap.md) 实施 - **强制** - 状态：已报告
 
 未完成目标平台行为测试前，不得把 App Manager 或 Quick Launch 标记为 macOS/Windows 发布对等。
 
+Account Manager 的 macOS/Windows 状态均为 ⚠️；A-01 至 A-15 的 P0/P1 未关闭前不得标记生产就绪。
+
 ## 最近复核
+
+### 2026-07-13 - Account Manager
+
+- 结论：REQUEST CHANGES，macOS/Windows 均未达到生产就绪。
+- 已确认 Session 生命周期、Keyring 并发、Auth Proxy 授权/callback/自动填充、批量 partial、探针策略、删除残留、代理 fail-open、导入导出和敏感信息生命周期问题。
+- 本地 `pnpm exec vitest run src/features/account-manager`（2 files / 5 tests）与 `cargo test account_manager`（40 tests）通过；覆盖不足，且未执行 Windows 行为测试。
+- 详细位置、重构代码、实施顺序和目标平台矩阵见 [专题审计](./modules/account-manager/audit-and-upgrade-2026-07-13.md)。
 
 ### 2026-07-13 - Quick Launch / App Manager
 

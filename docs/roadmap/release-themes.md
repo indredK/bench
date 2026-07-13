@@ -19,7 +19,7 @@
 |------|:-----:|:-------:|:-----:|------|
 | Quick Launch | ⚠️ | ⚠️ | 未审计 | 核心代码已整改，真机启动和大列表验收未完成 |
 | App Manager | ⚠️ | ⚠️ | 未审计 | 核心代码已整改，平台 fixture/smoke/runner 未完成 |
-| Account Manager | ✅ | ⚠️ | ⚠️ | 非 macOS WebView Session 仍需兼容与降级 |
+| Account Manager | ⚠️ | ⚠️ | 未审计 | Session/代理安全边界未闭环；Windows 入口和行为验收未完成 |
 | Dev Toolbox | ✅ | 部分 | 部分 | 子工具分别声明平台能力 |
 | Hardware | ✅ | ⚠️ | ⚠️ | 数据以 Apple 和常见硬件为主 |
 | Terminology | ✅ | ✅ | ✅ | 纯前端与本地存储 |

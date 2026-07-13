@@ -4,7 +4,7 @@
 
 | 模块 | 专题文档 |
 |------|----------|
-| [account-manager](./account-manager/) | [技术设计](./account-manager/design.md) |
+| [account-manager](./account-manager/) | [技术设计](./account-manager/design.md) · [生产可靠性审计](./account-manager/audit-and-upgrade-2026-07-13.md) |
 | [app-manager](./app-manager/) | [跨平台审计与升级](./app-manager/audit-and-upgrade-2026-07-13.md) |
 | [clean-space](./clean-space/) | [技术设计](./clean-space/design.md) |
 | [dev-cleaner](./dev-cleaner/) | Clean Space 内部清理引擎 |

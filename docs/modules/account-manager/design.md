@@ -1,6 +1,6 @@
 # Account Manager 技术设计
 
-> 本文只记录安全边界、生命周期和修改入口；字段与命令以 Rust 类型和 IPC 契约为准。
+> 本文记录目标安全边界、生命周期和修改入口；字段与命令以 Rust 类型和 IPC 契约为准。当前实现尚未满足这些边界，发布阻断项和升级顺序见 [生产可靠性审计](./audit-and-upgrade-2026-07-13.md)。
 
 ## 1. 模块职责
 
@@ -41,6 +41,8 @@ Rust 关键文件：
 登录成功 -> 捕获 Session -> 加密 -> 更新状态 -> flush
 退出 -> 捕获 Ready sessions -> 清理 ephemeral -> flush -> 退出
 ```
+
+这是目标流程，不是当前能力声明。Session 只能有一个 canonical record；捕获、恢复、TTL、导入导出和互斥不得再读取不同字段。
 
 强制约束：
 

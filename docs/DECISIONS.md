@@ -11,6 +11,18 @@
 
 ---
 
+## D-007 · Account Manager 采用单写者状态与后端授权票据
+
+- **日期**：2026-07-13
+- **状态**：采纳
+- **背景**：账号模块同时维护两份 Session 状态，捕获/恢复/TTL/导出读取路径不一致；外部登录代理又信任 renderer 传回 target/return，无法抵抗参数替换、重放和错误 origin 自动填充。文档曾把 macOS 标为已验收，但核心恢复链路实际未完成。
+- **决策**：Session 只保留一个 canonical `SessionRecord`，所有 mutation 由带 revision 和原子持久化的 coordinator 串行提交；外部登录由后端签发并原子消费短期一次性 ticket，callback、账号候选和 credential origin 固化在 ticket 中；平台状态按能力诚实建模，在目标平台行为测试前保持 ⚠️。
+- **理由**：单一真理源消除并发覆盖和生命周期分叉；后端票据把 renderer 限制为展示/选择层；能力状态避免把编译通过误报为功能对等。
+- **影响**：必须先迁移 Session 和 Auth Proxy IPC，再修 Probe/Refresh/UX；旧双写和直接传 URL 的命令不得长期兼容保留。
+- **相关**：[Account Manager 审计](./modules/account-manager/audit-and-upgrade-2026-07-13.md) · [技术设计](./modules/account-manager/design.md) · [ROADMAP.md](./ROADMAP.md)
+
+---
+
 ## D-006 · 文档只保留当前真理源与未完成事项
 
 - **日期**：2026-07-13
