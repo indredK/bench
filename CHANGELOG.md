@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.23.0](https://github.com/indredK/bench/compare/v1.22.0...v1.23.0) (2026-07-13)
+
+
+### Features
+
+* **scripts:** 添加安全依赖升级脚本 ([b029457](https://github.com/indredK/bench/commit/b02945788a2932011daa39fe068a2e70ac3daf4d))
+* 新增多导航布局支持，重构布局系统 ([d4f1f42](https://github.com/indredK/bench/commit/d4f1f42f3d7c1b28e63d7eb2240ae73fc8993c93))
+* 新增存储空间清理模块，重构开发清理模块结构 ([2538f2a](https://github.com/indredK/bench/commit/2538f2a09873f7ba128a346b7ff14535fbf3b76e))
+
 ## [1.22.0](https://github.com/indredK/bench/compare/v1.21.0...v1.22.0) (2026-07-06)
 
 
