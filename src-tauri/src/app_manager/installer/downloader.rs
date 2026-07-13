@@ -1,5 +1,6 @@
 use futures_util::StreamExt;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::fs::File;
@@ -9,6 +10,7 @@ use tokio::sync::Notify;
 /// Size tolerance (ratio of expected) before flagging a mismatch.
 /// 10% per planning doc (sparkle.md known caveats).
 const SIZE_TOLERANCE_RATIO: u64 = 10;
+pub const MAX_DOWNLOAD_BYTES: u64 = 2 * 1024 * 1024 * 1024;
 
 #[derive(Debug, Clone)]
 pub struct DownloadOptions {
@@ -32,6 +34,13 @@ pub enum DownloadOutcome {
 pub fn default_client() -> reqwest::Client {
     reqwest::Client::builder()
         .timeout(Duration::from_secs(60 * 30))
+        .redirect(reqwest::redirect::Policy::custom(|attempt| {
+            if attempt.previous().len() >= 5 || attempt.url().scheme() != "https" {
+                attempt.stop()
+            } else {
+                attempt.follow()
+            }
+        }))
         .user_agent("bench-app-updater/1.0 (+macOS)")
         .build()
         .unwrap_or_else(|_| reqwest::Client::new())
@@ -70,7 +79,10 @@ pub fn cache_path(app_id: &str, version: &str, ext: &str) -> PathBuf {
 
 /// Guess the download extension from a URL (.zip, .dmg, .tar.gz fallback to .bin).
 pub fn ext_from_url(url: &str) -> &'static str {
-    let l = url.to_lowercase();
+    let l = url::Url::parse(url)
+        .ok()
+        .map(|parsed| parsed.path().to_lowercase())
+        .unwrap_or_else(|| url.to_lowercase());
     if l.ends_with(".zip") {
         "zip"
     } else if l.ends_with(".dmg") {
@@ -87,6 +99,7 @@ pub async fn download<F>(
     client: &reqwest::Client,
     opts: DownloadOptions,
     cancel: Arc<Notify>,
+    cancelled: Arc<AtomicBool>,
     mut on_progress: F,
 ) -> DownloadOutcome
 where
@@ -98,6 +111,9 @@ where
         dest_path,
     } = opts;
 
+    if cancelled.load(Ordering::Acquire) {
+        return DownloadOutcome::Cancelled;
+    }
     if let Some(parent) = dest_path.parent() {
         if let Err(e) = tokio::fs::create_dir_all(parent).await {
             return DownloadOutcome::Error(format!("SU_DOWNLOAD_FAIL: mkdir {e}"));
@@ -129,6 +145,9 @@ where
     }
 
     let total = resp.content_length().or(expected_size);
+    if total.is_some_and(|size| size > MAX_DOWNLOAD_BYTES) {
+        return DownloadOutcome::Error("SU_DOWNLOAD_TOO_LARGE".to_string());
+    }
     on_progress(0, total);
 
     let mut file = match File::create(&dest_path).await {
@@ -142,6 +161,15 @@ where
     loop {
         tokio::select! {
             biased;
+            _ = async {
+                while !cancelled.load(Ordering::Acquire) {
+                    tokio::time::sleep(Duration::from_millis(50)).await;
+                }
+            } => {
+                drop(file);
+                let _ = tokio::fs::remove_file(&dest_path).await;
+                return DownloadOutcome::Cancelled;
+            }
             _ = cancel.notified() => {
                 drop(file);
                 let _ = tokio::fs::remove_file(&dest_path).await;
@@ -150,6 +178,11 @@ where
             next = stream.next() => {
                 match next {
                     Some(Ok(chunk)) => {
+                        if downloaded.saturating_add(chunk.len() as u64) > MAX_DOWNLOAD_BYTES {
+                            drop(file);
+                            let _ = tokio::fs::remove_file(&dest_path).await;
+                            return DownloadOutcome::Error("SU_DOWNLOAD_TOO_LARGE".to_string());
+                        }
                         if let Err(e) = file.write_all(&chunk).await {
                             drop(file);
                             let _ = tokio::fs::remove_file(&dest_path).await;
@@ -216,7 +249,7 @@ mod tests {
     fn ext_from_url_matches_known_suffixes() {
         assert_eq!(ext_from_url("https://e.com/x.zip"), "zip");
         assert_eq!(ext_from_url("https://e.com/X.DMG"), "dmg");
-        assert_eq!(ext_from_url("https://e.com/x.dmg?token=1"), "bin");
+        assert_eq!(ext_from_url("https://e.com/x.dmg?token=1"), "dmg");
         assert_eq!(ext_from_url("https://e.com/x"), "bin");
     }
 
@@ -247,6 +280,7 @@ mod tests {
                 dest_path: tmp.clone(),
             },
             cancel,
+            Arc::new(AtomicBool::new(false)),
             |_d, _t| {},
         )
         .await;

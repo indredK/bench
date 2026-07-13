@@ -16,6 +16,39 @@ pub enum SourceType {
     Unknown,
 }
 
+/// Evidence used to associate a discovered app with a package manager. Only
+/// exact evidence may authorize upgrade or uninstall operations.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum SourceEvidence {
+    ExactReceipt,
+    ExactPackageId,
+    ExactProductCode,
+    Heuristic,
+    #[default]
+    None,
+}
+
+impl SourceEvidence {
+    pub fn authorizes_destructive_action(self) -> bool {
+        matches!(
+            self,
+            Self::ExactReceipt | Self::ExactPackageId | Self::ExactProductCode
+        )
+    }
+}
+
+/// Canonical launch target resolved by the backend inventory provider.
+/// Renderer commands never submit this value back to the backend.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", tag = "kind")]
+pub enum LaunchTarget {
+    AppBundle { path: String },
+    Executable { path: String, args: Vec<String> },
+    Aumid { value: String },
+    DesktopEntry { id: String },
+}
+
 impl std::fmt::Display for SourceType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -62,6 +95,7 @@ pub struct BatchOperationResult {
     pub total: usize,
     pub succeeded: usize,
     pub failed: usize,
+    pub cancelled: usize,
     pub results: Vec<BatchItemResult>,
 }
 
@@ -88,6 +122,7 @@ pub struct AppInfo {
     pub source_type: String,
     pub source_id: String,
     pub source_confidence: f64,
+    pub source_evidence: SourceEvidence,
     pub can_upgrade: bool,
     pub can_uninstall: bool,
     pub upgrade_available: bool,
@@ -96,6 +131,9 @@ pub struct AppInfo {
     pub is_system_app: bool,
     pub allowed_actions: AllowedActions,
     pub icon_base64: Option<String>,
+    /// Kept in the backend snapshot so launch commands can resolve app_id to a
+    /// canonical target. The frontend may display it but must never execute it.
+    pub launch_target: Option<LaunchTarget>,
 }
 
 /// Installation source parameters for installing a recommended app.
@@ -121,6 +159,24 @@ pub struct PlatformCapabilities {
     pub apt_available: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ProviderState {
+    Ok,
+    Partial,
+    Unsupported,
+    Failed,
+    TimedOut,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderStatus {
+    pub provider: String,
+    pub state: ProviderState,
+    pub error_code: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ScanResult {
@@ -135,6 +191,12 @@ pub struct ScanResult {
     pub last_scan_time: u64,
     /// Unix timestamp in ms of the last update check (0 if never)
     pub last_update_check: u64,
+    /// Monotonically increasing backend inventory revision.
+    pub revision: u64,
+    /// False when at least one applicable provider failed or only partially ran.
+    pub complete: bool,
+    pub providers: Vec<ProviderStatus>,
+    pub warnings: Vec<String>,
 }
 
 /// Identifies the update channel a discovered update came from.
@@ -142,6 +204,8 @@ pub struct ScanResult {
 #[serde(rename_all = "camelCase")]
 pub enum UpdateSource {
     Homebrew,
+    Winget,
+    WindowsStore,
     MacAppStore,
     Sparkle,
     Electron,
@@ -153,6 +217,8 @@ impl std::fmt::Display for UpdateSource {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             UpdateSource::Homebrew => write!(f, "Homebrew"),
+            UpdateSource::Winget => write!(f, "winget"),
+            UpdateSource::WindowsStore => write!(f, "WindowsStore"),
             UpdateSource::MacAppStore => write!(f, "MacAppStore"),
             UpdateSource::Sparkle => write!(f, "Sparkle"),
             UpdateSource::Electron => write!(f, "Electron"),
@@ -166,6 +232,12 @@ impl std::fmt::Display for UpdateSource {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateInfo {
+    /// Canonical backend-generated identifier. Empty only while a provider is
+    /// constructing a candidate; the command layer assigns it before caching.
+    #[serde(default)]
+    pub update_id: String,
+    #[serde(default)]
+    pub inventory_revision: u64,
     pub app_id: String,
     pub app_name: String,
     pub source: UpdateSource,
@@ -182,6 +254,23 @@ pub struct UpdateInfo {
     pub ignored: bool,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateScanReport {
+    pub updates: Vec<UpdateInfo>,
+    pub providers: Vec<ProviderStatus>,
+    pub checked_at: u64,
+    pub complete: bool,
+    pub inventory_revision: u64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstallUpdateRequest {
+    pub update_id: String,
+    pub inventory_revision: u64,
+}
+
 /// Phase of an in-progress app update install (v1.2). Tagged enum so the
 /// frontend can pattern-match `{ phase: "downloading", percent: 42, ... }`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -193,10 +282,6 @@ pub enum InstallPhase {
         bytes_total: Option<u64>,
     },
     Verifying,
-    DeveloperIdChanged {
-        old: String,
-        new: String,
-    },
     Extracting,
     Replacing,
     Finalizing,
@@ -234,6 +319,10 @@ pub struct InstallFinishedEvent {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ScanProgressEvent {
+    pub task_id: String,
     pub current: usize,
+    pub completed: usize,
+    pub total: Option<usize>,
     pub stage: String,
+    pub cancellable: bool,
 }

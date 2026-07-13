@@ -5,10 +5,9 @@
  * 每条规则独立一行，附带中文注释。
  */
 import type { AppInfo } from "@/lib/tauri/types/app-manager"
-import type {
-  LaunchScene,
-  LaunchSceneKey,
-} from "@/features/quick-launch/types"
+import type { LaunchScene, LaunchSceneKey } from "@/features/quick-launch/types"
+
+export const SCENE_RULES_VERSION = "quick-launch-rules-v1"
 
 export const LAUNCH_SCENES: LaunchScene[] = [
   { key: "dev", labelKey: "quickLaunch.scene.dev", icon: "Code2" },
@@ -822,4 +821,3 @@ export function classifyAppToScene(app: AppInfo): LaunchSceneKey {
   // ═══════════════════════════════════════════════════════════════
   return "other"
 }
-

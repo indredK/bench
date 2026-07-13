@@ -5,20 +5,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
-import { useAppManagerStore } from "@/features/app-manager/store"
 import { useQuickLaunchStore } from "@/features/quick-launch/store"
+import { LAUNCH_SCENES } from "@/features/quick-launch/scenes"
 import {
   autoClassifyApps,
   applyOverrides,
   exportFullClassification,
 } from "@/features/quick-launch/services/quick-launch.use-cases"
-import { launchApp, revealAppInFinder } from "@/lib/tauri/commands/app-manager"
 import { writeTextFile } from "@/lib/tauri/commands/file-ops"
 import { getErrorMessage } from "@/lib/tauri/errors"
 import { savePlatformDialog } from "@/platform/dialog"
-import { listenToPlatformEvent } from "@/platform/events"
-import { preloadAppIcons } from "@/features/app-manager/components/AppIcon"
-import { appManagerUseCases } from "@/features/app-manager/services/app-manager.use-cases"
+import { useAppInventoryStore } from "@/shared/app-inventory/store"
+import { appInventoryUseCases } from "@/shared/app-inventory/inventory.use-cases"
 import { useGuardedAsyncSet } from "@/hooks/useGuardedAsync"
 import type { AppInfo } from "@/lib/tauri/types/app-manager"
 import type { LaunchSceneKey } from "@/features/quick-launch/types"
@@ -35,14 +33,30 @@ export const MERGED_SCENE_KEYS: LaunchSceneKey[] = [
   "system",
 ]
 
+function normalizeSearch(value: string): string {
+  return value.normalize("NFKC").toLocaleLowerCase()
+}
+
 export function useQuickLaunchController(active: boolean) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { run: runLaunchAction } = useGuardedAsyncSet<string>()
 
-  const appManagerApps = useAppManagerStore((s) => s.apps)
-  const appManagerScanned = useAppManagerStore((s) => s.scanned)
-  const appManagerLoading = useAppManagerStore((s) => s.loading)
-  const appManagerScanProgress = useAppManagerStore((s) => s.scanProgress)
+  const inventorySnapshot = useAppInventoryStore((s) => s.snapshot)
+  const inventoryStatus = useAppInventoryStore((s) => s.status)
+  const inventoryError = useAppInventoryStore((s) => s.error)
+  const appManagerApps = inventorySnapshot?.apps ?? []
+  const appManagerScanned = inventorySnapshot !== null
+  const appManagerLoading = inventoryStatus === "loading" || inventoryStatus === "refreshing"
+  const appManagerScanProgress = useAppInventoryStore((s) => s.progress)
+  const inventoryMessage = useMemo(() => {
+    if (inventoryError) return inventoryError
+    if (inventoryStatus !== "partial") return null
+    const providers = (inventorySnapshot?.providers ?? [])
+      .filter((provider) => provider.state !== "ok")
+      .map((provider) => provider.provider)
+      .join(", ")
+    return t("quickLaunch.scanPartial", { providers })
+  }, [inventoryError, inventorySnapshot?.providers, inventoryStatus, t])
 
   const scenes = useQuickLaunchStore((s) => s.scenes)
   const sceneOrder = useQuickLaunchStore((s) => s.sceneOrder)
@@ -99,16 +113,16 @@ export function useQuickLaunchController(active: boolean) {
     setMenuStyle(style)
   }, [contextMenu])
 
-  // Auto-classify + load overrides when App Manager has data
+  const inventoryRevisionRef = useRef<number | null>(null)
+
+  // Auto-classify + load overrides whenever the shared inventory revision changes.
   useEffect(() => {
     if (!active) return
-    if (
-      appManagerScanned &&
-      appManagerApps.length > 0 &&
-      Object.keys(autoClassified).length === 0
-    ) {
+    const revision = inventorySnapshot?.revision ?? null
+    if (appManagerScanned && revision !== null && inventoryRevisionRef.current !== revision) {
+      inventoryRevisionRef.current = revision
       loadOverrides()
-      const classified = autoClassifyApps(appManagerApps)
+      const classified = autoClassifyApps(appManagerApps.filter((app) => app.allowedActions.launch))
       setAutoClassified(classified)
       const overrides = useQuickLaunchStore.getState().appOverrides
       const map = new Map(appManagerApps.map((a) => [a.appId, a]))
@@ -119,7 +133,7 @@ export function useQuickLaunchController(active: boolean) {
     active,
     appManagerScanned,
     appManagerApps,
-    autoClassified,
+    inventorySnapshot?.revision,
     loadOverrides,
     setAutoClassified,
     batchSetScenes,
@@ -149,14 +163,18 @@ export function useQuickLaunchController(active: boolean) {
       result[key] = ids.map((id) => appMap.get(id)).filter((a): a is AppInfo => !!a)
 
       if (searchQuery) {
-        const q = searchQuery.toLowerCase()
-        result[key] = result[key].filter(
-          (a) => a.name.toLowerCase().includes(q) || a.bundleId.toLowerCase().includes(q),
-        )
+        const q = normalizeSearch(searchQuery.trim())
+        const scene = LAUNCH_SCENES.find((candidate) => candidate.key === key)
+        const sceneMatches = scene ? normalizeSearch(t(scene.labelKey)).includes(q) : false
+        if (!sceneMatches) {
+          result[key] = result[key].filter((app) =>
+            normalizeSearch(`${app.name} ${app.bundleId} ${app.source}`).includes(q),
+          )
+        }
       }
     }
     return result
-  }, [scenes, sceneOrder, appMap, searchQuery])
+  }, [scenes, sceneOrder, appMap, searchQuery, i18n.resolvedLanguage, t])
 
   const appIdToScene = useMemo(() => {
     const map: Record<string, LaunchSceneKey> = {}
@@ -192,53 +210,69 @@ export function useQuickLaunchController(active: boolean) {
       if (isEditMode) return
       await runLaunchAction(`launch:${app.appId}`, async () => {
         try {
-          await launchApp(app.installPath)
-        } catch {
-          // Silently fail
+          await appInventoryUseCases.launch(app.appId)
+        } catch (error) {
+          toast.error(
+            t("quickLaunch.toasts.launchFailed", {
+              name: app.name,
+              defaultValue: getErrorMessage(error),
+            }),
+          )
         }
       })
     },
-    [isEditMode, runLaunchAction],
+    [isEditMode, runLaunchAction, t],
   )
 
   const handleReveal = useCallback(
     async (app: AppInfo) => {
       await runLaunchAction(`reveal:${app.appId}`, async () => {
         try {
-          await revealAppInFinder(app.installPath)
-        } catch {
-          /* ignore */
+          await appInventoryUseCases.reveal(app.appId)
+        } catch (error) {
+          toast.error(
+            t("quickLaunch.toasts.revealFailed", {
+              name: app.name,
+              defaultValue: getErrorMessage(error),
+            }),
+          )
         }
       })
     },
-    [runLaunchAction],
+    [runLaunchAction, t],
   )
 
-  const handleContextMenuEdit = useCallback((app: AppInfo, x: number, y: number) => {
-    setContextMenu({ appId: app.appId, x, y })
-  }, [])
+  const handleContextMenuEdit = useCallback(
+    (app: AppInfo, x: number, y: number) => {
+      if (appManagerLoading) return
+      setContextMenu({ appId: app.appId, x, y })
+    },
+    [appManagerLoading],
+  )
 
   const handleMoveApp = useCallback(
     (appId: string, sceneKey: LaunchSceneKey) => {
+      if (appManagerLoading) return
       moveAppToSceneOverride(appId, sceneKey)
       setContextMenu(null)
     },
-    [moveAppToSceneOverride],
+    [appManagerLoading, moveAppToSceneOverride],
   )
 
   const handleResetOverrides = useCallback(() => {
+    if (appManagerLoading) return
     resetOverrides()
     const classified = useQuickLaunchStore.getState().autoClassified
     if (Object.keys(classified).length > 0) {
       batchSetScenes(classified)
     }
     toast.success(t("quickLaunch.toasts.resetSuccess"))
-  }, [resetOverrides, batchSetScenes, t])
+  }, [appManagerLoading, resetOverrides, batchSetScenes, t])
 
   const handleExportOverrides = useCallback(async () => {
-    if (appManagerApps.length === 0 || exporting) return
+    if (appManagerLoading || appManagerApps.length === 0 || exporting) return
     const overrides = useQuickLaunchStore.getState().appOverrides
-    const classified = autoClassifyApps(appManagerApps)
+    const classified = autoClassifyApps(appManagerApps.filter((app) => app.allowedActions.launch))
     const data = exportFullClassification(appManagerApps, classified, overrides)
     if (data.length === 0) return
 
@@ -258,54 +292,28 @@ export function useQuickLaunchController(active: boolean) {
     } finally {
       setExporting(false)
     }
-  }, [appManagerApps, exporting, t])
+  }, [appManagerApps, appManagerLoading, exporting, t])
 
   const handleRescan = useCallback(async () => {
     if (loading) return
-    const currentAppLoading = useAppManagerStore.getState().loading
-    if (currentAppLoading) return
-    let unlisten: (() => void) | null = null
+    if (appManagerLoading) return
     try {
       setLoading(true)
-      useAppManagerStore.setState({
-        loading: true,
-        error: null,
-        scanProgress: { current: 0, stage: "scanningDirectories" },
-      })
-      try {
-        unlisten = await listenToPlatformEvent<{ current: number; stage: string }>(
-          "app-scan:progress",
-          (event) => {
-            useAppManagerStore.setState({ scanProgress: event.payload })
-          },
-        )
-      } catch {
-        // ignore
-      }
-      const result = await appManagerUseCases.scanInstalledApps()
-      useAppManagerStore.setState({
-        apps: result.apps,
-        result,
-        scanned: true,
-        loading: false,
-        scanProgress: null,
-        lastScanTime: result.lastScanTime,
-        lastUpdateCheck: result.lastUpdateCheck,
-      })
-      const classified = autoClassifyApps(result.apps)
-      setAutoClassified(classified)
-      const overrides = useQuickLaunchStore.getState().appOverrides
-      const map = new Map(result.apps.map((a) => [a.appId, a]))
-      const final = applyOverrides(classified, overrides, map)
-      batchSetScenes(final)
-      preloadAppIcons(result.apps)
-    } catch {
-      useAppManagerStore.setState({ loading: false, scanned: true, scanProgress: null })
+      await appInventoryUseCases.refresh()
+    } catch (error) {
+      toast.error(t("quickLaunch.toasts.scanFailed", { defaultValue: getErrorMessage(error) }))
     } finally {
-      if (unlisten) unlisten()
       setLoading(false)
     }
-  }, [loading, setLoading, setAutoClassified, batchSetScenes])
+  }, [appManagerLoading, loading, setLoading, t])
+
+  const handleCancelScan = useCallback(async () => {
+    try {
+      await appInventoryUseCases.cancel()
+    } catch (error) {
+      toast.error(t("quickLaunch.toasts.cancelFailed", { defaultValue: getErrorMessage(error) }))
+    }
+  }, [t])
 
   // Auto-start scan when entering quick launch and no scan has been done yet
   useEffect(() => {
@@ -323,6 +331,7 @@ export function useQuickLaunchController(active: boolean) {
     appManagerScanned,
     appManagerLoading,
     appManagerScanProgress,
+    inventoryError: inventoryMessage,
     scenes,
     sceneOrder,
     expandedScenes,
@@ -351,6 +360,7 @@ export function useQuickLaunchController(active: boolean) {
     handleResetOverrides,
     handleExportOverrides,
     handleRescan,
+    handleCancelScan,
   }
 }
 

@@ -2,57 +2,103 @@ use super::types::AppInfo;
 use std::collections::HashSet;
 use std::path::Path;
 use std::process::{Command, Stdio};
-use std::sync::{Arc, Mutex};
-use std::thread;
-use std::time::{Duration, UNIX_EPOCH};
+use std::time::{Duration, Instant, UNIX_EPOCH};
 
 pub fn run_command_with_timeout(
     cmd: &mut Command,
     timeout: Duration,
 ) -> Result<std::process::Output, String> {
-    let child = cmd
+    run_command_with_timeout_and_cancel(cmd, timeout, None)
+}
+
+pub fn run_command_with_timeout_and_cancel(
+    cmd: &mut Command,
+    timeout: Duration,
+    cancel: Option<&std::sync::atomic::AtomicBool>,
+) -> Result<std::process::Output, String> {
+    let mut child = cmd
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|e| format!("Failed to spawn command: {}", e))?;
 
-    let child_arc = Arc::new(Mutex::new(Some(child)));
-    let child_clone = child_arc.clone();
-
-    let (tx, rx) = std::sync::mpsc::channel();
-
-    thread::spawn(move || {
-        let mut guard = child_clone.lock().unwrap_or_else(|e| e.into_inner());
-        let output = guard.take().unwrap().wait_with_output();
-        let _ = tx.send(output);
-    });
-
-    match rx.recv_timeout(timeout) {
-        Ok(Ok(output)) => Ok(output),
-        Ok(Err(e)) => Err(format!("Command failed: {}", e)),
-        Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
-            if let Ok(mut guard) = child_arc.lock() {
-                if let Some(ref mut c) = *guard {
-                    let _ = c.kill();
-                }
+    let started = Instant::now();
+    loop {
+        if cancel.is_some_and(|flag| flag.load(std::sync::atomic::Ordering::Acquire)) {
+            terminate_process_tree(&mut child);
+            let _ = child.wait();
+            return Err("Command cancelled".to_string());
+        }
+        match child.try_wait() {
+            Ok(Some(_)) => {
+                return child
+                    .wait_with_output()
+                    .map_err(|e| format!("Command failed: {e}"));
             }
-            thread::sleep(Duration::from_millis(200));
-            Err("Command timed out".to_string())
+            Ok(None) if started.elapsed() < timeout => {
+                std::thread::sleep(Duration::from_millis(25));
+            }
+            Ok(None) => {
+                terminate_process_tree(&mut child);
+                let _ = child.wait();
+                return Err("Command timed out".to_string());
+            }
+            Err(e) => return Err(format!("Command status failed: {e}")),
         }
-        Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
-            Err("Command channel disconnected".to_string())
-        }
+    }
+}
+
+fn terminate_process_tree(child: &mut std::process::Child) {
+    let pid = child.id().to_string();
+    #[cfg(target_os = "windows")]
+    {
+        let _ = Command::new("taskkill")
+            .args(["/PID", &pid, "/T", "/F"])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+    }
+    #[cfg(unix)]
+    {
+        // Walk descendants first so package-manager/helper processes do not
+        // outlive the timed-out parent. The direct child is terminated below.
+        terminate_unix_descendants(&pid);
+    }
+    let _ = child.kill();
+}
+
+#[cfg(unix)]
+fn terminate_unix_descendants(parent_pid: &str) {
+    let Ok(output) = Command::new("pgrep").args(["-P", parent_pid]).output() else {
+        return;
+    };
+    for child_pid in String::from_utf8_lossy(&output.stdout).split_whitespace() {
+        terminate_unix_descendants(child_pid);
+        let _ = Command::new("kill")
+            .args(["-TERM", child_pid])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
     }
 }
 
 /// Compute a stable app_id from identifiers.
 pub fn make_app_id(bundle_id: &str, install_path: &str) -> String {
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-    let mut hasher = DefaultHasher::new();
-    bundle_id.hash(&mut hasher);
-    install_path.hash(&mut hasher);
-    format!("{:x}", hasher.finish())
+    use sha2::{Digest, Sha256};
+
+    let identity = if bundle_id.trim().is_empty() || bundle_id == "unknown" {
+        format!("path:{}", install_path.to_lowercase())
+    } else {
+        format!("id:{}", bundle_id.to_lowercase())
+    };
+    let digest = Sha256::digest(identity.as_bytes());
+    format!(
+        "app-v1-{}",
+        digest[..16]
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect::<String>()
+    )
 }
 
 /// Get last modification time in seconds since UNIX epoch.
@@ -212,6 +258,8 @@ mod tests {
     #[test]
     fn test_deduplicate() {
         let app = AppInfo {
+            source_evidence: crate::app_manager::types::SourceEvidence::None,
+            launch_target: None,
             app_id: "abc123".into(),
             name: "Test".into(),
             version: "1.0".into(),

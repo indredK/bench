@@ -9,7 +9,7 @@ import type {
   InstallProgressEvent,
   InstallSource,
   OperationResult,
-  UpdateInfo,
+  UpdateScanReport,
 } from "@/lib/tauri/types/app-manager"
 import type {
   AuthProfile,
@@ -99,14 +99,13 @@ export const TAURI_COMMAND_CONTRACTS = {
   is_main_ready: defineTauriCommand<undefined, boolean>()("is_main_ready"),
   list_startup_issues: defineTauriCommand<undefined, StartupIssue[]>()("list_startup_issues"),
   scan_installed_apps: defineTauriCommand<undefined, AppScanResult>()("scan_installed_apps"),
-  get_app_icon_base64: defineTauriCommand<{ installPath: string }, AppIconBase64>()(
+  cancel_app_inventory_scan: defineTauriCommand<undefined, boolean>()("cancel_app_inventory_scan"),
+  get_app_icon_base64: defineTauriCommand<{ appId: string }, AppIconBase64>()(
     "get_app_icon_base64",
   ),
-  launch_app: defineTauriCommand<{ appPath: string }, void>()("launch_app"),
-  reveal_app_in_finder: defineTauriCommand<{ appPath: string }, void>()("reveal_app_in_finder"),
-  authorize_mac_app: defineTauriCommand<{ appPath: string }, OperationResult>()(
-    "authorize_mac_app",
-  ),
+  launch_app: defineTauriCommand<{ appId: string }, void>()("launch_app"),
+  reveal_app_in_finder: defineTauriCommand<{ appId: string }, void>()("reveal_app_in_finder"),
+  authorize_mac_app: defineTauriCommand<{ appId: string }, OperationResult>()("authorize_mac_app"),
   check_managed_app_updates: defineTauriCommand<{ appIds: string[] }, string[]>()(
     "check_managed_app_updates",
   ),
@@ -123,18 +122,17 @@ export const TAURI_COMMAND_CONTRACTS = {
     OperationResult
   >()("install_app"),
   cancel_batch_operation: defineTauriCommand<undefined, boolean>()("cancel_batch_operation"),
-  check_all_app_updates: defineTauriCommand<{ forceRefresh?: boolean }, UpdateInfo[]>()(
+  check_all_app_updates: defineTauriCommand<{ forceRefresh?: boolean }, UpdateScanReport>()(
     "check_all_app_updates",
   ),
   open_in_mac_app_store: defineTauriCommand<{ adamId: string }, void>()("open_in_mac_app_store"),
   open_in_mac_app_store_updates: defineTauriCommand<undefined, void>()(
     "open_in_mac_app_store_updates",
   ),
-  install_app_update: defineTauriCommand<{ update: UpdateInfo }, void>()("install_app_update"),
-  cancel_app_update: defineTauriCommand<{ appId: string }, void>()("cancel_app_update"),
-  confirm_developer_id_change: defineTauriCommand<{ appId: string; approved: boolean }, void>()(
-    "confirm_developer_id_change",
+  install_app_update: defineTauriCommand<{ updateId: string; inventoryRevision: number }, void>()(
+    "install_app_update",
   ),
+  cancel_app_update: defineTauriCommand<{ appId: string }, void>()("cancel_app_update"),
   scan_dev_projects: defineTauriCommand<{ rootPath: string }, ScanResult>()("scan_dev_projects"),
   cleanup_projects: defineTauriCommand<{ projects: ProjectInfo[] }, CleanupResult>()(
     "cleanup_projects",
@@ -503,12 +501,8 @@ export const TAURI_COMMAND_CONTRACTS = {
   quit_app: defineTauriCommand<undefined, void>()("quit_app"),
   hide_main_window: defineTauriCommand<undefined, void>()("hide_main_window"),
   // clean space
-  scan_storage_overview: defineTauriCommand<undefined, StorageOverview>()(
-    "scan_storage_overview",
-  ),
-  scan_storage_stream: defineTauriCommand<undefined, void>()(
-    "scan_storage_stream",
-  ),
+  scan_storage_overview: defineTauriCommand<undefined, StorageOverview>()("scan_storage_overview"),
+  scan_storage_stream: defineTauriCommand<undefined, void>()("scan_storage_stream"),
   get_category_items: defineTauriCommand<{ categoryId: string }, StorageItem[]>()(
     "get_category_items",
   ),
@@ -523,12 +517,8 @@ export const TAURI_COMMAND_CONTRACTS = {
   open_system_storage_settings: defineTauriCommand<undefined, void>()(
     "open_system_storage_settings",
   ),
-  get_cleanup_records: defineTauriCommand<undefined, CleanupRecord[]>()(
-    "get_cleanup_records",
-  ),
-  add_cleanup_record: defineTauriCommand<{ record: CleanupRecord }, void>()(
-    "add_cleanup_record",
-  ),
+  get_cleanup_records: defineTauriCommand<undefined, CleanupRecord[]>()("get_cleanup_records"),
+  add_cleanup_record: defineTauriCommand<{ record: CleanupRecord }, void>()("add_cleanup_record"),
 } as const
 
 export type TauriCommandName = keyof typeof TAURI_COMMAND_CONTRACTS
@@ -576,6 +566,7 @@ export const TAURI_COMMANDS = {
   },
   appManager: {
     scanInstalledApps: commandName("scan_installed_apps"),
+    cancelAppInventoryScan: commandName("cancel_app_inventory_scan"),
     getAppIconBase64: commandName("get_app_icon_base64"),
     launchApp: commandName("launch_app"),
     revealAppInFinder: commandName("reveal_app_in_finder"),
@@ -592,7 +583,6 @@ export const TAURI_COMMANDS = {
     openMacAppStoreUpdates: commandName("open_in_mac_app_store_updates"),
     installAppUpdate: commandName("install_app_update"),
     cancelAppUpdate: commandName("cancel_app_update"),
-    confirmDeveloperIdChange: commandName("confirm_developer_id_change"),
   },
   devCleaner: {
     scanDevProjects: commandName("scan_dev_projects"),
@@ -802,10 +792,11 @@ export const TAURI_COMMAND_ARG_KEYS = {
   is_main_ready: [],
   list_startup_issues: [],
   scan_installed_apps: [],
-  get_app_icon_base64: ["installPath"],
-  launch_app: ["appPath"],
-  reveal_app_in_finder: ["appPath"],
-  authorize_mac_app: ["appPath"],
+  cancel_app_inventory_scan: [],
+  get_app_icon_base64: ["appId"],
+  launch_app: ["appId"],
+  reveal_app_in_finder: ["appId"],
+  authorize_mac_app: ["appId"],
   check_managed_app_updates: ["appIds"],
   upgrade_app: ["appId"],
   uninstall_app: ["appId"],
@@ -816,9 +807,8 @@ export const TAURI_COMMAND_ARG_KEYS = {
   check_all_app_updates: ["forceRefresh"],
   open_in_mac_app_store: ["adamId"],
   open_in_mac_app_store_updates: [],
-  install_app_update: ["update"],
+  install_app_update: ["updateId", "inventoryRevision"],
   cancel_app_update: ["appId"],
-  confirm_developer_id_change: ["appId", "approved"],
   scan_dev_projects: ["rootPath"],
   cleanup_projects: ["projects"],
   stop_scan: [],

@@ -39,12 +39,7 @@ export function UpdateDetail({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
-        <AppIcon
-          iconBase64={null}
-          installPath={app?.installPath}
-          size={48}
-          className="shrink-0 rounded-lg"
-        />
+        <AppIcon iconBase64={null} appId={app?.appId} size={48} className="shrink-0 rounded-lg" />
         <div className="min-w-0 flex-1">
           <h3 className="truncate font-semibold">{update.appName}</h3>
           {app?.bundleId && (

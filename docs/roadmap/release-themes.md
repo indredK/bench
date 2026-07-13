@@ -1,46 +1,29 @@
-# Bench 发布主题路线图
+# Bench 发布策略
 
-> **唯一发布节奏源** — 各模块 backlog 见 [../modules/](../modules/README.md) 下 `roadmap.md`  
-> 基线：v1.18.0 | 更新：2026-07-04  
-> 产品定位：**macOS 开发者工作台**（副线：多站点 Session 管家）
+产品定位：macOS 开发者工作台；已声明跨平台的模块必须在 Windows 提供同等语义，macOS 专属能力必须明确标注。
 
----
-
-## 定位与选品原则
+## 选品顺序
 
 | 优先级 | 用户故事 | 模块 |
 |--------|----------|------|
-| **主** | 日常开发：启动 App、端口/清理/环境、小工具 | Quick Launch, Dev Toolbox, Port Manager, Dev Cleaner, Env Detector |
-| **差异化** | 多站点登录态与会话恢复 | Account Manager |
-| **保留** | 垂直工具，不扩新品类 | Terminology, Hardware, App Manager |
-| **macOS 壳层** | 系统调优 + 托盘 | System Settings, Tray |
+| 主线 | 启动应用、端口/清理/环境、小工具 | Quick Launch、Dev Toolbox 及子模块 |
+| 差异化 | 多站点登录态和会话恢复 | Account Manager |
+| 维护 | 垂直工具，不扩新品类 | Terminology、Hardware、App Manager |
+| macOS 专属 | 系统调优、托盘和防睡眠 | System Settings、Tray |
 
-**不做 / 远期（v1.20+）：** R 播放器、T 白噪音、W TOTP、X AI Agent 等 OnlySwitch 长尾功能（详见各模块 [roadmap.md](../modules/README.md)）。
+远期长尾功能不得挤占 [当前主题](../ROADMAP.md)：播放器、白噪音、TOTP、AI Agent 等需单独产品决策后才能进入 backlog。
 
----
+## 平台能力
 
-## 平台能力矩阵
-
-| 模块 | macOS | Windows | Linux | 说明 |
+| 模块 | macOS | Windows | Linux | 约束 |
 |------|:-----:|:-------:|:-----:|------|
-| Quick Launch | ✅ | ✅ | ✅ | 依赖本机已安装应用 |
-| App Manager | ✅ | ✅ | ✅ | 安装源因平台而异 |
-| Hardware Compare | ✅ | ⚠️ | ⚠️ | 数据以 Apple/常见硬件为主 |
-| Terminology | ✅ | ✅ | ✅ | 纯前端 + 本地存储 |
-| Account Manager | ✅ | ⚠️ | ⚠️ | WebView Session 以 macOS 为主；非 macOS 应显示 `DesktopOnly` |
-| Dev Toolbox（含子 Tab） | ✅ | 部分 | 部分 | 网络诊断/系统信息依赖后端能力 |
-| System Settings | ✅ | ❌ | ❌ | macOS `defaults` / 系统 API |
-| Menu bar Tray | ✅ | ❌ | ❌ | 托盘与防睡眠联动 |
+| Quick Launch | ⚠️ | ⚠️ | 未审计 | 核心代码已整改，真机启动和大列表验收未完成 |
+| App Manager | ⚠️ | ⚠️ | 未审计 | 核心代码已整改，平台 fixture/smoke/runner 未完成 |
+| Account Manager | ✅ | ⚠️ | ⚠️ | 非 macOS WebView Session 仍需兼容与降级 |
+| Dev Toolbox | ✅ | 部分 | 部分 | 子工具分别声明平台能力 |
+| Hardware | ✅ | ⚠️ | ⚠️ | 数据以 Apple 和常见硬件为主 |
+| Terminology | ✅ | ✅ | ✅ | 纯前端与本地存储 |
+| System Settings | ✅ | 不适用 | 不适用 | macOS `defaults` 和系统权限 API |
+| Tray / 防睡眠 | ✅ | 不适用 | 不适用 | 当前仅定义 macOS 行为 |
 
-图例：✅ 完整支持 · ⚠️ 部分可用 · ❌ 不适用
-
----
-
-## 文档索引
-
-| 文档 | 用途 |
-|------|------|
-| [release-themes.md](./release-themes.md) | **本文件** — 发布主题与节奏 |
-| [modules/](../modules/README.md) | 各模块 `features.md` / `design.md` / `roadmap.md` |
-
-模块 backlog 示例：[account-manager/roadmap.md](../modules/account-manager/roadmap.md) · [system-settings/roadmap.md](../modules/system-settings/roadmap.md) · [port-manager/roadmap.md](../modules/port-manager/roadmap.md)
+`✅` 表示目标平台行为已经验收；`⚠️` 表示部分可用或待验收。unsupported、partial 和 failed 不得折叠为成功空结果。

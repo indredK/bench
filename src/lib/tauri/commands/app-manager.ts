@@ -9,20 +9,24 @@ export function scanInstalledApps() {
   return invokeTauriCommand(TAURI_COMMANDS.appManager.scanInstalledApps)
 }
 
-export function getAppIconBase64(installPath: string) {
-  return invokeTauriCommand(TAURI_COMMANDS.appManager.getAppIconBase64, { installPath })
+export function cancelAppInventoryScan() {
+  return invokeTauriCommand(TAURI_COMMANDS.appManager.cancelAppInventoryScan)
 }
 
-export function launchApp(appPath: string) {
-  return invokeTauriCommand(TAURI_COMMANDS.appManager.launchApp, { appPath })
+export function getAppIconBase64(appId: string) {
+  return invokeTauriCommand(TAURI_COMMANDS.appManager.getAppIconBase64, { appId })
 }
 
-export function revealAppInFinder(appPath: string) {
-  return invokeTauriCommand(TAURI_COMMANDS.appManager.revealAppInFinder, { appPath })
+export function launchApp(appId: string) {
+  return invokeTauriCommand(TAURI_COMMANDS.appManager.launchApp, { appId })
 }
 
-export function authorizeMacApp(appPath: string) {
-  return invokeTauriCommand(TAURI_COMMANDS.appManager.authorizeMacApp, { appPath })
+export function revealAppInFinder(appId: string) {
+  return invokeTauriCommand(TAURI_COMMANDS.appManager.revealAppInFinder, { appId })
+}
+
+export function authorizeMacApp(appId: string) {
+  return invokeTauriCommand(TAURI_COMMANDS.appManager.authorizeMacApp, { appId })
 }
 
 export function checkManagedAppUpdates(appIds: string[]) {
@@ -72,21 +76,13 @@ export function openMacAppStoreUpdates() {
  * `app-update-install:progress` / `app-update-install:finished` events.
  */
 export function installAppUpdate(update: UpdateInfo) {
-  return invokeTauriCommand(TAURI_COMMANDS.appManager.installAppUpdate, { update })
+  return invokeTauriCommand(TAURI_COMMANDS.appManager.installAppUpdate, {
+    updateId: update.updateId,
+    inventoryRevision: update.inventoryRevision,
+  })
 }
 
 /** v1.2: request cancellation of an in-flight install. Idempotent. */
 export function cancelAppUpdate(appId: string) {
   return invokeTauriCommand(TAURI_COMMANDS.appManager.cancelAppUpdate, { appId })
-}
-
-/**
- * v1.2: resolve a `developerIdChanged` checkpoint with the user's decision.
- * `approved = true` continues the install; `false` rolls back.
- */
-export function confirmDeveloperIdChange(appId: string, approved: boolean) {
-  return invokeTauriCommand(TAURI_COMMANDS.appManager.confirmDeveloperIdChange, {
-    appId,
-    approved,
-  })
 }

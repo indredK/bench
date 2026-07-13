@@ -361,6 +361,20 @@ fn build_sparkle_update(
     let Some(latest) = pick_latest(items) else {
         return Ok(None);
     };
+    if let Some(minimum) = latest.min_system_version.as_deref() {
+        let host = std::process::Command::new("sw_vers")
+            .arg("-productVersion")
+            .output()
+            .ok()
+            .filter(|output| output.status.success())
+            .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_string());
+        if host
+            .as_deref()
+            .is_none_or(|host_version| version_lt(host_version, minimum))
+        {
+            return Ok(None);
+        }
+    }
 
     let latest_version = if !latest.short_version.is_empty() {
         latest.short_version.clone()
@@ -386,6 +400,12 @@ fn build_sparkle_update(
     if let Some(sha) = &latest.installer_sha512_sum {
         meta.insert("sha512".into(), serde_json::Value::String(sha.clone()));
     }
+    if let Some(minimum) = &latest.min_system_version {
+        meta.insert(
+            "minimumSystemVersion".into(),
+            serde_json::Value::String(minimum.clone()),
+        );
+    }
     let source_meta = if meta.len() == 1 {
         // Only the "provider" key — no verification material was advertised.
         None
@@ -394,6 +414,8 @@ fn build_sparkle_update(
     };
 
     Ok(Some(UpdateInfo {
+        update_id: String::new(),
+        inventory_revision: 0,
         app_id: app.app_id.clone(),
         app_name: app.name.clone(),
         source: UpdateSource::Sparkle,
@@ -426,6 +448,8 @@ fn build_squirrel_update(
         return Ok(None);
     }
     Ok(Some(UpdateInfo {
+        update_id: String::new(),
+        inventory_revision: 0,
         app_id: app.app_id.clone(),
         app_name: app.name.clone(),
         source: UpdateSource::Squirrel,
@@ -584,6 +608,8 @@ mod tests {
 
     fn make_app(version: &str) -> AppInfo {
         AppInfo {
+            source_evidence: crate::app_manager::types::SourceEvidence::None,
+            launch_target: None,
             app_id: "demo".into(),
             name: "Demo".into(),
             version: version.into(),

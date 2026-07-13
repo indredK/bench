@@ -1,25 +1,24 @@
-# Quick Launch 迭代规划
+# Quick Launch Roadmap
 
-> 最后更新: 2026-07-05  
-> 发布节奏见 [release-themes.md](../../roadmap/release-themes.md)
+> 当前状态与约束见 [跨平台可靠性说明](./audit-and-upgrade-2026-07-13.md)。
 
-## 📊 当前评估
+## 已落地基线
 
-| 维度 | 评分 | 说明 |
-|------|------|------|
-| 代码质量 | ⭐⭐⭐⭐⚬ | controller 抽取完成，16 个 store 字段改精细 selector |
-| 功能完备度 | ⭐⭐⭐⭐⚬ | 自动分类/场景/最近使用/编辑/导出完整 |
-| 用户体验 | ⭐⭐⭐⚬⚬ | 动画与分类清晰；AppCard 信息密度可优化 |
-| 性能 | ⭐⭐⭐⭐⚬ | 懒加载好；AppCard 未虚拟化 |
-| 测试覆盖 | ⭐⭐⚬⚬⚬ | 无测试文件 |
-| 可维护性 | ⭐⭐⭐⭐⚬ | controller / scenes / store 分层清晰 |
+- 复用共享 inventory，不维护独立扫描流程。
+- 仅通过稳定 `appId` 启动后端 LaunchTarget，不可启动项不可点击。
+- revision 变化自动重分类，刷新 single-flight 并支持取消、partial/stale 反馈。
+- 首载 skeleton、刷新进度、虚拟网格、按需图标和 NFKC 搜索已接入。
+- 分类规则版本化，overrides 带 schema version 持久化。
 
-## Backlog
+## 发布前必须完成
 
-- [ ] scenes.ts → `services/` 目录迁移
-- [ ] LaunchAppEntry 未使用导出清理
-- [ ] App 启动 / Finder 操作封装到 use-case 层
-- [ ] 大列表 AppCard 虚拟化
-- [ ] 场景分类规则可配置化
-- [ ] 应用使用频率统计
-- [ ] ≥1 controller/use-case 测试（release 门禁）
+- [ ] Windows EXE/AUMID 与 macOS `.app` 真机启动 smoke。
+- [ ] 500+ 应用虚拟列表性能和 DOM 数量验收。
+
+## 后续增强
+
+- [ ] 分类命中解释与 platform/source/exact ID 优先级治理。
+- [ ] 确认外部消费者后清理未使用的 `LaunchAppEntry`。
+- [ ] 使用频率、最近使用和固定项设计；先定义隐私与留存策略。
+
+未完成目标平台 smoke 前，不得宣称跨平台发布就绪。

@@ -137,7 +137,7 @@ export function createAppManagerColumns(
           <div className="flex min-w-0 items-center gap-2">
             <AppIcon
               iconBase64={row.original.iconBase64}
-              installPath={row.original.installPath}
+              appId={row.original.appId}
               size={20}
               className="shrink-0 rounded-sm"
             />

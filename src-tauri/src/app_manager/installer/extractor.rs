@@ -1,6 +1,15 @@
 use super::downloader::cache_root;
+use crate::app_manager::run_command_with_timeout_and_cancel;
+use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 use std::time::{SystemTime, UNIX_EPOCH};
+
+const MAX_ARCHIVE_ENTRIES: usize = 100_000;
+const MAX_EXTRACTED_BYTES: u64 = 4 * 1024 * 1024 * 1024;
+const MAX_ENTRY_BYTES: u64 = 2 * 1024 * 1024 * 1024;
+const ARCHIVE_COMMAND_TIMEOUT: Duration = Duration::from_secs(5 * 60);
 
 /// Create a unique work directory under our cache root for one install run.
 /// Lifetime is bounded by the caller — the orchestrator removes it after the
@@ -58,13 +67,25 @@ pub fn find_app_bundle(root: &Path) -> Result<PathBuf, String> {
 
 /// Extract a `.zip` archive to `work_dir` and return the path of the contained
 /// `.app` bundle. Restores Unix permissions so executable bits survive.
-pub fn extract_zip(zip_path: &Path, work_dir: &Path) -> Result<PathBuf, String> {
+pub fn extract_zip_with_cancel(
+    zip_path: &Path,
+    work_dir: &Path,
+    cancel: Option<&AtomicBool>,
+) -> Result<PathBuf, String> {
     let file =
         std::fs::File::open(zip_path).map_err(|e| format!("SU_EXTRACT_FAIL: open zip {e}"))?;
     let mut archive =
         zip::ZipArchive::new(file).map_err(|e| format!("SU_EXTRACT_FAIL: read zip {e}"))?;
+    if archive.len() > MAX_ARCHIVE_ENTRIES {
+        return Err("SU_EXTRACT_TOO_MANY_ENTRIES".to_string());
+    }
+
+    let mut extracted_bytes = 0_u64;
 
     for i in 0..archive.len() {
+        if cancel.is_some_and(|flag| flag.load(Ordering::Acquire)) {
+            return Err("SU_CANCELLED: extraction cancelled".to_string());
+        }
         let mut entry = archive
             .by_index(i)
             .map_err(|e| format!("SU_EXTRACT_FAIL: zip entry {i}: {e}"))?;
@@ -84,8 +105,20 @@ pub fn extract_zip(zip_path: &Path, work_dir: &Path) -> Result<PathBuf, String> 
             }
             let mut out = std::fs::File::create(&outpath)
                 .map_err(|e| format!("SU_EXTRACT_FAIL: create {e}"))?;
-            std::io::copy(&mut entry, &mut out)
+            let declared = entry.size();
+            if declared > MAX_ENTRY_BYTES
+                || extracted_bytes.saturating_add(declared) > MAX_EXTRACTED_BYTES
+            {
+                return Err("SU_EXTRACT_SIZE_LIMIT".to_string());
+            }
+            let written = std::io::copy(&mut (&mut entry).take(MAX_ENTRY_BYTES + 1), &mut out)
                 .map_err(|e| format!("SU_EXTRACT_FAIL: write {e}"))?;
+            if written > MAX_ENTRY_BYTES
+                || extracted_bytes.saturating_add(written) > MAX_EXTRACTED_BYTES
+            {
+                return Err("SU_EXTRACT_SIZE_LIMIT".to_string());
+            }
+            extracted_bytes = extracted_bytes.saturating_add(written);
         }
 
         // Preserve unix permissions so executables stay executable.
@@ -101,19 +134,35 @@ pub fn extract_zip(zip_path: &Path, work_dir: &Path) -> Result<PathBuf, String> 
 
 /// Mount a `.dmg`, copy the inner `.app` to `work_dir`, then detach.
 /// Returns the path of the local copy of the `.app`.
-pub fn extract_dmg(dmg_path: &Path, work_dir: &Path) -> Result<PathBuf, String> {
+pub fn extract_dmg_with_cancel(
+    dmg_path: &Path,
+    work_dir: &Path,
+    cancel: Option<&AtomicBool>,
+) -> Result<PathBuf, String> {
     let mount_dir = work_dir.join("mnt");
     std::fs::create_dir_all(&mount_dir).map_err(|e| format!("SU_HDIUTIL_FAIL: mkdir mount {e}"))?;
 
-    let attach = std::process::Command::new("hdiutil")
-        .arg("attach")
-        .arg("-nobrowse")
-        .arg("-readonly")
-        .arg("-mountpoint")
-        .arg(&mount_dir)
-        .arg(dmg_path)
-        .output()
-        .map_err(|e| format!("SU_HDIUTIL_FAIL: spawn {e}"))?;
+    let attach = match run_command_with_timeout_and_cancel(
+        std::process::Command::new("hdiutil")
+            .arg("attach")
+            .arg("-nobrowse")
+            .arg("-readonly")
+            .arg("-mountpoint")
+            .arg(&mount_dir)
+            .arg(dmg_path),
+        ARCHIVE_COMMAND_TIMEOUT,
+        cancel,
+    ) {
+        Ok(output) => output,
+        Err(error) => {
+            let _ = std::process::Command::new("hdiutil")
+                .arg("detach")
+                .arg("-force")
+                .arg(&mount_dir)
+                .output();
+            return Err(format!("SU_HDIUTIL_FAIL: spawn {error}"));
+        }
+    };
     if !attach.status.success() {
         return Err(format!(
             "SU_HDIUTIL_FAIL: attach exit {} {}",
@@ -141,12 +190,15 @@ pub fn extract_dmg(dmg_path: &Path, work_dir: &Path) -> Result<PathBuf, String> 
         .ok_or_else(|| "SU_EXTRACT_FAIL: app has no file name".to_string())?;
     let dest = work_dir.join(app_name);
 
-    let cp = std::process::Command::new("/bin/cp")
-        .arg("-R")
-        .arg(&app_in_mount)
-        .arg(&dest)
-        .output()
-        .map_err(|e| format!("SU_EXTRACT_FAIL: cp spawn {e}"))?;
+    let cp = run_command_with_timeout_and_cancel(
+        std::process::Command::new("/bin/cp")
+            .arg("-R")
+            .arg(&app_in_mount)
+            .arg(&dest),
+        ARCHIVE_COMMAND_TIMEOUT,
+        cancel,
+    )
+    .map_err(|e| format!("SU_EXTRACT_FAIL: cp spawn {e}"))?;
 
     // Detach unconditionally before reporting cp success/failure so we don't
     // leak the mount.
@@ -233,7 +285,11 @@ mod tests {
 
         let work = root.join("work");
         std::fs::create_dir_all(&work).unwrap();
-        let app = extract_zip(&zip_path, &work).unwrap();
+        let cancelled = AtomicBool::new(true);
+        let error = extract_zip_with_cancel(&zip_path, &work, Some(&cancelled)).unwrap_err();
+        assert!(error.starts_with("SU_CANCELLED"));
+
+        let app = extract_zip_with_cancel(&zip_path, &work, None).unwrap();
         assert!(app.ends_with("Demo.app"));
         assert!(app.join("Contents/Info.plist").exists());
         assert!(app.join("Contents/MacOS/Demo").exists());

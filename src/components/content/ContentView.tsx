@@ -4,7 +4,7 @@
 import { type ReactNode } from "react"
 import { type ColumnDef, type SortingState, type OnChangeFn } from "@tanstack/react-table"
 import { AnimatePresence, motion } from "motion/react"
-import { RefreshCw, Search } from "lucide-react"
+import { Search } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { useReducedMotionProps } from "@/lib/motion-utils"
 import { VirtualDataTable } from "./VirtualDataTable"
@@ -27,6 +27,8 @@ interface ContentViewProps<T> {
   loadingSubtitle?: string
   /** Optional numeric progress value (0-N) shown in the loading state */
   loadingProgress?: number
+  /** Total work units. Null/undefined means progress is indeterminate. */
+  loadingTotal?: number | null
   estimatedRowHeight?: number
   estimatedCardHeight?: number
   gridColumns?: number
@@ -68,6 +70,7 @@ export function ContentView<T>({
   loading = false,
   loadingSubtitle,
   loadingProgress,
+  loadingTotal,
   estimatedRowHeight,
   estimatedCardHeight,
   gridColumns,
@@ -90,34 +93,34 @@ export function ContentView<T>({
   const { t } = useTranslation()
   const { reduce } = useReducedMotionProps()
 
-  // Initial load with no data — show full-screen loader
+  const progressPercent =
+    loadingProgress !== undefined && loadingTotal != null && loadingTotal > 0
+      ? Math.min(100, Math.max(0, (loadingProgress / loadingTotal) * 100))
+      : null
+
+  // Initial load with no data — preserve the eventual table/grid geometry.
   if (loading && data.length === 0) {
     return (
-      <div className="text-muted-foreground bg-card/50 flex h-full flex-col items-center justify-center gap-3 rounded-xl border">
-        <RefreshCw size={28} className="text-primary animate-spin" />
-        <p className="text-foreground text-sm font-medium">{t("common.loading")}</p>
-        {(loadingSubtitle || loadingProgress !== undefined) && (
-          <div className="w-48">
-            {loadingProgress !== undefined && loadingProgress > 0 && (
-              <div className="bg-muted mb-2 h-1 w-full overflow-hidden rounded-full">
-                <motion.div
-                  className="bg-primary/60 h-full"
-                  initial={{ width: "0%" }}
-                  animate={{ width: `${Math.min(100, Math.max(5, loadingProgress / 3))}%` }}
-                  transition={{ duration: 0.3, ease: "easeOut" }}
-                />
-              </div>
-            )}
-            {(loadingSubtitle || loadingProgress !== undefined) && (
-              <p className="text-muted-foreground/80 text-center text-[11px]">
-                {loadingSubtitle}
-                {loadingProgress !== undefined && loadingProgress > 0 && (
-                  <span className="tabular-nums"> · {loadingProgress}</span>
-                )}
-              </p>
-            )}
+      <div className="bg-card/50 flex h-full flex-col gap-3 rounded-xl border p-3" aria-busy="true">
+        <div className="flex items-center justify-between">
+          <div className="bg-muted h-5 w-40 animate-pulse rounded" />
+          <span className="text-muted-foreground text-xs">{loadingSubtitle}</span>
+        </div>
+        <div className="bg-muted h-1 w-full overflow-hidden rounded-full">
+          <div
+            className="bg-primary/60 h-full animate-pulse transition-[width]"
+            style={{ width: progressPercent === null ? "35%" : `${progressPercent}%` }}
+          />
+        </div>
+        {Array.from({ length: 8 }, (_, index) => (
+          <div key={index} className="flex h-12 items-center gap-3 border-b last:border-b-0">
+            <div className="bg-muted size-8 animate-pulse rounded-md" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <div className="bg-muted h-3 w-1/3 animate-pulse rounded" />
+              <div className="bg-muted h-2.5 w-2/3 animate-pulse rounded" />
+            </div>
           </div>
-        )}
+        ))}
       </div>
     )
   }
@@ -204,8 +207,11 @@ export function ContentView<T>({
   return (
     <div className="relative h-full">
       {content}
-      <div className="bg-background/40 pointer-events-none absolute inset-0 flex items-center justify-center rounded-xl">
-        <RefreshCw size={28} className="text-primary animate-spin" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-1 overflow-hidden rounded-full">
+        <div
+          className="bg-primary h-full animate-pulse transition-[width]"
+          style={{ width: progressPercent === null ? "35%" : `${progressPercent}%` }}
+        />
       </div>
     </div>
   )

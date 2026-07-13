@@ -34,8 +34,10 @@ import {
   Wrench,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirmDialog"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { VirtualGridView } from "@/components/content/VirtualGridView"
 import { LAUNCH_SCENES } from "@/features/quick-launch/scenes"
 import { cn } from "@/lib/utils"
 import { useReducedMotionProps } from "@/lib/motion-utils"
@@ -95,6 +97,7 @@ function AppCard({
   isEditMode,
   sceneLabel,
   onContextMenuEdit,
+  animated = true,
 }: {
   app: AppInfo
   onLaunch: (app: AppInfo) => void
@@ -102,6 +105,7 @@ function AppCard({
   isEditMode?: boolean
   sceneLabel?: string
   onContextMenuEdit?: (app: AppInfo, x: number, y: number) => void
+  animated?: boolean
 }) {
   const { t } = useTranslation()
   const [showInfo, setShowInfo] = useState(false)
@@ -109,8 +113,10 @@ function AppCard({
 
   return (
     <motion.button
-      layout
-      onClick={() => onLaunch(app)}
+      layout={animated}
+      onClick={() => {
+        if (app.allowedActions.launch) onLaunch(app)
+      }}
       onContextMenu={(e) => {
         e.preventDefault()
         e.stopPropagation()
@@ -126,12 +132,13 @@ function AppCard({
         "group bg-card hover:border-primary/40 hover:bg-accent/30 relative flex cursor-pointer flex-col items-center gap-2 rounded-xl border p-3 transition hover:shadow-sm",
         isEditMode ? "border-primary/40 ring-primary/20 ring-1" : "border-border",
       )}
-      title={app.name}
+      title={app.allowedActions.launch ? app.name : t("quickLaunch.notLaunchable")}
+      disabled={!app.allowedActions.launch}
     >
       <div className="bg-muted/50 flex size-12 shrink-0 items-center justify-center rounded-xl">
         <AppIcon
           iconBase64={app.iconBase64}
-          installPath={app.installPath}
+          appId={app.appId}
           size={40}
           className="rounded-lg object-contain"
         />
@@ -165,6 +172,57 @@ function AppCard({
         )}
       </AnimatePresence>
     </motion.button>
+  )
+}
+
+function VirtualizedAppGrid({
+  apps,
+  onLaunch,
+  onReveal,
+  isEditMode,
+  appIdToScene,
+  onContextMenuEdit,
+}: {
+  apps: AppInfo[]
+  onLaunch: (app: AppInfo) => void
+  onReveal: (app: AppInfo) => void
+  isEditMode: boolean
+  appIdToScene: Record<string, LaunchSceneKey>
+  onContextMenuEdit: (app: AppInfo, x: number, y: number) => void
+}) {
+  const { t } = useTranslation()
+  return (
+    <div className="h-[420px] min-h-0">
+      <VirtualGridView
+        data={apps}
+        getRowId={(app) => app.appId}
+        renderGridCard={(app) => (
+          <AppCard
+            app={app}
+            onLaunch={onLaunch}
+            onReveal={onReveal}
+            isEditMode={isEditMode}
+            sceneLabel={
+              isEditMode
+                ? t(
+                    LAUNCH_SCENES.find((scene) => scene.key === appIdToScene[app.appId])
+                      ?.labelKey || "",
+                  )
+                : undefined
+            }
+            onContextMenuEdit={onContextMenuEdit}
+            animated={false}
+          />
+        )}
+        onItemClick={() => {}}
+        estimatedCardHeight={104}
+        gridColumns={8}
+        minCardWidth={84}
+        gap={8}
+        rowPadding={[0, 8]}
+        wrapperPadding="p-0"
+      />
+    </div>
   )
 }
 
@@ -214,38 +272,50 @@ function SceneSection({
           <ChevronDown size={14} />
         </motion.span>
       </div>
-      <motion.div
-        layout
-        className="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8"
-      >
-        {displayApps.map((app) => (
-          <AppCard
-            key={app.appId}
-            app={app}
-            onLaunch={onLaunch}
-            onReveal={onReveal}
-            isEditMode={isEditMode}
-            sceneLabel={
-              isEditMode
-                ? t(LAUNCH_SCENES.find((s) => s.key === appIdToScene[app.appId])?.labelKey || "")
-                : undefined
-            }
-            onContextMenuEdit={onContextMenuEdit}
-          />
-        ))}
-        {!expanded && apps.length > 6 && (
-          <Button
-            onClick={(e) => {
-              e.stopPropagation()
-              onToggle()
-            }}
-            variant="outline" size="sm"
-            className="border-border text-muted-foreground hover:border-primary/30 hover:text-primary flex items-center justify-center rounded-xl border border-dashed bg-transparent p-3 text-xs transition"
-          >
-            {t("quickLaunch.showMore", { count: apps.length - 6 })}
-          </Button>
-        )}
-      </motion.div>
+      {expanded && apps.length > 48 ? (
+        <VirtualizedAppGrid
+          apps={apps}
+          onLaunch={onLaunch}
+          onReveal={onReveal}
+          isEditMode={isEditMode}
+          appIdToScene={appIdToScene}
+          onContextMenuEdit={onContextMenuEdit}
+        />
+      ) : (
+        <motion.div
+          layout
+          className="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8"
+        >
+          {displayApps.map((app) => (
+            <AppCard
+              key={app.appId}
+              app={app}
+              onLaunch={onLaunch}
+              onReveal={onReveal}
+              isEditMode={isEditMode}
+              sceneLabel={
+                isEditMode
+                  ? t(LAUNCH_SCENES.find((s) => s.key === appIdToScene[app.appId])?.labelKey || "")
+                  : undefined
+              }
+              onContextMenuEdit={onContextMenuEdit}
+            />
+          ))}
+          {!expanded && apps.length > 6 && (
+            <Button
+              onClick={(e) => {
+                e.stopPropagation()
+                onToggle()
+              }}
+              variant="outline"
+              size="sm"
+              className="border-border text-muted-foreground hover:border-primary/30 hover:text-primary flex items-center justify-center rounded-xl border border-dashed bg-transparent p-3 text-xs transition"
+            >
+              {t("quickLaunch.showMore", { count: apps.length - 6 })}
+            </Button>
+          )}
+        </motion.div>
+      )}
     </section>
   )
 }
@@ -314,45 +384,96 @@ function MergedSceneSection({
       </div>
 
       {/* App cards grid */}
-      <AnimatePresence mode="popLayout">
-        <motion.div
-          key={activeTab}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.15, ease: "easeOut" }}
-          className="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8"
-        >
-          {currentApps.map((app) => (
-            <AppCard
-              key={app.appId}
-              app={app}
-              onLaunch={onLaunch}
-              onReveal={onReveal}
-              isEditMode={isEditMode}
-              sceneLabel={
-                isEditMode
-                  ? t(LAUNCH_SCENES.find((s) => s.key === appIdToScene[app.appId])?.labelKey || "")
-                  : undefined
-              }
-              onContextMenuEdit={onContextMenuEdit}
-            />
-          ))}
-        </motion.div>
-      </AnimatePresence>
+      {currentApps.length > 48 ? (
+        <VirtualizedAppGrid
+          apps={currentApps}
+          onLaunch={onLaunch}
+          onReveal={onReveal}
+          isEditMode={isEditMode}
+          appIdToScene={appIdToScene}
+          onContextMenuEdit={onContextMenuEdit}
+        />
+      ) : (
+        <AnimatePresence mode="popLayout">
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
+            className="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8"
+          >
+            {currentApps.map((app) => (
+              <AppCard
+                key={app.appId}
+                app={app}
+                onLaunch={onLaunch}
+                onReveal={onReveal}
+                isEditMode={isEditMode}
+                sceneLabel={
+                  isEditMode
+                    ? t(
+                        LAUNCH_SCENES.find((s) => s.key === appIdToScene[app.appId])?.labelKey ||
+                          "",
+                      )
+                    : undefined
+                }
+                onContextMenuEdit={onContextMenuEdit}
+              />
+            ))}
+          </motion.div>
+        </AnimatePresence>
+      )}
     </section>
   )
 }
 
-function EmptyState({ onRescan }: { onRescan: () => void }) {
+function QuickLaunchSkeleton({
+  stageText,
+  cancellable,
+  onCancel,
+}: {
+  stageText: string
+  cancellable: boolean
+  onCancel: () => void
+}) {
+  const { t } = useTranslation()
+  return (
+    <div className="flex h-full flex-col gap-4 p-2" aria-busy="true">
+      <div className="bg-muted h-9 w-full animate-pulse rounded-lg" />
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-muted-foreground text-xs">{stageText}</p>
+        {cancellable && (
+          <Button variant="outline" size="sm" onClick={onCancel}>
+            {t("common.cancel")}
+          </Button>
+        )}
+      </div>
+      <div className="bg-muted h-1 w-full animate-pulse overflow-hidden rounded-full" />
+      {[0, 1, 2].map((section) => (
+        <section key={section} className="space-y-2">
+          <div className="bg-muted h-6 w-40 animate-pulse rounded-md" />
+          <div className="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8">
+            {Array.from({ length: 8 }, (_, index) => (
+              <div key={index} className="bg-muted aspect-square animate-pulse rounded-xl" />
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  )
+}
+
+function EmptyState({ onRescan, error }: { onRescan: () => void; error?: string | null }) {
   const { t } = useTranslation()
   return (
     <div className="text-muted-foreground flex flex-col items-center justify-center gap-4 py-24">
       <LayoutGridIcon />
-      <p className="text-sm">{t("quickLaunch.empty")}</p>
+      <p className="text-sm">{error || t("quickLaunch.empty")}</p>
       <Button
         onClick={onRescan}
-        variant="outline" size="sm"
+        variant="outline"
+        size="sm"
         className="border-border bg-card text-foreground hover:bg-accent inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition"
       >
         <RefreshCw size={14} />
@@ -386,7 +507,9 @@ export default function QuickLaunch({ active }: { active: boolean; feature: AppF
   const {
     appManagerApps,
     appManagerScanned,
+    appManagerLoading,
     appManagerScanProgress,
+    inventoryError,
     sceneOrder,
     expandedScenes,
     searchQuery,
@@ -413,12 +536,12 @@ export default function QuickLaunch({ active }: { active: boolean; feature: AppF
     handleResetOverrides,
     handleExportOverrides,
     handleRescan,
+    handleCancelScan,
   } = useQuickLaunchController(active)
 
   const [confirmResetOpen, setConfirmResetOpen] = useState(false)
 
   if (loading && appManagerApps.length === 0) {
-    const current = appManagerScanProgress?.current ?? 0
     const stage = appManagerScanProgress?.stage ?? "scanningDirectories"
     const stageText =
       stage === "processingMetadata"
@@ -428,29 +551,16 @@ export default function QuickLaunch({ active }: { active: boolean; feature: AppF
           : t("quickLaunch.scanStage.scanning")
 
     return (
-      <div className="flex h-full items-center justify-center">
-        <div className="text-muted-foreground flex w-64 flex-col items-center gap-3">
-          <RefreshCw size={24} className="animate-spin" />
-          <p className="text-foreground text-sm font-medium">{t("quickLaunch.scanning")}</p>
-          <div className="w-full">
-            <div className="bg-muted h-1 w-full overflow-hidden rounded-full">
-              <motion.div
-                className="bg-primary/60 h-full"
-                initial={{ width: "0%" }}
-                animate={{
-                  width: current > 0 ? `${Math.min(100, Math.max(5, current / 3))}%` : "5%",
-                }}
-                transition={{ duration: 0.3, ease: "easeOut" }}
-              />
-            </div>
-            <div className="text-muted-foreground/80 mt-2 flex items-center justify-between text-[11px]">
-              <span>{stageText}</span>
-              <span className="tabular-nums">{current > 0 ? `${current}` : "..."}</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      <QuickLaunchSkeleton
+        stageText={stageText}
+        cancellable={appManagerScanProgress?.cancellable === true}
+        onCancel={handleCancelScan}
+      />
     )
+  }
+
+  if (inventoryError && appManagerApps.length === 0) {
+    return <EmptyState onRescan={handleRescan} error={inventoryError} />
   }
 
   if (!appManagerScanned || appManagerApps.length === 0) {
@@ -459,6 +569,16 @@ export default function QuickLaunch({ active }: { active: boolean; feature: AppF
 
   return (
     <div className="flex h-full flex-col gap-4 overflow-hidden">
+      {inventoryError && (
+        <Alert variant="destructive" className="shrink-0">
+          <AlertDescription className="flex items-center justify-between gap-3">
+            <span>{inventoryError}</span>
+            <Button variant="outline" size="sm" onClick={handleRescan}>
+              {t("quickLaunch.rescan")}
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
       {/* Header */}
       <div className="flex shrink-0 items-center gap-3">
         <div className="relative flex-1">
@@ -480,8 +600,9 @@ export default function QuickLaunch({ active }: { active: boolean; feature: AppF
           <>
             <Button
               onClick={() => setConfirmResetOpen(true)}
-              disabled={Object.keys(appOverrides).length === 0}
-              variant="outline" size="sm"
+              disabled={appManagerLoading || Object.keys(appOverrides).length === 0}
+              variant="outline"
+              size="sm"
               className="border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40"
               title={t("quickLaunch.resetClassification")}
             >
@@ -490,8 +611,9 @@ export default function QuickLaunch({ active }: { active: boolean; feature: AppF
             </Button>
             <Button
               onClick={handleExportOverrides}
-              disabled={exporting}
-              variant="outline" size="sm"
+              disabled={appManagerLoading || exporting}
+              variant="outline"
+              size="sm"
               className="border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40"
               title={t("quickLaunch.exportOverridesTooltip")}
             >
@@ -514,7 +636,9 @@ export default function QuickLaunch({ active }: { active: boolean; feature: AppF
 
         <Button
           onClick={toggleEditMode}
-          variant="outline" size="sm"
+          disabled={appManagerLoading}
+          variant="outline"
+          size="sm"
           className={cn(
             "flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition",
             isEditMode
@@ -529,13 +653,47 @@ export default function QuickLaunch({ active }: { active: boolean; feature: AppF
         <Button
           onClick={handleRescan}
           disabled={loading}
-          variant="outline" size="sm"
+          variant="outline"
+          size="sm"
           className="border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition disabled:opacity-50"
         >
           <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
           {t("quickLaunch.rescan")}
         </Button>
       </div>
+
+      {appManagerLoading && (
+        <div className="flex shrink-0 items-center gap-3" aria-live="polite">
+          <span className="text-muted-foreground shrink-0 text-xs">
+            {appManagerScanProgress?.stage === "processingMetadata"
+              ? t("quickLaunch.scanStage.processing")
+              : appManagerScanProgress?.stage === "resolvingSources"
+                ? t("quickLaunch.scanStage.resolving")
+                : t("quickLaunch.scanStage.scanning")}
+          </span>
+          <div className="bg-muted h-1 min-w-0 flex-1 overflow-hidden rounded-full">
+            <div
+              className="bg-primary h-full animate-pulse transition-[width]"
+              style={{
+                width:
+                  appManagerScanProgress?.total && appManagerScanProgress.total > 0
+                    ? `${Math.min(
+                        100,
+                        ((appManagerScanProgress.completed ?? appManagerScanProgress.current) /
+                          appManagerScanProgress.total) *
+                          100,
+                      )}%`
+                    : "35%",
+              }}
+            />
+          </div>
+          {appManagerScanProgress?.cancellable !== false && (
+            <Button variant="outline" size="xs" onClick={handleCancelScan}>
+              {t("common.cancel")}
+            </Button>
+          )}
+        </div>
+      )}
 
       {/* Stats */}
       {totalApps > 0 && (
@@ -547,7 +705,13 @@ export default function QuickLaunch({ active }: { active: boolean; feature: AppF
       )}
 
       {/* Scene Grids */}
-      <div className="flex-1 space-y-6 overflow-y-auto pr-1">
+      <div
+        className={cn(
+          "flex-1 space-y-6 overflow-y-auto pr-1 transition-opacity",
+          appManagerLoading && "opacity-60",
+        )}
+        aria-busy={appManagerLoading}
+      >
         {sceneOrder.map((key) => {
           // Skip merged sub-scenes (rendered inside MergedSceneSection)
           if (mergedSceneSet.has(key) && key !== firstMergedKey) return null
@@ -614,7 +778,8 @@ export default function QuickLaunch({ active }: { active: boolean; feature: AppF
             <Button
               key={scene.key}
               onClick={() => handleMoveApp(contextMenu.appId, scene.key)}
-              variant="ghost" size="sm"
+              variant="ghost"
+              size="sm"
               className={cn(
                 "hover:bg-accent flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs transition",
                 appIdToScene[contextMenu.appId] === scene.key

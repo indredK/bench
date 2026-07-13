@@ -93,6 +93,7 @@ describe("Tauri contracts", () => {
           "sourceType",
           "sourceId",
           "sourceConfidence",
+          "sourceEvidence",
           "canUpgrade",
           "canUninstall",
           "upgradeAvailable",
@@ -101,6 +102,7 @@ describe("Tauri contracts", () => {
           "isSystemApp",
           "allowedActions",
           "iconBase64",
+          "launchTarget",
         ]),
       ],
       [
@@ -117,7 +119,7 @@ describe("Tauri contracts", () => {
       [
         "BatchOperationResult",
         "camel",
-        dtoKeys<BatchOperationResult>(["total", "succeeded", "failed", "results"]),
+        dtoKeys<BatchOperationResult>(["total", "succeeded", "failed", "cancelled", "results"]),
       ],
       [
         "InstallSource",
@@ -304,6 +306,7 @@ describe("Tauri contracts", () => {
 // a struct param for these commands it should expand it to the struct fields.
 const COMMANDS_WITH_FLAT_STRUCT_ARGS = new Set([
   "create_term", // TermInput passed as individual fields (industryId, categoryId, ...)
+  "install_app_update", // InstallUpdateRequest passed as individual fields (updateId, inventoryRevision)
 ])
 
 function flattenContractValues(contractGroup: Record<string, Record<string, string>>): string[] {

@@ -7,7 +7,7 @@ import { canUseDesktopFeatures } from "@/platform/capabilities"
 
 interface AppIconProps {
   iconBase64: string | null
-  installPath?: string
+  appId?: string
   size?: number
   className?: string
 }
@@ -30,49 +30,49 @@ function runNextPendingLoad() {
   if (next) next()
 }
 
-function rememberIcon(installPath: string, icon: string | null) {
-  if (iconCache.has(installPath)) {
-    iconCache.delete(installPath)
+function rememberIcon(appId: string, icon: string | null) {
+  if (iconCache.has(appId)) {
+    iconCache.delete(appId)
   } else if (iconCache.size >= ICON_CACHE_CAP) {
     const oldest = iconCache.keys().next().value
     if (oldest !== undefined) iconCache.delete(oldest)
   }
-  iconCache.set(installPath, icon)
+  iconCache.set(appId, icon)
 }
 
-function readIcon(installPath: string): string | null | undefined {
-  if (!iconCache.has(installPath)) return undefined
-  const value = iconCache.get(installPath) ?? null
-  iconCache.delete(installPath)
-  iconCache.set(installPath, value)
+function readIcon(appId: string): string | null | undefined {
+  if (!iconCache.has(appId)) return undefined
+  const value = iconCache.get(appId) ?? null
+  iconCache.delete(appId)
+  iconCache.set(appId, value)
   return value
 }
 
-function loadIcon(installPath: string) {
-  const cached = readIcon(installPath)
+function loadIcon(appId: string) {
+  const cached = readIcon(appId)
   if (cached !== undefined) return Promise.resolve(cached)
 
-  const existing = iconRequests.get(installPath)
+  const existing = iconRequests.get(appId)
   if (existing) return existing
 
   const startLoad = () => {
     activeLoadCount++
     const request = appManagerUseCases
-      .loadAppIconBase64(installPath)
+      .loadAppIconBase64(appId)
       .then((icon) => {
-        rememberIcon(installPath, icon)
+        rememberIcon(appId, icon)
         return icon
       })
       .catch(() => {
-        rememberIcon(installPath, null)
+        rememberIcon(appId, null)
         return null
       })
       .finally(() => {
-        iconRequests.delete(installPath)
+        iconRequests.delete(appId)
         activeLoadCount--
         runNextPendingLoad()
       })
-    iconRequests.set(installPath, request)
+    iconRequests.set(appId, request)
     return request
   }
 
@@ -85,39 +85,39 @@ function loadIcon(installPath: string) {
       startLoad().then(resolve)
     })
   })
-  iconRequests.set(installPath, queued)
+  iconRequests.set(appId, queued)
   return queued
 }
 
-export function preloadAppIcons(apps: { installPath?: string }[]) {
+export function preloadAppIcons(apps: { appId?: string }[]) {
   for (const app of apps) {
-    if (app.installPath) {
-      loadIcon(app.installPath)
+    if (app.appId) {
+      loadIcon(app.appId)
     }
   }
 }
 
-export function AppIcon({ iconBase64, installPath, size = 24, className }: AppIconProps) {
+export function AppIcon({ iconBase64, appId, size = 24, className }: AppIconProps) {
   const [loadedIcon, setLoadedIcon] = useState<string | undefined>(() =>
-    installPath ? (readIcon(installPath) ?? undefined) : undefined,
+    appId ? (readIcon(appId) ?? undefined) : undefined,
   )
   const icon = iconBase64 ?? loadedIcon
 
   useEffect(() => {
-    if (iconBase64 || !installPath || !canUseDesktopFeatures()) return
+    if (iconBase64 || !appId || !canUseDesktopFeatures()) return
     let cancelled = false
-    const cached = readIcon(installPath)
+    const cached = readIcon(appId)
     if (cached !== undefined) {
       setLoadedIcon(cached ?? undefined)
       return
     }
-    void loadIcon(installPath).then((nextIcon) => {
+    void loadIcon(appId).then((nextIcon) => {
       if (!cancelled) setLoadedIcon(nextIcon ?? undefined)
     })
     return () => {
       cancelled = true
     }
-  }, [iconBase64, installPath])
+  }, [appId, iconBase64])
 
   return (
     <div style={{ width: size, height: size }} className={className}>
@@ -129,6 +129,14 @@ export function AppIcon({ iconBase64, installPath, size = 24, className }: AppIc
           height={size}
           className={className}
         />
+      )}
+      {!icon && (
+        <span
+          className="text-muted-foreground flex h-full w-full items-center justify-center text-xs font-semibold"
+          aria-hidden="true"
+        >
+          {(appId?.slice(-2) ?? "?").toUpperCase()}
+        </span>
       )}
     </div>
   )

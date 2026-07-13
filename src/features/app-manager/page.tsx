@@ -5,7 +5,11 @@ import { lazy, Suspense } from "react"
 import { useTranslation } from "react-i18next"
 import { AnimatePresence, motion } from "motion/react"
 
-const SoftwareUpdateView = lazy(() => import("@/features/app-manager/components/SoftwareUpdateView").then((m) => ({ default: m.SoftwareUpdateView })))
+const SoftwareUpdateView = lazy(() =>
+  import("@/features/app-manager/components/SoftwareUpdateView").then((m) => ({
+    default: m.SoftwareUpdateView,
+  })),
+)
 import { AppWindow, CheckSquare, Download, Filter, Search, Trash2, X } from "lucide-react"
 import { ToolbarButton } from "@/components/ui/toolbar-button"
 import { RuntimeFeatureGate } from "@/components/common/RuntimeFeatureGate"
@@ -68,6 +72,7 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
     activeTab,
     updatesLoading,
     updatesError,
+    updatesWarning,
     updatesScanned,
     filteredApps,
     filteredInstallListApps,
@@ -79,12 +84,14 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
     installListColumns,
     clearError,
     clearUpdatesError,
+    clearUpdatesWarning,
     setSearchQuery,
     setActiveFilter,
     setMarketplaceFilter,
     setCategoryFilter,
     setSeriesFilter,
     scanApps,
+    cancelInventoryScan,
     toggleSelectApp,
     closeBatchConfirmDialog,
     clearBatchResults,
@@ -112,6 +119,7 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
     selectedUninstallable,
     handleBatchUninstall,
     handleBatchConfirm,
+    cancelBatch,
     handleDetailUpgrade,
     handleDetailUninstall,
     setInstallDetailItem,
@@ -175,7 +183,13 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                   transition={{ duration: 0.12, ease: "easeOut" }}
                   className="h-full min-h-0"
                 >
-                  <Suspense fallback={<div className="flex h-full items-center justify-center"><span className="text-muted-foreground text-xs">{t("common.loading")}</span></div>}>
+                  <Suspense
+                    fallback={
+                      <div className="flex h-full items-center justify-center">
+                        <span className="text-muted-foreground text-xs">{t("common.loading")}</span>
+                      </div>
+                    }
+                  >
                     <SoftwareUpdateView
                       apps={viewState.apps}
                       updates={viewState.updates}
@@ -183,7 +197,9 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                       loading={updatesLoading}
                       scanned={updatesScanned}
                       error={updatesError}
+                      warning={updatesWarning}
                       onClearError={clearUpdatesError}
+                      onClearWarning={clearUpdatesWarning}
                       lastUpdateCheck={viewState.lastUpdateCheck}
                       selectedIds={viewState.selectedUpdateIds}
                       selectedUpdate={viewState.selectedUpdate}
@@ -260,7 +276,7 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                     seriesFilter={seriesFilter}
                     detailTitle={t("appManager.details")}
                     onSearchQueryChange={setSearchQuery}
-                    onScanApps={scanApps}
+                    onScanApps={loading ? () => void cancelInventoryScan() : scanApps}
                     onClearBatchResults={clearBatchResults}
                     onToggleFilterPanel={() => setFilterPanelOpen(!filterPanelOpen)}
                     onTypeFilterChange={setMarketplaceFilter}
@@ -303,6 +319,13 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                     rightActions={
                       installBatchMode ? (
                         <div className="flex items-center gap-1">
+                          {batchRunning && (
+                            <ToolbarButton
+                              icon={<X size={15} />}
+                              tooltip={t("appManager.batchCancel")}
+                              onClick={() => void cancelBatch()}
+                            />
+                          )}
                           <ToolbarButton
                             icon={<Download size={15} />}
                             tooltip={`${t("appManager.installSelected")} (${selectedInstallableCount})`}
@@ -369,7 +392,8 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                             : t("appManager.scanStage.scanning")
                         : undefined
                     }
-                    loadingProgress={scanProgress?.current}
+                    loadingProgress={scanProgress?.completed ?? scanProgress?.current}
+                    loadingTotal={scanProgress?.total}
                     batchResults={batchResults}
                     onClearError={clearError}
                     filterPanelOpen={filterPanelOpen}
@@ -380,7 +404,7 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                     seriesFilter={seriesFilter}
                     detailTitle={t("appManager.details")}
                     onSearchQueryChange={setSearchQuery}
-                    onScanApps={scanApps}
+                    onScanApps={loading ? () => void cancelInventoryScan() : scanApps}
                     onClearBatchResults={clearBatchResults}
                     onToggleFilterPanel={() => setFilterPanelOpen(!filterPanelOpen)}
                     onTypeFilterChange={setActiveFilter}
@@ -395,7 +419,9 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                             </p>
                             <div className="space-y-1.5">
                               {result.platformCapabilities.brewAvailable && (
-                                <p className="text-green-600">✓ {t("appManager.sourceHomebrewCask")}</p>
+                                <p className="text-green-600">
+                                  ✓ {t("appManager.sourceHomebrewCask")}
+                                </p>
                               )}
                               {result.platformCapabilities.wingetAvailable && (
                                 <p className="text-green-600">✓ {t("appManager.sourceWinget")}</p>
@@ -491,6 +517,18 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                     rightActions={
                       batchMode ? (
                         <div className="flex items-center gap-1">
+                          {batchRunning && batchProgress && (
+                            <span className="text-muted-foreground px-1 text-xs tabular-nums">
+                              {batchProgress.current}/{batchProgress.total}
+                            </span>
+                          )}
+                          {batchRunning && (
+                            <ToolbarButton
+                              icon={<X size={15} />}
+                              tooltip={t("appManager.batchCancel")}
+                              onClick={() => void cancelBatch()}
+                            />
+                          )}
                           <ToolbarButton
                             icon={<Trash2 size={15} />}
                             tooltip={`${t("appManager.batchUninstall")} (${selectedUninstallable})`}

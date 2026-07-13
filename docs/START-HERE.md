@@ -1,71 +1,25 @@
-# Bench 文档总导航（一页纸）
+# Bench 文档导航
 
-> **你是 AI？** → 去 [`AGENTS.md`](../AGENTS.md)（唯一逻辑入口）。
-> **你是人类新人？** → 按下面的图看文档。
-> **冲突时谁说了算？** → 裁决优先级：`.cursorrules > AGENTS.md > docs/*.md`。
+## AI 入口
 
----
+1. 从 [`AGENTS.md`](../AGENTS.md) 开始。
+2. 按其清单读取 `.cursorrules`、架构、编码、UX、工作流和决策文档。
+3. 根据关键词进入 `/review`、`/fix`、`/doc` 或 `/feature`。
+4. 不确定、规则冲突或需要危险操作时停止并询问用户。
 
-## 全景流程图
+裁决优先级：`.cursorrules > AGENTS.md > docs/*.md`。`AGENTS.md` 是入口，`.cursorrules` 是最高优先级规则，两者职责不同。
 
-```
-┌─────────────────────────────────────────────────────────┐
-│  工具物理入口（天然不唯一，每个工具先读自己的文件）          │
-│  .cursorrules / .trae/rules/ / .github/copilot-…        │
-│  .claude/CLAUDE.md / .codebuddy/rules/（均已提交）        │
-└───────────────────────┬─────────────────────────────────┘
-                        │  每个入口只做一件事：导流
-                        ▼
-              ┌─────────────────────┐
-              │   AGENTS.md         │  ← 唯一逻辑入口
-              │   （"门"）           │
-              └─────────┬───────────┘
-                        │
-          ┌─────────────┼─────────────┐
-          ▼             ▼             ▼
-   ① 必读清单      ② 路由 workflow   ③ 判断不了？
-   (5 个文件)      /review           → 停下问人
-   .cursorrules    /fix               （§0 STOP 铁律）
-   ARCHITECTURE   /doc
-   coding-standards /feature
-   AI-WORKFLOWS
-   DECISIONS
-          │
-          ▼
-   ③ 执行 + 验证链
-      pnpm run lint:fe
-      pnpm run test:critical
-      cargo clippy（有 Rust 改动时）
-          │
-          ▼
-   ④ 文档回写
-      roadmap.md / bugs.md
-      audit-report.md / DECISIONS.md
-```
+## 常用入口
 
----
+| 目的 | 文档 |
+|------|------|
+| 理解系统和禁止模式 | [ARCHITECTURE.md](./ARCHITECTURE.md) |
+| 查实现规范 | [coding-standards.md](./coding-standards.md) |
+| 查 UI/UX 规范 | [UX-STANDARDS.md](./UX-STANDARDS.md) |
+| 执行标准工作流 | [AI-WORKFLOWS.md](./AI-WORKFLOWS.md) |
+| 确认当前优先级 | [ROADMAP.md](./ROADMAP.md) |
+| 恢复决策上下文 | [DECISIONS.md](./DECISIONS.md) |
+| 修改具体模块 | [modules/README.md](./modules/README.md) |
+| 避免重复审计 | [audit-report.md](./audit-report.md) |
 
-## 快速链接
-
-| 你想… | 去哪 |
-|-------|------|
-| 理解系统架构 | [ARCHITECTURE.md](./ARCHITECTURE.md) |
-| 查编码规范 | [coding-standards.md](./coding-standards.md) |
-| 看 AI 工作流 | [AI-WORKFLOWS.md](./AI-WORKFLOWS.md) |
-| 知道做什么（路线图） | [ROADMAP.md](./ROADMAP.md) |
-| 知道为什么这么做（决策） | [DECISIONS.md](./DECISIONS.md) |
-| 查模块细节 | [modules/](./modules/README.md) |
-| 看审计报告 & 不计违规 | [audit-report.md](./audit-report.md) |
-| 日常开发流程 | [development-workflow.md](./development-workflow.md) |
-
----
-
-## 入口 vs 优先级
-
-这是两件事，不矛盾：
-
-- **入口顺序**：所有工具 → `AGENTS.md`（从哪开始读）。
-- **裁决优先级**：`.cursorrules > AGENTS.md > docs/*.md`（内容冲突时谁说了算）。
-- 一句话：`AGENTS.md` 是"门"，`.cursorrules` 是"最高法律"。
-
-> 本文件是 README 性质的导航，**不是入口**——入口仍是 `AGENTS.md`。
+完整索引见 [README.md](./README.md)。

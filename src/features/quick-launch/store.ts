@@ -1,11 +1,15 @@
 /**
  * Quick Launch Store / 快捷启动状态
  *
- * 编辑模式下用户可右键移动应用归类，数据仅存于内存，重启后恢复自动分类默认值。
+ * 编辑模式下用户可右键移动应用归类，覆盖数据带 schema 版本持久化。
  * 导出功能为开发者工具，用于导出全量数据优化分类规则。
  */
 import { create } from "zustand"
 import type { LaunchSceneKey, QuickLaunchState } from "@/features/quick-launch/types"
+import { readStorageItem, writeStorageItem } from "@/platform/storage"
+
+const OVERRIDE_STORAGE_KEY = "quick-launch-overrides"
+const OVERRIDE_SCHEMA_VERSION = 1
 
 const DEFAULT_SCENE_ORDER: LaunchSceneKey[] = [
   "ai-ide",
@@ -23,6 +27,34 @@ const DEFAULT_SCENE_ORDER: LaunchSceneKey[] = [
   "entertainment",
   "other",
 ]
+
+function loadPersistedOverrides(): Record<string, LaunchSceneKey> {
+  try {
+    const raw = readStorageItem(OVERRIDE_STORAGE_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as { version?: number; overrides?: Record<string, string> }
+    if (parsed.version !== OVERRIDE_SCHEMA_VERSION || !parsed.overrides) return {}
+    const allowed = new Set<string>(DEFAULT_SCENE_ORDER)
+    return Object.fromEntries(
+      Object.entries(parsed.overrides).filter(
+        ([appId, scene]) => appId.startsWith("app-v1-") && allowed.has(scene),
+      ),
+    ) as Record<string, LaunchSceneKey>
+  } catch {
+    return {}
+  }
+}
+
+function persistOverrides(overrides: Record<string, LaunchSceneKey>) {
+  try {
+    writeStorageItem(
+      OVERRIDE_STORAGE_KEY,
+      JSON.stringify({ version: OVERRIDE_SCHEMA_VERSION, overrides }),
+    )
+  } catch {
+    // The in-memory state remains usable when persistence is unavailable.
+  }
+}
 
 export const useQuickLaunchStore = create<QuickLaunchState>((set) => ({
   scenes: {} as Record<LaunchSceneKey, string[]>,
@@ -77,18 +109,17 @@ export const useQuickLaunchStore = create<QuickLaunchState>((set) => ({
 
   setAutoClassified: (scenes) => set({ autoClassified: scenes }),
 
-  /** 重置覆盖数据（内存态，重启后自动清空） */
   loadOverrides: () => {
-    // 无持久化，每次启动都是空覆盖
+    set({ appOverrides: loadPersistedOverrides() })
   },
 
-  /** 保留接口兼容性，实际无操作 */
   saveOverrides: () => {
-    // 无持久化
+    // Writes happen atomically with each mutation; this remains a compatibility hook.
   },
 
   /** 清除用户覆盖数据，回到自动分类默认值 */
   resetOverrides: () => {
+    persistOverrides({})
     set({ appOverrides: {} })
   },
 
@@ -97,6 +128,7 @@ export const useQuickLaunchStore = create<QuickLaunchState>((set) => ({
     set((state) => {
       // 1. 更新 overrides 映射
       const nextOverrides = { ...state.appOverrides, [appId]: sceneKey }
+      persistOverrides(nextOverrides)
 
       // 2. 同步更新 scenes：从所有场景移除，加入目标场景
       const nextScenes = { ...state.scenes }

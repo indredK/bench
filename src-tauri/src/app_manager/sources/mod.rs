@@ -1,4 +1,4 @@
-use crate::app_manager::types::{AppInfo, UpdateInfo, UpdateSource};
+use crate::app_manager::types::{AppInfo, ProviderState, ProviderStatus, UpdateInfo, UpdateSource};
 use async_trait::async_trait;
 use std::sync::Arc;
 
@@ -23,6 +23,12 @@ pub trait UpdaterSource: Send + Sync {
 /// Aggregates registered sources and dispatches per-app checks across them.
 pub struct SourceRegistry {
     sources: Vec<Arc<dyn UpdaterSource>>,
+}
+
+#[derive(Debug, Default)]
+pub struct SourceCheckReport {
+    pub updates: Vec<UpdateInfo>,
+    pub providers: Vec<ProviderStatus>,
 }
 
 impl SourceRegistry {
@@ -62,35 +68,87 @@ impl SourceRegistry {
 
     /// Scan every app across every applicable source. Concurrency capped at
     /// `MAX_CONCURRENT` to keep memory + network pressure bounded.
-    pub async fn check_all(&self, apps: &[AppInfo]) -> Vec<UpdateInfo> {
+    pub async fn check_all(&self, apps: &[AppInfo]) -> SourceCheckReport {
         const MAX_CONCURRENT: usize = 10;
         use tokio::sync::Semaphore;
 
         let sem = Arc::new(Semaphore::new(MAX_CONCURRENT));
         let mut handles = Vec::with_capacity(apps.len());
 
-        for app in apps.iter().cloned() {
-            let Some(source) = self.match_source(&app) else {
+        for app in apps {
+            let Some(source) = self.match_source(app) else {
                 continue;
             };
+            let app = app.clone();
             let sem = sem.clone();
             handles.push(tokio::spawn(async move {
-                let _permit = sem.acquire().await.ok()?;
-                match source.check_for_update(&app).await {
-                    Ok(opt) => opt,
-                    Err(err) => {
-                        eprintln!("[updater] {} {} failed: {}", source.id(), app.app_id, err);
-                        None
-                    }
-                }
+                let provider = source.id();
+                let _permit = sem
+                    .acquire()
+                    .await
+                    .map_err(|_| "UPDATE_PROVIDER_CLOSED".to_string())?;
+                source
+                    .check_for_update(&app)
+                    .await
+                    .map(|update| (provider, update))
+                    .map_err(|error| format!("{provider}:{error}"))
             }));
         }
 
-        let mut results = Vec::new();
+        let mut results = SourceCheckReport::default();
+        let mut provider_failures = std::collections::HashSet::new();
+        let mut provider_successes = std::collections::HashSet::new();
         for h in handles {
-            if let Ok(Some(update)) = h.await {
-                results.push(update);
+            match h.await {
+                Ok(Ok((provider, Some(update)))) => {
+                    provider_successes.insert(provider);
+                    results.updates.push(update);
+                }
+                Ok(Ok((provider, None))) => {
+                    provider_successes.insert(provider);
+                }
+                Ok(Err(error)) => {
+                    if let Some((provider, _)) = error.split_once(':') {
+                        provider_failures.insert(provider.to_string());
+                    }
+                }
+                Err(_) => {
+                    provider_failures.insert("runtime".to_string());
+                }
             }
+        }
+
+        for source in &self.sources {
+            let provider = source.id();
+            if !provider_successes.contains(&provider)
+                && !provider_failures.contains(&provider.to_string())
+            {
+                results.providers.push(ProviderStatus {
+                    provider: provider.to_string(),
+                    state: ProviderState::Unsupported,
+                    error_code: Some("UPDATE_PROVIDER_NOT_APPLICABLE".to_string()),
+                });
+                continue;
+            }
+            let failed = provider_failures.contains(&provider.to_string());
+            results.providers.push(ProviderStatus {
+                provider: provider.to_string(),
+                state: if failed && provider_successes.contains(&provider) {
+                    ProviderState::Partial
+                } else if failed {
+                    ProviderState::Failed
+                } else {
+                    ProviderState::Ok
+                },
+                error_code: failed.then(|| "UPDATE_PROVIDER_FAILED".to_string()),
+            });
+        }
+        if provider_failures.contains("runtime") {
+            results.providers.push(ProviderStatus {
+                provider: "runtime".to_string(),
+                state: ProviderState::Failed,
+                error_code: Some("UPDATE_TASK_JOIN_FAILED".to_string()),
+            });
         }
         results
     }

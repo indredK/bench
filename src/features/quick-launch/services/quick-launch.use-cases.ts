@@ -4,7 +4,10 @@
  * 场景自动分类、用户覆盖应用、导出分类结果等业务编排。
  */
 import type { AppInfo } from "@/lib/tauri/types/app-manager"
-import { classifyAppToScene } from "@/features/quick-launch/scenes"
+import {
+  classifyInventory,
+  createEmptyClassification,
+} from "@/features/quick-launch/classification-engine"
 import type {
   LaunchSceneKey,
   OverrideEntry,
@@ -12,35 +15,7 @@ import type {
 } from "@/features/quick-launch/types"
 
 export function autoClassifyApps(apps: AppInfo[]): Record<LaunchSceneKey, string[]> {
-  const scenes: Record<LaunchSceneKey, string[]> = {
-    "ai-ide": [],
-    "ai-claw": [],
-    "ai-assistant": [],
-    "ai-office": [],
-    "ai-model": [],
-    "ai-tool": [],
-    dev: [],
-    system: [],
-    writing: [],
-    browser: [],
-    communication: [],
-    design: [],
-    entertainment: [],
-    other: [],
-  }
-
-  for (const app of apps) {
-    const scene = classifyAppToScene(app)
-    if (app.isSystemApp && !app.allowedActions.launch) continue
-    scenes[scene].push(app.appId)
-  }
-
-  const nameMap = new Map(apps.map((a) => [a.appId, a.name]))
-  for (const key of Object.keys(scenes) as LaunchSceneKey[]) {
-    scenes[key].sort((a, b) => (nameMap.get(a) || "").localeCompare(nameMap.get(b) || ""))
-  }
-
-  return scenes
+  return classifyInventory(apps).scenes
 }
 
 export function applyOverrides(
@@ -48,22 +23,7 @@ export function applyOverrides(
   overrides: Record<string, LaunchSceneKey>,
   appMap: Map<string, AppInfo>,
 ): Record<LaunchSceneKey, string[]> {
-  const result: Record<LaunchSceneKey, string[]> = {
-    "ai-ide": [],
-    "ai-claw": [],
-    "ai-assistant": [],
-    "ai-office": [],
-    "ai-model": [],
-    "ai-tool": [],
-    dev: [],
-    system: [],
-    writing: [],
-    browser: [],
-    communication: [],
-    design: [],
-    entertainment: [],
-    other: [],
-  }
+  const result = createEmptyClassification()
   for (const key of Object.keys(classified) as LaunchSceneKey[]) {
     result[key] = [...classified[key]]
   }

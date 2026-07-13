@@ -62,12 +62,7 @@ export function UpdateRow({
         aria-label={update.appName}
       />
 
-      <AppIcon
-        iconBase64={null}
-        installPath={app?.installPath}
-        size={28}
-        className="shrink-0 rounded"
-      />
+      <AppIcon iconBase64={null} appId={app?.appId} size={28} className="shrink-0 rounded" />
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">

@@ -22,5 +22,6 @@ export function createInstallListApps(apps: AppInfo[]): InstallListAppInfo[] {
     installedAppId: app.installedAppId,
     installedVersion: app.installedVersion,
     installedPath: app.installedPath,
+    installedCanUninstall: app.installedCanUninstall,
   }))
 }

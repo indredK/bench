@@ -625,6 +625,7 @@
     "filteredSummary": "{{visible}} of {{total}} apps matching filters",
     "refresh": "Refresh",
     "scanning": "Scanning applications...",
+    "cancelScan": "Cancel application scan",
     "scanStage": {
       "scanning": "Scanning directories",
       "resolving": "Resolving sources",
@@ -695,6 +696,8 @@
     "batchResults": "Batch Results",
     "batchSucceeded": "{{n}} succeeded",
     "batchFailed": "{{n}} failed",
+    "batchCancelled": "{{n}} cancelled",
+    "batchCancel": "Cancel batch operation",
     "batchTotal": "{{n}} total",
     "batchConfirmTitle": "Confirm Batch {{action}} ({{count}} apps)",
     "batchActionUpgrade": "Upgrade",
@@ -784,6 +787,8 @@
       "source": {
         "appStore": "App Store",
         "homebrew": "Homebrew",
+        "winget": "winget",
+        "windowsStore": "Microsoft Store",
         "sparkle": "Sparkle",
         "electron": "Electron",
         "squirrel": "Squirrel",
@@ -820,6 +825,7 @@
       "status": {
         "openingAppStore": "Opening App Store...",
         "upgradingHomebrew": "Upgrading via Homebrew...",
+        "upgradingWinget": "Upgrading via winget...",
         "installingUpdate": "Installing update..."
       },
       "empty": {
@@ -860,16 +866,6 @@
         },
         "cancel": "Cancel",
         "close": "Close",
-        "devIdChanged": {
-          "title": "Developer ID changed",
-          "body": "The signing identity for {{app}} has changed since you installed it. Continue only if you trust the new publisher.",
-          "oldLabel": "Previously",
-          "newLabel": "New",
-          "unknown": "unknown",
-          "hint": "If you didn't expect this, reject the update and verify the source.",
-          "approve": "Trust new identity",
-          "reject": "Cancel update"
-        },
         "appRunning": {
           "title": "App is running",
           "body": "{{app}} is currently running and must be quit before the update can be installed.",
@@ -919,7 +915,12 @@
     },
     "errors": {
       "scanFailed": "Failed to scan installed applications.",
+      "scanPartial": "Application scan is incomplete. Unavailable providers: {{providers}}.",
+      "launchFailed": "Could not launch {{name}}.",
+      "revealFailed": "Could not reveal {{name}}.",
       "updateCheckFailed": "Failed to check for available updates.",
+      "updateCheckPartial": "Some update sources are temporarily unavailable ({{providers}}). Updates from available sources are shown.",
+      "genericOperationFailure": "The operation could not be completed.",
       "missingMacAppStoreId": "Missing App Store identifier for this update.",
       "noDownloadUrl": "No release or download URL is available for this update.",
       "genericBatchFailure": "The batch operation did not complete successfully."
@@ -2432,10 +2433,12 @@
       "resolving": "Resolving sources",
       "processing": "Processing metadata"
     },
+    "scanPartial": "Some application sources could not be scanned: {{providers}}. Existing results remain available.",
     "empty": "No scanned apps yet. Go to App Manager to scan first, or click below.",
     "totalApps": "{{count}} apps · {{scenes}} scenes",
     "searchResult": "{{count}} apps found",
     "noResults": "No matching apps",
+    "notLaunchable": "This application has no verified launch target",
     "hint": "Click to launch · Right-click to reveal in Finder",
     "edit": "Edit",
     "done": "Done",
@@ -2447,7 +2450,14 @@
       "exportSuccess": "Exported classification for {{count}} apps",
       "exportFailed": "Export failed",
       "resetSuccess": "Classification reset to default",
-      "resetFailed": "Failed to reset classification"
+      "resetFailed": "Failed to reset classification",
+      "launchFailed": "Could not launch {{name}}",
+      "revealFailed": "Could not reveal {{name}}",
+      "scanFailed": "Could not scan installed applications",
+      "cancelFailed": "Could not cancel the application scan"
+    },
+    "errors": {
+      "scanFailed": "Installed application scan failed. Retry to refresh the inventory."
     },
     "resetConfirmTitle": "Reset to Default?",
     "resetConfirmDescription": "This will remove all your custom app classification overrides.",

@@ -80,8 +80,7 @@ export function createAppManagerBasicActions(set: SetState) {
         ...applySeriesFilter(state.activeTab, series),
       })),
     setError: (error: LocalizedError | null) => set({ error }),
-    setScanProgress: (progress: { current: number; stage: string } | null) =>
-      set({ scanProgress: progress }),
+    setScanProgress: (progress: AppManagerState["scanProgress"]) => set({ scanProgress: progress }),
     setSorting: (sorting: Updater<SortingState>) =>
       set((state) => ({
         sorting: typeof sorting === "function" ? sorting(state.sorting) : sorting,
@@ -164,6 +163,8 @@ export function createAppManagerBasicActions(set: SetState) {
       }),
     setUpdatesLoading: (loading: boolean) => set({ updatesLoading: loading }),
     setUpdatesError: (error: LocalizedError | null) => set({ updatesError: error }),
+    setUpdatesWarning: (warning: LocalizedError | null) => set({ updatesWarning: warning }),
+    clearUpdatesWarning: () => set({ updatesWarning: null }),
     setUpdatesScanned: (scanned: boolean) => set({ updatesScanned: scanned }),
     toggleUpdateGroup: (source: UpdateSource) =>
       set((state) => ({

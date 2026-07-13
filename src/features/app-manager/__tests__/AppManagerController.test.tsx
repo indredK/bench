@@ -2,11 +2,15 @@
  * Test / 测试: verify behavior only; 只验证行为与契约.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
-import { act, render } from "@testing-library/react"
+import { act, render, screen } from "@testing-library/react"
 import { useAppManagerController } from "@/features/app-manager/hooks/useAppManagerController"
 import { useAppManagerStore } from "@/features/app-manager/store"
 import { requestFeatureRefresh } from "@/features/refresh"
 import { appManagerUseCases } from "@/features/app-manager/services/app-manager.use-cases"
+import { reconcileManagedUpdateAvailability } from "@/features/app-manager/hooks/useAppManagerUpdates"
+import { SoftwareUpdateView } from "@/features/app-manager/components/SoftwareUpdateView"
+import { TooltipProvider } from "@/components/ui/tooltip"
+import type { AppInfo, UpdateInfo } from "@/lib/tauri/types/app-manager"
 
 vi.mock("react-i18next", () => ({
   initReactI18next: {
@@ -28,6 +32,7 @@ vi.mock("@/features/app-manager/hooks/useInstallEvents", () => ({
 
 vi.mock("@/platform/capabilities", () => ({
   canUseDesktopFeatures: () => true,
+  canUseTauriEvents: () => false,
 }))
 
 vi.mock("@/platform/clipboard", () => ({
@@ -38,6 +43,7 @@ vi.mock("@/lib/tauri/commands/app-manager", () => ({
   batchUninstallApps: vi.fn(async () => ({ total: 0, succeeded: 0, failed: 0, results: [] })),
   batchUpgradeApps: vi.fn(async () => ({ total: 0, succeeded: 0, failed: 0, results: [] })),
   cancelBatchOperation: vi.fn(async () => true),
+  cancelAppInventoryScan: vi.fn(async () => true),
   checkAllAppUpdates: vi.fn(async () => []),
   checkManagedAppUpdates: vi.fn(async () => []),
   getAppIconBase64: vi.fn(async () => null),
@@ -159,5 +165,73 @@ describe("useAppManagerController refresh routing", () => {
 
     expect(checkAllAppUpdates).toHaveBeenCalledWith(true)
     expect(scanInstalledApps).not.toHaveBeenCalled()
+  })
+
+  it("clears stale update flags when a successful check returns no updates", () => {
+    const staleApp = {
+      appId: "app-v1-stale",
+      upgradeAvailable: true,
+    } as AppInfo
+
+    const [reconciled] = reconcileManagedUpdateAvailability([staleApp], new Set())
+
+    expect(reconciled.upgradeAvailable).toBe(false)
+  })
+
+  it("keeps the update list in the flexible content area when a warning is visible", () => {
+    const update: UpdateInfo = {
+      updateId: "update-v1-firefox",
+      inventoryRevision: 1,
+      appId: "app-v1-firefox",
+      appName: "Firefox",
+      source: "homebrew",
+      currentVersion: "151.0",
+      latestVersion: "152.0.5",
+      downloadUrl: null,
+      adamId: null,
+      releaseNotesUrl: null,
+      releaseNotesInline: null,
+      size: null,
+      sourceMeta: null,
+      feedUrl: null,
+      ignored: false,
+    }
+
+    const { container } = render(
+      <TooltipProvider>
+        <SoftwareUpdateView
+          apps={[]}
+          updates={[update]}
+          searchQuery=""
+          loading={false}
+          scanned={true}
+          error=""
+          warning="Electron, Sparkle"
+          lastUpdateCheck={0}
+          selectedIds={new Set()}
+          selectedUpdate={null}
+          sourceFilter="all"
+          expandedGroups={{} as Record<UpdateInfo["source"], boolean>}
+          updateOperations={{}}
+          onSearchQueryChange={() => {}}
+          onRecheck={() => {}}
+          onToggleGroup={() => {}}
+          onToggleSelect={() => {}}
+          onClearSelection={() => {}}
+          onChangeSourceFilter={() => {}}
+          onRowClick={() => {}}
+          onCloseDetail={() => {}}
+          onRowAction={() => {}}
+          onGroupAction={() => {}}
+          onOpenExternal={() => {}}
+        />
+      </TooltipProvider>,
+    )
+
+    const root = container.firstElementChild
+    expect(root?.classList.contains("flex")).toBe(true)
+    expect(root?.classList.contains("grid")).toBe(false)
+    expect(screen.getByText("Electron, Sparkle")).toBeTruthy()
+    expect(screen.getByText("Firefox")).toBeTruthy()
   })
 })

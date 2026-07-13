@@ -3,7 +3,7 @@
  */
 import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
-import { CheckCircle2, RefreshCw, Search, X } from "lucide-react"
+import { AlertTriangle, CheckCircle2, RefreshCw, Search, X } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { DetailPanel } from "@/components/layout/DetailPanel"
@@ -26,7 +26,9 @@ interface SoftwareUpdateViewProps {
   loading: boolean
   scanned: boolean
   error: string
+  warning: string
   onClearError?: () => void
+  onClearWarning?: () => void
   lastUpdateCheck: number
   selectedIds: Set<string>
   selectedUpdate: UpdateInfo | null
@@ -63,7 +65,9 @@ export function SoftwareUpdateView({
   loading,
   scanned,
   error,
+  warning,
   onClearError,
+  onClearWarning,
   lastUpdateCheck,
   selectedIds,
   selectedUpdate,
@@ -133,9 +137,17 @@ export function SoftwareUpdateView({
   const renderEmpty = () => {
     if (loading) {
       return (
-        <div className="flex max-w-sm flex-col items-center justify-center gap-3 text-center">
-          <RefreshCw size={32} className="animate-spin opacity-40" />
-          <p className="text-muted-foreground text-sm">{t("appManager.softwareUpdate.checking")}</p>
+        <div className="flex h-full w-full flex-col gap-3 p-4" aria-busy="true">
+          <div className="bg-muted h-1 w-full animate-pulse rounded-full" />
+          {Array.from({ length: 6 }, (_, index) => (
+            <div key={index} className="flex h-14 items-center gap-3 border-b">
+              <div className="bg-muted size-9 animate-pulse rounded-md" />
+              <div className="min-w-0 flex-1 space-y-2">
+                <div className="bg-muted h-3 w-1/3 animate-pulse rounded" />
+                <div className="bg-muted h-2.5 w-1/2 animate-pulse rounded" />
+              </div>
+            </div>
+          ))}
         </div>
       )
     }
@@ -161,6 +173,17 @@ export function SoftwareUpdateView({
         </div>
       )
     }
+    if (error) {
+      return (
+        <div className="flex max-w-sm flex-col items-center justify-center gap-3 text-center">
+          <p className="text-sm font-medium">{error}</p>
+          <Button variant="outline" size="sm" onClick={onRecheck}>
+            <RefreshCw size={14} />
+            {t("appManager.softwareUpdate.recheck")}
+          </Button>
+        </div>
+      )
+    }
     return (
       <div className="flex max-w-sm flex-col items-center justify-center gap-2 text-center">
         <CheckCircle2 size={36} className="text-green-500 opacity-80" />
@@ -177,7 +200,7 @@ export function SoftwareUpdateView({
   }
 
   return (
-    <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-3 overflow-hidden">
+    <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
       <UpdaterActionBar
         searchQuery={searchQuery}
         loading={loading}
@@ -193,17 +216,37 @@ export function SoftwareUpdateView({
 
       {error && (
         <Alert variant="destructive" className="shrink-0">
-          <AlertDescription className="flex items-center justify-between gap-3">
-            <span>{error}</span>
+          <AlertDescription className="flex min-w-0 items-center justify-between gap-3">
+            <span className="min-w-0 truncate" title={error}>
+              {error}
+            </span>
             {onClearError ? (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
-                    onClick={onClearError}
-                  >
+                  <Button variant="ghost" size="icon-xs" onClick={onClearError}>
                     <X size={13} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{t("common.actions.close")}</TooltipContent>
+              </Tooltip>
+            ) : null}
+          </AlertDescription>
+        </Alert>
+      )}
+      {warning && !error && (
+        <Alert variant="default" className="shrink-0 px-2 py-1">
+          <AlertDescription className="flex min-w-0 items-center justify-between gap-2 text-xs">
+            <div className="flex min-w-0 items-center gap-1.5">
+              <AlertTriangle className="size-3 shrink-0 text-amber-500" />
+              <span className="min-w-0 truncate" title={warning}>
+                {warning}
+              </span>
+            </div>
+            {onClearWarning ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon-xs" onClick={onClearWarning}>
+                    <X size={12} />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>{t("common.actions.close")}</TooltipContent>

@@ -8,6 +8,7 @@ import type {
   InstallListAppInfo,
   OperationResult,
   UpdateInfo,
+  UpdateScanReport,
 } from "@/lib/tauri/types/app-manager"
 import {
   appManagerRepository,
@@ -78,8 +79,8 @@ function createAppManagerUseCases(
       return repository.scanInstalledApps()
     },
 
-    loadAppIconBase64(installPath: string) {
-      return repository.getAppIconBase64(installPath)
+    loadAppIconBase64(appId: string) {
+      return repository.getAppIconBase64(appId)
     },
 
     async findManagedAppUpdates(apps: AppInfo[]): Promise<Set<string>> {
@@ -172,13 +173,37 @@ function createAppManagerUseCases(
 
     async checkAllAppUpdates(
       forceRefresh = false,
-    ): Promise<{ updates: UpdateInfo[]; error: string | null }> {
-      if (!isAvailable()) return { updates: [], error: null }
+    ): Promise<{ report?: UpdateScanReport; updates: UpdateInfo[]; error: string | null }> {
+      if (!isAvailable()) {
+        return {
+          report: {
+            updates: [],
+            providers: [
+              { provider: "platform", state: "unsupported", errorCode: "PLATFORM_UNSUPPORTED" },
+            ],
+            checkedAt: 0,
+            complete: false,
+            inventoryRevision: 0,
+          },
+          updates: [],
+          error: null,
+        }
+      }
       try {
-        const updates = await repository.checkAllAppUpdates(forceRefresh)
-        return { updates, error: null }
+        const report = await repository.checkAllAppUpdates(forceRefresh)
+        return { report, updates: report.updates, error: null }
       } catch (error) {
-        return { updates: [], error: getErrorMessage(error) }
+        return {
+          report: {
+            updates: [],
+            providers: [{ provider: "runtime", state: "failed", errorCode: "UPDATE_CHECK_FAILED" }],
+            checkedAt: 0,
+            complete: false,
+            inventoryRevision: 0,
+          },
+          updates: [],
+          error: getErrorMessage(error),
+        }
       }
     },
 
@@ -194,19 +219,19 @@ function createAppManagerUseCases(
 
     launchApp(app: AppInfo) {
       if (!isAvailable()) return Promise.resolve()
-      return repository.launchApp(app.installPath)
+      return repository.launchApp(app.appId)
     },
 
     revealApp(app: AppInfo) {
       if (!isAvailable()) return Promise.resolve()
-      return repository.revealAppInFinder(app.installPath)
+      return repository.revealAppInFinder(app.appId)
     },
 
     async authorizeMacApp(app: AppInfo) {
       if (!isAvailable()) {
         return operationSkippedResult("appManager.authorizeUnavailable")
       }
-      return repository.authorizeMacApp(app.installPath)
+      return repository.authorizeMacApp(app.appId)
     },
 
     openExternal(reference: string) {

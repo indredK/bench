@@ -45,7 +45,7 @@ export function AppDetail({
       <div className="flex items-center gap-3">
         <AppIcon
           iconBase64={app.iconBase64}
-          installPath={app.installPath}
+          appId={app.appId}
           size={40}
           className="shrink-0 rounded-md"
         />
@@ -144,7 +144,10 @@ export function InstallDetail({ app, onInstall, onOpenWebsite }: InstallDetailPr
           value={getInstallSourceLabel(app.installSource)}
         />
         {app.description && (
-          <MetadataRow label={t("appManager.column.description")} value={t(`appManager.recommendedApps.${app.id}`, { defaultValue: app.description })} />
+          <MetadataRow
+            label={t("appManager.column.description")}
+            value={t(`appManager.recommendedApps.${app.id}`, { defaultValue: app.description })}
+          />
         )}
       </DetailSection>
       <DetailSection label={t("appManager.column.actions")}>

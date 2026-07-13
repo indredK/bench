@@ -17,7 +17,7 @@ export function AppManagerGridCard({ app }: AppManagerGridCardProps) {
       <div className="flex items-center gap-2">
         <AppIcon
           iconBase64={app.iconBase64}
-          installPath={app.installPath}
+          appId={app.appId}
           size={20}
           className="shrink-0 rounded-sm"
         />

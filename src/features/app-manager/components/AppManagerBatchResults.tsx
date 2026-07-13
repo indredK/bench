@@ -26,6 +26,11 @@ export function AppManagerBatchResults({ batchResults, onClear }: AppManagerBatc
             {t("appManager.batchFailed", { n: batchResults.failed })}
           </span>
         )}
+        {batchResults.cancelled > 0 && (
+          <span className="text-amber-600">
+            {t("appManager.batchCancelled", { n: batchResults.cancelled })}
+          </span>
+        )}
         <span className="text-muted-foreground">
           {t("appManager.batchTotal", { n: batchResults.total })}
         </span>

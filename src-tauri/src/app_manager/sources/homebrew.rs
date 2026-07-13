@@ -6,6 +6,7 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::Arc;
 use std::sync::OnceLock;
 use std::time::Duration;
 
@@ -136,18 +137,14 @@ fn fetch_outdated() -> Result<HashMap<String, CaskUpdate>, String> {
 }
 
 pub struct HomebrewSource {
-    cache: OnceLock<Result<HashMap<String, CaskUpdate>, String>>,
+    cache: Arc<OnceLock<Result<HashMap<String, CaskUpdate>, String>>>,
 }
 
 impl HomebrewSource {
     pub fn new() -> Self {
         Self {
-            cache: OnceLock::new(),
+            cache: Arc::new(OnceLock::new()),
         }
-    }
-
-    fn outdated(&self) -> &Result<HashMap<String, CaskUpdate>, String> {
-        self.cache.get_or_init(fetch_outdated)
     }
 }
 
@@ -162,7 +159,11 @@ impl UpdaterSource for HomebrewSource {
     }
 
     async fn check_for_update(&self, app: &AppInfo) -> Result<Option<UpdateInfo>, String> {
-        let map = match self.outdated() {
+        let cache = self.cache.clone();
+        let cached = tokio::task::spawn_blocking(move || cache.get_or_init(fetch_outdated).clone())
+            .await
+            .map_err(|error| format!("SU_BREW_UPDATE_TASK: {error}"))?;
+        let map = match &cached {
             Ok(m) => m,
             Err(e) => return Err(e.clone()),
         };
@@ -171,6 +172,8 @@ impl UpdaterSource for HomebrewSource {
         };
 
         Ok(Some(UpdateInfo {
+            update_id: String::new(),
+            inventory_revision: 0,
             app_id: app.app_id.clone(),
             app_name: app.name.clone(),
             source: UpdateSource::Homebrew,

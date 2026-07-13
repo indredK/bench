@@ -30,6 +30,7 @@ export interface RecommendedAppInstallStatus extends RecommendedApp {
   installedAppId?: string
   installedVersion?: string
   installedPath?: string
+  installedCanUninstall?: boolean
 }
 
 export const RECOMMENDED_APPS: RecommendedApp[] = [
@@ -528,7 +529,7 @@ export const RECOMMENDED_APPS: RecommendedApp[] = [
 type InstalledAppFingerprint = Pick<
   AppInfo,
   "appId" | "name" | "bundleId" | "sourceId" | "version" | "installPath"
->
+> & { allowedActions?: AppInfo["allowedActions"] }
 
 function normalizeId(value: string | undefined): string {
   return (value ?? "").trim().toLowerCase()
@@ -547,19 +548,10 @@ function splitPatterns(value: string): string[] {
     .filter(Boolean)
 }
 
-function looseNameMatch(expected: string, actual: string): boolean {
-  if (!expected || !actual) return false
-  if (expected === actual) return true
-  return (
-    Math.min(expected.length, actual.length) >= 4 &&
-    (expected.includes(actual) || actual.includes(expected))
-  )
-}
-
 function findInstalledMatch(
   recommendedApp: RecommendedApp,
   installedApps: InstalledAppFingerprint[],
-): InstalledAppFingerprint | undefined {
+): { app: InstalledAppFingerprint; exact: boolean } | undefined {
   const bundlePatterns = splitPatterns(recommendedApp.bundleIdPattern)
   const sourcePatterns = [
     recommendedApp.installSource.brew,
@@ -574,42 +566,44 @@ function findInstalledMatch(
     .map(normalizeName)
     .filter(Boolean)
 
-  return installedApps.find((installedApp) => {
+  for (const installedApp of installedApps) {
     const installedBundleId = normalizeId(installedApp.bundleId)
     if (installedBundleId && installedBundleId !== "unknown") {
-      const matchedByBundle = bundlePatterns.some(
-        (pattern) => installedBundleId === pattern || installedBundleId.includes(pattern),
-      )
-      if (matchedByBundle) return true
+      const matchedByBundle = bundlePatterns.some((pattern) => installedBundleId === pattern)
+      if (matchedByBundle) return { app: installedApp, exact: true }
     }
 
     const installedSourceId = normalizeId(installedApp.sourceId)
     if (installedSourceId) {
-      const matchedBySource = sourcePatterns.some(
-        (pattern) =>
-          installedSourceId === pattern ||
-          installedSourceId.includes(pattern) ||
-          pattern.includes(installedSourceId),
-      )
-      if (matchedBySource) return true
+      const matchedBySource = sourcePatterns.some((pattern) => installedSourceId === pattern)
+      if (matchedBySource) return { app: installedApp, exact: true }
     }
 
     const installedName = normalizeName(installedApp.name)
-    return namePatterns.some((pattern) => looseNameMatch(pattern, installedName))
-  })
+    // Exact normalized display names are safe for the non-destructive
+    // "installed" badge. Destructive actions remain gated by allowedActions.
+    if (namePatterns.some((pattern) => pattern === installedName)) {
+      return { app: installedApp, exact: false }
+    }
+  }
+  return undefined
 }
 
 export function getRecommendedInstallList(
   installedApps: InstalledAppFingerprint[],
 ): RecommendedAppInstallStatus[] {
   return RECOMMENDED_APPS.map((app) => {
-    const installedApp = findInstalledMatch(app, installedApps)
+    const match = findInstalledMatch(app, installedApps)
+    const installedApp = match?.app
     return {
       ...app,
       installed: Boolean(installedApp),
-      installedAppId: installedApp?.appId,
+      installedAppId: match?.exact ? installedApp?.appId : undefined,
       installedVersion: installedApp?.version,
       installedPath: installedApp?.installPath,
+      installedCanUninstall: match?.exact
+        ? (installedApp?.allowedActions?.uninstall ?? false)
+        : false,
     }
   })
 }

@@ -1,21 +1,5 @@
-# Dev Cleaner 迭代规划
+# Dev Cleaner Roadmap
 
-> 最后更新: 2026-07-05  
-> 发布节奏见 [release-themes.md](../../roadmap/release-themes.md)
+Dev Cleaner 是 Clean Space 的内部扫描/清理引擎，不独立规划产品功能。
 
-## 📊 当前评估
-
-| 维度 | 评分 | 说明 |
-|------|------|------|
-| 代码质量 | ⭐⭐⭐⭐⚬ | safe_delete 独立，Rust 测试好 |
-| 功能完备度 | ⭐⭐⭐⭐⚬ | 扫描/清理/大小计算完整 |
-| 用户体验 | ⭐⭐⭐⭐⚬ | 清理确认，扫描进度显示 |
-| 性能 | ⭐⭐⭐⚬⚬ | 大量文件扫描可能阻塞 UI |
-| 测试覆盖 | ⭐⭐⭐⭐⚬ | sizing + safe_delete |
-| 可维护性 | ⭐⭐⭐⭐⚬ | 扫描/清理模块独立 |
-
-## Backlog
-
-- [ ] 扫描进度异步化（避免 UI 阻塞）
-- [ ] 自定义扫描目录
-- [ ] 清理历史记录
+扫描进度、自定义目录、清理记录和跨平台适配统一在 [Clean Space roadmap](../clean-space/roadmap.md) 跟踪，避免双份 backlog 漂移。

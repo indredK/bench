@@ -6,6 +6,8 @@ import type { UpdateSource } from "@/lib/tauri/types/app-manager"
 
 export const UPDATE_SOURCE_ORDER: UpdateSource[] = [
   "homebrew",
+  "winget",
+  "windowsStore",
   "macAppStore",
   "sparkle",
   "electron",
@@ -15,6 +17,8 @@ export const UPDATE_SOURCE_ORDER: UpdateSource[] = [
 
 const SOURCE_ICON: Record<UpdateSource, string> = {
   homebrew: "🍺",
+  winget: "▣",
+  windowsStore: "▦",
   macAppStore: "📱",
   sparkle: "✨",
   electron: "⚡",
@@ -24,6 +28,8 @@ const SOURCE_ICON: Record<UpdateSource, string> = {
 
 const SOURCE_LABEL_KEY: Record<UpdateSource, string> = {
   homebrew: "appManager.softwareUpdate.source.homebrew",
+  winget: "appManager.softwareUpdate.source.winget",
+  windowsStore: "appManager.softwareUpdate.source.windowsStore",
   macAppStore: "appManager.softwareUpdate.source.appStore",
   sparkle: "appManager.softwareUpdate.source.sparkle",
   electron: "appManager.softwareUpdate.source.electron",
@@ -33,6 +39,8 @@ const SOURCE_LABEL_KEY: Record<UpdateSource, string> = {
 
 const SOURCE_GROUP_ACTION_KEY: Record<UpdateSource, string> = {
   homebrew: "appManager.softwareUpdate.groupAction.updateAll",
+  winget: "appManager.softwareUpdate.groupAction.updateAll",
+  windowsStore: "appManager.softwareUpdate.groupAction.openAppStoreUpdates",
   macAppStore: "appManager.softwareUpdate.groupAction.openAppStoreUpdates",
   sparkle: "appManager.softwareUpdate.groupAction.installAll",
   electron: "appManager.softwareUpdate.groupAction.installAll",

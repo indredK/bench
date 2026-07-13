@@ -40,6 +40,7 @@ interface AppManagerCatalogViewProps<TItem, TFilter extends string> {
   error: string
   loadingSubtitle?: string
   loadingProgress?: number
+  loadingTotal?: number | null
   batchResults: BatchOperationResult | null
   onClearError?: () => void
   filterPanelOpen: boolean
@@ -97,6 +98,7 @@ export function AppManagerCatalogView<TItem, TFilter extends string>({
   error,
   loadingSubtitle,
   loadingProgress,
+  loadingTotal,
   batchResults,
   onClearError,
   filterPanelOpen,
@@ -153,11 +155,7 @@ export function AppManagerCatalogView<TItem, TFilter extends string>({
             {onClearError ? (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
-                    onClick={onClearError}
-                  >
+                  <Button variant="ghost" size="icon-xs" onClick={onClearError}>
                     <X size={13} />
                   </Button>
                 </TooltipTrigger>
@@ -206,6 +204,7 @@ export function AppManagerCatalogView<TItem, TFilter extends string>({
                 loading={loading}
                 loadingSubtitle={loadingSubtitle}
                 loadingProgress={loadingProgress}
+                loadingTotal={loadingTotal}
                 estimatedRowHeight={estimatedRowHeight}
                 estimatedCardHeight={estimatedCardHeight}
                 gridColumns={gridColumns}

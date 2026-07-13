@@ -233,6 +233,8 @@ fn build_github_update(
     }
     let asset = pick_mac_asset(&release.assets);
     Some(UpdateInfo {
+        update_id: String::new(),
+        inventory_revision: 0,
         app_id: app.app_id.clone(),
         app_name: app.name.clone(),
         source: UpdateSource::Electron,
@@ -278,6 +280,8 @@ fn build_generic_update(
         }
     }
     Some(UpdateInfo {
+        update_id: String::new(),
+        inventory_revision: 0,
         app_id: app.app_id.clone(),
         app_name: app.name.clone(),
         source: UpdateSource::Electron,
@@ -327,6 +331,8 @@ mod tests {
 
     fn make_app(version: &str) -> AppInfo {
         AppInfo {
+            source_evidence: crate::app_manager::types::SourceEvidence::None,
+            launch_target: None,
             app_id: "demo".into(),
             name: "Demo".into(),
             version: version.into(),

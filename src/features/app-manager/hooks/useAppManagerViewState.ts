@@ -42,6 +42,7 @@ export function useAppManagerViewState() {
       updates: store.updates,
       updatesLoading: store.updatesLoading,
       updatesError: store.updatesError,
+      updatesWarning: store.updatesWarning,
       updatesScanned: store.updatesScanned,
       expandedUpdateGroups: store.expandedUpdateGroups,
       selectedUpdateIds: store.selectedUpdateIds,

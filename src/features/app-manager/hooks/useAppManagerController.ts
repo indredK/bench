@@ -23,15 +23,13 @@ import { canAuthorizeMacApp } from "@/features/app-manager/model/authorize-app"
 import { appManagerUseCases } from "@/features/app-manager/services/app-manager.use-cases"
 import { useAppManagerUpdates } from "@/features/app-manager/hooks/useAppManagerUpdates"
 import { registerFeatureRefresh } from "@/features/refresh"
-import type {
-  AppInfo,
-  InstallListAppInfo,
-} from "@/lib/tauri/types/app-manager"
+import type { AppInfo, InstallListAppInfo } from "@/lib/tauri/types/app-manager"
 import type { AppManagerTabKey } from "@/features/app-manager/model/store-types"
 import { appManagerPlatformConfig } from "@/platform/config"
 import { canUseDesktopFeatures } from "@/platform/capabilities"
 import { writeClipboardText } from "@/platform/clipboard"
-import { listenToPlatformEvent } from "@/platform/events"
+import { useAppInventoryStore } from "@/shared/app-inventory/store"
+import { appInventoryUseCases } from "@/shared/app-inventory/inventory.use-cases"
 import { createInstallListColumns } from "@/features/app-manager/components/install-list-columns"
 import type { LocalizedError } from "@/lib/errors"
 import { localizeError } from "@/lib/errors"
@@ -75,6 +73,7 @@ export function useAppManagerController(active: boolean) {
     updates,
     updatesLoading,
     updatesError,
+    updatesWarning,
     updatesScanned,
     expandedUpdateGroups,
     selectedUpdateIds,
@@ -111,6 +110,7 @@ export function useAppManagerController(active: boolean) {
   const setUpdateSourceFilter = useAppManagerStore((s) => s.setUpdateSourceFilter)
   const setSelectedUpdate = useAppManagerStore((s) => s.setSelectedUpdate)
   const setUpdatesError = useAppManagerStore((s) => s.setUpdatesError)
+  const setUpdatesWarning = useAppManagerStore((s) => s.setUpdatesWarning)
   const setUpdateOperationStatus = useAppManagerStore((s) => s.setUpdateOperationStatus)
   const setError = useAppManagerStore((s) => s.setError)
 
@@ -128,6 +128,7 @@ export function useAppManagerController(active: boolean) {
     appIds: string[]
     source: "installed" | "marketplace"
   } | null>(null)
+  const batchInstallCancelRef = useRef(false)
   const confirmPendingRef = useRef(false)
   const refreshHandlerRef = useRef<(() => void | Promise<void>) | null>(null)
 
@@ -155,6 +156,8 @@ export function useAppManagerController(active: boolean) {
   )
 
   const canUsePlatformFeatures = canUseDesktopFeatures()
+  const inventoryProgress = useAppInventoryStore((state) => state.progress)
+  const inventorySnapshot = useAppInventoryStore((state) => state.snapshot)
 
   const deferUntilAfterFirstPaint = useCallback((callback: () => void) => {
     let timeoutId = 0
@@ -195,20 +198,8 @@ export function useAppManagerController(active: boolean) {
       return
     }
 
-    let unlisten: (() => void) | null = null
     try {
-      unlisten = await listenToPlatformEvent<{ current: number; stage: string }>(
-        "app-scan:progress",
-        (event) => {
-          useAppManagerStore.setState({ scanProgress: event.payload })
-        },
-      )
-    } catch {
-      // ignore event setup errors; progress is best-effort
-    }
-
-    try {
-      const scanResult = await appManagerUseCases.scanInstalledApps()
+      const scanResult = await appInventoryUseCases.refresh()
       useAppManagerStore.setState({
         apps: scanResult.apps,
         result: scanResult,
@@ -221,17 +212,43 @@ export function useAppManagerController(active: boolean) {
       })
     } catch (scanError) {
       useAppManagerStore.setState({
-        apps: [],
-        result: null,
-        error: toLocalizedError("appManager.errors.scanFailed", String(scanError) || undefined),
+        error: toLocalizedError(
+          "appManager.errors.scanFailed",
+          getErrorMessage(scanError) || undefined,
+        ),
         scanned: true,
         loading: false,
         scanProgress: null,
       })
-    } finally {
-      if (unlisten) unlisten()
     }
   }, [toLocalizedError])
+
+  const cancelInventoryScan = useCallback(() => appInventoryUseCases.cancel(), [])
+
+  useEffect(() => {
+    if (!inventorySnapshot) return
+    const currentRevision = useAppManagerStore.getState().result?.revision
+    if (currentRevision === inventorySnapshot.revision) return
+    useAppManagerStore.setState({
+      apps: inventorySnapshot.apps,
+      result: inventorySnapshot,
+      scanned: true,
+      loading: false,
+      scanProgress: null,
+      lastScanTime: inventorySnapshot.lastScanTime,
+      lastUpdateCheck: inventorySnapshot.lastUpdateCheck,
+      installListApps: createInstallListApps(inventorySnapshot.apps),
+      error:
+        inventorySnapshot.complete === false
+          ? toLocalizedError("appManager.errors.scanPartial", undefined, {
+              providers: (inventorySnapshot.providers ?? [])
+                .filter((provider) => provider.state !== "ok")
+                .map((provider) => provider.provider)
+                .join(", "),
+            })
+          : null,
+    })
+  }, [inventorySnapshot, toLocalizedError])
 
   const refreshInstallList = useCallback(() => {
     useAppManagerStore.setState({
@@ -247,7 +264,13 @@ export function useAppManagerController(active: boolean) {
     handleUpdateSourceAction,
     handleCloseInstallDialog,
     runBatchOperation,
+    cancelBatch,
   } = useAppManagerUpdates(scanApps, toLocalizedError, scheduleTimeout)
+
+  const cancelBatchAll = useCallback(() => {
+    batchInstallCancelRef.current = true
+    void cancelBatch()
+  }, [cancelBatch])
 
   const handleSetActiveTab = useCallback(
     (tab: AppManagerTabKey) => {
@@ -329,9 +352,14 @@ export function useAppManagerController(active: boolean) {
   )
 
   const doInstall = useCallback(
-    async (appId: string, _appName: string, installSource: InstallListAppInfo["installSource"]) => {
+    async (
+      appId: string,
+      _appName: string,
+      installSource: InstallListAppInfo["installSource"],
+      rescanAfter = true,
+    ) => {
       const { installStates } = useAppManagerStore.getState()
-      if (isOperationRunning(installStates, appId)) return
+      if (isOperationRunning(installStates, appId)) return null
 
       useAppManagerStore.setState((state) => ({
         installStates: {
@@ -345,36 +373,53 @@ export function useAppManagerController(active: boolean) {
         kind: "install",
         installSource,
       })
-      if (!outcome) return
+      if (!outcome) return null
 
       useAppManagerStore.setState((state) => ({
         installStates: { ...state.installStates, [appId]: toOperationState(outcome.result) },
       }))
-      if (outcome.shouldRescan) {
+      if (outcome.shouldRescan && rescanAfter) {
         scheduleTimeout(() => {
           void scanApps()
           refreshInstallList()
         }, 2000)
       }
+      return outcome.result
     },
     [refreshInstallList, scanApps, scheduleTimeout, t],
   )
 
-  const launchApp = useCallback(async (app: AppInfo) => {
-    try {
-      await appManagerUseCases.launchApp(app)
-    } catch (error) {
-      console.warn("[AppManager] Failed to launch app:", error)
-    }
-  }, [])
+  const launchApp = useCallback(
+    async (app: AppInfo) => {
+      try {
+        await appManagerUseCases.launchApp(app)
+      } catch (error) {
+        toast.error(
+          t("appManager.errors.launchFailed", {
+            name: app.name,
+            defaultValue: getErrorMessage(error),
+          }),
+        )
+      }
+    },
+    [t],
+  )
 
-  const revealApp = useCallback(async (app: AppInfo) => {
-    try {
-      await appManagerUseCases.revealApp(app)
-    } catch (error) {
-      console.warn("[AppManager] Failed to reveal app:", error)
-    }
-  }, [])
+  const revealApp = useCallback(
+    async (app: AppInfo) => {
+      try {
+        await appManagerUseCases.revealApp(app)
+      } catch (error) {
+        toast.error(
+          t("appManager.errors.revealFailed", {
+            name: app.name,
+            defaultValue: getErrorMessage(error),
+          }),
+        )
+      }
+    },
+    [t],
+  )
 
   const openExternal = useCallback((reference: string) => {
     return appManagerUseCases.openExternal(reference)
@@ -396,6 +441,10 @@ export function useAppManagerController(active: boolean) {
   const clearUpdatesError = useCallback(() => {
     setUpdatesError(null)
   }, [setUpdatesError])
+
+  const clearUpdatesWarning = useCallback(() => {
+    setUpdatesWarning(null)
+  }, [setUpdatesWarning])
 
   const refreshCurrentTab = useCallback(async () => {
     const { activeTab: currentTab } = useAppManagerStore.getState()
@@ -512,6 +561,8 @@ export function useAppManagerController(active: boolean) {
         marketplaceFilter,
         categoryFilter: marketplaceCategoryFilter,
         seriesFilter: marketplaceSeriesFilter,
+        getLocalizedDescription: (app) =>
+          t(`appManager.recommendedApps.${app.id}`, { defaultValue: app.description }),
       }),
     [
       installListApps,
@@ -519,6 +570,7 @@ export function useAppManagerController(active: boolean) {
       marketplaceFilter,
       marketplaceCategoryFilter,
       marketplaceSeriesFilter,
+      t,
     ],
   )
 
@@ -556,13 +608,10 @@ export function useAppManagerController(active: boolean) {
     setAuthorizeConfirmDialog({ open: false, appId: "", appName: "" })
   }, [])
 
-  const handleAuthorizeFromColumn = useCallback(
-    (app: AppInfo) => {
-      if (!canAuthorizeMacApp(app)) return
-      setAuthorizeConfirmDialog({ open: true, appId: app.appId, appName: app.name })
-    },
-    [],
-  )
+  const handleAuthorizeFromColumn = useCallback((app: AppInfo) => {
+    if (!canAuthorizeMacApp(app)) return
+    setAuthorizeConfirmDialog({ open: true, appId: app.appId, appName: app.name })
+  }, [])
 
   const handleAuthorizeConfirm = useCallback(async () => {
     const app = apps.find((item) => item.appId === authorizeConfirmDialog.appId)
@@ -694,7 +743,15 @@ export function useAppManagerController(active: boolean) {
           }
         },
       }) satisfies ContextMenuRegistration,
-    [apps, t, handleLaunch, handleReveal, handleAuthorizeFromColumn, handleUpgradeFromColumn, handleUninstallFromColumn],
+    [
+      apps,
+      t,
+      handleLaunch,
+      handleReveal,
+      handleAuthorizeFromColumn,
+      handleUpgradeFromColumn,
+      handleUninstallFromColumn,
+    ],
   )
 
   useContextMenuRegistration(appRegistration)
@@ -782,7 +839,11 @@ export function useAppManagerController(active: boolean) {
     () =>
       installListApps
         .filter(
-          (app) => app.installed && Boolean(app.installedAppId) && selectedInstallIds.has(app.id),
+          (app) =>
+            app.installed &&
+            app.installedCanUninstall === true &&
+            Boolean(app.installedAppId) &&
+            selectedInstallIds.has(app.id),
         )
         .map((app) => app.installedAppId as string),
     [installListApps, selectedInstallIds],
@@ -791,7 +852,11 @@ export function useAppManagerController(active: boolean) {
     () =>
       installListApps
         .filter(
-          (app) => app.installed && Boolean(app.installedAppId) && selectedInstallIds.has(app.id),
+          (app) =>
+            app.installed &&
+            app.installedCanUninstall === true &&
+            Boolean(app.installedAppId) &&
+            selectedInstallIds.has(app.id),
         )
         .map((app) => app.name),
     [installListApps, selectedInstallIds],
@@ -858,11 +923,84 @@ export function useAppManagerController(active: boolean) {
     if (!pending) return
 
     if (pending.action === "install") {
+      batchInstallCancelRef.current = false
       clearInstallSelection()
-      for (const id of pending.appIds) {
+      useAppManagerStore.setState({
+        batchProgress: { running: true, current: 0, total: pending.appIds.length },
+        batchResults: null,
+      })
+      const results: Array<{
+        appId: string
+        appName: string
+        success: boolean
+        message: string
+        exitCode: number | null
+      }> = []
+      for (const [index, id] of pending.appIds.entries()) {
+        if (batchInstallCancelRef.current) break
         const app = installListApps.find((item) => item.id === id)
-        if (app && !app.installed) await doInstall(app.id, app.name, app.installSource)
+        if (app && !app.installed) {
+          const result = await doInstall(app.id, app.name, app.installSource, false)
+          if (result) {
+            results.push({
+              appId: app.id,
+              appName: app.name,
+              success: result.success,
+              message: result.message,
+              exitCode: result.exitCode,
+            })
+          } else {
+            results.push({
+              appId: app.id,
+              appName: app.name,
+              success: false,
+              message: t("appManager.errors.genericOperationFailure"),
+              exitCode: null,
+            })
+          }
+        } else {
+          results.push({
+            appId: id,
+            appName: app?.name ?? id,
+            success: false,
+            message: t("appManager.errors.genericOperationFailure"),
+            exitCode: null,
+          })
+        }
+        useAppManagerStore.setState({
+          batchProgress: {
+            running: true,
+            current: index + 1,
+            total: pending.appIds.length,
+          },
+        })
       }
+      const cancelled = pending.appIds.length - results.length
+      if (cancelled > 0) {
+        for (const id of pending.appIds.slice(results.length)) {
+          const app = installListApps.find((item) => item.id === id)
+          results.push({
+            appId: id,
+            appName: app?.name ?? id,
+            success: false,
+            message: t("appManager.batchCancelled", { n: 1 }),
+            exitCode: null,
+          })
+        }
+      }
+      useAppManagerStore.setState({
+        batchProgress: null,
+        batchResults: {
+          total: pending.appIds.length,
+          succeeded: results.filter((item) => item.success).length,
+          failed: results.filter((item) => !item.success).length - cancelled,
+          cancelled,
+          results,
+        },
+      })
+      scheduleTimeout(() => {
+        void scanApps()
+      }, 1200)
       return
     }
 
@@ -876,6 +1014,9 @@ export function useAppManagerController(active: boolean) {
     doInstall,
     clearInstallSelection,
     runBatchOperation,
+    scanApps,
+    scheduleTimeout,
+    t,
   ])
 
   const handleDetailUpgrade = useCallback(() => {
@@ -956,11 +1097,12 @@ export function useAppManagerController(active: boolean) {
   const caps = result?.platformCapabilities
   const errorMessage = error ? localizeError(t, error) : ""
   const updatesErrorMessage = updatesError ? localizeError(t, updatesError) : ""
+  const updatesWarningMessage = updatesWarning ? localizeError(t, updatesWarning) : ""
 
   return {
     apps,
     loading,
-    scanProgress,
+    scanProgress: inventoryProgress ?? scanProgress,
     error: errorMessage,
     searchQuery: activeSearchQuery,
     activeFilter,
@@ -994,6 +1136,7 @@ export function useAppManagerController(active: boolean) {
     updates,
     updatesLoading,
     updatesError: updatesErrorMessage,
+    updatesWarning: updatesWarningMessage,
     updatesScanned,
     expandedUpdateGroups,
     selectedUpdateIds,
@@ -1013,6 +1156,7 @@ export function useAppManagerController(active: boolean) {
     installListColumns,
     clearError,
     clearUpdatesError,
+    clearUpdatesWarning,
     setSearchQuery,
     setActiveFilter,
     setMarketplaceFilter,
@@ -1020,6 +1164,7 @@ export function useAppManagerController(active: boolean) {
     setSeriesFilter,
     setSorting,
     scanApps,
+    cancelInventoryScan,
     refreshUpdates,
     checkAllUpdates,
     handleUpdateAction,
@@ -1074,6 +1219,7 @@ export function useAppManagerController(active: boolean) {
     handleBatchUpgrade,
     handleBatchUninstall,
     handleBatchConfirm,
+    cancelBatch: cancelBatchAll,
     handleDetailUpgrade,
     handleDetailUninstall,
     setInstallBatchMode,

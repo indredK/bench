@@ -166,11 +166,11 @@ src/
 ├── App.tsx                          # 外壳、路由、全局弹窗
 ├── main.tsx                         # 启动入口 + 提供者
 ├── components/
-│   ├── ui/                          # shadcn/ui — 25+ 基础组件
+│   ├── ui/                          # shadcn/ui 基础组件
 │   ├── layout/                      # ThreeColumnLayout, Sidebar, FilterPanel, DetailPanel
 │   ├── common/                      # DestructiveConfirmDialog, RuntimeFeatureGate, UpdateDialog
 │   └── content/                     # VirtualGridView, VirtualDataTable, ViewToggle
-├── features/                        # 11 个领域模块
+├── features/                        # 领域模块
 │   ├── account-manager/             # 会话、webview、认证代理（复杂）
 │   ├── app-manager/                 # 已安装应用扫描、启动、卸载
 │   ├── clean-space/                # 存储空间清理（顶层主菜单模块；含开发项目清理子流程）
@@ -190,21 +190,21 @@ src/
 │   ├── tauri/
 │   │   ├── contracts.ts             # IPC 契约定义
 │   │   ├── invoke.ts                # 类型化 invoke 封装
-│   │   ├── commands/                # 领域命令函数（14 个文件）
-│   │   ├── types/                   # DTO 类型定义（11 个文件）
+│   │   ├── commands/                # 领域命令函数
+│   │   ├── types/                   # DTO 类型定义
 │   │   └── errors.ts                # 错误解析与翻译
 │   ├── utils.ts                     # cn(), retry() 等
 │   └── ui-layers.ts                 # z-index 常量
 ├── i18n/
 │   ├── config.ts                    # i18next 初始化
 │   └── locales/{en,zh}.json        # 翻译资源
-├── data/                            # 硬件静态数据（12 个文件，约 2200 行）
+├── data/                            # 硬件静态数据
 └── shared/                          # 跨功能共享逻辑
 
 src-tauri/src/
 ├── main.rs                          # 二进制入口
 ├── lib.rs                           # Builder：插件 + 状态 + 初始化 + invoke_handler
-├── commands.rs                      # 宏注册的处理器列表（约 90 条命令）
+├── commands.rs                      # 宏注册的处理器列表
 ├── error.rs                         # AppError + AppResult<T>
 ├── account_manager/                 # OAuth、会话、webview
 ├── app_manager/                     # 应用扫描、启动、卸载

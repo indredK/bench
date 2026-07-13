@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use std::io;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -25,6 +26,14 @@ pub enum ReplaceError {
         reason: String,
         trashed_old: PathBuf,
     },
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ReplaceJournal {
+    install_path: PathBuf,
+    staged_new: PathBuf,
+    trashed_old: PathBuf,
 }
 
 impl ReplaceError {
@@ -61,18 +70,38 @@ pub fn replace_bundle(
     new: &Path,
     trash_dir: &Path,
 ) -> Result<ReplaceOutcome, ReplaceError> {
+    recover_pending_replacements().map_err(ReplaceError::RolledBack)?;
+    preflight_replace(old, new)
+        .map_err(|error| ReplaceError::RolledBack(format!("install new preflight: {error}")))?;
     std::fs::create_dir_all(trash_dir)
         .map_err(|e| ReplaceError::RolledBack(format!("ensure trash: {e}")))?;
 
     let trash_path = unique_trash_path(trash_dir, old);
+    let staged_new = sibling_staging_path(old);
+    move_path(new, &staged_new)
+        .map_err(|e| ReplaceError::RolledBack(format!("stage new bundle: {e}")))?;
+    let journal = ReplaceJournal {
+        install_path: old.to_path_buf(),
+        staged_new: staged_new.clone(),
+        trashed_old: trash_path.clone(),
+    };
+    let journal_path = write_journal(&journal).map_err(|error| {
+        let _ = move_path(&staged_new, new);
+        ReplaceError::RolledBack(error)
+    })?;
 
     // Move old → trash. If this fails the original is untouched.
-    move_path(old, &trash_path).map_err(|e| ReplaceError::RolledBack(format!("trash old: {e}")))?;
+    if let Err(error) = move_path(old, &trash_path) {
+        let _ = std::fs::remove_file(&journal_path);
+        let _ = move_path(&staged_new, new);
+        return Err(ReplaceError::RolledBack(format!("trash old: {error}")));
+    }
 
     // Move new → old's location. Rollback if it fails.
-    if let Err(e) = move_path(new, old) {
+    if let Err(e) = move_path(&staged_new, old) {
         match move_path(&trash_path, old) {
             Ok(()) => {
+                let _ = std::fs::remove_file(&journal_path);
                 return Err(ReplaceError::RolledBack(format!(
                     "install new: {e}; original restored"
                 )));
@@ -85,6 +114,7 @@ pub fn replace_bundle(
             }
         }
     }
+    let _ = std::fs::remove_file(&journal_path);
 
     // Best-effort dequarantine so the user doesn't see a Gatekeeper prompt
     // on first launch. Failure here is non-fatal.
@@ -94,6 +124,138 @@ pub fn replace_bundle(
         trashed_old: trash_path,
         installed_at: old.to_path_buf(),
     })
+}
+
+fn preflight_replace(old: &Path, new: &Path) -> Result<(), String> {
+    if !old.is_dir() || !new.is_dir() {
+        return Err("SU_PREFLIGHT_PATH_INVALID".to_string());
+    }
+    let parent = old
+        .parent()
+        .ok_or_else(|| "SU_PREFLIGHT_PARENT_MISSING".to_string())?;
+    let probe = parent.join(format!(".bench-write-probe-{}", std::process::id()));
+    std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&probe)
+        .map_err(|error| format!("SU_PREFLIGHT_PERMISSION_DENIED: {error}"))?;
+    let _ = std::fs::remove_file(&probe);
+
+    let required = directory_size(new).saturating_add(64 * 1024 * 1024);
+    if let Some(available) = available_bytes(parent) {
+        if available < required {
+            return Err(format!(
+                "SU_PREFLIGHT_DISK_SPACE: required {required}, available {available}"
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn directory_size(root: &Path) -> u64 {
+    walkdir::WalkDir::new(root)
+        .into_iter()
+        .filter_map(Result::ok)
+        .filter_map(|entry| entry.metadata().ok())
+        .filter(|metadata| metadata.is_file())
+        .map(|metadata| metadata.len())
+        .fold(0_u64, u64::saturating_add)
+}
+
+fn available_bytes(path: &Path) -> Option<u64> {
+    let output = Command::new("df").args(["-Pk"]).arg(path).output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let line = String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .last()?
+        .to_string();
+    let available_kib = line.split_whitespace().nth(3)?.parse::<u64>().ok()?;
+    Some(available_kib.saturating_mul(1024))
+}
+
+fn sibling_staging_path(old: &Path) -> PathBuf {
+    let parent = old.parent().unwrap_or_else(|| Path::new("."));
+    let name = old
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("App.app");
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or(0);
+    parent.join(format!(".{name}.bench-staging-{timestamp}"))
+}
+
+fn journal_dirs() -> Vec<PathBuf> {
+    let primary = super::downloader::cache_root().join("recovery");
+    let fallback = std::env::temp_dir()
+        .join("bench-app-update-cache")
+        .join("recovery");
+    if primary == fallback {
+        vec![primary]
+    } else {
+        vec![primary, fallback]
+    }
+}
+
+fn write_journal(journal: &ReplaceJournal) -> Result<PathBuf, String> {
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or(0);
+    let payload =
+        serde_json::to_vec(journal).map_err(|error| format!("SU_JOURNAL_SERIALIZE: {error}"))?;
+    let mut last_error = None;
+    for dir in journal_dirs() {
+        if let Err(error) = std::fs::create_dir_all(&dir) {
+            last_error = Some(error.to_string());
+            continue;
+        }
+        let path = dir.join(format!("replace-{timestamp}.json"));
+        match std::fs::write(&path, &payload) {
+            Ok(()) => return Ok(path),
+            Err(error) => last_error = Some(error.to_string()),
+        }
+    }
+    Err(format!(
+        "SU_JOURNAL_WRITE: {}",
+        last_error.unwrap_or_else(|| "no writable journal directory".to_string())
+    ))
+}
+
+pub fn recover_pending_replacements() -> Result<usize, String> {
+    let mut recovered = 0;
+    for dir in journal_dirs().into_iter().filter(|dir| dir.exists()) {
+        let entries =
+            std::fs::read_dir(&dir).map_err(|error| format!("SU_JOURNAL_READ: {error}"))?;
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|value| value.to_str()) != Some("json") {
+                continue;
+            }
+            let journal: ReplaceJournal = match std::fs::read(&path)
+                .ok()
+                .and_then(|payload| serde_json::from_slice(&payload).ok())
+            {
+                Some(journal) => journal,
+                None => continue,
+            };
+            if !journal.install_path.exists() && journal.trashed_old.exists() {
+                move_path(&journal.trashed_old, &journal.install_path)
+                    .map_err(|error| format!("SU_RECOVERY_RESTORE_FAILED: {error}"))?;
+                recovered += 1;
+            }
+            if journal.install_path.exists() && journal.staged_new.exists() {
+                let _ = std::fs::remove_dir_all(&journal.staged_new);
+            }
+            if journal.install_path.exists() {
+                let _ = std::fs::remove_file(&path);
+            }
+        }
+    }
+    Ok(recovered)
 }
 
 fn unique_trash_path(trash_dir: &Path, old: &Path) -> PathBuf {

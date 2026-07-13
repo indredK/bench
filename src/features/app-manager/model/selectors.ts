@@ -22,6 +22,11 @@ interface FilterInstallListAppsOptions {
   marketplaceFilter: MarketplaceFilterKey
   categoryFilter: AppCategoryKey | null
   seriesFilter: AppSeriesKey | null
+  getLocalizedDescription?: (app: InstallListAppInfo) => string
+}
+
+function normalizeSearch(value: string): string {
+  return value.normalize("NFKC").toLocaleLowerCase()
 }
 
 export function filterAppManagerItems({
@@ -46,14 +51,16 @@ export function filterInstallListApps({
   marketplaceFilter,
   categoryFilter,
   seriesFilter,
+  getLocalizedDescription,
 }: FilterInstallListAppsOptions): InstallListAppInfo[] {
   let result = installListApps
-  const query = searchQuery.trim().toLowerCase()
+  const query = normalizeSearch(searchQuery.trim())
 
   if (query) {
-    result = result.filter(
-      (app) =>
-        app.name.toLowerCase().includes(query) || app.description.toLowerCase().includes(query),
+    result = result.filter((app) =>
+      normalizeSearch(
+        `${app.name} ${app.description} ${getLocalizedDescription?.(app) ?? ""}`,
+      ).includes(query),
     )
   }
 
@@ -112,14 +119,14 @@ function filterInstalledApps({
   categoryFilter,
   seriesFilter,
 }: Omit<FilterAppManagerItemsOptions, "installListApps">): AppInfo[] {
-  const query = searchQuery.trim().toLowerCase()
+  const query = normalizeSearch(searchQuery.trim())
 
   return apps.filter((app) => {
     if (
       query &&
-      !app.name.toLowerCase().includes(query) &&
-      !app.installPath.toLowerCase().includes(query) &&
-      !app.bundleId.toLowerCase().includes(query)
+      !normalizeSearch(app.name).includes(query) &&
+      !normalizeSearch(app.installPath).includes(query) &&
+      !normalizeSearch(app.bundleId).includes(query)
     ) {
       return false
     }

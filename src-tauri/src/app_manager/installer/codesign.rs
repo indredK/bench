@@ -5,6 +5,8 @@ use std::process::Command;
 /// detect a Developer ID change between the installed bundle and the new one.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct CodesignInfo {
+    /// Bundle identifier reported by codesign's `Identifier=` line.
+    pub bundle_id: Option<String>,
     /// 10-char Team Identifier (e.g. "ABCDE12345"). `None` when the bundle
     /// is unsigned or codesign reports "not set".
     pub team_id: Option<String>,
@@ -52,6 +54,87 @@ pub fn verify_signature(app_path: &Path) -> Result<(), String> {
     Ok(())
 }
 
+/// Gatekeeper assessment is the final notarization/policy check. A valid
+/// embedded signature alone is insufficient for an untrusted download.
+pub fn assess_notarization(app_path: &Path) -> Result<(), String> {
+    let out = Command::new("spctl")
+        .args(["--assess", "--type", "execute", "--strict"])
+        .arg(app_path)
+        .output()
+        .map_err(|error| format!("SU_NOTARIZATION_FAIL: spawn {error}"))?;
+    if !out.status.success() {
+        return Err(format!(
+            "SU_NOTARIZATION_FAIL: {}",
+            String::from_utf8_lossy(&out.stderr).trim()
+        ));
+    }
+    Ok(())
+}
+
+pub fn verify_platform_compatibility(app_path: &Path) -> Result<(), String> {
+    let plist_path = app_path.join("Contents/Info.plist");
+    let dictionary = plist::Value::from_file(&plist_path)
+        .map_err(|error| format!("SU_BUNDLE_METADATA_FAIL: {error}"))?
+        .into_dictionary()
+        .ok_or_else(|| "SU_BUNDLE_METADATA_FAIL: Info.plist is not a dictionary".to_string())?;
+
+    if let Some(minimum) = dictionary
+        .get("LSMinimumSystemVersion")
+        .and_then(|value| value.as_string())
+    {
+        let host = Command::new("sw_vers")
+            .arg("-productVersion")
+            .output()
+            .map_err(|error| format!("SU_OS_VERSION_FAIL: {error}"))?;
+        let host = String::from_utf8_lossy(&host.stdout);
+        if compare_version_components(host.trim(), minimum).is_lt() {
+            return Err(format!("SU_OS_TOO_OLD: requires {minimum}"));
+        }
+    }
+
+    let executable = dictionary
+        .get("CFBundleExecutable")
+        .and_then(|value| value.as_string())
+        .ok_or_else(|| "SU_BUNDLE_METADATA_FAIL: CFBundleExecutable missing".to_string())?;
+    let executable_path = app_path.join("Contents/MacOS").join(executable);
+    let output = Command::new("lipo")
+        .arg("-archs")
+        .arg(&executable_path)
+        .output()
+        .map_err(|error| format!("SU_ARCH_CHECK_FAIL: {error}"))?;
+    if !output.status.success() {
+        return Err("SU_ARCH_CHECK_FAIL: lipo could not inspect executable".to_string());
+    }
+    let required = match std::env::consts::ARCH {
+        "aarch64" => "arm64",
+        "x86_64" => "x86_64",
+        other => other,
+    };
+    let architectures = String::from_utf8_lossy(&output.stdout);
+    if !architectures
+        .split_whitespace()
+        .any(|arch| arch == required)
+    {
+        return Err(format!("SU_ARCH_MISMATCH: requires {required}"));
+    }
+    Ok(())
+}
+
+fn compare_version_components(left: &str, right: &str) -> std::cmp::Ordering {
+    let parse = |value: &str| {
+        value
+            .split('.')
+            .map(|part| part.parse::<u64>().unwrap_or(0))
+            .collect::<Vec<_>>()
+    };
+    let mut left = parse(left);
+    let mut right = parse(right);
+    let width = left.len().max(right.len());
+    left.resize(width, 0);
+    right.resize(width, 0);
+    left.cmp(&right)
+}
+
 fn parse_codesign_output(text: &str) -> CodesignInfo {
     let mut info = CodesignInfo::default();
     for raw in text.lines() {
@@ -64,6 +147,12 @@ fn parse_codesign_output(text: &str) -> CodesignInfo {
         } else if info.authority.is_none() {
             if let Some(v) = line.strip_prefix("Authority=") {
                 info.authority = Some(v.trim().to_string());
+            }
+        }
+        if let Some(v) = line.strip_prefix("Identifier=") {
+            let v = v.trim();
+            if !v.is_empty() {
+                info.bundle_id = Some(v.to_string());
             }
         }
     }
@@ -156,5 +245,12 @@ Sealed Resources version=2 rules=13 files=98
         };
         let b = a.clone();
         assert!(!team_id_changed(&a, &b));
+    }
+
+    #[test]
+    fn version_component_comparison_handles_padding() {
+        assert!(compare_version_components("14.6", "14.5.1").is_gt());
+        assert!(compare_version_components("13.4", "14.0").is_lt());
+        assert!(compare_version_components("15.0", "15").is_eq());
     }
 }

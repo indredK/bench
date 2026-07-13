@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use std::path::Path;
 use std::process::Command;
 use std::process::Stdio;
+use std::sync::Arc;
 use std::sync::OnceLock;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -214,14 +215,14 @@ fn parse_lookup_response(body: &str) -> Result<Vec<LookupItem>, String> {
 }
 
 pub struct MacAppStoreSource {
-    cache: OnceLock<Result<Vec<PendingUpdate>, String>>,
+    cache: Arc<OnceLock<Result<Vec<PendingUpdate>, String>>>,
     client: reqwest::Client,
 }
 
 impl MacAppStoreSource {
     pub fn new() -> Self {
         Self {
-            cache: OnceLock::new(),
+            cache: Arc::new(OnceLock::new()),
             client: reqwest::Client::builder()
                 .timeout(Duration::from_secs(8))
                 .user_agent("bench-updater/1.0 (+macOS)")
@@ -230,8 +231,11 @@ impl MacAppStoreSource {
         }
     }
 
-    fn pending(&self) -> &Result<Vec<PendingUpdate>, String> {
-        self.cache.get_or_init(fetch_pending_updates)
+    async fn pending_snapshot(&self) -> Result<Vec<PendingUpdate>, String> {
+        let cache = self.cache.clone();
+        tokio::task::spawn_blocking(move || cache.get_or_init(fetch_pending_updates).clone())
+            .await
+            .map_err(|error| format!("SU_MAS_UPDATE_TASK: {error}"))?
     }
 
     async fn lookup_store_version(&self, bundle_id: &str) -> Result<Option<LookupItem>, String> {
@@ -242,11 +246,7 @@ impl MacAppStoreSource {
         let response = self
             .client
             .get("https://itunes.apple.com/lookup")
-            .query(&[
-                ("bundleId", bundle_id),
-                ("entity", "macSoftware"),
-                ("country", "us"),
-            ])
+            .query(&[("bundleId", bundle_id), ("entity", "macSoftware")])
             .send()
             .await
             .map_err(|e| format!("SU_MAS_LOOKUP_HTTP: {e}"))?;
@@ -278,11 +278,10 @@ impl UpdaterSource for MacAppStoreSource {
     }
 
     async fn check_for_update(&self, app: &AppInfo) -> Result<Option<UpdateInfo>, String> {
-        let pending_match = self.pending().as_ref().ok().is_some_and(|pending| {
-            pending
-                .iter()
-                .any(|update| matches_pending_update(update, app))
-        });
+        let pending = self.pending_snapshot().await?;
+        let pending_match = pending
+            .iter()
+            .any(|update| matches_pending_update(update, app));
 
         let lookup = self.lookup_store_version(&app.bundle_id).await?;
         if let Some(store_item) = lookup {
@@ -296,6 +295,8 @@ impl UpdaterSource for MacAppStoreSource {
                     .or_else(|| read_adam_id(&app.install_path));
 
                 return Ok(Some(UpdateInfo {
+                    update_id: String::new(),
+                    inventory_revision: 0,
                     app_id: app.app_id.clone(),
                     app_name: app.name.clone(),
                     source: UpdateSource::MacAppStore,
@@ -306,7 +307,11 @@ impl UpdaterSource for MacAppStoreSource {
                     release_notes_url: store_item.track_view_url,
                     release_notes_inline: None,
                     size: None,
-                    source_meta: Some(serde_json::json!({ "provider": "itunes_lookup" })),
+                    source_meta: Some(serde_json::json!({
+                        "provider": "itunes_lookup",
+                        "confidence": "advisory",
+                        "action": "openStore"
+                    })),
                     feed_url: Some("https://itunes.apple.com/lookup".into()),
                     ignored: false,
                 }));
@@ -320,6 +325,8 @@ impl UpdaterSource for MacAppStoreSource {
         let adam_id = read_adam_id(&app.install_path);
 
         Ok(Some(UpdateInfo {
+            update_id: String::new(),
+            inventory_revision: 0,
             app_id: app.app_id.clone(),
             app_name: app.name.clone(),
             source: UpdateSource::MacAppStore,
@@ -330,7 +337,11 @@ impl UpdaterSource for MacAppStoreSource {
             release_notes_url: None,
             release_notes_inline: None,
             size: None,
-            source_meta: None,
+            source_meta: Some(serde_json::json!({
+                "provider": "softwareupdate",
+                "confidence": "advisory",
+                "action": "openStore"
+            })),
             feed_url: None,
             ignored: false,
         }))
@@ -419,6 +430,8 @@ mod tests {
     #[test]
     fn falls_back_to_label_when_title_is_missing() {
         let app = AppInfo {
+            source_evidence: crate::app_manager::types::SourceEvidence::None,
+            launch_target: None,
             app_id: "x".into(),
             name: "Things".into(),
             version: "3.19".into(),

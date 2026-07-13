@@ -625,6 +625,7 @@
     "filteredSummary": "筛选结果 {{visible}} 个 / 共 {{total}} 个",
     "refresh": "刷新",
     "scanning": "正在扫描应用...",
+    "cancelScan": "取消应用扫描",
     "scanStage": {
       "scanning": "扫描应用目录",
       "resolving": "识别应用来源",
@@ -634,6 +635,7 @@
     "startHint": "点击「刷新」按钮开始扫描已安装的应用",
     "empty": "未发现任何应用",
     "noResults": "没有匹配的应用",
+    "notLaunchable": "此应用没有经过验证的启动入口",
     "browserWarning": "应用管理功能需要在 Tauri 桌面环境中使用",
     "systemLabel": "系统",
     "updateAvailable": "有更新",
@@ -695,6 +697,8 @@
     "batchResults": "批量操作结果",
     "batchSucceeded": "成功 {{n}} 个",
     "batchFailed": "失败 {{n}} 个",
+    "batchCancelled": "已取消 {{n}} 个",
+    "batchCancel": "取消批量操作",
     "batchTotal": "共 {{n}} 个",
     "batchConfirmTitle": "确认批量{{action}}（{{count}} 个应用）",
     "batchActionUpgrade": "升级",
@@ -784,6 +788,8 @@
       "source": {
         "appStore": "App Store",
         "homebrew": "Homebrew",
+        "winget": "winget",
+        "windowsStore": "Microsoft Store",
         "sparkle": "Sparkle",
         "electron": "Electron",
         "squirrel": "Squirrel",
@@ -820,6 +826,7 @@
       "status": {
         "openingAppStore": "正在打开 App Store...",
         "upgradingHomebrew": "正在通过 Homebrew 升级...",
+        "upgradingWinget": "正在通过 winget 升级...",
         "installingUpdate": "正在安装更新..."
       },
       "empty": {
@@ -860,16 +867,6 @@
         },
         "cancel": "取消",
         "close": "关闭",
-        "devIdChanged": {
-          "title": "开发者签名已变更",
-          "body": "{{app}} 的签名身份与初次安装时不同。请仅在你信任新的发行方时继续。",
-          "oldLabel": "原签名",
-          "newLabel": "新签名",
-          "unknown": "未知",
-          "hint": "如果这并非预期，请取消更新并核实来源。",
-          "approve": "信任新签名",
-          "reject": "取消更新"
-        },
         "appRunning": {
           "title": "应用正在运行",
           "body": "{{app}} 正在运行，需要先退出才能安装更新。",
@@ -919,7 +916,12 @@
     },
     "errors": {
       "scanFailed": "扫描已安装应用失败。",
+      "scanPartial": "应用扫描未完整完成，不可用来源：{{providers}}。",
+      "launchFailed": "无法启动 {{name}}。",
+      "revealFailed": "无法定位 {{name}}。",
       "updateCheckFailed": "检查可用更新失败。",
+      "updateCheckPartial": "部分更新来源暂时不可用（{{providers}}），已展示其他来源的可用更新。",
+      "genericOperationFailure": "操作未能完成。",
       "missingMacAppStoreId": "当前更新缺少 App Store 标识。",
       "noDownloadUrl": "当前更新没有可用的发布页或下载地址。",
       "genericBatchFailure": "批量操作未能成功完成。"
@@ -2432,6 +2434,7 @@
       "resolving": "识别应用来源",
       "processing": "处理应用信息"
     },
+    "scanPartial": "部分应用来源扫描失败：{{providers}}。现有结果仍可继续使用。",
     "empty": "还没有扫描应用。去「应用管理」页面先扫描一次，或者点击下方按钮直接扫描。",
     "totalApps": "{{count}} 个应用 · {{scenes}} 个场景",
     "searchResult": "搜索到 {{count}} 个应用",
@@ -2447,7 +2450,14 @@
       "exportSuccess": "已导出 {{count}} 个应用的分类数据",
       "exportFailed": "导出失败",
       "resetSuccess": "已恢复默认分类",
-      "resetFailed": "恢复默认分类失败"
+      "resetFailed": "恢复默认分类失败",
+      "launchFailed": "无法启动 {{name}}",
+      "revealFailed": "无法定位 {{name}}",
+      "scanFailed": "无法扫描已安装应用",
+      "cancelFailed": "无法取消应用扫描"
+    },
+    "errors": {
+      "scanFailed": "已安装应用扫描失败，请重试刷新应用清单。"
     },
     "resetConfirmTitle": "恢复默认分类？",
     "resetConfirmDescription": "将移除所有自定义应用分类。",

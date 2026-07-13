@@ -1,260 +1,49 @@
-# Bench 项目代码规范审计报告
-
-> **本次审计**：2026-07-06，Phase 1–6 全量审计（第二轮）+ 建议项批量修复。
-> **上次审计**：2026-07-05，所有强制项已修复，建议项已评估处理。
->
-> **问题统计**（含本次 session 修复）：
-> | Phase | 强制 | 建议 | 合计 | 已修复 | 评估保留 | 豁免/误报 |
-> |-------|:----:|:----:|:----:|:------:|:--------:|:---------:|
-> | Phase 1 — 全局结构与目录规范 | 6 | 6 | 12 | 6 强制 + 3 建议 | 0 | 2 豁免 + 1 误报 |
-> | Phase 2 — 前端代码与 UI 规范 | 22 | 3 | 25 | 22 强制 + 1 建议 | 2 建议 | 0 |
-> | Phase 3 — 国际化（i18n） | 3 | 1 | 4 | 3 强制 + 1 建议 | 0 | 0 |
-> | Phase 4 — 状态管理、异步安全与用户反馈 | 18 | 3 | 21 | 18 强制 + 3 建议 | 0 | 0 |
-> | Phase 5 — Rust 后端与 IPC 契约 | 10 | 0 | 10 | 10 强制 | 0 | 0 |
-> | Phase 6 — 文档对齐与提交规范 | 0 | 1 | 1 | 1 建议 | 0 | 0 |
-> | **合计** | **59** | **14** | **73** | **59 强制 + 9 建议 = 68** | **2 建议** | **2 豁免 + 1 误报** |
->
-> **本文件用途**：保留"不计违规决策"与"已评估模式"，供后续 AI 审计参考，**避免重复标记已评估过的问题**。已修复条目的详细记录已移除（commit 历史可查）。
->
-> **经验沉淀**：可复用的模式与评估标准已写入 [coding-standards.md](./coding-standards.md) §3.1 / §3.2 / §9 与 [development-workflow.md](./development-workflow.md) §3.1，审计时直接参照规范，不在此重复。模块化功能经验在各模块 `roadmap.md`。
+# Bench 审计记录
 
----
+本文件只保留审计豁免、仍有效的风险和最近复核结论。已修复问题的逐条历史由 Git 保留；可复用规则已经进入 [coding-standards.md](./coding-standards.md) 和 [ARCHITECTURE.md](./ARCHITECTURE.md)。
 
-## 不计违规决策（勿重复标记）
+## 不计违规决策
 
-后续审计如遇到以下模式，**不要重复标记为违规**——已评估并决策保留：
+后续审计不得重复报告以下已评估模式，除非前提发生变化：
 
-1. **`src/data/phone.ts` 纯数据不做国际化**（2026-07-05）
-   - 数据层保留中文原始值（~2200 行），展示层通过 `PHONE_*_KEYS` 反向映射表 + `t()` 翻译
-   - 新增机型时需同步补映射表条目；`CAMERA_TERM_TO_KEY` 以中文做 key、`str.replace(/\(屏下\)/g, ...)` 正则改中文括号均属同一决策
-
-2. **`src/features/hardware/` 不强制补 `hooks/` / `services/`**
-   - `page.tsx` 仅 183 行做组合，无内联编排；`HardwareCompare.tsx` / `HardwareCompareTab.tsx` 已在 `components/` 内
+1. `src/data/phone.ts` 保留中文原始数据，展示层通过 `PHONE_*_KEYS` 和 `t()` 翻译；新增数据必须同步映射。
+2. `src/features/hardware/` 当前无需空的 `hooks/`、`services/`；只有出现真实编排或适配职责时再补。
+3. 各模块 `columns.tsx` 字段和交互差异大，不为了形式统一抽取。
+4. `lib/tauri/commands/*` 已是纯 IPC 适配时，不增加只做 re-export 的 feature repository。
+5. 页面级本地状态无需强制进入 Zustand store；跨组件/页面共享后再上提。
+6. `src-tauri/src/lib.rs` 启动链末端的 `.expect()` 可保留；IPC 和可降级初始化路径仍禁止 panic。
+7. 子组件用 selector 读取稳定 store action 可以保留；禁止无 selector 整 store 订阅进入 hook 依赖。
+8. `dev-toolbox` 是聚合型 Tab 容器，`updater` 是全局对话框模块，不强制拥有导航 feature 的完整文件结构。
 
-3. **`columns.tsx` 跨模块不强制统一抽取**
-   - `app-manager` / `dev-cleaner` / `env-detector` 三个 `columns.tsx` 内容差异大（不同字段、格式化、筛选），统一抽取会过度抽象
+## 当前发布风险
 
-4. **`services/*.repository.ts` 在 IPC 已集中时不强制补**
-   - Tauri 命令已在 `lib/tauri/commands/*` 集中维护时，feature 内不补纯 re-export facade；仅在需要错误处理 / 缓存 / 参数转换时才补（见 coding-standards §3.1）
+- [§7.4/§9] `src-tauri/src/app_manager/` - macOS/Windows 核心实现已整改，但目标平台 fixture、真机 smoke 和 CI 行为测试未完成 - 按 [App Manager roadmap](./modules/app-manager/roadmap.md) 验收 - **强制** - 状态：待验收
+- [§6/§9] `src/features/quick-launch/` - 共享 inventory 与虚拟列表已落地，但 macOS/Windows 启动 smoke 和 500+ 应用性能验收未完成 - 按 [Quick Launch roadmap](./modules/quick-launch/roadmap.md) 验收 - **强制** - 状态：待验收
+- [§9] `src/features/account-manager/` - Session/Probe Rust 行为测试和大账号列表虚拟化仍缺 - 按 [Account Manager roadmap](./modules/account-manager/roadmap.md) 实施 - **建议** - 状态：Backlog
 
-5. **`store.ts` 对页面级本地状态不强制补**
-   - 无跨页面共享需求时留在 controller 即可（如 token-calculator 的 pricing/汇率，见 coding-standards §3.1）
-
-6. **`src-tauri/src/lib.rs` `tauri::Builder` 链路 `.expect()`**
-   - 启动失败本身无法降级，符合"启动期配置读取失败须显式传播"的兜底语义；仅此一处，其他 IPC 路径禁用 `.expect()` / `.unwrap()`
-
-7. **子组件直接 `useXxxStore()` 取 setter 不算违规**
-   - setter 引用稳定，无重渲问题；主组件用 controller，子组件可保留 `useXxxStore()` 取 `addTerm` / `updateTerm` 等 setter
-
----
-
-## 已通过检查项（现状确认，审计时可快速跳过）
-
-以下领域在 2026-07-05 审计中通过，无需逐项重查：
-
-- TypeScript `strict` + `noUnusedLocals` / `noUnusedParameters` / `noFallthroughCasesInSwitch`
-- `@/` 别名导入，无 `../../` 跨模块导入
-- shadcn/ui 复用，`cn()` 类名拼接（33 处历史违规已修复）
-- 大列表虚拟化已接入（`@tanstack/react-virtual`，port-manager / hardware / app-manager）
-- locale key `zh` / `en` 同步（各 1983 key，`scripts/quality/check-i18n-guards.mjs` 接入 `lint:fe` 门禁）
-- 无模块顶层 / 静态常量 / store 初始值里的 `t()` 调用
-- store 分层：状态在 `store.ts`，编排在 `*use-cases.ts`，IPC 在 `lib/tauri/commands/*`
-- 重入保护普遍使用 `useGuardedAsync` / `useGuardedAsyncSet`
-- Effect 清理完整（事件 / 定时器 / 订阅）
-- 平台边界走 `canUseDesktopFeatures()` / `canUseTauriCommands()` / `canUseTauriWindow()`，无 `window.__TAURI__` 散落
-- 写操作 toast 反馈 + 加载态；空状态 / 失败态 UI 完整
-- `DestructiveConfirmDialog` 危险操作二次确认
-- Rust 后端按领域分目录，`commands.rs` 仅作注册表
-- IPC 契约集中维护（168 个 `defineTauriCommand`，TS↔Rust 字段一致）
-- 批量与取消接口幂等
-- 提交历史 Conventional Commits
-
----
-
-## 审查记录
-
-> 本章节是 `/review` workflow 的**结果落盘区**——每次审查（commit / PR / 文件 / 全量）都追加一条记录，防止跨会话遗忘。
->
-> 格式：`### YYYY-MM-DD — <审查范围>` + 逐条违规（或 `✅ 无违规`）。
-> 违规修复后在行尾追加 `✅ 已修复`。
-
-<!-- 新审查记录追加在此下方 -->
-
-### 2026-07-06 — 全量审查 Phase 1–6
+未完成目标平台行为测试前，不得把 App Manager 或 Quick Launch 标记为 macOS/Windows 发布对等。
 
-**审查结论**：✅ 无新增强制违规。所有强制项保持通过状态。
+## 最近复核
 
-#### 验证项（全部通过）
+### 2026-07-13 - Quick Launch / App Manager
 
-- ✅ TypeScript `strict` 通过，类型检查无错误（`tsc --noEmit` 零错误）
-- ✅ `@/` 别名导入规范，无 `../../` 跨模块相对路径
-- ✅ shadcn/ui 组件复用，无手写基础组件
-- ✅ `cn()` 类名拼接，无手动字符串拼接
-- ✅ 无 `z-[N]` 魔法数字（仅 `ui-layers.ts` 注释说明）
-- ✅ i18n guard 通过（`check-i18n-guards.mjs`）
-- ✅ locale key `zh` / `en` 同步
-- ✅ 无模块顶层 / 静态常量 / store 初始值的 `t()` 调用
-- ✅ 无 `window.__TAURI__` 散落 JSX
-- ✅ 散装错误判断仅存在于 `lib/tauri/errors.ts` 中心库
-- ✅ 无直接 `invoke()` 调用，全部走 typed wrapper
-- ✅ `store.ts` 分层正确，无 Tauri 调用直接写入
-- ✅ 文档一致性检查通过（12 features ↔ 12 module docs）
-- ✅ IPC 契约对齐（Rust 162 条命令 ↔ TS 167 条 defineTauriCommand）
-
-#### 发现的问题（本次已修复）
+- [§7/§8] `src-tauri/src/app_manager/` - 稳定 appId、LaunchTarget、SourceEvidence、revision、canonical update cache、平台 provider 和更新器安全边界已落地 - **强制** - 状态：已修复
+- [§3.3/§5] `src/features/quick-launch/`、`src/shared/app-inventory/` - single-flight、取消、partial/stale 反馈、skeleton、虚拟网格、按需图标和版本化分类已落地 - **强制** - 状态：已修复
+- [§6] `SoftwareUpdateView.tsx` - warning/error 曾占满主内容区并挤压更新列表；已改为纵向 flex，并补 warning + update 同屏测试 - **强制** - 状态：已修复
+- [§4] `recommended-apps.ts` - 名称 heuristic 仅用于展示，不再授予破坏性 installedAppId - **强制** - 状态：已修复
 
-- [§1] `src/features/system-settings/page.tsx:31` — `SettingsTab` 类型重复导入（第 12 行已导入，第 31 行重复导入） — 删除重复导入 — **强制** ✅ 已修复
-- [§1] `src/features/system-settings/page.tsx:205,207` — `activeTab` 变量未定义，应使用 `store.activeTab` — 改为 `store.activeTab` — **强制** ✅ 已修复
+本地复核已通过 `pnpm run lint:fe`、`pnpm run test:critical`、`cargo test app_manager`、`cargo clippy -- -D warnings` 和 `git diff --check`。这不替代 Windows/macOS 真机验收。
 
----
+### 2026-07-06 - Phase 1-6
 
-### 2026-07-06 — 全量审计 Phase 1–2
+全量规范审计发现的问题均已修复或记录为上方豁免；历史逐条清单不再维护。后续只重查发生代码变化的领域，并将新发现追加到本文件。
 
-#### Phase 1：全局结构与目录规范
-
-**强制违规**
-
-- [§2.3] `src-tauri/src/app_preferences/` — 缺少 `types.rs`，Rust 后端类型定义未按规范命名 — 创建 `app_preferences/types.rs` 并迁移类型 — **强制** ✅ 已修复
-- [§2.3] `src-tauri/src/window_theme/` — 缺少 `types.rs` — 创建 `window_theme/types.rs` 并迁移类型 — **强制** ✅ 已修复
-- [§3.4] `src/features/system-settings/components/sections/AppAuthorizeSection.tsx:5` — 静态导入 `@tauri-apps/plugin-notification`（`sendNotification`），平台 API 调用混入视图组件 — 改为通过 `platform/` 封装或 controller 透传 — **强制** ✅ 已修复
-- [§3.4] `src/features/system-settings/components/sections/AppAuthorizeSection.tsx:105` — `platformName !== "macos"` 平台判断散落在 JSX 中 — 使用 `canUseDesktopFeatures()` 替代 — **强制** ✅ 已修复
+## 记录规则
 
-**建议**
+新记录格式：
 
-- [§2.3] `src/features/token-calculator/services/exchange-rate.ts` — 文件在 `services/` 目录下但不遵循 `*.use-cases.ts` 或 `*.repository.ts` 命名 — 已重命名为 `exchange-rate.use-cases.ts` — **建议** ✅ 已修复
-- [§2.3] `src/features/quick-launch/scenes.ts` — 承担业务编排职能但未按 `*.use-cases.ts` 命名 — 业务编排已移至 `services/quick-launch.use-cases.ts`，`scenes.ts` 保留常量与纯分类逻辑 — **建议** ✅ 已修复
-- [§2.1] `src/features/dev-toolbox/` — 缺少 `store.ts` 和 `services/`；如属 Tab hub 特殊设计应在规范中注明豁免 — 豁免：Tab hub 聚合页面，状态均为页面级本地状态（`useState`），无跨组件共享需求，业务逻辑复用 system-settings 模块 use-cases — **建议** ⚠️ 豁免
-- [§2.1] `src/features/quick-launch/` — 缺少 `services/`，`scenes.ts` 业务编排应移入 `services/` — 已创建 `services/quick-launch.use-cases.ts` 并迁移业务编排函数 — **建议** ✅ 已修复
-- [§2.1] `src/features/terminology/` — 缺少 `services/` — 误报：实际已有 `services/terminology.repository.ts` 和 `services/terminology.use-cases.ts` — **建议** ❌ 误报
-- [§2.1] `src/features/updater/` — 缺少 `page.tsx`、`feature.tsx`、`services/`；如属背景模块应在 `README.md` 中说明 — 豁免：对话框模块（非导航页面），通过 `UpdateDialog` / `AboutDialog` 在全局调用，无需 page/feature 入口；IPC 调用直接走 `lib/tauri/commands/updater`，无额外 repository 封装必要 — **建议** ⚠️ 豁免
+```markdown
+- [§X] `文件路径:行号` - 问题 - 修改建议 - **强制/建议** - 状态：已报告/已修复/不修复
+```
 
-#### Phase 2：前端代码与 UI 规范
-
-**强制违规**
-
-- [§6] `src/features/terminology/page.tsx` — 17 处直接使用 `<button>` 而非 `Button` 组件 — 替换为 `Button` — **强制** ✅ 已修复
-- [§6] `src/features/quick-launch/page.tsx` — 7 处直接使用 `<button>` — 替换为 `Button` — **强制** ✅ 已修复
-- [§6] `src/features/account-manager/components/shared.tsx:37` — `IconButton` 内部手写 `<button>` — 改用 `Button` — **强制** ✅ 已修复
-- [§6] `src/features/account-manager/components/DetailColumn.tsx:585,622` — 直接 `<button>` — 替换为 `Button` — **强制** ✅ 已修复
-- [§6] `src/features/account-manager/components/AccountColumn.tsx:278,414` — 直接 `<button>` — 替换为 `Button` — **强制** ✅ 已修复
-- [§6] `src/features/system-settings/page.tsx:905,921,947` — 直接 `<button>` — 替换为 `Button` — **强制** ✅ 已修复
-- [§6] `src/features/port-manager/components/PortManagerPageContent.tsx:194` — 直接 `<button>` — 替换为 `Button` — **强制** ✅ 已修复
-- [§6] `src/features/port-manager/components/PortManagerControls.tsx:111,213,230` — 直接 `<button>` — 替换为 `Button` — **强制** ✅ 已修复
-- [§6] `src/features/dev-toolbox/page.tsx:375` — 直接 `<button>` — 替换为 `Button` — **强制** ✅ 已修复
-- [§6] `src/features/dev-cleaner/components/DevCleanerPageContent.tsx:80` — 直接 `<button>` — 替换为 `Button` — **强制** ✅ 已修复
-- [§6] `src/features/app-manager/components/CategoryFilter.tsx:104,116` — 直接 `<button>` — 替换为 `Button` — **强制** ✅ 已修复
-- [§6] `src/features/app-manager/components/SoftwareUpdateView.tsx:201` — 直接 `<button>` — 替换为 `Button` — **强制** ✅ 已修复
-- [§6] `src/features/app-manager/components/AppManagerCatalogView.tsx:155` — 直接 `<button>` — 替换为 `Button` — **强制** ✅ 已修复
-- [§6] `src/features/app-manager/components/UpdateGroupSection.tsx:55` — 直接 `<button>` — 替换为 `Button` — **强制** ✅ 已修复
-- [§6] `src/features/token-calculator/components/CompareTab.tsx:282` — 直接 `<button>` — 替换为 `Button` — **强制** ✅ 已修复
-- [§6] `src/components/common/CloseBehaviorDialog.tsx:83` — 直接 `<button>` — 替换为 `Button` — **强制** ✅ 已修复
-- [§6] `src/components/layout/Sidebar.tsx:110` — 直接 `<button>` — 替换为 `Button` — **强制** ✅ 已修复
-- [§6] `src/features/dev-toolbox/page.tsx:131,167` — 手写 `<select>` — 替换为 `Select` — **强制** ✅ 已修复
-- [§6] `src/features/account-manager/components/DetailColumn.tsx:666` — 手写 `<select>` — 替换为 `Select` — **强制** ✅ 已修复
-- [§6] `src/features/dev-toolbox/page.tsx:84` — 手写 `<textarea>` — 替换为 `Textarea` — **强制** ✅ 已修复
-- [§6] `src/features/token-calculator/components/CompareTab.tsx:498,585` — 手写 `<table>` — 替换为 `Table` — **强制** ✅ 已修复
-- [§6] `src/components/common/CloseBehaviorDialog.tsx:87-92,96-100` — 使用 `.join(" ")` 手动拼接 className，未用 `cn()` — 替换为 `cn(...)` — **强制** ✅ 已修复
-
-**建议**
-
-- [§6] `src/features/terminology/page.tsx:1119` — 术语卡片网格 `.map()`，数据量可能超 50 项，建议评估虚拟化 — 已替换为 `VirtualGridView` 组件（基于 `@tanstack/react-virtual`），仅渲染可视区域卡片 — **建议** ✅ 已修复
-- [§6] `src/features/system-settings/page.tsx:790,835,862` — 登录项/启动代理列表，若超 50 项建议虚拟化 — 评估后确认：登录项/启动代理/守护进程通常数量在 10-50 之间，远低于虚拟化阈值，收益有限，保持现有实现 — **建议** ⚠️ 评估后保留
-- [§6] 多处 `.map()` 中内联箭头函数传给子组件，建议评估 `useMemo`/`useCallback` — 评估后确认：内联箭头函数在多数场景下性能影响可忽略，仅在高频重渲染 + 纯组件子树场景下需优化，暂不做全局改造 — **建议** ⚠️ 评估后保留
-
-#### Phase 3：国际化（i18n）审计
-
-**强制违规**
-
-- [§4.1] `src/features/account-manager/components/dialogs.tsx:762` — 硬编码 placeholder `"https://example.com"`，应使用 locale key `accountManager.addStationDialog.websitePlaceholder` — **强制** ✅ 已修复
-- [§4.1] `src/features/account-manager/components/dialogs.tsx:788` — 硬编码 placeholder `"user@example.com"`，应使用 locale key `accountManager.addAccountDialog.usernamePlaceholder` — **强制** ✅ 已修复
-- [§4.1] `src/features/account-manager/components/auth-proxy-dialog.tsx:333` — 硬编码 placeholder URL，应抽离到 i18n — **强制** ✅ 已修复
-
-**建议**
-
-- [§4.2] `src/features/app-manager/recommended-apps.ts:42` (及全文件) — 中文 `description` 作为 `t()` 的 `defaultValue` 回退；新增应用若漏补 locale key，英文界面会展示中文 — 已将所有 `description` 改为英文 canonical value，英文界面回退时显示英文 — **建议** ✅ 已修复
-
-**已通过**
-
-- ✅ locale key `zh` / `en` 完全同步（各 2,250 个全层级 key，0 缺失）
-- ✅ 无模块顶层 / 静态常量 / store 初始值的 `t()` 调用
-- ✅ 语言无关 canonical value 模式正确（`src/data/*.ts` 数据层映射到 locale key，非用户面向文本）
-
-#### Phase 4：状态管理、异步安全与用户反馈
-
-**强制违规**
-
-- [§3.1] `src/features/terminology/store.ts` (原 295 行) — store 直接导入并调用 Tauri 命令 + 含 `reloadFromBackend` 编排 + 含 `filteredTerms` 筛选/排序逻辑 — 已拆分为 `services/terminology.repository.ts` 纯代理 + `services/terminology.use-cases.ts` 编排 + `store.ts` 瘦身保留状态与轻量绑定 — **强制** ✅ 已修复
-- [§3.2] `src/features/system-settings/page.tsx:67` — `const store = useSystemSettingsStore()` 无 selector 订阅整 store，任意字段更新都会触发重渲染 — 改用 `useShallow` — **强制** ✅ 已修复
-- [§3.2] `src/features/terminology/page.tsx:204` — `const { industries, addTerm, updateTerm, deleteTerm } = useTerminologyStore()` 无 selector 订阅整 store — 改用精细 selector — **强制** ✅ 已修复
-- [§3.2] `src/features/terminology/page.tsx:458` — 同上模式，无 selector 订阅整 store — **强制** ✅ 已修复
-- [§3.3] `src/features/dev-cleaner/hooks/useDevCleanerController.ts:67-101` — `handleScan` 无重入保护，未检查 `isScanning` — 加 early return — **强制** ✅ 已修复
-- [§3.3] `src/features/updater/hooks/useUpdaterController.ts:54-93` — `checkUpdates` 无重入保护 — **强制** ✅ 已修复
-- [§3.3] `src/features/updater/hooks/useUpdaterController.ts:95-128` — `downloadAndInstall` 无重入保护 — **强制** ✅ 已修复
-- [§3.3] `src/features/dev-cleaner/components/CustomCleanupDialog.tsx:83-134` — `handleStartCleanup` 无程序化重入保护 — **强制** ✅ 已修复
-- [§3.3] `src/features/terminology/page.tsx:228-287` — 术语表单 `handleSave` 无防重复提交保护 — **强制** ✅ 已修复
-- [§3.3] `src/features/dev-cleaner/components/CustomCleanupDialog.tsx` — 注册平台事件监听后无 `useEffect` 卸载清理，组件卸载时监听器泄漏 — **强制** ✅ 已修复
-- [§5] `src/features/quick-launch/hooks/useQuickLaunchController.ts:229-235` — `handleResetOverrides` 静默重置覆盖数据，无成功/失败反馈 — 加 toast — **强制** ✅ 已修复
-- [§5] `src/features/terminology/page.tsx:504-527` — `handleAddInd`/`handleAddCat`/`handleAddSubcat` 成功时无 toast 反馈 — **强制** ✅ 已修复
-- [§5] `src/features/quick-launch/hooks/useQuickLaunchController.ts:229-235` — `handleResetOverrides` 立即执行无二次确认，可撤销所有用户自定义分类 — 应使用 `DestructiveConfirmDialog` — **强制** ✅ 已修复
-- [§5] `src/features/dev-cleaner/components/CustomCleanupDialog.tsx:205-209` — 清理操作可删除文件但未使用 `DestructiveConfirmDialog` — **强制** ✅ 已修复
-- [§5] `src/features/terminology/page.tsx:891-909` — 行业/分类/子分类删除用普通 `Dialog` 而非 `DestructiveConfirmDialog` — **强制** ✅ 已修复
-
-**建议**
-
-- [§3.3] `src/features/dev-cleaner/page.tsx` — 页面级无错误态处理，扫描崩溃时无 fallback UI — 新增 `scanError` 状态，扫描失败时在结果区域展示 `FeatureLoadError` 组件（含错误信息和重试按钮） — **建议** ✅ 已修复
-- [§3.3] `src/features/hardware/page.tsx` — 页面级无错误态/空态处理 — 接入通用 `FeatureErrorBoundary` 组件，捕获渲染期异常并展示 fallback UI，避免子组件崩溃导致白屏 — **建议** ✅ 已修复
-- [§3.3] `src/features/system-settings/page.tsx` — 无顶层错误/空态处理，设置加载失败会呈现白页 — 接入通用 `FeatureErrorBoundary` 组件，捕获渲染期异常并展示 fallback UI，避免子组件崩溃导致白屏 — **建议** ✅ 已修复
-
-**已通过**
-
-- ✅ 其他 9 个 feature 的 `store.ts` 分层正确（状态在 store，编排在 use-cases，IPC 在 commands）
-- ✅ 其他 controller 全部使用精细 selector 或 `useShallow`（account-manager、app-manager、port-manager、dev-cleaner、env-detector、quick-launch、updater）
-- ✅ 平台边界全部走 `canUseDesktopFeatures()` / `canUseTauriCommands()`，无 `window.__TAURI__` 散落
-- ✅ 大多数写操作有 toast 反馈 + 加载态（app-manager、port-manager、account-manager、system-settings）
-- ✅ 空状态/失败态在多数页面存在（token-calculator、account-manager、terminology、env-detector、app-manager）
-- ✅ Effect 清理在其他模块完整（9 处确认，无泄漏）
-
-#### Phase 5：Rust 后端与 IPC 契约
-
-**强制违规**
-
-- [§7.2] 全量 `#[tauri::command]` 函数已迁移至 `AppResult<T>` 或模块专用 `*Result<T>` — **强制** ✅ 已修复
-- [§7.2] `src-tauri/src/app_manager/utils.rs:27,29` — `.unwrap()` 在 `run_command_with_timeout()` 的生产代码路径上（`Mutex::lock()`），应用 `unwrap_or_else(|e| e.into_inner())` — **强制** ✅ 已修复
-- [§7.2] `src-tauri/src/error.rs` — `invalid_input()` / `not_found()` / `unsupported()` 三个构造器标注 `#[allow(dead_code)]`，说明迁移至 `AppResult<T>` 未完成 — 逐步消除 `Result<T, String>` 后移除标注 — **强制** ✅ 已修复
-
-**已通过**
-
-- ✅ IPC 契约完全对齐：TypeScript 168 条 `defineTauriCommand` ↔ Rust 168 条 `generate_handler!` 注册，零缺失
-- ✅ 编译时检查确保 `TAURI_COMMAND_CONTRACTS` key 与命令名、分组覆盖一致
-- ✅ 前端错误解析全部走 `getErrorMessage()` / `parseCommandError()`，无 `typeof error === "string"` 散装判断
-- ✅ 批量与取消接口全部幂等设计（`AtomicBool`、`Notify`）
-- ✅ 后端按领域分目录，`main.rs` 仅一行调用，`lib.rs` 职责清晰
-
-#### Phase 6：文档对齐与提交规范
-
-**建议**
-
-- [§11] `docs/modules/system-settings/roadmap.md` — 评价表称"无测试文件"，但 `src/features/system-settings/model/__tests__/app-authorize.test.ts` 已存在 — 已更新 roadmap，修正测试覆盖评估描述 — **建议** ✅ 已修复
-
-**已通过**
-
-- ✅ 提交历史全部 Conventional Commits（近 40 条，`feat:` / `fix:` / `docs:` / `refactor:` / `chore:`）
-- ✅ `docs/` 下所有跨文件引用链接有效（零死链）
-- ✅ 所有 12 个 feature 有对应 `docs/modules/<id>/`，且含 `README.md` + `roadmap.md`
-- ✅ `bugs.md` 按约定省略（无 open bug 时可不建）
-
----
-
-## 后续审计指引
-
-AI 后续扫描时：
-
-1. **先读本文件**的"不计违规决策"章节，避免重复标记已评估的模式
-2. **跳过**"已通过检查项"中的领域，除非有新代码改动
-3. **经验已沉淀**到规范文档，不在本文件重复：
-   - controller 抽取最小化方案、useShallow vs selector 选择 → `coding-standards.md` §3.2
-   - store.ts / repository.ts 评估标准 → `coding-standards.md` §3.1
-   - renderHook 测试模式、IPC 契约测试 → `coding-standards.md` §9
-   - controller 抽取实操要点（import 清理等）→ `development-workflow.md` §3.1
-4. **模块化功能经验**在各模块 `docs/modules/<id>/roadmap.md`，不在本文件重复
-5. 发现新违规时，按 `AGENTS.md` Phase 8 流程修复，每个违规项独立 commit
+审计前先读“当前发布风险”和“不计违规决策”；修复后更新状态，已稳定沉淀到规范且无追踪价值的历史记录可删除。

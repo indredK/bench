@@ -8,36 +8,39 @@ use crate::app_manager::types::{
     InstallFinishedEvent, InstallPhase, InstallProgressEvent, UpdateInfo,
 };
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
-use tokio::sync::{oneshot, Mutex as AsyncMutex, Notify};
+use tokio::sync::Notify;
 
-/// Max time to wait for the user to confirm a Developer ID change before
-/// timing out and treating it as a rejection.
-const DEV_ID_CONFIRM_TIMEOUT: Duration = Duration::from_secs(120);
 /// Max time to wait for a running app to quit after we send AppleScript quit.
 const QUIT_WAIT_TIMEOUT: Duration = Duration::from_secs(10);
 /// Throttle progress events so we don't flood the bridge.
 const PROGRESS_THROTTLE_MS: u128 = 200;
 
 /// Per-install runtime state. Stored in `AppManagerState.install_state` so the
-/// `cancel_app_update` and `confirm_developer_id_change` commands can signal
-/// the running orchestrator.
+/// `cancel_app_update` can signal the running orchestrator.
 pub struct InstallHandle {
     pub cancel: Arc<Notify>,
-    /// `Some(sender)` while the orchestrator is blocked waiting for the user
-    /// to approve a Developer ID change. The confirm command takes the sender
-    /// out of the slot and `.send()`s the decision.
-    pub dev_id_decision: AsyncMutex<Option<oneshot::Sender<bool>>>,
+    pub cancelled: Arc<AtomicBool>,
 }
 
 impl InstallHandle {
     pub fn new() -> Self {
         Self {
             cancel: Arc::new(Notify::new()),
-            dev_id_decision: AsyncMutex::new(None),
+            cancelled: Arc::new(AtomicBool::new(false)),
         }
+    }
+
+    pub fn request_cancel(&self) {
+        self.cancelled.store(true, Ordering::Release);
+        self.cancel.notify_waiters();
+    }
+
+    pub fn is_cancelled(&self) -> bool {
+        self.cancelled.load(Ordering::Acquire)
     }
 }
 
@@ -166,6 +169,9 @@ async fn run_install(
     install_path: &Path,
     handle: &Arc<InstallHandle>,
 ) -> Result<(), Halt> {
+    if handle.is_cancelled() {
+        return Err(Halt::Cancelled);
+    }
     reporter.emit(InstallPhase::Queued);
 
     let url = update
@@ -176,12 +182,39 @@ async fn run_install(
     let cache_path = downloader::cache_path(&update.app_id, &update.latest_version, ext);
 
     let dest = download_with_progress(reporter, update, &url, &cache_path, handle).await?;
+    if handle.is_cancelled() {
+        downloader::cleanup(&dest).await;
+        return Err(Halt::Cancelled);
+    }
 
     // ---- Verify (hash / signature) ----
     reporter.emit(InstallPhase::Verifying);
     let verify_cfg = build_verify_config(install_path, update);
-    match verifier::verify(&dest, &verify_cfg) {
-        VerifyOutcome::Verified(_) | VerifyOutcome::Skipped => {}
+    let verify_path = dest.clone();
+    let verify_cancel = handle.cancelled.clone();
+    let verify_outcome = tauri::async_runtime::spawn_blocking(move || {
+        verifier::verify(&verify_path, &verify_cfg, Some(verify_cancel.as_ref()))
+    })
+    .await
+    .map_err(|error| {
+        Halt::failed(
+            "SU_VERIFY_TASK_FAILED",
+            format!("verification task failed: {error}"),
+        )
+    })?;
+    if handle.is_cancelled() {
+        downloader::cleanup(&dest).await;
+        return Err(Halt::Cancelled);
+    }
+    match verify_outcome {
+        VerifyOutcome::Verified(_) => {}
+        VerifyOutcome::Skipped => {
+            downloader::cleanup(&dest).await;
+            return Err(Halt::failed(
+                "SU_NO_SIGNATURE",
+                "Update feed did not provide a trusted signature or SHA-512 digest",
+            ));
+        }
         VerifyOutcome::Failed(e) => {
             downloader::cleanup(&dest).await;
             return Err(split_su_error(e));
@@ -190,67 +223,152 @@ async fn run_install(
 
     // ---- Extract ----
     reporter.emit(InstallPhase::Extracting);
-    let work_dir = extractor::make_work_dir(&update.app_id).map_err(split_su_error)?;
-    let extract_result = if ext == "dmg" {
-        extractor::extract_dmg(&dest, &work_dir)
-    } else if ext == "zip" {
-        extractor::extract_zip(&dest, &work_dir)
-    } else {
-        Err(format!("SU_EXTRACT_FAIL: unsupported extension '{ext}'"))
-    };
-    let new_app = match extract_result {
-        Ok(p) => p,
+    if handle.is_cancelled() {
+        downloader::cleanup(&dest).await;
+        return Err(Halt::Cancelled);
+    }
+    let extract_app_id = update.app_id.clone();
+    let extract_dest = dest.clone();
+    let extract_ext = ext.to_string();
+    let extract_cancel = handle.cancelled.clone();
+    let extract_result = tauri::async_runtime::spawn_blocking(move || {
+        let work_dir = extractor::make_work_dir(&extract_app_id)?;
+        let result = if extract_ext == "dmg" {
+            extractor::extract_dmg_with_cancel(
+                &extract_dest,
+                &work_dir,
+                Some(extract_cancel.as_ref()),
+            )
+        } else if extract_ext == "zip" {
+            extractor::extract_zip_with_cancel(
+                &extract_dest,
+                &work_dir,
+                Some(extract_cancel.as_ref()),
+            )
+        } else {
+            Err(format!(
+                "SU_EXTRACT_FAIL: unsupported extension '{extract_ext}'"
+            ))
+        };
+        match result {
+            Ok(new_app) => Ok((work_dir, new_app)),
+            Err(error) => {
+                extractor::cleanup_work_dir(&work_dir);
+                Err(error)
+            }
+        }
+    })
+    .await
+    .map_err(|error| {
+        Halt::failed(
+            "SU_EXTRACT_TASK_FAILED",
+            format!("extraction task failed: {error}"),
+        )
+    })?;
+    let (work_dir, new_app) = match extract_result {
+        Ok(result) => result,
         Err(e) => {
-            extractor::cleanup_work_dir(&work_dir);
+            downloader::cleanup(&dest).await;
+            if handle.is_cancelled() {
+                return Err(Halt::Cancelled);
+            }
             return Err(split_su_error(e));
         }
     };
 
-    // ---- Codesign verify on the new bundle ----
-    if let Err(e) = codesign::verify_signature(&new_app) {
-        extractor::cleanup_work_dir(&work_dir);
-        return Err(split_su_error(e));
-    }
+    // ---- Codesign, identity, compatibility, and running-app checks ----
+    let checked_new_app = new_app.clone();
+    let checked_install_path = install_path.to_path_buf();
+    let validation_cancel = handle.cancelled.clone();
+    let validation = tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
+        let ensure_active = || {
+            if validation_cancel.load(Ordering::Acquire) {
+                Err("SU_CANCELLED: validation cancelled".to_string())
+            } else {
+                Ok(())
+            }
+        };
+        ensure_active()?;
+        codesign::verify_signature(&checked_new_app)?;
+        ensure_active()?;
+        codesign::assess_notarization(&checked_new_app)?;
+        ensure_active()?;
+        codesign::verify_platform_compatibility(&checked_new_app)?;
 
-    // ---- Developer ID change check ----
-    let old_info = codesign::read_codesign_info(install_path).unwrap_or_default();
-    let new_info = codesign::read_codesign_info(&new_app).unwrap_or_default();
-    if codesign::team_id_changed(&old_info, &new_info) {
-        let approved = await_dev_id_decision(reporter, handle, &old_info, &new_info).await;
-        if !approved {
-            extractor::cleanup_work_dir(&work_dir);
-            return Err(Halt::failed(
-                "SU_DEV_ID_DENIED",
-                "Developer ID change rejected by user",
-            ));
+        ensure_active()?;
+        let old_info = codesign::read_codesign_info(&checked_install_path)?;
+        let new_info = codesign::read_codesign_info(&checked_new_app)?;
+        if old_info.bundle_id.is_none() || new_info.bundle_id.is_none() {
+            return Err("SU_BUNDLE_ID_MISSING: bundle identity is required".to_string());
         }
-    }
+        if old_info.bundle_id != new_info.bundle_id {
+            return Err("SU_BUNDLE_ID_CHANGED: bundle identifier changed".to_string());
+        }
+        if old_info.team_id.is_none() || new_info.team_id.is_none() {
+            return Err("SU_TEAM_ID_MISSING: signed Team ID is required".to_string());
+        }
+        if codesign::team_id_changed(&old_info, &new_info) {
+            return Err("SU_DEV_ID_CHANGED: Developer ID changed".to_string());
+        }
 
-    // ---- Quit running app ----
-    if running::is_running(install_path) {
-        if let Some(bid) = running::read_bundle_id(install_path) {
-            running::request_quit(&bid);
+        if running::is_running(&checked_install_path) {
+            if let Some(bundle_id) = running::read_bundle_id(&checked_install_path) {
+                running::request_quit(&bundle_id);
+            }
+            if !running::wait_for_quit(&checked_install_path, QUIT_WAIT_TIMEOUT) {
+                return Err(
+                    "SU_APP_RUNNING: App is still running; please quit it and retry".to_string(),
+                );
+            }
         }
-        if !running::wait_for_quit(install_path, QUIT_WAIT_TIMEOUT) {
-            extractor::cleanup_work_dir(&work_dir);
-            return Err(Halt::failed(
-                "SU_APP_RUNNING",
-                "App is still running; please quit it and retry",
-            ));
-        }
+        ensure_active()?;
+        Ok(())
+    })
+    .await
+    .map_err(|error| {
+        Halt::failed(
+            "SU_VALIDATION_TASK_FAILED",
+            format!("validation task failed: {error}"),
+        )
+    })?;
+    if handle.is_cancelled() {
+        cleanup_work_dir_blocking(work_dir.clone()).await;
+        downloader::cleanup(&dest).await;
+        return Err(Halt::Cancelled);
+    }
+    if let Err(error) = validation {
+        cleanup_work_dir_blocking(work_dir.clone()).await;
+        downloader::cleanup(&dest).await;
+        return Err(split_su_error(error));
     }
 
     // ---- Replace ----
     reporter.emit(InstallPhase::Replacing);
-    let trash = replace::default_trash_dir().map_err(split_su_error)?;
-    match replace::replace_bundle(install_path, &new_app, &trash) {
+    // Replacement is deliberately a non-cancellable critical section once it
+    // starts; cancelling immediately before it still leaves the old bundle intact.
+    let replace_install_path = install_path.to_path_buf();
+    let replace_new_app = new_app.clone();
+    let replace_result = tauri::async_runtime::spawn_blocking(move || {
+        let trash = replace::default_trash_dir().map_err(ReplaceError::RolledBack)?;
+        replace::replace_bundle(&replace_install_path, &replace_new_app, &trash)
+    })
+    .await
+    .map_err(|error| {
+        Halt::failed(
+            "SU_REPLACE_TASK_FAILED",
+            format!("replacement task failed: {error}"),
+        )
+    })?;
+    match replace_result {
         Ok(_) => {}
         Err(ReplaceError::RolledBack(reason)) => {
-            extractor::cleanup_work_dir(&work_dir);
+            cleanup_work_dir_blocking(work_dir.clone()).await;
+            downloader::cleanup(&dest).await;
             return Err(Halt::RolledBack { reason });
         }
         Err(e @ ReplaceError::Stranded { .. }) => {
-            extractor::cleanup_work_dir(&work_dir);
+            cleanup_work_dir_blocking(work_dir.clone()).await;
+            downloader::cleanup(&dest).await;
             return Err(Halt::Failed {
                 code: e.code().to_string(),
                 message: e.message(),
@@ -260,10 +378,14 @@ async fn run_install(
 
     // ---- Finalize ----
     reporter.emit(InstallPhase::Finalizing);
-    extractor::cleanup_work_dir(&work_dir);
+    cleanup_work_dir_blocking(work_dir).await;
     downloader::cleanup(&dest).await;
 
     Ok(())
+}
+
+async fn cleanup_work_dir_blocking(path: std::path::PathBuf) {
+    let _ = tauri::async_runtime::spawn_blocking(move || extractor::cleanup_work_dir(&path)).await;
 }
 
 async fn download_with_progress(
@@ -287,6 +409,7 @@ async fn download_with_progress(
             dest_path: cache_path.to_path_buf(),
         },
         cancel,
+        handle.cancelled.clone(),
         move |downloaded, total| {
             let now_ms = started.elapsed().as_millis();
             let finished = matches!(total, Some(t) if downloaded >= t);
@@ -319,35 +442,6 @@ async fn download_with_progress(
         DownloadOutcome::Cancelled => Err(Halt::Cancelled),
         DownloadOutcome::Error(e) => Err(split_su_error(e)),
     }
-}
-
-async fn await_dev_id_decision(
-    reporter: &Reporter,
-    handle: &Arc<InstallHandle>,
-    old: &codesign::CodesignInfo,
-    new: &codesign::CodesignInfo,
-) -> bool {
-    let (tx, rx) = oneshot::channel();
-    {
-        let mut slot = handle.dev_id_decision.lock().await;
-        *slot = Some(tx);
-    }
-    reporter.emit(InstallPhase::DeveloperIdChanged {
-        old: old.team_id.clone().unwrap_or_default(),
-        new: new.team_id.clone().unwrap_or_default(),
-    });
-
-    let result = tokio::select! {
-        biased;
-        _ = handle.cancel.notified() => false,
-        r = rx => r.unwrap_or(false),
-        _ = tokio::time::sleep(DEV_ID_CONFIRM_TIMEOUT) => false,
-    };
-
-    // Drop any stale sender so future commands don't try to use it.
-    let mut slot = handle.dev_id_decision.lock().await;
-    *slot = None;
-    result
 }
 
 /// Construct a `VerifyConfig` from `source_meta` (populated by Sparkle /
@@ -390,6 +484,8 @@ mod tests {
 
     fn make_update(source_meta: Option<serde_json::Value>) -> UpdateInfo {
         UpdateInfo {
+            update_id: "update-test".into(),
+            inventory_revision: 1,
             app_id: "com.example.demo".into(),
             app_name: "Demo".into(),
             source: UpdateSource::Sparkle,
@@ -456,16 +552,11 @@ mod tests {
     }
 
     #[test]
-    fn install_handle_starts_with_empty_decision_slot() {
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap();
+    fn install_handle_starts_not_cancelled() {
         let h = InstallHandle::new();
-        rt.block_on(async {
-            let slot = h.dev_id_decision.lock().await;
-            assert!(slot.is_none());
-        });
+        assert!(!h.is_cancelled());
+        h.request_cancel();
+        assert!(h.is_cancelled());
     }
 
     #[test]

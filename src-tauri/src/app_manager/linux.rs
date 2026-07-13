@@ -428,10 +428,11 @@ pub fn scan_installed_apps() -> ScanResult {
             name,
             version: ver,
             bundle_id,
-            install_path,
+            install_path: install_path.clone(),
             source_type: source.source_type,
             source_id: source.source_id,
             source_confidence: source.source_confidence,
+            source_evidence: source.source_evidence,
             can_upgrade: source.can_upgrade,
             can_uninstall: source.can_uninstall,
             upgrade_available: source.upgrade_available,
@@ -439,6 +440,9 @@ pub fn scan_installed_apps() -> ScanResult {
             is_system_app: false,
             launchable: !exec_path.is_empty(),
             revealable: true,
+            launch_target: Some(crate::app_manager::types::LaunchTarget::DesktopEntry {
+                id: install_path.clone(),
+            }),
         }));
     }
 
@@ -782,6 +786,9 @@ pub fn upgrade_app(
     if !app.can_upgrade {
         return Err("Cannot upgrade".into());
     }
+    if !app.source_evidence.authorizes_destructive_action() || app.source_id.trim().is_empty() {
+        return Err("UPGRADE_SOURCE_NOT_PROVEN".into());
+    }
 
     let (success, output, exit_code) = do_upgrade_linux(&app)?;
     Ok(record_operation_result(
@@ -809,6 +816,9 @@ pub fn uninstall_app(
     };
     if !app.can_uninstall {
         return Err("Cannot uninstall".into());
+    }
+    if !app.source_evidence.authorizes_destructive_action() || app.source_id.trim().is_empty() {
+        return Err("UNINSTALL_SOURCE_NOT_PROVEN".into());
     }
 
     let (success, output, exit_code) = do_uninstall_linux(&app)?;

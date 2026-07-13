@@ -1,13 +1,8 @@
 /**
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  *
- * v1.2: two interactive checkpoints that branch out of the linear progress
- * dialog —
- *
- * 1. `DeveloperIdChangedDialog` — orchestrator paused on
- *    `developerIdChanged` phase; user must approve (continue) or reject
- *    (rollback) the team-ID change.
- * 2. `AppRunningDialog` — orchestrator failed with `SU_APP_RUNNING`; user
+ * `AppRunningDialog` branches out of the linear progress dialog when the
+ * orchestrator detects a running app; the user can quit and retry.
  *    quits the app and retries, or cancels.
  *
  * Both are rendered as sibling modals of `UpdateProgressDialog` from the
@@ -25,13 +20,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import {
-  cancelAppUpdate,
-  confirmDeveloperIdChange,
-  installAppUpdate,
-} from "@/lib/tauri/commands/app-manager"
+import { cancelAppUpdate, installAppUpdate } from "@/lib/tauri/commands/app-manager"
 import type { UpdateInfo } from "@/lib/tauri/types/app-manager"
 import { useAppManagerStore } from "@/features/app-manager/store"
+import { getErrorMessage } from "@/lib/tauri/errors"
 
 interface UpdateBlockingDialogsProps {
   update: UpdateInfo | null
@@ -43,22 +35,9 @@ interface UpdateBlockingDialogsProps {
  * `update`, or `null` if none apply.
  */
 export function UpdateBlockingDialogs({ update, onClose }: UpdateBlockingDialogsProps) {
-  const phase = useAppManagerStore((s) => (update ? s.installProgress[update.appId] : undefined))
   const finished = useAppManagerStore((s) => (update ? s.installFinished[update.appId] : undefined))
 
   if (!update) return null
-
-  // Developer ID change checkpoint — orchestrator is awaiting our decision.
-  if (phase?.phase === "developerIdChanged") {
-    return (
-      <DeveloperIdChangedDialog
-        update={update}
-        oldTeamId={phase.old}
-        newTeamId={phase.new}
-        onClose={onClose}
-      />
-    )
-  }
 
   // App-running failure — the orchestrator already finished with SU_APP_RUNNING.
   if (finished && !finished.success && finished.errorCode === "SU_APP_RUNNING") {
@@ -66,81 +45,6 @@ export function UpdateBlockingDialogs({ update, onClose }: UpdateBlockingDialogs
   }
 
   return null
-}
-
-interface DeveloperIdChangedDialogProps {
-  update: UpdateInfo
-  oldTeamId: string
-  newTeamId: string
-  onClose: () => void
-}
-
-function DeveloperIdChangedDialog({
-  update,
-  oldTeamId,
-  newTeamId,
-  onClose,
-}: DeveloperIdChangedDialogProps) {
-  const { t } = useTranslation()
-
-  const handleApprove = async () => {
-    await confirmDeveloperIdChange(update.appId, true)
-  }
-
-  const handleReject = async () => {
-    await confirmDeveloperIdChange(update.appId, false)
-    onClose()
-  }
-
-  return (
-    <AlertDialog
-      open
-      onOpenChange={(open) => {
-        if (!open) void handleReject()
-      }}
-    >
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle className="flex items-center gap-2">
-            <AlertTriangle className="text-destructive h-4 w-4" />
-            {t("appManager.softwareUpdate.install.devIdChanged.title")}
-          </AlertDialogTitle>
-          <AlertDialogDescription className="space-y-2">
-            <p>
-              {t("appManager.softwareUpdate.install.devIdChanged.body", {
-                app: update.appName,
-              })}
-            </p>
-            <div className="bg-muted/40 rounded-md border p-2 font-mono text-xs">
-              <div>
-                <span className="text-muted-foreground">
-                  {t("appManager.softwareUpdate.install.devIdChanged.oldLabel")}:
-                </span>{" "}
-                {oldTeamId || t("appManager.softwareUpdate.install.devIdChanged.unknown")}
-              </div>
-              <div>
-                <span className="text-muted-foreground">
-                  {t("appManager.softwareUpdate.install.devIdChanged.newLabel")}:
-                </span>{" "}
-                {newTeamId || t("appManager.softwareUpdate.install.devIdChanged.unknown")}
-              </div>
-            </div>
-            <p className="text-muted-foreground text-xs">
-              {t("appManager.softwareUpdate.install.devIdChanged.hint")}
-            </p>
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel onClick={() => void handleReject()}>
-            {t("appManager.softwareUpdate.install.devIdChanged.reject")}
-          </AlertDialogCancel>
-          <AlertDialogAction onClick={() => void handleApprove()}>
-            {t("appManager.softwareUpdate.install.devIdChanged.approve")}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  )
 }
 
 interface AppRunningDialogProps {
@@ -169,7 +73,7 @@ function AppRunningDialog({ update, onClose }: AppRunningDialogProps) {
       setInstallFinished(update.appId, {
         appId: update.appId,
         success: false,
-        message: String(err),
+        message: getErrorMessage(err),
         errorCode: "SU_INSTALL_FAIL",
       })
     }

@@ -11,6 +11,7 @@ export interface AppInfo {
   sourceType: string
   sourceId: string
   sourceConfidence: number
+  sourceEvidence?: "exactReceipt" | "exactPackageId" | "exactProductCode" | "heuristic" | "none"
   canUpgrade: boolean
   canUninstall: boolean
   upgradeAvailable: boolean
@@ -18,6 +19,12 @@ export interface AppInfo {
   lastModified: number
   isSystemApp: boolean
   iconBase64: string | null
+  launchTarget?:
+    | { kind: "appBundle"; path: string }
+    | { kind: "executable"; path: string; args: string[] }
+    | { kind: "aumid"; value: string }
+    | { kind: "desktopEntry"; id: string }
+    | null
   allowedActions: {
     launch: boolean
     reveal: boolean
@@ -46,6 +53,18 @@ export interface AppScanResult {
   platformCapabilities: PlatformCapabilities
   lastScanTime: number
   lastUpdateCheck: number
+  revision?: number
+  complete?: boolean
+  providers?: ProviderStatus[]
+  warnings?: string[]
+}
+
+export type ProviderState = "ok" | "partial" | "unsupported" | "failed" | "timedOut"
+
+export interface ProviderStatus {
+  provider: string
+  state: ProviderState
+  errorCode: string | null
 }
 
 export interface OperationResult {
@@ -68,6 +87,7 @@ export interface BatchOperationResult {
   total: number
   succeeded: number
   failed: number
+  cancelled: number
   results: BatchItemResult[]
 }
 
@@ -94,6 +114,7 @@ export interface InstallListAppInfo {
   installedAppId?: string
   installedVersion?: string
   installedPath?: string
+  installedCanUninstall?: boolean
 }
 
 export type UninstalledAppInfo = InstallListAppInfo
@@ -101,9 +122,18 @@ export type UninstalledAppInfo = InstallListAppInfo
 export type AppManagerItem = AppInfo | InstallListAppInfo
 
 export type UpdateSource =
-  "homebrew" | "macAppStore" | "sparkle" | "electron" | "squirrel" | "gitHub"
+  | "homebrew"
+  | "winget"
+  | "windowsStore"
+  | "macAppStore"
+  | "sparkle"
+  | "electron"
+  | "squirrel"
+  | "gitHub"
 
 export interface UpdateInfo {
+  updateId: string
+  inventoryRevision: number
   appId: string
   appName: string
   source: UpdateSource
@@ -119,6 +149,14 @@ export interface UpdateInfo {
   ignored: boolean
 }
 
+export interface UpdateScanReport {
+  updates: UpdateInfo[]
+  providers: ProviderStatus[]
+  checkedAt: number
+  complete: boolean
+  inventoryRevision: number
+}
+
 /**
  * v1.2: phases of an in-progress install. The Rust side serializes this with
  * `#[serde(rename_all = "camelCase", tag = "phase")]`, so each event payload
@@ -129,7 +167,6 @@ export type InstallPhase =
   | { phase: "queued" }
   | { phase: "downloading"; percent: number; bytesTotal: number | null }
   | { phase: "verifying" }
-  | { phase: "developerIdChanged"; old: string; new: string }
   | { phase: "extracting" }
   | { phase: "replacing" }
   | { phase: "finalizing" }

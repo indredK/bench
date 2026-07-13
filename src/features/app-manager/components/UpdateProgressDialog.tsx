@@ -5,8 +5,7 @@
  * latest `InstallPhase` in the store and renders phase-specific copy. While
  * the install is in flight the dialog is non-dismissible (must use Cancel).
  *
- * Phase-specific cases that need their own modal (`developerIdChanged`,
- * failure with `SU_APP_RUNNING`) are handed off to sibling dialogs in
+ * The failure with `SU_APP_RUNNING` is handed off to a sibling dialog in
  * `UpdateBlockingDialogs.tsx` — this component focuses on the linear
  * progress path.
  */
@@ -36,11 +35,7 @@ interface UpdateProgressDialogProps {
  * Phases the orchestrator routes through OTHER dialogs (not this one). The
  * caller decides whether to render this dialog or one of the blocking dialogs.
  */
-function isHandledByBlockingDialog(
-  phase: InstallPhase | undefined,
-  finished: InstallFinishedEvent | undefined,
-): boolean {
-  if (phase?.phase === "developerIdChanged") return true
+function isHandledByBlockingDialog(finished: InstallFinishedEvent | undefined): boolean {
   if (finished && !finished.success && finished.errorCode === "SU_APP_RUNNING") return true
   return false
 }
@@ -74,7 +69,7 @@ export function UpdateProgressDialog({ update, onClose }: UpdateProgressDialogPr
   // Nothing in flight + nothing terminal — nothing to render.
   if (!update || (!phase && !finished)) return null
   // Surfaced by a sibling blocking dialog (DeveloperIdChanged / AppRunning).
-  if (isHandledByBlockingDialog(phase, finished)) return null
+  if (isHandledByBlockingDialog(finished)) return null
 
   const terminal = isTerminal(phase, finished)
   const closable = terminal
@@ -113,7 +108,6 @@ export function UpdateProgressDialog({ update, onClose }: UpdateProgressDialogPr
         return "appManager.softwareUpdate.install.titleFailed"
       case "rolledBack":
         return "appManager.softwareUpdate.install.titleRolledBack"
-      // developerIdChanged is filtered out above.
       default:
         return "appManager.softwareUpdate.install.titleQueued"
     }

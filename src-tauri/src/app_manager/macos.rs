@@ -1,12 +1,14 @@
+use crate::app_manager::types::{LaunchTarget, ProviderState, ProviderStatus, SourceEvidence};
 use crate::app_manager::{
     build_app_info, build_scan_result, deduplicate, get_last_modified, make_app_id,
     operation_result, platform_capabilities, record_operation_result,
-    record_operation_result_with_error_code, resolve_macos_source, run_command_with_timeout,
-    AppInfoInput, AppManagerState, OperationResult, ScanProgressEvent, ScanResult, SourceType,
+    record_operation_result_with_error_code, resolve_macos_source_with_artifacts,
+    run_command_with_timeout, AppInfoInput, AppManagerState, OperationResult, ScanProgressEvent,
+    ScanResult, SourceType,
 };
 use base64::Engine;
 use std::collections::hash_map::DefaultHasher;
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs;
 use std::hash::{Hash, Hasher};
 use std::io::Read;
@@ -16,6 +18,7 @@ use std::time::Duration;
 use tauri::{AppHandle, Emitter};
 
 const BREW_COMMAND_TIMEOUT: Duration = Duration::from_secs(15);
+const PACKAGE_OPERATION_TIMEOUT: Duration = Duration::from_secs(30 * 60);
 
 // ============================================================================
 // Homebrew Integration
@@ -106,15 +109,93 @@ fn map_casks(brew: &str) -> Result<(HashSet<String>, HashSet<String>), String> {
     Ok((list_installed_casks(brew)?, list_outdated_casks(brew)?))
 }
 
+fn list_cask_artifacts(brew: &str) -> Result<HashMap<String, String>, String> {
+    let output = run_command_with_timeout(
+        Command::new(brew).args(["info", "--cask", "--json=v2", "--installed"]),
+        BREW_COMMAND_TIMEOUT,
+    )
+    .map_err(|error| format!("brew cask metadata failed: {error}"))?;
+    if !output.status.success() {
+        return Err("brew cask metadata failed".to_string());
+    }
+    let value: serde_json::Value = serde_json::from_slice(&output.stdout)
+        .map_err(|error| format!("brew cask metadata JSON failed: {error}"))?;
+    let mut result = HashMap::new();
+    for cask in value
+        .get("casks")
+        .and_then(|value| value.as_array())
+        .into_iter()
+        .flatten()
+    {
+        let Some(token) = cask.get("token").and_then(|value| value.as_str()) else {
+            continue;
+        };
+        for artifact in cask
+            .get("artifacts")
+            .and_then(|value| value.as_array())
+            .into_iter()
+            .flatten()
+        {
+            if let Some(apps) = artifact.get("app").and_then(|value| value.as_array()) {
+                for app in apps.iter().filter_map(|value| value.as_str()) {
+                    let key = app
+                        .strip_suffix(".app")
+                        .unwrap_or(app)
+                        .chars()
+                        .filter(|character| character.is_alphanumeric())
+                        .flat_map(char::to_lowercase)
+                        .collect::<String>();
+                    if !key.is_empty() {
+                        result.insert(key, token.to_lowercase());
+                    }
+                }
+            }
+        }
+    }
+    Ok(result)
+}
+
 // ============================================================================
 // plist / .app Scanner
 // ============================================================================
 
 const SCAN_DIRECTORIES: &[&str] = &["/Applications", "/System/Applications"];
 const SCAN_MAX_DEPTH: usize = 3;
+const SPOTLIGHT_SCAN_TIMEOUT: Duration = Duration::from_secs(20);
+const MAX_SPOTLIGHT_RESULTS: usize = 10_000;
 
 fn user_applications_dir() -> Option<PathBuf> {
     dirs::home_dir().map(|home| home.join("Applications"))
+}
+
+fn external_application_dirs() -> Vec<PathBuf> {
+    let mut roots = Vec::new();
+    let Ok(volumes) = fs::read_dir("/Volumes") else {
+        return roots;
+    };
+    for volume in volumes.flatten() {
+        let applications = volume.path().join("Applications");
+        if applications.is_dir() {
+            roots.push(applications);
+        }
+    }
+    roots
+}
+
+fn spotlight_application_paths() -> Result<Vec<PathBuf>, String> {
+    let output = run_command_with_timeout(
+        Command::new("mdfind").arg("kMDItemContentType == 'com.apple.application-bundle'"),
+        SPOTLIGHT_SCAN_TIMEOUT,
+    )?;
+    if !output.status.success() {
+        return Err("MACOS_SPOTLIGHT_SCAN_FAILED".to_string());
+    }
+    Ok(String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .take(MAX_SPOTLIGHT_RESULTS)
+        .map(PathBuf::from)
+        .filter(|path| path.is_dir() && path.extension().is_some_and(|ext| ext == "app"))
+        .collect())
 }
 
 fn extract_app_metadata(app_path: &Path) -> Option<(String, String, String)> {
@@ -147,58 +228,69 @@ fn extract_app_metadata(app_path: &Path) -> Option<(String, String, String)> {
     ))
 }
 
+type RawApp = (String, String, String, String, String, bool, u64);
+
+fn app_path_to_raw(path: &Path, is_system: bool) -> Option<RawApp> {
+    let real_path = fs::canonicalize(path).ok()?;
+    let install_path = real_path.to_string_lossy().to_string();
+    let (name, bundle_id, version) = extract_app_metadata(&real_path).unwrap_or_else(|| {
+        let name = real_path
+            .file_stem()
+            .and_then(|value| value.to_str())
+            .unwrap_or("Unknown")
+            .to_string();
+        (name, "unknown".to_string(), "—".to_string())
+    });
+    let app_id = make_app_id(&bundle_id, &install_path);
+    Some((
+        app_id,
+        name,
+        bundle_id,
+        version,
+        install_path,
+        is_system,
+        get_last_modified(&real_path),
+    ))
+}
+
 fn scan_directory_raw(
     dir: &Path,
     is_system: bool,
     depth_limit: usize,
-) -> Vec<(String, String, String, String, String, bool, u64)> {
+    cancel: &std::sync::atomic::AtomicBool,
+) -> Vec<RawApp> {
     let mut results = Vec::new();
     let mut queue = VecDeque::from([(dir.to_path_buf(), 0usize)]);
+    let mut visited = HashSet::new();
 
     while let Some((current_dir, depth)) = queue.pop_front() {
-        let entries = match fs::read_dir(&current_dir) {
+        if cancel.load(std::sync::atomic::Ordering::Acquire) {
+            break;
+        }
+        let canonical_dir = fs::canonicalize(&current_dir).unwrap_or(current_dir.clone());
+        if !visited.insert(canonical_dir.clone()) {
+            continue;
+        }
+        let entries = match fs::read_dir(&canonical_dir) {
             Ok(e) => e,
             Err(_) => continue,
         };
         for entry in entries.flatten() {
+            if cancel.load(std::sync::atomic::Ordering::Acquire) {
+                break;
+            }
             let Ok(file_type) = entry.file_type() else {
                 continue;
             };
-            if file_type.is_symlink() {
-                continue;
-            }
-
             let path = entry.path();
             if path.extension().is_some_and(|ext| ext == "app") {
-                let real_path = match fs::canonicalize(&path) {
-                    Ok(p) => p,
-                    Err(_) => continue,
-                };
-                let install_path = real_path.to_string_lossy().to_string();
-                let (name, bundle_id, version) = if let Some(m) = extract_app_metadata(&real_path) {
-                    m
-                } else {
-                    let name = real_path
-                        .file_stem()
-                        .and_then(|s| s.to_str())
-                        .unwrap_or("Unknown")
-                        .to_string();
-                    (name, "unknown".to_string(), "—".to_string())
-                };
-                let app_id = make_app_id(&bundle_id, &install_path);
-                results.push((
-                    app_id,
-                    name,
-                    bundle_id,
-                    version,
-                    install_path,
-                    is_system,
-                    get_last_modified(&real_path),
-                ));
+                if let Some(app) = app_path_to_raw(&path, is_system) {
+                    results.push(app);
+                }
                 continue;
             }
 
-            if file_type.is_dir() && depth < depth_limit {
+            if (file_type.is_dir() || path.is_dir()) && depth < depth_limit {
                 queue.push_back((path, depth + 1));
             }
         }
@@ -214,66 +306,158 @@ fn scan_directory_raw(
 pub fn scan_installed_apps(
     state: tauri::State<'_, AppManagerState>,
     app_handle: &AppHandle,
+    task_id: &str,
+    cancel: &std::sync::atomic::AtomicBool,
 ) -> ScanResult {
     let start = std::time::Instant::now();
-    let mut raw: Vec<(String, String, String, String, String, bool, u64)> = Vec::new();
+    let mut raw: Vec<RawApp> = Vec::new();
+    let mut warnings = Vec::new();
+    let mut filesystem_complete = true;
 
     let _ = app_handle.emit(
         "app-scan:progress",
         ScanProgressEvent {
+            task_id: task_id.to_string(),
             current: 0,
+            completed: 0,
+            total: None,
             stage: "scanningDirectories".to_string(),
+            cancellable: true,
         },
     );
 
     for dir in SCAN_DIRECTORIES {
         let path = Path::new(dir);
         if path.exists() {
+            if fs::read_dir(path).is_err() {
+                filesystem_complete = false;
+                warnings.push(format!("MACOS_SCAN_ROOT_UNREADABLE:{dir}"));
+                continue;
+            }
             raw.extend(scan_directory_raw(
                 path,
                 dir.starts_with("/System"),
                 SCAN_MAX_DEPTH,
+                cancel,
             ));
             let _ = app_handle.emit(
                 "app-scan:progress",
                 ScanProgressEvent {
+                    task_id: task_id.to_string(),
                     current: raw.len(),
+                    completed: raw.len(),
+                    total: None,
                     stage: "scanningDirectories".to_string(),
+                    cancellable: true,
                 },
             );
         }
     }
     if let Some(user_dir) = user_applications_dir() {
         if user_dir.exists() {
-            raw.extend(scan_directory_raw(&user_dir, false, SCAN_MAX_DEPTH));
-            let _ = app_handle.emit(
-                "app-scan:progress",
-                ScanProgressEvent {
-                    current: raw.len(),
-                    stage: "scanningDirectories".to_string(),
-                },
-            );
+            if fs::read_dir(&user_dir).is_err() {
+                filesystem_complete = false;
+                warnings.push(format!("MACOS_SCAN_ROOT_UNREADABLE:{}", user_dir.display()));
+            } else {
+                raw.extend(scan_directory_raw(&user_dir, false, SCAN_MAX_DEPTH, cancel));
+                let _ = app_handle.emit(
+                    "app-scan:progress",
+                    ScanProgressEvent {
+                        task_id: task_id.to_string(),
+                        current: raw.len(),
+                        completed: raw.len(),
+                        total: None,
+                        stage: "scanningDirectories".to_string(),
+                        cancellable: true,
+                    },
+                );
+            }
         }
     }
+
+    for external_dir in external_application_dirs() {
+        if cancel.load(std::sync::atomic::Ordering::Acquire) {
+            break;
+        }
+        if fs::read_dir(&external_dir).is_err() {
+            filesystem_complete = false;
+            warnings.push(format!(
+                "MACOS_SCAN_ROOT_UNREADABLE:{}",
+                external_dir.display()
+            ));
+            continue;
+        }
+        raw.extend(scan_directory_raw(
+            &external_dir,
+            false,
+            SCAN_MAX_DEPTH,
+            cancel,
+        ));
+    }
+
+    let spotlight_status = if cancel.load(std::sync::atomic::Ordering::Acquire) {
+        ProviderStatus {
+            provider: "spotlight".to_string(),
+            state: ProviderState::Partial,
+            error_code: Some("SCAN_CANCELLED".to_string()),
+        }
+    } else {
+        match spotlight_application_paths() {
+            Ok(paths) => {
+                for path in paths {
+                    if cancel.load(std::sync::atomic::Ordering::Acquire) {
+                        break;
+                    }
+                    let is_system = path.starts_with("/System/");
+                    if let Some(app) = app_path_to_raw(&path, is_system) {
+                        raw.push(app);
+                    }
+                }
+                ProviderStatus {
+                    provider: "spotlight".to_string(),
+                    state: ProviderState::Ok,
+                    error_code: None,
+                }
+            }
+            Err(error) => ProviderStatus {
+                provider: "spotlight".to_string(),
+                state: ProviderState::Partial,
+                error_code: Some(error),
+            },
+        }
+    };
 
     let _ = app_handle.emit(
         "app-scan:progress",
         ScanProgressEvent {
+            task_id: task_id.to_string(),
             current: raw.len(),
+            completed: 0,
+            total: Some(raw.len()),
             stage: "resolvingSources".to_string(),
+            cancellable: true,
         },
     );
 
     let brew = brew_path();
     let brew_available = brew.as_deref().map(brew_works).unwrap_or(false);
+    let mut brew_metadata_complete = true;
     let mut installed_casks = HashSet::new();
     let mut outdated_casks = HashSet::new();
+    let mut artifact_casks = HashMap::new();
 
     if brew_available {
         if let Some(ref brew_bin) = brew {
-            if let Ok((casks, outdated)) = map_casks(brew_bin) {
-                installed_casks = casks;
-                outdated_casks = outdated;
+            match map_casks(brew_bin) {
+                Ok((casks, outdated)) => {
+                    installed_casks = casks;
+                    outdated_casks = outdated;
+                }
+                Err(_) => brew_metadata_complete = false,
+            }
+            match list_cask_artifacts(brew_bin) {
+                Ok(artifacts) => artifact_casks = artifacts,
+                Err(_) => brew_metadata_complete = false,
             }
         }
     }
@@ -284,6 +468,9 @@ pub fn scan_installed_apps(
     for (idx, (app_id, name, bundle_id, version, install_path, is_system, last_modified)) in
         raw.into_iter().enumerate()
     {
+        if cancel.load(std::sync::atomic::Ordering::Acquire) {
+            break;
+        }
         let has_mas_receipt = !is_system
             && crate::app_manager::sources::mac_app_store::has_mas_receipt(&install_path);
 
@@ -291,6 +478,7 @@ pub fn scan_installed_apps(
             source_type,
             source_id,
             source_confidence,
+            source_evidence,
             can_upgrade,
             can_uninstall,
             upgrade_available,
@@ -299,22 +487,25 @@ pub fn scan_installed_apps(
                 SourceType::AppStore,
                 String::new(),
                 1.0,
+                SourceEvidence::ExactReceipt,
                 false,
                 false,
                 false,
             )
         } else {
-            let source = resolve_macos_source(
+            let source = resolve_macos_source_with_artifacts(
                 &name,
                 &bundle_id,
                 is_system,
                 &installed_casks,
                 &outdated_casks,
+                &artifact_casks,
             );
             (
                 source.source_type,
                 source.source_id,
                 source.source_confidence,
+                source.source_evidence,
                 source.can_upgrade,
                 source.can_uninstall,
                 source.upgrade_available,
@@ -326,10 +517,11 @@ pub fn scan_installed_apps(
             name,
             version,
             bundle_id,
-            install_path,
+            install_path: install_path.clone(),
             source_type,
             source_id,
             source_confidence,
+            source_evidence,
             can_upgrade,
             can_uninstall,
             upgrade_available,
@@ -337,14 +529,21 @@ pub fn scan_installed_apps(
             is_system_app: is_system,
             launchable: true,
             revealable: true,
+            launch_target: Some(LaunchTarget::AppBundle {
+                path: install_path.clone(),
+            }),
         }));
 
         if (idx + 1) % 20 == 0 || idx + 1 == total_raw {
             let _ = app_handle.emit(
                 "app-scan:progress",
                 ScanProgressEvent {
+                    task_id: task_id.to_string(),
                     current: idx + 1,
+                    completed: idx + 1,
+                    total: Some(total_raw),
                     stage: "processingMetadata".to_string(),
+                    cancellable: true,
                 },
             );
         }
@@ -352,12 +551,51 @@ pub fn scan_installed_apps(
 
     apps = deduplicate(apps);
 
-    build_scan_result(
+    let mut result = build_scan_result(
         apps,
         platform_capabilities(brew_available, false, false, false, false),
         start.elapsed().as_millis() as u64,
         state.get_last_update_check_time(),
-    )
+    );
+    if cancel.load(std::sync::atomic::Ordering::Acquire) {
+        result.complete = false;
+        result.warnings.push("SCAN_CANCELLED".to_string());
+    }
+    result.providers = vec![
+        ProviderStatus {
+            provider: "filesystem".to_string(),
+            state: if filesystem_complete {
+                ProviderState::Ok
+            } else {
+                ProviderState::Partial
+            },
+            error_code: (!filesystem_complete)
+                .then(|| "MACOS_APPLICATION_ROOT_PARTIAL".to_string()),
+        },
+        spotlight_status,
+        ProviderStatus {
+            provider: "homebrew".to_string(),
+            state: if !brew_available {
+                ProviderState::Unsupported
+            } else if brew_metadata_complete {
+                ProviderState::Ok
+            } else {
+                ProviderState::Partial
+            },
+            error_code: if !brew_available {
+                Some("HOMEBREW_UNAVAILABLE".to_string())
+            } else if !brew_metadata_complete {
+                Some("HOMEBREW_METADATA_PARTIAL".to_string())
+            } else {
+                None
+            },
+        },
+    ];
+    result.complete &= result.providers.iter().all(|provider| {
+        provider.state == ProviderState::Ok || provider.state == ProviderState::Unsupported
+    });
+    result.warnings.extend(warnings);
+    result
 }
 
 #[cfg(test)]
@@ -400,7 +638,8 @@ mod scan_tests {
         fs::create_dir_all(root.join("Vendor")).expect("create vendor dir");
         write_info_plist(&nested_app, "com.example.nested", "1.2.3");
 
-        let results = scan_directory_raw(&root, false, SCAN_MAX_DEPTH);
+        let cancel = std::sync::atomic::AtomicBool::new(false);
+        let results = scan_directory_raw(&root, false, SCAN_MAX_DEPTH, &cancel);
         let install_paths: Vec<String> = results.into_iter().map(|item| item.4).collect();
 
         assert_eq!(install_paths.len(), 1);
@@ -417,7 +656,8 @@ mod scan_tests {
         write_info_plist(&outer_app, "com.example.outer", "1.0.0");
         write_info_plist(&inner_app, "com.example.inner", "2.0.0");
 
-        let results = scan_directory_raw(&root, false, SCAN_MAX_DEPTH);
+        let cancel = std::sync::atomic::AtomicBool::new(false);
+        let results = scan_directory_raw(&root, false, SCAN_MAX_DEPTH, &cancel);
         let bundle_ids: Vec<String> = results.into_iter().map(|item| item.2).collect();
 
         assert_eq!(bundle_ids, vec!["com.example.outer".to_string()]);
@@ -524,11 +764,18 @@ pub fn upgrade_app(
     if !app.can_upgrade {
         return Err("This application cannot be upgraded".to_string());
     }
+    if app.source_type != SourceType::HomebrewCask.to_string()
+        || app.source_evidence != SourceEvidence::ExactReceipt
+        || app.source_id.trim().is_empty()
+    {
+        return Err("UPGRADE_SOURCE_NOT_PROVEN".to_string());
+    }
     let brew = brew_path().ok_or("Homebrew is not available")?;
-    let output = Command::new(&brew)
-        .args(["upgrade", "--cask", &app.source_id])
-        .output()
-        .map_err(|e| format!("Failed to run brew upgrade: {}", e))?;
+    let output = run_command_with_timeout(
+        Command::new(&brew).args(["upgrade", "--cask", &app.source_id]),
+        PACKAGE_OPERATION_TIMEOUT,
+    )
+    .map_err(|e| format!("Failed to run brew upgrade: {}", e))?;
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
     let combined = format!("{}\n{}", stdout, stderr).trim().to_string();
@@ -567,11 +814,18 @@ pub fn uninstall_app(
     if !app.can_uninstall {
         return Err("This application cannot be uninstalled".into());
     }
+    if app.source_type != SourceType::HomebrewCask.to_string()
+        || app.source_evidence != SourceEvidence::ExactReceipt
+        || app.source_id.trim().is_empty()
+    {
+        return Err("UNINSTALL_SOURCE_NOT_PROVEN".into());
+    }
     let brew = brew_path().ok_or("Homebrew is not available")?;
-    let output = Command::new(&brew)
-        .args(["uninstall", "--cask", &app.source_id])
-        .output()
-        .map_err(|e| format!("Failed to run brew uninstall: {}", e))?;
+    let output = run_command_with_timeout(
+        Command::new(&brew).args(["uninstall", "--cask", &app.source_id]),
+        PACKAGE_OPERATION_TIMEOUT,
+    )
+    .map_err(|e| format!("Failed to run brew uninstall: {}", e))?;
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
     let combined = format!("{}\n{}", stdout, stderr).trim().to_string();
@@ -857,10 +1111,11 @@ pub fn install_app(
     // Prefer brew install --cask
     if let Some(cask) = &install_source.brew {
         if let Some(brew) = find_brew() {
-            let output = std::process::Command::new(brew)
-                .args(["install", "--cask", cask])
-                .output()
-                .map_err(|e| format!("Failed to execute brew: {}", e))?;
+            let output = run_command_with_timeout(
+                std::process::Command::new(brew).args(["install", "--cask", cask]),
+                PACKAGE_OPERATION_TIMEOUT,
+            )
+            .map_err(|e| format!("Failed to execute brew: {}", e))?;
 
             let success = output.status.success();
             let message = String::from_utf8_lossy(if success {

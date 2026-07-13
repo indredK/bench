@@ -54,6 +54,14 @@ pub fn run() {
         .manage(UpdaterCache::default())
         .manage(create_bootstrap_state())
         .setup(|app| {
+            #[cfg(target_os = "macos")]
+            tauri::async_runtime::spawn_blocking(|| {
+                if let Err(error) = app_manager::installer::replace::recover_pending_replacements()
+                {
+                    eprintln!("[app-manager] update recovery failed: {error}");
+                }
+            });
+
             menu::setup_menu(app)?;
             tray::setup_tray(app)?;
 

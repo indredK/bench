@@ -44,7 +44,14 @@ export type AppManagerTabKey = "installed" | "softwareUpdate" | "marketplace"
 export interface AppManagerState {
   apps: AppInfo[]
   loading: boolean
-  scanProgress: { current: number; stage: string } | null
+  scanProgress: {
+    current: number
+    stage: string
+    taskId?: string
+    completed?: number
+    total?: number | null
+    cancellable?: boolean
+  } | null
   error: LocalizedError | null
   searchQuery: string
   installedSearchQuery: string
@@ -100,6 +107,7 @@ export interface AppManagerState {
   updates: UpdateInfo[]
   updatesLoading: boolean
   updatesError: LocalizedError | null
+  updatesWarning: LocalizedError | null
   updatesScanned: boolean
   expandedUpdateGroups: Record<UpdateSource, boolean>
   selectedUpdateIds: Set<string>
@@ -126,7 +134,7 @@ export interface AppManagerState {
   setCategoryFilter: (category: AppCategoryKey | null) => void
   setSeriesFilter: (series: AppSeriesKey | null) => void
   setError: (error: LocalizedError | null) => void
-  setScanProgress: (progress: { current: number; stage: string } | null) => void
+  setScanProgress: (progress: AppManagerState["scanProgress"]) => void
   setSorting: (sorting: Updater<SortingState>) => void
 
   setOperationStatus: (appId: string, status: OperationStatus, message?: string) => void
@@ -158,6 +166,8 @@ export interface AppManagerState {
   setUpdates: (updates: UpdateInfo[]) => void
   setUpdatesLoading: (loading: boolean) => void
   setUpdatesError: (error: LocalizedError | null) => void
+  setUpdatesWarning: (warning: LocalizedError | null) => void
+  clearUpdatesWarning: () => void
   setUpdatesScanned: (scanned: boolean) => void
   toggleUpdateGroup: (source: UpdateSource) => void
   toggleSelectUpdate: (appId: string) => void

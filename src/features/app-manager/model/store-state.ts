@@ -35,6 +35,8 @@ type AppManagerDataState = Omit<
   | "setUpdates"
   | "setUpdatesLoading"
   | "setUpdatesError"
+  | "setUpdatesWarning"
+  | "clearUpdatesWarning"
   | "setUpdatesScanned"
   | "toggleUpdateGroup"
   | "toggleSelectUpdate"
@@ -58,6 +60,8 @@ function defaultExpandedGroups(): Record<UpdateSource, boolean> {
     electron: true,
     squirrel: true,
     gitHub: true,
+    winget: true,
+    windowsStore: true,
   }
 }
 
@@ -101,6 +105,7 @@ export function createInitialAppManagerState(): AppManagerDataState {
     updates: [],
     updatesLoading: false,
     updatesError: null,
+    updatesWarning: null,
     updatesScanned: false,
     expandedUpdateGroups: defaultExpandedGroups(),
     selectedUpdateIds: new Set(),
