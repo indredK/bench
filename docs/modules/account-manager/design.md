@@ -62,7 +62,18 @@ AuthProfile 检测从页面、cookie、Web Storage、CSRF、SSO、anti-bot 和 W
 2. L2 WebView：HTTP 不确定、JS challenge 或 anti-bot 时使用。
 3. L3 Hybrid：SSO、复杂重定向或设备绑定场景。
 
+并发与网络预算：
+
+- 全局 semaphore 限制同时运行的 probe 数量；账号级 single-flight 把同账号并发刷新合并为一次执行，follower 共享 leader 的成功或结构化错误。
+- leader 被取消或 future 被 drop 时必须唤醒 follower 并清理 registry；禁止 waiter 无限等待，也禁止两个 probe 争用同一 WebView label。
+- HTTP probe 只接受无嵌入凭据的 `http/https` URL，禁止自动 redirect；本机开发站点可继续使用 loopback HTTP。
+- 单请求 timeout 4 秒，HTTP 总预算 10 秒，最多 3 次。只重试 408/429/500/502/503/504 和 connect/timeout，使用 200 ms 基数、2 秒上限的 full-jitter 指数退避。
+- `Retry-After` 不超过 2 秒时服从服务端；超过交互预算时停止 HTTP 重试并返回不确定结果，由策略决定是否升级 WebView，不得提前重试违反服务端节流。
+- HTTP probe 使用捕获 Session 的 User-Agent；Cookie 必须满足 host/domain、RFC 6265 path boundary 和 secure 约束。缺少 partition key 时 partitioned Cookie 不得降级发送。
+
 探针结果必须区分 Ready、LoginRequired、Expired、Uncertain、AntiBotBlocked、SsoChallenge 和 NetworkError。Uncertain 才允许升级探针，避免所有账号默认创建 WebView。
+
+上述边界参考的开源实现、固定 commit、License 和未采用原因见 [审计文档 §10](./audit-and-upgrade-2026-07-13.md#10-github-参考实现与采纳矩阵)。修改重试或 Session 语义时必须同步更新该矩阵和行为测试。
 
 ## 5. 加密与存储
 

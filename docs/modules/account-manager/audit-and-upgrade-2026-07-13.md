@@ -1,6 +1,7 @@
 # Account Manager 生产可靠性审计与升级规范
 
 > 审计日期：2026-07-13  
+> 最近复核：2026-07-14
 > 结论：**REQUEST CHANGES**  
 > 置信度：**High**  
 > 目标平台：macOS、Windows  
@@ -22,10 +23,10 @@
 
 ```text
 pnpm exec vitest run src/features/account-manager  -> 2 files / 8 tests passed
-cargo test account_manager                         -> 49 tests passed
+cargo test account_manager                         -> 58 tests passed
 ```
 
-新增测试覆盖 schema v5 canonical migration、一次性 ticket、重复参数拒绝、loopback/精确 callback/state、同源填充、HTTP Cookie host/domain/path scope、RefreshReport IPC 和 canonical export。真实 Keyring/store 跨进程、Deep Link/WebView、退出 hook 和 Windows 行为仍需目标平台测试；本机的 Windows target 安装未实际生效，不能宣称 Windows 行为已通过。
+新增测试覆盖 schema v5 canonical migration、一次性 ticket、重复参数拒绝、loopback/精确 callback/state、同源填充、HTTP Cookie scope、瞬态重试、账号级 single-flight、RefreshReport IPC 和 canonical export。loopback HTTP 行为测试需要允许绑定 `127.0.0.1` 临时端口；真实 Keyring/store 跨进程、Deep Link/WebView、退出 hook 和 Windows 行为仍需目标平台测试。本机未安装 Windows Rust target，不能宣称 Windows 行为已通过。
 
 ### 1.1 首轮整改状态
 
@@ -35,7 +36,7 @@ cargo test account_manager                         -> 49 tests passed
 | A-03/A-13 并发存储 | 核心后端已修复 | Keyring/store 跨进程锁，mutation 在锁内 reload-before-save |
 | A-04/A-05/A-06 授权 | 核心后端已修复 | 5 分钟一次性 ticket、精确 callback/state、同源填充、验证后才写 binding |
 | A-07 Deep Link | 部分修复 | 只注册 `bench-auth`；App 根队列和 Windows single-instance 待实现 |
-| A-08/A-09 刷新探针 | 核心后端已修复 | 守恒 RefreshReport；HTTP/WebView/Hybrid 策略真实执行且有限额 |
+| A-08/A-09 刷新探针 | 核心后端已修复 | 守恒 RefreshReport；同账号并发合并；HTTP/WebView/Hybrid 真实执行，瞬态重试有次数与总时间上限 |
 | A-10 删除互斥 | 部分修复 | 已清 metadata/session/binding/WebView；仍需逐资源 partial report |
 | A-11 网络代理 | 部分修复 | 解密/解析/平台不支持均 fail-closed，留空保留密码；显式 PasswordAction 待实现 |
 | A-12 导入导出 | 部分修复 | 已加版本/16 MB/数量限制并拒绝静默跳过；passphrase 可移植格式待实现 |
@@ -70,7 +71,7 @@ cargo test account_manager                         -> 49 tests passed
 - 前端页面已经 lazy load，主要用户文案通过 i18n；`pnpm run lint:fe` 的 i18n/static guard 通过。
 - 多数写操作已使用 `useGuardedAsync`，controller 通过 selector 订阅 Zustand，并正确清理自身 timer。
 - TS/Rust IPC 已集中声明，Rust 命令使用结构化 `AccountManagerResult`，没有把错误统一退化为字符串。
-- `storage::with_state_mut` 保持 reload -> mutate -> save -> replace，并由进程内写锁和跨进程文件锁保护；probe 保持 semaphore 并发上限。
+- `storage::with_state_mut` 保持 reload -> mutate -> save -> replace，并由进程内写锁和跨进程文件锁保护；probe 同时保持全局 semaphore 与账号级 single-flight。
 - 密文使用 AES-256-GCM 且每次生成 nonce，已有加密 roundtrip 测试；问题在密钥初始化、迁移和明文生命周期，不在算法选择。
 
 ## 3. 发现与重构要求
@@ -611,3 +612,20 @@ git diff --check
 - [Tauri WebviewWindow cookie API](https://docs.rs/tauri/latest/tauri/webview/struct.WebviewWindow.html#method.cookies_for_url)：HttpOnly Cookie 通过原生 API 读取；Windows 避免在同步命令/事件处理器中读取。
 - [Rust `File::lock`](https://doc.rust-lang.org/std/fs/struct.File.html#method.lock)：Keyring 首建与 store mutation 使用跨平台 advisory file lock 串行化。
 - [tauri-plugin-store `reload_ignore_defaults`](https://docs.rs/tauri-plugin-store/latest/tauri_plugin_store/struct.Store.html#method.reload_ignore_defaults)：跨进程锁内先重新读取磁盘 canonical state，再执行 mutation 和 save。
+
+## 10. GitHub 参考实现与采纳矩阵
+
+固定到下列 commit 复核，避免后续 AI 只按仓库最新 README 猜测行为。引用代码只用于设计对照，Bench 未复制第三方实现。
+
+| 仓库与版本 | License | 源码证据 | 决策与 Bench 落点 |
+|------------|---------|----------|-------------------|
+| [moka-rs/moka@e617b5f](https://github.com/moka-rs/moka/blob/e617b5f064cdb3ce9845cef06961fdbf07bd9946/src/future/cache.rs#L970-L1049) | MIT OR Apache-2.0 | 同 key 并发 `get_with` 合并为一次 future，其他调用等待并共享结果 | **采纳语义，不引入依赖**：`state.rs` 的 probe flight registry 合并同账号刷新；leader 取消时发布结构化错误并清理 registry，避免 waiter 永久挂起。 |
+| [TrueLayer/reqwest-middleware@614b947](https://github.com/TrueLayer/reqwest-middleware/blob/614b9474f6bec85c8660e4d52b8d9f12f8359229/reqwest-retry/src/retryable_strategy.rs#L100-L169) | MIT OR Apache-2.0 | 区分 transient/fatal；只重试 408/429/服务端错误及 connect/timeout，builder/decode 等失败不重试 | **部分采纳**：probe 只重试 408/429/500/502/503/504 与 connect/timeout，最多 3 次；不引入 middleware，避免为单一 GET probe 增加依赖与全局策略。 |
+| [spider-rs/spider@73e497c](https://github.com/spider-rs/spider/blob/73e497c46b4e7774b8421ae2d54a0e5bee8fd9f8/spider/src/utils/backoff.rs#L1-L60) | MIT | 指数退避使用 full jitter 和饱和运算；crawler 同时有重试次数、延迟与 semaphore 上限 | **采纳**：200 ms 基数、2 s 上限、full jitter；单请求 4 s、HTTP 层总预算 10 s，且继续受全局 probe semaphore 限制。 |
+| [pfernie/cookie_store@f29b1cf](https://github.com/pfernie/cookie_store/blob/f29b1cf2cce8bd906ce4acec93d48dc9040b2b6d/src/cookie_path.rs#L7-L29) | MIT OR Apache-2.0 | RFC 6265 path-match 需要完整相等、cookie path 以 `/` 结束，或下一字符是 `/`；匹配结果还需排除过期 Cookie | **部分采纳**：修复 `/foo` 误匹配 `/foobar`；缺少 partition key 时不把 partitioned Cookie 降级成普通 Cookie。暂不接入完整 CookieStore，待 Session schema 能保留 canonical expiry/partition key 后再评估。 |
+| [ramosbugs/oauth2-rs@72ce744](https://github.com/ramosbugs/oauth2-rs/blob/72ce74401c26eb4dc85dcbfde587bbcfc149e3ae/oauth2/src/client.rs#L675-L691) | MIT OR Apache-2.0 | 每次授权使用新 state 并在 callback 比对；PKCE challenge/verifier 成对持有；token HTTP client 禁止自动 redirect | **已对齐/不照搬 PKCE 生成**：Bench 一次性 ticket 固化并校验外部请求已有的 state/callback，HTTP probe 禁止 redirect。Bench 不是 token client，不能擅自生成或替换第三方 PKCE verifier。 |
+| [microsoft/playwright@91565f0](https://github.com/microsoft/playwright/blob/91565f0ddb29c3daaebd25494fdcb8e9ecf8d545/packages/playwright-core/src/server/browserContext.ts#L615-L718) | Apache-2.0 | `storageState` 同时保存 Cookie 和按 origin 隔离的 localStorage/IndexedDB，恢复时逐 origin 注入 | **模型已部分对齐，能力未完成**：`AccountSession.origins` 保留 origin 隔离结构；实际 local/session storage 和 IndexedDB 捕获/恢复仍必须留在目标平台 roadmap，不能仅凭字段存在宣称完成。 |
+| [tauri-apps/plugins-workspace@254f222](https://github.com/tauri-apps/plugins-workspace/blob/254f222e0e2bc79370f977855b6b39d956d3b568/plugins/deep-link/README.md#L141-L148) | MIT OR Apache-2.0 | macOS 直接 emit；Windows/Linux 会以 CLI 参数启动新实例，需要 single-instance 的 deep-link feature 才能统一行为 | **记录为发布阻断**：只注册 `bench-auth` 已完成；App 根 inbox、Windows cold/hot start 与 single-instance 仍按 roadmap Phase 2 实现。 |
+| [open-source-cooperative/keyring-rs@1866f8b](https://github.com/open-source-cooperative/keyring-rs/blob/1866f8b2db9acd38ef2a61713e46629ef1ef3e10/README.md) | MIT OR Apache-2.0 | 同一 API 对接 macOS、Windows 和 Unix 原生凭据库，并提供平台 store 行为测试示例 | **继续使用并保持保守结论**：master key 首建已有跨进程锁；macOS Keychain/Windows Credential Manager 拒绝、重启和并发仍须分别做真机行为测试。 |
+
+采纳原则：只借鉴可映射到当前故障模式且能在 Bench 内写回归测试的语义；不因参考仓库成熟就整体引入 crawler、cache 或 OAuth client 依赖。全局 reqwest client cache 暂不采用，因为每个 Station 的代理和凭据边界不同，复用键设计不完整时会造成跨账号配置污染。

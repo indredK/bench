@@ -5,15 +5,20 @@ use super::state::AccountManagerState;
 use super::storage;
 use super::types::*;
 use super::webview;
-use reqwest::header::COOKIE;
+use reqwest::header::{HeaderMap, COOKIE, RETRY_AFTER, USER_AGENT};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tauri::{AppHandle, Manager, Runtime, WebviewUrl, WebviewWindowBuilder};
 use tokio::sync::oneshot;
 use tokio::time::{sleep, timeout, Instant};
 
-const HTTP_PROBE_TIMEOUT: Duration = Duration::from_secs(5);
+const HTTP_PROBE_REQUEST_TIMEOUT: Duration = Duration::from_secs(4);
+const HTTP_PROBE_TOTAL_TIMEOUT: Duration = Duration::from_secs(10);
 const HTTP_PROBE_MAX_BODY_BYTES: usize = 200_000;
+const HTTP_PROBE_MAX_ATTEMPTS: u32 = 3;
+const HTTP_PROBE_BACKOFF_BASE_MS: u64 = 200;
+const HTTP_PROBE_BACKOFF_MAX_MS: u64 = 2_000;
+const HTTP_PROBE_MAX_RETRY_AFTER: Duration = Duration::from_secs(2);
 
 fn init_script() -> String {
     format!("(function(){{window.__probeBillingSnapshot=function(){{var b=document.body;var r=(b&&b.innerText)?b.innerText:'';return r.length>{}?r.slice(0,{}):r;}};}})();", 200_000, 200_000)
@@ -50,37 +55,68 @@ pub struct ProbeOutcome {
     pub status: AccountSessionStatus,
 }
 
-async fn run_http_probe(
-    website: &str,
-    config: &LoginDetectionConfig,
-    saved_session: Option<&AccountSession>,
-    proxy_url: Option<&str>,
-) -> AccountManagerResult<Option<ProbeOutcome>> {
+fn parse_probe_target(website: &str) -> AccountManagerResult<url::Url> {
     let target = url::Url::parse(website)
         .map_err(|e| AccountManagerError::invalid_input(format!("url: {e}")))?;
-    let mut client = reqwest::Client::builder()
-        .timeout(HTTP_PROBE_TIMEOUT)
-        .redirect(reqwest::redirect::Policy::none());
-    if let Some(proxy_url) = proxy_url {
-        client = client.proxy(
-            reqwest::Proxy::all(proxy_url)
-                .map_err(|e| AccountManagerError::invalid_input(format!("proxy: {e}")))?,
-        );
+    if !matches!(target.scheme(), "http" | "https") || target.host_str().is_none() {
+        return Err(AccountManagerError::invalid_input(
+            "probe URL must use http or https and include a host",
+        ));
     }
-    let client = client
-        .build()
-        .map_err(|e| AccountManagerError::store_fail(format!("HTTP probe client: {e}")))?;
-    let cookie_header = saved_session
-        .map(|session| cookie_header_for_url(session, &target))
-        .filter(|header| !header.is_empty());
-    let mut request = client.get(target);
-    if let Some(header) = cookie_header {
-        request = request.header(COOKIE, header);
+    if !target.username().is_empty() || target.password().is_some() {
+        return Err(AccountManagerError::invalid_input(
+            "probe URL must not contain embedded credentials",
+        ));
     }
-    let mut response = request
-        .send()
-        .await
-        .map_err(|e| AccountManagerError::store_fail(format!("HTTP probe request: {e}")))?;
+    Ok(target)
+}
+
+fn is_retryable_status(status: reqwest::StatusCode) -> bool {
+    matches!(status.as_u16(), 408 | 429 | 500 | 502 | 503 | 504)
+}
+
+fn is_retryable_request_error(error: &reqwest::Error) -> bool {
+    error.is_connect() || error.is_timeout()
+}
+
+fn parse_retry_after(headers: &HeaderMap, now: chrono::DateTime<chrono::Utc>) -> Option<Duration> {
+    let value = headers.get(RETRY_AFTER)?.to_str().ok()?.trim();
+    if let Ok(seconds) = value.parse::<u64>() {
+        return Some(Duration::from_secs(seconds));
+    }
+    let retry_at = chrono::DateTime::parse_from_rfc2822(value)
+        .ok()?
+        .with_timezone(&chrono::Utc);
+    let delay_ms = retry_at
+        .signed_duration_since(now)
+        .num_milliseconds()
+        .max(0) as u64;
+    Some(Duration::from_millis(delay_ms))
+}
+
+fn full_jitter_delay(attempt: u32) -> Duration {
+    let multiplier = 1u64.checked_shl(attempt).unwrap_or(u64::MAX);
+    let cap = HTTP_PROBE_BACKOFF_BASE_MS
+        .saturating_mul(multiplier)
+        .min(HTTP_PROBE_BACKOFF_MAX_MS);
+    Duration::from_millis(rand::random_range(0..=cap))
+}
+
+fn retry_delay(
+    headers: Option<&HeaderMap>,
+    attempt: u32,
+    now: chrono::DateTime<chrono::Utc>,
+) -> Option<Duration> {
+    if let Some(server_delay) = headers.and_then(|headers| parse_retry_after(headers, now)) {
+        return (server_delay <= HTTP_PROBE_MAX_RETRY_AFTER).then_some(server_delay);
+    }
+    Some(full_jitter_delay(attempt))
+}
+
+async fn classify_http_response(
+    mut response: reqwest::Response,
+    config: &LoginDetectionConfig,
+) -> AccountManagerResult<Option<ProbeOutcome>> {
     if response.status().is_redirection() {
         return Ok(None);
     }
@@ -109,6 +145,87 @@ async fn run_http_probe(
     Ok(detection::classify_confident(&text, config).map(|status| ProbeOutcome { status }))
 }
 
+async fn run_http_probe(
+    target: &url::Url,
+    config: &LoginDetectionConfig,
+    saved_session: Option<&AccountSession>,
+    proxy_url: Option<&str>,
+) -> AccountManagerResult<Option<ProbeOutcome>> {
+    let mut client = reqwest::Client::builder()
+        .timeout(HTTP_PROBE_REQUEST_TIMEOUT)
+        .redirect(reqwest::redirect::Policy::none());
+    if let Some(proxy_url) = proxy_url {
+        client = client.proxy(
+            reqwest::Proxy::all(proxy_url)
+                .map_err(|e| AccountManagerError::invalid_input(format!("proxy: {e}")))?,
+        );
+    }
+    let client = client
+        .build()
+        .map_err(|e| AccountManagerError::store_fail(format!("HTTP probe client: {e}")))?;
+    let cookie_header = saved_session
+        .map(|session| cookie_header_for_url(session, target))
+        .filter(|header| !header.is_empty());
+    let user_agent = saved_session
+        .map(|session| session.user_agent.trim())
+        .filter(|user_agent| !user_agent.is_empty());
+
+    timeout(HTTP_PROBE_TOTAL_TIMEOUT, async {
+        for attempt in 0..HTTP_PROBE_MAX_ATTEMPTS {
+            let mut request = client.get(target.clone());
+            if let Some(header) = cookie_header.as_deref() {
+                request = request.header(COOKIE, header);
+            }
+            if let Some(user_agent) = user_agent {
+                request = request.header(USER_AGENT, user_agent);
+            }
+
+            match request.send().await {
+                Ok(response) if is_retryable_status(response.status()) => {
+                    if attempt + 1 >= HTTP_PROBE_MAX_ATTEMPTS {
+                        return Ok(None);
+                    }
+                    let Some(delay) =
+                        retry_delay(Some(response.headers()), attempt, chrono::Utc::now())
+                    else {
+                        return Ok(None);
+                    };
+                    sleep(delay).await;
+                }
+                Ok(response) => return classify_http_response(response, config).await,
+                Err(error)
+                    if is_retryable_request_error(&error)
+                        && attempt + 1 < HTTP_PROBE_MAX_ATTEMPTS =>
+                {
+                    let delay =
+                        retry_delay(None, attempt, chrono::Utc::now()).unwrap_or(Duration::ZERO);
+                    sleep(delay).await;
+                }
+                Err(error) => {
+                    return Err(AccountManagerError::store_fail(format!(
+                        "HTTP probe request: {error}"
+                    )));
+                }
+            }
+        }
+        Ok(None)
+    })
+    .await
+    .map_err(|_| AccountManagerError::store_fail("HTTP probe deadline exceeded"))?
+}
+
+fn cookie_path_matches(cookie_path: &str, request_path: &str) -> bool {
+    let cookie_path = if cookie_path.starts_with('/') {
+        cookie_path
+    } else {
+        "/"
+    };
+    cookie_path == request_path
+        || (request_path.starts_with(cookie_path)
+            && (cookie_path.ends_with('/')
+                || request_path.as_bytes().get(cookie_path.len()) == Some(&b'/')))
+}
+
 fn cookie_header_for_url(session: &AccountSession, target: &url::Url) -> String {
     let Some(host) = target.host_str() else {
         return String::new();
@@ -135,8 +252,9 @@ fn cookie_header_for_url(session: &AccountSession, target: &url::Url) -> String 
                 cookie.path.as_str()
             };
             domain_matches
-                && path.starts_with(cookie_path)
+                && cookie_path_matches(cookie_path, path)
                 && (!cookie.secure || target.scheme() == "https")
+                && !cookie.partitioned
         })
         .map(|cookie| format!("{}={}", cookie.name, cookie.value))
         .collect::<Vec<_>>()
@@ -201,6 +319,7 @@ pub async fn run_probe<R: Runtime>(
     strategy: ProbeStrategy,
     proxy_url: Option<&str>,
 ) -> AccountManagerResult<ProbeOutcome> {
+    let target = parse_probe_target(website)?;
     let saved_session = {
         let state = app.state::<AccountManagerState>();
         session::restore_session(&state, account_id)?
@@ -209,7 +328,7 @@ pub async fn run_probe<R: Runtime>(
         strategy,
         ProbeStrategy::HttpFirst | ProbeStrategy::HttpOnly | ProbeStrategy::Hybrid
     ) {
-        match run_http_probe(website, config, saved_session.as_ref(), proxy_url).await {
+        match run_http_probe(&target, config, saved_session.as_ref(), proxy_url).await {
             Ok(Some(outcome))
                 if strategy != ProbeStrategy::Hybrid
                     || outcome.status == AccountSessionStatus::Ready =>
@@ -231,9 +350,7 @@ pub async fn run_probe<R: Runtime>(
     if let Some(e) = app.get_webview_window(&label) {
         let _ = e.close();
     }
-    let parsed: tauri::Url = website
-        .parse()
-        .map_err(|e| AccountManagerError::invalid_input(format!("url: {e}")))?;
+    let parsed: tauri::Url = target;
     let blank: tauri::Url = "about:blank"
         .parse()
         .map_err(|e| AccountManagerError::invalid_input(format!("blank url: {e}")))?;
@@ -333,6 +450,7 @@ pub async fn run_probe<R: Runtime>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::{Read, Write};
 
     fn cookie(name: &str, domain: &str, path: &str, secure: bool) -> CookieEntry {
         CookieEntry {
@@ -343,6 +461,23 @@ mod tests {
             secure,
             ..Default::default()
         }
+    }
+
+    fn read_http_request(stream: &mut std::net::TcpStream) -> String {
+        const MAX_REQUEST_HEADER_BYTES: usize = 16 * 1024;
+        let mut request = Vec::new();
+        let mut buffer = [0_u8; 1024];
+        while request.len() < MAX_REQUEST_HEADER_BYTES {
+            let read = stream.read(&mut buffer).unwrap();
+            if read == 0 {
+                break;
+            }
+            request.extend_from_slice(&buffer[..read]);
+            if request.windows(4).any(|window| window == b"\r\n\r\n") {
+                break;
+            }
+        }
+        String::from_utf8_lossy(&request).to_string()
     }
 
     #[test]
@@ -373,5 +508,133 @@ mod tests {
         let target = url::Url::parse("http://127.0.0.1:3000/").unwrap();
 
         assert!(cookie_header_for_url(&session, &target).is_empty());
+    }
+
+    #[test]
+    fn cookie_path_match_requires_a_segment_boundary() {
+        let session = AccountSession {
+            cookies: vec![cookie("scoped", "example.com", "/foo", false)],
+            ..Default::default()
+        };
+
+        let sibling = url::Url::parse("https://example.com/foobar").unwrap();
+        let child = url::Url::parse("https://example.com/foo/bar").unwrap();
+
+        assert!(cookie_header_for_url(&session, &sibling).is_empty());
+        assert_eq!(cookie_header_for_url(&session, &child), "scoped=value");
+    }
+
+    #[test]
+    fn partitioned_cookie_is_not_sent_without_a_partition_key() {
+        let mut partitioned = cookie("partitioned", "example.com", "/", true);
+        partitioned.partitioned = true;
+        let session = AccountSession {
+            cookies: vec![partitioned],
+            ..Default::default()
+        };
+        let target = url::Url::parse("https://example.com/").unwrap();
+
+        assert!(cookie_header_for_url(&session, &target).is_empty());
+    }
+
+    #[test]
+    fn probe_target_rejects_non_http_schemes_and_embedded_credentials() {
+        assert!(parse_probe_target("file:///tmp/session").is_err());
+        assert!(parse_probe_target("https://user:secret@example.com/").is_err());
+        assert!(parse_probe_target("http://127.0.0.1:3000/").is_ok());
+    }
+
+    #[test]
+    fn retry_policy_is_limited_to_transient_statuses() {
+        for status in [408, 429, 500, 502, 503, 504] {
+            assert!(is_retryable_status(
+                reqwest::StatusCode::from_u16(status).unwrap()
+            ));
+        }
+        for status in [400, 401, 403, 404, 501, 505] {
+            assert!(!is_retryable_status(
+                reqwest::StatusCode::from_u16(status).unwrap()
+            ));
+        }
+    }
+
+    #[test]
+    fn excessive_retry_after_stops_retrying() {
+        let mut headers = HeaderMap::new();
+        headers.insert(RETRY_AFTER, "60".parse().unwrap());
+
+        assert!(retry_delay(Some(&headers), 0, chrono::Utc::now()).is_none());
+
+        headers.insert(RETRY_AFTER, "1".parse().unwrap());
+        assert_eq!(
+            retry_delay(Some(&headers), 0, chrono::Utc::now()),
+            Some(Duration::from_secs(1))
+        );
+    }
+
+    #[test]
+    fn jitter_backoff_never_exceeds_the_configured_cap() {
+        for attempt in 0..20 {
+            assert!(full_jitter_delay(attempt) <= Duration::from_millis(2_000));
+        }
+    }
+
+    #[tokio::test]
+    async fn http_probe_retries_transient_status_with_the_same_session_headers() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = std::thread::spawn(move || {
+            let mut requests = Vec::new();
+            for attempt in 0..2 {
+                let (mut stream, _) = listener.accept().unwrap();
+                stream
+                    .set_read_timeout(Some(Duration::from_secs(2)))
+                    .unwrap();
+                requests.push(read_http_request(&mut stream));
+
+                if attempt == 0 {
+                    stream
+                        .write_all(
+                            b"HTTP/1.1 503 Service Unavailable\r\nRetry-After: 0\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+                        )
+                        .unwrap();
+                } else {
+                    stream
+                        .write_all(
+                            b"HTTP/1.1 200 OK\r\nContent-Length: 7\r\nConnection: close\r\n\r\nAUTH_OK",
+                        )
+                        .unwrap();
+                }
+            }
+            requests
+        });
+        let target = url::Url::parse(&format!("http://{address}/session")).unwrap();
+        let session = AccountSession {
+            cookies: vec![cookie("session", "127.0.0.1", "/", false)],
+            user_agent: "Bench-Probe-Test/1.0".into(),
+            ..Default::default()
+        };
+        let config = LoginDetectionConfig {
+            mode: LoginDetectionMode::Custom,
+            logged_out_rule: LoginDetectionRule::default(),
+            logged_in_rule: LoginDetectionRule {
+                presence: LoginDetectionPresence::Present,
+                text: "AUTH_OK".into(),
+            },
+        };
+
+        let outcome = run_http_probe(&target, &config, Some(&session), None)
+            .await
+            .unwrap()
+            .unwrap();
+        let requests = server.join().unwrap();
+
+        assert_eq!(outcome.status, AccountSessionStatus::Ready);
+        assert_eq!(requests.len(), 2);
+        for request in requests {
+            let request = request.to_ascii_lowercase();
+            assert!(request.contains("cookie: session=value"));
+            assert!(request.contains("user-agent: bench-probe-test/1.0"));
+        }
     }
 }

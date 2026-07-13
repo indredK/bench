@@ -19,7 +19,7 @@
 
 - [§7.4/§9] `src-tauri/src/app_manager/` - macOS/Windows 核心实现已整改，但目标平台 fixture、真机 smoke 和 CI 行为测试未完成 - 按 [App Manager roadmap](./modules/app-manager/roadmap.md) 验收 - **强制** - 状态：待验收
 - [§6/§9] `src/features/quick-launch/` - 共享 inventory 与虚拟列表已落地，但 macOS/Windows 启动 smoke 和 500+ 应用性能验收未完成 - 按 [Quick Launch roadmap](./modules/quick-launch/roadmap.md) 验收 - **强制** - 状态：待验收
-- [§3.3/§7/§8] `src-tauri/src/account_manager/` - Session canonical map/v5 migration、恢复注入+probe、退出落盘、真实 ProbeStrategy 和 RefreshReport 已整改；目标平台 WebView 行为仍待验收 - 按 [Account Manager 审计](./modules/account-manager/audit-and-upgrade-2026-07-13.md) Phase 6 验收 - **强制** - 状态：待验收
+- [§3.3/§7/§8] `src-tauri/src/account_manager/` - Session canonical map/v5 migration、恢复注入+probe、退出落盘、账号级 single-flight、有界瞬态重试、真实 ProbeStrategy 和 RefreshReport 已整改；per-origin storage、Cookie partition key 与目标平台 WebView 行为仍未完成 - 按 [Account Manager roadmap](./modules/account-manager/roadmap.md) Phase 1/6 实施并验收 - **强制** - 状态：部分修复
 - [§7/§8] `src-tauri/src/account_manager/{commands,proxy,webview}.rs` - 一次性 ticket、精确 callback/state/origin 和自定义 scheme 注册已整改；App 根 Deep Link 队列与 Windows single-instance 仍缺 - 按 [Account Manager roadmap](./modules/account-manager/roadmap.md) Phase 2 实施 - **强制** - 状态：部分修复
 - [§3.3/§7] `src-tauri/src/account_manager/{crypto,state,storage}.rs` - Keyring 和 store mutation 已接入跨进程锁及 reload-before-save；Dev/Prod/Windows 并发行为仍待验收 - 按 [Account Manager roadmap](./modules/account-manager/roadmap.md) Phase 6 验收 - **强制** - 状态：待验收
 - [§5/§6/§9] `src/features/account-manager/` - skeleton、窄屏详情、大列表虚拟化、敏感明文生命周期和双平台行为测试仍缺 - 按 [Account Manager roadmap](./modules/account-manager/roadmap.md) 实施 - **强制** - 状态：已报告
@@ -29,6 +29,14 @@
 Account Manager 的 macOS/Windows 状态均为 ⚠️；A-01 至 A-15 的 P0/P1 未关闭前不得标记生产就绪。
 
 ## 最近复核
+
+### 2026-07-14 - Account Manager GitHub 实现对照
+
+- 参考 Moka、reqwest-middleware、Spider、cookie_store、oauth2-rs、Playwright、Tauri plugins 和 keyring-rs 的固定 commit；License、源码位置、采纳与拒绝理由见 [专题审计 §10](./modules/account-manager/audit-and-upgrade-2026-07-13.md#10-github-参考实现与采纳矩阵)。
+- 后端新增账号级 single-flight；并发刷新同一账号只运行一次 probe，follower 共享结果，leader 取消会唤醒 waiter 并清理 registry。
+- HTTP probe 只对瞬态状态/connect/timeout 做最多 3 次、10 秒总预算的 full-jitter 退避；服从短 `Retry-After`，过长时停止重试；请求沿用 Session User-Agent。
+- Cookie HTTP 注入按 RFC 6265 path boundary 匹配，缺少 partition key 时拒绝发送 partitioned Cookie；probe URL 只允许无嵌入凭据的 HTTP(S)。
+- 本地通过 `pnpm run lint:fe`、`pnpm run test:critical`（12 files / 34 tests）、`cargo test account_manager`（58 tests）、`cargo clippy -- -D warnings`。本机未安装 Windows Rust target，且 Windows/macOS WebView、Keyring、Deep Link 真机行为尚未验收。
 
 ### 2026-07-13 - Account Manager
 

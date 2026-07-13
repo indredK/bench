@@ -3,7 +3,7 @@ use std::fs::OpenOptions;
 use std::sync::{Arc, Mutex, OnceLock, RwLock};
 
 use tauri::{AppHandle, Manager, Runtime};
-use tokio::sync::Semaphore;
+use tokio::sync::{Notify, Semaphore};
 
 use super::crypto;
 use super::crypto::EncryptedBlob;
@@ -15,6 +15,92 @@ use super::types::{
 const PROBE_CONCURRENCY: usize = 2;
 const AUTH_PROXY_TICKET_TTL_SECONDS: i64 = 300;
 const MAX_AUTH_PROXY_TICKETS: usize = 64;
+
+type ProbeFlightResult = AccountManagerResult<StationAccount>;
+type ProbeFlightRegistry = Arc<Mutex<HashMap<String, Arc<InFlightProbe>>>>;
+
+#[derive(Default)]
+struct InFlightProbe {
+    result: Mutex<Option<ProbeFlightResult>>,
+    notify: Notify,
+}
+
+impl InFlightProbe {
+    fn publish(&self, result: ProbeFlightResult) {
+        let mut slot = self.result.lock().unwrap_or_else(|e| e.into_inner());
+        if slot.is_none() {
+            *slot = Some(result);
+        }
+        drop(slot);
+        self.notify.notify_waiters();
+    }
+
+    async fn wait(&self) -> ProbeFlightResult {
+        loop {
+            let notified = self.notify.notified();
+            if let Some(result) = self
+                .result
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .clone()
+            {
+                return result;
+            }
+            notified.await;
+        }
+    }
+}
+
+pub(crate) enum ProbeFlight {
+    Leader(ProbeFlightLeader),
+    Follower(ProbeFlightFollower),
+}
+
+pub(crate) struct ProbeFlightFollower {
+    flight: Arc<InFlightProbe>,
+}
+
+impl ProbeFlightFollower {
+    pub(crate) async fn wait(self) -> ProbeFlightResult {
+        self.flight.wait().await
+    }
+}
+
+pub(crate) struct ProbeFlightLeader {
+    account_id: String,
+    flight: Arc<InFlightProbe>,
+    registry: ProbeFlightRegistry,
+    completed: bool,
+}
+
+impl ProbeFlightLeader {
+    pub(crate) fn complete(mut self, result: ProbeFlightResult) {
+        self.finish(result);
+    }
+
+    fn finish(&mut self, result: ProbeFlightResult) {
+        if self.completed {
+            return;
+        }
+        self.flight.publish(result);
+        let mut registry = self.registry.lock().unwrap_or_else(|e| e.into_inner());
+        if registry
+            .get(&self.account_id)
+            .is_some_and(|active| Arc::ptr_eq(active, &self.flight))
+        {
+            registry.remove(&self.account_id);
+        }
+        self.completed = true;
+    }
+}
+
+impl Drop for ProbeFlightLeader {
+    fn drop(&mut self) {
+        self.finish(Err(AccountManagerError::store_fail(
+            "probe operation was cancelled",
+        )));
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct AuthProxyTicket {
@@ -41,6 +127,7 @@ pub struct AccountManagerSnapshot {
 pub struct AccountManagerState {
     pub snapshot: RwLock<AccountManagerSnapshot>,
     pub probe_semaphore: Arc<Semaphore>,
+    probe_flights: ProbeFlightRegistry,
     master_key: OnceLock<[u8; 32]>,
     master_key_init: Mutex<()>,
     auth_proxy_tickets: Mutex<HashMap<String, AuthProxyTicket>>,
@@ -52,6 +139,7 @@ impl AccountManagerState {
         Self {
             snapshot: RwLock::default(),
             probe_semaphore: Arc::new(Semaphore::new(PROBE_CONCURRENCY)),
+            probe_flights: Arc::new(Mutex::new(HashMap::new())),
             master_key: OnceLock::new(),
             master_key_init: Mutex::new(()),
             auth_proxy_tickets: Mutex::new(HashMap::new()),
@@ -95,6 +183,24 @@ impl AccountManagerState {
             )));
         }
         Ok(())
+    }
+
+    pub(crate) fn begin_probe_flight(&self, account_id: &str) -> ProbeFlight {
+        let mut registry = self.probe_flights.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(flight) = registry.get(account_id) {
+            return ProbeFlight::Follower(ProbeFlightFollower {
+                flight: flight.clone(),
+            });
+        }
+
+        let flight = Arc::new(InFlightProbe::default());
+        registry.insert(account_id.to_string(), flight.clone());
+        ProbeFlight::Leader(ProbeFlightLeader {
+            account_id: account_id.to_string(),
+            flight,
+            registry: self.probe_flights.clone(),
+            completed: false,
+        })
     }
 
     pub fn initialize_master_key<R: Runtime>(
@@ -227,6 +333,21 @@ impl AccountManagerState {
 mod tests {
     use super::*;
 
+    fn probe_flights(
+        state: &AccountManagerState,
+        account_id: &str,
+    ) -> (ProbeFlightLeader, ProbeFlightFollower) {
+        let leader = match state.begin_probe_flight(account_id) {
+            ProbeFlight::Leader(leader) => leader,
+            ProbeFlight::Follower(_) => panic!("first caller must lead the probe"),
+        };
+        let follower = match state.begin_probe_flight(account_id) {
+            ProbeFlight::Follower(follower) => follower,
+            ProbeFlight::Leader(_) => panic!("concurrent caller must follow the probe"),
+        };
+        (leader, follower)
+    }
+
     #[test]
     fn auth_proxy_ticket_is_single_use_and_account_scoped() {
         let state = AccountManagerState::new();
@@ -257,5 +378,41 @@ mod tests {
         assert!(state
             .consume_auth_proxy_ticket(&valid.id, Some("acct-1"), false)
             .is_err());
+    }
+
+    #[tokio::test]
+    async fn concurrent_probe_callers_share_the_leader_result() {
+        let state = AccountManagerState::new();
+        let (leader, follower) = probe_flights(&state, "acct-1");
+
+        leader.complete(Err(AccountManagerError::store_fail("probe failed")));
+
+        let error = follower.wait().await.unwrap_err();
+        assert!(matches!(
+            error,
+            AccountManagerError::StoreFail { message } if message == "probe failed"
+        ));
+        assert!(matches!(
+            state.begin_probe_flight("acct-1"),
+            ProbeFlight::Leader(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn cancelled_probe_leader_releases_waiters_and_registry() {
+        let state = AccountManagerState::new();
+        let (leader, follower) = probe_flights(&state, "acct-1");
+
+        drop(leader);
+
+        let error = follower.wait().await.unwrap_err();
+        assert!(matches!(
+            error,
+            AccountManagerError::StoreFail { message } if message == "probe operation was cancelled"
+        ));
+        assert!(matches!(
+            state.begin_probe_flight("acct-1"),
+            ProbeFlight::Leader(_)
+        ));
     }
 }

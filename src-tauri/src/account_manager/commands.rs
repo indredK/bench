@@ -9,7 +9,7 @@ use zeroize::Zeroizing;
 use super::crypto;
 use super::network_proxy;
 use super::probe;
-use super::state::{AccountManagerSnapshot, AccountManagerState, AuthProxyTicket};
+use super::state::{AccountManagerSnapshot, AccountManagerState, AuthProxyTicket, ProbeFlight};
 use super::storage;
 use super::types::{
     AccountManagerError, AccountManagerResult, AccountSessionStatus, AccountType, AuthProfile,
@@ -932,6 +932,23 @@ pub fn create_ephemeral_account<R: Runtime>(
 // ───── session refresh ─────
 
 pub(crate) async fn refresh_one_impl<R: Runtime>(
+    app: AppHandle<R>,
+    account_id: String,
+) -> AccountManagerResult<StationAccount> {
+    let flight = app
+        .state::<AccountManagerState>()
+        .begin_probe_flight(&account_id);
+    match flight {
+        ProbeFlight::Follower(follower) => follower.wait().await,
+        ProbeFlight::Leader(leader) => {
+            let result = refresh_one_leader(app, account_id).await;
+            leader.complete(result.clone());
+            result
+        }
+    }
+}
+
+async fn refresh_one_leader<R: Runtime>(
     app: AppHandle<R>,
     account_id: String,
 ) -> AccountManagerResult<StationAccount> {
