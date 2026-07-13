@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Bench · 方案3 侧边栏工作区</title>
+<style>
+  :root{
+    --bg:#0e1117; --side:#151a23; --card:#161c26; --line:rgba(255,255,255,.08);
+    --txt:#e7eaf0; --dim:#8b93a7; --accent:#7c5cff; --radius:12px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+    background:var(--bg);color:var(--txt);display:flex;height:100vh;overflow:hidden}
+  /* ---- Sidebar ---- */
+  .side{width:248px;flex:none;background:var(--side);border-right:1px solid var(--line);display:flex;flex-direction:column}
+  .brand{display:flex;align-items:center;gap:10px;padding:18px 18px 14px;font-weight:800;font-size:17px}
+  .brand .dot{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--accent),#22d3ee);display:grid;place-items:center;color:#fff;font-size:13px}
+  .nav{flex:1;overflow:auto;padding:6px 10px}
+  .grp{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);padding:14px 10px 6px}
+  .navitem{display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:9px;cursor:pointer;font-size:14px;color:var(--txt);margin-bottom:2px}
+  .navitem .e{font-size:16px;width:22px;text-align:center}
+  .navitem:hover{background:rgba(255,255,255,.05)}
+  .navitem.active{background:linear-gradient(90deg,rgba(124,92,255,.30),transparent);box-shadow:inset 2px 0 0 var(--accent)}
+  .navitem .cnt{margin-left:auto;font-size:11px;color:var(--dim);background:rgba(255,255,255,.07);border-radius:999px;padding:1px 7px}
+  .sidefoot{padding:12px 14px;border-top:1px solid var(--line);display:flex;align-items:center;gap:10px;font-size:13px;color:var(--dim)}
+  .sidefoot .ava{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#f59e0b,#ef4444);display:grid;place-items:center;color:#fff;font-weight:700;font-size:12px}
+  /* ---- Main ---- */
+  .main{flex:1;display:flex;flex-direction:column;min-width:0}
+  .bar{height:54px;flex:none;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;padding:0 22px}
+  .crumb{font-size:13px;color:var(--dim)}
+  .crumb b{color:var(--txt)}
+  .bar .spacer{flex:1}
+  .bar input{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:8px 12px;color:var(--txt);font-size:13px;width:240px;outline:0}
+  .content{flex:1;overflow:auto;padding:26px 30px}
+  .phead{display:flex;align-items:center;gap:14px;margin-bottom:6px}
+  .phead .big{width:54px;height:54px;border-radius:14px;background:linear-gradient(135deg,var(--accent),#22d3ee);display:grid;place-items:center;font-size:26px}
+  .phead h1{font-size:22px}
+  .phead .en{color:var(--dim);font-size:13px}
+  .pdesc{color:var(--dim);font-size:14px;max-width:640px;line-height:1.6;margin:10px 0 22px}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin-bottom:16px}
+  .panel h3{font-size:13px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px}
+  .chips{display:flex;flex-wrap:wrap;gap:10px}
+  .chip{background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:13.5px;cursor:pointer}
+  .chip:hover{border-color:var(--accent);color:#fff}
+  .row{display:flex;align-items:center;justify-content:space-between;padding:12px 4px;border-bottom:1px solid var(--line);font-size:14px}
+  .row:last-child{border-bottom:0}
+  .row .meta{color:var(--dim);font-size:12.5px}
+  .pill{font-size:11px;color:#22d3ee;border:1px solid rgba(34,211,238,.35);border-radius:999px;padding:2px 9px}
+</style>
+</head>
+<body>
+<div class="side">
+  <div class="brand"><span class="dot">B</span> Bench</div>
+  <div class="nav" id="nav"></div>
+  <div class="sidefoot"><span class="ava">U</span> 用户 · 已登录</div>
+</div>
+
+<div class="main">
+  <div class="bar">
+    <div class="crumb" id="crumb"></div>
+    <div class="spacer"></div>
+    <input placeholder="搜索…" />
+    <span style="font-size:18px">🌗</span>
+  </div>
+  <div class="content" id="content"></div>
+</div>
+
+<script>
+const NAV = [
+  {g:"启动与常用", items:[
+    {id:"ql", n:"快速启动", e:"🚀", d:"拖拽分类启动器，支持固定与极速打开。", en:"Quick Launch"},
+  ]},
+  {g:"开发工具箱", items:[
+    {id:"port", n:"端口管理", e:"🔌", d:"端口扫描、释放进程、远程主机扫描与 30s 占用告警。", en:"Port Manager", subs:["单/范围/批量输入","常用端口快捷","释放进程二次确认","远程主机扫描","占用系统通知"]},
+    {id:"clean", n:"垃圾清理", e:"🧹", d:"扫描工作区构建产物并批量清理。", en:"Dev Cleaner", subs:["node_modules / target / .venv","按目录批量清理","回收空间统计"]},
+    {id:"env", n:"环境检测", e:"🔍", d:"检测已安装的开发工具与运行环境。", en:"Env Detector"},
+    {id:"token", n:"Token 计算", e:"🧮", d:"计费标准、模型对比与成本计算，实时汇率。", en:"Token Calculator", subs:["计费标准","模型对比","成本计算","USD/CNY 实时汇率"]},
+    {id:"devtools", n:"开发工具", e:"🛠", d:"JSON / Base64 / 哈希 / UUID / 时间戳助手。", en:"Dev Tools"},
+    {id:"diag", n:"网络诊断", e:"📡", d:"Ping、本机 IP、WiFi 信息。", en:"Diagnostics"},
+    {id:"sysinfo", n:"系统信息", e:"🖥", d:"原生硬件与系统详情（Rust 后端）。", en:"System Info"},
+  ]},
+  {g:"系统管理", items:[
+    {id:"settings", n:"系统设置", e:"⚙️", d:"外观 / 安全 / 系统 / 高级 四页控制中心，支持跨页搜索。", en:"System Settings", subs:["外观 Appearance","安全 Security","系统 System","高级 Advanced"]},
+    {id:"hw", n:"硬件查询", e:"💻", d:"查询与对比不同设备硬件规格。", en:"Hardware Compare"},
+    {id:"app", n:"应用管理", e:"📦", d:"跨平台应用发现、来源识别、升级与卸载。", en:"App Manager", cnt:"12"},
+  ]},
+  {g:"账号与资料", items:[
+    {id:"acc", n:"账号管理", e:"👤", d:"多站点账号会话、外部登录代理、WebView 授权与加密存储。", en:"Account Manager", cnt:"5"},
+    {id:"term", n:"术语库", e:"📖", d:"按行业 / 分类管理术语、关联站点与固定。", en:"Terminology"},
+  ]},
+];
+
+const FLAT = {};
+NAV.forEach(g=>g.items.forEach(it=>FLAT[it.id]=it));
+
+const navEl=document.getElementById('nav');
+NAV.forEach(g=>{
+  const h=document.createElement('div'); h.className='grp'; h.textContent=g.g; navEl.appendChild(h);
+  g.items.forEach(it=>{
+    const d=document.createElement('div');
+    d.className='navitem'+(it.id==='ql'?' active':'');
+    d.dataset.id=it.id;
+    d.innerHTML=`<span class="e">${it.e}</span><span>${it.n}</span>${it.cnt?`<span class="cnt">${it.cnt}</span>`:''}`;
+    d.onclick=()=>select(it.id);
+    navEl.appendChild(d);
+  });
+});
+
+const crumb=document.getElementById('crumb');
+const content=document.getElementById('content');
+function select(id){
+  document.querySelectorAll('.navitem').forEach(n=>n.classList.toggle('active', n.dataset.id===id));
+  const it=FLAT[id];
+  crumb.innerHTML=`<b>Bench</b> &nbsp;›&nbsp; <b>${it.n}</b>`;
+  let subs='';
+  if(it.subs) subs=`<div class="panel"><h3>子功能 / 子页</h3><div class="chips">${it.subs.map(s=>`<div class="chip">${s}</div>`).join('')}</div></div>`;
+  content.innerHTML=`
+    <div class="phead"><div class="big">${it.e}</div><div><h1>${it.n}</h1><div class="en">${it.en}</div></div></div>
+    <div class="pdesc">${it.d}</div>
+    ${subs}
+    <div class="panel"><h3>近期活动</h3>
+      <div class="row"><span>示例操作记录</span><span class="meta">刚刚 · 来自本模块</span></div>
+      <div class="row"><span>示例状态项 <span class="pill">正常</span></span><span class="meta">系统</span></div>
+    </div>`;
+}
+select('ql');
+</script>
+</body>
+</html>

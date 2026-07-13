@@ -15,7 +15,8 @@
     "systemSettings": "系统设置",
     "cleanSpace": "存储空间",
     "restart": "重新启动软件",
-    "settings": "设置"
+    "settings": "设置",
+    "preferences": "软件设置"
   },
   "systemSettings": {
     "tabs": {
@@ -2194,6 +2195,7 @@
     "en": "English",
     "zh": "中文",
     "switch": "切换语言",
+    "desc": "菜单与标签的界面语言",
     "switchToEn": "切换到 English",
     "switchToZh": "切换到中文",
     "switchTo": "点击切换到 {{next}}",
@@ -2213,6 +2215,25 @@
     "default": "原版",
     "glass": "毛玻璃",
     "unsupportedTooltip": "该主题仅在 macOS 上可用"
+  },
+  "navigationLayout": {
+    "label": "导航布局",
+    "desc": "菜单在界面中的呈现位置",
+    "sidebar": "经典侧边",
+    "topTab": "上方标签",
+    "bottomTab": "下方标签"
+  },
+  "settings": {
+    "title": "软件设置",
+    "tabs": {
+      "general": "通用",
+      "appearance": "外观",
+      "about": "关于"
+    },
+    "groups": {
+      "appearance": "外观",
+      "behavior": "行为"
+    }
   },
   "startup": {
     "title": "启动",

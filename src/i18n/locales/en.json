@@ -2,20 +2,21 @@
   "sidebar": {
     "title": "DevTools",
     "subtitle": "Cross-platform utilities",
-    "accountManager": "Account Management",
-    "portManager": "Port Manager",
-    "quickLaunch": "Quick Launch",
-    "appManager": "App Manager",
+    "accountManager": "Accounts",
+    "portManager": "Ports",
+    "quickLaunch": "Launch",
+    "appManager": "Apps",
     "devCleaner": "Dev Cleaner",
     "systemInfo": "System Info",
-    "hardwareQuery": "Hardware Query",
-    "envDetector": "Env Detector",
+    "hardwareQuery": "Hardware",
+    "envDetector": "Env Check",
     "tokenCalculator": "Token Calc",
-    "terminology": "Terminology",
-    "systemSettings": "System Settings",
-    "cleanSpace": "Clean Space",
-    "restart": "Restart App",
-    "settings": "Settings"
+    "terminology": "Glossary",
+    "systemSettings": "Settings",
+    "cleanSpace": "Cleaner",
+    "settings": "Preferences",
+    "preferences": "Preferences",
+    "restart": "Restart App"
   },
   "systemSettings": {
     "tabs": {
@@ -2194,6 +2195,7 @@
     "en": "English",
     "zh": "中文",
     "switch": "Switch Language",
+    "desc": "Interface language for menus and labels",
     "switchToEn": "Switch to English",
     "switchToZh": "Switch to 中文",
     "switchTo": "Click to switch to {{next}}",
@@ -2213,6 +2215,25 @@
     "default": "Default",
     "glass": "Frosted Glass",
     "unsupportedTooltip": "This theme is only available on macOS"
+  },
+  "navigationLayout": {
+    "label": "Navigation Layout",
+    "desc": "How the menu is positioned on screen",
+    "sidebar": "Classic Sidebar",
+    "topTab": "Top Tabs",
+    "bottomTab": "Bottom Tabs"
+  },
+  "settings": {
+    "title": "Settings",
+    "tabs": {
+      "general": "General",
+      "appearance": "Appearance",
+      "about": "About"
+    },
+    "groups": {
+      "appearance": "Appearance",
+      "behavior": "Behavior"
+    }
   },
   "startup": {
     "title": "Startup",

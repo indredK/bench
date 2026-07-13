@@ -7,12 +7,8 @@
 import { useLocation, Link } from "wouter"
 import { motion } from "motion/react"
 import type { NavigationItem } from "@/features/types"
-import LanguageSwitcher from "./LanguageSwitcher"
-import ThemeSwitcher from "./ThemeSwitcher"
+import QuickControls from "./QuickControls"
 import { useScrambleText } from "@/hooks/useScrambleText"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { Button } from "@/components/ui/button"
-import { Settings } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { cn } from "@/lib/utils"
 import { useReducedMotionProps } from "@/lib/motion-utils"
@@ -21,7 +17,6 @@ interface SidebarProps {
   items: NavigationItem[]
   /** Tool/config items shown below separator */
   configItems?: NavigationItem[]
-  onRestart?: () => void | Promise<void>
   onPrefs?: () => void
 }
 
@@ -103,25 +98,7 @@ function Sidebar({ items, configItems, onPrefs }: SidebarProps) {
 
       {/* Bottom: language/theme/prefs quick switchers */}
       <div className="border-border flex items-center justify-center gap-1.5 border-t px-3 py-2">
-        <LanguageSwitcher />
-        <ThemeSwitcher />
-        {onPrefs && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={onPrefs}
-                aria-label={t("sidebar.settings")}
-              >
-                <Settings size={14} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="top">
-              <p>{t("sidebar.settings")}</p>
-            </TooltipContent>
-          </Tooltip>
-        )}
+        <QuickControls onPrefs={onPrefs} />
       </div>
     </div>
   )

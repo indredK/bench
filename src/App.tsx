@@ -7,12 +7,13 @@ import { Router, Route, Switch, useLocation } from "wouter"
 import { useHashLocation } from "wouter/use-hash-location"
 import { AnimatePresence, motion } from "motion/react"
 import { useTranslation } from "react-i18next"
-import Sidebar from "./components/layout/Sidebar"
+import NavigationShell from "./components/layout/NavigationShell"
 import { CustomTitlebar } from "./components/layout/CustomTitlebar"
 import { GlobalContextMenu } from "@/shared/context-menu/GlobalContextMenu"
 import { useDefaultContextMenu } from "@/shared/context-menu/useContextMenuRegistration"
 import type { ContextMenuConfig } from "@/shared/context-menu/types"
 import { useMenuEvent, useInitMenuEvents } from "@/hooks/useMenuEvents"
+import { useNavigationLayout } from "@/hooks/useNavigationLayout"
 import { AboutDialog } from "@/components/common/AboutDialog"
 import { CloseBehaviorDialog } from "@/components/common/CloseBehaviorDialog"
 import { SettingsDialog } from "@/components/common/SettingsDialog"
@@ -24,10 +25,9 @@ import { appFeatures, createNavigationItems, createConfigItems } from "@/feature
 import { requestFeatureRefresh } from "@/features/refresh"
 import { useUpdaterController } from "@/features/updater/hooks/useUpdaterController"
 import { listStartupIssues, markMainReady } from "@/lib/tauri/commands/bootstrap"
-import { restartAfterUpdate, setTrayLabels } from "@/lib/tauri/commands"
+import { setTrayLabels } from "@/lib/tauri/commands"
 import { TAURI_EVENTS, WINDOW_BOOTSTRAP_EVENTS } from "@/lib/tauri/contracts"
 import { emitPlatformEventTo, listenToPlatformEvent } from "@/platform/events"
-import { canUseTauriCommands } from "@/platform/capabilities"
 import { canUseWindowControls } from "@/platform/window"
 import { useWindowTheme } from "@/hooks/useWindowTheme"
 import type { StartupIssue } from "@/lib/tauri/types/bootstrap"
@@ -73,6 +73,7 @@ function App() {
   const { t } = useTranslation()
   const updater = useUpdaterController()
   useWindowTheme()
+  const navLayout = useNavigationLayout()
 
   const [aboutOpen, setAboutOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -128,14 +129,6 @@ function App() {
     }
   }, [])
 
-  const handleRestart = useCallback(async () => {
-    if (canUseTauriCommands()) {
-      await restartAfterUpdate()
-      return
-    }
-    window.location.reload()
-  }, [])
-
   const handleOpenPrefs = useCallback(() => {
     setSettingsOpen(true)
   }, [])
@@ -186,18 +179,15 @@ function App() {
           <div className="flex flex-1 flex-col overflow-hidden">
             <CustomTitlebar />
             <div className="flex flex-1 overflow-hidden">
-              <Sidebar
+              <NavigationShell
+                layout={navLayout.layoutId}
                 items={sidebarItems}
                 configItems={configItems}
-                onRestart={handleRestart}
                 onPrefs={handleOpenPrefs}
-              />
-              <div className="bg-background flex flex-1 flex-col overflow-hidden">
-                <div className="flex-1 overflow-hidden p-4">
-                  <StartupIssuesAlert issues={startupIssues} />
-                  <AnimatedRoutes />
-                </div>
-              </div>
+              >
+                <StartupIssuesAlert issues={startupIssues} />
+                <AnimatedRoutes />
+              </NavigationShell>
             </div>
           </div>
         </GlobalContextMenu>
@@ -210,7 +200,12 @@ function App() {
         onCheckUpdates={() => void updater.checkUpdates()}
       />
 
-      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <SettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        appVersion={updater.currentVersion || "-"}
+        onCheckUpdates={() => void updater.checkUpdates()}
+      />
 
       <CloseBehaviorDialog open={closeBehaviorOpen} onOpenChange={setCloseBehaviorOpen} />
 
