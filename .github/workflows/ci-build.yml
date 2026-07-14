@@ -188,10 +188,6 @@ jobs:
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           WINDOWS_TIMESTAMP_URL: ${{ secrets.WINDOWS_TIMESTAMP_URL }}
         run: |
           if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
@@ -200,15 +196,21 @@ jobs:
           fi
           if [ "${{ runner.os }}" = "macOS" ]; then
             if [ "$BENCH_OS_SIGNING_MODE" = "signed" ]; then
-              if [ -z "$APPLE_SIGNING_IDENTITY" ] || [ -z "$APPLE_ID" ] || [ -z "$APPLE_PASSWORD" ] || [ -z "$APPLE_TEAM_ID" ]; then
+              apple_signing_identity="${{ secrets.APPLE_SIGNING_IDENTITY }}"
+              apple_id="${{ secrets.APPLE_ID }}"
+              apple_password="${{ secrets.APPLE_PASSWORD }}"
+              apple_team_id="${{ secrets.APPLE_TEAM_ID }}"
+              if [ -z "$apple_signing_identity" ] || [ -z "$apple_id" ] || [ -z "$apple_password" ] || [ -z "$apple_team_id" ]; then
                 echo "::error::APPLE_SIGNING_IDENTITY, APPLE_ID, APPLE_PASSWORD, and APPLE_TEAM_ID are required in signed mode."
                 exit 1
               fi
-              release_config="{\"bundle\":{\"macOS\":{\"signingIdentity\":\"$APPLE_SIGNING_IDENTITY\"}}}"
+              release_config="{\"bundle\":{\"macOS\":{\"signingIdentity\":\"$apple_signing_identity\"}}}"
               pnpm tauri build --target ${{ matrix.target }} --bundles app,dmg --config "$release_config"
             else
               echo "::warning::Building an ad-hoc signed macOS package. Users must explicitly trust Bench in macOS."
-              pnpm tauri build --target ${{ matrix.target }} --bundles app,dmg
+              # Do not inject empty APPLE_SIGNING_IDENTITY — it overrides tauri.conf.json ad-hoc "-".
+              release_config='{"bundle":{"macOS":{"signingIdentity":"-"}}}'
+              pnpm tauri build --target ${{ matrix.target }} --bundles app,dmg --config "$release_config"
             fi
           elif [ "${{ runner.os }}" = "Windows" ]; then
             if [ "$BENCH_OS_SIGNING_MODE" = "signed" ]; then
