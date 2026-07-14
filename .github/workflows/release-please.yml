@@ -11,15 +11,82 @@ permissions:
   issues: write
   pull-requests: write
 
+env:
+  RELEASE_ARTIFACT_FILES: CHANGELOG.md .release-please-manifest.json src-tauri/tauri.conf.json
+
 jobs:
   release-please:
     runs-on: macos-latest
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
+          fetch-depth: 0
+
       - name: Run release-please
+        id: release
         uses: googleapis/release-please-action@v5
         with:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
           target-branch: main
+
+      - name: Setup pnpm
+        if: steps.release.outputs.prs != '' || steps.release.outputs.release_created == 'true'
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11.8.0
+
+      - name: Setup Node.js
+        if: steps.release.outputs.prs != '' || steps.release.outputs.release_created == 'true'
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: pnpm
+
+      - name: Install dependencies
+        if: steps.release.outputs.prs != '' || steps.release.outputs.release_created == 'true'
+        run: pnpm install --frozen-lockfile
+
+      # release-please generates CHANGELOG / tauri.conf with formatting that
+      # does not match Prettier. Local pre-commit never runs on bot commits.
+      - name: Format release artifacts on release PR branch
+        if: steps.release.outputs.prs != ''
+        env:
+          PRS: ${{ steps.release.outputs.prs }}
+        run: |
+          branch="$(node -e "const prs=JSON.parse(process.env.PRS||'[]'); process.stdout.write(prs[0]?.headBranchName||'')")"
+          if [ -z "$branch" ]; then
+            echo "No release branch in prs output."
+            exit 0
+          fi
+          git fetch origin "$branch"
+          git checkout "$branch"
+          pnpm exec prettier --write $RELEASE_ARTIFACT_FILES
+          if git diff --quiet -- $RELEASE_ARTIFACT_FILES; then
+            echo "Release PR branch already formatted."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add $RELEASE_ARTIFACT_FILES
+          git commit -m "style: format release artifacts"
+          git push origin "HEAD:$branch"
+
+      - name: Format release artifacts on main after release
+        if: steps.release.outputs.release_created == 'true'
+        run: |
+          git checkout main
+          pnpm exec prettier --write $RELEASE_ARTIFACT_FILES
+          if git diff --quiet -- $RELEASE_ARTIFACT_FILES; then
+            echo "Main already formatted."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add $RELEASE_ARTIFACT_FILES
+          git commit -m "style: format release artifacts"
+          git push origin main
