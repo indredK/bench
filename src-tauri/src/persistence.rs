@@ -1,4 +1,4 @@
-use std::fs::{self, File, OpenOptions};
+use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -143,7 +143,7 @@ fn remove_with_retry(path: &Path) -> io::Result<()> {
 
 #[cfg(unix)]
 fn sync_parent(parent: &Path) {
-    if let Ok(directory) = File::open(parent) {
+    if let Ok(directory) = fs::File::open(parent) {
         let _ = directory.sync_all();
     }
 }
