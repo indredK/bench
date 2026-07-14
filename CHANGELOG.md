@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.24.2](https://github.com/indredK/bench/compare/v1.24.1...v1.24.2) (2026-07-14)
+
+### Bug Fixes
+
+- **release:** format release artifacts and auto-format in release-please ([b8afd31](https://github.com/indredK/bench/commit/b8afd31735cd978baeaeff1283aa756538381746))
+
 ## [1.24.1](https://github.com/indredK/bench/compare/v1.24.0...v1.24.1) (2026-07-14)
 
 ### Bug Fixes
