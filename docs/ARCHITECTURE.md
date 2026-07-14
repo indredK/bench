@@ -10,14 +10,14 @@
 
 Bench 是一个 **跨平台桌面工具**，用于 macOS 系统管理。它不是 Web 应用，也不是移动应用——它是一个 Tauri v2 桌面应用。
 
-| 属性 | 值 |
-|------|-----|
-| 包名 | `com.bench.app` |
-| 技术栈 | React 19 + TypeScript 5 strict + Vite + Tauri v2 (Rust) |
-| 状态管理 | Zustand |
-| 国际化 | i18next + react-i18next，中/英双语对等 |
-| 窗口 | 1280×800，无边框，自定义标题栏，毛玻璃效果 |
-| 目标系统 | macOS 为主，跨平台为辅 |
+| 属性     | 值                                                      |
+| -------- | ------------------------------------------------------- |
+| 包名     | `com.bench.app`                                         |
+| 技术栈   | React 19 + TypeScript 5 strict + Vite + Tauri v2 (Rust) |
+| 状态管理 | Zustand                                                 |
+| 国际化   | i18next + react-i18next，中/英双语对等                  |
+| 窗口     | 1280×800，无边框，自定义标题栏，毛玻璃效果              |
+| 目标系统 | macOS 为主，跨平台为辅                                  |
 
 **仓库结构**：`src/`（React/TS 前端）+ `src-tauri/src/`（Rust 后端）
 
@@ -241,34 +241,34 @@ Rust：Result<T, AppError> { code: "大写下划线命名", message: "..." }
 
 ### 6.2 文件职责
 
-| 文件 | 角色 |
-|------|------|
-| `src-tauri/src/error.rs` | 定义 `AppError` + `AppResult<T>` + 工厂方法 |
-| `src/lib/tauri/errors.ts` | 前端错误解析：`parseCommandError`、`getErrorMessage`、`translateError` |
-| `src/lib/errors.ts` | 前端错误类型：`LocalizedError` |
-| `src/lib/tauri/__tests__/errors.test.ts` | 错误解析单元测试 |
+| 文件                                     | 角色                                                                   |
+| ---------------------------------------- | ---------------------------------------------------------------------- |
+| `src-tauri/src/error.rs`                 | 定义 `AppError` + `AppResult<T>` + 工厂方法                            |
+| `src/lib/tauri/errors.ts`                | 前端错误解析：`parseCommandError`、`getErrorMessage`、`translateError` |
+| `src/lib/errors.ts`                      | 前端错误类型：`LocalizedError`                                         |
+| `src/lib/tauri/__tests__/errors.test.ts` | 错误解析单元测试                                                       |
 
 ### 6.3 错误码列表
 
-| 错误码 | 含义 | 来源 |
-|--------|------|------|
-| `INTERNAL` | 意外的内部错误 | Rust 通用 |
-| `INVALID_INPUT` | 用户输入被拒绝 | Rust 校验 |
-| `NOT_FOUND` | 资源未找到 | Rust 查找操作 |
-| `UNSUPPORTED` | 当前平台不支持此操作 | Rust 平台检测 |
-| `IO_ERROR` | 文件系统 I/O 失败 | Rust I/O |
-| `FORBIDDEN_PATH` | 不允许的文件路径 | Rust 安全检查 |
-| `TASK_FAILED` | 后台任务失败 | Rust spawn_blocking |
+| 错误码           | 含义                 | 来源                |
+| ---------------- | -------------------- | ------------------- |
+| `INTERNAL`       | 意外的内部错误       | Rust 通用           |
+| `INVALID_INPUT`  | 用户输入被拒绝       | Rust 校验           |
+| `NOT_FOUND`      | 资源未找到           | Rust 查找操作       |
+| `UNSUPPORTED`    | 当前平台不支持此操作 | Rust 平台检测       |
+| `IO_ERROR`       | 文件系统 I/O 失败    | Rust I/O            |
+| `FORBIDDEN_PATH` | 不允许的文件路径     | Rust 安全检查       |
+| `TASK_FAILED`    | 后台任务失败         | Rust spawn_blocking |
 
 ---
 
 ## §7 配置文件地图
 
-| 文件 | 用途 |
-|------|------|
-| `tauri.conf.json` | Tauri 窗口、包、更新器、CSP、深度链接 |
-| `vite.config.ts` | Vite 插件、别名、构建分包、vitest 配置 |
-| `tsconfig.json` | TypeScript strict 模式、`@/` 别名 |
-| `package.json` | 脚本、依赖、pnpm 配置 |
-| `components.json` | shadcn/ui 配置 |
-| `.release-please-manifest.json` | 自动版本号 |
+| 文件                            | 用途                                   |
+| ------------------------------- | -------------------------------------- |
+| `tauri.conf.json`               | Tauri 窗口、包、更新器、CSP、深度链接  |
+| `vite.config.ts`                | Vite 插件、别名、构建分包、vitest 配置 |
+| `tsconfig.json`                 | TypeScript strict 模式、`@/` 别名      |
+| `package.json`                  | 脚本、依赖、pnpm 配置                  |
+| `components.json`               | shadcn/ui 配置                         |
+| `.release-please-manifest.json` | 自动版本号                             |

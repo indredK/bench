@@ -6,12 +6,12 @@
 
 Account Manager 管理站点、隔离账号、加密凭据、Session 捕获/恢复、认证探测和外部登录代理。
 
-| 层 | 位置 | 职责 |
-|----|------|------|
-| 页面/controller | `src/features/account-manager/` | 三栏 UI、交互状态、业务入口 |
-| use-case/repository | `services/` | 业务编排与 IPC 适配 |
-| IPC | `src/lib/tauri/commands/account-manager.ts`、`contracts.ts` | 类型化命令边界 |
-| 后端 | `src-tauri/src/account_manager/` | 加密、存储、Session、探针、WebView 和代理 |
+| 层                  | 位置                                                        | 职责                                      |
+| ------------------- | ----------------------------------------------------------- | ----------------------------------------- |
+| 页面/controller     | `src/features/account-manager/`                             | 三栏 UI、交互状态、业务入口               |
+| use-case/repository | `services/`                                                 | 业务编排与 IPC 适配                       |
+| IPC                 | `src/lib/tauri/commands/account-manager.ts`、`contracts.ts` | 类型化命令边界                            |
+| 后端                | `src-tauri/src/account_manager/`                            | 加密、存储、Session、探针、WebView 和代理 |
 
 Rust 关键文件：
 
@@ -123,16 +123,16 @@ AuthProfile 检测从页面、cookie、Web Storage、CSRF、SSO、anti-bot 和 W
 
 引用固定 commit 只用于设计对照，Bench 未复制第三方实现。升级参考版本前必须重新检查 License、语义和行为测试。
 
-| 参考 | License | 采纳内容 | 未采纳/限制 |
-|------|---------|----------|-------------|
-| [moka-rs/moka@e617b5f](https://github.com/moka-rs/moka/blob/e617b5f064cdb3ce9845cef06961fdbf07bd9946/src/future/cache.rs#L970-L1049) | MIT OR Apache-2.0 | 同账号 probe single-flight；leader 取消时唤醒 waiter 并清理 registry | 不引入 cache 依赖 |
-| [reqwest-middleware@614b947](https://github.com/TrueLayer/reqwest-middleware/blob/614b9474f6bec85c8660e4d52b8d9f12f8359229/reqwest-retry/src/retryable_strategy.rs#L100-L169) | MIT OR Apache-2.0 | 只重试 408/429/500/502/503/504 与 connect/timeout | 不为单一 GET probe 引入 middleware |
-| [spider@73e497c](https://github.com/spider-rs/spider/blob/73e497c46b4e7774b8421ae2d54a0e5bee8fd9f8/spider/src/utils/backoff.rs#L1-L60) | MIT | 200 ms 基数、2 秒上限、full-jitter、饱和运算与并发上限 | 不引入 crawler |
-| [cookie_store@f29b1cf](https://github.com/pfernie/cookie_store/blob/f29b1cf2cce8bd906ce4acec93d48dc9040b2b6d/src/cookie_path.rs#L7-L29) | MIT OR Apache-2.0 | RFC 6265 path boundary、过期和 secure 判断 | Tauri 未提供 partition key 前不引入完整 CookieStore，partitioned Cookie fail-closed |
-| [oauth2-rs@72ce744](https://github.com/ramosbugs/oauth2-rs/blob/72ce74401c26eb4dc85dcbfde587bbcfc149e3ae/oauth2/src/client.rs#L675-L691) | MIT OR Apache-2.0 | 一次性 state/ticket、callback 精确匹配、禁止 probe redirect | Bench 不是 token client，不生成或替换第三方 PKCE verifier |
-| [Playwright@91565f0](https://github.com/microsoft/playwright/blob/91565f0ddb29c3daaebd25494fdcb8e9ecf8d545/packages/playwright-core/src/server/browserContext.ts#L615-L718) | Apache-2.0 | Cookie 与 storage 按 origin 隔离恢复 | 增加 database/store/record/体积/timeout 上限；不可移植值和不兼容 schema fail-closed |
-| [Tauri plugins@254f222](https://github.com/tauri-apps/plugins-workspace/blob/254f222e0e2bc79370f977855b6b39d956d3b568/plugins/deep-link/README.md#L141-L148) | MIT OR Apache-2.0 | Windows single-instance `deep-link`、App 根 inbox、多 URL 去重 | 原始入口 URL 不进入 renderer |
-| [keyring-rs@1866f8b](https://github.com/open-source-cooperative/keyring-rs/blob/1866f8b2db9acd38ef2a61713e46629ef1ef3e10/README.md) | MIT OR Apache-2.0 | macOS Keychain/Windows Credential Manager 统一 API | 两平台拒绝、并发、重启仍分别做真机测试 |
+| 参考                                                                                                                                                                          | License           | 采纳内容                                                             | 未采纳/限制                                                                         |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| [moka-rs/moka@e617b5f](https://github.com/moka-rs/moka/blob/e617b5f064cdb3ce9845cef06961fdbf07bd9946/src/future/cache.rs#L970-L1049)                                          | MIT OR Apache-2.0 | 同账号 probe single-flight；leader 取消时唤醒 waiter 并清理 registry | 不引入 cache 依赖                                                                   |
+| [reqwest-middleware@614b947](https://github.com/TrueLayer/reqwest-middleware/blob/614b9474f6bec85c8660e4d52b8d9f12f8359229/reqwest-retry/src/retryable_strategy.rs#L100-L169) | MIT OR Apache-2.0 | 只重试 408/429/500/502/503/504 与 connect/timeout                    | 不为单一 GET probe 引入 middleware                                                  |
+| [spider@73e497c](https://github.com/spider-rs/spider/blob/73e497c46b4e7774b8421ae2d54a0e5bee8fd9f8/spider/src/utils/backoff.rs#L1-L60)                                        | MIT               | 200 ms 基数、2 秒上限、full-jitter、饱和运算与并发上限               | 不引入 crawler                                                                      |
+| [cookie_store@f29b1cf](https://github.com/pfernie/cookie_store/blob/f29b1cf2cce8bd906ce4acec93d48dc9040b2b6d/src/cookie_path.rs#L7-L29)                                       | MIT OR Apache-2.0 | RFC 6265 path boundary、过期和 secure 判断                           | Tauri 未提供 partition key 前不引入完整 CookieStore，partitioned Cookie fail-closed |
+| [oauth2-rs@72ce744](https://github.com/ramosbugs/oauth2-rs/blob/72ce74401c26eb4dc85dcbfde587bbcfc149e3ae/oauth2/src/client.rs#L675-L691)                                      | MIT OR Apache-2.0 | 一次性 state/ticket、callback 精确匹配、禁止 probe redirect          | Bench 不是 token client，不生成或替换第三方 PKCE verifier                           |
+| [Playwright@91565f0](https://github.com/microsoft/playwright/blob/91565f0ddb29c3daaebd25494fdcb8e9ecf8d545/packages/playwright-core/src/server/browserContext.ts#L615-L718)   | Apache-2.0        | Cookie 与 storage 按 origin 隔离恢复                                 | 增加 database/store/record/体积/timeout 上限；不可移植值和不兼容 schema fail-closed |
+| [Tauri plugins@254f222](https://github.com/tauri-apps/plugins-workspace/blob/254f222e0e2bc79370f977855b6b39d956d3b568/plugins/deep-link/README.md#L141-L148)                  | MIT OR Apache-2.0 | Windows single-instance `deep-link`、App 根 inbox、多 URL 去重       | 原始入口 URL 不进入 renderer                                                        |
+| [keyring-rs@1866f8b](https://github.com/open-source-cooperative/keyring-rs/blob/1866f8b2db9acd38ef2a61713e46629ef1ef3e10/README.md)                                           | MIT OR Apache-2.0 | macOS Keychain/Windows Credential Manager 统一 API                   | 两平台拒绝、并发、重启仍分别做真机测试                                              |
 
 全局 reqwest client cache 暂不采用：Station 代理和凭据边界不同，复用键不完整会造成跨账号配置污染。
 

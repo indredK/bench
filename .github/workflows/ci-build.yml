@@ -76,6 +76,21 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Check repository formatting
+        run: pnpm run format:check
+
+      - name: Run frontend static guards
+        run: pnpm run lint:fe
+
+      - name: Check cross-platform crate declarations
+        run: node scripts/quality/check-rust-crates.mjs
+
+      - name: Check Rust formatting
+        run: pnpm run format:be
+
+      - name: Run Rust clippy
+        run: pnpm run clippy:be
+
       - name: Run frontend tests
         run: pnpm run test:fe
 

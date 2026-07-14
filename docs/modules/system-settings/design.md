@@ -6,13 +6,13 @@
 
 System Settings 提供受控的系统开关、快捷入口、设置搜索和应用授权，不直接复制 macOS 系统设置。
 
-| 层 | 位置 |
-|----|------|
-| 页面/组件 | `src/features/system-settings/` |
-| use-case/repository | `services/` |
-| 操作 hook | `hooks/useSettingAction.ts` |
-| 后端 adapter | `src-tauri/src/system_settings/` |
-| IPC | `src/lib/tauri/commands/system-settings.ts`、`contracts.ts` |
+| 层                  | 位置                                                        |
+| ------------------- | ----------------------------------------------------------- |
+| 页面/组件           | `src/features/system-settings/`                             |
+| use-case/repository | `services/`                                                 |
+| 操作 hook           | `hooks/useSettingAction.ts`                                 |
+| 后端 adapter        | `src-tauri/src/system_settings/`                            |
+| IPC                 | `src/lib/tauri/commands/system-settings.ts`、`contracts.ts` |
 
 后端按领域拆分为 finder、dock、display、keyboard、network、privacy、screenshot、login items、quick actions 和 system toggles。平台差异不得散落到 JSX。
 

@@ -6,13 +6,13 @@
 
 Clean Space 是唯一的顶层清理入口，包含存储总览、分类详情、开发项目清理、自定义文件夹和清理记录。`dev-cleaner` 仅作为其复用的扫描/清理引擎。
 
-| 层 | 位置 |
-|----|------|
-| 页面/controller | `src/features/clean-space/` |
-| use-case/repository | `services/clean-space.*` |
-| 共享清理引擎 | `src/features/dev-cleaner/` |
-| 后端 | `src-tauri/src/clean_space/`、`src-tauri/src/dev_cleaner/` |
-| IPC | `src/lib/tauri/commands/clean-space.ts`、`contracts.ts` |
+| 层                  | 位置                                                       |
+| ------------------- | ---------------------------------------------------------- |
+| 页面/controller     | `src/features/clean-space/`                                |
+| use-case/repository | `services/clean-space.*`                                   |
+| 共享清理引擎        | `src/features/dev-cleaner/`                                |
+| 后端                | `src-tauri/src/clean_space/`、`src-tauri/src/dev_cleaner/` |
+| IPC                 | `src/lib/tauri/commands/clean-space.ts`、`contracts.ts`    |
 
 ## 2. 应用结构
 

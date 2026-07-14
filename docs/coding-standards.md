@@ -72,6 +72,9 @@
 
 - **强制**: 所有用户可见文案进入 `src/i18n/locales/`，不硬编码到组件/toast/弹窗/菜单。
 - **强制**: 新增 key 时同步维护 `zh` 和 `en`。
+- **强制**: locale 两侧的 key、叶子值类型、插值参数和 plural family 保持一致；默认禁止空文案，确需空回退时在 i18n guard 中登记 key 与理由。
+- **强制**: JSX 文本、`title`/`placeholder`/`aria-label`/`alt` 和 toast/alert 文案通过 AST 硬编码门禁；协议、币种、算法和公式单位只允许进入带理由的技术 token 白名单，禁止用宽泛正则豁免英文。
+- **强制**: 动态翻译 key 必须至少匹配现有 key family；可枚举状态优先使用受类型约束的 canonical value，不拼接用户输入生成 key。
 - **强制**: 不在模块顶层、静态常量或 store 初始值里执行 `t()`。需翻译的 label/header/filter option 应在渲染期、`useMemo` 或工厂函数中计算。
 - **强制**: 静态数据层使用语言无关 canonical value，展示层映射到 locale；禁止中文原始值做英文界面回退。
 - **建议**: 组件内直接调用 `useTranslation()` 获取 `t`，不通过 prop 透传。`useTranslation()` 与 `useXxxStore()` 同级，不破坏"纯组件"约定。工厂/工具函数因不在 React 树内，仍通过参数传入 `t`。
@@ -149,6 +152,9 @@
 
 - **强制**: Conventional Commits 格式，commit-msg hook 校验类型/scope/消息格式。
 - **强制**: commit body 单行不超过 500 字符。
+- **强制**: pre-commit 至少检查暂存区空白和 Prettier；按改动范围执行文档、i18n/TypeScript/前端测试与构建、Rust fmt/check/Clippy/test。
+- **强制**: 同一文件同时存在 staged 与 unstaged 修改时停止提交，避免检查工作区版本却提交另一版本；不得用 `--no-verify` 绕过失败门禁。
+- **强制**: Git Hook 只提供本地反馈，CI 必须独立执行格式、i18n/类型、Clippy、测试与构建，不能信任客户端 Hook 已运行。
 
 ## 11. 文档
 
@@ -164,12 +170,12 @@
 
 路径：`docs/modules/<id>/`
 
-| 文件 | 级别 | 说明 |
-|------|------|------|
-| `README.md` | 强制 | 模块文档索引，链到本目录内其余文件 |
-| `roadmap.md` | 强制 | 迭代规划与 checkbox backlog |
-| `bugs.md` | 建议 | 已知问题；无 open bug 时可只保留关闭记录或省略 |
-| 设计稿 `*.md` | 按需 | PRD、技术方案、候选功能库等 |
+| 文件          | 级别 | 说明                                           |
+| ------------- | ---- | ---------------------------------------------- |
+| `README.md`   | 强制 | 模块文档索引，链到本目录内其余文件             |
+| `roadmap.md`  | 强制 | 迭代规划与 checkbox backlog                    |
+| `bugs.md`     | 建议 | 已知问题；无 open bug 时可只保留关闭记录或省略 |
+| 设计稿 `*.md` | 按需 | PRD、技术方案、候选功能库等                    |
 
 - **强制**: 新增 feature 时同步创建 `docs/modules/<id>/`，至少含 `README.md` + `roadmap.md`。
 - **建议**: 设计稿较多时在模块内平铺即可；单模块设计文件超过 ~5 份时再拆 `design/` 子目录。

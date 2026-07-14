@@ -14,14 +14,14 @@
 
 平台状态：
 
-| 模块 | macOS | Windows | 2.0 剩余门禁 |
-|------|:-----:|:-------:|--------------|
-| Quick Launch | 待验收 | 待验收 | 启动 smoke、500/2000 应用性能 |
-| App Manager | 待验收 | 待验收 | inventory fixture、启动/更新/卸载 smoke、CI runner |
-| Account Manager | 待验收 | 待验收 | 区域 retry、分层、Keyring/WebView/Deep Link 真机矩阵 |
-| System Settings | 待验收 | 不适用 | macOS read-after-write、权限拒绝、回滚 |
-| Clean Space | 待验收 | 不适用 | macOS 权限、受保护目录、timeout、取消、释放量 |
-| Updater | 待验收 | 待验收 | 真实 minisign、错误矩阵、1.23.0 升级/回滚 |
+| 模块            | macOS  | Windows | 2.0 剩余门禁                                         |
+| --------------- | :----: | :-----: | ---------------------------------------------------- |
+| Quick Launch    | 待验收 | 待验收  | 启动 smoke、500/2000 应用性能                        |
+| App Manager     | 待验收 | 待验收  | inventory fixture、启动/更新/卸载 smoke、CI runner   |
+| Account Manager | 待验收 | 待验收  | 区域 retry、分层、Keyring/WebView/Deep Link 真机矩阵 |
+| System Settings | 待验收 | 不适用  | macOS read-after-write、权限拒绝、回滚               |
+| Clean Space     | 待验收 | 不适用  | macOS 权限、受保护目录、timeout、取消、释放量        |
+| Updater         | 待验收 | 待验收  | 真实 minisign、错误矩阵、1.23.0 升级/回滚            |
 
 “待验收”只能在目标平台证据齐全后改为“通过”。编译成功、本机另一平台结果和文档声明都不能代替。
 
@@ -50,19 +50,19 @@
 
 ## 执行顺序
 
-| ID | 状态 | 责任 | 任务 | 前置 |
-|----|------|------|------|------|
-| R00 | [ ] | AI | 冻结范围与记录基线 | 无 |
-| R01 | [ ] | AI | Account Manager 代码收口 | R00 |
-| R02 | [ ] | AI + 目标平台 | App Manager / Quick Launch fixture、启动与性能 | R01 |
-| R03 | [ ] | macOS 人工 | System Settings / Clean Space 真机验证 | R00 |
-| R04 | [ ] | macOS + Windows 人工 | Account Manager 真机验证 | R01 |
-| R05 | [ ] | AI + CI | Updater 错误矩阵与真实 minisign RC | R02 |
-| R06 | [ ] | AI + 目标平台 | 1.23.0 升级、数据迁移与回滚 | R04、R05 |
-| R07 | [ ] | AI + 人工复核 | 多 viewport、键盘、a11y 与视觉回归 | R01、R02 |
-| R08 | [ ] | AI + CI | 全量回归与发布候选审计 | R03-R07 |
-| R09 | [ ] | AI | 切换 2.0.0 与准备 Release PR | R08 |
-| R10 | [ ] | 仅发布负责人 | 批准并发布 v2.0.0 | R09 |
+| ID  | 状态 | 责任                 | 任务                                           | 前置     |
+| --- | ---- | -------------------- | ---------------------------------------------- | -------- |
+| R00 | [ ]  | AI                   | 冻结范围与记录基线                             | 无       |
+| R01 | [ ]  | AI                   | Account Manager 代码收口                       | R00      |
+| R02 | [ ]  | AI + 目标平台        | App Manager / Quick Launch fixture、启动与性能 | R01      |
+| R03 | [ ]  | macOS 人工           | System Settings / Clean Space 真机验证         | R00      |
+| R04 | [ ]  | macOS + Windows 人工 | Account Manager 真机验证                       | R01      |
+| R05 | [ ]  | AI + CI              | Updater 错误矩阵与真实 minisign RC             | R02      |
+| R06 | [ ]  | AI + 目标平台        | 1.23.0 升级、数据迁移与回滚                    | R04、R05 |
+| R07 | [ ]  | AI + 人工复核        | 多 viewport、键盘、a11y 与视觉回归             | R01、R02 |
+| R08 | [ ]  | AI + CI              | 全量回归与发布候选审计                         | R03-R07  |
+| R09 | [ ]  | AI                   | 切换 2.0.0 与准备 Release PR                   | R08      |
+| R10 | [ ]  | 仅发布负责人         | 批准并发布 v2.0.0                              | R09      |
 
 ```mermaid
 flowchart LR
@@ -314,7 +314,7 @@ pnpm run build:fe
 
 **步骤**：
 
-1. 在 clean checkout 和冻结 lockfile 上运行完整验证；macOS、Windows、Linux 三 runner 全绿。
+1. 在 clean checkout 和冻结 lockfile 上运行完整验证；确认 pre-commit 覆盖删除/文档/格式/i18n/Rust 分流，CI 独立执行 `format:check`、`lint:fe`、Rust fmt/Clippy；macOS、Windows、Linux 三 runner 全绿。
 2. 运行 R05 的 RC dry-run，下载并复核三目标产物、签名、manifest、notice、checksum，不发布。
 3. 对照 R00-R07 证据和全部模块 roadmap；发布阻断项不得仍未完成，延期 OS 正式签名必须在 release notes 明示。
 4. 检查日志无秘密、能力矩阵无夸大、所有相对链接有效、工作区无生成物或来源不明改动。

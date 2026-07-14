@@ -4,24 +4,24 @@
 
 ## 1. 模块边界
 
-| 层 | 位置 |
-|----|------|
-| 页面/controller | `src/features/port-manager/` |
-| use-case/repository | `services/port-manager.*` |
-| 历史/告警 | `hooks/usePortHistory.ts`、`usePortOccupationAlerts.ts` |
-| 后端 | `src-tauri/src/port_manager/` |
-| IPC | `src/lib/tauri/commands/port-manager.ts`、`contracts.ts` |
+| 层                  | 位置                                                     |
+| ------------------- | -------------------------------------------------------- |
+| 页面/controller     | `src/features/port-manager/`                             |
+| use-case/repository | `services/port-manager.*`                                |
+| 历史/告警           | `hooks/usePortHistory.ts`、`usePortOccupationAlerts.ts`  |
+| 后端                | `src-tauri/src/port_manager/`                            |
+| IPC                 | `src/lib/tauri/commands/port-manager.ts`、`contracts.ts` |
 
 `commands.rs` 提供扫描与进程操作，`processes.rs` 解析进程树，`fingerprints.rs` 识别常见服务。
 
 ## 2. Local 与 Remote 模式
 
-| 能力 | Local | Remote |
-|------|-------|--------|
-| 端口连通性检查 | 是 | 是 |
-| PID/进程树 | 是 | 否 |
-| Kill | 是 | 禁止 |
-| 历史记录 | 是 | 是 |
+| 能力           | Local | Remote |
+| -------------- | ----- | ------ |
+| 端口连通性检查 | 是    | 是     |
+| PID/进程树     | 是    | 否     |
+| Kill           | 是    | 禁止   |
+| 历史记录       | 是    | 是     |
 
 Remote 仅表示网络连通性，不能推断远端进程或开放破坏性操作。模式切换必须清除不兼容选择和详情状态。
 

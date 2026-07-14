@@ -11,13 +11,13 @@
 
 ## 2. 实现边界
 
-| 层 | 职责 |
-|----|------|
-| component/page | 展示与交互，不直调 Tauri |
-| controller/hook | 订阅状态、派生数据、effect、重入保护 |
-| use-case | 业务规则和流程编排 |
-| repository / typed command | IPC、存储和外部适配 |
-| store | 状态与简单 setter |
+| 层                         | 职责                                 |
+| -------------------------- | ------------------------------------ |
+| component/page             | 展示与交互，不直调 Tauri             |
+| controller/hook            | 订阅状态、派生数据、effect、重入保护 |
+| use-case                   | 业务规则和流程编排                   |
+| repository / typed command | IPC、存储和外部适配                  |
+| store                      | 状态与简单 setter                    |
 
 文案走 i18n；危险操作使用 `DestructiveConfirmDialog`；长任务提供加载、失败、partial 和取消状态；平台能力通过 `platform/` 边界声明。
 
@@ -38,6 +38,9 @@ cd src-tauri && cargo clippy -- -D warnings
 - 已实现项从模块 roadmap 移除；新风险写入 `audit-report.md`，方向性取舍写入 `DECISIONS.md`。
 - 新增/删除 feature 后运行 `pnpm run check:docs`。
 - Commit 使用 Conventional Commits；只 stage 当前逻辑改动，禁止 `git add .`。
+- `.husky/pre-commit` 按 staged 文件分流：通用空白/Prettier；文档一致性；前端 i18n、类型、测试和构建；后端 crate、fmt、check、Clippy 和测试。删除文件同样触发所属检查。
+- 同一文件有部分暂存时 Hook 会停止；先把该文件整理为一个完整 staged 版本，避免工作区内容掩盖实际 commit。可用 `pnpm run check:precommit` 手动复核。
+- i18n 门禁检查中英文 key/类型/插值/plural、动态 key family 和用户可见硬编码；语言自然度、长文本布局和切换语言行为仍由测试与人工验收负责。
 - 仅在用户明确要求时提交或推送。
 
 ## 5. 发版
@@ -57,12 +60,12 @@ cd src-tauri && cargo clippy -- -D warnings
 
 ## 7. 常见日志
 
-| 日志 | 处理 |
-|------|------|
+| 日志                                                                      | 处理                                                                        |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
 | `[deep-link] register bench-auth failed (non-fatal): UnsupportedPlatform` | macOS 开发期允许失败，打包后由 `Info.plist` 注册；其他 deep-link 错误需排查 |
-| `IMKCFRunLoopWakeUpReliable` | macOS 输入法/WebKit 系统日志，可忽略 |
-| `npm warn Unknown env config ...` | 项目中混用了 npm；检查 package scripts 和 Tauri build command |
-| `[account_manager] init failed: ...` | 影响 Session 恢复，按 Account Manager design 排查并暴露降级状态 |
+| `IMKCFRunLoopWakeUpReliable`                                              | macOS 输入法/WebKit 系统日志，可忽略                                        |
+| `npm warn Unknown env config ...`                                         | 项目中混用了 npm；检查 package scripts 和 Tauri build command               |
+| `[account_manager] init failed: ...`                                      | 影响 Session 恢复，按 Account Manager design 排查并暴露降级状态             |
 
 ## 8. macOS 构建排障
 

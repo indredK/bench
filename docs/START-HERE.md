@@ -11,15 +11,15 @@
 
 ## 常用入口
 
-| 目的 | 文档 |
-|------|------|
-| 理解系统和禁止模式 | [ARCHITECTURE.md](./ARCHITECTURE.md) |
-| 查实现规范 | [coding-standards.md](./coding-standards.md) |
-| 查 UI/UX 规范 | [UX-STANDARDS.md](./UX-STANDARDS.md) |
-| 执行标准工作流 | [AI-WORKFLOWS.md](./AI-WORKFLOWS.md) |
-| 确认当前优先级 | [ROADMAP.md](./ROADMAP.md) |
-| 恢复决策上下文 | [DECISIONS.md](./DECISIONS.md) |
-| 修改具体模块 | [modules/README.md](./modules/README.md) |
-| 避免重复审计 | [audit-report.md](./audit-report.md) |
+| 目的               | 文档                                         |
+| ------------------ | -------------------------------------------- |
+| 理解系统和禁止模式 | [ARCHITECTURE.md](./ARCHITECTURE.md)         |
+| 查实现规范         | [coding-standards.md](./coding-standards.md) |
+| 查 UI/UX 规范      | [UX-STANDARDS.md](./UX-STANDARDS.md)         |
+| 执行标准工作流     | [AI-WORKFLOWS.md](./AI-WORKFLOWS.md)         |
+| 确认当前优先级     | [ROADMAP.md](./ROADMAP.md)                   |
+| 恢复决策上下文     | [DECISIONS.md](./DECISIONS.md)               |
+| 修改具体模块       | [modules/README.md](./modules/README.md)     |
+| 避免重复审计       | [audit-report.md](./audit-report.md)         |
 
 完整索引见 [README.md](./README.md)。

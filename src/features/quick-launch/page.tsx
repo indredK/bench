@@ -585,9 +585,7 @@ export default function QuickLaunch({ active }: { active: boolean; feature: AppF
           variant={overridePersistenceIssue === "recovered" ? "default" : "destructive"}
           className="shrink-0"
         >
-          <AlertDescription>
-            {t(`quickLaunch.persistence.${overridePersistenceIssue}`)}
-          </AlertDescription>
+          <AlertDescription>{t(`common.persistence.${overridePersistenceIssue}`)}</AlertDescription>
         </Alert>
       )}
       {/* Header */}

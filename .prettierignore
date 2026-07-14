@@ -3,6 +3,6 @@ coverage/
 node_modules/
 src-tauri/gen/
 src-tauri/target/
-docs/
+docs/modules/clean-space/clean-space-prototype.html
 pnpm-lock.yaml
 *.lock
