@@ -74,11 +74,11 @@ fn kill_caffeinate() -> AppResult<()> {
     let mut pid = CAFFEINATE_PID
         .lock()
         .map_err(|e| AppError::internal(e.to_string()))?;
-    if let Some(pid) = pid.take() {
+    if let Some(_pid) = pid.take() {
         #[cfg(target_os = "macos")]
         {
             let _ = std::process::Command::new("kill")
-                .arg(pid.to_string())
+                .arg(_pid.to_string())
                 .output();
         }
         #[cfg(target_os = "windows")]

@@ -31,6 +31,7 @@ pub(crate) fn read_network_firewall_state() -> Result<bool, String> {
     .and_then(|output| parse_firewall_state(&output))
 }
 
+#[cfg(target_os = "macos")]
 pub(crate) fn read_network_ssh_state() -> Result<bool, String> {
     run_cmd_err("systemsetup", &["-getremotelogin"])
         .and_then(|output| parse_remote_login_state(&output))

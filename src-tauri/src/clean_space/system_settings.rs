@@ -2,12 +2,16 @@
 //!
 //! Platform-specific: open macOS System Settings → Storage pane.
 
+#[cfg(target_os = "macos")]
 use std::process::Command;
+#[cfg(target_os = "macos")]
 use std::time::Duration;
 
 use crate::error::{AppError, AppResult};
+#[cfg(target_os = "macos")]
 use crate::subprocess::run_status_with_timeout;
 
+#[cfg(target_os = "macos")]
 const OPEN_SETTINGS_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Open macOS System Settings → Storage pane.

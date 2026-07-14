@@ -6,6 +6,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 use std::process::{Command, Stdio};
+#[cfg(target_os = "macos")]
 use std::time::Duration;
 
 #[cfg(target_os = "macos")]

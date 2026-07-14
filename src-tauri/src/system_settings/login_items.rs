@@ -125,7 +125,9 @@ pub async fn get_launch_daemons() -> AppResult<Vec<super::types::LaunchService>>
     .map_err(|e| AppError::internal(format!("get_launch_daemons: {e}")))?
 }
 
+#[cfg(target_os = "macos")]
 const APP_BUNDLE_ID: &str = "com.bench.bench";
+#[cfg(target_os = "macos")]
 const APP_DISPLAY_NAME: &str = "Bench";
 
 #[cfg(target_os = "macos")]

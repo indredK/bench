@@ -1,5 +1,8 @@
 use crate::error::{AppError, AppResult};
 
+#[cfg(not(target_os = "macos"))]
+use super::types::SystemSettingsSnapshot;
+#[cfg(target_os = "macos")]
 use super::types::{
     FinderSettingsSnapshot, NetworkSettingsSnapshot, ScreenshotSettingsSnapshot,
     SystemSettingsSnapshot, SystemToggleSnapshot,
