@@ -1,6 +1,5 @@
 //! macOS WKWebView scroll tweaks — disable native rubber-band overscroll.
 
-#[cfg(target_os = "macos")]
 pub fn schedule_disable_overscroll_bounce(window: tauri::WebviewWindow) {
     tauri::async_runtime::spawn(async move {
         for delay_ms in [0u64, 200, 600, 1500, 4000] {
@@ -26,10 +25,6 @@ pub fn schedule_disable_overscroll_bounce(window: tauri::WebviewWindow) {
     });
 }
 
-#[cfg(not(target_os = "macos"))]
-pub fn schedule_disable_overscroll_bounce(_window: tauri::WebviewWindow) {}
-
-#[cfg(target_os = "macos")]
 fn disable_overscroll_bounce(window: &tauri::WebviewWindow) -> Result<usize, tauri::Error> {
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
