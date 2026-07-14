@@ -18,6 +18,7 @@ import {
   Trash2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { ScrollableArea } from "@/components/common/ScrollableArea"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
@@ -108,7 +109,7 @@ export function StationColumn({
           </div>
         }
       />
-      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+      <ScrollableArea className="min-h-0 flex-1 p-3" wrapperClassName="min-h-0 flex-1">
         {stations.length === 0 ? (
           <EmptyHint
             icon={<Inbox className="size-7 opacity-40" />}
@@ -134,7 +135,7 @@ export function StationColumn({
             )}
           />
         )}
-      </div>
+      </ScrollableArea>
       <div className="flex items-center border-t px-3 py-3">
         <div className="flex items-center gap-1.5">
           {onQuickLogin && (

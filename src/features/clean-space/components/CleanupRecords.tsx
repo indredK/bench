@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Loader2, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { ScrollableArea } from "@/components/common/ScrollableArea"
 import { Badge } from "@/components/ui/badge"
 import { useCleanSpaceStore } from "@/features/clean-space/store"
 import { loadRecords } from "@/features/clean-space/services/clean-space.use-cases"
@@ -37,7 +38,10 @@ export function CleanupRecords() {
         </Button>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+      <ScrollableArea
+        className="flex min-h-0 flex-1 flex-col"
+        wrapperClassName="flex min-h-0 flex-1"
+      >
         {isLoading && records.length === 0 ? (
           <div className="text-muted-foreground flex flex-1 items-center justify-center gap-2 py-12 text-sm">
             <Loader2 size={14} className="animate-spin" />
@@ -85,7 +89,7 @@ export function CleanupRecords() {
             ))}
           </div>
         )}
-      </div>
+      </ScrollableArea>
     </div>
   )
 }

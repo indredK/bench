@@ -22,6 +22,7 @@ import type { Term, TermWebsite } from "./types"
 import { useTerminologyController, toastTerminologyError } from "./hooks/useTerminologyController"
 import { Button } from "@/components/ui/button"
 import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirmDialog"
+import { ScrollableArea } from "@/components/common/ScrollableArea"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -689,7 +690,10 @@ function IndustryManager({ onClose: _onClose }: { onClose: () => void }) {
           <span className="text-muted-foreground/75 text-xs font-semibold tracking-wider uppercase">
             {t("terminology.industryList")}
           </span>
-          <div className="flex min-h-0 flex-1 scrollbar-thin flex-col gap-0.5 overflow-y-auto pr-1">
+          <ScrollableArea
+            className="flex min-h-0 flex-1 scrollbar-thin flex-col gap-0.5 pr-1"
+            wrapperClassName="flex min-h-0 flex-1"
+          >
             {industries.map((ind) => (
               <div
                 key={ind.id}
@@ -743,7 +747,7 @@ function IndustryManager({ onClose: _onClose }: { onClose: () => void }) {
                 </div>
               </div>
             ))}
-          </div>
+          </ScrollableArea>
           <div className="flex gap-1 pt-0.5">
             <Input
               value={newIndLabel}
@@ -772,7 +776,10 @@ function IndustryManager({ onClose: _onClose }: { onClose: () => void }) {
           </span>
           {activeIndustry ? (
             <>
-              <div className="flex min-h-0 flex-1 scrollbar-thin flex-col gap-0.5 overflow-y-auto pr-1">
+              <ScrollableArea
+                className="flex min-h-0 flex-1 scrollbar-thin flex-col gap-0.5 pr-1"
+                wrapperClassName="flex min-h-0 flex-1"
+              >
                 {activeIndustry.categories.length === 0 && (
                   <p className="text-muted-foreground py-2 text-xs">
                     {t("terminology.noCategories")}
@@ -827,7 +834,7 @@ function IndustryManager({ onClose: _onClose }: { onClose: () => void }) {
                     </div>
                   </div>
                 ))}
-              </div>
+              </ScrollableArea>
               <div className="flex gap-1">
                 <Input
                   value={newCatLabel}
@@ -856,7 +863,10 @@ function IndustryManager({ onClose: _onClose }: { onClose: () => void }) {
           </span>
           {activeCategory ? (
             <>
-              <div className="flex min-h-0 flex-1 scrollbar-thin flex-col gap-0.5 overflow-y-auto pr-1">
+              <ScrollableArea
+                className="flex min-h-0 flex-1 scrollbar-thin flex-col gap-0.5 pr-1"
+                wrapperClassName="flex min-h-0 flex-1"
+              >
                 {activeCategory.subcategories.length === 0 && (
                   <p className="text-muted-foreground py-2 text-xs">
                     {t("terminology.noSubcategories")}
@@ -919,7 +929,7 @@ function IndustryManager({ onClose: _onClose }: { onClose: () => void }) {
                     </div>
                   )
                 })}
-              </div>
+              </ScrollableArea>
               <div className="flex gap-1 pt-0.5">
                 <Input
                   value={newSubcatLabel}
@@ -1026,7 +1036,11 @@ export default function TerminologyPage() {
         </div>
 
         {/* scrollable nav */}
-        <nav className="min-h-0 flex-1 scrollbar-thin overflow-y-auto px-2 pb-4">
+        <ScrollableArea
+          as="nav"
+          className="min-h-0 flex-1 scrollbar-thin px-2 pb-4"
+          wrapperClassName="min-h-0 flex-1"
+        >
           <div className="flex flex-col gap-0.5">
             {industries.map((industry) => {
               const active = selectedIndustryId === industry.id
@@ -1050,7 +1064,7 @@ export default function TerminologyPage() {
               )
             })}
           </div>
-        </nav>
+        </ScrollableArea>
       </aside>
 
       {/* ── Right: filter + cards ── */}

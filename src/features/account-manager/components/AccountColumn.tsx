@@ -28,6 +28,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { cn } from "@/lib/utils"
 import type { RelayStation, StationAccount } from "@/lib/tauri/types/account-manager"
 import { SortableList, useSortableCard, DragHandle } from "@/components/ui/sortable-card"
+import { ScrollableArea } from "@/components/common/ScrollableArea"
 import { ColumnHeader, EmptyHint, StatusBadge } from "@/features/account-manager/components/shared"
 import { VirtualAccountList } from "@/features/account-manager/components/VirtualAccountList"
 
@@ -177,9 +178,7 @@ export function AccountColumn({
           </div>
         }
       />
-      <div
-        className={cn("min-h-0 flex-1", shouldVirtualize ? "overflow-hidden" : "overflow-y-auto")}
-      >
+      <AccountListScrollShell virtualized={shouldVirtualize}>
         {!station ? (
           <div className="p-3">
             <EmptyHint
@@ -281,7 +280,7 @@ export function AccountColumn({
             />
           </div>
         )}
-      </div>
+      </AccountListScrollShell>
       <div className="flex items-center gap-1.5 border-t px-3 py-3">
         <div className="relative flex-1">
           <Search className="text-muted-foreground absolute top-1/2 left-2 size-3.5 -translate-y-1/2" />
@@ -341,6 +340,23 @@ export function AccountColumn({
         </TooltipProvider>
       </div>
     </section>
+  )
+}
+
+function AccountListScrollShell({
+  virtualized,
+  children,
+}: {
+  virtualized: boolean
+  children: ReactNode
+}) {
+  if (virtualized) {
+    return <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
+  }
+  return (
+    <ScrollableArea className="min-h-0 flex-1" wrapperClassName="min-h-0 flex-1">
+      {children}
+    </ScrollableArea>
   )
 }
 

@@ -20,6 +20,7 @@ import { appInventoryUseCases } from "@/shared/app-inventory/inventory.use-cases
 import { useGuardedAsyncSet } from "@/hooks/useGuardedAsync"
 import type { AppInfo } from "@/lib/tauri/types/app-manager"
 import type { LaunchSceneKey } from "@/features/quick-launch/types"
+import type { OverridePersistenceIssue } from "@/features/quick-launch/store"
 
 /** 合并到「常用应用」Tab 下的场景 key */
 export const MERGED_SCENE_KEYS: LaunchSceneKey[] = [
@@ -36,6 +37,9 @@ export const MERGED_SCENE_KEYS: LaunchSceneKey[] = [
 function normalizeSearch(value: string): string {
   return value.normalize("NFKC").toLocaleLowerCase()
 }
+
+/** 会话内已弹过通知的持久化异常值，避免重进页面重复弹窗（用户手动关闭后才视为已处理） */
+let lastNotifiedIssue: OverridePersistenceIssue = null
 
 export function useQuickLaunchController(active: boolean) {
   const { t, i18n } = useTranslation()
@@ -154,6 +158,23 @@ export function useQuickLaunchController(active: boolean) {
       window.removeEventListener("click", close)
     }
   }, [contextMenu])
+
+  // 分类持久化异常：以「必须手动关闭」的重要通知呈现，不自动消失。
+  // 用会话级守卫避免重进页面重复弹；异常清除后守卫复位，下次再出现会重新提示。
+  useEffect(() => {
+    if (!overridePersistenceIssue) {
+      lastNotifiedIssue = null
+      return
+    }
+    if (lastNotifiedIssue === overridePersistenceIssue) return
+    lastNotifiedIssue = overridePersistenceIssue
+    const message = t(`common.persistence.${overridePersistenceIssue}`)
+    if (overridePersistenceIssue === "recovered") {
+      toast.warning(message, { duration: Infinity })
+    } else {
+      toast.error(message, { duration: Infinity })
+    }
+  }, [overridePersistenceIssue, t])
 
   const appMap = useMemo(() => new Map(appManagerApps.map((a) => [a.appId, a])), [appManagerApps])
 

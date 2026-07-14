@@ -5,6 +5,7 @@ import { useEffect } from "react"
 import { useTranslation } from "react-i18next"
 import { Trash2, HardDrive, FolderOpen, History } from "lucide-react"
 import { RuntimeFeatureGate } from "@/components/common/RuntimeFeatureGate"
+import { ScrollableArea } from "@/components/common/ScrollableArea"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import {
@@ -40,17 +41,17 @@ function OverviewSection() {
 
   if (selectedCategoryId) {
     return (
-      <div className="flex h-full flex-col overflow-y-auto">
+      <ScrollableArea className="flex h-full flex-col" wrapperClassName="h-full">
         <CategoryDetail />
-      </div>
+      </ScrollableArea>
     )
   }
 
   return (
-    <div className="flex h-full flex-col gap-3 overflow-y-auto">
+    <ScrollableArea className="flex h-full flex-col gap-3" wrapperClassName="h-full">
       <StorageOverview />
       <CleanupProgress />
-    </div>
+    </ScrollableArea>
   )
 }
 

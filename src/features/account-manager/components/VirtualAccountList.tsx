@@ -1,6 +1,7 @@
 import { useRef, type ReactNode } from "react"
 import { useVirtualizer } from "@tanstack/react-virtual"
 
+import { ScrollableArea } from "@/components/common/ScrollableArea"
 import type { StationAccount } from "@/lib/tauri/types/account-manager"
 
 const ESTIMATED_ACCOUNT_ROW_HEIGHT = 112
@@ -23,9 +24,10 @@ export function VirtualAccountList({
   })
 
   return (
-    <div
+    <ScrollableArea
       ref={scrollRef}
-      className="h-full overflow-y-auto p-3"
+      wrapperClassName="h-full"
+      className="h-full p-3"
       data-virtual-account-list
       data-total-count={accounts.length}
     >
@@ -47,6 +49,6 @@ export function VirtualAccountList({
           )
         })}
       </div>
-    </div>
+    </ScrollableArea>
   )
 }

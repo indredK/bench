@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { ScrollableArea } from "@/components/common/ScrollableArea"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
@@ -222,7 +223,7 @@ export function SettingsDialog({
               </DialogHeader>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-5 py-4">
+            <ScrollableArea className="flex-1 px-5 py-4" wrapperClassName="flex-1 min-h-0">
               {activeTab === "general" && (
                 <div className="space-y-5">
                   {/* Startup */}
@@ -442,7 +443,7 @@ export function SettingsDialog({
                   )}
                 </div>
               )}
-            </div>
+            </ScrollableArea>
           </div>
         </div>
       </DialogContent>

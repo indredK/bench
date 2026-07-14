@@ -7,6 +7,7 @@
  *   theme/base.css          → default theme values (:root + .dark)
  *   theme/window-glass.css  → first window-theme override (glass)
  *   animations/overlays.css → theme-agnostic Apple-style overlay motion
+ *   animations/scroll-edge-glow.css → overscroll edge glow (CSS visuals)
  *   utilities.css           → keyframes + custom scrollbar
  *
  * Adding a third window theme (e.g. neumorphism, high-contrast):
@@ -26,6 +27,7 @@
 @import "./theme/base.css";
 @import "./theme/window-glass.css";
 @import "./animations/overlays.css";
+@import "./animations/scroll-edge-glow.css";
 @import "./utilities.css";
 
 @custom-variant dark (&:where(.dark, .dark *));

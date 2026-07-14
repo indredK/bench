@@ -7,6 +7,7 @@ import { lazy, Suspense } from "react"
 import { useTranslation } from "react-i18next"
 import { Loader2Icon, Code, Network, Monitor, Zap, Box, Coins } from "lucide-react"
 import { SettingGroup } from "@/components/ui/setting-group"
+import { ScrollableArea } from "@/components/common/ScrollableArea"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -391,7 +392,9 @@ export default function DevToolbox({ feature }: DevToolboxProps) {
           </Button>
         ))}
       </div>
-      <div className="flex-1 overflow-y-auto p-4">{renderFullPageTool()}</div>
+      <ScrollableArea className="flex-1 p-4" wrapperClassName="flex-1 min-h-0">
+        {renderFullPageTool()}
+      </ScrollableArea>
     </div>
   )
 }

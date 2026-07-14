@@ -87,14 +87,20 @@ runStep("Checking staged whitespace", "git", ["diff", "--cached", "--check"])
 const prettierPatterns = [/\.(?:cjs|css|html|js|json|jsonc|jsx|md|mjs|scss|ts|tsx|yaml|yml)$/]
 const prettierFiles = stagedExistingFiles.filter((file) => matchesAny(file, prettierPatterns))
 if (prettierFiles.length > 0) {
+  // Auto-fix formatting in place instead of blocking the commit. Files reaching
+  // this step are fully staged (partially staged files are rejected earlier), so
+  // rewriting them is safe and the fixes are folded back into the commit.
   for (let index = 0; index < prettierFiles.length; index += 50) {
-    runStep("Checking staged formatting", pkgManager, [
+    runStep("Auto-fixing staged formatting", pkgManager, [
       "exec",
       "prettier",
-      "--check",
+      "--write",
       ...prettierFiles.slice(index, index + 50),
     ])
   }
+  // Re-stage the rewritten files so the committed content matches the fixes.
+  runStep("Re-staging auto-formatted files", "git", ["add", ...prettierFiles])
+  console.log("Prettier auto-fixed and re-staged the above files.")
 }
 
 const nodeScriptPatterns = [/^postcss\.config\.js$/, /^scripts\/.+\.(?:js|mjs|cjs)$/]
@@ -123,6 +129,10 @@ const frontendPatterns = [
   /^pnpm-workspace\.yaml$/,
 ]
 const backendPatterns = [/^src-tauri\/(?!target\/|gen\/)/]
+/** Only `.rs` sources — never pass Cargo.toml / Cargo.lock to `cargo fmt`. */
+const rustFiles = stagedExistingFiles.filter(
+  (file) => matchesAny(file, backendPatterns) && file.endsWith(".rs"),
+)
 
 const nodeScriptFiles = stagedExistingFiles.filter((file) => matchesAny(file, nodeScriptPatterns))
 const shellScriptFiles = stagedExistingFiles.filter((file) => matchesAny(file, shellScriptPatterns))
@@ -164,7 +174,20 @@ if (hasFrontendChanges) {
 
 if (hasBackendChanges) {
   runStep("Cross-platform crate check", "node", ["scripts/quality/check-rust-crates.mjs"])
-  runStep("Checking Rust formatting", pkgManager, ["run", "format:be"])
+  // Auto-fix Rust formatting on staged files instead of blocking the commit.
+  // `cargo fmt` runs against only the committed files (guarded by rustFiles.length)
+  // so it never reformats the whole crate or unrelated files.
+  if (rustFiles.length > 0) {
+    runStep("Auto-fixing Rust formatting", "cargo", [
+      "fmt",
+      "--manifest-path",
+      "src-tauri/Cargo.toml",
+      "--",
+      ...rustFiles,
+    ])
+    runStep("Re-staging auto-formatted Rust files", "git", ["add", ...rustFiles])
+    console.log("cargo fmt auto-fixed and re-staged the above Rust files.")
+  }
   runStep("Checking Rust code", pkgManager, ["run", "check:be"])
   runStep("Running Rust clippy (warnings as errors)", pkgManager, ["run", "clippy:be"])
   runStep("Running Rust tests", pkgManager, ["run", "test:be"])

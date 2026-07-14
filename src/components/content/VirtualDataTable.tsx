@@ -17,6 +17,7 @@ import { useReducedMotionProps } from "@/lib/motion-utils"
 import { AnimatePresence, motion } from "motion/react"
 import { Check } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { ScrollableArea } from "@/components/common/ScrollableArea"
 
 interface VirtualDataTableProps<T> {
   data: T[]
@@ -115,9 +116,10 @@ export function VirtualDataTable<T>({
   if (!headerGroup) return null
 
   return (
-    <div
+    <ScrollableArea
       ref={containerRef}
-      className="bg-card h-full overflow-auto rounded-xl border"
+      wrapperClassName="h-full"
+      className="bg-card h-full rounded-xl border"
       data-virtual-table
       data-total-count={data.length}
     >
@@ -262,6 +264,6 @@ export function VirtualDataTable<T>({
           return <div key={row.id}>{rowContent}</div>
         })}
       </div>
-    </div>
+    </ScrollableArea>
   )
 }

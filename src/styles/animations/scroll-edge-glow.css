@@ -1,0 +1,70 @@
+/**
+ * Scroll-edge overscroll glow — visual layer only.
+ *
+ * JS sets --scroll-glow-top / --scroll-glow-bottom (0–1) on the wrapper;
+ * CSS owns gradients, opacity, and fade-out transitions.
+ *
+ * `data-glow-active` disables transition while the user is still scrolling
+ * so intensity tracks the wheel immediately; removing it + zeroing vars
+ * triggers a smooth CSS fade.
+ */
+
+[data-scroll-edge-glow]::before,
+[data-scroll-edge-glow]::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  pointer-events: none;
+  z-index: 40;
+  opacity: 0;
+  transition: opacity 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+[data-scroll-edge-glow][data-glow-active]::before,
+[data-scroll-edge-glow][data-glow-active]::after {
+  transition: none;
+}
+
+[data-scroll-edge-glow]::before {
+  top: 0;
+  height: 2rem;
+  opacity: var(--scroll-glow-top, 0);
+  background: linear-gradient(
+    to bottom,
+    hsl(var(--primary) / 0.2),
+    hsl(var(--primary) / 0.08),
+    transparent
+  );
+}
+
+[data-scroll-edge-glow]::after {
+  bottom: 0;
+  height: 2.5rem;
+  opacity: var(--scroll-glow-bottom, 0);
+  background: linear-gradient(
+    to top,
+    hsl(var(--primary) / 0.2),
+    hsl(var(--primary) / 0.08),
+    transparent
+  );
+}
+
+[data-scroll-edge-glow] .scroll-edge-glow-dot {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0.5rem;
+  z-index: 41;
+  margin-inline: auto;
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 9999px;
+  pointer-events: none;
+  opacity: var(--scroll-glow-bottom, 0);
+  background-color: hsl(var(--primary) / 0.8);
+  box-shadow: 0 0 8px 2px hsl(var(--primary) / 0.4);
+  transition: opacity 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+[data-scroll-edge-glow][data-glow-active] .scroll-edge-glow-dot {
+  transition: none;
+}

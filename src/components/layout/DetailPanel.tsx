@@ -5,6 +5,7 @@ import { type ReactNode } from "react"
 import { X, Info } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
+import { ScrollableArea } from "@/components/common/ScrollableArea"
 import { cn } from "@/lib/utils"
 
 interface DetailPanelProps<T> {
@@ -48,7 +49,7 @@ export function DetailPanel<T>({
           <X size={14} />
         </Button>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-4">
+      <ScrollableArea className="min-h-0 flex-1 p-4" wrapperClassName="min-h-0 flex-1">
         {loading ? (
           <div className="flex h-full flex-col items-center justify-center gap-3">
             <div className="border-muted border-t-primary size-6 animate-spin rounded-full border-2" />
@@ -62,7 +63,7 @@ export function DetailPanel<T>({
             <p className="text-sm">{t("common.empty.selectItem")}</p>
           </div>
         )}
-      </div>
+      </ScrollableArea>
     </div>
   )
 }

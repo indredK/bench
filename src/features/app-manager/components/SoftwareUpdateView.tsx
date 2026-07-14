@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { DetailPanel } from "@/components/layout/DetailPanel"
 import { ThreeColumnLayout } from "@/components/layout/ThreeColumnLayout"
+import { ScrollableArea } from "@/components/common/ScrollableArea"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { AppInfo, UpdateInfo, UpdateSource } from "@/lib/tauri/types/app-manager"
 import type { AppOperationState } from "@/features/app-manager/model/operations"
@@ -264,24 +265,13 @@ export function SoftwareUpdateView({
         filter={null}
         content={
           <div className="flex h-full min-h-0 flex-col overflow-hidden">
-            <div
-              className={
-                hasGroups
-                  ? "min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 pb-3"
-                  : "min-h-0 flex-1 overflow-hidden"
-              }
-            >
-              <div
-                className={
-                  hasGroups ? "flex min-h-full flex-col gap-3" : "flex h-full min-h-0 flex-col"
-                }
+            {hasGroups ? (
+              <ScrollableArea
+                className="min-h-0 flex-1 pr-1 pb-3"
+                wrapperClassName="min-h-0 flex-1"
               >
-                {!hasGroups ? (
-                  <div className="bg-card flex min-h-0 flex-1 items-center justify-center rounded-lg border p-6">
-                    {renderEmpty()}
-                  </div>
-                ) : (
-                  orderedGroups.map(({ source, items }) => (
+                <div className="flex min-h-full flex-col gap-3">
+                  {orderedGroups.map(({ source, items }) => (
                     <UpdateGroupSection
                       key={source}
                       source={source}
@@ -297,10 +287,16 @@ export function SoftwareUpdateView({
                       onRowAction={onRowAction}
                       onSourceAction={onGroupAction}
                     />
-                  ))
-                )}
+                  ))}
+                </div>
+              </ScrollableArea>
+            ) : (
+              <div className="min-h-0 flex-1 overflow-hidden">
+                <div className="bg-card flex min-h-0 flex-1 items-center justify-center rounded-lg border p-6">
+                  {renderEmpty()}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         }
         detail={

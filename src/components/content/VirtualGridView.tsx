@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { useTranslation } from "react-i18next"
+import { ScrollableArea } from "@/components/common/ScrollableArea"
 import { cn } from "@/lib/utils"
 
 interface VirtualGridViewProps<T> {
@@ -90,9 +91,10 @@ export function VirtualGridView<T>({
   }
 
   return (
-    <div
+    <ScrollableArea
       ref={containerRef}
-      className="h-full overflow-auto"
+      wrapperClassName="h-full"
+      className="h-full"
       data-table-scroll
       data-total-count={data.length}
     >
@@ -168,6 +170,6 @@ export function VirtualGridView<T>({
           })}
         </div>
       </div>
-    </div>
+    </ScrollableArea>
   )
 }

@@ -5,6 +5,7 @@ import { type ReactNode } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { PanelRightClose } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { ScrollableArea } from "@/components/common/ScrollableArea"
 import { useReducedMotionProps } from "@/lib/motion-utils"
 
 interface FilterPanelProps {
@@ -43,7 +44,9 @@ export function FilterPanel({
                 <PanelRightClose size={14} />
               </Button>
             </div>
-            <div className="flex-1 overflow-y-auto px-4 pb-4">{children}</div>
+            <ScrollableArea className="flex-1 px-4 pb-4" wrapperClassName="flex-1 min-h-0">
+              {children}
+            </ScrollableArea>
           </motion.div>
         )}
       </AnimatePresence>

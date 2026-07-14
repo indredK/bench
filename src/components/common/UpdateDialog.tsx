@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { ScrollableArea } from "@/components/common/ScrollableArea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { cn } from "@/lib/utils"
@@ -423,7 +424,7 @@ export function UpdateDialog({
           <DialogDescription className="sr-only">{dialogDescription}</DialogDescription>
         </DialogHeader>
 
-        <div className="min-w-0 overflow-y-auto pr-1">
+        <ScrollableArea className="min-w-0 pr-1" wrapperClassName="min-w-0 min-h-0 flex-1">
           <div className="min-w-0 space-y-4">
             {statusAlert && (
               <Alert variant={statusAlert.variant} className="px-3 py-3">
@@ -532,7 +533,7 @@ export function UpdateDialog({
               </div>
             )}
           </div>
-        </div>
+        </ScrollableArea>
 
         <div className="flex flex-wrap justify-end gap-2">
           <Button variant="outline" onClick={dismissDialog} disabled={busy}>

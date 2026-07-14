@@ -36,8 +36,9 @@ import {
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirmDialog"
+import { ScrollableArea } from "@/components/common/ScrollableArea"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { VirtualGridView } from "@/components/content/VirtualGridView"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { LAUNCH_SCENES } from "@/features/quick-launch/scenes"
 import { cn } from "@/lib/utils"
 import { useReducedMotionProps } from "@/lib/motion-utils"
@@ -108,10 +109,9 @@ function AppCard({
   animated?: boolean
 }) {
   const { t } = useTranslation()
-  const [showInfo, setShowInfo] = useState(false)
-  const { reduce } = useReducedMotionProps()
+  const hasInfo = !isEditMode && (!!app.version || app.lastModified > 0)
 
-  return (
+  const card = (
     <motion.button
       layout={animated}
       onClick={() => {
@@ -126,13 +126,11 @@ function AppCard({
           onReveal(app)
         }
       }}
-      onMouseEnter={() => setShowInfo(true)}
-      onMouseLeave={() => setShowInfo(false)}
       className={cn(
-        "group bg-card hover:border-primary/40 hover:bg-accent/30 relative flex cursor-pointer flex-col items-center gap-2 rounded-xl border p-3 transition hover:shadow-sm",
+        "group bg-card hover:border-primary/40 hover:bg-accent/30 relative flex h-full w-full cursor-pointer flex-col items-center gap-2 rounded-xl border p-3 transition hover:shadow-sm",
         isEditMode ? "border-primary/40 ring-primary/20 ring-1" : "border-border",
       )}
-      title={app.allowedActions.launch ? app.name : t("quickLaunch.notLaunchable")}
+      aria-label={app.allowedActions.launch ? app.name : t("quickLaunch.notLaunchable")}
       disabled={!app.allowedActions.launch}
     >
       <div className="bg-muted/50 flex size-12 shrink-0 items-center justify-center rounded-xl">
@@ -154,75 +152,26 @@ function AppCard({
           {sceneLabel}
         </span>
       )}
-      <AnimatePresence>
-        {showInfo && !isEditMode && (
-          <motion.div
-            initial={reduce({ opacity: 0, y: 2 })}
-            animate={reduce({ opacity: 1, y: 0 })}
-            exit={{ opacity: 0 }}
-            className="absolute inset-x-0 -bottom-1 z-10 translate-y-full px-1"
-          >
-            <div className="border-border bg-popover text-muted-foreground rounded-md border px-2 py-1 text-[10px] leading-tight shadow">
-              {app.version && <div>v{app.version}</div>}
-              {app.lastModified > 0 && (
-                <div className="opacity-70">{formatLastModified(app.lastModified * 1000, t)}</div>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </motion.button>
   )
-}
 
-function VirtualizedAppGrid({
-  apps,
-  onLaunch,
-  onReveal,
-  isEditMode,
-  appIdToScene,
-  onContextMenuEdit,
-}: {
-  apps: AppInfo[]
-  onLaunch: (app: AppInfo) => void
-  onReveal: (app: AppInfo) => void
-  isEditMode: boolean
-  appIdToScene: Record<string, LaunchSceneKey>
-  onContextMenuEdit: (app: AppInfo, x: number, y: number) => void
-}) {
-  const { t } = useTranslation()
+  // 悬停信息（版本 / 修改时间）用 shadcn Tooltip 承载：
+  // 内容 Portal 到 body 且 z-50，天然不受分类网格层叠上下文与跨分类卡片行的遮挡；
+  // side=top 配合 Radix 碰撞翻转，始终显示在卡片上方、不会被下一行/下一分类盖住。
+  if (!hasInfo) return card
+
   return (
-    <div className="h-[420px] min-h-0">
-      <VirtualGridView
-        data={apps}
-        getRowId={(app) => app.appId}
-        renderGridCard={(app) => (
-          <AppCard
-            app={app}
-            onLaunch={onLaunch}
-            onReveal={onReveal}
-            isEditMode={isEditMode}
-            sceneLabel={
-              isEditMode
-                ? t(
-                    LAUNCH_SCENES.find((scene) => scene.key === appIdToScene[app.appId])
-                      ?.labelKey || "",
-                  )
-                : undefined
-            }
-            onContextMenuEdit={onContextMenuEdit}
-            animated={false}
-          />
-        )}
-        onItemClick={() => {}}
-        estimatedCardHeight={104}
-        gridColumns={8}
-        minCardWidth={84}
-        gap={8}
-        rowPadding={[0, 8]}
-        wrapperPadding="p-0"
-      />
-    </div>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>{card}</TooltipTrigger>
+        <TooltipContent side="top" className="px-2 py-1 text-[10px] leading-tight">
+          {app.version && <div>v{app.version}</div>}
+          {app.lastModified > 0 && (
+            <div className="opacity-70">{formatLastModified(app.lastModified * 1000, t)}</div>
+          )}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   )
 }
 
@@ -256,7 +205,7 @@ function SceneSection({
   return (
     <section className="space-y-2">
       <div
-        className="hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded-lg px-1 py-1 transition select-none"
+        className="hover:bg-muted/50 bg-background sticky top-0 z-30 flex cursor-pointer items-center gap-2 rounded-lg px-1 py-1 transition select-none"
         onClick={onToggle}
       >
         <span className="bg-primary/10 text-primary flex size-6 items-center justify-center rounded-md">
@@ -273,14 +222,27 @@ function SceneSection({
         </motion.span>
       </div>
       {expanded && apps.length > 48 ? (
-        <VirtualizedAppGrid
-          apps={apps}
-          onLaunch={onLaunch}
-          onReveal={onReveal}
-          isEditMode={isEditMode}
-          appIdToScene={appIdToScene}
-          onContextMenuEdit={onContextMenuEdit}
-        />
+        // 大分类（如「其他」）：用普通网格交给页面滚动，保证分类表头能随页面吸顶，
+        // 不再用内部固定高度的虚拟滚动盒子（那样表头吸不住、且观感像被锁死高度）。
+        // animated=false 关闭 framer-motion 布局动画，避免大列表重排卡顿。
+        <div className="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8">
+          {apps.map((app) => (
+            <AppCard
+              key={app.appId}
+              app={app}
+              onLaunch={onLaunch}
+              onReveal={onReveal}
+              isEditMode={isEditMode}
+              sceneLabel={
+                isEditMode
+                  ? t(LAUNCH_SCENES.find((s) => s.key === appIdToScene[app.appId])?.labelKey || "")
+                  : undefined
+              }
+              onContextMenuEdit={onContextMenuEdit}
+              animated={false}
+            />
+          ))}
+        </div>
       ) : (
         <motion.div
           layout
@@ -348,7 +310,7 @@ function MergedSceneSection({
   return (
     <section className="space-y-2">
       {/* Header row: icon + title + tab bar */}
-      <div className="flex items-center gap-3">
+      <div className="bg-background sticky top-0 z-30 flex items-center gap-3">
         <span className="bg-primary/10 text-primary flex size-6 shrink-0 items-center justify-center rounded-md">
           <LayoutGrid size={14} />
         </span>
@@ -385,14 +347,25 @@ function MergedSceneSection({
 
       {/* App cards grid */}
       {currentApps.length > 48 ? (
-        <VirtualizedAppGrid
-          apps={currentApps}
-          onLaunch={onLaunch}
-          onReveal={onReveal}
-          isEditMode={isEditMode}
-          appIdToScene={appIdToScene}
-          onContextMenuEdit={onContextMenuEdit}
-        />
+        // 大分类：随页面滚动的普通网格，保证「常用应用」表头可吸顶；animated=false 避免大列表重排卡顿。
+        <div className="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8">
+          {currentApps.map((app) => (
+            <AppCard
+              key={app.appId}
+              app={app}
+              onLaunch={onLaunch}
+              onReveal={onReveal}
+              isEditMode={isEditMode}
+              sceneLabel={
+                isEditMode
+                  ? t(LAUNCH_SCENES.find((s) => s.key === appIdToScene[app.appId])?.labelKey || "")
+                  : undefined
+              }
+              onContextMenuEdit={onContextMenuEdit}
+              animated={false}
+            />
+          ))}
+        </div>
       ) : (
         <AnimatePresence mode="popLayout">
           <motion.div
@@ -580,14 +553,6 @@ export default function QuickLaunch({ active }: { active: boolean; feature: AppF
           </AlertDescription>
         </Alert>
       )}
-      {overridePersistenceIssue && (
-        <Alert
-          variant={overridePersistenceIssue === "recovered" ? "default" : "destructive"}
-          className="shrink-0"
-        >
-          <AlertDescription>{t(`common.persistence.${overridePersistenceIssue}`)}</AlertDescription>
-        </Alert>
-      )}
       {/* Header */}
       <div className="flex shrink-0 items-center gap-3">
         <div className="relative flex-1">
@@ -603,6 +568,15 @@ export default function QuickLaunch({ active }: { active: boolean; feature: AppF
             className="border-border bg-background placeholder:text-muted-foreground/50 focus:border-primary/40 h-9 w-full rounded-lg border pr-3 pl-9 text-sm transition outline-none"
           />
         </div>
+
+        {/* 统计信息并入搜索行，省掉单独一行的高度 */}
+        {totalApps > 0 && (
+          <span className="text-muted-foreground hidden shrink-0 items-center text-xs tabular-nums md:flex">
+            {searchQuery
+              ? t("quickLaunch.searchResult", { count: totalApps })
+              : t("quickLaunch.totalApps", { count: appManagerApps.length, scenes: sceneCount })}
+          </span>
+        )}
 
         {/* 编辑模式按钮组 */}
         {isEditMode && (
@@ -708,19 +682,11 @@ export default function QuickLaunch({ active }: { active: boolean; feature: AppF
         </div>
       )}
 
-      {/* Stats */}
-      {totalApps > 0 && (
-        <p className="text-muted-foreground shrink-0 text-xs">
-          {searchQuery
-            ? t("quickLaunch.searchResult", { count: totalApps })
-            : t("quickLaunch.totalApps", { count: appManagerApps.length, scenes: sceneCount })}
-        </p>
-      )}
-
       {/* Scene Grids */}
-      <div
+      <ScrollableArea
+        wrapperClassName="flex min-h-0 flex-1 flex-col"
         className={cn(
-          "flex-1 space-y-6 overflow-y-auto pr-1 transition-opacity",
+          "flex-1 space-y-6 pr-1 transition-opacity",
           appManagerLoading && "opacity-60",
         )}
         aria-busy={appManagerLoading}
@@ -766,7 +732,7 @@ export default function QuickLaunch({ active }: { active: boolean; feature: AppF
             {t("quickLaunch.noResults")}
           </div>
         )}
-      </div>
+      </ScrollableArea>
 
       <div className="border-border text-muted-foreground/50 shrink-0 border-t pt-2 text-center text-[10px]">
         {isEditMode ? t("quickLaunch.editModeHint") : t("quickLaunch.hint")}

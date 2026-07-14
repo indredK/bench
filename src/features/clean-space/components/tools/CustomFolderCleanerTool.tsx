@@ -6,6 +6,7 @@ import { useState, useCallback } from "react"
 import { useTranslation } from "react-i18next"
 import { FolderOpen, Loader2, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { ScrollableArea } from "@/components/common/ScrollableArea"
 import { Input } from "@/components/ui/input"
 import { RiskPill } from "@/features/clean-space/components/shared/RiskPill"
 import { scanCustomFolder } from "@/features/clean-space/services/clean-space.repository"
@@ -130,7 +131,10 @@ export function CustomFolderCleanerTool() {
       )}
 
       {/* Scrollable results list */}
-      <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto">
+      <ScrollableArea
+        className="flex min-h-0 flex-1 flex-col gap-1.5"
+        wrapperClassName="flex min-h-0 flex-1"
+      >
         {result?.items.length === 0 && (
           <div className="text-muted-foreground flex flex-1 items-center justify-center py-8 text-sm">
             {t("cleanSpace.emptyState")}
@@ -152,7 +156,7 @@ export function CustomFolderCleanerTool() {
             </div>
           </div>
         ))}
-      </div>
+      </ScrollableArea>
     </div>
   )
 }

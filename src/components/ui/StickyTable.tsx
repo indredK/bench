@@ -3,6 +3,7 @@
  */
 import { forwardRef, useCallback, useEffect, useRef, useState } from "react"
 import { cn } from "@/lib/utils"
+import { ScrollableArea } from "@/components/common/ScrollableArea"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 
 interface StickyTableProps extends React.ComponentProps<"table"> {
@@ -18,10 +19,11 @@ function StickyTable({
   ...props
 }: StickyTableProps) {
   return (
-    <div
+    <ScrollableArea
       data-table-scroll
+      wrapperClassName="max-h-full"
       className={cn(
-        "bg-background relative isolate max-h-full min-h-[120px] w-full min-w-[280px] overflow-auto",
+        "bg-background isolate max-h-full min-h-[120px] w-full min-w-[280px]",
         containerClassName,
       )}
     >
@@ -33,7 +35,7 @@ function StickyTable({
         )}
         {...props}
       />
-    </div>
+    </ScrollableArea>
   )
 }
 

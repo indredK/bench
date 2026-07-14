@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next"
 import { RefreshCw } from "lucide-react"
 import { FeatureLoadError } from "@/components/common/FeatureLoadError"
+import { ScrollableArea } from "@/components/common/ScrollableArea"
 import { cn } from "@/lib/utils"
 
 import type { PricingStandard } from "@/features/token-calculator/services/token-calculator.repository"
@@ -151,16 +152,22 @@ export default function TokenCalculatorPage() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="standards" className="flex-1 overflow-auto" forceMount>
-          <StandardsTab {...sharedProps} onRefresh={loadStandards} />
+        <TabsContent value="standards" className="min-h-0 flex-1" forceMount>
+          <ScrollableArea className="h-full" wrapperClassName="h-full">
+            <StandardsTab {...sharedProps} onRefresh={loadStandards} />
+          </ScrollableArea>
         </TabsContent>
 
-        <TabsContent value="compare" className="flex-1 overflow-auto" forceMount>
-          <CompareTab {...sharedProps} />
+        <TabsContent value="compare" className="min-h-0 flex-1" forceMount>
+          <ScrollableArea className="h-full" wrapperClassName="h-full">
+            <CompareTab {...sharedProps} />
+          </ScrollableArea>
         </TabsContent>
 
-        <TabsContent value="calculator" className="flex-1 overflow-auto" forceMount>
-          <CalculatorTab {...sharedProps} />
+        <TabsContent value="calculator" className="min-h-0 flex-1" forceMount>
+          <ScrollableArea className="h-full" wrapperClassName="h-full">
+            <CalculatorTab {...sharedProps} />
+          </ScrollableArea>
         </TabsContent>
       </Tabs>
     </div>

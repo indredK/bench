@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
+import { ScrollableArea } from "@/components/common/ScrollableArea"
 import { cn } from "@/lib/utils"
 import {
   Select,
@@ -1128,7 +1129,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
         )}
 
         {/* Content area */}
-        <div className="flex-1 space-y-4 overflow-y-auto p-4">
+        <ScrollableArea className="flex-1 space-y-4 p-4" wrapperClassName="flex-1 min-h-0">
           {searchQuery ? (
             searchResults.length === 0 ? (
               <p className="text-muted-foreground py-8 text-center text-sm">
@@ -1165,7 +1166,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
           ) : (
             renderTabContent()
           )}
-        </div>
+        </ScrollableArea>
 
         {loginItemToRemove && (
           <DestructiveConfirmDialog

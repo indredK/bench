@@ -9,6 +9,7 @@ mod dev_cleaner;
 mod env_detector;
 mod error;
 mod file_ops;
+mod macos_webview;
 mod menu;
 mod persistence;
 mod port_manager;
@@ -110,6 +111,13 @@ pub fn run() {
                         }
                     }
                 });
+
+                // 禁用 macOS WKWebView 原生橡皮筋：滚到边界继续滚时整个窗口被拉动。
+                // 前端 ScrollableArea 在边界用非 passive wheel + preventDefault 拦截链式滚动；
+                // 此处递归关闭内部 NSScrollView/WKScrollView 的弹性，并多次重试以覆盖晚挂载的子视图。
+                #[cfg(target_os = "macos")]
+                macos_webview::schedule_disable_overscroll_bounce(main_window.clone());
+
             }
 
             // 外部登录代理: best-effort 运行时注册 bench-auth:// scheme。

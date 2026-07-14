@@ -62,6 +62,18 @@ tauri-plugin-updater = "2.10.1"
 [target.'cfg(target_os = "macos")'.dependencies]
 core-foundation = "0.10"
 window-vibrancy = "0.6"
+# 禁用 WKWebView 原生橡皮筋（overscroll bounce）时需要，版本与 Tauri 2.11.5 内部一致，
+# 精确锁定避免依赖树出现第二个 objc2 副本导致类型/链接冲突。
+# disable-encoding-assertions：objc2 0.6 的 msg_send! 在 debug 构建下会严格校验
+# 选择器编码。我们用 msg_send! 直接发 WKWebView 的 `scrollView`/`setBounces:` 等
+# objc2-web-kit 0.3.2 未生成的运行时选择器，其返回声明为裸指针 `*mut AnyObject`
+# （编码为 ^），而方法实际返回对象（编码 @），debug 校验会误判 panic 并因处于
+# ObjC 回调中无法 unwind 而 abort。该方法是 ABI 兼容的，仅校验误报，故关闭校验。
+objc2 = { version = "=0.6.4", features = ["disable-encoding-assertions"] }
+objc2-app-kit = "=0.3.2"
+objc2-web-kit = "=0.3.2"
+# 遍历 webview 子视图树所需（NSArray<NSView> 的正确编码，避免裸指针编码校验 panic）。
+objc2-foundation = "=0.3.2"
 
 [profile.release]
 panic = "abort"

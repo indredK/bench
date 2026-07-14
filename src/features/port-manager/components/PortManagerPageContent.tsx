@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { platformConfig } from "@/platform/config"
+import { ScrollableArea } from "@/components/common/ScrollableArea"
 import { cn } from "@/lib/utils"
 import {
   PortManagerCommonPorts,
@@ -289,7 +290,11 @@ export function PortManagerPageContent({
           </div>
         </CardHeader>
         <CardContent className="min-h-0 flex-1 p-0">
-          <div ref={scrollContainerRef} className="h-full overflow-y-auto px-4 pb-4">
+          <ScrollableArea
+            ref={scrollContainerRef}
+            wrapperClassName="h-full"
+            className="h-full px-4 pb-4"
+          >
             {portDetails.length === 0 ? (
               <div className="text-muted-foreground flex flex-col items-center justify-center gap-4 py-10 text-center">
                 <Search size={48} className="opacity-30" />
@@ -407,7 +412,7 @@ export function PortManagerPageContent({
                 })}
               </div>
             )}
-          </div>
+          </ScrollableArea>
         </CardContent>
       </Card>
     </div>

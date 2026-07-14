@@ -8,6 +8,7 @@ import { useLocation, Link } from "wouter"
 import { motion } from "motion/react"
 import type { NavigationItem } from "@/features/types"
 import QuickControls from "./QuickControls"
+import { ScrollableArea } from "@/components/common/ScrollableArea"
 import { useScrambleText } from "@/hooks/useScrambleText"
 import { useTranslation } from "react-i18next"
 import { cn } from "@/lib/utils"
@@ -50,7 +51,7 @@ function Sidebar({ items, configItems, onPrefs }: SidebarProps) {
       </div>
 
       {/* Feature navigation */}
-      <nav className="flex-1 overflow-y-auto py-2">
+      <ScrollableArea as="nav" className="flex-1 py-2" wrapperClassName="flex-1 min-h-0">
         {items.map((item) => {
           const isActive = location === item.path
           return (
@@ -94,7 +95,7 @@ function Sidebar({ items, configItems, onPrefs }: SidebarProps) {
             </Link>
           )
         })}
-      </nav>
+      </ScrollableArea>
 
       {/* Bottom: language/theme/prefs quick switchers */}
       <div className="border-border flex items-center justify-center gap-1.5 border-t px-3 py-2">

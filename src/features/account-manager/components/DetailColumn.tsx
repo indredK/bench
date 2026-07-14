@@ -15,6 +15,7 @@ import {
   Settings,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { ScrollableArea } from "@/components/common/ScrollableArea"
 import { Switch } from "@/components/ui/switch"
 import {
   Select,
@@ -173,7 +174,7 @@ export function DetailColumn({
         {station ? (
           <>
             {/* 上方：站点信息 - 灵活高度，内容多时滚动 */}
-            <div className="min-h-0 flex-1 overflow-y-auto">
+            <ScrollableArea className="min-h-0 flex-1" wrapperClassName="min-h-0 flex-1">
               <DetailSection
                 bordered={false}
                 rows={[
@@ -235,7 +236,7 @@ export function DetailColumn({
                   )
                 }
               />
-            </div>
+            </ScrollableArea>
 
             {/* 下方：账号信息 - 按内容撑开，不滚动 */}
             <div className="shrink-0 border-t">
