@@ -1,11 +1,10 @@
 /**
- * Cross-platform crate usage scanner.
+ * Supported-platform crate usage scanner.
  *
  * Scans Rust source files under src-tauri/src for references to external
  * crates that are NOT declared in Cargo.toml, with special attention to
  * references inside `#[cfg(target_os = "...")]` gated blocks — these compile
- * fine on the developer's platform but break CI on other platforms (e.g.
- * `nix::` used under `cfg(target_os = "linux")` without `nix` in Cargo.toml).
+ * fine on the developer's platform but break CI on another supported platform.
  *
  * Strategy: only flag **snake_case identifiers** used as the root of a
  * multi-segment path (`name::...`). Rust crate names are snake_case by
@@ -258,11 +257,11 @@ for (const filePath of walkRsFiles(tauriSrcDir)) {
 }
 
 if (allIssues.length === 0) {
-  console.log("✓ Cross-platform crate check passed — no undeclared crate references found.")
+  console.log("✓ Supported-platform crate check passed — no undeclared crate references found.")
   process.exit(0)
 }
 
-console.error("✗ Cross-platform crate check FAILED — found undeclared crate references:\n")
+console.error("✗ Supported-platform crate check FAILED — found undeclared crate references:\n")
 for (const issue of allIssues) {
   console.error(`  ${issue.file}:${issue.line}  →  ${issue.crate}::`)
   console.error(`    ${issue.snippet}`)

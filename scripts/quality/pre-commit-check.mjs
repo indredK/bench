@@ -100,11 +100,13 @@ if (prettierFiles.length > 0) {
 const nodeScriptPatterns = [/^postcss\.config\.js$/, /^scripts\/.+\.(?:js|mjs|cjs)$/]
 const shellScriptPatterns = [/^\.husky\/[^/]+$/, /\.sh$/]
 const formattingConfigPatterns = [
+  /^\.gitattributes$/,
   /^\.prettierignore$/,
   /^\.prettierrc(?:\.[^/]+)?$/,
   /^prettier\.config\.(?:js|mjs|cjs|ts)$/,
 ]
 const docsPatterns = [/^docs\//, /^(?:AGENTS|README)\.md$/, /^\.cursorrules$/]
+const workflowPatterns = [/^\.github\/workflows\/.*\.ya?ml$/]
 const frontendPatterns = [
   /^src\//,
   /^public\//,
@@ -128,6 +130,7 @@ const hasFormattingConfigChanges = stagedFiles.some((file) =>
   matchesAny(file, formattingConfigPatterns),
 )
 const hasDocsChanges = stagedFiles.some((file) => matchesAny(file, docsPatterns))
+const hasWorkflowChanges = stagedFiles.some((file) => matchesAny(file, workflowPatterns))
 const hasFrontendChanges = stagedFiles.some((file) => matchesAny(file, frontendPatterns))
 const hasBackendChanges = stagedFiles.some((file) => matchesAny(file, backendPatterns))
 
@@ -149,6 +152,10 @@ if (hasDocsChanges && !hasFrontendChanges) {
   runStep("Checking documentation consistency and links", pkgManager, ["run", "check:docs"])
 }
 
+if (hasWorkflowChanges && !hasFrontendChanges) {
+  runStep("Checking CI platform policy", pkgManager, ["run", "check:ci-platforms"])
+}
+
 if (hasFrontendChanges) {
   runStep("Running frontend static guards", pkgManager, ["run", "lint:fe"])
   runStep("Running frontend tests", pkgManager, ["run", "test:fe"])
@@ -167,6 +174,7 @@ if (
   !nodeScriptFiles.length &&
   !shellScriptFiles.length &&
   !hasDocsChanges &&
+  !hasWorkflowChanges &&
   !hasFrontendChanges &&
   !hasBackendChanges
 ) {

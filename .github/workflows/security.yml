@@ -25,7 +25,7 @@ permissions:
 jobs:
   audit:
     name: Cargo Audit + Deny
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
 
     steps:
       - name: Checkout

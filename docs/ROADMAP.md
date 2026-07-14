@@ -5,12 +5,12 @@
 ## 发布契约
 
 - 当前代码版本保持 `1.23.0`，只有 R00-R08 全部通过后才能执行 R09。
-- 目标平台：macOS 14+ arm64、macOS 14+ x64、Windows 11 x64。Linux 只做 CI 编译与测试，不发布 2.0 安装包。
+- 目标平台：macOS 14+ arm64、macOS 14+ x64、Windows 11 x64。Linux 不受支持，也不进入 CI/CD、构建或发布流程。
 - Quick Launch、App Manager、Account Manager 必须在 macOS/Windows 保持相同核心语义；不支持的子能力返回 `partial/unsupported/failed`，不得伪装为空结果成功。
 - Clean Space、Hardware、System Settings 维持 macOS-only；Windows 隐藏导航，直达路由显示 unsupported。
 - 按 [D-010](./DECISIONS.md#d-010--默认使用-ad-hoc-macos-与-unsigned-windows-包) 默认生成 macOS ad-hoc 和 Windows unsigned 包。Apple notarization、Windows Authenticode 延期，不得伪装为已签名。
 - Tauri updater minisign 不延期：三目标 updater bundle、`.sig`、`latest.json`、`SHA256SUMS` 和 `OS-SIGNING-NOTICE.txt` 缺一即停止。
-- 云同步、AI Agent、TOTP、播放器、白噪音、Linux 安装包等新品类不进入 2.0。
+- 云同步、AI Agent、TOTP、播放器、白噪音等新品类不进入 2.0。
 
 平台状态：
 
@@ -314,7 +314,7 @@ pnpm run build:fe
 
 **步骤**：
 
-1. 在 clean checkout 和冻结 lockfile 上运行完整验证；确认 pre-commit 覆盖删除/文档/格式/i18n/Rust 分流，CI 独立执行 `format:check`、`lint:fe`、Rust fmt/Clippy；macOS、Windows、Linux 三 runner 全绿。
+1. 在 clean checkout 和冻结 lockfile 上运行完整验证；确认 pre-commit 覆盖删除/文档/格式/i18n/Rust 分流，CI 独立执行 `format:check`、`lint:fe`、Rust fmt/Clippy；macOS、Windows 两个 runner 全绿，平台门禁拒绝 Linux 配置。
 2. 运行 R05 的 RC dry-run，下载并复核三目标产物、签名、manifest、notice、checksum，不发布。
 3. 对照 R00-R07 证据和全部模块 roadmap；发布阻断项不得仍未完成，延期 OS 正式签名必须在 release notes 明示。
 4. 检查日志无秘密、能力矩阵无夸大、所有相对链接有效、工作区无生成物或来源不明改动。
@@ -344,7 +344,7 @@ git diff --check
 **步骤**：
 
 1. 由 release-please 生成 Release PR，或按其配置同步修改 `package.json`、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock`、`src-tauri/tauri.conf.json`、`.release-please-manifest.json` 为 `2.0.0`。
-2. 更新 `CHANGELOG.md` 和 Release notes：只列已验证能力，明确 macOS ad-hoc、Windows unsigned、Windows Account Manager proxy unsupported、Linux 不发布。
+2. 更新 `CHANGELOG.md` 和 Release notes：只列已验证能力，明确 macOS ad-hoc、Windows unsigned、Windows Account Manager proxy unsupported，且资产清单只有 macOS/Windows 目标。
 3. 确认 bundle identifier 仍为 `com.bench.app`，WiX upgrade code 未变；不得借版本升级改持久化身份。
 4. 重跑 R08。Release PR 保持未合并，交给 R10 人工批准。
 

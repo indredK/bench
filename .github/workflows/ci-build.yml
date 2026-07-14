@@ -30,7 +30,6 @@ jobs:
         os:
           - macos-latest
           - windows-latest
-          - ubuntu-latest
 
     runs-on: ${{ matrix.os }}
 
@@ -59,20 +58,6 @@ jobs:
             ./src-tauri -> target
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
-      - name: Install Linux dependencies
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libglib2.0-dev \
-            libwebkit2gtk-4.1-dev \
-            libappindicator3-dev \
-            librsvg2-dev \
-            patchelf \
-            libgtk-3-dev \
-            libsoup-3.0-dev \
-            libjavascriptcoregtk-4.1-dev
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -82,7 +67,7 @@ jobs:
       - name: Run frontend static guards
         run: pnpm run lint:fe
 
-      - name: Check cross-platform crate declarations
+      - name: Check Rust crate declarations
         run: node scripts/quality/check-rust-crates.mjs
 
       - name: Check Rust formatting
@@ -114,9 +99,6 @@ jobs:
             os: macos-latest
           - target: x86_64-pc-windows-msvc
             os: windows-latest
-          # Linux release packaging is temporarily disabled.
-          # - target: x86_64-unknown-linux-gnu
-          #   os: ubuntu-latest
 
     runs-on: ${{ matrix.os }}
 
@@ -145,20 +127,6 @@ jobs:
         with:
           workspaces: |
             ./src-tauri -> target
-
-      - name: Install Linux dependencies
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libglib2.0-dev \
-            libwebkit2gtk-4.1-dev \
-            libappindicator3-dev \
-            librsvg2-dev \
-            patchelf \
-            libgtk-3-dev \
-            libsoup-3.0-dev \
-            libjavascriptcoregtk-4.1-dev
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -255,7 +223,8 @@ jobs:
               pnpm tauri build --target ${{ matrix.target }} --bundles msi,nsis
             fi
           else
-            pnpm tauri build --target ${{ matrix.target }}
+            echo "::error::Release builds only support macOS and Windows runners."
+            exit 1
           fi
 
       - name: Verify macOS code signing and notarization
@@ -356,13 +325,6 @@ jobs:
             --file "artifacts/$updaterName" `
             --signature "artifacts/$updaterName.sig"
 
-      # Linux release packaging is temporarily disabled.
-      # - name: Collect Linux bundle (deb/AppImage)
-      #   if: runner.os == 'Linux'
-      #   run: |
-      #     mkdir -p artifacts
-      #     find src-tauri/target -name "*.deb" -o -name "*.AppImage" | while read f; do cp "$f" artifacts/; done 2>/dev/null || true
-
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
         with:
@@ -382,7 +344,7 @@ jobs:
     name: Publish Release
     if: startsWith(github.ref, 'refs/tags/')
     needs: release-build
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
 
     steps:
       - name: Checkout
@@ -403,19 +365,6 @@ jobs:
         with:
           workspaces: |
             ./src-tauri -> target
-
-      - name: Install Linux dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libglib2.0-dev \
-            libwebkit2gtk-4.1-dev \
-            libappindicator3-dev \
-            librsvg2-dev \
-            patchelf \
-            libgtk-3-dev \
-            libsoup-3.0-dev \
-            libjavascriptcoregtk-4.1-dev
 
       - name: Download all artifacts
         uses: actions/download-artifact@v7
@@ -485,9 +434,13 @@ jobs:
           rm -f release-assets/updater-manifest-*.json
           (
             cd release-assets
-            find . -maxdepth 1 -type f ! -name SHA256SUMS -printf '%f\n' | LC_ALL=C sort | xargs -r sha256sum > SHA256SUMS
+            for file in *; do
+              if [ -f "$file" ] && [ "$file" != "SHA256SUMS" ]; then
+                shasum -a 256 "$file"
+              fi
+            done > SHA256SUMS
             test -s SHA256SUMS
-            sha256sum -c SHA256SUMS
+            shasum -a 256 -c SHA256SUMS
           )
           if gh release view "${{ github.ref_name }}" >/dev/null 2>&1; then
             gh release upload "${{ github.ref_name }}" release-assets/* --clobber

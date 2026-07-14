@@ -12,20 +12,25 @@ permissions:
 jobs:
   cleanup:
     name: Delete stale GitHub Actions caches
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+
       - name: Delete caches older than 7 days
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           REPO="${{ github.repository }}"
-          CUTOFF=$(date -d "7 days ago" +%s)
+          CUTOFF_MS=$(node -e 'process.stdout.write(String(Date.now() - 7 * 24 * 60 * 60 * 1000))')
 
           gh api "repos/${REPO}/actions/caches" --paginate \
             --jq '.actions_caches[] | select(.last_accessed_at != null) | [.id, .last_accessed_at, .key] | @tsv' \
           | while IFS=$'\t' read -r id accessed_at key; do
-              ts=$(date -d "$accessed_at" +%s 2>/dev/null || echo 0)
-              if [ "$ts" -lt "$CUTOFF" ]; then
+              accessed_ms=$(node -e 'const value = Date.parse(process.argv[1]); process.stdout.write(String(Number.isNaN(value) ? 0 : value))' "$accessed_at")
+              if [ "$accessed_ms" -lt "$CUTOFF_MS" ]; then
                 echo "Deleting cache: $key (last accessed: $accessed_at)"
                 gh api --method DELETE "repos/${REPO}/actions/caches/${id}" || true
               fi

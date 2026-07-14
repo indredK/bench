@@ -2,6 +2,15 @@
 
 本文件只记录仍影响当前实现的方向性取舍；“做什么”以 [ROADMAP.md](./ROADMAP.md) 为准，当前风险以 [audit-report.md](./audit-report.md) 为准。已推翻和已完成历史由 Git 保留。
 
+## D-014 · Linux 不进入支持矩阵与 CI/CD
+
+- **日期**：2026-07-14
+- **状态**：采纳
+- **决策**：Bench 只支持 macOS 14+ 与 Windows 11。所有 GitHub Actions runner、Tauri 构建目标、安装包、updater manifest 和发布聚合作业只覆盖这两个平台；通用自动化作业使用 macOS runner，不使用 Linux 作为廉价执行环境。
+- **理由**：CI 平台应与正式支持范围一致，避免 Linux 编译通过被误解为产品承诺，也避免后续 AI 持续维护不验收的平台分支。
+- **影响**：`.github/workflows/` 由 `pnpm run check:ci-platforms` fail-closed；不得新增 Linux runner、容器、包格式或发布说明。依赖锁文件中的平台可选包属于上游元数据，不代表支持范围。
+- **相关**：[2.0 最终路线图](./ROADMAP.md) · [CI workflow](../.github/workflows/ci-build.yml) · [编码规范 §9](./coding-standards.md#9-测试与门禁)
+
 ## D-013 · ROADMAP 是 2.0 唯一执行真理源
 
 - **日期**：2026-07-14

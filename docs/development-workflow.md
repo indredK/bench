@@ -46,6 +46,7 @@ cd src-tauri && cargo clippy -- -D warnings
 ## 5. 发版
 
 - CI 入口：[`ci-build.yml`](../.github/workflows/ci-build.yml)。
+- CI/CD 只允许 macOS 与 Windows runner；`pnpm run check:ci-platforms` 会拒绝 Linux runner、容器和包格式。
 - 版本与 `CHANGELOG.md` 由 release-please 根据 Conventional Commits 生成。
 - 发布说明只列已实现且已验证的用户变化；未完成平台 smoke 不得写成完整支持。
 - 2.0.0 只按[最终路线图](./ROADMAP.md)的 R00-R10 执行。当前 OS 包按 D-010 默认 ad-hoc/unsigned，updater minisign 仍为强制；未完成真机项不得写成已验证。

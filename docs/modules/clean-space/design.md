@@ -39,7 +39,7 @@ macOS 使用混合扫描：
 - 路径通过参数数组传递，不拼接 shell 字符串。
 - 父子分类遵循“更具体路径优先”，避免重复计数。
 - 结果必须区分快照、精确值、partial、unsupported 和失败。
-- Windows/Linux 未实现时返回 unsupported，不伪造空扫描成功。
+- 非 macOS 平台未实现时返回 unsupported，不伪造空扫描成功。
 
 ## 4. 清理安全模型
 
@@ -75,7 +75,7 @@ macOS 使用混合扫描：
 
 ## 7. 平台扩展
 
-平台实现留在 Rust adapter，前端 DTO 保持平台无关。新增 Windows/Linux scanner 时不得修改现有清理授权语义，也不得把平台路径暴露为前端可执行命令。
+平台实现留在 Rust adapter，前端 DTO 保持平台无关。新增 Windows scanner 时不得修改现有清理授权语义，也不得把平台路径暴露为前端可执行命令；Linux 不在产品支持范围内。
 
 ## 8. 修改检查表
 

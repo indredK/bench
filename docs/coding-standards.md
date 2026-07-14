@@ -155,6 +155,7 @@
 - **强制**: pre-commit 至少检查暂存区空白和 Prettier；按改动范围执行文档、i18n/TypeScript/前端测试与构建、Rust fmt/check/Clippy/test。
 - **强制**: 同一文件同时存在 staged 与 unstaged 修改时停止提交，避免检查工作区版本却提交另一版本；不得用 `--no-verify` 绕过失败门禁。
 - **强制**: Git Hook 只提供本地反馈，CI 必须独立执行格式、i18n/类型、Clippy、测试与构建，不能信任客户端 Hook 已运行。
+- **强制**: CI/CD runner、构建目标和发布产物只允许 macOS 与 Windows；禁止引入 Linux runner、容器、包格式或发布分支，由 `pnpm run check:ci-platforms` 校验。
 
 ## 11. 文档
 
