@@ -1,7 +1,7 @@
 /**
  * Detail column / 详情栏: station + account detail, password reveal, auth profile.
  */
-import { useEffect, useState, type ReactNode } from "react"
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import {
@@ -38,6 +38,8 @@ import {
   IconButton,
   SectionLabel,
 } from "@/features/account-manager/components/shared"
+
+const REVEALED_PASSWORD_TTL_MS = 30_000
 
 function computeSessionExpiry(
   lastLoginAt: string | null,
@@ -93,16 +95,26 @@ export function DetailColumn({
   const [passwordHidden, setPasswordHidden] = useState(true)
   const [revealedPassword, setRevealedPassword] = useState<string | null>(null)
   const [revealing, setRevealing] = useState(false)
+  const revealTimerRef = useRef<number | null>(null)
 
-  useEffect(() => {
+  const clearRevealedPassword = useCallback(() => {
+    if (revealTimerRef.current !== null) {
+      window.clearTimeout(revealTimerRef.current)
+      revealTimerRef.current = null
+    }
     setPasswordHidden(true)
     setRevealedPassword(null)
-  }, [account?.id])
+  }, [])
+
+  useEffect(() => {
+    clearRevealedPassword()
+    return clearRevealedPassword
+  }, [account?.id, clearRevealedPassword])
 
   const handleTogglePassword = async () => {
     if (!account) return
     if (!passwordHidden) {
-      setPasswordHidden(true)
+      clearRevealedPassword()
       return
     }
     if (!account.hasPassword) {
@@ -118,6 +130,7 @@ export function DetailColumn({
       const pw = await onRevealPassword(account.id)
       setRevealedPassword(pw)
       setPasswordHidden(false)
+      revealTimerRef.current = window.setTimeout(clearRevealedPassword, REVEALED_PASSWORD_TTL_MS)
     } catch {
       toast.error(t("accountManager.toasts.revealPasswordFailed"))
     } finally {
@@ -627,13 +640,9 @@ function AuthProfilePanel({
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon-xs"
-                        tabIndex={-1}
-                      >
-                        <HelpCircle size={11} />
-                      </Button>
+                        <Button variant="ghost" size="icon-xs" tabIndex={-1}>
+                          <HelpCircle size={11} />
+                        </Button>
                       </TooltipTrigger>
                       <TooltipContent side="top" className="max-w-48 text-[10px]">
                         {d.tooltip}

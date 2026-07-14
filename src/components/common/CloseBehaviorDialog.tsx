@@ -91,12 +91,12 @@ export function CloseBehaviorDialog({ open, onOpenChange, onConfirm }: CloseBeha
                 )}
               >
                 <span
-                className={cn(
-                  "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border",
-                  isSelected
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-muted-foreground",
-                )}
+                  className={cn(
+                    "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border",
+                    isSelected
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-muted-foreground",
+                  )}
                 >
                   {isSelected && <Check className="size-3" />}
                 </span>
@@ -107,9 +107,9 @@ export function CloseBehaviorDialog({ open, onOpenChange, onConfirm }: CloseBeha
                   </div>
                   <p className="text-muted-foreground mt-0.5 text-xs">{opt.desc}</p>
                 </div>
-                </Button>
-              )
-            })}
+              </Button>
+            )
+          })}
         </div>
 
         <div className="flex items-center justify-between border-t pt-4">

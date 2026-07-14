@@ -169,15 +169,15 @@ export function PortManagerPageContent({
             ) : (
               <div className="flex flex-wrap items-center gap-1.5">
                 {portStates.map((ps) => (
-                    <PortManagerPortChip
-                      key={ps.port}
-                      port={ps.port}
-                      statusClassName={chipStatusClasses[ps.status]}
-                      statusIcon={statusIconFor(ps.status)}
-                      onScrollTo={() => onScrollToPort(ps.port)}
-                      onRescan={() => onRescanPort(ps.port)}
-                      onRemove={() => onRemovePort(ps.port)}
-                    />
+                  <PortManagerPortChip
+                    key={ps.port}
+                    port={ps.port}
+                    statusClassName={chipStatusClasses[ps.status]}
+                    statusIcon={statusIconFor(ps.status)}
+                    onScrollTo={() => onScrollToPort(ps.port)}
+                    onRescan={() => onRescanPort(ps.port)}
+                    onRemove={() => onRemovePort(ps.port)}
+                  />
                 ))}
               </div>
             )}
@@ -191,11 +191,7 @@ export function PortManagerPageContent({
             <span>{error}</span>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  onClick={onClearError}
-                >
+                <Button variant="ghost" size="icon-xs" onClick={onClearError}>
                   <X size={13} />
                 </Button>
               </TooltipTrigger>

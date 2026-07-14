@@ -7,6 +7,11 @@ import { useUpdaterController } from "@/features/updater/hooks/useUpdaterControl
 import { useUpdaterStore } from "@/features/updater/store"
 import type { AppUpdateInfo } from "@/lib/tauri/types/updater"
 
+const { mockReadUpdaterPolicy, mockWriteUpdaterPolicy } = vi.hoisted(() => ({
+  mockReadUpdaterPolicy: vi.fn(),
+  mockWriteUpdaterPolicy: vi.fn(),
+}))
+
 vi.mock("react-i18next", () => ({
   initReactI18next: { type: "3rdParty", init: () => {} },
   useTranslation: () => ({ t: (key: string) => key }),
@@ -22,6 +27,11 @@ vi.mock("@/platform/shell", () => ({
 
 vi.mock("@/platform/events", () => ({
   listenToPlatformEvent: vi.fn(async () => () => {}),
+}))
+
+vi.mock("@/features/updater/services/updater-policy.repository", () => ({
+  readUpdaterPolicy: mockReadUpdaterPolicy,
+  writeUpdaterPolicy: mockWriteUpdaterPolicy,
 }))
 
 const mockCheckForAppUpdate = vi.fn()
@@ -65,6 +75,10 @@ function resetUpdaterStore() {
     downloadedBytes: 0,
     totalBytes: null,
     lastCheckedAt: 0,
+    autoCheckEnabled: true,
+    autoCheckFailureCount: 0,
+    lastAutoCheckFailureAt: 0,
+    policyHydrated: false,
   })
 }
 
@@ -77,6 +91,14 @@ describe("useUpdaterController", () => {
     mockRestartAfterUpdate.mockReset()
     mockGetCurrentVersion.mockReset()
     mockGetCurrentVersion.mockResolvedValue("1.0.0")
+    mockReadUpdaterPolicy.mockReset()
+    mockReadUpdaterPolicy.mockReturnValue({
+      autoCheckEnabled: true,
+      lastSuccessfulCheckAt: 0,
+      lastFailureAt: 0,
+      failureCount: 0,
+    })
+    mockWriteUpdaterPolicy.mockReset()
   })
 
   afterEach(() => {
@@ -222,15 +244,30 @@ describe("useUpdaterController", () => {
   })
 
   it("calls cancelAppUpdateDownload when cancelDownload is invoked", async () => {
-    mockCancelDownload.mockResolvedValue(undefined)
+    let resolveCancel: (() => void) | undefined
+    mockCancelDownload.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveCancel = resolve
+        }),
+    )
+    useUpdaterStore.setState({ status: "downloading" })
 
     const { result } = renderHook(() => useUpdaterController())
 
+    let cancelPromise: Promise<void> | undefined
     await act(async () => {
-      await result.current.cancelDownload()
+      cancelPromise = result.current.cancelDownload()
+      await Promise.resolve()
     })
 
     expect(mockCancelDownload).toHaveBeenCalledTimes(1)
+    expect(useUpdaterStore.getState().status).toBe("cancelling")
+
+    await act(async () => {
+      resolveCancel?.()
+      await cancelPromise
+    })
   })
 
   it("blocks closeDialog while downloading", async () => {

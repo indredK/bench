@@ -40,7 +40,8 @@ export function createInstallListColumns({
     {
       id: "description",
       header: t("appManager.column.description"),
-      accessorFn: (app) => t(`appManager.recommendedApps.${app.id}`, { defaultValue: app.description }),
+      accessorFn: (app) =>
+        t(`appManager.recommendedApps.${app.id}`, { defaultValue: app.description }),
       meta: { minWidth: "120px" },
       cell: ({ getValue }) => (
         <StickyTableText className="text-muted-foreground text-xs">

@@ -1,7 +1,4 @@
-import {
-  UNCLASSIFIED_SUBCATEGORY_ID,
-  isUnclassifiedSubcategoryId,
-} from "../constants"
+import { UNCLASSIFIED_SUBCATEGORY_ID, isUnclassifiedSubcategoryId } from "../constants"
 import type {
   Industry,
   Term,
@@ -125,10 +122,7 @@ export async function addIndustry(
   return { created, data }
 }
 
-export async function updateIndustry(
-  id: string,
-  label: string,
-): Promise<TerminologyData> {
+export async function updateIndustry(id: string, label: string): Promise<TerminologyData> {
   await terminologyRepository.updateIndustry(id, label)
   return loadData()
 }
@@ -193,9 +187,7 @@ export async function deleteSubcategory(
   return loadData()
 }
 
-export async function addTerm(
-  input: TermInput,
-): Promise<{ created: Term; data: TerminologyData }> {
+export async function addTerm(input: TermInput): Promise<{ created: Term; data: TerminologyData }> {
   const created = await terminologyRepository.createTerm(input)
   const data = await loadData()
   return { created, data }
@@ -211,10 +203,7 @@ export async function deleteTerm(id: string): Promise<TerminologyData> {
   return loadData()
 }
 
-export async function setTermPinned(
-  id: string,
-  value: boolean,
-): Promise<TerminologyData> {
+export async function setTermPinned(id: string, value: boolean): Promise<TerminologyData> {
   await terminologyRepository.setTermPinned(id, value)
   return loadData()
 }

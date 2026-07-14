@@ -127,7 +127,11 @@ export function AppAuthorizeSection() {
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3 text-sm">
-                <p>{t("systemSettings.advanced.appAuthorize.confirmDescription", { name: pending?.name ?? "" })}</p>
+                <p>
+                  {t("systemSettings.advanced.appAuthorize.confirmDescription", {
+                    name: pending?.name ?? "",
+                  })}
+                </p>
                 <div className="space-y-1.5">
                   <p className="text-muted-foreground text-xs font-medium">
                     {t("systemSettings.advanced.appAuthorize.commandLabel")}

@@ -54,12 +54,14 @@ export function CleanupProgress() {
             <CardTitle className="mb-3 text-sm">{t("cleanSpace.progress.logTitle")}</CardTitle>
             <div className="max-h-64 overflow-y-auto rounded-lg bg-neutral-900 p-3.5 font-mono text-xs text-neutral-100">
               {progress.logs.map((log, idx) => {
-                const time = new Date(log.timestamp).toLocaleTimeString(i18n.language, { hour12: false })
+                const time = new Date(log.timestamp).toLocaleTimeString(i18n.language, {
+                  hour12: false,
+                })
                 return (
                   <div
                     key={idx}
                     className={cn(
-                      "flex items-start gap-2 py-0.5 animate-in fade-in",
+                      "animate-in fade-in flex items-start gap-2 py-0.5",
                       log.status === "warn" && "text-red-300",
                     )}
                   >
@@ -71,7 +73,7 @@ export function CleanupProgress() {
                         log.status === "skip" && "bg-neutral-500",
                       )}
                     />
-                    <span className="text-neutral-500 shrink-0">{time}</span>
+                    <span className="shrink-0 text-neutral-500">{time}</span>
                     <span>
                       {log.status === "warn"
                         ? t("cleanSpace.progress.deleted")
@@ -95,21 +97,36 @@ export function CleanupProgress() {
             <div className="grid grid-cols-4 gap-3">
               <div className="bg-muted/50 rounded-xl py-4 text-center">
                 <div className="text-lg font-semibold tabular-nums">{progress.result.items}</div>
-                <div className="text-muted-foreground text-xs">{t("cleanSpace.progress.cleanedItems")}</div>
+                <div className="text-muted-foreground text-xs">
+                  {t("cleanSpace.progress.cleanedItems")}
+                </div>
               </div>
               <div className="bg-muted/50 rounded-xl py-4 text-center">
-                <div className="text-primary text-lg font-semibold tabular-nums">{formatSize(progress.result.freedBytes)}</div>
-                <div className="text-muted-foreground text-xs">{t("cleanSpace.progress.freedSpace")}</div>
+                <div className="text-primary text-lg font-semibold tabular-nums">
+                  {formatSize(progress.result.freedBytes)}
+                </div>
+                <div className="text-muted-foreground text-xs">
+                  {t("cleanSpace.progress.freedSpace")}
+                </div>
               </div>
               <div className="bg-muted/50 rounded-xl py-4 text-center">
                 <div className="text-lg font-semibold tabular-nums">{progress.result.paths}</div>
-                <div className="text-muted-foreground text-xs">{t("cleanSpace.progress.pathCount")}</div>
+                <div className="text-muted-foreground text-xs">
+                  {t("cleanSpace.progress.pathCount")}
+                </div>
               </div>
               <div className="bg-muted/50 rounded-xl py-4 text-center">
-                <div className={cn("text-lg font-semibold tabular-nums", progress.result.highCount > 0 && "text-red-500")}>
+                <div
+                  className={cn(
+                    "text-lg font-semibold tabular-nums",
+                    progress.result.highCount > 0 && "text-red-500",
+                  )}
+                >
                   {progress.result.highCount}
                 </div>
-                <div className="text-muted-foreground text-xs">{t("cleanSpace.progress.highRiskItems")}</div>
+                <div className="text-muted-foreground text-xs">
+                  {t("cleanSpace.progress.highRiskItems")}
+                </div>
               </div>
             </div>
             <div className="mt-4 flex justify-center gap-3">

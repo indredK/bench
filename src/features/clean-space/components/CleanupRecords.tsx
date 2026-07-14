@@ -50,10 +50,7 @@ export function CleanupRecords() {
         ) : (
           <div className="space-y-1.5">
             {records.map((record) => (
-              <div
-                key={record.id}
-                className="flex items-center gap-3 rounded-lg border p-2.5"
-              >
+              <div key={record.id} className="flex items-center gap-3 rounded-lg border p-2.5">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="truncate text-sm font-medium" title={record.title}>
@@ -67,7 +64,8 @@ export function CleanupRecords() {
                     </Badge>
                   </div>
                   <div className="text-muted-foreground mt-0.5 truncate text-xs">
-                    {record.scope} &middot; {new Date(record.timestamp * 1000).toLocaleString(i18n.language)}
+                    {record.scope} &middot;{" "}
+                    {new Date(record.timestamp * 1000).toLocaleString(i18n.language)}
                   </div>
                 </div>
                 <div className="shrink-0 text-right">

@@ -15,12 +15,7 @@ const RISK_WEIGHT: Record<RiskLevel, number> = {
 /**
  * 计算单项得分（0~1）。
  */
-export function scoreItem(
-  sizeBytes: number,
-  risk: RiskLevel,
-  maxSize: number,
-  marked = 0,
-): number {
+export function scoreItem(sizeBytes: number, risk: RiskLevel, maxSize: number, marked = 0): number {
   const norm = maxSize > 0 ? sizeBytes / maxSize : 0
   return norm * 0.5 + (1 - RISK_WEIGHT[risk]) * 0.3 + marked * 0.2
 }

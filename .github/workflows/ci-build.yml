@@ -145,37 +145,142 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Import Apple Developer ID certificate
+        if: runner.os == 'macOS'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          if [ -z "$APPLE_CERTIFICATE" ] || [ -z "$APPLE_CERTIFICATE_PASSWORD" ]; then
+            echo "::error::APPLE_CERTIFICATE and APPLE_CERTIFICATE_PASSWORD are required for macOS releases."
+            exit 1
+          fi
+          keychain_path="$RUNNER_TEMP/bench-release.keychain-db"
+          keychain_password="$(openssl rand -hex 24)"
+          certificate_path="$RUNNER_TEMP/bench-release.p12"
+          printf '%s' "$APPLE_CERTIFICATE" | base64 -D > "$certificate_path"
+          security create-keychain -p "$keychain_password" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$keychain_password" "$keychain_path"
+          security import "$certificate_path" -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$keychain_path"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain_path"
+          security list-keychain -d user -s "$keychain_path"
+          echo "BENCH_RELEASE_KEYCHAIN=$keychain_path" >> "$GITHUB_ENV"
+
+      - name: Import Windows Authenticode certificate
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          if (-not $env:WINDOWS_CERTIFICATE -or -not $env:WINDOWS_CERTIFICATE_PASSWORD) {
+            throw "WINDOWS_CERTIFICATE and WINDOWS_CERTIFICATE_PASSWORD are required for Windows releases."
+          }
+          $certificatePath = Join-Path $env:RUNNER_TEMP "bench-release.pfx"
+          [IO.File]::WriteAllBytes($certificatePath, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE))
+          $password = ConvertTo-SecureString $env:WINDOWS_CERTIFICATE_PASSWORD -AsPlainText -Force
+          $certificate = Import-PfxCertificate -FilePath $certificatePath -CertStoreLocation Cert:\CurrentUser\My -Password $password
+          if (-not $certificate -or -not $certificate.Thumbprint) {
+            throw "Windows release certificate import did not return a thumbprint."
+          }
+          "WINDOWS_CERTIFICATE_THUMBPRINT=$($certificate.Thumbprint)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
       - name: Build Tauri app
         shell: bash
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          WINDOWS_TIMESTAMP_URL: ${{ secrets.WINDOWS_TIMESTAMP_URL }}
         run: |
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ] || [ -z "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" ]; then
+            echo "::error::Tauri updater signing secrets are required for release tags."
+            exit 1
+          fi
           if [ "${{ runner.os }}" = "macOS" ]; then
+            if [ -z "$APPLE_SIGNING_IDENTITY" ] || [ -z "$APPLE_ID" ] || [ -z "$APPLE_PASSWORD" ] || [ -z "$APPLE_TEAM_ID" ]; then
+              echo "::error::APPLE_SIGNING_IDENTITY, APPLE_ID, APPLE_PASSWORD, and APPLE_TEAM_ID are required for notarized macOS releases."
+              exit 1
+            fi
             # Updater artifacts (.app.tar.gz) are emitted when the app bundle is built.
-            pnpm tauri build --target ${{ matrix.target }} --bundles app,dmg
+            release_config="{\"bundle\":{\"macOS\":{\"signingIdentity\":\"$APPLE_SIGNING_IDENTITY\"}}}"
+            pnpm tauri build --target ${{ matrix.target }} --bundles app,dmg --config "$release_config"
           elif [ "${{ runner.os }}" = "Windows" ]; then
-            pnpm tauri build --target ${{ matrix.target }} --bundles msi,nsis
+            if [ -z "$WINDOWS_CERTIFICATE_THUMBPRINT" ] || [ -z "$WINDOWS_TIMESTAMP_URL" ]; then
+              echo "::error::Windows certificate thumbprint and WINDOWS_TIMESTAMP_URL are required for Authenticode releases."
+              exit 1
+            fi
+            release_config="{\"bundle\":{\"windows\":{\"certificateThumbprint\":\"$WINDOWS_CERTIFICATE_THUMBPRINT\",\"digestAlgorithm\":\"sha256\",\"timestampUrl\":\"$WINDOWS_TIMESTAMP_URL\"}}}"
+            pnpm tauri build --target ${{ matrix.target }} --bundles msi,nsis --config "$release_config"
           else
             pnpm tauri build --target ${{ matrix.target }}
           fi
+
+      - name: Verify macOS code signing and notarization
+        if: runner.os == 'macOS'
+        run: |
+          bundle_dir="src-tauri/target/${{ matrix.target }}/release/bundle"
+          app_count="$(find "$bundle_dir/macos" -maxdepth 1 -type d -name "*.app" | wc -l | tr -d ' ')"
+          dmg_count="$(find "$bundle_dir/dmg" -maxdepth 1 -type f -name "*.dmg" | wc -l | tr -d ' ')"
+          if [ "$app_count" -ne 1 ] || [ "$dmg_count" -ne 1 ]; then
+            echo "::error::Expected one signed app and one notarized DMG for ${{ matrix.target }}."
+            exit 1
+          fi
+          app_path="$(find "$bundle_dir/macos" -maxdepth 1 -type d -name "*.app" -print -quit)"
+          dmg_path="$(find "$bundle_dir/dmg" -maxdepth 1 -type f -name "*.dmg" -print -quit)"
+          codesign --verify --deep --strict --verbose=2 "$app_path"
+          spctl --assess --type execute --verbose=2 "$app_path"
+          xcrun stapler validate "$app_path"
+          xcrun stapler validate "$dmg_path"
+          spctl --assess --type open --context context:primary-signature --verbose=2 "$dmg_path"
+
+      - name: Verify Windows Authenticode signatures
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $bundleRoot = "src-tauri/target/${{ matrix.target }}/release/bundle"
+          $files = @(
+            Get-Item "src-tauri/target/${{ matrix.target }}/release/bench.exe"
+            Get-ChildItem -Path "$bundleRoot/msi" -File -Filter *.msi
+            Get-ChildItem -Path "$bundleRoot/nsis" -File -Filter *.exe
+          )
+          if ($files.Count -ne 3) {
+            throw "Expected signed application, MSI, and NSIS files; found $($files.Count)."
+          }
+          foreach ($file in $files) {
+            $signature = Get-AuthenticodeSignature -FilePath $file.FullName
+            if ($signature.Status -ne "Valid") {
+              throw "Authenticode signature is not valid for $($file.FullName): $($signature.Status)"
+            }
+          }
 
       - name: Collect macOS bundle and updater artifacts
         if: runner.os == 'macOS'
         run: |
           mkdir -p artifacts
-          cp src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg artifacts/ || true
-          find src-tauri/target -name "*.dmg" -exec cp {} artifacts/ \; 2>/dev/null || true
-          updater_file="$(find src-tauri/target/${{ matrix.target }}/release/bundle -name "*.app.tar.gz" | head -n 1)"
-          if [ -z "$updater_file" ] || [ ! -f "${updater_file}.sig" ]; then
-            echo "::error::macOS updater bundle (.app.tar.gz) not found for ${{ matrix.target }}. Build must use --bundles app,dmg with createUpdaterArtifacts enabled."
-            exit 1
-          fi
           case "${{ matrix.target }}" in
             aarch64-apple-darwin) updater_platform="darwin-aarch64" ;;
             x86_64-apple-darwin) updater_platform="darwin-x86_64" ;;
             *) echo "Unsupported macOS updater target: ${{ matrix.target }}" && exit 1 ;;
           esac
+          bundle_dir="src-tauri/target/${{ matrix.target }}/release/bundle"
+          dmg_count="$(find "$bundle_dir/dmg" -maxdepth 1 -type f -name "*.dmg" | wc -l | tr -d ' ')"
+          updater_count="$(find "$bundle_dir" -type f -name "*.app.tar.gz" | wc -l | tr -d ' ')"
+          if [ "$dmg_count" -ne 1 ] || [ "$updater_count" -ne 1 ]; then
+            echo "::error::Expected exactly one DMG and one updater bundle for ${{ matrix.target }}; found DMG=$dmg_count updater=$updater_count."
+            exit 1
+          fi
+          dmg_file="$(find "$bundle_dir/dmg" -maxdepth 1 -type f -name "*.dmg" -print -quit)"
+          updater_file="$(find "$bundle_dir" -type f -name "*.app.tar.gz" -print -quit)"
+          if [ ! -s "$dmg_file" ] || [ ! -s "$updater_file" ] || [ ! -s "${updater_file}.sig" ]; then
+            echo "::error::macOS installer, updater, or updater signature is missing/empty for ${{ matrix.target }}."
+            exit 1
+          fi
+          cp "$dmg_file" "artifacts/${updater_platform}-$(basename "$dmg_file")"
           updater_name="${updater_platform}-$(basename "$updater_file")"
           updater_sig_name="${updater_name}.sig"
           cp "$updater_file" "artifacts/$updater_name"
@@ -191,24 +296,27 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           New-Item -ItemType Directory -Force -Path artifacts | Out-Null
-          Get-ChildItem -Path src-tauri/target -Recurse -Include *.msi,*.exe,*.sig | Where-Object { $_.FullName -match "bundle" } | Copy-Item -Destination artifacts/ -ErrorAction SilentlyContinue
-          $preferred = Get-ChildItem -Path src-tauri/target -Recurse -File | Where-Object { $_.FullName -match "bundle" -and $_.Name -match '\.exe$' } | Select-Object -First 1
-          if (-not $preferred) {
-            $preferred = Get-ChildItem -Path src-tauri/target -Recurse -File | Where-Object { $_.FullName -match "bundle" -and $_.Name -match '\.msi$' } | Select-Object -First 1
+          $bundleRoot = "src-tauri/target/${{ matrix.target }}/release/bundle"
+          $msi = @(Get-ChildItem -Path "$bundleRoot/msi" -File -Filter *.msi)
+          $nsis = @(Get-ChildItem -Path "$bundleRoot/nsis" -File -Filter *.exe)
+          if ($msi.Count -ne 1 -or $nsis.Count -ne 1) {
+            throw "Expected exactly one MSI and one NSIS installer; found MSI=$($msi.Count) NSIS=$($nsis.Count)."
           }
-          if ($preferred) {
-            $sigPath = "$($preferred.FullName).sig"
-            if (Test-Path $sigPath) {
-              Copy-Item $preferred.FullName -Destination artifacts/ -ErrorAction SilentlyContinue
-              Copy-Item $sigPath -Destination artifacts/ -ErrorAction SilentlyContinue
-              node scripts/release/write-updater-manifest.mjs `
-                --output-dir artifacts `
-                --target "${{ matrix.target }}" `
-                --platform "windows-x86_64" `
-                --file "$($preferred.FullName)" `
-                --signature "$sigPath"
-            }
+          $sigPath = "$($nsis[0].FullName).sig"
+          if (-not (Test-Path $sigPath) -or (Get-Item $sigPath).Length -eq 0) {
+            throw "Windows NSIS updater signature is missing or empty: $sigPath"
           }
+          $msiName = "windows-x86_64-$($msi[0].Name)"
+          $updaterName = "windows-x86_64-$($nsis[0].Name)"
+          Copy-Item $msi[0].FullName -Destination "artifacts/$msiName"
+          Copy-Item $nsis[0].FullName -Destination "artifacts/$updaterName"
+          Copy-Item $sigPath -Destination "artifacts/$updaterName.sig"
+          node scripts/release/write-updater-manifest.mjs `
+            --output-dir artifacts `
+            --target "${{ matrix.target }}" `
+            --platform "windows-x86_64" `
+            --file "artifacts/$updaterName" `
+            --signature "artifacts/$updaterName.sig"
 
       # Linux release packaging is temporarily disabled.
       # - name: Collect Linux bundle (deb/AppImage)
@@ -222,7 +330,15 @@ jobs:
         with:
           name: bundle-${{ matrix.target }}
           path: artifacts/
+          if-no-files-found: error
           retention-days: 7
+
+      - name: Remove temporary Apple release keychain
+        if: always() && runner.os == 'macOS'
+        run: |
+          if [ -n "${BENCH_RELEASE_KEYCHAIN:-}" ]; then
+            security delete-keychain "$BENCH_RELEASE_KEYCHAIN"
+          fi
 
   publish:
     name: Publish Release
@@ -272,14 +388,19 @@ jobs:
       - name: List release assets
         run: ls -la release-assets/
 
-      - name: Ensure release exists and read metadata
+      - name: Verify required release assets
+        run: node scripts/release/verify-release-assets.mjs release-assets
+
+      - name: Read release metadata without mutating GitHub
         env:
           GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
         run: |
-          if ! gh release view "${{ github.ref_name }}" >/dev/null 2>&1; then
-            gh release create "${{ github.ref_name }}" --title "Bench ${{ github.ref_name }}" --notes ""
+          if gh release view "${{ github.ref_name }}" >/dev/null 2>&1; then
+            gh release view "${{ github.ref_name }}" --json body,publishedAt > release-metadata.json
+          else
+            published_at="$(git show -s --format=%cI "${{ github.ref_name }}")"
+            jq -n --arg publishedAt "$published_at" '{body: "", publishedAt: $publishedAt}' > release-metadata.json
           fi
-          gh release view "${{ github.ref_name }}" --json body,publishedAt > release-metadata.json
 
       - name: Generate latest.json
         run: node scripts/release/generate-updater-json.mjs --assets-dir release-assets --tag "${{ github.ref_name }}" --repo "${{ github.repository }}" --release-metadata release-metadata.json
@@ -298,6 +419,12 @@ jobs:
         run: |
           shopt -s nullglob
           rm -f release-assets/updater-manifest-*.json
+          (
+            cd release-assets
+            find . -maxdepth 1 -type f ! -name SHA256SUMS -printf '%f\n' | LC_ALL=C sort | xargs -r sha256sum > SHA256SUMS
+            test -s SHA256SUMS
+            sha256sum -c SHA256SUMS
+          )
           if gh release view "${{ github.ref_name }}" >/dev/null 2>&1; then
             gh release upload "${{ github.ref_name }}" release-assets/* --clobber
           else

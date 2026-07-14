@@ -2,73 +2,64 @@
 
 ## [1.23.0](https://github.com/indredK/bench/compare/v1.22.0...v1.23.0) (2026-07-13)
 
-
 ### Features
 
-* **scripts:** 添加安全依赖升级脚本 ([b029457](https://github.com/indredK/bench/commit/b02945788a2932011daa39fe068a2e70ac3daf4d))
-* 新增多导航布局支持，重构布局系统 ([d4f1f42](https://github.com/indredK/bench/commit/d4f1f42f3d7c1b28e63d7eb2240ae73fc8993c93))
-* 新增存储空间清理模块，重构开发清理模块结构 ([2538f2a](https://github.com/indredK/bench/commit/2538f2a09873f7ba128a346b7ff14535fbf3b76e))
+- **scripts:** 添加安全依赖升级脚本 ([b029457](https://github.com/indredK/bench/commit/b02945788a2932011daa39fe068a2e70ac3daf4d))
+- 新增多导航布局支持，重构布局系统 ([d4f1f42](https://github.com/indredK/bench/commit/d4f1f42f3d7c1b28e63d7eb2240ae73fc8993c93))
+- 新增存储空间清理模块，重构开发清理模块结构 ([2538f2a](https://github.com/indredK/bench/commit/2538f2a09873f7ba128a346b7ff14535fbf3b76e))
 
 ## [1.22.0](https://github.com/indredK/bench/compare/v1.21.0...v1.22.0) (2026-07-06)
 
-
 ### Features
 
-* **dev-cleaner:** 添加扫描失败页面级错误态 ([7c60582](https://github.com/indredK/bench/commit/7c6058282d3424dedcc3552b11d83d6d744bddaa))
-* **ui:** 新增通用 FeatureErrorBoundary 并接入 hardware/system-settings ([ad5d2cd](https://github.com/indredK/bench/commit/ad5d2cd0d17524c53a6f947faf5738803a48b51a))
-
+- **dev-cleaner:** 添加扫描失败页面级错误态 ([7c60582](https://github.com/indredK/bench/commit/7c6058282d3424dedcc3552b11d83d6d744bddaa))
+- **ui:** 新增通用 FeatureErrorBoundary 并接入 hardware/system-settings ([ad5d2cd](https://github.com/indredK/bench/commit/ad5d2cd0d17524c53a6f947faf5738803a48b51a))
 
 ### Bug Fixes
 
-* 5项强制违规修复 — Zustand selector / confirm dialog / toast / 事件清理 ([a801c95](https://github.com/indredK/bench/commit/a801c9532bab4fb66c9b3e31a226bcd980a2a59e))
-* Phase 4 remaining items — store selector, reentry guard, audit report ([ed46ef1](https://github.com/indredK/bench/commit/ed46ef1c17c05ec137c9340da3159ed7bc296d79))
-* **rust:** types.rs separation and Mutex poison recovery ([04a7c4d](https://github.com/indredK/bench/commit/04a7c4d29370e4df2d20c215afd0242d1e018fce))
-* **system-settings:** AppAuthorizeSection platform boundary violations ([62cfc73](https://github.com/indredK/bench/commit/62cfc7347914fe3258b70662a131dbe912c2f17c))
-* **system-settings:** 修复激活标签页状态未正确读取的问题 ([9009306](https://github.com/indredK/bench/commit/90093066e6101a0d96d833d25a495b7e8b75da4e))
-* **terminology,account-manager:** add handleSave re-entrancy guard & fix hardcoded i18n placeholders ([0da0a57](https://github.com/indredK/bench/commit/0da0a574898af3c1b5216b07020e5b2d7aaf6547))
-* **ui:** CloseBehaviorDialog .join(' ') → cn() ([d01921a](https://github.com/indredK/bench/commit/d01921a189d90d3a1b3fe08b3188519d90c8289f))
-* **ui:** CloseBehaviorDialog radio-card button style fix ([5a547a5](https://github.com/indredK/bench/commit/5a547a59bd3477eb4f3324a657cb4b8a3603f213))
-* **updater,dev-cleaner:** add re-entrancy guards to async handlers ([70c4a4d](https://github.com/indredK/bench/commit/70c4a4d99c23fee81621869712555b93ed745ede))
-
+- 5项强制违规修复 — Zustand selector / confirm dialog / toast / 事件清理 ([a801c95](https://github.com/indredK/bench/commit/a801c9532bab4fb66c9b3e31a226bcd980a2a59e))
+- Phase 4 remaining items — store selector, reentry guard, audit report ([ed46ef1](https://github.com/indredK/bench/commit/ed46ef1c17c05ec137c9340da3159ed7bc296d79))
+- **rust:** types.rs separation and Mutex poison recovery ([04a7c4d](https://github.com/indredK/bench/commit/04a7c4d29370e4df2d20c215afd0242d1e018fce))
+- **system-settings:** AppAuthorizeSection platform boundary violations ([62cfc73](https://github.com/indredK/bench/commit/62cfc7347914fe3258b70662a131dbe912c2f17c))
+- **system-settings:** 修复激活标签页状态未正确读取的问题 ([9009306](https://github.com/indredK/bench/commit/90093066e6101a0d96d833d25a495b7e8b75da4e))
+- **terminology,account-manager:** add handleSave re-entrancy guard & fix hardcoded i18n placeholders ([0da0a57](https://github.com/indredK/bench/commit/0da0a574898af3c1b5216b07020e5b2d7aaf6547))
+- **ui:** CloseBehaviorDialog .join(' ') → cn() ([d01921a](https://github.com/indredK/bench/commit/d01921a189d90d3a1b3fe08b3188519d90c8289f))
+- **ui:** CloseBehaviorDialog radio-card button style fix ([5a547a5](https://github.com/indredK/bench/commit/5a547a59bd3477eb4f3324a657cb4b8a3603f213))
+- **updater,dev-cleaner:** add re-entrancy guards to async handlers ([70c4a4d](https://github.com/indredK/bench/commit/70c4a4d99c23fee81621869712555b93ed745ede))
 
 ### Performance Improvements
 
-* **terminology:** 术语卡片网格使用 VirtualGridView 虚拟化 ([78a5f63](https://github.com/indredK/bench/commit/78a5f63888ab0d28bbccc90d6fd6cf2324f52eca))
+- **terminology:** 术语卡片网格使用 VirtualGridView 虚拟化 ([78a5f63](https://github.com/indredK/bench/commit/78a5f63888ab0d28bbccc90d6fd6cf2324f52eca))
 
 ## [1.21.0](https://github.com/indredK/bench/compare/v1.20.2...v1.21.0) (2026-07-05)
 
-
 ### Features
 
-* **app-manager:** 新增 macOS 应用隔离授权功能 ([9b30a01](https://github.com/indredK/bench/commit/9b30a01f0a9091c10a16712c2f5514a92108d320))
-* **system-settings:** 新增应用隔离授权设置页面 ([50763b4](https://github.com/indredK/bench/commit/50763b4d3bd1ed2138799641ea21e3e9a44be1df))
+- **app-manager:** 新增 macOS 应用隔离授权功能 ([9b30a01](https://github.com/indredK/bench/commit/9b30a01f0a9091c10a16712c2f5514a92108d320))
+- **system-settings:** 新增应用隔离授权设置页面 ([50763b4](https://github.com/indredK/bench/commit/50763b4d3bd1ed2138799641ea21e3e9a44be1df))
 
 ## [1.20.2](https://github.com/indredK/bench/compare/v1.20.1...v1.20.2) (2026-07-05)
 
-
 ### Bug Fixes
 
-* **github workflows:** 移除冗余的pnpm配置步骤 ([d7fa01d](https://github.com/indredK/bench/commit/d7fa01d34dc976619356bdca5899c5e06ae98466))
+- **github workflows:** 移除冗余的pnpm配置步骤 ([d7fa01d](https://github.com/indredK/bench/commit/d7fa01d34dc976619356bdca5899c5e06ae98466))
 
 ## [1.20.1](https://github.com/indredK/bench/compare/v1.20.0...v1.20.1) (2026-07-05)
 
-
 ### Bug Fixes
 
-* **build:** window-vibrancy 0.6 修复 macOS release 编译 ([eb4fba6](https://github.com/indredK/bench/commit/eb4fba6758e8921f6a1c0860cdffd36778c0bf3a))
+- **build:** window-vibrancy 0.6 修复 macOS release 编译 ([eb4fba6](https://github.com/indredK/bench/commit/eb4fba6758e8921f6a1c0860cdffd36778c0bf3a))
 
 ## [1.20.0](https://github.com/indredK/bench/compare/v1.19.0...v1.20.0) (2026-07-05)
 
-
 ### Features
 
-* **a11y:** add useReducedMotion degradation for transform animations ([8b62185](https://github.com/indredK/bench/commit/8b621850df4e817d46d73cfc9cd7ce9ae24bc9f3))
-
+- **a11y:** add useReducedMotion degradation for transform animations ([8b62185](https://github.com/indredK/bench/commit/8b621850df4e817d46d73cfc9cd7ce9ae24bc9f3))
 
 ### Bug Fixes
 
-* **deps:** ignore yanked num-bigint 0.4.7 in deny.toml ([d9d5247](https://github.com/indredK/bench/commit/d9d5247967101617ab1c6663afab8e3e627d4185))
-* **deps:** upgrade window-vibrancy 0.6→0.7.1, @clack/prompts 1.6→1.7, shadcn 4.12→4.13 ([5abcd2e](https://github.com/indredK/bench/commit/5abcd2ea4acaf1b1eb724701cb215b3292d96ea0))
+- **deps:** ignore yanked num-bigint 0.4.7 in deny.toml ([d9d5247](https://github.com/indredK/bench/commit/d9d5247967101617ab1c6663afab8e3e627d4185))
+- **deps:** upgrade window-vibrancy 0.6→0.7.1, @clack/prompts 1.6→1.7, shadcn 4.12→4.13 ([5abcd2e](https://github.com/indredK/bench/commit/5abcd2ea4acaf1b1eb724701cb215b3292d96ea0))
 
 ## [1.19.0](https://github.com/indredK/bench/compare/v1.18.1...v1.19.0) (2026-07-04)
 

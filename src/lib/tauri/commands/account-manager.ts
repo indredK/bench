@@ -262,10 +262,7 @@ export function setAccountProxyEnabled(
 /// 启动外部代理登录:打开登录窗口 → 注入凭证 → 返回占位 AuthProxyResult。
 /// 真正的 token 由前端在用户完成登录后通过 `captureAccountSession`
 /// + `buildProxyReturnUrl` 组装,再用 `openExternal` 回呼外部 App。
-export function proxyLogin(
-  accountId: string,
-  ticketId: string,
-): Promise<AuthProxyResult> {
+export function proxyLogin(accountId: string, ticketId: string): Promise<AuthProxyResult> {
   return invokeTauriCommand(TAURI_COMMANDS.accountManager.proxyLogin, {
     accountId,
     ticketId,

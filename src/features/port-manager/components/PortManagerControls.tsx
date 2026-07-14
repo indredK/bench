@@ -217,10 +217,7 @@ export function PortManagerPortChip({
               event.stopPropagation()
               onRescan()
             }}
-            className={cn(
-              chipActionBase,
-              "group hover:bg-foreground/10",
-            )}
+            className={cn(chipActionBase, "group hover:bg-foreground/10")}
           >
             <RefreshCw size={13} className="transition-transform group-hover:rotate-180" />
           </Button>

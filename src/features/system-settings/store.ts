@@ -35,28 +35,28 @@ interface SystemSettingsState {
   setDarkMode: (v: boolean) => void
   displayBatteryPercent: boolean
   setDisplayBatteryPercent: (v: boolean) => void
-  autohideDock: boolean
+  autohideDock: boolean | null
   setAutohideDock: (v: boolean) => void
   dockOrientation: string
   setDockOrientation: (v: string) => void
   minimizeScaleEnabled: boolean
   setMinimizeScaleEnabled: (v: boolean) => void
-  autohideMenuBar: MenuBarAutoHideMode
+  autohideMenuBar: MenuBarAutoHideMode | null
   setAutohideMenuBar: (v: MenuBarAutoHideMode) => void
-  dockShowRecents: boolean
+  dockShowRecents: boolean | null
   setDockShowRecents: (v: boolean) => void
-  hideDesktopIcons: boolean
+  hideDesktopIcons: boolean | null
   setHideDesktopIcons: (v: boolean) => void
-  screenSaver: boolean
+  screenSaver: boolean | null
   setScreenSaver: (v: boolean) => void
 
-  screenshotFormat: string
+  screenshotFormat: string | null
   setScreenshotFormat: (v: string) => void
-  screenshotDisableShadow: boolean
+  screenshotDisableShadow: boolean | null
   setScreenshotDisableShadow: (v: boolean) => void
-  screenshotShowThumbnail: boolean
+  screenshotShowThumbnail: boolean | null
   setScreenshotShowThumbnail: (v: boolean) => void
-  screenshotSaveLocation: string
+  screenshotSaveLocation: string | null
   setScreenshotSaveLocation: (v: string) => void
 
   // ── Security ──
@@ -65,16 +65,16 @@ interface SystemSettingsState {
   lockScreenPasswordDelay: number
   setLockScreenPasswordDelay: (v: number) => void
 
-  networkFirewall: boolean
+  networkFirewall: boolean | null
   setNetworkFirewall: (v: boolean) => void
-  networkSsh: boolean
+  networkSsh: boolean | null
   setNetworkSsh: (v: boolean) => void
-  networkScreenSharing: boolean
+  networkScreenSharing: boolean | null
   setNetworkScreenSharing: (v: boolean) => void
-  networkAirdropDisabled: boolean
+  networkAirdropDisabled: boolean | null
   setNetworkAirdropDisabled: (v: boolean) => void
 
-  gatekeeper: GatekeeperMode
+  gatekeeper: GatekeeperMode | null
 
   // ── System ──
   sleepState: SleepState | null
@@ -91,22 +91,22 @@ interface SystemSettingsState {
   autoCapitalize: boolean
   setAutoCapitalize: (v: boolean) => void
 
-  lowPowerMode: LowPowerMode
+  lowPowerMode: LowPowerMode | null
   setLowPowerMode: (v: LowPowerMode) => void
 
-  finderShowHiddenFiles: boolean
+  finderShowHiddenFiles: boolean | null
   setFinderShowHiddenFiles: (v: boolean) => void
-  finderShowPathbar: boolean
+  finderShowPathbar: boolean | null
   setFinderShowPathbar: (v: boolean) => void
-  finderShowStatusbar: boolean
+  finderShowStatusbar: boolean | null
   setFinderShowStatusbar: (v: boolean) => void
-  finderShowLibraryDir: boolean
+  finderShowLibraryDir: boolean | null
   setFinderShowLibraryDir: (v: boolean) => void
-  finderShowFileExtensions: boolean
+  finderShowFileExtensions: boolean | null
   setFinderShowFileExtensions: (v: boolean) => void
-  finderSpotlightExternalDisk: boolean
+  finderSpotlightExternalDisk: boolean | null
   setFinderSpotlightExternalDisk: (v: boolean) => void
-  finderNoDsStore: boolean
+  finderNoDsStore: boolean | null
   setFinderNoDsStore: (v: boolean) => void
 
   loginItems: LoginItem[]
@@ -147,28 +147,28 @@ export const useSystemSettingsStore = create<SystemSettingsState>((set) => ({
   setDarkMode: (v) => set({ darkMode: v }),
   displayBatteryPercent: false,
   setDisplayBatteryPercent: (v) => set({ displayBatteryPercent: v }),
-  autohideDock: false,
+  autohideDock: null,
   setAutohideDock: (v) => set({ autohideDock: v }),
   dockOrientation: "bottom",
   setDockOrientation: (v) => set({ dockOrientation: v }),
   minimizeScaleEnabled: false,
   setMinimizeScaleEnabled: (v) => set({ minimizeScaleEnabled: v }),
-  autohideMenuBar: "in_full_screen_only",
+  autohideMenuBar: null,
   setAutohideMenuBar: (v) => set({ autohideMenuBar: v }),
-  dockShowRecents: false,
+  dockShowRecents: null,
   setDockShowRecents: (v) => set({ dockShowRecents: v }),
-  hideDesktopIcons: false,
+  hideDesktopIcons: null,
   setHideDesktopIcons: (v) => set({ hideDesktopIcons: v }),
-  screenSaver: false,
+  screenSaver: null,
   setScreenSaver: (v) => set({ screenSaver: v }),
 
-  screenshotFormat: "png",
+  screenshotFormat: null,
   setScreenshotFormat: (v) => set({ screenshotFormat: v }),
-  screenshotDisableShadow: false,
+  screenshotDisableShadow: null,
   setScreenshotDisableShadow: (v) => set({ screenshotDisableShadow: v }),
-  screenshotShowThumbnail: true,
+  screenshotShowThumbnail: null,
   setScreenshotShowThumbnail: (v) => set({ screenshotShowThumbnail: v }),
-  screenshotSaveLocation: "~/Desktop",
+  screenshotSaveLocation: null,
   setScreenshotSaveLocation: (v) => set({ screenshotSaveLocation: v }),
 
   // ── Security defaults ──
@@ -177,16 +177,16 @@ export const useSystemSettingsStore = create<SystemSettingsState>((set) => ({
   lockScreenPasswordDelay: 5,
   setLockScreenPasswordDelay: (v) => set({ lockScreenPasswordDelay: v }),
 
-  networkFirewall: false,
+  networkFirewall: null,
   setNetworkFirewall: (v) => set({ networkFirewall: v }),
-  networkSsh: false,
+  networkSsh: null,
   setNetworkSsh: (v) => set({ networkSsh: v }),
-  networkScreenSharing: false,
+  networkScreenSharing: null,
   setNetworkScreenSharing: (v) => set({ networkScreenSharing: v }),
-  networkAirdropDisabled: false,
+  networkAirdropDisabled: null,
   setNetworkAirdropDisabled: (v) => set({ networkAirdropDisabled: v }),
 
-  gatekeeper: "identified_developers",
+  gatekeeper: null,
 
   // ── System defaults ──
   sleepState: null,
@@ -203,22 +203,22 @@ export const useSystemSettingsStore = create<SystemSettingsState>((set) => ({
   autoCapitalize: false,
   setAutoCapitalize: (v) => set({ autoCapitalize: v }),
 
-  lowPowerMode: "never",
+  lowPowerMode: null,
   setLowPowerMode: (v) => set({ lowPowerMode: v }),
 
-  finderShowHiddenFiles: false,
+  finderShowHiddenFiles: null,
   setFinderShowHiddenFiles: (v) => set({ finderShowHiddenFiles: v }),
-  finderShowPathbar: false,
+  finderShowPathbar: null,
   setFinderShowPathbar: (v) => set({ finderShowPathbar: v }),
-  finderShowStatusbar: false,
+  finderShowStatusbar: null,
   setFinderShowStatusbar: (v) => set({ finderShowStatusbar: v }),
-  finderShowLibraryDir: false,
+  finderShowLibraryDir: null,
   setFinderShowLibraryDir: (v) => set({ finderShowLibraryDir: v }),
-  finderShowFileExtensions: false,
+  finderShowFileExtensions: null,
   setFinderShowFileExtensions: (v) => set({ finderShowFileExtensions: v }),
-  finderSpotlightExternalDisk: false,
+  finderSpotlightExternalDisk: null,
   setFinderSpotlightExternalDisk: (v) => set({ finderSpotlightExternalDisk: v }),
-  finderNoDsStore: false,
+  finderNoDsStore: null,
   setFinderNoDsStore: (v) => set({ finderNoDsStore: v }),
 
   loginItems: [],

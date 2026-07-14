@@ -11,6 +11,7 @@ export type UpdaterStatus =
   | "available"
   | "upToDate"
   | "downloading"
+  | "cancelling"
   | "installing"
   | "readyToRestart"
   | "error"
@@ -25,6 +26,10 @@ interface UpdaterState {
   downloadedBytes: number
   totalBytes: number | null
   lastCheckedAt: number
+  autoCheckEnabled: boolean
+  autoCheckFailureCount: number
+  lastAutoCheckFailureAt: number
+  policyHydrated: boolean
 
   setOpen: (open: boolean) => void
   setStatus: (status: UpdaterStatus) => void
@@ -48,6 +53,10 @@ export const useUpdaterStore = create<UpdaterState>((set) => ({
   downloadedBytes: 0,
   totalBytes: null,
   lastCheckedAt: 0,
+  autoCheckEnabled: true,
+  autoCheckFailureCount: 0,
+  lastAutoCheckFailureAt: 0,
+  policyHydrated: false,
 
   setOpen: (open) => set({ open }),
   setStatus: (status) => set({ status }),
@@ -63,6 +72,10 @@ export const useUpdaterStore = create<UpdaterState>((set) => ({
       open: state.open,
       currentVersion: state.currentVersion,
       lastCheckedAt: state.lastCheckedAt,
+      autoCheckEnabled: state.autoCheckEnabled,
+      autoCheckFailureCount: state.autoCheckFailureCount,
+      lastAutoCheckFailureAt: state.lastAutoCheckFailureAt,
+      policyHydrated: state.policyHydrated,
       status: "idle",
       updateInfo: null,
       error: "",

@@ -69,7 +69,10 @@ function statusLabel(status: StationAccount["status"], t: (k: string) => string)
 function deriveExternalAppName(url: string, t?: (k: string) => string): string {
   try {
     const u = new URL(url)
-    return u.protocol.replace(":", "") || (t ? t("accountManager.authProxy.wizard.externalAppFallback") : "external app")
+    return (
+      u.protocol.replace(":", "") ||
+      (t ? t("accountManager.authProxy.wizard.externalAppFallback") : "external app")
+    )
   } catch {
     return t ? t("accountManager.authProxy.wizard.externalAppFallback") : "external app"
   }
@@ -415,9 +418,7 @@ export function AuthProxyDialog({
                 }}
                 className={cn(
                   "flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm",
-                  usingExisting
-                    ? "border-primary bg-primary/5"
-                    : "",
+                  usingExisting ? "border-primary bg-primary/5" : "",
                   !hasExistingAccounts && "opacity-60",
                 )}
               >

@@ -89,12 +89,7 @@ function WebsiteChip({ site }: { site: TermWebsite }) {
         </TooltipTrigger>
         <TooltipContent side="top" className="flex max-w-64 items-center gap-1.5">
           <span className="truncate text-xs">{site.url}</span>
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            className="shrink-0"
-            onClick={handleOpen}
-          >
+          <Button variant="ghost" size="icon-xs" className="shrink-0" onClick={handleOpen}>
             <ExternalLink size={11} />
           </Button>
         </TooltipContent>
@@ -212,7 +207,12 @@ function TermEditor({
 }) {
   const { t } = useTranslation()
   const { industries, addTerm, updateTerm, deleteTerm } = useTerminologyStore(
-    useShallow((s) => ({ industries: s.industries, addTerm: s.addTerm, updateTerm: s.updateTerm, deleteTerm: s.deleteTerm })),
+    useShallow((s) => ({
+      industries: s.industries,
+      addTerm: s.addTerm,
+      updateTerm: s.updateTerm,
+      deleteTerm: s.deleteTerm,
+    })),
   )
   const currentIndustry = industries.find((industry) => industry.id === industryId)
   const currentCategory =
@@ -1141,7 +1141,7 @@ export default function TerminologyPage() {
         </div>
 
         {/* Cards grid */}
-        <div className="flex-1 min-h-0 p-4">
+        <div className="min-h-0 flex-1 p-4">
           <VirtualGridView
             data={terms}
             getRowId={(term) => term.id}

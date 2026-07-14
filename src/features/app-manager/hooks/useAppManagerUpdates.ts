@@ -146,7 +146,14 @@ export function useAppManagerUpdates(
         setUpdatesLoading(false)
       }
     },
-    [setUpdates, setUpdatesError, setUpdatesWarning, setUpdatesLoading, setUpdatesScanned, toLocalizedError],
+    [
+      setUpdates,
+      setUpdatesError,
+      setUpdatesWarning,
+      setUpdatesLoading,
+      setUpdatesScanned,
+      toLocalizedError,
+    ],
   )
 
   const handleUpdateAction = useCallback(

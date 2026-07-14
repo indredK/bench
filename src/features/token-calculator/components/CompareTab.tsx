@@ -190,21 +190,48 @@ export function CompareTab({
         }
       })
       .sort((a, b) => a.cost - b.cost)
-  }, [selectedModels, actualInputTokens, actualOutputTokens, displayCurrency, exchangeRate, cacheHitRates])
+  }, [
+    selectedModels,
+    actualInputTokens,
+    actualOutputTokens,
+    displayCurrency,
+    exchangeRate,
+    cacheHitRates,
+  ])
 
   const budgetResults = useMemo(() => {
     return selectedModels
       .map((sm) => {
-        const inp = convertPrice(sm.model.inputPrice, sm.model.currency, displayCurrency, exchangeRate)
+        const inp = convertPrice(
+          sm.model.inputPrice,
+          sm.model.currency,
+          displayCurrency,
+          exchangeRate,
+        )
         const cacheWrite =
           sm.model.cachedWritePrice != null
-            ? convertPrice(sm.model.cachedWritePrice, sm.model.currency, displayCurrency, exchangeRate)
+            ? convertPrice(
+                sm.model.cachedWritePrice,
+                sm.model.currency,
+                displayCurrency,
+                exchangeRate,
+              )
             : null
         const cacheRead =
           sm.model.cachedReadPrice != null
-            ? convertPrice(sm.model.cachedReadPrice, sm.model.currency, displayCurrency, exchangeRate)
+            ? convertPrice(
+                sm.model.cachedReadPrice,
+                sm.model.currency,
+                displayCurrency,
+                exchangeRate,
+              )
             : null
-        const outp = convertPrice(sm.model.outputPrice, sm.model.currency, displayCurrency, exchangeRate)
+        const outp = convertPrice(
+          sm.model.outputPrice,
+          sm.model.currency,
+          displayCurrency,
+          exchangeRate,
+        )
         const hitRate = getHitRate(sm.standardId, sm.model.modelName)
         const effInp = effectiveInputPrice(inp, cacheWrite, cacheRead, hitRate)
         const maxInput =
@@ -508,12 +535,24 @@ export function CompareTab({
             <TableHeader>
               <TableRow>
                 <TableHead className="pb-2 text-left">{t("tokenCalculator.modelName")}</TableHead>
-                <TableHead className="pb-2 text-center">{t("tokenCalculator.compare.cacheHitRate")}</TableHead>
-                <TableHead className="pb-2 text-right">{t("tokenCalculator.compare.inputPriceCol")}</TableHead>
-                <TableHead className="pb-2 text-right">{t("tokenCalculator.compare.cacheWritePriceCol")}</TableHead>
-                <TableHead className="pb-2 text-right">{t("tokenCalculator.compare.cacheReadPriceCol")}</TableHead>
-                <TableHead className="pb-2 text-right">{t("tokenCalculator.compare.outputPriceCol")}</TableHead>
-                <TableHead className="pb-2 text-right">{t("tokenCalculator.compare.totalCost")} (USD / CNY)</TableHead>
+                <TableHead className="pb-2 text-center">
+                  {t("tokenCalculator.compare.cacheHitRate")}
+                </TableHead>
+                <TableHead className="pb-2 text-right">
+                  {t("tokenCalculator.compare.inputPriceCol")}
+                </TableHead>
+                <TableHead className="pb-2 text-right">
+                  {t("tokenCalculator.compare.cacheWritePriceCol")}
+                </TableHead>
+                <TableHead className="pb-2 text-right">
+                  {t("tokenCalculator.compare.cacheReadPriceCol")}
+                </TableHead>
+                <TableHead className="pb-2 text-right">
+                  {t("tokenCalculator.compare.outputPriceCol")}
+                </TableHead>
+                <TableHead className="pb-2 text-right">
+                  {t("tokenCalculator.compare.totalCost")} (USD / CNY)
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -538,7 +577,11 @@ export function CompareTab({
                             step={5}
                             value={r.hitRate || ""}
                             onChange={(e) =>
-                              setHitRate(r.standardId, r.model.modelName, parseNonNegativeInteger(e.target.value))
+                              setHitRate(
+                                r.standardId,
+                                r.model.modelName,
+                                parseNonNegativeInteger(e.target.value),
+                              )
                             }
                           />
                           <span className="text-muted-foreground text-xs">%</span>
@@ -595,14 +638,30 @@ export function CompareTab({
             <TableHeader>
               <TableRow>
                 <TableHead className="pb-2 text-left">{t("tokenCalculator.modelName")}</TableHead>
-                <TableHead className="pb-2 text-center">{t("tokenCalculator.compare.cacheHitRate")}</TableHead>
-                <TableHead className="pb-2 text-right">{t("tokenCalculator.compare.inputPriceCol")}</TableHead>
-                <TableHead className="pb-2 text-right">{t("tokenCalculator.compare.cacheWritePriceCol")}</TableHead>
-                <TableHead className="pb-2 text-right">{t("tokenCalculator.compare.cacheReadPriceCol")}</TableHead>
-                <TableHead className="pb-2 text-right">{t("tokenCalculator.compare.outputPriceCol")}</TableHead>
-                <TableHead className="pb-2 text-right">{t("tokenCalculator.compare.maxInputTokens")}</TableHead>
-                <TableHead className="pb-2 text-right">{t("tokenCalculator.compare.maxOutputTokens")}</TableHead>
-                <TableHead className="pb-2 text-right">{t("tokenCalculator.compare.maxMixedTokens")}</TableHead>
+                <TableHead className="pb-2 text-center">
+                  {t("tokenCalculator.compare.cacheHitRate")}
+                </TableHead>
+                <TableHead className="pb-2 text-right">
+                  {t("tokenCalculator.compare.inputPriceCol")}
+                </TableHead>
+                <TableHead className="pb-2 text-right">
+                  {t("tokenCalculator.compare.cacheWritePriceCol")}
+                </TableHead>
+                <TableHead className="pb-2 text-right">
+                  {t("tokenCalculator.compare.cacheReadPriceCol")}
+                </TableHead>
+                <TableHead className="pb-2 text-right">
+                  {t("tokenCalculator.compare.outputPriceCol")}
+                </TableHead>
+                <TableHead className="pb-2 text-right">
+                  {t("tokenCalculator.compare.maxInputTokens")}
+                </TableHead>
+                <TableHead className="pb-2 text-right">
+                  {t("tokenCalculator.compare.maxOutputTokens")}
+                </TableHead>
+                <TableHead className="pb-2 text-right">
+                  {t("tokenCalculator.compare.maxMixedTokens")}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -625,7 +684,11 @@ export function CompareTab({
                             step={5}
                             value={r.hitRate || ""}
                             onChange={(e) =>
-                              setHitRate(r.standardId, r.model.modelName, parseNonNegativeInteger(e.target.value))
+                              setHitRate(
+                                r.standardId,
+                                r.model.modelName,
+                                parseNonNegativeInteger(e.target.value),
+                              )
                             }
                           />
                           <span className="text-muted-foreground text-xs">%</span>

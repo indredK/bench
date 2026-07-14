@@ -63,11 +63,7 @@ export const terminologyRepository = {
     return commands.updateSubcategory(industryId, categoryId, subcategoryId, label)
   },
 
-  deleteSubcategory(
-    industryId: string,
-    categoryId: string,
-    subcategoryId: string,
-  ): Promise<void> {
+  deleteSubcategory(industryId: string, categoryId: string, subcategoryId: string): Promise<void> {
     return commands.deleteSubcategory(industryId, categoryId, subcategoryId)
   },
 

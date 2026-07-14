@@ -91,12 +91,35 @@ export function ContentView<T>({
   getRowAttributes,
 }: ContentViewProps<T>) {
   const { t } = useTranslation()
-  const { reduce } = useReducedMotionProps()
+  const { shouldReduceMotion, reduce } = useReducedMotionProps()
 
   const progressPercent =
     loadingProgress !== undefined && loadingTotal != null && loadingTotal > 0
       ? Math.min(100, Math.max(0, (loadingProgress / loadingTotal) * 100))
       : null
+
+  const progressBar =
+    progressPercent === null ? (
+      <motion.div
+        className="bg-primary/60 h-full w-1/3"
+        initial={reduce({ x: "-100%" })}
+        animate={reduce({ x: "300%" })}
+        transition={
+          shouldReduceMotion ? undefined : { duration: 1.2, ease: "linear", repeat: Infinity }
+        }
+        data-progress="indeterminate"
+      />
+    ) : (
+      <div
+        className="bg-primary/60 h-full transition-[width]"
+        style={{ width: `${progressPercent}%` }}
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(progressPercent)}
+        data-progress="determinate"
+      />
+    )
 
   // Initial load with no data — preserve the eventual table/grid geometry.
   if (loading && data.length === 0) {
@@ -106,12 +129,7 @@ export function ContentView<T>({
           <div className="bg-muted h-5 w-40 animate-pulse rounded" />
           <span className="text-muted-foreground text-xs">{loadingSubtitle}</span>
         </div>
-        <div className="bg-muted h-1 w-full overflow-hidden rounded-full">
-          <div
-            className="bg-primary/60 h-full animate-pulse transition-[width]"
-            style={{ width: progressPercent === null ? "35%" : `${progressPercent}%` }}
-          />
-        </div>
+        <div className="bg-muted h-1 w-full overflow-hidden rounded-full">{progressBar}</div>
         {Array.from({ length: 8 }, (_, index) => (
           <div key={index} className="flex h-12 items-center gap-3 border-b last:border-b-0">
             <div className="bg-muted size-8 animate-pulse rounded-md" />
@@ -208,10 +226,7 @@ export function ContentView<T>({
     <div className="relative h-full">
       {content}
       <div className="pointer-events-none absolute inset-x-0 top-0 h-1 overflow-hidden rounded-full">
-        <div
-          className="bg-primary h-full animate-pulse transition-[width]"
-          style={{ width: progressPercent === null ? "35%" : `${progressPercent}%` }}
-        />
+        {progressBar}
       </div>
     </div>
   )

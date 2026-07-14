@@ -18,17 +18,71 @@ import {
 } from "@/features/account-manager/components/dialogs"
 import { AuthProxyDialog } from "@/features/account-manager/components/auth-proxy-dialog"
 import { ExternalAppsPanel } from "@/features/account-manager/components/external-apps-panel"
+import { cn } from "@/lib/utils"
+
+function SkeletonLine({ className }: { className: string }) {
+  return <div className={cn("bg-muted rounded motion-safe:animate-pulse", className)} />
+}
+
+function SkeletonColumn({
+  widthClass,
+  rows,
+  hiddenOnNarrow = false,
+}: {
+  widthClass: string
+  rows: number
+  hiddenOnNarrow?: boolean
+}) {
+  return (
+    <section
+      className={cn(
+        "bg-card min-w-0 shrink-0 flex-col rounded-lg border",
+        hiddenOnNarrow ? "hidden xl:flex" : "flex",
+        widthClass,
+      )}
+      data-skeleton-column
+    >
+      <div className="flex h-14 shrink-0 items-center justify-between border-b px-4">
+        <SkeletonLine className="h-4 w-24" />
+        <SkeletonLine className="h-8 w-20" />
+      </div>
+      <div className="min-h-0 flex-1 space-y-3 overflow-hidden p-3">
+        {Array.from({ length: rows }, (_, index) => (
+          <div key={index} className="space-y-2 rounded-md border p-3">
+            <SkeletonLine className="h-3.5 w-2/3" />
+            <SkeletonLine className="h-3 w-full" />
+            <SkeletonLine className="h-3 w-1/2" />
+          </div>
+        ))}
+      </div>
+      <div className="flex h-14 shrink-0 items-center gap-2 border-t px-3">
+        <SkeletonLine className="h-8 flex-1" />
+        <SkeletonLine className="size-8" />
+      </div>
+    </section>
+  )
+}
+
+export function AccountManagerLoadingSkeleton() {
+  const { t } = useTranslation()
+
+  return (
+    <div className="flex h-full min-h-0 gap-4" aria-busy="true" aria-label={t("common.loading")}>
+      <SkeletonColumn widthClass="w-[320px]" rows={5} />
+      <div className="min-w-0 flex-[1.1]">
+        <SkeletonColumn widthClass="h-full w-full" rows={6} />
+      </div>
+      <SkeletonColumn widthClass="w-[340px]" rows={4} hiddenOnNarrow />
+    </div>
+  )
+}
 
 function AccountManagerPage() {
   const { t } = useTranslation()
   const c = useAccountManagerController()
 
   if (c.loading) {
-    return (
-      <div className="text-muted-foreground flex h-full items-center justify-center text-sm">
-        {t("common.loading")}
-      </div>
-    )
+    return <AccountManagerLoadingSkeleton />
   }
 
   if (c.loadError) {

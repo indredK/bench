@@ -133,9 +133,7 @@ export function CustomTitlebar({ className }: CustomTitlebarProps) {
               variant="ghost"
               size="icon-sm"
               data-no-window-drag
-              className={cn(
-                alwaysOnTop && "text-primary hover:text-primary",
-              )}
+              className={cn(alwaysOnTop && "text-primary hover:text-primary")}
               onClick={handleToggleAlwaysOnTop}
               title={t("titlebar.alwaysOnTop")}
               aria-label={t("titlebar.alwaysOnTop")}

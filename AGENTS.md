@@ -3,6 +3,7 @@
 > **你是 AI 工具？从这里开始。** 本文件是 AI 操作 Bench 项目的唯一逻辑入口——无论你从哪个工具文件（`.cursorrules` / `.trae/rules/` / `.github/copilot-instructions.md` / `.claude/CLAUDE.md` / `.codebuddy/rules/` / …）进来，最终都必须回到这里。
 >
 > **入口 vs 优先级（两件事，不矛盾）**：
+>
 > - **入口顺序**：所有工具 → `AGENTS.md`（从哪开始读）。
 > - **裁决优先级**：内容冲突时 `.cursorrules > AGENTS.md > docs/*.md`（谁说了算）。
 > - 一句话：`AGENTS.md` 是"门"，`.cursorrules` 是"最高法律"。
@@ -25,15 +26,16 @@
 
 ## 工作流路由
 
-| 指令关键词 | 路由到 |
-|------------|--------|
-| review / 审查 / 审计 / 检查代码 | `docs/AI-WORKFLOWS.md → /review` |
-| fix / 修复 / 改 bug / 修 bug | `docs/AI-WORKFLOWS.md → /fix` |
-| doc / 文档 / 更新文档 / 对齐 | `docs/AI-WORKFLOWS.md → /doc` |
-| feature / 新功能 / 开发 / 实现 | `docs/AI-WORKFLOWS.md → /feature` |
-| audit / 审计 Phase N (N=1..8) | 继续阅读下方对应 Phase |
+| 指令关键词                      | 路由到                            |
+| ------------------------------- | --------------------------------- |
+| review / 审查 / 审计 / 检查代码 | `docs/AI-WORKFLOWS.md → /review`  |
+| fix / 修复 / 改 bug / 修 bug    | `docs/AI-WORKFLOWS.md → /fix`     |
+| doc / 文档 / 更新文档 / 对齐    | `docs/AI-WORKFLOWS.md → /doc`     |
+| feature / 新功能 / 开发 / 实现  | `docs/AI-WORKFLOWS.md → /feature` |
+| audit / 审计 Phase N (N=1..8)   | 继续阅读下方对应 Phase            |
 
 **始终遵守**：
+
 - 编码规范：`docs/coding-standards.md`（12 节，含强制/建议级别）
 - UX 规范：`docs/UX-STANDARDS.md`（布局、加载态、文本溢出、紧凑化、滚动行为）
 - 开发流程：`docs/development-workflow.md`
@@ -41,6 +43,7 @@
 - 方向性决策：`docs/DECISIONS.md`（规划/架构为什么这么定——做方向取舍前先读，取舍后回写）
 
 **指令示例**：
+
 - "审查代码" → 进入 /review workflow
 - "修复 Phase 2 违规" → 先运行对应 Phase，再进入 /fix workflow
 - "更新 token-calculator 文档" → 进入 /doc workflow

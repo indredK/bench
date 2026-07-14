@@ -169,6 +169,38 @@ describe("UpdateDialog", () => {
     expect(screen.queryByText(/## \[1\.7\.0\]/)).not.toBeInTheDocument()
   })
 
+  it("does not activate insecure release-note links", () => {
+    render(
+      <UpdateDialog
+        open={true}
+        status="available"
+        currentVersion="1.6.0"
+        updateInfo={{
+          available: true,
+          currentVersion: "1.6.0",
+          version: "1.7.0",
+          date: "2026-05-22",
+          body: "[insecure](http://example.com/release)",
+        }}
+        errorInfo={null}
+        error=""
+        downloadedBytes={0}
+        totalBytes={null}
+        lastCheckedAt={0}
+        checkUpdates={vi.fn(async () => {})}
+        downloadAndInstall={vi.fn(async () => {})}
+        restartNow={vi.fn(async () => {})}
+        closeDialog={vi.fn()}
+        dismissDialog={vi.fn()}
+        cancelDownload={vi.fn(async () => {})}
+        openReleasesPage={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByRole("link", { name: "insecure" })).not.toBeInTheDocument()
+    expect(screen.getByText("[insecure](http://example.com/release)")).toBeInTheDocument()
+  })
+
   it("applies constrained dialog layout classes for long content", () => {
     render(
       <UpdateDialog
@@ -199,6 +231,39 @@ describe("UpdateDialog", () => {
 
     expect(screen.getByTestId("dialog-content")).toHaveClass("overflow-hidden")
     expect(screen.getByTestId("dialog-content")).toHaveClass("grid-rows-[auto_minmax(0,1fr)_auto]")
+  })
+
+  it("does not expose a fake percentage when download size is unknown", () => {
+    const { container } = render(
+      <UpdateDialog
+        open={true}
+        status="downloading"
+        currentVersion="1.6.0"
+        updateInfo={{
+          available: true,
+          currentVersion: "1.6.0",
+          version: "1.7.0",
+          date: "2026-05-22",
+          body: null,
+        }}
+        errorInfo={null}
+        error=""
+        downloadedBytes={1024}
+        totalBytes={null}
+        lastCheckedAt={0}
+        checkUpdates={vi.fn(async () => {})}
+        downloadAndInstall={vi.fn(async () => {})}
+        restartNow={vi.fn(async () => {})}
+        closeDialog={vi.fn()}
+        dismissDialog={vi.fn()}
+        cancelDownload={vi.fn(async () => {})}
+        openReleasesPage={vi.fn()}
+      />,
+    )
+
+    expect(container.querySelector('[data-progress="indeterminate"]')).toBeInTheDocument()
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument()
+    expect(screen.queryByText("0%")).not.toBeInTheDocument()
   })
 
   it("shows a human-readable retry state without echoing current version as latest on check failure", () => {

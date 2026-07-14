@@ -19,4 +19,5 @@ export const cleanSpaceFeature: AppFeature = {
     </Suspense>
   ),
   desktopOnly: true,
+  platforms: ["macos"],
 }

@@ -40,7 +40,9 @@ export function ProcessTreeView({ node, depth, targetPid }: ProcessTreeViewProps
         {t("portManager.pid", { pid: node.pid })}
       </span>
       {isTarget && (
-        <span className="rounded-[10px] bg-white/20 px-1.5 py-px text-[10px]">{t("portManager.portOwner")}</span>
+        <span className="rounded-[10px] bg-white/20 px-1.5 py-px text-[10px]">
+          {t("portManager.portOwner")}
+        </span>
       )}
       {!isTarget && node.pid === node.ppid && (
         <span className="text-muted-foreground rounded-[10px] border px-1.5 py-px text-[10px]">

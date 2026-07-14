@@ -35,13 +35,7 @@ export function IconButton({
   tooltipSide?: "top" | "bottom" | "left" | "right"
 }) {
   const button = (
-    <Button
-      variant="ghost"
-      size="icon-xs"
-      onClick={onClick}
-      aria-label={label}
-      disabled={disabled}
-    >
+    <Button variant="ghost" size="icon-xs" onClick={onClick} aria-label={label} disabled={disabled}>
       {icon}
     </Button>
   )

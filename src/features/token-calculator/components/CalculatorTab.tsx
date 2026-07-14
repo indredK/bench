@@ -49,15 +49,30 @@ export function CalculatorTab({
     : 0
   const cachedWritePrice =
     modelPricing?.cachedWritePrice != null
-      ? convertPrice(modelPricing.cachedWritePrice, modelPricing.currency, displayCurrency, exchangeRate)
+      ? convertPrice(
+          modelPricing.cachedWritePrice,
+          modelPricing.currency,
+          displayCurrency,
+          exchangeRate,
+        )
       : null
   const cachedReadPrice =
     modelPricing?.cachedReadPrice != null
-      ? convertPrice(modelPricing.cachedReadPrice, modelPricing.currency, displayCurrency, exchangeRate)
+      ? convertPrice(
+          modelPricing.cachedReadPrice,
+          modelPricing.currency,
+          displayCurrency,
+          exchangeRate,
+        )
       : null
   const usesCachePricing = modelPricing ? hasCachePricing(modelPricing) : false
   const effectiveCalculatorInputPrice = modelPricing
-    ? effectiveInputPrice(inputPrice, cachedWritePrice, cachedReadPrice, usesCachePricing ? cacheHitRate : 0)
+    ? effectiveInputPrice(
+        inputPrice,
+        cachedWritePrice,
+        cachedReadPrice,
+        usesCachePricing ? cacheHitRate : 0,
+      )
     : 0
   const inputCost = (tokenCount / 1_000_000) * effectiveCalculatorInputPrice
   const outputCost = (tokenCount / 1_000_000) * outputPrice

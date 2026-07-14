@@ -65,11 +65,15 @@ const {
     "closeBehavior.alwaysAsk": "Always Ask",
     "closeBehavior.alwaysAskDesc": "Show a dialog each time",
     "common.appTitle": "Bench - DevTools",
+    "common.unknown": "Unknown",
+    "common.retry": "Retry",
     "about.description": "All-in-one developer toolkit for macOS",
     "about.version": "Version",
     "about.runtime": "Runtime",
     "updater.title": "Software Update",
     "updater.checkNow": "Check for Updates",
+    "updater.autoCheck": "Automatically check for updates",
+    "updater.autoCheckDescription": "Check quietly every 24 hours",
     "tray.show": "Show Bench",
     "tray.preventSleep": "Prevent Sleep",
     "tray.launchAtLogin": "Launch at Login",
@@ -162,12 +166,14 @@ vi.mock("@/components/ui/button", () => ({
     children,
     onClick,
     disabled,
+    "aria-label": ariaLabel,
   }: {
     children: React.ReactNode
     onClick?: () => void
     disabled?: boolean
+    "aria-label"?: string
   }) => (
-    <button type="button" onClick={onClick} disabled={disabled}>
+    <button type="button" onClick={onClick} disabled={disabled} aria-label={ariaLabel}>
       {children}
     </button>
   ),
@@ -236,5 +242,30 @@ describe("SettingsDialog", () => {
     expect(writeStorageItem).toHaveBeenCalledWith("language", "zh")
     expect(changeLanguage).toHaveBeenCalledWith("zh")
     expect(setCurrentWindowTitle).toHaveBeenCalledWith("Bench - DevTools")
+  })
+
+  it("updates the automatic update preference", async () => {
+    const user = userEvent.setup()
+    const onAutoCheckEnabledChange = vi.fn()
+    render(
+      <SettingsDialog
+        open={true}
+        onOpenChange={() => {}}
+        autoCheckEnabled={false}
+        onAutoCheckEnabledChange={onAutoCheckEnabledChange}
+      />,
+    )
+
+    expect(screen.getByText("Automatically check for updates")).toBeInTheDocument()
+    await user.click(screen.getAllByRole("switch")[1])
+    expect(onAutoCheckEnabledChange).toHaveBeenCalledWith(true)
+  })
+
+  it("does not show autostart as disabled when its read fails", async () => {
+    getAutostartStatus.mockRejectedValueOnce(new Error("permission denied"))
+    render(<SettingsDialog open={true} onOpenChange={() => {}} />)
+
+    expect(await screen.findByText("Unknown")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument()
   })
 })

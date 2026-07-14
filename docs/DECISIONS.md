@@ -11,6 +11,28 @@
 
 ---
 
+## D-009 · 正式 tag 采用 OS 签名与 updater 签名双重 fail-closed
+
+- **日期**：2026-07-14
+- **状态**：采纳
+- **背景**：原 release workflow 允许缺少 DMG/Windows updater 时继续，macOS 默认使用 ad-hoc identity，且会在产物验证前创建空 Release。Tauri updater minisign 只能验证应用内更新包，不能替代 macOS Developer ID/notarization 或 Windows Authenticode。
+- **决策**：正式 tag 构建必须从 GitHub Secrets 导入 Apple Developer ID 和 Windows PFX，使用 Tauri 2.11.4 bundler 的 `signingIdentity` / `certificateThumbprint` 配置完成签名；随后验证 codesign、Gatekeeper、stapler 和 Authenticode。installer、updater、`.sig`、三平台 manifest 和 SHA-256 清单任一缺失即停止，所有校验通过后才允许创建或更新 GitHub Release。updater 私钥与 OS 证书分开管理。
+- **理由**：发布可信度需要同时覆盖操作系统安装信任和应用内更新完整性；把产物集合、签名状态和发布副作用做成机器门禁，可以避免“CI 绿色但用户拿到未签名/缺平台包”。
+- **影响**：本地 ad-hoc debug bundle 只用于构建排障，不是发布证据。没有正式证书 Secrets、三个目标产物和 RC 真机 smoke 时，`v2.0.0` tag workflow 必须失败；版本文件仍由 release-please 在 F09 显式切换。
+- **相关**：[2.0.0 发布门禁](./roadmap/2.0.0-release-readiness.md) · [CI workflow](../.github/workflows/ci-build.yml) · [Tauri macOS signing](https://v2.tauri.app/distribute/sign/macos/) · [Tauri Windows signing](https://v2.tauri.app/distribute/sign/windows/)
+
+## D-008 · 2.0.0 冻结新品类并采用功能/UX 双发布门禁
+
+- **日期**：2026-07-14
+- **状态**：采纳
+- **背景**：Bench 1.23.0 的核心功能已经接近完整，但目标平台行为、Account Manager 生命周期、清理安全、错误/取消体验、OS 代码签名和升级回滚证据仍不完整。继续增加功能会扩大 2.0.0 风险，也会让能力较弱的 AI 把“能编译”误当成“可发布”。
+- **决策**：2.0.0 前停止扩展新品类，以两份跨模块门禁作为执行真理源：功能规范 F00-F09 负责平台、数据、后端、签名、CI、RC 和回滚；UX 规范 U00-U09 负责异步状态、核心路径、响应式、i18n、a11y、性能和视觉验收。默认正式目标为 macOS 14+ arm64/x64 与 Windows 11 x64，Linux 不发包；macOS-only 模块必须在 Windows 正确隐藏/gate。
+- **理由**：发布质量需要功能正确性与用户可理解性同时成立；把工作包、证据和停止条件写成机器可执行门禁，可以防止继续扩 scope、虚报平台能力或跳过签名/真机验证。
+- **影响**：`docs/ROADMAP.md` 的 Active Theme 切到 2.0.0；所有模块远期增强让位于 F00-F09/U00-U09。正式 `v2.0.0` tag 只能在两份 Definition of Done、签名 RC、1.x 升级和回滚演练全部完成后创建。
+- **相关**：[功能发布规范](./roadmap/2.0.0-release-readiness.md) · [UX 规范](./roadmap/2.0.0-ux-readiness.md) · [发布策略](./roadmap/release-themes.md)
+
+---
+
 ## D-007 · Account Manager 采用单写者状态与后端授权票据
 
 - **日期**：2026-07-13

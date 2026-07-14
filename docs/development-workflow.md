@@ -45,6 +45,7 @@ cd src-tauri && cargo clippy -- -D warnings
 - CI 入口：[`ci-build.yml`](../.github/workflows/ci-build.yml)。
 - 版本与 `CHANGELOG.md` 由 release-please 根据 Conventional Commits 生成。
 - 发布说明只列已实现且已验证的用户变化；未完成平台 smoke 不得写成完整支持。
+- 2.0.0 必须完成[功能发布门禁](./roadmap/2.0.0-release-readiness.md)和[用户体验门禁](./roadmap/2.0.0-ux-readiness.md)，使用正式签名 RC 完成升级/回滚演练后再创建 tag。
 
 ## 6. pnpm 与依赖
 

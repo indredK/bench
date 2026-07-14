@@ -17,6 +17,7 @@ import { terminologyFeature } from "@/features/terminology/feature"
 import { systemSettingsFeature } from "@/features/system-settings/feature"
 import { devToolboxFeature } from "@/features/dev-toolbox/feature"
 import type { AppFeature, NavigationItem } from "@/features/types"
+import { canUseFeature, type RuntimeEnvironment } from "@/platform/capabilities"
 
 /** All features (for routing); order matters for sidebar. */
 export const appFeatures: AppFeature[] = [
@@ -36,20 +37,24 @@ export const appFeatures: AppFeature[] = [
 ]
 
 /** IDs hidden from sidebar (shown as tabs inside Dev Toolbox instead). */
-const TOOLBOX_FEATURE_IDS = new Set([
-  "port-manager",
-  "env-detector",
-  "token-calculator",
-])
+const TOOLBOX_FEATURE_IDS = new Set(["port-manager", "env-detector", "token-calculator"])
 
 export function getFeatureByPath(path: string): AppFeature | undefined {
   return appFeatures.find((feature) => feature.path === path)
 }
 
 /** Sidebar nav items (excluding toolbox sub-items and system-settings). */
-export function createNavigationItems(t: TFunction): NavigationItem[] {
+export function createNavigationItems(
+  t: TFunction,
+  environment?: RuntimeEnvironment,
+): NavigationItem[] {
   return appFeatures
-    .filter((f) => !TOOLBOX_FEATURE_IDS.has(f.id) && f.id !== "system-settings")
+    .filter(
+      (feature) =>
+        !TOOLBOX_FEATURE_IDS.has(feature.id) &&
+        feature.id !== "system-settings" &&
+        canUseFeature(feature, environment),
+    )
     .map((feature) => ({
       path: feature.path,
       name: t(feature.labelKey),
@@ -58,8 +63,13 @@ export function createNavigationItems(t: TFunction): NavigationItem[] {
 }
 
 /** Config/tool navigation items shown below separator in sidebar. */
-export function createConfigItems(t: TFunction): NavigationItem[] {
-  const settings = appFeatures.find((f) => f.id === "system-settings")
+export function createConfigItems(
+  t: TFunction,
+  environment?: RuntimeEnvironment,
+): NavigationItem[] {
+  const settings = appFeatures.find(
+    (feature) => feature.id === "system-settings" && canUseFeature(feature, environment),
+  )
   if (!settings) return []
   return [
     {

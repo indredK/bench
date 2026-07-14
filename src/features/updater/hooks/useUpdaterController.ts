@@ -1,7 +1,7 @@
 /**
  * Controller / 控制器: bind updater shell actions; 连接更新检查、下载与重启流程.
  */
-import { useCallback, useEffect } from "react"
+import { useCallback, useEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import {
   cancelAppUpdateDownload,
@@ -21,12 +21,23 @@ import {
 } from "@/features/updater/error-classifier"
 import { getErrorMessage } from "@/lib/tauri/errors"
 import { useUpdaterStore } from "@/features/updater/store"
+import {
+  readUpdaterPolicy,
+  writeUpdaterPolicy,
+  type UpdaterPolicy,
+} from "@/features/updater/services/updater-policy.repository"
+import {
+  AUTO_CHECK_STARTUP_DELAY_MS,
+  getNextAutoCheckDelay,
+  shouldDeferAutoCheckForConnection,
+} from "@/features/updater/services/updater-policy"
 
 const GITHUB_RELEASES_URL = "https://github.com/indredK/bench/releases"
 
 export function useUpdaterController() {
   const { t } = useTranslation()
   const canUsePlatformFeatures = canUseDesktopFeatures()
+  const mountedAtRef = useRef(Date.now())
 
   const open = useUpdaterStore((s) => s.open)
   const status = useUpdaterStore((s) => s.status)
@@ -37,6 +48,10 @@ export function useUpdaterController() {
   const downloadedBytes = useUpdaterStore((s) => s.downloadedBytes)
   const totalBytes = useUpdaterStore((s) => s.totalBytes)
   const lastCheckedAt = useUpdaterStore((s) => s.lastCheckedAt)
+  const autoCheckEnabled = useUpdaterStore((s) => s.autoCheckEnabled)
+  const autoCheckFailureCount = useUpdaterStore((s) => s.autoCheckFailureCount)
+  const lastAutoCheckFailureAt = useUpdaterStore((s) => s.lastAutoCheckFailureAt)
+  const policyHydrated = useUpdaterStore((s) => s.policyHydrated)
 
   const setOpen = useUpdaterStore((s) => s.setOpen)
   const resetTransientState = useUpdaterStore((s) => s.resetTransientState)
@@ -51,53 +66,118 @@ export function useUpdaterController() {
     }
   }, [canUsePlatformFeatures])
 
-  const checkUpdates = useCallback(async () => {
-    const { status: currentStatus } = useUpdaterStore.getState()
-    if (currentStatus === "checking") return
-
-    if (!canUsePlatformFeatures) {
-      useUpdaterStore.setState({
-        open: true,
-        status: "error",
-        error: t("updater.desktopOnly"),
-        errorInfo: createDesktopOnlyUpdaterError(t("updater.desktopOnly")),
-      })
-      return
-    }
-
-    useUpdaterStore.setState({
-      open: true,
-      status: "checking",
-      error: "",
-      errorInfo: null,
-      updateInfo: null,
-      downloadedBytes: 0,
-      totalBytes: null,
+  const persistPolicy = useCallback((overrides: Partial<UpdaterPolicy> = {}) => {
+    const state = useUpdaterStore.getState()
+    writeUpdaterPolicy({
+      autoCheckEnabled: state.autoCheckEnabled,
+      lastSuccessfulCheckAt: state.lastCheckedAt,
+      lastFailureAt: state.lastAutoCheckFailureAt,
+      failureCount: state.autoCheckFailureCount,
+      ...overrides,
     })
+  }, [])
 
-    try {
-      const result = await checkForAppUpdate()
+  const runUpdateCheck = useCallback(
+    async (interactive: boolean) => {
+      const { status: currentStatus } = useUpdaterStore.getState()
+      if (
+        currentStatus === "checking" ||
+        currentStatus === "downloading" ||
+        currentStatus === "cancelling" ||
+        currentStatus === "installing" ||
+        currentStatus === "readyToRestart"
+      ) {
+        return
+      }
+
+      if (!canUsePlatformFeatures) {
+        if (!interactive) return
+        useUpdaterStore.setState({
+          open: true,
+          status: "error",
+          error: t("updater.desktopOnly"),
+          errorInfo: createDesktopOnlyUpdaterError(t("updater.desktopOnly")),
+        })
+        return
+      }
+
+      if (!interactive && typeof navigator !== "undefined") {
+        const connection = (
+          navigator as Navigator & {
+            connection?: { saveData?: boolean; effectiveType?: string }
+          }
+        ).connection
+        if (navigator.onLine === false || shouldDeferAutoCheckForConnection(connection)) return
+      }
+
       useUpdaterStore.setState({
-        currentVersion: result.currentVersion,
-        updateInfo: result,
-        status: result.available ? "available" : "upToDate",
-        lastCheckedAt: Date.now(),
+        open: interactive ? true : useUpdaterStore.getState().open,
+        status: "checking",
         error: "",
         errorInfo: null,
+        updateInfo: null,
+        downloadedBytes: 0,
+        totalBytes: null,
       })
-    } catch (error) {
-      const errorInfo = classifyUpdaterError(error, "check", t("updater.errors.checkFailed"))
-      useUpdaterStore.setState({
-        status: "error",
-        error: errorInfo.message,
-        errorInfo,
-      })
-    }
-  }, [canUsePlatformFeatures, t])
+
+      try {
+        const result = await checkForAppUpdate()
+        useUpdaterStore.setState({
+          currentVersion: result.currentVersion,
+          updateInfo: result,
+          status: result.available ? "available" : "upToDate",
+          open: interactive || result.available,
+          lastCheckedAt: Date.now(),
+          autoCheckFailureCount: 0,
+          lastAutoCheckFailureAt: 0,
+          error: "",
+          errorInfo: null,
+        })
+        persistPolicy({
+          lastSuccessfulCheckAt: useUpdaterStore.getState().lastCheckedAt,
+          lastFailureAt: 0,
+          failureCount: 0,
+        })
+      } catch (error) {
+        const errorInfo = classifyUpdaterError(error, "check", t("updater.errors.checkFailed"))
+        const failedAt = Date.now()
+        const failureCount = Math.min(16, useUpdaterStore.getState().autoCheckFailureCount + 1)
+        useUpdaterStore.setState(
+          interactive
+            ? {
+                status: "error",
+                error: errorInfo.message,
+                errorInfo,
+                autoCheckFailureCount: failureCount,
+                lastAutoCheckFailureAt: failedAt,
+              }
+            : {
+                status: "idle",
+                error: "",
+                errorInfo: null,
+                autoCheckFailureCount: failureCount,
+                lastAutoCheckFailureAt: failedAt,
+              },
+        )
+        persistPolicy({ lastFailureAt: failedAt, failureCount })
+      }
+    },
+    [canUsePlatformFeatures, persistPolicy, t],
+  )
+
+  const checkUpdates = useCallback(() => runUpdateCheck(true), [runUpdateCheck])
+
+  const setAutoCheckEnabled = useCallback(
+    (enabled: boolean) => {
+      useUpdaterStore.setState({ autoCheckEnabled: enabled })
+      persistPolicy({ autoCheckEnabled: enabled })
+    },
+    [persistPolicy],
+  )
 
   const downloadAndInstall = useCallback(async () => {
     const { status: dlStatus } = useUpdaterStore.getState()
-    if (dlStatus === "downloading" || dlStatus === "installing") return
+    if (dlStatus === "downloading" || dlStatus === "cancelling" || dlStatus === "installing") return
 
     useUpdaterStore.setState({
       status: "downloading",
@@ -134,12 +214,16 @@ export function useUpdaterController() {
   }, [t])
 
   const cancelDownload = useCallback(async () => {
+    const { status: currentStatus } = useUpdaterStore.getState()
+    if (currentStatus !== "downloading") return
+    useUpdaterStore.setState({ status: "cancelling" })
     try {
       await cancelAppUpdateDownload()
-    } catch {
-      /* ignore — the in-flight install promise will reject and surface its own state */
+    } catch (error) {
+      const errorInfo = classifyUpdaterError(error, "install", t("updater.errors.installFailed"))
+      useUpdaterStore.setState({ status: "error", error: errorInfo.message, errorInfo })
     }
-  }, [])
+  }, [t])
 
   const openReleasesPage = useCallback(() => {
     void openExternal(GITHUB_RELEASES_URL)
@@ -150,14 +234,14 @@ export function useUpdaterController() {
   }, [])
 
   const closeDialog = useCallback(() => {
-    if (status === "downloading" || status === "installing") {
+    if (status === "downloading" || status === "cancelling" || status === "installing") {
       return
     }
     setOpen(false)
   }, [setOpen, status])
 
   const dismissDialog = useCallback(() => {
-    if (status === "downloading" || status === "installing") return
+    if (status === "downloading" || status === "cancelling" || status === "installing") return
     resetTransientState()
     setOpen(false)
   }, [resetTransientState, setOpen, status])
@@ -165,6 +249,66 @@ export function useUpdaterController() {
   useEffect(() => {
     void loadCurrentVersion()
   }, [loadCurrentVersion])
+
+  useEffect(() => {
+    const policy = readUpdaterPolicy()
+    useUpdaterStore.setState({
+      autoCheckEnabled: policy.autoCheckEnabled,
+      lastCheckedAt: policy.lastSuccessfulCheckAt,
+      autoCheckFailureCount: policy.failureCount,
+      lastAutoCheckFailureAt: policy.lastFailureAt,
+      policyHydrated: true,
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!canUsePlatformFeatures || !policyHydrated || !autoCheckEnabled) return undefined
+
+    let timer: number | undefined
+    const schedule = () => {
+      if (timer !== undefined) window.clearTimeout(timer)
+      if (typeof navigator !== "undefined") {
+        const connection = (
+          navigator as Navigator & {
+            connection?: { saveData?: boolean; effectiveType?: string }
+          }
+        ).connection
+        if (navigator.onLine === false || shouldDeferAutoCheckForConnection(connection)) return
+      }
+
+      const now = Date.now()
+      const policyDelay = getNextAutoCheckDelay(
+        {
+          autoCheckEnabled,
+          lastSuccessfulCheckAt: lastCheckedAt,
+          lastFailureAt: lastAutoCheckFailureAt,
+          failureCount: autoCheckFailureCount,
+        },
+        now,
+      )
+      if (policyDelay === null) return
+      const startupDelay = Math.max(0, mountedAtRef.current + AUTO_CHECK_STARTUP_DELAY_MS - now)
+      timer = window.setTimeout(
+        () => void runUpdateCheck(false),
+        Math.max(startupDelay, policyDelay),
+      )
+    }
+
+    schedule()
+    window.addEventListener("online", schedule)
+    return () => {
+      if (timer !== undefined) window.clearTimeout(timer)
+      window.removeEventListener("online", schedule)
+    }
+  }, [
+    autoCheckEnabled,
+    autoCheckFailureCount,
+    canUsePlatformFeatures,
+    lastAutoCheckFailureAt,
+    lastCheckedAt,
+    policyHydrated,
+    runUpdateCheck,
+  ])
 
   useEffect(() => {
     if (!canUsePlatformFeatures) return
@@ -196,6 +340,7 @@ export function useUpdaterController() {
       }
       if (payload.event === "cancelled") {
         useUpdaterStore.setState({
+          status: useUpdaterStore.getState().updateInfo?.available ? "available" : "idle",
           downloadedBytes: 0,
           totalBytes: null,
         })
@@ -229,7 +374,9 @@ export function useUpdaterController() {
     downloadedBytes,
     totalBytes,
     lastCheckedAt,
+    autoCheckEnabled,
     checkUpdates,
+    setAutoCheckEnabled,
     downloadAndInstall,
     cancelDownload,
     openReleasesPage,

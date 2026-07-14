@@ -413,15 +413,15 @@ function AccountCardContent({
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  onClick={handleCopyUsername}
-                  className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
-                  aria-label={t("accountManager.detail.copy")}
-                >
-                  {usernameCopied ? <Check size={12} /> : <Copy size={12} />}
-                </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    onClick={handleCopyUsername}
+                    className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+                    aria-label={t("accountManager.detail.copy")}
+                  >
+                    {usernameCopied ? <Check size={12} /> : <Copy size={12} />}
+                  </Button>
                 </TooltipTrigger>
                 <TooltipContent side="top">{t("accountManager.detail.copy")}</TooltipContent>
               </Tooltip>

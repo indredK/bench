@@ -9,12 +9,7 @@ import { getErrorMessage } from "@/lib/tauri/errors"
 import type { SystemInfoData } from "@/lib/tauri/types/system-info"
 
 export type ToolboxTab =
-  | "port-manager"
-  | "env-detector"
-  | "token-calc"
-  | "devtools"
-  | "diagnostics"
-  | "info"
+  "port-manager" | "env-detector" | "token-calc" | "devtools" | "diagnostics" | "info"
 
 export function useDevToolboxController() {
   const { run, applying } = useSettingAction()

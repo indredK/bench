@@ -22,13 +22,25 @@
 - [§3.3/§7/§8] `src-tauri/src/account_manager/` - Session canonical map/v5 migration、恢复注入+probe、退出落盘、账号级 single-flight、有界瞬态重试、真实 ProbeStrategy 和 RefreshReport 已整改；per-origin storage、Cookie partition key 与目标平台 WebView 行为仍未完成 - 按 [Account Manager roadmap](./modules/account-manager/roadmap.md) Phase 1/6 实施并验收 - **强制** - 状态：部分修复
 - [§7/§8] `src-tauri/src/account_manager/{commands,proxy,webview}.rs` - 一次性 ticket、精确 callback/state/origin 和自定义 scheme 注册已整改；App 根 Deep Link 队列与 Windows single-instance 仍缺 - 按 [Account Manager roadmap](./modules/account-manager/roadmap.md) Phase 2 实施 - **强制** - 状态：部分修复
 - [§3.3/§7] `src-tauri/src/account_manager/{crypto,state,storage}.rs` - Keyring 和 store mutation 已接入跨进程锁及 reload-before-save；Dev/Prod/Windows 并发行为仍待验收 - 按 [Account Manager roadmap](./modules/account-manager/roadmap.md) Phase 6 验收 - **强制** - 状态：待验收
-- [§5/§6/§9] `src/features/account-manager/` - skeleton、窄屏详情、大列表虚拟化、敏感明文生命周期和双平台行为测试仍缺 - 按 [Account Manager roadmap](./modules/account-manager/roadmap.md) 实施 - **强制** - 状态：已报告
+- [§5/§6/§9] `src/features/account-manager/` - 三栏 skeleton 和密码明文 TTL 已整改；窄屏详情 Sheet、500+ 虚拟化、删除 partial 和双平台行为测试仍缺 - 按 [Account Manager roadmap](./modules/account-manager/roadmap.md) 实施 - **强制** - 状态：部分修复
+- [§5/§7/§9] `src/features/system-settings/` - 读取失败已显示 error/unknown，write-only 设置不再伪装为 off；Finder/网络/截图/系统开关仍缺后端 snapshot 与完整 read-after-write - 按 [System Settings roadmap](./modules/system-settings/roadmap.md) 实施 - **强制** - 状态：部分修复
+- [§7/§9] `.github/workflows/ci-build.yml` - tag job 已接入 OS/updater 双签名、目标产物、checksum 和延迟发布门禁，但尚无正式 Secrets run、三平台签名 RC 和安装/升级 smoke - 按 [2.0.0 发布门禁 F07-F09](./roadmap/2.0.0-release-readiness.md#12-f07updater签名与供应链) 验收 - **强制** - 状态：待验收
+- [§7/§9] `src-tauri/tauri.conf.json` - bundle identifier `com.bench.app` 以 `.app` 结尾，Tauri 2.11.4 构建警告与 macOS bundle extension 冲突；修改会影响 Keychain/数据命名空间/升级识别 - F09 前提交迁移决策并用 1.23.0 -> RC 验证，禁止直接改字符串 - **强制** - 状态：已报告
 
 未完成目标平台行为测试前，不得把 App Manager 或 Quick Launch 标记为 macOS/Windows 发布对等。
 
 Account Manager 的 macOS/Windows 状态均为 ⚠️；A-01 至 A-15 的 P0/P1 未关闭前不得标记生产就绪。
 
 ## 最近复核
+
+### 2026-07-14 - 2.0.0 发布准备
+
+- 平台导航和根路由统一 gate；Clean Space/Hardware/System Settings 的 macOS-only contract 有 macOS/Windows/browser fixture。
+- Account Manager 首载三栏 skeleton 和密码 30 秒 TTL 已落地；System Settings/Preferences 读取失败不再显示默认 false。
+- Updater 自动检查、退避、省流/离线策略、cancelling、受限 release notes 和真实进度语义已进入关键测试。
+- release workflow 正式产物收集 fail-closed，在 GitHub Release 变更前验证 OS 签名、Tauri updater 签名、三目标 manifest、产物矩阵和 SHA-256；macOS 14.0、Windows 禁止降级和固定 WiX upgrade code 已写入配置。
+- 本地通过 `lint:fe`、`test:critical`（24 files / 84 tests）、`test:fe`（34 files / 142 tests）、`test:be`（266 tests）、Clippy 和前端生产构建。Tauri debug 已生成 app/DMG/updater tar，但没有正式 updater 私钥，未生成 `.sig`，不计为签名 RC。
+- 仍未发布就绪：Account Manager 剩余 Phase、Clean Space Rust 测试、App/Quick Launch 双平台 smoke、正式证书 Secrets/tag run、identifier 迁移决策、1.23.0 升级/回滚和 UX 视觉/键盘矩阵。
 
 ### 2026-07-14 - Account Manager GitHub 实现对照
 

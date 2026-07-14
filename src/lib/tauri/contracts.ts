@@ -258,10 +258,9 @@ export const TAURI_COMMAND_CONTRACTS = {
     { accountId: string; enabled: boolean },
     StationAccount
   >()("set_account_proxy_enabled"),
-  proxy_login: defineTauriCommand<
-    { accountId: string; ticketId: string },
-    AuthProxyResult
-  >()("proxy_login"),
+  proxy_login: defineTauriCommand<{ accountId: string; ticketId: string }, AuthProxyResult>()(
+    "proxy_login",
+  ),
   handle_browser_open: defineTauriCommand<{ url: string }, BrowserOpenResult>()(
     "handle_browser_open",
   ),

@@ -4,7 +4,11 @@
  */
 import { TAURI_COMMANDS } from "@/lib/tauri/contracts"
 import { invokeTauriCommand } from "@/lib/tauri/invoke"
-import type { CleanupRecord, CleanupItemInput, CategoryCleanupResult } from "@/lib/tauri/types/clean-space"
+import type {
+  CleanupRecord,
+  CleanupItemInput,
+  CategoryCleanupResult,
+} from "@/lib/tauri/types/clean-space"
 
 export function scanStorageOverview() {
   return invokeTauriCommand(TAURI_COMMANDS.cleanSpace.scanStorageOverview)
@@ -19,14 +23,12 @@ export function getCategoryItems(categoryId: string) {
 }
 
 export function executeCategoryCleanup(items: CleanupItemInput[]): Promise<CategoryCleanupResult> {
-  return invokeTauriCommand(TAURI_COMMANDS.cleanSpace.executeCategoryCleanup, { items }) as Promise<CategoryCleanupResult>
+  return invokeTauriCommand(TAURI_COMMANDS.cleanSpace.executeCategoryCleanup, {
+    items,
+  }) as Promise<CategoryCleanupResult>
 }
 
-export function scanCustomFolder(
-  folder: string,
-  mtimeDays?: number,
-  includeSubfolders?: boolean,
-) {
+export function scanCustomFolder(folder: string, mtimeDays?: number, includeSubfolders?: boolean) {
   return invokeTauriCommand(TAURI_COMMANDS.cleanSpace.scanCustomFolder, {
     folder,
     mtimeDays,

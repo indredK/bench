@@ -56,7 +56,14 @@
     "active": true,
     "createUpdaterArtifacts": true,
     "macOS": {
+      "minimumSystemVersion": "14.0",
       "signingIdentity": "-"
+    },
+    "windows": {
+      "allowDowngrades": false,
+      "wix": {
+        "upgradeCode": "4671e453-9428-5413-a3e9-97513add80f2"
+      }
     },
     "targets": "all",
     "icon": [
@@ -71,18 +78,14 @@
   "plugins": {
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IENFQkI3QjQ3NDU1MzRGMQpSV1R4TkZWMHRMZnJESHY4dUlEV3gya01mNmwzdU40YnZkR1pDQ0NVaWpCUUdxT2tFb2swTFl6bwo=",
-      "endpoints": [
-        "https://github.com/indredK/bench/releases/latest/download/latest.json"
-      ],
+      "endpoints": ["https://github.com/indredK/bench/releases/latest/download/latest.json"],
       "windows": {
         "installMode": "passive"
       }
     },
     "deep-link": {
       "desktop": {
-        "schemes": [
-          "bench-auth"
-        ]
+        "schemes": ["bench-auth"]
       }
     }
   }

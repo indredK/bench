@@ -22,8 +22,20 @@ export interface FeatureGateResult {
   platform?: PlatformName
 }
 
+export interface RuntimeEnvironment {
+  runtime: RuntimeKind
+  platform: PlatformName
+}
+
 export function getRuntimeKind(): RuntimeKind {
   return isDesktopRuntime() ? "desktop" : "browser"
+}
+
+export function getRuntimeEnvironment(): RuntimeEnvironment {
+  return {
+    runtime: getRuntimeKind(),
+    platform: platformName,
+  }
 }
 
 export function hasPlatformCapability(capability: PlatformCapability): boolean {
@@ -64,16 +76,22 @@ export function canUseTauriWindow(): boolean {
 
 export type FeatureDescriptor = { desktopOnly?: boolean; platforms?: PlatformName[] }
 
-export function canUseFeature(feature?: FeatureDescriptor): boolean {
-  return !getFeatureGateReason(feature).gated
+export function canUseFeature(
+  feature?: FeatureDescriptor,
+  environment: RuntimeEnvironment = getRuntimeEnvironment(),
+): boolean {
+  return !getFeatureGateReason(feature, environment).gated
 }
 
-export function getFeatureGateReason(feature?: FeatureDescriptor): FeatureGateResult {
-  if (feature?.desktopOnly && !canUseDesktopFeatures()) {
+export function getFeatureGateReason(
+  feature?: FeatureDescriptor,
+  environment: RuntimeEnvironment = getRuntimeEnvironment(),
+): FeatureGateResult {
+  if (feature?.desktopOnly && environment.runtime !== "desktop") {
     return { gated: true, reason: "desktop-only" }
   }
-  if (feature?.platforms && !feature.platforms.includes(platformName)) {
-    return { gated: true, reason: "platform-unsupported", platform: platformName }
+  if (feature?.platforms && !feature.platforms.includes(environment.platform)) {
+    return { gated: true, reason: "platform-unsupported", platform: environment.platform }
   }
   return { gated: false }
 }

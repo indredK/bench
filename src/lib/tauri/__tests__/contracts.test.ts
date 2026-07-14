@@ -245,11 +245,7 @@ describe("Tauri contracts", () => {
         "snake",
         dtoKeys<StorageCategory>(["id", "name", "color", "total_bytes", "items"]),
       ],
-      [
-        "StorageOverview",
-        "snake",
-        dtoKeys<StorageOverview>(["disk_total_bytes", "categories"]),
-      ],
+      ["StorageOverview", "snake", dtoKeys<StorageOverview>(["disk_total_bytes", "categories"])],
       [
         "CleanupRecord",
         "snake",

@@ -177,7 +177,9 @@ export default function DevToolbox({ feature }: DevToolboxProps) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="datetime">{t("systemSettings.devtools.formatFullDateTime")}</SelectItem>
+                <SelectItem value="datetime">
+                  {t("systemSettings.devtools.formatFullDateTime")}
+                </SelectItem>
                 <SelectItem value="date">{t("systemSettings.devtools.formatDateOnly")}</SelectItem>
                 <SelectItem value="time">{t("systemSettings.devtools.formatTimeOnly")}</SelectItem>
                 <SelectItem value="iso">{t("systemSettings.devtools.formatIso")}</SelectItem>

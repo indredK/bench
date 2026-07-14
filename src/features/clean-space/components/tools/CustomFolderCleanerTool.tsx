@@ -114,9 +114,7 @@ export function CustomFolderCleanerTool() {
       {result && (
         <div className="flex flex-wrap items-center gap-x-4 text-xs">
           <div className="flex items-center gap-1.5">
-            <span className="text-muted-foreground">
-              {t("cleanSpace.customFolder.foundItems")}
-            </span>
+            <span className="text-muted-foreground">{t("cleanSpace.customFolder.foundItems")}</span>
             <span className="font-semibold">{result.item_count}</span>
           </div>
           <div className="bg-border h-3 w-px" />
@@ -139,10 +137,7 @@ export function CustomFolderCleanerTool() {
           </div>
         )}
         {result?.items.map((item) => (
-          <div
-            key={item.id}
-            className="flex items-center gap-3 rounded-lg border p-2.5"
-          >
+          <div key={item.id} className="flex items-center gap-3 rounded-lg border p-2.5">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <span className="truncate text-sm font-medium">{item.name}</span>

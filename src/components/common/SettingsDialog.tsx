@@ -14,22 +14,14 @@ import {
   Settings,
   Palette,
   Info,
+  RefreshCw,
   X,
 } from "lucide-react"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import i18n, { detectSystemLanguage } from "@/i18n/config"
 import { setCurrentWindowTitle } from "@/platform/window"
 import { readStorageItem, removeStorageItem, writeStorageItem } from "@/platform/storage"
@@ -71,6 +63,8 @@ interface SettingsDialogProps {
   appVersion?: string
   tauriVersion?: string
   onCheckUpdates?: () => void
+  autoCheckEnabled?: boolean
+  onAutoCheckEnabledChange?: (enabled: boolean) => void
 }
 
 export function SettingsDialog({
@@ -79,6 +73,8 @@ export function SettingsDialog({
   appVersion = "1.0.0",
   tauriVersion = "2.x",
   onCheckUpdates,
+  autoCheckEnabled = true,
+  onAutoCheckEnabledChange,
 }: SettingsDialogProps) {
   const { t } = useTranslation()
   const { theme, setTheme } = useTheme()
@@ -114,7 +110,7 @@ export function SettingsDialog({
     })
   }, [])
 
-  const [autostartEnabled, setAutostartEnabled] = useState(false)
+  const [autostartEnabled, setAutostartEnabled] = useState<boolean | null>(null)
   const [autostartLoading, setAutostartLoading] = useState(false)
   const [closeBehaviorValue, setCloseBehaviorValue] = useState("minimize_to_tray")
 
@@ -131,24 +127,24 @@ export function SettingsDialog({
     }
   }, [open])
 
+  const loadAutostart = useCallback(async () => {
+    setAutostartLoading(true)
+    try {
+      setAutostartEnabled(await getAutostartStatus())
+    } catch {
+      setAutostartEnabled(null)
+    } finally {
+      setAutostartLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     if (!open) return
-    let cancelled = false
-    setAutostartLoading(true)
-    getAutostartStatus()
-      .then((v) => {
-        if (!cancelled) setAutostartEnabled(v)
-      })
-      .catch(() => {
-        // best-effort: leave toggle off on read failure
-      })
-      .finally(() => {
-        if (!cancelled) setAutostartLoading(false)
-      })
+    void loadAutostart()
     return () => {
-      cancelled = true
+      setAutostartLoading(false)
     }
-  }, [open])
+  }, [loadAutostart, open])
 
   const handleToggleAutostart = useCallback(
     async (v: boolean) => {
@@ -181,10 +177,10 @@ export function SettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[680px] p-0">
+      <DialogContent className="p-0 sm:max-w-[680px]">
         <div className="flex h-[480px]">
           {/* Sidebar */}
-          <div className="w-44 shrink-0 border-r bg-muted/30 p-3">
+          <div className="bg-muted/30 w-44 shrink-0 border-r p-3">
             <div className="mb-3 flex items-center justify-between px-2">
               <h2 className="text-sm font-semibold">{t("settings.title")}</h2>
               <Button
@@ -222,9 +218,7 @@ export function SettingsDialog({
           <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
             <div className="flex items-center justify-between border-b px-5 py-3.5">
               <DialogHeader className="p-0">
-                <DialogTitle className="text-base">
-                  {t(`settings.tabs.${activeTab}`)}
-                </DialogTitle>
+                <DialogTitle className="text-base">{t(`settings.tabs.${activeTab}`)}</DialogTitle>
               </DialogHeader>
             </div>
 
@@ -239,11 +233,38 @@ export function SettingsDialog({
                         {t("startup.launchAtLoginDesc")}
                       </div>
                     </div>
-                    <Switch
-                      checked={autostartEnabled}
-                      loading={autostartLoading}
-                      onCheckedChange={handleToggleAutostart}
-                    />
+                    {autostartEnabled === null && !autostartLoading ? (
+                      <div className="flex items-center gap-1.5">
+                        <Badge variant="outline">{t("common.unknown")}</Badge>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon-sm"
+                          onClick={() => void loadAutostart()}
+                          aria-label={t("common.retry")}
+                        >
+                          <RefreshCw />
+                        </Button>
+                      </div>
+                    ) : (
+                      <Switch
+                        checked={autostartEnabled ?? false}
+                        loading={autostartLoading}
+                        onCheckedChange={handleToggleAutostart}
+                      />
+                    )}
+                  </div>
+
+                  <div className="border-border border-t" />
+
+                  <div className="flex items-center justify-between py-1">
+                    <div className="min-w-0 pr-3">
+                      <div className="text-sm font-medium">{t("updater.autoCheck")}</div>
+                      <div className="text-muted-foreground text-xs">
+                        {t("updater.autoCheckDescription")}
+                      </div>
+                    </div>
+                    <Switch checked={autoCheckEnabled} onCheckedChange={onAutoCheckEnabledChange} />
                   </div>
 
                   <div className="border-border border-t" />
@@ -387,11 +408,9 @@ export function SettingsDialog({
               {activeTab === "about" && (
                 <div className="space-y-5">
                   {/* App info */}
-                  <div className="text-center py-2">
+                  <div className="py-2 text-center">
                     <div className="mb-1.5 text-lg font-semibold">{t("common.appTitle")}</div>
-                    <p className="text-muted-foreground text-sm">
-                      {t("about.description")}
-                    </p>
+                    <p className="text-muted-foreground text-sm">{t("about.description")}</p>
                   </div>
 
                   <div className="border-border border-t" />

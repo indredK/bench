@@ -31,12 +31,15 @@ import { emitPlatformEventTo, listenToPlatformEvent } from "@/platform/events"
 import { canUseWindowControls } from "@/platform/window"
 import { useWindowTheme } from "@/hooks/useWindowTheme"
 import type { StartupIssue } from "@/lib/tauri/types/bootstrap"
+import { RuntimeFeatureGate } from "@/components/common/RuntimeFeatureGate"
+import { canUseFeature } from "@/platform/capabilities"
 
 function AnimatedRoutes() {
   const [location, navigate] = useLocation()
   useEffect(() => {
-    if ((location === "" || location === "/") && appFeatures.length > 0) {
-      navigate(appFeatures[0].path, { replace: true })
+    const defaultFeature = appFeatures.find((feature) => canUseFeature(feature))
+    if ((location === "" || location === "/") && defaultFeature) {
+      navigate(defaultFeature.path, { replace: true })
     }
   }, [location, navigate])
   if (location === "" || location === "/") return null
@@ -49,6 +52,7 @@ function AnimatedRoutes() {
 
 function FeaturePanel({ location }: { location: string }) {
   const [frozenLocation] = useState(location)
+  const { t } = useTranslation()
   const { reduce } = useReducedMotionProps()
   return (
     <motion.div
@@ -61,7 +65,9 @@ function FeaturePanel({ location }: { location: string }) {
       <Switch location={frozenLocation}>
         {appFeatures.map((feature) => (
           <Route key={feature.id} path={feature.path}>
-            {feature.render(feature)}
+            <RuntimeFeatureGate feature={feature} title={t(feature.labelKey)} icon={feature.icon}>
+              {feature.render(feature)}
+            </RuntimeFeatureGate>
           </Route>
         ))}
       </Switch>
@@ -205,6 +211,8 @@ function App() {
         onOpenChange={setSettingsOpen}
         appVersion={updater.currentVersion || "-"}
         onCheckUpdates={() => void updater.checkUpdates()}
+        autoCheckEnabled={updater.autoCheckEnabled}
+        onAutoCheckEnabledChange={updater.setAutoCheckEnabled}
       />
 
       <CloseBehaviorDialog open={closeBehaviorOpen} onOpenChange={setCloseBehaviorOpen} />

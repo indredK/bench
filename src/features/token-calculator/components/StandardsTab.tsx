@@ -302,7 +302,12 @@ export function StandardsTab({
                     </span>
                     <span className="text-muted-foreground">
                       {m.cachedWritePrice != null
-                        ? displayPrice(m.cachedWritePrice, m.currency, displayCurrency, exchangeRate)
+                        ? displayPrice(
+                            m.cachedWritePrice,
+                            m.currency,
+                            displayCurrency,
+                            exchangeRate,
+                          )
                         : "—"}
                     </span>
                     <span className="text-muted-foreground">

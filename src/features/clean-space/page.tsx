@@ -7,7 +7,10 @@ import { Trash2, HardDrive, FolderOpen, History } from "lucide-react"
 import { RuntimeFeatureGate } from "@/components/common/RuntimeFeatureGate"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { useCleanSpaceController, type CleanSpaceTool } from "@/features/clean-space/hooks/useCleanSpaceController"
+import {
+  useCleanSpaceController,
+  type CleanSpaceTool,
+} from "@/features/clean-space/hooks/useCleanSpaceController"
 import { DevProjectCleanerTool } from "@/features/clean-space/components/tools/DevProjectCleanerTool"
 import { StorageOverview } from "@/features/clean-space/components/StorageOverview"
 import { CleanupRecords } from "@/features/clean-space/components/CleanupRecords"

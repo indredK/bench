@@ -1,6 +1,8 @@
 # Updater Roadmap
 
-## Backlog
+更新策略、远端文本和发布产物以 [2.0.0 发布门禁](../../roadmap/2.0.0-release-readiness.md#12-f07updater签名与供应链)为准。
 
-- [ ] 自动检查策略：启动延迟、检查频率、网络失败退避和用户开关。
-- [ ] 更新日志展示，限制远端内容能力并处理超长文本。
+## 发布阻断
+
+- [ ] 使用正式 Apple/Windows 证书和 Tauri updater 私钥生成 RC，验证 macOS arm64/x64 与 Windows x64 的签名、安装、取消、重启和卸载。
+- [ ] 覆盖 1.23.0 -> 2.0.0、损坏/缺平台 `latest.json`、错误签名、404、离线、代理、磁盘满和重启失败。

@@ -31,10 +31,7 @@ export function TopTabNavigation({ items, configItems, onPrefs }: TopTabNavigati
     () => [...items, ...(configItems ?? [])],
     [items, configItems],
   )
-  const configPaths = useMemo(
-    () => new Set((configItems ?? []).map((i) => i.path)),
-    [configItems],
-  )
+  const configPaths = useMemo(() => new Set((configItems ?? []).map((i) => i.path)), [configItems])
 
   return (
     <div className="border-border bg-background text-foreground flex h-14 shrink-0 items-center gap-3 border-b px-4 select-none">

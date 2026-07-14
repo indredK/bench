@@ -133,9 +133,7 @@ if (missingKeys.length > 0) {
   process.exit(1)
 }
 
-console.log(
-  `Checked ${usedKeys.size} unique i18n keys across ${sourceFiles.length} source files.`,
-)
+console.log(`Checked ${usedKeys.size} unique i18n keys across ${sourceFiles.length} source files.`)
 
 // === Verify zh.json and en.json key sets are fully aligned ===
 
@@ -172,8 +170,6 @@ if (onlyInZh.length > 0 || onlyInEn.length > 0) {
   process.exit(1)
 }
 
-console.log(
-  `Locale alignment check passed: ${zhLeafKeys.size} keys in both zh.json and en.json.`,
-)
+console.log(`Locale alignment check passed: ${zhLeafKeys.size} keys in both zh.json and en.json.`)
 
 console.log("Frontend i18n/static guards passed.")

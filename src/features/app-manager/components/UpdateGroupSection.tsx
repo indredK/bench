@@ -55,9 +55,7 @@ export function UpdateGroupSection({
         <Button
           variant="ghost"
           onClick={onToggleExpanded}
-          className={cn(
-            "flex flex-1 items-center gap-2 text-left",
-          )}
+          className={cn("flex flex-1 items-center gap-2 text-left")}
         >
           <motion.span
             animate={reduce({ rotate: expanded ? 0 : -90 })}

@@ -26,6 +26,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { cn } from "@/lib/utils"
 
+const MAX_RELEASE_NOTES_LENGTH = 20_000
+
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
@@ -56,7 +58,7 @@ type ReleaseNotesBlock =
 
 function renderInlineMarkdown(text: string): ReactNode[] {
   const segments: ReactNode[] = []
-  const linkPattern = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g
+  const linkPattern = /\[([^\]]+)\]\((https:\/\/[^\s)]+)\)/g
   let lastIndex = 0
 
   for (const match of text.matchAll(linkPattern)) {
@@ -267,6 +269,26 @@ function getErrorCopy(t: (key: string) => string, errorInfo: UpdaterErrorInfo | 
   }
 }
 
+type UpdateDialogProps = Pick<
+  UpdaterController,
+  | "open"
+  | "status"
+  | "currentVersion"
+  | "updateInfo"
+  | "error"
+  | "errorInfo"
+  | "downloadedBytes"
+  | "totalBytes"
+  | "lastCheckedAt"
+  | "checkUpdates"
+  | "downloadAndInstall"
+  | "cancelDownload"
+  | "openReleasesPage"
+  | "restartNow"
+  | "closeDialog"
+  | "dismissDialog"
+>
+
 export function UpdateDialog({
   open,
   status,
@@ -284,19 +306,19 @@ export function UpdateDialog({
   restartNow,
   closeDialog,
   dismissDialog,
-}: UpdaterController) {
+}: UpdateDialogProps) {
   const { t } = useTranslation()
   const [showErrorDetails, setShowErrorDetails] = useState(false)
 
   const latestVersion = updateInfo?.version ?? null
   const publishedAt = updateInfo?.date ?? null
-  const releaseNotes = updateInfo?.body?.trim() || ""
+  const releaseNotes = updateInfo?.body?.trim().slice(0, MAX_RELEASE_NOTES_LENGTH) || ""
   const progressPercent =
     totalBytes && totalBytes > 0
       ? Math.min(100, Math.round((downloadedBytes / totalBytes) * 100))
       : null
   const checking = status === "checking"
-  const busy = status === "downloading" || status === "installing"
+  const busy = status === "downloading" || status === "cancelling" || status === "installing"
   const canInstall = status === "available"
   const canRestart = status === "readyToRestart"
   const retryAction = errorInfo?.retryAction ?? null
@@ -330,6 +352,13 @@ export function UpdateDialog({
           icon: <RotateCw className="size-4 animate-spin" />,
           title: t("updater.downloading"),
           description: t("updater.downloadDescription"),
+          variant: "default" as const,
+        }
+      case "cancelling":
+        return {
+          icon: <RotateCw className="size-4 animate-spin" />,
+          title: t("updater.cancelling"),
+          description: t("updater.cancellingDescription"),
           variant: "default" as const,
         }
       case "installing":
@@ -459,21 +488,35 @@ export function UpdateDialog({
             {(busy || canRestart) && (
               <div className="space-y-2">
                 <div className="bg-muted h-2 overflow-hidden rounded-full">
-                  <div
-                    className="bg-primary h-full rounded-full transition-[width]"
-                    style={{ width: `${progressPercent ?? (canRestart ? 100 : 8)}%` }}
-                  />
+                  {progressPercent === null && !canRestart ? (
+                    <div
+                      className="bg-primary h-full w-1/3 rounded-full motion-safe:animate-pulse"
+                      data-progress="indeterminate"
+                    />
+                  ) : (
+                    <div
+                      className="bg-primary h-full rounded-full transition-[width]"
+                      style={{ width: `${progressPercent ?? 100}%` }}
+                      role="progressbar"
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={progressPercent ?? 100}
+                      data-progress="determinate"
+                    />
+                  )}
                 </div>
                 <div className="text-muted-foreground flex items-center justify-between gap-3 text-xs">
                   <span className="min-w-0 [overflow-wrap:anywhere]">
-                    {status === "downloading"
+                    {status === "downloading" || status === "cancelling"
                       ? t("updater.progressLabel", {
                           downloaded: formatBytes(downloadedBytes),
                           total: totalBytes ? formatBytes(totalBytes) : t("updater.unknownSize"),
                         })
                       : t("updater.progressDone")}
                   </span>
-                  <span className="shrink-0">{progressPercent ?? (canRestart ? 100 : 0)}%</span>
+                  {(progressPercent !== null || canRestart) && (
+                    <span className="shrink-0">{progressPercent ?? 100}%</span>
+                  )}
                 </div>
               </div>
             )}
@@ -499,6 +542,13 @@ export function UpdateDialog({
           {status === "downloading" && (
             <Button variant="outline" onClick={() => void cancelDownload()}>
               {t("updater.cancelDownload")}
+            </Button>
+          )}
+
+          {status === "cancelling" && (
+            <Button variant="outline" disabled>
+              <RotateCw className="size-4 animate-spin" />
+              {t("updater.cancelling")}
             </Button>
           )}
 
