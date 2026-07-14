@@ -6,7 +6,7 @@
  *
  * 「常用应用」场景使用 Tab 折叠: AI 编程 / AI 助手 / AI 办公 / AI 模型 / 开发 / 系统工具
  */
-import { useState } from "react"
+import { forwardRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { motion, AnimatePresence } from "motion/react"
 import {
@@ -53,6 +53,10 @@ import {
 
 const MERGED_DEFAULT_TAB = "ai-assistant"
 
+// 温和过渡：tween（无回弹）而非 framer-motion 默认强 spring，用于换分类时卡片的
+// 进出场淡入淡出与位置补位，避免过冲，也避免跨不同列宽网格的缩放形变观感夸张。
+const CALM_TRANSITION = { duration: 0.2, ease: "easeOut" as const }
+
 const SCENE_ICON_MAP: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
   Bot,
   Briefcase,
@@ -91,29 +95,33 @@ function formatLastModified(
   return t("quickLaunch.time.monthsAgo", { months: Math.floor(days / 30) })
 }
 
-function AppCard({
-  app,
-  onLaunch,
-  onReveal,
-  isEditMode,
-  sceneLabel,
-  onContextMenuEdit,
-  animated = true,
-}: {
-  app: AppInfo
-  onLaunch: (app: AppInfo) => void
-  onReveal: (app: AppInfo) => void
-  isEditMode?: boolean
-  sceneLabel?: string
-  onContextMenuEdit?: (app: AppInfo, x: number, y: number) => void
-  animated?: boolean
-}) {
+const AppCard = forwardRef<
+  HTMLButtonElement,
+  {
+    app: AppInfo
+    onLaunch: (app: AppInfo) => void
+    onReveal: (app: AppInfo) => void
+    isEditMode?: boolean
+    sceneLabel?: string
+    onContextMenuEdit?: (app: AppInfo, x: number, y: number) => void
+    animated?: boolean
+  }
+>(function AppCard(
+  { app, onLaunch, onReveal, isEditMode, sceneLabel, onContextMenuEdit, animated = true },
+  ref,
+) {
   const { t } = useTranslation()
+  const { reduce, shouldReduceMotion } = useReducedMotionProps()
   const hasInfo = !isEditMode && (!!app.version || app.lastModified > 0)
 
   const card = (
     <motion.button
-      layout={animated}
+      ref={ref}
+      layout={animated && !shouldReduceMotion ? "position" : false}
+      initial={animated ? reduce({ opacity: 0, scale: 0.96 }) : false}
+      animate={animated ? { opacity: 1, scale: 1 } : undefined}
+      exit={animated ? reduce({ opacity: 0, scale: 0.96 }) : undefined}
+      transition={animated ? CALM_TRANSITION : undefined}
       onClick={() => {
         if (app.allowedActions.launch) onLaunch(app)
       }}
@@ -173,7 +181,7 @@ function AppCard({
       </Tooltip>
     </TooltipProvider>
   )
-}
+})
 
 function SceneSection({
   scene,
@@ -197,7 +205,7 @@ function SceneSection({
   onContextMenuEdit: (app: AppInfo, x: number, y: number) => void
 }) {
   const { t } = useTranslation()
-  const { reduce } = useReducedMotionProps()
+  const { reduce, shouldReduceMotion } = useReducedMotionProps()
   const displayApps = expanded ? apps : apps.slice(0, 6)
 
   if (apps.length === 0) return null
@@ -245,24 +253,30 @@ function SceneSection({
         </div>
       ) : (
         <motion.div
-          layout
+          layout={shouldReduceMotion ? false : "position"}
+          transition={CALM_TRANSITION}
           className="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8"
         >
-          {displayApps.map((app) => (
-            <AppCard
-              key={app.appId}
-              app={app}
-              onLaunch={onLaunch}
-              onReveal={onReveal}
-              isEditMode={isEditMode}
-              sceneLabel={
-                isEditMode
-                  ? t(LAUNCH_SCENES.find((s) => s.key === appIdToScene[app.appId])?.labelKey || "")
-                  : undefined
-              }
-              onContextMenuEdit={onContextMenuEdit}
-            />
-          ))}
+          <AnimatePresence mode="popLayout" initial={false}>
+            {displayApps.map((app) => (
+              <AppCard
+                key={app.appId}
+                app={app}
+                onLaunch={onLaunch}
+                onReveal={onReveal}
+                isEditMode={isEditMode}
+                sceneLabel={
+                  isEditMode
+                    ? t(
+                        LAUNCH_SCENES.find((s) => s.key === appIdToScene[app.appId])?.labelKey ||
+                          "",
+                      )
+                    : undefined
+                }
+                onContextMenuEdit={onContextMenuEdit}
+              />
+            ))}
+          </AnimatePresence>
           {!expanded && apps.length > 6 && (
             <Button
               onClick={(e) => {
