@@ -2,22 +2,20 @@
 
 ## [1.24.0](https://github.com/indredK/bench/compare/v1.23.0...v1.24.0) (2026-07-14)
 
-
 ### Features
 
-* **account-manager:** 实现账号管理器全平台能力与同源会话隔离 ([e44ecbe](https://github.com/indredK/bench/commit/e44ecbed0feaf55b3088b63e8776fd87e1f726bb))
-* **app-manager:** 拆分筛选面板状态并优化更新视图 ([daefb89](https://github.com/indredK/bench/commit/daefb89f5ad35a0fe2f63b1f70e860e7abcb64dd))
-* **quick-launch:** 优化卡片动画与无障碍体验 ([b6617eb](https://github.com/indredK/bench/commit/b6617ebc16db8787503b18894858d94028737b18))
-* **scroll:** 禁用 macOS 橡皮筋并统一可滚动区域组件 ([173b358](https://github.com/indredK/bench/commit/173b35846b46918a830674899add343030d48abb))
-* **system-settings:** 缓存已加载区块避免重复请求 ([5a4adc4](https://github.com/indredK/bench/commit/5a4adc496eac24a5e1a85e5d3da0f8b86cc485c8))
-
+- **account-manager:** 实现账号管理器全平台能力与同源会话隔离 ([e44ecbe](https://github.com/indredK/bench/commit/e44ecbed0feaf55b3088b63e8776fd87e1f726bb))
+- **app-manager:** 拆分筛选面板状态并优化更新视图 ([daefb89](https://github.com/indredK/bench/commit/daefb89f5ad35a0fe2f63b1f70e860e7abcb64dd))
+- **quick-launch:** 优化卡片动画与无障碍体验 ([b6617eb](https://github.com/indredK/bench/commit/b6617ebc16db8787503b18894858d94028737b18))
+- **scroll:** 禁用 macOS 橡皮筋并统一可滚动区域组件 ([173b358](https://github.com/indredK/bench/commit/173b35846b46918a830674899add343030d48abb))
+- **system-settings:** 缓存已加载区块避免重复请求 ([5a4adc4](https://github.com/indredK/bench/commit/5a4adc496eac24a5e1a85e5d3da0f8b86cc485c8))
 
 ### Bug Fixes
 
-* add missing translation entries for zh and en locales ([4b2b65d](https://github.com/indredK/bench/commit/4b2b65d15722cad7a57f3533a297ad05a1a91119))
-* **persistence:** 备份文件时重试权限被拒错误 ([3d746bb](https://github.com/indredK/bench/commit/3d746bb072e613991f681435a075ce2bde82b30d))
-* **subprocess/persistence/clean-space:** 修复Windows CI下的权限错误问题 ([1743476](https://github.com/indredK/bench/commit/1743476d8d7aa6a6d2bc57c2ee06c3e1f1a960fe))
-* **ui:** 修复滚动布局塌陷与设置加载状态显示 ([0ecac81](https://github.com/indredK/bench/commit/0ecac8173d6cfa86196bc1726e79bdc51ec4e054))
+- add missing translation entries for zh and en locales ([4b2b65d](https://github.com/indredK/bench/commit/4b2b65d15722cad7a57f3533a297ad05a1a91119))
+- **persistence:** 备份文件时重试权限被拒错误 ([3d746bb](https://github.com/indredK/bench/commit/3d746bb072e613991f681435a075ce2bde82b30d))
+- **subprocess/persistence/clean-space:** 修复Windows CI下的权限错误问题 ([1743476](https://github.com/indredK/bench/commit/1743476d8d7aa6a6d2bc57c2ee06c3e1f1a960fe))
+- **ui:** 修复滚动布局塌陷与设置加载状态显示 ([0ecac81](https://github.com/indredK/bench/commit/0ecac8173d6cfa86196bc1726e79bdc51ec4e054))
 
 ## [1.23.0](https://github.com/indredK/bench/compare/v1.22.0...v1.23.0) (2026-07-13)
 
