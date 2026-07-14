@@ -92,6 +92,20 @@ fn forward_callback_to_external_app<R: Runtime>(app: &AppHandle<R>, callback_url
     }
 }
 
+async fn forward_loopback_callback(callback_url: &str) -> AccountManagerResult<()> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .map_err(|_| AccountManagerError::store_fail("build loopback callback client"))?;
+    client
+        .get(callback_url)
+        .send()
+        .await
+        .map_err(|_| AccountManagerError::store_fail("loopback callback delivery failed"))?;
+    Ok(())
+}
+
 #[cfg_attr(not(target_os = "macos"), allow(unused_variables))]
 pub fn open_login_window<R: Runtime>(
     app: &AppHandle<R>,
@@ -122,26 +136,38 @@ pub fn open_login_window<R: Runtime>(
             .map_err(|e| AccountManagerError::store_fail(format!("create relay-accounts: {e}")))?;
     }
 
+    let state = app.state::<super::state::AccountManagerState>();
+    let saved_session = super::session::restore_session(&state, account_id)?;
+    let restore_script = saved_session
+        .as_ref()
+        .map(|session| super::browser_storage::restore_initialization_script(&state, session))
+        .transpose()?
+        .flatten();
+
     #[cfg_attr(not(any(target_os = "macos", target_os = "ios")), allow(unused_mut))]
     let mut builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(blank))
         .title(format!("{username} · 登录"))
         .inner_size(LOGIN_WINDOW_WIDTH, LOGIN_WINDOW_HEIGHT)
         .center()
         .data_directory(data_dir);
+    if let Some(script) = restore_script {
+        builder = builder.initialization_script(script);
+    }
 
     // per-station 网络代理：仅在 macOS 14+ WebView 生效。其他平台 fail closed。
-    #[cfg(target_os = "macos")]
     if let Some(url) = proxy_url {
-        let parsed_url = url.parse::<tauri::Url>().map_err(|e| {
-            AccountManagerError::invalid_input(format!("invalid network proxy URL: {e}"))
-        })?;
-        builder = builder.proxy_url(parsed_url);
-    }
-    #[cfg(not(target_os = "macos"))]
-    if proxy_url.is_some() {
-        return Err(AccountManagerError::invalid_input(
-            "network proxy is not supported for login WebViews on this platform",
-        ));
+        if !super::capabilities::network_proxy_available() {
+            return Err(AccountManagerError::invalid_input(
+                "network proxy is not supported for login WebViews on this platform",
+            ));
+        }
+        #[cfg(target_os = "macos")]
+        {
+            let parsed_url = url.parse::<tauri::Url>().map_err(|e| {
+                AccountManagerError::invalid_input(format!("invalid network proxy URL: {e}"))
+            })?;
+            builder = builder.proxy_url(parsed_url);
+        }
     }
 
     if let Some(ret) = return_url {
@@ -178,17 +204,16 @@ pub fn open_login_window<R: Runtime>(
                 let account2 = account_id_owned.clone();
                 let target2 = target_owned.clone();
                 let return2 = ret_owned.clone();
+                let callback2 = nav_str.to_string();
                 tauri::async_runtime::spawn(async move {
-                    tokio::time::sleep(std::time::Duration::from_millis(1200)).await;
-                    complete_proxy_login(&app2, &account2, &target2, &return2).await;
+                    complete_proxy_login(&app2, &account2, &target2, &return2, &callback2).await;
                     if let Some(win) = app2.get_webview_window(&label2) {
                         let _ = win.close();
                     }
                 });
-                return true;
+                return false;
             }
 
-            forward_callback_to_external_app(&app_clone, nav_str);
             super::proxy::protocol::audit_log(
                 "proxy_callback_forwarded",
                 &[("scheme", nav_url.scheme())],
@@ -198,8 +223,9 @@ pub fn open_login_window<R: Runtime>(
             let account2 = account_id_owned.clone();
             let target2 = target_owned.clone();
             let return2 = ret_owned.clone();
+            let callback2 = nav_str.to_string();
             tauri::async_runtime::spawn(async move {
-                complete_proxy_login(&app2, &account2, &target2, &return2).await;
+                complete_proxy_login(&app2, &account2, &target2, &return2, &callback2).await;
                 if let Some(win) = app2.get_webview_window(&label2) {
                     let _ = win.close();
                 }
@@ -220,8 +246,7 @@ pub fn open_login_window<R: Runtime>(
     let window = builder
         .build()
         .map_err(|e| AccountManagerError::store_fail(format!("build login window: {e}")))?;
-    let state = app.state::<super::state::AccountManagerState>();
-    if let Some(saved) = super::session::restore_session(&state, account_id)? {
+    if let Some(saved) = saved_session {
         super::session::inject_session(&window, &saved)?;
     }
     window
@@ -235,8 +260,20 @@ async fn complete_proxy_login<R: Runtime>(
     account_id: &str,
     target_url: &str,
     return_url: &str,
+    callback_url: &str,
 ) {
-    match super::session::finalize_proxy_session(app, account_id, target_url).await {
+    let capture_result = super::session::finalize_proxy_session(app, account_id, target_url).await;
+    let forward_result = if super::proxy::protocol::is_loopback_url(return_url) {
+        forward_loopback_callback(callback_url).await
+    } else {
+        forward_callback_to_external_app(app, callback_url);
+        Ok(())
+    };
+    if let Err(error) = forward_result {
+        eprintln!("[account_manager] callback forwarding failed: {error}");
+    }
+
+    match capture_result {
         Ok(()) => {
             if let Some(window) = app.get_webview_window(&login_window_label(account_id)) {
                 let _ = window.close();

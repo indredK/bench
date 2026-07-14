@@ -130,6 +130,7 @@ macro_rules! app_invoke_handler {
             $crate::dev_cleaner::custom_cleanup::stop_custom_cleanup,
             $crate::env_detector::commands::detect_env_tools,
             $crate::window_theme::commands::set_window_theme,
+            $crate::account_manager::commands::get_account_manager_capabilities,
             $crate::account_manager::commands::list_stations,
             $crate::account_manager::commands::create_station,
             $crate::account_manager::commands::update_station,

@@ -27,7 +27,7 @@ Rust 关键文件：
 
 - `RelayStation` 表示站点；`StationAccount` 表示站点下的隔离账号。
 - 账号分为 persistent 和 ephemeral；ephemeral 不参与启动恢复并在退出时清理。
-- Session 包含 cookies、Web Storage、可选 IndexedDB/CSRF 信息和捕获元数据。
+- Session 包含 canonical cookies、按 origin 加密的 Web Storage/IndexedDB、可选 CSRF 信息和捕获元数据。
 - AuthProfile 描述认证类型、token 存储、CSRF、SSO、anti-bot、指纹级别与 probe 策略。
 - 互斥模式为 coexisting、exclusive、rotating；约束只作用于同一 exclusivity group。
 - 持久化类型新增字段必须提供 serde 默认值；schema 变更必须支持旧数据读取和回滚。
@@ -47,10 +47,14 @@ schema v5 起，`AccountManagerSnapshot.sessions` 是唯一 Session 真理源；
 强制约束：
 
 - HttpOnly cookie 只能通过 WebView 原生 cookie API 获取。
-- local/session storage 仅按 AuthProfile 需要读取；明文不得进入前端 store 或日志。
+- local/session storage 仅捕获 Station website 的精确 origin；恢复脚本再次比较 `scheme + host + port`，不得跨 origin 注入。明文只在 Rust 内存和目标账号 WebView 中短时存在，不得进入前端 store、事件或日志。
+- IndexedDB 捕获保存 database version、object store、keyPath、autoIncrement、index 和记录；恢复前验证 schema，版本或 store/index 不兼容时 fail-closed，不覆盖现有数据库。
+- 单次 Web Storage 最多 512 key/2 MiB；IndexedDB 最多 32 database、128 store、10,000 record/8 MiB；桥接总量 12 MiB，捕获/恢复各 10 秒。Blob、CryptoKey、循环引用等不可移植值返回受限/失败，不伪装为完整快照。
 - 恢复后必须 probe，不能仅凭 cookie 存在标记 Ready。
 - TTL 清理和退出持久化必须幂等；失败需要可见错误或明确降级状态。
 - 每个账号使用独立 data directory/data store，禁止跨账号复用浏览上下文。
+
+Cookie 同时保存 Unix expiry，恢复时还原过期时间。Tauri 当前只暴露 `partitioned` 布尔值而不暴露 partition key，因此 partitioned Cookie 不进入 HTTP probe；取得完整 partition key 语义前不得降级发送。
 
 ## 4. 检测与分层探针
 
@@ -110,6 +114,8 @@ AuthProfile 检测从页面、cookie、Web Storage、CSRF、SSO、anti-bot 和 W
 - quick login、删除、代理开关、重新检测等异步动作必须防重入。
 - 删除、吊销代理、覆盖导入等危险操作必须二次确认并展示结果。
 - 所有失败、空状态、过期状态和探针降级均支持中英文。
+
+后端 `get_account_manager_capabilities` 是平台能力真理源，逐项返回 `supported/partial/unsupported/failed + reasonCode`。前端允许 `supported/partial`，对 `unsupported/failed` 禁用具体操作并显示原因；不得根据 `navigator.platform` 或编译成功自行提升能力。Windows 页面入口已开放，但 WebView 网络代理保持 `unsupported`，后端同样拒绝非空代理配置，避免绕过 UI 后静默直连。
 
 ## 8. 修改检查表
 

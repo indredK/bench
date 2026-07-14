@@ -1,3 +1,5 @@
+mod browser_storage;
+mod capabilities;
 pub mod commands;
 mod crypto;
 pub mod deep_link;

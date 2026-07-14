@@ -37,6 +37,11 @@ import type {
   SystemInfoData,
 } from "@/lib/tauri/types"
 import type { AppUpdateInfo, AppUpdateInstallResult } from "@/lib/tauri/types/updater"
+import type {
+  AccountManagerCapabilities,
+  AccountManagerCapability,
+  OriginStorage,
+} from "@/lib/tauri/types/account-manager"
 
 describe("Tauri contracts", () => {
   it("keeps grouped command constants derived from the canonical command contracts", () => {
@@ -81,6 +86,30 @@ describe("Tauri contracts", () => {
     const rustStructFields = parseRustStructFields(rustSource)
 
     const checks: Array<[string, string, string[]]> = [
+      [
+        "AccountManagerCapability",
+        "camel",
+        dtoKeys<AccountManagerCapability>(["status", "reasonCode"]),
+      ],
+      [
+        "AccountManagerCapabilities",
+        "camel",
+        dtoKeys<AccountManagerCapabilities>([
+          "platform",
+          "credentialStore",
+          "isolatedWebview",
+          "cookieSession",
+          "webStorage",
+          "indexedDb",
+          "networkProxy",
+          "deepLink",
+        ]),
+      ],
+      [
+        "OriginStorage",
+        "camel",
+        dtoKeys<OriginStorage>(["origin", "localStorage", "sessionStorage", "indexedDb"]),
+      ],
       [
         "AppInfo",
         "camel",

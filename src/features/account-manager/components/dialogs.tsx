@@ -38,10 +38,14 @@ export function StationDialog({
   station,
   onOpenChange,
   onSubmit,
+  networkProxyAvailable = true,
+  networkProxyNotice,
 }: {
   open: boolean
   station: RelayStation | null
   onOpenChange: (open: boolean) => void
+  networkProxyAvailable?: boolean
+  networkProxyNotice?: string
   onSubmit: (
     remark: string,
     website: string,
@@ -263,10 +267,14 @@ export function StationDialog({
               <input
                 type="checkbox"
                 checked={proxyEnabled}
+                disabled={!networkProxyAvailable && !proxyEnabled}
                 onChange={(e) => setProxyEnabled(e.target.checked)}
               />
               {t("accountManager.sessionManager.networkProxy.enableLabel")}
             </label>
+            {networkProxyNotice && (
+              <p className="text-muted-foreground text-xs">{networkProxyNotice}</p>
+            )}
             {proxyEnabled && (
               <div className="space-y-3">
                 <Field

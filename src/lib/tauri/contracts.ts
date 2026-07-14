@@ -12,6 +12,7 @@ import type {
   UpdateScanReport,
 } from "@/lib/tauri/types/app-manager"
 import type {
+  AccountManagerCapabilities,
   AuthProfile,
   AuthProxyDrainResult,
   AuthProxyInboxStatus,
@@ -163,6 +164,9 @@ export const TAURI_COMMAND_CONTRACTS = {
     { theme: "default" | "glass"; appearance: "light" | "dark" },
     void
   >()("set_window_theme"),
+  get_account_manager_capabilities: defineTauriCommand<undefined, AccountManagerCapabilities>()(
+    "get_account_manager_capabilities",
+  ),
   list_stations: defineTauriCommand<undefined, RelayStation[]>()("list_stations"),
   create_station: defineTauriCommand<
     { remark: string; website: string; loginDetection?: LoginDetectionConfig | null },
@@ -616,6 +620,7 @@ export const TAURI_COMMANDS = {
     setWindowTheme: commandName("set_window_theme"),
   },
   accountManager: {
+    getCapabilities: commandName("get_account_manager_capabilities"),
     listStations: commandName("list_stations"),
     createStation: commandName("create_station"),
     updateStation: commandName("update_station"),
@@ -835,6 +840,7 @@ export const TAURI_COMMAND_ARG_KEYS = {
   query_port_processes: ["ports"],
   kill_processes: ["targets"],
   set_window_theme: ["theme", "appearance"],
+  get_account_manager_capabilities: [],
   list_stations: [],
   create_station: ["remark", "website", "loginDetection"],
   update_station: ["id", "remark", "website", "loginDetection", "sessionTtlHours"],

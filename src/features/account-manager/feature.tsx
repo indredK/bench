@@ -16,5 +16,5 @@ export const accountManagerFeature: AppFeature = {
     </Suspense>
   ),
   desktopOnly: true,
-  platforms: ["macos"],
+  platforms: ["macos", "windows"],
 }

@@ -6,6 +6,24 @@ export type AccountSessionStatus =
 
 export type AccountType = "persistent" | "ephemeral"
 
+export type CapabilityStatus = "supported" | "partial" | "unsupported" | "failed"
+
+export interface AccountManagerCapability {
+  status: CapabilityStatus
+  reasonCode?: string | null
+}
+
+export interface AccountManagerCapabilities {
+  platform: string
+  credentialStore: AccountManagerCapability
+  isolatedWebview: AccountManagerCapability
+  cookieSession: AccountManagerCapability
+  webStorage: AccountManagerCapability
+  indexedDb: AccountManagerCapability
+  networkProxy: AccountManagerCapability
+  deepLink: AccountManagerCapability
+}
+
 export type ExclusivityMode = "coexisting" | "exclusive" | "rotating"
 
 export type ProbeStrategy = "httpFirst" | "httpOnly" | "webviewOnly" | "hybrid"
@@ -128,6 +146,7 @@ export interface OriginStorage {
   origin: string
   localStorage?: unknown | null
   sessionStorage?: unknown | null
+  indexedDb?: unknown | null
 }
 
 export interface RelayDataExportResult {

@@ -24,6 +24,7 @@ export const useAccountManagerStore = create<AccountManagerState & AccountManage
       })),
     setLoading: (loading) => set({ loading }),
     setLoadError: (loadError) => set({ loadError }),
+    setCapabilities: (capabilities) => set({ capabilities }),
     setSelectedStationId: (selectedStationId) => set({ selectedStationId }),
     setSelectedAccountId: (selectedAccountId) => set({ selectedAccountId }),
     setOpeningAccountId: (openingAccountId) =>

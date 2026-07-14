@@ -13,6 +13,7 @@ import {
   exportRelayData,
   handleBrowserOpen,
   getAuthProxyInboxStatus,
+  getAccountManagerCapabilities,
   importRelayData,
   listAllAccounts,
   listExternalAppBindings,
@@ -41,6 +42,7 @@ import { openExternal } from "@/platform/shell"
 import { openPlatformDialog, savePlatformDialog } from "@/platform/dialog"
 
 export const accountManagerRepository = {
+  getAccountManagerCapabilities,
   listStations,
   createStation,
   updateStation,

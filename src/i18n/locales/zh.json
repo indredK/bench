@@ -309,6 +309,18 @@
     "notesEmpty": "暂无备注",
     "neverLogin": "尚未登录",
     "neverRefreshed": "未刷新过",
+    "capabilities": {
+      "summary": "当前有 {{partial}} 项能力待真机验收，{{blocked}} 项能力在本平台不可用。",
+      "reasons": {
+        "targetPlatformValidationPending": "代码路径已实现，仍需按文档完成当前平台真机验收。",
+        "credentialStoreInitializationFailed": "系统凭据库初始化失败，无法安全持久化账号 Session。",
+        "platformUnsupported": "当前操作系统不支持此能力。",
+        "indexedDbSiteCompatibilityLimited": "IndexedDB 已支持有界捕获与恢复；使用特殊对象或不兼容 schema 的站点会明确失败。",
+        "networkProxyRequiresMacos14": "WebView 网络代理需要 macOS 14 或更高版本，并仍需真机验收。",
+        "networkProxyUnsupportedPlatform": "当前平台的登录 WebView 不支持网络代理；为避免静默直连，该入口已禁用。",
+        "capabilityUnavailable": "无法确认运行时能力，该操作已暂时禁用。"
+      }
+    },
     "fields": {
       "remark": "备注",
       "website": "官网",
@@ -416,7 +428,7 @@
       "hidePassword": "隐藏密码",
       "loginAction": "登录",
       "openWebsite": "打开官网",
-      "webviewHint": "登录时会优先弹出独立的 WebView 窗口，便于每个账号保持各自的登录态；若当前环境不支持，则会调用默认浏览器打开官网。",
+      "webviewHint": "登录会在独立 WebView 中进行，确保每个账号使用隔离的浏览器数据；能力不可用时会明确报错，不会退回共享的系统浏览器。",
       "proxySectionTitle": "外部登录代理",
       "proxyEnabled": "允许代理登录",
       "proxyEnabledHint": "开启后，外部应用可通过 bench-auth:// 协议请求使用此账号登录。",
@@ -424,6 +436,7 @@
     },
     "toasts": {
       "initFailed": "加载站点数据失败",
+      "openLoginFailed": "打开隔离登录窗口失败",
       "createStationFailed": "创建站点失败",
       "createAccountFailed": "创建账号失败",
       "markLoggedInFailed": "标记登录状态失败",

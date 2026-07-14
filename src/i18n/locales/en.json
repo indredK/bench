@@ -309,6 +309,18 @@
     "notesEmpty": "No notes",
     "neverLogin": "Never logged in",
     "neverRefreshed": "Never refreshed",
+    "capabilities": {
+      "summary": "{{partial}} capabilities await device validation; {{blocked}} are unavailable on this platform.",
+      "reasons": {
+        "targetPlatformValidationPending": "The code path is implemented but still requires the documented device validation on this platform.",
+        "credentialStoreInitializationFailed": "The system credential store could not be initialized, so account sessions cannot be persisted safely.",
+        "platformUnsupported": "This capability is not supported on the current operating system.",
+        "indexedDbSiteCompatibilityLimited": "Bounded IndexedDB capture and restore is available; sites using unsupported values or incompatible schemas fail explicitly.",
+        "networkProxyRequiresMacos14": "WebView network proxy requires macOS 14 or later and still needs device validation.",
+        "networkProxyUnsupportedPlatform": "Login WebView proxy is unsupported on this platform. The control is disabled to prevent a silent direct connection.",
+        "capabilityUnavailable": "Runtime capability could not be confirmed, so this action is temporarily disabled."
+      }
+    },
     "fields": {
       "remark": "Remark",
       "website": "Website",
@@ -416,7 +428,7 @@
       "hidePassword": "Hide password",
       "loginAction": "Login",
       "openWebsite": "Open Website",
-      "webviewHint": "Login first tries to open an isolated WebView window so each account keeps its own session. If the runtime doesn't support it, the default browser is used as a fallback.",
+      "webviewHint": "Login uses an isolated WebView so each account keeps separate browser data. If the capability is unavailable, the app reports it instead of falling back to a shared system browser.",
       "proxySectionTitle": "External Login Proxy",
       "proxyEnabled": "Allow proxy login",
       "proxyEnabledHint": "When enabled, external apps can request this account via bench-auth:// protocol.",
@@ -424,6 +436,7 @@
     },
     "toasts": {
       "initFailed": "Failed to load gateway data",
+      "openLoginFailed": "Failed to open the isolated login window",
       "createStationFailed": "Failed to create gateway",
       "createAccountFailed": "Failed to create account",
       "markLoggedInFailed": "Failed to mark as logged in",

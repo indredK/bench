@@ -21,7 +21,7 @@
 |------|:-----:|:-------:|:-----:|------|
 | Quick Launch | ⚠️ | ⚠️ | 未审计 | 核心代码已整改，真机启动和大列表验收未完成 |
 | App Manager | ⚠️ | ⚠️ | 未审计 | 核心代码已整改，平台 fixture/smoke/runner 未完成 |
-| Account Manager | ⚠️ | ⚠️ | 未审计 | Deep Link/Session 核心已整改；per-origin storage、Windows 入口/capability 和行为验收未完成 |
+| Account Manager | ⚠️ | ⚠️ | 未审计 | Deep Link、per-origin Session 和 capability 核心已整改；Keyring/WebView/Deep Link 双平台行为验收未完成，Windows proxy 明确不支持 |
 | Dev Toolbox | ✅ | 部分 | 部分 | 子工具分别声明平台能力 |
 | Clean Space | ✅ | 不适用 | 不适用 | 2.0.0 维持 macOS-only；其他平台导航隐藏、直达 gate |
 | Hardware | ✅ | 不适用 | 不适用 | 2.0.0 维持 macOS-only；数据以 Apple 和常见硬件为主 |

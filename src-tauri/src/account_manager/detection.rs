@@ -114,6 +114,7 @@ struct DetectionInput {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct CsrfInput {
     meta_name: Option<String>,
     #[allow(dead_code)]
@@ -215,9 +216,12 @@ fn classify_auth(d: DetectionInput) -> AuthProfile {
         || p.fingerprinting == FingerprintingLevel::Strict
         || p.auth_type == AuthType::Saml
         || d.has_service_worker
-    {
+        || matches!(
+            p.token_storage,
+            TokenStorage::LocalStorage | TokenStorage::SessionStorage | TokenStorage::IndexedDB
+        ) {
         ProbeStrategy::WebviewOnly
-    } else if p.auth_type == AuthType::OpenIdConnect {
+    } else if p.auth_type == AuthType::OpenIdConnect || p.token_storage == TokenStorage::Multiple {
         ProbeStrategy::Hybrid
     } else {
         ProbeStrategy::HttpFirst
@@ -268,4 +272,43 @@ pub fn classify_confident(
     config: &LoginDetectionConfig,
 ) -> Option<AccountSessionStatus> {
     super::detection_legacy::classify_confident(page_text, config)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn detection_with_storage(local: bool, session: bool) -> DetectionInput {
+        serde_json::from_value(serde_json::json!({
+            "sessionCookieNames": [],
+            "totalCookies": 0,
+            "tokenKeys": if local { vec!["access_token"] } else { Vec::<&str>::new() },
+            "localStorageTokens": {},
+            "sessionTokenKeys": if session { vec!["session"] } else { Vec::<&str>::new() },
+            "csrf": { "metaName": null, "metaContent": null, "inputName": null },
+            "logoutElements": [],
+            "ssoProvider": null,
+            "cloudflare": { "challenge": false, "turnstile": false, "recaptcha": false },
+            "websocketDetected": false,
+            "url": "https://example.test",
+            "title": "Example",
+            "hasSW": false,
+            "hasServiceWorker": false
+        }))
+        .expect("detection input")
+    }
+
+    #[test]
+    fn web_storage_only_auth_uses_a_webview_probe() {
+        let profile = classify_auth(detection_with_storage(true, false));
+        assert_eq!(profile.token_storage, TokenStorage::LocalStorage);
+        assert_eq!(profile.probe_strategy, ProbeStrategy::WebviewOnly);
+    }
+
+    #[test]
+    fn multiple_web_storage_sources_use_a_hybrid_probe() {
+        let profile = classify_auth(detection_with_storage(true, true));
+        assert_eq!(profile.token_storage, TokenStorage::Multiple);
+        assert_eq!(profile.probe_strategy, ProbeStrategy::Hybrid);
+    }
 }

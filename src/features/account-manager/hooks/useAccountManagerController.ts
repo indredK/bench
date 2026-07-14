@@ -31,6 +31,7 @@ export function useAccountManagerController() {
     accounts,
     loading,
     loadError,
+    capabilities,
     selectedStationId,
     selectedAccountId,
     openingAccountId,
@@ -78,6 +79,7 @@ export function useAccountManagerController() {
       accounts: s.accounts,
       loading: s.loading,
       loadError: s.loadError,
+      capabilities: s.capabilities,
       selectedStationId: s.selectedStationId,
       selectedAccountId: s.selectedAccountId,
       openingAccountId: s.openingAccountId,
@@ -170,7 +172,9 @@ export function useAccountManagerController() {
     s.setLoading(true)
     s.setLoadError(null)
     try {
-      const [loadedStations, loadedAccounts] = await accountManagerUseCases.loadInitialData()
+      const [loadedCapabilities, loadedStations, loadedAccounts] =
+        await accountManagerUseCases.loadInitialData()
+      s.setCapabilities(loadedCapabilities)
       s.setStations(loadedStations)
       s.setAccounts(loadedAccounts)
       s.applyInitialSelection(loadedStations, loadedAccounts)
@@ -308,6 +312,9 @@ export function useAccountManagerController() {
     setOpeningAccountId(account.id)
     try {
       await openLoginWebview(account, selectedStation.website)
+    } catch (error) {
+      const info = classifyAccountManagerError(error, t("accountManager.toasts.openLoginFailed"))
+      toast.error(info.message)
     } finally {
       setOpeningAccountId((current) => (current === account.id ? null : current))
     }
@@ -626,7 +633,7 @@ export function useAccountManagerController() {
       toast.error(t("accountManager.toasts.reorderStationsFailed"))
       if (isInvalidInput(error)) {
         try {
-          setStations(await accountManagerUseCases.loadInitialData().then(([s]) => s))
+          setStations(await accountManagerUseCases.loadInitialData().then(([, s]) => s))
         } catch {
           /* ignore */
         }
@@ -661,7 +668,7 @@ export function useAccountManagerController() {
       toast.error(t("accountManager.toasts.reorderAccountsFailed"))
       if (isInvalidInput(error)) {
         try {
-          const [, loadedAccounts] = await accountManagerUseCases.loadInitialData()
+          const [, , loadedAccounts] = await accountManagerUseCases.loadInitialData()
           setAccounts(loadedAccounts)
         } catch {
           /* ignore */
@@ -677,6 +684,7 @@ export function useAccountManagerController() {
     accounts,
     loading,
     loadError,
+    capabilities,
     loadInitialData,
     selectedStation,
     selectedAccount,

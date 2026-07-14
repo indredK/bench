@@ -43,6 +43,8 @@ pub struct CookieEntry {
     pub partitioned: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expires: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_at_ts: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -88,6 +90,9 @@ pub struct OriginStorage {
     /// 该 origin 下的 sessionStorage 键值对(加密)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_storage: Option<EncryptedBlob>,
+    /// 该 origin 下的 IndexedDB schema 与记录快照(加密)。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub indexed_db: Option<EncryptedBlob>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -539,6 +544,60 @@ pub struct RefreshReport {
     pub total: usize,
     pub succeeded: Vec<StationAccount>,
     pub failed: Vec<RefreshFailure>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum CapabilityStatus {
+    #[allow(dead_code)]
+    Supported,
+    Partial,
+    Unsupported,
+    Failed,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct AccountManagerCapability {
+    pub status: CapabilityStatus,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason_code: Option<String>,
+}
+
+impl AccountManagerCapability {
+    pub fn partial(reason_code: impl Into<String>) -> Self {
+        Self {
+            status: CapabilityStatus::Partial,
+            reason_code: Some(reason_code.into()),
+        }
+    }
+
+    pub fn unsupported(reason_code: impl Into<String>) -> Self {
+        Self {
+            status: CapabilityStatus::Unsupported,
+            reason_code: Some(reason_code.into()),
+        }
+    }
+
+    pub fn failed(reason_code: impl Into<String>) -> Self {
+        Self {
+            status: CapabilityStatus::Failed,
+            reason_code: Some(reason_code.into()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct AccountManagerCapabilities {
+    pub platform: String,
+    pub credential_store: AccountManagerCapability,
+    pub isolated_webview: AccountManagerCapability,
+    pub cookie_session: AccountManagerCapability,
+    pub web_storage: AccountManagerCapability,
+    pub indexed_db: AccountManagerCapability,
+    pub network_proxy: AccountManagerCapability,
+    pub deep_link: AccountManagerCapability,
 }
 
 #[derive(Debug, Clone, Serialize)]

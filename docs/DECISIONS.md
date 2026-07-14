@@ -11,6 +11,16 @@
 
 ---
 
+## D-012 · Account Manager 采用有界同源浏览器状态与逐能力发布
+
+- **日期**：2026-07-14
+- **状态**：采纳
+- **背景**：Account Manager 的 Session 类型预留了 origin/IndexedDB 字段，但运行路径只捕获 Cookie；Windows 又被页面元数据排除，平台能力没有后端真理源。简单 JSON dump 会跨 origin 污染、覆盖不兼容数据库或在超大站点耗尽 WebView/Rust 内存。
+- **决策**：Session 只捕获 Station website 的精确 origin；local/session storage 和 IndexedDB schema/record 分别加密并设 database/store/record/体积/timeout 上限，恢复前验证 origin 与 schema，不兼容或不可移植值 fail-closed。平台能力由后端 DTO 逐项返回 `supported/partial/unsupported/failed`；未完成真机验收的实现保持 `partial`。Windows 开放 Account Manager 页面，但 WebView proxy 继续 `unsupported`，桌面登录失败不得回退共享系统浏览器。
+- **理由**：同源选择和有界资源把浏览器状态恢复限制在可证明的安全范围；逐能力状态将“已实现”和“已验证”分离，避免编译成功被误报为跨平台对等；禁止浏览器 fallback 保持账号隔离和代理 fail-closed。
+- **影响**：特殊 Structured Clone 值、超限数据或不兼容 IndexedDB schema 会明确失败而不是保存半截快照。macOS/Windows 对应行为矩阵通过并补平台测试后，才能在 capability provider 中把单项提升为 `supported`。
+- **相关**：[Account Manager design](./modules/account-manager/design.md) · [生产审计与真机验收](./modules/account-manager/audit-and-upgrade-2026-07-13.md) · [Account Manager roadmap](./modules/account-manager/roadmap.md)
+
 ## D-011 · 2.0 保留既有 bundle identifier
 
 - **日期**：2026-07-14

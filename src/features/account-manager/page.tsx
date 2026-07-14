@@ -2,7 +2,7 @@
  * account-manager page / 账号管理页面: thin composition over useAccountManagerController.
  * 三栏布局(站点 / 账号 / 详情) + 各类对话框都是纯展示组件,状态与编排全在控制器 hook。
  */
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { FeatureLoadError } from "@/components/common/FeatureLoadError"
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet"
@@ -21,6 +21,11 @@ import {
 import { AuthProxyDialog } from "@/features/account-manager/components/auth-proxy-dialog"
 import { ExternalAppsPanel } from "@/features/account-manager/components/external-apps-panel"
 import { cn } from "@/lib/utils"
+import { AlertTriangle } from "lucide-react"
+import {
+  getCapabilityReason,
+  isCapabilityUsable,
+} from "@/features/account-manager/model/capabilities"
 
 function SkeletonLine({ className }: { className: string }) {
   return <div className={cn("bg-muted rounded motion-safe:animate-pulse", className)} />
@@ -83,6 +88,50 @@ function AccountManagerPage() {
   const { t } = useTranslation()
   const c = useAccountManagerController()
   const [detailSheetOpen, setDetailSheetOpen] = useState(false)
+  const capabilityState = useMemo(() => {
+    const capabilities = c.capabilities
+    if (!capabilities) {
+      const reason = t("accountManager.capabilities.reasons.capabilityUnavailable")
+      return {
+        loginDisabledReason: reason,
+        externalLoginDisabledReason: reason,
+        networkProxyAvailable: false,
+        networkProxyNotice: reason,
+        degradedCount: 0,
+        blockedCount: 1,
+      }
+    }
+    const values = [
+      capabilities.credentialStore,
+      capabilities.isolatedWebview,
+      capabilities.cookieSession,
+      capabilities.webStorage,
+      capabilities.indexedDb,
+      capabilities.networkProxy,
+      capabilities.deepLink,
+    ]
+    const loginDisabledReason = isCapabilityUsable(capabilities.isolatedWebview)
+      ? undefined
+      : getCapabilityReason(t, capabilities.isolatedWebview)
+    const externalCapability = [capabilities.isolatedWebview, capabilities.deepLink].find(
+      (capability) => !isCapabilityUsable(capability),
+    )
+    return {
+      loginDisabledReason,
+      externalLoginDisabledReason: externalCapability
+        ? getCapabilityReason(t, externalCapability)
+        : undefined,
+      networkProxyAvailable: isCapabilityUsable(capabilities.networkProxy),
+      networkProxyNotice:
+        capabilities.networkProxy.status === "supported"
+          ? undefined
+          : getCapabilityReason(t, capabilities.networkProxy),
+      degradedCount: values.filter((capability) => capability.status === "partial").length,
+      blockedCount: values.filter(
+        (capability) => capability.status === "unsupported" || capability.status === "failed",
+      ).length,
+    }
+  }, [c.capabilities, t])
 
   useEffect(() => {
     const media = window.matchMedia?.("(min-width: 1280px)")
@@ -142,63 +191,82 @@ function AccountManagerPage() {
   }
 
   return (
-    <div className="flex h-full min-h-0 gap-4">
-      <StationColumn
-        stations={c.stations}
-        selectedId={c.selectedStationId}
-        countByStation={c.accountCountByStation}
-        onSelect={(stationId) => {
-          setDetailSheetOpen(false)
-          c.handleSelectStation(stationId)
-        }}
-        onAdd={() => c.setAddStationOpen(true)}
-        onQuickLogin={() => c.setQuickLoginOpen(true)}
-        onExternalLogin={() => c.setAuthProxyOpen(true)}
-        onEdit={(station) => {
-          c.setEditingStation(station)
-          c.setEditStationOpen(true)
-        }}
-        onDelete={(station) => {
-          c.setDeletingStation(station)
-          c.setDeleteStationOpen(true)
-        }}
-        onReorder={(ids) => void c.handleReorderStations(ids)}
-        reorderDisabled={c.reorderingStations}
-        onRefreshAll={c.handleRefreshAll}
-        refreshingAll={c.refreshingAll}
-        onImportData={() => void c.handleImportData()}
-        onExportData={() => void c.handleExportData()}
-        importingData={c.importingData}
-        exportingData={c.exportingData}
-      />
+    <div className="flex h-full min-h-0 flex-col gap-2">
+      {(capabilityState.degradedCount > 0 || capabilityState.blockedCount > 0) && (
+        <div
+          className="border-border bg-muted/40 text-muted-foreground flex shrink-0 items-center gap-2 border-b px-2 py-1.5 text-xs"
+          role="status"
+        >
+          <AlertTriangle className="size-3.5 shrink-0" />
+          <span className="min-w-0 truncate">
+            {t("accountManager.capabilities.summary", {
+              partial: capabilityState.degradedCount,
+              blocked: capabilityState.blockedCount,
+            })}
+          </span>
+        </div>
+      )}
+      <div className="flex min-h-0 flex-1 gap-4">
+        <StationColumn
+          stations={c.stations}
+          selectedId={c.selectedStationId}
+          countByStation={c.accountCountByStation}
+          onSelect={(stationId) => {
+            setDetailSheetOpen(false)
+            c.handleSelectStation(stationId)
+          }}
+          onAdd={() => c.setAddStationOpen(true)}
+          onQuickLogin={() => c.setQuickLoginOpen(true)}
+          onExternalLogin={() => c.setAuthProxyOpen(true)}
+          onEdit={(station) => {
+            c.setEditingStation(station)
+            c.setEditStationOpen(true)
+          }}
+          onDelete={(station) => {
+            c.setDeletingStation(station)
+            c.setDeleteStationOpen(true)
+          }}
+          onReorder={(ids) => void c.handleReorderStations(ids)}
+          reorderDisabled={c.reorderingStations}
+          onRefreshAll={c.handleRefreshAll}
+          refreshingAll={c.refreshingAll}
+          onImportData={() => void c.handleImportData()}
+          onExportData={() => void c.handleExportData()}
+          importingData={c.importingData}
+          exportingData={c.exportingData}
+          quickLoginDisabledReason={capabilityState.loginDisabledReason}
+          externalLoginDisabledReason={capabilityState.externalLoginDisabledReason}
+        />
 
-      <AccountColumn
-        station={c.selectedStation}
-        accounts={c.stationAccounts}
-        selectedId={c.selectedAccount?.id ?? ""}
-        openingId={c.openingAccountId}
-        refreshingIds={c.refreshingAccountIds}
-        refreshingStationIds={c.refreshingStationIds}
-        refreshingAll={c.refreshingAll}
-        justRefreshedIds={c.justRefreshedIds}
-        onSelect={handleSelectAccount}
-        onAdd={() => c.setAddAccountOpen(true)}
-        onLogin={c.handleLogin}
-        onRefresh={c.handleRefreshAccount}
-        onRefreshStation={c.handleRefreshStation}
-        onEdit={(account) => {
-          c.setEditingAccount(account)
-          c.setEditAccountOpen(true)
-        }}
-        onDelete={(account) => {
-          c.setDeletingAccount(account)
-          c.setDeleteAccountOpen(true)
-        }}
-        onReorder={(ids) => void c.handleReorderAccounts(ids)}
-        reorderDisabled={c.reorderingAccounts}
-      />
+        <AccountColumn
+          station={c.selectedStation}
+          accounts={c.stationAccounts}
+          selectedId={c.selectedAccount?.id ?? ""}
+          openingId={c.openingAccountId}
+          refreshingIds={c.refreshingAccountIds}
+          refreshingStationIds={c.refreshingStationIds}
+          refreshingAll={c.refreshingAll}
+          justRefreshedIds={c.justRefreshedIds}
+          onSelect={handleSelectAccount}
+          onAdd={() => c.setAddAccountOpen(true)}
+          onLogin={c.handleLogin}
+          onRefresh={c.handleRefreshAccount}
+          onRefreshStation={c.handleRefreshStation}
+          onEdit={(account) => {
+            c.setEditingAccount(account)
+            c.setEditAccountOpen(true)
+          }}
+          onDelete={(account) => {
+            c.setDeletingAccount(account)
+            c.setDeleteAccountOpen(true)
+          }}
+          onReorder={(ids) => void c.handleReorderAccounts(ids)}
+          reorderDisabled={c.reorderingAccounts}
+          loginDisabledReason={capabilityState.loginDisabledReason}
+        />
 
-      {renderDetailColumn()}
+        {renderDetailColumn()}
+      </div>
 
       <Sheet open={detailSheetOpen && Boolean(c.selectedAccount)} onOpenChange={setDetailSheetOpen}>
         <SheetContent className="p-0 xl:hidden">
@@ -213,6 +281,8 @@ function AccountManagerPage() {
       <StationDialog
         open={c.isAddStationOpen || c.isEditStationOpen}
         station={c.editingStation}
+        networkProxyAvailable={capabilityState.networkProxyAvailable}
+        networkProxyNotice={capabilityState.networkProxyNotice}
         onOpenChange={(open) => {
           if (!open) {
             c.setAddStationOpen(false)

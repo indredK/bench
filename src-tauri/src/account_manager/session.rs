@@ -13,6 +13,7 @@ use tauri::webview::Cookie as WebviewCookie;
 use tauri::{AppHandle, Manager, Runtime, Url, WebviewWindow};
 use tokio::sync::oneshot;
 
+use super::browser_storage::{self, IndexedDbCaptureStatus};
 use super::crypto;
 use super::state::AccountManagerState;
 use super::storage;
@@ -82,6 +83,7 @@ async fn extract_cookies<R: Runtime>(
                 same_site: c.same_site().map(|s| format!("{:?}", s).to_lowercase()),
                 partitioned: c.partitioned().unwrap_or(false),
                 expires: c.expires_datetime().map(|d| d.to_string()),
+                expires_at_ts: c.expires_datetime().map(|d| d.unix_timestamp()),
             }
         })
         .collect())
@@ -105,32 +107,54 @@ pub async fn finalize_proxy_session<R: Runtime>(
 ) -> AccountManagerResult<()> {
     let state = app.state::<AccountManagerState>();
 
-    let account = state
-        .read_snapshot_checked()?
+    let snapshot = state.read_snapshot_checked()?;
+    let account = snapshot
         .accounts
         .iter()
         .find(|a| a.id == account_id)
         .cloned()
         .ok_or_else(|| AccountManagerError::not_found(format!("account {account_id}")))?;
+    let requires_indexed_db = snapshot
+        .stations
+        .iter()
+        .find(|station| station.id == account.station_id)
+        .and_then(|station| station.auth_profile.as_ref())
+        .is_some_and(|profile| profile.token_storage == TokenStorage::IndexedDB);
 
     let login_label = webview::login_window_label(account_id);
     let window = app
         .get_webview_window(&login_label)
         .ok_or_else(|| AccountManagerError::not_found(format!("login window {login_label}")))?;
     let cookies = extract_cookies(&window, target_url).await?;
-    if cookies.is_empty() {
+    let captured_origin =
+        browser_storage::capture_current_origin(&window, &state, target_url).await?;
+    if requires_indexed_db
+        && captured_origin
+            .as_ref()
+            .is_none_or(|capture| capture.indexed_db_status != IndexedDbCaptureStatus::Complete)
+    {
         return Err(AccountManagerError::store_fail(
-            "login completed without a capturable cookie session",
+            "IndexedDB is required by this station but could not be captured completely",
+        ));
+    }
+    if cookies.is_empty()
+        && captured_origin
+            .as_ref()
+            .is_none_or(|capture| !capture.has_data)
+    {
+        return Err(AccountManagerError::store_fail(
+            "login completed without capturable session data",
         ));
     }
     let user_agent = extract_user_agent(&window).await.unwrap_or_default();
-    let session = AccountSession {
-        cookies,
-        user_agent,
-        captured_at: super::commands::now_label(),
-        captured_at_ts: Some(chrono::Utc::now().timestamp()),
-        ..Default::default()
-    };
+    let mut session = restore_session(&state, account_id)?.unwrap_or_default();
+    session.cookies = cookies;
+    session.user_agent = user_agent;
+    session.captured_at = super::commands::now_label();
+    session.captured_at_ts = Some(chrono::Utc::now().timestamp());
+    if let Some(capture) = captured_origin {
+        browser_storage::merge_origin(&mut session, capture.storage);
+    }
     let encrypted = if account.account_type == AccountType::Persistent {
         Some(encrypt_session(&state, &session)?)
     } else {
@@ -210,6 +234,12 @@ pub fn inject_session<R: Runtime>(
             _ => None,
         }) {
             builder = builder.same_site(same_site);
+        }
+        if let Some(expires_at) = entry
+            .expires_at_ts
+            .and_then(|timestamp| cookie::time::OffsetDateTime::from_unix_timestamp(timestamp).ok())
+        {
+            builder = builder.expires(expires_at);
         }
         window
             .set_cookie(builder.build())
@@ -311,22 +341,35 @@ pub async fn persist_all_sessions_on_exit<R: Runtime>(
                     .map(|station| station.website.as_str())
             });
             let Some(website) = website else { continue };
+            let mut session = restore_session(state, &account.id)?.unwrap_or_default();
+            let mut changed = false;
             match extract_cookies(&window, website).await {
                 Ok(cookies) if !cookies.is_empty() => {
-                    let session = AccountSession {
-                        cookies,
-                        captured_at: super::commands::now_label(),
-                        captured_at_ts: Some(chrono::Utc::now().timestamp()),
-                        user_agent: extract_user_agent(&window).await.unwrap_or_default(),
-                        ..Default::default()
-                    };
-                    captured.push((account.id.clone(), encrypt_session(state, &session)?));
+                    session.cookies = cookies;
+                    changed = true;
                 }
                 Ok(_) => {}
                 Err(error) => eprintln!(
-                    "[account_manager] exit capture failed for {}: {error}",
+                    "[account_manager] exit cookie capture failed for {}: {error}",
                     account.id
                 ),
+            }
+            match browser_storage::capture_current_origin(&window, state, website).await {
+                Ok(Some(origin)) => {
+                    browser_storage::merge_origin(&mut session, origin.storage);
+                    changed = true;
+                }
+                Ok(None) => {}
+                Err(error) => eprintln!(
+                    "[account_manager] exit origin capture failed for {}: {error}",
+                    account.id
+                ),
+            }
+            if changed {
+                session.captured_at = super::commands::now_label();
+                session.captured_at_ts = Some(chrono::Utc::now().timestamp());
+                session.user_agent = extract_user_agent(&window).await.unwrap_or_default();
+                captured.push((account.id.clone(), encrypt_session(state, &session)?));
             }
         }
     }

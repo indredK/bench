@@ -23,11 +23,11 @@
 
 ```text
 pnpm exec vitest run account-manager/contracts  -> 3 files / 13 tests passed
-cargo test account_manager                      -> 65 tests passed
+cargo test account_manager                      -> 74 tests passed
 cargo clippy -- -D warnings                     -> passed
 ```
 
-新增测试覆盖 schema v5 canonical migration、一次性 ticket、重复参数拒绝、loopback/精确 callback/state、同源填充、HTTP Cookie scope、瞬态重试、账号级 single-flight、RefreshReport、删除 partial、sanitized export 和 Deep Link inbox。loopback HTTP 测试在沙箱外 65/65 通过。Windows Rust target 已安装，但 macOS 缺少 Windows SDK，交叉检查停在 `windows.h`/`assert.h`；真实 Keyring/store、Deep Link/WebView、退出 hook 和 Windows 行为仍需目标平台测试。
+新增测试覆盖 schema v5 canonical migration、一次性 ticket、重复参数拒绝、loopback/精确 callback/state、同源填充、HTTP Cookie scope、瞬态重试、账号级 single-flight、RefreshReport、删除 partial、sanitized export、Deep Link inbox、capability provider、Web Storage/IndexedDB bridge 边界和 storage-only probe 策略。loopback HTTP 测试在沙箱外 74/74 通过。Windows Rust target 已安装，但 macOS 缺少 Windows SDK，交叉检查停在 `windows.h`/`assert.h`；真实 Keyring/store、Deep Link/WebView、退出 hook 和 Windows 行为仍需目标平台测试。
 
 ### 1.1 首轮整改状态
 
@@ -39,21 +39,21 @@ cargo clippy -- -D warnings                     -> passed
 | A-07 Deep Link | 代码已修复，待平台验收 | App 根 32 条有界 FIFO、大小限制、短时 SHA-256 去重、窄 drain IPC、冷/热入口和 Windows single-instance 已实现；原始入口 URL 不进入 renderer |
 | A-08/A-09 刷新探针 | 核心后端已修复 | 守恒 RefreshReport；同账号并发合并；HTTP/WebView/Hybrid 真实执行，瞬态重试有次数与总时间上限 |
 | A-10 删除互斥 | 代码已修复，待平台验收 | 删除返回 WebView data/metadata 逐资源 report，目录占用时保留 metadata 并向前端显示 partial |
-| A-11 网络代理 | 部分修复 | `PasswordAction` 已区分 keep/set/clear；解密、解析和平台不支持均 fail-closed；Windows capability 仍待实现 |
+| A-11 网络代理 | 代码已修复，待平台验收 | `PasswordAction` 已区分 keep/set/clear；Windows capability 为 unsupported，UI 和后端都拒绝非空 WebView proxy，失败不再退回系统浏览器 |
 | A-12 导入导出 | 部分修复 | 已加版本/16 MiB/数量限制；renderer 只可 sanitized export，后端拒绝不可移植 `encryptedFull`；passphrase 格式待实现 |
 | A-14 敏感明文 | 代码已修复，待平台验收 | Rust 使用 `Zeroizing`，剪贴板条件清除；前端 reveal 在隐藏、切换、卸载或 30 秒后清除 |
-| A-15/A-16/A-17 | 部分修复 | 窄屏 Sheet 和 500+ 虚拟列表已落地；平台 capability、区域 retry 和大文件分层仍按 roadmap 实施 |
+| A-15/A-16/A-17 | 部分修复 | Windows 入口、后端 capability、窄屏 Sheet 和 500+ 虚拟列表已落地；目标平台验收、区域 retry 和大文件分层仍按 roadmap 实施 |
 
 ## 2. 结论与平台事实
 
 | 能力 | macOS | Windows | 审计结论 |
 |------|:-----:|:-------:|----------|
-| 页面入口 | ⚠️ | ❌ | `feature.tsx:18-19` 只允许 macOS |
+| 页面入口 | ⚠️ | ⚠️ | macOS/Windows 均开放；运行时能力由后端 DTO 控制，未做目标平台验收 |
 | 站点/账号 CRUD | ⚠️ | ⚠️ | 原子持久化、跨进程锁和删除 partial 已整改；目标平台目录占用仍待验收 |
 | 加密凭据 | ⚠️ | ⚠️ | AES-GCM/Keyring 首建和 store mutation 已加跨进程锁；未做目标平台行为验收 |
-| Session 捕获/恢复/TTL | ⚠️ | ⚠️ | 核心代码已整改；Cookie/WebView/退出行为等待目标平台验收 |
+| Session 捕获/恢复/TTL | ⚠️ | ⚠️ | canonical expiry、同源 local/session storage、受限 IndexedDB 与恢复后 probe 已接线；Cookie partition key 和目标平台行为等待验收 |
 | 隔离 WebView | ⚠️ | ⚠️ | macOS 使用 data store identifier；Windows 仅 data directory，缺行为证据 |
-| 网络代理 | ⚠️ | ⚠️ | HTTP probe 可用；WebView proxy 仅 macOS，其他平台明确拒绝且不直连 |
+| 网络代理 | ⚠️ | 不支持 | HTTP probe 可用；WebView proxy 仅 macOS 14+，Windows UI/后端明确拒绝且不直连 |
 | 外部登录代理 | ⚠️ | ⚠️ | 后端授权边界和根 Deep Link inbox 已整改；真机冷/热启动待验收 |
 | 批量刷新/探针 | ⚠️ | ⚠️ | 结构化 partial 与策略执行已整改；目标平台网络/WebView 行为待验收 |
 | 导入导出 | ⚠️ | ⚠️ | 资源/版本边界已补；encrypted full 仍不可可靠跨设备 |
@@ -444,6 +444,8 @@ type AccountManagerCapabilities = {
 
 **Philosophy**：跨平台对等是逐能力的行为承诺，不是 `cfg` 能编译。平台差异应集中在 provider/capability 层，不能散落为 UI 猜测。
 
+**整改状态（2026-07-14）**：已新增后端 capability provider 与窄 IPC；Keyring 初始化失败级联为 `failed`，未真机验收的 WebView/Session/Deep Link 保持 `partial`，Windows WebView proxy 为 `unsupported`。前端按能力禁用具体入口并展示 reason，Windows 页面不再被 feature 元数据排除。桌面登录 IPC 失败不再退回共享系统浏览器。只有完成 §6 对应平台证据后，才允许在 `capabilities.rs` 将单项提升为 `supported`。
+
 ### A-16 首载、响应式和大列表体验不符合项目 UX 规范
 
 **Risk [前端]**：`page.tsx:26-31` 首载只显示文字；`DetailColumn.tsx:140` 在 `< xl` 完全隐藏且没有 Drawer/Sheet；站点、账号和 External Apps 直接 map，无虚拟化；`external-apps-panel.tsx:79-86` 加载只有文字，失败只有 toast、面板内无 retry。Auth Proxy 的成功反馈仅表示窗口已打开，不代表登录完成。
@@ -581,6 +583,46 @@ Account Manager controller -> use-cases -> typed repository -> narrow IPC
 
 测试 fixture 必须包含 CJK/emoji 用户名、超长站点名、IPv6、代理凭据、损坏密文、旧 schema、只读目录、Keyring 拒绝、WebView 数据目录占用和网络超时。
 
+### 6.1 真机验收准备
+
+在全新 macOS 测试用户和 Windows Sandbox/VM 中执行，不使用生产账号。准备两个不同 origin（端口不同也算不同 origin）的 HTTPS fixture A/B；两者写入同名但不同值的 localStorage、sessionStorage 和 IndexedDB，并设置 HttpOnly Cookie。IndexedDB fixture 至少包含 version、两个 object store、inline/out-of-line key、index、Date、Map、Set、ArrayBuffer/TypedArray 和普通嵌套对象。
+
+每轮保留：Bench 版本/commit、OS/WebView2 版本、capability DTO（不得含 secret）、步骤、预期/实际、脱敏日志和截图。日志不得出现 Cookie、token、密码或 callback query。
+
+### 6.2 Keyring 与重启
+
+1. 首次启动创建站点与持久账号，保存密码并完成一次 Session 捕获；完全退出后重启，确认密码仍可按需 reveal、Session 可恢复。
+2. 同时启动两个进程触发首次主密钥创建和账号写入；两边退出后重启，确认只有一个可用 master key、密文均可解、store 没有回退或覆盖。
+3. 在测试系统账户中拒绝 Keychain/Credential Manager 访问；确认 capability 为 `failed`、页面显示可见错误，不能创建伪成功 Session。
+4. 卸载/重装只记录当前实际行为，不删除系统凭据作“修复”。macOS 在 Keychain Access、Windows 在 Credential Manager 中确认 service `bench.account-manager` / account `master-key.v1` 的生命周期符合发布说明。
+
+### 6.3 per-origin Web Storage 与 IndexedDB
+
+1. 用账号 A 登录 fixture A，写入 A 值后刷新状态并完全退出。关闭 Bench 后，仅在测试环境备份并重命名该账号的 `relay-accounts/<accountId>` WebView data directory，保留 Account Manager 加密 store，以强制走 canonical Session 恢复。
+2. 重启并打开/刷新账号 A；断言 HttpOnly Cookie、localStorage、sessionStorage、IndexedDB database version/store/index/key/record 全部恢复，probe 最终为 Ready。
+3. 导航到 fixture B；断言 A 的 key/value 和数据库不会注入 B。再创建账号 B 写入不同值，反复切换并重启，断言两个账号的数据目录和 Session 完全隔离。
+4. 把 fixture A 的 IndexedDB schema 升到高于快照的版本或更改 store/index；恢复必须明确失败，不能降级、删除未知 store 或把账号标记 Ready。
+5. 分别触发 513 个 Web Storage key、超过 2 MiB Web Storage、33 个 database、129 个 store、10,001 条 record、超过 8 MiB IndexedDB、Blob/CryptoKey/循环引用；确认返回 limited/failed，旧 canonical Session 不被半截快照覆盖。AuthProfile 明确要求 IndexedDB 时，捕获不完整不得转 Ready。
+
+macOS 账号目录通常位于 `~/Library/Application Support/com.bench.app/relay-accounts/`，Windows 通常位于 `%LOCALAPPDATA%\com.bench.app\relay-accounts\`；以运行时 `app_local_data_dir` 为准。只操作测试账号目录，先备份，不删除 Account Manager store 或系统凭据。
+
+### 6.4 Windows WebView2 与 capability
+
+1. Windows 首载必须显示 Account Manager；capability 中 isolatedWebview/cookieSession/webStorage/indexedDb/deepLink 为 `partial`（真机验收前），networkProxy 为 `unsupported`。
+2. 站点代理入口显示禁用原因；直接调用非空 `set_station_network_proxy` 也必须返回 `INVALID_INPUT`。已有代理配置允许清除；任何失败都不能打开共享浏览器或静默直连。
+3. 两个账号登录同一 origin，写入不同 Cookie/Storage/IndexedDB；窗口关闭、Bench 重启和 WebView2 更新后仍互不可见。删除其中一个账号时，另一个账号的数据目录不变；目录占用返回 partial report。
+4. 记录 Windows WebView2 runtime 版本、Credential Manager 重启/并发/拒绝结果。未取得这些证据前，Windows 相关 capability 保持 `partial`。
+
+### 6.5 Deep Link 冷/热启动
+
+1. App 未运行时连续触发两个不同 `bench-auth://` 请求；确认主窗口启动、FIFO 顺序正确、第二实例退出、原始 URL 不进入 renderer 日志。
+2. App 已运行且当前不在 Account Manager 页面时重复测试；重复 URL 在去重窗口内只处理一次，超过 32 条时报告 dropped count。
+3. 分别验证 custom scheme、IPv4/IPv6 loopback、错误 state/host/port/path 和重放。有效 loopback 必须在目标 origin Session 捕获后转发；无效 callback 不转发、不写 binding。
+
+### 6.6 提升 capability 的条件
+
+某平台某能力只有在上述相关用例全部通过并保存证据后，才把 `src-tauri/src/account_manager/capabilities.rs` 对应项从 `partial` 改为 `supported`，同时新增平台行为测试并更新本表、roadmap 和发布说明。一次验证失败即保持原状态；Windows networkProxy 在上游 WebView2/Tauri 提供等价且已验证的代理能力前继续 `unsupported`。
+
 ## 7. Definition of Done
 
 - [ ] A-01 至 A-15 的 P0/P1 全部有回归测试并关闭；不得用 catch/log/空数组代替错误。
@@ -627,7 +669,7 @@ git diff --check
 | [spider-rs/spider@73e497c](https://github.com/spider-rs/spider/blob/73e497c46b4e7774b8421ae2d54a0e5bee8fd9f8/spider/src/utils/backoff.rs#L1-L60) | MIT | 指数退避使用 full jitter 和饱和运算；crawler 同时有重试次数、延迟与 semaphore 上限 | **采纳**：200 ms 基数、2 s 上限、full jitter；单请求 4 s、HTTP 层总预算 10 s，且继续受全局 probe semaphore 限制。 |
 | [pfernie/cookie_store@f29b1cf](https://github.com/pfernie/cookie_store/blob/f29b1cf2cce8bd906ce4acec93d48dc9040b2b6d/src/cookie_path.rs#L7-L29) | MIT OR Apache-2.0 | RFC 6265 path-match 需要完整相等、cookie path 以 `/` 结束，或下一字符是 `/`；匹配结果还需排除过期 Cookie | **部分采纳**：修复 `/foo` 误匹配 `/foobar`；缺少 partition key 时不把 partitioned Cookie 降级成普通 Cookie。暂不接入完整 CookieStore，待 Session schema 能保留 canonical expiry/partition key 后再评估。 |
 | [ramosbugs/oauth2-rs@72ce744](https://github.com/ramosbugs/oauth2-rs/blob/72ce74401c26eb4dc85dcbfde587bbcfc149e3ae/oauth2/src/client.rs#L675-L691) | MIT OR Apache-2.0 | 每次授权使用新 state 并在 callback 比对；PKCE challenge/verifier 成对持有；token HTTP client 禁止自动 redirect | **已对齐/不照搬 PKCE 生成**：Bench 一次性 ticket 固化并校验外部请求已有的 state/callback，HTTP probe 禁止 redirect。Bench 不是 token client，不能擅自生成或替换第三方 PKCE verifier。 |
-| [microsoft/playwright@91565f0](https://github.com/microsoft/playwright/blob/91565f0ddb29c3daaebd25494fdcb8e9ecf8d545/packages/playwright-core/src/server/browserContext.ts#L615-L718) | Apache-2.0 | `storageState` 同时保存 Cookie 和按 origin 隔离的 localStorage/IndexedDB，恢复时逐 origin 注入 | **模型已部分对齐，能力未完成**：`AccountSession.origins` 保留 origin 隔离结构；实际 local/session storage 和 IndexedDB 捕获/恢复仍必须留在目标平台 roadmap，不能仅凭字段存在宣称完成。 |
+| [microsoft/playwright@91565f0](https://github.com/microsoft/playwright/blob/91565f0ddb29c3daaebd25494fdcb8e9ecf8d545/packages/playwright-core/src/server/browserContext.ts#L615-L718) | Apache-2.0 | `storageState` 同时保存 Cookie 和按 origin 隔离的 localStorage/IndexedDB，恢复时逐 origin 注入 | **已采纳隔离语义**：`browser_storage.rs` 只捕获 Station 精确 origin，local/session storage 与 IndexedDB 分别加密，初始化脚本再次按 origin 选择；另加数据库/schema/记录/体积/timeout 上限，不照搬无界 dump。特殊 Structured Clone 值和现存不兼容 schema fail-closed，因此真机验收前 capability 保持 `partial`。 |
 | [tauri-apps/plugins-workspace@254f222](https://github.com/tauri-apps/plugins-workspace/blob/254f222e0e2bc79370f977855b6b39d956d3b568/plugins/deep-link/README.md#L141-L148) | MIT OR Apache-2.0 | macOS 直接 emit；Windows/Linux 会以 CLI 参数启动新实例，需要 single-instance 的 deep-link feature 才能统一行为 | **已采纳**：使用 `tauri-plugin-single-instance 2.4.3` 的 `deep-link` feature；插件第一个注册，App 根 inbox 统一接收，Windows callback 额外处理多 URL 并由短时指纹去重。 |
 | [open-source-cooperative/keyring-rs@1866f8b](https://github.com/open-source-cooperative/keyring-rs/blob/1866f8b2db9acd38ef2a61713e46629ef1ef3e10/README.md) | MIT OR Apache-2.0 | 同一 API 对接 macOS、Windows 和 Unix 原生凭据库，并提供平台 store 行为测试示例 | **继续使用并保持保守结论**：master key 首建已有跨进程锁；macOS Keychain/Windows Credential Manager 拒绝、重启和并发仍须分别做真机行为测试。 |
 

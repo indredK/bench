@@ -43,6 +43,8 @@ export function StationColumn({
   exportingData,
   onQuickLogin,
   onExternalLogin,
+  quickLoginDisabledReason,
+  externalLoginDisabledReason,
 }: {
   stations: RelayStation[]
   selectedId: string
@@ -61,6 +63,8 @@ export function StationColumn({
   exportingData: boolean
   onQuickLogin: () => void
   onExternalLogin?: () => void
+  quickLoginDisabledReason?: string
+  externalLoginDisabledReason?: string
 }) {
   const { t } = useTranslation()
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -137,25 +141,44 @@ export function StationColumn({
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button
-                    size="icon-sm"
-                    onClick={onQuickLogin}
-                    aria-label={t("accountManager.sessionManager.quickLogin.title")}
-                  >
-                    <LogIn size={14} />
-                  </Button>
+                  <span>
+                    <Button
+                      size="icon-sm"
+                      onClick={onQuickLogin}
+                      disabled={Boolean(quickLoginDisabledReason)}
+                      aria-label={t("accountManager.sessionManager.quickLogin.title")}
+                    >
+                      <LogIn size={14} />
+                    </Button>
+                  </span>
                 </TooltipTrigger>
                 <TooltipContent side="top">
-                  {t("accountManager.sessionManager.quickLogin.title")}
+                  {quickLoginDisabledReason ?? t("accountManager.sessionManager.quickLogin.title")}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           )}
           {onExternalLogin && (
-            <Button size="sm" variant="outline" onClick={onExternalLogin}>
-              <Link2 className="size-3.5" />
-              {t("accountManager.proxyPaste.button")}
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={onExternalLogin}
+                      disabled={Boolean(externalLoginDisabledReason)}
+                    >
+                      <Link2 className="size-3.5" />
+                      {t("accountManager.proxyPaste.button")}
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {externalLoginDisabledReason && (
+                  <TooltipContent side="top">{externalLoginDisabledReason}</TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
           )}
         </div>
         <div className="ml-auto flex items-center gap-1.5">

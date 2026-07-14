@@ -362,12 +362,25 @@ pub async fn run_probe<R: Runtime>(
     let dead = Instant::now() + Duration::from_millis(5000);
     let (tx, rx) = oneshot::channel::<()>();
     let slot: Arc<Mutex<Option<oneshot::Sender<()>>>> = Arc::new(Mutex::new(Some(tx)));
+    let restore_script = saved_session
+        .as_ref()
+        .map(|saved| {
+            let state = app.state::<AccountManagerState>();
+            super::browser_storage::restore_initialization_script(&state, saved)
+        })
+        .transpose()?
+        .flatten();
+    let wait_for_storage_restore = restore_script.is_some();
+    let mut initialization_script = init_script();
+    if let Some(script) = restore_script {
+        initialization_script.push_str(&script);
+    }
     let window = {
         #[cfg_attr(not(any(target_os = "macos", target_os = "ios")), allow(unused_mut))]
         let mut b = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(blank))
             .visible(false)
             .data_directory(data_dir)
-            .initialization_script(init_script())
+            .initialization_script(initialization_script)
             .on_page_load(move |_, p| {
                 if !matches!(p.event(), tauri::webview::PageLoadEvent::Finished) {
                     return;
@@ -385,18 +398,19 @@ pub async fn run_probe<R: Runtime>(
         {
             b = b.data_store_identifier(webview::account_data_store_identifier(account_id));
         }
-        #[cfg(target_os = "macos")]
         if let Some(url) = proxy_url {
-            let parsed_url = url.parse::<tauri::Url>().map_err(|e| {
-                AccountManagerError::invalid_input(format!("invalid network proxy URL: {e}"))
-            })?;
-            b = b.proxy_url(parsed_url);
-        }
-        #[cfg(not(target_os = "macos"))]
-        if proxy_url.is_some() {
-            return Err(AccountManagerError::invalid_input(
-                "network proxy is not supported for probe WebViews on this platform",
-            ));
+            if !super::capabilities::network_proxy_available() {
+                return Err(AccountManagerError::invalid_input(
+                    "network proxy is not supported for probe WebViews on this platform",
+                ));
+            }
+            #[cfg(target_os = "macos")]
+            {
+                let parsed_url = url.parse::<tauri::Url>().map_err(|e| {
+                    AccountManagerError::invalid_input(format!("invalid network proxy URL: {e}"))
+                })?;
+                b = b.proxy_url(parsed_url);
+            }
         }
         b.build()
             .map_err(|e| AccountManagerError::store_fail(format!("build: {e}")))?
@@ -411,6 +425,9 @@ pub async fn run_probe<R: Runtime>(
     let out = match load {
         Err(_) | Ok(Err(_)) => None,
         Ok(Ok(())) => {
+            if wait_for_storage_restore {
+                super::browser_storage::wait_for_restore(&window).await?;
+            }
             let pd = Instant::now() + Duration::from_millis(8000);
             let mut lt: Option<String> = None;
             let mut out = None;

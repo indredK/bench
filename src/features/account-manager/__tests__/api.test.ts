@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
   drainAuthProxyRequest,
   exportRelayData,
+  getAccountManagerCapabilities,
   getAuthProxyInboxStatus,
   proxyLogin,
   proxyLoginNewAccount,
@@ -72,5 +73,11 @@ describe("account-manager commands", () => {
       2,
       TAURI_COMMANDS.accountManager.drainAuthProxyRequest,
     )
+  })
+
+  it("reads backend capabilities without renderer-supplied platform claims", async () => {
+    await getAccountManagerCapabilities()
+
+    expect(invokeTauriCommand).toHaveBeenCalledWith(TAURI_COMMANDS.accountManager.getCapabilities)
   })
 })

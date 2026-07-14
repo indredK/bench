@@ -51,6 +51,7 @@ export function AccountColumn({
   onDelete,
   onReorder,
   reorderDisabled,
+  loginDisabledReason,
 }: {
   station: RelayStation | null
   accounts: StationAccount[]
@@ -69,6 +70,7 @@ export function AccountColumn({
   onDelete: (account: StationAccount) => void
   onReorder: (orderedIds: string[]) => void
   reorderDisabled: boolean
+  loginDisabledReason?: string
 }) {
   const { t } = useTranslation()
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -143,6 +145,7 @@ export function AccountColumn({
       onRefresh={onRefresh}
       onEdit={onEdit}
       onDelete={onDelete}
+      loginDisabledReason={loginDisabledReason}
     />
   )
   return (
@@ -246,6 +249,7 @@ export function AccountColumn({
                         onRefresh={onRefresh}
                         onEdit={onEdit}
                         onDelete={onDelete}
+                        loginDisabledReason={loginDisabledReason}
                       />
                     ))}
                   </div>
@@ -376,6 +380,7 @@ function AccountCardContent({
   onRefresh,
   onEdit,
   onDelete,
+  loginDisabledReason,
 }: {
   account: StationAccount
   selected: boolean
@@ -388,6 +393,7 @@ function AccountCardContent({
   onRefresh: (account: StationAccount) => void
   onEdit: (account: StationAccount) => void
   onDelete: (account: StationAccount) => void
+  loginDisabledReason?: string
 }) {
   const { t } = useTranslation()
   const [usernameCopied, setUsernameCopied] = useState(false)
@@ -465,17 +471,28 @@ function AccountCardContent({
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1.5">
           <div className="flex items-center gap-1">
-            <Button
-              size="sm"
-              onClick={(event) => {
-                event.stopPropagation()
-                onLogin(account)
-              }}
-              disabled={opening}
-            >
-              <LogIn />
-              {opening ? t("accountManager.opening") : t("accountManager.card.login")}
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button
+                      size="sm"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        onLogin(account)
+                      }}
+                      disabled={opening || Boolean(loginDisabledReason)}
+                    >
+                      <LogIn />
+                      {opening ? t("accountManager.opening") : t("accountManager.card.login")}
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {loginDisabledReason && (
+                  <TooltipContent side="top">{loginDisabledReason}</TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </div>
       </div>

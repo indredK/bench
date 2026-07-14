@@ -19,10 +19,10 @@
 
 - [§7.4/§9] `src-tauri/src/app_manager/` - macOS/Windows 核心实现已整改，但目标平台 fixture、真机 smoke 和 CI 行为测试未完成 - 按 [App Manager roadmap](./modules/app-manager/roadmap.md) 验收 - **强制** - 状态：待验收
 - [§6/§9] `src/features/quick-launch/` - 共享 inventory 与虚拟列表已落地，但 macOS/Windows 启动 smoke 和 500+ 应用性能验收未完成 - 按 [Quick Launch roadmap](./modules/quick-launch/roadmap.md) 验收 - **强制** - 状态：待验收
-- [§3.3/§7/§8] `src-tauri/src/account_manager/` - Session canonical map/v5 migration、恢复注入+probe、退出落盘、账号级 single-flight、有界瞬态重试、真实 ProbeStrategy 和 RefreshReport 已整改；per-origin storage、Cookie partition key 与目标平台 WebView 行为仍未完成 - 按 [Account Manager roadmap](./modules/account-manager/roadmap.md) Phase 1/延期验证实施 - **强制** - 状态：部分修复
+- [§3.3/§7/§8] `src-tauri/src/account_manager/` - Session canonical map、同源 Web Storage/IndexedDB 有界捕获恢复、canonical Cookie expiry、恢复后 probe、single-flight 和有界重试已整改；Tauri 未暴露 Cookie partition key，partitioned Cookie 继续禁止进入 HTTP probe，目标平台 WebView 行为仍待验证 - 按 [Account Manager roadmap](./modules/account-manager/roadmap.md) 延期验证实施 - **强制** - 状态：代码已修复/待验收
 - [§7/§8] `src-tauri/src/account_manager/{deep_link,state,commands}.rs` - App 根 32 条 FIFO、大小限制、短时去重、冷/热入口、窄 drain IPC 和 Windows single-instance 已实现；Windows/macOS 真实协议唤起仍待真机验证 - 按 [Account Manager roadmap](./modules/account-manager/roadmap.md) 延期验证 - **强制** - 状态：代码已修复/待验收
 - [§3.3/§7] `src-tauri/src/account_manager/{crypto,state,storage}.rs` - Keyring 和 store mutation 已接入跨进程锁及 reload-before-save；Dev/Prod/Windows 并发行为仍待验收 - 按 [Account Manager roadmap](./modules/account-manager/roadmap.md) Phase 6 验收 - **强制** - 状态：待验收
-- [§5/§6/§9] `src/features/account-manager/` - 三栏 skeleton、密码 TTL、窄屏详情 Sheet、500+ 虚拟化和删除 partial 已整改；区域 retry、capability 与双平台行为测试仍缺 - 按 [Account Manager roadmap](./modules/account-manager/roadmap.md) 实施 - **强制** - 状态：部分修复
+- [§5/§6/§9] `src/features/account-manager/` - 三栏 skeleton、密码 TTL、窄屏详情 Sheet、500+ 虚拟化、删除 partial 和后端 capability gate 已整改，Windows 入口已开放且 proxy 明确禁用；区域 retry 与双平台行为测试仍缺 - 按 [Account Manager roadmap](./modules/account-manager/roadmap.md) 实施 - **强制** - 状态：部分修复
 - [§5/§7/§9] `src/features/system-settings/` - error/unknown、canonical 浏览器、后端 snapshot 和 read-after-write 已实现；支持系统版本与权限拒绝仍待 macOS 真机验收 - 按 [System Settings roadmap](./modules/system-settings/roadmap.md) 验收 - **强制** - 状态：代码已修复/待验收
 - [§7/§9] `.github/workflows/ci-build.yml` - tag job 默认生成 ad-hoc macOS/unsigned Windows OS 包，updater minisign、目标产物、notice 和 checksum fail-closed；尚无 updater 私钥 tag run 和安装/升级 smoke - 按 [2.0.0 发布门禁 F07-F09](./roadmap/2.0.0-release-readiness.md#12-f07updater签名与供应链) 验收 - **强制** - 状态：待验收
 - [§7/§9] `src-tauri/tauri.conf.json` - `com.bench.app` 的 `.app` 后缀警告已评估；为保持 Keychain/数据/升级身份，D-011 决定 2.0 保留，不得直接改字符串 - **建议** - 状态：接受风险
@@ -36,11 +36,12 @@ Account Manager 的 macOS/Windows 状态均为 ⚠️；A-01 至 A-15 的 P0/P1 
 ### 2026-07-14 - 2.0.0 发布准备
 
 - 平台导航和根路由统一 gate；Clean Space/Hardware/System Settings 的 macOS-only contract 有 macOS/Windows/browser fixture。
+- Account Manager 已增加后端逐能力 DTO、Windows 页面入口、同源 Web Storage/IndexedDB 有界捕获恢复、canonical Cookie expiry 和 storage-only WebView probe；Windows WebView proxy 在 UI/后端均 fail-closed，目标平台 capability 仍保持 partial 等待真机证据。
 - Account Manager 首载三栏 skeleton 和密码 30 秒 TTL 已落地；System Settings/Preferences 读取失败不再显示默认 false。
 - Updater 自动检查、退避、省流/离线策略、cancelling、受限 release notes 和真实进度语义已进入关键测试。
 - release workflow 正式产物收集 fail-closed，在 GitHub Release 变更前验证 OS 签名、Tauri updater 签名、三目标 manifest、产物矩阵和 SHA-256；macOS 14.0、Windows 禁止降级和固定 WiX upgrade code 已写入配置。
-- 本轮通过 `lint:fe`、`test:critical`（28 files / 100 tests）、`test:fe`（39 files / 161 tests）、`test:be`（309 tests）、Clippy `-D warnings`、前端生产构建、全仓格式、文档链接和 diff whitespace。Tauri debug 曾生成 app/DMG/updater tar，但没有真实 updater 私钥，未生成 `.sig`，不计为 updater 发布证据。
-- 仍未代码冻结：Account Manager per-origin/capability/区域 retry、App/Quick Launch fixture 和性能、updater 错误矩阵、1.23.0 升级/回滚 fixture 与 UX 自动化矩阵。OS 正式签名和真机 smoke 按 D-010 延期；identifier 按 D-011 保留。
+- 本轮通过 `lint:fe`、`test:critical`（28 files / 101 tests）、`test:fe`（39 files / 162 tests）、`test:be`（317 tests）、Clippy `-D warnings`、前端生产构建、全仓格式、文档链接和 diff whitespace。Tauri debug 曾生成 app/DMG/updater tar，但没有真实 updater 私钥，未生成 `.sig`，不计为 updater 发布证据。
+- 仍未代码冻结：Account Manager 区域 retry/大文件分层、App/Quick Launch fixture 和性能、updater 错误矩阵、1.23.0 升级/回滚 fixture 与 UX 自动化矩阵。Account Manager per-origin/IndexedDB/capability 代码已落地但真机证据仍延期。OS 正式签名和真机 smoke 按 D-010 延期；identifier 按 D-011 保留。
 
 ### 2026-07-14 - Account Manager GitHub 实现对照
 

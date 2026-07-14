@@ -4,6 +4,7 @@
 import { invokeTauriCommand } from "@/lib/tauri/invoke"
 import { TAURI_COMMANDS } from "@/lib/tauri/contracts"
 import type {
+  AccountManagerCapabilities,
   AuthProfile,
   AuthProxyDrainResult,
   AuthProxyInboxStatus,
@@ -25,6 +26,8 @@ import type {
 } from "@/lib/tauri/types/account-manager"
 
 export type {
+  AccountManagerCapabilities,
+  AccountManagerCapability,
   AccountSessionStatus,
   AccountType,
   AuthProfile,
@@ -53,6 +56,10 @@ export type {
   StationAccount,
 } from "@/lib/tauri/types/account-manager"
 export { DEFAULT_LOGIN_DETECTION } from "@/lib/tauri/types/account-manager"
+
+export function getAccountManagerCapabilities(): Promise<AccountManagerCapabilities> {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.getCapabilities)
+}
 
 export function listStations(): Promise<RelayStation[]> {
   return invokeTauriCommand(TAURI_COMMANDS.accountManager.listStations)

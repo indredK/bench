@@ -1,10 +1,15 @@
-import type { RelayStation, StationAccount } from "@/lib/tauri/types/account-manager"
+import type {
+  AccountManagerCapabilities,
+  RelayStation,
+  StationAccount,
+} from "@/lib/tauri/types/account-manager"
 
 export type AccountManagerState = {
   stations: RelayStation[]
   accounts: StationAccount[]
   loading: boolean
   loadError: string | null
+  capabilities: AccountManagerCapabilities | null
   selectedStationId: string
   selectedAccountId: string
   openingAccountId: string | null
@@ -32,6 +37,7 @@ export type AccountManagerActions = {
   setAccounts: (accounts: StationAccount[] | ((prev: StationAccount[]) => StationAccount[])) => void
   setLoading: (loading: boolean) => void
   setLoadError: (error: string | null) => void
+  setCapabilities: (capabilities: AccountManagerCapabilities | null) => void
   setSelectedStationId: (id: string) => void
   setSelectedAccountId: (id: string) => void
   setOpeningAccountId: (id: string | null | ((current: string | null) => string | null)) => void
@@ -61,6 +67,7 @@ export const initialAccountManagerState: AccountManagerState = {
   accounts: [],
   loading: true,
   loadError: null,
+  capabilities: null,
   selectedStationId: "",
   selectedAccountId: "",
   openingAccountId: null,

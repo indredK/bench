@@ -14,10 +14,10 @@ use super::state::{
 };
 use super::storage;
 use super::types::{
-    AccountManagerError, AccountManagerResult, AccountSessionStatus, AccountType, AuthProfile,
-    DeletionReport, DeletionResourceKind, DeletionResourceResult, DeletionResourceStatus,
-    DeletionStatus, ExternalApp, ExternalAppBinding, LoginDetectionConfig, LoginMethod,
-    NetworkProxyConfig, PasswordAction, ProbeStrategy, RefreshFailure, RefreshReport,
+    AccountManagerCapabilities, AccountManagerError, AccountManagerResult, AccountSessionStatus,
+    AccountType, AuthProfile, DeletionReport, DeletionResourceKind, DeletionResourceResult,
+    DeletionResourceStatus, DeletionStatus, ExternalApp, ExternalAppBinding, LoginDetectionConfig,
+    LoginMethod, NetworkProxyConfig, PasswordAction, ProbeStrategy, RefreshFailure, RefreshReport,
     RelayAccountExport, RelayDataExportFile, RelayDataExportResult, RelayDataImportResult,
     RelayExportMode, RelayStation, RelayStationExport, StationAccount,
 };
@@ -349,6 +349,14 @@ fn import_account_session(
 // ───── stations ─────
 
 #[tauri::command]
+pub fn get_account_manager_capabilities(
+    state: State<'_, AccountManagerState>,
+) -> AccountManagerCapabilities {
+    let keyring_ready = state.ensure_ready().is_ok() && state.master_key().is_ok();
+    super::capabilities::current(keyring_ready)
+}
+
+#[tauri::command]
 pub fn list_stations(
     state: State<'_, AccountManagerState>,
 ) -> AccountManagerResult<Vec<RelayStation>> {
@@ -457,6 +465,11 @@ pub fn set_station_network_proxy<R: Runtime>(
     config: Option<NetworkProxyConfig>,
     password_action: PasswordAction,
 ) -> AccountManagerResult<RelayStation> {
+    if config.is_some() && !super::capabilities::network_proxy_available() {
+        return Err(AccountManagerError::invalid_input(
+            "network proxy is not supported for login WebViews on this platform",
+        ));
+    }
     let existing_password = state
         .read_snapshot_checked()?
         .stations
@@ -1615,9 +1628,13 @@ pub async fn detect_station_auth_profile<R: Runtime>(
         .find(|s| s.id == station_id)
         .cloned()
         .ok_or_else(|| AccountManagerError::not_found(format!("station {station_id}")))?;
-    // 构建 station 的代理 URL(无配置或解密失败时为 None = 直连)。
-    // macOS 以外平台仅构建不消费(proxy_url 仅在 macOS WebView 上生效)。
+    // 构建 station 的代理 URL；不满足 macOS 14+ 能力时必须 fail closed。
     let proxy_url = build_proxy_url_for_station(&app, &station)?;
+    if proxy_url.is_some() && !super::capabilities::network_proxy_available() {
+        return Err(AccountManagerError::invalid_input(
+            "network proxy is not supported for auth detection on this platform",
+        ));
+    }
     #[cfg(not(target_os = "macos"))]
     let _ = &proxy_url;
 
@@ -1644,6 +1661,9 @@ pub async fn detect_station_auth_profile<R: Runtime>(
             .website
             .parse()
             .map_err(|e| AccountManagerError::invalid_input(format!("website url: {e}")))?;
+        let blank = "about:blank"
+            .parse()
+            .map_err(|e| AccountManagerError::invalid_input(format!("blank url: {e}")))?;
         let data_dir = webview::account_data_dir(&app, &account.id)?;
         if let Some(parent) = data_dir.parent() {
             std::fs::create_dir_all(parent)
@@ -1659,14 +1679,24 @@ pub async fn detect_station_auth_profile<R: Runtime>(
         let (tx, rx) = oneshot::channel::<()>();
         let slot: Arc<Mutex<Option<oneshot::Sender<()>>>> = Arc::new(Mutex::new(Some(tx)));
         let slot_clone = slot.clone();
+        let saved_session = super::session::restore_session(&state, &account.id)?;
+        let restore_script = saved_session
+            .as_ref()
+            .map(|saved| super::browser_storage::restore_initialization_script(&state, saved))
+            .transpose()?
+            .flatten();
+        let wait_for_storage_restore = restore_script.is_some();
 
         #[cfg_attr(not(any(target_os = "macos", target_os = "ios")), allow(unused_mut))]
         let mut builder =
-            tauri::WebviewWindowBuilder::new(&app, &temp_label, WebviewUrl::External(parsed))
+            tauri::WebviewWindowBuilder::new(&app, &temp_label, WebviewUrl::External(blank))
                 .visible(false)
                 .data_directory(data_dir)
                 .on_page_load(move |_, p| {
                     if !matches!(p.event(), tauri::webview::PageLoadEvent::Finished) {
+                        return;
+                    }
+                    if p.url().scheme() == "about" {
                         return;
                     }
                     if let Ok(mut guard) = slot_clone.lock() {
@@ -1675,6 +1705,9 @@ pub async fn detect_station_auth_profile<R: Runtime>(
                         }
                     }
                 });
+        if let Some(script) = restore_script {
+            builder = builder.initialization_script(script);
+        }
 
         #[cfg(target_os = "macos")]
         if let Some(url) = proxy_url.as_deref() {
@@ -1692,6 +1725,12 @@ pub async fn detect_station_auth_profile<R: Runtime>(
         let window = builder
             .build()
             .map_err(|e| AccountManagerError::store_fail(format!("build detect window: {e}")))?;
+        if let Some(saved) = saved_session {
+            super::session::inject_session(&window, &saved)?;
+        }
+        window
+            .navigate(parsed)
+            .map_err(|e| AccountManagerError::store_fail(format!("navigate detect window: {e}")))?;
 
         // 等待页面加载完成
         let load_result = tokio::time::timeout_at(deadline.into(), rx).await;
@@ -1700,6 +1739,9 @@ pub async fn detect_station_auth_profile<R: Runtime>(
             return Err(AccountManagerError::store_fail(
                 "detect window load timeout",
             ));
+        }
+        if wait_for_storage_restore {
+            super::browser_storage::wait_for_restore(&window).await?;
         }
 
         // 额外等一小会儿，让页面 JS 运行一下

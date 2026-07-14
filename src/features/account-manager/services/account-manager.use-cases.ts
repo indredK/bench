@@ -75,12 +75,8 @@ async function applySessionSettings(
 
 export async function openLoginWebview(account: StationAccount, website: string) {
   if (canUseTauriWindow()) {
-    try {
-      await accountManagerRepository.openLoginWindow(account.id)
-      return
-    } catch (error) {
-      console.warn("[relay-login] open_login_window failed, falling back:", error)
-    }
+    await accountManagerRepository.openLoginWindow(account.id)
+    return
   }
   await accountManagerRepository.openExternal(website)
 }
@@ -88,6 +84,7 @@ export async function openLoginWebview(account: StationAccount, website: string)
 export const accountManagerUseCases = {
   loadInitialData() {
     return Promise.all([
+      accountManagerRepository.getAccountManagerCapabilities(),
       accountManagerRepository.listStations(),
       accountManagerRepository.listAllAccounts(),
     ])

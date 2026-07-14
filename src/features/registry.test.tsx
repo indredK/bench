@@ -6,11 +6,11 @@ import { getFeatureGateReason } from "@/platform/capabilities"
 const t = ((key: string) => key) as TFunction
 
 describe("feature platform gating", () => {
-  it("hides macOS-only navigation on Windows", () => {
+  it("shows capability-gated Account Manager while hiding macOS-only modules on Windows", () => {
     const environment = { runtime: "desktop", platform: "windows" } as const
     const paths = createNavigationItems(t, environment).map((item) => item.path)
 
-    expect(paths).not.toContain("/account-manager")
+    expect(paths).toContain("/account-manager")
     expect(paths).not.toContain("/clean-space")
     expect(paths).not.toContain("/hardware")
     expect(createConfigItems(t, environment)).toEqual([])
