@@ -1,194 +1,140 @@
-# Bench - DevTools / 开发者工具
+# Bench
 
-> A cross-platform desktop utility centered on macOS system management: quick launch, app & account management, terminology, dev toolbox, and deep system settings — with Windows/Linux support where applicable.
-> 以 macOS 系统管理为核心的跨平台桌面工具：快速启动、应用与账号管理、术语库、开发工具箱与系统设置；部分能力在 Windows/Linux 可用。
+> A macOS-first desktop workbench for launching applications, managing isolated accounts, and controlling system settings.
+>
+> 以 macOS 为主的桌面工作台，重点解决应用启动、隔离账号管理和系统设置三个高频场景。
 
-Built with [Tauri v2](https://v2.tauri.app/) + [React 19](https://react.dev/) + [Rust](https://www.rust-lang.org/).
+Bench 基于 Tauri v2、React 和 Rust。当前仓库版本为 `1.23.0`，正在进行 2.0 发布前收口；已经实现但尚未完成目标平台真机验收的能力会明确标记为待验证，不以“可以编译”代替跨平台支持。
 
-Menu bar **tray** ("B" icon) for show-window / prevent-sleep / launch-at-login / quit. Dangerous actions use a shared confirmation dialog with consequence callout.
+## 核心能力 / Core Workflows
 
----
+### 1. 应用启动与管理 / App Launch & Management
 
-## Features / 功能
+Quick Launch 和 App Manager 共用同一份后端应用清单，避免扫描结果、分类和更新状态互相漂移。
 
-### Sidebar / 侧边栏入口
+- **快速启动**：搜索、分类、拖拽排序、用户覆盖和虚拟化应用网格；图标按可见项加载。
+- **跨平台清单**：macOS 识别 `.app`、bundle 与安装来源；Windows 识别传统 EXE/MSI、Registry、Start Apps 和 AUMID。
+- **可靠启动**：前端只提交稳定 `appId`，由 Rust 后端解析 `.app`、EXE 或 AUMID 启动目标，不接受 renderer 传入任意可执行路径。
+- **应用管理**：检查更新、升级、卸载、批量操作、取消与逐项结果；provider 明确区分 `ok / partial / unsupported / failed`。
+- **安全更新**：破坏性操作要求可验证的 receipt、package ID 或 ProductCode；下载和替换流程包含 HTTPS、签名/哈希、身份、架构、资源上限与恢复检查。
 
-| Module / 模块                   | Description / 描述                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| :------------------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Quick Launch / 快速启动**     | Drag-and-drop app launcher with categories, pinned items, and quick open. 分类拖拽启动器，支持固定与快速打开。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| **App Manager / 应用管理**      | Cross-platform installed app discovery (macOS/Windows/Linux), source identification, batch upgrade/uninstall with safety gates. 跨平台应用发现、来源识别、批量升级/卸载及安全保护。                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| **Hardware Compare / 硬件查询** | Query and compare hardware specifications across devices. 查询和对比不同设备的硬件规格。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| **Terminology / 术语库**        | Industry/category/subcategory taxonomy with searchable terms, websites, and pin support. 按行业/分类管理术语，支持搜索、关联站点与固定。                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| **Account Manager / 账号管理**  | Multi-station account sessions, external login proxy, webview auth, encrypted storage. 多站点账号会话、外部登录代理、WebView 授权与加密存储。                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| **Dev Toolbox / 开发工具箱**    | Unified tabbed hub — see below. 统一 Tab 入口，见下表。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| **System Settings / 系统设置**  | 4-tab macOS control center with cross-tab search: **Appearance** (Dock/menu-bar/screenshot), **Security** (lock screen, network firewall/SSH/screen sharing/AirDrop, Gatekeeper, TCC privacy reset), **System** (sleep, quick actions, Finder, low-power mode, default browser, keyboard, login items), **Advanced** (LaunchAgents/LaunchDaemons). 4 分页 macOS 控制中心，支持跨页搜索：外观（Dock/菜单栏/截图）、安全（锁屏、网络防火墙/SSH/屏幕共享/AirDrop、Gatekeeper、TCC 隐私重置）、系统（防睡眠、快捷操作、Finder、低电量模式、默认浏览器、键盘、登录项）、高级（LaunchAgents/LaunchDaemons）。 |
+当前状态：macOS 和 Windows 核心代码已经接线，正式发布前仍需完成两平台真实应用 fixture、启动 smoke 和 500+ 应用性能验收。
 
-### Dev Toolbox tabs / 开发工具箱子页
+文档：[Quick Launch](./docs/modules/quick-launch/README.md) · [App Manager](./docs/modules/app-manager/README.md)
 
-| Tab / 子页                        | Description / 描述                                                                                                                                                                                                                                                                                                                                                                                     |
-| :-------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Port Manager / 端口管理**       | Multi-format port input (single/range/comma), common port quick-add, kill processes with confirmation + status feedback; local & **remote host** scan modes; 30s polling **occupation alerts** via system notifications (free→occupied transition). 多种端口输入、常用端口快捷添加、释放进程（二次确认）与状态反馈；支持本地与**远程主机**扫描；30 秒轮询**占用告警**，通过系统通知推送（空闲→占用）。 |
-| **Dev Cleaner / 垃圾清理**        | Scan workspace directories for build artifacts (`node_modules`, `target`, `.venv`, `dist`, etc.), batch cleanup. 扫描工作区构建产物，支持批量清理。                                                                                                                                                                                                                                                    |
-| **Env Detector / 环境检测**       | Detect installed development tools (runtimes, package managers, etc.). 检测已安装的开发工具与运行环境。                                                                                                                                                                                                                                                                                                |
-| **Token Calculator / Token 计算** | Pricing standards, model compare, cost calculator; live USD/CNY rate (Frankfurter API + cache). 计费标准、模型对比与成本计算；实时 USD/CNY 汇率（API + 缓存）。                                                                                                                                                                                                                                        |
-| **Dev Tools / 开发工具**          | JSON format/minify, Base64, hash, UUID, timestamp helpers. JSON 格式化/压缩、Base64、哈希、UUID、时间戳工具。                                                                                                                                                                                                                                                                                          |
-| **Diagnostics / 网络诊断**        | Ping host (with packet-loss/RTT stats), local IP lookup, WiFi info (SSID/signal/channel). Ping 主机（丢包率/RTT 统计）、本机 IP 查询、WiFi 信息（SSID/信号/信道）。                                                                                                                                                                                                                                    |
-| **System Info / 系统信息**        | Native hardware & OS details via Rust backend; browser fallback in web mode. Rust 后端原生系统详情，Web 模式可回退。                                                                                                                                                                                                                                                                                   |
+### 2. 账号管理 / Account Manager
 
-### App-wide / 全局
+Account Manager 面向需要在同一站点维护多个隔离登录态的场景。
 
-| Capability / 能力              | Description / 描述                                                                                                                                                                                                                                                                                                                                                          |
-| :----------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Menu bar tray / 菜单栏托盘** | "B" template icon (adapts to light/dark); left-click shows window, right-click opens menu — Show window, Prevent Sleep (syncs with sleep inhibitor), Launch at Login (autostart toggle), Quit; labels follow app language. "B" 模板图标（自适应明暗）；左键显示窗口，右键打开菜单——显示窗口、防睡眠（与防睡眠模块同步）、开机启动（自启切换）、退出；菜单文案跟随应用语言。 |
-| **Auto Updater / 自动更新**    | In-app version update with signature verification, progress tracking, and error recovery. 应用内更新，签名校验与进度跟踪。                                                                                                                                                                                                                                                  |
-| **Theme Switcher / 主题切换**  | Light/Dark/System theme with instant switching. 浅色/深色/跟随系统，即时切换。                                                                                                                                                                                                                                                                                              |
-| **i18n / 国际化**              | English & Simplified Chinese, instant switch without restart. 中英文双语，无需重启即时切换。                                                                                                                                                                                                                                                                                |
+- **账号级隔离**：每个账号使用独立 WebView data directory/data store，避免 Cookie 和浏览器状态串号。
+- **加密持久化**：主密钥保存在 macOS Keychain 或 Windows Credential Manager；密码和 Session 使用 AES-256-GCM 加密。
+- **Session 恢复**：保存 HttpOnly Cookie、canonical expiry、精确 origin 的 localStorage/sessionStorage，以及受限、可校验的 IndexedDB schema 与记录；恢复后必须经过真实 probe 才能标记 Ready。
+- **认证检测**：支持 HTTP、WebView 和 Hybrid probe，具备账号级 single-flight、并发上限、瞬态重试预算和结构化 partial 结果。
+- **外部登录代理**：支持 `bench-auth://` Deep Link、一次性后端 ticket、精确 callback/state/origin 校验和冷/热启动有界队列；原始敏感 URL 不进入前端 store。
+- **能力声明**：后端逐项返回 `supported / partial / unsupported / failed`，前端据此禁用具体操作并显示原因。
 
-> **Platform note / 平台说明**: System Settings, tray, and most macOS defaults toggles require **macOS**. Port Manager, App Manager, Dev Cleaner, and Env Detector work on desktop targets where implemented.
+当前限制：macOS/Windows Keyring、WebView、Session 恢复和 Deep Link 仍需按文档做真机验收；Windows 登录 WebView 网络代理明确为 `unsupported`，失败时不会退回共享系统浏览器或静默直连。Tauri 当前不提供 Cookie partition key，因此 partitioned Cookie 不会降级进入 HTTP probe。
 
----
+文档：[Account Manager](./docs/modules/account-manager/README.md) · [双平台验收方法](./docs/modules/account-manager/audit-and-upgrade-2026-07-13.md#6-macos--windows-行为测试矩阵)
 
-## Tech Stack / 技术栈
+### 3. 系统设置 / System Settings
 
-| Layer / 层        | Technology / 技术                                                                                                                                               |
-| :---------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Desktop Framework | [Tauri v2](https://v2.tauri.app/)                                                                                                                               |
-| Frontend / 前端   | [React 19](https://react.dev/), [TypeScript 6](https://www.typescriptlang.org/), [TailwindCSS 4](https://tailwindcss.com/), [shadcn/ui](https://ui.shadcn.com/) |
-| Bundler / 构建    | [Vite 8](https://vitejs.dev/)                                                                                                                                   |
-| Backend / 后端    | [Rust](https://www.rust-lang.org/) (edition 2021)                                                                                                               |
-| State / 状态管理  | [Zustand](https://zustand.docs.pmnd.rs/)                                                                                                                        |
-| Routing / 路由    | [Wouter](https://github.com/molefrog/wouter)                                                                                                                    |
-| i18n              | [i18next](https://www.i18next.com/) + [react-i18next](https://react.i18next.com/)                                                                               |
-| Testing / 测试    | [Vitest](https://vitest.dev/), [Testing Library](https://testing-library.com/)                                                                                  |
-| CI/CD             | GitHub Actions (4 targets: macOS Intel/Apple Silicon, Windows, Linux)                                                                                           |
+System Settings 是面向 macOS 14+ 的受控设置中心，不尝试复制整个系统设置应用。
 
----
+- **显示与 Dock**：Dock、菜单栏、显示和低电量相关设置。
+- **Finder 与截图**：隐藏文件、路径栏、状态栏、扩展名、截图格式/阴影/缩略图/保存位置。
+- **键盘与快捷操作**：键盘行为、常用系统面板和受控系统动作。
+- **锁屏、睡眠与网络**：锁屏、防睡眠、Firewall、SSH、屏幕共享、AirDrop 等能力。
+- **默认浏览器与应用授权**：canonical 默认浏览器读取/设置、Gatekeeper/quarantine 授权流程。
+- **可靠写入**：读取当前值、执行受控 adapter、重新读取并比对目标值；读取失败显示 unknown/error，不伪装成“关闭”。
 
-## Quick Start / 快速开始
+该模块只面向 macOS。新增设置必须先验证系统版本、权限、真实控制接口和可逆性；Finder、截图、网络、Dock 与默认浏览器仍保留目标版本真机 read-after-write/权限拒绝回归。
 
-### Prerequisites / 环境要求
+文档：[System Settings](./docs/modules/system-settings/README.md) · [技术设计](./docs/modules/system-settings/design.md)
 
-- **Node.js** ≥ 18 (recommended v22)
-- **Rust** latest stable → [rustup.rs](https://rustup.rs/)
-- **Platform deps / 平台依赖**:
-  - **macOS**: `xcode-select --install`
-  - **Linux**: `libwebkit2gtk-4.1-dev libgtk-3-dev libsoup-3.0-dev` etc.
-  - **Windows**: [VC++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) + WebView2
+## 其他功能 / More Tools
 
-### Development / 开发
+- **Dev Toolbox**：端口管理、开发项目清理、环境检测、Token 计算、格式转换和网络诊断。
+- **Clean Space**：macOS 存储概览与受控清理，带路径白名单、逐项结果和真实释放量。
+- **Hardware Compare**：硬件规格查询与对比。
+- **Terminology**：可搜索、可固定的行业术语与关联站点库。
+- **全局能力**：中英文切换、浅色/深色/系统主题、菜单栏托盘、防睡眠和签名校验的应用内更新。
 
-```bash
-npm install        # Install deps / 安装依赖
-npm run dev        # Start Tauri dev with HMR / 启动 Tauri 开发模式（热更新）
-```
+## 平台状态 / Platform Status
 
-`npm run hooks:install` (or `npm run setup`) will configure the repo Git hooks in `.husky/`, so staged code gets checked before commits. `npm run setup` is intentionally lightweight and does not modify global Rust or npm settings.
+| 能力                       |    macOS 14+     | Windows 11 | 说明                                                 |
+| -------------------------- | :--------------: | :--------: | ---------------------------------------------------- |
+| Quick Launch / App Manager |    待真机验收    | 待真机验收 | 核心实现完成；fixture、启动与更新/卸载 smoke 未完成  |
+| Account Manager            |    待真机验收    | 待真机验收 | capability gate 已实现；Windows WebView proxy 不支持 |
+| System Settings            | 支持，待版本回归 |   不适用   | macOS 专属系统 adapter                               |
+| Dev Toolbox                |       支持       |  部分支持  | 以各子模块的 capability 为准                         |
+| Clean Space / Hardware     |       支持       |   不适用   | 2.0 维持 macOS-only                                  |
+| Terminology                |       支持       |    支持    | 纯前端与本地持久化                                   |
 
-Dev server runs at `http://localhost:1420`.
+2.0 正式目标是 macOS 14+（Apple Silicon/Intel）和 Windows 11 x64；Linux 当前不是发布目标。完整状态见[发布策略](./docs/roadmap/release-themes.md)和[2.0 发布门禁](./docs/roadmap/2.0.0-release-readiness.md)。
 
-### Build / 构建
+## 安装说明 / Installation
 
-```bash
-npm run build      # Production build for current platform / 当前平台生产构建
-```
+构建产物发布在 [GitHub Releases](https://github.com/indredK/bench/releases)。当前没有 Apple Developer Program 或 Windows Authenticode 证书：
 
-Outputs in `src-tauri/target/release/bundle/`:
+- macOS 包使用 ad-hoc 签名，首次安装可能需要在“系统设置 → 隐私与安全性”中手动允许。
+- Windows 安装包未做 Authenticode 签名，系统可能显示 Unknown Publisher。
+- Release 应同时提供 `OS-SIGNING-NOTICE.txt` 和 `SHA256SUMS`；应用内 updater 仍独立使用 Tauri minisign 校验。
 
-- **macOS**: `.dmg`
-- **Windows**: `.msi` / `.exe`
-- **Linux**: `.deb` / `.AppImage`
+不要把 updater 签名理解为操作系统代码签名。正式 Apple notarization 和 Windows Authenticode 会在取得开发者证书后启用。
 
-### Test / 测试
+## 本地开发 / Development
+
+### 环境
+
+- Node.js `>=24`
+- pnpm `11.8.0`（以 `package.json#packageManager` 为准）
+- Rust stable
+- macOS：Xcode Command Line Tools
+- Windows：Visual C++ Build Tools 与 WebView2 Runtime
+
+### 常用命令
 
 ```bash
-npm run test       # Frontend + Backend tests / 前后端测试
+corepack enable
+pnpm install
+pnpm run dev
 ```
 
----
-
-## Project Structure / 项目结构
-
-> 📖 文档导航：[docs/START-HERE.md](./docs/START-HERE.md) · AI 入口：[AGENTS.md](./AGENTS.md)
-
-```
-bench/
-├── src/                              # React Frontend / 前端
-│   ├── components/
-│   │   ├── common/                   # Shared dialogs & gates / 共享对话框与门控
-│   │   │   ├── DestructiveConfirmDialog.tsx  # Dangerous action confirm / 危险操作确认
-│   │   │   ├── AboutDialog.tsx, UpdateDialog.tsx, SettingsDialog.tsx, ...
-│   │   │   └── RuntimeFeatureGate.tsx, DesktopOnly.tsx
-│   │   ├── content/                  # Virtual table/grid views / 虚拟化视图
-│   │   ├── layout/                   # Sidebar, titlebar, theme/lang switchers / 壳层与导航
-│   │   └── ui/                       # shadcn/ui primitives / 基础 UI 组件
-│   ├── data/                         # Hardware datasets / 硬件数据集
-│   ├── features/                     # Feature modules (feature.tsx → page.tsx) / 功能模块
-│   │   ├── quick-launch/             # App launcher / 快速启动
-│   │   ├── app-manager/              # Installed apps / 应用管理
-│   │   ├── hardware/                 # Hardware compare / 硬件对比
-│   │   ├── terminology/              # Term glossary / 术语库
-│   │   ├── account-manager/          # Account sessions & auth proxy / 账号管理
-│   │   ├── dev-toolbox/              # Tab hub (ports, cleaner, env, token, …) / 开发工具箱
-│   │   ├── port-manager/             # Port kill (also routed standalone) / 端口管理
-│   │   ├── dev-cleaner/              # Build artifact cleanup / 构建清理
-│   │   ├── env-detector/             # Dev environment scan / 环境检测
-│   │   ├── token-calculator/         # Token pricing & FX rate / Token 计算
-│   │   ├── system-settings/          # macOS system controls / 系统设置
-│   │   ├── updater/                  # In-app update client / 应用更新
-│   │   ├── registry.tsx              # Feature registry & sidebar nav / 功能注册表
-│   │   └── types.ts
-│   ├── lib/tauri/                    # IPC commands, contracts, types / IPC 绑定
-│   ├── platform/                     # Browser vs desktop abstractions / 平台抽象
-│   ├── shared/                       # Compare matrix, context menus / 共享 UI
-│   ├── i18n/locales/{en,zh}.json
-│   ├── App.tsx, main.tsx, splash.ts
-├── src-tauri/                        # Rust Backend / 后端
-│   └── src/
-│       ├── account_manager/          # Sessions, webview, auth proxy / 账号管理
-│       ├── app_manager/              # macOS / Windows / Linux app ops / 应用管理
-│       ├── app_updater/              # Signed updater / 应用更新
-│       ├── dev_cleaner/              # Project scan & cleanup / 构建清理
-│       ├── env_detector/             # Tool inventory / 环境检测
-│       ├── port_manager/             # Port scan & kill / 端口管理
-│       ├── system_settings/          # macOS defaults & shell ops / 系统设置
-│       ├── sleep_inhibitor/          # caffeinate / prevent sleep / 防睡眠
-│       ├── terminology/              # Term storage & CRUD / 术语库
-│       ├── token_calculator/         # Pricing standards / Token 计费标准
-│       ├── tray.rs                   # Menu bar tray / 菜单栏托盘
-│       ├── file_ops.rs, error.rs, bootstrap.rs, menu.rs, window_theme.rs
-│       ├── commands.rs, lib.rs, main.rs
-├── docs/                             # [Docs index](./docs/README.md)
-│   ├── README.md
-│   ├── coding-standards.md
-│   ├── development-workflow.md       # 日常开发流程
-│   ├── product-iteration-reference.md
-│   ├── modules/                      # 按模块：roadmap.md, bugs.md, 设计稿
-│   └── roadmap/                      # release-themes.md
-├── scripts/                          # Bootstrap, quality gates, release / 脚本
-├── .github/workflows/ci-build.yml
-└── package.json
+```bash
+pnpm run lint:fe       # TypeScript、i18n、文档一致性
+pnpm run test:critical # 核心功能回归
+pnpm run test          # 前端 + Rust 全量测试
+pnpm run build         # 当前平台 Tauri bundle
 ```
 
----
+Git hooks 会在安装依赖时配置；也可以显式运行 `pnpm run hooks:install`。开发服务器地址为 `http://localhost:1420`。
 
-## Configuration / 配置
+## 技术栈 / Stack
 
-Key settings in `src-tauri/tauri.conf.json`:
+- Tauri v2、Rust 2021
+- React 19、TypeScript 6、Vite 8
+- Tailwind CSS 4、shadcn/ui、Lucide
+- Zustand、Wouter、i18next
+- Vitest、Testing Library
 
-| Setting / 配置项          | Value / 值                 |
-| :------------------------ | :------------------------- |
-| App ID                    | `com.bench.app`            |
-| Window Size / 窗口大小    | 1280 × 800 (min 960 × 600) |
-| Dev Server                | `http://localhost:1420`    |
-| Bundle Targets / 打包目标 | dmg, msi, deb, AppImage    |
+## 文档与贡献 / Docs & Contributing
 
----
+- 人类文档入口：[docs/START-HERE.md](./docs/START-HERE.md)
+- 架构与禁止模式：[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
+- 编码规范：[docs/coding-standards.md](./docs/coding-standards.md)
+- 开发流程：[docs/development-workflow.md](./docs/development-workflow.md)
+- 当前发布目标：[docs/ROADMAP.md](./docs/ROADMAP.md)
+- AI 操作入口：[AGENTS.md](./AGENTS.md)
 
-## License / 许可证
+提交代码前至少运行：
 
-MIT - see [LICENSE](LICENSE)
+```bash
+pnpm run lint:fe
+pnpm run test:critical
+pnpm run clippy:be
+```
 
-## Acknowledgments / 致谢
+## License
 
-- [Tauri](https://tauri.app/) · [React](https://react.dev/) · [Vite](https://vitejs.dev/)
-- [sysinfo](https://github.com/GuillaumeGomez/sysinfo) · [i18next](https://www.i18next.com/) · [shadcn/ui](https://ui.shadcn.com/)
+[MIT](./LICENSE)
