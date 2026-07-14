@@ -2,7 +2,7 @@
  * Storage Overview / 存储总览: compact header + stacked bar + donut chart + category list.
  * Donut, bar, legend, and category list all cross-highlight on hover.
  */
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 import { ChevronRight, ExternalLink, Loader2, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -22,34 +22,7 @@ function resolveChartColor(color: string | undefined): string {
   return color
 }
 
-function OverviewMetric({
-  label,
-  value,
-  accent,
-}: {
-  label: string
-  value: string
-  accent?: boolean
-}) {
-  return (
-    <div className="bg-background/70 min-w-0 rounded-md px-2.5 py-2">
-      <div className="text-muted-foreground truncate text-[11px]" title={label}>
-        {label}
-      </div>
-      <div
-        className={cn(
-          "mt-0.5 truncate text-sm font-semibold tabular-nums",
-          accent && "text-primary",
-        )}
-        title={value}
-      >
-        {value}
-      </div>
-    </div>
-  )
-}
-
-/** SVG Donut Chart component */
+/** SVG Donut Chart — fills a square parent via viewBox scaling */
 function DonutChart({
   categories,
   totalUsed,
@@ -57,6 +30,7 @@ function DonutChart({
   diskTotal,
   hoveredId,
   onHover,
+  className,
 }: {
   categories: StorageCategory[]
   totalUsed: number
@@ -64,6 +38,7 @@ function DonutChart({
   diskTotal: number
   hoveredId: string | null
   onHover: (id: string | null) => void
+  className?: string
 }) {
   const { t } = useTranslation()
   const r = 78
@@ -83,7 +58,12 @@ function DonutChart({
     })
 
   return (
-    <svg width="180" height="180" viewBox="0 0 200 200" className="h-[180px] w-[180px] shrink-0">
+    <svg
+      viewBox="0 0 200 200"
+      preserveAspectRatio="xMidYMid meet"
+      className={cn("size-full", className)}
+      aria-hidden
+    >
       <circle cx={cx} cy={cy} r={r} fill="none" stroke="hsl(var(--muted))" strokeWidth="22" />
       {segments.map(({ cat, len, offset: off }) => {
         const isDimmed = hoveredId !== null && hoveredId !== cat.id
@@ -107,10 +87,16 @@ function DonutChart({
           />
         )
       })}
-      <text x="100" y="94" textAnchor="middle" className="fill-foreground text-2xl font-semibold">
+      <text
+        x="100"
+        y="94"
+        textAnchor="middle"
+        className="fill-foreground font-semibold"
+        fontSize="22"
+      >
         {formatSize(freeBytes)}
       </text>
-      <text x="100" y="112" textAnchor="middle" className="fill-muted-foreground text-[11px]">
+      <text x="100" y="112" textAnchor="middle" className="fill-muted-foreground" fontSize="11">
         {t("cleanSpace.overview.freeOfTotal", { total: formatSize(diskTotal) })}
       </text>
     </svg>
@@ -145,7 +131,7 @@ function CategoryRow({
   return (
     <div
       className={cn(
-        "flex items-center gap-2.5 rounded-md px-2.5 py-2 transition-all",
+        "flex min-w-0 flex-col gap-1 rounded-md px-2 py-1.5 transition-all @[280px]/list:flex-row @[280px]/list:items-center @[280px]/list:gap-2.5",
         "cursor-pointer",
         isHot && "bg-primary/10",
         isDimmed && "opacity-40",
@@ -155,38 +141,56 @@ function CategoryRow({
       onMouseLeave={() => onHover(null)}
       onClick={onClick}
     >
-      <div
-        className="h-2.5 w-2.5 shrink-0 rounded-sm"
-        style={{ backgroundColor: resolveChartColor(cat.color) }}
-      />
-      <div className="flex min-w-0 flex-1 items-baseline gap-2">
-        <span className="truncate text-sm font-medium">{catName}</span>
-        <span className="text-muted-foreground truncate text-xs tabular-nums">
+      <div className="flex min-w-0 items-center gap-2">
+        <div
+          className="h-2 w-2 shrink-0 rounded-sm"
+          style={{ backgroundColor: resolveChartColor(cat.color) }}
+        />
+        <span className="min-w-0 flex-1 truncate text-xs font-medium" title={catName}>
+          {catName}
+        </span>
+        <span className="text-muted-foreground shrink-0 text-[11px] tabular-nums @[280px]/list:hidden">
           {formatSize(cat.total_bytes)}
         </span>
+        {isScanning ? (
+          <Loader2 size={13} className="text-muted-foreground shrink-0 animate-spin" />
+        ) : (
+          <ChevronRight size={13} className="text-muted-foreground shrink-0" />
+        )}
       </div>
-      <div className="bg-muted h-1.5 w-20 shrink-0 overflow-hidden rounded-full">
-        <div
-          className="h-full rounded-full"
-          style={{
-            width: `${Math.min(barPct, 100)}%`,
-            backgroundColor: resolveChartColor(cat.color),
-          }}
-        />
+      <div className="flex min-w-0 items-center gap-1.5 pl-4 @[280px]/list:flex-1 @[280px]/list:justify-end @[280px]/list:pl-0">
+        <span className="text-muted-foreground hidden shrink-0 text-[11px] tabular-nums @[280px]/list:inline">
+          {formatSize(cat.total_bytes)}
+        </span>
+        <div className="bg-muted h-1 min-w-0 flex-1 overflow-hidden rounded-full @[280px]/list:max-w-16 @[280px]/list:flex-none">
+          <div
+            className="h-full rounded-full"
+            style={{
+              width: `${Math.min(barPct, 100)}%`,
+              backgroundColor: resolveChartColor(cat.color),
+            }}
+          />
+        </div>
+        <span className="text-muted-foreground w-9 shrink-0 text-right text-[11px] tabular-nums">
+          {pct.toFixed(1)}%
+        </span>
       </div>
-      <span className="text-muted-foreground w-11 shrink-0 text-right text-xs tabular-nums">
-        {pct.toFixed(1)}%
-      </span>
-      {isScanning ? (
-        <Loader2 size={14} className="text-muted-foreground shrink-0 animate-spin" />
-      ) : (
-        <ChevronRight size={14} className="text-muted-foreground shrink-0" />
-      )}
     </div>
   )
 }
 
-export function StorageOverview() {
+/** Square chart — height of the chart row drives size; always 1:1, capped at 420px */
+function ChartFrame({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex h-full min-h-0 shrink-0 items-center self-stretch">
+      <div className="bg-muted/35 box-border aspect-square h-full max-h-[420px] min-h-0 w-auto max-w-[420px] rounded-lg p-2 sm:p-3">
+        {children}
+      </div>
+    </div>
+  )
+}
+
+export function StorageOverview({ className }: { className?: string }) {
   const { t } = useTranslation()
   const overview = useCleanSpaceStore((s) => s.overview)
   const isScanning = useCleanSpaceStore((s) => s.isScanning)
@@ -224,7 +228,6 @@ export function StorageOverview() {
     [categories],
   )
   const freeBytes = diskTotal > usedBytes ? diskTotal - usedBytes : 0
-  const usedPct = diskTotal > 0 ? (usedBytes / diskTotal) * 100 : 0
   const displayCategories = useMemo(
     () => [...categories].sort((a, b) => b.total_bytes - a.total_bytes),
     [categories],
@@ -232,9 +235,6 @@ export function StorageOverview() {
   const topCategory = displayCategories.find((category) => category.total_bytes > 0) ?? null
   const maxCategoryBytes = topCategory?.total_bytes ?? 0
 
-  // Suggestion stats: estimated from category-level totals since overview
-  // no longer includes per-item data (items are lazy-loaded per category).
-  // Safe-to-clean = system data (caches/logs/trash) + downloads.
   const suggestionStats = useMemo(() => {
     const systemData = categories.find((c) => c.id === "system_data")?.total_bytes ?? 0
     const downloads = categories.find((c) => c.id === "downloads")?.total_bytes ?? 0
@@ -251,11 +251,11 @@ export function StorageOverview() {
   }, [categories])
 
   return (
-    <Card className="flex min-h-full flex-col">
-      {/* Compact single-row header */}
-      <CardHeader className="flex shrink-0 flex-row items-center justify-between py-2.5">
+    <Card className={cn("flex min-h-0 flex-col overflow-hidden", className)}>
+      {/* Compact header */}
+      <CardHeader className="flex shrink-0 flex-col gap-2 py-2.5 sm:flex-row sm:items-center sm:justify-between">
         <CardTitle className="text-sm">{t("cleanSpace.overview.title")}</CardTitle>
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           {canUsePlatform && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -282,7 +282,7 @@ export function StorageOverview() {
         </div>
       </CardHeader>
 
-      <CardContent className="flex min-h-0 flex-1 flex-col gap-4 pb-4">
+      <CardContent className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden pb-4">
         {scanError && (
           <div className="text-destructive text-xs">
             {t("cleanSpace.scanFailed")}: {scanError}
@@ -303,26 +303,34 @@ export function StorageOverview() {
               <div className="bg-muted h-5 w-20 rounded" />
             </div>
             {/* Donut chart + category list */}
-            <div className="flex min-h-0 flex-1 flex-col rounded-xl border p-4">
+            <div className="flex min-w-0 shrink-0 flex-col rounded-xl border p-3 sm:p-4">
               <div className="bg-muted mb-3 h-4 w-20 rounded" />
-              <div className="grid min-h-0 flex-1 gap-5 lg:grid-cols-[320px_minmax(0,1fr)]">
-                <div className="bg-muted aspect-square w-full max-w-[320px] shrink-0 rounded-lg" />
+              <div className="flex gap-2 sm:gap-3">
+                <div className="bg-muted/35 aspect-square h-40 max-h-[420px] w-auto max-w-[420px] shrink-0 rounded-lg sm:h-48" />
                 <div className="flex min-w-0 flex-1 flex-col gap-2">
                   {Array.from({ length: 8 }).map((_, i) => (
-                    <div key={i} className="flex items-center gap-2.5 rounded-md px-2.5 py-2">
-                      <div className="bg-muted h-2.5 w-2.5 shrink-0 rounded-sm" />
-                      <div className="bg-muted h-3.5 w-24 rounded" />
-                      <div className="bg-muted h-3 w-16 rounded" />
-                      <div className="bg-muted h-1.5 w-20 shrink-0 rounded-full" />
-                      <div className="bg-muted h-3 w-11 rounded" />
-                      <div className="bg-muted ml-auto h-3.5 w-3.5 rounded" />
+                    <div
+                      key={i}
+                      className="flex min-w-0 flex-col gap-1.5 rounded-md px-2.5 py-2 sm:flex-row sm:items-center sm:gap-2.5"
+                    >
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <div className="bg-muted h-2.5 w-2.5 shrink-0 rounded-sm" />
+                        <div className="bg-muted h-3.5 min-w-0 flex-1 rounded" />
+                        <div className="bg-muted h-3 w-11 rounded sm:hidden" />
+                        <div className="bg-muted h-3.5 w-3.5 rounded" />
+                      </div>
+                      <div className="flex min-w-0 items-center gap-2 pl-[18px] sm:flex-1 sm:pl-0">
+                        <div className="bg-muted hidden h-3 w-16 rounded sm:block" />
+                        <div className="bg-muted h-1.5 min-w-0 flex-1 rounded-full sm:max-w-20 sm:flex-none" />
+                        <div className="bg-muted h-3 w-11 rounded" />
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
             </div>
             {/* Suggestion card */}
-            <div className="flex gap-3.5 rounded-xl border p-4">
+            <div className="flex min-w-0 flex-col gap-3 rounded-xl border p-3 sm:flex-row sm:gap-3.5 sm:p-4">
               <div className="bg-muted h-9 w-9 shrink-0 rounded-lg" />
               <div className="min-w-0 flex-1 space-y-2">
                 <div className="bg-muted h-4 w-20 rounded" />
@@ -357,14 +365,14 @@ export function StorageOverview() {
 
         {/* Real data */}
         {overview && (
-          <div className="flex min-h-0 flex-1 flex-col gap-4 transition-opacity">
+          <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden transition-opacity">
             {/* Disk summary */}
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+            <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 text-xs">
               <div className="flex items-center gap-1.5">
                 <span className="text-muted-foreground">{t("cleanSpace.overview.totalDisk")}</span>
                 <span className="font-semibold">{formatSize(diskTotal)}</span>
               </div>
-              <div className="bg-border h-3 w-px" />
+              <div className="bg-border hidden h-3 w-px sm:block" />
               <div className="flex items-center gap-1.5">
                 <span className="text-green-700 dark:text-green-300">
                   {t("cleanSpace.overview.free")}
@@ -375,13 +383,13 @@ export function StorageOverview() {
               </div>
             </div>
 
-            {/* Donut Chart + Category List */}
-            <div className="flex min-h-0 flex-1 flex-col rounded-xl border p-4">
-              <h3 className="mb-3 text-sm font-semibold">
+            {/* Donut Chart + Category List — flex-1, only the list scrolls internally */}
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border p-3 sm:p-4">
+              <h3 className="mb-2 shrink-0 text-sm font-semibold">
                 {t("cleanSpace.overview.categoryDetail")}
               </h3>
-              <div className="grid min-h-0 flex-1 gap-5 lg:grid-cols-[320px_minmax(0,1fr)]">
-                <div className="bg-muted/35 flex aspect-square w-full max-w-[320px] shrink-0 flex-col items-center justify-center rounded-lg p-3">
+              <div className="flex min-h-0 flex-1 items-stretch gap-2 sm:gap-3">
+                <ChartFrame>
                   <DonutChart
                     categories={displayCategories}
                     totalUsed={usedBytes}
@@ -390,51 +398,8 @@ export function StorageOverview() {
                     hoveredId={hoveredId}
                     onHover={setHoveredId}
                   />
-                  <div className="mt-2 grid w-full grid-cols-2 gap-2">
-                    <OverviewMetric
-                      label={t("cleanSpace.overview.used")}
-                      value={`${formatSize(usedBytes)} · ${Math.min(usedPct, 100).toFixed(1)}%`}
-                    />
-                    <OverviewMetric
-                      label={t("cleanSpace.overview.cleanable")}
-                      value={formatSize(suggestionStats.totalCleanable)}
-                      accent
-                    />
-                  </div>
-                  {topCategory && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className={cn(
-                        "bg-background/70 hover:bg-accent/70 mt-2 h-auto w-full justify-start gap-2 rounded-md px-2.5 py-2 text-left",
-                        hoveredId === topCategory.id && "bg-primary/10",
-                      )}
-                      onMouseEnter={() => setHoveredId(topCategory.id)}
-                      onMouseLeave={() => setHoveredId(null)}
-                      onClick={() => setSelectedCategoryId(topCategory.id)}
-                    >
-                      <span
-                        className="h-2.5 w-2.5 shrink-0 rounded-sm"
-                        style={{ backgroundColor: resolveChartColor(topCategory.color) }}
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="text-muted-foreground block truncate text-[11px]">
-                          {t("cleanSpace.overview.largestCategory")}
-                        </span>
-                        <span
-                          className="block truncate text-xs font-medium"
-                          title={t(`cleanSpace.categories.${topCategory.id}`, topCategory.name)}
-                        >
-                          {t(`cleanSpace.categories.${topCategory.id}`, topCategory.name)}
-                        </span>
-                      </span>
-                      <span className="shrink-0 text-xs font-semibold tabular-nums">
-                        {formatSize(topCategory.total_bytes)}
-                      </span>
-                    </Button>
-                  )}
-                </div>
-                <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-0.5 overflow-y-auto">
+                </ChartFrame>
+                <div className="@container/list flex min-h-0 min-w-0 flex-1 flex-col gap-0.5 overflow-x-hidden overflow-y-auto">
                   {displayCategories.map((cat) => (
                     <CategoryRow
                       key={cat.id}
@@ -452,8 +417,8 @@ export function StorageOverview() {
               </div>
             </div>
 
-            {/* Suggestion card */}
-            <div className="flex gap-3.5 rounded-xl border p-4">
+            {/* Suggestion card — always pinned at bottom */}
+            <div className="flex shrink-0 flex-col gap-2 rounded-xl border p-2.5 sm:flex-row sm:gap-3 sm:p-3">
               <div className="bg-primary/10 text-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-lg">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                   <path
@@ -468,32 +433,32 @@ export function StorageOverview() {
                 <h3 className="text-sm font-semibold">
                   {t("cleanSpace.overview.suggestionTitle")}
                 </h3>
-                <p className="text-muted-foreground mt-1 text-xs">
+                <p className="text-muted-foreground mt-0.5 line-clamp-2 text-xs">
                   {t("cleanSpace.overview.suggestionDesc", {
                     size: formatSize(suggestionStats.safeBytes),
                   })}
                 </p>
-                <div className="mt-3 flex gap-5">
-                  <div>
-                    <div className="text-primary text-lg font-semibold tabular-nums">
+                <div className="mt-2 grid grid-cols-3 gap-2 sm:flex sm:gap-4">
+                  <div className="min-w-0">
+                    <div className="text-primary text-base font-semibold tabular-nums sm:text-lg">
                       {formatSize(suggestionStats.safeBytes)}
                     </div>
                     <div className="text-muted-foreground text-xs">
                       {t("cleanSpace.overview.safeItems")}
                     </div>
                   </div>
-                  <div>
-                    <div className="text-primary text-lg font-semibold tabular-nums">
+                  <div className="min-w-0">
+                    <div className="text-primary text-base font-semibold tabular-nums sm:text-lg">
                       {formatSize(suggestionStats.totalCleanable)}
                     </div>
                     <div className="text-muted-foreground text-xs">
                       {t("cleanSpace.overview.totalCleanable")}
                     </div>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <div
                       className={cn(
-                        "text-lg font-semibold tabular-nums",
+                        "text-base font-semibold tabular-nums sm:text-lg",
                         suggestionStats.highCount > 0 ? "text-red-500" : "text-foreground",
                       )}
                     >

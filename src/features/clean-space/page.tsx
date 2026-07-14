@@ -48,10 +48,10 @@ function OverviewSection() {
   }
 
   return (
-    <ScrollableArea className="flex h-full flex-col gap-3" wrapperClassName="h-full">
-      <StorageOverview />
+    <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
+      <StorageOverview className="min-h-0 flex-1" />
       <CleanupProgress />
-    </ScrollableArea>
+    </div>
   )
 }
 
