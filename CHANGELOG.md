@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.24.4](https://github.com/indredK/bench/compare/v1.24.3...v1.24.4) (2026-07-14)
+
+
+### Bug Fixes
+
+* **ci:** avoid empty APPLE_SIGNING_IDENTITY overriding ad-hoc macOS sign ([5cfb324](https://github.com/indredK/bench/commit/5cfb324be520964fab21b0b10414f37d6a72657b))
+* **release:** trigger release-please after macOS ad-hoc signing fix ([2516905](https://github.com/indredK/bench/commit/251690504d06b8f926e536f9f3deb25d7b29e24f))
+
 ## [1.24.3](https://github.com/indredK/bench/compare/v1.24.2...v1.24.3) (2026-07-14)
 
 
