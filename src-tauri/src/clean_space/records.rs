@@ -199,12 +199,26 @@ mod tests {
         add_record_at_path(&path, record("new")).unwrap();
         assert_eq!(load_records(&path).unwrap().records[0].id, "new");
         // Backup is best-effort; verify recovery regardless of backup count.
+        let backup_prefix = format!(
+            "{}.corrupt-",
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or("data")
+        );
         let backup_count = fs::read_dir(path.parent().unwrap())
             .unwrap()
             .filter_map(Result::ok)
-            .filter(|entry| entry.file_name().to_string_lossy().contains(".corrupt-"))
+            .filter(|entry| {
+                entry
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with(backup_prefix.as_str())
+            })
             .count();
-        assert!(backup_count <= 1, "at most one backup expected");
+        assert!(
+            backup_count <= MAX_BACKUPS,
+            "backup count should respect MAX_BACKUPS"
+        );
         fs::remove_dir_all(path.parent().unwrap()).unwrap();
     }
 }

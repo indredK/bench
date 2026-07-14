@@ -50,18 +50,7 @@ pub fn atomic_write(path: &Path, bytes: &[u8]) -> io::Result<()> {
 }
 
 pub fn backup_file(path: &Path, label: &str, max_backups: usize) -> io::Result<Option<PathBuf>> {
-    let mut last_err: Option<io::Error> = None;
-    for attempt in 0..3 {
-        match backup_file_inner(path, label, max_backups) {
-            Ok(result) => return Ok(result),
-            Err(e) if e.kind() == io::ErrorKind::PermissionDenied && attempt < 2 => {
-                last_err = Some(e);
-                std::thread::sleep(std::time::Duration::from_millis(50 << attempt));
-            }
-            Err(e) => return Err(e),
-        }
-    }
-    Err(last_err.unwrap())
+    retry_permission_denied(|| backup_file_inner(path, label, max_backups))
 }
 
 fn backup_file_inner(path: &Path, label: &str, max_backups: usize) -> io::Result<Option<PathBuf>> {
@@ -77,9 +66,21 @@ fn backup_file_inner(path: &Path, label: &str, max_backups: usize) -> io::Result
         .unwrap_or("data");
     let prefix = format!("{file_name}.{label}-");
     let backup = parent.join(format!("{prefix}{}", unique_suffix()));
-    copy_with_retry(path, &backup)?;
-    File::open(&backup)?.sync_all()?;
 
+    let result = (|| {
+        let bytes = read_with_retry(path)?;
+        atomic_write(&backup, &bytes)?;
+        prune_labeled_backups(parent, &prefix, max_backups)?;
+        Ok(Some(backup.clone()))
+    })();
+
+    if result.is_err() {
+        let _ = remove_with_retry(&backup);
+    }
+    result
+}
+
+fn prune_labeled_backups(parent: &Path, prefix: &str, max_backups: usize) -> io::Result<()> {
     let mut backups = fs::read_dir(parent)?
         .filter_map(Result::ok)
         .map(|entry| entry.path())
@@ -87,15 +88,15 @@ fn backup_file_inner(path: &Path, label: &str, max_backups: usize) -> io::Result
             candidate
                 .file_name()
                 .and_then(|name| name.to_str())
-                .is_some_and(|name| name.starts_with(&prefix))
+                .is_some_and(|name| name.starts_with(prefix))
         })
         .collect::<Vec<_>>();
     backups.sort();
     let remove_count = backups.len().saturating_sub(max_backups);
     for stale in backups.into_iter().take(remove_count) {
-        let _ = fs::remove_file(stale);
+        remove_with_retry(&stale)?;
     }
-    Ok(Some(backup))
+    Ok(())
 }
 
 fn unique_suffix() -> String {
@@ -106,21 +107,38 @@ fn unique_suffix() -> String {
     format!("{}-{nanos}", std::process::id())
 }
 
-/// Retry-aware `fs::copy` for Windows CI where transient permission errors
-/// (antivirus / ACL) can cause a one-shot `fs::copy` to fail.
-fn copy_with_retry(src: &Path, dst: &Path) -> io::Result<u64> {
+fn retry_permission_denied<T, F>(mut action: F) -> io::Result<T>
+where
+    F: FnMut() -> io::Result<T>,
+{
+    let max_attempts = if cfg!(windows) { 5 } else { 3 };
+    let base_delay_ms = if cfg!(windows) { 50 } else { 10 };
     let mut last_err: Option<io::Error> = None;
-    for attempt in 0..3 {
-        match fs::copy(src, dst) {
-            Ok(n) => return Ok(n),
-            Err(e) if e.kind() == io::ErrorKind::PermissionDenied && attempt < 2 => {
-                last_err = Some(e);
-                std::thread::sleep(std::time::Duration::from_millis(10 << attempt));
+    for attempt in 0..max_attempts {
+        match action() {
+            Ok(value) => return Ok(value),
+            Err(error)
+                if error.kind() == io::ErrorKind::PermissionDenied
+                    && attempt + 1 < max_attempts =>
+            {
+                last_err = Some(error);
+                std::thread::sleep(std::time::Duration::from_millis(base_delay_ms << attempt));
             }
-            Err(e) => return Err(e),
+            Err(error) => return Err(error),
         }
     }
     Err(last_err.unwrap())
+}
+
+fn read_with_retry(path: &Path) -> io::Result<Vec<u8>> {
+    retry_permission_denied(|| fs::read(path))
+}
+
+fn remove_with_retry(path: &Path) -> io::Result<()> {
+    if !path.exists() {
+        return Ok(());
+    }
+    retry_permission_denied(|| fs::remove_file(path))
 }
 
 #[cfg(unix)]
@@ -181,10 +199,21 @@ mod tests {
         for _ in 0..5 {
             backup_file(&path, "migration", 2).unwrap();
         }
+        let backup_prefix = format!(
+            "{}.migration-",
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or("data")
+        );
         let backups = fs::read_dir(&dir)
             .unwrap()
             .filter_map(Result::ok)
-            .filter(|entry| entry.file_name().to_string_lossy().contains(".migration-"))
+            .filter(|entry| {
+                entry
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with(backup_prefix.as_str())
+            })
             .count();
         assert_eq!(backups, 2);
         fs::remove_dir_all(dir).unwrap();
