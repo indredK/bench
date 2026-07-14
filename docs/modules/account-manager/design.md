@@ -1,6 +1,6 @@
 # Account Manager 技术设计
 
-> 本文记录安全边界、生命周期和修改入口；字段与命令以 Rust 类型和 IPC 契约为准。核心后端可靠性已完成首轮整改，剩余平台/UX 阻断项见 [生产可靠性审计](./audit-and-upgrade-2026-07-13.md)。
+> 本文记录长期安全边界、生命周期和修改入口；字段与命令以 Rust 类型和 IPC 契约为准。未完成代码与目标平台验收见 [roadmap.md](./roadmap.md)。
 
 ## 1. 模块职责
 
@@ -77,7 +77,7 @@ AuthProfile 检测从页面、cookie、Web Storage、CSRF、SSO、anti-bot 和 W
 
 探针结果必须区分 Ready、LoginRequired、Expired、Uncertain、AntiBotBlocked、SsoChallenge 和 NetworkError。Uncertain 才允许升级探针，避免所有账号默认创建 WebView。
 
-上述边界参考的开源实现、固定 commit、License 和未采用原因见 [审计文档 §10](./audit-and-upgrade-2026-07-13.md#10-github-参考实现与采纳矩阵)。修改重试或 Session 语义时必须同步更新该矩阵和行为测试。
+上述边界参考的开源实现、固定 commit、License 和未采用原因见本文 §8。修改重试或 Session 语义时必须同步更新参考矩阵和行为测试。
 
 ## 5. 加密与存储
 
@@ -117,7 +117,26 @@ AuthProfile 检测从页面、cookie、Web Storage、CSRF、SSO、anti-bot 和 W
 
 后端 `get_account_manager_capabilities` 是平台能力真理源，逐项返回 `supported/partial/unsupported/failed + reasonCode`。前端允许 `supported/partial`，对 `unsupported/failed` 禁用具体操作并显示原因；不得根据 `navigator.platform` 或编译成功自行提升能力。Windows 页面入口已开放，但 WebView 网络代理保持 `unsupported`，后端同样拒绝非空代理配置，避免绕过 UI 后静默直连。
 
-## 8. 修改检查表
+删除账号/站点必须返回逐资源 report：metadata、secret、Session、binding、WebView/window/data directory 分别标记成功或失败。目录占用等 partial 结果必须保留可重试信息，不得先删除 metadata 再丢失残留资源的 owner。代理密码更新只接受 `keep/set/clear` 窄 DTO；renderer 不回传完整读取 DTO。
+
+## 8. 参考实现与采纳矩阵
+
+引用固定 commit 只用于设计对照，Bench 未复制第三方实现。升级参考版本前必须重新检查 License、语义和行为测试。
+
+| 参考 | License | 采纳内容 | 未采纳/限制 |
+|------|---------|----------|-------------|
+| [moka-rs/moka@e617b5f](https://github.com/moka-rs/moka/blob/e617b5f064cdb3ce9845cef06961fdbf07bd9946/src/future/cache.rs#L970-L1049) | MIT OR Apache-2.0 | 同账号 probe single-flight；leader 取消时唤醒 waiter 并清理 registry | 不引入 cache 依赖 |
+| [reqwest-middleware@614b947](https://github.com/TrueLayer/reqwest-middleware/blob/614b9474f6bec85c8660e4d52b8d9f12f8359229/reqwest-retry/src/retryable_strategy.rs#L100-L169) | MIT OR Apache-2.0 | 只重试 408/429/500/502/503/504 与 connect/timeout | 不为单一 GET probe 引入 middleware |
+| [spider@73e497c](https://github.com/spider-rs/spider/blob/73e497c46b4e7774b8421ae2d54a0e5bee8fd9f8/spider/src/utils/backoff.rs#L1-L60) | MIT | 200 ms 基数、2 秒上限、full-jitter、饱和运算与并发上限 | 不引入 crawler |
+| [cookie_store@f29b1cf](https://github.com/pfernie/cookie_store/blob/f29b1cf2cce8bd906ce4acec93d48dc9040b2b6d/src/cookie_path.rs#L7-L29) | MIT OR Apache-2.0 | RFC 6265 path boundary、过期和 secure 判断 | Tauri 未提供 partition key 前不引入完整 CookieStore，partitioned Cookie fail-closed |
+| [oauth2-rs@72ce744](https://github.com/ramosbugs/oauth2-rs/blob/72ce74401c26eb4dc85dcbfde587bbcfc149e3ae/oauth2/src/client.rs#L675-L691) | MIT OR Apache-2.0 | 一次性 state/ticket、callback 精确匹配、禁止 probe redirect | Bench 不是 token client，不生成或替换第三方 PKCE verifier |
+| [Playwright@91565f0](https://github.com/microsoft/playwright/blob/91565f0ddb29c3daaebd25494fdcb8e9ecf8d545/packages/playwright-core/src/server/browserContext.ts#L615-L718) | Apache-2.0 | Cookie 与 storage 按 origin 隔离恢复 | 增加 database/store/record/体积/timeout 上限；不可移植值和不兼容 schema fail-closed |
+| [Tauri plugins@254f222](https://github.com/tauri-apps/plugins-workspace/blob/254f222e0e2bc79370f977855b6b39d956d3b568/plugins/deep-link/README.md#L141-L148) | MIT OR Apache-2.0 | Windows single-instance `deep-link`、App 根 inbox、多 URL 去重 | 原始入口 URL 不进入 renderer |
+| [keyring-rs@1866f8b](https://github.com/open-source-cooperative/keyring-rs/blob/1866f8b2db9acd38ef2a61713e46629ef1ef3e10/README.md) | MIT OR Apache-2.0 | macOS Keychain/Windows Credential Manager 统一 API | 两平台拒绝、并发、重启仍分别做真机测试 |
+
+全局 reqwest client cache 暂不采用：Station 代理和凭据边界不同，复用键不完整会造成跨账号配置污染。
+
+## 9. 修改检查表
 
 - [ ] 模型变更同步 Rust/TS/serde 默认值和 migration。
 - [ ] IPC 变更同步 `contracts.ts`、command wrapper 和 Rust 注册。

@@ -8,13 +8,11 @@ AI 从 [`AGENTS.md`](../AGENTS.md) 开始；人类新人可先读 [START-HERE.md
 | [coding-standards.md](./coding-standards.md) | 编码、测试和文档规范 |
 | [UX-STANDARDS.md](./UX-STANDARDS.md) | 布局、加载态和交互规范 |
 | [AI-WORKFLOWS.md](./AI-WORKFLOWS.md) | `/review`、`/fix`、`/doc`、`/feature` 流程 |
-| [ROADMAP.md](./ROADMAP.md) | 当前跨模块目标 |
-| [2.0.0 功能发布规范](./roadmap/2.0.0-release-readiness.md) | 功能、后端、跨平台、签名、CI 与发布门禁 |
-| [2.0.0 UX 规范](./roadmap/2.0.0-ux-readiness.md) | 核心路径、状态、响应式、i18n、a11y 与性能验收 |
+| [ROADMAP.md](./ROADMAP.md) | 2.0 唯一执行路线、证据和停止条件 |
 | [DECISIONS.md](./DECISIONS.md) | 长期方向性决策 |
 | [audit-report.md](./audit-report.md) | 审计豁免与当前复核记录 |
 | [development-workflow.md](./development-workflow.md) | 开发、验证、提交与发版 |
 | [dev-prod-coexistence.md](./dev-prod-coexistence.md) | Dev / Prod 共存约束 |
 | [modules/](./modules/README.md) | 模块设计与未完成 backlog |
 
-模块目录至少保留 `README.md` 和 `roadmap.md`；只有存在独有架构或安全约束时才增加 `design.md` 或专题审计。
+模块目录至少保留 `README.md` 和 `roadmap.md`；只有存在独有、长期有效的架构或安全约束时才增加 `design.md`。

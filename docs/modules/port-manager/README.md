@@ -7,4 +7,4 @@
 | [design.md](./design.md) | Local/Remote、Kill 安全和性能约束 |
 | [roadmap.md](./roadmap.md) | 未完成项 |
 
-发布节奏：[release-themes.md](../../roadmap/release-themes.md)
+全局顺序：[2.0 最终路线图](../../ROADMAP.md)

@@ -1,75 +1,38 @@
 # Bench 审计记录
 
-本文件只保留审计豁免、仍有效的风险和最近复核结论。已修复问题的逐条历史由 Git 保留；可复用规则已经进入 [coding-standards.md](./coding-standards.md) 和 [ARCHITECTURE.md](./ARCHITECTURE.md)。
+本文件只保留审计豁免和仍有效的风险；已修复历史由 Git 保留，可复用规则已进入 [coding-standards.md](./coding-standards.md) 与 [ARCHITECTURE.md](./ARCHITECTURE.md)。
 
 ## 不计违规决策
 
-后续审计不得重复报告以下已评估模式，除非前提发生变化：
+除非前提变化，后续审计不重复报告：
 
 1. `src/data/phone.ts` 保留中文原始数据，展示层通过 `PHONE_*_KEYS` 和 `t()` 翻译；新增数据必须同步映射。
-2. `src/features/hardware/` 当前无需空的 `hooks/`、`services/`；只有出现真实编排或适配职责时再补。
-3. 各模块 `columns.tsx` 字段和交互差异大，不为了形式统一抽取。
-4. `lib/tauri/commands/*` 已是纯 IPC 适配时，不增加只做 re-export 的 feature repository。
-5. 页面级本地状态无需强制进入 Zustand store；跨组件/页面共享后再上提。
-6. `src-tauri/src/lib.rs` 启动链末端的 `.expect()` 可保留；IPC 和可降级初始化路径仍禁止 panic。
-7. 子组件用 selector 读取稳定 store action 可以保留；禁止无 selector 整 store 订阅进入 hook 依赖。
-8. `dev-toolbox` 是聚合型 Tab 容器，`updater` 是全局对话框模块，不强制拥有导航 feature 的完整文件结构。
+2. `src/features/hardware/` 无真实编排时无需空 `hooks/`、`services/`。
+3. 各模块 `columns.tsx` 差异大，不为形式统一抽取。
+4. `lib/tauri/commands/*` 已是纯 IPC 适配时，不新增只 re-export 的 feature repository。
+5. 页面本地状态无需强制进入 Zustand；跨组件/页面共享后再上提。
+6. `src-tauri/src/lib.rs` 启动链末端 `.expect()` 可保留；IPC 和可降级初始化路径仍禁止 panic。
+7. 子组件用 selector 读取稳定 store action 可保留；禁止无 selector 整 store 订阅进入 hook 依赖。
+8. `dev-toolbox` 是聚合 Tab，`updater` 是全局对话框，不强制拥有导航 feature 的完整结构。
 
-## 当前发布风险
+## 当前风险
 
-- [§7.4/§9] `src-tauri/src/app_manager/` - macOS/Windows 核心实现已整改，但目标平台 fixture、真机 smoke 和 CI 行为测试未完成 - 按 [App Manager roadmap](./modules/app-manager/roadmap.md) 验收 - **强制** - 状态：待验收
-- [§6/§9] `src/features/quick-launch/` - 共享 inventory 与虚拟列表已落地，但 macOS/Windows 启动 smoke 和 500+ 应用性能验收未完成 - 按 [Quick Launch roadmap](./modules/quick-launch/roadmap.md) 验收 - **强制** - 状态：待验收
-- [§3.3/§7/§8] `src-tauri/src/account_manager/` - Session canonical map、同源 Web Storage/IndexedDB 有界捕获恢复、canonical Cookie expiry、恢复后 probe、single-flight 和有界重试已整改；Tauri 未暴露 Cookie partition key，partitioned Cookie 继续禁止进入 HTTP probe，目标平台 WebView 行为仍待验证 - 按 [Account Manager roadmap](./modules/account-manager/roadmap.md) 延期验证实施 - **强制** - 状态：代码已修复/待验收
-- [§7/§8] `src-tauri/src/account_manager/{deep_link,state,commands}.rs` - App 根 32 条 FIFO、大小限制、短时去重、冷/热入口、窄 drain IPC 和 Windows single-instance 已实现；Windows/macOS 真实协议唤起仍待真机验证 - 按 [Account Manager roadmap](./modules/account-manager/roadmap.md) 延期验证 - **强制** - 状态：代码已修复/待验收
-- [§3.3/§7] `src-tauri/src/account_manager/{crypto,state,storage}.rs` - Keyring 和 store mutation 已接入跨进程锁及 reload-before-save；Dev/Prod/Windows 并发行为仍待验收 - 按 [Account Manager roadmap](./modules/account-manager/roadmap.md) Phase 6 验收 - **强制** - 状态：待验收
-- [§5/§6/§9] `src/features/account-manager/` - 三栏 skeleton、密码 TTL、窄屏详情 Sheet、500+ 虚拟化、删除 partial 和后端 capability gate 已整改，Windows 入口已开放且 proxy 明确禁用；区域 retry 与双平台行为测试仍缺 - 按 [Account Manager roadmap](./modules/account-manager/roadmap.md) 实施 - **强制** - 状态：部分修复
-- [§5/§7/§9] `src/features/system-settings/` - error/unknown、canonical 浏览器、后端 snapshot 和 read-after-write 已实现；支持系统版本与权限拒绝仍待 macOS 真机验收 - 按 [System Settings roadmap](./modules/system-settings/roadmap.md) 验收 - **强制** - 状态：代码已修复/待验收
-- [§7/§9] `.github/workflows/ci-build.yml` - tag job 默认生成 ad-hoc macOS/unsigned Windows OS 包，updater minisign、目标产物、notice 和 checksum fail-closed；尚无 updater 私钥 tag run 和安装/升级 smoke - 按 [2.0.0 发布门禁 F07-F09](./roadmap/2.0.0-release-readiness.md#12-f07updater签名与供应链) 验收 - **强制** - 状态：待验收
-- [§7/§9] `src-tauri/tauri.conf.json` - `com.bench.app` 的 `.app` 后缀警告已评估；为保持 Keychain/数据/升级身份，D-011 决定 2.0 保留，不得直接改字符串 - **建议** - 状态：接受风险
+- [§3/§5/§6/§9] `src/features/account-manager/` - 缺区域 error/retry 与大文件分层；Keyring/WebView/Deep Link 双平台行为未验收 - 按 [Account Manager roadmap](./modules/account-manager/roadmap.md) 执行 - **强制** - 状态：部分修复
+- [§3.3/§7/§8] `src-tauri/src/account_manager/` - 同源 Web Storage/IndexedDB、canonical Cookie expiry、single-flight、Deep Link inbox 和 capability 已实现；partition key 不可用且目标平台行为未验收 - 保持 partitioned Cookie fail-closed，执行 [R04](./ROADMAP.md#r04-account-manager-双平台真机矩阵) - **强制** - 状态：代码已修复/待验收
+- [§7.4/§9] `src-tauri/src/app_manager/` - 缺双平台 inventory fixture、启动/更新/卸载 smoke 和 CI runner - 按 [App Manager roadmap](./modules/app-manager/roadmap.md) 执行 - **强制** - 状态：待验收
+- [§6/§9] `src/features/quick-launch/` - 缺 macOS/Windows 启动 smoke 和 500/2000 应用性能证据 - 按 [Quick Launch roadmap](./modules/quick-launch/roadmap.md) 执行 - **强制** - 状态：待验收
+- [§5/§7/§9] `src/features/system-settings/`、`src-tauri/src/clean_space/` - 核心保护已实现，macOS 权限拒绝、read-after-write、受保护目录、timeout 和真实释放量未真机验收 - 执行 [R03](./ROADMAP.md#r03-macos-system-settings-与-clean-space) - **强制** - 状态：代码已修复/待验收
+- [§7/§9] `.github/workflows/ci-build.yml` - 默认 ad-hoc/unsigned 且 release 产物 fail-closed；仍缺无发布副作用的 RC dry-run、真实 updater 私钥三目标 run 和错误矩阵 - 执行 [R05](./ROADMAP.md#r05-updater供应链与-rc-流水线) - **强制** - 状态：待验收
+- [§9] 全局 UX - 尚无 Playwright/axe、多 viewport、键盘和 Windows scaling 门禁 - 执行 [R07](./ROADMAP.md#r07-ux可访问性与视觉回归) - **强制** - 状态：未实现
+- [§7/§9] 持久化与 updater - 缺 1.23.0 数据迁移、应用内升级和回滚 fixture/真机证据 - 执行 [R06](./ROADMAP.md#r06-1230-升级迁移与回滚) - **强制** - 状态：待验收
+- [§7/§9] `src-tauri/tauri.conf.json` - `com.bench.app` 后缀警告已接受；D-011 要求 2.0 保留，不得直接改字符串 - **建议** - 状态：接受风险
 
-未完成目标平台行为测试前，不得把 App Manager 或 Quick Launch 标记为 macOS/Windows 发布对等。
+未完成 R00-R08 前不得切换 2.0.0 版本；未完成目标平台行为测试前不得把对应能力标记为发布对等。
 
-Account Manager 的 macOS/Windows 状态均为 ⚠️；A-01 至 A-15 的 P0/P1 未关闭前不得标记生产就绪。
-
-## 最近复核
-
-### 2026-07-14 - 2.0.0 发布准备
-
-- 平台导航和根路由统一 gate；Clean Space/Hardware/System Settings 的 macOS-only contract 有 macOS/Windows/browser fixture。
-- Account Manager 已增加后端逐能力 DTO、Windows 页面入口、同源 Web Storage/IndexedDB 有界捕获恢复、canonical Cookie expiry 和 storage-only WebView probe；Windows WebView proxy 在 UI/后端均 fail-closed，目标平台 capability 仍保持 partial 等待真机证据。
-- Account Manager 首载三栏 skeleton 和密码 30 秒 TTL 已落地；System Settings/Preferences 读取失败不再显示默认 false。
-- Updater 自动检查、退避、省流/离线策略、cancelling、受限 release notes 和真实进度语义已进入关键测试。
-- release workflow 正式产物收集 fail-closed，在 GitHub Release 变更前验证 OS 签名、Tauri updater 签名、三目标 manifest、产物矩阵和 SHA-256；macOS 14.0、Windows 禁止降级和固定 WiX upgrade code 已写入配置。
-- 本轮通过 `lint:fe`、`test:critical`（28 files / 101 tests）、`test:fe`（39 files / 162 tests）、`test:be`（317 tests）、Clippy `-D warnings`、前端生产构建、全仓格式、文档链接和 diff whitespace。Tauri debug 曾生成 app/DMG/updater tar，但没有真实 updater 私钥，未生成 `.sig`，不计为 updater 发布证据。
-- 仍未代码冻结：Account Manager 区域 retry/大文件分层、App/Quick Launch fixture 和性能、updater 错误矩阵、1.23.0 升级/回滚 fixture 与 UX 自动化矩阵。Account Manager per-origin/IndexedDB/capability 代码已落地但真机证据仍延期。OS 正式签名和真机 smoke 按 D-010 延期；identifier 按 D-011 保留。
-
-### 2026-07-14 - Account Manager GitHub 实现对照
-
-- 参考 Moka、reqwest-middleware、Spider、cookie_store、oauth2-rs、Playwright、Tauri plugins 和 keyring-rs 的固定 commit；License、源码位置、采纳与拒绝理由见 [专题审计 §10](./modules/account-manager/audit-and-upgrade-2026-07-13.md#10-github-参考实现与采纳矩阵)。
-- 后端新增账号级 single-flight；并发刷新同一账号只运行一次 probe，follower 共享结果，leader 取消会唤醒 waiter 并清理 registry。
-- HTTP probe 只对瞬态状态/connect/timeout 做最多 3 次、10 秒总预算的 full-jitter 退避；服从短 `Retry-After`，过长时停止重试；请求沿用 Session User-Agent。
-- Cookie HTTP 注入按 RFC 6265 path boundary 匹配，缺少 partition key 时拒绝发送 partitioned Cookie；probe URL 只允许无嵌入凭据的 HTTP(S)。
-- 本地通过 `pnpm run lint:fe`、`pnpm run test:critical`（12 files / 34 tests）、`cargo test account_manager`（58 tests）、`cargo clippy -- -D warnings`。本机未安装 Windows Rust target，且 Windows/macOS WebView、Keyring、Deep Link 真机行为尚未验收。
-
-### 2026-07-13 - Quick Launch / App Manager
-
-- [§7/§8] `src-tauri/src/app_manager/` - 稳定 appId、LaunchTarget、SourceEvidence、revision、canonical update cache、平台 provider 和更新器安全边界已落地 - **强制** - 状态：已修复
-- [§3.3/§5] `src/features/quick-launch/`、`src/shared/app-inventory/` - single-flight、取消、partial/stale 反馈、skeleton、虚拟网格、按需图标和版本化分类已落地 - **强制** - 状态：已修复
-- [§6] `SoftwareUpdateView.tsx` - warning/error 曾占满主内容区并挤压更新列表；已改为纵向 flex，并补 warning + update 同屏测试 - **强制** - 状态：已修复
-- [§4] `recommended-apps.ts` - 名称 heuristic 仅用于展示，不再授予破坏性 installedAppId - **强制** - 状态：已修复
-
-本地复核已通过 `pnpm run lint:fe`、`pnpm run test:critical`、`cargo test app_manager`、`cargo clippy -- -D warnings` 和 `git diff --check`。这不替代 Windows/macOS 真机验收。
-
-### 2026-07-06 - Phase 1-6
-
-全量规范审计发现的问题均已修复或记录为上方豁免；历史逐条清单不再维护。后续只重查发生代码变化的领域，并将新发现追加到本文件。
-
-## 记录规则
-
-新记录格式：
+## 记录格式
 
 ```markdown
 - [§X] `文件路径:行号` - 问题 - 修改建议 - **强制/建议** - 状态：已报告/已修复/不修复
 ```
 
-审计前先读“当前发布风险”和“不计违规决策”；修复后更新状态，已稳定沉淀到规范且无追踪价值的历史记录可删除。
+审计前先读本文件；修复后更新或删除对应风险，不追加无追踪价值的流水账。

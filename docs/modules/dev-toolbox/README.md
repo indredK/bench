@@ -6,4 +6,4 @@
 |------|------|
 | [roadmap.md](./roadmap.md) | 迭代规划 |
 
-发布节奏：[release-themes.md](../../roadmap/release-themes.md)
+全局顺序：[2.0 最终路线图](../../ROADMAP.md)

@@ -152,12 +152,12 @@
 
 ## 11. 文档
 
-> 索引：[docs/README.md](./README.md) · 开发流程：[development-workflow.md](./development-workflow.md) · 模块一览：[docs/modules/README.md](./modules/README.md) · 发布节奏：[docs/roadmap/release-themes.md](./roadmap/release-themes.md)
+> 索引：[docs/README.md](./README.md) · 开发流程：[development-workflow.md](./development-workflow.md) · 模块一览：[docs/modules/README.md](./modules/README.md) · 2.0 路线：[ROADMAP.md](./ROADMAP.md)
 
 ### 11.1 目录原则
 
 - **强制**: 文档**按模块收纳**，与 `src/features/<id>/` 对齐；禁止同一模块的 roadmap / bugs / 设计稿分散在 `docs/roadmap/`、`docs/bugs/` 等多处目录。
-- **强制**: 横切内容仅保留在 `docs/` 根或 `docs/roadmap/`：`coding-standards.md`（本文件）、`release-themes.md`（全局版本主题）。
+- **强制**: 横切内容只保留在 `docs/` 根；`ROADMAP.md` 是唯一跨模块版本路线图。
 - **禁止**: 在旧路径留空壳跳转 stub；移动文档后须更新所有引用链接，指向新路径。
 
 ### 11.2 模块目录约定
@@ -173,13 +173,13 @@
 
 - **强制**: 新增 feature 时同步创建 `docs/modules/<id>/`，至少含 `README.md` + `roadmap.md`。
 - **建议**: 设计稿较多时在模块内平铺即可；单模块设计文件超过 ~5 份时再拆 `design/` 子目录。
-- **建议**: 模块专属候选库（如 System Settings 开关库）放在该模块目录内，选品后写入同目录 `roadmap.md`，并在 `release-themes.md` 打勾。
+- **建议**: 模块专属候选库（如 System Settings 开关库）放在该模块目录内；进入当前版本后写入同目录 `roadmap.md`，跨模块依赖才写入 `ROADMAP.md`。
 
 ### 11.3 维护
 
 - **强制**: 功能合入后，对应模块 `roadmap.md` 的 Backlog 须与代码一致——已实现的从 Backlog 移除，未实现的保留。
 - **强制**: `docs/modules/<id>` 与 `src/features/<id>` 双向对齐，且每个模块含 `README.md` + `roadmap.md`——由 `pnpm run check:docs`（已串入 `lint:fe`）机器校验，不一致即 CI/提交失败。
-- **建议**: 跨模块版本主题只在 `release-themes.md` 维护；模块细节留在各 `roadmap.md`。
+- **建议**: 跨模块发布顺序只在 `ROADMAP.md` 维护；模块细节留在各 `roadmap.md`。
 - **建议**: 危险操作、i18n、IPC 等实现约定以本文件为准；模块设计规范写模块内设计稿，不重复拷贝编码规则。
 
 ## 12. 评审聚焦

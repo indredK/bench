@@ -5,7 +5,7 @@
 ## 1. 开始前
 
 1. 在当前主题和模块 `roadmap.md` 中确认未完成项。
-2. 读取模块 `README.md`，涉及架构、安全或跨平台时继续读 `design.md`/专题审计。
+2. 读取模块 `README.md`，涉及架构、安全或跨平台时继续读 `design.md`。
 3. Account Manager Session、跨平台能力或大范围重构先写短 RFC；System Settings 新键位先按其 `design.md` 验证系统版本、读写和回读。
 4. 新 feature 同时创建 `src/features/<id>/` 与 `docs/modules/<id>/{README,roadmap}.md`。
 
@@ -45,7 +45,7 @@ cd src-tauri && cargo clippy -- -D warnings
 - CI 入口：[`ci-build.yml`](../.github/workflows/ci-build.yml)。
 - 版本与 `CHANGELOG.md` 由 release-please 根据 Conventional Commits 生成。
 - 发布说明只列已实现且已验证的用户变化；未完成平台 smoke 不得写成完整支持。
-- 2.0.0 必须完成[功能发布门禁](./roadmap/2.0.0-release-readiness.md)和[用户体验门禁](./roadmap/2.0.0-ux-readiness.md)。当前 OS 包按 D-010 默认 ad-hoc/unsigned，updater minisign 仍为强制；正式 OS 签名和真机升级/回滚保留为延期验证，不得写成已完成。
+- 2.0.0 只按[最终路线图](./ROADMAP.md)的 R00-R10 执行。当前 OS 包按 D-010 默认 ad-hoc/unsigned，updater minisign 仍为强制；未完成真机项不得写成已验证。
 
 ## 6. pnpm 与依赖
 

@@ -1,6 +1,6 @@
 # Updater Roadmap
 
-更新策略、远端文本和发布产物以 [2.0.0 发布门禁](../../roadmap/2.0.0-release-readiness.md#12-f07updater签名与供应链)为准。当前 OS 签名模式见 [D-010](../../DECISIONS.md#d-010--当前发布默认使用-ad-hoc-macos-与-unsigned-windows-包)。
+更新策略、错误矩阵和发布产物以 [2.0 最终路线图 R05](../../ROADMAP.md#r05-updater供应链与-rc-流水线)为准。当前 OS 签名模式见 [D-010](../../DECISIONS.md#d-010--默认使用-ad-hoc-macos-与-unsigned-windows-包)。
 
 ## 发布阻断
 
