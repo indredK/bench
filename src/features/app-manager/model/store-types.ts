@@ -93,7 +93,8 @@ export interface AppManagerState {
 
   viewMode: "table" | "grid"
   selectedItem: AppInfo | null
-  filterPanelOpen: boolean
+  installedFilterPanelOpen: boolean
+  marketplaceFilterPanelOpen: boolean
 
   installListApps: InstallListAppInfo[]
   installStates: Record<string, AppOperationState>
@@ -160,7 +161,8 @@ export interface AppManagerState {
 
   setViewMode: (mode: "table" | "grid") => void
   setSelectedItem: (item: AppInfo | null) => void
-  setFilterPanelOpen: (open: boolean) => void
+  setInstalledFilterPanelOpen: (open: boolean) => void
+  setMarketplaceFilterPanelOpen: (open: boolean) => void
 
   setActiveTab: (tab: AppManagerTabKey) => void
   setUpdates: (updates: UpdateInfo[]) => void

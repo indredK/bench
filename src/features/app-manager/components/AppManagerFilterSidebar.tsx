@@ -54,6 +54,7 @@ export function AppManagerFilterSidebar<TKey extends string>({
       onToggle={onToggle}
       activeFilterCount={activeFilterCount}
       title={t("appManager.filters")}
+      footer={footer}
     >
       <div className="space-y-3">
         {typeFilterOptions.length > 0 && (
@@ -86,8 +87,6 @@ export function AppManagerFilterSidebar<TKey extends string>({
             onSeriesChange={onSeriesChange}
           />
         </div>
-
-        {footer && <div className="border-t pt-2">{footer}</div>}
       </div>
     </FilterPanel>
   )

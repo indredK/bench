@@ -1,9 +1,10 @@
 /**
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  */
-import { useMemo } from "react"
+import { useEffect, useMemo } from "react"
 import { useTranslation } from "react-i18next"
-import { AlertTriangle, CheckCircle2, RefreshCw, Search, X } from "lucide-react"
+import { toast } from "sonner"
+import { CheckCircle2, RefreshCw, Search, X } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { DetailPanel } from "@/components/layout/DetailPanel"
@@ -20,6 +21,13 @@ import {
   getUpdateSourceLabel,
 } from "@/features/app-manager/model/update-source-info"
 
+/**
+ * 软件更新部分来源不可用时，用「必须手动关闭」的通知提示，避免占据列表高度。
+ * 模块级守卫防止切进/切出页面时重复弹窗；警告清除后守卫复位，再次出现会重新提示。
+ */
+const UPDATE_PARTIAL_WARNING_TOAST_ID = "app-manager-update-partial-warning"
+let warnedForCurrentUpdateWarning = false
+
 interface SoftwareUpdateViewProps {
   apps: AppInfo[]
   updates: UpdateInfo[]
@@ -29,7 +37,6 @@ interface SoftwareUpdateViewProps {
   error: string
   warning: string
   onClearError?: () => void
-  onClearWarning?: () => void
   lastUpdateCheck: number
   selectedIds: Set<string>
   selectedUpdate: UpdateInfo | null
@@ -40,7 +47,6 @@ interface SoftwareUpdateViewProps {
   onRecheck: () => void
   onToggleGroup: (source: UpdateSource) => void
   onToggleSelect: (appId: string) => void
-  onClearSelection: () => void
   onChangeSourceFilter: (filter: UpdateSource | "all") => void
   onRowClick: (update: UpdateInfo) => void
   onCloseDetail: () => void
@@ -68,7 +74,6 @@ export function SoftwareUpdateView({
   error,
   warning,
   onClearError,
-  onClearWarning,
   lastUpdateCheck,
   selectedIds,
   selectedUpdate,
@@ -79,7 +84,6 @@ export function SoftwareUpdateView({
   onRecheck,
   onToggleGroup,
   onToggleSelect,
-  onClearSelection,
   onChangeSourceFilter,
   onRowClick,
   onCloseDetail,
@@ -89,6 +93,22 @@ export function SoftwareUpdateView({
 }: SoftwareUpdateViewProps) {
   const { t } = useTranslation()
   const normalizedSearch = searchQuery.trim().toLowerCase()
+
+  useEffect(() => {
+    if (warning) {
+      if (!warnedForCurrentUpdateWarning) {
+        warnedForCurrentUpdateWarning = true
+        toast.warning(warning, {
+          id: UPDATE_PARTIAL_WARNING_TOAST_ID,
+          duration: Infinity,
+          closeButton: true,
+        })
+      }
+    } else {
+      warnedForCurrentUpdateWarning = false
+      toast.dismiss(UPDATE_PARTIAL_WARNING_TOAST_ID)
+    }
+  }, [warning])
 
   const appLookup = useMemo(() => {
     const map = new Map<string, AppInfo>()
@@ -136,22 +156,6 @@ export function SoftwareUpdateView({
   const hasGroups = orderedGroups.length > 0
 
   const renderEmpty = () => {
-    if (loading) {
-      return (
-        <div className="flex h-full w-full flex-col gap-3 p-4" aria-busy="true">
-          <div className="bg-muted h-1 w-full animate-pulse rounded-full" />
-          {Array.from({ length: 6 }, (_, index) => (
-            <div key={index} className="flex h-14 items-center gap-3 border-b">
-              <div className="bg-muted size-9 animate-pulse rounded-md" />
-              <div className="min-w-0 flex-1 space-y-2">
-                <div className="bg-muted h-3 w-1/3 animate-pulse rounded" />
-                <div className="bg-muted h-2.5 w-1/2 animate-pulse rounded" />
-              </div>
-            </div>
-          ))}
-        </div>
-      )
-    }
     if (!scanned) {
       return (
         <div className="flex max-w-sm flex-col items-center justify-center gap-3 text-center">
@@ -206,13 +210,11 @@ export function SoftwareUpdateView({
         searchQuery={searchQuery}
         loading={loading}
         totalCount={searchedUpdates.length}
-        selectedCount={selectedIds.size}
         visibleSources={visibleSources}
         sourceFilter={sourceFilter}
         onSearchQueryChange={onSearchQueryChange}
         onRecheck={onRecheck}
         onChangeSourceFilter={onChangeSourceFilter}
-        onClearSelection={onClearSelection}
       />
 
       {error && (
@@ -234,29 +236,6 @@ export function SoftwareUpdateView({
           </AlertDescription>
         </Alert>
       )}
-      {warning && !error && (
-        <Alert variant="default" className="shrink-0 px-2 py-1">
-          <AlertDescription className="flex min-w-0 items-center justify-between gap-2 text-xs">
-            <div className="flex min-w-0 items-center gap-1.5">
-              <AlertTriangle className="size-3 shrink-0 text-amber-500" />
-              <span className="min-w-0 truncate" title={warning}>
-                {warning}
-              </span>
-            </div>
-            {onClearWarning ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon-xs" onClick={onClearWarning}>
-                    <X size={12} />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>{t("common.actions.close")}</TooltipContent>
-              </Tooltip>
-            ) : null}
-          </AlertDescription>
-        </Alert>
-      )}
-
       <ThreeColumnLayout
         filterOpen={false}
         detailOpen={!!selectedUpdate}
@@ -267,8 +246,8 @@ export function SoftwareUpdateView({
           <div className="flex h-full min-h-0 flex-col overflow-hidden">
             {hasGroups ? (
               <ScrollableArea
-                className="min-h-0 flex-1 pr-1 pb-3"
-                wrapperClassName="min-h-0 flex-1"
+                className="min-h-0 flex-1 flex-col gap-3 pr-1 pb-3"
+                wrapperClassName="flex min-h-0 flex-1"
               >
                 <div className="flex min-h-full flex-col gap-3">
                   {orderedGroups.map(({ source, items }) => (
@@ -291,10 +270,28 @@ export function SoftwareUpdateView({
                 </div>
               </ScrollableArea>
             ) : (
-              <div className="min-h-0 flex-1 overflow-hidden">
-                <div className="bg-card flex min-h-0 flex-1 items-center justify-center rounded-lg border p-6">
-                  {renderEmpty()}
-                </div>
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                {loading ? (
+                  <div
+                    className="bg-card flex min-h-0 flex-1 flex-col gap-3 rounded-lg border p-4"
+                    aria-busy="true"
+                  >
+                    <div className="bg-muted h-1 w-full animate-pulse rounded-full" />
+                    {Array.from({ length: 6 }, (_, index) => (
+                      <div key={index} className="flex h-14 items-center gap-3 border-b">
+                        <div className="bg-muted size-9 animate-pulse rounded-md" />
+                        <div className="min-w-0 flex-1 space-y-2">
+                          <div className="bg-muted h-3 w-1/3 animate-pulse rounded" />
+                          <div className="bg-muted h-2.5 w-1/2 animate-pulse rounded" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="bg-card flex min-h-0 flex-1 items-center justify-center rounded-lg border p-6">
+                    {renderEmpty()}
+                  </div>
+                )}
               </div>
             )}
           </div>

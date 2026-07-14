@@ -2,7 +2,7 @@
  * Feature View / 功能视图: render from props/state; 只负责功能界面.
  */
 import { useTranslation } from "react-i18next"
-import { RefreshCw, X } from "lucide-react"
+import { RefreshCw } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { ToolbarButton } from "@/components/ui/toolbar-button"
 import { AppManagerToolbar } from "@/features/app-manager/components/AppManagerToolbar"
@@ -17,26 +17,22 @@ interface UpdaterActionBarProps {
   searchQuery: string
   loading: boolean
   totalCount: number
-  selectedCount: number
   visibleSources: UpdateSource[]
   sourceFilter: UpdateSource | "all"
   onSearchQueryChange: (query: string) => void
   onRecheck: () => void
   onChangeSourceFilter: (filter: UpdateSource | "all") => void
-  onClearSelection: () => void
 }
 
 export function UpdaterActionBar({
   searchQuery,
   loading,
   totalCount,
-  selectedCount,
   visibleSources,
   sourceFilter,
   onSearchQueryChange,
   onRecheck,
   onChangeSourceFilter,
-  onClearSelection,
 }: UpdaterActionBarProps) {
   const { t } = useTranslation()
   const showAllChip = totalCount > 0
@@ -47,14 +43,6 @@ export function UpdaterActionBar({
       searchPlaceholder={t("appManager.softwareUpdate.searchPlaceholder")}
       onSearchQueryChange={onSearchQueryChange}
       searchDisabled={loading}
-      afterSearchContent={
-        <ToolbarButton
-          icon={<X size={15} />}
-          tooltip={t("appManager.batchClear")}
-          onClick={onClearSelection}
-          disabled={selectedCount === 0}
-        />
-      }
       rightContent={
         <div className="flex flex-wrap items-center justify-end gap-1.5">
           {showAllChip ? (

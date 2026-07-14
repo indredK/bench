@@ -13,8 +13,8 @@ interface ToolbarButtonProps {
   tooltip: string
   /** Click handler */
   onClick: () => void
-  /** When true, uses "default" variant to indicate active/selected state */
-  active?: boolean
+  /** Active state: `true` = full highlight (panel open), "half" = filter applied but panel collapsed, false = idle. */
+  active?: boolean | "half"
   /** Disables the button */
   disabled?: boolean
   /** Additional class names */
@@ -23,7 +23,8 @@ interface ToolbarButtonProps {
 
 /**
  * A compact icon-only button with a tooltip, designed for toolbar/action-bar use.
- * Highlights with the "default" variant when `active` is true.
+ * Highlights with the "default" variant when `active` is true; a faint accent tint
+ * when `active` is "half" (indicates an active filter while the panel is collapsed).
  */
 export function ToolbarButton({
   icon,
@@ -33,13 +34,19 @@ export function ToolbarButton({
   disabled = false,
   className,
 }: ToolbarButtonProps) {
+  const isFull = active === true
+  const isHalf = active === "half"
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
-          variant={active ? "default" : "ghost"}
+          variant={isFull ? "default" : "ghost"}
           size="icon"
-          className={cn("h-8 w-8", className)}
+          className={cn(
+            "h-8 w-8",
+            isHalf && "bg-primary/15 text-primary hover:bg-primary/25",
+            className,
+          )}
           onClick={onClick}
           disabled={disabled}
         >

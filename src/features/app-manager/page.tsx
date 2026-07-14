@@ -54,7 +54,8 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
     lastUpdateCheck,
     viewMode,
     selectedItem,
-    filterPanelOpen,
+    installedFilterPanelOpen,
+    marketplaceFilterPanelOpen,
     selectedAppIds,
     batchMode,
     batchProgress,
@@ -84,7 +85,6 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
     installListColumns,
     clearError,
     clearUpdatesError,
-    clearUpdatesWarning,
     setSearchQuery,
     setActiveFilter,
     setMarketplaceFilter,
@@ -97,7 +97,8 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
     clearBatchResults,
     setViewMode,
     setSelectedItem,
-    setFilterPanelOpen,
+    setInstalledFilterPanelOpen,
+    setMarketplaceFilterPanelOpen,
     closeInstallConfirmDialog,
     closeAuthorizeConfirmDialog,
     openExternal,
@@ -131,7 +132,6 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
     handleSetActiveTab,
     toggleUpdateGroup,
     toggleSelectUpdate,
-    clearUpdateSelection,
     setUpdateSourceFilter,
     setSelectedUpdate,
     clearSelectedApps,
@@ -199,7 +199,6 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                       error={updatesError}
                       warning={updatesWarning}
                       onClearError={clearUpdatesError}
-                      onClearWarning={clearUpdatesWarning}
                       lastUpdateCheck={viewState.lastUpdateCheck}
                       selectedIds={viewState.selectedUpdateIds}
                       selectedUpdate={viewState.selectedUpdate}
@@ -210,7 +209,6 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                       onRecheck={() => void checkAllUpdates(true)}
                       onToggleGroup={toggleUpdateGroup}
                       onToggleSelect={toggleSelectUpdate}
-                      onClearSelection={clearUpdateSelection}
                       onChangeSourceFilter={setUpdateSourceFilter}
                       onRowClick={setSelectedUpdate}
                       onCloseDetail={() => setSelectedUpdate(null)}
@@ -268,7 +266,7 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                     error={error}
                     batchResults={batchResults}
                     onClearError={clearError}
-                    filterPanelOpen={filterPanelOpen}
+                    filterPanelOpen={marketplaceFilterPanelOpen}
                     activeFilterCount={marketplaceFilterCount}
                     typeFilter={marketplaceFilter}
                     typeFilterOptions={marketplaceTypeFilterOptions}
@@ -278,7 +276,9 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                     onSearchQueryChange={setSearchQuery}
                     onScanApps={loading ? () => void cancelInventoryScan() : scanApps}
                     onClearBatchResults={clearBatchResults}
-                    onToggleFilterPanel={() => setFilterPanelOpen(!filterPanelOpen)}
+                    onToggleFilterPanel={() =>
+                      setMarketplaceFilterPanelOpen(!marketplaceFilterPanelOpen)
+                    }
                     onTypeFilterChange={setMarketplaceFilter}
                     onCategoryChange={setCategoryFilter}
                     onSeriesChange={setSeriesFilter}
@@ -301,8 +301,14 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                         <ToolbarButton
                           icon={<Filter size={15} />}
                           tooltip={t("appManager.filters")}
-                          onClick={() => setFilterPanelOpen(!filterPanelOpen)}
-                          active={filterPanelOpen || marketplaceFilterCount > 0}
+                          onClick={() => setMarketplaceFilterPanelOpen(!marketplaceFilterPanelOpen)}
+                          active={
+                            marketplaceFilterPanelOpen
+                              ? true
+                              : marketplaceFilterCount > 0
+                                ? "half"
+                                : false
+                          }
                         />
                         <ToolbarButton
                           icon={<CheckSquare size={15} />}
@@ -396,7 +402,7 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                     loadingTotal={scanProgress?.total}
                     batchResults={batchResults}
                     onClearError={clearError}
-                    filterPanelOpen={filterPanelOpen}
+                    filterPanelOpen={installedFilterPanelOpen}
                     activeFilterCount={activeFilterCount}
                     typeFilter={activeFilter}
                     typeFilterOptions={installedTypeFilterOptions}
@@ -406,7 +412,9 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                     onSearchQueryChange={setSearchQuery}
                     onScanApps={loading ? () => void cancelInventoryScan() : scanApps}
                     onClearBatchResults={clearBatchResults}
-                    onToggleFilterPanel={() => setFilterPanelOpen(!filterPanelOpen)}
+                    onToggleFilterPanel={() =>
+                      setInstalledFilterPanelOpen(!installedFilterPanelOpen)
+                    }
                     onTypeFilterChange={setActiveFilter}
                     onCategoryChange={setCategoryFilter}
                     onSeriesChange={setSeriesFilter}
@@ -499,8 +507,14 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                         <ToolbarButton
                           icon={<Filter size={15} />}
                           tooltip={t("appManager.filters")}
-                          onClick={() => setFilterPanelOpen(!filterPanelOpen)}
-                          active={filterPanelOpen || activeFilter !== "all"}
+                          onClick={() => setInstalledFilterPanelOpen(!installedFilterPanelOpen)}
+                          active={
+                            installedFilterPanelOpen
+                              ? true
+                              : activeFilter !== "all"
+                                ? "half"
+                                : false
+                          }
                         />
                         {scanned && (
                           <ToolbarButton

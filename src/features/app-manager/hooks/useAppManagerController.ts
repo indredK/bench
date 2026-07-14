@@ -60,7 +60,8 @@ export function useAppManagerController(active: boolean) {
     lastUpdateCheck,
     viewMode,
     selectedItem,
-    filterPanelOpen,
+    installedFilterPanelOpen,
+    marketplaceFilterPanelOpen,
     selectedAppIds,
     batchMode,
     batchProgress,
@@ -99,7 +100,8 @@ export function useAppManagerController(active: boolean) {
   const clearBatchResults = useAppManagerStore((s) => s.clearBatchResults)
   const setViewMode = useAppManagerStore((s) => s.setViewMode)
   const setSelectedItem = useAppManagerStore((s) => s.setSelectedItem)
-  const setFilterPanelOpen = useAppManagerStore((s) => s.setFilterPanelOpen)
+  const setInstalledFilterPanelOpen = useAppManagerStore((s) => s.setInstalledFilterPanelOpen)
+  const setMarketplaceFilterPanelOpen = useAppManagerStore((s) => s.setMarketplaceFilterPanelOpen)
   const openInstallConfirmDialog = useAppManagerStore((s) => s.openInstallConfirmDialog)
   const closeInstallConfirmDialog = useAppManagerStore((s) => s.closeInstallConfirmDialog)
 
@@ -275,19 +277,8 @@ export function useAppManagerController(active: boolean) {
   const handleSetActiveTab = useCallback(
     (tab: AppManagerTabKey) => {
       setActiveTab(tab)
-      const state = useAppManagerStore.getState()
-
-      if (tab === "softwareUpdate") {
-        const cacheValid =
-          state.updatesScanned &&
-          state.lastUpdateCheck > 0 &&
-          Date.now() - state.lastUpdateCheck < 5 * 60 * 1000
-        if (!state.updatesLoading && !cacheValid) {
-          void checkAllUpdates(false)
-        }
-      }
     },
-    [checkAllUpdates, setActiveTab],
+    [setActiveTab],
   )
 
   const scheduleScanApps = useCallback(
@@ -494,6 +485,20 @@ export function useAppManagerController(active: boolean) {
       void refreshUpdates()
     })
   }, [active, apps.length, deferUntilAfterFirstPaint, refreshUpdates, scanned])
+
+  useEffect(() => {
+    // 进入软件更新视图（切换标签 / 深链 / 激活功能）时自动获取更新，
+    // 无需手动点击。5 分钟内已检查过则复用缓存，避免无谓重复请求。
+    if (!active || activeTab !== "softwareUpdate") return
+    const state = useAppManagerStore.getState()
+    const cacheValid =
+      state.updatesScanned &&
+      state.lastUpdateCheck > 0 &&
+      Date.now() - state.lastUpdateCheck < 5 * 60 * 1000
+    if (!state.updatesLoading && !cacheValid) {
+      void checkAllUpdates(false)
+    }
+  }, [active, activeTab, checkAllUpdates])
 
   useEffect(() => {
     // Keep detail ESC behavior in one stack so only the topmost panel closes
@@ -1117,7 +1122,8 @@ export function useAppManagerController(active: boolean) {
     lastUpdateCheck,
     viewMode,
     selectedItem,
-    filterPanelOpen,
+    installedFilterPanelOpen,
+    marketplaceFilterPanelOpen,
     selectedAppIds,
     batchMode,
     batchProgress,
@@ -1187,7 +1193,8 @@ export function useAppManagerController(active: boolean) {
     clearBatchResults,
     setViewMode,
     setSelectedItem,
-    setFilterPanelOpen,
+    setInstalledFilterPanelOpen,
+    setMarketplaceFilterPanelOpen,
     doInstall,
     openInstallConfirmDialog,
     closeConfirmDialog,

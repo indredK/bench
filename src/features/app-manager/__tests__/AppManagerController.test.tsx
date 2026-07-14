@@ -217,7 +217,6 @@ describe("useAppManagerController refresh routing", () => {
           onRecheck={() => {}}
           onToggleGroup={() => {}}
           onToggleSelect={() => {}}
-          onClearSelection={() => {}}
           onChangeSourceFilter={() => {}}
           onRowClick={() => {}}
           onCloseDetail={() => {}}
@@ -231,7 +230,8 @@ describe("useAppManagerController refresh routing", () => {
     const root = container.firstElementChild
     expect(root?.classList.contains("flex")).toBe(true)
     expect(root?.classList.contains("grid")).toBe(false)
-    expect(screen.getByText("Electron, Sparkle")).toBeTruthy()
+    // warning 现以 toast 形式提示，不进入视图 DOM，故列表仍正常渲染于弹性内容区
+    expect(screen.queryByText("Electron, Sparkle")).toBeNull()
     expect(screen.getByText("Firefox")).toBeTruthy()
   })
 })

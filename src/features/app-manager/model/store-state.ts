@@ -30,7 +30,8 @@ type AppManagerDataState = Omit<
   | "clearBatchResults"
   | "setViewMode"
   | "setSelectedItem"
-  | "setFilterPanelOpen"
+  | "setInstalledFilterPanelOpen"
+  | "setMarketplaceFilterPanelOpen"
   | "setActiveTab"
   | "setUpdates"
   | "setUpdatesLoading"
@@ -97,7 +98,8 @@ export function createInitialAppManagerState(): AppManagerDataState {
     lastUpdateCheck: 0,
     viewMode: "table",
     selectedItem: null,
-    filterPanelOpen: true,
+    installedFilterPanelOpen: true,
+    marketplaceFilterPanelOpen: true,
     installListApps: [],
     installStates: {},
     installConfirmDialog: { open: false, appId: "", appName: "" },

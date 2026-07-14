@@ -126,7 +126,8 @@ export function createAppManagerBasicActions(set: SetState) {
 
     setViewMode: (mode: "table" | "grid") => set({ viewMode: mode }),
     setSelectedItem: (item: AppInfo | null) => set({ selectedItem: item }),
-    setFilterPanelOpen: (open: boolean) => set({ filterPanelOpen: open }),
+    setInstalledFilterPanelOpen: (open: boolean) => set({ installedFilterPanelOpen: open }),
+    setMarketplaceFilterPanelOpen: (open: boolean) => set({ marketplaceFilterPanelOpen: open }),
 
     setActiveTab: (tab: AppManagerTabKey) =>
       set((state) => ({

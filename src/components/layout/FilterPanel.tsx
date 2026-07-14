@@ -10,6 +10,8 @@ import { useReducedMotionProps } from "@/lib/motion-utils"
 
 interface FilterPanelProps {
   children: ReactNode
+  /** Fixed region pinned below the scrollable filter content (e.g. platform capabilities). Does not scroll. */
+  footer?: ReactNode
   open: boolean
   onToggle: () => void
   activeFilterCount?: number
@@ -18,6 +20,7 @@ interface FilterPanelProps {
 
 export function FilterPanel({
   children,
+  footer,
   open,
   onToggle,
   activeFilterCount: _activeFilterCount = 0,
@@ -44,9 +47,10 @@ export function FilterPanel({
                 <PanelRightClose size={14} />
               </Button>
             </div>
-            <ScrollableArea className="flex-1 px-4 pb-4" wrapperClassName="flex-1 min-h-0">
+            <ScrollableArea className="h-full px-4 pb-4" wrapperClassName="flex-1 min-h-0">
               {children}
             </ScrollableArea>
+            {footer && <div className="bg-card shrink-0 border-t px-4 py-3">{footer}</div>}
           </motion.div>
         )}
       </AnimatePresence>
