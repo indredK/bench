@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.24.1](https://github.com/indredK/bench/compare/v1.24.0...v1.24.1) (2026-07-14)
+
+
+### Bug Fixes
+
+* **macos:** 移除非macOS平台的冗余空实现 ([9ed2f93](https://github.com/indredK/bench/commit/9ed2f93150df76c6cfbb194bba2bf2cdc36f3e60))
+* **release:** trigger release-please after formatting gate fix ([a8e9347](https://github.com/indredK/bench/commit/a8e934751573d1a8887ad8ea6cfa7305e5a14202))
+
 ## [1.24.0](https://github.com/indredK/bench/compare/v1.23.0...v1.24.0) (2026-07-14)
 
 ### Features
