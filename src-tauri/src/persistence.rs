@@ -50,6 +50,21 @@ pub fn atomic_write(path: &Path, bytes: &[u8]) -> io::Result<()> {
 }
 
 pub fn backup_file(path: &Path, label: &str, max_backups: usize) -> io::Result<Option<PathBuf>> {
+    let mut last_err: Option<io::Error> = None;
+    for attempt in 0..3 {
+        match backup_file_inner(path, label, max_backups) {
+            Ok(result) => return Ok(result),
+            Err(e) if e.kind() == io::ErrorKind::PermissionDenied && attempt < 2 => {
+                last_err = Some(e);
+                std::thread::sleep(std::time::Duration::from_millis(50 << attempt));
+            }
+            Err(e) => return Err(e),
+        }
+    }
+    Err(last_err.unwrap())
+}
+
+fn backup_file_inner(path: &Path, label: &str, max_backups: usize) -> io::Result<Option<PathBuf>> {
     if !path.exists() {
         return Ok(None);
     }

@@ -236,12 +236,12 @@ mod tests {
         #[cfg(windows)]
         let mut command = {
             let mut command = Command::new("cmd");
-            command.args(["/C", "<nul set /p=ready"]);
+            command.args(["/C", "echo ready"]);
             command
         };
 
         let output = run_output_with_timeout(&mut command, Duration::from_secs(1)).unwrap();
         assert!(output.status.success());
-        assert_eq!(String::from_utf8_lossy(&output.stdout), "ready");
+        assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), "ready");
     }
 }
