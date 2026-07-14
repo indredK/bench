@@ -115,7 +115,12 @@ export function VirtualDataTable<T>({
   if (!headerGroup) return null
 
   return (
-    <div ref={containerRef} className="bg-card h-full overflow-auto rounded-xl border">
+    <div
+      ref={containerRef}
+      className="bg-card h-full overflow-auto rounded-xl border"
+      data-virtual-table
+      data-total-count={data.length}
+    >
       {/* ---- Sticky Header Row ---- */}
       <div
         className="bg-card sticky top-0 z-10 grid border-b"

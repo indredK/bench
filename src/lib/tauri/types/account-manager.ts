@@ -94,6 +94,9 @@ export interface NetworkProxyConfig {
   encryptedPassword?: unknown | null
 }
 
+export type PasswordAction =
+  { action: "keep" } | { action: "set"; password: string } | { action: "clear" }
+
 export interface StationAccount {
   id: string
   stationId: string
@@ -138,6 +141,25 @@ export interface RelayDataImportResult {
   accountCount: number
   stations: RelayStation[]
   accounts: StationAccount[]
+}
+
+export type DeletionStatus = "complete" | "partial"
+export type DeletionResourceKind = "webviewData" | "metadata"
+export type DeletionResourceStatus = "succeeded" | "failed"
+
+export interface DeletionResourceResult {
+  resource: DeletionResourceKind
+  accountId?: string | null
+  status: DeletionResourceStatus
+  errorCode?: AccountManagerErrorCode | null
+}
+
+export interface DeletionReport {
+  targetId: string
+  status: DeletionStatus
+  metadataDeleted: boolean
+  removedAccountCount: number
+  resources: DeletionResourceResult[]
 }
 
 export interface RefreshFailure {
@@ -207,6 +229,16 @@ export interface BrowserOpenResult {
   host: string
   isAuthorize: boolean
   matches: AuthProxyMatch[]
+}
+
+export interface AuthProxyInboxStatus {
+  pendingCount: number
+  droppedCount: number
+}
+
+export interface AuthProxyDrainResult extends AuthProxyInboxStatus {
+  request?: BrowserOpenResult | null
+  rejectedCount: number
 }
 
 /// 已授权的外部 App（Phase 3）

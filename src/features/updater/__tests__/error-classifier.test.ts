@@ -67,4 +67,29 @@ describe("classifyUpdaterError", () => {
     expect(result.kind).toBe("releaseInfoUnavailable")
     expect(result.retryAction).toBe("check")
   })
+
+  it.each([
+    ["UPDATER_MANIFEST_INVALID", "releaseInfoUnavailable"],
+    ["UPDATER_PLATFORM_MISSING", "releaseInfoUnavailable"],
+    ["UPDATER_MANIFEST_NOT_FOUND", "releaseInfoUnavailable"],
+    ["UPDATER_NETWORK_UNAVAILABLE", "networkUnavailable"],
+    ["UPDATER_RATE_LIMITED", "rateLimited"],
+  ] as const)("classifies structured check error %s", (code, expectedKind) => {
+    const result = classifyUpdaterError({ code, message: "safe message" }, "check", "check failed")
+    expect(result.kind).toBe(expectedKind)
+  })
+
+  it.each([
+    ["UPDATER_SIGNATURE_INVALID", "signatureVerificationFailed"],
+    ["UPDATER_DISK_FULL", "installBlocked"],
+    ["UPDATER_PERMISSION_DENIED", "installBlocked"],
+    ["UPDATER_UPDATE_NOT_AVAILABLE", "updateStateChanged"],
+  ] as const)("classifies structured install error %s", (code, expectedKind) => {
+    const result = classifyUpdaterError(
+      { code, message: "safe message" },
+      "install",
+      "install failed",
+    )
+    expect(result.kind).toBe(expectedKind)
+  })
 })

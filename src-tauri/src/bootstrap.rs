@@ -26,7 +26,7 @@ use std::sync::{Arc, RwLock};
 #[serde(rename_all = "camelCase")]
 pub struct StartupIssue {
     pub feature: String,
-    pub message: String,
+    pub code: String,
 }
 
 #[derive(Default)]
@@ -44,17 +44,20 @@ pub fn create_state() -> SharedBootstrapState {
 pub fn record_startup_issue(
     state: &SharedBootstrapState,
     feature: impl Into<String>,
-    message: impl Into<String>,
+    code: impl Into<String>,
 ) {
     let mut issues = state
         .startup_issues
         .write()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
 
-    issues.push(StartupIssue {
+    let issue = StartupIssue {
         feature: feature.into(),
-        message: message.into(),
-    });
+        code: code.into(),
+    };
+    if !issues.contains(&issue) {
+        issues.push(issue);
+    }
 }
 
 #[tauri::command]
@@ -96,7 +99,8 @@ mod tests {
     #[test]
     fn startup_issues_are_recorded() {
         let state = create_state();
-        record_startup_issue(&state, "account-manager", "open store failed");
+        record_startup_issue(&state, "account-manager", "ACCOUNT_MANAGER_INIT_FAILED");
+        record_startup_issue(&state, "account-manager", "ACCOUNT_MANAGER_INIT_FAILED");
 
         let issues = state
             .startup_issues
@@ -108,7 +112,7 @@ mod tests {
             issues,
             vec![StartupIssue {
                 feature: "account-manager".into(),
-                message: "open store failed".into(),
+                code: "ACCOUNT_MANAGER_INIT_FAILED".into(),
             }]
         );
     }

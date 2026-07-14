@@ -22,6 +22,7 @@ import type { ProjectInfo, ScanResult as DevCleanerScanResult } from "@/lib/taur
 import type {
   CategoryCleanupResult,
   CleanupItemInput,
+  CleanupItemResult,
   CleanupRecord,
   FolderScanResult,
   StorageCategory,
@@ -274,7 +275,13 @@ describe("Tauri contracts", () => {
           "items_cleaned",
           "items_failed",
           "aborted",
+          "results",
         ]),
+      ],
+      [
+        "CleanupItemResult",
+        "snake",
+        dtoKeys<CleanupItemResult>(["id", "status", "freed_bytes", "error_code"]),
       ],
       [
         "FolderScanResult",

@@ -22,11 +22,12 @@
 已执行：
 
 ```text
-pnpm exec vitest run src/features/account-manager  -> 2 files / 8 tests passed
-cargo test account_manager                         -> 58 tests passed
+pnpm exec vitest run account-manager/contracts  -> 3 files / 13 tests passed
+cargo test account_manager                      -> 65 tests passed
+cargo clippy -- -D warnings                     -> passed
 ```
 
-新增测试覆盖 schema v5 canonical migration、一次性 ticket、重复参数拒绝、loopback/精确 callback/state、同源填充、HTTP Cookie scope、瞬态重试、账号级 single-flight、RefreshReport IPC 和 canonical export。loopback HTTP 行为测试需要允许绑定 `127.0.0.1` 临时端口；真实 Keyring/store 跨进程、Deep Link/WebView、退出 hook 和 Windows 行为仍需目标平台测试。本机未安装 Windows Rust target，不能宣称 Windows 行为已通过。
+新增测试覆盖 schema v5 canonical migration、一次性 ticket、重复参数拒绝、loopback/精确 callback/state、同源填充、HTTP Cookie scope、瞬态重试、账号级 single-flight、RefreshReport、删除 partial、sanitized export 和 Deep Link inbox。loopback HTTP 测试在沙箱外 65/65 通过。Windows Rust target 已安装，但 macOS 缺少 Windows SDK，交叉检查停在 `windows.h`/`assert.h`；真实 Keyring/store、Deep Link/WebView、退出 hook 和 Windows 行为仍需目标平台测试。
 
 ### 1.1 首轮整改状态
 
@@ -35,32 +36,34 @@ cargo test account_manager                         -> 58 tests passed
 | A-01/A-02 Session | 核心后端已修复 | v5 canonical map、恢复注入+probe、TTL/退出原子落盘，失败不再写 Ready |
 | A-03/A-13 并发存储 | 核心后端已修复 | Keyring/store 跨进程锁，mutation 在锁内 reload-before-save |
 | A-04/A-05/A-06 授权 | 核心后端已修复 | 5 分钟一次性 ticket、精确 callback/state、同源填充、验证后才写 binding |
-| A-07 Deep Link | 部分修复 | 只注册 `bench-auth`；App 根队列和 Windows single-instance 待实现 |
+| A-07 Deep Link | 代码已修复，待平台验收 | App 根 32 条有界 FIFO、大小限制、短时 SHA-256 去重、窄 drain IPC、冷/热入口和 Windows single-instance 已实现；原始入口 URL 不进入 renderer |
 | A-08/A-09 刷新探针 | 核心后端已修复 | 守恒 RefreshReport；同账号并发合并；HTTP/WebView/Hybrid 真实执行，瞬态重试有次数与总时间上限 |
-| A-10 删除互斥 | 部分修复 | 已清 metadata/session/binding/WebView；仍需逐资源 partial report |
-| A-11 网络代理 | 部分修复 | 解密/解析/平台不支持均 fail-closed，留空保留密码；显式 PasswordAction 待实现 |
-| A-12 导入导出 | 部分修复 | 已加版本/16 MB/数量限制并拒绝静默跳过；passphrase 可移植格式待实现 |
-| A-14 敏感明文 | 部分修复 | Rust 使用 Zeroizing、剪贴板 30 秒条件清除；前端 reveal TTL 待实现 |
-| A-15/A-16/A-17 | 未完成 | 平台 capability、UX/虚拟化和分层重构仍按 roadmap 实施 |
+| A-10 删除互斥 | 代码已修复，待平台验收 | 删除返回 WebView data/metadata 逐资源 report，目录占用时保留 metadata 并向前端显示 partial |
+| A-11 网络代理 | 部分修复 | `PasswordAction` 已区分 keep/set/clear；解密、解析和平台不支持均 fail-closed；Windows capability 仍待实现 |
+| A-12 导入导出 | 部分修复 | 已加版本/16 MiB/数量限制；renderer 只可 sanitized export，后端拒绝不可移植 `encryptedFull`；passphrase 格式待实现 |
+| A-14 敏感明文 | 代码已修复，待平台验收 | Rust 使用 `Zeroizing`，剪贴板条件清除；前端 reveal 在隐藏、切换、卸载或 30 秒后清除 |
+| A-15/A-16/A-17 | 部分修复 | 窄屏 Sheet 和 500+ 虚拟列表已落地；平台 capability、区域 retry 和大文件分层仍按 roadmap 实施 |
 
 ## 2. 结论与平台事实
 
 | 能力 | macOS | Windows | 审计结论 |
 |------|:-----:|:-------:|----------|
 | 页面入口 | ⚠️ | ❌ | `feature.tsx:18-19` 只允许 macOS |
-| 站点/账号 CRUD | ⚠️ | ⚠️ | 基础 IPC 存在，但删除残留和跨进程覆盖未解决 |
-| 加密凭据 | ⚠️ | ⚠️ | AES-GCM/Keyring 已接入；首次建钥有竞态，未做目标平台行为验收 |
+| 站点/账号 CRUD | ⚠️ | ⚠️ | 原子持久化、跨进程锁和删除 partial 已整改；目标平台目录占用仍待验收 |
+| 加密凭据 | ⚠️ | ⚠️ | AES-GCM/Keyring 首建和 store mutation 已加跨进程锁；未做目标平台行为验收 |
 | Session 捕获/恢复/TTL | ⚠️ | ⚠️ | 核心代码已整改；Cookie/WebView/退出行为等待目标平台验收 |
 | 隔离 WebView | ⚠️ | ⚠️ | macOS 使用 data store identifier；Windows 仅 data directory，缺行为证据 |
 | 网络代理 | ⚠️ | ⚠️ | HTTP probe 可用；WebView proxy 仅 macOS，其他平台明确拒绝且不直连 |
-| 外部登录代理 | ⚠️ | ⚠️ | 后端授权边界已整改；Deep Link 根生命周期和真机行为待验收 |
+| 外部登录代理 | ⚠️ | ⚠️ | 后端授权边界和根 Deep Link inbox 已整改；真机冷/热启动待验收 |
 | 批量刷新/探针 | ⚠️ | ⚠️ | 结构化 partial 与策略执行已整改；目标平台网络/WebView 行为待验收 |
 | 导入导出 | ⚠️ | ⚠️ | 资源/版本边界已补；encrypted full 仍不可可靠跨设备 |
 | 目标平台测试 | ⚠️ | ⚠️ | CI 能编译/跑通用测试，不等于 WebView、Keyring、Deep Link 行为验收 |
 
 `✅` 只能用于在对应真机/runner 上通过本文验收矩阵的能力。当前最严重的问题会导致登录态丢失、错误账号状态、密码注入错误站点或授权范围被 renderer 绕过，不能以“后续补测试”降级处理。
 
-| 优先级 | 数量 | 发布含义 |
+以下数量是 2026-07-13 原始发现的严重度，不是当前未修复计数；当前进度只看 §1.1 和 roadmap。
+
+| 原始优先级 | 数量 | 发布含义 |
 |--------|-----:|----------|
 | P0 / High | 7 | 立即冻结相关危险路径，修复前不得发布 |
 | P1 / High | 8 | 必须在生产就绪前关闭 |
@@ -625,7 +628,7 @@ git diff --check
 | [pfernie/cookie_store@f29b1cf](https://github.com/pfernie/cookie_store/blob/f29b1cf2cce8bd906ce4acec93d48dc9040b2b6d/src/cookie_path.rs#L7-L29) | MIT OR Apache-2.0 | RFC 6265 path-match 需要完整相等、cookie path 以 `/` 结束，或下一字符是 `/`；匹配结果还需排除过期 Cookie | **部分采纳**：修复 `/foo` 误匹配 `/foobar`；缺少 partition key 时不把 partitioned Cookie 降级成普通 Cookie。暂不接入完整 CookieStore，待 Session schema 能保留 canonical expiry/partition key 后再评估。 |
 | [ramosbugs/oauth2-rs@72ce744](https://github.com/ramosbugs/oauth2-rs/blob/72ce74401c26eb4dc85dcbfde587bbcfc149e3ae/oauth2/src/client.rs#L675-L691) | MIT OR Apache-2.0 | 每次授权使用新 state 并在 callback 比对；PKCE challenge/verifier 成对持有；token HTTP client 禁止自动 redirect | **已对齐/不照搬 PKCE 生成**：Bench 一次性 ticket 固化并校验外部请求已有的 state/callback，HTTP probe 禁止 redirect。Bench 不是 token client，不能擅自生成或替换第三方 PKCE verifier。 |
 | [microsoft/playwright@91565f0](https://github.com/microsoft/playwright/blob/91565f0ddb29c3daaebd25494fdcb8e9ecf8d545/packages/playwright-core/src/server/browserContext.ts#L615-L718) | Apache-2.0 | `storageState` 同时保存 Cookie 和按 origin 隔离的 localStorage/IndexedDB，恢复时逐 origin 注入 | **模型已部分对齐，能力未完成**：`AccountSession.origins` 保留 origin 隔离结构；实际 local/session storage 和 IndexedDB 捕获/恢复仍必须留在目标平台 roadmap，不能仅凭字段存在宣称完成。 |
-| [tauri-apps/plugins-workspace@254f222](https://github.com/tauri-apps/plugins-workspace/blob/254f222e0e2bc79370f977855b6b39d956d3b568/plugins/deep-link/README.md#L141-L148) | MIT OR Apache-2.0 | macOS 直接 emit；Windows/Linux 会以 CLI 参数启动新实例，需要 single-instance 的 deep-link feature 才能统一行为 | **记录为发布阻断**：只注册 `bench-auth` 已完成；App 根 inbox、Windows cold/hot start 与 single-instance 仍按 roadmap Phase 2 实现。 |
+| [tauri-apps/plugins-workspace@254f222](https://github.com/tauri-apps/plugins-workspace/blob/254f222e0e2bc79370f977855b6b39d956d3b568/plugins/deep-link/README.md#L141-L148) | MIT OR Apache-2.0 | macOS 直接 emit；Windows/Linux 会以 CLI 参数启动新实例，需要 single-instance 的 deep-link feature 才能统一行为 | **已采纳**：使用 `tauri-plugin-single-instance 2.4.3` 的 `deep-link` feature；插件第一个注册，App 根 inbox 统一接收，Windows callback 额外处理多 URL 并由短时指纹去重。 |
 | [open-source-cooperative/keyring-rs@1866f8b](https://github.com/open-source-cooperative/keyring-rs/blob/1866f8b2db9acd38ef2a61713e46629ef1ef3e10/README.md) | MIT OR Apache-2.0 | 同一 API 对接 macOS、Windows 和 Unix 原生凭据库，并提供平台 store 行为测试示例 | **继续使用并保持保守结论**：master key 首建已有跨进程锁；macOS Keychain/Windows Credential Manager 拒绝、重启和并发仍须分别做真机行为测试。 |
 
 采纳原则：只借鉴可映射到当前故障模式且能在 Bench 内写回归测试的语义；不因参考仓库成熟就整体引入 crawler、cache 或 OAuth client 依赖。全局 reqwest client cache 暂不采用，因为每个 Station 的代理和凭据边界不同，复用键设计不完整时会造成跨账号配置污染。

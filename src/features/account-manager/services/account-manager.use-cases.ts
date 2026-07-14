@@ -10,6 +10,7 @@ import {
 } from "@/features/account-manager/model/selectors"
 import type {
   NetworkProxyConfig,
+  PasswordAction,
   ProbeStrategy,
   RelayDataImportResult,
   RelayStation,
@@ -53,11 +54,19 @@ async function applySessionSettings(
   const configChanged = !proxyConfigEquals(settings.networkProxy, baselineNetworkProxy)
   const passwordChanged = settings.networkProxyPassword !== undefined
   if (configChanged || passwordChanged) {
+    const passwordAction: PasswordAction =
+      settings.networkProxy == null
+        ? { action: "clear" }
+        : settings.networkProxyPassword === undefined
+          ? { action: "keep" }
+          : settings.networkProxyPassword.length === 0
+            ? { action: "clear" }
+            : { action: "set", password: settings.networkProxyPassword }
     promises.push(
       accountManagerRepository.setStationNetworkProxy(
         stationId,
         settings.networkProxy,
-        settings.networkProxyPassword ?? null,
+        passwordAction,
       ),
     )
   }
@@ -237,11 +246,11 @@ export const accountManagerUseCases = {
   },
 
   async deleteStation(stationId: string) {
-    await accountManagerRepository.deleteStation(stationId)
+    return accountManagerRepository.deleteStation(stationId)
   },
 
   async deleteAccount(accountId: string) {
-    await accountManagerRepository.deleteAccount(accountId)
+    return accountManagerRepository.deleteAccount(accountId)
   },
 
   buildStationDeleteSelection(

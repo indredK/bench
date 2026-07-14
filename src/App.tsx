@@ -25,6 +25,7 @@ import { appFeatures, createNavigationItems, createConfigItems } from "@/feature
 import { requestFeatureRefresh } from "@/features/refresh"
 import { useUpdaterController } from "@/features/updater/hooks/useUpdaterController"
 import { listStartupIssues, markMainReady } from "@/lib/tauri/commands/bootstrap"
+import { getAuthProxyInboxStatus } from "@/lib/tauri/commands/account-manager"
 import { setTrayLabels } from "@/lib/tauri/commands"
 import { TAURI_EVENTS, WINDOW_BOOTSTRAP_EVENTS } from "@/lib/tauri/contracts"
 import { emitPlatformEventTo, listenToPlatformEvent } from "@/platform/events"
@@ -32,7 +33,49 @@ import { canUseWindowControls } from "@/platform/window"
 import { useWindowTheme } from "@/hooks/useWindowTheme"
 import type { StartupIssue } from "@/lib/tauri/types/bootstrap"
 import { RuntimeFeatureGate } from "@/components/common/RuntimeFeatureGate"
-import { canUseFeature } from "@/platform/capabilities"
+import { canUseFeature, canUseTauriCommands } from "@/platform/capabilities"
+import type { AuthProxyInboxStatus } from "@/lib/tauri/types/account-manager"
+import { parseCommandError } from "@/lib/tauri/errors"
+
+function AuthProxyNavigationListener() {
+  const [, navigate] = useLocation()
+
+  useEffect(() => {
+    if (!canUseTauriCommands()) return undefined
+    let unlisten: (() => void) | undefined
+    let cancelled = false
+
+    const openAccountManager = (status: AuthProxyInboxStatus) => {
+      if (!cancelled && status.pendingCount > 0) navigate("/account-manager")
+    }
+
+    ;(async () => {
+      try {
+        const nextUnlisten = await listenToPlatformEvent<AuthProxyInboxStatus>(
+          TAURI_EVENTS.accountManager.authProxyPending,
+          (event) => openAccountManager(event.payload),
+        )
+        if (cancelled) {
+          nextUnlisten()
+          return
+        }
+        unlisten = nextUnlisten
+        openAccountManager(await getAuthProxyInboxStatus())
+      } catch (error) {
+        if (!cancelled) {
+          console.warn("[auth-proxy] navigation listener failed:", parseCommandError(error).code)
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+      unlisten?.()
+    }
+  }, [navigate])
+
+  return null
+}
 
 function AnimatedRoutes() {
   const [location, navigate] = useLocation()
@@ -181,6 +224,7 @@ function App() {
   return (
     <>
       <Router hook={useHashLocation}>
+        <AuthProxyNavigationListener />
         <GlobalContextMenu className="app-root bg-background flex h-screen overflow-hidden">
           <div className="flex flex-1 flex-col overflow-hidden">
             <CustomTitlebar />

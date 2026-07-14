@@ -19,13 +19,13 @@
 
 - [§7.4/§9] `src-tauri/src/app_manager/` - macOS/Windows 核心实现已整改，但目标平台 fixture、真机 smoke 和 CI 行为测试未完成 - 按 [App Manager roadmap](./modules/app-manager/roadmap.md) 验收 - **强制** - 状态：待验收
 - [§6/§9] `src/features/quick-launch/` - 共享 inventory 与虚拟列表已落地，但 macOS/Windows 启动 smoke 和 500+ 应用性能验收未完成 - 按 [Quick Launch roadmap](./modules/quick-launch/roadmap.md) 验收 - **强制** - 状态：待验收
-- [§3.3/§7/§8] `src-tauri/src/account_manager/` - Session canonical map/v5 migration、恢复注入+probe、退出落盘、账号级 single-flight、有界瞬态重试、真实 ProbeStrategy 和 RefreshReport 已整改；per-origin storage、Cookie partition key 与目标平台 WebView 行为仍未完成 - 按 [Account Manager roadmap](./modules/account-manager/roadmap.md) Phase 1/6 实施并验收 - **强制** - 状态：部分修复
-- [§7/§8] `src-tauri/src/account_manager/{commands,proxy,webview}.rs` - 一次性 ticket、精确 callback/state/origin 和自定义 scheme 注册已整改；App 根 Deep Link 队列与 Windows single-instance 仍缺 - 按 [Account Manager roadmap](./modules/account-manager/roadmap.md) Phase 2 实施 - **强制** - 状态：部分修复
+- [§3.3/§7/§8] `src-tauri/src/account_manager/` - Session canonical map/v5 migration、恢复注入+probe、退出落盘、账号级 single-flight、有界瞬态重试、真实 ProbeStrategy 和 RefreshReport 已整改；per-origin storage、Cookie partition key 与目标平台 WebView 行为仍未完成 - 按 [Account Manager roadmap](./modules/account-manager/roadmap.md) Phase 1/延期验证实施 - **强制** - 状态：部分修复
+- [§7/§8] `src-tauri/src/account_manager/{deep_link,state,commands}.rs` - App 根 32 条 FIFO、大小限制、短时去重、冷/热入口、窄 drain IPC 和 Windows single-instance 已实现；Windows/macOS 真实协议唤起仍待真机验证 - 按 [Account Manager roadmap](./modules/account-manager/roadmap.md) 延期验证 - **强制** - 状态：代码已修复/待验收
 - [§3.3/§7] `src-tauri/src/account_manager/{crypto,state,storage}.rs` - Keyring 和 store mutation 已接入跨进程锁及 reload-before-save；Dev/Prod/Windows 并发行为仍待验收 - 按 [Account Manager roadmap](./modules/account-manager/roadmap.md) Phase 6 验收 - **强制** - 状态：待验收
-- [§5/§6/§9] `src/features/account-manager/` - 三栏 skeleton 和密码明文 TTL 已整改；窄屏详情 Sheet、500+ 虚拟化、删除 partial 和双平台行为测试仍缺 - 按 [Account Manager roadmap](./modules/account-manager/roadmap.md) 实施 - **强制** - 状态：部分修复
-- [§5/§7/§9] `src/features/system-settings/` - 读取失败已显示 error/unknown，write-only 设置不再伪装为 off；Finder/网络/截图/系统开关仍缺后端 snapshot 与完整 read-after-write - 按 [System Settings roadmap](./modules/system-settings/roadmap.md) 实施 - **强制** - 状态：部分修复
-- [§7/§9] `.github/workflows/ci-build.yml` - tag job 已接入 OS/updater 双签名、目标产物、checksum 和延迟发布门禁，但尚无正式 Secrets run、三平台签名 RC 和安装/升级 smoke - 按 [2.0.0 发布门禁 F07-F09](./roadmap/2.0.0-release-readiness.md#12-f07updater签名与供应链) 验收 - **强制** - 状态：待验收
-- [§7/§9] `src-tauri/tauri.conf.json` - bundle identifier `com.bench.app` 以 `.app` 结尾，Tauri 2.11.4 构建警告与 macOS bundle extension 冲突；修改会影响 Keychain/数据命名空间/升级识别 - F09 前提交迁移决策并用 1.23.0 -> RC 验证，禁止直接改字符串 - **强制** - 状态：已报告
+- [§5/§6/§9] `src/features/account-manager/` - 三栏 skeleton、密码 TTL、窄屏详情 Sheet、500+ 虚拟化和删除 partial 已整改；区域 retry、capability 与双平台行为测试仍缺 - 按 [Account Manager roadmap](./modules/account-manager/roadmap.md) 实施 - **强制** - 状态：部分修复
+- [§5/§7/§9] `src/features/system-settings/` - error/unknown、canonical 浏览器、后端 snapshot 和 read-after-write 已实现；支持系统版本与权限拒绝仍待 macOS 真机验收 - 按 [System Settings roadmap](./modules/system-settings/roadmap.md) 验收 - **强制** - 状态：代码已修复/待验收
+- [§7/§9] `.github/workflows/ci-build.yml` - tag job 默认生成 ad-hoc macOS/unsigned Windows OS 包，updater minisign、目标产物、notice 和 checksum fail-closed；尚无 updater 私钥 tag run 和安装/升级 smoke - 按 [2.0.0 发布门禁 F07-F09](./roadmap/2.0.0-release-readiness.md#12-f07updater签名与供应链) 验收 - **强制** - 状态：待验收
+- [§7/§9] `src-tauri/tauri.conf.json` - `com.bench.app` 的 `.app` 后缀警告已评估；为保持 Keychain/数据/升级身份，D-011 决定 2.0 保留，不得直接改字符串 - **建议** - 状态：接受风险
 
 未完成目标平台行为测试前，不得把 App Manager 或 Quick Launch 标记为 macOS/Windows 发布对等。
 
@@ -39,8 +39,8 @@ Account Manager 的 macOS/Windows 状态均为 ⚠️；A-01 至 A-15 的 P0/P1 
 - Account Manager 首载三栏 skeleton 和密码 30 秒 TTL 已落地；System Settings/Preferences 读取失败不再显示默认 false。
 - Updater 自动检查、退避、省流/离线策略、cancelling、受限 release notes 和真实进度语义已进入关键测试。
 - release workflow 正式产物收集 fail-closed，在 GitHub Release 变更前验证 OS 签名、Tauri updater 签名、三目标 manifest、产物矩阵和 SHA-256；macOS 14.0、Windows 禁止降级和固定 WiX upgrade code 已写入配置。
-- 本地通过 `lint:fe`、`test:critical`（24 files / 84 tests）、`test:fe`（34 files / 142 tests）、`test:be`（266 tests）、Clippy 和前端生产构建。Tauri debug 已生成 app/DMG/updater tar，但没有正式 updater 私钥，未生成 `.sig`，不计为签名 RC。
-- 仍未发布就绪：Account Manager 剩余 Phase、Clean Space Rust 测试、App/Quick Launch 双平台 smoke、正式证书 Secrets/tag run、identifier 迁移决策、1.23.0 升级/回滚和 UX 视觉/键盘矩阵。
+- 本轮通过 `lint:fe`、`test:critical`（28 files / 100 tests）、`test:fe`（39 files / 161 tests）、`test:be`（309 tests）、Clippy `-D warnings`、前端生产构建、全仓格式、文档链接和 diff whitespace。Tauri debug 曾生成 app/DMG/updater tar，但没有真实 updater 私钥，未生成 `.sig`，不计为 updater 发布证据。
+- 仍未代码冻结：Account Manager per-origin/capability/区域 retry、App/Quick Launch fixture 和性能、updater 错误矩阵、1.23.0 升级/回滚 fixture 与 UX 自动化矩阵。OS 正式签名和真机 smoke 按 D-010 延期；identifier 按 D-011 保留。
 
 ### 2026-07-14 - Account Manager GitHub 实现对照
 
@@ -49,14 +49,6 @@ Account Manager 的 macOS/Windows 状态均为 ⚠️；A-01 至 A-15 的 P0/P1 
 - HTTP probe 只对瞬态状态/connect/timeout 做最多 3 次、10 秒总预算的 full-jitter 退避；服从短 `Retry-After`，过长时停止重试；请求沿用 Session User-Agent。
 - Cookie HTTP 注入按 RFC 6265 path boundary 匹配，缺少 partition key 时拒绝发送 partitioned Cookie；probe URL 只允许无嵌入凭据的 HTTP(S)。
 - 本地通过 `pnpm run lint:fe`、`pnpm run test:critical`（12 files / 34 tests）、`cargo test account_manager`（58 tests）、`cargo clippy -- -D warnings`。本机未安装 Windows Rust target，且 Windows/macOS WebView、Keyring、Deep Link 真机行为尚未验收。
-
-### 2026-07-13 - Account Manager
-
-- 结论：REQUEST CHANGES，macOS/Windows 均未达到生产就绪。
-- 核心后端已整改 Session/Keyring/store、Auth Proxy ticket/callback/state/origin、批量 partial、探针策略、代理 fail-closed、删除引用、导入限额和剪贴板 TTL。
-- 本地 `pnpm exec vitest run src/features/account-manager`（2 files / 8 tests）与 `cargo test account_manager`（49 tests）通过；尚未执行 Windows 行为测试。
-- 剩余阻断：Deep Link 根队列/single-instance、可移植加密导出、删除 partial report、前端密码内存 TTL、平台能力/真机 smoke 和 UX。
-- 详细位置、重构代码、实施顺序和目标平台矩阵见 [专题审计](./modules/account-manager/audit-and-upgrade-2026-07-13.md)。
 
 ### 2026-07-13 - Quick Launch / App Manager
 

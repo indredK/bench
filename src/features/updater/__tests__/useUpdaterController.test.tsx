@@ -205,7 +205,10 @@ describe("useUpdaterController", () => {
 
   it("returns to available state when download is cancelled", async () => {
     useUpdaterStore.setState({ status: "available", updateInfo: AVAILABLE_UPDATE })
-    mockDownloadAndInstall.mockRejectedValue(new Error("update download cancelled"))
+    mockDownloadAndInstall.mockRejectedValue({
+      code: "UPDATER_CANCELLED",
+      message: "Update download was cancelled",
+    })
 
     const { result } = renderHook(() => useUpdaterController())
 

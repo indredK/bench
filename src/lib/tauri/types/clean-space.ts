@@ -67,6 +67,16 @@ export interface CategoryCleanupResult {
   items_cleaned: number
   items_failed: number
   aborted: boolean
+  results: CleanupItemResult[]
+}
+
+export type CleanupItemStatus = "cleaned" | "failed" | "rejected"
+
+export interface CleanupItemResult {
+  id: string
+  status: CleanupItemStatus
+  freed_bytes: number
+  error_code: string | null
 }
 
 export interface CleanupItemInput {

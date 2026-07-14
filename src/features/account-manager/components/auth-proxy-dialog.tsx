@@ -35,6 +35,7 @@ import type {
 import { accountManagerRepository } from "@/features/account-manager/services/account-manager.repository"
 import { NEW_ACCOUNT } from "@/features/account-manager/hooks/useAuthProxy"
 import type { AuthProxyConfirmInput } from "@/features/account-manager/hooks/useAuthProxy"
+import { parseCommandError } from "@/lib/tauri/errors"
 
 // ═══════════════════════════════════════════════
 // Wizard step constants
@@ -100,7 +101,12 @@ export interface AuthProxyDialogProps {
   onOpenChange: (open: boolean) => void
   onConfirm: (input: AuthProxyConfirmInput) => Promise<boolean>
   onCompleted?: () => void
+  initialRequest?: AuthProxyRequest | null
+  initialMatches?: AuthProxyMatch[]
+  initialHost?: string
 }
+
+const EMPTY_AUTH_PROXY_MATCHES: AuthProxyMatch[] = []
 
 // ═══════════════════════════════════════════════
 // Main dialog component
@@ -111,6 +117,9 @@ export function AuthProxyDialog({
   onOpenChange,
   onConfirm,
   onCompleted,
+  initialRequest = null,
+  initialMatches = EMPTY_AUTH_PROXY_MATCHES,
+  initialHost = "",
 }: AuthProxyDialogProps) {
   const { t } = useTranslation()
   const [step, setStep] = useState(STEP_PASTE)
@@ -136,18 +145,18 @@ export function AuthProxyDialog({
   // Reset state when dialog opens
   useEffect(() => {
     if (open) {
-      setStep(STEP_PASTE)
+      setStep(initialRequest ? STEP_SELECT : STEP_PASTE)
       setUrl("")
       setParsing(false)
-      setParsedRequest(null)
-      setParsedHost("")
-      setParsedMatches([])
-      setSelectedStationIndex(null)
+      setParsedRequest(initialRequest)
+      setParsedHost(initialHost)
+      setParsedMatches(initialMatches)
+      setSelectedStationIndex(initialMatches.length === 1 ? 0 : null)
       setSelectedAccountId(null)
       setNewAccountName("")
       setConfirming(false)
     }
-  }, [open])
+  }, [initialHost, initialMatches, initialRequest, open])
 
   // Preload all stations + accounts so the site selector can offer every site,
   // not only the ones whose host matches the URL.
@@ -164,7 +173,7 @@ export function AuthProxyDialog({
         setAllAccounts(accounts)
       })
       .catch((err) => {
-        console.warn("[auth-proxy] load stations failed:", err)
+        console.warn("[auth-proxy] load stations failed:", parseCommandError(err).code)
       })
     return () => {
       cancelled = true
@@ -248,7 +257,7 @@ export function AuthProxyDialog({
 
       setStep(STEP_SELECT)
     } catch (error) {
-      console.warn("[auth-proxy] parse url failed:", error)
+      console.warn("[auth-proxy] parse url failed:", parseCommandError(error).code)
     } finally {
       setParsing(false)
     }
@@ -285,7 +294,7 @@ export function AuthProxyDialog({
     try {
       await openExternal(parsedRequest.returnUrl)
     } catch (error) {
-      console.warn("[auth-proxy] open return url failed:", error)
+      console.warn("[auth-proxy] open return url failed:", parseCommandError(error).code)
     }
   }
 

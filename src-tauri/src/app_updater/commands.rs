@@ -7,8 +7,73 @@ use tauri_plugin_updater::{Update, Updater, UpdaterExt};
 
 use crate::error::{AppError, AppResult};
 
-fn updater_error(context: &str, error: impl std::fmt::Display) -> String {
-    format!("{context}: {error}")
+#[derive(Clone, Copy)]
+enum UpdaterOperation {
+    Check,
+    Install,
+}
+
+fn updater_error(operation: UpdaterOperation, error: impl std::fmt::Display) -> AppError {
+    let raw = error.to_string();
+    let message = raw.to_ascii_lowercase();
+    let code = if message.contains("429")
+        || message.contains("rate limit")
+        || message.contains("too many requests")
+    {
+        "UPDATER_RATE_LIMITED"
+    } else if message.contains("platforms` object")
+        || message.contains("platforms object")
+        || message.contains("platform not found")
+        || message.contains("missing required updater platforms")
+    {
+        "UPDATER_PLATFORM_MISSING"
+    } else if message.contains("404") || message.contains("not found") {
+        "UPDATER_MANIFEST_NOT_FOUND"
+    } else if message.contains("release json")
+        || message.contains("release metadata")
+        || message.contains("deserialize")
+        || message.contains("invalid release")
+        || message.contains("manifest")
+        || message.contains("json")
+    {
+        "UPDATER_MANIFEST_INVALID"
+    } else if message.contains("signature")
+        || message.contains("minisign")
+        || message.contains("public key")
+    {
+        "UPDATER_SIGNATURE_INVALID"
+    } else if message.contains("no space")
+        || message.contains("disk full")
+        || message.contains("os error 28")
+    {
+        "UPDATER_DISK_FULL"
+    } else if message.contains("permission denied")
+        || message.contains("access is denied")
+        || message.contains("operation not permitted")
+        || message.contains("os error 13")
+    {
+        "UPDATER_PERMISSION_DENIED"
+    } else if message.contains("network")
+        || message.contains("offline")
+        || message.contains("dns")
+        || message.contains("timed out")
+        || message.contains("timeout")
+        || message.contains("connection")
+        || message.contains("request for url")
+        || message.contains("tls")
+    {
+        "UPDATER_NETWORK_UNAVAILABLE"
+    } else {
+        match operation {
+            UpdaterOperation::Check => "UPDATER_CHECK_FAILED",
+            UpdaterOperation::Install => "UPDATER_INSTALL_FAILED",
+        }
+    };
+    let public_message = match operation {
+        UpdaterOperation::Check => "Unable to check for updates",
+        UpdaterOperation::Install => "Unable to download or install the update",
+    };
+    AppError::new(code, public_message)
 }
 
 #[tauri::command]
@@ -20,14 +85,14 @@ pub async fn check_for_app_update<R: Runtime>(
 
     match cache.begin_check() {
         CheckTicket::Leader(leader) => {
-            let check_result: Result<Option<Update>, String> = async {
+            let check_result: AppResult<Option<Update>> = async {
                 let updater: Updater = app
                     .updater()
-                    .map_err(|error| updater_error("failed to build updater", error))?;
+                    .map_err(|error| updater_error(UpdaterOperation::Check, error))?;
                 updater
                     .check()
                     .await
-                    .map_err(|error| updater_error("failed to check for updates", error))
+                    .map_err(|error| updater_error(UpdaterOperation::Check, error))
             }
             .await;
 
@@ -78,7 +143,7 @@ pub async fn check_for_app_update<R: Runtime>(
                         body: None,
                         error: Some(error.clone()),
                     };
-                    return_value = Err(AppError::internal(error.clone()));
+                    return_value = Err(error.clone());
                 }
             }
 
@@ -94,11 +159,11 @@ pub async fn check_for_app_update<R: Runtime>(
             if rx.changed().await.is_err() {
                 let updater = app
                     .updater()
-                    .map_err(|error| updater_error("failed to build updater", error))?;
+                    .map_err(|error| updater_error(UpdaterOperation::Check, error))?;
                 let update = updater
                     .check()
                     .await
-                    .map_err(|error| updater_error("failed to check for updates", error))?;
+                    .map_err(|error| updater_error(UpdaterOperation::Check, error))?;
                 return Ok(match update {
                     Some(u) => AppUpdateInfo {
                         available: true,
@@ -120,7 +185,7 @@ pub async fn check_for_app_update<R: Runtime>(
             match snapshot {
                 Some(result) => {
                     if let Some(error) = result.error {
-                        Err(AppError::internal(error))
+                        Err(error)
                     } else {
                         Ok(AppUpdateInfo {
                             available: result.available,
@@ -149,12 +214,17 @@ pub async fn download_and_install_app_update<R: Runtime>(
         None => {
             let updater: Updater = app
                 .updater()
-                .map_err(|error| updater_error("failed to build updater", error))?;
+                .map_err(|error| updater_error(UpdaterOperation::Install, error))?;
             updater
                 .check()
                 .await
-                .map_err(|error| updater_error("failed to check updates before install", error))?
-                .ok_or_else(|| AppError::not_found("No update is currently available"))?
+                .map_err(|error| updater_error(UpdaterOperation::Install, error))?
+                .ok_or_else(|| {
+                    AppError::new(
+                        "UPDATER_UPDATE_NOT_AVAILABLE",
+                        "No update is currently available",
+                    )
+                })?
         }
     };
 
@@ -204,7 +274,7 @@ pub async fn download_and_install_app_update<R: Runtime>(
             install_result = install_future.as_mut() => match install_result {
                 Ok(()) => DownloadOutcome::Success,
                 Err(error) => {
-                    DownloadOutcome::Failed(updater_error("failed to download and install update", &error))
+                    DownloadOutcome::Failed(updater_error(UpdaterOperation::Install, &error))
                 }
             },
         }
@@ -221,17 +291,20 @@ pub async fn download_and_install_app_update<R: Runtime>(
                 AppUpdateDownloadEvent::Cancelled,
             );
             cache.store(Some(update));
-            Err(AppError::internal("update download cancelled"))
+            Err(AppError::new(
+                "UPDATER_CANCELLED",
+                "Update download was cancelled",
+            ))
         }
-        DownloadOutcome::Failed(message) => {
+        DownloadOutcome::Failed(error) => {
             let _ = app.emit(
                 APP_UPDATER_DOWNLOAD_EVENT,
                 AppUpdateDownloadEvent::Failed {
-                    error: message.clone(),
+                    error: error.message.clone(),
                 },
             );
             cache.store(Some(update));
-            Err(AppError::internal(message))
+            Err(error)
         }
     }
 }
@@ -239,7 +312,7 @@ pub async fn download_and_install_app_update<R: Runtime>(
 enum DownloadOutcome {
     Success,
     Cancelled,
-    Failed(String),
+    Failed(AppError),
 }
 
 #[tauri::command]
@@ -255,4 +328,67 @@ pub fn restart_after_update<R: Runtime>(app: AppHandle<R>) {
 #[tauri::command]
 pub fn get_current_app_version<R: Runtime>(app: AppHandle<R>) -> String {
     app.package_info().version.to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn classifies_manifest_and_platform_failures() {
+        assert_eq!(
+            updater_error(
+                UpdaterOperation::Check,
+                "failed to deserialize release JSON"
+            )
+            .code,
+            "UPDATER_MANIFEST_INVALID"
+        );
+        assert_eq!(
+            updater_error(
+                UpdaterOperation::Check,
+                "target was not found in the response `platforms` object"
+            )
+            .code,
+            "UPDATER_PLATFORM_MISSING"
+        );
+        assert_eq!(
+            updater_error(UpdaterOperation::Check, "HTTP status 404").code,
+            "UPDATER_MANIFEST_NOT_FOUND"
+        );
+    }
+
+    #[test]
+    fn classifies_network_signature_disk_and_permission_failures() {
+        assert_eq!(
+            updater_error(UpdaterOperation::Check, "network is offline").code,
+            "UPDATER_NETWORK_UNAVAILABLE"
+        );
+        assert_eq!(
+            updater_error(UpdaterOperation::Install, "minisign verification failed").code,
+            "UPDATER_SIGNATURE_INVALID"
+        );
+        assert_eq!(
+            updater_error(
+                UpdaterOperation::Install,
+                "No space left on device (os error 28)"
+            )
+            .code,
+            "UPDATER_DISK_FULL"
+        );
+        assert_eq!(
+            updater_error(UpdaterOperation::Install, "Permission denied (os error 13)").code,
+            "UPDATER_PERMISSION_DENIED"
+        );
+    }
+
+    #[test]
+    fn does_not_expose_raw_updater_details() {
+        let error = updater_error(
+            UpdaterOperation::Check,
+            "request failed for https://example.invalid/latest.json?token=secret",
+        );
+        assert!(!error.message.contains("secret"));
+        assert!(!error.message.contains("https://"));
+    }
 }

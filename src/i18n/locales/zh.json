@@ -252,6 +252,7 @@
     "browser": {
       "title": "默认浏览器",
       "loadFailed": "读取默认浏览器设置失败",
+      "openSettings": "打开 macOS 设置",
       "options": {
         "safari": "Safari",
         "chrome": "Google Chrome",
@@ -261,6 +262,9 @@
         "opera": "Opera",
         "arc": "Arc"
       }
+    },
+    "snapshot": {
+      "loadFailed": "读取当前系统设置失败"
     },
     "shortcuts": {
       "title": "系统设置快捷入口",
@@ -275,6 +279,7 @@
     "stationTitle": "站点列表",
     "accountTitle": "账号列表",
     "detailTitle": "详情",
+    "detailSheetDescription": "账号与站点详情",
     "addStation": "添加站点",
     "importData": "导入",
     "exportData": "导出",
@@ -444,6 +449,7 @@
       "deleteStationFailed": "删除站点失败",
       "deleteStationSuccess": "已删除站点「{{name}}」",
       "deleteAccountFailed": "删除账号失败",
+      "deleteCleanupPartial": "部分账号数据未能清理（{{failed}} 项失败），对象已保留，可直接重试。",
       "deleteAccountSuccess": "已删除账号「{{name}}」",
       "exportFailed": "导出站点数据失败",
       "exportSuccess": "已导出 {{stations}} 个站点、{{accounts}} 个账号",
@@ -461,6 +467,8 @@
       "switchAccountFailed": "切换账号失败",
       "proxyLoginFailed": "代理登录失败，请稍后重试",
       "authProxyHandleFailed": "处理外部登录请求失败",
+      "authProxyInboxDropped": "同时到达的外部登录请求过多，部分较早请求已被丢弃。",
+      "authProxyInboxRejected": "一个或多个无效的外部登录请求已被拒绝。",
       "loadExternalAppsFailed": "加载外部应用列表失败",
       "revokeExternalAppSuccess": "已取消授权",
       "revokeExternalAppFailed": "取消授权失败",
@@ -2149,7 +2157,11 @@
     "FORBIDDEN_PATH": "该路径超出了允许的目录范围。",
     "PATH_NOT_ABSOLUTE": "路径必须是绝对路径。",
     "PATH_TRAVERSAL": "路径不能包含 '..'。",
-    "TASK_FAILED": "后台任务执行失败。"
+    "TASK_FAILED": "后台任务执行失败。",
+    "SETTING_VERIFICATION_FAILED": "macOS 未确认本次设置更改。",
+    "DEFAULT_BROWSER_UNKNOWN": "macOS 未返回默认浏览器。",
+    "DEFAULT_BROWSER_CHANGE_FAILED": "macOS 拒绝了默认浏览器更改。",
+    "DEFAULT_BROWSER_CHANGE_REQUIRES_USER_ACTION": "请在 macOS 设置中完成默认浏览器更改。"
   },
   "common": {
     "yes": "有",
@@ -2176,6 +2188,11 @@
     "disable": "停用",
     "add": "添加",
     "edit": "编辑",
+    "persistence": {
+      "recovered": "已保存的分类数据无法读取，系统已保留备份并恢复默认分类。",
+      "newerSchema": "分类数据由更新版本的 Bench 创建。为防止覆盖，当前已禁用编辑。",
+      "tooLarge": "分类数据超过安全上限。检查数据前，当前已禁用编辑。"
+    },
     "search": "搜索",
     "loading": "加载中...",
     "filters": "筛选",
@@ -2605,16 +2622,19 @@
       "logTitle": "执行日志",
       "deleted": "已永久删除",
       "cleaned": "已清理",
+      "failed": "失败",
       "freed": "释放",
       "irreversible": "（不可恢复）",
       "resultTitle": "清理结果",
       "cleanedItems": "清理项",
+      "failedItems": "失败项",
       "freedSpace": "释放空间",
       "pathCount": "涉及路径",
       "highRiskItems": "高风险项",
       "again": "再来一次",
       "done": "完成",
-      "allDone": "所有选定任务已执行完毕"
+      "allDone": "所有选定任务已执行完毕",
+      "completedWithFailures": "清理完成，{{failed}} 项失败，可重新选择后重试。"
     },
     "confirmCleanupTitle": "确认执行清理",
     "confirmCleanupDesc2": "请核对以下命令与影响范围，确认无误后执行。",

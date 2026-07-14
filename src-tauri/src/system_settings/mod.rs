@@ -10,6 +10,7 @@ pub mod network;
 pub mod privacy;
 pub mod quick_actions;
 pub mod screenshot;
+pub mod snapshot;
 pub mod system_info;
 pub mod system_pane_registry;
 pub mod system_toggles;

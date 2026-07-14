@@ -19,7 +19,7 @@ import {
   classifyUpdaterError,
   createDesktopOnlyUpdaterError,
 } from "@/features/updater/error-classifier"
-import { getErrorMessage } from "@/lib/tauri/errors"
+import { parseCommandError } from "@/lib/tauri/errors"
 import { useUpdaterStore } from "@/features/updater/store"
 import {
   readUpdaterPolicy,
@@ -191,10 +191,8 @@ export function useUpdaterController() {
       await downloadAndInstallAppUpdate()
       useUpdaterStore.setState({ status: "readyToRestart", error: "", errorInfo: null })
     } catch (error) {
-      const message = getErrorMessage(error)
-      // User-initiated cancel: backend rejects with "update download cancelled".
-      // Don't surface as an error — return to the available state so they can retry.
-      if (message.toLowerCase().includes("cancelled")) {
+      // User-initiated cancel returns a stable code. Keep the available update so it can be retried.
+      if (parseCommandError(error).code === "UPDATER_CANCELLED") {
         useUpdaterStore.setState((state) => ({
           status: state.updateInfo?.available ? "available" : "idle",
           downloadedBytes: 0,

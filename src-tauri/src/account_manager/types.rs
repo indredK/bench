@@ -191,6 +191,19 @@ pub struct NetworkProxyConfig {
     pub encrypted_password: Option<EncryptedBlob>,
 }
 
+/// Explicit password mutation for network proxy updates. Renderer code cannot
+/// overload null to mean both "keep" and "clear".
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(tag = "action", rename_all = "camelCase")]
+pub enum PasswordAction {
+    #[default]
+    Keep,
+    Set {
+        password: String,
+    },
+    Clear,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AuthProfile {
@@ -469,6 +482,48 @@ pub struct RelayDataImportResult {
     pub account_count: usize,
     pub stations: Vec<RelayStation>,
     pub accounts: Vec<StationAccount>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum DeletionStatus {
+    Complete,
+    Partial,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum DeletionResourceKind {
+    WebviewData,
+    Metadata,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum DeletionResourceStatus {
+    Succeeded,
+    Failed,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct DeletionResourceResult {
+    pub resource: DeletionResourceKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub account_id: Option<String>,
+    pub status: DeletionResourceStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error_code: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct DeletionReport {
+    pub target_id: String,
+    pub status: DeletionStatus,
+    pub metadata_deleted: bool,
+    pub removed_account_count: usize,
+    pub resources: Vec<DeletionResourceResult>,
 }
 
 #[derive(Debug, Clone, Serialize)]

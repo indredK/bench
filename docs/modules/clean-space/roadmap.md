@@ -2,10 +2,9 @@
 
 扫描、APFS 归因、清理白名单和路径安全以 [design.md](./design.md) 为准。已完成历史由 Git 保留，不在 roadmap 重复。
 
-## 2.0 发布阻断
+## 延期验证
 
-- [ ] 为 `scan_storage_overview`、流式扫描和 `execute_category_cleanup` 补 Rust 单测。
-- [ ] 消除 `scan_overview` 与 `scan_overview_stream` 的路径和分类构造重复。
+- [ ] 在 macOS 真机覆盖权限拒绝、受保护目录、自定义目录、Docker/find timeout、取消和清理前后释放量；自动化测试不能替代真实磁盘行为。
 
 ## 远期
 

@@ -9,7 +9,7 @@ import type { CleanupProgressItem } from "@/features/clean-space/store"
 import { canCleanStorageItem } from "@/features/clean-space/lib/cleanable"
 import { addMacOsRemainderCategory } from "@/features/clean-space/lib/mac-os-remainder"
 import * as repository from "@/features/clean-space/services/clean-space.repository"
-import { getErrorMessage } from "@/lib/tauri/errors"
+import { getErrorMessage, parseCommandError } from "@/lib/tauri/errors"
 import type { StorageCategory, StorageItem, ScanStartPayload } from "@/lib/tauri/types/clean-space"
 
 /** Track active listeners to prevent duplicate registrations on rescan. */
@@ -104,9 +104,7 @@ export async function executeBatchCleanup(category: StorageCategory, items: Stor
 
   store.setIsCleaning(true)
 
-  const paths = new Set(cleanableItems.map((i) => i.path))
   const highCount = cleanableItems.filter((i) => i.risk_level === "high").length
-  const totalBytes = cleanableItems.reduce((s, i) => s + i.size_bytes, 0)
 
   store.setCleanupProgress({
     active: true,
@@ -120,7 +118,11 @@ export async function executeBatchCleanup(category: StorageCategory, items: Stor
 
   try {
     let done = 0
+    let failed = 0
+    let freedBytes = 0
     const logs: CleanupProgressItem[] = []
+    const cleanedIds: string[] = []
+    const cleanedPaths = new Set<string>()
 
     for (const item of cleanableItems) {
       useCleanSpaceStore.getState().setCleanupProgress({ currentItem: item.name })
@@ -134,50 +136,75 @@ export async function executeBatchCleanup(category: StorageCategory, items: Stor
           size_bytes: item.size_bytes,
         },
       ]
-      let status: "ok" | "warn" = "ok"
+      let status: CleanupProgressItem["status"] = "ok"
+      let itemFreedBytes = 0
       try {
-        await repository.executeCategoryCleanup(cleanupItems)
+        const result = await repository.executeCategoryCleanup(cleanupItems)
+        const itemResult = result.results.find((entry) => entry.id === item.id)
+        if (!itemResult || itemResult.status !== "cleaned" || result.items_failed > 0) {
+          status = "failed"
+          failed++
+        } else {
+          itemFreedBytes = itemResult.freed_bytes
+          freedBytes += itemFreedBytes
+          cleanedIds.push(item.id)
+          cleanedPaths.add(item.path)
+        }
       } catch (err) {
-        status = "warn"
-        console.warn(
-          `[clean-space] cleanup failed for "${item.name}" (${item.path}):`,
-          getErrorMessage(err),
-        )
+        status = "failed"
+        failed++
+        console.warn("[clean-space] cleanup failed", {
+          itemId: item.id,
+          errorCode: parseCommandError(err).code,
+        })
       }
 
       done++
       logs.push({
         name: item.name,
-        size_bytes: item.size_bytes,
+        size_bytes: itemFreedBytes,
         risk_level: item.risk_level,
-        status: item.risk_level === "high" ? "warn" : status,
+        status,
         timestamp: Date.now(),
       })
       useCleanSpaceStore.getState().setCleanupProgress({ done, logs: [...logs] })
     }
 
-    store.addRecord({
+    const record = {
       id: `cleanup-${Date.now()}`,
       timestamp: Math.floor(Date.now() / 1000),
       title: category.name,
       scope: category.id,
-      items: done,
-      freed_bytes: totalBytes,
+      items: cleanedIds.length,
+      freed_bytes: freedBytes,
       high_risk_count: highCount,
-      status: highCount > 0 ? "warn" : "ok",
-    })
+      status: failed > 0 || highCount > 0 ? "warn" : "ok",
+    } as const
+    store.addRecord(record)
+    try {
+      await repository.addCleanupRecord(record)
+    } catch (error) {
+      console.warn("[clean-space] cleanup history persistence failed", {
+        errorCode: parseCommandError(error).code,
+      })
+    }
 
     useCleanSpaceStore.getState().setCleanupProgress({
       finished: true,
-      result: { items: done, freedBytes: totalBytes, paths: paths.size, highCount },
+      result: {
+        items: cleanedIds.length,
+        failed,
+        freedBytes,
+        paths: cleanedPaths.size,
+        highCount,
+      },
     })
 
     // Optimistic UI update: remove cleaned items from the category immediately
     // so the list feels responsive. The full overview refresh runs in the
     // background to reconcile any discrepancies (e.g. items whose size changed
     // between scan and cleanup).
-    const cleanedIds = cleanableItems.map((i) => i.id)
-    store.removeCleanedItems(category.id, cleanedIds, totalBytes)
+    store.removeCleanedItems(category.id, cleanedIds, freedBytes)
 
     // Refresh overview in the background so freed space is reflected across
     // all categories. Failure here is non-fatal: the cleanup already succeeded

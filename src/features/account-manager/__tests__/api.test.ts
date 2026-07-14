@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
+  drainAuthProxyRequest,
   exportRelayData,
+  getAuthProxyInboxStatus,
   proxyLogin,
   proxyLoginNewAccount,
   refreshAll,
@@ -34,15 +36,6 @@ describe("account-manager commands", () => {
     })
   })
 
-  it("allows opting into encrypted full export", async () => {
-    await exportRelayData("/tmp/demo.json", "encryptedFull")
-
-    expect(invokeTauriCommand).toHaveBeenCalledWith(TAURI_COMMANDS.accountManager.exportRelayData, {
-      path: "/tmp/demo.json",
-      mode: "encryptedFull",
-    })
-  })
-
   it("starts proxy login with an opaque one-time ticket", async () => {
     await proxyLogin("acct-1", "ticket-1")
 
@@ -65,5 +58,19 @@ describe("account-manager commands", () => {
     await refreshAll()
 
     expect(invokeTauriCommand).toHaveBeenCalledWith(TAURI_COMMANDS.accountManager.refreshAll)
+  })
+
+  it("reads and drains the auth proxy inbox without sending renderer URL data", async () => {
+    await getAuthProxyInboxStatus()
+    await drainAuthProxyRequest()
+
+    expect(invokeTauriCommand).toHaveBeenNthCalledWith(
+      1,
+      TAURI_COMMANDS.accountManager.getAuthProxyInboxStatus,
+    )
+    expect(invokeTauriCommand).toHaveBeenNthCalledWith(
+      2,
+      TAURI_COMMANDS.accountManager.drainAuthProxyRequest,
+    )
   })
 })

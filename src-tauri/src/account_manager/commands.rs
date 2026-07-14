@@ -9,14 +9,17 @@ use zeroize::Zeroizing;
 use super::crypto;
 use super::network_proxy;
 use super::probe;
-use super::state::{AccountManagerSnapshot, AccountManagerState, AuthProxyTicket, ProbeFlight};
+use super::state::{
+    AccountManagerSnapshot, AccountManagerState, AuthProxyInboxStatus, AuthProxyTicket, ProbeFlight,
+};
 use super::storage;
 use super::types::{
     AccountManagerError, AccountManagerResult, AccountSessionStatus, AccountType, AuthProfile,
-    ExternalApp, ExternalAppBinding, LoginDetectionConfig, LoginMethod, NetworkProxyConfig,
-    ProbeStrategy, RefreshFailure, RefreshReport, RelayAccountExport, RelayDataExportFile,
-    RelayDataExportResult, RelayDataImportResult, RelayExportMode, RelayStation,
-    RelayStationExport, StationAccount,
+    DeletionReport, DeletionResourceKind, DeletionResourceResult, DeletionResourceStatus,
+    DeletionStatus, ExternalApp, ExternalAppBinding, LoginDetectionConfig, LoginMethod,
+    NetworkProxyConfig, PasswordAction, ProbeStrategy, RefreshFailure, RefreshReport,
+    RelayAccountExport, RelayDataExportFile, RelayDataExportResult, RelayDataImportResult,
+    RelayExportMode, RelayStation, RelayStationExport, StationAccount,
 };
 use super::webview;
 
@@ -26,6 +29,7 @@ const MAX_IMPORT_STATIONS: usize = 2_000;
 const MAX_IMPORT_ACCOUNTS: usize = 20_000;
 const CLIPBOARD_SECRET_TTL_SECONDS: u64 = 30;
 const MAX_BROWSER_OPEN_URL_BYTES: usize = 32 * 1024;
+const MAX_PROXY_PASSWORD_BYTES: usize = 4 * 1024;
 
 fn new_id(prefix: &str) -> String {
     let mut bytes = [0u8; 4];
@@ -203,6 +207,113 @@ fn build_export_file(
     ))
 }
 
+fn validate_export_mode(mode: RelayExportMode) -> AccountManagerResult<RelayExportMode> {
+    match mode {
+        RelayExportMode::Sanitized => Ok(RelayExportMode::Sanitized),
+        RelayExportMode::EncryptedFull => Err(AccountManagerError::invalid_input(
+            "encryptedFull export is disabled because it cannot be restored on another device",
+        )),
+    }
+}
+
+fn error_code(error: &AccountManagerError) -> &'static str {
+    match error {
+        AccountManagerError::NotFound { .. } => "NOT_FOUND",
+        AccountManagerError::InvalidInput { .. } => "INVALID_INPUT",
+        AccountManagerError::StoreFail { .. } => "STORE_FAIL",
+        AccountManagerError::KeyringUnavailable { .. } => "KEYRING_UNAVAILABLE",
+        AccountManagerError::CryptoFail { .. } => "CRYPTO_FAIL",
+        AccountManagerError::ClipboardFail { .. } => "CLIPBOARD_FAIL",
+    }
+}
+
+fn deletion_resource(
+    resource: DeletionResourceKind,
+    account_id: Option<String>,
+    result: AccountManagerResult<()>,
+) -> DeletionResourceResult {
+    match result {
+        Ok(()) => DeletionResourceResult {
+            resource,
+            account_id,
+            status: DeletionResourceStatus::Succeeded,
+            error_code: None,
+        },
+        Err(error) => DeletionResourceResult {
+            resource,
+            account_id,
+            status: DeletionResourceStatus::Failed,
+            error_code: Some(error_code(&error).to_string()),
+        },
+    }
+}
+
+fn remove_station_metadata(
+    snapshot: &mut AccountManagerSnapshot,
+    id: &str,
+) -> AccountManagerResult<usize> {
+    let before = snapshot.stations.len();
+    snapshot.stations.retain(|station| station.id != id);
+    if snapshot.stations.len() == before {
+        return Err(AccountManagerError::not_found(format!("station {id}")));
+    }
+
+    let mut dropped_account_ids = HashSet::new();
+    snapshot.accounts.retain(|account| {
+        if account.station_id == id {
+            dropped_account_ids.insert(account.id.clone());
+            false
+        } else {
+            true
+        }
+    });
+    snapshot
+        .secrets
+        .retain(|account_id, _| !dropped_account_ids.contains(account_id));
+    snapshot
+        .sessions
+        .retain(|account_id, _| !dropped_account_ids.contains(account_id));
+    snapshot
+        .external_app_bindings
+        .retain(|binding| !dropped_account_ids.contains(&binding.account_id));
+    prune_unbound_external_apps(snapshot);
+    Ok(dropped_account_ids.len())
+}
+
+fn remove_account_metadata(
+    snapshot: &mut AccountManagerSnapshot,
+    id: &str,
+) -> AccountManagerResult<usize> {
+    let before = snapshot.accounts.len();
+    snapshot.accounts.retain(|account| account.id != id);
+    if snapshot.accounts.len() == before {
+        return Err(AccountManagerError::not_found(format!("account {id}")));
+    }
+    snapshot.secrets.remove(id);
+    snapshot.sessions.remove(id);
+    snapshot
+        .external_app_bindings
+        .retain(|binding| binding.account_id != id);
+    prune_unbound_external_apps(snapshot);
+    Ok(1)
+}
+
+fn prune_unbound_external_apps(snapshot: &mut AccountManagerSnapshot) {
+    let bound_app_ids = snapshot
+        .external_app_bindings
+        .iter()
+        .map(|binding| binding.app_id.clone())
+        .collect::<HashSet<_>>();
+    snapshot
+        .external_apps
+        .retain(|external| bound_app_ids.contains(&external.id));
+    for account in &mut snapshot.accounts {
+        account
+            .external_app_ids
+            .retain(|app_id| bound_app_ids.contains(app_id));
+    }
+}
+
 fn import_account_secret(
     key: &[u8; 32],
     account: &RelayAccountExport,
@@ -344,7 +455,7 @@ pub fn set_station_network_proxy<R: Runtime>(
     state: State<'_, AccountManagerState>,
     station_id: String,
     config: Option<NetworkProxyConfig>,
-    password: Option<String>,
+    password_action: PasswordAction,
 ) -> AccountManagerResult<RelayStation> {
     let existing_password = state
         .read_snapshot_checked()?
@@ -357,12 +468,18 @@ pub fn set_station_network_proxy<R: Runtime>(
     let prepared: Option<NetworkProxyConfig> = match config {
         None => None,
         Some(mut c) => {
-            c.encrypted_password = match password {
-                Some(pw) => {
+            c.encrypted_password = match password_action {
+                PasswordAction::Keep => existing_password,
+                PasswordAction::Clear => None,
+                PasswordAction::Set { password } => {
+                    if password.len() > MAX_PROXY_PASSWORD_BYTES {
+                        return Err(AccountManagerError::invalid_input(format!(
+                            "proxy password exceeds {MAX_PROXY_PASSWORD_BYTES} bytes"
+                        )));
+                    }
                     let key = state.master_key()?;
-                    Some(crypto::encrypt(&key, &pw)?)
+                    Some(crypto::encrypt(&key, &password)?)
                 }
-                None => existing_password,
             };
             Some(c)
         }
@@ -384,51 +501,64 @@ pub fn delete_station<R: Runtime>(
     app: AppHandle<R>,
     state: State<'_, AccountManagerState>,
     id: String,
-) -> AccountManagerResult<()> {
-    let dropped_account_ids = storage::with_state_mut(&app, &state, |snapshot| {
-        let before = snapshot.stations.len();
-        snapshot.stations.retain(|s| s.id != id);
-        if snapshot.stations.len() == before {
-            return Err(AccountManagerError::not_found(format!("station {id}")));
-        }
-
-        let mut dropped_account_ids: Vec<String> = Vec::new();
-        snapshot.accounts.retain(|a| {
-            if a.station_id == id {
-                dropped_account_ids.push(a.id.clone());
-                false
-            } else {
-                true
-            }
-        });
-        for aid in &dropped_account_ids {
-            snapshot.secrets.remove(aid);
-            snapshot.sessions.remove(aid);
-        }
-        snapshot
-            .external_app_bindings
-            .retain(|binding| !dropped_account_ids.contains(&binding.account_id));
-        let bound_app_ids = snapshot
-            .external_app_bindings
-            .iter()
-            .map(|binding| binding.app_id.clone())
-            .collect::<HashSet<_>>();
-        snapshot
-            .external_apps
-            .retain(|external| bound_app_ids.contains(&external.id));
-        for account in &mut snapshot.accounts {
-            account
-                .external_app_ids
-                .retain(|app_id| bound_app_ids.contains(app_id));
-        }
-
-        Ok(dropped_account_ids)
-    })?;
-
-    for aid in &dropped_account_ids {
-        super::webview::remove_account_data_dir(&app, aid)?;
+) -> AccountManagerResult<DeletionReport> {
+    let snapshot = state.read_snapshot_checked()?;
+    if !snapshot.stations.iter().any(|station| station.id == id) {
+        return Err(AccountManagerError::not_found(format!("station {id}")));
     }
-    Ok(())
+    let account_ids = snapshot
+        .accounts
+        .iter()
+        .filter(|account| account.station_id == id)
+        .map(|account| account.id.clone())
+        .collect::<Vec<_>>();
+    let mut resources = account_ids
+        .iter()
+        .map(|account_id| {
+            deletion_resource(
+                DeletionResourceKind::WebviewData,
+                Some(account_id.clone()),
+                webview::remove_account_data_dir(&app, account_id),
+            )
+        })
+        .collect::<Vec<_>>();
+
+    if resources
+        .iter()
+        .any(|resource| resource.status == DeletionResourceStatus::Failed)
+    {
+        return Ok(DeletionReport {
+            target_id: id,
+            status: DeletionStatus::Partial,
+            metadata_deleted: false,
+            removed_account_count: 0,
+            resources,
+        });
+    }
+
+    let metadata_result = storage::with_state_mut(&app, &state, |snapshot| {
+        remove_station_metadata(snapshot, &id)
+    });
+    let removed_account_count = metadata_result.as_ref().copied().unwrap_or(0);
+    resources.push(deletion_resource(
+        DeletionResourceKind::Metadata,
+        None,
+        metadata_result.map(|_| ()),
+    ));
+    let metadata_deleted = resources
+        .last()
+        .is_some_and(|resource| resource.status == DeletionResourceStatus::Succeeded);
+    Ok(DeletionReport {
+        target_id: id,
+        status: if metadata_deleted {
+            DeletionStatus::Complete
+        } else {
+            DeletionStatus::Partial
+        },
+        metadata_deleted,
+        removed_account_count,
+        resources,
+    })
 }
 
 #[tauri::command]
@@ -561,35 +691,54 @@ pub fn delete_account<R: Runtime>(
     app: AppHandle<R>,
     state: State<'_, AccountManagerState>,
     id: String,
-) -> AccountManagerResult<()> {
-    storage::with_state_mut(&app, &state, |snapshot| {
-        let before = snapshot.accounts.len();
-        snapshot.accounts.retain(|a| a.id != id);
-        if snapshot.accounts.len() == before {
-            return Err(AccountManagerError::not_found(format!("account {id}")));
-        }
-        snapshot.secrets.remove(&id);
-        snapshot.sessions.remove(&id);
-        snapshot
-            .external_app_bindings
-            .retain(|binding| binding.account_id != id);
-        let bound_app_ids = snapshot
-            .external_app_bindings
-            .iter()
-            .map(|binding| binding.app_id.clone())
-            .collect::<HashSet<_>>();
-        snapshot
-            .external_apps
-            .retain(|external| bound_app_ids.contains(&external.id));
-        for account in &mut snapshot.accounts {
-            account
-                .external_app_ids
-                .retain(|app_id| bound_app_ids.contains(app_id));
-        }
-        Ok(())
-    })?;
-    super::webview::remove_account_data_dir(&app, &id)?;
-    Ok(())
+) -> AccountManagerResult<DeletionReport> {
+    if !state
+        .read_snapshot_checked()?
+        .accounts
+        .iter()
+        .any(|account| account.id == id)
+    {
+        return Err(AccountManagerError::not_found(format!("account {id}")));
+    }
+
+    let mut resources = vec![deletion_resource(
+        DeletionResourceKind::WebviewData,
+        Some(id.clone()),
+        webview::remove_account_data_dir(&app, &id),
+    )];
+    if resources[0].status == DeletionResourceStatus::Failed {
+        return Ok(DeletionReport {
+            target_id: id,
+            status: DeletionStatus::Partial,
+            metadata_deleted: false,
+            removed_account_count: 0,
+            resources,
+        });
+    }
+
+    let metadata_result = storage::with_state_mut(&app, &state, |snapshot| {
+        remove_account_metadata(snapshot, &id)
+    });
+    let removed_account_count = metadata_result.as_ref().copied().unwrap_or(0);
+    resources.push(deletion_resource(
+        DeletionResourceKind::Metadata,
+        None,
+        metadata_result.map(|_| ()),
+    ));
+    let metadata_deleted = resources
+        .last()
+        .is_some_and(|resource| resource.status == DeletionResourceStatus::Succeeded);
+    Ok(DeletionReport {
+        target_id: id,
+        status: if metadata_deleted {
+            DeletionStatus::Complete
+        } else {
+            DeletionStatus::Partial
+        },
+        metadata_deleted,
+        removed_account_count,
+        resources,
+    })
 }
 
 #[tauri::command]
@@ -649,7 +798,7 @@ pub fn export_relay_data(
     path: String,
     mode: Option<RelayExportMode>,
 ) -> AccountManagerResult<RelayDataExportResult> {
-    let selected_mode = mode.unwrap_or(RelayExportMode::Sanitized);
+    let selected_mode = validate_export_mode(mode.unwrap_or(RelayExportMode::Sanitized))?;
     let snapshot = state.read_snapshot_checked()?;
     let (export, exported_accounts) = build_export_file(&snapshot, selected_mode.clone())?;
     let body = serde_json::to_string_pretty(&export)
@@ -1180,6 +1329,42 @@ mod tests {
         }
     }
 
+    fn make_account(id: &str, station_id: &str) -> StationAccount {
+        StationAccount {
+            id: id.into(),
+            station_id: station_id.into(),
+            username: id.into(),
+            notes: String::new(),
+            phone: None,
+            tg_account: None,
+            linked_account: None,
+            invite_link: None,
+            login_methods: Vec::new(),
+            status: AccountSessionStatus::Ready,
+            last_login_at: None,
+            last_refreshed_at: None,
+            created_at: "2026-01-01 00:00".into(),
+            has_password: false,
+            account_type: Default::default(),
+            website: None,
+            session: None,
+            exclusivity_group: None,
+            proxy_enabled: false,
+            external_app_ids: Vec::new(),
+        }
+    }
+
+    fn snapshot_for_delete() -> AccountManagerSnapshot {
+        AccountManagerSnapshot {
+            stations: vec![make_station("a"), make_station("b")],
+            accounts: vec![make_account("acct-a1", "a"), make_account("acct-b1", "b")],
+            secrets: HashMap::new(),
+            sessions: HashMap::new(),
+            external_apps: Vec::new(),
+            external_app_bindings: Vec::new(),
+        }
+    }
+
     #[test]
     fn reorder_by_ids_returns_items_in_requested_order() {
         let current = vec![make_station("a"), make_station("b"), make_station("c")];
@@ -1261,6 +1446,64 @@ mod tests {
         assert_eq!(export.mode, RelayExportMode::Sanitized);
         assert_eq!(export.stations[0].accounts[0].password, None);
         assert_eq!(export.stations[0].accounts[0].encrypted_password, None);
+    }
+
+    #[test]
+    fn encrypted_full_export_is_rejected_at_the_command_boundary() {
+        assert_eq!(
+            validate_export_mode(RelayExportMode::Sanitized).expect("sanitized"),
+            RelayExportMode::Sanitized
+        );
+        let error = validate_export_mode(RelayExportMode::EncryptedFull).unwrap_err();
+        assert!(matches!(error, AccountManagerError::InvalidInput { .. }));
+    }
+
+    #[test]
+    fn account_metadata_delete_keeps_other_accounts() {
+        let mut snapshot = snapshot_for_delete();
+        assert_eq!(
+            remove_account_metadata(&mut snapshot, "acct-a1").expect("delete"),
+            1
+        );
+        assert_eq!(snapshot.accounts.len(), 1);
+        assert_eq!(snapshot.accounts[0].id, "acct-b1");
+        assert_eq!(snapshot.stations.len(), 2);
+    }
+
+    #[test]
+    fn station_metadata_delete_removes_only_owned_accounts() {
+        let mut snapshot = snapshot_for_delete();
+        assert_eq!(
+            remove_station_metadata(&mut snapshot, "a").expect("delete"),
+            1
+        );
+        assert_eq!(snapshot.stations.len(), 1);
+        assert_eq!(snapshot.stations[0].id, "b");
+        assert_eq!(snapshot.accounts.len(), 1);
+        assert_eq!(snapshot.accounts[0].id, "acct-b1");
+    }
+
+    #[test]
+    fn auth_proxy_drain_skips_malformed_entries_and_returns_the_next_valid_request() {
+        let state = AccountManagerState::new();
+        state
+            .enqueue_auth_proxy_url("bench-auth://authorize".into())
+            .expect("enqueue malformed request");
+        state
+            .enqueue_auth_proxy_url(
+                "bench-auth://authorize?target=https%3A%2F%2Fexample.com%2Foauth%2Fauthorize&return=demo%3A%2Fcallback"
+                    .into(),
+            )
+            .expect("enqueue valid request");
+
+        let result = drain_auth_proxy_request_impl(&state);
+
+        assert_eq!(result.rejected_count, 1);
+        assert_eq!(result.pending_count, 0);
+        let request = result.request.expect("valid request");
+        assert_eq!(request.host, "example.com");
+        assert_eq!(request.return_url.as_deref(), Some("demo:/callback"));
+        assert!(!request.ticket_id.is_empty());
     }
 
     #[test]
@@ -1806,6 +2049,15 @@ pub struct BrowserOpenResult {
     pub matches: Vec<crate::account_manager::proxy::matching::AuthProxyMatch>,
 }
 
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AuthProxyDrainResult {
+    pub request: Option<BrowserOpenResult>,
+    pub pending_count: usize,
+    pub dropped_count: u32,
+    pub rejected_count: u32,
+}
+
 /// 接收一次"用 bench 打开"的 URL（`bench-auth://authorize?...` 或直接是
 /// `https://.../authorize?...` 这类 OAuth 登录链接），返回统一的处理结果:
 /// - `target`: 真正要登录的目标 URL
@@ -1813,10 +2065,9 @@ pub struct BrowserOpenResult {
 /// - `host`: target 的 host(用于自动建站/分组)
 /// - `is_authorize`: 是否像登录/authorize 链接
 /// - `matches`: 按 host 匹配到的、已开启代理的账号
-#[tauri::command]
-pub fn handle_browser_open(
-    state: State<'_, AccountManagerState>,
-    url: String,
+fn prepare_browser_open(
+    state: &AccountManagerState,
+    url: &str,
 ) -> AccountManagerResult<BrowserOpenResult> {
     use crate::account_manager::proxy::protocol;
 
@@ -1828,11 +2079,11 @@ pub fn handle_browser_open(
 
     let (target, return_url, request_state) = if url.starts_with("bench-auth://") {
         let req =
-            protocol::parse_auth_proxy_url(&url).map_err(AccountManagerError::invalid_input)?;
+            protocol::parse_auth_proxy_url(url).map_err(AccountManagerError::invalid_input)?;
         (req.target, Some(req.return_url), req.state)
     } else {
-        let ret = protocol::extract_loopback_callback(&url);
-        (url.clone(), ret, None)
+        let ret = protocol::extract_loopback_callback(url);
+        (url.to_string(), ret, None)
     };
 
     let target = protocol::validate_target_url(&target)
@@ -1896,6 +2147,63 @@ pub fn handle_browser_open(
         is_authorize,
         matches,
     })
+}
+
+#[tauri::command]
+pub fn handle_browser_open(
+    state: State<'_, AccountManagerState>,
+    url: String,
+) -> AccountManagerResult<BrowserOpenResult> {
+    prepare_browser_open(&state, &url)
+}
+
+#[tauri::command]
+pub fn get_auth_proxy_inbox_status(
+    state: State<'_, AccountManagerState>,
+) -> AccountManagerResult<AuthProxyInboxStatus> {
+    state.ensure_ready()?;
+    Ok(state.auth_proxy_inbox_status())
+}
+
+#[tauri::command]
+pub fn drain_auth_proxy_request(
+    state: State<'_, AccountManagerState>,
+) -> AccountManagerResult<AuthProxyDrainResult> {
+    state.ensure_ready()?;
+    Ok(drain_auth_proxy_request_impl(&state))
+}
+
+fn drain_auth_proxy_request_impl(state: &AccountManagerState) -> AuthProxyDrainResult {
+    let mut dropped_count = 0u32;
+    let mut rejected_count = 0u32;
+
+    loop {
+        let (url, status) = state.take_auth_proxy_url();
+        dropped_count = dropped_count.saturating_add(status.dropped_count);
+        let Some(url) = url else {
+            return AuthProxyDrainResult {
+                request: None,
+                pending_count: status.pending_count,
+                dropped_count,
+                rejected_count,
+            };
+        };
+
+        match prepare_browser_open(state, &url) {
+            Ok(request) => {
+                return AuthProxyDrainResult {
+                    request: Some(request),
+                    pending_count: status.pending_count,
+                    dropped_count,
+                    rejected_count,
+                };
+            }
+            Err(_) => {
+                rejected_count = rejected_count.saturating_add(1);
+                eprintln!("[account_manager] discarded malformed auth proxy deep link");
+            }
+        }
+    }
 }
 
 /// 在所选站点下「使用新账号登录」:确保 host 对应的 Station 存在(自动建站/分组),

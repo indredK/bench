@@ -73,7 +73,7 @@ function walkRsFiles(dir, results = []) {
   return results
 }
 
-// --- 3. Collect local modules to exclude ---
+// --- 3. Collect local modules and functions to exclude ---
 
 function collectLocalModules(dir, modules = new Set()) {
   for (const filePath of walkRsFiles(dir)) {
@@ -85,6 +85,22 @@ function collectLocalModules(dir, modules = new Set()) {
     }
   }
   return modules
+}
+
+function collectLocalFunctions(dir, functions = new Set()) {
+  for (const filePath of walkRsFiles(dir)) {
+    const content = readFileSync(filePath, "utf8")
+    const cleaned = content.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "")
+    const fnRegex = /\b(fn)\s+([a-z0-9_]+)\s*(<[^>]*>)?\s*\(/gi
+    let fnMatch
+    while ((fnMatch = fnRegex.exec(cleaned)) !== null) {
+      const fnName = fnMatch[2]
+      if (isSnakeCase(fnName)) {
+        functions.add(fnName)
+      }
+    }
+  }
+  return functions
 }
 
 // Standard library crate roots and known prelude items that appear as
@@ -183,7 +199,7 @@ function isSnakeCase(name) {
   return /^[a-z][a-z0-9_]*$/.test(name) && name !== name.toUpperCase()
 }
 
-function scanFile(filePath, declaredCrates, localModules, useImports) {
+function scanFile(filePath, declaredCrates, localModules, localFunctions, useImports) {
   const rawContent = readFileSync(filePath, "utf8")
   // Strip comments and `use ...;` declarations so we only scan actual usage,
   // not import statements (which legitimately reference crate paths).
@@ -209,6 +225,7 @@ function scanFile(filePath, declaredCrates, localModules, useImports) {
     if (LINT_NAMESPACES.has(refName)) continue
     if (declaredCrates.has(refName)) continue
     if (localModules.has(refName)) continue
+    if (localFunctions.has(refName)) continue
     if (useImports.has(refName)) continue
 
     const lineNumber = content.slice(0, match.index).split("\n").length
@@ -232,11 +249,12 @@ function scanFile(filePath, declaredCrates, localModules, useImports) {
 const cargoContent = readFileSync(cargoTomlPath, "utf8")
 const declaredCrates = parseDeclaredCrates(cargoContent)
 const localModules = collectLocalModules(tauriSrcDir)
+const localFunctions = collectLocalFunctions(tauriSrcDir)
 const useImports = collectUseImports(tauriSrcDir)
 
 const allIssues = []
 for (const filePath of walkRsFiles(tauriSrcDir)) {
-  allIssues.push(...scanFile(filePath, declaredCrates, localModules, useImports))
+  allIssues.push(...scanFile(filePath, declaredCrates, localModules, localFunctions, useImports))
 }
 
 if (allIssues.length === 0) {

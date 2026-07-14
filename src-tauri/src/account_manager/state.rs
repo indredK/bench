@@ -1,7 +1,8 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::fs::OpenOptions;
 use std::sync::{Arc, Mutex, OnceLock, RwLock};
 
+use sha2::{Digest, Sha256};
 use tauri::{AppHandle, Manager, Runtime};
 use tokio::sync::{Notify, Semaphore};
 
@@ -15,6 +16,10 @@ use super::types::{
 const PROBE_CONCURRENCY: usize = 2;
 const AUTH_PROXY_TICKET_TTL_SECONDS: i64 = 300;
 const MAX_AUTH_PROXY_TICKETS: usize = 64;
+const MAX_AUTH_PROXY_INBOX_ITEMS: usize = 32;
+const MAX_AUTH_PROXY_URL_BYTES: usize = 32 * 1024;
+const MAX_RECENT_AUTH_PROXY_REQUESTS: usize = 64;
+const AUTH_PROXY_DEDUP_TTL_SECONDS: i64 = 300;
 
 type ProbeFlightResult = AccountManagerResult<StationAccount>;
 type ProbeFlightRegistry = Arc<Mutex<HashMap<String, Arc<InFlightProbe>>>>;
@@ -113,6 +118,25 @@ pub struct AuthProxyTicket {
     pub expires_at_ts: i64,
 }
 
+#[derive(Debug, Clone, Copy, Default, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AuthProxyInboxStatus {
+    pub pending_count: usize,
+    pub dropped_count: u32,
+}
+
+#[derive(Default)]
+struct AuthProxyInbox {
+    urls: VecDeque<QueuedAuthProxyUrl>,
+    recent: VecDeque<([u8; 32], i64)>,
+    dropped_count: u32,
+}
+
+struct QueuedAuthProxyUrl {
+    url: String,
+    fingerprint: [u8; 32],
+}
+
 #[derive(Clone, Default)]
 pub struct AccountManagerSnapshot {
     pub stations: Vec<RelayStation>,
@@ -131,6 +155,7 @@ pub struct AccountManagerState {
     master_key: OnceLock<[u8; 32]>,
     master_key_init: Mutex<()>,
     auth_proxy_tickets: Mutex<HashMap<String, AuthProxyTicket>>,
+    auth_proxy_inbox: Mutex<AuthProxyInbox>,
     init_error: RwLock<Option<String>>,
 }
 
@@ -143,6 +168,7 @@ impl AccountManagerState {
             master_key: OnceLock::new(),
             master_key_init: Mutex::new(()),
             auth_proxy_tickets: Mutex::new(HashMap::new()),
+            auth_proxy_inbox: Mutex::new(AuthProxyInbox::default()),
             init_error: RwLock::default(),
         }
     }
@@ -327,6 +353,90 @@ impl AccountManagerState {
         }
         Ok(ticket)
     }
+
+    pub(crate) fn enqueue_auth_proxy_url(
+        &self,
+        url: String,
+    ) -> AccountManagerResult<AuthProxyInboxStatus> {
+        if url.len() > MAX_AUTH_PROXY_URL_BYTES {
+            return Err(AccountManagerError::invalid_input(
+                "auth proxy deep link exceeds size limit",
+            ));
+        }
+        let parsed = url::Url::parse(&url)
+            .map_err(|_| AccountManagerError::invalid_input("auth proxy deep link is invalid"))?;
+        if parsed.scheme() != "bench-auth" {
+            return Err(AccountManagerError::invalid_input(
+                "auth proxy deep link scheme is not allowed",
+            ));
+        }
+
+        let fingerprint: [u8; 32] = Sha256::digest(url.as_bytes()).into();
+        let now = chrono::Utc::now().timestamp();
+        let mut inbox = self
+            .auth_proxy_inbox
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        inbox.recent.retain(|(_, expires_at)| *expires_at > now);
+        let duplicate = inbox
+            .urls
+            .iter()
+            .any(|queued| queued.fingerprint == fingerprint)
+            || inbox
+                .recent
+                .iter()
+                .any(|(recent, _)| recent == &fingerprint);
+        if duplicate {
+            return Ok(AuthProxyInboxStatus {
+                pending_count: inbox.urls.len(),
+                dropped_count: inbox.dropped_count,
+            });
+        }
+        if inbox.urls.len() >= MAX_AUTH_PROXY_INBOX_ITEMS {
+            inbox.urls.pop_front();
+            inbox.dropped_count = inbox.dropped_count.saturating_add(1);
+        }
+        inbox
+            .urls
+            .push_back(QueuedAuthProxyUrl { url, fingerprint });
+        Ok(AuthProxyInboxStatus {
+            pending_count: inbox.urls.len(),
+            dropped_count: inbox.dropped_count,
+        })
+    }
+
+    pub(crate) fn auth_proxy_inbox_status(&self) -> AuthProxyInboxStatus {
+        let inbox = self
+            .auth_proxy_inbox
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        AuthProxyInboxStatus {
+            pending_count: inbox.urls.len(),
+            dropped_count: inbox.dropped_count,
+        }
+    }
+
+    pub(crate) fn take_auth_proxy_url(&self) -> (Option<String>, AuthProxyInboxStatus) {
+        let mut inbox = self
+            .auth_proxy_inbox
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let queued = inbox.urls.pop_front();
+        if let Some(queued) = queued.as_ref() {
+            inbox.recent.push_back((
+                queued.fingerprint,
+                chrono::Utc::now().timestamp() + AUTH_PROXY_DEDUP_TTL_SECONDS,
+            ));
+            while inbox.recent.len() > MAX_RECENT_AUTH_PROXY_REQUESTS {
+                inbox.recent.pop_front();
+            }
+        }
+        let status = AuthProxyInboxStatus {
+            pending_count: inbox.urls.len(),
+            dropped_count: std::mem::take(&mut inbox.dropped_count),
+        };
+        (queued.map(|queued| queued.url), status)
+    }
 }
 
 #[cfg(test)]
@@ -378,6 +488,68 @@ mod tests {
         assert!(state
             .consume_auth_proxy_ticket(&valid.id, Some("acct-1"), false)
             .is_err());
+    }
+
+    #[test]
+    fn auth_proxy_inbox_accepts_only_bounded_bench_auth_urls() {
+        let state = AccountManagerState::new();
+        assert!(state
+            .enqueue_auth_proxy_url("https://example.com/login".into())
+            .is_err());
+        assert!(state.enqueue_auth_proxy_url("not a url".into()).is_err());
+        assert!(state
+            .enqueue_auth_proxy_url(format!(
+                "bench-auth://authorize?target={}",
+                "a".repeat(MAX_AUTH_PROXY_URL_BYTES)
+            ))
+            .is_err());
+
+        let status = state
+            .enqueue_auth_proxy_url("bench-auth://authorize?target=one".into())
+            .expect("enqueue valid scheme");
+        assert_eq!(status.pending_count, 1);
+        assert_eq!(status.dropped_count, 0);
+    }
+
+    #[test]
+    fn auth_proxy_inbox_is_fifo_and_drops_the_oldest_item_at_capacity() {
+        let state = AccountManagerState::new();
+        for index in 0..=MAX_AUTH_PROXY_INBOX_ITEMS {
+            state
+                .enqueue_auth_proxy_url(format!("bench-auth://authorize?target={index}"))
+                .expect("enqueue");
+        }
+
+        let status = state.auth_proxy_inbox_status();
+        assert_eq!(status.pending_count, MAX_AUTH_PROXY_INBOX_ITEMS);
+        assert_eq!(status.dropped_count, 1);
+
+        let (first, first_status) = state.take_auth_proxy_url();
+        assert_eq!(first.as_deref(), Some("bench-auth://authorize?target=1"));
+        assert_eq!(first_status.pending_count, MAX_AUTH_PROXY_INBOX_ITEMS - 1);
+        assert_eq!(first_status.dropped_count, 1);
+
+        let (second, second_status) = state.take_auth_proxy_url();
+        assert_eq!(second.as_deref(), Some("bench-auth://authorize?target=2"));
+        assert_eq!(second_status.dropped_count, 0);
+    }
+
+    #[test]
+    fn auth_proxy_inbox_deduplicates_queued_and_recently_consumed_urls() {
+        let state = AccountManagerState::new();
+        let url = "bench-auth://authorize?target=one".to_string();
+        state
+            .enqueue_auth_proxy_url(url.clone())
+            .expect("first enqueue");
+        let queued_duplicate = state
+            .enqueue_auth_proxy_url(url.clone())
+            .expect("queued duplicate");
+        assert_eq!(queued_duplicate.pending_count, 1);
+
+        let (consumed, _) = state.take_auth_proxy_url();
+        assert_eq!(consumed.as_deref(), Some(url.as_str()));
+        let recent_duplicate = state.enqueue_auth_proxy_url(url).expect("recent duplicate");
+        assert_eq!(recent_duplicate.pending_count, 0);
     }
 
     #[tokio::test]

@@ -54,6 +54,7 @@ export const systemSettingsUseCases = {
   setScreenshotDisableShadow: systemSettingsRepository.setScreenshotDisableShadow,
   setScreenshotShowThumbnail: systemSettingsRepository.setScreenshotShowThumbnail,
   setScreenshotSaveLocation: systemSettingsRepository.setScreenshotSaveLocation,
+  getSystemSettingsSnapshot: systemSettingsRepository.getSystemSettingsSnapshot,
 
   // Quick actions
   lockScreen: systemSettingsRepository.lockScreen,

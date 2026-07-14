@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fs::{File, OpenOptions};
 
+use crate::persistence::{backup_file, ensure_file_size};
 use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
 use tauri::{AppHandle, Manager, Runtime};
@@ -19,6 +20,8 @@ const KEY_SCHEMA: &str = "schema_version";
 const KEY_EXTERNAL_APPS: &str = "external_apps";
 const KEY_EXTERNAL_APP_BINDINGS: &str = "external_app_bindings";
 const CURRENT_SCHEMA: u32 = 5;
+const MAX_STORE_FILE_BYTES: u64 = 16 * 1024 * 1024;
+const MAX_MIGRATION_BACKUPS: usize = 3;
 
 /// Load persisted state from the plugin-store and populate the managed state.
 /// Called once during `setup`. Migrates P0 plaintext secrets to encrypted blobs.
@@ -28,12 +31,17 @@ pub fn init_state<R: Runtime>(
 ) -> AccountManagerResult<()> {
     state.initialize_master_key(app)?;
     let _store_lock = acquire_store_lock(app)?;
+    let store_path = account_store_path(app)?;
+    ensure_file_size(&store_path, MAX_STORE_FILE_BYTES)
+        .map_err(|_| AccountManagerError::store_fail("account store exceeds size limit"))?;
     let store = app
         .store(STORE_FILE)
         .map_err(|e| AccountManagerError::store_fail(format!("open store: {e}")))?;
     store
         .reload_ignore_defaults()
         .map_err(|e| AccountManagerError::store_fail(format!("reload store: {e}")))?;
+    let schema = store.get(KEY_SCHEMA).and_then(|v| v.as_u64()).unwrap_or(0);
+    validate_schema_version(schema)?;
 
     let stations: Vec<RelayStation> = decode_or_default(store.get(KEY_STATIONS), KEY_STATIONS)?;
     let mut accounts: Vec<StationAccount> =
@@ -59,8 +67,6 @@ pub fn init_state<R: Runtime>(
         external_apps,
         external_app_bindings,
     };
-    let schema = store.get(KEY_SCHEMA).and_then(|v| v.as_u64()).unwrap_or(0);
-
     let mut dirty = false;
     if needs_resave {
         store.set(KEY_SECRETS, json!(secrets));
@@ -76,6 +82,8 @@ pub fn init_state<R: Runtime>(
         dirty = true;
     }
     if dirty {
+        backup_file(&store_path, "pre-v5", MAX_MIGRATION_BACKUPS)
+            .map_err(|_| AccountManagerError::store_fail("backup account store migration"))?;
         store
             .save()
             .map_err(|e| AccountManagerError::store_fail(format!("save migrations: {e}")))?;
@@ -84,6 +92,22 @@ pub fn init_state<R: Runtime>(
     state.replace_snapshot(snapshot);
     state.clear_init_error();
 
+    Ok(())
+}
+
+fn account_store_path<R: Runtime>(app: &AppHandle<R>) -> AccountManagerResult<std::path::PathBuf> {
+    app.path()
+        .app_data_dir()
+        .map(|directory| directory.join(STORE_FILE))
+        .map_err(|e| AccountManagerError::store_fail(format!("app data dir: {e}")))
+}
+
+fn validate_schema_version(schema: u64) -> AccountManagerResult<()> {
+    if schema > u64::from(CURRENT_SCHEMA) {
+        return Err(AccountManagerError::store_fail(format!(
+            "account store schema {schema} is newer than supported schema {CURRENT_SCHEMA}"
+        )));
+    }
     Ok(())
 }
 
@@ -232,12 +256,20 @@ where
     state.ensure_ready()?;
     let mut snapshot = state.snapshot.write().unwrap_or_else(|e| e.into_inner());
     let _store_lock = acquire_store_lock(app)?;
+    let store_path = account_store_path(app)?;
+    ensure_file_size(&store_path, MAX_STORE_FILE_BYTES)
+        .map_err(|_| AccountManagerError::store_fail("account store exceeds size limit"))?;
     let store = app
         .store(STORE_FILE)
         .map_err(|e| AccountManagerError::store_fail(format!("open store: {e}")))?;
     store
         .reload_ignore_defaults()
         .map_err(|e| AccountManagerError::store_fail(format!("reload store: {e}")))?;
+    let schema = store
+        .get(KEY_SCHEMA)
+        .and_then(|value| value.as_u64())
+        .unwrap_or(0);
+    validate_schema_version(schema)?;
 
     let mut next = AccountManagerSnapshot {
         stations: decode_or_default(store.get(KEY_STATIONS), KEY_STATIONS)?,
@@ -307,5 +339,12 @@ mod tests {
         assert!(migrate_legacy_sessions(&mut accounts, &mut sessions));
         assert!(accounts[0].session.is_none());
         assert_eq!(sessions.get("acct-1"), Some(&canonical));
+    }
+
+    #[test]
+    fn rejects_future_schema_before_migration_or_write() {
+        assert!(validate_schema_version(u64::from(CURRENT_SCHEMA)).is_ok());
+        let error = validate_schema_version(u64::from(CURRENT_SCHEMA) + 1).unwrap_err();
+        assert!(error.to_string().contains("newer than supported"));
     }
 }

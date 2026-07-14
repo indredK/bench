@@ -14,6 +14,37 @@ export interface SleepState {
   config: SleepConfig
 }
 
+export interface SystemSettingsSnapshot {
+  finder: {
+    show_hidden_files: boolean | null
+    show_pathbar: boolean | null
+    show_statusbar: boolean | null
+    show_library_dir: boolean | null
+    show_file_extensions: boolean | null
+    no_ds_store: boolean | null
+  }
+  screenshot: {
+    format: string | null
+    disable_shadow: boolean | null
+    show_thumbnail: boolean | null
+    save_location: string | null
+  }
+  network: {
+    firewall: boolean | null
+    ssh: boolean | null
+    screen_sharing: boolean | null
+    airdrop_disabled: boolean | null
+  }
+  toggles: {
+    autohide_dock: boolean | null
+    autohide_menu_bar: MenuBarAutoHideMode | null
+    dock_show_recents: boolean | null
+    hide_desktop_icons: boolean | null
+    low_power_mode: LowPowerMode | null
+    screen_saver: boolean | null
+  }
+}
+
 export interface SettingResult {
   success: boolean
   message: string

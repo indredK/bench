@@ -1,5 +1,6 @@
 pub mod commands;
 mod crypto;
+pub mod deep_link;
 pub mod detection;
 mod detection_legacy;
 pub mod exclusivity;

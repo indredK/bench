@@ -58,6 +58,7 @@ export interface QuickLaunchState {
   loading: boolean
   isEditMode: boolean
   appOverrides: Record<string, LaunchSceneKey>
+  overridePersistenceIssue: "recovered" | "newerSchema" | "tooLarge" | null
   /** 自动分类结果（不含 overrides），用于导出对比 */
   autoClassified: Record<LaunchSceneKey, string[]>
 

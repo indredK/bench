@@ -104,6 +104,23 @@ pub struct CategoryCleanupResult {
     pub items_cleaned: u32,
     pub items_failed: u32,
     pub aborted: bool,
+    pub results: Vec<CleanupItemResult>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum CleanupItemStatus {
+    Cleaned,
+    Failed,
+    Rejected,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct CleanupItemResult {
+    pub id: String,
+    pub status: CleanupItemStatus,
+    pub freed_bytes: u64,
+    pub error_code: Option<String>,
 }
 
 /// Result of a custom folder scan.

@@ -1,11 +1,18 @@
 /**
  * Auth proxy / 外部登录代理: normalize URL via repository, surface account picker.
  */
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { accountManagerRepository } from "@/features/account-manager/services/account-manager.repository"
-import type { AuthProxyMatch, AuthProxyRequest } from "@/lib/tauri/types/account-manager"
+import { TAURI_EVENTS } from "@/lib/tauri/contracts"
+import type {
+  AuthProxyMatch,
+  AuthProxyRequest,
+  BrowserOpenResult,
+} from "@/lib/tauri/types/account-manager"
+import { listenToPlatformEvent } from "@/platform/events"
+import { parseCommandError } from "@/lib/tauri/errors"
 
 export const NEW_ACCOUNT = "__new__"
 
@@ -23,6 +30,24 @@ export function useAuthProxy() {
   const [authProxyMatches, setAuthProxyMatches] = useState<AuthProxyMatch[]>([])
   const [authProxyHost, setAuthProxyHost] = useState<string>("")
   const [isAuthProxyOpen, setAuthProxyOpen] = useState(false)
+  const activeRequestRef = useRef<AuthProxyRequest | null>(null)
+  const drainInFlightRef = useRef(false)
+
+  const applyBrowserOpenResult = useCallback((result: BrowserOpenResult) => {
+    const request = {
+      ticketId: result.ticketId,
+      expiresAtTs: result.expiresAtTs,
+      target: result.target,
+      returnUrl: result.returnUrl ?? "",
+      state: null,
+      site: result.host,
+    }
+    activeRequestRef.current = request
+    setAuthProxyRequest(request)
+    setAuthProxyMatches(result.matches)
+    setAuthProxyHost(result.host)
+    setAuthProxyOpen(true)
+  }, [])
 
   const openProxyForUrl = useCallback(
     async (url: string): Promise<boolean> => {
@@ -32,57 +57,79 @@ export function useAuthProxy() {
       if (!isBenchAuth && !isWeb) return false
       try {
         const result = await accountManagerRepository.handleBrowserOpen(url)
-        setAuthProxyRequest({
-          ticketId: result.ticketId,
-          expiresAtTs: result.expiresAtTs,
-          target: result.target,
-          returnUrl: result.returnUrl ?? "",
-          state: null,
-          site: result.host,
-        })
-        setAuthProxyMatches(result.matches)
-        setAuthProxyHost(result.host)
-        setAuthProxyOpen(true)
+        applyBrowserOpenResult(result)
         return true
       } catch (error) {
-        console.warn("[auth-proxy] handle url failed:", error)
+        console.warn("[auth-proxy] handle url failed:", parseCommandError(error).code)
         toast.error(t("accountManager.toasts.authProxyHandleFailed"))
         return false
       }
     },
-    [t],
+    [applyBrowserOpenResult, t],
   )
+
+  const drainPendingRequest = useCallback(async () => {
+    if (activeRequestRef.current || drainInFlightRef.current) return
+    drainInFlightRef.current = true
+    try {
+      const result = await accountManagerRepository.drainAuthProxyRequest()
+      if (result.droppedCount > 0) {
+        toast.warning(t("accountManager.toasts.authProxyInboxDropped"))
+      }
+      if (result.rejectedCount > 0) {
+        toast.error(t("accountManager.toasts.authProxyInboxRejected"))
+      }
+      if (result.request) applyBrowserOpenResult(result.request)
+    } catch (error) {
+      console.warn("[auth-proxy] drain request failed:", parseCommandError(error).code)
+      toast.error(t("accountManager.toasts.authProxyHandleFailed"))
+    } finally {
+      drainInFlightRef.current = false
+    }
+  }, [applyBrowserOpenResult, t])
 
   useEffect(() => {
     let unlisten: (() => void) | undefined
     let cancelled = false
 
-    const handleUrl = (url: string) => void openProxyForUrl(url)
-
     ;(async () => {
       try {
-        const { onOpenUrl, getCurrent } = await import("@tauri-apps/plugin-deep-link")
-        try {
-          const current = await getCurrent()
-          if (current) {
-            for (const url of current) await openProxyForUrl(url)
-          }
-        } catch {
-          /* getCurrent unavailable on some platforms */
+        const nextUnlisten = await listenToPlatformEvent(
+          TAURI_EVENTS.accountManager.authProxyPending,
+          () => {
+            void drainPendingRequest()
+          },
+        )
+        if (cancelled) {
+          nextUnlisten()
+          return
         }
-        unlisten = await onOpenUrl((urls) => {
-          for (const url of urls) void handleUrl(url)
-        })
-        if (cancelled) unlisten?.()
+        unlisten = nextUnlisten
+        await drainPendingRequest()
       } catch (error) {
-        console.debug("[auth-proxy] deep-link plugin unavailable:", error)
+        if (!cancelled) {
+          console.warn("[auth-proxy] inbox listener failed:", parseCommandError(error).code)
+        }
       }
     })()
     return () => {
       cancelled = true
       unlisten?.()
     }
-  }, [openProxyForUrl])
+  }, [drainPendingRequest])
+
+  const handleAuthProxyOpenChange = useCallback(
+    (open: boolean) => {
+      setAuthProxyOpen(open)
+      if (open) return
+      activeRequestRef.current = null
+      setAuthProxyRequest(null)
+      setAuthProxyMatches([])
+      setAuthProxyHost("")
+      queueMicrotask(() => void drainPendingRequest())
+    },
+    [drainPendingRequest],
+  )
 
   const confirmAuthProxy = useCallback(
     async (input: AuthProxyConfirmInput): Promise<boolean> => {
@@ -99,7 +146,7 @@ export function useAuthProxy() {
         toast.success(t("accountManager.authProxy.loginStarted"))
         return true
       } catch (error) {
-        console.warn("[auth-proxy] proxyLogin failed:", error)
+        console.warn("[auth-proxy] proxyLogin failed:", parseCommandError(error).code)
         toast.error(t("accountManager.toasts.proxyLoginFailed"))
         return false
       }
@@ -112,7 +159,7 @@ export function useAuthProxy() {
     authProxyMatches,
     authProxyHost,
     isAuthProxyOpen,
-    setAuthProxyOpen,
+    setAuthProxyOpen: handleAuthProxyOpenChange,
     openProxyForUrl,
     confirmAuthProxy,
     NEW_ACCOUNT,

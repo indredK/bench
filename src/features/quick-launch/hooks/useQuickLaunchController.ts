@@ -65,6 +65,7 @@ export function useQuickLaunchController(active: boolean) {
   const loading = useQuickLaunchStore((s) => s.loading)
   const isEditMode = useQuickLaunchStore((s) => s.isEditMode)
   const appOverrides = useQuickLaunchStore((s) => s.appOverrides)
+  const overridePersistenceIssue = useQuickLaunchStore((s) => s.overridePersistenceIssue)
   const autoClassified = useQuickLaunchStore((s) => s.autoClassified)
 
   const setLoading = useQuickLaunchStore((s) => s.setLoading)
@@ -339,6 +340,7 @@ export function useQuickLaunchController(active: boolean) {
     loading,
     isEditMode,
     appOverrides,
+    overridePersistenceIssue,
     autoClassified,
     setSearchQuery,
     toggleExpandScene,

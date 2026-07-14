@@ -69,13 +69,13 @@ import { searchSettings } from "./search-index"
 const TAB_IDS: SettingsTab[] = ["appearance", "security", "system", "advanced"]
 
 const BROWSER_OPTIONS = [
-  { value: "com.apple.Safari", labelKey: "systemSettings.browser.options.safari" },
-  { value: "com.google.Chrome", labelKey: "systemSettings.browser.options.chrome" },
+  { value: "com.apple.safari", labelKey: "systemSettings.browser.options.safari" },
+  { value: "com.google.chrome", labelKey: "systemSettings.browser.options.chrome" },
   { value: "com.microsoft.edgemac", labelKey: "systemSettings.browser.options.edge" },
   { value: "org.mozilla.firefox", labelKey: "systemSettings.browser.options.firefox" },
-  { value: "com.brave.Browser", labelKey: "systemSettings.browser.options.brave" },
-  { value: "com.operasoftware.Opera", labelKey: "systemSettings.browser.options.opera" },
-  { value: "company.thebrowser.Browser", labelKey: "systemSettings.browser.options.arc" },
+  { value: "com.brave.browser", labelKey: "systemSettings.browser.options.brave" },
+  { value: "com.operasoftware.opera", labelKey: "systemSettings.browser.options.opera" },
+  { value: "company.thebrowser.browser", labelKey: "systemSettings.browser.options.arc" },
 ] as const
 
 interface SystemSettingsProps {
@@ -160,6 +160,8 @@ export default function SystemSettings(_props: SystemSettingsProps) {
   const [browserLoading, setBrowserLoading] = useState(false)
   const [browserReadLoading, setBrowserReadLoading] = useState(true)
   const [browserReadError, setBrowserReadError] = useState("")
+  const [snapshotReadLoading, setSnapshotReadLoading] = useState(true)
+  const [snapshotReadError, setSnapshotReadError] = useState("")
 
   // ── Search state ──
   const [searchQuery, setSearchQuery] = useState("")
@@ -174,20 +176,41 @@ export default function SystemSettings(_props: SystemSettingsProps) {
       if (!force && s.loadedTabs.has(tab)) return
 
       if (tab === "appearance" || tab === "security") {
-        s.markTabLoaded(tab)
+        setSnapshotReadLoading(true)
+        setSnapshotReadError("")
+        try {
+          const snapshot = await systemSettingsUseCases.getSystemSettingsSnapshot()
+          s.applySnapshot(snapshot)
+          s.markTabLoaded("appearance")
+          s.markTabLoaded("security")
+        } catch (error) {
+          setSnapshotReadError(translateError(t, error, t("systemSettings.snapshot.loadFailed")))
+        } finally {
+          setSnapshotReadLoading(false)
+        }
         return
       }
 
       if (tab === "system") {
+        setSnapshotReadLoading(true)
         setBrowserReadLoading(true)
         setLoginItemsLoading(true)
+        setSnapshotReadError("")
         setBrowserReadError("")
         setLoginItemsError("")
-        const [browserResult, loginItemsResult] = await Promise.allSettled([
+        const [snapshotResult, browserResult, loginItemsResult] = await Promise.allSettled([
+          systemSettingsUseCases.getSystemSettingsSnapshot(),
           systemSettingsUseCases.getDefaultBrowser(),
           systemSettingsUseCases.getLoginItems(),
         ])
 
+        if (snapshotResult.status === "fulfilled") {
+          s.applySnapshot(snapshotResult.value)
+        } else {
+          setSnapshotReadError(
+            translateError(t, snapshotResult.reason, t("systemSettings.snapshot.loadFailed")),
+          )
+        }
         if (browserResult.status === "fulfilled") {
           s.setDefaultBrowser(browserResult.value)
           setDefaultBrowser(browserResult.value)
@@ -204,9 +227,14 @@ export default function SystemSettings(_props: SystemSettingsProps) {
             translateError(t, loginItemsResult.reason, t("systemSettings.loadFailedTitle")),
           )
         }
+        setSnapshotReadLoading(false)
         setBrowserReadLoading(false)
         setLoginItemsLoading(false)
-        if (browserResult.status === "fulfilled" && loginItemsResult.status === "fulfilled") {
+        if (
+          snapshotResult.status === "fulfilled" &&
+          browserResult.status === "fulfilled" &&
+          loginItemsResult.status === "fulfilled"
+        ) {
           s.markTabLoaded(tab)
         }
         return
@@ -254,6 +282,18 @@ export default function SystemSettings(_props: SystemSettingsProps) {
   }
 
   const renderTabContent = () => {
+    if (store.activeTab !== "advanced" && (snapshotReadLoading || snapshotReadError)) {
+      return (
+        <SettingsSectionState
+          status={snapshotReadLoading ? "loading" : "error"}
+          error={snapshotReadError}
+          onRetry={() => void loadTabSettings(store.activeTab, true)}
+        >
+          <div />
+        </SettingsSectionState>
+      )
+    }
+
     switch (store.activeTab) {
       // ═══════════════════════════════════════════
       // 外观 Appearance
@@ -440,9 +480,9 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                           multiple: false,
                         })
                         if (selected && typeof selected === "string") {
-                          store.setScreenshotSaveLocation(selected)
                           await run("screenshot.saveLocation", async () => {
                             await systemSettingsUseCases.setScreenshotSaveLocation(selected)
+                            store.setScreenshotSaveLocation(selected)
                           })
                         }
                       }}
@@ -847,14 +887,14 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                 >
                   <div className="relative">
                     <Select
-                      value={defaultBrowser}
+                      value={defaultBrowser ?? undefined}
                       disabled={browserLoading}
                       onValueChange={async (v) => {
                         setBrowserLoading(true)
                         try {
-                          await systemSettingsUseCases.setDefaultBrowser(v)
-                          store.setDefaultBrowser(v)
-                          setDefaultBrowser(v)
+                          const applied = await systemSettingsUseCases.setDefaultBrowser(v)
+                          store.setDefaultBrowser(applied)
+                          setDefaultBrowser(applied)
                           toast.success(t("systemSettings.toasts.success"))
                         } catch (err) {
                           toast.error(
@@ -869,6 +909,10 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
+                        {defaultBrowser &&
+                          !BROWSER_OPTIONS.some(({ value }) => value === defaultBrowser) && (
+                            <SelectItem value={defaultBrowser}>{defaultBrowser}</SelectItem>
+                          )}
                         {BROWSER_OPTIONS.map(({ value, labelKey }) => (
                           <SelectItem key={value} value={value}>
                             {t(labelKey)}
@@ -880,6 +924,16 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                       <Loader2Icon className="text-muted-foreground absolute top-1/2 right-2 h-4 w-4 -translate-y-1/2 animate-spin" />
                     )}
                   </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-2 w-full"
+                    onClick={() => systemSettingsUseCases.openDesktopSettings()}
+                  >
+                    <ExternalLink />
+                    {t("systemSettings.browser.openSettings")}
+                  </Button>
                 </SettingsSectionState>
               </SettingGroup>
 

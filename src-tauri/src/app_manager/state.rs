@@ -244,6 +244,13 @@ impl AppManagerState {
     }
 }
 
+fn current_unix_millis() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_millis() as u64)
+        .unwrap_or(0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -383,11 +390,4 @@ mod tests {
         assert!(state.find_cached_update("update-v1-demo", 7).is_some());
         assert!(state.find_cached_update("update-v1-demo", 6).is_none());
     }
-}
-
-fn current_unix_millis() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|duration| duration.as_millis() as u64)
-        .unwrap_or(0)
 }

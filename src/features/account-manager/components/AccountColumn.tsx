@@ -29,6 +29,9 @@ import { cn } from "@/lib/utils"
 import type { RelayStation, StationAccount } from "@/lib/tauri/types/account-manager"
 import { SortableList, useSortableCard, DragHandle } from "@/components/ui/sortable-card"
 import { ColumnHeader, EmptyHint, StatusBadge } from "@/features/account-manager/components/shared"
+import { VirtualAccountList } from "@/features/account-manager/components/VirtualAccountList"
+
+export const ACCOUNT_VIRTUALIZATION_THRESHOLD = 100
 
 export function AccountColumn({
   station,
@@ -89,8 +92,10 @@ export function AccountColumn({
     return result
   }, [accounts, searchQuery, sortMode])
 
+  const effectiveGroupByStatus =
+    groupByStatus && filteredAccounts.length < ACCOUNT_VIRTUALIZATION_THRESHOLD
   const groupedAccounts = useMemo(() => {
-    if (!groupByStatus) return null
+    if (!effectiveGroupByStatus) return null
     const groups: Record<StationAccount["status"], StationAccount[]> = {
       ready: [],
       loginRequired: [],
@@ -102,7 +107,7 @@ export function AccountColumn({
       groups[acc.status]?.push(acc)
     }
     return Object.entries(groups).filter(([, items]) => items.length > 0)
-  }, [filteredAccounts, groupByStatus])
+  }, [effectiveGroupByStatus, filteredAccounts])
 
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
 
@@ -115,7 +120,9 @@ export function AccountColumn({
     })
   }
 
-  const isFiltering = !!searchQuery.trim() || groupByStatus || sortMode !== "manual"
+  const isFiltering = !!searchQuery.trim() || effectiveGroupByStatus || sortMode !== "manual"
+  const shouldVirtualize =
+    !effectiveGroupByStatus && filteredAccounts.length >= ACCOUNT_VIRTUALIZATION_THRESHOLD
 
   const cycleSortMode = () => {
     setSortMode((mode) => (mode === "manual" ? "asc" : mode === "asc" ? "desc" : "manual"))
@@ -167,7 +174,9 @@ export function AccountColumn({
           </div>
         }
       />
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div
+        className={cn("min-h-0 flex-1", shouldVirtualize ? "overflow-hidden" : "overflow-y-auto")}
+      >
         {!station ? (
           <div className="p-3">
             <EmptyHint
@@ -190,6 +199,11 @@ export function AccountColumn({
               text={t("accountManager.searchAccounts")}
             />
           </div>
+        ) : shouldVirtualize ? (
+          <VirtualAccountList
+            accounts={filteredAccounts}
+            renderAccount={(account) => renderCard(account, false)}
+          />
         ) : groupedAccounts ? (
           <div className="space-y-4 p-3">
             {groupedAccounts.map(([status, items]) => (
@@ -306,9 +320,13 @@ export function AccountColumn({
             <TooltipTrigger asChild>
               <Button
                 size="icon-sm"
-                variant={groupByStatus ? "secondary" : "outline"}
+                variant={effectiveGroupByStatus ? "secondary" : "outline"}
                 onClick={() => setGroupByStatus((v) => !v)}
-                disabled={!station || accounts.length === 0}
+                disabled={
+                  !station ||
+                  accounts.length === 0 ||
+                  filteredAccounts.length >= ACCOUNT_VIRTUALIZATION_THRESHOLD
+                }
                 aria-label={t("accountManager.groupByStatus")}
               >
                 <Filter size={14} />

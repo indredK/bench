@@ -327,7 +327,7 @@ fn parse_winget_updates_json(value: &serde_json::Value) -> Vec<(String, String, 
 // Registry-based App Discovery (Uninstall keys)
 // ============================================================================
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, PartialEq, Eq)]
 struct RegistryApp {
     #[serde(rename = "registryKey")]
     registry_key: String,
@@ -349,7 +349,7 @@ struct RegistryApp {
     quiet_uninstall_string: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 struct StartApp {
     #[serde(rename = "Name")]
     name: String,
@@ -406,6 +406,10 @@ $items = Get-ItemProperty -Path $paths -ErrorAction SilentlyContinue |
 @($items) | ConvertTo-Json -Compress -Depth 3
 "#;
     let value = run_powershell_json(script, cancel)?;
+    parse_registry_apps_json(value)
+}
+
+fn parse_registry_apps_json(value: serde_json::Value) -> Result<Vec<RegistryApp>, String> {
     if value.is_null() {
         return Ok(Vec::new());
     }
@@ -518,6 +522,10 @@ $OutputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 @(Get-StartApps | Where-Object { $_.Name -and $_.AppID }) | ConvertTo-Json -Compress -Depth 2
 "#;
     let value = run_powershell_json(script, cancel)?;
+    parse_start_apps_json(value)
+}
+
+fn parse_start_apps_json(value: serde_json::Value) -> Result<Vec<StartApp>, String> {
     if value.is_null() {
         return Ok(Vec::new());
     }
@@ -528,6 +536,36 @@ $OutputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
             .map(|entry| vec![entry])
             .map_err(|error| format!("start apps JSON failed: {error}"))
     }
+}
+
+fn start_app_to_info(entry: StartApp) -> crate::app_manager::types::AppInfo {
+    let bundle_id = format!("windows:aumid:{}", entry.app_id);
+    let app_id = make_app_id(&bundle_id, "");
+    build_app_info(AppInfoInput {
+        app_id,
+        name: entry.name,
+        version: "—".to_string(),
+        bundle_id,
+        install_path: String::new(),
+        source_type: if entry.app_id.contains('!') {
+            SourceType::WindowsStore
+        } else {
+            SourceType::Unknown
+        },
+        source_id: entry.app_id.clone(),
+        source_confidence: 1.0,
+        source_evidence: SourceEvidence::ExactPackageId,
+        can_upgrade: false,
+        can_uninstall: false,
+        upgrade_available: false,
+        last_modified: 0,
+        is_system_app: false,
+        launchable: true,
+        revealable: false,
+        launch_target: Some(LaunchTarget::Aumid {
+            value: entry.app_id,
+        }),
+    })
 }
 
 // ============================================================================
@@ -682,33 +720,7 @@ pub fn scan_installed_apps(cancel: &AtomicBool) -> ScanResult {
         if entry.app_id.trim().is_empty() || known_names.contains(&normalize_name(&entry.name)) {
             continue;
         }
-        let bundle_id = format!("windows:aumid:{}", entry.app_id);
-        let app_id = make_app_id(&bundle_id, "");
-        apps.push(build_app_info(AppInfoInput {
-            app_id,
-            name: entry.name,
-            version: "—".to_string(),
-            bundle_id,
-            install_path: String::new(),
-            source_type: if entry.app_id.contains('!') {
-                SourceType::WindowsStore
-            } else {
-                SourceType::Unknown
-            },
-            source_id: entry.app_id.clone(),
-            source_confidence: 1.0,
-            source_evidence: SourceEvidence::ExactPackageId,
-            can_upgrade: false,
-            can_uninstall: false,
-            upgrade_available: false,
-            last_modified: 0,
-            is_system_app: false,
-            launchable: true,
-            revealable: false,
-            launch_target: Some(LaunchTarget::Aumid {
-                value: entry.app_id,
-            }),
-        }));
+        apps.push(start_app_to_info(entry));
     }
 
     apps = deduplicate(apps);
@@ -1193,5 +1205,65 @@ mod tests {
                 "1.101.0".to_string()
             )]
         );
+    }
+
+    #[test]
+    fn parses_registry_32_64_and_cjk_fixture_without_localized_tables() {
+        let product_code = "{12345678-1234-ABCD-9876-1234567890AB}";
+        let fixture = serde_json::json!([
+            {
+                "registryKey": "Microsoft.PowerShell.Core\\Registry::HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Editor",
+                "displayName": "代码编辑器",
+                "displayVersion": "2.0",
+                "installLocation": "C:\\Program Files\\编辑器",
+                "displayIcon": "\"C:\\Program Files\\编辑器\\editor.exe\",0",
+                "releaseType": "",
+                "productCode": product_code,
+                "uninstallString": format!("MsiExec.exe /X{product_code}"),
+                "quietUninstallString": ""
+            },
+            {
+                "registryKey": "Microsoft.PowerShell.Core\\Registry::HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Legacy",
+                "displayName": "Legacy Tool",
+                "displayVersion": "1.0",
+                "installLocation": "C:\\Program Files (x86)\\Legacy",
+                "displayIcon": "",
+                "releaseType": "",
+                "productCode": "",
+                "uninstallString": "uninstall.exe",
+                "quietUninstallString": ""
+            }
+        ]);
+
+        let entries = parse_registry_apps_json(fixture).expect("registry fixture");
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].display_name, "代码编辑器");
+        assert!(entries[1].registry_key.contains("WOW6432Node"));
+        assert!(has_msi_uninstall_command(&entries[0]));
+        assert_eq!(
+            parse_display_icon(&entries[0].display_icon).as_deref(),
+            Some("C:\\Program Files\\编辑器\\editor.exe")
+        );
+    }
+
+    #[test]
+    fn parses_single_start_app_and_preserves_exact_aumid_launch_target() {
+        let entries = parse_start_apps_json(serde_json::json!({
+            "Name": "终端",
+            "AppID": "Microsoft.WindowsTerminal_8wekyb3d8bbwe!App"
+        }))
+        .expect("start app fixture");
+        assert_eq!(entries.len(), 1);
+
+        let app = start_app_to_info(entries[0].clone());
+        assert_eq!(app.name, "终端");
+        assert!(app.allowed_actions.launch);
+        assert!(!app.allowed_actions.uninstall);
+        assert_eq!(app.source_evidence, SourceEvidence::ExactPackageId);
+        assert!(matches!(
+            app.launch_target,
+            Some(LaunchTarget::Aumid { value })
+                if value == "Microsoft.WindowsTerminal_8wekyb3d8bbwe!App"
+        ));
     }
 }

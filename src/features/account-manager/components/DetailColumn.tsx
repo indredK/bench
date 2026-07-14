@@ -74,6 +74,7 @@ export function DetailColumn({
   redetectingProfile,
   togglingProxy,
   refreshingAccount,
+  className,
 }: {
   station: RelayStation | null
   account: StationAccount | null
@@ -90,6 +91,7 @@ export function DetailColumn({
   redetectingProfile?: boolean
   togglingProxy?: boolean
   refreshingAccount?: boolean
+  className?: string
 }) {
   const { t } = useTranslation()
   const [passwordHidden, setPasswordHidden] = useState(true)
@@ -150,7 +152,12 @@ export function DetailColumn({
   const passwordValue = account?.hasPassword ? (revealedPassword ?? "••••••••") : ""
 
   return (
-    <aside className="bg-card hidden w-[340px] shrink-0 rounded-lg border xl:flex xl:flex-col">
+    <aside
+      className={cn(
+        "bg-card w-[340px] shrink-0 flex-col rounded-lg border",
+        className ?? "hidden xl:flex",
+      )}
+    >
       <ColumnHeader
         title={t("accountManager.detailTitle")}
         action={

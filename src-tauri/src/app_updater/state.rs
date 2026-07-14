@@ -1,3 +1,4 @@
+use crate::error::AppError;
 use std::sync::Arc;
 use std::sync::Mutex;
 use tauri_plugin_updater::Update;
@@ -45,7 +46,7 @@ pub struct InFlightCheckResult {
     pub version: Option<String>,
     pub date: Option<String>,
     pub body: Option<String>,
-    pub error: Option<String>,
+    pub error: Option<AppError>,
 }
 
 impl Default for UpdaterCache {

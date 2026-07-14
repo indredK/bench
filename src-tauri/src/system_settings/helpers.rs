@@ -1,5 +1,6 @@
 #[cfg(target_os = "macos")]
 use std::process::Command;
+use std::{thread, time::Duration};
 
 /// Run a shell command synchronously (blocking). Use only inside spawn_blocking.
 #[cfg(target_os = "macos")]
@@ -72,6 +73,74 @@ pub fn defaults_read(_domain: &str, _key: &str) -> Result<String, String> {
     Err("defaults is only supported on macOS".to_string())
 }
 
+pub fn parse_defaults_bool(value: &str) -> Result<bool, String> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "1" | "yes" | "true" => Ok(true),
+        "0" | "no" | "false" => Ok(false),
+        other => Err(format!("unexpected boolean value: {other}")),
+    }
+}
+
+pub fn defaults_read_bool_result(domain: &str, key: &str) -> Result<bool, String> {
+    defaults_read(domain, key).and_then(|value| parse_defaults_bool(&value))
+}
+
+pub fn defaults_read_bool_or(domain: &str, key: &str, default: bool) -> Result<bool, String> {
+    match run_cmd_err("defaults", &["read", domain, key]) {
+        Ok(value) => parse_defaults_bool(&value),
+        Err(error) if error.contains("does not exist") => Ok(default),
+        Err(error) => Err(error),
+    }
+}
+
+pub fn defaults_read_string_or(domain: &str, key: &str, default: &str) -> Result<String, String> {
+    match run_cmd_err("defaults", &["read", domain, key]) {
+        Ok(value) if !value.trim().is_empty() => Ok(value.trim().to_string()),
+        Ok(_) => Err(format!(
+            "defaults returned an empty value for {domain}/{key}"
+        )),
+        Err(error) if error.contains("does not exist") => Ok(default.to_string()),
+        Err(error) => Err(error),
+    }
+}
+
+pub fn verify_setting<T, F>(expected: &T, mut read: F) -> Result<T, String>
+where
+    T: Clone + PartialEq + std::fmt::Debug,
+    F: FnMut() -> Result<T, String>,
+{
+    const ATTEMPTS: usize = 4;
+    let mut last_error = None;
+
+    for attempt in 0..ATTEMPTS {
+        match read() {
+            Ok(actual) if &actual == expected => return Ok(actual),
+            Ok(actual) => {
+                last_error = Some(format!(
+                    "read-after-write mismatch: expected {expected:?}, got {actual:?}"
+                ));
+            }
+            Err(error) => last_error = Some(error),
+        }
+
+        if attempt + 1 < ATTEMPTS {
+            thread::sleep(Duration::from_millis(75));
+        }
+    }
+
+    Err(last_error.unwrap_or_else(|| "read-after-write verification failed".to_string()))
+}
+
+pub fn setting_verification_error(
+    setting: &str,
+    error: impl std::fmt::Display,
+) -> crate::error::AppError {
+    crate::error::AppError::new(
+        "SETTING_VERIFICATION_FAILED",
+        format!("{setting} was not confirmed after writing: {error}"),
+    )
+}
+
 /// defaults write helper (auto-detects -bool / -int / -string by value shape)
 ///
 /// 类型分发规则 (规范 C-6):
@@ -99,9 +168,7 @@ pub fn defaults_write(_domain: &str, _key: &str, _value: &str) -> Result<(), Str
 
 /// defaults read boolean
 pub fn defaults_read_bool(domain: &str, key: &str) -> bool {
-    defaults_read(domain, key)
-        .map(|v| v == "1" || v.to_lowercase() == "yes" || v.to_lowercase() == "true")
-        .unwrap_or(false)
+    defaults_read_bool_result(domain, key).unwrap_or(false)
 }
 
 /// defaults -currentHost read helper (ByHost 域)

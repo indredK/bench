@@ -4,17 +4,26 @@
 //! Heavy I/O commands use `async` + `spawn_blocking` to avoid blocking
 //! the Tauri async runtime (and thus the UI event loop).
 
+use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::time::Duration;
 use tauri::AppHandle;
 
 use super::types::{
-    CategoryCleanupResult, CleanupItemInput, CleanupRecord, FolderScanResult, StorageItem,
-    StorageOverview,
+    CategoryCleanupResult, CleanupItemInput, CleanupItemResult, CleanupItemStatus, CleanupRecord,
+    FolderScanResult, StorageItem, StorageOverview,
 };
 use super::{folder_scan, records, system_settings, system_storage};
 use crate::error::{AppError, AppResult};
+use crate::subprocess::{run_status_with_timeout, SubprocessError, SubprocessErrorKind};
+
+const MAX_CLEANUP_ITEMS: usize = 500;
+const MAX_CLEANUP_ID_BYTES: usize = 256;
+const MAX_CLEANUP_PATH_BYTES: usize = 4 * 1024;
+const FIND_CLEANUP_TIMEOUT: Duration = Duration::from_secs(120);
+const DOCKER_PRUNE_TIMEOUT: Duration = Duration::from_secs(300);
 
 #[tauri::command]
 pub async fn scan_storage_overview() -> AppResult<StorageOverview> {
@@ -43,57 +52,106 @@ pub async fn get_category_items(category_id: String) -> AppResult<Vec<StorageIte
 pub async fn execute_category_cleanup(
     items: Vec<CleanupItemInput>,
 ) -> AppResult<CategoryCleanupResult> {
-    tauri::async_runtime::spawn_blocking(move || {
-        let mut freed_bytes: u64 = 0;
-        let mut cleaned: u32 = 0;
-        let mut failed: u32 = 0;
+    validate_cleanup_batch(&items)?;
+    tauri::async_runtime::spawn_blocking(move || run_cleanup_items(&items))
+        .await
+        .unwrap_or_else(|e| Err(crate::error::AppError::io(format!("spawn error: {}", e))))
+}
 
-        for item in &items {
-            let action = match cleanup_action_for_item(item) {
-                Ok(action) => action,
-                Err(err) => {
-                    eprintln!(
-                        "[clean-space] rejected cleanup item {} ({}): {}",
-                        item.id, item.path, err
-                    );
-                    failed += 1;
-                    continue;
-                }
-            };
-            let before = action.measure_bytes();
-            match action.execute() {
-                Ok(()) => {
-                    let after = action.measure_bytes();
-                    let measured_freed = before.saturating_sub(after);
-                    let freed = if measured_freed > 0 {
-                        measured_freed
-                    } else {
-                        item.size_bytes
-                    };
-                    freed_bytes += freed;
-                    cleaned += 1;
-                    eprintln!(
-                        "[clean-space] cleaned item {}: freed {} bytes (path: {})",
-                        item.id, freed, item.path
-                    );
-                }
-                Err(e) => {
-                    eprintln!("[clean-space] cleanup failed for item {}: {}", item.id, e);
-                    failed += 1;
-                }
+fn validate_cleanup_batch(items: &[CleanupItemInput]) -> AppResult<()> {
+    if items.len() > MAX_CLEANUP_ITEMS {
+        return Err(AppError::invalid_input(format!(
+            "cleanup batch exceeds {MAX_CLEANUP_ITEMS} items"
+        )));
+    }
+    let mut ids = HashSet::with_capacity(items.len());
+    for item in items {
+        if item.id.is_empty() || item.id.len() > MAX_CLEANUP_ID_BYTES {
+            return Err(AppError::invalid_input(
+                "cleanup item id has an invalid length",
+            ));
+        }
+        if item.path.len() > MAX_CLEANUP_PATH_BYTES {
+            return Err(AppError::invalid_input(format!(
+                "cleanup item path exceeds {MAX_CLEANUP_PATH_BYTES} bytes"
+            )));
+        }
+        if !ids.insert(item.id.as_str()) {
+            return Err(AppError::invalid_input(format!(
+                "duplicate cleanup item id: {}",
+                item.id
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn run_cleanup_items(items: &[CleanupItemInput]) -> AppResult<CategoryCleanupResult> {
+    let mut freed_bytes: u64 = 0;
+    let mut cleaned: u32 = 0;
+    let mut failed: u32 = 0;
+    let mut results = Vec::with_capacity(items.len());
+
+    for item in items {
+        let action = match cleanup_action_for_item(item) {
+            Ok(action) => action,
+            Err(error) => {
+                eprintln!(
+                    "[clean-space] rejected cleanup item {}: {}",
+                    item.id, error.code
+                );
+                failed = failed.saturating_add(1);
+                results.push(CleanupItemResult {
+                    id: item.id.clone(),
+                    status: CleanupItemStatus::Rejected,
+                    freed_bytes: 0,
+                    error_code: Some(error.code),
+                });
+                continue;
+            }
+        };
+        let before = action.measure_bytes();
+        match action.execute() {
+            Ok(()) => {
+                let after = action.measure_bytes();
+                let freed = before.saturating_sub(after);
+                freed_bytes = freed_bytes.saturating_add(freed);
+                cleaned = cleaned.saturating_add(1);
+                results.push(CleanupItemResult {
+                    id: item.id.clone(),
+                    status: CleanupItemStatus::Cleaned,
+                    freed_bytes: freed,
+                    error_code: None,
+                });
+                eprintln!(
+                    "[clean-space] cleaned item {}: freed {} bytes",
+                    item.id, freed
+                );
+            }
+            Err(error) => {
+                eprintln!(
+                    "[clean-space] cleanup failed for item {}: {}",
+                    item.id, error.code
+                );
+                failed = failed.saturating_add(1);
+                results.push(CleanupItemResult {
+                    id: item.id.clone(),
+                    status: CleanupItemStatus::Failed,
+                    freed_bytes: 0,
+                    error_code: Some(error.code),
+                });
             }
         }
+    }
 
-        Ok(CategoryCleanupResult {
-            success: failed == 0,
-            freed_bytes,
-            items_cleaned: cleaned,
-            items_failed: failed,
-            aborted: false,
-        })
+    Ok(CategoryCleanupResult {
+        success: failed == 0,
+        freed_bytes,
+        items_cleaned: cleaned,
+        items_failed: failed,
+        aborted: false,
+        results,
     })
-    .await
-    .unwrap_or_else(|e| Err(crate::error::AppError::io(format!("spawn error: {}", e))))
 }
 
 enum CleanupAction {
@@ -137,6 +195,15 @@ impl CleanupAction {
 }
 
 fn cleanup_action_for_item(item: &CleanupItemInput) -> AppResult<CleanupAction> {
+    if !matches!(
+        item.category_id.as_str(),
+        "downloads" | "system_data" | "developer" | "custom_folder"
+    ) {
+        return Err(AppError::forbidden_path(format!(
+            "Category '{}' is informational or protected and cannot be cleaned",
+            item.category_id
+        )));
+    }
     let home = dirs::home_dir().ok_or_else(|| AppError::not_found("Home directory not found"))?;
     let home = canonicalize_existing_path(&home)?;
 
@@ -155,10 +222,7 @@ fn cleanup_action_for_item(item: &CleanupItemInput) -> AppResult<CleanupAction> 
             reject_protected_custom_path(&path, &home)?;
             Ok(CleanupAction::RemovePath(path))
         }
-        _ => Err(AppError::forbidden_path(format!(
-            "Category '{}' is informational or protected and cannot be cleaned",
-            item.category_id
-        ))),
+        _ => Err(AppError::forbidden_path("Unsupported cleanup item")),
     }
 }
 
@@ -321,10 +385,7 @@ fn remove_children_except(path: &Path, protected_children: &[PathBuf]) -> AppRes
         if protected_children.iter().any(|protected| {
             canonical_entry == *protected || canonical_entry.starts_with(protected)
         }) {
-            eprintln!(
-                "[clean-space] skipped protected cache child {}",
-                canonical_entry.display()
-            );
+            eprintln!("[clean-space] skipped protected cache child");
             continue;
         }
         remove_path(&entry_path)?;
@@ -340,32 +401,43 @@ fn protected_cache_children(home: &Path) -> Vec<PathBuf> {
 }
 
 fn delete_old_logs(path: &Path) -> AppResult<()> {
-    let output = Command::new("find")
-        .arg(path)
-        .args(["-type", "f", "-name", "*.log", "-mtime", "+30", "-delete"])
-        .output()?;
-    if output.status.success() {
-        Ok(())
-    } else {
-        Err(AppError::io(format!(
-            "find failed: {}",
-            String::from_utf8_lossy(&output.stderr).trim()
-        )))
-    }
+    run_cleanup_process(
+        Command::new("find")
+            .arg(path)
+            .args(["-type", "f", "-name", "*.log", "-mtime", "+30", "-delete"]),
+        FIND_CLEANUP_TIMEOUT,
+        "old log cleanup",
+    )
 }
 
 fn docker_prune() -> AppResult<()> {
-    let output = Command::new("docker")
-        .args(["system", "prune", "-af"])
-        .output()?;
-    if output.status.success() {
-        Ok(())
-    } else {
-        Err(AppError::io(format!(
-            "docker system prune failed: {}",
-            String::from_utf8_lossy(&output.stderr).trim()
-        )))
-    }
+    run_cleanup_process(
+        Command::new("docker").args(["system", "prune", "-af"]),
+        DOCKER_PRUNE_TIMEOUT,
+        "Docker cleanup",
+    )
+}
+
+fn run_cleanup_process(command: &mut Command, timeout: Duration, operation: &str) -> AppResult<()> {
+    run_status_with_timeout(command, timeout)
+        .map(|_| ())
+        .map_err(|error| cleanup_process_error(operation, error))
+}
+
+fn cleanup_process_error(operation: &str, error: SubprocessError) -> AppError {
+    let (code, reason) = match error.kind {
+        SubprocessErrorKind::Spawn => ("CLEANUP_PROCESS_SPAWN_FAILED", "could not start".into()),
+        SubprocessErrorKind::Exit => (
+            "CLEANUP_PROCESS_FAILED",
+            error
+                .exit_code
+                .map(|code| format!("exited unsuccessfully with code {code}"))
+                .unwrap_or_else(|| "exited unsuccessfully".to_string()),
+        ),
+        SubprocessErrorKind::Timeout => ("CLEANUP_PROCESS_TIMEOUT", "timed out".into()),
+        SubprocessErrorKind::Wait => ("CLEANUP_PROCESS_FAILED", "could not be monitored".into()),
+    };
+    AppError::new(code, format!("{operation} {reason}"))
 }
 
 #[tauri::command]
@@ -396,4 +468,102 @@ pub fn get_cleanup_records() -> AppResult<Vec<CleanupRecord>> {
 #[tauri::command]
 pub fn add_cleanup_record(record: CleanupRecord) -> AppResult<()> {
     records::add_record(record)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn item(id: &str, category_id: &str, path: &str) -> CleanupItemInput {
+        CleanupItemInput {
+            id: id.into(),
+            category_id: category_id.into(),
+            command: String::new(),
+            path: path.into(),
+            size_bytes: 1024,
+        }
+    }
+
+    #[test]
+    fn cleanup_batch_rejects_duplicate_ids() {
+        let items = vec![
+            item("same", "documents", "/tmp/a"),
+            item("same", "documents", "/tmp/b"),
+        ];
+        let error = validate_cleanup_batch(&items).unwrap_err();
+        assert_eq!(error.code, "INVALID_INPUT");
+    }
+
+    #[test]
+    fn cleanup_batch_rejects_excessive_item_count() {
+        let items = (0..=MAX_CLEANUP_ITEMS)
+            .map(|index| item(&format!("item-{index}"), "documents", "/tmp/a"))
+            .collect::<Vec<_>>();
+        let error = validate_cleanup_batch(&items).unwrap_err();
+        assert_eq!(error.code, "INVALID_INPUT");
+    }
+
+    #[test]
+    fn cleanup_process_timeout_maps_to_a_stable_error_code() {
+        let error = cleanup_process_error(
+            "test cleanup",
+            SubprocessError {
+                kind: SubprocessErrorKind::Timeout,
+                exit_code: None,
+            },
+        );
+        assert_eq!(error.code, "CLEANUP_PROCESS_TIMEOUT");
+        assert!(!error.message.contains('/'));
+    }
+
+    #[test]
+    fn rejected_items_are_not_counted_as_cleaned_or_freed() {
+        let result = run_cleanup_items(&[item("protected", "documents", "/tmp/a")])
+            .expect("structured result");
+        assert!(!result.success);
+        assert_eq!(result.items_cleaned, 0);
+        assert_eq!(result.items_failed, 1);
+        assert_eq!(result.freed_bytes, 0);
+        assert_eq!(result.results.len(), 1);
+        assert_eq!(result.results[0].status, CleanupItemStatus::Rejected);
+        assert_eq!(
+            result.results[0].error_code.as_deref(),
+            Some("FORBIDDEN_PATH")
+        );
+    }
+
+    #[test]
+    fn direct_child_check_rejects_nested_and_sibling_paths() {
+        let root = Path::new("/Users/test/Downloads");
+        assert!(require_direct_child(Path::new("/Users/test/Downloads/file.zip"), root).is_ok());
+        assert!(
+            require_direct_child(Path::new("/Users/test/Downloads/nested/file.zip"), root).is_err()
+        );
+        assert!(
+            require_direct_child(Path::new("/Users/test/Downloads-old/file.zip"), root).is_err()
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn remove_path_unlinks_symlink_without_following_target() {
+        use std::os::unix::fs::symlink;
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("bench-clean-space-{suffix}"));
+        let target = root.join("outside.txt");
+        let link = root.join("link.txt");
+        fs::create_dir_all(&root).expect("temp dir");
+        fs::write(&target, "keep").expect("target");
+        symlink(&target, &link).expect("symlink");
+
+        remove_path(&link).expect("unlink");
+        assert!(!link.exists());
+        assert!(target.exists());
+        fs::remove_dir_all(root).expect("cleanup temp dir");
+    }
 }

@@ -12,7 +12,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::thread;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
@@ -22,6 +22,7 @@ use super::types::{
     CleanupProtectionKind, PriorityTier, RiskLevel, StorageCategory, StorageItem, StorageOverview,
 };
 use crate::error::AppResult;
+use crate::subprocess::run_output_with_timeout;
 
 /// Event emitted when streaming scan starts.
 #[derive(Debug, Clone, Serialize)]
@@ -36,6 +37,9 @@ const EVENT_SCAN_CATEGORY: &str = "clean-space:scan-category";
 const EVENT_SCAN_COMPLETE: &str = "clean-space:scan-complete";
 const OVERVIEW_CACHE_VERSION: u32 = 1;
 const OVERVIEW_CACHE_MAX_AGE_SECS: u64 = 7 * 24 * 60 * 60;
+const DISK_INFO_TIMEOUT: Duration = Duration::from_secs(10);
+const SIZE_COMMAND_TIMEOUT: Duration = Duration::from_secs(120);
+const SNAPSHOT_COMMAND_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Query `df -k /` once and return (total_bytes, used_bytes).
 ///
@@ -55,7 +59,8 @@ const OVERVIEW_CACHE_MAX_AGE_SECS: u64 = 7 * 24 * 60 * 60;
 /// used space by hundreds of GB, making "Free" appear far larger than what
 /// macOS System Settings shows.
 fn get_disk_info() -> (u64, u64) {
-    let output = Command::new("df").args(["-k", "/"]).output().ok();
+    let output =
+        run_output_with_timeout(Command::new("df").args(["-k", "/"]), DISK_INFO_TIMEOUT).ok();
     if let Some(out) = output {
         let s = String::from_utf8_lossy(&out.stdout);
         for line in s.lines().skip(1) {
@@ -83,7 +88,11 @@ fn get_disk_info() -> (u64, u64) {
 /// of the actual ~12 GB system volume). `-x` prevents crossing filesystem
 /// boundaries, so each `du` call stays within its intended volume.
 pub(crate) fn du_size_bytes(path: &str) -> u64 {
-    let output = Command::new("du").args(["-skx", path]).output().ok();
+    let output = run_output_with_timeout(
+        Command::new("du").args(["-skx", path]),
+        SIZE_COMMAND_TIMEOUT,
+    )
+    .ok();
     if let Some(out) = output {
         let s = String::from_utf8_lossy(&out.stdout);
         if let Some(first_line) = s.lines().next() {
@@ -107,30 +116,32 @@ struct LocalSnapshotInfo {
 }
 
 fn local_snapshot_info() -> LocalSnapshotInfo {
-    let snapshot_count = Command::new("tmutil")
-        .args(["listlocalsnapshots", "/"])
-        .output()
-        .ok()
-        .map(|out| {
-            String::from_utf8_lossy(&out.stdout)
-                .lines()
-                .filter(|line| line.contains("com.apple.TimeMachine"))
-                .count()
-        })
-        .unwrap_or(0);
+    let snapshot_count = run_output_with_timeout(
+        Command::new("tmutil").args(["listlocalsnapshots", "/"]),
+        SNAPSHOT_COMMAND_TIMEOUT,
+    )
+    .ok()
+    .map(|out| {
+        String::from_utf8_lossy(&out.stdout)
+            .lines()
+            .filter(|line| line.contains("com.apple.TimeMachine"))
+            .count()
+    })
+    .unwrap_or(0);
 
-    let snapshot_size = Command::new("diskutil")
-        .args(["apfs", "listSnapshots", "/", "-plist"])
-        .output()
-        .ok()
-        .and_then(|out| {
-            if out.status.success() {
-                plist::Value::from_reader_xml(out.stdout.as_slice()).ok()
-            } else {
-                None
-            }
-        })
-        .and_then(|value| sum_snapshot_bytes(&value));
+    let snapshot_size = run_output_with_timeout(
+        Command::new("diskutil").args(["apfs", "listSnapshots", "/", "-plist"]),
+        SNAPSHOT_COMMAND_TIMEOUT,
+    )
+    .ok()
+    .and_then(|out| {
+        if out.status.success() {
+            plist::Value::from_reader_xml(out.stdout.as_slice()).ok()
+        } else {
+            None
+        }
+    })
+    .and_then(|value| sum_snapshot_bytes(&value));
 
     LocalSnapshotInfo {
         count: snapshot_count,
@@ -327,6 +338,7 @@ impl StoragePaths {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct OverviewTotals {
     disk_total: u64,
     disk_used: u64,
@@ -493,22 +505,56 @@ fn category_stub(
     }
 }
 
-fn fast_overview(disk_total: u64, disk_used: u64) -> StorageOverview {
+fn build_overview(totals: OverviewTotals) -> StorageOverview {
     let mut categories = vec![
-        category_stub("applications", "Applications", "var(--chart-1)", 0),
-        category_stub("downloads", "Downloads", "var(--chart-2)", 0),
-        category_stub("documents", "Documents", "var(--chart-3)", 0),
-        category_stub("system_data", "System Data", "var(--chart-4)", 0),
-        category_stub("app_data", "App Data", "var(--chart-5)", 0),
-        category_stub("other_users", "Other Users & Shared", "var(--chart-6)", 0),
-        category_stub("macos", "macOS", "var(--chart-7)", disk_used),
-        category_stub("developer", "Developer", "var(--chart-8)", 0),
+        category_stub(
+            "applications",
+            "Applications",
+            "var(--chart-1)",
+            totals.apps,
+        ),
+        category_stub("downloads", "Downloads", "var(--chart-2)", totals.downloads),
+        category_stub("documents", "Documents", "var(--chart-3)", totals.documents),
+        category_stub(
+            "system_data",
+            "System Data",
+            "var(--chart-4)",
+            totals.system_data,
+        ),
+        category_stub("app_data", "App Data", "var(--chart-5)", totals.app_data),
+        category_stub(
+            "other_users",
+            "Other Users & Shared",
+            "var(--chart-6)",
+            totals.other_users,
+        ),
+        category_stub(
+            "macos",
+            "macOS",
+            "var(--chart-7)",
+            totals.disk_used.saturating_sub(totals.known_bytes()),
+        ),
+        category_stub("developer", "Developer", "var(--chart-8)", totals.developer),
     ];
     sort_overview_categories(&mut categories);
     StorageOverview {
-        disk_total_bytes: disk_total,
+        disk_total_bytes: totals.disk_total,
         categories,
     }
+}
+
+fn fast_overview(disk_total: u64, disk_used: u64) -> StorageOverview {
+    build_overview(OverviewTotals {
+        disk_total,
+        disk_used,
+        apps: 0,
+        downloads: 0,
+        documents: 0,
+        system_data: 0,
+        app_data: 0,
+        other_users: 0,
+        developer: 0,
+    })
 }
 
 fn emit_overview(app: &AppHandle, overview: &StorageOverview) {
@@ -549,7 +595,11 @@ fn du_sizes_for_paths(paths: &[PathBuf]) -> Vec<(PathBuf, u64)> {
     let existing_paths: Vec<PathBuf> = paths.iter().filter(|path| path.exists()).cloned().collect();
 
     for chunk in existing_paths.chunks(128) {
-        let output = Command::new("du").arg("-skx").args(chunk).output().ok();
+        let output = run_output_with_timeout(
+            Command::new("du").arg("-skx").args(chunk),
+            SIZE_COMMAND_TIMEOUT,
+        )
+        .ok();
         if let Some(out) = output {
             let stdout = String::from_utf8_lossy(&out.stdout);
             let mut sizes_by_path: HashMap<String, u64> = HashMap::new();
@@ -913,7 +963,7 @@ fn list_documents_items(docs_path: &str, home_str: &str) -> Vec<StorageItem> {
         args.push(path.clone());
     }
 
-    let output = Command::new("du").args(&args).output().ok();
+    let output = run_output_with_timeout(Command::new("du").args(&args), SIZE_COMMAND_TIMEOUT).ok();
 
     // Parse du output: each line is "<size_kb> <path>"
     let mut size_map: std::collections::HashMap<String, u64> = std::collections::HashMap::new();
@@ -1504,93 +1554,7 @@ pub fn scan_overview() -> AppResult<StorageOverview> {
     // spawning a process per category path. Disk capacity is independent and
     // remains instant, so it still runs in parallel.
     let totals = scan_overview_totals(&paths);
-
-    // 1. Applications
-    let applications = StorageCategory {
-        id: "applications".into(),
-        name: "Applications".into(),
-        color: "var(--chart-1)".into(),
-        total_bytes: totals.apps,
-        items: vec![],
-    };
-
-    // 2. Downloads
-    let downloads = StorageCategory {
-        id: "downloads".into(),
-        name: "Downloads".into(),
-        color: "var(--chart-2)".into(),
-        total_bytes: totals.downloads,
-        items: vec![],
-    };
-
-    // 3. Documents
-    let documents = StorageCategory {
-        id: "documents".into(),
-        name: "Documents".into(),
-        color: "var(--chart-3)".into(),
-        total_bytes: totals.documents,
-        items: vec![],
-    };
-
-    // 4. System Data (Caches + Logs + Trash)
-    let system_data = StorageCategory {
-        id: "system_data".into(),
-        name: "System Data".into(),
-        color: "var(--chart-4)".into(),
-        total_bytes: totals.system_data,
-        items: vec![],
-    };
-
-    // 5. App Data (Application Support + Containers + Group Containers)
-    let app_data = StorageCategory {
-        id: "app_data".into(),
-        name: "App Data".into(),
-        color: "var(--chart-5)".into(),
-        total_bytes: totals.app_data,
-        items: vec![],
-    };
-
-    // 6. Other Users
-    let other_users = StorageCategory {
-        id: "other_users".into(),
-        name: "Other Users & Shared".into(),
-        color: "var(--chart-6)".into(),
-        total_bytes: totals.other_users,
-        items: vec![],
-    };
-
-    // 7. macOS (remainder)
-    let macos_total = totals.disk_used.saturating_sub(totals.known_bytes());
-    let macos = StorageCategory {
-        id: "macos".into(),
-        name: "macOS".into(),
-        color: "var(--chart-7)".into(),
-        total_bytes: macos_total,
-        items: vec![],
-    };
-
-    // 8. Developer
-    let developer = StorageCategory {
-        id: "developer".into(),
-        name: "Developer".into(),
-        color: "var(--chart-8)".into(),
-        total_bytes: totals.developer,
-        items: vec![],
-    };
-
-    Ok(StorageOverview {
-        disk_total_bytes: totals.disk_total,
-        categories: vec![
-            applications,
-            downloads,
-            documents,
-            system_data,
-            app_data,
-            other_users,
-            macos,
-            developer,
-        ],
-    })
+    Ok(build_overview(totals))
 }
 
 /// Hybrid streaming scan: emit a fast overview immediately, then refine it.
@@ -1741,4 +1705,66 @@ pub fn get_category_items(category_id: &str) -> AppResult<Vec<StorageItem>> {
     };
 
     Ok(items)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn totals(disk_used: u64) -> OverviewTotals {
+        OverviewTotals {
+            disk_total: 1_000,
+            disk_used,
+            apps: 100,
+            downloads: 20,
+            documents: 30,
+            system_data: 40,
+            app_data: 50,
+            other_users: 10,
+            developer: 25,
+        }
+    }
+
+    #[test]
+    fn overview_builder_uses_one_stable_category_order() {
+        let overview = build_overview(totals(500));
+        let ids = overview
+            .categories
+            .iter()
+            .map(|category| category.id.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            ids,
+            vec![
+                "applications",
+                "downloads",
+                "documents",
+                "system_data",
+                "app_data",
+                "other_users",
+                "macos",
+                "developer",
+            ]
+        );
+        assert_eq!(overview.categories[6].total_bytes, 225);
+    }
+
+    #[test]
+    fn macos_remainder_saturates_when_known_categories_exceed_disk_usage() {
+        let overview = build_overview(totals(100));
+        let macos = overview
+            .categories
+            .iter()
+            .find(|category| category.id == "macos")
+            .expect("macOS category");
+        assert_eq!(macos.total_bytes, 0);
+    }
+
+    #[test]
+    fn fast_overview_uses_the_same_category_builder() {
+        let overview = fast_overview(1_000, 400);
+        assert_eq!(overview.categories.len(), 8);
+        assert_eq!(overview.categories[6].id, "macos");
+        assert_eq!(overview.categories[6].total_bytes, 400);
+    }
 }

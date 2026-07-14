@@ -5,17 +5,20 @@ import { invokeTauriCommand } from "@/lib/tauri/invoke"
 import { TAURI_COMMANDS } from "@/lib/tauri/contracts"
 import type {
   AuthProfile,
+  AuthProxyDrainResult,
+  AuthProxyInboxStatus,
   AuthProxyResult,
   BrowserOpenResult,
+  DeletionReport,
   ExternalApp,
   ExternalAppBinding,
   LoginDetectionConfig,
   LoginMethod,
   NetworkProxyConfig,
+  PasswordAction,
   ProbeStrategy,
   RelayDataExportResult,
   RelayDataImportResult,
-  RelayExportMode,
   RefreshReport,
   RelayStation,
   StationAccount,
@@ -29,6 +32,7 @@ export type {
   AuthProxyRequest,
   AuthProxyResult,
   BrowserOpenResult,
+  DeletionReport,
   ExclusivityMode,
   ExternalApp,
   ExternalAppBinding,
@@ -40,6 +44,7 @@ export type {
   MatchConfidence,
   NetworkProxyConfig,
   NetworkProxyType,
+  PasswordAction,
   ProbeStrategy,
   RelayDataExportResult,
   RelayDataImportResult,
@@ -77,7 +82,7 @@ export function updateStation(
   })
 }
 
-export function deleteStation(id: string): Promise<void> {
+export function deleteStation(id: string): Promise<DeletionReport> {
   return invokeTauriCommand(TAURI_COMMANDS.accountManager.deleteStation, { id })
 }
 
@@ -133,7 +138,7 @@ export function updateAccount(
   })
 }
 
-export function deleteAccount(id: string): Promise<void> {
+export function deleteAccount(id: string): Promise<DeletionReport> {
   return invokeTauriCommand(TAURI_COMMANDS.accountManager.deleteAccount, { id })
 }
 
@@ -165,11 +170,11 @@ export function refreshAll(): Promise<RefreshReport> {
   return invokeTauriCommand(TAURI_COMMANDS.accountManager.refreshAll)
 }
 
-export function exportRelayData(
-  path: string,
-  mode: RelayExportMode = "sanitized",
-): Promise<RelayDataExportResult> {
-  return invokeTauriCommand(TAURI_COMMANDS.accountManager.exportRelayData, { path, mode })
+export function exportRelayData(path: string): Promise<RelayDataExportResult> {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.exportRelayData, {
+    path,
+    mode: "sanitized",
+  })
 }
 
 export function importRelayData(path: string): Promise<RelayDataImportResult> {
@@ -234,17 +239,18 @@ export function setSessionTtl(stationId: string, ttlHours: number): Promise<Rela
 }
 
 /// 设置 Station 的网络代理(HTTP / SOCKS5)。
-/// `config = null` 清除代理(直连)。`password` 为明文(后端加密);null 保留已存密码。
+/// `config = null` 清除代理(直连)。密码变更使用 keep/set/clear 窄动作。
 /// 注意:前端传入的 `config.encryptedPassword` 会被后端忽略,以后端加密结果为准。
 export function setStationNetworkProxy(
   stationId: string,
   config: NetworkProxyConfig | null,
-  password: string | null,
+  passwordAction: PasswordAction,
 ): Promise<RelayStation> {
+  const sanitized = config ? { ...config, encryptedPassword: null } : null
   return invokeTauriCommand(TAURI_COMMANDS.accountManager.setStationNetworkProxy, {
     stationId,
-    config,
-    password,
+    config: sanitized,
+    passwordAction,
   })
 }
 
@@ -273,6 +279,14 @@ export function proxyLogin(accountId: string, ticketId: string): Promise<AuthPro
 /// 返回归一化的 target / 回调地址 / host / 是否像登录链接 / 已匹配账号。
 export function handleBrowserOpen(url: string): Promise<BrowserOpenResult> {
   return invokeTauriCommand(TAURI_COMMANDS.accountManager.handleBrowserOpen, { url })
+}
+
+export function getAuthProxyInboxStatus(): Promise<AuthProxyInboxStatus> {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.getAuthProxyInboxStatus)
+}
+
+export function drainAuthProxyRequest(): Promise<AuthProxyDrainResult> {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.drainAuthProxyRequest)
 }
 
 /// 在指定 host 下「使用新账号登录」:自动建站/分组 + 创建新账号 + 启动代理登录。

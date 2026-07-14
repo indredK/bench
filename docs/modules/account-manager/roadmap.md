@@ -4,15 +4,17 @@
 
 ## 发布阻断
 
-- [ ] Phase 0：暂时禁用或升级不可跨设备恢复的 encrypted full export。
 - [ ] Phase 1：完成按 origin 的 local/session storage 与 IndexedDB 捕获/恢复；Session Cookie schema 保留 canonical expiry/partition key，再评估用 RFC 6265 CookieStore 取代手写 HTTP header。
-- [ ] Phase 2：把 Deep Link listener 上移到 App 根层队列，并补 Windows single-instance 冷/热启动行为。
-- [ ] Phase 3：网络代理改用显式 `PasswordAction`，补 Windows WebView capability；当前不支持时保持 fail-closed。
-- [ ] Phase 4：删除返回逐资源 partial report；实现 passphrase 可移植加密导入导出。
-- [ ] Phase 5：继续分层重构，补区域错误/retry、窄屏详情 Sheet 和 500+ 账号虚拟列表。
-- [ ] Phase 6：macOS/Windows 行为矩阵进入 CI 并在真机 smoke 通过；覆盖同账号 single-flight、429/5xx 重试预算、Cookie scope、Keyring 重启、WebView Session 恢复和 Deep Link 冷/热启动。
+- [ ] Phase 3：新增后端 capability DTO；Windows WebView proxy 当前保持 unsupported/fail-closed，入口只在 Session/Keyring/WebView 基础链路验收后开放。
+- [ ] Phase 5：补区域错误/retry，并按真实 owner 拆分超大的 `commands.rs`、controller 和 dialogs；不得改 IPC 名称或创建空转发层。
+
+## 延期验证
+
+- [ ] 在 macOS/Windows 真机验证 Keyring 重启、WebView Session 恢复、Deep Link 冷/热启动、第二实例退出和 Windows proxy unsupported 反馈。
+- [ ] 将同账号 single-flight、429/5xx 预算、Cookie scope、Deep Link 多 URL/去重和平台行为矩阵接入 CI。
 
 ## 远期
 
+- [ ] 如恢复完整导出，实现 passphrase + KDF + AEAD 的可移植格式；当前 renderer 只能请求 sanitized export，后端继续拒绝 `encryptedFull`。
 - [ ] 评估 TLS 指纹模拟和 Canvas/WebGL 指纹隔离；不得以降低安全边界为代价。
 - [ ] 云端同步需先提交独立 RFC：仅支持 BYO endpoint、客户端加密、版本迁移、冲突处理和删除语义；不得内置维护者公共服务。

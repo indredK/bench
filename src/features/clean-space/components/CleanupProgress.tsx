@@ -3,7 +3,7 @@
  * and result summary after completion. Modeled after clean-space-prototype.html result view.
  */
 import { useTranslation } from "react-i18next"
-import { CheckCircle } from "lucide-react"
+import { AlertTriangle, CheckCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardTitle } from "@/components/ui/card"
 import { useCleanSpaceStore } from "@/features/clean-space/store"
@@ -62,24 +62,34 @@ export function CleanupProgress() {
                     key={idx}
                     className={cn(
                       "animate-in fade-in flex items-start gap-2 py-0.5",
-                      log.status === "warn" && "text-red-300",
+                      log.status === "failed" && "text-red-300",
                     )}
                   >
                     <span
                       className={cn(
                         "mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full",
                         log.status === "ok" && "bg-green-500",
-                        log.status === "warn" && "bg-red-500",
+                        log.status === "failed" && "bg-red-500",
                         log.status === "skip" && "bg-neutral-500",
                       )}
                     />
                     <span className="shrink-0 text-neutral-500">{time}</span>
                     <span>
-                      {log.status === "warn"
-                        ? t("cleanSpace.progress.deleted")
-                        : t("cleanSpace.progress.cleaned")}
-                      ：{log.name} · {t("cleanSpace.progress.freed")} {formatSize(log.size_bytes)}
-                      {log.status === "warn" && t("cleanSpace.progress.irreversible")}
+                      {log.status === "failed"
+                        ? t("cleanSpace.progress.failed")
+                        : log.risk_level === "high"
+                          ? t("cleanSpace.progress.deleted")
+                          : t("cleanSpace.progress.cleaned")}
+                      ：{log.name}
+                      {log.status !== "failed" && (
+                        <>
+                          {" "}
+                          · {t("cleanSpace.progress.freed")} {formatSize(log.size_bytes)}
+                        </>
+                      )}
+                      {log.status !== "failed" &&
+                        log.risk_level === "high" &&
+                        t("cleanSpace.progress.irreversible")}
                     </span>
                   </div>
                 )
@@ -94,7 +104,20 @@ export function CleanupProgress() {
         <Card>
           <CardContent className="py-4">
             <CardTitle className="mb-4 text-sm">{t("cleanSpace.progress.resultTitle")}</CardTitle>
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+              <div className="bg-muted/50 rounded-xl py-4 text-center">
+                <div
+                  className={cn(
+                    "text-lg font-semibold tabular-nums",
+                    progress.result.failed > 0 && "text-red-500",
+                  )}
+                >
+                  {progress.result.failed}
+                </div>
+                <div className="text-muted-foreground text-xs">
+                  {t("cleanSpace.progress.failedItems")}
+                </div>
+              </div>
               <div className="bg-muted/50 rounded-xl py-4 text-center">
                 <div className="text-lg font-semibold tabular-nums">{progress.result.items}</div>
                 <div className="text-muted-foreground text-xs">
@@ -144,8 +167,18 @@ export function CleanupProgress() {
       {/* Finished header */}
       {progress.finished && (
         <div className="flex items-center gap-2">
-          <CheckCircle size={18} className="text-green-500" />
-          <span className="text-sm font-semibold">{t("cleanSpace.progress.allDone")}</span>
+          {progress.result && progress.result.failed > 0 ? (
+            <AlertTriangle size={18} className="text-amber-500" />
+          ) : (
+            <CheckCircle size={18} className="text-green-500" />
+          )}
+          <span className="text-sm font-semibold">
+            {progress.result && progress.result.failed > 0
+              ? t("cleanSpace.progress.completedWithFailures", {
+                  failed: progress.result.failed,
+                })
+              : t("cleanSpace.progress.allDone")}
+          </span>
         </div>
       )}
     </div>

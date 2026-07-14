@@ -3,5 +3,5 @@
  */
 export interface StartupIssue {
   feature: string
-  message: string
+  code: string
 }

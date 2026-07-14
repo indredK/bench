@@ -17,7 +17,7 @@ export interface CleanupProgressItem {
   name: string
   size_bytes: number
   risk_level: string
-  status: "ok" | "warn" | "skip"
+  status: "ok" | "failed" | "skip"
   /** Wall-clock millis when this log entry was produced. */
   timestamp: number
 }
@@ -41,7 +41,13 @@ interface CleanSpaceState {
     currentItem: string
     logs: CleanupProgressItem[]
     finished: boolean
-    result: { items: number; freedBytes: number; paths: number; highCount: number } | null
+    result: {
+      items: number
+      failed: number
+      freedBytes: number
+      paths: number
+      highCount: number
+    } | null
   }
 
   setActiveTool: (tool: CleanSpaceTool) => void

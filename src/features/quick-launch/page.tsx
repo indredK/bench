@@ -516,6 +516,7 @@ export default function QuickLaunch({ active }: { active: boolean; feature: AppF
     loading,
     isEditMode,
     appOverrides,
+    overridePersistenceIssue,
     setSearchQuery,
     toggleExpandScene,
     toggleEditMode,
@@ -579,6 +580,16 @@ export default function QuickLaunch({ active }: { active: boolean; feature: AppF
           </AlertDescription>
         </Alert>
       )}
+      {overridePersistenceIssue && (
+        <Alert
+          variant={overridePersistenceIssue === "recovered" ? "default" : "destructive"}
+          className="shrink-0"
+        >
+          <AlertDescription>
+            {t(`quickLaunch.persistence.${overridePersistenceIssue}`)}
+          </AlertDescription>
+        </Alert>
+      )}
       {/* Header */}
       <div className="flex shrink-0 items-center gap-3">
         <div className="relative flex-1">
@@ -636,7 +647,11 @@ export default function QuickLaunch({ active }: { active: boolean; feature: AppF
 
         <Button
           onClick={toggleEditMode}
-          disabled={appManagerLoading}
+          disabled={
+            appManagerLoading ||
+            overridePersistenceIssue === "newerSchema" ||
+            overridePersistenceIssue === "tooLarge"
+          }
           variant="outline"
           size="sm"
           className={cn(

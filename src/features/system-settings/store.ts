@@ -11,6 +11,7 @@ import type {
   MenuBarAutoHideMode,
   LowPowerMode,
   GatekeeperMode,
+  SystemSettingsSnapshot,
 } from "@/lib/tauri/types/system-settings"
 
 export type SettingsTab = "appearance" | "security" | "system" | "advanced"
@@ -23,41 +24,31 @@ interface SystemSettingsState {
   markTabLoaded: (tab: string) => void
 
   // ── Appearance ──
-  // Theme & Language (from old SettingsDialog)
-  theme: "system" | "light" | "dark"
-  setTheme: (v: "system" | "light" | "dark") => void
-  language: "system" | "en" | "zh"
-  setLanguage: (v: "system" | "en" | "zh") => void
-  windowThemeId: string
-  setWindowThemeId: (v: string) => void
-
-  darkMode: boolean
-  setDarkMode: (v: boolean) => void
   displayBatteryPercent: boolean
   setDisplayBatteryPercent: (v: boolean) => void
   autohideDock: boolean | null
-  setAutohideDock: (v: boolean) => void
+  setAutohideDock: (v: boolean | null) => void
   dockOrientation: string
   setDockOrientation: (v: string) => void
   minimizeScaleEnabled: boolean
   setMinimizeScaleEnabled: (v: boolean) => void
   autohideMenuBar: MenuBarAutoHideMode | null
-  setAutohideMenuBar: (v: MenuBarAutoHideMode) => void
+  setAutohideMenuBar: (v: MenuBarAutoHideMode | null) => void
   dockShowRecents: boolean | null
-  setDockShowRecents: (v: boolean) => void
+  setDockShowRecents: (v: boolean | null) => void
   hideDesktopIcons: boolean | null
-  setHideDesktopIcons: (v: boolean) => void
+  setHideDesktopIcons: (v: boolean | null) => void
   screenSaver: boolean | null
-  setScreenSaver: (v: boolean) => void
+  setScreenSaver: (v: boolean | null) => void
 
   screenshotFormat: string | null
-  setScreenshotFormat: (v: string) => void
+  setScreenshotFormat: (v: string | null) => void
   screenshotDisableShadow: boolean | null
-  setScreenshotDisableShadow: (v: boolean) => void
+  setScreenshotDisableShadow: (v: boolean | null) => void
   screenshotShowThumbnail: boolean | null
-  setScreenshotShowThumbnail: (v: boolean) => void
+  setScreenshotShowThumbnail: (v: boolean | null) => void
   screenshotSaveLocation: string | null
-  setScreenshotSaveLocation: (v: string) => void
+  setScreenshotSaveLocation: (v: string | null) => void
 
   // ── Security ──
   lockScreenPassword: boolean
@@ -66,13 +57,13 @@ interface SystemSettingsState {
   setLockScreenPasswordDelay: (v: number) => void
 
   networkFirewall: boolean | null
-  setNetworkFirewall: (v: boolean) => void
+  setNetworkFirewall: (v: boolean | null) => void
   networkSsh: boolean | null
-  setNetworkSsh: (v: boolean) => void
+  setNetworkSsh: (v: boolean | null) => void
   networkScreenSharing: boolean | null
-  setNetworkScreenSharing: (v: boolean) => void
+  setNetworkScreenSharing: (v: boolean | null) => void
   networkAirdropDisabled: boolean | null
-  setNetworkAirdropDisabled: (v: boolean) => void
+  setNetworkAirdropDisabled: (v: boolean | null) => void
 
   gatekeeper: GatekeeperMode | null
 
@@ -92,35 +83,31 @@ interface SystemSettingsState {
   setAutoCapitalize: (v: boolean) => void
 
   lowPowerMode: LowPowerMode | null
-  setLowPowerMode: (v: LowPowerMode) => void
+  setLowPowerMode: (v: LowPowerMode | null) => void
 
   finderShowHiddenFiles: boolean | null
-  setFinderShowHiddenFiles: (v: boolean) => void
+  setFinderShowHiddenFiles: (v: boolean | null) => void
   finderShowPathbar: boolean | null
-  setFinderShowPathbar: (v: boolean) => void
+  setFinderShowPathbar: (v: boolean | null) => void
   finderShowStatusbar: boolean | null
-  setFinderShowStatusbar: (v: boolean) => void
+  setFinderShowStatusbar: (v: boolean | null) => void
   finderShowLibraryDir: boolean | null
-  setFinderShowLibraryDir: (v: boolean) => void
+  setFinderShowLibraryDir: (v: boolean | null) => void
   finderShowFileExtensions: boolean | null
-  setFinderShowFileExtensions: (v: boolean) => void
-  finderSpotlightExternalDisk: boolean | null
-  setFinderSpotlightExternalDisk: (v: boolean) => void
+  setFinderShowFileExtensions: (v: boolean | null) => void
   finderNoDsStore: boolean | null
-  setFinderNoDsStore: (v: boolean) => void
+  setFinderNoDsStore: (v: boolean | null) => void
 
   loginItems: LoginItem[]
   setLoginItems: (items: LoginItem[]) => void
 
-  defaultBrowser: string
-  setDefaultBrowser: (v: string) => void
+  defaultBrowser: string | null
+  setDefaultBrowser: (v: string | null) => void
 
   // ── Shared ──
-  loading: boolean
-  setLoading: (v: boolean) => void
-
   applyingKeys: Set<string>
   setApplyingKey: (key: string, on: boolean) => void
+  applySnapshot: (snapshot: SystemSettingsSnapshot) => void
 }
 
 export const useSystemSettingsStore = create<SystemSettingsState>((set) => ({
@@ -136,15 +123,6 @@ export const useSystemSettingsStore = create<SystemSettingsState>((set) => ({
     }),
 
   // ── Appearance defaults ──
-  theme: "system",
-  setTheme: (v) => set({ theme: v }),
-  language: "system",
-  setLanguage: (v) => set({ language: v }),
-  windowThemeId: "system",
-  setWindowThemeId: (v) => set({ windowThemeId: v }),
-
-  darkMode: false,
-  setDarkMode: (v) => set({ darkMode: v }),
   displayBatteryPercent: false,
   setDisplayBatteryPercent: (v) => set({ displayBatteryPercent: v }),
   autohideDock: null,
@@ -216,21 +194,16 @@ export const useSystemSettingsStore = create<SystemSettingsState>((set) => ({
   setFinderShowLibraryDir: (v) => set({ finderShowLibraryDir: v }),
   finderShowFileExtensions: null,
   setFinderShowFileExtensions: (v) => set({ finderShowFileExtensions: v }),
-  finderSpotlightExternalDisk: null,
-  setFinderSpotlightExternalDisk: (v) => set({ finderSpotlightExternalDisk: v }),
   finderNoDsStore: null,
   setFinderNoDsStore: (v) => set({ finderNoDsStore: v }),
 
   loginItems: [],
   setLoginItems: (items) => set({ loginItems: items }),
 
-  defaultBrowser: "Safari",
+  defaultBrowser: null,
   setDefaultBrowser: (v) => set({ defaultBrowser: v }),
 
   // ── Shared ──
-  loading: false,
-  setLoading: (v) => set({ loading: v }),
-
   applyingKeys: new Set<string>(),
   setApplyingKey: (key, on) =>
     set((state) => {
@@ -241,5 +214,28 @@ export const useSystemSettingsStore = create<SystemSettingsState>((set) => ({
         next.delete(key)
       }
       return { applyingKeys: next }
+    }),
+  applySnapshot: (snapshot) =>
+    set({
+      autohideDock: snapshot.toggles.autohide_dock,
+      autohideMenuBar: snapshot.toggles.autohide_menu_bar,
+      dockShowRecents: snapshot.toggles.dock_show_recents,
+      hideDesktopIcons: snapshot.toggles.hide_desktop_icons,
+      lowPowerMode: snapshot.toggles.low_power_mode,
+      screenSaver: snapshot.toggles.screen_saver,
+      screenshotFormat: snapshot.screenshot.format,
+      screenshotDisableShadow: snapshot.screenshot.disable_shadow,
+      screenshotShowThumbnail: snapshot.screenshot.show_thumbnail,
+      screenshotSaveLocation: snapshot.screenshot.save_location,
+      networkFirewall: snapshot.network.firewall,
+      networkSsh: snapshot.network.ssh,
+      networkScreenSharing: snapshot.network.screen_sharing,
+      networkAirdropDisabled: snapshot.network.airdrop_disabled,
+      finderShowHiddenFiles: snapshot.finder.show_hidden_files,
+      finderShowPathbar: snapshot.finder.show_pathbar,
+      finderShowStatusbar: snapshot.finder.show_statusbar,
+      finderShowLibraryDir: snapshot.finder.show_library_dir,
+      finderShowFileExtensions: snapshot.finder.show_file_extensions,
+      finderNoDsStore: snapshot.finder.no_ds_store,
     }),
 }))

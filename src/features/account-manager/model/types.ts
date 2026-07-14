@@ -10,7 +10,7 @@ export type SessionSettings = {
   sessionTtlHours: number
   /** v1.18 — per-station 网络代理配置。null = 直连(无代理)。 */
   networkProxy: NetworkProxyConfig | null
-  /** 代理密码明文(仅在用户修改密码时传入);undefined = 不修改。 */
+  /** 代理密码明文(仅在用户修改密码时传入); undefined = 保留, 空串 = 清除。 */
   networkProxyPassword: string | undefined
 }
 

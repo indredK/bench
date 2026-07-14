@@ -2,8 +2,10 @@
  * account-manager page / 账号管理页面: thin composition over useAccountManagerController.
  * 三栏布局(站点 / 账号 / 详情) + 各类对话框都是纯展示组件,状态与编排全在控制器 hook。
  */
+import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { FeatureLoadError } from "@/components/common/FeatureLoadError"
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet"
 import { openExternal } from "@/platform/shell"
 import { useAccountManagerController } from "@/features/account-manager/hooks/useAccountManagerController"
 import { StationColumn } from "@/features/account-manager/components/StationColumn"
@@ -80,6 +82,50 @@ export function AccountManagerLoadingSkeleton() {
 function AccountManagerPage() {
   const { t } = useTranslation()
   const c = useAccountManagerController()
+  const [detailSheetOpen, setDetailSheetOpen] = useState(false)
+
+  useEffect(() => {
+    const media = window.matchMedia?.("(min-width: 1280px)")
+    if (!media) return
+    const handleChange = () => {
+      if (media.matches) setDetailSheetOpen(false)
+    }
+    media.addEventListener?.("change", handleChange)
+    return () => media.removeEventListener?.("change", handleChange)
+  }, [])
+
+  const handleSelectAccount = (accountId: string) => {
+    c.setSelectedAccountId(accountId)
+    if (window.matchMedia?.("(max-width: 1279px)").matches) {
+      setDetailSheetOpen(true)
+    }
+  }
+
+  const renderDetailColumn = (className?: string) => (
+    <DetailColumn
+      className={className}
+      station={c.selectedStation}
+      account={c.selectedAccount}
+      onOpenWebsite={() => c.selectedStation && void openExternal(c.selectedStation.website)}
+      onRedetectProfile={c.handleRedetectProfile}
+      onToggleProxy={c.handleToggleProxy}
+      onManageExternalApps={c.handleOpenExternalApps}
+      onRevealPassword={c.handleRevealPassword}
+      onCopyPassword={c.handleCopyPassword}
+      onProbeStrategyChange={c.handleProbeStrategyChange}
+      onRefreshAccount={c.handleRefreshAccount}
+      refreshingAccount={
+        c.selectedAccount ? c.refreshingAccountIds.has(c.selectedAccount.id) : false
+      }
+      settingProbeStrategy={
+        c.selectedStation ? c.settingProbeStrategyIds.has(c.selectedStation.id) : false
+      }
+      redetectingProfile={
+        c.selectedStation ? c.redetectingStationIds.has(c.selectedStation.id) : false
+      }
+      togglingProxy={c.selectedAccount ? c.togglingProxyIds.has(c.selectedAccount.id) : false}
+    />
+  )
 
   if (c.loading) {
     return <AccountManagerLoadingSkeleton />
@@ -101,7 +147,10 @@ function AccountManagerPage() {
         stations={c.stations}
         selectedId={c.selectedStationId}
         countByStation={c.accountCountByStation}
-        onSelect={c.handleSelectStation}
+        onSelect={(stationId) => {
+          setDetailSheetOpen(false)
+          c.handleSelectStation(stationId)
+        }}
         onAdd={() => c.setAddStationOpen(true)}
         onQuickLogin={() => c.setQuickLoginOpen(true)}
         onExternalLogin={() => c.setAuthProxyOpen(true)}
@@ -132,7 +181,7 @@ function AccountManagerPage() {
         refreshingStationIds={c.refreshingStationIds}
         refreshingAll={c.refreshingAll}
         justRefreshedIds={c.justRefreshedIds}
-        onSelect={c.setSelectedAccountId}
+        onSelect={handleSelectAccount}
         onAdd={() => c.setAddAccountOpen(true)}
         onLogin={c.handleLogin}
         onRefresh={c.handleRefreshAccount}
@@ -149,28 +198,17 @@ function AccountManagerPage() {
         reorderDisabled={c.reorderingAccounts}
       />
 
-      <DetailColumn
-        station={c.selectedStation}
-        account={c.selectedAccount}
-        onOpenWebsite={() => c.selectedStation && void openExternal(c.selectedStation.website)}
-        onRedetectProfile={c.handleRedetectProfile}
-        onToggleProxy={c.handleToggleProxy}
-        onManageExternalApps={c.handleOpenExternalApps}
-        onRevealPassword={c.handleRevealPassword}
-        onCopyPassword={c.handleCopyPassword}
-        onProbeStrategyChange={c.handleProbeStrategyChange}
-        onRefreshAccount={c.handleRefreshAccount}
-        refreshingAccount={
-          c.selectedAccount ? c.refreshingAccountIds.has(c.selectedAccount.id) : false
-        }
-        settingProbeStrategy={
-          c.selectedStation ? c.settingProbeStrategyIds.has(c.selectedStation.id) : false
-        }
-        redetectingProfile={
-          c.selectedStation ? c.redetectingStationIds.has(c.selectedStation.id) : false
-        }
-        togglingProxy={c.selectedAccount ? c.togglingProxyIds.has(c.selectedAccount.id) : false}
-      />
+      {renderDetailColumn()}
+
+      <Sheet open={detailSheetOpen && Boolean(c.selectedAccount)} onOpenChange={setDetailSheetOpen}>
+        <SheetContent className="p-0 xl:hidden">
+          <SheetTitle className="sr-only">{t("accountManager.detailTitle")}</SheetTitle>
+          <SheetDescription className="sr-only">
+            {t("accountManager.detailSheetDescription")}
+          </SheetDescription>
+          {renderDetailColumn("flex h-full w-full rounded-none border-0")}
+        </SheetContent>
+      </Sheet>
 
       <StationDialog
         open={c.isAddStationOpen || c.isEditStationOpen}
@@ -246,6 +284,9 @@ function AccountManagerPage() {
         onOpenChange={c.setAuthProxyOpen}
         onConfirm={c.confirmAuthProxy}
         onCompleted={() => void c.loadInitialData().catch(() => undefined)}
+        initialRequest={c.authProxyRequest}
+        initialMatches={c.authProxyMatches}
+        initialHost={c.authProxyHost}
       />
     </div>
   )

@@ -10,8 +10,10 @@ mod env_detector;
 mod error;
 mod file_ops;
 mod menu;
+mod persistence;
 mod port_manager;
 mod sleep_inhibitor;
+mod subprocess;
 mod system_settings;
 mod terminology;
 mod token_calculator;
@@ -37,7 +39,15 @@ pub fn run() {
     let token_calculator_state = TokenCalculatorState::new();
     let terminology_state = TerminologyState::new();
 
-    tauri::Builder::default()
+    #[cfg(target_os = "windows")]
+    let builder =
+        tauri::Builder::default().plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            account_manager::deep_link::handle_second_instance(app, args);
+        }));
+    #[cfg(not(target_os = "windows"))]
+    let builder = tauri::Builder::default();
+
+    builder
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_store::Builder::default().build())
@@ -111,6 +121,7 @@ pub fn run() {
                 if let Err(e) = app.deep_link().register("bench-auth") {
                     eprintln!("[deep-link] register bench-auth failed (non-fatal): {e:?}");
                 }
+                account_manager::deep_link::setup(app);
             }
 
             let handle = app.handle().clone();
@@ -120,29 +131,42 @@ pub fn run() {
                 .clone();
             let state = app.state::<AccountManagerState>();
             if let Err(e) = account_manager::init_state(&handle, &state) {
-                let message = e.to_string();
-                eprintln!("[account_manager] init failed: {message}");
-                state.set_init_error(message.clone());
-                record_startup_issue(&bootstrap_state, "account-manager", message);
+                let _ = e;
+                eprintln!("[account_manager] init failed: ACCOUNT_MANAGER_INIT_FAILED");
+                state.set_init_error("Account Manager initialization failed".into());
+                record_startup_issue(
+                    &bootstrap_state,
+                    "account-manager",
+                    "ACCOUNT_MANAGER_INIT_FAILED",
+                );
             }
             let tc_state = app.state::<TokenCalculatorState>();
             if let Err(e) = token_calculator::init_state(&handle, &tc_state) {
-                let message = e.to_string();
-                eprintln!("[token_calculator] init failed: {message}");
-                tc_state.set_init_error(message.clone());
-                record_startup_issue(&bootstrap_state, "token-calculator", message);
+                let _ = e;
+                eprintln!("[token_calculator] init failed: TOKEN_CALCULATOR_INIT_FAILED");
+                tc_state.set_init_error("Token Calculator initialization failed".into());
+                record_startup_issue(
+                    &bootstrap_state,
+                    "token-calculator",
+                    "TOKEN_CALCULATOR_INIT_FAILED",
+                );
             }
             let terminology_state = app.state::<TerminologyState>();
             if let Err(e) = terminology::storage::init_state(&handle, &terminology_state) {
-                let message = e.to_string();
-                eprintln!("[terminology] init failed: {message}");
-                terminology_state.set_init_error(message.clone());
-                record_startup_issue(&bootstrap_state, "terminology", message);
+                let _ = e;
+                eprintln!("[terminology] init failed: TERMINOLOGY_INIT_FAILED");
+                terminology_state.set_init_error("Terminology initialization failed".into());
+                record_startup_issue(
+                    &bootstrap_state,
+                    "terminology",
+                    "TERMINOLOGY_INIT_FAILED",
+                );
             }
             // Session Manager: 启动后异步恢复 session
             // NOTE: AccountManagerState 未实现 Clone，不能在 setup 闭包内 clone 后移入 'static 任务。
             // 改为把 AppHandle（'static）移入任务，在任务内部通过 handle.state() 取引用。
             let restore_handle = app.handle().clone();
+            let restore_bootstrap_state = bootstrap_state.clone();
             tauri::async_runtime::spawn(async move {
                 let state = restore_handle.state::<AccountManagerState>();
                 // F.6.3 启动时先清理 TTL 超时的 session(同步,在恢复之前)
@@ -152,7 +176,10 @@ pub fn run() {
                     chrono::Utc::now(),
                 )
                 .unwrap_or_else(|error| {
-                    eprintln!("[account_manager] startup TTL cleanup failed: {error}");
+                    let _ = error;
+                    eprintln!(
+                        "[account_manager] startup TTL cleanup failed: ACCOUNT_SESSION_CLEANUP_FAILED"
+                    );
                     Vec::new()
                 });
                 if !cleared.is_empty() {
@@ -168,7 +195,15 @@ pub fn run() {
                         "[account_manager] startup: restored and probed {restored} session(s)"
                     ),
                     Err(error) => {
-                        eprintln!("[account_manager] startup session restore failed: {error}")
+                        let _ = error;
+                        eprintln!(
+                            "[account_manager] startup session restore failed: ACCOUNT_SESSION_RESTORE_FAILED"
+                        );
+                        record_startup_issue(
+                            &restore_bootstrap_state,
+                            "account-manager",
+                            "ACCOUNT_SESSION_RESTORE_FAILED",
+                        );
                     }
                 }
             });

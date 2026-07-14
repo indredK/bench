@@ -118,6 +118,9 @@ export function setScreenshotShowThumbnail(show: boolean) {
 export function setScreenshotSaveLocation(path: string) {
   return invokeTauriCommand(TAURI_COMMANDS.systemSettings.setScreenshotSaveLocation, { path })
 }
+export function getSystemSettingsSnapshot() {
+  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.getSystemSettingsSnapshot)
+}
 
 // Quick actions
 export function lockScreen() {

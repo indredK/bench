@@ -664,6 +664,33 @@ mod scan_tests {
 
         fs::remove_dir_all(root).expect("cleanup");
     }
+
+    #[cfg(unix)]
+    #[test]
+    fn scan_directory_raw_resolves_app_symlink_and_ignores_broken_alias() {
+        use std::os::unix::fs::symlink;
+
+        let root = unique_temp_dir("symlink-root");
+        let external = unique_temp_dir("symlink-external");
+        let real_app = external.join("真实应用.app");
+        fs::create_dir_all(&root).expect("create root");
+        write_info_plist(&real_app, "com.example.cjk", "3.0.0");
+        symlink(&real_app, root.join("别名.app")).expect("app symlink");
+        symlink(external.join("missing.app"), root.join("broken.app")).expect("broken symlink");
+
+        let cancel = std::sync::atomic::AtomicBool::new(false);
+        let results = scan_directory_raw(&root, false, SCAN_MAX_DEPTH, &cancel);
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].2, "com.example.cjk");
+        assert_eq!(
+            Path::new(&results[0].4),
+            real_app.canonicalize().expect("real app")
+        );
+
+        fs::remove_dir_all(root).expect("cleanup root");
+        fs::remove_dir_all(external).expect("cleanup external");
+    }
 }
 
 // ============================================================================

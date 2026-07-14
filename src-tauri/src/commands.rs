@@ -41,6 +41,7 @@ macro_rules! app_invoke_handler {
             $crate::system_settings::screenshot::set_screenshot_disable_shadow,
             $crate::system_settings::screenshot::set_screenshot_show_thumbnail,
             $crate::system_settings::screenshot::set_screenshot_save_location,
+            $crate::system_settings::snapshot::get_system_settings_snapshot,
             // system settings - privacy
             $crate::system_settings::privacy::reset_tcc_permission,
             // system settings - semantic pane registry
@@ -157,6 +158,8 @@ macro_rules! app_invoke_handler {
             $crate::account_manager::commands::set_account_proxy_enabled,
             $crate::account_manager::commands::proxy_login,
             $crate::account_manager::commands::handle_browser_open,
+            $crate::account_manager::commands::get_auth_proxy_inbox_status,
+            $crate::account_manager::commands::drain_auth_proxy_request,
             $crate::account_manager::commands::proxy_login_new_account,
             $crate::account_manager::commands::list_external_apps,
             $crate::account_manager::commands::remove_external_app,

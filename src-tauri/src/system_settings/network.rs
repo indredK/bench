@@ -1,6 +1,55 @@
 use super::helpers::*;
 use crate::error::{AppError, AppResult};
 
+fn parse_firewall_state(output: &str) -> Result<bool, String> {
+    let normalized = output.to_ascii_lowercase();
+    if normalized.contains("state = 1") || normalized.contains("state = 2") {
+        Ok(true)
+    } else if normalized.contains("state = 0") {
+        Ok(false)
+    } else {
+        Err("unrecognized firewall state".to_string())
+    }
+}
+
+fn parse_remote_login_state(output: &str) -> Result<bool, String> {
+    let normalized = output.to_ascii_lowercase();
+    if normalized.contains("remote login: on") {
+        Ok(true)
+    } else if normalized.contains("remote login: off") {
+        Ok(false)
+    } else {
+        Err("remote login state requires administrator access".to_string())
+    }
+}
+
+pub(crate) fn read_network_firewall_state() -> Result<bool, String> {
+    run_cmd_err(
+        "/usr/libexec/ApplicationFirewall/socketfilterfw",
+        &["--getglobalstate"],
+    )
+    .and_then(|output| parse_firewall_state(&output))
+}
+
+pub(crate) fn read_network_ssh_state() -> Result<bool, String> {
+    run_cmd_err("systemsetup", &["-getremotelogin"])
+        .and_then(|output| parse_remote_login_state(&output))
+}
+
+pub(crate) fn read_network_screen_sharing_state() -> Result<bool, String> {
+    match run_cmd_err("launchctl", &["print", "system/com.apple.screensharing"]) {
+        Ok(_) => Ok(true),
+        Err(error) if error.contains("Could not find service") || error.contains("Bad request") => {
+            Ok(false)
+        }
+        Err(error) => Err(error),
+    }
+}
+
+pub(crate) fn read_network_airdrop_disabled() -> Result<bool, String> {
+    defaults_read_bool_or("com.apple.NetworkBrowser", "DisableAirDrop", false)
+}
+
 fn validate_host(host: &str) -> AppResult<()> {
     if host.is_empty() {
         return Err(AppError::invalid_input("Host cannot be empty"));
@@ -29,6 +78,8 @@ pub async fn set_network_firewall_state(enable: bool) -> AppResult<()> {
             "/usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate {}",
             val
         ))?;
+        verify_setting(&enable, read_network_firewall_state)
+            .map_err(|error| setting_verification_error("network.firewall", error))?;
         Ok(())
     })
     .await
@@ -39,7 +90,17 @@ pub async fn set_network_firewall_state(enable: bool) -> AppResult<()> {
 pub async fn set_network_ssh_state(enable: bool) -> AppResult<()> {
     tauri::async_runtime::spawn_blocking(move || {
         let val = if enable { "on" } else { "off" };
-        sudo_cmd(&format!("systemsetup -setremotelogin {}", val))?;
+        let output = sudo_cmd(&format!(
+            "systemsetup -setremotelogin {val} && systemsetup -getremotelogin"
+        ))?;
+        let actual = parse_remote_login_state(&output)
+            .map_err(|error| setting_verification_error("network.ssh", error))?;
+        if actual != enable {
+            return Err(setting_verification_error(
+                "network.ssh",
+                "read-after-write mismatch",
+            ));
+        }
         Ok(())
     })
     .await
@@ -58,6 +119,8 @@ pub async fn set_network_screen_sharing_state(enable: bool) -> AppResult<()> {
                 "launchctl unload -w /System/Library/LaunchDaemons/com.apple.screensharing.plist",
             )?;
         }
+        verify_setting(&enable, read_network_screen_sharing_state)
+            .map_err(|error| setting_verification_error("network.screen_sharing", error))?;
         Ok(())
     })
     .await
@@ -69,10 +132,31 @@ pub async fn set_network_airdrop_disabled(disable: bool) -> AppResult<()> {
     tauri::async_runtime::spawn_blocking(move || {
         let val = if disable { "true" } else { "false" };
         defaults_write("com.apple.NetworkBrowser", "DisableAirDrop", val)?;
+        verify_setting(&disable, read_network_airdrop_disabled)
+            .map_err(|error| setting_verification_error("network.airdrop_disabled", error))?;
         Ok(())
     })
     .await
     .map_err(|e| AppError::internal(format!("set_network_airdrop_disabled: {e}")))?
+}
+
+#[cfg(test)]
+mod settings_tests {
+    use super::*;
+
+    #[test]
+    fn parses_firewall_state_without_localized_labels() {
+        assert!(parse_firewall_state("Firewall is enabled. (State = 1)").unwrap());
+        assert!(!parse_firewall_state("Firewall is disabled. (State = 0)").unwrap());
+        assert!(parse_firewall_state("unknown").is_err());
+    }
+
+    #[test]
+    fn rejects_unreadable_remote_login_state() {
+        assert!(parse_remote_login_state("Remote Login: On").unwrap());
+        assert!(!parse_remote_login_state("Remote Login: Off").unwrap());
+        assert!(parse_remote_login_state("administrator access required").is_err());
+    }
 }
 
 #[tauri::command]

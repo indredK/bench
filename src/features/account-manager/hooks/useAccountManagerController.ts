@@ -556,7 +556,14 @@ export function useAccountManagerController() {
           selectedAccountId,
         )
       try {
-        await accountManagerUseCases.deleteStation(target.id)
+        const report = await accountManagerUseCases.deleteStation(target.id)
+        if (!report.metadataDeleted) {
+          const failed = report.resources.filter((resource) => resource.status === "failed").length
+          setDeleteStationOpen(false)
+          setDeletingStation(null)
+          toast.warning(t("accountManager.toasts.deleteCleanupPartial", { failed }))
+          return
+        }
         setStations((prev) => prev.filter((station) => station.id !== target.id))
         setAccounts((prev) => prev.filter((account) => account.stationId !== target.id))
         if (wasSelected) {
@@ -581,7 +588,14 @@ export function useAccountManagerController() {
         selectedAccountId,
       )
       try {
-        await accountManagerUseCases.deleteAccount(target.id)
+        const report = await accountManagerUseCases.deleteAccount(target.id)
+        if (!report.metadataDeleted) {
+          const failed = report.resources.filter((resource) => resource.status === "failed").length
+          setDeleteAccountOpen(false)
+          setDeletingAccount(null)
+          toast.warning(t("accountManager.toasts.deleteCleanupPartial", { failed }))
+          return
+        }
         setAccounts((prev) => prev.filter((account) => account.id !== target.id))
         if (wasSelected) {
           setSelectedAccountId(nextAccountId)

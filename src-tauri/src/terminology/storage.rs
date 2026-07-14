@@ -1,19 +1,51 @@
+use serde::de::DeserializeOwned;
 use std::collections::HashSet;
-use tauri::{AppHandle, Runtime};
+use tauri::{AppHandle, Manager, Runtime};
 use tauri_plugin_store::StoreExt;
 
 use super::data::{builtin_industries, builtin_terms};
 use super::state::TerminologyState;
 use super::types::{Industry, Term, TerminologyError, TerminologyResult};
+use crate::persistence::{backup_file, ensure_file_size};
 
 const STORE_FILE: &str = "terminology-store.json";
 const KEY_INDUSTRIES: &str = "industries";
 const KEY_TERMS: &str = "terms";
 const KEY_FAVORITE_TERM_IDS: &str = "favorite_term_ids";
 const KEY_PINNED_TERM_IDS: &str = "pinned_term_ids";
+const KEY_SCHEMA: &str = "schema_version";
+const CURRENT_SCHEMA: u32 = 1;
+const MAX_STORE_FILE_BYTES: u64 = 32 * 1024 * 1024;
 const FRONTEND_INDUSTRY_ID: &str = "computer";
 const FRONTEND_CATEGORY_ID: &str = "frontend";
 const UNCLASSIFIED_SUBCATEGORY_ID: &str = "__unclassified__";
+
+fn store_error(message: impl Into<String>) -> TerminologyError {
+    TerminologyError::StoreFail {
+        message: message.into(),
+    }
+}
+
+fn decode_optional<T: DeserializeOwned + Default>(
+    value: Option<serde_json::Value>,
+    label: &str,
+) -> TerminologyResult<T> {
+    match value {
+        Some(value) => serde_json::from_value(value)
+            .map_err(|error| store_error(format!("decode {label}: {error}"))),
+        None => Ok(T::default()),
+    }
+}
+
+fn validate_schema(schema: u64) -> TerminologyResult<()> {
+    if schema > u64::from(CURRENT_SCHEMA) {
+        Err(store_error(format!(
+            "terminology store schema {schema} is newer than supported schema {CURRENT_SCHEMA}"
+        )))
+    } else {
+        Ok(())
+    }
+}
 
 fn migrate_frontend_builtin_title(id: &str, title: &str) -> Option<&'static str> {
     match (id, title) {
@@ -189,28 +221,31 @@ pub fn init_state<R: Runtime>(
     app: &AppHandle<R>,
     state: &TerminologyState,
 ) -> TerminologyResult<()> {
+    let store_path = app
+        .path()
+        .app_data_dir()
+        .map(|directory| directory.join(STORE_FILE))
+        .map_err(|error| store_error(format!("app data dir: {error}")))?;
+    ensure_file_size(&store_path, MAX_STORE_FILE_BYTES)
+        .map_err(|_| store_error("terminology store exceeds size limit"))?;
     let store = app
         .store(STORE_FILE)
         .map_err(|e| TerminologyError::StoreFail {
             message: format!("open store: {e}"),
         })?;
+    let schema = store
+        .get(KEY_SCHEMA)
+        .and_then(|value| value.as_u64())
+        .unwrap_or(0);
+    validate_schema(schema)?;
 
-    let saved_industries: Vec<Industry> = store
-        .get(KEY_INDUSTRIES)
-        .and_then(|value| serde_json::from_value(value.clone()).ok())
-        .unwrap_or_default();
-    let saved_terms: Vec<Term> = store
-        .get(KEY_TERMS)
-        .and_then(|value| serde_json::from_value(value.clone()).ok())
-        .unwrap_or_default();
-    let saved_favorite_term_ids: Vec<String> = store
-        .get(KEY_FAVORITE_TERM_IDS)
-        .and_then(|value| serde_json::from_value(value.clone()).ok())
-        .unwrap_or_default();
-    let saved_pinned_term_ids: Vec<String> = store
-        .get(KEY_PINNED_TERM_IDS)
-        .and_then(|value| serde_json::from_value(value.clone()).ok())
-        .unwrap_or_default();
+    let saved_industries: Vec<Industry> =
+        decode_optional(store.get(KEY_INDUSTRIES), KEY_INDUSTRIES)?;
+    let saved_terms: Vec<Term> = decode_optional(store.get(KEY_TERMS), KEY_TERMS)?;
+    let saved_favorite_term_ids: Vec<String> =
+        decode_optional(store.get(KEY_FAVORITE_TERM_IDS), KEY_FAVORITE_TERM_IDS)?;
+    let saved_pinned_term_ids: Vec<String> =
+        decode_optional(store.get(KEY_PINNED_TERM_IDS), KEY_PINNED_TERM_IDS)?;
 
     let industries = if saved_industries.is_empty() {
         builtin_industries()
@@ -227,6 +262,18 @@ pub fn init_state<R: Runtime>(
         if !pinned_term_ids.iter().any(|existing| existing == &term_id) {
             pinned_term_ids.push(term_id);
         }
+    }
+
+    if schema < u64::from(CURRENT_SCHEMA) {
+        backup_file(&store_path, "pre-v1", 3)
+            .map_err(|_| store_error("backup terminology store migration"))?;
+        store.set(KEY_INDUSTRIES, serde_json::json!(&industries));
+        store.set(KEY_TERMS, serde_json::json!(&terms));
+        store.set(KEY_PINNED_TERM_IDS, serde_json::json!(&pinned_term_ids));
+        store.set(KEY_SCHEMA, serde_json::json!(CURRENT_SCHEMA));
+        store
+            .save()
+            .map_err(|error| store_error(format!("save terminology migration: {error}")))?;
     }
 
     *state.industries.lock().unwrap_or_else(|e| e.into_inner()) = industries;
@@ -251,10 +298,16 @@ fn save_state<R: Runtime>(
         .map_err(|e| TerminologyError::StoreFail {
             message: format!("open store: {e}"),
         })?;
+    let schema = store
+        .get(KEY_SCHEMA)
+        .and_then(|value| value.as_u64())
+        .unwrap_or(0);
+    validate_schema(schema)?;
 
     store.set(KEY_INDUSTRIES, serde_json::json!(industries));
     store.set(KEY_TERMS, serde_json::json!(terms));
     store.set(KEY_PINNED_TERM_IDS, serde_json::json!(pinned_term_ids));
+    store.set(KEY_SCHEMA, serde_json::json!(CURRENT_SCHEMA));
     store.save().map_err(|e| TerminologyError::StoreFail {
         message: format!("save store: {e}"),
     })?;
@@ -292,4 +345,22 @@ where
     *pinned_term_ids = next_pinned_term_ids;
 
     Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn future_terminology_schema_is_fail_closed() {
+        assert!(validate_schema(u64::from(CURRENT_SCHEMA)).is_ok());
+        assert!(validate_schema(u64::from(CURRENT_SCHEMA) + 1).is_err());
+    }
+
+    #[test]
+    fn malformed_terminology_values_are_not_silently_reset() {
+        let result =
+            decode_optional::<Vec<String>>(Some(serde_json::json!({"unexpected": true})), "ids");
+        assert!(result.is_err());
+    }
 }

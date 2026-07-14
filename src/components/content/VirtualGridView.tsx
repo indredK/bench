@@ -90,7 +90,12 @@ export function VirtualGridView<T>({
   }
 
   return (
-    <div ref={containerRef} className="h-full overflow-auto" data-table-scroll>
+    <div
+      ref={containerRef}
+      className="h-full overflow-auto"
+      data-table-scroll
+      data-total-count={data.length}
+    >
       <div
         className={cn("bg-card/50 min-h-full rounded-xl border", wrapperPadding)}
         style={{ minWidth: `${minGridWidth}px` }}

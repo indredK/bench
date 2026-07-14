@@ -19,12 +19,14 @@
 - App Manager 更新中心已接入显式能力状态、批量反馈和原地更新安全边界。
 - 导航和直达路由统一消费 feature platform contract；Clean Space、Hardware、System Settings 在 Windows 不再暴露虚假入口。
 - Account Manager 已有三栏首载 skeleton 和密码明文 30 秒 TTL；System Settings 读取失败显示 error/unknown，不再显示为关闭。
-- Updater 已有 24 小时间隔、失败退避、离线/省流策略、用户开关和 cancelling；tag workflow 对 OS 签名、目标产物、updater 签名和 checksum fail-closed。
+- Updater 已有 24 小时间隔、失败退避、离线/省流策略、用户开关和 cancelling；tag workflow 对签名模式、目标产物、updater 签名、notice 和 checksum fail-closed。
+- Account Manager 已有有界/去重 Deep Link inbox、Windows single-instance、安全 drain IPC、删除 partial、窄屏 Sheet 和虚拟账号列表；不可移植 encrypted full 已禁用。
+- 共享原子持久化、System Settings snapshot/read-after-write 和 Clean Space 子进程 timeout/逐项结果已落地。
 
 ## 当前验收
 
 - [ ] 功能规范 F00-F09 全部完成：平台、迁移、核心模块、IPC、签名、CI、RC 和回滚均有证据。
 - [ ] UX 规范 U00-U09 全部完成：异步状态、核心路径、响应式、i18n、a11y、性能和视觉回归均有证据。
-- [ ] macOS arm64/x64 与 Windows x64 使用正式签名 RC 通过全新安装、1.x 升级、更新和真机 smoke。
+- [ ] macOS arm64/x64 与 Windows x64 产物符合 D-010 的当前签名模式；延期真机清单保持可执行且不虚报结果。
 
 上述三项未完成前不得创建正式 `v2.0.0` tag，也不得把模块标记为跨平台发布对等。

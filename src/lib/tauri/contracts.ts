@@ -13,13 +13,17 @@ import type {
 } from "@/lib/tauri/types/app-manager"
 import type {
   AuthProfile,
+  AuthProxyDrainResult,
+  AuthProxyInboxStatus,
   AuthProxyResult,
   BrowserOpenResult,
+  DeletionReport,
   ExternalApp,
   ExternalAppBinding,
   LoginDetectionConfig,
   LoginMethod,
   NetworkProxyConfig,
+  PasswordAction,
   ProbeStrategy,
   RelayDataExportResult,
   RelayDataImportResult,
@@ -49,6 +53,7 @@ import type {
   WifiInfo,
   MenuBarAutoHideMode,
   LowPowerMode,
+  SystemSettingsSnapshot,
 } from "@/lib/tauri/types/system-settings"
 import type { SystemInfoData } from "@/lib/tauri/types/system-info"
 import type {
@@ -173,7 +178,7 @@ export const TAURI_COMMAND_CONTRACTS = {
     },
     RelayStation
   >()("update_station"),
-  delete_station: defineTauriCommand<{ id: string }, void>()("delete_station"),
+  delete_station: defineTauriCommand<{ id: string }, DeletionReport>()("delete_station"),
   list_all_accounts: defineTauriCommand<undefined, StationAccount[]>()("list_all_accounts"),
   create_account: defineTauriCommand<
     {
@@ -202,7 +207,7 @@ export const TAURI_COMMAND_CONTRACTS = {
     },
     StationAccount
   >()("update_account"),
-  delete_account: defineTauriCommand<{ id: string }, void>()("delete_account"),
+  delete_account: defineTauriCommand<{ id: string }, DeletionReport>()("delete_account"),
   reveal_password: defineTauriCommand<{ accountId: string }, string>()("reveal_password"),
   set_password: defineTauriCommand<{ accountId: string; password: string }, void>()("set_password"),
   copy_password_to_clipboard: defineTauriCommand<{ accountId: string }, void>()(
@@ -250,7 +255,7 @@ export const TAURI_COMMAND_CONTRACTS = {
     {
       stationId: string
       config: NetworkProxyConfig | null
-      password: string | null
+      passwordAction: PasswordAction
     },
     RelayStation
   >()("set_station_network_proxy"),
@@ -263,6 +268,12 @@ export const TAURI_COMMAND_CONTRACTS = {
   ),
   handle_browser_open: defineTauriCommand<{ url: string }, BrowserOpenResult>()(
     "handle_browser_open",
+  ),
+  get_auth_proxy_inbox_status: defineTauriCommand<undefined, AuthProxyInboxStatus>()(
+    "get_auth_proxy_inbox_status",
+  ),
+  drain_auth_proxy_request: defineTauriCommand<undefined, AuthProxyDrainResult>()(
+    "drain_auth_proxy_request",
   ),
   proxy_login_new_account: defineTauriCommand<
     {
@@ -406,6 +417,9 @@ export const TAURI_COMMAND_CONTRACTS = {
   set_screenshot_save_location: defineTauriCommand<{ path: string }, void>()(
     "set_screenshot_save_location",
   ),
+  get_system_settings_snapshot: defineTauriCommand<undefined, SystemSettingsSnapshot>()(
+    "get_system_settings_snapshot",
+  ),
   // system settings - quick actions
   lock_screen: defineTauriCommand<undefined, void>()("lock_screen"),
   empty_trash: defineTauriCommand<undefined, string>()("empty_trash"),
@@ -426,7 +440,7 @@ export const TAURI_COMMAND_CONTRACTS = {
   ),
   // system settings - default browser
   get_default_browser: defineTauriCommand<undefined, string>()("get_default_browser"),
-  set_default_browser: defineTauriCommand<{ bundleId: string }, void>()("set_default_browser"),
+  set_default_browser: defineTauriCommand<{ bundleId: string }, string>()("set_default_browser"),
   // system settings - semantic pane registry
   open_battery_settings: defineTauriCommand<undefined, void>()("open_battery_settings"),
   open_control_center_settings: defineTauriCommand<undefined, void>()(
@@ -630,6 +644,8 @@ export const TAURI_COMMANDS = {
     setAccountProxyEnabled: commandName("set_account_proxy_enabled"),
     proxyLogin: commandName("proxy_login"),
     handleBrowserOpen: commandName("handle_browser_open"),
+    getAuthProxyInboxStatus: commandName("get_auth_proxy_inbox_status"),
+    drainAuthProxyRequest: commandName("drain_auth_proxy_request"),
     proxyLoginNewAccount: commandName("proxy_login_new_account"),
     listExternalApps: commandName("list_external_apps"),
     removeExternalApp: commandName("remove_external_app"),
@@ -690,6 +706,7 @@ export const TAURI_COMMANDS = {
     setScreenshotDisableShadow: commandName("set_screenshot_disable_shadow"),
     setScreenshotShowThumbnail: commandName("set_screenshot_show_thumbnail"),
     setScreenshotSaveLocation: commandName("set_screenshot_save_location"),
+    getSystemSettingsSnapshot: commandName("get_system_settings_snapshot"),
     lockScreen: commandName("lock_screen"),
     emptyTrash: commandName("empty_trash"),
     sleepNow: commandName("sleep_now"),
@@ -861,10 +878,12 @@ export const TAURI_COMMAND_ARG_KEYS = {
   reset_probe_strategy: ["stationId"],
   create_ephemeral_account: ["website", "username", "stationId"],
   set_session_ttl: ["stationId", "ttlHours"],
-  set_station_network_proxy: ["stationId", "config", "password"],
+  set_station_network_proxy: ["stationId", "config", "passwordAction"],
   set_account_proxy_enabled: ["accountId", "enabled"],
   proxy_login: ["accountId", "ticketId"],
   handle_browser_open: ["url"],
+  get_auth_proxy_inbox_status: [],
+  drain_auth_proxy_request: [],
   proxy_login_new_account: ["ticketId", "username"],
   list_external_apps: ["stationId", "accountId"],
   remove_external_app: ["appId"],
@@ -926,6 +945,7 @@ export const TAURI_COMMAND_ARG_KEYS = {
   set_screenshot_disable_shadow: ["disable"],
   set_screenshot_show_thumbnail: ["show"],
   set_screenshot_save_location: ["path"],
+  get_system_settings_snapshot: [],
   // system settings - quick actions
   lock_screen: [],
   empty_trash: [],
@@ -1026,6 +1046,9 @@ export const TAURI_EVENTS = {
   appPreferences: {
     showCloseBehaviorDialog: "show-close-behavior-dialog",
   },
+  accountManager: {
+    authProxyPending: "account-manager:auth-proxy-pending",
+  },
 } as const
 
 export interface TauriEventContracts {
@@ -1040,4 +1063,5 @@ export interface TauriEventContracts {
   "clean-space:scan-category": StorageCategory
   "clean-space:scan-complete": void
   "show-close-behavior-dialog": void
+  "account-manager:auth-proxy-pending": AuthProxyInboxStatus
 }

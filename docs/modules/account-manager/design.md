@@ -90,6 +90,8 @@ AuthProfile 检测从页面、cookie、Web Storage、CSRF、SSO、anti-bot 和 W
 
 安全约束：
 
+- Deep Link 只由 Rust App 根 listener 接收；最多排队 32 条，每条最多 32 KiB，按 FIFO 消费并用短时 SHA-256 指纹去重。原始 `bench-auth://` URL 不发送到 renderer。
+- Windows 使用第一个注册的 `tauri-plugin-single-instance`（启用 `deep-link` feature）把第二实例参数交回主实例，并聚焦主窗口；前端只监听无敏感 URL 的 pending 事件，再调用无参数 drain IPC。
 - `target` 必须是合法登录 URL；hostname 使用 URL parser，不做字符串裁剪。
 - `handle_browser_open` 签发 5 分钟一次性 ticket；启动登录 IPC 只接受 `ticketId + accountId`，不接受 renderer 重传 target/return。
 - `return` 只允许受控自定义 scheme 或 `localhost/127.0.0.1/::1` loopback；拒绝任意 http(s)、file 和 javascript。

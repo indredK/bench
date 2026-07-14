@@ -70,6 +70,29 @@ describe("VirtualGridView", () => {
     expect(gridRow?.style.gridTemplateColumns).toBe("repeat(3, minmax(240px, 1fr))")
   })
 
+  it("keeps a 2000-item fixture bounded to the visible virtual row", () => {
+    const fixture = Array.from({ length: 2_000 }, (_, index) => ({
+      id: String(index),
+      label: `App ${index}`,
+    }))
+    const { container } = render(
+      <VirtualGridView
+        data={fixture}
+        getRowId={(row) => row.id}
+        renderGridCard={(row) => <div data-grid-card>{row.label}</div>}
+        onItemClick={() => {}}
+        gridColumns={8}
+        minCardWidth={84}
+      />,
+    )
+
+    const scroller = container.querySelector("[data-table-scroll]")
+    expect(scroller).toHaveAttribute("data-total-count", "2000")
+    expect(container.querySelectorAll("[data-grid-card]")).toHaveLength(8)
+    expect(container).toHaveTextContent("App 0")
+    expect(container).not.toHaveTextContent("App 1999")
+  })
+
   it("reduces columns when the available width is too narrow for the maximum", async () => {
     class MockResizeObserver {
       private callback: ResizeObserverCallback

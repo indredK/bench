@@ -12,6 +12,9 @@ on:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   CI: true
+  # Default to installable ad-hoc/unsigned OS packages. Set the repository
+  # variable to "signed" after Apple/Windows certificates are available.
+  BENCH_OS_SIGNING_MODE: ${{ vars.BENCH_OS_SIGNING_MODE || 'unsigned' }}
 
 permissions:
   contents: write
@@ -145,8 +148,19 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Validate release signing mode
+        shell: bash
+        run: |
+          case "$BENCH_OS_SIGNING_MODE" in
+            unsigned|signed) ;;
+            *)
+              echo "::error::BENCH_OS_SIGNING_MODE must be 'unsigned' or 'signed', got '$BENCH_OS_SIGNING_MODE'."
+              exit 1
+              ;;
+          esac
+
       - name: Import Apple Developer ID certificate
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && env.BENCH_OS_SIGNING_MODE == 'signed'
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -168,7 +182,7 @@ jobs:
           echo "BENCH_RELEASE_KEYCHAIN=$keychain_path" >> "$GITHUB_ENV"
 
       - name: Import Windows Authenticode certificate
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && env.BENCH_OS_SIGNING_MODE == 'signed'
         shell: pwsh
         env:
           WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
@@ -202,26 +216,35 @@ jobs:
             exit 1
           fi
           if [ "${{ runner.os }}" = "macOS" ]; then
-            if [ -z "$APPLE_SIGNING_IDENTITY" ] || [ -z "$APPLE_ID" ] || [ -z "$APPLE_PASSWORD" ] || [ -z "$APPLE_TEAM_ID" ]; then
-              echo "::error::APPLE_SIGNING_IDENTITY, APPLE_ID, APPLE_PASSWORD, and APPLE_TEAM_ID are required for notarized macOS releases."
-              exit 1
+            if [ "$BENCH_OS_SIGNING_MODE" = "signed" ]; then
+              if [ -z "$APPLE_SIGNING_IDENTITY" ] || [ -z "$APPLE_ID" ] || [ -z "$APPLE_PASSWORD" ] || [ -z "$APPLE_TEAM_ID" ]; then
+                echo "::error::APPLE_SIGNING_IDENTITY, APPLE_ID, APPLE_PASSWORD, and APPLE_TEAM_ID are required in signed mode."
+                exit 1
+              fi
+              release_config="{\"bundle\":{\"macOS\":{\"signingIdentity\":\"$APPLE_SIGNING_IDENTITY\"}}}"
+              pnpm tauri build --target ${{ matrix.target }} --bundles app,dmg --config "$release_config"
+            else
+              echo "::warning::Building an ad-hoc signed macOS package. Users must explicitly trust Bench in macOS."
+              pnpm tauri build --target ${{ matrix.target }} --bundles app,dmg
             fi
-            # Updater artifacts (.app.tar.gz) are emitted when the app bundle is built.
-            release_config="{\"bundle\":{\"macOS\":{\"signingIdentity\":\"$APPLE_SIGNING_IDENTITY\"}}}"
-            pnpm tauri build --target ${{ matrix.target }} --bundles app,dmg --config "$release_config"
           elif [ "${{ runner.os }}" = "Windows" ]; then
-            if [ -z "$WINDOWS_CERTIFICATE_THUMBPRINT" ] || [ -z "$WINDOWS_TIMESTAMP_URL" ]; then
-              echo "::error::Windows certificate thumbprint and WINDOWS_TIMESTAMP_URL are required for Authenticode releases."
-              exit 1
+            if [ "$BENCH_OS_SIGNING_MODE" = "signed" ]; then
+              if [ -z "$WINDOWS_CERTIFICATE_THUMBPRINT" ] || [ -z "$WINDOWS_TIMESTAMP_URL" ]; then
+                echo "::error::Windows certificate thumbprint and WINDOWS_TIMESTAMP_URL are required in signed mode."
+                exit 1
+              fi
+              release_config="{\"bundle\":{\"windows\":{\"certificateThumbprint\":\"$WINDOWS_CERTIFICATE_THUMBPRINT\",\"digestAlgorithm\":\"sha256\",\"timestampUrl\":\"$WINDOWS_TIMESTAMP_URL\"}}}"
+              pnpm tauri build --target ${{ matrix.target }} --bundles msi,nsis --config "$release_config"
+            else
+              echo "::warning::Building unsigned Windows packages. Windows may show an unknown publisher warning."
+              pnpm tauri build --target ${{ matrix.target }} --bundles msi,nsis
             fi
-            release_config="{\"bundle\":{\"windows\":{\"certificateThumbprint\":\"$WINDOWS_CERTIFICATE_THUMBPRINT\",\"digestAlgorithm\":\"sha256\",\"timestampUrl\":\"$WINDOWS_TIMESTAMP_URL\"}}}"
-            pnpm tauri build --target ${{ matrix.target }} --bundles msi,nsis --config "$release_config"
           else
             pnpm tauri build --target ${{ matrix.target }}
           fi
 
       - name: Verify macOS code signing and notarization
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && env.BENCH_OS_SIGNING_MODE == 'signed'
         run: |
           bundle_dir="src-tauri/target/${{ matrix.target }}/release/bundle"
           app_count="$(find "$bundle_dir/macos" -maxdepth 1 -type d -name "*.app" | wc -l | tr -d ' ')"
@@ -239,7 +262,7 @@ jobs:
           spctl --assess --type open --context context:primary-signature --verbose=2 "$dmg_path"
 
       - name: Verify Windows Authenticode signatures
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && env.BENCH_OS_SIGNING_MODE == 'signed'
         shell: pwsh
         run: |
           $bundleRoot = "src-tauri/target/${{ matrix.target }}/release/bundle"
@@ -384,6 +407,32 @@ jobs:
         with:
           path: release-assets
           merge-multiple: true
+
+      - name: Write OS signing notice
+        shell: bash
+        run: |
+          case "$BENCH_OS_SIGNING_MODE" in
+            unsigned)
+              cat > release-assets/OS-SIGNING-NOTICE.txt <<'EOF'
+          Bench packages in this release are not signed with Apple Developer ID or Windows Authenticode.
+
+          macOS uses an ad-hoc signature. Open Bench with Control-click > Open, or allow it from
+          System Settings > Privacy & Security after confirming the SHA256SUMS checksum.
+
+          Windows may display an unknown publisher warning. Confirm the release source and
+          SHA256SUMS checksum before continuing.
+
+          Application updater bundles remain signed with the separate Tauri updater key.
+          EOF
+              ;;
+            signed)
+              printf '%s\n' 'Bench packages in this release use OS code signing and a separate Tauri updater signature.' > release-assets/OS-SIGNING-NOTICE.txt
+              ;;
+            *)
+              echo "::error::Unsupported BENCH_OS_SIGNING_MODE: $BENCH_OS_SIGNING_MODE"
+              exit 1
+              ;;
+          esac
 
       - name: List release assets
         run: ls -la release-assets/

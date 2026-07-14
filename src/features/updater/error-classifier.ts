@@ -1,7 +1,7 @@
 /**
  * Updater Errors / 更新错误: classify updater failures into user-facing states.
  */
-import { getErrorMessage } from "@/lib/tauri/errors"
+import { getErrorMessage, parseCommandError } from "@/lib/tauri/errors"
 
 export type UpdaterOperation = "check" | "install"
 
@@ -117,6 +117,40 @@ export function classifyUpdaterError(
 ): UpdaterErrorInfo {
   const message = normalizeErrorMessage(error, fallback)
   const normalizedMessage = message.toLowerCase()
+  const errorCode = parseCommandError(error).code
+
+  if (errorCode === "UPDATER_RATE_LIMITED") {
+    return { kind: "rateLimited", operation, message, retryAction: "check" }
+  }
+
+  if (
+    errorCode === "UPDATER_MANIFEST_NOT_FOUND" ||
+    errorCode === "UPDATER_MANIFEST_INVALID" ||
+    errorCode === "UPDATER_PLATFORM_MISSING"
+  ) {
+    return { kind: "releaseInfoUnavailable", operation, message, retryAction: "check" }
+  }
+
+  if (errorCode === "UPDATER_SIGNATURE_INVALID") {
+    return { kind: "signatureVerificationFailed", operation, message, retryAction: "check" }
+  }
+
+  if (errorCode === "UPDATER_UPDATE_NOT_AVAILABLE") {
+    return { kind: "updateStateChanged", operation, message, retryAction: "check" }
+  }
+
+  if (errorCode === "UPDATER_NETWORK_UNAVAILABLE") {
+    return {
+      kind: operation === "install" ? "downloadFailed" : "networkUnavailable",
+      operation,
+      message,
+      retryAction: operation === "install" ? "install" : "check",
+    }
+  }
+
+  if (errorCode === "UPDATER_DISK_FULL" || errorCode === "UPDATER_PERMISSION_DENIED") {
+    return { kind: "installBlocked", operation, message, retryAction: "install" }
+  }
 
   if (includesAny(normalizedMessage, RATE_LIMIT_PATTERNS)) {
     return {

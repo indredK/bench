@@ -252,6 +252,7 @@
     "browser": {
       "title": "Default Browser",
       "loadFailed": "Failed to read default browser setting",
+      "openSettings": "Open macOS settings",
       "options": {
         "safari": "Safari",
         "chrome": "Google Chrome",
@@ -261,6 +262,9 @@
         "opera": "Opera",
         "arc": "Arc"
       }
+    },
+    "snapshot": {
+      "loadFailed": "Failed to read the current system settings"
     },
     "shortcuts": {
       "title": "System Settings Shortcuts",
@@ -275,6 +279,7 @@
     "stationTitle": "Station List",
     "accountTitle": "Accounts",
     "detailTitle": "Detail",
+    "detailSheetDescription": "Account and gateway details",
     "addStation": "Add Station",
     "importData": "Import",
     "exportData": "Export",
@@ -444,6 +449,7 @@
       "deleteStationFailed": "Failed to delete gateway",
       "deleteStationSuccess": "Deleted gateway \"{{name}}\"",
       "deleteAccountFailed": "Failed to delete account",
+      "deleteCleanupPartial": "Some account data could not be cleared ({{failed}} failed). The item was kept so you can retry.",
       "deleteAccountSuccess": "Deleted account \"{{name}}\"",
       "exportFailed": "Failed to export gateway data",
       "exportSuccess": "Exported {{stations}} gateways and {{accounts}} accounts",
@@ -461,6 +467,8 @@
       "switchAccountFailed": "Failed to switch account",
       "proxyLoginFailed": "Proxy login failed. Please try again.",
       "authProxyHandleFailed": "Failed to handle external login request",
+      "authProxyInboxDropped": "Some older external sign-in requests were discarded because too many arrived at once.",
+      "authProxyInboxRejected": "One or more invalid external sign-in requests were rejected.",
       "loadExternalAppsFailed": "Failed to load external apps",
       "revokeExternalAppSuccess": "Authorization revoked",
       "revokeExternalAppFailed": "Failed to revoke authorization",
@@ -2149,7 +2157,11 @@
     "FORBIDDEN_PATH": "This path is outside the allowed directories.",
     "PATH_NOT_ABSOLUTE": "The path must be absolute.",
     "PATH_TRAVERSAL": "The path must not contain '..'.",
-    "TASK_FAILED": "A background task failed to complete."
+    "TASK_FAILED": "A background task failed to complete.",
+    "SETTING_VERIFICATION_FAILED": "macOS did not confirm the setting change.",
+    "DEFAULT_BROWSER_UNKNOWN": "macOS did not report a default browser.",
+    "DEFAULT_BROWSER_CHANGE_FAILED": "macOS rejected the default browser change.",
+    "DEFAULT_BROWSER_CHANGE_REQUIRES_USER_ACTION": "Finish changing the default browser in macOS settings."
   },
   "common": {
     "yes": "Yes",
@@ -2176,6 +2188,11 @@
     "disable": "Disable",
     "add": "Add",
     "edit": "Edit",
+    "persistence": {
+      "recovered": "Saved classifications were unreadable. A backup was kept and the defaults were restored.",
+      "newerSchema": "Saved classifications were created by a newer Bench version. Editing is disabled to protect them.",
+      "tooLarge": "Saved classifications exceed the safety limit. Editing is disabled until the data is reviewed."
+    },
     "search": "Search",
     "loading": "Loading...",
     "filters": "Filters",
@@ -2605,16 +2622,19 @@
       "logTitle": "Execution Log",
       "deleted": "Permanently deleted",
       "cleaned": "Cleaned",
+      "failed": "Failed",
       "freed": "Freed",
       "irreversible": " (irreversible)",
       "resultTitle": "Cleanup Result",
       "cleanedItems": "Cleaned items",
+      "failedItems": "Failed items",
       "freedSpace": "Freed space",
       "pathCount": "Paths",
       "highRiskItems": "High-risk items",
       "again": "Run again",
       "done": "Done",
-      "allDone": "All selected tasks completed"
+      "allDone": "All selected tasks completed",
+      "completedWithFailures": "Cleanup finished with {{failed}} failed item(s). You can select them and retry."
     },
     "confirmCleanupTitle": "Confirm Cleanup",
     "confirmCleanupDesc2": "Please review the commands and impact scope below before executing.",

@@ -11,10 +11,30 @@
 
 ---
 
-## D-009 · 正式 tag 采用 OS 签名与 updater 签名双重 fail-closed
+## D-011 · 2.0 保留既有 bundle identifier
 
 - **日期**：2026-07-14
 - **状态**：采纳
+- **背景**：`com.bench.app` 会触发 Tauri 关于 `.app` 后缀的警告，但既有版本已使用该 identifier 安装并创建 Keychain、应用数据和更新身份。直接改名会比警告本身带来更高的升级与凭据丢失风险。
+- **决策**：2.0 继续使用 `com.bench.app`；当前不做 identifier 迁移。未来如需改名，必须单独设计 Keychain、数据目录、自动更新和卸载/重装迁移，并从 1.23.0 做真机升级验证。
+- **理由**：identifier 是持久化命名空间，不是可随意清理的展示字符串；兼容既有用户优先于消除构建警告。
+- **影响**：该 Tauri warning 记录为已知、已接受事项，不再阻断当前 unsigned 发布准备，也不得由后续 AI 直接修改字符串。
+- **相关**：[2.0.0 发布门禁](./roadmap/2.0.0-release-readiness.md) · [数据共存](./dev-prod-coexistence.md)
+
+## D-010 · 当前发布默认使用 ad-hoc macOS 与 unsigned Windows 包
+
+- **日期**：2026-07-14
+- **状态**：采纳
+- **背景**：当前没有 Apple Developer Program 或 Windows Authenticode 证书；既有版本可由用户在 macOS 手动信任后安装。Tauri updater minisign 与 OS 代码签名是两套独立信任边界。
+- **决策**：`BENCH_OS_SIGNING_MODE` 默认 `unsigned`：macOS 保留 `signingIdentity: "-"` 的 ad-hoc 签名，Windows 生成 unsigned MSI/NSIS；Release 必须附带 `OS-SIGNING-NOTICE.txt` 和 `SHA256SUMS`。Tauri updater 私钥、`.sig`、三平台 manifest 和签名验证继续 fail-closed。正式 Apple notarization、Windows Authenticode 和对应真机信任验收保留为延期项目；取得证书后把变量切到 `signed`，不改发布脚本主流程。
+- **理由**：没有证书时无法制造 OS 信任。明确警告、校验和与独立 updater 签名能保证当前产物可追溯且应用内更新不被篡改，同时不把未完成的 OS 签名伪装为已完成。
+- **影响**：未签名不再是当前代码阻断；用户仍会看到 Gatekeeper/Unknown Publisher 提示。签名模式、产物类型和 Release 说明必须一致。
+- **相关**：[CI workflow](../.github/workflows/ci-build.yml) · [Updater roadmap](./modules/updater/roadmap.md) · [2.0.0 发布门禁](./roadmap/2.0.0-release-readiness.md)
+
+## D-009 · 正式 tag 采用 OS 签名与 updater 签名双重 fail-closed
+
+- **日期**：2026-07-14
+- **状态**：已推翻(被 D-010 取代)
 - **背景**：原 release workflow 允许缺少 DMG/Windows updater 时继续，macOS 默认使用 ad-hoc identity，且会在产物验证前创建空 Release。Tauri updater minisign 只能验证应用内更新包，不能替代 macOS Developer ID/notarization 或 Windows Authenticode。
 - **决策**：正式 tag 构建必须从 GitHub Secrets 导入 Apple Developer ID 和 Windows PFX，使用 Tauri 2.11.4 bundler 的 `signingIdentity` / `certificateThumbprint` 配置完成签名；随后验证 codesign、Gatekeeper、stapler 和 Authenticode。installer、updater、`.sig`、三平台 manifest 和 SHA-256 清单任一缺失即停止，所有校验通过后才允许创建或更新 GitHub Release。updater 私钥与 OS 证书分开管理。
 - **理由**：发布可信度需要同时覆盖操作系统安装信任和应用内更新完整性；把产物集合、签名状态和发布副作用做成机器门禁，可以避免“CI 绿色但用户拿到未签名/缺平台包”。
