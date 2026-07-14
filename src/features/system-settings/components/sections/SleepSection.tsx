@@ -18,7 +18,7 @@ export function SleepSection() {
     const state = await systemSettingsUseCases.getSleepInhibitorState()
     useSystemSettingsStore.getState().setSleepState(state)
   }, [])
-  const section = useSettingsSectionLoader(refresh)
+  const section = useSettingsSectionLoader("sleep", refresh)
 
   return (
     <SettingGroup title={t("systemSettings.sleep.title")}>

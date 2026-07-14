@@ -26,7 +26,7 @@ export function LockScreenSection() {
     s.setLockScreenPassword(enabled)
     s.setLockScreenPasswordDelay(delay)
   }, [])
-  const section = useSettingsSectionLoader(refresh)
+  const section = useSettingsSectionLoader("lock-screen", refresh)
 
   return (
     <SettingGroup title={t("systemSettings.actions.lockPasswordTitle")}>

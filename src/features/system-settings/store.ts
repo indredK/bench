@@ -23,6 +23,9 @@ interface SystemSettingsState {
   loadedTabs: Set<string>
   markTabLoaded: (tab: string) => void
 
+  loadedSections: Set<string>
+  markSectionLoaded: (sectionId: string) => void
+
   // ── Appearance ──
   displayBatteryPercent: boolean
   setDisplayBatteryPercent: (v: boolean) => void
@@ -120,6 +123,14 @@ export const useSystemSettingsStore = create<SystemSettingsState>((set) => ({
       const next = new Set(state.loadedTabs)
       next.add(tab)
       return { loadedTabs: next }
+    }),
+
+  loadedSections: new Set<string>(),
+  markSectionLoaded: (sectionId) =>
+    set((state) => {
+      const next = new Set(state.loadedSections)
+      next.add(sectionId)
+      return { loadedSections: next }
     }),
 
   // ── Appearance defaults ──

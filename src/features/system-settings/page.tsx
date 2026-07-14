@@ -51,6 +51,25 @@ import { searchSettings } from "./search-index"
 
 const TAB_IDS: SettingsTab[] = ["appearance", "security", "system", "advanced"]
 
+function isSnapshotLoaded(loadedTabs: Set<string>) {
+  return loadedTabs.has("appearance") || loadedTabs.has("security") || loadedTabs.has("system")
+}
+
+function createInitialPageLoadingState() {
+  const s = useSystemSettingsStore.getState()
+  const snapshotLoaded = isSnapshotLoaded(s.loadedTabs)
+  const systemLoaded = s.loadedTabs.has("system")
+  const advancedLoaded = s.loadedTabs.has("advanced")
+
+  return {
+    snapshotReadLoading: !snapshotLoaded,
+    browserReadLoading: !systemLoaded,
+    loginItemsLoading: !systemLoaded,
+    launchAgentsLoading: !advancedLoaded,
+    launchDaemonsLoading: !advancedLoaded,
+  }
+}
+
 const BROWSER_OPTIONS = [
   { value: "com.apple.safari", labelKey: "systemSettings.browser.options.safari" },
   { value: "com.google.chrome", labelKey: "systemSettings.browser.options.chrome" },
@@ -124,26 +143,36 @@ export default function SystemSettings(_props: SystemSettingsProps) {
   // ── State for System tab (Login items) ──
 
   const [loginItems, setLoginItems] = useState(useSystemSettingsStore.getState().loginItems)
-  const [loginItemsLoading, setLoginItemsLoading] = useState(true)
+  const [loginItemsLoading, setLoginItemsLoading] = useState(
+    () => createInitialPageLoadingState().loginItemsLoading,
+  )
   const [loginItemsError, setLoginItemsError] = useState("")
   const [launchAgents, setLaunchAgents] = useState<
     { name: string; path: string; enabled: boolean }[]
   >([])
-  const [launchAgentsLoading, setLaunchAgentsLoading] = useState(true)
+  const [launchAgentsLoading, setLaunchAgentsLoading] = useState(
+    () => createInitialPageLoadingState().launchAgentsLoading,
+  )
   const [launchAgentsError, setLaunchAgentsError] = useState("")
   const [launchDaemons, setLaunchDaemons] = useState<
     { name: string; path: string; enabled: boolean }[]
   >([])
-  const [launchDaemonsLoading, setLaunchDaemonsLoading] = useState(true)
+  const [launchDaemonsLoading, setLaunchDaemonsLoading] = useState(
+    () => createInitialPageLoadingState().launchDaemonsLoading,
+  )
   const [launchDaemonsError, setLaunchDaemonsError] = useState("")
   const [loginItemToRemove, setLoginItemToRemove] = useState<string | null>(null)
 
   // Default browser state
   const [defaultBrowser, setDefaultBrowser] = useState(store.defaultBrowser)
   const [browserLoading, setBrowserLoading] = useState(false)
-  const [browserReadLoading, setBrowserReadLoading] = useState(true)
+  const [browserReadLoading, setBrowserReadLoading] = useState(
+    () => createInitialPageLoadingState().browserReadLoading,
+  )
   const [browserReadError, setBrowserReadError] = useState("")
-  const [snapshotReadLoading, setSnapshotReadLoading] = useState(true)
+  const [snapshotReadLoading, setSnapshotReadLoading] = useState(
+    () => createInitialPageLoadingState().snapshotReadLoading,
+  )
   const [snapshotReadError, setSnapshotReadError] = useState("")
 
   // ── Search state ──
@@ -153,10 +182,35 @@ export default function SystemSettings(_props: SystemSettingsProps) {
     [searchQuery, t],
   )
 
+  const hydrateCachedTab = useCallback(
+    (tab: SettingsTab, s = useSystemSettingsStore.getState()) => {
+      if (tab === "appearance" || tab === "security") {
+        setSnapshotReadLoading(false)
+        setSnapshotReadError("")
+        return
+      }
+
+      if (tab === "system") {
+        setSnapshotReadLoading(false)
+        setSnapshotReadError("")
+        setBrowserReadLoading(false)
+        setBrowserReadError("")
+        setLoginItemsLoading(false)
+        setLoginItemsError("")
+        setDefaultBrowser(s.defaultBrowser)
+        setLoginItems(s.loginItems)
+      }
+    },
+    [],
+  )
+
   const loadTabSettings = useCallback(
     async (tab: SettingsTab, force = false) => {
       const s = useSystemSettingsStore.getState()
-      if (!force && s.loadedTabs.has(tab)) return
+      if (!force && tab !== "advanced" && s.loadedTabs.has(tab)) {
+        hydrateCachedTab(tab, s)
+        return
+      }
 
       if (tab === "appearance" || tab === "security") {
         setSnapshotReadLoading(true)
@@ -251,7 +305,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
         s.markTabLoaded(tab)
       }
     },
-    [t],
+    [hydrateCachedTab, t],
   )
 
   useEffect(() => {

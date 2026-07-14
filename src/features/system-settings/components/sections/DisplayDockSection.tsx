@@ -34,7 +34,7 @@ export function DisplayDockSection({ className }: DisplayDockSectionProps) {
     s.setDockOrientation(orientation)
     s.setMinimizeScaleEnabled(minimizeScale)
   }, [])
-  const section = useSettingsSectionLoader(refresh)
+  const section = useSettingsSectionLoader("display-dock", refresh)
 
   return (
     <SettingGroup title={t("systemSettings.display.title")} className={className}>

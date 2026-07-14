@@ -33,7 +33,7 @@ export function KeyboardSection() {
     s.setSmartDashes(smartDashes)
     s.setAutoCapitalize(autoCapitalize)
   }, [])
-  const section = useSettingsSectionLoader(refresh)
+  const section = useSettingsSectionLoader("keyboard", refresh)
 
   return (
     <SettingGroup title={t("systemSettings.keyboard.title")}>
