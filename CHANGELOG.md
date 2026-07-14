@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.24.3](https://github.com/indredK/bench/compare/v1.24.2...v1.24.3) (2026-07-14)
+
+
+### Bug Fixes
+
+* **ci:** align release signing with v1.23.0 and ignore release files in Prettier ([bc92f15](https://github.com/indredK/bench/commit/bc92f15fbe85336673078503727fb4465aee4e49))
+* **release:** trigger release-please after CI signing and format fixes ([bbe5d24](https://github.com/indredK/bench/commit/bbe5d24a7c8d99b21ec8d3b66c6f8f9bcd2fd089))
+
 ## [1.24.2](https://github.com/indredK/bench/compare/v1.24.1...v1.24.2) (2026-07-14)
 
 ### Bug Fixes
