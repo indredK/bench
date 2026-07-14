@@ -236,7 +236,7 @@ mod tests {
         #[cfg(windows)]
         let mut command = {
             let mut command = Command::new("cmd");
-            command.args(["/C", "echo|set /p=ready"]);
+            command.args(["/C", "<nul set /p=ready"]);
             command
         };
 

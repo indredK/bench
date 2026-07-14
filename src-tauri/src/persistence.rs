@@ -62,7 +62,7 @@ pub fn backup_file(path: &Path, label: &str, max_backups: usize) -> io::Result<O
         .unwrap_or("data");
     let prefix = format!("{file_name}.{label}-");
     let backup = parent.join(format!("{prefix}{}", unique_suffix()));
-    fs::copy(path, &backup)?;
+    copy_with_retry(path, &backup)?;
     File::open(&backup)?.sync_all()?;
 
     let mut backups = fs::read_dir(parent)?
@@ -89,6 +89,23 @@ fn unique_suffix() -> String {
         .map(|duration| duration.as_nanos())
         .unwrap_or(0);
     format!("{}-{nanos}", std::process::id())
+}
+
+/// Retry-aware `fs::copy` for Windows CI where transient permission errors
+/// (antivirus / ACL) can cause a one-shot `fs::copy` to fail.
+fn copy_with_retry(src: &Path, dst: &Path) -> io::Result<u64> {
+    let mut last_err: Option<io::Error> = None;
+    for attempt in 0..3 {
+        match fs::copy(src, dst) {
+            Ok(n) => return Ok(n),
+            Err(e) if e.kind() == io::ErrorKind::PermissionDenied && attempt < 2 => {
+                last_err = Some(e);
+                std::thread::sleep(std::time::Duration::from_millis(10 << attempt));
+            }
+            Err(e) => return Err(e),
+        }
+    }
+    Err(last_err.unwrap())
 }
 
 #[cfg(unix)]
