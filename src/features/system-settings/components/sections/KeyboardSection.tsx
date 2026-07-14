@@ -37,77 +37,83 @@ export function KeyboardSection() {
 
   return (
     <SettingGroup title={t("systemSettings.keyboard.title")}>
-      <SettingsSectionState
-        status={section.status}
-        error={section.error}
-        onRetry={() => void section.reload()}
-      >
-        <SettingToggle
-          label={t("systemSettings.keyboard.fnKeys")}
-          description={t("systemSettings.keyboard.fnKeysDesc")}
-          checked={keyboardFnKey}
-          loading={applyingKeys.has("keyboard.fnKey")}
-          onOpenSettings={() => systemSettingsUseCases.openKeyboardSettings()}
-          onCheckedChange={async (v) => {
-            await run("keyboard.fnKey", async () => {
-              await systemSettingsUseCases.setKeyboardFnKeyState(v)
-              useSystemSettingsStore.getState().setKeyboardFnKey(v)
-            })
-          }}
-        />
-        <SettingToggle
-          label={t("systemSettings.keyboard.autoCorrect")}
-          description={t("systemSettings.keyboard.autoCorrectDesc")}
-          checked={autoCorrect}
-          loading={applyingKeys.has("keyboard.autoCorrect")}
-          onOpenSettings={() => systemSettingsUseCases.openKeyboardSettings()}
-          onCheckedChange={async (v) => {
-            await run("keyboard.autoCorrect", async () => {
-              await systemSettingsUseCases.setAutoCorrectState(v)
-              useSystemSettingsStore.getState().setAutoCorrect(v)
-            })
-          }}
-        />
-        <SettingToggle
-          label={t("systemSettings.keyboard.smartQuotes")}
-          description={t("systemSettings.keyboard.smartQuotesDesc")}
-          checked={smartQuotes}
-          loading={applyingKeys.has("keyboard.smartQuotes")}
-          onOpenSettings={() => systemSettingsUseCases.openKeyboardSettings()}
-          onCheckedChange={async (v) => {
-            await run("keyboard.smartQuotes", async () => {
-              await systemSettingsUseCases.setSmartQuotesState(v)
-              useSystemSettingsStore.getState().setSmartQuotes(v)
-            })
-          }}
-        />
-        <SettingToggle
-          label={t("systemSettings.keyboard.smartDashes")}
-          description={t("systemSettings.keyboard.smartDashesDesc")}
-          checked={smartDashes}
-          loading={applyingKeys.has("keyboard.smartDashes")}
-          onOpenSettings={() => systemSettingsUseCases.openKeyboardSettings()}
-          onCheckedChange={async (v) => {
-            await run("keyboard.smartDashes", async () => {
-              await systemSettingsUseCases.setSmartDashesState(v)
-              useSystemSettingsStore.getState().setSmartDashes(v)
-            })
-          }}
-        />
-        <SettingToggle
-          label={t("systemSettings.keyboard.autoCapitalize")}
-          description={t("systemSettings.keyboard.autoCapitalizeDesc")}
-          checked={autoCapitalize}
-          loading={applyingKeys.has("keyboard.autoCapitalize")}
-          onOpenSettings={() => systemSettingsUseCases.openKeyboardSettings()}
-          onCheckedChange={async (v) => {
-            await run("keyboard.autoCapitalize", async () => {
-              await systemSettingsUseCases.setAutoCapitalizeState(v)
-              useSystemSettingsStore.getState().setAutoCapitalize(v)
-            })
-          }}
-        />
-      </SettingsSectionState>
+      {section.status === "error" ? (
+        <SettingsSectionState
+          status="error"
+          error={section.error}
+          onRetry={() => void section.reload()}
+        >
+          <div />
+        </SettingsSectionState>
+      ) : (
+        <>
+          <SettingToggle
+            label={t("systemSettings.keyboard.fnKeys")}
+            description={t("systemSettings.keyboard.fnKeysDesc")}
+            checked={keyboardFnKey}
+            loading={section.status === "loading" || applyingKeys.has("keyboard.fnKey")}
+            onOpenSettings={() => systemSettingsUseCases.openKeyboardSettings()}
+            onCheckedChange={async (v) => {
+              await run("keyboard.fnKey", async () => {
+                await systemSettingsUseCases.setKeyboardFnKeyState(v)
+                useSystemSettingsStore.getState().setKeyboardFnKey(v)
+              })
+            }}
+          />
+          <SettingToggle
+            label={t("systemSettings.keyboard.autoCorrect")}
+            description={t("systemSettings.keyboard.autoCorrectDesc")}
+            checked={autoCorrect}
+            loading={section.status === "loading" || applyingKeys.has("keyboard.autoCorrect")}
+            onOpenSettings={() => systemSettingsUseCases.openKeyboardSettings()}
+            onCheckedChange={async (v) => {
+              await run("keyboard.autoCorrect", async () => {
+                await systemSettingsUseCases.setAutoCorrectState(v)
+                useSystemSettingsStore.getState().setAutoCorrect(v)
+              })
+            }}
+          />
+          <SettingToggle
+            label={t("systemSettings.keyboard.smartQuotes")}
+            description={t("systemSettings.keyboard.smartQuotesDesc")}
+            checked={smartQuotes}
+            loading={section.status === "loading" || applyingKeys.has("keyboard.smartQuotes")}
+            onOpenSettings={() => systemSettingsUseCases.openKeyboardSettings()}
+            onCheckedChange={async (v) => {
+              await run("keyboard.smartQuotes", async () => {
+                await systemSettingsUseCases.setSmartQuotesState(v)
+                useSystemSettingsStore.getState().setSmartQuotes(v)
+              })
+            }}
+          />
+          <SettingToggle
+            label={t("systemSettings.keyboard.smartDashes")}
+            description={t("systemSettings.keyboard.smartDashesDesc")}
+            checked={smartDashes}
+            loading={section.status === "loading" || applyingKeys.has("keyboard.smartDashes")}
+            onOpenSettings={() => systemSettingsUseCases.openKeyboardSettings()}
+            onCheckedChange={async (v) => {
+              await run("keyboard.smartDashes", async () => {
+                await systemSettingsUseCases.setSmartDashesState(v)
+                useSystemSettingsStore.getState().setSmartDashes(v)
+              })
+            }}
+          />
+          <SettingToggle
+            label={t("systemSettings.keyboard.autoCapitalize")}
+            description={t("systemSettings.keyboard.autoCapitalizeDesc")}
+            checked={autoCapitalize}
+            loading={section.status === "loading" || applyingKeys.has("keyboard.autoCapitalize")}
+            onOpenSettings={() => systemSettingsUseCases.openKeyboardSettings()}
+            onCheckedChange={async (v) => {
+              await run("keyboard.autoCapitalize", async () => {
+                await systemSettingsUseCases.setAutoCapitalizeState(v)
+                useSystemSettingsStore.getState().setAutoCapitalize(v)
+              })
+            }}
+          />
+        </>
+      )}
     </SettingGroup>
   )
 }

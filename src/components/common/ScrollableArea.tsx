@@ -77,7 +77,7 @@ export const ScrollableArea = forwardRef<HTMLDivElement, ScrollableAreaProps>(
       >
         <ScrollTag
           ref={mergeRefs(scrollRef, forwardedRef)}
-          className={cn("overflow-y-auto overscroll-none", className)}
+          className={cn("min-h-0 overflow-y-auto overscroll-none", className)}
           {...props}
         >
           {children}

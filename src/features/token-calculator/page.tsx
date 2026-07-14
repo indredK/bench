@@ -152,20 +152,29 @@ export default function TokenCalculatorPage() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="standards" className="min-h-0 flex-1" forceMount>
-          <ScrollableArea className="h-full" wrapperClassName="h-full">
+        <TabsContent value="standards" className="flex min-h-0 flex-1 flex-col" forceMount>
+          <ScrollableArea
+            className="flex min-h-0 flex-1 flex-col"
+            wrapperClassName="flex min-h-0 flex-1"
+          >
             <StandardsTab {...sharedProps} onRefresh={loadStandards} />
           </ScrollableArea>
         </TabsContent>
 
-        <TabsContent value="compare" className="min-h-0 flex-1" forceMount>
-          <ScrollableArea className="h-full" wrapperClassName="h-full">
+        <TabsContent value="compare" className="flex min-h-0 flex-1 flex-col" forceMount>
+          <ScrollableArea
+            className="flex min-h-0 flex-1 flex-col"
+            wrapperClassName="flex min-h-0 flex-1"
+          >
             <CompareTab {...sharedProps} />
           </ScrollableArea>
         </TabsContent>
 
-        <TabsContent value="calculator" className="min-h-0 flex-1" forceMount>
-          <ScrollableArea className="h-full" wrapperClassName="h-full">
+        <TabsContent value="calculator" className="flex min-h-0 flex-1 flex-col" forceMount>
+          <ScrollableArea
+            className="flex min-h-0 flex-1 flex-col"
+            wrapperClassName="flex min-h-0 flex-1"
+          >
             <CalculatorTab {...sharedProps} />
           </ScrollableArea>
         </TabsContent>

@@ -289,11 +289,11 @@ export function PortManagerPageContent({
             )}
           </div>
         </CardHeader>
-        <CardContent className="min-h-0 flex-1 p-0">
+        <CardContent className="flex min-h-0 flex-1 flex-col p-0">
           <ScrollableArea
             ref={scrollContainerRef}
-            wrapperClassName="h-full"
-            className="h-full px-4 pb-4"
+            wrapperClassName="flex min-h-0 flex-1"
+            className="flex min-h-0 flex-1 flex-col px-4 pb-4"
           >
             {portDetails.length === 0 ? (
               <div className="text-muted-foreground flex flex-col items-center justify-center gap-4 py-10 text-center">

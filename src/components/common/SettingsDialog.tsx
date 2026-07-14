@@ -223,7 +223,7 @@ export function SettingsDialog({
               </DialogHeader>
             </div>
 
-            <ScrollableArea className="flex-1 px-5 py-4" wrapperClassName="flex-1 min-h-0">
+            <ScrollableArea className="flex-1 px-5 py-4" wrapperClassName="flex flex-1 min-h-0">
               {activeTab === "general" && (
                 <div className="space-y-5">
                   {/* Startup */}

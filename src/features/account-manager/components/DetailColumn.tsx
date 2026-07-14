@@ -174,7 +174,7 @@ export function DetailColumn({
         {station ? (
           <>
             {/* 上方：站点信息 - 灵活高度，内容多时滚动 */}
-            <ScrollableArea className="min-h-0 flex-1" wrapperClassName="min-h-0 flex-1">
+            <ScrollableArea className="min-h-0 flex-1" wrapperClassName="flex min-h-0 flex-1">
               <DetailSection
                 bordered={false}
                 rows={[

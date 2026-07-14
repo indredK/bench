@@ -251,7 +251,7 @@ export function StorageOverview() {
   }, [categories])
 
   return (
-    <Card className="shrink-0">
+    <Card className="flex min-h-full flex-col">
       {/* Compact single-row header */}
       <CardHeader className="flex shrink-0 flex-row items-center justify-between py-2.5">
         <CardTitle className="text-sm">{t("cleanSpace.overview.title")}</CardTitle>
@@ -282,7 +282,7 @@ export function StorageOverview() {
         </div>
       </CardHeader>
 
-      <CardContent className="flex flex-col gap-4 pb-4">
+      <CardContent className="flex min-h-0 flex-1 flex-col gap-4 pb-4">
         {scanError && (
           <div className="text-destructive text-xs">
             {t("cleanSpace.scanFailed")}: {scanError}
@@ -303,9 +303,9 @@ export function StorageOverview() {
               <div className="bg-muted h-5 w-20 rounded" />
             </div>
             {/* Donut chart + category list */}
-            <div className="rounded-xl border p-4">
+            <div className="flex min-h-0 flex-1 flex-col rounded-xl border p-4">
               <div className="bg-muted mb-3 h-4 w-20 rounded" />
-              <div className="grid gap-5 lg:grid-cols-[320px_minmax(0,1fr)]">
+              <div className="grid min-h-0 flex-1 gap-5 lg:grid-cols-[320px_minmax(0,1fr)]">
                 <div className="bg-muted aspect-square w-full max-w-[320px] shrink-0 rounded-lg" />
                 <div className="flex min-w-0 flex-1 flex-col gap-2">
                   {Array.from({ length: 8 }).map((_, i) => (
@@ -357,7 +357,7 @@ export function StorageOverview() {
 
         {/* Real data */}
         {overview && (
-          <div className="flex flex-col gap-4 transition-opacity">
+          <div className="flex min-h-0 flex-1 flex-col gap-4 transition-opacity">
             {/* Disk summary */}
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
               <div className="flex items-center gap-1.5">
@@ -376,11 +376,11 @@ export function StorageOverview() {
             </div>
 
             {/* Donut Chart + Category List */}
-            <div className="rounded-xl border p-4">
+            <div className="flex min-h-0 flex-1 flex-col rounded-xl border p-4">
               <h3 className="mb-3 text-sm font-semibold">
                 {t("cleanSpace.overview.categoryDetail")}
               </h3>
-              <div className="grid gap-5 lg:grid-cols-[320px_minmax(0,1fr)]">
+              <div className="grid min-h-0 flex-1 gap-5 lg:grid-cols-[320px_minmax(0,1fr)]">
                 <div className="bg-muted/35 flex aspect-square w-full max-w-[320px] shrink-0 flex-col items-center justify-center rounded-lg p-3">
                   <DonutChart
                     categories={displayCategories}
@@ -434,7 +434,7 @@ export function StorageOverview() {
                     </Button>
                   )}
                 </div>
-                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-0.5 overflow-y-auto">
                   {displayCategories.map((cat) => (
                     <CategoryRow
                       key={cat.id}

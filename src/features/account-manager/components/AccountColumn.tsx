@@ -354,7 +354,7 @@ function AccountListScrollShell({
     return <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
   }
   return (
-    <ScrollableArea className="min-h-0 flex-1" wrapperClassName="min-h-0 flex-1">
+    <ScrollableArea className="min-h-0 flex-1" wrapperClassName="flex min-h-0 flex-1">
       {children}
     </ScrollableArea>
   )

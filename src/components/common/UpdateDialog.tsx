@@ -424,7 +424,10 @@ export function UpdateDialog({
           <DialogDescription className="sr-only">{dialogDescription}</DialogDescription>
         </DialogHeader>
 
-        <ScrollableArea className="min-w-0 pr-1" wrapperClassName="min-w-0 min-h-0 flex-1">
+        <ScrollableArea
+          className="min-w-0 flex-1 pr-1"
+          wrapperClassName="flex min-w-0 min-h-0 flex-1"
+        >
           <div className="min-w-0 space-y-4">
             {statusAlert && (
               <Alert variant={statusAlert.variant} className="px-3 py-3">

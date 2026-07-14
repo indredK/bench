@@ -49,7 +49,7 @@ export function DetailPanel<T>({
           <X size={14} />
         </Button>
       </div>
-      <ScrollableArea className="min-h-0 flex-1 p-4" wrapperClassName="min-h-0 flex-1">
+      <ScrollableArea className="min-h-0 flex-1 p-4" wrapperClassName="flex min-h-0 flex-1">
         {loading ? (
           <div className="flex h-full flex-col items-center justify-center gap-3">
             <div className="border-muted border-t-primary size-6 animate-spin rounded-full border-2" />

@@ -9,10 +9,17 @@ interface SettingGroupProps {
   title: string
   children: ReactNode
   className?: string
+  contentClassName?: string
   onTitleClick?: () => void
 }
 
-export function SettingGroup({ title, children, className, onTitleClick }: SettingGroupProps) {
+export function SettingGroup({
+  title,
+  children,
+  className,
+  contentClassName,
+  onTitleClick,
+}: SettingGroupProps) {
   return (
     <div className={cn("space-y-1", className)}>
       <h3
@@ -25,7 +32,9 @@ export function SettingGroup({ title, children, className, onTitleClick }: Setti
         {title}
         {onTitleClick && <ExternalLink size={11} />}
       </h3>
-      <div className="bg-card space-y-0 rounded-lg border p-3">{children}</div>
+      <div className={cn("bg-card space-y-0 rounded-lg border p-3", contentClassName)}>
+        {children}
+      </div>
     </div>
   )
 }

@@ -22,16 +22,20 @@ export function SleepSection() {
 
   return (
     <SettingGroup title={t("systemSettings.sleep.title")}>
-      <SettingsSectionState
-        status={section.status}
-        error={section.error}
-        onRetry={() => void section.reload()}
-      >
+      {section.status === "error" ? (
+        <SettingsSectionState
+          status="error"
+          error={section.error}
+          onRetry={() => void section.reload()}
+        >
+          <div />
+        </SettingsSectionState>
+      ) : (
         <SettingToggle
           label={t("systemSettings.sleep.preventSleep")}
           description={t("systemSettings.sleep.preventSleepDesc")}
           checked={sleepState?.enabled ?? false}
-          loading={applyingKeys.has("sleep.preventSleep")}
+          loading={section.status === "loading" || applyingKeys.has("sleep.preventSleep")}
           onCheckedChange={async (v) => {
             await run("sleep.preventSleep", async () => {
               const state = await systemSettingsUseCases.toggleSleepInhibitor(
@@ -42,7 +46,7 @@ export function SleepSection() {
             })
           }}
         />
-      </SettingsSectionState>
+      )}
     </SettingGroup>
   )
 }

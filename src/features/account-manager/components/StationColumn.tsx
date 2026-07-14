@@ -109,7 +109,7 @@ export function StationColumn({
           </div>
         }
       />
-      <ScrollableArea className="min-h-0 flex-1 p-3" wrapperClassName="min-h-0 flex-1">
+      <ScrollableArea className="min-h-0 flex-1 p-3" wrapperClassName="flex min-h-0 flex-1">
         {stations.length === 0 ? (
           <EmptyHint
             icon={<Inbox className="size-7 opacity-40" />}

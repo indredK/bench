@@ -5,8 +5,8 @@ import { useSystemSettingsStore } from "@/features/system-settings/store"
 import { systemSettingsUseCases } from "@/features/system-settings/services/system-settings.use-cases"
 import { useSettingAction } from "@/features/system-settings/hooks/useSettingAction"
 import { SettingToggle } from "../SettingToggle"
+import { SettingChoiceButtons } from "../SettingChoiceButtons"
 import { SettingGroup } from "@/components/ui/setting-group"
-import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { useSettingsSectionLoader } from "@/features/system-settings/hooks/useSettingsSectionLoader"
 import { SettingsSectionState } from "@/features/system-settings/components/SettingsSectionState"
@@ -38,17 +38,21 @@ export function DisplayDockSection({ className }: DisplayDockSectionProps) {
 
   return (
     <SettingGroup title={t("systemSettings.display.title")} className={className}>
-      <SettingsSectionState
-        status={section.status}
-        error={section.error}
-        onRetry={() => void section.reload()}
-      >
+      {section.status === "error" ? (
+        <SettingsSectionState
+          status="error"
+          error={section.error}
+          onRetry={() => void section.reload()}
+        >
+          <div />
+        </SettingsSectionState>
+      ) : (
         <div className="grid grid-cols-2 gap-x-6 gap-y-1">
           <SettingToggle
             label={t("systemSettings.display.batteryPercent")}
             description={t("systemSettings.display.batteryPercentDesc")}
             checked={displayBatteryPercent}
-            loading={applyingKeys.has("display.batteryPercent")}
+            loading={section.status === "loading" || applyingKeys.has("display.batteryPercent")}
             onOpenSettings={() => systemSettingsUseCases.openControlCenterSettings()}
             onCheckedChange={async (v) => {
               await run("display.batteryPercent", async () => {
@@ -70,30 +74,28 @@ export function DisplayDockSection({ className }: DisplayDockSectionProps) {
                 className="text-muted-foreground hover:text-foreground transition-colors"
               />
             </div>
-            <div className="flex gap-2">
-              {(["left", "bottom", "right"] as const).map((pos) => (
-                <Button
-                  key={pos}
-                  variant={dockOrientation === pos ? "default" : "outline"}
-                  size="sm"
-                  disabled={applyingKeys.size > 0}
-                  onClick={async () => {
-                    await run("dock.orientation", async () => {
-                      await systemSettingsUseCases.setDockOrientation(pos)
-                      useSystemSettingsStore.getState().setDockOrientation(pos)
-                    })
-                  }}
-                >
-                  {t(`systemSettings.dock.positions.${pos}`)}
-                </Button>
-              ))}
-            </div>
+            <SettingChoiceButtons
+              value={dockOrientation}
+              loading={section.status === "loading"}
+              disabled={applyingKeys.size > 0}
+              options={[
+                { value: "left", label: t("systemSettings.dock.positions.left") },
+                { value: "bottom", label: t("systemSettings.dock.positions.bottom") },
+                { value: "right", label: t("systemSettings.dock.positions.right") },
+              ]}
+              onSelect={async (pos) => {
+                await run("dock.orientation", async () => {
+                  await systemSettingsUseCases.setDockOrientation(pos)
+                  useSystemSettingsStore.getState().setDockOrientation(pos)
+                })
+              }}
+            />
           </div>
           <SettingToggle
             label={t("systemSettings.dock.minimizeScale")}
             description={t("systemSettings.dock.minimizeScaleDesc")}
             checked={minimizeScaleEnabled}
-            loading={applyingKeys.has("dock.minimizeScale")}
+            loading={section.status === "loading" || applyingKeys.has("dock.minimizeScale")}
             onOpenSettings={() => systemSettingsUseCases.openDesktopSettings()}
             onCheckedChange={async (v) => {
               await run("dock.minimizeScale", async () => {
@@ -103,7 +105,7 @@ export function DisplayDockSection({ className }: DisplayDockSectionProps) {
             }}
           />
         </div>
-      </SettingsSectionState>
+      )}
     </SettingGroup>
   )
 }

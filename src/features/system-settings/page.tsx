@@ -4,7 +4,7 @@
  * v2 — 重设计: 9 个 Tab → 3 个 Tab (外观/安全/系统)，
  * SettingsDialog 内容合并入此页，devtools/diagnostics/info 移入独立页面。
  */
-import { useEffect, useState, useCallback, useMemo, lazy, Suspense } from "react"
+import { useEffect, useState, useCallback, useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { Loader2Icon, ExternalLink, FolderOpen, Search, X } from "lucide-react"
@@ -13,6 +13,7 @@ import { useSystemSettingsStore, type SettingsTab } from "@/features/system-sett
 import { useShallow } from "zustand/react/shallow"
 import { useSettingAction } from "@/features/system-settings/hooks/useSettingAction"
 import { SettingToggle } from "./components/SettingToggle"
+import { SettingChoiceButtons } from "./components/SettingChoiceButtons"
 import { SettingGroup } from "@/components/ui/setting-group"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -37,31 +38,12 @@ import type {
 import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirmDialog"
 import { FeatureErrorBoundary } from "@/components/common/FeatureErrorBoundary"
 import { SettingsSectionState } from "@/features/system-settings/components/SettingsSectionState"
-
-const SleepSection = lazy(() =>
-  import("./components/sections/SleepSection").then((m) => ({ default: m.SleepSection })),
-)
-const LockScreenSection = lazy(() =>
-  import("./components/sections/LockScreenSection").then((m) => ({ default: m.LockScreenSection })),
-)
-const KeyboardSection = lazy(() =>
-  import("./components/sections/KeyboardSection").then((m) => ({ default: m.KeyboardSection })),
-)
-const DisplayDockSection = lazy(() =>
-  import("./components/sections/DisplayDockSection").then((m) => ({
-    default: m.DisplayDockSection,
-  })),
-)
-const QuickActionsSection = lazy(() =>
-  import("./components/sections/QuickActionsSection").then((m) => ({
-    default: m.QuickActionsSection,
-  })),
-)
-const AppAuthorizeSection = lazy(() =>
-  import("./components/sections/AppAuthorizeSection").then((m) => ({
-    default: m.AppAuthorizeSection,
-  })),
-)
+import { SleepSection } from "./components/sections/SleepSection"
+import { LockScreenSection } from "./components/sections/LockScreenSection"
+import { KeyboardSection } from "./components/sections/KeyboardSection"
+import { DisplayDockSection } from "./components/sections/DisplayDockSection"
+import { QuickActionsSection } from "./components/sections/QuickActionsSection"
+import { AppAuthorizeSection } from "./components/sections/AppAuthorizeSection"
 import { openPlatformDialog } from "@/platform/dialog"
 import { searchSettings } from "./search-index"
 
@@ -283,10 +265,13 @@ export default function SystemSettings(_props: SystemSettingsProps) {
   }
 
   const renderTabContent = () => {
-    if (store.activeTab !== "advanced" && (snapshotReadLoading || snapshotReadError)) {
+    // 外观/安全/系统三个 Tab 共用一次快照读取。
+    // 失败时才展示错误态；加载态不放整屏骨架，而是让每个开关用 antd 风格的
+    // 内部旋转图标（Switch 的 loading 态）来表达，内容立即可见。
+    if (store.activeTab !== "advanced" && snapshotReadError) {
       return (
         <SettingsSectionState
-          status={snapshotReadLoading ? "loading" : "error"}
+          status="error"
           error={snapshotReadError}
           onRetry={() => void loadTabSettings(store.activeTab, true)}
         >
@@ -303,15 +288,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
         return (
           <div className="grid grid-cols-2 gap-4">
             {/* ── Display & Dock ── */}
-            <Suspense
-              fallback={
-                <div className="text-muted-foreground col-span-2 flex h-24 items-center justify-center text-xs">
-                  {t("common.loading")}
-                </div>
-              }
-            >
-              <DisplayDockSection className="col-span-2" />
-            </Suspense>
+            <DisplayDockSection className="col-span-2" />
 
             {/* ── Dock & Menu Bar Toggles ── */}
             <SettingGroup title={t("systemSettings.toggles.title")} className="col-span-2">
@@ -320,7 +297,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                   label={t("systemSettings.toggles.autohideDock")}
                   description={t("systemSettings.toggles.autohideDockDesc")}
                   checked={store.autohideDock}
-                  loading={store.applyingKeys.has("toggles.autoHideDock")}
+                  loading={snapshotReadLoading || store.applyingKeys.has("toggles.autoHideDock")}
                   onOpenSettings={() => systemSettingsUseCases.openControlCenterSettings()}
                   onCheckedChange={async (v) => {
                     await run("toggles.autoHideDock", async () => {
@@ -333,7 +310,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                   label={t("systemSettings.toggles.dockShowRecents")}
                   description={t("systemSettings.toggles.dockShowRecentsDesc")}
                   checked={store.dockShowRecents}
-                  loading={store.applyingKeys.has("toggles.dockShowRecents")}
+                  loading={snapshotReadLoading || store.applyingKeys.has("toggles.dockShowRecents")}
                   onOpenSettings={() => systemSettingsUseCases.openDesktopSettings()}
                   onCheckedChange={async (v) => {
                     await run("toggles.dockShowRecents", async () => {
@@ -346,7 +323,9 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                   label={t("systemSettings.toggles.hideDesktopIcons")}
                   description={t("systemSettings.toggles.hideDesktopIconsDesc")}
                   checked={store.hideDesktopIcons}
-                  loading={store.applyingKeys.has("toggles.hideDesktopIcons")}
+                  loading={
+                    snapshotReadLoading || store.applyingKeys.has("toggles.hideDesktopIcons")
+                  }
                   onCheckedChange={async (v) => {
                     await run("toggles.hideDesktopIcons", async () => {
                       await systemSettingsUseCases.setHideDesktopIconsState(v)
@@ -374,38 +353,31 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                       {t("systemSettings.toggles.autohideMenuBarDesc")}
                     </p>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {(
+                  <SettingChoiceButtons
+                    value={store.autohideMenuBar}
+                    loading={snapshotReadLoading}
+                    disabled={store.applyingKeys.has("toggles.autoHideMenuBar")}
+                    options={
                       [
-                        { mode: "never", label: t("systemSettings.toggles.menuBarNever") },
+                        { value: "never", label: t("systemSettings.toggles.menuBarNever") },
                         {
-                          mode: "in_full_screen_only",
+                          value: "in_full_screen_only",
                           label: t("systemSettings.toggles.menuBarFullScreen"),
                         },
                         {
-                          mode: "on_desktop_only",
+                          value: "on_desktop_only",
                           label: t("systemSettings.toggles.menuBarDesktop"),
                         },
-                        { mode: "always", label: t("systemSettings.toggles.menuBarAlways") },
-                      ] as { mode: MenuBarAutoHideMode; label: string }[]
-                    ).map(({ mode, label }) => (
-                      <Button
-                        key={mode}
-                        variant={store.autohideMenuBar === mode ? "default" : "outline"}
-                        size="sm"
-                        disabled={store.applyingKeys.has("toggles.autoHideMenuBar")}
-                        onClick={async () => {
-                          if (store.autohideMenuBar === mode) return
-                          await run("toggles.autoHideMenuBar", async () => {
-                            await systemSettingsUseCases.setAutohideMenuBarState(mode)
-                            store.setAutohideMenuBar(mode)
-                          })
-                        }}
-                      >
-                        {label}
-                      </Button>
-                    ))}
-                  </div>
+                        { value: "always", label: t("systemSettings.toggles.menuBarAlways") },
+                      ] satisfies { value: MenuBarAutoHideMode; label: string }[]
+                    }
+                    onSelect={async (mode) => {
+                      await run("toggles.autoHideMenuBar", async () => {
+                        await systemSettingsUseCases.setAutohideMenuBarState(mode)
+                        store.setAutohideMenuBar(mode)
+                      })
+                    }}
+                  />
                 </div>
               </div>
             </SettingGroup>
@@ -416,7 +388,9 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                 <SettingToggle
                   label={t("systemSettings.screenshot.disableShadow")}
                   checked={store.screenshotDisableShadow}
-                  loading={store.applyingKeys.has("screenshot.disableShadow")}
+                  loading={
+                    snapshotReadLoading || store.applyingKeys.has("screenshot.disableShadow")
+                  }
                   onCheckedChange={async (v) => {
                     await run("screenshot.disableShadow", async () => {
                       await systemSettingsUseCases.setScreenshotDisableShadow(v)
@@ -427,7 +401,9 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                 <SettingToggle
                   label={t("systemSettings.screenshot.showThumbnail")}
                   checked={store.screenshotShowThumbnail}
-                  loading={store.applyingKeys.has("screenshot.showThumbnail")}
+                  loading={
+                    snapshotReadLoading || store.applyingKeys.has("screenshot.showThumbnail")
+                  }
                   onCheckedChange={async (v) => {
                     await run("screenshot.showThumbnail", async () => {
                       await systemSettingsUseCases.setScreenshotShowThumbnail(v)
@@ -441,24 +417,21 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                   <Label className="text-sm font-medium">
                     {t("systemSettings.screenshot.format")}
                   </Label>
-                  <div className="flex flex-wrap gap-2">
-                    {["png", "jpg", "bmp", "pdf", "tiff"].map((fmt) => (
-                      <Button
-                        key={fmt}
-                        variant={store.screenshotFormat === fmt ? "default" : "outline"}
-                        size="sm"
-                        disabled={store.applyingKeys.size > 0}
-                        onClick={async () => {
-                          await run("screenshot.format", async () => {
-                            await systemSettingsUseCases.setScreenshotFormat(fmt)
-                            store.setScreenshotFormat(fmt)
-                          })
-                        }}
-                      >
-                        {fmt.toUpperCase()}
-                      </Button>
-                    ))}
-                  </div>
+                  <SettingChoiceButtons
+                    value={store.screenshotFormat}
+                    loading={snapshotReadLoading}
+                    disabled={store.applyingKeys.size > 0}
+                    options={["png", "jpg", "bmp", "pdf", "tiff"].map((fmt) => ({
+                      value: fmt,
+                      label: fmt.toUpperCase(),
+                    }))}
+                    onSelect={async (fmt) => {
+                      await run("screenshot.format", async () => {
+                        await systemSettingsUseCases.setScreenshotFormat(fmt)
+                        store.setScreenshotFormat(fmt)
+                      })
+                    }}
+                  />
                 </div>
                 <div className="flex items-center justify-between py-2">
                   <Label className="text-sm font-medium">
@@ -474,7 +447,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                     <Button
                       variant="outline"
                       size="icon"
-                      disabled={store.applyingKeys.size > 0}
+                      disabled={snapshotReadLoading || store.applyingKeys.size > 0}
                       onClick={async () => {
                         const selected = await openPlatformDialog({
                           directory: true,
@@ -504,15 +477,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
         return (
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-4">
-              <Suspense
-                fallback={
-                  <div className="text-muted-foreground flex h-20 items-center justify-center text-xs">
-                    {t("common.loading")}
-                  </div>
-                }
-              >
-                <LockScreenSection />
-              </Suspense>
+              <LockScreenSection />
 
               {/* ── Network ── */}
               <SettingGroup title={t("systemSettings.network.title")}>
@@ -521,7 +486,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                     label={t("systemSettings.network.firewall")}
                     description={t("systemSettings.network.firewallDesc")}
                     checked={store.networkFirewall}
-                    loading={store.applyingKeys.has("network.firewall")}
+                    loading={snapshotReadLoading || store.applyingKeys.has("network.firewall")}
                     onOpenSettings={() => systemSettingsUseCases.openNetworkSettings()}
                     onCheckedChange={async (v) => {
                       await run("network.firewall", async () => {
@@ -534,7 +499,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                     label={t("systemSettings.network.ssh")}
                     description={t("systemSettings.network.sshDesc")}
                     checked={store.networkSsh}
-                    loading={store.applyingKeys.has("network.ssh")}
+                    loading={snapshotReadLoading || store.applyingKeys.has("network.ssh")}
                     onOpenSettings={() => systemSettingsUseCases.openNetworkSettings()}
                     onCheckedChange={async (v) => {
                       await run("network.ssh", async () => {
@@ -546,7 +511,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                   <SettingToggle
                     label={t("systemSettings.network.screenSharing")}
                     checked={store.networkScreenSharing}
-                    loading={store.applyingKeys.has("network.screenSharing")}
+                    loading={snapshotReadLoading || store.applyingKeys.has("network.screenSharing")}
                     onOpenSettings={() => systemSettingsUseCases.openNetworkSettings()}
                     onCheckedChange={async (v) => {
                       await run("network.screenSharing", async () => {
@@ -559,7 +524,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                     label={t("systemSettings.network.airdrop")}
                     description={t("systemSettings.network.airdropDesc")}
                     checked={store.networkAirdropDisabled}
-                    loading={store.applyingKeys.has("network.airdrop")}
+                    loading={snapshotReadLoading || store.applyingKeys.has("network.airdrop")}
                     onOpenSettings={() => systemSettingsUseCases.openNetworkSettings()}
                     onCheckedChange={async (v) => {
                       await run("network.airdrop", async () => {
@@ -682,24 +647,8 @@ export default function SystemSettings(_props: SystemSettingsProps) {
         return (
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-4">
-              <Suspense
-                fallback={
-                  <div className="text-muted-foreground flex h-20 items-center justify-center text-xs">
-                    {t("common.loading")}
-                  </div>
-                }
-              >
-                <SleepSection />
-              </Suspense>
-              <Suspense
-                fallback={
-                  <div className="text-muted-foreground flex h-20 items-center justify-center text-xs">
-                    {t("common.loading")}
-                  </div>
-                }
-              >
-                <QuickActionsSection />
-              </Suspense>
+              <SleepSection />
+              <QuickActionsSection />
 
               {/* ── 系统设置快捷入口 ── */}
               <SettingGroup title={t("systemSettings.shortcuts.title")}>
@@ -750,7 +699,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                   <SettingToggle
                     label={t("systemSettings.finder.hiddenFiles")}
                     checked={store.finderShowHiddenFiles}
-                    loading={store.applyingKeys.has("finder.hiddenFiles")}
+                    loading={snapshotReadLoading || store.applyingKeys.has("finder.hiddenFiles")}
                     onCheckedChange={async (v) => {
                       await run("finder.hiddenFiles", async () => {
                         await systemSettingsUseCases.setFinderShowHiddenFiles(v)
@@ -762,7 +711,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                     label={t("systemSettings.finder.pathBar")}
                     description={t("systemSettings.finder.pathBarDesc")}
                     checked={store.finderShowPathbar}
-                    loading={store.applyingKeys.has("finder.pathBar")}
+                    loading={snapshotReadLoading || store.applyingKeys.has("finder.pathBar")}
                     onCheckedChange={async (v) => {
                       await run("finder.pathBar", async () => {
                         await systemSettingsUseCases.setFinderShowPathbar(v)
@@ -774,7 +723,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                     label={t("systemSettings.finder.statusBar")}
                     description={t("systemSettings.finder.statusBarDesc")}
                     checked={store.finderShowStatusbar}
-                    loading={store.applyingKeys.has("finder.statusBar")}
+                    loading={snapshotReadLoading || store.applyingKeys.has("finder.statusBar")}
                     onCheckedChange={async (v) => {
                       await run("finder.statusBar", async () => {
                         await systemSettingsUseCases.setFinderShowStatusbar(v)
@@ -786,7 +735,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                     label={t("systemSettings.finder.libraryDir")}
                     description={t("systemSettings.finder.libraryDirDesc")}
                     checked={store.finderShowLibraryDir}
-                    loading={store.applyingKeys.has("finder.libraryDir")}
+                    loading={snapshotReadLoading || store.applyingKeys.has("finder.libraryDir")}
                     onCheckedChange={async (v) => {
                       await run("finder.libraryDir", async () => {
                         await systemSettingsUseCases.setFinderShowLibraryDir(v)
@@ -797,7 +746,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                   <SettingToggle
                     label={t("systemSettings.finder.fileExtensions")}
                     checked={store.finderShowFileExtensions}
-                    loading={store.applyingKeys.has("finder.fileExtensions")}
+                    loading={snapshotReadLoading || store.applyingKeys.has("finder.fileExtensions")}
                     onCheckedChange={async (v) => {
                       await run("finder.fileExtensions", async () => {
                         await systemSettingsUseCases.setFinderShowFileExtensions(v)
@@ -808,7 +757,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                   <SettingToggle
                     label={t("systemSettings.finder.noDsStore")}
                     checked={store.finderNoDsStore}
-                    loading={store.applyingKeys.has("finder.noDsStore")}
+                    loading={snapshotReadLoading || store.applyingKeys.has("finder.noDsStore")}
                     onCheckedChange={async (v) => {
                       await run("finder.noDsStore", async () => {
                         await systemSettingsUseCases.setFinderNoDsStore(v)
@@ -835,40 +784,33 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                     className="text-muted-foreground hover:text-foreground transition-colors"
                   />
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {(
+                <SettingChoiceButtons
+                  value={store.lowPowerMode}
+                  loading={snapshotReadLoading}
+                  disabled={store.applyingKeys.has("toggles.lowPowerMode")}
+                  options={
                     [
-                      { mode: "never", label: t("systemSettings.toggles.lowPowerNever") },
-                      { mode: "always", label: t("systemSettings.toggles.lowPowerAlways") },
+                      { value: "never", label: t("systemSettings.toggles.lowPowerNever") },
+                      { value: "always", label: t("systemSettings.toggles.lowPowerAlways") },
                       {
-                        mode: "on_battery_only",
+                        value: "on_battery_only",
                         label: t("systemSettings.toggles.lowPowerOnBattery"),
                       },
-                      { mode: "on_ac_only", label: t("systemSettings.toggles.lowPowerOnAC") },
-                    ] as { mode: LowPowerMode; label: string }[]
-                  ).map(({ mode, label }) => (
-                    <Button
-                      key={mode}
-                      variant={store.lowPowerMode === mode ? "default" : "outline"}
-                      size="sm"
-                      disabled={store.applyingKeys.has("toggles.lowPowerMode")}
-                      onClick={async () => {
-                        if (store.lowPowerMode === mode) return
-                        await run("toggles.lowPowerMode", async () => {
-                          await systemSettingsUseCases.setLowPowerModeState(mode)
-                          store.setLowPowerMode(mode)
-                        })
-                      }}
-                    >
-                      {label}
-                    </Button>
-                  ))}
-                </div>
+                      { value: "on_ac_only", label: t("systemSettings.toggles.lowPowerOnAC") },
+                    ] satisfies { value: LowPowerMode; label: string }[]
+                  }
+                  onSelect={async (mode) => {
+                    await run("toggles.lowPowerMode", async () => {
+                      await systemSettingsUseCases.setLowPowerModeState(mode)
+                      store.setLowPowerMode(mode)
+                    })
+                  }}
+                />
                 <SettingToggle
                   label={t("systemSettings.toggles.screenSaver")}
                   description={t("systemSettings.toggles.screenSaverDesc")}
                   checked={store.screenSaver}
-                  loading={store.applyingKeys.has("toggles.screenSaver")}
+                  loading={snapshotReadLoading || store.applyingKeys.has("toggles.screenSaver")}
                   onOpenSettings={() => systemSettingsUseCases.openDesktopSettings()}
                   onCheckedChange={async (v) => {
                     await run("toggles.screenSaver", async () => {
@@ -881,115 +823,134 @@ export default function SystemSettings(_props: SystemSettingsProps) {
 
               {/* ── Default Browser ── */}
               <SettingGroup title={t("systemSettings.browser.title")}>
-                <SettingsSectionState
-                  status={browserReadLoading ? "loading" : browserReadError ? "error" : "ready"}
-                  error={browserReadError}
-                  onRetry={() => void loadTabSettings("system", true)}
-                >
-                  <div className="relative">
-                    <Select
-                      value={defaultBrowser ?? undefined}
-                      disabled={browserLoading}
-                      onValueChange={async (v) => {
-                        setBrowserLoading(true)
-                        try {
-                          const applied = await systemSettingsUseCases.setDefaultBrowser(v)
-                          store.setDefaultBrowser(applied)
-                          setDefaultBrowser(applied)
-                          toast.success(t("systemSettings.toasts.success"))
-                        } catch (err) {
-                          toast.error(
-                            t("systemSettings.toasts.error", { error: getErrorMessage(err) }),
-                          )
-                        } finally {
-                          setBrowserLoading(false)
-                        }
-                      }}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {defaultBrowser &&
-                          !BROWSER_OPTIONS.some(({ value }) => value === defaultBrowser) && (
-                            <SelectItem value={defaultBrowser}>{defaultBrowser}</SelectItem>
-                          )}
-                        {BROWSER_OPTIONS.map(({ value, labelKey }) => (
-                          <SelectItem key={value} value={value}>
-                            {t(labelKey)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {browserLoading && (
-                      <Loader2Icon className="text-muted-foreground absolute top-1/2 right-2 h-4 w-4 -translate-y-1/2 animate-spin" />
-                    )}
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="mt-2 w-full"
-                    onClick={() => systemSettingsUseCases.openDesktopSettings()}
+                {browserReadError ? (
+                  <SettingsSectionState
+                    status="error"
+                    error={browserReadError}
+                    onRetry={() => void loadTabSettings("system", true)}
                   >
-                    <ExternalLink />
-                    {t("systemSettings.browser.openSettings")}
-                  </Button>
-                </SettingsSectionState>
+                    <div />
+                  </SettingsSectionState>
+                ) : (
+                  <>
+                    <div className="relative">
+                      <Select
+                        value={defaultBrowser ?? undefined}
+                        disabled={browserReadLoading || browserLoading}
+                        onValueChange={async (v) => {
+                          setBrowserLoading(true)
+                          try {
+                            const applied = await systemSettingsUseCases.setDefaultBrowser(v)
+                            store.setDefaultBrowser(applied)
+                            setDefaultBrowser(applied)
+                            toast.success(t("systemSettings.toasts.success"))
+                          } catch (err) {
+                            toast.error(
+                              t("systemSettings.toasts.error", { error: getErrorMessage(err) }),
+                            )
+                          } finally {
+                            setBrowserLoading(false)
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {defaultBrowser &&
+                            !BROWSER_OPTIONS.some(({ value }) => value === defaultBrowser) && (
+                              <SelectItem value={defaultBrowser}>{defaultBrowser}</SelectItem>
+                            )}
+                          {BROWSER_OPTIONS.map(({ value, labelKey }) => (
+                            <SelectItem key={value} value={value}>
+                              {t(labelKey)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {(browserReadLoading || browserLoading) && (
+                        <Loader2Icon className="text-muted-foreground absolute top-1/2 right-2 h-4 w-4 -translate-y-1/2 animate-spin" />
+                      )}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-2 w-full"
+                      onClick={() => systemSettingsUseCases.openDesktopSettings()}
+                    >
+                      <ExternalLink />
+                      {t("systemSettings.browser.openSettings")}
+                    </Button>
+                  </>
+                )}
               </SettingGroup>
 
-              <Suspense
-                fallback={
-                  <div className="text-muted-foreground flex h-20 items-center justify-center text-xs">
-                    {t("common.loading")}
-                  </div>
-                }
-              >
-                <KeyboardSection />
-              </Suspense>
+              <KeyboardSection />
 
               {/* ── Login Items ── */}
               <SettingGroup title={t("systemSettings.login.title")}>
-                <SettingsSectionState
-                  status={loginItemsLoading ? "loading" : loginItemsError ? "error" : "ready"}
-                  error={loginItemsError}
-                  onRetry={() => void loadTabSettings("system", true)}
-                >
-                  <div className="py-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => systemSettingsUseCases.openLoginItemsSettings()}
-                    >
-                      <ExternalLink size={13} className="mr-1.5" />
-                      {t("systemSettings.login.manageInSettings")}
-                    </Button>
-                  </div>
-                  {loginItems.length === 0 ? (
-                    <p className="text-muted-foreground py-2 text-xs">
-                      {t("systemSettings.login.noItems")}
-                    </p>
-                  ) : (
-                    <div className="space-y-1">
-                      {loginItems.map((item, idx) => (
-                        <div
-                          key={item.name || `login-item-${idx}`}
-                          className="flex items-center justify-between py-1"
-                        >
-                          <span className="text-sm">{item.name || t("common.unknown")}</span>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            disabled={store.applyingKeys.size > 0}
-                            onClick={() => setLoginItemToRemove(item.name)}
-                          >
-                            {t("systemSettings.login.remove")}
-                          </Button>
-                        </div>
-                      ))}
+                {loginItemsError ? (
+                  <SettingsSectionState
+                    status="error"
+                    error={loginItemsError}
+                    onRetry={() => void loadTabSettings("system", true)}
+                  >
+                    <div />
+                  </SettingsSectionState>
+                ) : (
+                  <>
+                    <div className="py-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={loginItemsLoading}
+                        onClick={() => systemSettingsUseCases.openLoginItemsSettings()}
+                      >
+                        {loginItemsLoading ? (
+                          <Loader2Icon size={13} className="mr-1.5 animate-spin" />
+                        ) : (
+                          <ExternalLink size={13} className="mr-1.5" />
+                        )}
+                        {t("systemSettings.login.manageInSettings")}
+                      </Button>
                     </div>
-                  )}
-                </SettingsSectionState>
+                    {loginItemsLoading ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled
+                        aria-label={t("common.loading")}
+                        className="gap-1.5"
+                      >
+                        <Loader2Icon className="h-3.5 w-3.5 animate-spin" />
+                      </Button>
+                    ) : loginItems.length === 0 ? (
+                      <p className="text-muted-foreground py-2 text-xs">
+                        {t("systemSettings.login.noItems")}
+                      </p>
+                    ) : (
+                      <div className="space-y-1">
+                        {loginItems.map((item, idx) => (
+                          <div
+                            key={item.name || `login-item-${idx}`}
+                            className="flex items-center justify-between py-1"
+                          >
+                            <span className="text-sm">{item.name || t("common.unknown")}</span>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              disabled={store.applyingKeys.size > 0}
+                              onClick={() => setLoginItemToRemove(item.name)}
+                            >
+                              {t("systemSettings.login.remove")}
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
               </SettingGroup>
             </div>
           </div>
@@ -1001,68 +962,86 @@ export default function SystemSettings(_props: SystemSettingsProps) {
       case "advanced":
         return (
           <div className="space-y-4">
-            <Suspense fallback={null}>
-              <AppAuthorizeSection />
-            </Suspense>
+            <AppAuthorizeSection />
 
             <SettingGroup title={t("systemSettings.login.launchAgents")}>
-              <SettingsSectionState
-                status={launchAgentsLoading ? "loading" : launchAgentsError ? "error" : "ready"}
-                error={launchAgentsError}
-                onRetry={() => void loadTabSettings("advanced", true)}
-              >
-                {launchAgents.length === 0 ? (
-                  <p className="text-muted-foreground py-2 text-xs">
-                    {t("systemSettings.login.noAgents")}
-                  </p>
-                ) : (
-                  <div className="space-y-0.5">
-                    {launchAgents.map((agent) => (
-                      <div
-                        key={agent.path}
-                        className="hover:bg-muted/50 flex items-center justify-between rounded px-2 py-1.5 transition-colors"
-                      >
-                        <span className="truncate text-sm">
-                          {agent.name || t("common.unknown")}
-                        </span>
-                        <Badge variant="secondary" className="text-xs">
-                          {agent.path.split("/").pop()}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </SettingsSectionState>
+              {launchAgentsError ? (
+                <SettingsSectionState
+                  status="error"
+                  error={launchAgentsError}
+                  onRetry={() => void loadTabSettings("advanced", true)}
+                >
+                  <div />
+                </SettingsSectionState>
+              ) : launchAgentsLoading ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled
+                  aria-label={t("common.loading")}
+                  className="gap-1.5"
+                >
+                  <Loader2Icon className="h-3.5 w-3.5 animate-spin" />
+                </Button>
+              ) : launchAgents.length === 0 ? (
+                <p className="text-muted-foreground py-2 text-xs">
+                  {t("systemSettings.login.noAgents")}
+                </p>
+              ) : (
+                <div className="space-y-0.5">
+                  {launchAgents.map((agent) => (
+                    <div
+                      key={agent.path}
+                      className="hover:bg-muted/50 flex items-center justify-between rounded px-2 py-1.5 transition-colors"
+                    >
+                      <span className="truncate text-sm">{agent.name || t("common.unknown")}</span>
+                      <Badge variant="secondary" className="text-xs">
+                        {agent.path.split("/").pop()}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
             </SettingGroup>
 
             <SettingGroup title={t("systemSettings.login.launchDaemons")}>
-              <SettingsSectionState
-                status={launchDaemonsLoading ? "loading" : launchDaemonsError ? "error" : "ready"}
-                error={launchDaemonsError}
-                onRetry={() => void loadTabSettings("advanced", true)}
-              >
-                {launchDaemons.length === 0 ? (
-                  <p className="text-muted-foreground py-2 text-xs">
-                    {t("systemSettings.login.noDaemons")}
-                  </p>
-                ) : (
-                  <div className="space-y-0.5">
-                    {launchDaemons.map((daemon) => (
-                      <div
-                        key={daemon.path}
-                        className="hover:bg-muted/50 flex items-center justify-between rounded px-2 py-1.5 transition-colors"
-                      >
-                        <span className="truncate text-sm">
-                          {daemon.name || t("common.unknown")}
-                        </span>
-                        <Badge variant="secondary" className="text-xs">
-                          {daemon.path.split("/").pop()}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </SettingsSectionState>
+              {launchDaemonsError ? (
+                <SettingsSectionState
+                  status="error"
+                  error={launchDaemonsError}
+                  onRetry={() => void loadTabSettings("advanced", true)}
+                >
+                  <div />
+                </SettingsSectionState>
+              ) : launchDaemonsLoading ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled
+                  aria-label={t("common.loading")}
+                  className="gap-1.5"
+                >
+                  <Loader2Icon className="h-3.5 w-3.5 animate-spin" />
+                </Button>
+              ) : launchDaemons.length === 0 ? (
+                <p className="text-muted-foreground py-2 text-xs">
+                  {t("systemSettings.login.noDaemons")}
+                </p>
+              ) : (
+                <div className="space-y-0.5">
+                  {launchDaemons.map((daemon) => (
+                    <div
+                      key={daemon.path}
+                      className="hover:bg-muted/50 flex items-center justify-between rounded px-2 py-1.5 transition-colors"
+                    >
+                      <span className="truncate text-sm">{daemon.name || t("common.unknown")}</span>
+                      <Badge variant="secondary" className="text-xs">
+                        {daemon.path.split("/").pop()}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
             </SettingGroup>
           </div>
         )
@@ -1129,7 +1108,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
         )}
 
         {/* Content area */}
-        <ScrollableArea className="flex-1 space-y-4 p-4" wrapperClassName="flex-1 min-h-0">
+        <ScrollableArea className="flex-1 space-y-4 p-4" wrapperClassName="flex flex-1 min-h-0">
           {searchQuery ? (
             searchResults.length === 0 ? (
               <p className="text-muted-foreground py-8 text-center text-sm">
@@ -1181,7 +1160,9 @@ export default function SystemSettings(_props: SystemSettingsProps) {
             consequence={t("systemSettings.login.removeConsequence")}
             confirmLabel={t("systemSettings.login.remove")}
             cancelLabel={t("common.cancel")}
-            loading={store.applyingKeys.has(`login.remove.${loginItemToRemove}`)}
+            loading={
+              snapshotReadLoading || store.applyingKeys.has(`login.remove.${loginItemToRemove}`)
+            }
             onConfirm={async () => {
               const name = loginItemToRemove
               if (!name) return

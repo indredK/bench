@@ -51,7 +51,7 @@ function Sidebar({ items, configItems, onPrefs }: SidebarProps) {
       </div>
 
       {/* Feature navigation */}
-      <ScrollableArea as="nav" className="flex-1 py-2" wrapperClassName="flex-1 min-h-0">
+      <ScrollableArea as="nav" className="flex-1 py-2" wrapperClassName="flex flex-1 min-h-0">
         {items.map((item) => {
           const isActive = location === item.path
           return (

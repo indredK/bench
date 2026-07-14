@@ -132,7 +132,7 @@ function TermCard({
   return (
     <div
       className={cn(
-        "group relative flex cursor-pointer flex-col gap-2 rounded-xl border p-4 transition-all hover:shadow-md",
+        "group relative flex h-full w-full cursor-pointer flex-col gap-2 rounded-xl border p-4 transition-all hover:shadow-md",
         isPinned ? "border-primary/45 shadow-primary/5 shadow-sm" : "hover:border-primary/35",
         "bg-card",
       )}
@@ -1039,7 +1039,7 @@ export default function TerminologyPage() {
         <ScrollableArea
           as="nav"
           className="min-h-0 flex-1 scrollbar-thin px-2 pb-4"
-          wrapperClassName="min-h-0 flex-1"
+          wrapperClassName="flex min-h-0 flex-1"
         >
           <div className="flex flex-col gap-0.5">
             {industries.map((industry) => {
@@ -1160,8 +1160,9 @@ export default function TerminologyPage() {
             data={terms}
             getRowId={(term) => term.id}
             minCardWidth={220}
-            gap={12}
+            gap={8}
             estimatedCardHeight={160}
+            rowPadding={[4, 4]}
             wrapperPadding="p-0"
             onItemClick={(term) => openEdit(term)}
             renderGridCard={(term) => (

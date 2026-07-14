@@ -213,7 +213,7 @@ export function StandardsTab({
     })
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex flex-col">
       <div className="bg-background sticky top-0 z-10 flex items-center justify-between pb-3">
         <p className="text-muted-foreground text-sm">{t("tokenCalculator.standards.subtitle")}</p>
         <Button size="sm" onClick={() => setShowCreate(true)}>

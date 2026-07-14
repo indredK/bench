@@ -19,4 +19,11 @@ describe("SettingToggle unknown state", () => {
     expect(onCheckedChange).toHaveBeenNthCalledWith(1, true)
     expect(onCheckedChange).toHaveBeenNthCalledWith(2, false)
   })
+
+  it("shows switch loading instead of unknown controls while loading", () => {
+    render(<SettingToggle label="Setting" checked={null} loading onCheckedChange={vi.fn()} />)
+
+    expect(screen.queryByText("common.unknown")).not.toBeInTheDocument()
+    expect(screen.getByRole("switch")).toHaveAttribute("aria-busy", "true")
+  })
 })

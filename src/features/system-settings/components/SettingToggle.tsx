@@ -48,7 +48,7 @@ export function SettingToggle({
         </div>
         {description && <p className="text-muted-foreground mt-0.5 text-xs">{description}</p>}
       </div>
-      {checked === null ? (
+      {checked === null && !loading ? (
         <div className="flex items-center gap-1.5">
           <Badge variant="outline">{t("common.unknown")}</Badge>
           <TooltipProvider>
@@ -58,7 +58,6 @@ export function SettingToggle({
                   type="button"
                   variant="outline"
                   size="icon-sm"
-                  disabled={loading}
                   onClick={() => onCheckedChange(false)}
                   aria-label={t("common.disable")}
                 >
@@ -73,7 +72,6 @@ export function SettingToggle({
                   type="button"
                   variant="outline"
                   size="icon-sm"
-                  disabled={loading}
                   onClick={() => onCheckedChange(true)}
                   aria-label={t("common.enable")}
                 >
@@ -85,7 +83,7 @@ export function SettingToggle({
           </TooltipProvider>
         </div>
       ) : (
-        <Switch checked={checked} onCheckedChange={onCheckedChange} loading={loading} />
+        <Switch checked={checked ?? false} onCheckedChange={onCheckedChange} loading={loading} />
       )}
     </div>
   )

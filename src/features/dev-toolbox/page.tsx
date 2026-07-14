@@ -30,6 +30,13 @@ const PortManager = lazy(() => import("@/features/port-manager/page"))
 const EnvDetector = lazy(() => import("@/features/env-detector/page"))
 const TokenCalculatorPage = lazy(() => import("@/features/token-calculator/page"))
 
+// Full-page tools own their internal scroll (h-full + nested ScrollableArea).
+// Mounting them inside the outer ScrollableArea creates a fragile double h-full
+// height chain (outer scroll tag is NOT a flex container, inner uses h-full),
+// which collapses and breaks scrolling. Give them a plain flex-1 min-h-0 box
+// instead — same height context they get as a standalone route (motion.div.h-full).
+const FULL_PAGE_TOOL_TABS = new Set<ToolboxTab>(["port-manager", "env-detector", "token-calc"])
+
 interface DevToolboxProps {
   feature: AppFeature
 }
@@ -247,7 +254,11 @@ export default function DevToolbox({ feature }: DevToolboxProps) {
     }
     if (!systemInfo) return null
     return (
-      <SettingGroup title={t("systemInfo.title")}>
+      <SettingGroup
+        title={t("systemInfo.title")}
+        className="flex h-full flex-col"
+        contentClassName="flex-1 min-h-0"
+      >
         <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
           {[
             { label: t("systemInfo.osName"), value: systemInfo.os_name },
@@ -392,9 +403,13 @@ export default function DevToolbox({ feature }: DevToolboxProps) {
           </Button>
         ))}
       </div>
-      <ScrollableArea className="flex-1 p-4" wrapperClassName="flex-1 min-h-0">
-        {renderFullPageTool()}
-      </ScrollableArea>
+      {FULL_PAGE_TOOL_TABS.has(activeTab) ? (
+        <div className="min-h-0 flex-1">{renderFullPageTool()}</div>
+      ) : (
+        <ScrollableArea className="flex-1 p-4" wrapperClassName="flex flex-1 min-h-0">
+          {renderFullPageTool()}
+        </ScrollableArea>
+      )}
     </div>
   )
 }
