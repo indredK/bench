@@ -6,3 +6,8 @@ src-tauri/target/
 docs/modules/clean-space/clean-space-prototype.html
 pnpm-lock.yaml
 *.lock
+
+# release-please manages these; formatting differs from Prettier defaults
+CHANGELOG.md
+.release-please-manifest.json
+src-tauri/tauri.conf.json

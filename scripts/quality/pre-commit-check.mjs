@@ -85,7 +85,15 @@ if (partiallyStagedFiles.length > 0) {
 runStep("Checking staged whitespace", "git", ["diff", "--cached", "--check"])
 
 const prettierPatterns = [/\.(?:cjs|css|html|js|json|jsonc|jsx|md|mjs|scss|ts|tsx|yaml|yml)$/]
-const prettierFiles = stagedExistingFiles.filter((file) => matchesAny(file, prettierPatterns))
+/** Listed in .prettierignore — release-please output must not be auto-formatted. */
+const prettierIgnoredPatterns = [
+  /^CHANGELOG\.md$/,
+  /^\.release-please-manifest\.json$/,
+  /^src-tauri\/tauri\.conf\.json$/,
+]
+const prettierFiles = stagedExistingFiles.filter(
+  (file) => matchesAny(file, prettierPatterns) && !matchesAny(file, prettierIgnoredPatterns),
+)
 if (prettierFiles.length > 0) {
   // Auto-fix formatting in place instead of blocking the commit. Files reaching
   // this step are fully staged (partially staged files are rejected earlier), so
@@ -110,13 +118,6 @@ const formattingConfigPatterns = [
   /^\.prettierignore$/,
   /^\.prettierrc(?:\.[^/]+)?$/,
   /^prettier\.config\.(?:js|mjs|cjs|ts)$/,
-]
-/** Files touched by release-please; per-file Prettier is not enough to match CI. */
-const releaseArtifactPatterns = [
-  /^CHANGELOG\.md$/,
-  /^\.release-please-manifest\.json$/,
-  /^release-please-config\.json$/,
-  /^src-tauri\/(?:Cargo\.(?:toml|lock)|tauri\.conf\.json)$/,
 ]
 const docsPatterns = [/^docs\//, /^(?:AGENTS|README)\.md$/, /^\.cursorrules$/]
 const workflowPatterns = [/^\.github\/workflows\/.*\.ya?ml$/]
@@ -146,9 +147,6 @@ const shellScriptFiles = stagedExistingFiles.filter((file) => matchesAny(file, s
 const hasFormattingConfigChanges = stagedFiles.some((file) =>
   matchesAny(file, formattingConfigPatterns),
 )
-const hasReleaseArtifactChanges = stagedFiles.some((file) =>
-  matchesAny(file, releaseArtifactPatterns),
-)
 const hasDocsChanges = stagedFiles.some((file) => matchesAny(file, docsPatterns))
 const hasWorkflowChanges = stagedFiles.some((file) => matchesAny(file, workflowPatterns))
 const hasFrontendChanges = stagedFiles.some((file) => matchesAny(file, frontendPatterns))
@@ -161,13 +159,8 @@ for (const file of shellScriptFiles) {
   runStep(`Shell syntax check: ${file}`, "sh", ["-n", file])
 }
 
-if (hasFormattingConfigChanges || hasReleaseArtifactChanges) {
-  const formatCheckReason = hasFormattingConfigChanges
-    ? hasReleaseArtifactChanges
-      ? "Prettier config and release artifact changes"
-      : "Prettier config changes"
-    : "release artifact changes"
-  runStep(`Checking repository formatting after ${formatCheckReason}`, pkgManager, [
+if (hasFormattingConfigChanges) {
+  runStep("Checking repository formatting after Prettier config changes", pkgManager, [
     "run",
     "format:check",
   ])
