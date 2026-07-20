@@ -5,6 +5,7 @@
     "accountManager": "账号管理",
     "portManager": "端口管理",
     "quickLaunch": "快捷启动",
+    "commandCenter": "命令中心",
     "appManager": "应用管理",
     "devCleaner": "垃圾清理",
     "systemInfo": "系统信息",
@@ -2192,6 +2193,7 @@
       "linux": "Linux"
     },
     "appTitle": "Bench - DevTools",
+    "close": "关闭",
     "cancel": "取消",
     "remove": "移除",
     "delete": "删除",
@@ -2443,6 +2445,94 @@
     "devtools": "开发工具",
     "diagnostics": "网络诊断",
     "info": "系统信息"
+  },
+  "commandCenter": {
+    "title": "命令中心",
+    "subtitle": "把常用命令、脚本和快捷操作保存为卡片，一键运行。",
+    "addCard": "新建卡片",
+    "empty": "还没有命令卡片，点击新建开始添加。",
+    "kind": {
+      "shell": "Shell 脚本",
+      "shellAdmin": "提权脚本",
+      "copy": "复制文本",
+      "open": "打开路径/链接"
+    },
+    "builtin": "内置",
+    "reorder": "拖拽排序",
+    "reordered": "已调整卡片顺序",
+    "actions": {
+      "run": "运行",
+      "copy": "复制",
+      "output": "输出",
+      "viewOutput": "查看输出",
+      "terminate": "终止"
+    },
+    "editor": {
+      "title": "命令卡片",
+      "description": "填写卡片信息与要执行的命令。",
+      "fieldTitle": "标题",
+      "titlePlaceholder": "例如：给 Claude 打中文补丁",
+      "fieldDescription": "描述",
+      "descriptionPlaceholder": "可选，简单说明这条命令的用途",
+      "fieldKind": "动作类型",
+      "suggestion": "看起来这更像「{{kind}}」，要切换吗？",
+      "applySuggestion": "应用建议",
+      "command": {
+        "shell": "命令",
+        "shellAdmin": "命令（将以管理员权限运行）",
+        "copy": "要复制的文本",
+        "open": "路径或 URL"
+      },
+      "commandPlaceholder": {
+        "shell": "例如：docker compose up -d",
+        "shellAdmin": "例如：osascript -e 'do shell script ...'",
+        "copy": "例如：git log --oneline --graph --all",
+        "open": "例如：~/Documents 或 https://example.com"
+      }
+    },
+    "confirmRun": {
+      "title": "确认以管理员权限运行？",
+      "description": "即将执行「{{title}}」，该命令会请求管理员权限。",
+      "action": "确认运行"
+    },
+    "confirmDelete": {
+      "title": "删除命令卡片？",
+      "description": "确定删除「{{title}}」吗？此操作无法撤销。"
+    },
+    "result": {
+      "running": "正在运行…",
+      "success": "执行成功",
+      "failed": "执行失败（退出码 {{code}}）",
+      "successBadge": "成功",
+      "failedBadge": "失败",
+      "command": "命令",
+      "stdout": "标准输出",
+      "stderr": "错误输出",
+      "noOutput": "命令没有产生任何输出。",
+      "copied": "已复制到剪贴板",
+      "output": "运行输出",
+      "escHint": "按 Esc 或点击空白处收起"
+    },
+    "errors": {
+      "loadFailed": "加载命令卡片失败",
+      "saveFailed": "保存命令卡片失败",
+      "deleteFailed": "删除命令卡片失败",
+      "runFailed": "运行命令失败",
+      "exportFailed": "导出卡片失败",
+      "importFailed": "导入卡片失败"
+    },
+    "io": {
+      "export": "导出",
+      "import": "导入",
+      "exportTitle": "导出命令卡片",
+      "importTitle": "导入命令卡片",
+      "exportDescription": "将当前全部命令卡片导出为 JSON 文件，便于跨设备迁移或分享。",
+      "importDescription": "从 JSON 文件导入命令卡片，相同 id 的卡片会被覆盖，其余将合并进现有列表。",
+      "exported": "已导出 {{count}} 张卡片",
+      "imported": "已导入 {{count}} 张卡片",
+      "exportCanceled": "已取消导出",
+      "importCanceled": "已取消导入"
+    }
   },
   "quickLaunch": {
     "scene": {

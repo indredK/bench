@@ -5,6 +5,7 @@
     "accountManager": "Accounts",
     "portManager": "Ports",
     "quickLaunch": "Launch",
+    "commandCenter": "Commands",
     "appManager": "Apps",
     "devCleaner": "Dev Cleaner",
     "systemInfo": "System Info",
@@ -2192,6 +2193,7 @@
       "linux": "Linux"
     },
     "appTitle": "Bench - DevTools",
+    "close": "Close",
     "cancel": "Cancel",
     "remove": "Remove",
     "delete": "Delete",
@@ -2443,6 +2445,94 @@
     "devtools": "Dev Tools",
     "diagnostics": "Diagnostics",
     "info": "System Info"
+  },
+  "commandCenter": {
+    "title": "Command Center",
+    "subtitle": "Save frequently used commands, scripts and shortcuts as cards and run them in one click.",
+    "addCard": "New Card",
+    "empty": "No command cards yet. Click New Card to add one.",
+    "kind": {
+      "shell": "Shell Script",
+      "shellAdmin": "Privileged Script",
+      "copy": "Copy Text",
+      "open": "Open Path/Link"
+    },
+    "builtin": "Built-in",
+    "reorder": "Drag to reorder",
+    "reordered": "Card order updated",
+    "actions": {
+      "run": "Run",
+      "copy": "Copy",
+      "output": "Output",
+      "viewOutput": "View output",
+      "terminate": "Stop"
+    },
+    "editor": {
+      "title": "Command Card",
+      "description": "Fill in the card details and the command to execute.",
+      "fieldTitle": "Title",
+      "titlePlaceholder": "e.g. Patch Claude with Chinese pack",
+      "fieldDescription": "Description",
+      "descriptionPlaceholder": "Optional. Briefly explain what this command does",
+      "fieldKind": "Action type",
+      "suggestion": "This looks more like \"{{kind}}\". Switch to it?",
+      "applySuggestion": "Apply",
+      "command": {
+        "shell": "Command",
+        "shellAdmin": "Command (runs with admin privileges)",
+        "copy": "Text to copy",
+        "open": "Path or URL"
+      },
+      "commandPlaceholder": {
+        "shell": "e.g. docker compose up -d",
+        "shellAdmin": "e.g. osascript -e 'do shell script ...'",
+        "copy": "e.g. git log --oneline --graph --all",
+        "open": "e.g. ~/Documents or https://example.com"
+      }
+    },
+    "confirmRun": {
+      "title": "Run with administrator privileges?",
+      "description": "About to run \"{{title}}\", which requests administrator privileges.",
+      "action": "Run"
+    },
+    "confirmDelete": {
+      "title": "Delete command card?",
+      "description": "Delete \"{{title}}\"? This action cannot be undone."
+    },
+    "result": {
+      "running": "Running…",
+      "success": "Executed successfully",
+      "failed": "Failed (exit code {{code}})",
+      "successBadge": "Success",
+      "failedBadge": "Failed",
+      "command": "Command",
+      "stdout": "Standard output",
+      "stderr": "Error output",
+      "noOutput": "The command produced no output.",
+      "copied": "Copied to clipboard",
+      "output": "Output",
+      "escHint": "Press Esc or click outside to collapse"
+    },
+    "errors": {
+      "loadFailed": "Failed to load command cards",
+      "saveFailed": "Failed to save command card",
+      "deleteFailed": "Failed to delete command card",
+      "runFailed": "Failed to run command",
+      "exportFailed": "Failed to export cards",
+      "importFailed": "Failed to import cards"
+    },
+    "io": {
+      "export": "Export",
+      "import": "Import",
+      "exportTitle": "Export command cards",
+      "importTitle": "Import command cards",
+      "exportDescription": "Export all current command cards as a JSON file for migration or sharing.",
+      "importDescription": "Import command cards from a JSON file. Cards with the same id are overwritten; the rest are merged into the existing list.",
+      "exported": "Exported {{count}} cards",
+      "imported": "Imported {{count}} cards",
+      "exportCanceled": "Export canceled",
+      "importCanceled": "Import canceled"
+    }
   },
   "quickLaunch": {
     "scene": {

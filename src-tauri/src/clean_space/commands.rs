@@ -436,6 +436,7 @@ fn cleanup_process_error(operation: &str, error: SubprocessError) -> AppError {
         ),
         SubprocessErrorKind::Timeout => ("CLEANUP_PROCESS_TIMEOUT", "timed out".into()),
         SubprocessErrorKind::Wait => ("CLEANUP_PROCESS_FAILED", "could not be monitored".into()),
+        SubprocessErrorKind::Aborted => ("CLEANUP_PROCESS_ABORTED", "aborted by user".into()),
     };
     AppError::new(code, format!("{operation} {reason}"))
 }

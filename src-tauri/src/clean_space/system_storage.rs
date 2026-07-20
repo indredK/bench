@@ -59,8 +59,12 @@ const SNAPSHOT_COMMAND_TIMEOUT: Duration = Duration::from_secs(30);
 /// used space by hundreds of GB, making "Free" appear far larger than what
 /// macOS System Settings shows.
 fn get_disk_info() -> (u64, u64) {
-    let output =
-        run_output_with_timeout(Command::new("df").args(["-k", "/"]), DISK_INFO_TIMEOUT).ok();
+    let output = run_output_with_timeout(
+        Command::new("df").args(["-k", "/"]),
+        DISK_INFO_TIMEOUT,
+        None,
+    )
+    .ok();
     if let Some(out) = output {
         let s = String::from_utf8_lossy(&out.stdout);
         for line in s.lines().skip(1) {
@@ -91,6 +95,7 @@ pub(crate) fn du_size_bytes(path: &str) -> u64 {
     let output = run_output_with_timeout(
         Command::new("du").args(["-skx", path]),
         SIZE_COMMAND_TIMEOUT,
+        None,
     )
     .ok();
     if let Some(out) = output {
@@ -119,6 +124,7 @@ fn local_snapshot_info() -> LocalSnapshotInfo {
     let snapshot_count = run_output_with_timeout(
         Command::new("tmutil").args(["listlocalsnapshots", "/"]),
         SNAPSHOT_COMMAND_TIMEOUT,
+        None,
     )
     .ok()
     .map(|out| {
@@ -132,6 +138,7 @@ fn local_snapshot_info() -> LocalSnapshotInfo {
     let snapshot_size = run_output_with_timeout(
         Command::new("diskutil").args(["apfs", "listSnapshots", "/", "-plist"]),
         SNAPSHOT_COMMAND_TIMEOUT,
+        None,
     )
     .ok()
     .and_then(|out| {
@@ -598,6 +605,7 @@ fn du_sizes_for_paths(paths: &[PathBuf]) -> Vec<(PathBuf, u64)> {
         let output = run_output_with_timeout(
             Command::new("du").arg("-skx").args(chunk),
             SIZE_COMMAND_TIMEOUT,
+            None,
         )
         .ok();
         if let Some(out) = output {
@@ -963,7 +971,8 @@ fn list_documents_items(docs_path: &str, home_str: &str) -> Vec<StorageItem> {
         args.push(path.clone());
     }
 
-    let output = run_output_with_timeout(Command::new("du").args(&args), SIZE_COMMAND_TIMEOUT).ok();
+    let output =
+        run_output_with_timeout(Command::new("du").args(&args), SIZE_COMMAND_TIMEOUT, None).ok();
 
     // Parse du output: each line is "<size_kb> <path>"
     let mut size_map: std::collections::HashMap<String, u64> = std::collections::HashMap::new();

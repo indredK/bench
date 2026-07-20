@@ -7,6 +7,7 @@
 | [account-manager](./account-manager/)   | [技术设计](./account-manager/design.md) |
 | [app-manager](./app-manager/)           | [技术设计](./app-manager/design.md)     |
 | [clean-space](./clean-space/)           | [技术设计](./clean-space/design.md)     |
+| [command-center](./command-center/)     | [技术设计](./command-center/design.md)  |
 | [dev-cleaner](./dev-cleaner/)           | Clean Space 内部清理引擎                |
 | [dev-toolbox](./dev-toolbox/)           | -                                       |
 | [env-detector](./env-detector/)         | -                                       |

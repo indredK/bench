@@ -43,6 +43,7 @@ import type {
 } from "@/lib/tauri/types/dev-cleaner"
 import type { EnvScanDonePayload } from "@/lib/tauri/types/env-detector"
 import type { KillPidResult, KillTarget, PortProcessDetail } from "@/lib/tauri/types/port-manager"
+import type { CardKind, CommandCard, RunResult } from "@/lib/tauri/types/command-center"
 import type {
   SleepConfig,
   SleepState,
@@ -159,6 +160,22 @@ export const TAURI_COMMAND_CONTRACTS = {
   ),
   kill_processes: defineTauriCommand<{ targets: KillTarget[] }, KillPidResult[]>()(
     "kill_processes",
+  ),
+  list_command_cards: defineTauriCommand<undefined, CommandCard[]>()("list_command_cards"),
+  save_command_cards: defineTauriCommand<{ cards: CommandCard[] }, void>()("save_command_cards"),
+  upsert_command_card: defineTauriCommand<{ card: CommandCard }, CommandCard[]>()(
+    "upsert_command_card",
+  ),
+  delete_command_card: defineTauriCommand<{ id: string }, CommandCard[]>()("delete_command_card"),
+  run_command_card: defineTauriCommand<{ kind: CardKind; command: string }, RunResult>()(
+    "run_command_card",
+  ),
+  cancel_command_card: defineTauriCommand<undefined, void>()("cancel_command_card"),
+  export_command_cards: defineTauriCommand<{ path: string; cards: CommandCard[] }, number>()(
+    "export_command_cards",
+  ),
+  import_command_cards: defineTauriCommand<{ path: string }, CommandCard[]>()(
+    "import_command_cards",
   ),
   set_window_theme: defineTauriCommand<
     { theme: "default" | "glass"; appearance: "light" | "dark" },
@@ -616,6 +633,16 @@ export const TAURI_COMMANDS = {
     queryPortProcesses: commandName("query_port_processes"),
     killProcesses: commandName("kill_processes"),
   },
+  commandCenter: {
+    listCommandCards: commandName("list_command_cards"),
+    saveCommandCards: commandName("save_command_cards"),
+    upsertCommandCard: commandName("upsert_command_card"),
+    deleteCommandCard: commandName("delete_command_card"),
+    runCommandCard: commandName("run_command_card"),
+    cancelCommandCard: commandName("cancel_command_card"),
+    exportCommandCards: commandName("export_command_cards"),
+    importCommandCards: commandName("import_command_cards"),
+  },
   windowTheme: {
     setWindowTheme: commandName("set_window_theme"),
   },
@@ -839,6 +866,14 @@ export const TAURI_COMMAND_ARG_KEYS = {
   get_system_info: [],
   query_port_processes: ["ports"],
   kill_processes: ["targets"],
+  list_command_cards: [],
+  save_command_cards: ["cards"],
+  upsert_command_card: ["card"],
+  delete_command_card: ["id"],
+  run_command_card: ["kind", "command"],
+  cancel_command_card: [],
+  export_command_cards: ["path", "cards"],
+  import_command_cards: ["path"],
   set_window_theme: ["theme", "appearance"],
   get_account_manager_capabilities: [],
   list_stations: [],

@@ -2,7 +2,9 @@
  * Destructive action confirmation / 危险操作确认: shared AlertDialog with optional
  * consequence callout for E5 (kill process, empty trash, etc.).
  */
+import { useState } from "react"
 import type { ReactNode } from "react"
+import { Loader2 } from "lucide-react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,6 +15,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+
+const MIN_LOADING_MS = 300
 
 export function DestructiveConfirmDialog({
   open,
@@ -35,8 +39,35 @@ export function DestructiveConfirmDialog({
   onConfirm: () => void | Promise<void>
   loading?: boolean
 }) {
+  const [pending, setPending] = useState(false)
+
+  const handleConfirm = async (event: React.MouseEvent) => {
+    event.preventDefault()
+    if (pending) return
+    setPending(true)
+    const startedAt = Date.now()
+    try {
+      await onConfirm()
+    } finally {
+      const elapsed = Date.now() - startedAt
+      const wait = Math.max(0, MIN_LOADING_MS - elapsed)
+      window.setTimeout(() => {
+        setPending(false)
+        onOpenChange(false)
+      }, wait)
+    }
+  }
+
+  const busy = pending || loading
+
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
+    <AlertDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (busy) return
+        onOpenChange(next)
+      }}
+    >
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
@@ -52,16 +83,16 @@ export function DestructiveConfirmDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={loading}>{cancelLabel}</AlertDialogCancel>
-          <AlertDialogAction
-            variant="destructive"
-            disabled={loading}
-            onClick={(event) => {
-              event.preventDefault()
-              void Promise.resolve(onConfirm())
-            }}
-          >
-            {confirmLabel}
+          <AlertDialogCancel disabled={busy}>{cancelLabel}</AlertDialogCancel>
+          <AlertDialogAction variant="destructive" disabled={busy} onClick={handleConfirm}>
+            {pending ? (
+              <>
+                <Loader2 size={14} className="animate-spin" />
+                {confirmLabel}
+              </>
+            ) : (
+              confirmLabel
+            )}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

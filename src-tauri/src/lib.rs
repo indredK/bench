@@ -4,6 +4,7 @@ mod app_preferences;
 mod app_updater;
 mod bootstrap;
 mod clean_space;
+mod command_center;
 mod commands;
 mod dev_cleaner;
 mod env_detector;
@@ -26,9 +27,11 @@ use account_manager::AccountManagerState;
 use app_manager::AppManagerState;
 use app_updater::UpdaterCache;
 use bootstrap::{create_state as create_bootstrap_state, record_startup_issue};
+use command_center::commands::RunAbortFlag;
 use dev_cleaner::{CustomCleanupAbortFlag, ScanAbortFlag};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use std::sync::Mutex;
 use tauri::Emitter;
 use tauri::Manager;
 use terminology::state::TerminologyState;
@@ -64,6 +67,7 @@ pub fn run() {
         .manage(token_calculator_state)
         .manage(terminology_state)
         .manage(UpdaterCache::default())
+        .manage(RunAbortFlag(Mutex::new(Arc::new(AtomicBool::new(false)))))
         .manage(create_bootstrap_state())
         .setup(|app| {
             #[cfg(target_os = "macos")]

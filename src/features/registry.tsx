@@ -8,6 +8,7 @@ import type { TFunction } from "i18next"
 import { accountManagerFeature } from "@/features/account-manager/feature"
 import { appManagerFeature } from "@/features/app-manager/feature"
 import { cleanSpaceFeature } from "@/features/clean-space/feature"
+import { commandCenterFeature } from "@/features/command-center/feature"
 import { envDetectorFeature } from "@/features/env-detector/feature"
 import { hardwareFeature } from "@/features/hardware/feature"
 import { portManagerFeature } from "@/features/port-manager/feature"
@@ -22,6 +23,7 @@ import { canUseFeature, type RuntimeEnvironment } from "@/platform/capabilities"
 /** All features (for routing); order matters for sidebar. */
 export const appFeatures: AppFeature[] = [
   quickLaunchFeature,
+  commandCenterFeature,
   appManagerFeature,
   hardwareFeature,
   terminologyFeature,

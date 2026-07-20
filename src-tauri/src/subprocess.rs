@@ -1,5 +1,7 @@
 use std::io::Read;
 use std::process::{Command, ExitStatus, Output, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 const POLL_INTERVAL: Duration = Duration::from_millis(50);
@@ -10,6 +12,7 @@ pub enum SubprocessErrorKind {
     Exit,
     Timeout,
     Wait,
+    Aborted,
 }
 
 #[derive(Debug)]
@@ -72,6 +75,7 @@ pub fn run_status_with_timeout(
 pub fn run_output_with_timeout(
     command: &mut Command,
     timeout: Duration,
+    abort: Option<Arc<AtomicBool>>,
 ) -> Result<Output, SubprocessError> {
     command
         .stdin(Stdio::null())
@@ -103,6 +107,18 @@ pub fn run_output_with_timeout(
     let started_at = Instant::now();
 
     let status = loop {
+        if let Some(flag) = &abort {
+            if flag.load(Ordering::SeqCst) {
+                terminate_process_tree(&mut child);
+                let _ = child.wait();
+                join_reader(stdout_reader);
+                join_reader(stderr_reader);
+                return Err(SubprocessError {
+                    kind: SubprocessErrorKind::Aborted,
+                    exit_code: None,
+                });
+            }
+        }
         match child.try_wait() {
             Ok(Some(status)) => break status,
             Ok(None) if started_at.elapsed() >= timeout => {
@@ -240,7 +256,7 @@ mod tests {
             command
         };
 
-        let output = run_output_with_timeout(&mut command, Duration::from_secs(1)).unwrap();
+        let output = run_output_with_timeout(&mut command, Duration::from_secs(1), None).unwrap();
         assert!(output.status.success());
         assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), "ready");
     }
