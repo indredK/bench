@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.25.0](https://github.com/indredK/bench/compare/v1.24.4...v1.25.0) (2026-07-20)
+
+
+### Features
+
+* **command-center:** 新增命令中心后端与文档 ([9cbdb69](https://github.com/indredK/bench/commit/9cbdb69d2ad2a637521f782cd2d0200b450fdb60))
+* **command-center:** 添加 Windows 平台支持 ([71c8634](https://github.com/indredK/bench/commit/71c863494e9ad9e4a2d6d06ffe84fb94e38e79f3))
+
 ## [1.24.4](https://github.com/indredK/bench/compare/v1.24.3...v1.24.4) (2026-07-14)
 
 
