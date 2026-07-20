@@ -37,25 +37,50 @@ pub fn run_shell(command: &str, abort: Arc<AtomicBool>) -> AppResult<RunResult> 
     }
     let mut cmd = Command::new("/bin/sh");
     cmd.arg("-c").arg(trimmed);
-    match run_output_with_timeout(&mut cmd, RUN_TIMEOUT, Some(abort)) {
+    run_shell_output("shell command", &mut cmd, abort)
+}
+
+#[cfg(target_os = "windows")]
+pub fn run_shell(command: &str, abort: Arc<AtomicBool>) -> AppResult<RunResult> {
+    let trimmed = command.trim();
+    if trimmed.is_empty() {
+        return Err(AppError::invalid_input("command is empty"));
+    }
+    // 禁止用 `start` 拉起独立窗口（与全局平台约定一致）。
+    if trimmed.eq_ignore_ascii_case("start") || trimmed.to_ascii_lowercase().starts_with("start ") {
+        return Err(AppError::invalid_input(
+            "launching a new window via `start` is not supported",
+        ));
+    }
+    let mut cmd = Command::new("cmd");
+    cmd.arg("/C").arg(trimmed);
+    run_shell_output("shell command", &mut cmd, abort)
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+pub fn run_shell(_command: &str, _abort: Arc<AtomicBool>) -> AppResult<RunResult> {
+    Err(AppError::unsupported(
+        "shell execution is only supported on macOS/Windows",
+    ))
+}
+
+fn run_shell_output(
+    operation: &str,
+    cmd: &mut Command,
+    abort: Arc<AtomicBool>,
+) -> AppResult<RunResult> {
+    match run_output_with_timeout(cmd, RUN_TIMEOUT, Some(abort)) {
         Ok(output) => Ok(RunResult {
             success: output.status.success(),
             exit_code: output.status.code(),
             stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
             stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
         }),
-        Err(error) => Err(subprocess_error("shell command", error)),
+        Err(error) => Err(subprocess_error(operation, error)),
     }
 }
 
-#[cfg(not(target_os = "macos"))]
-pub fn run_shell(_command: &str, _abort: Arc<AtomicBool>) -> AppResult<RunResult> {
-    Err(AppError::unsupported(
-        "shell execution is only supported on macOS",
-    ))
-}
-
-/// 提权执行（macOS osascript GUI prompt）。
+/// 提权执行。
 #[cfg(target_os = "macos")]
 pub fn run_admin(command: &str, abort: Arc<AtomicBool>) -> AppResult<RunResult> {
     let trimmed = command.trim();
@@ -87,10 +112,38 @@ pub fn run_admin(command: &str, abort: Arc<AtomicBool>) -> AppResult<RunResult> 
     }
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(target_os = "windows")]
+pub fn run_admin(command: &str, _abort: Arc<AtomicBool>) -> AppResult<RunResult> {
+    let trimmed = command.trim();
+    if trimmed.is_empty() {
+        return Err(AppError::invalid_input("command is empty"));
+    }
+    // 通过 PowerShell `Start-Process -Verb RunAs` 触发 UAC 提权。
+    // 提权后的进程脱离当前进程树，stdout/stderr 无法回传，且 abort 信号无法送达，
+    // 因此仅返回启动是否成功，不含命令输出。
+    let escaped = trimmed.replace('\'', "''");
+    let ps =
+        format!("Start-Process -Verb RunAs -FilePath cmd.exe -ArgumentList '/C {escaped}' -Wait");
+    let status = Command::new("powershell")
+        .args(["-NoProfile", "-Command", &ps])
+        .status()
+        .map_err(|e| AppError::new("CMD_SPAWN_FAILED", format!("powershell: {e}")))?;
+    if status.success() {
+        Ok(RunResult {
+            success: true,
+            exit_code: Some(0),
+            stdout: String::new(),
+            stderr: String::new(),
+        })
+    } else {
+        Err(AppError::new("CMD_FAILED", "privileged command failed"))
+    }
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 pub fn run_admin(_command: &str, _abort: Arc<AtomicBool>) -> AppResult<RunResult> {
     Err(AppError::unsupported(
-        "privileged execution is only supported on macOS",
+        "privileged execution is only supported on macOS/Windows",
     ))
 }
 
@@ -112,9 +165,29 @@ pub fn open_target(target: &str) -> AppResult<()> {
     }
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(target_os = "windows")]
+pub fn open_target(target: &str) -> AppResult<()> {
+    let trimmed = target.trim();
+    if trimmed.is_empty() {
+        return Err(AppError::invalid_input("target is empty"));
+    }
+    let status = Command::new("explorer")
+        .arg(trimmed)
+        .status()
+        .map_err(|e| AppError::new("CMD_SPAWN_FAILED", format!("explorer: {e}")))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(AppError::new(
+            "CMD_FAILED",
+            "explorer exited unsuccessfully",
+        ))
+    }
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 pub fn open_target(_target: &str) -> AppResult<()> {
     Err(AppError::unsupported(
-        "opening targets is only supported on macOS",
+        "opening targets is only supported on macOS/Windows",
     ))
 }

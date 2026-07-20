@@ -6,7 +6,6 @@
 
 - [ ] 卡片分组 / 标签与搜索过滤
 - [ ] 参数占位符：命令内 `{{var}}` 运行前弹窗填参
-- [ ] `open`/`shellAdmin` 的 Windows 支持
 
 ## 已完成（近期）
 
@@ -15,6 +14,7 @@
 - [x] 运行中的「终止」按钮：前端 `cancel_command_card` + 后端 `RunAbortFlag` 进程树 kill（`CMD_ABORTED`）。
 - [x] Esc / 点遮罩仅关弹窗不打断命令（区分于系统级提权取消 `CMD_CANCELLED`）。
 - [x] 紧凑网格 + Hover 看实时输出 + 抽屉（上下排列：运行输出 / 命令详情），移除原详情弹窗与 RunDrawer。
+- [x] Windows 支持：`shell` 用 `cmd /C`（禁止 `start` 拉窗）、`open` 用 `explorer`、`shellAdmin` 用 PowerShell `Start-Process -Verb RunAs` 提权；Linux 仍 `unsupported`。Windows 提权进程脱离进程树，故无命令输出且「终止」按钮对其无效（已知限制）。
 
 ## 验收条件
 
