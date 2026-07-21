@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.25.1](https://github.com/indredK/bench/compare/v1.25.0...v1.25.1) (2026-07-21)
+
+
+### Bug Fixes
+
+* **updater:** 防止下载进度显示 NaN ([5ebf819](https://github.com/indredK/bench/commit/5ebf8197a861af216381af7f1e70aa7aaebe5ebd))
+
 ## [1.25.0](https://github.com/indredK/bench/compare/v1.24.4...v1.25.0) (2026-07-20)
 
 
