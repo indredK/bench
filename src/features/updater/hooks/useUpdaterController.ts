@@ -318,21 +318,29 @@ export function useUpdaterController() {
     let cancelled = false
     let unlisten: (() => void) | undefined
 
+    // Progress events arrive from Rust as plain numbers; guard against
+    // non-finite/undefined payloads so the store never holds `NaN` (which would
+    // otherwise render as "NaN GB" — `?? 0` only catches null/undefined, not NaN).
+    const toFiniteOrZero = (value: unknown): number =>
+      typeof value === "number" && Number.isFinite(value) ? value : 0
+    const toFiniteOrNull = (value: unknown): number | null =>
+      typeof value === "number" && Number.isFinite(value) ? value : null
+
     void listenToPlatformEvent<AppUpdateDownloadEvent>(TAURI_EVENTS.updater.download, (event) => {
       const payload = event.payload
       if (payload.event === "started") {
         useUpdaterStore.setState({
           status: "downloading",
           downloadedBytes: 0,
-          totalBytes: payload.contentLength,
+          totalBytes: toFiniteOrNull(payload.contentLength),
         })
         return
       }
       if (payload.event === "progress") {
         useUpdaterStore.setState({
           status: "downloading",
-          downloadedBytes: payload.downloadedBytes,
-          totalBytes: payload.contentLength,
+          downloadedBytes: toFiniteOrZero(payload.downloadedBytes),
+          totalBytes: toFiniteOrNull(payload.contentLength),
         })
         return
       }

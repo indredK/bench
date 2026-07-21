@@ -5,11 +5,13 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
 import { act, renderHook } from "@testing-library/react"
 import { useUpdaterController } from "@/features/updater/hooks/useUpdaterController"
 import { useUpdaterStore } from "@/features/updater/store"
+import { canUseDesktopFeatures } from "@/platform/capabilities"
 import type { AppUpdateInfo } from "@/lib/tauri/types/updater"
 
-const { mockReadUpdaterPolicy, mockWriteUpdaterPolicy } = vi.hoisted(() => ({
+const { mockReadUpdaterPolicy, mockWriteUpdaterPolicy, capturedHandlers } = vi.hoisted(() => ({
   mockReadUpdaterPolicy: vi.fn(),
   mockWriteUpdaterPolicy: vi.fn(),
+  capturedHandlers: { download: [] as Array<(event: { payload: unknown }) => void> },
 }))
 
 vi.mock("react-i18next", () => ({
@@ -26,7 +28,12 @@ vi.mock("@/platform/shell", () => ({
 }))
 
 vi.mock("@/platform/events", () => ({
-  listenToPlatformEvent: vi.fn(async () => () => {}),
+  listenToPlatformEvent: vi.fn(
+    async (event: string, handler: (event: { payload: unknown }) => void) => {
+      if (event === "app-updater-download") capturedHandlers.download.push(handler)
+      return () => {}
+    },
+  ),
 }))
 
 vi.mock("@/features/updater/services/updater-policy.repository", () => ({
@@ -85,6 +92,8 @@ function resetUpdaterStore() {
 describe("useUpdaterController", () => {
   beforeEach(() => {
     resetUpdaterStore()
+    capturedHandlers.download = []
+    vi.mocked(canUseDesktopFeatures).mockReturnValue(true)
     mockCheckForAppUpdate.mockReset()
     mockDownloadAndInstall.mockReset()
     mockCancelDownload.mockReset()
@@ -325,5 +334,34 @@ describe("useUpdaterController", () => {
     expect(state.status).toBe("idle")
     expect(state.updateInfo).toBeNull()
     expect(state.error).toBe("")
+  })
+
+  it("does not store NaN when progress payload carries non-finite/undefined bytes", async () => {
+    renderHook(() => useUpdaterController())
+    // The download listener registers on mount; flush effects so the handler is captured.
+    await act(async () => {
+      await Promise.resolve()
+    })
+    const handleDownload = capturedHandlers.download.at(-1)
+    expect(handleDownload).toBeTruthy()
+
+    // Malformed/edge-case event: NaN downloaded + null total.
+    act(() => {
+      handleDownload?.({
+        payload: { event: "progress", downloadedBytes: NaN, contentLength: null },
+      })
+    })
+    expect(Number.isNaN(useUpdaterStore.getState().downloadedBytes)).toBe(false)
+    expect(useUpdaterStore.getState().downloadedBytes).toBe(0)
+    expect(useUpdaterStore.getState().totalBytes).toBeNull()
+
+    // Valid progress event still flows through.
+    act(() => {
+      handleDownload?.({
+        payload: { event: "progress", downloadedBytes: 123456, contentLength: undefined },
+      })
+    })
+    expect(useUpdaterStore.getState().downloadedBytes).toBe(123456)
+    expect(useUpdaterStore.getState().totalBytes).toBeNull()
   })
 })

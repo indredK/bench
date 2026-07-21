@@ -2364,6 +2364,8 @@
     "progressLabel": "{{downloaded}} / {{total}}",
     "progressDone": "Download complete",
     "unknownSize": "Unknown size",
+    "downloadedSize": "Update downloaded",
+    "updatedSize": "Downloaded {{size}}",
     "desktopOnly": "Updater features are only available in the desktop app.",
     "errors": {
       "checkFailed": "Failed to check for updates",

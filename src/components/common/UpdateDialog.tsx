@@ -29,8 +29,10 @@ import { cn } from "@/lib/utils"
 
 const MAX_RELEASE_NOTES_LENGTH = 20_000
 
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`
+function formatBytes(bytes: number): string {
+  // Guard against NaN / Infinity / negative — otherwise `${NaN} GB` would render.
+  if (!Number.isFinite(bytes) || bytes < 0) return "—"
+  if (bytes < 1024) return `${Math.round(bytes)} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
@@ -468,6 +470,14 @@ export function UpdateDialog({
                   </span>
                 </div>
               )}
+              {downloadedBytes > 0 && (
+                <div className="flex items-start justify-between gap-3">
+                  <span className="text-muted-foreground">{t("updater.downloadedSize")}</span>
+                  <span className="min-w-0 text-right font-mono [overflow-wrap:anywhere]">
+                    {formatBytes(downloadedBytes)}
+                  </span>
+                </div>
+              )}
             </div>
 
             {status === "error" && error && (
@@ -516,7 +526,9 @@ export function UpdateDialog({
                           downloaded: formatBytes(downloadedBytes),
                           total: totalBytes ? formatBytes(totalBytes) : t("updater.unknownSize"),
                         })
-                      : t("updater.progressDone")}
+                      : downloadedBytes > 0
+                        ? t("updater.updatedSize", { size: formatBytes(downloadedBytes) })
+                        : t("updater.progressDone")}
                   </span>
                   {(progressPercent !== null || canRestart) && (
                     <span className="shrink-0">{progressPercent ?? 100}%</span>
