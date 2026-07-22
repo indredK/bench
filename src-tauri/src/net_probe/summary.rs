@@ -78,6 +78,7 @@ pub fn collect_default_route() -> AppResult<DefaultRouteInfo> {
 
 /// Parse `route -n get default` stdout.
 /// VPN/utun defaults often omit `gateway:` and only set `interface:` — still a present default route.
+#[cfg(any(target_os = "macos", test))]
 pub fn parse_route_get_default(text: &str) -> DefaultRouteInfo {
     let mut gateway = None;
     let mut interface = None;

@@ -497,6 +497,7 @@ struct ProxyVpnInfo {
     default_via_tunnel: bool,
 }
 
+#[cfg(target_os = "macos")]
 fn scutil_proxy_value(text: &str, key: &str) -> Option<String> {
     let prefix = format!("{key} : ");
     for line in text.lines() {
@@ -511,6 +512,7 @@ fn scutil_proxy_value(text: &str, key: &str) -> Option<String> {
     None
 }
 
+#[cfg(target_os = "macos")]
 fn is_loopback_host(host: &str) -> bool {
     matches!(
         host.trim().to_ascii_lowercase().as_str(),
