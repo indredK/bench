@@ -2791,9 +2791,458 @@
     }
   },
   "networkProbe": {
-    "stub": {
-      "title": "网络探测",
-      "description": "模块处于设计阶段，探测能力尚未落地。技术设计见项目文档。"
+    "title": "网络探测",
+    "subtitle": "急救诊断与主动探测（模块 1.0 / MVP A+B）。",
+    "nav": {
+      "l1": "一级分区",
+      "l2": "工具"
+    },
+    "l1": {
+      "basic": "基础视角",
+      "test": "测试",
+      "security": "安全",
+      "discover": "发现"
+    },
+    "l2": {
+      "overview": "概览",
+      "tree": "一键体检",
+      "opinion": "扫描意见",
+      "sites": "站点延迟",
+      "offline": "上不了网",
+      "fix": "一键修复",
+      "report": "报告",
+      "ping": "Ping",
+      "dns": "DNS",
+      "tcp": "TCP 连通",
+      "custom": "自定义目标",
+      "traceroute": "Traceroute",
+      "mtu": "MTU",
+      "egress": "公网出口",
+      "speed": "带宽测速",
+      "ports": "端口扫描",
+      "pollution": "污染检测",
+      "pcap": "包级诊断",
+      "dnssec": "DNSSEC / DoH",
+      "whois": "WHOIS",
+      "arp": "ARP 发现",
+      "lan-svc": "局域网服务",
+      "nat": "NAT 类型",
+      "ntp": "NTP",
+      "nodes": "多节点对比"
+    },
+    "overview": {
+      "refresh": "刷新",
+      "refreshing": "刷新中…",
+      "openSettings": "打开系统网络设置",
+      "empty": "尚无摘要。点击刷新加载本机网络状态。",
+      "ipv4": "IPv4",
+      "ipv6": "IPv6",
+      "gateway": "网关",
+      "dns": "DNS 服务器",
+      "wifi": "Wi‑Fi",
+      "firewall": "防火墙",
+      "hosts": "hosts 覆盖",
+      "hostsCount": "{{count}} 条可疑",
+      "ifaces": "活动接口"
+    },
+    "firewall": {
+      "on": "开启",
+      "off": "关闭",
+      "unsupported": "不支持"
+    },
+    "tcp": {
+      "hint": "探测 host:port 的 TCP 连通性（开发者刚需）。",
+      "host": "主机",
+      "port": "端口",
+      "run": "连接",
+      "running": "连接中…",
+      "status": "状态",
+      "rtt": "RTT",
+      "rttValue": "RTT: {{ms}} ms"
+    },
+    "ping": {
+      "hint": "ICMP Echo 探测延迟、抖动与丢包（macOS 需本地网络权限）。",
+      "target": "目标",
+      "count": "次数",
+      "run": "Ping",
+      "running": "探测中…",
+      "resolved": "解析 IP",
+      "summary": "发送 {{sent}} · 收到 {{received}} · 丢包 {{loss}}%",
+      "rttSummary": "RTT 最小/平均/最大/抖动: {{min}} / {{avg}} / {{max}} / {{jitter}} ms",
+      "sampleOk": "#{{seq}} {{ms}} ms",
+      "sampleFail": "#{{seq}} 失败 — {{error}}"
+    },
+    "dns": {
+      "hint": "通过系统解析器或指定 DNS IP 查询记录。",
+      "domain": "域名",
+      "rrType": "类型",
+      "resolver": "解析器",
+      "resolverPlaceholder": "系统（默认）",
+      "run": "查询",
+      "running": "查询中…",
+      "meta": "{{rrType}} via {{resolver}} · {{ms}} ms",
+      "ttl": "TTL={{ttl}}",
+      "empty": "未返回记录。"
+    },
+    "probe": {
+      "hint": "探测主机或 URL：可选 ICMP，并做 HTTP(S) 与轻量 TLS 握手检查。",
+      "input": "主机或 URL",
+      "run": "探测",
+      "running": "探测中…",
+      "kind": "输入类型",
+      "icmp": "ICMP",
+      "icmpOk": "成功 · {{ms}} ms · {{ip}}",
+      "icmpFail": "失败 — {{error}}",
+      "http": "HTTP",
+      "httpOk": "{{status}} · TTFB {{ms}} ms",
+      "httpFail": "失败 — {{error}}",
+      "tls": "TLS",
+      "tlsOk": "握手成功",
+      "tlsFail": "失败 — {{detail}}"
+    },
+    "sites": {
+      "hint": "对内置站点包做 ICMP / HTTP 延迟探测。自定义站流式采样并显示火花线；可中途取消。",
+      "pack": "站点包",
+      "run": "探测站点包",
+      "running": "站点探测中…",
+      "cancel": "取消",
+      "cancelled": "已取消",
+      "degraded": "降级",
+      "resultTitle": "结果 · {{packId}}",
+      "icmpMs": "ICMP {{ms}} ms",
+      "httpMs": "HTTP {{status}} · {{ms}} ms",
+      "fail": "失败 — {{error}}",
+      "customTitle": "自定义站点",
+      "customInput": "URL 或主机",
+      "customPlaceholder": "https://registry.npmjs.org",
+      "customAdd": "添加",
+      "customRun": "探测自定义",
+      "customRemove": "移除",
+      "customEmpty": "尚无自定义站点。",
+      "packs": {
+        "global": "全球",
+        "cn-friendly": "国内友好",
+        "dev": "开发者"
+      }
+    },
+    "health": {
+      "hint": "运行 L0→L3 急救检查。各项会随完成进度流式出现。",
+      "run": "一键体检",
+      "running": "体检中…",
+      "cancel": "取消",
+      "cancelled": "已取消",
+      "empty": "尚无结果。运行体检以填充检查树。",
+      "elapsed": "完成于 {{ms}} ms",
+      "layers": {
+        "L0": "L0 · 链路",
+        "L1": "L1 · 地址 / DNS / 策略",
+        "L2": "L2 · 服务",
+        "L3": "L3 · 可达性"
+      },
+      "status": {
+        "pass": "通过",
+        "warn": "警告",
+        "fail": "失败",
+        "skip": "跳过",
+        "error": "错误"
+      }
+    },
+    "opinion": {
+      "hint": "基于最近一次体检的可操作建议。",
+      "empty": "尚无体检结果。",
+      "goTree": "前往一键体检",
+      "none": "未生成意见。",
+      "severity": {
+        "info": "信息",
+        "warn": "警告",
+        "critical": "严重"
+      }
+    },
+    "advisor": {
+      "linkDown": {
+        "title": "没有活动网络接口",
+        "body": "检查网线、Wi‑Fi 开关或飞行模式，然后重扫。"
+      },
+      "noDefaultRoute": {
+        "title": "缺少默认路由",
+        "body": "续租 DHCP，或检查 VPN 是否抢走了默认路由。"
+      },
+      "noIpv4": {
+        "title": "没有可用 IPv4",
+        "body": "续租 DHCP 或核对静态 IP。仅有 APIPA（169.254.x）视为失败。"
+      },
+      "dnsBroken": {
+        "title": "DNS 看起来异常",
+        "body": "系统 DNS 列表为空，或知名域名解析失败。可尝试刷新 DNS 或切换公共解析器。"
+      },
+      "hostsHijack": {
+        "title": "可疑 hosts 覆盖",
+        "body": "常见域名被指到回环/内网地址。请检查 /etc/hosts——Bench 不会自动修改。"
+      },
+      "dnsVsIpDns": {
+        "title": "DNS / hosts 问题（IP 通、域名不通）",
+        "body": "网关与公网 IP 正常，但域名可达失败。优先排查 DNS 或 hosts。"
+      },
+      "dnsVsIpUplink": {
+        "title": "上行 / 防火墙问题",
+        "body": "网关通但公网 IP 不通。检查运营商上行、防火墙或门户限制。"
+      },
+      "dnsVsIpLan": {
+        "title": "局域网 / 网关问题",
+        "body": "默认网关不可达。先查 Wi‑Fi/路由器，再怀疑外网。"
+      },
+      "proxyOn": {
+        "title": "系统代理已开启",
+        "body": "错误的代理/PAC 会导致打不开网页。关闭或修正代理后重扫。"
+      },
+      "vpnActive": {
+        "title": "检测到 VPN / 隧道",
+        "body": "若连通异常，可断开 VPN 对照。"
+      },
+      "captive": {
+        "title": "可能存在 Captive Portal",
+        "body": "先打开门户登录页（酒店/咖啡馆 Wi‑Fi），再继续排 DNS。"
+      },
+      "allClear": {
+        "title": "基础连通看起来正常",
+        "body": "若个别站点仍失败，检查站点本身、SNI/代理，或跑站点延迟探针。"
+      }
+    },
+    "fix": {
+      "hint": "免特权自愈操作。后端会复核网络服务与 DNS 白名单。",
+      "service": "网络服务",
+      "dnsPreset": "DNS 预设",
+      "flush": "刷新 DNS",
+      "switchDns": "切换 DNS",
+      "renewDhcp": "续租 DHCP",
+      "resetStack": "重置网络栈",
+      "openSettings": "打开系统网络设置",
+      "ok": "成功",
+      "failed": "失败",
+      "confirm": {
+        "cancel": "取消",
+        "confirm": "确认",
+        "next": "下一步",
+        "back": "上一步",
+        "flushTitle": "刷新 DNS 缓存？",
+        "flushDesc": "清空本机 DNS 缓存，后续解析将使用当前解析器。",
+        "flushConsequence": "可能短暂拖慢解析；可安全重复执行。",
+        "switchStep1Title": "切换系统 DNS？",
+        "switchStep1Desc": "将修改所选网络服务的 DNS 服务器。",
+        "switchStep1Consequence": "在 DNS 可达前浏览可能失败；可在系统设置中改回。",
+        "switchStep2Title": "确认 DNS 参数",
+        "switchStep2Desc": "服务：{{service}}。服务器：{{servers}}。",
+        "switchStep2Consequence": "后端只接受内置预设 IP。",
+        "renewStep1Title": "续租 DHCP？",
+        "renewStep1Desc": "为所选服务请求新的 IP 租约。",
+        "renewStep1Consequence": "续租期间可能短暂断网。",
+        "renewStep2Title": "确认续租 DHCP",
+        "renewStep2Desc": "服务：{{service}}。",
+        "renewStep2Consequence": "服务名必须在后端白名单中。",
+        "resetStep1Title": "重置网络栈？",
+        "resetStep1Desc": "将执行高影响自愈：刷新 DNS 缓存，并对所选服务续租 DHCP。",
+        "resetStep1Consequence": "可能短暂断网。不会清空自定义 DNS，仅缓存刷新 + DHCP 续租。",
+        "resetStep2Title": "核对重置参数",
+        "resetStep2Desc": "将执行 flushDns()，然后 renewDhcp('{{service}}')。后端执行时会再次校验服务仍存在。",
+        "resetStep2Consequence": "后端忽略前端任何「已确认」标志，并重新校验服务白名单。",
+        "resetStep3Title": "最终确认",
+        "resetStep3Desc": "勾选风险确认并输入确认词后才会执行。",
+        "resetStep3Consequence": "无法自动撤销。完成后请重跑体检。",
+        "resetAck": "我理解这可能导致网络短暂中断。",
+        "resetPhraseLabel": "输入 {{phrase}} 以确认",
+        "resetConfirm": "立即重置"
+      }
+    },
+    "offline": {
+      "hint": "跑 Captive、公网出口 IP、代理/VPN 检查，用于「上不了网」分诊。",
+      "run": "运行上不了网诊断",
+      "running": "诊断中…",
+      "pending": "尚未运行。",
+      "status": "状态",
+      "subNav": "上不了网子页",
+      "diffHint": "DNS vs IP 对照在「一键体检」的 `diff.dns_vs_ip` 与「扫描意见」中。请先体检再看意见。",
+      "sub": {
+        "all": "全部",
+        "captive": "Captive",
+        "proxy": "代理/VPN",
+        "ipv6": "IPv6",
+        "mtu": "MTU",
+        "egress": "公网出口",
+        "diff": "DNS vs IP"
+      },
+      "captiveTitle": "Captive Portal",
+      "egressTitle": "公网出口",
+      "proxyTitle": "代理 / VPN",
+      "ip": "IP",
+      "proxy": "系统代理",
+      "proxyOn": "已开启",
+      "proxyOff": "未开启",
+      "vpn": "类 VPN 接口",
+      "vpnNone": "无",
+      "viaTunnel": "默认路由似乎经过隧道。",
+      "ipv6Title": "IPv6",
+      "mtuTitle": "MTU / PMTUD",
+      "openMtu": "打开 MTU 面板",
+      "captiveStatus": {
+        "open": "畅通",
+        "captive": "门户劫持",
+        "offline": "离线",
+        "unknown": "未知"
+      }
+    },
+    "dualEntry": {
+      "from": {
+        "offline": "也可在「测试」中运行（同一探测）。",
+        "test": "也可在「基础 → 上不了网」中运行（同一探测）。"
+      }
+    },
+    "ipv6": {
+      "hint": "检查本机 IPv6 地址、AAAA 解析、ICMPv6 可达、可选 HTTP over IPv6、NDP 与双栈对照。",
+      "run": "检查 IPv6 栈",
+      "running": "检查中…",
+      "empty": "尚未检查 IPv6。",
+      "status": "状态",
+      "statusValue": {
+        "ok": "正常",
+        "partial": "部分",
+        "unavailable": "不可用",
+        "fail": "失败"
+      },
+      "linkLocal": "链路本地",
+      "global": "全球单播",
+      "aaaa": "AAAA",
+      "icmpv6": "ICMPv6",
+      "httpV6": "HTTP over IPv6",
+      "dual": "双栈",
+      "ndp": "NDP",
+      "ok": "成功",
+      "fail": "失败",
+      "rtt": "成功 · {{ms}} ms",
+      "elapsed": "{{ms}} ms"
+    },
+    "mtu": {
+      "hint": "通过 DF 二分探测路径 MTU（macOS ping -D）。大包超时且无 Fragmentation Needed 时标黑洞。",
+      "target": "目标",
+      "targetPlaceholder": "1.1.1.1 或 gateway",
+      "run": "探测 MTU",
+      "running": "探测中…",
+      "empty": "尚未探测 MTU。",
+      "status": "状态",
+      "statusValue": {
+        "ok": "正常",
+        "blackhole": "黑洞",
+        "fail": "失败",
+        "unsupported": "不支持",
+        "degraded": "降级"
+      },
+      "meta": "{{ip}} · {{method}} · {{ms}} ms",
+      "pathMtu": "路径 MTU ≈ {{value}}",
+      "ok": "成功",
+      "fail": "失败",
+      "col": {
+        "payload": "载荷",
+        "ok": "结果",
+        "detail": "详情"
+      }
+    },
+    "egress": {
+      "hint": "通过多源 HTTPS API 查询公网出口 IP；可用时经 Team Cymru DNS 补 ASN。",
+      "run": "查询公网 IP",
+      "running": "查询中…",
+      "empty": "尚未查询出口。",
+      "asn": "ASN: {{asn}}{{org}}"
+    },
+    "report": {
+      "hint": "导出最近一次体检，并浏览本会话命令日志。",
+      "title": "网络探测体检报告",
+      "empty": "尚无可导出的体检结果。",
+      "goTree": "前往一键体检",
+      "exportJson": "导出 JSON",
+      "exportMd": "导出 Markdown",
+      "meta": "{{count}} 项检查 · {{ms}} ms · 取消={{cancelled}}",
+      "cancelledYes": "是",
+      "cancelledNo": "否",
+      "logTitle": "命令日志",
+      "logEmpty": "本会话尚无命令记录。",
+      "clearLog": "清空日志"
+    },
+    "traceroute": {
+      "hint": "基于 trippy 的路径跳点表（优先特权 ICMP，不足时降级无特权 UDP）。丢包率着色。ASN 经 Team Cymru DNS（可空）。",
+      "target": "目标",
+      "maxTtl": "最大 TTL",
+      "rounds": "轮次",
+      "run": "追踪",
+      "running": "追踪中…",
+      "cancel": "取消",
+      "cancelled": "已取消",
+      "meta": "{{ip}} · {{mode}} · {{ms}} ms",
+      "empty": "尚无跳点。运行追踪以填充表格。",
+      "mode": {
+        "privileged": "特权 ICMP",
+        "unprivileged": "无特权 UDP",
+        "unavailable": "不可用",
+        "cancelled": "已取消"
+      },
+      "col": {
+        "ttl": "TTL",
+        "addr": "地址",
+        "asn": "AS",
+        "loss": "丢包",
+        "avg": "平均 ms",
+        "best": "最佳",
+        "worst": "最差"
+      }
+    },
+    "cmd": {
+      "summary": "getLocalNetworkSummary()",
+      "tcpConnect": "tcpConnect(local, '{{host}}', {{port}})",
+      "pingHost": "pingHost(local, '{{target}}', {count:{{count}}})",
+      "dnsLookup": "dnsLookup(local, '{{domain}}', {rrType:'{{rrType}}',resolver:'{{resolver}}'})",
+      "probeTarget": "probeTarget(local, '{{input}}')",
+      "sitesProbe": "startSitesProbe(local, '{{packId}}')",
+      "sitesProbeCustom": "startSitesProbe(local, custom[{{n}}])",
+      "healthScan": "startHealthScan(local)",
+      "cancelScan": "cancelScan(sessionId)",
+      "flushDns": "flushDns()",
+      "switchDns": "switchDns('{{service}}', [{{servers}}])",
+      "renewDhcp": "renewDhcp('{{service}}')",
+      "resetNetworkStack": "resetNetworkStack('{{service}}')",
+      "offlineBundle": "detectCaptivePortal + getPublicIpInfo + getProxyVpnStatus + checkIpv6Stack + probePathMtu",
+      "traceroute": "traceroute('{{target}}', {maxTtl:{{maxTtl}}, rounds:{{rounds}}})",
+      "ipv6": "checkIpv6Stack(local)",
+      "mtu": "probePathMtu(local, '{{target}}')",
+      "egress": "getPublicIpInfo(local)"
+    },
+    "caps": {
+      "banner": "platform={{platform}} · privilege={{privilege}}（工具状态来自能力矩阵）",
+      "toolDisabled": "{{tool}} status={{status}} — 已按能力矩阵禁用",
+      "localNetworkHint": "全部探测丢失。可能是 macOS「本地网络」权限、防火墙，或真实断网——不要当成唯一结论。"
+    },
+    "badge": {
+      "post": "Post"
+    },
+    "capabilitiesLine": "capabilities: {{value}}",
+    "coming": {
+      "mvp": "该面板排在 P0 地基之后的 MVP A+B 切片。",
+      "post": "设计已保留，属 Post-MVP，不在模块 1.0 交付范围。"
+    },
+    "errors": {
+      "bootstrapFailed": "加载网络探测能力失败。",
+      "overviewFailed": "加载网络概览失败。",
+      "tcpFailed": "TCP 连通探测失败。",
+      "pingFailed": "Ping 探测失败。",
+      "dnsFailed": "DNS 查询失败。",
+      "probeFailed": "自定义目标探测失败。",
+      "sitesFailed": "站点包探测失败。",
+      "healthFailed": "体检失败。",
+      "cancelFailed": "取消扫描失败。",
+      "servicesFailed": "枚举网络服务失败。",
+      "fixFailed": "修复操作失败。",
+      "offlineFailed": "上不了网诊断失败。",
+      "tracerouteFailed": "Traceroute 失败。",
+      "ipv6Failed": "IPv6 栈检查失败。",
+      "mtuFailed": "路径 MTU 探测失败。",
+      "openSettingsFailed": "无法打开系统网络设置。"
     }
   }
 }

@@ -13,6 +13,7 @@ mod file_ops;
 #[cfg(target_os = "macos")]
 mod macos_webview;
 mod menu;
+mod net_probe;
 mod persistence;
 mod port_manager;
 mod sleep_inhibitor;

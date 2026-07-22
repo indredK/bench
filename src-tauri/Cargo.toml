@@ -55,6 +55,10 @@ keyring = "4"
 uuid = { version = "1", features = ["v4"] }
 url = "2"
 zeroize = "1"
+if-addrs = "0.14"
+surge-ping = "0.9.0"
+hickory-resolver = "0.26.1"
+trippy-core = "0.13.0"
 
 [target."cfg(not(any(target_os = \"android\", target_os = \"ios\")))".dependencies]
 tauri-plugin-updater = "2.10.1"

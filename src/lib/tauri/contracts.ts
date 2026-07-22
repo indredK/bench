@@ -43,6 +43,31 @@ import type {
 } from "@/lib/tauri/types/dev-cleaner"
 import type { EnvScanDonePayload } from "@/lib/tauri/types/env-detector"
 import type { KillPidResult, KillTarget, PortProcessDetail } from "@/lib/tauri/types/port-manager"
+import type {
+  DefaultRouteInfo,
+  DnsLookupResult,
+  FirewallStatus,
+  HostsOverride,
+  LocalNetworkSummary,
+  NetworkProbeCapabilities,
+  NetworkProbeDefaultsCatalog,
+  PingProbeResult,
+  ProbeNode,
+  ProbeTargetResult,
+  SitesProbeResult,
+  HealthCheckItem,
+  HealthScanResult,
+  FixResult,
+  CaptivePortalResult,
+  PublicIpInfo,
+  ProxyVpnStatus,
+  TracerouteHop,
+  TracerouteResult,
+  Ipv6StackResult,
+  PathMtuResult,
+  ScanSessionEvent,
+  TcpConnectResult,
+} from "@/lib/tauri/types/network-probe"
 import type { CardKind, CommandCard, RunResult } from "@/lib/tauri/types/command-center"
 import type {
   SleepConfig,
@@ -552,6 +577,82 @@ export const TAURI_COMMAND_CONTRACTS = {
   ),
   get_cleanup_records: defineTauriCommand<undefined, CleanupRecord[]>()("get_cleanup_records"),
   add_cleanup_record: defineTauriCommand<{ record: CleanupRecord }, void>()("add_cleanup_record"),
+  // network probe (MVP P0)
+  get_network_probe_capabilities: defineTauriCommand<undefined, NetworkProbeCapabilities>()(
+    "get_network_probe_capabilities",
+  ),
+  list_probe_nodes: defineTauriCommand<undefined, ProbeNode[]>()("list_probe_nodes"),
+  get_network_probe_defaults: defineTauriCommand<undefined, NetworkProbeDefaultsCatalog>()(
+    "get_network_probe_defaults",
+  ),
+  get_local_network_summary: defineTauriCommand<undefined, LocalNetworkSummary>()(
+    "get_local_network_summary",
+  ),
+  get_default_route: defineTauriCommand<undefined, DefaultRouteInfo>()("get_default_route"),
+  tcp_connect: defineTauriCommand<
+    { host: string; port: number; timeoutMs?: number | null },
+    TcpConnectResult
+  >()("tcp_connect"),
+  network_probe_ping_host: defineTauriCommand<
+    { target: string; count?: number | null; intervalMs?: number | null },
+    PingProbeResult
+  >()("network_probe_ping_host"),
+  network_probe_dns_lookup: defineTauriCommand<
+    { domain: string; rrType?: string | null; resolver?: string | null },
+    DnsLookupResult
+  >()("network_probe_dns_lookup"),
+  network_probe_probe_target: defineTauriCommand<{ input: string }, ProbeTargetResult>()(
+    "network_probe_probe_target",
+  ),
+  network_probe_sites_probe: defineTauriCommand<{ packId: string }, SitesProbeResult>()(
+    "network_probe_sites_probe",
+  ),
+  network_probe_sites_probe_custom: defineTauriCommand<{ targets: string[] }, SitesProbeResult>()(
+    "network_probe_sites_probe_custom",
+  ),
+  network_probe_run_health_scan: defineTauriCommand<undefined, HealthScanResult>()(
+    "network_probe_run_health_scan",
+  ),
+  network_probe_cancel_scan: defineTauriCommand<{ sessionId: string }, void>()(
+    "network_probe_cancel_scan",
+  ),
+  network_probe_list_network_services: defineTauriCommand<undefined, string[]>()(
+    "network_probe_list_network_services",
+  ),
+  network_probe_flush_dns: defineTauriCommand<undefined, FixResult>()("network_probe_flush_dns"),
+  network_probe_switch_dns: defineTauriCommand<{ service: string; servers: string[] }, FixResult>()(
+    "network_probe_switch_dns",
+  ),
+  network_probe_renew_dhcp: defineTauriCommand<{ service: string }, FixResult>()(
+    "network_probe_renew_dhcp",
+  ),
+  network_probe_reset_network_stack: defineTauriCommand<{ service: string }, FixResult>()(
+    "network_probe_reset_network_stack",
+  ),
+  network_probe_detect_captive_portal: defineTauriCommand<undefined, CaptivePortalResult>()(
+    "network_probe_detect_captive_portal",
+  ),
+  network_probe_get_public_ip_info: defineTauriCommand<undefined, PublicIpInfo>()(
+    "network_probe_get_public_ip_info",
+  ),
+  network_probe_get_proxy_vpn_status: defineTauriCommand<undefined, ProxyVpnStatus>()(
+    "network_probe_get_proxy_vpn_status",
+  ),
+  network_probe_run_traceroute: defineTauriCommand<
+    { target: string; maxTtl?: number | null; rounds?: number | null },
+    TracerouteResult
+  >()("network_probe_run_traceroute"),
+  network_probe_check_ipv6_stack: defineTauriCommand<undefined, Ipv6StackResult>()(
+    "network_probe_check_ipv6_stack",
+  ),
+  network_probe_probe_path_mtu: defineTauriCommand<{ target: string }, PathMtuResult>()(
+    "network_probe_probe_path_mtu",
+  ),
+  check_hosts_overrides: defineTauriCommand<undefined, HostsOverride[]>()("check_hosts_overrides"),
+  get_firewall_status: defineTauriCommand<undefined, FirewallStatus>()("get_firewall_status"),
+  open_system_network_settings: defineTauriCommand<undefined, void>()(
+    "open_system_network_settings",
+  ),
 } as const
 
 export type TauriCommandName = keyof typeof TAURI_COMMAND_CONTRACTS
@@ -632,6 +733,35 @@ export const TAURI_COMMANDS = {
     getSystemInfo: commandName("get_system_info"),
     queryPortProcesses: commandName("query_port_processes"),
     killProcesses: commandName("kill_processes"),
+  },
+  networkProbe: {
+    getCapabilities: commandName("get_network_probe_capabilities"),
+    listProbeNodes: commandName("list_probe_nodes"),
+    getDefaults: commandName("get_network_probe_defaults"),
+    getLocalNetworkSummary: commandName("get_local_network_summary"),
+    getDefaultRoute: commandName("get_default_route"),
+    tcpConnect: commandName("tcp_connect"),
+    pingHost: commandName("network_probe_ping_host"),
+    dnsLookup: commandName("network_probe_dns_lookup"),
+    probeTarget: commandName("network_probe_probe_target"),
+    sitesProbe: commandName("network_probe_sites_probe"),
+    sitesProbeCustom: commandName("network_probe_sites_probe_custom"),
+    runHealthScan: commandName("network_probe_run_health_scan"),
+    cancelScan: commandName("network_probe_cancel_scan"),
+    listNetworkServices: commandName("network_probe_list_network_services"),
+    flushDns: commandName("network_probe_flush_dns"),
+    switchDns: commandName("network_probe_switch_dns"),
+    renewDhcp: commandName("network_probe_renew_dhcp"),
+    resetNetworkStack: commandName("network_probe_reset_network_stack"),
+    detectCaptivePortal: commandName("network_probe_detect_captive_portal"),
+    getPublicIpInfo: commandName("network_probe_get_public_ip_info"),
+    getProxyVpnStatus: commandName("network_probe_get_proxy_vpn_status"),
+    runTraceroute: commandName("network_probe_run_traceroute"),
+    checkIpv6Stack: commandName("network_probe_check_ipv6_stack"),
+    probePathMtu: commandName("network_probe_probe_path_mtu"),
+    checkHostsOverrides: commandName("check_hosts_overrides"),
+    getFirewallStatus: commandName("get_firewall_status"),
+    openSystemNetworkSettings: commandName("open_system_network_settings"),
   },
   commandCenter: {
     listCommandCards: commandName("list_command_cards"),
@@ -1055,6 +1185,34 @@ export const TAURI_COMMAND_ARG_KEYS = {
   open_system_storage_settings: [],
   get_cleanup_records: [],
   add_cleanup_record: ["record"],
+  // network probe (MVP P0)
+  get_network_probe_capabilities: [],
+  list_probe_nodes: [],
+  get_network_probe_defaults: [],
+  get_local_network_summary: [],
+  get_default_route: [],
+  tcp_connect: ["host", "port", "timeoutMs"],
+  network_probe_ping_host: ["target", "count", "intervalMs"],
+  network_probe_dns_lookup: ["domain", "rrType", "resolver"],
+  network_probe_probe_target: ["input"],
+  network_probe_sites_probe: ["packId"],
+  network_probe_sites_probe_custom: ["targets"],
+  network_probe_run_health_scan: [],
+  network_probe_cancel_scan: ["sessionId"],
+  network_probe_list_network_services: [],
+  network_probe_flush_dns: [],
+  network_probe_switch_dns: ["service", "servers"],
+  network_probe_renew_dhcp: ["service"],
+  network_probe_reset_network_stack: ["service"],
+  network_probe_detect_captive_portal: [],
+  network_probe_get_public_ip_info: [],
+  network_probe_get_proxy_vpn_status: [],
+  network_probe_run_traceroute: ["target", "maxTtl", "rounds"],
+  network_probe_check_ipv6_stack: [],
+  network_probe_probe_path_mtu: ["target"],
+  check_hosts_overrides: [],
+  get_firewall_status: [],
+  open_system_network_settings: [],
 } as const satisfies TauriCommandArgKeys
 
 export const WINDOW_BOOTSTRAP_EVENTS = {
@@ -1090,7 +1248,19 @@ export const TAURI_EVENTS = {
   accountManager: {
     authProxyPending: "account-manager:auth-proxy-pending",
   },
+  networkProbe: {
+    healthItem: "network-probe:health-item",
+    tracerouteHop: "network-probe:traceroute-hop",
+    scanSession: "network-probe:scan-session",
+    siteSample: "network-probe:site-sample",
+  },
 } as const
+
+export type TauriEventName =
+  | (typeof TAURI_EVENTS)[keyof typeof TAURI_EVENTS][keyof (typeof TAURI_EVENTS)[keyof typeof TAURI_EVENTS]]
+  | string
+
+// keep payload map in sync below
 
 export interface TauriEventContracts {
   "app-updater-download": AppUpdateDownloadEvent
@@ -1105,4 +1275,7 @@ export interface TauriEventContracts {
   "clean-space:scan-complete": void
   "show-close-behavior-dialog": void
   "account-manager:auth-proxy-pending": AuthProxyInboxStatus
+  "network-probe:health-item": HealthCheckItem
+  "network-probe:traceroute-hop": TracerouteHop
+  "network-probe:scan-session": ScanSessionEvent
 }

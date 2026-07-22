@@ -23,17 +23,17 @@
 ## D-016 · Network Probe 独立一级模块与分期设计
 
 - **日期**：2026-07-22
-- **状态**：采纳（设计冻结；**暂不进入实现**）
+- **状态**：采纳（**MVP 实现已授权**；2026-07-22 用户指令「现在开始 1.0」）
 - **决策**：
   1. 新增独立一级 feature `network-probe`（不复用 `dev-toolbox` 子 Tab 作为最终形态）；占位页可先注册以满足文档↔代码对齐。
-  2. **不进入 2.0（R00–R10）执行序列**；2.0 收尾完成前只允许文档与占位，禁止铺开后端探测实现抢占主线。
-  3. 实现时**首版交付 = MVP A+B**：Local L0–L3 体检（检查项清单与 DNS/IP 对照写死）、站点延迟看板、Advisor、免特权修复、traceroute/MTR、「上不了网」高频诊断，以及基础鉴别工具（本机摘要、默认路由只读、TCP connect、自定义 URL 探测、hosts 快检、防火墙只读、打开系统网络设置）。
+  2. **不进入 2.0（R00–R10）执行序列**；Network Probe 作为 **2.0 并行旁路的独立 MVP（模块 1.0）** 实现，不得改动 2.0 版本号/发布门禁；与 2.0 争用人力时优先 2.0。
+  3. 实现时**首版交付 = MVP A+B**：Local L0–L3 体检（检查项清单与 DNS/IP 对照写死）、站点延迟看板、Advisor、免特权修复、traceroute/MTR、「上不了网」高频诊断，以及基础鉴别工具（本机摘要、默认路由只读、TCP connect、自定义 URL 探测、hosts 快检、防火墙只读、打开系统网络设置）。**2026-07-22：MVP A+B 功能闭环已落地**（见模块 roadmap）；Polish / Post-MVP 另排期。
   4. 带宽测速（librespeed）、Globalping remote、自有 agent、SYN/ARP/抓包/特权 helper、Vision P5–P7 等**必须保留完整设计**，实现归属 Post-MVP / Vision，不绑首版。
   5. 平台：macOS 主路径；Windows 按能力矩阵降级；Linux 不支持（D-014）。
   6. 高危网络修复开放但须**三次确认** + 后端复核；硬红线为不实现主动攻击能力（仅检测/防御）。
   7. 与 `system-settings`/`dev-toolbox` 的 ping 最终共用 `net_probe` 实现；与 `port-manager` 划清「本机占用/Kill」vs「外部探测/指纹」边界。
-- **理由**：用户需要急救箱级诊断而非单次 ping；范围若不分期会吞噬 2.0 与安全边界；设计先行可避免实现期范围失控。
-- **影响**：AI 不得在未获「开始实现 network-probe」明确指令时进入 /feature 大面积编码；改设计须同步 `docs/modules/network-probe/*`；方向变更回写本条目。
+- **理由**：用户需要急救箱级诊断而非单次 ping；范围若不分期会吞噬 2.0 与安全边界；设计先行可避免实现期范围失控。用户已明确授权开始模块 1.0。
+- **影响**：允许按模块 roadmap 进入 `/feature` 实现 MVP；改设计须同步 `docs/modules/network-probe/*`；方向变更回写本条目；仍禁止把 Post-MVP 能力塞进首刀。
 - **相关**：[network-probe design](./modules/network-probe/design.md) · [L1 基础](./modules/network-probe/design-basic.md) · [测试](./modules/network-probe/design-test.md) · [安全](./modules/network-probe/design-security.md) · [发现](./modules/network-probe/design-discover.md) · [roadmap](./modules/network-probe/roadmap.md) · [D-017](#d-017--network-probe-可选能力包可插拔高级组件) · [D-014](#d-014--linux-不进入支持矩阵与-cicd)
 
 ## D-015 · Command Center 作为可持久化的命令卡片库

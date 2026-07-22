@@ -1,8 +1,8 @@
 # Network Probe（网络探测 / 网络急救箱）
 
 > **定位**：完整的网络探测与故障排查（急救箱 + 专业探测）。对标方向：360 断网急救箱、NETworkManager、安全探测工具链（**仅检测、不攻击**）。
-> **状态**：设计评审用文档已齐；**暂不实现**（侧边栏为占位页）。
-> **代码**：`src/features/network-probe/` · 后端规划 `src-tauri/src/net_probe/`
+> **状态**：**模块 1.0 / MVP 实现中**（P0 地基已开工）；侧边栏为可用壳 + 概览/TCP。
+> **代码**：`src/features/network-probe/` · 后端 `src-tauri/src/net_probe/`
 > **首版交付**：MVP **A+B**（含 L0–L3 清单、DNS/IP 对照、TCP connect 等基础工具；见 design §5.4 / §5.7）。其余能力设计保留，实现靠后。
 
 ## 文档索引

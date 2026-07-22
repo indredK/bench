@@ -162,46 +162,18 @@ mod settings_tests {
 
 #[tauri::command]
 pub async fn ping_host(host: String, count: u32) -> AppResult<super::types::PingResult> {
-    tauri::async_runtime::spawn_blocking(move || {
-        validate_host(&host)?;
-        let output = run_cmd("ping", &["-c", &count.to_string(), &host])?;
-        let mut result = super::types::PingResult {
-            host: host.clone(),
-            packets_sent: count,
-            packets_received: 0,
-            min_rtt: 0.0,
-            avg_rtt: 0.0,
-            max_rtt: 0.0,
-            loss_percent: 100.0,
-        };
-        for line in output.lines() {
-            if line.contains("packets received") {
-                if let Some(n) = line.split_whitespace().next() {
-                    result.packets_received = n.parse().unwrap_or(0);
-                }
-            }
-            if line.contains("min/avg/max") {
-                let parts: Vec<&str> = line
-                    .split('=')
-                    .next_back()
-                    .unwrap_or("")
-                    .split('/')
-                    .collect();
-                if parts.len() >= 3 {
-                    result.min_rtt = parts[0].trim().parse().unwrap_or(0.0);
-                    result.avg_rtt = parts[1].trim().parse().unwrap_or(0.0);
-                    result.max_rtt = parts[2].trim().parse().unwrap_or(0.0);
-                }
-            }
-        }
-        if result.packets_sent > 0 {
-            result.loss_percent =
-                100.0 * (1.0 - result.packets_received as f64 / result.packets_sent as f64);
-        }
-        Ok(result)
+    // Thin wrap → network-probe SSoT (design §13). Keep legacy PingResult shape.
+    let count = count.clamp(1, 20);
+    let r = crate::net_probe::ping::ping_host(host, Some(count), Some(1_000)).await?;
+    Ok(super::types::PingResult {
+        host: r.target,
+        packets_sent: r.packets_sent,
+        packets_received: r.packets_received,
+        min_rtt: r.min_rtt_ms.unwrap_or(0.0),
+        avg_rtt: r.avg_rtt_ms.unwrap_or(0.0),
+        max_rtt: r.max_rtt_ms.unwrap_or(0.0),
+        loss_percent: r.loss_percent,
     })
-    .await
-    .map_err(|e| AppError::internal(format!("ping_host: {e}")))?
 }
 
 #[tauri::command]

@@ -89,12 +89,6 @@ export interface PortCheckResult {
   error: string | null
 }
 
-export interface TracerouteHop {
-  hop: number
-  host: string | null
-  rtt: number[]
-}
-
 export interface IpInfo {
   local_ip: string
   external_ip: string | null

@@ -2791,9 +2791,458 @@
     }
   },
   "networkProbe": {
-    "stub": {
-      "title": "Network Probe",
-      "description": "This module is in the design phase; probing capabilities are not available yet. See the module docs for the technical design."
+    "title": "Network Probe",
+    "subtitle": "First-aid diagnostics and targeted probes (module 1.0 / MVP A+B).",
+    "nav": {
+      "l1": "Primary sections",
+      "l2": "Tools"
+    },
+    "l1": {
+      "basic": "Basics",
+      "test": "Test",
+      "security": "Security",
+      "discover": "Discover"
+    },
+    "l2": {
+      "overview": "Overview",
+      "tree": "Health scan",
+      "opinion": "Advice",
+      "sites": "Site latency",
+      "offline": "Can't connect",
+      "fix": "Quick fix",
+      "report": "Report",
+      "ping": "Ping",
+      "dns": "DNS",
+      "tcp": "TCP connect",
+      "custom": "Custom target",
+      "traceroute": "Traceroute",
+      "mtu": "MTU",
+      "egress": "Public egress",
+      "speed": "Speed test",
+      "ports": "Port scan",
+      "pollution": "Pollution",
+      "pcap": "Packet diagnostics",
+      "dnssec": "DNSSEC / DoH",
+      "whois": "WHOIS",
+      "arp": "ARP discovery",
+      "lan-svc": "LAN services",
+      "nat": "NAT type",
+      "ntp": "NTP",
+      "nodes": "Multi-node"
+    },
+    "overview": {
+      "refresh": "Refresh",
+      "refreshing": "Refreshing…",
+      "openSettings": "Open system network settings",
+      "empty": "No summary yet. Refresh to load local network state.",
+      "ipv4": "IPv4",
+      "ipv6": "IPv6",
+      "gateway": "Gateway",
+      "dns": "DNS servers",
+      "wifi": "Wi‑Fi",
+      "firewall": "Firewall",
+      "hosts": "Hosts overrides",
+      "hostsCount": "{{count}} suspicious",
+      "ifaces": "Active interfaces"
+    },
+    "firewall": {
+      "on": "On",
+      "off": "Off",
+      "unsupported": "Unsupported"
+    },
+    "tcp": {
+      "hint": "Probe TCP reachability to a host:port (developer essential).",
+      "host": "Host",
+      "port": "Port",
+      "run": "Connect",
+      "running": "Connecting…",
+      "status": "Status",
+      "rtt": "RTT",
+      "rttValue": "RTT: {{ms}} ms"
+    },
+    "ping": {
+      "hint": "ICMP echo probe with latency, jitter, and loss (requires Local Network permission on macOS).",
+      "target": "Target",
+      "count": "Count",
+      "run": "Ping",
+      "running": "Pinging…",
+      "resolved": "Resolved IP",
+      "summary": "Sent {{sent}} · received {{received}} · loss {{loss}}%",
+      "rttSummary": "RTT min/avg/max/jitter: {{min}} / {{avg}} / {{max}} / {{jitter}} ms",
+      "sampleOk": "#{{seq}} {{ms}} ms",
+      "sampleFail": "#{{seq}} fail — {{error}}"
+    },
+    "dns": {
+      "hint": "Query DNS records via system resolver or a custom resolver IP.",
+      "domain": "Domain",
+      "rrType": "Type",
+      "resolver": "Resolver",
+      "resolverPlaceholder": "system (default)",
+      "run": "Lookup",
+      "running": "Looking up…",
+      "meta": "{{rrType}} via {{resolver}} · {{ms}} ms",
+      "ttl": "TTL={{ttl}}",
+      "empty": "No records returned."
+    },
+    "probe": {
+      "hint": "Probe a host or URL with optional ICMP plus HTTP(S) and a light TLS handshake check.",
+      "input": "Host or URL",
+      "run": "Probe",
+      "running": "Probing…",
+      "kind": "Input kind",
+      "icmp": "ICMP",
+      "icmpOk": "ok · {{ms}} ms · {{ip}}",
+      "icmpFail": "fail — {{error}}",
+      "http": "HTTP",
+      "httpOk": "{{status}} · TTFB {{ms}} ms",
+      "httpFail": "fail — {{error}}",
+      "tls": "TLS",
+      "tlsOk": "handshake ok",
+      "tlsFail": "fail — {{detail}}"
+    },
+    "sites": {
+      "hint": "Probe a built-in site pack with ICMP and/or HTTP latency. Custom hosts stream in with sparklines; cancel stops mid-run.",
+      "pack": "Site pack",
+      "run": "Run pack",
+      "running": "Probing sites…",
+      "cancel": "Cancel",
+      "cancelled": "cancelled",
+      "degraded": "degraded",
+      "resultTitle": "Results · {{packId}}",
+      "icmpMs": "ICMP {{ms}} ms",
+      "httpMs": "HTTP {{status}} · {{ms}} ms",
+      "fail": "fail — {{error}}",
+      "customTitle": "Custom sites",
+      "customInput": "URL or host",
+      "customPlaceholder": "https://registry.npmjs.org",
+      "customAdd": "Add",
+      "customRun": "Run custom",
+      "customRemove": "Remove",
+      "customEmpty": "No custom sites yet.",
+      "packs": {
+        "global": "Global",
+        "cn-friendly": "CN-friendly",
+        "dev": "Developer"
+      }
+    },
+    "health": {
+      "hint": "Run L0→L3 first-aid checks. Items stream in as each check finishes.",
+      "run": "Run health scan",
+      "running": "Scanning…",
+      "cancel": "Cancel",
+      "cancelled": "cancelled",
+      "empty": "No scan yet. Run a health scan to populate the tree.",
+      "elapsed": "Completed in {{ms}} ms",
+      "layers": {
+        "L0": "L0 · Link",
+        "L1": "L1 · Address / DNS / Policy",
+        "L2": "L2 · Services",
+        "L3": "L3 · Reachability"
+      },
+      "status": {
+        "pass": "pass",
+        "warn": "warn",
+        "fail": "fail",
+        "skip": "skip",
+        "error": "error"
+      }
+    },
+    "opinion": {
+      "hint": "Actionable advice from the latest health scan.",
+      "empty": "No health scan result yet.",
+      "goTree": "Go to Health scan",
+      "none": "No opinions generated.",
+      "severity": {
+        "info": "info",
+        "warn": "warn",
+        "critical": "critical"
+      }
+    },
+    "advisor": {
+      "linkDown": {
+        "title": "No active network interface",
+        "body": "Check cable, Wi‑Fi switch, or Airplane Mode, then rescan."
+      },
+      "noDefaultRoute": {
+        "title": "Missing default route",
+        "body": "Renew DHCP or check whether a VPN stole the default route."
+      },
+      "noIpv4": {
+        "title": "No usable IPv4 address",
+        "body": "Renew DHCP or verify static IP settings. APIPA (169.254.x) counts as failure."
+      },
+      "dnsBroken": {
+        "title": "DNS looks broken",
+        "body": "System DNS list is empty or a known name failed to resolve. Try flush DNS or switch to a public resolver."
+      },
+      "hostsHijack": {
+        "title": "Suspicious hosts overrides",
+        "body": "Common domains point to loopback/private addresses. Review /etc/hosts — Bench will not edit it automatically."
+      },
+      "dnsVsIpDns": {
+        "title": "DNS / hosts issue (IP ok, name fail)",
+        "body": "Gateway and public IP work, but name reachability failed. Prefer DNS or hosts fixes first."
+      },
+      "dnsVsIpUplink": {
+        "title": "Uplink / firewall issue",
+        "body": "Gateway works but public IP does not. Check ISP uplink, firewall, or captive restrictions."
+      },
+      "dnsVsIpLan": {
+        "title": "LAN / gateway issue",
+        "body": "Default gateway is unreachable. Check Wi‑Fi/router before blaming the internet."
+      },
+      "proxyOn": {
+        "title": "System proxy is enabled",
+        "body": "A bad proxy/PAC can break browsing. Disable or fix the proxy, then rescan."
+      },
+      "vpnActive": {
+        "title": "VPN / tunnel detected",
+        "body": "Compare with VPN disconnected if connectivity is unexpected."
+      },
+      "captive": {
+        "title": "Possible captive portal",
+        "body": "Open the portal login page (hotel/café Wi‑Fi) before diagnosing DNS."
+      },
+      "allClear": {
+        "title": "Basic reachability looks healthy",
+        "body": "If a specific site still fails, check that site, SNI/proxy, or run site latency probes."
+      }
+    },
+    "fix": {
+      "hint": "Privilege-free self-heal actions. Backend re-validates services and DNS against a whitelist.",
+      "service": "Network service",
+      "dnsPreset": "DNS preset",
+      "flush": "Flush DNS",
+      "switchDns": "Switch DNS",
+      "renewDhcp": "Renew DHCP",
+      "resetStack": "Reset network stack",
+      "openSettings": "Open system network settings",
+      "ok": "ok",
+      "failed": "failed",
+      "confirm": {
+        "cancel": "Cancel",
+        "confirm": "Confirm",
+        "next": "Next",
+        "back": "Back",
+        "flushTitle": "Flush DNS cache?",
+        "flushDesc": "Clears the local DNS cache so new lookups use current resolvers.",
+        "flushConsequence": "May briefly delay name resolution. Safe to repeat.",
+        "switchStep1Title": "Switch system DNS?",
+        "switchStep1Desc": "This changes DNS servers for the selected network service.",
+        "switchStep1Consequence": "Browsing may fail until DNS is reachable. You can revert in System Settings.",
+        "switchStep2Title": "Confirm DNS parameters",
+        "switchStep2Desc": "Service: {{service}}. Servers: {{servers}}.",
+        "switchStep2Consequence": "Only builtin preset IPs are accepted by the backend.",
+        "renewStep1Title": "Renew DHCP lease?",
+        "renewStep1Desc": "Requests a new IP lease for the selected service.",
+        "renewStep1Consequence": "You may briefly lose connectivity while renewing.",
+        "renewStep2Title": "Confirm DHCP renew",
+        "renewStep2Desc": "Service: {{service}}.",
+        "renewStep2Consequence": "Service name must match the backend whitelist.",
+        "resetStep1Title": "Reset network stack?",
+        "resetStep1Desc": "This runs a high-impact self-heal: flush DNS cache and renew DHCP on the selected service.",
+        "resetStep1Consequence": "You may briefly lose connectivity. Custom DNS is not cleared; only cache flush + DHCP renew.",
+        "resetStep2Title": "Review reset parameters",
+        "resetStep2Desc": "Will run flushDns() then renewDhcp('{{service}}'). Service must still exist when the backend re-checks.",
+        "resetStep2Consequence": "Backend ignores any frontend “confirmed” flag and re-validates the service whitelist.",
+        "resetStep3Title": "Final confirmation",
+        "resetStep3Desc": "Acknowledge the risk and type the confirmation phrase to execute.",
+        "resetStep3Consequence": "This cannot be undone automatically. Re-run health scan afterward.",
+        "resetAck": "I understand this may interrupt network connectivity.",
+        "resetPhraseLabel": "Type {{phrase}} to confirm",
+        "resetConfirm": "Reset now"
+      }
+    },
+    "offline": {
+      "hint": "Run captive portal, public egress IP, and proxy/VPN checks for “can't connect” triage.",
+      "run": "Run offline diagnostics",
+      "running": "Running…",
+      "pending": "Not run yet.",
+      "status": "Status",
+      "subNav": "Can't-connect subpages",
+      "diffHint": "DNS vs IP contrast lives in Health scan (`diff.dns_vs_ip`) and Advice. Run a health scan, then open Advice.",
+      "sub": {
+        "all": "All",
+        "captive": "Captive",
+        "proxy": "Proxy/VPN",
+        "ipv6": "IPv6",
+        "mtu": "MTU",
+        "egress": "Egress",
+        "diff": "DNS vs IP"
+      },
+      "captiveTitle": "Captive portal",
+      "egressTitle": "Public egress",
+      "proxyTitle": "Proxy / VPN",
+      "ip": "IP",
+      "proxy": "System proxy",
+      "proxyOn": "enabled",
+      "proxyOff": "disabled",
+      "vpn": "VPN-like interfaces",
+      "vpnNone": "none",
+      "viaTunnel": "Default route appears to go through a tunnel.",
+      "ipv6Title": "IPv6",
+      "mtuTitle": "MTU / PMTUD",
+      "openMtu": "Open MTU panel",
+      "captiveStatus": {
+        "open": "open",
+        "captive": "captive",
+        "offline": "offline",
+        "unknown": "unknown"
+      }
+    },
+    "dualEntry": {
+      "from": {
+        "offline": "Also available under Test (same probe).",
+        "test": "Also available under Basics → Can't connect (same probe)."
+      }
+    },
+    "ipv6": {
+      "hint": "Check local IPv6 addresses, AAAA resolution, ICMPv6 reachability, optional HTTP over IPv6, NDP, and dual-stack contrast.",
+      "run": "Check IPv6 stack",
+      "running": "Checking…",
+      "empty": "No IPv6 check yet.",
+      "status": "Status",
+      "statusValue": {
+        "ok": "ok",
+        "partial": "partial",
+        "unavailable": "unavailable",
+        "fail": "fail"
+      },
+      "linkLocal": "Link-local",
+      "global": "Global",
+      "aaaa": "AAAA",
+      "icmpv6": "ICMPv6",
+      "httpV6": "HTTP over IPv6",
+      "dual": "Dual-stack",
+      "ndp": "NDP",
+      "ok": "ok",
+      "fail": "fail",
+      "rtt": "ok · {{ms}} ms",
+      "elapsed": "{{ms}} ms"
+    },
+    "mtu": {
+      "hint": "Path MTU via DF binary search (macOS ping -D). Marks blackhole when large packets time out without Fragmentation Needed.",
+      "target": "Target",
+      "targetPlaceholder": "1.1.1.1 or gateway",
+      "run": "Probe MTU",
+      "running": "Probing…",
+      "empty": "No MTU probe yet.",
+      "status": "Status",
+      "statusValue": {
+        "ok": "ok",
+        "blackhole": "blackhole",
+        "fail": "fail",
+        "unsupported": "unsupported",
+        "degraded": "degraded"
+      },
+      "meta": "{{ip}} · {{method}} · {{ms}} ms",
+      "pathMtu": "Path MTU ≈ {{value}}",
+      "ok": "ok",
+      "fail": "fail",
+      "col": {
+        "payload": "Payload",
+        "ok": "Result",
+        "detail": "Detail"
+      }
+    },
+    "egress": {
+      "hint": "Resolve public egress IP via multi-source HTTPS APIs; ASN via Team Cymru DNS when available.",
+      "run": "Lookup public IP",
+      "running": "Looking up…",
+      "empty": "No egress lookup yet.",
+      "asn": "ASN: {{asn}}{{org}}"
+    },
+    "report": {
+      "hint": "Export the latest health scan and browse the session command log.",
+      "title": "Network Probe health report",
+      "empty": "No health scan to export yet.",
+      "goTree": "Go to Health scan",
+      "exportJson": "Export JSON",
+      "exportMd": "Export Markdown",
+      "meta": "{{count}} checks · {{ms}} ms · cancelled={{cancelled}}",
+      "cancelledYes": "yes",
+      "cancelledNo": "no",
+      "logTitle": "Command log",
+      "logEmpty": "No commands logged this session.",
+      "clearLog": "Clear log"
+    },
+    "traceroute": {
+      "hint": "Path hop table via trippy (privileged ICMP, falls back to unprivileged UDP). Loss % is color-coded. ASN via Team Cymru DNS (may be empty).",
+      "target": "Target",
+      "maxTtl": "Max TTL",
+      "rounds": "Rounds",
+      "run": "Trace",
+      "running": "Tracing…",
+      "cancel": "Cancel",
+      "cancelled": "cancelled",
+      "meta": "{{ip}} · {{mode}} · {{ms}} ms",
+      "empty": "No hops yet. Run a trace to populate the table.",
+      "mode": {
+        "privileged": "privileged ICMP",
+        "unprivileged": "unprivileged UDP",
+        "unavailable": "unavailable",
+        "cancelled": "cancelled"
+      },
+      "col": {
+        "ttl": "TTL",
+        "addr": "Address",
+        "asn": "AS",
+        "loss": "Loss",
+        "avg": "Avg ms",
+        "best": "Best",
+        "worst": "Worst"
+      }
+    },
+    "cmd": {
+      "summary": "getLocalNetworkSummary()",
+      "tcpConnect": "tcpConnect(local, '{{host}}', {{port}})",
+      "pingHost": "pingHost(local, '{{target}}', {count:{{count}}})",
+      "dnsLookup": "dnsLookup(local, '{{domain}}', {rrType:'{{rrType}}',resolver:'{{resolver}}'})",
+      "probeTarget": "probeTarget(local, '{{input}}')",
+      "sitesProbe": "startSitesProbe(local, '{{packId}}')",
+      "sitesProbeCustom": "startSitesProbe(local, custom[{{n}}])",
+      "healthScan": "startHealthScan(local)",
+      "cancelScan": "cancelScan(sessionId)",
+      "flushDns": "flushDns()",
+      "switchDns": "switchDns('{{service}}', [{{servers}}])",
+      "renewDhcp": "renewDhcp('{{service}}')",
+      "resetNetworkStack": "resetNetworkStack('{{service}}')",
+      "offlineBundle": "detectCaptivePortal + getPublicIpInfo + getProxyVpnStatus + checkIpv6Stack + probePathMtu",
+      "traceroute": "traceroute('{{target}}', {maxTtl:{{maxTtl}}, rounds:{{rounds}}})",
+      "ipv6": "checkIpv6Stack(local)",
+      "mtu": "probePathMtu(local, '{{target}}')",
+      "egress": "getPublicIpInfo(local)"
+    },
+    "caps": {
+      "banner": "platform={{platform}} · privilege={{privilege}} (tools from capabilities matrix)",
+      "toolDisabled": "{{tool}} status={{status}} — action disabled by capabilities matrix",
+      "localNetworkHint": "All probes lost. This may be Local Network permission (macOS Privacy), a firewall, or a real outage — not a single conclusion."
+    },
+    "badge": {
+      "post": "Post"
+    },
+    "capabilitiesLine": "capabilities: {{value}}",
+    "coming": {
+      "mvp": "This panel is queued for the MVP A+B slices after P0 foundations.",
+      "post": "Designed and reserved for Post-MVP. Not part of module 1.0 delivery."
+    },
+    "errors": {
+      "bootstrapFailed": "Failed to load network probe capabilities.",
+      "overviewFailed": "Failed to load network overview.",
+      "tcpFailed": "TCP connect failed.",
+      "pingFailed": "Ping failed.",
+      "dnsFailed": "DNS lookup failed.",
+      "probeFailed": "Custom target probe failed.",
+      "sitesFailed": "Site pack probe failed.",
+      "healthFailed": "Health scan failed.",
+      "cancelFailed": "Cancel scan failed.",
+      "servicesFailed": "Failed to list network services.",
+      "fixFailed": "Fix action failed.",
+      "offlineFailed": "Offline diagnostics failed.",
+      "tracerouteFailed": "Traceroute failed.",
+      "ipv6Failed": "IPv6 stack check failed.",
+      "mtuFailed": "Path MTU probe failed.",
+      "openSettingsFailed": "Could not open system network settings."
     }
   }
 }
