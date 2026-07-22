@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import type { DnsLookupResult } from "@/lib/tauri/types/network-probe"
 
 const RR_TYPES = ["A", "AAAA", "CNAME", "MX", "TXT"] as const
@@ -24,75 +25,80 @@ export function DnsLookupPanel({ loading, result, dnsPresets, onRun }: DnsLookup
   const [resolver, setResolver] = useState("")
 
   return (
-    <div className="space-y-4">
-      <p className="text-muted-foreground text-sm">{t("networkProbe.dns.hint")}</p>
-      <div className="flex flex-wrap items-end gap-2">
-        <div className="min-w-[12rem] flex-1 space-y-1">
-          <label className="text-xs font-medium" htmlFor="np-dns-domain">
-            {t("networkProbe.dns.domain")}
-          </label>
-          <Input
-            id="np-dns-domain"
-            value={domain}
-            onChange={(e) => setDomain(e.target.value)}
-            autoComplete="off"
-          />
-        </div>
-        <div className="w-28 space-y-1">
-          <label className="text-xs font-medium" htmlFor="np-dns-rr">
-            {t("networkProbe.dns.rrType")}
-          </label>
-          <select
-            id="np-dns-rr"
-            className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
-            value={rrType}
-            onChange={(e) => setRrType(e.target.value)}
-          >
-            {RR_TYPES.map((rt) => (
-              <option key={rt} value={rt}>
-                {rt}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="min-w-[10rem] flex-1 space-y-1">
-          <label className="text-xs font-medium" htmlFor="np-dns-resolver">
-            {t("networkProbe.dns.resolver")}
-          </label>
-          <Input
-            id="np-dns-resolver"
-            value={resolver}
-            onChange={(e) => setResolver(e.target.value)}
-            placeholder={t("networkProbe.dns.resolverPlaceholder")}
-            list="np-dns-presets"
-            autoComplete="off"
-          />
-          {dnsPresets && dnsPresets.length > 0 ? (
-            <datalist id="np-dns-presets">
-              {dnsPresets.map((p) => (
-                <option key={p.id} value={p.address}>
-                  {p.id}
-                </option>
-              ))}
-            </datalist>
-          ) : null}
-        </div>
-        <CommandHint
-          hint={t("networkProbe.cmd.dnsLookup", {
-            domain: domain.trim() || "…",
-            rrType,
-            resolver: resolver.trim() || "system",
-          })}
-        >
-          <Button
-            type="button"
-            disabled={loading || !domain.trim()}
-            onClick={() => onRun(domain, rrType, resolver.trim() || undefined)}
-          >
-            {loading ? t("networkProbe.dns.running") : t("networkProbe.dns.run")}
-          </Button>
-        </CommandHint>
-      </div>
+    <ProbePanelShell
+      toolbar={
+        <>
+          <p className="text-muted-foreground text-sm">{t("networkProbe.dns.hint")}</p>
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="min-w-[12rem] flex-1 space-y-1">
+              <label className="text-xs font-medium" htmlFor="np-dns-domain">
+                {t("networkProbe.dns.domain")}
+              </label>
+              <Input
+                id="np-dns-domain"
+                value={domain}
+                onChange={(e) => setDomain(e.target.value)}
+                autoComplete="off"
+              />
+            </div>
+            <div className="w-28 space-y-1">
+              <label className="text-xs font-medium" htmlFor="np-dns-rr">
+                {t("networkProbe.dns.rrType")}
+              </label>
+              <select
+                id="np-dns-rr"
+                className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
+                value={rrType}
+                onChange={(e) => setRrType(e.target.value)}
+              >
+                {RR_TYPES.map((rt) => (
+                  <option key={rt} value={rt}>
+                    {rt}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="min-w-[10rem] flex-1 space-y-1">
+              <label className="text-xs font-medium" htmlFor="np-dns-resolver">
+                {t("networkProbe.dns.resolver")}
+              </label>
+              <Input
+                id="np-dns-resolver"
+                value={resolver}
+                onChange={(e) => setResolver(e.target.value)}
+                placeholder={t("networkProbe.dns.resolverPlaceholder")}
+                list="np-dns-presets"
+                autoComplete="off"
+              />
+              {dnsPresets && dnsPresets.length > 0 ? (
+                <datalist id="np-dns-presets">
+                  {dnsPresets.map((p) => (
+                    <option key={p.id} value={p.address}>
+                      {p.id}
+                    </option>
+                  ))}
+                </datalist>
+              ) : null}
+            </div>
+            <CommandHint
+              hint={t("networkProbe.cmd.dnsLookup", {
+                domain: domain.trim() || "…",
+                rrType,
+                resolver: resolver.trim() || "system",
+              })}
+            >
+              <Button
+                type="button"
+                disabled={loading || !domain.trim()}
+                onClick={() => onRun(domain, rrType, resolver.trim() || undefined)}
+              >
+                {loading ? t("networkProbe.dns.running") : t("networkProbe.dns.run")}
+              </Button>
+            </CommandHint>
+          </div>
+        </>
+      }
+    >
       {result ? (
         <div className="bg-muted/40 space-y-2 rounded-lg border px-3 py-2 text-sm">
           <div>
@@ -105,7 +111,7 @@ export function DnsLookupPanel({ loading, result, dnsPresets, onRun }: DnsLookup
           {result.records.length === 0 ? (
             <p className="text-muted-foreground text-sm">{t("networkProbe.dns.empty")}</p>
           ) : (
-            <ul className="max-h-48 space-y-1 overflow-auto font-mono text-xs">
+            <ul className="space-y-1 font-mono text-xs">
               {result.records.map((r, i) => (
                 <li key={`${r.name}-${r.rrType}-${i}`}>
                   <span className="text-muted-foreground">{r.rrType}</span> {r.data}{" "}
@@ -119,6 +125,6 @@ export function DnsLookupPanel({ loading, result, dnsPresets, onRun }: DnsLookup
           <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
         </div>
       ) : null}
-    </div>
+    </ProbePanelShell>
   )
 }

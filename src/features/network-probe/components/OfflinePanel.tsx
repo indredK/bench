@@ -3,6 +3,7 @@
  */
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
+import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import type { NetworkProbeOfflineSub } from "@/features/network-probe/store"
 import type {
   CaptivePortalResult,
@@ -40,14 +41,19 @@ export function OfflinePanel({
   const show = (id: NetworkProbeOfflineSub) => focus === "all" || focus === id
 
   return (
-    <div className="space-y-4">
-      <p className="text-muted-foreground text-sm">{t("networkProbe.offline.hint")}</p>
-      <CommandHint hint={t("networkProbe.cmd.offlineBundle")}>
-        <Button type="button" disabled={loading} onClick={onRunAll}>
-          {loading ? t("networkProbe.offline.running") : t("networkProbe.offline.run")}
-        </Button>
-      </CommandHint>
-
+    <ProbePanelShell
+      embedded
+      toolbar={
+        <>
+          <p className="text-muted-foreground text-sm">{t("networkProbe.offline.hint")}</p>
+          <CommandHint hint={t("networkProbe.cmd.offlineBundle")}>
+            <Button type="button" disabled={loading} onClick={onRunAll}>
+              {loading ? t("networkProbe.offline.running") : t("networkProbe.offline.run")}
+            </Button>
+          </CommandHint>
+        </>
+      }
+    >
       {show("captive") ? (
         <section className="space-y-1 rounded-lg border px-3 py-2 text-sm">
           <h3 className="text-xs font-semibold tracking-wide uppercase">
@@ -200,6 +206,6 @@ export function OfflinePanel({
       {focus === "diff" ? (
         <p className="text-muted-foreground text-sm">{t("networkProbe.offline.diffHint")}</p>
       ) : null}
-    </div>
+    </ProbePanelShell>
   )
 }

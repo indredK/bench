@@ -4,6 +4,7 @@
 import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
+import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import type { HealthCheckItem, HealthScanResult } from "@/lib/tauri/types/network-probe"
 import { cn } from "@/lib/utils"
 
@@ -30,29 +31,36 @@ export function HealthTreePanel({
   const items = result?.items?.length ? result.items : streamingItems
 
   return (
-    <div className="space-y-4">
-      <p className="text-muted-foreground text-sm">{t("networkProbe.health.hint")}</p>
-      <div className="flex flex-wrap items-center gap-2">
-        <CommandHint hint={t("networkProbe.cmd.healthScan")}>
-          <Button type="button" disabled={loading} onClick={onRun}>
-            {loading ? t("networkProbe.health.running") : t("networkProbe.health.run")}
-          </Button>
-        </CommandHint>
-        {loading ? (
-          <CommandHint hint={t("networkProbe.cmd.cancelScan")}>
-            <Button type="button" variant="outline" disabled={!canCancel} onClick={onCancel}>
-              {t("networkProbe.health.cancel")}
-            </Button>
-          </CommandHint>
-        ) : null}
-        {result ? (
-          <span className="text-muted-foreground text-xs">
-            {t("networkProbe.health.elapsed", { ms: result.elapsedMs.toFixed(0) })}
-            {result.cancelled ? ` · ${t("networkProbe.health.cancelled")}` : ""}
-          </span>
-        ) : null}
-      </div>
-      <p className="text-muted-foreground font-mono text-xs">{t("networkProbe.cmd.healthScan")}</p>
+    <ProbePanelShell
+      toolbar={
+        <>
+          <p className="text-muted-foreground text-sm">{t("networkProbe.health.hint")}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <CommandHint hint={t("networkProbe.cmd.healthScan")}>
+              <Button type="button" disabled={loading} onClick={onRun}>
+                {loading ? t("networkProbe.health.running") : t("networkProbe.health.run")}
+              </Button>
+            </CommandHint>
+            {loading ? (
+              <CommandHint hint={t("networkProbe.cmd.cancelScan")}>
+                <Button type="button" variant="outline" disabled={!canCancel} onClick={onCancel}>
+                  {t("networkProbe.health.cancel")}
+                </Button>
+              </CommandHint>
+            ) : null}
+            {result ? (
+              <span className="text-muted-foreground text-xs">
+                {t("networkProbe.health.elapsed", { ms: result.elapsedMs.toFixed(0) })}
+                {result.cancelled ? ` · ${t("networkProbe.health.cancelled")}` : ""}
+              </span>
+            ) : null}
+          </div>
+          <p className="text-muted-foreground font-mono text-xs">
+            {t("networkProbe.cmd.healthScan")}
+          </p>
+        </>
+      }
+    >
       {items.length === 0 && !loading ? (
         <p className="text-muted-foreground text-sm">{t("networkProbe.health.empty")}</p>
       ) : null}
@@ -93,7 +101,7 @@ export function HealthTreePanel({
       {result?.commandHint ? (
         <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
       ) : null}
-    </div>
+    </ProbePanelShell>
   )
 }
 

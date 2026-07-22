@@ -3,6 +3,7 @@
  */
 import { useTranslation } from "react-i18next"
 import type { HealthOpinion, HealthScanResult } from "@/lib/tauri/types/network-probe"
+import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import { cn } from "@/lib/utils"
 
 interface ScanOpinionPanelProps {
@@ -16,8 +17,9 @@ export function ScanOpinionPanel({ result, onGoTree }: ScanOpinionPanelProps) {
 
   if (!result) {
     return (
-      <div className="space-y-3 py-6">
-        <p className="text-muted-foreground text-sm">{t("networkProbe.opinion.empty")}</p>
+      <ProbePanelShell
+        toolbar={<p className="text-muted-foreground text-sm">{t("networkProbe.opinion.empty")}</p>}
+      >
         <button
           type="button"
           className="text-primary text-sm underline-offset-2 hover:underline"
@@ -25,13 +27,14 @@ export function ScanOpinionPanel({ result, onGoTree }: ScanOpinionPanelProps) {
         >
           {t("networkProbe.opinion.goTree")}
         </button>
-      </div>
+      </ProbePanelShell>
     )
   }
 
   return (
-    <div className="space-y-4">
-      <p className="text-muted-foreground text-sm">{t("networkProbe.opinion.hint")}</p>
+    <ProbePanelShell
+      toolbar={<p className="text-muted-foreground text-sm">{t("networkProbe.opinion.hint")}</p>}
+    >
       {opinions.length === 0 ? (
         <p className="text-muted-foreground text-sm">{t("networkProbe.opinion.none")}</p>
       ) : (
@@ -41,7 +44,7 @@ export function ScanOpinionPanel({ result, onGoTree }: ScanOpinionPanelProps) {
           ))}
         </ul>
       )}
-    </div>
+    </ProbePanelShell>
   )
 }
 

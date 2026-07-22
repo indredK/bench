@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import type { PollutionReport } from "@/lib/tauri/types/network-probe"
 import { cn } from "@/lib/utils"
 
@@ -28,39 +29,44 @@ export function PollutionPanel({
   const [domain, setDomain] = useState("example.com")
 
   return (
-    <div className="space-y-4">
-      <p className="text-muted-foreground text-sm">{t("networkProbe.pollution.hint")}</p>
-      {!toolEnabled ? (
-        <p className="text-xs text-amber-700 dark:text-amber-400">
-          {t("networkProbe.caps.toolDisabled", {
-            tool: "pollution",
-            status: toolStatus ?? "unsupported",
-          })}
-        </p>
-      ) : null}
-      <div className="flex flex-wrap items-end gap-2">
-        <div className="min-w-[12rem] flex-1 space-y-1">
-          <label className="text-xs font-medium" htmlFor="np-pollution-domain">
-            {t("networkProbe.pollution.domain")}
-          </label>
-          <Input
-            id="np-pollution-domain"
-            value={domain}
-            onChange={(e) => setDomain(e.target.value)}
-            autoComplete="off"
-            disabled={loading}
-          />
-        </div>
-        <CommandHint hint={t("networkProbe.cmd.pollution", { domain: domain.trim() || "…" })}>
-          <Button
-            type="button"
-            disabled={loading || !toolEnabled || !domain.trim()}
-            onClick={() => onRun(domain.trim())}
-          >
-            {loading ? t("networkProbe.pollution.running") : t("networkProbe.pollution.run")}
-          </Button>
-        </CommandHint>
-      </div>
+    <ProbePanelShell
+      toolbar={
+        <>
+          <p className="text-muted-foreground text-sm">{t("networkProbe.pollution.hint")}</p>
+          {!toolEnabled ? (
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              {t("networkProbe.caps.toolDisabled", {
+                tool: "pollution",
+                status: toolStatus ?? "unsupported",
+              })}
+            </p>
+          ) : null}
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="min-w-[12rem] flex-1 space-y-1">
+              <label className="text-xs font-medium" htmlFor="np-pollution-domain">
+                {t("networkProbe.pollution.domain")}
+              </label>
+              <Input
+                id="np-pollution-domain"
+                value={domain}
+                onChange={(e) => setDomain(e.target.value)}
+                autoComplete="off"
+                disabled={loading}
+              />
+            </div>
+            <CommandHint hint={t("networkProbe.cmd.pollution", { domain: domain.trim() || "…" })}>
+              <Button
+                type="button"
+                disabled={loading || !toolEnabled || !domain.trim()}
+                onClick={() => onRun(domain.trim())}
+              >
+                {loading ? t("networkProbe.pollution.running") : t("networkProbe.pollution.run")}
+              </Button>
+            </CommandHint>
+          </div>
+        </>
+      }
+    >
       {result ? (
         <div className="space-y-2">
           <p className="text-muted-foreground text-xs">
@@ -70,7 +76,7 @@ export function PollutionPanel({
               count: result.findings.length,
             })}
           </p>
-          <ul className="max-h-80 space-y-2 overflow-auto">
+          <ul className="space-y-2">
             {result.findings.map((f, i) => (
               <li
                 key={`${f.kind}-${i}`}
@@ -91,6 +97,6 @@ export function PollutionPanel({
           </ul>
         </div>
       ) : null}
-    </div>
+    </ProbePanelShell>
   )
 }

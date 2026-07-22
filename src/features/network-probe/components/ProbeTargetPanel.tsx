@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import type { ProbeTargetResult } from "@/lib/tauri/types/network-probe"
 
 interface ProbeTargetPanelProps {
@@ -19,26 +20,35 @@ export function ProbeTargetPanel({ loading, result, onRun }: ProbeTargetPanelPro
   const [input, setInput] = useState("https://example.com")
 
   return (
-    <div className="space-y-4">
-      <p className="text-muted-foreground text-sm">{t("networkProbe.probe.hint")}</p>
-      <div className="flex flex-wrap items-end gap-2">
-        <div className="min-w-[14rem] flex-1 space-y-1">
-          <label className="text-xs font-medium" htmlFor="np-probe-input">
-            {t("networkProbe.probe.input")}
-          </label>
-          <Input
-            id="np-probe-input"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            autoComplete="off"
-          />
-        </div>
-        <CommandHint hint={t("networkProbe.cmd.probeTarget", { input: input.trim() || "…" })}>
-          <Button type="button" disabled={loading || !input.trim()} onClick={() => onRun(input)}>
-            {loading ? t("networkProbe.probe.running") : t("networkProbe.probe.run")}
-          </Button>
-        </CommandHint>
-      </div>
+    <ProbePanelShell
+      toolbar={
+        <>
+          <p className="text-muted-foreground text-sm">{t("networkProbe.probe.hint")}</p>
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="min-w-[14rem] flex-1 space-y-1">
+              <label className="text-xs font-medium" htmlFor="np-probe-input">
+                {t("networkProbe.probe.input")}
+              </label>
+              <Input
+                id="np-probe-input"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                autoComplete="off"
+              />
+            </div>
+            <CommandHint hint={t("networkProbe.cmd.probeTarget", { input: input.trim() || "…" })}>
+              <Button
+                type="button"
+                disabled={loading || !input.trim()}
+                onClick={() => onRun(input)}
+              >
+                {loading ? t("networkProbe.probe.running") : t("networkProbe.probe.run")}
+              </Button>
+            </CommandHint>
+          </div>
+        </>
+      }
+    >
       {result ? (
         <div className="bg-muted/40 space-y-2 rounded-lg border px-3 py-2 text-sm">
           <div>
@@ -88,6 +98,6 @@ export function ProbeTargetPanel({ loading, result, onRun }: ProbeTargetPanelPro
           <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
         </div>
       ) : null}
-    </div>
+    </ProbePanelShell>
   )
 }

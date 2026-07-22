@@ -2795,7 +2795,17 @@
     "subtitle": "急救诊断与主动探测（模块 1.0 / MVP A+B）。",
     "nav": {
       "l1": "一级分区",
-      "l2": "工具"
+      "l2": "工具",
+      "l2Short": "L2"
+    },
+    "nodeSelect": {
+      "label": "探测原点",
+      "local": "本机"
+    },
+    "sideLog": {
+      "title": "命令日志",
+      "clear": "清空",
+      "empty": "切换工具或运行探测后，IPC 提示会出现在这里。"
     },
     "l1": {
       "basic": "基础视角",
@@ -2815,6 +2825,7 @@
       "dns": "DNS",
       "tcp": "TCP 连通",
       "custom": "自定义目标",
+      "websites": "测试官网",
       "traceroute": "Traceroute",
       "mtu": "MTU",
       "egress": "公网出口",
@@ -2922,7 +2933,52 @@
       "packs": {
         "global": "全球",
         "cn-friendly": "国内友好",
-        "dev": "开发者"
+        "dev": "开发者",
+        "official": "常用官网"
+      }
+    },
+    "official": {
+      "hint": "测试常用国内与外网官网连通性。点击卡片测单个站点（其他已测结果会保留），或一键测全部。",
+      "testAll": "测试全部官网",
+      "running": "测试中…",
+      "empty": "未加载官网站点包。",
+      "summary": "成功 {{ok}} · 失败 {{fail}} · 共 {{total}}",
+      "clickToTest": "点击测试",
+      "cardHint": "测试 {{host}}",
+      "statusOk": "通",
+      "statusFail": "不通",
+      "statusIdle": "未测",
+      "statusRunning": "测中",
+      "httpMs": "{{ms}} ms",
+      "icmpMs": "ICMP {{ms}} ms",
+      "fail": "{{error}}",
+      "testedAt": "测于 {{time}}",
+      "cancelled": "批量已取消 — 已完成的卡片结果会保留。",
+      "sites": {
+        "baidu": "百度",
+        "qq": "腾讯网",
+        "taobao": "淘宝",
+        "jd": "京东",
+        "bilibili": "哔哩哔哩",
+        "weibo": "微博",
+        "zhihu": "知乎",
+        "douyin": "抖音",
+        "163": "网易",
+        "aliyun": "阿里云",
+        "google": "Google",
+        "github": "GitHub",
+        "youtube": "YouTube",
+        "x": "X",
+        "instagram": "Instagram",
+        "facebook": "Facebook",
+        "wikipedia": "Wikipedia",
+        "microsoft": "Microsoft",
+        "apple": "Apple",
+        "amazon": "Amazon",
+        "cloudflare": "Cloudflare",
+        "openai": "ChatGPT",
+        "reddit": "Reddit",
+        "stackoverflow": "Stack Overflow"
       }
     },
     "health": {
@@ -3294,6 +3350,7 @@
       "logTitle": "命令日志",
       "logEmpty": "本会话尚无命令记录。",
       "clearLog": "清空日志",
+      "logSideHint": "宽屏下实时 IPC 日志也会显示在右侧栏。",
       "historyTitle": "近期体检快照",
       "historyEmpty": "尚无保存的体检。运行一次一键体检后会保留历史。",
       "clearHistory": "清空历史",

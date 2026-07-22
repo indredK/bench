@@ -2795,7 +2795,17 @@
     "subtitle": "First-aid diagnostics and targeted probes (module 1.0 / MVP A+B).",
     "nav": {
       "l1": "Primary sections",
-      "l2": "Tools"
+      "l2": "Tools",
+      "l2Short": "L2"
+    },
+    "nodeSelect": {
+      "label": "Probe origin",
+      "local": "This Mac"
+    },
+    "sideLog": {
+      "title": "Command log",
+      "clear": "Clear",
+      "empty": "Switch tools or run a probe — IPC hints appear here."
     },
     "l1": {
       "basic": "Basics",
@@ -2815,6 +2825,7 @@
       "dns": "DNS",
       "tcp": "TCP connect",
       "custom": "Custom target",
+      "websites": "Official sites",
       "traceroute": "Traceroute",
       "mtu": "MTU",
       "egress": "Public egress",
@@ -2922,7 +2933,52 @@
       "packs": {
         "global": "Global",
         "cn-friendly": "CN-friendly",
-        "dev": "Developer"
+        "dev": "Developer",
+        "official": "Official sites"
+      }
+    },
+    "official": {
+      "hint": "Test reachability of common domestic and foreign websites. Click a card to probe one site (other results are kept), or run all.",
+      "testAll": "Test all sites",
+      "running": "Testing…",
+      "empty": "No official site pack loaded.",
+      "summary": "{{ok}} ok · {{fail}} fail · {{total}} total",
+      "clickToTest": "Click to test",
+      "cardHint": "Test {{host}}",
+      "statusOk": "OK",
+      "statusFail": "Fail",
+      "statusIdle": "Idle",
+      "statusRunning": "…",
+      "httpMs": "{{ms}} ms",
+      "icmpMs": "ICMP {{ms}} ms",
+      "fail": "{{error}}",
+      "testedAt": "at {{time}}",
+      "cancelled": "Batch cancelled — finished cards keep their results.",
+      "sites": {
+        "baidu": "Baidu",
+        "qq": "QQ",
+        "taobao": "Taobao",
+        "jd": "JD",
+        "bilibili": "Bilibili",
+        "weibo": "Weibo",
+        "zhihu": "Zhihu",
+        "douyin": "Douyin",
+        "163": "NetEase",
+        "aliyun": "Aliyun",
+        "google": "Google",
+        "github": "GitHub",
+        "youtube": "YouTube",
+        "x": "X",
+        "instagram": "Instagram",
+        "facebook": "Facebook",
+        "wikipedia": "Wikipedia",
+        "microsoft": "Microsoft",
+        "apple": "Apple",
+        "amazon": "Amazon",
+        "cloudflare": "Cloudflare",
+        "openai": "ChatGPT",
+        "reddit": "Reddit",
+        "stackoverflow": "Stack Overflow"
       }
     },
     "health": {
@@ -3294,6 +3350,7 @@
       "logTitle": "Command log",
       "logEmpty": "No commands logged this session.",
       "clearLog": "Clear log",
+      "logSideHint": "Live IPC log also appears in the right rail on wide layouts.",
       "historyTitle": "Recent health snapshots",
       "historyEmpty": "No saved health scans yet. Run a health scan to keep history.",
       "clearHistory": "Clear history",

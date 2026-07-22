@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import type {
   SpeedSampleEvent,
   SpeedSource,
@@ -80,63 +81,68 @@ export function SpeedPanel({
     result != null && !result.ok && !result.cancelled && result.downloadMbps == null
 
   return (
-    <div className="space-y-4">
-      <p className="text-muted-foreground text-sm">{t("networkProbe.speed.hint")}</p>
-      {!toolEnabled ? (
-        <p className="text-xs text-amber-700 dark:text-amber-400">
-          {t("networkProbe.caps.toolDisabled", {
-            tool: "speedTest",
-            status: toolStatus ?? "unsupported",
-          })}
-        </p>
-      ) : null}
-      {sources.length === 0 && !loading ? (
-        <p className="text-muted-foreground text-sm">{t("networkProbe.speed.emptySources")}</p>
-      ) : null}
-      {coolingDown ? (
-        <p className="text-xs text-amber-700 dark:text-amber-400">
-          {t("networkProbe.speed.cooldown", { seconds: cooldownSec })}
-        </p>
-      ) : null}
-      <div className="flex flex-wrap items-end gap-2">
-        <div className="min-w-[14rem] flex-1 space-y-1">
-          <label className="text-xs font-medium" htmlFor="np-speed-source">
-            {t("networkProbe.speed.source")}
-          </label>
-          <Select
-            value={sourceId || undefined}
-            onValueChange={setSourceId}
-            disabled={loading || coolingDown}
-          >
-            <SelectTrigger id="np-speed-source">
-              <SelectValue placeholder={t("networkProbe.speed.sourcePlaceholder")} />
-            </SelectTrigger>
-            <SelectContent>
-              {sources.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <CommandHint hint={t("networkProbe.cmd.speedTest", { sourceId: sourceId || "…" })}>
-          <Button
-            type="button"
-            disabled={loading || coolingDown || !toolEnabled || !sourceId}
-            onClick={() => onRun(sourceId)}
-          >
-            {loading ? t("networkProbe.speed.running") : t("networkProbe.speed.run")}
-          </Button>
-        </CommandHint>
-        {canCancel ? (
-          <CommandHint hint={t("networkProbe.cmd.cancelScan")}>
-            <Button type="button" variant="outline" onClick={onCancel}>
-              {t("networkProbe.speed.cancel")}
-            </Button>
-          </CommandHint>
-        ) : null}
-      </div>
+    <ProbePanelShell
+      toolbar={
+        <>
+          <p className="text-muted-foreground text-sm">{t("networkProbe.speed.hint")}</p>
+          {!toolEnabled ? (
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              {t("networkProbe.caps.toolDisabled", {
+                tool: "speedTest",
+                status: toolStatus ?? "unsupported",
+              })}
+            </p>
+          ) : null}
+          {sources.length === 0 && !loading ? (
+            <p className="text-muted-foreground text-sm">{t("networkProbe.speed.emptySources")}</p>
+          ) : null}
+          {coolingDown ? (
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              {t("networkProbe.speed.cooldown", { seconds: cooldownSec })}
+            </p>
+          ) : null}
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="min-w-[14rem] flex-1 space-y-1">
+              <label className="text-xs font-medium" htmlFor="np-speed-source">
+                {t("networkProbe.speed.source")}
+              </label>
+              <Select
+                value={sourceId || undefined}
+                onValueChange={setSourceId}
+                disabled={loading || coolingDown}
+              >
+                <SelectTrigger id="np-speed-source">
+                  <SelectValue placeholder={t("networkProbe.speed.sourcePlaceholder")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {sources.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <CommandHint hint={t("networkProbe.cmd.speedTest", { sourceId: sourceId || "…" })}>
+              <Button
+                type="button"
+                disabled={loading || coolingDown || !toolEnabled || !sourceId}
+                onClick={() => onRun(sourceId)}
+              >
+                {loading ? t("networkProbe.speed.running") : t("networkProbe.speed.run")}
+              </Button>
+            </CommandHint>
+            {canCancel ? (
+              <CommandHint hint={t("networkProbe.cmd.cancelScan")}>
+                <Button type="button" variant="outline" onClick={onCancel}>
+                  {t("networkProbe.speed.cancel")}
+                </Button>
+              </CommandHint>
+            ) : null}
+          </div>
+        </>
+      }
+    >
       {loading && sample ? (
         <p className="text-muted-foreground font-mono text-xs">
           {phaseLabel}
@@ -186,7 +192,7 @@ export function SpeedPanel({
           <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
         </div>
       ) : null}
-    </div>
+    </ProbePanelShell>
   )
 }
 

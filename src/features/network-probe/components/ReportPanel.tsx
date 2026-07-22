@@ -4,6 +4,7 @@
 import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
+import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import type { HealthScanResult } from "@/lib/tauri/types/network-probe"
 
 interface ReportPanelProps {
@@ -67,61 +68,65 @@ export function ReportPanel({
   const stamp = useMemo(() => new Date().toISOString().replace(/[:.]/g, "-"), [health])
 
   return (
-    <div className="space-y-4">
-      <p className="text-muted-foreground text-sm">{t("networkProbe.report.hint")}</p>
+    <ProbePanelShell
+      toolbar={
+        <>
+          <p className="text-muted-foreground text-sm">{t("networkProbe.report.hint")}</p>
 
-      {!health ? (
-        <div className="space-y-2">
-          <p className="text-muted-foreground text-sm">{t("networkProbe.report.empty")}</p>
-          <Button type="button" variant="outline" onClick={onGoTree}>
-            {t("networkProbe.report.goTree")}
-          </Button>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          <div className="text-muted-foreground text-xs">
-            {t("networkProbe.report.meta", {
-              ms: health.elapsedMs.toFixed(0),
-              count: health.items.length,
-              cancelled: health.cancelled
-                ? t("networkProbe.report.cancelledYes")
-                : t("networkProbe.report.cancelledNo"),
-            })}
-          </div>
-          <p className="text-xs text-amber-700 dark:text-amber-400">
-            {t("networkProbe.report.privacyHint")}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              onClick={() =>
-                downloadBlob(
-                  `network-probe-health-${stamp}.json`,
-                  JSON.stringify(health, null, 2),
-                  "application/json",
-                )
-              }
-            >
-              {t("networkProbe.report.exportJson")}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() =>
-                downloadBlob(
-                  `network-probe-health-${stamp}.md`,
-                  toMarkdown(health, t("networkProbe.report.title")),
-                  "text/markdown",
-                )
-              }
-            >
-              {t("networkProbe.report.exportMd")}
-            </Button>
-          </div>
-          <p className="text-muted-foreground font-mono text-xs">{health.commandHint}</p>
-        </div>
-      )}
-
+          {!health ? (
+            <div className="space-y-2">
+              <p className="text-muted-foreground text-sm">{t("networkProbe.report.empty")}</p>
+              <Button type="button" variant="outline" onClick={onGoTree}>
+                {t("networkProbe.report.goTree")}
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="text-muted-foreground text-xs">
+                {t("networkProbe.report.meta", {
+                  ms: health.elapsedMs.toFixed(0),
+                  count: health.items.length,
+                  cancelled: health.cancelled
+                    ? t("networkProbe.report.cancelledYes")
+                    : t("networkProbe.report.cancelledNo"),
+                })}
+              </div>
+              <p className="text-xs text-amber-700 dark:text-amber-400">
+                {t("networkProbe.report.privacyHint")}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  onClick={() =>
+                    downloadBlob(
+                      `network-probe-health-${stamp}.json`,
+                      JSON.stringify(health, null, 2),
+                      "application/json",
+                    )
+                  }
+                >
+                  {t("networkProbe.report.exportJson")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() =>
+                    downloadBlob(
+                      `network-probe-health-${stamp}.md`,
+                      toMarkdown(health, t("networkProbe.report.title")),
+                      "text/markdown",
+                    )
+                  }
+                >
+                  {t("networkProbe.report.exportMd")}
+                </Button>
+              </div>
+              <p className="text-muted-foreground font-mono text-xs">{health.commandHint}</p>
+            </div>
+          )}
+        </>
+      }
+    >
       <section className="space-y-2">
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-xs font-semibold tracking-wide uppercase">
@@ -136,7 +141,7 @@ export function ReportPanel({
         {history.length === 0 ? (
           <p className="text-muted-foreground text-xs">{t("networkProbe.report.historyEmpty")}</p>
         ) : (
-          <ul className="max-h-40 space-y-1 overflow-auto text-xs">
+          <ul className="space-y-1 text-xs">
             {history.map((h, idx) => (
               <li key={`${h.sessionId}-${idx}`} className="bg-muted/30 rounded border px-2 py-1">
                 {t("networkProbe.report.historyItem", {
@@ -160,18 +165,21 @@ export function ReportPanel({
             {t("networkProbe.report.clearLog")}
           </Button>
         </div>
+        <p className="text-muted-foreground hidden text-[11px] lg:block">
+          {t("networkProbe.report.logSideHint")}
+        </p>
         {commandLog.length === 0 ? (
           <p className="text-muted-foreground text-xs">{t("networkProbe.report.logEmpty")}</p>
         ) : (
-          <ul className="bg-muted/30 max-h-56 overflow-auto rounded-md border p-2 font-mono text-[11px]">
+          <ul className="bg-muted/30 rounded-md border p-2 font-mono text-[11px]">
             {commandLog.map((line, idx) => (
-              <li key={`${idx}-${line}`} className="text-muted-foreground truncate">
+              <li key={`${idx}-${line}`} className="text-muted-foreground truncate" title={line}>
                 {line}
               </li>
             ))}
           </ul>
         )}
       </section>
-    </div>
+    </ProbePanelShell>
   )
 }

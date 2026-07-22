@@ -1,4 +1,4 @@
-use super::defaults::builtin_defaults;
+use super::defaults::get_defaults;
 use super::probe::{probe_http_target, probe_icmp_once};
 use super::types::{ScanSessionEvent, SiteSampleResult, SitesProbeResult};
 use crate::error::{AppError, AppResult};
@@ -7,13 +7,13 @@ use tauri::{AppHandle, Emitter, Runtime};
 pub const SITE_SAMPLE_EVENT: &str = "network-probe:site-sample";
 pub const SCAN_SESSION_EVENT: &str = "network-probe:scan-session";
 
-const MAX_SITES: usize = 24;
+const MAX_SITES: usize = 32;
 
 pub async fn sites_probe<R: Runtime>(
     app: Option<&AppHandle<R>>,
     pack_id: String,
 ) -> AppResult<SitesProbeResult> {
-    let catalog = builtin_defaults()?;
+    let catalog = get_defaults()?;
     let pack_id = pack_id.trim().to_string();
     let sites = catalog
         .site_packs

@@ -4,6 +4,7 @@
 import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
+import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import type { LanServicesResult } from "@/lib/tauri/types/network-probe"
 
 interface LanServicesPanelProps {
@@ -23,25 +24,30 @@ export function LanServicesPanel({
 }: LanServicesPanelProps) {
   const { t } = useTranslation()
   return (
-    <div className="space-y-4">
-      <p className="text-muted-foreground text-sm">{t("networkProbe.lanSvc.hint")}</p>
-      {!toolEnabled ? (
-        <p className="text-xs text-amber-700 dark:text-amber-400">
-          {t("networkProbe.caps.toolDisabled", {
-            tool: "lanServices",
-            status: toolStatus ?? "unsupported",
-          })}
-        </p>
-      ) : (
-        <p className="text-xs text-amber-700 dark:text-amber-400">
-          {t("networkProbe.lanSvc.readOnlyHint")}
-        </p>
-      )}
-      <CommandHint hint={t("networkProbe.cmd.lanSvc")}>
-        <Button type="button" disabled={loading || !toolEnabled} onClick={onRun}>
-          {loading ? t("networkProbe.lanSvc.running") : t("networkProbe.lanSvc.run")}
-        </Button>
-      </CommandHint>
+    <ProbePanelShell
+      toolbar={
+        <>
+          <p className="text-muted-foreground text-sm">{t("networkProbe.lanSvc.hint")}</p>
+          {!toolEnabled ? (
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              {t("networkProbe.caps.toolDisabled", {
+                tool: "lanServices",
+                status: toolStatus ?? "unsupported",
+              })}
+            </p>
+          ) : (
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              {t("networkProbe.lanSvc.readOnlyHint")}
+            </p>
+          )}
+          <CommandHint hint={t("networkProbe.cmd.lanSvc")}>
+            <Button type="button" disabled={loading || !toolEnabled} onClick={onRun}>
+              {loading ? t("networkProbe.lanSvc.running") : t("networkProbe.lanSvc.run")}
+            </Button>
+          </CommandHint>
+        </>
+      }
+    >
       {result ? (
         <div className="space-y-2">
           {result.message ? (
@@ -56,7 +62,7 @@ export function LanServicesPanel({
           {result.items.length === 0 ? (
             <p className="text-muted-foreground text-sm">{t("networkProbe.lanSvc.empty")}</p>
           ) : (
-            <ul className="max-h-72 space-y-1 overflow-auto font-mono text-xs">
+            <ul className="space-y-1 font-mono text-xs">
               {result.items.map((it, idx) => (
                 <li key={`${it.protocol}-${it.name}-${idx}`}>
                   [{it.protocol}] {it.name}
@@ -71,6 +77,6 @@ export function LanServicesPanel({
           <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
         </div>
       ) : null}
-    </div>
+    </ProbePanelShell>
   )
 }

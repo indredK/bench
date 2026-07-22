@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import type { SiteSampleResult, SitesProbeResult } from "@/lib/tauri/types/network-probe"
 import { cn } from "@/lib/utils"
 
@@ -13,6 +14,7 @@ const PACK_LABEL_KEYS: Record<string, string> = {
   global: "networkProbe.sites.packs.global",
   "cn-friendly": "networkProbe.sites.packs.cn-friendly",
   dev: "networkProbe.sites.packs.dev",
+  official: "networkProbe.sites.packs.official",
 }
 
 const CUSTOM_SITES_KEY = "network-probe:custom-sites"
@@ -115,113 +117,117 @@ export function SitesProbePanel({
   }
 
   return (
-    <div className="space-y-4">
-      <p className="text-muted-foreground text-sm">{t("networkProbe.sites.hint")}</p>
-      {!toolEnabled ? (
-        <p className="text-xs text-amber-700 dark:text-amber-400">
-          {t("networkProbe.caps.toolDisabled", {
-            tool: "sitesProbe",
-            status: toolStatus ?? "unsupported",
-          })}
-        </p>
-      ) : null}
+    <ProbePanelShell
+      toolbar={
+        <>
+          <p className="text-muted-foreground text-sm">{t("networkProbe.sites.hint")}</p>
+          {!toolEnabled ? (
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              {t("networkProbe.caps.toolDisabled", {
+                tool: "sitesProbe",
+                status: toolStatus ?? "unsupported",
+              })}
+            </p>
+          ) : null}
 
-      <div className="flex flex-wrap items-end gap-2">
-        <div className="w-44 space-y-1">
-          <label className="text-xs font-medium" htmlFor="np-sites-pack">
-            {t("networkProbe.sites.pack")}
-          </label>
-          <select
-            id="np-sites-pack"
-            className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
-            value={packId}
-            onChange={(e) => setPackId(e.target.value)}
-            disabled={loading}
-          >
-            {packs.map((id) => (
-              <option key={id} value={id}>
-                {PACK_LABEL_KEYS[id] ? t(PACK_LABEL_KEYS[id]) : id}
-              </option>
-            ))}
-          </select>
-        </div>
-        <CommandHint hint={t("networkProbe.cmd.sitesProbe", { packId })}>
-          <Button
-            type="button"
-            disabled={loading || !packId || !toolEnabled}
-            onClick={() => onRunPack(packId)}
-          >
-            {loading ? t("networkProbe.sites.running") : t("networkProbe.sites.run")}
-          </Button>
-        </CommandHint>
-        {canCancel ? (
-          <CommandHint hint={t("networkProbe.cmd.cancelScan")}>
-            <Button type="button" variant="outline" onClick={onCancel}>
-              {t("networkProbe.sites.cancel")}
-            </Button>
-          </CommandHint>
-        ) : null}
-      </div>
-
-      <div className="space-y-2 rounded-lg border px-3 py-2">
-        <p className="text-xs font-medium">{t("networkProbe.sites.customTitle")}</p>
-        <div className="flex flex-wrap items-end gap-2">
-          <div className="min-w-[12rem] flex-1 space-y-1">
-            <label className="text-xs font-medium" htmlFor="np-sites-custom">
-              {t("networkProbe.sites.customInput")}
-            </label>
-            <Input
-              id="np-sites-custom"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder={t("networkProbe.sites.customPlaceholder")}
-              autoComplete="off"
-              disabled={loading}
-            />
-          </div>
-          <Button
-            type="button"
-            variant="secondary"
-            disabled={loading || !draft.trim()}
-            onClick={addCustom}
-          >
-            {t("networkProbe.sites.customAdd")}
-          </Button>
-          <CommandHint hint={t("networkProbe.cmd.sitesProbeCustom", { n: customSites.length })}>
-            <Button
-              type="button"
-              disabled={loading || customSites.length === 0 || !toolEnabled}
-              onClick={() => onRunCustom(customSites)}
-            >
-              {t("networkProbe.sites.customRun")}
-            </Button>
-          </CommandHint>
-        </div>
-        {customSites.length > 0 ? (
-          <ul className="flex flex-wrap gap-1.5">
-            {customSites.map((site) => (
-              <li
-                key={site}
-                className="bg-muted flex items-center gap-1 rounded-md px-2 py-0.5 font-mono text-[11px]"
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="w-44 space-y-1">
+              <label className="text-xs font-medium" htmlFor="np-sites-pack">
+                {t("networkProbe.sites.pack")}
+              </label>
+              <select
+                id="np-sites-pack"
+                className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
+                value={packId}
+                onChange={(e) => setPackId(e.target.value)}
+                disabled={loading}
               >
-                <span className="max-w-[14rem] truncate">{site}</span>
-                <button
-                  type="button"
-                  className="text-muted-foreground hover:text-foreground"
-                  disabled={loading}
-                  onClick={() => setCustomSites((prev) => prev.filter((s) => s !== site))}
-                  aria-label={t("networkProbe.sites.customRemove")}
-                >
-                  ×
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-muted-foreground text-xs">{t("networkProbe.sites.customEmpty")}</p>
-        )}
-      </div>
+                {packs.map((id) => (
+                  <option key={id} value={id}>
+                    {PACK_LABEL_KEYS[id] ? t(PACK_LABEL_KEYS[id]) : id}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <CommandHint hint={t("networkProbe.cmd.sitesProbe", { packId })}>
+              <Button
+                type="button"
+                disabled={loading || !packId || !toolEnabled}
+                onClick={() => onRunPack(packId)}
+              >
+                {loading ? t("networkProbe.sites.running") : t("networkProbe.sites.run")}
+              </Button>
+            </CommandHint>
+            {canCancel ? (
+              <CommandHint hint={t("networkProbe.cmd.cancelScan")}>
+                <Button type="button" variant="outline" onClick={onCancel}>
+                  {t("networkProbe.sites.cancel")}
+                </Button>
+              </CommandHint>
+            ) : null}
+          </div>
 
+          <div className="space-y-2 rounded-lg border px-3 py-2">
+            <p className="text-xs font-medium">{t("networkProbe.sites.customTitle")}</p>
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="min-w-[12rem] flex-1 space-y-1">
+                <label className="text-xs font-medium" htmlFor="np-sites-custom">
+                  {t("networkProbe.sites.customInput")}
+                </label>
+                <Input
+                  id="np-sites-custom"
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  placeholder={t("networkProbe.sites.customPlaceholder")}
+                  autoComplete="off"
+                  disabled={loading}
+                />
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={loading || !draft.trim()}
+                onClick={addCustom}
+              >
+                {t("networkProbe.sites.customAdd")}
+              </Button>
+              <CommandHint hint={t("networkProbe.cmd.sitesProbeCustom", { n: customSites.length })}>
+                <Button
+                  type="button"
+                  disabled={loading || customSites.length === 0 || !toolEnabled}
+                  onClick={() => onRunCustom(customSites)}
+                >
+                  {t("networkProbe.sites.customRun")}
+                </Button>
+              </CommandHint>
+            </div>
+            {customSites.length > 0 ? (
+              <ul className="flex flex-wrap gap-1.5">
+                {customSites.map((site) => (
+                  <li
+                    key={site}
+                    className="bg-muted flex items-center gap-1 rounded-md px-2 py-0.5 font-mono text-[11px]"
+                  >
+                    <span className="max-w-[14rem] truncate">{site}</span>
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-foreground"
+                      disabled={loading}
+                      onClick={() => setCustomSites((prev) => prev.filter((s) => s !== site))}
+                      aria-label={t("networkProbe.sites.customRemove")}
+                    >
+                      ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-muted-foreground text-xs">{t("networkProbe.sites.customEmpty")}</p>
+            )}
+          </div>
+        </>
+      }
+    >
       {rows.length > 0 ? (
         <div className="space-y-2">
           <p className="text-sm font-medium">
@@ -289,6 +295,6 @@ export function SitesProbePanel({
           ) : null}
         </div>
       ) : null}
-    </div>
+    </ProbePanelShell>
   )
 }

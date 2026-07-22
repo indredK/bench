@@ -177,6 +177,19 @@ ASN（可选第二跳）：
 
 ---
 
+### 6.4 `official`（测试 L1 · 测试官网）
+
+常用国内站 + 外网站点包（HTTP 连通性）。UI：卡片网格，支持「测试全部」与点击单卡。
+
+| 区域 | 示例                                                                                                                                          |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| 国内 | baidu / qq / taobao / jd / bilibili / weibo / zhihu / douyin / 163 / aliyun                                                                   |
+| 外网 | google / github / youtube / x / instagram / facebook / wikipedia / microsoft / apple / amazon / cloudflare / chatgpt / reddit / stackoverflow |
+
+**场景**：测试 Tab 主动探测官网可达性。
+
+---
+
 ## 7. MTU 默认目标（`mtu_targets`）
 
 | id   | 目标      | 说明                          |

@@ -3,6 +3,7 @@
  */
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
+import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import type { Ipv6StackResult } from "@/lib/tauri/types/network-probe"
 
 interface Ipv6PanelProps {
@@ -16,18 +17,23 @@ export function Ipv6Panel({ loading, result, onRun, dualFrom }: Ipv6PanelProps) 
   const { t } = useTranslation()
 
   return (
-    <div className="space-y-4">
-      <p className="text-muted-foreground text-sm">{t("networkProbe.ipv6.hint")}</p>
-      {dualFrom ? (
-        <p className="text-muted-foreground text-xs">
-          {t(`networkProbe.dualEntry.from.${dualFrom}`)}
-        </p>
-      ) : null}
-      <Button type="button" disabled={loading} onClick={onRun}>
-        {loading ? t("networkProbe.ipv6.running") : t("networkProbe.ipv6.run")}
-      </Button>
-      <p className="text-muted-foreground font-mono text-xs">{t("networkProbe.cmd.ipv6")}</p>
-
+    <ProbePanelShell
+      embedded={dualFrom === "offline"}
+      toolbar={
+        <>
+          <p className="text-muted-foreground text-sm">{t("networkProbe.ipv6.hint")}</p>
+          {dualFrom ? (
+            <p className="text-muted-foreground text-xs">
+              {t(`networkProbe.dualEntry.from.${dualFrom}`)}
+            </p>
+          ) : null}
+          <Button type="button" disabled={loading} onClick={onRun}>
+            {loading ? t("networkProbe.ipv6.running") : t("networkProbe.ipv6.run")}
+          </Button>
+          <p className="text-muted-foreground font-mono text-xs">{t("networkProbe.cmd.ipv6")}</p>
+        </>
+      }
+    >
       {result ? (
         <div className="space-y-2 rounded-lg border px-3 py-2 text-sm">
           <div>
@@ -90,6 +96,6 @@ export function Ipv6Panel({ loading, result, onRun, dualFrom }: Ipv6PanelProps) 
       ) : (
         <p className="text-muted-foreground text-sm">{t("networkProbe.ipv6.empty")}</p>
       )}
-    </div>
+    </ProbePanelShell>
   )
 }

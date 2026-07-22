@@ -4,6 +4,7 @@
 import { useEffect } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
+import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import { cn } from "@/lib/utils"
 
 interface OverviewPanelProps {
@@ -38,25 +39,27 @@ export function OverviewPanel({
   }, [summary, loading, onRefresh])
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" size="sm" onClick={onRefresh} disabled={loading}>
-          {loading ? t("networkProbe.overview.refreshing") : t("networkProbe.overview.refresh")}
-        </Button>
-        <Button type="button" size="sm" variant="outline" onClick={onOpenSettings}>
-          {t("networkProbe.overview.openSettings")}
-        </Button>
-        <span className="text-muted-foreground font-mono text-xs">
-          {t("networkProbe.cmd.summary")}
-        </span>
-      </div>
-
+    <ProbePanelShell
+      toolbar={
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" size="sm" onClick={onRefresh} disabled={loading}>
+            {loading ? t("networkProbe.overview.refreshing") : t("networkProbe.overview.refresh")}
+          </Button>
+          <Button type="button" size="sm" variant="outline" onClick={onOpenSettings}>
+            {t("networkProbe.overview.openSettings")}
+          </Button>
+          <span className="text-muted-foreground font-mono text-xs">
+            {t("networkProbe.cmd.summary")}
+          </span>
+        </div>
+      }
+    >
       {!summary && !loading ? (
         <p className="text-muted-foreground text-sm">{t("networkProbe.overview.empty")}</p>
       ) : null}
 
       {summary ? (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <InfoCard label={t("networkProbe.overview.ipv4")} value={summary.primaryIpv4 ?? "—"} />
           <InfoCard label={t("networkProbe.overview.ipv6")} value={summary.primaryIpv6 ?? "—"} />
           <InfoCard label={t("networkProbe.overview.gateway")} value={summary.gateway ?? "—"} />
@@ -94,14 +97,16 @@ export function OverviewPanel({
           />
         </div>
       ) : null}
-    </div>
+    </ProbePanelShell>
   )
 }
 
 function InfoCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className={cn("bg-muted/40 rounded-lg border px-3 py-2")}>
-      <div className="text-muted-foreground text-xs">{label}</div>
+    <div className={cn("bg-muted/30 rounded-md border px-2.5 py-2")}>
+      <div className="text-muted-foreground text-[10px] font-semibold tracking-wide uppercase">
+        {label}
+      </div>
       <div className="mt-1 text-sm font-medium break-all">{value}</div>
     </div>
   )

@@ -3,6 +3,7 @@
  */
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
+import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import type { PublicIpInfo } from "@/lib/tauri/types/network-probe"
 
 interface EgressPanelProps {
@@ -16,17 +17,23 @@ export function EgressPanel({ loading, result, onRun, dualFrom }: EgressPanelPro
   const { t } = useTranslation()
 
   return (
-    <div className="space-y-4">
-      <p className="text-muted-foreground text-sm">{t("networkProbe.egress.hint")}</p>
-      {dualFrom ? (
-        <p className="text-muted-foreground text-xs">
-          {t(`networkProbe.dualEntry.from.${dualFrom}`)}
-        </p>
-      ) : null}
-      <Button type="button" disabled={loading} onClick={onRun}>
-        {loading ? t("networkProbe.egress.running") : t("networkProbe.egress.run")}
-      </Button>
-      <p className="text-muted-foreground font-mono text-xs">{t("networkProbe.cmd.egress")}</p>
+    <ProbePanelShell
+      embedded={dualFrom === "offline"}
+      toolbar={
+        <>
+          <p className="text-muted-foreground text-sm">{t("networkProbe.egress.hint")}</p>
+          {dualFrom ? (
+            <p className="text-muted-foreground text-xs">
+              {t(`networkProbe.dualEntry.from.${dualFrom}`)}
+            </p>
+          ) : null}
+          <Button type="button" disabled={loading} onClick={onRun}>
+            {loading ? t("networkProbe.egress.running") : t("networkProbe.egress.run")}
+          </Button>
+          <p className="text-muted-foreground font-mono text-xs">{t("networkProbe.cmd.egress")}</p>
+        </>
+      }
+    >
       {result ? (
         <div className="space-y-1 rounded-lg border px-3 py-2 text-sm">
           <div>
@@ -50,6 +57,6 @@ export function EgressPanel({ loading, result, onRun, dualFrom }: EgressPanelPro
       ) : (
         <p className="text-muted-foreground text-sm">{t("networkProbe.egress.empty")}</p>
       )}
-    </div>
+    </ProbePanelShell>
   )
 }

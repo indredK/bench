@@ -5,6 +5,7 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import type { PathMtuResult } from "@/lib/tauri/types/network-probe"
 import { cn } from "@/lib/utils"
 
@@ -20,34 +21,43 @@ export function MtuPanel({ loading, result, onRun, dualFrom }: MtuPanelProps) {
   const [target, setTarget] = useState("1.1.1.1")
 
   return (
-    <div className="space-y-4">
-      <p className="text-muted-foreground text-sm">{t("networkProbe.mtu.hint")}</p>
-      {dualFrom ? (
-        <p className="text-muted-foreground text-xs">
-          {t(`networkProbe.dualEntry.from.${dualFrom}`)}
-        </p>
-      ) : null}
-      <div className="flex flex-wrap items-end gap-2">
-        <div className="min-w-[12rem] flex-1 space-y-1">
-          <label className="text-xs font-medium" htmlFor="np-mtu-target">
-            {t("networkProbe.mtu.target")}
-          </label>
-          <Input
-            id="np-mtu-target"
-            value={target}
-            onChange={(e) => setTarget(e.target.value)}
-            placeholder={t("networkProbe.mtu.targetPlaceholder")}
-            autoComplete="off"
-          />
-        </div>
-        <Button type="button" disabled={loading || !target.trim()} onClick={() => onRun(target)}>
-          {loading ? t("networkProbe.mtu.running") : t("networkProbe.mtu.run")}
-        </Button>
-      </div>
-      <p className="text-muted-foreground font-mono text-xs">
-        {t("networkProbe.cmd.mtu", { target: target.trim() || "…" })}
-      </p>
-
+    <ProbePanelShell
+      embedded={dualFrom === "offline"}
+      toolbar={
+        <>
+          <p className="text-muted-foreground text-sm">{t("networkProbe.mtu.hint")}</p>
+          {dualFrom ? (
+            <p className="text-muted-foreground text-xs">
+              {t(`networkProbe.dualEntry.from.${dualFrom}`)}
+            </p>
+          ) : null}
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="min-w-[12rem] flex-1 space-y-1">
+              <label className="text-xs font-medium" htmlFor="np-mtu-target">
+                {t("networkProbe.mtu.target")}
+              </label>
+              <Input
+                id="np-mtu-target"
+                value={target}
+                onChange={(e) => setTarget(e.target.value)}
+                placeholder={t("networkProbe.mtu.targetPlaceholder")}
+                autoComplete="off"
+              />
+            </div>
+            <Button
+              type="button"
+              disabled={loading || !target.trim()}
+              onClick={() => onRun(target)}
+            >
+              {loading ? t("networkProbe.mtu.running") : t("networkProbe.mtu.run")}
+            </Button>
+          </div>
+          <p className="text-muted-foreground font-mono text-xs">
+            {t("networkProbe.cmd.mtu", { target: target.trim() || "…" })}
+          </p>
+        </>
+      }
+    >
       {result ? (
         <div className="space-y-2">
           <div className="rounded-lg border px-3 py-2 text-sm">
@@ -118,6 +128,6 @@ export function MtuPanel({ loading, result, onRun, dualFrom }: MtuPanelProps) {
       ) : (
         <p className="text-muted-foreground text-sm">{t("networkProbe.mtu.empty")}</p>
       )}
-    </div>
+    </ProbePanelShell>
   )
 }

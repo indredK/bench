@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next"
 import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirmDialog"
 import { TripleDestructiveConfirm } from "@/components/common/TripleDestructiveConfirm"
 import { Button } from "@/components/ui/button"
+import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import type { DnsPreset, FixResult } from "@/lib/tauri/types/network-probe"
 
 interface FixPanelProps {
@@ -71,89 +72,93 @@ export function FixPanel({
   const servers = selectedPreset ? [selectedPreset.address] : []
 
   return (
-    <div className="space-y-4">
-      <p className="text-muted-foreground text-sm">{t("networkProbe.fix.hint")}</p>
+    <ProbePanelShell
+      toolbar={
+        <>
+          <p className="text-muted-foreground text-sm">{t("networkProbe.fix.hint")}</p>
 
-      <div className="flex flex-wrap items-end gap-2">
-        <div className="min-w-[12rem] flex-1 space-y-1">
-          <label className="text-xs font-medium" htmlFor="np-fix-service">
-            {t("networkProbe.fix.service")}
-          </label>
-          <select
-            id="np-fix-service"
-            className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
-            value={service}
-            onChange={(e) => setService(e.target.value)}
-          >
-            {services.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="min-w-[10rem] flex-1 space-y-1">
-          <label className="text-xs font-medium" htmlFor="np-fix-dns">
-            {t("networkProbe.fix.dnsPreset")}
-          </label>
-          <select
-            id="np-fix-dns"
-            className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
-            value={presetId}
-            onChange={(e) => setPresetId(e.target.value)}
-          >
-            {dnsPresets.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.id} · {p.address}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="min-w-[12rem] flex-1 space-y-1">
+              <label className="text-xs font-medium" htmlFor="np-fix-service">
+                {t("networkProbe.fix.service")}
+              </label>
+              <select
+                id="np-fix-service"
+                className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
+                value={service}
+                onChange={(e) => setService(e.target.value)}
+              >
+                {services.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="min-w-[10rem] flex-1 space-y-1">
+              <label className="text-xs font-medium" htmlFor="np-fix-dns">
+                {t("networkProbe.fix.dnsPreset")}
+              </label>
+              <select
+                id="np-fix-dns"
+                className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
+                value={presetId}
+                onChange={(e) => setPresetId(e.target.value)}
+              >
+                {dnsPresets.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.id} · {p.address}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
 
-      <div className="flex flex-wrap gap-2">
-        <Button type="button" disabled={loading} onClick={() => setPending({ kind: "flush" })}>
-          {t("networkProbe.fix.flush")}
-        </Button>
-        <Button
-          type="button"
-          disabled={loading || !service || servers.length === 0}
-          onClick={() => setPending({ kind: "switch-step1" })}
-        >
-          {t("networkProbe.fix.switchDns")}
-        </Button>
-        <Button
-          type="button"
-          disabled={loading || !service}
-          onClick={() => setPending({ kind: "renew-step1" })}
-        >
-          {t("networkProbe.fix.renewDhcp")}
-        </Button>
-        <Button
-          type="button"
-          variant="destructive"
-          disabled={loading || !service}
-          onClick={() => setPending({ kind: "reset" })}
-        >
-          {t("networkProbe.fix.resetStack")}
-        </Button>
-        <Button type="button" variant="outline" onClick={onOpenSettings}>
-          {t("networkProbe.fix.openSettings")}
-        </Button>
-      </div>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" disabled={loading} onClick={() => setPending({ kind: "flush" })}>
+              {t("networkProbe.fix.flush")}
+            </Button>
+            <Button
+              type="button"
+              disabled={loading || !service || servers.length === 0}
+              onClick={() => setPending({ kind: "switch-step1" })}
+            >
+              {t("networkProbe.fix.switchDns")}
+            </Button>
+            <Button
+              type="button"
+              disabled={loading || !service}
+              onClick={() => setPending({ kind: "renew-step1" })}
+            >
+              {t("networkProbe.fix.renewDhcp")}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={loading || !service}
+              onClick={() => setPending({ kind: "reset" })}
+            >
+              {t("networkProbe.fix.resetStack")}
+            </Button>
+            <Button type="button" variant="outline" onClick={onOpenSettings}>
+              {t("networkProbe.fix.openSettings")}
+            </Button>
+          </div>
 
-      <div className="text-muted-foreground space-y-0.5 font-mono text-xs">
-        <div>{t("networkProbe.cmd.flushDns")}</div>
-        <div>
-          {t("networkProbe.cmd.switchDns", {
-            service: service || "…",
-            servers: servers.join(",") || "…",
-          })}
-        </div>
-        <div>{t("networkProbe.cmd.renewDhcp", { service: service || "…" })}</div>
-        <div>{t("networkProbe.cmd.resetNetworkStack", { service: service || "…" })}</div>
-      </div>
-
+          <div className="text-muted-foreground space-y-0.5 font-mono text-xs">
+            <div>{t("networkProbe.cmd.flushDns")}</div>
+            <div>
+              {t("networkProbe.cmd.switchDns", {
+                service: service || "…",
+                servers: servers.join(",") || "…",
+              })}
+            </div>
+            <div>{t("networkProbe.cmd.renewDhcp", { service: service || "…" })}</div>
+            <div>{t("networkProbe.cmd.resetNetworkStack", { service: service || "…" })}</div>
+          </div>
+        </>
+      }
+    >
       {lastResult ? (
         <div className="bg-muted/40 space-y-1 rounded-lg border px-3 py-2 text-sm">
           <div>
@@ -266,6 +271,6 @@ export function FixPanel({
           await onResetNetworkStack(service)
         }}
       />
-    </div>
+    </ProbePanelShell>
   )
 }

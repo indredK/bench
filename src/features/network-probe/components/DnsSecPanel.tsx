@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import type { DnsSecCheckResult } from "@/lib/tauri/types/network-probe"
 
 interface DnsSecPanelProps {
@@ -21,39 +22,44 @@ export function DnsSecPanel({ loading, result, toolEnabled, toolStatus, onRun }:
   const [domain, setDomain] = useState("cloudflare.com")
 
   return (
-    <div className="space-y-4">
-      <p className="text-muted-foreground text-sm">{t("networkProbe.dnssec.hint")}</p>
-      {!toolEnabled ? (
-        <p className="text-xs text-amber-700 dark:text-amber-400">
-          {t("networkProbe.caps.toolDisabled", {
-            tool: "dnssec",
-            status: toolStatus ?? "unsupported",
-          })}
-        </p>
-      ) : null}
-      <div className="flex flex-wrap items-end gap-2">
-        <div className="min-w-[12rem] flex-1 space-y-1">
-          <label className="text-xs font-medium" htmlFor="np-dnssec-domain">
-            {t("networkProbe.dnssec.domain")}
-          </label>
-          <Input
-            id="np-dnssec-domain"
-            value={domain}
-            onChange={(e) => setDomain(e.target.value)}
-            autoComplete="off"
-            disabled={loading}
-          />
-        </div>
-        <CommandHint hint={t("networkProbe.cmd.dnssec", { domain: domain.trim() || "…" })}>
-          <Button
-            type="button"
-            disabled={loading || !toolEnabled || !domain.trim()}
-            onClick={() => onRun(domain.trim())}
-          >
-            {loading ? t("networkProbe.dnssec.running") : t("networkProbe.dnssec.run")}
-          </Button>
-        </CommandHint>
-      </div>
+    <ProbePanelShell
+      toolbar={
+        <>
+          <p className="text-muted-foreground text-sm">{t("networkProbe.dnssec.hint")}</p>
+          {!toolEnabled ? (
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              {t("networkProbe.caps.toolDisabled", {
+                tool: "dnssec",
+                status: toolStatus ?? "unsupported",
+              })}
+            </p>
+          ) : null}
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="min-w-[12rem] flex-1 space-y-1">
+              <label className="text-xs font-medium" htmlFor="np-dnssec-domain">
+                {t("networkProbe.dnssec.domain")}
+              </label>
+              <Input
+                id="np-dnssec-domain"
+                value={domain}
+                onChange={(e) => setDomain(e.target.value)}
+                autoComplete="off"
+                disabled={loading}
+              />
+            </div>
+            <CommandHint hint={t("networkProbe.cmd.dnssec", { domain: domain.trim() || "…" })}>
+              <Button
+                type="button"
+                disabled={loading || !toolEnabled || !domain.trim()}
+                onClick={() => onRun(domain.trim())}
+              >
+                {loading ? t("networkProbe.dnssec.running") : t("networkProbe.dnssec.run")}
+              </Button>
+            </CommandHint>
+          </div>
+        </>
+      }
+    >
       {result ? (
         <div className="bg-muted/40 space-y-2 rounded-lg border px-3 py-2 text-sm">
           <div>
@@ -88,6 +94,6 @@ export function DnsSecPanel({ loading, result, toolEnabled, toolStatus, onRun }:
           <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
         </div>
       ) : null}
-    </div>
+    </ProbePanelShell>
   )
 }

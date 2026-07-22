@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import type { TracerouteHop, TracerouteResult } from "@/lib/tauri/types/network-probe"
 import { cn } from "@/lib/utils"
 
@@ -41,81 +42,85 @@ export function TraceroutePanel({
     : null
 
   return (
-    <div className="space-y-4">
-      <p className="text-muted-foreground text-sm">{t("networkProbe.traceroute.hint")}</p>
-      {!toolEnabled ? (
-        <p className="text-xs text-amber-700 dark:text-amber-400">
-          {t("networkProbe.caps.toolDisabled", {
-            tool: "traceroute",
-            status: toolStatus ?? "unsupported",
-          })}
-        </p>
-      ) : null}
-      <div className="flex flex-wrap items-end gap-2">
-        <div className="min-w-[12rem] flex-1 space-y-1">
-          <label className="text-xs font-medium" htmlFor="np-tr-target">
-            {t("networkProbe.traceroute.target")}
-          </label>
-          <Input
-            id="np-tr-target"
-            value={target}
-            onChange={(e) => setTarget(e.target.value)}
-            autoComplete="off"
-            disabled={loading}
-          />
-        </div>
-        <div className="w-20 space-y-1">
-          <label className="text-xs font-medium" htmlFor="np-tr-ttl">
-            {t("networkProbe.traceroute.maxTtl")}
-          </label>
-          <Input
-            id="np-tr-ttl"
-            value={maxTtl}
-            onChange={(e) => setMaxTtl(e.target.value)}
-            inputMode="numeric"
-            autoComplete="off"
-            disabled={loading}
-          />
-        </div>
-        <div className="w-20 space-y-1">
-          <label className="text-xs font-medium" htmlFor="np-tr-rounds">
-            {t("networkProbe.traceroute.rounds")}
-          </label>
-          <Input
-            id="np-tr-rounds"
-            value={rounds}
-            onChange={(e) => setRounds(e.target.value)}
-            inputMode="numeric"
-            autoComplete="off"
-            disabled={loading}
-          />
-        </div>
-        <CommandHint
-          hint={t("networkProbe.cmd.traceroute", {
-            target: target.trim() || "…",
-            maxTtl: maxTtl || "…",
-            rounds: rounds || "…",
-          })}
-        >
-          <Button
-            type="button"
-            disabled={
-              loading || !toolEnabled || !target.trim() || !Number(maxTtl) || !Number(rounds)
-            }
-            onClick={() => onRun(target, Number(maxTtl), Number(rounds))}
-          >
-            {loading ? t("networkProbe.traceroute.running") : t("networkProbe.traceroute.run")}
-          </Button>
-        </CommandHint>
-        {canCancel ? (
-          <CommandHint hint={t("networkProbe.cmd.cancelScan")}>
-            <Button type="button" variant="outline" onClick={onCancel}>
-              {t("networkProbe.traceroute.cancel")}
-            </Button>
-          </CommandHint>
-        ) : null}
-      </div>
-
+    <ProbePanelShell
+      toolbar={
+        <>
+          <p className="text-muted-foreground text-sm">{t("networkProbe.traceroute.hint")}</p>
+          {!toolEnabled ? (
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              {t("networkProbe.caps.toolDisabled", {
+                tool: "traceroute",
+                status: toolStatus ?? "unsupported",
+              })}
+            </p>
+          ) : null}
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="min-w-[12rem] flex-1 space-y-1">
+              <label className="text-xs font-medium" htmlFor="np-tr-target">
+                {t("networkProbe.traceroute.target")}
+              </label>
+              <Input
+                id="np-tr-target"
+                value={target}
+                onChange={(e) => setTarget(e.target.value)}
+                autoComplete="off"
+                disabled={loading}
+              />
+            </div>
+            <div className="w-20 space-y-1">
+              <label className="text-xs font-medium" htmlFor="np-tr-ttl">
+                {t("networkProbe.traceroute.maxTtl")}
+              </label>
+              <Input
+                id="np-tr-ttl"
+                value={maxTtl}
+                onChange={(e) => setMaxTtl(e.target.value)}
+                inputMode="numeric"
+                autoComplete="off"
+                disabled={loading}
+              />
+            </div>
+            <div className="w-20 space-y-1">
+              <label className="text-xs font-medium" htmlFor="np-tr-rounds">
+                {t("networkProbe.traceroute.rounds")}
+              </label>
+              <Input
+                id="np-tr-rounds"
+                value={rounds}
+                onChange={(e) => setRounds(e.target.value)}
+                inputMode="numeric"
+                autoComplete="off"
+                disabled={loading}
+              />
+            </div>
+            <CommandHint
+              hint={t("networkProbe.cmd.traceroute", {
+                target: target.trim() || "…",
+                maxTtl: maxTtl || "…",
+                rounds: rounds || "…",
+              })}
+            >
+              <Button
+                type="button"
+                disabled={
+                  loading || !toolEnabled || !target.trim() || !Number(maxTtl) || !Number(rounds)
+                }
+                onClick={() => onRun(target, Number(maxTtl), Number(rounds))}
+              >
+                {loading ? t("networkProbe.traceroute.running") : t("networkProbe.traceroute.run")}
+              </Button>
+            </CommandHint>
+            {canCancel ? (
+              <CommandHint hint={t("networkProbe.cmd.cancelScan")}>
+                <Button type="button" variant="outline" onClick={onCancel}>
+                  {t("networkProbe.traceroute.cancel")}
+                </Button>
+              </CommandHint>
+            ) : null}
+          </div>
+        </>
+      }
+    >
       {result ? (
         <div className="text-muted-foreground space-y-1 text-xs">
           <div>
@@ -204,6 +209,6 @@ export function TraceroutePanel({
       {result?.commandHint ? (
         <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
       ) : null}
-    </div>
+    </ProbePanelShell>
   )
 }

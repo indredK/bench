@@ -4,6 +4,7 @@
 import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
+import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import type { LanDiscoveryResult } from "@/lib/tauri/types/network-probe"
 
 interface ArpPanelProps {
@@ -38,39 +39,44 @@ export function ArpPanel({
           : "networkProbe.arp.empty"
 
   return (
-    <div className="space-y-4">
-      <p className="text-muted-foreground text-sm">{t("networkProbe.arp.hint")}</p>
-      {!toolEnabled ? (
-        <p className="text-xs text-amber-700 dark:text-amber-400">
-          {t("networkProbe.caps.toolDisabled", {
-            tool: "arp",
-            status: toolStatus ?? "unsupported",
-          })}
-        </p>
-      ) : (
-        <p className="text-xs text-amber-700 dark:text-amber-400">
-          {t("networkProbe.arp.degradedHint")}
-        </p>
-      )}
-      <div className="flex flex-wrap gap-2">
-        <CommandHint hint={t("networkProbe.cmd.arp")}>
-          <Button type="button" disabled={loading || !toolEnabled} onClick={onRun}>
-            {loading ? t("networkProbe.arp.running") : t("networkProbe.arp.run")}
-          </Button>
-        </CommandHint>
-        {canCancel && onCancel ? (
-          <CommandHint hint={t("networkProbe.cmd.cancelScan")}>
-            <Button type="button" variant="outline" onClick={onCancel}>
-              {t("common.cancel")}
-            </Button>
-          </CommandHint>
-        ) : null}
-        {onOpenSettings ? (
-          <Button type="button" variant="outline" onClick={onOpenSettings}>
-            {t("networkProbe.arp.openSettings")}
-          </Button>
-        ) : null}
-      </div>
+    <ProbePanelShell
+      toolbar={
+        <>
+          <p className="text-muted-foreground text-sm">{t("networkProbe.arp.hint")}</p>
+          {!toolEnabled ? (
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              {t("networkProbe.caps.toolDisabled", {
+                tool: "arp",
+                status: toolStatus ?? "unsupported",
+              })}
+            </p>
+          ) : (
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              {t("networkProbe.arp.degradedHint")}
+            </p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <CommandHint hint={t("networkProbe.cmd.arp")}>
+              <Button type="button" disabled={loading || !toolEnabled} onClick={onRun}>
+                {loading ? t("networkProbe.arp.running") : t("networkProbe.arp.run")}
+              </Button>
+            </CommandHint>
+            {canCancel && onCancel ? (
+              <CommandHint hint={t("networkProbe.cmd.cancelScan")}>
+                <Button type="button" variant="outline" onClick={onCancel}>
+                  {t("common.cancel")}
+                </Button>
+              </CommandHint>
+            ) : null}
+            {onOpenSettings ? (
+              <Button type="button" variant="outline" onClick={onOpenSettings}>
+                {t("networkProbe.arp.openSettings")}
+              </Button>
+            ) : null}
+          </div>
+        </>
+      }
+    >
       {result ? (
         <div className="space-y-2">
           {result.cidr ? (
@@ -103,7 +109,7 @@ export function ArpPanel({
               ) : null}
             </div>
           ) : (
-            <ul className="max-h-72 space-y-1 overflow-auto font-mono text-xs">
+            <ul className="space-y-1 font-mono text-xs">
               {result.neighbors.map((n) => (
                 <li key={n.ip}>
                   {n.ip}
@@ -117,6 +123,6 @@ export function ArpPanel({
           <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
         </div>
       ) : null}
-    </div>
+    </ProbePanelShell>
   )
 }

@@ -35,6 +35,38 @@ pub fn builtin_defaults() -> AppResult<NetworkProbeDefaultsCatalog> {
             site("goproxy", "https://proxy.golang.org", "http"),
         ],
     );
+    // Test L1 · 测试官网 — common foreign + domestic sites (HTTP reachability).
+    site_packs.insert(
+        "official".into(),
+        vec![
+            // Domestic / CN-friendly
+            site("baidu", "https://www.baidu.com", "http"),
+            site("qq", "https://www.qq.com", "http"),
+            site("taobao", "https://www.taobao.com", "http"),
+            site("jd", "https://www.jd.com", "http"),
+            site("bilibili", "https://www.bilibili.com", "http"),
+            site("weibo", "https://weibo.com", "http"),
+            site("zhihu", "https://www.zhihu.com", "http"),
+            site("douyin", "https://www.douyin.com", "http"),
+            site("163", "https://www.163.com", "http"),
+            site("aliyun", "https://www.aliyun.com", "http"),
+            // Foreign / global
+            site("google", "https://www.google.com", "http"),
+            site("github", "https://github.com", "http"),
+            site("youtube", "https://www.youtube.com", "http"),
+            site("x", "https://x.com", "http"),
+            site("instagram", "https://www.instagram.com", "http"),
+            site("facebook", "https://www.facebook.com", "http"),
+            site("wikipedia", "https://www.wikipedia.org", "http"),
+            site("microsoft", "https://www.microsoft.com", "http"),
+            site("apple", "https://www.apple.com", "http"),
+            site("amazon", "https://www.amazon.com", "http"),
+            site("cloudflare", "https://www.cloudflare.com", "http"),
+            site("openai", "https://chatgpt.com", "http"),
+            site("reddit", "https://www.reddit.com", "http"),
+            site("stackoverflow", "https://stackoverflow.com", "http"),
+        ],
+    );
 
     Ok(NetworkProbeDefaultsCatalog {
         schema_version: 1,
@@ -205,6 +237,9 @@ mod tests {
         let d = builtin_defaults().expect("defaults");
         assert!(d.site_packs.contains_key("global"));
         assert!(d.site_packs.contains_key("cn-friendly"));
+        assert!(d.site_packs.contains_key("dev"));
+        assert!(d.site_packs.contains_key("official"));
+        assert!(d.site_packs.get("official").map(|v| v.len()).unwrap_or(0) >= 16);
     }
 
     #[test]
