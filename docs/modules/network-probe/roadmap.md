@@ -32,6 +32,8 @@
 - 前端 L1×5 壳（基础 / 站点延迟 / 测试 / 安全 / 发现）+ 面板可用；安全/发现为 ComingSoon + Post 徽标
 - 场景：MVP 档（S-FA / S-TT / S-X 除 S-X-05）可演示
 - 验证链：`lint:fe` + `test:critical` + `clippy -D warnings` 通过
+- 体检：VPN/utun 默认路由常无 `gateway:` 行 → 不再误报「缺少默认路由 / 局域网网关不可达」（`route.default` 认 interface；`reach.gateway` 隧道无 next-hop 时 skip）
+- 体检：识别 **DNS Fake-IP（198.18/15）** + 本地系统代理；`dns.fake_ip` warn + Advisor；`reach.public_name` 在 Fake-IP 下跳过 ICMP
 
 ---
 

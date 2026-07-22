@@ -116,13 +116,14 @@ macOS 允许非 root 使用 `SOCK_DGRAM` + `IPPROTO_ICMP`（与系统 `ping(8)` 
 
 ```text
 并行组建议（MVP）：
-  G1: link.* + addr.* + route.default + dns.servers + hosts + proxy + vpn + firewall
+  G1: link.* + addr.* + route.default + dns.servers + dns.fake_ip + hosts + proxy + vpn + firewall
   G2: reach.gateway ∥ reach.public_ip ∥ reach.public_name
   G3: captive ∥ public_egress ∥ mtu（可用户取消）
 合成: diff.dns_vs_ip ← G2 结果（§5.4.2）
 结束: advisor_rules.analyze(items)
 ```
 
+- Fake-IP（`dns.fake_ip`）：系统 `getaddrinfo` / TUN 落在 `198.18.0.0/15` 时 warn；`reach.public_name` 跳过 ICMP。
 - 流式：`network-probe://health-item`，每项含 `key/status/evidence/commandHint`。
 - `CancellationToken`：取消后不再 emit；`cancelScan` 幂等。
 - 阻塞 I/O：`spawn_blocking` 或独立 tokio 任务，不堵 IPC async 主路径。

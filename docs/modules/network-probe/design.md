@@ -308,28 +308,29 @@ L0→L3 编排，部分并行；`healthEvent` 流式；`CancellationToken`；结
 
 #### 5.4.1 L0–L3 检查项清单（MVP 强制）
 
-| 层  | key（稳定 ID）        | 检查内容                                               | 失败时 Advisor 方向                  |
-| --- | --------------------- | ------------------------------------------------------ | ------------------------------------ |
-| L0  | `link.iface`          | 活动接口存在；up/down                                  | 检查网线 / Wi‑Fi 开关 / 飞行模式     |
-| L0  | `link.wifi_or_wired`  | 介质类型；Wi‑Fi 时 SSID（可得则含信号）                | 连对网络 / 靠近 AP                   |
-| L1  | `addr.ipv4`           | 有有效 IPv4（非仅 APIPA 若期望局域网）                 | 续租 DHCP / 检查静态配置             |
-| L1  | `addr.ipv6`           | IPv6 地址状态（无则 warn，非必然 fail）                | 见双栈专项                           |
-| L1  | `addr.dhcp_or_static` | 配置来源可读则标注                                     | —                                    |
-| L1  | `route.default`       | **默认路由存在**；默认网关地址                         | 无默认路由 → 续 DHCP / 查 VPN 抢路由 |
-| L1  | `dns.servers`         | 系统 DNS 服务器列表非空                                | 切换公共 DNS                         |
-| L1  | `dns.resolve_name`    | 解析固定知名域名（如 `cloudflare.com`）                | 与下行对照区分 DNS                   |
-| L1  | `hosts.override`      | **hosts 基础冲突**：常见域被指到 `127.0.0.1`/内网/异常 | 提示编辑 hosts（不自动改）           |
-| L1  | `proxy.system`        | 系统代理 / PAC 是否启用                                | 关闭错误代理或修 PAC                 |
-| L1  | `vpn.tunnel`          | utun / 常见 VPN 接口与默认路由是否经隧道               | 断开 VPN 对比                        |
-| L1  | `firewall.status`     | **系统防火墙只读状态**（平台可探测时）                 | 提示检查防火墙，**不改**设置         |
-| L2  | `svc.network`         | 平台可探测范围内网络相关服务异常（无则 skip）          | 重置网络栈（高危）                   |
-| L3  | `reach.gateway`       | **ping 默认网关**                                      | 局域网/路由问题                      |
-| L3  | `reach.public_ip`     | **ping 公共 IP**（如 `1.1.1.1`，不经 DNS）             | 上行/运营商/防火墙                   |
-| L3  | `reach.public_name`   | **ping 或 HTTP 知名域名**（经 DNS）                    | 与上两项对照                         |
-| L3  | `diff.dns_vs_ip`      | **鉴别结论（合成项）**：见 §5.4.2                      | 直接给出 DNS 坏 / 链路坏 / 代理坏等  |
-| L3  | `reach.captive`       | Captive Portal                                         | 打开门户登录                         |
-| L3  | `reach.public_egress` | 公网出口 IP（+ASN 可选）                               | 核对是否预期出口                     |
-| L3  | `reach.mtu`           | MTU / PMTUD（可并行或用户触发）                        | VPN/隧道调整 MTU                     |
+| 层  | key（稳定 ID）        | 检查内容                                                                                      | 失败时 Advisor 方向                                        |
+| --- | --------------------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| L0  | `link.iface`          | 活动接口存在；up/down                                                                         | 检查网线 / Wi‑Fi 开关 / 飞行模式                           |
+| L0  | `link.wifi_or_wired`  | 介质类型；Wi‑Fi 时 SSID（可得则含信号）                                                       | 连对网络 / 靠近 AP                                         |
+| L1  | `addr.ipv4`           | 有有效 IPv4（非仅 APIPA 若期望局域网）                                                        | 续租 DHCP / 检查静态配置                                   |
+| L1  | `addr.ipv6`           | IPv6 地址状态（无则 warn，非必然 fail）                                                       | 见双栈专项                                                 |
+| L1  | `addr.dhcp_or_static` | 配置来源可读则标注                                                                            | —                                                          |
+| L1  | `route.default`       | **默认路由存在**（`gateway:` **或** `interface:`）；VPN/utun 常无 next-hop IP，仍算有默认路由 | 真无默认路由 → 续 DHCP / 查路由表；经隧道则见 `vpn.tunnel` |
+| L1  | `dns.servers`         | 系统 DNS 服务器列表非空                                                                       | 切换公共 DNS                                               |
+| L1  | `dns.resolve_name`    | 解析固定知名域名（如 `cloudflare.com`）                                                       | 与下行对照区分 DNS                                         |
+| L1  | `dns.fake_ip`         | 系统解析/TUN 地址是否落在 **198.18.0.0/15**（Clash/Surge Fake-IP）                            | 勿信对本机 ping；看 HTTPS/站点延迟；检查本地代理节点       |
+| L1  | `hosts.override`      | **hosts 基础冲突**：常见域被指到 `127.0.0.1`/内网/异常                                        | 提示编辑 hosts（不自动改）                                 |
+| L1  | `proxy.system`        | 系统代理 / PAC 是否启用                                                                       | 关闭错误代理或修 PAC                                       |
+| L1  | `vpn.tunnel`          | utun / 常见 VPN 接口与默认路由是否经隧道                                                      | 断开 VPN 对比                                              |
+| L1  | `firewall.status`     | **系统防火墙只读状态**（平台可探测时）                                                        | 提示检查防火墙，**不改**设置                               |
+| L2  | `svc.network`         | 平台可探测范围内网络相关服务异常（无则 skip）                                                 | 重置网络栈（高危）                                         |
+| L3  | `reach.gateway`       | **ping 默认网关**；默认经隧道且无 next-hop 时 **skip**（非局域网 fail）                       | 网关 ICMP fail → 局域网/路由；skip → 看公网项              |
+| L3  | `reach.public_ip`     | **ping 公共 IP**（如 `1.1.1.1`，不经 DNS）                                                    | 上行/运营商/防火墙                                         |
+| L3  | `reach.public_name`   | **HTTP 优先**；无 Fake-IP 时才可用 ICMP 域名；Fake-IP 下跳过 ICMP                             | 与上两项对照；Fake-IP 时 ICMP 不可信                       |
+| L3  | `diff.dns_vs_ip`      | **鉴别结论（合成项）**：见 §5.4.2                                                             | 直接给出 DNS 坏 / 链路坏 / 代理坏等                        |
+| L3  | `reach.captive`       | Captive Portal                                                                                | 打开门户登录                                               |
+| L3  | `reach.public_egress` | 公网出口 IP（+ASN 可选）                                                                      | 核对是否预期出口                                           |
+| L3  | `reach.mtu`           | MTU / PMTUD（可并行或用户触发）                                                               | VPN/隧道调整 MTU                                           |
 
 > `key` 进入 `HealthCheckItem.key` 与 Advisor 规则 ID，**勿随意改名**。平台不可探测的项标 `status: skip` + 原因，不得伪造成功。
 
@@ -337,12 +338,12 @@ L0→L3 编排，部分并行；`healthEvent` 流式；`CancellationToken`；结
 
 体检必须产出可机读对照（供 Advisor）：
 
-| 网关 ping | 公共 IP ping | 域名 ping/HTTP | 结论方向                                                     |
-| :-------: | :----------: | :------------: | ------------------------------------------------------------ |
-|   fail    |      —       |       —        | 局域网/网关/链路                                             |
-|    ok     |     fail     |      fail      | 上行断或防火墙拦外网                                         |
-|    ok     |      ok      |      fail      | **DNS 或 hosts 劫持**（优先查 `dns.*` / `hosts.override`）   |
-|    ok     |      ok      |       ok       | 基础连通正常；若用户仍打不开站 → Captive/代理/SNI/目标站问题 |
+| 网关 ping | 公共 IP ping | 域名 ping/HTTP | 结论方向                                                            |
+| :-------: | :----------: | :------------: | ------------------------------------------------------------------- |
+|   fail    |      —       |       —        | 局域网/网关/链路                                                    |
+|  skip/ok  |     fail     |      fail      | 上行断或防火墙拦外网（`skip` = 隧道默认无 next-hop，非局域网 fail） |
+|  skip/ok  |      ok      |      fail      | **DNS 或 hosts 劫持**（优先查 `dns.*` / `hosts.override`）          |
+|  skip/ok  |      ok      |       ok       | 基础连通正常；若用户仍打不开站 → Captive/代理/SNI/目标站问题        |
 
 ### 5.5「上不了网」专项（MVP-B）
 

@@ -8,6 +8,7 @@ mod defaults;
 mod discovery;
 mod dns;
 mod dnssec;
+mod fake_ip;
 mod fix;
 mod globalping;
 mod health;

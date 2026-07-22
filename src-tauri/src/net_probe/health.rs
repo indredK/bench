@@ -95,6 +95,9 @@ pub async fn run_health_scan<R: Runtime>(
         push_or_stop!(check_dns_resolve_name().await);
     }
     if !cancelled {
+        push_or_stop!(check_dns_fake_ip(summary.as_ref(), &proxy_vpn).await);
+    }
+    if !cancelled {
         push_or_stop!(check_hosts_override(&hosts));
     }
     if !cancelled {
@@ -117,11 +120,12 @@ pub async fn run_health_scan<R: Runtime>(
         .as_ref()
         .and_then(|s| s.gateway.clone())
         .or_else(|| route.as_ref().and_then(|r| r.gateway.clone()));
+    let route_iface = route.as_ref().and_then(|r| r.interface.clone());
     let mut reach_gw = None;
     let mut reach_ip = None;
     let mut reach_name = None;
     if !cancelled {
-        let item = check_reach_gateway(gw.as_deref()).await;
+        let item = check_reach_gateway(gw.as_deref(), route_iface.as_deref()).await;
         reach_gw = Some(item.clone());
         push_or_stop!(item);
     }
@@ -353,12 +357,29 @@ fn check_route_default(
     let gw = route
         .and_then(|r| r.gateway.clone())
         .or_else(|| summary.and_then(|s| s.gateway.clone()));
+    let iface = route.and_then(|r| r.interface.clone());
     if present {
+        let mut parts = Vec::new();
+        if let Some(g) = gw {
+            parts.push(format!("gateway={g}"));
+        }
+        if let Some(i) = iface {
+            parts.push(format!("iface={i}"));
+            if super::summary::is_tunnel_iface(&i)
+                && route.and_then(|r| r.gateway.as_ref()).is_none()
+            {
+                parts.push("VPN/tunnel default (no next-hop IP)".into());
+            }
+        }
         item(
             "route.default",
             "L1",
             "pass",
-            Some(format!("gateway={}", gw.unwrap_or_else(|| "?".into()))),
+            Some(if parts.is_empty() {
+                "default route present".into()
+            } else {
+                parts.join("; ")
+            }),
             Some("getDefaultRoute()".into()),
         )
     } else {
@@ -465,10 +486,36 @@ struct ProxyVpnInfo {
     proxy_enabled: bool,
     #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     proxy_detail: String,
+    /// HTTP(S)/SOCKS proxy points at loopback (local client like Clash / MacPacket).
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    proxy_loopback: bool,
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    proxy_endpoint: Option<String>,
     #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     vpn_ifaces: Vec<String>,
     #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     default_via_tunnel: bool,
+}
+
+fn scutil_proxy_value(text: &str, key: &str) -> Option<String> {
+    let prefix = format!("{key} : ");
+    for line in text.lines() {
+        let line = line.trim();
+        if let Some(rest) = line.strip_prefix(&prefix) {
+            let v = rest.trim();
+            if !v.is_empty() {
+                return Some(v.to_string());
+            }
+        }
+    }
+    None
+}
+
+fn is_loopback_host(host: &str) -> bool {
+    matches!(
+        host.trim().to_ascii_lowercase().as_str(),
+        "127.0.0.1" | "::1" | "localhost"
+    )
 }
 
 fn collect_proxy_vpn() -> ProxyVpnInfo {
@@ -483,15 +530,57 @@ fn collect_proxy_vpn() -> ProxyVpnInfo {
             let socks = text.contains("SOCKSEnable : 1");
             let pac = text.contains("ProxyAutoConfigEnable : 1");
             info.proxy_enabled = http || https || socks || pac;
-            info.proxy_detail = format!("HTTP={http} HTTPS={https} SOCKS={socks} PAC={pac}");
+
+            let http_host = scutil_proxy_value(&text, "HTTPProxy");
+            let https_host = scutil_proxy_value(&text, "HTTPSProxy");
+            let socks_host = scutil_proxy_value(&text, "SOCKSProxy");
+            let http_port = scutil_proxy_value(&text, "HTTPPort");
+            let https_port = scutil_proxy_value(&text, "HTTPSPort");
+            let socks_port = scutil_proxy_value(&text, "SOCKSPort");
+
+            let endpoint = if https && https_host.is_some() {
+                Some(format!(
+                    "{}:{}",
+                    https_host.as_deref().unwrap_or("?"),
+                    https_port.as_deref().unwrap_or("?")
+                ))
+            } else if http && http_host.is_some() {
+                Some(format!(
+                    "{}:{}",
+                    http_host.as_deref().unwrap_or("?"),
+                    http_port.as_deref().unwrap_or("?")
+                ))
+            } else if socks && socks_host.is_some() {
+                Some(format!(
+                    "socks://{}:{}",
+                    socks_host.as_deref().unwrap_or("?"),
+                    socks_port.as_deref().unwrap_or("?")
+                ))
+            } else {
+                None
+            };
+            info.proxy_loopback = [
+                http_host.as_deref(),
+                https_host.as_deref(),
+                socks_host.as_deref(),
+            ]
+            .into_iter()
+            .flatten()
+            .any(is_loopback_host);
+            info.proxy_endpoint = endpoint;
+            info.proxy_detail = match &info.proxy_endpoint {
+                Some(ep) if info.proxy_loopback => {
+                    format!("HTTP={http} HTTPS={https} SOCKS={socks} PAC={pac}; local={ep}")
+                }
+                Some(ep) => {
+                    format!("HTTP={http} HTTPS={https} SOCKS={socks} PAC={pac}; endpoint={ep}")
+                }
+                None => format!("HTTP={http} HTTPS={https} SOCKS={socks} PAC={pac}"),
+            };
         }
         if let Ok(ifaces) = if_addrs::get_if_addrs() {
             for iface in ifaces {
-                let n = iface.name.to_ascii_lowercase();
-                if (n.starts_with("utun")
-                    || n.starts_with("ipsec")
-                    || n.starts_with("ppp")
-                    || n.starts_with("wg"))
+                if super::summary::is_tunnel_iface(&iface.name)
                     && !info.vpn_ifaces.contains(&iface.name)
                 {
                     info.vpn_ifaces.push(iface.name);
@@ -500,11 +589,7 @@ fn collect_proxy_vpn() -> ProxyVpnInfo {
         }
         if let Ok(route) = super::summary::collect_default_route() {
             if let Some(iface) = route.interface {
-                let lower = iface.to_ascii_lowercase();
-                info.default_via_tunnel = lower.starts_with("utun")
-                    || lower.starts_with("ipsec")
-                    || lower.starts_with("ppp")
-                    || lower.starts_with("wg");
+                info.default_via_tunnel = super::summary::is_tunnel_iface(&iface);
             }
         }
         info
@@ -530,11 +615,19 @@ fn check_proxy_system(info: &ProxyVpnInfo) -> HealthCheckItem {
     #[cfg(target_os = "macos")]
     {
         if info.proxy_enabled {
+            let detail = if info.proxy_loopback {
+                format!(
+                    "Local system proxy ({}); real site latency is via this client, not ICMP",
+                    info.proxy_detail
+                )
+            } else {
+                format!("System proxy enabled ({})", info.proxy_detail)
+            };
             item(
                 "proxy.system",
                 "L1",
                 "warn",
-                Some(format!("System proxy enabled ({})", info.proxy_detail)),
+                Some(detail),
                 Some("scutil --proxy".into()),
             )
         } else {
@@ -547,6 +640,54 @@ fn check_proxy_system(info: &ProxyVpnInfo) -> HealthCheckItem {
             )
         }
     }
+}
+
+async fn check_dns_fake_ip(
+    summary: Option<&LocalNetworkSummary>,
+    proxy: &ProxyVpnInfo,
+) -> HealthCheckItem {
+    let hint =
+        "system lookup (getaddrinfo) for github.com/cloudflare.com + iface 198.18/15".to_string();
+    let mut hits: Vec<String> = Vec::new();
+
+    if let Some(s) = summary {
+        for iface in &s.interfaces {
+            for addr in &iface.addrs {
+                if super::fake_ip::is_fake_ip_str(addr) {
+                    hits.push(format!("{addr}@{}", iface.name));
+                }
+            }
+        }
+    }
+
+    for host in ["github.com", "cloudflare.com", "www.apple.com"] {
+        if let Some(ip) = super::fake_ip::host_resolves_to_fake_ip(host).await {
+            hits.push(format!("{host}->{ip}"));
+        }
+    }
+
+    if hits.is_empty() {
+        return item(
+            "dns.fake_ip",
+            "L1",
+            "pass",
+            Some("No Fake-IP (198.18/15) answers or TUN pool addrs".into()),
+            Some(hint),
+        );
+    }
+
+    let mut detail = format!(
+        "Fake-IP / enhanced mode likely: {} — ICMP RTT to these names is local TUN, not Internet",
+        hits.into_iter().take(6).collect::<Vec<_>>().join("; ")
+    );
+    if proxy.proxy_loopback {
+        if let Some(ep) = &proxy.proxy_endpoint {
+            detail.push_str(&format!("; local proxy {ep}"));
+        } else {
+            detail.push_str("; local system proxy on");
+        }
+    }
+    item("dns.fake_ip", "L1", "warn", Some(detail), Some(hint))
 }
 
 fn check_vpn_tunnel(
@@ -629,40 +770,54 @@ fn check_svc_network() -> HealthCheckItem {
     )
 }
 
-async fn check_reach_gateway(gateway: Option<&str>) -> HealthCheckItem {
-    let Some(gw) = gateway else {
+async fn check_reach_gateway(gateway: Option<&str>, route_iface: Option<&str>) -> HealthCheckItem {
+    if let Some(gw) = gateway {
+        let hint = format!("pingHost(local, '{gw}', {{count:1}})");
+        return match super::ping::ping_host(gw.to_string(), Some(1), Some(200)).await {
+            Ok(r) if r.packets_received > 0 => item(
+                "reach.gateway",
+                "L3",
+                "pass",
+                Some(format!("rtt≈{:.1}ms", r.avg_rtt_ms.unwrap_or(0.0))),
+                Some(hint),
+            ),
+            Ok(r) => item(
+                "reach.gateway",
+                "L3",
+                "fail",
+                Some(format!("loss={:.0}%", r.loss_percent)),
+                Some(hint),
+            ),
+            Err(e) => item(
+                "reach.gateway",
+                "L3",
+                "fail",
+                Some(e.to_string()),
+                Some(hint),
+            ),
+        };
+    }
+
+    // VPN/utun defaults often have interface but no next-hop IP — not a missing LAN gateway.
+    if let Some(iface) = route_iface.filter(|i| super::summary::is_tunnel_iface(i)) {
         return item(
             "reach.gateway",
             "L3",
-            "fail",
-            Some("No gateway to ping".into()),
-            Some("pingHost(local, <gateway>)".into()),
+            "skip",
+            Some(format!(
+                "Default via tunnel iface {iface}; no IPv4 next-hop to ICMP"
+            )),
+            Some("getDefaultRoute()".into()),
         );
-    };
-    let hint = format!("pingHost(local, '{gw}', {{count:1}})");
-    match super::ping::ping_host(gw.to_string(), Some(1), Some(200)).await {
-        Ok(r) if r.packets_received > 0 => item(
-            "reach.gateway",
-            "L3",
-            "pass",
-            Some(format!("rtt≈{:.1}ms", r.avg_rtt_ms.unwrap_or(0.0))),
-            Some(hint),
-        ),
-        Ok(r) => item(
-            "reach.gateway",
-            "L3",
-            "fail",
-            Some(format!("loss={:.0}%", r.loss_percent)),
-            Some(hint),
-        ),
-        Err(e) => item(
-            "reach.gateway",
-            "L3",
-            "fail",
-            Some(e.to_string()),
-            Some(hint),
-        ),
     }
+
+    item(
+        "reach.gateway",
+        "L3",
+        "fail",
+        Some("No gateway to ping".into()),
+        Some("pingHost(local, <gateway>)".into()),
+    )
 }
 
 async fn check_reach_public_ip() -> HealthCheckItem {
@@ -695,32 +850,36 @@ async fn check_reach_public_ip() -> HealthCheckItem {
 
 async fn check_reach_public_name() -> HealthCheckItem {
     // Prefer HTTP on domain so we still get signal when ICMP is blocked.
+    // Under Fake-IP, ICMP only hits the local TUN — never treat that as Internet OK.
     let hint = "probeTarget(local, 'https://cloudflare.com') / ping cloudflare.com".to_string();
-    let ping = super::ping::ping_host("cloudflare.com".into(), Some(1), Some(200)).await;
-    if let Ok(r) = &ping {
-        if r.packets_received > 0 {
-            return item(
-                "reach.public_name",
-                "L3",
-                "pass",
-                Some(format!("ICMP ok rtt≈{:.1}ms", r.avg_rtt_ms.unwrap_or(0.0))),
-                Some(hint),
-            );
+    let fake = super::fake_ip::host_resolves_to_fake_ip("cloudflare.com").await;
+    if fake.is_none() {
+        let ping = super::ping::ping_host("cloudflare.com".into(), Some(1), Some(200)).await;
+        if let Ok(r) = &ping {
+            if r.packets_received > 0 {
+                return item(
+                    "reach.public_name",
+                    "L3",
+                    "pass",
+                    Some(format!("ICMP ok rtt≈{:.1}ms", r.avg_rtt_ms.unwrap_or(0.0))),
+                    Some(hint),
+                );
+            }
         }
     }
     let (http, _) = super::probe::probe_http_target("https://cloudflare.com").await;
     match http {
-        Some(h) if h.ok => item(
-            "reach.public_name",
-            "L3",
-            "pass",
-            Some(format!(
+        Some(h) if h.ok => {
+            let mut detail = format!(
                 "HTTP {} TTFB≈{:.0}ms",
                 h.status.unwrap_or(0),
                 h.ttfb_ms.unwrap_or(0.0)
-            )),
-            Some(hint),
-        ),
+            );
+            if let Some(ip) = fake {
+                detail.push_str(&format!(" (Fake-IP {ip}; ICMP skipped)"));
+            }
+            item("reach.public_name", "L3", "pass", Some(detail), Some(hint))
+        }
         Some(h) => item(
             "reach.public_name",
             "L3",
@@ -732,7 +891,11 @@ async fn check_reach_public_name() -> HealthCheckItem {
             "reach.public_name",
             "L3",
             "fail",
-            Some("ICMP and HTTP both failed".into()),
+            Some(if fake.is_some() {
+                "HTTP failed under Fake-IP (ICMP not authoritative)".into()
+            } else {
+                "ICMP and HTTP both failed".into()
+            }),
             Some(hint),
         ),
     }
@@ -746,22 +909,28 @@ fn synthesize_dns_vs_ip(
     let g = gw.status.as_str();
     let p = ip.status.as_str();
     let n = name.status.as_str();
-    let (status, detail) = match (g, p, n) {
-        ("fail", _, _) => (
+    // Treat gateway skip (e.g. VPN utun without next-hop) as non-LAN-failure for synthesis.
+    let g_ok = g == "pass" || g == "skip";
+    let (status, detail) = match (g_ok, g, p, n) {
+        (false, "fail", _, _) => (
             "fail",
             "Gateway unreachable → LAN / gateway / link issue".to_string(),
         ),
-        ("pass", "fail", "fail") | ("pass", "fail", _) => (
+        (true, _, "fail", "fail") | (true, _, "fail", _) => (
             "fail",
             "Public IP unreachable → uplink / ISP / firewall".to_string(),
         ),
-        ("pass", "pass", "fail") => (
+        (true, _, "pass", "fail") => (
             "fail",
             "DNS or hosts problem (IP ok, name fail)".to_string(),
         ),
-        ("pass", "pass", "pass") => (
+        (true, _, "pass", "pass") => (
             "pass",
-            "Basic reachability OK (gateway + IP + name)".to_string(),
+            if g == "skip" {
+                "Public path OK (gateway ICMP skipped — tunnel default)".to_string()
+            } else {
+                "Basic reachability OK (gateway + IP + name)".to_string()
+            },
         ),
         _ => ("warn", format!("Mixed signals gw={g} ip={p} name={n}")),
     };
@@ -891,5 +1060,59 @@ async fn check_mtu() -> HealthCheckItem {
             Some(e.to_string()),
             Some(hint.into()),
         ),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn hi(key: &str, status: &str, detail: &str) -> HealthCheckItem {
+        item(key, "L3", status, Some(detail.into()), None)
+    }
+
+    #[test]
+    fn route_default_pass_when_tunnel_iface_only() {
+        let route = super::super::types::DefaultRouteInfo {
+            gateway: None,
+            interface: Some("utun4".into()),
+            present: true,
+        };
+        let r = check_route_default(Some(&route), None);
+        assert_eq!(r.status, "pass");
+        assert!(r.detail.as_deref().unwrap_or("").contains("utun4"));
+    }
+
+    #[test]
+    fn route_default_fail_when_absent() {
+        let route = super::super::types::DefaultRouteInfo {
+            gateway: None,
+            interface: None,
+            present: false,
+        };
+        let r = check_route_default(Some(&route), None);
+        assert_eq!(r.status, "fail");
+    }
+
+    #[test]
+    fn dns_vs_ip_tunnel_skip_plus_public_ok_is_pass() {
+        let r = synthesize_dns_vs_ip(
+            &hi("reach.gateway", "skip", "tunnel"),
+            &hi("reach.public_ip", "pass", "ok"),
+            &hi("reach.public_name", "pass", "ok"),
+        );
+        assert_eq!(r.status, "pass");
+        assert!(!r.detail.as_deref().unwrap_or("").contains("LAN"));
+    }
+
+    #[test]
+    fn dns_vs_ip_gateway_fail_still_lan() {
+        let r = synthesize_dns_vs_ip(
+            &hi("reach.gateway", "fail", "No gateway"),
+            &hi("reach.public_ip", "pass", "ok"),
+            &hi("reach.public_name", "pass", "ok"),
+        );
+        assert_eq!(r.status, "fail");
+        assert!(r.detail.as_deref().unwrap_or("").contains("LAN"));
     }
 }

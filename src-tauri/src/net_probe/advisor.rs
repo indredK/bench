@@ -103,6 +103,16 @@ pub fn build_opinions(items: &[HealthCheckItem]) -> Vec<HealthOpinion> {
         ));
     }
 
+    if status("dns.fake_ip") == "warn" {
+        out.push(opinion(
+            "fake-ip-active",
+            "warn",
+            &["dns.fake_ip", "proxy.system", "vpn.tunnel"],
+            "networkProbe.advisor.fakeIpActive.title",
+            "networkProbe.advisor.fakeIpActive.body",
+        ));
+    }
+
     if status("vpn.tunnel") == "warn" {
         out.push(opinion(
             "vpn-active",
@@ -186,5 +196,15 @@ mod tests {
         let opinions =
             build_opinions(&[item("diff.dns_vs_ip", "fail", Some("DNS or hosts issue"))]);
         assert!(opinions.iter().any(|o| o.id == "dns-vs-ip-dns"));
+    }
+
+    #[test]
+    fn fake_ip_emits_warn_opinion() {
+        let opinions = build_opinions(&[item(
+            "dns.fake_ip",
+            "warn",
+            Some("Fake-IP / enhanced mode likely"),
+        )]);
+        assert!(opinions.iter().any(|o| o.id == "fake-ip-active"));
     }
 }

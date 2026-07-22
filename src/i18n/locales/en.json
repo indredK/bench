@@ -3061,6 +3061,10 @@
         "title": "System proxy is enabled",
         "body": "A bad proxy/PAC can break browsing. Disable or fix the proxy, then rescan."
       },
+      "fakeIpActive": {
+        "title": "DNS Fake-IP / enhanced mode detected",
+        "body": "Well-known names resolve to 198.18.x (common with Clash/Surge/MacPacket). A fast local ping only hits the TUN, not real GitHub latency. Trust HTTPS/site probes, and pick a better node or split rules in the client."
+      },
       "vpnActive": {
         "title": "VPN / tunnel detected",
         "body": "Compare with VPN disconnected if connectivity is unexpected."

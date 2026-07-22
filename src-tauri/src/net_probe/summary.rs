@@ -66,29 +66,7 @@ pub fn collect_default_route() -> AppResult<DefaultRouteInfo> {
             .output()
             .map_err(|e| AppError::io(format!("route: {e}")))?;
         let text = String::from_utf8_lossy(&output.stdout);
-        let mut gateway = None;
-        let mut interface = None;
-        for line in text.lines() {
-            let line = line.trim();
-            if let Some(rest) = line.strip_prefix("gateway:") {
-                let g = rest.trim();
-                if !g.is_empty() {
-                    gateway = Some(g.to_string());
-                }
-            }
-            if let Some(rest) = line.strip_prefix("interface:") {
-                let i = rest.trim();
-                if !i.is_empty() {
-                    interface = Some(i.to_string());
-                }
-            }
-        }
-        let present = gateway.is_some();
-        Ok(DefaultRouteInfo {
-            gateway,
-            interface,
-            present,
-        })
+        Ok(parse_route_get_default(&text))
     }
     #[cfg(not(target_os = "macos"))]
     {
@@ -96,6 +74,44 @@ pub fn collect_default_route() -> AppResult<DefaultRouteInfo> {
             "Default route probe is only implemented on macOS for MVP",
         ))
     }
+}
+
+/// Parse `route -n get default` stdout.
+/// VPN/utun defaults often omit `gateway:` and only set `interface:` — still a present default route.
+pub fn parse_route_get_default(text: &str) -> DefaultRouteInfo {
+    let mut gateway = None;
+    let mut interface = None;
+    for line in text.lines() {
+        let line = line.trim();
+        if let Some(rest) = line.strip_prefix("gateway:") {
+            let g = rest.trim();
+            if !g.is_empty() {
+                gateway = Some(g.to_string());
+            }
+        }
+        if let Some(rest) = line.strip_prefix("interface:") {
+            let i = rest.trim();
+            if !i.is_empty() {
+                interface = Some(i.to_string());
+            }
+        }
+    }
+    let present = gateway.is_some() || interface.is_some();
+    DefaultRouteInfo {
+        gateway,
+        interface,
+        present,
+    }
+}
+
+pub fn is_tunnel_iface(name: &str) -> bool {
+    let lower = name.to_ascii_lowercase();
+    lower.starts_with("utun")
+        || lower.starts_with("ipsec")
+        || lower.starts_with("ppp")
+        || lower.starts_with("wg")
+        || lower.starts_with("tun")
+        || lower.starts_with("tap")
 }
 
 fn collect_dns_servers() -> Vec<String> {
@@ -159,5 +175,48 @@ fn collect_wifi_info() -> (Option<String>, Option<i32>) {
     #[cfg(not(target_os = "macos"))]
     {
         (None, None)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{is_tunnel_iface, parse_route_get_default};
+
+    #[test]
+    fn route_with_gateway_is_present() {
+        let text = r#"
+   route to: default
+destination: default
+       mask: default
+    gateway: 192.168.1.1
+  interface: en0
+"#;
+        let r = parse_route_get_default(text);
+        assert!(r.present);
+        assert_eq!(r.gateway.as_deref(), Some("192.168.1.1"));
+        assert_eq!(r.interface.as_deref(), Some("en0"));
+    }
+
+    #[test]
+    fn vpn_utun_without_gateway_still_present() {
+        // Real macOS + Shadowrocket/Hiddify style default via utun.
+        let text = r#"
+   route to: default
+destination: default
+       mask: default
+  interface: utun4
+      flags: <UP,DONE,CLONING,STATIC,GLOBAL>
+"#;
+        let r = parse_route_get_default(text);
+        assert!(r.present, "tunnel-only default must count as present");
+        assert!(r.gateway.is_none());
+        assert_eq!(r.interface.as_deref(), Some("utun4"));
+        assert!(is_tunnel_iface("utun4"));
+    }
+
+    #[test]
+    fn empty_route_not_present() {
+        let r = parse_route_get_default("route to: default\n");
+        assert!(!r.present);
     }
 }

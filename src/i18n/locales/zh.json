@@ -3061,6 +3061,10 @@
         "title": "系统代理已开启",
         "body": "错误的代理/PAC 会导致打不开网页。关闭或修正代理后重扫。"
       },
+      "fakeIpActive": {
+        "title": "检测到 DNS Fake-IP / 增强模式",
+        "body": "知名域名解析到 198.18.x（Clash/Surge/MacPacket 等常见）。对本机 ping「很快」只打到本地 TUN，不代表 GitHub 等站点真快。请看 HTTPS/站点延迟，并在客户端里给目标换更优节点或改分流。"
+      },
       "vpnActive": {
         "title": "检测到 VPN / 隧道",
         "body": "若连通异常，可断开 VPN 对照。"
