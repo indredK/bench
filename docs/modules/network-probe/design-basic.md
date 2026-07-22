@@ -16,10 +16,11 @@
 | `overview` | 概览     | 本机现在什么状态？ | MVP-A   |
 | `tree`     | 一键体检 | 分层哪里坏了？     | MVP-A   |
 | `opinion`  | 扫描意见 | 我该先做什么？     | MVP-A   |
-| `sites`    | 站点延迟 | 常用站通不通？     | MVP-A   |
 | `offline`  | 上不了网 | 为什么上不了网？   | MVP-B   |
 | `fix`      | 一键修复 | 能自愈吗？         | MVP-A/B |
 | `report`   | 报告     | 怎么留证/分享？    | MVP-A   |
+
+> **站点延迟**已提升为独立 L1（`sites`：常用官网卡片 + 区域站点包），不再挂在基础视角下。
 
 导航记忆：`nav.l1Id = basic` + `l2ByL1.basic` + `offlineSub`（见 design §3.1）。
 

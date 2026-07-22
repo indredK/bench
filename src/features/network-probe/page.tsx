@@ -1,7 +1,7 @@
 /**
  * Page View / 页面视图: compose L1/L2 shell and panels; 只组合页面.
  */
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Network } from "lucide-react"
 import { RuntimeFeatureGate } from "@/components/common/RuntimeFeatureGate"
@@ -56,11 +56,12 @@ import {
 import { cn } from "@/lib/utils"
 import type { FeatureDescriptor } from "@/platform/capabilities"
 
-const L1_IDS: NetworkProbeL1[] = ["basic", "test", "security", "discover"]
+const L1_IDS: NetworkProbeL1[] = ["basic", "sites", "test", "security", "discover"]
 
 const L2_BY_L1: Record<NetworkProbeL1, string[]> = {
-  basic: ["overview", "tree", "opinion", "sites", "offline", "fix", "report"],
-  test: ["ping", "dns", "tcp", "custom", "websites", "traceroute", "mtu", "egress", "speed"],
+  basic: ["overview", "tree", "opinion", "offline", "fix", "report"],
+  sites: ["official", "packs"],
+  test: ["ping", "dns", "tcp", "custom", "traceroute", "mtu", "egress", "speed"],
   security: ["ports", "pollution", "pcap", "dnssec", "whois"],
   discover: ["arp", "lan-svc", "nat", "ntp", "nodes"],
 }
@@ -86,13 +87,23 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
   const [focusPackId, setFocusPackId] = useState<string | null>(null)
   const [packsBusy, setPacksBusy] = useState(false)
   const [nodeId, setNodeId] = useState("local")
+  const [sideLogOpen, setSideLogOpen] = useState(true)
 
   const l2Items = L2_BY_L1[c.l1Id]
+  const resolvedL2 = l2Items.includes(c.l2Id) ? c.l2Id : l2Items[0]!
+
+  useEffect(() => {
+    if (c.l2Id !== resolvedL2) c.selectL2(resolvedL2)
+  }, [c.l2Id, c.selectL2, resolvedL2])
+
   const hostsSuspicious = useMemo(
     () => (c.hosts ?? []).filter((h) => h.suspicious).length,
     [c.hosts],
   )
-  const sitePackIds = useMemo(() => Object.keys(c.defaults?.sitePacks ?? {}), [c.defaults])
+  const sitePackIds = useMemo(
+    () => Object.keys(c.defaults?.sitePacks ?? {}).filter((id) => id !== OFFICIAL_PACK_ID),
+    [c.defaults],
+  )
   const officialPresets = useMemo(
     () => c.defaults?.sitePacks?.[OFFICIAL_PACK_ID] ?? [],
     [c.defaults],
@@ -112,51 +123,51 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
 
   const errorText = c.error ? t(c.error.key, { defaultValue: c.error.fallback }) : null
   const offlineSub = c.offlineSub
-  const panelTitle = t(`networkProbe.l2.${c.l2Id}`)
+  const panelTitle = t(`networkProbe.l2.${resolvedL2}`)
   const crumbOffline =
-    c.l1Id === "basic" && c.l2Id === "offline" && offlineSub !== "all"
+    c.l1Id === "basic" && resolvedL2 === "offline" && offlineSub !== "all"
       ? t(`networkProbe.offline.sub.${offlineSub}`)
       : null
 
-  const showOverview = c.l1Id === "basic" && c.l2Id === "overview"
-  const showTree = c.l1Id === "basic" && c.l2Id === "tree"
-  const showOpinion = c.l1Id === "basic" && c.l2Id === "opinion"
-  const showSites = c.l1Id === "basic" && c.l2Id === "sites"
-  const showOffline = c.l1Id === "basic" && c.l2Id === "offline"
-  const showFix = c.l1Id === "basic" && c.l2Id === "fix"
-  const showReport = c.l1Id === "basic" && c.l2Id === "report"
-  const showPing = c.l1Id === "test" && c.l2Id === "ping"
-  const showDns = c.l1Id === "test" && c.l2Id === "dns"
-  const showTcp = c.l1Id === "test" && c.l2Id === "tcp"
-  const showCustom = c.l1Id === "test" && c.l2Id === "custom"
-  const showWebsites = c.l1Id === "test" && c.l2Id === "websites"
-  const showTraceroute = c.l1Id === "test" && c.l2Id === "traceroute"
-  const showMtu = c.l1Id === "test" && c.l2Id === "mtu"
-  const showEgress = c.l1Id === "test" && c.l2Id === "egress"
-  const showSpeed = c.l1Id === "test" && c.l2Id === "speed"
-  const showPorts = c.l1Id === "security" && c.l2Id === "ports"
-  const showPollution = c.l1Id === "security" && c.l2Id === "pollution"
-  const showDnssec = c.l1Id === "security" && c.l2Id === "dnssec"
-  const showWhois = c.l1Id === "security" && c.l2Id === "whois"
-  const showArp = c.l1Id === "discover" && c.l2Id === "arp"
-  const showLanSvc = c.l1Id === "discover" && c.l2Id === "lan-svc"
-  const showNat = c.l1Id === "discover" && c.l2Id === "nat"
-  const showNtp = c.l1Id === "discover" && c.l2Id === "ntp"
-  const showNodes = c.l1Id === "discover" && c.l2Id === "nodes"
-  const showPcap = c.l1Id === "security" && c.l2Id === "pcap"
+  const showOverview = c.l1Id === "basic" && resolvedL2 === "overview"
+  const showTree = c.l1Id === "basic" && resolvedL2 === "tree"
+  const showOpinion = c.l1Id === "basic" && resolvedL2 === "opinion"
+  const showOffline = c.l1Id === "basic" && resolvedL2 === "offline"
+  const showFix = c.l1Id === "basic" && resolvedL2 === "fix"
+  const showReport = c.l1Id === "basic" && resolvedL2 === "report"
+  const showOfficialSites = c.l1Id === "sites" && resolvedL2 === "official"
+  const showSitePacks = c.l1Id === "sites" && resolvedL2 === "packs"
+  const showPing = c.l1Id === "test" && resolvedL2 === "ping"
+  const showDns = c.l1Id === "test" && resolvedL2 === "dns"
+  const showTcp = c.l1Id === "test" && resolvedL2 === "tcp"
+  const showCustom = c.l1Id === "test" && resolvedL2 === "custom"
+  const showTraceroute = c.l1Id === "test" && resolvedL2 === "traceroute"
+  const showMtu = c.l1Id === "test" && resolvedL2 === "mtu"
+  const showEgress = c.l1Id === "test" && resolvedL2 === "egress"
+  const showSpeed = c.l1Id === "test" && resolvedL2 === "speed"
+  const showPorts = c.l1Id === "security" && resolvedL2 === "ports"
+  const showPollution = c.l1Id === "security" && resolvedL2 === "pollution"
+  const showDnssec = c.l1Id === "security" && resolvedL2 === "dnssec"
+  const showWhois = c.l1Id === "security" && resolvedL2 === "whois"
+  const showArp = c.l1Id === "discover" && resolvedL2 === "arp"
+  const showLanSvc = c.l1Id === "discover" && resolvedL2 === "lan-svc"
+  const showNat = c.l1Id === "discover" && resolvedL2 === "nat"
+  const showNtp = c.l1Id === "discover" && resolvedL2 === "ntp"
+  const showNodes = c.l1Id === "discover" && resolvedL2 === "nodes"
+  const showPcap = c.l1Id === "security" && resolvedL2 === "pcap"
   const showComingSoon = !(
     showOverview ||
     showTree ||
     showOpinion ||
-    showSites ||
     showOffline ||
     showFix ||
     showReport ||
+    showOfficialSites ||
+    showSitePacks ||
     showPing ||
     showDns ||
     showTcp ||
     showCustom ||
-    showWebsites ||
     showTraceroute ||
     showMtu ||
     showEgress ||
@@ -247,9 +258,21 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
         </header>
 
         {/* Workspace: L3 + command log — prototype .workspace */}
-        <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_280px]">
+        <div
+          className={cn(
+            "grid min-h-0 flex-1 grid-cols-1 overflow-hidden",
+            sideLogOpen
+              ? "lg:grid-cols-[minmax(0,1fr)_280px]"
+              : "lg:grid-cols-[minmax(0,1fr)_2.25rem]",
+          )}
+        >
           <div className="flex min-h-0 min-w-0 flex-col overflow-hidden p-3">
-            <div className="mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col gap-3 overflow-hidden">
+            <div
+              className={cn(
+                "mx-auto flex h-full min-h-0 w-full flex-col gap-3 overflow-hidden",
+                c.l1Id === "sites" ? "max-w-6xl" : "max-w-5xl",
+              )}
+            >
               <div className="flex shrink-0 flex-wrap items-baseline gap-2">
                 <h2 className="text-base font-semibold">{panelTitle}</h2>
                 <p className="text-muted-foreground text-[11px]">
@@ -319,7 +342,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                   <ScanOpinionPanel result={c.healthResult} onGoTree={() => c.selectL2("tree")} />
                 ) : null}
 
-                {showSites ? (
+                {showSitePacks ? (
                   <SitesProbePanel
                     loading={c.loadingSites}
                     canCancel={Boolean(c.activeSessionId) && c.loadingSites}
@@ -331,6 +354,21 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     toolStatus={c.toolStatus.sitesProbe}
                     onRunPack={c.runSitesProbe}
                     onRunCustom={c.runSitesProbeCustom}
+                    onCancel={c.cancelScan}
+                  />
+                ) : null}
+
+                {showOfficialSites ? (
+                  <OfficialSitesPanel
+                    loading={c.loadingSites}
+                    canCancel={Boolean(c.activeSessionId) && c.loadingSites}
+                    presets={officialPresets}
+                    result={c.sitesResult}
+                    streaming={c.sitesStreaming}
+                    toolEnabled={c.toolEnabled.sitesProbe}
+                    toolStatus={c.toolStatus.sitesProbe}
+                    onTestAll={() => c.runSitesProbe(OFFICIAL_PACK_ID)}
+                    onTestOne={(target) => c.runSitesProbeCustom([target])}
                     onCancel={c.cancelScan}
                   />
                 ) : null}
@@ -468,21 +506,6 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     loading={c.loadingProbe}
                     result={c.probeResult}
                     onRun={c.runProbeTarget}
-                  />
-                ) : null}
-
-                {showWebsites ? (
-                  <OfficialSitesPanel
-                    loading={c.loadingSites}
-                    canCancel={Boolean(c.activeSessionId) && c.loadingSites}
-                    presets={officialPresets}
-                    result={c.sitesResult}
-                    streaming={c.sitesStreaming}
-                    toolEnabled={c.toolEnabled.sitesProbe}
-                    toolStatus={c.toolStatus.sitesProbe}
-                    onTestAll={() => c.runSitesProbe(OFFICIAL_PACK_ID)}
-                    onTestOne={(target) => c.runSitesProbeCustom([target])}
-                    onCancel={c.cancelScan}
                   />
                 ) : null}
 
@@ -653,7 +676,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                 {showComingSoon ? (
                   <ComingSoonPanel
                     l1={c.l1Id}
-                    l2={c.l2Id}
+                    l2={resolvedL2}
                     toolStatus={c.capabilities?.tools}
                     externalTools={c.capabilities?.externalTools}
                     onManagePacks={(packId) => {
@@ -667,7 +690,11 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
           </div>
 
           <div className="hidden min-h-0 lg:flex lg:h-full lg:flex-col">
-            <CommandLogSidePanel lines={c.commandLog} onClear={c.clearCommandLog} />
+            <CommandLogSidePanel
+              lines={c.commandLog}
+              onClear={c.clearCommandLog}
+              onOpenChange={setSideLogOpen}
+            />
           </div>
         </div>
 
@@ -686,7 +713,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                 type="button"
                 className={cn(
                   "shrink-0 rounded-md px-2.5 py-1 text-xs whitespace-nowrap transition-colors",
-                  c.l2Id === id
+                  resolvedL2 === id
                     ? "bg-primary/15 text-primary"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground",
                 )}

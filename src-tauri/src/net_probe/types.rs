@@ -319,6 +319,11 @@ pub struct HttpProbeDetail {
     pub ttfb_ms: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub final_url: Option<String>,
+    /// Bounded download rate in megabits/sec (sites probe only).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub download_mbps: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub download_bytes: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
 }
@@ -362,6 +367,10 @@ pub struct SiteSampleResult {
     pub http_status: Option<u16>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub http_ttfb_ms: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub download_mbps: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub download_bytes: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
 }

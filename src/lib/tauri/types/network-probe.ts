@@ -163,6 +163,8 @@ export interface HttpProbeDetail {
   status?: number
   ttfbMs?: number
   finalUrl?: string
+  downloadMbps?: number
+  downloadBytes?: number
   error?: string
 }
 
@@ -190,6 +192,8 @@ export interface SiteSampleResult {
   icmpRttMs?: number
   httpStatus?: number
   httpTtfbMs?: number
+  downloadMbps?: number
+  downloadBytes?: number
   error?: string
 }
 

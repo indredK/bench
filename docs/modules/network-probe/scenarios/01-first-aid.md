@@ -23,7 +23,7 @@
 4. 打开「扫描意见」，按建议优先处理
 5. 若意见指向专项，进入「上不了网」跑全部子页
 6. 需要时点「打开系统网络设置」对照
-7. 在「站点延迟」看几个常用站是否全红
+7. 打开 L1「站点延迟」看几个常用站是否全红
 
 ### 期望
 
@@ -38,7 +38,7 @@
 
 | 项   | 值                                                                                           |
 | ---- | -------------------------------------------------------------------------------------------- |
-| L2   | overview, tree, opinion, offline, sites                                                      |
+| L2   | overview, tree, opinion, offline, fix, report（站点延迟为独立 L1）                           |
 | IPC  | `getLocalNetworkSummary`, `startHealthScan`, `openSystemNetworkSettings`, `startSitesProbe`… |
 | 设计 | design-basic §3–5；design §5.4                                                               |
 
@@ -112,9 +112,9 @@ IPC：`startHealthScan`, `checkHostsOverrides`, `flushDns`, `switchDns`
 
 ### 步骤
 
-1. L2「站点延迟」→ 跑预设区域包（global / cn-friendly / dev）
+1. L1「站点延迟」→ L2「区域站点包」跑预设（global / cn-friendly / dev）；「常用官网」用卡片测 official 包
 2. 添加自定义 URL 或 host
-3. 观察火花线；停掉进行中的采样
+3. 观察火花线 / 吞吐；可中途取消
 
 ### 期望
 

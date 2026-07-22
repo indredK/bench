@@ -27,7 +27,9 @@
 > 历史细节以 Git 为准；此处只保留验收摘要。
 
 - 后端 `net_probe/`：summary / tcp / ping / dns / probe / sites / health / fix / offline / traceroute / ipv6 / mtu / asn / session / defaults / capabilities
-- 前端 L1×4 壳 + 基础/测试面板可用；安全/发现为 ComingSoon + Post 徽标
+- 站点延迟提升为独立 L1（常用官网卡片 + 区域站点包）；与测试 L1 的「测试官网」入口合并，避免双入口冲突
+- 站点 / 官网探测：HTTP **有界下载吞吐**（≤1 MiB / 5 s）写入 `downloadMbps`；与 LibreSpeed「带宽测速」区分（站点体验 vs ISP 测速源）
+- 前端 L1×5 壳（基础 / 站点延迟 / 测试 / 安全 / 发现）+ 面板可用；安全/发现为 ComingSoon + Post 徽标
 - 场景：MVP 档（S-FA / S-TT / S-X 除 S-X-05）可演示
 - 验证链：`lint:fe` + `test:critical` + `clippy -D warnings` 通过
 

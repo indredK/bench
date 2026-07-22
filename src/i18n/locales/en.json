@@ -2805,10 +2805,15 @@
     "sideLog": {
       "title": "Command log",
       "clear": "Clear",
-      "empty": "Switch tools or run a probe — IPC hints appear here."
+      "empty": "Switch tools or run a probe — IPC hints appear here.",
+      "collapse": "Collapse command log",
+      "expand": "Expand command log",
+      "clearConfirmTitle": "Clear command log?",
+      "clearConfirmDescription": "This removes every IPC hint recorded in this session. This cannot be undone."
     },
     "l1": {
       "basic": "Basics",
+      "sites": "Site latency",
       "test": "Test",
       "security": "Security",
       "discover": "Discover"
@@ -2818,6 +2823,8 @@
       "tree": "Health scan",
       "opinion": "Advice",
       "sites": "Site latency",
+      "official": "Official sites",
+      "packs": "Regional packs",
       "offline": "Can't connect",
       "fix": "Quick fix",
       "report": "Report",
@@ -2912,7 +2919,7 @@
       "tlsFail": "fail — {{detail}}"
     },
     "sites": {
-      "hint": "Probe a built-in site pack with ICMP and/or HTTP latency. Custom hosts stream in with sparklines; cancel stops mid-run.",
+      "hint": "Probe a built-in site pack with ICMP/HTTP latency and bounded download throughput. Custom hosts stream in with sparklines; cancel stops mid-run.",
       "pack": "Site pack",
       "run": "Run pack",
       "running": "Probing sites…",
@@ -2922,6 +2929,7 @@
       "resultTitle": "Results · {{packId}}",
       "icmpMs": "ICMP {{ms}} ms",
       "httpMs": "HTTP {{status}} · {{ms}} ms",
+      "mbps": "{{mbps}} Mbps",
       "fail": "fail — {{error}}",
       "customTitle": "Custom sites",
       "customInput": "URL or host",
@@ -2938,7 +2946,7 @@
       }
     },
     "official": {
-      "hint": "Test reachability of common domestic and foreign websites. Click a card to probe one site (other results are kept), or run all.",
+      "hint": "Probe reachability and bounded download throughput of common sites. Click a card to test one (other results are kept), or run all.",
       "testAll": "Test all sites",
       "running": "Testing…",
       "empty": "No official site pack loaded.",
@@ -2951,6 +2959,8 @@
       "statusRunning": "…",
       "httpMs": "{{ms}} ms",
       "icmpMs": "ICMP {{ms}} ms",
+      "mbps": "{{mbps}} Mbps",
+      "sampleSmall": "Sample small",
       "fail": "{{error}}",
       "testedAt": "at {{time}}",
       "cancelled": "Batch cancelled — finished cards keep their results.",

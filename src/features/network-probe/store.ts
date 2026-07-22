@@ -87,7 +87,7 @@ function persistReportHistory(history: HealthScanResult[]) {
   }
 }
 
-export type NetworkProbeL1 = "basic" | "test" | "security" | "discover"
+export type NetworkProbeL1 = "basic" | "sites" | "test" | "security" | "discover"
 
 export type NetworkProbeOfflineSub =
   "all" | "captive" | "proxy" | "ipv6" | "mtu" | "egress" | "diff"
@@ -256,6 +256,7 @@ interface NetworkProbeState {
 
 const DEFAULT_L2: NetworkProbeL2ByL1 = {
   basic: "overview",
+  sites: "official",
   test: "ping",
   security: "ports",
   discover: "arp",

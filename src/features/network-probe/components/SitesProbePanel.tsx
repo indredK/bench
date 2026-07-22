@@ -1,5 +1,5 @@
 /**
- * Feature UI / 功能界面: site latency board for basic L1.
+ * Feature UI / 功能界面: Sites L1 · regional site packs + custom targets.
  */
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -275,6 +275,9 @@ export function SitesProbePanel({
                                 status: row.httpStatus ?? "—",
                                 ms: row.httpTtfbMs.toFixed(0),
                               })
+                            : null,
+                          row.downloadMbps != null
+                            ? t("networkProbe.sites.mbps", { mbps: row.downloadMbps.toFixed(1) })
                             : null,
                         ]
                           .filter(Boolean)

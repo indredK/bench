@@ -2805,10 +2805,15 @@
     "sideLog": {
       "title": "命令日志",
       "clear": "清空",
-      "empty": "切换工具或运行探测后，IPC 提示会出现在这里。"
+      "empty": "切换工具或运行探测后，IPC 提示会出现在这里。",
+      "collapse": "收起命令日志",
+      "expand": "展开命令日志",
+      "clearConfirmTitle": "清空命令日志？",
+      "clearConfirmDescription": "将删除本会话中已记录的全部 IPC 提示，此操作不可撤销。"
     },
     "l1": {
       "basic": "基础视角",
+      "sites": "站点延迟",
       "test": "测试",
       "security": "安全",
       "discover": "发现"
@@ -2818,6 +2823,8 @@
       "tree": "一键体检",
       "opinion": "扫描意见",
       "sites": "站点延迟",
+      "official": "常用官网",
+      "packs": "区域站点包",
       "offline": "上不了网",
       "fix": "一键修复",
       "report": "报告",
@@ -2912,7 +2919,7 @@
       "tlsFail": "失败 — {{detail}}"
     },
     "sites": {
-      "hint": "对内置站点包做 ICMP / HTTP 延迟探测。自定义站流式采样并显示火花线；可中途取消。",
+      "hint": "对内置站点包做 ICMP / HTTP 延迟与有界下载吞吐探测。自定义站流式采样并显示火花线；可中途取消。",
       "pack": "站点包",
       "run": "探测站点包",
       "running": "站点探测中…",
@@ -2922,6 +2929,7 @@
       "resultTitle": "结果 · {{packId}}",
       "icmpMs": "ICMP {{ms}} ms",
       "httpMs": "HTTP {{status}} · {{ms}} ms",
+      "mbps": "{{mbps}} Mbps",
       "fail": "失败 — {{error}}",
       "customTitle": "自定义站点",
       "customInput": "URL 或主机",
@@ -2938,7 +2946,7 @@
       }
     },
     "official": {
-      "hint": "测试常用国内与外网官网连通性。点击卡片测单个站点（其他已测结果会保留），或一键测全部。",
+      "hint": "测试常用国内与外网官网的连通与有界下载吞吐（估算）。点击卡片测单个站点（其他已测结果会保留），或一键测全部。",
       "testAll": "测试全部官网",
       "running": "测试中…",
       "empty": "未加载官网站点包。",
@@ -2951,6 +2959,8 @@
       "statusRunning": "测中",
       "httpMs": "{{ms}} ms",
       "icmpMs": "ICMP {{ms}} ms",
+      "mbps": "{{mbps}} Mbps",
+      "sampleSmall": "样本过小",
       "fail": "{{error}}",
       "testedAt": "测于 {{time}}",
       "cancelled": "批量已取消 — 已完成的卡片结果会保留。",

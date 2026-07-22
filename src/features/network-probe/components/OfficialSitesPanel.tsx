@@ -1,5 +1,5 @@
 /**
- * Feature UI / 功能界面: Test L1 · official website reachability cards.
+ * Feature UI / 功能界面: Sites L1 · official website reachability cards.
  */
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -55,6 +55,8 @@ function fingerprintOf(row: SiteSampleResult): string {
     row.httpStatus ?? "",
     row.httpTtfbMs ?? "",
     row.icmpRttMs ?? "",
+    row.downloadMbps ?? "",
+    row.downloadBytes ?? "",
     row.error ?? "",
     row.degraded ? "1" : "0",
   ].join("|")
@@ -169,7 +171,7 @@ export function OfficialSitesPanel({
       {presets.length === 0 ? (
         <p className="text-muted-foreground text-sm">{t("networkProbe.official.empty")}</p>
       ) : (
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
           {presets.map((site) => {
             const key = targetKey(site.target)
             const sample = samplesByTarget[key]
@@ -184,6 +186,14 @@ export function OfficialSitesPanel({
                 : sample?.icmpRttMs != null
                   ? t("networkProbe.official.icmpMs", { ms: sample.icmpRttMs.toFixed(0) })
                   : null
+            const throughput =
+              sample?.downloadMbps != null
+                ? t("networkProbe.official.mbps", { mbps: sample.downloadMbps.toFixed(1) })
+                : sample && sample.ok && sample.downloadBytes != null
+                  ? t("networkProbe.official.sampleSmall")
+                  : sample && sample.ok
+                    ? "—"
+                    : null
             const status = isPending ? "running" : !sample ? "idle" : sample.ok ? "ok" : "fail"
 
             return (
@@ -194,7 +204,7 @@ export function OfficialSitesPanel({
                 title={t("networkProbe.official.cardHint", { host })}
                 onClick={() => handleTestOne(site.target)}
                 className={cn(
-                  "relative flex min-h-[4.75rem] flex-col rounded-md border px-3 pt-2.5 pb-7 text-left transition-colors",
+                  "relative flex min-h-[5.25rem] flex-col rounded-md border px-3.5 pt-3 pb-8 text-left transition-colors",
                   "hover:bg-muted/60 focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none",
                   (loading || !toolEnabled) && "cursor-not-allowed",
                   !toolEnabled && "opacity-60",
@@ -232,15 +242,22 @@ export function OfficialSitesPanel({
                   <span className="min-w-0 truncate">
                     {isPending
                       ? t("networkProbe.official.running")
-                      : sample?.error && !latency
+                      : sample?.error && !sample.ok
                         ? t("networkProbe.official.fail", { error: sample.error })
                         : sample
-                          ? t("networkProbe.official.testedAt", {
-                              time: formatTestedAt(sample.testedAt),
-                            })
+                          ? [
+                              t("networkProbe.official.testedAt", {
+                                time: formatTestedAt(sample.testedAt),
+                              }),
+                              latency,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")
                           : t("networkProbe.official.clickToTest")}
                   </span>
-                  <span className="shrink-0 tabular-nums">{isPending ? "" : (latency ?? "")}</span>
+                  <span className="min-w-[4.5rem] shrink-0 text-right tabular-nums">
+                    {isPending ? "" : (throughput ?? "")}
+                  </span>
                 </div>
               </button>
             )

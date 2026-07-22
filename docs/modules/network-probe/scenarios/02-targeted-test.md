@@ -120,3 +120,5 @@ Post-MVP：用户想测下行/上行，不使用 Ookla 专有客户端。
 
 IPC：`startSpeedTest`, `listSpeedSources`
 档位：Post-MVP-C
+
+> 与「测试官网」卡片上的 **有界 HTTP 下载吞吐** 不同：后者估站点体验快慢；本场景测对 LibreSpeed 源的 ISP 上下行带宽。

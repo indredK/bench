@@ -1,5 +1,5 @@
 use super::defaults::get_defaults;
-use super::probe::{probe_http_target, probe_icmp_once};
+use super::probe::{probe_http_target_with_throughput, probe_icmp_once};
 use super::types::{ScanSessionEvent, SiteSampleResult, SitesProbeResult};
 use crate::error::{AppError, AppResult};
 use tauri::{AppHandle, Emitter, Runtime};
@@ -173,6 +173,8 @@ async fn probe_site(id: String, target: String, channel: String) -> SiteSampleRe
                     icmp_rtt_ms: icmp.rtt_ms,
                     http_status: None,
                     http_ttfb_ms: None,
+                    download_mbps: None,
+                    download_bytes: None,
                     error: None,
                 };
             }
@@ -182,7 +184,7 @@ async fn probe_site(id: String, target: String, channel: String) -> SiteSampleRe
             } else {
                 format!("https://{target}")
             };
-            let (http, _) = probe_http_target(&http_target).await;
+            let (http, _) = probe_http_target_with_throughput(&http_target).await;
             let http_ok = http.as_ref().map(|h| h.ok).unwrap_or(false);
             SiteSampleResult {
                 id,
@@ -193,6 +195,8 @@ async fn probe_site(id: String, target: String, channel: String) -> SiteSampleRe
                 icmp_rtt_ms: None,
                 http_status: http.as_ref().and_then(|h| h.status),
                 http_ttfb_ms: http.as_ref().and_then(|h| h.ttfb_ms),
+                download_mbps: http.as_ref().and_then(|h| h.download_mbps),
+                download_bytes: http.as_ref().and_then(|h| h.download_bytes),
                 error: if http_ok {
                     Some(format!(
                         "degraded: icmp failed ({})",
@@ -210,12 +214,14 @@ async fn probe_site(id: String, target: String, channel: String) -> SiteSampleRe
             }
         }
         "http" | "https" => {
-            let (http, _tls) = probe_http_target(&target).await;
+            let (http, _tls) = probe_http_target_with_throughput(&target).await;
             let http = http.unwrap_or(super::types::HttpProbeDetail {
                 ok: false,
                 status: None,
                 ttfb_ms: None,
                 final_url: None,
+                download_mbps: None,
+                download_bytes: None,
                 error: Some("http probe missing".into()),
             });
             SiteSampleResult {
@@ -227,6 +233,8 @@ async fn probe_site(id: String, target: String, channel: String) -> SiteSampleRe
                 icmp_rtt_ms: None,
                 http_status: http.status,
                 http_ttfb_ms: http.ttfb_ms,
+                download_mbps: http.download_mbps,
+                download_bytes: http.download_bytes,
                 error: http.error,
             }
         }
@@ -237,7 +245,7 @@ async fn probe_site(id: String, target: String, channel: String) -> SiteSampleRe
             } else {
                 format!("https://{target}")
             };
-            let (http, _) = probe_http_target(&http_target).await;
+            let (http, _) = probe_http_target_with_throughput(&http_target).await;
             let http_ok = http.as_ref().map(|h| h.ok).unwrap_or(false);
             let degraded = !icmp.ok && http_ok;
             SiteSampleResult {
@@ -249,6 +257,8 @@ async fn probe_site(id: String, target: String, channel: String) -> SiteSampleRe
                 icmp_rtt_ms: icmp.rtt_ms,
                 http_status: http.as_ref().and_then(|h| h.status),
                 http_ttfb_ms: http.as_ref().and_then(|h| h.ttfb_ms),
+                download_mbps: http.as_ref().and_then(|h| h.download_mbps),
+                download_bytes: http.as_ref().and_then(|h| h.download_bytes),
                 error: if icmp.ok || http_ok {
                     if degraded {
                         Some(format!(
@@ -278,6 +288,8 @@ async fn probe_site(id: String, target: String, channel: String) -> SiteSampleRe
             icmp_rtt_ms: None,
             http_status: None,
             http_ttfb_ms: None,
+            download_mbps: None,
+            download_bytes: None,
             error: Some(format!("Unsupported channel: {other}")),
         },
     }
