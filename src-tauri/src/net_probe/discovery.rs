@@ -4,6 +4,7 @@ use super::types::{ArpNeighbor, LanDiscoveryResult, ScanSessionEvent};
 use crate::error::{AppError, AppResult};
 use std::collections::BTreeMap;
 use std::net::Ipv4Addr;
+#[cfg(target_os = "macos")]
 use std::process::Command;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Runtime};
@@ -283,12 +284,14 @@ pub fn detect_arp_spoofing_hints() -> AppResult<Vec<super::types::PollutionFindi
     Ok(findings)
 }
 
+#[cfg(target_os = "macos")]
 fn extract_paren_ip(line: &str) -> Option<String> {
     let start = line.find('(')? + 1;
     let end = line[start..].find(')')? + start;
     Some(line[start..end].to_string())
 }
 
+#[cfg(target_os = "macos")]
 fn extract_mac(line: &str) -> Option<String> {
     for token in line.split_whitespace() {
         if token.contains(':')

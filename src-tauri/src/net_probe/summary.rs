@@ -1,5 +1,6 @@
 use super::types::{DefaultRouteInfo, LocalNetworkSummary, NetworkInterfaceInfo};
 use crate::error::{AppError, AppResult};
+#[cfg(target_os = "macos")]
 use std::process::Command;
 
 pub fn collect_local_summary() -> AppResult<LocalNetworkSummary> {

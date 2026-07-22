@@ -1,12 +1,17 @@
+#[cfg(not(target_os = "macos"))]
+use super::types::PathMtuResult;
+#[cfg(target_os = "macos")]
 use super::types::{PathMtuProbeStep, PathMtuResult};
 use super::validate::validate_host;
 use crate::error::{AppError, AppResult};
 use std::net::IpAddr;
+#[cfg(target_os = "macos")]
 use std::process::Command;
 use std::time::Instant;
 
 const IPV4_HEADER_ICMP: u16 = 28; // 20 IP + 8 ICMP
 const IPV6_HEADER_ICMP: u16 = 48; // 40 IPv6 + 8 ICMPv6
+#[cfg(target_os = "macos")]
 const MIN_PAYLOAD: u16 = 64;
 const MAX_PAYLOAD_V4: u16 = 1472; // 1500 - 28
 const MAX_PAYLOAD_V6: u16 = 1452; // 1500 - 48
@@ -21,6 +26,7 @@ pub async fn probe_path_mtu(target: String) -> AppResult<PathMtuResult> {
     let started = Instant::now();
 
     let ip = super::ping::resolve_target_ip(&target).await?;
+    #[cfg(target_os = "macos")]
     let (min_payload, max_payload, header) = match ip {
         IpAddr::V4(_) => (MIN_PAYLOAD, MAX_PAYLOAD_V4, IPV4_HEADER_ICMP),
         IpAddr::V6(_) => (MIN_PAYLOAD, MAX_PAYLOAD_V6, IPV6_HEADER_ICMP),

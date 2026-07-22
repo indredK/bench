@@ -1,7 +1,10 @@
+#[cfg(target_os = "macos")]
 use super::defaults::builtin_defaults;
 use super::types::FixResult;
 use crate::error::{AppError, AppResult};
+#[cfg(target_os = "macos")]
 use std::net::IpAddr;
+#[cfg(target_os = "macos")]
 use std::process::Command;
 
 /// List macOS Network Preferences service names (whitelist source).

@@ -1,6 +1,7 @@
 use super::probe::probe_http_target;
 use super::types::{CaptivePortalResult, ProxyVpnStatus, PublicIpInfo};
 use crate::error::AppResult;
+#[cfg(target_os = "macos")]
 use std::process::Command;
 
 pub async fn detect_captive_portal() -> AppResult<CaptivePortalResult> {

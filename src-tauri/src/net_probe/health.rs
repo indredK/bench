@@ -461,9 +461,13 @@ fn check_hosts_override(hosts: &[super::types::HostsOverride]) -> HealthCheckIte
 
 #[derive(Default, Clone)]
 struct ProxyVpnInfo {
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     proxy_enabled: bool,
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     proxy_detail: String,
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     vpn_ifaces: Vec<String>,
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     default_via_tunnel: bool,
 }
 
@@ -515,13 +519,13 @@ fn check_proxy_system(info: &ProxyVpnInfo) -> HealthCheckItem {
     #[cfg(not(target_os = "macos"))]
     {
         let _ = info;
-        return item(
+        item(
             "proxy.system",
             "L1",
             "skip",
             Some("Proxy probe only implemented on macOS for MVP".into()),
             None,
-        );
+        )
     }
     #[cfg(target_os = "macos")]
     {
@@ -552,13 +556,13 @@ fn check_vpn_tunnel(
     #[cfg(not(target_os = "macos"))]
     {
         let _ = (info, _summary);
-        return item(
+        item(
             "vpn.tunnel",
             "L1",
             "skip",
             Some("VPN probe only implemented on macOS for MVP".into()),
             None,
-        );
+        )
     }
     #[cfg(target_os = "macos")]
     {

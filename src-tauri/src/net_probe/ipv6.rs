@@ -1,6 +1,7 @@
 use super::types::{Ipv6DualStackCompare, Ipv6StackResult};
 use crate::error::AppResult;
 use std::net::IpAddr;
+#[cfg(target_os = "macos")]
 use std::process::Command;
 use std::time::Instant;
 

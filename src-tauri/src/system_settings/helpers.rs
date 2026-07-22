@@ -13,6 +13,7 @@ pub fn run_cmd(cmd: &str, args: &[&str]) -> Result<String, String> {
 }
 
 #[cfg(not(target_os = "macos"))]
+#[allow(dead_code)]
 pub fn run_cmd(_cmd: &str, _args: &[&str]) -> Result<String, String> {
     Err("This command is only supported on macOS".to_string())
 }
