@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.26.0](https://github.com/indredK/bench/compare/v1.25.1...v1.26.0) (2026-07-22)
+
+
+### Features
+
+* **net-probe:** 识别 DNS Fake-IP 并修复 VPN 隧道误报 ([4fedc5e](https://github.com/indredK/bench/commit/4fedc5e92ecd2c8d2a7246b6dea59441f77f2295))
+* **network-probe:** 实现 MVP A+B 功能闭环 ([ba12bb0](https://github.com/indredK/bench/commit/ba12bb0e49afc10f0c1df72d2e8bc45b92ce8d08))
+* **network-probe:** 实现 Post-MVP Wave 0–5 后端与文档更新 ([c6f242a](https://github.com/indredK/bench/commit/c6f242a62e5db85ef08cdd8e3c1eed37c71a18f3))
+* **network-probe:** 将站点延迟提升为独立L1并新增有界吞吐测量 ([c79f4b0](https://github.com/indredK/bench/commit/c79f4b0518dbc449a1f22a279c8dd0a5dccde023))
+* **network-probe:** 添加官网探测包及重构面板布局 ([7162b09](https://github.com/indredK/bench/commit/7162b09c61ef5cc5b02e1cfb37fecdb9aa6f9fda))
+
+
+### Bug Fixes
+
+* **network-probe:** 修复 Windows clippy 对 macOS 专用辅助函数的未使用告警 ([3dfea1e](https://github.com/indredK/bench/commit/3dfea1ed9a5f2861b2b25f3edb39fe5b38ffb543))
+* **network-probe:** 修复 Windows clippy 未使用导入与死代码 ([e27b45a](https://github.com/indredK/bench/commit/e27b45a07fc179bafebc656fb4c30834da789977))
+
 ## [1.25.1](https://github.com/indredK/bench/compare/v1.25.0...v1.25.1) (2026-07-21)
 
 

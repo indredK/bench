@@ -2,7 +2,7 @@
 members = ["."]
 
 [workspace.package]
-version = "1.25.1"
+version = "1.26.0"
 
 [package]
 name = "bench"
