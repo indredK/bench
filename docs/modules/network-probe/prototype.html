@@ -1,0 +1,1493 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Network Probe · 三一级节点原型</title>
+    <style>
+      :root {
+        --bg: #0f1218;
+        --bg-elev: #171b24;
+        --bg-soft: #1e2430;
+        --border: #2a3140;
+        --text: #e8ecf4;
+        --muted: #8b95a8;
+        --accent: #3d9cf0;
+        --accent-dim: rgba(61, 156, 240, 0.15);
+        --ok: #3ecf8e;
+        --ok-dim: rgba(62, 207, 142, 0.14);
+        --warn: #e6b84d;
+        --warn-dim: rgba(230, 184, 77, 0.14);
+        --cmd: #9ad7a0;
+        --radius: 8px;
+        --font: "SF Pro Text", "PingFang SC", "Segoe UI", system-ui, sans-serif;
+        --mono: "SF Mono", "JetBrains Mono", "Menlo", ui-monospace, monospace;
+        --l1-h: 48px;
+        --l2-h: 44px;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        font-family: var(--font);
+        background: var(--bg);
+        color: var(--text);
+        font-size: 13px;
+        line-height: 1.4;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      button,
+      input,
+      select {
+        font: inherit;
+        color: inherit;
+      }
+      button {
+        cursor: pointer;
+      }
+
+      .banner {
+        flex-shrink: 0;
+        padding: 6px 12px;
+        background: #1a2230;
+        border-bottom: 1px solid var(--border);
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .banner strong {
+        color: var(--accent);
+      }
+      .banner code {
+        font-family: var(--mono);
+        background: var(--bg-soft);
+        padding: 1px 5px;
+        border-radius: 3px;
+        color: var(--cmd);
+      }
+      .crumb {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-left: 8px;
+        padding: 2px 8px;
+        border-radius: 4px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        color: var(--text);
+        font-size: 11px;
+      }
+      .crumb .sep {
+        color: var(--muted);
+      }
+
+      .shell {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        max-width: 1280px;
+        width: 100%;
+        margin: 0 auto;
+        border-left: 1px solid var(--border);
+        border-right: 1px solid var(--border);
+      }
+
+      .l1 {
+        flex-shrink: 0;
+        height: var(--l1-h);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 10px;
+        background: var(--bg-elev);
+        border-bottom: 1px solid var(--border);
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-weight: 600;
+        padding-right: 8px;
+        border-right: 1px solid var(--border);
+        white-space: nowrap;
+      }
+      .brand .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-dim);
+      }
+      .l1-nav {
+        display: flex;
+        gap: 4px;
+        flex: 1;
+        min-width: 0;
+      }
+      .l1-item {
+        border: 1px solid transparent;
+        background: transparent;
+        color: var(--muted);
+        padding: 7px 16px;
+        border-radius: 6px;
+        white-space: nowrap;
+        font-weight: 600;
+        font-size: 13px;
+      }
+      .l1-item:hover {
+        color: var(--text);
+        background: var(--bg-soft);
+      }
+      .l1-item.active {
+        color: var(--accent);
+        background: var(--accent-dim);
+        border-color: rgba(61, 156, 240, 0.35);
+      }
+      .select,
+      .input {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 5px 9px;
+      }
+      .btn {
+        border: 1px solid var(--border);
+        background: var(--bg-soft);
+        border-radius: 6px;
+        padding: 5px 11px;
+        white-space: nowrap;
+      }
+      .btn:hover {
+        border-color: var(--accent);
+      }
+      .btn.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #041018;
+        font-weight: 600;
+      }
+      .btn.ghost {
+        background: transparent;
+        color: var(--muted);
+      }
+
+      .cmd-tip {
+        position: relative;
+      }
+      .cmd-tip[data-cmd]::after {
+        content: attr(data-cmd);
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        bottom: calc(100% + 8px);
+        max-width: min(480px, 70vw);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-family: var(--mono);
+        font-size: 11px;
+        padding: 6px 8px;
+        background: #0a0d12;
+        border: 1px solid #3a465c;
+        border-radius: 6px;
+        color: var(--cmd);
+        opacity: 0;
+        pointer-events: none;
+        z-index: 80;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+      }
+      .cmd-tip[data-cmd]:hover::after,
+      .cmd-tip[data-cmd]:focus-visible::after {
+        opacity: 1;
+      }
+      .l2 .cmd-tip[data-cmd]::after {
+        bottom: auto;
+        top: calc(100% + 8px);
+      }
+
+      .workspace {
+        flex: 1;
+        min-height: 0;
+        display: grid;
+        grid-template-columns: 1fr 280px;
+        overflow: hidden;
+      }
+      @media (max-width: 900px) {
+        .workspace {
+          grid-template-columns: 1fr;
+        }
+        .side {
+          display: none;
+        }
+      }
+      .l3 {
+        min-width: 0;
+        min-height: 0;
+        overflow: auto;
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .l3-title {
+        flex-shrink: 0;
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .l3-title h2 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 600;
+      }
+      .l3-title .meta {
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .panel {
+        background: var(--bg-elev);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 10px 12px;
+      }
+      .panel h3 {
+        margin: 0 0 8px;
+        font-size: 11px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 6px;
+      }
+      @media (max-width: 720px) {
+        .stats {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      .stat {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 7px 9px;
+        min-width: 0;
+      }
+      .stat .k {
+        color: var(--muted);
+        font-size: 10px;
+      }
+      .stat .v {
+        font-family: var(--mono);
+        font-size: 11px;
+        margin-top: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .score-row {
+        display: flex;
+        gap: 10px;
+        align-items: stretch;
+      }
+      .score {
+        width: 72px;
+        flex-shrink: 0;
+        border-radius: var(--radius);
+        background: var(--ok-dim);
+        border: 1px solid rgba(62, 207, 142, 0.35);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+      .score .n {
+        font-size: 26px;
+        font-weight: 700;
+        color: var(--ok);
+        line-height: 1;
+      }
+      .score .l {
+        font-size: 10px;
+        color: var(--muted);
+        margin-top: 2px;
+      }
+      .advice {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+      .advice-item {
+        display: flex;
+        gap: 8px;
+        padding: 7px 9px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 12px;
+      }
+      .advice-item .tag {
+        flex-shrink: 0;
+        font-size: 10px;
+        padding: 1px 5px;
+        border-radius: 4px;
+        background: var(--warn-dim);
+        color: var(--warn);
+        height: fit-content;
+      }
+      .tree {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+      .layer-label {
+        margin: 6px 2px 2px;
+        font-size: 10px;
+        color: var(--muted);
+        font-weight: 600;
+      }
+      .check {
+        display: grid;
+        grid-template-columns: 12px 1fr auto;
+        gap: 8px;
+        padding: 6px 8px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+      }
+      .check .status {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-top: 4px;
+      }
+      .check.ok .status {
+        background: var(--ok);
+      }
+      .check.warn .status {
+        background: var(--warn);
+      }
+      .check .title {
+        font-weight: 550;
+        font-size: 12px;
+      }
+      .check .desc {
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .check .cmd-line {
+        grid-column: 2 / -1;
+        margin-top: 4px;
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--cmd);
+        background: #0a0d12;
+        border: 1px solid #2c3548;
+        border-radius: 4px;
+        padding: 4px 6px;
+        display: none;
+      }
+      .check.expanded .cmd-line {
+        display: block;
+      }
+      .check .meta {
+        color: var(--muted);
+        font-size: 10px;
+      }
+      .tools {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+      }
+      .tools .grow {
+        flex: 1;
+        min-width: 120px;
+      }
+      .sites {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 6px;
+      }
+      .site {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 7px 8px;
+      }
+      .site .name {
+        font-weight: 600;
+      }
+      .site .lat {
+        font-family: var(--mono);
+        color: var(--ok);
+        font-size: 11px;
+        margin-top: 2px;
+      }
+      .result-box {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--muted);
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 10px;
+        min-height: 80px;
+        white-space: pre-wrap;
+      }
+      .result-box .cmd {
+        color: var(--cmd);
+      }
+      .badge {
+        display: inline-block;
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        background: var(--accent-dim);
+        color: var(--accent);
+      }
+      .empty-hint {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .progress {
+        height: 3px;
+        background: var(--bg);
+        display: none;
+        border-radius: 2px;
+        overflow: hidden;
+        margin-bottom: 8px;
+      }
+      .progress.on {
+        display: block;
+      }
+      .progress > i {
+        display: block;
+        height: 100%;
+        width: 0%;
+        background: var(--accent);
+        transition: width 0.2s;
+      }
+
+      .side {
+        min-height: 0;
+        border-left: 1px solid var(--border);
+        background: var(--bg-elev);
+        display: flex;
+        flex-direction: column;
+      }
+      .side-head {
+        flex-shrink: 0;
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .side-head h3 {
+        margin: 0;
+        font-size: 12px;
+      }
+      .log {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+        padding: 8px;
+        font-family: var(--mono);
+        font-size: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .log-empty {
+        color: var(--muted);
+      }
+      .log-entry {
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--bg);
+        padding: 6px;
+      }
+      .log-entry .t {
+        color: var(--muted);
+        margin-bottom: 3px;
+      }
+      .log-entry .c {
+        color: var(--cmd);
+        word-break: break-all;
+      }
+      .log-entry.ok .r {
+        color: var(--ok);
+        margin-top: 3px;
+      }
+
+      .l2 {
+        flex-shrink: 0;
+        height: var(--l2-h);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 0 10px;
+        background: var(--bg-elev);
+        border-top: 1px solid var(--border);
+      }
+      .l2-label {
+        flex-shrink: 0;
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--muted);
+        letter-spacing: 0.06em;
+        padding-right: 6px;
+        border-right: 1px solid var(--border);
+      }
+      .l2-nav {
+        display: flex;
+        gap: 4px;
+        flex: 1;
+        min-width: 0;
+        overflow-x: auto;
+      }
+      .l2-item {
+        border: 1px solid transparent;
+        background: transparent;
+        color: var(--muted);
+        padding: 5px 11px;
+        border-radius: 6px;
+        white-space: nowrap;
+        font-size: 12px;
+      }
+      .l2-item:hover {
+        color: var(--text);
+        background: var(--bg-soft);
+      }
+      .l2-item.active {
+        color: var(--accent);
+        background: var(--accent-dim);
+        border-color: rgba(61, 156, 240, 0.35);
+      }
+      .subtabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-bottom: 10px;
+      }
+      .subtab {
+        border: 1px solid var(--border);
+        background: var(--bg);
+        color: var(--muted);
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 11px;
+      }
+      .subtab:hover {
+        color: var(--text);
+      }
+      .subtab.active {
+        color: var(--accent);
+        background: var(--accent-dim);
+        border-color: rgba(61, 156, 240, 0.4);
+      }
+      .dual-hint {
+        font-size: 11px;
+        color: var(--muted);
+        margin: 0 0 8px;
+      }
+      .dual-hint button {
+        border: 0;
+        background: transparent;
+        color: var(--accent);
+        padding: 0;
+        text-decoration: underline;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="banner">
+      <strong>L1 = 4</strong>：基础视角 · 测试 · 安全 · 发现 · 会<strong>记住</strong>各 L1 上次的
+      L2 / 上不了网子页（sessionStorage，刷新仍在）
+      <span class="crumb" id="crumb"></span>
+      · 底栏 = 当前一级下的 L2 · 中间 = L3 · <code>design.md §3.1</code>
+    </div>
+
+    <div class="shell">
+      <nav class="l1" aria-label="一级功能">
+        <div class="brand"><span class="dot"></span>网络探测</div>
+        <div class="l1-nav" id="l1Nav"></div>
+        <label class="cmd-tip" data-cmd="listProbeNodes()">
+          <select class="select" title="探测原点">
+            <option value="local">local</option>
+            <option value="gp" disabled>Globalping</option>
+          </select>
+        </label>
+      </nav>
+
+      <div class="workspace">
+        <main class="l3" id="l3" aria-label="三级内容"></main>
+        <aside class="side">
+          <div class="side-head">
+            <h3>命令日志</h3>
+            <button type="button" class="btn ghost" id="btnClearLog">清空</button>
+          </div>
+          <div class="log" id="cmdLog">
+            <div class="log-empty">切换导航或运行后留下 IPC。</div>
+          </div>
+        </aside>
+      </div>
+
+      <nav class="l2" aria-label="二级功能">
+        <div class="l2-label">L2</div>
+        <div class="l2-nav" id="l2Nav"></div>
+      </nav>
+    </div>
+
+    <script>
+      /**
+       * L1 固定 4 个（高级拆成「安全」+「发现」，控制每栏 L2 数量）：
+       * - 基础视角：急救箱
+       * - 测试：主动探测
+       * - 安全：暴露面 / 污染 / 抓包
+       * - 发现：局域网 / 环境 / 多节点
+       */
+      const TREE = [
+        {
+          id: "basic",
+          label: "基础视角",
+          blurb: "急救箱：看懂网络是否健康、给建议、能修",
+          children: [
+            {
+              id: "overview",
+              label: "概览",
+              cmd: "getLocalNetworkSummary + openSystemNetworkSettings",
+            },
+            { id: "tree", label: "一键体检", cmd: "startHealthScan → healthEvent[]" },
+            { id: "opinion", label: "扫描意见", cmd: "advise(healthResults)" },
+            { id: "sites", label: "站点延迟", cmd: "startSitesProbe(nodeId, 'all')" },
+            {
+              id: "offline",
+              label: "上不了网",
+              cmd: "captive/proxy/ipv6/mtu/egress/diff · 专项子页",
+            },
+            {
+              id: "fix",
+              label: "一键修复",
+              cmd: "flushDns / switchDns / renewDhcp / reset + 打开系统设置",
+            },
+            { id: "report", label: "报告", cmd: "exportHealthReport(format)" },
+          ],
+        },
+        {
+          id: "test",
+          label: "测试",
+          blurb: "主动探测：指定目标测通不通、怎么走",
+          children: [
+            { id: "ping", label: "Ping", cmd: "pingHost(nodeId, target, {count})" },
+            { id: "dns", label: "DNS 查询", cmd: "dnsLookup(nodeId, domain, {rrType})" },
+            { id: "tcp", label: "TCP 连通", cmd: "tcpConnect(nodeId, host, port)" },
+            { id: "custom", label: "自定义目标", cmd: "probeTarget(nodeId, input)" },
+            { id: "traceroute", label: "Traceroute", cmd: "startTraceroute(nodeId, target)" },
+            { id: "mtu", label: "MTU", cmd: "probePathMtu · 与「上不了网」双入口" },
+            { id: "egress", label: "公网出口", cmd: "getPublicIpInfo · 与「上不了网」双入口" },
+            { id: "speed", label: "带宽测速", cmd: "startSpeedTest(sourceId)", post: true },
+          ],
+        },
+        {
+          id: "security",
+          label: "安全",
+          blurb: "暴露面、污染与包级诊断",
+          children: [
+            { id: "ports", label: "端口扫描", cmd: "scanPorts(...)", post: true },
+            {
+              id: "pollution",
+              label: "污染检测",
+              cmd: "detectDnsPollution / checkSsl / hosts",
+              post: true,
+            },
+            { id: "pcap", label: "包级诊断", cmd: "startPacketCapture", post: true },
+            { id: "dnssec", label: "DNSSEC / DoH", cmd: "DNSSEC / DoH·DoT", post: true },
+            { id: "whois", label: "WHOIS", cmd: "whois(query)", post: true },
+          ],
+        },
+        {
+          id: "discover",
+          label: "发现",
+          blurb: "局域网、环境属性与多节点视角",
+          children: [
+            { id: "arp", label: "ARP 发现", cmd: "scanLan + detectArpSpoofing", post: true },
+            { id: "lan-svc", label: "局域网服务", cmd: "mDNS / SSDP", post: true },
+            { id: "nat", label: "NAT 类型", cmd: "STUN NAT detect", post: true },
+            { id: "ntp", label: "NTP 时间", cmd: "NTP offset detect", post: true },
+            { id: "nodes", label: "多节点对比", cmd: "listProbeNodes + store.byNode", post: true },
+          ],
+        },
+      ]
+
+      /** 上不了网 L3 内子页（方案 A）；mtu/egress 与测试 L2 共用同一渲染函数 */
+      const OFFLINE_SUBS = [
+        { id: "all", label: "全部" },
+        { id: "captive", label: "Captive" },
+        { id: "proxy", label: "代理/VPN" },
+        { id: "ipv6", label: "IPv6" },
+        { id: "mtu", label: "MTU" },
+        { id: "egress", label: "公网出口" },
+        { id: "diff", label: "DNS vs IP" },
+      ]
+
+      const HEALTH = [
+        {
+          layer: "L0",
+          key: "link.iface",
+          title: "活动接口",
+          desc: "en0 up",
+          status: "ok",
+          cmd: "getLocalNetworkSummary",
+        },
+        {
+          layer: "L0",
+          key: "link.wifi_or_wired",
+          title: "Wi‑Fi",
+          desc: "Home-5G · −58 dBm",
+          status: "ok",
+          cmd: "getLocalNetworkSummary // wifi",
+        },
+        {
+          layer: "L1",
+          key: "route.default",
+          title: "默认路由",
+          desc: "via 192.168.1.1",
+          status: "ok",
+          cmd: "getDefaultRoute",
+        },
+        {
+          layer: "L1",
+          key: "dns.servers",
+          title: "系统 DNS",
+          desc: "1.1.1.1, 8.8.8.8",
+          status: "ok",
+          cmd: "getLocalNetworkSummary // dns",
+        },
+        {
+          layer: "L1",
+          key: "hosts.override",
+          title: "hosts 冲突",
+          desc: "无异常",
+          status: "ok",
+          cmd: "checkHostsOverrides()",
+        },
+        {
+          layer: "L1",
+          key: "firewall.status",
+          title: "防火墙",
+          desc: "开启",
+          status: "warn",
+          cmd: "getFirewallStatus()",
+        },
+        {
+          layer: "L3",
+          key: "reach.gateway",
+          title: "Ping 网关",
+          desc: "2ms",
+          status: "ok",
+          cmd: "pingHost(..., gateway)",
+        },
+        {
+          layer: "L3",
+          key: "reach.public_ip",
+          title: "Ping 1.1.1.1",
+          desc: "18ms",
+          status: "ok",
+          cmd: "pingHost(..., '1.1.1.1')",
+        },
+        {
+          layer: "L3",
+          key: "diff.dns_vs_ip",
+          title: "DNS vs IP",
+          desc: "基础连通正常",
+          status: "ok",
+          cmd: "advise(diff.dns_vs_ip)",
+        },
+        {
+          layer: "L3",
+          key: "reach.captive",
+          title: "Captive",
+          desc: "未检测到",
+          status: "ok",
+          cmd: "detectCaptivePortal",
+        },
+      ]
+
+      const SITES = [
+        { name: "Cloudflare", host: "1.1.1.1", ms: 18 },
+        { name: "GitHub", host: "github.com", ms: 142 },
+        { name: "Google", host: "google.com", ms: 96 },
+        { name: "npm", host: "registry.npmjs.org", ms: 210 },
+      ]
+
+      let l1Id = "basic"
+      let l2Id = "overview"
+      let offlineSub = "all"
+      /** 各 L1 上次选中的 L2 —— 来回切换时恢复，避免总跳回第一项 */
+      const l2ByL1 = {
+        basic: "overview",
+        test: "ping",
+        security: "ports",
+        discover: "arp",
+      }
+
+      try {
+        const saved = sessionStorage.getItem("network-probe-nav")
+        if (saved) {
+          const nav = JSON.parse(saved)
+          if (nav.l1Id && TREE.some((t) => t.id === nav.l1Id)) l1Id = nav.l1Id
+          if (nav.l2ByL1 && typeof nav.l2ByL1 === "object") Object.assign(l2ByL1, nav.l2ByL1)
+          if (nav.offlineSub) offlineSub = nav.offlineSub
+          const l1 = TREE.find((t) => t.id === l1Id)
+          const want = l2ByL1[l1Id]
+          l2Id = l1.children.some((c) => c.id === want) ? want : l1.children[0].id
+        }
+      } catch (_) {}
+
+      function persistNav() {
+        l2ByL1[l1Id] = l2Id
+        try {
+          sessionStorage.setItem("network-probe-nav", JSON.stringify({ l1Id, l2ByL1, offlineSub }))
+        } catch (_) {}
+      }
+
+      const l1Nav = document.getElementById("l1Nav")
+      const l2Nav = document.getElementById("l2Nav")
+      const l3 = document.getElementById("l3")
+      const logEl = document.getElementById("cmdLog")
+      const crumb = document.getElementById("crumb")
+
+      function escapeHtml(s) {
+        return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      }
+      function now() {
+        return new Date().toLocaleTimeString("zh-CN", { hour12: false })
+      }
+      function pushLog(cmd, result) {
+        const empty = logEl.querySelector(".log-empty")
+        if (empty) empty.remove()
+        const div = document.createElement("div")
+        div.className = "log-entry ok"
+        div.innerHTML =
+          '<div class="t">' +
+          now() +
+          "</div>" +
+          '<div class="c">' +
+          escapeHtml(cmd) +
+          "</div>" +
+          '<div class="r">' +
+          escapeHtml(result) +
+          "</div>"
+        logEl.prepend(div)
+      }
+      function wait(ms) {
+        return new Promise((r) => setTimeout(r, ms))
+      }
+
+      function currentL1() {
+        return TREE.find((t) => t.id === l1Id)
+      }
+      function currentL2() {
+        const l1 = currentL1()
+        return l1.children.find((c) => c.id === l2Id) || l1.children[0]
+      }
+
+      function updateCrumb() {
+        const l1 = currentL1()
+        const l2 = currentL2()
+        let mid = l2.label
+        if (l1.id === "basic" && l2.id === "offline" && offlineSub !== "all") {
+          const sub = OFFLINE_SUBS.find((s) => s.id === offlineSub)
+          mid = l2.label + " · " + (sub ? sub.label : offlineSub)
+        }
+        crumb.innerHTML =
+          "<span>" +
+          escapeHtml(l1.label) +
+          "</span>" +
+          '<span class="sep">/</span>' +
+          "<span>" +
+          escapeHtml(mid) +
+          "</span>" +
+          '<span class="sep">/</span><span>内容</span>'
+      }
+
+      function renderL1() {
+        l1Nav.innerHTML = TREE.map(
+          (t) =>
+            '<button type="button" class="l1-item' +
+            (t.id === l1Id ? " active" : "") +
+            '" data-id="' +
+            t.id +
+            '" title="' +
+            escapeHtml(t.blurb) +
+            '">' +
+            t.label +
+            "</button>",
+        ).join("")
+        l1Nav.querySelectorAll(".l1-item").forEach((btn) => {
+          btn.onclick = () => selectL1(btn.dataset.id)
+        })
+      }
+
+      function renderL2() {
+        const l1 = currentL1()
+        if (!l1.children.some((c) => c.id === l2Id)) l2Id = l1.children[0].id
+        l2Nav.innerHTML = l1.children
+          .map(
+            (c) =>
+              '<button type="button" class="l2-item cmd-tip' +
+              (c.id === l2Id ? " active" : "") +
+              '" data-id="' +
+              c.id +
+              '" data-cmd="' +
+              escapeHtml(c.cmd) +
+              '">' +
+              c.label +
+              (c.post ? ' <span class="badge">Post</span>' : "") +
+              "</button>",
+          )
+          .join("")
+        l2Nav.querySelectorAll(".l2-item").forEach((btn) => {
+          btn.onclick = () => selectL2(btn.dataset.id)
+        })
+      }
+
+      function selectL1(id) {
+        l2ByL1[l1Id] = l2Id // 离开前记下当前 L1 的 L2
+        l1Id = id
+        const l1 = currentL1()
+        const remembered = l2ByL1[id]
+        l2Id = l1.children.some((c) => c.id === remembered) ? remembered : l1.children[0].id
+        pushLog("navigate L1='" + id + "'", "恢复 L2='" + l2Id + "' · " + l1.blurb)
+        persistNav()
+        renderL1()
+        renderL2()
+        renderL3()
+      }
+
+      function selectL2(id) {
+        l2Id = id
+        l2ByL1[l1Id] = id
+        if (id === "offline" && !OFFLINE_SUBS.some((s) => s.id === offlineSub)) offlineSub = "all"
+        pushLog("navigate L2='" + id + "'", currentL2().cmd)
+        persistNav()
+        renderL2()
+        renderL3()
+      }
+
+      function l3Header(title, cmd) {
+        return (
+          '<div class="l3-title"><h2>' +
+          escapeHtml(title) +
+          "</h2>" +
+          '<span class="meta">L3</span>' +
+          (cmd
+            ? ' <span class="badge cmd-tip" data-cmd="' + escapeHtml(cmd) + '">IPC</span>'
+            : "") +
+          "</div>"
+        )
+      }
+
+      function tipStat(k, v, cmd) {
+        return (
+          '<div class="stat cmd-tip" data-cmd="' +
+          escapeHtml(cmd) +
+          '">' +
+          '<div class="k">' +
+          k +
+          '</div><div class="v">' +
+          v +
+          "</div></div>"
+        )
+      }
+
+      function renderL3() {
+        updateCrumb()
+        const key = l1Id + "/" + l2Id
+        const map = {
+          "basic/overview": renderOverview,
+          "basic/tree": renderTreePane,
+          "basic/opinion": renderOpinion,
+          "basic/sites": renderSites,
+          "basic/offline": renderOffline,
+          "basic/fix": renderFixHub,
+          "basic/report": renderReport,
+          "test/ping": () => renderTool("Ping", "pingHost", "1.1.1.1"),
+          "test/dns": () => renderTool("DNS 查询", "dnsLookup", "cloudflare.com"),
+          "test/tcp": () => renderTool("TCP 连通", "tcpConnect", "github.com"),
+          "test/custom": renderCustom,
+          "test/traceroute": renderTraceroute,
+          "test/mtu": () => renderMtuPanel({ dualFrom: "test" }),
+          "test/egress": () => renderEgressPanel({ dualFrom: "test" }),
+          "test/speed": () => renderPost("带宽测速", "startSpeedTest(sourceId)"),
+          "security/ports": () => renderPost("端口扫描", "scanPorts(nodeId, target, range)"),
+          "security/pollution": () =>
+            renderPost("污染检测", "detectDnsPollution / checkSsl / hosts"),
+          "security/pcap": () => renderPost("包级诊断", "startPacketCapture(opts)"),
+          "security/dnssec": () => renderPost("DNSSEC / DoH", "DNSSEC / DoH·DoT"),
+          "security/whois": () => renderPost("WHOIS", "whois(query)"),
+          "discover/arp": () => renderPost("ARP 发现", "scanLan + detectArpSpoofing"),
+          "discover/lan-svc": () => renderPost("局域网服务", "mDNS / SSDP"),
+          "discover/nat": () => renderPost("NAT 类型", "STUN detect"),
+          "discover/ntp": () => renderPost("NTP 时间偏移", "NTP offset detect"),
+          "discover/nodes": () =>
+            renderPost("多节点对比", "listProbeNodes + store.byNode（Globalping/agent）"),
+        }
+        ;(
+          map[key] ||
+          (() => {
+            l3.innerHTML = '<p class="empty-hint">未实现面板</p>'
+          })
+        )()
+      }
+
+      function renderOverview() {
+        l3.innerHTML =
+          l3Header("概览", "getLocalNetworkSummary") +
+          '<p class="empty-hint">基础视角首页：一眼看本机状态与最近评分。</p>' +
+          '<div class="panel"><h3>本机摘要</h3><div class="stats">' +
+          tipStat("本机 IPv4", "192.168.1.42", "getLocalNetworkSummary") +
+          tipStat("Wi‑Fi", "Home-5G · −58 dBm", "getLocalNetworkSummary // wifi") +
+          tipStat("默认网关", "192.168.1.1", "getDefaultRoute") +
+          tipStat("系统 DNS", "1.1.1.1, 8.8.8.8", "getLocalNetworkSummary // dns") +
+          "</div>" +
+          '<div class="tools" style="margin-top:8px">' +
+          '<button type="button" class="btn cmd-tip" id="btnSysNet" data-cmd="openSystemNetworkSettings()">打开系统网络设置</button>' +
+          '<button type="button" class="btn primary" id="goOffline">去「上不了网」</button>' +
+          "</div></div>" +
+          '<div class="panel"><h3>最近评分</h3><div class="score-row">' +
+          '<div class="score"><div class="n">86</div><div class="l">/ 100</div></div>' +
+          '<div class="advice"><div class="advice-item"><span class="tag">下一步</span><div>底栏「一键体检」或「上不了网」（含 MTU / 公网出口）。</div></div></div>' +
+          "</div></div>"
+        document.getElementById("btnSysNet").onclick = () =>
+          pushLog("openSystemNetworkSettings()", "原型无法调起系统设置")
+        document.getElementById("goOffline").onclick = () => selectL2("offline")
+      }
+
+      function renderTreePane() {
+        let rows = ""
+        let last = ""
+        for (const it of HEALTH) {
+          if (it.layer !== last) {
+            rows += '<div class="layer-label">' + it.layer + "</div>"
+            last = it.layer
+          }
+          rows +=
+            '<div class="check ' +
+            it.status +
+            '" data-key="' +
+            it.key +
+            '">' +
+            '<span class="status"></span><div><div class="title">' +
+            it.title +
+            "</div>" +
+            '<div class="desc">' +
+            it.desc +
+            "</div>" +
+            '<div class="cmd-line">' +
+            escapeHtml(it.cmd) +
+            "</div></div>" +
+            '<span class="meta">' +
+            it.key +
+            "</span></div>"
+        }
+        l3.innerHTML =
+          l3Header("一键体检", "startHealthScan") +
+          '<div class="tools"><button type="button" class="btn primary cmd-tip" id="btnScan" data-cmd="startHealthScan(nodeId:\'local\')">运行体检</button></div>' +
+          '<div class="progress" id="scanProgress"><i></i></div>' +
+          '<div class="panel"><div class="tree">' +
+          rows +
+          "</div></div>"
+        document.getElementById("btnScan").onclick = async () => {
+          const bar = document.getElementById("scanProgress")
+          const fill = bar.querySelector("i")
+          bar.classList.add("on")
+          fill.style.width = "0%"
+          pushLog("startHealthScan(nodeId:'local')", "streaming…")
+          for (let i = 0; i < HEALTH.length; i++) {
+            await wait(55)
+            fill.style.width = ((i + 1) / HEALTH.length) * 100 + "%"
+            pushLog("healthEvent { key:'" + HEALTH[i].key + "' }", HEALTH[i].cmd)
+          }
+          pushLog("advise(healthResults)", "score=86")
+          bar.classList.remove("on")
+        }
+        l3.querySelectorAll(".check").forEach((row) => {
+          row.addEventListener("click", () => {
+            row.classList.toggle("expanded")
+            const item = HEALTH.find((h) => h.key === row.dataset.key)
+            if (item && row.classList.contains("expanded")) pushLog(item.cmd, "展开 " + item.key)
+          })
+        })
+      }
+
+      function renderOpinion() {
+        l3.innerHTML =
+          l3Header("扫描意见", "advise(healthResults)") +
+          '<div class="panel"><div class="score-row">' +
+          '<div class="score"><div class="n">86</div><div class="l">/ 100</div></div>' +
+          '<div class="advice">' +
+          '<div class="advice-item cmd-tip" data-cmd="advise(diff.dns_vs_ip)"><span class="tag">建议</span><div>域名偶发变慢 → 「一键修复」切公共 DNS。</div></div>' +
+          '<div class="advice-item cmd-tip" data-cmd="advise(firewall.status)"><span class="tag">提示</span><div>防火墙已开；连不上时可到「测试」做 TCP 对照。</div></div>' +
+          "</div></div></div>"
+      }
+
+      function renderSites() {
+        const cards = SITES.map(
+          (s) =>
+            '<div class="site cmd-tip" data-cmd="startSitesProbe(nodeId, [\'' +
+            s.host +
+            "'])\">" +
+            '<div class="name">' +
+            s.name +
+            "</div>" +
+            '<div class="lat">' +
+            s.ms +
+            " ms · " +
+            s.host +
+            "</div></div>",
+        ).join("")
+        l3.innerHTML =
+          l3Header("站点延迟", "startSitesProbe") +
+          '<div class="panel"><div class="sites">' +
+          cards +
+          "</div>" +
+          '<div class="tools" style="margin-top:8px">' +
+          '<button type="button" class="btn cmd-tip" id="btnRefreshSites" data-cmd="startSitesProbe(nodeId, \'all\')">刷新全部</button></div></div>'
+        document.getElementById("btnRefreshSites").onclick = () => {
+          pushLog("startSitesProbe(nodeId:'local', 'all')", "refreshed")
+          SITES.forEach((s) => {
+            s.ms = Math.round(s.ms * (0.85 + Math.random() * 0.3))
+          })
+          renderSites()
+        }
+      }
+
+      function renderOffline() {
+        // 方案 A：L3 内子页；MTU / 公网出口与「测试」双入口共用面板
+        if (offlineSub === "mtu") {
+          renderMtuPanel({ dualFrom: "offline" })
+          return
+        }
+        if (offlineSub === "egress") {
+          renderEgressPanel({ dualFrom: "offline" })
+          return
+        }
+
+        const tabs = OFFLINE_SUBS.map(
+          (s) =>
+            '<button type="button" class="subtab' +
+            (s.id === offlineSub ? " active" : "") +
+            '" data-sub="' +
+            s.id +
+            '">' +
+            s.label +
+            "</button>",
+        ).join("")
+
+        const body =
+          offlineSub === "all"
+            ? '<p class="empty-hint">急救专项：一次跑完高频鉴别。MTU / 公网出口也可在「测试」里单独测（同一面板）。</p>' +
+              '<div class="tools"><button type="button" class="btn primary cmd-tip" id="btnOfflineAll" ' +
+              'data-cmd="detectCaptivePortal + getProxyVpnStatus + checkIpv6Stack + probePathMtu + getPublicIpInfo + diff">' +
+              "全部检测</button></div>" +
+              '<div class="result-box" id="offOut" style="margin-top:8px">等待运行…</div>'
+            : offlineSub === "diff"
+              ? '<div class="result-box" id="offOut"><span class="cmd">advise(diff.dns_vs_ip)</span>\n网关✓ 公共IP✓ 域名✓ → 基础连通正常</div>' +
+                '<div class="tools" style="margin-top:8px"><button type="button" class="btn primary" id="btnOffOne">重新鉴别</button></div>'
+              : '<div class="tools"><button type="button" class="btn primary" id="btnOffOne">运行此项</button></div>' +
+                '<div class="result-box" id="offOut" style="margin-top:8px">等待运行…</div>'
+
+        l3.innerHTML =
+          l3Header("上不了网", "offline suite") +
+          '<div class="subtabs" id="offlineTabs">' +
+          tabs +
+          "</div>" +
+          '<div class="panel">' +
+          body +
+          "</div>"
+
+        document
+          .getElementById("offlineTabs")
+          .querySelectorAll(".subtab")
+          .forEach((btn) => {
+            btn.onclick = () => {
+              offlineSub = btn.dataset.sub
+              pushLog("offline sub='" + offlineSub + "'", "上不了网子页（已记忆）")
+              persistNav()
+              renderOffline()
+            }
+          })
+
+        const cmdMap = {
+          captive: "detectCaptivePortal(nodeId)",
+          proxy: "getProxyVpnStatus(nodeId)",
+          ipv6: "checkIpv6Stack(nodeId)",
+          diff: "advise(diff.dns_vs_ip)",
+        }
+        const resultMap = {
+          captive: "未检测到强制门户",
+          proxy: "系统代理：关 · VPN/utun：无",
+          ipv6: "链路本地 ✓ · 全球单播 部分",
+          diff: "网关✓ 公共IP✓ 域名✓ → 基础连通正常",
+        }
+
+        const allBtn = document.getElementById("btnOfflineAll")
+        if (allBtn) {
+          allBtn.onclick = () => {
+            pushLog(
+              "detectCaptivePortal + getProxyVpnStatus + checkIpv6Stack + probePathMtu + getPublicIpInfo + diff",
+              "batch",
+            )
+            document.getElementById("offOut").innerHTML =
+              '<span class="cmd">batch offline diagnostics</span>\n' +
+              "Captive: 无\n代理: 关 · VPN: 无\nIPv6: 部分\nMTU: 1500 无黑洞\n公网出口: 203.0.113.10 AS4134\nDNS vs IP: 基础连通正常"
+          }
+        }
+        const oneBtn = document.getElementById("btnOffOne")
+        if (oneBtn) {
+          oneBtn.onclick = () => {
+            const cmd = cmdMap[offlineSub] || offlineSub
+            const fake = resultMap[offlineSub] || "ok"
+            pushLog(cmd, fake)
+            document.getElementById("offOut").innerHTML =
+              '<span class="cmd">' + escapeHtml(cmd) + "</span>\n" + fake
+          }
+        }
+      }
+
+      function dualEntryHint(dualFrom, otherLabel, goFn) {
+        if (dualFrom === "offline") {
+          return (
+            '<p class="dual-hint">急救入口「上不了网」。也可在「测试」里单独打开同一面板 → ' +
+            '<button type="button" id="btnDualJump">' +
+            otherLabel +
+            "</button></p>"
+          )
+        }
+        return (
+          '<p class="dual-hint">测试入口。急救路径见「基础视角 → 上不了网」→ ' +
+          '<button type="button" id="btnDualJump">' +
+          otherLabel +
+          "</button></p>"
+        )
+      }
+
+      function renderMtuPanel(opts) {
+        const dualFrom = opts.dualFrom || "test"
+        l3.innerHTML =
+          l3Header("MTU / PMTUD", "probePathMtu(nodeId, target)") +
+          dualEntryHint(dualFrom, dualFrom === "offline" ? "测试 · MTU" : "上不了网 · MTU", null) +
+          '<div class="panel"><div class="tools">' +
+          '<input class="input grow" id="mtuTarget" value="1.1.1.1" />' +
+          '<button type="button" class="btn primary cmd-tip" id="btnMtu" data-cmd="probePathMtu(nodeId, target)">探测</button>' +
+          '</div><div class="result-box" id="mtuOut" style="margin-top:8px">等待运行…</div></div>'
+        wireDualJump(dualFrom, "mtu")
+        document.getElementById("btnMtu").onclick = () => {
+          const t = document.getElementById("mtuTarget").value.trim() || "1.1.1.1"
+          const line = "probePathMtu(nodeId:'local', '" + t + "')"
+          pushLog(line, "MTU 1500，无黑洞")
+          document.getElementById("mtuOut").innerHTML =
+            '<span class="cmd">' + escapeHtml(line) + "</span>\n模拟：MTU 1500，无黑洞"
+        }
+      }
+
+      function renderEgressPanel(opts) {
+        const dualFrom = opts.dualFrom || "test"
+        l3.innerHTML =
+          l3Header("公网出口", "getPublicIpInfo(nodeId)") +
+          dualEntryHint(
+            dualFrom,
+            dualFrom === "offline" ? "测试 · 公网出口" : "上不了网 · 公网出口",
+            null,
+          ) +
+          '<div class="panel"><button type="button" class="btn primary cmd-tip" id="btnEgress" data-cmd="getPublicIpInfo(nodeId)">查询出口</button>' +
+          '<div class="result-box" id="egressOut" style="margin-top:8px">等待运行…</div></div>'
+        wireDualJump(dualFrom, "egress")
+        document.getElementById("btnEgress").onclick = () => {
+          pushLog("getPublicIpInfo(nodeId:'local')", "203.0.113.10 · AS4134")
+          document.getElementById("egressOut").innerHTML =
+            "<span class=\"cmd\">getPublicIpInfo(nodeId:'local')</span>\n203.0.113.10 · AS4134 · 示例地区"
+        }
+      }
+
+      function wireDualJump(dualFrom, kind) {
+        const btn = document.getElementById("btnDualJump")
+        if (!btn) return
+        btn.onclick = () => {
+          if (dualFrom === "offline") {
+            l1Id = "test"
+            l2Id = kind
+            pushLog("dual-entry → test/" + kind, "同一面板")
+            renderL1()
+            renderL2()
+            renderL3()
+          } else {
+            l1Id = "basic"
+            l2Id = "offline"
+            offlineSub = kind
+            pushLog("dual-entry → basic/offline/" + kind, "同一面板")
+            renderL1()
+            renderL2()
+            renderL3()
+          }
+        }
+      }
+
+      function renderFixHub() {
+        const items = [
+          ["flushDns()", "刷新 DNS"],
+          ["switchDns(['1.1.1.1','8.8.8.8'])", "切换公共 DNS"],
+          ["renewDhcp()", "续租 DHCP"],
+          ["resetNetworkStack() // 三次确认", "重置网络栈"],
+        ]
+        l3.innerHTML =
+          l3Header("一键修复", "fix commands") +
+          '<div class="panel"><p class="empty-hint">写操作；重置栈正式版三次确认（§3.4）。</p><div class="tools" id="fixBtns"></div>' +
+          '<div class="tools" style="margin-top:8px">' +
+          '<button type="button" class="btn cmd-tip" id="btnSysNetFix" data-cmd="openSystemNetworkSettings()">打开系统网络设置</button>' +
+          '</div><div class="result-box" id="fixOut" style="margin-top:8px">未执行</div></div>'
+        const wrap = document.getElementById("fixBtns")
+        items.forEach(([cmd, label]) => {
+          const b = document.createElement("button")
+          b.type = "button"
+          b.className = "btn cmd-tip"
+          b.setAttribute("data-cmd", cmd)
+          b.textContent = label
+          b.onclick = () => {
+            pushLog(cmd, "原型未改系统")
+            document.getElementById("fixOut").innerHTML =
+              '<span class="cmd">' + escapeHtml(cmd) + "</span>\n原型未改系统"
+          }
+          wrap.appendChild(b)
+        })
+        document.getElementById("btnSysNetFix").onclick = () => {
+          pushLog("openSystemNetworkSettings()", "原型无法调起系统设置")
+          document.getElementById("fixOut").innerHTML =
+            '<span class="cmd">openSystemNetworkSettings()</span>\n原型无法调起'
+        }
+      }
+
+      function renderReport() {
+        l3.innerHTML =
+          l3Header("报告", "exportHealthReport") +
+          '<div class="panel"><button type="button" class="btn primary cmd-tip" id="btnExport" data-cmd="exportHealthReport(format:\'markdown\')">导出 Markdown</button></div>'
+        document.getElementById("btnExport").onclick = () =>
+          pushLog("exportHealthReport(format:'markdown')", "原型不下载")
+      }
+
+      function renderTool(title, kind, placeholder) {
+        const cmdHint =
+          kind === "dnsLookup"
+            ? "dnsLookup(nodeId, domain, {rrType:'A'})"
+            : kind === "tcpConnect"
+              ? "tcpConnect(nodeId, host, 443)"
+              : "pingHost(nodeId, target, {count:5})"
+        l3.innerHTML =
+          l3Header(title, cmdHint) +
+          '<div class="panel"><div class="tools">' +
+          '<input class="input grow" id="toolInput" value="' +
+          placeholder +
+          '" />' +
+          '<button type="button" class="btn primary" id="btnRun">运行</button>' +
+          '</div><div class="result-box" id="toolOut" style="margin-top:8px">等待运行…</div></div>'
+        document.getElementById("btnRun").onclick = () => {
+          const v = document.getElementById("toolInput").value.trim() || placeholder
+          const line =
+            kind === "dnsLookup"
+              ? "dnsLookup(nodeId, '" + v + "', {rrType:'A'})"
+              : kind === "tcpConnect"
+                ? "tcpConnect(nodeId, '" + v + "', 443)"
+                : "pingHost(nodeId, '" + v + "', {count:5})"
+          const result =
+            kind === "dnsLookup"
+              ? "A … TTL=120"
+              : kind === "tcpConnect"
+                ? "connected 41ms"
+                : "avg 18ms loss 0%"
+          pushLog(line, result)
+          document.getElementById("toolOut").innerHTML =
+            '<span class="cmd">' + escapeHtml(line) + "</span>\n" + result
+        }
+      }
+
+      function renderCustom() {
+        l3.innerHTML =
+          l3Header("自定义目标", "probeTarget") +
+          '<div class="panel"><div class="tools">' +
+          '<input class="input grow" id="customInput" value="https://example.com" />' +
+          '<button type="button" class="btn primary" id="btnProbe">探测</button>' +
+          '</div><div class="result-box" id="customOut" style="margin-top:8px">等待运行…</div></div>'
+        document.getElementById("btnProbe").onclick = () => {
+          const v = document.getElementById("customInput").value.trim()
+          const line = "probeTarget(nodeId:'local', '" + v + "')"
+          pushLog(line, "icmp/http/tls 摘要")
+          document.getElementById("customOut").innerHTML =
+            '<span class="cmd">' + escapeHtml(line) + "</span>\nicmp=22ms http=200 tls=ok"
+        }
+      }
+
+      function renderTraceroute() {
+        l3.innerHTML =
+          l3Header("Traceroute", "startTraceroute") +
+          '<div class="panel"><div class="tools">' +
+          '<input class="input grow" id="trHost" value="github.com" />' +
+          '<button type="button" class="btn primary" id="btnTr">开始</button>' +
+          '</div><div class="result-box" id="trOut" style="margin-top:8px">尚未运行</div></div>'
+        document.getElementById("btnTr").onclick = () => {
+          const host = document.getElementById("trHost").value.trim() || "github.com"
+          const line = "startTraceroute(nodeId:'local', '" + host + "')"
+          pushLog(line, "trippy-core hops")
+          document.getElementById("trOut").innerHTML =
+            '<span class="cmd">' +
+            escapeHtml(line) +
+            "</span>\n1  192.168.1.1  1.2ms\n2  10.0.0.1  8.4ms\n…\n12 " +
+            host +
+            "  140ms"
+        }
+      }
+
+      function renderSimpleRun(title, cmd, fake) {
+        l3.innerHTML =
+          l3Header(title, cmd) +
+          '<div class="panel"><button type="button" class="btn primary" id="btnSimple">运行</button>' +
+          '<div class="result-box" id="simpleOut" style="margin-top:8px">等待运行…</div></div>'
+        document.getElementById("btnSimple").onclick = () => {
+          pushLog(cmd, fake)
+          document.getElementById("simpleOut").innerHTML =
+            '<span class="cmd">' + escapeHtml(cmd) + "</span>\n" + fake
+        }
+      }
+
+      function renderPost(title, cmd) {
+        l3.innerHTML =
+          l3Header(title, cmd) +
+          '<div class="panel"><span class="badge">Post-MVP</span>' +
+          '<p class="empty-hint" style="margin-top:8px">设计保留；可预览命令，不进 MVP A+B 交付。</p>' +
+          '<button type="button" class="btn" id="btnPost">预览命令</button></div>'
+        document.getElementById("btnPost").onclick = () => pushLog(cmd, "Post-MVP · 仅预览")
+      }
+
+      document.getElementById("btnClearLog").onclick = () => {
+        logEl.innerHTML = '<div class="log-empty">日志已清空。</div>'
+      }
+
+      renderL1()
+      renderL2()
+      renderL3()
+    </script>
+  </body>
+</html>

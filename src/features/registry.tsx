@@ -11,6 +11,7 @@ import { cleanSpaceFeature } from "@/features/clean-space/feature"
 import { commandCenterFeature } from "@/features/command-center/feature"
 import { envDetectorFeature } from "@/features/env-detector/feature"
 import { hardwareFeature } from "@/features/hardware/feature"
+import { networkProbeFeature } from "@/features/network-probe/feature"
 import { portManagerFeature } from "@/features/port-manager/feature"
 import { quickLaunchFeature } from "@/features/quick-launch/feature"
 import { tokenCalculatorFeature } from "@/features/token-calculator/feature"
@@ -26,6 +27,7 @@ export const appFeatures: AppFeature[] = [
   commandCenterFeature,
   appManagerFeature,
   hardwareFeature,
+  networkProbeFeature,
   terminologyFeature,
   accountManagerFeature,
   // Development tools — routed but condensed into dev-toolbox in sidebar

@@ -2,6 +2,40 @@
 
 本文件只记录仍影响当前实现的方向性取舍；“做什么”以 [ROADMAP.md](./ROADMAP.md) 为准，当前风险以 [audit-report.md](./audit-report.md) 为准。已推翻和已完成历史由 Git 保留。
 
+## D-017 · Network Probe 可选能力包（可插拔高级组件）
+
+- **日期**：2026-07-22
+- **状态**：采纳（设计约束；随 Post-MVP-Adv/C 实现，不进 MVP 主包）
+- **决策**：
+  1. **主包必含、不可做成下载项**：MVP A+B 急救与基础探测（体检、DNS/TCP/ping、站点延迟、上不了网、免特权修复、`trippy-core` traceroute 等轻量/常用能力）编译进主应用；打开即用，禁止「先下载库才能急救」。
+  2. **高级/不常用/重特权能力走可选能力包（Capability Pack）**：SYN/ARP 深度扫描、诊断级抓包、正式特权 helper、以及未来同类重组件。用户首次点击对应 L2 时，若包未安装 → 提示用途、体积、签名来源 → 同意后由**后端**下载到 App Support（或等价受控目录）并校验 → 再启用功能；支持卸载。
+  3. **可插拔的是 sidecar / 外部工具 / 远程能力，不是运行时再下 Rust crate**：crate 仅编译期进入主包或进入预先构建的 sidecar；禁止「运行时 cargo/npm 拉依赖」。三类供给：
+     - **探测本机已有工具**（如已安装的 `nmap`）→ 启用 fallback，不强制下载；
+     - **按需下载的签名 sidecar**（如 `net-probe-adv`）；
+     - **远程能力**（Globalping / agent / librespeed 源）— 本机零重库。
+  4. **安全与更新对齐 D-010 / app-manager 更新模型**：下载 URL、版本、hash、签名材料只由后端 canonical manifest 决定；renderer 不得提交最终下载地址或可执行路径。ad-hoc/未公证发布时必须标明 Gatekeeper 限制，**不得宣称**可选包已获系统信任。
+  5. **能力矩阵驱动 UI**：`getNetworkProbeCapabilities()`（或等价）对每项 tool 返回 `supported | degraded | unsupported | missing_pack`；`missing_pack` 触发安装向导，安装后刷新矩阵。下完包仍缺特权时继续走提权/降级，不伪装成功。
+  6. **范围边界**：可选包不得扩大硬红线（仍禁止攻击能力）；不得绕过 IPC 契约与 `cancelScan` 幂等；主包与可选包共享同一 `nodeId` / session / 错误模型。
+- **理由**：主包保持轻量与急救可用性；重库与内核/BPF 能力按需安装，降低默认攻击面与体积，同时保留专业探测深度。
+- **影响**：Post-MVP 实现 Adv/C 前须先落地 pack manifest、安装/卸载 IPC、校验与能力矩阵；AI 不得把 MVP 工具改成「点击下载」；不得实现运行时动态链 crate。
+- **相关**：[network-probe design §9.7](./modules/network-probe/design.md) · [design-security](./modules/network-probe/design-security.md) · [roadmap](./modules/network-probe/roadmap.md) · [D-016](#d-016--network-probe-独立一级模块与分期设计) · [D-010](#d-010--默认使用-ad-hoc-macos-与-unsigned-windows-包)
+
+## D-016 · Network Probe 独立一级模块与分期设计
+
+- **日期**：2026-07-22
+- **状态**：采纳（设计冻结；**暂不进入实现**）
+- **决策**：
+  1. 新增独立一级 feature `network-probe`（不复用 `dev-toolbox` 子 Tab 作为最终形态）；占位页可先注册以满足文档↔代码对齐。
+  2. **不进入 2.0（R00–R10）执行序列**；2.0 收尾完成前只允许文档与占位，禁止铺开后端探测实现抢占主线。
+  3. 实现时**首版交付 = MVP A+B**：Local L0–L3 体检（检查项清单与 DNS/IP 对照写死）、站点延迟看板、Advisor、免特权修复、traceroute/MTR、「上不了网」高频诊断，以及基础鉴别工具（本机摘要、默认路由只读、TCP connect、自定义 URL 探测、hosts 快检、防火墙只读、打开系统网络设置）。
+  4. 带宽测速（librespeed）、Globalping remote、自有 agent、SYN/ARP/抓包/特权 helper、Vision P5–P7 等**必须保留完整设计**，实现归属 Post-MVP / Vision，不绑首版。
+  5. 平台：macOS 主路径；Windows 按能力矩阵降级；Linux 不支持（D-014）。
+  6. 高危网络修复开放但须**三次确认** + 后端复核；硬红线为不实现主动攻击能力（仅检测/防御）。
+  7. 与 `system-settings`/`dev-toolbox` 的 ping 最终共用 `net_probe` 实现；与 `port-manager` 划清「本机占用/Kill」vs「外部探测/指纹」边界。
+- **理由**：用户需要急救箱级诊断而非单次 ping；范围若不分期会吞噬 2.0 与安全边界；设计先行可避免实现期范围失控。
+- **影响**：AI 不得在未获「开始实现 network-probe」明确指令时进入 /feature 大面积编码；改设计须同步 `docs/modules/network-probe/*`；方向变更回写本条目。
+- **相关**：[network-probe design](./modules/network-probe/design.md) · [L1 基础](./modules/network-probe/design-basic.md) · [测试](./modules/network-probe/design-test.md) · [安全](./modules/network-probe/design-security.md) · [发现](./modules/network-probe/design-discover.md) · [roadmap](./modules/network-probe/roadmap.md) · [D-017](#d-017--network-probe-可选能力包可插拔高级组件) · [D-014](#d-014--linux-不进入支持矩阵与-cicd)
+
 ## D-015 · Command Center 作为可持久化的命令卡片库
 
 - **日期**：2026-07-19

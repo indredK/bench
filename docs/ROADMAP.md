@@ -11,6 +11,7 @@
 - 按 [D-010](./DECISIONS.md#d-010--默认使用-ad-hoc-macos-与-unsigned-windows-包) 默认生成 macOS ad-hoc 和 Windows unsigned 包。Apple notarization、Windows Authenticode 延期，不得伪装为已签名。
 - Tauri updater minisign 不延期：三目标 updater bundle、`.sig`、`latest.json`、`SHA256SUMS` 和 `OS-SIGNING-NOTICE.txt` 缺一即停止。
 - 云同步、AI Agent、TOTP、播放器、白噪音等新品类不进入 2.0。
+- **Network Probe**（网络探测）按 [D-016](./DECISIONS.md#d-016--network-probe-独立一级模块与分期设计) **不进入 2.0 执行序列**；设计文档见 [modules/network-probe](./modules/network-probe/)，仅允许占位 feature，实现须在 2.0 收尾后另开指令。
 
 平台状态：
 

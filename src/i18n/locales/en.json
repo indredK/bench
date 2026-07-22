@@ -13,6 +13,7 @@
     "envDetector": "Env Check",
     "tokenCalculator": "Token Calc",
     "terminology": "Glossary",
+    "networkProbe": "Network Probe",
     "systemSettings": "Settings",
     "cleanSpace": "Cleaner",
     "settings": "Preferences",
@@ -2787,6 +2788,12 @@
       "system_data": "System caches and logs use {{size}}, safe to clean",
       "developer": "Developer tools use {{size}}, including Xcode and Docker",
       "other_users": "Shared folder uses {{size}}"
+    }
+  },
+  "networkProbe": {
+    "stub": {
+      "title": "Network Probe",
+      "description": "This module is in the design phase; probing capabilities are not available yet. See the module docs for the technical design."
     }
   }
 }

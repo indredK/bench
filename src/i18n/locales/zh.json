@@ -13,6 +13,7 @@
     "envDetector": "环境检测",
     "tokenCalculator": "Token计算",
     "terminology": "专业术语",
+    "networkProbe": "网络探测",
     "systemSettings": "系统设置",
     "cleanSpace": "存储空间",
     "restart": "重新启动软件",
@@ -2787,6 +2788,12 @@
       "system_data": "系统缓存与日志占用 {{size}}，可安全清理",
       "developer": "开发工具数据占用 {{size}}，包含 Xcode 和 Docker",
       "other_users": "共享文件夹占用 {{size}}"
+    }
+  },
+  "networkProbe": {
+    "stub": {
+      "title": "网络探测",
+      "description": "模块处于设计阶段，探测能力尚未落地。技术设计见项目文档。"
     }
   }
 }
