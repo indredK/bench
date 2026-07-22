@@ -3152,6 +3152,135 @@
       "empty": "No egress lookup yet.",
       "asn": "ASN: {{asn}}{{org}}"
     },
+    "speed": {
+      "hint": "LibreSpeed-compatible bandwidth probe (ping / download / upload). Cancel stops mid-run.",
+      "source": "Speed source",
+      "sourcePlaceholder": "Select a source",
+      "emptySources": "No speed sources available.",
+      "run": "Start speed test",
+      "running": "Testing…",
+      "cancel": "Cancel",
+      "cancelled": "cancelled",
+      "cooldown": "Source failed — retry in {{seconds}}s",
+      "sourceUnavailable": "This speed source looks unreachable. Try another source after the cooldown.",
+      "ping": "Ping",
+      "jitter": "Jitter",
+      "download": "Download",
+      "upload": "Upload",
+      "phase": {
+        "ping": "Measuring ping",
+        "download": "Downloading",
+        "upload": "Uploading"
+      }
+    },
+    "security": {
+      "auth": {
+        "title": "Authorized-use only",
+        "body": "Security tools may scan hosts and inspect certificates. Confirm you will only probe assets you own or have explicit permission to test. Detection only — no attack features.",
+        "confirm": "I confirm — enable Security tools",
+        "confirmed": "Security tools authorized for this device.",
+        "revoke": "Revoke"
+      }
+    },
+    "pollution": {
+      "hint": "Compare DNS answers across resolvers, scan hosts overrides, and probe HTTPS trust (corporate middleboxes vs failures).",
+      "domain": "Domain",
+      "run": "Run pollution check",
+      "running": "Checking…",
+      "meta": "{{domain}} · {{count}} findings · {{ms}} ms"
+    },
+    "whois": {
+      "hint": "RDAP lookup via rdap.org (WHOIS fallback not required for this build). Output may be truncated.",
+      "query": "Domain or IP",
+      "run": "Lookup",
+      "running": "Looking up…",
+      "partial": "partial",
+      "empty": "No RDAP body returned."
+    },
+    "dnssec": {
+      "hint": "DNSSEC hints plus DoH/DoT reachability. Full AD-bit chain validation is not asserted in this build.",
+      "domain": "Domain",
+      "run": "Check DNSSEC / DoH",
+      "running": "Checking…",
+      "status": "DNSSEC status",
+      "doh": "DoH",
+      "dot": "DoT",
+      "okMs": "ok · {{ms}} ms",
+      "fail": "unreachable / failed"
+    },
+    "ports": {
+      "hint": "TCP connect scan of a host you own or are authorized to test. Max 256 ports; cancel stops mid-run.",
+      "degradedHint": "Degraded mode: TCP connect only. Install adv-scanner / nmap for SYN stealth.",
+      "target": "Target",
+      "range": "Ports",
+      "run": "Scan ports",
+      "running": "Scanning…",
+      "cancel": "Cancel",
+      "openList": "Open: {{ports}}",
+      "confirmTitle": "Confirm port scan scope",
+      "confirmDesc": "Target {{target}} · about {{count}} ports. Public hosts or large ranges need an extra confirm.",
+      "confirmConsequence": "Only scan assets you own or are authorized to test. TCP connect only (no SYN).",
+      "confirmRun": "Scan anyway"
+    },
+    "arp": {
+      "hint": "List neighbors from the OS ARP/neighbor cache (degraded discovery).",
+      "degradedHint": "Degraded: cache only. Privileged ARP sweep needs adv-scanner.",
+      "run": "Refresh ARP cache",
+      "running": "Reading…",
+      "empty": "No neighbors in the ARP cache.",
+      "emptyQuiet": "No neighbors found — quiet network, or probes were filtered.",
+      "emptyIsolation": "Only the gateway responded — guest Wi‑Fi / client isolation is likely.",
+      "emptyPermission": "No usable IPv4 — check Local Network permission in System Settings.",
+      "openSettings": "Open system network settings",
+      "cidr": "Sweep CIDR: {{cidr}}",
+      "meta": "{{count}} neighbors · mode={{mode}} · {{ms}} ms",
+      "cancelled": "LAN discovery was cancelled mid-sweep."
+    },
+    "lanSvc": {
+      "hint": "Browse mDNS/DNS-SD and SSDP/UPnP announcements on the local network (read-only).",
+      "readOnlyHint": "Read-only discovery. No UPnP Write / AddPortMapping actions are exposed.",
+      "run": "Browse LAN services",
+      "running": "Browsing…",
+      "empty": "No mDNS/SSDP responses in the listen window.",
+      "meta": "{{count}} services · {{ms}} ms"
+    },
+    "pcap": {
+      "hint": "Short counter-only packet sample (RST / retransmit hints). Full pcap write stays opt-in.",
+      "degradedHint": "Degraded: tcpdump counters when available. Install pcap-diag for richer diagnostics.",
+      "run": "Sample packet counters",
+      "running": "Capturing…",
+      "mode": "Mode",
+      "stats": "packets={{packets}} · RST={{rst}} · retrans≈{{retrans}} · OOO≈{{ooo}}"
+    },
+    "nodes": {
+      "hint": "Compare DNS answers from this Mac and Globalping locations. Register HTTPS agents for self-hosted probes.",
+      "run": "Compare DNS (multi-node)",
+      "running": "Comparing…",
+      "refresh": "Refresh nodes",
+      "listTitle": "Probe nodes",
+      "addTitle": "Add agent",
+      "addHint": "Endpoint must be https:// or wss://. Arbitrary shell actions are rejected.",
+      "labelPlaceholder": "Label",
+      "domainPlaceholder": "example.com",
+      "endpointPlaceholder": "https://agent.example:8443",
+      "addAgent": "Add agent",
+      "removeAgent": "Remove",
+      "meta": "{{domain}} · {{count}} answers · {{ms}} ms"
+    },
+    "nat": {
+      "hint": "STUN Binding against a public server to learn your mapped address / NAT exposure.",
+      "run": "Probe NAT",
+      "running": "Probing…",
+      "type": "Result",
+      "mapped": "Mapped address"
+    },
+    "ntp": {
+      "hint": "Query pool.ntp.org for clock offset. Large skew can break TLS and auth.",
+      "run": "Probe NTP",
+      "running": "Probing…",
+      "offset": "Offset {{seconds}} s ({{severity}})",
+      "fail": "NTP probe failed"
+    },
     "report": {
       "hint": "Export the latest health scan and browse the session command log.",
       "title": "Network Probe health report",
@@ -3164,7 +3293,12 @@
       "cancelledNo": "no",
       "logTitle": "Command log",
       "logEmpty": "No commands logged this session.",
-      "clearLog": "Clear log"
+      "clearLog": "Clear log",
+      "historyTitle": "Recent health snapshots",
+      "historyEmpty": "No saved health scans yet. Run a health scan to keep history.",
+      "clearHistory": "Clear history",
+      "historyItem": "{{session}}… · {{count}} checks · {{ms}} ms · {{opinions}} opinions",
+      "privacyHint": "Exports may include public IP, Wi‑Fi SSID, hosts overrides, and local addresses. Share only with people you trust."
     },
     "traceroute": {
       "hint": "Path hop table via trippy (privileged ICMP, falls back to unprivileged UDP). Loss % is color-coded. ASN via Team Cymru DNS (may be empty).",
@@ -3211,7 +3345,41 @@
       "traceroute": "traceroute('{{target}}', {maxTtl:{{maxTtl}}, rounds:{{rounds}}})",
       "ipv6": "checkIpv6Stack(local)",
       "mtu": "probePathMtu(local, '{{target}}')",
-      "egress": "getPublicIpInfo(local)"
+      "egress": "getPublicIpInfo(local)",
+      "speedTest": "startSpeedTest('{{sourceId}}')",
+      "pollution": "detectPollution(local, '{{domain}}')",
+      "whois": "whois('{{query}}')",
+      "dnssec": "checkDnsSec('{{domain}}')",
+      "scanPorts": "scanPorts(local, '{{target}}', '{{ports}}') // tcp-connect",
+      "arp": "scanLan(local) // arp-cache",
+      "lanSvc": "browseLanServices(local) // mDNS+SSDP",
+      "pcap": "startPacketCapture(local) // tcpdump counters",
+      "compareDns": "dnsLookup(multi, domain)",
+      "addAgent": "addAgent(label, https://…)",
+      "nat": "probeNat(local)",
+      "ntp": "probeNtp(local)",
+      "installPack": "installCapabilityPack('{{packId}}')",
+      "uninstallPack": "uninstallCapabilityPack('{{packId}}')"
+    },
+    "packs": {
+      "dialogTitle": "Optional capability packs",
+      "dialogHint": "Advanced scanners and helpers install from a backend manifest only — the UI never supplies download URLs (D-017).",
+      "markerOnly": "marker install (artifact pending)",
+      "meta": "v{{version}} · {{sizeMb}} MB · {{status}}",
+      "gatekeeperNote": "Ad-hoc / unsigned builds cannot claim Gatekeeper trust for sidecars (D-010).",
+      "empty": "No packs available on this platform.",
+      "refresh": "Refresh",
+      "install": "Install",
+      "installing": "Installing…",
+      "uninstall": "Uninstall",
+      "verifyFail": "Test hash fail",
+      "manage": "Manage packs",
+      "missingHint": "This tool needs an optional pack ({{packId}}).",
+      "desc": {
+        "advScanner": "SYN / ARP / fingerprint enhancements (adv-scanner).",
+        "pcapDiag": "Diagnostic packet capture statistics (pcap-diag).",
+        "privHelper": "Privileged helper service (priv-helper; notarization required for trust)."
+      }
     },
     "caps": {
       "banner": "platform={{platform}} · privilege={{privilege}} (tools from capabilities matrix)",
@@ -3242,7 +3410,23 @@
       "tracerouteFailed": "Traceroute failed.",
       "ipv6Failed": "IPv6 stack check failed.",
       "mtuFailed": "Path MTU probe failed.",
-      "openSettingsFailed": "Could not open system network settings."
+      "openSettingsFailed": "Could not open system network settings.",
+      "packsFailed": "Capability pack operation failed.",
+      "defaultsFailed": "Defaults override / reset failed.",
+      "speedFailed": "Speed test failed.",
+      "securityAuthRequired": "Authorize the Security tab before running these tools.",
+      "pollutionFailed": "Pollution check failed.",
+      "whoisFailed": "WHOIS / RDAP lookup failed.",
+      "dnssecFailed": "DNSSEC / DoH check failed.",
+      "portsFailed": "Port scan failed.",
+      "natFailed": "NAT / STUN probe failed.",
+      "ntpFailed": "NTP probe failed.",
+      "lanFailed": "LAN discovery failed.",
+      "lanSvcFailed": "LAN service browse failed.",
+      "pcapFailed": "Packet diagnostics failed.",
+      "nodesFailed": "Failed to list probe nodes.",
+      "multiNodeFailed": "Multi-node DNS compare failed.",
+      "agentFailed": "Agent registry operation failed."
     }
   }
 }

@@ -22,6 +22,8 @@ function toolEnabled(tools: Record<string, string> | undefined, key: string): bo
 export function useNetworkProbeController() {
   const nav = useNetworkProbeStore((s) => s.nav)
   const capabilities = useNetworkProbeStore((s) => s.capabilities)
+  const capabilityPacks = useNetworkProbeStore((s) => s.capabilityPacks)
+  const packProgressText = useNetworkProbeStore((s) => s.packProgressText)
   const defaults = useNetworkProbeStore((s) => s.defaults)
   const summary = useNetworkProbeStore((s) => s.summary)
   const firewall = useNetworkProbeStore((s) => s.firewall)
@@ -44,6 +46,24 @@ export function useNetworkProbeController() {
   const tracerouteStreamingHops = useNetworkProbeStore((s) => s.tracerouteStreamingHops)
   const ipv6Result = useNetworkProbeStore((s) => s.ipv6Result)
   const mtuResult = useNetworkProbeStore((s) => s.mtuResult)
+  const speedSources = useNetworkProbeStore((s) => s.speedSources)
+  const speedResult = useNetworkProbeStore((s) => s.speedResult)
+  const speedSample = useNetworkProbeStore((s) => s.speedSample)
+  const speedCooldownUntil = useNetworkProbeStore((s) => s.speedCooldownUntil)
+  const pollutionResult = useNetworkProbeStore((s) => s.pollutionResult)
+  const whoisResult = useNetworkProbeStore((s) => s.whoisResult)
+  const dnssecResult = useNetworkProbeStore((s) => s.dnssecResult)
+  const portScanResult = useNetworkProbeStore((s) => s.portScanResult)
+  const portScanStreaming = useNetworkProbeStore((s) => s.portScanStreaming)
+  const natResult = useNetworkProbeStore((s) => s.natResult)
+  const ntpResult = useNetworkProbeStore((s) => s.ntpResult)
+  const lanResult = useNetworkProbeStore((s) => s.lanResult)
+  const lanServicesResult = useNetworkProbeStore((s) => s.lanServicesResult)
+  const pcapResult = useNetworkProbeStore((s) => s.pcapResult)
+  const multiNodeDnsResult = useNetworkProbeStore((s) => s.multiNodeDnsResult)
+  const probeNodes = useNetworkProbeStore((s) => s.probeNodes)
+  const reportHistory = useNetworkProbeStore((s) => s.reportHistory)
+  const securityAuthorized = useNetworkProbeStore((s) => s.securityAuthorized)
   const activeSessionId = useNetworkProbeStore((s) => s.activeSessionId)
   const commandLog = useNetworkProbeStore((s) => s.commandLog)
   const loadingSummary = useNetworkProbeStore((s) => s.loadingSummary)
@@ -58,10 +78,24 @@ export function useNetworkProbeController() {
   const loadingTraceroute = useNetworkProbeStore((s) => s.loadingTraceroute)
   const loadingIpv6 = useNetworkProbeStore((s) => s.loadingIpv6)
   const loadingMtu = useNetworkProbeStore((s) => s.loadingMtu)
+  const loadingSpeed = useNetworkProbeStore((s) => s.loadingSpeed)
+  const loadingPollution = useNetworkProbeStore((s) => s.loadingPollution)
+  const loadingWhois = useNetworkProbeStore((s) => s.loadingWhois)
+  const loadingDnssec = useNetworkProbeStore((s) => s.loadingDnssec)
+  const loadingPorts = useNetworkProbeStore((s) => s.loadingPorts)
+  const loadingNat = useNetworkProbeStore((s) => s.loadingNat)
+  const loadingNtp = useNetworkProbeStore((s) => s.loadingNtp)
+  const loadingLan = useNetworkProbeStore((s) => s.loadingLan)
+  const loadingLanServices = useNetworkProbeStore((s) => s.loadingLanServices)
+  const loadingPcap = useNetworkProbeStore((s) => s.loadingPcap)
+  const loadingMultiNode = useNetworkProbeStore((s) => s.loadingMultiNode)
+  const loadingNodes = useNetworkProbeStore((s) => s.loadingNodes)
   const error = useNetworkProbeStore((s) => s.error)
   const setL1 = useNetworkProbeStore((s) => s.setL1)
   const setL2 = useNetworkProbeStore((s) => s.setL2)
   const setOfflineSub = useNetworkProbeStore((s) => s.setOfflineSub)
+  const setSecurityAuthorized = useNetworkProbeStore((s) => s.setSecurityAuthorized)
+  const clearReportHistory = useNetworkProbeStore((s) => s.clearReportHistory)
 
   useEffect(() => {
     if (!canUseTauriCommands()) return
@@ -147,6 +181,61 @@ export function useNetworkProbeController() {
     () => networkProbeUseCases.openSystemNetworkSettings(),
     [],
   )
+  const refreshCapabilityPacks = useCallback(
+    () => networkProbeUseCases.refreshCapabilityPacks(),
+    [],
+  )
+  const installCapabilityPack = useCallback(
+    (packId: string) => networkProbeUseCases.installCapabilityPack(packId),
+    [],
+  )
+  const uninstallCapabilityPack = useCallback(
+    (packId: string) => networkProbeUseCases.uninstallCapabilityPack(packId),
+    [],
+  )
+  const loadSpeedSources = useCallback(() => networkProbeUseCases.loadSpeedSources(), [])
+  const runSpeedTest = useCallback(
+    (sourceId: string) => networkProbeUseCases.runSpeedTest(sourceId),
+    [],
+  )
+  const runPollutionCheck = useCallback(
+    (domain: string) => networkProbeUseCases.runPollutionCheck(domain),
+    [],
+  )
+  const runWhois = useCallback((query: string) => networkProbeUseCases.runWhois(query), [])
+  const runDnssec = useCallback((domain: string) => networkProbeUseCases.runDnssec(domain), [])
+  const runPortScan = useCallback(
+    (target: string, ports: string) => networkProbeUseCases.runPortScan(target, ports),
+    [],
+  )
+  const probeNat = useCallback(() => networkProbeUseCases.probeNat(), [])
+  const probeNtp = useCallback(() => networkProbeUseCases.probeNtp(), [])
+  const discoverLan = useCallback(() => networkProbeUseCases.discoverLan(), [])
+  const browseLanServices = useCallback(() => networkProbeUseCases.browseLanServices(), [])
+  const runPcapDiag = useCallback(
+    (durationSecs?: number) => networkProbeUseCases.runPcapDiag(durationSecs),
+    [],
+  )
+  const refreshProbeNodes = useCallback(() => networkProbeUseCases.refreshProbeNodes(), [])
+  const compareDnsMulti = useCallback(
+    (domain: string) => networkProbeUseCases.compareDnsMulti(domain),
+    [],
+  )
+  const addAgent = useCallback(
+    (label: string, endpoint: string) => networkProbeUseCases.addAgent(label, endpoint),
+    [],
+  )
+  const removeAgent = useCallback(
+    (agentId: string) => networkProbeUseCases.removeAgent(agentId),
+    [],
+  )
+  const installCapabilityPackVerifyFail = useCallback(
+    (packId: string) => networkProbeUseCases.installCapabilityPackVerifyFail(packId),
+    [],
+  )
+  const authorizeSecurity = useCallback(() => setSecurityAuthorized(true), [setSecurityAuthorized])
+  const revokeSecurity = useCallback(() => setSecurityAuthorized(false), [setSecurityAuthorized])
+  const resetDefaults = useCallback(() => networkProbeUseCases.resetDefaults(), [])
 
   const l2Id = nav.l2ByL1[nav.l1Id]
   const tools = capabilities?.tools
@@ -156,15 +245,39 @@ export function useNetworkProbeController() {
     l2Id,
     offlineSub: nav.offlineSub,
     capabilities,
+    capabilityPacks,
+    packProgressText,
     toolEnabled: {
       ping: toolEnabled(tools, "ping"),
       traceroute: toolEnabled(tools, "traceroute"),
       sitesProbe: toolEnabled(tools, "sitesProbe"),
+      speedTest: toolEnabled(tools, "speedTest"),
+      pollution: toolEnabled(tools, "pollution"),
+      whois: toolEnabled(tools, "whois"),
+      dnssec: toolEnabled(tools, "dnssec"),
+      portScan: toolEnabled(tools, "portScan"),
+      nat: toolEnabled(tools, "nat"),
+      ntp: toolEnabled(tools, "ntp"),
+      arp: toolEnabled(tools, "arp"),
+      lanServices: toolEnabled(tools, "lanServices"),
+      pcap: toolEnabled(tools, "pcap"),
+      multiNode: toolEnabled(tools, "multiNode"),
     },
     toolStatus: {
       ping: toolStatus(tools, "ping"),
       traceroute: toolStatus(tools, "traceroute"),
       sitesProbe: toolStatus(tools, "sitesProbe"),
+      speedTest: toolStatus(tools, "speedTest"),
+      pollution: toolStatus(tools, "pollution"),
+      whois: toolStatus(tools, "whois"),
+      dnssec: toolStatus(tools, "dnssec"),
+      portScan: toolStatus(tools, "portScan"),
+      nat: toolStatus(tools, "nat"),
+      ntp: toolStatus(tools, "ntp"),
+      arp: toolStatus(tools, "arp"),
+      lanServices: toolStatus(tools, "lanServices"),
+      pcap: toolStatus(tools, "pcap"),
+      multiNode: toolStatus(tools, "multiNode"),
     },
     defaults,
     summary,
@@ -188,6 +301,24 @@ export function useNetworkProbeController() {
     tracerouteStreamingHops,
     ipv6Result,
     mtuResult,
+    speedSources,
+    speedResult,
+    speedSample,
+    speedCooldownUntil,
+    pollutionResult,
+    whoisResult,
+    dnssecResult,
+    portScanResult,
+    portScanStreaming,
+    natResult,
+    ntpResult,
+    lanResult,
+    lanServicesResult,
+    pcapResult,
+    multiNodeDnsResult,
+    probeNodes,
+    reportHistory,
+    securityAuthorized,
     activeSessionId,
     commandLog,
     loadingSummary,
@@ -202,6 +333,18 @@ export function useNetworkProbeController() {
     loadingTraceroute,
     loadingIpv6,
     loadingMtu,
+    loadingSpeed,
+    loadingPollution,
+    loadingWhois,
+    loadingDnssec,
+    loadingPorts,
+    loadingNat,
+    loadingNtp,
+    loadingLan,
+    loadingLanServices,
+    loadingPcap,
+    loadingMultiNode,
+    loadingNodes,
     error,
     selectL1,
     selectL2,
@@ -227,5 +370,28 @@ export function useNetworkProbeController() {
     probePathMtu,
     refreshPublicIp,
     openSystemNetworkSettings,
+    refreshCapabilityPacks,
+    installCapabilityPack,
+    uninstallCapabilityPack,
+    loadSpeedSources,
+    runSpeedTest,
+    runPollutionCheck,
+    runWhois,
+    runDnssec,
+    runPortScan,
+    probeNat,
+    probeNtp,
+    discoverLan,
+    browseLanServices,
+    runPcapDiag,
+    refreshProbeNodes,
+    compareDnsMulti,
+    addAgent,
+    removeAgent,
+    installCapabilityPackVerifyFail,
+    authorizeSecurity,
+    revokeSecurity,
+    clearReportHistory,
+    resetDefaults,
   }
 }

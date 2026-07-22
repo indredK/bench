@@ -1,23 +1,36 @@
-//! Network Probe / 网络探测领域模块（MVP P0–P1）.
+//! Network Probe / 网络探测领域模块（MVP + Post Wave 0–5）.
 
 mod advisor;
+mod agent;
 mod asn;
 pub(crate) mod commands;
 mod defaults;
+mod discovery;
 mod dns;
+mod dnssec;
 mod fix;
+mod globalping;
 mod health;
 mod hosts;
 mod input;
 mod ipv6;
+mod lan_services;
 mod mtu;
+mod nat;
+mod ntp;
 mod offline;
+mod packs;
+mod pcap_diag;
 pub(crate) mod ping;
+mod pollution;
+mod ports;
 mod probe;
 mod session;
 mod sites;
+mod speed;
 mod summary;
 mod tcp;
 mod traceroute;
 mod types;
 mod validate;
+mod whois;

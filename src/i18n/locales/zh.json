@@ -3152,6 +3152,135 @@
       "empty": "尚未查询出口。",
       "asn": "ASN: {{asn}}{{org}}"
     },
+    "speed": {
+      "hint": "兼容 LibreSpeed 的带宽测速（ping / 下载 / 上传）。可取消中途停止。",
+      "source": "测速源",
+      "sourcePlaceholder": "选择测速源",
+      "emptySources": "暂无可用测速源。",
+      "run": "开始测速",
+      "running": "测速中…",
+      "cancel": "取消",
+      "cancelled": "已取消",
+      "cooldown": "测速源失败 — {{seconds}} 秒后可重试",
+      "sourceUnavailable": "该测速源似乎不可达。冷却结束后可换源再试。",
+      "ping": "延迟",
+      "jitter": "抖动",
+      "download": "下载",
+      "upload": "上传",
+      "phase": {
+        "ping": "测量延迟",
+        "download": "下载中",
+        "upload": "上传中"
+      }
+    },
+    "security": {
+      "auth": {
+        "title": "仅限授权使用",
+        "body": "安全工具可能扫描主机并检查证书。请确认你只会探测自有或已获明确授权的资产。只做检测，不提供攻击能力。",
+        "confirm": "我确认 — 启用安全工具",
+        "confirmed": "本机已授权使用安全工具。",
+        "revoke": "撤销"
+      }
+    },
+    "pollution": {
+      "hint": "对比多 resolver DNS 答案、检查 hosts 异常，并探测 HTTPS 信任（企业中间盒 vs 失败）。",
+      "domain": "域名",
+      "run": "开始污染检测",
+      "running": "检测中…",
+      "meta": "{{domain}} · {{count}} 条发现 · {{ms}} ms"
+    },
+    "whois": {
+      "hint": "经 rdap.org 做 RDAP 查询（本构建不强制 WHOIS 文本协议）。输出可能截断。",
+      "query": "域名或 IP",
+      "run": "查询",
+      "running": "查询中…",
+      "partial": "部分",
+      "empty": "未返回 RDAP 正文。"
+    },
+    "dnssec": {
+      "hint": "DNSSEC 提示 + DoH/DoT 可达性。本构建不断言完整 AD 位验证链。",
+      "domain": "域名",
+      "run": "检查 DNSSEC / DoH",
+      "running": "检查中…",
+      "status": "DNSSEC 状态",
+      "doh": "DoH",
+      "dot": "DoT",
+      "okMs": "可达 · {{ms}} ms",
+      "fail": "不可达 / 失败"
+    },
+    "ports": {
+      "hint": "对自有或已授权主机做 TCP connect 端口扫描。最多 256 端口；可取消。",
+      "degradedHint": "降级模式：仅 TCP connect。安装 adv-scanner / nmap 可启用 SYN。",
+      "target": "目标",
+      "range": "端口",
+      "run": "扫描端口",
+      "running": "扫描中…",
+      "cancel": "取消",
+      "openList": "开放：{{ports}}",
+      "confirmTitle": "确认端口扫描范围",
+      "confirmDesc": "目标 {{target}} · 约 {{count}} 个端口。公网主机或较大范围需二次确认。",
+      "confirmConsequence": "仅扫描自有或已授权资产。当前为 TCP connect（无 SYN）。",
+      "confirmRun": "仍然扫描"
+    },
+    "arp": {
+      "hint": "读取系统 ARP/邻居缓存中的局域网邻居（降级发现）。",
+      "degradedHint": "降级：仅缓存。特权 ARP 扫需 adv-scanner。",
+      "run": "刷新 ARP 缓存",
+      "running": "读取中…",
+      "empty": "ARP 缓存中无邻居。",
+      "emptyQuiet": "未发现邻居 — 可能是静网，或探测被过滤。",
+      "emptyIsolation": "仅网关有响应 — 可能是访客 Wi‑Fi / 客户端隔离。",
+      "emptyPermission": "无可用 IPv4 — 请检查系统设置中的「本地网络」权限。",
+      "openSettings": "打开系统网络设置",
+      "cidr": "扫描网段：{{cidr}}",
+      "meta": "{{count}} 个邻居 · mode={{mode}} · {{ms}} ms",
+      "cancelled": "局域网发现已在扫描中取消。"
+    },
+    "lanSvc": {
+      "hint": "只读浏览局域网 mDNS/DNS-SD 与 SSDP/UPnP 通告。",
+      "readOnlyHint": "只读发现。不暴露 UPnP Write / AddPortMapping。",
+      "run": "浏览局域网服务",
+      "running": "浏览中…",
+      "empty": "监听窗口内无 mDNS/SSDP 响应。",
+      "meta": "{{count}} 个服务 · {{ms}} ms"
+    },
+    "pcap": {
+      "hint": "短时只计计数器的抓包采样（RST / 重传提示）。完整 pcap 落盘保持可选。",
+      "degradedHint": "降级：可用时用 tcpdump 计数。安装 pcap-diag 可获得更丰富诊断。",
+      "run": "采样包计数",
+      "running": "采集中…",
+      "mode": "模式",
+      "stats": "packets={{packets}} · RST={{rst}} · retrans≈{{retrans}} · OOO≈{{ooo}}"
+    },
+    "nodes": {
+      "hint": "对比本机与 Globalping 多地的 DNS 答案。可注册 HTTPS agent 作为自有探测节点。",
+      "run": "多节点对比 DNS",
+      "running": "对比中…",
+      "refresh": "刷新节点",
+      "listTitle": "探测节点",
+      "addTitle": "添加 agent",
+      "addHint": "端点必须为 https:// 或 wss://。任意 shell 动作会被拒绝。",
+      "labelPlaceholder": "名称",
+      "domainPlaceholder": "example.com",
+      "endpointPlaceholder": "https://agent.example:8443",
+      "addAgent": "添加 agent",
+      "removeAgent": "移除",
+      "meta": "{{domain}} · {{count}} 条答案 · {{ms}} ms"
+    },
+    "nat": {
+      "hint": "对公网 STUN 服务器做 Binding，查看映射地址 / NAT 暴露情况。",
+      "run": "探测 NAT",
+      "running": "探测中…",
+      "type": "结果",
+      "mapped": "映射地址"
+    },
+    "ntp": {
+      "hint": "查询 pool.ntp.org 时钟偏移。过大偏差可能影响 TLS 与鉴权。",
+      "run": "探测 NTP",
+      "running": "探测中…",
+      "offset": "偏移 {{seconds}} 秒（{{severity}}）",
+      "fail": "NTP 探测失败"
+    },
     "report": {
       "hint": "导出最近一次体检，并浏览本会话命令日志。",
       "title": "网络探测体检报告",
@@ -3164,7 +3293,12 @@
       "cancelledNo": "否",
       "logTitle": "命令日志",
       "logEmpty": "本会话尚无命令记录。",
-      "clearLog": "清空日志"
+      "clearLog": "清空日志",
+      "historyTitle": "近期体检快照",
+      "historyEmpty": "尚无保存的体检。运行一次一键体检后会保留历史。",
+      "clearHistory": "清空历史",
+      "historyItem": "{{session}}… · {{count}} 项检查 · {{ms}} ms · {{opinions}} 条建议",
+      "privacyHint": "导出内容可能含公网 IP、Wi‑Fi SSID、hosts 异常与本机地址。请仅分享给可信对象。"
     },
     "traceroute": {
       "hint": "基于 trippy 的路径跳点表（优先特权 ICMP，不足时降级无特权 UDP）。丢包率着色。ASN 经 Team Cymru DNS（可空）。",
@@ -3211,7 +3345,41 @@
       "traceroute": "traceroute('{{target}}', {maxTtl:{{maxTtl}}, rounds:{{rounds}}})",
       "ipv6": "checkIpv6Stack(local)",
       "mtu": "probePathMtu(local, '{{target}}')",
-      "egress": "getPublicIpInfo(local)"
+      "egress": "getPublicIpInfo(local)",
+      "speedTest": "startSpeedTest('{{sourceId}}')",
+      "pollution": "detectPollution(local, '{{domain}}')",
+      "whois": "whois('{{query}}')",
+      "dnssec": "checkDnsSec('{{domain}}')",
+      "scanPorts": "scanPorts(local, '{{target}}', '{{ports}}') // tcp-connect",
+      "arp": "scanLan(local) // arp-cache",
+      "lanSvc": "browseLanServices(local) // mDNS+SSDP",
+      "pcap": "startPacketCapture(local) // tcpdump counters",
+      "compareDns": "dnsLookup(multi, domain)",
+      "addAgent": "addAgent(label, https://…)",
+      "nat": "probeNat(local)",
+      "ntp": "probeNtp(local)",
+      "installPack": "installCapabilityPack('{{packId}}')",
+      "uninstallPack": "uninstallCapabilityPack('{{packId}}')"
+    },
+    "packs": {
+      "dialogTitle": "可选能力包",
+      "dialogHint": "高级扫描与 helper 仅按后端 manifest 安装 — 前端不得提交下载 URL（D-017）。",
+      "markerOnly": "标记安装（制品尚未发布）",
+      "meta": "v{{version}} · {{sizeMb}} MB · {{status}}",
+      "gatekeeperNote": "ad-hoc / 未签名构建不得宣称 sidecar 已获 Gatekeeper 信任（D-010）。",
+      "empty": "当前平台无可用能力包。",
+      "refresh": "刷新",
+      "install": "安装",
+      "installing": "安装中…",
+      "uninstall": "卸载",
+      "verifyFail": "测试哈希失败",
+      "manage": "管理组件",
+      "missingHint": "该工具需要可选能力包（{{packId}}）。",
+      "desc": {
+        "advScanner": "SYN / ARP / 指纹增强（adv-scanner）。",
+        "pcapDiag": "诊断级抓包统计（pcap-diag）。",
+        "privHelper": "特权 helper 服务（priv-helper；正式信任需公证）。"
+      }
     },
     "caps": {
       "banner": "platform={{platform}} · privilege={{privilege}}（工具状态来自能力矩阵）",
@@ -3242,7 +3410,23 @@
       "tracerouteFailed": "Traceroute 失败。",
       "ipv6Failed": "IPv6 栈检查失败。",
       "mtuFailed": "路径 MTU 探测失败。",
-      "openSettingsFailed": "无法打开系统网络设置。"
+      "openSettingsFailed": "无法打开系统网络设置。",
+      "packsFailed": "能力包操作失败。",
+      "defaultsFailed": "Defaults 覆盖/重置失败。",
+      "speedFailed": "带宽测速失败。",
+      "securityAuthRequired": "请先确认安全 Tab 授权声明。",
+      "pollutionFailed": "污染检测失败。",
+      "whoisFailed": "WHOIS / RDAP 查询失败。",
+      "dnssecFailed": "DNSSEC / DoH 检查失败。",
+      "portsFailed": "端口扫描失败。",
+      "natFailed": "NAT / STUN 探测失败。",
+      "ntpFailed": "NTP 探测失败。",
+      "lanFailed": "局域网发现失败。",
+      "lanSvcFailed": "局域网服务浏览失败。",
+      "pcapFailed": "包级诊断失败。",
+      "nodesFailed": "列举探测节点失败。",
+      "multiNodeFailed": "多节点 DNS 对比失败。",
+      "agentFailed": "Agent 注册操作失败。"
     }
   }
 }

@@ -1,31 +1,45 @@
 /**
  * Page View / 页面视图: compose L1/L2 shell and panels; 只组合页面.
  */
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Network } from "lucide-react"
 import { RuntimeFeatureGate } from "@/components/common/RuntimeFeatureGate"
+import { ArpPanel } from "@/features/network-probe/components/ArpPanel"
 import { DnsLookupPanel } from "@/features/network-probe/components/DnsLookupPanel"
+import { DnsSecPanel } from "@/features/network-probe/components/DnsSecPanel"
 import { EgressPanel } from "@/features/network-probe/components/EgressPanel"
 import { FixPanel } from "@/features/network-probe/components/FixPanel"
 import { HealthTreePanel } from "@/features/network-probe/components/HealthTreePanel"
 import { Ipv6Panel } from "@/features/network-probe/components/Ipv6Panel"
+import { LanServicesPanel } from "@/features/network-probe/components/LanServicesPanel"
 import { MtuPanel } from "@/features/network-probe/components/MtuPanel"
+import { MultiNodePanel } from "@/features/network-probe/components/MultiNodePanel"
+import { NatPanel } from "@/features/network-probe/components/NatPanel"
+import { NtpPanel } from "@/features/network-probe/components/NtpPanel"
 import { OfflinePanel } from "@/features/network-probe/components/OfflinePanel"
 import { OverviewPanel } from "@/features/network-probe/components/OverviewPanel"
+import { PackInstallDialog } from "@/features/network-probe/components/PackInstallDialog"
+import { PcapDiagPanel } from "@/features/network-probe/components/PcapDiagPanel"
 import { PingPanel } from "@/features/network-probe/components/PingPanel"
+import { PollutionPanel } from "@/features/network-probe/components/PollutionPanel"
+import { PortScanPanel } from "@/features/network-probe/components/PortScanPanel"
 import { ProbeTargetPanel } from "@/features/network-probe/components/ProbeTargetPanel"
 import { ReportPanel } from "@/features/network-probe/components/ReportPanel"
 import { ScanOpinionPanel } from "@/features/network-probe/components/ScanOpinionPanel"
+import { SecurityAuthGate } from "@/features/network-probe/components/SecurityAuthGate"
 import { SitesProbePanel } from "@/features/network-probe/components/SitesProbePanel"
+import { SpeedPanel } from "@/features/network-probe/components/SpeedPanel"
 import { TcpConnectPanel } from "@/features/network-probe/components/TcpConnectPanel"
 import { TraceroutePanel } from "@/features/network-probe/components/TraceroutePanel"
+import { WhoisPanel } from "@/features/network-probe/components/WhoisPanel"
 import { useNetworkProbeController } from "@/features/network-probe/hooks/useNetworkProbeController"
 import {
   OFFLINE_SUBS,
   type NetworkProbeL1,
   type NetworkProbeOfflineSub,
 } from "@/features/network-probe/store"
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { FeatureDescriptor } from "@/platform/capabilities"
 
@@ -55,6 +69,9 @@ const POST_L2 = new Set([
 export default function NetworkProbePage({ feature }: { feature?: FeatureDescriptor }) {
   const { t } = useTranslation()
   const c = useNetworkProbeController()
+  const [packsOpen, setPacksOpen] = useState(false)
+  const [focusPackId, setFocusPackId] = useState<string | null>(null)
+  const [packsBusy, setPacksBusy] = useState(false)
 
   const l2Items = L2_BY_L1[c.l1Id]
   const hostsSuspicious = useMemo(
@@ -79,6 +96,17 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
   const showTraceroute = c.l1Id === "test" && c.l2Id === "traceroute"
   const showMtu = c.l1Id === "test" && c.l2Id === "mtu"
   const showEgress = c.l1Id === "test" && c.l2Id === "egress"
+  const showSpeed = c.l1Id === "test" && c.l2Id === "speed"
+  const showPorts = c.l1Id === "security" && c.l2Id === "ports"
+  const showPollution = c.l1Id === "security" && c.l2Id === "pollution"
+  const showDnssec = c.l1Id === "security" && c.l2Id === "dnssec"
+  const showWhois = c.l1Id === "security" && c.l2Id === "whois"
+  const showArp = c.l1Id === "discover" && c.l2Id === "arp"
+  const showLanSvc = c.l1Id === "discover" && c.l2Id === "lan-svc"
+  const showNat = c.l1Id === "discover" && c.l2Id === "nat"
+  const showNtp = c.l1Id === "discover" && c.l2Id === "ntp"
+  const showNodes = c.l1Id === "discover" && c.l2Id === "nodes"
+  const showPcap = c.l1Id === "security" && c.l2Id === "pcap"
   const showComingSoon = !(
     showOverview ||
     showTree ||
@@ -93,7 +121,18 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
     showCustom ||
     showTraceroute ||
     showMtu ||
-    showEgress
+    showEgress ||
+    showSpeed ||
+    showPorts ||
+    showPollution ||
+    showDnssec ||
+    showWhois ||
+    showArp ||
+    showLanSvc ||
+    showNat ||
+    showNtp ||
+    showNodes ||
+    showPcap
   )
 
   const offlineSub = c.offlineSub
@@ -164,6 +203,16 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
         ) : null}
 
         <div className="min-h-0 flex-1 overflow-auto">
+          {c.l1Id === "security" ? (
+            <div className="mb-3">
+              <SecurityAuthGate
+                authorized={c.securityAuthorized}
+                onAuthorize={c.authorizeSecurity}
+                onRevoke={c.revokeSecurity}
+              />
+            </div>
+          ) : null}
+
           {showOverview ? (
             <OverviewPanel
               loading={c.loadingSummary}
@@ -288,8 +337,10 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
           {showReport ? (
             <ReportPanel
               health={c.healthResult}
+              history={c.reportHistory}
               commandLog={c.commandLog}
               onClearLog={c.clearCommandLog}
+              onClearHistory={c.clearReportHistory}
               onGoTree={() => c.selectL2("tree")}
             />
           ) : null}
@@ -356,26 +407,214 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
             />
           ) : null}
 
+          {showSpeed ? (
+            <SpeedPanel
+              loading={c.loadingSpeed}
+              canCancel={c.loadingSpeed && Boolean(c.activeSessionId)}
+              sources={c.speedSources}
+              result={c.speedResult}
+              sample={c.speedSample}
+              cooldownUntil={c.speedCooldownUntil}
+              toolEnabled={c.toolEnabled.speedTest}
+              toolStatus={c.toolStatus.speedTest}
+              onLoadSources={c.loadSpeedSources}
+              onRun={c.runSpeedTest}
+              onCancel={c.cancelScan}
+            />
+          ) : null}
+
+          {showPorts && c.securityAuthorized ? (
+            <PortScanPanel
+              loading={c.loadingPorts}
+              canCancel={c.loadingPorts && Boolean(c.activeSessionId)}
+              result={c.portScanResult}
+              streaming={c.portScanStreaming}
+              toolEnabled={c.toolEnabled.portScan}
+              toolStatus={c.toolStatus.portScan}
+              onRun={c.runPortScan}
+              onCancel={c.cancelScan}
+            />
+          ) : null}
+
+          {showPollution && c.securityAuthorized ? (
+            <PollutionPanel
+              loading={c.loadingPollution}
+              result={c.pollutionResult}
+              toolEnabled={c.toolEnabled.pollution}
+              toolStatus={c.toolStatus.pollution}
+              onRun={c.runPollutionCheck}
+            />
+          ) : null}
+
+          {showDnssec && c.securityAuthorized ? (
+            <DnsSecPanel
+              loading={c.loadingDnssec}
+              result={c.dnssecResult}
+              toolEnabled={c.toolEnabled.dnssec}
+              toolStatus={c.toolStatus.dnssec}
+              onRun={c.runDnssec}
+            />
+          ) : null}
+
+          {showWhois && c.securityAuthorized ? (
+            <WhoisPanel
+              loading={c.loadingWhois}
+              result={c.whoisResult}
+              toolEnabled={c.toolEnabled.whois}
+              toolStatus={c.toolStatus.whois}
+              onRun={c.runWhois}
+            />
+          ) : null}
+
+          {showPcap && c.securityAuthorized ? (
+            <PcapDiagPanel
+              loading={c.loadingPcap}
+              result={c.pcapResult}
+              toolEnabled={c.toolEnabled.pcap}
+              toolStatus={c.toolStatus.pcap}
+              canCancel={c.loadingPcap && Boolean(c.activeSessionId)}
+              onRun={() => c.runPcapDiag(5)}
+              onCancel={c.cancelScan}
+              onManagePacks={() => {
+                setFocusPackId("pcap-diag")
+                setPacksOpen(true)
+              }}
+            />
+          ) : null}
+
+          {showArp ? (
+            <ArpPanel
+              loading={c.loadingLan}
+              result={c.lanResult}
+              toolEnabled={c.toolEnabled.arp}
+              toolStatus={c.toolStatus.arp}
+              canCancel={c.loadingLan && Boolean(c.activeSessionId)}
+              onRun={c.discoverLan}
+              onCancel={c.cancelScan}
+              onOpenSettings={c.openSystemNetworkSettings}
+            />
+          ) : null}
+
+          {showLanSvc ? (
+            <LanServicesPanel
+              loading={c.loadingLanServices}
+              result={c.lanServicesResult}
+              toolEnabled={c.toolEnabled.lanServices}
+              toolStatus={c.toolStatus.lanServices}
+              onRun={c.browseLanServices}
+            />
+          ) : null}
+
+          {showNat ? (
+            <NatPanel
+              loading={c.loadingNat}
+              result={c.natResult}
+              toolEnabled={c.toolEnabled.nat}
+              toolStatus={c.toolStatus.nat}
+              onRun={c.probeNat}
+            />
+          ) : null}
+
+          {showNtp ? (
+            <NtpPanel
+              loading={c.loadingNtp}
+              result={c.ntpResult}
+              toolEnabled={c.toolEnabled.ntp}
+              toolStatus={c.toolStatus.ntp}
+              onRun={c.probeNtp}
+            />
+          ) : null}
+
+          {showNodes ? (
+            <MultiNodePanel
+              loading={c.loadingMultiNode}
+              loadingNodes={c.loadingNodes}
+              result={c.multiNodeDnsResult}
+              nodes={c.probeNodes}
+              toolEnabled={c.toolEnabled.multiNode}
+              toolStatus={c.toolStatus.multiNode}
+              onCompare={c.compareDnsMulti}
+              onRefreshNodes={c.refreshProbeNodes}
+              onAddAgent={c.addAgent}
+              onRemoveAgent={c.removeAgent}
+            />
+          ) : null}
+
           {showComingSoon ? (
-            <ComingSoonPanel l1={c.l1Id} l2={c.l2Id} toolStatus={c.capabilities?.tools} />
+            <ComingSoonPanel
+              l1={c.l1Id}
+              l2={c.l2Id}
+              toolStatus={c.capabilities?.tools}
+              externalTools={c.capabilities?.externalTools}
+              onManagePacks={(packId) => {
+                setFocusPackId(packId ?? null)
+                setPacksOpen(true)
+              }}
+            />
           ) : null}
         </div>
+
+        <PackInstallDialog
+          open={packsOpen}
+          packs={c.capabilityPacks}
+          busy={packsBusy}
+          progressText={c.packProgressText}
+          focusPackId={focusPackId}
+          onOpenChange={setPacksOpen}
+          onRefresh={() => void c.refreshCapabilityPacks()}
+          onInstall={(packId) => {
+            setPacksBusy(true)
+            void c.installCapabilityPack(packId).finally(() => setPacksBusy(false))
+          }}
+          onVerifyFail={(packId) => {
+            setPacksBusy(true)
+            void c.installCapabilityPackVerifyFail(packId).finally(() => setPacksBusy(false))
+          }}
+          onUninstall={(packId) => {
+            setPacksBusy(true)
+            void c.uninstallCapabilityPack(packId).finally(() => setPacksBusy(false))
+          }}
+        />
       </div>
     </RuntimeFeatureGate>
   )
+}
+
+const L2_PACK_HINT: Record<string, string> = {
+  ports: "adv-scanner",
+  pcap: "pcap-diag",
+  arp: "adv-scanner",
 }
 
 function ComingSoonPanel({
   l1,
   l2,
   toolStatus,
+  externalTools,
+  onManagePacks,
 }: {
   l1: string
   l2: string
   toolStatus?: Record<string, string>
+  externalTools?: Record<string, string>
+  onManagePacks: (packId?: string) => void
 }) {
   const { t } = useTranslation()
   const post = POST_L2.has(l2)
+  const toolKey =
+    l2 === "ports"
+      ? "portScan"
+      : l2 === "pcap"
+        ? "pcap"
+        : l2 === "arp"
+          ? "arp"
+          : l2 === "speed"
+            ? "speedTest"
+            : null
+  const status = toolKey ? toolStatus?.[toolKey] : undefined
+  const packId = L2_PACK_HINT[l2]
+  const missing = status === "missing_pack"
+
   return (
     <div className="text-muted-foreground flex h-full flex-col items-start justify-center gap-2 py-10">
       <p className="text-foreground text-sm font-medium">
@@ -384,7 +623,17 @@ function ComingSoonPanel({
       <p className="max-w-md text-sm">
         {post ? t("networkProbe.coming.post") : t("networkProbe.coming.mvp")}
       </p>
-      {toolStatus ? (
+      {missing && packId ? (
+        <p className="text-xs text-amber-700 dark:text-amber-400">
+          {t("networkProbe.packs.missingHint", { packId })}
+        </p>
+      ) : null}
+      {toolStatus && toolKey ? (
+        <p className="font-mono text-xs">
+          {toolKey}={status ?? "—"}
+          {externalTools?.nmap ? ` · nmap=${externalTools.nmap}` : ""}
+        </p>
+      ) : toolStatus ? (
         <p className="font-mono text-xs">
           {t("networkProbe.capabilitiesLine", {
             value: Object.entries(toolStatus)
@@ -393,6 +642,9 @@ function ComingSoonPanel({
           })}
         </p>
       ) : null}
+      <Button type="button" size="sm" variant="outline" onClick={() => onManagePacks(packId)}>
+        {t("networkProbe.packs.manage")}
+      </Button>
     </div>
   )
 }

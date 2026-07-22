@@ -4,7 +4,10 @@ use crate::error::{AppError, AppResult};
 use std::net::IpAddr;
 use std::time::Duration;
 use surge_ping::{Client, Config, PingIdentifier, PingSequence, ICMP};
+use tauri::{AppHandle, Emitter, Runtime};
 use tokio::time::sleep;
+
+pub const PING_SAMPLE_EVENT: &str = "network-probe:ping-sample";
 
 const MAX_COUNT: u32 = 20;
 const DEFAULT_COUNT: u32 = 4;
@@ -16,6 +19,27 @@ pub async fn ping_host(
     target: String,
     count: Option<u32>,
     interval_ms: Option<u64>,
+) -> AppResult<PingProbeResult> {
+    ping_host_with_sample(target, count, interval_ms, |_| {}).await
+}
+
+pub async fn ping_host_streaming<R: Runtime>(
+    app: &AppHandle<R>,
+    target: String,
+    count: Option<u32>,
+    interval_ms: Option<u64>,
+) -> AppResult<PingProbeResult> {
+    ping_host_with_sample(target, count, interval_ms, |sample| {
+        let _ = app.emit(PING_SAMPLE_EVENT, sample);
+    })
+    .await
+}
+
+async fn ping_host_with_sample(
+    target: String,
+    count: Option<u32>,
+    interval_ms: Option<u64>,
+    mut on_sample: impl FnMut(&PingSample),
 ) -> AppResult<PingProbeResult> {
     validate_host(&target)?;
     let count = count.unwrap_or(DEFAULT_COUNT).clamp(1, MAX_COUNT);
@@ -50,26 +74,26 @@ pub async fn ping_host(
         if seq > 0 {
             sleep(Duration::from_millis(interval_ms)).await;
         }
-        match pinger.ping(PingSequence(seq as u16), &payload).await {
+        let sample = match pinger.ping(PingSequence(seq as u16), &payload).await {
             Ok((_packet, duration)) => {
                 let rtt_ms = duration.as_secs_f64() * 1000.0;
                 rtts.push(rtt_ms);
-                samples.push(PingSample {
+                PingSample {
                     seq,
                     ok: true,
                     rtt_ms: Some(rtt_ms),
                     error: None,
-                });
+                }
             }
-            Err(e) => {
-                samples.push(PingSample {
-                    seq,
-                    ok: false,
-                    rtt_ms: None,
-                    error: Some(e.to_string()),
-                });
-            }
-        }
+            Err(e) => PingSample {
+                seq,
+                ok: false,
+                rtt_ms: None,
+                error: Some(e.to_string()),
+            },
+        };
+        on_sample(&sample);
+        samples.push(sample);
     }
 
     let packets_received = rtts.len() as u32;

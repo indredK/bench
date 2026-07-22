@@ -5,6 +5,7 @@ import { create } from "zustand"
 import type { LocalizedError } from "@/lib/errors"
 import type {
   CaptivePortalResult,
+  CapabilityPackInfo,
   DnsLookupResult,
   FirewallStatus,
   FixResult,
@@ -15,17 +16,76 @@ import type {
   NetworkProbeCapabilities,
   NetworkProbeDefaultsCatalog,
   PingProbeResult,
+  PingSample,
   ProbeTargetResult,
   ProxyVpnStatus,
   PublicIpInfo,
   SitesProbeResult,
   SiteSampleResult,
+  SpeedSampleEvent,
+  SpeedSource,
+  SpeedTestResult,
+  PollutionReport,
+  WhoisInfo,
+  DnsSecCheckResult,
+  PortSampleEvent,
+  PortScanResult,
+  NatProbeResult,
+  NtpProbeResult,
+  LanDiscoveryResult,
+  LanServicesResult,
+  PcapDiagResult,
+  MultiNodeDnsResult,
+  ProbeNode,
   TcpConnectResult,
   TracerouteHop,
   TracerouteResult,
   Ipv6StackResult,
   PathMtuResult,
 } from "@/lib/tauri/types/network-probe"
+
+const SECURITY_AUTH_KEY = "network-probe:security-authorized"
+const REPORT_HISTORY_KEY = "network-probe:report-history"
+
+function loadSecurityAuthorized(): boolean {
+  if (typeof localStorage === "undefined") return false
+  try {
+    return localStorage.getItem(SECURITY_AUTH_KEY) === "1"
+  } catch {
+    return false
+  }
+}
+
+function persistSecurityAuthorized(value: boolean) {
+  if (typeof localStorage === "undefined") return
+  try {
+    if (value) localStorage.setItem(SECURITY_AUTH_KEY, "1")
+    else localStorage.removeItem(SECURITY_AUTH_KEY)
+  } catch {
+    // ignore
+  }
+}
+
+function loadReportHistory(): HealthScanResult[] {
+  if (typeof localStorage === "undefined") return []
+  try {
+    const raw = localStorage.getItem(REPORT_HISTORY_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as HealthScanResult[]
+    return Array.isArray(parsed) ? parsed.slice(0, 10) : []
+  } catch {
+    return []
+  }
+}
+
+function persistReportHistory(history: HealthScanResult[]) {
+  if (typeof localStorage === "undefined") return
+  try {
+    localStorage.setItem(REPORT_HISTORY_KEY, JSON.stringify(history.slice(0, 10)))
+  } catch {
+    // ignore
+  }
+}
 
 export type NetworkProbeL1 = "basic" | "test" | "security" | "discover"
 
@@ -41,12 +101,15 @@ interface NetworkProbeState {
     offlineSub: NetworkProbeOfflineSub
   }
   capabilities: NetworkProbeCapabilities | null
+  capabilityPacks: CapabilityPackInfo[]
+  packProgressText: string | null
   defaults: NetworkProbeDefaultsCatalog | null
   summary: LocalNetworkSummary | null
   firewall: FirewallStatus | null
   hosts: HostsOverride[] | null
   tcpResult: TcpConnectResult | null
   pingResult: PingProbeResult | null
+  pingStreamingSamples: PingSample[]
   dnsResult: DnsLookupResult | null
   probeResult: ProbeTargetResult | null
   sitesResult: SitesProbeResult | null
@@ -63,6 +126,24 @@ interface NetworkProbeState {
   tracerouteStreamingHops: TracerouteHop[]
   ipv6Result: Ipv6StackResult | null
   mtuResult: PathMtuResult | null
+  speedSources: SpeedSource[]
+  speedResult: SpeedTestResult | null
+  speedSample: SpeedSampleEvent | null
+  speedCooldownUntil: number | null
+  pollutionResult: PollutionReport | null
+  whoisResult: WhoisInfo | null
+  dnssecResult: DnsSecCheckResult | null
+  portScanResult: PortScanResult | null
+  portScanStreaming: PortSampleEvent[]
+  natResult: NatProbeResult | null
+  ntpResult: NtpProbeResult | null
+  lanResult: LanDiscoveryResult | null
+  lanServicesResult: LanServicesResult | null
+  pcapResult: PcapDiagResult | null
+  multiNodeDnsResult: MultiNodeDnsResult | null
+  probeNodes: ProbeNode[]
+  reportHistory: HealthScanResult[]
+  securityAuthorized: boolean
   activeSessionId: string | null
   commandLog: string[]
   loadingSummary: boolean
@@ -77,18 +158,34 @@ interface NetworkProbeState {
   loadingTraceroute: boolean
   loadingIpv6: boolean
   loadingMtu: boolean
+  loadingSpeed: boolean
+  loadingPollution: boolean
+  loadingWhois: boolean
+  loadingDnssec: boolean
+  loadingPorts: boolean
+  loadingNat: boolean
+  loadingNtp: boolean
+  loadingLan: boolean
+  loadingLanServices: boolean
+  loadingPcap: boolean
+  loadingMultiNode: boolean
+  loadingNodes: boolean
   error: LocalizedError | null
 
   setL1: (l1Id: NetworkProbeL1) => void
   setL2: (l2Id: string) => void
   setOfflineSub: (offlineSub: NetworkProbeOfflineSub) => void
   setCapabilities: (capabilities: NetworkProbeCapabilities | null) => void
+  setCapabilityPacks: (capabilityPacks: CapabilityPackInfo[]) => void
+  setPackProgressText: (packProgressText: string | null) => void
   setDefaults: (defaults: NetworkProbeDefaultsCatalog | null) => void
   setSummary: (summary: LocalNetworkSummary | null) => void
   setFirewall: (firewall: FirewallStatus | null) => void
   setHosts: (hosts: HostsOverride[] | null) => void
   setTcpResult: (tcpResult: TcpConnectResult | null) => void
   setPingResult: (pingResult: PingProbeResult | null) => void
+  resetPingStreaming: () => void
+  appendPingSample: (sample: PingSample) => void
   setDnsResult: (dnsResult: DnsLookupResult | null) => void
   setProbeResult: (probeResult: ProbeTargetResult | null) => void
   setSitesResult: (sitesResult: SitesProbeResult | null) => void
@@ -107,6 +204,26 @@ interface NetworkProbeState {
   upsertTracerouteHop: (hop: TracerouteHop) => void
   setIpv6Result: (ipv6Result: Ipv6StackResult | null) => void
   setMtuResult: (mtuResult: PathMtuResult | null) => void
+  setSpeedSources: (speedSources: SpeedSource[]) => void
+  setSpeedResult: (speedResult: SpeedTestResult | null) => void
+  setSpeedSample: (speedSample: SpeedSampleEvent | null) => void
+  setSpeedCooldownUntil: (speedCooldownUntil: number | null) => void
+  setPollutionResult: (pollutionResult: PollutionReport | null) => void
+  setWhoisResult: (whoisResult: WhoisInfo | null) => void
+  setDnssecResult: (dnssecResult: DnsSecCheckResult | null) => void
+  setPortScanResult: (portScanResult: PortScanResult | null) => void
+  resetPortScanStreaming: () => void
+  upsertPortSample: (sample: PortSampleEvent) => void
+  setNatResult: (natResult: NatProbeResult | null) => void
+  setNtpResult: (ntpResult: NtpProbeResult | null) => void
+  setLanResult: (lanResult: LanDiscoveryResult | null) => void
+  setLanServicesResult: (lanServicesResult: LanServicesResult | null) => void
+  setPcapResult: (pcapResult: PcapDiagResult | null) => void
+  setMultiNodeDnsResult: (multiNodeDnsResult: MultiNodeDnsResult | null) => void
+  setProbeNodes: (probeNodes: ProbeNode[]) => void
+  pushReportHistory: (scan: HealthScanResult) => void
+  clearReportHistory: () => void
+  setSecurityAuthorized: (securityAuthorized: boolean) => void
   setActiveSessionId: (activeSessionId: string | null) => void
   appendCommandLog: (line: string) => void
   clearCommandLog: () => void
@@ -122,6 +239,18 @@ interface NetworkProbeState {
   setLoadingTraceroute: (loading: boolean) => void
   setLoadingIpv6: (loading: boolean) => void
   setLoadingMtu: (loading: boolean) => void
+  setLoadingSpeed: (loading: boolean) => void
+  setLoadingPollution: (loading: boolean) => void
+  setLoadingWhois: (loading: boolean) => void
+  setLoadingDnssec: (loading: boolean) => void
+  setLoadingPorts: (loading: boolean) => void
+  setLoadingNat: (loading: boolean) => void
+  setLoadingNtp: (loading: boolean) => void
+  setLoadingLan: (loading: boolean) => void
+  setLoadingLanServices: (loading: boolean) => void
+  setLoadingPcap: (loading: boolean) => void
+  setLoadingMultiNode: (loading: boolean) => void
+  setLoadingNodes: (loading: boolean) => void
   setError: (error: LocalizedError | null) => void
 }
 
@@ -182,12 +311,15 @@ function sparkMs(sample: SiteSampleResult): number | null {
 export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   nav: loadNav(),
   capabilities: null,
+  capabilityPacks: [],
+  packProgressText: null,
   defaults: null,
   summary: null,
   firewall: null,
   hosts: null,
   tcpResult: null,
   pingResult: null,
+  pingStreamingSamples: [],
   dnsResult: null,
   probeResult: null,
   sitesResult: null,
@@ -204,6 +336,24 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   tracerouteStreamingHops: [],
   ipv6Result: null,
   mtuResult: null,
+  speedSources: [],
+  speedResult: null,
+  speedSample: null,
+  speedCooldownUntil: null,
+  pollutionResult: null,
+  whoisResult: null,
+  dnssecResult: null,
+  portScanResult: null,
+  portScanStreaming: [],
+  natResult: null,
+  ntpResult: null,
+  lanResult: null,
+  lanServicesResult: null,
+  pcapResult: null,
+  multiNodeDnsResult: null,
+  probeNodes: [],
+  reportHistory: loadReportHistory(),
+  securityAuthorized: loadSecurityAuthorized(),
   activeSessionId: null,
   commandLog: [],
   loadingSummary: false,
@@ -218,6 +368,18 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   loadingTraceroute: false,
   loadingIpv6: false,
   loadingMtu: false,
+  loadingSpeed: false,
+  loadingPollution: false,
+  loadingWhois: false,
+  loadingDnssec: false,
+  loadingPorts: false,
+  loadingNat: false,
+  loadingNtp: false,
+  loadingLan: false,
+  loadingLanServices: false,
+  loadingPcap: false,
+  loadingMultiNode: false,
+  loadingNodes: false,
   error: null,
 
   setL1: (l1Id) => {
@@ -240,12 +402,22 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
     set({ nav })
   },
   setCapabilities: (capabilities) => set({ capabilities }),
+  setCapabilityPacks: (capabilityPacks) => set({ capabilityPacks }),
+  setPackProgressText: (packProgressText) => set({ packProgressText }),
   setDefaults: (defaults) => set({ defaults }),
   setSummary: (summary) => set({ summary }),
   setFirewall: (firewall) => set({ firewall }),
   setHosts: (hosts) => set({ hosts }),
   setTcpResult: (tcpResult) => set({ tcpResult }),
   setPingResult: (pingResult) => set({ pingResult }),
+  resetPingStreaming: () => set({ pingStreamingSamples: [] }),
+  appendPingSample: (sample) =>
+    set((state) => ({
+      pingStreamingSamples: [
+        ...state.pingStreamingSamples.filter((s) => s.seq !== sample.seq),
+        sample,
+      ].sort((a, b) => a.seq - b.seq),
+    })),
   setDnsResult: (dnsResult) => set({ dnsResult }),
   setProbeResult: (probeResult) => set({ probeResult }),
   setSitesResult: (sitesResult) => set({ sitesResult }),
@@ -303,6 +475,46 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
     }),
   setIpv6Result: (ipv6Result) => set({ ipv6Result }),
   setMtuResult: (mtuResult) => set({ mtuResult }),
+  setSpeedSources: (speedSources) => set({ speedSources }),
+  setSpeedResult: (speedResult) => set({ speedResult }),
+  setSpeedSample: (speedSample) => set({ speedSample }),
+  setSpeedCooldownUntil: (speedCooldownUntil) => set({ speedCooldownUntil }),
+  setPollutionResult: (pollutionResult) => set({ pollutionResult }),
+  setWhoisResult: (whoisResult) => set({ whoisResult }),
+  setDnssecResult: (dnssecResult) => set({ dnssecResult }),
+  setPortScanResult: (portScanResult) => set({ portScanResult }),
+  resetPortScanStreaming: () => set({ portScanStreaming: [] }),
+  upsertPortSample: (sample) =>
+    set((state) => {
+      const idx = state.portScanStreaming.findIndex((s) => s.port === sample.port)
+      if (idx < 0) {
+        return { portScanStreaming: [...state.portScanStreaming, sample] }
+      }
+      const next = state.portScanStreaming.slice()
+      next[idx] = sample
+      return { portScanStreaming: next }
+    }),
+  setNatResult: (natResult) => set({ natResult }),
+  setNtpResult: (ntpResult) => set({ ntpResult }),
+  setLanResult: (lanResult) => set({ lanResult }),
+  setLanServicesResult: (lanServicesResult) => set({ lanServicesResult }),
+  setPcapResult: (pcapResult) => set({ pcapResult }),
+  setMultiNodeDnsResult: (multiNodeDnsResult) => set({ multiNodeDnsResult }),
+  setProbeNodes: (probeNodes) => set({ probeNodes }),
+  pushReportHistory: (scan) =>
+    set((state) => {
+      const reportHistory = [scan, ...state.reportHistory].slice(0, 10)
+      persistReportHistory(reportHistory)
+      return { reportHistory }
+    }),
+  clearReportHistory: () => {
+    persistReportHistory([])
+    set({ reportHistory: [] })
+  },
+  setSecurityAuthorized: (securityAuthorized) => {
+    persistSecurityAuthorized(securityAuthorized)
+    set({ securityAuthorized })
+  },
   setActiveSessionId: (activeSessionId) => set({ activeSessionId }),
   appendCommandLog: (line) =>
     set((state) => ({
@@ -321,6 +533,18 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   setLoadingTraceroute: (loadingTraceroute) => set({ loadingTraceroute }),
   setLoadingIpv6: (loadingIpv6) => set({ loadingIpv6 }),
   setLoadingMtu: (loadingMtu) => set({ loadingMtu }),
+  setLoadingSpeed: (loadingSpeed) => set({ loadingSpeed }),
+  setLoadingPollution: (loadingPollution) => set({ loadingPollution }),
+  setLoadingWhois: (loadingWhois) => set({ loadingWhois }),
+  setLoadingDnssec: (loadingDnssec) => set({ loadingDnssec }),
+  setLoadingPorts: (loadingPorts) => set({ loadingPorts }),
+  setLoadingNat: (loadingNat) => set({ loadingNat }),
+  setLoadingNtp: (loadingNtp) => set({ loadingNtp }),
+  setLoadingLan: (loadingLan) => set({ loadingLan }),
+  setLoadingLanServices: (loadingLanServices) => set({ loadingLanServices }),
+  setLoadingPcap: (loadingPcap) => set({ loadingPcap }),
+  setLoadingMultiNode: (loadingMultiNode) => set({ loadingMultiNode }),
+  setLoadingNodes: (loadingNodes) => set({ loadingNodes }),
   setError: (error) => set({ error }),
 }))
 

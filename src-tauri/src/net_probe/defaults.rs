@@ -1,9 +1,11 @@
 use super::types::{
-    CaptiveProbe, DnsPreset, MtuTarget, NetworkProbeDefaultsCatalog, PublicIpApi, ReachTarget,
-    SitePreset,
+    CaptiveProbe, DefaultsOverride, DnsPreset, MtuTarget, NetworkProbeDefaultsCatalog, PublicIpApi,
+    ReachTarget, SitePreset,
 };
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 use std::collections::HashMap;
+use std::fs;
+use std::path::PathBuf;
 
 pub fn builtin_defaults() -> AppResult<NetworkProbeDefaultsCatalog> {
     let mut site_packs = HashMap::new();
@@ -126,6 +128,94 @@ fn site(id: &str, target: &str, channel: &str) -> SitePreset {
     }
 }
 
+fn override_path() -> AppResult<PathBuf> {
+    let config_dir =
+        dirs::config_dir().ok_or_else(|| AppError::io("Cannot determine config directory"))?;
+    let dir = config_dir.join("bench").join("network-probe");
+    fs::create_dir_all(&dir).map_err(|e| AppError::io(format!("create defaults dir: {e}")))?;
+    Ok(dir.join("defaults-override.json"))
+}
+
+pub fn load_override() -> AppResult<Option<DefaultsOverride>> {
+    let path = override_path()?;
+    if !path.exists() {
+        return Ok(None);
+    }
+    let raw = fs::read_to_string(&path).map_err(|e| AppError::io(format!("read override: {e}")))?;
+    let parsed: DefaultsOverride = serde_json::from_str(&raw)
+        .map_err(|e| AppError::invalid_input(format!("Invalid defaults override JSON: {e}")))?;
+    Ok(Some(parsed))
+}
+
+fn apply_override(
+    mut catalog: NetworkProbeDefaultsCatalog,
+    overlay: DefaultsOverride,
+) -> NetworkProbeDefaultsCatalog {
+    if let Some(v) = overlay.dns_presets {
+        catalog.dns_presets = v;
+    }
+    if let Some(v) = overlay.site_packs {
+        catalog.site_packs = v;
+    }
+    if let Some(v) = overlay.reach_targets {
+        catalog.reach_targets = v;
+    }
+    if let Some(v) = overlay.captive_probes {
+        catalog.captive_probes = v;
+    }
+    if let Some(v) = overlay.public_ip_apis {
+        catalog.public_ip_apis = v;
+    }
+    if let Some(v) = overlay.mtu_targets {
+        catalog.mtu_targets = v;
+    }
+    catalog
+}
+
 pub fn get_defaults() -> AppResult<NetworkProbeDefaultsCatalog> {
-    builtin_defaults()
+    let builtin = builtin_defaults()?;
+    match load_override()? {
+        Some(overlay) => Ok(apply_override(builtin, overlay)),
+        None => Ok(builtin),
+    }
+}
+
+pub fn save_defaults_override(overlay: DefaultsOverride) -> AppResult<()> {
+    let path = override_path()?;
+    let json = serde_json::to_string_pretty(&overlay)
+        .map_err(|e| AppError::io(format!("serialize override: {e}")))?;
+    fs::write(&path, json).map_err(|e| AppError::io(format!("write override: {e}")))?;
+    Ok(())
+}
+
+pub fn reset_defaults() -> AppResult<()> {
+    let path = override_path()?;
+    if path.exists() {
+        fs::remove_file(&path).map_err(|e| AppError::io(format!("reset defaults: {e}")))?;
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn builtin_has_site_packs() {
+        let d = builtin_defaults().expect("defaults");
+        assert!(d.site_packs.contains_key("global"));
+        assert!(d.site_packs.contains_key("cn-friendly"));
+    }
+
+    #[test]
+    fn overlay_replaces_dns_presets() {
+        let overlay = DefaultsOverride {
+            dns_presets: Some(vec![dns("custom", "9.9.9.9", "global")]),
+            ..Default::default()
+        };
+        let merged = apply_override(builtin_defaults().unwrap(), overlay);
+        assert_eq!(merged.dns_presets.len(), 1);
+        assert_eq!(merged.dns_presets[0].id, "custom");
+        assert!(merged.site_packs.contains_key("dev"));
+    }
 }

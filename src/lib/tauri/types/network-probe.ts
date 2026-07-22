@@ -15,6 +15,43 @@ export interface NetworkProbeCapabilities {
   platform: string
   privilegeLevel: string
   tools: Record<string, string>
+  packs?: Record<string, string>
+  externalTools?: Record<string, string>
+}
+
+export interface CapabilityPackInfo {
+  id: string
+  version: string
+  sizeBytes: number
+  status: string
+  descriptionKey: string
+  artifactReady: boolean
+  installedAtMs?: number
+  installMode?: string
+}
+
+export interface CapabilityPackInstallResult {
+  packId: string
+  ok: boolean
+  mode: string
+  message: string
+  commandHint: string
+}
+
+export interface CapabilityPackProgress {
+  packId: string
+  phase: string
+  bytes: number
+  totalBytes: number
+}
+
+export interface DefaultsOverride {
+  dnsPresets?: { id: string; address: string; region: string }[]
+  sitePacks?: Record<string, { id: string; target: string; channel: string }[]>
+  reachTargets?: { id: string; kind: string; target: string }[]
+  captiveProbes?: { id: string; url: string; expectStatus: number }[]
+  publicIpApis?: { id: string; url: string; format: string }[]
+  mtuTargets?: { id: string; target: string }[]
 }
 
 export interface NetworkInterfaceInfo {
@@ -66,6 +103,35 @@ export interface PingProbeResult {
   maxRttMs?: number
   stddevRttMs?: number
   samples: PingSample[]
+  commandHint: string
+}
+
+export interface SpeedSource {
+  id: string
+  name: string
+  baseUrl: string
+  dlPath: string
+  ulPath: string
+  pingPath: string
+}
+
+export interface SpeedSampleEvent {
+  phase: string
+  value: number
+  detail: string
+}
+
+export interface SpeedTestResult {
+  sourceId: string
+  sourceName: string
+  pingMs?: number
+  jitterMs?: number
+  downloadMbps?: number
+  uploadMbps?: number
+  ok: boolean
+  cancelled: boolean
+  sessionId: string
+  message?: string
   commandHint: string
 }
 
@@ -321,4 +387,141 @@ export interface NetworkProbeDefaultsCatalog {
   publicIpApis: PublicIpApi[]
   sitePacks: Record<string, SitePreset[]>
   mtuTargets: MtuTarget[]
+}
+
+export interface PollutionFinding {
+  kind: string
+  severity: string
+  evidence: string
+  commandHint: string
+}
+
+export interface PollutionReport {
+  domain: string
+  findings: PollutionFinding[]
+  elapsedMs: number
+  commandHint: string
+}
+
+export interface WhoisInfo {
+  query: string
+  source: string
+  rawText: string
+  partial: boolean
+  message?: string
+  commandHint: string
+}
+
+export interface DnsSecCheckResult {
+  domain: string
+  dnssecStatus: string
+  dnssecDetail?: string
+  dohOk: boolean
+  dohRttMs?: number
+  dohDetail?: string
+  dotOk: boolean
+  dotRttMs?: number
+  dotDetail?: string
+  commandHint: string
+}
+
+export interface PortSampleEvent {
+  port: number
+  state: string
+  serviceHint?: string
+  rttMs?: number
+}
+
+export interface PortScanResult {
+  target: string
+  mode: string
+  openPorts: number[]
+  samples: PortSampleEvent[]
+  cancelled: boolean
+  sessionId: string
+  message?: string
+  commandHint: string
+}
+
+export interface NatProbeResult {
+  natType: string
+  mappedAddress?: string
+  stunServer: string
+  detail?: string
+  elapsedMs: number
+  commandHint: string
+}
+
+export interface NtpProbeResult {
+  server: string
+  ok: boolean
+  offsetSeconds?: number
+  rttSeconds?: number
+  severity: string
+  detail?: string
+  elapsedMs: number
+  commandHint: string
+}
+
+export interface ArpNeighbor {
+  ip: string
+  mac?: string
+  iface?: string
+  source: string
+}
+
+export interface LanDiscoveryResult {
+  mode: string
+  neighbors: ArpNeighbor[]
+  message?: string
+  emptyReason?: string
+  cidr?: string
+  cancelled: boolean
+  sessionId: string
+  elapsedMs: number
+  commandHint: string
+}
+
+export interface LanServiceItem {
+  protocol: string
+  name: string
+  serviceType?: string
+  host?: string
+  port?: number
+  detail: string
+}
+
+export interface LanServicesResult {
+  items: LanServiceItem[]
+  message?: string
+  elapsedMs: number
+  commandHint: string
+}
+
+export interface PcapDiagResult {
+  mode: string
+  packets: number
+  tcpRst: number
+  retransHint: number
+  outOfOrderHint: number
+  cancelled: boolean
+  sessionId: string
+  message?: string
+  elapsedMs: number
+  commandHint: string
+}
+
+export interface NodeDnsAnswer {
+  nodeId: string
+  nodeLabel: string
+  ok: boolean
+  answers: string[]
+  detail?: string
+}
+
+export interface MultiNodeDnsResult {
+  domain: string
+  answers: NodeDnsAnswer[]
+  elapsedMs: number
+  commandHint: string
 }

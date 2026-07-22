@@ -23,12 +23,12 @@
 ## D-016 · Network Probe 独立一级模块与分期设计
 
 - **日期**：2026-07-22
-- **状态**：采纳（**MVP 实现已授权**；2026-07-22 用户指令「现在开始 1.0」）
+- **状态**：采纳（**MVP 实现已授权**；2026-07-22 用户指令「现在开始 1.0」；**2026-07-22 用户授权 Post Wave 0–5**，Vision Wave 6 另排）
 - **决策**：
   1. 新增独立一级 feature `network-probe`（不复用 `dev-toolbox` 子 Tab 作为最终形态）；占位页可先注册以满足文档↔代码对齐。
   2. **不进入 2.0（R00–R10）执行序列**；Network Probe 作为 **2.0 并行旁路的独立 MVP（模块 1.0）** 实现，不得改动 2.0 版本号/发布门禁；与 2.0 争用人力时优先 2.0。
-  3. 实现时**首版交付 = MVP A+B**：Local L0–L3 体检（检查项清单与 DNS/IP 对照写死）、站点延迟看板、Advisor、免特权修复、traceroute/MTR、「上不了网」高频诊断，以及基础鉴别工具（本机摘要、默认路由只读、TCP connect、自定义 URL 探测、hosts 快检、防火墙只读、打开系统网络设置）。**2026-07-22：MVP A+B 功能闭环已落地**（见模块 roadmap）；Polish / Post-MVP 另排期。
-  4. 带宽测速（librespeed）、Globalping remote、自有 agent、SYN/ARP/抓包/特权 helper、Vision P5–P7 等**必须保留完整设计**，实现归属 Post-MVP / Vision，不绑首版。
+  3. 实现时**首版交付 = MVP A+B**：Local L0–L3 体检（检查项清单与 DNS/IP 对照写死）、站点延迟看板、Advisor、免特权修复、traceroute/MTR、「上不了网」高频诊断，以及基础鉴别工具（本机摘要、默认路由只读、TCP connect、自定义 URL 探测、hosts 快检、防火墙只读、打开系统网络设置）。**2026-07-22：MVP A+B 功能闭环已落地**（见模块 roadmap）；**Post-MVP Wave 0–5（Polish / D-017 packs / 测速·多节点 / 安全 / 发现 / 产品化）已授权开工**；Vision P5–P7 另排。
+  4. 带宽测速（librespeed）、Globalping remote、自有 agent、SYN/ARP/抓包/特权 helper、Vision P5–P7 等**必须保留完整设计**；Wave 0–5 实现归属 Post-MVP，Vision 不绑本轮。
   5. 平台：macOS 主路径；Windows 按能力矩阵降级；Linux 不支持（D-014）。
   6. 高危网络修复开放但须**三次确认** + 后端复核；硬红线为不实现主动攻击能力（仅检测/防御）。
   7. 与 `system-settings`/`dev-toolbox` 的 ping 最终共用 `net_probe` 实现；与 `port-manager` 划清「本机占用/Kill」vs「外部探测/指纹」边界。

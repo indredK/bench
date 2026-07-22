@@ -1,35 +1,165 @@
 use super::types::{
-    CaptivePortalResult, DefaultRouteInfo, DnsLookupResult, FirewallStatus, FixResult,
-    HealthScanResult, HostsOverride, Ipv6StackResult, LocalNetworkSummary,
-    NetworkProbeCapabilities, NetworkProbeDefaultsCatalog, PathMtuResult, PingProbeResult,
-    ProbeNode, ProbeTargetResult, ProxyVpnStatus, PublicIpInfo, SitesProbeResult, TcpConnectResult,
-    TracerouteResult,
+    CapabilityPackInfo, CapabilityPackInstallResult, CaptivePortalResult, DefaultRouteInfo,
+    DefaultsOverride, DnsLookupResult, DnsSecCheckResult, FirewallStatus, FixResult,
+    HealthScanResult, HostsOverride, Ipv6StackResult, LanDiscoveryResult, LanServicesResult,
+    LocalNetworkSummary, MultiNodeDnsResult, NatProbeResult, NetworkProbeCapabilities,
+    NetworkProbeDefaultsCatalog, NtpProbeResult, PathMtuResult, PcapDiagResult, PingProbeResult,
+    PollutionReport, PortScanResult, ProbeNode, ProbeTargetResult, ProxyVpnStatus, PublicIpInfo,
+    SitesProbeResult, SpeedSource, SpeedTestResult, TcpConnectResult, TracerouteResult, WhoisInfo,
 };
 use crate::error::{AppError, AppResult};
-use std::collections::HashMap;
 use tauri::AppHandle;
 
 #[tauri::command]
-pub async fn get_network_probe_capabilities() -> AppResult<NetworkProbeCapabilities> {
-    Ok(build_capabilities())
+pub async fn get_network_probe_capabilities(app: AppHandle) -> AppResult<NetworkProbeCapabilities> {
+    Ok(super::packs::build_capabilities(Some(&app)))
 }
 
 #[tauri::command]
-pub async fn list_probe_nodes() -> AppResult<Vec<ProbeNode>> {
-    Ok(vec![ProbeNode {
-        id: "local".into(),
-        kind: "local".into(),
-        label: "This Mac".into(),
-        reachable: true,
-        endpoint: None,
-        region: None,
-        capabilities: None,
-    }])
+pub async fn list_probe_nodes(app: AppHandle) -> AppResult<Vec<ProbeNode>> {
+    let agents = super::agent::agents_as_nodes(&app).unwrap_or_default();
+    Ok(super::globalping::list_nodes_with_agents(&agents))
 }
 
 #[tauri::command]
 pub async fn get_network_probe_defaults() -> AppResult<NetworkProbeDefaultsCatalog> {
     super::defaults::get_defaults()
+}
+
+#[tauri::command]
+pub async fn network_probe_save_defaults_override(
+    override_data: DefaultsOverride,
+) -> AppResult<()> {
+    super::defaults::save_defaults_override(override_data)
+}
+
+#[tauri::command]
+pub async fn network_probe_reset_defaults() -> AppResult<()> {
+    super::defaults::reset_defaults()
+}
+
+#[tauri::command]
+pub async fn network_probe_list_capability_packs(
+    app: AppHandle,
+) -> AppResult<Vec<CapabilityPackInfo>> {
+    super::packs::list_capability_packs(&app)
+}
+
+#[tauri::command]
+pub async fn network_probe_install_capability_pack(
+    app: AppHandle,
+    pack_id: String,
+) -> AppResult<CapabilityPackInstallResult> {
+    super::packs::install_capability_pack(&app, pack_id).await
+}
+
+#[tauri::command]
+pub async fn network_probe_install_capability_pack_verify_fail(
+    app: AppHandle,
+    pack_id: String,
+) -> AppResult<CapabilityPackInstallResult> {
+    super::packs::install_capability_pack_verify_fail(&app, pack_id).await
+}
+
+#[tauri::command]
+pub async fn network_probe_uninstall_capability_pack(
+    app: AppHandle,
+    pack_id: String,
+) -> AppResult<()> {
+    super::packs::uninstall_capability_pack(&app, pack_id)
+}
+
+#[tauri::command]
+pub async fn network_probe_list_speed_sources() -> AppResult<Vec<SpeedSource>> {
+    Ok(super::speed::builtin_sources())
+}
+
+#[tauri::command]
+pub async fn network_probe_run_speed_test(
+    app: AppHandle,
+    source_id: String,
+) -> AppResult<SpeedTestResult> {
+    super::speed::run_speed_test(Some(&app), source_id).await
+}
+
+#[tauri::command]
+pub async fn network_probe_run_pollution_check(domain: String) -> AppResult<PollutionReport> {
+    super::pollution::run_pollution_check(domain).await
+}
+
+#[tauri::command]
+pub async fn network_probe_whois(query: String) -> AppResult<WhoisInfo> {
+    super::whois::whois_lookup(query).await
+}
+
+#[tauri::command]
+pub async fn network_probe_check_dnssec(domain: String) -> AppResult<DnsSecCheckResult> {
+    super::dnssec::check_dnssec(domain).await
+}
+
+#[tauri::command]
+pub async fn network_probe_scan_ports(
+    app: AppHandle,
+    target: String,
+    ports: String,
+) -> AppResult<PortScanResult> {
+    let parsed = super::ports::parse_port_range(&ports)?;
+    super::ports::scan_ports_tcp(Some(&app), target, parsed).await
+}
+
+#[tauri::command]
+pub async fn network_probe_probe_nat() -> AppResult<NatProbeResult> {
+    super::nat::probe_nat().await
+}
+
+#[tauri::command]
+pub async fn network_probe_probe_ntp() -> AppResult<NtpProbeResult> {
+    super::ntp::probe_ntp().await
+}
+
+#[tauri::command]
+pub async fn network_probe_discover_lan(app: AppHandle) -> AppResult<LanDiscoveryResult> {
+    super::discovery::discover_lan(Some(&app)).await
+}
+
+#[tauri::command]
+pub async fn network_probe_browse_lan_services() -> AppResult<LanServicesResult> {
+    super::lan_services::browse_lan_services().await
+}
+
+#[tauri::command]
+pub async fn network_probe_run_pcap_diag(
+    app: AppHandle,
+    duration_secs: Option<u32>,
+) -> AppResult<PcapDiagResult> {
+    super::pcap_diag::run_pcap_diag(Some(&app), duration_secs.unwrap_or(5)).await
+}
+
+#[tauri::command]
+pub async fn network_probe_compare_dns_multi(
+    domain: String,
+    locations: Option<Vec<String>>,
+) -> AppResult<MultiNodeDnsResult> {
+    super::globalping::compare_dns_multi(domain, locations.unwrap_or_default()).await
+}
+
+#[tauri::command]
+pub async fn network_probe_add_agent(
+    app: AppHandle,
+    label: String,
+    endpoint: String,
+) -> AppResult<ProbeNode> {
+    super::agent::add_agent(&app, label, endpoint).await
+}
+
+#[tauri::command]
+pub async fn network_probe_remove_agent(app: AppHandle, agent_id: String) -> AppResult<()> {
+    super::agent::remove_agent(&app, agent_id)
+}
+
+#[tauri::command]
+pub async fn network_probe_reject_agent_action(action: String) -> AppResult<()> {
+    super::agent::reject_arbitrary_agent_exec(&action)
 }
 
 #[tauri::command]
@@ -58,11 +188,12 @@ pub async fn tcp_connect(
 /// ICMP ping probe (network-probe SSoT). Distinct from system_settings::ping_host.
 #[tauri::command]
 pub async fn network_probe_ping_host(
+    app: AppHandle,
     target: String,
     count: Option<u32>,
     interval_ms: Option<u64>,
 ) -> AppResult<PingProbeResult> {
-    super::ping::ping_host(target, count, interval_ms).await
+    super::ping::ping_host_streaming(&app, target, count, interval_ms).await
 }
 
 #[tauri::command]
@@ -219,87 +350,4 @@ pub async fn get_firewall_status() -> AppResult<FirewallStatus> {
 #[tauri::command]
 pub async fn open_system_network_settings() -> AppResult<()> {
     crate::system_settings::system_pane_registry::open_network_settings()
-}
-
-fn build_capabilities() -> NetworkProbeCapabilities {
-    let platform = if cfg!(target_os = "macos") {
-        "macos"
-    } else if cfg!(target_os = "windows") {
-        "windows"
-    } else {
-        "unsupported"
-    };
-
-    let mut tools = HashMap::new();
-    let s = |v: &str| v.to_string();
-    tools.insert("summary".into(), s("supported"));
-    tools.insert("defaultRoute".into(), s("supported"));
-    tools.insert("tcpConnect".into(), s("supported"));
-    tools.insert("hosts".into(), s("supported"));
-    tools.insert(
-        "firewall".into(),
-        if cfg!(target_os = "macos") {
-            s("supported")
-        } else {
-            s("unsupported")
-        },
-    );
-    tools.insert("openNetworkSettings".into(), s("supported"));
-    tools.insert("defaults".into(), s("supported"));
-    tools.insert("ping".into(), s("supported"));
-    tools.insert("dnsLookup".into(), s("supported"));
-    tools.insert("probeTarget".into(), s("supported"));
-    tools.insert("sitesProbe".into(), s("supported"));
-    tools.insert("healthScan".into(), s("supported"));
-    tools.insert("flushDns".into(), s("supported"));
-    tools.insert("switchDns".into(), s("supported"));
-    tools.insert("renewDhcp".into(), s("supported"));
-    tools.insert("detectCaptive".into(), s("supported"));
-    tools.insert("publicIp".into(), s("supported"));
-    tools.insert("proxyVpn".into(), s("supported"));
-    tools.insert(
-        "traceroute".into(),
-        if cfg!(target_os = "macos") || cfg!(target_os = "windows") || cfg!(target_os = "linux") {
-            s("supported")
-        } else {
-            s("unsupported")
-        },
-    );
-    tools.insert(
-        "resetNetworkStack".into(),
-        if cfg!(target_os = "macos") {
-            s("supported")
-        } else {
-            s("unsupported")
-        },
-    );
-    tools.insert(
-        "checkIpv6".into(),
-        if cfg!(target_os = "macos") {
-            s("supported")
-        } else {
-            s("partial")
-        },
-    );
-    tools.insert(
-        "pathMtu".into(),
-        if cfg!(target_os = "macos") {
-            s("supported")
-        } else {
-            s("unsupported")
-        },
-    );
-    // Post-MVP / pack-gated tools must appear in the matrix (never hardcode all-green in UI).
-    tools.insert("speedTest".into(), s("unsupported"));
-    tools.insert("portScan".into(), s("missing_pack"));
-    tools.insert("pcap".into(), s("missing_pack"));
-    tools.insert("arp".into(), s("missing_pack"));
-    tools.insert("globalping".into(), s("missing_pack"));
-
-    NetworkProbeCapabilities {
-        platform: platform.into(),
-        // Desktop app runs without elevation by default; privileged ICMP may degrade.
-        privilege_level: "none".into(),
-        tools,
-    }
 }

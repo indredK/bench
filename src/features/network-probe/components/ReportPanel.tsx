@@ -8,8 +8,10 @@ import type { HealthScanResult } from "@/lib/tauri/types/network-probe"
 
 interface ReportPanelProps {
   health: HealthScanResult | null
+  history: HealthScanResult[]
   commandLog: string[]
   onClearLog: () => void
+  onClearHistory: () => void
   onGoTree: () => void
 }
 
@@ -53,7 +55,14 @@ function downloadBlob(filename: string, content: string, mime: string) {
   URL.revokeObjectURL(url)
 }
 
-export function ReportPanel({ health, commandLog, onClearLog, onGoTree }: ReportPanelProps) {
+export function ReportPanel({
+  health,
+  history,
+  commandLog,
+  onClearLog,
+  onClearHistory,
+  onGoTree,
+}: ReportPanelProps) {
   const { t } = useTranslation()
   const stamp = useMemo(() => new Date().toISOString().replace(/[:.]/g, "-"), [health])
 
@@ -79,6 +88,9 @@ export function ReportPanel({ health, commandLog, onClearLog, onGoTree }: Report
                 : t("networkProbe.report.cancelledNo"),
             })}
           </div>
+          <p className="text-xs text-amber-700 dark:text-amber-400">
+            {t("networkProbe.report.privacyHint")}
+          </p>
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
@@ -109,6 +121,35 @@ export function ReportPanel({ health, commandLog, onClearLog, onGoTree }: Report
           <p className="text-muted-foreground font-mono text-xs">{health.commandHint}</p>
         </div>
       )}
+
+      <section className="space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-xs font-semibold tracking-wide uppercase">
+            {t("networkProbe.report.historyTitle")}
+          </h3>
+          {history.length > 0 ? (
+            <Button type="button" variant="ghost" size="sm" onClick={onClearHistory}>
+              {t("networkProbe.report.clearHistory")}
+            </Button>
+          ) : null}
+        </div>
+        {history.length === 0 ? (
+          <p className="text-muted-foreground text-xs">{t("networkProbe.report.historyEmpty")}</p>
+        ) : (
+          <ul className="max-h-40 space-y-1 overflow-auto text-xs">
+            {history.map((h, idx) => (
+              <li key={`${h.sessionId}-${idx}`} className="bg-muted/30 rounded border px-2 py-1">
+                {t("networkProbe.report.historyItem", {
+                  session: h.sessionId.slice(0, 8),
+                  count: h.items.length,
+                  ms: h.elapsedMs.toFixed(0),
+                  opinions: h.opinions.length,
+                })}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <section className="space-y-2">
         <div className="flex items-center justify-between gap-2">

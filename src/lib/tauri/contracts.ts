@@ -44,7 +44,10 @@ import type {
 import type { EnvScanDonePayload } from "@/lib/tauri/types/env-detector"
 import type { KillPidResult, KillTarget, PortProcessDetail } from "@/lib/tauri/types/port-manager"
 import type {
+  CapabilityPackInfo,
+  CapabilityPackInstallResult,
   DefaultRouteInfo,
+  DefaultsOverride,
   DnsLookupResult,
   FirewallStatus,
   HostsOverride,
@@ -55,6 +58,8 @@ import type {
   ProbeNode,
   ProbeTargetResult,
   SitesProbeResult,
+  SpeedSource,
+  SpeedTestResult,
   HealthCheckItem,
   HealthScanResult,
   FixResult,
@@ -67,6 +72,16 @@ import type {
   PathMtuResult,
   ScanSessionEvent,
   TcpConnectResult,
+  PollutionReport,
+  WhoisInfo,
+  DnsSecCheckResult,
+  PortScanResult,
+  NatProbeResult,
+  NtpProbeResult,
+  LanDiscoveryResult,
+  LanServicesResult,
+  PcapDiagResult,
+  MultiNodeDnsResult,
 } from "@/lib/tauri/types/network-probe"
 import type { CardKind, CommandCard, RunResult } from "@/lib/tauri/types/command-center"
 import type {
@@ -585,6 +600,72 @@ export const TAURI_COMMAND_CONTRACTS = {
   get_network_probe_defaults: defineTauriCommand<undefined, NetworkProbeDefaultsCatalog>()(
     "get_network_probe_defaults",
   ),
+  network_probe_save_defaults_override: defineTauriCommand<
+    { overrideData: DefaultsOverride },
+    void
+  >()("network_probe_save_defaults_override"),
+  network_probe_reset_defaults: defineTauriCommand<undefined, void>()(
+    "network_probe_reset_defaults",
+  ),
+  network_probe_list_capability_packs: defineTauriCommand<undefined, CapabilityPackInfo[]>()(
+    "network_probe_list_capability_packs",
+  ),
+  network_probe_install_capability_pack: defineTauriCommand<
+    { packId: string },
+    CapabilityPackInstallResult
+  >()("network_probe_install_capability_pack"),
+  network_probe_uninstall_capability_pack: defineTauriCommand<{ packId: string }, void>()(
+    "network_probe_uninstall_capability_pack",
+  ),
+  network_probe_list_speed_sources: defineTauriCommand<undefined, SpeedSource[]>()(
+    "network_probe_list_speed_sources",
+  ),
+  network_probe_run_speed_test: defineTauriCommand<{ sourceId: string }, SpeedTestResult>()(
+    "network_probe_run_speed_test",
+  ),
+  network_probe_run_pollution_check: defineTauriCommand<{ domain: string }, PollutionReport>()(
+    "network_probe_run_pollution_check",
+  ),
+  network_probe_whois: defineTauriCommand<{ query: string }, WhoisInfo>()("network_probe_whois"),
+  network_probe_check_dnssec: defineTauriCommand<{ domain: string }, DnsSecCheckResult>()(
+    "network_probe_check_dnssec",
+  ),
+  network_probe_scan_ports: defineTauriCommand<{ target: string; ports: string }, PortScanResult>()(
+    "network_probe_scan_ports",
+  ),
+  network_probe_probe_nat: defineTauriCommand<undefined, NatProbeResult>()(
+    "network_probe_probe_nat",
+  ),
+  network_probe_probe_ntp: defineTauriCommand<undefined, NtpProbeResult>()(
+    "network_probe_probe_ntp",
+  ),
+  network_probe_discover_lan: defineTauriCommand<undefined, LanDiscoveryResult>()(
+    "network_probe_discover_lan",
+  ),
+  network_probe_browse_lan_services: defineTauriCommand<undefined, LanServicesResult>()(
+    "network_probe_browse_lan_services",
+  ),
+  network_probe_run_pcap_diag: defineTauriCommand<
+    { durationSecs?: number | null },
+    PcapDiagResult
+  >()("network_probe_run_pcap_diag"),
+  network_probe_compare_dns_multi: defineTauriCommand<
+    { domain: string; locations?: string[] | null },
+    MultiNodeDnsResult
+  >()("network_probe_compare_dns_multi"),
+  network_probe_add_agent: defineTauriCommand<{ label: string; endpoint: string }, ProbeNode>()(
+    "network_probe_add_agent",
+  ),
+  network_probe_remove_agent: defineTauriCommand<{ agentId: string }, void>()(
+    "network_probe_remove_agent",
+  ),
+  network_probe_reject_agent_action: defineTauriCommand<{ action: string }, void>()(
+    "network_probe_reject_agent_action",
+  ),
+  network_probe_install_capability_pack_verify_fail: defineTauriCommand<
+    { packId: string },
+    CapabilityPackInstallResult
+  >()("network_probe_install_capability_pack_verify_fail"),
   get_local_network_summary: defineTauriCommand<undefined, LocalNetworkSummary>()(
     "get_local_network_summary",
   ),
@@ -738,6 +819,29 @@ export const TAURI_COMMANDS = {
     getCapabilities: commandName("get_network_probe_capabilities"),
     listProbeNodes: commandName("list_probe_nodes"),
     getDefaults: commandName("get_network_probe_defaults"),
+    saveDefaultsOverride: commandName("network_probe_save_defaults_override"),
+    resetDefaults: commandName("network_probe_reset_defaults"),
+    listCapabilityPacks: commandName("network_probe_list_capability_packs"),
+    installCapabilityPack: commandName("network_probe_install_capability_pack"),
+    installCapabilityPackVerifyFail: commandName(
+      "network_probe_install_capability_pack_verify_fail",
+    ),
+    uninstallCapabilityPack: commandName("network_probe_uninstall_capability_pack"),
+    listSpeedSources: commandName("network_probe_list_speed_sources"),
+    runSpeedTest: commandName("network_probe_run_speed_test"),
+    runPollutionCheck: commandName("network_probe_run_pollution_check"),
+    whois: commandName("network_probe_whois"),
+    checkDnssec: commandName("network_probe_check_dnssec"),
+    scanPorts: commandName("network_probe_scan_ports"),
+    probeNat: commandName("network_probe_probe_nat"),
+    probeNtp: commandName("network_probe_probe_ntp"),
+    discoverLan: commandName("network_probe_discover_lan"),
+    browseLanServices: commandName("network_probe_browse_lan_services"),
+    runPcapDiag: commandName("network_probe_run_pcap_diag"),
+    compareDnsMulti: commandName("network_probe_compare_dns_multi"),
+    addAgent: commandName("network_probe_add_agent"),
+    removeAgent: commandName("network_probe_remove_agent"),
+    rejectAgentAction: commandName("network_probe_reject_agent_action"),
     getLocalNetworkSummary: commandName("get_local_network_summary"),
     getDefaultRoute: commandName("get_default_route"),
     tcpConnect: commandName("tcp_connect"),
@@ -1189,6 +1293,27 @@ export const TAURI_COMMAND_ARG_KEYS = {
   get_network_probe_capabilities: [],
   list_probe_nodes: [],
   get_network_probe_defaults: [],
+  network_probe_save_defaults_override: ["overrideData"],
+  network_probe_reset_defaults: [],
+  network_probe_list_capability_packs: [],
+  network_probe_install_capability_pack: ["packId"],
+  network_probe_install_capability_pack_verify_fail: ["packId"],
+  network_probe_uninstall_capability_pack: ["packId"],
+  network_probe_list_speed_sources: [],
+  network_probe_run_speed_test: ["sourceId"],
+  network_probe_run_pollution_check: ["domain"],
+  network_probe_whois: ["query"],
+  network_probe_check_dnssec: ["domain"],
+  network_probe_scan_ports: ["target", "ports"],
+  network_probe_probe_nat: [],
+  network_probe_probe_ntp: [],
+  network_probe_discover_lan: [],
+  network_probe_browse_lan_services: [],
+  network_probe_run_pcap_diag: ["durationSecs"],
+  network_probe_compare_dns_multi: ["domain", "locations"],
+  network_probe_add_agent: ["label", "endpoint"],
+  network_probe_remove_agent: ["agentId"],
+  network_probe_reject_agent_action: ["action"],
   get_local_network_summary: [],
   get_default_route: [],
   tcp_connect: ["host", "port", "timeoutMs"],
@@ -1253,6 +1378,10 @@ export const TAURI_EVENTS = {
     tracerouteHop: "network-probe:traceroute-hop",
     scanSession: "network-probe:scan-session",
     siteSample: "network-probe:site-sample",
+    pingSample: "network-probe:ping-sample",
+    packProgress: "network-probe:pack-progress",
+    speedSample: "network-probe:speed-sample",
+    portSample: "network-probe:port-sample",
   },
 } as const
 

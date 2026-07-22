@@ -6,8 +6,12 @@ import { useNetworkProbeStore } from "@/features/network-probe/store"
 import { TAURI_EVENTS } from "@/lib/tauri/contracts"
 import { getErrorMessage } from "@/lib/tauri/errors"
 import type {
+  CapabilityPackProgress,
   HealthCheckItem,
+  PingSample,
   SiteSampleResult,
+  SpeedSampleEvent,
+  PortSampleEvent,
   TracerouteHop,
 } from "@/lib/tauri/types/network-probe"
 import { listenToPlatformEvent } from "@/platform/events"
@@ -17,12 +21,16 @@ export const networkProbeUseCases = {
     const store = useNetworkProbeStore.getState()
     store.setError(null)
     try {
-      const [capabilities, defaults] = await Promise.all([
+      const [capabilities, defaults, packs, nodes] = await Promise.all([
         networkProbeRepository.getCapabilities(),
         networkProbeRepository.getDefaults(),
+        networkProbeRepository.listCapabilityPacks(),
+        networkProbeRepository.listProbeNodes(),
       ])
       store.setCapabilities(capabilities)
       store.setDefaults(defaults)
+      store.setCapabilityPacks(packs)
+      store.setProbeNodes(nodes)
     } catch (error) {
       store.setError({
         key: "networkProbe.errors.bootstrapFailed",
@@ -78,8 +86,16 @@ export const networkProbeUseCases = {
     if (store.loadingPing) return
     store.setLoadingPing(true)
     store.setError(null)
+    store.resetPingStreaming()
     store.appendCommandLog(`pingHost('${target.trim()}', ${count})`)
+    let unlisten: (() => void) | undefined
     try {
+      unlisten = await listenToPlatformEvent<PingSample>(
+        TAURI_EVENTS.networkProbe.pingSample,
+        (event) => {
+          useNetworkProbeStore.getState().appendPingSample(event.payload)
+        },
+      )
       const result = await networkProbeRepository.pingHost(target.trim(), count)
       store.setPingResult(result)
       if (result.packetsReceived === 0) {
@@ -93,6 +109,7 @@ export const networkProbeUseCases = {
         fallback: getErrorMessage(error),
       })
     } finally {
+      unlisten?.()
       useNetworkProbeStore.getState().setLoadingPing(false)
     }
   },
@@ -250,6 +267,9 @@ export const networkProbeUseCases = {
       )
       const result = await networkProbeRepository.runHealthScan()
       store.setHealthResult(result)
+      if (!result.cancelled) {
+        store.pushReportHistory(result)
+      }
       store.appendCommandLog(
         result.cancelled
           ? `healthScan cancelled sessionId=${result.sessionId}`
@@ -505,6 +525,505 @@ export const networkProbeUseCases = {
     } catch (error) {
       store.setError({
         key: "networkProbe.errors.openSettingsFailed",
+        fallback: getErrorMessage(error),
+      })
+    }
+  },
+
+  async refreshCapabilityPacks() {
+    const store = useNetworkProbeStore.getState()
+    try {
+      const [packs, capabilities] = await Promise.all([
+        networkProbeRepository.listCapabilityPacks(),
+        networkProbeRepository.getCapabilities(),
+      ])
+      store.setCapabilityPacks(packs)
+      store.setCapabilities(capabilities)
+    } catch (error) {
+      store.setError({
+        key: "networkProbe.errors.packsFailed",
+        fallback: getErrorMessage(error),
+      })
+    }
+  },
+
+  async installCapabilityPack(packId: string) {
+    const store = useNetworkProbeStore.getState()
+    store.setError(null)
+    store.setPackProgressText(null)
+    store.appendCommandLog(`installCapabilityPack('${packId}')`)
+    let unlisten: (() => void) | undefined
+    try {
+      unlisten = await listenToPlatformEvent<CapabilityPackProgress>(
+        TAURI_EVENTS.networkProbe.packProgress,
+        (event) => {
+          const p = event.payload
+          useNetworkProbeStore
+            .getState()
+            .setPackProgressText(`${p.packId} ${p.phase} ${p.bytes}/${p.totalBytes}`)
+        },
+      )
+      const result = await networkProbeRepository.installCapabilityPack(packId)
+      store.appendCommandLog(result.commandHint)
+      await networkProbeUseCases.refreshCapabilityPacks()
+    } catch (error) {
+      store.setError({
+        key: "networkProbe.errors.packsFailed",
+        fallback: getErrorMessage(error),
+      })
+    } finally {
+      unlisten?.()
+      useNetworkProbeStore.getState().setPackProgressText(null)
+    }
+  },
+
+  async uninstallCapabilityPack(packId: string) {
+    const store = useNetworkProbeStore.getState()
+    store.setError(null)
+    store.appendCommandLog(`uninstallCapabilityPack('${packId}')`)
+    try {
+      await networkProbeRepository.uninstallCapabilityPack(packId)
+      await networkProbeUseCases.refreshCapabilityPacks()
+    } catch (error) {
+      store.setError({
+        key: "networkProbe.errors.packsFailed",
+        fallback: getErrorMessage(error),
+      })
+    }
+  },
+
+  async loadSpeedSources() {
+    const store = useNetworkProbeStore.getState()
+    store.setError(null)
+    try {
+      const sources = await networkProbeRepository.listSpeedSources()
+      store.setSpeedSources(sources)
+    } catch (error) {
+      store.setError({
+        key: "networkProbe.errors.speedFailed",
+        fallback: getErrorMessage(error),
+      })
+    }
+  },
+
+  async runSpeedTest(sourceId: string) {
+    const store = useNetworkProbeStore.getState()
+    if (store.loadingSpeed) return
+    if (store.speedCooldownUntil != null && store.speedCooldownUntil > Date.now()) return
+    store.setLoadingSpeed(true)
+    store.setError(null)
+    store.setSpeedSample(null)
+    store.setSpeedResult(null)
+    store.setActiveSessionId(null)
+    store.appendCommandLog(`startSpeedTest('${sourceId}')`)
+    let unlistenSample: (() => void) | undefined
+    let unlistenSession: (() => void) | undefined
+    try {
+      unlistenSession = await listenToPlatformEvent<{ sessionId: string; kind: string }>(
+        TAURI_EVENTS.networkProbe.scanSession,
+        (event) => {
+          if (event.payload.kind === "speed") {
+            useNetworkProbeStore.getState().setActiveSessionId(event.payload.sessionId)
+          }
+        },
+      )
+      unlistenSample = await listenToPlatformEvent<SpeedSampleEvent>(
+        TAURI_EVENTS.networkProbe.speedSample,
+        (event) => {
+          useNetworkProbeStore.getState().setSpeedSample(event.payload)
+        },
+      )
+      const result = await networkProbeRepository.runSpeedTest(sourceId)
+      store.setSpeedResult(result)
+      if (!result.ok && !result.cancelled) {
+        store.setSpeedCooldownUntil(Date.now() + 30_000)
+        store.appendCommandLog("speedTest // degraded: source unavailable → 30s cooldown")
+      } else {
+        store.setSpeedCooldownUntil(null)
+      }
+      store.appendCommandLog(
+        result.cancelled
+          ? `speedTest cancelled sessionId=${result.sessionId}`
+          : `speedTest done ok=${result.ok} dl=${result.downloadMbps ?? "—"} ul=${result.uploadMbps ?? "—"}`,
+      )
+    } catch (error) {
+      useNetworkProbeStore.getState().setSpeedCooldownUntil(Date.now() + 30_000)
+      store.setError({
+        key: "networkProbe.errors.speedFailed",
+        fallback: getErrorMessage(error),
+      })
+    } finally {
+      unlistenSample?.()
+      unlistenSession?.()
+      useNetworkProbeStore.getState().setActiveSessionId(null)
+      useNetworkProbeStore.getState().setLoadingSpeed(false)
+    }
+  },
+
+  async runPollutionCheck(domain: string) {
+    const store = useNetworkProbeStore.getState()
+    if (!store.securityAuthorized) {
+      store.setError({
+        key: "networkProbe.errors.securityAuthRequired",
+        fallback: "Authorize the Security tab first.",
+      })
+      return
+    }
+    if (store.loadingPollution) return
+    store.setLoadingPollution(true)
+    store.setError(null)
+    store.appendCommandLog(`detectPollution(local, '${domain.trim()}')`)
+    try {
+      const result = await networkProbeRepository.runPollutionCheck(domain.trim())
+      store.setPollutionResult(result)
+    } catch (error) {
+      store.setError({
+        key: "networkProbe.errors.pollutionFailed",
+        fallback: getErrorMessage(error),
+      })
+    } finally {
+      useNetworkProbeStore.getState().setLoadingPollution(false)
+    }
+  },
+
+  async runWhois(query: string) {
+    const store = useNetworkProbeStore.getState()
+    if (!store.securityAuthorized) {
+      store.setError({
+        key: "networkProbe.errors.securityAuthRequired",
+        fallback: "Authorize the Security tab first.",
+      })
+      return
+    }
+    if (store.loadingWhois) return
+    store.setLoadingWhois(true)
+    store.setError(null)
+    store.appendCommandLog(`whois('${query.trim()}')`)
+    try {
+      const result = await networkProbeRepository.whoisLookup(query.trim())
+      store.setWhoisResult(result)
+    } catch (error) {
+      store.setError({
+        key: "networkProbe.errors.whoisFailed",
+        fallback: getErrorMessage(error),
+      })
+    } finally {
+      useNetworkProbeStore.getState().setLoadingWhois(false)
+    }
+  },
+
+  async runDnssec(domain: string) {
+    const store = useNetworkProbeStore.getState()
+    if (!store.securityAuthorized) {
+      store.setError({
+        key: "networkProbe.errors.securityAuthRequired",
+        fallback: "Authorize the Security tab first.",
+      })
+      return
+    }
+    if (store.loadingDnssec) return
+    store.setLoadingDnssec(true)
+    store.setError(null)
+    store.appendCommandLog(`checkDnsSec('${domain.trim()}')`)
+    try {
+      const result = await networkProbeRepository.checkDnssec(domain.trim())
+      store.setDnssecResult(result)
+    } catch (error) {
+      store.setError({
+        key: "networkProbe.errors.dnssecFailed",
+        fallback: getErrorMessage(error),
+      })
+    } finally {
+      useNetworkProbeStore.getState().setLoadingDnssec(false)
+    }
+  },
+
+  async runPortScan(target: string, ports: string) {
+    const store = useNetworkProbeStore.getState()
+    if (!store.securityAuthorized) {
+      store.setError({
+        key: "networkProbe.errors.securityAuthRequired",
+        fallback: "Authorize the Security tab first.",
+      })
+      return
+    }
+    if (store.loadingPorts) return
+    store.setLoadingPorts(true)
+    store.setError(null)
+    store.resetPortScanStreaming()
+    store.setPortScanResult(null)
+    store.setActiveSessionId(null)
+    store.appendCommandLog(`scanPorts(local, '${target.trim()}', '${ports.trim()}')`)
+    let unlistenSample: (() => void) | undefined
+    let unlistenSession: (() => void) | undefined
+    try {
+      unlistenSession = await listenToPlatformEvent<{ sessionId: string; kind: string }>(
+        TAURI_EVENTS.networkProbe.scanSession,
+        (event) => {
+          if (event.payload.kind === "ports") {
+            useNetworkProbeStore.getState().setActiveSessionId(event.payload.sessionId)
+          }
+        },
+      )
+      unlistenSample = await listenToPlatformEvent<PortSampleEvent>(
+        TAURI_EVENTS.networkProbe.portSample,
+        (event) => {
+          useNetworkProbeStore.getState().upsertPortSample(event.payload)
+        },
+      )
+      const result = await networkProbeRepository.scanPorts(target.trim(), ports.trim())
+      store.setPortScanResult(result)
+      store.appendCommandLog(
+        result.cancelled
+          ? `scanPorts cancelled sessionId=${result.sessionId}`
+          : `scanPorts done open=${result.openPorts.join(",") || "none"} mode=${result.mode}`,
+      )
+    } catch (error) {
+      store.setError({
+        key: "networkProbe.errors.portsFailed",
+        fallback: getErrorMessage(error),
+      })
+    } finally {
+      unlistenSample?.()
+      unlistenSession?.()
+      useNetworkProbeStore.getState().setActiveSessionId(null)
+      useNetworkProbeStore.getState().setLoadingPorts(false)
+    }
+  },
+
+  async probeNat() {
+    const store = useNetworkProbeStore.getState()
+    if (store.loadingNat) return
+    store.setLoadingNat(true)
+    store.setError(null)
+    store.appendCommandLog("probeNat(local)")
+    try {
+      const result = await networkProbeRepository.probeNat()
+      store.setNatResult(result)
+    } catch (error) {
+      store.setError({
+        key: "networkProbe.errors.natFailed",
+        fallback: getErrorMessage(error),
+      })
+    } finally {
+      useNetworkProbeStore.getState().setLoadingNat(false)
+    }
+  },
+
+  async probeNtp() {
+    const store = useNetworkProbeStore.getState()
+    if (store.loadingNtp) return
+    store.setLoadingNtp(true)
+    store.setError(null)
+    store.appendCommandLog("probeNtp(local)")
+    try {
+      const result = await networkProbeRepository.probeNtp()
+      store.setNtpResult(result)
+    } catch (error) {
+      store.setError({
+        key: "networkProbe.errors.ntpFailed",
+        fallback: getErrorMessage(error),
+      })
+    } finally {
+      useNetworkProbeStore.getState().setLoadingNtp(false)
+    }
+  },
+
+  async discoverLan() {
+    const store = useNetworkProbeStore.getState()
+    if (store.loadingLan) return
+    store.setLoadingLan(true)
+    store.setError(null)
+    store.setActiveSessionId(null)
+    store.appendCommandLog("scanLan(local)")
+    let unlistenSession: (() => void) | undefined
+    try {
+      unlistenSession = await listenToPlatformEvent<{ sessionId: string; kind: string }>(
+        TAURI_EVENTS.networkProbe.scanSession,
+        (event) => {
+          if (event.payload.kind === "lan") {
+            useNetworkProbeStore.getState().setActiveSessionId(event.payload.sessionId)
+          }
+        },
+      )
+      const result = await networkProbeRepository.discoverLan()
+      store.setLanResult(result)
+      store.appendCommandLog(
+        result.cancelled
+          ? `scanLan cancelled sessionId=${result.sessionId}`
+          : `scanLan done neighbors=${result.neighbors.length}`,
+      )
+    } catch (error) {
+      store.setError({
+        key: "networkProbe.errors.lanFailed",
+        fallback: getErrorMessage(error),
+      })
+    } finally {
+      unlistenSession?.()
+      useNetworkProbeStore.getState().setActiveSessionId(null)
+      useNetworkProbeStore.getState().setLoadingLan(false)
+    }
+  },
+
+  async browseLanServices() {
+    const store = useNetworkProbeStore.getState()
+    if (store.loadingLanServices) return
+    store.setLoadingLanServices(true)
+    store.setError(null)
+    store.appendCommandLog("browseLanServices(local)")
+    try {
+      const result = await networkProbeRepository.browseLanServices()
+      store.setLanServicesResult(result)
+    } catch (error) {
+      store.setError({
+        key: "networkProbe.errors.lanSvcFailed",
+        fallback: getErrorMessage(error),
+      })
+    } finally {
+      useNetworkProbeStore.getState().setLoadingLanServices(false)
+    }
+  },
+
+  async runPcapDiag(durationSecs?: number) {
+    const store = useNetworkProbeStore.getState()
+    if (!store.securityAuthorized) {
+      store.setError({
+        key: "networkProbe.errors.securityAuthRequired",
+        fallback: "Authorize the Security tab first.",
+      })
+      return
+    }
+    if (store.loadingPcap) return
+    store.setLoadingPcap(true)
+    store.setError(null)
+    store.setActiveSessionId(null)
+    store.appendCommandLog(`startPacketCapture(local, {secs:${durationSecs ?? 5}})`)
+    let unlistenSession: (() => void) | undefined
+    try {
+      unlistenSession = await listenToPlatformEvent<{ sessionId: string; kind: string }>(
+        TAURI_EVENTS.networkProbe.scanSession,
+        (event) => {
+          if (event.payload.kind === "pcap") {
+            useNetworkProbeStore.getState().setActiveSessionId(event.payload.sessionId)
+          }
+        },
+      )
+      const result = await networkProbeRepository.runPcapDiag(durationSecs ?? 5)
+      store.setPcapResult(result)
+    } catch (error) {
+      store.setError({
+        key: "networkProbe.errors.pcapFailed",
+        fallback: getErrorMessage(error),
+      })
+    } finally {
+      unlistenSession?.()
+      useNetworkProbeStore.getState().setActiveSessionId(null)
+      useNetworkProbeStore.getState().setLoadingPcap(false)
+    }
+  },
+
+  async refreshProbeNodes() {
+    const store = useNetworkProbeStore.getState()
+    if (store.loadingNodes) return
+    store.setLoadingNodes(true)
+    store.setError(null)
+    try {
+      const nodes = await networkProbeRepository.listProbeNodes()
+      store.setProbeNodes(nodes)
+    } catch (error) {
+      store.setError({
+        key: "networkProbe.errors.nodesFailed",
+        fallback: getErrorMessage(error),
+      })
+    } finally {
+      useNetworkProbeStore.getState().setLoadingNodes(false)
+    }
+  },
+
+  async compareDnsMulti(domain: string) {
+    const store = useNetworkProbeStore.getState()
+    if (store.loadingMultiNode) return
+    store.setLoadingMultiNode(true)
+    store.setError(null)
+    store.appendCommandLog(`dnsLookup(multi, '${domain.trim()}')`)
+    try {
+      const result = await networkProbeRepository.compareDnsMulti(domain.trim(), [
+        "world",
+        "US",
+        "Europe",
+      ])
+      store.setMultiNodeDnsResult(result)
+    } catch (error) {
+      store.setError({
+        key: "networkProbe.errors.multiNodeFailed",
+        fallback: getErrorMessage(error),
+      })
+    } finally {
+      useNetworkProbeStore.getState().setLoadingMultiNode(false)
+    }
+  },
+
+  async addAgent(label: string, endpoint: string) {
+    const store = useNetworkProbeStore.getState()
+    store.setError(null)
+    store.appendCommandLog(`addAgent('${label}', '${endpoint}')`)
+    try {
+      await networkProbeRepository.addAgent(label, endpoint)
+      const nodes = await networkProbeRepository.listProbeNodes()
+      store.setProbeNodes(nodes)
+    } catch (error) {
+      store.setError({
+        key: "networkProbe.errors.agentFailed",
+        fallback: getErrorMessage(error),
+      })
+    }
+  },
+
+  async removeAgent(agentId: string) {
+    const store = useNetworkProbeStore.getState()
+    store.setError(null)
+    store.appendCommandLog(`removeAgent('${agentId}')`)
+    try {
+      await networkProbeRepository.removeAgent(agentId)
+      const nodes = await networkProbeRepository.listProbeNodes()
+      store.setProbeNodes(nodes)
+    } catch (error) {
+      store.setError({
+        key: "networkProbe.errors.agentFailed",
+        fallback: getErrorMessage(error),
+      })
+    }
+  },
+
+  async installCapabilityPackVerifyFail(packId: string) {
+    const store = useNetworkProbeStore.getState()
+    store.setError(null)
+    store.appendCommandLog(`installCapabilityPack('${packId}') // hash-mismatch test`)
+    try {
+      const result = await networkProbeRepository.installCapabilityPackVerifyFail(packId)
+      store.setPackProgressText(result.message)
+      if (!result.ok) {
+        store.appendCommandLog(`pack verify fail: ${result.mode}`)
+      }
+    } catch (error) {
+      store.setError({
+        key: "networkProbe.errors.packsFailed",
+        fallback: getErrorMessage(error),
+      })
+    }
+  },
+
+  async resetDefaults() {
+    const store = useNetworkProbeStore.getState()
+    store.setError(null)
+    store.appendCommandLog("resetNetworkProbeDefaults()")
+    try {
+      await networkProbeRepository.resetDefaults()
+      const defaults = await networkProbeRepository.getDefaults()
+      store.setDefaults(defaults)
+    } catch (error) {
+      store.setError({
+        key: "networkProbe.errors.defaultsFailed",
         fallback: getErrorMessage(error),
       })
     }

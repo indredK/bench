@@ -154,3 +154,37 @@ fn opinion(
         body_key: body_key.into(),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn item(key: &str, status: &str, detail: Option<&str>) -> HealthCheckItem {
+        HealthCheckItem {
+            key: key.into(),
+            layer: "L0".into(),
+            status: status.into(),
+            detail: detail.map(str::to_string),
+            command_hint: None,
+        }
+    }
+
+    #[test]
+    fn link_down_emits_critical_opinion() {
+        let opinions = build_opinions(&[item("link.iface", "fail", None)]);
+        assert!(opinions.iter().any(|o| o.id == "link-down"));
+    }
+
+    #[test]
+    fn all_clear_when_diff_pass() {
+        let opinions = build_opinions(&[item("diff.dns_vs_ip", "pass", Some("ok"))]);
+        assert!(opinions.iter().any(|o| o.id == "all-clear"));
+    }
+
+    #[test]
+    fn dns_vs_ip_dns_branch() {
+        let opinions =
+            build_opinions(&[item("diff.dns_vs_ip", "fail", Some("DNS or hosts issue"))]);
+        assert!(opinions.iter().any(|o| o.id == "dns-vs-ip-dns"));
+    }
+}
