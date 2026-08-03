@@ -13,6 +13,39 @@ use tauri::Manager;
 #[cfg(desktop)]
 const TRAY_ID: &str = "bench-tray";
 
+/// 显示并聚焦主窗口。
+///
+/// - 窗口存在但隐藏/最小化: 先恢复最小化, 再 show + set_focus。
+/// - 窗口已被销毁(例如关闭行为为「退出」时窗口被关闭但进程仍在):
+///   按 tauri.conf.json 的 main 窗口配置重建, 避免出现托盘点击无响应的僵尸状态。
+#[cfg(desktop)]
+pub fn show_main_window(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.unminimize();
+        let _ = window.show();
+        let _ = window.set_focus();
+        return;
+    }
+
+    let rebuilt = tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::default())
+        .title("Bench - DevTools")
+        .inner_size(1280.0, 800.0)
+        .min_inner_size(960.0, 600.0)
+        .center()
+        .resizable(true)
+        .visible(true)
+        .decorations(false)
+        .title_bar_style(tauri::TitleBarStyle::Overlay)
+        .transparent(true)
+        .build();
+    match rebuilt {
+        Ok(window) => {
+            let _ = window.set_focus();
+        }
+        Err(error) => eprintln!("[tray] rebuild main window failed: {error}"),
+    }
+}
+
 #[cfg(desktop)]
 pub struct TrayMenuItems {
     pub show: MenuItem<tauri::Wry>,
@@ -88,19 +121,12 @@ pub fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>
                 ..
             } = event
             {
-                let app = tray.app_handle();
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.show();
-                    let _ = window.set_focus();
-                }
+                show_main_window(tray.app_handle());
             }
         })
         .on_menu_event(move |app, event| match event.id().as_ref() {
             "tray_show" => {
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.show();
-                    let _ = window.set_focus();
-                }
+                show_main_window(app);
             }
             "tray_sleep" => {
                 let desired = sleep.is_checked().unwrap_or(false);

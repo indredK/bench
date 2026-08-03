@@ -106,9 +106,11 @@ pub fn run() {
                                 api.prevent_close();
                                 let _ = win.emit("show-close-behavior-dialog", ());
                             }
-                            // 直接退出
+                            // 直接退出: 仅关闭窗口会造成进程驻留(托盘仍在但无窗口可显示),
+                            // 需显式 exit; ExitRequested 会处理 session 持久化
                             crate::app_preferences::types::BEHAVIOR_QUIT => {
-                                // 允许窗口正常关闭, ExitRequested 会处理 session 持久化
+                                api.prevent_close();
+                                app_handle.exit(0);
                             }
                             // 默认(含未设置偏好): 收起到后台托盘, 不退出
                             _ => {

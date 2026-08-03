@@ -128,7 +128,7 @@ pub async fn get_launch_daemons() -> AppResult<Vec<super::types::LaunchService>>
 }
 
 #[cfg(target_os = "macos")]
-const APP_BUNDLE_ID: &str = "com.bench.bench";
+const APP_BUNDLE_ID: &str = "com.bench.app";
 #[cfg(target_os = "macos")]
 const APP_DISPLAY_NAME: &str = "Bench";
 
@@ -156,9 +156,15 @@ fn ensure_dev_app_bundle(exe: &std::path::Path, bundle: &std::path::Path) -> App
     use std::fs;
 
     let macos_dir = bundle.join("Contents").join("MacOS");
+    let plist_path = bundle.join("Contents").join("Info.plist");
     if macos_dir.exists() {
         let symlink = macos_dir.join(exe.file_name().unwrap_or(std::ffi::OsStr::new("bench")));
-        if symlink.exists() && fs::read_link(&symlink).is_ok_and(|t| t == exe) {
+        // Regenerate when the symlink is stale OR the cached plist has a
+        // mismatched bundle id (older builds wrote a wrong identifier).
+        let plist_ok = fs::read_to_string(&plist_path)
+            .map(|s| s.contains(APP_BUNDLE_ID))
+            .unwrap_or(false);
+        if symlink.exists() && fs::read_link(&symlink).is_ok_and(|t| t == exe) && plist_ok {
             return Ok(());
         }
     }
@@ -171,7 +177,6 @@ fn ensure_dev_app_bundle(exe: &std::path::Path, bundle: &std::path::Path) -> App
     std::os::unix::fs::symlink(exe, &symlink)
         .map_err(|e| AppError::internal(format!("symlink binary: {e}")))?;
 
-    let plist_path = bundle.join("Contents").join("Info.plist");
     let plist_content = format!(
         r#"<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -325,9 +330,6 @@ pub fn detect_launched_at_login(identifier: &str) -> bool {
             try
                 if exists (first process whose bundle identifier is "{id}") then
                     return visible of (first process whose bundle identifier is "{id}")
-                end if
-                if exists (first process whose bundle identifier is "com.bench.bench") then
-                    return visible of (first process whose bundle identifier is "com.bench.bench")
                 end if
                 return true
             on error
