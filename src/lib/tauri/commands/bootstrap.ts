@@ -20,3 +20,8 @@ export function listStartupIssues(): Promise<StartupIssue[]> {
   if (!canUseTauriCommands()) return Promise.resolve([])
   return invokeTauriCommand(TAURI_COMMANDS.bootstrap.listStartupIssues)
 }
+
+export function wasLaunchedAtLogin(): Promise<boolean> {
+  if (!canUseTauriCommands()) return Promise.resolve(false)
+  return invokeTauriCommand(TAURI_COMMANDS.bootstrap.wasLaunchedAtLogin)
+}

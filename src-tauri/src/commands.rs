@@ -81,6 +81,7 @@ macro_rules! app_invoke_handler {
             $crate::system_settings::login_items::get_launch_daemons,
             $crate::system_settings::login_items::get_autostart_status,
             $crate::system_settings::login_items::set_autostart,
+            $crate::system_settings::login_items::was_launched_at_login,
             // system settings - dev tools
             $crate::system_settings::dev_tools::json_format,
             $crate::system_settings::dev_tools::base64_encode,

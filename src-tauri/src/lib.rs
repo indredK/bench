@@ -71,6 +71,14 @@ pub fn run() {
         .manage(RunAbortFlag(Mutex::new(Arc::new(AtomicBool::new(false)))))
         .manage(create_bootstrap_state())
         .setup(|app| {
+            // 探测是否由登录项(隐藏)启动; 缓存供前端决定是否后台运行。
+            let launched_at_login = crate::system_settings::login_items::detect_launched_at_login(
+                app.config().identifier.as_str(),
+            );
+            app.manage(crate::system_settings::login_items::LaunchedAtLoginState(
+                std::sync::Arc::new(std::sync::atomic::AtomicBool::new(launched_at_login)),
+            ));
+
             #[cfg(target_os = "macos")]
             tauri::async_runtime::spawn_blocking(|| {
                 if let Err(error) = app_manager::installer::replace::recover_pending_replacements()
@@ -92,24 +100,17 @@ pub fn run() {
                             .unwrap_or_else(|_| {
                                 crate::app_preferences::types::BEHAVIOR_MINIMIZE_TO_TRAY.to_string()
                             });
-                        if behavior == crate::app_preferences::types::BEHAVIOR_ALWAYS_ASK {
-                            // 每次提醒: 阻止关闭, 弹出选择对话框
-                            api.prevent_close();
-                            let _ = win.emit("show-close-behavior-dialog", ());
-                            return;
-                        }
-                        let has_pref = app_preferences::storage::has_close_behavior(&app_handle)
-                            .unwrap_or(false);
-                        if !has_pref {
-                            // 首次关闭: 阻止关闭, 通知前端弹出选择对话框
-                            api.prevent_close();
-                            let _ = win.emit("show-close-behavior-dialog", ());
-                            return;
-                        }
                         match behavior.as_str() {
+                            // 每次提醒: 阻止关闭, 弹出选择对话框
+                            crate::app_preferences::types::BEHAVIOR_ALWAYS_ASK => {
+                                api.prevent_close();
+                                let _ = win.emit("show-close-behavior-dialog", ());
+                            }
+                            // 直接退出
                             crate::app_preferences::types::BEHAVIOR_QUIT => {
                                 // 允许窗口正常关闭, ExitRequested 会处理 session 持久化
                             }
+                            // 默认(含未设置偏好): 收起到后台托盘, 不退出
                             _ => {
                                 api.prevent_close();
                                 let _ = win.hide();

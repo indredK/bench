@@ -30,6 +30,7 @@
         "label": "splashscreen",
         "url": "splash.html",
         "title": "Bench",
+        "visible": false,
         "width": 1280,
         "height": 800,
         "center": true,

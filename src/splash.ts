@@ -2,7 +2,7 @@
  * Window Bootstrap / 窗口启动: coordinate startup windows; 只处理启动窗口.
  */
 import { animate } from "motion"
-import { isMainReady } from "@/lib/tauri/commands/bootstrap"
+import { isMainReady, wasLaunchedAtLogin } from "@/lib/tauri/commands/bootstrap"
 import { WINDOW_BOOTSTRAP_EVENTS } from "@/lib/tauri/contracts"
 import { canUseTauriEvents } from "@/platform/capabilities"
 import { listenToPlatformEvent } from "@/platform/events"
@@ -152,6 +152,29 @@ requestAnimationFrame(() => {
   }
 
   void (async () => {
+    // 登录项(隐藏)启动: 应用保持后台运行, 不显示任何窗口, 仅托盘可见。
+    // 主窗口默认 visible:false, 此处直接关闭闪屏并跳过 reveal。
+    let launchedAtLogin = false
+    try {
+      launchedAtLogin = await wasLaunchedAtLogin()
+    } catch (error) {
+      console.warn("Failed to query launched-at-login flag", error)
+    }
+    if (launchedAtLogin) {
+      window.setTimeout(() => {
+        void getCurrentAppWindow().then((win) => win.close())
+      }, 300)
+      return
+    }
+
+    // 普通启动: 显示闪屏窗口, 等待主窗口就绪后切换。
+    try {
+      const win = await getCurrentAppWindow()
+      await win.show()
+    } catch (error) {
+      console.warn("Failed to show splash window", error)
+    }
+
     // Register the listener FIRST so we cannot miss the emit window. Once
     // registered, check the backend handshake flag (#103): if the main
     // window already marked itself ready, the emit may have happened
@@ -172,11 +195,11 @@ requestAnimationFrame(() => {
     } catch (error) {
       console.warn("Failed to query main-ready flag", error)
     }
-  })()
 
-  fallbackTimer = window.setTimeout(() => {
-    void revealMainAndClose()
-  }, fallbackReadyDelay)
+    fallbackTimer = window.setTimeout(() => {
+      void revealMainAndClose()
+    }, fallbackReadyDelay)
+  })()
 })
 
 async function installReadyListener() {

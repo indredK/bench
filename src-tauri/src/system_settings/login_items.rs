@@ -1,5 +1,7 @@
 use super::helpers::*;
 use crate::error::{AppError, AppResult};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 #[tauri::command]
 pub async fn get_login_items() -> AppResult<Vec<super::types::LoginItem>> {
@@ -56,7 +58,7 @@ pub async fn add_login_item(path: String) -> AppResult<()> {
         let safe_path = escape_applescript(&path);
         let script = format!(
             r#"tell application "System Events"
-                make login item at end with properties {{path:"{}", hidden:false}}
+                make login item at end with properties {{path:"{}", hidden:true}}
             end tell"#,
             safe_path
         );
@@ -262,6 +264,8 @@ async fn set_autostart_impl(enabled: bool) -> AppResult<()> {
             let exe = std::env::current_exe()
                 .map_err(|e| AppError::internal(format!("current_exe: {e}")))?;
             let exe_path = exe.to_string_lossy().to_string();
+            // 附带 --hidden 参数, 使登录项启动时在后台运行(不弹窗)
+            let reg_value = format!("\"{exe_path}\" --hidden");
             let output = std::process::Command::new("reg")
                 .args([
                     "add",
@@ -271,7 +275,7 @@ async fn set_autostart_impl(enabled: bool) -> AppResult<()> {
                     "/t",
                     "REG_SZ",
                     "/d",
-                    &exe_path,
+                    &reg_value,
                     "/f",
                 ])
                 .output()
@@ -302,6 +306,60 @@ async fn set_autostart_impl(enabled: bool) -> AppResult<()> {
 #[tauri::command]
 pub async fn set_autostart(enabled: bool) -> AppResult<()> {
     set_autostart_impl(enabled).await
+}
+
+/// 登录项(隐藏)启动状态: 在 setup 阶段探测一次并缓存, 供前端判断是否后台启动。
+pub struct LaunchedAtLoginState(pub Arc<AtomicBool>);
+
+/// 探测本次启动是否由「登录项(隐藏)」触发。
+///
+/// - macOS: 登录项以 `hidden:true` 创建时, 进程初始为隐藏(hidden); 普通双击启动为可见。
+///   用 AppleScript 读取进程可见性来区启动来源。
+/// - Windows: 登录项注册表值附带 `--hidden` 参数, 通过启动参数识别。
+/// - 其他平台: 不支持, 返回 false。
+#[cfg(target_os = "macos")]
+pub fn detect_launched_at_login(identifier: &str) -> bool {
+    let id = escape_applescript(identifier);
+    let script = format!(
+        r#"tell application "System Events"
+            try
+                if exists (first process whose bundle identifier is "{id}") then
+                    return visible of (first process whose bundle identifier is "{id}")
+                end if
+                if exists (first process whose bundle identifier is "com.bench.bench") then
+                    return visible of (first process whose bundle identifier is "com.bench.bench")
+                end if
+                return true
+            on error
+                return true
+            end tell"#,
+        id = id
+    );
+    let output = std::process::Command::new("osascript")
+        .args(["-e", &script])
+        .output();
+    match output {
+        Ok(o) if o.status.success() => {
+            let visible = String::from_utf8_lossy(&o.stdout).trim().to_lowercase();
+            visible == "false"
+        }
+        _ => false,
+    }
+}
+
+#[cfg(target_os = "windows")]
+pub fn detect_launched_at_login(_identifier: &str) -> bool {
+    std::env::args().any(|a| a == "--hidden")
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+pub fn detect_launched_at_login(_identifier: &str) -> bool {
+    false
+}
+
+#[tauri::command]
+pub fn was_launched_at_login(state: tauri::State<LaunchedAtLoginState>) -> AppResult<bool> {
+    Ok(state.0.load(Ordering::SeqCst))
 }
 
 fn read_launch_services(dir: &std::path::PathBuf) -> AppResult<Vec<super::types::LaunchService>> {

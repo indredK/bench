@@ -7,13 +7,6 @@ use crate::error::{AppError, AppResult};
 const STORE_FILE: &str = "app-preferences.json";
 const CLOSE_BEHAVIOR_KEY: &str = "closeButtonBehavior";
 
-pub fn has_close_behavior<R: Runtime>(app: &AppHandle<R>) -> AppResult<bool> {
-    let store = app
-        .store(STORE_FILE)
-        .map_err(|e| AppError::internal(format!("Failed to open store: {e}")))?;
-    Ok(store.get(CLOSE_BEHAVIOR_KEY).is_some())
-}
-
 pub fn get_close_behavior<R: Runtime>(app: &AppHandle<R>) -> AppResult<String> {
     let store = app
         .store(STORE_FILE)
