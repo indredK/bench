@@ -3458,7 +3458,8 @@
       "localNetworkHint": "All probes lost. This may be Local Network permission (macOS Privacy), a firewall, or a real outage — not a single conclusion."
     },
     "badge": {
-      "post": "Post"
+      "post": "Post",
+      "planning": "Planned"
     },
     "capabilitiesLine": "capabilities: {{value}}",
     "coming": {

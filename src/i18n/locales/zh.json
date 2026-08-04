@@ -3458,7 +3458,8 @@
       "localNetworkHint": "全部探测丢失。可能是 macOS「本地网络」权限、防火墙，或真实断网——不要当成唯一结论。"
     },
     "badge": {
-      "post": "Post"
+      "post": "Post",
+      "planning": "规划中"
     },
     "capabilitiesLine": "capabilities: {{value}}",
     "coming": {

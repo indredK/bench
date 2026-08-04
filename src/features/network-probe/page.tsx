@@ -795,6 +795,9 @@ function ComingSoonPanel({
     <div className="text-muted-foreground flex min-h-0 flex-1 flex-col items-start justify-center gap-2 overflow-auto py-6">
       <p className="text-foreground text-sm font-medium">
         {t(`networkProbe.l1.${l1}`)} / {t(`networkProbe.l2.${l2}`)}
+        <span className="text-muted-foreground ml-2 text-[10px] font-bold tracking-wider uppercase">
+          {t("networkProbe.badge.planning")}
+        </span>
       </p>
       <p className="max-w-md text-sm">
         {post ? t("networkProbe.coming.post") : t("networkProbe.coming.mvp")}
