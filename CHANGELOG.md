@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.27.0](https://github.com/indredK/bench/compare/v1.26.0...v1.27.0) (2026-08-04)
+
+
+### Features
+
+* **command-center:** 新增命令中心与网络诊断功能 ([50c6b95](https://github.com/indredK/bench/commit/50c6b95719b3820d89c3a697806500781a912ffc))
+* **splash:** 添加登录项启动检测功能 ([c092dc7](https://github.com/indredK/bench/commit/c092dc7c4cc8b0c1cd39631eff4b57c3a6d48295))
+
+
+### Bug Fixes
+
+* **app:** 修复应用退出和托盘窗口显示问题 ([2afd7f3](https://github.com/indredK/bench/commit/2afd7f3bad421628208a049ccc0c93db198f2e97))
+* **rust:** 修复 Rust 代码中的平台兼容性问题 ([9402128](https://github.com/indredK/bench/commit/940212844d5ae656a4e83f804dc29a752ce4c7ce))
+
 ## [1.26.0](https://github.com/indredK/bench/compare/v1.25.1...v1.26.0) (2026-07-22)
 
 
