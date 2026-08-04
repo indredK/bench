@@ -94,7 +94,7 @@ cd src-tauri && cargo clippy -- -D warnings
 每次改动合入后：
 
 - 对应 `docs/modules/<id>/roadmap.md` 的 Backlog 项必须打勾或移除
-- 如果修复了已知 bug，更新对应 `docs/modules/<id>/bugs.md`
+- 如果修复了已知 bug，且该模块存在 `docs/modules/<id>/bugs.md`（建议级、非必备），更新之
 - 如果发现新的架构约束，沉淀到 `docs/coding-standards.md` 或 `docs/ARCHITECTURE.md`
 - 不留下过时的 roadmap checkbox
 

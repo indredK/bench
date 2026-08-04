@@ -1,6 +1,10 @@
 # Bench 文档
 
-AI 从 [`AGENTS.md`](../AGENTS.md) 开始；人类新人可先读 [START-HERE.md](./START-HERE.md)。
+AI 从 [`AGENTS.md`](../AGENTS.md) 开始，按其必读清单读取规范后按关键词路由进工作流；人类新人从本文件的索引表按需进入。
+
+裁决优先级：`.cursorrules > AGENTS.md > docs/*.md`。`AGENTS.md` 是逻辑入口，`.cursorrules` 是最高优先级规则。不确定、规则冲突或需要危险操作时停止并询问用户。
+
+## 索引
 
 | 文档                                                                                     | 用途                                       |
 | ---------------------------------------------------------------------------------------- | ------------------------------------------ |
@@ -17,4 +21,4 @@ AI 从 [`AGENTS.md`](../AGENTS.md) 开始；人类新人可先读 [START-HERE.md
 | [dev-prod-coexistence.md](./dev-prod-coexistence.md)                                     | Dev / Prod 共存约束                        |
 | [modules/](./modules/README.md)                                                          | 模块设计与未完成 backlog                   |
 
-模块目录至少保留 `README.md` 和 `roadmap.md`；只有存在独有、长期有效的架构或安全约束时才增加 `design.md`。
+模块目录至少保留 `README.md` 和 `roadmap.md`；只有存在独有、长期有效的架构或安全约束时才增加 `design.md`。一次性、有时效性的报告不入库，历史由 Git 保留。

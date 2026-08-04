@@ -160,7 +160,7 @@
 1. **测试覆盖** — 涉及 IPC、共享类型、复杂业务编排的模块是否有对应测试；i18n 组件是否有语言切换行为测试
 2. **提交历史** — `git log` 近期提交是否符合 Conventional Commits（`feat:` / `fix:` / `docs:` / `refactor:` 等）
 3. **`roadmap.md` 同步** — 对比 `docs/modules/*/roadmap.md` checkbox 与实际功能，是否有已实现但未打勾、或已合入未更新的情况
-4. **`bugs.md` 维护** — 各模块 `bugs.md` 是否有已修复但未关闭的记录
+4. **`bugs.md` 维护** — 若模块存在 `bugs.md`（建议级、非必备，见 coding-standards §11），是否有已修复但未关闭的记录
 5. **引用链接** — `docs/` 下各 `.md` 文件的相对链接是否有效
 
 **输出格式**：每条问题一行 `[违反 §X] 文件路径:行号 — 问题描述 — 修改建议`

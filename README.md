@@ -124,7 +124,7 @@ Git hooks 会在安装依赖时配置；也可以显式运行 `pnpm run hooks:in
 
 ## 文档与贡献 / Docs & Contributing
 
-- 人类文档入口：[docs/START-HERE.md](./docs/START-HERE.md)
+- 人类文档入口：[docs/README.md](./docs/README.md)
 - 产品定位与功能闭环：[docs/functional-positioning-and-closed-loop.md](./docs/functional-positioning-and-closed-loop.md)
 - 架构与禁止模式：[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
 - 编码规范：[docs/coding-standards.md](./docs/coding-standards.md)
