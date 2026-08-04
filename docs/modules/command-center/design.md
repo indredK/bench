@@ -5,7 +5,7 @@
 ## 边界
 
 - **持久化唯一在后端**：卡片经 `persistence.rs::atomic_write` 写入 `dirs::config_dir()/bench/command-center/cards.json`，带 `schema_version` 与 2MB 上限；renderer 不直接落盘。
-- **执行唯一在后端**：`shell` 走 `subprocess.rs::run_output_with_timeout`（300s 超时、进程树清理、捕获 stdout/stderr）；`shellAdmin` 走 macOS `osascript ... with administrator privileges`；`open` 走 `open`；`copy` 走 `tauri_plugin_clipboard_manager`。
+- **执行唯一在后端**：`shell` 走 `subprocess.rs::run_output_with_timeout`（300s 超时、进程树清理、捕获 stdout/stderr，单路输出捕获上限 1 MiB）；`shellAdmin` 在 macOS 走 `osascript ... with administrator privileges`，在 Windows 走 PowerShell `Start-Process -Verb RunAs`；`open` 在 macOS 走 `open`，在 Windows 走 `explorer`；`copy` 走 `tauri_plugin_clipboard_manager`。Windows `shell` 使用 `cmd /C`，禁止 `start` 拉起新窗口。
 - **契约**：命令定义同时存在于 `src/lib/tauri/contracts.ts` 与 `src-tauri/src/commands.rs`，组件不得直接 `invoke`。
 
 ## 前端交互（v2 重设计）
@@ -21,15 +21,15 @@
 
 ### 取消 vs 终止（语义区分）
 
-- **取消提权弹窗（系统级）**：`shellAdmin` 经 macOS `osascript` 提权，用户在系统密码框点「取消」→ 后端返回 `CMD_CANCELLED`，前端标记为失败但不视为异常崩溃。这是系统行为，不是应用内的「终止」。
+- **取消提权弹窗（系统级）**：`shellAdmin` 提权时（macOS `osascript` / Windows UAC），用户在系统密码框或 UAC 提示点「取消」→ 后端返回 `CMD_CANCELLED`，前端标记为失败但不视为异常崩溃。这是系统行为，不是应用内的「终止」。
 - **终止（应用内）**：运行中点击「终止」→ 前端调用 `cancel_command_card` 置全局 `RunAbortFlag`，后端 `subprocess.rs` 轮询到标志后 `terminate_process_tree`（杀掉进程组）并以 `CMD_ABORTED` 返回，前端标记为失败（`已终止`）。命令中心同一时刻只跑一张卡，故用单一全局标志即可。
 
 ## 安全约束
 
 - 提权（`shellAdmin`）与删除卡片必须经 `DestructiveConfirmDialog` 二次确认，且提权确认弹窗以原文展示完整命令。
 - 用户取消系统提权对话框时后端返回 `CMD_CANCELLED`，前端标记为失败但不视为异常崩溃。
-- 跨平台：提权与 `open` 仅 macOS 支持，其余平台返回 `UNSUPPORTED`。
+- 跨平台：`shell` / `copy` 双平台支持；`shellAdmin` 与 `open` 支持 macOS 与 Windows，Linux 返回 `UNSUPPORTED`。已知限制：Windows 提权进程脱离进程树，故提权命令无输出且「终止」对其无效。
 
 ## 未决
 
-- 卡片导入/导出、分组/标签、参数占位符（`{{var}}` 运行前填参）见 roadmap。
+- 分组/标签、参数占位符（`{{var}}` 运行前填参）见 roadmap。

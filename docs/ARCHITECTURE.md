@@ -174,10 +174,12 @@ src/
 │   ├── account-manager/             # 会话、webview、认证代理（复杂）
 │   ├── app-manager/                 # 已安装应用扫描、启动、卸载
 │   ├── clean-space/                # 存储空间清理（顶层主菜单模块；含开发项目清理子流程）
+│   ├── command-center/              # 命令卡片库（shell/提权/复制/打开）
 │   ├── dev-cleaner/                 # 清理引擎（被 clean-space 复用，不再独立注册）
 │   ├── dev-toolbox/                 # Tab 容器 — 聚合端口管理、环境检测、Token 计算
 │   ├── env-detector/                # 开发工具清单
 │   ├── hardware/                    # 硬件对比（手机、CPU、GPU...）
+│   ├── network-probe/               # 网络诊断急救箱（独立一级模块，不进 2.0 门禁）
 │   ├── port-manager/                # 端口扫描与查杀（参考范例）
 │   ├── quick-launch/                # 快速应用启动
 │   ├── system-settings/             # macOS 系统设置（外观、安全、系统）
@@ -210,13 +212,19 @@ src-tauri/src/
 ├── app_manager/                     # 应用扫描、启动、卸载
 ├── app_preferences/                 # 关闭行为
 ├── app_updater/                     # 签名更新器
-├── bootstrap/                       # 启动就绪追踪
+├── bootstrap.rs                     # 启动就绪追踪
+├── clean_space/                     # 存储扫描与受控清理
+├── command_center/                  # 命令卡片持久化与执行
 ├── dev_cleaner/                     # 项目扫描
 ├── env_detector/                    # 工具清单
 ├── file_ops.rs                      # 文件操作
+├── macos_webview.rs                 # macOS WebView 辅助
 ├── menu.rs                          # 应用菜单
+├── net_probe/                       # 网络探测后端（network-probe）
+├── persistence.rs                   # 原子写持久化基础设施
 ├── port_manager/                    # 端口扫描与查杀
 ├── sleep_inhibitor/                 # 防睡眠（caffeinate）
+├── subprocess.rs                    # 子进程执行（超时/进程树/输出捕获上限）
 ├── system_settings/                 # macOS defaults
 ├── terminology/                     # 术语存储
 ├── token_calculator/                # 定价标准

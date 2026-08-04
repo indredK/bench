@@ -51,13 +51,20 @@ function copyText(text: string) {
 function WebsiteChip({ site }: { site: TermWebsite }) {
   const [copied, setCopied] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
+  const copiedTimerRef = useRef<number | undefined>(undefined)
+
+  // 卸载时清理反馈计时器，避免卸载后 setState。
+  useEffect(() => {
+    return () => window.clearTimeout(copiedTimerRef.current)
+  }, [])
 
   const handleCopy = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation()
       copyText(site.url)
       setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
+      window.clearTimeout(copiedTimerRef.current)
+      copiedTimerRef.current = window.setTimeout(() => setCopied(false), 1500)
     },
     [site.url],
   )
@@ -114,6 +121,13 @@ function TermCard({
 }) {
   const { t } = useTranslation()
   const [copied, setCopied] = useState(false)
+  const copiedTimerRef = useRef<number | undefined>(undefined)
+
+  // 卸载时清理反馈计时器，避免卸载后 setState。
+  useEffect(() => {
+    return () => window.clearTimeout(copiedTimerRef.current)
+  }, [])
+
   const actionVisibility = isPinned
     ? "opacity-100"
     : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
@@ -124,7 +138,8 @@ function TermCard({
       copyText(term.title)
       setCopied(true)
       toast.success(t("terminology.toasts.copied"))
-      setTimeout(() => setCopied(false), 1500)
+      window.clearTimeout(copiedTimerRef.current)
+      copiedTimerRef.current = window.setTimeout(() => setCopied(false), 1500)
     },
     [t, term.title],
   )

@@ -6,6 +6,10 @@ use std::time::{Duration, Instant};
 
 const POLL_INTERVAL: Duration = Duration::from_millis(50);
 
+/// 单路输出捕获上限（1 MiB）。命令中心可执行任意用户命令，无上限捕获会因
+/// 巨量输出膨胀内存，并在 IPC 序列化时进一步放大；超出部分直接截断。
+const MAX_CAPTURE_BYTES: u64 = 1024 * 1024;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SubprocessErrorKind {
     Spawn,
@@ -92,18 +96,14 @@ pub fn run_output_with_timeout(
         kind: SubprocessErrorKind::Spawn,
         exit_code: None,
     })?;
-    let stdout_reader = child.stdout.take().map(|mut stdout| {
-        std::thread::spawn(move || {
-            let mut bytes = Vec::new();
-            stdout.read_to_end(&mut bytes).map(|_| bytes)
-        })
-    });
-    let stderr_reader = child.stderr.take().map(|mut stderr| {
-        std::thread::spawn(move || {
-            let mut bytes = Vec::new();
-            stderr.read_to_end(&mut bytes).map(|_| bytes)
-        })
-    });
+    let stdout_reader = child
+        .stdout
+        .take()
+        .map(|mut stdout| std::thread::spawn(move || read_capped(&mut stdout)));
+    let stderr_reader = child
+        .stderr
+        .take()
+        .map(|mut stderr| std::thread::spawn(move || read_capped(&mut stderr)));
     let started_at = Instant::now();
 
     let status = loop {
@@ -153,6 +153,16 @@ pub fn run_output_with_timeout(
         stdout,
         stderr,
     })
+}
+
+/// 只保留前 `MAX_CAPTURE_BYTES`，但持续排空剩余输出：
+/// 若截断后停止读取，子进程会阻塞在管道写入上直至超时。
+fn read_capped(reader: &mut impl Read) -> std::io::Result<Vec<u8>> {
+    let mut bytes = Vec::new();
+    let mut limited = reader.by_ref().take(MAX_CAPTURE_BYTES);
+    std::io::copy(&mut limited, &mut bytes)?;
+    std::io::copy(reader, &mut std::io::sink())?;
+    Ok(bytes)
 }
 
 fn join_reader(reader: Option<std::thread::JoinHandle<std::io::Result<Vec<u8>>>>) {
@@ -259,5 +269,18 @@ mod tests {
         let output = run_output_with_timeout(&mut command, Duration::from_secs(1), None).unwrap();
         assert!(output.status.success());
         assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), "ready");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn caps_captured_output_at_the_per_stream_limit() {
+        let mut command = Command::new("sh");
+        // 2 MiB 输出，应被截断到 MAX_CAPTURE_BYTES。
+        command.args(["-c", "yes a | head -c 2097152"]);
+
+        let output = run_output_with_timeout(&mut command, Duration::from_secs(10), None)
+            .expect("capture should succeed");
+        assert!(output.status.success());
+        assert_eq!(output.stdout.len(), MAX_CAPTURE_BYTES as usize);
     }
 }

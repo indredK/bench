@@ -4,7 +4,7 @@
 >
 > 以 macOS 为主的桌面工作台，重点解决应用启动、隔离账号管理和系统设置三个高频场景。
 
-Bench 基于 Tauri v2、React 和 Rust。当前仓库版本为 `1.23.0`，正在进行 2.0 发布前收口；已经实现但尚未完成目标平台真机验收的能力会明确标记为待验证，不以“可以编译”代替跨平台支持。
+Bench 基于 Tauri v2、React 和 Rust。当前仓库版本为 `1.26.0`（由 release-please 自动维护），正在进行 2.0 发布前收口；已经实现但尚未完成目标平台真机验收的能力会明确标记为待验证，不以“可以编译”代替跨平台支持。
 
 ## 核心能力 / Core Workflows
 
@@ -54,8 +54,10 @@ System Settings 是面向 macOS 14+ 的受控设置中心，不尝试复制整�
 
 ## 其他功能 / More Tools
 
-- **Dev Toolbox**：端口管理、开发项目清理、环境检测、Token 计算、格式转换和网络诊断。
-- **Clean Space**：macOS 存储概览与受控清理，带路径白名单、逐项结果和真实释放量。
+- **Command Center**：把常用命令/脚本保存为卡片一键运行（`shell`/`shellAdmin`/`copy`/`open`），支持拖拽排序、导入导出、运行中终止；macOS/Windows 双平台。
+- **Network Probe**：网络诊断急救箱——本机体检、「上不了网」诊断、traceroute/MTR、站点延迟、测速、安全与发现工具；Post-MVP 能力按波次交付。
+- **Dev Toolbox**：端口管理、环境检测、Token 计算等开发工具的聚合 Tab。
+- **Clean Space**：macOS 存储概览与受控清理（开发项目/自定义目录/清理记录），带路径白名单、逐项结果和真实释放量。
 - **Hardware Compare**：硬件规格查询与对比。
 - **Terminology**：可搜索、可固定的行业术语与关联站点库。
 - **全局能力**：中英文切换、浅色/深色/系统主题、菜单栏托盘、防睡眠和签名校验的应用内更新。
@@ -67,6 +69,8 @@ System Settings 是面向 macOS 14+ 的受控设置中心，不尝试复制整�
 | Quick Launch / App Manager |    待真机验收    | 待真机验收 | 核心实现完成；fixture、启动与更新/卸载 smoke 未完成  |
 | Account Manager            |    待真机验收    | 待真机验收 | capability gate 已实现；Windows WebView proxy 不支持 |
 | System Settings            | 支持，待版本回归 |   不适用   | macOS 专属系统 adapter                               |
+| Command Center             |       支持       |    支持    | Windows 提权命令无输出且不可终止（已知限制）         |
+| Network Probe              |       支持       |  能力降级  | 按能力矩阵降级，见模块 roadmap                       |
 | Dev Toolbox                |       支持       |  部分支持  | 以各子模块的 capability 为准                         |
 | Clean Space / Hardware     |       支持       |   不适用   | 2.0 维持 macOS-only                                  |
 | Terminology                |       支持       |    支持    | 纯前端与本地持久化                                   |

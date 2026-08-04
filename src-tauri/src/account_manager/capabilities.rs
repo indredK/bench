@@ -94,7 +94,8 @@ fn for_platform(
             }
             Platform::Macos => AccountManagerCapability::unsupported(REASON_PROXY_MACOS_14),
             Platform::Windows => AccountManagerCapability::unsupported(REASON_PROXY_UNSUPPORTED),
-            Platform::Other => unreachable!(),
+            // 不依赖上方早退守卫的隐式不变式：显式降级，避免生产路径 panic。
+            Platform::Other => AccountManagerCapability::unsupported(REASON_PROXY_UNSUPPORTED),
         },
         deep_link: AccountManagerCapability::partial(REASON_PLATFORM_VALIDATION_PENDING),
     }

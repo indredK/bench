@@ -7,15 +7,6 @@
 - [ ] 卡片分组 / 标签与搜索过滤
 - [ ] 参数占位符：命令内 `{{var}}` 运行前弹窗填参
 
-## 已完成（近期）
-
-- [x] 卡片拖拽排序：网格接入 `@dnd-kit`（`rectSortingStrategy`），仅拖拽手柄触发排序，顺序经 `save_command_cards` 持久化；纯函数 `reorderByIds` 含单测。
-- [x] 卡片导入 / 导出（JSON）：`export_command_cards` / `import_command_cards` IPC，前端经 `savePlatformDialog` / `openPlatformDialog` 选择路径，导入按 id 合并、toast 反馈。
-- [x] 运行中的「终止」按钮：前端 `cancel_command_card` + 后端 `RunAbortFlag` 进程树 kill（`CMD_ABORTED`）。
-- [x] Esc / 点遮罩仅关弹窗不打断命令（区分于系统级提权取消 `CMD_CANCELLED`）。
-- [x] 紧凑网格 + Hover 看实时输出 + 抽屉（上下排列：运行输出 / 命令详情），移除原详情弹窗与 RunDrawer。
-- [x] Windows 支持：`shell` 用 `cmd /C`（禁止 `start` 拉窗）、`open` 用 `explorer`、`shellAdmin` 用 PowerShell `Start-Process -Verb RunAs` 提权；Linux 仍 `unsupported`。Windows 提权进程脱离进程树，故无命令输出且「终止」按钮对其无效（已知限制）。
-
 ## 验收条件
 
 - 新增/编辑/删除卡片后重启应用数据仍在（后端持久化）。

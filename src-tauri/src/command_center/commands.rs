@@ -65,7 +65,11 @@ pub async fn run_command_card<R: Runtime>(
 ) -> AppResult<RunResult> {
     // 每次运行使用独立的取消标志，仅本次运行可被终止。
     let abort = Arc::new(AtomicBool::new(false));
-    *flag.0.lock().unwrap() = Arc::clone(&abort);
+    // 锁中毒时恢复守卫而非 panic：IPC 命令路径不允许 unwrap（ARCH §2.9）。
+    *flag
+        .0
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner()) = Arc::clone(&abort);
     match kind {
         CardKind::Shell => tokio::task::spawn_blocking(move || exec::run_shell(&command, abort))
             .await
@@ -104,7 +108,7 @@ pub async fn run_command_card<R: Runtime>(
 pub fn cancel_command_card(flag: tauri::State<'_, RunAbortFlag>) {
     flag.0
         .lock()
-        .unwrap()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
         .store(true, std::sync::atomic::Ordering::SeqCst);
 }
 
