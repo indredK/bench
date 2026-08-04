@@ -7,7 +7,7 @@ const PortManager = lazy(() => import("@/features/port-manager/page"))
 
 export const portManagerFeature: AppFeature = {
   id: "port-manager",
-  path: "/",
+  path: "/port-manager",
   labelKey: "sidebar.portManager",
   icon: <Zap size={18} />,
   render: (feature) => (
