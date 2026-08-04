@@ -27,7 +27,7 @@ pub fn show_main_window(app: &tauri::AppHandle) {
         return;
     }
 
-    let rebuilt = tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::default())
+    let builder = tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::default())
         .title("Bench - DevTools")
         .inner_size(1280.0, 800.0)
         .min_inner_size(960.0, 600.0)
@@ -35,9 +35,12 @@ pub fn show_main_window(app: &tauri::AppHandle) {
         .resizable(true)
         .visible(true)
         .decorations(false)
-        .title_bar_style(tauri::TitleBarStyle::Overlay)
-        .transparent(true)
-        .build();
+        .transparent(true);
+    // `title_bar_style` 是 macOS 专有 builder API（Windows 上不存在该方法），
+    // 必须用 cfg 包裹，否则 Windows CI 编译失败（coding-standards §7.4 平台适配）。
+    #[cfg(target_os = "macos")]
+    let builder = builder.title_bar_style(tauri::TitleBarStyle::Overlay);
+    let rebuilt = builder.build();
     match rebuilt {
         Ok(window) => {
             let _ = window.set_focus();

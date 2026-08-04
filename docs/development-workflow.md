@@ -33,6 +33,8 @@ cd src-tauri && cargo clippy -- -D warnings
 
 有 Rust 领域改动时补跑相关 `cargo test <module>`；发版前可运行 `pnpm run verify`。验证失败时停止，不通过修改测试规避真实问题。
 
+Rust 改动涉及窗口构建、托盘、系统 API 或外部命令时，额外执行平台兼容自查（coding-standards §7.4）：grep 所用 API 是否单平台专有（如 `title_bar_style` 仅 macOS），确认每个 `#[cfg(target_os)]` 分支在另一目标平台有可编译路径。本机单平台编译通过不等于双平台可用，最终门禁为 CI 的 macOS/Windows 双 runner。
+
 ## 4. 文档与提交
 
 - 已实现项从模块 roadmap 移除；新风险写入 `audit-report.md`，方向性取舍写入 `DECISIONS.md`。

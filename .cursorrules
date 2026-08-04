@@ -43,7 +43,7 @@
 以下行为在任何情况下都不允许：
 
 1. **不要修改 `docs/` 下文件而不更新对应 `roadmap.md`**
-2. **不要跳过 `docs/ARCHITECTURE.md` §2 中的 10 条禁止模式**
+2. **不要跳过 `docs/ARCHITECTURE.md` §2 中的 11 条禁止模式**
 3. **不要一次提交多个不相关的改动** — 每个 commit 聚焦一个逻辑变更
 4. **不要使用 `git add .`** — 只 stage 与本次改动直接相关的文件
 5. **不要推送 (`git push`) 除非用户明确要求**
@@ -52,6 +52,7 @@
 8. **不要使用散装错误判断模式** — 必须用 `parseCommandError` / `getErrorMessage`
 9. **不要自行推断技术栈或库** — 以 `package.json` / `Cargo.toml` 和相邻文件 import 为准
 10. **不要修改 `src/data/` 的原始中文数据** — 展示层通过映射表 + `t()` 翻译
+11. **不要裸调单平台专有 API 而不做平台兼容自查** — Rust 中使用 macOS/Windows 专有编译期 API（如 `title_bar_style`、`NS*`/`objc` 类型、win32）必须 `#[cfg(target_os)]` 包裹并提供另一平台可编译分支；改动窗口/托盘/平台适配层后必须自查双平台编译影响（见 coding-standards §7.4）
 
 ---
 

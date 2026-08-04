@@ -37,6 +37,7 @@ Bench 是一个 **跨平台桌面工具**，用于 macOS 系统管理。它不�
 8. **绝对不要用 `z-[N]` 魔法数字** — 用 `lib/ui-layers.ts` 里的 `UI_LAYERS` 或 `tokens.css` 里的 Tailwind 语义类。
 9. **绝对不要在 IPC 命令路径上加 `.expect()` 或 `.unwrap()`** — 所有错误都必须返回 `AppResult<T>`。
 10. **绝对不要把业务逻辑写在 `store.ts` 里** — 只放状态 + 简单 setter。复杂逻辑放 `*use-cases.ts`。
+11. **绝对不要在 Rust 里裸调单平台专有 API** — macOS/Windows 专有编译期 API（如 `title_bar_style`、`NS*`/`objc` 类型、win32 API）必须用 `#[cfg(target_os = "...")]` 包裹并为另一目标平台提供可编译分支，否则双平台 CI 直接编译失败（真实案例：`tray.rs` 重建窗口未包裹 `title_bar_style` 导致 Windows 编译报错）。
 
 ---
 
