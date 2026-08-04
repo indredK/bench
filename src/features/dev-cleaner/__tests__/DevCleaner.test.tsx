@@ -4,7 +4,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { render, screen } from "@testing-library/react"
 import React from "react"
-import DevCleaner from "../page"
+import { DevCleanerPageContent } from "../components/DevCleanerPageContent"
+import { useDevCleanerController } from "../hooks/useDevCleanerController"
+
+function DevCleaner() {
+  const controller = useDevCleanerController()
+  return <DevCleanerPageContent controller={controller} />
+}
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),

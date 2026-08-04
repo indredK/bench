@@ -342,7 +342,7 @@ export default function DevToolbox({ feature }: DevToolboxProps) {
   }
 
   // ── Rendering the active full-page tool ──
-  // For port-manager, dev-cleaner, env-detector, token-calc: render their page component directly.
+  // For port-manager, env-detector, token-calc: render their page component directly.
   // These components use their own controllers/hooks and work independently.
   const renderFullPageTool = () => {
     switch (activeTab) {
