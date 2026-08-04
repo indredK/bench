@@ -17,12 +17,23 @@ Thumbs.db
 .idea/
 *.tsbuildinfo
 
-# AI tool directories — only commit entry pointers, ignore local session data
-.codebuddy/*
-!.codebuddy/rules/
-.claude/*
-!.claude/CLAUDE.md
+# AI agent tool directories — local only, never commit
+.codebuddy/
+.claude/
+.trae/
+.workbuddy/
+.mimocode/
+.tmp-skills/
 .od-skills/
 .opencode/
+.agent_context/
+.multica/
+.qoder/
+
+# Agent session artifacts at repo root
+/purrfect-sauteeing-pudding.md
+/description.md
+/reply.md
+/.github/copilot-instructions.md
 
 /updater/
