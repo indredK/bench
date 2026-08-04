@@ -1,12 +1,12 @@
 # Bench — AI 总入口
 
-> **你是 AI 工具？从这里开始。** 本文件是 AI 操作 Bench 项目的唯一逻辑入口——无论你从哪个工具文件（`.cursorrules` / `.trae/rules/` / `.github/copilot-instructions.md` / `.claude/CLAUDE.md` / `.codebuddy/rules/` / …）进来，最终都必须回到这里。
+> **你是 AI 工具？从这里开始。** 本文件是 AI 操作 Bench 项目的唯一逻辑入口。各工具的私有入口文件（`.trae/rules/` / `.github/copilot-instructions.md` / `.claude/CLAUDE.md` / `.codebuddy/rules/` / …）**不进版本库**（见 `.gitignore`，D-018），只在个人本机可选存在；无论本机是否存在这些文件，最终都必须回到这里。
 >
 > **入口 vs 优先级（两件事，不矛盾）**：
 >
 > - **入口顺序**：所有工具 → `AGENTS.md`（从哪开始读）。
 > - **裁决优先级**：内容冲突时 `.cursorrules > AGENTS.md > docs/*.md`（谁说了算）。
-> - 一句话：`AGENTS.md` 是"门"，`.cursorrules` 是"最高法律"。
+> - 一句话：`AGENTS.md` 是"门"，`.cursorrules` 是"最高法律"。两者均在版本库中，是唯一权威的 AI 规则来源。
 
 ---
 

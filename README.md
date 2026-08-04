@@ -4,7 +4,7 @@
 >
 > 以 macOS 为主的桌面工作台，重点解决应用启动、隔离账号管理和系统设置三个高频场景。
 
-Bench 基于 Tauri v2、React 和 Rust。当前仓库版本为 `1.26.0`（由 release-please 自动维护），正在进行 2.0 发布前收口；已经实现但尚未完成目标平台真机验收的能力会明确标记为待验证，不以“可以编译”代替跨平台支持。
+Bench 基于 Tauri v2、React 和 Rust。版本号由 release-please 自动维护，以 [GitHub Releases](https://github.com/indredK/bench/releases) 与 `package.json` 为准；当前正在进行 2.0 发布前收口，已经实现但尚未完成目标平台真机验收的能力会明确标记为待验证，不以“可以编译”代替跨平台支持。产品定位与功能闭环的完整分析见[功能定位与功能闭环](./docs/functional-positioning-and-closed-loop.md)。
 
 ## 核心能力 / Core Workflows
 
@@ -125,6 +125,7 @@ Git hooks 会在安装依赖时配置；也可以显式运行 `pnpm run hooks:in
 ## 文档与贡献 / Docs & Contributing
 
 - 人类文档入口：[docs/START-HERE.md](./docs/START-HERE.md)
+- 产品定位与功能闭环：[docs/functional-positioning-and-closed-loop.md](./docs/functional-positioning-and-closed-loop.md)
 - 架构与禁止模式：[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
 - 编码规范：[docs/coding-standards.md](./docs/coding-standards.md)
 - 开发流程：[docs/development-workflow.md](./docs/development-workflow.md)

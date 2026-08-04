@@ -2,6 +2,18 @@
 
 本文件只记录仍影响当前实现的方向性取舍；“做什么”以 [ROADMAP.md](./ROADMAP.md) 为准，当前风险以 [audit-report.md](./audit-report.md) 为准。已推翻和已完成历史由 Git 保留。
 
+## D-018 · 智能体工具文件不进版本库
+
+- **日期**：2026-08-04
+- **状态**：采纳
+- **决策**：
+  1. **各 AI 工具的私有目录与会话产物一律不进版本库**：`.codebuddy/`、`.claude/`、`.trae/`、`.workbuddy/`、`.mimocode/`、`.tmp-skills/`、`.od-skills/`、`.opencode/`、`.agent_context/`、`.multica/`、`.qoder/`、`.github/copilot-instructions.md`，以及根目录会话产物（`purrfect-sauteeing-pudding.md`、`description.md`、`reply.md` 等）统一由 `.gitignore` 忽略；本地可存在，远端不得有。
+  2. **唯二的权威 AI 规则文件在库内**：`AGENTS.md`（逻辑入口）与 `.cursorrules`（最高优先级）。二者保留在版本库，供所有工具与新人读取；其余工具入口文件只作个人本机可选配置。
+  3. **误提交的处理方式**：发现已跟踪的忽略类文件时用 `git rm --cached` 移除并补 `.gitignore` 规则，保留本地文件；不做历史改写，除非用户明确要求。
+- **理由**：智能体目录与个人会话数据属于本机工作环境，提交进远端会污染仓库、泄漏个人工作痕迹，也让新克隆者背上无意义的文件；规则入口只需保留跨工具通用的两份文件。
+- **影响**：新增 AI 工具接入时不得把工具私有目录提交进库；`AGENTS.md` 头部描述与该决策保持一致；CI/pre-commit 不为此设额外门禁，`.gitignore` 为唯一防线。
+- **相关**：[AGENTS.md](../AGENTS.md) · [.gitignore](../.gitignore)
+
 ## D-017 · Network Probe 可选能力包（可插拔高级组件）
 
 - **日期**：2026-07-22
