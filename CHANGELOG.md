@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.28.0](https://github.com/indredK/bench/compare/v1.27.0...v1.28.0) (2026-08-25)
+
+
+### Features
+
+* **network-probe:** ComingSoon 面板标注「规划中」状态 ([31aa8f6](https://github.com/indredK/bench/commit/31aa8f6bcb3baa12fc34508c432174754ee1978b))
+
+
+### Bug Fixes
+
+* **port-manager:** 修复根路径与 quick-launch 默认重定向冲突 ([9aae2fd](https://github.com/indredK/bench/commit/9aae2fd168ed91d6440d60512fab82bd11ca4170))
+
 ## [1.27.0](https://github.com/indredK/bench/compare/v1.26.0...v1.27.0) (2026-08-04)
 
 
