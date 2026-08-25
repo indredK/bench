@@ -3,7 +3,6 @@ use crate::app_preferences::types::{
     BEHAVIOR_ALWAYS_ASK, BEHAVIOR_MINIMIZE_TO_TRAY, BEHAVIOR_QUIT,
 };
 use crate::error::{AppError, AppResult};
-use tauri::Manager;
 
 #[tauri::command]
 pub fn get_close_behavior(app: tauri::AppHandle) -> AppResult<String> {
@@ -32,8 +31,7 @@ pub fn quit_app(app: tauri::AppHandle) -> AppResult<()> {
 
 #[tauri::command]
 pub fn hide_main_window(app: tauri::AppHandle) -> AppResult<()> {
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.hide();
-    }
+    // 复用托盘模块的统一隐藏逻辑: macOS 上同时移除 Dock 图标。
+    crate::tray::hide_to_tray(&app);
     Ok(())
 }

@@ -112,10 +112,11 @@ pub fn run() {
                                 api.prevent_close();
                                 app_handle.exit(0);
                             }
-                            // 默认(含未设置偏好): 收起到后台托盘, 不退出
+                            // 默认(含未设置偏好): 收起到后台托盘, 不退出;
+                            // hide_to_tray 在 macOS 上会同时从 Dock(程序坞)移除图标。
                             _ => {
                                 api.prevent_close();
-                                let _ = win.hide();
+                                crate::tray::hide_to_tray(&app_handle);
                             }
                         }
                     }

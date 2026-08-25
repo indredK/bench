@@ -13,6 +13,25 @@ use tauri::Manager;
 #[cfg(desktop)]
 const TRAY_ID: &str = "bench-tray";
 
+/// 隐藏主窗口并切换到托盘模式。
+///
+/// macOS 上把激活策略切为 `Accessory`，从 Dock(程序坞)移除图标，应用退化为
+/// 纯菜单栏托盘后台驻留；此时程序坞不再显示，自然也不存在「点击程序坞无响应」的问题。
+/// 其他平台仅隐藏窗口。
+#[cfg(desktop)]
+pub fn hide_to_tray(app: &tauri::AppHandle) {
+    #[cfg(target_os = "macos")]
+    {
+        let _ = app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+    }
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.hide();
+    }
+}
+
+#[cfg(not(desktop))]
+pub fn hide_to_tray(_app: &tauri::AppHandle) {}
+
 /// 显示并聚焦主窗口。
 ///
 /// - 窗口存在但隐藏/最小化: 先恢复最小化, 再 show + set_focus。
@@ -20,6 +39,11 @@ const TRAY_ID: &str = "bench-tray";
 ///   按 tauri.conf.json 的 main 窗口配置重建, 避免出现托盘点击无响应的僵尸状态。
 #[cfg(desktop)]
 pub fn show_main_window(app: &tauri::AppHandle) {
+    // 从托盘恢复: macOS 上先切回 `Regular` 激活策略，重新显示 Dock 图标，再唤出窗口。
+    #[cfg(target_os = "macos")]
+    {
+        let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
+    }
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.unminimize();
         let _ = window.show();
