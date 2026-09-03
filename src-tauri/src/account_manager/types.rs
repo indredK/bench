@@ -1,6 +1,16 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 use super::crypto::EncryptedBlob;
+
+/// 兼容历史格式中的 `null` 字段：反序列化为缺省默认值（1.23.0 及更早把无规则/无配置序列化为
+/// `null`，`#[serde(default)]` 只对缺失生效、对 `null` 报错，故此处把 `null` 折叠为默认值）。
+fn deserialize_null_as_default<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de> + Default,
+{
+    Ok(Option::<T>::deserialize(deserializer)?.unwrap_or_default())
+}
 
 // ═══════════════════════════════════════════════
 // Session Manager — 新增类型
@@ -283,9 +293,9 @@ impl Default for LoginDetectionRule {
 #[serde(rename_all = "camelCase")]
 pub struct LoginDetectionConfig {
     pub mode: LoginDetectionMode,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_null_as_default")]
     pub logged_out_rule: LoginDetectionRule,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_null_as_default")]
     pub logged_in_rule: LoginDetectionRule,
 }
 

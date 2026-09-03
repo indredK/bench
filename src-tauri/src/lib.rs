@@ -15,6 +15,7 @@ mod macos_webview;
 mod menu;
 mod net_probe;
 mod persistence;
+mod photo_triage;
 mod port_manager;
 mod sleep_inhibitor;
 mod subprocess;
@@ -74,6 +75,7 @@ pub fn run() {
         .manage(UpdaterCache::default())
         .manage(RunAbortFlag(Mutex::new(Arc::new(AtomicBool::new(false)))))
         .manage(create_bootstrap_state())
+        .manage(photo_triage::state::TriageState::default())
         .setup(|app| {
             // 探测是否由登录项(隐藏)启动; 缓存供前端决定是否后台运行。
             // 仅读取启动参数(--hidden), 不做任何可能触发 TCC 授权弹窗的子进程调用。

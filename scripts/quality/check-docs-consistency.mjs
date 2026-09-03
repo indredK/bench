@@ -22,9 +22,6 @@ const MODULES_DIR = path.join(rootDir, "docs", "modules")
 const FEATURE_IGNORE = new Set([])
 // docs/modules 下非模块的条目（模板、索引等）
 const MODULE_IGNORE = new Set(["README.md", "_bugs-template.md"])
-// 规划中的文档目录（尚无对应 feature、未注册）：photo-triage 仅有迁移规划稿，
-// 待 feature 落地时从本清单移除并补齐 README.md + roadmap.md。
-const MODULE_IGNORE_DIRS = new Set(["photo-triage"])
 
 const REQUIRED_MODULE_FILES = ["README.md", "roadmap.md"]
 
@@ -37,7 +34,7 @@ function listDirs(dir, ignore) {
 }
 
 const featureIds = listDirs(FEATURES_DIR, FEATURE_IGNORE)
-const moduleIds = listDirs(MODULES_DIR, MODULE_IGNORE).filter((id) => !MODULE_IGNORE_DIRS.has(id))
+const moduleIds = listDirs(MODULES_DIR, MODULE_IGNORE)
 
 const errors = []
 

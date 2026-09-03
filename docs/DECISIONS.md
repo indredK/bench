@@ -2,6 +2,21 @@
 
 本文件只记录仍影响当前实现的方向性取舍；“做什么”以 [ROADMAP.md](./ROADMAP.md) 为准，当前风险以 [audit-report.md](./audit-report.md) 为准。已推翻和已完成历史由 Git 保留。
 
+## D-020 · Photo Triage 作为 2.0 旁路独立模块（对齐 D-016 先例）
+
+- **日期**：2026-09-03
+- **状态**：采纳
+- **背景**：用户将 `/Users/apple/KnowledgeBase/photo-triage/`（Python 独立桌面应用，照片「留/删」筛选）迁移进 Bench。该功能在 R00 冻结 2.0 范围之后提出，不列于 [ROADMAP.md](./ROADMAP.md) R00–R10 执行序列。
+- **决策**：
+  1. **不进入 2.0（R00–R10）执行序列**；Photo Triage 作为 **2.0 并行旁路的独立模块 1.0**（对齐 D-016 Network Probe 先例）实现，macOS-only，不得改动 2.0 版本号/发布门禁；与 2.0 争用人力时优先 2.0。
+  2. **迁移一致性为硬约束**：稳定 ID（`md5(相对路径去扩展名)[:12]`）与 manifest 结构与 Python 版逐字节一致，已有 Python 扫描结果直接复用、留/删标记不丢失；manifest 不得为加字段破坏该承诺（因此清单文件不引入 schema_version，改用大小上限 + 原子写治理）。
+  3. **删除亚线**：删除一律进系统废纸篓可恢复；批量删除强制二次确认；清理空文件夹仅在相册目录内且仅限空目录。
+  4. **子进程红线**：sips/ffmpeg/qlmanage 一律带超时与输出上限（复用 `subprocess.rs`），损坏媒体不得拖死并发闸门。
+  5. **数据目录**：`$APPDATA/photo-triage/build-<md5(src)[:10]>`，每相册独立构建目录；代理缓存与 manifest 原子写；asset 协议仅运行时放通（构建目录 + 用户自选源目录），不依赖静态宽桶 scope。
+- **理由**：照片筛选是独立工具场景，绑定 2.0 门禁会拖延发布且引入与系统管理工具不同的安全面；旁路模块化与 D-016 同一先例，风险可控且可随主包发布。
+- **影响**：photo-triage 代码随 2.0 一起进安装包，但其强制级规范（IPC unwrap、i18n、spawn_blocking、子进程超时）等同 2.0 红线执行；文档注册遵循 coding-standards §11（README/roadmap/migration-plan 已入 `docs/modules/photo-triage/`）。
+- **相关**：[photo-triage README](./modules/photo-triage/README.md) · [photo-triage roadmap](./modules/photo-triage/roadmap.md) · [D-016](#d-016--network-probe-独立一级模块与分期设计)
+
 ## D-019 · 启动路径零 TCC 触发与自启动 LaunchAgent 化
 
 - **日期**：2026-09-03

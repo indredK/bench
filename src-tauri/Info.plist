@@ -34,5 +34,14 @@
 			</array>
 		</dict>
 	</array>
+	<!-- Photo Triage（照片筛选）：走「继续上次进度」直接打开历史目录时的 TCC 授权文案（D-016 §6.8 P0）。 -->
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>照片筛选需要访问你选择的桌面文件夹以读取照片与视频</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>照片筛选需要访问你选择的文件夹以读取照片与视频</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>照片筛选需要访问你选择的下载文件夹以读取照片与视频</string>
+	<key>NSRemovableVolumesUsageDescription</key>
+	<string>照片筛选需要访问你选择的外置磁盘以读取照片与视频</string>
 </dict>
 </plist>

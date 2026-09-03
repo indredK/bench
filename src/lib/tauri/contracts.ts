@@ -99,6 +99,21 @@ import type {
 } from "@/lib/tauri/types/system-settings"
 import type { SystemInfoData } from "@/lib/tauri/types/system-info"
 import type {
+  DeleteEmptyDirsResult,
+  EmptyDirsResult,
+  ExportResult,
+  MoveResult,
+  PhotoTriageCapabilities,
+  PruneResult,
+  ProxyPath,
+  RecentAlbum,
+  RestoreResult,
+  ScanStartResult,
+  ScanStatus,
+  TriageManifest,
+  TrashResult,
+} from "@/lib/tauri/types/photo-triage"
+import type {
   Industry,
   Term,
   TermCategory,
@@ -596,6 +611,41 @@ export const TAURI_COMMAND_CONTRACTS = {
   ),
   get_cleanup_records: defineTauriCommand<undefined, CleanupRecord[]>()("get_cleanup_records"),
   add_cleanup_record: defineTauriCommand<{ record: CleanupRecord }, void>()("add_cleanup_record"),
+  // photo triage
+  photo_triage_scan: defineTauriCommand<{ src: string }, ScanStartResult>()("photo_triage_scan"),
+  photo_triage_scan_status: defineTauriCommand<undefined, ScanStatus>()("photo_triage_scan_status"),
+  photo_triage_list_recent: defineTauriCommand<undefined, RecentAlbum[]>()(
+    "photo_triage_list_recent",
+  ),
+  photo_triage_open: defineTauriCommand<{ src: string }, TriageManifest>()("photo_triage_open"),
+  photo_triage_capabilities: defineTauriCommand<undefined, PhotoTriageCapabilities>()(
+    "photo_triage_capabilities",
+  ),
+  photo_triage_ensure_proxy: defineTauriCommand<{ id: string; kind: string }, ProxyPath>()(
+    "photo_triage_ensure_proxy",
+  ),
+  photo_triage_original_path: defineTauriCommand<{ id: string }, string>()(
+    "photo_triage_original_path",
+  ),
+  photo_triage_trash: defineTauriCommand<{ ids: string[] }, TrashResult>()("photo_triage_trash"),
+  photo_triage_restore: defineTauriCommand<{ ids: string[] }, RestoreResult>()(
+    "photo_triage_restore",
+  ),
+  photo_triage_move: defineTauriCommand<{ ids: string[]; target: string }, MoveResult>()(
+    "photo_triage_move",
+  ),
+  photo_triage_reveal: defineTauriCommand<{ path: string }, void>()("photo_triage_reveal"),
+  photo_triage_prune: defineTauriCommand<undefined, PruneResult>()("photo_triage_prune"),
+  photo_triage_empty_dirs: defineTauriCommand<undefined, EmptyDirsResult>()(
+    "photo_triage_empty_dirs",
+  ),
+  photo_triage_delete_empty_dirs: defineTauriCommand<{ paths: string[] }, DeleteEmptyDirsResult>()(
+    "photo_triage_delete_empty_dirs",
+  ),
+  photo_triage_export: defineTauriCommand<
+    { ids: string[]; out: string; zip: boolean },
+    ExportResult
+  >()("photo_triage_export"),
   // network probe (MVP P0)
   get_network_probe_capabilities: defineTauriCommand<undefined, NetworkProbeCapabilities>()(
     "get_network_probe_capabilities",
@@ -1045,6 +1095,23 @@ export const TAURI_COMMANDS = {
     getCleanupRecords: commandName("get_cleanup_records"),
     addCleanupRecord: commandName("add_cleanup_record"),
   },
+  photoTriage: {
+    scan: commandName("photo_triage_scan"),
+    scanStatus: commandName("photo_triage_scan_status"),
+    listRecent: commandName("photo_triage_list_recent"),
+    open: commandName("photo_triage_open"),
+    capabilities: commandName("photo_triage_capabilities"),
+    ensureProxy: commandName("photo_triage_ensure_proxy"),
+    originalPath: commandName("photo_triage_original_path"),
+    trash: commandName("photo_triage_trash"),
+    restore: commandName("photo_triage_restore"),
+    move: commandName("photo_triage_move"),
+    reveal: commandName("photo_triage_reveal"),
+    prune: commandName("photo_triage_prune"),
+    emptyDirs: commandName("photo_triage_empty_dirs"),
+    deleteEmptyDirs: commandName("photo_triage_delete_empty_dirs"),
+    export: commandName("photo_triage_export"),
+  },
 } as const
 
 type FlattenCommandGroups<T> = {
@@ -1297,6 +1364,22 @@ export const TAURI_COMMAND_ARG_KEYS = {
   open_system_storage_settings: [],
   get_cleanup_records: [],
   add_cleanup_record: ["record"],
+  // photo triage
+  photo_triage_scan: ["src"],
+  photo_triage_scan_status: [],
+  photo_triage_list_recent: [],
+  photo_triage_open: ["src"],
+  photo_triage_capabilities: [],
+  photo_triage_ensure_proxy: ["id", "kind"],
+  photo_triage_original_path: ["id"],
+  photo_triage_trash: ["ids"],
+  photo_triage_restore: ["ids"],
+  photo_triage_move: ["ids", "target"],
+  photo_triage_reveal: ["path"],
+  photo_triage_prune: [],
+  photo_triage_empty_dirs: [],
+  photo_triage_delete_empty_dirs: ["paths"],
+  photo_triage_export: ["ids", "out", "zip"],
   // network probe (MVP P0)
   get_network_probe_capabilities: [],
   list_probe_nodes: [],
@@ -1375,6 +1458,10 @@ export const TAURI_EVENTS = {
     scanCategory: "clean-space:scan-category",
     scanComplete: "clean-space:scan-complete",
   },
+  photoTriage: {
+    scanProgress: "photo-triage:scan-progress",
+    scanDone: "photo-triage:scan-done",
+  },
   appPreferences: {
     showCloseBehaviorDialog: "show-close-behavior-dialog",
   },
@@ -1410,6 +1497,8 @@ export interface TauriEventContracts {
   "clean-space:scan-start": ScanStartPayload
   "clean-space:scan-category": StorageCategory
   "clean-space:scan-complete": void
+  "photo-triage:scan-progress": ScanStatus
+  "photo-triage:scan-done": ScanStatus
   "show-close-behavior-dialog": void
   "account-manager:auth-proxy-pending": AuthProxyInboxStatus
   "network-probe:health-item": HealthCheckItem

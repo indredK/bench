@@ -8,7 +8,9 @@
       "website": "https://fixture.example.com",
       "createdAt": "2025-01-01 00:00",
       "loginDetection": {
-        "mode": "presetLogout"
+        "mode": "presetLogout",
+        "loggedOutRule": null,
+        "loggedInRule": null
       },
       "exclusivityMode": "coexisting",
       "authProfile": null,
