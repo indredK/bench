@@ -49,6 +49,9 @@ export function ToolbarButton({
           )}
           onClick={onClick}
           disabled={disabled}
+          /* radix Tooltip 仅提供 aria-describedby, 不提供 accessible name (A4-3):
+             icon-only 按钮必须显式携带 aria-label。 */
+          aria-label={tooltip}
         >
           {icon}
         </Button>

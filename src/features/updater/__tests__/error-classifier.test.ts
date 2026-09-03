@@ -57,6 +57,25 @@ describe("classifyUpdaterError", () => {
     expect(result.retryAction).toBe("check")
   })
 
+  it("classifies proxy connect failures as proxy unavailable, not generic network", () => {
+    // A3-4: 代理拒绝连接 / 407 必须显式区分于笼统网络错误。
+    const refused = classifyUpdaterError(
+      "error sending request for url (https://example.com): connection refused through proxy",
+      "check",
+      "check failed",
+    )
+    expect(refused.kind).toBe("proxyUnavailable")
+    expect(refused.retryAction).toBe("check")
+
+    const authRequired = classifyUpdaterError(
+      "download failed: proxy authentication required (407)",
+      "install",
+      "install failed",
+    )
+    expect(authRequired.kind).toBe("proxyUnavailable")
+    expect(authRequired.retryAction).toBe("install")
+  })
+
   it("classifies missing platform entries as release info unavailable", () => {
     const result = classifyUpdaterError(
       "failed to check for updates: the platform `darwin-aarch64` was not found in the response `platforms` object",

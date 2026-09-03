@@ -96,6 +96,8 @@ export function VirtualDataTable<T>({
     getScrollElement: () => containerRef.current,
     estimateSize: () => estimatedRowHeight,
     overscan: 10,
+    // 初始视口估计: jsdom/首帧无布局时保证虚拟行渲染, 随后由测量校正。
+    initialRect: { width: 1280, height: 800 },
   })
 
   // Build grid-template-columns. In batch mode, prepend a narrow checkbox column.

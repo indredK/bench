@@ -145,6 +145,8 @@ interface NetworkProbeState {
   reportHistory: HealthScanResult[]
   securityAuthorized: boolean
   activeSessionId: string | null
+  /** 已发出 cancel 请求的会话; 用于保证取消幂等 (A4-4)。 */
+  cancelRequestedSessionId: string | null
   commandLog: string[]
   loadingSummary: boolean
   loadingTcp: boolean
@@ -225,6 +227,7 @@ interface NetworkProbeState {
   clearReportHistory: () => void
   setSecurityAuthorized: (securityAuthorized: boolean) => void
   setActiveSessionId: (activeSessionId: string | null) => void
+  setCancelRequestedSessionId: (sessionId: string | null) => void
   appendCommandLog: (line: string) => void
   clearCommandLog: () => void
   setLoadingSummary: (loading: boolean) => void
@@ -356,6 +359,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   reportHistory: loadReportHistory(),
   securityAuthorized: loadSecurityAuthorized(),
   activeSessionId: null,
+  cancelRequestedSessionId: null,
   commandLog: [],
   loadingSummary: false,
   loadingTcp: false,
@@ -516,7 +520,16 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
     persistSecurityAuthorized(securityAuthorized)
     set({ securityAuthorized })
   },
-  setActiveSessionId: (activeSessionId) => set({ activeSessionId }),
+  setActiveSessionId: (activeSessionId) =>
+    set((state) => ({
+      activeSessionId,
+      // 新会话开始时重置取消标记, 保证每个会话的取消可各发一次 (A4-4)。
+      cancelRequestedSessionId:
+        activeSessionId && activeSessionId !== state.activeSessionId
+          ? null
+          : state.cancelRequestedSessionId,
+    })),
+  setCancelRequestedSessionId: (cancelRequestedSessionId) => set({ cancelRequestedSessionId }),
   appendCommandLog: (line) =>
     set((state) => ({
       commandLog: [...state.commandLog.slice(-199), `${new Date().toISOString()} ${line}`],

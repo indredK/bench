@@ -228,9 +228,13 @@ describe("useUpdaterController", () => {
     expect(useUpdaterStore.getState().status).toBe("available")
   })
 
-  it("sets error state when download fails for non-cancel reasons", async () => {
+  it("keeps downloaded progress in installFailed when install fails (A3-3)", async () => {
     useUpdaterStore.setState({ status: "available", updateInfo: AVAILABLE_UPDATE })
-    mockDownloadAndInstall.mockRejectedValue(new Error("signature verification failed"))
+    // 模拟真实事件流: 下载进度先行推进, 随后安装阶段失败。
+    mockDownloadAndInstall.mockImplementation(async () => {
+      useUpdaterStore.setState({ downloadedBytes: 1024, totalBytes: 2048 })
+      throw new Error("signature verification failed")
+    })
 
     const { result } = renderHook(() => useUpdaterController())
 
@@ -239,8 +243,37 @@ describe("useUpdaterController", () => {
     })
 
     const state = useUpdaterStore.getState()
-    expect(state.status).toBe("error")
+    // partial 状态: 错误可见但进度不丢, 与笼统 error 区分 (A3-3)。
+    expect(state.status).toBe("installFailed")
     expect(state.errorInfo).not.toBeNull()
+    expect(state.downloadedBytes).toBe(1024)
+    expect(state.totalBytes).toBe(2048)
+
+    // retryInstall: installFailed 可再次发起下载安装直至 readyToRestart。
+    mockDownloadAndInstall.mockResolvedValue(undefined)
+    await act(async () => {
+      await result.current.downloadAndInstall()
+    })
+    expect(useUpdaterStore.getState().status).toBe("readyToRestart")
+    expect(mockDownloadAndInstall).toHaveBeenCalledTimes(2)
+  })
+
+  it("sets a retryable restartFailed error when restartNow fails (A3-2)", async () => {
+    useUpdaterStore.setState({ status: "readyToRestart", updateInfo: AVAILABLE_UPDATE })
+    mockRestartAfterUpdate.mockRejectedValue(new Error("restart: exec failed"))
+
+    const { result } = renderHook(() => useUpdaterController())
+
+    await act(async () => {
+      await result.current.restartNow()
+    })
+
+    const state = useUpdaterStore.getState()
+    expect(state.status).toBe("error")
+    expect(state.errorInfo?.kind).toBe("restartFailed")
+    expect(state.errorInfo?.retryAction).toBe("restart")
+    // 已下载产物状态保留, updateInfo 不被丢弃。
+    expect(state.updateInfo).toEqual(AVAILABLE_UPDATE)
   })
 
   it("calls restartAfterUpdate when restartNow is invoked", async () => {

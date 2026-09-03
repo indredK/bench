@@ -157,8 +157,12 @@ export function AccountColumn({
     />
   )
   return (
-    <section className="bg-card flex min-w-0 flex-[1.1] flex-col rounded-lg border">
+    <section
+      className="bg-card flex min-w-0 flex-[1.1] flex-col rounded-lg border"
+      aria-labelledby="am-account-title"
+    >
       <ColumnHeader
+        titleId="am-account-title"
         title={`${t("accountManager.accountTitle")} (${accounts.length})`}
         action={
           <div className="flex items-center gap-1.5">
@@ -309,6 +313,7 @@ export function AccountColumn({
               size="icon-xs"
               onClick={() => setSearchQuery("")}
               className="absolute top-1/2 right-2 -translate-y-1/2"
+              aria-label={t("common.clear")}
             >
               <X size={14} />
             </Button>

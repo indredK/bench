@@ -259,7 +259,12 @@ export function StorageOverview({ className }: { className?: string }) {
           {canUsePlatform && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon-sm" onClick={handleOpenSettings}>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={handleOpenSettings}
+                  aria-label={t("cleanSpace.openInSystemSettings")}
+                >
                   <ExternalLink size={14} />
                 </Button>
               </TooltipTrigger>

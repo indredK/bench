@@ -2237,7 +2237,9 @@
     "empty": {
       "noData": "No items to display",
       "selectItem": "Select an item to view details"
-    }
+    },
+    "refresh": "Refresh",
+    "clear": "Clear"
   },
   "language": {
     "system": "System",
@@ -2379,9 +2381,16 @@
     "updatedSize": "Downloaded {{size}}",
     "desktopOnly": "Updater features are only available in the desktop app.",
     "errors": {
+      "restartFailed": "Failed to restart the application",
       "checkFailed": "Failed to check for updates",
       "installFailed": "Failed to install update"
-    }
+    },
+    "restartFailedTitle": "Restart failed",
+    "restartFailedDescription": "The downloaded update is intact. Try restarting again, or quit Bench manually and reopen it.",
+    "proxyUnavailableTitle": "Proxy unavailable",
+    "proxyUnavailableDescription": "Could not reach the update server through the configured proxy. Check your proxy settings or network and retry.",
+    "installFailedStateTitle": "Downloaded, but install failed",
+    "installFailedStateDescription": "The update package was downloaded but could not be installed. Your progress is kept; you can retry the install."
   },
   "terminology": {
     "industryList": "Industry List",

@@ -27,6 +27,17 @@ pub fn locked_operation_result() -> OperationResult {
     )
 }
 
+/// Single-package operation cancelled by the user mid-flight (A2-7).
+pub fn cancelled_operation_result() -> OperationResult {
+    operation_result(
+        false,
+        "Cancelled by user",
+        None,
+        Some("OPERATION_CANCELLED".into()),
+        false,
+    )
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn record_operation_result(
     _state: &AppManagerState,

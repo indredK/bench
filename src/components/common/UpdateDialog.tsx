@@ -258,6 +258,16 @@ function getErrorCopy(t: (key: string) => string, errorInfo: UpdaterErrorInfo | 
         title: t("updater.updateStateChangedTitle"),
         description: t("updater.updateStateChangedDescription"),
       }
+    case "restartFailed":
+      return {
+        title: t("updater.restartFailedTitle"),
+        description: t("updater.restartFailedDescription"),
+      }
+    case "proxyUnavailable":
+      return {
+        title: t("updater.proxyUnavailableTitle"),
+        description: t("updater.proxyUnavailableDescription"),
+      }
     case "unknownInstallFailure":
       return {
         title: t("updater.installFailedTitle"),
@@ -377,6 +387,13 @@ export function UpdateDialog({
           title: t("updater.readyToRestartTitle"),
           description: t("updater.readyToRestartDescription"),
           variant: "default" as const,
+        }
+      case "installFailed":
+        return {
+          icon: <TriangleAlert className="size-4" />,
+          title: t("updater.installFailedStateTitle"),
+          description: t("updater.installFailedStateDescription"),
+          variant: "destructive" as const,
         }
       case "error":
         return {
@@ -582,10 +599,14 @@ export function UpdateDialog({
             </Button>
           )}
 
-          {status === "error" && retryAction && (
+          {(status === "error" || status === "installFailed") && retryAction && (
             <Button
               onClick={() =>
-                void (retryAction === "install" ? downloadAndInstall() : checkUpdates())
+                void (retryAction === "install"
+                  ? downloadAndInstall()
+                  : retryAction === "restart"
+                    ? restartNow()
+                    : checkUpdates())
               }
             >
               <RefreshCcw className="size-4" />

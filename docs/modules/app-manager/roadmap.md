@@ -13,7 +13,6 @@
 ## 清单快照持久化（D-019）
 
 - [ ] 真机验证：扫描后 `config_dir/bench/app-manager/inventory.json` 生成且体积受控（超限剥离图标）；进入 app-manager 展示缓存快照，重新扫描回写 revision 单调递增。
-- [ ] 行为测试：`get_cached_app_inventory` 对损坏缓存文件返回 null 且不影响后续扫描。
 
 ## 远期
 

@@ -4,7 +4,7 @@
 import type { ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 import type { ColumnDef, OnChangeFn, SortingState } from "@tanstack/react-table"
-import { X } from "lucide-react"
+import { RotateCw, X } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { DetailPanel } from "@/components/layout/DetailPanel"
@@ -38,11 +38,14 @@ interface AppManagerCatalogViewProps<TItem, TFilter extends string> {
   searchPlaceholder: string
   loading: boolean
   error: string
+
   loadingSubtitle?: string
   loadingProgress?: number
   loadingTotal?: number | null
   batchResults: BatchOperationResult | null
   onClearError?: () => void
+  /** 错误横幅重试入口：重新扫描 (A2-8)。 */
+  onRetryError?: () => void
   filterPanelOpen: boolean
   activeFilterCount: number
   typeFilter: TFilter
@@ -101,6 +104,7 @@ export function AppManagerCatalogView<TItem, TFilter extends string>({
   loadingTotal,
   batchResults,
   onClearError,
+  onRetryError,
   filterPanelOpen,
   activeFilterCount,
   typeFilter,
@@ -152,16 +156,38 @@ export function AppManagerCatalogView<TItem, TFilter extends string>({
         <Alert variant="destructive" className="shrink-0">
           <AlertDescription className="flex items-center justify-between gap-3">
             <span>{error}</span>
-            {onClearError ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon-xs" onClick={onClearError}>
-                    <X size={13} />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>{t("common.actions.close")}</TooltipContent>
-              </Tooltip>
-            ) : null}
+            <span className="flex shrink-0 items-center gap-1">
+              {onRetryError && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      onClick={onRetryError}
+                      aria-label={t("common.retry")}
+                    >
+                      <RotateCw size={13} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{t("common.retry")}</TooltipContent>
+                </Tooltip>
+              )}
+              {onClearError ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      onClick={onClearError}
+                      aria-label={t("common.actions.close")}
+                    >
+                      <X size={13} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{t("common.actions.close")}</TooltipContent>
+                </Tooltip>
+              ) : null}
+            </span>
           </AlertDescription>
         </Alert>
       )}

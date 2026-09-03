@@ -180,7 +180,12 @@ export function CustomCleanupDialog() {
             {t("devCleaner.customCleanup.title")}
           </CardTitle>
           {phase !== "running" && phase !== "paused" && (
-            <Button variant="ghost" size="icon" onClick={handleClose}>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleClose}
+              aria-label={t("common.actions.close")}
+            >
               <XCircle size={20} />
             </Button>
           )}

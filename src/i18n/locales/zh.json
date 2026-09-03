@@ -2237,7 +2237,9 @@
     "empty": {
       "noData": "暂无数据",
       "selectItem": "请选择一个项目查看详情"
-    }
+    },
+    "refresh": "刷新",
+    "clear": "清除"
   },
   "language": {
     "system": "跟随系统",
@@ -2379,9 +2381,16 @@
     "updatedSize": "本次更新已下载 {{size}}",
     "desktopOnly": "更新功能仅可在桌面版应用中使用。",
     "errors": {
+      "restartFailed": "应用重启失败",
       "checkFailed": "检查更新失败",
       "installFailed": "安装更新失败"
-    }
+    },
+    "restartFailedTitle": "重启失败",
+    "restartFailedDescription": "已下载的更新完好。请重试重启，或手动退出 Bench 后重新打开。",
+    "proxyUnavailableTitle": "代理不可用",
+    "proxyUnavailableDescription": "无法通过已配置的代理连接更新服务器。请检查代理设置或网络后重试。",
+    "installFailedStateTitle": "已下载，安装失败",
+    "installFailedStateDescription": "更新包已下载但未能安装，进度已保留。可直接重试安装。"
   },
   "terminology": {
     "industryList": "领域列表",

@@ -197,6 +197,11 @@ pub struct ScanResult {
     pub complete: bool,
     pub providers: Vec<ProviderStatus>,
     pub warnings: Vec<String>,
+    /// Inventory cache schema version. 0 = legacy cache written before
+    /// versioning (accepted); values greater than the current schema are
+    /// rejected fail-closed on restore (A2-3).
+    #[serde(default)]
+    pub schema_version: u32,
 }
 
 /// Identifies the update channel a discovered update came from.

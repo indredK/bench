@@ -208,6 +208,7 @@ function CommandCardTile({
             className="size-7"
             onClick={() => onEdit(card)}
             title={t("common.edit")}
+            aria-label={t("common.edit")}
           >
             <Pencil size={13} />
           </Button>
@@ -217,6 +218,7 @@ function CommandCardTile({
             className="text-destructive hover:bg-destructive/10 hover:text-destructive size-7"
             onClick={() => onDelete(card)}
             title={t("common.delete")}
+            aria-label={t("common.delete")}
           >
             <Trash2 size={13} />
           </Button>

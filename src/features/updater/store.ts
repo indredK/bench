@@ -13,6 +13,8 @@ export type UpdaterStatus =
   | "downloading"
   | "cancelling"
   | "installing"
+  /** 下载完成但安装失败: 进度保留, 可重试安装 (A3-3)。 */
+  | "installFailed"
   | "readyToRestart"
   | "error"
 

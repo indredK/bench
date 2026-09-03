@@ -64,6 +64,8 @@ export default defineConfig(async () => ({
       "**/dist/**",
       "**/.{idea,git,cache,output,temp}/**",
       "**/.claude/**",
+      // Playwright e2e 用例由 `pnpm run test:e2e` (playwright test) 执行 (A4-1)。
+      "e2e/**",
     ],
     css: false,
   },

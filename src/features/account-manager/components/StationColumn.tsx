@@ -88,8 +88,12 @@ export function StationColumn({
     />
   )
   return (
-    <section className="bg-card flex w-[320px] shrink-0 flex-col rounded-lg border">
+    <section
+      className="bg-card flex w-[320px] shrink-0 flex-col rounded-lg border"
+      aria-labelledby="am-station-title"
+    >
       <ColumnHeader
+        titleId="am-station-title"
         title={`${t("accountManager.stationTitle")} (${stations.length})`}
         action={
           <div className="flex items-center gap-1.5">

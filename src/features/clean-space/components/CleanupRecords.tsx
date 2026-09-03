@@ -33,7 +33,13 @@ export function CleanupRecords() {
     <div className="flex h-full flex-col">
       <div className="flex shrink-0 items-center justify-between py-2">
         <h3 className="text-sm font-medium">{t("cleanSpace.records.title")}</h3>
-        <Button variant="ghost" size="icon-sm" onClick={handleLoad} disabled={isLoading}>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={handleLoad}
+          disabled={isLoading}
+          aria-label={t("common.refresh")}
+        >
           {isLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
         </Button>
       </div>

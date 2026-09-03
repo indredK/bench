@@ -1,5 +1,6 @@
 import fs from "node:fs"
 import path from "node:path"
+import { pathToFileURL } from "node:url"
 
 function parseArgs(argv) {
   const args = {}
@@ -12,27 +13,35 @@ function parseArgs(argv) {
   return args
 }
 
-const args = parseArgs(process.argv.slice(2))
-const outputDir = args["output-dir"]
-const platform = args.platform
-const file = args.file
-const signature = args.signature
-const target = args.target || platform
+/**
+ * 写入单目标 updater manifest (A3-5: 抽为可测函数, CLI 入口仅在直接执行时运行)。
+ */
+export function writeUpdaterManifest({ outputDir, platform, file, signature, target }) {
+  if (!outputDir || !platform || !file || !signature) {
+    throw new Error("Usage: writeUpdaterManifest({ outputDir, platform, file, signature, target })")
+  }
 
-if (!outputDir || !platform || !file || !signature) {
-  throw new Error(
-    "Usage: node scripts/release/write-updater-manifest.mjs --output-dir <dir> --platform <platform> --file <path> --signature <path> [--target <target>]",
-  )
+  fs.mkdirSync(outputDir, { recursive: true })
+
+  const manifest = {
+    platform,
+    file: path.basename(file),
+    signature: path.basename(signature),
+  }
+
+  const outputPath = path.join(outputDir, `updater-manifest-${target || platform}.json`)
+  fs.writeFileSync(outputPath, `${JSON.stringify(manifest, null, 2)}\n`)
+  return manifest
 }
 
-fs.mkdirSync(outputDir, { recursive: true })
-
-const manifest = {
-  platform,
-  file: path.basename(file),
-  signature: path.basename(signature),
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const args = parseArgs(process.argv.slice(2))
+  writeUpdaterManifest({
+    outputDir: args["output-dir"],
+    platform: args.platform,
+    file: args.file,
+    signature: args.signature,
+    target: args.target || args.platform,
+  })
+  console.log("generated manifest")
 }
-
-const outputPath = path.join(outputDir, `updater-manifest-${target}.json`)
-fs.writeFileSync(outputPath, `${JSON.stringify(manifest, null, 2)}\n`)
-console.log(`generated ${outputPath}`)

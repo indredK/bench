@@ -35,7 +35,13 @@ export function AppManagerBatchResults({ batchResults, onClear }: AppManagerBatc
           {t("appManager.batchTotal", { n: batchResults.total })}
         </span>
       </div>
-      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onClear}>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-6 w-6"
+        onClick={onClear}
+        aria-label={t("appManager.batchClear")}
+      >
         <X size={12} />
       </Button>
     </div>

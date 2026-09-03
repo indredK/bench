@@ -28,6 +28,8 @@
     "check:docs": "node scripts/quality/check-docs-consistency.mjs && node scripts/quality/check-markdown-links.mjs",
     "test:fe": "vitest run",
     "test:fe:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "test:critical": "vitest run src/features/account-manager src/features/token-calculator src/features/app-manager src/features/quick-launch src/features/updater src/features/system-settings src/features/registry.test.tsx src/shared/app-inventory src/components/__tests__/ContentView.test.tsx src/components/common/__tests__/SettingsDialog.test.tsx src/components/common/__tests__/UpdateDialog.test.tsx scripts/quality/__tests__ scripts/release/__tests__/verify-release-assets.test.ts",
     "test:be": "cd src-tauri && cargo test",
     "check:be": "cd src-tauri && cargo check",
@@ -75,7 +77,9 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@clack/prompts": "^1.7.0",
+    "@playwright/test": "^1.62.1",
     "@tauri-apps/cli": "^2.11.4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",

@@ -264,6 +264,7 @@ export function createAppManagerColumns(
               className="h-7 w-7"
               disabled={!app.allowedActions.launch}
               title={t("appManager.actionLaunch")}
+              aria-label={t("appManager.actionLaunch")}
               onClick={() => onLaunch(app)}
             >
               <Play size={14} />
@@ -276,6 +277,7 @@ export function createAppManagerColumns(
               className="h-7 w-7"
               disabled={!app.allowedActions.reveal}
               title={t(appManagerPlatformConfig.revealActionLabel)}
+              aria-label={t(appManagerPlatformConfig.revealActionLabel)}
               onClick={() => onReveal(app)}
             >
               <Folder size={14} />
@@ -288,6 +290,11 @@ export function createAppManagerColumns(
               className="h-7 w-7"
               disabled={!app.allowedActions.upgrade || opStatus === "running"}
               title={
+                app.upgradeAvailable
+                  ? t("appManager.actionUpgradeAvailable")
+                  : t("appManager.actionUpgrade")
+              }
+              aria-label={
                 app.upgradeAvailable
                   ? t("appManager.actionUpgradeAvailable")
                   : t("appManager.actionUpgrade")
@@ -311,6 +318,13 @@ export function createAppManagerColumns(
               className="h-7 w-7"
               disabled={!app.allowedActions.uninstall || opStatus === "running"}
               title={
+                app.isSystemApp
+                  ? t("appManager.actionUninstallSystemBlocked")
+                  : app.sourceType === "Unknown"
+                    ? t("appManager.actionUninstallUnknownBlocked")
+                    : t("appManager.actionUninstall")
+              }
+              aria-label={
                 app.isSystemApp
                   ? t("appManager.actionUninstallSystemBlocked")
                   : app.sourceType === "Unknown"

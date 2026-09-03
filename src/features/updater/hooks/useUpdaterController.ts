@@ -85,6 +85,7 @@ export function useUpdaterController() {
         currentStatus === "downloading" ||
         currentStatus === "cancelling" ||
         currentStatus === "installing" ||
+        currentStatus === "installFailed" ||
         currentStatus === "readyToRestart"
       ) {
         return
@@ -177,7 +178,14 @@ export function useUpdaterController() {
 
   const downloadAndInstall = useCallback(async () => {
     const { status: dlStatus } = useUpdaterStore.getState()
-    if (dlStatus === "downloading" || dlStatus === "cancelling" || dlStatus === "installing") return
+    if (
+      dlStatus === "downloading" ||
+      dlStatus === "cancelling" ||
+      dlStatus === "installing" ||
+      dlStatus === "readyToRestart"
+    ) {
+      return
+    }
 
     useUpdaterStore.setState({
       status: "downloading",
@@ -203,8 +211,9 @@ export function useUpdaterController() {
         return
       }
       const errorInfo = classifyUpdaterError(error, "install", t("updater.errors.installFailed"))
+      // 安装阶段失败: 进入 partial 状态, 保留已下载进度供重试 (A3-3)。
       useUpdaterStore.setState({
-        status: "error",
+        status: "installFailed",
         error: errorInfo.message,
         errorInfo,
       })
@@ -228,8 +237,14 @@ export function useUpdaterController() {
   }, [])
 
   const restartNow = useCallback(async () => {
-    await restartAfterUpdate()
-  }, [])
+    try {
+      await restartAfterUpdate()
+    } catch (error) {
+      // 重启失败: 保留已下载产物状态并给出可重试的显式错误 (A3-2)。
+      const errorInfo = classifyUpdaterError(error, "restart", t("updater.errors.restartFailed"))
+      useUpdaterStore.setState({ status: "error", error: errorInfo.message, errorInfo })
+    }
+  }, [t])
 
   const closeDialog = useCallback(() => {
     if (status === "downloading" || status === "cancelling" || status === "installing") {

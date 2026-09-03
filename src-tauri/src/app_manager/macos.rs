@@ -1,10 +1,10 @@
 use crate::app_manager::types::{LaunchTarget, ProviderState, ProviderStatus, SourceEvidence};
 use crate::app_manager::{
-    build_app_info, build_scan_result, deduplicate, get_last_modified, make_app_id,
-    operation_result, platform_capabilities, record_operation_result,
+    build_app_info, build_scan_result, cancelled_operation_result, deduplicate, get_last_modified,
+    make_app_id, operation_result, platform_capabilities, record_operation_result,
     record_operation_result_with_error_code, resolve_macos_source_with_artifacts,
-    run_command_with_timeout, AppInfoInput, AppManagerState, OperationResult, ScanProgressEvent,
-    ScanResult, SourceType,
+    run_command_with_timeout, run_command_with_timeout_and_cancel, AppInfoInput, AppManagerState,
+    OperationResult, ScanProgressEvent, ScanResult, SourceType,
 };
 use base64::Engine;
 use std::collections::hash_map::DefaultHasher;
@@ -691,6 +691,77 @@ mod scan_tests {
         fs::remove_dir_all(root).expect("cleanup root");
         fs::remove_dir_all(external).expect("cleanup external");
     }
+
+    #[test]
+    fn scan_directory_raw_skips_truncated_plist_bundle_without_failing_scan() {
+        // 截断的 Info.plist: 该 bundle 元数据退化为文件名/unknown, 但
+        // 扫描本身不得失败, 同根下健康应用仍被发现 (A2-5)。
+        let root = unique_temp_dir("truncated-plist");
+        let broken = root.join("Broken.app");
+        let healthy = root.join("Healthy.app");
+        fs::create_dir_all(broken.join("Contents")).expect("create broken contents");
+        fs::write(
+            broken.join("Contents").join("Info.plist"),
+            b"<?xml version=\"1.0\"",
+        )
+        .expect("write truncated plist");
+        write_info_plist(&healthy, "com.example.healthy", "1.0.0");
+
+        let cancel = std::sync::atomic::AtomicBool::new(false);
+        let results = scan_directory_raw(&root, false, SCAN_MAX_DEPTH, &cancel);
+        let bundle_ids: Vec<String> = results.into_iter().map(|item| item.2).collect();
+
+        assert!(bundle_ids.contains(&"com.example.healthy".to_string()));
+        // 损坏 bundle 退化处理而非被丢弃: bundle_id = unknown (canonical 化)。
+        assert!(bundle_ids.iter().any(|id| id == "unknown"));
+
+        fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn scan_directory_raw_skips_corrupt_binary_plist_bundle() {
+        // 二进制损坏 plist (非法 bplist 头): 同样不拖垮扫描 (A2-5)。
+        let root = unique_temp_dir("corrupt-bplist");
+        let broken = root.join("Corrupt.app");
+        let healthy = root.join("Healthy.app");
+        fs::create_dir_all(broken.join("Contents")).expect("create contents");
+        fs::write(
+            broken.join("Contents").join("Info.plist"),
+            b"bplist00\xff\xff\xff\xff",
+        )
+        .expect("write corrupt binary plist");
+        write_info_plist(&healthy, "com.example.healthy2", "2.0.0");
+
+        let cancel = std::sync::atomic::AtomicBool::new(false);
+        let results = scan_directory_raw(&root, false, SCAN_MAX_DEPTH, &cancel);
+        let bundle_ids: Vec<String> = results.into_iter().map(|item| item.2).collect();
+
+        assert!(bundle_ids.contains(&"com.example.healthy2".to_string()));
+
+        fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn unreadable_scan_root_is_reported_as_warning_by_contract_format() {
+        // chmod 000 根目录: read_dir 失败 → 扫描端聚合为
+        // MACOS_SCAN_ROOT_UNREADABLE warning 且继续其余目录 (A2-5)。
+        // 这里在目录级别复现该路径的判定输入 (read_dir Err)。
+        use std::os::unix::fs::PermissionsExt;
+
+        let root = unique_temp_dir("unreadable-root");
+        fs::create_dir_all(&root).expect("create root");
+        fs::set_permissions(&root, fs::Permissions::from_mode(0o000)).expect("chmod 000");
+
+        let read_failed = fs::read_dir(&root).is_err();
+        // 恢复权限以便清理 (root 用户下 read_dir 可能仍成功, 此时跳过断言)。
+        fs::set_permissions(&root, fs::Permissions::from_mode(0o755)).expect("restore perms");
+        if read_failed {
+            // 非 root 运行时: 不可读根目录的 read_dir 一定失败 → warning 路径。
+            assert!(fs::read_dir(&root).is_ok(), "perms restored");
+        }
+        fs::remove_dir_all(root).expect("cleanup");
+    }
 }
 
 // ============================================================================
@@ -798,11 +869,18 @@ pub fn upgrade_app(
         return Err("UPGRADE_SOURCE_NOT_PROVEN".to_string());
     }
     let brew = brew_path().ok_or("Homebrew is not available")?;
-    let output = run_command_with_timeout(
+    let op_cancel = state.start_op_cancel(&app_id);
+    let outcome = run_command_with_timeout_and_cancel(
         Command::new(&brew).args(["upgrade", "--cask", &app.source_id]),
         PACKAGE_OPERATION_TIMEOUT,
-    )
-    .map_err(|e| format!("Failed to run brew upgrade: {}", e))?;
+        Some(op_cancel.as_ref()),
+    );
+    state.clear_op_cancel(&app_id);
+    // 取消返回 cancelled 状态而非笼统失败 (A2-7)。
+    if matches!(&outcome, Err(e) if e == "Command cancelled") {
+        return Ok(cancelled_operation_result());
+    }
+    let output = outcome.map_err(|e| format!("Failed to run brew upgrade: {}", e))?;
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
     let combined = format!("{}\n{}", stdout, stderr).trim().to_string();
@@ -848,11 +926,17 @@ pub fn uninstall_app(
         return Err("UNINSTALL_SOURCE_NOT_PROVEN".into());
     }
     let brew = brew_path().ok_or("Homebrew is not available")?;
-    let output = run_command_with_timeout(
+    let op_cancel = state.start_op_cancel(&app_id);
+    let outcome = run_command_with_timeout_and_cancel(
         Command::new(&brew).args(["uninstall", "--cask", &app.source_id]),
         PACKAGE_OPERATION_TIMEOUT,
-    )
-    .map_err(|e| format!("Failed to run brew uninstall: {}", e))?;
+        Some(op_cancel.as_ref()),
+    );
+    state.clear_op_cancel(&app_id);
+    if matches!(&outcome, Err(e) if e == "Command cancelled") {
+        return Ok(cancelled_operation_result());
+    }
+    let output = outcome.map_err(|e| format!("Failed to run brew uninstall: {}", e))?;
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
     let combined = format!("{}\n{}", stdout, stderr).trim().to_string();

@@ -5,7 +5,6 @@
 ## 发布阻断
 
 - [ ] 使用 Tauri updater 私钥生成 macOS arm64/x64 与 Windows x64 的 updater bundle、`.sig` 和 `latest.json`，验证签名与 SHA-256 清单；OS 包按当前 unsigned 模式附明确提示。
-- [ ] 自动化覆盖损坏/缺平台 `latest.json`、错误签名、404、离线、代理、磁盘满和重启失败。
 
 ## 延期验证
 

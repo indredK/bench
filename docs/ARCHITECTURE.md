@@ -274,11 +274,12 @@ Rust：Result<T, AppError> { code: "大写下划线命名", message: "..." }
 
 ## §7 配置文件地图
 
-| 文件                            | 用途                                   |
-| ------------------------------- | -------------------------------------- |
-| `tauri.conf.json`               | Tauri 窗口、包、更新器、CSP、深度链接  |
-| `vite.config.ts`                | Vite 插件、别名、构建分包、vitest 配置 |
-| `tsconfig.json`                 | TypeScript strict 模式、`@/` 别名      |
-| `package.json`                  | 脚本、依赖、pnpm 配置                  |
-| `components.json`               | shadcn/ui 配置                         |
-| `.release-please-manifest.json` | 自动版本号                             |
+| 文件                                             | 用途                                                 |
+| ------------------------------------------------ | ---------------------------------------------------- |
+| `tauri.conf.json`                                | Tauri 窗口、包、更新器、CSP、深度链接                |
+| `vite.config.ts`                                 | Vite 插件、别名、构建分包、vitest 配置               |
+| `tsconfig.json`                                  | TypeScript strict 模式、`@/` 别名                    |
+| `package.json`                                   | 脚本、依赖、pnpm 配置                                |
+| `components.json`                                | shadcn/ui 配置                                       |
+| `.release-please-manifest.json`                  | 自动版本号                                           |
+| [persistence-schema.md](./persistence-schema.md) | 持久化文件 schema owner / 版本 / 上限 / 失败策略清单 |

@@ -192,7 +192,12 @@ export function PortManagerPageContent({
             <span>{error}</span>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon-xs" onClick={onClearError}>
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  onClick={onClearError}
+                  aria-label={t("portManager.dismissError")}
+                >
                   <X size={13} />
                 </Button>
               </TooltipTrigger>

@@ -501,6 +501,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                     <Button
                       variant="outline"
                       size="icon"
+                      aria-label={t("systemSettings.screenshot.saveLocation")}
                       disabled={snapshotReadLoading || store.applyingKeys.size > 0}
                       onClick={async () => {
                         const selected = await openPlatformDialog({

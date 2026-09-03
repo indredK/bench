@@ -1,4 +1,6 @@
 pub mod commands;
+#[cfg(test)]
+mod contract_tests;
 pub mod domain;
 pub mod gatekeeper;
 pub mod installer;
@@ -17,7 +19,7 @@ pub use domain::{
     resolve_windows_source, AppInfoInput,
 };
 pub use operations::{
-    locked_operation_result, operation_result, record_operation_result,
+    cancelled_operation_result, locked_operation_result, operation_result, record_operation_result,
     record_operation_result_with_error_code,
 };
 pub use state::AppManagerState;

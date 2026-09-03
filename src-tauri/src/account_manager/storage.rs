@@ -347,4 +347,66 @@ mod tests {
         let error = validate_schema_version(u64::from(CURRENT_SCHEMA) + 1).unwrap_err();
         assert!(error.to_string().contains("newer than supported"));
     }
+
+    // ───── 1.23.0 fixture 迁移 (A5-3) ─────
+
+    const FIXTURE_1_23_0: &str = include_str!("testdata/1.23.0-account-manager-store.json");
+
+    #[test]
+    fn migration_from_1_23_0_fixture_transforms_and_is_idempotent() {
+        let doc: Value = serde_json::from_str(FIXTURE_1_23_0).expect("fixture parses");
+        let schema = doc.get(KEY_SCHEMA).and_then(|v| v.as_u64()).unwrap_or(0);
+        validate_schema_version(schema).expect("1.23.0 schema within supported range");
+
+        let state = AccountManagerState::new();
+        // 注入固定测试主密钥, 供 P0 明文 secrets 重加密 (绕过 Keyring)。
+        state
+            .initialize_master_key_for_tests([9u8; 32])
+            .expect("test master key");
+        let stations: Vec<RelayStation> =
+            decode_or_default(doc.get(KEY_STATIONS).cloned(), KEY_STATIONS)
+                .expect("stations decode");
+        let mut accounts: Vec<StationAccount> =
+            decode_or_default(doc.get(KEY_ACCOUNTS).cloned(), KEY_ACCOUNTS)
+                .expect("accounts decode");
+        let mut sessions: HashMap<String, EncryptedBlob> = HashMap::new();
+
+        // P0 明文 secrets → 重加密 (needs_resave = dirty)。
+        let (secrets, needs_resave) =
+            load_and_migrate_secrets(doc.get(KEY_SECRETS).cloned(), &state)
+                .expect("secrets migrate");
+        assert!(needs_resave, "plaintext secrets must be re-encrypted");
+        assert!(secrets.contains_key("acct-fixture-1"));
+
+        // 内联 legacy session → canonical map, 且不覆盖 canonical 值。
+        let migrated_legacy = migrate_legacy_sessions(&mut accounts, &mut sessions);
+        assert!(migrated_legacy);
+        assert!(accounts[0].session.is_none());
+        assert!(sessions.contains_key("acct-fixture-1"));
+
+        // transform 完成 (写入 save_snapshot 原子落盘, 由 IO 边界保证)。
+        // 幂等: 对已迁移数据再次迁移 → 无 dirty、无重迁移 (重复启动)。
+        let (secrets_again, needs_resave_again) =
+            load_and_migrate_secrets(Some(json!(&secrets)), &state).expect("re-migrate secrets");
+        assert!(!needs_resave_again);
+        assert_eq!(secrets_again.len(), secrets.len());
+
+        let mut sessions_again = sessions.clone();
+        let mut accounts_again = accounts.clone();
+        assert!(!migrate_legacy_sessions(
+            &mut accounts_again,
+            &mut sessions_again
+        ));
+        assert_eq!(sessions_again.len(), sessions.len());
+    }
+
+    #[test]
+    fn corrupt_secret_shape_from_1_23_0_fixture_fails_closed() {
+        let state = AccountManagerState::new();
+        let doc: Value = serde_json::from_str(FIXTURE_1_23_0).expect("fixture parses");
+        // 篡改: secrets 值既非字符串也非 EncryptedBlob → 显式错误, 不静默丢数据。
+        let mut doc = doc;
+        doc["secrets"] = json!({ "acct-fixture-1": { "unexpected": 1 } });
+        assert!(load_and_migrate_secrets(doc.get("secrets").cloned(), &state).is_err());
+    }
 }

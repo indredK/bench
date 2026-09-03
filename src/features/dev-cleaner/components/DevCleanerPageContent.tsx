@@ -98,7 +98,13 @@ export function DevCleanerPageContent({ controller }: DevCleanerPageContentProps
               onChange={setSelectedPath}
             />
             <div className="flex items-center gap-2">
-              <Button onClick={handleSelectPath} variant="outline" size="icon" className="shrink-0">
+              <Button
+                onClick={handleSelectPath}
+                variant="outline"
+                size="icon"
+                className="shrink-0"
+                aria-label={t("devCleaner.selectPath")}
+              >
                 <FolderOpen size={18} />
               </Button>
               {isScanning ? (
@@ -109,6 +115,7 @@ export function DevCleanerPageContent({ controller }: DevCleanerPageContentProps
                     size="icon"
                     className="shrink-0"
                     title={t("devCleaner.stopScan")}
+                    aria-label={t("devCleaner.stopScan")}
                   >
                     <StopCircle size={18} />
                   </Button>

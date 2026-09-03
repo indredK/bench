@@ -165,8 +165,10 @@ export function DetailColumn({
         "bg-card w-[340px] shrink-0 flex-col rounded-lg border",
         className ?? "hidden xl:flex",
       )}
+      aria-labelledby="am-detail-title"
     >
       <ColumnHeader
+        titleId="am-detail-title"
         title={t("accountManager.detailTitle")}
         action={
           station ? (
@@ -660,7 +662,7 @@ function AuthProfilePanel({
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon-xs" tabIndex={-1}>
+                        <Button variant="ghost" size="icon-xs" tabIndex={-1} aria-label={d.tooltip}>
                           <HelpCircle size={11} />
                         </Button>
                       </TooltipTrigger>

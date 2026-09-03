@@ -169,6 +169,11 @@ pub async fn scan_installed_apps(app: tauri::AppHandle) -> AppResult<ScanResult>
 /// 上次扫描快照的磁盘缓存: 下次启动免扫描直接恢复列表, 是否刷新由用户触发。
 const INVENTORY_CACHE_DIR: &str = "app-manager";
 const INVENTORY_CACHE_FILE: &str = "inventory.json";
+/// 缓存体积上限: 超限剥离图标后仍超限则拒绝缓存 (A2-2)。对齐
+/// account-manager 的 16MB 上限, 避免 base64 图标把缓存无限膨胀。
+const INVENTORY_CACHE_MAX_BYTES: usize = 16 * 1024 * 1024;
+/// 当前缓存 schema 版本; 旧格式 (无该字段) 反序列化为 0 并按兼容接受 (A2-3)。
+const INVENTORY_SCHEMA_VERSION: u32 = 1;
 
 fn inventory_cache_path() -> AppResult<std::path::PathBuf> {
     let dir = dirs::config_dir()
@@ -179,22 +184,60 @@ fn inventory_cache_path() -> AppResult<std::path::PathBuf> {
     Ok(dir.join(INVENTORY_CACHE_FILE))
 }
 
+/// 序列化快照并执行体积上限。整体超限时剥离全部图标重写一次;
+/// 仍超限则返回 None, 由调用方拒绝缓存 (扫描结果照常驻留内存)。
+fn serialize_inventory_snapshot(result: &ScanResult) -> Option<Vec<u8>> {
+    let write = |schema_version: u32, payload: &ScanResult| -> Option<Vec<u8>> {
+        let mut stamped = payload.clone();
+        stamped.schema_version = schema_version;
+        serde_json::to_vec(&stamped).ok()
+    };
+    let bytes = write(INVENTORY_SCHEMA_VERSION, result)?;
+    if bytes.len() <= INVENTORY_CACHE_MAX_BYTES {
+        return Some(bytes);
+    }
+    let mut stripped = result.clone();
+    for app in &mut stripped.apps {
+        app.icon_base64 = None;
+    }
+    let stripped_bytes = write(INVENTORY_SCHEMA_VERSION, &stripped)?;
+    if stripped_bytes.len() > INVENTORY_CACHE_MAX_BYTES {
+        eprintln!(
+            "[app-manager] inventory cache exceeds {} bytes even without icons; skipping cache",
+            INVENTORY_CACHE_MAX_BYTES
+        );
+        return None;
+    }
+    Some(stripped_bytes)
+}
+
+/// 解码并校验快照: 损坏 JSON / 未来 schema 版本一律返回 None (fail-closed),
+/// 旧格式 (schema_version 缺省为 0) 按兼容接受。
+fn decode_inventory_snapshot(bytes: &[u8]) -> Option<ScanResult> {
+    let snapshot: ScanResult = match serde_json::from_slice(bytes) {
+        Ok(snapshot) => snapshot,
+        Err(error) => {
+            eprintln!("[app-manager] inventory cache decode failed: {error}");
+            return None;
+        }
+    };
+    if snapshot.schema_version > INVENTORY_SCHEMA_VERSION {
+        eprintln!(
+            "[app-manager] inventory cache schema {} newer than supported {INVENTORY_SCHEMA_VERSION}; ignoring",
+            snapshot.schema_version
+        );
+        return None;
+    }
+    Some(snapshot)
+}
+
 /// 尽力持久化扫描快照。应用图标的 base64 体积不可控(单应用可达数百 KB),
 /// 序列化整体超限时剥离图标重写一次, 避免缓存膨胀拖慢启动恢复。
 fn persist_inventory_snapshot(result: &ScanResult) {
-    let write = |payload: &ScanResult| -> AppResult<()> {
-        let bytes = serde_json::to_vec(payload)
-            .map_err(|e| AppError::io(format!("serialize inventory cache: {e}")))?;
-        crate::persistence::atomic_write(&inventory_cache_path()?, &bytes)
-            .map_err(|e| AppError::io(format!("write inventory cache: {e}")))
+    let Some(bytes) = serialize_inventory_snapshot(result) else {
+        return;
     };
-    if write(result).is_err() {
-        let mut stripped = result.clone();
-        for app in &mut stripped.apps {
-            app.icon_base64 = None;
-        }
-        let _ = write(&stripped);
-    }
+    let _ = inventory_cache_path().map(|path| crate::persistence::atomic_write(&path, &bytes));
 }
 
 /// 读取上一次会话持久化的扫描快照; 只读缓存, 不触发扫描。
@@ -217,22 +260,23 @@ pub async fn get_cached_app_inventory(
             Ok(bytes) => bytes,
             Err(_) => return Ok(None),
         };
-        let snapshot: ScanResult = match serde_json::from_slice(&bytes) {
-            Ok(snapshot) => snapshot,
-            Err(error) => {
-                eprintln!("[app-manager] inventory cache decode failed: {error}");
-                return Ok(None);
-            }
+        let Some(snapshot) = decode_inventory_snapshot(&bytes) else {
+            return Ok(None);
         };
         // 对齐会话内 revision 单调性, 确保本次会话后续扫描的 revision 严格更大,
         // 前端按 revision 做的变更检测不会被回退值干扰。
-        state
-            .inventory_revision
-            .fetch_max(snapshot.revision, Ordering::SeqCst);
+        restore_revision_floor(&state, &snapshot);
         Ok(Some(snapshot))
     })
     .await
     .map_err(|e| AppError::internal(format!("get_cached_app_inventory: {e}")))?
+}
+
+/// 快照恢复后抬高 revision 下限, 保证本会话内 revision 单调递增。
+fn restore_revision_floor(state: &AppManagerState, snapshot: &ScanResult) {
+    state
+        .inventory_revision
+        .fetch_max(snapshot.revision, Ordering::SeqCst);
 }
 
 #[tauri::command]
@@ -950,6 +994,9 @@ pub fn cancel_app_update(
     if let Some(h) = handle {
         h.request_cancel();
     }
+    // A2-7: 升级/卸载等单包操作注册的 per-op cancel token。命令沿用既有
+    // IPC 名, 幂等: 无在途操作时 no-op 返回 Ok。
+    state.cancel_op(&app_id);
     Ok(())
 }
 
@@ -1009,5 +1056,111 @@ mod tests {
             .map(|index| format!("app-{index}"))
             .collect();
         assert!(normalize_batch_ids(too_many).is_err());
+    }
+
+    // ───── D-019 快照恢复契约 (A2-1/A2-2/A2-3) ─────
+
+    fn snapshot_with_icons(icon: Option<String>) -> ScanResult {
+        let mut result = empty_scan_result();
+        result.revision = 7;
+        result.apps = Vec::new();
+        if let Some(icon) = icon {
+            let mut app = crate::app_manager::domain::test_support::app_fixture("app-v1-icon");
+            app.icon_base64 = Some(icon);
+            result.apps.push(app);
+            result.total_count = 1;
+        }
+        result
+    }
+
+    #[test]
+    fn decode_rejects_corrupt_cache_bytes() {
+        assert!(decode_inventory_snapshot(b"{not json").is_none());
+        assert!(decode_inventory_snapshot(b"").is_none());
+    }
+
+    #[test]
+    fn decode_accepts_legacy_cache_without_schema_version() {
+        // 旧格式:序列化时不带 schemaVersion 字段 (serde default → 0)。
+        let mut snapshot = snapshot_with_icons(None);
+        snapshot.schema_version = 0;
+        let bytes = serde_json::to_vec(&snapshot).expect("serialize legacy snapshot");
+        // 手动剥离 schemaVersion 以模拟旧版本写入。
+        let mut value: serde_json::Value = serde_json::from_slice(&bytes).expect("json");
+        if let Some(map) = value.as_object_mut() {
+            map.remove("schemaVersion");
+        }
+        let legacy = serde_json::to_vec(&value).expect("re-serialize");
+        let decoded = decode_inventory_snapshot(&legacy).expect("legacy accepted");
+        assert_eq!(decoded.revision, 7);
+    }
+
+    #[test]
+    fn decode_rejects_future_schema_version_fail_closed() {
+        let mut snapshot = snapshot_with_icons(None);
+        snapshot.schema_version = INVENTORY_SCHEMA_VERSION + 1;
+        let bytes = serde_json::to_vec(&snapshot).expect("serialize");
+        assert!(decode_inventory_snapshot(&bytes).is_none());
+    }
+
+    #[test]
+    fn serialize_stamps_current_schema_version() {
+        let mut snapshot = snapshot_with_icons(None);
+        snapshot.schema_version = 0;
+        let bytes = serialize_inventory_snapshot(&snapshot).expect("serialize");
+        let decoded = decode_inventory_snapshot(&bytes).expect("decode");
+        assert_eq!(decoded.schema_version, INVENTORY_SCHEMA_VERSION);
+    }
+
+    #[test]
+    fn serialize_strips_icons_when_over_limit_and_rejects_when_still_over() {
+        // 小体积 → 原样写入。
+        let small = snapshot_with_icons(Some("aW9u".to_string()));
+        let bytes = serialize_inventory_snapshot(&small).expect("small ok");
+        assert!(bytes.len() < INVENTORY_CACHE_MAX_BYTES);
+
+        // 单图标超限 → 剥离图标后仍可写入。
+        let huge_icon = "A".repeat(INVENTORY_CACHE_MAX_BYTES + 1);
+        let big = snapshot_with_icons(Some(huge_icon));
+        let bytes = serialize_inventory_snapshot(&big).expect("stripped ok");
+        assert!(bytes.len() < INVENTORY_CACHE_MAX_BYTES);
+        let decoded = decode_inventory_snapshot(&bytes).expect("decode");
+        assert!(decoded.apps.iter().all(|app| app.icon_base64.is_none()));
+
+        // 剥离图标后仍超限 → 拒绝缓存。
+        let mut oversized = snapshot_with_icons(None);
+        let mut app = crate::app_manager::domain::test_support::app_fixture("app-v1-huge");
+        app.name = "A".repeat(INVENTORY_CACHE_MAX_BYTES + 1);
+        app.icon_base64 = None;
+        oversized.apps.push(app);
+        oversized.total_count = 1;
+        assert!(serialize_inventory_snapshot(&oversized).is_none());
+    }
+
+    #[test]
+    fn revision_restored_from_snapshot_stays_monotonic() {
+        let state = AppManagerState::new();
+        // 本会话已进行一次扫描 → revision = 1。
+        state.cache_scan_result(empty_scan_result());
+        assert_eq!(state.inventory_revision(), 1);
+
+        // 恢复一份磁盘快照 (revision=7) → 下限抬到 7。
+        let mut snapshot = empty_scan_result();
+        snapshot.revision = 7;
+        restore_revision_floor(&state, &snapshot);
+        assert_eq!(state.inventory_revision(), 7);
+
+        // 后续扫描 revision 严格大于恢复值。
+        let next = state.cache_scan_result(empty_scan_result());
+        assert!(next.revision > 7);
+    }
+
+    #[test]
+    fn memory_cache_hit_takes_precedence_over_disk_snapshot() {
+        let state = AppManagerState::new();
+        state.cache_scan_result(empty_scan_result());
+        // 内存缓存存在即优先于磁盘快照 (get_cached_scan 先于磁盘解码)。
+        let hit = state.get_cached_scan().expect("memory cache");
+        assert_eq!(hit.revision, state.inventory_revision());
     }
 }

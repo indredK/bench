@@ -189,6 +189,7 @@ export function SettingsDialog({
                 size="icon"
                 className="h-6 w-6"
                 onClick={() => onOpenChange(false)}
+                aria-label={t("common.actions.close")}
               >
                 <X size={14} />
               </Button>

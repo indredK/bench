@@ -12,6 +12,8 @@ const requirements = [
   { label: "Windows updater signature", pattern: /^windows-x86_64-.*\.exe\.sig$/ },
   { label: "macOS arm64 updater signature", pattern: /^darwin-aarch64-.*\.app\.tar\.gz\.sig$/ },
   { label: "macOS x64 updater signature", pattern: /^darwin-x86_64-.*\.app\.tar\.gz\.sig$/ },
+  // A3-6: 签名声明文件在 verify 之前写入, 必须纳入必需清单 fail-closed 校验。
+  { label: "OS signing notice", pattern: /^OS-SIGNING-NOTICE\.txt$/ },
 ]
 
 export function verifyReleaseAssets(assetsDir) {

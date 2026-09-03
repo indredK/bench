@@ -12,10 +12,21 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { cn } from "@/lib/utils"
 import type { AccountSessionStatus } from "@/lib/tauri/types/account-manager"
 
-export function ColumnHeader({ title, action }: { title: string; action: ReactNode }) {
+export function ColumnHeader({
+  title,
+  action,
+  titleId,
+}: {
+  title: string
+  action: ReactNode
+  /** 供 aria-labelledby 关联区域标题 (A4-7)。 */
+  titleId?: string
+}) {
   return (
     <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
-      <h2 className="text-sm font-semibold whitespace-nowrap">{title}</h2>
+      <h2 id={titleId} className="text-sm font-semibold whitespace-nowrap">
+        {title}
+      </h2>
       {action}
     </div>
   )

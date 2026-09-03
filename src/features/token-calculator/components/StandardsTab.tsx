@@ -119,7 +119,7 @@ function ModelRow({
           <SelectItem value="CNY">CNY</SelectItem>
         </SelectContent>
       </Select>
-      <Button variant="ghost" size="icon-sm" onClick={onRemove}>
+      <Button variant="ghost" size="icon-sm" onClick={onRemove} aria-label={t("common.remove")}>
         <X className="h-4 w-4" />
       </Button>
     </div>
@@ -279,10 +279,20 @@ export function StandardsTab({
                     )}
                   </div>
                   <div className="flex gap-1">
-                    <Button variant="ghost" size="icon-sm" onClick={() => startEdit(s)}>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => startEdit(s)}
+                      aria-label={t("common.edit")}
+                    >
                       <Edit3 className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon-sm" onClick={() => setDeleteTarget(s)}>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => setDeleteTarget(s)}
+                      aria-label={t("common.delete")}
+                    >
                       <Trash2 className="text-destructive h-4 w-4" />
                     </Button>
                   </div>

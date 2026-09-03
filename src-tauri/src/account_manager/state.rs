@@ -281,6 +281,17 @@ impl AccountManagerState {
         })
     }
 
+    /// 测试专用: 直接注入固定主密钥, 绕过 Keyring (不参与生产编译)。
+    #[cfg(test)]
+    pub(crate) fn initialize_master_key_for_tests(
+        &self,
+        key: [u8; 32],
+    ) -> AccountManagerResult<()> {
+        self.master_key
+            .set(key)
+            .map_err(|_| AccountManagerError::keyring_unavailable("master key already initialized"))
+    }
+
     pub fn get_session(&self, account_id: &str) -> Option<EncryptedBlob> {
         let snapshot = self.snapshot.read().unwrap_or_else(|e| e.into_inner());
         snapshot.sessions.get(account_id).cloned()

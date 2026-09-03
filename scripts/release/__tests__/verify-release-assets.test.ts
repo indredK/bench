@@ -14,6 +14,7 @@ const ASSET_NAMES = [
   "windows-x86_64-Bench.exe.sig",
   "darwin-aarch64-Bench.app.tar.gz.sig",
   "darwin-x86_64-Bench.app.tar.gz.sig",
+  "OS-SIGNING-NOTICE.txt",
 ] as const
 
 const tempDirs: string[] = []
@@ -37,6 +38,11 @@ describe("verifyReleaseAssets", () => {
   it("fails closed when a target installer is missing", () => {
     const names = ASSET_NAMES.filter((name) => name !== "windows-x86_64-Bench.msi")
     expect(() => verifyReleaseAssets(createFixture(names))).toThrow(/Windows MSI/)
+  })
+
+  it("fails closed when the OS signing notice is missing (A3-6)", () => {
+    const names = ASSET_NAMES.filter((name) => name !== "OS-SIGNING-NOTICE.txt")
+    expect(() => verifyReleaseAssets(createFixture(names))).toThrow(/OS signing notice/)
   })
 
   it("rejects empty artifacts", () => {

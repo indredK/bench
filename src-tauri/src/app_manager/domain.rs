@@ -344,6 +344,42 @@ pub fn empty_scan_result() -> ScanResult {
         complete: false,
         providers: Vec::new(),
         warnings: Vec::new(),
+        schema_version: 0,
+    }
+}
+
+#[cfg(test)]
+pub(crate) mod test_support {
+    use crate::app_manager::types::{AllowedActions, AppInfo, SourceEvidence, SourceType};
+
+    /// 最小可用的 AppInfo fixture, 供快照/契约测试构造扫描结果。
+    pub(crate) fn app_fixture(app_id: &str) -> AppInfo {
+        AppInfo {
+            app_id: app_id.to_string(),
+            name: format!("App {app_id}"),
+            version: "1.0.0".to_string(),
+            bundle_id: format!("com.example.{app_id}"),
+            install_path: format!("/Applications/{app_id}.app"),
+            source: "Bundle".to_string(),
+            source_type: SourceType::Unknown.to_string(),
+            source_id: String::new(),
+            source_confidence: 0.0,
+            can_upgrade: false,
+            can_uninstall: false,
+            upgrade_available: false,
+            last_operation_result: None,
+            last_modified: 0,
+            is_system_app: false,
+            allowed_actions: AllowedActions {
+                launch: true,
+                reveal: true,
+                upgrade: false,
+                uninstall: false,
+            },
+            launch_target: None,
+            source_evidence: SourceEvidence::None,
+            icon_base64: None,
+        }
     }
 }
 
@@ -373,6 +409,7 @@ pub fn build_scan_result(
         last_scan_time: current_unix_millis(),
         last_update_check,
         revision: 0,
+        schema_version: 0,
         complete: true,
         providers: Vec::<ProviderStatus>::new(),
         warnings: Vec::new(),

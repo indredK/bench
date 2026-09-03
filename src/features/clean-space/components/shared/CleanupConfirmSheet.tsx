@@ -131,7 +131,12 @@ export function CleanupConfirmSheet({
               {t("cleanSpace.confirmCleanupDesc2")}
             </p>
           </div>
-          <Button variant="ghost" size="icon-sm" onClick={() => handleOpenChange(false)}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => handleOpenChange(false)}
+            aria-label={t("common.actions.close")}
+          >
             <X size={16} />
           </Button>
         </div>

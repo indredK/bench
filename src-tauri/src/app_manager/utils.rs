@@ -69,17 +69,65 @@ fn terminate_process_tree(child: &mut std::process::Child) {
 
 #[cfg(unix)]
 fn terminate_unix_descendants(parent_pid: &str) {
-    let Ok(output) = Command::new("pgrep").args(["-P", parent_pid]).output() else {
+    // 先收集完整 PID 集合再统一发信号, 避免递归遍历期间进程退出/重父造成漏杀 (A2-10)。
+    let mut descendants: Vec<String> = Vec::new();
+    collect_unix_descendants(parent_pid, &mut descendants);
+    if descendants.is_empty() {
         return;
-    };
-    for child_pid in String::from_utf8_lossy(&output.stdout).split_whitespace() {
-        terminate_unix_descendants(child_pid);
+    }
+
+    // 先统一 TERM, 再等待短宽限期, 仍存活则 SIGKILL。
+    for pid in &descendants {
+        // ESRCH (已退出) 由 status 忽略, 不视为错误。
         let _ = Command::new("kill")
-            .args(["-TERM", child_pid])
+            .args(["-TERM", pid])
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status();
     }
+    let deadline = Instant::now() + Duration::from_secs(2);
+    loop {
+        if !descendants.iter().any(|pid| unix_process_alive(pid)) {
+            return;
+        }
+        if Instant::now() >= deadline {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    for pid in &descendants {
+        if unix_process_alive(pid) {
+            let _ = Command::new("kill")
+                .args(["-KILL", pid])
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status();
+        }
+    }
+}
+
+#[cfg(unix)]
+fn collect_unix_descendants(parent_pid: &str, out: &mut Vec<String>) {
+    let Ok(output) = Command::new("pgrep").args(["-P", parent_pid]).output() else {
+        return;
+    };
+    for child_pid in String::from_utf8_lossy(&output.stdout).split_whitespace() {
+        out.push(child_pid.to_string());
+        collect_unix_descendants(child_pid, out);
+    }
+}
+
+/// 进程是否仍然存在。`ps -p` 在进程不存在 (ESRCH) 时退出非零, 与
+/// 信号权限无关, 比 `kill -0` 更可靠。
+#[cfg(unix)]
+fn unix_process_alive(pid: &str) -> bool {
+    Command::new("ps")
+        .args(["-p", pid])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false)
 }
 
 /// Compute a stable app_id from identifiers.

@@ -8,6 +8,18 @@ on:
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+*"
   pull_request:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry-run: build & verify artifacts without touching GitHub Releases"
+        type: boolean
+        required: false
+        default: true
+      tag_name:
+        description: "Tag context for dry-run aggregation (optional, e.g. v2.0.0-rc.1)"
+        type: string
+        required: false
+        default: ""
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -87,7 +99,8 @@ jobs:
 
   release-build:
     name: Release Build (${{ matrix.target }})
-    if: startsWith(github.ref, 'refs/tags/')
+    # 正式 tag 或手动 dry-run dispatch 都会产出三目标构建 (A3-1)。
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
     needs: verify
     strategy:
       fail-fast: false
@@ -344,15 +357,54 @@ jobs:
 
   publish:
     name: Publish Release
-    if: startsWith(github.ref, 'refs/tags/')
+    # 正式 tag 推送, 或携带 tag_name 的手动 dispatch (聚合 dry-run 产物) (A3-1)。
+    if: >-
+      startsWith(github.ref, 'refs/tags/') ||
+      (github.event_name == 'workflow_dispatch' && inputs.tag_name != '')
     needs: release-build
     runs-on: macos-latest
+
+    env:
+      PUBLISH_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref_name }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
+
+      - name: Resolve publish mode (final tag vs dry-run)
+        shell: bash
+        run: |
+          event="${{ github.event_name }}"
+          tag_name="${{ env.PUBLISH_TAG }}"
+          dry_run_input="${{ inputs.dry_run }}"
+
+          if [[ "$tag_name" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            final_tag="true"
+          else
+            final_tag="false"
+          fi
+
+          if [[ "$event" == "workflow_dispatch" ]]; then
+            dry_run="${dry_run_input:-true}"
+          else
+            # tag push: RC/预发布 tag 一律 dry-run, 不得产生 Release 副作用 (A3-1)。
+            if [[ "$final_tag" == "true" ]]; then dry_run="false"; else dry_run="true"; fi
+          fi
+
+          # 正式发布 (dry_run=false) 只允许无预发布后缀的正式 tag + R10 人工批准。
+          if [[ "$dry_run" != "true" && "$final_tag" != "true" ]]; then
+            echo "::error::Release side effects require a final vX.Y.Z tag (got '$tag_name')."
+            exit 1
+          fi
+
+          {
+            echo "DRY_RUN=$dry_run"
+            echo "FINAL_TAG=$final_tag"
+            echo "TAG_NAME=$tag_name"
+          } >> "$GITHUB_ENV"
+          echo "publish mode: tag=$tag_name final=$final_tag dry_run=$dry_run"
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -410,15 +462,15 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
         run: |
-          if gh release view "${{ github.ref_name }}" >/dev/null 2>&1; then
-            gh release view "${{ github.ref_name }}" --json body,publishedAt > release-metadata.json
+          if gh release view "${{ env.TAG_NAME }}" >/dev/null 2>&1; then
+            gh release view "${{ env.TAG_NAME }}" --json body,publishedAt > release-metadata.json
           else
-            published_at="$(git show -s --format=%cI "${{ github.ref_name }}")"
+            published_at="$(git show -s --format=%cI "${{ env.TAG_NAME }}")"
             jq -n --arg publishedAt "$published_at" '{body: "", publishedAt: $publishedAt}' > release-metadata.json
           fi
 
       - name: Generate latest.json
-        run: node scripts/release/generate-updater-json.mjs --assets-dir release-assets --tag "${{ github.ref_name }}" --repo "${{ github.repository }}" --release-metadata release-metadata.json
+        run: node scripts/release/generate-updater-json.mjs --assets-dir release-assets --tag "${{ env.TAG_NAME }}" --repo "${{ github.repository }}" --release-metadata release-metadata.json
 
       - name: Verify updater signatures
         run: |
@@ -428,9 +480,7 @@ jobs:
             --assets-dir release-assets \
             --pubkey "$updater_pubkey"
 
-      - name: Create or update GitHub Release
-        env:
-          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
+      - name: Build SHA256SUMS
         run: |
           shopt -s nullglob
           rm -f release-assets/updater-manifest-*.json
@@ -444,11 +494,35 @@ jobs:
             test -s SHA256SUMS
             shasum -a 256 -c SHA256SUMS
           )
-          if gh release view "${{ github.ref_name }}" >/dev/null 2>&1; then
-            gh release upload "${{ github.ref_name }}" release-assets/* --clobber
+
+      # 显式 guard: 只有正式 tag 且非 dry-run 才允许 Release 副作用 (A3-1)。
+      - name: Publish guard
+        run: |
+          if [[ "${{ env.DRY_RUN }}" != "false" ]]; then
+            echo "::error::Refusing to mutate GitHub Releases in dry-run mode."
+            exit 1
+          fi
+          if [[ "${{ env.FINAL_TAG }}" != "true" ]]; then
+            echo "::error::Refusing to publish: tag '${{ env.TAG_NAME }}' is not a final vX.Y.Z tag."
+            exit 1
+          fi
+
+      - name: Create or update GitHub Release
+        if: env.DRY_RUN == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
+        run: |
+          if gh release view "${{ env.TAG_NAME }}" >/dev/null 2>&1; then
+            gh release upload "${{ env.TAG_NAME }}" release-assets/* --clobber
           else
-            gh release create "${{ github.ref_name }}" \
-              --title "Bench ${{ github.ref_name }}" \
+            gh release create "${{ env.TAG_NAME }}" \
+              --title "Bench ${{ env.TAG_NAME }}" \
               --generate-notes \
               release-assets/*
           fi
+
+      - name: Mark dry-run summary (no Release side effects)
+        if: always() && env.DRY_RUN == 'true'
+        run: |
+          echo "### DRY-RUN: 未创建/更新 GitHub Release" >> "$GITHUB_STEP_SUMMARY"
+          echo "产物以 CI artifact 形式上传 (bundle-*), latest.json 与签名校验均在 dry-run 下完成。" >> "$GITHUB_STEP_SUMMARY"

@@ -1,5 +1,6 @@
 import fs from "node:fs"
 import path from "node:path"
+import { pathToFileURL } from "node:url"
 
 function parseArgs(argv) {
   const args = {}
@@ -12,73 +13,89 @@ function parseArgs(argv) {
   return args
 }
 
-const args = parseArgs(process.argv.slice(2))
-const assetsDir = args["assets-dir"]
-const tag = args.tag
-const repo = args.repo
-const releaseMetadataFile = args["release-metadata"]
+const requiredPlatforms = ["darwin-aarch64", "darwin-x86_64", "windows-x86_64"]
 
-if (!assetsDir || !tag || !repo || !releaseMetadataFile) {
-  throw new Error(
-    "Usage: node scripts/release/generate-updater-json.mjs --assets-dir <dir> --tag <tag> --repo <owner/repo> --release-metadata <file>",
-  )
-}
-
-const releaseMetadata = JSON.parse(fs.readFileSync(releaseMetadataFile, "utf8"))
-const manifestFiles = fs
-  .readdirSync(assetsDir)
-  .filter((name) => name.startsWith("updater-manifest-") && name.endsWith(".json"))
-
-if (manifestFiles.length === 0) {
-  throw new Error(`No updater manifest files were found in ${assetsDir}`)
-}
-
-const platforms = {}
-const usedFiles = new Map()
-
-for (const manifestFile of manifestFiles) {
-  const manifestPath = path.join(assetsDir, manifestFile)
-  const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"))
-  const assetPath = path.join(assetsDir, manifest.file)
-  const signaturePath = path.join(assetsDir, manifest.signature)
-
-  if (!fs.existsSync(assetPath)) {
-    throw new Error(`Updater asset not found: ${assetPath}`)
+/**
+ * 聚合三目标 updater manifest 为 latest.json (A3-5: 抽为可测函数, CLI 入口
+ * 仅在直接执行时运行)。
+ */
+export function generateUpdaterJson({ assetsDir, tag, repo, releaseMetadata }) {
+  if (!assetsDir || !tag || !repo || !releaseMetadata) {
+    throw new Error("Usage: generateUpdaterJson({ assetsDir, tag, repo, releaseMetadata })")
   }
-  if (!fs.existsSync(signaturePath)) {
-    throw new Error(`Updater signature not found: ${signaturePath}`)
+
+  const manifestFiles = fs
+    .readdirSync(assetsDir)
+    .filter((name) => name.startsWith("updater-manifest-") && name.endsWith(".json"))
+
+  if (manifestFiles.length === 0) {
+    throw new Error(`No updater manifest files were found in ${assetsDir}`)
   }
-  if (platforms[manifest.platform]) {
-    throw new Error(`Duplicate updater platform in ${manifestFile}: ${manifest.platform}`)
+
+  const platforms = {}
+  const usedFiles = new Map()
+
+  for (const manifestFile of manifestFiles) {
+    const manifestPath = path.join(assetsDir, manifestFile)
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"))
+    const assetPath = path.join(assetsDir, manifest.file)
+    const signaturePath = path.join(assetsDir, manifest.signature)
+
+    if (!fs.existsSync(assetPath)) {
+      throw new Error(`Updater asset not found: ${assetPath}`)
+    }
+    if (!fs.existsSync(signaturePath)) {
+      throw new Error(`Updater signature not found: ${signaturePath}`)
+    }
+    if (platforms[manifest.platform]) {
+      throw new Error(`Duplicate updater platform in ${manifestFile}: ${manifest.platform}`)
+    }
+    if (usedFiles.has(manifest.file)) {
+      throw new Error(
+        `Updater asset ${manifest.file} is referenced by both ${usedFiles.get(manifest.file)} and ${manifest.platform}`,
+      )
+    }
+    usedFiles.set(manifest.file, manifest.platform)
+
+    platforms[manifest.platform] = {
+      signature: fs.readFileSync(signaturePath, "utf8").trim(),
+      url: `https://github.com/${repo}/releases/download/${tag}/${encodeURIComponent(manifest.file)}`,
+    }
   }
-  if (usedFiles.has(manifest.file)) {
+
+  const missingPlatforms = requiredPlatforms.filter((platform) => !platforms[platform])
+  if (missingPlatforms.length > 0) {
     throw new Error(
-      `Updater asset ${manifest.file} is referenced by both ${usedFiles.get(manifest.file)} and ${manifest.platform}`,
+      `latest.json is missing required updater platforms: ${missingPlatforms.join(", ")}`,
     )
   }
-  usedFiles.set(manifest.file, manifest.platform)
 
-  platforms[manifest.platform] = {
-    signature: fs.readFileSync(signaturePath, "utf8").trim(),
-    url: `https://github.com/${repo}/releases/download/${tag}/${encodeURIComponent(manifest.file)}`,
+  const latest = {
+    version: tag.replace(/^v/, ""),
+    notes: releaseMetadata.body || "",
+    pub_date: releaseMetadata.publishedAt || new Date().toISOString(),
+    platforms,
   }
+
+  const outputPath = path.join(assetsDir, "latest.json")
+  fs.writeFileSync(outputPath, `${JSON.stringify(latest, null, 2)}\n`)
+  return latest
 }
 
-const requiredPlatforms = ["darwin-aarch64", "darwin-x86_64", "windows-x86_64"]
-const missingPlatforms = requiredPlatforms.filter((platform) => !platforms[platform])
-if (missingPlatforms.length > 0) {
-  throw new Error(
-    `latest.json is missing required updater platforms: ${missingPlatforms.join(", ")}`,
-  )
-}
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const args = parseArgs(process.argv.slice(2))
+  const assetsDir = args["assets-dir"]
+  const tag = args.tag
+  const repo = args.repo
+  const releaseMetadataFile = args["release-metadata"]
 
-const latest = {
-  version: tag.replace(/^v/, ""),
-  notes: releaseMetadata.body || "",
-  pub_date: releaseMetadata.publishedAt || new Date().toISOString(),
-  platforms,
-}
+  if (!assetsDir || !tag || !repo || !releaseMetadataFile) {
+    throw new Error(
+      "Usage: node scripts/release/generate-updater-json.mjs --assets-dir <dir> --tag <tag> --repo <owner/repo> --release-metadata <file>",
+    )
+  }
 
-const outputPath = path.join(assetsDir, "latest.json")
-fs.writeFileSync(outputPath, `${JSON.stringify(latest, null, 2)}\n`)
-console.log(`generated ${outputPath}`)
+  const releaseMetadata = JSON.parse(fs.readFileSync(releaseMetadataFile, "utf8"))
+  generateUpdaterJson({ assetsDir, tag, repo, releaseMetadata })
+  console.log(`generated ${path.join(assetsDir, "latest.json")}`)
+}

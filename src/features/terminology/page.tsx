@@ -91,13 +91,20 @@ function WebsiteChip({ site }: { site: TermWebsite }) {
             onClick={handleCopy}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
+            aria-label={site.url}
           >
             <Icon size={12} />
           </Button>
         </TooltipTrigger>
         <TooltipContent side="top" className="flex max-w-64 items-center gap-1.5">
           <span className="truncate text-xs">{site.url}</span>
-          <Button variant="ghost" size="icon-xs" className="shrink-0" onClick={handleOpen}>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            className="shrink-0"
+            onClick={handleOpen}
+            aria-label={site.url}
+          >
             <ExternalLink size={11} />
           </Button>
         </TooltipContent>
@@ -745,6 +752,7 @@ function IndustryManager({ onClose: _onClose }: { onClose: () => void }) {
                       e.stopPropagation()
                       startEditInd(ind.id, ind.label)
                     }}
+                    aria-label={t("common.edit")}
                   >
                     <Pencil size={10} />
                   </Button>
@@ -756,6 +764,7 @@ function IndustryManager({ onClose: _onClose }: { onClose: () => void }) {
                       e.stopPropagation()
                       confirmDelete("industry", ind.id, ind.label)
                     }}
+                    aria-label={t("common.delete")}
                   >
                     <Trash2 size={10} />
                   </Button>
@@ -833,6 +842,7 @@ function IndustryManager({ onClose: _onClose }: { onClose: () => void }) {
                         size="icon-xs"
                         className="text-muted-foreground hover:text-foreground"
                         onClick={() => startEditCat(cat.id, cat.label)}
+                        aria-label={t("common.edit")}
                       >
                         <Pencil size={10} />
                       </Button>
@@ -843,6 +853,7 @@ function IndustryManager({ onClose: _onClose }: { onClose: () => void }) {
                         onClick={() => {
                           confirmDelete("category", cat.id, cat.label, activeId)
                         }}
+                        aria-label={t("common.delete")}
                       >
                         <Trash2 size={10} />
                       </Button>
@@ -921,6 +932,7 @@ function IndustryManager({ onClose: _onClose }: { onClose: () => void }) {
                             size="icon-xs"
                             className="text-muted-foreground hover:text-foreground"
                             onClick={() => startEditSubcat(subcategory.id, subcategory.label)}
+                            aria-label={t("common.edit")}
                           >
                             <Pencil size={10} />
                           </Button>
@@ -936,6 +948,7 @@ function IndustryManager({ onClose: _onClose }: { onClose: () => void }) {
                                 activeCategoryId,
                               )
                             }}
+                            aria-label={t("common.delete")}
                           >
                             <Trash2 size={10} />
                           </Button>
@@ -1152,6 +1165,7 @@ export default function TerminologyPage() {
                   size="icon-xs"
                   className="absolute top-1/2 right-2 -translate-y-1/2"
                   onClick={() => setSearch("")}
+                  aria-label={t("common.clear")}
                 >
                   <X size={12} />
                 </Button>

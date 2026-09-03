@@ -1,9 +1,9 @@
 use crate::app_manager::types::{LaunchTarget, ProviderState, ProviderStatus, SourceEvidence};
 use crate::app_manager::{
-    build_app_info, build_scan_result, deduplicate, get_last_modified, make_app_id,
-    operation_result, platform_capabilities, record_operation_result, resolve_windows_product_code,
-    resolve_windows_source, run_command_with_timeout_and_cancel, AppInfoInput, AppManagerState,
-    OperationResult, ScanResult, SourceType,
+    build_app_info, build_scan_result, cancelled_operation_result, deduplicate, get_last_modified,
+    make_app_id, operation_result, platform_capabilities, record_operation_result,
+    resolve_windows_product_code, resolve_windows_source, run_command_with_timeout_and_cancel,
+    AppInfoInput, AppManagerState, OperationResult, ScanResult, SourceType,
 };
 use serde::Deserialize;
 use std::collections::HashSet;
@@ -984,7 +984,8 @@ pub fn upgrade_app(
         return Err("UPGRADE_SOURCE_NOT_PROVEN".into());
     }
     let wg = winget_path().ok_or("winget is not available")?;
-    let output = run_command_with_timeout_and_cancel(
+    let op_cancel = state.start_op_cancel(&app_id);
+    let outcome = run_command_with_timeout_and_cancel(
         Command::new(&wg).args([
             "upgrade",
             "--id",
@@ -995,9 +996,14 @@ pub fn upgrade_app(
             "--silent",
         ]),
         PACKAGE_OPERATION_TIMEOUT,
-        None,
-    )
-    .map_err(|e| format!("winget upgrade failed: {}", e))?;
+        Some(op_cancel.as_ref()),
+    );
+    state.clear_op_cancel(&app_id);
+    // 取消返回 cancelled 状态而非笼统失败 (A2-7)。
+    if matches!(&outcome, Err(e) if e == "Command cancelled") {
+        return Ok(cancelled_operation_result());
+    }
+    let output = outcome.map_err(|e| format!("winget upgrade failed: {}", e))?;
     let combined = format!(
         "{}\n{}",
         String::from_utf8_lossy(&output.stdout),
@@ -1037,7 +1043,8 @@ pub fn uninstall_app(
         && app.source_evidence == SourceEvidence::ExactPackageId
     {
         let wg = winget_path().ok_or("winget is not available")?;
-        run_command_with_timeout_and_cancel(
+        let op_cancel = state.start_op_cancel(&app_id);
+        let outcome = run_command_with_timeout_and_cancel(
             Command::new(&wg).args([
                 "uninstall",
                 "--id",
@@ -1048,19 +1055,29 @@ pub fn uninstall_app(
                 "--silent",
             ]),
             PACKAGE_OPERATION_TIMEOUT,
-            None,
-        )
-        .map_err(|e| format!("winget uninstall failed: {e}"))?
+            Some(op_cancel.as_ref()),
+        );
+        state.clear_op_cancel(&app_id);
+        // 取消返回 cancelled 状态而非笼统失败 (A2-7)。
+        if matches!(&outcome, Err(e) if e == "Command cancelled") {
+            return Ok(cancelled_operation_result());
+        }
+        outcome.map_err(|e| format!("winget uninstall failed: {e}"))?
     } else if app.source_type == SourceType::MsiInstaller.to_string()
         && app.source_evidence == SourceEvidence::ExactProductCode
         && is_valid_product_code(&app.source_id)
     {
-        run_command_with_timeout_and_cancel(
+        let op_cancel = state.start_op_cancel(&app_id);
+        let outcome = run_command_with_timeout_and_cancel(
             Command::new("msiexec.exe").args(["/x", &app.source_id, "/qn", "/norestart"]),
             PACKAGE_OPERATION_TIMEOUT,
-            None,
-        )
-        .map_err(|e| format!("msiexec uninstall failed: {e}"))?
+            Some(op_cancel.as_ref()),
+        );
+        state.clear_op_cancel(&app_id);
+        if matches!(&outcome, Err(e) if e == "Command cancelled") {
+            return Ok(cancelled_operation_result());
+        }
+        outcome.map_err(|e| format!("msiexec uninstall failed: {e}"))?
     } else {
         return Err("UNINSTALL_SOURCE_NOT_PROVEN".into());
     };

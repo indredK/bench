@@ -5,6 +5,8 @@ import { lazy, Suspense } from "react"
 import { useTranslation } from "react-i18next"
 import { AnimatePresence, motion } from "motion/react"
 
+import { SoftwareUpdateLoadingSkeleton } from "@/features/app-manager/components/SoftwareUpdateView"
+
 const SoftwareUpdateView = lazy(() =>
   import("@/features/app-manager/components/SoftwareUpdateView").then((m) => ({
     default: m.SoftwareUpdateView,
@@ -183,13 +185,7 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                   transition={{ duration: 0.12, ease: "easeOut" }}
                   className="h-full min-h-0"
                 >
-                  <Suspense
-                    fallback={
-                      <div className="flex h-full items-center justify-center">
-                        <span className="text-muted-foreground text-xs">{t("common.loading")}</span>
-                      </div>
-                    }
-                  >
+                  <Suspense fallback={<SoftwareUpdateLoadingSkeleton />}>
                     <SoftwareUpdateView
                       apps={viewState.apps}
                       updates={viewState.updates}
@@ -266,6 +262,7 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                     error={error}
                     batchResults={batchResults}
                     onClearError={clearError}
+                    onRetryError={scanApps}
                     filterPanelOpen={marketplaceFilterPanelOpen}
                     activeFilterCount={marketplaceFilterCount}
                     typeFilter={marketplaceFilter}
@@ -402,6 +399,7 @@ function AppManager({ active, feature }: { active: boolean; feature?: { desktopO
                     loadingTotal={scanProgress?.total}
                     batchResults={batchResults}
                     onClearError={clearError}
+                    onRetryError={scanApps}
                     filterPanelOpen={installedFilterPanelOpen}
                     activeFilterCount={activeFilterCount}
                     typeFilter={activeFilter}

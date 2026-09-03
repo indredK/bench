@@ -4,8 +4,6 @@
 
 ## 代码阻断
 
-- [ ] 为 Station、账号列表、详情和 Auth Proxy 补区域 error/retry；刷新保留旧数据，partial 不删除失败账号。
-- [ ] 按真实 owner 拆分超大的 Rust `commands.rs`、前端 controller 和 dialogs；不改 IPC 名称，不创建纯转发层。
 - [ ] 将同账号 single-flight、429/5xx 重试预算、Cookie scope、Deep Link 多 URL/去重和平台行为测试接入 macOS/Windows CI runner。
 
 ## 真机验收准备

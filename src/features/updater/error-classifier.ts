@@ -3,22 +3,24 @@
  */
 import { getErrorMessage, parseCommandError } from "@/lib/tauri/errors"
 
-export type UpdaterOperation = "check" | "install"
+export type UpdaterOperation = "check" | "install" | "restart"
 
 export type UpdaterErrorKind =
   | "desktopOnly"
   | "releaseInfoUnavailable"
   | "serviceBusy"
   | "networkUnavailable"
+  | "proxyUnavailable"
   | "rateLimited"
   | "downloadFailed"
   | "signatureVerificationFailed"
   | "installBlocked"
   | "updateStateChanged"
+  | "restartFailed"
   | "unknownCheckFailure"
   | "unknownInstallFailure"
 
-export type UpdaterRetryAction = "check" | "install" | null
+export type UpdaterRetryAction = "check" | "install" | "restart" | null
 
 export interface UpdaterErrorInfo {
   kind: UpdaterErrorKind
@@ -92,6 +94,11 @@ const INSTALL_BLOCKED_PATTERNS = [
   "device or resource busy",
   "operation not permitted",
 ]
+
+// 代理场景 (A3-4): reqwest 的 proxy connect 失败 / 407 等文本形态。
+// 必须先于通用 NETWORK_PATTERNS 判定, 否则 "connection refused through
+// proxy" 会被折叠成笼统网络错误。
+const PROXY_PATTERNS = ["proxy", "407", "tunnel connection failed", "proxy authentication required"]
 
 function normalizeErrorMessage(error: unknown, fallback: string) {
   return getErrorMessage(error, fallback)
@@ -197,6 +204,16 @@ export function classifyUpdaterError(
     }
   }
 
+  // 代理不可用: 显式区分于笼统网络错误 (A3-4)。
+  if (includesAny(normalizedMessage, PROXY_PATTERNS)) {
+    return {
+      kind: "proxyUnavailable",
+      operation,
+      message,
+      retryAction: operation === "install" ? "install" : "check",
+    }
+  }
+
   if (includesAny(normalizedMessage, NETWORK_PATTERNS)) {
     return {
       kind: operation === "install" ? "downloadFailed" : "networkUnavailable",
@@ -212,6 +229,16 @@ export function classifyUpdaterError(
       operation,
       message,
       retryAction: "install",
+    }
+  }
+
+  if (operation === "restart") {
+    // 重启失败: 保留已下载产物状态, 提示可重试 (A3-2)。
+    return {
+      kind: "restartFailed",
+      operation,
+      message,
+      retryAction: "restart",
     }
   }
 

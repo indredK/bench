@@ -13,6 +13,7 @@ import { ScrollableArea } from "@/components/common/ScrollableArea"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { AppInfo, UpdateInfo, UpdateSource } from "@/lib/tauri/types/app-manager"
 import type { AppOperationState } from "@/features/app-manager/model/operations"
+import { SoftwareUpdateLoadingSkeleton } from "@/features/app-manager/components/SoftwareUpdateLoadingSkeleton"
 import { UpdaterActionBar } from "@/features/app-manager/components/UpdaterActionBar"
 import { UpdateGroupSection } from "@/features/app-manager/components/UpdateGroupSection"
 import { UpdateDetail } from "@/features/app-manager/components/UpdateDetail"
@@ -226,7 +227,12 @@ export function SoftwareUpdateView({
             {onClearError ? (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon-xs" onClick={onClearError}>
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    onClick={onClearError}
+                    aria-label={t("common.actions.close")}
+                  >
                     <X size={13} />
                   </Button>
                 </TooltipTrigger>
@@ -272,21 +278,7 @@ export function SoftwareUpdateView({
             ) : (
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                 {loading ? (
-                  <div
-                    className="bg-card flex min-h-0 flex-1 flex-col gap-3 rounded-lg border p-4"
-                    aria-busy="true"
-                  >
-                    <div className="bg-muted h-1 w-full animate-pulse rounded-full" />
-                    {Array.from({ length: 6 }, (_, index) => (
-                      <div key={index} className="flex h-14 items-center gap-3 border-b">
-                        <div className="bg-muted size-9 animate-pulse rounded-md" />
-                        <div className="min-w-0 flex-1 space-y-2">
-                          <div className="bg-muted h-3 w-1/3 animate-pulse rounded" />
-                          <div className="bg-muted h-2.5 w-1/2 animate-pulse rounded" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <SoftwareUpdateLoadingSkeleton />
                 ) : (
                   <div className="bg-card flex min-h-0 flex-1 items-center justify-center rounded-lg border p-6">
                     {renderEmpty()}
@@ -317,3 +309,6 @@ export function SoftwareUpdateView({
     </div>
   )
 }
+
+// 内部加载态与 page.tsx Suspense fallback 共用同一骨架 (A2-9)。
+export { SoftwareUpdateLoadingSkeleton }

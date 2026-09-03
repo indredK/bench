@@ -1,0 +1,50 @@
+{
+  "_comment": "脱敏的 1.23.0 account-manager store fixture (A5-3)。合成数据: 无真实账号/密文/URL。schema_version=3 对应 1.23.0 时期; 特征: 明文 secrets (P0 格式) + 账号内联 session (迁移前布局)。",
+  "schema_version": 3,
+  "stations": [
+    {
+      "id": "stn-fixture-1",
+      "remark": "Fixture Station (脱敏)",
+      "website": "https://fixture.example.com",
+      "createdAt": "2025-01-01 00:00",
+      "loginDetection": {
+        "mode": "presetLogout"
+      },
+      "exclusivityMode": "coexisting",
+      "authProfile": null,
+      "probeFailureCount": 0,
+      "sessionTtlHours": 720,
+      "networkProxy": null
+    }
+  ],
+  "accounts": [
+    {
+      "id": "acct-fixture-1",
+      "stationId": "stn-fixture-1",
+      "username": "fixture-user-1",
+      "notes": "synthetic fixture account",
+      "phone": null,
+      "tgAccount": null,
+      "linkedAccount": null,
+      "inviteLink": null,
+      "loginMethods": [],
+      "status": "ready",
+      "lastLoginAt": "2025-01-01 01:00",
+      "lastRefreshedAt": "2025-01-01 01:00",
+      "createdAt": "2025-01-01 00:00",
+      "hasPassword": true,
+      "accountType": "persistent",
+      "website": null,
+      "session": { "v": 1, "nonce": "Zml4dHVyZS1ub25jZQ==", "ct": "Zml4dHVyZS1jaXBoZXJ0ZXh0" },
+      "exclusivityGroup": null,
+      "proxyEnabled": false,
+      "externalAppIds": []
+    }
+  ],
+  "secrets": {
+    "acct-fixture-1": "fixture-plaintext-password"
+  },
+  "sessions": {},
+  "external_apps": [],
+  "external_app_bindings": []
+}

@@ -99,6 +99,7 @@ export default function TokenCalculatorPage() {
           size="icon-xs"
           disabled={rateLoading}
           title={t("tokenCalculator.exchangeRateRefresh")}
+          aria-label={t("tokenCalculator.exchangeRateRefresh")}
           onClick={() => void refreshExchangeRate(true)}
         >
           <RefreshCw size={14} className={rateLoading ? "animate-spin" : undefined} />

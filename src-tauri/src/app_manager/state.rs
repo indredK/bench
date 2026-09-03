@@ -31,6 +31,10 @@ pub struct AppManagerState {
     /// Per-app-id orchestrator handles for in-flight `install_app_update`
     /// calls. Removed when the install ends (success or failure).
     pub install_state: Arc<Mutex<HashMap<String, Arc<InstallHandle>>>>,
+    /// Per-app-id cancellation tokens for single-package operations
+    /// (upgrade / uninstall). Registered when the operation starts so
+    /// `cancel_app_update` can request in-flight cancellation (A2-7).
+    pub op_cancel: Arc<Mutex<HashMap<String, Arc<AtomicBool>>>>,
 }
 
 pub struct OperationGuard {
@@ -58,7 +62,40 @@ impl AppManagerState {
             update_flight: Arc::new(Mutex::new(None)),
             batch_cancel: Arc::new(Mutex::new(None)),
             install_state: Arc::new(Mutex::new(HashMap::new())),
+            op_cancel: Arc::new(Mutex::new(HashMap::new())),
         }
+    }
+
+    /// Register a fresh cancellation token for a single-package operation and
+    /// return an Arc clone for the runner to observe (A2-7).
+    pub fn start_op_cancel(&self, app_id: &str) -> Arc<AtomicBool> {
+        let flag = Arc::new(AtomicBool::new(false));
+        self.op_cancel
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(app_id.to_string(), flag.clone());
+        flag
+    }
+
+    /// Signal cancellation on the app's in-flight single operation. Returns
+    /// false when no operation is registered for the app (A2-7).
+    pub fn cancel_op(&self, app_id: &str) -> bool {
+        let guard = self.op_cancel.lock().unwrap_or_else(|e| e.into_inner());
+        match guard.get(app_id) {
+            Some(flag) => {
+                flag.store(true, Ordering::Relaxed);
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// Drop the cancellation token after the operation ends.
+    pub fn clear_op_cancel(&self, app_id: &str) {
+        self.op_cancel
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(app_id);
     }
 
     /// Replace the cached updates list with the result of a fresh scan and

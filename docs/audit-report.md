@@ -17,14 +17,14 @@
 
 ## 当前风险
 
-- [§3/§5/§6/§9] `src/features/account-manager/` - 缺区域 error/retry 与大文件分层；Keyring/WebView/Deep Link 双平台行为未验收 - 按 [Account Manager roadmap](./modules/account-manager/roadmap.md) 执行 - **强制** - 状态：部分修复
+- [§3/§5/§6/§9] `src/features/account-manager/` - 缺区域 error/retry 与大文件分层；Keyring/WebView/Deep Link 双平台行为未验收 - 区域 error/retry、分层拆分与错误统一已由 R01 关闭；真机部分执行 [R04](./ROADMAP.md#r04-account-manager-双平台真机矩阵) - **强制** - 状态：代码已修复/待验收
 - [§3.3/§7/§8] `src-tauri/src/account_manager/` - 同源 Web Storage/IndexedDB、canonical Cookie expiry、single-flight、Deep Link inbox 和 capability 已实现；partition key 不可用且目标平台行为未验收 - 保持 partitioned Cookie fail-closed，执行 [R04](./ROADMAP.md#r04-account-manager-双平台真机矩阵) - **强制** - 状态：代码已修复/待验收
-- [§7.4/§9] `src-tauri/src/app_manager/` - 缺双平台 inventory fixture、启动/更新/卸载 smoke 和 CI runner - 按 [App Manager roadmap](./modules/app-manager/roadmap.md) 执行 - **强制** - 状态：待验收
-- [§6/§9] `src/features/quick-launch/` - 缺 macOS/Windows 启动 smoke 和 500/2000 应用性能证据 - 按 [Quick Launch roadmap](./modules/quick-launch/roadmap.md) 执行 - **强制** - 状态：待验收
+- [§7.4/§9] `src-tauri/src/app_manager/` - 缺双平台 inventory fixture、启动/更新/卸载 smoke 和 CI runner；快照缓存契约（损坏/上限/schema/取消）已由 R02 代码项关闭 - fixture 与 smoke 执行 [App Manager roadmap](./modules/app-manager/roadmap.md) - **强制** - 状态：代码已修复/待验收
+- [§6/§9] `src/features/quick-launch/` - 缺 macOS/Windows 启动 smoke 和 500/2000 应用性能证据；2000 项虚拟化单元测试已入 `test:critical` - 性能数据执行 [Quick Launch roadmap](./modules/quick-launch/roadmap.md) - **强制** - 状态：代码已修复/待验收
 - [§5/§7/§9] `src/features/system-settings/`、`src-tauri/src/clean_space/` - 核心保护已实现，macOS 权限拒绝、read-after-write、受保护目录、timeout 和真实释放量未真机验收 - 执行 [R03](./ROADMAP.md#r03-macos-system-settings-与-clean-space) - **强制** - 状态：代码已修复/待验收
-- [§7/§9] `.github/workflows/ci-build.yml` - 默认 ad-hoc/unsigned 且 release 产物 fail-closed；仍缺无发布副作用的 RC dry-run、真实 updater 私钥三目标 run 和错误矩阵 - 执行 [R05](./ROADMAP.md#r05-updater供应链与-rc-流水线) - **强制** - 状态：待验收
-- [§9] 全局 UX - 尚无 Playwright/axe、多 viewport、键盘和 Windows scaling 门禁 - 执行 [R07](./ROADMAP.md#r07-ux可访问性与视觉回归) - **强制** - 状态：未实现
-- [§7/§9] 持久化与 updater - 缺 1.23.0 数据迁移、应用内升级和回滚 fixture/真机证据 - 执行 [R06](./ROADMAP.md#r06-1230-升级迁移与回滚) - **强制** - 状态：待验收
+- [§7/§9] `.github/workflows/ci-build.yml` - RC dry-run 入口与 Release 副作用 guard 已由 R05 落地；仍缺真实 updater 私钥三目标 run - 执行 [R05](./ROADMAP.md#r05-updater供应链与-rc-流水线) dry-run - **强制** - 状态：部分修复/待验收
+- [§9] 全局 UX - Playwright/axe 基建、viewport 矩阵与键盘用例已落地（`pnpm run test:e2e`）；截图 baseline 人工审查与屏幕阅读器 smoke 未执行 - 执行 [R07](./ROADMAP.md#r07-ux可访问性与视觉回归) - **强制** - 状态：部分修复/待验收
+- [§7/§9] 持久化与 updater - 持久化 schema 清单已建立（[persistence-schema.md](./persistence-schema.md)），1.23.0 脱敏 fixture 与迁移幂等测试已入 `cargo test`；真机升级/回滚演练未执行 - 执行 [R06](./ROADMAP.md#r06-1230-升级迁移与回滚) - **强制** - 状态：代码已修复/待验收
 - [§7/§9] `src-tauri/tauri.conf.json` - `com.bench.app` 后缀警告已接受；D-011 要求 2.0 保留，不得直接改字符串 - **建议** - 状态：接受风险
 
 未完成 R00-R08 前不得切换 2.0.0 版本；未完成目标平台行为测试前不得把对应能力标记为发布对等。
