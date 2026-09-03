@@ -35,7 +35,9 @@ where
     }
 }
 
-#[cfg(target_os = "windows")]
+// 生效平台与 lib.rs 中 single-instance 插件的注册 cfg 保持一致
+// (Windows 全量; macOS 仅 release 构建), 避免未注册平台上出现死代码。
+#[cfg(any(target_os = "windows", all(target_os = "macos", not(debug_assertions))))]
 pub fn handle_second_instance<R: Runtime>(app: &AppHandle<R>, args: Vec<String>) {
     focus_main_window(app);
     let urls = args.into_iter().filter_map(|arg| {

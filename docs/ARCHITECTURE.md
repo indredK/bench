@@ -38,6 +38,7 @@ Bench 是一个 **跨平台桌面工具**，用于 macOS 系统管理。它不�
 9. **绝对不要在 IPC 命令路径上加 `.expect()` 或 `.unwrap()`** — 所有错误都必须返回 `AppResult<T>`。
 10. **绝对不要把业务逻辑写在 `store.ts` 里** — 只放状态 + 简单 setter。复杂逻辑放 `*use-cases.ts`。
 11. **绝对不要在 Rust 里裸调单平台专有 API** — macOS/Windows 专有编译期 API（如 `title_bar_style`、`NS*`/`objc` 类型、win32 API）必须用 `#[cfg(target_os = "...")]` 包裹并为另一目标平台提供可编译分支，否则双平台 CI 直接编译失败（真实案例：`tray.rs` 重建窗口未包裹 `title_bar_style` 导致 Windows 编译报错）。
+12. **绝对不要在启动关键路径调用会触发 TCC 授权弹窗的子进程**（`osascript`/System Events 等）— 启动来源探测、自启动状态查询等必须使用零授权成本机制（启动参数 `--hidden`、plist/配置文件、原生 API）。用户显式操作路径（如切换自启动开关）才允许 best-effort 调用并吞掉授权失败（见 DECISIONS.md D-019）。
 
 ---
 

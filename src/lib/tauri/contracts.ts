@@ -149,6 +149,9 @@ export const TAURI_COMMAND_CONTRACTS = {
   was_launched_at_login: defineTauriCommand<undefined, boolean>()("was_launched_at_login"),
   scan_installed_apps: defineTauriCommand<undefined, AppScanResult>()("scan_installed_apps"),
   cancel_app_inventory_scan: defineTauriCommand<undefined, boolean>()("cancel_app_inventory_scan"),
+  get_cached_app_inventory: defineTauriCommand<undefined, AppScanResult | null>()(
+    "get_cached_app_inventory",
+  ),
   get_app_icon_base64: defineTauriCommand<{ appId: string }, AppIconBase64>()(
     "get_app_icon_base64",
   ),
@@ -784,6 +787,7 @@ export const TAURI_COMMANDS = {
   appManager: {
     scanInstalledApps: commandName("scan_installed_apps"),
     cancelAppInventoryScan: commandName("cancel_app_inventory_scan"),
+    getCachedAppInventory: commandName("get_cached_app_inventory"),
     getAppIconBase64: commandName("get_app_icon_base64"),
     launchApp: commandName("launch_app"),
     revealAppInFinder: commandName("reveal_app_in_finder"),
@@ -1077,6 +1081,7 @@ export const TAURI_COMMAND_ARG_KEYS = {
   was_launched_at_login: [],
   scan_installed_apps: [],
   cancel_app_inventory_scan: [],
+  get_cached_app_inventory: [],
   get_app_icon_base64: ["appId"],
   launch_app: ["appId"],
   reveal_app_in_finder: ["appId"],

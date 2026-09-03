@@ -1,6 +1,7 @@
 /** Repository boundary for installed-application inventory IPC. */
 import {
   cancelAppInventoryScan,
+  getCachedAppInventory,
   launchApp,
   revealAppInFinder,
   scanInstalledApps,
@@ -12,6 +13,7 @@ import type { InventoryProgress } from "@/shared/app-inventory/store"
 export const appInventoryRepository = {
   scanInstalledApps,
   cancelAppInventoryScan,
+  getCachedAppInventory,
   launchApp,
   revealAppInFinder,
   listenToProgress(handler: (progress: InventoryProgress) => void) {

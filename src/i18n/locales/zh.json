@@ -2559,6 +2559,7 @@
     "rescan": "重新扫描",
     "scanFirst": "先扫描已安装应用",
     "scanning": "正在扫描应用...",
+    "restoring": "正在恢复上次的应用列表",
     "scanStage": {
       "scanning": "扫描应用目录",
       "resolving": "识别应用来源",

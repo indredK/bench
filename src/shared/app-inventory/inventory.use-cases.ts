@@ -73,9 +73,31 @@ export function createAppInventoryUseCases(
 
   return {
     refresh,
+    /**
+     * 启动后首次进入页面的恢复路径: 只读取上一次会话持久化的快照,
+     * 不触发扫描; 无缓存时保持未扫描状态, 由用户显式触发 refresh。
+     */
     ensureLoaded() {
-      const snapshot = useAppInventoryStore.getState().snapshot
-      return snapshot ? Promise.resolve(snapshot) : refresh()
+      const { snapshot } = useAppInventoryStore.getState()
+      if (snapshot) return Promise.resolve(snapshot)
+      if (!isAvailable()) return Promise.resolve(null)
+      return (async () => {
+        const cached = await repository.getCachedAppInventory()
+        // 缓存读取期间用户可能已手动触发扫描: 以进行中的新鲜数据为准, 不回写覆盖。
+        const current = useAppInventoryStore.getState()
+        if (current.snapshot || current.status === "loading" || current.status === "refreshing") {
+          return current.snapshot
+        }
+        if (!cached) return null
+        useAppInventoryStore.getState().setState({
+          snapshot: cached,
+          status: cached.complete === false ? "partial" : "ready",
+          progress: null,
+          error: null,
+          stale: true,
+        })
+        return cached
+      })()
     },
     launch(appId: string) {
       return repository.launchApp(appId)

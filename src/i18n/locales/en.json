@@ -2559,6 +2559,7 @@
     "rescan": "Rescan",
     "scanFirst": "Scan installed apps first",
     "scanning": "Scanning apps...",
+    "restoring": "Restoring your last app list",
     "scanStage": {
       "scanning": "Scanning directories",
       "resolving": "Resolving sources",

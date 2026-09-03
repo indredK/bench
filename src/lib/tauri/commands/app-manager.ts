@@ -13,6 +13,10 @@ export function cancelAppInventoryScan() {
   return invokeTauriCommand(TAURI_COMMANDS.appManager.cancelAppInventoryScan)
 }
 
+export function getCachedAppInventory() {
+  return invokeTauriCommand(TAURI_COMMANDS.appManager.getCachedAppInventory)
+}
+
 export function getAppIconBase64(appId: string) {
   return invokeTauriCommand(TAURI_COMMANDS.appManager.getAppIconBase64, { appId })
 }

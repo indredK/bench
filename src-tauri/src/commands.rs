@@ -104,6 +104,7 @@ macro_rules! app_invoke_handler {
             $crate::bootstrap::list_startup_issues,
             $crate::app_manager::commands::scan_installed_apps,
             $crate::app_manager::commands::cancel_app_inventory_scan,
+            $crate::app_manager::commands::get_cached_app_inventory,
             $crate::app_manager::commands::get_app_icon_base64,
             $crate::app_manager::commands::launch_app,
             $crate::app_manager::commands::reveal_app_in_finder,

@@ -157,11 +157,82 @@ pub async fn scan_installed_apps(app: tauri::AppHandle) -> AppResult<ScanResult>
         if state.scan_cancelled() {
             previous_snapshot.unwrap_or(result)
         } else {
-            state.cache_scan_result(result)
+            let cached = state.cache_scan_result(result);
+            persist_inventory_snapshot(&cached);
+            cached
         }
     })
     .await
     .map_err(|e| AppError::internal(format!("scan_installed_apps: {e}")))
+}
+
+/// 上次扫描快照的磁盘缓存: 下次启动免扫描直接恢复列表, 是否刷新由用户触发。
+const INVENTORY_CACHE_DIR: &str = "app-manager";
+const INVENTORY_CACHE_FILE: &str = "inventory.json";
+
+fn inventory_cache_path() -> AppResult<std::path::PathBuf> {
+    let dir = dirs::config_dir()
+        .ok_or_else(|| AppError::io("Cannot determine config directory"))?
+        .join("bench")
+        .join(INVENTORY_CACHE_DIR);
+    std::fs::create_dir_all(&dir).map_err(|_| AppError::io("Cannot create cache directory"))?;
+    Ok(dir.join(INVENTORY_CACHE_FILE))
+}
+
+/// 尽力持久化扫描快照。应用图标的 base64 体积不可控(单应用可达数百 KB),
+/// 序列化整体超限时剥离图标重写一次, 避免缓存膨胀拖慢启动恢复。
+fn persist_inventory_snapshot(result: &ScanResult) {
+    let write = |payload: &ScanResult| -> AppResult<()> {
+        let bytes = serde_json::to_vec(payload)
+            .map_err(|e| AppError::io(format!("serialize inventory cache: {e}")))?;
+        crate::persistence::atomic_write(&inventory_cache_path()?, &bytes)
+            .map_err(|e| AppError::io(format!("write inventory cache: {e}")))
+    };
+    if write(result).is_err() {
+        let mut stripped = result.clone();
+        for app in &mut stripped.apps {
+            app.icon_base64 = None;
+        }
+        let _ = write(&stripped);
+    }
+}
+
+/// 读取上一次会话持久化的扫描快照; 只读缓存, 不触发扫描。
+/// 前端在用户进入相关页面时调用, 用于免扫描快速恢复; 无缓存返回 null,
+/// 由用户显式触发 `scan_installed_apps`。
+#[tauri::command]
+pub async fn get_cached_app_inventory(
+    state: tauri::State<'_, AppManagerState>,
+) -> AppResult<Option<ScanResult>> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        if let Some(cached) = state.get_cached_scan() {
+            return Ok(Some(cached));
+        }
+        let path = match inventory_cache_path() {
+            Ok(path) => path,
+            Err(_) => return Ok(None),
+        };
+        let bytes = match std::fs::read(&path) {
+            Ok(bytes) => bytes,
+            Err(_) => return Ok(None),
+        };
+        let snapshot: ScanResult = match serde_json::from_slice(&bytes) {
+            Ok(snapshot) => snapshot,
+            Err(error) => {
+                eprintln!("[app-manager] inventory cache decode failed: {error}");
+                return Ok(None);
+            }
+        };
+        // 对齐会话内 revision 单调性, 确保本次会话后续扫描的 revision 严格更大,
+        // 前端按 revision 做的变更检测不会被回退值干扰。
+        state
+            .inventory_revision
+            .fetch_max(snapshot.revision, Ordering::SeqCst);
+        Ok(Some(snapshot))
+    })
+    .await
+    .map_err(|e| AppError::internal(format!("get_cached_app_inventory: {e}")))?
 }
 
 #[tauri::command]

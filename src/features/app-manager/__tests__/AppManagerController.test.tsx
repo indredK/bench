@@ -44,6 +44,7 @@ vi.mock("@/lib/tauri/commands/app-manager", () => ({
   batchUpgradeApps: vi.fn(async () => ({ total: 0, succeeded: 0, failed: 0, results: [] })),
   cancelBatchOperation: vi.fn(async () => true),
   cancelAppInventoryScan: vi.fn(async () => true),
+  getCachedAppInventory: vi.fn(async () => null),
   checkAllAppUpdates: vi.fn(async () => []),
   checkManagedAppUpdates: vi.fn(async () => []),
   getAppIconBase64: vi.fn(async () => null),

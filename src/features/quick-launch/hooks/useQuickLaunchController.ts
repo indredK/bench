@@ -85,6 +85,8 @@ export function useQuickLaunchController(active: boolean) {
   const [contextMenu, setContextMenu] = useState<{ appId: string; x: number; y: number } | null>(
     null,
   )
+  // 上次会话快照恢复进行中: 用于显示骨架屏, 避免空状态闪烁。
+  const [hydrating, setHydrating] = useState(false)
   const contextMenuRef = useRef<HTMLDivElement>(null)
   const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({})
   const [exporting, setExporting] = useState(false)
@@ -337,13 +339,28 @@ export function useQuickLaunchController(active: boolean) {
     }
   }, [t])
 
-  // Auto-start scan when entering quick launch and no scan has been done yet
+  // 进入页面时只恢复上次会话的持久化快照, 不自动扫描;
+  // 扫描一律由用户触发(空状态按钮 / 刷新按钮), 避免应用启动即全量扫描造成卡顿。
   useEffect(() => {
     if (!active) return
-    if (appManagerScanned) return
-    if (loading || appManagerLoading) return
-    handleRescan()
-  }, [active, appManagerScanned, loading, appManagerLoading, handleRescan])
+    if (appManagerScanned || loading || appManagerLoading) {
+      setHydrating(false)
+      return
+    }
+    let cancelled = false
+    setHydrating(true)
+    appInventoryUseCases
+      .ensureLoaded()
+      .catch(() => {
+        // 恢复失败保持空状态, 用户可手动扫描。
+      })
+      .finally(() => {
+        if (!cancelled) setHydrating(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [active, appManagerScanned, loading, appManagerLoading])
 
   const mergedSceneSet = useMemo(() => new Set(MERGED_SCENE_KEYS), [])
   const firstMergedKey = MERGED_SCENE_KEYS[0]
@@ -353,6 +370,7 @@ export function useQuickLaunchController(active: boolean) {
     appManagerScanned,
     appManagerLoading,
     appManagerScanProgress,
+    hydrating,
     inventoryError: inventoryMessage,
     scenes,
     sceneOrder,

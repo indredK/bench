@@ -496,6 +496,7 @@ export default function QuickLaunch({ active }: { active: boolean; feature: AppF
     appManagerScanned,
     appManagerLoading,
     appManagerScanProgress,
+    hydrating,
     inventoryError,
     sceneOrder,
     expandedScenes,
@@ -529,7 +530,17 @@ export default function QuickLaunch({ active }: { active: boolean; feature: AppF
 
   const [confirmResetOpen, setConfirmResetOpen] = useState(false)
 
-  if (loading && appManagerApps.length === 0) {
+  if ((loading || hydrating) && appManagerApps.length === 0) {
+    // 恢复上次会话快照阶段没有扫描进度事件, 展示中性文案而非「扫描中」。
+    if (hydrating && !appManagerLoading) {
+      return (
+        <QuickLaunchSkeleton
+          stageText={t("quickLaunch.restoring")}
+          cancellable={false}
+          onCancel={handleCancelScan}
+        />
+      )
+    }
     const stage = appManagerScanProgress?.stage ?? "scanningDirectories"
     const stageText =
       stage === "processingMetadata"

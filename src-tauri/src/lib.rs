@@ -45,12 +45,16 @@ pub fn run() {
     let token_calculator_state = TokenCalculatorState::new();
     let terminology_state = TerminologyState::new();
 
-    #[cfg(target_os = "windows")]
+    // 单实例保护: Windows 全量启用; macOS 仅 release 构建启用 —— 插件按 bundle
+    // identifier 建立进程间 socket(D-011 下 dev 与 prod 同为 com.bench.app),
+    // debug 构建启用会破坏 dev/prod 共存。生产环境防止 LaunchAgent 与手动启动
+    // 并存出双实例, 二次启动参数转交 deep-link 处理后退出(D-019)。
+    #[cfg(any(target_os = "windows", all(target_os = "macos", not(debug_assertions))))]
     let builder =
         tauri::Builder::default().plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             account_manager::deep_link::handle_second_instance(app, args);
         }));
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(not(any(target_os = "windows", all(target_os = "macos", not(debug_assertions)))))]
     let builder = tauri::Builder::default();
 
     builder
@@ -72,9 +76,9 @@ pub fn run() {
         .manage(create_bootstrap_state())
         .setup(|app| {
             // 探测是否由登录项(隐藏)启动; 缓存供前端决定是否后台运行。
-            let launched_at_login = crate::system_settings::login_items::detect_launched_at_login(
-                app.config().identifier.as_str(),
-            );
+            // 仅读取启动参数(--hidden), 不做任何可能触发 TCC 授权弹窗的子进程调用。
+            let launched_at_login =
+                crate::system_settings::login_items::detect_launched_at_login();
             app.manage(crate::system_settings::login_items::LaunchedAtLoginState(
                 std::sync::Arc::new(std::sync::atomic::AtomicBool::new(launched_at_login)),
             ));
@@ -261,6 +265,17 @@ pub fn run() {
             match event {
                 tauri::RunEvent::Exit => {
                     sleep_inhibitor::commands::cleanup_on_exit();
+                }
+                // macOS: 登录项静默启动后应用以 Regular 策略驻留程序坞(窗口隐藏),
+                // 点击 Dock 图标唤出主窗口; 有可见窗口时交给 AppKit 原生激活行为。
+                #[cfg(target_os = "macos")]
+                tauri::RunEvent::Reopen {
+                    has_visible_windows,
+                    ..
+                } => {
+                    if !has_visible_windows {
+                        crate::tray::show_main_window(app_handle);
+                    }
                 }
                 tauri::RunEvent::ExitRequested { .. } => {
                     // Session Manager: 退出前持久化所有活跃 session

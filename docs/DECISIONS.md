@@ -2,6 +2,24 @@
 
 本文件只记录仍影响当前实现的方向性取舍；“做什么”以 [ROADMAP.md](./ROADMAP.md) 为准，当前风险以 [audit-report.md](./audit-report.md) 为准。已推翻和已完成历史由 Git 保留。
 
+## D-019 · 启动路径零 TCC 触发与自启动 LaunchAgent 化
+
+- **日期**：2026-09-03
+- **状态**：采纳
+- **背景**：用户反馈三个启动问题：① 开机自启动直接进托盘（Accessory），不驻留程序坞；② 每次重启请求系统权限；③ 启动即卡顿（疑似自动扫描软件）。根因是 `detect_launched_at_login` 在启动 setup 主线程同步运行 `osascript`（System Events）探测进程可见性 —— 该调用既触发 Automation（TCC）授权弹窗（ad-hoc 签名下授权随构建失效，弹窗反复出现），又在弹窗挂起时阻塞整个启动，且采样窗口期无可见窗口导致误判；托盘菜单初始化也在启动时经同一机制查询自启动状态。
+- **决策**：
+  1. **启动关键路径禁止调用可能触发 TCC 授权弹窗的子进程**（osascript/System Events 等）。启动来源探测统一为启动参数 `--hidden`（`login_items::detect_launched_at_login`），与 Windows 注册表 Run 值的既有约定对齐。
+  2. **macOS 自启动改用 LaunchAgent plist**（`~/Library/LaunchAgents/com.bench.app.plist`，`RunAtLoad` + `ProgramArguments [当前可执行文件, --hidden]`），读写全部为文件操作，零授权成本；放弃 System Events 登录项机制。Windows 注册表 Run 机制不变。`set_autostart` 切换时尽力清理旧版 System Events 登录项（仅在用户显式切换开关时可能触发一次授权弹窗，启动路径不经过此处）。
+  3. **登录项启动行为 = 静默驻留程序坞**：`--hidden` 启动时不显示主窗口、保持 `Regular` 激活策略（Dock 图标在场），不切 `Accessory`；点击 Dock 图标经 `RunEvent::Reopen` 唤出主窗口。托盘图标照常提供快捷入口。关闭窗口收起到托盘的既有行为（Accessory）不变。
+  4. **应用清单扫描一律用户触发**：默认落地页 quick-launch 不再进入即自动全量扫描。扫描完成后快照原子持久化到 `config_dir/bench/app-manager/inventory.json`（超限剥离图标），启动后进入页面时仅恢复上次快照（新命令 `get_cached_app_inventory`），是否重新扫描由用户决定；快照 revision 经 `fetch_max` 保持会话内单调。
+  5. **单实例保护扩展到 macOS**：`tauri-plugin-single-instance` 全桌面注册，防止 LaunchAgent 与手动启动并存出双实例。
+- **理由**：TCC 授权与启动延迟是启动体验的一等公民；基于进程可见性的 osascript 探测既有授权成本又有竞态误判，无法修复只能移除。`--hidden` 参数由应用自身控制，判定确定性 100%。自启动驻留程序坞 + 按需扫描符合 macOS 应用惯例。
+- **影响**：
+  - 新增代码不得在 `lib.rs` setup / 启动关键路径引入 osascript、System Events 或其他 TCC 触发调用（见 ARCHITECTURE §2 第 12 条）。
+  - 旧版本已启用自启动的用户（System Events 登录项）：更新后首次开机仍会按旧机制隐藏启动（无 `--hidden`，会显示主窗口）；在设置中关闭再开启一次即可迁移到新机制。
+  - 新机制的自启动条目在系统设置中显示于「允许在后台」而非「打开时打开」；应用内开关是主控制入口。
+- **相关**：[system-settings roadmap](./modules/system-settings/roadmap.md) · [quick-launch roadmap](./modules/quick-launch/roadmap.md) · [ARCHITECTURE §2](./ARCHITECTURE.md#2--ai-编码规则--禁止模式)
+
 ## D-018 · 智能体工具文件不进版本库
 
 - **日期**：2026-08-04

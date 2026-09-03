@@ -52,23 +52,6 @@ pub async fn get_login_items() -> AppResult<Vec<super::types::LoginItem>> {
     .map_err(|e| AppError::internal(format!("get_login_items: {e}")))?
 }
 
-#[cfg(target_os = "macos")]
-pub async fn add_login_item(path: String) -> AppResult<()> {
-    tauri::async_runtime::spawn_blocking(move || {
-        let safe_path = escape_applescript(&path);
-        let script = format!(
-            r#"tell application "System Events"
-                make login item at end with properties {{path:"{}", hidden:true}}
-            end tell"#,
-            safe_path
-        );
-        run_cmd_err("osascript", &["-e", &script])?;
-        Ok(())
-    })
-    .await
-    .map_err(|e| AppError::internal(format!("add_login_item: {e}")))?
-}
-
 #[tauri::command]
 pub async fn remove_login_item(name: String) -> AppResult<()> {
     tauri::async_runtime::spawn_blocking(move || {
@@ -213,14 +196,79 @@ const WIN_RUN_KEY: &str = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run";
 #[cfg(target_os = "windows")]
 const WIN_APP_NAME: &str = "Bench";
 
+/// 开机静默启动参数: 自启动一律附带该参数, 后端与前端据此区分「登录项启动」与「手动启动」,
+/// 登录项启动保持窗口隐藏、应用驻留程序坞(Regular)而非转入托盘(Accessory)。
+pub const HIDDEN_LAUNCH_ARG: &str = "--hidden";
+
+/// 登录项启动探测: 自启动条目统一附带 `--hidden` 参数
+/// (macOS 为 LaunchAgent plist 的 ProgramArguments, Windows 为注册表 Run 值)。
+/// 不再使用 osascript 探测进程可见性 —— 那会在每次启动触发
+/// Automation 权限弹窗并阻塞启动主线程(见 DECISIONS.md D-019)。
+pub fn detect_launched_at_login() -> bool {
+    std::env::args().any(|arg| arg == HIDDEN_LAUNCH_ARG)
+}
+
+#[cfg(target_os = "macos")]
+fn launch_agent_plist_path() -> AppResult<std::path::PathBuf> {
+    let home = std::env::var("HOME").map_err(|e| AppError::internal(format!("HOME env: {e}")))?;
+    Ok(std::path::PathBuf::from(home)
+        .join("Library")
+        .join("LaunchAgents")
+        .join(format!("{APP_BUNDLE_ID}.plist")))
+}
+
+#[cfg(target_os = "macos")]
+fn xml_escape(value: &str) -> String {
+    value
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+}
+
+#[cfg(target_os = "macos")]
+fn launch_agent_plist_content(executable: &str) -> String {
+    format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>{label}</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>{executable}</string>
+        <string>{hidden_arg}</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+</dict>
+</plist>
+"#,
+        label = APP_BUNDLE_ID,
+        executable = xml_escape(executable),
+        hidden_arg = HIDDEN_LAUNCH_ARG,
+    )
+}
+
 #[cfg(target_os = "macos")]
 async fn get_autostart_status_impl() -> AppResult<bool> {
-    let bundle_path = match resolve_app_bundle_path() {
-        Ok(p) => p,
-        Err(_) => return Ok(false),
-    };
-    let items = get_login_items().await?;
-    Ok(items.iter().any(|item| item.path == bundle_path))
+    tauri::async_runtime::spawn_blocking(|| {
+        let path = match launch_agent_plist_path() {
+            Ok(p) => p,
+            Err(_) => return Ok(false),
+        };
+        if !path.is_file() {
+            return Ok(false);
+        }
+        // 校验 plist 仍指向当前可执行文件: 应用移动/重建后残留的旧路径视为未开启,
+        // 下次开启时会整体重写自愈。
+        match (std::env::current_exe(), std::fs::read_to_string(&path)) {
+            (Ok(exe), Ok(content)) => Ok(content.contains(&exe.to_string_lossy().to_string())),
+            _ => Ok(true),
+        }
+    })
+    .await
+    .map_err(|e| AppError::internal(format!("get_autostart_status_impl: {e}")))?
 }
 
 #[cfg(target_os = "windows")]
@@ -248,16 +296,36 @@ pub async fn get_autostart_status() -> AppResult<bool> {
 
 #[cfg(target_os = "macos")]
 async fn set_autostart_impl(enabled: bool) -> AppResult<()> {
-    if enabled {
-        let already = get_autostart_status_impl().await?;
-        if already {
-            return Ok(());
+    tauri::async_runtime::spawn_blocking(move || {
+        let path = launch_agent_plist_path()?;
+        if enabled {
+            let exe = std::env::current_exe()
+                .map_err(|e| AppError::internal(format!("current_exe: {e}")))?;
+            let content = launch_agent_plist_content(&exe.to_string_lossy());
+            if let Some(parent) = path.parent() {
+                std::fs::create_dir_all(parent)
+                    .map_err(|e| AppError::io(format!("create LaunchAgents dir: {e}")))?;
+            }
+            crate::persistence::atomic_write(&path, content.as_bytes())
+                .map_err(|e| AppError::io(format!("write launch agent plist: {e}")))?;
+        } else {
+            // 幂等: 文件不存在视为已关闭。
+            match std::fs::remove_file(&path) {
+                Ok(()) => {}
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                Err(e) => return Err(AppError::io(format!("remove launch agent plist: {e}"))),
+            }
         }
-        let bundle_path = resolve_app_bundle_path()?;
-        add_login_item(bundle_path).await?;
-    } else {
-        let bundle_path = resolve_app_bundle_path()?;
-        remove_login_item_by_path(bundle_path).await?;
+        Ok(())
+    })
+    .await
+    .map_err(|e| AppError::internal(format!("set_autostart_impl: {e}")))??;
+
+    // 尽力清理旧版本经 System Events 创建的登录项, 避免新旧机制并存导致开机双实例。
+    // Automation 未授权时 osascript 静默失败, 不影响新机制(仅可能在用户显式
+    // 切换开关时触发一次系统授权弹窗, 启动路径不经过此处)。
+    if let Ok(bundle_path) = resolve_app_bundle_path() {
+        let _ = remove_login_item_by_path(bundle_path).await;
     }
     Ok(())
 }
@@ -316,49 +384,6 @@ pub async fn set_autostart(enabled: bool) -> AppResult<()> {
 /// 登录项(隐藏)启动状态: 在 setup 阶段探测一次并缓存, 供前端判断是否后台启动。
 pub struct LaunchedAtLoginState(pub Arc<AtomicBool>);
 
-/// 探测本次启动是否由「登录项(隐藏)」触发。
-///
-/// - macOS: 登录项以 `hidden:true` 创建时, 进程初始为隐藏(hidden); 普通双击启动为可见。
-///   用 AppleScript 读取进程可见性来区启动来源。
-/// - Windows: 登录项注册表值附带 `--hidden` 参数, 通过启动参数识别。
-/// - 其他平台: 不支持, 返回 false。
-#[cfg(target_os = "macos")]
-pub fn detect_launched_at_login(identifier: &str) -> bool {
-    let id = escape_applescript(identifier);
-    let script = format!(
-        r#"tell application "System Events"
-            try
-                if exists (first process whose bundle identifier is "{id}") then
-                    return visible of (first process whose bundle identifier is "{id}")
-                end if
-                return true
-            on error
-                return true
-            end tell"#,
-        id = id
-    );
-    let output = std::process::Command::new("osascript")
-        .args(["-e", &script])
-        .output();
-    match output {
-        Ok(o) if o.status.success() => {
-            let visible = String::from_utf8_lossy(&o.stdout).trim().to_lowercase();
-            visible == "false"
-        }
-        _ => false,
-    }
-}
-
-#[cfg(target_os = "windows")]
-pub fn detect_launched_at_login(_identifier: &str) -> bool {
-    std::env::args().any(|a| a == "--hidden")
-}
-
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
-pub fn detect_launched_at_login(_identifier: &str) -> bool {
-    false
-}
-
 #[tauri::command]
 pub fn was_launched_at_login(state: tauri::State<LaunchedAtLoginState>) -> AppResult<bool> {
     Ok(state.0.load(Ordering::SeqCst))
@@ -395,4 +420,31 @@ fn read_launch_services(dir: &std::path::PathBuf) -> AppResult<Vec<super::types:
         }
     }
     Ok(services)
+}
+
+#[cfg(all(test, target_os = "macos"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn detect_launched_at_login_only_matches_hidden_arg() {
+        // 无法在进程内伪造 argv, 这里直接验证判定与常量一致。
+        assert_eq!(HIDDEN_LAUNCH_ARG, "--hidden");
+        // 当前测试进程必然不带 --hidden。
+        assert!(!detect_launched_at_login());
+    }
+
+    #[test]
+    fn launch_agent_plist_carries_label_hidden_arg_and_run_at_load() {
+        let content = launch_agent_plist_content("/Applications/Bench.app/Contents/MacOS/bench");
+        assert!(content.contains(&format!("<string>{APP_BUNDLE_ID}</string>")));
+        assert!(content.contains(&format!("<string>{HIDDEN_LAUNCH_ARG}</string>")));
+        assert!(content.contains("<key>RunAtLoad</key>"));
+        assert!(content.contains("<string>/Applications/Bench.app/Contents/MacOS/bench</string>"));
+    }
+
+    #[test]
+    fn xml_escape_neutralizes_markup_in_paths() {
+        assert_eq!(xml_escape("a&b<c>d"), "a&amp;b&lt;c&gt;d");
+    }
 }

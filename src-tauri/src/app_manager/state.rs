@@ -206,7 +206,6 @@ impl AppManagerState {
     }
 
     /// Get cached scan if available.
-    #[allow(dead_code)]
     pub fn get_cached_scan(&self) -> Option<ScanResult> {
         self.cached_result
             .lock()
