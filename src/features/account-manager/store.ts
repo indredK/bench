@@ -59,5 +59,10 @@ export const useAccountManagerStore = create<AccountManagerState & AccountManage
       const first = accounts.find((account) => account.stationId === id)
       set({ selectedStationId: id, selectedAccountId: first?.id ?? "" })
     },
+    setRegionError: (region, payload) =>
+      set((state) => ({
+        regionErrors: { ...state.regionErrors, [region]: payload },
+      })),
+    clearRegionErrors: () => set({ regionErrors: { station: null, account: null, detail: null } }),
   }),
 )

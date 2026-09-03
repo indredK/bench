@@ -530,7 +530,10 @@
         "returnLabel": "返回链接",
         "externalAppFallback": "外部应用",
         "urlPlaceholder": "粘贴登录链接",
-        "startLogin": "开始登录"
+        "startLogin": "开始登录",
+        "invalidUrl": "链接格式无效，请粘贴 bench-auth:// 或 http(s):// 开头的链接。",
+        "parseFailed": "解析链接失败：{{message}}",
+        "loadStationsFailed": "站点列表加载失败。"
       },
       "startLogin": "开始登录",
       "back": "返回"
@@ -642,6 +645,14 @@
         "detectNow": "立即检测",
         "detecting": "检测中..."
       }
+    },
+    "errors": {
+      "refreshAccount": "刷新账号失败，账号数据保持不变。",
+      "refreshAccounts": "批量刷新失败，失败账号保留旧数据。",
+      "partialRefresh": "{{failed}}/{{total}} 个账号刷新失败，已保留旧数据。",
+      "stationAction": "站点操作失败，请重试。",
+      "accountAction": "账号操作失败，请重试。",
+      "detailAction": "会话探测失败，请重试。"
     }
   },
   "appManager": {

@@ -530,7 +530,10 @@
         "returnLabel": "Return URL",
         "externalAppFallback": "external app",
         "urlPlaceholder": "Paste sign-in URL",
-        "startLogin": "Start sign-in"
+        "startLogin": "Start sign-in",
+        "invalidUrl": "Invalid link. Paste a bench-auth:// or http(s):// URL.",
+        "parseFailed": "Failed to parse the link: {{message}}",
+        "loadStationsFailed": "Failed to load the station list."
       },
       "startLogin": "Start sign-in",
       "back": "Back"
@@ -642,6 +645,14 @@
         "detectNow": "Detect Now",
         "detecting": "Detecting..."
       }
+    },
+    "errors": {
+      "refreshAccount": "Failed to refresh this account; its data is unchanged.",
+      "refreshAccounts": "Batch refresh failed; failed accounts keep their previous data.",
+      "partialRefresh": "{{failed}}/{{total}} accounts failed to refresh; previous data kept.",
+      "stationAction": "Station operation failed. Please retry.",
+      "accountAction": "Account operation failed. Please retry.",
+      "detailAction": "Session detection failed. Please retry."
     }
   },
   "appManager": {

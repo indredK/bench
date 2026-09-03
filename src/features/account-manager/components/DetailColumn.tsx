@@ -39,6 +39,7 @@ import {
   IconButton,
   SectionLabel,
 } from "@/features/account-manager/components/shared"
+import { InlineErrorBar } from "@/features/account-manager/components/InlineErrorBar"
 
 const REVEALED_PASSWORD_TTL_MS = 30_000
 
@@ -75,6 +76,9 @@ export function DetailColumn({
   redetectingProfile,
   togglingProxy,
   refreshingAccount,
+  error,
+  onRetryError,
+  onDismissError,
   className,
 }: {
   station: RelayStation | null
@@ -92,6 +96,9 @@ export function DetailColumn({
   redetectingProfile?: boolean
   togglingProxy?: boolean
   refreshingAccount?: boolean
+  error?: string | null
+  onRetryError?: () => void
+  onDismissError?: () => void
   className?: string
 }) {
   const { t } = useTranslation()
@@ -171,6 +178,11 @@ export function DetailColumn({
         }
       />
       <div className="flex min-h-0 flex-1 flex-col">
+        {error && (
+          <div className="px-2 pt-2">
+            <InlineErrorBar message={error} onRetry={onRetryError} onDismiss={onDismissError} />
+          </div>
+        )}
         {station ? (
           <>
             {/* 上方：站点信息 - 灵活高度，内容多时滚动 */}

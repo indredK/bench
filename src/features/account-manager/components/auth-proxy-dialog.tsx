@@ -4,7 +4,7 @@
  */
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { KeyRound, ArrowRight, Loader2, Link2 } from "lucide-react"
+import { KeyRound, ArrowRight, Loader2, Link2, RotateCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -35,7 +35,7 @@ import type {
 import { accountManagerRepository } from "@/features/account-manager/services/account-manager.repository"
 import { NEW_ACCOUNT } from "@/features/account-manager/hooks/useAuthProxy"
 import type { AuthProxyConfirmInput } from "@/features/account-manager/hooks/useAuthProxy"
-import { parseCommandError } from "@/lib/tauri/errors"
+import { getErrorMessage, parseCommandError, translateError } from "@/lib/tauri/errors"
 
 // ═══════════════════════════════════════════════
 // Wizard step constants
@@ -142,12 +142,21 @@ export function AuthProxyDialog({
   // Step 3
   const [confirming, setConfirming] = useState(false)
 
+  // Step 1 内联错误：非法 URL / 解析失败均有可见反馈（A1-1）。
+  const [parseError, setParseError] = useState<string | null>(null)
+  // Step 2 站点列表加载失败的内联错误（原来仅 console.warn）。
+  const [stationsLoadError, setStationsLoadError] = useState<string | null>(null)
+  const [stationsReloading, setStationsReloading] = useState(false)
+  const [stationsReloadKey, setStationsReloadKey] = useState(0)
+
   // Reset state when dialog opens
   useEffect(() => {
     if (open) {
       setStep(initialRequest ? STEP_SELECT : STEP_PASTE)
       setUrl("")
       setParsing(false)
+      setParseError(null)
+      setStationsLoadError(null)
       setParsedRequest(initialRequest)
       setParsedHost(initialHost)
       setParsedMatches(initialMatches)
@@ -163,6 +172,7 @@ export function AuthProxyDialog({
   useEffect(() => {
     if (!open) return
     let cancelled = false
+    setStationsReloading(true)
     Promise.all([
       accountManagerRepository.listStations(),
       accountManagerRepository.listAllAccounts(),
@@ -171,14 +181,21 @@ export function AuthProxyDialog({
         if (cancelled) return
         setAllStations(stations)
         setAllAccounts(accounts)
+        setStationsLoadError(null)
       })
       .catch((err) => {
-        console.warn("[auth-proxy] load stations failed:", parseCommandError(err).code)
+        if (cancelled) return
+        setStationsLoadError(
+          translateError(t, err, t("accountManager.authProxy.wizard.loadStationsFailed")),
+        )
+      })
+      .finally(() => {
+        if (!cancelled) setStationsReloading(false)
       })
     return () => {
       cancelled = true
     }
-  }, [open])
+  }, [open, stationsReloadKey, t])
 
   // Merge backend matches with all other stations so the user can pick any
   // site, even one whose host does not match the URL host. Matched stations
@@ -230,9 +247,15 @@ export function AuthProxyDialog({
       trimmed.startsWith("bench-auth://") ||
       trimmed.startsWith("http://") ||
       trimmed.startsWith("https://")
-    if (!isValid || parsing) return
+    if (parsing) return
+    if (!isValid || !trimmed) {
+      // 非法 URL 前缀：给出内联提示而不是静默 return（A1-1）。
+      setParseError(t("accountManager.authProxy.wizard.invalidUrl"))
+      return
+    }
 
     setParsing(true)
+    setParseError(null)
     try {
       const result = await accountManagerRepository.handleBrowserOpen(trimmed)
       setParsedRequest({
@@ -257,7 +280,17 @@ export function AuthProxyDialog({
 
       setStep(STEP_SELECT)
     } catch (error) {
-      console.warn("[auth-proxy] parse url failed:", parseCommandError(error).code)
+      const parsed = parseCommandError(error)
+      // 解析失败：对话框内联错误提示（不再仅 console.warn）。
+      setParseError(
+        translateError(
+          t,
+          error,
+          t("accountManager.authProxy.wizard.parseFailed", {
+            message: getErrorMessage(error, parsed.message),
+          }),
+        ),
+      )
     } finally {
       setParsing(false)
     }
@@ -343,14 +376,22 @@ export function AuthProxyDialog({
         </label>
         <Input
           value={url}
-          onChange={(e) => setUrl(e.target.value)}
+          onChange={(e) => {
+            setUrl(e.target.value)
+            if (parseError) setParseError(null)
+          }}
           placeholder={t("accountManager.authProxy.wizard.urlPlaceholder")}
           onKeyDown={(e) => {
-            if (e.key === "Enter") handleParseUrl()
+            if (e.key === "Enter") void handleParseUrl()
           }}
           disabled={parsing}
           autoFocus
         />
+        {parseError && (
+          <p className="text-destructive text-xs" role="alert">
+            {parseError}
+          </p>
+        )}
       </div>
       <p className="text-muted-foreground text-xs">
         {t("accountManager.authProxy.wizard.step1Hint")}
@@ -366,6 +407,24 @@ export function AuthProxyDialog({
 
     return (
       <div className="space-y-4">
+        {stationsLoadError && (
+          <div
+            className="border-destructive/30 bg-destructive/5 text-destructive flex items-center justify-between gap-2 rounded-lg border px-2.5 py-2 text-xs"
+            role="alert"
+          >
+            <span className="min-w-0 break-words">{stationsLoadError}</span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              onClick={() => setStationsReloadKey((key) => key + 1)}
+              disabled={stationsReloading}
+              aria-label={t("common.retry")}
+            >
+              <RotateCw className={stationsReloading ? "size-3 animate-spin" : "size-3"} />
+            </Button>
+          </div>
+        )}
         {/* Station selector */}
         <div className="space-y-1.5">
           <label className="text-sm font-medium">

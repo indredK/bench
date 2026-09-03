@@ -31,6 +31,7 @@ import { SortableList, useSortableCard, DragHandle } from "@/components/ui/sorta
 import { ScrollableArea } from "@/components/common/ScrollableArea"
 import { ColumnHeader, EmptyHint, StatusBadge } from "@/features/account-manager/components/shared"
 import { VirtualAccountList } from "@/features/account-manager/components/VirtualAccountList"
+import { InlineErrorBar } from "@/features/account-manager/components/InlineErrorBar"
 
 export const ACCOUNT_VIRTUALIZATION_THRESHOLD = 100
 
@@ -53,6 +54,9 @@ export function AccountColumn({
   onReorder,
   reorderDisabled,
   loginDisabledReason,
+  error,
+  onRetryError,
+  onDismissError,
 }: {
   station: RelayStation | null
   accounts: StationAccount[]
@@ -72,6 +76,9 @@ export function AccountColumn({
   onReorder: (orderedIds: string[]) => void
   reorderDisabled: boolean
   loginDisabledReason?: string
+  error?: string | null
+  onRetryError?: () => void
+  onDismissError?: () => void
 }) {
   const { t } = useTranslation()
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -178,6 +185,11 @@ export function AccountColumn({
           </div>
         }
       />
+      {error && (
+        <div className="px-2 pt-2">
+          <InlineErrorBar message={error} onRetry={onRetryError} onDismiss={onDismissError} />
+        </div>
+      )}
       <AccountListScrollShell virtualized={shouldVirtualize}>
         {!station ? (
           <div className="p-3">

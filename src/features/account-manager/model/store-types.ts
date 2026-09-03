@@ -3,6 +3,9 @@ import type {
   RelayStation,
   StationAccount,
 } from "@/lib/tauri/types/account-manager"
+import type { AccountManagerRegion, RegionErrorPayload } from "@/features/account-manager/errors"
+
+export type { AccountManagerRegion }
 
 export type AccountManagerState = {
   stations: RelayStation[]
@@ -30,6 +33,8 @@ export type AccountManagerState = {
   isQuickLoginOpen: boolean
   isExternalAppsOpen: boolean
   externalAppsAccountId: string | null
+  /** 三栏区域持久化错误；partial 刷新失败后支持区域级重试（A1-1）。 */
+  regionErrors: Record<AccountManagerRegion, RegionErrorPayload | null>
 }
 
 export type AccountManagerActions = {
@@ -60,6 +65,8 @@ export type AccountManagerActions = {
   setExternalAppsAccountId: (id: string | null) => void
   applyInitialSelection: (stations: RelayStation[], accounts: StationAccount[]) => void
   selectStation: (id: string, accounts: StationAccount[]) => void
+  setRegionError: (region: AccountManagerRegion, payload: RegionErrorPayload | null) => void
+  clearRegionErrors: () => void
 }
 
 export const initialAccountManagerState: AccountManagerState = {
@@ -88,4 +95,5 @@ export const initialAccountManagerState: AccountManagerState = {
   isQuickLoginOpen: false,
   isExternalAppsOpen: false,
   externalAppsAccountId: null,
+  regionErrors: { station: null, account: null, detail: null },
 }

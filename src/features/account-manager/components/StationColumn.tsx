@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils"
 import { SortableList, useSortableCard, DragHandle } from "@/components/ui/sortable-card"
 import type { RelayStation } from "@/lib/tauri/types/account-manager"
 import { ColumnHeader, EmptyHint } from "@/features/account-manager/components/shared"
+import { InlineErrorBar } from "@/features/account-manager/components/InlineErrorBar"
 
 export function StationColumn({
   stations,
@@ -46,6 +47,9 @@ export function StationColumn({
   onExternalLogin,
   quickLoginDisabledReason,
   externalLoginDisabledReason,
+  error,
+  onRetryError,
+  onDismissError,
 }: {
   stations: RelayStation[]
   selectedId: string
@@ -66,6 +70,9 @@ export function StationColumn({
   onExternalLogin?: () => void
   quickLoginDisabledReason?: string
   externalLoginDisabledReason?: string
+  error?: string | null
+  onRetryError?: () => void
+  onDismissError?: () => void
 }) {
   const { t } = useTranslation()
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -109,6 +116,11 @@ export function StationColumn({
           </div>
         }
       />
+      {error && (
+        <div className="px-2 pt-2">
+          <InlineErrorBar message={error} onRetry={onRetryError} onDismiss={onDismissError} />
+        </div>
+      )}
       <ScrollableArea className="min-h-0 flex-1 p-3" wrapperClassName="flex min-h-0 flex-1">
         {stations.length === 0 ? (
           <EmptyHint

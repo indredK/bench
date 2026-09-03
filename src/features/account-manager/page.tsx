@@ -11,13 +11,12 @@ import { useAccountManagerController } from "@/features/account-manager/hooks/us
 import { StationColumn } from "@/features/account-manager/components/StationColumn"
 import { AccountColumn } from "@/features/account-manager/components/AccountColumn"
 import { DetailColumn } from "@/features/account-manager/components/DetailColumn"
-import {
-  AddAccountDialog,
-  DeleteConfirmDialog,
-  EditAccountDialog,
-  QuickLoginDialog,
-  StationDialog,
-} from "@/features/account-manager/components/dialogs"
+import { StationDialog } from "@/features/account-manager/components/station-form-dialog"
+import { AddAccountDialog } from "@/features/account-manager/components/add-account-dialog"
+import { EditAccountDialog } from "@/features/account-manager/components/edit-account-dialog"
+import { QuickLoginDialog } from "@/features/account-manager/components/quick-login-dialog"
+import { DeleteConfirmDialog } from "@/features/account-manager/components/delete-confirm-dialog"
+import { describeRegionError } from "@/features/account-manager/errors"
 import { AuthProxyDialog } from "@/features/account-manager/components/auth-proxy-dialog"
 import { ExternalAppsPanel } from "@/features/account-manager/components/external-apps-panel"
 import { cn } from "@/lib/utils"
@@ -163,6 +162,9 @@ function AccountManagerPage() {
       onCopyPassword={c.handleCopyPassword}
       onProbeStrategyChange={c.handleProbeStrategyChange}
       onRefreshAccount={c.handleRefreshAccount}
+      error={c.regionErrors.detail ? describeRegionError(t, c.regionErrors.detail) : null}
+      onRetryError={() => c.retryRegion("detail")}
+      onDismissError={() => c.dismissRegionError("detail")}
       refreshingAccount={
         c.selectedAccount ? c.refreshingAccountIds.has(c.selectedAccount.id) : false
       }
