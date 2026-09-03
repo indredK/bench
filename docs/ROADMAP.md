@@ -86,7 +86,7 @@ flowchart LR
 **步骤**：
 
 1. 确认 `git status --short` 没有来源不明的改动。
-2. 确认 `package.json`、`src-tauri/Cargo.toml`、`src-tauri/tauri.conf.json`、`.release-please-manifest.json` 四处版本一致（当前为 `1.26.0`）。
+2. 确认 `package.json`、`src-tauri/Cargo.toml`、`src-tauri/tauri.conf.json`、`.release-please-manifest.json` 四处版本一致（当前为 `1.28.0`）。
 3. 建立一个 2.0 收尾 PR 或 issue，复制 R00-R10 状态表；后续证据只挂到该入口和 CI artifact，不新建平行路线图。
 4. 把模块 roadmap 中已完成项删除；远期项保留但本轮不得执行。
 
