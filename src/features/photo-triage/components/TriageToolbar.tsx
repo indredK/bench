@@ -26,6 +26,7 @@ export function TriageToolbar({ controller }: { controller: PhotoTriageControlle
     setFilter,
     groupBy,
     toggleGroup,
+    groupCount,
     autoNext,
     toggleAutoNext,
     stats,
@@ -108,7 +109,9 @@ export function TriageToolbar({ controller }: { controller: PhotoTriageControlle
         aria-pressed={groupBy}
       >
         <FolderCog size={14} className="mr-1" />
-        {t("photoTriage.groupBy", { state: t(groupBy ? "photoTriage.on" : "photoTriage.off") })}
+        {groupBy
+          ? t("photoTriage.groupCount", { count: groupCount })
+          : t("photoTriage.groupBy", { state: t("photoTriage.off") })}
       </Button>
       <Button variant="outline" size="sm" onClick={toggleAutoNext}>
         {t("photoTriage.autoNext", { state: t(autoNext ? "photoTriage.on" : "photoTriage.off") })}

@@ -55,6 +55,7 @@ export function usePhotoTriageController() {
   const loaded = usePhotoTriageStore((s) => s.loaded)
   const loadError = usePhotoTriageStore((s) => s.loadError)
   const proxy = usePhotoTriageStore((s) => s.proxy)
+  const dragActive = usePhotoTriageStore((s) => s.dragActive)
 
   const deletedSet = useMemo(() => new Set(deletedIds), [deletedIds])
   const visible = useMemo(
@@ -62,6 +63,8 @@ export function usePhotoTriageController() {
     [items, filter, sel, deletedSet, groupBy],
   )
   const rows = useMemo(() => buildRows(visible, groupBy), [visible, groupBy])
+  /** 分组开启时的分组数（工具栏按钮展示，对齐筛选按钮的计数风格） */
+  const groupCount = useMemo(() => rows.filter((r) => r.kind === "header").length, [rows])
   const stats = useMemo(() => computeStats(items, sel, deletedSet), [items, sel, deletedSet])
   const showGroupBar = shouldShowGroupBar(visible.length, groupBy)
   const current = useMemo(() => items.find((it) => it.id === currentId) ?? null, [items, currentId])
@@ -181,8 +184,21 @@ export function usePhotoTriageController() {
   )
 
   const selectAll = useCallback(() => {
-    uc.selectAllVisible(visible)
+    const s = usePhotoTriageStore.getState()
+    const eligible = visible.filter((it) => !s.deletedIds.includes(it.id))
+    if (!eligible.length) return
+    // 已全选时再点 → 取消全选（toggle，对齐「全选」按钮/⌘A 同一入口）
+    const all = eligible.every((it) => s.multiSel.includes(it.id))
+    if (all) s.clearMulti()
+    else uc.selectAllVisible(visible)
   }, [visible])
+
+  /** 当前筛选下是否已全选（驱动「全选 ↔ 取消全选」按钮文案） */
+  const allSelected = useMemo(() => {
+    if (!visible.length) return false
+    const eligible = visible.filter((it) => !deletedSet.has(it.id))
+    return eligible.length > 0 && eligible.every((it) => multiSel.includes(it.id))
+  }, [visible, deletedSet, multiSel])
 
   const moveToFolder = useCallback(async (folder: string, idsOverride?: string[]) => {
     const ids = idsOverride?.length ? idsOverride : uc.selectedOrCurrentIds()
@@ -219,9 +235,11 @@ export function usePhotoTriageController() {
     loaded,
     loadError,
     proxy,
+    dragActive,
     // derived
     visible,
     rows,
+    groupCount,
     stats,
     showGroupBar,
     current,
@@ -239,6 +257,7 @@ export function usePhotoTriageController() {
     toggleLive,
     selectCurrent,
     selectAll,
+    allSelected,
     moveToFolder,
   }
 }

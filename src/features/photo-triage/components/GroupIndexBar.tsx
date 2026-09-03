@@ -1,18 +1,25 @@
 /**
  * GroupIndexBar / 分组索引条（Fast Scroller）.
  * 对齐 Python `triage.html` §分组索引条：
- * - 刻度为水平小条，加载进度从两端向中心渐变填充（`--p` 0..1，橙=加载中，填满变绿，
- *   hover/当前变蓝加宽）；
- * - hover 立即显示文件夹名（原生 title 延迟太久），加载中的刻度额外显示「已加载/总数」，
- *   且随缩略图加载实时刷新；
- * - 点击刻度跳到对应分组（strip 内滚动，视口就近加载）。
+ * - 刻度为水平小条（9×2px），`flex:1` 均分高度（min-height 6px），分组再多也全部可见；
+ * - 加载进度从两端向中心渐变填充（`--p` 0..1，橙=加载中，填满变绿）；
+ * - hover / 当前分组（随滚动同步）：变蓝加宽（13×3px）；
+ * - hover 立即显示 tooltip（portal 渲染到 body，fixed 定位在索引条右侧，不被裁剪）：
+ *   文件夹名 + 未加载完刻度的「已加载/总数」（含 0/N，随加载实时刷新）；
+ * - 点击刻度跳到对应分组。
  */
 import { memo, useMemo, useState } from "react"
+import { createPortal } from "react-dom"
 import { useTranslation } from "react-i18next"
 import { cn } from "@/lib/utils"
 import { groupFill, type HeaderRow } from "@/features/photo-triage/lib/grouping"
 import { usePhotoTriageStore } from "@/features/photo-triage/store"
 import type { PhotoTriageController } from "@/features/photo-triage/hooks/usePhotoTriageController"
+
+/** py 配色：加载中橙（--warn）、填满绿（--keep）、悬停/当前蓝（--accent）。 */
+const C_WARN = "#ffb454"
+const C_KEEP = "#2ecc71"
+const C_ACCENT = "#4c8dff"
 
 export const GroupIndexBar = memo(function GroupIndexBar({
   controller,
@@ -24,7 +31,10 @@ export const GroupIndexBar = memo(function GroupIndexBar({
   const { t } = useTranslation()
   const { rows } = controller
   const loadedIds = usePhotoTriageStore((s) => s.loadedIds)
+  const currentFolder = usePhotoTriageStore((s) => s.currentFolder)
   const [hovered, setHovered] = useState<string | null>(null)
+  /** tooltip 锚点（fixed 坐标，对齐 py gtip：贴索引条右侧、垂直居中于刻度） */
+  const [tip, setTip] = useState<{ x: number; y: number; folder: string } | null>(null)
 
   const groups = useMemo(() => rows.filter((r): r is HeaderRow => r.kind === "header"), [rows])
   const loadedSet = useMemo(() => new Set(loadedIds), [loadedIds])
@@ -32,72 +42,86 @@ export const GroupIndexBar = memo(function GroupIndexBar({
 
   if (!groups.length) return null
 
+  // tooltip 内容在渲染期从 fill 取值：悬停中随缩略图加载实时刷新（对齐 py refreshGtipProgress）
+  const tipInfo = tip ? fill.get(tip.folder) : undefined
+
   return (
     <div
-      className="bg-background/90 flex w-4 flex-none flex-col overflow-hidden rounded-sm border-r py-1"
-      onMouseLeave={() => setHovered(null)}
+      className="bg-background/90 flex w-[18px] flex-none flex-col border-r"
+      onMouseLeave={() => {
+        setHovered(null)
+        setTip(null)
+      }}
     >
       {groups.map((g) => {
         const info = fill.get(g.folder)
-        const p = info?.ratio ?? 0
-        const loading = p > 0 && p < 1
-        const label =
-          groups.length === 1
-            ? g.folder
-            : `${g.folder === "." ? t("photoTriage.root") : g.folder}${loading ? ` ${info?.loaded}/${info?.total}` : ""}`
+        const total = info?.total ?? 0
+        const loaded = info?.loaded ?? 0
+        const p = total > 0 ? Math.min(1, Math.max(0, loaded / total)) : 0
+        const active = hovered === g.folder || currentFolder === g.folder
+        const name = g.folder === "." ? t("photoTriage.root") : g.folder
+        const loading = loaded < total
+        const label = `${name}${loading ? ` ${loaded}/${total}` : ""}`
+        const fillColor = active ? C_ACCENT : C_WARN
         return (
           <button
             key={g.folder}
             type="button"
+            aria-label={label}
             onClick={() => onJumpToFolder(g.folder)}
-            onMouseEnter={() => setHovered(g.folder)}
-            className={cn(
-              "relative flex h-4 cursor-pointer items-center justify-center",
-              hovered === g.folder && "z-40",
-            )}
+            onMouseEnter={(e) => {
+              setHovered(g.folder)
+              const r = e.currentTarget.getBoundingClientRect()
+              setTip({ x: r.right + 8, y: r.top + r.height / 2, folder: g.folder })
+            }}
+            className="relative flex min-h-[6px] w-full flex-1 cursor-pointer items-center justify-center"
           >
-            {/* 底轨 */}
+            {/* 底轨（py ::before）：常态 9×2 弱化，hover/当前 13×3 蓝色 */}
             <span
               className={cn(
-                "bg-muted-foreground/40 h-[3px] w-[10px] rounded-full transition-all",
-                hovered === g.folder && "bg-primary h-[5px] w-[14px]",
+                "rounded-full transition-all",
+                active ? "h-[3px] w-[13px] bg-[#4c8dff]" : "bg-muted-foreground/45 h-[2px] w-[9px]",
               )}
             />
-            {/* 进度填充层：从两端向中心渐变（calc(var(--p)*50%)），--p 为加载比例；填满后纯绿 */}
+            {/* 进度填充层（py ::after）：从两端向中心填充；填满纯绿，hover/当前变蓝 */}
             <span
-              className={cn(
-                "pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 transition-all",
-                hovered === g.folder && "scale-[1.4]",
-              )}
+              className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full transition-all"
               style={
                 {
-                  width: hovered === g.folder ? 14 : 10,
-                  height: hovered === g.folder ? 5 : 3,
-                  margin: "0 auto",
-                  borderRadius: 3,
-                  "--p": Math.min(1, Math.max(0, p)).toFixed(4),
-                  backgroundColor: p >= 1 ? "#2ecc71" : undefined,
-                  background:
-                    p >= 1
-                      ? undefined
-                      : p > 0
-                        ? "linear-gradient(90deg, #ffb454 0, #ffb454 calc(var(--p)*50% - 1px), transparent calc(var(--p)*50%), transparent calc(100% - var(--p)*50%), #ffb454 calc(100% - var(--p)*50% + 1px), #ffb454 100%)"
-                        : undefined,
-                  opacity: p > 0 ? 1 : 0,
-                } as React.CSSProperties
+                  width: active ? 13 : 9,
+                  height: active ? 3 : 2,
+                  "--p": p.toFixed(4),
+                  ...(p >= 1
+                    ? { backgroundColor: active ? C_ACCENT : C_KEEP }
+                    : {
+                        background: `linear-gradient(90deg, ${fillColor} 0, ${fillColor} calc(var(--p)*50% - 1px), transparent calc(var(--p)*50%), transparent calc(100% - var(--p)*50%), ${fillColor} calc(100% - var(--p)*50% + 1px), ${fillColor} 100%)`,
+                      }),
+                } as React.CSSProperties & Record<"--p", string>
               }
             />
-            {/* hover tooltip：立即显示文件夹名 + 加载进度 */}
-            {hovered === g.folder ? (
-              <span className="bg-popover text-popover-foreground pointer-events-none absolute top-1/2 left-5 z-50 max-w-[60vw] -translate-y-1/2 truncate rounded-md border px-2 py-1 text-[11px] shadow-md">
-                {g.folder === "." ? t("photoTriage.root") : g.folder}
-                {loading ? ` ${info?.loaded}/${info?.total}` : ""}
-              </span>
-            ) : null}
             <span className="sr-only">{label}</span>
           </button>
         )
       })}
+      {/* hover tooltip：fixed 定位 portal 到 body（py gtip，不受容器裁剪，垂直位置钳制在视口内） */}
+      {tip
+        ? createPortal(
+            <div
+              className="bg-popover text-popover-foreground pointer-events-none fixed z-[99] max-w-[60vw] truncate rounded-md border px-2.5 py-1 text-xs shadow-md"
+              style={{
+                left: tip.x,
+                top: Math.max(8, Math.min(tip.y, window.innerHeight - 34)),
+                transform: "translateY(-50%)",
+              }}
+            >
+              {tip.folder === "." ? t("photoTriage.root") : tip.folder}
+              {tipInfo && tipInfo.loaded < tipInfo.total
+                ? ` ${tipInfo.loaded}/${tipInfo.total}`
+                : ""}
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   )
 })

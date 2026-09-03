@@ -310,6 +310,49 @@ export async function ensureProxy(id: string, kind: ProxyKind): Promise<string |
   }
 }
 
+// 缩略图代理并发闸门（对齐 Python `IMG_CONC = 8`）：点击分组索引条跳转到照片多的分组时，
+// 虚拟化会一次性挂载几十个缩略图，若无闸门会同时发起大量 sips/ffmpeg 生成导致「疯狂加载」。
+// 这里固定 8 并发、完成一个再取下一个，加载到挂载的限度后即停（滚动到新行才继续）。
+const THUMB_CONC = 8
+let thumbActive = 0
+const thumbQueue: { id: string; kind: ProxyKind; resolve: (v: string | null) => void }[] = []
+
+function pumpThumbProxy() {
+  while (thumbActive < THUMB_CONC && thumbQueue.length) {
+    const job = thumbQueue.shift()!
+    thumbActive++
+    void repository
+      .photoTriageEnsureProxy(job.id, job.kind)
+      .then((res) => {
+        if (res.path) {
+          usePhotoTriageStore.getState().setProxy(`${job.id}:${job.kind}`, res.path)
+        }
+        job.resolve(res.path ?? null)
+      })
+      .catch(() => job.resolve(null))
+      .finally(() => {
+        thumbActive--
+        pumpThumbProxy()
+      })
+  }
+}
+
+/**
+ * 缩略图代理请求（排队 + 并发闸门）。缩略图条专用：即使一次挂载几十张，
+ * 同时也只有 8 个在生成，其余排队；加载完当前挂载的限度后自动停止。
+ * （预览大图/视频仍走直连的 `ensureProxy`，不排队，对齐 py 大图即时加载。）
+ */
+export function requestThumbProxy(id: string, kind: ProxyKind): Promise<string | null> {
+  const store = usePhotoTriageStore.getState()
+  const cacheKey = `${id}:${kind}`
+  const cached = store.proxy[cacheKey]
+  if (cached) return Promise.resolve(cached)
+  return new Promise((resolve) => {
+    thumbQueue.push({ id, kind, resolve })
+    pumpThumbProxy()
+  })
+}
+
 // ---------------------------------------------------------------------------
 // 移动 / 多选 / 待选文件夹（对齐 Python `moveItems` / `selectAllVisible` / `quickMove`）
 // ---------------------------------------------------------------------------

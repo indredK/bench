@@ -35,6 +35,8 @@ export function useKeyboardShortcuts(controller: PhotoTriageController) {
       if ((e.metaKey || e.ctrlKey) && (e.key === "a" || e.key === "A")) {
         e.preventDefault()
         selectAll()
+        const n = usePhotoTriageStore.getState().multiSel.length
+        if (n) toast(t("photoTriage.selectedAll", { count: n }))
         return
       }
       if (e.metaKey || e.ctrlKey || e.altKey) return

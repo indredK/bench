@@ -13,6 +13,8 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { PhotoTriageController } from "@/features/photo-triage/hooks/usePhotoTriageController"
 import { prettyPath, toAssetUrl } from "@/features/photo-triage/hooks/usePhotoTriageController"
+import { setDragImage } from "@/features/photo-triage/lib/drag"
+import { usePhotoTriageStore } from "@/features/photo-triage/store"
 import * as uc from "@/features/photo-triage/services/photo-triage.use-cases"
 
 type Zoom = 0 | 1 | 2
@@ -25,7 +27,7 @@ export const PreviewStage = memo(function PreviewStage({
   onRestore: (ids: string[]) => void
 }) {
   const { t } = useTranslation()
-  const { current, currentIndex, visible, liveView, nav, markCurrent } = controller
+  const { current, currentIndex, visible, liveView, nav, markCurrent, dragActive } = controller
   const [videoSrc, setVideoSrc] = useState<string | null>(null)
   const [imageSrc, setImageSrc] = useState<string | null>(null)
   const [isVideo, setIsVideo] = useState(false)
@@ -107,7 +109,9 @@ export const PreviewStage = memo(function PreviewStage({
     : ""
 
   const dragIds = `${controller.multiSel.length ? controller.multiSel.join(",") : (current?.id ?? "")}`
-  const zoomClass = zoom === 1 ? "w-full max-w-none" : zoom === 2 ? "w-[200%] max-w-none" : ""
+  // 对齐 py lightbox：fit= max 100% contain；100% = w:100%；200% = w:200%（超宽可滚动查看）
+  const zoomClass =
+    zoom === 1 ? "w-full max-w-none" : zoom === 2 ? "w-[200%] max-w-none" : "max-h-full max-w-full"
 
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col">
@@ -135,16 +139,26 @@ export const PreviewStage = memo(function PreviewStage({
               if (!dragIds) return
               e.dataTransfer.setData("text/plain", dragIds)
               e.dataTransfer.effectAllowed = "move"
+              usePhotoTriageStore.getState().setDragActive(true)
+              // WKWebView 显式指定跟随图（对齐 py 在浏览器里的默认快照）
+              setDragImage(e, e.currentTarget, 240)
             }}
+            onDragEnd={() => usePhotoTriageStore.getState().setDragActive(false)}
             onClick={() => setLightboxOpen(true)}
-            className="cursor-zoom-in object-contain"
+            className="max-h-full max-w-full cursor-zoom-in object-contain"
           />
         ) : (
           <p className="text-muted-foreground text-sm select-none">{t("photoTriage.loading")}</p>
         )}
       </div>
 
-      <div className="bg-background flex flex-wrap items-center gap-2 border-t px-3 py-2">
+      {/* 拖拽中淡化 meta 栏聚焦待选文件夹（py file-dragging .meta；不能动预览区本身——它是拖拽源祖先） */}
+      <div
+        className={cn(
+          "bg-background flex flex-wrap items-center gap-2 border-t px-3 py-2 transition-opacity",
+          dragActive && "pointer-events-none opacity-35",
+        )}
+      >
         <span className="text-muted-foreground max-w-[30%] min-w-0 truncate text-xs">
           {current
             ? prettyPath(current.image || current.video || current.stem)

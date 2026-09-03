@@ -179,3 +179,20 @@ html[data-window-theme="glass"] [data-slot="dialog-overlay"] {
   backdrop-filter: blur(10px) saturate(130%);
   -webkit-backdrop-filter: blur(10px) saturate(130%);
 }
+
+/* ─── Toast: firm glass so transient notices stay readable ──────────
+ * sonner's normal-toast background is `var(--normal-bg)` = `var(--popover)`,
+ * which glass rewrites to a translucent alpha — without a backdrop it reads
+ * as fully transparent. Scope an OPAQUE popover onto the toaster container:
+ * normal toasts become solid, while richColors success/error/warning keep
+ * their own opaque accent backgrounds untouched. */
+html[data-window-theme="glass"]:not(.dark) [data-sonner-toaster] {
+  --popover: 0 0% 100%;
+}
+html[data-window-theme="glass"].dark [data-sonner-toaster] {
+  --popover: 224 18% 12%;
+}
+html[data-window-theme="glass"] [data-sonner-toast] {
+  backdrop-filter: blur(30px) saturate(170%);
+  -webkit-backdrop-filter: blur(30px) saturate(170%);
+}

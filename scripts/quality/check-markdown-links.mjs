@@ -21,8 +21,11 @@ let linkCount = 0
 
 for (const markdownFile of markdownFiles) {
   const source = fs.readFileSync(markdownFile, "utf8")
+  // Strip fenced code blocks before link extraction: ASCII diagrams inside
+  // ``` fences contain parenthesized text that is not a Markdown link.
+  const linkSource = source.replace(/^(`{3}|~{3})[^\n]*$[\s\S]*?^\1[^\n]*$/gm, "")
   const linkPattern = /!?\[[^\]]*\]\(([^)]+)\)/g
-  for (const match of source.matchAll(linkPattern)) {
+  for (const match of linkSource.matchAll(linkPattern)) {
     let target = match[1].trim()
     if (target.startsWith("<") && target.endsWith(">")) target = target.slice(1, -1)
     if (

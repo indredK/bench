@@ -24,7 +24,8 @@
         "visible": false,
         "decorations": false,
         "titleBarStyle": "Overlay",
-        "transparent": true
+        "transparent": true,
+        "dragDropEnabled": false
       },
       {
         "label": "splashscreen",

@@ -15,6 +15,7 @@ import type { PhotoItem } from "@/lib/tauri/types/photo-triage"
 import { usePhotoTriageStore, type TriageMark } from "@/features/photo-triage/store"
 import type { PhotoTriageController } from "@/features/photo-triage/hooks/usePhotoTriageController"
 import { toAssetUrl } from "@/features/photo-triage/hooks/usePhotoTriageController"
+import { setDragImage } from "@/features/photo-triage/lib/drag"
 import * as uc from "@/features/photo-triage/services/photo-triage.use-cases"
 
 const MIN_COL = 96 // 对齐 Python `.thumb` 最小列宽
@@ -54,7 +55,7 @@ const ProxyThumb = memo(function ProxyThumb({
       markLoaded()
       return
     }
-    void uc.ensureProxy(item.id, proxyKind).then((path) => {
+    void uc.requestThumbProxy(item.id, proxyKind).then((path) => {
       // 成功或失败都算处理完（刻度填充依据，对齐 Python loadedIds）；失败仅占位，不阻塞滚动
       markLoaded()
       if (!cancelled && path) setSrc(path)
@@ -75,7 +76,11 @@ const ProxyThumb = memo(function ProxyThumb({
         const ids = s.multiSel.includes(item.id) ? s.multiSel : [item.id]
         e.dataTransfer.setData("text/plain", ids.join(","))
         e.dataTransfer.effectAllowed = "move"
+        s.setDragActive(true)
+        // WKWebView 对 div 默认无跟随图，显式指定（对齐 py 在浏览器里的默认快照）
+        setDragImage(e, e.currentTarget)
       }}
+      onDragEnd={() => usePhotoTriageStore.getState().setDragActive(false)}
       title={item.stem}
       className={cn(
         "group/cell relative aspect-square w-full cursor-pointer overflow-hidden rounded-lg border-2 bg-black transition-colors",
@@ -87,10 +92,11 @@ const ProxyThumb = memo(function ProxyThumb({
       )}
     >
       {src ? (
+        /* 不用 loading="lazy"：WKWebView（Safari 内核）对动态插入的 lazy 图片可能永远不发起请求（黑块，
+           对齐 py 注释）；虚拟滚动本身只挂载视口附近行，无需再懒加载 */
         <img
           src={toAssetUrl(src) ?? undefined}
           alt={item.stem}
-          loading="lazy"
           onLoad={markLoaded}
           onError={markLoaded}
           className="h-full w-full object-cover"
@@ -203,7 +209,9 @@ export function ThumbnailStrip({
     getScrollElement: () => rootRef.current,
     estimateSize: estimateRowSize,
     getItemKey: (index) => model[index]?.key ?? index,
-    overscan: 8,
+    // overscan 适度减小：点击分组跳转后只预渲染视口附近少量行，配合 8 并发闸门，
+    // 加载到挂载的限度后即停，避免跳到照片多的分组时疯狂加载（py 同样只就近加载）
+    overscan: 4,
   })
 
   // 宽度/列数变化后重算尺寸
@@ -222,6 +230,54 @@ export function ThumbnailStrip({
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [model, virtualizer])
+
+  // 当前分组同步（对齐 Python syncGroupBarCur）：视口顶部所在分组写入 store，
+  // 供分组索引条高亮 .cur 刻度；滚动经 rAF 合并，仅在跨组变化时触发重渲染
+  const syncCurrentFolder = useCallback(
+    (scrollTop: number) => {
+      const target = scrollTop + 20
+      let y = 0
+      let idx = -1
+      for (let i = 0; i < model.length; i++) {
+        const h = model[i].kind === "header" ? HEADER_HEIGHT : gridRowHeight
+        if (y + h >= target) {
+          idx = i
+          break
+        }
+        y += h
+      }
+      if (idx === -1) idx = model.length - 1 // 滚到底部之下：取最后一组（对齐 py）
+      let folder: string | null = null
+      for (let i = idx; i >= 0; i--) {
+        if (model[i].kind === "header") {
+          folder = model[i].folder ?? null
+          break
+        }
+      }
+      const s = usePhotoTriageStore.getState()
+      if (s.currentFolder !== folder) s.setCurrentFolder(folder)
+    },
+    [model, gridRowHeight],
+  )
+
+  useEffect(() => {
+    const el = rootRef.current
+    if (!el) return
+    let raf = 0
+    const onScroll = () => {
+      if (raf) return
+      raf = requestAnimationFrame(() => {
+        raf = 0
+        syncCurrentFolder(el.scrollTop)
+      })
+    }
+    el.addEventListener("scroll", onScroll, { passive: true })
+    syncCurrentFolder(el.scrollTop) // 初始渲染/模型变化后按当前滚动位置同步
+    return () => {
+      el.removeEventListener("scroll", onScroll)
+      if (raf) cancelAnimationFrame(raf)
+    }
+  }, [syncCurrentFolder])
 
   if (!rows.length) {
     return (

@@ -1,0 +1,19 @@
+# EditorConfig — 跨编辑器统一格式行为，与 Prettier / pre-commit 对齐。
+# VS Code / Trae / Cursor 内置支持；其余编辑器见 https://editorconfig.org
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+# Markdown：行尾双空格是换行语义，不可裁剪
+[*.md]
+trim_trailing_whitespace = false
+
+# Cargo / TOML 与 lock 文件保持原样缩进习惯
+[*.{toml,lock}]
+indent_size = 4

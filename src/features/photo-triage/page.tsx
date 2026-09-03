@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { FolderPlus, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import {
   Dialog,
   DialogContent,
@@ -34,7 +35,7 @@ import { Splitter, loadStripWidth } from "@/features/photo-triage/components/Spl
 import * as uc from "@/features/photo-triage/services/photo-triage.use-cases"
 import type { PhotoItem } from "@/lib/tauri/types/photo-triage"
 
-/** 待选文件夹栏（对齐 Python `folders`/`chips`：点击移动、拖放移动、右键 reveal、移除）。 */
+/** 待选文件夹栏（对齐 Python `folders`/`chips`：点击移动、拖放移动、右键 reveal、移除；拖拽中高亮 + 边缘自动滚动）。 */
 function FoldersBar({
   controller,
   onAddFolder,
@@ -43,7 +44,53 @@ function FoldersBar({
   onAddFolder: () => void
 }) {
   const { t } = useTranslation()
-  const { folderCandidates, movedCounts, multiSel, moveToFolder, selectAll } = controller
+  const {
+    folderCandidates,
+    movedCounts,
+    multiSel,
+    moveToFolder,
+    selectAll,
+    allSelected,
+    dragActive,
+  } = controller
+  const [dragOverFolder, setDragOverFolder] = useState<string | null>(null)
+  /** 拖放后的移动确认（用户要求「二次确认放入」：显示条目数 + 目标路径，确认后才移动） */
+  const [pendingMove, setPendingMove] = useState<{ ids: string[]; folder: string } | null>(null)
+  const chipsRef = useRef<HTMLDivElement | null>(null)
+  const scrollDirRef = useRef(0)
+  const scrollRafRef = useRef(0)
+
+  // 拖到待选栏上下边缘时自动滚动（对齐 py chipAutoScrollTick：文件夹多也能拖到被挡住的卡片）
+  const autoScrollTick = useCallback(() => {
+    if (!scrollDirRef.current) {
+      scrollRafRef.current = 0
+      return
+    }
+    const el = chipsRef.current
+    if (el) el.scrollTop += scrollDirRef.current * 7
+    scrollRafRef.current = requestAnimationFrame(autoScrollTick)
+  }, [])
+  const stopAutoScroll = useCallback(() => {
+    scrollDirRef.current = 0
+    if (scrollRafRef.current) {
+      cancelAnimationFrame(scrollRafRef.current)
+      scrollRafRef.current = 0
+    }
+  }, [])
+  useEffect(() => stopAutoScroll, [stopAutoScroll])
+
+  const handleChipsDragOver = (e: React.DragEvent) => {
+    e.preventDefault() // 空白处也可悬停，用于触发边缘滚动（对齐 py）
+    e.dataTransfer.dropEffect = "move"
+    const el = chipsRef.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    const EDGE = 26
+    scrollDirRef.current = e.clientY < r.top + EDGE ? -1 : e.clientY > r.bottom - EDGE ? 1 : 0
+    if (scrollDirRef.current && !scrollRafRef.current) {
+      scrollRafRef.current = requestAnimationFrame(autoScrollTick)
+    }
+  }
 
   const handleChipClick = (folder: string) => {
     void moveToFolder(folder).then((res) => {
@@ -59,9 +106,18 @@ function FoldersBar({
 
   const handleDrop = (folder: string, e: React.DragEvent) => {
     e.preventDefault()
-    e.stopPropagation()
+    // 不 stopPropagation：让事件冒泡到 chips 容器的 onDrop（停止边缘自动滚动）与页面根节点（阻止导航）
+    setDragOverFolder(null)
     const ids = e.dataTransfer.getData("text/plain").split(",").filter(Boolean)
     if (!ids.length) return
+    // 二次确认后放入（用户要求）：显示条目数 + 目标路径
+    setPendingMove({ ids, folder })
+  }
+
+  const confirmMove = () => {
+    if (!pendingMove) return
+    const { ids, folder } = pendingMove
+    setPendingMove(null)
     void moveToFolder(folder, ids).then((res) => {
       if (res.ok) {
         toast(t("photoTriage.movedItems", { count: res.count, path: prettyPath(folder) }))
@@ -71,13 +127,31 @@ function FoldersBar({
     })
   }
 
+  const handleSelectAll = () => {
+    selectAll()
+    const n = usePhotoTriageStore.getState().multiSel.length
+    if (n) toast(t("photoTriage.selectedAll", { count: n }))
+  }
+
   return (
-    <div className="bg-background flex items-center gap-2 border-b px-3 py-2">
+    // 拖拽中：待选栏高亮聚焦、chips 泛蓝提示可放置（对齐 py body.file-dragging .folders/.chip）
+    <div
+      className={cn(
+        "bg-background flex items-center gap-2 border-b px-3 py-2 transition-colors",
+        dragActive && "bg-primary/5 ring-primary ring-2 ring-inset",
+      )}
+    >
       <span className="text-muted-foreground text-xs">{t("photoTriage.moveTo")}</span>
       <span className="text-primary text-xs font-semibold">
         {multiSel.length ? t("photoTriage.selectedCount", { count: multiSel.length }) : ""}
       </span>
-      <div className="flex max-h-[84px] min-h-0 flex-1 flex-wrap items-start gap-1.5 overflow-y-auto">
+      <div
+        ref={chipsRef}
+        className="flex max-h-[84px] min-h-0 flex-1 flex-wrap items-start gap-1.5 overflow-y-auto"
+        onDragOver={handleChipsDragOver}
+        onDragLeave={stopAutoScroll}
+        onDrop={stopAutoScroll}
+      >
         {folderCandidates.length === 0 ? (
           <span className="text-muted-foreground self-center text-xs">
             {t("photoTriage.folderEmptyHint")}
@@ -86,7 +160,12 @@ function FoldersBar({
           folderCandidates.map((folder, i) => (
             <div
               key={folder}
-              className="group bg-muted/50 hover:border-primary flex max-w-[210px] cursor-pointer items-center gap-1.5 rounded-lg border px-2 py-1.5 transition-colors"
+              className={cn(
+                "group bg-muted/50 flex max-w-[210px] cursor-pointer items-center gap-1.5 rounded-lg border px-2 py-1.5 transition-colors",
+                dragActive && "border-primary/50 [&>*]:pointer-events-none",
+                dragOverFolder === folder &&
+                  "border-primary bg-primary/15 shadow-[0_0_0_2px_var(--color-primary),0_0_20px_rgba(76,141,255,.5)]",
+              )}
               title={`${t("photoTriage.moveInto", { path: prettyPath(folder) })}${i < 9 ? ` (${i + 1})` : ""}`}
               onClick={() => handleChipClick(folder)}
               onContextMenu={(e) => {
@@ -94,8 +173,14 @@ function FoldersBar({
                 void uc.revealPath(folder)
               }}
               onDragOver={(e) => {
+                // 不 stopPropagation：容器 dragover 继续驱动边缘自动滚动（对齐 py：容器与卡片都监听）
                 e.preventDefault()
                 e.dataTransfer.dropEffect = "move"
+                setDragOverFolder(folder)
+              }}
+              onDragLeave={(e) => {
+                // 子元素间移动不算离开（对齐 py pointer-events 防抖动）
+                if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverFolder(null)
               }}
               onDrop={(e) => handleDrop(folder, e)}
             >
@@ -126,8 +211,13 @@ function FoldersBar({
           ))
         )}
       </div>
-      <Button variant="ghost" size="sm" onClick={selectAll} title={t("photoTriage.selectAll")}>
-        {t("photoTriage.selectAll")}
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={handleSelectAll}
+        title={allSelected ? t("photoTriage.unselectAll") : t("photoTriage.selectAll")}
+      >
+        {allSelected ? t("photoTriage.unselectAll") : t("photoTriage.selectAll")}
       </Button>
       <Button
         variant="outline"
@@ -138,6 +228,29 @@ function FoldersBar({
         <FolderPlus size={14} className="mr-1" />
         {t("photoTriage.addFolder")}
       </Button>
+
+      {/* 拖放放置确认（用户要求「二次确认放入」） */}
+      <Dialog open={pendingMove !== null} onOpenChange={(open) => !open && setPendingMove(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("photoTriage.moveConfirmTitle")}</DialogTitle>
+          </DialogHeader>
+          <p className="text-muted-foreground text-sm">
+            {pendingMove
+              ? t("photoTriage.moveConfirmDesc", {
+                  count: pendingMove.ids.length,
+                  path: prettyPath(pendingMove.folder),
+                })
+              : ""}
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPendingMove(null)}>
+              {t("common.cancel")}
+            </Button>
+            <Button onClick={confirmMove}>{t("common.confirm")}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -159,6 +272,7 @@ export default function PhotoTriagePage() {
   const stripWidth = usePhotoTriageStore((s) => s.stripWidth)
   const helpOpen = usePhotoTriageStore((s) => s.helpOpen)
   const emptyDirsOpen = usePhotoTriageStore((s) => s.emptyDirsOpen)
+  const dragActive = usePhotoTriageStore((s) => s.dragActive)
 
   const handleAddFolder = async () => {
     const folder = await uc.pickFolder()
@@ -217,13 +331,24 @@ export default function PhotoTriagePage() {
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <TriageHeader
-        controller={controller}
-        onConfirmTrash={setConfirmItems}
-        onOpenHelp={() => usePhotoTriageStore.getState().setHelpOpen(true)}
-      />
-      <TriageToolbar controller={controller} />
+    // 拖放落点兜底：整个页面声明为有效放置目标，防止 WKWebView 把 text/plain 当 URL 导航跳空白页
+    <div
+      className="flex h-full flex-col"
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => e.preventDefault()}
+    >
+      {/* 拖拽中淡化无关区域聚焦待选栏（对齐 py file-dragging header/toolbar/splitter；
+          不可动缩略图/预览区——它们是拖拽源的祖先，WebKit 会在渲染上下文被改时取消拖拽） */}
+      <div className={cn(dragActive && "pointer-events-none opacity-35")}>
+        <TriageHeader
+          controller={controller}
+          onConfirmTrash={setConfirmItems}
+          onOpenHelp={() => usePhotoTriageStore.getState().setHelpOpen(true)}
+        />
+      </div>
+      <div className={cn(dragActive && "pointer-events-none opacity-35")}>
+        <TriageToolbar controller={controller} />
+      </div>
       <FoldersBar controller={controller} onAddFolder={() => setFolderDialogOpen(true)} />
 
       <div className="flex min-h-0 flex-1">
@@ -241,7 +366,9 @@ export default function PhotoTriagePage() {
             }}
           />
         </div>
-        <Splitter />
+        <div className={cn("flex flex-none", dragActive && "pointer-events-none opacity-35")}>
+          <Splitter />
+        </div>
         <div className="flex min-w-0 flex-1">
           <PreviewStage controller={controller} onRestore={handleRestore} />
         </div>

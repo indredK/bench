@@ -59,6 +59,10 @@ interface PhotoTriageState {
   loadedIds: string[]
   /** 缩略图栏宽度（splitter 拖拽调整，随 localStorage 记忆） */
   stripWidth: number
+  /** 视口顶部当前所在的分组（分组索引条高亮依据，对齐 Python `syncGroupBarCur`） */
+  currentFolder: string | null
+  /** 缩略图/大图 → 待选文件夹拖拽进行中（驱动界面聚焦反馈，对齐 Python `body.file-dragging`） */
+  dragActive: boolean
 
   // 弹窗（供键盘 ? 与工具栏打开）
   helpOpen: boolean
@@ -104,6 +108,8 @@ interface PhotoTriageState {
   setItemLoaded: (id: string) => void
   resetLoaded: () => void
   setStripWidth: (width: number) => void
+  setCurrentFolder: (folder: string | null) => void
+  setDragActive: (active: boolean) => void
 
   // 移动后应用服务端返回的条目更新（from → to 迁移标记）；返回值：移出相册的 id
   applyMoveUpdates: (
@@ -150,6 +156,8 @@ export const usePhotoTriageStore = create<PhotoTriageState>((set, get) => ({
   proxy: {},
   loadedIds: [],
   stripWidth: 320,
+  currentFolder: null,
+  dragActive: false,
   helpOpen: false,
   emptyDirsOpen: false,
 
@@ -168,6 +176,7 @@ export const usePhotoTriageStore = create<PhotoTriageState>((set, get) => ({
       loadError: null,
       loadedIds: [],
       proxy: {},
+      currentFolder: null,
     }),
   setRecent: (recent) => set({ recent }),
   setCapabilities: (capabilities) => set({ capabilities }),
@@ -232,6 +241,8 @@ export const usePhotoTriageStore = create<PhotoTriageState>((set, get) => ({
     set((s) => (s.loadedIds.includes(id) ? {} : { loadedIds: [...s.loadedIds, id] })),
   resetLoaded: () => set({ loadedIds: [] }),
   setStripWidth: (stripWidth) => set({ stripWidth }),
+  setCurrentFolder: (currentFolder) => set({ currentFolder }),
+  setDragActive: (dragActive) => set({ dragActive }),
 
   applyMoveUpdates: (updates) => {
     const s = get()
