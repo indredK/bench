@@ -19,6 +19,8 @@ pub const IMAGE_EXTS: &[&str] = &[
 pub const VIDEO_EXTS: &[&str] = &[".mov", ".mp4", ".m4v", ".avi", ".mkv", ".webm"];
 
 /// 图片代理最长边（越大越容易看清糊不糊），对齐 Python `IMG_MAX_EDGE = 1600`。
+/// 仅 macOS 的 sips 预览路径使用；Windows 下不编译（避免 dead-code）。
+#[cfg(target_os = "macos")]
 pub const IMG_MAX_EDGE: u32 = 1600;
 /// 视频代理高度，对齐 Python `VID_HEIGHT = 720`。
 pub const VID_HEIGHT: u32 = 720;

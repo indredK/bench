@@ -29,6 +29,13 @@ Thumbs.db
 .agent_context/
 .multica/
 .qoder/
+.cursor/
+.qodo/
+.zencoder/
+.zenflow/
+
+# Stitch export artifacts (local only)
+stitch_exports/
 
 # Agent session artifacts at repo root
 /purrfect-sauteeing-pudding.md

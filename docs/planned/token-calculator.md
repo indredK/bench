@@ -2,7 +2,7 @@
 
 > 本文件记录 token-calculator 模块**未实现 / 待验证**的功能规划，与 `../product-specs/token-calculator.md` 同结构。
 > 实现一项即从本文件移除，并同步到产品说明；规划新增功能先写到这里再开发。
-> 本模块不在 2.0（R00–R10）执行序列内，迭代规划以模块 roadmap（`../modules/token-calculator/roadmap.md`）为准。
+> 本模块不在 2.0（R00–R10）执行序列内，按需迭代。
 
 ## 待实现 / 待评估
 

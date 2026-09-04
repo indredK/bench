@@ -82,8 +82,6 @@ if (partiallyStagedFiles.length > 0) {
   process.exit(1)
 }
 
-runStep("Checking staged whitespace", "git", ["diff", "--cached", "--check"])
-
 const prettierPatterns = [/\.(?:cjs|css|html|js|json|jsonc|jsx|md|mjs|scss|ts|tsx|yaml|yml)$/]
 /** Listed in .prettierignore — release-please output must not be auto-formatted. */
 const prettierIgnoredPatterns = [
@@ -196,6 +194,9 @@ if (hasBackendChanges) {
     runStep("Re-staging auto-formatted Rust files", "git", ["add", ...rustFiles])
     console.log("cargo fmt auto-fixed and re-staged the above Rust files.")
   }
+  // Whitespace check must run AFTER the auto-fix steps (prettier + cargo fmt), so
+  // trailing whitespace / "new blank line at EOF" are fixed before being reported.
+  runStep("Checking staged whitespace", "git", ["diff", "--cached", "--check"])
   runStep("Checking Rust code", pkgManager, ["run", "check:be"])
   runStep("Running Rust clippy (warnings as errors)", pkgManager, ["run", "clippy:be"])
   runStep("Running Rust tests", pkgManager, ["run", "test:be"])

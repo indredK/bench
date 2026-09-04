@@ -1,6 +1,4 @@
 # Hardware Roadmap
 
-## Backlog
-
-- [ ] 接入可追溯的价格数据源，并定义更新时间与 stale 状态。
-- [ ] 导出对比为图片/PDF，覆盖长表格分页和中英文。
+> 规划功能（待验证 / 远期）已汇总至 [planned/hardware.md](../../planned/hardware.md)。
+> 已完成功能与详情见 [product-specs/hardware.md](../../product-specs/hardware.md)。

@@ -1,12 +1,12 @@
-# Clean Space 文档
+# Clean Space（清理空间）
+
+> **完备功能规格** → [product-specs/clean-space.md](../../product-specs/clean-space.md)
+> **规划功能** → [planned/clean-space.md](../../planned/clean-space.md)
 
 代码：`src/features/clean-space/` · `src-tauri/src/clean_space/`
 
-Clean Space 负责存储总览、开发项目清理、自定义目录清理和清理记录。开发项目清理复用 `dev-cleaner` 引擎。
+定位：macOS-only 顶层清理入口，负责存储总览、开发项目清理、自定义目录清理和清理记录；开发项目清理复用 `dev-cleaner` 引擎。
 
-交互模型：顶部横向 Tab 切换四个区域（存储总览 / 开发项目清理 / 自定义目录清理 / 清理记录）。存储总览采用渐进式呈现：扫描进度流式推送、边扫边渲染；点击分类卡片 drill-down 进入分类详情，Esc 返回总览。清理执行前逐项展示风险与预计释放量并经确认弹窗二次确认；扫描进行中锁定清理入口。
-
-| 文档                       | 说明                           |
-| -------------------------- | ------------------------------ |
-| [design.md](./design.md)   | 扫描模型、清理白名单和路径安全 |
-| [roadmap.md](./roadmap.md) | 未完成项                       |
+| 文档                     | 说明                           |
+| ------------------------ | ------------------------------ |
+| [design.md](./design.md) | 扫描模型、清理白名单和路径安全 |

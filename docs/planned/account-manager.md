@@ -15,6 +15,7 @@
 - [ ] 两平台首次创建账号、保存密码与 Session；完全退出重启后密码可按需 reveal、Session 恢复后 probe 为 Ready。
 - [ ] 两个进程并发触发首次主密钥与账号写入；重启后只有一个 canonical key、全部密文可解、revision 单调无覆盖。
 - [ ] 拒绝 Keychain/Credential Manager：capability 返回 `failed`，页面可重试，不创建伪成功 Session。
+- [ ] 记录卸载 / 重装后系统凭据的真实生命周期；不得为“修复”手工删除系统凭据。
 
 ### 2. Cookie、Web Storage 与 IndexedDB
 
@@ -22,6 +23,7 @@
 - [ ] 导航 fixture B 时 A 数据不可见；两账号反复切换/重启互不可见。
 - [ ] 提升 schema version 或修改 store/index 后恢复必须 fail-closed，不覆盖现有数据库。
 - [ ] 超限（512 key/2 MiB、32 database、128 store、10000 record/8 MiB）与 Blob/CryptoKey/循环引用返回 limited/failed，旧 Session 不被半截快照覆盖。
+- [ ] Partitioned Cookie 继续不进入 HTTP probe；Tauri 未提供 partition key 前不得改为普通 Cookie 发送。
 
 ### 3. Probe、批量与隔离
 

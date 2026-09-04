@@ -13,13 +13,18 @@ use std::time::Duration;
 use tokio::sync::Notify;
 
 use super::ffmpeg;
-use super::scan::{fresh, IMG_MAX_EDGE, VID_HEIGHT};
+#[cfg(target_os = "macos")]
+use super::scan::IMG_MAX_EDGE;
+use super::scan::{fresh, VID_HEIGHT};
 use super::state::{img_gate, vid_gate, ProxyKind, TriageState};
 use crate::error::{AppError, AppResult};
 use crate::subprocess::run_output_with_timeout;
 
 /// 子进程超时：sips/qlmanage 短任务 60s；ffmpeg 转码最长 120s（损坏视频不拖死闸门）。
+/// sips/qlmanage 为 macOS 系统工具，Windows 下不编译（避免 unused/dead-code）。
+#[cfg(target_os = "macos")]
 const SIPS_TIMEOUT: Duration = Duration::from_secs(60);
+#[cfg(target_os = "macos")]
 const QLMANAGE_TIMEOUT: Duration = Duration::from_secs(60);
 const FFMPEG_TIMEOUT: Duration = Duration::from_secs(120);
 
@@ -66,7 +71,11 @@ fn make_image_proxy(src: &Path, tmp: &Path) -> bool {
 
 /// 视频静态封面：优先 ffmpeg 单帧；失败或无 ffmpeg 时回退 qlmanage（须转成 jpeg）。
 fn make_video_poster(src: &Path, tmp: &Path, info: &ffmpeg::FfmpegInfo) -> bool {
+    // macOS 下 qlmanage 回退段会改写 made；Windows 无该段，made 只赋值一次（不可变）。
+    #[cfg(target_os = "macos")]
     let mut made = fresh(tmp, true); // force: 先删除占位
+    #[cfg(not(target_os = "macos"))]
+    let made = fresh(tmp, true); // force: 先删除占位
     if info.has_ffmpeg {
         if let Some(ff) = &info.path {
             let mut cmd = Command::new(ff);

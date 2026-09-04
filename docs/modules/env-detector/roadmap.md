@@ -1,8 +1,4 @@
 # Env Detector Roadmap
 
-## Backlog
-
-- [ ] 环境差异对比。
-- [ ] 环境配置导出；输出必须脱敏凭据和用户路径。
-- [ ] CI/CD 模板生成；生成内容需明确目标平台和版本。
-- [ ] 为探测失败、部分结果和平台差异补测试。
+> 规划功能（待验证 / 远期）已汇总至 [planned/env-detector.md](../../planned/env-detector.md)。
+> 已完成功能与详情见 [product-specs/env-detector.md](../../product-specs/env-detector.md)。

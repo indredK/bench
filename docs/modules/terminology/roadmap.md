@@ -1,9 +1,4 @@
 # Terminology Roadmap
 
-## Backlog
-
-- [ ] 清理 `constants.ts` 未使用导出。
-- [ ] 术语收藏导出。
-- [ ] 至少一项关键行为测试进入门禁。
-- [ ] 社区贡献流程；导入内容需校验 schema 和冲突。
-- [ ] 术语语音朗读，明确平台能力降级。
+> 未完成项（backlog / 待验证 / 远期）已汇总至 [planned/terminology.md](../../planned/terminology.md)。
+> 已完成功能与详情见 [product-specs/terminology.md](../../product-specs/terminology.md)。

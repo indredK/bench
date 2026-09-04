@@ -1,8 +1,5 @@
 # Port Manager Roadmap
 
-安全、平台和性能边界见 [design.md](./design.md)。
-
-## Backlog
-
-- [ ] 清理未使用返回值和死代码。
-- [ ] 优化大 PID 集合的进程树构建与刷新开销。
+> 规划功能（Backlog / 待验证 / 远期）已汇总至 [planned/port-manager.md](../../planned/port-manager.md)。
+> 已完成功能与详情见 [product-specs/port-manager.md](../../product-specs/port-manager.md)。
+> 安全、平台和性能边界见 [design.md](./design.md)。

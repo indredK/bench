@@ -5,15 +5,15 @@
 
 ## 待实现
 
-- [ ] **环境差异对比**：`docs/modules/env-detector/roadmap.md` Backlog。两份本机扫描结果（或两台机器导出）横向对比差异。
+- [ ] **环境差异对比**：两份本机扫描结果（或两台机器导出）横向对比差异。
 
-- [ ] **环境配置导出**：`docs/modules/env-detector/roadmap.md` Backlog。导出环境清单（版本/路径等）；**必须脱敏凭据与用户路径**（如 `$HOME` 等替换为占位符）。
+- [ ] **环境配置导出**：导出环境清单（版本/路径等）；**必须脱敏凭据与用户路径**（如 `$HOME` 等替换为占位符）。
 
-- [ ] **CI/CD 模板生成**：`docs/modules/env-detector/roadmap.md` Backlog。按当前环境生成 CI/CD 配置模板，生成内容需明确目标平台和版本。
+- [ ] **CI/CD 模板生成**：按当前环境生成 CI/CD 配置模板，生成内容需明确目标平台和版本。
 
 ## 待验证（真机/跨平台）
 
-- [ ] 为探测失败、部分结果和平台差异补测试：`docs/modules/env-detector/roadmap.md` Backlog。目前仅有 use-case 层单测（`__tests__/env-detector.test.ts`），缺少 macOS / Windows 真机探测、超时截断、多版本并存、低信号 Node bin 过滤等场景验证。
+- [ ] 为探测失败、部分结果和平台差异补测试：目前仅有 use-case 层单测（`__tests__/env-detector.test.ts`），缺少 macOS / Windows 真机探测、超时截断、多版本并存、低信号 Node bin 过滤等场景验证。
 
 - [ ] 跨平台：macOS 登录 shell PATH 收集（zsh/fish/bash）在真实 shell 环境下与 `which`/`type -p` 结果一致性。
 
