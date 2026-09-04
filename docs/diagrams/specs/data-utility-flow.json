@@ -1,0 +1,318 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "数据链路 · 系统到界面",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [1070, 740]
+  },
+  "stages": [
+    { "label": "系统来源" },
+    { "label": "Rust 采集" },
+    { "label": "IPC 边界" },
+    { "label": "前端状态" },
+    { "label": "UI 呈现" }
+  ],
+  "nodes": [
+    {
+      "id": "os-res",
+      "type": "cloud",
+      "label": "macOS / Windows",
+      "sublabel": "文件 · 端口",
+      "stage": 0,
+      "row": 0,
+      "tag": "源头"
+    },
+    {
+      "id": "gh-rel",
+      "type": "external",
+      "label": "GitHub Releases",
+      "sublabel": "签名更新源",
+      "stage": 0,
+      "row": 3,
+      "tag": "外部"
+    },
+    {
+      "id": "rust-scan",
+      "type": "backend",
+      "label": "Rust 领域命令",
+      "sublabel": "du -skx · 扫描 · 探测",
+      "stage": 1,
+      "row": 0,
+      "tag": "采集"
+    },
+    {
+      "id": "serde",
+      "type": "backend",
+      "label": "serde 序列化",
+      "sublabel": "AppResult<T> → JSON",
+      "stage": 1,
+      "row": 1,
+      "tag": "契约"
+    },
+    {
+      "id": "dto",
+      "type": "frontend",
+      "label": "类型化 DTO",
+      "sublabel": "lib/tauri/types",
+      "stage": 2,
+      "row": 0,
+      "tag": "契约"
+    },
+    {
+      "id": "tauri-ipc",
+      "type": "messagebus",
+      "label": "Tauri IPC",
+      "sublabel": "invoke 往返 · 流式事件",
+      "stage": 2,
+      "row": 1,
+      "tag": "边界"
+    },
+    {
+      "id": "err-pipe",
+      "type": "security",
+      "label": "错误通道",
+      "sublabel": "AppError 序列化",
+      "stage": 2,
+      "row": 2,
+      "tag": "异常"
+    },
+    {
+      "id": "map-domain",
+      "type": "backend",
+      "label": "mapToDomain()",
+      "sublabel": "DTO → 领域模型",
+      "stage": 3,
+      "row": 0,
+      "tag": "转换"
+    },
+    {
+      "id": "store",
+      "type": "frontend",
+      "label": "Zustand Store",
+      "sublabel": "扁平状态 · 流式注入",
+      "stage": 3,
+      "row": 1,
+      "tag": "状态"
+    },
+    {
+      "id": "parse-err",
+      "type": "security",
+      "label": "错误解析",
+      "sublabel": "parseCommandError",
+      "stage": 3,
+      "row": 3,
+      "tag": "异常"
+    },
+    {
+      "id": "render",
+      "type": "frontend",
+      "label": "React 组件",
+      "sublabel": "selector 订阅渲染",
+      "stage": 4,
+      "row": 0,
+      "tag": "视图"
+    },
+    {
+      "id": "feedback",
+      "type": "frontend",
+      "label": "用户反馈",
+      "sublabel": "toast · 错误态 · 空态",
+      "stage": 4,
+      "row": 3,
+      "tag": "呈现"
+    }
+  ],
+  "flows": [
+    {
+      "id": "os-rust",
+      "from": "os-res",
+      "to": "rust-scan",
+      "label": "读系统 / 扫描",
+      "classification": "系统数据",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left",
+      "route": "straight"
+    },
+    {
+      "id": "gh-rust",
+      "from": "gh-rel",
+      "to": "rust-scan",
+      "label": "检查更新",
+      "classification": "网络数据",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "bottom",
+      "via": [
+        [450, 499],
+        [450, 560],
+        [245, 560],
+        [245, 200],
+        [315, 200]
+      ],
+      "labelAt": [360, 546]
+    },
+    {
+      "id": "rust-serde",
+      "from": "rust-scan",
+      "to": "serde",
+      "label": "结构化结果",
+      "classification": "成功路径",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [338, 222]
+    },
+    {
+      "id": "serde-ipc",
+      "from": "serde",
+      "to": "tauri-ipc",
+      "label": "跨进程传输",
+      "classification": "IPC JSON",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left",
+      "route": "straight",
+      "labelAt": [410, 260]
+    },
+    {
+      "id": "ipc-dto",
+      "from": "tauri-ipc",
+      "to": "dto",
+      "label": "成功返回",
+      "classification": "类型化数据",
+      "variant": "default",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelAt": [548, 314]
+    },
+    {
+      "id": "serde-err",
+      "from": "serde",
+      "to": "err-pipe",
+      "label": "异常序列化",
+      "classification": "错误路径",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "left",
+      "via": [
+        [315, 360],
+        [450, 360],
+        [450, 385],
+        [470, 385]
+      ],
+      "labelAt": [340, 352]
+    },
+    {
+      "id": "dto-map",
+      "from": "dto",
+      "to": "map-domain",
+      "label": "DTO → 领域",
+      "classification": "转换",
+      "variant": "default",
+      "fromSide": "right",
+      "toSide": "left",
+      "route": "straight",
+      "labelAt": [640, 149]
+    },
+    {
+      "id": "map-store",
+      "from": "map-domain",
+      "to": "store",
+      "label": "setState()",
+      "classification": "状态写入",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [722, 314]
+    },
+    {
+      "id": "store-render",
+      "from": "store",
+      "to": "render",
+      "label": "selector 订阅",
+      "classification": "渲染驱动",
+      "variant": "default",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [
+        [850, 271],
+        [850, 157]
+      ],
+      "labelAt": [874, 232]
+    },
+    {
+      "id": "err-parse",
+      "from": "err-pipe",
+      "to": "parse-err",
+      "label": "错误跨边界",
+      "classification": "错误路径",
+      "variant": "security",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [
+        [660, 385],
+        [660, 499]
+      ],
+      "labelAt": [676, 402]
+    },
+    {
+      "id": "parse-feedback",
+      "from": "parse-err",
+      "to": "feedback",
+      "label": "本地化文案",
+      "classification": "错误反馈",
+      "variant": "security",
+      "fromSide": "right",
+      "toSide": "left",
+      "route": "straight",
+      "labelAt": [846, 492]
+    },
+    {
+      "id": "render-feedback",
+      "from": "render",
+      "to": "feedback",
+      "label": "交互提示",
+      "classification": "结果反馈",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "right",
+      "via": [
+        [1030, 157],
+        [1030, 499]
+      ],
+      "labelAt": [1040, 330]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "主链路",
+      "items": [
+        "数据从左到右流经五个阶段",
+        "serde 序列化后跨越 IPC 边界",
+        "成功与失败路径在边界处分流"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "错误链路",
+      "items": [
+        "AppError 走 parseCommandError 解析",
+        "translateError 本地化后才呈现",
+        "错误路径不影响主数据链路"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "状态与呈现",
+      "items": [
+        "mapToDomain 后数据才进入 store",
+        "selector 订阅驱动渲染",
+        "UI 只读 store，不直接触碰 IPC"
+      ]
+    }
+  ]
+}

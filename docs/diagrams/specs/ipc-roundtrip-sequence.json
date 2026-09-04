@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "IPC 调用链路 · 一次完整往返",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [900, 660]
+  },
+  "participants": [
+    { "id": "user", "type": "external", "label": "用户", "sublabel": "点击操作" },
+    { "id": "page", "type": "frontend", "label": "页面组件", "sublabel": "page.tsx" },
+    { "id": "ctrl", "type": "frontend", "label": "Controller", "sublabel": "useXxxController" },
+    { "id": "usecase", "type": "backend", "label": "业务编排", "sublabel": "*.use-cases.ts" },
+    { "id": "ipc", "type": "frontend", "label": "IPC 封装层", "sublabel": "commands + invoke" },
+    { "id": "rust", "type": "backend", "label": "Rust 后端", "sublabel": "#[tauri::command]" },
+    { "id": "store", "type": "frontend", "label": "Zustand Store", "sublabel": "store.ts" }
+  ],
+  "segments": [
+    { "from": 150, "to": 316, "label": "用户 → 编排" },
+    { "from": 320, "to": 452, "label": "IPC 边界往返" },
+    { "from": 456, "to": 580, "label": "状态 → 渲染" }
+  ],
+  "messages": [
+    { "from": "user", "to": "page", "y": 180, "label": "点击操作", "variant": "default" },
+    { "from": "page", "to": "ctrl", "y": 222, "label": "controller.run()", "variant": "emphasis" },
+    {
+      "from": "ctrl",
+      "to": "usecase",
+      "y": 264,
+      "label": "useCase.execute()",
+      "variant": "default"
+    },
+    {
+      "from": "usecase",
+      "to": "ipc",
+      "y": 306,
+      "label": "repository.fetch()",
+      "variant": "default"
+    },
+    {
+      "from": "ipc",
+      "to": "rust",
+      "y": 348,
+      "label": "invokeTauriCommand()",
+      "variant": "emphasis"
+    },
+    { "from": "rust", "to": "ipc", "y": 390, "label": "AppResult<T> / serde", "variant": "return" },
+    {
+      "from": "ipc",
+      "to": "usecase",
+      "y": 432,
+      "label": "类型化 DTO / parseCommandError",
+      "variant": "return"
+    },
+    {
+      "from": "usecase",
+      "to": "store",
+      "y": 474,
+      "label": "mapToDomain → setState()",
+      "variant": "emphasis"
+    },
+    {
+      "from": "store",
+      "to": "page",
+      "y": 516,
+      "label": "selector 订阅 → 重渲染",
+      "variant": "dashed"
+    },
+    {
+      "from": "page",
+      "to": "user",
+      "y": 558,
+      "label": "UI 反馈（列表 / toast）",
+      "variant": "return"
+    }
+  ],
+  "activations": [
+    { "participant": "page", "from": 174, "to": 312, "type": "frontend" },
+    { "participant": "ctrl", "from": 216, "to": 318, "type": "frontend" },
+    { "participant": "usecase", "from": 258, "to": 480, "type": "backend" },
+    { "participant": "ipc", "from": 342, "to": 438, "type": "frontend" },
+    { "participant": "rust", "from": 384, "to": 396, "type": "backend" },
+    { "participant": "store", "from": 468, "to": 522, "type": "frontend" },
+    { "participant": "page", "from": 510, "to": 564, "type": "frontend" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "分层调用链",
+      "items": [
+        "前端绝不直接调 Tauri invoke()，必须经类型化封装",
+        "每一步都由 type + id 串成一条可追溯的调用链"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "错误边界",
+      "items": [
+        "错误统一经 parseCommandError 解析为结构化 code",
+        "translateError 本地化后才展示给用户"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "状态驱动渲染",
+      "items": ["store 只存状态与简单 setter", "selector 订阅精确到字段，避免无限重渲染"]
+    }
+  ]
+}

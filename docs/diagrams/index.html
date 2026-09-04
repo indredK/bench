@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bench 架构图集</title>
+    <style>
+      :root {
+        --bg: #0f1115;
+        --panel: #161922;
+        --line: #262b38;
+        --text: #e6e9f0;
+        --muted: #8b93a7;
+        --accent: #5b8cff;
+        --accent-dim: #3e5f99;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei",
+          sans-serif;
+        display: flex;
+        height: 100vh;
+        overflow: hidden;
+      }
+      /* ---------- 侧栏 ---------- */
+      aside {
+        width: 240px;
+        flex-shrink: 0;
+        background: var(--panel);
+        border-right: 1px solid var(--line);
+        display: flex;
+        flex-direction: column;
+      }
+      .brand {
+        padding: 18px 16px 12px;
+        border-bottom: 1px solid var(--line);
+      }
+      .brand h1 {
+        margin: 0;
+        font-size: 17px;
+        letter-spacing: 0.5px;
+      }
+      .brand p {
+        margin: 6px 0 0;
+        font-size: 12px;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+      nav {
+        flex: 1;
+        overflow: auto;
+        padding: 10px 8px;
+      }
+      nav button {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        width: 100%;
+        text-align: left;
+        padding: 10px 12px;
+        margin-bottom: 4px;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--text);
+        cursor: pointer;
+        font-size: 13px;
+        transition: background 0.15s;
+      }
+      nav button:hover {
+        background: #1e2330;
+      }
+      nav button.active {
+        background: var(--accent-dim);
+      }
+      nav button .en {
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .foot {
+        padding: 12px 16px;
+        border-top: 1px solid var(--line);
+        font-size: 11px;
+        color: var(--muted);
+        line-height: 1.7;
+      }
+      .foot code {
+        color: var(--accent);
+      }
+      /* ---------- 主区 ---------- */
+      main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .head {
+        padding: 12px 20px;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+      }
+      .head h2 {
+        margin: 0;
+        font-size: 15px;
+      }
+      .head p {
+        margin: 0;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .frame-wrap {
+        flex: 1;
+        padding: 8px 12px 12px;
+        min-height: 0;
+      }
+      iframe {
+        width: 100%;
+        height: 100%;
+        border: 0;
+        border-radius: 10px;
+        background: #fff;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <aside>
+      <div class="brand">
+        <h1>Bench 架构图集</h1>
+        <p>
+          docs/diagrams/ · archify 交互式 SVG 单文件<br />支持缩放 / 搜索 / 明暗主题 / PNG/SVG 导出
+        </p>
+      </div>
+      <nav id="nav">
+        <button data-file="bench-architecture.html" data-en="architecture" class="active">
+          <span>整体分层架构</span><span class="en">architecture</span>
+        </button>
+        <button data-file="clean-space-workflow.html" data-en="workflow">
+          <span>存储空间清理工作流</span><span class="en">workflow</span>
+        </button>
+        <button data-file="ipc-roundtrip-sequence.html" data-en="sequence">
+          <span>IPC 调用链路时序</span><span class="en">sequence</span>
+        </button>
+        <button data-file="data-utility-flow.html" data-en="dataflow">
+          <span>数据链路 · 系统到界面</span><span class="en">dataflow</span>
+        </button>
+        <button data-file="updater-lifecycle.html" data-en="lifecycle">
+          <span>应用更新状态机</span><span class="en">lifecycle</span>
+        </button>
+      </nav>
+      <div class="foot">
+        启动本地文档服务：<br />
+        <code>node docs/diagrams/server.mjs</code><br />
+        访问 <code>http://localhost:3200</code>
+      </div>
+    </aside>
+    <main>
+      <div class="head">
+        <h2 id="title">整体分层架构</h2>
+        <p id="subtitle">architecture · React 前端 ↔ IPC 双契约 ↔ Rust 后端 ↔ 宿主操作系统</p>
+      </div>
+      <div class="frame-wrap">
+        <iframe id="frame" src="./bench-architecture.html" title="整体分层架构"></iframe>
+      </div>
+    </main>
+    <script>
+      ;(function () {
+        var subtitles = {
+          "start-menu-workflow.html":
+            "workflow · 启动 → 菜单选择 → spawnSync 执行 → 判定 → 循环 / 退出",
+          "bench-architecture.html":
+            "architecture · React 前端 ↔ IPC 双契约 ↔ Rust 后端 ↔ 宿主操作系统",
+          "clean-space-workflow.html":
+            "workflow · 流式扫描 → 勾选与二次确认 → 批量清理 → 记录与反馈",
+          "ipc-roundtrip-sequence.html":
+            "sequence · page → controller → use-case → repository → IPC → Rust → store",
+          "data-utility-flow.html":
+            "dataflow · 系统来源 → Rust 采集 → IPC 边界 → 前端状态 → UI 呈现",
+          "updater-lifecycle.html":
+            "lifecycle · idle → checking → available → downloading → ready，含可恢复与终态",
+        }
+        var nav = document.getElementById("nav")
+        var frame = document.getElementById("frame")
+        var title = document.getElementById("title")
+        var subtitle = document.getElementById("subtitle")
+        nav.addEventListener("click", function (e) {
+          var btn = e.target.closest("button")
+          if (!btn) return
+          var file = btn.dataset.file
+          for (var i = 0; i < nav.children.length; i++) {
+            nav.children[i].classList.toggle("active", nav.children[i] === btn)
+          }
+          title.textContent = btn.children[0].textContent
+          subtitle.textContent = subtitles[file] || btn.dataset.en
+          frame.src = "./" + file
+        })
+      })()
+    </script>
+  </body>
+</html>

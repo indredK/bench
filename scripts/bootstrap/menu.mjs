@@ -20,6 +20,12 @@ const menu = [
         args: ["run", "build:debug"],
       },
       { key: "build:fe", label: "仅构建前端", cmd: "pnpm", args: ["run", "build:fe"] },
+      {
+        key: "diagrams",
+        label: "启动架构图集文档服务(:3200)",
+        cmd: "pnpm",
+        args: ["run", "diagrams"],
+      },
     ],
   },
   {
@@ -100,26 +106,27 @@ const menu = [
   },
 ]
 
-const options = [
-  ...menu.flatMap((g, gi) => {
-    const header = {
-      value: `__group_${gi}`,
-      label: `── ${g.group} ──`,
-      hint: "",
-      disabled: true,
-    }
-    const items = g.items.map((item) => ({
-      value: item,
-      label: `  ${item.label}`,
-      hint: `${item.cmd} ${item.args.join(" ")}`,
-    }))
-    return [header, ...items]
-  }),
-  { value: "__group_exit", label: "── 其他 ──", hint: "", disabled: true },
-  { value: "exit", label: "  退出", hint: "Esc / Ctrl+C" },
-]
+function buildGroupOptions() {
+  return [
+    ...menu.map((g, gi) => ({
+      value: gi,
+      label: `${g.group}  ·  ${g.items.length} 项`,
+    })),
+    { value: "exit", label: "退出", hint: "Esc / Ctrl+C" },
+  ]
+}
 
-const firstSelectable = options.find((o) => !o.disabled)?.value
+function buildItemOptions(groupIndex) {
+  const g = menu[groupIndex]
+  return [
+    ...g.items.map((item) => ({
+      value: item,
+      label: item.label,
+      hint: `${item.cmd} ${item.args.join(" ")}`,
+    })),
+    { value: "__back", label: "← 返回分组", hint: "Esc" },
+  ]
+}
 
 function runCommand(item) {
   console.log(`\n  执行: ${item.cmd} ${item.args.join(" ")}\n`)
@@ -147,23 +154,34 @@ async function main() {
 
   p.intro("Bench 项目控制台")
 
-  // Loop: pick a command, run it, return to menu.
+  // 第一级：选择分组；回车进入下一级。
   while (true) {
-    const action = await p.select({
-      message: "选择要执行的操作",
-      options,
-      initialValue: firstSelectable,
+    const groupAction = await p.select({
+      message: "选择分组(回车进入下一级)",
+      options: buildGroupOptions(),
     })
 
-    if (p.isCancel(action) || action === "exit") {
+    if (p.isCancel(groupAction) || groupAction === "exit") {
       p.outro("再见")
       process.exit(0)
     }
 
-    runCommand(action)
+    const groupIndex = groupAction
 
-    // Pause so user can read output before clack redraws the menu.
-    await waitForEnter()
+    // 第二级：在该分组下选择命令；Esc / 「返回分组」回到第一级。
+    while (true) {
+      const itemAction = await p.select({
+        message: `「${menu[groupIndex].group}」中选择操作`,
+        options: buildItemOptions(groupIndex),
+      })
+
+      if (p.isCancel(itemAction) || itemAction === "__back") break
+
+      runCommand(itemAction)
+
+      // Pause so user can read output before clack redraws the menu.
+      await waitForEnter()
+    }
   }
 }
 

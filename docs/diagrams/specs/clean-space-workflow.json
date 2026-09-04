@@ -1,0 +1,232 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "存储空间清理工作流",
+    "locale": "zh-CN",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    { "id": "ui", "label": "前端 UI" },
+    { "id": "usecase", "label": "业务编排 / Repository" },
+    { "id": "rust", "label": "Rust 后端" }
+  ],
+  "phases": [
+    { "id": "phase-scan", "label": "流式扫描", "fromCol": 0, "toCol": 1 },
+    {
+      "id": "phase-decide",
+      "label": "选择与确认",
+      "fromCol": 2,
+      "toCol": 3,
+      "variant": "emphasis"
+    },
+    { "id": "phase-clean", "label": "清理与反馈", "fromCol": 4, "toCol": 5, "variant": "dashed" }
+  ],
+  "groups": [
+    {
+      "id": "g-confirm",
+      "label": "危险操作二次确认",
+      "lane": "ui",
+      "fromCol": 3,
+      "toCol": 3,
+      "variant": "security"
+    }
+  ],
+  "mainPath": [
+    "open-page",
+    "load-overview",
+    "scan-stream",
+    "emit-events",
+    "render-cats",
+    "confirm",
+    "execute-batch",
+    "cleanup-fs",
+    "write-record",
+    "result"
+  ],
+  "nodes": [
+    {
+      "id": "open-page",
+      "lane": "ui",
+      "col": 0,
+      "type": "frontend",
+      "label": "打开「存储空间」页",
+      "sublabel": "进入扫描视图",
+      "width": 132
+    },
+    {
+      "id": "load-overview",
+      "lane": "usecase",
+      "col": 0,
+      "type": "backend",
+      "label": "loadOverview()",
+      "sublabel": "注册事件监听 · 防重入",
+      "width": 132
+    },
+    {
+      "id": "scan-stream",
+      "lane": "rust",
+      "col": 1,
+      "type": "backend",
+      "label": "scanStorageStream()",
+      "sublabel": "Rust 流式扫描 · du -skx",
+      "width": 132
+    },
+    {
+      "id": "emit-events",
+      "lane": "rust",
+      "col": 1,
+      "type": "messagebus",
+      "label": "流式事件上报",
+      "sublabel": "分类扫描事件流",
+      "width": 132,
+      "yOffset": 96
+    },
+    {
+      "id": "scan-error",
+      "lane": "usecase",
+      "col": 1,
+      "type": "security",
+      "label": "扫描异常",
+      "sublabel": "getErrorMessage · 保留旧数据",
+      "width": 132
+    },
+    {
+      "id": "render-cats",
+      "lane": "ui",
+      "col": 2,
+      "type": "frontend",
+      "label": "分类实时渲染",
+      "sublabel": "macOS 剩余分类补全",
+      "width": 132
+    },
+    {
+      "id": "confirm",
+      "lane": "ui",
+      "col": 3,
+      "type": "security",
+      "label": "删除确认弹窗",
+      "sublabel": "过滤可清理项 · 高危提示",
+      "width": 132
+    },
+    {
+      "id": "execute-batch",
+      "lane": "usecase",
+      "col": 4,
+      "type": "backend",
+      "label": "执行批量清理",
+      "sublabel": "executeBatchCleanup() 逐项",
+      "width": 132
+    },
+    {
+      "id": "cleanup-fs",
+      "lane": "rust",
+      "col": 4,
+      "type": "backend",
+      "label": "逐项清理执行",
+      "sublabel": "executeCategoryCleanup()",
+      "width": 132
+    },
+    {
+      "id": "write-record",
+      "lane": "rust",
+      "col": 5,
+      "type": "database",
+      "label": "写入清理历史",
+      "sublabel": "addCleanupRecord",
+      "width": 132
+    },
+    {
+      "id": "result",
+      "lane": "ui",
+      "col": 5,
+      "type": "frontend",
+      "label": "结果反馈",
+      "sublabel": "释放统计 · 乐观移除",
+      "width": 132
+    }
+  ],
+  "edges": [
+    { "id": "open-load", "from": "open-page", "to": "load-overview", "label": "进入扫描" },
+    {
+      "id": "load-scan",
+      "from": "load-overview",
+      "to": "scan-stream",
+      "label": "invoke 触发扫描",
+      "variant": "emphasis"
+    },
+    { "id": "scan-emit", "from": "scan-stream", "to": "emit-events", "label": "按分类结果上报" },
+    {
+      "id": "emit-render",
+      "from": "emit-events",
+      "to": "render-cats",
+      "label": "事件订阅消费",
+      "variant": "emphasis"
+    },
+    {
+      "id": "load-error",
+      "from": "load-overview",
+      "to": "scan-error",
+      "label": "调用异常",
+      "variant": "security",
+      "role": "error"
+    },
+    {
+      "id": "render-confirm",
+      "from": "render-cats",
+      "to": "confirm",
+      "label": "勾选项 · 二次确认"
+    },
+    {
+      "id": "confirm-execute",
+      "from": "confirm",
+      "to": "execute-batch",
+      "label": "确认执行",
+      "variant": "emphasis"
+    },
+    {
+      "id": "execute-clean",
+      "from": "execute-batch",
+      "to": "cleanup-fs",
+      "label": "逐项 invoke 清理"
+    },
+    {
+      "id": "clean-record",
+      "from": "cleanup-fs",
+      "to": "write-record",
+      "label": "汇总成功 / 失败"
+    },
+    {
+      "id": "record-result",
+      "from": "write-record",
+      "to": "result",
+      "label": "清理记录 + 反馈",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "流式扫描",
+      "items": [
+        "扫描不阻塞 UI，分类随事件流实时填充",
+        "macOS 剩余空间按业务规则补全",
+        "子项按需惰性加载"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "安全确认",
+      "items": ["高危项在确认弹窗中明确标注", "清理前必须经过 DestructiveConfirmDialog 二次确认"]
+    },
+    {
+      "dot": "rose",
+      "title": "容错与反馈",
+      "items": [
+        "扫描失败保留旧数据并给出可重试错误态",
+        "单项目清理失败不中断批量",
+        "结果乐观更新，后台刷新核对"
+      ]
+    }
+  ]
+}

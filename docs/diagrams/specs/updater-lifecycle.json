@@ -1,0 +1,241 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "应用更新状态机",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [980, 700]
+  },
+  "lanes": [
+    { "id": "main", "label": "更新主流程" },
+    { "id": "recovery", "label": "恢复路径" },
+    { "id": "terminal", "label": "终态" }
+  ],
+  "states": [
+    {
+      "id": "idle",
+      "type": "start",
+      "label": "Idle 空闲",
+      "sublabel": "启动就绪 · 支持自动检查",
+      "lane": "main",
+      "col": 0,
+      "step": "01"
+    },
+    {
+      "id": "checking",
+      "type": "active",
+      "label": "Checking 检查中",
+      "sublabel": "runUpdateCheck · 防重入",
+      "lane": "main",
+      "col": 1,
+      "step": "02"
+    },
+    {
+      "id": "available",
+      "type": "decision",
+      "label": "Available 可更新",
+      "sublabel": "弹窗展示版本信息",
+      "lane": "main",
+      "col": 2,
+      "step": "03"
+    },
+    {
+      "id": "downloading",
+      "type": "active",
+      "label": "Downloading 下载安装",
+      "sublabel": "进度条展示 · 可取消",
+      "lane": "main",
+      "col": 3,
+      "step": "04"
+    },
+    {
+      "id": "ready",
+      "type": "success",
+      "label": "Ready 待重启",
+      "sublabel": "下载安装完成",
+      "lane": "main",
+      "col": 4,
+      "step": "05"
+    },
+    {
+      "id": "install-failed",
+      "type": "failure",
+      "label": "安装失败",
+      "sublabel": "保留下载进度（A3-3）",
+      "lane": "recovery",
+      "col": 1,
+      "tag": "可恢复"
+    },
+    {
+      "id": "error",
+      "type": "failure",
+      "label": "Error 错误",
+      "sublabel": "classifyUpdaterError",
+      "lane": "recovery",
+      "col": 2,
+      "tag": "可恢复"
+    },
+    {
+      "id": "up-to-date",
+      "type": "success",
+      "label": "Up to Date",
+      "sublabel": "已是最新版本",
+      "lane": "terminal",
+      "col": 0,
+      "tag": "终态"
+    }
+  ],
+  "transitions": [
+    {
+      "id": "t-idle-check",
+      "from": "idle",
+      "to": "checking",
+      "label": "自动 / 手动检查",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left",
+      "route": "straight",
+      "labelAt": [137, 200]
+    },
+    {
+      "id": "t-check-avail",
+      "from": "checking",
+      "to": "available",
+      "label": "发现新版本",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left",
+      "route": "straight",
+      "labelAt": [325, 200]
+    },
+    {
+      "id": "t-check-uptodate",
+      "from": "checking",
+      "to": "up-to-date",
+      "label": "无可用更新",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": [
+        [248, 410],
+        [402, 410]
+      ],
+      "labelAt": [350, 402]
+    },
+    {
+      "id": "t-check-err",
+      "from": "checking",
+      "to": "error",
+      "label": "检查失败",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "bottom",
+      "via": [
+        [248, 560],
+        [710, 560],
+        [710, 420]
+      ],
+      "labelAt": [480, 544]
+    },
+    {
+      "id": "t-avail-dl",
+      "from": "available",
+      "to": "downloading",
+      "label": "downloadAndInstallAppUpdate()",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left",
+      "route": "straight",
+      "labelAt": [470, 255]
+    },
+    {
+      "id": "t-dl-ready",
+      "from": "downloading",
+      "to": "ready",
+      "label": "下载安装完成",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left",
+      "route": "straight",
+      "labelAt": [633, 200]
+    },
+    {
+      "id": "t-dl-cancel",
+      "from": "downloading",
+      "to": "available",
+      "label": "取消下载 · UPDATER_CANCELLED",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "bottom",
+      "via": [
+        [556, 232],
+        [402, 232]
+      ],
+      "labelAt": [470, 218]
+    },
+    {
+      "id": "t-dl-fail",
+      "from": "downloading",
+      "to": "install-failed",
+      "label": "安装报错 A3-3",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight",
+      "labelAt": [636, 240]
+    },
+    {
+      "id": "t-fail-retry",
+      "from": "install-failed",
+      "to": "downloading",
+      "label": "重试安装",
+      "variant": "emphasis",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "route": "straight",
+      "labelAt": [530, 352]
+    },
+    {
+      "id": "t-err-idle",
+      "from": "error",
+      "to": "idle",
+      "label": "收起 / 重试",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "top",
+      "via": [
+        [773, 60],
+        [94, 60]
+      ],
+      "labelAt": [420, 50]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "主路径",
+      "items": [
+        "idle → checking → available → downloading → ready 五步主轴",
+        "ready 为成功终态，等待重启应用"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "可恢复路径",
+      "items": [
+        "下载可取消并回退到 available 重试",
+        "安装失败保留已下载进度（A3-3）",
+        "重启失败时保留下载产物可重试"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "终态与错误",
+      "items": [
+        "upToDate 为正常终态",
+        "错误统一走 classifyUpdaterError 分类",
+        "检查 / 下载 / 取消失败均进入 error"
+      ]
+    }
+  ]
+}

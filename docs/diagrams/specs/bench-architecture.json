@@ -1,0 +1,250 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Bench 整体分层架构",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [1240, 900]
+  },
+  "components": [
+    {
+      "id": "users",
+      "type": "external",
+      "label": "用户",
+      "sublabel": "点击 / 快捷键",
+      "pos": [40, 160],
+      "size": [120, 56]
+    },
+    {
+      "id": "app-shell",
+      "type": "frontend",
+      "label": "App 外壳",
+      "sublabel": "路由 · 布局 · 全局弹窗",
+      "pos": [260, 90],
+      "size": [160, 64]
+    },
+    {
+      "id": "features",
+      "type": "frontend",
+      "label": "功能模块",
+      "sublabel": "16 个 feature · 懒加载",
+      "pos": [260, 240],
+      "size": [160, 64]
+    },
+    {
+      "id": "shared",
+      "type": "frontend",
+      "label": "共享层",
+      "sublabel": "ui · layout · common",
+      "pos": [500, 90],
+      "size": [150, 64]
+    },
+    {
+      "id": "store",
+      "type": "frontend",
+      "label": "Zustand Store",
+      "sublabel": "只存状态 + setter",
+      "pos": [500, 240],
+      "size": [150, 64]
+    },
+    {
+      "id": "platform",
+      "type": "frontend",
+      "label": "平台抽象层",
+      "sublabel": "runtime · capabilities",
+      "pos": [690, 90],
+      "size": [160, 64]
+    },
+    {
+      "id": "lib-ipc",
+      "type": "frontend",
+      "label": "IPC 契约层",
+      "sublabel": "contracts · invoke · errors",
+      "pos": [690, 240],
+      "size": [170, 64]
+    },
+    {
+      "id": "tauri-runtime",
+      "type": "backend",
+      "label": "Tauri v2 运行时",
+      "sublabel": "窗口 · 托盘 · 菜单 · 事件桥",
+      "pos": [420, 410],
+      "size": [430, 50]
+    },
+    {
+      "id": "rust-domain",
+      "type": "backend",
+      "label": "Rust 领域模块",
+      "sublabel": "commands.rs 注册 · 13+ 领域 · AppResult<T>",
+      "pos": [420, 560],
+      "size": [430, 76]
+    },
+    {
+      "id": "os-resources",
+      "type": "cloud",
+      "label": "macOS / Windows",
+      "sublabel": "文件系统 · defaults · 进程",
+      "pos": [260, 730],
+      "size": [210, 64]
+    },
+    {
+      "id": "update-source",
+      "type": "external",
+      "label": "GitHub Releases",
+      "sublabel": "签名更新源",
+      "pos": [640, 730],
+      "size": [180, 64]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "WebView 前端进程（React 19 + Vite）",
+      "wraps": ["app-shell", "features", "shared", "store", "platform", "lib-ipc"]
+    },
+    {
+      "kind": "security-group",
+      "label": "Rust 进程（Tauri v2）",
+      "wraps": ["tauri-runtime", "rust-domain"]
+    },
+    { "kind": "region", "label": "宿主操作系统", "wraps": ["os-resources", "update-source"] }
+  ],
+  "connections": [
+    {
+      "id": "users-appshell",
+      "from": "users",
+      "to": "app-shell",
+      "label": "点击 / 快捷键",
+      "variant": "emphasis"
+    },
+    {
+      "id": "appshell-features",
+      "from": "app-shell",
+      "to": "features",
+      "label": "路由渲染 · lazy()",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [308, 182]
+    },
+    {
+      "id": "features-shared",
+      "from": "features",
+      "to": "shared",
+      "label": "复用 UI 组件",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelAt": [430, 189]
+    },
+    {
+      "id": "features-store",
+      "from": "features",
+      "to": "store",
+      "label": "setState / selector",
+      "fromSide": "right",
+      "toSide": "left",
+      "route": "straight",
+      "labelDy": 52
+    },
+    {
+      "id": "features-platform",
+      "from": "features",
+      "to": "platform",
+      "label": "canUseDesktopFeatures()",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelAt": [640, 205]
+    },
+    {
+      "id": "features-ipc",
+      "from": "features",
+      "to": "lib-ipc",
+      "label": "调用类型化命令",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "bottom",
+      "labelAt": [545, 352]
+    },
+    {
+      "id": "ipc-tauri",
+      "from": "lib-ipc",
+      "to": "tauri-runtime",
+      "label": "invoke · 事件监听",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [838, 350]
+    },
+    {
+      "id": "tauri-rust",
+      "from": "tauri-runtime",
+      "to": "rust-domain",
+      "label": "命令分发 #[tauri::command]",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelSegment": 0,
+      "labelDy": 26
+    },
+    {
+      "id": "rust-os",
+      "from": "rust-domain",
+      "to": "os-resources",
+      "label": "系统 API · 文件扫描",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "os-rust-return",
+      "from": "os-resources",
+      "to": "rust-domain",
+      "label": "数据结果",
+      "variant": "dashed",
+      "fromSide": "left",
+      "toSide": "left",
+      "via": [
+        [245, 762],
+        [245, 598],
+        [412, 598]
+      ],
+      "labelAt": [330, 582]
+    },
+    {
+      "id": "update-rust",
+      "from": "update-source",
+      "to": "rust-domain",
+      "label": "检查 / 下载更新",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "分层职责",
+      "items": [
+        "前端绝不直接调 invoke()，必须经类型化封装",
+        "use-cases 编排业务，repository 适配平台",
+        "store 只存状态与简单 setter"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "IPC 双契约",
+      "items": [
+        "contracts.ts ↔ commands.rs 双侧保持同步",
+        "新增命令必须同时更新两端与测试",
+        "错误统一返回 AppResult<T>"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "平台边界",
+      "items": [
+        "canUseDesktopFeatures() 检测 Tauri 能力",
+        "macOS / Windows 专有 API 用 #[cfg] 包裹",
+        "浏览器降级：localStorage / window API"
+      ]
+    }
+  ]
+}

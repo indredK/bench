@@ -1,0 +1,220 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "pnpm start 交互菜单工作流",
+    "locale": "zh-CN",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    { "id": "user", "label": "用户" },
+    { "id": "cli", "label": "启动器 CLI（menu.mjs）" },
+    { "id": "runner", "label": "命令执行器" }
+  ],
+  "phases": [
+    { "id": "phase-boot", "label": "启动与菜单", "fromCol": 0, "toCol": 1 },
+    { "id": "phase-run", "label": "执行与判定", "fromCol": 2, "toCol": 3, "variant": "emphasis" },
+    { "id": "phase-loop", "label": "反馈与循环", "fromCol": 4, "toCol": 4, "variant": "dashed" }
+  ],
+  "groups": [
+    {
+      "id": "g-cycle",
+      "label": "循环选择",
+      "lane": "cli",
+      "fromCol": 3,
+      "toCol": 4,
+      "variant": "dashed"
+    }
+  ],
+  "mainPath": ["start", "boot", "menu", "pick", "run", "check", "done", "loop"],
+  "nodes": [
+    {
+      "id": "start",
+      "lane": "user",
+      "col": 0,
+      "type": "external",
+      "label": "运行 pnpm start",
+      "sublabel": "终端入口",
+      "width": 132
+    },
+    {
+      "id": "boot",
+      "lane": "cli",
+      "col": 0,
+      "type": "frontend",
+      "label": "启动 CLI",
+      "sublabel": "intro ＋ TTY 检查",
+      "width": 132
+    },
+    {
+      "id": "no-tty",
+      "lane": "runner",
+      "col": 1,
+      "type": "security",
+      "label": "非交互终端",
+      "sublabel": "报错退出",
+      "width": 132
+    },
+    {
+      "id": "menu",
+      "lane": "cli",
+      "col": 1,
+      "type": "frontend",
+      "label": "展示操作菜单",
+      "sublabel": "分组菜单 · select",
+      "width": 132
+    },
+    {
+      "id": "exit",
+      "lane": "cli",
+      "col": 1,
+      "type": "frontend",
+      "label": "取消 / 退出",
+      "sublabel": "outro · exit 0",
+      "width": 132,
+      "yOffset": 96
+    },
+    {
+      "id": "pick",
+      "lane": "user",
+      "col": 2,
+      "type": "external",
+      "label": "选择操作",
+      "sublabel": "方向键选择",
+      "width": 132
+    },
+    {
+      "id": "run",
+      "lane": "runner",
+      "col": 2,
+      "type": "backend",
+      "label": "spawnSync 执行",
+      "sublabel": "stdio 透传",
+      "width": 132
+    },
+    {
+      "id": "check",
+      "lane": "runner",
+      "col": 3,
+      "type": "backend",
+      "label": "结果判定",
+      "sublabel": "exit code",
+      "width": 132
+    },
+    {
+      "id": "done",
+      "lane": "cli",
+      "col": 3,
+      "type": "frontend",
+      "label": "成功提示",
+      "sublabel": "p.log.success",
+      "width": 132
+    },
+    {
+      "id": "warn",
+      "lane": "runner",
+      "col": 4,
+      "type": "security",
+      "label": "失败提示",
+      "sublabel": "退出码 / 报错",
+      "width": 132
+    },
+    {
+      "id": "loop",
+      "lane": "cli",
+      "col": 4,
+      "type": "frontend",
+      "label": "等待 Enter",
+      "sublabel": "返回菜单循环",
+      "width": 132
+    }
+  ],
+  "edges": [
+    {
+      "id": "start-boot",
+      "from": "start",
+      "to": "boot",
+      "label": "启动脚本",
+      "variant": "emphasis"
+    },
+    {
+      "id": "boot-menu",
+      "from": "boot",
+      "to": "menu",
+      "label": "isTTY 通过",
+      "variant": "emphasis"
+    },
+    {
+      "id": "boot-notty",
+      "from": "boot",
+      "to": "no-tty",
+      "label": "isTTY=false",
+      "variant": "security",
+      "role": "error"
+    },
+    { "id": "menu-pick", "from": "menu", "to": "pick", "label": "待用户选择" },
+    {
+      "id": "menu-exit",
+      "from": "menu",
+      "to": "exit",
+      "label": "取消 / Esc",
+      "role": "branch",
+      "variant": "dashed"
+    },
+    { "id": "pick-run", "from": "pick", "to": "run", "label": "选择命令项", "variant": "emphasis" },
+    { "id": "run-check", "from": "run", "to": "check" },
+    {
+      "id": "check-done",
+      "from": "check",
+      "to": "done",
+      "label": "status=0",
+      "variant": "emphasis"
+    },
+    {
+      "id": "check-warn",
+      "from": "check",
+      "to": "warn",
+      "label": "≠0 / 启动失败",
+      "variant": "security"
+    },
+    { "id": "done-loop", "from": "done", "to": "loop" },
+    { "id": "warn-loop", "from": "warn", "to": "loop", "label": "失败不中断", "variant": "dashed" },
+    {
+      "id": "loop-menu",
+      "from": "loop",
+      "to": "menu",
+      "label": "循环再选",
+      "role": "branch",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "交互式入口",
+      "items": [
+        "一个入口统一管理 6 组操作",
+        "菜单与选择提示由 @clack/prompts 提供",
+        "非交互终端直接报错退出"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "执行与判定",
+      "items": [
+        "spawnSync 透传 stdio 到子进程",
+        "按退出码区分成功 / 失败提示",
+        "失败不中断整个循环"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "循环与退出",
+      "items": [
+        "每次执行后按 Enter 返回菜单",
+        "选择退出或 Esc 才真正退出",
+        "所有操作共享同一条主路径"
+      ]
+    }
+  ]
+}
