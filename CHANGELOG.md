@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.29.0](https://github.com/indredK/bench/compare/v1.28.0...v1.29.0) (2026-09-05)
+
+
+### Features
+
+* **app-manager, quick-launch:** add app inventory snapshot restore functionality ([44edf42](https://github.com/indredK/bench/commit/44edf42d8b018cf3cd475b2e88cc6b1c25f26b92))
+* **app-manager,updater,a11y,persistence:** GAP-TO-2.0 A2/A3/A4/A5/E 批次收口 ([1c02a55](https://github.com/indredK/bench/commit/1c02a55a77d0cb2f80b5265e6b9bc99573ce7164))
+* **diagrams:** add local architecture diagram docs service and specs ([bfdc102](https://github.com/indredK/bench/commit/bfdc102aab2a1bf957e8fc4ef8e5e9758db748c9))
+* **photo-triage,docs:** 拖拽跟随图修复与 16 模块 planned/product-specs 文档落库 ([9d0b733](https://github.com/indredK/bench/commit/9d0b733007fea3abf4f4dfd7aafb8b3d407c4341))
+* **photo-triage:** 实现照片筛选旁路模块，完成全功能落地 ([ed9dbd2](https://github.com/indredK/bench/commit/ed9dbd2ab6153f30f2796f66f313ef5831a41070))
+* **pre-commit:** add rust cfg hygiene auto-fix in pre-commit hook ([bf7db1e](https://github.com/indredK/bench/commit/bf7db1eedec0207abe59ef1ea585acd879124ff0))
+
 ## [1.28.0](https://github.com/indredK/bench/compare/v1.27.0...v1.28.0) (2026-08-25)
 
 
