@@ -3,6 +3,7 @@
  */
 import type { TFunction } from "i18next"
 import type { ColumnDef } from "@tanstack/react-table"
+import { type BenchTableFeatures } from "@/components/ui/table-features"
 import { Badge } from "@/components/ui/badge"
 import { StickyTableText } from "@/components/ui/StickyTable"
 import type { ProjectInfo } from "@/lib/tauri/types"
@@ -64,7 +65,9 @@ function compactPath(path: string, maxLength = MAX_VISIBLE_PATH_LENGTH) {
   return path
 }
 
-export function createDevCleanerColumns(t: TFunction): ColumnDef<ProjectInfo>[] {
+export function createDevCleanerColumns(
+  t: TFunction,
+): ColumnDef<BenchTableFeatures, ProjectInfo>[] {
   return [
     {
       id: "name",
@@ -95,7 +98,7 @@ export function createDevCleanerColumns(t: TFunction): ColumnDef<ProjectInfo>[] 
           )}
         </div>
       ),
-      sortingFn: (left, right) => compareProjectIdentity(left.original, right.original),
+      sortFn: (left, right) => compareProjectIdentity(left.original, right.original),
     },
     {
       id: "totalSize",
@@ -108,7 +111,7 @@ export function createDevCleanerColumns(t: TFunction): ColumnDef<ProjectInfo>[] 
         align: "right",
       },
       cell: ({ row }) => <span className="text-sm">{formatSize(row.original.total_size)}</span>,
-      sortingFn: (left, right) =>
+      sortFn: (left, right) =>
         left.original.total_size - right.original.total_size ||
         compareProjectIdentity(left.original, right.original),
     },
@@ -132,7 +135,7 @@ export function createDevCleanerColumns(t: TFunction): ColumnDef<ProjectInfo>[] 
           </p>
         </div>
       ),
-      sortingFn: (left, right) =>
+      sortFn: (left, right) =>
         left.original.cleanup_potential - right.original.cleanup_potential ||
         compareProjectIdentity(left.original, right.original),
     },
@@ -151,7 +154,7 @@ export function createDevCleanerColumns(t: TFunction): ColumnDef<ProjectInfo>[] 
           {formatDate(row.original.last_modified)}
         </span>
       ),
-      sortingFn: (left, right) =>
+      sortFn: (left, right) =>
         left.original.last_modified - right.original.last_modified ||
         compareProjectIdentity(left.original, right.original),
     },

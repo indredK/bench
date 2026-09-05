@@ -4,13 +4,14 @@
 import { useTranslation } from "react-i18next"
 import type { TFunction } from "i18next"
 import type { ColumnDef } from "@tanstack/react-table"
+import { type BenchTableFeatures } from "@/components/ui/table-features"
 import { Badge } from "@/components/ui/badge"
 import { StickyTableText } from "@/components/ui/StickyTable"
 import type { EnvTool } from "@/lib/tauri/types"
 
 export type EnvTableColumnId = "name" | "version" | "path" | "size" | "installTime" | "status"
 
-export function createEnvDetectorColumns(t: TFunction): ColumnDef<EnvTool>[] {
+export function createEnvDetectorColumns(t: TFunction): ColumnDef<BenchTableFeatures, EnvTool>[] {
   return [
     {
       id: "name",
@@ -22,7 +23,7 @@ export function createEnvDetectorColumns(t: TFunction): ColumnDef<EnvTool>[] {
         width: "20%",
       },
       cell: ({ row }) => <StickyTableText>{row.original.name}</StickyTableText>,
-      sortingFn: (left, right) => left.original.name.localeCompare(right.original.name),
+      sortFn: (left, right) => left.original.name.localeCompare(right.original.name),
     },
     {
       id: "version",
@@ -74,7 +75,7 @@ export function createEnvDetectorColumns(t: TFunction): ColumnDef<EnvTool>[] {
           {row.original.available ? row.original.size_display : "—"}
         </span>
       ),
-      sortingFn: (left, right) =>
+      sortFn: (left, right) =>
         left.original.size_bytes - right.original.size_bytes ||
         left.original.name.localeCompare(right.original.name),
     },
@@ -93,7 +94,7 @@ export function createEnvDetectorColumns(t: TFunction): ColumnDef<EnvTool>[] {
           {row.original.available ? row.original.install_time : "—"}
         </span>
       ),
-      sortingFn: (left, right) =>
+      sortFn: (left, right) =>
         left.original.install_time.localeCompare(right.original.install_time) ||
         left.original.name.localeCompare(right.original.name),
     },

@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react"
 import type { ColumnDef } from "@tanstack/react-table"
+import { type BenchTableFeatures } from "@/components/ui/table-features"
 import { describe, expect, it, vi } from "vitest"
 import { ContentView } from "@/components/content/ContentView"
 
@@ -7,7 +8,7 @@ interface Item {
   id: string
 }
 
-const columns: ColumnDef<Item>[] = [{ accessorKey: "id" }]
+const columns: ColumnDef<BenchTableFeatures, Item>[] = [{ accessorKey: "id" }]
 const noop = vi.fn()
 
 function renderLoading(loadingProgress?: number, loadingTotal?: number | null) {

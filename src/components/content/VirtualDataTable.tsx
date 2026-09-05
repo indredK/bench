@@ -3,15 +3,9 @@
  */
 import { useRef, useMemo } from "react"
 import { useVirtualizer } from "@tanstack/react-virtual"
-import {
-  flexRender,
-  getCoreRowModel,
-  getSortedRowModel,
-  useReactTable,
-  type ColumnDef,
-  type Row,
-} from "@tanstack/react-table"
+import { flexRender, useTable, type ColumnDef, type Row, type RowData } from "@tanstack/react-table"
 import type { SortingState, OnChangeFn } from "@tanstack/react-table"
+import { benchTableFeatures, type BenchTableFeatures } from "@/components/ui/table-features"
 import { cn } from "@/lib/utils"
 import { useReducedMotionProps } from "@/lib/motion-utils"
 import { AnimatePresence, motion } from "motion/react"
@@ -19,9 +13,9 @@ import { Check } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { ScrollableArea } from "@/components/common/ScrollableArea"
 
-interface VirtualDataTableProps<T> {
+interface VirtualDataTableProps<T extends RowData> {
   data: T[]
-  columns: ColumnDef<T>[]
+  columns: ColumnDef<BenchTableFeatures, T>[]
   getRowId: (item: T) => string
   onItemClick: (item: T) => void
   estimatedRowHeight?: number
@@ -62,7 +56,7 @@ function resolveGridTrack(meta: unknown): string {
 /** Width of the dedicated checkbox column in batch mode */
 const BATCH_COL_WIDTH = "40px"
 
-export function VirtualDataTable<T>({
+export function VirtualDataTable<T extends RowData>({
   data,
   columns,
   getRowId,
@@ -78,14 +72,13 @@ export function VirtualDataTable<T>({
 }: VirtualDataTableProps<T>) {
   const { t } = useTranslation()
   const { reduce } = useReducedMotionProps()
-  const table = useReactTable({
+  const table = useTable<BenchTableFeatures, T, unknown>({
+    features: benchTableFeatures,
     data,
     columns,
     getRowId,
     state: sorting != null ? { sorting } : undefined,
     onSortingChange,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
   })
 
   const rows = table.getRowModel().rows
@@ -173,7 +166,7 @@ export function VirtualDataTable<T>({
         }}
       >
         {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-          const row = rows[virtualRow.index] as Row<T>
+          const row = rows[virtualRow.index] as Row<BenchTableFeatures, T>
           const rowId = getRowId(row.original)
           const isDetailSelected = !batchMode && selectedId != null && rowId === selectedId
           const isBatchSelected = batchMode && selectedIds != null && selectedIds.has(rowId)

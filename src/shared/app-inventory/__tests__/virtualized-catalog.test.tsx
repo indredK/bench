@@ -6,6 +6,7 @@
 import { render } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import type { ColumnDef } from "@tanstack/react-table"
+import { type BenchTableFeatures } from "@/components/ui/table-features"
 import { VirtualDataTable } from "@/components/content/VirtualDataTable"
 
 vi.mock("react-i18next", () => ({
@@ -47,7 +48,7 @@ function makeRows(count: number): Row[] {
   }))
 }
 
-const columns: ColumnDef<Row>[] = [
+const columns: ColumnDef<BenchTableFeatures, Row>[] = [
   {
     accessorKey: "name",
     header: "Name",

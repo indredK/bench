@@ -3,6 +3,7 @@
  */
 import type { TFunction } from "i18next"
 import type { ColumnDef } from "@tanstack/react-table"
+import { type BenchTableFeatures } from "@/components/ui/table-features"
 import { Copy, Download, ExternalLink } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -26,7 +27,7 @@ export function createInstallListColumns({
   onInstall,
   onOpenWebsite,
   onCopyText,
-}: InstallListColumnsOptions): ColumnDef<InstallListAppInfo>[] {
+}: InstallListColumnsOptions): ColumnDef<BenchTableFeatures, InstallListAppInfo>[] {
   return [
     {
       id: "name",

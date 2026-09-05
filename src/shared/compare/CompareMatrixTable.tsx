@@ -3,7 +3,8 @@
  */
 import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
-import { flexRender, getCoreRowModel, useReactTable, type ColumnDef } from "@tanstack/react-table"
+import { flexRender, useTable, type ColumnDef, type RowData } from "@tanstack/react-table"
+import { benchTableFeatures, type BenchTableFeatures } from "@/components/ui/table-features"
 import { ExternalLink, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -49,7 +50,9 @@ interface CompareMatrixTableProps<T extends { id: string; model: string }> exten
   onRemoveModel: (id: string) => void
 }
 
-function getColumnMeta<Row>(columnDef: ColumnDef<Row, unknown>) {
+function getColumnMeta<Row extends RowData>(
+  columnDef: ColumnDef<BenchTableFeatures, Row, unknown>,
+) {
   return (columnDef.meta ?? {}) as CompareMatrixColumnMeta<Row>
 }
 
@@ -154,7 +157,7 @@ function CompareMatrixTable<T extends { id: string; model: string }>({
 }: CompareMatrixTableProps<T>) {
   const { t } = useTranslation()
 
-  const columns = useMemo<ColumnDef<SpecRow<T>>[]>(
+  const columns = useMemo<ColumnDef<BenchTableFeatures, SpecRow<T>>[]>(
     () => [
       {
         id: "specification",
@@ -166,7 +169,7 @@ function CompareMatrixTable<T extends { id: string; model: string }>({
           cellClassName: "text-xs",
         },
       },
-      ...selectedModels.map<ColumnDef<SpecRow<T>>>((model) => ({
+      ...selectedModels.map<ColumnDef<BenchTableFeatures, SpecRow<T>>>((model) => ({
         id: model.id,
         header: () => (
           <div className="flex items-center gap-2">
@@ -221,11 +224,11 @@ function CompareMatrixTable<T extends { id: string; model: string }>({
     ],
   )
 
-  const table = useReactTable({
+  const table = useTable<BenchTableFeatures, SpecRow<T>, unknown>({
+    features: benchTableFeatures,
     data: specRows,
     columns,
     getRowId: (row) => String(row.key),
-    getCoreRowModel: getCoreRowModel(),
   })
 
   return (

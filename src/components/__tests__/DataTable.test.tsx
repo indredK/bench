@@ -4,6 +4,7 @@
 import { describe, expect, it } from "vitest"
 import { render } from "@testing-library/react"
 import type { ColumnDef } from "@tanstack/react-table"
+import { type BenchTableFeatures } from "@/components/ui/table-features"
 import { DataTable } from "../ui/DataTable"
 
 interface ProjectRow {
@@ -12,7 +13,7 @@ interface ProjectRow {
   path: string
 }
 
-const columns: ColumnDef<ProjectRow>[] = [
+const columns: ColumnDef<BenchTableFeatures, ProjectRow>[] = [
   {
     id: "name",
     header: "Name",

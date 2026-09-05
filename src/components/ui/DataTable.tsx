@@ -3,15 +3,15 @@
  */
 import {
   flexRender,
-  getCoreRowModel,
-  getSortedRowModel,
-  useReactTable,
+  useTable,
   type Column,
   type ColumnDef,
   type OnChangeFn,
+  type RowData,
   type RowSelectionState,
   type SortingState,
 } from "@tanstack/react-table"
+import { benchTableFeatures, type BenchTableFeatures } from "@/components/ui/table-features"
 import { cn } from "@/lib/utils"
 import {
   StickyTable,
@@ -60,9 +60,9 @@ interface DataTableSorting {
   onSortingChange: OnChangeFn<SortingState>
 }
 
-interface DataTableProps<TData> extends Omit<StickyTableProps, "children"> {
+interface DataTableProps<TData extends RowData> extends Omit<StickyTableProps, "children"> {
   data: TData[]
-  columns: ColumnDef<TData>[]
+  columns: ColumnDef<BenchTableFeatures, TData>[]
   getRowId: (row: TData) => string
   sorting?: DataTableSorting
   selection?: DataTableSelection<TData>
@@ -113,11 +113,13 @@ function getDataTableAlignClass(align: DataTableColumnAlign = "left") {
   return "text-left"
 }
 
-function getColumnMeta<TData>(column: Column<TData, unknown>) {
+function getColumnMeta<TData extends RowData>(column: Column<BenchTableFeatures, TData, unknown>) {
   return (column.columnDef.meta ?? {}) as DataTableColumnMeta<TData>
 }
 
-function getHeaderMeta<TData>(columnDef: ColumnDef<TData, unknown>) {
+function getHeaderMeta<TData extends RowData>(
+  columnDef: ColumnDef<BenchTableFeatures, TData, unknown>,
+) {
   return (columnDef.meta ?? {}) as DataTableColumnMeta<TData>
 }
 
@@ -129,7 +131,7 @@ function getStyleFromMeta<TData>(meta: DataTableColumnMeta<TData>) {
   }
 }
 
-function DataTable<TData>({
+function DataTable<TData extends RowData>({
   data,
   columns,
   getRowId,
@@ -142,7 +144,8 @@ function DataTable<TData>({
   getRowAttributes,
   ...tableProps
 }: DataTableProps<TData>) {
-  const table = useReactTable({
+  const table = useTable<BenchTableFeatures, TData, unknown>({
+    features: benchTableFeatures,
     data,
     columns,
     getRowId,
@@ -154,8 +157,6 @@ function DataTable<TData>({
     onRowSelectionChange: selection?.onRowSelectionChange,
     enableSortingRemoval: false,
     enableRowSelection: Boolean(selection),
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
   })
 
   const tableRows = table.getRowModel().rows

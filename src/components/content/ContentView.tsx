@@ -2,7 +2,13 @@
  * Content UI / 内容 UI: own presentation patterns; 只负责内容展示模式.
  */
 import { type ReactNode } from "react"
-import { type ColumnDef, type SortingState, type OnChangeFn } from "@tanstack/react-table"
+import {
+  type ColumnDef,
+  type RowData,
+  type SortingState,
+  type OnChangeFn,
+} from "@tanstack/react-table"
+import { type BenchTableFeatures } from "@/components/ui/table-features"
 import { AnimatePresence, motion } from "motion/react"
 import { Search } from "lucide-react"
 import { useTranslation } from "react-i18next"
@@ -11,11 +17,11 @@ import { VirtualDataTable } from "./VirtualDataTable"
 import { VirtualGridView } from "./VirtualGridView"
 import { ViewToggle } from "./ViewToggle"
 
-interface ContentViewProps<T> {
+interface ContentViewProps<T extends RowData> {
   data: T[]
   viewMode: "table" | "grid"
   onViewModeChange: (mode: "table" | "grid") => void
-  columns: ColumnDef<T>[]
+  columns: ColumnDef<BenchTableFeatures, T>[]
   getRowId: (item: T) => string
   renderGridCard: (item: T) => ReactNode
   onItemClick: (item: T) => void
@@ -57,7 +63,7 @@ interface ContentViewProps<T> {
   getRowAttributes?: (item: T) => Record<string, string>
 }
 
-export function ContentView<T>({
+export function ContentView<T extends RowData>({
   data,
   viewMode,
   onViewModeChange,

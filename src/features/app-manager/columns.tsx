@@ -3,6 +3,7 @@
  */
 import type { TFunction } from "i18next"
 import type { ColumnDef } from "@tanstack/react-table"
+import { type BenchTableFeatures } from "@/components/ui/table-features"
 import {
   Folder,
   Play,
@@ -122,7 +123,7 @@ export function createAppManagerColumns(
   onReveal: (app: AppInfo) => void,
   onUpgrade: (app: AppInfo) => void,
   onUninstall: (app: AppInfo) => void,
-): ColumnDef<AppInfo>[] {
+): ColumnDef<BenchTableFeatures, AppInfo>[] {
   return [
     {
       id: "name",
@@ -158,7 +159,7 @@ export function createAppManagerColumns(
           </StickyTableText>
         </div>
       ),
-      sortingFn: (left, right) => compareAppIdentity(left.original, right.original),
+      sortFn: (left, right) => compareAppIdentity(left.original, right.original),
     },
     {
       id: "version",
@@ -191,7 +192,7 @@ export function createAppManagerColumns(
           </div>
         )
       },
-      sortingFn: (left, right) =>
+      sortFn: (left, right) =>
         naturalTextComparator.compare(left.original.sourceType, right.original.sourceType) ||
         compareAppIdentity(left.original, right.original),
     },
@@ -216,7 +217,7 @@ export function createAppManagerColumns(
           {compactPath(row.original.installPath)}
         </StickyTableText>
       ),
-      sortingFn: (left, right) =>
+      sortFn: (left, right) =>
         naturalTextComparator.compare(left.original.installPath, right.original.installPath) ||
         compareAppIdentity(left.original, right.original),
     },
@@ -236,7 +237,7 @@ export function createAppManagerColumns(
         const date = new Date(d * 1000)
         return <span className="text-muted-foreground text-sm">{date.toLocaleDateString()}</span>
       },
-      sortingFn: (left, right) =>
+      sortFn: (left, right) =>
         left.original.lastModified - right.original.lastModified ||
         compareAppIdentity(left.original, right.original),
     },

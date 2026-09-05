@@ -3,7 +3,8 @@
  */
 import type { ReactNode } from "react"
 import { useTranslation } from "react-i18next"
-import type { ColumnDef, OnChangeFn, SortingState } from "@tanstack/react-table"
+import type { ColumnDef, OnChangeFn, RowData, SortingState } from "@tanstack/react-table"
+import { type BenchTableFeatures } from "@/components/ui/table-features"
 import { RotateCw, X } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -22,10 +23,10 @@ import {
 import type { CategorizableItem } from "@/features/app-manager/components/CategoryFilter"
 import type { BatchOperationResult } from "@/lib/tauri/types/app-manager"
 
-interface AppManagerCatalogViewProps<TItem, TFilter extends string> {
+interface AppManagerCatalogViewProps<TItem extends RowData, TFilter extends string> {
   items: TItem[]
   allItems: CategorizableItem[]
-  columns: ColumnDef<TItem>[]
+  columns: ColumnDef<BenchTableFeatures, TItem>[]
   getRowId: (item: TItem) => string
   renderGridCard: (item: TItem) => ReactNode
   renderDetail: (item: TItem) => ReactNode
@@ -83,7 +84,7 @@ interface AppManagerCatalogViewProps<TItem, TFilter extends string> {
   getRowAttributes?: (item: TItem) => Record<string, string>
 }
 
-export function AppManagerCatalogView<TItem, TFilter extends string>({
+export function AppManagerCatalogView<TItem extends RowData, TFilter extends string>({
   items,
   allItems,
   columns,
