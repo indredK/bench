@@ -125,6 +125,9 @@ jobs:
         #     os: windows-latest
 
     runs-on: ${{ matrix.os }}
+    env:
+      # Same as `verify`: keep the sccache wrapper off in CI (see D-021).
+      RUSTC_WRAPPER: ""
 
     steps:
       - name: Checkout
@@ -300,6 +303,8 @@ jobs:
 
     env:
       PUBLISH_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref_name }}
+      # Same as `verify`: keep the sccache wrapper off in CI (see D-021).
+      RUSTC_WRAPPER: ""
 
     steps:
       - name: Checkout
