@@ -19,6 +19,7 @@
     "postinstall": "node scripts/bootstrap/install-hooks.mjs",
     "check:i18n": "node scripts/quality/check-i18n-guards.mjs",
     "check:ci-platforms": "node scripts/quality/check-ci-platforms.mjs",
+    "check:be-cfg": "node scripts/quality/check-rust-cfg-hygiene.mjs",
     "dev:fe": "vite",
     "build:fe": "tsc && vite build",
     "preview:fe": "vite preview",
@@ -41,7 +42,7 @@
     "build:debug": "tauri build --debug",
     "test": "pnpm run test:fe && pnpm run test:be",
     "diagrams": "node docs/diagrams/server.mjs",
-    "verify": "pnpm run format:check && pnpm run lint:fe && pnpm run test:fe && pnpm run format:be && pnpm run clippy:be && pnpm run test:be && pnpm run build:fe && pnpm run build:debug",
+    "verify": "pnpm run format:check && pnpm run lint:fe && pnpm run check:be-cfg && pnpm run test:fe && pnpm run format:be && pnpm run clippy:be && pnpm run test:be && pnpm run build:fe && pnpm run build:debug",
     "ci": "pnpm install --frozen-lockfile && pnpm run verify",
     "upgrade:safe": "node scripts/maintenance/safe-upgrade.mjs"
   },

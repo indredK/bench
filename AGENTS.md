@@ -17,10 +17,13 @@
    - [ ] `.cursorrules` — 行为约束（最高优先级）
    - [ ] `docs/ARCHITECTURE.md` §2 — 🔴 禁止模式（不可触犯）
    - [ ] `docs/coding-standards.md` — 编码规范（强制/建议）
+   - [ ] `docs/coding-standards.md` §7.4.1 — **跨平台 cfg 门控铁律**（改 Rust `#[cfg]` 块/平台分支前必读，必跑 `pnpm run check:be-cfg`；本机编译 ≠ 双平台验证）
    - [ ] `docs/UX-STANDARDS.md` — UX 设计规范（布局/加载态/文本溢出/紧凑化）
    - [ ] `docs/AI-WORKFLOWS.md` — 工作流定义
    - [ ] `docs/DECISIONS.md` — 方向性决策（做取舍前先读，取舍后回写）
 3. **按下方关键词路由表进 workflow**；**判断不了就停下问人**，不许猜。
+
+> **AI 红线提醒（双平台 cfg 卫生）**：macOS 端**无法交叉编译** Windows 目标（`ring` 等 C 依赖无 MSVC 头），所以“本机编译通过”不能替代跨平台验证。任何对 `src-tauri/src/**/*.rs` 的 `#[cfg(...)]` / 平台分支 / 新增常量 / 新增 `use` 导入绑定 / 新增 `let mut` 的改动，提交前必须 `pnpm run check:be-cfg` 全绿。该门禁已串入 `verify` 与 `.github/workflows/ci-build.yml`，本地不跑就是给 CI 留雷。详见 `docs/coding-standards.md` §7.4.1。
 
 ---
 

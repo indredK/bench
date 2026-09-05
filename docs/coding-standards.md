@@ -128,6 +128,25 @@
 - **强制**: 单平台专有编译期 API 必须用 `#[cfg(target_os = "...")]` 包裹并为另一目标平台提供可编译分支；典型面：Tauri 窗口/托盘 builder 的平台专有方法（如 macOS 独有 `title_bar_style`）、`NS*`/`objc`/cocoa 类型、win32 API。写法上优先用可链式重组的 builder 变量：先构建公共链，再 `#[cfg]` 追加平台分支，最后 `build()`；条件编译不得留下另一平台未使用变量/导入的 clippy 告警。
 - **强制**: 涉及窗口构建、托盘、系统 API、外部命令的 Rust 改动，提交前必须自查平台兼容：grep 所用 API 是否单平台专有、确认每个 `#[cfg]` 分支在另一平台有对应路径；最终门禁为 CI 双平台编译，本地不得以“本机编译通过”代替双平台验证。
 
+### 7.4.1 条件编译门控（双平台 CI 的头号失败源）
+
+> 背景：`clippy:be` 以 `-D warnings` 运行，CI 在 macOS + Windows 双平台编译。`unused_imports` / `dead_code` / `unused_mut` 因此是**硬错误**。而 macOS 上无法交叉编译 Windows 目标（`ring` 等 C 依赖缺少 MSVC 头），所以“本机编译通过”不能作为跨平台验证——缺陷只能等到 Windows runner 才暴露。
+>
+> 历史事故：`photo_triage` 模块把 `sips`/`qlmanage` 预览路径关进 `#[cfg(target_os = "macos")]` 块，但常量 `SIPS_TIMEOUT`、`QLMANAGE_TIMEOUT`、`IMG_MAX_EDGE` 及其 `use` 导入、以及 `let mut made` 的定义处没有同步门控，Windows 下一次性报出 5 个编译错误。
+
+- **强制**: 门控范围必须与**使用点**对齐。常量、`static`、`fn`、`use` 导入绑定、`let mut` 绑定，只要其全部引用（或全部重新赋值）都落在 `#[cfg(target_os = "...")]` 块内，定义处就必须带相同的平台门控。
+- **强制**: 提交含 `#[cfg]` 的 Rust 改动前必须执行 `pnpm run check:be-cfg`（已串入 `verify` 与 CI）。该静态守卫按平台求解“定义活跃但无引用活跃”的死代码，覆盖 macOS 本机无法验证的 Windows 侧。
+- **强制**: 不得为消除告警而门控**互补分支共用的**函数。`#[cfg(target_os = "macos")]` 与 `#[cfg(target_os = "windows")]` 各自调用同一函数是正确写法——两个平台都至少有一处活跃引用，不存在死代码。
+- **禁止**: 把 `#[cfg_attr(...)]` 当作门控。`cfg_attr` 只负责“应用另一个属性”，不会把代码移出构建；`#[cfg_attr(not(any(target_os = "macos", target_os = "ios")), allow(unused_mut))]` 恰恰是“某平台不需要 `mut`”的正确表达方式。
+- **建议**: 模块级门控（`#[cfg(target_os = "macos")] mod macos_webview;`）会连带门控整个文件。这类文件内的项在另一平台根本不存在，不算死代码，不要为其补门控。
+
+**AI / 开发自查清单（改完 Rust 平台分支后逐条过）**：
+
+1. 新增或修改的常量、导入、`let mut` 是否被平台 `#[cfg]` 块独占使用？
+2. 每个 `#[cfg(...)]` 分支在另一平台是否都有对应路径？
+3. `pnpm run check:be-cfg` 是否通过？（本地唯一能覆盖另一平台的手段）
+4. 是否仅凭“本机编译通过”就判定跨平台没问题？（不构成验证）
+
 ### 7.5 应用清单与更新安全
 
 - **强制**: 应用启动、定位、升级、卸载命令只接受后端稳定 ID；renderer 不得提交可执行路径、package ID 或 shell 参数作为最终执行依据。

@@ -82,6 +82,11 @@ jobs:
       - name: Check Rust crate declarations
         run: node scripts/quality/check-rust-crates.mjs
 
+      # Catches platform-gated dead code (unused_imports / dead_code / unused_mut)
+      # before the Windows runner compiles it under -D warnings.
+      - name: Check Rust cfg hygiene
+        run: node scripts/quality/check-rust-cfg-hygiene.mjs
+
       - name: Check Rust formatting
         run: pnpm run format:be
 
