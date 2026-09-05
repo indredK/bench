@@ -2,6 +2,24 @@
 
 本文件只记录仍影响当前实现的方向性取舍；“做什么”以 [ROADMAP.md](./ROADMAP.md) 为准，当前风险以 [audit-report.md](./audit-report.md) 为准。已推翻和已完成历史由 Git 保留。
 
+## D-021 · Rust target 目录外迁 + sccache + 暂停 Windows CI
+
+- **日期**：2026-09-05
+- **状态**：采纳
+- **背景**：`src-tauri/target/` 累计到 **42 GB**（debug 38G、release 917M、aarch64-apple-darwin 增量 2.3G、x86_64-pc-windows-{gnu,msvc} 273M、rust-analyzer/flycheck 1.8G），远超项目本体（`node_modules` 541M、`dist` 2.4M）。根因：① Tauri 生态依赖图重（`tauri` + `objc2` + `webview2-com` + `reqwest` + `quick-xml` + `keyring` + `trippy-core` …），debug 不开 LTO；② 本机同时跑 macOS + 两个 Windows target 的交叉编译，本地无法交叉编译 Windows（见 `AGENTS.md` 跨平台 cfg 铁律）；③ 无 `sccache`，每次 `cargo clean` 都是全量重编。
+- **决策**：
+  1. **Rust 构建产物迁出项目，相对路径 + 同级目录**：`src-tauri/.cargo/config.toml` 设 `build.target-dir = "../../tauri-app-target"`，路径相对 config 文件解析，实际落点为 `<github>/tauri-app-target`，与 `tauri-app/` 同级。理由：① 与项目一对一绑定，命名上不会跟其他项目（`bettertolive` / `uniapp` 等）的产物串；② 相对路径使项目可被整体移动或重命名（仓库从 `tauri-app/` 改名为 `bench-app/` 也无需改配置）；③ 仓库目录从此只放源码，Time Machine / 备份 / 体积探测都不再背 `target/`。`.gitignore` 中 `src-tauri/target/` 保留为防御性兜底。
+  2. **统一启用 `sccache`**：在同文件 `build.rustc-wrapper = "/opt/homebrew/bin/sccache"`，dev/CI 共享编译缓存；本地干净 rebuild 缩到分钟级。CI 侧不显式配 wrapper（`Swatinem/rust-cache@v2` 已等价覆盖），本机与 CI 各自独立缓存。
+  3. **rust-analyzer 复用同一 target dir**：`rust-analyzer.cargo.targetDir = true`，cargo 与 rust-analyzer 共享 build artifacts，rust-analyzer 不会再产出独立的二级 `target/rust-analyzer/` 子树。
+  4. **暂停 Windows CI**：`verify` job 的 `matrix.os` 移除 `windows-latest`，`release-build` 矩阵移除 `x86_64-pc-windows-msvc`，同步删除 `Import Windows Authenticode certificate`、`Verify Windows Authenticode signatures`、`Collect Windows bundle and updater artifacts` 三个死步骤以及 Windows-only 的 release 签名分支。**`check:be-cfg` 继续在 macOS runner 跑**，cfg 卫生门禁不退化。Release 通知文本保留对 Windows Authenticode 的提示，因为它是给终端用户看的，跟 CI 跑不跑 Windows 不耦合。
+- **理由**：本机 macOS 端无 MSVC 头无法真正交叉编译到 Windows（既有的 `ring` / `webview2-com` 限制），本地跑 Windows target 只是产生死目录；CI 跑 Windows 暂时与 2.0 发布节奏不对齐。`target-dir` 外迁一劳永逸地解决项目目录膨胀，sccache 解决反复 `cargo clean` 的开发成本。`sccache` + 外置 target-dir 是 macOS Tauri 项目的标准组合，没有项目结构耦合。
+- **影响**：
+  - 任何 Rust 工作流（`pnpm tauri dev` / `cargo build` / `pnpm run check:be-cfg` / rust-analyzer）都会自动写到 `tauri-app-target/`，不会在 `src-tauri/target/` 落新文件。
+  - 新增 `src-tauri/.cargo/audit.toml` 不受影响（不同 config 域）。
+  - 重新启用 Windows CI 时，按 `ci-build.yml` 中保留的注释恢复矩阵条目与三个被删步骤即可，diff 在 git history 里。
+  - 旧 `src-tauri/target/` 已移入废纸篓（mavis-trash），可从 Finder 回收站恢复或清空。
+- **相关**：[src-tauri/.cargo/config.toml](../src-tauri/.cargo/config.toml) · [.github/workflows/ci-build.yml](../.github/workflows/ci-build.yml) · [.vscode/settings.json](../.vscode/settings.json) · [AGENTS.md 跨平台 cfg 铁律](../AGENTS.md) · [D-018](#d-018--智能体工具文件不进版本库)
+
 ## D-020 · Photo Triage 作为 2.0 旁路独立模块（对齐 D-016 先例）
 
 - **日期**：2026-09-03

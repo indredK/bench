@@ -1,0 +1,27 @@
+# Cargo configuration for bench (Tauri backend)
+#
+# - target-dir is moved out of the project to keep `src-tauri/target/`
+#   (and therefore the repo) small. The old location accumulated
+#   42 GB across macOS / Windows debug & release profiles on a single
+#   developer's machine (see docs/DECISIONS.md D-021).
+# - The path is relative to this file (src-tauri/.cargo/), so the
+#   target dir lives at `<repo>/../../tauri-app-target`, i.e. as a
+#   sibling of the tauri-app checkout. This keeps the build artifacts
+#   paired with the project they belong to (a different clone of the
+#   same repo on this machine would not collide), and lets the project
+#   be moved or cloned under a different name without breaking the
+#   build.
+# - sccache wraps rustc to share compiled artifacts across clean
+#   rebuilds; both local dev and CI benefit. To disable temporarily
+#   set the env var `RUSTC_WRAPPER=` to an empty string.
+#
+# Path: src-tauri/.cargo/config.toml is automatically picked up by
+# cargo for any cargo invocation rooted at or below src-tauri/.
+
+[build]
+target-dir = "../../tauri-app-target"
+
+# Apple Silicon Homebrew prefix; on Intel Macs this is /usr/local/bin/sccache.
+# If sccache is not on PATH (e.g. CI runners), cargo silently falls back to
+# direct rustc invocation, so the build still works.
+rustc-wrapper = "/opt/homebrew/bin/sccache"

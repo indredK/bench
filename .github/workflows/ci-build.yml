@@ -35,15 +35,12 @@ permissions:
 
 jobs:
   verify:
-    name: Verify (${{ matrix.os }})
-    strategy:
-      fail-fast: false
-      matrix:
-        os:
-          - macos-latest
-          - windows-latest
-
-    runs-on: ${{ matrix.os }}
+    name: Verify (macOS)
+    runs-on: macos-latest
+    # Windows CI temporarily disabled (D-021): the macOS runner still
+    # runs `check:be-cfg` to catch platform-gated dead code on a best-effort
+    # basis, but Windows-specific cfg branches are no longer exercised here.
+    # Re-enable the matrix below when Windows CI is re-introduced.
 
     steps:
       - name: Checkout
@@ -83,7 +80,9 @@ jobs:
         run: node scripts/quality/check-rust-crates.mjs
 
       # Catches platform-gated dead code (unused_imports / dead_code / unused_mut)
-      # before the Windows runner compiles it under -D warnings.
+      # before release builds compile it under -D warnings. Runs on macOS even
+      # with the Windows CI disabled (D-021); cfg hygiene checks are
+      # platform-agnostic as long as the macOS host has the Rust toolchain.
       - name: Check Rust cfg hygiene
         run: node scripts/quality/check-rust-cfg-hygiene.mjs
 
@@ -115,8 +114,10 @@ jobs:
             os: macos-latest
           - target: x86_64-apple-darwin
             os: macos-latest
-          - target: x86_64-pc-windows-msvc
-            os: windows-latest
+        # Windows release target temporarily disabled (D-021).
+        # Re-add the entry below when Windows CI is re-introduced:
+        #   - target: x86_64-pc-windows-msvc
+        #     os: windows-latest
 
     runs-on: ${{ matrix.os }}
 
@@ -182,69 +183,33 @@ jobs:
           security list-keychain -d user -s "$keychain_path"
           echo "BENCH_RELEASE_KEYCHAIN=$keychain_path" >> "$GITHUB_ENV"
 
-      - name: Import Windows Authenticode certificate
-        if: runner.os == 'Windows' && env.BENCH_OS_SIGNING_MODE == 'signed'
-        shell: pwsh
-        env:
-          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
-          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
-        run: |
-          if (-not $env:WINDOWS_CERTIFICATE -or -not $env:WINDOWS_CERTIFICATE_PASSWORD) {
-            throw "WINDOWS_CERTIFICATE and WINDOWS_CERTIFICATE_PASSWORD are required for Windows releases."
-          }
-          $certificatePath = Join-Path $env:RUNNER_TEMP "bench-release.pfx"
-          [IO.File]::WriteAllBytes($certificatePath, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE))
-          $password = ConvertTo-SecureString $env:WINDOWS_CERTIFICATE_PASSWORD -AsPlainText -Force
-          $certificate = Import-PfxCertificate -FilePath $certificatePath -CertStoreLocation Cert:\CurrentUser\My -Password $password
-          if (-not $certificate -or -not $certificate.Thumbprint) {
-            throw "Windows release certificate import did not return a thumbprint."
-          }
-          "WINDOWS_CERTIFICATE_THUMBPRINT=$($certificate.Thumbprint)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-
       - name: Build Tauri app
         shell: bash
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          WINDOWS_TIMESTAMP_URL: ${{ secrets.WINDOWS_TIMESTAMP_URL }}
         run: |
           if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
             echo "::error::TAURI_SIGNING_PRIVATE_KEY is required for release tags."
             exit 1
           fi
-          if [ "${{ runner.os }}" = "macOS" ]; then
-            if [ "$BENCH_OS_SIGNING_MODE" = "signed" ]; then
-              apple_signing_identity="${{ secrets.APPLE_SIGNING_IDENTITY }}"
-              apple_id="${{ secrets.APPLE_ID }}"
-              apple_password="${{ secrets.APPLE_PASSWORD }}"
-              apple_team_id="${{ secrets.APPLE_TEAM_ID }}"
-              if [ -z "$apple_signing_identity" ] || [ -z "$apple_id" ] || [ -z "$apple_password" ] || [ -z "$apple_team_id" ]; then
-                echo "::error::APPLE_SIGNING_IDENTITY, APPLE_ID, APPLE_PASSWORD, and APPLE_TEAM_ID are required in signed mode."
-                exit 1
-              fi
-              release_config="{\"bundle\":{\"macOS\":{\"signingIdentity\":\"$apple_signing_identity\"}}}"
-              pnpm tauri build --target ${{ matrix.target }} --bundles app,dmg --config "$release_config"
-            else
-              echo "::warning::Building an ad-hoc signed macOS package. Users must explicitly trust Bench in macOS."
-              # Do not inject empty APPLE_SIGNING_IDENTITY — it overrides tauri.conf.json ad-hoc "-".
-              release_config='{"bundle":{"macOS":{"signingIdentity":"-"}}}'
-              pnpm tauri build --target ${{ matrix.target }} --bundles app,dmg --config "$release_config"
+          # Windows release temporarily disabled (D-021); only macOS runs here.
+          if [ "$BENCH_OS_SIGNING_MODE" = "signed" ]; then
+            apple_signing_identity="${{ secrets.APPLE_SIGNING_IDENTITY }}"
+            apple_id="${{ secrets.APPLE_ID }}"
+            apple_password="${{ secrets.APPLE_PASSWORD }}"
+            apple_team_id="${{ secrets.APPLE_TEAM_ID }}"
+            if [ -z "$apple_signing_identity" ] || [ -z "$apple_id" ] || [ -z "$apple_password" ] || [ -z "$apple_team_id" ]; then
+              echo "::error::APPLE_SIGNING_IDENTITY, APPLE_ID, APPLE_PASSWORD, and APPLE_TEAM_ID are required in signed mode."
+              exit 1
             fi
-          elif [ "${{ runner.os }}" = "Windows" ]; then
-            if [ "$BENCH_OS_SIGNING_MODE" = "signed" ]; then
-              if [ -z "$WINDOWS_CERTIFICATE_THUMBPRINT" ] || [ -z "$WINDOWS_TIMESTAMP_URL" ]; then
-                echo "::error::Windows certificate thumbprint and WINDOWS_TIMESTAMP_URL are required in signed mode."
-                exit 1
-              fi
-              release_config="{\"bundle\":{\"windows\":{\"certificateThumbprint\":\"$WINDOWS_CERTIFICATE_THUMBPRINT\",\"digestAlgorithm\":\"sha256\",\"timestampUrl\":\"$WINDOWS_TIMESTAMP_URL\"}}}"
-              pnpm tauri build --target ${{ matrix.target }} --bundles msi,nsis --config "$release_config"
-            else
-              echo "::warning::Building unsigned Windows packages. Windows may show an unknown publisher warning."
-              pnpm tauri build --target ${{ matrix.target }} --bundles msi,nsis
-            fi
+            release_config="{\"bundle\":{\"macOS\":{\"signingIdentity\":\"$apple_signing_identity\"}}}"
+            pnpm tauri build --target ${{ matrix.target }} --bundles app,dmg --config "$release_config"
           else
-            echo "::error::Release builds only support macOS and Windows runners."
-            exit 1
+            echo "::warning::Building an ad-hoc signed macOS package. Users must explicitly trust Bench in macOS."
+            # Do not inject empty APPLE_SIGNING_IDENTITY — it overrides tauri.conf.json ad-hoc "-".
+            release_config='{"bundle":{"macOS":{"signingIdentity":"-"}}}'
+            pnpm tauri build --target ${{ matrix.target }} --bundles app,dmg --config "$release_config"
           fi
 
       - name: Verify macOS code signing and notarization
@@ -264,26 +229,6 @@ jobs:
           xcrun stapler validate "$app_path"
           xcrun stapler validate "$dmg_path"
           spctl --assess --type open --context context:primary-signature --verbose=2 "$dmg_path"
-
-      - name: Verify Windows Authenticode signatures
-        if: runner.os == 'Windows' && env.BENCH_OS_SIGNING_MODE == 'signed'
-        shell: pwsh
-        run: |
-          $bundleRoot = "src-tauri/target/${{ matrix.target }}/release/bundle"
-          $files = @(
-            Get-Item "src-tauri/target/${{ matrix.target }}/release/bench.exe"
-            Get-ChildItem -Path "$bundleRoot/msi" -File -Filter *.msi
-            Get-ChildItem -Path "$bundleRoot/nsis" -File -Filter *.exe
-          )
-          if ($files.Count -ne 3) {
-            throw "Expected signed application, MSI, and NSIS files; found $($files.Count)."
-          }
-          foreach ($file in $files) {
-            $signature = Get-AuthenticodeSignature -FilePath $file.FullName
-            if ($signature.Status -ne "Valid") {
-              throw "Authenticode signature is not valid for $($file.FullName): $($signature.Status)"
-            }
-          }
 
       - name: Collect macOS bundle and updater artifacts
         if: runner.os == 'macOS'
@@ -319,31 +264,10 @@ jobs:
             --file "artifacts/$updater_name" \
             --signature "artifacts/$updater_sig_name"
 
-      - name: Collect Windows bundle and updater artifacts
-        if: runner.os == 'Windows'
-        run: |
-          New-Item -ItemType Directory -Force -Path artifacts | Out-Null
-          $bundleRoot = "src-tauri/target/${{ matrix.target }}/release/bundle"
-          $msi = @(Get-ChildItem -Path "$bundleRoot/msi" -File -Filter *.msi)
-          $nsis = @(Get-ChildItem -Path "$bundleRoot/nsis" -File -Filter *.exe)
-          if ($msi.Count -ne 1 -or $nsis.Count -ne 1) {
-            throw "Expected exactly one MSI and one NSIS installer; found MSI=$($msi.Count) NSIS=$($nsis.Count)."
-          }
-          $sigPath = "$($nsis[0].FullName).sig"
-          if (-not (Test-Path $sigPath) -or (Get-Item $sigPath).Length -eq 0) {
-            throw "Windows NSIS updater signature is missing or empty: $sigPath"
-          }
-          $msiName = "windows-x86_64-$($msi[0].Name)"
-          $updaterName = "windows-x86_64-$($nsis[0].Name)"
-          Copy-Item $msi[0].FullName -Destination "artifacts/$msiName"
-          Copy-Item $nsis[0].FullName -Destination "artifacts/$updaterName"
-          Copy-Item $sigPath -Destination "artifacts/$updaterName.sig"
-          node scripts/release/write-updater-manifest.mjs `
-            --output-dir artifacts `
-            --target "${{ matrix.target }}" `
-            --platform "windows-x86_64" `
-            --file "artifacts/$updaterName" `
-            --signature "artifacts/$updaterName.sig"
+      # Windows artifact collection temporarily disabled (D-021).
+      # Re-add a step that runs only `if: runner.os == 'Windows'` and produces
+      # `windows-x86_64-*.msi` / `windows-x86_64-*.exe(.sig)` when Windows CI
+      # is re-introduced.
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v7

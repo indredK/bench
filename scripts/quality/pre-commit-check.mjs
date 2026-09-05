@@ -228,6 +228,29 @@ if (hasBackendChanges) {
   // Whitespace check must run AFTER the auto-fix steps (prettier + cargo fmt),
   // so trailing whitespace / "new blank line at EOF" are fixed before being
   // reported. Same logic applies to the cfg-hygiene auto-fix above.
+  // git diff --check detects but cannot fix; auto-fix in place first, then
+  // verify the staged content is clean.
+  console.log(`\n==> Auto-fixing staged whitespace`)
+  const wsFixResult = spawnSync("node", ["scripts/quality/fix-staged-whitespace.mjs"], {
+    cwd: rootDir,
+    encoding: "utf8",
+  })
+  if (wsFixResult.stdout) process.stdout.write(wsFixResult.stdout)
+  if (wsFixResult.stderr) process.stderr.write(wsFixResult.stderr)
+  if (wsFixResult.error) {
+    console.error(wsFixResult.error.message)
+    process.exit(1)
+  }
+  if (wsFixResult.status !== 0) process.exit(wsFixResult.status)
+  const wsFixedFiles = (wsFixResult.stdout ?? "")
+    .split("\n")
+    .filter((line) => line.trim().startsWith("fixed:"))
+    .map((line) => line.trim().slice("fixed:".length).trim())
+    .filter(Boolean)
+  if (wsFixedFiles.length > 0) {
+    runStep("Re-staging whitespace-fixed files", "git", ["add", ...wsFixedFiles])
+    console.log("Whitespace auto-fixed and re-staged the above files.")
+  }
   runStep("Checking staged whitespace", "git", ["diff", "--cached", "--check"])
   runStep("Checking Rust code", pkgManager, ["run", "check:be"])
   runStep("Running Rust clippy (warnings as errors)", pkgManager, ["run", "clippy:be"])
