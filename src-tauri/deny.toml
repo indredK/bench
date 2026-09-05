@@ -17,8 +17,6 @@ ignore = [
   # cargo-audit mirrors these in .cargo/audit.toml (it does not read deny.toml):
   "RUSTSEC-2026-0194",
   "RUSTSEC-2026-0195",
-  # num-bigint 0.4.7 in keyring→secret-service→num (transitive, no direct dep):
-  { crate = "num-bigint@0.4.7", reason = "transitive dep via keyring, no semver-compatible replacement published yet" },
 ]
 
 [licenses]
