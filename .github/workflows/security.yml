@@ -27,6 +27,12 @@ jobs:
     name: Cargo Audit + Deny
     runs-on: macos-latest
 
+    # macos-latest (arm64) runners ship sccache, so the `sccache-wrapper`
+    # config makes `cargo metadata` fail on a stale rustc path. CI never
+    # relied on sccache — bypass the wrapper entirely (see D-021).
+    env:
+      RUSTC_WRAPPER: ""
+
     steps:
       - name: Checkout
         uses: actions/checkout@v5

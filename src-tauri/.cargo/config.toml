@@ -14,14 +14,16 @@
 # - sccache wraps rustc to share compiled artifacts across clean
 #   rebuilds; both local dev and CI benefit. To disable temporarily
 #   set the env var `RUSTC_WRAPPER=` to an empty string.
+# - The wrapper is a small shell script (sccache-wrapper.sh) that uses
+#   sccache when on PATH and falls back to direct rustc otherwise,
+#   so a single config works on dev machines AND on CI runners that
+#   do not have sccache installed.
 #
 # Path: src-tauri/.cargo/config.toml is automatically picked up by
 # cargo for any cargo invocation rooted at or below src-tauri/.
 
 [build]
 target-dir = "../../tauri-app-target"
-
-# Apple Silicon Homebrew prefix; on Intel Macs this is /usr/local/bin/sccache.
-# If sccache is not on PATH (e.g. CI runners), cargo silently falls back to
-# direct rustc invocation, so the build still works.
-rustc-wrapper = "/opt/homebrew/bin/sccache"
+# `rustc-wrapper` is resolved relative to the workspace root
+# (src-tauri/), not the config file's directory. See D-021.
+rustc-wrapper = ".cargo/sccache-wrapper.sh"

@@ -41,6 +41,11 @@ jobs:
     # runs `check:be-cfg` to catch platform-gated dead code on a best-effort
     # basis, but Windows-specific cfg branches are no longer exercised here.
     # Re-enable the matrix below when Windows CI is re-introduced.
+    env:
+      # Bypass the sccache rustc-wrapper: macos-latest (arm64) runners ship
+      # sccache and the wrapper can break `cargo metadata`. CI never relied
+      # on sccache — keep it off for deterministic runs (see D-021).
+      RUSTC_WRAPPER: ""
 
     steps:
       - name: Checkout
