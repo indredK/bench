@@ -194,8 +194,40 @@ if (hasBackendChanges) {
     runStep("Re-staging auto-formatted Rust files", "git", ["add", ...rustFiles])
     console.log("cargo fmt auto-fixed and re-staged the above Rust files.")
   }
-  // Whitespace check must run AFTER the auto-fix steps (prettier + cargo fmt), so
-  // trailing whitespace / "new blank line at EOF" are fixed before being reported.
+  // Auto-fix Rule B (`let mut` dead under one platform): Rule B has a single
+  // correct action (delete `mut`), so we rewrite the file in place. Rule A
+  // (const/static/fn/use dead code) is too ambiguous to auto-fix — `--fix`
+  // exits non-zero and prints the remaining Rule A violations for the dev to
+  // resolve manually. We capture stdout so we can re-stage the modified files.
+  // See docs/coding-standards.md §7.4.1.
+  console.log(`\n==> Auto-fixing Rust cfg hygiene (Rule B)`)
+  const cfgFixResult = spawnSync("node", ["scripts/quality/check-rust-cfg-hygiene.mjs", "--fix"], {
+    cwd: rootDir,
+    encoding: "utf8",
+  })
+  if (cfgFixResult.stdout) process.stdout.write(cfgFixResult.stdout)
+  if (cfgFixResult.stderr) process.stderr.write(cfgFixResult.stderr)
+  if (cfgFixResult.error) {
+    console.error(cfgFixResult.error.message)
+    process.exit(1)
+  }
+  if (cfgFixResult.status !== 0) {
+    // Rule A remain (or `--fix` itself failed). --fix already printed them
+    // above; just propagate the non-zero exit so the commit is blocked.
+    process.exit(cfgFixResult.status)
+  }
+  const cfgFixedFiles = (cfgFixResult.stdout ?? "")
+    .split("\n")
+    .filter((line) => line.trim().startsWith("fixed:"))
+    .map((line) => line.trim().slice("fixed:".length).trim())
+    .filter(Boolean)
+  if (cfgFixedFiles.length > 0) {
+    runStep("Re-staging auto-fixed Rust cfg files", "git", ["add", ...cfgFixedFiles])
+    console.log("cfg-hygiene auto-fixed and re-staged the above Rust files.")
+  }
+  // Whitespace check must run AFTER the auto-fix steps (prettier + cargo fmt),
+  // so trailing whitespace / "new blank line at EOF" are fixed before being
+  // reported. Same logic applies to the cfg-hygiene auto-fix above.
   runStep("Checking staged whitespace", "git", ["diff", "--cached", "--check"])
   runStep("Checking Rust code", pkgManager, ["run", "check:be"])
   runStep("Running Rust clippy (warnings as errors)", pkgManager, ["run", "clippy:be"])

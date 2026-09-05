@@ -34,7 +34,7 @@
  *
  * Exit code 1 if any violation is found, 0 otherwise.
  */
-import { readFileSync, readdirSync, statSync, existsSync } from "node:fs"
+import { readFileSync, readdirSync, statSync, existsSync, writeFileSync } from "node:fs"
 import path from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 
@@ -666,12 +666,18 @@ export function analyzeRustSources(sources, { srcDir, displayRoot }) {
       if (deadOn.length === 0) continue
 
       const first = mutations[0]
+      // `letStart` / `nameEnd` are the byte offsets of the entire `let mut X`
+      // token in the masked source. They are the same in the raw source because
+      // maskSource preserves length + newlines. They drive `--fix` so it can
+      // rewrite the binding in place without re-parsing.
       violations.push({
         rule: "B",
         file: entry.file,
         line: lineOf(entry.masked, offset),
         name,
         kind: "let mut",
+        letStart: m.index,
+        nameEnd: m.index + m[0].length,
         detail:
           `\`let mut ${name}\` 在 ${deadOn.join(" / ")} 上会被编译，但 ${mutations.length} 处重新赋值都不在该平台编译` +
           `（首个 ${entry.file}:${lineOf(entry.masked, first.offset)}）。` +
@@ -710,9 +716,116 @@ function describe(kind) {
   }
 }
 
+// --- 8. Auto-fix (Rule B only) ---
+
+/**
+ * Pure helper: rewrite the source `content` so that every `let mut X` listed in
+ * `violations` becomes `let X`. Returns the new content and the number of
+ * bindings actually rewritten. Idempotent: a binding that is no longer `mut`
+ * after one pass is no longer matched by `LET_MUT_RE`, so a second pass is a
+ * no-op.
+ *
+ * `violations` should be the Rule-B slice for THIS file only (other files'
+ * offsets would be wrong). `letStart` / `nameEnd` come from the same masked
+ * source as `content` — they line up because `maskSource` preserves length.
+ *
+ * Exported for the unit tests; the CLI drives `applyRuleBFixesOnDisk`.
+ */
+export function applyRuleBFixesToContent(content, violations) {
+  const ruleB = violations.filter((v) => v.rule === "B")
+  if (ruleB.length === 0) return { content, fixedCount: 0 }
+
+  // Sort by offset descending so earlier rewrites don't shift later offsets.
+  const sorted = [...ruleB].sort((a, b) => b.letStart - a.letStart)
+  let next = content
+  let fixedCount = 0
+  for (const v of sorted) {
+    const slice = next.slice(v.letStart, v.nameEnd)
+    const replacement = slice.replace(/^let\s+mut\s+/, "let ")
+    if (replacement !== slice) {
+      next = next.slice(0, v.letStart) + replacement + next.slice(v.nameEnd)
+      fixedCount++
+    }
+  }
+  return { content: next, fixedCount }
+}
+
+/**
+ * Group violations by file, apply `applyRuleBFixesToContent` to each, and write
+ * back only the files that actually changed. Returns the list of files that
+ * were modified (displayRoot-relative paths).
+ */
+function applyRuleBFixesOnDisk(violations, displayRoot) {
+  const byFile = new Map()
+  for (const v of violations) {
+    if (v.rule !== "B") continue
+    if (!byFile.has(v.file)) byFile.set(v.file, [])
+    byFile.get(v.file).push(v)
+  }
+  const modified = []
+  for (const [relPath, viols] of byFile) {
+    const absPath = path.join(displayRoot, relPath)
+    const original = readFileSync(absPath, "utf8")
+    const { content, fixedCount } = applyRuleBFixesToContent(original, viols)
+    if (fixedCount === 0) continue
+    writeFileSync(absPath, content, "utf8")
+    modified.push(relPath)
+  }
+  return modified
+}
+
+function printViolations(violations) {
+  for (const v of violations) {
+    console.error(`  [Rule ${v.rule}] ${v.file}:${v.line}  →  ${v.name} (${v.kind})`)
+    console.error(`    ${v.detail}`)
+    console.error(`    fix: ${v.fix}\n`)
+  }
+}
+
 // --- CLI ---
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const fixMode = process.argv.includes("--fix")
+
+  if (fixMode) {
+    // 1. Run the analysis on the current crate on disk.
+    const before = checkRustCfgHygiene()
+    const ruleB = before.violations.filter((v) => v.rule === "B")
+
+    if (ruleB.length === 0) {
+      console.log("No Rule B (`let mut`) violations to auto-fix.")
+    } else {
+      const modified = applyRuleBFixesOnDisk(ruleB, rootDir)
+      console.log(
+        `✓ Auto-fixed ${ruleB.length} \`let mut\` violation(s) in ${modified.length} file(s):`,
+      )
+      for (const file of modified) console.log(`  fixed: ${file}`)
+    }
+
+    // 2. Re-analyze after the rewrite. Any remaining violation is Rule A
+    // (const/static/fn/use dead code) — too ambiguous to auto-fix, the dev
+    // must decide between gating the definition or moving the usage.
+    const after = checkRustCfgHygiene()
+    if (after.violations.length === 0) {
+      console.log(
+        `✓ Rust cfg hygiene check passed — ${after.fileCount} files scanned after auto-fix.`,
+      )
+      process.exit(0)
+    }
+
+    console.error(
+      `\n✗ ${after.violations.length} violation(s) remain after auto-fix ` +
+        `(Rule A: const/static/fn/use dead code, requires manual alignment):\n`,
+    )
+    printViolations(after.violations)
+    console.error(
+      "Local builds only prove ONE platform. Align the #[cfg(...)] on the definition with " +
+        "the one on its call sites, or move the usage out of the platform branch.",
+    )
+    process.exit(1)
+  }
+
+  // Default mode: pure detection, no mutation.
   const result = checkRustCfgHygiene()
   if (result.violations.length === 0) {
     console.log(
@@ -726,11 +839,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     "✗ Rust cfg hygiene check FAILED — these are compiled on one supported platform but " +
       "unreferenced there, which breaks -D warnings on that platform:\n",
   )
-  for (const v of result.violations) {
-    console.error(`  [Rule ${v.rule}] ${v.file}:${v.line}  →  ${v.name} (${v.kind})`)
-    console.error(`    ${v.detail}`)
-    console.error(`    fix: ${v.fix}\n`)
-  }
+  printViolations(result.violations)
   console.error(
     "Local builds only prove ONE platform. Align the #[cfg(...)] on the definition with the " +
       "one on its call sites, or move the usage out of the platform branch.",

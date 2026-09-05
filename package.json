@@ -20,6 +20,7 @@
     "check:i18n": "node scripts/quality/check-i18n-guards.mjs",
     "check:ci-platforms": "node scripts/quality/check-ci-platforms.mjs",
     "check:be-cfg": "node scripts/quality/check-rust-cfg-hygiene.mjs",
+    "fix:be-cfg": "node scripts/quality/check-rust-cfg-hygiene.mjs --fix",
     "dev:fe": "vite",
     "build:fe": "tsc && vite build",
     "preview:fe": "vite preview",

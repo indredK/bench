@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { analyzeRustSources } from "../check-rust-cfg-hygiene.mjs"
+import { analyzeRustSources, applyRuleBFixesToContent } from "../check-rust-cfg-hygiene.mjs"
 
 const SRC = "/virtual/src"
 const ROOT = "/virtual"
@@ -141,5 +141,115 @@ fn take() -> usize { LIMIT }
     })
 
     expect(violations).toEqual([])
+  })
+
+  it("exposes letStart/nameEnd on Rule B violations for the auto-fixer", () => {
+    const { violations } = run({
+      "poster.rs": `
+fn make_poster() -> bool {
+    let mut made = false;
+    #[cfg(target_os = "macos")]
+    {
+        made = true;
+    }
+    made
+}
+`,
+    })
+
+    const ruleB = violations.filter((v) => v.rule === "B")
+    expect(ruleB).toHaveLength(1)
+    expect(ruleB[0]).toMatchObject({ name: "made" })
+    expect(typeof ruleB[0].letStart).toBe("number")
+    expect(typeof ruleB[0].nameEnd).toBe("number")
+    expect(ruleB[0].nameEnd).toBeGreaterThan(ruleB[0].letStart)
+  })
+})
+
+describe("Rust cfg hygiene auto-fix (Rule B)", () => {
+  it("removes `mut` from the bound name and reports the new content", () => {
+    const content = `fn build() -> u32 {
+    let mut made = 0u32;
+    made
+}
+`
+    // Offset comes from a real analysis of the same source so we don't have
+    // to hand-compute it.
+    const { violations } = run({ "preview.rs": content })
+    const ruleB = violations.filter((v) => v.rule === "B")
+    expect(ruleB).toHaveLength(0) // no cfg gating → no Rule B violation
+
+    // Now force a Rule B by adding a cfg block to the content and re-run.
+    const gated = content.replace(
+      "let mut made = 0u32;",
+      'let mut made = 0u32;\n    #[cfg(target_os = "macos")]\n    { made = 1; }',
+    )
+    const { violations: gatedViolations } = run({ "preview.rs": gated })
+    const [v] = gatedViolations.filter((x) => x.rule === "B")
+    expect(v).toBeDefined()
+
+    const { content: fixed, fixedCount } = applyRuleBFixesToContent(gated, [v])
+    expect(fixedCount).toBe(1)
+    expect(fixed).toContain("let made = 0u32;")
+    expect(fixed).not.toMatch(/\blet\s+mut\s+made\b/)
+  })
+
+  it("is idempotent — re-running yields fixedCount=0", () => {
+    const gated = `fn build() -> u32 {
+    let mut made = 0u32;
+    #[cfg(target_os = "macos")]
+    { made = 1; }
+    made
+}
+`
+    const { violations } = run({ "preview.rs": gated })
+    const [v] = violations.filter((x) => x.rule === "B")
+    const { content: first } = applyRuleBFixesToContent(gated, [v])
+    // Re-derive offsets from the FIXED content (which now has no `mut`, so
+    // the regex no longer matches → no violations → fixedCount=0).
+    const { violations: afterViolations } = run({ "preview.rs": first })
+    const stillRuleB = afterViolations.filter((x) => x.rule === "B")
+    expect(stillRuleB).toEqual([])
+  })
+
+  it("applies multiple Rule B fixes in reverse offset order without shifting later offsets", () => {
+    const gated = `fn build() -> u32 {
+    let mut a = 0u32;
+    let mut b = 0u32;
+    let mut c = 0u32;
+    #[cfg(target_os = "macos")]
+    { a = 1; b = 2; c = 3; }
+    a + b + c
+}
+`
+    const { violations } = run({ "preview.rs": gated })
+    const ruleB = violations.filter((v) => v.rule === "B")
+    expect(ruleB.map((v) => v.name)).toEqual(["a", "b", "c"])
+
+    const { content: fixed, fixedCount } = applyRuleBFixesToContent(gated, ruleB)
+    expect(fixedCount).toBe(3)
+    expect(fixed).toContain("let a = 0u32;")
+    expect(fixed).toContain("let b = 0u32;")
+    expect(fixed).toContain("let c = 0u32;")
+    expect(fixed).not.toMatch(/\blet\s+mut\s+[abc]\b/)
+  })
+
+  it("ignores Rule A violations — they require human judgment", () => {
+    const content = `const SIPS_TIMEOUT: u64 = 60;
+
+fn make_proxy() -> bool {
+    #[cfg(target_os = "macos")]
+    { run(SIPS_TIMEOUT); true }
+    #[cfg(not(target_os = "macos"))]
+    { false }
+}
+`
+    const { violations } = run({ "preview.rs": content })
+    const ruleA = violations.filter((v) => v.rule === "A")
+    expect(ruleA).toHaveLength(1)
+
+    const { content: fixed, fixedCount } = applyRuleBFixesToContent(content, ruleA)
+    expect(fixedCount).toBe(0)
+    expect(fixed).toBe(content)
   })
 })
