@@ -6,7 +6,7 @@
 import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
-import { Download, HelpCircle, Trash2 } from "lucide-react"
+import { Download, FolderOpen, HelpCircle, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -88,6 +88,15 @@ export function TriageHeader({
 
       <span className="flex-1" />
 
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => uc.closeAlbum()}
+        title={t("photoTriage.reselectHint")}
+      >
+        <FolderOpen size={13} className="mr-1" />
+        {t("photoTriage.reselect")}
+      </Button>
       <Button variant="ghost" size="sm" onClick={() => handleMarkAll("keep")}>
         {t("photoTriage.markAllKeep")}
       </Button>

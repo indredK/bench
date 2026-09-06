@@ -190,6 +190,12 @@ export async function startScan(src: string): Promise<boolean> {
   }
 }
 
+/** 返回欢迎页重新选择相册：先持久化当前进度再切视图（进度按相册记忆，回来可续接）。 */
+export function closeAlbum() {
+  persistState()
+  usePhotoTriageStore.setState({ view: "welcome", loadError: null })
+}
+
 /** 打开相册（拉取 manifest 并恢复标记）。 */
 export async function openAlbum(src: string, opts?: { fromScan?: boolean }): Promise<boolean> {
   try {

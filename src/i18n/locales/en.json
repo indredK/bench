@@ -3539,6 +3539,8 @@
     "noRecent": "No album has been scanned yet",
     "openAlbum": "Open",
     "openRecentFailed": "Failed to open this folder",
+    "reselect": "Reselect",
+    "reselectHint": "Back to the welcome screen to pick another photo folder (current progress is saved automatically)",
     "total": "Total",
     "keep": "Keep",
     "drop": "Drop",

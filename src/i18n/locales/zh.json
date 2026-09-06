@@ -3539,6 +3539,8 @@
     "noRecent": "还没有扫描过的相册",
     "openAlbum": "打开",
     "openRecentFailed": "打开该目录失败",
+    "reselect": "重新选择",
+    "reselectHint": "返回欢迎页，重新选择照片目录进入筛选（当前进度已自动保存）",
     "total": "共",
     "keep": "留",
     "drop": "删",
