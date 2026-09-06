@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.30.0](https://github.com/indredK/bench/compare/v1.29.0...v1.30.0) (2026-09-06)
+
+
+### Features
+
+* **photo-triage:** add reselect album function ([31250c2](https://github.com/indredK/bench/commit/31250c288571c3e8d57229659943aeb930f8be91))
+
 ## [1.29.0](https://github.com/indredK/bench/compare/v1.28.0...v1.29.0) (2026-09-05)
 
 
