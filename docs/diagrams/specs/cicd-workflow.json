@@ -1,0 +1,256 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "CI/CD 流水线工作流",
+    "locale": "zh-CN",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    { "id": "repo", "label": "仓库 / 触发" },
+    { "id": "ci", "label": "CI 验证（CI & Release）" },
+    { "id": "release", "label": "发布流水线" },
+    { "id": "security", "label": "安全扫描" },
+    { "id": "ops", "label": "自动化维护" }
+  ],
+  "phases": [
+    { "id": "phase-trigger", "label": "触发", "fromCol": 0, "toCol": 0 },
+    { "id": "phase-check", "label": "检查与安全", "fromCol": 1, "toCol": 1, "variant": "emphasis" },
+    { "id": "phase-version", "label": "合入与版本", "fromCol": 2, "toCol": 2 },
+    { "id": "phase-ship", "label": "构建与发布", "fromCol": 3, "toCol": 5, "variant": "emphasis" }
+  ],
+  "groups": [
+    {
+      "id": "g-verify",
+      "label": "verify 质量门",
+      "lane": "ci",
+      "fromCol": 1,
+      "toCol": 1,
+      "variant": "emphasis"
+    },
+    { "id": "g-security", "label": "依赖审计", "lane": "security", "fromCol": 1, "toCol": 2 },
+    {
+      "id": "g-cache",
+      "label": "缓存维护",
+      "lane": "ops",
+      "fromCol": 1,
+      "toCol": 1,
+      "variant": "dashed"
+    },
+    {
+      "id": "g-release",
+      "label": "发布链",
+      "lane": "release",
+      "fromCol": 3,
+      "toCol": 5,
+      "variant": "emphasis"
+    }
+  ],
+  "mainPath": [
+    "push",
+    "verify",
+    "merge",
+    "rplease",
+    "tag",
+    "release-build",
+    "publish",
+    "gh-release"
+  ],
+  "nodes": [
+    {
+      "id": "push",
+      "lane": "repo",
+      "col": 0,
+      "type": "external",
+      "label": "push / PR 事件",
+      "sublabel": "main 推送 · pull_request",
+      "width": 124
+    },
+    {
+      "id": "schedule",
+      "lane": "ops",
+      "col": 0,
+      "type": "external",
+      "label": "每周调度",
+      "sublabel": "周一 UTC 02:00",
+      "width": 124,
+      "yOffset": 120
+    },
+    {
+      "id": "verify",
+      "lane": "ci",
+      "col": 1,
+      "type": "backend",
+      "label": "CI & Release · verify",
+      "sublabel": "macOS · 全量质量门",
+      "width": 148
+    },
+    {
+      "id": "sec-scan",
+      "lane": "security",
+      "col": 1,
+      "type": "security",
+      "label": "Security Scan",
+      "sublabel": "cargo audit + deny",
+      "width": 124
+    },
+    {
+      "id": "cache-clean",
+      "lane": "ops",
+      "col": 1,
+      "type": "cloud",
+      "label": "Cache Cleanup",
+      "sublabel": "删除 7 天未访问缓存",
+      "width": 124
+    },
+    {
+      "id": "merge",
+      "lane": "repo",
+      "col": 2,
+      "type": "external",
+      "label": "合入 main",
+      "sublabel": "ruleset · 绿 check",
+      "width": 124
+    },
+    {
+      "id": "rplease",
+      "lane": "ops",
+      "col": 2,
+      "type": "cloud",
+      "label": "Release Please",
+      "sublabel": "bump · CHANGELOG · 发布 PR",
+      "width": 124
+    },
+    {
+      "id": "sec-fail",
+      "lane": "security",
+      "col": 2,
+      "type": "security",
+      "label": "失败创建 issue",
+      "sublabel": "仅定时调度",
+      "width": 124,
+      "yOffset": 96
+    },
+    {
+      "id": "tag",
+      "lane": "repo",
+      "col": 3,
+      "type": "external",
+      "label": "vX.Y.Z tag",
+      "sublabel": "发布触发信号",
+      "width": 124
+    },
+    {
+      "id": "release-build",
+      "lane": "release",
+      "col": 3,
+      "type": "backend",
+      "label": "Release Build",
+      "sublabel": "macOS 双目标 · 签名",
+      "width": 124
+    },
+    {
+      "id": "publish",
+      "lane": "release",
+      "col": 4,
+      "type": "cloud",
+      "label": "Publish",
+      "sublabel": "latest.json · 校验 · SHA256",
+      "width": 124
+    },
+    {
+      "id": "gh-release",
+      "lane": "release",
+      "col": 5,
+      "type": "external",
+      "label": "GitHub Release",
+      "sublabel": "正式产物 · 发布说明",
+      "width": 124
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-push-verify",
+      "from": "push",
+      "to": "verify",
+      "label": "push / PR 触发",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e-push-scan",
+      "from": "push",
+      "to": "sec-scan",
+      "label": "涉及 Cargo / deny 文件",
+      "variant": "dashed"
+    },
+    { "id": "e-sched-scan", "from": "schedule", "to": "sec-scan", "label": "每周审计" },
+    { "id": "e-sched-cache", "from": "schedule", "to": "cache-clean", "label": "每周清理" },
+    {
+      "id": "e-verify-merge",
+      "from": "verify",
+      "to": "merge",
+      "label": "全绿 + ruleset 通过",
+      "variant": "emphasis"
+    },
+    { "id": "e-merge-rplease", "from": "merge", "to": "rplease", "label": "合入 main 触发" },
+    {
+      "id": "e-rplease-tag",
+      "from": "rplease",
+      "to": "tag",
+      "label": "创建发布 tag",
+      "route": "outside-right"
+    },
+    {
+      "id": "e-tag-build",
+      "from": "tag",
+      "to": "release-build",
+      "label": "tag 触发构建",
+      "variant": "emphasis"
+    },
+    { "id": "e-build-publish", "from": "release-build", "to": "publish", "label": "上传产物" },
+    {
+      "id": "e-publish-release",
+      "from": "publish",
+      "to": "gh-release",
+      "label": "创建 / 更新 Release",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e-scan-fail",
+      "from": "sec-scan",
+      "to": "sec-fail",
+      "label": "发现问题",
+      "role": "error",
+      "variant": "security"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "触发矩阵",
+      "items": [
+        "push main / PR 触发 verify 质量门",
+        "涉及 Cargo、deny 等文件时同时触发安全扫描",
+        "每周 cron 触发安全审计与缓存清理"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "发布链",
+      "items": [
+        "verify 全绿后合入 main，release-please 生成发布 PR",
+        "发布 PR 合入产出 vX.Y.Z tag，触发双目标构建",
+        "Publish 校验签名与产物后创建 GitHub Release"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "旁路维护",
+      "items": [
+        "Security Scan：cargo audit + deny，失败仅定时调度建 issue",
+        "Cache Cleanup：每周清理 7 天未访问的 Actions 缓存",
+        "Windows 构建已暂停（D-021），当前仅 macOS 目标"
+      ]
+    }
+  ]
+}

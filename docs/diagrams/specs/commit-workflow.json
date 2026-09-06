@@ -1,0 +1,255 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "git 提交脚本工作流",
+    "locale": "zh-CN",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    { "id": "dev", "label": "开发者" },
+    { "id": "hook", "label": "Git Hooks（husky）" },
+    { "id": "qa", "label": "质量脚本（scripts/quality/）" }
+  ],
+  "phases": [
+    { "id": "phase-trigger", "label": "提交触发", "fromCol": 0, "toCol": 0 },
+    {
+      "id": "phase-pre",
+      "label": "暂存预检与分类",
+      "fromCol": 1,
+      "toCol": 2,
+      "variant": "emphasis"
+    },
+    { "id": "phase-run", "label": "变更检查", "fromCol": 3, "toCol": 3, "variant": "emphasis" },
+    { "id": "phase-msg", "label": "提交信息校验", "fromCol": 4, "toCol": 4 },
+    { "id": "phase-out", "label": "结果", "fromCol": 5, "toCol": 5, "variant": "dashed" }
+  ],
+  "groups": [
+    {
+      "id": "g-pre",
+      "label": "pre-commit 门",
+      "lane": "qa",
+      "fromCol": 1,
+      "toCol": 2,
+      "variant": "emphasis"
+    },
+    {
+      "id": "g-msg",
+      "label": "commit-msg 门",
+      "lane": "hook",
+      "fromCol": 4,
+      "toCol": 4,
+      "variant": "dashed"
+    }
+  ],
+  "mainPath": ["commit", "pre-commit", "staged", "classify", "fe", "msg", "done"],
+  "nodes": [
+    {
+      "id": "commit",
+      "lane": "dev",
+      "col": 0,
+      "type": "external",
+      "label": "git commit",
+      "sublabel": "暂存内容 + 提交信息",
+      "width": 140
+    },
+    {
+      "id": "pre-commit",
+      "lane": "hook",
+      "col": 0,
+      "type": "frontend",
+      "label": "pre-commit 钩子",
+      "sublabel": "husky → pre-commit-check.mjs",
+      "width": 140
+    },
+    {
+      "id": "staged",
+      "lane": "qa",
+      "col": 1,
+      "type": "security",
+      "label": "暂存文件门",
+      "sublabel": "ACMRTD · 部分暂存拒绝 · 无暂存→跳过",
+      "width": 150
+    },
+    {
+      "id": "classify",
+      "lane": "qa",
+      "col": 2,
+      "type": "backend",
+      "label": "变更分类",
+      "sublabel": "docs · workflow · 前端 · 后端",
+      "width": 140
+    },
+    {
+      "id": "fe",
+      "lane": "qa",
+      "col": 3,
+      "type": "backend",
+      "label": "前端检查",
+      "sublabel": "lint:fe · test:fe · build:fe",
+      "width": 140
+    },
+    {
+      "id": "be",
+      "lane": "qa",
+      "col": 4,
+      "type": "backend",
+      "label": "后端检查",
+      "sublabel": "fmt · cfg-hygiene · clippy · test:be",
+      "width": 140
+    },
+    {
+      "id": "msg",
+      "lane": "hook",
+      "col": 4,
+      "type": "frontend",
+      "label": "commit-msg 钩子",
+      "sublabel": "Conventional Commits · Merge/fixup 放行",
+      "width": 150
+    },
+    {
+      "id": "done",
+      "lane": "dev",
+      "col": 4,
+      "type": "external",
+      "label": "提交成功",
+      "sublabel": "commit 写入仓库",
+      "width": 140,
+      "yOffset": 200
+    },
+    {
+      "id": "blocked",
+      "lane": "hook",
+      "col": 5,
+      "type": "security",
+      "label": "阻断提交",
+      "sublabel": "非零退出 · 修复后重试",
+      "width": 140,
+      "yOffset": 160
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-commit-pre",
+      "from": "commit",
+      "to": "pre-commit",
+      "label": "触发 hooks",
+      "variant": "emphasis"
+    },
+    { "id": "e-pre-staged", "from": "pre-commit", "to": "staged" },
+    {
+      "id": "e-staged-classify",
+      "from": "staged",
+      "to": "classify",
+      "label": "全部完整暂存",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e-classify-fe",
+      "from": "classify",
+      "to": "fe",
+      "label": "含 src/ 变更",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e-classify-be",
+      "from": "classify",
+      "to": "be",
+      "label": "含 src-tauri/ 变更",
+      "variant": "emphasis",
+      "route": "bottom-channel"
+    },
+    {
+      "id": "e-classify-msg",
+      "from": "classify",
+      "to": "msg",
+      "label": "docs / workflow / 其他",
+      "variant": "dashed",
+      "labelAt": [747, 1123],
+      "fromSide": "bottom",
+      "toSide": "bottom",
+      "via": [
+        [458.6, 1390],
+        [747, 1390],
+        [747, 856],
+        [822.2, 856]
+      ]
+    },
+    { "id": "e-fe-msg", "from": "fe", "to": "msg", "label": "通过", "variant": "emphasis" },
+    { "id": "e-be-msg", "from": "be", "to": "msg", "label": "通过", "variant": "emphasis" },
+    {
+      "id": "e-msg-done",
+      "from": "msg",
+      "to": "done",
+      "label": "格式与类型通过",
+      "variant": "emphasis",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "via": [
+        [822.2, 788],
+        [700, 788],
+        [700, 546],
+        [822.2, 546]
+      ]
+    },
+    {
+      "id": "e-fe-blocked",
+      "from": "fe",
+      "to": "blocked",
+      "label": "任一失败",
+      "role": "error",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [
+        [674.2, 400],
+        [942.2, 400]
+      ]
+    },
+    {
+      "id": "e-be-blocked",
+      "from": "be",
+      "to": "blocked",
+      "label": "任一失败",
+      "role": "error",
+      "variant": "security"
+    },
+    {
+      "id": "e-msg-blocked",
+      "from": "msg",
+      "to": "blocked",
+      "label": "格式 / 类型非法",
+      "role": "error",
+      "variant": "security"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "暂存预检",
+      "items": [
+        "部分暂存文件会被拒绝，防止检查内容 ≠ 提交内容",
+        "无暂存文件时 pre-commit 直接放行（exit 0）",
+        "Prettier / cargo fmt / cfg-hygiene 自动修复并重新暂存"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "变更分类检查",
+      "items": [
+        "前端变更跑 lint:fe + test:fe + build:fe",
+        "后端变更跑 cargo fmt + cfg-hygiene + clippy + test:be",
+        "docs、workflow 变更走轻量检查（check:docs / check:ci-platforms）"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "提交信息门",
+      "items": [
+        "要求 Conventional Commits：type(scope)!: subject",
+        "type 限定白名单（feat / fix / docs / ci / …）",
+        "Merge / Revert / fixup 前缀直接放行，body 行 ≤ 500 字符"
+      ]
+    }
+  ]
+}

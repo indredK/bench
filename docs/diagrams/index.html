@@ -14,15 +14,18 @@
         --accent: #5b8cff;
         --accent-dim: #3e5f99;
       }
+
       * {
         box-sizing: border-box;
       }
+
       html,
       body {
         margin: 0;
         padding: 0;
         height: 100%;
       }
+
       body {
         background: var(--bg);
         color: var(--text);
@@ -33,6 +36,7 @@
         height: 100vh;
         overflow: hidden;
       }
+
       /* ---------- 侧栏 ---------- */
       aside {
         width: 240px;
@@ -42,26 +46,31 @@
         display: flex;
         flex-direction: column;
       }
+
       .brand {
         padding: 18px 16px 12px;
         border-bottom: 1px solid var(--line);
       }
+
       .brand h1 {
         margin: 0;
         font-size: 17px;
         letter-spacing: 0.5px;
       }
+
       .brand p {
         margin: 6px 0 0;
         font-size: 12px;
         color: var(--muted);
         line-height: 1.6;
       }
+
       nav {
         flex: 1;
         overflow: auto;
         padding: 10px 8px;
       }
+
       nav button {
         display: flex;
         flex-direction: column;
@@ -78,16 +87,20 @@
         font-size: 13px;
         transition: background 0.15s;
       }
+
       nav button:hover {
         background: #1e2330;
       }
+
       nav button.active {
         background: var(--accent-dim);
       }
+
       nav button .en {
         font-size: 11px;
         color: var(--muted);
       }
+
       .foot {
         padding: 12px 16px;
         border-top: 1px solid var(--line);
@@ -95,9 +108,11 @@
         color: var(--muted);
         line-height: 1.7;
       }
+
       .foot code {
         color: var(--accent);
       }
+
       /* ---------- 主区 ---------- */
       main {
         flex: 1;
@@ -105,6 +120,7 @@
         flex-direction: column;
         min-width: 0;
       }
+
       .head {
         padding: 12px 20px;
         border-bottom: 1px solid var(--line);
@@ -112,20 +128,24 @@
         align-items: baseline;
         gap: 12px;
       }
+
       .head h2 {
         margin: 0;
         font-size: 15px;
       }
+
       .head p {
         margin: 0;
         font-size: 12px;
         color: var(--muted);
       }
+
       .frame-wrap {
         flex: 1;
         padding: 8px 12px 12px;
         min-height: 0;
       }
+
       iframe {
         width: 100%;
         height: 100%;
@@ -137,6 +157,7 @@
       }
     </style>
   </head>
+
   <body>
     <aside>
       <div class="brand">
@@ -160,6 +181,12 @@
         </button>
         <button data-file="updater-lifecycle.html" data-en="lifecycle">
           <span>应用更新状态机</span><span class="en">lifecycle</span>
+        </button>
+        <button data-file="commit-workflow.html" data-en="workflow">
+          <span>git 提交脚本工作流</span><span class="en">workflow</span>
+        </button>
+        <button data-file="cicd-workflow.html" data-en="workflow">
+          <span>CI / CD 流水线</span><span class="en">workflow</span>
         </button>
       </nav>
       <div class="foot">
@@ -192,6 +219,10 @@
             "dataflow · 系统来源 → Rust 采集 → IPC 边界 → 前端状态 → UI 呈现",
           "updater-lifecycle.html":
             "lifecycle · idle → checking → available → downloading → ready，含可恢复与终态",
+          "commit-workflow.html":
+            "workflow · 提交触发 → 暂存预检 → 分类检查 → commit-msg 门 → 成功 / 阻断",
+          "cicd-workflow.html":
+            "ci · verify 质量门 → Release Please 版本管理 → 构建 → 发布 → 缓存清理",
         }
         var nav = document.getElementById("nav")
         var frame = document.getElementById("frame")
