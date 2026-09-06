@@ -68,8 +68,11 @@ jobs:
       - name: Cache Rust build outputs
         uses: Swatinem/rust-cache@v2
         with:
+          # D-021: target dir is relocated to <repo>/../tauri-app-target
+          # (resolved relative to src-tauri/), so point the cache there
+          # instead of the default ./src-tauri/target which no longer exists.
           workspaces: |
-            ./src-tauri -> target
+            ./src-tauri -> ../../tauri-app-target
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install dependencies
@@ -152,8 +155,11 @@ jobs:
       - name: Cache Rust build outputs
         uses: Swatinem/rust-cache@v2
         with:
+          # D-021: target dir is relocated to <repo>/../tauri-app-target
+          # (resolved relative to src-tauri/), so point the cache there
+          # instead of the default ./src-tauri/target which no longer exists.
           workspaces: |
-            ./src-tauri -> target
+            ./src-tauri -> ../../tauri-app-target
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -223,7 +229,12 @@ jobs:
       - name: Verify macOS code signing and notarization
         if: runner.os == 'macOS' && env.BENCH_OS_SIGNING_MODE == 'signed'
         run: |
-          bundle_dir="src-tauri/target/${{ matrix.target }}/release/bundle"
+          # D-021: target dir is relocated outside the repo; resolve it
+          # authoritatively instead of hardcoding src-tauri/target.
+          # CWD must be src-tauri so .cargo/config.toml is picked up
+          # (cargo config discovery walks up from the working directory).
+          target_root="$(cd src-tauri && cargo metadata --format-version 1 --no-deps | node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync(0,"utf8")).target_directory)')"
+          bundle_dir="$target_root/${{ matrix.target }}/release/bundle"
           app_count="$(find "$bundle_dir/macos" -maxdepth 1 -type d -name "*.app" | wc -l | tr -d ' ')"
           dmg_count="$(find "$bundle_dir/dmg" -maxdepth 1 -type f -name "*.dmg" | wc -l | tr -d ' ')"
           if [ "$app_count" -ne 1 ] || [ "$dmg_count" -ne 1 ]; then
@@ -247,7 +258,12 @@ jobs:
             x86_64-apple-darwin) updater_platform="darwin-x86_64" ;;
             *) echo "Unsupported macOS updater target: ${{ matrix.target }}" && exit 1 ;;
           esac
-          bundle_dir="src-tauri/target/${{ matrix.target }}/release/bundle"
+          # D-021: target dir is relocated outside the repo; resolve it
+          # authoritatively instead of hardcoding src-tauri/target.
+          # CWD must be src-tauri so .cargo/config.toml is picked up
+          # (cargo config discovery walks up from the working directory).
+          target_root="$(cd src-tauri && cargo metadata --format-version 1 --no-deps | node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync(0,"utf8")).target_directory)')"
+          bundle_dir="$target_root/${{ matrix.target }}/release/bundle"
           dmg_count="$(find "$bundle_dir/dmg" -maxdepth 1 -type f -name "*.dmg" | wc -l | tr -d ' ')"
           updater_count="$(find "$bundle_dir" -type f -name "*.app.tar.gz" | wc -l | tr -d ' ')"
           if [ "$dmg_count" -ne 1 ] || [ "$updater_count" -ne 1 ]; then
@@ -356,8 +372,11 @@ jobs:
       - name: Cache Rust build outputs
         uses: Swatinem/rust-cache@v2
         with:
+          # D-021: target dir is relocated to <repo>/../tauri-app-target
+          # (resolved relative to src-tauri/), so point the cache there
+          # instead of the default ./src-tauri/target which no longer exists.
           workspaces: |
-            ./src-tauri -> target
+            ./src-tauri -> ../../tauri-app-target
 
       - name: Download all artifacts
         uses: actions/download-artifact@v7

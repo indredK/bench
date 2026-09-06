@@ -6,7 +6,10 @@ const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..",
 
 const targets = [
   { path: "node_modules", label: "前端依赖 (node_modules)" },
-  { path: "src-tauri/target", label: "后端构建产物 (target)" },
+  // D-021: Rust 构建目录已外迁至仓库外的 ../tauri-app-target；
+  // 旧路径仅用于清理历史遗留产物。
+  { path: "../tauri-app-target", label: "后端构建产物 (tauri-app-target)" },
+  { path: "src-tauri/target", label: "后端构建产物旧目录 (src-tauri/target)" },
   { path: "dist", label: "前端构建产物 (dist)" },
 ]
 
