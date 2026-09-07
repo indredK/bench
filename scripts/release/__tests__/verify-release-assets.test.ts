@@ -2,7 +2,7 @@ import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import { afterEach, describe, expect, it } from "vitest"
-import { verifyReleaseAssets } from "../verify-release-assets.mjs"
+import { verifyReleaseAssets, windowsRequirementsEnabled } from "../verify-release-assets.mjs"
 
 const ASSET_NAMES = [
   "darwin-aarch64-Bench.dmg",
@@ -38,6 +38,25 @@ describe("verifyReleaseAssets", () => {
   it("fails closed when a target installer is missing", () => {
     const names = ASSET_NAMES.filter((name) => name !== "windows-x86_64-Bench.msi")
     expect(() => verifyReleaseAssets(createFixture(names))).toThrow(/Windows MSI/)
+  })
+
+  it("allows macOS-only assets when Windows release builds are disabled (D-021)", () => {
+    const names = ASSET_NAMES.filter((name) => !name.startsWith("windows-"))
+    expect(verifyReleaseAssets(createFixture(names), { requireWindows: false })).toBe(names.length)
+  })
+
+  it("still requires macOS assets when only Windows requirements are skipped", () => {
+    const names = ASSET_NAMES.filter((name) => name !== "darwin-x86_64-Bench.dmg")
+    expect(() => verifyReleaseAssets(createFixture(names), { requireWindows: false })).toThrow(
+      /macOS x64 DMG/,
+    )
+  })
+
+  it("treats BENCH_RELEASE_WINDOWS_DISABLED as fail-closed by default (D-021)", () => {
+    expect(windowsRequirementsEnabled({})).toBe(true)
+    expect(windowsRequirementsEnabled({ BENCH_RELEASE_WINDOWS_DISABLED: "false" })).toBe(true)
+    expect(windowsRequirementsEnabled({ BENCH_RELEASE_WINDOWS_DISABLED: "true" })).toBe(false)
+    expect(windowsRequirementsEnabled({ BENCH_RELEASE_WINDOWS_DISABLED: "1" })).toBe(false)
   })
 
   it("fails closed when the OS signing notice is missing (A3-6)", () => {

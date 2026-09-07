@@ -321,6 +321,11 @@ jobs:
       PUBLISH_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref_name }}
       # Same as `verify`: keep the sccache wrapper off in CI (see D-021).
       RUSTC_WRAPPER: ""
+      # D-021: Windows release builds are temporarily disabled, so the
+      # windows-x86_64 installers/updater assets do not exist here. Relax
+      # the corresponding requirements in verify-release-assets.mjs /
+      # generate-updater-json.mjs until Windows CI is re-introduced.
+      BENCH_RELEASE_WINDOWS_DISABLED: "true"
 
     steps:
       - name: Checkout

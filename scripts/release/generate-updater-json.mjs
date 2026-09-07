@@ -15,11 +15,34 @@ function parseArgs(argv) {
 
 const requiredPlatforms = ["darwin-aarch64", "darwin-x86_64", "windows-x86_64"]
 
+// D-021: Windows release builds are temporarily disabled in CI; when
+// `BENCH_RELEASE_WINDOWS_DISABLED` is set, no windows-x86_64 manifest is
+// produced and it is dropped from the required platforms. Default (unset)
+// still requires it so re-enabling Windows CI restores fail-closed strictness.
+export function windowsRequirementsEnabled(env = process.env) {
+  const flag = env.BENCH_RELEASE_WINDOWS_DISABLED
+  return flag !== "true" && flag !== "1"
+}
+
 /**
  * 聚合三目标 updater manifest 为 latest.json (A3-5: 抽为可测函数, CLI 入口
  * 仅在直接执行时运行)。
+ *
+ * @param {object} params
+ * @param {string} params.assetsDir
+ * @param {string} params.tag
+ * @param {string} params.repo
+ * @param {{ body?: string, publishedAt?: string }} params.releaseMetadata
+ * @param {boolean} [params.requireWindows=true] D-021: Windows CI 暂停时传 false。
+ * @returns {{ version: string, notes: string, pub_date: string, platforms: Record<string, { signature: string, url: string }> }}
  */
-export function generateUpdaterJson({ assetsDir, tag, repo, releaseMetadata }) {
+export function generateUpdaterJson({
+  assetsDir,
+  tag,
+  repo,
+  releaseMetadata,
+  requireWindows = true,
+}) {
   if (!assetsDir || !tag || !repo || !releaseMetadata) {
     throw new Error("Usage: generateUpdaterJson({ assetsDir, tag, repo, releaseMetadata })")
   }
@@ -63,7 +86,10 @@ export function generateUpdaterJson({ assetsDir, tag, repo, releaseMetadata }) {
     }
   }
 
-  const missingPlatforms = requiredPlatforms.filter((platform) => !platforms[platform])
+  const required = requireWindows
+    ? requiredPlatforms
+    : requiredPlatforms.filter((platform) => platform !== "windows-x86_64")
+  const missingPlatforms = required.filter((platform) => !platforms[platform])
   if (missingPlatforms.length > 0) {
     throw new Error(
       `latest.json is missing required updater platforms: ${missingPlatforms.join(", ")}`,
@@ -96,6 +122,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   }
 
   const releaseMetadata = JSON.parse(fs.readFileSync(releaseMetadataFile, "utf8"))
-  generateUpdaterJson({ assetsDir, tag, repo, releaseMetadata })
+  generateUpdaterJson({
+    assetsDir,
+    tag,
+    repo,
+    releaseMetadata,
+    requireWindows: windowsRequirementsEnabled(),
+  })
   console.log(`generated ${path.join(assetsDir, "latest.json")}`)
 }

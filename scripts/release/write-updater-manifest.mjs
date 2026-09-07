@@ -15,6 +15,15 @@ function parseArgs(argv) {
 
 /**
  * 写入单目标 updater manifest (A3-5: 抽为可测函数, CLI 入口仅在直接执行时运行)。
+ * 缺少必填参数时抛出 Usage 错误, 因此所有属性在类型上均为可选。
+ *
+ * @param {object} params
+ * @param {string} [params.outputDir]
+ * @param {string} [params.platform]
+ * @param {string} [params.file]
+ * @param {string} [params.signature]
+ * @param {string} [params.target]
+ * @returns {{ platform: string, file: string, signature: string }}
  */
 export function writeUpdaterManifest({ outputDir, platform, file, signature, target }) {
   if (!outputDir || !platform || !file || !signature) {

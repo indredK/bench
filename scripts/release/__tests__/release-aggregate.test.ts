@@ -10,7 +10,14 @@ import { beforeEach, afterEach, describe, expect, it } from "vitest"
 import { generateUpdaterJson } from "../generate-updater-json.mjs"
 import { writeUpdaterManifest } from "../write-updater-manifest.mjs"
 
-let tempDir
+interface TargetAssets {
+  platform: string
+  file: string
+  signature: string
+  target: string
+}
+
+let tempDir: string
 
 beforeEach(() => {
   tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "bench-release-test-"))
@@ -20,7 +27,7 @@ afterEach(() => {
   fs.rmSync(tempDir, { recursive: true, force: true })
 })
 
-function createTargetAssets(dir, { platform, file, signature, target }) {
+function createTargetAssets(dir: string, { platform, file, signature, target }: TargetAssets) {
   fs.writeFileSync(path.join(dir, file), `binary:${platform}`)
   fs.writeFileSync(path.join(dir, signature), `signature:${platform}`)
   fs.writeFileSync(
@@ -29,7 +36,7 @@ function createTargetAssets(dir, { platform, file, signature, target }) {
   )
 }
 
-function createAllTargets(dir) {
+function createAllTargets(dir: string) {
   createTargetAssets(dir, {
     platform: "darwin-aarch64",
     file: "darwin-aarch64-Bench.app.tar.gz",
@@ -90,6 +97,31 @@ describe("generateUpdaterJson (A3-5)", () => {
     expect(latest.notes).toBe("")
     expect(latest.pub_date).toBeTruthy()
     expect(latest.version).toBe("1.2.3")
+  })
+
+  it("aggregates macOS-only platforms when Windows release builds are disabled (D-021)", () => {
+    createTargetAssets(tempDir, {
+      platform: "darwin-aarch64",
+      file: "darwin-aarch64-Bench.app.tar.gz",
+      signature: "darwin-aarch64-Bench.app.tar.gz.sig",
+      target: "aarch64-apple-darwin",
+    })
+    createTargetAssets(tempDir, {
+      platform: "darwin-x86_64",
+      file: "darwin-x86_64-Bench.app.tar.gz",
+      signature: "darwin-x86_64-Bench.app.tar.gz.sig",
+      target: "x86_64-apple-darwin",
+    })
+
+    const latest = generateUpdaterJson({
+      assetsDir: tempDir,
+      tag: "v1.2.3",
+      repo: "indredK/bench",
+      releaseMetadata: { body: "", publishedAt: "" },
+      requireWindows: false,
+    })
+
+    expect(Object.keys(latest.platforms).sort()).toEqual(["darwin-aarch64", "darwin-x86_64"])
   })
 
   it("throws when a required platform is missing", () => {

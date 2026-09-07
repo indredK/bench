@@ -22,6 +22,7 @@
 - **相关**：[src-tauri/.cargo/config.toml](../src-tauri/.cargo/config.toml) · [.github/workflows/ci-build.yml](../.github/workflows/ci-build.yml) · [AGENTS.md 跨平台 cfg 铁律](../AGENTS.md) · [D-018](#d-018--智能体工具文件不进版本库)
   - 注：`.vscode/settings.json` 的 `rust-analyzer.cargo.targetDir` 同步点是**本机配置**（`.vscode/` 整体在 `.gitignore`），未入版本库；新克隆者按本决策手动加一行即可。
 - **2026-09-05 增补（CI sccache 现况修正）**：`macos-latest`（arm64）runner 自带 Homebrew `sccache`，本决策「CI 默认不带 sccache、自动走 fallback」的假设已失效。wrapper 走上 sccache 分支后，`cargo metadata`（`cargo deny check` 内部）会因 rustc 路径不可执行报 `could not execute process .../rustc -vV (never executed)`。修正：`security.yml` 与 `ci-build.yml` 的 cargo job 统一设 `RUSTC_WRAPPER: ""`（空串 = 禁用 wrapper，即 config 注释里的逃逸口），wrapper 脚本 `sccache-wrapper.sh` 增加 `[ -x "$1" ]` 守卫、编译器不可执行时回退直连 rustc。
+- **2026-09-07 增补（release 校验脚本同步放宽）**：Windows CI 暂停后 `verify-release-assets.mjs` 仍硬性要求 `windows-x86_64-*.{msi,exe,exe.sig}`、`generate-updater-json.mjs` 仍硬性要求 `windows-x86_64` 平台，publish job 在 tag 推送时必然失败（Windows MSI found 0）。修正：两个脚本增加 `BENCH_RELEASE_WINDOWS_DISABLED` 环境开关（publish job 设 `"true"`；缺省仍 fail-closed 要求 Windows 产物），并把 `windows: true` 标记进必需清单、平台必需集按 `requireWindows` 过滤。重新启用 Windows CI 时删除该环境变量即可恢复三平台严格校验。
 
 ## D-020 · Photo Triage 作为 2.0 旁路独立模块（对齐 D-016 先例）
 
