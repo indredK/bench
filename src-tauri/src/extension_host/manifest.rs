@@ -41,6 +41,10 @@ pub struct ExtensionManifest {
     pub acl: ExtensionAcl,
     /// 宿主兼容矩阵。
     pub engines: ExtensionEngines,
+    /// minisign 签名（canonical registry 对 manifest 规范文本的签名，P3 起对
+    /// `market` 分发强制校验；`bundled` 豁免——随主包分发时由主包签名链覆盖）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signature: Option<String>,
 }
 
 /// 展示名。
@@ -122,8 +126,59 @@ impl ExtensionManifest {
         }
         self.entry.validate()?;
         self.acl.validate()?;
+        self.validate_engines()?;
         Ok(())
     }
+
+    /// 宿主版本是否满足 `engines.bench` 约束。
+    ///
+    /// 支持 `*` 与 `>=X.Y.Z`（其余前缀视为非法，fail-closed）。
+    pub fn satisfies_engines(&self, host_version: &str) -> bool {
+        let constraint = self.engines.bench.trim();
+        if constraint == "*" || constraint.is_empty() {
+            return true;
+        }
+        let Some(minimum) = constraint.strip_prefix(">=") else {
+            return false;
+        };
+        is_valid_semver(minimum) && semver_at_least(host_version, minimum)
+    }
+
+    fn validate_engines(&self) -> AppResult<()> {
+        let constraint = self.engines.bench.trim();
+        if constraint == "*" || constraint.is_empty() {
+            return Ok(());
+        }
+        if !constraint.starts_with(">=") || !is_valid_semver(&constraint[2..]) {
+            return Err(AppError::invalid_input(format!(
+                "engines.bench `{}` must be `*` or `>=X.Y.Z`",
+                self.engines.bench
+            )));
+        }
+        Ok(())
+    }
+}
+
+/// 简化 semver 比较：`host >= minimum`（逐段数值比较，段数不足按 0 补齐）。
+fn semver_at_least(host: &str, minimum: &str) -> bool {
+    let parse = |text: &str| -> Vec<u64> {
+        text.split('.')
+            .map(|part| part.parse::<u64>().unwrap_or(0))
+            .collect()
+    };
+    let mut host_parts = parse(host);
+    let min_parts = parse(minimum);
+    while host_parts.len() < min_parts.len() {
+        host_parts.push(0);
+    }
+    for (index, min) in min_parts.iter().enumerate() {
+        match host_parts[index].cmp(min) {
+            std::cmp::Ordering::Less => return false,
+            std::cmp::Ordering::Greater => return true,
+            std::cmp::Ordering::Equal => continue,
+        }
+    }
+    true
 }
 
 impl ExtensionEntry {
@@ -271,5 +326,37 @@ mod tests {
         assert!(!is_valid_semver("1.0"));
         assert!(!is_valid_semver("1.0.0-beta"));
         assert!(!is_valid_semver(""));
+    }
+
+    #[test]
+    fn engines_gate() {
+        let make = |bench: &str| -> ExtensionManifest {
+            ExtensionManifest::parse(
+                &VALID_MANIFEST.replace("\">=2.0.0\"", &format!("\"{bench}\"")),
+            )
+            .expect("valid manifest")
+        };
+        // 宿主 1.30.0
+        assert!(make("*").satisfies_engines("1.30.0"));
+        assert!(make(">=1.30.0").satisfies_engines("1.30.0"));
+        assert!(make(">=1.29.0").satisfies_engines("1.30.0"));
+        assert!(!make(">=2.0.0").satisfies_engines("1.30.0"));
+        // 非法约束 fail-closed
+        // 非法约束（`>` 前缀 / 纯版本号）在 parse 阶段即被拒绝（见 engines_constraint_validation）。
+    }
+
+    #[test]
+    fn engines_constraint_validation() {
+        let bad = VALID_MANIFEST.replace("\">=2.0.0\"", "\">1.0.0\"");
+        assert_eq!(
+            ExtensionManifest::parse(&bad).unwrap_err().code,
+            "INVALID_INPUT"
+        );
+    }
+
+    #[test]
+    fn signature_is_optional() {
+        let manifest = ExtensionManifest::parse(VALID_MANIFEST).expect("valid");
+        assert!(manifest.signature.is_none());
     }
 }

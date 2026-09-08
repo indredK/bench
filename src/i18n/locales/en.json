@@ -3707,6 +3707,13 @@
     "toggleFailed": "Failed to update extension state",
     "distributionLabel": "Distribution",
     "toastEnabled": "Extension enabled",
-    "toastDisabled": "Extension disabled"
+    "toastDisabled": "Extension disabled",
+    "uninstall": "Uninstall",
+    "cancel": "Cancel",
+    "incompatible": "Host incompatible",
+    "uninstallConfirmTitle": "Uninstall extension",
+    "uninstallConfirmDescription": "This will delete the local data and bundle of \"{name}\". This action cannot be undone. Continue?",
+    "toastUninstalled": "Extension uninstalled",
+    "uninstallFailed": "Failed to uninstall extension"
   }
 }

@@ -9,12 +9,16 @@ export function listInstalledExtensions() {
   return invokeTauriCommand(TAURI_COMMANDS.extensionHost.listInstalled)
 }
 
-export function openExtension(extensionId: string) {
-  return invokeTauriCommand(TAURI_COMMANDS.extensionHost.open, { extensionId })
+export function openExtension(extensionId: string, locale: string) {
+  return invokeTauriCommand(TAURI_COMMANDS.extensionHost.open, { extensionId, locale })
 }
 
 export function setExtensionEnabled(extensionId: string, enabled: boolean) {
   return invokeTauriCommand(TAURI_COMMANDS.extensionHost.setEnabled, { extensionId, enabled })
+}
+
+export function uninstallExtension(extensionId: string) {
+  return invokeTauriCommand(TAURI_COMMANDS.extensionHost.uninstall, { extensionId })
 }
 
 export type { ExtensionSummary }

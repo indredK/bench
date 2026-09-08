@@ -3707,6 +3707,13 @@
     "toggleFailed": "更新插件状态失败",
     "distributionLabel": "分发",
     "toastEnabled": "已启用",
-    "toastDisabled": "已禁用"
+    "toastDisabled": "已禁用",
+    "uninstall": "卸载",
+    "cancel": "取消",
+    "incompatible": "宿主版本不兼容",
+    "uninstallConfirmTitle": "卸载插件",
+    "uninstallConfirmDescription": "将删除「{name}」的本地数据与产物目录，此操作不可恢复。确定继续吗？",
+    "toastUninstalled": "插件已卸载",
+    "uninstallFailed": "卸载插件失败"
   }
 }

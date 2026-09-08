@@ -14,4 +14,6 @@ export interface ExtensionSummary {
   displayEn: string
   distribution: ExtensionDistribution
   enabled: boolean
+  /** 宿主版本是否满足 manifest.engines.bench（不兼容时禁止打开）。 */
+  compatible: boolean
 }

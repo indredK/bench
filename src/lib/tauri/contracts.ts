@@ -793,10 +793,11 @@ export const TAURI_COMMAND_CONTRACTS = {
   ext_poc_open: defineTauriCommand<undefined, string>()("ext_poc_open"),
   ext_poc_report: defineTauriCommand<{ payload: unknown }, void>()("ext_poc_report"),
   ext_list_installed: defineTauriCommand<undefined, ExtensionSummary[]>()("ext_list_installed"),
-  ext_open: defineTauriCommand<{ extensionId: string }, string>()("ext_open"),
+  ext_open: defineTauriCommand<{ extensionId: string; locale?: string }, string>()("ext_open"),
   ext_set_enabled: defineTauriCommand<{ extensionId: string; enabled: boolean }, boolean>()(
     "ext_set_enabled",
   ),
+  ext_uninstall: defineTauriCommand<{ extensionId: string }, void>()("ext_uninstall"),
 } as const
 
 export type TauriCommandName = keyof typeof TAURI_COMMAND_CONTRACTS
@@ -1128,6 +1129,7 @@ export const TAURI_COMMANDS = {
     listInstalled: commandName("ext_list_installed"),
     open: commandName("ext_open"),
     setEnabled: commandName("ext_set_enabled"),
+    uninstall: commandName("ext_uninstall"),
   },
 } as const
 
@@ -1450,8 +1452,9 @@ export const TAURI_COMMAND_ARG_KEYS = {
   ext_poc_open: [],
   ext_poc_report: ["payload"],
   ext_list_installed: [],
-  ext_open: ["extensionId"],
+  ext_open: ["extensionId", "locale"],
   ext_set_enabled: ["extensionId", "enabled"],
+  ext_uninstall: ["extensionId"],
 } as const satisfies TauriCommandArgKeys
 
 export const WINDOW_BOOTSTRAP_EVENTS = {

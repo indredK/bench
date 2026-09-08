@@ -8,7 +8,10 @@
 //! 所有入口都 fail-closed：manifest 解析/校验失败、id 非法、 ACL 越权一律拒绝。
 //! 已注册命令受 [super::acl] 网关保护（`ext-` 窗口 deny-by-default）。
 
-use std::{fs, path::PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use serde::Serialize;
 use serde_json::Value;
@@ -19,6 +22,7 @@ use crate::error::{AppError, AppResult};
 use super::{
     assets::EXT_DIR_NAME,
     manifest::{ExtensionDistribution, ExtensionManifest, MANIFEST_FILE},
+    signature,
     url::{extension_url, extension_window_label},
 };
 
@@ -80,6 +84,8 @@ pub struct ExtensionSummary {
     pub display_en: String,
     pub distribution: ExtensionDistribution,
     pub enabled: bool,
+    /// 宿主版本是否满足 `engines.bench`（不兼容时禁止打开）。
+    pub compatible: bool,
 }
 
 /// 插件根目录：`$APPDATA/extensions`。
@@ -101,12 +107,16 @@ fn extension_dir(app: &AppHandle, extension_id: &str) -> AppResult<PathBuf> {
     Ok(extensions_root(app)?.join(extension_id))
 }
 
-/// 读取并校验某插件的 manifest（fail-closed）。
-fn read_manifest(dir: &std::path::Path) -> AppResult<ExtensionManifest> {
+/// 读取并校验某插件的 manifest（fail-closed），返回 manifest 与原始文本。
+///
+/// 原始文本是 market 签名校验的规范字节（registry 签名对象为发布时的
+/// manifest 文件原样内容）。
+fn read_manifest(dir: &Path) -> AppResult<(ExtensionManifest, String)> {
     let path = dir.join(MANIFEST_FILE);
     let text = fs::read_to_string(&path)
         .map_err(|e| AppError::not_found(format!("read {}: {e}", path.display())))?;
-    ExtensionManifest::parse(&text)
+    let manifest = ExtensionManifest::parse(&text)?;
+    Ok((manifest, text))
 }
 
 /// 列出已安装插件（读每个产物的 manifest，跳过损坏条目并在错误信息中带过）。
@@ -124,8 +134,8 @@ pub fn ext_list_installed(app: AppHandle) -> AppResult<Vec<ExtensionSummary>> {
         if !path.is_dir() {
             continue;
         }
-        let manifest = match read_manifest(&path) {
-            Ok(manifest) => manifest,
+        let (manifest, _canonical) = match read_manifest(&path) {
+            Ok(result) => result,
             Err(error) => {
                 eprintln!(
                     "[extension_host] skip invalid extension at {}: {error}",
@@ -135,6 +145,7 @@ pub fn ext_list_installed(app: AppHandle) -> AppResult<Vec<ExtensionSummary>> {
             }
         };
         let enabled = !path.join(EXT_DISABLED_MARKER).exists();
+        let compatible = manifest.satisfies_engines(&app.package_info().version.to_string());
         summaries.push(ExtensionSummary {
             id: manifest.id,
             version: manifest.version,
@@ -142,6 +153,7 @@ pub fn ext_list_installed(app: AppHandle) -> AppResult<Vec<ExtensionSummary>> {
             display_en: manifest.display.en,
             distribution: manifest.distribution,
             enabled,
+            compatible,
         });
     }
     summaries.sort_by(|a, b| a.id.cmp(&b.id));
@@ -149,10 +161,24 @@ pub fn ext_list_installed(app: AppHandle) -> AppResult<Vec<ExtensionSummary>> {
 }
 
 /// 打开插件窗口（label `ext-<id>`），返回窗口 label。
+///
+/// - `locale`：宿主前端语言（i18n.language），经 init script 注入
+///   `window.__BENCH_EXT_LOCALE`（dev/prod 跨 origin 下 localStorage 不共享，
+///   由 Rust 注入是唯一可靠通道）；
+/// - 门控（全部 fail-closed）：manifest 校验 → engines 兼容 → market 签名 → 禁用状态。
 #[tauri::command]
-pub fn ext_open(app: AppHandle, extension_id: String) -> AppResult<String> {
+pub fn ext_open(app: AppHandle, extension_id: String, locale: Option<String>) -> AppResult<String> {
     let dir = extension_dir(&app, &extension_id)?;
-    let manifest = read_manifest(&dir)?;
+    let (manifest, canonical_text) = read_manifest(&dir)?;
+
+    let host_version = app.package_info().version.to_string();
+    if !manifest.satisfies_engines(&host_version) {
+        return Err(AppError::unsupported(format!(
+            "extension `{}` requires bench {}, current host is {host_version}",
+            manifest.id, manifest.engines.bench
+        )));
+    }
+    signature::verify_distribution_signature(&manifest, &canonical_text)?;
 
     if dir.join(EXT_DISABLED_MARKER).exists() {
         return Err(AppError::invalid_input(format!(
@@ -168,14 +194,32 @@ pub fn ext_open(app: AppHandle, extension_id: String) -> AppResult<String> {
     }
 
     let url = extension_url(&manifest.id, &manifest.entry.index)?;
+    let locale_script = format!(
+        "window.__BENCH_EXT_LOCALE = {};",
+        serde_json::to_string(&locale).unwrap_or_else(|_| "null".to_string())
+    );
     WebviewWindowBuilder::new(&app, &label, WebviewUrl::CustomProtocol(url))
         .title(format!("{} · Bench Extension", manifest.display.en))
         .inner_size(960.0, 680.0)
         .center()
+        .initialization_script(locale_script)
         .initialization_script(EXT_ERROR_CAPTURE_SCRIPT)
         .build()
         .map_err(|e| AppError::internal(format!("open extension window failed: {e}")))?;
     Ok(label)
+}
+
+/// 卸载插件：关闭窗口并删除产物目录（含禁用标记）。
+#[tauri::command]
+pub fn ext_uninstall(app: AppHandle, extension_id: String) -> AppResult<()> {
+    let dir = extension_dir(&app, &extension_id)?;
+    // 仅允许删除合法插件目录（防止误删任意路径）。
+    read_manifest(&dir)?;
+    if let Some(existing) = app.get_webview_window(extension_window_label(&extension_id).as_str()) {
+        let _ = existing.close();
+    }
+    fs::remove_dir_all(&dir).map_err(|e| AppError::io(format!("uninstall {extension_id}: {e}")))?;
+    Ok(())
 }
 
 /// 启用/禁用插件（以 `.disabled` 标记实现；禁用时关闭已开窗口），返回新状态。
@@ -211,7 +255,7 @@ pub fn ext_poc_open(app: AppHandle) -> AppResult<String> {
             index.display()
         )));
     }
-    ext_open(app, POC_EXTENSION_ID.to_string())
+    ext_open(app, POC_EXTENSION_ID.to_string(), None)
 }
 
 /// 接收插件页自检结果并落盘到 `$APPDATA/poc-verify-result.json`（P1 保留）。

@@ -25,6 +25,7 @@ pub const EXTENSION_ALLOWED_COMMANDS: &[&str] = &[
     "ext_list_installed",
     "ext_open",
     "ext_set_enabled",
+    "ext_uninstall",
     // photo-triage 能力面（15 条，IPC 命令名不变，D-024）
     "photo_triage_scan",
     "photo_triage_scan_status",

@@ -9,6 +9,7 @@ import {
   listInstalledExtensions,
   openExtension,
   setExtensionEnabled,
+  uninstallExtension,
   type ExtensionSummary,
 } from "@/lib/tauri/commands/extension-center"
 import { parseCommandError, translateError } from "@/lib/tauri/errors"
@@ -16,7 +17,7 @@ import { parseCommandError, translateError } from "@/lib/tauri/errors"
 import { useExtensionCenterStore } from "../store"
 
 export function useExtensionCenterController() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const items = useExtensionCenterStore((s) => s.items)
   const loading = useExtensionCenterStore((s) => s.loading)
   const error = useExtensionCenterStore((s) => s.error)
@@ -47,7 +48,7 @@ export function useExtensionCenterController() {
     async (id: string) => {
       setBusy(id, true)
       try {
-        await openExtension(id)
+        await openExtension(id, i18n.language)
       } catch (rawError) {
         toast.error(translateError(t, rawError, t("extensionCenter.openFailed")))
       } finally {
@@ -75,9 +76,25 @@ export function useExtensionCenterController() {
     [items, setBusy, setItems, t],
   )
 
+  const uninstall = useCallback(
+    async (item: ExtensionSummary) => {
+      setBusy(item.id, true)
+      try {
+        await uninstallExtension(item.id)
+        setItems(items.filter((entry) => entry.id !== item.id))
+        toast.success(t("extensionCenter.toastUninstalled"))
+      } catch (rawError) {
+        toast.error(translateError(t, rawError, t("extensionCenter.uninstallFailed")))
+      } finally {
+        setBusy(item.id, false)
+      }
+    },
+    [items, setBusy, setItems, t],
+  )
+
   useEffect(() => {
     void refresh()
   }, [refresh])
 
-  return { items, loading, error, busyIds, refresh, open, toggleEnabled }
+  return { items, loading, error, busyIds, refresh, open, toggleEnabled, uninstall }
 }

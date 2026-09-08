@@ -10,6 +10,7 @@ pub mod acl;
 pub mod assets;
 pub mod commands;
 pub mod manifest;
+pub mod signature;
 pub mod url;
 
 use tauri::{AppHandle, Manager, Runtime};
@@ -56,7 +57,7 @@ pub fn maybe_auto_open_poc(app: &AppHandle) {
     } else {
         target
     };
-    match commands::ext_open(app.clone(), extension_id) {
+    match commands::ext_open(app.clone(), extension_id, None) {
         Ok(label) => println!("[extension_host] extension window opened: {label}"),
         Err(e) => eprintln!("[extension_host] auto open extension window failed: {e}"),
     }

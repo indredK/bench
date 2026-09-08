@@ -1,6 +1,8 @@
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
+import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirmDialog"
 import { useExtensionCenterController } from "@/features/extension-center/hooks/useExtensionCenterController"
 import type { ExtensionSummary } from "@/lib/tauri/types/extension-center"
 
@@ -31,8 +33,9 @@ function DistributionBadge({
 
 export default function ExtensionCenterPage() {
   const { t } = useTranslation()
-  const { items, loading, error, busyIds, refresh, open, toggleEnabled } =
+  const { items, loading, error, busyIds, refresh, open, toggleEnabled, uninstall } =
     useExtensionCenterController()
+  const [uninstallTarget, setUninstallTarget] = useState<ExtensionSummary | null>(null)
 
   return (
     <div className="flex h-full flex-col gap-4 overflow-auto p-6">
@@ -93,7 +96,14 @@ export default function ExtensionCenterPage() {
                       <DistributionBadge distribution={item.distribution} t={t} />
                     </td>
                     <td className="px-4 py-2">
-                      <StatusBadge enabled={item.enabled} t={t} />
+                      <div className="flex flex-col items-start gap-1">
+                        <StatusBadge enabled={item.enabled} t={t} />
+                        {!item.compatible && (
+                          <span className="rounded border border-red-200 bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">
+                            {t("extensionCenter.incompatible")}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-2">
                       <div className="flex justify-end gap-2">
@@ -115,6 +125,15 @@ export default function ExtensionCenterPage() {
                             ? t("extensionCenter.disable")
                             : t("extensionCenter.enable")}
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-red-600 hover:text-red-700"
+                          disabled={busy}
+                          onClick={() => setUninstallTarget(item)}
+                        >
+                          {t("extensionCenter.uninstall")}
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -124,6 +143,29 @@ export default function ExtensionCenterPage() {
           </table>
         </div>
       )}
+
+      <DestructiveConfirmDialog
+        open={uninstallTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setUninstallTarget(null)
+        }}
+        title={t("extensionCenter.uninstallConfirmTitle")}
+        description={
+          uninstallTarget
+            ? t("extensionCenter.uninstallConfirmDescription").replace(
+                "{name}",
+                uninstallTarget.displayZh,
+              )
+            : ""
+        }
+        confirmLabel={t("extensionCenter.uninstall")}
+        cancelLabel={t("extensionCenter.cancel")}
+        loading={uninstallTarget !== null && busyIds.includes(uninstallTarget.id)}
+        onConfirm={async () => {
+          if (uninstallTarget) await uninstall(uninstallTarget)
+          setUninstallTarget(null)
+        }}
+      />
     </div>
   )
 }
