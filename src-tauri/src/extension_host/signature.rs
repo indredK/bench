@@ -110,8 +110,8 @@ pub fn verify_distribution_signature(
     )
 }
 
-/// 签名校验核心（纯函数，环境以参数注入便于测试）。
-fn verify_signature_with(
+/// 签名校验核心（环境以参数注入，便于测试与 P4 管线复用）。
+pub(crate) fn verify_signature_with(
     manifest: &ExtensionManifest,
     canonical_text: &str,
     pubkey_env: Option<&str>,

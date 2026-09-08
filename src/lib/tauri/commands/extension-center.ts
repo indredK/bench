@@ -1,9 +1,14 @@
 /**
- * IPC Commands / 通信命令: wrap typed invokes only; 只封装 Tauri 调用.
+ * Extension Center IPC / 插件中心命令封装.
  */
 import { TAURI_COMMANDS } from "@/lib/tauri/contracts"
 import { invokeTauriCommand } from "@/lib/tauri/invoke"
-import type { ExtensionSummary } from "@/lib/tauri/types/extension-center"
+import type {
+  ExtensionDiagnostics,
+  ExtensionSummary,
+  MarketInstallPreview,
+  MarketListing,
+} from "@/lib/tauri/types/extension-center"
 
 export function listInstalledExtensions() {
   return invokeTauriCommand(TAURI_COMMANDS.extensionHost.listInstalled)
@@ -31,4 +36,27 @@ export function getExtensionDataDir() {
   return invokeTauriCommand(TAURI_COMMANDS.extensionHost.dataDir)
 }
 
-export type { ExtensionSummary }
+/** 浏览 market（canonical registry 由后端配置；renderer 不提交下载地址）。 */
+export function listMarketExtensions() {
+  return invokeTauriCommand(TAURI_COMMANDS.extensionHost.marketList)
+}
+
+/**
+ * 安装第一步：下载 → 全量校验 → 解压到预览目录，返回 ACL 披露信息。
+ * 用户在信任弹窗确认后调 `commitMarketInstall` 完成落位（spec §6.1 / A4-1）。
+ */
+export function prepareMarketInstall(extensionId: string, version: string) {
+  return invokeTauriCommand(TAURI_COMMANDS.extensionHost.marketPrepare, { extensionId, version })
+}
+
+/** 安装第二步（信任确认后）：重校验 → 版本单调 → 原子落位。 */
+export function commitMarketInstall(extensionId: string, version: string) {
+  return invokeTauriCommand(TAURI_COMMANDS.extensionHost.marketCommit, { extensionId, version })
+}
+
+/** 读取插件子系统诊断（审计日志 + 运行时错误尾部）。 */
+export function getExtensionDiagnostics() {
+  return invokeTauriCommand(TAURI_COMMANDS.extensionHost.diagnostics)
+}
+
+export type { ExtensionSummary, MarketListing, MarketInstallPreview, ExtensionDiagnostics }

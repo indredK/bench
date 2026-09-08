@@ -48,7 +48,8 @@
     "ci": "pnpm install --frozen-lockfile && pnpm run verify",
     "upgrade:safe": "node scripts/maintenance/safe-upgrade.mjs",
     "extensions:sync": "node scripts/plugins/sync-extensions.mjs",
-    "extensions:build": "vite build --config extensions/photo-triage/vite.config.ts"
+    "extensions:build": "vite build --config extensions/photo-triage/vite.config.ts",
+    "extensions:stage": "node scripts/plugins/stage-bundled-extensions.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

@@ -35,12 +35,23 @@ permissions:
 
 jobs:
   verify:
-    name: Verify (macOS)
-    runs-on: macos-latest
-    # Windows CI temporarily disabled (D-021): the macOS runner still
-    # runs `check:be-cfg` to catch platform-gated dead code on a best-effort
-    # basis, but Windows-specific cfg branches are no longer exercised here.
-    # Re-enable the matrix below when Windows CI is re-introduced.
+    name: Verify (${{ matrix.os }})
+    # P3.2: Windows 双平台 verify 门禁回归 —— 只跑 build + clippy + test，
+    # 不产出安装包（Windows 安装包恢复属 P6，见 release-build 注释）。
+    # D-021 结论继续适用：sccache wrapper 是 shell 脚本，Windows 下无法作为
+    # rustc-wrapper 执行，CI 一律 RUSTC_WRAPPER="" 关闭（构建时长由
+    # rust-cache + --no-bundle smoke 控制）。
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+          - os: windows-latest
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        # windows-latest 自带 Git Bash；统一 shell 避免 pwsh/bash 差异。
+        shell: bash
     env:
       # Bypass the sccache rustc-wrapper: macos-latest (arm64) runners ship
       # sccache and the wrapper can break `cargo metadata`. CI never relied
@@ -78,29 +89,34 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # 平台无关的静态守卫只需在 macOS 跑一次（含 cfg 卫生，见下）。
       - name: Check repository formatting
+        if: runner.os == 'macOS'
         run: pnpm run format:check
 
       - name: Run frontend static guards
+        if: runner.os == 'macOS'
         run: pnpm run lint:fe
 
       - name: Check Rust crate declarations
+        if: runner.os == 'macOS'
         run: node scripts/quality/check-rust-crates.mjs
 
       # Catches platform-gated dead code (unused_imports / dead_code / unused_mut)
-      # before release builds compile it under -D warnings. Runs on macOS even
-      # with the Windows CI disabled (D-021); cfg hygiene checks are
-      # platform-agnostic as long as the macOS host has the Rust toolchain.
+      # before release builds compile it under -D warnings. P3.2 起双平台都跑：
+      # 静态求解之外再以双平台真实编译兜底（roadmap P3.2 验收项）。
       - name: Check Rust cfg hygiene
         run: node scripts/quality/check-rust-cfg-hygiene.mjs
 
       - name: Check Rust formatting
+        if: runner.os == 'macOS'
         run: pnpm run format:be
 
       - name: Run Rust clippy
         run: pnpm run clippy:be
 
       - name: Run frontend tests
+        if: runner.os == 'macOS'
         run: pnpm run test:fe
 
       - name: Run Rust tests
@@ -122,8 +138,9 @@ jobs:
             os: macos-latest
           - target: x86_64-apple-darwin
             os: macos-latest
-        # Windows release target temporarily disabled (D-021).
-        # Re-add the entry below when Windows CI is re-introduced:
+        # Windows release target 恢复属 P6（P3.2 只恢复 verify 双平台，
+        # 仍不产出安装包 —— D-023：插件化能力未双平台复验前不随正式包发布）。
+        # Re-add the entry below when Windows release builds are re-introduced (P6):
         #   - target: x86_64-pc-windows-msvc
         #     os: windows-latest
 

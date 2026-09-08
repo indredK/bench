@@ -26,6 +26,7 @@ use crate::error::{AppError, AppResult};
 
 use super::{
     assets::EXT_DIR_NAME,
+    audit::{self, AuditEvent},
     integrity,
     manifest::{ExtensionDistribution, ExtensionManifest, EXT_DISABLED_MARKER, MANIFEST_FILE},
     records, signature,
@@ -36,8 +37,8 @@ use super::{
 /// POC 插件 id（P1 spike，保留作网关/回写验证入口）。
 pub const POC_EXTENSION_ID: &str = "bench-poc";
 
-/// POC 结果落盘文件名（写在应用数据目录下）。
-pub const POC_RESULT_FILE: &str = "poc-verify-result.json";
+/// 插件诊断落盘文件名（P3.3 起**追加式 JSONL**：boot 不再覆盖先前 error）。
+pub const POC_RESULT_FILE: &str = "ext-diagnostics.jsonl";
 
 /// 插件窗口错误捕获脚本。
 ///
@@ -195,26 +196,43 @@ pub fn ext_list_installed(app: AppHandle) -> AppResult<Vec<ExtensionSummary>> {
 ///   抬升版本水位（重放防护的记录侧；拒绝侧在 P4 安装路径）。
 #[tauri::command]
 pub fn ext_open(app: AppHandle, extension_id: String, locale: Option<String>) -> AppResult<String> {
-    let dir = extension_dir(&app, &extension_id)?;
-    let (manifest, canonical_text) = read_manifest(&dir)?;
+    // 校验链封装为闭包：任一步失败 → `verify_fail` 审计（P3.3）后再拒绝。
+    let open_verified = || -> AppResult<(ExtensionManifest, PathBuf)> {
+        let dir = extension_dir(&app, &extension_id)?;
+        let (manifest, canonical_text) = read_manifest(&dir)?;
 
-    let host_version = app.package_info().version.to_string();
-    if !manifest.satisfies_engines(&host_version) {
-        return Err(AppError::unsupported(format!(
-            "extension `{}` requires bench {}, current host is {host_version}",
-            manifest.id, manifest.engines.bench
-        )));
-    }
-    signature::verify_distribution_signature(&manifest, &canonical_text)?;
-    // 逐文件 hash 校验 + 清单外文件拒绝（P3.1 核心：开窗前最后一道完整性闸门）。
-    integrity::verify_bundle_integrity(&dir, &manifest)?;
-    if manifest.distribution == ExtensionDistribution::Market {
-        // market 插件开窗即运行：版本低于已验证水位 = 重放/降级，拒绝
-        // （防御纵深；安装路径的强制检查见 records 模块文档 / P4）。
-        records::check_version_monotonic(&app, &manifest.id, &manifest.version)?;
-    }
-    // 完整校验通过 → 抬升已验证版本水位（拒绝侧见 records 模块文档）。
-    records::record_verified_version(&app, &manifest.id, &manifest.version)?;
+        let host_version = app.package_info().version.to_string();
+        if !manifest.satisfies_engines(&host_version) {
+            return Err(AppError::unsupported(format!(
+                "extension `{}` requires bench {}, current host is {host_version}",
+                manifest.id, manifest.engines.bench
+            )));
+        }
+        signature::verify_distribution_signature(&manifest, &canonical_text)?;
+        // 逐文件 hash 校验 + 清单外文件拒绝（P3.1 核心：开窗前最后一道完整性闸门）。
+        integrity::verify_bundle_integrity(&dir, &manifest)?;
+        if manifest.distribution == ExtensionDistribution::Market {
+            // market 插件开窗即运行：版本低于已验证水位 = 重放/降级，拒绝
+            // （防御纵深；安装路径的强制检查见 records 模块文档 / P4）。
+            records::check_version_monotonic(&app, &manifest.id, &manifest.version)?;
+        }
+        // 完整校验通过 → 抬升已验证版本水位（拒绝侧见 records 模块文档）。
+        records::record_verified_version(&app, &manifest.id, &manifest.version)?;
+        Ok((manifest, dir))
+    };
+    let (manifest, dir) = match open_verified() {
+        Ok(result) => result,
+        Err(error) => {
+            audit::record(
+                &app,
+                AuditEvent::VerifyFail,
+                &extension_id,
+                None,
+                Some(&error.message),
+            );
+            return Err(error);
+        }
+    };
 
     if dir.join(EXT_DISABLED_MARKER).exists() {
         return Err(AppError::invalid_input(format!(
@@ -254,7 +272,7 @@ pub fn ext_open(app: AppHandle, extension_id: String, locale: Option<String>) ->
 pub fn ext_uninstall(app: AppHandle, extension_id: String) -> AppResult<()> {
     let dir = extension_dir(&app, &extension_id)?;
     // 仅允许删除合法插件目录（防止误删任意路径）。
-    read_manifest(&dir)?;
+    let (manifest, _canonical) = read_manifest(&dir)?;
     if let Some(existing) = app.get_webview_window(extension_window_label(&extension_id).as_str()) {
         let _ = existing.close();
     }
@@ -263,6 +281,13 @@ pub fn ext_uninstall(app: AppHandle, extension_id: String) -> AppResult<()> {
     if let Err(error) = records::clear_record(&app, &extension_id) {
         eprintln!("[extension_host] clear version record for `{extension_id}` failed: {error}");
     }
+    audit::record(
+        &app,
+        AuditEvent::Uninstall,
+        &manifest.id,
+        Some(&manifest.version),
+        None,
+    );
     Ok(())
 }
 
@@ -271,7 +296,7 @@ pub fn ext_uninstall(app: AppHandle, extension_id: String) -> AppResult<()> {
 pub fn ext_set_enabled(app: AppHandle, extension_id: String, enabled: bool) -> AppResult<bool> {
     let dir = extension_dir(&app, &extension_id)?;
     // id 合法性之外再确认插件存在（manifest 可读）。
-    read_manifest(&dir)?;
+    let (manifest, _canonical) = read_manifest(&dir)?;
     let marker = dir.join(EXT_DISABLED_MARKER);
     if enabled {
         if marker.exists() {
@@ -285,6 +310,17 @@ pub fn ext_set_enabled(app: AppHandle, extension_id: String, enabled: bool) -> A
             let _ = existing.close();
         }
     }
+    audit::record(
+        &app,
+        if enabled {
+            AuditEvent::Enable
+        } else {
+            AuditEvent::Disable
+        },
+        &manifest.id,
+        Some(&manifest.version),
+        None,
+    );
     Ok(enabled)
 }
 
@@ -320,7 +356,8 @@ pub fn ext_poc_open(app: AppHandle) -> AppResult<String> {
     ext_open(app, POC_EXTENSION_ID.to_string(), None)
 }
 
-/// 接收插件页自检结果并落盘到 `$APPDATA/poc-verify-result.json`（P1 保留）。
+/// 接收插件页诊断上报并**追加**落盘（P3.3：由覆盖式改为追加式 JSONL，
+/// boot 事件不再覆盖先前 error；沿用审计日志的 2MB 环形滚动）。
 #[tauri::command]
 pub fn ext_poc_report(app: AppHandle, payload: Value) -> AppResult<()> {
     let dir = app
@@ -330,8 +367,17 @@ pub fn ext_poc_report(app: AppHandle, payload: Value) -> AppResult<()> {
     fs::create_dir_all(&dir).map_err(|e| AppError::io(format!("create app data dir: {e}")))?;
 
     let path = dir.join(POC_RESULT_FILE);
-    let text = serde_json::to_string_pretty(&payload)
-        .map_err(|e| AppError::internal(format!("serialize POC result: {e}")))?;
-    fs::write(&path, text).map_err(|e| AppError::io(format!("write POC result: {e}")))?;
+    audit::rotate_diagnostics(&path)?;
+    let mut line = serde_json::to_string(&payload)
+        .map_err(|e| AppError::internal(format!("serialize diagnostic payload: {e}")))?;
+    line.push('\n');
+    use std::io::Write as _;
+    let mut file = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+        .map_err(|e| AppError::io(format!("append diagnostics: {e}")))?;
+    file.write_all(line.as_bytes())
+        .map_err(|e| AppError::io(format!("append diagnostics: {e}")))?;
     Ok(())
 }

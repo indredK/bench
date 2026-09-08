@@ -11,7 +11,12 @@ import type {
   OperationResult,
   UpdateScanReport,
 } from "@/lib/tauri/types/app-manager"
-import type { ExtensionSummary } from "@/lib/tauri/types/extension-center"
+import type {
+  ExtensionDiagnostics,
+  ExtensionSummary,
+  MarketInstallPreview,
+  MarketListing,
+} from "@/lib/tauri/types/extension-center"
 import type {
   AccountManagerCapabilities,
   AuthProfile,
@@ -800,6 +805,16 @@ export const TAURI_COMMAND_CONTRACTS = {
   ext_uninstall: defineTauriCommand<{ extensionId: string }, void>()("ext_uninstall"),
   // P3.1：插件私有数据目录（仅 ext- 窗口可调用，路径由窗口 label 推导）
   ext_data_dir: defineTauriCommand<undefined, string>()("ext_data_dir"),
+  // P4 market（宿主窗口专用，未进 ext 网关白名单）
+  ext_market_list: defineTauriCommand<undefined, MarketListing>()("ext_market_list"),
+  ext_market_prepare: defineTauriCommand<
+    { extensionId: string; version: string },
+    MarketInstallPreview
+  >()("ext_market_prepare"),
+  ext_market_commit: defineTauriCommand<{ extensionId: string; version: string }, void>()(
+    "ext_market_commit",
+  ),
+  ext_diagnostics: defineTauriCommand<undefined, ExtensionDiagnostics>()("ext_diagnostics"),
 } as const
 
 export type TauriCommandName = keyof typeof TAURI_COMMAND_CONTRACTS
@@ -1133,6 +1148,10 @@ export const TAURI_COMMANDS = {
     setEnabled: commandName("ext_set_enabled"),
     uninstall: commandName("ext_uninstall"),
     dataDir: commandName("ext_data_dir"),
+    marketList: commandName("ext_market_list"),
+    marketPrepare: commandName("ext_market_prepare"),
+    marketCommit: commandName("ext_market_commit"),
+    diagnostics: commandName("ext_diagnostics"),
   },
 } as const
 
@@ -1459,6 +1478,10 @@ export const TAURI_COMMAND_ARG_KEYS = {
   ext_set_enabled: ["extensionId", "enabled"],
   ext_uninstall: ["extensionId"],
   ext_data_dir: [],
+  ext_market_list: [],
+  ext_market_prepare: ["extensionId", "version"],
+  ext_market_commit: ["extensionId", "version"],
+  ext_diagnostics: [],
 } as const satisfies TauriCommandArgKeys
 
 export const WINDOW_BOOTSTRAP_EVENTS = {

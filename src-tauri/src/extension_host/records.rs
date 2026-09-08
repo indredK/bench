@@ -21,7 +21,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, Runtime};
 
 use crate::error::{AppError, AppResult};
 
@@ -31,7 +31,7 @@ use super::manifest::{is_valid_extension_id, is_valid_semver, semver_at_least};
 pub const EXT_RECORDS_DIR_NAME: &str = "extension-records";
 
 /// `$APPDATA/extension-records`（经 `AppHandle`）。
-fn records_root(app: &AppHandle) -> AppResult<PathBuf> {
+fn records_root<R: Runtime>(app: &AppHandle<R>) -> AppResult<PathBuf> {
     let dir = app
         .path()
         .app_data_dir()
@@ -119,9 +119,9 @@ fn clear_record_at(root: &Path, extension_id: &str) -> AppResult<()> {
     }
 }
 
-/// 抬升已验证版本水位（`ext_open` 全量校验通过后调用）。
-pub fn record_verified_version(
-    app: &AppHandle,
+/// 抬升已验证版本水位（`ext_open` / bundled 部署通过全量校验后调用）。
+pub fn record_verified_version<R: Runtime>(
+    app: &AppHandle<R>,
     extension_id: &str,
     version: &str,
 ) -> AppResult<()> {
@@ -129,8 +129,8 @@ pub fn record_verified_version(
 }
 
 /// 版本单调性检查（P4 market 安装/更新路径调用；spec §6.1 步骤 7）。
-pub fn check_version_monotonic(
-    app: &AppHandle,
+pub fn check_version_monotonic<R: Runtime>(
+    app: &AppHandle<R>,
     extension_id: &str,
     version: &str,
 ) -> AppResult<()> {
@@ -138,7 +138,7 @@ pub fn check_version_monotonic(
 }
 
 /// 清除版本水位（`ext_uninstall` 调用）。
-pub fn clear_record(app: &AppHandle, extension_id: &str) -> AppResult<()> {
+pub fn clear_record<R: Runtime>(app: &AppHandle<R>, extension_id: &str) -> AppResult<()> {
     clear_record_at(&records_root(app)?, extension_id)
 }
 

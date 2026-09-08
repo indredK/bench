@@ -8,7 +8,7 @@
 //! 注册表语义：**允许暴露给 extension 空间的命令全集**。单个插件的
 //! `manifest.acl.commands` 必须是本表的子集（见 [manifest]）。
 
-use tauri::{ipc::Invoke, Runtime};
+use tauri::{ipc::Invoke, Manager, Runtime};
 
 /// extension 窗口 label 前缀（`ext-<id>`）。
 pub const EXT_WINDOW_PREFIX: &str = "ext-";
@@ -59,7 +59,7 @@ pub fn is_extension_window(label: &str) -> bool {
 ///
 /// - 非 extension 窗口：原样转发，行为与 P1 之前完全一致；
 /// - extension 窗口：命令在注册表内才转发，否则以 IPC 错误响应拒绝
-///   （deny-by-default，拒绝信息进入插件页 console）。
+///   （deny-by-default，拒绝信息进入插件页 console）并记 `acl_deny` 审计。
 pub fn guarded<R: Runtime>(invoke: Invoke<R>, inner: impl FnOnce(Invoke<R>) -> bool) -> bool {
     let label = invoke.message.webview().label().to_string();
     if !is_extension_window(&label) {
@@ -69,6 +69,20 @@ pub fn guarded<R: Runtime>(invoke: Invoke<R>, inner: impl FnOnce(Invoke<R>) -> b
     if is_command_allowed(&command) {
         inner(invoke)
     } else {
+        // P3.3：越权命令记审计（best-effort，拒绝本身不受影响）。
+        let webview = invoke.message.webview();
+        let app = webview.app_handle();
+        let extension_id = label
+            .strip_prefix(EXT_WINDOW_PREFIX)
+            .unwrap_or(&label)
+            .to_string();
+        super::audit::record(
+            app,
+            super::audit::AuditEvent::AclDeny,
+            &extension_id,
+            None,
+            Some(&command),
+        );
         let error = tauri::ipc::InvokeError(serde_json::Value::String(format!(
             "[extension_host] command `{command}` is not allowed for extension window `{label}`"
         )));

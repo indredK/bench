@@ -30,19 +30,15 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs"
-import { createHash } from "node:crypto"
 import { homedir, platform } from "node:os"
-import { join, relative, sep } from "node:path"
+import { join } from "node:path"
+import { DISABLED_MARKER, injectFilesManifest, skipDotfiles } from "./lib/extension-files.mjs"
 
 /** 与 src-tauri/tauri.conf.json 的 identifier 保持一致。 */
 const IDENTIFIER = "com.bench.app"
 /** 与 src-tauri/src/extension_host/assets.rs::EXT_DIR_NAME 一致。 */
 const EXT_DIR_NAME = "extensions"
 const REPO_EXTENSIONS = join(process.cwd(), "extensions")
-/** 用户禁用标记（src-tauri/src/extension_host/manifest.rs::EXT_DISABLED_MARKER）。 */
-const DISABLED_MARKER = ".disabled"
-/** 宿主不入清单的固定项（spec §3.3）。 */
-const HASH_EXCLUDED = new Set(["manifest.json", DISABLED_MARKER])
 
 function appDataDir() {
   const home = homedir()
@@ -57,11 +53,6 @@ function appDataDir() {
 }
 
 /** cpSync 过滤器：排除一切点文件/点目录（.DS_Store 等）。 */
-function skipDotfiles(src) {
-  const base = src.split(sep).pop() ?? ""
-  return !(base.startsWith(".") && base !== ".")
-}
-
 /** 把源目录内容复制为目标目录内容（target 自身保留 .disabled）。 */
 function deployContents(fromDir, target) {
   const disabledPath = join(target, DISABLED_MARKER)
@@ -79,45 +70,6 @@ function deployContents(fromDir, target) {
   if (disabledBackup !== null) {
     writeFileSync(disabledPath, disabledBackup)
   }
-}
-
-/** 递归收集部署根下的文件（相对路径，`/` 分隔；跳过 manifest.json/.disabled/点文件）。 */
-function collectBundleFiles(rootDir) {
-  const files = []
-  const walk = (dir) => {
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      if (entry.name.startsWith(".")) continue
-      const abs = join(dir, entry.name)
-      if (entry.isDirectory()) {
-        walk(abs)
-        continue
-      }
-      if (!entry.isFile()) continue
-      const rel = relative(rootDir, abs).split(sep).join("/")
-      if (HASH_EXCLUDED.has(rel)) continue
-      files.push(rel)
-    }
-  }
-  walk(rootDir)
-  return files.sort()
-}
-
-/** 生成 `files` 清单并注入部署 manifest（spec §3.3：逐文件 sha256 + size）。 */
-function injectFilesManifest(target) {
-  const manifestPath = join(target, "manifest.json")
-  const manifest = JSON.parse(readFileSync(manifestPath, "utf8"))
-  const files = collectBundleFiles(target).map((rel) => {
-    const bytes = readFileSync(join(target, rel))
-    return {
-      path: rel,
-      sha256: createHash("sha256").update(bytes).digest("hex"),
-      size: bytes.length,
-    }
-  })
-  manifest.files = files
-  manifest.schemaVersion = 2
-  writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n")
-  return files.length
 }
 
 function main() {

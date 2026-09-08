@@ -7,7 +7,7 @@
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
     "beforeDevCommand": "pnpm run dev:fe",
-    "beforeBuildCommand": "pnpm run build:fe"
+    "beforeBuildCommand": "pnpm run build:fe && pnpm run extensions:build && pnpm run extensions:stage"
   },
   "app": {
     "windows": [
@@ -61,6 +61,9 @@
   "bundle": {
     "active": true,
     "createUpdaterArtifacts": true,
+    "resources": {
+      "resources/extensions/": "extensions/"
+    },
     "macOS": {
       "minimumSystemVersion": "14.0",
       "signingIdentity": "-"

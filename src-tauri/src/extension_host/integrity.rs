@@ -147,10 +147,7 @@ fn sha256_and_size(path: &Path) -> AppResult<(String, u64)> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::extension_host::manifest::{
-        ExtensionDisplay, ExtensionDistribution, ExtensionEngines, ExtensionEntry,
-        ExtensionFileEntry, MANIFEST_SCHEMA_VERSION,
-    };
+    use crate::extension_host::manifest::ExtensionFileEntry;
     use std::{
         fs,
         path::PathBuf,

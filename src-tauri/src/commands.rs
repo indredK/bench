@@ -284,6 +284,11 @@ macro_rules! app_invoke_handler {
             $crate::extension_host::commands::ext_set_enabled,
             $crate::extension_host::commands::ext_uninstall,
             $crate::extension_host::commands::ext_data_dir,
+            // P4 market 闭环（宿主窗口专用；不进 ext 网关白名单）
+            $crate::extension_host::market::ext_market_list,
+            $crate::extension_host::market::ext_market_prepare,
+            $crate::extension_host::market::ext_market_commit,
+            $crate::extension_host::market::ext_diagnostics,
         ]
     };
 }

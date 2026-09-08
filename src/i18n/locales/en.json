@@ -3714,6 +3714,39 @@
     "uninstallConfirmTitle": "Uninstall extension",
     "uninstallConfirmDescription": "This will delete the local data and bundle of \"{name}\". This action cannot be undone. Continue?",
     "toastUninstalled": "Extension uninstalled",
-    "uninstallFailed": "Failed to uninstall extension"
+    "uninstallFailed": "Failed to uninstall extension",
+    "loading": "Loading…",
+    "tabInstalled": "Installed",
+    "tabMarket": "Market",
+    "tabDiagnostics": "Diagnostics",
+    "market": {
+      "loadFailed": "Failed to load the market",
+      "empty": "No extensions available in the market",
+      "install": "Install",
+      "update": "Update",
+      "yanked": "Yanked",
+      "installed": "Installed",
+      "updateAvailable": "Update available",
+      "requiresBench": "Requires Bench {range}",
+      "revokedBanner": "The following extensions have been revoked and force-disabled",
+      "revokedNote": "This extension was revoked: {reason}. Uninstalling is recommended.",
+      "trustTitle": "Trust this extension?",
+      "trustDescription": "\"{name}\" v{version} ({publisher}) passed integrity and signature verification. Review the host commands it requests before installing.",
+      "unknownPublisher": "Unknown publisher",
+      "requestedPermissions": "Requested host commands (deny-by-default)",
+      "noPermissions": "This extension requests no host commands",
+      "trustNote": "Unregistered commands are rejected by the host gateway; the capability surface is vetted via the registry review process.",
+      "trustAndInstall": "Trust & Install",
+      "installing": "Installing…",
+      "prepareFailed": "Install verification failed",
+      "commitFailed": "Install failed",
+      "toastInstalled": "Extension installed"
+    },
+    "diagnostics": {
+      "hint": "Extension audit log and runtime errors (last 200 entries)",
+      "audit": "Audit log ext-audit.log",
+      "runtime": "Runtime diagnostics ext-diagnostics.jsonl",
+      "empty": "No records"
+    }
   }
 }

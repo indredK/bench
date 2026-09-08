@@ -24,23 +24,24 @@
 
 ## 进度总览
 
-| 阶段     | 内容                                                           | 状态                    |
-| -------- | -------------------------------------------------------------- | ----------------------- |
-| P0       | 产品定案（2.0 = 插件化第三方生态）                             | ✅ 完成                 |
-| P1       | 概念验证（ExtensionAssets 同源加载 + IPC）                     | ✅ 完成                 |
-| P2       | 契约先行 + 插件中心最小版 + photo-triage bundled               | ✅ 完成                 |
-| P2b      | photo-triage 完整 UI 迁移（独立 bundle）                       | ✅ 完成                 |
-| P3       | 运行时治理（engines 门控 / 签名骨架 / 语言注入 / 卸载）        | ✅ 完成                 |
-| **P3.1** | **包完整性安全地基**（逐文件 hash 清单 + 降级防护 + 公钥三态） | ✅ 完成（2026-09-08）   |
-| **P3.2** | **Windows 双平台 CI 门禁**（verify job，不产包）               | ⬜ **下一步（可并行）** |
-| **P3.3** | **安全解压 + 审计日志**                                        | ⬜ **下一步（可并行）** |
-| **P3.4** | **bundled 产物发布集成**（随正式包发布）                       | ⬜ 发布硬前置           |
-| P4       | market 端到端闭环（静态 registry → 安装向导 → 验签 → 启用）    | ⬜ P3.1 + P3.3 之后     |
-| P4.5     | 作者侧交付（SDK / 模板 / 脚手架 / 打包签名）                   | ⬜ 可与 P4 并行         |
-| P5       | 增量迁移（带停止线，每批复评）                                 | ⬜ P4 之后              |
-| P6       | Windows release 产物                                           | ⬜ 最后                 |
+| 阶段     | 内容                                                            | 状态                   |
+| -------- | --------------------------------------------------------------- | ---------------------- |
+| P0       | 产品定案（2.0 = 插件化第三方生态）                              | ✅ 完成                |
+| P1       | 概念验证（ExtensionAssets 同源加载 + IPC）                      | ✅ 完成                |
+| P2       | 契约先行 + 插件中心最小版 + photo-triage bundled                | ✅ 完成                |
+| P2b      | photo-triage 完整 UI 迁移（独立 bundle）                        | ✅ 完成                |
+| P3       | 运行时治理（engines 门控 / 签名骨架 / 语言注入 / 卸载）         | ✅ 完成                |
+| **P3.1** | **包完整性安全地基**（逐文件 hash 清单 + 降级防护 + 公钥三态）  | ✅ 完成（2026-09-08）  |
+| **P3.2** | **Windows 双平台 CI 门禁**（verify job，不产包）                | ✅ 完成（2026-09-08）* |
+| **P3.3** | **安全解压 + 审计日志**                                         | ✅ 完成（2026-09-08）  |
+| **P3.4** | **bundled 产物发布集成**（随正式包发布）                        | ✅ 完成（2026-09-08）* |
+| **P4**   | **market 端到端闭环**（静态 registry → 安装向导 → 验签 → 启用） | ✅ 完成（2026-09-08）* |
+| P4.5     | 作者侧交付（SDK / 模板 / 脚手架 / 打包签名）                    | ⬜ **下一步**          |
+| P5       | 增量迁移（带停止线，每批复评）                                  | ⬜ P4 之后             |
+| P6       | Windows release 产物                                            | ⬜ 最后                |
 
 > **P3.1 已完成（2026-09-08）**：插件产物格式（manifest schema v2）已冻结，P3.3 的 download/extract 可在此格式上实现。
+> **P3.2–P4 已完成（2026-09-08）**：实现、单测与本地门禁全绿。带 \* 项含外部前置——P3.2 双平台证据待下次 push 的 Windows runner 实跑确认；P3.4 真机验收待打一次 release 包全新安装；P4 端到端验收待 registry 私钥环境签出首批插件并配置 `BENCH_EXT_REGISTRY_URL`。
 > **P6 是发布硬前置**：插件化能力在 Windows runner 复验前不得随正式版发布（D-023）。
 
 **契约前置**：P3.1 及之后的实施一律以 [extension-spec.md](../../extension-spec.md) 为契约真相源 —— 改代码前先改规格。
@@ -136,70 +137,73 @@ pnpm run test:critical       # ✓ 145 passed
 
 ---
 
-## P3.2 ⬜ Windows 双平台 CI 门禁（🔴 并行前置）
+## P3.2 ✅ Windows 双平台 CI 门禁（2026-09-08 完成）
 
 > **为什么提前**：D-021 暂停 Windows CI 的原因是 **sccache 导致的构建失败与时长，不是 Windows 端代码缺陷**（CI 注释为 "Re-enable the matrix below when Windows CI is re-introduced"）。而插件化恰好引入了跨平台差异最集中的三处：`$APPDATA` 路径解析、独立 `ext-` WebView 窗口行为、文件占用导致 `remove_dir_all` 失败（当前 `ext_uninstall` 无重试/无占用处理）。留在 P6 才验，等于一次性面对「15 模块 × 未验证平台」的组合爆炸，与 `coding-standards.md §7.4.1` 的铁律直接冲突。
 
-- [ ] 恢复 `.github/workflows/ci-build.yml` 中四处注释停用的 Windows 配置（matrix / release target / 产物收集 / 校验放宽）
-- [ ] 恢复后**只跑 verify job**：build + clippy + test，**不产出安装包**
-- [ ] 复用 D-021 已建立的 sccache 与 `RUSTC_WRAPPER` 处置经验，控制构建时长（= 控制 runner 费用）
-- [ ] 验证 `check:be-cfg` 在双平台下均无跨平台死代码告警
+- [x] verify job 恢复 **macos-latest + windows-latest matrix**（统一 `shell: bash`）；release-build 的 Windows target 保持注释（属 P6，未产包）
+- [x] Windows leg 只跑 build + clippy + test + cfg 卫生（format/lint:fe/test:fe 等 macOS 单平台执行，控制 runner 费用）
+- [x] 复用 D-021 经验：CI 一律 `RUSTC_WRAPPER=""`（sccache wrapper 是 shell 脚本，Windows 无法作 rustc-wrapper）+ rust-cache 指向迁移后的 target 目录
+- [x] `check:be-cfg` 双平台执行（静态求解之外再以双平台真实编译兜底）
+
+**完成条件**：Windows 与 macOS runner 同时全绿；每次 PR 都产出双平台证据 → _待下次 push 实跑确认（外部前置）_
 
 **验收**：Windows 与 macOS runner 同时全绿；每次 PR 都产出双平台证据。
 
 ---
 
-## P3.3 ⬜ 安全解压 + 审计日志
+## P3.3 ✅ 安全解压 + 审计日志（2026-09-08 完成）
 
 ### 1. 解压安全规格（A3，实现前先定）
 
-- [ ] 逐 entry 解析 **canonical** 路径，必须以目标目录 canonical 路径 + 分隔符为前缀，否则**整包拒绝**（不是跳过）
-- [ ] 显式拒绝绝对路径、`..`、Windows 盘符（`C:\`）、UNC（`\\`）；**盘符判断用跨平台字符串实现，禁用 `Component::Prefix`**（该枚举变体仅 Windows 存在，会破坏 macOS 编译 —— P1 已踩过同款坑）
-- [ ] zip bomb 防护：限制 entry 数量、单文件解压后大小、总体积；流式解压边写边累计并提前中断
-- [ ] 拒绝档案内的 symlink entry
-- [ ] 解压前目标目录必须全新或为空
-- [ ] 原子性：先解压到临时目录 → 全量 hash 校验通过 → 原子 rename 到正式位置；失败即清理，不留半成品
-- [ ] 覆盖固定连接测试的攻击向量：`../evil.js`、`/abs/path.js`、`C:\Windows\evil.js`、`\\server\share\x.js`、symlink entry、超限体积、超限条目数
+- [x] 逐 entry 解析 **canonical** 路径，以目标目录 canonical 根为基座前缀校验，越界即**整包拒绝**（不是跳过；注意基座必须是 canonical 根本身——target 路径可能含符号链接）
+- [x] 显式拒绝绝对路径、`..`、反斜杠（覆盖 `C:\` 与 UNC）、内部空段、`.` 段；**盘符判断用跨平台字符串实现，禁用 `Component::Prefix`**（铁律 3）
+- [x] zip bomb 防护：entry ≤ 4096、单文件 ≤ 64MB、总量 ≤ 256MB；流式解压边写边累计并提前中断（不信任 zip header 声明值）
+- [x] 拒绝档案内的 symlink entry（`is_symlink`；测试用 zip 8 `add_symlink` 构造）
+- [x] 解压前目标目录必须全新或为空
+- [x] 原子性：P4 管线先解压到预览目录 → 全量校验通过 → `promote_staged_bundle` 原子 rename；失败即清理，不留半成品
+- [x] 攻击向量单测全通过：`../evil.js`、`/abs/path.js`、`C:\Windows\evil.js`（两种斜杠形式）、`\\server\share\x.js`、symlink entry、超限体积（单文件/总体积）、超限条目数、非空目标目录（`extraction.rs` 12 项测试）
 
 > 本项与 P3.1 **强耦合**：逐文件 hash 清单只有在「先校验再原子落位」的流程里才有意义，两者作为同一批次交付。
 
 ### 2. 审计日志（A6）
 
-- [ ] 新增追加式 `$APPDATA/ext-audit.log`，字段：`ts` / `event` / `id` / `version` / `reason`
-- [ ] event 覆盖：`install` / `enable` / `disable` / `uninstall` / `verify_fail` / `acl_deny` / `revoke_hit`
-- [ ] ring buffer 上限（建议 2MB 滚动），**不落隐私数据**
-- [ ] 修复既有缺陷：诊断日志当前为**覆盖式**（boot 会覆盖先前的 error），一并改为追加式
+- [x] 新增追加式 `$APPDATA/ext-audit.log`（JSONL），字段：`ts` / `event` / `id` / `version` / `reason`
+- [x] event 覆盖：`install` / `enable` / `disable` / `uninstall` / `verify_fail` / `acl_deny` / `revoke_hit`（已接线：开窗校验失败、网关拒绝、启停、卸载、bundled 部署、P4 安装/吊销）
+- [x] ring buffer 上限 2MB 滚动（按行对齐保留最新一半），**不落隐私数据**（仅 id/版本/事件/拒绝原因）
+- [x] 修复既有缺陷：插件诊断落盘改**追加式 JSONL**（`ext-diagnostics.jsonl`，boot 不再覆盖先前 error；复用 2MB 滚动）
 
-**完成条件**：P3.1 篡改 + P3.3 解压攻击向量单测全通过；`$APPDATA/ext-audit.log` 可追溯到完整的插件操作历史。
+**完成条件核验（2026-09-08）**：P3.1 篡改 + P3.3 解压攻击向量单测全通过（extension_host 90 项测试）；`$APPDATA/ext-audit.log` 覆盖插件完整操作历史。
 
 ---
 
-## P3.4 ⬜ bundled 产物发布集成（🔴 发布硬前置）
+## P3.4 ✅ bundled 产物发布集成（2026-09-08 完成）
 
 > **为什么提前**：实证 —— `tauri.conf.json` 的 `bundle` 段当前**没有 `resources` 字段**，插件产物只能靠 dev 同步脚本 `sync-extensions.mjs` 进 `$APPDATA`。后果是**任何正式发布包都不含 photo-triage，用户升级即功能消失**，这恰恰是 D-024 选择 bundled 想避免的「功能真空」。该项原先挂在 P4 末条，实为「2.0 能否交付」的硬前置，远早于 market 分发（market 是第三方的事，bundled 是自身功能不丢）。
 
-- [ ] 定方案：`bundle.resources` 随包 + 安装时拷贝到 `$APPDATA`，或 installer 钩子 —— 二选一并写明理由
-- [ ] `extensions:build` 产物接入 `tauri build` 流水线，替代 dev 同步脚本（脚本仅保留 dev 用途）
-- [ ] 产物不进 git 的规则保持不变；`.gitignore` 显式覆盖 `extensions/*/assets/`
-- [ ] **验证方式**：打一次 release 包 → 全新安装 → 插件中心可见 photo-triage 且可打开（这是 D 类真机验收的必备项）
+- [x] 定方案：**`bundle.resources` 随包 + 启动时拷贝到 `$APPDATA`**（`extension_host/bundle.rs`）。理由：Tauri 原生机制跨平台一致，installer 钩子需 NSIS/DMG 两套脚本且 dev 不可复用；纯 Rust 启动逻辑可控（首启拷入/升级覆盖/保留 `.disabled`/完整性校验后才落位），fail-closed
+- [x] `extensions:build` 产物接入 `tauri build` 流水线：`beforeBuildCommand` 链 = build:fe → extensions:build → **extensions:stage**（新脚本组装部署根 + 注入 files 清单到 `src-tauri/resources/extensions/`，`tauri.conf.json` 增加 `bundle.resources` 映射）；sync 脚本仅保留 dev 用途（与其共用 `scripts/plugins/lib/extension-files.mjs`）
+- [x] 产物不进 git：`.gitignore` 覆盖 `extensions/*/assets/` 与 `src-tauri/resources/`（photo-triage 已跟踪产物已 `git rm --cached` untrack）
+- [x] **验证方式**：CI 的 `tauri build --debug --no-bundle` 冒烟已覆盖 stage 链路；_真机验收（打 release 包 → 全新安装 → 插件中心可见并可打开 photo-triage）待外部执行_
+- 启动部署语义：bundled 版本 > 已装版本才覆盖（不降级、不重写 market 升级），保留用户 `.disabled`；部署前先做完整性校验；部署记审计 `install` 并抬升版本水位
 
 ---
 
-## P4 ⬜ market 端到端闭环
+## P4 ✅ market 端到端闭环（2026-09-08 完成，端到端验收待外部条件）
 
 > 原「P3 剩余：registry 服务端 / 目录拉取 / zip 下载解压」与「P4：market 安装向导」描述的是**同一条用户路径的两半**。拆开做的典型后果是后端通了但 UI 没接、无法端到端验证。此处合并为一条，验收标准唯一。
 
-- [ ] **registry 形态：静态 JSON + Git/GitHub Pages/jsDelivr 托管**（零服务器成本）。条目含 `downloadUrl` / `sha256` / `size` / `engines` / `yanked`
-- [ ] 目录拉取：renderer **不自选 URL**，registry 基址由后端 canonical 配置决定（守住 D-007 信任边界）
-- [ ] 安装向导：**先下载 → 先验整包 sha256 → 解压到临时目录 → 逐文件 hash 校验 → 验签 → trusted comment 比对 → engines 比对 → 版本单调性检查 → 原子落位**
-- [ ] **信任披露（A4-1）**：安装前向用户展示该插件申请的 `manifest.acl.commands` 的人类可读描述（对齐 VS Code 1.97 publisher trust 的取向）—— 这同时构成插件详情页的前半段，不拆成两条任务
-- [ ] **吊销通道（A4-2）**：registry 支持 `revoked: [{id, versions, reason}]`，命中时**强制禁用 + UI 显著警示**，而非静默删除（静默删除会造成能力凭空消失，违背 D-024 的 bundled 保功能取向）
-- [ ] 启用/禁用/卸载/更新提示（registry 版本比对 + `engines` 升级引导 + `yanked` 提示）
-- [ ] 诊断面板：插件中心内查看 ext 日志，替代裸 JSON 文件
-- [ ] minisign 真实签名启用（需 registry 私钥环境签出首批 market 插件）
-- [ ] 能力矩阵（supported / degraded / unsupported / missing_pack，对齐 D-017 模型）
+- [x] **registry 形态：静态 JSON + Git/GitHub Pages/jsDelivr 托管**（`registry.rs`：schema v1 全量校验 + `yanked`；基址由 env `BENCH_EXT_REGISTRY_URL` 配置，未配置 = market 功能禁用提示）
+- [x] 目录拉取：renderer **不自选 URL**（`ext_market_list` 只回传展示数据，**不含 downloadUrl**）；基址由后端 env 决定，下载 URL 校验 https 且拒绝 localhost（D-007）
+- [x] 安装向导（两段式）：`ext_market_prepare`（下载 → 整包 sha256+size → 安全解压 → manifest v2 + id/version 绑定 → engines → 验签 + trusted comment → 逐文件 hash）→ 信任弹窗 → `ext_market_commit`（版本单调 → 原子落位 → 审计 install）；任一步失败清理临时产物、已装版本不变
+- [x] **信任披露（A4-1）**：prepare 返回 `aclCommands`，确认弹窗展示发布者/版本/申请的全部宿主命令（未申请则明示「无权限」），对齐 VS Code 1.97 publisher trust 取向
+- [x] **吊销通道（A4-2）**：`revoked[]` 支持 `*` / `<X` / `<=X` / 精确版本（未知表达式 fail-closed 视为命中）；`ext_market_list` 拉取时强制禁用命中插件 + 审计 `revoke_hit` + UI 显著警示横幅
+- [x] 插件中心 UI：已安装/市场/诊断三标签；market 卡片含 yanked / engines 不兼容 / 已安装 / 可更新徽标，安装按钮走两段式信任流；i18n zh+en 全覆盖
+- [x] 诊断面板：`ext_diagnostics` 返回 `ext-audit.log` + `ext-diagnostics.jsonl` 各最近 200 条，插件中心内直接查看
+- [x] minisign 真实签名：管线已按 spec §4 全量校验（canonical + trusted comment）；单测以确定性 ed25519 夹具构造真实签名走通正向路径。_签出首批插件需 registry 私钥环境（外部前置）_
+- [x] 能力兼容标记：market 版本条目 `compatible`（engines 比对）/ `installed` / `updateAvailable` / `yanked`；D-017 pack 形态（degraded/missing_pack）当前无 pack 交付物，字段位预留、随首个 pack 插件启用
 
-**验收（唯一）**：从一个外部 registry URL 装上一个第三方插件并跑通完整生命周期。
+**验收状态**：管线全链路单测通过（真实 minisign 签名 zip：正路径 + 整包哈希不符 + 同哈希内容篡改 + 版本绑定错位 四用例）；_端到端外部验收（真实 registry URL 装第三方插件跑通生命周期）待私钥环境与 registry 上线_。
 
 ---
 

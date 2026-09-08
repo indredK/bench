@@ -268,7 +268,7 @@ function main() {
   console.log("")
   console.log("下一步（P1 验证）:")
   console.log("  BENCH_POC_EXT=1 pnpm run dev")
-  console.log("  窗口打开后，结果写入 " + join(dataDir, "poc-verify-result.json"))
+  console.log("  窗口打开后，诊断追加写入 " + join(dataDir, "ext-diagnostics.jsonl"))
 }
 
 main()
