@@ -12,6 +12,7 @@ import { toast } from "sonner"
 import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirmDialog"
 import { RuntimeFeatureGate } from "@/components/common/RuntimeFeatureGate"
 import { CommandCardEditor } from "@/features/command-center/components/CommandCardEditor"
+import { CommandMarketDialog } from "@/features/command-center/components/CommandMarketDialog"
 import { CommandCenterPageContent } from "@/features/command-center/components/CommandCenterPageContent"
 import { RunDetailDrawer } from "@/features/command-center/components/RunDetailDrawer"
 import { useCommandCenterController } from "@/features/command-center/hooks/useCommandCenterController"
@@ -30,6 +31,7 @@ export default function CommandCenter({ feature }: { feature?: FeatureDescriptor
   const [confirmRun, setConfirmRun] = useState<CommandCard | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<CommandCard | null>(null)
   const [ioBusy, setIoBusy] = useState<"export" | "import" | null>(null)
+  const [marketOpen, setMarketOpen] = useState(false)
 
   const handleAdd = useCallback(() => {
     setEditorCard(controller.createDraft())
@@ -171,6 +173,7 @@ export default function CommandCenter({ feature }: { feature?: FeatureDescriptor
         onTerminate={cancelRun}
         onExport={handleExport}
         onImport={handleImport}
+        onOpenMarket={() => setMarketOpen(true)}
         ioBusy={ioBusy}
         onReorder={handleReorder}
         onDismissError={controller.clearError}
@@ -193,6 +196,12 @@ export default function CommandCenter({ feature }: { feature?: FeatureDescriptor
         onOpenChange={(open) => {
           if (!open) setExpandedId(null)
         }}
+      />
+
+      <CommandMarketDialog
+        open={marketOpen}
+        onOpenChange={setMarketOpen}
+        onInstalled={() => void controller.loadCards()}
       />
 
       <CommandCardEditor

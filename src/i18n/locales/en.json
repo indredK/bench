@@ -1559,6 +1559,22 @@
       "imported": "Imported {{count}} cards",
       "exportCanceled": "Export canceled",
       "importCanceled": "Import canceled"
+    },
+    "market": {
+      "open": "Command Market",
+      "title": "Command Market",
+      "sourceLabel": "Market source",
+      "empty": "The command market is empty",
+      "emptyHint": "Configure a market source environment variable (BENCH_COMMAND_MARKET_URL pointing to a remote registry.json, or BENCH_COMMAND_MARKET_DIR pointing to a local market directory) to browse and install commands here.",
+      "install": "Install",
+      "update": "Update",
+      "installed": "Installed",
+      "upgradable": "Update available",
+      "installSuccess": "Command installed to your local card library",
+      "installFailed": "Install failed",
+      "badgeTitle": "From command market v{{version}}",
+      "toastInstalled": "Command installed to your local card library",
+      "refresh": "Reload"
     }
   },
   "quickLaunch": {

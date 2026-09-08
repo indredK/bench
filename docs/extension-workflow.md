@@ -322,3 +322,63 @@ pnpm run extensions:pack <id>     # P4.5 交付
 - [ ] `src/features/registry.tsx` 删除 import 与注册项；`git rm -r src/features/<id>/`（**删完检查空目录残留**——空目录会让 docs 门禁误报 feature 仍存在）
 - [ ] 冒烟全链：`pnpm run lint:fe`（含 i18n + docs 双守卫）→ `test:fe` → `cargo test --lib extension_host` + `clippy:be` → `pnpm run extensions:build`（自动循环全部插件，fail-fast）→ `extensions:stage` + `extensions:sync` → 核对部署 manifest（schema/acl 数/platforms/files 数）
 - [ ] 打包分发无需额外动作：`tauri.conf.json` 的 `bundle.resources` 已映射整个 `resources/extensions/`，新插件 stage 后自动随包（启动时宿主拷入 + 完整性校验，见 §9）
+
+## 12. 命令市场（P5，命令脚本独立发布）
+
+> **决策**：命令中心 UI 留在宿主，**命令脚本数据市场化**——发布/更新命令无需重新发布 Bench 客户端。
+> 市场仓库：`../command-market/`（与 Bench 仓库同级，独立 git 仓库；发布指南见其 README.md）。
+
+### 12.1 架构
+
+- 市场仓库 = `registry.json`（索引：id/version/title/kind/file/sha256/size）+ `commands/<id>.json`（完整命令定义，schema v1）；
+- 宿主 `command_center/market.rs`：`command_market_list`（浏览 + 已装状态比对）/ `command_market_install`（**sha256 → 解析绑定 → 版本单调 → 落位 cards.json**，fail-closed）；
+- 市场源（后端 env，renderer 不得自选 —— D-007）：`BENCH_COMMAND_MARKET_URL`（远程 https registry.json）/ `BENCH_COMMAND_MARKET_DIR`（本地目录，开发调试）；两者都未配置 → 市场空态（能力保留）；
+- 安装的卡片带 `market` 来源标记（version + installedAt），命令中心显示市场徽标；升级走版本单调检查（拒绝降级）。
+
+### 12.2 发布与开发
+
+- 发布命令：在 command-market 仓库新增/修改 `commands/*.json` → `node scripts/build-registry.mjs`（重算 sha256）→ git push；
+- 开发调试：`BENCH_COMMAND_MARKET_DIR=<command-market 目录> pnpm run dev`；
+- 接远程仓库（下一步）：建好 Git 托管后，配置 `BENCH_COMMAND_MARKET_URL` 指向 raw `registry.json` 即可，宿主能力已就绪。
+
+### 12.3 边界
+
+- 命令内容为**任意 shell 脚本**，安装进本地卡片库后由用户手动执行（与现有卡片一致）；市场安装只解决分发与完整性，执行安全沿用命令中心现有确认机制（shellAdmin 二次确认等）。
+
+## 13. 插件发布仓库（GitHub 组织 kindred-plugin-market）
+
+> **模型（双仓库）**：组织下仅两个仓库，均公开——
+>
+> - `plugin-market`：4 个插件源码（`extensions/<id>/`）+ `registry.json`（插件市场索引真相源）+ tag 驱动构建 CI；
+> - `command-market`：命令中心的市场（`commands/*.json` + `registry.json` + build 脚本）。
+>   push tag / push main 由 CI 自动构建/重算索引；Bench 经 `BENCH_EXT_REGISTRY_URL` /
+>   `BENCH_COMMAND_MARKET_URL` 拉取安装。组织与仓库由用户手动创建（GitHub 无创建组织的 API）。
+
+### 13.1 本地与远端
+
+- 本地：`~/Documents/github/kindred-plugin-market/{plugin-market, command-market}/`（SSH 走 443：`~/.ssh/config` 已配 `Host github.com → ssh.github.com:443`，本机 22 端口被网络拦截）；
+- `plugin-market` CI：push `<pluginId>-v<version>` tag → checkout Bench main（需 secret `BENCH_REPO_TOKEN`，Bench 私有）→ 构建 + 注入 files → zip → GitHub Release；
+- `command-market` CI：push main → 重算 registry.json（漂移自动 commit 回 main）；
+- 市场源：
+  - `BENCH_EXT_REGISTRY_URL=https://raw.githubusercontent.com/kindred-plugin-market/plugin-market/main/registry.json`
+  - `BENCH_COMMAND_MARKET_URL=https://raw.githubusercontent.com/kindred-plugin-market/command-market/main/registry.json`
+
+### 13.2 工具链（Bench 仓库内）
+
+- `pnpm run pack:ext -- <id>`：构建 → 注入 files → zip → `<id>.meta.json`（sha256/size）；
+- `pnpm run update:ext-registry`：对 4 插件跑 pack，重写 `plugin-market/registry.json`（downloadUrl = Release 资产模式）；
+- `pnpm run sync:ext-repos`：Bench `extensions/<id>/` → plugin-market 仓库（单向同步 + 自动 commit）——**过渡期真相源为 Bench**，P4.5 SDK 解耦后反转。
+
+### 13.3 发布流程（plugin-market）
+
+1. Bench 内开发插件 → `pnpm run sync:ext-repos`（提交到 plugin-market 仓库）；
+2. 更新该插件 `manifest.json` 的 version → commit；
+3. `git tag photo-triage-v0.1.1 && git push origin photo-triage-v0.1.1` → CI 发布 Release；
+4. `pnpm run update:ext-registry` → registry.json commit + push → Bench 市场立即可见。
+
+### 13.4 卡点（需用户手动）
+
+- **创建组织与两个仓库**（公开）：`kindred-plugin-market` org + `plugin-market`、`command-market` 两个空仓库（不初始化 README，直接接收 push）；
+- **组织第三方应用限制**：WorkBuddy 的 OAuth token 被 org 的 Third-party Access 限制拦截（无法 API 建仓库）——要么在 org Settings → Third-party Access 批准应用，要么 web 手动建两个空仓库后由助手 SSH push；
+- **CI 拉取私有 Bench**：`plugin-market` 仓库配 secret `BENCH_REPO_TOKEN`（有 Bench read 权限的 PAT）；
+- **SSH**：本机 22 端口被网络拦截，已在 `~/.ssh/config` 配 GitHub over 443（保留勿删）。

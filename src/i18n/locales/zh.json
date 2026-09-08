@@ -1559,6 +1559,22 @@
       "imported": "已导入 {{count}} 张卡片",
       "exportCanceled": "已取消导出",
       "importCanceled": "已取消导入"
+    },
+    "market": {
+      "open": "命令市场",
+      "title": "命令市场",
+      "sourceLabel": "市场源",
+      "empty": "命令市场暂无内容",
+      "emptyHint": "配置市场源环境变量（BENCH_COMMAND_MARKET_URL 指向远程 registry.json，或 BENCH_COMMAND_MARKET_DIR 指向本地市场目录）后，即可在此浏览并安装命令。",
+      "install": "安装",
+      "update": "更新",
+      "installed": "已安装",
+      "upgradable": "可更新",
+      "installSuccess": "命令已安装到本地卡片库",
+      "installFailed": "安装失败",
+      "badgeTitle": "来自命令市场 v{{version}}",
+      "toastInstalled": "命令已安装到本地卡片库",
+      "refresh": "重新加载"
     }
   },
   "quickLaunch": {

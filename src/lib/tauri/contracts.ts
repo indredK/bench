@@ -17,6 +17,7 @@ import type {
   MarketInstallPreview,
   MarketListing,
 } from "@/lib/tauri/types/extension-center"
+import type { CommandCard, CommandMarketListing } from "@/lib/tauri/types/command-center"
 import type {
   AccountManagerCapabilities,
   AuthProfile,
@@ -89,7 +90,7 @@ import type {
   PcapDiagResult,
   MultiNodeDnsResult,
 } from "@/lib/tauri/types/network-probe"
-import type { CardKind, CommandCard, RunResult } from "@/lib/tauri/types/command-center"
+import type { CardKind, RunResult } from "@/lib/tauri/types/command-center"
 import type {
   SleepConfig,
   SleepState,
@@ -227,6 +228,10 @@ export const TAURI_COMMAND_CONTRACTS = {
     "kill_processes",
   ),
   list_command_cards: defineTauriCommand<undefined, CommandCard[]>()("list_command_cards"),
+  command_market_list: defineTauriCommand<undefined, CommandMarketListing>()("command_market_list"),
+  command_market_install: defineTauriCommand<{ commandId: string }, void>()(
+    "command_market_install",
+  ),
   save_command_cards: defineTauriCommand<{ cards: CommandCard[] }, void>()("save_command_cards"),
   upsert_command_card: defineTauriCommand<{ card: CommandCard }, CommandCard[]>()(
     "upsert_command_card",
@@ -960,6 +965,10 @@ export const TAURI_COMMANDS = {
     exportCommandCards: commandName("export_command_cards"),
     importCommandCards: commandName("import_command_cards"),
   },
+  commandMarket: {
+    listMarketCommands: commandName("command_market_list"),
+    installMarketCommand: commandName("command_market_install"),
+  },
   windowTheme: {
     setWindowTheme: commandName("set_window_theme"),
   },
@@ -1217,6 +1226,8 @@ export const TAURI_COMMAND_ARG_KEYS = {
   query_port_processes: ["ports"],
   kill_processes: ["targets"],
   list_command_cards: [],
+  command_market_list: [],
+  command_market_install: ["commandId"],
   save_command_cards: ["cards"],
   upsert_command_card: ["card"],
   delete_command_card: ["id"],

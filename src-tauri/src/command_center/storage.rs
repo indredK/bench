@@ -40,6 +40,7 @@ fn seed_cards() -> Vec<CommandCard> {
         icon: Some("shield".to_string()),
         created_at: 0,
         updated_at: 0,
+        market: None,
     }]
 }
 

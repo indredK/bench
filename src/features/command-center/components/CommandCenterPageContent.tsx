@@ -25,7 +25,7 @@ import {
 } from "@dnd-kit/core"
 import { SortableContext, rectSortingStrategy, useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { GripVertical, Terminal, Trash2 } from "lucide-react"
+import { GripVertical, Terminal, Trash2, Store } from "lucide-react"
 import {
   CheckCircle2,
   Copy,
@@ -154,7 +154,20 @@ function CommandCardTile({
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <h3 className="truncate text-sm font-medium">{card.title}</h3>
+            <h3 className="flex min-w-0 items-center gap-1.5 truncate text-sm font-medium">
+              <span className="truncate">{card.title}</span>
+              {card.market && (
+                <span
+                  title={t("commandCenter.market.badgeTitle", {
+                    version: card.market.version,
+                  })}
+                  className="inline-flex shrink-0 items-center gap-0.5 rounded border border-blue-200 bg-blue-50 px-1 py-px text-[10px] font-normal text-blue-700 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-300"
+                >
+                  <Store size={9} />
+                  {card.market.version}
+                </span>
+              )}
+            </h3>
             <StatusDot status={status} />
           </div>
           {card.description && (
@@ -280,6 +293,7 @@ export function CommandCenterPageContent({
   onTerminate,
   onExport,
   onImport,
+  onOpenMarket,
   ioBusy,
   onReorder,
   onDismissError,
@@ -297,6 +311,7 @@ export function CommandCenterPageContent({
   onTerminate: () => void
   onExport: () => void
   onImport: () => void
+  onOpenMarket: () => void
   ioBusy: "export" | "import" | null
   onReorder: (orderedIds: string[]) => void
   onDismissError: () => void
@@ -342,6 +357,10 @@ export function CommandCenterPageContent({
               <Download size={16} />
             )}
             {t("commandCenter.io.import")}
+          </Button>
+          <Button variant="outline" size="sm" onClick={onOpenMarket}>
+            <Store size={16} />
+            {t("commandCenter.market.open")}
           </Button>
           <Button variant="outline" size="sm" onClick={onExport} disabled={ioBusy !== null}>
             {ioBusy === "export" ? (

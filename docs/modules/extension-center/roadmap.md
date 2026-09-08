@@ -249,6 +249,8 @@ pnpm run test:critical       # ✓ 145 passed
   - **迁移清单沉淀（用户指令）**：完整 checklist（代码/能力面/manifest/i18n/文档/测试/宿主摘除/冒烟，含历次教训）写入 [extension-workflow.md §11](../../../docs/extension-workflow.md)
   - **已知缺口**：插件测试不在 CI 执行（宿主 vitest exclude extensions）——插件测试 runner 归入 P4.5 SDK 范围
 - [x] ~~插件测试 runner~~ **已提前交付（2026-09-08）**：`pnpm run test:extensions`（逐插件 vitest + jsdom + 与构建一致的 alias），4 插件全配 `vitest.config.ts` + 页面冒烟测试（31 用例）；建议并入 CI verify 链
+- [x] **命令市场（2026-09-08，用户指令）**：命令中心 UI 留宿主、命令脚本市场化——`command_center/market.rs`（list/install，sha256 + 版本单调 + `market` 来源标记）+ 同级独立仓库 `../command-market/`（registry.json + build-registry.mjs + 现有 3 命令迁入）+ 命令中心「命令市场」弹窗（未配置源 = 空态）。详见 [extension-workflow.md §12](../../../docs/extension-workflow.md)
+- [x] **插件发布仓库 + CI（2026-09-08，用户指令）**：GitHub 组织 `kindred-plugin-market`（待用户手动创建组织本体）——4 插件独立仓库 + `registry` 索引仓库已本地初始化（`~/Documents/github/kindred-plugin-market/`，各含 release.yml：tag `v*` → 借 Bench 宿主工作区构建 → Release zip）；Bench 新增 `pack-extension.mjs` / `update-extension-registry.mjs` / `sync-extension-repos.mjs` 与 `pack:ext` / `update:ext-registry` / `sync:ext-repos` scripts。卡点与手动步骤见 [extension-workflow.md §13](../../../docs/extension-workflow.md)
 - [ ] 候选后续批次（中等）：port-manager / env-detector
 - [x] **重系统耦合模块降级为「按需」而非计划内**：quick-launch / app-manager / command-center / network-probe / updater / system-settings / account-manager（涉及权限、凭据、系统级动作，插件化收益低而破坏面高）
 - [ ] dev-toolbox host 泛化（删 `TOOLBOX_FEATURE_IDS` 与硬编码 tabs）—— 仅在前述迁移确有收益时执行

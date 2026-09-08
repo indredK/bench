@@ -132,6 +132,9 @@ macro_rules! app_invoke_handler {
             $crate::command_center::commands::cancel_command_card,
             $crate::command_center::commands::export_command_cards,
             $crate::command_center::commands::import_command_cards,
+            // P5 命令市场（宿主窗口专用；市场源由 env 配置）
+            $crate::command_center::market::command_market_list,
+            $crate::command_center::market::command_market_install,
             $crate::dev_cleaner::commands::scan_dev_projects,
             $crate::dev_cleaner::commands::cleanup_projects,
             $crate::dev_cleaner::commands::stop_scan,
