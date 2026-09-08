@@ -16,6 +16,11 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
+      // ⚠️ 顺序铁律：vite alias 按声明顺序匹配，"@" 是前缀规则（"@" + "/"），
+      // 必须把更具体的 "@/i18n/config" 放在 "@" **之前**，否则会被 "@" 截胡
+      // （P5 教训：别名放在 "@" 之后 = 完全不生效，宿主 config 混入插件
+      // bundle 并覆盖插件 i18n 实例，t() 全部返回 key 原文）。
+      "@/i18n/config": path.resolve(import.meta.dirname, "./src/i18n.ts"),
       "@": path.resolve(import.meta.dirname, "../../src"),
       "@extension": path.resolve(import.meta.dirname, "./src"),
     },

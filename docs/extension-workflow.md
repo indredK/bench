@@ -255,11 +255,68 @@ pnpm run extensions:pack <id>     # P4.5 交付
 
 ## 10. 文档地图（插件化）
 
-| 文档                                                                         | 层                   | 职责                                                                 |
-| ---------------------------------------------------------------------------- | -------------------- | -------------------------------------------------------------------- |
-| [extension-spec.md](./extension-spec.md)                                     | Reference            | **契约唯一规格**：manifest / 签名 / registry / 产物格式 / ACL / 版本 |
-| [extension-workflow.md](./extension-workflow.md)（本文）                     | Explanation + How-to | 架构边界、仓库组织、开发→发布工作流                                  |
-| [modules/extension-center/roadmap.md](./modules/extension-center/roadmap.md) | Roadmap              | **执行顺序与状态唯一清单**（含行业依据与技术铁律附录）               |
-| [product-specs/extension-center.md](./product-specs/extension-center.md)     | Reference            | 插件中心的功能规格（界面 / 交互 / 异常）                             |
-| [planned/extension-center.md](./planned/extension-center.md)                 | Roadmap              | 插件中心未实现项                                                     |
-| [DECISIONS.md](./DECISIONS.md) D-023 / D-024                                 | Explanation          | 方向性决策                                                           |
+| 文档                                                                         | 层                   | 职责                                                                                                                                    |
+| ---------------------------------------------------------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| [extension-spec.md](./extension-spec.md)                                     | Reference            | **契约唯一规格**：manifest / 签名 / registry / 产物格式 / ACL / 版本                                                                    |
+| [extension-workflow.md](./extension-workflow.md)（本文）                     | Explanation + How-to | 架构边界、仓库组织、开发→发布工作流                                                                                                     |
+| [modules/extension-center/roadmap.md](./modules/extension-center/roadmap.md) | Roadmap              | **执行顺序与状态唯一清单**（含行业依据与技术铁律附录）                                                                                  |
+| [product-specs/extension-center.md](./product-specs/extension-center.md)     | Reference            | 插件中心的功能规格（界面 / 交互 / 异常）                                                                                                |
+| [planned/extension-center.md](./planned/extension-center.md)                 | Roadmap              | 插件中心未实现项                                                                                                                        |
+| [DECISIONS.md](./DECISIONS.md) D-023 / D-024                                 | Explanation          | 方向性决策                                                                                                                              |
+| `extensions/<id>/docs/`（README / product-spec / planned / roadmap）         | Reference + Roadmap  | **已插件化模块的自包含三件套**（P5 起随插件走，不再放 docs/modules；dev-cleaner 类子能力在 `extensions/clean-space/docs/dev-cleaner/`） |
+
+## 11. 模块插件化迁移清单（P5 实践沉淀，照单执行）
+
+> 已完成：photo-triage（P2b）、terminology、hardware、clean-space（含 dev-cleaner 子能力）。
+> 每一步都有门禁兜底；**照单打钩，漏一步 CI 会替你补课**——但别赌，按顺序来。
+
+### 11.1 前置判据（四条须同时满足，见 roadmap P5）
+
+1. 构成完整业务闭环（可独立成窗口）；2. IPC 面清晰且低共享状态；3. 不依赖 TCC / 系统权限 / 凭据；4. 迁移后无宿主↔插件高频往返。重系统耦合模块（quick-launch / app-manager / command-center / network-probe / updater / system-settings / account-manager）**降级为按需**，不进计划。
+
+### 11.2 代码迁移
+
+- [ ] 建目录 `extensions/<id>/`：`manifest.json`（schema v2）+ `vite.config.ts` + `index.html` + `src/` + `locales/{zh,en}.json`（对照任一现有插件脚手架）
+- [ ] `vite.config.ts`：`base: "./"` 铁律；`@` → 宿主 `src/`（复用 UI 组件/契约 wrapper，随 bundle 打包）；`@extension` → 插件 `src/`；outDir `assets/`
+- [ ] 源码从 `src/features/<id>/` 迁入（**不迁 `feature.tsx`**——AppFeature 描述符是宿主概念）；内部 `@/features/<id>/` 引用改 `@extension/`
+- [ ] 插件私有子能力（如 dev-cleaner）作 `src/<sub>/` 子目录随迁
+- [ ] 宿主独占实例的引用要换成插件内实例：数据模块若 import `@/i18n/config`（宿主 i18n，会把全量语言资源拖进插件 bundle），改为 `@extension/i18n`（hardware 的教训）
+- [ ] **i18n 资源不得双重包装**：插件 locale 文件本身是 `{ "translation": { 命名空间... } }`，`i18n.ts` 里必须解包一层 `resources: { zh: { translation: zh.translation } }`——直接 `{ translation: zh }` 会让 `t()` 全部返回 key 原文（P5 四插件曾集体中招；用 i18next 离线复演 `t(key) !== key` 验证）
+- [ ] 仅剩唯一插件消费的共享组件/数据（如 `CompareMatrixTable`、`src/data/*`）随插件迁走；**多方共用的**（如 `FilterBar`）留宿主 shared，插件经 `@` 引用
+- [ ] **vite.config 必须加 `"@/i18n/config" → 插件 src/i18n.ts` 别名，且必须放在 `"@"` 之前**：多方共用的宿主模块（`FilterBar`/`i18nBrand`/`FeatureErrorBoundary` 等）import 宿主 i18n config，会在插件窗口里二次 init、用宿主资源覆盖插件实例（宿主资源没有插件命名空间 → 同样显示 key）。**键序是命门**：vite alias 按声明顺序匹配，`"@"` 是前缀规则，精确别名排在它后面 = 完全不生效（P5 实测踩坑）。验证方法：构建产物中 grep 宿主 locales 独有值（如 sidebar 的「跨平台工具集」）应为 0 命中
+- [ ] 改插件源码后必须手动 `pnpm run extensions:build && pnpm run extensions:sync`（dev 模式不自动重建插件），然后**重开插件窗口**才能看到效果
+
+### 11.3 能力面与 manifest
+
+- [ ] IPC 命令**留在宿主 Rust 核心**，仅登记 ACL 注册表（`extension_host/acl.rs`）+ 补 `capability_face_all_allowed` 测试；纯前端插件 `acl.commands: []` 并在注释声明
+- [ ] manifest `engines.bench` 门槛必须 ≤ 宿主版本——**别硬编码**：验证包脚本是动态读 `tauri.conf.json` 的 version（bench-poc 曾写死 `>=2.0.0` 导致插件中心显示「宿主版本不兼容」）
+- [ ] 平台限制用 `platforms` 字段（spec §3.1，P5 增补；缺省全平台；宿主在已装列表按当前平台过滤）
+- [ ] 契约（contracts.ts / types）**留在宿主**不动——双写规则针对宿主 Rust 面，与 UI 位置无关
+
+### 11.4 i18n 归集（守卫已强制）
+
+- [ ] 插件文案放 `extensions/<id>/locales/{zh,en}.json`（`{ "translation": { <命名空间>, common } }` 结构；`common` 整份拷贝保持插件自包含）
+- [ ] 插件入口建**独立 i18next 实例**（`src/i18n.ts`，语言取 `window.__BENCH_EXT_LOCALE` 注入 → 回退 navigator.language）
+- [ ] **主包 locales 删除该模块全部键**：模块命名空间 + `sidebar.<labelKey>`，zh/en 同步（parity 由守卫强制）
+- [ ] `check-i18n-guards.mjs` 已自动校验插件 locales 成对/结构一致/JSON 无重复键（输出 `Plugin locales passed: N plugin(s)`）——新增插件若缺 locales 会直接挂 CI
+- [ ] **文案自包含验收（用户约定：插件目录将来整体搬去独立仓库）**：跑 `pnpm run audit:ext-i18n`——扫描插件源码 + 其经 `@/` 引用的宿主共享模块的全部 `t()` key/动态族，必须 100% 命中插件 locales（4/4 自包含为准）。宿主共享组件新增 key 时重跑审计并同步各插件 common；**插件专用的工具/命名空间（如 `i18nBrand` + `brands`）直接迁入插件**，不留宿主引用
+- [ ] **文案自包含验收（用户约定：插件目录将来整体搬去独立仓库）**：跑 `pnpm run audit:ext-i18n`——扫描插件源码 + 其经 `@/` 引用的宿主共享模块的全部 `t()` key/动态族，必须 100% 命中插件 locales（4/4 自包含为准）。宿主共享组件新增 key 时重跑审计并同步各插件 common；**插件专用的工具/命名空间（如 `i18nBrand` + `brands`）直接迁入插件**，不留宿主引用
+
+### 11.5 文档归集（守卫已强制）
+
+- [ ] 文档三件套随插件走：`extensions/<id>/docs/{README.md, product-spec.md, planned.md, roadmap.md}`（自 `docs/product-specs/`、`docs/planned/`、`docs/modules/<id>/` 用 `git mv` 迁入，保留历史）
+- [ ] 技术设计 / 原型等模块独有文档一并迁入（clean-space 的 `design.md` + `clean-space-prototype.html`）；子能力文档放 `docs/<sub>/`（dev-cleaner 先例）
+- [ ] README 顶部标明**插件形态**（bundled / 平台限制 / 能力面归属 / 测试位置）
+- [ ] 删除 `docs/modules/<id>/`；`check-docs-consistency.mjs` 对插件自动改查 `extensions/<id>/docs/`（输出 `N features + M plugins ↔ K module docs`）
+- [ ] 全库入链梳理：`docs/ROADMAP.md`、`docs/modules/README.md` 索引、`docs/planned/README.md`、相关模块 README 中指向被迁文件的相对链接逐个重定向，跑 `check:docs` 验证
+
+### 11.6 测试
+
+- [ ] 插件测试放 `extensions/<id>/src/__tests__/`（随代码迁入）；**宿主 vitest 显式 exclude `extensions/**`**——插件测试目前不在 CI 执行，属已知缺口（P4.5 SDK 范围补插件测试 runner，见 roadmap）
+- [ ] 宿主侧更新：`src/features/registry.test.tsx` 断言反转（`not.toContain` 被迁路由）；`test:critical` 名单核对（被迁 feature 的测试若在列需移除）
+
+### 11.7 宿主摘除与冒烟
+
+- [ ] `src/features/registry.tsx` 删除 import 与注册项；`git rm -r src/features/<id>/`（**删完检查空目录残留**——空目录会让 docs 门禁误报 feature 仍存在）
+- [ ] 冒烟全链：`pnpm run lint:fe`（含 i18n + docs 双守卫）→ `test:fe` → `cargo test --lib extension_host` + `clippy:be` → `pnpm run extensions:build`（自动循环全部插件，fail-fast）→ `extensions:stage` + `extensions:sync` → 核对部署 manifest（schema/acl 数/platforms/files 数）
+- [ ] 打包分发无需额外动作：`tauri.conf.json` 的 `bundle.resources` 已映射整个 `resources/extensions/`，新插件 stage 后自动随包（启动时宿主拷入 + 完整性校验，见 §9）

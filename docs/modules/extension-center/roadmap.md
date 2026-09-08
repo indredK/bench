@@ -245,6 +245,10 @@ pnpm run test:critical       # ✓ 145 passed
   - 能力面 14 条命令（8 清理 + 6 dev-cleaner）留宿主核心 + ACL；**平台门控落地**：manifest v2 新增可选 `platforms` 字段（spec §3.1，缺省全平台、空数组非法、宿主按当前平台过滤已装列表——能力判定在宿主，renderer 不自行决定）
   - dev-cleaner 作为子模块随迁（`src/dev-cleaner/`），宿主 `src/features/{clean-space,dev-cleaner}` 删除
   - **文档归集（用户指令）**：已插件化模块的文档三件套（product-spec / planned / roadmap / README，clean-space 另含 design.md + 原型 HTML、dev-cleaner 子目录）自包含迁至 `extensions/<id>/docs/`；docs-consistency 门禁升级为插件文档本地校验（12 features + 4 plugins ↔ 12 module docs）；docs/ROADMAP、modules/README、planned/README、dev-toolbox README 等入链全部重定向，390 条相对链接校验通过
+  - **i18n 归集（用户指令）**：插件文案自包含于 `extensions/<id>/locales/{zh,en}.json`（独立 i18next 实例消费）；主包 locales 删除全部已迁模块键（photoTriage 残留清零）；**i18n 守卫扩展**：自动校验全部插件 locales 成对/结构/无重复键（缺 locales 直接挂 CI）
+  - **迁移清单沉淀（用户指令）**：完整 checklist（代码/能力面/manifest/i18n/文档/测试/宿主摘除/冒烟，含历次教训）写入 [extension-workflow.md §11](../../../docs/extension-workflow.md)
+  - **已知缺口**：插件测试不在 CI 执行（宿主 vitest exclude extensions）——插件测试 runner 归入 P4.5 SDK 范围
+- [ ] 插件测试 runner：宿主 vitest `exclude extensions/**`，插件内测试（photo-triage/terminology/hardware/clean-space 的 `src/__tests__`）目前不在 CI 执行——提供 `test:extensions`（逐插件 vitest + jsdom + `@extension` alias 的统一测试配置）
 - [ ] 候选后续批次（中等）：port-manager / env-detector
 - [x] **重系统耦合模块降级为「按需」而非计划内**：quick-launch / app-manager / command-center / network-probe / updater / system-settings / account-manager（涉及权限、凭据、系统级动作，插件化收益低而破坏面高）
 - [ ] dev-toolbox host 泛化（删 `TOOLBOX_FEATURE_IDS` 与硬编码 tabs）—— 仅在前述迁移确有收益时执行

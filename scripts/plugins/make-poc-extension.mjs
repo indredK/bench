@@ -30,6 +30,11 @@ const IDENTIFIER = "com.bench.app"
 const EXTENSION_ID = "bench-poc"
 const EXTENSION_VERSION = "1.0.0"
 
+/** 宿主版本下限（读 tauri.conf.json，避免硬编码随版本升级失效）。 */
+const HOST_VERSION = JSON.parse(
+  readFileSync(join(process.cwd(), "src-tauri", "tauri.conf.json"), "utf8"),
+).version
+
 /** 与 src-tauri/src/extension_host/assets.rs::EXT_DIR_NAME 一致。 */
 const EXT_DIR_NAME = "extensions"
 
@@ -63,7 +68,9 @@ const MANIFEST = {
   distribution: "bundled",
   entry: { index: "index.html" },
   acl: { commands: ["ext_poc_report"] },
-  engines: { bench: ">=2.0.0" },
+  // 门槛必须 ≤ 当前宿主版本，否则插件中心会显示「宿主版本不兼容」、
+  // BENCH_POC_EXT 自动开窗也会被 engines 门控拒绝（P5 教训）。
+  engines: { bench: `>=${HOST_VERSION}` },
 }
 
 /** 产物文件（相对插件根）→ 生成 `files` 清单的固定顺序。 */

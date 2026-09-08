@@ -13,8 +13,11 @@ const preferred =
 
 void i18next.use(initReactI18next).init({
   resources: {
-    zh: { translation: zh },
-    en: { translation: en },
+    // locale 文件本身带 "translation" 包装（{ translation: { ns... } }），
+    // 这里必须解包一层 —— 直接 { translation: zh } 会双重嵌套导致 t() 全部
+    // 返回 key 原文（P5 教训，四个插件曾集体中招）。
+    zh: { translation: zh.translation },
+    en: { translation: en.translation },
   },
   lng: preferred,
   fallbackLng: "en",

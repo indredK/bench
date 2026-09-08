@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, statSync } from "node:fs"
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import ts from "typescript"
@@ -444,6 +444,12 @@ export function runI18nGuards() {
   }
 
   const sourceFiles = walkSourceFiles(path.join(rootDir, "src"))
+
+  // P5：插件 i18n 自包含校验。bundled 插件的文案必须放
+  // `extensions/<id>/locales/{zh,en}.json`（独立 i18next 实例消费），
+  // 主包 locales 只留宿主自身命名空间——防止迁移后文案散落两处。
+  const pluginResult = validatePluginLocales()
+
   const analyses = sourceFiles.map((file) => {
     const relativePath = path.relative(rootDir, file).replaceAll("\\", "/")
     return analyzeSource(readFileSync(file, "utf8"), relativePath, {
@@ -451,7 +457,7 @@ export function runI18nGuards() {
     })
   })
   const usageIssues = validateTranslationUsage(analyses, localeResult.enEntries)
-  const allIssues = [...localeResult.issues, ...usageIssues]
+  const allIssues = [...localeResult.issues, ...usageIssues, ...pluginResult.issues]
 
   if (allIssues.length > 0) {
     console.error(`i18n guard failed with ${allIssues.length} issue(s):`)
@@ -473,8 +479,95 @@ export function runI18nGuards() {
   console.log(
     `Locale structure passed: ${localeResult.enEntries.size} keys in both zh.json and en.json.`,
   )
+  console.log(
+    `Plugin locales passed: ${pluginResult.checked} plugin(s) (${pluginResult.keyCount} keys each locale, zh/en parity).`,
+  )
   console.log("Frontend i18n guards passed.")
   return 0
+}
+
+/**
+ * 插件 locales 校验（P5）：`extensions/<id>/locales/{zh,en}.json` 必须成对、
+ * 结构一致、包一层 `translation`。插件测试/构建体系消费这些文件；
+ * 宿主主包不得残留插件命名空间（迁移清单见 docs/extension-workflow.md §11）。
+ */
+export function validatePluginLocales() {
+  const extensionsDir = path.join(rootDir, "extensions")
+  const issues = []
+  let checked = 0
+  let keyCount = 0
+
+  if (!existsSync(extensionsDir)) return { issues, checked, keyCount }
+
+  const pluginIds = readdirSync(extensionsDir, { withFileTypes: true })
+    .filter(
+      (entry) =>
+        entry.isDirectory() && existsSync(path.join(extensionsDir, entry.name, "manifest.json")),
+    )
+    .map((entry) => entry.name)
+    .sort()
+
+  for (const pluginId of pluginIds) {
+    const paths = {
+      en: path.join(extensionsDir, pluginId, "locales", "en.json"),
+      zh: path.join(extensionsDir, pluginId, "locales", "zh.json"),
+    }
+    const missing = Object.entries(paths).filter(([, p]) => !existsSync(p))
+    if (missing.length > 0) {
+      issues.push(
+        issue(
+          "plugin-locale-missing",
+          `plugin ${pluginId} is missing ${missing.map(([, p]) => p).join(", ")} (i18n must be bundled with the plugin)`,
+          { file: `extensions/${pluginId}/locales` },
+        ),
+      )
+      continue
+    }
+
+    const raw = Object.fromEntries(
+      Object.entries(paths).map(([locale, p]) => [locale, readFileSync(p, "utf8")]),
+    )
+    const duplicateIssues = [
+      ...findDuplicateJsonKeys(raw.en, `extensions/${pluginId}/locales/en.json`),
+      ...findDuplicateJsonKeys(raw.zh, `extensions/${pluginId}/locales/zh.json`),
+    ]
+    if (duplicateIssues.length > 0) {
+      issues.push(...duplicateIssues)
+      continue
+    }
+
+    const en = JSON.parse(raw.en)
+    const zh = JSON.parse(raw.zh)
+    for (const [locale, obj] of [
+      ["en", en],
+      ["zh", zh],
+    ]) {
+      if (
+        !obj ||
+        typeof obj !== "object" ||
+        !obj.translation ||
+        typeof obj.translation !== "object"
+      ) {
+        issues.push(
+          issue(
+            "plugin-locale-structure",
+            `extensions/${pluginId}/locales/${locale}.json must wrap resources in a "translation" object`,
+            { file: `extensions/${pluginId}/locales/${locale}.json` },
+          ),
+        )
+      }
+    }
+    if (issues.some((item) => item.file?.startsWith(`extensions/${pluginId}/locales`))) continue
+
+    const localeResult = validateLocaleObjects(en.translation, zh.translation)
+    for (const item of localeResult.issues) {
+      issues.push({ ...item, file: `extensions/${pluginId}/locales`, key: item.key })
+    }
+    checked += 1
+    keyCount = localeResult.enEntries.size
+  }
+
+  return { issues, checked, keyCount }
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === scriptPath) {
