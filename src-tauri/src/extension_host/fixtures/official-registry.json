@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-09-08T17:33:01Z",
+  "extensions": [
+    {
+      "id": "clean-space",
+      "display": {
+        "zh": "存储空间",
+        "en": "Clean Space"
+      },
+      "description": {
+        "en": "Clean Space",
+        "zh": "存储空间"
+      },
+      "publisher": {
+        "name": "Kindred Plugin Market"
+      },
+      "versions": [
+        {
+          "version": "1.0.0",
+          "engines": {
+            "bench": ">=1.30.0"
+          },
+          "downloadUrl": "https://github.com/kindred-plugin-market/plugin-market/releases/download/clean-space-v1.0.0/bench-ext-clean-space-v1.0.0.zip",
+          "sha256": "1071e8b3dc7e5e658c5ac3caa51fa0a572581da29b527b2803194de5c2e0d85f",
+          "size": 198855,
+          "publishedAt": "2026-09-08T17:32:54Z",
+          "yanked": false
+        }
+      ]
+    },
+    {
+      "id": "hardware",
+      "display": {
+        "zh": "硬件查询",
+        "en": "Hardware"
+      },
+      "description": {
+        "en": "Hardware",
+        "zh": "硬件查询"
+      },
+      "publisher": {
+        "name": "Kindred Plugin Market"
+      },
+      "versions": [
+        {
+          "version": "1.0.0",
+          "engines": {
+            "bench": ">=1.30.0"
+          },
+          "downloadUrl": "https://github.com/kindred-plugin-market/plugin-market/releases/download/hardware-v1.0.0/bench-ext-hardware-v1.0.0.zip",
+          "sha256": "34f50e423fabffeec73b96bc0526719c34b5768f64a202c5ec167e0f7c10541c",
+          "size": 254413,
+          "publishedAt": "2026-09-08T17:32:57Z",
+          "yanked": false
+        }
+      ]
+    },
+    {
+      "id": "photo-triage",
+      "display": {
+        "zh": "照片筛选",
+        "en": "Photo Triage"
+      },
+      "description": {
+        "en": "Photo Triage",
+        "zh": "照片筛选"
+      },
+      "publisher": {
+        "name": "Kindred Plugin Market"
+      },
+      "versions": [
+        {
+          "version": "0.1.0",
+          "engines": {
+            "bench": ">=1.30.0"
+          },
+          "downloadUrl": "https://github.com/kindred-plugin-market/plugin-market/releases/download/photo-triage-v0.1.0/bench-ext-photo-triage-v0.1.0.zip",
+          "sha256": "6c23fe9e9b4084d4660620c52c71afb2fa604c07e7cd4f295216693fb83633a5",
+          "size": 171416,
+          "publishedAt": "2026-09-08T17:33:00Z",
+          "yanked": false
+        }
+      ]
+    },
+    {
+      "id": "terminology",
+      "display": {
+        "zh": "专业术语",
+        "en": "Terminology"
+      },
+      "description": {
+        "en": "Terminology",
+        "zh": "专业术语"
+      },
+      "publisher": {
+        "name": "Kindred Plugin Market"
+      },
+      "versions": [
+        {
+          "version": "1.0.0",
+          "engines": {
+            "bench": ">=1.30.0"
+          },
+          "downloadUrl": "https://github.com/kindred-plugin-market/plugin-market/releases/download/terminology-v1.0.0/bench-ext-terminology-v1.0.0.zip",
+          "sha256": "bee486b1106e4f21c73ed19fb65e76e5c163c5cc447f0c33ac50593ea6930412",
+          "size": 180683,
+          "publishedAt": "2026-09-08T17:33:01Z",
+          "yanked": false
+        }
+      ]
+    }
+  ],
+  "revoked": []
+}

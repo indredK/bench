@@ -23,10 +23,14 @@ use crate::error::{AppError, AppResult};
 /// canonical registry 基址环境变量（后端独占配置）。
 pub const REGISTRY_URL_ENV: &str = "BENCH_EXT_REGISTRY_URL";
 
-/// 官方插件市场索引（kindred-plugin-market org；env `BENCH_EXT_REGISTRY_URL`
+/// 官方插件市场基址（kindred-plugin-market org；env `BENCH_EXT_REGISTRY_URL`
 /// 未设置时作为默认源 —— P5：零配置即可用市场）。
+///
+/// ⚠️ 语义与 `registry_base_url()` 一致：这里是**目录基址**（不含 `registry.json`），
+/// 索引 URL = 基址 + `/registry.json`（`registry_index_url`）。写成文件 URL 会拼出
+/// `registry.json/registry.json` 双重路径（P5 实测踩坑）。
 pub const OFFICIAL_REGISTRY_URL: &str =
-    "https://raw.githubusercontent.com/kindred-plugin-market/plugin-market/main/registry.json";
+    "https://raw.githubusercontent.com/kindred-plugin-market/plugin-market/main";
 
 /// 判断 registry 基址是否为官方源（官方源豁免 minisign 验签：
 /// 完整性由 registry sha256 + 包内 files 清单双通道兜底，spec §13）。
@@ -365,6 +369,40 @@ mod tests {
         assert_eq!(
             registry_index_url("https://r.example.com/"),
             "https://r.example.com/registry.json"
+        );
+    }
+}
+
+#[cfg(test)]
+mod official_fixture_tests {
+    use super::*;
+
+    /// 官方线上 registry.json 的离线快照：防止 RegistryDoc 结构演进
+    /// （deny_unknown_fields）与真实发布格式漂移（P5）。
+    const OFFICIAL_FIXTURE: &str = include_str!("fixtures/official-registry.json");
+
+    #[test]
+    fn parses_official_registry_fixture() {
+        let doc: RegistryDoc =
+            serde_json::from_str(OFFICIAL_FIXTURE).expect("parse official registry");
+        validate_registry_doc(&doc).expect("official registry validates");
+        assert_eq!(doc.extensions.len(), 4);
+        for entry in &doc.extensions {
+            assert_eq!(entry.versions.len(), 1);
+            validate_download_url(&entry.versions[0].download_url).expect("download url valid");
+        }
+    }
+
+    #[test]
+    fn official_base_matches_and_resolves_index() {
+        assert!(is_official_registry(OFFICIAL_REGISTRY_URL));
+        assert!(is_official_registry(&format!("{OFFICIAL_REGISTRY_URL}/")));
+        assert!(!is_official_registry(
+            "https://market.example.com/registry.json"
+        ));
+        assert_eq!(
+            registry_index_url(OFFICIAL_REGISTRY_URL),
+            "https://raw.githubusercontent.com/kindred-plugin-market/plugin-market/main/registry.json"
         );
     }
 }
