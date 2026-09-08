@@ -6,16 +6,19 @@
 >
 > **插件化执行进度（P 阶段，唯一状态清单见 [modules/extension-center/roadmap.md](./modules/extension-center/roadmap.md)）**：
 >
-> | 阶段                                                                       | 状态        |
-> | -------------------------------------------------------------------------- | ----------- |
-> | P0 产品定案 / P1 概念验证 / P2 契约+插件中心 / P2b photo-triage 迁移       | ✅ 完成     |
-> | P3 分发安全与运行时治理（engines 门控 / 验签骨架 / 语言注入 / 卸载）       | 🔶 核心完成 |
-> | P4 插件中心完整化 / P5 全量迁移（15 模块 / 253 命令基数）/ P6 Windows 复验 | ⬜ 未开始   |
+> | 阶段                                                                    | 状态      |
+> | ----------------------------------------------------------------------- | --------- |
+> | P0 产品定案 / P1 概念验证 / P2 契约+插件中心 / P2b photo-triage 迁移    | ✅ 完成   |
+> | P3 运行时治理（engines / 签名骨架 / 语言注入 / 卸载）                   | ✅ 完成   |
+> | P3.1 包完整性安全地基（**硬阻塞**）/ P3.2 Windows 门禁 / P3.3 解压+审计 | ⬜ 未开始 |
+> | P3.4 bundled 发布集成 / P4 market 闭环 / P4.5 作者侧交付                | ⬜ 未开始 |
+> | P5 增量迁移（带停止线）/ P6 Windows release                             | ⬜ 未开始 |
 >
-> - P6（恢复 Windows CI）是插件化随正式版发布的**硬前置**。
+> - **P3.1（包完整性 + 降级防护）是硬阻塞**：完成前不得实现 download/extract，否则产物格式上线后返工。
+> - **P3.4（bundled 随正式包发布）与 P6（Windows release）是发布硬前置**：插件化能力在两者完成前不得随正式版发布。
 > - 本文件与 [GAP-TO-2.0.md](../GAP-TO-2.0.md) 的内容**保留作技术债台账**，供插件化迁移时按模块评估，不删除。
 > - 例外：涉及**数据安全与签名链**的条目（A5 持久化迁移、A3-1 RC dry-run、minisign 全链）在插件分发启用前必须重新评估。
-> - 采用 **B′ 方案**（宿主 + 可下载前端 bundle + 独立 WebView + IPC 命令白名单），见 [plugin-market-assessment.md §8](./plugin-market-assessment.md)。
+> - 采用 **B′ 方案**（宿主 + 可下载前端 bundle + 独立 WebView + IPC 命令白名单），架构边界见 [extension-workflow.md](./extension-workflow.md)。
 
 本文件是 2.0 收尾的唯一跨模块执行清单。模块级约束和未完成项见 [modules/](./modules/README.md)，方向性取舍见 [DECISIONS.md](./DECISIONS.md)。已完成历史由 Git 保留。
 

@@ -18,18 +18,18 @@
   - 主包侧边栏不再静态注册已迁出模块，改由插件中心「已安装（bundled）」点亮入口；
   - photo-triage 的 Python→Rust 迁移路径决策不受影响——若选 sidecar，manifest `delivery: "sidecar"` 复用 [D-017](./DECISIONS.md#d-017--network-probe-可选能力包可插拔高级组件) pack 模型；
   - 试点期本地构建本地装，minisign 门禁在其后启用。
-- **相关**：[extension-workflow.md](./extension-workflow.md)（工作流 How-to） · [extension-poc-report.md](./extension-poc-report.md)（P1 实测） · [plugin-market-assessment.md §8–9](./plugin-market-assessment.md)（B′ 方案与 P0–P6 路线） · [D-023](#d-023--20-目标变更为插件化生态r00r10-全部降级) · [D-017](./DECISIONS.md#d-017--network-probe-可选能力包可插拔高级组件)
+- **相关**：[extension-workflow.md](./extension-workflow.md)（架构边界与工作流） · [modules/extension-center/roadmap.md](./modules/extension-center/roadmap.md)（执行清单，含行业依据） · [D-023](#d-023--20-目标变更为插件化生态r00r10-全部降级) · [D-017](./DECISIONS.md#d-017--network-probe-可选能力包可插拔高级组件)
 
 ## D-023 · 2.0 目标变更为「插件化生态」，R00–R10 全部降级
 
 - **日期**：2026-09-08
 - **状态**：采纳（已生效）
-- **背景**：[D-022](#d-022--所有能力插件化b-liteTauri-宿主--wasmsidecar远程-插件市场) 将插件化定位为「2.0 旁路」（D-013），2.0 主目标仍是 R00–R10 发布收尾。经 [可行性评估](./plugin-market-assessment.md) 后用户拍板：**2.0 的目标本身就是「自带少量核心能力 + 绝大部分功能插件化 + 插件市场（第三方生态）」**，而非发布收尾。
+- **背景**：[D-022](#d-022--所有能力插件化b-liteTauri-宿主--wasmsidecar远程-插件市场) 将插件化定位为「2.0 旁路」（D-013），2.0 主目标仍是 R00–R10 发布收尾。经可行性评估与行业最佳实践核验后用户拍板：**2.0 的目标本身就是「自带少量核心能力 + 绝大部分功能插件化 + 插件市场（第三方生态）」**，而非发布收尾。
 - **决策**：
   1. **2.0 = 插件化生态（目标 B：第三方生态）**，不是目标 A（消除自己的装配成本）。这是产品定位变更，不是技术重构。
   2. **`ROADMAP.md` 的 R00–R10 全部降级为 backlog**，不再作为 2.0 门禁；`GAP-TO-2.0.md` 的 37 项差距（A1–A5 / D1–D7 / E1–E3）同步降级，不再要求关闭后才发版。
   3. 降级 ≠ 废弃：R00–R10 与 GAP 清单作为**已知技术债台账**保留，供插件化迁移时按模块评估；涉及**数据安全与签名链**的条目（A5 持久化迁移、A3-1 RC dry-run、minisign 全链）在插件分发启用前必须重新评估。
-  4. 执行序列改为评估报告的 **P0–P6**（[plugin-market-assessment.md §9](./plugin-market-assessment.md)）；**当前执行 P1 概念验证**。
+  4. 执行序列为 **P0–P6**，唯一状态清单见 [modules/extension-center/roadmap.md](./modules/extension-center/roadmap.md)（2026-09-08 经行业最佳实践复核后重排：包完整性安全地基提为 P3.1 硬阻塞，Windows 门禁提为 P3.2 并行前置，bundled 发布集成提为 P3.4）。
   5. 采用 **B′ 方案**（宿主 + 可下载前端 bundle + 独立 WebView 整屏渲染 + IPC 命令白名单网关）替代 D-022 的 B-lite（WASM/sidecar/远程）。**B-lite 保留为 WASM 附属能力的未来选项**，不删除。
 - **理由**：
   - 评估证伪了 D-022 的核心前提——「Tauri 运行时不能热载整屏 renderer 页面」不成立（`register_uri_scheme_protocol` / asset 协议可加载 `$APPDATA` 下运行时下载的页面，项目已启用 `protocol-asset`）。
@@ -40,7 +40,7 @@
   - 插件化**进入** ROADMAP 而非旁路；D-022 中「不进 R00–R10」的表述对**新目标**不再适用（对已被降级的旧 R00–R10 仍成立）。
   - 术语：Tauri 官方 “plugin” 指**编译期 Cargo crate**（如 `tauri-plugin-store`）；本项目运行时插件统一称 **extension / 能力包**，避免混淆。
   - **P6（恢复 Windows CI）是发布硬前置**：插件化能力在 Windows runner 复验前不得随正式版发布。
-- **相关**：[可行性评估](./plugin-market-assessment.md) · [D-022](#d-022--所有能力插件化b-liteTauri-宿主--wasmsidecar远程-插件市场) · [D-021](#d-021--rust-target-目录外迁--sccache--暂停-windows-ci) · [D-017](./DECISIONS.md#d-017--network-probe-可选能力包可插拔高级组件) · [D-013](#d-013--roadmap-是-20-唯一执行真理源) · [plugin-architecture.md](./plugin-architecture.md)
+- **相关**：[D-022](#d-022--所有能力插件化b-liteTauri-宿主--wasmsidecar远程-插件市场) · [D-021](#d-021--rust-target-目录外迁--sccache--暂停-windows-ci) · [D-017](./DECISIONS.md#d-017--network-probe-可选能力包可插拔高级组件) · [D-013](#d-013--roadmap-是-20-唯一执行真理源) · [extension-workflow.md](./extension-workflow.md)
 
 ## D-022 · 所有能力插件化（B-lite：Tauri 宿主 + WASM/sidecar/远程 插件市场）
 
@@ -59,8 +59,9 @@
   6. **聚合泛化**：`dev-toolbox` 作为 host 读 children（继承 `parent` 模型），删 `TOOLBOX_FEATURE_IDS` 与硬编码 `tabs[]`。
   7. **renderer 动态页面边界（诚实约束）**：Tauri 的 WebView 是静态打包，运行时不能热载新的 renderer 页面；插件可贡献的 UI 限于「预置 UI 壳 + 插件中心内的控制/状态」或「沙箱远程视图」，**不能**自由下载到一个全新整屏页面。这恰是 B-lite 相对纯 B 的取舍，用户「自由下载能力」诉求在「能力/逻辑/后端能力」层面成立，在「全新 UI 页」层面不成立。
 - **理由**：满足「插件中心 + 自由下载能力」诉求且守住硬约束（单二进制/minisign、双平台 CI 编译验证、`clippy -D warnings`、D-017 禁止运行时拉依赖）；纯 B 路线（运行时热载任意 Rust crate/npm）在 Tauri 无原生支持且工程量数倍；B-lite 复用 D-017 与 dev-toolbox 拼图，WASM runtime 内嵌于既有 Rust 宿主，无需换语言。
-- **影响**：B0–B5 分阶段（见 [docs/plugin-architecture.md](./plugin-architecture.md)）；**不进 2.0 R00–R10 门禁**（D-013），作为 2.0 旁路/后续架构程序；IPC 契约双写铁律不削弱（插件经 `bench_host` 窄接口，反而收窄 renderer 信任边界）；i18n `labelKey` 仍落 locale；WASM 沙箱安全模型与导入面须在 B2 前论证。
-- **相关**：[plugin-architecture 设计](./plugin-architecture.md) · [ARCHITECTURE.md §2](./ARCHITECTURE.md#2--ai-编码规则--禁止模式) · [D-017](./DECISIONS.md#d-017--network-probe-可选能力包可插拔高级组件) · [D-016](./DECISIONS.md#d-016--network-probe-独立一级模块与分期设计) · [D-013](./DECISIONS.md#d-013--roadmap-是-20-唯一执行真理源) · [D-006](./DECISIONS.md#d-006--文档只保留当前真理源与未完成事项) · [coding-standards.md §4/§7](./coding-standards.md)
+- **影响**：B0–B5 分阶段（**已被 D-023 的 P0–P6 取代**）；**不进 2.0 R00–R10 门禁**（D-013），作为 2.0 旁路/后续架构程序；IPC 契约双写铁律不削弱；i18n `labelKey` 仍落 locale。本条中仍有效的内容（WASM / sidecar / 远程三形态的能力面划分、D-017 红线）已并入 [extension-workflow.md §7](./extension-workflow.md)。
+  > ⚠️ 本条 **第 7 点「不能热载整屏 renderer 页面」已被证伪**（`register_uri_scheme_protocol` / asset provider 可加载运行时下载的页面，P1 实测通过），详见 D-023。
+- **相关**：[extension-workflow.md §7](./extension-workflow.md)（吸收本条有效内容） · [modules/extension-center/roadmap.md](./modules/extension-center/roadmap.md) · [ARCHITECTURE.md §2](./ARCHITECTURE.md#2--ai-编码规则--禁止模式) · [D-017](./DECISIONS.md#d-017--network-probe-可选能力包可插拔高级组件) · [D-016](./DECISIONS.md#d-016--network-probe-独立一级模块与分期设计) · [D-013](./DECISIONS.md#d-013--roadmap-是-20-唯一执行真理源) · [D-006](./DECISIONS.md#d-006--文档只保留当前真理源与未完成事项) · [coding-standards.md §4/§7](./coding-standards.md)
 
 ## D-021 · Rust target 目录外迁 + sccache + 暂停 Windows CI
 

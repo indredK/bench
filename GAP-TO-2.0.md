@@ -7,7 +7,7 @@
 > - **本文件转为技术债台账**，保留供插件化迁移时按模块评估，暂不删除（原定「全部关闭后删除」条款作废）。
 > - **必须重新评估的例外项**（插件分发启用前）：A5-1/A5-2/A5-3（持久化 schema 与迁移）、A3-1（RC dry-run）、A3-6（minisign 密钥与 OS-SIGNING-NOTICE，直接关系插件签名链）。
 > - 审计基线仍为 commit `44edf42`（1.28.0），但当前代码版本已推进至 1.30.0，复核时须重新对齐。
-> - 执行序列见 [plugin-market-assessment.md §9](./docs/plugin-market-assessment.md)。
+> - 执行序列见 [docs/modules/extension-center/roadmap.md](./docs/modules/extension-center/roadmap.md)。
 
 > **性质**：本文件是 [docs/ROADMAP.md](docs/ROADMAP.md) R00–R10 的差距明细展开，供 2.0 收尾执行使用；**不构成第二份路线图**（D-013）。全部差距关闭后本文件应删除，执行状态仍以 ROADMAP.md 为准。
 >

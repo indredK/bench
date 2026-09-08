@@ -2,7 +2,7 @@
 /**
  * P1 概念验证：生成 POC 插件前端产物到应用数据目录。
  *
- * 目的（见 docs/plugin-market-assessment.md §9 P1）：
+ * 目的（见 docs/modules/extension-center/roadmap.md 的 P1 概念验证）：
  * 验证 Tauri v2 能否在运行时把 `$APPDATA/extensions/<id>/` 下的前端 bundle
  * 当作**同源本地页面**渲染，并保持 IPC 可用。
  *

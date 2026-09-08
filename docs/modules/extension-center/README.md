@@ -1,7 +1,7 @@
 # Extension Center（插件中心）
 
 > 阶段：P2 骨架（[D-024](../../DECISIONS.md#d-024--extension-仓库组织与-photo-triage-试点拆法)）。
-> 工作流与仓库组织决策见 [extension-workflow.md](../../extension-workflow.md)；P1 实测见 [extension-poc-report.md](../../extension-poc-report.md)。
+> 架构边界与工作流见 [extension-workflow.md](../../extension-workflow.md)；**执行顺序与状态唯一清单见 [roadmap.md](./roadmap.md)**。
 
 ## 定位
 
@@ -24,5 +24,5 @@
 
 ## 关联文档
 
-- [roadmap.md](./roadmap.md)
-- [../extension-workflow.md](../../extension-workflow.md)
+- [roadmap.md](./roadmap.md) — 执行状态与顺序唯一清单（含行业依据与技术铁律附录）
+- [../../extension-workflow.md](../../extension-workflow.md) — 架构边界、仓库组织与工作流

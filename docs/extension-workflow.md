@@ -1,6 +1,7 @@
 # Extension 开发仓库组织与工作流
 
 > **日期**：2026-09-08 ｜ **状态**：**已采纳**（[D-024](./DECISIONS.md#d-024--extension-仓库组织与-photo-triage-试点拆法)，四项决策经用户确认）
+> **定位**：本文档是插件化的**架构边界 + 工作流唯一文档**（原 `plugin-architecture.md` 的 B-lite 设计已被 D-023 的 B′ 路线取代，其中仍有效的内容已并入本文 §7）。**执行顺序与状态唯一清单见 [modules/extension-center/roadmap.md](./modules/extension-center/roadmap.md)**。
 > **背景**：P1 已证实 B′ 方案（宿主 + 可下载前端 bundle）。本文件定案「插件在哪个仓库开发、怎么开发、怎么发布」，并以 photo-triage 纳入插件为首个试点场景。
 
 ---
@@ -113,3 +114,37 @@ tauri-app/
 | 2   | photo-triage 拆法（Rust 15 条命令留核心转宿主能力 + ACL；前端 21 文件迁出 `extensions/photo-triage/`） | ✅ 采纳 |
 | 3   | bundled / market 双分发（bundled 保证 2.0 过渡期功能不真空）                                           | ✅ 采纳 |
 | 4   | 首个迁移试点用 photo-triage（替换 token-calculator）                                                   | ✅ 采纳 |
+
+---
+
+## 7. 架构边界与安全模型（吸收自已被取代的 B-lite 设计）
+
+### 7.1 宿主架构（B′，D-023）
+
+| 组件                                     | 职责                                                                    | 说明                                                                                                                                             |
+| ---------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ExtensionAssets`（asset provider 包装） | 资源解析顺序：插件目录 `$APPDATA/extensions/<id>/…` → 内置资源          | P1 实读 Tauri 源码后选择的路径，优于原计划的 `asset://` 顶层窗口：IPC 天然同源、CSP 零改动、无 `asset://` 与 `http://asset.localhost` 的平台差异 |
+| `acl::guarded`（IPC 网关）               | `ext-` 前缀窗口只能调用 `EXTENSION_ALLOWED_COMMANDS` 注册表内的命令     | 补上 **Tauri 自定命令默认全窗口放行**的缺口；capability 只约束 core/plugin 命令，不能替代此网关                                                  |
+| `manifest.rs`                            | schema 校验、id/semver/entry/ACL 子集/engines，fail-closed              | 新增与其对接的签名与完整性校验见 roadmap P3.1                                                                                                    |
+| 命令面                                   | `ext_list_installed` / `ext_open` / `ext_set_enabled` / `ext_uninstall` | 契约双写，单测护航                                                                                                                               |
+
+**单个插件的权限边界** = `manifest.acl.commands` ⊆ `EXTENSION_ALLOWED_COMMANDS` ⊆ 后端全部命令。越权一律 fail-closed。
+
+### 7.2 仍然有效的约束（来自被取代的设计，未失效）
+
+- **D-017 红线**：禁止运行时 cargo/npm 拉依赖；核心 Rust 命令保持编译期链接；插件是数据/bundle，不进核心二进制完整性边界。
+- **单二进制 + minisign**：核心随主包签名；插件与其并列，不削弱主包签名链。
+- **IPC 契约双写铁律不削弱**（[ARCHITECTURE.md §2](./ARCHITECTURE.md#2--ai-编码规则--禁止模式) 第 7 条）：插件经命令白名单网关，反而收窄了 renderer 信任边界。
+- **i18n**：`labelKey` / manifest `display` 仍须落 locale；插件自带 namespace。
+- **renderer 信任边界**：下载 URL / 版本 / hash / 签名材料**只由后端 canonical 配置决定**，renderer 不得提交最终下载地址或可执行路径（D-007）。
+
+### 7.3 明确的非目标
+
+- 不运行时热载核心 Rust crate / npm 包进主程序（D-017 红线）。
+- 不改变编程语言：宿主仍是 Rust + WebView；插件是前端 bundle。
+- **WASM 仅作为未来的「附属形态」**：若将来需要纯计算/规则引擎类插件，可作为 bundle 内的本地 wasm 模块存在，**不作为独立交付形态、不引入 wasmtime 到宿主**（规避 Windows CI 与 MSVC 编译风险）。
+- 不自建 registry 服务端、不引入 TUF、不做 marketplace 级动态恶意代码沙箱（成本与规模不匹配，见 roadmap「成本原则」）。
+
+### 7.4 技术铁律
+
+实施时的硬性约束（含踩坑来源）统一维护在 [modules/extension-center/roadmap.md](./modules/extension-center/roadmap.md) 的「附录 A　已固化的技术铁律」，**动手前必读**。
