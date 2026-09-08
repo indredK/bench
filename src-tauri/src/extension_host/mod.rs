@@ -6,8 +6,11 @@
 //! **P1 只验证一件事**：Tauri v2 能否在运行时把 `$APPDATA/extensions` 下的前端 bundle
 //! 当作同源本地页面渲染，并保持 IPC 可用。签名 / ACL / 生命周期 / 插件中心均属 P2+。
 
+pub mod acl;
 pub mod assets;
 pub mod commands;
+pub mod manifest;
+pub mod url;
 
 use tauri::{AppHandle, Manager, Runtime};
 

@@ -276,7 +276,12 @@ pub fn run() {
 
             Ok(())
         })
-        .invoke_handler(app_invoke_handler!())
+        .invoke_handler({
+            // Extension IPC 网关（D-024）：`ext-` 前缀窗口按 ACL 注册表
+            // deny-by-default 放行，其余窗口原样转发给核心 handler。
+            let core_handler: fn(tauri::ipc::Invoke<tauri::Wry>) -> bool = app_invoke_handler!();
+            move |invoke| extension_host::acl::guarded(invoke, core_handler)
+        })
         .build({
             let mut context = tauri::generate_context!();
             // 换出内置资源并包装：插件目录优先，未命中回退内置。

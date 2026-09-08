@@ -19,6 +19,7 @@ import { tokenCalculatorFeature } from "@/features/token-calculator/feature"
 import { terminologyFeature } from "@/features/terminology/feature"
 import { systemSettingsFeature } from "@/features/system-settings/feature"
 import { devToolboxFeature } from "@/features/dev-toolbox/feature"
+import { extensionCenterFeature } from "@/features/extension-center/feature"
 import type { AppFeature, NavigationItem } from "@/features/types"
 import { canUseFeature, type RuntimeEnvironment } from "@/platform/capabilities"
 
@@ -26,6 +27,7 @@ import { canUseFeature, type RuntimeEnvironment } from "@/platform/capabilities"
 export const appFeatures: AppFeature[] = [
   quickLaunchFeature,
   commandCenterFeature,
+  extensionCenterFeature,
   appManagerFeature,
   hardwareFeature,
   networkProbeFeature,

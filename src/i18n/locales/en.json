@@ -18,7 +18,8 @@
     "settings": "Preferences",
     "preferences": "Preferences",
     "restart": "Restart App",
-    "photoTriage": "Photo Triage"
+    "photoTriage": "Photo Triage",
+    "extensionCenter": "Extensions"
   },
   "systemSettings": {
     "tabs": {
@@ -2989,6 +2990,7 @@
       "testedAt": "at {{time}}",
       "cancelled": "Batch cancelled — finished cards keep their results.",
       "sites": {
+        "163": "NetEase",
         "baidu": "Baidu",
         "qq": "QQ",
         "taobao": "Taobao",
@@ -2997,7 +2999,6 @@
         "weibo": "Weibo",
         "zhihu": "Zhihu",
         "douyin": "Douyin",
-        "163": "NetEase",
         "aliyun": "Aliyun",
         "google": "Google",
         "github": "GitHub",
@@ -3680,5 +3681,32 @@
     "exportFailed": "Export failed, please retry",
     "emptyDirsLoadFailed": "Failed to load empty folders; showing the previous result",
     "closeLightbox": "Close preview"
+  },
+  "extensionCenter": {
+    "title": "Extension Center",
+    "subtitle": "Installed official & third-party capabilities (bundled / market)",
+    "name": "Name",
+    "version": "Version",
+    "distribution": {
+      "bundled": "Bundled",
+      "market": "Market"
+    },
+    "status": "Status",
+    "actions": "Actions",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "open": "Open",
+    "enable": "Enable",
+    "disable": "Disable",
+    "refresh": "Refresh",
+    "retry": "Retry",
+    "loadFailed": "Failed to load extensions",
+    "empty": "No extensions installed",
+    "emptyHint": "Run pnpm run extensions:sync to sync official extensions, then refresh",
+    "openFailed": "Failed to open extension window",
+    "toggleFailed": "Failed to update extension state",
+    "distributionLabel": "Distribution",
+    "toastEnabled": "Extension enabled",
+    "toastDisabled": "Extension disabled"
   }
 }

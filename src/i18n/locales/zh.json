@@ -18,7 +18,8 @@
     "restart": "重新启动软件",
     "settings": "设置",
     "preferences": "软件设置",
-    "photoTriage": "照片筛选"
+    "photoTriage": "照片筛选",
+    "extensionCenter": "插件中心"
   },
   "systemSettings": {
     "tabs": {
@@ -2989,6 +2990,7 @@
       "testedAt": "测于 {{time}}",
       "cancelled": "批量已取消 — 已完成的卡片结果会保留。",
       "sites": {
+        "163": "网易",
         "baidu": "百度",
         "qq": "腾讯网",
         "taobao": "淘宝",
@@ -2997,7 +2999,6 @@
         "weibo": "微博",
         "zhihu": "知乎",
         "douyin": "抖音",
-        "163": "网易",
         "aliyun": "阿里云",
         "google": "Google",
         "github": "GitHub",
@@ -3680,5 +3681,32 @@
     "exportFailed": "导出失败，请重试",
     "emptyDirsLoadFailed": "空文件夹列表加载失败，已保留上一次结果",
     "closeLightbox": "关闭大图预览"
+  },
+  "extensionCenter": {
+    "title": "插件中心",
+    "subtitle": "已安装的官方与第三方能力（bundled / market）",
+    "name": "名称",
+    "version": "版本",
+    "distribution": {
+      "bundled": "捆绑",
+      "market": "市场"
+    },
+    "status": "状态",
+    "actions": "操作",
+    "enabled": "已启用",
+    "disabled": "已禁用",
+    "open": "打开",
+    "enable": "启用",
+    "disable": "禁用",
+    "refresh": "刷新",
+    "retry": "重试",
+    "loadFailed": "插件列表加载失败",
+    "empty": "暂无已安装插件",
+    "emptyHint": "运行 pnpm run extensions:sync 同步官方插件后刷新",
+    "openFailed": "打开插件窗口失败",
+    "toggleFailed": "更新插件状态失败",
+    "distributionLabel": "分发",
+    "toastEnabled": "已启用",
+    "toastDisabled": "已禁用"
   }
 }

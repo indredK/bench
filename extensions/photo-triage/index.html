@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Photo Triage · Bench Extension</title>
+    <link rel="stylesheet" href="./assets/style.css" />
+  </head>
+  <body>
+    <div id="root">
+      <h1>照片筛选 <span class="sub">Photo Triage</span></h1>
+      <p class="hint">
+        Bench Extension（bundled）· 插件骨架 v0.1.0 —— 功能迁移分两步：本页先验证「独立 bundle +
+        能力面调用」，完整 UI 迁移见 README。
+      </p>
+      <section id="status" class="card">
+        <h2>能力面连通性</h2>
+        <p class="hint">调用宿主 photo_triage 命令（经 ACL 网关）</p>
+        <table id="probe">
+          <thead>
+            <tr>
+              <th>命令</th>
+              <th>结果</th>
+              <th>详情</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
+    </div>
+    <script type="module" src="./assets/main.js"></script>
+  </body>
+</html>

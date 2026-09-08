@@ -50,14 +50,14 @@ function appDataDir() {
 }
 
 const MANIFEST = {
+  schemaVersion: 1,
   id: EXTENSION_ID,
   version: EXTENSION_VERSION,
   display: { zh: "插件机制验证包", en: "Extension POC" },
-  delivery: "frontend-bundle",
-  entry: { index: "index.html", assets: "assets/" },
-  capabilities: ["poc.selfTest"],
+  distribution: "bundled",
+  entry: { index: "index.html" },
   acl: { commands: ["ext_poc_report"] },
-  note: "P1 spike manifest — schema 未定稿，P2 会重新定义并加签名字段。",
+  engines: { bench: ">=2.0.0" },
 }
 
 const INDEX_HTML = `<!doctype html>

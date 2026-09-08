@@ -11,6 +11,7 @@ import type {
   OperationResult,
   UpdateScanReport,
 } from "@/lib/tauri/types/app-manager"
+import type { ExtensionSummary } from "@/lib/tauri/types/extension-center"
 import type {
   AccountManagerCapabilities,
   AuthProfile,
@@ -788,9 +789,14 @@ export const TAURI_COMMAND_CONTRACTS = {
   open_system_network_settings: defineTauriCommand<undefined, void>()(
     "open_system_network_settings",
   ),
-  // extension host (P1 spike: 运行时插件前端 bundle)
+  // extension host (P2: 插件中心 + photo-triage 能力面)
   ext_poc_open: defineTauriCommand<undefined, string>()("ext_poc_open"),
   ext_poc_report: defineTauriCommand<{ payload: unknown }, void>()("ext_poc_report"),
+  ext_list_installed: defineTauriCommand<undefined, ExtensionSummary[]>()("ext_list_installed"),
+  ext_open: defineTauriCommand<{ extensionId: string }, string>()("ext_open"),
+  ext_set_enabled: defineTauriCommand<{ extensionId: string; enabled: boolean }, boolean>()(
+    "ext_set_enabled",
+  ),
 } as const
 
 export type TauriCommandName = keyof typeof TAURI_COMMAND_CONTRACTS
@@ -1115,10 +1121,13 @@ export const TAURI_COMMANDS = {
     deleteEmptyDirs: commandName("photo_triage_delete_empty_dirs"),
     export: commandName("photo_triage_export"),
   },
-  // extension host (P1 spike: 运行时插件前端 bundle)
+  // extension host (P2: 插件中心 + photo-triage 能力面)
   extensionHost: {
     openPoc: commandName("ext_poc_open"),
     reportPoc: commandName("ext_poc_report"),
+    listInstalled: commandName("ext_list_installed"),
+    open: commandName("ext_open"),
+    setEnabled: commandName("ext_set_enabled"),
   },
 } as const
 
@@ -1437,9 +1446,12 @@ export const TAURI_COMMAND_ARG_KEYS = {
   check_hosts_overrides: [],
   get_firewall_status: [],
   open_system_network_settings: [],
-  // extension host (P1 spike: 运行时插件前端 bundle)
+  // extension host (P2: 插件中心 + photo-triage 能力面)
   ext_poc_open: [],
   ext_poc_report: ["payload"],
+  ext_list_installed: [],
+  ext_open: ["extensionId"],
+  ext_set_enabled: ["extensionId", "enabled"],
 } as const satisfies TauriCommandArgKeys
 
 export const WINDOW_BOOTSTRAP_EVENTS = {

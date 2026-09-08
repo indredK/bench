@@ -1,6 +1,6 @@
 {
   "identifier": "extension",
-  "description": "Extension host plugin windows (P1 spike). 插件窗口与 main 窗口分离，权限最小化。",
-  "windows": ["ext-bench-poc"],
+  "description": "Extension host plugin windows (D-024). 插件窗口与 main 窗口分离，仅授予核心基础权限；自定命令由 extension_host::acl 网关 deny-by-default 把关。",
+  "windows": ["ext-*"],
   "permissions": ["core:default"]
 }

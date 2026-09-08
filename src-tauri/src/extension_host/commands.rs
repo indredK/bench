@@ -1,28 +1,47 @@
-//! Extension host commands —— P1 概念验证（spike）。
+//! Extension host commands —— P2（D-024）。
 //!
-//! 只暴露 P1 验证必需的两个命令：
-//! - `ext_poc_open`：打开 POC 插件窗口（`tauri://localhost/ext/bench-poc/index.html`）；
-//! - `ext_poc_report`：把插件页内的自检结果落盘，供脚本读取判定。
+//! P1 的 `ext_poc_open` / `ext_poc_report` 保留语义；P2 新增通用命令：
+//! - `ext_list_installed`：扫描 `$APPDATA/extensions/*/manifest.json`，返回摘要；
+//! - `ext_open`：按插件 id 打开独立 WebView（读 manifest 校验后经 asset provider 加载）；
+//! - `ext_set_enabled`：以 `.disabled` 标记文件实现启用/禁用（禁用时关闭已开窗口）。
 //!
-//! **P1 范围**：无签名校验、无 ACL、无生命周期管理。那些属于 P2/P3。
+//! 所有入口都 fail-closed：manifest 解析/校验失败、id 非法、 ACL 越权一律拒绝。
+//! 已注册命令受 [super::acl] 网关保护（`ext-` 窗口 deny-by-default）。
 
 use std::{fs, path::PathBuf};
 
+use serde::Serialize;
 use serde_json::Value;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
 use crate::error::{AppError, AppResult};
 
-use super::assets::{EXT_ASSET_PREFIX, EXT_DIR_NAME};
+use super::{
+    assets::EXT_DIR_NAME,
+    manifest::{ExtensionDistribution, ExtensionManifest, MANIFEST_FILE},
+    url::{extension_url, extension_window_label},
+};
 
-/// POC 插件 id（P1 固定值）。
+/// POC 插件 id（P1 spike，保留作网关/回写验证入口）。
 pub const POC_EXTENSION_ID: &str = "bench-poc";
 
-/// POC 窗口 label。
-pub const POC_WINDOW_LABEL: &str = "ext-bench-poc";
-
-/// 验证结果落盘文件名（写在应用数据目录下）。
+/// POC 结果落盘文件名（写在应用数据目录下）。
 pub const POC_RESULT_FILE: &str = "poc-verify-result.json";
+
+/// 禁用标记文件名（置于插件产物目录内）。
+pub const EXT_DISABLED_MARKER: &str = ".disabled";
+
+/// 已安装插件摘要（返回给插件中心）。
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExtensionSummary {
+    pub id: String,
+    pub version: String,
+    pub display_zh: String,
+    pub display_en: String,
+    pub distribution: ExtensionDistribution,
+    pub enabled: bool,
+}
 
 /// 插件根目录：`$APPDATA/extensions`。
 fn extensions_root(app: &AppHandle) -> AppResult<PathBuf> {
@@ -33,10 +52,115 @@ fn extensions_root(app: &AppHandle) -> AppResult<PathBuf> {
     Ok(dir.join(EXT_DIR_NAME))
 }
 
-/// 打开 POC 插件窗口，返回窗口 label。
-///
-/// 窗口 URL 走内置 asset provider（已被 `ExtensionAssets` 包装），因此插件页与
-/// 主程序前端同源：IPC 可用、CSP `'self'` 覆盖、无平台 URL 差异。
+/// 校验插件 id 并返回其产物目录（拒绝路径穿越）。
+fn extension_dir(app: &AppHandle, extension_id: &str) -> AppResult<PathBuf> {
+    if !super::manifest::is_valid_extension_id(extension_id) {
+        return Err(AppError::invalid_input(format!(
+            "invalid extension id `{extension_id}`"
+        )));
+    }
+    Ok(extensions_root(app)?.join(extension_id))
+}
+
+/// 读取并校验某插件的 manifest（fail-closed）。
+fn read_manifest(dir: &std::path::Path) -> AppResult<ExtensionManifest> {
+    let path = dir.join(MANIFEST_FILE);
+    let text = fs::read_to_string(&path)
+        .map_err(|e| AppError::not_found(format!("read {}: {e}", path.display())))?;
+    ExtensionManifest::parse(&text)
+}
+
+/// 列出已安装插件（读每个产物的 manifest，跳过损坏条目并在错误信息中带过）。
+#[tauri::command]
+pub fn ext_list_installed(app: AppHandle) -> AppResult<Vec<ExtensionSummary>> {
+    let root = extensions_root(&app)?;
+    let mut summaries = Vec::new();
+    let entries = match fs::read_dir(&root) {
+        Ok(entries) => entries,
+        // 首次启动目录不存在：返回空列表而非报错。
+        Err(_) => return Ok(summaries),
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        let manifest = match read_manifest(&path) {
+            Ok(manifest) => manifest,
+            Err(error) => {
+                eprintln!(
+                    "[extension_host] skip invalid extension at {}: {error}",
+                    path.display()
+                );
+                continue;
+            }
+        };
+        let enabled = !path.join(EXT_DISABLED_MARKER).exists();
+        summaries.push(ExtensionSummary {
+            id: manifest.id,
+            version: manifest.version,
+            display_zh: manifest.display.zh,
+            display_en: manifest.display.en,
+            distribution: manifest.distribution,
+            enabled,
+        });
+    }
+    summaries.sort_by(|a, b| a.id.cmp(&b.id));
+    Ok(summaries)
+}
+
+/// 打开插件窗口（label `ext-<id>`），返回窗口 label。
+#[tauri::command]
+pub fn ext_open(app: AppHandle, extension_id: String) -> AppResult<String> {
+    let dir = extension_dir(&app, &extension_id)?;
+    let manifest = read_manifest(&dir)?;
+
+    if dir.join(EXT_DISABLED_MARKER).exists() {
+        return Err(AppError::invalid_input(format!(
+            "extension `{}` is disabled",
+            manifest.id
+        )));
+    }
+
+    let label = extension_window_label(&manifest.id);
+    if let Some(existing) = app.get_webview_window(&label) {
+        let _ = existing.set_focus();
+        return Ok(label);
+    }
+
+    let url = extension_url(&manifest.id, &manifest.entry.index)?;
+    WebviewWindowBuilder::new(&app, &label, WebviewUrl::CustomProtocol(url))
+        .title(format!("{} · Bench Extension", manifest.display.en))
+        .inner_size(960.0, 680.0)
+        .center()
+        .build()
+        .map_err(|e| AppError::internal(format!("open extension window failed: {e}")))?;
+    Ok(label)
+}
+
+/// 启用/禁用插件（以 `.disabled` 标记实现；禁用时关闭已开窗口），返回新状态。
+#[tauri::command]
+pub fn ext_set_enabled(app: AppHandle, extension_id: String, enabled: bool) -> AppResult<bool> {
+    let dir = extension_dir(&app, &extension_id)?;
+    // id 合法性之外再确认插件存在（manifest 可读）。
+    read_manifest(&dir)?;
+    let marker = dir.join(EXT_DISABLED_MARKER);
+    if enabled {
+        if marker.exists() {
+            fs::remove_file(&marker).map_err(|e| AppError::io(format!("remove marker: {e}")))?;
+        }
+    } else {
+        fs::write(&marker, "").map_err(|e| AppError::io(format!("write marker: {e}")))?;
+        if let Some(existing) =
+            app.get_webview_window(extension_window_label(&extension_id).as_str())
+        {
+            let _ = existing.close();
+        }
+    }
+    Ok(enabled)
+}
+
+/// P1 语义保留：打开 POC 插件窗口（等价 `ext_open("bench-poc")`）。
 #[tauri::command]
 pub fn ext_poc_open(app: AppHandle) -> AppResult<String> {
     let root = extensions_root(&app)?;
@@ -47,33 +171,10 @@ pub fn ext_poc_open(app: AppHandle) -> AppResult<String> {
             index.display()
         )));
     }
-
-    // 显式走 `tauri://localhost` —— 不能用 `WebviewUrl::App`：
-    // dev 模式下 App 会被 `Manager::get_app_url` 拼接到 `build.devUrl`
-    // （http://localhost:1420），永远到不了 asset provider；只有生产构建
-    // （frontendDist → tauri://localhost）才走 asset provider。CustomProtocol
-    // 在 dev / prod 行为一致，均由 `ExtensionAssets` 解析。
-    let url = tauri::Url::parse(&format!(
-        "tauri://localhost/{EXT_ASSET_PREFIX}{POC_EXTENSION_ID}/index.html"
-    ))
-    .map_err(|e| AppError::internal(format!("parse extension url: {e}")))?;
-
-    if let Some(existing) = app.get_webview_window(POC_WINDOW_LABEL) {
-        let _ = existing.set_focus();
-        return Ok(POC_WINDOW_LABEL.to_string());
-    }
-
-    WebviewWindowBuilder::new(&app, POC_WINDOW_LABEL, WebviewUrl::CustomProtocol(url))
-        .title("Extension POC · bench-poc")
-        .inner_size(760.0, 560.0)
-        .center()
-        .build()
-        .map_err(|e| AppError::internal(format!("open POC window failed: {e}")))?;
-
-    Ok(POC_WINDOW_LABEL.to_string())
+    ext_open(app, POC_EXTENSION_ID.to_string())
 }
 
-/// 接收插件页自检结果并落盘到 `$APPDATA/poc-verify-result.json`。
+/// 接收插件页自检结果并落盘到 `$APPDATA/poc-verify-result.json`（P1 保留）。
 #[tauri::command]
 pub fn ext_poc_report(app: AppHandle, payload: Value) -> AppResult<()> {
     let dir = app
