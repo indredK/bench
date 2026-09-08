@@ -36,6 +36,10 @@ pub const MARKET_SCHEMA_VERSION: u32 = 1;
 const REGISTRY_URL_ENV: &str = "BENCH_COMMAND_MARKET_URL";
 const REGISTRY_DIR_ENV: &str = "BENCH_COMMAND_MARKET_DIR";
 
+/// 官方命令市场索引（kindred-plugin-market org；env 未设置时作为默认源 —— P5 零配置）。
+pub const OFFICIAL_COMMAND_MARKET_URL: &str =
+    "https://raw.githubusercontent.com/kindred-plugin-market/command-market/main/registry.json";
+
 /// 远程 registry 条目。
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -113,21 +117,24 @@ enum MarketSource {
 
 /// 读取市场源配置（两者都未配置 = 市场未启用）。
 fn market_source() -> AppResult<Option<MarketSource>> {
-    let url = std::env::var(REGISTRY_URL_ENV).unwrap_or_default();
-    if !url.trim().is_empty() {
-        let url = url.trim().to_string();
-        if !url.starts_with("https://") {
-            return Err(AppError::internal(format!(
-                "{REGISTRY_URL_ENV} must be https, got `{url}`"
-            )));
-        }
-        return Ok(Some(MarketSource::Url(url)));
-    }
     let dir = std::env::var(REGISTRY_DIR_ENV).unwrap_or_default();
     if !dir.trim().is_empty() {
         return Ok(Some(MarketSource::Dir(PathBuf::from(dir.trim()))));
     }
-    Ok(None)
+    let url = std::env::var(REGISTRY_URL_ENV).unwrap_or_default();
+    let url = url.trim().to_string();
+    if url.is_empty() {
+        // P5：未配置 env → 官方默认源（零配置市场）。
+        return Ok(Some(MarketSource::Url(
+            OFFICIAL_COMMAND_MARKET_URL.to_string(),
+        )));
+    }
+    if !url.starts_with("https://") {
+        return Err(AppError::internal(format!(
+            "{REGISTRY_URL_ENV} must be https, got `{url}`"
+        )));
+    }
+    Ok(Some(MarketSource::Url(url)))
 }
 
 fn is_valid_sha256_hex(value: &str) -> bool {
@@ -510,6 +517,10 @@ mod tests {
         std::env::set_var(REGISTRY_DIR_ENV, "/tmp/cmd-market");
         assert!(matches!(market_source(), Ok(Some(MarketSource::Dir(_)))));
         std::env::remove_var(REGISTRY_DIR_ENV);
-        assert!(matches!(market_source(), Ok(None)));
+        // P5：两个 env 均未设置 → 官方默认源（零配置市场）。
+        assert!(matches!(
+            market_source(),
+            Ok(Some(MarketSource::Url(url))) if url == OFFICIAL_COMMAND_MARKET_URL
+        ));
     }
 }

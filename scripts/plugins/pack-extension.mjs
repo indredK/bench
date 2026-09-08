@@ -78,6 +78,11 @@ function main() {
     })
   }
   cpSync(manifestPath, join(staging, "manifest.json"))
+  // 市场分发通道要求 manifest.distribution == "market"（宿主 ext_market_prepare 强制；
+  // bundled 仅指应用包内随包分发的形态）。注入 files 清单前改写。
+  const stagedManifest = JSON.parse(readFileSync(join(staging, "manifest.json"), "utf8"))
+  stagedManifest.distribution = "market"
+  writeFileSync(join(staging, "manifest.json"), JSON.stringify(stagedManifest, null, 2) + "\n")
   const fileCount = injectFilesManifest(staging)
 
   // 3) 打 zip（ubuntu/macos 自带 zip；发布 CI 跑在 ubuntu）

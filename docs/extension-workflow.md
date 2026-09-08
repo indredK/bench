@@ -332,7 +332,7 @@ pnpm run extensions:pack <id>     # P4.5 交付
 
 - 市场仓库 = `registry.json`（索引：id/version/title/kind/file/sha256/size）+ `commands/<id>.json`（完整命令定义，schema v1）；
 - 宿主 `command_center/market.rs`：`command_market_list`（浏览 + 已装状态比对）/ `command_market_install`（**sha256 → 解析绑定 → 版本单调 → 落位 cards.json**，fail-closed）；
-- 市场源（后端 env，renderer 不得自选 —— D-007）：`BENCH_COMMAND_MARKET_URL`（远程 https registry.json）/ `BENCH_COMMAND_MARKET_DIR`（本地目录，开发调试）；两者都未配置 → 市场空态（能力保留）；
+- 市场源（后端独占配置，renderer 不得自选 —— D-007）：优先级 `BENCH_COMMAND_MARKET_DIR`（本地调试）> `BENCH_COMMAND_MARKET_URL`（覆盖）> **官方默认源**（内置：`https://raw.githubusercontent.com/kindred-plugin-market/command-market/main/registry.json`，P5 零配置上线）；
 - 安装的卡片带 `market` 来源标记（version + installedAt），命令中心显示市场徽标；升级走版本单调检查（拒绝降级）。
 
 ### 12.2 发布与开发
@@ -359,9 +359,10 @@ pnpm run extensions:pack <id>     # P4.5 交付
 - 本地：`~/Documents/github/kindred-plugin-market/{plugin-market, command-market}/`（SSH 走 443：`~/.ssh/config` 已配 `Host github.com → ssh.github.com:443`，本机 22 端口被网络拦截）；
 - `plugin-market` CI：push `<pluginId>-v<version>` tag → checkout Bench main（需 secret `BENCH_REPO_TOKEN`，Bench 私有）→ 构建 + 注入 files → zip → GitHub Release；
 - `command-market` CI：push main → 重算 registry.json（漂移自动 commit 回 main）；
-- 市场源：
-  - `BENCH_EXT_REGISTRY_URL=https://raw.githubusercontent.com/kindred-plugin-market/plugin-market/main/registry.json`
-  - `BENCH_COMMAND_MARKET_URL=https://raw.githubusercontent.com/kindred-plugin-market/command-market/main/registry.json`
+- 市场源（**官方默认已内置**，env 仅作覆盖/本地调试）：
+  - 插件市场默认：`https://raw.githubusercontent.com/kindred-plugin-market/plugin-market/main/registry.json`（`BENCH_EXT_REGISTRY_URL` 覆盖）
+  - 命令市场默认：`https://raw.githubusercontent.com/kindred-plugin-market/command-market/main/registry.json`（`BENCH_COMMAND_MARKET_URL` 覆盖；`BENCH_COMMAND_MARKET_DIR` 调试优先）
+- **官方源免 minisign**：`registry::is_official_registry` 命中时豁免签名校验（完整性由 registry sha256 + 包内 files 清单双通道兜底）；第三方 registry 一律强制 minisign。市场分发 zip 由 `pack-extension.mjs` 注入 `distribution: "market"`（bundled 语义仅指应用包内随包分发）；
 
 ### 13.2 工具链（Bench 仓库内）
 

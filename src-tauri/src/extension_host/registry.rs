@@ -23,6 +23,17 @@ use crate::error::{AppError, AppResult};
 /// canonical registry 基址环境变量（后端独占配置）。
 pub const REGISTRY_URL_ENV: &str = "BENCH_EXT_REGISTRY_URL";
 
+/// 官方插件市场索引（kindred-plugin-market org；env `BENCH_EXT_REGISTRY_URL`
+/// 未设置时作为默认源 —— P5：零配置即可用市场）。
+pub const OFFICIAL_REGISTRY_URL: &str =
+    "https://raw.githubusercontent.com/kindred-plugin-market/plugin-market/main/registry.json";
+
+/// 判断 registry 基址是否为官方源（官方源豁免 minisign 验签：
+/// 完整性由 registry sha256 + 包内 files 清单双通道兜底，spec §13）。
+pub fn is_official_registry(base_url: &str) -> bool {
+    base_url.trim_end_matches('/') == OFFICIAL_REGISTRY_URL.trim_end_matches('/')
+}
+
 /// registry 目录 schema 版本（与本文件同步演进）。
 pub const REGISTRY_SCHEMA_VERSION: u32 = 1;
 
@@ -183,12 +194,12 @@ pub fn validate_registry_doc(doc: &RegistryDoc) -> AppResult<()> {
 pub fn registry_base_url() -> AppResult<String> {
     let url = std::env::var(REGISTRY_URL_ENV).unwrap_or_default();
     let url = url.trim().to_string();
-    if url.is_empty() {
-        return Err(AppError::internal(format!(
-            "extension registry is not configured (set {REGISTRY_URL_ENV}); \
-             market browsing/installation is disabled"
-        )));
-    }
+    let url = if url.is_empty() {
+        // P5：未配置 env → 官方默认源（零配置市场）。
+        OFFICIAL_REGISTRY_URL.to_string()
+    } else {
+        url
+    };
     if !url.starts_with("https://") {
         return Err(AppError::internal(format!(
             "extension registry URL must be https, got `{url}`"

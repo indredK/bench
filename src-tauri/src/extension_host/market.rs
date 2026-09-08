@@ -388,6 +388,7 @@ pub async fn ext_market_prepare(
         drop(zip_file);
 
         // 步骤 4-9：整包校验 → 解压 → manifest/签名/完整性（可测核心）。
+        let official_source = registry::is_official_registry(&registry::registry_base_url()?);
         let manifest = verify_staged_package(
             &zip_path,
             &staging_dir,
@@ -396,6 +397,7 @@ pub async fn ext_market_prepare(
             version_entry,
             &host_version,
             None,
+            official_source,
         )?;
         Ok(manifest)
     }
@@ -549,6 +551,7 @@ pub fn ext_diagnostics(app: AppHandle) -> AppResult<ExtensionDiagnostics> {
 /// 9. 逐文件完整性。
 ///
 /// 返回解析后的 manifest（供调用方做水位记录）。
+#[allow(clippy::too_many_arguments)] // 校验管线参数均为必要上下文（registry 绑定 + 环境覆盖）
 fn verify_staged_package(
     zip_path: &Path,
     staging_dir: &Path,
@@ -557,6 +560,7 @@ fn verify_staged_package(
     version_entry: &RegistryVersion,
     host_version: &str,
     pubkey_override: Option<&str>,
+    official_source: bool,
 ) -> AppResult<ExtensionManifest> {
     // 步骤 4：整包 sha256 + size。
     let (hash, size) = sha256_and_size(zip_path)?;
@@ -613,6 +617,9 @@ fn verify_staged_package(
         Some(pubkey) => {
             signature::verify_signature_with(&manifest, &canonical, Some(pubkey), false)?
         }
+        // 官方默认源（P5）：registry.json 由官方 org 托管（https + sha256 + files
+        // 清单双通道完整性），官方条目免 minisign；第三方 registry 一律强制验签。
+        None if official_source => {}
         None => signature::verify_distribution_signature(&manifest, &canonical)?,
     }
 
@@ -734,6 +741,7 @@ mod tests {
             &entry,
             "1.30.0",
             Some(PIPELINE_PUBKEY),
+            false,
         )
         .expect("valid package passes full pipeline");
         assert_eq!(manifest.id, "fake-ext");
@@ -758,6 +766,7 @@ mod tests {
             &entry,
             "1.30.0",
             Some(PIPELINE_PUBKEY),
+            false,
         )
         .unwrap_err();
         assert_eq!(err.code, "FORBIDDEN_PATH");
@@ -781,6 +790,7 @@ mod tests {
             &entry,
             "1.30.0",
             Some(PIPELINE_PUBKEY),
+            false,
         )
         .unwrap_err();
         assert_eq!(err.code, "FORBIDDEN_PATH");
@@ -802,6 +812,7 @@ mod tests {
             &entry,
             "1.30.0",
             Some(PIPELINE_PUBKEY),
+            false,
         )
         .unwrap_err();
         assert_eq!(err.code, "FORBIDDEN_PATH");
