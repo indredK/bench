@@ -41,7 +41,7 @@
 ```
 
 - 目录名必须等于 `manifest.id`。
-- `manifest.files` 必须列出 `.disabled` 之外的**全部**文件；产物中不得存在清单外的文件。
+- `manifest.files` 必须列出**除 `manifest.json` 自身与 `.disabled` 之外**的全部文件；产物中不得存在清单外的文件。`manifest.json` 自身不入清单（文件哈希无法自嵌套，其完整性由「对 canonical 文本的签名」覆盖，见 §4）；`.disabled` 由宿主维护。
 - 运行时目录由宿主独占写入；用户不可直接编辑（UI 不提供「编辑插件文件」入口）。
 
 ### 2.2 分发包（zip）
@@ -95,7 +95,7 @@
 
 ### 3.3 files 清单规则
 
-- 覆盖产物根下**全部**文件（`.disabled` 除外，它由宿主维护）。
+- 覆盖产物根下**除 `manifest.json` 自身与 `.disabled` 外**的全部文件（`manifest.json` 的文件哈希无法自嵌套；其完整性由 §4 的 canonical 文本签名覆盖；`.disabled` 由宿主维护）。
 - `sha256` 为小写十六进制 64 字符；`size` 为解压后字节数。
 - **空数组视为非法**；重复 `path` 视为非法。
 - 校验时必须同时验证「清单内每条 hash 匹配」与「产物中不存在清单外的文件」（对标 Mozilla AMO 的 `manifest.mf` 要求）。

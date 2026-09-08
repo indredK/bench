@@ -24,23 +24,23 @@
 
 ## 进度总览
 
-| 阶段     | 内容                                                           | 状态                     |
-| -------- | -------------------------------------------------------------- | ------------------------ |
-| P0       | 产品定案（2.0 = 插件化第三方生态）                             | ✅ 完成                  |
-| P1       | 概念验证（ExtensionAssets 同源加载 + IPC）                     | ✅ 完成                  |
-| P2       | 契约先行 + 插件中心最小版 + photo-triage bundled               | ✅ 完成                  |
-| P2b      | photo-triage 完整 UI 迁移（独立 bundle）                       | ✅ 完成                  |
-| P3       | 运行时治理（engines 门控 / 签名骨架 / 语言注入 / 卸载）        | ✅ 完成                  |
-| **P3.1** | **包完整性安全地基**（逐文件 hash 清单 + 降级防护 + 公钥三态） | ⬜ **下一步 · 阻塞后续** |
-| **P3.2** | **Windows 双平台 CI 门禁**（verify job，不产包）               | ⬜ 与 P3.1 并行启动      |
-| **P3.3** | **安全解压 + 审计日志**                                        | ⬜ P3.1 之后             |
-| **P3.4** | **bundled 产物发布集成**（随正式包发布）                       | ⬜ 发布硬前置            |
-| P4       | market 端到端闭环（静态 registry → 安装向导 → 验签 → 启用）    | ⬜ P3.1 + P3.3 之后      |
-| P4.5     | 作者侧交付（SDK / 模板 / 脚手架 / 打包签名）                   | ⬜ 可与 P4 并行          |
-| P5       | 增量迁移（带停止线，每批复评）                                 | ⬜ P4 之后               |
-| P6       | Windows release 产物                                           | ⬜ 最后                  |
+| 阶段     | 内容                                                           | 状态                    |
+| -------- | -------------------------------------------------------------- | ----------------------- |
+| P0       | 产品定案（2.0 = 插件化第三方生态）                             | ✅ 完成                 |
+| P1       | 概念验证（ExtensionAssets 同源加载 + IPC）                     | ✅ 完成                 |
+| P2       | 契约先行 + 插件中心最小版 + photo-triage bundled               | ✅ 完成                 |
+| P2b      | photo-triage 完整 UI 迁移（独立 bundle）                       | ✅ 完成                 |
+| P3       | 运行时治理（engines 门控 / 签名骨架 / 语言注入 / 卸载）        | ✅ 完成                 |
+| **P3.1** | **包完整性安全地基**（逐文件 hash 清单 + 降级防护 + 公钥三态） | ✅ 完成（2026-09-08）   |
+| **P3.2** | **Windows 双平台 CI 门禁**（verify job，不产包）               | ⬜ **下一步（可并行）** |
+| **P3.3** | **安全解压 + 审计日志**                                        | ⬜ **下一步（可并行）** |
+| **P3.4** | **bundled 产物发布集成**（随正式包发布）                       | ⬜ 发布硬前置           |
+| P4       | market 端到端闭环（静态 registry → 安装向导 → 验签 → 启用）    | ⬜ P3.1 + P3.3 之后     |
+| P4.5     | 作者侧交付（SDK / 模板 / 脚手架 / 打包签名）                   | ⬜ 可与 P4 并行         |
+| P5       | 增量迁移（带停止线，每批复评）                                 | ⬜ P4 之后              |
+| P6       | Windows release 产物                                           | ⬜ 最后                 |
 
-> **P3.1 是硬阻塞**：在它完成前不得实现 download/extract，否则插件产物格式上线后返工。
+> **P3.1 已完成（2026-09-08）**：插件产物格式（manifest schema v2）已冻结，P3.3 的 download/extract 可在此格式上实现。
 > **P6 是发布硬前置**：插件化能力在 Windows runner 复验前不得随正式版发布（D-023）。
 
 **契约前置**：P3.1 及之后的实施一律以 [extension-spec.md](../../extension-spec.md) 为契约真相源 —— 改代码前先改规格。
@@ -86,52 +86,53 @@
 
 ---
 
-## P3.1 ⬜ 包完整性安全地基（🔴 阻塞后续，先做）
+## P3.1 ✅ 包完整性安全地基（2026-09-08 完成）
 
-> **为什么必须先做**：当前 `signature.rs` 的验签对象只有 manifest 原文（`commands.rs::read_manifest` 返回的文本），插件 JS/HTML 无任何完整性绑定。保留一份已签 manifest、替换 `assets/*.js` 为任意代码，验签照样通过 → 等价于**没有包完整性保护**。等 third-party bundle 产出后再补 hash 清单，就要改动 manifest schema 与全部已发布插件的产物格式。
+> **为什么曾经必须先做**：P3 的验签对象只有 manifest 原文，插件 JS/HTML 无完整性绑定，保留已签 manifest、替换 `assets/*.js` 验签照样通过 → 等价于没有包完整性保护。已完成：manifest schema v2 上线，产物格式冻结。
 
 ### 1. 逐文件 hash 清单签名（A1）
 
 > 完整字段定义、canonical 文本规则、验签流程见 [extension-spec.md §3 / §4](../../extension-spec.md)。
 
-- [ ] manifest 升级到 **schema v2**，新增必签字段 `files: [{ path, sha256, size }]`，覆盖产物根下**全部**文件
-- [ ] `display.zh` 改为可选（缺失回退 `en`），降低第三方作者门槛
-- [ ] 新增可选字段 `expiresAt`
-- [ ] **约定插件私有数据目录** `$APPDATA/extension-data/<id>/`：产物目录为只读（完整性校验会拒绝清单外文件），插件数据必须写在此处；卸载默认保留数据
-- [ ] 同步更新 `extensions/photo-triage/manifest.json` 与打包脚本到 v2
-- [ ] 规范签名对象改为「去掉 `signature` 字段后的 canonical JSON」，规避自引用循环
-- [ ] `ext_open` 开窗前**全量校验** `files` 每条 hash，fail-closed
-- [ ] 校验须包含「产物中不得存在 `files` 未列出的文件」（Mozilla 明文要求，防新增未覆盖的可执行文件）
-- [ ] 边界情形：空 `files` 数组视为非法；重复 path 视为非法
+- [x] manifest 升级到 **schema v2**，新增必签字段 `files: [{ path, sha256, size }]`（`manifest.json` 自身与 `.disabled` 不入清单——前者文件哈希无法自嵌套，完整性由 canonical 文本签名覆盖）
+- [x] `display.zh` 改为可选（缺失回退 `en`），降低第三方作者门槛
+- [x] 新增可选字段 `expiresAt`（存在即校验 RFC 3339 + 未过期）
+- [x] **约定插件私有数据目录** `$APPDATA/extension-data/<id>/`：产物目录为只读（完整性校验会拒绝清单外文件），插件数据必须写在此处；卸载默认保留数据；新增 `ext_data_dir` 命令经窗口 label 推导目录（spec §9.3）
+- [x] 同步更新 `extensions/photo-triage/manifest.json` 与打包脚本到 v2（sync 部署后注入 `files` 清单；POC 生成器同步升级）
+- [x] 规范签名对象改为「去掉 `signature` 字段后的 canonical JSON」（键递归升序 + 紧凑），规避自引用循环
+- [x] `ext_open` 开窗前**全量校验** `files` 每条 hash，fail-closed
+- [x] 校验须包含「产物中不得存在 `files` 未列出的文件」（Mozilla 明文要求，防新增未覆盖的可执行文件）
+- [x] 边界情形：空 `files` 数组视为非法；重复 path 视为非法；`manifest.json` / `.disabled` 入清单视为非法；非法 sha256 格式视为非法
 
 **采纳依据**：Mozilla AMO 为 XPI 内**每个文件算 digest** → 写入 `META-INF/manifest.mf` → 对该清单签名的四级校验；Chrome Web Store 用 `computed_hashes.json` + `verified_contents.json`（JWS 覆盖整棵 hash 树）。本项目体量取 Mozilla 层级（逐文件 SHA256），不取 Chrome 的 4KB 分块 treehash。
 
 ### 2. 降级与冻结（replay）防护（A2）
 
-- [ ] minisign **trusted comment** 约定为 `<extension-id>@<semver-version>`，宿主校验其与 manifest 的 `id`/`version` 完全一致
-- [ ] 安装时持久化已装版本；market 安装/更新拒绝 `new <= installed`（对齐 `tauri.conf.json bundle.windows.allowDowngrades: false` 的既有取向）
-- [ ] manifest 新增可选但推荐的 `expiresAt`，宿主拒绝过期元数据（最小成本挡 freeze attack）
-- [ ] 单测：旧版本 manifest+files 组合重放必须被拒
+- [x] minisign **trusted comment** 约定为 `<extension-id>@<semver-version>`，宿主在其被 global signature 认证后校验与 manifest 的 `id`/`version` 完全一致
+- [x] 宿主持久化**已验证版本水位** `$APPDATA/extension-records/<id>/version`：完整通过校验的版本抬升水位（只升不降）；market 安装/更新（P4）与 market 插件开窗拒绝 `new < recorded`；卸载清除水位；bundled 不做开窗拒绝（应用整体回退不受误伤，spec §8 范围说明）
+- [x] manifest 新增可选 `expiresAt`，宿主拒绝过期元数据（最小成本挡 freeze attack）
+- [x] 单测：旧版本 manifest+files 组合重放必须被拒（`records::replay_of_older_version_rejected`）
 
 **采纳依据**：minisign 官方文档明确 trusted comment 可用于「写入版本号**防止降级攻击**」。minisign 签名本身无有效期、无版本概念，必须靠宿主侧补齐。
 
 ### 3. 公钥解析三态化（A5）
 
-- [ ] 去掉「env 缺失时静默回退 updater 公钥」的行为 —— updater 私钥泄露即等同于获得插件签发权，属密钥用途混用
-- [ ] `release`（默认）：registry 公钥缺失即报配置错误
-- [ ] `dev`（`BENCH_EXT_DEV_MODE=1`）：允许本地自签/未签，UI 明示「未验证分发源」
-- [ ] `selfhost`：用户自签 registry 公钥，UI 标注第三方 registry
+- [x] 去掉「env 缺失时静默回退 updater 公钥」的行为 —— updater 私钥泄露即等同于获得插件签发权，属密钥用途混用
+- [x] `release`（默认）：registry 公钥缺失即报配置错误（`INTERNAL`，信息含配置指引）
+- [x] `dev`（`BENCH_EXT_DEV_MODE=1`）：允许本地自签/未签（跳过验签并告警），UI 明示「未验证分发源」→ 插件中心 UI 标注随 P4 信任披露一并交付
+- [x] `selfhost`：用户自签 registry 公钥（同一 env），走正常验签，UI 标注第三方 registry → 同上，随 P4 交付
 
-### 验收
+### 验收（2026-09-08 全绿）
 
 ```bash
-pnpm run check:be-cfg
-cargo test --manifest-path src-tauri/Cargo.toml extension_host
-cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
-pnpm run test:critical
+pnpm run check:be-cfg        # ✓ 355 files, no platform-gated dead code
+cargo test --lib extension_host  # ✓ 65 passed
+cargo clippy --lib -- -D warnings  # ✓ 0 warnings
+pnpm run lint:fe             # ✓
+pnpm run test:critical       # ✓ 145 passed
 ```
 
-**完成条件**（缺一不可）：篡改任一产物文件必须被拒；产物中新增未登记文件必须被拒；旧版本重放必须被拒；registry 公钥缺失必须报错而非静默回退。
+**完成条件核验**：篡改任一产物文件被拒 ✓（`rejects_tampered_content`）；产物中新增未登记文件被拒 ✓（`rejects_unlisted_extra_file`）；旧版本重放被拒 ✓（`replay_of_older_version_rejected`）；registry 公钥缺失报错而非静默回退 ✓（`release_without_pubkey_is_config_error_not_silent_pass`）。正向路径用确定性 ed25519 测试夹具构造真实 minisign 签名验证 ✓（`market_valid_signature_accepted`）。
 
 ---
 
@@ -251,15 +252,15 @@ pnpm run test:critical
 
 ## 已知风险与依赖
 
-| 风险 / 依赖                | 影响阶段  | 说明                                               |
-| -------------------------- | --------- | -------------------------------------------------- |
-| **P3.1 未做先写 download** | P3.3 / P4 | 插件产物格式上线后返工，是本次重排要避免的头号问题 |
-| registry 私钥不在本机      | P4        | 验签骨架已就绪，签名与 market 上架需私钥环境       |
-| Windows CI 暂停（D-021）   | P3.2 / P6 | 非代码缺陷；已提前到 P3.2 处置                     |
-| bundled 不随包发布         | P3.4      | 用户升级即插件消失；已提前处置                     |
-| 诊断文件单条覆写           | P3.3      | boot 覆盖先前 error，改追加式即可                  |
-| 253 条命令的 ACL 登记量    | P5        | 改为按批登记 + 停止线，不再全量规划                |
-| 缺少作者侧交付物           | P4.5      | 生态无法冷启动；已新增该阶段                       |
+| 风险 / 依赖                                     | 影响阶段  | 说明                                                   |
+| ----------------------------------------------- | --------- | ------------------------------------------------------ |
+| ~~P3.1 未做先写 download~~ 已消除（2026-09-08） | P3.3 / P4 | manifest schema v2 已冻结，download/extract 可安全实现 |
+| registry 私钥不在本机                           | P4        | 验签骨架已就绪，签名与 market 上架需私钥环境           |
+| Windows CI 暂停（D-021）                        | P3.2 / P6 | 非代码缺陷；已提前到 P3.2 处置                         |
+| bundled 不随包发布                              | P3.4      | 用户升级即插件消失；已提前处置                         |
+| 诊断文件单条覆写                                | P3.3      | boot 覆盖先前 error，改追加式即可                      |
+| 253 条命令的 ACL 登记量                         | P5        | 改为按批登记 + 停止线，不再全量规划                    |
+| 缺少作者侧交付物                                | P4.5      | 生态无法冷启动；已新增该阶段                           |
 
 ---
 

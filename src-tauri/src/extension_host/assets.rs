@@ -104,7 +104,9 @@ impl<R: Runtime> ExtensionAssets<R> {
 ///
 /// 不使用 `Component::Prefix` —— 该枚举变体仅 Windows 存在，直接匹配会破坏
 /// macOS 编译（双平台 CI 铁律）。盘符/UNC 改用跨平台字符串判断。
-fn is_safe_relative_path(relative: &str) -> bool {
+///
+/// manifest `files[].path` 与完整性校验共用（P3.1）。
+pub(crate) fn is_safe_relative_path(relative: &str) -> bool {
     let candidate = Path::new(relative);
     if candidate.is_absolute() {
         return false;

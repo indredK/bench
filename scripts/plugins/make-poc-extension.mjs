@@ -19,7 +19,8 @@
  *   node scripts/plugins/make-poc-extension.mjs --print-dir # 只打印目标目录
  */
 
-import { mkdirSync, writeFileSync } from "node:fs"
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { createHash } from "node:crypto"
 import { homedir, platform } from "node:os"
 import { join } from "node:path"
 
@@ -49,8 +50,13 @@ function appDataDir() {
   }
 }
 
+/**
+ * manifest schema v2（P3.1）。`files` 逐文件清单在写入产物后生成：
+ * `manifest.json` 自身不入清单（文件哈希无法自嵌套，完整性由宿主对
+ * canonical 文本的验签覆盖，spec §3.3）。
+ */
 const MANIFEST = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   id: EXTENSION_ID,
   version: EXTENSION_VERSION,
   display: { zh: "插件机制验证包", en: "Extension POC" },
@@ -59,6 +65,9 @@ const MANIFEST = {
   acl: { commands: ["ext_poc_report"] },
   engines: { bench: ">=2.0.0" },
 }
+
+/** 产物文件（相对插件根）→ 生成 `files` 清单的固定顺序。 */
+const BUNDLE_FILES = ["index.html", "assets/style.css", "assets/main.js", "assets/chunk.js"]
 
 const INDEX_HTML = `<!doctype html>
 <html lang="zh-CN">
@@ -232,12 +241,27 @@ function main() {
     return
   }
 
+  // 全量重建：先清空目标目录，避免历史残留文件触发宿主「清单外文件」拒绝。
+  rmSync(target, { recursive: true, force: true })
   mkdirSync(join(target, "assets"), { recursive: true })
-  writeFileSync(join(target, "manifest.json"), JSON.stringify(MANIFEST, null, 2) + "\n")
   writeFileSync(join(target, "index.html"), INDEX_HTML)
   writeFileSync(join(target, "assets", "style.css"), STYLE_CSS)
   writeFileSync(join(target, "assets", "main.js"), MAIN_JS)
   writeFileSync(join(target, "assets", "chunk.js"), CHUNK_JS)
+
+  // P3.1：先写产物，再生成逐文件 hash 清单，最后写 manifest。
+  const files = BUNDLE_FILES.map((rel) => {
+    const bytes = readFileSync(join(target, rel))
+    return {
+      path: rel,
+      sha256: createHash("sha256").update(bytes).digest("hex"),
+      size: bytes.length,
+    }
+  })
+  writeFileSync(
+    join(target, "manifest.json"),
+    JSON.stringify({ ...MANIFEST, files }, null, 2) + "\n",
+  )
 
   console.log("[poc] extension bundle written to:")
   console.log("  " + target)

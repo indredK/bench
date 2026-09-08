@@ -1,12 +1,17 @@
-//! Extension host commands —— P2（D-024）。
+//! Extension host commands —— P2 命令面 + P3.1 完整性校验链（D-024）。
 //!
-//! P1 的 `ext_poc_open` / `ext_poc_report` 保留语义；P2 新增通用命令：
+//! P1 的 `ext_poc_open` / `ext_poc_report` 保留语义；通用命令：
 //! - `ext_list_installed`：扫描 `$APPDATA/extensions/*/manifest.json`，返回摘要；
-//! - `ext_open`：按插件 id 打开独立 WebView（读 manifest 校验后经 asset provider 加载）；
-//! - `ext_set_enabled`：以 `.disabled` 标记文件实现启用/禁用（禁用时关闭已开窗口）。
+//! - `ext_open`：按插件 id 打开独立 WebView（**全量校验链**：manifest v2 →
+//!   engines 兼容 → market 签名（canonical 文本 + trusted comment）→ 逐文件
+//!   完整性 → 抬升版本水位）；
+//! - `ext_set_enabled`：以 `.disabled` 标记文件实现启用/禁用（禁用时关闭已开窗口）；
+//! - `ext_uninstall`：关窗 + 删产物目录（**默认保留插件数据目录**）+ 清版本水位；
+//! - `ext_data_dir`：向插件窗口提供其私有数据目录（`$APPDATA/extension-data/<id>/`，
+//!   spec §9.3 —— 产物目录只读，数据必须写在这里）。
 //!
-//! 所有入口都 fail-closed：manifest 解析/校验失败、id 非法、 ACL 越权一律拒绝。
-//! 已注册命令受 [super::acl] 网关保护（`ext-` 窗口 deny-by-default）。
+//! 所有入口都 fail-closed：manifest 解析/校验失败、id 非法、ACL 越权、
+//! 完整性不符一律拒绝。已注册命令受 [super::acl] 网关保护。
 
 use std::{
     fs,
@@ -21,9 +26,11 @@ use crate::error::{AppError, AppResult};
 
 use super::{
     assets::EXT_DIR_NAME,
-    manifest::{ExtensionDistribution, ExtensionManifest, MANIFEST_FILE},
-    signature,
+    integrity,
+    manifest::{ExtensionDistribution, ExtensionManifest, EXT_DISABLED_MARKER, MANIFEST_FILE},
+    records, signature,
     url::{extension_url, extension_window_label},
+    EXT_DATA_DIR_NAME,
 };
 
 /// POC 插件 id（P1 spike，保留作网关/回写验证入口）。
@@ -32,14 +39,11 @@ pub const POC_EXTENSION_ID: &str = "bench-poc";
 /// POC 结果落盘文件名（写在应用数据目录下）。
 pub const POC_RESULT_FILE: &str = "poc-verify-result.json";
 
-/// 禁用标记文件名（置于插件产物目录内）。
-pub const EXT_DISABLED_MARKER: &str = ".disabled";
-
 /// 插件窗口错误捕获脚本。
 ///
 /// 注入到每个插件窗口：捕获未处理异常 / Promise 拒绝 / console.error，
 /// 经 `ext_poc_report` 回写宿主（ACL 注册表已放行）。
-/// 这是插件调试基建（P3 起供开发模式诊断），生产构建同样保留——
+/// 这是插件调试基建（P3.3 起落盘改为追加式），生产构建同样保留——
 /// 错误数据只落本机应用数据目录，无外发。
 pub const EXT_ERROR_CAPTURE_SCRIPT: &str = r#"(() => {
   const send = (payload) => {
@@ -107,16 +111,33 @@ fn extension_dir(app: &AppHandle, extension_id: &str) -> AppResult<PathBuf> {
     Ok(extensions_root(app)?.join(extension_id))
 }
 
-/// 读取并校验某插件的 manifest（fail-closed），返回 manifest 与原始文本。
+/// 插件私有数据目录：`$APPDATA/extension-data/<id>/`（spec §9.3）。
 ///
-/// 原始文本是 market 签名校验的规范字节（registry 签名对象为发布时的
-/// manifest 文件原样内容）。
+/// 数据目录不参与完整性校验，卸载默认保留。
+pub(crate) fn extension_data_dir(app: &AppHandle, extension_id: &str) -> AppResult<PathBuf> {
+    if !super::manifest::is_valid_extension_id(extension_id) {
+        return Err(AppError::invalid_input(format!(
+            "invalid extension id `{extension_id}`"
+        )));
+    }
+    let dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| AppError::internal(format!("resolve app data dir failed: {e}")))?;
+    Ok(dir.join(EXT_DATA_DIR_NAME).join(extension_id))
+}
+
+/// 读取并校验某插件的 manifest（fail-closed），返回 manifest 与 canonical 文本。
+///
+/// canonical 文本是 market 签名的验签对象（spec §4.1）：删 `signature` 字段、
+/// 键升序、紧凑 JSON —— **不是** manifest 文件原样字节。
 fn read_manifest(dir: &Path) -> AppResult<(ExtensionManifest, String)> {
     let path = dir.join(MANIFEST_FILE);
     let text = fs::read_to_string(&path)
         .map_err(|e| AppError::not_found(format!("read {}: {e}", path.display())))?;
     let manifest = ExtensionManifest::parse(&text)?;
-    Ok((manifest, text))
+    let canonical = signature::canonical_manifest_text(&text)?;
+    Ok((manifest, canonical))
 }
 
 /// 列出已安装插件（读每个产物的 manifest，跳过损坏条目并在错误信息中带过）。
@@ -146,11 +167,14 @@ pub fn ext_list_installed(app: AppHandle) -> AppResult<Vec<ExtensionSummary>> {
         };
         let enabled = !path.join(EXT_DISABLED_MARKER).exists();
         let compatible = manifest.satisfies_engines(&app.package_info().version.to_string());
+        // display.zh 可选（v2 起）：缺失回退 en。先取展示名再移动其余字段。
+        let display_en = manifest.display_name("en").to_string();
+        let display_zh = manifest.display_name("zh").to_string();
         summaries.push(ExtensionSummary {
             id: manifest.id,
             version: manifest.version,
-            display_zh: manifest.display.zh,
-            display_en: manifest.display.en,
+            display_zh,
+            display_en,
             distribution: manifest.distribution,
             enabled,
             compatible,
@@ -165,7 +189,10 @@ pub fn ext_list_installed(app: AppHandle) -> AppResult<Vec<ExtensionSummary>> {
 /// - `locale`：宿主前端语言（i18n.language），经 init script 注入
 ///   `window.__BENCH_EXT_LOCALE`（dev/prod 跨 origin 下 localStorage 不共享，
 ///   由 Rust 注入是唯一可靠通道）；
-/// - 门控（全部 fail-closed）：manifest 校验 → engines 兼容 → market 签名 → 禁用状态。
+/// - 校验链（全部 fail-closed，spec §3.4 顺序）：
+///   manifest v2（含 `expiresAt` 过期）→ engines 兼容 → market 签名
+///   （canonical 文本 + trusted comment）→ **逐文件完整性**（P3.1）→
+///   抬升版本水位（重放防护的记录侧；拒绝侧在 P4 安装路径）。
 #[tauri::command]
 pub fn ext_open(app: AppHandle, extension_id: String, locale: Option<String>) -> AppResult<String> {
     let dir = extension_dir(&app, &extension_id)?;
@@ -179,6 +206,15 @@ pub fn ext_open(app: AppHandle, extension_id: String, locale: Option<String>) ->
         )));
     }
     signature::verify_distribution_signature(&manifest, &canonical_text)?;
+    // 逐文件 hash 校验 + 清单外文件拒绝（P3.1 核心：开窗前最后一道完整性闸门）。
+    integrity::verify_bundle_integrity(&dir, &manifest)?;
+    if manifest.distribution == ExtensionDistribution::Market {
+        // market 插件开窗即运行：版本低于已验证水位 = 重放/降级，拒绝
+        // （防御纵深；安装路径的强制检查见 records 模块文档 / P4）。
+        records::check_version_monotonic(&app, &manifest.id, &manifest.version)?;
+    }
+    // 完整校验通过 → 抬升已验证版本水位（拒绝侧见 records 模块文档）。
+    records::record_verified_version(&app, &manifest.id, &manifest.version)?;
 
     if dir.join(EXT_DISABLED_MARKER).exists() {
         return Err(AppError::invalid_input(format!(
@@ -199,7 +235,7 @@ pub fn ext_open(app: AppHandle, extension_id: String, locale: Option<String>) ->
         serde_json::to_string(&locale).unwrap_or_else(|_| "null".to_string())
     );
     WebviewWindowBuilder::new(&app, &label, WebviewUrl::CustomProtocol(url))
-        .title(format!("{} · Bench Extension", manifest.display.en))
+        .title(format!("{} · Bench Extension", manifest.display_name("en")))
         .inner_size(960.0, 680.0)
         .center()
         .initialization_script(locale_script)
@@ -210,6 +246,10 @@ pub fn ext_open(app: AppHandle, extension_id: String, locale: Option<String>) ->
 }
 
 /// 卸载插件：关闭窗口并删除产物目录（含禁用标记）。
+///
+/// **默认保留插件私有数据目录**（`$APPDATA/extension-data/<id>/`，spec §9.3）；
+/// 「清除残留数据」独立入口属插件中心 P4 项。同时清除版本水位，
+/// 使重装旧版本不被历史水位卡死。
 #[tauri::command]
 pub fn ext_uninstall(app: AppHandle, extension_id: String) -> AppResult<()> {
     let dir = extension_dir(&app, &extension_id)?;
@@ -219,6 +259,10 @@ pub fn ext_uninstall(app: AppHandle, extension_id: String) -> AppResult<()> {
         let _ = existing.close();
     }
     fs::remove_dir_all(&dir).map_err(|e| AppError::io(format!("uninstall {extension_id}: {e}")))?;
+    // 产物已删除；水位清理失败不阻断卸载（仅记录）。
+    if let Err(error) = records::clear_record(&app, &extension_id) {
+        eprintln!("[extension_host] clear version record for `{extension_id}` failed: {error}");
+    }
     Ok(())
 }
 
@@ -242,6 +286,24 @@ pub fn ext_set_enabled(app: AppHandle, extension_id: String, enabled: bool) -> A
         }
     }
     Ok(enabled)
+}
+
+/// 返回调用方插件窗口的私有数据目录（`$APPDATA/extension-data/<id>/`），
+/// 不存在则创建（spec §9.3：路径经 IPC 提供给插件）。
+///
+/// 目录从窗口 label（`ext-<id>`）推导，**不信任调用参数**；非插件窗口
+/// 调用一律拒绝。
+#[tauri::command]
+pub fn ext_data_dir(webview: tauri::WebviewWindow) -> AppResult<String> {
+    let label = webview.label().to_string();
+    let Some(extension_id) = label.strip_prefix(super::acl::EXT_WINDOW_PREFIX) else {
+        return Err(AppError::invalid_input(
+            "ext_data_dir is only available to extension windows",
+        ));
+    };
+    let dir = extension_data_dir(webview.app_handle(), extension_id)?;
+    fs::create_dir_all(&dir).map_err(|e| AppError::io(format!("create data dir: {e}")))?;
+    Ok(dir.to_string_lossy().into_owned())
 }
 
 /// P1 语义保留：打开 POC 插件窗口（等价 `ext_open("bench-poc")`）。

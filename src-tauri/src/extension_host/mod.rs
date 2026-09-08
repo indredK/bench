@@ -1,15 +1,23 @@
-//! Extension host —— 运行时插件宿主的 P1 概念验证（spike）。
+//! Extension host —— 运行时插件宿主（P1 spike → P2 契约 → P3.1 完整性安全地基）。
 //!
-//! 设计依据见 [docs/plugin-market-assessment.md](../../docs/plugin-market-assessment.md) §8（B′ 方案）
-//! 与 §9（P1 概念验证）。方向性决策见 DECISIONS D-023。
+//! 契约唯一规格：`docs/extension-spec.md`；执行顺序与状态唯一清单：
+//! `docs/modules/extension-center/roadmap.md`。方向性决策见 DECISIONS D-023 / D-024。
 //!
-//! **P1 只验证一件事**：Tauri v2 能否在运行时把 `$APPDATA/extensions` 下的前端 bundle
-//! 当作同源本地页面渲染，并保持 IPC 可用。签名 / ACL / 生命周期 / 插件中心均属 P2+。
+//! 模块地图：
+//! - [assets]：asset provider（`$APPDATA/extensions` 叠加内置资源，同源加载）；
+//! - [acl]：`ext-` 窗口 IPC 网关（deny-by-default）；
+//! - [manifest]：schema v2 解析与校验（fail-closed）；
+//! - [signature]：canonical 文本签名 + trusted comment + 公钥三态；
+//! - [integrity]：逐文件 hash 校验 + 清单外文件拒绝；
+//! - [records]：版本水位（重放/降级防护）；
+//! - [commands]：IPC 命令面（list/open/enable/uninstall/data_dir）。
 
 pub mod acl;
 pub mod assets;
 pub mod commands;
+pub mod integrity;
 pub mod manifest;
+pub mod records;
 pub mod signature;
 pub mod url;
 
@@ -18,6 +26,12 @@ use tauri::{AppHandle, Manager, Runtime};
 pub use assets::{
     new_root_slot, ExtensionAssets, ExtensionRootSlot, PlaceholderAssets, EXT_DIR_NAME,
 };
+
+/// 插件私有数据目录名（`$APPDATA/extension-data/<id>/`，spec §9.3）。
+///
+/// **产物目录是只读的**（完整性校验拒绝清单外文件），插件数据（缓存/配置/
+/// 状态）必须写在此处；卸载默认保留，数据目录不参与 `files` hash 校验。
+pub const EXT_DATA_DIR_NAME: &str = "extension-data";
 
 /// 环境变量：设置后在启动时自动打开 POC 插件窗口（仅 P1 验证用，不进生产路径）。
 pub const POC_AUTO_OPEN_ENV: &str = "BENCH_POC_EXT";

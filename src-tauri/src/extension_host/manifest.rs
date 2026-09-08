@@ -1,25 +1,34 @@
-//! Extension manifest —— P2 schema v1 定稿（D-024）。
+//! Extension manifest —— P3.1 schema v2（D-024，契约见 docs/extension-spec.md §3）。
 //!
 //! 每个插件在产物根目录携带 `manifest.json`。宿主在**列举 / 打开 / 启用**前
-//! 解析并校验：schema 版本不匹配（fail-closed）、id/version/entry 格式、
-//! ACL 声明必须是 [acl] 注册表子集。
+//! 解析并校验，fail-closed：
 //!
-//! 字段与 D-024 对应：
-//! - `distribution`: `bundled`（随主包捆绑）/ `market`（registry 下载 + minisign）；
-//! - `acl.commands`: 插件申请的自定命令子集（宿主在网关处按窗口 deny-by-default）；
-//! - `engines.bench`: 宿主兼容矩阵（P3 起参与加载门控）。
+//! - schema 版本不匹配 → 拒绝；
+//! - `files`：逐文件完整性清单（必填，非空、无重复、路径安全、sha256 格式合法）；
+//!   `manifest.json` 自身与宿主维护的 `.disabled` **不得**入列（前者文件哈希
+//!   无法自嵌套，完整性由 canonical 文本签名覆盖，见 [signature]）；
+//! - `display.zh` 可选（P3.1 起回退 `en`，降低第三方作者门槛）；
+//! - `expiresAt` 可选（market 推荐）：过期元数据拒绝（防 freeze attack）；
+//! - `acl.commands` 必须是 [acl] 注册表子集；
+//! - `engines.bench` 合法性 + 宿主兼容门控。
 
 use serde::{Deserialize, Serialize};
 
 use crate::error::{AppError, AppResult};
 
 use super::acl;
+use super::assets::is_safe_relative_path;
 
 /// 当前支持的 manifest schema 版本。未来版本一律 fail-closed 拒绝。
-pub const MANIFEST_SCHEMA_VERSION: u32 = 1;
+///
+/// v1 → v2（P3.1）：`files` 由无变必填；`display.zh` 由必变选；`expiresAt` 新增。
+pub const MANIFEST_SCHEMA_VERSION: u32 = 2;
 
 /// manifest 文件名（插件产物根目录）。
 pub const MANIFEST_FILE: &str = "manifest.json";
+
+/// 禁用标记文件名（宿主维护，置于插件产物目录内；存在即表示已禁用）。
+pub const EXT_DISABLED_MARKER: &str = ".disabled";
 
 /// 插件清单。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -31,27 +40,35 @@ pub struct ExtensionManifest {
     pub id: String,
     /// 插件语义化版本（X.Y.Z），与宿主版本解耦。
     pub version: String,
-    /// 展示名（zh/en；后续 locale 集扩充为 map）。
+    /// 展示名（en 必填；zh 可选，缺失回退 en）。
     pub display: ExtensionDisplay,
     /// 分发形态：bundled（随主包捆绑）/ market（registry 下载）。
     pub distribution: ExtensionDistribution,
     /// 入口（相对产物根目录）。
     pub entry: ExtensionEntry,
+    /// 逐文件完整性清单（P3.1 起必填，规则见 [`ExtensionFileEntry`] 与 spec §3.3）。
+    pub files: Vec<ExtensionFileEntry>,
     /// 申请的宿主命令 ACL（必须是 [acl] 注册表的子集）。
     pub acl: ExtensionAcl,
     /// 宿主兼容矩阵。
     pub engines: ExtensionEngines,
-    /// minisign 签名（canonical registry 对 manifest 规范文本的签名，P3 起对
-    /// `market` 分发强制校验；`bundled` 豁免——随主包分发时由主包签名链覆盖）。
+    /// 过期时间（ISO 8601 / RFC 3339，如 `2027-09-08T00:00:00Z`）。
+    ///
+    /// market 推荐填写：宿主拒绝过期元数据（防 freeze attack）。bundled 不填。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<String>,
+    /// minisign 签名（对「去掉 `signature` 字段后的 canonical JSON」的签名，
+    /// 见 [signature]；`market` 强制校验，`bundled` 豁免）。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub signature: Option<String>,
 }
 
-/// 展示名。
+/// 展示名。`zh` 自 P3.1 起可选（缺失回退 `en`）。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExtensionDisplay {
-    pub zh: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub zh: Option<String>,
     pub en: String,
 }
 
@@ -73,6 +90,18 @@ pub struct ExtensionEntry {
     pub index: String,
 }
 
+/// 逐文件完整性条目（spec §3.3）。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ExtensionFileEntry {
+    /// 相对产物根的路径（`/` 分隔；不含 `..`、不以 `/` 开头）。
+    pub path: String,
+    /// 文件内容 SHA256，小写十六进制 64 字符。
+    pub sha256: String,
+    /// 文件字节数（解压后）。
+    pub size: u64,
+}
+
 /// 命令 ACL 申请。
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -86,12 +115,12 @@ pub struct ExtensionAcl {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ExtensionEngines {
-    /// 例如 `">=2.0.0"`（P3 起参与加载门控，P2 仅校验格式）。
+    /// 例如 `">=2.0.0"`（P3 起参与加载门控）。
     pub bench: String,
 }
 
 impl ExtensionManifest {
-    /// 从 JSON 文本解析并完整校验。
+    /// 从 JSON 文本解析并完整校验（含 `expiresAt` 过期检查）。
     pub fn parse(text: &str) -> AppResult<Self> {
         let manifest: Self = serde_json::from_str(text)
             .map_err(|e| AppError::invalid_input(format!("invalid extension manifest: {e}")))?;
@@ -119,14 +148,93 @@ impl ExtensionManifest {
                 self.version
             )));
         }
-        if self.display.zh.trim().is_empty() || self.display.en.trim().is_empty() {
-            return Err(AppError::invalid_input(
-                "display.zh / display.en must not be empty",
-            ));
+        if self.display.en.trim().is_empty() {
+            return Err(AppError::invalid_input("display.en must not be empty"));
+        }
+        if let Some(zh) = &self.display.zh {
+            if zh.trim().is_empty() {
+                return Err(AppError::invalid_input(
+                    "display.zh must not be empty when present",
+                ));
+            }
         }
         self.entry.validate()?;
+        self.validate_files()?;
         self.acl.validate()?;
         self.validate_engines()?;
+        self.validate_expires_at()?;
+        Ok(())
+    }
+
+    /// 展示名（zh 缺失时回退 en）。
+    pub fn display_name(&self, lang: &str) -> &str {
+        if lang == "zh" {
+            self.display.zh.as_deref().unwrap_or(&self.display.en)
+        } else {
+            &self.display.en
+        }
+    }
+
+    /// `files` 清单规则（spec §3.3）：非空、无重复、路径合法、sha256 格式合法。
+    fn validate_files(&self) -> AppResult<()> {
+        if self.files.is_empty() {
+            return Err(AppError::invalid_input(
+                "manifest.files must not be empty (per-file integrity list is required)",
+            ));
+        }
+        let mut seen = std::collections::BTreeSet::new();
+        for file in &self.files {
+            if !seen.insert(file.path.as_str()) {
+                return Err(AppError::invalid_input(format!(
+                    "manifest.files contains duplicate path `{}`",
+                    file.path
+                )));
+            }
+            if !is_safe_relative_path(&file.path) {
+                return Err(AppError::forbidden_path(format!(
+                    "manifest.files path `{}` must be a safe relative path inside the bundle",
+                    file.path
+                )));
+            }
+            if file.path.ends_with('/') {
+                return Err(AppError::invalid_input(format!(
+                    "manifest.files path `{}` must not end with `/`",
+                    file.path
+                )));
+            }
+            // manifest.json 无法把自己的哈希写进自己（fixpoint 不存在），
+            // 其完整性由 canonical 文本签名覆盖；.disabled 由宿主维护。
+            if file.path == MANIFEST_FILE || file.path == EXT_DISABLED_MARKER {
+                return Err(AppError::invalid_input(format!(
+                    "manifest.files must not list `{}`",
+                    file.path
+                )));
+            }
+            if !is_valid_sha256_hex(&file.sha256) {
+                return Err(AppError::invalid_input(format!(
+                    "manifest.files entry `{}` has invalid sha256 (expected 64 lowercase hex chars)",
+                    file.path
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    /// `expiresAt`：存在时必须是合法 RFC 3339 且未过期（fail-closed）。
+    fn validate_expires_at(&self) -> AppResult<()> {
+        let Some(text) = &self.expires_at else {
+            return Ok(());
+        };
+        let parsed = chrono::DateTime::parse_from_rfc3339(text).map_err(|_| {
+            AppError::invalid_input(format!(
+                "manifest.expiresAt `{text}` is not a valid RFC 3339 timestamp"
+            ))
+        })?;
+        if parsed < chrono::Utc::now() {
+            return Err(AppError::invalid_input(format!(
+                "manifest.expiresAt `{text}` has expired (metadata freshness check failed)"
+            )));
+        }
         Ok(())
     }
 
@@ -160,7 +268,7 @@ impl ExtensionManifest {
 }
 
 /// 简化 semver 比较：`host >= minimum`（逐段数值比较，段数不足按 0 补齐）。
-fn semver_at_least(host: &str, minimum: &str) -> bool {
+pub(crate) fn semver_at_least(host: &str, minimum: &str) -> bool {
     let parse = |text: &str| -> Vec<u64> {
         text.split('.')
             .map(|part| part.parse::<u64>().unwrap_or(0))
@@ -228,17 +336,29 @@ pub fn is_valid_semver(version: &str) -> bool {
             .all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()))
 }
 
+/// SHA256 十六进制串：64 字符、小写。
+pub(crate) fn is_valid_sha256_hex(text: &str) -> bool {
+    text.len() == 64
+        && text
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     const VALID_MANIFEST: &str = r#"{
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "id": "photo-triage",
         "version": "1.0.0",
         "display": { "zh": "照片筛选", "en": "Photo Triage" },
         "distribution": "bundled",
         "entry": { "index": "index.html" },
+        "files": [
+            { "path": "index.html", "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08", "size": 512 },
+            { "path": "assets/index-a1b2c3.js", "sha256": "2c624232cdd221771e2835f7b7c8f4e0fcbf5e7eb3f6b7c3ac4d5e6f708192a3", "size": 469123 }
+        ],
         "acl": { "commands": ["photo_triage_scan", "photo_triage_trash"] },
         "engines": { "bench": ">=2.0.0" }
     }"#;
@@ -249,11 +369,14 @@ mod tests {
         assert_eq!(m.id, "photo-triage");
         assert_eq!(m.distribution, ExtensionDistribution::Bundled);
         assert_eq!(m.acl.commands.len(), 2);
+        assert_eq!(m.files.len(), 2);
+        assert!(m.expires_at.is_none());
+        assert!(m.signature.is_none());
     }
 
     #[test]
-    fn rejects_unknown_schema_version() {
-        let text = VALID_MANIFEST.replace("\"schemaVersion\": 1", "\"schemaVersion\": 2");
+    fn rejects_v1_schema() {
+        let text = VALID_MANIFEST.replace("\"schemaVersion\": 2", "\"schemaVersion\": 1");
         let err = ExtensionManifest::parse(&text).unwrap_err();
         assert_eq!(err.code, "UNSUPPORTED");
     }
@@ -310,6 +433,139 @@ mod tests {
     }
 
     #[test]
+    fn rejects_empty_files() {
+        let text = VALID_MANIFEST.replace(
+            r#""files": [
+            { "path": "index.html", "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08", "size": 512 },
+            { "path": "assets/index-a1b2c3.js", "sha256": "2c624232cdd221771e2835f7b7c8f4e0fcbf5e7eb3f6b7c3ac4d5e6f708192a3", "size": 469123 }
+        ]"#,
+            "\"files\": []",
+        );
+        assert_eq!(
+            ExtensionManifest::parse(&text).unwrap_err().code,
+            "INVALID_INPUT"
+        );
+    }
+
+    #[test]
+    fn rejects_duplicate_file_paths() {
+        let text = VALID_MANIFEST.replace(
+            "{ \"path\": \"assets/index-a1b2c3.js\", \"sha256\": \"2c624232cdd221771e2835f7b7c8f4e0fcbf5e7eb3f6b7c3ac4d5e6f708192a3\", \"size\": 469123 }",
+            "{ \"path\": \"index.html\", \"sha256\": \"2c624232cdd221771e2835f7b7c8f4e0fcbf5e7eb3f6b7c3ac4d5e6f708192a3\", \"size\": 469123 }",
+        );
+        let err = ExtensionManifest::parse(&text).unwrap_err();
+        assert_eq!(err.code, "INVALID_INPUT");
+        assert!(err.message.contains("duplicate"));
+    }
+
+    #[test]
+    fn rejects_invalid_sha256_format() {
+        // 大写十六进制 → 非法（规格要求小写）。
+        let text = VALID_MANIFEST.replace(
+            "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+            "9F86D081884C7D659A2FEAA0C55AD015A3BF4F1B2B0B822CD15D6C15B0F00A08",
+        );
+        assert_eq!(
+            ExtensionManifest::parse(&text).unwrap_err().code,
+            "INVALID_INPUT"
+        );
+        // 长度不足 → 非法。
+        let text = VALID_MANIFEST.replace(
+            "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+            "9f86d081",
+        );
+        assert_eq!(
+            ExtensionManifest::parse(&text).unwrap_err().code,
+            "INVALID_INPUT"
+        );
+    }
+
+    #[test]
+    fn rejects_unsafe_files_paths() {
+        for bad in [
+            "/absolute/index.html",
+            "assets/../../evil.js",
+            "C:/windows/win.ini",
+            "assets\\win-path.js",
+            "manifest.json",
+            ".disabled",
+            "assets/",
+        ] {
+            let text = VALID_MANIFEST.replace("assets/index-a1b2c3.js", bad);
+            let err = ExtensionManifest::parse(&text).unwrap_err();
+            assert!(
+                err.code == "FORBIDDEN_PATH" || err.code == "INVALID_INPUT",
+                "path `{bad}` should be rejected, got {} ({})",
+                err.code,
+                err.message
+            );
+        }
+    }
+
+    #[test]
+    fn display_zh_is_optional_and_falls_back_to_en() {
+        let text = VALID_MANIFEST.replace(
+            "\"display\": { \"zh\": \"照片筛选\", \"en\": \"Photo Triage\" }",
+            "\"display\": { \"en\": \"Photo Triage\" }",
+        );
+        let m = ExtensionManifest::parse(&text).expect("zh optional");
+        assert_eq!(m.display_name("zh"), "Photo Triage");
+        assert_eq!(m.display_name("en"), "Photo Triage");
+
+        let text = VALID_MANIFEST.replace(
+            "\"display\": { \"zh\": \"照片筛选\", \"en\": \"Photo Triage\" }",
+            "\"display\": { \"zh\": \"照片筛选\", \"en\": \"Photo Triage\" }",
+        );
+        let m = ExtensionManifest::parse(&text).expect("zh present");
+        assert_eq!(m.display_name("zh"), "照片筛选");
+    }
+
+    #[test]
+    fn rejects_empty_display_en() {
+        let text = VALID_MANIFEST.replace(
+            "\"display\": { \"zh\": \"照片筛选\", \"en\": \"Photo Triage\" }",
+            "\"display\": { \"zh\": \"照片筛选\", \"en\": \"\" }",
+        );
+        assert_eq!(
+            ExtensionManifest::parse(&text).unwrap_err().code,
+            "INVALID_INPUT"
+        );
+    }
+
+    #[test]
+    fn rejects_expired_expires_at() {
+        let text = VALID_MANIFEST.replace(
+            "\"engines\": { \"bench\": \">=2.0.0\" }",
+            "\"engines\": { \"bench\": \">=2.0.0\" }, \"expiresAt\": \"2020-01-01T00:00:00Z\"",
+        );
+        let err = ExtensionManifest::parse(&text).unwrap_err();
+        assert_eq!(err.code, "INVALID_INPUT");
+        assert!(err.message.contains("expired"));
+    }
+
+    #[test]
+    fn rejects_malformed_expires_at() {
+        let text = VALID_MANIFEST.replace(
+            "\"engines\": { \"bench\": \">=2.0.0\" }",
+            "\"engines\": { \"bench\": \">=2.0.0\" }, \"expiresAt\": \"not-a-date\"",
+        );
+        assert_eq!(
+            ExtensionManifest::parse(&text).unwrap_err().code,
+            "INVALID_INPUT"
+        );
+    }
+
+    #[test]
+    fn accepts_future_expires_at() {
+        let text = VALID_MANIFEST.replace(
+            "\"engines\": { \"bench\": \">=2.0.0\" }",
+            "\"engines\": { \"bench\": \">=2.0.0\" }, \"expiresAt\": \"2099-01-01T00:00:00Z\"",
+        );
+        let m = ExtensionManifest::parse(&text).expect("future expiry accepted");
+        assert_eq!(m.expires_at.as_deref(), Some("2099-01-01T00:00:00Z"));
+    }
+
+    #[test]
     fn id_validator() {
         assert!(is_valid_extension_id("photo-triage"));
         assert!(is_valid_extension_id("bench-poc"));
@@ -329,6 +585,18 @@ mod tests {
     }
 
     #[test]
+    fn sha256_hex_validator() {
+        assert!(is_valid_sha256_hex(
+            "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+        ));
+        assert!(!is_valid_sha256_hex("9F86D081")); // 大写
+        assert!(!is_valid_sha256_hex("abc")); // 太短
+        assert!(!is_valid_sha256_hex(
+            "zz86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+        ));
+    }
+
+    #[test]
     fn engines_gate() {
         let make = |bench: &str| -> ExtensionManifest {
             ExtensionManifest::parse(
@@ -341,7 +609,6 @@ mod tests {
         assert!(make(">=1.30.0").satisfies_engines("1.30.0"));
         assert!(make(">=1.29.0").satisfies_engines("1.30.0"));
         assert!(!make(">=2.0.0").satisfies_engines("1.30.0"));
-        // 非法约束 fail-closed
         // 非法约束（`>` 前缀 / 纯版本号）在 parse 阶段即被拒绝（见 engines_constraint_validation）。
     }
 
@@ -352,11 +619,5 @@ mod tests {
             ExtensionManifest::parse(&bad).unwrap_err().code,
             "INVALID_INPUT"
         );
-    }
-
-    #[test]
-    fn signature_is_optional() {
-        let manifest = ExtensionManifest::parse(VALID_MANIFEST).expect("valid");
-        assert!(manifest.signature.is_none());
     }
 }

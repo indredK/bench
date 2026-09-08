@@ -283,6 +283,7 @@ macro_rules! app_invoke_handler {
             $crate::extension_host::commands::ext_open,
             $crate::extension_host::commands::ext_set_enabled,
             $crate::extension_host::commands::ext_uninstall,
+            $crate::extension_host::commands::ext_data_dir,
         ]
     };
 }

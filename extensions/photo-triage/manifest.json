@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "photo-triage",
   "version": "0.1.0",
   "display": { "zh": "照片筛选", "en": "Photo Triage" },

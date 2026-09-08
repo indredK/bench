@@ -798,6 +798,8 @@ export const TAURI_COMMAND_CONTRACTS = {
     "ext_set_enabled",
   ),
   ext_uninstall: defineTauriCommand<{ extensionId: string }, void>()("ext_uninstall"),
+  // P3.1：插件私有数据目录（仅 ext- 窗口可调用，路径由窗口 label 推导）
+  ext_data_dir: defineTauriCommand<undefined, string>()("ext_data_dir"),
 } as const
 
 export type TauriCommandName = keyof typeof TAURI_COMMAND_CONTRACTS
@@ -1130,6 +1132,7 @@ export const TAURI_COMMANDS = {
     open: commandName("ext_open"),
     setEnabled: commandName("ext_set_enabled"),
     uninstall: commandName("ext_uninstall"),
+    dataDir: commandName("ext_data_dir"),
   },
 } as const
 
@@ -1455,6 +1458,7 @@ export const TAURI_COMMAND_ARG_KEYS = {
   ext_open: ["extensionId", "locale"],
   ext_set_enabled: ["extensionId", "enabled"],
   ext_uninstall: ["extensionId"],
+  ext_data_dir: [],
 } as const satisfies TauriCommandArgKeys
 
 export const WINDOW_BOOTSTRAP_EVENTS = {
