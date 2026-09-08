@@ -1,7 +1,10 @@
 # Extension Center Roadmap
 
 > **本文件是插件化（P0–P6）的执行状态唯一清单**，也是下一步执行顺序的唯一依据。
-> 方向性决策见 [DECISIONS.md](../../DECISIONS.md)（D-023 / D-024）；架构边界与工作流见 [extension-workflow.md](../../extension-workflow.md)。
+> **契约规格**（manifest / 签名 / registry / 产物格式）：[extension-spec.md](../../extension-spec.md)
+> **架构边界与工作流**（含作者侧流程）：[extension-workflow.md](../../extension-workflow.md)
+> **插件中心功能规格**：[product-specs/extension-center.md](../../product-specs/extension-center.md) ｜ **未完成项**：[planned/extension-center.md](../../planned/extension-center.md)
+> **方向性决策**：[DECISIONS.md](../../DECISIONS.md)（D-023 / D-024）
 > **最后更新**：2026-09-08（P3 路线经行业最佳实践复核后重排，见「附录 B　重排依据」）。
 
 ## 成本原则（贯穿全部阶段）
@@ -39,6 +42,8 @@
 
 > **P3.1 是硬阻塞**：在它完成前不得实现 download/extract，否则插件产物格式上线后返工。
 > **P6 是发布硬前置**：插件化能力在 Windows runner 复验前不得随正式版发布（D-023）。
+
+**契约前置**：P3.1 及之后的实施一律以 [extension-spec.md](../../extension-spec.md) 为契约真相源 —— 改代码前先改规格。
 
 ---
 
@@ -87,7 +92,13 @@
 
 ### 1. 逐文件 hash 清单签名（A1）
 
-- [ ] manifest 新增必签字段 `files: [{ path, sha256, size }]`，覆盖产物根下**全部**文件
+> 完整字段定义、canonical 文本规则、验签流程见 [extension-spec.md §3 / §4](../../extension-spec.md)。
+
+- [ ] manifest 升级到 **schema v2**，新增必签字段 `files: [{ path, sha256, size }]`，覆盖产物根下**全部**文件
+- [ ] `display.zh` 改为可选（缺失回退 `en`），降低第三方作者门槛
+- [ ] 新增可选字段 `expiresAt`
+- [ ] **约定插件私有数据目录** `$APPDATA/extension-data/<id>/`：产物目录为只读（完整性校验会拒绝清单外文件），插件数据必须写在此处；卸载默认保留数据
+- [ ] 同步更新 `extensions/photo-triage/manifest.json` 与打包脚本到 v2
 - [ ] 规范签名对象改为「去掉 `signature` 字段后的 canonical JSON」，规避自引用循环
 - [ ] `ext_open` 开窗前**全量校验** `files` 每条 hash，fail-closed
 - [ ] 校验须包含「产物中不得存在 `files` 未列出的文件」（Mozilla 明文要求，防新增未覆盖的可执行文件）

@@ -1,11 +1,23 @@
 # Photo Triage（照片筛选）产品说明
 
-> 本文件是 photo-triage 模块的**完备产品规格**。一切功能改动、优化、bug 修复都必须同步更新本文件。
+> 本文件是 photo-triage 的**完备产品规格**。一切功能改动、优化、bug 修复都必须同步更新本文件。
 > 自包含、可移植：复制到任何项目或交给任何 AI，可据此完整复刻本模块功能。
+>
+> ## ⚠️ 形态变更（2026-09-08 · [D-024](../DECISIONS.md#d-024--extension-仓库组织与-photo-triage-试点拆法) / P2b）
+>
+> photo-triage 已**从 `src/features/` 迁出为 bundled 插件**，位置 `extensions/photo-triage/`。
+> 因此本文件第 1 节中的「路由 `/photo-triage`、侧边栏静态注册」表述**已失效**：
+>
+> - 入口改为「**插件中心 → 已安装（bundled）→ 打开**」，宿主开独立窗口 `ext-photo-triage`；
+> - Rust 侧 15 条命令**留在核心**，转为宿主能力面并登记进 ACL 注册表（`photo_triage_*`），不随插件走；
+> - IPC 命令名不变，契约测试天然护航。
+>
+> 其余章节（界面、交互、异常、数据模型）仍适用于插件窗口内的 UI。
 
 ## 1. 定位
 
-- **独立旁路模块**（macOS-only，非 Bench 主序列），入口：路由 `/photo-triage`，侧边栏注册，仅 macOS 显示。
+- **bundled 插件**（原独立旁路模块，macOS-only，非 Bench 主序列）。当前入口：插件中心 → 已安装（bundled）→ 打开，宿主开独立窗口。仅 macOS 显示。
+  - 历史入口（已失效）：路由 `/photo-triage`，侧边栏静态注册。
 
 - 用途：在爱思助手等导出的相册目录中快速「留 / 删」筛选。
 

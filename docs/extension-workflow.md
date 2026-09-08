@@ -97,12 +97,12 @@ tauri-app/
 
 ---
 
-## 5. 发布与版本（P2 落地）
+## 5. 发布与版本
 
 - 插件版本由 `manifest.version` 独立管理，与宿主版本解耦；
-- `manifest.engines.bench` 声明兼容矩阵（宿主升级后旧插件被拒绝或降级提示）；
-- `distribution: "bundled" | "market"`：bundled 产物随主包构建产出并捆绑；market 产物走 registry 下载 + minisign 校验（P2 接入 `updater/keys/`）；
-- 试点期（P2–P3）本地构建本地装，签名门禁在其后启用。
+- 版本规则、兼容门控、单调性、卸载与禁用语义统一见 **[extension-spec.md §8 版本与兼容](./extension-spec.md)**；
+- `distribution: "bundled" | "market"`：bundled 产物随主包构建产出并捆绑；market 产物走 registry 下载 + minisign 校验；
+- 具体分发步骤见 §8.4～§8.6。
 
 ---
 
@@ -148,3 +148,118 @@ tauri-app/
 ### 7.4 技术铁律
 
 实施时的硬性约束（含踩坑来源）统一维护在 [modules/extension-center/roadmap.md](./modules/extension-center/roadmap.md) 的「附录 A　已固化的技术铁律」，**动手前必读**。
+
+---
+
+## 8. 作者侧流程（P4.5 交付物）
+
+> 目标：**前端开发者零门槛** —— 会写 React 就能做插件，不需要懂 Rust（对标 uTools 生态的成功要素）。
+> 契约细节一律以 [extension-spec.md](./extension-spec.md) 为准。
+
+### 8.1 创建插件
+
+```bash
+pnpm run extensions:create <id>
+```
+
+生成：
+
+```
+extensions/<id>/
+├── manifest.json      # schema v2 模板，distribution 默认 bundled
+├── index.html
+├── vite.config.ts     # 已含 base: "./" 与 alias 铁律
+├── locales/{zh,en}.json
+└── src/               # 入口 + 最小示例（调用 ext 命令）
+```
+
+`id` 必须匹配 `^[a-z][a-z0-9-]*$`。
+
+### 8.2 本地开发与调试
+
+1. 照常在主仓库开发：改前端 → `pnpm run dev` → 插件窗口即时生效；改 Rust → 走 cargo 链路。
+2. 产物同步到运行时目录：`pnpm run extensions:sync`（保留 `.disabled` 用户标记，幂等）。
+3. 打开插件窗口：插件中心点击「打开」，或 `BENCH_POC_EXT=<id> pnpm run dev` 直开。
+4. 调试：宿主注入 `EXT_ERROR_CAPTURE_SCRIPT`，捕获 window-error / unhandledrejection / console.error / boot，回传宿主落盘（P3.3 起为**追加式**）。
+5. 开发期免签：设 `BENCH_EXT_DEV_MODE=1`（[spec §4.3](./extension-spec.md)）。
+
+### 8.3 构建
+
+```bash
+pnpm run extensions:build     # 当前单插件；P4.5 起支持 --id
+```
+
+产出 `extensions/<id>/assets/`（`base: "./"` 是硬性要求，否则子路径下 404 白屏）。
+
+### 8.4 打包与签名
+
+```bash
+pnpm run extensions:pack <id>     # P4.5 交付
+```
+
+依次完成：
+
+1. 构建产物
+2. 扫描产物目录，生成 `manifest.files`（逐文件 sha256 + size）
+3. 按 [spec §4.1](./extension-spec.md) 构造 canonical 文本
+4. minisign 签名，trusted comment 固定 `<id>@<version>`
+5. 写回 `manifest.signature`
+6. 打 zip（根即插件根），输出整包 sha256 与 size
+
+> 这一步**必须在签名前生成 files 清单**，否则清单未纳入签名（P3.1 的核心要求）。
+
+### 8.5 发布到 registry
+
+阶段二（开放第三方后）：
+
+1. 作者在自有仓库开发 → `extensions:pack` 产出 zip + manifest
+2. 向 canonical registry 仓库提交 PR，追加/更新条目（[spec §5.2](./extension-spec.md)）
+3. 维护者人工审核：manifest 合法性、ACL 是否最小、产物与源码是否对应
+4. 合入即上架（静态托管，无服务端）
+
+阶段一（当前，契约演进期）：官方插件住主仓库 `extensions/`，`distribution: "bundled"`，随主包发布。
+
+### 8.6 版本升级与下架
+
+| 场景       | 操作                                                                                                              |
+| ---------- | ----------------------------------------------------------------------------------------------------------------- |
+| 发新版     | `manifest.version` +1（semver）→ `extensions:pack` → registry PR 追加 `versions[]` 条目                           |
+| 撤回某版本 | 该版本 `yanked: true`（已安装仍可运行，不再出现在可安装列表）                                                     |
+| 紧急吊销   | registry `revoked[]` 增加条目 → 宿主**强制禁用 + UI 显著警示**（不静默删除，见 [spec §5.3](./extension-spec.md)） |
+
+### 8.7 作者文档清单（P4.5 一并交付）
+
+| 文档                              | 位置                                     |
+| --------------------------------- | ---------------------------------------- |
+| 快速开始（30 分钟做出可安装插件） | `extensions/README.md`                   |
+| 契约参考                          | [extension-spec.md](./extension-spec.md) |
+| SDK 用法（IPC / i18n / 诊断上报） | `@bench/ext-sdk` 包内 README             |
+| 提交 registry                     | 本文 §8.5                                |
+
+---
+
+## 9. 宿主侧运维流程
+
+| 场景                 | 流程                                                                                           | 归属   |
+| -------------------- | ---------------------------------------------------------------------------------------------- | ------ |
+| **bundled 随包发布** | `extensions:build` 产物接入 `tauri build` → 随正式包分发 → 首次启动拷入 `$APPDATA/extensions/` | P3.4   |
+| **市场安装**         | 见 [spec §6.1](./extension-spec.md) 端到端步骤                                                 | P4     |
+| **权限披露**         | 安装前展示 `manifest.acl.commands` 的人类可读描述                                              | P4     |
+| **更新提示**         | registry 版本比对 + `engines` 升级引导 + `yanked` 提示                                         | P4     |
+| **吊销**             | 拉取 registry 时同步 `revoked[]` → 强制禁用 + 警示                                             | P4     |
+| **审计**             | 追加式 `$APPDATA/ext-audit.log`，字段见 [spec §6.2](./extension-spec.md) 与 roadmap P3.3       | P3.3   |
+| **诊断**             | 插件中心诊断面板查看 ext 日志（替代裸 JSON）                                                   | P4     |
+| **卸载**             | `ext_uninstall`：关窗 + 删目录（仅限合法插件目录）+ `DestructiveConfirmDialog`                 | 已实现 |
+
+---
+
+## 10. 文档地图（插件化）
+
+| 文档                                                                         | 层                   | 职责                                                                 |
+| ---------------------------------------------------------------------------- | -------------------- | -------------------------------------------------------------------- |
+| [extension-spec.md](./extension-spec.md)                                     | Reference            | **契约唯一规格**：manifest / 签名 / registry / 产物格式 / ACL / 版本 |
+| [extension-workflow.md](./extension-workflow.md)（本文）                     | Explanation + How-to | 架构边界、仓库组织、开发→发布工作流                                  |
+| [modules/extension-center/roadmap.md](./modules/extension-center/roadmap.md) | Roadmap              | **执行顺序与状态唯一清单**（含行业依据与技术铁律附录）               |
+| [product-specs/extension-center.md](./product-specs/extension-center.md)     | Reference            | 插件中心的功能规格（界面 / 交互 / 异常）                             |
+| [planned/extension-center.md](./planned/extension-center.md)                 | Roadmap              | 插件中心未实现项                                                     |
+| [DECISIONS.md](./DECISIONS.md) D-023 / D-024                                 | Explanation          | 方向性决策                                                           |

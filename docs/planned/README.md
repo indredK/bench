@@ -4,23 +4,24 @@
 
 ## 结构
 
-每模块一个文件：`<模块名>.md`，与 `docs/product-specs/<模块名>.md` 同结构、一一对应（16 个模块全覆盖）。
+每模块一个文件：`<模块名>.md`，与 `docs/product-specs/<模块名>.md` 同结构、一一对应（16 个 feature 全覆盖；另有 `photo-triage.md` 为已迁出的 **bundled 插件**规格，一并维护）。
 
 ## 全局规划视图（待办项数速览）
 
 > 详单见各模块文件；勾选式 `- [ ]` 实现完成即从对应文件移除。
 
-| 模块                                    | 待实现 / 待验证 | 远期   | 模块                                      | 待实现 / 待验证 | 远期   |
-| --------------------------------------- | --------------- | ------ | ----------------------------------------- | --------------- | ------ |
-| [account-manager](./account-manager.md) | 22              | 3      | [network-probe](./network-probe.md)       | 15              | 6      |
-| [app-manager](./app-manager.md)         | 6               | 3      | [photo-triage](./photo-triage.md)         | 5               | 3      |
-| [clean-space](./clean-space.md)         | 4               | 4      | [port-manager](./port-manager.md)         | 5               | 2      |
-| [command-center](./command-center.md)   | 6               | 2      | [quick-launch](./quick-launch.md)         | 6               | 2      |
-| [dev-cleaner](./dev-cleaner.md)         | 4               | 2      | [system-settings](./system-settings.md)   | 8               | 1      |
-| [dev-toolbox](./dev-toolbox.md)         | 6               | 2      | [terminology](./terminology.md)           | 7               | 2      |
-| [env-detector](./env-detector.md)       | 5               | 1      | [token-calculator](./token-calculator.md) | 3               | 0      |
-| [hardware](./hardware.md)               | 4               | 2      | [updater](./updater.md)                   | 4               | 0      |
-| **合计**                                | **118**         | **35** | <br />                                    | <br />          | <br /> |
+| 模块                                      | 待实现 / 待验证 | 远期   | 模块                                      | 待实现 / 待验证 | 远期   |
+| ----------------------------------------- | --------------- | ------ | ----------------------------------------- | --------------- | ------ |
+| [account-manager](./account-manager.md)   | 22              | 3      | [network-probe](./network-probe.md)       | 15              | 6      |
+| [app-manager](./app-manager.md)           | 6               | 3      | [photo-triage](./photo-triage.md)         | 5               | 3      |
+| [clean-space](./clean-space.md)           | 4               | 4      | [port-manager](./port-manager.md)         | 5               | 2      |
+| [command-center](./command-center.md)     | 6               | 2      | [quick-launch](./quick-launch.md)         | 6               | 2      |
+| [dev-cleaner](./dev-cleaner.md)           | 4               | 2      | [system-settings](./system-settings.md)   | 8               | 1      |
+| [dev-toolbox](./dev-toolbox.md)           | 6               | 2      | [terminology](./terminology.md)           | 7               | 2      |
+| [env-detector](./env-detector.md)         | 5               | 1      | [token-calculator](./token-calculator.md) | 3               | 0      |
+| [extension-center](./extension-center.md) | 22              | 0      | [updater](./updater.md)                   | 4               | 0      |
+| [hardware](./hardware.md)                 | 4               | 2      | <br />                                    | <br />          | <br /> |
+| **合计**                                  | **140**         | **35** | <br />                                    | <br />          | <br /> |
 
 ## 统一模板（每份文档均含）
 

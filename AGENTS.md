@@ -29,13 +29,14 @@
 
 ## 工作流路由
 
-| 指令关键词                      | 路由到                            |
-| ------------------------------- | --------------------------------- |
-| review / 审查 / 审计 / 检查代码 | `docs/AI-WORKFLOWS.md → /review`  |
-| fix / 修复 / 改 bug / 修 bug    | `docs/AI-WORKFLOWS.md → /fix`     |
-| doc / 文档 / 更新文档 / 对齐    | `docs/AI-WORKFLOWS.md → /doc`     |
-| feature / 新功能 / 开发 / 实现  | `docs/AI-WORKFLOWS.md → /feature` |
-| audit / 审计 Phase N (N=1..8)   | 继续阅读下方对应 Phase            |
+| 指令关键词                                      | 路由到                                                                                                                                                                                                                                                                      |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| review / 审查 / 审计 / 检查代码                 | `docs/AI-WORKFLOWS.md → /review`                                                                                                                                                                                                                                            |
+| fix / 修复 / 改 bug / 修 bug                    | `docs/AI-WORKFLOWS.md → /fix`                                                                                                                                                                                                                                               |
+| doc / 文档 / 更新文档 / 对齐                    | `docs/AI-WORKFLOWS.md → /doc`                                                                                                                                                                                                                                               |
+| feature / 新功能 / 开发 / 实现                  | `docs/AI-WORKFLOWS.md → /feature`                                                                                                                                                                                                                                           |
+| audit / 审计 Phase N (N=1..8)                   | 继续阅读下方对应 Phase                                                                                                                                                                                                                                                      |
+| extension / 插件 / 插件化 / manifest / registry | **先读** `docs/extension-spec.md`（契约唯一规格：manifest / 签名 / registry / 产物格式 / ACL）+ `docs/modules/extension-center/roadmap.md`（执行状态唯一清单）；架构与工作流见 `docs/extension-workflow.md`。**改 Rust `extension_host/**` 前必跑 `pnpm run check:be-cfg`** |
 
 **始终遵守**：
 

@@ -25,4 +25,7 @@
 ## 关联文档
 
 - [roadmap.md](./roadmap.md) — 执行状态与顺序唯一清单（含行业依据与技术铁律附录）
-- [../../extension-workflow.md](../../extension-workflow.md) — 架构边界、仓库组织与工作流
+- [../../extension-spec.md](../../extension-spec.md) — **契约唯一规格**：manifest / 签名 / registry / 产物格式 / ACL / 运行时接口
+- [../../extension-workflow.md](../../extension-workflow.md) — 架构边界、仓库组织、作者侧与宿主侧工作流
+- [../../product-specs/extension-center.md](../../product-specs/extension-center.md) — 插件中心功能规格
+- [../../planned/extension-center.md](../../planned/extension-center.md) — 插件中心未完成项
