@@ -51,7 +51,10 @@
     "extensions:sync": "node scripts/plugins/sync-extensions.mjs",
     "extensions:build": "node scripts/plugins/build-extensions.mjs",
     "extensions:stage": "node scripts/plugins/stage-bundled-extensions.mjs",
-    "audit:ext-i18n": "node scripts/plugins/audit-extension-i18n.mjs"
+    "audit:ext-i18n": "node scripts/plugins/audit-extension-i18n.mjs",
+    "sync:ext-repos": "node scripts/plugins/sync-extension-repos.mjs",
+    "update:ext-registry": "node scripts/plugins/update-extension-registry.mjs",
+    "pack:ext": "node scripts/plugins/pack-extension.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
