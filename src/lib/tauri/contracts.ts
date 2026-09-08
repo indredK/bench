@@ -788,6 +788,9 @@ export const TAURI_COMMAND_CONTRACTS = {
   open_system_network_settings: defineTauriCommand<undefined, void>()(
     "open_system_network_settings",
   ),
+  // extension host (P1 spike: 运行时插件前端 bundle)
+  ext_poc_open: defineTauriCommand<undefined, string>()("ext_poc_open"),
+  ext_poc_report: defineTauriCommand<{ payload: unknown }, void>()("ext_poc_report"),
 } as const
 
 export type TauriCommandName = keyof typeof TAURI_COMMAND_CONTRACTS
@@ -1112,6 +1115,11 @@ export const TAURI_COMMANDS = {
     deleteEmptyDirs: commandName("photo_triage_delete_empty_dirs"),
     export: commandName("photo_triage_export"),
   },
+  // extension host (P1 spike: 运行时插件前端 bundle)
+  extensionHost: {
+    openPoc: commandName("ext_poc_open"),
+    reportPoc: commandName("ext_poc_report"),
+  },
 } as const
 
 type FlattenCommandGroups<T> = {
@@ -1429,6 +1437,9 @@ export const TAURI_COMMAND_ARG_KEYS = {
   check_hosts_overrides: [],
   get_firewall_status: [],
   open_system_network_settings: [],
+  // extension host (P1 spike: 运行时插件前端 bundle)
+  ext_poc_open: [],
+  ext_poc_report: ["payload"],
 } as const satisfies TauriCommandArgKeys
 
 export const WINDOW_BOOTSTRAP_EVENTS = {

@@ -1,5 +1,14 @@
 # Bench 2.0 发布差距清单
 
+> ## 🔄 降级公告（2026-09-08 · [D-023](./docs/DECISIONS.md#d-023--20-目标变更为插件化生态r00r10-全部降级)）
+>
+> **本清单全部 37 项差距（A1–A5 / D1–D7 / E1–E3）已随 R00–R10 一并降级为 backlog，不再是 2.0 发版门禁。** 2.0 目标已变更为「插件化生态」。
+>
+> - **本文件转为技术债台账**，保留供插件化迁移时按模块评估，暂不删除（原定「全部关闭后删除」条款作废）。
+> - **必须重新评估的例外项**（插件分发启用前）：A5-1/A5-2/A5-3（持久化 schema 与迁移）、A3-1（RC dry-run）、A3-6（minisign 密钥与 OS-SIGNING-NOTICE，直接关系插件签名链）。
+> - 审计基线仍为 commit `44edf42`（1.28.0），但当前代码版本已推进至 1.30.0，复核时须重新对齐。
+> - 执行序列见 [plugin-market-assessment.md §9](./docs/plugin-market-assessment.md)。
+
 > **性质**：本文件是 [docs/ROADMAP.md](docs/ROADMAP.md) R00–R10 的差距明细展开，供 2.0 收尾执行使用；**不构成第二份路线图**（D-013）。全部差距关闭后本文件应删除，执行状态仍以 ROADMAP.md 为准。
 >
 > **审计基线**：commit `44edf42`（1.28.0），静态代码审计于 2026-09-03 完成，覆盖 Account Manager / App Manager / Quick Launch / Updater / CI 流水线 / UX·a11y / 持久化迁移七大领域。

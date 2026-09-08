@@ -1,0 +1,1101 @@
+<!doctype html>
+<html lang="zh-CN" data-page-node-id="iS1BsEh6wDA6UpQ1AIQqxr">
+  <head data-page-node-id="6sDdWGEtykPsfglENH4ddu">
+    <meta charset="UTF-8" data-page-node-id="eD9kyZFa090hwJSJQNI4oE" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+      data-page-node-id="mStSHlyUxymrsGgW9hWaGD"
+    />
+    <title>Bench 2.0 插件化目标 · 可行性评估看板</title>
+    <style>
+      :root {
+        --bg: #f7f8fa;
+        --surface: #ffffff;
+        --border: #e3e6ea;
+        --border-strong: #cfd4da;
+        --text: #1a1d21;
+        --text-2: #4a5158;
+        --text-3: #78828c;
+        --red: #c8342b;
+        --red-bg: #fdf0ef;
+        --amber: #a86a00;
+        --amber-bg: #fdf6e8;
+        --green: #1f7a4d;
+        --green-bg: #eef8f2;
+        --blue: #1f5fbf;
+        --blue-bg: #eef3fc;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          -apple-system, BlinkMacSystemFont, "SF Pro SC", "PingFang SC", "Helvetica Neue",
+          system-ui, sans-serif;
+        line-height: 1.65;
+        padding: 32px 20px 64px;
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrap {
+        max-width: 1120px;
+        margin: 0 auto;
+      }
+
+      header {
+        margin-bottom: 28px;
+        padding-bottom: 20px;
+        border-bottom: 2px solid var(--border-strong);
+      }
+      h1 {
+        font-size: 26px;
+        font-weight: 650;
+        letter-spacing: -0.3px;
+        margin-bottom: 8px;
+      }
+      .meta {
+        font-size: 13px;
+        color: var(--text-3);
+      }
+      .meta b {
+        color: var(--text-2);
+        font-weight: 550;
+      }
+
+      .verdict {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-left: 4px solid var(--red);
+        border-radius: 8px;
+        padding: 20px 22px;
+        margin-bottom: 28px;
+      }
+      .verdict .tag {
+        display: inline-block;
+        font-size: 11px;
+        font-weight: 650;
+        letter-spacing: 0.6px;
+        color: var(--red);
+        background: var(--red-bg);
+        border: 1px solid #f2cfcc;
+        padding: 2px 8px;
+        border-radius: 4px;
+        margin-bottom: 10px;
+      }
+      .verdict p {
+        font-size: 15.5px;
+        color: var(--text);
+      }
+      .verdict p + p {
+        margin-top: 10px;
+        color: var(--text-2);
+        font-size: 14.5px;
+      }
+
+      h2 {
+        font-size: 13px;
+        font-weight: 650;
+        letter-spacing: 1px;
+        color: var(--text-3);
+        text-transform: uppercase;
+        margin: 36px 0 14px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--border);
+      }
+      h2:first-of-type {
+        margin-top: 0;
+      }
+
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(268px, 1fr));
+        gap: 14px;
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 16px 18px;
+      }
+      .card .k {
+        font-size: 12px;
+        color: var(--text-3);
+        margin-bottom: 6px;
+      }
+      .card .v {
+        font-size: 20px;
+        font-weight: 650;
+        letter-spacing: -0.3px;
+        margin-bottom: 6px;
+      }
+      .card .d {
+        font-size: 13px;
+        color: var(--text-2);
+        line-height: 1.55;
+      }
+      .card.r {
+        border-left: 3px solid var(--red);
+      }
+      .card.r .v {
+        color: var(--red);
+      }
+      .card.a {
+        border-left: 3px solid var(--amber);
+      }
+      .card.a .v {
+        color: var(--amber);
+      }
+      .card.g {
+        border-left: 3px solid var(--green);
+      }
+      .card.g .v {
+        color: var(--green);
+      }
+      .card.b {
+        border-left: 3px solid var(--blue);
+      }
+      .card.b .v {
+        color: var(--blue);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        overflow: hidden;
+        font-size: 13.5px;
+      }
+      th {
+        background: #f0f2f5;
+        text-align: left;
+        padding: 10px 12px;
+        font-weight: 600;
+        color: var(--text-2);
+        border-bottom: 1px solid var(--border);
+        white-space: nowrap;
+      }
+      td {
+        padding: 10px 12px;
+        border-bottom: 1px solid #eef0f3;
+        vertical-align: top;
+        color: var(--text);
+      }
+      tr:last-child td {
+        border-bottom: none;
+      }
+      td.num {
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+      }
+      .ok {
+        color: var(--green);
+        font-weight: 600;
+      }
+      .bad {
+        color: var(--red);
+        font-weight: 600;
+      }
+      .warn {
+        color: var(--amber);
+        font-weight: 600;
+      }
+      code {
+        font-family: "SF Mono", Menlo, Consolas, monospace;
+        font-size: 12.5px;
+        background: #f0f2f5;
+        padding: 1px 5px;
+        border-radius: 3px;
+        color: #2c3138;
+      }
+
+      .flag {
+        display: inline-block;
+        font-size: 11px;
+        font-weight: 650;
+        padding: 2px 7px;
+        border-radius: 3px;
+        white-space: nowrap;
+      }
+      .flag.r {
+        background: var(--red-bg);
+        color: var(--red);
+        border: 1px solid #f2cfcc;
+      }
+      .flag.a {
+        background: var(--amber-bg);
+        color: var(--amber);
+        border: 1px solid #f0dfba;
+      }
+      .flag.g {
+        background: var(--green-bg);
+        color: var(--green);
+        border: 1px solid #c8e6d5;
+      }
+
+      .correction {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        overflow: hidden;
+        margin-bottom: 14px;
+      }
+      .correction .hd {
+        padding: 12px 16px;
+        background: var(--red-bg);
+        border-bottom: 1px solid #f2cfcc;
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .correction .bd {
+        padding: 14px 16px;
+        font-size: 13.5px;
+        color: var(--text-2);
+      }
+      .correction .bd strong {
+        color: var(--text);
+      }
+      .correction ul {
+        margin: 10px 0 0 18px;
+      }
+      .correction li {
+        margin-bottom: 6px;
+      }
+      .correction .fix {
+        margin-top: 12px;
+        padding: 10px 12px;
+        background: var(--green-bg);
+        border: 1px solid #c8e6d5;
+        border-radius: 5px;
+        color: #1a5c3a;
+        font-size: 13px;
+      }
+
+      .two {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+      @media (max-width: 840px) {
+        .two {
+          grid-template-columns: 1fr;
+        }
+      }
+      .box {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 16px 18px;
+      }
+      .box h3 {
+        font-size: 14px;
+        font-weight: 650;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .box ul {
+        margin-left: 16px;
+        font-size: 13.5px;
+        color: var(--text-2);
+      }
+      .box li {
+        margin-bottom: 7px;
+      }
+      .box li b {
+        color: var(--text);
+      }
+      .box.old h3 {
+        color: var(--text-3);
+      }
+      .box.new {
+        border-color: #b9cdf0;
+        box-shadow: 0 0 0 3px rgba(31, 95, 191, 0.06);
+      }
+      .box.new h3 {
+        color: var(--blue);
+      }
+
+      .steps {
+        counter-reset: s;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 6px 18px;
+      }
+      .step {
+        display: flex;
+        gap: 14px;
+        padding: 12px 0;
+        border-bottom: 1px solid #eef0f3;
+        align-items: baseline;
+      }
+      .step:last-child {
+        border-bottom: none;
+      }
+      .step .n {
+        counter-increment: s;
+        flex: 0 0 26px;
+        height: 26px;
+        border-radius: 50%;
+        background: var(--blue-bg);
+        color: var(--blue);
+        font-size: 12px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .step .n::before {
+        content: counter(s);
+      }
+      .step .t {
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 2px;
+      }
+      .step .x {
+        font-size: 13px;
+        color: var(--text-2);
+      }
+      .step .x .flag {
+        margin-left: 6px;
+      }
+
+      .todo {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 4px 18px;
+      }
+      .todo .row {
+        display: flex;
+        gap: 12px;
+        padding: 12px 0;
+        border-bottom: 1px solid #eef0f3;
+        font-size: 13.5px;
+        align-items: baseline;
+      }
+      .todo .row:last-child {
+        border-bottom: none;
+      }
+      .todo .q {
+        flex: 0 0 22px;
+        height: 22px;
+        border-radius: 4px;
+        background: #f0f2f5;
+        color: var(--text-3);
+        font-size: 11px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 2px;
+      }
+      .todo .m b {
+        display: block;
+        margin-bottom: 2px;
+      }
+      .todo .m span {
+        color: var(--text-2);
+        font-size: 13px;
+      }
+
+      footer {
+        margin-top: 36px;
+        padding-top: 16px;
+        border-top: 1px solid var(--border);
+        font-size: 12px;
+        color: var(--text-3);
+      }
+    </style>
+  </head>
+  <body data-page-node-id="Adc3dyVc38f3OVnjt6NniT">
+    <div class="wrap" data-page-node-id="5yfYrWJ8VIWye2QvcOmuS2">
+      <header data-page-node-id="Cok5XHHqPHtng4SngMddfx">
+        <h1 data-page-node-id="HqW5lqpvBAaAsTTfGElv7U">Bench 2.0 插件化目标 · 可行性评估看板</h1>
+        <div class="meta" data-page-node-id="v5op203zTAURtR8gQRDHLV">
+          评估对象：<b data-page-node-id="480Tyk5nnivkMR0b3YCxSM">docs/plugin-architecture.md</b
+          >（新增 202 行） +
+          <b data-page-node-id="TGlxpWBhH1zbZi4HJyAY3Z">DECISIONS.md D-022</b>　·　
+          日期：2026-09-08　·　方法：仓库实读核验 + 三路并行行业调研
+        </div>
+      </header>
+
+      <div class="verdict" data-page-node-id="91dbDGbWSHIqHSJF8AsBLz">
+        <span class="tag" data-page-node-id="ZhfA17NXp4LZMocDFto3wQ">核心结论</span>
+        <p data-page-node-id="0oZGM6KHoP55W8v96vUkZ0">
+          技术方案大体可行，但<b data-page-node-id="QhbZhaNihltIy4lfJYWCl1"
+            >建立在一个已被推翻的技术前提上</b
+          >；真正的风险不在技术，而在"这个产品是否真的需要插件市场"这一尚未回答的问题。
+        </p>
+        <p data-page-node-id="puKp3wHoCfvUufmT8Gt56v">
+          设计文档把「Tauri 运行时不能热载整屏 UI」当作核心约束，而该约束不成立——项目自身已启用
+          <code data-page-node-id="YyOPhSnIsa6N5pqFEOiW2J">protocol-asset</code
+          >。前提纠正后，方案性价比排序反转：<b data-page-node-id="PClOBp5FFs6Ih0OyDFLy5C"
+            >前端 bundle 插件（uTools 范式）明显优于 WASM 逻辑插件（Zed/Lapce 范式）</b
+          >，因为 Bench 的 16 个模块 90% 的工作量是 UI 而非逻辑。
+        </p>
+      </div>
+
+      <h2 data-page-node-id="T4wgB4klZfkHp7G4q2xGJw">一、变更核验：文档自述 vs 仓库实测</h2>
+      <div class="cards" data-page-node-id="3TCNBD8ouKpqWmXBfJR3vn">
+        <div class="card g" data-page-node-id="kXclVe7BpZgwvnUgxDyzaV">
+          <div class="k" data-page-node-id="b5YjCcNYQJbphIF1hLtB5F">feature 模块数</div>
+          <div class="v" data-page-node-id="ZqsQex7LTyACUby6DtRvUs">16 ✅</div>
+          <div class="d" data-page-node-id="upJOzJP2EsoCbwFkz00ADU">
+            21 项 − 5 个非模块文件，与文档一致
+          </div>
+        </div>
+        <div class="card r" data-page-node-id="yfR0Ovbddqb4YehFzwvrO2">
+          <div class="k" data-page-node-id="blxUxhFxMOSFUQDq0xAVfZ">IPC 命令数</div>
+          <div class="v" data-page-node-id="OnnfitMhEpZsJAaa8irPRP">
+            253
+            <span style="font-size: 13px" data-page-node-id="J00S5ZhQfO5gF2z23m1OSK">≠ 169</span>
+          </div>
+          <div class="d" data-page-node-id="4HDMWlgXmyXGCIm9cQupU2">
+            文档称 169 条，实测 <b data-page-node-id="9YsKBRelrG9gRpViodG4Ux">253 条</b>，<b
+              data-page-node-id="WvYcPHrnj9bf6RyyrLsICR"
+              >低估 49.7%</b
+            >，迁移基数需重估
+          </div>
+        </div>
+        <div class="card g" data-page-node-id="qhaX77SZLEjQKBFsyr9x0T">
+          <div class="k" data-page-node-id="PXO8V5K3ZHazRLcWKACIyB">lib.rs .manage</div>
+          <div class="v" data-page-node-id="X0sLdCUYiADNzSFBwhCld7">11 ✅</div>
+          <div class="d" data-page-node-id="I0DSqqLB62EffcAsXEt6ZM">与文档一致</div>
+        </div>
+        <div class="card b" data-page-node-id="Jdhpcf2wBMaZwHUkWFMSbO">
+          <div class="k" data-page-node-id="nwcqjZr3zlpsLajQNevdP2">附加发现</div>
+          <div class="v" data-page-node-id="ychZsnHE6nUxlXrbRfY9SF">Tauri v2</div>
+          <div class="d" data-page-node-id="D1DwrdAEDrWoUSDD1ENOW2">
+            React 19.2；<code data-page-node-id="FLwGiwe2l2QrW5gwEX6zGP">protocol-asset</code>
+            已启用但 <code data-page-node-id="ZAGPxYdewZFFAQcLuYziDl">scope: []</code> 为空；Windows
+            CI 已暂停（D-021）
+          </div>
+        </div>
+      </div>
+
+      <h2 data-page-node-id="Hx8jDP1gJXgPT30LY5icuH">二、技术论断事实核查</h2>
+
+      <div class="correction" data-page-node-id="0ODEt1wqRRkYhwnN79J4Oy">
+        <div class="hd" data-page-node-id="EmP1Nc3HQyy7c1TWR9vEU9">
+          <span class="flag r" data-page-node-id="gZ3FXEiG22vzkm67MfxkA4">不成立</span
+          >　「运行时不能热载全新的 renderer 整屏页面」
+        </div>
+        <div class="bd" data-page-node-id="mc92eKPaL9wLfpGfOnOrFv">
+          文档原文：<i data-page-node-id="c722YBACjAS3FtVSAvB7kM"
+            >「Tauri 的 WebView 是静态打包，运行时不能热载新的 renderer
+            页面……不能自由下载到一个全新整屏页面」</i
+          >
+          <ul data-page-node-id="B3oMbnPEaR9WaNSwP1gH7B">
+            <li data-page-node-id="aj3SPoTc8x3MpgNWWMj5ow">
+              <strong data-page-node-id="W4tNHwtkM368FcKFV8OzkB"
+                >Tauri v2
+                <code data-page-node-id="cpqSXyLii95rdEVu1Fi102"
+                  >register_uri_scheme_protocol</code
+                ></strong
+              >：handler 是 Rust 闭包，可从磁盘任意路径（含 app data dir）读取 HTML/JS/CSS 作为 HTTP
+              Response 返回。协议构建期注册，但 handler 读取的是<strong
+                data-page-node-id="doNS7aVt14VUeXqrYAyIGM"
+                >运行时文件</strong
+              >——"注册期静态、内容动态"。
+            </li>
+            <li data-page-node-id="AXsydTP8g7gkIGntF1SOPG">
+              <strong data-page-node-id="jshQ20BWy94JwKUGnezyVh">asset protocol</strong>：配置
+              <code data-page-node-id="BfxHpeLeVACQkwAO1iZKHs">scope:["$APPDATA/**"]</code>
+              即可访问运行时下载的前端 bundle。
+            </li>
+            <li data-page-node-id="rd6jRSOFlVEyKdp34pSrQr">
+              <strong data-page-node-id="9HfBlgvy0ypl9ux0Bow0Qq">社区实证</strong>：<code
+                data-page-node-id="9qIodEIgdATgvgGugvvYFO"
+                >keathmilligan/tauri-dynamic</code
+              >
+              运行时从磁盘加载插件 UI（manifest + main.js），dynamic import + blob URL，无需重启。
+            </li>
+            <li data-page-node-id="GoDgx2wNlS7XrCdrqw37hL">
+              <strong data-page-node-id="1XqnJG8oT8eI09gt9C18MU">本项目自身</strong>：<code
+                data-page-node-id="ZyNo2RS0NFD9e0MINx0AhD"
+                >Cargo.toml</code
+              >
+              已启用 <code data-page-node-id="xfCx6BJbeEarxHm3UZvSh2">protocol-asset</code>，<code
+                data-page-node-id="8oNwF7h2DjuUI4UCjTOF4U"
+                >tauri.conf.json</code
+              >
+              已
+              <code data-page-node-id="2puoDt5f5lqnwxHJw8Z0fr">enable: true</code>——路径已铺了一半。
+            </li>
+          </ul>
+          <div class="fix" data-page-node-id="ECdbEfo6nfQkyD6lvICa8G">
+            <b data-page-node-id="ITxKdrM3jOVMDoHNqIlEHM">影响：</b>整个 B-lite
+            路线的核心取舍依据失效，方案空间重新打开。<b data-page-node-id="MVvbM2CeBGBi6QmH4ezOr6"
+              >两个具体阻塞点：</b
+            >① <code data-page-node-id="NSr85j1AuGnKZJOtdXal5F">assetProtocol.scope</code> 需从
+            <code data-page-node-id="hA0eusm6j6nUA5fa6PqHRz">[]</code> 改为
+            <code data-page-node-id="kxFGczVyNzNdpvAGCCp9VO">["$APPDATA/**"]</code>；② CSP
+            <code data-page-node-id="6AsFu4RONOzVCwUDvAhfHB">script-src 'self'</code> 未含
+            <code data-page-node-id="HeGz4H68aYI7AvaQQdX3Xz">asset: http://asset.localhost</code
+            >，插件 JS 会被直接拦截。
+          </div>
+        </div>
+      </div>
+
+      <div class="correction" data-page-node-id="Gfh35DxRUwpdldri4WaTJY">
+        <div class="hd" data-page-node-id="qg2BMEVF3k4l0Zz5K7rJrf">
+          <span class="flag a" data-page-node-id="ri9EjNGJAS2hHCXunhs3dh">机制误用</span>　「插件经
+          sidecar 交付」
+        </div>
+        <div class="bd" data-page-node-id="qBfmRdjVBuvmFGw3zqiwCr">
+          Tauri sidecar 的二进制必须在
+          <code data-page-node-id="vOnXqAXIXmj9d6Rz5ZOYFx">tauri.conf.json</code> 的
+          <code data-page-node-id="pEci4H8xagRzqCIBo8jtYd">externalBin</code>
+          <strong data-page-node-id="nGXracF8C1i8oWLDP6XabO">构建期声明</strong>并打进
+          bundle；<strong data-page-node-id="TNORDf51bUKzGWZdYMd9BG"
+            >构建期未声明的二进制无法用 sidecar API 运行</strong
+          >。
+          <div class="fix" data-page-node-id="6y4P07fpvFFQTDRJYPfUly">
+            运行时下载的二进制须改用
+            <b data-page-node-id="HKUDeBbPshhTD5FBfHdwkT"
+              >shell plugin 的 <code data-page-node-id="CoPJObHWiSw06uv6I6BaXO">Command</code></b
+            >
+            按绝对路径执行，并配置
+            <code data-page-node-id="Sq7d3nJfQBjW81CnxW0c4t">shell:allow-execute</code> ACL 与参数
+            validator。文档 §2.1 未区分这两者，实现时会撞墙。
+          </div>
+        </div>
+      </div>
+
+      <div class="correction" data-page-node-id="5GZTBADPbfH2LEoVLK7AcD">
+        <div class="hd" data-page-node-id="TcGdAGmCYN3RH6PQ0XuUqX">
+          <span class="flag a" data-page-node-id="S71F6DqHgC5zTOB1C6wfO3">术语冲突</span
+          >　「plugin」在 Tauri 语境下是编译期概念
+        </div>
+        <div class="bd" data-page-node-id="cP8UPJfAzoqJ9XVsyt8VBb">
+          Tauri 官方定义 plugin = Cargo crate + 可选 NPM 包，<code
+            data-page-node-id="S30XOGCn6sS23tSTacugmE"
+            >.plugin(init())</code
+          >
+          <strong data-page-node-id="tdFZydQxZHrFSx20P3jHUo">构建期</strong>注册、"compiled into the
+          application at build time"。项目已有
+          <code data-page-node-id="uo1DBNeHodbqgGwwHnGKRL">tauri-plugin-dialog/-shell/-store</code>
+          等编译期插件，再引入"运行时 plugin"将持续混淆（对 AI 尤甚，<code
+            data-page-node-id="bi7g7sSUXg5K0ovUPY3CZ3"
+            >.cursorrules</code
+          >
+          第 9 条明令禁止自行推断技术栈）。
+          <div class="fix" data-page-node-id="oStWtJXQNSCY2cRTtGxZu3">
+            建议改用独立术语：<b data-page-node-id="w3SuWT0ij0ljCqfjJhCHDy"
+              >extension / addon / 能力包</b
+            >。
+          </div>
+        </div>
+      </div>
+
+      <h2 data-page-node-id="Bs6ewgsgECNtFPuTVvdl1Y">三、工程可靠性：头号风险</h2>
+      <div class="cards" data-page-node-id="JEFT0jz9gk1472DKTNDgk7">
+        <div class="card r" data-page-node-id="PuIDJKd8jHHc2XwbpFJ6E0">
+          <div class="k" data-page-node-id="p01EcFjBpi9FeqjKF1Gnvu">🔴 头号风险</div>
+          <div class="v" data-page-node-id="wAnZ9IdG7RSzDXgue6Faa9">Windows CI 已暂停</div>
+          <div class="d" data-page-node-id="EAZsij32t2dZshxP3UVoP5">
+            引入 wasmtime = 引入 cranelift 等重型依赖链，Windows MSVC 是其最脆弱场景。而 Windows CI
+            因 D-021 已停用、macOS 无法交叉编译 →
+            <b data-page-node-id="r4MYIn5AJm2NGdeDMGhKlV">一个在 CI 上完全无法验证的目标</b>。<code
+              data-page-node-id="HD36B0TlnbKsOdntuZl2GM"
+              >check:be-cfg</code
+            >
+            是正则守卫，查不出 MSVC 链接失败。
+          </div>
+        </div>
+        <div class="card a" data-page-node-id="CxzCk574gjqiucTEaAc6jf">
+          <div class="k" data-page-node-id="mEk1dUT5NXjdk2Vj5ciGeK">迁移基数</div>
+          <div class="v" data-page-node-id="XTgzMTG1YWLnVaH9HUw95i">253 条命令</div>
+          <div class="d" data-page-node-id="agMCQDJbrLxaXXx5BTubO7">
+            非 169。若"绝大部分功能插件化"，绝大多数命令都需重定宿主边界与
+            ACL——本方案最大隐性工程量。
+          </div>
+        </div>
+        <div class="card a" data-page-node-id="svM84HISfc7UWGTlSsqiBj">
+          <div class="k" data-page-node-id="0C6pErCn87sGXCUL2yyutE">现状技术债</div>
+          <div class="v" data-page-node-id="UU4wwBGgw5c0nEATFqNQ0w">37 项未关闭</div>
+          <div class="d" data-page-node-id="StOWHTt7gYGFAuPTAJFiwv">
+            <code data-page-node-id="SJXDD8EHza0H2Bb6537zQ9">GAP-TO-2.0.md</code> 尚有 37 项差距（含
+            10 项 P0）+ D1–D7 真机验收未完成。插件化是在债务之上的新建筑。
+          </div>
+        </div>
+        <div class="card b" data-page-node-id="kr2IZ8TlVtTjcWSJC4Yq6V">
+          <div class="k" data-page-node-id="26h7CAMLTNe0nNDFVMwfI4">可复用资产</div>
+          <div class="v" data-page-node-id="vdtPOF4u9Fke9mE0rsCZNM">minisign / 能力矩阵</div>
+          <div class="d" data-page-node-id="H7iRSP6Qr03p4op0a4JY8H">
+            但文档 plugin 侧未引用
+            <code data-page-node-id="4aNODB0bO03aDkdCv5MjFR">updater/keys/</code> 已有 minisign
+            密钥链，反而重新设计签名——设计冗余。
+          </div>
+        </div>
+      </div>
+
+      <h2 data-page-node-id="wHMAcaEbCRn0hpBfXkKpqu">四、行业调研 A · 同技术栈（Rust + WASM）</h2>
+      <table data-page-node-id="JuMqROCMrnwgawHwqPEWOr">
+        <tr data-page-node-id="dyNngNCDy5sehlAAGERRw9">
+          <th data-page-node-id="ZIMKj5mmPsxyG3fnGqMDga">项目</th>
+          <th data-page-node-id="IzXTpMuPhQxXOqRu2BXUil">插件形态 / runtime</th>
+          <th data-page-node-id="0mEtOiuLI15NTjTddoJFr6">宿主 API 模型</th>
+          <th data-page-node-id="cHCi6YEyVXN39Xe8G5g2bp">分发与安全</th>
+          <th data-page-node-id="50YDZXGgMxTQG3RNY3L6Dd">插件能否贡献 UI</th>
+          <th data-page-node-id="yIA4WoBFiUobeXeWyNnOAS">生态规模</th>
+        </tr>
+        <tr data-page-node-id="WoJeMxNq5pch7W94uPHZs6">
+          <td data-page-node-id="Wptz8H5YD0LDBCd5kaynj6">
+            <b data-page-node-id="66Y4jqLUqRxXBcGQ4AzCf8">Zed</b>
+          </td>
+          <td data-page-node-id="WzmLA6NzpFyAoL4o89hKqY">
+            WASM (wasip2) · <b data-page-node-id="Q1FQp7c0k1f0Vw5EKMFFPB">wasmtime</b>
+          </td>
+          <td data-page-node-id="KpqaMZnLubYpCRiEC0vtCP">
+            <b data-page-node-id="ROk8uQ3Qx0CMMdnb5GlbdK">WIT + wit_bindgen</b>；extension.toml
+            capability + CapabilityGranter
+          </td>
+          <td data-page-node-id="a6hJQf4u5PLiMCwA49hvJt">官方 registry + schema_version 门控</td>
+          <td class="bad" data-page-node-id="K9BCRXFRoY9pSHIgIBVrK1">❌ 仅 LSP/DAP/主题</td>
+          <td class="num" data-page-node-id="QFfbCDfGqpQEPshdWf8DI8">数百</td>
+        </tr>
+        <tr data-page-node-id="BgdGEujFoIkHBc55U492qq">
+          <td data-page-node-id="9WT0dAdVX5bsTK2WLFqmOB">
+            <b data-page-node-id="LlG4X3nJ0q5WLGCc7BY52w">Lapce</b>
+          </td>
+          <td data-page-node-id="2XtQ9ZPkQR97LQcOCAXPuP">
+            WASM/WASI · <b data-page-node-id="K3PMWi9AqHP1Oa1Jydurlo">wasmtime</b>
+          </td>
+          <td data-page-node-id="BGEpaJjpQcC7lSWhRwFwXj">PSP（自定义 JSON-RPC）+ WasiCtx 受限</td>
+          <td data-page-node-id="4Y64h87T75ZLMjmaHyP1e0">
+            社区 registry，<span class="warn" data-page-node-id="IY3VOPqiXSgGh3Jh1GVvTA"
+              >无完整签名/ACL</span
+            >
+          </td>
+          <td class="bad" data-page-node-id="AF4JOaI7rEwp9g9UOMF2iB">❌ 仅主题/LSP</td>
+          <td class="num" data-page-node-id="4iAgIaPDznDC64W21BwQmN">较小</td>
+        </tr>
+        <tr data-page-node-id="U1n4bhslPRk03yivav6z3D">
+          <td data-page-node-id="WEJaYOeUmkdZjifHv3jwww">
+            <b data-page-node-id="PhJX35Xt8jMQGc6gc0voyh">dprint</b>
+          </td>
+          <td data-page-node-id="azGLXtdITxSHZP34iMqmgm">独立 .wasm</td>
+          <td data-page-node-id="bJUGOfClgHwfW4s5SmLlGM">共享线性内存字节交换协议 (Schema v4)</td>
+          <td data-page-node-id="eA6i0ZYkaIrtVQ0ualZt2p">
+            HTTPS/npm；<span class="warn" data-page-node-id="UCtc9kZMzKFKli4PE23UbM"
+              >WASM 默认无 checksum</span
+            >
+          </td>
+          <td class="bad" data-page-node-id="WecvMYyR8LhIw8Uv80bU74">❌ 纯 formatter</td>
+          <td class="num" data-page-node-id="PZDMeQFKEDCej2o8DZ8o04">数十</td>
+        </tr>
+        <tr data-page-node-id="WKc4JNtNo8uPhA5QRDTpFB">
+          <td data-page-node-id="K6pJoy98LQj0rg22cFVhvO">
+            <b data-page-node-id="bPGw031g1KXlDbRdRrKQYb">Extism</b>
+          </td>
+          <td data-page-node-id="RTqJX4RVuU4nCdqZVjNDIR">WASM + 多语言 PDK</td>
+          <td data-page-node-id="LAPJuvXEtvLKuXvGDnYX4s">
+            <code data-page-node-id="cQKL5KABATqjVJg84zjjUu">extism:host/user</code> host functions
+            + 加载期能力门控
+          </td>
+          <td data-page-node-id="fBqNQtVc1QsyayvsiC4RZi">allowed_hosts + var 限额；XTP 市场</td>
+          <td class="bad" data-page-node-id="XmDF2xvErQDE7oink32MpC">❌ 框架层不提供</td>
+          <td class="num" data-page-node-id="JXyEV4CmUiDxZpBhja1QNl">14+ SDK</td>
+        </tr>
+        <tr data-page-node-id="9X87VBSG8kZuW7dgBsuGDz">
+          <td data-page-node-id="4LEsGUBwHvEzcB3ZBA0aUq">
+            <b data-page-node-id="g1Qj5qvXeKFdLQbEEu5Bw0">Spin</b>
+          </td>
+          <td data-page-node-id="fGQ35OKA4i1jqiD4CDYzBV">WASM Component · wasmtime</td>
+          <td data-page-node-id="ZnHWJ1Fy90DgW0vkkZAuAH">WASI 0.2 + Component Model + WIT</td>
+          <td data-page-node-id="wdyo8ynrn6y4M7FhQlJZwy">allowed_outbound_hosts</td>
+          <td class="bad" data-page-node-id="TTeYzEzHY2dvANlztcRC0R">❌ serverless</td>
+          <td class="num" data-page-node-id="8kO3CowOpWjPwxZd4JQFH4">成熟</td>
+        </tr>
+      </table>
+      <p
+        style="margin-top: 12px; font-size: 13.5px; color: var(--text-2)"
+        data-page-node-id="tutmO6GO4VenB0BWZ34C05"
+      >
+        <b data-page-node-id="zAzKqH1rmcICupiDIMAc0L">决定性洞察：</b>所有纯 WASM 逻辑插件系统<b
+          data-page-node-id="nXHRYlIq3eage649Fw71to"
+          >都没有出现繁荣的第三方生态</b
+        >，插件一律不能贡献 UI，数量在数十至数百量级，与 VS Code（5
+        万+）、uTools（3000+）差两个数量级。编辑器的插件主要贡献语言能力、UI 需求天然弱；<b
+          data-page-node-id="sHq48Sz1DQOzeYG5TAWbSp"
+          >而 Bench 的模块 90% 是 UI</b
+        >。此外，若坚持 WASM 路线，<b data-page-node-id="n4mj0StLojtGvXjWAhyWx2">不应自研 ABI</b
+        >——Extism 或 WIT 二选一即可省掉全部多语言 SDK 成本。
+      </p>
+
+      <h2 data-page-node-id="piXlkelXgLdL3l6R59xRGp">五、行业调研 B · 插件市场型应用范式</h2>
+      <table data-page-node-id="OHr74NuCn9K9E7pcQHXpQ0">
+        <tr data-page-node-id="OfOBUvjAHipBKg8lx6Ivxv">
+          <th data-page-node-id="q9EMczAb7pnEVeiaGhMphf">案例</th>
+          <th data-page-node-id="aG0gMkGPlF7OdvMoxU8hBf">宿主</th>
+          <th data-page-node-id="8EtPsQkhmPA3PITrH3Jg80">插件形态</th>
+          <th data-page-node-id="lPn6lBAjuFwPw0MUSHOaez">UI 呈现</th>
+          <th data-page-node-id="YY7pB7FSQ3Y0ACK7a1JdAn">沙箱</th>
+          <th data-page-node-id="Y5onmBgHSrwyGelxeOTUtp">生态规模</th>
+        </tr>
+        <tr data-page-node-id="PjQ3sUhiOUGGU3asU0WOKB">
+          <td data-page-node-id="tjJF2Vul2Ltj9jD1v65q5c">
+            <b data-page-node-id="qGeohfRw8vZ185F0jaTfuj">uTools</b>
+          </td>
+          <td data-page-node-id="2NnEZHhwdtDKQXuSqnmLGM">Electron</td>
+          <td data-page-node-id="UBrN9QgJMRw76Z7GPaXxJN">plugin.json + index.html + preload.js</td>
+          <td class="ok" data-page-node-id="x7g6dWzGwRa8qAkAq8T2tY">✅ 整屏自由</td>
+          <td class="bad" data-page-node-id="FMsUuz2WvbzY2aSvPURGRH">无</td>
+          <td class="num" data-page-node-id="WjJkxy1Q8XBuSJAQb5YXHx">3000+</td>
+        </tr>
+        <tr data-page-node-id="F6uFl1QvMSL17s72Kt7D8v">
+          <td data-page-node-id="piwTfJf2HHL668ehXb6MWk">
+            <b data-page-node-id="7PqX9vKuk6P9RxCYXPD1a2">Rubick</b>
+          </td>
+          <td data-page-node-id="QwVQIprhqHBJj0GhsvVIIv">Electron</td>
+          <td data-page-node-id="7KgcPwT3eLUF8MsiB6qgxl">同 uTools（API 对齐 90%+）</td>
+          <td class="ok" data-page-node-id="fanQqDH9H19HOPwuwGriYL">✅ 整屏</td>
+          <td class="bad" data-page-node-id="q1QyfB4a2VcSL4ke20aDss">无</td>
+          <td class="num" data-page-node-id="wADT2cFz0OYmlUb89H2UHK">npm 源</td>
+        </tr>
+        <tr data-page-node-id="eOFZNIoLZoSIimpViO0n8Z">
+          <td data-page-node-id="DEKBMUaMA3H66nBzJ7XKst">
+            <b data-page-node-id="FETzN5ZwIGdkqNzHKFMMA0">VS Code</b>
+          </td>
+          <td data-page-node-id="YHHiqu26OA51JfNcBsfY2N">Electron</td>
+          <td data-page-node-id="hCQZdhBNjWh8CAKyRybXku">package.json contributes + Node 模块</td>
+          <td class="ok" data-page-node-id="bCrAA2BAmzgAJAT9auTJ2N">✅ 声明式贡献点</td>
+          <td class="ok" data-page-node-id="6YKTukZfHJMtXidSNWyzEg">✅ 进程级</td>
+          <td class="num" data-page-node-id="hqRgvSLff3UqeWvvsqXrSM">5 万+</td>
+        </tr>
+        <tr data-page-node-id="qaXNvRvp78edDP9KIGTenJ">
+          <td data-page-node-id="04WTTjXwphzmFc4WnVD6hQ">
+            <b data-page-node-id="zvQUZjOuiSn8okXA9wEw01">Raycast</b>
+          </td>
+          <td data-page-node-id="JVXT8JWO5FIKENYDJhudix">原生 macOS</td>
+          <td data-page-node-id="iKUvA5ysvjKEuartrrIo7C">TypeScript/React npm 包</td>
+          <td class="warn" data-page-node-id="RQoUUUMxeRzhJ8KVe5BDvP">受控组件，非任意 DOM</td>
+          <td class="ok" data-page-node-id="r31UgNJpSlDkFHmnu9kxUw">✅ 线程级</td>
+          <td class="num" data-page-node-id="6WUUWnxXJZQ1wCNQ3wobxA">数千</td>
+        </tr>
+        <tr data-page-node-id="BVhfBTDCb2cBm903PQx9zG">
+          <td data-page-node-id="feF83ADXC9RQA76RDhivKS">
+            <b data-page-node-id="rdLHFzpkUG0lwCnPAGlH9w">Figma</b>
+          </td>
+          <td data-page-node-id="H0f7SRe6LbWQHST0hrz8ZZ">Web</td>
+          <td data-page-node-id="9pn1JXT7FcAzSc58nf7lWI">sandbox JS + iframe UI</td>
+          <td class="warn" data-page-node-id="O4WCPvjbL8ZRFurq7KAYvL">iframe 模态</td>
+          <td class="ok" data-page-node-id="fOsP3GTyk21yH9eHFuh8CO">✅ iframe</td>
+          <td class="num" data-page-node-id="0oVeHaJFMnIdszLIV5gU0y">数千</td>
+        </tr>
+        <tr data-page-node-id="CXpwlCowpSkAhMYslGwwEe">
+          <td data-page-node-id="2lBNi8tTC5wVLHMPvKw9JW">
+            <b data-page-node-id="LpvEdz7BE1dov7JhwKAQfi">Obsidian</b>
+          </td>
+          <td data-page-node-id="Luz7jza5qFp12sMg9hGobf">Electron</td>
+          <td data-page-node-id="dfYxMdHnpBde2UonbqY9c7">main.js + manifest.json</td>
+          <td class="warn" data-page-node-id="onGy8qpkXrpubYTfGAiW9i">受控注入贡献点</td>
+          <td class="bad" data-page-node-id="WqOfanCDZMTMXySh2n8Xue">默认全信任</td>
+          <td class="num" data-page-node-id="IlrUSNY8E8y2Cl2e7HjEMq">数千</td>
+        </tr>
+      </table>
+      <p
+        style="margin-top: 12px; font-size: 13.5px; color: var(--text-2)"
+        data-page-node-id="aHZrtWueTxMOwIgRdTZwbe"
+      >
+        <b data-page-node-id="hBqiud1tmEhkjP1UtHdbBj">规律 1：</b>成功的插件市场，插件<b
+          data-page-node-id="yjSSn8aQ2QOmSJbDbkmLRP"
+          >一定能贡献 UI</b
+        >——要么整屏自由渲染，要么声明式注入宿主壳。没有任何繁荣生态是"插件只贡献纯逻辑"。<br
+          data-page-node-id="OQnHDnfM9GWgOAbjijBD9h"
+        />
+        <b data-page-node-id="Z2faQy15dKnq8BPGh1yCAE">规律 2：</b
+        >形态与产品性质强相关。工具箱/效率平台（uTools、Rubick、Raycast）→ 前端插件 + UI；编辑器 →
+        进程/WASM + 语言能力。<b data-page-node-id="C9dxt9BDxgnxAd6JreGLQL">Bench 属于第一类</b
+        >，同构参照是 uTools 而非 Zed。<br data-page-node-id="ZtCY0EkhMit4BcdN8nTgFI" />
+        <b data-page-node-id="OOmjCuISJrPrWSm3EvCu6i">规律 3（Figma 教训）：</b>Figma 从纯 iframe →
+        JS 解释器 WASM → 主线程沙箱 + iframe UI，<b data-page-node-id="dR7CfWOTZw1e71VdxSUS6T"
+          >两次返工</b
+        >才定型，并明确否掉了「WASM 跑逻辑 + 预置壳渲染 UI」这一组合——而这正是 B-lite 的设计。
+      </p>
+
+      <h2 data-page-node-id="qkQLQQAFJclTAj1fY4dRVr">
+        六、产品可行性：一个必须回答但尚未回答的问题
+      </h2>
+      <div class="two" data-page-node-id="gP7hBYrt0fK9oGDwyIgpNk">
+        <div class="box old" data-page-node-id="IIaCIgicBXIIgpq8hN67xM">
+          <h3 data-page-node-id="gWzONuMJvCGwAgpJEBxoFG">目标 A · 降低自己的装配成本</h3>
+          <ul data-page-node-id="PqZCK6f03hJ4mwaOxny9A4">
+            <li data-page-node-id="RdJI7ZRc6SH6vrdfsvBZmR">
+              <b data-page-node-id="p691dbhNh6DkCBMsfxET7y">痛点：</b>加一个能力要改
+              <code data-page-node-id="WAUpTTiaG0hrkFceA4rvFy">registry.tsx</code> +
+              <code data-page-node-id="ZHTl6PGDEZ65jg5tfpRVoJ">commands.rs</code> +
+              <code data-page-node-id="fPQOD1kPSlcl82hmeVFZpo">lib.rs</code> 三处
+            </li>
+            <li data-page-node-id="bHU8jQikIfbiEwW7W6Wucs">
+              <b data-page-node-id="FXANRAT55m9MwbYZIkc10s">正解：</b>约定式注册 + 代码生成（<code
+                data-page-node-id="N8SHeBCOD5bEqMEHqex6W6"
+                >inventory</code
+              >/<code data-page-node-id="95TsAzF2fyBRrdoGEkCFXO">linkme</code> crate
+              自动收集命令、<code data-page-node-id="BdeKKTHUbXUfXBctz6U7bS">import.meta.glob</code>
+              自动装配）
+            </li>
+            <li data-page-node-id="pEX7JVSjlyNIU9JajXzBPG">
+              <b data-page-node-id="OCkcDXDKESBYPm8jZuHRqe">成本：1–2 天</b>，零运行时风险
+            </li>
+          </ul>
+        </div>
+        <div class="box old" data-page-node-id="Kfmgy6RAqFc95ATEMu1E8c">
+          <h3 data-page-node-id="PpKsRPfu4rzzMh7r3Gofi9">目标 B · 建立第三方插件生态</h3>
+          <ul data-page-node-id="is41pEhSt6BhUl87vTRi3F">
+            <li data-page-node-id="Ndo5Sknd9MAKm7WfuDri6C">
+              <b data-page-node-id="xAuLy25MyipUjRBVjgo98q">痛点：</b>外部开发者能为其扩展能力
+            </li>
+            <li data-page-node-id="KgVIUaAnGOrTKNnUyuBGep">
+              <b data-page-node-id="qMWJkf6qiyUTgK3QSLKoBo">正解：</b>manifest + 沙箱 + 签名 +
+              registry + SDK + 文档 + 审核流程
+            </li>
+            <li data-page-node-id="ajH4Hc22El0NsNhA6wD7aO">
+              <b data-page-node-id="HTB7eawgEFvvCJDR03KzrK">成本：数月 + 持续运营</b
+              >，需完整信任模型，生态冷启动是最大不确定性
+            </li>
+          </ul>
+        </div>
+      </div>
+      <p
+        style="margin-top: 14px; font-size: 13.5px; color: var(--text-2)"
+        data-page-node-id="vh7Jkn7DF4kmjZFxEJuauR"
+      >
+        文档 §0 的第一条目标原文是<b data-page-node-id="jqiHkS8N0ZFhjT8YnU6H0Y">目标 A 的表述</b
+        >（"把新增能力要在 3 处手写装配收敛为能力自带契约"），但整份文档给出的是<b
+          data-page-node-id="KFHrxnPWNh7lSM7x6fykve"
+          >目标 B 的方案</b
+        >。<b data-page-node-id="reFR3nknCSBMGbohKKpdw4">两者成本差两个数量级，被混为一谈了。</b
+        ><br data-page-node-id="kYtvQwbyJF3YUCxLN2VNn6" />
+        <b data-page-node-id="Hbl5nJKjsyM7i3I1SAFy5L">冷静观察：</b>Bench 的 16
+        个模块高度个人化、强系统耦合，多数涉及双平台专有 API 与权限，<b
+          data-page-node-id="LCzwAPOycg7X3XzXxj7d7P"
+          >第三方作者池极窄</b
+        >（需同时懂 Rust + Tauri + 双平台系统 API）。对照 uTools——其 3000+ 生态建立在<b
+          data-page-node-id="yVEmmk5IWcgHOlocKRvYc2"
+          >前端开发者零门槛</b
+        >之上。建议投入架构前先写下"第一个第三方插件作者是谁、他要写什么"。
+      </p>
+
+      <h2 data-page-node-id="jArQLuAXJ8NSJF176HlxPe">
+        七、建议方案：B′（宿主 + 可下载前端 bundle）
+      </h2>
+      <div class="two" data-page-node-id="bugXjI9btlkWsC3hwzD6BV">
+        <div class="box old" data-page-node-id="eyAf7Zj4BVIbJUgxrwn7XV">
+          <h3 data-page-node-id="eHdDcJAT1RyLuTVaDkZ4Eu">B-lite（原设计）</h3>
+          <ul data-page-node-id="tgpF1m2cHSiQpFe17ycDPy">
+            <li data-page-node-id="LoHdjv23NFU58lMls5c70O">插件主体：WASM / sidecar / 远程</li>
+            <li data-page-node-id="xUu1Z7wVhfomogxfe5GEkm">
+              UI：<span class="bad" data-page-node-id="rH36DUkWbJe75zXNs0WRP6">❌</span>
+              预置壳或远程视图
+            </li>
+            <li data-page-node-id="ckon8rGFxWycJxnbTbh2MN">
+              Rust 宿主：<span class="bad" data-page-node-id="IKIktxXp0fcluqSZn6vnR2"
+                >内嵌 wasmtime</span
+              >（Windows 编译风险）
+            </li>
+            <li data-page-node-id="F8mYumDg2ux2Ejl2BbcL7j">
+              宿主 API：自研 <code data-page-node-id="8CMWhjl0pPdrLiLuVyjhfz">bench_host</code> WASM
+              导入面
+            </li>
+            <li data-page-node-id="VdNgYOBFVzeAomsOAd7iqk">签名：新设计</li>
+            <li data-page-node-id="FB5HtmKAnWjecTHja48wXB">作者门槛：需会 Rust/WASM</li>
+          </ul>
+        </div>
+        <div class="box new" data-page-node-id="mJEJ5TVPuLYmVDYVGNqExs">
+          <h3 data-page-node-id="HhTEnq58RAy0zlrVogxt4B">B′（建议）</h3>
+          <ul data-page-node-id="xSgYAiKZKvbRxsFTWdRlNm">
+            <li data-page-node-id="deY9RgL3n2FfjyqakFBCtw">
+              插件主体：<b data-page-node-id="yArE4M6r1G0kbBspaod7pi"
+                >前端 bundle（React）+ 可选 WASM 附属</b
+              >
+            </li>
+            <li data-page-node-id="ur9QcHqYTtXvdt9ZbUmKNY">
+              UI：<span class="ok" data-page-node-id="vQguM8lPDzgzy5EgCA5c2T">✅</span>
+              <b data-page-node-id="eS4u9ZpgWH4a5PlA35sVc9">独立 WebView 整屏渲染</b
+              >（asset/自定义协议）
+            </li>
+            <li data-page-node-id="gUr4tNzXfp2OnXnWPPz6kS">
+              Rust 宿主：<span class="ok" data-page-node-id="ScWIkp2k3wERdyCpLL6AAi"
+                >不引入 WASM runtime</span
+              >，复用既有 IPC
+            </li>
+            <li data-page-node-id="CGiMNtHURe8D4HDyb7K8BE">
+              宿主 API：<b data-page-node-id="1IUwS8Nu6fzc82xqDJaFCx">IPC 命令白名单网关</b
+              >（复用契约双写体系）
+            </li>
+            <li data-page-node-id="ZE8GVBWR9xl0UKqNFzLrIr">
+              签名：<b data-page-node-id="6R0uZ5oCfNMvtRZHcQoYaV">复用已有 minisign 密钥链</b>
+            </li>
+            <li data-page-node-id="bHWoBSZImPnIEXpgLKm9lH">
+              作者门槛：<b data-page-node-id="tXIVhPb0AFtN6brBp5s3MT">前端开发者零门槛</b>
+            </li>
+            <li data-page-node-id="I1UcwcFRpjDeZy4z8YDFKB">
+              + 声明式 contribution points（抄 VS Code / Obsidian）
+            </li>
+          </ul>
+        </div>
+      </div>
+      <p
+        style="margin-top: 14px; font-size: 13.5px; color: var(--text-2)"
+        data-page-node-id="JAT683bsKh6yLaPB47Z7ds"
+      >
+        <b data-page-node-id="USu9H6dpqeKDnHv9STZJii">风险与对策：</b>① 信任边界扩大 →
+        三道闸门（assetProtocol scope 限定
+        <code data-page-node-id="DzLzCYDguNxhNCjf9K88Qc">$APPDATA/plugins/**</code>／CSP
+        精确放行／Rust 侧 manifest.acl 命令白名单网关）；② 插件崩溃 → 独立 WebView 进程级隔离 +
+        自动停用；③ API 演进破坏插件 → 版本化 API +
+        <code data-page-node-id="DyCra1GDd5gVQJJGDdzUsZ">engines</code> 兼容声明；④ Figma 教训 →
+        先做受限版，预留收紧空间，不做不可逆宽授权。
+      </p>
+
+      <h2 data-page-node-id="XH31XtjCBcSdGAlS0CrWHU">八、修订后的分阶段路线</h2>
+      <div class="steps" data-page-node-id="RiWGK2eYGWKdym9MwHIXQO">
+        <div class="step" data-page-node-id="31jq0Hw7Hp649vxzWUYG2D">
+          <div class="n" data-page-node-id="lzNdKEObQMNm1FY23IWpba"></div>
+          <div data-page-node-id="gofe86qQRYh8AjFC0obx0m">
+            <div class="t" data-page-node-id="HS4jhLqvxJH8nYpyFaUi3t">P0 · 产品定案</div>
+            <div class="x" data-page-node-id="tIkBMp35Fa0jgZNuH7WtQq">
+              回答目标 A 还是目标 B；写下第一个第三方插件作者画像。若选 A → 走轻量路径，其余阶段作废
+              <span class="flag a" data-page-node-id="otEVgDs4o5F4JAvfHzHtgb">决策点</span>
+            </div>
+          </div>
+        </div>
+        <div class="step" data-page-node-id="vab4slCvrWaTQAJ0mvMZfj">
+          <div class="n" data-page-node-id="dsd0dQvA7xfyPHnNprC1Mn"></div>
+          <div data-page-node-id="OL1siWPd3jH4MChWmYB1oN">
+            <div class="t" data-page-node-id="VO51joyyYleSp2bcAhCh6z">P1 · 概念验证（1–2 天）</div>
+            <div class="x" data-page-node-id="XLceSeAm2K9FjO00TxvwFd">
+              不改架构，仅验证 asset 协议 + CSP 放开后能否加载
+              <code data-page-node-id="I4LVK9YNq1xpfHpWvqdbnV">$APPDATA</code> 下的 React bundle。<b
+                data-page-node-id="lZSGOnvXAACdHuTsIfqZGR"
+                >这一步决定 B′ 是否成立</b
+              >
+              <span class="flag g" data-page-node-id="zmMX6UPLSfEqOxQ6Tfr7Bd">低风险</span>
+            </div>
+          </div>
+        </div>
+        <div class="step" data-page-node-id="AAsmYMCXXa3yhE6KhGkNmD">
+          <div class="n" data-page-node-id="5D890d1kbEbaZQJ4YHVux4"></div>
+          <div data-page-node-id="C3LHyfHnKCseE818Xw6dXR">
+            <div class="t" data-page-node-id="t8vIjo4cBaO3dBxFHLEBj1">P2 · 契约先行</div>
+            <div class="x" data-page-node-id="23NPvg50R4VW8MFzjobWMU">
+              manifest schema + contribution points 枚举 + ACL 命令白名单 + minisign 校验骨架
+              <span class="flag a" data-page-node-id="QDisZz9BHCc1XsdSFBZasM">中</span>
+            </div>
+          </div>
+        </div>
+        <div class="step" data-page-node-id="oAm8WFwU9FcZsPFB2GyM1e">
+          <div class="n" data-page-node-id="xrqeJq8Yb1t2owBzv9Mvdy"></div>
+          <div data-page-node-id="TkrIiBtXTmT7xxtxsKCfwD">
+            <div class="t" data-page-node-id="bXCqVTERlPz2wVu1tUSqiv">P3 · 单插件闭环</div>
+            <div class="x" data-page-node-id="gWwGSqPAx6vbQZpswqkUBZ">
+              选 1 个低风险模块（建议
+              token-calculator）走完整路径：打包→安装→隔离渲染→白名单调用→卸载
+              <span class="flag a" data-page-node-id="PbtmvA6pGDH7UnKZPzZdTn">中</span>
+            </div>
+          </div>
+        </div>
+        <div class="step" data-page-node-id="JbmbfzSbHvP40kipIpevV0">
+          <div class="n" data-page-node-id="JCUAy2PnbTaWagpVixQktL"></div>
+          <div data-page-node-id="3AAB2U4pLq3IQaFUGclkGy">
+            <div class="t" data-page-node-id="2Vfqlnca7i7d8sXz95iLGK">P4 · 插件中心 UI</div>
+            <div class="x" data-page-node-id="0tCgCb0GBBt8joJeWeeey2">
+              目录 / 安装 / 启用禁用 / 卸载 + 能力矩阵
+              <span class="flag a" data-page-node-id="BL8bAo28cP9dLBP37W8w75">中</span>
+            </div>
+          </div>
+        </div>
+        <div class="step" data-page-node-id="Ch5Ea9qZmRGBnq9SavxLWj">
+          <div class="n" data-page-node-id="2iI3EHswHH8gHfdoVhrMtV"></div>
+          <div data-page-node-id="KVEebTUU1gFg5VWk26iY7Z">
+            <div class="t" data-page-node-id="z7k7eGEymUe6G8soMBsvtx">P5 · 泛化与迁移</div>
+            <div class="x" data-page-node-id="0Kt7aGn4Pcw0ZCZ4rGuWyV">
+              dev-toolbox host 泛化；按
+              <b data-page-node-id="p96O3LP7TEV8n5LZoXKdBk">253 条命令</b>实际基数分批迁移
+              <span class="flag r" data-page-node-id="Crv9XoLv9fMdhVNUDkOUL6">高</span>
+            </div>
+          </div>
+        </div>
+        <div class="step" data-page-node-id="c58cUvnRIvhmFji2U70kx4">
+          <div class="n" data-page-node-id="DQNUcEq6eOMDUDRZKUIOBz"></div>
+          <div data-page-node-id="QVHPuIYT7Cy0QAovLqRRta">
+            <div class="t" data-page-node-id="nP48f9DAZeSqMwuPV87cCM">P6 · Windows 复验</div>
+            <div class="x" data-page-node-id="vRgr9PCFaVMLkwLZQxP7pW">
+              <b data-page-node-id="4SiMSFeiVvjxAVQutmvoil"
+                >恢复 Windows CI（撤销 D-021 暂停部分）</b
+              >，验证插件子系统双平台可用——硬前置，否则等于发布单平台未验证能力
+              <span class="flag r" data-page-node-id="YdqKvjV0KEkUn1i5BrKkkw">高</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h2 data-page-node-id="Mp6uxCcWfyqfoUjXi8BYDR">九、决策待办</h2>
+      <div class="todo" data-page-node-id="xG30nXKbHIdnGyCZBoHGVJ">
+        <div class="row" data-page-node-id="iWl994wX6LOPJrmNY21bYE">
+          <div class="q" data-page-node-id="ymCDMGWATLPXwfxqaDHDeP">1</div>
+          <div class="m" data-page-node-id="HuGpAj4UoZF7mIF2csr4FG">
+            <b data-page-node-id="k1OpaQlgB2H5UnvKGZIgeq"
+              >目标 A（自装配提效）还是目标 B（第三方生态）？</b
+            ><span data-page-node-id="knuwtGDabfEdvkepnIYq9A"
+              >决定后续全部工作，成本差两个数量级</span
+            >
+          </div>
+        </div>
+        <div class="row" data-page-node-id="H1mVBd4elmM3RfHcrIdxd3">
+          <div class="q" data-page-node-id="KC2h1wXKAEd88jDhsB5zC2">2</div>
+          <div class="m" data-page-node-id="nBebKffOwscwFStH89X5lN">
+            <b data-page-node-id="JLdVzBNzvbSnBqxvBb27Kr"
+              >是否接受用 extension / 能力包 替代 plugin 术语？</b
+            ><span data-page-node-id="QgcEEh73DhIgFKvDiFP8OA"
+              >避免与 Tauri 编译期 plugin 持续混淆</span
+            >
+          </div>
+        </div>
+        <div class="row" data-page-node-id="38Nu33ThGrLaYOP4qym1Rs">
+          <div class="q" data-page-node-id="D9K8sSofN8QUjp95RxJq2H">3</div>
+          <div class="m" data-page-node-id="frAjBq2QMOnS1JIB7DkMkH">
+            <b data-page-node-id="n1A24QCAlLuflLKs2CGOPn">GAP-TO-2.0.md 的 37 项差距如何处置？</b
+            ><span data-page-node-id="z65tsCkdeHruMok7EvhHmT"
+              >废弃 / 降级 / 并行——2.0 目标变更的必要配套</span
+            >
+          </div>
+        </div>
+        <div class="row" data-page-node-id="rA8FQUcJaBZkBhiegYkTL9">
+          <div class="q" data-page-node-id="PWQjZRKmRn4yr9McYbCWP8">4</div>
+          <div class="m" data-page-node-id="EPULsnYmmF1u2p7ZpHi8Wj">
+            <b data-page-node-id="PBs937cws29ubBqaCM3xEQ">是否恢复 Windows CI？</b
+            ><span data-page-node-id="DhDP6tIv8xj9YDQ2ybBFuM">插件化的硬前置（P6）</span>
+          </div>
+        </div>
+        <div class="row" data-page-node-id="a91BCcCdPyBnAIA61m64oM">
+          <div class="q" data-page-node-id="ZnN8B6RHCNazOBKWxduNrA">5</div>
+          <div class="m" data-page-node-id="bkS4CAMA0TaB9btC6gMnzg">
+            <b data-page-node-id="eg66Oo4sZAvyy977doBrTH"
+              >是否先做 P1 概念验证（1–2 天）再定架构？</b
+            ><span data-page-node-id="bOpyFdXCGFqqr8J4zw79TR">用最小成本证实或证伪 B′ 的前提</span>
+          </div>
+        </div>
+      </div>
+
+      <footer data-page-node-id="Ak4ZC2MqtErHxxvlKGnQAM">
+        完整报告（含全部信息来源 URL）：<code data-page-node-id="zunRW4kCWWDYFB5j89vdXI"
+          >docs/plugin-market-assessment.md</code
+        >　·　 本看板为评估产物，尚未注册进
+        <code data-page-node-id="vJeT146yAfvmz8E7hJhY1G">docs/README.md</code> 索引与
+        DECISIONS，待方向决策后再回写。
+      </footer>
+    </div>
+  </body>
+</html>

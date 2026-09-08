@@ -9,6 +9,7 @@ mod commands;
 mod dev_cleaner;
 mod env_detector;
 mod error;
+mod extension_host;
 mod file_ops;
 #[cfg(target_os = "macos")]
 mod macos_webview;
@@ -46,6 +47,12 @@ pub fn run() {
     let token_calculator_state = TokenCalculatorState::new();
     let terminology_state = TerminologyState::new();
 
+    // P1: 插件资源 provider 的根目录槽位（见 docs/plugin-market-assessment.md §9 P1）。
+    // generate_context!() 早于 AppHandle，槽位先占位、在 setup 里回填。
+    // 注意：必须放在下面的 #[cfg(...)] 之前 —— cfg 属性只作用于紧随其后的
+    // 那一项，插到属性与 `let builder` 之间会把 slot 一起 cfg 掉。
+    let extension_root_slot = extension_host::new_root_slot();
+
     // 单实例保护: Windows 全量启用; macOS 仅 release 构建启用 —— 插件按 bundle
     // identifier 建立进程间 socket(D-011 下 dev 与 prod 同为 com.bench.app),
     // debug 构建启用会破坏 dev/prod 共存。生产环境防止 LaunchAgent 与手动启动
@@ -76,6 +83,9 @@ pub fn run() {
         .manage(RunAbortFlag(Mutex::new(Arc::new(AtomicBool::new(false)))))
         .manage(create_bootstrap_state())
         .manage(photo_triage::state::TriageState::default())
+        .manage(extension_host::ExtensionRootState(
+            extension_root_slot.clone(),
+        ))
         .setup(|app| {
             // 探测是否由登录项(隐藏)启动; 缓存供前端决定是否后台运行。
             // 仅读取启动参数(--hidden), 不做任何可能触发 TCC 授权弹窗的子进程调用。
@@ -258,10 +268,25 @@ pub fn run() {
                     }
                 }
             });
+            // P1: 回填插件根目录槽位；设置了 BENCH_POC_EXT 时自动打开 POC 插件窗口。
+            if let Some(state) = app.try_state::<extension_host::ExtensionRootState>() {
+                extension_host::init_extension_root(app.handle(), &state.0);
+            }
+            extension_host::maybe_auto_open_poc(app.handle());
+
             Ok(())
         })
         .invoke_handler(app_invoke_handler!())
-        .build(tauri::generate_context!())
+        .build({
+            let mut context = tauri::generate_context!();
+            // 换出内置资源并包装：插件目录优先，未命中回退内置。
+            let embedded = context.set_assets(Box::new(extension_host::PlaceholderAssets));
+            context.set_assets(Box::new(extension_host::ExtensionAssets::new(
+                embedded,
+                extension_root_slot.clone(),
+            )));
+            context
+        })
         .expect("error while building tauri application")
         .run(|app_handle, event| {
             match event {

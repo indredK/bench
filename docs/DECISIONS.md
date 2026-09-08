@@ -2,6 +2,66 @@
 
 本文件只记录仍影响当前实现的方向性取舍；“做什么”以 [ROADMAP.md](./ROADMAP.md) 为准，当前风险以 [audit-report.md](./audit-report.md) 为准。已推翻和已完成历史由 Git 保留。
 
+## D-024 · Extension 仓库组织与 photo-triage 试点拆法
+
+- **日期**：2026-09-08
+- **状态**：采纳（P2 前置定案）
+- **背景**：[D-023](#d-023--20-目标变更为插件化生态r00r10-全部降级) 确立 2.0 = 插件化生态，P1 已证实 B′ 方案。进入 P2 前需定案「插件在哪个仓库开发、如何开发与发布」。行业先例（VS Code 内置扩展 / uTools / Raycast / Obsidian / dprint）与三选项对比见 [extension-workflow.md](./extension-workflow.md)。
+- **决策**：
+  1. **两阶段仓库组织**：契约演进期（P2–P4）官方插件住**主仓库 `extensions/` 目录**（VS Code 内置扩展模式）；开放第三方后提供 `bench-extension-template` 模板仓库，第三方在**各自独立仓库**开发，产物 + manifest 经 **registry PR 审核**上架（Obsidian 社区插件模式）。**不设官方插件集合仓库**。
+  2. **bundled / market 双分发形态**：`manifest.distribution: "bundled" | "market"`。bundled 产物随主包构建捆绑（2.0 过渡期功能不真空）；market 走 registry 下载 + minisign 校验（复用 `updater/keys/`）。同一套 manifest，仅分发字段不同。
+  3. **photo-triage 作为 P2/P3 首个迁移试点**（替换原计划的 token-calculator——它更简单但代表性弱）：**Rust 能力面留核心**（15 条命令 / 2350 行改造为宿主能力 + ACL 注册表，IPC 命令名不变），**前端 21 文件迁出**为 `extensions/photo-triage/`。理由：TCC 权限、进程树回收（`trash_ops.rs` 870 行）、持久化 schema 属宿主级系统能力；B′ 插件形态是前端 bundle，Rust 不随插件走；能力面共享可供后续插件复用。
+  4. **开发工作流**：试点期在主仓库 `extensions/` 照常开发，dev 模式宿主直接加载仓库目录；extension URL 一律显式 `tauri://localhost/ext/…`（**禁用 `WebviewUrl::App`**——dev 下它被 `get_app_url` 拼到 devUrl，永远到不了 asset provider，P1 实测踩坑）。
+- **理由**：契约（manifest schema / `bench_host` / ACL）在 P2–P4 频繁演进，跨仓库同步成本远大于收益；捆绑分发保证「绝大部分功能插件化」不产生功能真空；photo-triage 覆盖「重能力面 + UI」完整形态，试点价值最高。
+- **影响**：
+  - `extensions/` 目录进 git（源码 + manifest，**构建产物不进 git**）；
+  - 主包侧边栏不再静态注册已迁出模块，改由插件中心「已安装（bundled）」点亮入口；
+  - photo-triage 的 Python→Rust 迁移路径决策不受影响——若选 sidecar，manifest `delivery: "sidecar"` 复用 [D-017](./DECISIONS.md#d-017--network-probe-可选能力包可插拔高级组件) pack 模型；
+  - 试点期本地构建本地装，minisign 门禁在其后启用。
+- **相关**：[extension-workflow.md](./extension-workflow.md)（工作流 How-to） · [extension-poc-report.md](./extension-poc-report.md)（P1 实测） · [plugin-market-assessment.md §8–9](./plugin-market-assessment.md)（B′ 方案与 P0–P6 路线） · [D-023](#d-023--20-目标变更为插件化生态r00r10-全部降级) · [D-017](./DECISIONS.md#d-017--network-probe-可选能力包可插拔高级组件)
+
+## D-023 · 2.0 目标变更为「插件化生态」，R00–R10 全部降级
+
+- **日期**：2026-09-08
+- **状态**：采纳（已生效）
+- **背景**：[D-022](#d-022--所有能力插件化b-liteTauri-宿主--wasmsidecar远程-插件市场) 将插件化定位为「2.0 旁路」（D-013），2.0 主目标仍是 R00–R10 发布收尾。经 [可行性评估](./plugin-market-assessment.md) 后用户拍板：**2.0 的目标本身就是「自带少量核心能力 + 绝大部分功能插件化 + 插件市场（第三方生态）」**，而非发布收尾。
+- **决策**：
+  1. **2.0 = 插件化生态（目标 B：第三方生态）**，不是目标 A（消除自己的装配成本）。这是产品定位变更，不是技术重构。
+  2. **`ROADMAP.md` 的 R00–R10 全部降级为 backlog**，不再作为 2.0 门禁；`GAP-TO-2.0.md` 的 37 项差距（A1–A5 / D1–D7 / E1–E3）同步降级，不再要求关闭后才发版。
+  3. 降级 ≠ 废弃：R00–R10 与 GAP 清单作为**已知技术债台账**保留，供插件化迁移时按模块评估；涉及**数据安全与签名链**的条目（A5 持久化迁移、A3-1 RC dry-run、minisign 全链）在插件分发启用前必须重新评估。
+  4. 执行序列改为评估报告的 **P0–P6**（[plugin-market-assessment.md §9](./plugin-market-assessment.md)）；**当前执行 P1 概念验证**。
+  5. 采用 **B′ 方案**（宿主 + 可下载前端 bundle + 独立 WebView 整屏渲染 + IPC 命令白名单网关）替代 D-022 的 B-lite（WASM/sidecar/远程）。**B-lite 保留为 WASM 附属能力的未来选项**，不删除。
+- **理由**：
+  - 评估证伪了 D-022 的核心前提——「Tauri 运行时不能热载整屏 renderer 页面」不成立（`register_uri_scheme_protocol` / asset 协议可加载 `$APPDATA` 下运行时下载的页面，项目已启用 `protocol-asset`）。
+  - 行业规律：成功插件市场的插件**必能贡献 UI**（uTools 3000+ / VS Code 5 万+ / Raycast / Obsidian）；纯 WASM 逻辑插件（Zed / Lapce / dprint）生态仅数十至数百。Bench 是工具箱，模块 90% 工作量是 UI → 同构参照是 uTools 而非 Zed。
+  - B′ **不引入 wasmtime**，规避「Windows CI 已暂停（D-021）+ macOS 无法交叉编译」这一死结；签名复用 `updater/keys/` 已有 minisign 链。
+- **影响**：
+  - `ROADMAP.md` 与 `GAP-TO-2.0.md` 头部已加降级公告（本决策生效，内容保留作台账）。
+  - 插件化**进入** ROADMAP 而非旁路；D-022 中「不进 R00–R10」的表述对**新目标**不再适用（对已被降级的旧 R00–R10 仍成立）。
+  - 术语：Tauri 官方 “plugin” 指**编译期 Cargo crate**（如 `tauri-plugin-store`）；本项目运行时插件统一称 **extension / 能力包**，避免混淆。
+  - **P6（恢复 Windows CI）是发布硬前置**：插件化能力在 Windows runner 复验前不得随正式版发布。
+- **相关**：[可行性评估](./plugin-market-assessment.md) · [D-022](#d-022--所有能力插件化b-liteTauri-宿主--wasmsidecar远程-插件市场) · [D-021](#d-021--rust-target-目录外迁--sccache--暂停-windows-ci) · [D-017](./DECISIONS.md#d-017--network-probe-可选能力包可插拔高级组件) · [D-013](#d-013--roadmap-是-20-唯一执行真理源) · [plugin-architecture.md](./plugin-architecture.md)
+
+## D-022 · 所有能力插件化（B-lite：Tauri 宿主 + WASM/sidecar/远程 插件市场）
+
+- **日期**：2026-09-08
+- **状态**：采纳（设计阶段）
+- **背景**：现状为 feature 模块制但中心化手写装配——16 个 feature 模块、169 条 IPC 命令手写进 `commands.rs::app_invoke_handler!`、`lib.rs` 11 处 `.manage` + 3 处 `init_state` 手动启动初始化；`dev-toolbox` 硬编码 `tabs[]` 聚合子功能。用户要求「所有能力插件化」，并明确想要「插件中心 + 自由下载能力」的市场式交互；经澄清后确认走 B-lite（纯 B 路线在 Tauri 无原生动态插件支持且工程量数倍，见下）。
+- **决策**：
+  1. 走 **B-lite 路线**：Tauri 当**宿主（host）**，插件以 **WASM 模块 + sidecar + 远程能力**三种形态交付；配 **manifest + ACL 分发**与**插件中心 UI**；**不改编程语言**（Tauri 核心仍是 Rust + WebView，宿主内嵌 WASM runtime 加载 guest 模块，不换语言）。
+  2. **核心系统命令保持编译期链接**（app_manager/account_manager/token_calculator 等不运行时热载），维持单二进制 + minisign 红线；插件只通过**稳定的宿主 API 面（`bench_host` 接口）**访问后端服务，不新增核心 Rust 命令。
+  3. **插件形态映射**：
+     - **WASM 模块**——纯计算/转换类（如 token 估算、格式化、解析、规则引擎），在宿主内 WASM runtime（wasmer/wasmtime）沙箱内运行，经宿主注入的导入函数调用 host 服务；
+     - **sidecar**——重/可选能力（即 [D-017](./DECISIONS.md#d-017--network-probe-可选能力包可插拔高级组件) Capability Pack 模型），由后端 canonical manifest 下发校验，renderer 不提交最终下载地址/可执行路径；
+     - **远程能力**——Globalping/librespeed 式远端调用，本机零重库。
+  4. **manifest + ACL 分发**：每个插件带 `manifest`（id/version/capabilities/acl/entry/delivery）与签名；宿主按 **ACL 注册表**校验插件请求的权限边界，能力矩阵驱动 UI（`supported/degraded/unsupported/missing_pack`）。
+  5. **插件中心 UI**：前端新增插件市场页，浏览/安装/启用禁用/卸载，按能力矩阵呈现可插拔状态；manifest 来源为后端 canonical registry（远程 JSON 或本地缓存），不得由 renderer 决定最终下载地址。
+  6. **聚合泛化**：`dev-toolbox` 作为 host 读 children（继承 `parent` 模型），删 `TOOLBOX_FEATURE_IDS` 与硬编码 `tabs[]`。
+  7. **renderer 动态页面边界（诚实约束）**：Tauri 的 WebView 是静态打包，运行时不能热载新的 renderer 页面；插件可贡献的 UI 限于「预置 UI 壳 + 插件中心内的控制/状态」或「沙箱远程视图」，**不能**自由下载到一个全新整屏页面。这恰是 B-lite 相对纯 B 的取舍，用户「自由下载能力」诉求在「能力/逻辑/后端能力」层面成立，在「全新 UI 页」层面不成立。
+- **理由**：满足「插件中心 + 自由下载能力」诉求且守住硬约束（单二进制/minisign、双平台 CI 编译验证、`clippy -D warnings`、D-017 禁止运行时拉依赖）；纯 B 路线（运行时热载任意 Rust crate/npm）在 Tauri 无原生支持且工程量数倍；B-lite 复用 D-017 与 dev-toolbox 拼图，WASM runtime 内嵌于既有 Rust 宿主，无需换语言。
+- **影响**：B0–B5 分阶段（见 [docs/plugin-architecture.md](./plugin-architecture.md)）；**不进 2.0 R00–R10 门禁**（D-013），作为 2.0 旁路/后续架构程序；IPC 契约双写铁律不削弱（插件经 `bench_host` 窄接口，反而收窄 renderer 信任边界）；i18n `labelKey` 仍落 locale；WASM 沙箱安全模型与导入面须在 B2 前论证。
+- **相关**：[plugin-architecture 设计](./plugin-architecture.md) · [ARCHITECTURE.md §2](./ARCHITECTURE.md#2--ai-编码规则--禁止模式) · [D-017](./DECISIONS.md#d-017--network-probe-可选能力包可插拔高级组件) · [D-016](./DECISIONS.md#d-016--network-probe-独立一级模块与分期设计) · [D-013](./DECISIONS.md#d-013--roadmap-是-20-唯一执行真理源) · [D-006](./DECISIONS.md#d-006--文档只保留当前真理源与未完成事项) · [coding-standards.md §4/§7](./coding-standards.md)
+
 ## D-021 · Rust target 目录外迁 + sccache + 暂停 Windows CI
 
 - **日期**：2026-09-05

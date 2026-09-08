@@ -1,5 +1,14 @@
 # Bench 2.0 最终路线图
 
+> ## 🔄 降级公告（2026-09-08 · [D-023](./DECISIONS.md#d-023--20-目标变更为插件化生态r00r10-全部降级)）
+>
+> **2.0 的目标已变更为「自带少量核心能力 + 绝大部分功能插件化 + 插件市场（第三方生态）」。本文件的 R00–R10 全部降级为 backlog，不再是 2.0 门禁。**
+>
+> - 当前执行序列改为评估报告的 **P0–P6**（[plugin-market-assessment.md §9](./plugin-market-assessment.md)），**进行中：P1 概念验证**。
+> - 本文件与 [GAP-TO-2.0.md](../GAP-TO-2.0.md) 的内容**保留作技术债台账**，供插件化迁移时按模块评估，不删除。
+> - 例外：涉及**数据安全与签名链**的条目（A5 持久化迁移、A3-1 RC dry-run、minisign 全链）在插件分发启用前必须重新评估。
+> - 采用 **B′ 方案**（宿主 + 可下载前端 bundle + 独立 WebView + IPC 命令白名单），见 [plugin-market-assessment.md §8](./plugin-market-assessment.md)。
+
 本文件是 2.0 收尾的唯一跨模块执行清单。模块级约束和未完成项见 [modules/](./modules/README.md)，方向性取舍见 [DECISIONS.md](./DECISIONS.md)。已完成历史由 Git 保留。
 
 ## 发布契约

@@ -276,6 +276,9 @@ macro_rules! app_invoke_handler {
             $crate::net_probe::commands::check_hosts_overrides,
             $crate::net_probe::commands::get_firewall_status,
             $crate::net_probe::commands::open_system_network_settings,
+            // extension host (P1 spike: 运行时插件前端 bundle)
+            $crate::extension_host::commands::ext_poc_open,
+            $crate::extension_host::commands::ext_poc_report,
         ]
     };
 }
