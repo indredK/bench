@@ -21,7 +21,7 @@ vi.mock("@/shared/compare/FilterBar", () => ({
   default: () => <div data-testid="filter-bar" />,
 }))
 
-vi.mock("@/shared/compare/CompareMatrixTable", () => ({
+vi.mock("@extension/components/CompareMatrixTable", () => ({
   CompareMatrixTable: () => <div data-testid="compare-matrix" />,
 }))
 

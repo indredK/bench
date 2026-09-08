@@ -248,7 +248,7 @@ pnpm run test:critical       # ✓ 145 passed
   - **i18n 归集（用户指令）**：插件文案自包含于 `extensions/<id>/locales/{zh,en}.json`（独立 i18next 实例消费）；主包 locales 删除全部已迁模块键（photoTriage 残留清零）；**i18n 守卫扩展**：自动校验全部插件 locales 成对/结构/无重复键（缺 locales 直接挂 CI）
   - **迁移清单沉淀（用户指令）**：完整 checklist（代码/能力面/manifest/i18n/文档/测试/宿主摘除/冒烟，含历次教训）写入 [extension-workflow.md §11](../../../docs/extension-workflow.md)
   - **已知缺口**：插件测试不在 CI 执行（宿主 vitest exclude extensions）——插件测试 runner 归入 P4.5 SDK 范围
-- [ ] 插件测试 runner：宿主 vitest `exclude extensions/**`，插件内测试（photo-triage/terminology/hardware/clean-space 的 `src/__tests__`）目前不在 CI 执行——提供 `test:extensions`（逐插件 vitest + jsdom + `@extension` alias 的统一测试配置）
+- [x] ~~插件测试 runner~~ **已提前交付（2026-09-08）**：`pnpm run test:extensions`（逐插件 vitest + jsdom + 与构建一致的 alias），4 插件全配 `vitest.config.ts` + 页面冒烟测试（31 用例）；建议并入 CI verify 链
 - [ ] 候选后续批次（中等）：port-manager / env-detector
 - [x] **重系统耦合模块降级为「按需」而非计划内**：quick-launch / app-manager / command-center / network-probe / updater / system-settings / account-manager（涉及权限、凭据、系统级动作，插件化收益低而破坏面高）
 - [ ] dev-toolbox host 泛化（删 `TOOLBOX_FEATURE_IDS` 与硬编码 tabs）—— 仅在前述迁移确有收益时执行
