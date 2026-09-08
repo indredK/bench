@@ -1,0 +1,320 @@
+{
+  "translation": {
+    "cleanSpace": {
+      "title": "存储空间",
+      "subtitle": "查看磁盘使用情况，清理缓存、日志与临时文件，释放存储空间",
+      "tools": {
+        "overview": "存储总览",
+        "overviewDesc": "查看磁盘使用分布与分类详情",
+        "devProject": "开发项目清理",
+        "devProjectDesc": "扫描并清理开发项目的 node_modules、缓存等",
+        "customFolder": "自定义文件夹清理",
+        "customFolderDesc": "选择文件夹，按规则清理过期文件与缓存",
+        "records": "清理记录",
+        "recordsDesc": "查看历史清理操作记录与释放空间统计"
+      },
+      "placeholder": {
+        "overview": "存储总览功能开发中…",
+        "devProject": "开发项目清理功能开发中…",
+        "customFolder": "自定义文件夹清理功能开发中…",
+        "records": "清理记录功能开发中…"
+      },
+      "openInSystemSettings": "在系统设置中打开",
+      "emptyState": "暂无数据",
+      "scanFailed": "扫描失败",
+      "cleanupSuccess": "清理成功，释放 {{size}} 空间",
+      "cleanupFailed": "清理失败",
+      "risk": {
+        "safe": "安全",
+        "low": "低",
+        "medium": "中",
+        "high": "高",
+        "level": "风险",
+        "def": {
+          "safe": "可重建缓存，无副作用。如应用/用户缓存、浏览器缓存、废纸篓、日志、重复下载。",
+          "low": "可恢复或影响极小。如旧 iOS 备份、未挂载 DMG、Xcode 旧模拟器、邮件大附件缓存。",
+          "medium": "难恢复或影响某应用配置。如不常用 App、>1GB 且 >1 年旧文稿、Xcode DerivedData、非核心 App Support。",
+          "high": "误删将导致系统/他人异常且不可恢复。如 System Data 核心、其他用户文件、Time Machine 本地快照、系统日志、钥匙串/描述文件、关键 App Support。"
+        }
+      },
+      "overview": {
+        "title": "存储总览",
+        "scan": "扫描",
+        "totalDisk": "总磁盘",
+        "free": "可用",
+        "freeOfTotal": "可用 / {{total}}",
+        "clickToScan": "点击“扫描”查看磁盘使用情况",
+        "scanning": "正在扫描…",
+        "scanningMore": "扫描中…",
+        "autoScanHint": "自动扫描磁盘使用情况",
+        "categoryDetail": "分类明细",
+        "used": "已用",
+        "cleanable": "可释放",
+        "largestCategory": "最大分类",
+        "suggestionTitle": "优化建议",
+        "suggestionDesc": "本机约有 {{size}} 可安全释放（缓存、废纸篓、重复文件）。勾选安全项即可一键清理。",
+        "safeItems": "安全项",
+        "totalCleanable": "可释放总量",
+        "highRiskItems": "高风险项"
+      },
+      "category": {
+        "loading": "加载中…",
+        "safeOnly": "仅看安全项",
+        "sortLabel": "排序",
+        "totalItems": "共",
+        "itemsUnit": "项",
+        "availableFree": "可释放",
+        "sort": {
+          "priority": "按优先级",
+          "size": "按大小",
+          "risk": "按风险"
+        }
+      },
+      "detail": {
+        "hitReason": "本项命中原因：",
+        "name": "名称",
+        "path": "路径",
+        "files": "文件数",
+        "risk": "风险",
+        "weight": "权重",
+        "weightValue": "（权重 {{weight}}）",
+        "score": "得分",
+        "riskReason": "风险原因：",
+        "notCleanable": "此项为系统/只读文件，不可清理"
+      },
+      "batch": {
+        "selectAllSafe": "全选安全",
+        "excludeHigh": "排除高风险",
+        "selected": "已选",
+        "itemsUnit": "项",
+        "free": "释放",
+        "cleanSelected": "清理选中"
+      },
+      "impact": {
+        "delete": "删除",
+        "items": "项文件",
+        "free": "释放",
+        "paths": "涉及",
+        "pathCount": "个路径"
+      },
+      "riskWarning": {
+        "irreversible": "此操作不可撤销。",
+        "highDesc": "所选包含高风险项目（如系统日志、其他用户文件、Time Machine 本地快照），删除后将无法恢复，可能影响系统或他人数据。请务必确认。",
+        "mediumDesc": "所选包含中风险项目，删除后较难恢复，可能影响相关应用配置。"
+      },
+      "confirm": {
+        "ack1": "我已了解所选操作的风险，并确认继续执行",
+        "ack2": "我已确认将删除不可恢复的高风险文件"
+      },
+      "progress": {
+        "preparing": "准备中",
+        "itemsUnit": "项",
+        "logTitle": "执行日志",
+        "deleted": "已永久删除",
+        "cleaned": "已清理",
+        "failed": "失败",
+        "freed": "释放",
+        "irreversible": "（不可恢复）",
+        "resultTitle": "清理结果",
+        "cleanedItems": "清理项",
+        "failedItems": "失败项",
+        "freedSpace": "释放空间",
+        "pathCount": "涉及路径",
+        "highRiskItems": "高风险项",
+        "again": "再来一次",
+        "done": "完成",
+        "allDone": "所有选定任务已执行完毕",
+        "completedWithFailures": "清理完成，{{failed}} 项失败，可重新选择后重试。"
+      },
+      "confirmCleanupTitle": "确认执行清理",
+      "confirmCleanupDesc2": "请核对以下命令与影响范围，确认无误后执行。",
+      "confirmCleanup": "确认清理",
+      "cancelCleanup": "取消",
+      "cleaning": "清理中…",
+      "toast": {
+        "cleanupSuccess": "成功清理 {{count}} 个项目，释放 {{size}}",
+        "cleanupFailed": "清理失败，请重试"
+      },
+      "categories": {
+        "applications": "应用程序",
+        "downloads": "下载",
+        "documents": "文稿",
+        "system_data": "系统数据",
+        "app_data": "应用数据",
+        "other_users": "其他用户与共享",
+        "macos": "macOS",
+        "developer": "开发者"
+      },
+      "records": {
+        "title": "清理记录",
+        "empty": "暂无清理记录",
+        "loading": "加载中…",
+        "items": "项",
+        "highRisk": "高风险",
+        "statusOk": "成功",
+        "statusWarn": "部分失败"
+      },
+      "customFolder": {
+        "title": "自定义文件夹清理",
+        "folderPlaceholder": "选择文件夹…",
+        "browse": "浏览",
+        "scan": "扫描",
+        "mtimeDays": "超过天数",
+        "includeSubfolders": "包含子文件夹",
+        "foundItems": "找到文件",
+        "estFreed": "预估可释放"
+      },
+      "suggestions": {
+        "title": "优化建议",
+        "noSuggestions": "当前没有优化建议",
+        "applications": "应用程序占用 {{size}}，可考虑卸载不常用应用",
+        "documents": "文稿文件夹占用 {{size}}",
+        "system_data": "系统缓存与日志占用 {{size}}，可安全清理",
+        "developer": "开发工具数据占用 {{size}}，包含 Xcode 和 Docker",
+        "other_users": "共享文件夹占用 {{size}}"
+      }
+    },
+    "devCleaner": {
+      "title": "垃圾清理",
+      "subtitle": "清理开发垃圾文件",
+      "projectsLabel": "项目数",
+      "selectPath": "选择目录",
+      "enterPath": "输入目录路径或选择文件夹",
+      "startScan": "开始扫描",
+      "scanning": "扫描中...",
+      "stopScan": "停止扫描",
+      "scanStopped": "扫描已停止。已找到 {{count}} 个项目，可清理 {{size}}。",
+      "scanComplete": "扫描完成",
+      "projectsFound": "找到 {{count}} 个项目",
+      "totalSize": "总大小",
+      "cleanupSize": "可清理大小",
+      "lastModified": "最后修改",
+      "projectType": "项目类型",
+      "selectProjects": "选择要清理的项目",
+      "selectAll": "全选",
+      "deselectAll": "取消全选",
+      "cleanupButton": "开始清理",
+      "clearSelection": "清除选择",
+      "confirmDelete": "确认清理",
+      "confirmMessage": "这将删除 {{count}} 个项目并释放 {{size}} 的空间。此操作无法撤销。",
+      "cancel": "取消",
+      "cleanup": "清理",
+      "cleanupSuccess": "清理成功！释放了 {{size}} 的空间。",
+      "cleanupError": "清理失败：{{error}}",
+      "scanFailedTitle": "扫描失败",
+      "errors": {
+        "openDirectoryFailed": "打开目录选择对话框失败：{{error}}",
+        "desktopOnly": "扫描功能仅可在桌面版应用中使用。",
+        "scanFailed": "扫描失败：{{error}}",
+        "unknown": "未知错误"
+      },
+      "noProjects": "在选定的目录中未找到任何项目。",
+      "copyPath": "复制路径",
+      "refreshing": "正在刷新...",
+      "controls": "显示选项",
+      "filteredCleanup": "当前可清理",
+      "resultsLabel": "项结果",
+      "selectedSize": "已选",
+      "scanTime": "扫描耗时",
+      "dependencies": "依赖数",
+      "column": {
+        "project": "项目"
+      },
+      "sorting": {
+        "current": "当前排序",
+        "size": "按大小",
+        "totalSize": "总大小",
+        "cleanupSize": "可清理大小",
+        "modified": "按修改时间",
+        "name": "按名称"
+      },
+      "filterLabel": "筛选",
+      "filter": {
+        "nodejs": "Node.js (node_modules)",
+        "python": "Python (.venv, venv)",
+        "rust": "Rust (target)",
+        "go": "Go (vendor)",
+        "mixed": "混合语言",
+        "general": "通用",
+        "all": "所有项目"
+      },
+      "customCleanup": {
+        "button": "自定义清理",
+        "title": "自定义清理",
+        "confirmTitle": "确认清理",
+        "selected": "已选择 {{count}} 个命令",
+        "next": "下一步",
+        "confirmWarning": "即将执行 {{count}} 个清理命令，部分命令可能产生不可逆的影响，确认继续吗？",
+        "startCleanup": "开始清理",
+        "running": "正在执行清理命令...",
+        "pausedMessage": "清理已暂停",
+        "pause": "暂停",
+        "resume": "继续",
+        "stop": "终止",
+        "aborted": "清理已被用户终止。",
+        "completed": "清理完成！",
+        "done": "关闭",
+        "waiting": "等待命令开始执行...",
+        "freedSpace": "释放空间",
+        "successCount": "成功",
+        "failedCount": "失败",
+        "colName": "清理项目 / 运行命令",
+        "colDescription": "简要说明",
+        "colRisk": "可能风险"
+      }
+    },
+    "common": {
+      "yes": "有",
+      "no": "无",
+      "none": "无",
+      "optional": "可选",
+      "included": "附赠",
+      "na": "—",
+      "withParenthesis": "{{prefix}}（{{detail}}）",
+      "desktopOnly": "此功能仅在 Bench 桌面版中可用。",
+      "platformUnsupported": "此功能在 {{platform}} 上不可用。",
+      "platformNames": {
+        "macos": "macOS",
+        "windows": "Windows",
+        "linux": "Linux"
+      },
+      "appTitle": "Bench - DevTools",
+      "close": "关闭",
+      "cancel": "取消",
+      "remove": "移除",
+      "delete": "删除",
+      "confirm": "确认",
+      "save": "保存",
+      "enable": "启用",
+      "disable": "停用",
+      "add": "添加",
+      "edit": "编辑",
+      "persistence": {
+        "recovered": "已保存的分类数据无法读取，系统已保留备份并恢复默认分类。",
+        "newerSchema": "分类数据由更新版本的 Bench 创建。为防止覆盖，当前已禁用编辑。",
+        "tooLarge": "分类数据超过安全上限。检查数据前，当前已禁用编辑。"
+      },
+      "search": "搜索",
+      "loading": "加载中...",
+      "filters": "筛选",
+      "failedToLoad": "加载失败",
+      "loadFailed": "加载失败",
+      "featureLoadFailed": "{{feature}} 加载失败",
+      "retry": "重试",
+      "success": "成功",
+      "error": "错误",
+      "warning": "警告",
+      "details": "详情",
+      "unknown": "未知",
+      "actions": {
+        "close": "关闭"
+      },
+      "empty": {
+        "noData": "暂无数据",
+        "selectItem": "请选择一个项目查看详情"
+      },
+      "refresh": "刷新",
+      "clear": "清除"
+    }
+  }
+}

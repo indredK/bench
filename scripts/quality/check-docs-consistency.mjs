@@ -43,6 +43,7 @@ const pluginIds = listDirs(EXTENSIONS_DIR, FEATURE_IGNORE).filter((id) =>
   existsSync(path.join(EXTENSIONS_DIR, id, "manifest.json")),
 )
 const allModuleIds = [...new Set([...featureIds, ...pluginIds])].sort()
+const pluginSet = new Set(pluginIds)
 
 const errors = []
 
@@ -51,9 +52,19 @@ const featureSet = new Set(allModuleIds)
 const moduleSet = new Set(moduleIds)
 
 for (const id of allModuleIds) {
-  if (!moduleSet.has(id)) {
+  if (pluginSet.has(id)) {
+    // 插件化模块（P5）：文档三件套自包含在 extensions/<id>/docs/。
+    for (const file of REQUIRED_MODULE_FILES) {
+      const p = path.join(EXTENSIONS_DIR, id, "docs", file)
+      if (!existsSync(p)) {
+        errors.push(
+          `插件模块文件缺失：extensions/${id}/docs/${file}（coding-standards §11.2 强制；插件文档随模块自包含）`,
+        )
+      }
+    }
+  } else if (!moduleSet.has(id)) {
     errors.push(
-      `feature 缺文档：\`${id}\`（src/features 或 extensions）存在，但 docs/modules/${id}/ 缺失` +
+      `feature 缺文档：\`${id}\`（src/features）存在，但 docs/modules/${id}/ 缺失` +
         `（coding-standards §11.2 强制：新增 feature 须同步创建文档目录）`,
     )
   }

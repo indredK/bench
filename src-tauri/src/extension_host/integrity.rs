@@ -211,6 +211,7 @@ mod tests {
             files,
             acl: Default::default(),
             engines: super::super::manifest::ExtensionEngines { bench: "*".into() },
+            platforms: None,
             expires_at: None,
             signature: None,
         }

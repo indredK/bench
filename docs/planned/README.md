@@ -10,18 +10,18 @@
 
 > 详单见各模块文件；勾选式 `- [ ]` 实现完成即从对应文件移除。
 
-| 模块                                      | 待实现 / 待验证 | 远期   | 模块                                      | 待实现 / 待验证 | 远期   |
-| ----------------------------------------- | --------------- | ------ | ----------------------------------------- | --------------- | ------ |
-| [account-manager](./account-manager.md)   | 22              | 3      | [network-probe](./network-probe.md)       | 15              | 6      |
-| [app-manager](./app-manager.md)           | 6               | 3      | [photo-triage](./photo-triage.md)         | 5               | 3      |
-| [clean-space](./clean-space.md)           | 4               | 4      | [port-manager](./port-manager.md)         | 5               | 2      |
-| [command-center](./command-center.md)     | 6               | 2      | [quick-launch](./quick-launch.md)         | 6               | 2      |
-| [dev-cleaner](./dev-cleaner.md)           | 4               | 2      | [system-settings](./system-settings.md)   | 8               | 1      |
-| [dev-toolbox](./dev-toolbox.md)           | 6               | 2      | [terminology](./terminology.md)           | 7               | 2      |
-| [env-detector](./env-detector.md)         | 5               | 1      | [token-calculator](./token-calculator.md) | 3               | 0      |
-| [extension-center](./extension-center.md) | 22              | 0      | [updater](./updater.md)                   | 4               | 0      |
-| [hardware](./hardware.md)                 | 4               | 2      | <br />                                    | <br />          | <br /> |
-| **合计**                                  | **140**         | **35** | <br />                                    | <br />          | <br /> |
+| 模块                                                                    | 待实现 / 待验证 | 远期   | 模块                                                          | 待实现 / 待验证 | 远期   |
+| ----------------------------------------------------------------------- | --------------- | ------ | ------------------------------------------------------------- | --------------- | ------ |
+| [account-manager](./account-manager.md)                                 | 22              | 3      | [network-probe](./network-probe.md)                           | 15              | 6      |
+| [app-manager](./app-manager.md)                                         | 6               | 3      | [photo-triage](../../extensions/photo-triage/docs/planned.md) | 5               | 3      |
+| [clean-space](../../extensions/clean-space/docs/planned.md)             | 4               | 4      | [port-manager](./port-manager.md)                             | 5               | 2      |
+| [command-center](./command-center.md)                                   | 6               | 2      | [quick-launch](./quick-launch.md)                             | 6               | 2      |
+| [dev-cleaner](../../extensions/clean-space/docs/dev-cleaner/planned.md) | 4               | 2      | [system-settings](./system-settings.md)                       | 8               | 1      |
+| [dev-toolbox](./dev-toolbox.md)                                         | 6               | 2      | [terminology](../../extensions/terminology/docs/planned.md)   | 7               | 2      |
+| [env-detector](./env-detector.md)                                       | 5               | 1      | [token-calculator](./token-calculator.md)                     | 3               | 0      |
+| [extension-center](./extension-center.md)                               | 22              | 0      | [updater](./updater.md)                                       | 4               | 0      |
+| [hardware](../../extensions/hardware/docs/planned.md)                   | 4               | 2      | <br />                                                        | <br />          | <br /> |
+| **合计**                                                                | **140**         | **35** | <br />                                                        | <br />          | <br /> |
 
 ## 统一模板（每份文档均含）
 

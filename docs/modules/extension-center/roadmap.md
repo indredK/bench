@@ -241,7 +241,11 @@ pnpm run test:critical       # ✓ 145 passed
   - hardware → `extensions/hardware/`（**零 IPC 纯前端**，`acl.commands` 为空；`src/data/*` 15 个静态数据模块与 `CompareMatrixTable` 随迁入插件——宿主仅 env-detector 复用 `FilterBar`/types，留在 `src/shared/compare/`；数据模块的宿主 i18n 实例引用改为插件 i18n 实例）
   - 配套：`extensions:build` 泛化为循环构建全部插件；docs 对齐门禁升级（extensions/<id> 计入模块，14 features + 3 plugins ↔ 17 docs）；宿主 registry/locales 同步摘除（zh/en parity 保持）
   - **第一批后复评（用户已裁决）**：继续按需迁移，不停在 bundled-plugin 形态
-- [ ] 候选第二批（中等）：clean-space / dev-cleaner / port-manager / env-detector
+- [x] **第二批完成（2026-09-08，用户指令）**：clean-space（含 dev-cleaner 子能力）→ `extensions/clean-space/`
+  - 能力面 14 条命令（8 清理 + 6 dev-cleaner）留宿主核心 + ACL；**平台门控落地**：manifest v2 新增可选 `platforms` 字段（spec §3.1，缺省全平台、空数组非法、宿主按当前平台过滤已装列表——能力判定在宿主，renderer 不自行决定）
+  - dev-cleaner 作为子模块随迁（`src/dev-cleaner/`），宿主 `src/features/{clean-space,dev-cleaner}` 删除
+  - **文档归集（用户指令）**：已插件化模块的文档三件套（product-spec / planned / roadmap / README，clean-space 另含 design.md + 原型 HTML、dev-cleaner 子目录）自包含迁至 `extensions/<id>/docs/`；docs-consistency 门禁升级为插件文档本地校验（12 features + 4 plugins ↔ 12 module docs）；docs/ROADMAP、modules/README、planned/README、dev-toolbox README 等入链全部重定向，390 条相对链接校验通过
+- [ ] 候选后续批次（中等）：port-manager / env-detector
 - [x] **重系统耦合模块降级为「按需」而非计划内**：quick-launch / app-manager / command-center / network-probe / updater / system-settings / account-manager（涉及权限、凭据、系统级动作，插件化收益低而破坏面高）
 - [ ] dev-toolbox host 泛化（删 `TOOLBOX_FEATURE_IDS` 与硬编码 tabs）—— 仅在前述迁移确有收益时执行
 - [ ] 宿主主包残留清理：`src/shared/compare/`（ModelPicker 已无宿主消费者）、photo-triage 主包 i18n 遗留键（`sidebar.photoTriage` + `photoTriage` 命名空间）

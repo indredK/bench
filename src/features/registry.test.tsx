@@ -24,7 +24,8 @@ describe("feature platform gating", () => {
     const paths = createNavigationItems(t, environment).map((item) => item.path)
 
     expect(paths).toContain("/account-manager")
-    expect(paths).toContain("/clean-space")
+    // P5：clean-space 迁出后宿主导航不再包含（macOS 侧经插件中心打开）。
+    expect(paths).not.toContain("/clean-space")
     // P5：hardware 迁出后宿主导航不再包含（经插件中心打开）。
     expect(paths).not.toContain("/hardware")
     expect(createConfigItems(t, environment)).toHaveLength(1)

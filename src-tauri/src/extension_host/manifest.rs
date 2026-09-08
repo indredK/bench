@@ -57,10 +57,35 @@ pub struct ExtensionManifest {
     /// market 推荐填写：宿主拒绝过期元数据（防 freeze attack）。bundled 不填。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<String>,
+    /// 可用平台声明（P5；spec §3.1）。每项 `macos` | `windows`；
+    /// **缺省 = 全平台**，空数组非法。宿主在已装列表中过滤不含当前平台的插件。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub platforms: Option<Vec<String>>,
     /// minisign 签名（对「去掉 `signature` 字段后的 canonical JSON」的签名，
     /// 见 [signature]；`market` 强制校验，`bundled` 豁免）。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub signature: Option<String>,
+}
+
+/// 宿主平台标识（`ext_list_installed` 过滤用）。
+pub fn host_platform() -> &'static str {
+    if cfg!(target_os = "macos") {
+        "macos"
+    } else if cfg!(target_os = "windows") {
+        "windows"
+    } else {
+        "linux"
+    }
+}
+
+impl ExtensionManifest {
+    /// 当前宿主平台是否在声明范围内（缺省 = 全平台）。
+    pub fn supports_host_platform(&self) -> bool {
+        match &self.platforms {
+            None => true,
+            Some(list) => list.iter().any(|p| p == super::manifest::host_platform()),
+        }
+    }
 }
 
 /// 展示名。`zh` 自 P3.1 起可选（缺失回退 `en`）。
@@ -163,6 +188,28 @@ impl ExtensionManifest {
         self.acl.validate()?;
         self.validate_engines()?;
         self.validate_expires_at()?;
+        self.validate_platforms()?;
+        Ok(())
+    }
+
+    /// `platforms` 规则（P5，spec §3.1）：每项为已知平台名，且不得为空数组
+    /// （空数组 = 哪里都不可用，视为配置错误 fail-closed）。
+    fn validate_platforms(&self) -> AppResult<()> {
+        let Some(platforms) = &self.platforms else {
+            return Ok(());
+        };
+        if platforms.is_empty() {
+            return Err(AppError::invalid_input(
+                "manifest.platforms must not be empty (omit the field for all platforms)",
+            ));
+        }
+        for platform in platforms {
+            if !matches!(platform.as_str(), "macos" | "windows" | "linux") {
+                return Err(AppError::invalid_input(format!(
+                    "manifest.platforms contains unknown platform `{platform}` (expected macos | windows | linux)"
+                )));
+            }
+        }
         Ok(())
     }
 
@@ -619,5 +666,59 @@ mod tests {
             ExtensionManifest::parse(&bad).unwrap_err().code,
             "INVALID_INPUT"
         );
+    }
+}
+
+#[cfg(test)]
+mod platform_tests {
+    use super::*;
+
+    #[test]
+    fn platforms_missing_means_all() {
+        let manifest = manifest_with_platforms(None).expect("parse");
+        assert!(manifest.supports_host_platform());
+    }
+
+    #[test]
+    fn platforms_filter_matches_host() {
+        let macos_only = manifest_with_platforms(Some(vec!["macos".into()])).expect("parse");
+        assert_eq!(
+            macos_only.supports_host_platform(),
+            host_platform() == "macos"
+        );
+    }
+
+    #[test]
+    fn platforms_empty_is_invalid() {
+        let manifest = manifest_with_platforms(Some(vec![]));
+        assert_eq!(manifest.unwrap_err().code, "INVALID_INPUT");
+    }
+
+    #[test]
+    fn platforms_unknown_value_is_invalid() {
+        let manifest = manifest_with_platforms(Some(vec!["android".into()]));
+        assert_eq!(manifest.unwrap_err().code, "INVALID_INPUT");
+    }
+
+    fn manifest_with_platforms(platforms: Option<Vec<String>>) -> AppResult<ExtensionManifest> {
+        let mut json = r#"{
+            "schemaVersion": 2,
+            "id": "platform-probe",
+            "version": "1.0.0",
+            "display": { "en": "Probe" },
+            "distribution": "bundled",
+            "entry": { "index": "index.html" },
+            "files": [{ "path": "index.html", "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08", "size": 4 }],
+            "acl": { "commands": [] },
+            "engines": { "bench": "*" }
+        }"#.to_string();
+        if let Some(list) = platforms {
+            let items: Vec<String> = list.iter().map(|p| format!("\"{p}\"")).collect();
+            json = json.replace(
+                "\"engines\"",
+                &format!("\"platforms\": [{}], \"engines\"", items.join(", ")),
+            );
+        }
+        ExtensionManifest::parse(&json)
     }
 }

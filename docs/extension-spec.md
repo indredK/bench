@@ -56,21 +56,22 @@
 
 ### 3.1 字段总表
 
-| 字段            | 类型                      | 必填 | 约束                                                                    | 说明                                                  |
-| --------------- | ------------------------- | :--: | ----------------------------------------------------------------------- | ----------------------------------------------------- |
-| `schemaVersion` | number                    |  ✅  | 必须等于 `2`                                                            | 宿主 fail-closed，不匹配即拒绝加载                    |
-| `id`            | string                    |  ✅  | `^[a-z][a-z0-9-]*$`                                                     | 同时是产物目录名、窗口 label 后缀（`ext-<id>`）       |
-| `version`       | string                    |  ✅  | `X.Y.Z`（三段纯数字）                                                   | 与宿主版本解耦；参与版本单调性检查                    |
-| `display`       | object                    |  ✅  | `en` 必填且非空；`zh` 可选                                              | `zh` 缺失时回退 `en`（降低非中文作者门槛）            |
-| `distribution`  | `"bundled"` \| `"market"` |  ✅  | —                                                                       | `market` 强制验签                                     |
-| `entry`         | object                    |  ✅  | `index` 以 `.html` 结尾、相对路径、不含 `..`、不以 `/` 开头             | 入口 HTML，相对产物根                                 |
-| `files`         | array                     |  ✅  | 至少 1 项；`path` 相对产物根、不含 `..`、不以 `/` 开头；`path` 不得重复 | 逐文件完整性清单（P3.1 起必填，见 §3.4）              |
-| `acl`           | object                    |  ✅  | `commands` 每项必须在宿主能力面注册表内                                 | 插件申请的命令子集（§7）                              |
-| `engines`       | object                    |  ✅  | `bench` 为 `*` 或 `>=X.Y.Z`                                             | 宿主兼容约束；非法约束 fail-closed                    |
-| `expiresAt`     | string \| null            |  ⬜  | ISO 8601 UTC                                                            | **market 推荐**；过期元数据被拒绝（防 freeze attack） |
-| `signature`     | string \| null            |  ⬜  | minisign 签名                                                           | **market 必填**；bundled 豁免（由主包签名链覆盖）     |
+| 字段            | 类型                      | 必填 | 约束                                                                    | 说明                                                                                                                     |
+| --------------- | ------------------------- | :--: | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `schemaVersion` | number                    |  ✅  | 必须等于 `2`                                                            | 宿主 fail-closed，不匹配即拒绝加载                                                                                       |
+| `id`            | string                    |  ✅  | `^[a-z][a-z0-9-]*$`                                                     | 同时是产物目录名、窗口 label 后缀（`ext-<id>`）                                                                          |
+| `version`       | string                    |  ✅  | `X.Y.Z`（三段纯数字）                                                   | 与宿主版本解耦；参与版本单调性检查                                                                                       |
+| `display`       | object                    |  ✅  | `en` 必填且非空；`zh` 可选                                              | `zh` 缺失时回退 `en`（降低非中文作者门槛）                                                                               |
+| `distribution`  | `"bundled"` \| `"market"` |  ✅  | —                                                                       | `market` 强制验签                                                                                                        |
+| `entry`         | object                    |  ✅  | `index` 以 `.html` 结尾、相对路径、不含 `..`、不以 `/` 开头             | 入口 HTML，相对产物根                                                                                                    |
+| `files`         | array                     |  ✅  | 至少 1 项；`path` 相对产物根、不含 `..`、不以 `/` 开头；`path` 不得重复 | 逐文件完整性清单（P3.1 起必填，见 §3.4）                                                                                 |
+| `acl`           | object                    |  ✅  | `commands` 每项必须在宿主能力面注册表内                                 | 插件申请的命令子集（§7）                                                                                                 |
+| `engines`       | object                    |  ✅  | `bench` 为 `*` 或 `>=X.Y.Z`                                             | 宿主兼容约束；非法约束 fail-closed                                                                                       |
+| `platforms`     | string\[\]                |  ⬜  | 每项为 `"macos"` \| `"windows"`；不得为空数组                           | 声明可用平台（P5）；**缺省 = 全平台**。宿主在已装列表中过滤掉不含当前平台的插件（能力判定由宿主做，renderer 不自行决定） |
+| `expiresAt`     | string \| null            |  ⬜  | ISO 8601 UTC                                                            | **market 推荐**；过期元数据被拒绝（防 freeze attack）                                                                    |
+| `signature`     | string \| null            |  ⬜  | minisign 签名                                                           | **market 必填**；bundled 豁免（由主包签名链覆盖）                                                                        |
 
-> 未列出的字段一律拒绝（`deny_unknown_fields`）。新增字段必须走 schemaVersion 升级。
+> 未列出的字段一律拒绝（`deny_unknown_fields`）。字段演进随本规格修订（`platforms` 为 v2 增补，P5）；破坏性字段变更必须走 schemaVersion 升级。
 
 ### 3.2 完整示例（market）
 

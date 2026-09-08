@@ -166,6 +166,11 @@ pub fn ext_list_installed(app: AppHandle) -> AppResult<Vec<ExtensionSummary>> {
                 continue;
             }
         };
+        // 平台门控（P5，spec §3.1 platforms）：声明不含当前平台的插件不出现在
+        // 已装列表（能力判定由宿主做，renderer 不自行决定 —— D-007）。
+        if !manifest.supports_host_platform() {
+            continue;
+        }
         let enabled = !path.join(EXT_DISABLED_MARKER).exists();
         let compatible = manifest.satisfies_engines(&app.package_info().version.to_string());
         // display.zh 可选（v2 起）：缺失回退 en。先取展示名再移动其余字段。

@@ -7,7 +7,6 @@
 import type { TFunction } from "i18next"
 import { accountManagerFeature } from "@/features/account-manager/feature"
 import { appManagerFeature } from "@/features/app-manager/feature"
-import { cleanSpaceFeature } from "@/features/clean-space/feature"
 import { commandCenterFeature } from "@/features/command-center/feature"
 import { envDetectorFeature } from "@/features/env-detector/feature"
 import { networkProbeFeature } from "@/features/network-probe/feature"
@@ -21,7 +20,7 @@ import type { AppFeature, NavigationItem } from "@/features/types"
 import { canUseFeature, type RuntimeEnvironment } from "@/platform/capabilities"
 
 /** All features (for routing); order matters for sidebar.
- *  P5：hardware / terminology 已插件化（extensions/，经插件中心打开）。 */
+ *  P5：hardware / terminology / clean-space 已插件化（extensions/，经插件中心打开）。 */
 export const appFeatures: AppFeature[] = [
   quickLaunchFeature,
   commandCenterFeature,
@@ -32,7 +31,6 @@ export const appFeatures: AppFeature[] = [
   // Development tools — routed but condensed into dev-toolbox in sidebar
   devToolboxFeature,
   portManagerFeature,
-  cleanSpaceFeature,
   envDetectorFeature,
   tokenCalculatorFeature,
   // Config

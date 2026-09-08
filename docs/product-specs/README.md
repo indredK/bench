@@ -4,7 +4,9 @@
 
 ## 结构
 
-每模块一个文件：`<模块名>.md`，与 `src/features/<模块名>/` 一一对应（16 个模块全覆盖）。
+每模块一个文件：`<模块名>.md`，与 `src/features/<模块名>/` 一一对应。
+
+> **P5 插件化模块**（photo-triage / terminology / hardware / clean-space，含 dev-cleaner）的产品规格已随模块自包含迁移至 `extensions/<id>/docs/product-spec.md`（dev-cleaner 在 `extensions/clean-space/docs/dev-cleaner/product-spec.md`）。
 
 ## 统一模板（每份文档均含）
 

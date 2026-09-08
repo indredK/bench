@@ -58,6 +58,21 @@ pub const EXTENSION_ALLOWED_COMMANDS: &[&str] = &[
     "update_term",
     "delete_term",
     "set_term_pinned",
+    // clean-space 能力面（8 条，P5 迁移；含 dev-cleaner 子能力 6 条 = 14）
+    "scan_storage_overview",
+    "scan_storage_stream",
+    "get_category_items",
+    "execute_category_cleanup",
+    "scan_custom_folder",
+    "open_system_storage_settings",
+    "get_cleanup_records",
+    "add_cleanup_record",
+    "scan_dev_projects",
+    "cleanup_projects",
+    "stop_scan",
+    "get_custom_cleanup_commands",
+    "execute_custom_cleanup",
+    "stop_custom_cleanup",
     // hardware 为纯前端插件（零 IPC，acl.commands 为空，P5 迁移）
 ];
 
@@ -124,6 +139,22 @@ mod tests {
 
     #[test]
     fn capability_face_all_allowed() {
+        let clean_space = [
+            "scan_storage_overview",
+            "scan_storage_stream",
+            "get_category_items",
+            "execute_category_cleanup",
+            "scan_custom_folder",
+            "open_system_storage_settings",
+            "get_cleanup_records",
+            "add_cleanup_record",
+            "scan_dev_projects",
+            "cleanup_projects",
+            "stop_scan",
+            "get_custom_cleanup_commands",
+            "execute_custom_cleanup",
+            "stop_custom_cleanup",
+        ];
         let photo_triage = [
             "photo_triage_scan",
             "photo_triage_scan_status",
@@ -157,7 +188,11 @@ mod tests {
             "delete_term",
             "set_term_pinned",
         ];
-        for command in photo_triage.into_iter().chain(terminology) {
+        for command in photo_triage
+            .into_iter()
+            .chain(terminology)
+            .chain(clean_space)
+        {
             assert!(
                 is_command_allowed(command),
                 "`{command}` should be in the extension allow-list"
