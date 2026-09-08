@@ -1,17 +1,16 @@
 #!/usr/bin/env node
 /**
- * 插件 i18n 自包含审计（P5，用户约定：文案必须完全随插件走，不指向宿主——
- * 插件目录将来会整体搬到独立仓库）。
+ * 插件 i18n 自包含审计（P5）：插件文案必须完全随插件走（不指向宿主）——
+ * 插件目录（plugin-market 仓库）将来整体作为独立发布单元。
  *
- * 扫描范围：插件自身源码 + 其经 `@/` 引用的宿主共享模块
- * （UI 组件、common 组件、shared 组件、lib 等）中的 `t()` 静态 key
- * 与动态族，对照 `extensions/<id>/locales/zh.json`（结构 parity 由
- * check-i18n-guards 保证，这里只查"用到的 key 是否都在"）。
+ * 扫描范围：每个插件自身源码 + 其经 `@/` 引用的宿主共享模块（UI/common/
+ * shared/lib 组件）中的 `t()` 静态 key 与动态族，对照插件 locales（zh）。
+ * 结构 parity（zh/en）由 Bench 的 check-i18n-guards 保证，这里只查
+ * 「用到的 key 是否都在」。
  *
- * 缺口处理约定：
- * - 插件自身源码缺 key → 补进插件 locales；
- * - 宿主共享组件缺 key → 补进插件 locales 的 common（宿主 common 演进时重跑本审计）；
- *   组件若被插件大量定制，考虑收编进插件或 P4.5 SDK（见 extension-workflow.md §11）。
+ * 插件来源（自动发现，二选一）：
+ * - 默认：`<bench>/../kindred-plugin-market/plugin-market/extensions/`（真相源仓库）
+ * - 兼容：`<bench>/extensions/`（若本地仍保留）
  *
  * 用法：pnpm run audit:ext-i18n（非零退出码 = 有缺口）
  */
@@ -20,8 +19,35 @@ import { readFileSync, readdirSync, statSync, existsSync } from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..")
-const PLUGINS = ["photo-triage", "terminology", "hardware", "clean-space"]
+const scriptDir = path.dirname(fileURLToPath(import.meta.url))
+const root = path.resolve(scriptDir, "..", "..") // Bench 仓库根（宿主共享模块来源）
+const marketDefault = path.resolve(root, "..", "kindred-plugin-market", "plugin-market")
+
+const args = process.argv.slice(2)
+const valueOf = (name) => {
+  const i = args.indexOf(name)
+  return i !== -1 ? args[i + 1] : undefined
+}
+const marketDir = path.resolve(valueOf("--market") ?? marketDefault)
+
+/** 发现插件：优先 market 仓库，回退 Bench 本地 extensions/。 */
+function discoverPlugins() {
+  const candidates = [path.join(marketDir, "extensions"), path.join(root, "extensions")]
+  for (const dir of candidates) {
+    if (!existsSync(dir)) continue
+    const ids = readdirSync(dir, { withFileTypes: true })
+      .filter(
+        (d) =>
+          d.isDirectory() &&
+          existsSync(path.join(dir, d.name, "manifest.json")) &&
+          existsSync(path.join(dir, d.name, "locales", "zh.json")),
+      )
+      .map((d) => d.name)
+      .sort()
+    if (ids.length > 0) return { base: dir, ids }
+  }
+  return { base: null, ids: [] }
+}
 
 const flatten = (obj, prefix = "") => {
   const keys = []
@@ -68,50 +94,57 @@ function resolveHostFiles(specifiers) {
   return files
 }
 
-let totalMissing = 0
-let cleanPlugins = 0
-
-for (const pid of PLUGINS) {
-  const localePath = path.join(root, "extensions", pid, "locales", "zh.json")
-  if (!existsSync(localePath)) {
-    console.error(`✗ ${pid}: locales/zh.json 缺失（文案未随插件自包含）`)
-    totalMissing += 1
-    continue
+async function main() {
+  const { base: pluginBase, ids: pluginIds } = discoverPlugins()
+  if (pluginIds.length === 0) {
+    console.log("[audit:ext-i18n] no plugins found (bench extensions/ is a pure base) — pass")
+    process.exit(0)
   }
-  const zh = JSON.parse(readFileSync(localePath, "utf8")).translation
-  const pluginKeys = new Set(flatten(zh))
+  console.log(`[audit:ext-i18n] plugins: ${pluginIds.join(", ")}`)
 
-  const pluginFiles = walk(path.join(root, "extensions", pid, "src"))
-  const hostSpecifiers = new Set()
-  for (const f of pluginFiles) {
-    const src = readFileSync(f, "utf8")
-    for (const m of src.matchAll(/from ["'](@\/[^"']+)["']/g)) hostSpecifiers.add(m[1])
+  let totalMissing = 0
+  let clean = 0
+  for (const pid of pluginIds) {
+    const localePath = path.join(pluginBase, pid, "locales", "zh.json")
+    const zh = JSON.parse(readFileSync(localePath, "utf8")).translation
+    const pluginKeys = new Set(flatten(zh))
+
+    const pluginFiles = walk(path.join(pluginBase, pid, "src"))
+    const hostSpecifiers = new Set()
+    for (const f of pluginFiles) {
+      const src = readFileSync(f, "utf8")
+      for (const m of src.matchAll(/from ["'](@\/[^"']+)["']/g)) hostSpecifiers.add(m[1])
+    }
+    const hostFiles = resolveHostFiles([...hostSpecifiers])
+    const { statics, dynamics } = collectKeys([...pluginFiles, ...hostFiles])
+
+    const missing = statics.filter((k) => !pluginKeys.has(k))
+    const missingDyn = dynamics.filter(({ raw }) => {
+      const family = raw.split("${")[0].replace(/\.$/, "")
+      return ![...pluginKeys].some((k) => k.startsWith(family))
+    })
+
+    console.log(
+      `== ${pid} == host modules: ${hostSpecifiers.size} | static keys ${statics.length} | families ${dynamics.length}`,
+    )
+    if (missing.length === 0 && missingDyn.length === 0) {
+      clean += 1
+      console.log("  ✓ self-contained")
+      continue
+    }
+    totalMissing += missing.length + missingDyn.length
+    for (const k of missing) console.log(`  ✗ missing static key: ${k}`)
+    for (const d of missingDyn)
+      console.log(`  ✗ missing dynamic family: ${d.raw}  (${path.relative(root, d.file)})`)
   }
-  const hostFiles = resolveHostFiles([...hostSpecifiers])
-  const { statics, dynamics } = collectKeys([...pluginFiles, ...hostFiles])
-
-  const missing = statics.filter((k) => !pluginKeys.has(k))
-  const missingDyn = dynamics.filter(({ raw }) => {
-    const family = raw.split("${")[0].replace(/\.$/, "")
-    return ![...pluginKeys].some((k) => k.startsWith(family))
-  })
 
   console.log(
-    `\n== ${pid} == 宿主依赖模块 ${hostSpecifiers.size} 个 / ${hostFiles.length} 文件；静态 key ${statics.length}、动态族 ${dynamics.length}`,
+    `\n[audit:ext-i18n] ${clean}/${pluginIds.length} self-contained; missing ${totalMissing}.`,
   )
-  if (missing.length === 0 && missingDyn.length === 0) {
-    cleanPlugins += 1
-    console.log("  ✓ 文案自包含")
-    continue
-  }
-  totalMissing += missing.length + missingDyn.length
-  for (const k of missing) console.log(`  ✗ 缺失静态 key: ${k}`)
-  for (const d of missingDyn) {
-    console.log(`  ✗ 缺失动态族: ${d.raw}  (${path.relative(root, d.file)})`)
-  }
+  process.exit(totalMissing > 0 ? 1 : 0)
 }
 
-console.log(
-  `\n审计结果：${cleanPlugins}/${PLUGINS.length} 插件文案自包含；缺失 ${totalMissing} 项。`,
-)
-process.exit(totalMissing > 0 ? 1 : 0)
+main().catch((error) => {
+  console.error(`[audit:ext-i18n] ${error.message}`)
+  process.exit(1)
+})

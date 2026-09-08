@@ -191,7 +191,7 @@ pnpm run test:critical
 
 **代码修改**：默认否；发现缺陷时回到 `/fix`，修复并重跑本任务。
 
-**范围**：[System Settings roadmap](./modules/system-settings/roadmap.md)、[Clean Space roadmap](../extensions/clean-space/docs/roadmap.md)。
+**范围**：[System Settings roadmap](./modules/system-settings/roadmap.md)、[Clean Space roadmap](https://github.com/kindred-plugin-market/plugin-market/tree/main/extensions/clean-space/docs/roadmap.md)。
 
 **步骤**：
 

@@ -26,6 +26,10 @@ function main() {
     ? process.argv[process.argv.indexOf("--id") + 1]
     : null
 
+  if (!existsSync(REPO_EXTENSIONS)) {
+    console.log("[test:extensions] no extensions directory; nothing to test")
+    process.exit(0)
+  }
   const ids = readdirSync(REPO_EXTENSIONS, { withFileTypes: true })
     .filter((d) => d.isDirectory())
     .map((d) => d.name)
@@ -34,10 +38,8 @@ function main() {
 
   const targets = onlyId ? ids.filter((id) => id === onlyId) : ids
   if (targets.length === 0) {
-    console.error(
-      `[test:extensions] no plugin with vitest.config.ts (found: ${ids.join(", ") || "none"})`,
-    )
-    process.exit(1)
+    console.log("[test:extensions] no plugins to test (sources live in plugin-market repo)")
+    process.exit(0)
   }
 
   let failed = 0

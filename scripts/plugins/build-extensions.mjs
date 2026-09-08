@@ -18,8 +18,9 @@ const VITE_BIN = join(process.cwd(), "node_modules", ".bin", "vite")
 
 function main() {
   if (!existsSync(REPO_EXTENSIONS)) {
-    console.error(`[extensions:build] no extensions directory at ${REPO_EXTENSIONS}`)
-    process.exit(1)
+    // P5 真相源反转：插件源码在 plugin-market 仓库，Bench 基座可为零内置插件。
+    console.log("[extensions:build] no extensions directory; nothing to build")
+    return
   }
   if (!existsSync(VITE_BIN)) {
     console.error("[extensions:build] vite not found — run `pnpm install` first")

@@ -81,8 +81,9 @@ function main() {
   }
 
   if (!existsSync(REPO_EXTENSIONS)) {
-    console.error(`[extensions] no extensions directory at ${REPO_EXTENSIONS}`)
-    process.exit(1)
+    // P5 真相源反转：无插件目录 → 无需同步（基座零内置插件）。
+    console.log("[extensions] no extensions directory; nothing to sync")
+    return
   }
 
   mkdirSync(targetRoot, { recursive: true })

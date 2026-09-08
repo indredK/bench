@@ -368,7 +368,7 @@ pnpm run extensions:pack <id>     # P4.5 交付
 
 - `pnpm run pack:ext -- <id>`：构建 → 注入 files → zip → `<id>.meta.json`（sha256/size）；
 - `pnpm run update:ext-registry`：对 4 插件跑 pack，重写 `plugin-market/registry.json`（downloadUrl = Release 资产模式）；
-- `pnpm run sync:ext-repos`：Bench `extensions/<id>/` → plugin-market 仓库（单向同步 + 自动 commit）——**过渡期真相源为 Bench**，P4.5 SDK 解耦后反转。
+- `sync:ext-repos` 已退役（2026-09-09）：**真相源反转完成**——插件源码唯一真相源 = `plugin-market` 仓库，Bench 基座不再包含 `extensions/`（打包链对空集容忍：build/stage/sync 直接跳过）。开发插件 = 在 plugin-market 仓库内改源码 → pack → 装入 APPDATA 或走市场；发布 = tag 推送。
 
 ### 13.3 发布流程（plugin-market）
 
