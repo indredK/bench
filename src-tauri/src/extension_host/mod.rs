@@ -41,15 +41,23 @@ pub fn init_extension_root<R: Runtime>(app: &AppHandle<R>, slot: &ExtensionRootS
     }
 }
 
-/// P1：设置了 `BENCH_POC_EXT` 时自动打开 POC 插件窗口。
+/// P1/P2b：设置了 `BENCH_POC_EXT` 时自动打开插件窗口。
 ///
-/// 失败不阻断启动 —— POC 缺失只是验证没跑，不应影响主程序。
+/// - `BENCH_POC_EXT=1` → 打开 POC 插件（`bench-poc`）；
+/// - `BENCH_POC_EXT=<extension-id>` → 打开指定插件（如 `photo-triage`）。
+///
+/// 失败不阻断启动 —— 验证缺失只是没跑，不应影响主程序。
 pub fn maybe_auto_open_poc(app: &AppHandle) {
-    if std::env::var(POC_AUTO_OPEN_ENV).is_err() {
+    let Ok(target) = std::env::var(POC_AUTO_OPEN_ENV) else {
         return;
-    }
-    match commands::ext_poc_open(app.clone()) {
-        Ok(label) => println!("[extension_host] POC window opened: {label}"),
-        Err(e) => eprintln!("[extension_host] auto open POC window failed: {e}"),
+    };
+    let extension_id = if target == "1" {
+        commands::POC_EXTENSION_ID.to_string()
+    } else {
+        target
+    };
+    match commands::ext_open(app.clone(), extension_id) {
+        Ok(label) => println!("[extension_host] extension window opened: {label}"),
+        Err(e) => eprintln!("[extension_host] auto open extension window failed: {e}"),
     }
 }

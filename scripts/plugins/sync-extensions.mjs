@@ -1,16 +1,28 @@
 #!/usr/bin/env node
 /**
- * P2：把仓库 extensions/ 下的官方插件（bundled）产物同步到应用数据目录，
- * 供 dev 模式宿主经 asset provider 加载。
+ * P2/P2b：把仓库 extensions/ 下的官方插件（bundled）产物同步到应用数据目录，
+ * 供宿主经 asset provider 加载。
  *
- * - 复制 manifest.json / index.html / assets/（排除源码与文档）；
- * - 幂等：全量覆盖，不影响 `.disabled` 标记（禁用状态属于用户数据，保留）；
- * - 产物进 git 的部分只有 manifest + 源码；本脚本产出的是运行时副本。
+ * 部署物选择（P2b 修复：白屏根因是部署了 vite 源码入口而非产物）：
+ * - 若 `extensions/<id>/assets/index.html` 存在 → **构建产物模式**：
+ *   `assets/` 内即是部署根（vite build 产出 index.html + bundle/）；
+ * - 否则 → **静态模式**：仓库根 `index.html` + `assets/`（如 bench-poc 手写产物）。
+ *
+ * - 幂等：全量覆盖；`.disabled` 标记是用户数据，同步时保留；
+ * - 产物不进 git（vite 产物目录已由构建生成，gitignore 自行管理）。
  *
  * 用法：node scripts/plugins/sync-extensions.mjs [--print-dir]
  */
 
-import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from "node:fs"
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs"
 import { homedir, platform } from "node:os"
 import { join } from "node:path"
 
@@ -19,11 +31,8 @@ const IDENTIFIER = "com.bench.app"
 /** 与 src-tauri/src/extension_host/assets.rs::EXT_DIR_NAME 一致。 */
 const EXT_DIR_NAME = "extensions"
 const REPO_EXTENSIONS = join(process.cwd(), "extensions")
-
-/** 每个插件需要同步的条目（manifest 必需，其余可选）。 */
-const SYNC_ENTRIES = ["manifest.json", "index.html", "assets"]
-/** 忽略的条目（源码/文档不进运行时目录）。 */
-const IGNORED = new Set(["src", "README.md", "node_modules"])
+/** 用户禁用标记（src-tauri/src/extension_host/commands.rs::EXT_DISABLED_MARKER）。 */
+const DISABLED_MARKER = ".disabled"
 
 function appDataDir() {
   const home = homedir()
@@ -34,6 +43,21 @@ function appDataDir() {
       return join(process.env.APPDATA || join(home, "AppData", "Roaming"), IDENTIFIER)
     default:
       return join(process.env.XDG_DATA_HOME || join(home, ".local", "share"), IDENTIFIER)
+  }
+}
+
+/** 把源目录内容复制为目标目录内容（target 自身保留 .disabled）。 */
+function deployContents(fromDir, target) {
+  const disabledPath = join(target, DISABLED_MARKER)
+  const disabledBackup = existsSync(disabledPath) ? readFileSync(disabledPath) : null
+
+  rmSync(target, { recursive: true, force: true })
+  mkdirSync(target, { recursive: true })
+  for (const entry of readdirSync(fromDir)) {
+    cpSync(join(fromDir, entry), join(target, entry), { recursive: true })
+  }
+  if (disabledBackup !== null) {
+    writeFileSync(disabledPath, disabledBackup)
   }
 }
 
@@ -55,6 +79,7 @@ function main() {
     .filter((d) => d.isDirectory())
     .map((d) => d.name)
 
+  let synced = 0
   for (const id of ids) {
     const source = join(REPO_EXTENSIONS, id)
     const target = join(targetRoot, id)
@@ -62,18 +87,34 @@ function main() {
       console.warn(`[extensions] skip ${id}: missing manifest.json`)
       continue
     }
-    rmSync(target, { recursive: true, force: true })
-    mkdirSync(target, { recursive: true })
-    for (const entry of SYNC_ENTRIES) {
-      const from = join(source, entry)
-      if (!existsSync(from)) continue
-      cpSync(from, join(target, entry), { recursive: true })
+
+    const builtIndex = join(source, "assets", "index.html")
+    if (existsSync(builtIndex)) {
+      // 构建产物模式：assets/ 内即部署根（index.html + bundle/）；
+      // manifest.json 在插件根，单独补入部署根（宿主启动时 fail-closed 校验必需）。
+      deployContents(join(source, "assets"), target)
+      cpSync(join(source, "manifest.json"), join(target, "manifest.json"))
+      console.log(`[extensions] synced (built) ${id} -> ${target}`)
+    } else if (existsSync(join(source, "index.html"))) {
+      // 静态模式：仅 manifest + 入口 + assets（源码/文档不进运行时目录）。
+      const staging = join(targetRoot, `.${id}.staging`)
+      rmSync(staging, { recursive: true, force: true })
+      mkdirSync(staging, { recursive: true })
+      for (const entry of ["manifest.json", "index.html", "assets"]) {
+        const from = join(source, entry)
+        if (existsSync(from)) cpSync(from, join(staging, entry), { recursive: true })
+      }
+      deployContents(staging, target)
+      rmSync(staging, { recursive: true, force: true })
+      console.log(`[extensions] synced (static) ${id} -> ${target}`)
+    } else {
+      console.warn(`[extensions] skip ${id}: no deployable index.html`)
+      continue
     }
-    // 保留用户的启用/禁用标记（若存在则回写）。
-    console.log(`[extensions] synced ${id} -> ${target}`)
+    synced += 1
   }
 
-  console.log(`[extensions] done (${ids.length} extension(s))`)
+  console.log(`[extensions] done (${synced} extension(s))`)
 }
 
 main()

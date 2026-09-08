@@ -4,19 +4,15 @@
  */
 import { useCallback, useMemo } from "react"
 import { convertFileSrc } from "@tauri-apps/api/core"
-import {
-  usePhotoTriageStore,
-  type TriageFilter,
-  type TriageMark,
-} from "@/features/photo-triage/store"
+import { usePhotoTriageStore, type TriageFilter, type TriageMark } from "@extension/store"
 import {
   buildRows,
   computeStats,
   filterItems,
   shouldShowGroupBar,
   sortForGroup,
-} from "@/features/photo-triage/lib/grouping"
-import * as uc from "@/features/photo-triage/services/photo-triage.use-cases"
+} from "@extension/lib/grouping"
+import * as uc from "@extension/services/photo-triage.use-cases"
 
 /** 本地路径 → asset 协议 URL（浏览器环境回退原路径）。 */
 export function toAssetUrl(path: string | null | undefined): string | null {

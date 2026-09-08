@@ -31,6 +31,45 @@ pub const POC_RESULT_FILE: &str = "poc-verify-result.json";
 /// 禁用标记文件名（置于插件产物目录内）。
 pub const EXT_DISABLED_MARKER: &str = ".disabled";
 
+/// 插件窗口错误捕获脚本。
+///
+/// 注入到每个插件窗口：捕获未处理异常 / Promise 拒绝 / console.error，
+/// 经 `ext_poc_report` 回写宿主（ACL 注册表已放行）。
+/// 这是插件调试基建（P3 起供开发模式诊断），生产构建同样保留——
+/// 错误数据只落本机应用数据目录，无外发。
+pub const EXT_ERROR_CAPTURE_SCRIPT: &str = r#"(() => {
+  const send = (payload) => {
+    try {
+      window.__TAURI_INTERNALS__?.invoke?.("ext_poc_report", { payload });
+    } catch (_) { /* IPC 未就绪时丢弃（仅调试数据） */ }
+  };
+  const fmt = (value) => {
+    try {
+      if (value instanceof Error) return `${value.name}: ${value.message}\n${value.stack ?? ""}`;
+      return typeof value === "object" ? JSON.stringify(value) : String(value);
+    } catch (_) {
+      return String(value);
+    }
+  };
+  window.addEventListener("error", (e) => {
+    send({ type: "ext-diagnostic", kind: "window-error", url: location.href,
+      message: String(e.message), source: String(e.filename ?? ""), line: e.lineno ?? 0 });
+  });
+  window.addEventListener("unhandledrejection", (e) => {
+    send({ type: "ext-diagnostic", kind: "unhandled-rejection", url: location.href,
+      message: fmt(e.reason) });
+  });
+  const originalError = console.error.bind(console);
+  console.error = (...args) => {
+    send({ type: "ext-diagnostic", kind: "console.error", url: location.href,
+      message: args.map(fmt).join(" ") });
+    originalError(...args);
+  };
+  window.addEventListener("load", () => {
+    send({ type: "ext-diagnostic", kind: "boot", url: location.href, message: "window load" });
+  });
+})();"#;
+
 /// 已安装插件摘要（返回给插件中心）。
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -133,6 +172,7 @@ pub fn ext_open(app: AppHandle, extension_id: String) -> AppResult<String> {
         .title(format!("{} · Bench Extension", manifest.display.en))
         .inner_size(960.0, 680.0)
         .center()
+        .initialization_script(EXT_ERROR_CAPTURE_SCRIPT)
         .build()
         .map_err(|e| AppError::internal(format!("open extension window failed: {e}")))?;
     Ok(label)

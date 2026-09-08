@@ -64,6 +64,8 @@ export default defineConfig(async () => ({
       "**/dist/**",
       "**/.{idea,git,cache,output,temp}/**",
       "**/.claude/**",
+      // 官方插件源码与产物（含测试）由插件自身构建体系负责 (D-024)。
+      "extensions/**",
       // Playwright e2e 用例由 `pnpm run test:e2e` (playwright test) 执行 (A4-1)。
       "e2e/**",
     ],

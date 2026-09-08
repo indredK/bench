@@ -16,8 +16,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import * as uc from "@/features/photo-triage/services/photo-triage.use-cases"
-import { prettyPath } from "@/features/photo-triage/hooks/usePhotoTriageController"
+import * as uc from "@extension/services/photo-triage.use-cases"
+import { prettyPath } from "@extension/hooks/usePhotoTriageController"
 
 export function EmptyDirsDialog({
   open,

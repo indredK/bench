@@ -12,11 +12,13 @@
 - [x] photo-triage bundled 骨架（manifest + 最小 UI + 同步脚本）
 - [ ] GUI 实测：插件中心列表 + photo-triage 窗口 + 网关拒绝演示（待真机）
 
-## P2b（photo-triage 完整迁移）
+## P2b（photo-triage 完整迁移）✅ 2026-09-08
 
-- [ ] `src/features/photo-triage/` 21 文件迁出为 `extensions/photo-triage/src/`
-- [ ] 插件独立 vite 构建体系（i18n 文案随插件打包）
-- [ ] 主包侧边栏移除 photo-triage 静态注册，改由插件中心点亮
+- [x] `src/features/photo-triage/` 20 文件迁出为 `extensions/photo-triage/src/`（feature.tsx 宿主描述符删除，不作迁移）
+- [x] 插件独立 vite 构建体系（`extensions:build`；`base: "./"` 相对路径；alias `@`→宿主 src / `@extension`→插件 src；Tailwind 4 走宿根 postcss）
+- [x] 插件自带 i18n 资源（`locales/{zh,en}.json` = photoTriage 154 keys + common 38 keys，独立 i18next 实例，语言随 WebView locale）
+- [x] 主包移除 photo-triage 静态注册（registry.tsx / vitest exclude / docs/modules 对齐 15↔15）
+- [x] `BENCH_POC_EXT=<extension-id>` 支持自动打开指定插件（实测 `ext-photo-triage` 窗口打开、应用稳定）
 
 ## P3+
 

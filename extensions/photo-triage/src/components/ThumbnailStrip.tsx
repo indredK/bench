@@ -12,11 +12,11 @@ import { useTranslation } from "react-i18next"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { cn } from "@/lib/utils"
 import type { PhotoItem } from "@/lib/tauri/types/photo-triage"
-import { usePhotoTriageStore, type TriageMark } from "@/features/photo-triage/store"
-import type { PhotoTriageController } from "@/features/photo-triage/hooks/usePhotoTriageController"
-import { toAssetUrl } from "@/features/photo-triage/hooks/usePhotoTriageController"
-import { setDragImage } from "@/features/photo-triage/lib/drag"
-import * as uc from "@/features/photo-triage/services/photo-triage.use-cases"
+import { usePhotoTriageStore, type TriageMark } from "@extension/store"
+import type { PhotoTriageController } from "@extension/hooks/usePhotoTriageController"
+import { toAssetUrl } from "@extension/hooks/usePhotoTriageController"
+import { setDragImage } from "@extension/lib/drag"
+import * as uc from "@extension/services/photo-triage.use-cases"
 
 const MIN_COL = 96 // 对齐 Python `.thumb` 最小列宽
 const GAP = 8

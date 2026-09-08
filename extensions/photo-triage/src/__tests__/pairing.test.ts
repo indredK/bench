@@ -2,21 +2,14 @@
  * Pairing tests / 配对与分组纯函数单测.
  */
 import { describe, expect, it } from "vitest"
-import {
-  fnv1a,
-  pairFiles,
-  typeOf,
-  folderOf,
-  IMAGE_EXTS,
-  VIDEO_EXTS,
-} from "@/features/photo-triage/lib/pairing"
+import { fnv1a, pairFiles, typeOf, folderOf, IMAGE_EXTS, VIDEO_EXTS } from "@extension/lib/pairing"
 import {
   filterItems,
   sortForGroup,
   buildRows,
   computeStats,
   groupFill,
-} from "@/features/photo-triage/lib/grouping"
+} from "@extension/lib/grouping"
 import type { PhotoItem } from "@/lib/tauri/types/photo-triage"
 
 function item(id: string, folder: string, type: PhotoItem["type"] = "photo"): PhotoItem {

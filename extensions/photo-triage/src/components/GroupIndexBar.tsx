@@ -12,9 +12,9 @@ import { memo, useMemo, useState } from "react"
 import { createPortal } from "react-dom"
 import { useTranslation } from "react-i18next"
 import { cn } from "@/lib/utils"
-import { groupFill, type HeaderRow } from "@/features/photo-triage/lib/grouping"
-import { usePhotoTriageStore } from "@/features/photo-triage/store"
-import type { PhotoTriageController } from "@/features/photo-triage/hooks/usePhotoTriageController"
+import { groupFill, type HeaderRow } from "@extension/lib/grouping"
+import { usePhotoTriageStore } from "@extension/store"
+import type { PhotoTriageController } from "@extension/hooks/usePhotoTriageController"
 
 /** py 配色：加载中橙（--warn）、填满绿（--keep）、悬停/当前蓝（--accent）。 */
 const C_WARN = "#ffb454"

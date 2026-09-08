@@ -6,7 +6,7 @@
 import { useEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { cn } from "@/lib/utils"
-import { usePhotoTriageStore } from "@/features/photo-triage/store"
+import { usePhotoTriageStore } from "@extension/store"
 
 const STRIP_W_KEY = "photo-triage:stripW"
 const STRIP_W_DEFAULT = 320

@@ -47,7 +47,8 @@
     "verify": "pnpm run format:check && pnpm run lint:fe && pnpm run check:be-cfg && pnpm run test:fe && pnpm run format:be && pnpm run clippy:be && pnpm run test:be && pnpm run build:fe && pnpm run build:debug",
     "ci": "pnpm install --frozen-lockfile && pnpm run verify",
     "upgrade:safe": "node scripts/maintenance/safe-upgrade.mjs",
-    "extensions:sync": "node scripts/plugins/sync-extensions.mjs"
+    "extensions:sync": "node scripts/plugins/sync-extensions.mjs",
+    "extensions:build": "vite build --config extensions/photo-triage/vite.config.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

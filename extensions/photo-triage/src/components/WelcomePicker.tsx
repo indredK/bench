@@ -8,9 +8,9 @@ import { useTranslation } from "react-i18next"
 import { FolderOpen, History, Image, Loader2, Play } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useGuardedAsync } from "@/hooks/useGuardedAsync"
-import * as uc from "@/features/photo-triage/services/photo-triage.use-cases"
-import type { PhotoTriageController } from "@/features/photo-triage/hooks/usePhotoTriageController"
-import { prettyPath } from "@/features/photo-triage/hooks/usePhotoTriageController"
+import * as uc from "@extension/services/photo-triage.use-cases"
+import type { PhotoTriageController } from "@extension/hooks/usePhotoTriageController"
+import { prettyPath } from "@extension/hooks/usePhotoTriageController"
 
 export function WelcomePicker({ controller }: { controller: PhotoTriageController }) {
   const { t } = useTranslation()

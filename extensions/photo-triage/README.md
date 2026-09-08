@@ -11,7 +11,8 @@ photo-triage 的插件化形态（[D-024](../../docs/DECISIONS.md)）。宿主�
 - ✅ 独立 bundle 加载（同源、IPC 可用）
 - ✅ 能力面调用（`photo_triage_capabilities` / `photo_triage_scan_status`）
 - ✅ 网关自检（调用注册表外命令被拒绝）
-- ⏳ **P2b**：完整 UI 迁移（`src/features/photo-triage/` 的 21 个组件文件 + i18n 文案 → 本目录 `src/`，经独立 vite 构建产出 `assets/`）
+- ✅ **P2b（2026-09-08）**：完整 UI 迁移完成——`src/` 承载原 20 个文件（page/components/hooks/lib/services/store），独立 vite 构建产出 `assets/`（`pnpm run extensions:build`）；自带 i18n（`locales/{zh,en}.json`，photoTriage + common 命名空间）；主包侧边栏已移除静态注册，入口只剩插件中心。
+- ⏳ P3：宿主语言偏好注入（当前跟随 WebView locale）、minisign 签名、market 分发。
 
 ## 目录
 

@@ -8,10 +8,10 @@ import { toast } from "sonner"
 import { FolderCog, FolderOpen, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import type { PhotoTriageController } from "@/features/photo-triage/hooks/usePhotoTriageController"
-import { prettyPath } from "@/features/photo-triage/hooks/usePhotoTriageController"
-import * as uc from "@/features/photo-triage/services/photo-triage.use-cases"
-import { usePhotoTriageStore, type TriageFilter } from "@/features/photo-triage/store"
+import type { PhotoTriageController } from "@extension/hooks/usePhotoTriageController"
+import { prettyPath } from "@extension/hooks/usePhotoTriageController"
+import * as uc from "@extension/services/photo-triage.use-cases"
+import { usePhotoTriageStore, type TriageFilter } from "@extension/store"
 
 const FILTERS: TriageFilter[] = ["all", "todo", "keep", "drop", "deleted"]
 

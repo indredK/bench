@@ -11,11 +11,11 @@ import { useTranslation } from "react-i18next"
 import { Play, Square } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import type { PhotoTriageController } from "@/features/photo-triage/hooks/usePhotoTriageController"
-import { prettyPath, toAssetUrl } from "@/features/photo-triage/hooks/usePhotoTriageController"
-import { setDragImage } from "@/features/photo-triage/lib/drag"
-import { usePhotoTriageStore } from "@/features/photo-triage/store"
-import * as uc from "@/features/photo-triage/services/photo-triage.use-cases"
+import type { PhotoTriageController } from "@extension/hooks/usePhotoTriageController"
+import { prettyPath, toAssetUrl } from "@extension/hooks/usePhotoTriageController"
+import { setDragImage } from "@extension/lib/drag"
+import { usePhotoTriageStore } from "@extension/store"
+import * as uc from "@extension/services/photo-triage.use-cases"
 
 type Zoom = 0 | 1 | 2
 

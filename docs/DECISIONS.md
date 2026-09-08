@@ -97,7 +97,7 @@
   5. **数据目录**：`$APPDATA/photo-triage/build-<md5(src)[:10]>`，每相册独立构建目录；代理缓存与 manifest 原子写；asset 协议仅运行时放通（构建目录 + 用户自选源目录），不依赖静态宽桶 scope。
 - **理由**：照片筛选是独立工具场景，绑定 2.0 门禁会拖延发布且引入与系统管理工具不同的安全面；旁路模块化与 D-016 同一先例，风险可控且可随主包发布。
 - **影响**：photo-triage 代码随 2.0 一起进安装包，但其强制级规范（IPC unwrap、i18n、spawn_blocking、子进程超时）等同 2.0 红线执行；文档注册遵循 coding-standards §11（README/roadmap/migration-plan 已入 `docs/modules/photo-triage/`）。
-- **相关**：[photo-triage README](./modules/photo-triage/README.md) · [photo-triage roadmap](./modules/photo-triage/roadmap.md) · [D-016](#d-016--network-probe-独立一级模块与分期设计)
+- **相关**：[photo-triage 插件 README](../extensions/photo-triage/README.md)（P2b 起已插件化，模块文档随之迁出） · [D-016](#d-016--network-probe-独立一级模块与分期设计)
 
 ## D-019 · 启动路径零 TCC 触发与自启动 LaunchAgent 化
 

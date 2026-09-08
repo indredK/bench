@@ -16,23 +16,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import {
-  usePhotoTriageController,
-  prettyPath,
-} from "@/features/photo-triage/hooks/usePhotoTriageController"
-import { useKeyboardShortcuts } from "@/features/photo-triage/hooks/useKeyboardShortcuts"
-import { usePhotoTriageStore } from "@/features/photo-triage/store"
-import { WelcomePicker } from "@/features/photo-triage/components/WelcomePicker"
-import { TriageHeader } from "@/features/photo-triage/components/TriageHeader"
-import { TriageToolbar } from "@/features/photo-triage/components/TriageToolbar"
-import { ThumbnailStrip } from "@/features/photo-triage/components/ThumbnailStrip"
-import { GroupIndexBar } from "@/features/photo-triage/components/GroupIndexBar"
-import { PreviewStage } from "@/features/photo-triage/components/PreviewStage"
-import { ConfirmSheet } from "@/features/photo-triage/components/ConfirmSheet"
-import { EmptyDirsDialog } from "@/features/photo-triage/components/EmptyDirsDialog"
-import { KeyboardHelpDialog } from "@/features/photo-triage/components/KeyboardHelpDialog"
-import { Splitter, loadStripWidth } from "@/features/photo-triage/components/Splitter"
-import * as uc from "@/features/photo-triage/services/photo-triage.use-cases"
+import { usePhotoTriageController, prettyPath } from "@extension/hooks/usePhotoTriageController"
+import { useKeyboardShortcuts } from "@extension/hooks/useKeyboardShortcuts"
+import { usePhotoTriageStore } from "@extension/store"
+import { WelcomePicker } from "@extension/components/WelcomePicker"
+import { TriageHeader } from "@extension/components/TriageHeader"
+import { TriageToolbar } from "@extension/components/TriageToolbar"
+import { ThumbnailStrip } from "@extension/components/ThumbnailStrip"
+import { GroupIndexBar } from "@extension/components/GroupIndexBar"
+import { PreviewStage } from "@extension/components/PreviewStage"
+import { ConfirmSheet } from "@extension/components/ConfirmSheet"
+import { EmptyDirsDialog } from "@extension/components/EmptyDirsDialog"
+import { KeyboardHelpDialog } from "@extension/components/KeyboardHelpDialog"
+import { Splitter, loadStripWidth } from "@extension/components/Splitter"
+import * as uc from "@extension/services/photo-triage.use-cases"
 import type { PhotoItem } from "@/lib/tauri/types/photo-triage"
 
 /** 待选文件夹栏（对齐 Python `folders`/`chips`：点击移动、拖放移动、右键 reveal、移除；拖拽中高亮 + 边缘自动滚动）。 */

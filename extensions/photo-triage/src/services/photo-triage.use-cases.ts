@@ -6,8 +6,8 @@
 import { TAURI_EVENTS } from "@/lib/tauri/contracts"
 import { listenToPlatformEvent } from "@/platform/events"
 import { getErrorMessage } from "@/lib/tauri/errors"
-import { usePhotoTriageStore, type TriageMark } from "@/features/photo-triage/store"
-import * as repository from "@/features/photo-triage/services/photo-triage.repository"
+import { usePhotoTriageStore, type TriageMark } from "@extension/store"
+import * as repository from "@extension/services/photo-triage.repository"
 import type { MoveUpdate, PhotoItem, ScanStatus } from "@/lib/tauri/types/photo-triage"
 
 // ---------------------------------------------------------------------------

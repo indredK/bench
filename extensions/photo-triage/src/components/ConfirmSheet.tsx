@@ -15,7 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import type { PhotoItem } from "@/lib/tauri/types/photo-triage"
-import { prettyPath } from "@/features/photo-triage/hooks/usePhotoTriageController"
+import { prettyPath } from "@extension/hooks/usePhotoTriageController"
 
 export function ConfirmSheet({
   open,

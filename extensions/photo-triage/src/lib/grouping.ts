@@ -4,7 +4,7 @@
  * 输出「分组头 + 条目」的扁平 row 序列，供虚拟滚动复用。
  */
 import type { PhotoItem } from "@/lib/tauri/types/photo-triage"
-import type { TriageFilter, TriageMark } from "@/features/photo-triage/store"
+import type { TriageFilter, TriageMark } from "@extension/store"
 
 export interface FolderRow {
   kind: "item"
