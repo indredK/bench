@@ -3,7 +3,7 @@
  */
 import type { CompareDataModule, SpecRow, FilterGroup } from "@/shared/compare/types"
 import { brandName } from "@/lib/i18nBrand"
-import i18n from "@/i18n/config"
+import i18n from "@extension/i18n"
 
 export interface CpuModel {
   id: string

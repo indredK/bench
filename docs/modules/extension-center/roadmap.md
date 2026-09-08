@@ -236,11 +236,15 @@ pnpm run test:critical       # ✓ 145 passed
 
 **批次**（每批 1–2 个，**每批复评后再决定继续**）：
 
-- [ ] 第一批（低风险纯 UI）：terminology → token-calculator
-- [ ] **第一批后复评**：是否继续迁移，或直接停在 bundled-plugin 形态
-- [ ] 候选第二批（中等）：clean-space / dev-cleaner / port-manager / env-detector / hardware
+- [x] **第一批完成（2026-09-08，用户指令：terminology + hardware 双迁）**：
+  - terminology → `extensions/terminology/`（14 条 CRUD 命令留宿主能力面 + ACL；UI + store + services 迁出；自带 i18n）
+  - hardware → `extensions/hardware/`（**零 IPC 纯前端**，`acl.commands` 为空；`src/data/*` 15 个静态数据模块与 `CompareMatrixTable` 随迁入插件——宿主仅 env-detector 复用 `FilterBar`/types，留在 `src/shared/compare/`；数据模块的宿主 i18n 实例引用改为插件 i18n 实例）
+  - 配套：`extensions:build` 泛化为循环构建全部插件；docs 对齐门禁升级（extensions/<id> 计入模块，14 features + 3 plugins ↔ 17 docs）；宿主 registry/locales 同步摘除（zh/en parity 保持）
+  - **第一批后复评（用户已裁决）**：继续按需迁移，不停在 bundled-plugin 形态
+- [ ] 候选第二批（中等）：clean-space / dev-cleaner / port-manager / env-detector
 - [x] **重系统耦合模块降级为「按需」而非计划内**：quick-launch / app-manager / command-center / network-probe / updater / system-settings / account-manager（涉及权限、凭据、系统级动作，插件化收益低而破坏面高）
 - [ ] dev-toolbox host 泛化（删 `TOOLBOX_FEATURE_IDS` 与硬编码 tabs）—— 仅在前述迁移确有收益时执行
+- [ ] 宿主主包残留清理：`src/shared/compare/`（ModelPicker 已无宿主消费者）、photo-triage 主包 i18n 遗留键（`sidebar.photoTriage` + `photoTriage` 命名空间）
 - [ ] 253 条命令的 ACL 能力面按批登记，不预先全量登记（每批 `verify` + 双平台 CI 护航）
 
 ---

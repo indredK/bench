@@ -1,0 +1,812 @@
+{
+  "translation": {
+    "hardwareCompare": {
+      "groupPcHardware": "PC Hardware",
+      "groupDigitalProducts": "Digital Products",
+      "filters": "Filters",
+      "clearFilters": "Clear",
+      "filteredCount": "{{count}} found",
+      "viewSource": "View benchmark source",
+      "noModelsSelected": "Select models above to compare",
+      "clearSelected": "Clear selected",
+      "collapseFilters": "Collapse filters",
+      "expandFilters": "Expand filters",
+      "autoExpandHint": "Hover to expand, click to pin",
+      "pinnedHint": "Pinned open, click for auto-expand",
+      "loadFailedTitle": "Failed to load comparison data",
+      "loadFailed": "The comparison data module could not be loaded."
+    },
+    "cpuCompare": {
+      "title": "CPU",
+      "selectModels": "Select models to compare",
+      "allSelected": "All models selected",
+      "comparingTitle": "Comparing {{count}} models",
+      "specification": "Specification",
+      "brand": "Brand",
+      "series": "Series",
+      "launchYear": "Launch Year",
+      "architecture": "Architecture",
+      "processNode": "Process Node",
+      "cores": "Cores",
+      "threads": "Threads",
+      "baseClock": "Base Clock",
+      "boostClock": "Boost Clock",
+      "tdp": "TDP",
+      "maxTurboPower": "Max Turbo Power",
+      "l2Cache": "L2 Cache",
+      "l3Cache": "L3 Cache",
+      "socket": "Socket",
+      "memorySupport": "Memory Support",
+      "memoryChannels": "Memory Channels",
+      "pcieVersion": "PCIe Version",
+      "integratedGpu": "Integrated GPU",
+      "price": "Price",
+      "geekbench6Single": "Geekbench 6 (Single-Core)",
+      "geekbench6Multi": "Geekbench 6 (Multi-Core)",
+      "passmarkSingle": "PassMark (Single Thread)",
+      "passmarkMulti": "PassMark (Multi-Core)",
+      "cinebench2024Single": "Cinebench 2024 (Single-Core)",
+      "cinebench2024Multi": "Cinebench 2024 (Multi-Core)",
+      "values": {
+        "brand": {
+          "intel": "Intel",
+          "amd": "AMD",
+          "apple": "Apple"
+        },
+        "series": {
+          "core_i3": "Core i3",
+          "core_i5": "Core i5",
+          "core_i7": "Core i7",
+          "core_i9": "Core i9",
+          "core_ultra_5": "Core Ultra 5",
+          "core_ultra_7": "Core Ultra 7",
+          "core_ultra_9": "Core Ultra 9",
+          "ryzen_5": "Ryzen 5",
+          "ryzen_7": "Ryzen 7",
+          "ryzen_9": "Ryzen 9",
+          "m2": "M2 Series",
+          "m3": "M3 Series",
+          "m4": "M4 Series"
+        },
+        "architecture": {
+          "alder_lake": "Alder Lake",
+          "raptor_lake": "Raptor Lake",
+          "raptor_lake_refresh": "Raptor Lake Refresh",
+          "arrow_lake": "Arrow Lake",
+          "arrow_lake_refresh": "Arrow Lake Refresh",
+          "zen_3": "Zen 3",
+          "zen_3_3d_v-cache": "Zen 3 3D V-Cache",
+          "zen_4": "Zen 4",
+          "zen_4_3d_v-cache": "Zen 4 3D V-Cache",
+          "zen_5": "Zen 5",
+          "zen_5_3d_v-cache": "Zen 5 3D V-Cache",
+          "zen_5_dual_3d_v-cache": "Zen 5 Dual 3D V-Cache",
+          "apple_m2_pro": "Apple M2 Pro",
+          "apple_m2_max": "Apple M2 Max",
+          "apple_m2_ultra": "Apple M2 Ultra",
+          "apple_m3": "Apple M3",
+          "apple_m3_pro": "Apple M3 Pro",
+          "apple_m3_max": "Apple M3 Max",
+          "apple_m4": "Apple M4",
+          "apple_m4_pro": "Apple M4 Pro",
+          "apple_m4_max": "Apple M4 Max"
+        },
+        "socket": {
+          "lga1700": "LGA 1700",
+          "lga1851": "LGA 1851",
+          "am4": "Socket AM4",
+          "am5": "Socket AM5",
+          "apple_soc": "Apple SoC"
+        },
+        "integratedGpu": {
+          "none": "None"
+        }
+      }
+    },
+    "gpuCompare": {
+      "title": "GPU",
+      "selectModels": "Select models to compare",
+      "allSelected": "All models selected",
+      "comparingTitle": "Comparing {{count}} models",
+      "specification": "Specification",
+      "brand": "Brand",
+      "series": "Series",
+      "launchYear": "Launch Year",
+      "architecture": "Architecture",
+      "processNode": "Process Node",
+      "cudaCores": "Stream Processors",
+      "baseClock": "Base Clock",
+      "boostClock": "Boost Clock",
+      "vram": "VRAM",
+      "vramType": "VRAM Type",
+      "busWidth": "Bus Width",
+      "memoryBandwidth": "Memory Bandwidth",
+      "l2Cache": "L2 Cache",
+      "tdp": "TDP",
+      "price": "Price",
+      "rayTracing": "Ray Tracing",
+      "upscalingTech": "Upscaling Tech",
+      "pcieVersion": "PCIe Version",
+      "values": {
+        "series": {
+          "GeForce RTX 40": "GeForce RTX 40",
+          "GeForce RTX 50": "GeForce RTX 50",
+          "Radeon RX 7000": "Radeon RX 7000",
+          "Radeon RX 9000": "Radeon RX 9000"
+        }
+      }
+    },
+    "memoryCompare": {
+      "title": "Memory",
+      "selectModels": "Select models to compare",
+      "allSelected": "All models selected",
+      "comparingTitle": "Comparing {{count}} models",
+      "specification": "Specification",
+      "brand": "Brand",
+      "series": "Series",
+      "type": "Type",
+      "launchYear": "Launch Year",
+      "capacity": "Capacity",
+      "speed": "Speed",
+      "latency": "Latency",
+      "voltage": "Voltage",
+      "price": "Price",
+      "modules": "Modules",
+      "formFactor": "Form Factor",
+      "rank": "Rank",
+      "xmpProfile": "XMP/EXPO",
+      "ecc": "ECC",
+      "hasHeatsink": "Heatsink",
+      "hasRgb": "RGB",
+      "values": {
+        "series": {
+          "Vengeance": "Vengeance",
+          "Dominator": "Dominator",
+          "Trident Z5": "Trident Z5",
+          "Ripjaws": "Ripjaws",
+          "Fury": "Fury",
+          "Pro": "Pro",
+          "Ballistix": "Ballistix",
+          "T-Force": "T-Force"
+        },
+        "type": {
+          "DDR5": "DDR5",
+          "DDR4": "DDR4"
+        }
+      }
+    },
+    "ssdCompare": {
+      "title": "SSD",
+      "selectModels": "Select models to compare",
+      "allSelected": "All models selected",
+      "comparingTitle": "Comparing {{count}} models",
+      "specification": "Specification",
+      "brand": "Brand",
+      "series": "Series",
+      "launchYear": "Launch Year",
+      "capacity": "Capacity",
+      "formFactor": "Form Factor",
+      "interfaceType": "Interface",
+      "nandType": "NAND Type",
+      "controller": "Controller",
+      "dramCache": "DRAM Cache",
+      "seqRead": "Seq. Read",
+      "seqWrite": "Seq. Write",
+      "randomRead": "Random Read",
+      "randomWrite": "Random Write",
+      "tbw": "Endurance (TBW)",
+      "mtbf": "MTBF",
+      "warranty": "Warranty",
+      "hasHeatsink": "Heatsink",
+      "values": {
+        "series": {
+          "990 Pro": "990 Pro",
+          "980 Pro": "980 Pro",
+          "9100 Pro": "9100 Pro",
+          "Black SN850X": "Black SN850X",
+          "Black SN770": "Black SN770",
+          "Black SN580": "Black SN580",
+          "Black SN5000": "Black SN5000",
+          "T700": "T700",
+          "T500": "T500",
+          "Platinum P41": "Platinum P41",
+          "KC3000": "KC3000",
+          "FireCuda 540": "FireCuda 540",
+          "MP700": "MP700",
+          "870 EVO": "870 EVO",
+          "MX500": "MX500",
+          "Cardea A440": "Cardea A440"
+        },
+        "interfaceType": {
+          "PCIe 4.0 x4": "PCIe 4.0 x4",
+          "PCIe 5.0 x4": "PCIe 5.0 x4",
+          "SATA 6Gb/s": "SATA 6Gb/s"
+        },
+        "formFactor": {
+          "M.2 2280": "M.2 2280",
+          "2.5 inch": "2.5 inch"
+        }
+      }
+    },
+    "motherboardCompare": {
+      "title": "Motherboard",
+      "selectModels": "Select models to compare",
+      "allSelected": "All models selected",
+      "comparingTitle": "Comparing {{count}} models",
+      "specification": "Specification",
+      "brand": "Brand",
+      "series": "Series",
+      "launchYear": "Launch Year",
+      "socket": "CPU Socket",
+      "chipset": "Chipset",
+      "formFactor": "Form Factor",
+      "memorySlots": "Memory Slots",
+      "maxMemory": "Max Memory",
+      "memoryType": "Memory Type",
+      "memorySpeed": "Memory Speed",
+      "pcieSlots": "PCIe Slots",
+      "m2Slots": "M.2 Slots",
+      "sataPorts": "SATA Ports",
+      "usbPortsBack": "Rear USB",
+      "usbTypeC": "USB-C",
+      "wifi": "Wi-Fi",
+      "ethernet": "Ethernet",
+      "audio": "Audio Codec",
+      "biosFlashback": "BIOS Flashback",
+      "rgbHeaders": "RGB Headers",
+      "values": {
+        "series": {},
+        "socket": {
+          "LGA1700": "LGA1700",
+          "AM5": "AM5",
+          "LGA1851": "LGA1851"
+        },
+        "chipset": {
+          "Z790": "Z790",
+          "X670E": "X670E",
+          "X870E": "X870E",
+          "Z890": "Z890",
+          "B650": "B650",
+          "B650E": "B650E"
+        },
+        "formFactor": {
+          "ATX": "ATX",
+          "E-ATX": "E-ATX"
+        }
+      }
+    },
+    "monitorCompare": {
+      "title": "Monitor",
+      "selectModels": "Select models to compare",
+      "allSelected": "All models selected",
+      "comparingTitle": "Comparing {{count}} models",
+      "specification": "Specification",
+      "brand": "Brand",
+      "series": "Series",
+      "launchYear": "Launch Year",
+      "size": "Size",
+      "resolution": "Resolution",
+      "panelType": "Panel Type",
+      "refreshRate": "Refresh Rate",
+      "responseTime": "Response Time",
+      "hdr": "HDR",
+      "brightness": "Brightness",
+      "contrastRatio": "Contrast Ratio",
+      "colorGamut": "Color Gamut",
+      "adaptiveSync": "Adaptive Sync",
+      "ports": "Ports",
+      "curved": "Curved",
+      "vesa": "VESA Mount",
+      "values": {
+        "series": {},
+        "panelType": {
+          "QD-OLED": "QD-OLED",
+          "Ultra-Fast IPS": "Ultra-Fast IPS",
+          "WOLED": "WOLED",
+          "Mini-LED IPS": "Mini-LED IPS",
+          "IPS": "IPS",
+          "IPS Black": "IPS Black"
+        },
+        "resolution": {
+          "3840×2160": "3840×2160",
+          "2560×1440": "2560×1440",
+          "3440×1440": "3440×1440",
+          "5120×1440": "5120×1440",
+          "6144×3456": "6144×3456"
+        },
+        "curved": {
+          "flat": "Flat",
+          "1800r": "1800R",
+          "bendable800r": "Bendable 800R"
+        }
+      }
+    },
+    "psuCompare": {
+      "title": "PSU",
+      "selectModels": "Select models to compare",
+      "allSelected": "All models selected",
+      "comparingTitle": "Comparing {{count}} models",
+      "specification": "Specification",
+      "brand": "Brand",
+      "series": "Series",
+      "launchYear": "Launch Year",
+      "wattage": "Wattage",
+      "efficiency": "Efficiency",
+      "modularType": "Modular Type",
+      "fanSize": "Fan Size",
+      "pcieGen5": "PCIe 5.0 / 12VHPWR",
+      "atxVersion": "ATX Version",
+      "dimensions": "Dimensions",
+      "warranty": "Warranty",
+      "values": {
+        "series": {},
+        "efficiency": {
+          "80+ Gold": "80+ Gold",
+          "80+ Platinum": "80+ Platinum",
+          "80+ Titanium": "80+ Titanium"
+        }
+      }
+    },
+    "caseCompare": {
+      "title": "Case",
+      "selectModels": "Select models to compare",
+      "allSelected": "All models selected",
+      "comparingTitle": "Comparing {{count}} models",
+      "specification": "Specification",
+      "brand": "Brand",
+      "series": "Series",
+      "launchYear": "Launch Year",
+      "type": "Type",
+      "motherboardSupport": "Motherboard Support",
+      "maxGpuLength": "Max GPU Length",
+      "maxCpuCoolerHeight": "Max Cooler Height",
+      "maxPsuLength": "Max PSU Length",
+      "driveBays": "Drive Bays",
+      "fanSupport": "Fan Support",
+      "radiatorSupport": "Radiator Support",
+      "frontIO": "Front I/O",
+      "sidePanel": "Side Panel",
+      "weight": "Weight",
+      "values": {
+        "series": {},
+        "type": {
+          "Mid Tower": "Mid Tower",
+          "Mid Tower (Dual Chamber)": "Mid Tower (Dual Chamber)"
+        },
+        "motherboardSupport": {
+          "E-ATX / ATX / M-ATX / ITX": "E-ATX / ATX / M-ATX / ITX",
+          "ATX / M-ATX / ITX": "ATX / M-ATX / ITX"
+        }
+      }
+    },
+    "coolerCompare": {
+      "title": "Cooler",
+      "selectModels": "Select models to compare",
+      "allSelected": "All models selected",
+      "comparingTitle": "Comparing {{count}} models",
+      "specification": "Specification",
+      "brand": "Brand",
+      "series": "Series",
+      "launchYear": "Launch Year",
+      "type": "Type",
+      "radiatorSize": "Radiator Size",
+      "fanCount": "Fans",
+      "fanSize": "Fan Size",
+      "fanSpeed": "Fan Speed",
+      "noiseLevel": "Noise Level",
+      "tdp": "TDP Capacity",
+      "height": "Height",
+      "socketSupport": "Socket Support",
+      "hasRgb": "RGB",
+      "hasDisplay": "Display",
+      "values": {
+        "series": {},
+        "type": {
+          "Air": "Air Cooler",
+          "AIO": "AIO Liquid Cooler"
+        }
+      }
+    },
+    "switchCompare": {
+      "title": "Switch",
+      "selectModels": "Select models to compare",
+      "allSelected": "All models selected",
+      "comparingTitle": "Comparing {{count}} models",
+      "specification": "Specification",
+      "brand": "Brand",
+      "series": "Series",
+      "launchYear": "Launch Year",
+      "type": "Type",
+      "portCount": "Port Count",
+      "portSpeed": "Port Speed",
+      "poeSupport": "PoE Support",
+      "switchingCapacity": "Switching Capacity",
+      "forwardingRate": "Forwarding Rate",
+      "vlanSupport": "VLAN Support",
+      "stackable": "Stackable",
+      "management": "Management",
+      "formFactor": "Form Factor",
+      "values": {
+        "series": {},
+        "type": {
+          "Managed": "Managed",
+          "Smart Managed": "Smart Managed",
+          "Unmanaged": "Unmanaged",
+          "Managed (RouterOS)": "Managed (RouterOS)"
+        },
+        "portSpeed": {
+          "1GbE": "1GbE",
+          "2.5GbE": "2.5GbE",
+          "10GbE SFP+": "10GbE SFP+",
+          "10GbE": "10GbE",
+          "1GbE + 10GbE SFP+": "1GbE + 10GbE SFP+"
+        }
+      }
+    },
+    "phoneCompare": {
+      "title": "Phone",
+      "selectModels": "Select models to compare",
+      "allSelected": "All models selected",
+      "comparingTitle": "Comparing {{count}} models",
+      "specification": "Specification",
+      "brand": "Brand",
+      "series": "Series",
+      "launchYear": "Launch Year",
+      "dimensions": "Dimensions",
+      "weight": "Weight",
+      "displaySize": "Display Size",
+      "displayType": "Display Type",
+      "resolution": "Resolution",
+      "refreshRate": "Refresh Rate",
+      "peakBrightness": "Peak Brightness",
+      "chipset": "Chipset",
+      "processNode": "Process Node",
+      "cpu": "CPU",
+      "gpu": "GPU",
+      "ram": "RAM",
+      "storage": "Storage",
+      "mainCamera": "Rear Camera",
+      "frontCamera": "Front Camera",
+      "batteryCapacity": "Battery Capacity",
+      "wiredCharging": "Wired Charging",
+      "wirelessCharging": "Wireless Charging",
+      "os": "OS",
+      "waterproof": "Waterproof Rating",
+      "fingerprint": "Biometrics",
+      "material": "Body Material",
+      "geekbench6Multi": "Geekbench 6 (Multi-Core)",
+      "antutuScore": "AnTuTu Score",
+      "dxomarkCamera": "DxOMark Camera",
+      "price": "Price",
+      "values": {
+        "series": {
+          "iphone_12": "iPhone 12 Series",
+          "iphone_13": "iPhone 13 Series",
+          "iphone_14": "iPhone 14 Series",
+          "iphone_15": "iPhone 15 Series",
+          "iphone_16": "iPhone 16 Series",
+          "iphone_17": "iPhone 17 Series",
+          "galaxy_s24": "Galaxy S24 Series",
+          "galaxy_s25": "Galaxy S25 Series",
+          "galaxy_z": "Galaxy Z Series",
+          "xiaomi_14": "Xiaomi 14 Series",
+          "xiaomi_15": "Xiaomi 15 Series",
+          "find_x8": "Find X8 Series",
+          "vivo_x200": "vivo X200 Series",
+          "magic_6": "Magic6 Series",
+          "magic_7": "Magic7 Series",
+          "oneplus_12": "OnePlus 12 Series",
+          "oneplus_13": "OnePlus 13 Series",
+          "iqoo_13": "iQOO 13 Series",
+          "iqoo_15": "iQOO 15 Series",
+          "realme_gt": "realme GT Series",
+          "mate_70": "Mate 70 Series",
+          "pura_80": "Pura 80 Series",
+          "z_series": "Z Series",
+          "redmagic_10": "RedMagic 10 Series",
+          "meizu_21": "Meizu 21 Series",
+          "edge_50": "Edge 50 Series",
+          "rog_9": "ROG Phone 9 Series"
+        }
+      },
+      "cameraTerms": {
+        "main": "Main",
+        "ultrawide": "Ultrawide",
+        "telephoto": "Telephoto",
+        "periscope": "Periscope Telephoto",
+        "macro": "Macro",
+        "leica": "Leica",
+        "hasselblad": "Hasselblad",
+        "zeiss": "ZEISS"
+      },
+      "fingerprintTerms": {
+        "side": "Side Fingerprint",
+        "side3d": "Side FP + 3D Face Recognition",
+        "optical": "Under-Display Optical FP",
+        "ultrasonic": "Under-Display Ultrasonic FP",
+        "ultrasonicUnder": "Ultrasonic Under-Display FP"
+      },
+      "materialTerms": {
+        "glassAlu": "Glass Body + Aluminum Frame",
+        "glassSteel": "Glass Body + Stainless Steel Frame",
+        "glassTitan": "Glass Body + Titanium Frame",
+        "glassMetal": "Glass Body + Metal Frame",
+        "glassFan": "Glass Body + Metal Frame (Built-in Fan)",
+        "titanGrade5": "Titanium Frame (Grade 5)",
+        "titan": "Titanium Frame",
+        "aluBodyVc": "Unibody Aluminum + VC Chamber",
+        "glassLeatherTitan": "Glass/Leather Body + Titanium Frame",
+        "glassLeatherAlu": "Glass/Leather Body + Aluminum Frame",
+        "glassLeatherMetal": "Glass/Leather Body + Metal Frame",
+        "glassTitanBody": "Glass/Titanium Body",
+        "glassFiberMetal": "Glass/Fiber Body + Metal Frame"
+      },
+      "waterproofTerms": {
+        "ip68_6m": "IP68 (6m/30min)",
+        "ip68_1.5m": "IP68 (1.5m/30min)",
+        "ip68_ip69": "IP68/IP69",
+        "ip68_ip69_1.5m": "IP68/IP69 (1.5m/30min)",
+        "ip68": "IP68",
+        "ip48": "IP48",
+        "ip65": "IP65"
+      },
+      "screenTerms": {
+        "underDisplay": "Under Display"
+      }
+    },
+    "phoneChipsetCompare": {
+      "title": "Chipset",
+      "selectModels": "Select chipsets to compare",
+      "allSelected": "All models selected",
+      "comparingTitle": "Comparing {{count}} chipsets",
+      "specification": "Specification",
+      "brand": "Brand",
+      "series": "Series",
+      "launchYear": "Launch Year",
+      "model": "Model",
+      "processNode": "Process Node",
+      "architecture": "Architecture",
+      "cpu": "CPU",
+      "coreCount": "Cores",
+      "cpuMaxClock": "Max Clock",
+      "gpu": "GPU",
+      "npu": "NPU",
+      "modem": "Modem",
+      "memorySupport": "Memory Support",
+      "geekbench6Single": "Geekbench 6 (Single)",
+      "geekbench6Multi": "Geekbench 6 (Multi)",
+      "antutuScore": "AnTuTu Score",
+      "values": {
+        "series": {
+          "a_series": "A Series",
+          "snapdragon_8": "Snapdragon 8 Series",
+          "snapdragon_8s": "Snapdragon 8s Series",
+          "snapdragon_7": "Snapdragon 7 Series",
+          "dimensity_9000": "Dimensity 9000 Series",
+          "dimensity_8000": "Dimensity 8000 Series",
+          "exynos_2200": "Exynos 2200 Series",
+          "exynos_2400": "Exynos 2400 Series",
+          "exynos_2500": "Exynos 2500 Series",
+          "tensor": "Tensor Series",
+          "kirin_9000": "Kirin 9000 Series"
+        }
+      }
+    },
+    "telescopeCompare": {
+      "title": "Telescopes & Binoculars",
+      "selectModels": "Select models to compare",
+      "allSelected": "All models selected",
+      "comparingTitle": "Comparing {{count}} models",
+      "specification": "Specification",
+      "brand": "Brand",
+      "series": "Series",
+      "category": "Category",
+      "model": "Model",
+      "type": "Type",
+      "aperture": "Aperture",
+      "focalLength": "Focal Length",
+      "fRatio": "Focal Ratio",
+      "mountType": "Mount Type",
+      "maxMagnification": "Max Magnification",
+      "goto": "GOTO",
+      "fieldOfView": "Field of View",
+      "exitPupil": "Exit Pupil",
+      "coating": "Lens Coating",
+      "waterproof": "Waterproof",
+      "closeFocus": "Close Focus",
+      "weight": "Weight",
+      "launchYear": "Launch Year",
+      "price": "Price",
+      "values": {
+        "category": {
+          "consumer": "Consumer Astronomy",
+          "infrared": "Infrared / Thermal",
+          "binoculars": "Binoculars"
+        },
+        "type": {
+          "refractor": "Refractor",
+          "reflector": "Reflector",
+          "catadioptric": "Catadioptric",
+          "thermal": "Thermal",
+          "porro": "Porro Prism",
+          "roof": "Roof Prism"
+        },
+        "mount": {
+          "goto_altaz": "GoTo Alt-Azimuth",
+          "altaz": "Alt-Azimuth",
+          "equatorial": "Equatorial",
+          "dobsonian": "Dobsonian",
+          "手持": "Handheld",
+          "手持 / 三脚架": "Handheld / Tripod",
+          "手持 (防抖)": "Handheld (IS)",
+          "步枪镜": "Riflescope",
+          "N/A": "N/A"
+        },
+        "coating": {
+          "多层镀膜": "Multi-Coated",
+          "全表面多层镀膜": "Fully Multi-Coated",
+          "抛物面镜": "Parabolic Mirror",
+          "锗镜片多层镀膜": "Germanium Multi-Coated"
+        },
+        "waterproof": {
+          "防水": "Waterproof",
+          "防水充氮": "Nitrogen-Filled Waterproof",
+          "防水充氮 (4m)": "Nitrogen-Filled Waterproof (4m)",
+          "防水充氮 (500mbar)": "Nitrogen-Filled Waterproof (500mbar)",
+          "防水充氮 (5m)": "Nitrogen-Filled Waterproof (5m)",
+          "IPX7": "IPX7",
+          "IP67": "IP67"
+        },
+        "goto": {
+          "有 (手机辅助)": "Yes (Phone-Assisted)",
+          "有 (智能)": "Yes (Smart)"
+        }
+      }
+    },
+    "cameraCompare": {
+      "title": "Cameras",
+      "selectModels": "Select models to compare",
+      "allSelected": "All models selected",
+      "comparingTitle": "Comparing {{count}} models",
+      "specification": "Specification",
+      "brand": "Brand",
+      "series": "Series",
+      "model": "Model",
+      "category": "Category",
+      "sensorType": "Sensor Type",
+      "megapixels": "Megapixels",
+      "isoRange": "ISO Range",
+      "mount": "Mount",
+      "shutterType": "Shutter Type",
+      "shutterSpeed": "Shutter Speed",
+      "burstRate": "Burst Rate",
+      "videoMax": "Max Video",
+      "stabilization": "Stabilization",
+      "viewfinder": "Viewfinder",
+      "screenType": "Screen",
+      "autofocusPoints": "AF Points",
+      "storageMedia": "Storage Media",
+      "batteryLife": "Battery Life",
+      "weight": "Weight",
+      "launchYear": "Launch Year",
+      "price": "Price",
+      "values": {
+        "category": {
+          "mirrorless_fullframe": "Full-Frame Mirrorless",
+          "mirrorless_apsc": "APS-C Mirrorless",
+          "dslr": "DSLR",
+          "medium_format": "Medium Format"
+        },
+        "sensorType": {
+          "CMOS 全画幅": "Full-Frame CMOS",
+          "CMOS APS-C": "APS-C CMOS",
+          "CMOS APS-C X-Trans": "APS-C X-Trans CMOS",
+          "CMOS 中画幅 (43.8×32.9mm)": "Medium Format CMOS (43.8×32.9mm)",
+          "CMOS 全画幅 BSI": "Full-Frame BSI CMOS",
+          "CMOS 4/3 堆栈式": "Stacked 4/3 CMOS"
+        },
+        "shutterType": {
+          "机械/电子快门": "Mechanical/Electronic Shutter",
+          "电子快门": "Electronic Shutter",
+          "镜间快门/电子快门": "Leaf/Electronic Shutter"
+        },
+        "screenType": {
+          "multiAngleTilting": "Multi-Angle Tilting Screen",
+          "sideFlipTouch": "Side Flip Touch Screen",
+          "sideFlip": "Side Flip Screen",
+          "tiltingTouch": "Tilting Touch Screen",
+          "tilting": "Tilting Screen",
+          "touch": "Touch Screen",
+          "downwardTilting": "Downward Tilting Screen"
+        },
+        "stabilization": {
+          "digitalIs": "Digital IS",
+          "noLensIs": "None (Lens IS)",
+          "lensOis": "Lens IS (OIS)",
+          "ibisActiveMode": "5-Axis IBIS (Active Mode)",
+          "ibisFormat": "5-Axis IBIS ({{stops}} Stops)"
+        },
+        "viewfinder": {
+          "opticalPentaprism": "Optical Pentaprism (100% Coverage)",
+          "evfHybrid": "{{dots}}M-Dot OLED EVF (Hybrid)",
+          "evfFormat": "{{dots}}M-Dot OLED EVF"
+        },
+        "mount": {
+          "Sony E": "Sony E",
+          "Canon RF": "Canon RF",
+          "Nikon Z": "Nikon Z",
+          "Leica L": "Leica L",
+          "Fujifilm X": "Fujifilm X",
+          "Canon RF-S": "Canon RF-S",
+          "Nikon F": "Nikon F",
+          "Canon EF": "Canon EF",
+          "Pentax K": "Pentax K",
+          "Fujifilm G": "Fujifilm G",
+          "Hasselblad XCD": "Hasselblad XCD",
+          "Micro 4/3": "Micro Four Thirds",
+          "Leica L (定焦28mm)": "Leica L (28mm Fixed)",
+          "Fujifilm X (定焦23mm)": "Fujifilm X (23mm Fixed)"
+        }
+      },
+      "units": {
+        "autofocusPoints": "pts",
+        "batteryLife": "shots (CIPA)",
+        "millionDots": "M-Dot",
+        "stops": "Stops"
+      }
+    },
+    "common": {
+      "yes": "Yes",
+      "no": "No",
+      "none": "None",
+      "optional": "Optional",
+      "included": "Included",
+      "na": "—",
+      "withParenthesis": "{{prefix}} ({{detail}})",
+      "desktopOnly": "This feature is only available in the desktop version of Bench.",
+      "platformUnsupported": "This feature is not available on {{platform}}.",
+      "platformNames": {
+        "macos": "macOS",
+        "windows": "Windows",
+        "linux": "Linux"
+      },
+      "appTitle": "Bench - DevTools",
+      "close": "Close",
+      "cancel": "Cancel",
+      "remove": "Remove",
+      "delete": "Delete",
+      "confirm": "Confirm",
+      "save": "Save",
+      "enable": "Enable",
+      "disable": "Disable",
+      "add": "Add",
+      "edit": "Edit",
+      "persistence": {
+        "recovered": "Saved classifications were unreadable. A backup was kept and the defaults were restored.",
+        "newerSchema": "Saved classifications were created by a newer Bench version. Editing is disabled to protect them.",
+        "tooLarge": "Saved classifications exceed the safety limit. Editing is disabled until the data is reviewed."
+      },
+      "search": "Search",
+      "loading": "Loading...",
+      "filters": "Filters",
+      "failedToLoad": "Failed to load",
+      "loadFailed": "Failed to load",
+      "featureLoadFailed": "Failed to load {{feature}}",
+      "retry": "Retry",
+      "success": "Success",
+      "error": "Error",
+      "warning": "Warning",
+      "details": "Details",
+      "unknown": "Unknown",
+      "actions": {
+        "close": "Close"
+      },
+      "empty": {
+        "noData": "No items to display",
+        "selectItem": "Select an item to view details"
+      },
+      "refresh": "Refresh",
+      "clear": "Clear"
+    }
+  }
+}

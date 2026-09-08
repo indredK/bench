@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 2,
+  "id": "hardware",
+  "version": "1.0.0",
+  "display": {
+    "zh": "硬件查询",
+    "en": "Hardware"
+  },
+  "distribution": "bundled",
+  "entry": {
+    "index": "index.html"
+  },
+  "acl": {
+    "commands": []
+  },
+  "engines": {
+    "bench": ">=1.30.0"
+  }
+}

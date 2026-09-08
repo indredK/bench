@@ -6,7 +6,7 @@ import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { FeatureLoadError } from "@/components/common/FeatureLoadError"
 import { getErrorMessage } from "@/lib/tauri/errors"
-import HardwareCompare from "@/features/hardware/components/HardwareCompare"
+import HardwareCompare from "@extension/components/HardwareCompare"
 import type { CompareDataModule } from "@/shared/compare/types"
 
 interface HardwareCompareTabProps {

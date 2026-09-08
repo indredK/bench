@@ -10,27 +10,24 @@ import { appManagerFeature } from "@/features/app-manager/feature"
 import { cleanSpaceFeature } from "@/features/clean-space/feature"
 import { commandCenterFeature } from "@/features/command-center/feature"
 import { envDetectorFeature } from "@/features/env-detector/feature"
-import { hardwareFeature } from "@/features/hardware/feature"
 import { networkProbeFeature } from "@/features/network-probe/feature"
 import { portManagerFeature } from "@/features/port-manager/feature"
 import { quickLaunchFeature } from "@/features/quick-launch/feature"
 import { tokenCalculatorFeature } from "@/features/token-calculator/feature"
-import { terminologyFeature } from "@/features/terminology/feature"
 import { systemSettingsFeature } from "@/features/system-settings/feature"
 import { devToolboxFeature } from "@/features/dev-toolbox/feature"
 import { extensionCenterFeature } from "@/features/extension-center/feature"
 import type { AppFeature, NavigationItem } from "@/features/types"
 import { canUseFeature, type RuntimeEnvironment } from "@/platform/capabilities"
 
-/** All features (for routing); order matters for sidebar. */
+/** All features (for routing); order matters for sidebar.
+ *  P5：hardware / terminology 已插件化（extensions/，经插件中心打开）。 */
 export const appFeatures: AppFeature[] = [
   quickLaunchFeature,
   commandCenterFeature,
   extensionCenterFeature,
   appManagerFeature,
-  hardwareFeature,
   networkProbeFeature,
-  terminologyFeature,
   accountManagerFeature,
   // Development tools — routed but condensed into dev-toolbox in sidebar
   devToolboxFeature,

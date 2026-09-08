@@ -1,9 +1,9 @@
 import React from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
-import HardwareCompare from "@/features/hardware/components/HardwareCompare"
-import HardwareCompareTab from "@/features/hardware/components/HardwareCompareTab"
-import { useHardwareCompareStore } from "@/features/hardware/store"
+import HardwareCompare from "@extension/components/HardwareCompare"
+import HardwareCompareTab from "@extension/components/HardwareCompareTab"
+import { useHardwareCompareStore } from "@extension/store"
 import type { CompareDataModule } from "@/shared/compare/types"
 
 vi.mock("react-i18next", () => ({

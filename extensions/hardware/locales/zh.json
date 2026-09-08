@@ -1,0 +1,812 @@
+{
+  "translation": {
+    "hardwareCompare": {
+      "groupPcHardware": "电脑硬件",
+      "groupDigitalProducts": "数码产品",
+      "filters": "筛选",
+      "clearFilters": "清除",
+      "filteredCount": "找到 {{count}} 个",
+      "viewSource": "查看跑分来源",
+      "noModelsSelected": "请从上方选择要对比的型号",
+      "clearSelected": "清除已选",
+      "collapseFilters": "收起筛选",
+      "expandFilters": "展开筛选",
+      "autoExpandHint": "悬停自动展开，点击固定",
+      "pinnedHint": "固定展开，点击启用自动展开",
+      "loadFailedTitle": "加载对比数据失败",
+      "loadFailed": "对比数据模块加载失败。"
+    },
+    "cpuCompare": {
+      "title": "CPU",
+      "selectModels": "选择要对比的型号",
+      "allSelected": "已选择全部型号",
+      "comparingTitle": "正在对比 {{count}} 个型号",
+      "specification": "规格参数",
+      "brand": "品牌",
+      "series": "系列",
+      "launchYear": "发布年份",
+      "architecture": "架构",
+      "processNode": "制程工艺",
+      "cores": "核心数",
+      "threads": "线程数",
+      "baseClock": "基础频率",
+      "boostClock": "加速频率",
+      "tdp": "TDP 功耗",
+      "maxTurboPower": "最大睿频功耗",
+      "l2Cache": "二级缓存",
+      "l3Cache": "三级缓存",
+      "socket": "接口",
+      "memorySupport": "内存支持",
+      "memoryChannels": "内存通道",
+      "pcieVersion": "PCIe 版本",
+      "integratedGpu": "集成显卡",
+      "price": "参考价格",
+      "geekbench6Single": "Geekbench 6 单核",
+      "geekbench6Multi": "Geekbench 6 多核",
+      "passmarkSingle": "PassMark 单线程",
+      "passmarkMulti": "PassMark 多核",
+      "cinebench2024Single": "Cinebench 2024 单核",
+      "cinebench2024Multi": "Cinebench 2024 多核",
+      "values": {
+        "brand": {
+          "intel": "英特尔",
+          "amd": "AMD",
+          "apple": "苹果"
+        },
+        "series": {
+          "core_i3": "酷睿 i3",
+          "core_i5": "酷睿 i5",
+          "core_i7": "酷睿 i7",
+          "core_i9": "酷睿 i9",
+          "core_ultra_5": "酷睿 Ultra 5",
+          "core_ultra_7": "酷睿 Ultra 7",
+          "core_ultra_9": "酷睿 Ultra 9",
+          "ryzen_5": "锐龙 5",
+          "ryzen_7": "锐龙 7",
+          "ryzen_9": "锐龙 9",
+          "m2": "Apple M2 系列",
+          "m3": "Apple M3 系列",
+          "m4": "Apple M4 系列"
+        },
+        "architecture": {
+          "alder_lake": "奥尔德湖 (Alder Lake)",
+          "raptor_lake": "猛禽湖 (Raptor Lake)",
+          "raptor_lake_refresh": "猛禽湖 Refresh",
+          "arrow_lake": "箭湖 (Arrow Lake)",
+          "arrow_lake_refresh": "箭湖 (Arrow Lake) Refresh",
+          "zen_3": "Zen 3 架构",
+          "zen_3_3d_v-cache": "Zen 3 3D V-Cache 版",
+          "zen_4": "Zen 4 架构",
+          "zen_4_3d_v-cache": "Zen 4 3D V-Cache 版",
+          "zen_5": "Zen 5 架构",
+          "zen_5_3d_v-cache": "Zen 5 3D V-Cache 版",
+          "zen_5_dual_3d_v-cache": "Zen 5 双 3D V-Cache 版",
+          "apple_m2_pro": "Apple M2 Pro 芯片",
+          "apple_m2_max": "Apple M2 Max 芯片",
+          "apple_m2_ultra": "Apple M2 Ultra 芯片",
+          "apple_m3": "Apple M3 芯片",
+          "apple_m3_pro": "Apple M3 Pro 芯片",
+          "apple_m3_max": "Apple M3 Max 芯片",
+          "apple_m4": "Apple M4 芯片",
+          "apple_m4_pro": "Apple M4 Pro 芯片",
+          "apple_m4_max": "Apple M4 Max 芯片"
+        },
+        "socket": {
+          "lga1700": "LGA 1700 接口",
+          "lga1851": "LGA 1851 接口",
+          "am4": "Socket AM4 接口",
+          "am5": "Socket AM5 接口",
+          "apple_soc": "Apple 集成式 SoC"
+        },
+        "integratedGpu": {
+          "none": "无集成显卡"
+        }
+      }
+    },
+    "gpuCompare": {
+      "title": "显卡",
+      "selectModels": "选择要对比的型号",
+      "allSelected": "已选择全部型号",
+      "comparingTitle": "正在对比 {{count}} 个型号",
+      "specification": "规格参数",
+      "brand": "品牌",
+      "series": "系列",
+      "launchYear": "发布年份",
+      "architecture": "架构",
+      "processNode": "制程工艺",
+      "cudaCores": "流处理器",
+      "baseClock": "基础频率",
+      "boostClock": "加速频率",
+      "vram": "显存容量",
+      "vramType": "显存类型",
+      "busWidth": "显存位宽",
+      "memoryBandwidth": "显存带宽",
+      "l2Cache": "二级缓存",
+      "tdp": "TDP 功耗",
+      "price": "参考价格",
+      "rayTracing": "光线追踪",
+      "upscalingTech": "超分技术",
+      "pcieVersion": "PCIe 版本",
+      "values": {
+        "series": {
+          "GeForce RTX 40": "GeForce RTX 40",
+          "GeForce RTX 50": "GeForce RTX 50",
+          "Radeon RX 7000": "Radeon RX 7000",
+          "Radeon RX 9000": "Radeon RX 9000"
+        }
+      }
+    },
+    "memoryCompare": {
+      "title": "内存",
+      "selectModels": "选择要对比的型号",
+      "allSelected": "已选择全部型号",
+      "comparingTitle": "正在对比 {{count}} 个型号",
+      "specification": "规格参数",
+      "brand": "品牌",
+      "series": "系列",
+      "type": "类型",
+      "launchYear": "发布年份",
+      "capacity": "容量",
+      "speed": "频率",
+      "latency": "时序",
+      "voltage": "电压",
+      "price": "参考价格",
+      "modules": "模组数量",
+      "formFactor": "外形规格",
+      "rank": "Rank",
+      "xmpProfile": "XMP/EXPO",
+      "ecc": "ECC",
+      "hasHeatsink": "散热马甲",
+      "hasRgb": "RGB 灯效",
+      "values": {
+        "series": {
+          "Vengeance": "复仇者",
+          "Dominator": "统治者",
+          "Trident Z5": "Trident Z5",
+          "Ripjaws": " Ripjaws",
+          "Fury": "Fury",
+          "Pro": "Pro",
+          "Ballistix": "Ballistix",
+          "T-Force": "T-Force"
+        },
+        "type": {
+          "DDR5": "DDR5",
+          "DDR4": "DDR4"
+        }
+      }
+    },
+    "ssdCompare": {
+      "title": "固态硬盘",
+      "selectModels": "选择要对比的型号",
+      "allSelected": "已选择全部型号",
+      "comparingTitle": "正在对比 {{count}} 个型号",
+      "specification": "规格参数",
+      "brand": "品牌",
+      "series": "系列",
+      "launchYear": "发布年份",
+      "capacity": "容量",
+      "formFactor": "外形规格",
+      "interfaceType": "接口类型",
+      "nandType": "闪存类型",
+      "controller": "主控芯片",
+      "dramCache": "DRAM 缓存",
+      "seqRead": "顺序读取",
+      "seqWrite": "顺序写入",
+      "randomRead": "随机读取",
+      "randomWrite": "随机写入",
+      "tbw": "写入寿命",
+      "mtbf": "平均无故障时间",
+      "warranty": "质保",
+      "hasHeatsink": "散热片",
+      "values": {
+        "series": {
+          "990 Pro": "990 Pro",
+          "980 Pro": "980 Pro",
+          "9100 Pro": "9100 Pro",
+          "Black SN850X": "Black SN850X",
+          "Black SN770": "Black SN770",
+          "Black SN580": "Black SN580",
+          "Black SN5000": "Black SN5000",
+          "T700": "T700",
+          "T500": "T500",
+          "Platinum P41": "Platinum P41",
+          "KC3000": "KC3000",
+          "FireCuda 540": "FireCuda 540",
+          "MP700": "MP700",
+          "870 EVO": "870 EVO",
+          "MX500": "MX500",
+          "Cardea A440": "Cardea A440"
+        },
+        "interfaceType": {
+          "PCIe 4.0 x4": "PCIe 4.0 x4",
+          "PCIe 5.0 x4": "PCIe 5.0 x4",
+          "SATA 6Gb/s": "SATA 6Gb/s"
+        },
+        "formFactor": {
+          "M.2 2280": "M.2 2280",
+          "2.5 inch": "2.5 英寸"
+        }
+      }
+    },
+    "motherboardCompare": {
+      "title": "主板",
+      "selectModels": "选择要对比的型号",
+      "allSelected": "已选择全部型号",
+      "comparingTitle": "正在对比 {{count}} 个型号",
+      "specification": "规格参数",
+      "brand": "品牌",
+      "series": "系列",
+      "launchYear": "发布年份",
+      "socket": "CPU 接口",
+      "chipset": "芯片组",
+      "formFactor": "板型",
+      "memorySlots": "内存插槽",
+      "maxMemory": "最大内存",
+      "memoryType": "内存类型",
+      "memorySpeed": "内存频率",
+      "pcieSlots": "PCIe 插槽",
+      "m2Slots": "M.2 插槽",
+      "sataPorts": "SATA 接口",
+      "usbPortsBack": "后置 USB",
+      "usbTypeC": "USB-C",
+      "wifi": "无线网络",
+      "ethernet": "有线网络",
+      "audio": "音频芯片",
+      "biosFlashback": "BIOS Flashback",
+      "rgbHeaders": "RGB 接针",
+      "values": {
+        "series": {},
+        "socket": {
+          "LGA1700": "LGA1700",
+          "AM5": "AM5",
+          "LGA1851": "LGA1851"
+        },
+        "chipset": {
+          "Z790": "Z790",
+          "X670E": "X670E",
+          "X870E": "X870E",
+          "Z890": "Z890",
+          "B650": "B650",
+          "B650E": "B650E"
+        },
+        "formFactor": {
+          "ATX": "ATX",
+          "E-ATX": "E-ATX"
+        }
+      }
+    },
+    "monitorCompare": {
+      "title": "显示器",
+      "selectModels": "选择要对比的型号",
+      "allSelected": "已选择全部型号",
+      "comparingTitle": "正在对比 {{count}} 个型号",
+      "specification": "规格参数",
+      "brand": "品牌",
+      "series": "系列",
+      "launchYear": "发布年份",
+      "size": "尺寸",
+      "resolution": "分辨率",
+      "panelType": "面板类型",
+      "refreshRate": "刷新率",
+      "responseTime": "响应时间",
+      "hdr": "HDR 认证",
+      "brightness": "亮度",
+      "contrastRatio": "对比度",
+      "colorGamut": "色域",
+      "adaptiveSync": "同步技术",
+      "ports": "接口",
+      "curved": "曲面",
+      "vesa": "VESA 挂载",
+      "values": {
+        "series": {},
+        "panelType": {
+          "QD-OLED": "QD-OLED",
+          "Ultra-Fast IPS": "Ultra-Fast IPS",
+          "WOLED": "WOLED",
+          "Mini-LED IPS": "Mini-LED IPS",
+          "IPS": "IPS",
+          "IPS Black": "IPS Black"
+        },
+        "resolution": {
+          "3840×2160": "3840×2160",
+          "2560×1440": "2560×1440",
+          "3440×1440": "3440×1440",
+          "5120×1440": "5120×1440",
+          "6144×3456": "6144×3456"
+        },
+        "curved": {
+          "flat": "平面",
+          "1800r": "1800R",
+          "bendable800r": "可弯曲 800R"
+        }
+      }
+    },
+    "psuCompare": {
+      "title": "电源",
+      "selectModels": "选择要对比的型号",
+      "allSelected": "已选择全部型号",
+      "comparingTitle": "正在对比 {{count}} 个型号",
+      "specification": "规格参数",
+      "brand": "品牌",
+      "series": "系列",
+      "launchYear": "发布年份",
+      "wattage": "额定功率",
+      "efficiency": "能效认证",
+      "modularType": "模组类型",
+      "fanSize": "风扇尺寸",
+      "pcieGen5": "PCIe 5.0 / 12VHPWR",
+      "atxVersion": "ATX 版本",
+      "dimensions": "尺寸",
+      "warranty": "质保",
+      "values": {
+        "series": {},
+        "efficiency": {
+          "80+ Gold": "80+ 金牌",
+          "80+ Platinum": "80+ 白金",
+          "80+ Titanium": "80+ 钛金"
+        }
+      }
+    },
+    "caseCompare": {
+      "title": "机箱",
+      "selectModels": "选择要对比的型号",
+      "allSelected": "已选择全部型号",
+      "comparingTitle": "正在对比 {{count}} 个型号",
+      "specification": "规格参数",
+      "brand": "品牌",
+      "series": "系列",
+      "launchYear": "发布年份",
+      "type": "类型",
+      "motherboardSupport": "主板兼容",
+      "maxGpuLength": "显卡限长",
+      "maxCpuCoolerHeight": "散热器限高",
+      "maxPsuLength": "电源限长",
+      "driveBays": "硬盘位",
+      "fanSupport": "风扇位",
+      "radiatorSupport": "水冷支持",
+      "frontIO": "前置 I/O",
+      "sidePanel": "侧板",
+      "weight": "重量",
+      "values": {
+        "series": {},
+        "type": {
+          "Mid Tower": "中塔式机箱",
+          "Mid Tower (Dual Chamber)": "中塔式（双仓）"
+        },
+        "motherboardSupport": {
+          "E-ATX / ATX / M-ATX / ITX": "E-ATX / ATX / M-ATX / ITX",
+          "ATX / M-ATX / ITX": "ATX / M-ATX / ITX"
+        }
+      }
+    },
+    "coolerCompare": {
+      "title": "散热器",
+      "selectModels": "选择要对比的型号",
+      "allSelected": "已选择全部型号",
+      "comparingTitle": "正在对比 {{count}} 个型号",
+      "specification": "规格参数",
+      "brand": "品牌",
+      "series": "系列",
+      "launchYear": "发布年份",
+      "type": "类型",
+      "radiatorSize": "冷排规格",
+      "fanCount": "风扇数量",
+      "fanSize": "风扇尺寸",
+      "fanSpeed": "风扇转速",
+      "noiseLevel": "噪音等级",
+      "tdp": "解热能力",
+      "height": "散热器高度",
+      "socketSupport": "平台兼容",
+      "hasRgb": "RGB 灯效",
+      "hasDisplay": "显示屏",
+      "values": {
+        "series": {},
+        "type": {
+          "Air": "风冷散热器",
+          "AIO": "一体式水冷"
+        }
+      }
+    },
+    "switchCompare": {
+      "title": "交换机",
+      "selectModels": "选择要对比的型号",
+      "allSelected": "已选择全部型号",
+      "comparingTitle": "正在对比 {{count}} 个型号",
+      "specification": "规格参数",
+      "brand": "品牌",
+      "series": "系列",
+      "launchYear": "发布年份",
+      "type": "类型",
+      "portCount": "端口数量",
+      "portSpeed": "端口速率",
+      "poeSupport": "PoE 供电",
+      "switchingCapacity": "交换容量",
+      "forwardingRate": "转发速率",
+      "vlanSupport": "VLAN 支持",
+      "stackable": "堆叠支持",
+      "management": "管理方式",
+      "formFactor": "外形规格",
+      "values": {
+        "series": {},
+        "type": {
+          "Managed": "网管型",
+          "Smart Managed": "智能网管型",
+          "Unmanaged": "非网管型",
+          "Managed (RouterOS)": "网管型（RouterOS）"
+        },
+        "portSpeed": {
+          "1GbE": "千兆以太网",
+          "2.5GbE": "2.5G 以太网",
+          "10GbE SFP+": "万兆 SFP+",
+          "10GbE": "万兆以太网",
+          "1GbE + 10GbE SFP+": "千兆 + 万兆 SFP+"
+        }
+      }
+    },
+    "phoneCompare": {
+      "title": "手机",
+      "selectModels": "选择要对比的型号",
+      "allSelected": "已选择全部型号",
+      "comparingTitle": "正在对比 {{count}} 个型号",
+      "specification": "规格参数",
+      "brand": "品牌",
+      "series": "系列",
+      "launchYear": "发布年份",
+      "dimensions": "机身尺寸",
+      "weight": "重量",
+      "displaySize": "屏幕尺寸",
+      "displayType": "屏幕类型",
+      "resolution": "分辨率",
+      "refreshRate": "刷新率",
+      "peakBrightness": "峰值亮度",
+      "chipset": "处理器",
+      "processNode": "制程工艺",
+      "cpu": "CPU",
+      "gpu": "GPU",
+      "ram": "运行内存",
+      "storage": "存储配置",
+      "mainCamera": "后置相机",
+      "frontCamera": "前置相机",
+      "batteryCapacity": "电池容量",
+      "wiredCharging": "有线充电",
+      "wirelessCharging": "无线充电",
+      "os": "操作系统",
+      "waterproof": "防水等级",
+      "fingerprint": "生物识别",
+      "material": "机身材质",
+      "geekbench6Multi": "Geekbench 6 多核",
+      "antutuScore": "安兔兔跑分",
+      "dxomarkCamera": "DxOMark 相机评分",
+      "price": "参考价格",
+      "values": {
+        "series": {
+          "iphone_12": "iPhone 12 系列",
+          "iphone_13": "iPhone 13 系列",
+          "iphone_14": "iPhone 14 系列",
+          "iphone_15": "iPhone 15 系列",
+          "iphone_16": "iPhone 16 系列",
+          "iphone_17": "iPhone 17 系列",
+          "galaxy_s24": "Galaxy S24 系列",
+          "galaxy_s25": "Galaxy S25 系列",
+          "galaxy_z": "Galaxy Z 折叠系列",
+          "xiaomi_14": "小米 14 系列",
+          "xiaomi_15": "小米 15 系列",
+          "find_x8": "Find X8 系列",
+          "vivo_x200": "vivo X200 系列",
+          "magic_6": "Magic6 系列",
+          "magic_7": "Magic7 系列",
+          "oneplus_12": "一加 12 系列",
+          "oneplus_13": "一加 13 系列",
+          "iqoo_13": "iQOO 13 系列",
+          "iqoo_15": "iQOO 15 系列",
+          "realme_gt": "真我 GT 系列",
+          "mate_70": "Mate 70 系列",
+          "pura_80": "Pura 80 系列",
+          "z_series": "Z 系列",
+          "redmagic_10": "红魔 10 系列",
+          "meizu_21": "魅族 21 系列",
+          "edge_50": "Edge 50 系列",
+          "rog_9": "ROG Phone 9 系列"
+        }
+      },
+      "cameraTerms": {
+        "main": "主摄",
+        "ultrawide": "超广角",
+        "telephoto": "长焦",
+        "periscope": "潜望长焦",
+        "macro": "微距",
+        "leica": "徕卡",
+        "hasselblad": "哈苏",
+        "zeiss": "蔡司"
+      },
+      "fingerprintTerms": {
+        "side": "侧边指纹",
+        "side3d": "侧边指纹 + 3D人脸识别",
+        "optical": "屏下光学指纹",
+        "ultrasonic": "屏下超声波指纹",
+        "ultrasonicUnder": "超声波屏下指纹"
+      },
+      "materialTerms": {
+        "glassAlu": "玻璃机身 + 铝金属边框",
+        "glassSteel": "玻璃机身 + 不锈钢边框",
+        "glassTitan": "玻璃机身 + 钛金属边框",
+        "glassMetal": "玻璃机身 + 金属边框",
+        "glassFan": "玻璃机身 + 金属边框 (内置风扇)",
+        "titanGrade5": "钛金属边框 (Grade 5)",
+        "titan": "钛金属边框",
+        "aluBodyVc": "铝金属一体机身 + VC均热板",
+        "glassLeatherTitan": "玻璃/素皮机身 + 钛金属边框",
+        "glassLeatherAlu": "玻璃/素皮机身 + 铝金属边框",
+        "glassLeatherMetal": "玻璃/素皮机身 + 金属边框",
+        "glassTitanBody": "玻璃/钛金属机身",
+        "glassFiberMetal": "玻璃/玻纤机身 + 金属边框"
+      },
+      "waterproofTerms": {
+        "ip68_6m": "IP68 (6米/30分钟)",
+        "ip68_1.5m": "IP68 (1.5米/30分钟)",
+        "ip68_ip69": "IP68/IP69",
+        "ip68_ip69_1.5m": "IP68/IP69 (1.5米/30分钟)",
+        "ip68": "IP68",
+        "ip48": "IP48",
+        "ip65": "IP65"
+      },
+      "screenTerms": {
+        "underDisplay": "屏下"
+      }
+    },
+    "phoneChipsetCompare": {
+      "title": "手机芯片",
+      "selectModels": "选择要对比的芯片",
+      "allSelected": "已选择全部型号",
+      "comparingTitle": "正在对比 {{count}} 个芯片",
+      "specification": "规格参数",
+      "brand": "品牌",
+      "series": "系列",
+      "launchYear": "发布年份",
+      "model": "型号",
+      "processNode": "制程工艺",
+      "architecture": "架构",
+      "cpu": "CPU",
+      "coreCount": "核心数",
+      "cpuMaxClock": "最高频率",
+      "gpu": "GPU",
+      "npu": "NPU",
+      "modem": "调制解调器",
+      "memorySupport": "内存支持",
+      "geekbench6Single": "Geekbench 6 单核",
+      "geekbench6Multi": "Geekbench 6 多核",
+      "antutuScore": "安兔兔跑分",
+      "values": {
+        "series": {
+          "a_series": "Apple A 系列",
+          "snapdragon_8": "骁龙 8 系列",
+          "snapdragon_8s": "骁龙 8s 系列",
+          "snapdragon_7": "骁龙 7 系列",
+          "dimensity_9000": "天玑 9000 系列",
+          "dimensity_8000": "天玑 8000 系列",
+          "exynos_2200": "Exynos 2200 系列",
+          "exynos_2400": "Exynos 2400 系列",
+          "exynos_2500": "Exynos 2500 系列",
+          "tensor": "Tensor 系列",
+          "kirin_9000": "麒麟 9000 系列"
+        }
+      }
+    },
+    "telescopeCompare": {
+      "title": "望远镜",
+      "selectModels": "选择要对比的型号",
+      "allSelected": "已选择全部型号",
+      "comparingTitle": "正在对比 {{count}} 个型号",
+      "specification": "规格参数",
+      "brand": "品牌",
+      "series": "系列",
+      "category": "分类",
+      "model": "型号",
+      "type": "类型",
+      "aperture": "口径",
+      "focalLength": "焦距",
+      "fRatio": "焦比",
+      "mountType": "支架类型",
+      "maxMagnification": "最大倍数",
+      "goto": "GOTO 自动寻星",
+      "fieldOfView": "视野",
+      "exitPupil": "出瞳直径",
+      "coating": "镜片镀膜",
+      "waterproof": "防水等级",
+      "closeFocus": "近焦距离",
+      "weight": "重量",
+      "launchYear": "发布年份",
+      "price": "参考价格",
+      "values": {
+        "category": {
+          "consumer": "消费级天文",
+          "infrared": "红外/热成像",
+          "binoculars": "双筒望远镜"
+        },
+        "type": {
+          "refractor": "折射式",
+          "reflector": "反射式",
+          "catadioptric": "折反式",
+          "thermal": "热成像",
+          "porro": "保罗棱镜",
+          "roof": "屋脊棱镜"
+        },
+        "mount": {
+          "goto_altaz": "GoTo 经纬仪",
+          "altaz": "经纬仪",
+          "equatorial": "赤道仪",
+          "dobsonian": "道布森",
+          "手持": "手持",
+          "手持 / 三脚架": "手持/三脚架",
+          "手持 (防抖)": "手持(防抖)",
+          "步枪镜": "步枪镜",
+          "N/A": "—"
+        },
+        "coating": {
+          "多层镀膜": "多层镀膜",
+          "全表面多层镀膜": "全表面多层镀膜",
+          "抛物面镜": "抛物面镜",
+          "锗镜片多层镀膜": "锗镜片多层镀膜"
+        },
+        "waterproof": {
+          "防水": "防水",
+          "防水充氮": "防水充氮",
+          "防水充氮 (4m)": "防水充氮（4m）",
+          "防水充氮 (500mbar)": "防水充氮（500mbar）",
+          "防水充氮 (5m)": "防水充氮（5m）",
+          "IPX7": "IPX7",
+          "IP67": "IP67"
+        },
+        "goto": {
+          "有 (手机辅助)": "有（手机辅助）",
+          "有 (智能)": "有（智能）"
+        }
+      }
+    },
+    "cameraCompare": {
+      "title": "相机",
+      "selectModels": "选择要对比的型号",
+      "allSelected": "已选择全部型号",
+      "comparingTitle": "正在对比 {{count}} 个型号",
+      "specification": "规格参数",
+      "brand": "品牌",
+      "series": "系列",
+      "model": "型号",
+      "category": "分类",
+      "sensorType": "传感器类型",
+      "megapixels": "像素",
+      "isoRange": "ISO 范围",
+      "mount": "卡口",
+      "shutterType": "快门类型",
+      "shutterSpeed": "快门速度",
+      "burstRate": "连拍速度",
+      "videoMax": "最高视频规格",
+      "stabilization": "防抖",
+      "viewfinder": "取景器",
+      "screenType": "屏幕",
+      "autofocusPoints": "对焦点",
+      "storageMedia": "存储介质",
+      "batteryLife": "电池续航",
+      "weight": "重量",
+      "launchYear": "发布年份",
+      "price": "参考价格",
+      "values": {
+        "category": {
+          "mirrorless_fullframe": "全画幅无反",
+          "mirrorless_apsc": "APS-C 无反",
+          "dslr": "单反",
+          "medium_format": "中画幅"
+        },
+        "sensorType": {
+          "CMOS 全画幅": "CMOS 全画幅",
+          "CMOS APS-C": "CMOS APS-C",
+          "CMOS APS-C X-Trans": "CMOS APS-C X-Trans",
+          "CMOS 中画幅 (43.8×32.9mm)": "CMOS 中画幅（43.8×32.9mm）",
+          "CMOS 全画幅 BSI": "CMOS 全画幅 BSI",
+          "CMOS 4/3 堆栈式": "CMOS 4/3 堆栈式"
+        },
+        "shutterType": {
+          "机械/电子快门": "机械/电子快门",
+          "电子快门": "电子快门",
+          "镜间快门/电子快门": "镜间快门/电子快门"
+        },
+        "screenType": {
+          "multiAngleTilting": "多轴翻转屏",
+          "sideFlipTouch": "侧翻触控屏",
+          "sideFlip": "侧翻屏",
+          "tiltingTouch": "翻转触控屏",
+          "tilting": "翻转屏",
+          "touch": "触控屏",
+          "downwardTilting": "下翻屏"
+        },
+        "stabilization": {
+          "digitalIs": "数码 IS",
+          "noLensIs": "无（镜头防抖）",
+          "lensOis": "镜头防抖（OIS）",
+          "ibisActiveMode": "机身5轴防抖（增强模式）",
+          "ibisFormat": "机身5轴防抖（{{stops}}级）"
+        },
+        "viewfinder": {
+          "opticalPentaprism": "光学五棱镜（100%视野）",
+          "evfHybrid": "{{dots}}万点 OLED EVF（混合）",
+          "evfFormat": "{{dots}}万点 OLED EVF"
+        },
+        "mount": {
+          "Sony E": "索尼 E 卡口",
+          "Canon RF": "佳能 RF 卡口",
+          "Nikon Z": "尼康 Z 卡口",
+          "Leica L": "徕卡 L 卡口",
+          "Fujifilm X": "富士 X 卡口",
+          "Canon RF-S": "佳能 RF-S 卡口",
+          "Nikon F": "尼康 F 卡口",
+          "Canon EF": "佳能 EF 卡口",
+          "Pentax K": "宾得 K 卡口",
+          "Fujifilm G": "富士 G 卡口",
+          "Hasselblad XCD": "哈苏 XCD 卡口",
+          "Micro 4/3": "Micro 4/3 卡口",
+          "Leica L (定焦28mm)": "徕卡 L（定焦 28mm）",
+          "Fujifilm X (定焦23mm)": "富士 X（定焦 23mm）"
+        }
+      },
+      "units": {
+        "autofocusPoints": "点",
+        "batteryLife": "张（CIPA）",
+        "millionDots": "万点",
+        "stops": "级"
+      }
+    },
+    "common": {
+      "yes": "有",
+      "no": "无",
+      "none": "无",
+      "optional": "可选",
+      "included": "附赠",
+      "na": "—",
+      "withParenthesis": "{{prefix}}（{{detail}}）",
+      "desktopOnly": "此功能仅在 Bench 桌面版中可用。",
+      "platformUnsupported": "此功能在 {{platform}} 上不可用。",
+      "platformNames": {
+        "macos": "macOS",
+        "windows": "Windows",
+        "linux": "Linux"
+      },
+      "appTitle": "Bench - DevTools",
+      "close": "关闭",
+      "cancel": "取消",
+      "remove": "移除",
+      "delete": "删除",
+      "confirm": "确认",
+      "save": "保存",
+      "enable": "启用",
+      "disable": "停用",
+      "add": "添加",
+      "edit": "编辑",
+      "persistence": {
+        "recovered": "已保存的分类数据无法读取，系统已保留备份并恢复默认分类。",
+        "newerSchema": "分类数据由更新版本的 Bench 创建。为防止覆盖，当前已禁用编辑。",
+        "tooLarge": "分类数据超过安全上限。检查数据前，当前已禁用编辑。"
+      },
+      "search": "搜索",
+      "loading": "加载中...",
+      "filters": "筛选",
+      "failedToLoad": "加载失败",
+      "loadFailed": "加载失败",
+      "featureLoadFailed": "{{feature}} 加载失败",
+      "retry": "重试",
+      "success": "成功",
+      "error": "错误",
+      "warning": "警告",
+      "details": "详情",
+      "unknown": "未知",
+      "actions": {
+        "close": "关闭"
+      },
+      "empty": {
+        "noData": "暂无数据",
+        "selectItem": "请选择一个项目查看详情"
+      },
+      "refresh": "刷新",
+      "clear": "清除"
+    }
+  }
+}

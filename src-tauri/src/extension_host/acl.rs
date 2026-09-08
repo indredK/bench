@@ -43,6 +43,22 @@ pub const EXTENSION_ALLOWED_COMMANDS: &[&str] = &[
     "photo_triage_empty_dirs",
     "photo_triage_delete_empty_dirs",
     "photo_triage_export",
+    // terminology 能力面（14 条 CRUD，P5 迁移；数据存储仍在宿主核心）
+    "list_terminology_data",
+    "create_industry",
+    "update_industry",
+    "delete_industry",
+    "create_category",
+    "update_category",
+    "delete_category",
+    "create_subcategory",
+    "update_subcategory",
+    "delete_subcategory",
+    "create_term",
+    "update_term",
+    "delete_term",
+    "set_term_pinned",
+    // hardware 为纯前端插件（零 IPC，acl.commands 为空，P5 迁移）
 ];
 
 /// 命令是否在 extension 允许清单内。
@@ -107,8 +123,8 @@ mod tests {
     }
 
     #[test]
-    fn photo_triage_commands_all_allowed() {
-        for command in [
+    fn capability_face_all_allowed() {
+        let photo_triage = [
             "photo_triage_scan",
             "photo_triage_scan_status",
             "photo_triage_list_recent",
@@ -124,7 +140,24 @@ mod tests {
             "photo_triage_empty_dirs",
             "photo_triage_delete_empty_dirs",
             "photo_triage_export",
-        ] {
+        ];
+        let terminology = [
+            "list_terminology_data",
+            "create_industry",
+            "update_industry",
+            "delete_industry",
+            "create_category",
+            "update_category",
+            "delete_category",
+            "create_subcategory",
+            "update_subcategory",
+            "delete_subcategory",
+            "create_term",
+            "update_term",
+            "delete_term",
+            "set_term_pinned",
+        ];
+        for command in photo_triage.into_iter().chain(terminology) {
             assert!(
                 is_command_allowed(command),
                 "`{command}` should be in the extension allow-list"

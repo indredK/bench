@@ -17,6 +17,7 @@ const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..",
 
 const FEATURES_DIR = path.join(rootDir, "src", "features")
 const MODULES_DIR = path.join(rootDir, "docs", "modules")
+const EXTENSIONS_DIR = path.join(rootDir, "extensions")
 
 // 非 feature 的基础设施目录/文件，不参与对齐校验
 const FEATURE_IGNORE = new Set([])
@@ -36,16 +37,23 @@ function listDirs(dir, ignore) {
 const featureIds = listDirs(FEATURES_DIR, FEATURE_IGNORE)
 const moduleIds = listDirs(MODULES_DIR, MODULE_IGNORE)
 
+// P5：bundled 插件（extensions/<id>）本身是功能模块，与 src/features 等价参与对齐。
+// 插件源目录内不含构建产物目录（assets/ 由 gitignore 承载，且带 manifest.json 才算插件）。
+const pluginIds = listDirs(EXTENSIONS_DIR, FEATURE_IGNORE).filter((id) =>
+  existsSync(path.join(EXTENSIONS_DIR, id, "manifest.json")),
+)
+const allModuleIds = [...new Set([...featureIds, ...pluginIds])].sort()
+
 const errors = []
 
 // 1 + 3. 双向对齐
-const featureSet = new Set(featureIds)
+const featureSet = new Set(allModuleIds)
 const moduleSet = new Set(moduleIds)
 
-for (const id of featureIds) {
+for (const id of allModuleIds) {
   if (!moduleSet.has(id)) {
     errors.push(
-      `feature 缺文档：src/features/${id}/ 存在，但 docs/modules/${id}/ 缺失` +
+      `feature 缺文档：\`${id}\`（src/features 或 extensions）存在，但 docs/modules/${id}/ 缺失` +
         `（coding-standards §11.2 强制：新增 feature 须同步创建文档目录）`,
     )
   }
@@ -54,7 +62,7 @@ for (const id of featureIds) {
 for (const id of moduleIds) {
   if (!featureSet.has(id)) {
     errors.push(
-      `孤儿文档：docs/modules/${id}/ 存在，但 src/features/${id}/ 缺失` +
+      `孤儿文档：docs/modules/${id}/ 存在，但 src/features/${id}/ 与 extensions/${id}/ 均缺失` +
         `（若为已删除 feature，请一并移除文档目录；若是基础设施，请加入 MODULE_IGNORE）`,
     )
   }
@@ -78,5 +86,5 @@ if (errors.length > 0) {
 }
 
 console.log(
-  `✓ doc/code consistency: ${featureIds.length} features ↔ ${moduleIds.length} module docs 对齐，必需文件齐全`,
+  `✓ doc/code consistency: ${featureIds.length} features + ${pluginIds.length} plugins ↔ ${moduleIds.length} module docs 对齐，必需文件齐全`,
 )

@@ -7,8 +7,8 @@ import {
   getFilteredTerms,
   validateSelection,
   type FilterState,
-} from "@/features/terminology/services/terminology.use-cases"
-import type { Term } from "@/features/terminology/services/terminology.repository"
+} from "@extension/services/terminology.use-cases"
+import type { Term } from "@extension/services/terminology.repository"
 
 function term(id: string, overrides: Partial<Term> = {}): Term {
   return {

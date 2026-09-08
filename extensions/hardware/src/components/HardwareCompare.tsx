@@ -7,8 +7,8 @@ import { Plus } from "lucide-react"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import FilterBar from "@/shared/compare/FilterBar"
 import type { CompareDataModule } from "@/shared/compare/types"
-import { CompareMatrixTable } from "@/shared/compare/CompareMatrixTable"
-import { useHardwareCompareStore } from "@/features/hardware/store"
+import { CompareMatrixTable } from "@extension/components/CompareMatrixTable"
+import { useHardwareCompareStore } from "@extension/store"
 
 interface HardwareCompareProps<T extends { id: string; model: string }> {
   module: CompareDataModule<T>

@@ -3,7 +3,7 @@
 > **完备功能规格** → [product-specs/terminology.md](../../product-specs/terminology.md)
 > **规划功能** → [planned/terminology.md](../../planned/terminology.md)
 
-代码：`src/features/terminology/` · `src-tauri/src/terminology/`
+**形态**：bundled 插件（P5 迁移）——UI 源码 `extensions/terminology/`；能力面 14 条 `*_industry/category/subcategory/term` 命令留宿主核心（`src-tauri/src/terminology/`，已登记 ACL）。
 
 定位：**术语知识库 / 术语管理**——按「行业 → 分类 → 子分类」三层组织术语卡片，支持搜索、收藏（置顶）、CRUD，每个术语可挂多个参考网站（全平台）。
 

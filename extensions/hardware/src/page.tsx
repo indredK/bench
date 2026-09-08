@@ -20,25 +20,25 @@ import { useTranslation } from "react-i18next"
 import { FeatureErrorBoundary } from "@/components/common/FeatureErrorBoundary"
 import CompareTabs, { type CompareTabItem } from "@/shared/compare/CompareTabs"
 
-const LazyHardwareTab = lazy(() => import("@/features/hardware/components/HardwareCompareTab"))
+const LazyHardwareTab = lazy(() => import("@extension/components/HardwareCompareTab"))
 
 type HardwareModuleLoader = () => Promise<{
   default?: never
   module:
-    | typeof import("@/data/cpu").cpuModule
-    | typeof import("@/data/gpu").gpuModule
-    | typeof import("@/data/memory").memoryModule
-    | typeof import("@/data/ssd").ssdModule
-    | typeof import("@/data/motherboard").motherboardModule
-    | typeof import("@/data/monitor").monitorModule
-    | typeof import("@/data/psu").psuModule
-    | typeof import("@/data/case").caseModule
-    | typeof import("@/data/cooler").coolerModule
-    | typeof import("@/data/switch").switchModule
-    | typeof import("@/data/phone").phoneModule
-    | typeof import("@/data/phone-chipset").chipsetModule
-    | typeof import("@/data/camera").cameraModule
-    | typeof import("@/data/telescope").telescopeModule
+    | typeof import("@extension/data/cpu").cpuModule
+    | typeof import("@extension/data/gpu").gpuModule
+    | typeof import("@extension/data/memory").memoryModule
+    | typeof import("@extension/data/ssd").ssdModule
+    | typeof import("@extension/data/motherboard").motherboardModule
+    | typeof import("@extension/data/monitor").monitorModule
+    | typeof import("@extension/data/psu").psuModule
+    | typeof import("@extension/data/case").caseModule
+    | typeof import("@extension/data/cooler").coolerModule
+    | typeof import("@extension/data/switch").switchModule
+    | typeof import("@extension/data/phone").phoneModule
+    | typeof import("@extension/data/phone-chipset").chipsetModule
+    | typeof import("@extension/data/camera").cameraModule
+    | typeof import("@extension/data/telescope").telescopeModule
 }>
 
 interface HardwareTabDef {
@@ -53,87 +53,91 @@ const hardwareTabs: readonly HardwareTabDef[] = [
     id: "cpu",
     i18nPrefix: "cpuCompare",
     icon: <Cpu size={16} />,
-    loadModule: async () => ({ module: (await import("@/data/cpu")).cpuModule }),
+    loadModule: async () => ({ module: (await import("@extension/data/cpu")).cpuModule }),
   },
   {
     id: "gpu",
     i18nPrefix: "gpuCompare",
     icon: <Monitor size={16} />,
-    loadModule: async () => ({ module: (await import("@/data/gpu")).gpuModule }),
+    loadModule: async () => ({ module: (await import("@extension/data/gpu")).gpuModule }),
   },
   {
     id: "memory",
     i18nPrefix: "memoryCompare",
     icon: <MemoryStick size={16} />,
-    loadModule: async () => ({ module: (await import("@/data/memory")).memoryModule }),
+    loadModule: async () => ({ module: (await import("@extension/data/memory")).memoryModule }),
   },
   {
     id: "ssd",
     i18nPrefix: "ssdCompare",
     icon: <HardDrive size={16} />,
-    loadModule: async () => ({ module: (await import("@/data/ssd")).ssdModule }),
+    loadModule: async () => ({ module: (await import("@extension/data/ssd")).ssdModule }),
   },
   {
     id: "motherboard",
     i18nPrefix: "motherboardCompare",
     icon: <CircuitBoard size={16} />,
-    loadModule: async () => ({ module: (await import("@/data/motherboard")).motherboardModule }),
+    loadModule: async () => ({
+      module: (await import("@extension/data/motherboard")).motherboardModule,
+    }),
   },
   {
     id: "monitor",
     i18nPrefix: "monitorCompare",
     icon: <Monitor size={16} />,
-    loadModule: async () => ({ module: (await import("@/data/monitor")).monitorModule }),
+    loadModule: async () => ({ module: (await import("@extension/data/monitor")).monitorModule }),
   },
   {
     id: "psu",
     i18nPrefix: "psuCompare",
     icon: <Plug size={16} />,
-    loadModule: async () => ({ module: (await import("@/data/psu")).psuModule }),
+    loadModule: async () => ({ module: (await import("@extension/data/psu")).psuModule }),
   },
   {
     id: "case",
     i18nPrefix: "caseCompare",
     icon: <Box size={16} />,
-    loadModule: async () => ({ module: (await import("@/data/case")).caseModule }),
+    loadModule: async () => ({ module: (await import("@extension/data/case")).caseModule }),
   },
   {
     id: "cooler",
     i18nPrefix: "coolerCompare",
     icon: <Wind size={16} />,
-    loadModule: async () => ({ module: (await import("@/data/cooler")).coolerModule }),
+    loadModule: async () => ({ module: (await import("@extension/data/cooler")).coolerModule }),
   },
   {
     id: "switch",
     i18nPrefix: "switchCompare",
     icon: <Network size={16} />,
-    loadModule: async () => ({ module: (await import("@/data/switch")).switchModule }),
+    loadModule: async () => ({ module: (await import("@extension/data/switch")).switchModule }),
   },
   {
     id: "phone",
     i18nPrefix: "phoneCompare",
     icon: <Smartphone size={16} />,
-    loadModule: async () => ({ module: (await import("@/data/phone")).phoneModule }),
+    loadModule: async () => ({ module: (await import("@extension/data/phone")).phoneModule }),
   },
   {
     id: "chipset",
     i18nPrefix: "phoneChipsetCompare",
     icon: <Cpu size={16} />,
     loadModule: async () => ({
-      module: (await import("@/data/phone-chipset")).chipsetModule,
+      module: (await import("@extension/data/phone-chipset")).chipsetModule,
     }),
   },
   {
     id: "camera",
     i18nPrefix: "cameraCompare",
     icon: <Camera size={16} />,
-    loadModule: async () => ({ module: (await import("@/data/camera")).cameraModule }),
+    loadModule: async () => ({ module: (await import("@extension/data/camera")).cameraModule }),
   },
   {
     id: "telescope",
     i18nPrefix: "telescopeCompare",
     icon: <Telescope size={16} />,
-    loadModule: async () => ({ module: (await import("@/data/telescope")).telescopeModule }),
+    loadModule: async () => ({
+      module: (await import("@extension/data/telescope")).telescopeModule,
+    }),
   },
 ] as const
 
