@@ -8,15 +8,15 @@ AI 从 [`AGENTS.md`](../AGENTS.md) 开始，按其必读清单读取规范后按
 
 本项目文档按 **Diátaxis** 四型 + 模块/状态两层组织，每类信息只在一处（单一真理源，见 `explanation/decisions.md` D-006）。
 
-| 象限 | 目录 | 内容 | 典型文件 |
-| --- | --- | --- | --- |
-| **Reference** | [`reference/`](./reference/) | 稳定规格、契约、架构边界、数据 schema | `architecture.md` · `persistence-schema.md` · `extension-spec.md` · `product-specs/` |
-| **How-to** | [`how-to/`](./how-to/) | 开发/验证/提交流程与规范（任务导向） | `development-workflow.md` · `ai-workflows.md` · `coding-standards.md` · `ux-standards.md` · `dev-prod-coexistence.md` |
-| **Explanation** | [`explanation/`](./explanation/) | 方向性决策、产品定位、插件工作流、审计（理解导向） | `decisions.md`(DECISIONS) · `functional-positioning.md` · `extension-workflow.md` · `audit-report.md` |
-| **Roadmap** | [`roadmap/`](./roadmap/) | 发布阶段规划 + 各模块规划功能（状态导向） | `ROADMAP.md` · `planned/` · `GAP-TO-2.0.md` |
-| **模块** | [`modules/`](./modules/) | 模块精简索引 + 独有深度设计 | `<id>/README.md` · `design.md` · `roadmap.md`(指针) |
-| **上手** | [`tutorials/`](./tutorials/) | 新人入门路径 | `README.md` |
-| **资产** | [`diagrams/`](./diagrams/) | 架构/流程图集（html 由 specs/*.json 渲染） | `index.html` |
+| 象限            | 目录                             | 内容                                               | 典型文件                                                                                                              |
+| --------------- | -------------------------------- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| **Reference**   | [`reference/`](./reference/)     | 稳定规格、契约、架构边界、数据 schema              | `architecture.md` · `persistence-schema.md` · `extension-spec.md` · `product-specs/`                                  |
+| **How-to**      | [`how-to/`](./how-to/)           | 开发/验证/提交流程与规范（任务导向）               | `development-workflow.md` · `ai-workflows.md` · `coding-standards.md` · `ux-standards.md` · `dev-prod-coexistence.md` |
+| **Explanation** | [`explanation/`](./explanation/) | 方向性决策、产品定位、插件工作流、审计（理解导向） | `decisions.md`(DECISIONS) · `functional-positioning.md` · `extension-workflow.md` · `audit-report.md`                 |
+| **Roadmap**     | [`roadmap/`](./roadmap/)         | 发布阶段规划 + 各模块规划功能（状态导向）          | `ROADMAP.md` · `planned/` · `GAP-TO-2.0.md`                                                                           |
+| **模块**        | [`modules/`](./modules/)         | 模块精简索引 + 独有深度设计                        | `<id>/README.md` · `design.md` · `roadmap.md`(指针)                                                                   |
+| **上手**        | [`tutorials/`](./tutorials/)     | 新人入门路径                                       | `README.md`                                                                                                           |
+| **资产**        | [`diagrams/`](./diagrams/)       | 架构/流程图集（html 由 specs/*.json 渲染）         | `index.html`                                                                                                          |
 
 ## 模块文档三件套（核心约定）
 

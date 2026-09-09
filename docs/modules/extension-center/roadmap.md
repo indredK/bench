@@ -18,7 +18,7 @@
 | 插件签名                                           | ✅ minisign，私钥本地保管 + CI 走 GitHub Secrets                                                                        | 零费用；复用 `updater/keys/` 既有密钥链                                                                                                                    |
 | 更新框架                                           | ❌ **不引入 TUF**                                                                                                       | TUF 需在线 timestamp/snapshot 服务与密钥轮换仪式，持续运维成本远大于本规模收益；改用「trusted comment + 版本单调性 + expiresAt」三条低成本措施达到同等效果 |
 | 恶意代码沙箱动态检测 / marketplace 级 malware 扫描 | ❌ 不做                                                                                                                 | VS Code 那套 clean room VM + 多引擎扫描年度成本极高；改为「registry PR 人工审核 + 吊销通道 + ACL 最小授权」组合                                            |
-| Apple notarization / Windows Authenticode          | ❌ 维持 unsigned                                                                                                        | 同 [D-010](../../explanation/decisions.md#d-010--默认使用-ad-hoc-macos-与-unsigned-windows-包)，不为一锤子证书付费                                                     |
+| Apple notarization / Windows Authenticode          | ❌ 维持 unsigned                                                                                                        | 同 [D-010](../../explanation/decisions.md#d-010--默认使用-ad-hoc-macos-与-unsigned-windows-包)，不为一锤子证书付费                                         |
 
 ---
 
@@ -211,12 +211,12 @@ pnpm run test:critical       # ✓ 145 passed
 
 > 原 P0–P6 缺失这一整条线。而它决定了 P0 拍板的「目标 B：第三方生态」能否启动 —— uTools 生态 3000+ 的主因就是前端开发者零门槛。
 
-| 项               | 内容                                                                                                                        |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `@bench/ext-sdk` | IPC 客户端薄封装（基于 `@tauri-apps/api`）+ i18n 桥 + 诊断上报接口                                                          |
-| 模板仓库         | `bench-extension-template`：manifest 示例 + vite 配置（含 `base: "./"` 铁律）+ 本地 dev 加载 + 打包 + 签名脚本              |
-| 脚手架           | `pnpm run extensions:create <id>` 生成目录与最小可运行插件                                                                  |
-| 打包脚本         | `pnpm run extensions:pack <id>` → 产出 zip + 生成 `files` hash 清单 + minisign 签名                                         |
+| 项               | 内容                                                                                                                                    |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `@bench/ext-sdk` | IPC 客户端薄封装（基于 `@tauri-apps/api`）+ i18n 桥 + 诊断上报接口                                                                      |
+| 模板仓库         | `bench-extension-template`：manifest 示例 + vite 配置（含 `base: "./"` 铁律）+ 本地 dev 加载 + 打包 + 签名脚本                          |
+| 脚手架           | `pnpm run extensions:create <id>` 生成目录与最小可运行插件                                                                              |
+| 打包脚本         | `pnpm run extensions:pack <id>` → 产出 zip + 生成 `files` hash 清单 + minisign 签名                                                     |
 | 作者文档         | 「开发 / 本地加载 / 打包签名 / 提交 registry PR」四步式 how-to，登记进 [extension-workflow.md](../../explanation/extension-workflow.md) |
 
 **验收**：一个未接触过本项目的开发者能在 30 分钟内产出可安装插件。

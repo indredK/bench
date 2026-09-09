@@ -221,49 +221,49 @@ pnpm run extensions:pack <id>     # P4.5 交付
 
 ### 8.6 版本升级与下架
 
-| 场景       | 操作                                                                                                              |
-| ---------- | ----------------------------------------------------------------------------------------------------------------- |
-| 发新版     | `manifest.version` +1（semver）→ `extensions:pack` → registry PR 追加 `versions[]` 条目                           |
-| 撤回某版本 | 该版本 `yanked: true`（已安装仍可运行，不再出现在可安装列表）                                                     |
+| 场景       | 操作                                                                                                                         |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| 发新版     | `manifest.version` +1（semver）→ `extensions:pack` → registry PR 追加 `versions[]` 条目                                      |
+| 撤回某版本 | 该版本 `yanked: true`（已安装仍可运行，不再出现在可安装列表）                                                                |
 | 紧急吊销   | registry `revoked[]` 增加条目 → 宿主**强制禁用 + UI 显著警示**（不静默删除，见 [spec §5.3](../reference/extension-spec.md)） |
 
 ### 8.7 作者文档清单（P4.5 一并交付）
 
-| 文档                              | 位置                                     |
-| --------------------------------- | ---------------------------------------- |
-| 快速开始（30 分钟做出可安装插件） | `extensions/README.md`                   |
+| 文档                              | 位置                                                |
+| --------------------------------- | --------------------------------------------------- |
+| 快速开始（30 分钟做出可安装插件） | `extensions/README.md`                              |
 | 契约参考                          | [extension-spec.md](../reference/extension-spec.md) |
-| SDK 用法（IPC / i18n / 诊断上报） | `@bench/ext-sdk` 包内 README             |
-| 提交 registry                     | 本文 §8.5                                |
+| SDK 用法（IPC / i18n / 诊断上报） | `@bench/ext-sdk` 包内 README                        |
+| 提交 registry                     | 本文 §8.5                                           |
 
 ---
 
 ## 9. 宿主侧运维流程
 
-| 场景                 | 流程                                                                                           | 归属   |
-| -------------------- | ---------------------------------------------------------------------------------------------- | ------ |
-| **bundled 随包发布** | `extensions:build` 产物接入 `tauri build` → 随正式包分发 → 首次启动拷入 `$APPDATA/extensions/` | P3.4   |
-| **市场安装**         | 见 [spec §6.1](../reference/extension-spec.md) 端到端步骤                                                 | P4     |
-| **权限披露**         | 安装前展示 `manifest.acl.commands` 的人类可读描述                                              | P4     |
-| **更新提示**         | registry 版本比对 + `engines` 升级引导 + `yanked` 提示                                         | P4     |
-| **吊销**             | 拉取 registry 时同步 `revoked[]` → 强制禁用 + 警示                                             | P4     |
-| **审计**             | 追加式 `$APPDATA/ext-audit.log`，字段见 [spec §6.2](../reference/extension-spec.md) 与 roadmap P3.3       | P3.3   |
-| **诊断**             | 插件中心诊断面板查看 ext 日志（替代裸 JSON）                                                   | P4     |
-| **卸载**             | `ext_uninstall`：关窗 + 删目录（仅限合法插件目录）+ `DestructiveConfirmDialog`                 | 已实现 |
+| 场景                 | 流程                                                                                                | 归属   |
+| -------------------- | --------------------------------------------------------------------------------------------------- | ------ |
+| **bundled 随包发布** | `extensions:build` 产物接入 `tauri build` → 随正式包分发 → 首次启动拷入 `$APPDATA/extensions/`      | P3.4   |
+| **市场安装**         | 见 [spec §6.1](../reference/extension-spec.md) 端到端步骤                                           | P4     |
+| **权限披露**         | 安装前展示 `manifest.acl.commands` 的人类可读描述                                                   | P4     |
+| **更新提示**         | registry 版本比对 + `engines` 升级引导 + `yanked` 提示                                              | P4     |
+| **吊销**             | 拉取 registry 时同步 `revoked[]` → 强制禁用 + 警示                                                  | P4     |
+| **审计**             | 追加式 `$APPDATA/ext-audit.log`，字段见 [spec §6.2](../reference/extension-spec.md) 与 roadmap P3.3 | P3.3   |
+| **诊断**             | 插件中心诊断面板查看 ext 日志（替代裸 JSON）                                                        | P4     |
+| **卸载**             | `ext_uninstall`：关窗 + 删目录（仅限合法插件目录）+ `DestructiveConfirmDialog`                      | 已实现 |
 
 ---
 
 ## 10. 文档地图（插件化）
 
-| 文档                                                                         | 层                   | 职责                                                                                                                                    |
-| ---------------------------------------------------------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| [extension-spec.md](../reference/extension-spec.md)                                     | Reference            | **契约唯一规格**：manifest / 签名 / registry / 产物格式 / ACL / 版本                                                                    |
-| [extension-workflow.md](./extension-workflow.md)（本文）                     | Explanation + How-to | 架构边界、仓库组织、开发→发布工作流                                                                                                     |
-| [modules/extension-center/roadmap.md](../modules/extension-center/roadmap.md) | Roadmap              | **执行顺序与状态唯一清单**（含行业依据与技术铁律附录）                                                                                  |
-| [product-specs/extension-center.md](../reference/product-specs/extension-center.md)     | Reference            | 插件中心的功能规格（界面 / 交互 / 异常）                                                                                                |
-| [planned/extension-center.md](../roadmap/planned/extension-center.md)                 | Roadmap              | 插件中心未实现项                                                                                                                        |
-| [DECISIONS.md](./decisions.md) D-023 / D-024                                 | Explanation          | 方向性决策                                                                                                                              |
-| `extensions/<id>/docs/`（README / product-spec / planned / roadmap）         | Reference + Roadmap  | **已插件化模块的自包含三件套**（P5 起随插件走，不再放 docs/modules；dev-cleaner 类子能力在 `extensions/clean-space/docs/dev-cleaner/`） |
+| 文档                                                                                | 层                   | 职责                                                                                                                                    |
+| ----------------------------------------------------------------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| [extension-spec.md](../reference/extension-spec.md)                                 | Reference            | **契约唯一规格**：manifest / 签名 / registry / 产物格式 / ACL / 版本                                                                    |
+| [extension-workflow.md](./extension-workflow.md)（本文）                            | Explanation + How-to | 架构边界、仓库组织、开发→发布工作流                                                                                                     |
+| [modules/extension-center/roadmap.md](../modules/extension-center/roadmap.md)       | Roadmap              | **执行顺序与状态唯一清单**（含行业依据与技术铁律附录）                                                                                  |
+| [product-specs/extension-center.md](../reference/product-specs/extension-center.md) | Reference            | 插件中心的功能规格（界面 / 交互 / 异常）                                                                                                |
+| [planned/extension-center.md](../roadmap/planned/extension-center.md)               | Roadmap              | 插件中心未实现项                                                                                                                        |
+| [DECISIONS.md](./decisions.md) D-023 / D-024                                        | Explanation          | 方向性决策                                                                                                                              |
+| `extensions/<id>/docs/`（README / product-spec / planned / roadmap）                | Reference + Roadmap  | **已插件化模块的自包含三件套**（P5 起随插件走，不再放 docs/modules；dev-cleaner 类子能力在 `extensions/clean-space/docs/dev-cleaner/`） |
 
 ## 11. 模块插件化迁移清单（P5 实践沉淀，照单执行）
 
