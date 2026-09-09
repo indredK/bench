@@ -23,3 +23,6 @@ pub use station::*;
 
 // 供兄弟模块复用的时间标签（session.rs / detection.rs 经 super::commands::now_label 访问）。
 pub use shared::now_label;
+
+// Session Keeper(session_keeper.rs)复用的跨模块入口。
+pub(crate) use shared::{account_log_error_code, build_proxy_url_for_station};

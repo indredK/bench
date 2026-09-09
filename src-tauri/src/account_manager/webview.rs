@@ -40,6 +40,7 @@ pub fn remove_account_data_dir<R: Runtime>(
     for label in [
         login_window_label(account_id),
         probe_window_label(account_id),
+        super::session_keeper::keeper_window_label(account_id),
     ] {
         if let Some(window) = app.get_webview_window(&label) {
             window.clear_all_browsing_data().map_err(|e| {
@@ -292,6 +293,12 @@ async fn complete_proxy_login<R: Runtime>(
             };
             if !verified {
                 eprintln!("[account_manager] captured proxy session was not verified as ready");
+                log_proxy_login_outcome(
+                    app,
+                    account_id,
+                    super::types::AccountLogLevel::Warn,
+                    false,
+                );
                 return;
             }
             let state = app.state::<super::state::AccountManagerState>();
@@ -300,8 +307,37 @@ async fn complete_proxy_login<R: Runtime>(
             {
                 eprintln!("[account_manager] record proxy usage failed: {error}");
             }
+            log_proxy_login_outcome(
+                app,
+                account_id,
+                super::types::AccountLogLevel::Success,
+                true,
+            );
         }
-        Err(error) => eprintln!("[account_manager] finalize proxy session failed: {error}"),
+        Err(error) => {
+            eprintln!("[account_manager] finalize proxy session failed: {error}");
+            log_proxy_login_outcome(app, account_id, super::types::AccountLogLevel::Error, false);
+        }
+    }
+}
+
+/// 记录一次代理登录结果日志(不含 URL/凭证,仅 verified 布尔)。
+fn log_proxy_login_outcome<R: Runtime>(
+    app: &AppHandle<R>,
+    account_id: &str,
+    level: super::types::AccountLogLevel,
+    verified: bool,
+) {
+    let state = app.state::<super::state::AccountManagerState>();
+    if let Err(error) = super::storage::append_account_log(
+        app,
+        &state,
+        account_id,
+        super::types::AccountLogKind::Login,
+        level,
+        Some(serde_json::json!({ "verified": verified })),
+    ) {
+        eprintln!("[account_manager] append proxy login log failed: {error}");
     }
 }
 

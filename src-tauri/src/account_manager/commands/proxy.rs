@@ -24,7 +24,28 @@ pub fn open_login_window<R: Runtime>(
     state: State<'_, AccountManagerState>,
     account_id: String,
     return_url: Option<String>,
+    url: Option<String>,
 ) -> AccountManagerResult<()> {
+    // 显式 url 优先(快速登录粘贴的认证 URL),校验 http/https + host。
+    let explicit_url = match url.as_deref() {
+        Some(raw) => {
+            let trimmed = raw.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                let parsed = url::Url::parse(trimmed)
+                    .map_err(|e| AccountManagerError::invalid_input(format!("login url: {e}")))?;
+                if !matches!(parsed.scheme(), "http" | "https") || parsed.host_str().is_none() {
+                    return Err(AccountManagerError::invalid_input(
+                        "login url must use http or https and include a host",
+                    ));
+                }
+                Some(parsed.to_string())
+            }
+        }
+        None => None,
+    };
+
     let (username, website, station) = {
         let snapshot = state.read_snapshot_checked()?;
         let account = snapshot
@@ -32,19 +53,42 @@ pub fn open_login_window<R: Runtime>(
             .iter()
             .find(|a| a.id == account_id)
             .ok_or_else(|| AccountManagerError::not_found(format!("account {account_id}")))?;
-        let station = snapshot
+        // ephemeral 账号可能不归属任何 Station:回退到账号自带 website。
+        let station = match snapshot
             .stations
             .iter()
             .find(|s| s.id == account.station_id)
-            .ok_or_else(|| {
-                AccountManagerError::not_found(format!("station {}", account.station_id))
-            })?;
-        (
-            account.username.clone(),
-            station.website.clone(),
-            station.clone(),
-        )
+        {
+            Some(station) => station.clone(),
+            None if account.account_type == AccountType::Ephemeral => {
+                let fallback = account.website.clone().ok_or_else(|| {
+                    AccountManagerError::not_found(format!("station {}", account.station_id))
+                })?;
+                RelayStation {
+                    id: account.station_id.clone(),
+                    remark: String::new(),
+                    website: fallback,
+                    created_at: String::new(),
+                    login_detection: LoginDetectionConfig::default(),
+                    exclusivity_mode: Default::default(),
+                    auth_profile: None,
+                    probe_failure_count: 0,
+                    session_ttl_hours: crate::account_manager::types::default_session_ttl_hours(),
+                    network_proxy: None,
+                }
+            }
+            None => {
+                return Err(AccountManagerError::not_found(format!(
+                    "station {}",
+                    account.station_id
+                )));
+            }
+        };
+        (account.username.clone(), station.website.clone(), station)
     };
+
+    // 目标 URL 优先级:显式 url > station.website。
+    let target = explicit_url.unwrap_or(website);
 
     // 互斥模式：登录前处理同站其它账号（exclusive 登出冲突账号 / rotating 降级活跃账号）
     crate::account_manager::exclusivity::enforce_exclusivity_before_login(
@@ -58,11 +102,24 @@ pub fn open_login_window<R: Runtime>(
         &app,
         &account_id,
         &username,
-        &website,
+        &target,
         return_url.as_deref(),
         None,
         proxy_url.as_deref(),
-    )
+    )?;
+
+    // 登录窗口已打开 → 记录 login/info 日志(不含 URL 原文,query 可能含 token)。
+    if let Err(error) = storage::append_account_log(
+        &app,
+        &state,
+        &account_id,
+        crate::account_manager::types::AccountLogKind::Login,
+        crate::account_manager::types::AccountLogLevel::Info,
+        Some(serde_json::json!({ "target": "loginWindow" })),
+    ) {
+        eprintln!("[account_manager] append login log failed: {error}");
+    }
+    Ok(())
 }
 
 /// 为 AuthProfile 检测选择最合适的账号 session。
@@ -712,6 +769,9 @@ pub async fn proxy_login_new_account<R: Runtime>(
         exclusivity_group: None,
         proxy_enabled: true,
         external_app_ids: Vec::new(),
+        refresh_schedule: None,
+        next_refresh_at_ts: None,
+        first_login_at: None,
         id: new_id("acct"),
         station_id: station.id.clone(),
         username: display_name,

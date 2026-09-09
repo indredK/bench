@@ -19,6 +19,8 @@ import { DeleteConfirmDialog } from "@/features/account-manager/components/delet
 import { describeRegionError } from "@/features/account-manager/errors"
 import { AuthProxyDialog } from "@/features/account-manager/components/auth-proxy-dialog"
 import { ExternalAppsPanel } from "@/features/account-manager/components/external-apps-panel"
+import { AccountLogDialog } from "@/features/account-manager/components/account-log-dialog"
+import { useAccountManagerStore } from "@/features/account-manager/store"
 import { cn } from "@/lib/utils"
 import { AlertTriangle } from "lucide-react"
 import {
@@ -84,9 +86,47 @@ export function AccountManagerLoadingSkeleton() {
 }
 
 function AccountManagerPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const c = useAccountManagerController()
   const [detailSheetOpen, setDetailSheetOpen] = useState(false)
+  const isAccountLogOpen = useAccountManagerStore((s) => s.isAccountLogOpen)
+  const setAccountLogOpen = useAccountManagerStore((s) => s.setAccountLogOpen)
+  const accountLogTarget = useAccountManagerStore((s) => s.accountLogTarget)
+  const keeperLogs = c.sessionKeeper.logs
+
+  /** 日志对话框展示模型:计划摘要 + 下次执行时间(本地化)。 */
+  const accountLogView = useMemo(() => {
+    if (!keeperLogs) return null
+    const schedule = keeperLogs.schedule
+    let scheduleLabel: string | null = null
+    if (schedule) {
+      if (!schedule.enabled) {
+        scheduleLabel = t("accountManager.sessionKeeper.summary.paused")
+      } else if (schedule.mode.type === "interval") {
+        scheduleLabel = t("accountManager.sessionKeeper.summary.interval", {
+          hours: schedule.mode.hours,
+        })
+      } else {
+        const minuteOfDay = schedule.mode.minuteOfDay
+        const time = `${String(Math.floor(minuteOfDay / 60)).padStart(2, "0")}:${String(minuteOfDay % 60).padStart(2, "0")}`
+        scheduleLabel = t("accountManager.sessionKeeper.summary.daily", { time })
+      }
+    }
+    let nextRunLabel: string | null = null
+    if (schedule?.enabled && keeperLogs.nextRefreshAtTs != null) {
+      try {
+        const time = new Intl.DateTimeFormat(i18n.language, {
+          dateStyle: "short",
+          timeStyle: "short",
+        }).format(new Date(keeperLogs.nextRefreshAtTs * 1000))
+        nextRunLabel = t("accountManager.sessionKeeper.nextRun", { time })
+      } catch {
+        nextRunLabel = null
+      }
+    }
+    return { entries: keeperLogs.entries, scheduleLabel, nextRunLabel }
+  }, [keeperLogs, t, i18n.language])
+
   const capabilityState = useMemo(() => {
     const capabilities = c.capabilities
     if (!capabilities) {
@@ -162,6 +202,11 @@ function AccountManagerPage() {
       onCopyPassword={c.handleCopyPassword}
       onProbeStrategyChange={c.handleProbeStrategyChange}
       onRefreshAccount={c.handleRefreshAccount}
+      onScheduleChange={c.sessionKeeper.handleScheduleChange}
+      onOpenAccountLogs={c.sessionKeeper.handleOpenAccountLogs}
+      savingSchedule={
+        c.selectedAccount ? c.sessionKeeper.savingScheduleIds.has(c.selectedAccount.id) : false
+      }
       error={c.regionErrors.detail ? describeRegionError(t, c.regionErrors.detail) : null}
       onRetryError={() => c.retryRegion("detail")}
       onDismissError={() => c.dismissRegionError("detail")}
@@ -320,6 +365,21 @@ function AccountManagerPage() {
         onSubmit={c.handleQuickLogin}
         defaultStationId={c.selectedStation?.id ?? null}
         history={c.readQuickLoginHistory()}
+        onMatchStations={c.sessionKeeper.matchStations}
+        getStationAccounts={c.getStationAccountsForQuickLogin}
+        submitting={c.quickLoginPending}
+      />
+      <AccountLogDialog
+        open={isAccountLogOpen}
+        onOpenChange={setAccountLogOpen}
+        accountName={accountLogTarget?.accountName ?? ""}
+        logs={accountLogView}
+        loading={c.sessionKeeper.logsLoading}
+        error={c.sessionKeeper.logsError}
+        onRetry={() => {
+          const target = accountLogTarget
+          if (target) void c.sessionKeeper.reloadLogs(target.accountId)
+        }}
       />
       <DeleteConfirmDialog
         open={c.isDeleteStationOpen}

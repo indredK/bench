@@ -40,6 +40,17 @@
 - [ ] 跨 origin 或跳转后的自动填充被拒绝；密码只在后端精确 origin 校验后的单次操作中解密。
 - [ ] Windows `networkProxy` 显示 `unsupported`；UI 与直接 IPC 都拒绝非空代理，失败不直连、不打开共享浏览器；已有配置可清除。
 
+### 4a. Session Keeper(会话保活)与账号日志(本轮新增,待真机验证)
+
+- [ ] interval/daily 两种计划在软件持续运行期间按 30s tick 准点触发;daily 跨日与 DST 边界(时区切换)下下次执行时间正确。
+- [ ] 软件未运行错过的计划:启动后首个 tick 只补跑一次,执行后从 now 起算 next,不堆积补偿。
+- [ ] 静默刷新(隐藏 WebView 加载站点 → 探测 → Ready 重新捕获 session)后:加密 store 更新、lastRefreshedAt/firstLoginAt 回填、日志写入;捕获失败时旧 session 不被破坏。
+- [ ] 与手动刷新/外部代理登录同账号并发时 single-flight 生效(keeper follower 记录 manualRefreshInFlight skip 日志)。
+- [ ] 登录窗口打开中跳过并记 warn 日志;Windows 上站点配置代理跳过并记 warn 日志。
+- [ ] 每账号日志 100 条环形裁剪;账号/站点删除与 ephemeral 退出时日志同步清理;日志 detail 无 URL/cookie/密码。
+- [ ] 快速登录粘贴 URL → 300ms 防抖匹配站点(exact/同域父子)→ 预选最高置信度 → 选已有账号在其隔离环境打开该 URL。
+- [ ] 详情栏「会话保活」块(开关 + 模式 + 参数 + 下次执行时间)与「日志」对话框(时间线 + 计划摘要 + 刷新)在中英文下展示正确。
+
 ### 5. 删除、UX 与 capability
 
 - [ ] 删除账号关闭窗口并逐项报告 metadata/secret/Session/binding/data directory；partial 不影响其他账号。
@@ -56,4 +67,5 @@
 
 > 每轮功能改动先在此追加一行，再在实施后同步进产品说明。
 
+- 2026-09-09：实现 Session Keeper 会话保活(每账号 interval/daily 静默刷新计划 + 后端 30s 调度器 + 隐藏 WebView 重新捕获 session)、账号日志(每账号 100 条环形,加密 store 持久化)、快速登录 URL 站点自动匹配与已有账号选择、first_login_at 初次登录时间;新增 IPC `set_account_refresh_schedule` / `list_account_logs` / `match_stations_by_url`,`open_login_window` 扩展显式 url 参数并修复 ephemeral 无 station 的 NotFound 缺陷。已同步产品说明 §5/§6/§15/§16;真机验证项见 §4a。
 - 2026-09-03：生成产品说明与规划功能文档（依据 `src/features/account-manager/`、`src-tauri/src/account_manager/`、`docs/modules/account-manager/` 与 ROADMAP R01/R04）。

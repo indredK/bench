@@ -94,7 +94,9 @@
 
 - 「重新检测」：`detectStationAuthProfile(stationId, accountId?)`，防重入（`redetectingProfile`）。
 
-- 账号信息区（固定不滚动）：用户名（可复制）、密码（点眼睛 reveal，**30 秒自动隐藏**，有密码时显示 ••••，可复制；加载中禁用）、备注、上次刷新时间、上次登录时间、Session 到期时间（按 `lastLoginAt + sessionTtlHours` 计算，24 小时内标 near expiry；ttl=0 表示永不过期则隐藏）。
+- 账号信息区（固定不滚动）：用户名（可复制）、密码（点眼睛 reveal，**30 秒自动隐藏**，有密码时显示 ••••，可复制；加载中禁用）、备注、上次刷新时间、上次登录时间、初次登录时间（`firstLoginAt`，首次探测到 Ready 时回填，历史账号为空隐藏）、Session 到期时间（按 `lastLoginAt + sessionTtlHours` 计算，24 小时内标 near expiry；ttl=0 表示永不过期则隐藏）。
+
+- **会话保活块**（仅 persistent 账号显示，紧凑单行）：开关 + 模式（每 N 小时 / 每天定时）+ 参数（小时数 1..=8760 / 时刻 HH:MM）+ 下次执行时间（`Intl.DateTimeFormat` 本地化）；变更即时保存（saving 期间禁用）+「日志」按钮打开账号日志对话框（见 §16）。ephemeral 账号不显示。
 
 - 底部操作行：代理开关（Switch `proxyEnabled`）、管理外部应用（Settings）、刷新当前账号。
 
@@ -104,7 +106,7 @@
 
 - **新增/编辑账号**：用户名、密码（编辑时留空=不改）、备注、启用代理（编辑时）。编辑若密码更新失败会降级保留旧 `hasPassword` 并提示 passwordFailed；代理写入失败提示 proxyFailed。
 
-- **快速登录**：URL（自动补 `https://` 前缀；有历史 datalist 补全）+ 用户名 + 可选「关闭时销毁 Session（destroyOnClose）」+ 附加到当前站点；提交后创建 ephemeral 账号并打开登录窗口。
+- **快速登录**：URL（自动补 `https://` 前缀；有历史 datalist 补全）+ **站点自动匹配**（输入防抖 300ms 调 `match_stations_by_url`：精确 host → exact、互为父子域 → registrableDomain；有匹配时预选最高置信度站点，含「新建站点」选项）+ **账号选择**（选中已有站点且该站有账号时：选已有账号或「新账号」；选已有账号 → 提交 `openLoginWindow(accountId, url)` 在该账号隔离环境打开粘贴的 URL，只读展示账号名 + 状态徽章；新账号 → 用户名输入 + 可选「关闭时销毁 Session（destroyOnClose）」+ 附加到所选站点）+ 未匹配时回退原新建流程（附加到当前选中站点）。提交载荷为联合类型 `{kind:"existing"}|{kind:"new"}`。
 
 - **删除确认**：站点/账号删除均为 `DeleteConfirmDialog` 二次确认；删除站点后自动选中剩余第一个站点及其账号。
 
@@ -185,11 +187,11 @@
 
 - **架构分层**：page → `useAccountManagerController`（组合子 hook）→ `account-manager.use-cases` → `account-manager.repository` → 类型化 IPC（`src/lib/tauri/commands/account-manager.ts`、`contracts.ts`）。
 
-- **控制器拆分**：`useStationActions`（站点 CRUD/重排序/重检测/probe 策略）、`useAccountActions`（账号 CRUD/快速登录/密码/代理）、`useRefreshOrchestrator`（刷新编排/防重入）、`useDataPorting`（导入导出）、`useAuthProxy`（代理）、`useQuickLoginHistory`。
+- **控制器拆分**：`useStationActions`（站点 CRUD/重排序/重检测/probe 策略）、`useAccountActions`（账号 CRUD/快速登录[新/已有账号两种提交]/密码/代理）、`useRefreshOrchestrator`（刷新编排/防重入）、`useDataPorting`（导入导出）、`useAuthProxy`（代理）、`useQuickLoginHistory`、`useSessionKeeper`（保活计划保存/账号日志加载/URL 站点匹配）。
 
-- **后端模块** `src-tauri/src/account_manager/`：`types.rs`（领域类型）、`state.rs`/`storage.rs`（串行状态与落盘）、`crypto.rs`（Keyring 主密钥 + AES-256-GCM 每写独立 nonce）、`session.rs`（Session 捕获/恢复/TTL/退出持久化）、`detection.rs`/`probe.rs`（认证检测与分层探针）、`exclusivity.rs`（coexisting/exclusive/rotating 互斥）、`webview.rs`/`proxy/`（隔离 WebView + 登录代理 + token 提取/自动填充）、`deep_link.rs`、`browser_storage.rs`、`network_proxy.rs`。
+- **后端模块** `src-tauri/src/account_manager/`：`types.rs`（领域类型）、`state.rs`/`storage.rs`（串行状态与落盘）、`crypto.rs`（Keyring 主密钥 + AES-256-GCM 每写独立 nonce）、`session.rs`（Session 捕获/恢复/TTL/退出持久化,`capture_session_from_window` 公共捕获）、`detection.rs`/`probe.rs`（认证检测与分层探针）、`exclusivity.rs`（coexisting/exclusive/rotating 互斥）、`webview.rs`/`proxy/`（隔离 WebView + 登录代理 + token 提取/自动填充）、`session_keeper.rs`（会话保活调度器,见 §15）、`deep_link.rs`、`browser_storage.rs`、`network_proxy.rs`。
 
-- **IPC 命令**：capabilities / listStations / create/update/deleteStation / listAllAccounts / create/update/deleteAccount / createEphemeralAccount / revealPassword / setPassword / copyPasswordToClipboard / openLoginWindow / refreshAccount / refreshStation / refreshAll / reorderStations / reorderAccounts / detectStationAuthProfile / setProbeStrategy / resetProbeStrategy / setSessionTtl / setStationNetworkProxy / setAccountProxyEnabled / exportRelayData / importRelayData / proxyLogin / proxyLoginNewAccount / handleBrowserOpen / getAuthProxyInboxStatus / drainAuthProxyRequest / listExternalApps / removeExternalApp / listExternalAppBindings。
+- **IPC 命令**：capabilities / listStations / create/update/deleteStation / listAllAccounts / create/update/deleteAccount / createEphemeralAccount / revealPassword / setPassword / copyPasswordToClipboard / openLoginWindow（可选 `url` 显式目标） / refreshAccount / refreshStation / refreshAll / reorderStations / reorderAccounts / detectStationAuthProfile / setProbeStrategy / resetProbeStrategy / setSessionTtl / setStationNetworkProxy / setAccountProxyEnabled / setAccountRefreshSchedule / listAccountLogs / matchStationsByUrl / exportRelayData / importRelayData / proxyLogin / proxyLoginNewAccount / handleBrowserOpen / getAuthProxyInboxStatus / drainAuthProxyRequest / listExternalApps / removeExternalApp / listExternalAppBindings。
 
 - **持久化**：加密 store 落盘（`AccountManagerSnapshot`，schema v5 起 `sessions` 为唯一 Session 真理源）；写入由 `AccountManagerState` 串行 + 显式 flush；Keyring 首建与 store mutation 使用跨进程文件锁，锁内 reload 磁盘 canonical snapshot 后再 save/replace（防 last-write-wins）。
 
@@ -209,7 +211,7 @@
 
 - `RelayStation`：id / remark / website / createdAt / loginDetection / exclusivityMode? / authProfile? / probeFailureCount? / sessionTtlHours?（0=永久，默认 720）/ networkProxy?。
 
-- `StationAccount`：id / stationId / username / notes / phone / tgAccount / linkedAccount / inviteLink / loginMethods / status / lastLoginAt / lastRefreshedAt / createdAt / hasPassword / accountType?(persistent|ephemeral) / website? / session? / exclusivityGroup? / proxyEnabled?。
+- `StationAccount`：id / stationId / username / notes / phone / tgAccount / linkedAccount / inviteLink / loginMethods / status / lastLoginAt / lastRefreshedAt / createdAt / hasPassword / accountType?(persistent|ephemeral) / website? / session? / exclusivityGroup? / proxyEnabled? / externalAppIds? / refreshSchedule?(`{enabled, mode: {type:"interval", hours}|{type:"daily", minuteOfDay}}`,None=未配置) / nextRefreshAtTs?(UTC Unix 秒) / firstLoginAt?(首次探测到 Ready 的时间)。
 
 - `AuthProfile`：cookieBased / tokenStorage(cookie|localStorage|sessionStorage|indexedDB|multiple|none) / csrfProtection / csrfExtraction / authType(sessionCookie|bearerOAuth|saml|openIdConnect|webSocket|unknown) / fingerprinting(none|basic|strict) / antiBot / antiBotProvider / ssoProvider / probeStrategy(httpFirst|httpOnly|webviewOnly|hybrid) / detectedAt / confidence。
 
@@ -276,3 +278,35 @@
 - 详情栏窄屏 Sheet：选中账号且窗口 <1280px 自动弹出详情 Sheet（`sr-only` 标题 + 描述供读屏），回到宽屏自动收起（matchMedia change 监听，cleanup 正确）。
 
 - 首载骨架 `aria-busy` + `aria-label=加载中`；账号虚拟列表估计行高 112px、overscan 6（`@tanstack/react-virtual`）。
+
+## 15. 会话保活（Session Keeper）
+
+- **定位**：软件运行期间按每账号计划**静默刷新**已保存的登录状态——在隐藏 WebView 中重新加载站点页面（等价于网页刷新），探测登录态，Ready 则重新捕获 session 并加密落盘，实现保活；不弹任何 UI。
+
+- **计划模型**：`RefreshSchedule{enabled, mode}`；mode 为 `Interval{hours}`（1..=8760，每隔 N 小时）或 `Daily{minuteOfDay}`（0..=1439，每天固定本地时刻）。仅 persistent 账号可设置（ephemeral 拒绝 INVALID_INPUT）；`enabled=false` 保留配置暂停调度并清空 next；`schedule=null` 清除。
+
+- **调度器**（`session_keeper.rs`，lib.rs setup 时 spawn）：30s tick + `MissedTickBehavior::Skip`；**首个 tick 立即触发 = 启动补跑一次错过的计划**（执行后从 now 起算 next，不堆积补偿）。扫描条件：persistent + enabled + `nextRefreshAtTs <= now`，到期账号串行执行。
+
+- **静默刷新流程**：probe flight（同账号与手动刷新 single-flight 互斥；手动刷新进行中时 keeper 作为 follower 等待并记 skip 日志）→ `probe_semaphore`（全局并发 2）→ 隐藏 WebView（`relay-keeper-{accountId}` label，独立 data dir + `data_store_identifier`，复用 probe 的 `init_script`/`eval_text`/restore 脚本模式）→ 注入 session → 导航 station.website → 5s 等加载 → 8s/500ms 轮询文本判定登录态 → **Ready**：`capture_session_from_window` 重新捕获（IndexedDB 站点 fail-closed）→ 加密写入 sessions + 更新 status/lastRefreshedAt + `firstLoginAt` 回填；**LoginRequired**：状态标记（warn 日志）；**捕获失败**：旧加密 session 原样保留，仅标 FetchFailed——静默刷新永不降级现有凭证。
+
+- **next 计算**（`compute_next_run`，泛化 TimeZone 可单测）：Interval = `now + hours*3600`（饱和）；Daily = 本地时区下一个 minuteOfDay（今天已过则次日；DST gap 兜底 now+1h，Ambiguous 取 earliest）。存 UTC ts，展示本地时区。
+
+- **跳过边界**（记 warn 日志 + 照常推进 next）：登录窗口打开中（`loginWindowOpen`）；Windows 上站点配置网络代理（`proxyUnsupported`，fail-closed 与 probe 一致）；非持久账号/站点缺失（防御性）。
+
+- **收尾合并落盘**：执行结果应用 + 状态跃迁日志 + autoRefresh 日志 + next 推进合并为一次 `with_state_mut`（避免写盘放大）；失败不静默——全部落入账号日志。
+
+- **UI 入口**：详情栏「会话保活」块（§5）；设置命令 `setAccountRefreshSchedule(accountId, schedule|null)` 防重入（useGuardedAsyncSet）。
+
+## 16. 账号日志
+
+- **定位**：每账号独立日志，记录登录、手动/自动刷新、计划变更、状态跃迁与错误；用户通过详情栏「日志」按钮或保活块入口查看执行情况与下次计划执行时间。
+
+- **数据模型**：`AccountLogEntry{id, at(本地时间标签), atTs(UTC 秒), kind, level, detail}`；kind = login / manualRefresh / autoRefresh / scheduleChanged / statusChanged / error；level = info / success / warn / error；detail 仅含结构化枚举/数值（status、errorCode、durationMs、skipReason、enabled+mode 摘要、from/to、verified）。
+
+- **存储**：加密 store `AccountManagerSnapshot.account_logs`（HashMap<accountId, VecDeque>）；**每账号环形上限 100 条**（超出裁掉最旧）；账号删除/站点删除/ephemeral 退出时同步清理；schema v5 向后兼容（旧 store 无 key → 空 map）。
+
+- **写入点**：`open_login_window` 成功（login/info）；代理登录完成（login/success·warn·error，含 verified）；手动刷新 `refresh_one_leader` 落盘闭包（manualRefresh，含 status/durationMs/strategy，与状态更新同次写盘）；Session Keeper 收尾（autoRefresh success/warn/error，与 next 推进同次写盘）；计划变更（scheduleChanged）；Ready↔非 Ready 状态跃迁（statusChanged，from/to）。
+
+- **敏感信息红线**：detail 禁止记录 URL 原文（query 可能含 token）、cookie、用户名、密码；只有枚举字符串与数值。
+
+- **UI**（`account-log-dialog`）：头部 = 账号名 + 当前计划摘要（interval/daily/已暂停）+ 下次执行时间（`Intl.DateTimeFormat` 本地化）+ 刷新按钮（loading 旋转）；时间线倒序（最新在前）= kind 图标（Login→UserRound、ManualRefresh→RefreshCw、AutoRefresh→Timer、ScheduleChanged→CalendarClock、StatusChanged→Activity、Error→AlertTriangle）+ level 色点（slate/emerald/amber/red）+ 本地时间 + kind 标签 + detail 次要行（状态/错误码/跳过原因/耗时，i18n 渲染）；≤100 条直接渲染不虚拟化；空态/骨架×5/错误条（InlineErrorBar 重试）齐备。读取命令 `listAccountLogs(accountId)` 纯内存读不落盘。

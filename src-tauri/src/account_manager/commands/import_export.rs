@@ -238,6 +238,9 @@ pub fn import_relay_data<R: Runtime>(
                     exclusivity_group: None,
                     proxy_enabled: false,
                     external_app_ids: Vec::new(),
+                    refresh_schedule: None,
+                    next_refresh_at_ts: None,
+                    first_login_at: None,
                     id: account_id.clone(),
                     station_id: station_id.clone(),
                     username: trim_or_invalid(&account.username, "username")?,
@@ -295,6 +298,7 @@ mod tests {
             sessions: HashMap::new(),
             external_apps: Vec::new(),
             external_app_bindings: Vec::new(),
+            account_logs: HashMap::new(),
         };
 
         let (export, count) =
@@ -319,6 +323,7 @@ mod tests {
             sessions: HashMap::from([("acct-1".into(), encrypted_session.clone())]),
             external_apps: Vec::new(),
             external_app_bindings: Vec::new(),
+            account_logs: HashMap::new(),
         };
 
         let (export, _) =

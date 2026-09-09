@@ -19,6 +19,7 @@ const KEY_SESSIONS: &str = "sessions";
 const KEY_SCHEMA: &str = "schema_version";
 const KEY_EXTERNAL_APPS: &str = "external_apps";
 const KEY_EXTERNAL_APP_BINDINGS: &str = "external_app_bindings";
+const KEY_ACCOUNT_LOGS: &str = "account_logs";
 const CURRENT_SCHEMA: u32 = 5;
 const MAX_STORE_FILE_BYTES: u64 = 16 * 1024 * 1024;
 const MAX_MIGRATION_BACKUPS: usize = 3;
@@ -56,6 +57,7 @@ pub fn init_state<R: Runtime>(
         store.get(KEY_EXTERNAL_APP_BINDINGS),
         KEY_EXTERNAL_APP_BINDINGS,
     )?;
+    let account_logs = decode_account_logs(store.get(KEY_ACCOUNT_LOGS))?;
 
     let migrated_legacy_sessions = migrate_legacy_sessions(&mut accounts, &mut sessions);
 
@@ -66,6 +68,7 @@ pub fn init_state<R: Runtime>(
         sessions,
         external_apps,
         external_app_bindings,
+        account_logs,
     };
     let mut dirty = false;
     if needs_resave {
@@ -226,6 +229,7 @@ fn save_snapshot<R: Runtime>(
         KEY_EXTERNAL_APP_BINDINGS,
         json!(&snapshot.external_app_bindings),
     );
+    store.set(KEY_ACCOUNT_LOGS, json!(&snapshot.account_logs));
     store.set(KEY_SCHEMA, json!(CURRENT_SCHEMA));
     store
         .save()
@@ -245,6 +249,35 @@ pub fn load_sessions_from_store(
         None => Ok(HashMap::new()),
     }
 }
+
+/// 解码账号日志 map。旧 store 无该 key 时返回空 map(向后兼容)。
+fn decode_account_logs(
+    value: Option<Value>,
+) -> AccountManagerResult<HashMap<String, std::collections::VecDeque<super::types::AccountLogEntry>>>
+{
+    match value {
+        Some(value) => serde_json::from_value(value)
+            .map_err(|e| AccountManagerError::store_fail(format!("decode account_logs: {e}"))),
+        None => Ok(HashMap::new()),
+    }
+}
+
+/// 独立追加一条账号日志并落盘(供登录等一次性事件使用;
+/// 批量场景应优先在 `with_state_mut` 闭包内调用 `push_account_log` 合并写盘)。
+pub fn append_account_log<R: Runtime>(
+    app: &AppHandle<R>,
+    state: &AccountManagerState,
+    account_id: &str,
+    kind: super::types::AccountLogKind,
+    level: super::types::AccountLogLevel,
+    detail: Option<serde_json::Value>,
+) -> AccountManagerResult<()> {
+    with_state_mut(app, state, |snapshot| {
+        super::state::push_account_log(snapshot, account_id, kind, level, detail);
+        Ok(())
+    })
+}
+
 pub fn with_state_mut<R: Runtime, F, T>(
     app: &AppHandle<R>,
     state: &AccountManagerState,
@@ -281,6 +314,7 @@ where
             store.get(KEY_EXTERNAL_APP_BINDINGS),
             KEY_EXTERNAL_APP_BINDINGS,
         )?,
+        account_logs: decode_account_logs(store.get(KEY_ACCOUNT_LOGS))?,
     };
 
     let result = f(&mut next)?;
@@ -318,6 +352,9 @@ mod tests {
             exclusivity_group: None,
             proxy_enabled: false,
             external_app_ids: Vec::new(),
+            refresh_schedule: None,
+            next_refresh_at_ts: None,
+            first_login_at: None,
         }
     }
 

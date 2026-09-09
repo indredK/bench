@@ -93,6 +93,49 @@ async fn extract_user_agent<R: Runtime>(window: &WebviewWindow<R>) -> AccountMan
     evaluate_js(window, "JSON.stringify(navigator.userAgent)").await
 }
 
+/// 从一个已加载目标页面的 WebView 窗口重新捕获 session(cookies + storage + UA),
+/// 以既有 session(若存在)为底本合并。`requires_indexed_db` 为 true 时,
+/// IndexedDB 捕获不完整视作失败(fail-closed,与代理登录完成路径一致)。
+pub(crate) async fn capture_session_from_window<R: Runtime>(
+    window: &WebviewWindow<R>,
+    state: &AccountManagerState,
+    account_id: &str,
+    target_url: &str,
+    requires_indexed_db: bool,
+) -> AccountManagerResult<AccountSession> {
+    let cookies = extract_cookies(window, target_url).await?;
+    let captured_origin =
+        browser_storage::capture_current_origin(window, state, target_url).await?;
+    if requires_indexed_db
+        && captured_origin
+            .as_ref()
+            .is_none_or(|capture| capture.indexed_db_status != IndexedDbCaptureStatus::Complete)
+    {
+        return Err(AccountManagerError::store_fail(
+            "IndexedDB is required by this station but could not be captured completely",
+        ));
+    }
+    if cookies.is_empty()
+        && captured_origin
+            .as_ref()
+            .is_none_or(|capture| !capture.has_data)
+    {
+        return Err(AccountManagerError::store_fail(
+            "login completed without capturable session data",
+        ));
+    }
+    let user_agent = extract_user_agent(window).await.unwrap_or_default();
+    let mut session = restore_session(state, account_id)?.unwrap_or_default();
+    session.cookies = cookies;
+    session.user_agent = user_agent;
+    session.captured_at = super::commands::now_label();
+    session.captured_at_ts = Some(chrono::Utc::now().timestamp());
+    if let Some(capture) = captured_origin {
+        browser_storage::merge_origin(&mut session, capture.storage);
+    }
+    Ok(session)
+}
+
 /// 外部代理登录完成后（命中 loopback / 自定义 scheme 回调）针对**目标站点**
 /// 捕获 cookie 并持久化 session，并把账号标记为 Ready + 记录登录时间。
 ///
@@ -125,36 +168,9 @@ pub async fn finalize_proxy_session<R: Runtime>(
     let window = app
         .get_webview_window(&login_label)
         .ok_or_else(|| AccountManagerError::not_found(format!("login window {login_label}")))?;
-    let cookies = extract_cookies(&window, target_url).await?;
-    let captured_origin =
-        browser_storage::capture_current_origin(&window, &state, target_url).await?;
-    if requires_indexed_db
-        && captured_origin
-            .as_ref()
-            .is_none_or(|capture| capture.indexed_db_status != IndexedDbCaptureStatus::Complete)
-    {
-        return Err(AccountManagerError::store_fail(
-            "IndexedDB is required by this station but could not be captured completely",
-        ));
-    }
-    if cookies.is_empty()
-        && captured_origin
-            .as_ref()
-            .is_none_or(|capture| !capture.has_data)
-    {
-        return Err(AccountManagerError::store_fail(
-            "login completed without capturable session data",
-        ));
-    }
-    let user_agent = extract_user_agent(&window).await.unwrap_or_default();
-    let mut session = restore_session(&state, account_id)?.unwrap_or_default();
-    session.cookies = cookies;
-    session.user_agent = user_agent;
-    session.captured_at = super::commands::now_label();
-    session.captured_at_ts = Some(chrono::Utc::now().timestamp());
-    if let Some(capture) = captured_origin {
-        browser_storage::merge_origin(&mut session, capture.storage);
-    }
+    let session =
+        capture_session_from_window(&window, &state, account_id, target_url, requires_indexed_db)
+            .await?;
     let encrypted = if account.account_type == AccountType::Persistent {
         Some(encrypt_session(&state, &session)?)
     } else {
@@ -172,7 +188,10 @@ pub async fn finalize_proxy_session<R: Runtime>(
         a.status = AccountSessionStatus::Inactive;
         let now = super::commands::now_label();
         a.last_login_at = Some(now.clone());
-        a.last_refreshed_at = Some(now);
+        a.last_refreshed_at = Some(now.clone());
+        if a.first_login_at.is_none() {
+            a.first_login_at = Some(now);
+        }
         if let Some(blob) = encrypted.clone() {
             snapshot.sessions.insert(account_id.to_string(), blob);
         }
@@ -180,7 +199,7 @@ pub async fn finalize_proxy_session<R: Runtime>(
     })
 }
 
-fn encrypt_session(
+pub(crate) fn encrypt_session(
     state: &AccountManagerState,
     session: &AccountSession,
 ) -> AccountManagerResult<super::crypto::EncryptedBlob> {
@@ -390,6 +409,8 @@ pub async fn persist_all_sessions_on_exit<R: Runtime>(
             .retain(|account| !ephemeral_ids.contains(&account.id));
         next.secrets.retain(|id, _| !ephemeral_ids.contains(id));
         next.sessions.retain(|id, _| !ephemeral_ids.contains(id));
+        next.account_logs
+            .retain(|id, _| !ephemeral_ids.contains(id));
         next.external_app_bindings
             .retain(|binding| !ephemeral_ids.contains(&binding.account_id));
         Ok(())

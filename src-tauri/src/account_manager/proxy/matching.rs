@@ -151,6 +151,9 @@ mod tests {
             exclusivity_group: None,
             proxy_enabled,
             external_app_ids: Vec::new(),
+            refresh_schedule: None,
+            next_refresh_at_ts: None,
+            first_login_at: None,
         }
     }
 

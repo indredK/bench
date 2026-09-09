@@ -9,8 +9,8 @@ use tokio::sync::{Notify, Semaphore};
 use super::crypto;
 use super::crypto::EncryptedBlob;
 use super::types::{
-    AccountManagerError, AccountManagerResult, ExternalApp, ExternalAppBinding, RelayStation,
-    StationAccount,
+    AccountLogEntry, AccountLogKind, AccountLogLevel, AccountManagerError, AccountManagerResult,
+    ExternalApp, ExternalAppBinding, RelayStation, StationAccount,
 };
 
 const PROBE_CONCURRENCY: usize = 2;
@@ -20,6 +20,8 @@ const MAX_AUTH_PROXY_INBOX_ITEMS: usize = 32;
 const MAX_AUTH_PROXY_URL_BYTES: usize = 32 * 1024;
 const MAX_RECENT_AUTH_PROXY_REQUESTS: usize = 64;
 const AUTH_PROXY_DEDUP_TTL_SECONDS: i64 = 300;
+/// 每账号日志环形上限(超出裁掉最旧条目)。
+pub const MAX_ACCOUNT_LOG_ENTRIES: usize = 100;
 
 type ProbeFlightResult = AccountManagerResult<StationAccount>;
 type ProbeFlightRegistry = Arc<Mutex<HashMap<String, Arc<InFlightProbe>>>>;
@@ -146,6 +148,39 @@ pub struct AccountManagerSnapshot {
     // Phase 3: 外部登录代理 — 已授权的外部 App + 绑定关系
     pub external_apps: Vec<ExternalApp>,
     pub external_app_bindings: Vec<ExternalAppBinding>,
+    /// Session Keeper — 每账号独立日志(环形,上限 MAX_ACCOUNT_LOG_ENTRIES)。
+    pub account_logs: HashMap<String, VecDeque<AccountLogEntry>>,
+}
+
+/// 向 snapshot 追加一条账号日志(环形裁剪,保留最新 MAX_ACCOUNT_LOG_ENTRIES 条)。
+/// detail 只允许枚举字符串/数值,调用方负责不写入敏感信息。
+pub fn push_account_log(
+    snapshot: &mut AccountManagerSnapshot,
+    account_id: &str,
+    kind: AccountLogKind,
+    level: AccountLogLevel,
+    detail: Option<serde_json::Value>,
+) {
+    let now_ts = chrono::Utc::now().timestamp();
+    let entry = AccountLogEntry {
+        id: format!(
+            "log-{now_ts}-{}",
+            &uuid::Uuid::new_v4().simple().to_string()[..8]
+        ),
+        at: super::commands::now_label(),
+        at_ts: now_ts,
+        kind,
+        level,
+        detail,
+    };
+    let queue = snapshot
+        .account_logs
+        .entry(account_id.to_string())
+        .or_default();
+    queue.push_back(entry);
+    while queue.len() > MAX_ACCOUNT_LOG_ENTRIES {
+        queue.pop_front();
+    }
 }
 
 pub struct AccountManagerState {
@@ -579,6 +614,61 @@ mod tests {
             state.begin_probe_flight("acct-1"),
             ProbeFlight::Leader(_)
         ));
+    }
+
+    #[test]
+    fn push_account_log_trims_to_the_ring_limit_and_keeps_the_latest() {
+        let mut snapshot = AccountManagerSnapshot::default();
+        for _ in 0..(MAX_ACCOUNT_LOG_ENTRIES + 20) {
+            push_account_log(
+                &mut snapshot,
+                "acct-1",
+                AccountLogKind::AutoRefresh,
+                AccountLogLevel::Success,
+                None,
+            );
+        }
+        let queue = snapshot
+            .account_logs
+            .get("acct-1")
+            .expect("log queue exists");
+        assert_eq!(queue.len(), MAX_ACCOUNT_LOG_ENTRIES);
+    }
+
+    #[test]
+    fn push_account_log_keeps_accounts_isolated() {
+        let mut snapshot = AccountManagerSnapshot::default();
+        push_account_log(
+            &mut snapshot,
+            "acct-1",
+            AccountLogKind::Login,
+            AccountLogLevel::Info,
+            None,
+        );
+        push_account_log(
+            &mut snapshot,
+            "acct-2",
+            AccountLogKind::AutoRefresh,
+            AccountLogLevel::Warn,
+            None,
+        );
+        assert_eq!(snapshot.account_logs.len(), 2);
+        assert_eq!(
+            snapshot
+                .account_logs
+                .get("acct-1")
+                .expect("acct-1 logs")
+                .len(),
+            1
+        );
+        assert_eq!(
+            snapshot
+                .account_logs
+                .get("acct-2")
+                .expect("acct-2 logs")
+                .len(),
+            1
+        );
     }
 
     #[tokio::test]

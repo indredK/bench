@@ -10,10 +10,12 @@ pub mod network_proxy;
 mod probe;
 pub mod proxy;
 pub mod session;
+pub mod session_keeper;
 pub mod state;
 mod storage;
 mod types;
 mod webview;
 
+pub use session_keeper::spawn_session_keeper;
 pub use state::AccountManagerState;
 pub use storage::init_state;

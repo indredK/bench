@@ -26,6 +26,7 @@ import type {
 import type { CommandCard, CommandMarketListing } from "@/lib/tauri/types/command-center"
 import type {
   AccountManagerCapabilities,
+  AccountLogsResponse,
   AuthProfile,
   AuthProxyDrainResult,
   AuthProxyInboxStatus,
@@ -39,12 +40,14 @@ import type {
   NetworkProxyConfig,
   PasswordAction,
   ProbeStrategy,
+  RefreshReport,
+  RefreshSchedule,
   RelayDataExportResult,
   RelayDataImportResult,
   RelayExportMode,
-  RefreshReport,
   RelayStation,
   StationAccount,
+  StationUrlMatch,
 } from "@/lib/tauri/types/account-manager"
 import type {
   CleanupCommandDef,
@@ -310,9 +313,10 @@ export const TAURI_COMMAND_CONTRACTS = {
   copy_password_to_clipboard: defineTauriCommand<{ accountId: string }, void>()(
     "copy_password_to_clipboard",
   ),
-  open_login_window: defineTauriCommand<{ accountId: string; returnUrl?: string | null }, void>()(
-    "open_login_window",
-  ),
+  open_login_window: defineTauriCommand<
+    { accountId: string; returnUrl?: string | null; url?: string | null },
+    void
+  >()("open_login_window"),
   refresh_account: defineTauriCommand<{ accountId: string }, StationAccount>()("refresh_account"),
   refresh_station: defineTauriCommand<{ stationId: string }, RefreshReport>()("refresh_station"),
   refresh_all: defineTauriCommand<undefined, RefreshReport>()("refresh_all"),
@@ -360,6 +364,16 @@ export const TAURI_COMMAND_CONTRACTS = {
     { accountId: string; enabled: boolean },
     StationAccount
   >()("set_account_proxy_enabled"),
+  set_account_refresh_schedule: defineTauriCommand<
+    { accountId: string; schedule: RefreshSchedule | null },
+    StationAccount
+  >()("set_account_refresh_schedule"),
+  list_account_logs: defineTauriCommand<{ accountId: string }, AccountLogsResponse>()(
+    "list_account_logs",
+  ),
+  match_stations_by_url: defineTauriCommand<{ url: string }, StationUrlMatch[]>()(
+    "match_stations_by_url",
+  ),
   proxy_login: defineTauriCommand<{ accountId: string; ticketId: string }, AuthProxyResult>()(
     "proxy_login",
   ),
@@ -1016,6 +1030,9 @@ export const TAURI_COMMANDS = {
     setSessionTtl: commandName("set_session_ttl"),
     setStationNetworkProxy: commandName("set_station_network_proxy"),
     setAccountProxyEnabled: commandName("set_account_proxy_enabled"),
+    setAccountRefreshSchedule: commandName("set_account_refresh_schedule"),
+    listAccountLogs: commandName("list_account_logs"),
+    matchStationsByUrl: commandName("match_stations_by_url"),
     proxyLogin: commandName("proxy_login"),
     handleBrowserOpen: commandName("handle_browser_open"),
     getAuthProxyInboxStatus: commandName("get_auth_proxy_inbox_status"),
@@ -1290,7 +1307,7 @@ export const TAURI_COMMAND_ARG_KEYS = {
   reveal_password: ["accountId"],
   set_password: ["accountId", "password"],
   copy_password_to_clipboard: ["accountId"],
-  open_login_window: ["accountId", "returnUrl"],
+  open_login_window: ["accountId", "returnUrl", "url"],
   refresh_account: ["accountId"],
   refresh_station: ["stationId"],
   refresh_all: [],
@@ -1305,6 +1322,9 @@ export const TAURI_COMMAND_ARG_KEYS = {
   set_session_ttl: ["stationId", "ttlHours"],
   set_station_network_proxy: ["stationId", "config", "passwordAction"],
   set_account_proxy_enabled: ["accountId", "enabled"],
+  set_account_refresh_schedule: ["accountId", "schedule"],
+  list_account_logs: ["accountId"],
+  match_stations_by_url: ["url"],
   proxy_login: ["accountId", "ticketId"],
   handle_browser_open: ["url"],
   get_auth_proxy_inbox_status: [],

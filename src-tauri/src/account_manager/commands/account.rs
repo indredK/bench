@@ -57,6 +57,9 @@ pub fn create_account<R: Runtime>(
         exclusivity_group: None,
         proxy_enabled: false,
         external_app_ids: Vec::new(),
+        refresh_schedule: None,
+        next_refresh_at_ts: None,
+        first_login_at: None,
         id: new_id("acct"),
         station_id,
         username: trim_or_invalid(&username, "username")?,
@@ -353,6 +356,9 @@ pub fn create_ephemeral_account<R: Runtime>(
         exclusivity_group: None,
         proxy_enabled: false,
         external_app_ids: Vec::new(),
+        refresh_schedule: None,
+        next_refresh_at_ts: None,
+        first_login_at: None,
         id: new_id("eph"),
         station_id: station_id.unwrap_or_default(),
         username,
@@ -415,4 +421,100 @@ pub fn set_account_proxy_enabled<R: Runtime>(
         ],
     );
     Ok(result)
+}
+
+// ───── Session Keeper(会话保活) ─────
+
+/// 设置/更新/关闭账号的静默刷新计划。
+/// - `schedule = None`:清除计划并清空 next_refresh_at_ts。
+/// - `schedule.enabled = false`:保留配置但暂停调度(next 同步清空)。
+/// 仅 persistent 账号可设置;ephemeral 账号拒绝(INVALID_INPUT)。
+#[tauri::command]
+pub fn set_account_refresh_schedule<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, AccountManagerState>,
+    account_id: String,
+    schedule: Option<crate::account_manager::types::RefreshSchedule>,
+) -> AccountManagerResult<StationAccount> {
+    if let Some(schedule) = schedule.as_ref() {
+        schedule.validate()?;
+    }
+    storage::with_state_mut(&app, &state, |snapshot| {
+        let Some(account) = snapshot.accounts.iter_mut().find(|a| a.id == account_id) else {
+            return Err(AccountManagerError::not_found(format!(
+                "account {account_id}"
+            )));
+        };
+        if account.account_type != AccountType::Persistent {
+            return Err(AccountManagerError::invalid_input(
+                "refresh schedule is only available for persistent accounts",
+            ));
+        }
+        account.next_refresh_at_ts = match schedule {
+            Some(ref s) if s.enabled => Some(
+                crate::account_manager::session_keeper::compute_next_run(s, chrono::Local::now()),
+            ),
+            _ => None,
+        };
+        account.refresh_schedule = schedule;
+        let mode_summary = account.refresh_schedule.as_ref().map(|s| match s.mode {
+            crate::account_manager::types::RefreshScheduleMode::Interval { hours } => {
+                format!("interval:{hours}h")
+            }
+            crate::account_manager::types::RefreshScheduleMode::Daily { minute_of_day } => {
+                format!("daily:{:02}:{:02}", minute_of_day / 60, minute_of_day % 60)
+            }
+        });
+        if let Some(summary) = mode_summary {
+            let enabled = account.refresh_schedule.is_some_and(|s| s.enabled);
+            crate::account_manager::state::push_account_log(
+                snapshot,
+                &account_id,
+                crate::account_manager::types::AccountLogKind::ScheduleChanged,
+                crate::account_manager::types::AccountLogLevel::Info,
+                Some(serde_json::json!({ "enabled": enabled, "mode": summary })),
+            );
+        } else {
+            crate::account_manager::state::push_account_log(
+                snapshot,
+                &account_id,
+                crate::account_manager::types::AccountLogKind::ScheduleChanged,
+                crate::account_manager::types::AccountLogLevel::Info,
+                Some(serde_json::json!({ "enabled": false, "mode": "cleared" })),
+            );
+        }
+        snapshot
+            .accounts
+            .iter()
+            .find(|a| a.id == account_id)
+            .cloned()
+            .ok_or_else(|| AccountManagerError::not_found(format!("account {account_id}")))
+    })
+}
+
+/// 读取账号日志(倒序)与当前保活计划/下次执行时间。纯内存读,不落盘。
+#[tauri::command]
+pub fn list_account_logs(
+    state: State<'_, AccountManagerState>,
+    account_id: String,
+) -> AccountManagerResult<crate::account_manager::types::AccountLogsResponse> {
+    let snapshot = state.read_snapshot_checked()?;
+    let Some(account) = snapshot.accounts.iter().find(|a| a.id == account_id) else {
+        return Err(AccountManagerError::not_found(format!(
+            "account {account_id}"
+        )));
+    };
+    let mut entries: Vec<crate::account_manager::types::AccountLogEntry> = snapshot
+        .account_logs
+        .get(&account_id)
+        .cloned()
+        .unwrap_or_default()
+        .into_iter()
+        .collect();
+    entries.sort_by(|a, b| b.at_ts.cmp(&a.at_ts).then(b.id.cmp(&a.id)));
+    Ok(crate::account_manager::types::AccountLogsResponse {
+        entries,
+        schedule: account.refresh_schedule,
+        next_refresh_at_ts: account.next_refresh_at_ts,
+    })
 }

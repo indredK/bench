@@ -9,12 +9,15 @@ import {
   pickImportSelection,
 } from "@/features/account-manager/model/selectors"
 import type {
+  AccountLogsResponse,
   NetworkProxyConfig,
   PasswordAction,
   ProbeStrategy,
+  RefreshSchedule,
   RelayDataImportResult,
   RelayStation,
   StationAccount,
+  StationUrlMatch,
 } from "@/lib/tauri/types/account-manager"
 
 export function isInvalidInput(error: unknown): boolean {
@@ -128,6 +131,29 @@ export const accountManagerUseCases = {
     )
     await accountManagerRepository.openLoginWindow(account.id)
     return { account, normalized }
+  },
+
+  /** 快速登录(已有账号):在该账号的隔离环境打开粘贴的 URL。 */
+  async quickLoginExisting(accountId: string, url: string) {
+    const normalized = url.trim().match(/^https?:\/\//i) ? url.trim() : `https://${url.trim()}`
+    await accountManagerRepository.openLoginWindow(accountId, normalized)
+    return normalized
+  },
+
+  /** 按 URL host 匹配站点(快速登录自动识别分组)。 */
+  async matchStations(url: string): Promise<StationUrlMatch[]> {
+    const normalized = url.trim().match(/^https?:\/\//i) ? url.trim() : `https://${url.trim()}`
+    return accountManagerRepository.matchStationsByUrl(normalized)
+  },
+
+  /** Session Keeper: 保存账号的静默刷新计划(null = 清除)。 */
+  async saveRefreshSchedule(accountId: string, schedule: RefreshSchedule | null) {
+    return accountManagerRepository.setAccountRefreshSchedule(accountId, schedule)
+  },
+
+  /** Session Keeper: 读取账号日志(倒序)+ 计划与下次执行时间。 */
+  async loadAccountLogs(accountId: string): Promise<AccountLogsResponse> {
+    return accountManagerRepository.listAccountLogs(accountId)
   },
 
   async redetectAuthProfile(stationId: string, accountId?: string) {

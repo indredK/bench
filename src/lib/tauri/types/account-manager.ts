@@ -136,6 +136,62 @@ export interface StationAccount {
   session?: unknown | null
   exclusivityGroup?: string | null
   proxyEnabled?: boolean
+  // Session Keeper(会话保活)新增字段
+  refreshSchedule?: RefreshSchedule | null
+  nextRefreshAtTs?: number | null
+  firstLoginAt?: string | null
+}
+
+// ═══════════════════════════════════════════════
+// Session Keeper — 会话保活计划 / 账号日志
+// ═══════════════════════════════════════════════
+
+/** 静默刷新计划模式:每隔 N 小时,或每天固定时刻(本地时区)。 */
+export type RefreshScheduleMode =
+  { type: "interval"; hours: number } | { type: "daily"; minuteOfDay: number }
+
+/** 每账号的会话保活计划。enabled=false 表示保留配置但暂停调度。 */
+export interface RefreshSchedule {
+  enabled: boolean
+  mode: RefreshScheduleMode
+}
+
+/** 账号日志事件类型。 */
+export type AccountLogKind =
+  "login" | "manualRefresh" | "autoRefresh" | "scheduleChanged" | "statusChanged" | "error"
+
+/** 账号日志级别。 */
+export type AccountLogLevel = "info" | "success" | "warn" | "error"
+
+/** 单条账号日志。detail 仅含枚举字符串/数值,无敏感信息。 */
+export interface AccountLogEntry {
+  id: string
+  /** 本地时间标签("YYYY-MM-DD HH:mm"),供直接展示。 */
+  at: string
+  /** UTC Unix 秒,供排序与格式化。 */
+  atTs: number
+  kind: AccountLogKind
+  level: AccountLogLevel
+  detail?: Record<string, unknown> | null
+}
+
+/** listAccountLogs 返回:日志倒序列表 + 当前计划与下次执行时间。 */
+export interface AccountLogsResponse {
+  entries: AccountLogEntry[]
+  schedule: RefreshSchedule | null
+  nextRefreshAtTs: number | null
+}
+
+/** 快速登录 URL → 站点匹配置信度:精确 host 或同一可注册域。 */
+export type StationUrlMatchConfidence = "exact" | "registrableDomain"
+
+/** matchStationsByUrl 单条匹配结果。 */
+export interface StationUrlMatch {
+  stationId: string
+  remark: string
+  website: string
+  accountCount: number
+  confidence: StationUrlMatchConfidence
 }
 
 /**

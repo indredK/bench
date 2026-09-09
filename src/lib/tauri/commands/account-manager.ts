@@ -4,6 +4,7 @@
 import { invokeTauriCommand } from "@/lib/tauri/invoke"
 import { TAURI_COMMANDS } from "@/lib/tauri/contracts"
 import type {
+  AccountLogsResponse,
   AccountManagerCapabilities,
   AuthProfile,
   AuthProxyDrainResult,
@@ -18,16 +19,22 @@ import type {
   NetworkProxyConfig,
   PasswordAction,
   ProbeStrategy,
+  RefreshSchedule,
   RelayDataExportResult,
   RelayDataImportResult,
   RefreshReport,
   RelayStation,
   StationAccount,
+  StationUrlMatch,
 } from "@/lib/tauri/types/account-manager"
 
 export type {
   AccountManagerCapabilities,
   AccountManagerCapability,
+  AccountLogEntry,
+  AccountLogKind,
+  AccountLogLevel,
+  AccountLogsResponse,
   AccountSessionStatus,
   AccountType,
   AuthProfile,
@@ -49,11 +56,15 @@ export type {
   NetworkProxyType,
   PasswordAction,
   ProbeStrategy,
+  RefreshSchedule,
+  RefreshScheduleMode,
   RelayDataExportResult,
   RelayDataImportResult,
   RelayExportMode,
   RelayStation,
   StationAccount,
+  StationUrlMatch,
+  StationUrlMatchConfidence,
 } from "@/lib/tauri/types/account-manager"
 export { DEFAULT_LOGIN_DETECTION } from "@/lib/tauri/types/account-manager"
 
@@ -161,8 +172,11 @@ export function copyPasswordToClipboard(accountId: string): Promise<void> {
   return invokeTauriCommand(TAURI_COMMANDS.accountManager.copyPasswordToClipboard, { accountId })
 }
 
-export function openLoginWindow(accountId: string): Promise<void> {
-  return invokeTauriCommand(TAURI_COMMANDS.accountManager.openLoginWindow, { accountId })
+export function openLoginWindow(accountId: string, url?: string): Promise<void> {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.openLoginWindow, {
+    accountId,
+    url: url ?? null,
+  })
 }
 
 export function refreshAccount(accountId: string): Promise<StationAccount> {
@@ -270,6 +284,27 @@ export function setAccountProxyEnabled(
     accountId,
     enabled,
   })
+}
+
+/// Session Keeper: 设置/更新/关闭账号的静默刷新计划(null = 清除)。
+export function setAccountRefreshSchedule(
+  accountId: string,
+  schedule: RefreshSchedule | null,
+): Promise<StationAccount> {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.setAccountRefreshSchedule, {
+    accountId,
+    schedule,
+  })
+}
+
+/// Session Keeper: 读取账号日志(倒序)+ 当前计划与下次执行时间。
+export function listAccountLogs(accountId: string): Promise<AccountLogsResponse> {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.listAccountLogs, { accountId })
+}
+
+/// 按 URL host 匹配站点(快速登录粘贴 URL → 自动识别分组)。
+export function matchStationsByUrl(url: string): Promise<StationUrlMatch[]> {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.matchStationsByUrl, { url })
 }
 
 /// 启动外部代理登录:打开登录窗口 → 注入凭证 → 返回占位 AuthProxyResult。

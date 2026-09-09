@@ -25,6 +25,17 @@ function translateInvalidInput(
   return translateError(t, error, t(fallbackKey))
 }
 
+/** 快速登录提交:新建临时账号,或用已有账号的隔离环境打开 URL。 */
+export type QuickLoginSubmission =
+  | {
+      kind: "new"
+      url: string
+      username: string
+      destroyOnClose: boolean
+      stationId?: string | null
+    }
+  | { kind: "existing"; url: string; accountId: string }
+
 export function useAccountActions({
   loadInitialData,
 }: {
@@ -41,13 +52,27 @@ export function useAccountActions({
     void loadInitialData()
   }
 
-  function handleQuickLogin(
-    url: string,
-    username: string,
-    destroyOnClose: boolean,
-    stationId?: string | null,
-  ) {
+  function handleQuickLogin(submission: QuickLoginSubmission) {
     return runQuickLogin(async () => {
+      const s = useAccountManagerStore.getState()
+      if (submission.kind === "existing") {
+        if (!submission.url.trim()) return
+        try {
+          const normalized = await accountManagerUseCases.quickLoginExisting(
+            submission.accountId,
+            submission.url,
+          )
+          pushQuickLoginHistory(normalized)
+          s.setQuickLoginOpen(false)
+          toast.success(t("accountManager.sessionManager.quickLogin.startedToast"))
+        } catch (error) {
+          toast.error(
+            translateError(t, error, t("accountManager.sessionManager.quickLogin.failedToast")),
+          )
+        }
+        return
+      }
+      const { url, username, destroyOnClose, stationId } = submission
       if (!url.trim() || !username.trim()) return
       try {
         const { account, normalized } = await accountManagerUseCases.quickLogin(
@@ -55,7 +80,6 @@ export function useAccountActions({
           username,
           stationId,
         )
-        const s = useAccountManagerStore.getState()
         s.setAccounts((prev) => [...prev, account])
         pushQuickLoginHistory(normalized)
         s.setQuickLoginOpen(false)

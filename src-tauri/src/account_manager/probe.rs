@@ -20,11 +20,13 @@ const HTTP_PROBE_BACKOFF_BASE_MS: u64 = 200;
 const HTTP_PROBE_BACKOFF_MAX_MS: u64 = 2_000;
 const HTTP_PROBE_MAX_RETRY_AFTER: Duration = Duration::from_secs(2);
 
-fn init_script() -> String {
+pub(crate) fn init_script() -> String {
     format!("(function(){{window.__probeBillingSnapshot=function(){{var b=document.body;var r=(b&&b.innerText)?b.innerText:'';return r.length>{}?r.slice(0,{}):r;}};}})();", 200_000, 200_000)
 }
 
-async fn eval_text<R: Runtime>(window: &tauri::WebviewWindow<R>) -> AccountManagerResult<String> {
+pub(crate) async fn eval_text<R: Runtime>(
+    window: &tauri::WebviewWindow<R>,
+) -> AccountManagerResult<String> {
     let (tx, rx) = oneshot::channel::<String>();
     let slot: Arc<Mutex<Option<oneshot::Sender<String>>>> = Arc::new(Mutex::new(Some(tx)));
     window

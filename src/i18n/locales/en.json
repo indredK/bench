@@ -407,6 +407,7 @@
       "stationSection": "Station Info",
       "accountSection": "Account Info",
       "lastLogin": "Last Login",
+      "firstLogin": "First Login",
       "sessionExpiry": "Session Expiry",
       "remark": "Remark",
       "website": "Website",
@@ -562,10 +563,57 @@
       "close": "Close"
     },
     "loadFailedTitle": "Failed to load gateway data",
+    "sessionKeeper": {
+      "title": "Session Keeper",
+      "viewLogs": "Logs",
+      "modeLabel": "Refresh mode",
+      "mode": {
+        "interval": "Every N hours",
+        "daily": "Daily at fixed time"
+      },
+      "intervalHoursLabel": "Interval hours",
+      "dailyTimeLabel": "Daily time",
+      "hoursUnit": "hours",
+      "nextRun": "Next run: {{time}}",
+      "saveSuccess": "Refresh schedule updated",
+      "saveFailed": "Failed to save refresh schedule",
+      "summary": {
+        "interval": "Every {{hours}} hours",
+        "daily": "Daily at {{time}}",
+        "paused": "Paused"
+      }
+    },
+    "accountLog": {
+      "title": "{{name}} · Logs",
+      "schedulePrefix": "Current schedule: ",
+      "noSchedule": "Session keeper is not enabled",
+      "refresh": "Refresh",
+      "loading": "Loading logs",
+      "loadFailed": "Failed to load logs",
+      "empty": "No logs yet",
+      "emptyHint": "Login, manual refresh, keep-alive runs and schedule changes will appear here",
+      "errorCode": "Error {{code}}",
+      "duration": "{{ms}}ms",
+      "kind": {
+        "login": "Login",
+        "manualRefresh": "Manual refresh",
+        "autoRefresh": "Auto refresh",
+        "scheduleChanged": "Schedule changed",
+        "statusChanged": "Status changed",
+        "error": "Error"
+      },
+      "skipReason": {
+        "loginWindowOpen": "Skipped: login window is open",
+        "proxyUnsupported": "Skipped: station proxy unsupported on this platform",
+        "notPersistent": "Skipped: not a persistent account",
+        "stationMissing": "Skipped: station missing",
+        "manualRefreshInFlight": "Handled by an in-flight manual refresh"
+      }
+    },
     "sessionManager": {
       "quickLogin": {
         "title": "⚡ Quick Login",
-        "description": "Enter the website URL and username to instantly open the login window. No need to create a station first.",
+        "description": "Paste an auth URL to auto-match a station group, then pick an existing account or create a temporary one.",
         "urlLabel": "Website URL",
         "usernameLabel": "Username",
         "openButton": "Open Login",
@@ -574,7 +622,15 @@
         "startedToast": "Quick login started; session will be auto-captured after login",
         "failedToast": "Quick login failed",
         "historyDatalist": "Last 5 temporary URLs",
-        "destroyOnClose": "Destroy on close — delete this account after the login window is closed"
+        "destroyOnClose": "Destroy on close — delete this account after the login window is closed",
+        "matching": "Matching stations…",
+        "matchedStations": "Matched {{count}} station(s)",
+        "accountCountSuffix": " ({{count}} accounts)",
+        "exactMatchSuffix": " · exact match",
+        "stationLabel": "Station",
+        "accountLabel": "Account",
+        "newStationOption": "New station (no group)",
+        "newAccountOption": "＋ New account"
       },
       "advancedSection": {
         "title": "Session Manager · Advanced",

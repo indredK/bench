@@ -133,6 +133,11 @@ pub(super) fn error_code(error: &AccountManagerError) -> &'static str {
     }
 }
 
+/// 账号日志错误码的模块树内公开入口(session_keeper 等非 commands 模块使用)。
+pub(crate) fn account_log_error_code(error: &AccountManagerError) -> &'static str {
+    error_code(error)
+}
+
 pub(super) fn deletion_resource(
     resource: DeletionResourceKind,
     account_id: Option<String>,
@@ -180,6 +185,9 @@ pub(super) fn remove_station_metadata(
         .sessions
         .retain(|account_id, _| !dropped_account_ids.contains(account_id));
     snapshot
+        .account_logs
+        .retain(|account_id, _| !dropped_account_ids.contains(account_id));
+    snapshot
         .external_app_bindings
         .retain(|binding| !dropped_account_ids.contains(&binding.account_id));
     prune_unbound_external_apps(snapshot);
@@ -197,6 +205,7 @@ pub(super) fn remove_account_metadata(
     }
     snapshot.secrets.remove(id);
     snapshot.sessions.remove(id);
+    snapshot.account_logs.remove(id);
     snapshot
         .external_app_bindings
         .retain(|binding| binding.account_id != id);
@@ -222,7 +231,7 @@ pub(super) fn prune_unbound_external_apps(snapshot: &mut AccountManagerSnapshot)
 
 /// 从 station 的 network_proxy 配置构建代理 URL 字符串。
 /// 返回 None 表示站点未配置代理。已配置代理时，密钥或解密失败必须 fail closed。
-pub(super) fn build_proxy_url_for_station<R: Runtime>(
+pub(crate) fn build_proxy_url_for_station<R: Runtime>(
     app: &AppHandle<R>,
     station: &RelayStation,
 ) -> AccountManagerResult<Option<String>> {
@@ -284,6 +293,9 @@ pub(super) mod fixtures {
             exclusivity_group: None,
             proxy_enabled: false,
             external_app_ids: Vec::new(),
+            refresh_schedule: None,
+            next_refresh_at_ts: None,
+            first_login_at: None,
         }
     }
 
@@ -295,6 +307,7 @@ pub(super) mod fixtures {
             sessions: HashMap::new(),
             external_apps: Vec::new(),
             external_app_bindings: Vec::new(),
+            account_logs: HashMap::new(),
         }
     }
 }

@@ -183,6 +183,118 @@ pub enum ExclusivityMode {
     Rotating,
 }
 
+// ═══════════════════════════════════════════════
+// Session Keeper — 会话保活计划 / 账号日志
+// ═══════════════════════════════════════════════
+
+/// 静默刷新计划模式:每隔 N 小时,或每天固定时刻(本地时区)。
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum RefreshScheduleMode {
+    /// 每隔 N 小时刷新一次。1..=8760。
+    Interval { hours: u32 },
+    /// 每天固定时刻刷新。minute_of_day 为 0..=1439(从午夜起的分钟数)。
+    Daily { minute_of_day: u32 },
+}
+
+/// 每账号的会话保活计划。`enabled=false` 表示保留配置但暂停调度。
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RefreshSchedule {
+    pub enabled: bool,
+    pub mode: RefreshScheduleMode,
+}
+
+impl RefreshSchedule {
+    /// 校验计划参数合法性(hours 1..=8760;minute_of_day < 1440)。
+    pub fn validate(&self) -> AccountManagerResult<()> {
+        match &self.mode {
+            RefreshScheduleMode::Interval { hours } => {
+                if *hours == 0 || *hours > 8760 {
+                    return Err(AccountManagerError::invalid_input(
+                        "refresh interval hours must be within 1..=8760",
+                    ));
+                }
+            }
+            RefreshScheduleMode::Daily { minute_of_day } => {
+                if *minute_of_day >= 1440 {
+                    return Err(AccountManagerError::invalid_input(
+                        "refresh daily minuteOfDay must be within 0..=1439",
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+/// 账号日志事件类型。
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum AccountLogKind {
+    Login,
+    ManualRefresh,
+    AutoRefresh,
+    ScheduleChanged,
+    StatusChanged,
+    Error,
+}
+
+/// 账号日志级别。
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum AccountLogLevel {
+    Info,
+    Success,
+    Warn,
+    Error,
+}
+
+/// 单条账号日志。detail 只允许枚举字符串/数值,禁止记录 URL 原文、
+/// cookie、用户名、密码等敏感信息。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AccountLogEntry {
+    pub id: String,
+    /// 本地时间标签("%Y-%m-%d %H:%M"),供直接展示。
+    pub at: String,
+    /// UTC Unix 秒,供排序与格式化。
+    pub at_ts: i64,
+    pub kind: AccountLogKind,
+    pub level: AccountLogLevel,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub detail: Option<serde_json::Value>,
+}
+
+/// `list_account_logs` 的返回:日志倒序列表 + 当前计划与下次执行时间。
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AccountLogsResponse {
+    /// 按 at_ts 倒序(最新在前)。
+    pub entries: Vec<AccountLogEntry>,
+    pub schedule: Option<RefreshSchedule>,
+    pub next_refresh_at_ts: Option<i64>,
+}
+
+/// 快速登录 URL → 站点匹配的置信度:精确 host 或同一可注册域(父子域)。
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum StationUrlMatchConfidence {
+    Exact,
+    RegistrableDomain,
+}
+
+/// `match_stations_by_url` 的单条匹配结果。
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StationUrlMatch {
+    pub station_id: String,
+    pub remark: String,
+    pub website: String,
+    pub account_count: usize,
+    pub confidence: StationUrlMatchConfidence,
+}
+
 /// per-station 网络代理类型（HTTP / SOCKS5）。
 /// 与 `proxy_enabled`（外部登录代理）语义无关，命名上区分。
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -379,6 +491,15 @@ pub struct StationAccount {
     /// 已授权使用此账号的外部 App ID 列表（Phase 3）
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub external_app_ids: Vec<String>,
+    /// Session Keeper — 会话保活计划(None = 未配置)。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub refresh_schedule: Option<RefreshSchedule>,
+    /// Session Keeper — 下次静默刷新时刻(UTC Unix 秒)。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub next_refresh_at_ts: Option<i64>,
+    /// 首次探测到登录成功(Ready)的时间。历史账号为 None,由后续刷新回填。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub first_login_at: Option<String>,
 }
 
 // ═══════════════════════════════════════════════
@@ -670,3 +791,68 @@ impl std::fmt::Display for AccountManagerError {
 impl std::error::Error for AccountManagerError {}
 
 pub type AccountManagerResult<T> = Result<T, AccountManagerError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn refresh_schedule_validation_accepts_legal_bounds() {
+        assert!(RefreshSchedule {
+            enabled: true,
+            mode: RefreshScheduleMode::Interval { hours: 1 },
+        }
+        .validate()
+        .is_ok());
+        assert!(RefreshSchedule {
+            enabled: true,
+            mode: RefreshScheduleMode::Interval { hours: 8760 },
+        }
+        .validate()
+        .is_ok());
+        assert!(RefreshSchedule {
+            enabled: true,
+            mode: RefreshScheduleMode::Daily { minute_of_day: 0 },
+        }
+        .validate()
+        .is_ok());
+        assert!(RefreshSchedule {
+            enabled: true,
+            mode: RefreshScheduleMode::Daily {
+                minute_of_day: 1439
+            },
+        }
+        .validate()
+        .is_ok());
+    }
+
+    #[test]
+    fn refresh_schedule_validation_rejects_out_of_range_values() {
+        let zero_hours = RefreshSchedule {
+            enabled: true,
+            mode: RefreshScheduleMode::Interval { hours: 0 },
+        };
+        let excessive_hours = RefreshSchedule {
+            enabled: true,
+            mode: RefreshScheduleMode::Interval { hours: 8761 },
+        };
+        let bad_minute = RefreshSchedule {
+            enabled: true,
+            mode: RefreshScheduleMode::Daily {
+                minute_of_day: 1440,
+            },
+        };
+        assert!(matches!(
+            zero_hours.validate().unwrap_err(),
+            AccountManagerError::InvalidInput { .. }
+        ));
+        assert!(matches!(
+            excessive_hours.validate().unwrap_err(),
+            AccountManagerError::InvalidInput { .. }
+        ));
+        assert!(matches!(
+            bad_minute.validate().unwrap_err(),
+            AccountManagerError::InvalidInput { .. }
+        ));
+    }
+}

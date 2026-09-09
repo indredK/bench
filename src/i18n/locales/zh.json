@@ -407,6 +407,7 @@
       "stationSection": "站点信息",
       "accountSection": "账号信息",
       "lastLogin": "最近登录",
+      "firstLogin": "初次登录",
       "sessionExpiry": "Session 过期时间",
       "remark": "备注",
       "website": "官网",
@@ -562,10 +563,57 @@
       "close": "关闭"
     },
     "loadFailedTitle": "加载站点数据失败",
+    "sessionKeeper": {
+      "title": "会话保活",
+      "viewLogs": "日志",
+      "modeLabel": "刷新模式",
+      "mode": {
+        "interval": "每 N 小时",
+        "daily": "每天定时"
+      },
+      "intervalHoursLabel": "间隔小时数",
+      "dailyTimeLabel": "每日时刻",
+      "hoursUnit": "小时",
+      "nextRun": "下次执行：{{time}}",
+      "saveSuccess": "会话保活计划已更新",
+      "saveFailed": "会话保活计划保存失败",
+      "summary": {
+        "interval": "每 {{hours}} 小时",
+        "daily": "每天 {{time}}",
+        "paused": "已暂停"
+      }
+    },
+    "accountLog": {
+      "title": "{{name}} · 日志",
+      "schedulePrefix": "当前计划：",
+      "noSchedule": "未启用会话保活",
+      "refresh": "刷新",
+      "loading": "日志加载中",
+      "loadFailed": "日志加载失败",
+      "empty": "暂无日志",
+      "emptyHint": "登录、手动刷新、自动保活与计划变更的执行记录会显示在这里",
+      "errorCode": "错误码 {{code}}",
+      "duration": "耗时 {{ms}}ms",
+      "kind": {
+        "login": "登录",
+        "manualRefresh": "手动刷新",
+        "autoRefresh": "自动刷新",
+        "scheduleChanged": "计划变更",
+        "statusChanged": "状态变更",
+        "error": "错误"
+      },
+      "skipReason": {
+        "loginWindowOpen": "登录窗口打开中，本次跳过",
+        "proxyUnsupported": "当前平台不支持站点代理，本次跳过",
+        "notPersistent": "非持久账号，不参与保活",
+        "stationMissing": "站点不存在，本次跳过",
+        "manualRefreshInFlight": "手动刷新进行中，由其代为执行"
+      }
+    },
     "sessionManager": {
       "quickLogin": {
         "title": "⚡ 快速登录",
-        "description": "输入网站 URL 和用户名，立即打开登录窗口。不需要先创建站点。",
+        "description": "粘贴认证 URL，自动识别站点分组，选择已有账号或新建临时账号登录。",
         "urlLabel": "网站 URL",
         "usernameLabel": "用户名",
         "openButton": "打开登录",
@@ -574,7 +622,15 @@
         "startedToast": "快速登录已启动，登录后系统将自动捕获 session",
         "failedToast": "快速登录失败",
         "historyDatalist": "最近 5 个临时 URL",
-        "destroyOnClose": "关闭后销毁 — 登录窗口关闭后即删除此账号"
+        "destroyOnClose": "关闭后销毁 — 登录窗口关闭后即删除此账号",
+        "matching": "正在匹配站点…",
+        "matchedStations": "已匹配 {{count}} 个站点",
+        "accountCountSuffix": "（{{count}} 账号）",
+        "exactMatchSuffix": " · 精确匹配",
+        "stationLabel": "站点",
+        "accountLabel": "账号",
+        "newStationOption": "新建站点（不关联分组）",
+        "newAccountOption": "＋ 新账号"
       },
       "advancedSection": {
         "title": "Session Manager · 高级",

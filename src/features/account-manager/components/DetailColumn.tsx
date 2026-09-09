@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils"
 import type {
   AuthProfile,
   ProbeStrategy,
+  RefreshSchedule,
   RelayStation,
   StationAccount,
 } from "@/lib/tauri/types/account-manager"
@@ -40,6 +41,7 @@ import {
   SectionLabel,
 } from "@/features/account-manager/components/shared"
 import { InlineErrorBar } from "@/features/account-manager/components/InlineErrorBar"
+import { RefreshScheduleControl } from "@/features/account-manager/components/refresh-schedule-control"
 
 const REVEALED_PASSWORD_TTL_MS = 30_000
 
@@ -71,11 +73,14 @@ export function DetailColumn({
   onCopyPassword,
   onProbeStrategyChange,
   onRefreshAccount,
+  onScheduleChange,
+  onOpenAccountLogs,
   revealingPassword,
   settingProbeStrategy,
   redetectingProfile,
   togglingProxy,
   refreshingAccount,
+  savingSchedule,
   error,
   onRetryError,
   onDismissError,
@@ -91,11 +96,14 @@ export function DetailColumn({
   onCopyPassword: (accountId: string) => Promise<void>
   onProbeStrategyChange: (stationId: string, strategy: ProbeStrategy | "auto") => void
   onRefreshAccount?: (account: StationAccount) => void
+  onScheduleChange?: (accountId: string, schedule: RefreshSchedule | null) => void
+  onOpenAccountLogs?: (account: StationAccount) => void
   revealingPassword?: boolean
   settingProbeStrategy?: boolean
   redetectingProfile?: boolean
   togglingProxy?: boolean
   refreshingAccount?: boolean
+  savingSchedule?: boolean
   error?: string | null
   onRetryError?: () => void
   onDismissError?: () => void
@@ -290,6 +298,14 @@ export function DetailColumn({
                       label: t("accountManager.detail.lastLogin"),
                       value: account.lastLoginAt || "—",
                     },
+                    ...(account.firstLoginAt
+                      ? [
+                          {
+                            label: t("accountManager.detail.firstLogin"),
+                            value: account.firstLoginAt,
+                          },
+                        ]
+                      : []),
                     ...(computeSessionExpiry(account.lastLoginAt, station?.sessionTtlHours)
                       ? [
                           {
@@ -304,6 +320,21 @@ export function DetailColumn({
                   ]}
                 />
               )}
+              {/* 会话保活(Session Keeper)— 仅 persistent 账号 */}
+              {account &&
+                account.accountType !== "ephemeral" &&
+                onScheduleChange &&
+                onOpenAccountLogs && (
+                  <div className="border-t px-5">
+                    <RefreshScheduleControl
+                      schedule={account.refreshSchedule ?? null}
+                      nextRefreshAtTs={account.nextRefreshAtTs ?? null}
+                      saving={savingSchedule ?? false}
+                      onScheduleChange={(next) => onScheduleChange(account.id, next)}
+                      onViewLogs={() => onOpenAccountLogs(account)}
+                    />
+                  </div>
+                )}
             </div>
           </>
         ) : (

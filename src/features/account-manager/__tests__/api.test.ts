@@ -4,9 +4,13 @@ import {
   exportRelayData,
   getAccountManagerCapabilities,
   getAuthProxyInboxStatus,
+  listAccountLogs,
+  matchStationsByUrl,
+  openLoginWindow,
   proxyLogin,
   proxyLoginNewAccount,
   refreshAll,
+  setAccountRefreshSchedule,
 } from "@/lib/tauri/commands/account-manager"
 import { TAURI_COMMANDS } from "@/lib/tauri/contracts"
 
@@ -79,5 +83,42 @@ describe("account-manager commands", () => {
     await getAccountManagerCapabilities()
 
     expect(invokeTauriCommand).toHaveBeenCalledWith(TAURI_COMMANDS.accountManager.getCapabilities)
+  })
+
+  it("saves a refresh schedule with a null clearing payload", async () => {
+    await setAccountRefreshSchedule("acct-1", null)
+
+    expect(invokeTauriCommand).toHaveBeenCalledWith(
+      TAURI_COMMANDS.accountManager.setAccountRefreshSchedule,
+      { accountId: "acct-1", schedule: null },
+    )
+  })
+
+  it("lists account logs scoped to one account", async () => {
+    await listAccountLogs("acct-1")
+
+    expect(invokeTauriCommand).toHaveBeenCalledWith(TAURI_COMMANDS.accountManager.listAccountLogs, {
+      accountId: "acct-1",
+    })
+  })
+
+  it("matches stations by a pasted URL", async () => {
+    await matchStationsByUrl("https://github.com/login")
+
+    expect(invokeTauriCommand).toHaveBeenCalledWith(
+      TAURI_COMMANDS.accountManager.matchStationsByUrl,
+      {
+        url: "https://github.com/login",
+      },
+    )
+  })
+
+  it("opens a login window with an explicit URL for existing accounts", async () => {
+    await openLoginWindow("acct-1", "https://github.com/login/oauth/authorize")
+
+    expect(invokeTauriCommand).toHaveBeenCalledWith(TAURI_COMMANDS.accountManager.openLoginWindow, {
+      accountId: "acct-1",
+      url: "https://github.com/login/oauth/authorize",
+    })
   })
 })

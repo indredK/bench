@@ -253,3 +253,69 @@ pub fn reset_probe_strategy<R: Runtime>(
 ) -> AccountManagerResult<RelayStation> {
     crate::account_manager::probe::reset_probe_strategy(&app, &station_id)
 }
+
+/// 按 URL host 匹配站点(快速登录粘贴 URL → 自动识别分组)。
+/// - host 精确相等 → Exact
+/// - 互为父子域(同一可注册域)→ RegistrableDomain
+/// URL 无法解析(输入中途不完整属常态)返回空列表,不报错。
+#[tauri::command]
+pub fn match_stations_by_url(
+    state: State<'_, AccountManagerState>,
+    url: String,
+) -> AccountManagerResult<Vec<crate::account_manager::types::StationUrlMatch>> {
+    let snapshot = state.read_snapshot_checked()?;
+    let Some(parsed) = url::Url::parse(url.trim()).ok() else {
+        return Ok(Vec::new());
+    };
+    let Some(target_host) = parsed.host_str().map(|h| h.to_lowercase()) else {
+        return Ok(Vec::new());
+    };
+    if target_host.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let mut matches = Vec::new();
+    for station in &snapshot.stations {
+        let Some(station_host) = url::Url::parse(station.website.trim())
+            .ok()
+            .and_then(|u| u.host_str().map(|h| h.to_lowercase()))
+        else {
+            continue;
+        };
+        if station_host.is_empty() {
+            continue;
+        }
+        let confidence = if target_host == station_host {
+            crate::account_manager::types::StationUrlMatchConfidence::Exact
+        } else if target_host.ends_with(&format!(".{station_host}"))
+            || station_host.ends_with(&format!(".{target_host}"))
+        {
+            crate::account_manager::types::StationUrlMatchConfidence::RegistrableDomain
+        } else {
+            continue;
+        };
+        matches.push(crate::account_manager::types::StationUrlMatch {
+            station_id: station.id.clone(),
+            remark: station.remark.clone(),
+            website: station.website.clone(),
+            account_count: snapshot
+                .accounts
+                .iter()
+                .filter(|account| account.station_id == station.id)
+                .count(),
+            confidence,
+        });
+    }
+    // Exact 优先,同置信度按站点备注排序保证稳定输出。
+    matches.sort_by(|a, b| {
+        use crate::account_manager::types::StationUrlMatchConfidence;
+        let rank = |c: &StationUrlMatchConfidence| match c {
+            StationUrlMatchConfidence::Exact => 0,
+            StationUrlMatchConfidence::RegistrableDomain => 1,
+        };
+        rank(&a.confidence)
+            .cmp(&rank(&b.confidence))
+            .then_with(|| a.remark.cmp(&b.remark))
+    });
+    Ok(matches)
+}

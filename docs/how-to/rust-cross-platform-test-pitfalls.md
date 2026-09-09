@@ -23,11 +23,11 @@ right: None
 
 因此测试里手工构造的畸形 key 会在 Windows 上被框架"洗白"：
 
-| 输入字面量 | Windows 上 resolve 实际收到 | 结果 |
-| --- | --- | --- |
-| `ext//etc/passwd` | `etc/passwd` | `Some(root.join("etc/passwd"))` |
-| `ext/\server\share\x` | `server/share/x` | `Some(root.join("server/share/x"))` |
-| `ext/C:/windows/win.ini` | `C:/windows/win.ini` | `None`（中段盘符仍被字符串防御拒绝） |
+| 输入字面量               | Windows 上 resolve 实际收到 | 结果                                 |
+| ------------------------ | --------------------------- | ------------------------------------ |
+| `ext//etc/passwd`        | `etc/passwd`                | `Some(root.join("etc/passwd"))`      |
+| `ext/\server\share\x`    | `server/share/x`            | `Some(root.join("server/share/x"))`  |
+| `ext/C:/windows/win.ini` | `C:/windows/win.ini`        | `None`（中段盘符仍被字符串防御拒绝） |
 
 相关 std 语义（源码级验证，rust 1.98）：
 

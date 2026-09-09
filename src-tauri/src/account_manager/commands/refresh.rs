@@ -1,14 +1,16 @@
 //! Session refresh orchestration: single-flight probe, station/all refresh.
 
 use futures_util::stream::{FuturesUnordered, StreamExt};
+use serde_json::json;
 use tauri::{AppHandle, Manager, Runtime, State};
 
 use super::shared::{build_proxy_url_for_station, now_label};
 use crate::account_manager::probe;
-use crate::account_manager::state::{AccountManagerState, ProbeFlight};
+use crate::account_manager::state::{push_account_log, AccountManagerState, ProbeFlight};
 use crate::account_manager::storage;
 use crate::account_manager::types::{
-    AccountManagerError, AccountManagerResult, AccountSessionStatus, RefreshReport, StationAccount,
+    AccountLogKind, AccountLogLevel, AccountManagerError, AccountManagerResult,
+    AccountSessionStatus, RefreshReport, StationAccount,
 };
 
 pub(crate) async fn refresh_one_impl<R: Runtime>(
@@ -32,6 +34,7 @@ async fn refresh_one_leader<R: Runtime>(
     app: AppHandle<R>,
     account_id: String,
 ) -> AccountManagerResult<StationAccount> {
+    let started = std::time::Instant::now();
     let (website, detection_config, strategy, semaphore, proxy_url) = {
         let state = app.state::<AccountManagerState>();
         let snapshot = state.read_snapshot_checked()?;
@@ -79,17 +82,52 @@ async fn refresh_one_leader<R: Runtime>(
     )
     .await?;
     let state = app.state::<AccountManagerState>();
+    let duration_ms = started.elapsed().as_millis() as u64;
     storage::with_state_mut(&app, &state, |snapshot| {
-        let station_id = {
+        // 借用计划:account 的可变借用存续期间不得再对 snapshot 整体取
+        // &mut(push_account_log),因此先在作用域内完成字段写入并取出
+        // station_id / old_status,借用结束后再统一落日志。
+        let (station_id, old_status) = {
             let Some(account) = snapshot.accounts.iter_mut().find(|a| a.id == account_id) else {
                 return Err(AccountManagerError::not_found(format!(
                     "account {account_id}"
                 )));
             };
+            let old_status = account.status;
             account.status = outcome.status;
             account.last_refreshed_at = Some(now_label());
-            account.station_id.clone()
+            if outcome.status == AccountSessionStatus::Ready && account.first_login_at.is_none() {
+                account.first_login_at = Some(now_label());
+            }
+            (account.station_id.clone(), old_status)
         };
+        if old_status != outcome.status {
+            push_account_log(
+                snapshot,
+                &account_id,
+                AccountLogKind::StatusChanged,
+                AccountLogLevel::Info,
+                Some(json!({ "from": old_status, "to": outcome.status })),
+            );
+        }
+        let level = match outcome.status {
+            AccountSessionStatus::Ready => AccountLogLevel::Success,
+            AccountSessionStatus::LoginRequired | AccountSessionStatus::Expired => {
+                AccountLogLevel::Warn
+            }
+            _ => AccountLogLevel::Error,
+        };
+        push_account_log(
+            snapshot,
+            &account_id,
+            AccountLogKind::ManualRefresh,
+            level,
+            Some(json!({
+                "status": outcome.status,
+                "durationMs": duration_ms,
+                "strategy": strategy,
+            })),
+        );
         if let Some(station) = snapshot
             .stations
             .iter_mut()

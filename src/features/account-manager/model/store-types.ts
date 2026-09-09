@@ -33,6 +33,9 @@ export type AccountManagerState = {
   isQuickLoginOpen: boolean
   isExternalAppsOpen: boolean
   externalAppsAccountId: string | null
+  /** 账号日志对话框(Session Keeper)。 */
+  isAccountLogOpen: boolean
+  accountLogTarget: { accountId: string; accountName: string } | null
   /** 三栏区域持久化错误；partial 刷新失败后支持区域级重试（A1-1）。 */
   regionErrors: Record<AccountManagerRegion, RegionErrorPayload | null>
 }
@@ -63,6 +66,8 @@ export type AccountManagerActions = {
   setQuickLoginOpen: (open: boolean) => void
   setExternalAppsOpen: (open: boolean) => void
   setExternalAppsAccountId: (id: string | null) => void
+  setAccountLogOpen: (open: boolean) => void
+  setAccountLogTarget: (target: { accountId: string; accountName: string } | null) => void
   applyInitialSelection: (stations: RelayStation[], accounts: StationAccount[]) => void
   selectStation: (id: string, accounts: StationAccount[]) => void
   setRegionError: (region: AccountManagerRegion, payload: RegionErrorPayload | null) => void
@@ -95,5 +100,7 @@ export const initialAccountManagerState: AccountManagerState = {
   isQuickLoginOpen: false,
   isExternalAppsOpen: false,
   externalAppsAccountId: null,
+  isAccountLogOpen: false,
+  accountLogTarget: null,
   regionErrors: { station: null, account: null, detail: null },
 }

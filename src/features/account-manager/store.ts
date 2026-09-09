@@ -51,6 +51,8 @@ export const useAccountManagerStore = create<AccountManagerState & AccountManage
     setQuickLoginOpen: (isQuickLoginOpen) => set({ isQuickLoginOpen }),
     setExternalAppsOpen: (isExternalAppsOpen) => set({ isExternalAppsOpen }),
     setExternalAppsAccountId: (externalAppsAccountId) => set({ externalAppsAccountId }),
+    setAccountLogOpen: (isAccountLogOpen) => set({ isAccountLogOpen }),
+    setAccountLogTarget: (accountLogTarget) => set({ accountLogTarget }),
     applyInitialSelection: (stations, accounts) => {
       const { stationId, accountId } = pickInitialSelection(stations, accounts)
       set({ selectedStationId: stationId, selectedAccountId: accountId })

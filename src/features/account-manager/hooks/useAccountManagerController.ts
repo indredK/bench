@@ -20,6 +20,7 @@ import { useAccountActions } from "@/features/account-manager/hooks/useAccountAc
 import { useDataPorting } from "@/features/account-manager/hooks/useDataPorting"
 import { useQuickLoginHistory } from "@/features/account-manager/hooks/useQuickLoginHistory"
 import { useRefreshOrchestrator } from "@/features/account-manager/hooks/useRefreshOrchestrator"
+import { useSessionKeeper } from "@/features/account-manager/hooks/useSessionKeeper"
 import { useStationActions } from "@/features/account-manager/hooks/useStationActions"
 import type { AccountManagerRegion } from "@/features/account-manager/errors"
 import { translateError } from "@/lib/tauri/errors"
@@ -140,6 +141,7 @@ export function useAccountManagerController() {
   const stationActions = useStationActions({ loadInitialData })
   const accountActions = useAccountActions({ loadInitialData })
   const dataPorting = useDataPorting()
+  const sessionKeeper = useSessionKeeper()
   const { readQuickLoginHistory } = useQuickLoginHistory()
 
   const selectedStation = useMemo(
@@ -168,6 +170,18 @@ export function useAccountManagerController() {
     },
     [accounts],
   )
+
+  /** 快速登录对话框:站点 → 账号列表(过滤出 id/username/status 轻量结构)。 */
+  const getStationAccountsForQuickLogin = useCallback((stationId: string) => {
+    return useAccountManagerStore
+      .getState()
+      .accounts.filter((account) => account.stationId === stationId)
+      .map((account) => ({
+        id: account.id,
+        username: account.username,
+        status: account.status,
+      }))
+  }, [])
 
   const authProxy = useAuthProxy()
 
@@ -241,6 +255,8 @@ export function useAccountManagerController() {
     dismissRegionError,
     ...authProxy,
     readQuickLoginHistory,
+    sessionKeeper,
+    getStationAccountsForQuickLogin,
     handleAddStation: stationActions.handleAddStation,
     handleQuickLogin: accountActions.handleQuickLogin,
     handleRedetectProfile: stationActions.handleRedetectProfile,

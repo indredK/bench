@@ -269,6 +269,11 @@ pub fn run() {
                     }
                 }
             });
+
+            // Session Keeper: 会话保活调度器(每 30s tick;首个 tick 立即触发 =
+            // 启动补跑一次错过的静默刷新计划)。任务随 runtime 退出自动取消。
+            let keeper_handle = app.handle().clone();
+            account_manager::spawn_session_keeper(keeper_handle);
             // P1: 回填插件根目录槽位；P3.4: 部署 bundled 插件（resources → $APPDATA）；
             // 设置了 BENCH_POC_EXT 时自动打开 POC 插件窗口。
             if let Some(state) = app.try_state::<extension_host::ExtensionRootState>() {
