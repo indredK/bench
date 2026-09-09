@@ -6,10 +6,15 @@
  *   src-tauri/binaries/bench-host-<target-triple>[.exe]
  * 运行时 Tauri 自动剥离后缀，`current_exe()` 同目录即为 bench-host。
  *
+ * 交叉编译注意（Tauri 官方文档明确警告）：externalBin 要求**每个构建目标**
+ * 都有对应 triple 的二进制——按 host triple 命名在交叉编译时无效。
+ * 因此 `--target <triple>` 可为非 host 架构构建（bench-host 及其依赖均为
+ * 纯 Rust，无 C 依赖，交叉编译可行）：
+ *   node scripts/plugins/build-bench-host.mjs [--target x86_64-apple-darwin] [--force]
+ * 无 --target 时构建 host 目标（tauri dev / beforeBuildCommand 默认路径）。
+ *
  * 零三方依赖（Node built-ins only，对齐项目约定）。带 up-to-date 检查：
  * 产物比 bench-host 全部源文件新时跳过 cargo build。
- *
- * 用法：node scripts/plugins/build-bench-host.mjs [--force]
  */
 import { execFileSync } from "node:child_process"
 import { existsSync, mkdirSync, copyFileSync, statSync, readdirSync } from "node:fs"
@@ -33,7 +38,7 @@ function newestMtime(dir) {
 }
 
 /** host triple（tauri.conf 侧与 `rustc --print host-tuple` 约定一致）。 */
-function targetTriple() {
+function hostTriple() {
   const triples = {
     "darwin-arm64": "aarch64-apple-darwin",
     "darwin-x64": "x86_64-apple-darwin",
@@ -54,14 +59,22 @@ function resolveCargo() {
   return "cargo"
 }
 
-const triple = targetTriple()
-const ext = platform() === "win32" ? ".exe" : ""
+// —— 参数解析 ——
+const force = process.argv.includes("--force")
+const targetIdx = process.argv.indexOf("--target")
+const target = targetIdx !== -1 ? process.argv[targetIdx + 1] : null
+if (targetIdx !== -1 && (!target || /[/\\]/.test(target))) {
+  throw new Error("--target 需要一个合法的 target triple（如 x86_64-apple-darwin）")
+}
+
+const triple = target ?? hostTriple()
+// .exe 后缀看**目标**平台而非运行平台（交叉编译 Windows target 时必须带）。
+const ext = triple.includes("windows") ? ".exe" : ""
 const dest = join(binariesDir, `bench-host-${triple}${ext}`)
 
 // —— up-to-date 检查 ——
 const sourcesNewest = Math.max(newestMtime(hostSrcDir), newestMtime(capSrcDir))
 const destExists = existsSync(dest)
-const force = process.argv.includes("--force")
 
 if (destExists && !force) {
   const cargoTomlMtime = statSync(join(srcTauri, "crates/bench-host/Cargo.toml")).mtimeMs
@@ -73,25 +86,30 @@ if (destExists && !force) {
 
 // —— cargo build --release ——
 mkdirSync(binariesDir, { recursive: true })
-console.log(`[bench-host] cargo build --release -p bench-host`)
-execFileSync(resolveCargo(), ["build", "--release", "-p", "bench-host"], {
+console.log(
+  `[bench-host] cargo build --release -p bench-host${target ? ` --target ${target}` : ""}`,
+)
+const buildArgs = ["build", "--release", "-p", "bench-host"]
+if (target) buildArgs.push("--target", target)
+execFileSync(resolveCargo(), buildArgs, {
   cwd: srcTauri,
   stdio: "inherit",
 })
 
-const built = join(srcTauri, "target/release", `bench-host${ext}`)
-if (!existsSync(built)) {
-  // target-dir 可能被 .cargo/config.toml 重定向（D-021）：从 cargo metadata 解析
-  const meta = JSON.parse(
-    execFileSync(resolveCargo(), ["metadata", "--format-version", "1", "--no-deps"], {
-      cwd: srcTauri,
-      encoding: "utf8",
-    }),
-  )
-  const fallback = join(meta.target_directory, "release", `bench-host${ext}`)
-  if (!existsSync(fallback)) throw new Error(`构建产物不存在: ${built} / ${fallback}`)
-  copyFileSync(fallback, dest)
-} else {
-  copyFileSync(built, dest)
-}
+// 产物定位：target-dir 可能被 .cargo/config.toml 重定向（D-021），从 cargo
+// metadata 权威解析；交叉编译产物在 <target-dir>/<triple>/release/ 下。
+const meta = JSON.parse(
+  execFileSync(resolveCargo(), ["metadata", "--format-version", "1", "--no-deps"], {
+    cwd: srcTauri,
+    encoding: "utf8",
+  }),
+)
+const built = join(
+  meta.target_directory,
+  ...(target ? [target] : []),
+  "release",
+  `bench-host${ext}`,
+)
+if (!existsSync(built)) throw new Error(`构建产物不存在: ${built}`)
+copyFileSync(built, dest)
 console.log(`[bench-host] sidecar ready: ${dest}`)

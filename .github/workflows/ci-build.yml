@@ -319,6 +319,13 @@ jobs:
           security list-keychain -d user -s "$keychain_path"
           echo "BENCH_RELEASE_KEYCHAIN=$keychain_path" >> "$GITHUB_ENV"
 
+      # externalBin 要求每个构建目标都有对应 triple 的 sidecar（Tauri 官方
+      # 约定；交叉编译 x86_64-apple-darwin 时 host 版本不满足校验）。在
+      # Build Tauri app 之前为 matrix.target 显式预构建，bench-host 为纯
+      # Rust 依赖，交叉编译无 C 工具链障碍。
+      - name: Build bench-host sidecar for target
+        run: node scripts/plugins/build-bench-host.mjs --target ${{ matrix.target }}
+
       - name: Build Tauri app
         shell: bash
         env:
