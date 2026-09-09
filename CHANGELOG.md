@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.32.0](https://github.com/indredK/bench/compare/v1.31.0...v1.32.0) (2026-09-09)
+
+
+### Features
+
+* **account-manager:** 实现会话保活与账号日志 ([df1966d](https://github.com/indredK/bench/commit/df1966dd9b712509391fceb7a911c50ef7bfc1e4))
+
 ## [1.31.0](https://github.com/indredK/bench/compare/v1.30.0...v1.31.0) (2026-09-09)
 
 
