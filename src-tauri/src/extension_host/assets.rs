@@ -222,9 +222,57 @@ mod tests {
     #[test]
     fn rejects_absolute_and_drive_letter_forms() {
         let p = provider(Some("/tmp/app/extensions"));
-        assert_eq!(p.resolve(&AssetKey::from("ext//etc/passwd")), None);
+        // 盘符形式：`is_safe_relative_path` 的跨平台字符串防御，双平台都拒绝。
         assert_eq!(p.resolve(&AssetKey::from("ext/C:/windows/win.ini")), None);
-        assert_eq!(p.resolve(&AssetKey::from("ext/\\\\server\\share\\x")), None);
+
+        // 连续分隔符 / 反斜杠形式：**平台行为差异，源自 tauri AssetKey::from**
+        // （tauri-utils `impl From<P> for AssetKey`）：
+        //
+        // - Unix 分支对路径字符串**原样保留**：key 到达 resolve 时仍是
+        //   `ext//etc/passwd` / `ext/\server\share\x`，strip 后为
+        //   `/etc/passwd`（绝对路径）与 `\\server\share\x`（UNC 前缀），
+        //   被 `is_safe_relative_path` 拒绝 → None；
+        // - Windows 分支先补根再做**组件级规范化重建**（连续分隔符合并、
+        //   `\` 视作分隔符）：畸形 key 被等价改写为 `/ext/etc/passwd` 与
+        //   `/ext/server/share/x`，strip 后为普通相对路径，落点始终在插件
+        //   根目录内（无穿越），resolve 返回 Some。该输入形式在 Windows 的
+        //   webview → AssetKey 链路上不可达，属框架层规范化行为。
+        //
+        // 因此拒绝断言只在 Unix 成立；Windows 断言"规范化后落点在根内"。
+        let root = PathBuf::from("/tmp/app/extensions");
+        if cfg!(windows) {
+            assert_eq!(
+                p.resolve(&AssetKey::from("ext//etc/passwd")),
+                Some(root.join("etc/passwd"))
+            );
+            assert_eq!(
+                p.resolve(&AssetKey::from("ext/\\\\server\\share\\x")),
+                Some(root.join("server/share/x"))
+            );
+        } else {
+            assert_eq!(p.resolve(&AssetKey::from("ext//etc/passwd")), None);
+            assert_eq!(p.resolve(&AssetKey::from("ext/\\\\server\\share\\x")), None);
+        }
+    }
+
+    /// `is_safe_relative_path` 是跨平台字符串防御（P3.1 manifest 与完整性
+    /// 校验共用），语义必须与宿主 OS 无关 —— 直接覆盖纯函数，避免经由
+    /// `AssetKey::from` / `resolve` 时被平台规范化行为掩盖。
+    #[test]
+    fn safe_relative_path_string_cases() {
+        assert!(is_safe_relative_path("index.html"));
+        assert!(is_safe_relative_path("assets/app.js"));
+        for bad in [
+            "/abs",
+            "//double",
+            "C:/win.ini",
+            "c:/win.ini",
+            "\\\\server\\share",
+            "..",
+            "a/../..",
+        ] {
+            assert!(!is_safe_relative_path(bad), "`{bad}` must be rejected");
+        }
     }
 
     #[test]
