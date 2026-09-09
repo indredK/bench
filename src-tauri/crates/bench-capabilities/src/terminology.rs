@@ -85,9 +85,13 @@ impl StoreLocator {
         if let Some(dir) = &self.dir {
             return Some(dir.clone());
         }
-        let home = std::env::var("HOME").ok()?;
+        // `home` 的读取必须放在使用它的平台分支内：
+        // Windows 没有 HOME 环境变量（数据目录走 APPDATA），分支外读取
+        // 既会在 Windows 下成为未使用变量（-D warnings 硬错误），
+        // 又会让 `.ok()?` 提前返回 None、永远走不到 Windows 分支。
         #[cfg(target_os = "macos")]
         {
+            let home = std::env::var("HOME").ok()?;
             Some(PathBuf::from(home).join("Library/Application Support/com.bench.app"))
         }
         #[cfg(target_os = "windows")]
@@ -97,6 +101,7 @@ impl StoreLocator {
         }
         #[cfg(all(unix, not(target_os = "macos")))]
         {
+            let home = std::env::var("HOME").ok()?;
             let data_home =
                 std::env::var("XDG_DATA_HOME").unwrap_or_else(|_| format!("{home}/.local/share"));
             Some(PathBuf::from(data_home).join("com.bench.app"))
