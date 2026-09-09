@@ -8,6 +8,10 @@ on:
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+*"
   pull_request:
+    # docs-only PR 不触发双平台 verify（格式/文档门禁由守卫脚本与 pre-commit 覆盖）。
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
   workflow_dispatch:
     inputs:
       dry_run:
@@ -29,9 +33,15 @@ env:
   BENCH_OS_SIGNING_MODE: ${{ vars.BENCH_OS_SIGNING_MODE || 'unsigned' }}
 
 permissions:
-  contents: write
+  contents: read
   actions: read
   pull-requests: read
+
+# PR/main 迭代时取消同 ref 的旧 run，避免排队浪费双平台 runner 分钟数；
+# tag push（正式发布链路）不取消，防止发布构建被误中断。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 jobs:
   verify:
@@ -48,6 +58,8 @@ jobs:
           - os: macos-latest
           - os: windows-latest
     runs-on: ${{ matrix.os }}
+    # 卡死的构建/测试最多烧 75 分钟 runner，而不是默认 6 小时上限。
+    timeout-minutes: 75
     defaults:
       run:
         # windows-latest 自带 Git Bash；统一 shell 避免 pwsh/bash 差异。
@@ -60,24 +72,24 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
         with:
           version: 11.8.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: "24"
           cache: pnpm
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable (branch pinned; bump manually on toolchain update)
 
       - name: Cache Rust build outputs
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
           # D-021: target dir is relocated to <repo>/../tauri-app-target
           # (resolved relative to src-tauri/), so point the cache there
@@ -90,9 +102,19 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # 平台无关的静态守卫只需在 macOS 跑一次（含 cfg 卫生，见下）。
-      - name: Check repository formatting
+      # D-025：格式漂移不阻塞 CI——本地 pre-commit 会自动修复并 re-stage，
+      # CI 走到这一步还失败只可能是 --no-verify 提交或 bot PR，降为警告。
+      - name: Check repository formatting (non-blocking)
+        id: format_check
         if: runner.os == 'macOS'
+        continue-on-error: true
         run: pnpm run format:check
+
+      - name: Report formatting drift as warning
+        if: ${{ always() && runner.os == 'macOS' && steps.format_check.outcome == 'failure' }}
+        run: |
+          echo "::warning::存在 Prettier 格式漂移，本检查不阻塞 CI（决策 D-025）。"
+          echo "::warning::修复方式：pnpm run format（本地 pre-commit 对 staged 文件自动修复）。"
 
       - name: Run frontend static guards
         if: runner.os == 'macOS'
@@ -108,9 +130,18 @@ jobs:
       - name: Check Rust cfg hygiene
         run: node scripts/quality/check-rust-cfg-hygiene.mjs
 
-      - name: Check Rust formatting
+      # D-025：Rust 格式漂移同样不阻塞 CI（pre-commit 对 staged .rs 自动 cargo fmt）。
+      - name: Check Rust formatting (non-blocking)
+        id: rustfmt_check
         if: runner.os == 'macOS'
+        continue-on-error: true
         run: pnpm run format:be
+
+      - name: Report Rust formatting drift as warning
+        if: ${{ always() && runner.os == 'macOS' && steps.rustfmt_check.outcome == 'failure' }}
+        run: |
+          echo "::warning::存在 cargo fmt 格式漂移，本检查不阻塞 CI（决策 D-025）。"
+          echo "::warning::修复方式：cd src-tauri && cargo fmt --all"
 
       - name: Run Rust clippy
         run: pnpm run clippy:be
@@ -145,32 +176,33 @@ jobs:
         #     os: windows-latest
 
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
     env:
       # Same as `verify`: keep the sccache wrapper off in CI (see D-021).
       RUSTC_WRAPPER: ""
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
         with:
           version: 11.8.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: "24"
           cache: pnpm
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable (branch pinned; bump manually on toolchain update)
         with:
           targets: ${{ matrix.target }}
 
       - name: Cache Rust build outputs
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
           # D-021: target dir is relocated to <repo>/../tauri-app-target
           # (resolved relative to src-tauri/), so point the cache there
@@ -311,7 +343,7 @@ jobs:
       # is re-introduced.
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: bundle-${{ matrix.target }}
           path: artifacts/
@@ -333,6 +365,11 @@ jobs:
       (github.event_name == 'workflow_dispatch' && inputs.tag_name != '')
     needs: release-build
     runs-on: macos-latest
+    timeout-minutes: 40
+    # D-025 权限收窄：publish 是唯一需要写权限的 job（gh release create/upload）。
+    permissions:
+      contents: write
+      actions: read
 
     env:
       PUBLISH_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref_name }}
@@ -346,16 +383,20 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           fetch-depth: 0
 
       - name: Resolve publish mode (final tag vs dry-run)
         shell: bash
+        # 不可信上下文（inputs/event）只经 env 传入 shell，不做 run 内插值（防模板注入）。
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DRY_RUN_INPUT: ${{ inputs.dry_run }}
         run: |
-          event="${{ github.event_name }}"
-          tag_name="${{ env.PUBLISH_TAG }}"
-          dry_run_input="${{ inputs.dry_run }}"
+          event="$EVENT_NAME"
+          tag_name="$PUBLISH_TAG"
+          dry_run_input="$DRY_RUN_INPUT"
 
           if [[ "$tag_name" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             final_tag="true"
@@ -384,15 +425,15 @@ jobs:
           echo "publish mode: tag=$tag_name final=$final_tag dry_run=$dry_run"
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: "24"
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable (branch pinned; bump manually on toolchain update)
 
       - name: Cache Rust build outputs
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
           # D-021: target dir is relocated to <repo>/../tauri-app-target
           # (resolved relative to src-tauri/), so point the cache there
@@ -401,7 +442,7 @@ jobs:
             ./src-tauri -> ../../tauri-app-target
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           path: release-assets
           merge-multiple: true
@@ -442,15 +483,15 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
         run: |
-          if gh release view "${{ env.TAG_NAME }}" >/dev/null 2>&1; then
-            gh release view "${{ env.TAG_NAME }}" --json body,publishedAt > release-metadata.json
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            gh release view "$TAG_NAME" --json body,publishedAt > release-metadata.json
           else
-            published_at="$(git show -s --format=%cI "${{ env.TAG_NAME }}")"
+            published_at="$(git show -s --format=%cI "$TAG_NAME")"
             jq -n --arg publishedAt "$published_at" '{body: "", publishedAt: $publishedAt}' > release-metadata.json
           fi
 
       - name: Generate latest.json
-        run: node scripts/release/generate-updater-json.mjs --assets-dir release-assets --tag "${{ env.TAG_NAME }}" --repo "${{ github.repository }}" --release-metadata release-metadata.json
+        run: node scripts/release/generate-updater-json.mjs --assets-dir release-assets --tag "$TAG_NAME" --repo "${{ github.repository }}" --release-metadata release-metadata.json
 
       - name: Verify updater signatures
         run: |
@@ -478,12 +519,12 @@ jobs:
       # 显式 guard: 只有正式 tag 且非 dry-run 才允许 Release 副作用 (A3-1)。
       - name: Publish guard
         run: |
-          if [[ "${{ env.DRY_RUN }}" != "false" ]]; then
+          if [[ "$DRY_RUN" != "false" ]]; then
             echo "::error::Refusing to mutate GitHub Releases in dry-run mode."
             exit 1
           fi
-          if [[ "${{ env.FINAL_TAG }}" != "true" ]]; then
-            echo "::error::Refusing to publish: tag '${{ env.TAG_NAME }}' is not a final vX.Y.Z tag."
+          if [[ "$FINAL_TAG" != "true" ]]; then
+            echo "::error::Refusing to publish: tag '$TAG_NAME' is not a final vX.Y.Z tag."
             exit 1
           fi
 
@@ -492,11 +533,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
         run: |
-          if gh release view "${{ env.TAG_NAME }}" >/dev/null 2>&1; then
-            gh release upload "${{ env.TAG_NAME }}" release-assets/* --clobber
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            gh release upload "$TAG_NAME" release-assets/* --clobber
           else
-            gh release create "${{ env.TAG_NAME }}" \
-              --title "Bench ${{ env.TAG_NAME }}" \
+            gh release create "$TAG_NAME" \
+              --title "Bench $TAG_NAME" \
               --generate-notes \
               release-assets/*
           fi
@@ -506,3 +547,22 @@ jobs:
         run: |
           echo "### DRY-RUN: 未创建/更新 GitHub Release" >> "$GITHUB_STEP_SUMMARY"
           echo "产物以 CI artifact 形式上传 (bundle-*), latest.json 与签名校验均在 dry-run 下完成。" >> "$GITHUB_STEP_SUMMARY"
+
+  # D-025：branch protection 只需把本 job 设为 required check，
+  # 不用分别盯 matrix 里两个会漂移的 "Verify (os)" 条目。
+  ci-ok:
+    name: CI OK (aggregate)
+    needs: [verify]
+    if: always()
+    runs-on: macos-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fail if any verify leg failed
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: |
+          echo "::error::verify matrix 未全绿: ${{ toJSON(needs.*.result) }}"
+          exit 1
+
+      - name: All platform verify checks passed
+        if: ${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
+        run: echo "macOS + Windows verify 全绿。"

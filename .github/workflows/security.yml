@@ -22,10 +22,16 @@ permissions:
   contents: read
   issues: write
 
+# push main 的迭代取消同 ref 的旧 run（定时任务不会重叠，不受影响）。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   audit:
     name: Cargo Audit + Deny
     runs-on: macos-latest
+    timeout-minutes: 30
 
     # macos-latest (arm64) runners ship sccache, so the `sccache-wrapper`
     # config makes `cargo metadata` fail on a stale rustc path. CI never
@@ -35,18 +41,18 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable (branch pinned; bump manually on toolchain update)
 
       - name: Install cargo-audit
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@d438492cf8a250514fa2d34b30bc3c0dc37c65ff # v2
         with:
           tool: cargo-audit
 
       - name: Install cargo-deny
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@d438492cf8a250514fa2d34b30bc3c0dc37c65ff # v2
         with:
           tool: cargo-deny
 
@@ -60,12 +66,14 @@ jobs:
 
       - name: Create issue on failure
         if: failure() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # 不可信上下文经 env 传入 shell，不做 run 内插值。
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           gh issue create \
             --title "Security: cargo audit / deny 发现问题" \
             --label security \
             --body "安全扫描在定时检查中发现问题。
 
-          查看: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-        env:
-          GH_TOKEN: ${{ github.token }}
+          查看: $RUN_URL"

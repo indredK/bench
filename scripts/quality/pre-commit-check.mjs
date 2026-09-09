@@ -159,6 +159,7 @@ if (hasDocsChanges && !hasFrontendChanges) {
 
 if (hasWorkflowChanges && !hasFrontendChanges) {
   runStep("Checking CI platform policy", pkgManager, ["run", "check:ci-platforms"])
+  runStep("Checking workflow hygiene", pkgManager, ["run", "check:workflows"])
 }
 
 if (hasFrontendChanges) {

@@ -9,21 +9,26 @@ on:
 permissions:
   actions: write
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   cleanup:
     name: Delete stale GitHub Actions caches
     runs-on: macos-latest
+    timeout-minutes: 10
     steps:
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: "24"
 
       - name: Delete caches older than 7 days
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
         run: |
-          REPO="${{ github.repository }}"
           CUTOFF_MS=$(node -e 'process.stdout.write(String(Date.now() - 7 * 24 * 60 * 60 * 1000))')
 
           gh api "repos/${REPO}/actions/caches" --paginate \

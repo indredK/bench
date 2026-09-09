@@ -2,6 +2,28 @@
 
 本文件只记录仍影响当前实现的方向性取舍；“做什么”以 [ROADMAP.md](../roadmap/ROADMAP.md) 为准，当前风险以 [audit-report.md](./audit-report.md) 为准。已推翻和已完成历史由 Git 保留。
 
+## D-025 · CI 运行时治理、供应链加固与格式类检查降级为警告
+
+- **日期**：2026-09-09
+- **状态**：采纳
+- **背景**：对「本地提交检查 vs CI/CD 门禁」做系统性梳理后，识别出 CI 运行时治理与 action 供应链两处缺口（PR 迭代不取消旧 run、无 timeout、actions 以可变 tag 引用、run 块内直接插值不可信上下文、workflow 顶层 write 权限过宽）。同时确立格式类问题的分级策略：格式/空白属「不影响代码运行」且本地 pre-commit 已自动修复（prettier --write / cargo fmt / whitespace fix 均 re-stage 入库），CI 端失败只可能来自绕过 hooks 的提交或 bot PR，阻塞双平台 verify 的收益低于成本。
+- **决策**：
+  1. **concurrency**：全部 workflow 增加顶层 `concurrency`（`cancel-in-progress`）；ci-build 对 tag push（正式发布链路）不取消，防止发布构建被误中断。
+  2. **timeout-minutes**：所有 job 显式设置（verify 75 / release-build 90 / publish 40 / security 30 / 其余 10–5），不再依赖 6 小时默认上限。
+  3. **SHA pin**：全部 `uses:` 引用锚定 40 位 commit SHA + 版本注释（dtolnay/rust-toolchain 锚定 stable 分支当前 commit，toolchain 升级需手动 bump）；升级依赖人工 diff 审查，可配合 Dependabot（github-actions 生态）管理。
+  4. **模板注入防御**：`run:` 块内禁止直接插值不可信上下文（`github.event.*` / `inputs.*` / `github.head_ref` / `github.ref_name`），publish job 的 tag/dry-run 解析链全部改为 env 传递；`github.repository` 等可信 context 保留插值。
+  5. **权限收窄**：ci-build 顶层 `contents: read`，`contents: write` 收窄到 publish job 级（唯一需要 Release 写权限的 job）。
+  6. **格式类检查降级为警告（不阻塞 CI）**：`format:check`（Prettier）与 `format:be`（cargo fmt）在 verify job 以 `continue-on-error` 运行，失败时输出 `::warning::` 注解与修复命令。**本地 pre-commit 的自动修复行为不变**；`pnpm run verify` 本地全链仍严格阻断。cfg 卫生、clippy、测试、i18n、docs 一致性、平台策略等正确性门禁**不降级**。
+  7. **ci-ok 聚合 job**：branch protection 只需将 `CI OK (aggregate)` 设为 required check，不必分别盯 matrix 中会漂移的 `Verify (os)` 条目。
+  8. **docs-only PR 提效**：ci-build 的 `pull_request` 增加 `paths-ignore: ["**.md", "docs/**"]`；push main / tag 触发不受影响。
+  9. **workflow 卫生守卫常态化**：新增零依赖 `scripts/quality/check-workflow-hygiene.mjs`（R1 unpinned-uses / R2 template-injection / R3 job-timeout / R4 concurrency / R5 permissions），串入 `lint:fe` 与 pre-commit 的 workflow 改动分支，与 `check:ci-platforms` 共同构成 workflow 双门禁；任何新增 CI job 必须运行在 macOS/Windows runner（见 D-014）。
+- **理由**：tj-actions/changed-files（CVE-2025-30066）证实 tag 重指向是现实攻击面，publish job 持有签名 secrets 与写权限使其成为最高价值目标；concurrency 取消与 timeout 直接节省双平台 runner 分钟数；格式漂移的修复责任已在本地闭环，CI 只需告警兜底。
+- **影响**：
+  - 直接 `git push` 绕过 hooks 的提交仍会通过 CI（仅格式警告），正确性门禁（clippy -D warnings、cfg 卫生、测试）不变；
+  - action 升级 = 手动换 SHA（注释里的版本号是 diff 审查依据），rust-toolchain 升级时需同步 bump stable 分支锚点；
+  - 新 workflow 文件必须满足 R1–R5，否则 `lint:fe` / pre-commit / CI 均红。
+- **相关**：[ci-build.yml](../../.github/workflows/ci-build.yml) · [check-workflow-hygiene.mjs](../../scripts/quality/check-workflow-hygiene.mjs) · [check-ci-platforms.mjs](../../scripts/quality/check-ci-platforms.mjs) · [D-021](#d-021--rust-target-目录外迁--sccache--暂停-windows-ci) · [D-014](#d-014--linux-不进入支持矩阵与-cicd)
+
 ## D-024 · Extension 仓库组织与 photo-triage 试点拆法
 
 - **日期**：2026-09-08
