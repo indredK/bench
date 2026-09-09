@@ -53,3 +53,5 @@ stitch_exports/
 /.github/copilot-instructions.md
 
 /updater/
+.tmp/
+.git.broken/
