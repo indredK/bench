@@ -1,6 +1,6 @@
 # Bench 决策日志
 
-本文件只记录仍影响当前实现的方向性取舍；“做什么”以 [ROADMAP.md](./ROADMAP.md) 为准，当前风险以 [audit-report.md](./audit-report.md) 为准。已推翻和已完成历史由 Git 保留。
+本文件只记录仍影响当前实现的方向性取舍；“做什么”以 [ROADMAP.md](../roadmap/ROADMAP.md) 为准，当前风险以 [audit-report.md](./audit-report.md) 为准。已推翻和已完成历史由 Git 保留。
 
 ## D-024 · Extension 仓库组织与 photo-triage 试点拆法
 
@@ -16,9 +16,9 @@
 - **影响**：
   - `extensions/` 目录进 git（源码 + manifest，**构建产物不进 git**）；
   - 主包侧边栏不再静态注册已迁出模块，改由插件中心「已安装（bundled）」点亮入口；
-  - photo-triage 的 Python→Rust 迁移路径决策不受影响——若选 sidecar，manifest `delivery: "sidecar"` 复用 [D-017](./DECISIONS.md#d-017--network-probe-可选能力包可插拔高级组件) pack 模型；
+  - photo-triage 的 Python→Rust 迁移路径决策不受影响——若选 sidecar，manifest `delivery: "sidecar"` 复用 [D-017](./decisions.md#d-017--network-probe-可选能力包可插拔高级组件) pack 模型；
   - 试点期本地构建本地装，minisign 门禁在其后启用。
-- **相关**：[extension-workflow.md](./extension-workflow.md)（架构边界与工作流） · [modules/extension-center/roadmap.md](./modules/extension-center/roadmap.md)（执行清单，含行业依据） · [D-023](#d-023--20-目标变更为插件化生态r00r10-全部降级) · [D-017](./DECISIONS.md#d-017--network-probe-可选能力包可插拔高级组件)
+- **相关**：[extension-workflow.md](./extension-workflow.md)（架构边界与工作流） · [modules/extension-center/roadmap.md](../modules/extension-center/roadmap.md)（执行清单，含行业依据） · [D-023](#d-023--20-目标变更为插件化生态r00r10-全部降级) · [D-017](./decisions.md#d-017--network-probe-可选能力包可插拔高级组件)
 
 ## D-023 · 2.0 目标变更为「插件化生态」，R00–R10 全部降级
 
@@ -29,7 +29,7 @@
   1. **2.0 = 插件化生态（目标 B：第三方生态）**，不是目标 A（消除自己的装配成本）。这是产品定位变更，不是技术重构。
   2. **`ROADMAP.md` 的 R00–R10 全部降级为 backlog**，不再作为 2.0 门禁；`GAP-TO-2.0.md` 的 37 项差距（A1–A5 / D1–D7 / E1–E3）同步降级，不再要求关闭后才发版。
   3. 降级 ≠ 废弃：R00–R10 与 GAP 清单作为**已知技术债台账**保留，供插件化迁移时按模块评估；涉及**数据安全与签名链**的条目（A5 持久化迁移、A3-1 RC dry-run、minisign 全链）在插件分发启用前必须重新评估。
-  4. 执行序列为 **P0–P6**，唯一状态清单见 [modules/extension-center/roadmap.md](./modules/extension-center/roadmap.md)（2026-09-08 经行业最佳实践复核后重排：包完整性安全地基提为 P3.1 硬阻塞，Windows 门禁提为 P3.2 并行前置，bundled 发布集成提为 P3.4）。
+  4. 执行序列为 **P0–P6**，唯一状态清单见 [modules/extension-center/roadmap.md](../modules/extension-center/roadmap.md)（2026-09-08 经行业最佳实践复核后重排：包完整性安全地基提为 P3.1 硬阻塞，Windows 门禁提为 P3.2 并行前置，bundled 发布集成提为 P3.4）。
   5. 采用 **B′ 方案**（宿主 + 可下载前端 bundle + 独立 WebView 整屏渲染 + IPC 命令白名单网关）替代 D-022 的 B-lite（WASM/sidecar/远程）。**B-lite 保留为 WASM 附属能力的未来选项**，不删除。
 - **理由**：
   - 评估证伪了 D-022 的核心前提——「Tauri 运行时不能热载整屏 renderer 页面」不成立（`register_uri_scheme_protocol` / asset 协议可加载 `$APPDATA` 下运行时下载的页面，项目已启用 `protocol-asset`）。
@@ -40,7 +40,7 @@
   - 插件化**进入** ROADMAP 而非旁路；D-022 中「不进 R00–R10」的表述对**新目标**不再适用（对已被降级的旧 R00–R10 仍成立）。
   - 术语：Tauri 官方 “plugin” 指**编译期 Cargo crate**（如 `tauri-plugin-store`）；本项目运行时插件统一称 **extension / 能力包**，避免混淆。
   - **P6（恢复 Windows CI）是发布硬前置**：插件化能力在 Windows runner 复验前不得随正式版发布。
-- **相关**：[D-022](#d-022--所有能力插件化b-liteTauri-宿主--wasmsidecar远程-插件市场) · [D-021](#d-021--rust-target-目录外迁--sccache--暂停-windows-ci) · [D-017](./DECISIONS.md#d-017--network-probe-可选能力包可插拔高级组件) · [D-013](#d-013--roadmap-是-20-唯一执行真理源) · [extension-workflow.md](./extension-workflow.md)
+- **相关**：[D-022](#d-022--所有能力插件化b-liteTauri-宿主--wasmsidecar远程-插件市场) · [D-021](#d-021--rust-target-目录外迁--sccache--暂停-windows-ci) · [D-017](./decisions.md#d-017--network-probe-可选能力包可插拔高级组件) · [D-013](#d-013--roadmap-是-20-唯一执行真理源) · [extension-workflow.md](./extension-workflow.md)
 
 ## D-022 · 所有能力插件化（B-lite：Tauri 宿主 + WASM/sidecar/远程 插件市场）
 
@@ -52,7 +52,7 @@
   2. **核心系统命令保持编译期链接**（app_manager/account_manager/token_calculator 等不运行时热载），维持单二进制 + minisign 红线；插件只通过**稳定的宿主 API 面（`bench_host` 接口）**访问后端服务，不新增核心 Rust 命令。
   3. **插件形态映射**：
      - **WASM 模块**——纯计算/转换类（如 token 估算、格式化、解析、规则引擎），在宿主内 WASM runtime（wasmer/wasmtime）沙箱内运行，经宿主注入的导入函数调用 host 服务；
-     - **sidecar**——重/可选能力（即 [D-017](./DECISIONS.md#d-017--network-probe-可选能力包可插拔高级组件) Capability Pack 模型），由后端 canonical manifest 下发校验，renderer 不提交最终下载地址/可执行路径；
+     - **sidecar**——重/可选能力（即 [D-017](./decisions.md#d-017--network-probe-可选能力包可插拔高级组件) Capability Pack 模型），由后端 canonical manifest 下发校验，renderer 不提交最终下载地址/可执行路径；
      - **远程能力**——Globalping/librespeed 式远端调用，本机零重库。
   4. **manifest + ACL 分发**：每个插件带 `manifest`（id/version/capabilities/acl/entry/delivery）与签名；宿主按 **ACL 注册表**校验插件请求的权限边界，能力矩阵驱动 UI（`supported/degraded/unsupported/missing_pack`）。
   5. **插件中心 UI**：前端新增插件市场页，浏览/安装/启用禁用/卸载，按能力矩阵呈现可插拔状态；manifest 来源为后端 canonical registry（远程 JSON 或本地缓存），不得由 renderer 决定最终下载地址。
@@ -61,7 +61,7 @@
 - **理由**：满足「插件中心 + 自由下载能力」诉求且守住硬约束（单二进制/minisign、双平台 CI 编译验证、`clippy -D warnings`、D-017 禁止运行时拉依赖）；纯 B 路线（运行时热载任意 Rust crate/npm）在 Tauri 无原生支持且工程量数倍；B-lite 复用 D-017 与 dev-toolbox 拼图，WASM runtime 内嵌于既有 Rust 宿主，无需换语言。
 - **影响**：B0–B5 分阶段（**已被 D-023 的 P0–P6 取代**）；**不进 2.0 R00–R10 门禁**（D-013），作为 2.0 旁路/后续架构程序；IPC 契约双写铁律不削弱；i18n `labelKey` 仍落 locale。本条中仍有效的内容（WASM / sidecar / 远程三形态的能力面划分、D-017 红线）已并入 [extension-workflow.md §7](./extension-workflow.md)。
   > ⚠️ 本条 **第 7 点「不能热载整屏 renderer 页面」已被证伪**（`register_uri_scheme_protocol` / asset provider 可加载运行时下载的页面，P1 实测通过），详见 D-023。
-- **相关**：[extension-workflow.md §7](./extension-workflow.md)（吸收本条有效内容） · [modules/extension-center/roadmap.md](./modules/extension-center/roadmap.md) · [ARCHITECTURE.md §2](./ARCHITECTURE.md#2--ai-编码规则--禁止模式) · [D-017](./DECISIONS.md#d-017--network-probe-可选能力包可插拔高级组件) · [D-016](./DECISIONS.md#d-016--network-probe-独立一级模块与分期设计) · [D-013](./DECISIONS.md#d-013--roadmap-是-20-唯一执行真理源) · [D-006](./DECISIONS.md#d-006--文档只保留当前真理源与未完成事项) · [coding-standards.md §4/§7](./coding-standards.md)
+- **相关**：[extension-workflow.md §7](./extension-workflow.md)（吸收本条有效内容） · [modules/extension-center/roadmap.md](../modules/extension-center/roadmap.md) · [ARCHITECTURE.md §2](../reference/architecture.md#2--ai-编码规则--禁止模式) · [D-017](./decisions.md#d-017--network-probe-可选能力包可插拔高级组件) · [D-016](./decisions.md#d-016--network-probe-独立一级模块与分期设计) · [D-013](./decisions.md#d-013--roadmap-是-20-唯一执行真理源) · [D-006](./decisions.md#d-006--文档只保留当前真理源与未完成事项) · [coding-standards.md §4/§7](../how-to/coding-standards.md)
 
 ## D-021 · Rust target 目录外迁 + sccache + 暂停 Windows CI
 
@@ -80,7 +80,7 @@
   - 新增 `src-tauri/.cargo/sccache-wrapper.sh`（executable、必须随仓库提交），是 wrapper 路径的承载者。Windows 重启时如果仍然想用 sccache，需要再加一份 `sccache-wrapper.ps1` 并把 `rustc-wrapper` 改成可执行扩展名分流。
   - 重新启用 Windows CI 时，按 `ci-build.yml` 中保留的注释恢复矩阵条目与三个被删步骤即可，diff 在 git history 里。
   - 旧 `src-tauri/target/` 已移入废纸篓（mavis-trash），可从 Finder 回收站恢复或清空。
-- **相关**：[src-tauri/.cargo/config.toml](../src-tauri/.cargo/config.toml) · [.github/workflows/ci-build.yml](../.github/workflows/ci-build.yml) · [AGENTS.md 跨平台 cfg 铁律](../AGENTS.md) · [D-018](#d-018--智能体工具文件不进版本库)
+- **相关**：[src-tauri/.cargo/config.toml](../../src-tauri/.cargo/config.toml) · [.github/workflows/ci-build.yml](../../.github/workflows/ci-build.yml) · [AGENTS.md 跨平台 cfg 铁律](../../AGENTS.md) · [D-018](#d-018--智能体工具文件不进版本库)
   - 注：`.vscode/settings.json` 的 `rust-analyzer.cargo.targetDir` 同步点是**本机配置**（`.vscode/` 整体在 `.gitignore`），未入版本库；新克隆者按本决策手动加一行即可。
 - **2026-09-05 增补（CI sccache 现况修正）**：`macos-latest`（arm64）runner 自带 Homebrew `sccache`，本决策「CI 默认不带 sccache、自动走 fallback」的假设已失效。wrapper 走上 sccache 分支后，`cargo metadata`（`cargo deny check` 内部）会因 rustc 路径不可执行报 `could not execute process .../rustc -vV (never executed)`。修正：`security.yml` 与 `ci-build.yml` 的 cargo job 统一设 `RUSTC_WRAPPER: ""`（空串 = 禁用 wrapper，即 config 注释里的逃逸口），wrapper 脚本 `sccache-wrapper.sh` 增加 `[ -x "$1" ]` 守卫、编译器不可执行时回退直连 rustc。
 - **2026-09-07 增补（release 校验脚本同步放宽）**：Windows CI 暂停后 `verify-release-assets.mjs` 仍硬性要求 `windows-x86_64-*.{msi,exe,exe.sig}`、`generate-updater-json.mjs` 仍硬性要求 `windows-x86_64` 平台，publish job 在 tag 推送时必然失败（Windows MSI found 0）。修正：两个脚本增加 `BENCH_RELEASE_WINDOWS_DISABLED` 环境开关（publish job 设 `"true"`；缺省仍 fail-closed 要求 Windows 产物），并把 `windows: true` 标记进必需清单、平台必需集按 `requireWindows` 过滤。重新启用 Windows CI 时删除该环境变量即可恢复三平台严格校验。
@@ -89,7 +89,7 @@
 
 - **日期**：2026-09-03
 - **状态**：采纳
-- **背景**：用户将 `/Users/apple/KnowledgeBase/photo-triage/`（Python 独立桌面应用，照片「留/删」筛选）迁移进 Bench。该功能在 R00 冻结 2.0 范围之后提出，不列于 [ROADMAP.md](./ROADMAP.md) R00–R10 执行序列。
+- **背景**：用户将 `/Users/apple/KnowledgeBase/photo-triage/`（Python 独立桌面应用，照片「留/删」筛选）迁移进 Bench。该功能在 R00 冻结 2.0 范围之后提出，不列于 [ROADMAP.md](../roadmap/ROADMAP.md) R00–R10 执行序列。
 - **决策**：
   1. **不进入 2.0（R00–R10）执行序列**；Photo Triage 作为 **2.0 并行旁路的独立模块 1.0**（对齐 D-016 Network Probe 先例）实现，macOS-only，不得改动 2.0 版本号/发布门禁；与 2.0 争用人力时优先 2.0。
   2. **迁移一致性为硬约束**：稳定 ID（`md5(相对路径去扩展名)[:12]`）与 manifest 结构与 Python 版逐字节一致，已有 Python 扫描结果直接复用、留/删标记不丢失；manifest 不得为加字段破坏该承诺（因此清单文件不引入 schema_version，改用大小上限 + 原子写治理）。
@@ -116,7 +116,7 @@
   - 新增代码不得在 `lib.rs` setup / 启动关键路径引入 osascript、System Events 或其他 TCC 触发调用（见 ARCHITECTURE §2 第 12 条）。
   - 旧版本已启用自启动的用户（System Events 登录项）：更新后首次开机仍会按旧机制隐藏启动（无 `--hidden`，会显示主窗口）；在设置中关闭再开启一次即可迁移到新机制。
   - 新机制的自启动条目在系统设置中显示于「允许在后台」而非「打开时打开」；应用内开关是主控制入口。
-- **相关**：[system-settings roadmap](./modules/system-settings/roadmap.md) · [quick-launch roadmap](./modules/quick-launch/roadmap.md) · [ARCHITECTURE §2](./ARCHITECTURE.md#2--ai-编码规则--禁止模式)
+- **相关**：[system-settings roadmap](../modules/system-settings/roadmap.md) · [quick-launch roadmap](../modules/quick-launch/roadmap.md) · [ARCHITECTURE §2](../reference/architecture.md#2--ai-编码规则--禁止模式)
 
 ## D-018 · 智能体工具文件不进版本库
 
@@ -128,7 +128,7 @@
   3. **误提交的处理方式**：发现已跟踪的忽略类文件时用 `git rm --cached` 移除并补 `.gitignore` 规则，保留本地文件；不做历史改写，除非用户明确要求。
 - **理由**：智能体目录与个人会话数据属于本机工作环境，提交进远端会污染仓库、泄漏个人工作痕迹，也让新克隆者背上无意义的文件；规则入口只需保留跨工具通用的两份文件。
 - **影响**：新增 AI 工具接入时不得把工具私有目录提交进库；`AGENTS.md` 头部描述与该决策保持一致；CI/pre-commit 不为此设额外门禁，`.gitignore` 为唯一防线。
-- **相关**：[AGENTS.md](../AGENTS.md) · [.gitignore](../.gitignore)
+- **相关**：[AGENTS.md](../../AGENTS.md) · [.gitignore](../../.gitignore)
 
 ## D-017 · Network Probe 可选能力包（可插拔高级组件）
 
@@ -146,7 +146,7 @@
   6. **范围边界**：可选包不得扩大硬红线（仍禁止攻击能力）；不得绕过 IPC 契约与 `cancelScan` 幂等；主包与可选包共享同一 `nodeId` / session / 错误模型。
 - **理由**：主包保持轻量与急救可用性；重库与内核/BPF 能力按需安装，降低默认攻击面与体积，同时保留专业探测深度。
 - **影响**：Post-MVP 实现 Adv/C 前须先落地 pack manifest、安装/卸载 IPC、校验与能力矩阵；AI 不得把 MVP 工具改成「点击下载」；不得实现运行时动态链 crate。
-- **相关**：[network-probe design §9.7](./modules/network-probe/design.md) · [design-security](./modules/network-probe/design-security.md) · [roadmap](./modules/network-probe/roadmap.md) · [D-016](#d-016--network-probe-独立一级模块与分期设计) · [D-010](#d-010--默认使用-ad-hoc-macos-与-unsigned-windows-包)
+- **相关**：[network-probe design §9.7](../modules/network-probe/design.md) · [design-security](../modules/network-probe/design-security.md) · [roadmap](../modules/network-probe/roadmap.md) · [D-016](#d-016--network-probe-独立一级模块与分期设计) · [D-010](#d-010--默认使用-ad-hoc-macos-与-unsigned-windows-包)
 
 ## D-016 · Network Probe 独立一级模块与分期设计
 
@@ -162,7 +162,7 @@
   7. 与 `system-settings`/`dev-toolbox` 的 ping 最终共用 `net_probe` 实现；与 `port-manager` 划清「本机占用/Kill」vs「外部探测/指纹」边界。
 - **理由**：用户需要急救箱级诊断而非单次 ping；范围若不分期会吞噬 2.0 与安全边界；设计先行可避免实现期范围失控。用户已明确授权开始模块 1.0。
 - **影响**：允许按模块 roadmap 进入 `/feature` 实现 MVP；改设计须同步 `docs/modules/network-probe/*`；方向变更回写本条目；仍禁止把 Post-MVP 能力塞进首刀。
-- **相关**：[network-probe design](./modules/network-probe/design.md) · [L1 基础](./modules/network-probe/design-basic.md) · [测试](./modules/network-probe/design-test.md) · [安全](./modules/network-probe/design-security.md) · [发现](./modules/network-probe/design-discover.md) · [roadmap](./modules/network-probe/roadmap.md) · [D-017](#d-017--network-probe-可选能力包可插拔高级组件) · [D-014](#d-014--linux-不进入支持矩阵与-cicd)
+- **相关**：[network-probe design](../modules/network-probe/design.md) · [L1 基础](../modules/network-probe/design-basic.md) · [测试](../modules/network-probe/design-test.md) · [安全](../modules/network-probe/design-security.md) · [发现](../modules/network-probe/design-discover.md) · [roadmap](../modules/network-probe/roadmap.md) · [D-017](#d-017--network-probe-可选能力包可插拔高级组件) · [D-014](#d-014--linux-不进入支持矩阵与-cicd)
 
 ## D-015 · Command Center 作为可持久化的命令卡片库
 
@@ -171,7 +171,7 @@
 - **决策**：新增顶层 feature `command-center`，把常用命令/脚本以卡片形式持久化存储并可一键执行。卡片支持四种动作类型：`shell`（普通执行）、`shellAdmin`（经 osascript 提权执行）、`copy`（仅复制到剪贴板，作为速查库）、`open`（打开路径/URL）。卡片数据由 Rust 后端经 `persistence.rs` 原子写入 `dirs::config_dir()/bench/command-center/cards.json`，前端不直接持久化。执行经 `subprocess.rs` 捕获 stdout/stderr 并带超时；提权与删除卡片走 `DestructiveConfirmDialog` 二次确认，执行前明确展示完整命令。
 - **理由**：把"记不住、需重复运行、参数长、需提权"的运维/开发命令固化为可复用资产，让 Bench 从工具集合演进为可存储操作的入口；后端持有持久化与执行边界，renderer 只做展示与选择，避免任意命令绕过契约。
 - **影响**：新增命令必须同步 `contracts.ts` 与 `commands.rs`；卡片执行不得在组件里直接 `invoke`；跨平台差异由后端 `#[cfg]` 兜底（macOS/Windows 已支持，Linux 返回 `UNSUPPORTED`；Windows 提权进程脱离进程树，无输出且不可终止）。破坏性/提权动作必须二次确认并展示原文命令。
-- **相关**：[编码规范 §7 Rust后端](./coding-standards.md) · [ARCHITECTURE §2](./ARCHITECTURE.md)
+- **相关**：[编码规范 §7 Rust后端](../how-to/coding-standards.md) · [ARCHITECTURE §2](../reference/architecture.md)
 
 ## D-014 · Linux 不进入支持矩阵与 CI/CD
 
@@ -180,7 +180,7 @@
 - **决策**：Bench 只支持 macOS 14+ 与 Windows 11。所有 GitHub Actions runner、Tauri 构建目标、安装包、updater manifest 和发布聚合作业只覆盖这两个平台；通用自动化作业使用 macOS runner，不使用 Linux 作为廉价执行环境。
 - **理由**：CI 平台应与正式支持范围一致，避免 Linux 编译通过被误解为产品承诺，也避免后续 AI 持续维护不验收的平台分支。
 - **影响**：`.github/workflows/` 由 `pnpm run check:ci-platforms` fail-closed；不得新增 Linux runner、容器、包格式或发布说明。依赖锁文件中的平台可选包属于上游元数据，不代表支持范围。
-- **相关**：[2.0 最终路线图](./ROADMAP.md) · [CI workflow](../.github/workflows/ci-build.yml) · [编码规范 §9](./coding-standards.md#9-测试与门禁)
+- **相关**：[2.0 最终路线图](../roadmap/ROADMAP.md) · [CI workflow](../../.github/workflows/ci-build.yml) · [编码规范 §9](../how-to/coding-standards.md#9-测试与门禁)
 
 ## D-013 · ROADMAP 是 2.0 唯一执行真理源
 
@@ -190,7 +190,7 @@
 - **决策**：删除平行发布文档；`ROADMAP.md` 用 R00-R10 维护跨模块依赖、命令、证据、停止条件和人工批准边界。模块 `roadmap.md` 只保留未完成项，`design.md` 只保留长期约束，README 只做入口。
 - **理由**：一个任务只能有一个进度 owner。固定输入/输出和停止条件可以减少 AI 自行推断、漏掉真机证据或提前切版本。
 - **影响**：不得新增第二份 2.0 总路线图；更新跨模块发布顺序时只改 `ROADMAP.md`，并同步受影响模块 roadmap。
-- **相关**：[2.0 最终路线图](./ROADMAP.md) · [文档规范](./coding-standards.md#11-文档)
+- **相关**：[2.0 最终路线图](../roadmap/ROADMAP.md) · [文档规范](../how-to/coding-standards.md#11-文档)
 
 ## D-012 · Account Manager 使用有界同源浏览器状态与逐能力发布
 
@@ -199,7 +199,7 @@
 - **决策**：Session 只捕获 Station 精确 origin；Web Storage 和 IndexedDB 分别加密并设置 database/store/record/体积/timeout 上限，恢复前验证 origin 与 schema，不兼容值 fail-closed。平台能力由后端 DTO 返回 `supported/partial/unsupported/failed`；未完成真机验收时保持 `partial`。Windows WebView proxy 继续 `unsupported`，桌面登录失败不得回退共享系统浏览器。
 - **理由**：限制资源与 origin 可防止跨站污染和内存耗尽；逐能力状态将“已实现”和“已验证”分离。
 - **影响**：只有模块 roadmap 对应平台用例全部通过并补行为测试后，单项才能提升为 `supported`。
-- **相关**：[Account Manager design](./modules/account-manager/design.md) · [真机验收](./modules/account-manager/roadmap.md#真机验收步骤)
+- **相关**：[Account Manager design](../modules/account-manager/design.md) · [真机验收](../modules/account-manager/roadmap.md#真机验收步骤)
 
 ## D-011 · 2.0 保留既有 bundle identifier
 
@@ -208,7 +208,7 @@
 - **决策**：2.0 继续使用 `com.bench.app`，接受 Tauri 关于 `.app` 后缀的警告。未来改名必须单独设计 Keychain、数据目录、updater 和卸载/重装迁移，并从 1.23.0 真机升级验证。
 - **理由**：identifier 是持久化命名空间；兼容既有用户优先于消除构建警告。
 - **影响**：后续 AI 不得直接修改 identifier。
-- **相关**：[2.0 最终路线图](./ROADMAP.md) · [Dev/Prod 共存](./dev-prod-coexistence.md)
+- **相关**：[2.0 最终路线图](../roadmap/ROADMAP.md) · [Dev/Prod 共存](../how-to/dev-prod-coexistence.md)
 
 ## D-010 · 默认使用 ad-hoc macOS 与 unsigned Windows 包
 
@@ -217,7 +217,7 @@
 - **决策**：`BENCH_OS_SIGNING_MODE` 默认 `unsigned`：macOS 使用 ad-hoc 签名，Windows 生成 unsigned MSI/NSIS；Release 必须附 `OS-SIGNING-NOTICE.txt` 和 `SHA256SUMS`。Tauri updater 私钥、`.sig`、三目标 manifest 和签名验证继续 fail-closed。取得证书后再切到 `signed`，不改发布脚本主流程。
 - **理由**：没有证书时无法制造 OS 信任；明确提示和 updater 独立签名可以保证产物可追溯与应用内更新完整性。
 - **影响**：Gatekeeper/Unknown Publisher 提示是已知限制。正式 notarization、Authenticode 和对应信任验收延期，不得伪装为已完成。
-- **相关**：[CI workflow](../.github/workflows/ci-build.yml) · [Updater roadmap](./modules/updater/roadmap.md) · [R05](./ROADMAP.md#r05-updater供应链与-rc-流水线)
+- **相关**：[CI workflow](../../.github/workflows/ci-build.yml) · [Updater roadmap](../modules/updater/roadmap.md) · [R05](../roadmap/ROADMAP.md#r05-updater供应链与-rc-流水线)
 
 ## D-007 · Account Manager 使用单写者状态与后端授权票据
 
@@ -226,7 +226,7 @@
 - **决策**：Session 只保留 canonical `SessionRecord`；mutation 由带 revision 和原子持久化的 coordinator 串行提交。外部登录由后端签发并原子消费短期一次性 ticket，callback、候选账号和 credential origin 固化在 ticket 中。
 - **理由**：单一真理源消除并发覆盖；后端票据把 renderer 限制为展示/选择层，防止参数替换和重放。
 - **影响**：禁止恢复旧双写或接受 renderer 提交最终可信 URL。
-- **相关**：[Account Manager design](./modules/account-manager/design.md)
+- **相关**：[Account Manager design](../modules/account-manager/design.md)
 
 ## D-006 · 文档只保留当前真理源与未完成事项
 
@@ -235,7 +235,7 @@
 - **决策**：roadmap 只保留当前约束、未完成项和验收条件；长期架构/安全边界进入 design 或规范；已完成历史由 Git 保留；无独有信息的专题文档直接删除，不留跳转空壳。
 - **理由**：减少多个真理源和过期描述，让能力较弱的 AI 直接找到修改入口和验收条件。
 - **影响**：新增文档前必须证明存在独有、长期有效的信息；README 不复制功能清单。
-- **相关**：[文档索引](./README.md) · [编码规范 §11](./coding-standards.md#11-文档)
+- **相关**：[文档索引](../../README.md) · [编码规范 §11](../how-to/coding-standards.md#11-文档)
 
 ## D-005 · 应用清单单一真理源与跨平台能力状态
 
@@ -244,7 +244,7 @@
 - **决策**：App Manager inventory 是应用清单唯一真理源，输出带 revision 的不可变 snapshot；Quick Launch 只消费 snapshot。启动、定位、升级、卸载 IPC 只接受稳定 ID；平台路径、AUMID、package ID、URL 和校验材料由后端 canonical state 解析。能力使用 `supported/partial/unsupported/failed`；模糊匹配只用于建议，破坏性动作要求 exact evidence。
 - **理由**：共享任务唯一 owner 可避免并发覆盖；窄 IPC 建立 renderer 信任边界；显式状态防止失败被伪装为空结果成功。
 - **影响**：禁止 Quick Launch 新建扫描流程，禁止 renderer 提交最终执行路径或更新 URL。
-- **相关**：[App Manager design](./modules/app-manager/design.md) · [Quick Launch design](./modules/quick-launch/design.md)
+- **相关**：[App Manager design](../modules/app-manager/design.md) · [Quick Launch design](../modules/quick-launch/design.md)
 
 ## D-004 · AGENTS.md 是逻辑入口，冲突时停止问人
 
@@ -252,4 +252,4 @@
 - **状态**：采纳
 - **决策**：所有 AI 工具入口导向 `AGENTS.md`；裁决优先级为 `.cursorrules > AGENTS.md > docs/*.md`。文档未覆盖、规则冲突、危险操作或不理解既有模式时必须停止并询问用户。
 - **理由**：工具的物理入口无法统一，但逻辑入口和防呆行为可以统一；猜错的代价高于多问一次。
-- **相关**：[AGENTS.md](../AGENTS.md) · [.cursorrules](../.cursorrules) · [AI workflows](./AI-WORKFLOWS.md)
+- **相关**：[AGENTS.md](../../AGENTS.md) · [.cursorrules](../../.cursorrules) · [AI workflows](../how-to/ai-workflows.md)

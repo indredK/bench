@@ -1,10 +1,10 @@
 # Bench 2.0 最终路线图
 
-> ## 🔄 降级公告（2026-09-08 · [D-023](./DECISIONS.md#d-023--20-目标变更为插件化生态r00r10-全部降级)，进度更新同日）
+> ## 🔄 降级公告（2026-09-08 · [D-023](../explanation/decisions.md#d-023--20-目标变更为插件化生态r00r10-全部降级)，进度更新同日）
 >
 > **2.0 的目标已变更为「自带少量核心能力 + 绝大部分功能插件化 + 插件市场（第三方生态）」。本文件的 R00–R10 全部降级为 backlog，不再是 2.0 门禁。**
 >
-> **插件化执行进度（P 阶段，唯一状态清单见 [modules/extension-center/roadmap.md](./modules/extension-center/roadmap.md)）**：
+> **插件化执行进度（P 阶段，唯一状态清单见 [modules/extension-center/roadmap.md](../modules/extension-center/roadmap.md)）**：
 >
 > | 阶段                                                                    | 状态      |
 > | ----------------------------------------------------------------------- | --------- |
@@ -16,11 +16,11 @@
 >
 > - **P3.1（包完整性 + 降级防护）是硬阻塞**：完成前不得实现 download/extract，否则产物格式上线后返工。
 > - **P3.4（bundled 随正式包发布）与 P6（Windows release）是发布硬前置**：插件化能力在两者完成前不得随正式版发布。
-> - 本文件与 [GAP-TO-2.0.md](../GAP-TO-2.0.md) 的内容**保留作技术债台账**，供插件化迁移时按模块评估，不删除。
+> - 本文件与 [GAP-TO-2.0.md](./GAP-TO-2.0.md) 的内容**保留作技术债台账**，供插件化迁移时按模块评估，不删除。
 > - 例外：涉及**数据安全与签名链**的条目（A5 持久化迁移、A3-1 RC dry-run、minisign 全链）在插件分发启用前必须重新评估。
-> - 采用 **B′ 方案**（宿主 + 可下载前端 bundle + 独立 WebView + IPC 命令白名单），架构边界见 [extension-workflow.md](./extension-workflow.md)。
+> - 采用 **B′ 方案**（宿主 + 可下载前端 bundle + 独立 WebView + IPC 命令白名单），架构边界见 [extension-workflow.md](../explanation/extension-workflow.md)。
 
-本文件是 2.0 收尾的唯一跨模块执行清单。模块级约束和未完成项见 [modules/](./modules/README.md)，方向性取舍见 [DECISIONS.md](./DECISIONS.md)。已完成历史由 Git 保留。
+本文件是 2.0 收尾的唯一跨模块执行清单。模块级约束和未完成项见 [modules/](../modules/README.md)，方向性取舍见 [DECISIONS.md](../explanation/decisions.md)。已完成历史由 Git 保留。
 
 ## 发布契约
 
@@ -28,10 +28,10 @@
 - 目标平台：macOS 14+ arm64、macOS 14+ x64、Windows 11 x64。Linux 不受支持，也不进入 CI/CD、构建或发布流程。
 - Quick Launch、App Manager、Account Manager 必须在 macOS/Windows 保持相同核心语义；不支持的子能力返回 `partial/unsupported/failed`，不得伪装为空结果成功。
 - Clean Space、Hardware、System Settings 维持 macOS-only；Windows 隐藏导航，直达路由显示 unsupported。
-- 按 [D-010](./DECISIONS.md#d-010--默认使用-ad-hoc-macos-与-unsigned-windows-包) 默认生成 macOS ad-hoc 和 Windows unsigned 包。Apple notarization、Windows Authenticode 延期，不得伪装为已签名。
+- 按 [D-010](../explanation/decisions.md#d-010--默认使用-ad-hoc-macos-与-unsigned-windows-包) 默认生成 macOS ad-hoc 和 Windows unsigned 包。Apple notarization、Windows Authenticode 延期，不得伪装为已签名。
 - Tauri updater minisign 不延期：三目标 updater bundle、`.sig`、`latest.json`、`SHA256SUMS` 和 `OS-SIGNING-NOTICE.txt` 缺一即停止。
 - 云同步、AI Agent、TOTP、播放器、白噪音等新品类不进入 2.0。
-- **Network Probe**（网络探测）按 [D-016](./DECISIONS.md#d-016--network-probe-独立一级模块与分期设计) **不进入 2.0（R00–R10）执行序列**；作为 **2.0 旁路的独立模块 1.0（MVP A+B）** 已实现，见 [modules/network-probe](./modules/network-probe/)；Post-MVP（测速/remote/高级探测）仍不进 2.0 门禁。
+- **Network Probe**（网络探测）按 [D-016](../explanation/decisions.md#d-016--network-probe-独立一级模块与分期设计) **不进入 2.0（R00–R10）执行序列**；作为 **2.0 旁路的独立模块 1.0（MVP A+B）** 已实现，见 [modules/network-probe](../modules/network-probe)；Post-MVP（测速/remote/高级探测）仍不进 2.0 门禁。
 
 平台状态：
 
@@ -130,7 +130,7 @@ git diff --check
 
 **代码修改**：是。
 
-**范围**：`src/features/account-manager/`、`src-tauri/src/account_manager/`、IPC 契约、i18n、相关测试、[模块 roadmap](./modules/account-manager/roadmap.md)。
+**范围**：`src/features/account-manager/`、`src-tauri/src/account_manager/`、IPC 契约、i18n、相关测试、[模块 roadmap](../modules/account-manager/roadmap.md)。
 
 **步骤**：
 
@@ -191,7 +191,7 @@ pnpm run test:critical
 
 **代码修改**：默认否；发现缺陷时回到 `/fix`，修复并重跑本任务。
 
-**范围**：[System Settings roadmap](./modules/system-settings/roadmap.md)、[Clean Space roadmap](https://github.com/kindred-plugin-market/plugin-market/tree/main/extensions/clean-space/docs/roadmap.md)。
+**范围**：[System Settings roadmap](../modules/system-settings/roadmap.md)、[Clean Space roadmap](https://github.com/kindred-plugin-market/plugin-market/tree/main/extensions/clean-space/docs/roadmap.md)。
 
 **步骤**：
 
@@ -220,7 +220,7 @@ cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
 
 **代码修改**：默认否；只有发现可复现缺陷时进入 `/fix`。
 
-**范围**：[Account Manager 真机验收](./modules/account-manager/roadmap.md#真机验收步骤)。
+**范围**：[Account Manager 真机验收](../modules/account-manager/roadmap.md#真机验收步骤)。
 
 **步骤**：严格按模块 roadmap 在全新 macOS 测试用户和 Windows Sandbox/VM 执行 Keyring、Cookie/Web Storage/IndexedDB、账号隔离、probe、批量 partial、Deep Link 冷/热启动、第二实例、删除 partial 和 Windows proxy fail-closed。
 
@@ -245,7 +245,7 @@ cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
 
 **代码修改**：是。
 
-**范围**：`src/features/updater/`、`src-tauri/src/app_updater/`、`scripts/release/`、`.github/workflows/ci-build.yml`、[Updater roadmap](./modules/updater/roadmap.md)。
+**范围**：`src/features/updater/`、`src-tauri/src/app_updater/`、`scripts/release/`、`.github/workflows/ci-build.yml`、[Updater roadmap](../modules/updater/roadmap.md)。
 
 **步骤**：
 

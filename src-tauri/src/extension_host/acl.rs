@@ -18,7 +18,7 @@ pub const EXT_WINDOW_PREFIX: &str = "ext-";
 /// 新增条目时必须同步：
 /// 1. 命令实现本身已存在于 `invoke_handler`；
 /// 2. 该命令对插件场景是安全的（无凭据读写、无跨账号、无系统级破坏面）；
-/// 3. `docs/extension-workflow.md` 的能力面章节。
+/// 3. `docs/explanation/extension-workflow.md` 的能力面章节。
 pub const EXTENSION_ALLOWED_COMMANDS: &[&str] = &[
     // extension host 自身
     "ext_poc_report",

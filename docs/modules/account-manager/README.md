@@ -1,7 +1,7 @@
 # Account Manager（账号管理）
 
-> **完备功能规格** → [product-specs/account-manager.md](../../product-specs/account-manager.md)
-> **规划功能** → [planned/account-manager.md](../../planned/account-manager.md)
+> **完备功能规格** → [product-specs/account-manager.md](../../reference/product-specs/account-manager.md)
+> **规划功能** → [planned/account-manager.md](../../roadmap/planned/account-manager.md)
 
 代码：`src/features/account-manager/` · `src-tauri/src/account_manager/`
 

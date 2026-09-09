@@ -1,6 +1,6 @@
 # Bench 功能定位与闭环
 
-> 产品**定位**（长期有效）与**闭环结论**（静态梳理）见本文档；各模块功能细节以 `docs/product-specs/<模块>.md` 为准，规划见 `docs/planned/<模块>.md`。
+> 产品**定位**（长期有效）与**闭环结论**（静态梳理）见本文档；各模块功能细节以 `docs/reference/product-specs/<模块>.md` 为准，规划见 `docs/roadmap/planned/<模块>.md`。
 > 状态：定位快照（2026-08-04），闭环结论已与代码核对。
 
 ## 一、功能定位
@@ -61,7 +61,7 @@
 
 ## 二、功能闭环（摘要）
 
-**整体自洽**：启动 → 侧边栏导航 → 各功能模块 → 价值达成，主链路完整、无致命断点。各模块闭环细节（入口/流程/状态/断点）见 `docs/product-specs/` 对应文件。
+**整体自洽**：启动 → 侧边栏导航 → 各功能模块 → 价值达成，主链路完整、无致命断点。各模块闭环细节（入口/流程/状态/断点）见 `docs/reference/product-specs/` 对应文件。
 
 **已解决断点**（2026-08-04）：Network Probe ComingSoon「规划中」标注、`dev-cleaner` 死入口清理、`port-manager` 根路径冲突——均已修复；System Settings Gatekeeper 只读为有意设计（有 `gatekeeperReadonly` 说明）。
 

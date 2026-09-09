@@ -1,7 +1,7 @@
 # Network Probe（网络探测 / 网络急救箱）
 
-> **完备功能规格** → [product-specs/network-probe.md](../../product-specs/network-probe.md)
-> **规划功能** → [planned/network-probe.md](../../planned/network-probe.md)
+> **完备功能规格** → [product-specs/network-probe.md](../../reference/product-specs/network-probe.md)
+> **规划功能** → [planned/network-probe.md](../../roadmap/planned/network-probe.md)
 
 代码：`src/features/network-probe/` · 后端 `src-tauri/src/net_probe/`
 
@@ -18,11 +18,11 @@
 | [design-discover.md](./design-discover.md) | L1「发现」实现设计（局域网 / NAT / 多节点 · Post-MVP）               |
 | [prototype.html](./prototype.html)         | **可交互 UI 原型**：L1×4 · L2 底栏 · L3 中间 · 命令透明              |
 | [scenarios.md](./scenarios.md)             | **场景用例索引** + L2 覆盖矩阵                                       |
-| [scenarios/](./scenarios/)                 | 分册场景：急救 / 测试 / 安全 / 发现 / 横切护栏                       |
+| [scenarios/](./scenarios)                 | 分册场景：急救 / 测试 / 安全 / 发现 / 横切护栏                       |
 | [defaults.md](./defaults.md)               | **默认资源目录**：推荐 DNS、Captive、公网 IP API、站点包等           |
 | [knowledge-graph.md](./knowledge-graph.md) | Mermaid 总览图谱                                                     |
 | [roadmap.md](./roadmap.md)                 | 实施路线（未完成项已归入 planned）                                   |
-| [DECISIONS.md D-016](../../DECISIONS.md)   | 方向性决策（入口、分期、平台、红线）                                 |
-| [DECISIONS.md D-017](../../DECISIONS.md)   | 可选能力包（可插拔高级组件）                                         |
+| [DECISIONS.md D-016](../../explanation/decisions.md)   | 方向性决策（入口、分期、平台、红线）                                 |
+| [DECISIONS.md D-017](../../explanation/decisions.md)   | 可选能力包（可插拔高级组件）                                         |
 
-全局顺序：[2.0 最终路线图](../../ROADMAP.md)（本模块**不进入 2.0 执行序列**；与 2.0 并行旁路）。
+全局顺序：[2.0 最终路线图](../../roadmap/ROADMAP.md)（本模块**不进入 2.0 执行序列**；与 2.0 并行旁路）。

@@ -1,8 +1,8 @@
 # Extension 契约规格（Extension Spec）
 
 > **定位**：本文是插件（extension）**契约的唯一规格真相源**（Reference 层）。任何 manifest 字段、签名规则、registry 格式、产物格式的改动，都必须先改本文再改代码。
-> **执行顺序与状态**：见 [modules/extension-center/roadmap.md](./modules/extension-center/roadmap.md)。
-> **架构边界与工作流**：见 [extension-workflow.md](./extension-workflow.md)。
+> **执行顺序与状态**：见 [modules/extension-center/roadmap.md](../modules/extension-center/roadmap.md)。
+> **架构边界与工作流**：见 [extension-workflow.md](../explanation/extension-workflow.md)。
 > **版本**：本文对应 **manifest schema v2**（P3.1 起）。schema v1 的迁移说明见 §3.6。
 > **最后更新**：2026-09-08
 
@@ -12,14 +12,14 @@
 
 | 术语                     | 含义                                                                                                                                                                                  |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **extension / 插件**     | 运行时可安装、可卸载的前端 bundle 能力单元。**不使用 "plugin"** —— Tauri 官方 plugin 指编译期 Cargo crate（见 [D-023](./DECISIONS.md#d-023--20-目标变更为插件化生态r00r10-全部降级)） |
+| **extension / 插件**     | 运行时可安装、可卸载的前端 bundle 能力单元。**不使用 "plugin"** —— Tauri 官方 plugin 指编译期 Cargo crate（见 [D-023](../explanation/decisions.md#d-023--20-目标变更为插件化生态r00r10-全部降级)） |
 | **宿主（host）**         | Bench 主程序（Rust + WebView），提供 asset provider、IPC 网关、生命周期管理                                                                                                           |
 | **bundled**              | 随主包构建并发布的官方插件                                                                                                                                                            |
 | **market**               | 经 canonical registry 分发的插件（官方或第三方）                                                                                                                                      |
 | **能力面（capability）** | 宿主暴露给 extension 空间的一组 IPC 命令                                                                                                                                              |
 | **canonical 文本**       | 用于签名的确定性序列化字节（§4.1），签名与验签必须逐字节一致                                                                                                                          |
 
-**宿主与插件的信任边界**：插件是**不受信任的前端代码**。它可以调用能力面内的命令，除此之外不得触及宿主内部。下载 URL / 版本 / hash / 签名材料**只由后端配置或 canonical registry 决定**，renderer 不得提交最终下载地址或可执行路径（同 [D-017](./DECISIONS.md#d-017--network-probe-可选能力包可插拔高级组件) 第 4 条确立的信任边界原则）。
+**宿主与插件的信任边界**：插件是**不受信任的前端代码**。它可以调用能力面内的命令，除此之外不得触及宿主内部。下载 URL / 版本 / hash / 签名材料**只由后端配置或 canonical registry 决定**，renderer 不得提交最终下载地址或可执行路径（同 [D-017](../explanation/decisions.md#d-017--network-probe-可选能力包可插拔高级组件) 第 4 条确立的信任边界原则）。
 
 ---
 
@@ -250,7 +250,7 @@
 ### 5.3 吊销语义
 
 - 命中 `revoked` → 宿主**强制禁用**该插件（写 `.disabled`），插件中心显著警示，用户可卸载。
-- **不静默删除** —— 能力凭空消失的体验更差，且违背 [D-024](./DECISIONS.md#d-024--extension-仓库组织与-photo-triage-试点拆法)「bundled 保证功能不真空」的取向。
+- **不静默删除** —— 能力凭空消失的体验更差，且违背 [D-024](../explanation/decisions.md#d-024--extension-仓库组织与-photo-triage-试点拆法)「bundled 保证功能不真空」的取向。
 - 对标 VS Code Marketplace 的 block list（确认恶意后下架并强制卸载已安装实例）。
 
 ---
@@ -417,4 +417,4 @@ pnpm run check:docs
 
 ### 9.3 双平台
 
-macOS 与 Windows runner 必须同时全绿（P3.2 起）。本机 macOS 编译通过**不能替代**双平台验证（[coding-standards.md §7.4.1](./coding-standards.md)）。
+macOS 与 Windows runner 必须同时全绿（P3.2 起）。本机 macOS 编译通过**不能替代**双平台验证（[coding-standards.md §7.4.1](../how-to/coding-standards.md)）。

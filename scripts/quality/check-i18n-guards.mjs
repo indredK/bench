@@ -489,7 +489,7 @@ export function runI18nGuards() {
 /**
  * 插件 locales 校验（P5）：`extensions/<id>/locales/{zh,en}.json` 必须成对、
  * 结构一致、包一层 `translation`。插件测试/构建体系消费这些文件；
- * 宿主主包不得残留插件命名空间（迁移清单见 docs/extension-workflow.md §11）。
+ * 宿主主包不得残留插件命名空间（迁移清单见 docs/explanation/extension-workflow.md §11）。
  */
 export function validatePluginLocales() {
   const extensionsDir = path.join(rootDir, "extensions")

@@ -1,6 +1,6 @@
 # Command Center 技术设计
 
-见 [DECISIONS D-015](../../DECISIONS.md)。
+见 [DECISIONS D-015](../../explanation/decisions.md)。
 
 ## 边界
 

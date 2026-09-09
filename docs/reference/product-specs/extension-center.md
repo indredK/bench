@@ -2,7 +2,7 @@
 
 > 本文件是 extension-center 模块的**完备产品规格**。一切功能改动、优化、bug 修复都必须同步更新本文件。
 > 自包含、可移植：复制到任何项目或交给任何 AI，可据此完整复刻本模块功能。
-> **当前进度**：P2 骨架已落地，P4 完整化为待实现（见下方状态标记与 [../planned/extension-center.md](../planned/extension-center.md)）。
+> **当前进度**：P2 骨架已落地，P4 完整化为待实现（见下方状态标记与 [../planned/extension-center.md](../../roadmap/planned/extension-center.md)）。
 
 ## 1. 定位
 

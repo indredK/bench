@@ -1,7 +1,7 @@
 # Updater（更新器）
 
-> **完备功能规格** → [product-specs/updater.md](../../product-specs/updater.md)
-> **规划功能** → [planned/updater.md](../../planned/updater.md)
+> **完备功能规格** → [product-specs/updater.md](../../reference/product-specs/updater.md)
+> **规划功能** → [planned/updater.md](../../roadmap/planned/updater.md)
 
 代码：`src/features/updater/`，UI 入口为 `src/components/common/UpdateDialog.tsx`。
 

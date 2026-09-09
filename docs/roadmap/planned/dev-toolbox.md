@@ -17,7 +17,7 @@
 
 ## 远期
 
-- [ ] 全局路线图（`docs/ROADMAP.md`）未给 dev-toolbox 单独 R 编号段；相关收容/迁移决策记录于模块 README（Clean Space、Network Probe 已迁出）。
+- [ ] 全局路线图（`docs/roadmap/ROADMAP.md`）未给 dev-toolbox 单独 R 编号段；相关收容/迁移决策记录于模块 README（Clean Space、Network Probe 已迁出）。
 - [ ] 工具能力扩充方向（如文件哈希、端口连通性检测 `port_check` 已存在后端命令但未见本页 UI 接入）。
 
 ## 变更记录

@@ -279,4 +279,4 @@ ASN（可选第二跳）：
 - [design.md §10.1 / §12.5](./design.md)
 - [design-basic.md](./design-basic.md) · [design-test.md](./design-test.md)
 - [scenarios.md](./scenarios.md)
-- [D-017](../../DECISIONS.md)（本目录 ≠ 能力包）
+- [D-017](../../explanation/decisions.md)（本目录 ≠ 能力包）

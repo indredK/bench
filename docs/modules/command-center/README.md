@@ -1,7 +1,7 @@
 # Command Center（命令中心）
 
-> **完备功能规格** → [product-specs/command-center.md](../../product-specs/command-center.md)
-> **规划功能** → [planned/command-center.md](../../planned/command-center.md)
+> **完备功能规格** → [product-specs/command-center.md](../../reference/product-specs/command-center.md)
+> **规划功能** → [planned/command-center.md](../../roadmap/planned/command-center.md)
 
 代码：`src/features/command-center/` · `src-tauri/src/command_center/`
 
@@ -12,4 +12,4 @@
 | [design.md](./design.md)   | 持久化、执行边界、安全约束与前端交互 |
 | [roadmap.md](./roadmap.md) | 实施路线（未完成项已归入 planned）   |
 
-全局顺序：[2.0 最终路线图](../../ROADMAP.md)
+全局顺序：[2.0 最终路线图](../../roadmap/ROADMAP.md)

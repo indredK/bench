@@ -1,10 +1,10 @@
 # Extension Center Roadmap
 
 > **本文件是插件化（P0–P6）的执行状态唯一清单**，也是下一步执行顺序的唯一依据。
-> **契约规格**（manifest / 签名 / registry / 产物格式）：[extension-spec.md](../../extension-spec.md)
-> **架构边界与工作流**（含作者侧流程）：[extension-workflow.md](../../extension-workflow.md)
-> **插件中心功能规格**：[product-specs/extension-center.md](../../product-specs/extension-center.md) ｜ **未完成项**：[planned/extension-center.md](../../planned/extension-center.md)
-> **方向性决策**：[DECISIONS.md](../../DECISIONS.md)（D-023 / D-024）
+> **契约规格**（manifest / 签名 / registry / 产物格式）：[extension-spec.md](../../reference/extension-spec.md)
+> **架构边界与工作流**（含作者侧流程）：[extension-workflow.md](../../explanation/extension-workflow.md)
+> **插件中心功能规格**：[product-specs/extension-center.md](../../reference/product-specs/extension-center.md) ｜ **未完成项**：[planned/extension-center.md](../../roadmap/planned/extension-center.md)
+> **方向性决策**：[DECISIONS.md](../../explanation/decisions.md)（D-023 / D-024）
 > **最后更新**：2026-09-08（P3 路线经行业最佳实践复核后重排，见「附录 B　重排依据」）。
 
 ## 成本原则（贯穿全部阶段）
@@ -18,7 +18,7 @@
 | 插件签名                                           | ✅ minisign，私钥本地保管 + CI 走 GitHub Secrets                                                                        | 零费用；复用 `updater/keys/` 既有密钥链                                                                                                                    |
 | 更新框架                                           | ❌ **不引入 TUF**                                                                                                       | TUF 需在线 timestamp/snapshot 服务与密钥轮换仪式，持续运维成本远大于本规模收益；改用「trusted comment + 版本单调性 + expiresAt」三条低成本措施达到同等效果 |
 | 恶意代码沙箱动态检测 / marketplace 级 malware 扫描 | ❌ 不做                                                                                                                 | VS Code 那套 clean room VM + 多引擎扫描年度成本极高；改为「registry PR 人工审核 + 吊销通道 + ACL 最小授权」组合                                            |
-| Apple notarization / Windows Authenticode          | ❌ 维持 unsigned                                                                                                        | 同 [D-010](../../DECISIONS.md#d-010--默认使用-ad-hoc-macos-与-unsigned-windows-包)，不为一锤子证书付费                                                     |
+| Apple notarization / Windows Authenticode          | ❌ 维持 unsigned                                                                                                        | 同 [D-010](../../explanation/decisions.md#d-010--默认使用-ad-hoc-macos-与-unsigned-windows-包)，不为一锤子证书付费                                                     |
 
 ---
 
@@ -44,7 +44,7 @@
 > **P3.2–P4 已完成（2026-09-08）**：实现、单测与本地门禁全绿。带 \* 项含外部前置——P3.2 双平台证据待下次 push 的 Windows runner 实跑确认；P3.4 真机验收待打一次 release 包全新安装；P4 端到端验收待 registry 私钥环境签出首批插件并配置 `BENCH_EXT_REGISTRY_URL`。
 > **P6 是发布硬前置**：插件化能力在 Windows runner 复验前不得随正式版发布（D-023）。
 
-**契约前置**：P3.1 及之后的实施一律以 [extension-spec.md](../../extension-spec.md) 为契约真相源 —— 改代码前先改规格。
+**契约前置**：P3.1 及之后的实施一律以 [extension-spec.md](../../reference/extension-spec.md) 为契约真相源 —— 改代码前先改规格。
 
 ---
 
@@ -93,7 +93,7 @@
 
 ### 1. 逐文件 hash 清单签名（A1）
 
-> 完整字段定义、canonical 文本规则、验签流程见 [extension-spec.md §3 / §4](../../extension-spec.md)。
+> 完整字段定义、canonical 文本规则、验签流程见 [extension-spec.md §3 / §4](../../reference/extension-spec.md)。
 
 - [x] manifest 升级到 **schema v2**，新增必签字段 `files: [{ path, sha256, size }]`（`manifest.json` 自身与 `.disabled` 不入清单——前者文件哈希无法自嵌套，完整性由 canonical 文本签名覆盖）
 - [x] `display.zh` 改为可选（缺失回退 `en`），降低第三方作者门槛
@@ -217,7 +217,7 @@ pnpm run test:critical       # ✓ 145 passed
 | 模板仓库         | `bench-extension-template`：manifest 示例 + vite 配置（含 `base: "./"` 铁律）+ 本地 dev 加载 + 打包 + 签名脚本              |
 | 脚手架           | `pnpm run extensions:create <id>` 生成目录与最小可运行插件                                                                  |
 | 打包脚本         | `pnpm run extensions:pack <id>` → 产出 zip + 生成 `files` hash 清单 + minisign 签名                                         |
-| 作者文档         | 「开发 / 本地加载 / 打包签名 / 提交 registry PR」四步式 how-to，登记进 [extension-workflow.md](../../extension-workflow.md) |
+| 作者文档         | 「开发 / 本地加载 / 打包签名 / 提交 registry PR」四步式 how-to，登记进 [extension-workflow.md](../../explanation/extension-workflow.md) |
 
 **验收**：一个未接触过本项目的开发者能在 30 分钟内产出可安装插件。
 
@@ -246,11 +246,11 @@ pnpm run test:critical       # ✓ 145 passed
   - dev-cleaner 作为子模块随迁（`src/dev-cleaner/`），宿主 `src/features/{clean-space,dev-cleaner}` 删除
   - **文档归集（用户指令）**：已插件化模块的文档三件套（product-spec / planned / roadmap / README，clean-space 另含 design.md + 原型 HTML、dev-cleaner 子目录）自包含迁至 `extensions/<id>/docs/`；docs-consistency 门禁升级为插件文档本地校验（12 features + 4 plugins ↔ 12 module docs）；docs/ROADMAP、modules/README、planned/README、dev-toolbox README 等入链全部重定向，390 条相对链接校验通过
   - **i18n 归集（用户指令）**：插件文案自包含于 `extensions/<id>/locales/{zh,en}.json`（独立 i18next 实例消费）；主包 locales 删除全部已迁模块键（photoTriage 残留清零）；**i18n 守卫扩展**：自动校验全部插件 locales 成对/结构/无重复键（缺 locales 直接挂 CI）
-  - **迁移清单沉淀（用户指令）**：完整 checklist（代码/能力面/manifest/i18n/文档/测试/宿主摘除/冒烟，含历次教训）写入 [extension-workflow.md §11](../../../docs/extension-workflow.md)
+  - **迁移清单沉淀（用户指令）**：完整 checklist（代码/能力面/manifest/i18n/文档/测试/宿主摘除/冒烟，含历次教训）写入 [extension-workflow.md §11](../../explanation/extension-workflow.md)
   - **已知缺口**：插件测试不在 CI 执行（宿主 vitest exclude extensions）——插件测试 runner 归入 P4.5 SDK 范围
 - [x] ~~插件测试 runner~~ **已提前交付（2026-09-08）**：`pnpm run test:extensions`（逐插件 vitest + jsdom + 与构建一致的 alias），4 插件全配 `vitest.config.ts` + 页面冒烟测试（31 用例）；建议并入 CI verify 链
-- [x] **命令市场（2026-09-08，用户指令）**：命令中心 UI 留宿主、命令脚本市场化——`command_center/market.rs`（list/install，sha256 + 版本单调 + `market` 来源标记）+ 同级独立仓库 `../command-market/`（registry.json + build-registry.mjs + 现有 3 命令迁入）+ 命令中心「命令市场」弹窗（未配置源 = 空态）。详见 [extension-workflow.md §12](../../../docs/extension-workflow.md)
-- [x] **插件发布仓库 + CI（2026-09-08，用户指令）**：GitHub 组织 `kindred-plugin-market`（待用户手动创建组织本体）——4 插件独立仓库 + `registry` 索引仓库已本地初始化（`~/Documents/github/kindred-plugin-market/`，各含 release.yml：tag `v*` → 借 Bench 宿主工作区构建 → Release zip）；Bench 新增 `pack-extension.mjs` / `update-extension-registry.mjs` / `sync-extension-repos.mjs` 与 `pack:ext` / `update:ext-registry` / `sync:ext-repos` scripts。卡点与手动步骤见 [extension-workflow.md §13](../../../docs/extension-workflow.md)
+- [x] **命令市场（2026-09-08，用户指令）**：命令中心 UI 留宿主、命令脚本市场化——`command_center/market.rs`（list/install，sha256 + 版本单调 + `market` 来源标记）+ 同级独立仓库 `../command-market/`（registry.json + build-registry.mjs + 现有 3 命令迁入）+ 命令中心「命令市场」弹窗（未配置源 = 空态）。详见 [extension-workflow.md §12](../../explanation/extension-workflow.md)
+- [x] **插件发布仓库 + CI（2026-09-08，用户指令）**：GitHub 组织 `kindred-plugin-market`（待用户手动创建组织本体）——4 插件独立仓库 + `registry` 索引仓库已本地初始化（`~/Documents/github/kindred-plugin-market/`，各含 release.yml：tag `v*` → 借 Bench 宿主工作区构建 → Release zip）；Bench 新增 `pack-extension.mjs` / `update-extension-registry.mjs` / `sync-extension-repos.mjs` 与 `pack:ext` / `update:ext-registry` / `sync:ext-repos` scripts。卡点与手动步骤见 [extension-workflow.md §13](../../explanation/extension-workflow.md)
 - [ ] 候选后续批次（中等）：port-manager / env-detector
 - [x] **重系统耦合模块降级为「按需」而非计划内**：quick-launch / app-manager / command-center / network-probe / updater / system-settings / account-manager（涉及权限、凭据、系统级动作，插件化收益低而破坏面高）
 - [ ] dev-toolbox host 泛化（删 `TOOLBOX_FEATURE_IDS` 与硬编码 tabs）—— 仅在前述迁移确有收益时执行

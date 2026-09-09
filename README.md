@@ -4,7 +4,7 @@
 >
 > 以 macOS 为主的桌面工作台，重点解决应用启动、隔离账号管理和系统设置三个高频场景。
 
-Bench 基于 Tauri v2、React 和 Rust。版本号由 release-please 自动维护，以 [GitHub Releases](https://github.com/indredK/bench/releases) 与 `package.json` 为准；当前正在进行 2.0 发布前收口，已经实现但尚未完成目标平台真机验收的能力会明确标记为待验证，不以“可以编译”代替跨平台支持。产品定位与功能闭环的完整分析见[功能定位与功能闭环](./docs/functional-positioning-and-closed-loop.md)。
+Bench 基于 Tauri v2、React 和 Rust。版本号由 release-please 自动维护，以 [GitHub Releases](https://github.com/indredK/bench/releases) 与 `package.json` 为准；当前正在进行 2.0 发布前收口，已经实现但尚未完成目标平台真机验收的能力会明确标记为待验证，不以“可以编译”代替跨平台支持。产品定位与功能闭环的完整分析见[功能定位与功能闭环](./docs/explanation/functional-positioning.md)。
 
 ## 核心能力 / Core Workflows
 
@@ -75,7 +75,7 @@ System Settings 是面向 macOS 14+ 的受控设置中心，不尝试复制整�
 | Clean Space / Hardware     |       支持       |   不适用   | 2.0 维持 macOS-only                                  |
 | Terminology                |       支持       |    支持    | 纯前端与本地持久化                                   |
 
-2.0 正式目标是 macOS 14+（Apple Silicon/Intel）和 Windows 11 x64；Linux 不受支持，也不进入 CI/CD、构建或发布流程。剩余步骤与停止条件见[2.0 最终路线图](./docs/ROADMAP.md)。
+2.0 正式目标是 macOS 14+（Apple Silicon/Intel）和 Windows 11 x64；Linux 不受支持，也不进入 CI/CD、构建或发布流程。剩余步骤与停止条件见[2.0 最终路线图](./docs/roadmap/ROADMAP.md)。
 
 ## 安装说明 / Installation
 
@@ -125,11 +125,11 @@ Git hooks 会在安装依赖时配置；也可以显式运行 `pnpm run hooks:in
 ## 文档与贡献 / Docs & Contributing
 
 - 人类文档入口：[docs/README.md](./docs/README.md)
-- 产品定位与功能闭环：[docs/functional-positioning-and-closed-loop.md](./docs/functional-positioning-and-closed-loop.md)
-- 架构与禁止模式：[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
-- 编码规范：[docs/coding-standards.md](./docs/coding-standards.md)
-- 开发流程：[docs/development-workflow.md](./docs/development-workflow.md)
-- 当前发布目标：[docs/ROADMAP.md](./docs/ROADMAP.md)
+- 产品定位与功能闭环：[docs/explanation/functional-positioning.md](./docs/explanation/functional-positioning.md)
+- 架构与禁止模式：[docs/reference/architecture.md](./docs/reference/architecture.md)
+- 编码规范：[docs/how-to/coding-standards.md](./docs/how-to/coding-standards.md)
+- 开发流程：[docs/how-to/development-workflow.md](./docs/how-to/development-workflow.md)
+- 当前发布目标：[docs/roadmap/ROADMAP.md](./docs/roadmap/ROADMAP.md)
 - AI 操作入口：[AGENTS.md](./AGENTS.md)
 
 提交代码前至少运行：

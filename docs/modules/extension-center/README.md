@@ -1,7 +1,7 @@
 # Extension Center（插件中心）
 
-> 阶段：P2 骨架（[D-024](../../DECISIONS.md#d-024--extension-仓库组织与-photo-triage-试点拆法)）。
-> 架构边界与工作流见 [extension-workflow.md](../../extension-workflow.md)；**执行顺序与状态唯一清单见 [roadmap.md](./roadmap.md)**。
+> 阶段：P2 骨架（[D-024](../../explanation/decisions.md#d-024--extension-仓库组织与-photo-triage-试点拆法)）。
+> 架构边界与工作流见 [extension-workflow.md](../../explanation/extension-workflow.md)；**执行顺序与状态唯一清单见 [roadmap.md](./roadmap.md)**。
 
 ## 定位
 
@@ -25,7 +25,7 @@
 ## 关联文档
 
 - [roadmap.md](./roadmap.md) — 执行状态与顺序唯一清单（含行业依据与技术铁律附录）
-- [../../extension-spec.md](../../extension-spec.md) — **契约唯一规格**：manifest / 签名 / registry / 产物格式 / ACL / 运行时接口
-- [../../extension-workflow.md](../../extension-workflow.md) — 架构边界、仓库组织、作者侧与宿主侧工作流
-- [../../product-specs/extension-center.md](../../product-specs/extension-center.md) — 插件中心功能规格
-- [../../planned/extension-center.md](../../planned/extension-center.md) — 插件中心未完成项
+- [../../extension-spec.md](../../reference/extension-spec.md) — **契约唯一规格**：manifest / 签名 / registry / 产物格式 / ACL / 运行时接口
+- [../../extension-workflow.md](../../explanation/extension-workflow.md) — 架构边界、仓库组织、作者侧与宿主侧工作流
+- [../../product-specs/extension-center.md](../../reference/product-specs/extension-center.md) — 插件中心功能规格
+- [../../planned/extension-center.md](../../roadmap/planned/extension-center.md) — 插件中心未完成项

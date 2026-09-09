@@ -19,7 +19,7 @@
 
 ## 远期
 
-- [ ] 全局路线图（`docs/ROADMAP.md`）未给 env-detector 单独 R 编号段；若有环境类发布项需在此登记。
+- [ ] 全局路线图（`docs/roadmap/ROADMAP.md`）未给 env-detector 单独 R 编号段；若有环境类发布项需在此登记。
 
 ## 变更记录
 

@@ -2,7 +2,7 @@
 
 > 本文件记录 system-settings 模块**未实现 / 待验证**的功能规划，与 `../product-specs/system-settings.md` 同结构。
 > 实现一项即从本文件移除，并同步到产品说明；规划新增功能先写到这里再开发。
-> 来源：`../modules/system-settings/roadmap.md`、`design.md`、`docs/ROADMAP.md` R03。
+> 来源：`../modules/system-settings/roadmap.md`、`design.md`、`docs/roadmap/ROADMAP.md` R03。
 
 ## 待实现（Backlog）
 
@@ -31,4 +31,4 @@
 
 > 每轮功能改动先在此追加一行，再在实施后同步进产品说明。
 
-- 2026-09-03：首版生成——依据 `docs/modules/system-settings/roadmap.md` 与 `docs/ROADMAP.md` R03/D-019 提取未完成项；产品说明见 `../product-specs/system-settings.md`。
+- 2026-09-03：首版生成——依据 `docs/modules/system-settings/roadmap.md` 与 `docs/roadmap/ROADMAP.md` R03/D-019 提取未完成项；产品说明见 `../product-specs/system-settings.md`。

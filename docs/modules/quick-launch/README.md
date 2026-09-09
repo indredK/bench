@@ -1,7 +1,7 @@
 # Quick Launch（快速启动）
 
-> **完备功能规格** → [product-specs/quick-launch.md](../../product-specs/quick-launch.md)
-> **规划功能** → [planned/quick-launch.md](../../planned/quick-launch.md)
+> **完备功能规格** → [product-specs/quick-launch.md](../../reference/product-specs/quick-launch.md)
+> **规划功能** → [planned/quick-launch.md](../../roadmap/planned/quick-launch.md)
 
 代码：`src/features/quick-launch/`
 
@@ -11,4 +11,4 @@
 | ------------------------ | ------------------------ |
 | [design.md](./design.md) | 共享清单、启动与性能边界 |
 
-全局顺序：[2.0 最终路线图](../../ROADMAP.md)
+全局顺序：[2.0 最终路线图](../../roadmap/ROADMAP.md)

@@ -1,7 +1,7 @@
 # Extension 开发仓库组织与工作流
 
-> **日期**：2026-09-08 ｜ **状态**：**已采纳**（[D-024](./DECISIONS.md#d-024--extension-仓库组织与-photo-triage-试点拆法)，四项决策经用户确认）
-> **定位**：本文档是插件化的**架构边界 + 工作流唯一文档**（原 `plugin-architecture.md` 的 B-lite 设计已被 D-023 的 B′ 路线取代，其中仍有效的内容已并入本文 §7）。**执行顺序与状态唯一清单见 [modules/extension-center/roadmap.md](./modules/extension-center/roadmap.md)**。
+> **日期**：2026-09-08 ｜ **状态**：**已采纳**（[D-024](./decisions.md#d-024--extension-仓库组织与-photo-triage-试点拆法)，四项决策经用户确认）
+> **定位**：本文档是插件化的**架构边界 + 工作流唯一文档**（原 `plugin-architecture.md` 的 B-lite 设计已被 D-023 的 B′ 路线取代，其中仍有效的内容已并入本文 §7）。**执行顺序与状态唯一清单见 [modules/extension-center/roadmap.md](../modules/extension-center/roadmap.md)**。
 > **背景**：P1 已证实 B′ 方案（宿主 + 可下载前端 bundle）。本文件定案「插件在哪个仓库开发、怎么开发、怎么发布」，并以 photo-triage 纳入插件为首个试点场景。
 
 ---
@@ -100,13 +100,13 @@ tauri-app/
 ## 5. 发布与版本
 
 - 插件版本由 `manifest.version` 独立管理，与宿主版本解耦；
-- 版本规则、兼容门控、单调性、卸载与禁用语义统一见 **[extension-spec.md §8 版本与兼容](./extension-spec.md)**；
+- 版本规则、兼容门控、单调性、卸载与禁用语义统一见 **[extension-spec.md §8 版本与兼容](../reference/extension-spec.md)**；
 - `distribution: "bundled" | "market"`：bundled 产物随主包构建产出并捆绑；market 产物走 registry 下载 + minisign 校验；
 - 具体分发步骤见 §8.4～§8.6。
 
 ---
 
-## 6. 决策记录（2026-09-08 用户确认 · 已回写 [D-024](./DECISIONS.md#d-024--extension-仓库组织与-photo-triage-试点拆法)）
+## 6. 决策记录（2026-09-08 用户确认 · 已回写 [D-024](./decisions.md#d-024--extension-仓库组织与-photo-triage-试点拆法)）
 
 | #   | 问题                                                                                                   | 结论    |
 | --- | ------------------------------------------------------------------------------------------------------ | ------- |
@@ -134,7 +134,7 @@ tauri-app/
 
 - **D-017 红线**：禁止运行时 cargo/npm 拉依赖；核心 Rust 命令保持编译期链接；插件是数据/bundle，不进核心二进制完整性边界。
 - **单二进制 + minisign**：核心随主包签名；插件与其并列，不削弱主包签名链。
-- **IPC 契约双写铁律不削弱**（[ARCHITECTURE.md §2](./ARCHITECTURE.md#2--ai-编码规则--禁止模式) 第 7 条）：插件经命令白名单网关，反而收窄了 renderer 信任边界。
+- **IPC 契约双写铁律不削弱**（[ARCHITECTURE.md §2](../reference/architecture.md#2--ai-编码规则--禁止模式) 第 7 条）：插件经命令白名单网关，反而收窄了 renderer 信任边界。
 - **i18n**：`labelKey` / manifest `display` 仍须落 locale；插件自带 namespace。
 - **renderer 信任边界**：下载 URL / 版本 / hash / 签名材料**只由后端 canonical 配置决定**，renderer 不得提交最终下载地址或可执行路径（D-007）。
 
@@ -147,14 +147,14 @@ tauri-app/
 
 ### 7.4 技术铁律
 
-实施时的硬性约束（含踩坑来源）统一维护在 [modules/extension-center/roadmap.md](./modules/extension-center/roadmap.md) 的「附录 A　已固化的技术铁律」，**动手前必读**。
+实施时的硬性约束（含踩坑来源）统一维护在 [modules/extension-center/roadmap.md](../modules/extension-center/roadmap.md) 的「附录 A　已固化的技术铁律」，**动手前必读**。
 
 ---
 
 ## 8. 作者侧流程（P4.5 交付物）
 
 > 目标：**前端开发者零门槛** —— 会写 React 就能做插件，不需要懂 Rust（对标 uTools 生态的成功要素）。
-> 契约细节一律以 [extension-spec.md](./extension-spec.md) 为准。
+> 契约细节一律以 [extension-spec.md](../reference/extension-spec.md) 为准。
 
 ### 8.1 创建插件
 
@@ -181,7 +181,7 @@ extensions/<id>/
 2. 产物同步到运行时目录：`pnpm run extensions:sync`（保留 `.disabled` 用户标记，幂等）。
 3. 打开插件窗口：插件中心点击「打开」，或 `BENCH_POC_EXT=<id> pnpm run dev` 直开。
 4. 调试：宿主注入 `EXT_ERROR_CAPTURE_SCRIPT`，捕获 window-error / unhandledrejection / console.error / boot，回传宿主落盘（P3.3 起为**追加式**）。
-5. 开发期免签：设 `BENCH_EXT_DEV_MODE=1`（[spec §4.3](./extension-spec.md)）。
+5. 开发期免签：设 `BENCH_EXT_DEV_MODE=1`（[spec §4.3](../reference/extension-spec.md)）。
 
 ### 8.3 构建
 
@@ -201,7 +201,7 @@ pnpm run extensions:pack <id>     # P4.5 交付
 
 1. 构建产物
 2. 扫描产物目录，生成 `manifest.files`（逐文件 sha256 + size）
-3. 按 [spec §4.1](./extension-spec.md) 构造 canonical 文本
+3. 按 [spec §4.1](../reference/extension-spec.md) 构造 canonical 文本
 4. minisign 签名，trusted comment 固定 `<id>@<version>`
 5. 写回 `manifest.signature`
 6. 打 zip（根即插件根），输出整包 sha256 与 size
@@ -213,7 +213,7 @@ pnpm run extensions:pack <id>     # P4.5 交付
 阶段二（开放第三方后）：
 
 1. 作者在自有仓库开发 → `extensions:pack` 产出 zip + manifest
-2. 向 canonical registry 仓库提交 PR，追加/更新条目（[spec §5.2](./extension-spec.md)）
+2. 向 canonical registry 仓库提交 PR，追加/更新条目（[spec §5.2](../reference/extension-spec.md)）
 3. 维护者人工审核：manifest 合法性、ACL 是否最小、产物与源码是否对应
 4. 合入即上架（静态托管，无服务端）
 
@@ -225,14 +225,14 @@ pnpm run extensions:pack <id>     # P4.5 交付
 | ---------- | ----------------------------------------------------------------------------------------------------------------- |
 | 发新版     | `manifest.version` +1（semver）→ `extensions:pack` → registry PR 追加 `versions[]` 条目                           |
 | 撤回某版本 | 该版本 `yanked: true`（已安装仍可运行，不再出现在可安装列表）                                                     |
-| 紧急吊销   | registry `revoked[]` 增加条目 → 宿主**强制禁用 + UI 显著警示**（不静默删除，见 [spec §5.3](./extension-spec.md)） |
+| 紧急吊销   | registry `revoked[]` 增加条目 → 宿主**强制禁用 + UI 显著警示**（不静默删除，见 [spec §5.3](../reference/extension-spec.md)） |
 
 ### 8.7 作者文档清单（P4.5 一并交付）
 
 | 文档                              | 位置                                     |
 | --------------------------------- | ---------------------------------------- |
 | 快速开始（30 分钟做出可安装插件） | `extensions/README.md`                   |
-| 契约参考                          | [extension-spec.md](./extension-spec.md) |
+| 契约参考                          | [extension-spec.md](../reference/extension-spec.md) |
 | SDK 用法（IPC / i18n / 诊断上报） | `@bench/ext-sdk` 包内 README             |
 | 提交 registry                     | 本文 §8.5                                |
 
@@ -243,11 +243,11 @@ pnpm run extensions:pack <id>     # P4.5 交付
 | 场景                 | 流程                                                                                           | 归属   |
 | -------------------- | ---------------------------------------------------------------------------------------------- | ------ |
 | **bundled 随包发布** | `extensions:build` 产物接入 `tauri build` → 随正式包分发 → 首次启动拷入 `$APPDATA/extensions/` | P3.4   |
-| **市场安装**         | 见 [spec §6.1](./extension-spec.md) 端到端步骤                                                 | P4     |
+| **市场安装**         | 见 [spec §6.1](../reference/extension-spec.md) 端到端步骤                                                 | P4     |
 | **权限披露**         | 安装前展示 `manifest.acl.commands` 的人类可读描述                                              | P4     |
 | **更新提示**         | registry 版本比对 + `engines` 升级引导 + `yanked` 提示                                         | P4     |
 | **吊销**             | 拉取 registry 时同步 `revoked[]` → 强制禁用 + 警示                                             | P4     |
-| **审计**             | 追加式 `$APPDATA/ext-audit.log`，字段见 [spec §6.2](./extension-spec.md) 与 roadmap P3.3       | P3.3   |
+| **审计**             | 追加式 `$APPDATA/ext-audit.log`，字段见 [spec §6.2](../reference/extension-spec.md) 与 roadmap P3.3       | P3.3   |
 | **诊断**             | 插件中心诊断面板查看 ext 日志（替代裸 JSON）                                                   | P4     |
 | **卸载**             | `ext_uninstall`：关窗 + 删目录（仅限合法插件目录）+ `DestructiveConfirmDialog`                 | 已实现 |
 
@@ -257,12 +257,12 @@ pnpm run extensions:pack <id>     # P4.5 交付
 
 | 文档                                                                         | 层                   | 职责                                                                                                                                    |
 | ---------------------------------------------------------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| [extension-spec.md](./extension-spec.md)                                     | Reference            | **契约唯一规格**：manifest / 签名 / registry / 产物格式 / ACL / 版本                                                                    |
+| [extension-spec.md](../reference/extension-spec.md)                                     | Reference            | **契约唯一规格**：manifest / 签名 / registry / 产物格式 / ACL / 版本                                                                    |
 | [extension-workflow.md](./extension-workflow.md)（本文）                     | Explanation + How-to | 架构边界、仓库组织、开发→发布工作流                                                                                                     |
-| [modules/extension-center/roadmap.md](./modules/extension-center/roadmap.md) | Roadmap              | **执行顺序与状态唯一清单**（含行业依据与技术铁律附录）                                                                                  |
-| [product-specs/extension-center.md](./product-specs/extension-center.md)     | Reference            | 插件中心的功能规格（界面 / 交互 / 异常）                                                                                                |
-| [planned/extension-center.md](./planned/extension-center.md)                 | Roadmap              | 插件中心未实现项                                                                                                                        |
-| [DECISIONS.md](./DECISIONS.md) D-023 / D-024                                 | Explanation          | 方向性决策                                                                                                                              |
+| [modules/extension-center/roadmap.md](../modules/extension-center/roadmap.md) | Roadmap              | **执行顺序与状态唯一清单**（含行业依据与技术铁律附录）                                                                                  |
+| [product-specs/extension-center.md](../reference/product-specs/extension-center.md)     | Reference            | 插件中心的功能规格（界面 / 交互 / 异常）                                                                                                |
+| [planned/extension-center.md](../roadmap/planned/extension-center.md)                 | Roadmap              | 插件中心未实现项                                                                                                                        |
+| [DECISIONS.md](./decisions.md) D-023 / D-024                                 | Explanation          | 方向性决策                                                                                                                              |
 | `extensions/<id>/docs/`（README / product-spec / planned / roadmap）         | Reference + Roadmap  | **已插件化模块的自包含三件套**（P5 起随插件走，不再放 docs/modules；dev-cleaner 类子能力在 `extensions/clean-space/docs/dev-cleaner/`） |
 
 ## 11. 模块插件化迁移清单（P5 实践沉淀，照单执行）
@@ -304,11 +304,11 @@ pnpm run extensions:pack <id>     # P4.5 交付
 
 ### 11.5 文档归集（守卫已强制）
 
-- [ ] 文档三件套随插件走：`extensions/<id>/docs/{README.md, product-spec.md, planned.md, roadmap.md}`（自 `docs/product-specs/`、`docs/planned/`、`docs/modules/<id>/` 用 `git mv` 迁入，保留历史）
+- [ ] 文档三件套随插件走：`extensions/<id>/docs/{README.md, product-spec.md, planned.md, roadmap.md}`（自 `docs/reference/product-specs/`、`docs/roadmap/planned/`、`docs/modules/<id>/` 用 `git mv` 迁入，保留历史）
 - [ ] 技术设计 / 原型等模块独有文档一并迁入（clean-space 的 `design.md` + `clean-space-prototype.html`）；子能力文档放 `docs/<sub>/`（dev-cleaner 先例）
 - [ ] README 顶部标明**插件形态**（bundled / 平台限制 / 能力面归属 / 测试位置）
 - [ ] 删除 `docs/modules/<id>/`；`check-docs-consistency.mjs` 对插件自动改查 `extensions/<id>/docs/`（输出 `N features + M plugins ↔ K module docs`）
-- [ ] 全库入链梳理：`docs/ROADMAP.md`、`docs/modules/README.md` 索引、`docs/planned/README.md`、相关模块 README 中指向被迁文件的相对链接逐个重定向，跑 `check:docs` 验证
+- [ ] 全库入链梳理：`docs/roadmap/ROADMAP.md`、`docs/modules/README.md` 索引、`docs/roadmap/planned/README.md`、相关模块 README 中指向被迁文件的相对链接逐个重定向，跑 `check:docs` 验证
 
 ### 11.6 测试
 

@@ -1,7 +1,7 @@
 # App Manager（应用管理）
 
-> **完备功能规格** → [product-specs/app-manager.md](../../product-specs/app-manager.md)
-> **规划功能** → [planned/app-manager.md](../../planned/app-manager.md)
+> **完备功能规格** → [product-specs/app-manager.md](../../reference/product-specs/app-manager.md)
+> **规划功能** → [planned/app-manager.md](../../roadmap/planned/app-manager.md)
 
 代码：`src/features/app-manager/` · `src-tauri/src/app_manager/`
 

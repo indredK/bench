@@ -1,6 +1,6 @@
 //! Extension host —— 运行时插件宿主（P1 spike → P2 契约 → P3.1 完整性安全地基）。
 //!
-//! 契约唯一规格：`docs/extension-spec.md`；执行顺序与状态唯一清单：
+//! 契约唯一规格：`docs/reference/extension-spec.md`；执行顺序与状态唯一清单：
 //! `docs/modules/extension-center/roadmap.md`。方向性决策见 DECISIONS D-023 / D-024。
 //!
 //! 模块地图：

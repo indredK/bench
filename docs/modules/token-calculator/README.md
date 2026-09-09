@@ -1,7 +1,7 @@
 # Token Calculator（Token 计算器）
 
-> **完备功能规格** → [product-specs/token-calculator.md](../../product-specs/token-calculator.md)
-> **规划功能** → [planned/token-calculator.md](../../planned/token-calculator.md)
+> **完备功能规格** → [product-specs/token-calculator.md](../../reference/product-specs/token-calculator.md)
+> **规划功能** → [planned/token-calculator.md](../../roadmap/planned/token-calculator.md)
 
 代码：`src/features/token-calculator/` · `src-tauri/src/token_calculator/`
 

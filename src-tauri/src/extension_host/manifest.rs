@@ -1,4 +1,4 @@
-//! Extension manifest —— P3.1 schema v2（D-024，契约见 docs/extension-spec.md §3）。
+//! Extension manifest —— P3.1 schema v2（D-024，契约见 docs/reference/extension-spec.md §3）。
 //!
 //! 每个插件在产物根目录携带 `manifest.json`。宿主在**列举 / 打开 / 启用**前
 //! 解析并校验，fail-closed：

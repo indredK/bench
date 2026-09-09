@@ -199,7 +199,7 @@ if (hasBackendChanges) {
   // (const/static/fn/use dead code) is too ambiguous to auto-fix — `--fix`
   // exits non-zero and prints the remaining Rule A violations for the dev to
   // resolve manually. We capture stdout so we can re-stage the modified files.
-  // See docs/coding-standards.md §7.4.1.
+  // See docs/how-to/coding-standards.md §7.4.1.
   console.log(`\n==> Auto-fixing Rust cfg hygiene (Rule B)`)
   const cfgFixResult = spawnSync("node", ["scripts/quality/check-rust-cfg-hygiene.mjs", "--fix"], {
     cwd: rootDir,

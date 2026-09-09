@@ -89,7 +89,7 @@
 
 ## 6. UI 与性能
 
-> 详细的 UX 规范（布局模式、加载状态、文本溢出处理、紧凑化设计等）见 `docs/UX-STANDARDS.md`。
+> 详细的 UX 规范（布局模式、加载状态、文本溢出处理、紧凑化设计等）见 `docs/how-to/ux-standards.md`。
 
 - **强制**: 基础组件优先复用 shadcn/ui + Lucide 图标。类名拼接统一 `cn()`。
 - **强制**: 新增大列表/大表格优先评估虚拟化，不默认全量渲染。
@@ -180,7 +180,7 @@
 
 ## 11. 文档
 
-> 索引：[docs/README.md](./README.md) · 开发流程：[development-workflow.md](./development-workflow.md) · 模块一览：[docs/modules/README.md](./modules/README.md) · 2.0 路线：[ROADMAP.md](./ROADMAP.md)
+> 索引：[docs/README.md](../../README.md) · 开发流程：[development-workflow.md](./development-workflow.md) · 模块一览：[docs/modules/README.md](../modules/README.md) · 2.0 路线：[ROADMAP.md](../roadmap/ROADMAP.md)
 
 ### 11.1 目录原则
 

@@ -1,6 +1,6 @@
 # 场景 03 · 安全探测（安全 Tab · Post-MVP-Adv）
 
-> 父索引：[scenarios.md](../scenarios.md) · 设计：[design-security.md](../design-security.md) · [D-017](../../../DECISIONS.md)
+> 父索引：[scenarios.md](../scenarios.md) · 设计：[design-security.md](../design-security.md) · [D-017](../../../explanation/decisions.md)
 
 ---
 

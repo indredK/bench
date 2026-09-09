@@ -38,7 +38,7 @@
 
 ## 3. 可选能力包与安装向导（D-017）
 
-> 全局约束见 [design §9.7](./design.md) 与 [DECISIONS D-017](../../DECISIONS.md)。本 Tab 是 **sidecar / 本机工具** 的主消费方。
+> 全局约束见 [design §9.7](./design.md) 与 [DECISIONS D-017](../../explanation/decisions.md)。本 Tab 是 **sidecar / 本机工具** 的主消费方。
 
 ### 3.1 哪些要包、哪些不要
 
@@ -230,4 +230,4 @@ uninstallCapabilityPack(packId): void
 - nmap host discovery & port states（语义对照，非捆绑义务）
 - rust-pcap · pnet · hickory DNSSEC
 - Apple Network Extension（加密 DNS / 透明代理——只读检测，不实现自有 VPN 攻击面）
-- [D-017](../../DECISIONS.md) 可选能力包 · [design §9.7](./design.md)
+- [D-017](../../explanation/decisions.md) 可选能力包 · [design §9.7](./design.md)

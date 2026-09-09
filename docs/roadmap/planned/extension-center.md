@@ -1,8 +1,8 @@
 # Extension Center（插件中心）规划功能
 
-> 本文件记录 extension-center 模块**未实现 / 待验证**的功能规划，与 [../product-specs/extension-center.md](../product-specs/extension-center.md) 同结构。
+> 本文件记录 extension-center 模块**未实现 / 待验证**的功能规划，与 [../product-specs/extension-center.md](../../reference/product-specs/extension-center.md) 同结构。
 > 实现一项即从本文件移除，并同步到产品说明；规划新增功能先写到这里再开发。
-> **插件化的整体执行顺序不在此文件**，见 [../modules/extension-center/roadmap.md](../modules/extension-center/roadmap.md)。
+> **插件化的整体执行顺序不在此文件**，见 [../modules/extension-center/roadmap.md](../../modules/extension-center/roadmap.md)。
 
 ## 待实现（P3.4 bundled 发布集成）
 

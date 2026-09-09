@@ -2,7 +2,7 @@
 
 > 本文件记录 updater 模块**未实现 / 待验证**的功能规划，与 `../product-specs/updater.md` 同结构。
 > 实现一项即从本文件移除，并同步到产品说明；规划新增功能先写到这里再开发。
-> 更新策略、错误矩阵与发布产物以全局路线图 [R05](../ROADMAP.md#r05-updater供应链与-rc-流水线) 为准；当前 OS 签名模式见 [D-010](../DECISIONS.md#d-010--默认使用-ad-hoc-macos-与-unsigned-windows-包)。
+> 更新策略、错误矩阵与发布产物以全局路线图 [R05](../ROADMAP.md#r05-updater供应链与-rc-流水线) 为准；当前 OS 签名模式见 [D-010](../../explanation/decisions.md#d-010--默认使用-ad-hoc-macos-与-unsigned-windows-包)。
 
 ## 发布阻断（待实现）
 

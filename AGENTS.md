@@ -15,15 +15,15 @@
 1. **你现在读的这个文件 `AGENTS.md` 就是唯一起点**——读完它再动手。
 2. **动手前必读清单**（按此顺序，给全路径）：
    - [ ] `.cursorrules` — 行为约束（最高优先级）
-   - [ ] `docs/ARCHITECTURE.md` §2 — 🔴 禁止模式（不可触犯）
-   - [ ] `docs/coding-standards.md` — 编码规范（强制/建议）
-   - [ ] `docs/coding-standards.md` §7.4.1 — **跨平台 cfg 门控铁律**（改 Rust `#[cfg]` 块/平台分支前必读，必跑 `pnpm run check:be-cfg`；本机编译 ≠ 双平台验证）
-   - [ ] `docs/UX-STANDARDS.md` — UX 设计规范（布局/加载态/文本溢出/紧凑化）
-   - [ ] `docs/AI-WORKFLOWS.md` — 工作流定义
-   - [ ] `docs/DECISIONS.md` — 方向性决策（做取舍前先读，取舍后回写）
+   - [ ] `docs/reference/architecture.md` §2 — 🔴 禁止模式（不可触犯）
+   - [ ] `docs/how-to/coding-standards.md` — 编码规范（强制/建议）
+   - [ ] `docs/how-to/coding-standards.md` §7.4.1 — **跨平台 cfg 门控铁律**（改 Rust `#[cfg]` 块/平台分支前必读，必跑 `pnpm run check:be-cfg`；本机编译 ≠ 双平台验证）
+   - [ ] `docs/how-to/ux-standards.md` — UX 设计规范（布局/加载态/文本溢出/紧凑化）
+   - [ ] `docs/how-to/ai-workflows.md` — 工作流定义
+   - [ ] `docs/explanation/decisions.md` — 方向性决策（做取舍前先读，取舍后回写）
 3. **按下方关键词路由表进 workflow**；**判断不了就停下问人**，不许猜。
 
-> **AI 红线提醒（双平台 cfg 卫生）**：macOS 端**无法交叉编译** Windows 目标（`ring` 等 C 依赖无 MSVC 头），所以“本机编译通过”不能替代跨平台验证。任何对 `src-tauri/src/**/*.rs` 的 `#[cfg(...)]` / 平台分支 / 新增常量 / 新增 `use` 导入绑定 / 新增 `let mut` 的改动，提交前必须 `pnpm run check:be-cfg` 全绿。该门禁已串入 `verify` 与 `.github/workflows/ci-build.yml`，本地不跑就是给 CI 留雷。详见 `docs/coding-standards.md` §7.4.1。
+> **AI 红线提醒（双平台 cfg 卫生）**：macOS 端**无法交叉编译** Windows 目标（`ring` 等 C 依赖无 MSVC 头），所以“本机编译通过”不能替代跨平台验证。任何对 `src-tauri/src/**/*.rs` 的 `#[cfg(...)]` / 平台分支 / 新增常量 / 新增 `use` 导入绑定 / 新增 `let mut` 的改动，提交前必须 `pnpm run check:be-cfg` 全绿。该门禁已串入 `verify` 与 `.github/workflows/ci-build.yml`，本地不跑就是给 CI 留雷。详见 `docs/how-to/coding-standards.md` §7.4.1。
 
 ---
 
@@ -31,20 +31,20 @@
 
 | 指令关键词                                      | 路由到                                                                                                                                                                                                                                                                      |
 | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| review / 审查 / 审计 / 检查代码                 | `docs/AI-WORKFLOWS.md → /review`                                                                                                                                                                                                                                            |
-| fix / 修复 / 改 bug / 修 bug                    | `docs/AI-WORKFLOWS.md → /fix`                                                                                                                                                                                                                                               |
-| doc / 文档 / 更新文档 / 对齐                    | `docs/AI-WORKFLOWS.md → /doc`                                                                                                                                                                                                                                               |
-| feature / 新功能 / 开发 / 实现                  | `docs/AI-WORKFLOWS.md → /feature`                                                                                                                                                                                                                                           |
+| review / 审查 / 审计 / 检查代码                 | `docs/how-to/ai-workflows.md → /review`                                                                                                                                                                                                                                            |
+| fix / 修复 / 改 bug / 修 bug                    | `docs/how-to/ai-workflows.md → /fix`                                                                                                                                                                                                                                               |
+| doc / 文档 / 更新文档 / 对齐                    | `docs/how-to/ai-workflows.md → /doc`                                                                                                                                                                                                                                               |
+| feature / 新功能 / 开发 / 实现                  | `docs/how-to/ai-workflows.md → /feature`                                                                                                                                                                                                                                           |
 | audit / 审计 Phase N (N=1..8)                   | 继续阅读下方对应 Phase                                                                                                                                                                                                                                                      |
-| extension / 插件 / 插件化 / manifest / registry | **先读** `docs/extension-spec.md`（契约唯一规格：manifest / 签名 / registry / 产物格式 / ACL）+ `docs/modules/extension-center/roadmap.md`（执行状态唯一清单）；架构与工作流见 `docs/extension-workflow.md`。**改 Rust `extension_host/**` 前必跑 `pnpm run check:be-cfg`** |
+| extension / 插件 / 插件化 / manifest / registry | **先读** `docs/reference/extension-spec.md`（契约唯一规格：manifest / 签名 / registry / 产物格式 / ACL）+ `docs/modules/extension-center/roadmap.md`（执行状态唯一清单）；架构与工作流见 `docs/explanation/extension-workflow.md`。**改 Rust `extension_host/**` 前必跑 `pnpm run check:be-cfg`** |
 
 **始终遵守**：
 
-- 编码规范：`docs/coding-standards.md`（12 节，含强制/建议级别）
-- UX 规范：`docs/UX-STANDARDS.md`（布局、加载态、文本溢出、紧凑化、滚动行为）
-- 开发流程：`docs/development-workflow.md`
-- 不计违规决策：`docs/audit-report.md`（避免重复标记）
-- 方向性决策：`docs/DECISIONS.md`（规划/架构为什么这么定——做方向取舍前先读，取舍后回写）
+- 编码规范：`docs/how-to/coding-standards.md`（12 节，含强制/建议级别）
+- UX 规范：`docs/how-to/ux-standards.md`（布局、加载态、文本溢出、紧凑化、滚动行为）
+- 开发流程：`docs/how-to/development-workflow.md`
+- 不计违规决策：`docs/explanation/audit-report.md`（避免重复标记）
+- 方向性决策：`docs/explanation/decisions.md`（规划/架构为什么这么定——做方向取舍前先读，取舍后回写）
 
 **指令示例**：
 
@@ -57,11 +57,11 @@
 
 # 附录 A：规范审计工作流 (Phase 1–8)
 
-> 基于 `docs/coding-standards.md`（12 节规则）和 `docs/development-workflow.md` 设计的渐进式检查流程。
+> 基于 `docs/how-to/coding-standards.md`（12 节规则）和 `docs/how-to/development-workflow.md` 设计的渐进式检查流程。
 >
 > **用法**：按顺序每次投喂一个 Phase，完成后再给下一个。AI 会自动输出每个违规项的文件路径、违反的规范条款和修改建议。
 >
-> **报告**：开始前先读取已有的 `docs/audit-report.md`（如有）。每个 Phase 完成后，**将发现的问题追加写入 `docs/audit-report.md`**，按 Phase 分节。全部 Phase 完成后该文件即为完整审计报告，可供其他工具（如 Trae CN）读取。
+> **报告**：开始前先读取已有的 `docs/explanation/audit-report.md`（如有）。每个 Phase 完成后，**将发现的问题追加写入 `docs/explanation/audit-report.md`**，按 Phase 分节。全部 Phase 完成后该文件即为完整审计报告，可供其他工具（如 Trae CN）读取。
 >
 > **提交策略**：Phase 8 修复时**每个违规项独立提交**，不合并、不推送，仅保留本地 commit 历史供人工审查。
 >
@@ -71,7 +71,7 @@
 
 ## Phase 1：全局结构与目录规范
 
-**参考**: `docs/coding-standards.md §1 通用、§2 前端目录、§11 文档`
+**参考**: `docs/how-to/coding-standards.md §1 通用、§2 前端目录、§11 文档`
 
 请检查项目是否符合以下规范，逐条列出违规项：
 
@@ -89,7 +89,7 @@
 
 ## Phase 2：前端代码与 UI 规范
 
-**参考**: `docs/coding-standards.md §2 前端目录（续）、§6 UI与性能`
+**参考**: `docs/how-to/coding-standards.md §2 前端目录（续）、§6 UI与性能`
 
 逐条检查：
 
@@ -106,7 +106,7 @@
 
 ## Phase 3：国际化（i18n）审计
 
-**参考**: `docs/coding-standards.md §4 国际化`
+**参考**: `docs/how-to/coding-standards.md §4 国际化`
 
 严格逐条检查：
 
@@ -121,7 +121,7 @@
 
 ## Phase 4：状态管理、异步安全与用户反馈
 
-**参考**: `docs/coding-standards.md §3 状态与异步、§5 用户反馈`
+**参考**: `docs/how-to/coding-standards.md §3 状态与异步、§5 用户反馈`
 
 逐条检查：
 
@@ -140,7 +140,7 @@
 
 ## Phase 5：Rust 后端与 IPC 契约
 
-**参考**: `docs/coding-standards.md §7 Rust后端、§8 IPC契约`
+**参考**: `docs/how-to/coding-standards.md §7 Rust后端、§8 IPC契约`
 
 逐条检查：
 
@@ -157,7 +157,7 @@
 
 ## Phase 6：文档对齐与提交规范
 
-**参考**: `docs/coding-standards.md §9 测试、§10 提交规范、§11 文档、§12 评审聚焦`；`docs/development-workflow.md`
+**参考**: `docs/how-to/coding-standards.md §9 测试、§10 提交规范、§11 文档、§12 评审聚焦`；`docs/how-to/development-workflow.md`
 
 逐条检查：
 
@@ -173,11 +173,11 @@
 
 ## Phase 7：生成审计报告
 
-**前置条件**: 已完成 Phase 1–6，`docs/audit-report.md` 中已有各 Phase 的问题记录。
+**前置条件**: 已完成 Phase 1–6，`docs/explanation/audit-report.md` 中已有各 Phase 的问题记录。
 
 请执行以下步骤生成最终报告：
 
-1. **读取** `docs/audit-report.md`，确认已有内容
+1. **读取** `docs/explanation/audit-report.md`，确认已有内容
 2. **补充摘要** — 在文件头部追加以下内容：
    - 审计日期
    - 本次审计覆盖的 Phase 范围
@@ -186,7 +186,7 @@
    ```markdown
    - [违反 §X] `文件路径:行号` — 问题描述 — 修改建议 — **强制/建议**
    ```
-4. **写入** 最终结果到 `docs/audit-report.md`
+4. **写入** 最终结果到 `docs/explanation/audit-report.md`
 
 > 此文件将作为完整审计记录，供其他工具（如 Trae CN）读取。
 
@@ -194,7 +194,7 @@
 
 ## Phase 8（可选）：自动修复已知问题
 
-**前置条件**: 已完成 Phase 1–7，AI 手中已有完整的 `docs/audit-report.md`。
+**前置条件**: 已完成 Phase 1–7，AI 手中已有完整的 `docs/explanation/audit-report.md`。
 
 **核心原则**：每个违规项独立修复 → 独立提交 → 不推送，保留本地 commit 历史供审查。
 
@@ -209,7 +209,7 @@
 1. **选一条违规项** — 优先选 **强制** 级别，同一文件的多个问题可合并修复
 2. **读文件确认上下文** — 理解代码意图，不要盲目修改
 3. **修复代码** — 按规范要求修改，保持代码风格一致
-4. **更新 `docs/audit-report.md`** — 在该问题行尾追加 `✅ 已修复`
+4. **更新 `docs/explanation/audit-report.md`** — 在该问题行尾追加 `✅ 已修复`
 5. **运行检查** — 验证不改坏：
    ```bash
    pnpm run lint:fe && pnpm run test:critical

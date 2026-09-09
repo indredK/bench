@@ -1,0 +1,30 @@
+site_name: Bench Docs
+docs_dir: docs
+theme:
+  name: material
+nav:
+  - 首页: README.md
+  - 上手:
+      - 新人向导: tutorials/README.md
+  - 参考 (Reference):
+      - 架构指南: reference/architecture.md
+      - 持久化 Schema: reference/persistence-schema.md
+      - 插件契约规格: reference/extension-spec.md
+      - 产品功能规格: reference/product-specs/README.md
+  - 操作指南 (How-to):
+      - 开发流程: how-to/development-workflow.md
+      - AI 工作流: how-to/ai-workflows.md
+      - 编码规范: how-to/coding-standards.md
+      - UX 规范: how-to/ux-standards.md
+      - Dev/Prod 共存: how-to/dev-prod-coexistence.md
+  - 解释 (Explanation):
+      - 决策日志: explanation/decisions.md
+      - 功能定位与闭环: explanation/functional-positioning.md
+      - 插件化工作流: explanation/extension-workflow.md
+      - 质量审计: explanation/audit-report.md
+  - 路线图 (Roadmap):
+      - 全局路线图: roadmap/ROADMAP.md
+      - 规划功能: roadmap/planned/README.md
+      - 发布差距清单: roadmap/GAP-TO-2.0.md
+  - 模块:
+      - 模块索引: modules/README.md

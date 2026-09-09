@@ -573,7 +573,7 @@ src/features/network-probe/
 
 ## 10. 已决决策（2026-07-22；交付口径修订）
 
-> 方向性条目同步 [DECISIONS.md](../../DECISIONS.md) **D-016**、**D-017**。
+> 方向性条目同步 [DECISIONS.md](../../explanation/decisions.md) **D-016**、**D-017**。
 
 1. **入口**：独立一级 feature `network-probe`。
 2. **当前不做实现**：占位 feature 仅对齐 `check:docs`；设计先完善。
@@ -771,5 +771,5 @@ MVP-B traceroute：主包内 `trippy-core`；有特权走完整路径；无特�
 - [defaults.md](./defaults.md) — 默认资源目录（DNS / Captive / 公网 IP / 站点包）
 - [roadmap.md](./roadmap.md) — MVP / Post-MVP / Vision backlog
 - [knowledge-graph.md](./knowledge-graph.md) — Mermaid 总览
-- [DECISIONS.md D-016](../../DECISIONS.md) · [D-017](../../DECISIONS.md) — 分期与可选能力包
+- [DECISIONS.md D-016](../../explanation/decisions.md) · [D-017](../../explanation/decisions.md) — 分期与可选能力包
 - [port-manager design](../port-manager/design.md) — 端口占用边界对照

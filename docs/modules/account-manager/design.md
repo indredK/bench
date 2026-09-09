@@ -84,7 +84,7 @@ AuthProfile 检测从页面、cookie、Web Storage、CSRF、SSO、anti-bot 和 W
 - 主密钥来自系统 Keychain；首次使用生成随机 256-bit key。
 - 密码和 Session 使用 AES-256-GCM，每次写入生成独立 nonce。
 - 解密只发生在 Rust 内存中；日志、事件和前端 DTO 不得包含密码、token、cookie 或明文 Session。
-- store 写入由 `AccountManagerState` 串行化并显式 flush；Dev/Prod 共用 bundle ID 时遵守 [共存策略](../../dev-prod-coexistence.md)。
+- store 写入由 `AccountManagerState` 串行化并显式 flush；Dev/Prod 共用 bundle ID 时遵守 [共存策略](../../how-to/dev-prod-coexistence.md)。
 - Keyring 首建和 store mutation 使用跨进程文件锁；mutation 在锁内 reload 磁盘 canonical snapshot 后再 save/replace，禁止 last-write-wins 覆盖。
 - 导出默认使用 sanitized 模式；包含凭据的导出必须保持加密并明确告知用户。
 

@@ -1,15 +1,15 @@
 # Bench 2.0 发布差距清单
 
-> ## 🔄 降级公告（2026-09-08 · [D-023](./docs/DECISIONS.md#d-023--20-目标变更为插件化生态r00r10-全部降级)）
+> ## 🔄 降级公告（2026-09-08 · [D-023](../explanation/decisions.md#d-023--20-目标变更为插件化生态r00r10-全部降级)）
 >
 > **本清单全部 37 项差距（A1–A5 / D1–D7 / E1–E3）已随 R00–R10 一并降级为 backlog，不再是 2.0 发版门禁。** 2.0 目标已变更为「插件化生态」。
 >
 > - **本文件转为技术债台账**，保留供插件化迁移时按模块评估，暂不删除（原定「全部关闭后删除」条款作废）。
 > - **必须重新评估的例外项**（插件分发启用前）：A5-1/A5-2/A5-3（持久化 schema 与迁移）、A3-1（RC dry-run）、A3-6（minisign 密钥与 OS-SIGNING-NOTICE，直接关系插件签名链）。
 > - 审计基线仍为 commit `44edf42`（1.28.0），但当前代码版本已推进至 1.30.0，复核时须重新对齐。
-> - 执行序列见 [docs/modules/extension-center/roadmap.md](./docs/modules/extension-center/roadmap.md)。
+> - 执行序列见 [docs/modules/extension-center/roadmap.md](../modules/extension-center/roadmap.md)。
 
-> **性质**：本文件是 [docs/ROADMAP.md](docs/ROADMAP.md) R00–R10 的差距明细展开，供 2.0 收尾执行使用；**不构成第二份路线图**（D-013）。全部差距关闭后本文件应删除，执行状态仍以 ROADMAP.md 为准。
+> **性质**：本文件是 [docs/roadmap/ROADMAP.md](./ROADMAP.md) R00–R10 的差距明细展开，供 2.0 收尾执行使用；**不构成第二份路线图**（D-013）。全部差距关闭后本文件应删除，执行状态仍以 ROADMAP.md 为准。
 >
 > **审计基线**：commit `44edf42`（1.28.0），静态代码审计于 2026-09-03 完成，覆盖 Account Manager / App Manager / Quick Launch / Updater / CI 流水线 / UX·a11y / 持久化迁移七大领域。
 >
@@ -405,7 +405,7 @@
 
 #### A5-4. Dev/Prod 共存验证 ⚠️ P2
 
-**位置**：`docs/dev-prod-coexistence.md`
+**位置**：`docs/how-to/dev-prod-coexistence.md`
 
 **问题**：R06 禁止 Dev/Prod 互相覆盖，无自动化断言。
 
@@ -437,7 +437,7 @@
 
 #### E-1. ROADMAP.md 版本基线过期 ⚠️ P1
 
-**位置**：`docs/ROADMAP.md:7`（声明「当前代码版本为 1.26.0」，实际 1.28.0）
+**位置**：`docs/roadmap/ROADMAP.md:7`（声明「当前代码版本为 1.26.0」，实际 1.28.0）
 
 **修复方案**：R00 执行时修正为实际版本；后续以 R00 冻结时的四文件一致值为准。
 
@@ -447,7 +447,7 @@
 
 #### E-3. 审计报告状态回写 ⚠️ P2
 
-**修复方案**：每关闭一个 A 类差距，同步更新 `docs/audit-report.md` 对应风险条目状态（部分修复 → 已修复/待验收）；R08 前完成全量回写。
+**修复方案**：每关闭一个 A 类差距，同步更新 `docs/explanation/audit-report.md` 对应风险条目状态（部分修复 → 已修复/待验收）；R08 前完成全量回写。
 
 ---
 
@@ -486,7 +486,7 @@ pnpm run clippy:be
 - [ ] D-1 ~ D-7 真机证据齐全并归档到收尾 PR/issue 与 CI artifact
 - [ ] A3-1 RC dry-run 实际跑通一次：三目标产物 + minisign 验证 + 无 Release 副作用
 - [ ] E-1/E-2/E-3 文档同步完成；`pnpm run check:docs` 通过
-- [ ] `docs/audit-report.md` 无未闭环的「强制」级风险
+- [ ] `docs/explanation/audit-report.md` 无未闭环的「强制」级风险
 - [ ] 全局停止条件零触发：无数据损坏、无凭据泄露、无跨账号污染、无错误删除、无 fail-open、签名链完整、产物齐全、版本一致
 - [ ] 本文件（GAP-TO-2.0.md）删除，状态回归 ROADMAP.md 单一真理源
 
