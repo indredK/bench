@@ -44,13 +44,106 @@ concurrency:
   cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 jobs:
-  verify:
-    name: Verify (${{ matrix.os }})
-    # P3.2: Windows 双平台 verify 门禁回归 —— 只跑 build + clippy + test，
-    # 不产出安装包（Windows 安装包恢复属 P6，见 release-build 注释）。
-    # D-021 结论继续适用：sccache wrapper 是 shell 脚本，Windows 下无法作为
-    # rustc-wrapper 执行，CI 一律 RUSTC_WRAPPER="" 关闭（构建时长由
-    # rust-cache + --no-bundle smoke 控制）。
+  # D-026：原 verify 单 job 串行拆分为 guards / frontend / rust 三条并行流水线，
+  # 墙钟 = max(三条) 而非相加。Rust 三步（clippy → test → build 冒烟）共享同一
+  # 编译缓存，必须留在同一 job 内串行，不可再拆。
+  guards:
+    name: Guards (static)
+    # 静态守卫组：零编译、分钟级，先绿先给信号。
+    # 格式类检查（D-025）只警告不阻断；其余失败阻断 ci-ok。
+    runs-on: macos-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          version: 11.8.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          cache: pnpm
+
+      # cargo fmt --check 只需 rustfmt 组件，不编译依赖，无需 rust-cache。
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable (branch pinned; bump manually on toolchain update)
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # D-025：格式漂移不阻塞 CI——本地 pre-commit 会自动修复并 re-stage，
+      # CI 走到这一步还失败只可能是 --no-verify 提交或 bot PR，降为警告。
+      - name: Check repository formatting (non-blocking)
+        id: format_check
+        continue-on-error: true
+        run: pnpm run format:check
+
+      - name: Report formatting drift as warning
+        if: ${{ always() && steps.format_check.outcome == 'failure' }}
+        run: |
+          echo "::warning::存在 Prettier 格式漂移，本检查不阻塞 CI（决策 D-025）。"
+          echo "::warning::修复方式：pnpm run format（本地 pre-commit 对 staged 文件自动修复）。"
+
+      - name: Run frontend static guards
+        run: pnpm run lint:fe
+
+      - name: Check Rust crate declarations
+        run: node scripts/quality/check-rust-crates.mjs
+
+      # D-025：Rust 格式漂移同样不阻塞 CI（pre-commit 对 staged .rs 自动 cargo fmt）。
+      - name: Check Rust formatting (non-blocking)
+        id: rustfmt_check
+        continue-on-error: true
+        run: pnpm run format:be
+
+      - name: Report Rust formatting drift as warning
+        if: ${{ always() && steps.rustfmt_check.outcome == 'failure' }}
+        run: |
+          echo "::warning::存在 cargo fmt 格式漂移，本检查不阻塞 CI（决策 D-025）。"
+          echo "::warning::修复方式：cd src-tauri && cargo fmt --all"
+
+  frontend:
+    name: Frontend (test + build)
+    runs-on: macos-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          version: 11.8.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run frontend tests
+        run: pnpm run test:fe
+
+      - name: Type-checking and building frontend
+        run: pnpm run build:fe
+
+  # Rust 编译链（双平台）：clippy → test → build 冒烟串行共享 target 缓存
+  # （重定位到 ../../tauri-app-target，见 D-021）。
+  # P3.2: Windows 双平台门禁回归 —— 只跑 build + clippy + test，
+  # 不产出安装包（Windows 安装包恢复属 P6，见 release-build 注释）。
+  # D-021 结论继续适用：sccache wrapper 是 shell 脚本，Windows 下无法作为
+  # rustc-wrapper 执行，CI 一律 RUSTC_WRAPPER="" 关闭。
+  rust:
+    name: Rust (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
@@ -101,54 +194,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # 平台无关的静态守卫只需在 macOS 跑一次（含 cfg 卫生，见下）。
-      # D-025：格式漂移不阻塞 CI——本地 pre-commit 会自动修复并 re-stage，
-      # CI 走到这一步还失败只可能是 --no-verify 提交或 bot PR，降为警告。
-      - name: Check repository formatting (non-blocking)
-        id: format_check
-        if: runner.os == 'macOS'
-        continue-on-error: true
-        run: pnpm run format:check
-
-      - name: Report formatting drift as warning
-        if: ${{ always() && runner.os == 'macOS' && steps.format_check.outcome == 'failure' }}
-        run: |
-          echo "::warning::存在 Prettier 格式漂移，本检查不阻塞 CI（决策 D-025）。"
-          echo "::warning::修复方式：pnpm run format（本地 pre-commit 对 staged 文件自动修复）。"
-
-      - name: Run frontend static guards
-        if: runner.os == 'macOS'
-        run: pnpm run lint:fe
-
-      - name: Check Rust crate declarations
-        if: runner.os == 'macOS'
-        run: node scripts/quality/check-rust-crates.mjs
-
       # Catches platform-gated dead code (unused_imports / dead_code / unused_mut)
       # before release builds compile it under -D warnings. P3.2 起双平台都跑：
       # 静态求解之外再以双平台真实编译兜底（roadmap P3.2 验收项）。
       - name: Check Rust cfg hygiene
         run: node scripts/quality/check-rust-cfg-hygiene.mjs
 
-      # D-025：Rust 格式漂移同样不阻塞 CI（pre-commit 对 staged .rs 自动 cargo fmt）。
-      - name: Check Rust formatting (non-blocking)
-        id: rustfmt_check
-        if: runner.os == 'macOS'
-        continue-on-error: true
-        run: pnpm run format:be
-
-      - name: Report Rust formatting drift as warning
-        if: ${{ always() && runner.os == 'macOS' && steps.rustfmt_check.outcome == 'failure' }}
-        run: |
-          echo "::warning::存在 cargo fmt 格式漂移，本检查不阻塞 CI（决策 D-025）。"
-          echo "::warning::修复方式：cd src-tauri && cargo fmt --all"
-
       - name: Run Rust clippy
         run: pnpm run clippy:be
-
-      - name: Run frontend tests
-        if: runner.os == 'macOS'
-        run: pnpm run test:fe
 
       - name: Run Rust tests
         run: pnpm run test:be
@@ -160,7 +213,7 @@ jobs:
     name: Release Build (${{ matrix.target }})
     # 正式 tag 或手动 dry-run dispatch 都会产出三目标构建 (A3-1)。
     if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
-    needs: verify
+    needs: ci-ok
     strategy:
       fail-fast: false
       matrix:
@@ -552,17 +605,17 @@ jobs:
   # 不用分别盯 matrix 里两个会漂移的 "Verify (os)" 条目。
   ci-ok:
     name: CI OK (aggregate)
-    needs: [verify]
+    needs: [guards, frontend, rust]
     if: always()
     runs-on: macos-latest
     timeout-minutes: 5
     steps:
-      - name: Fail if any verify leg failed
+      - name: Fail if any gate pipeline failed
         if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
         run: |
-          echo "::error::verify matrix 未全绿: ${{ toJSON(needs.*.result) }}"
+          echo "::error::质量门禁流水线未全绿: ${{ toJSON(needs.*.result) }}"
           exit 1
 
-      - name: All platform verify checks passed
+      - name: All gate pipelines passed
         if: ${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
-        run: echo "macOS + Windows verify 全绿。"
+        run: echo "guards / frontend / rust 全绿。"

@@ -2,6 +2,24 @@
 
 本文件只记录仍影响当前实现的方向性取舍；“做什么”以 [ROADMAP.md](../roadmap/ROADMAP.md) 为准，当前风险以 [audit-report.md](./audit-report.md) 为准。已推翻和已完成历史由 Git 保留。
 
+## D-026 · verify 拆分为三条并行流水线（guards / frontend / rust）
+
+- **日期**：2026-09-09
+- **状态**：采纳
+- **背景**：原 verify 单 job 串行执行全部质量门禁，总时长 = 各步骤之和；其中 Rust 编译链（clippy → test → build 冒烟）占 80% 以上，静态守卫与前端检查排在它前后白占墙钟。用户目标：CI 更快，且「不影响功能的失败只警告、不阻塞」进一步结构化。
+- **决策**：
+  1. **三 job 并行**：`guards`（macOS：format:check⚠ / lint:fe / check-rust-crates / format:be⚠）/ `frontend`（macOS：test:fe / build:fe）/ `rust`（macOS+Windows matrix：cfg-hygiene → clippy → test:be → tauri build --debug --no-bundle，**内部保持串行**）。墙钟从相加变为 max(三条)。
+  2. **红线：Rust 三步不拆**——clippy/test/build 共享同一 target 编译缓存（重定位 `../../tauri-app-target`），拆成并行 job 会各自冷编译全套依赖，墙钟与计费双输。
+  3. **警告/阻断分组固化**：格式类步骤全部归入 guards 且 `continue-on-error`（D-025 语义不变）；阻断组 = guards（非格式步骤）+ frontend + rust，全部收进 `ci-ok` 的 `needs`。
+  4. **release-build 改挂 `ci-ok`**（原挂 verify）：发布只被阻断组卡，格式警告不挡发布。
+  5. **tauri build 冒烟保留在所有触发场景**（含 PR）——用户裁定不弱化验证；`cargo-nextest` 等提速另立项，不做在本决策内。
+- **理由**：job 并行 + needs 聚合是标准编排；静态守卫零编译、先绿先给信号；PR 早期即可获得 guards/frontend 反馈。
+- **影响**：
+  - **墙钟换计费分钟**：macOS runner 从 1 个变 3 个（setup 开销 ×3），总 runner 分钟估 +10–20%（macOS 10× 计费率）。
+  - **rust-cache key 含 job id**：job 由 `verify` 改名 `rust` 后缓存 key 变化，**首次运行冷编译一次**，之后恢复正常。
+  - **branch protection 必须同步**：旧 required check `Verify (macos-latest)` 不再产生，Rulesets 里必须把 required check 换成 `CI OK (aggregate)`，否则 PR 合并被永久阻塞。
+- **相关**：[ci-build.yml](../../.github/workflows/ci-build.yml) · [D-025](#d-025--ci-运行时治理供应链加固与格式类检查降级为警告) · [D-021](#d-021--rust-target-目录外迁--sccache--暂停-windows-ci)
+
 ## D-025 · CI 运行时治理、供应链加固与格式类检查降级为警告
 
 - **日期**：2026-09-09
