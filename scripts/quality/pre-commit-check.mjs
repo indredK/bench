@@ -23,10 +23,16 @@ const pkgManager = detectPackageManager()
 
 function runStep(label, command, args) {
   console.log(`\n==> ${label}`)
+  // On Windows the package manager resolves to `pnpm.cmd` (see
+  // detectPackageManager). A `.cmd` file cannot be spawned directly with
+  // `shell: false` — Windows raises EINVAL. Enable the system shell only for
+  // `.cmd`/`.bat` targets; every other command (git/node/cargo/sh) is a real
+  // executable and keeps `shell: false` (unchanged macOS/CI behaviour).
+  const shell = process.platform === "win32" && /\.(cmd|bat)$/i.test(command)
   const result = spawnSync(command, args, {
     cwd: rootDir,
     stdio: "inherit",
-    shell: false,
+    shell,
   })
   if (result.error) {
     console.error(result.error.message)
