@@ -1,5 +1,6 @@
 //! 分层探针引擎 — HTTP HEAD probe + WebView 多源证据 probe + 自适应降级
 use super::detection;
+use super::fingerprint;
 use super::session;
 use super::state::AccountManagerState;
 use super::storage;
@@ -320,12 +321,21 @@ pub async fn run_probe<R: Runtime>(
     config: &LoginDetectionConfig,
     strategy: ProbeStrategy,
     proxy_url: Option<&str>,
+    fingerprint: Option<&LoginFingerprint>,
 ) -> AccountManagerResult<ProbeOutcome> {
     let target = parse_probe_target(website)?;
     let saved_session = {
         let state = app.state::<AccountManagerState>();
         session::restore_session(&state, account_id)?
     };
+    // L0a 预检（HTTP 路径）：指纹全缺失（纯 cookie 指纹）→ 确定性未登录，跳过 HTTP 请求。
+    if let (Some(fp), Some(saved)) = (fingerprint, saved_session.as_ref()) {
+        if fingerprint::all_features_missing_from_session(saved, fp) {
+            return Ok(ProbeOutcome {
+                status: AccountSessionStatus::LoginRequired,
+            });
+        }
+    }
     if matches!(
         strategy,
         ProbeStrategy::HttpFirst | ProbeStrategy::HttpOnly | ProbeStrategy::Hybrid
@@ -429,6 +439,18 @@ pub async fn run_probe<R: Runtime>(
         Ok(Ok(())) => {
             if wait_for_storage_restore {
                 super::browser_storage::wait_for_restore(&window).await?;
+            }
+            // L0b 预检（WebView 路径）：指纹全缺失 → 确定性未登录，
+            // 覆盖「canonical session 为空但 WebView data dir 有残留」的账号。
+            if let Some(fp) = fingerprint {
+                if !fp.is_empty()
+                    && !fingerprint::any_feature_present_in_window(&window, website, fp).await?
+                {
+                    let _ = window.close();
+                    return Ok(ProbeOutcome {
+                        status: AccountSessionStatus::LoginRequired,
+                    });
+                }
             }
             let pd = Instant::now() + Duration::from_millis(8000);
             let mut lt: Option<String> = None;

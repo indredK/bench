@@ -6,6 +6,7 @@ pub mod deep_link;
 pub mod detection;
 mod detection_legacy;
 pub mod exclusivity;
+pub mod fingerprint;
 pub mod network_proxy;
 mod probe;
 pub mod proxy;

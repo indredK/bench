@@ -93,6 +93,13 @@ export interface RelayStation {
   sessionTtlHours?: number
   /** v1.18 — per-station 网络代理(HTTP / SOCKS5)。None = 直连。 */
   networkProxy?: NetworkProxyConfig | null
+  /** F2 — 登录态指纹摘要:采样时间与特征计数(前端只读摘要,无特征名)。 */
+  loginFingerprint?: {
+    sampledAt: string
+    sampledByAccount: string
+    cookieCount: number
+    storageKeyCount: number
+  } | null
 }
 
 /** 网络代理类型:HTTP 或 SOCKS5。 */
@@ -184,6 +191,15 @@ export interface AccountLogsResponse {
 
 /** 快速登录 URL → 站点匹配置信度:精确 host 或同一可注册域。 */
 export type StationUrlMatchConfidence = "exact" | "registrableDomain"
+
+/** 登录指纹采集结果摘要(F2)。前端只展示计数,不接收特征名列表(键名不出后端)。 */
+export interface LoginFingerprintSummary {
+  cookieCount: number
+  storageKeyCount: number
+  sampledAt: string
+  /** 采样页是否存在登出元素(登录佐证,供确认弹窗展示)。 */
+  hasLogoutEvidence: boolean
+}
 
 /** matchStationsByUrl 单条匹配结果。 */
 export interface StationUrlMatch {

@@ -29,6 +29,8 @@ export function useAuthProxy() {
   const [authProxyRequest, setAuthProxyRequest] = useState<AuthProxyRequest | null>(null)
   const [authProxyMatches, setAuthProxyMatches] = useState<AuthProxyMatch[]>([])
   const [authProxyHost, setAuthProxyHost] = useState<string>("")
+  /** handle_browser_open 是否判定为 authorize-like 登录链接(F1:普通 URL 引导转快速登录)。 */
+  const [authProxyIsAuthorize, setAuthProxyIsAuthorize] = useState(true)
   const [isAuthProxyOpen, setAuthProxyOpen] = useState(false)
   const activeRequestRef = useRef<AuthProxyRequest | null>(null)
   const drainInFlightRef = useRef(false)
@@ -46,6 +48,7 @@ export function useAuthProxy() {
     setAuthProxyRequest(request)
     setAuthProxyMatches(result.matches)
     setAuthProxyHost(result.host)
+    setAuthProxyIsAuthorize(result.isAuthorize)
     setAuthProxyOpen(true)
   }, [])
 
@@ -126,6 +129,7 @@ export function useAuthProxy() {
       setAuthProxyRequest(null)
       setAuthProxyMatches([])
       setAuthProxyHost("")
+      setAuthProxyIsAuthorize(true)
       queueMicrotask(() => void drainPendingRequest())
     },
     [drainPendingRequest],
@@ -158,6 +162,7 @@ export function useAuthProxy() {
     authProxyRequest,
     authProxyMatches,
     authProxyHost,
+    authProxyIsAuthorize,
     isAuthProxyOpen,
     setAuthProxyOpen: handleAuthProxyOpenChange,
     openProxyForUrl,

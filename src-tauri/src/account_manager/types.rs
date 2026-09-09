@@ -421,6 +421,69 @@ impl Default for LoginDetectionConfig {
     }
 }
 
+// ═══════════════════════════════════════════════
+// 登录指纹（F2）— 站点级登录态特征（不含任何值）
+// ═══════════════════════════════════════════════
+
+/// 单条 cookie 特征：只记录 name/domain/path/httpOnly，**绝不记录值**。
+/// 值随会话变化且敏感；指纹只用于登录态存在性判定。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CookieFeature {
+    pub name: String,
+    pub domain: String,
+    pub path: String,
+    pub http_only: bool,
+}
+
+/// 站点级登录指纹：登录态的确定性证据集合。
+///
+/// - `cookie_features`: 采样时页面域下的 cookie 特征（name/domain/path）。
+/// - `storage_keys`: localStorage/sessionStorage 中与登录态相关的键名
+///   （token/auth/session/jwt/access/id_token/refresh 正则命中）。
+/// - `sampled_at`: 采样时刻（`%Y-%m-%d %H:%M`，本地）。
+/// - `sampled_by_account`: 采样时处于登录态的账号 id（元信息，不进日志）。
+///
+/// 判定原则（probe L0 预检，两路只做「特征全缺失」短路）：
+/// - 全部特征缺失 → 确定性未登录（LoginRequired / 已确认未登录）。
+/// - 至少一项存在 → 疑似已登录，仍需原 L1/L2 探针验证。
+///
+/// 安全边界：完整指纹（特征名列表）只存 Rust 侧 snapshot（`fingerprints` map，
+/// 不入 RelayStation DTO）；IPC 只暴露 `LoginFingerprintInfo` 摘要。
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoginFingerprint {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cookie_features: Vec<CookieFeature>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub storage_keys: Vec<String>,
+    #[serde(default)]
+    pub sampled_at: String,
+    #[serde(default)]
+    pub sampled_by_account: String,
+}
+
+impl LoginFingerprint {
+    /// 无任何特征时无法参与判定。
+    pub fn is_empty(&self) -> bool {
+        self.cookie_features.is_empty() && self.storage_keys.is_empty()
+    }
+}
+
+/// 指纹摘要（IPC DTO）：只含计数与采样时间，**不含任何特征名**。
+/// 挂载在 `RelayStation.login_fingerprint`，供 UI 展示「已采样」状态。
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoginFingerprintInfo {
+    pub sampled_at: String,
+    #[serde(default)]
+    pub sampled_by_account: String,
+    #[serde(default)]
+    pub cookie_count: usize,
+    #[serde(default)]
+    pub storage_key_count: usize,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RelayStation {
@@ -445,6 +508,10 @@ pub struct RelayStation {
     /// 仅在 macOS 14+ WebView 上生效；其他平台必须显式返回 unsupported。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub network_proxy: Option<NetworkProxyConfig>,
+    /// 登录指纹摘要（F2，IPC DTO）：只含计数与采样时间，无特征名。
+    /// 完整指纹存 `AccountManagerSnapshot.fingerprints`（按 station_id）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub login_fingerprint: Option<LoginFingerprintInfo>,
 }
 
 pub fn default_session_ttl_hours() -> u32 {

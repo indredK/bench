@@ -104,6 +104,10 @@ export interface AuthProxyDialogProps {
   initialRequest?: AuthProxyRequest | null
   initialMatches?: AuthProxyMatch[]
   initialHost?: string
+  /** handle_browser_open 是否判定为 authorize-like 登录链接。false 且无回调 → 引导转快速登录。 */
+  initialIsAuthorize?: boolean
+  /** 普通链接引导「改用快速登录打开」回调(url 为原始输入/目标 URL)。 */
+  onSwitchToQuickLogin?: (url: string) => void
 }
 
 const EMPTY_AUTH_PROXY_MATCHES: AuthProxyMatch[] = []
@@ -120,6 +124,8 @@ export function AuthProxyDialog({
   initialRequest = null,
   initialMatches = EMPTY_AUTH_PROXY_MATCHES,
   initialHost = "",
+  initialIsAuthorize = true,
+  onSwitchToQuickLogin,
 }: AuthProxyDialogProps) {
   const { t } = useTranslation()
   const [step, setStep] = useState(STEP_PASTE)
@@ -128,6 +134,7 @@ export function AuthProxyDialog({
   const [parsedRequest, setParsedRequest] = useState<AuthProxyRequest | null>(null)
   const [parsedHost, setParsedHost] = useState("")
   const [parsedMatches, setParsedMatches] = useState<AuthProxyMatch[]>([])
+  const [parsedIsAuthorize, setParsedIsAuthorize] = useState(true)
 
   // All known stations/accounts (loaded when dialog opens) so the user can
   // pick a site even if its host does not match the pasted URL.
@@ -160,12 +167,13 @@ export function AuthProxyDialog({
       setParsedRequest(initialRequest)
       setParsedHost(initialHost)
       setParsedMatches(initialMatches)
+      setParsedIsAuthorize(initialIsAuthorize)
       setSelectedStationIndex(initialMatches.length === 1 ? 0 : null)
       setSelectedAccountId(null)
       setNewAccountName("")
       setConfirming(false)
     }
-  }, [initialHost, initialMatches, initialRequest, open])
+  }, [initialHost, initialIsAuthorize, initialMatches, initialRequest, open])
 
   // Preload all stations + accounts so the site selector can offer every site,
   // not only the ones whose host matches the URL.
@@ -268,6 +276,7 @@ export function AuthProxyDialog({
       })
       setParsedHost(result.host)
       setParsedMatches(result.matches)
+      setParsedIsAuthorize(result.isAuthorize)
 
       // Auto-select first station if only one
       if (result.matches.length === 1) {
@@ -329,6 +338,14 @@ export function AuthProxyDialog({
     } catch (error) {
       console.warn("[auth-proxy] open return url failed:", parseCommandError(error).code)
     }
+  }
+
+  /// 普通链接(非 authorize-like 且无回调)→ 引导改用快速登录打开。
+  const isPlainUrl = !parsedIsAuthorize && !parsedRequest?.returnUrl
+
+  const handleSwitchToQuickLogin = () => {
+    if (!onSwitchToQuickLogin) return
+    onSwitchToQuickLogin(url.trim() || parsedRequest?.target || "")
   }
 
   // ═══════════════════════════════════════════════
@@ -425,6 +442,23 @@ export function AuthProxyDialog({
             </Button>
           </div>
         )}
+        {/* 普通链接引导:非 authorize-like 且无回调 → 建议改用快速登录打开(F1) */}
+        {isPlainUrl && onSwitchToQuickLogin && (
+          <div className="border-border bg-muted/30 flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium">
+                {t("accountManager.authProxy.wizard.notAuthLinkTitle")}
+              </p>
+              <p className="text-muted-foreground text-xs">
+                {t("accountManager.authProxy.wizard.notAuthLinkHint")}
+              </p>
+            </div>
+            <Button type="button" size="sm" variant="outline" onClick={handleSwitchToQuickLogin}>
+              <Link2 size={13} />
+              {t("accountManager.authProxy.wizard.switchToQuickLogin")}
+            </Button>
+          </div>
+        )}
         {/* Station selector */}
         <div className="space-y-1.5">
           <label className="text-sm font-medium">
@@ -485,7 +519,7 @@ export function AuthProxyDialog({
                   }
                 }}
                 className={cn(
-                  "flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm",
+                  "flex h-auto min-h-8 w-full items-center gap-3 px-3 py-2.5 text-left text-sm whitespace-normal",
                   usingExisting ? "border-primary bg-primary/5" : "",
                   !hasExistingAccounts && "opacity-60",
                 )}
@@ -545,7 +579,7 @@ export function AuthProxyDialog({
                 onClick={() => setSelectedAccountId(NEW_ACCOUNT)}
                 disabled={confirming}
                 className={cn(
-                  "flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm",
+                  "flex h-auto min-h-8 w-full items-center gap-3 px-3 py-2.5 text-left text-sm whitespace-normal",
                   isNewAccount
                     ? "border-primary bg-primary/5"
                     : "border-muted-foreground/20 hover:bg-muted/50",

@@ -15,6 +15,7 @@ import type {
   ExternalApp,
   ExternalAppBinding,
   LoginDetectionConfig,
+  LoginFingerprintSummary,
   LoginMethod,
   NetworkProxyConfig,
   PasswordAction,
@@ -50,6 +51,7 @@ export type {
   LoginDetectionMode,
   LoginDetectionPresence,
   LoginDetectionRule,
+  LoginFingerprintSummary,
   LoginMethod,
   MatchConfidence,
   NetworkProxyConfig,
@@ -305,6 +307,28 @@ export function listAccountLogs(accountId: string): Promise<AccountLogsResponse>
 /// 按 URL host 匹配站点(快速登录粘贴 URL → 自动识别分组)。
 export function matchStationsByUrl(url: string): Promise<StationUrlMatch[]> {
   return invokeTauriCommand(TAURI_COMMANDS.accountManager.matchStationsByUrl, { url })
+}
+
+/// F2 — 采集站点登录指纹(特征名不出后端),顺带刷新 authProfile。
+export function captureLoginFingerprint(
+  stationId: string,
+  accountId: string,
+): Promise<LoginFingerprintSummary> {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.captureLoginFingerprint, {
+    stationId,
+    accountId,
+  })
+}
+
+/// F2 — 用户确认:将该账号当前状态识别为站点的活跃(已登录)状态。
+export function confirmLoginFingerprint(
+  stationId: string,
+  accountId: string,
+): Promise<StationAccount> {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.confirmLoginFingerprint, {
+    stationId,
+    accountId,
+  })
 }
 
 /// 启动外部代理登录:打开登录窗口 → 注入凭证 → 返回占位 AuthProxyResult。

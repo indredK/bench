@@ -20,6 +20,7 @@ const KEY_SCHEMA: &str = "schema_version";
 const KEY_EXTERNAL_APPS: &str = "external_apps";
 const KEY_EXTERNAL_APP_BINDINGS: &str = "external_app_bindings";
 const KEY_ACCOUNT_LOGS: &str = "account_logs";
+const KEY_FINGERPRINTS: &str = "fingerprints";
 const CURRENT_SCHEMA: u32 = 5;
 const MAX_STORE_FILE_BYTES: u64 = 16 * 1024 * 1024;
 const MAX_MIGRATION_BACKUPS: usize = 3;
@@ -58,6 +59,8 @@ pub fn init_state<R: Runtime>(
         KEY_EXTERNAL_APP_BINDINGS,
     )?;
     let account_logs = decode_account_logs(store.get(KEY_ACCOUNT_LOGS))?;
+    let fingerprints: HashMap<String, super::types::LoginFingerprint> =
+        decode_or_default(store.get(KEY_FINGERPRINTS), KEY_FINGERPRINTS)?;
 
     let migrated_legacy_sessions = migrate_legacy_sessions(&mut accounts, &mut sessions);
 
@@ -69,6 +72,7 @@ pub fn init_state<R: Runtime>(
         external_apps,
         external_app_bindings,
         account_logs,
+        fingerprints,
     };
     let mut dirty = false;
     if needs_resave {
@@ -230,6 +234,7 @@ fn save_snapshot<R: Runtime>(
         json!(&snapshot.external_app_bindings),
     );
     store.set(KEY_ACCOUNT_LOGS, json!(&snapshot.account_logs));
+    store.set(KEY_FINGERPRINTS, json!(&snapshot.fingerprints));
     store.set(KEY_SCHEMA, json!(CURRENT_SCHEMA));
     store
         .save()
@@ -315,6 +320,7 @@ where
             KEY_EXTERNAL_APP_BINDINGS,
         )?,
         account_logs: decode_account_logs(store.get(KEY_ACCOUNT_LOGS))?,
+        fingerprints: decode_or_default(store.get(KEY_FINGERPRINTS), KEY_FINGERPRINTS)?,
     };
 
     let result = f(&mut next)?;

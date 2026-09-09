@@ -1,5 +1,6 @@
 import type {
   AccountManagerCapabilities,
+  LoginFingerprintSummary,
   RelayStation,
   StationAccount,
 } from "@/lib/tauri/types/account-manager"
@@ -36,6 +37,10 @@ export type AccountManagerState = {
   /** 账号日志对话框(Session Keeper)。 */
   isAccountLogOpen: boolean
   accountLogTarget: { accountId: string; accountName: string } | null
+  /** F2 — 登录指纹确认弹窗。 */
+  isFingerprintConfirmOpen: boolean
+  fingerprintSummary: LoginFingerprintSummary | null
+  fingerprintTarget: { stationId: string; accountId: string } | null
   /** 三栏区域持久化错误；partial 刷新失败后支持区域级重试（A1-1）。 */
   regionErrors: Record<AccountManagerRegion, RegionErrorPayload | null>
 }
@@ -68,6 +73,9 @@ export type AccountManagerActions = {
   setExternalAppsAccountId: (id: string | null) => void
   setAccountLogOpen: (open: boolean) => void
   setAccountLogTarget: (target: { accountId: string; accountName: string } | null) => void
+  setFingerprintConfirmOpen: (open: boolean) => void
+  setFingerprintSummary: (summary: LoginFingerprintSummary | null) => void
+  setFingerprintTarget: (target: { stationId: string; accountId: string } | null) => void
   applyInitialSelection: (stations: RelayStation[], accounts: StationAccount[]) => void
   selectStation: (id: string, accounts: StationAccount[]) => void
   setRegionError: (region: AccountManagerRegion, payload: RegionErrorPayload | null) => void
@@ -102,5 +110,8 @@ export const initialAccountManagerState: AccountManagerState = {
   externalAppsAccountId: null,
   isAccountLogOpen: false,
   accountLogTarget: null,
+  isFingerprintConfirmOpen: false,
+  fingerprintSummary: null,
+  fingerprintTarget: null,
   regionErrors: { station: null, account: null, detail: null },
 }

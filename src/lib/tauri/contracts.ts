@@ -37,6 +37,7 @@ import type {
   ExternalAppBinding,
   LoginDetectionConfig,
   LoginMethod,
+  LoginFingerprintSummary,
   NetworkProxyConfig,
   PasswordAction,
   ProbeStrategy,
@@ -374,6 +375,14 @@ export const TAURI_COMMAND_CONTRACTS = {
   match_stations_by_url: defineTauriCommand<{ url: string }, StationUrlMatch[]>()(
     "match_stations_by_url",
   ),
+  capture_login_fingerprint: defineTauriCommand<
+    { stationId: string; accountId: string },
+    LoginFingerprintSummary
+  >()("capture_login_fingerprint"),
+  confirm_login_fingerprint: defineTauriCommand<
+    { stationId: string; accountId: string },
+    StationAccount
+  >()("confirm_login_fingerprint"),
   proxy_login: defineTauriCommand<{ accountId: string; ticketId: string }, AuthProxyResult>()(
     "proxy_login",
   ),
@@ -1033,6 +1042,8 @@ export const TAURI_COMMANDS = {
     setAccountRefreshSchedule: commandName("set_account_refresh_schedule"),
     listAccountLogs: commandName("list_account_logs"),
     matchStationsByUrl: commandName("match_stations_by_url"),
+    captureLoginFingerprint: commandName("capture_login_fingerprint"),
+    confirmLoginFingerprint: commandName("confirm_login_fingerprint"),
     proxyLogin: commandName("proxy_login"),
     handleBrowserOpen: commandName("handle_browser_open"),
     getAuthProxyInboxStatus: commandName("get_auth_proxy_inbox_status"),
@@ -1325,6 +1336,8 @@ export const TAURI_COMMAND_ARG_KEYS = {
   set_account_refresh_schedule: ["accountId", "schedule"],
   list_account_logs: ["accountId"],
   match_stations_by_url: ["url"],
+  capture_login_fingerprint: ["stationId", "accountId"],
+  confirm_login_fingerprint: ["stationId", "accountId"],
   proxy_login: ["accountId", "ticketId"],
   handle_browser_open: ["url"],
   get_auth_proxy_inbox_status: [],

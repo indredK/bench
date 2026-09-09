@@ -75,6 +75,7 @@ pub fn open_login_window<R: Runtime>(
                     probe_failure_count: 0,
                     session_ttl_hours: crate::account_manager::types::default_session_ttl_hours(),
                     network_proxy: None,
+                    login_fingerprint: None,
                 }
             }
             None => {
@@ -449,7 +450,7 @@ async fn run_proxy_login<R: Runtime>(
         host: target_host,
         ..
     } = ticket;
-    let (username, station_id, has_password, proxy_url) = {
+    let (username, station_id, station, has_password, proxy_url) = {
         let snapshot = state.read_snapshot_checked()?;
         let account = snapshot
             .accounts
@@ -466,17 +467,27 @@ async fn run_proxy_login<R: Runtime>(
             .stations
             .iter()
             .find(|s| s.id == account.station_id)
+            .cloned()
             .ok_or_else(|| {
                 AccountManagerError::not_found(format!("station {}", account.station_id))
             })?;
-        let proxy_url = build_proxy_url_for_station(app, station)?;
+        let proxy_url = build_proxy_url_for_station(app, &station)?;
         (
             account.username.clone(),
             account.station_id.clone(),
+            station.clone(),
             account.has_password,
             proxy_url,
         )
     };
+
+    // 互斥对齐（F1-T4）：与 open_login_window 命令一致，登录前处理同站其它账号
+    // （exclusive 登出冲突账号 / rotating 降级活跃账号），避免经外部登录绕过互斥约束。
+    crate::account_manager::exclusivity::enforce_exclusivity_before_login(
+        app,
+        &station,
+        &account_id,
+    )?;
 
     webview::open_login_window(
         app,
@@ -835,6 +846,7 @@ fn ensure_station_for_host<R: Runtime>(
         created_at: now_label(),
         login_detection: LoginDetectionConfig::default(),
         network_proxy: None,
+        login_fingerprint: None,
     };
     storage::with_state_mut(app, state, |snapshot| {
         snapshot.stations.push(station.clone());

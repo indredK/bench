@@ -4,7 +4,7 @@
  * 刷新编排 → useRefreshOrchestrator，导入导出 → useDataPorting，Deep Link/Auth Proxy → useAuthProxy。
  * 对 page.tsx 的返回接口保持不变，仅新增区域错误出口 regionErrors/retryRegion/dismissRegionError。)
  */
-import { useCallback, useEffect, useMemo } from "react"
+import { useCallback, useEffect, useMemo, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { useShallow } from "zustand/react/shallow"
 import { accountManagerUseCases } from "@/features/account-manager/services/account-manager.use-cases"
@@ -18,6 +18,7 @@ import { useAccountManagerStore } from "@/features/account-manager/store"
 import { useAuthProxy } from "@/features/account-manager/hooks/useAuthProxy"
 import { useAccountActions } from "@/features/account-manager/hooks/useAccountActions"
 import { useDataPorting } from "@/features/account-manager/hooks/useDataPorting"
+import { useFingerprint } from "@/features/account-manager/hooks/useFingerprint"
 import { useQuickLoginHistory } from "@/features/account-manager/hooks/useQuickLoginHistory"
 import { useRefreshOrchestrator } from "@/features/account-manager/hooks/useRefreshOrchestrator"
 import { useSessionKeeper } from "@/features/account-manager/hooks/useSessionKeeper"
@@ -53,12 +54,16 @@ export function useAccountManagerController() {
     isQuickLoginOpen,
     isExternalAppsOpen,
     externalAppsAccountId,
+    isFingerprintConfirmOpen,
+    fingerprintSummary,
+    fingerprintTarget,
     regionErrors,
     setSelectedAccountId,
     setAddStationOpen,
     setAddAccountOpen,
     setQuickLoginOpen,
     setExternalAppsOpen,
+    setFingerprintConfirmOpen,
     setEditStationOpen,
     setEditingStation,
     setEditAccountOpen,
@@ -94,12 +99,16 @@ export function useAccountManagerController() {
       isQuickLoginOpen: s.isQuickLoginOpen,
       isExternalAppsOpen: s.isExternalAppsOpen,
       externalAppsAccountId: s.externalAppsAccountId,
+      isFingerprintConfirmOpen: s.isFingerprintConfirmOpen,
+      fingerprintSummary: s.fingerprintSummary,
+      fingerprintTarget: s.fingerprintTarget,
       regionErrors: s.regionErrors,
       setSelectedAccountId: s.setSelectedAccountId,
       setAddStationOpen: s.setAddStationOpen,
       setAddAccountOpen: s.setAddAccountOpen,
       setQuickLoginOpen: s.setQuickLoginOpen,
       setExternalAppsOpen: s.setExternalAppsOpen,
+      setFingerprintConfirmOpen: s.setFingerprintConfirmOpen,
       setEditStationOpen: s.setEditStationOpen,
       setEditingStation: s.setEditingStation,
       setEditAccountOpen: s.setEditAccountOpen,
@@ -142,6 +151,7 @@ export function useAccountManagerController() {
   const accountActions = useAccountActions({ loadInitialData })
   const dataPorting = useDataPorting()
   const sessionKeeper = useSessionKeeper()
+  const fingerprint = useFingerprint({ loadInitialData })
   const { readQuickLoginHistory } = useQuickLoginHistory()
 
   const selectedStation = useMemo(
@@ -184,6 +194,24 @@ export function useAccountManagerController() {
   }, [])
 
   const authProxy = useAuthProxy()
+
+  /** 快速登录预填 URL：供外部登录引导转发（F1）。 */
+  const quickLoginPendingUrlRef = useRef<string>("")
+
+  const handleQuickLoginPrefill = useCallback(
+    (url: string) => {
+      quickLoginPendingUrlRef.current = url
+      useAccountManagerStore.getState().setQuickLoginOpen(true)
+      authProxy.setAuthProxyOpen(false)
+    },
+    [authProxy],
+  )
+
+  /** 手动打开快速登录：清空上一次引导转发的预填 URL，避免残留。 */
+  const handleOpenQuickLogin = useCallback(() => {
+    quickLoginPendingUrlRef.current = ""
+    useAccountManagerStore.getState().setQuickLoginOpen(true)
+  }, [])
 
   /** 区域错误条重试入口：执行写入错误时登记的区域级重试函数。 */
   const retryRegion = useCallback((region: AccountManagerRegion) => {
@@ -246,10 +274,22 @@ export function useAccountManagerController() {
     setDeletingAccount,
     isQuickLoginOpen,
     setQuickLoginOpen,
+    quickLoginPrefillUrl: quickLoginPendingUrlRef.current,
+    handleQuickLoginPrefill,
+    handleOpenQuickLogin,
     isExternalAppsOpen,
     setExternalAppsOpen,
     externalAppsAccountId,
     handleOpenExternalApps,
+    // F2 登录指纹
+    isFingerprintConfirmOpen,
+    setFingerprintConfirmOpen,
+    fingerprintSummary,
+    fingerprintTarget,
+    capturingFingerprint: fingerprint.capturingFingerprint,
+    confirmingFingerprint: fingerprint.confirmingFingerprint,
+    handleCaptureFingerprint: fingerprint.handleCaptureFingerprint,
+    handleConfirmFingerprint: fingerprint.handleConfirmFingerprint,
     regionErrors,
     retryRegion,
     dismissRegionError,

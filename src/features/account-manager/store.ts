@@ -53,6 +53,9 @@ export const useAccountManagerStore = create<AccountManagerState & AccountManage
     setExternalAppsAccountId: (externalAppsAccountId) => set({ externalAppsAccountId }),
     setAccountLogOpen: (isAccountLogOpen) => set({ isAccountLogOpen }),
     setAccountLogTarget: (accountLogTarget) => set({ accountLogTarget }),
+    setFingerprintConfirmOpen: (isFingerprintConfirmOpen) => set({ isFingerprintConfirmOpen }),
+    setFingerprintSummary: (fingerprintSummary) => set({ fingerprintSummary }),
+    setFingerprintTarget: (fingerprintTarget) => set({ fingerprintTarget }),
     applyInitialSelection: (stations, accounts) => {
       const { stationId, accountId } = pickInitialSelection(stations, accounts)
       set({ selectedStationId: stationId, selectedAccountId: accountId })

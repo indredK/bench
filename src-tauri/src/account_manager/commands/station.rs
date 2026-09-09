@@ -52,6 +52,7 @@ pub fn create_station<R: Runtime>(
         created_at: now_label(),
         login_detection: login_detection.unwrap_or_default(),
         network_proxy: None,
+        login_fingerprint: None,
     };
     storage::with_state_mut(&app, &state, |snapshot| {
         snapshot.stations.push(station.clone());

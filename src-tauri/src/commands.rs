@@ -181,6 +181,8 @@ macro_rules! app_invoke_handler {
             $crate::account_manager::commands::list_external_apps,
             $crate::account_manager::commands::remove_external_app,
             $crate::account_manager::commands::list_external_app_bindings,
+            $crate::account_manager::commands::capture_login_fingerprint,
+            $crate::account_manager::commands::confirm_login_fingerprint,
             $crate::token_calculator::commands::list_pricing_standards,
             $crate::token_calculator::commands::create_pricing_standard,
             $crate::token_calculator::commands::update_pricing_standard,

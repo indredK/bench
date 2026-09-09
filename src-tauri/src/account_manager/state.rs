@@ -150,6 +150,9 @@ pub struct AccountManagerSnapshot {
     pub external_app_bindings: Vec<ExternalAppBinding>,
     /// Session Keeper — 每账号独立日志(环形,上限 MAX_ACCOUNT_LOG_ENTRIES)。
     pub account_logs: HashMap<String, VecDeque<AccountLogEntry>>,
+    /// F2 — 登录指纹（完整特征，按 station_id）。不进 RelayStation DTO，
+    /// IPC 只暴露 `RelayStation.login_fingerprint` 摘要。
+    pub fingerprints: HashMap<String, super::types::LoginFingerprint>,
 }
 
 /// 向 snapshot 追加一条账号日志(环形裁剪,保留最新 MAX_ACCOUNT_LOG_ENTRIES 条)。

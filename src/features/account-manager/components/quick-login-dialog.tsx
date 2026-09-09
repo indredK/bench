@@ -40,6 +40,7 @@ export function QuickLoginDialog({
   onMatchStations,
   getStationAccounts,
   submitting,
+  initialUrl = "",
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -55,6 +56,8 @@ export function QuickLoginDialog({
     status: AccountSessionStatus
   }[]
   submitting?: boolean
+  /** 打开时预填的 URL(从外部登录引导转发,见 F1)。 */
+  initialUrl?: string
 }) {
   const { t } = useTranslation()
   const [url, setUrl] = useState("")
@@ -76,8 +79,10 @@ export function QuickLoginDialog({
       setStationChoice(STATION_NEW)
       setAccountChoice(ACCOUNT_NEW)
       matchSeqRef.current += 1
+    } else if (initialUrl.trim()) {
+      setUrl(initialUrl.trim())
     }
-  }, [open])
+  }, [open, initialUrl])
 
   // URL 变化 → 防抖匹配站点;新匹配集到达时预选最高置信度(列表首位)。
   useEffect(() => {

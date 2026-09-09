@@ -485,6 +485,8 @@
       "loadExternalAppsFailed": "Failed to load external apps",
       "revokeExternalAppSuccess": "Authorization revoked",
       "revokeExternalAppFailed": "Failed to revoke authorization",
+      "fingerprintConfirmed": "This account is now recognized as signed in",
+      "fingerprintConfirmFailed": "Failed to confirm the sign-in state. Please retry.",
       "unknown": "The operation failed. Please try again."
     },
     "authProxy": {
@@ -532,7 +534,10 @@
         "startLogin": "Start sign-in",
         "invalidUrl": "Invalid link. Paste a bench-auth:// or http(s):// URL.",
         "parseFailed": "Failed to parse the link: {{message}}",
-        "loadStationsFailed": "Failed to load the station list."
+        "loadStationsFailed": "Failed to load the station list.",
+        "notAuthLinkTitle": "This link is not an authorization link",
+        "notAuthLinkHint": "It has no callback URL, so the sign-in result can't be returned to an external app. If you just want to open it with an account, use Quick Open instead.",
+        "switchToQuickLogin": "Open with Quick Open"
       },
       "startLogin": "Start sign-in",
       "back": "Back"
@@ -592,8 +597,31 @@
       "loadFailed": "Failed to load logs",
       "empty": "No logs yet",
       "emptyHint": "Login, manual refresh, keep-alive runs and schedule changes will appear here",
+      "filterAll": "All",
+      "emptyFiltered": "No logs of this type yet",
       "errorCode": "Error {{code}}",
       "duration": "{{ms}}ms",
+      "detail": {
+        "source": {
+          "manual": "Manual",
+          "keeper": "Keep-alive",
+          "deepLink": "External link",
+          "quickLogin": "Quick login",
+          "fingerprintConfirm": "Fingerprint confirm",
+          "fingerprintCapture": "Fingerprint capture"
+        },
+        "layer": {
+          "http": "HTTP probe",
+          "webview": "WebView probe",
+          "hybrid": "Hybrid probe"
+        },
+        "captureStatus": {
+          "failed": "Session capture failed"
+        },
+        "forwardResult": {
+          "failed": "Callback forwarding to the external app failed"
+        }
+      },
       "kind": {
         "login": "Login",
         "manualRefresh": "Manual refresh",
@@ -700,13 +728,30 @@
         "detecting": "Detecting..."
       }
     },
+    "fingerprint": {
+      "capture": "Capture login fingerprint",
+      "confirmTitle": "Recognize sign-in state",
+      "confirmDesc": "Recognize account \"{{username}}\" as active (signed in) on this site? After confirming, bench will refresh the sign-in state of every account on this site.",
+      "cookieCount": "Cookie features",
+      "storageKeyCount": "Storage key features",
+      "sampledAt": "Sampled at",
+      "logoutEvidence": "Sign-in evidence (logout entry)",
+      "logoutEvidenceYes": "Detected",
+      "logoutEvidenceNo": "Not detected",
+      "cancel": "Cancel",
+      "confirm": "Recognize as signed in",
+      "confirming": "Recognizing...",
+      "sampledBadge": "Fingerprint sampled ({{sampledAt}}): {{cookies}} cookies / {{storageKeys}} storage keys — accounts missing all features are judged logged-out",
+      "sampledBadgeTooltip": "This site's login fingerprint was captured. Accounts missing every fingerprint feature are determined to be logged out, even if one expects them signed in."
+    },
     "errors": {
       "refreshAccount": "Failed to refresh this account; its data is unchanged.",
       "refreshAccounts": "Batch refresh failed; failed accounts keep their previous data.",
       "partialRefresh": "{{failed}}/{{total}} accounts failed to refresh; previous data kept.",
       "stationAction": "Station operation failed. Please retry.",
       "accountAction": "Account operation failed. Please retry.",
-      "detailAction": "Session detection failed. Please retry."
+      "detailAction": "Session detection failed. Please retry.",
+      "fingerprintCapture": "Failed to capture the login fingerprint. Please retry."
     }
   },
   "appManager": {

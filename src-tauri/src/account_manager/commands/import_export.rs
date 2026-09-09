@@ -225,6 +225,7 @@ pub fn import_relay_data<R: Runtime>(
                 created_at: station.created_at.unwrap_or_else(now_label),
                 login_detection: station.login_detection,
                 network_proxy: None,
+                login_fingerprint: None,
             });
 
             for account in station.accounts {
@@ -299,6 +300,7 @@ mod tests {
             external_apps: Vec::new(),
             external_app_bindings: Vec::new(),
             account_logs: HashMap::new(),
+            fingerprints: HashMap::new(),
         };
 
         let (export, count) =
@@ -324,6 +326,7 @@ mod tests {
             external_apps: Vec::new(),
             external_app_bindings: Vec::new(),
             account_logs: HashMap::new(),
+            fingerprints: HashMap::new(),
         };
 
         let (export, _) =

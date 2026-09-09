@@ -51,6 +51,7 @@ schema v5 起，`AccountManagerSnapshot.sessions` 是唯一 Session 真理源；
 - IndexedDB 捕获保存 database version、object store、keyPath、autoIncrement、index 和记录；恢复前验证 schema，版本或 store/index 不兼容时 fail-closed，不覆盖现有数据库。
 - 单次 Web Storage 最多 512 key/2 MiB；IndexedDB 最多 32 database、128 store、10,000 record/8 MiB；桥接总量 12 MiB，捕获/恢复各 10 秒。Blob、CryptoKey、循环引用等不可移植值返回受限/失败，不伪装为完整快照。
 - 恢复后必须 probe，不能仅凭 cookie 存在标记 Ready。
+- 例外（F2/D4，2026-09-09）：**用户显式确认**可将账号标为 Ready——登录指纹采样后的确认弹窗是用户实时断言（指纹来自当次窗口加载的证据），非自动推断，属红线外显式授权路径；确认后仍建议触发该站点全量刷新，让其它账号走指纹 L0 预检。
 - TTL 清理和退出持久化必须幂等；失败需要可见错误或明确降级状态。
 - 每个账号使用独立 data directory/data store，禁止跨账号复用浏览上下文。
 

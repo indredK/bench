@@ -272,6 +272,8 @@ async fn complete_proxy_login<R: Runtime>(
     };
     if let Err(error) = forward_result {
         eprintln!("[account_manager] callback forwarding failed: {error}");
+        // F3 — 转交失败写账号日志(不含 URL/凭证)。
+        log_proxy_forward_failed(app, account_id);
     }
 
     match capture_result {
@@ -338,6 +340,21 @@ fn log_proxy_login_outcome<R: Runtime>(
         Some(serde_json::json!({ "verified": verified })),
     ) {
         eprintln!("[account_manager] append proxy login log failed: {error}");
+    }
+}
+
+/// F3 — 代理登录成功但回调转交外部 App 失败：写一条显式错误日志。
+fn log_proxy_forward_failed<R: Runtime>(app: &AppHandle<R>, account_id: &str) {
+    let state = app.state::<super::state::AccountManagerState>();
+    if let Err(error) = super::storage::append_account_log(
+        app,
+        &state,
+        account_id,
+        super::types::AccountLogKind::Error,
+        super::types::AccountLogLevel::Error,
+        Some(serde_json::json!({ "forwardResult": "failed" })),
+    ) {
+        eprintln!("[account_manager] append proxy forward-failed log failed: {error}");
     }
 }
 

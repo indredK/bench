@@ -13,7 +13,7 @@ use std::time::Duration;
 
 use chrono::{Local, Timelike};
 use serde_json::json;
-use tauri::{AppHandle, Manager, Runtime, WebviewUrl, WebviewWindowBuilder};
+use tauri::{AppHandle, Manager, Runtime, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 use tokio::sync::oneshot;
 use tokio::time::{sleep, Instant};
 
@@ -25,11 +25,41 @@ use super::state::{push_account_log, AccountManagerState, ProbeFlight};
 use super::storage;
 use super::types::{
     AccountLogKind, AccountLogLevel, AccountManagerError, AccountManagerResult,
-    AccountSessionStatus, AccountType, RefreshSchedule, RefreshScheduleMode, StationAccount,
+    AccountSessionStatus, AccountType, LoginDetectionConfig, RefreshSchedule, RefreshScheduleMode,
+    StationAccount,
 };
 use super::webview;
 
 const KEEPER_TICK_SECONDS: u64 = 30;
+
+/// 在窗口上轮询页面文本并按登录检测配置分类
+/// （`classify_confident` 有确定性结果即提前返回，超时回退 `classify`）。
+async fn poll_page_config<R: Runtime>(
+    config: &LoginDetectionConfig,
+    window: &WebviewWindow<R>,
+) -> Option<AccountSessionStatus> {
+    let poll_deadline = Instant::now() + Duration::from_millis(8000);
+    let mut last_text: Option<String> = None;
+    let mut confident: Option<AccountSessionStatus> = None;
+    let interval = Duration::from_millis(500);
+    while Instant::now() < poll_deadline {
+        match probe::eval_text(window).await {
+            Ok(text) => {
+                if let Some(status) = super::detection::classify_confident(&text, config) {
+                    confident = Some(status);
+                    break;
+                }
+                last_text = Some(text);
+            }
+            Err(_) => {
+                sleep(interval).await;
+                continue;
+            }
+        }
+        sleep(interval).await;
+    }
+    confident.or_else(|| last_text.map(|text| super::detection::classify(&text, config)))
+}
 
 pub fn keeper_window_label(account_id: &str) -> String {
     format!("relay-keeper-{account_id}")
@@ -117,6 +147,8 @@ enum KeeperRunOutcome {
     Refreshed {
         status: AccountSessionStatus,
         new_session: Option<EncryptedBlob>,
+        /// Ready 但 session 捕获/加密失败(保留旧 session)——日志标记 captureStatus。
+        capture_failed: bool,
     },
     /// 因边界条件跳过本次执行(原因写入日志 skipReason)。
     Skipped { reason: &'static str },
@@ -158,7 +190,7 @@ async fn silent_refresh_leader<R: Runtime>(
 ) -> AccountManagerResult<KeeperRunOutcome> {
     // 1. 读取配置(快照释放后再建窗口)。
     let state = app.state::<AccountManagerState>();
-    let (website, config, proxy_url, requires_indexed_db) = {
+    let (website, config, proxy_url, requires_indexed_db, fingerprint) = {
         let snapshot = state.read_snapshot_checked()?;
         let Some(account) = snapshot.accounts.iter().find(|a| a.id == account_id) else {
             return Err(AccountManagerError::not_found(format!(
@@ -187,6 +219,7 @@ async fn silent_refresh_leader<R: Runtime>(
             station.auth_profile.as_ref().is_some_and(|profile| {
                 profile.token_storage == super::types::TokenStorage::IndexedDB
             }),
+            snapshot.fingerprints.get(&station.id).cloned(),
         )
     };
 
@@ -302,27 +335,20 @@ async fn silent_refresh_leader<R: Runtime>(
             if wait_for_storage_restore {
                 super::browser_storage::wait_for_restore(&window).await?;
             }
-            let poll_deadline = Instant::now() + Duration::from_millis(8000);
-            let mut last_text: Option<String> = None;
-            let mut confident: Option<AccountSessionStatus> = None;
-            let interval = Duration::from_millis(500);
-            while Instant::now() < poll_deadline {
-                match probe::eval_text(&window).await {
-                    Ok(text) => {
-                        if let Some(status) = super::detection::classify_confident(&text, &config) {
-                            confident = Some(status);
-                            break;
-                        }
-                        last_text = Some(text);
-                    }
-                    Err(_) => {
-                        sleep(interval).await;
-                        continue;
-                    }
+            // L0b 预检（keeper 路径）：指纹全缺失 → 确定性未登录，直接停止轮询。
+            let fingerprint_ok = match fingerprint.as_ref() {
+                Some(fp) if !fp.is_empty() => {
+                    super::fingerprint::any_feature_present_in_window(&window, &website, fp).await?
                 }
-                sleep(interval).await;
+                _ => true,
+            };
+            if fingerprint_ok {
+                poll_page_config(&config, &window)
+                    .await
+                    .or(Some(AccountSessionStatus::FetchFailed))
+            } else {
+                Some(AccountSessionStatus::LoginRequired)
             }
-            confident.or_else(|| last_text.map(|text| super::detection::classify(&text, &config)))
         }
     };
     let detected_status = detected.unwrap_or(AccountSessionStatus::FetchFailed);
@@ -352,12 +378,15 @@ async fn silent_refresh_leader<R: Runtime>(
     } else {
         detected_status
     };
+    // 捕获失败标记:Ready 但新 session 无法加密落盘(保留旧 session)。
+    let capture_failed = detected_status == AccountSessionStatus::Ready && new_session.is_none();
 
     // 9. 关闭窗口并返回。
     let _ = window.close();
     Ok(KeeperRunOutcome::Refreshed {
         status: final_status,
         new_session,
+        capture_failed,
     })
 }
 
@@ -388,6 +417,7 @@ fn finish_keeper_leader_run<R: Runtime>(
                 Ok(KeeperRunOutcome::Refreshed {
                     status,
                     new_session,
+                    capture_failed,
                 }) => {
                     let old_status = account.status;
                     account.status = status;
@@ -411,11 +441,17 @@ fn finish_keeper_leader_run<R: Runtime>(
                         AccountSessionStatus::LoginRequired => AccountLogLevel::Warn,
                         _ => AccountLogLevel::Error,
                     };
-                    pending_logs.push((
-                        AccountLogKind::AutoRefresh,
-                        level,
-                        Some(json!({ "status": status, "durationMs": duration_ms })),
-                    ));
+                    let mut auto_detail = json!({
+                        "status": status,
+                        "durationMs": duration_ms,
+                        "layer": "webview",
+                        "source": "keeper",
+                    });
+                    // 捕获失败(Ready 检测成功但 session 无法落盘)——显式标记,区别于探测失败。
+                    if capture_failed {
+                        auto_detail["captureStatus"] = json!("failed");
+                    }
+                    pending_logs.push((AccountLogKind::AutoRefresh, level, Some(auto_detail)));
                 }
                 Ok(KeeperRunOutcome::Skipped { reason }) => {
                     pending_logs.push((

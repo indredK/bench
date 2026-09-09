@@ -35,7 +35,7 @@ async fn refresh_one_leader<R: Runtime>(
     account_id: String,
 ) -> AccountManagerResult<StationAccount> {
     let started = std::time::Instant::now();
-    let (website, detection_config, strategy, semaphore, proxy_url) = {
+    let (website, detection_config, strategy, semaphore, proxy_url, fingerprint) = {
         let state = app.state::<AccountManagerState>();
         let snapshot = state.read_snapshot_checked()?;
         let Some(account) = snapshot.accounts.iter().find(|a| a.id == account_id) else {
@@ -65,6 +65,7 @@ async fn refresh_one_leader<R: Runtime>(
                 .unwrap_or_default(),
             state.probe_semaphore.clone(),
             proxy_url,
+            snapshot.fingerprints.get(&station.id).cloned(),
         )
     };
 
@@ -79,6 +80,7 @@ async fn refresh_one_leader<R: Runtime>(
         &detection_config,
         strategy,
         proxy_url.as_deref(),
+        fingerprint.as_ref(),
     )
     .await?;
     let state = app.state::<AccountManagerState>();

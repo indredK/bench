@@ -349,4 +349,14 @@ export const accountManagerUseCases = {
   revokeExternalApp(appId: string) {
     return accountManagerRepository.removeExternalApp(appId)
   },
+
+  /** F2 — 采集站点登录指纹(顺带刷新 authProfile)。 */
+  captureLoginFingerprint(stationId: string, accountId: string) {
+    return accountManagerRepository.captureLoginFingerprint(stationId, accountId)
+  },
+
+  /** F2 — 用户确认账号为站点的活跃(已登录)状态。 */
+  confirmLoginFingerprint(stationId: string, accountId: string) {
+    return accountManagerRepository.confirmLoginFingerprint(stationId, accountId)
+  },
 }

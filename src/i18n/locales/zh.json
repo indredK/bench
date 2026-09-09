@@ -485,6 +485,8 @@
       "loadExternalAppsFailed": "加载外部应用列表失败",
       "revokeExternalAppSuccess": "已取消授权",
       "revokeExternalAppFailed": "取消授权失败",
+      "fingerprintConfirmed": "已将该账号识别为已登录状态",
+      "fingerprintConfirmFailed": "确认登录状态失败，请重试",
       "unknown": "操作失败，请稍后重试"
     },
     "authProxy": {
@@ -532,7 +534,10 @@
         "startLogin": "开始登录",
         "invalidUrl": "链接格式无效，请粘贴 bench-auth:// 或 http(s):// 开头的链接。",
         "parseFailed": "解析链接失败：{{message}}",
-        "loadStationsFailed": "站点列表加载失败。"
+        "loadStationsFailed": "站点列表加载失败。",
+        "notAuthLinkTitle": "该链接不是登录授权链接",
+        "notAuthLinkHint": "它没有回调地址，无法把登录结果返回给外部应用。若只是想用某个账号打开该链接，请改用快速登录。",
+        "switchToQuickLogin": "改用快速登录"
       },
       "startLogin": "开始登录",
       "back": "返回"
@@ -592,8 +597,31 @@
       "loadFailed": "日志加载失败",
       "empty": "暂无日志",
       "emptyHint": "登录、手动刷新、自动保活与计划变更的执行记录会显示在这里",
+      "filterAll": "全部",
+      "emptyFiltered": "该类型下暂无日志",
       "errorCode": "错误码 {{code}}",
       "duration": "耗时 {{ms}}ms",
+      "detail": {
+        "source": {
+          "manual": "手动",
+          "keeper": "自动保活",
+          "deepLink": "外部链接",
+          "quickLogin": "快速登录",
+          "fingerprintConfirm": "指纹确认",
+          "fingerprintCapture": "指纹采样"
+        },
+        "layer": {
+          "http": "HTTP 探测",
+          "webview": "WebView 探测",
+          "hybrid": "混合探测"
+        },
+        "captureStatus": {
+          "failed": "会话捕获失败"
+        },
+        "forwardResult": {
+          "failed": "回调转交外部应用失败"
+        }
+      },
       "kind": {
         "login": "登录",
         "manualRefresh": "手动刷新",
@@ -700,13 +728,30 @@
         "detecting": "检测中..."
       }
     },
+    "fingerprint": {
+      "capture": "采样登录指纹",
+      "confirmTitle": "识别登录状态",
+      "confirmDesc": "是否将账号「{{username}}」的当前状态识别为该站点的活跃（已登录）状态？确认后会自动刷新该站点全部账号的登录状态。",
+      "cookieCount": "Cookie 特征",
+      "storageKeyCount": "存储键特征",
+      "sampledAt": "采样时间",
+      "logoutEvidence": "登录佐证（登出入口）",
+      "logoutEvidenceYes": "已检测到",
+      "logoutEvidenceNo": "未检测到",
+      "cancel": "取消",
+      "confirm": "识别为已登录",
+      "confirming": "识别中...",
+      "sampledBadge": "指纹已采样（{{sampledAt}}）：Cookie {{cookies}} 项 / 存储 {{storageKeys}} 项，特征缺失的账号判定为未登录",
+      "sampledBadgeTooltip": "本站点已采集登录态指纹。指纹全部缺失的账号会被确定为「待登录」，即使用户直觉认为仍处于登录态。"
+    },
     "errors": {
       "refreshAccount": "刷新账号失败，账号数据保持不变。",
       "refreshAccounts": "批量刷新失败，失败账号保留旧数据。",
       "partialRefresh": "{{failed}}/{{total}} 个账号刷新失败，已保留旧数据。",
       "stationAction": "站点操作失败，请重试。",
       "accountAction": "账号操作失败，请重试。",
-      "detailAction": "会话探测失败，请重试。"
+      "detailAction": "会话探测失败，请重试。",
+      "fingerprintCapture": "登录指纹采样失败，请重试。"
     }
   },
   "appManager": {

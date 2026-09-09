@@ -8,6 +8,165 @@
 
 - [ ] 将同账号 single-flight、429/5xx 重试预算、Cookie scope、Deep Link 多 URL/去重和平台行为测试接入 macOS/Windows CI runner。
 
+## 待实现（2026-09-09 规划轮 F1–F4：登录指纹 · 入口收敛 · 日志增强 · 弹窗修复）
+
+> 状态：**已调研、未实现**。本节是本轮规划的唯一详细方案（调研结论 / 技术讨论 / 任务分解 / 验收标准），实施按「任务分配总表」顺序执行；完成后本节整体移除，设计边界同步 `design.md`、功能同步 `product-specs/account-manager.md`。
+> 背景（用户反馈 4 项）：① 快速登录与外部登录疑似重叠；② 登录态识别不可靠，需在详情栏底部新增「登录指纹采样」按钮；③ 账号日志信息量不足；④ 外部登录弹窗第二步选项卡两行文字溢出。
+
+### F1. 快速登录 × 外部登录：重叠调研与入口收敛
+
+**调研结论（重叠属实，但安全语义不同，不宜直接合并）**
+
+两条链路骨架同构：「粘贴 URL → 站点匹配 → 账号选择（已有/新建）→ 隔离 WebView 打开」。外部登录接受任意 http(s) URL（`auth-proxy-dialog.tsx:246-249`），对非 authorize-like、无回调参数的普通 URL，其执行结果与快速登录「已有账号」路径功能等价：
+
+| 维度      | 快速登录 `quick-login-dialog.tsx`                            | 外部登录 `auth-proxy-dialog.tsx`                                                     |
+| --------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| 入口      | 站点栏底部 LogIn 图标（`StationColumn.tsx:157-177`）         | 站点栏底部「外部登录」按钮（`StationColumn.tsx:178-199`）+ `bench-auth://` deep link |
+| URL 范围  | http(s)                                                      | `bench-auth://` + 任意 http(s)                                                       |
+| 站点匹配  | `match_stations_by_url`（exact / 同可注册域）                | `match_target_to_stations`（精确 host → eTLD+1 → SSO）+ 合并全部站点                 |
+| 账号范围  | 全部账号                                                     | 仅 `proxy_enabled` 账号（安全边界，design.md §6）                                    |
+| 新建账号  | persistent / ephemeral、destroyOnClose、历史 datalist        | persistent（`proxy_login_new_account`）                                              |
+| 票据/回调 | 无                                                           | 5 分钟一次性 ticket、return URL 捕获 + state 校验 + 转交外部 App                     |
+| 审计/填充 | 无                                                           | `audit_log` + ExternalApp binding、有密码时延迟自动填充                              |
+| 互斥处理  | `enforce_exclusivity_before_login`（`commands/proxy.rs:94`） | **未调用**（`run_proxy_login` 路径，见 F1-T4）                                       |
+
+不能简单合并的原因：外部登录承担代理安全边界（ticket / return URL allowlist / state 回传 / 仅代理账号 / 审计），快速登录承担轻量打开（全部账号、临时账号、关窗即焚）；合并进单一向导会混淆两类安全上下文。
+
+**收敛方案（推荐 A）**：双入口保留、职责文案澄清 + 普通 URL 引导分流。`handle_browser_open` 已返回 `isAuthorize`（`commands/proxy.rs:585,647`）但前端未消费——外部登录第一步解析结果为「非 `bench-auth://` 且非 authorize-like」时，Step 2 顶部提示「该链接不是登录授权链接」，并提供「改用快速登录打开」按钮（携带 URL 预填打开 QuickLoginDialog，需给其新增 `initialUrl` prop）。
+（备选 B：合并为单一「打开链接」入口按 URL 类型内部分流——向导状态机复杂、代理上下文易误用，本轮不做。）
+
+**任务**
+
+- [x] F1-T1 前端：`AuthProxyDialog` Step 1/2 消费 `isAuthorize`，普通 URL 显示引导 +「快速登录打开」按钮（预填 URL、关闭自身、打开 QuickLoginDialog 新增 `initialUrl`）
+- [x] F1-T2 前端：两入口 tooltip/描述文案澄清（快速登录=在隔离环境快速打开链接；外部登录=代外部应用完成登录授权）；i18n zh/en
+- [x] F1-T3 Rust：调研统一站点匹配。结论：**不合并，保留双实现**——`match_stations_by_url`（快速登录，`commands/station.rs`）做精确 host + 自实现 registrable-domain 轻量分组；`match_target_to_stations`（外部登录，`proxy/matching.rs`）做精确 host → eTLD+1 → SSO provider，且仅匹配 `proxy_enabled` 账号并合并全量站点（`manual` 档）。合并会引入两处语义耦合：①外部登录的匹配与授权语境强绑定（仅代理账号、SSO 扩展），②eTLD+1 与自实现域比较算法差异。保留现状，仅在将来如需统一域名规则时收口到单一 helper
+- [x] F1-T4 Rust：`run_proxy_login` 补 `enforce_exclusivity_before_login`（与 `open_login_window` 命令互斥行为对齐）
+
+**验收**
+
+- [ ] 普通 URL 粘贴进外部登录 → 出现引导；一键转快速登录且 URL 已预填
+- [ ] `bench-auth://` 与 authorize-like URL 行为不变（ticket/回调/审计链路回归）
+- [ ] exclusive 站点外部登录互斥行为与普通登录一致（或文档化豁免）
+
+### F2. 登录指纹：登录态特征采集与判定（核心）
+
+**现状与根因（为什么「识别不准」）**
+
+状态判定现有 3 条链路：
+
+1. 手动/keeper 刷新 → 分层探针：HTTP（401/403 → 待登录；正文文本分类）→ WebView（页面文本分类）→ Hybrid（`probe.rs run_probe`）。
+2. 文本分类 `detection_legacy.rs`：`presetLogout`（默认）找页面含「退出登录」→ Ready，否则 LoginRequired——对英文站、SPA、异步渲染站基本失效；`custom` 模式两条规则都不中 → **Expired（需重登）**，即「需重登」实际是**检测不确定**的兜底态（`detection_legacy.rs:28`，全代码库唯一产生 Expired 的位置）。
+3. 代理登录回调命中 → `finalize_proxy_session` 直接标 Ready。
+
+「尚未检测认证配置」区域 = `station.authProfile == null` 时的占位（`DetailColumn.tsx:228-258`）。authProfile 由 `detect_station_auth_profile` 生成（优先复用已开登录窗口，否则开隐藏窗口跑 `DETECTION_SCRIPT`），描述**站点如何认证**（cookie/localStorage/CSRF/SSO/anti-bot/probe 策略），不参与登录态判定，只影响 probe 策略与 IndexedDB 捕获要求。**与登录指纹相关但不同物**：authProfile=方法画像（method），登录指纹=登录态证据（evidence）。二者可共用一次窗口加载采样（见 F2-T2）。
+
+**用户直觉的技术校验（「需重登的账号必然不遗留 token」）**
+
+- 指纹**缺失** → 一定未登录（强否定证据）✅ 可作为确定性判据；
+- 指纹**存在** → 疑似已登录，但 token 可能已被服务端吊销（弱肯定证据）❌ 不能单独定论；
+- 因此指纹只能作为 L0 预检层 +「未登录」的确定性判据；Ready 仍须经现有探针验证或由用户显式确认——与 design.md §3「恢复后必须 probe，不能仅凭 cookie 存在标记 Ready」红线一致（用户显式确认属于例外：见决策点 D4）。
+
+**指纹内容选型（调研结论：cookie 特征名单为主 + storage 键名为辅，一律不记值）**
+
+| 信号源                                       | 通道                                                                  | 可靠性 | 备注                                       |
+| -------------------------------------------- | --------------------------------------------------------------------- | ------ | ------------------------------------------ |
+| Cookie 特征 `{name, domain, path, httpOnly}` | `cookies_for_url()`（`session.rs extract_cookies` 已有，含 HttpOnly） | 高     | **只记名与域，不记值**；值随会话变化且敏感 |
+| localStorage/sessionStorage token 键名       | `DETECTION_SCRIPT` 已采集 `tokenKeys`（`detection.rs:13-79`）         | 中     | 键名稳定；正则模式需按需扩充               |
+| session 快照存在性 + `captured_at_ts`        | 内存判定，零成本                                                      | 中     | 配合 station TTL 判断新鲜度                |
+| 登出元素选择器（logout link 等）             | `DETECTION_SCRIPT` 已采集 `logoutElements`                            | 中     | 「已登录」的 DOM 佐证，用于确认弹窗展示    |
+| 页面文本规则                                 | 现有 `LoginDetectionConfig`                                           | 低     | 保留兼容，继续作为 L1/L2 输入              |
+
+安全边界（design.md §5）：指纹本体（cookie 特征名单 + storage 键名）存 Rust 侧加密 store 的**站点级字段**；前端 DTO 只回摘要（特征数量、命中数、采样时间），不回键名明文列表。
+
+**方案设计**
+
+1. 数据模型：`RelayStation.login_fingerprint: Option<LoginFingerprint>`（serde default，旧数据兼容 + migration 检查）：`cookie_features: Vec<{name, domain, path, http_only}>`、`storage_keys: Vec<String>`、`sampled_at`、`sampled_by_account`。
+2. 采样命令 `capture_login_fingerprint(station_id, account_id)`：优先复用该账号已打开的登录窗口；无则开隐藏窗口（注入该账号 session，复用 `detect_station_auth_profile` 的窗口构建逻辑，`commands/proxy.rs:202-311`）→ 扩展版指纹脚本（DETECTION_SCRIPT 基础上返回 cookie 名单+域、storage 键名、logout 选择器）→ 写入站点指纹；**同一窗口顺带刷新 authProfile**（一次加载两份画像，消除「尚未检测认证配置」与指纹的分离感）。
+3. 确认弹窗（采样成功后）：展示「检测到 N 项 cookie 特征 / M 个 storage 键」+ 登录佐证（logout 元素）→「是否将该账号当前状态识别为该站点的活跃（已登录）状态？」→ 确认：`account.status = Ready` + `last_login_at` 回填 + 写 statusChanged / fingerprint 日志。
+4. 判定集成（probe L0 预检，两路都只做「特征全缺失」短路）：
+   - L0a（HTTP 路径，`run_probe` 入口）：站点有指纹 && 恢复的 canonical session 中特征 cookie 名全部缺失 → 直接 `LoginRequired`，跳过 HTTP 请求（省预算，结果确定）；
+   - L0b（WebView 路径，probe/keeper 窗口加载后）：在文本分类轮询外增加指纹 eval 脚本（`cookies_for_url` + storage 键检查）→ 特征全缺失 → `LoginRequired`（覆盖「canonical session 为空但 WebView data dir 有残留」的账号，避免 L0a 误判）；
+   - 站点无指纹 → 现行为完全不变。
+5. 确认后自动刷新：确认成功即调用 `refresh_station`（该站点全部账号），各账号 probe 走 L0 预检——指纹缺失者确定性判未登录，特征存在者走原 L1/L2 链（对应用户「不符合特征的自动判定为未登录」）。
+6. 「需重登」语义收敛：指纹缺失导致的 LoginRequired 在 UI 标注「已确认未登录（指纹缺失）」；Custom 模式不确定兜底产生的 Expired 保留，UI 副标签注明「检测不确定，建议采样指纹」。
+7. UI：详情栏底部操作行（`DetailColumn.tsx:350-406`）设置按钮左侧新增指纹采样按钮（Fingerprint 图标 + tooltip；站点无指纹时带「未采样」提示点）。
+
+**待讨论决策点（实现前需拍板）**
+
+- D1 「未登录」是否新增独立状态枚举（如 `loggedOut`）vs 复用 `loginRequired` + detail 标注？新增枚举动 TS/Rust 双端契约与全部状态映射，**建议复用 + 标注**。
+- D2 指纹为站点级：采样确认后立即对同站全部账号生效（自动批量刷新）——与用户描述一致，确认刷新范围与并发预算（复用现有 semaphore/single-flight）。
+- D3 采样前置条件：是否要求采样账号当前探针 Ready（防止把登出态采成指纹）？建议不强制，但确认弹窗展示采样页面的登录佐证供用户判断。
+- D4 「用户显式确认即 Ready」与 design.md §3「不能仅凭 cookie 存在标记 Ready」红线的关系：显式确认是用户断言而非自动推断，且指纹来自实时页面采样——**建议在 design.md §3 补一句例外条款**而非违反红线。
+
+**任务**
+
+- [x] F2-T1 Rust：`LoginFingerprint` 类型 + storage schema。实现与方案差异：完整特征存 `AccountManagerSnapshot.fingerprints`（按 station_id），`RelayStation.login_fingerprint` 只挂 `LoginFingerprintInfo` 摘要（serde default 兼容旧数据，不动 schema 版本）
+- [x] F2-T2 Rust：`capture_login_fingerprint` 命令（窗口复用/隐藏窗口 + 指纹脚本 + authProfile 顺带刷新 + 日志脱敏——日志与 DTO 只含计数无关键名）
+- [x] F2-T3 Rust：probe L0a/L0b 指纹预检（`probe.rs run_probe` + keeper 静默刷新）+ 确认后 `refresh_station` 编排（前端侧触发，复用 single-flight/预算语义）
+- [x] F2-T4 IPC：`contracts.ts` + typed command + DTO（`LoginFingerprintSummary`/`RelayStation.loginFingerprint` 仅摘要）+ Rust 注册 + 命令入 `commands.rs` invoke_handler
+- [x] F2-T5 前端：DetailColumn 底部按钮（设置按钮左侧，Fingerprint 图标）+ 采样确认弹窗（`FingerprintConfirmDialog`，普通确认非 Destructive）。「已确认未登录」状态徽标的细化标注 **留待 D1 决策**——当前 L0 判定与普通探测都产出 `loginRequired`，DTO 无法区分来源，需先定状态模型
+- [x] F2-T6 前端：i18n zh/en + 空态/失败态（region error + toast）+ 防重入（`useGuardedAsync`）
+- [x] F2-T7 测试：`fingerprint.rs` 单测覆盖指纹缺失→短路、特征存在→不短路、storage 键保守不短路、空指纹不短路（L0a 判定逻辑）
+
+**验收**
+
+- [ ] 采样 → 确认 → 账号立即显示已登录 + 日志记录；同站其它账号自动刷新，指纹缺失者直接判未登录（无 HTTP/WebView 开销）
+- [ ] 指纹与 authProfile 一次采样同时生成，「尚未检测认证配置」区域随之消失
+- [x] detail/日志/DTO 无 cookie 值、storage 值明文（键名列表不出后端）——实现为 `fingerprints` map 隔离 + DTO 只出计数
+
+### F3. 账号日志增强
+
+**现状缺口**（`state.rs push_account_log` 环形 100 条 + `account-log-dialog.tsx`）：detail 仅 4 类字段（status/errorCode/skipReason/durationMs），login 只有 `verified`/`target`；快速登录来源、session 捕获失败（`session_keeper.rs:343` 仅 eprintln）、callback 转交失败（`webview.rs:274` 仅 eprintln）、探针层级（autoRefresh 无 strategy/probeLayer，与 manualRefresh 不对齐）等信息缺失；UI 无过滤、detail 单行截断。
+
+**方案**
+
+- 扩展 detail（**不改 kind 枚举**，避免 TS/Rust 双端契约断裂）：`source`（manual/keeper/deepLink/quickLogin/fingerprintConfirm）、`probeLayer`（http/webview/hybrid）、`fingerprintHit`（如 `3/5`）、`captureStatus`、`forwardResult`。
+- 新增写点：keeper 捕获失败、代理 callback 转交失败、快速登录打开（现有 login/`target=loginWindow` 补 `source=quickLogin`）。
+- 日志 UI：kind 过滤 chips + 条目展开显示完整 detail 字段（时间线保留）。
+- 红线：detail 继续只含枚举/计数/时长，不得含 URL、cookie、明文。
+
+**任务**
+
+- [x] F3-T1 Rust：补写点（keeper 捕获失败 `captureStatus=failed`、代理 callback 转交失败 `forwardResult=failed`）+ autoRefresh detail 对齐 manualRefresh（补 `layer:webview`/`source:keeper`）。快速登录 `source` 细分未做：`open_login_window` 命令被普通登录与快速登录共用，无法经 IPC 区分来源，需在命令层加显式参数（成本>收益，本轮不做）
+- [x] F3-T2 前端：account-log-dialog kind 过滤 chips + detail 结构化多段展示 + 点击 kind 展开(去单行截断) + `formatDetail` 扩展（source/layer/captureStatus/forwardResult 枚举本地化）
+- [x] F3-T3 前端：i18n zh/en + 过滤/展开交互
+
+**验收**
+
+- [x] 快速登录、自动刷新跳过、捕获失败、转交失败均有日志条目且来源可辨（捕获失败/转交失败为新增写点；快速登录来源见 F3-T1 说明）
+- [x] 过滤与展开在中英文下不溢出
+
+### F4. 外部登录弹窗第二步选项卡溢出（bug，小）
+
+**根因（已定位）**：Step 2 两张单选卡片（`auth-proxy-dialog.tsx:478-513` Option A、`543-570` Option B）用 `<Button size="default">`；`button.tsx` `size:default` 固定 `h-8`（32px，`button.tsx:28`）且基础类含 `whitespace-nowrap`（`button.tsx:11`）。卡片内容为两行（标题 + `useExistingHint`/`newAccountHint` 提示，后者长文案含 host 必然换行），所需高度约 40px → 溢出。
+
+**修复**：两卡片 className 追加 `h-auto min-h-8 whitespace-normal`（tailwind-merge 正确覆盖 cva 的 `h-8`/`whitespace-nowrap`）。同类排查：模块内 `flex-col` 双行 Button 内容仅此两处（`auth-proxy-dialog.tsx:501、562`），随本任务一并修复。
+
+**任务**
+
+- [x] F4-T1 修复两卡片高度/换行（`h-auto min-h-8 whitespace-normal`）；窄宽度（sm 以下）与中英文长文案验证
+
+**验收**
+
+- [x] zh/en 两语言、包含长 host 的 hint 均完整显示不溢出（样式层修复）
+
+### 任务分配与执行顺序总表
+
+| 顺序 | 任务                        | 层   | 主要文件                                                               | 规模 | 依赖         |
+| ---- | --------------------------- | ---- | ---------------------------------------------------------------------- | ---- | ------------ |
+| 1    | F4-T1 溢出修复              | 前端 | `components/auth-proxy-dialog.tsx`                                     | XS   | 无           |
+| 2    | F1-T1/T2 引导分流+文案      | 前端 | `auth-proxy-dialog` / `quick-login-dialog` / `StationColumn` / locales | S    | 无           |
+| 3    | F1-T4 互斥对齐              | Rust | `commands/proxy.rs`                                                    | S    | 调研结论     |
+| 4    | F2-T1/T2 指纹类型+采样命令  | Rust | `types.rs` / `storage.rs` / `commands/`（新 fingerprint.rs）           | L    | D1–D4 决策   |
+| 5    | F2-T3 L0 预检+站点刷新      | Rust | `probe.rs` / `session_keeper.rs` / `commands/refresh.rs`               | M    | 4            |
+| 6    | F2-T4 IPC 契约              | 双端 | `contracts.ts` / `commands/account-manager.ts` / `commands.rs`         | M    | 4            |
+| 7    | F2-T5/T6 前端按钮+弹窗+i18n | 前端 | `DetailColumn` / 新确认弹窗 / locales                                  | M    | 6            |
+| 8    | F3-T1 日志写点补齐          | Rust | `session_keeper.rs` / `webview.rs` / `commands/`                       | S    | 无（可并行） |
+| 9    | F3-T2/T3 日志 UI            | 前端 | `account-log-dialog.tsx`                                               | S    | 8            |
+| 10   | F1-T3 匹配统一调研          | Rust | `proxy/matching.rs`                                                    | M    | 可延后       |
+
+> 提交策略：按任务独立 commit（Conventional Commits）；涉及 Rust 平台分支的改动（F2-T2 隐藏窗口构建）提交前必跑 `pnpm run check:be-cfg`；全部完成后执行 /fix 验证链，同步 product-specs/design.md，并移除本节。
+
 ## 待验证（真机，全新 macOS 测试用户 + Windows Sandbox/VM，禁用生产账号）
 
 ### 1. Keyring、持久化与重启
@@ -67,5 +226,7 @@
 
 > 每轮功能改动先在此追加一行，再在实施后同步进产品说明。
 
+- 2026-09-09：实施 F1/F2/F3/F4（F1-T1/T2/T4、F2-T1..T7、F3-T1/T2/T3、F4-T1 已实现，F1-T3 匹配统一调研可延后，F2-T5 的「已确认未登录」徽标标注待 D1）：指纹采样按钮+确认弹窗+probe L0a/L0b 预检（完整特征存 snapshot.fingerprints，DTO 只出摘要）、外部登录 isAuthorize 引导转快速登录、run_proxy_login 补互斥、keeper/代理日志写点与 detail 扩展、弹窗选项卡溢出修复。真机验证项见 F1/F2 验收；见变更记录下一条。
+- 2026-09-09：新增规划轮 F1–F4（仅规划未实现）：确认快速登录与外部登录在普通 URL 场景功能重叠并给出「双入口保留 + isAuthorize 引导分流」收敛方案（含 run_proxy_login 互斥缺失问题）；设计站点级登录指纹（cookie 特征名单 + storage 键名，不含值）采样按钮、确认弹窗与 probe L0a/L0b 预检判定链；账号日志 detail 扩展（source/probeLayer/fingerprintHit 等）与写点补齐；定位外部登录弹窗第二步选项卡 `h-8`/`whitespace-nowrap` 溢出根因。附 D1–D4 待拍板决策点与任务分配总表。
 - 2026-09-09：实现 Session Keeper 会话保活(每账号 interval/daily 静默刷新计划 + 后端 30s 调度器 + 隐藏 WebView 重新捕获 session)、账号日志(每账号 100 条环形,加密 store 持久化)、快速登录 URL 站点自动匹配与已有账号选择、first_login_at 初次登录时间;新增 IPC `set_account_refresh_schedule` / `list_account_logs` / `match_stations_by_url`,`open_login_window` 扩展显式 url 参数并修复 ephemeral 无 station 的 NotFound 缺陷。已同步产品说明 §5/§6/§15/§16;真机验证项见 §4a。
 - 2026-09-03：生成产品说明与规划功能文档（依据 `src/features/account-manager/`、`src-tauri/src/account_manager/`、`docs/modules/account-manager/` 与 ROADMAP R01/R04）。

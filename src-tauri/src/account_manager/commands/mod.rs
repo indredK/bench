@@ -8,6 +8,7 @@
 
 mod account;
 mod external_apps;
+mod fingerprint;
 mod import_export;
 mod proxy;
 mod refresh;
@@ -16,6 +17,7 @@ mod station;
 
 pub use account::*;
 pub use external_apps::*;
+pub use fingerprint::*;
 pub use import_export::*;
 pub use proxy::*;
 pub use refresh::*;

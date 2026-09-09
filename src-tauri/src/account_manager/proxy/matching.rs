@@ -126,6 +126,7 @@ mod tests {
             probe_failure_count: 0,
             session_ttl_hours: 720,
             network_proxy: None,
+            login_fingerprint: None,
         }
     }
 

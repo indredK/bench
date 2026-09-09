@@ -20,6 +20,7 @@ import { describeRegionError } from "@/features/account-manager/errors"
 import { AuthProxyDialog } from "@/features/account-manager/components/auth-proxy-dialog"
 import { ExternalAppsPanel } from "@/features/account-manager/components/external-apps-panel"
 import { AccountLogDialog } from "@/features/account-manager/components/account-log-dialog"
+import { FingerprintConfirmDialog } from "@/features/account-manager/components/fingerprint-confirm-dialog"
 import { useAccountManagerStore } from "@/features/account-manager/store"
 import { cn } from "@/lib/utils"
 import { AlertTriangle } from "lucide-react"
@@ -204,6 +205,8 @@ function AccountManagerPage() {
       onRefreshAccount={c.handleRefreshAccount}
       onScheduleChange={c.sessionKeeper.handleScheduleChange}
       onOpenAccountLogs={c.sessionKeeper.handleOpenAccountLogs}
+      onCaptureFingerprint={c.handleCaptureFingerprint}
+      capturingFingerprint={c.capturingFingerprint}
       savingSchedule={
         c.selectedAccount ? c.sessionKeeper.savingScheduleIds.has(c.selectedAccount.id) : false
       }
@@ -263,7 +266,7 @@ function AccountManagerPage() {
             c.handleSelectStation(stationId)
           }}
           onAdd={() => c.setAddStationOpen(true)}
-          onQuickLogin={() => c.setQuickLoginOpen(true)}
+          onQuickLogin={() => c.handleOpenQuickLogin()}
           onExternalLogin={() => c.setAuthProxyOpen(true)}
           onEdit={(station) => {
             c.setEditingStation(station)
@@ -368,6 +371,7 @@ function AccountManagerPage() {
         onMatchStations={c.sessionKeeper.matchStations}
         getStationAccounts={c.getStationAccountsForQuickLogin}
         submitting={c.quickLoginPending}
+        initialUrl={c.quickLoginPrefillUrl}
       />
       <AccountLogDialog
         open={isAccountLogOpen}
@@ -419,6 +423,16 @@ function AccountManagerPage() {
         initialRequest={c.authProxyRequest}
         initialMatches={c.authProxyMatches}
         initialHost={c.authProxyHost}
+        initialIsAuthorize={c.authProxyIsAuthorize}
+        onSwitchToQuickLogin={c.handleQuickLoginPrefill}
+      />
+      <FingerprintConfirmDialog
+        open={c.isFingerprintConfirmOpen}
+        onOpenChange={c.setFingerprintConfirmOpen}
+        summary={c.fingerprintSummary}
+        username={c.selectedAccount?.username ?? ""}
+        onConfirm={c.handleConfirmFingerprint}
+        confirming={c.confirmingFingerprint}
       />
     </div>
   )

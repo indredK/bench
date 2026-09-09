@@ -190,6 +190,8 @@ pub(super) fn remove_station_metadata(
     snapshot
         .external_app_bindings
         .retain(|binding| !dropped_account_ids.contains(&binding.account_id));
+    // F2 — 删除站点时清理其登录指纹（完整特征）。
+    snapshot.fingerprints.remove(id);
     prune_unbound_external_apps(snapshot);
     Ok(dropped_account_ids.len())
 }
@@ -268,6 +270,7 @@ pub(super) mod fixtures {
             probe_failure_count: 0,
             session_ttl_hours: crate::account_manager::types::default_session_ttl_hours(),
             network_proxy: None,
+            login_fingerprint: None,
         }
     }
 
@@ -308,6 +311,7 @@ pub(super) mod fixtures {
             external_apps: Vec::new(),
             external_app_bindings: Vec::new(),
             account_logs: HashMap::new(),
+            fingerprints: HashMap::new(),
         }
     }
 }

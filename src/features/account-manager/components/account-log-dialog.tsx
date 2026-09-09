@@ -3,6 +3,7 @@
  * 时间线展示执行情况(倒序,kind 图标 + level 色点 + detail 次要行),
  * 头部含计划摘要与下次执行时间;提供刷新按钮;≤100 条不虚拟化.
  */
+import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
   Activity,
@@ -46,12 +47,26 @@ const LEVEL_DOT: Record<AccountLogLevel, string> = {
   error: "bg-red-500",
 }
 
-function formatDetail(
-  t: ReturnType<typeof useTranslation>["t"],
-  entry: AccountLogEntry,
-): string | null {
+const ALL_KINDS: AccountLogKind[] = [
+  "login",
+  "manualRefresh",
+  "autoRefresh",
+  "scheduleChanged",
+  "statusChanged",
+  "error",
+]
+
+/** detail 中可直接本地化的枚举字段(值存在且有翻译时追加为次要行)。 */
+const DETAIL_TRANSLATED_KEYS: Array<{ key: string; i18nPrefix: string }> = [
+  { key: "source", i18nPrefix: "accountManager.accountLog.detail.source" },
+  { key: "layer", i18nPrefix: "accountManager.accountLog.detail.layer" },
+  { key: "captureStatus", i18nPrefix: "accountManager.accountLog.detail.captureStatus" },
+  { key: "forwardResult", i18nPrefix: "accountManager.accountLog.detail.forwardResult" },
+]
+
+function formatDetail(t: ReturnType<typeof useTranslation>["t"], entry: AccountLogEntry): string[] {
   const detail = entry.detail
-  if (!detail) return null
+  if (!detail) return []
   const parts: string[] = []
   if (typeof detail.status === "string") {
     parts.push(t(`accountManager.status.${detail.status}`))
@@ -65,7 +80,17 @@ function formatDetail(
   if (typeof detail.durationMs === "number") {
     parts.push(t("accountManager.accountLog.duration", { ms: detail.durationMs }))
   }
-  return parts.length > 0 ? parts.join(" · ") : null
+  for (const { key, i18nPrefix } of DETAIL_TRANSLATED_KEYS) {
+    const value = detail[key]
+    if (typeof value === "string") {
+      const label = t(`${i18nPrefix}.${value}`)
+      // i18n 未命中时 (key === label) 说明没有对应翻译,跳过该枚举。
+      if (label !== `${i18nPrefix}.${value}`) {
+        parts.push(label)
+      }
+    }
+  }
+  return parts
 }
 
 export function AccountLogDialog({
@@ -90,6 +115,15 @@ export function AccountLogDialog({
   onRetry: () => void
 }) {
   const { t } = useTranslation()
+  /** F3 — 事件类型过滤:null = 全部。 */
+  const [kindFilter, setKindFilter] = useState<AccountLogKind | null>(null)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+
+  const filteredEntries = useMemo(() => {
+    if (!logs) return []
+    if (kindFilter === null) return logs.entries
+    return logs.entries.filter((entry) => entry.kind === kindFilter)
+  }, [logs, kindFilter])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -124,6 +158,31 @@ export function AccountLogDialog({
           </Button>
         </div>
 
+        {/* F3 — 事件类型过滤 chips */}
+        {!loading && logs && logs.entries.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1">
+            <Button
+              type="button"
+              variant={kindFilter === null ? "default" : "outline"}
+              size="xs"
+              onClick={() => setKindFilter(null)}
+            >
+              {t("accountManager.accountLog.filterAll")}
+            </Button>
+            {ALL_KINDS.map((kind) => (
+              <Button
+                key={kind}
+                type="button"
+                variant={kindFilter === kind ? "default" : "outline"}
+                size="xs"
+                onClick={() => setKindFilter(kindFilter === kind ? null : kind)}
+              >
+                {t(`accountManager.accountLog.kind.${kind}`)}
+              </Button>
+            ))}
+          </div>
+        )}
+
         {error && <InlineErrorBar message={error} onRetry={onRetry} />}
 
         <div className="min-h-0 flex-1">
@@ -143,20 +202,23 @@ export function AccountLogDialog({
                 </div>
               ))}
             </div>
-          ) : !logs || logs.entries.length === 0 ? (
+          ) : !logs || filteredEntries.length === 0 ? (
             <div className="text-muted-foreground flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed px-6 py-10 text-center">
               <Inbox size={28} />
               <p className="text-foreground text-sm font-medium">
-                {t("accountManager.accountLog.empty")}
+                {kindFilter === null
+                  ? t("accountManager.accountLog.empty")
+                  : t("accountManager.accountLog.emptyFiltered")}
               </p>
               <p className="text-sm">{t("accountManager.accountLog.emptyHint")}</p>
             </div>
           ) : (
             <div className="max-h-[46vh] overflow-y-auto pr-2">
               <ol className="space-y-1">
-                {logs.entries.map((entry) => {
+                {filteredEntries.map((entry) => {
                   const Icon = KIND_ICON[entry.kind] ?? ScrollText
-                  const detailText = formatDetail(t, entry)
+                  const detailParts = formatDetail(t, entry)
+                  const expanded = expandedId === entry.id
                   return (
                     <li
                       key={entry.id}
@@ -174,19 +236,26 @@ export function AccountLogDialog({
                             )}
                             aria-hidden="true"
                           />
-                          <span className="text-xs font-medium">
+                          <button
+                            type="button"
+                            className="min-w-0 text-left text-xs font-medium hover:underline"
+                            onClick={() => setExpandedId(expanded ? null : entry.id)}
+                          >
                             {t(`accountManager.accountLog.kind.${entry.kind}`)}
-                          </span>
+                          </button>
                           <span className="text-muted-foreground shrink-0 text-xs" title={entry.at}>
                             {entry.at}
                           </span>
                         </div>
-                        {detailText && (
+                        {detailParts.length > 0 && (
                           <p
-                            className="text-muted-foreground mt-0.5 truncate text-xs"
-                            title={detailText}
+                            className={cn(
+                              "text-muted-foreground mt-0.5 text-xs",
+                              expanded ? "break-words whitespace-normal" : "truncate",
+                            )}
+                            title={expanded ? undefined : detailParts.join(" · ")}
                           >
-                            {detailText}
+                            {detailParts.join(" · ")}
                           </p>
                         )}
                       </div>

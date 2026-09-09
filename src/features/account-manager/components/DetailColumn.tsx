@@ -9,6 +9,7 @@ import {
   ExternalLink,
   Eye,
   EyeOff,
+  Fingerprint,
   HelpCircle,
   RefreshCw,
   ScanSearch,
@@ -75,12 +76,14 @@ export function DetailColumn({
   onRefreshAccount,
   onScheduleChange,
   onOpenAccountLogs,
+  onCaptureFingerprint,
   revealingPassword,
   settingProbeStrategy,
   redetectingProfile,
   togglingProxy,
   refreshingAccount,
   savingSchedule,
+  capturingFingerprint,
   error,
   onRetryError,
   onDismissError,
@@ -98,6 +101,9 @@ export function DetailColumn({
   onRefreshAccount?: (account: StationAccount) => void
   onScheduleChange?: (accountId: string, schedule: RefreshSchedule | null) => void
   onOpenAccountLogs?: (account: StationAccount) => void
+  /** F2 — 登录指纹采样(站点 + 采样账号)。 */
+  onCaptureFingerprint?: (stationId: string, accountId: string) => void
+  capturingFingerprint?: boolean
   revealingPassword?: boolean
   settingProbeStrategy?: boolean
   redetectingProfile?: boolean
@@ -262,6 +268,21 @@ export function DetailColumn({
 
             {/* 下方：账号信息 - 按内容撑开，不滚动 */}
             <div className="shrink-0 border-t">
+              {/* 登录指纹状态标注（F2）：站点已采样指纹时提示判定语义。 */}
+              {station.loginFingerprint && (
+                <div className="border-b px-5 py-2">
+                  <p
+                    className="text-muted-foreground text-xs"
+                    title={t("accountManager.fingerprint.sampledBadgeTooltip")}
+                  >
+                    {t("accountManager.fingerprint.sampledBadge", {
+                      sampledAt: station.loginFingerprint.sampledAt,
+                      cookies: station.loginFingerprint.cookieCount,
+                      storageKeys: station.loginFingerprint.storageKeyCount,
+                    })}
+                  </p>
+                </div>
+              )}
               {/* Account 详情 */}
               {account && (
                 <DetailSection
@@ -363,6 +384,26 @@ export function DetailColumn({
         )}
         {account && (
           <div className="flex items-center gap-1.5">
+            {onCaptureFingerprint && station && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="icon-sm"
+                      variant="outline"
+                      onClick={() => onCaptureFingerprint(station.id, account.id)}
+                      disabled={capturingFingerprint}
+                      aria-label={t("accountManager.fingerprint.capture")}
+                    >
+                      <Fingerprint size={14} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    {t("accountManager.fingerprint.capture")}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
             {onManageExternalApps && (
               <TooltipProvider>
                 <Tooltip>

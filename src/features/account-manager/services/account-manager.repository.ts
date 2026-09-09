@@ -2,6 +2,8 @@
  * Repository / 仓储层: adapt Tauri account-manager commands; 只适配外部接口.
  */
 import {
+  captureLoginFingerprint,
+  confirmLoginFingerprint,
   copyPasswordToClipboard,
   createAccount,
   createEphemeralAccount,
@@ -75,6 +77,8 @@ export const accountManagerRepository = {
   setAccountRefreshSchedule,
   listAccountLogs,
   matchStationsByUrl,
+  captureLoginFingerprint,
+  confirmLoginFingerprint,
   proxyLogin,
   handleBrowserOpen,
   getAuthProxyInboxStatus,
