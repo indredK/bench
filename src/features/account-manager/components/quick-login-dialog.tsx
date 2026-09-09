@@ -54,6 +54,7 @@ export function QuickLoginDialog({
     id: string
     username: string
     status: AccountSessionStatus
+    statusReason?: string | null
   }[]
   submitting?: boolean
   /** 打开时预填的 URL(从外部登录引导转发,见 F1)。 */
@@ -274,7 +275,10 @@ export function QuickLoginDialog({
                 <UserRound size={14} className="text-muted-foreground shrink-0" />
                 <span className="truncate text-sm font-medium">{selectedAccount.username}</span>
               </span>
-              <StatusBadge status={selectedAccount.status} />
+              <StatusBadge
+                status={selectedAccount.status}
+                statusReason={selectedAccount.statusReason}
+              />
             </div>
           ) : (
             <>

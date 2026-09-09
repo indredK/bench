@@ -567,6 +567,10 @@ pub struct StationAccount {
     /// 首次探测到登录成功(Ready)的时间。历史账号为 None,由后续刷新回填。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub first_login_at: Option<String>,
+    /// 当前 status 的判定来源（F2/D1）。仅 L0 指纹短路时为
+    /// `fingerprintMissing`，其余为 None。前端徽标据此显示来源 tooltip。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status_reason: Option<String>,
 }
 
 // ═══════════════════════════════════════════════

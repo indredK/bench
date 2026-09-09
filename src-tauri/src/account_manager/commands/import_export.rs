@@ -242,6 +242,7 @@ pub fn import_relay_data<R: Runtime>(
                     refresh_schedule: None,
                     next_refresh_at_ts: None,
                     first_login_at: None,
+                    status_reason: None,
                     id: account_id.clone(),
                     station_id: station_id.clone(),
                     username: trim_or_invalid(&account.username, "username")?,

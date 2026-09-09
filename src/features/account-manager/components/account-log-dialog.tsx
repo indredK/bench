@@ -62,6 +62,7 @@ const DETAIL_TRANSLATED_KEYS: Array<{ key: string; i18nPrefix: string }> = [
   { key: "layer", i18nPrefix: "accountManager.accountLog.detail.layer" },
   { key: "captureStatus", i18nPrefix: "accountManager.accountLog.detail.captureStatus" },
   { key: "forwardResult", i18nPrefix: "accountManager.accountLog.detail.forwardResult" },
+  { key: "reason", i18nPrefix: "accountManager.accountLog.detail.reason" },
 ]
 
 function formatDetail(t: ReturnType<typeof useTranslation>["t"], entry: AccountLogEntry): string[] {

@@ -299,6 +299,7 @@ pub(super) mod fixtures {
             refresh_schedule: None,
             next_refresh_at_ts: None,
             first_login_at: None,
+            status_reason: None,
         }
     }
 

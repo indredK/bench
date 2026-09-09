@@ -382,7 +382,10 @@
       "loginRequired": "Needs Login",
       "expired": "Re-login",
       "fetchFailed": "Fetch Failed",
-      "inactive": "Inactive"
+      "inactive": "Inactive",
+      "reason": {
+        "fingerprintMissing": "Fingerprint missing — confirmed signed out"
+      }
     },
     "loginMethods": {
       "emailCode": "Email + Code",
@@ -620,6 +623,9 @@
         },
         "forwardResult": {
           "failed": "Callback forwarding to the external app failed"
+        },
+        "reason": {
+          "fingerprintMissing": "Fingerprint missing — confirmed signed out"
         }
       },
       "kind": {

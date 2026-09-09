@@ -88,8 +88,8 @@ async fn refresh_one_leader<R: Runtime>(
     storage::with_state_mut(&app, &state, |snapshot| {
         // 借用计划:account 的可变借用存续期间不得再对 snapshot 整体取
         // &mut(push_account_log),因此先在作用域内完成字段写入并取出
-        // station_id / old_status,借用结束后再统一落日志。
-        let (station_id, old_status) = {
+        // station_id / old_status / status_reason,借用结束后再统一落日志。
+        let (station_id, old_status, status_reason) = {
             let Some(account) = snapshot.accounts.iter_mut().find(|a| a.id == account_id) else {
                 return Err(AccountManagerError::not_found(format!(
                     "account {account_id}"
@@ -97,19 +97,25 @@ async fn refresh_one_leader<R: Runtime>(
             };
             let old_status = account.status;
             account.status = outcome.status;
+            // D1/方案 A: 指纹 L0 短路时记录来源,供前端徽标 tooltip;Ready 或普通探测清空。
+            account.status_reason = outcome.reason.map(str::to_string);
             account.last_refreshed_at = Some(now_label());
             if outcome.status == AccountSessionStatus::Ready && account.first_login_at.is_none() {
                 account.first_login_at = Some(now_label());
             }
-            (account.station_id.clone(), old_status)
+            (account.station_id.clone(), old_status, outcome.reason)
         };
         if old_status != outcome.status {
+            let mut status_detail = json!({ "from": old_status, "to": outcome.status });
+            if let Some(reason) = status_reason {
+                status_detail["reason"] = json!(reason);
+            }
             push_account_log(
                 snapshot,
                 &account_id,
                 AccountLogKind::StatusChanged,
                 AccountLogLevel::Info,
-                Some(json!({ "from": old_status, "to": outcome.status })),
+                Some(status_detail),
             );
         }
         let level = match outcome.status {
@@ -119,16 +125,20 @@ async fn refresh_one_leader<R: Runtime>(
             }
             _ => AccountLogLevel::Error,
         };
+        let mut manual_detail = json!({
+            "status": outcome.status,
+            "durationMs": duration_ms,
+            "strategy": strategy,
+        });
+        if let Some(reason) = status_reason {
+            manual_detail["reason"] = json!(reason);
+        }
         push_account_log(
             snapshot,
             &account_id,
             AccountLogKind::ManualRefresh,
             level,
-            Some(json!({
-                "status": outcome.status,
-                "durationMs": duration_ms,
-                "strategy": strategy,
-            })),
+            Some(manual_detail),
         );
         if let Some(station) = snapshot
             .stations

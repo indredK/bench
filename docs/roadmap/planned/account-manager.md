@@ -93,7 +93,7 @@
 
 **待讨论决策点（实现前需拍板）**
 
-- D1 「未登录」是否新增独立状态枚举（如 `loggedOut`）vs 复用 `loginRequired` + detail 标注？新增枚举动 TS/Rust 双端契约与全部状态映射，**建议复用 + 标注**。
+- D1 「未登录」是否新增独立状态枚举（如 `loggedOut`）vs 复用 `loginRequired` + detail 标注？新增枚举动 TS/Rust 双端契约与全部状态映射。**2026-09-10 已定：方案 A（复用 + 来源标注）**——`StationAccount.status_reason` 仅指纹 L0 短路时记 `fingerprintMissing`，前端 `StatusBadge` 在 `loginRequired && statusReason=fingerprintMissing` 时挂 tooltip「指纹缺失，已确认未登录」；手动/keeper 刷新的日志 detail 同步带 `reason`。确认登录（`confirm_login_fingerprint`）与 Ready 时清空。
 - D2 指纹为站点级：采样确认后立即对同站全部账号生效（自动批量刷新）——与用户描述一致，确认刷新范围与并发预算（复用现有 semaphore/single-flight）。
 - D3 采样前置条件：是否要求采样账号当前探针 Ready（防止把登出态采成指纹）？建议不强制，但确认弹窗展示采样页面的登录佐证供用户判断。
 - D4 「用户显式确认即 Ready」与 design.md §3「不能仅凭 cookie 存在标记 Ready」红线的关系：显式确认是用户断言而非自动推断，且指纹来自实时页面采样——**建议在 design.md §3 补一句例外条款**而非违反红线。
@@ -104,7 +104,7 @@
 - [x] F2-T2 Rust：`capture_login_fingerprint` 命令（窗口复用/隐藏窗口 + 指纹脚本 + authProfile 顺带刷新 + 日志脱敏——日志与 DTO 只含计数无关键名）
 - [x] F2-T3 Rust：probe L0a/L0b 指纹预检（`probe.rs run_probe` + keeper 静默刷新）+ 确认后 `refresh_station` 编排（前端侧触发，复用 single-flight/预算语义）
 - [x] F2-T4 IPC：`contracts.ts` + typed command + DTO（`LoginFingerprintSummary`/`RelayStation.loginFingerprint` 仅摘要）+ Rust 注册 + 命令入 `commands.rs` invoke_handler
-- [x] F2-T5 前端：DetailColumn 底部按钮（设置按钮左侧，Fingerprint 图标）+ 采样确认弹窗（`FingerprintConfirmDialog`，普通确认非 Destructive）+ 详情栏「指纹已采样」状态条（站点级，展示采样时间与特征计数，并说明指纹缺失账号判定为未登录）。账号级「该次未登录由指纹判定」来源标注仍待 D1——当前 L0 判定与普通探测都产出 `loginRequired`，DTO 无法区分来源
+- [x] F2-T5 前端：DetailColumn 底部按钮（设置按钮左侧，Fingerprint 图标）+ 采样确认弹窗（`FingerprintConfirmDialog`，普通确认非 Destructive）+ 详情栏「指纹已采样」状态条（站点级，展示采样时间与特征计数，并说明指纹缺失账号判定为未登录）。账号级来源标注按 D1 方案 A 落地：`loginRequired && statusReason="fingerprintMissing"` 时状态徽标挂 tooltip「指纹缺失，已确认未登录」（无小字）
 - [x] F2-T6 前端：i18n zh/en + 空态/失败态（region error + toast）+ 防重入（`useGuardedAsync`）
 - [x] F2-T7 测试：`fingerprint.rs` 单测覆盖指纹缺失→短路、特征存在→不短路、storage 键保守不短路、空指纹不短路（L0a 判定逻辑）
 
@@ -226,6 +226,7 @@
 
 > 每轮功能改动先在此追加一行，再在实施后同步进产品说明。
 
+- 2026-09-10：D1 拍板方案 A 落地——新增 `StationAccount.status_reason`（仅指纹 L0 短路时 `fingerprintMissing`），手动/keeper 刷新写账号字段与日志 detail（reason），`StatusBadge` 与快速登录徽标在指纹判定未登录时挂 tooltip「指纹缺失，已确认未登录」，确认登录时清空；`status.reason.fingerprintMissing` 与 `accountLog.detail.reason` 双语。
 - 2026-09-09：实施 F1/F2/F3/F4（F1-T1/T2/T4、F2-T1..T7、F3-T1/T2/T3、F4-T1 已实现，F1-T3 匹配统一调研可延后，F2-T5 的「已确认未登录」徽标标注待 D1）：指纹采样按钮+确认弹窗+probe L0a/L0b 预检（完整特征存 snapshot.fingerprints，DTO 只出摘要）、外部登录 isAuthorize 引导转快速登录、run_proxy_login 补互斥、keeper/代理日志写点与 detail 扩展、弹窗选项卡溢出修复。真机验证项见 F1/F2 验收；见变更记录下一条。
 - 2026-09-09：新增规划轮 F1–F4（仅规划未实现）：确认快速登录与外部登录在普通 URL 场景功能重叠并给出「双入口保留 + isAuthorize 引导分流」收敛方案（含 run_proxy_login 互斥缺失问题）；设计站点级登录指纹（cookie 特征名单 + storage 键名，不含值）采样按钮、确认弹窗与 probe L0a/L0b 预检判定链；账号日志 detail 扩展（source/probeLayer/fingerprintHit 等）与写点补齐；定位外部登录弹窗第二步选项卡 `h-8`/`whitespace-nowrap` 溢出根因。附 D1–D4 待拍板决策点与任务分配总表。
 - 2026-09-09：实现 Session Keeper 会话保活(每账号 interval/daily 静默刷新计划 + 后端 30s 调度器 + 隐藏 WebView 重新捕获 session)、账号日志(每账号 100 条环形,加密 store 持久化)、快速登录 URL 站点自动匹配与已有账号选择、first_login_at 初次登录时间;新增 IPC `set_account_refresh_schedule` / `list_account_logs` / `match_stations_by_url`,`open_login_window` 扩展显式 url 参数并修复 ephemeral 无 station 的 NotFound 缺陷。已同步产品说明 §5/§6/§15/§16;真机验证项见 §4a。

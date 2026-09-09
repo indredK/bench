@@ -783,6 +783,7 @@ pub async fn proxy_login_new_account<R: Runtime>(
         refresh_schedule: None,
         next_refresh_at_ts: None,
         first_login_at: None,
+        status_reason: None,
         id: new_id("acct"),
         station_id: station.id.clone(),
         username: display_name,

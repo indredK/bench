@@ -530,7 +530,7 @@ function AccountCardContent({
         </div>
       </div>
       <div className="mt-3 flex items-center justify-between gap-2">
-        <StatusBadge status={account.status} />
+        <StatusBadge status={account.status} statusReason={account.statusReason} />
         <div className="flex items-center gap-1">
           <TooltipProvider>
             <Tooltip>

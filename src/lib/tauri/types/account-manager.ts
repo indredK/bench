@@ -147,6 +147,8 @@ export interface StationAccount {
   refreshSchedule?: RefreshSchedule | null
   nextRefreshAtTs?: number | null
   firstLoginAt?: string | null
+  /** F2/D1 — 当前 status 的判定来源:仅指纹 L0 短路时为 "fingerprintMissing",其余 null。 */
+  statusReason?: string | null
 }
 
 // ═══════════════════════════════════════════════

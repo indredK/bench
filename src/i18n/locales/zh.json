@@ -382,7 +382,10 @@
       "loginRequired": "待登录",
       "expired": "需重登",
       "fetchFailed": "获取失败",
-      "inactive": "未激活"
+      "inactive": "未激活",
+      "reason": {
+        "fingerprintMissing": "指纹缺失，已确认未登录"
+      }
     },
     "loginMethods": {
       "emailCode": "邮箱+验证码",
@@ -620,6 +623,9 @@
         },
         "forwardResult": {
           "failed": "回调转交外部应用失败"
+        },
+        "reason": {
+          "fingerprintMissing": "指纹缺失，已确认未登录"
         }
       },
       "kind": {

@@ -9,6 +9,10 @@ use tauri::{Runtime, WebviewWindow};
 use super::session::evaluate_js;
 use super::types::*;
 
+/// 指纹 L0 短路判定「未登录」的来源标记（D1/方案 A）。
+/// 写入 `StationAccount.status_reason`，前端徽标据此显示 tooltip 来源。
+pub const FINGERPRINT_MISSING_REASON: &str = "fingerprintMissing";
+
 /// 采集 storage 键名的 JS：token/auth/session/jwt/access/id_token/refresh 命中的
 /// localStorage + sessionStorage 键（去重），并返回采样页是否存在登出元素（登录佐证）。
 const CAPTURE_STORAGE_SCRIPT: &str = r#"

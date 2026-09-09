@@ -136,7 +136,14 @@ export function EmptyHint({ icon, text, hint }: { icon: ReactNode; text: string;
   )
 }
 
-export function StatusBadge({ status }: { status: AccountSessionStatus }) {
+export function StatusBadge({
+  status,
+  statusReason,
+}: {
+  status: AccountSessionStatus
+  /** F2/D1 — 判定来源;仅指纹 L0 判定未登录时为 "fingerprintMissing",用于 tooltip 说明。 */
+  statusReason?: string | null
+}) {
   const { t } = useTranslation()
 
   const variant = {
@@ -163,10 +170,26 @@ export function StatusBadge({ status }: { status: AccountSessionStatus }) {
     inactive: "bg-slate-400",
   }[status]
 
-  return (
+  const reasonTooltip =
+    statusReason === "fingerprintMissing"
+      ? t("accountManager.status.reason.fingerprintMissing")
+      : null
+
+  const badge = (
     <Badge variant={variant[status]} className={className}>
       <span className={cn("mr-1.5 inline-block h-2 w-2 rounded-full", dotColor)} />
       {t(`accountManager.status.${status}`)}
     </Badge>
+  )
+
+  if (!reasonTooltip) return badge
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>{badge}</TooltipTrigger>
+        <TooltipContent side="top">{reasonTooltip}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   )
 }

@@ -149,6 +149,8 @@ enum KeeperRunOutcome {
         new_session: Option<EncryptedBlob>,
         /// Ready 但 session 捕获/加密失败(保留旧 session)——日志标记 captureStatus。
         capture_failed: bool,
+        /// 判定来源（D1/方案 A）：L0 指纹短路时为 `fingerprintMissing`，其余 None。
+        reason: Option<&'static str>,
     },
     /// 因边界条件跳过本次执行(原因写入日志 skipReason)。
     Skipped { reason: &'static str },
@@ -329,25 +331,38 @@ async fn silent_refresh_leader<R: Runtime>(
         .map_err(|e| AccountManagerError::store_fail(format!("navigate keeper window: {e}")))?;
     let load = tokio::time::timeout_at(dead, rx).await;
 
-    let detected = match load {
-        Err(_) | Ok(Err(_)) => None,
+    let (detected, detected_reason) = match load {
+        Err(_) | Ok(Err(_)) => (None, None),
         Ok(Ok(())) => {
             if wait_for_storage_restore {
                 super::browser_storage::wait_for_restore(&window).await?;
             }
-            // L0b 预检（keeper 路径）：指纹全缺失 → 确定性未登录，直接停止轮询。
-            let fingerprint_ok = match fingerprint.as_ref() {
+            // L0b 预检（keeper 路径）：指纹全缺失 → 确定性未登录，直接停止轮询，
+            // 并携带来源供账号徽标 tooltip（D1/方案 A）。
+            match fingerprint.as_ref() {
                 Some(fp) if !fp.is_empty() => {
-                    super::fingerprint::any_feature_present_in_window(&window, &website, fp).await?
+                    if super::fingerprint::any_feature_present_in_window(&window, &website, fp)
+                        .await?
+                    {
+                        (
+                            poll_page_config(&config, &window)
+                                .await
+                                .or(Some(AccountSessionStatus::FetchFailed)),
+                            None,
+                        )
+                    } else {
+                        (
+                            Some(AccountSessionStatus::LoginRequired),
+                            Some(super::fingerprint::FINGERPRINT_MISSING_REASON),
+                        )
+                    }
                 }
-                _ => true,
-            };
-            if fingerprint_ok {
-                poll_page_config(&config, &window)
-                    .await
-                    .or(Some(AccountSessionStatus::FetchFailed))
-            } else {
-                Some(AccountSessionStatus::LoginRequired)
+                _ => (
+                    poll_page_config(&config, &window)
+                        .await
+                        .or(Some(AccountSessionStatus::FetchFailed)),
+                    None,
+                ),
             }
         }
     };
@@ -387,6 +402,7 @@ async fn silent_refresh_leader<R: Runtime>(
         status: final_status,
         new_session,
         capture_failed,
+        reason: detected_reason,
     })
 }
 
@@ -418,9 +434,12 @@ fn finish_keeper_leader_run<R: Runtime>(
                     status,
                     new_session,
                     capture_failed,
+                    reason,
                 }) => {
                     let old_status = account.status;
                     account.status = status;
+                    // D1/方案 A: 指纹 L0 短路时记录来源,供前端徽标 tooltip;Ready 或普通探测清空。
+                    account.status_reason = reason.map(str::to_string);
                     if status == AccountSessionStatus::Ready {
                         let now = super::commands::now_label();
                         account.last_refreshed_at = Some(now.clone());
@@ -430,10 +449,14 @@ fn finish_keeper_leader_run<R: Runtime>(
                     }
                     session_blob = new_session;
                     if old_status != status {
+                        let mut status_detail = json!({ "from": old_status, "to": status });
+                        if let Some(reason) = reason {
+                            status_detail["reason"] = json!(reason);
+                        }
                         pending_logs.push((
                             AccountLogKind::StatusChanged,
                             AccountLogLevel::Info,
-                            Some(json!({ "from": old_status, "to": status })),
+                            Some(status_detail),
                         ));
                     }
                     let level = match status {
@@ -450,6 +473,9 @@ fn finish_keeper_leader_run<R: Runtime>(
                     // 捕获失败(Ready 检测成功但 session 无法落盘)——显式标记,区别于探测失败。
                     if capture_failed {
                         auto_detail["captureStatus"] = json!("failed");
+                    }
+                    if let Some(reason) = reason {
+                        auto_detail["reason"] = json!(reason);
                     }
                     pending_logs.push((AccountLogKind::AutoRefresh, level, Some(auto_detail)));
                 }

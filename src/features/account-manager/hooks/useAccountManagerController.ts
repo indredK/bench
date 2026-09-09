@@ -190,6 +190,7 @@ export function useAccountManagerController() {
         id: account.id,
         username: account.username,
         status: account.status,
+        statusReason: account.statusReason ?? null,
       }))
   }, [])
 

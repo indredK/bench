@@ -56,6 +56,8 @@ pub(crate) async fn eval_text<R: Runtime>(
 
 pub struct ProbeOutcome {
     pub status: AccountSessionStatus,
+    /// 判定来源（F2/D1）：仅指纹 L0 短路时填 `fingerprintMissing`，其余为 None。
+    pub reason: Option<&'static str>,
 }
 
 fn parse_probe_target(website: &str) -> AccountManagerResult<url::Url> {
@@ -126,6 +128,7 @@ async fn classify_http_response(
     if matches!(response.status().as_u16(), 401 | 403) {
         return Ok(Some(ProbeOutcome {
             status: AccountSessionStatus::LoginRequired,
+            reason: None,
         }));
     }
     if !response.status().is_success() {
@@ -145,7 +148,12 @@ async fn classify_http_response(
         body.extend_from_slice(&chunk[..chunk.len().min(remaining)]);
     }
     let text = String::from_utf8_lossy(&body);
-    Ok(detection::classify_confident(&text, config).map(|status| ProbeOutcome { status }))
+    Ok(
+        detection::classify_confident(&text, config).map(|status| ProbeOutcome {
+            status,
+            reason: None,
+        }),
+    )
 }
 
 async fn run_http_probe(
@@ -333,6 +341,7 @@ pub async fn run_probe<R: Runtime>(
         if fingerprint::all_features_missing_from_session(saved, fp) {
             return Ok(ProbeOutcome {
                 status: AccountSessionStatus::LoginRequired,
+                reason: Some(super::fingerprint::FINGERPRINT_MISSING_REASON),
             });
         }
     }
@@ -351,6 +360,7 @@ pub async fn run_probe<R: Runtime>(
             Ok(None) if strategy == ProbeStrategy::HttpOnly => {
                 return Ok(ProbeOutcome {
                     status: AccountSessionStatus::FetchFailed,
+                    reason: None,
                 });
             }
             Err(error) if strategy == ProbeStrategy::HttpOnly => return Err(error),
@@ -449,6 +459,7 @@ pub async fn run_probe<R: Runtime>(
                     let _ = window.close();
                     return Ok(ProbeOutcome {
                         status: AccountSessionStatus::LoginRequired,
+                        reason: Some(super::fingerprint::FINGERPRINT_MISSING_REASON),
                     });
                 }
             }
@@ -481,9 +492,13 @@ pub async fn run_probe<R: Runtime>(
     };
     let _ = window.close();
     Ok(match out {
-        Some(s) => ProbeOutcome { status: s },
+        Some(s) => ProbeOutcome {
+            status: s,
+            reason: None,
+        },
         None => ProbeOutcome {
             status: AccountSessionStatus::FetchFailed,
+            reason: None,
         },
     })
 }

@@ -242,6 +242,8 @@ pub async fn confirm_login_fingerprint<R: Runtime>(
             };
             let old_status = account.status;
             account.status = AccountSessionStatus::Ready;
+            // 用户显式确认已登录 → 清空指纹来源标记。
+            account.status_reason = None;
             account.last_login_at = Some(now.clone());
             if account.first_login_at.is_none() {
                 account.first_login_at = Some(now.clone());
