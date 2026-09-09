@@ -1,38 +1,21 @@
-import { spawnSync } from "node:child_process"
-import { readFileSync } from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+import { resolvePackageManager, runCommand } from "../lib/platform.mjs"
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..")
 
-function detectPackageManager() {
-  try {
-    const pkg = JSON.parse(readFileSync(path.join(rootDir, "package.json"), "utf8"))
-    const spec = pkg.packageManager ?? ""
-    const match = /^(@[\w-]+\/)?(?<name>[\w-]+)@\d/.exec(spec)
-    if (match?.groups?.name) {
-      return process.platform === "win32" ? `${match.groups.name}.cmd` : match.groups.name
-    }
-  } catch {
-    // Fall through to npm for checkouts without valid package metadata.
-  }
-  return process.platform === "win32" ? "npm.cmd" : "npm"
-}
-
-const pkgManager = detectPackageManager()
+// Windows 上解析为 `pnpm.cmd`（`.cmd` 包装脚本），macOS/CI 保持无扩展名。
+const pkgManager = resolvePackageManager(rootDir)
 
 function runStep(label, command, args) {
   console.log(`\n==> ${label}`)
-  // On Windows the package manager resolves to `pnpm.cmd` (see
-  // detectPackageManager). A `.cmd` file cannot be spawned directly with
-  // `shell: false` — Windows raises EINVAL. Enable the system shell only for
-  // `.cmd`/`.bat` targets; every other command (git/node/cargo/sh) is a real
-  // executable and keeps `shell: false` (unchanged macOS/CI behaviour).
-  const shell = process.platform === "win32" && /\.(cmd|bat)$/i.test(command)
-  const result = spawnSync(command, args, {
+  // Windows 上包管理器解析为 `pnpm.cmd`（见 resolvePackageManager）。`.cmd`
+  // 不能用 `shell: false` 直接 spawn（EINVAL），而 `shell: true` + args 数组会
+  // 触发 Node 24 DEP0190 弃用警告。runCommand 统一走 cmd.exe /d /s /c 包装；
+  // 其余命令（git/node/cargo/sh）是真实可执行文件，保持原样直接 spawn。
+  const result = runCommand(command, args, {
     cwd: rootDir,
     stdio: "inherit",
-    shell,
   })
   if (result.error) {
     console.error(result.error.message)
@@ -42,7 +25,7 @@ function runStep(label, command, args) {
 }
 
 function gitOutput(args) {
-  const result = spawnSync("git", args, {
+  const result = runCommand("git", args, {
     cwd: rootDir,
     encoding: "utf8",
   })
@@ -207,7 +190,7 @@ if (hasBackendChanges) {
   // resolve manually. We capture stdout so we can re-stage the modified files.
   // See docs/how-to/coding-standards.md §7.4.1.
   console.log(`\n==> Auto-fixing Rust cfg hygiene (Rule B)`)
-  const cfgFixResult = spawnSync("node", ["scripts/quality/check-rust-cfg-hygiene.mjs", "--fix"], {
+  const cfgFixResult = runCommand("node", ["scripts/quality/check-rust-cfg-hygiene.mjs", "--fix"], {
     cwd: rootDir,
     encoding: "utf8",
   })
@@ -237,7 +220,7 @@ if (hasBackendChanges) {
   // git diff --check detects but cannot fix; auto-fix in place first, then
   // verify the staged content is clean.
   console.log(`\n==> Auto-fixing staged whitespace`)
-  const wsFixResult = spawnSync("node", ["scripts/quality/fix-staged-whitespace.mjs"], {
+  const wsFixResult = runCommand("node", ["scripts/quality/fix-staged-whitespace.mjs"], {
     cwd: rootDir,
     encoding: "utf8",
   })

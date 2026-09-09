@@ -13,10 +13,10 @@
  *   all       先 fe 后 be（默认）
  *   --dry-run 只打印计划，不修改任何 lockfile，不跑验证
  */
-import { spawn } from "node:child_process"
 import { readFileSync, existsSync } from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+import { resolvePackageManager, spawnCommand } from "../lib/platform.mjs"
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..")
 const beDir = path.join(rootDir, "src-tauri")
@@ -91,7 +91,7 @@ async function runAsync(label, cmd, args, cwd = rootDir, opts = {}) {
   const echo = opts.echo ?? true
   const sp = makeSpinner(label)
   return new Promise((resolve) => {
-    const child = spawn(cmd, args, { cwd, stdio: ["ignore", "pipe", "pipe"], shell: false })
+    const child = spawnCommand(cmd, args, { cwd, stdio: ["ignore", "pipe", "pipe"] })
     let stdout = ""
     let stderr = ""
     let sawOutput = false
@@ -185,21 +185,9 @@ function parseJson(text, context) {
   }
 }
 
-// ---- 包管理器探测（与 scripts/quality/pre-commit-check.mjs 一致） ----
-function detectPackageManager() {
-  try {
-    const pkg = JSON.parse(readFileSync(path.join(rootDir, "package.json"), "utf8"))
-    const spec = pkg.packageManager ?? ""
-    const match = /^(@[\w-]+\/)?(?<name>[\w-]+)@\d/.exec(spec)
-    if (match?.groups?.name) {
-      return process.platform === "win32" ? `${match.groups.name}.cmd` : match.groups.name
-    }
-  } catch {
-    // ignore
-  }
-  return process.platform === "win32" ? "npm.cmd" : "npm"
-}
-const pkgManager = detectPackageManager()
+// ---- 包管理器探测（统一收敛到 scripts/lib/platform.mjs） ----
+// Windows 上解析为 `pnpm.cmd`，macOS/CI 保持无扩展名。
+const pkgManager = resolvePackageManager(rootDir)
 
 // =====================================================================
 // 前端

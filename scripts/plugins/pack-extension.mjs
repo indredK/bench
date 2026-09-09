@@ -23,12 +23,13 @@ import {
   writeFileSync,
 } from "node:fs"
 import { join, resolve } from "node:path"
-import { spawnSync } from "node:child_process"
+import { runCommand, resolveBinPath } from "../lib/platform.mjs"
 
 const require_ = createRequire(import.meta.url)
 const { injectFilesManifest } = require_("./lib/extension-files.mjs")
 
-const VITE_BIN = join(process.cwd(), "node_modules", ".bin", "vite")
+// Windows 上解析为 vite.cmd（sh 脚本形态无法直接启动），POSIX/CI 保持 vite。
+const VITE_BIN = resolveBinPath(join(process.cwd(), "node_modules", ".bin"), "vite")
 
 function main() {
   const id = process.argv[2]
@@ -53,9 +54,8 @@ function main() {
 
   // 1) 构建（vite 产物 outDir = assets/）
   console.log(`[pack] building ${id} …`)
-  const build = spawnSync(VITE_BIN, ["build", "--config", join(pluginDir, "vite.config.ts")], {
+  const build = runCommand(VITE_BIN, ["build", "--config", join(pluginDir, "vite.config.ts")], {
     stdio: "inherit",
-    shell: process.platform === "win32",
   })
   if (build.status !== 0) {
     console.error(`[pack] vite build failed (exit ${build.status})`)
@@ -90,7 +90,7 @@ function main() {
   const zipName = `bench-ext-${id}-v${version}.zip`
   const zipPath = join(outDir, zipName)
   rmSync(zipPath, { force: true })
-  const zip = spawnSync("zip", ["-qr", zipPath, "."], { cwd: staging })
+  const zip = runCommand("zip", ["-qr", zipPath, "."], { cwd: staging })
   if (zip.status !== 0) {
     console.error(`[pack] zip failed (exit ${zip.status})`)
     process.exit(1)

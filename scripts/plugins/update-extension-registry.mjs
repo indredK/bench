@@ -18,7 +18,7 @@ import { createHash } from "node:crypto"
 import { createRequire } from "node:module"
 import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs"
 import { join, resolve } from "node:path"
-import { spawnSync } from "node:child_process"
+import { runCommand } from "../lib/platform.mjs"
 
 const require_ = createRequire(import.meta.url)
 require_("./lib/extension-files.mjs") // 确保共享模块存在（pack 依赖）
@@ -77,7 +77,7 @@ async function main() {
       size = bytes.length
       console.log(`[registry] ${id}: release asset ${size} bytes, sha256 ${sha256.slice(0, 12)}…`)
     } else {
-      const pack = spawnSync(
+      const pack = runCommand(
         process.execPath,
         [
           join(process.cwd(), "scripts", "plugins", "pack-extension.mjs"),

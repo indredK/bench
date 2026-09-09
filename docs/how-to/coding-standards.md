@@ -147,6 +147,23 @@
 3. `pnpm run check:be-cfg` 是否通过？（本地唯一能覆盖另一平台的手段）
 4. 是否仅凭“本机编译通过”就判定跨平台没问题？（不构成验证）
 
+### 7.4.2 Node 构建脚本跨平台执行（DEP0190）
+
+> 背景：`scripts/**` 的构建/维护脚本必须在 macOS 与 Windows 上都能跑。实测（Windows 11 + Node 24）：`spawn("pnpm.cmd", args, { shell: false })` → **EINVAL**（`.cmd` 不是可执行文件，脱离终端无法启动）；`spawn("pnpm", args, { shell: false })` → **ENOENT**（Windows 不做 PATHEXT 解析）；`spawn(cmd, args, { shell: true })` 且 args 非空 → **DEP0190 runtime 弃用警告**（参数只做空格拼接、不做转义，存在命令注入面）。项目 `engines.node` 为 `>=24`，该警告在开发者机器上必现。
+>
+> 统一方案：`cmd.exe /d /s /c "<cmd> <args...>"` 包装——参数数组不交给 shell 解析，保留 `shell: false` 语义，同时让 Windows 能启动 `.cmd` 包装脚本。
+
+- **强制**: 脚本内启动子进程统一走 `scripts/lib/platform.mjs` 的 `runCommand()` / `spawnCommand()`，禁止自写 `{ shell: true }` 或 `process.platform === "win32"` 分支。
+- **强制**: 禁止 `spawn*` / `exec*` 的 `shell: true` 与 args 数组同时出现（DEP0190）。确需 shell 特性（管道、重定向、变量展开）时，把整条命令作为**单个字符串**传入并自行转义。
+- **强制**: 判断"是否需要 cmd.exe 包装"看**目标本身**（`/\.(cmd|bat)$/i`），不是看平台——能力检测优先于平台检测。
+- **强制**: 平台常量只在 `scripts/lib/platform.mjs` 定义一次（`IS_WINDOWS`），其他脚本 import，不得各写一遍。
+- **强制**: 包管理器命令用 `resolvePackageManager()` 从 `package.json` 的 `packageManager` 字段解析，禁止硬编码 `npm.cmd` / `pnpm`（案例：`scripts/bootstrap/menu.mjs` 曾全表硬编码无后缀 `pnpm`，Windows 下整份菜单 ENOENT 不可用）。
+- **强制**: `node_modules/.bin` 下的 bin 路径用 `resolveBinPath()` 解析。pnpm 在同一目录生成三种形态（`vite` sh 脚本 / `vite.CMD` / `vite.ps1`）；Windows 下无扩展名 sh 脚本无法被 CreateProcess 启动，必须解析到 `.cmd` 形态再经 `runCommand()` 的 cmd.exe 包装执行。
+- **强制**: `commandExists()` 的判定分两层：cmd.exe 包装路径下 `error` 恒为 null（cmd.exe 本身总能启动），目标不存在只表现为非零退出码，必须看 `status === 0`；直接 spawn 路径才用 `error.code === "ENOENT"`。两层混用会把"命令不存在"误判为"存在"。
+- **建议**: 路径拼接用 `node:path`（`join` / `resolve` / `path.win32` / `path.posix`），不要手写分隔符或 `replace(/\\/g, ...)`。
+- **建议**: 探测命令是否存在用 `commandExists()`（执行 `--version` 后看 `error.code`），不依赖 `where` / `which`——Windows 的 `where` 是 cmd 内建，macOS/Linux 才有 `which`。
+- **注意（WSL 盲区）**: WSL 下 `process.platform === "linux"`，与用户心智（Windows）不一致。脚本若要操作 Windows 侧资源（打开资源管理器、启动 Windows 可执行程序），平台判断不足，需额外嗅探 `WSL_DISTRO_NAME` 或 `/proc/version` 含 `microsoft`。当前 `scripts/**` 无此场景，新增时按需引入。
+
 ### 7.5 应用清单与更新安全
 
 - **强制**: 应用启动、定位、升级、卸载命令只接受后端稳定 ID；renderer 不得提交可执行路径、package ID 或 shell 参数作为最终执行依据。

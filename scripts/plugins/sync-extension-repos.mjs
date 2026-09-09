@@ -16,7 +16,7 @@
 
 import { cpSync, existsSync, readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
-import { spawnSync } from "node:child_process"
+import { runCommand } from "../lib/platform.mjs"
 
 const MARKET_DEFAULT = join(process.cwd(), "..", "kindred-plugin-market", "plugin-market")
 const idx = process.argv.indexOf("--market")
@@ -41,11 +41,13 @@ function copySync(from, to) {
 }
 
 function main() {
-  const ids = readdirSync(join(process.cwd(), "extensions"), { withFileTypes: true })
-    .filter(
-      (d) =>
-        d.isDirectory() && existsSync(join(process.cwd(), "extensions", d.name, "manifest.json")),
-    )
+  const extensionsDir = join(process.cwd(), "extensions")
+  if (!existsSync(extensionsDir)) {
+    console.log("[sync] no extensions/ directory, nothing to sync")
+    process.exit(0)
+  }
+  const ids = readdirSync(extensionsDir, { withFileTypes: true })
+    .filter((d) => d.isDirectory() && existsSync(join(extensionsDir, d.name, "manifest.json")))
     .map((d) => d.name)
   const targets = onlyId ? [onlyId] : ids
 
@@ -59,13 +61,13 @@ function main() {
     for (const entry of SYNC_SET) {
       copySync(join(process.cwd(), "extensions", id, entry), join(repo, entry))
     }
-    const status = spawnSync("git", ["status", "--porcelain"], { cwd: repo, encoding: "utf8" })
+    const status = runCommand("git", ["status", "--porcelain"], { cwd: repo, encoding: "utf8" })
     if ((status.stdout ?? "").trim() === "") {
       console.log(`[sync] ${id}: up to date`)
       continue
     }
-    spawnSync("git", ["add", "-A"], { cwd: repo, stdio: "inherit" })
-    const commit = spawnSync(
+    runCommand("git", ["add", "-A"], { cwd: repo, stdio: "inherit" })
+    const commit = runCommand(
       "git",
       [
         "-c",

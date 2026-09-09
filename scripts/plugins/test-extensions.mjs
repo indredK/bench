@@ -10,11 +10,12 @@
  */
 
 import { existsSync, readdirSync } from "node:fs"
-import { spawnSync } from "node:child_process"
 import { join } from "node:path"
+import { resolveBinPath, runCommand } from "../lib/platform.mjs"
 
 const REPO_EXTENSIONS = join(process.cwd(), "extensions")
-const VITEST_BIN = join(process.cwd(), "node_modules", ".bin", "vitest")
+// Windows 上解析为 vitest.cmd（sh 脚本形态无法直接启动），POSIX/CI 保持 vitest。
+const VITEST_BIN = resolveBinPath(join(process.cwd(), "node_modules", ".bin"), "vitest")
 
 function main() {
   if (!existsSync(VITEST_BIN)) {
@@ -45,10 +46,10 @@ function main() {
   let failed = 0
   for (const id of targets) {
     console.log(`[test:extensions] ${id} …`)
-    const result = spawnSync(
+    const result = runCommand(
       VITEST_BIN,
       ["run", "--config", join(REPO_EXTENSIONS, id, "vitest.config.ts")],
-      { stdio: "inherit", shell: process.platform === "win32" },
+      { stdio: "inherit" },
     )
     if (result.status !== 0) {
       console.error(`[test:extensions] ${id} FAILED`)

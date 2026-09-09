@@ -10,11 +10,12 @@
  */
 
 import { existsSync, readdirSync } from "node:fs"
-import { spawnSync } from "node:child_process"
 import { join } from "node:path"
+import { resolveBinPath, runCommand } from "../lib/platform.mjs"
 
 const REPO_EXTENSIONS = join(process.cwd(), "extensions")
-const VITE_BIN = join(process.cwd(), "node_modules", ".bin", "vite")
+// Windows 上解析为 vite.cmd（sh 脚本形态无法直接启动），POSIX/CI 保持 vite。
+const VITE_BIN = resolveBinPath(join(process.cwd(), "node_modules", ".bin"), "vite")
 
 function main() {
   if (!existsSync(REPO_EXTENSIONS)) {
@@ -49,9 +50,8 @@ function main() {
   for (const id of targets) {
     const config = join(REPO_EXTENSIONS, id, "vite.config.ts")
     console.log(`[extensions:build] building ${id} …`)
-    const result = spawnSync(VITE_BIN, ["build", "--config", config], {
+    const result = runCommand(VITE_BIN, ["build", "--config", config], {
       stdio: "inherit",
-      shell: process.platform === "win32",
     })
     if (result.status !== 0) {
       console.error(`[extensions:build] ${id} FAILED (exit ${result.status})`)

@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process"
+import { runCommand } from "../lib/platform.mjs"
 import { existsSync } from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
@@ -7,7 +7,7 @@ const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..",
 const hooksPath = ".husky"
 
 function runGit(args) {
-  return spawnSync("git", args, {
+  return runCommand("git", args, {
     cwd: rootDir,
     encoding: "utf8",
   })

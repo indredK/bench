@@ -1,40 +1,17 @@
-import { execSync, spawnSync } from "node:child_process"
-import { readFileSync } from "node:fs"
+import { execSync } from "node:child_process"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+import { commandExists, resolvePackageManager, runCommand } from "../lib/platform.mjs"
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..")
 
-// Detect package manager from package.json's `packageManager` field.
-// Falls back to npm for backward compatibility.
-function detectPackageManager() {
-  try {
-    const pkg = JSON.parse(readFileSync(path.join(rootDir, "package.json"), "utf8"))
-    const spec = pkg.packageManager ?? ""
-    const match = /^(@[\w-]+\/)?(?<name>[\w-]+)@\d/.exec(spec)
-    if (match?.groups?.name) {
-      return process.platform === "win32" ? `${match.groups.name}.cmd` : match.groups.name
-    }
-  } catch {
-    // ignore
-  }
-  return process.platform === "win32" ? "npm.cmd" : "npm"
-}
-
-const pkgManager = detectPackageManager()
-
-function hasCommand(cmd) {
-  const resolved = process.platform === "win32" ? `${cmd}.cmd` : cmd
-  const check = process.platform === "win32" ? "where" : "which"
-  const result = spawnSync(check, [resolved], { stdio: "ignore" })
-  return result.status === 0
-}
+// Windows 上解析为 `pnpm.cmd`，macOS/CI 保持无扩展名。
+const pkgManager = resolvePackageManager(rootDir)
 
 function run(cmd, args, options = {}) {
-  const result = spawnSync(cmd, args, {
+  const result = runCommand(cmd, args, {
     cwd: rootDir,
     stdio: "inherit",
-    shell: false,
     ...options,
   })
   if (result.error || result.status !== 0) {
@@ -59,15 +36,15 @@ const required = [
   { cmd: "cargo", label: "Rust (cargo)", url: "https://www.rust-lang.org/tools/install" },
 ]
 
-if (!hasCommand(pkgManager.replace(/\.cmd$/, ""))) {
+if (!commandExists(pkgManager)) {
   required.push({
-    cmd: pkgManager.replace(/\.cmd$/, ""),
-    label: `${pkgManager.replace(/\.cmd$/, "")} (包管理器)`,
+    cmd: pkgManager,
+    label: `${pkgManager} (包管理器)`,
     url: "https://pnpm.io/installation",
   })
 }
 
-const missing = required.filter(({ cmd }) => !hasCommand(cmd))
+const missing = required.filter(({ cmd }) => !commandExists(cmd))
 
 if (missing.length > 0) {
   console.error("\n✗ 缺少以下工具,请先安装:\n")

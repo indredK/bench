@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process"
+import { runCommand } from "../lib/platform.mjs"
 import { readFileSync, writeFileSync } from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
@@ -10,7 +10,7 @@ const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..",
 // files in place (safe because the pre-commit check only runs on fully
 // staged files) and prints one `fixed:<file>` line per file so the caller
 // can re-stage them. See scripts/quality/pre-commit-check.mjs.
-const result = spawnSync("git", ["diff", "--cached", "--check"], {
+const result = runCommand("git", ["diff", "--cached", "--check"], {
   cwd: rootDir,
   encoding: "utf8",
 })
