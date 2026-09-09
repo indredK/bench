@@ -2,6 +2,20 @@
 
 本文件只记录仍影响当前实现的方向性取舍；“做什么”以 [ROADMAP.md](../roadmap/ROADMAP.md) 为准，当前风险以 [audit-report.md](./audit-report.md) 为准。已推翻和已完成历史由 Git 保留。
 
+## D-027 · Rust 测试运行器迁移 cargo-nextest
+
+- **日期**：2026-09-09
+- **状态**：采纳
+- **背景**：[D-026](#d-026--verify-拆分为三条并行流水线guards--frontend--rust) 将 Rust 链（clippy → test → build）确立为 CI 关键路径，测试运行器是其中可压缩环节。`cargo test` 单进程内线程并行、无重试、无慢测治理；`cargo-nextest` 进程级隔离并行（普遍 2–3× 提速）、自带 retries 与 slow-timeout。
+- **决策**：
+  1. `test:be` 从 `cargo test` 改为 **`cargo nextest run`**，本地与 CI 同一命令、同一 profile（不设 CI 专属 profile），维持「本地和 CI 跑的一样」的同源原则。
+  2. 配置 `src-tauri/.config/nextest.toml`（nextest 的 workspace root 是 `src-tauri/`）：`retries = 1`（两次挂才失败，容忍偶发 flaky）、`slow-timeout = 120s 告警 / 240s 强杀`（防挂死测试占满 runner，与 job `timeout-minutes: 75` 形成双层保险）。
+  3. CI 由 `taiki-e/install-action` 安装 nextest（预编译二进制，秒级）；本地开发者需自行安装（`cargo install cargo-nextest --locked`）。
+  4. **doctest 缺口已评估**：nextest 不运行文档测试；本项目全仓唯一的文档代码块（`extension_host/registry.rs`）标注 `jsonc`，不会被 rustdoc 编译为 doctest，且无 `tests/` 集成测试目录——迁移无遗漏。**未来若引入需要 doctest 验证的文档示例，需补跑 `cargo test --doc`**。
+- **理由**：实测本地 470/470 通过、测试运行 1.35s（编译缓存复用后）；retries 与强杀机制对 CI 稳定性收益明确。
+- **影响**：本地 Rust 测试体验变化（输出格式不同）；`cargo test` 命令仍可用于调试单个测试（`cargo test <name>`）但门禁口径以 nextest 为准。
+- **相关**：[nextest.toml](../../src-tauri/.config/nextest.toml) · [ci-build.yml](../../.github/workflows/ci-build.yml) · [D-026](#d-026--verify-拆分为三条并行流水线guards--frontend--rust)
+
 ## D-026 · verify 拆分为三条并行流水线（guards / frontend / rust）
 
 - **日期**：2026-09-09

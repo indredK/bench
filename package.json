@@ -35,7 +35,7 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:critical": "vitest run src/features/account-manager src/features/token-calculator src/features/app-manager src/features/quick-launch src/features/updater src/features/system-settings src/features/registry.test.tsx src/shared/app-inventory src/components/__tests__/ContentView.test.tsx src/components/common/__tests__/SettingsDialog.test.tsx src/components/common/__tests__/UpdateDialog.test.tsx scripts/quality/__tests__ scripts/release/__tests__/verify-release-assets.test.ts",
-    "test:be": "cd src-tauri && cargo test",
+    "test:be": "cd src-tauri && cargo nextest run",
     "check:be": "cd src-tauri && cargo check",
     "clippy:be": "cd src-tauri && cargo clippy -- -D warnings",
     "format:be": "cd src-tauri && cargo fmt --all -- --check",
