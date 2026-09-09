@@ -104,7 +104,7 @@
 - [x] F2-T2 Rust：`capture_login_fingerprint` 命令（窗口复用/隐藏窗口 + 指纹脚本 + authProfile 顺带刷新 + 日志脱敏——日志与 DTO 只含计数无关键名）
 - [x] F2-T3 Rust：probe L0a/L0b 指纹预检（`probe.rs run_probe` + keeper 静默刷新）+ 确认后 `refresh_station` 编排（前端侧触发，复用 single-flight/预算语义）
 - [x] F2-T4 IPC：`contracts.ts` + typed command + DTO（`LoginFingerprintSummary`/`RelayStation.loginFingerprint` 仅摘要）+ Rust 注册 + 命令入 `commands.rs` invoke_handler
-- [x] F2-T5 前端：DetailColumn 底部按钮（设置按钮左侧，Fingerprint 图标）+ 采样确认弹窗（`FingerprintConfirmDialog`，普通确认非 Destructive）。「已确认未登录」状态徽标的细化标注 **留待 D1 决策**——当前 L0 判定与普通探测都产出 `loginRequired`，DTO 无法区分来源，需先定状态模型
+- [x] F2-T5 前端：DetailColumn 底部按钮（设置按钮左侧，Fingerprint 图标）+ 采样确认弹窗（`FingerprintConfirmDialog`，普通确认非 Destructive）+ 详情栏「指纹已采样」状态条（站点级，展示采样时间与特征计数，并说明指纹缺失账号判定为未登录）。账号级「该次未登录由指纹判定」来源标注仍待 D1——当前 L0 判定与普通探测都产出 `loginRequired`，DTO 无法区分来源
 - [x] F2-T6 前端：i18n zh/en + 空态/失败态（region error + toast）+ 防重入（`useGuardedAsync`）
 - [x] F2-T7 测试：`fingerprint.rs` 单测覆盖指纹缺失→短路、特征存在→不短路、storage 键保守不短路、空指纹不短路（L0a 判定逻辑）
 
