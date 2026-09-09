@@ -213,6 +213,12 @@ macro_rules! app_invoke_handler {
             $crate::clean_space::commands::scan_custom_folder,
             $crate::clean_space::commands::open_system_storage_settings,
             $crate::clean_space::commands::get_cleanup_records,
+            // browser extension export / MCP one-click install
+            $crate::browser_ext::commands::browser_ext_export,
+            $crate::browser_ext::commands::browser_ext_status,
+            $crate::browser_ext::commands::browser_ext_open_extensions_page,
+            $crate::browser_ext::commands::mcp_targets_status,
+            $crate::browser_ext::commands::mcp_install_clients,
             $crate::clean_space::commands::add_cleanup_record,
             // photo triage
             $crate::photo_triage::commands::photo_triage_scan,

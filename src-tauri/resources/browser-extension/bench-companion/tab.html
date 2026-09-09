@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>Bench Companion · 面板</title>
+    <link rel="stylesheet" href="popup.css" />
+    <link rel="stylesheet" href="tab.css" />
+  </head>
+  <body>
+    <header class="head wide">
+      <img src="icons/icon48.png" width="22" height="22" alt="" />
+      <span class="title">Bench Companion</span>
+      <span id="status" class="badge off">检测中</span>
+    </header>
+
+    <main class="grid">
+      <section class="card">
+        <h2>存储扫描（clean-space）</h2>
+        <p class="hint">只读扫描白名单内的目录，按「早于 N 天」估算可清理项。不会删除任何文件。</p>
+        <div class="row">
+          <input
+            id="scan-path"
+            type="text"
+            placeholder="目录绝对路径（须在 bench-host 白名单内）"
+          />
+        </div>
+        <div class="row inline">
+          <label
+            >早于
+            <input id="scan-days" type="number" value="30" min="0" style="width: 64px" /> 天</label
+          >
+          <label><input id="scan-sub" type="checkbox" checked /> 递归子目录</label>
+          <button id="scan-btn">扫描</button>
+        </div>
+        <div id="scan-out"></div>
+      </section>
+
+      <section class="card">
+        <h2>照片筛选（photo-triage）</h2>
+        <p class="hint">读取 Bench 已扫描相册的 manifest 摘要。路径须在白名单内。</p>
+        <div class="row">
+          <input id="album-build" type="text" placeholder="相册构建目录（含 manifest.json）" />
+        </div>
+        <div class="row"><button id="album-btn">读取摘要</button></div>
+        <div id="album-out"></div>
+      </section>
+
+      <section class="card">
+        <h2>接入 AI 客户端（MCP）</h2>
+        <p class="hint">bench-host 同时是一个 MCP server。Bench 应用内可一键写入配置；亦可手动：</p>
+        <pre id="mcp-snippet"></pre>
+      </section>
+    </main>
+
+    <script src="tab.js"></script>
+  </body>
+</html>

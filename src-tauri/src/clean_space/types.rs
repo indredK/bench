@@ -4,57 +4,11 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Risk level for a cleanup item. Mirrors `dev_cleaner::RiskLevel` for
-/// cross-module consistency.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum RiskLevel {
-    Safe,
-    Low,
-    Medium,
-    High,
-}
-
-/// Priority tier assigned by front-end scoring algorithm.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum PriorityTier {
-    P1,
-    P2,
-    P3,
-}
-
-/// Why a scanned item is not directly cleanable from Clean Space.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum CleanupProtectionKind {
-    None,
-    AppBundle,
-    AppState,
-    CrossUserData,
-    ReadOnlySystem,
-    SystemCritical,
-    UserData,
-    MissingCleanupRule,
-}
-
-/// A single cleanable item within a category.
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct StorageItem {
-    pub id: String,
-    pub name: String,
-    pub category_id: String,
-    pub risk_level: RiskLevel,
-    pub size_bytes: u64,
-    pub command: String,
-    pub is_cleanable: bool,
-    pub protection_kind: CleanupProtectionKind,
-    pub protection_reason: String,
-    pub path: String,
-    pub files: String,
-    pub reason: String,
-    pub priority: PriorityTier,
-    pub score: f64,
-}
+// RiskLevel / PriorityTier / CleanupProtectionKind / StorageItem / FolderScanResult
+// 已迁移至 bench-capabilities（能力内核），此处 re-export 保证 crate 内引用不变。
+pub use bench_capabilities::clean_space::{
+    CleanupProtectionKind, FolderScanResult, PriorityTier, RiskLevel, StorageItem,
+};
 
 /// A storage category (e.g. Applications, Documents, Developer).
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -121,12 +75,4 @@ pub struct CleanupItemResult {
     pub status: CleanupItemStatus,
     pub freed_bytes: u64,
     pub error_code: Option<String>,
-}
-
-/// Result of a custom folder scan.
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct FolderScanResult {
-    pub freed_bytes: u64,
-    pub item_count: u32,
-    pub items: Vec<StorageItem>,
 }

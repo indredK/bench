@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "Bench Companion",
+  "version": "0.1.0",
+  "description": "Bench 能力出口：在浏览器中调用 Bench 的术语库 / 存储扫描 / 照片筛选能力（经本机 bench-host）。",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqPSlZCRjmxOx6sMRO0qcZ0lPdWpdyPipW/TOvtuWv/MBE3Ilaho+oyUcNrqff6rokFetc4X0RBcxjm6LCHsb51rtCXrXG0mCyWF1OzjoSpIb/QOBB8dGaD5gF6kd33UrFgxH+/pwqqPuBnWVSWu8m4Be/66FLszSE9otnz1dxdu3F3MVgYnSpSnljsMg2HBaI/RiSaslLwaHOcK8knumNIOrive4EDKRScj95njreedwUuDk0HvUZAHi6u6NyqDu1dvC2fOHXIcERNIpMqGKsmb8kwGoWCNW/cUuSk7wulGXSwTyTL0Les11Kif4tXK5CllUa9eH7OOgtagw/gzXowIDAQAB",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Bench Companion",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "options_page": "tab.html",
+  "permissions": ["nativeMessaging", "storage"],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "bench-companion@kindred.dev",
+      "strict_min_version": "128.0"
+    }
+  }
+}

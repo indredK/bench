@@ -355,6 +355,7 @@ dependencies = [
  "aes-gcm",
  "async-trait",
  "base64 0.22.1",
+ "bench-capabilities",
  "chrono",
  "cookie",
  "core-foundation 0.10.1",
@@ -400,6 +401,25 @@ dependencies = [
  "window-vibrancy",
  "zeroize",
  "zip 8.6.0",
+]
+
+[[package]]
+name = "bench-capabilities"
+version = "0.1.0"
+dependencies = [
+ "md5",
+ "serde",
+ "serde_json",
+ "walkdir",
+]
+
+[[package]]
+name = "bench-host"
+version = "0.1.0"
+dependencies = [
+ "bench-capabilities",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

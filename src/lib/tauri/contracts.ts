@@ -17,6 +17,12 @@ import type {
   MarketInstallPreview,
   MarketListing,
 } from "@/lib/tauri/types/extension-center"
+import type {
+  BrowserExtensionExport,
+  BrowserExtensionStatus,
+  McpInstallResult,
+  McpTargetStatus,
+} from "@/lib/tauri/types/browser-ext"
 import type { CommandCard, CommandMarketListing } from "@/lib/tauri/types/command-center"
 import type {
   AccountManagerCapabilities,
@@ -820,6 +826,16 @@ export const TAURI_COMMAND_CONTRACTS = {
     "ext_market_commit",
   ),
   ext_diagnostics: defineTauriCommand<undefined, ExtensionDiagnostics>()("ext_diagnostics"),
+  // browser extension export / MCP one-click install（能力出口：bench-host）
+  browser_ext_export: defineTauriCommand<undefined, BrowserExtensionExport>()("browser_ext_export"),
+  browser_ext_status: defineTauriCommand<undefined, BrowserExtensionStatus>()("browser_ext_status"),
+  browser_ext_open_extensions_page: defineTauriCommand<{ browserId: string }, void>()(
+    "browser_ext_open_extensions_page",
+  ),
+  mcp_targets_status: defineTauriCommand<undefined, McpTargetStatus[]>()("mcp_targets_status"),
+  mcp_install_clients: defineTauriCommand<{ clientIds: string[] }, McpInstallResult[]>()(
+    "mcp_install_clients",
+  ),
 } as const
 
 export type TauriCommandName = keyof typeof TAURI_COMMAND_CONTRACTS
@@ -1162,6 +1178,13 @@ export const TAURI_COMMANDS = {
     marketCommit: commandName("ext_market_commit"),
     diagnostics: commandName("ext_diagnostics"),
   },
+  browserExt: {
+    export: commandName("browser_ext_export"),
+    status: commandName("browser_ext_status"),
+    openExtensionsPage: commandName("browser_ext_open_extensions_page"),
+    mcpTargetsStatus: commandName("mcp_targets_status"),
+    mcpInstallClients: commandName("mcp_install_clients"),
+  },
 } as const
 
 type FlattenCommandGroups<T> = {
@@ -1493,6 +1516,11 @@ export const TAURI_COMMAND_ARG_KEYS = {
   ext_market_prepare: ["extensionId", "version"],
   ext_market_commit: ["extensionId", "version"],
   ext_diagnostics: [],
+  browser_ext_export: [],
+  browser_ext_status: [],
+  browser_ext_open_extensions_page: ["browserId"],
+  mcp_targets_status: [],
+  mcp_install_clients: ["clientIds"],
 } as const satisfies TauriCommandArgKeys
 
 export const WINDOW_BOOTSTRAP_EVENTS = {

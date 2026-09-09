@@ -3,6 +3,7 @@ mod app_manager;
 mod app_preferences;
 mod app_updater;
 mod bootstrap;
+mod browser_ext;
 mod clean_space;
 mod command_center;
 mod commands;

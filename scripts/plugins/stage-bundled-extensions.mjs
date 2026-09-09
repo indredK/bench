@@ -10,7 +10,8 @@
  * - 否则 `extensions/<id>/index.html` → 静态模式（manifest + 入口 + assets）。
  *
  * 部署完成后注入 manifest v2 `files` 清单（与 sync 共用 lib/extension-files.mjs）。
- * 产物不进 git（.gitignore 已覆盖 `src-tauri/resources/`）。
+ * 产物不进 git（.gitignore 已覆盖 `src-tauri/resources/extensions/`；
+ * 同级的 `resources/browser-extension/` 是 bench-companion 模板源文件，保持跟踪）。
  *
  * 用法：node scripts/plugins/stage-bundled-extensions.mjs
  * （`pnpm run extensions:stage`；tauri build 前由 beforeBuildCommand 链调用）

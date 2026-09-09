@@ -24,6 +24,7 @@
     "fix:be-cfg": "node scripts/quality/check-rust-cfg-hygiene.mjs --fix",
     "dev:fe": "vite",
     "build:fe": "tsc && vite build",
+    "build:bench-host": "node scripts/plugins/build-bench-host.mjs",
     "preview:fe": "vite preview",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

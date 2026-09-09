@@ -1,5 +1,7 @@
 [workspace]
-members = ["."]
+# bench-capabilities：平台无关能力内核（src-tauri 与 bench-host 共享，单一事实来源）；
+# bench-host：协议出口二进制（Native Messaging / MCP / CLI），随应用作为 sidecar 打包。
+members = [".", "crates/bench-capabilities", "crates/bench-host"]
 
 [workspace.package]
 version = "1.30.0"
@@ -19,6 +21,7 @@ crate-type = ["lib", "cdylib", "staticlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+bench-capabilities = { path = "crates/bench-capabilities" }
 tauri = { version = "2", features = ["protocol-asset", "macos-private-api", "tray-icon", "macos-proxy", "image-png"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-shell = "2"

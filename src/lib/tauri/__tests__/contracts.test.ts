@@ -61,7 +61,12 @@ describe("Tauri contracts", () => {
   })
 
   it("keeps frontend command args aligned with Rust command function parameters", () => {
-    const rustSource = readRustSource(resolve(process.cwd(), "src-tauri/src"))
+    // workspace 成员 crates/（bench-capabilities / bench-host）同样承载 IPC DTO，
+    // 与 src-tauri/src 一起纳入对齐扫描（DTO 迁移到能力内核后此目录不可缺）。
+    const rustSource = [
+      readRustSource(resolve(process.cwd(), "src-tauri/src")),
+      readRustSource(resolve(process.cwd(), "src-tauri/crates")),
+    ].join("\n")
     const rustStructFields = parseRustStructFields(rustSource)
     const rustCommandArgs = parseTauriCommandArgs(rustSource, rustStructFields)
 
@@ -82,7 +87,12 @@ describe("Tauri contracts", () => {
   })
 
   it("keeps key IPC DTO fields aligned with Rust struct fields", () => {
-    const rustSource = readRustSource(resolve(process.cwd(), "src-tauri/src"))
+    // workspace 成员 crates/（bench-capabilities / bench-host）同样承载 IPC DTO，
+    // 与 src-tauri/src 一起纳入对齐扫描（DTO 迁移到能力内核后此目录不可缺）。
+    const rustSource = [
+      readRustSource(resolve(process.cwd(), "src-tauri/src")),
+      readRustSource(resolve(process.cwd(), "src-tauri/crates")),
+    ].join("\n")
     const rustStructFields = parseRustStructFields(rustSource)
 
     const checks: Array<[string, string, string[]]> = [

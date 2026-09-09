@@ -1,0 +1,15 @@
+[package]
+name = "bench-host"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Bench capability host: exposes bench-capabilities over Native Messaging, MCP (stdio) and CLI. Ships as a Tauri sidecar."
+
+[[bin]]
+name = "bench-host"
+path = "src/main.rs"
+
+[dependencies]
+bench-capabilities = { path = "../bench-capabilities" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

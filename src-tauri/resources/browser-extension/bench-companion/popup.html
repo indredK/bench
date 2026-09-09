@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>Bench Companion</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header class="head">
+      <img src="icons/icon48.png" width="20" height="20" alt="" />
+      <span class="title">Bench Companion</span>
+      <span id="status" class="badge off">检测中</span>
+    </header>
+
+    <section class="search">
+      <input id="q" type="search" placeholder="搜索术语库…" autofocus />
+      <div id="hits" class="hits"></div>
+    </section>
+
+    <footer class="foot">
+      <a id="open-tab" href="#">打开完整面板</a>
+      <a id="reconnect" href="#">重连</a>
+    </footer>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

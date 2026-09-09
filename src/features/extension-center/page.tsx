@@ -5,12 +5,13 @@ import { Button } from "@/components/ui/button"
 import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirmDialog"
 import { useExtensionCenterController } from "@/features/extension-center/hooks/useExtensionCenterController"
 import { useMarketController } from "@/features/extension-center/hooks/useMarketController"
+import { BridgePanel } from "@/features/extension-center/components/BridgePanel"
 import { DiagnosticsPanel } from "@/features/extension-center/components/DiagnosticsPanel"
 import { InstallConfirmDialog } from "@/features/extension-center/components/InstallConfirmDialog"
 import { MarketPanel } from "@/features/extension-center/components/MarketPanel"
 import type { ExtensionSummary } from "@/lib/tauri/types/extension-center"
 
-type TabKey = "installed" | "market" | "diagnostics"
+type TabKey = "installed" | "market" | "diagnostics" | "bridge"
 
 function StatusBadge({ enabled, t }: { enabled: boolean; t: (key: string) => string }) {
   const cls = enabled
@@ -189,6 +190,7 @@ export default function ExtensionCenterPage() {
     { key: "installed", label: t("extensionCenter.tabInstalled") },
     { key: "market", label: t("extensionCenter.tabMarket") },
     { key: "diagnostics", label: t("extensionCenter.tabDiagnostics") },
+    { key: "bridge", label: t("extensionCenter.tabBridge") },
   ]
 
   return (
@@ -246,6 +248,7 @@ export default function ExtensionCenterPage() {
         />
       )}
       {tab === "market" && <MarketPanel />}
+      {tab === "bridge" && <BridgePanel />}
       {tab === "diagnostics" && <DiagnosticsPanel />}
 
       <InstallConfirmDialog
