@@ -21,7 +21,7 @@ crate-type = ["lib", "cdylib", "staticlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-bench-capabilities = { path = "crates/bench-capabilities" }
+bench-capabilities = { path = "crates/bench-capabilities", version = "0.1.0" }
 tauri = { version = "2", features = ["protocol-asset", "macos-private-api", "tray-icon", "macos-proxy", "image-png"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-shell = "2"

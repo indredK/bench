@@ -207,11 +207,24 @@ jobs:
       - name: Check Rust cfg hygiene
         run: node scripts/quality/check-rust-cfg-hygiene.mjs
 
+      # externalBin 校验发生在 tauri-build 的 build.rs（clippy/test 也会触发），
+      # 而 sidecar 产物不进 git（.gitignore: src-tauri/binaries/）。clippy/test
+      # 阶段放一个占位文件让 build.rs 通过；真实 sidecar 由 build 冒烟阶段的
+      # beforeBuildCommand（build:bench-host）生成，release-build job 走完整
+      # tauri build 同理。
+      - name: Stub sidecar binary for clippy/test
+        run: node scripts/ci/stub-sidecar.mjs
+
       - name: Run Rust clippy
         run: pnpm run clippy:be
 
       - name: Run Rust tests
         run: pnpm run test:be
+
+      # 先清掉占位文件：build:bench-host 的 up-to-date 检查只比 mtime，
+      # 占位文件比 bench-host 源码新时会误跳过真实 release 构建。
+      - name: Remove sidecar stub before build smoke test
+        run: node scripts/ci/stub-sidecar.mjs --clean
 
       - name: Run Tauri build smoke test (no bundle)
         run: pnpm tauri build --debug --no-bundle
@@ -552,6 +565,12 @@ jobs:
 
       - name: Generate latest.json
         run: node scripts/release/generate-updater-json.mjs --assets-dir release-assets --tag "$TAG_NAME" --repo "${{ github.repository }}" --release-metadata release-metadata.json
+
+      # cargo run 会触发 tauri-build 的 build.rs externalBin 校验；本 job
+      # 不执行 tauri build（sidecar 真实产物留在 release-build job），这里
+      # 只需占位文件让 build.rs 通过。
+      - name: Stub sidecar binary for cargo run
+        run: node scripts/ci/stub-sidecar.mjs
 
       - name: Verify updater signatures
         run: |
