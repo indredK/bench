@@ -372,13 +372,22 @@ function ownAttrs(masked, offset, raw) {
 
 const MOD_DECL_RE = /\bmod\s+([A-Za-z_][A-Za-z0-9_]*)\s*;/g
 
+// Normalise to POSIX separators so gate keys/lookups match regardless of the
+// host OS. The script must behave identically on macOS and Windows (its header
+// says "CI builds on BOTH macOS and Windows"): on Windows `path.join`/`path.sep`
+// produce backslashes that never match the forward-slash source paths supplied
+// by callers, which silently broke `fileGate` and produced wrong results.
+const toPosix = (p) => p.replace(/\\/g, "/")
+
 function resolveFileGates(files, maskedByFile, rawByFile, srcDir) {
   const dirGates = new Map()
   const fileGates = new Map()
+  const normSrc = toPosix(srcDir)
 
   for (const filePath of files) {
     const masked = maskedByFile.get(filePath)
     const raw = rawByFile.get(filePath)
+    const normPath = toPosix(filePath)
     MOD_DECL_RE.lastIndex = 0
     let m
     while ((m = MOD_DECL_RE.exec(masked)) !== null) {
@@ -388,7 +397,7 @@ function resolveFileGates(files, maskedByFile, rawByFile, srcDir) {
         if (pred !== null) gate = intersectSets(gate, evalCfgExpr(pred))
       }
       if (gate.size === SUPPORTED_PLATFORMS.length) continue
-      const dir = path.join(path.dirname(filePath), m[1])
+      const dir = path.posix.join(path.posix.dirname(normPath), m[1])
       dirGates.set(dir, gate)
       fileGates.set(dir + ".rs", gate)
     }
@@ -396,18 +405,19 @@ function resolveFileGates(files, maskedByFile, rawByFile, srcDir) {
 
   const cache = new Map()
   return function fileGate(filePath) {
-    if (cache.has(filePath)) return cache.get(filePath)
+    const normPath = toPosix(filePath)
+    if (cache.has(normPath)) return cache.get(normPath)
     let acc = new Set(UNIVERSAL)
-    const parts = path.relative(srcDir, filePath).split(path.sep)
-    let current = srcDir
+    const parts = path.posix.relative(normSrc, normPath).split("/")
+    let current = normSrc
     for (let i = 0; i < parts.length - 1; i++) {
-      current = path.join(current, parts[i])
+      current = path.posix.join(current, parts[i])
       const gate = dirGates.get(current)
       if (gate) acc = intersectSets(acc, gate)
     }
-    const selfGate = fileGates.get(filePath)
+    const selfGate = fileGates.get(normPath)
     if (selfGate) acc = intersectSets(acc, selfGate)
-    cache.set(filePath, acc)
+    cache.set(normPath, acc)
     return acc
   }
 }
@@ -543,7 +553,7 @@ export function analyzeRustSources(sources, { srcDir, displayRoot }) {
     }
 
     return {
-      file: path.relative(displayRoot, filePath),
+      file: path.relative(displayRoot, filePath).replace(/\\/g, "/"),
       absPath: filePath,
       masked,
       raw,
