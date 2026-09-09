@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.31.0](https://github.com/indredK/bench/compare/v1.30.0...v1.31.0) (2026-09-09)
+
+
+### Features
+
+* **bench-host:** 添加 bench-host sidecar 构建脚本与能力内核 ([16450a0](https://github.com/indredK/bench/commit/16450a0ec1c737001d73dfbd95c6f3166cf20e62))
+* **command-center:** 添加命令市场 ([9c161dc](https://github.com/indredK/bench/commit/9c161dcdef843de98816e4ad1080ded4390d9b6c))
+* **extension-host:** 完成 P3.2-P4 插件化安全与市场闭环 ([70f1423](https://github.com/indredK/bench/commit/70f14231f4795e5b0fea9595699ebfb7f4ae325a))
+* **extension-host:** 实现 P3.1 包完整性安全地基 ([5e0849e](https://github.com/indredK/bench/commit/5e0849e5c45dfed23e35cfc2d8764ced144bf0a7))
+* **extension-host:** 插件卸载、引擎兼容校验与签名验证 ([6618748](https://github.com/indredK/bench/commit/6618748586a4db71054a25766138ca9f04a61517))
+* **extension:** 新增插件中心与 photo-triage 插件骨架 ([6a188ec](https://github.com/indredK/bench/commit/6a188ec8c089a3c8953c2d9fb00a9dd82ad630e3))
+* **market:** 内置官方默认源并优化市场打包与校验 ([a877f71](https://github.com/indredK/bench/commit/a877f714bf3ea7d63536f7f0b1d923c277118b75))
+
+
+### Bug Fixes
+
+* **build:** create bundled-extension resource dir in build script ([a22ebcf](https://github.com/indredK/bench/commit/a22ebcf89102d21982092b12563682ae2f4ac2f9))
+* **ci:** normalize rust cfg-hygiene paths to POSIX across platforms ([28731be](https://github.com/indredK/bench/commit/28731bedb7d5042180b10599c06def2f841f52d0))
+* **ci:** run windows .cmd hooks via shell in pre-commit guard ([b634beb](https://github.com/indredK/bench/commit/b634beb374661d9bf00814c49d11ddf81381a627))
+* **ci:** satisfy prettier format:check (macOS verify was red) ([d87a034](https://github.com/indredK/bench/commit/d87a034ab8a5660b7749b49650c19e49593aa4e9))
+* **extension-market:** official registry base is a directory URL ([70e251f](https://github.com/indredK/bench/commit/70e251f2e2d9b1bd911e6f300e1caec66b65271f))
+* **extensions:** 修复插件 i18n 双重嵌套与别名顺序 ([ae3a8cb](https://github.com/indredK/bench/commit/ae3a8cbe4dd6940bbafb32a0641bbf6826f33c6d))
+* **terminology:** 修复 Windows 平台无法获取数据目录的问题 ([99b9f54](https://github.com/indredK/bench/commit/99b9f5414d0dc7cf8e93c9040c3c43de2d19185d))
+* **test:** assets 拒绝用例按平台分化断言 ([4766712](https://github.com/indredK/bench/commit/476671247e72cc6e7a8850d2067267ab40a0cf5c))
+
 ## [1.30.0](https://github.com/indredK/bench/compare/v1.29.0...v1.30.0) (2026-09-06)
 
 
