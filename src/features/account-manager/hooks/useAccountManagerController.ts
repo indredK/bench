@@ -151,7 +151,7 @@ export function useAccountManagerController() {
   const accountActions = useAccountActions({ loadInitialData })
   const dataPorting = useDataPorting()
   const sessionKeeper = useSessionKeeper()
-  const fingerprint = useFingerprint({ loadInitialData })
+  const fingerprint = useFingerprint()
   const { readQuickLoginHistory } = useQuickLoginHistory()
 
   const selectedStation = useMemo(

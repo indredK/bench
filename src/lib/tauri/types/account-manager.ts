@@ -203,6 +203,12 @@ export interface LoginFingerprintSummary {
   hasLogoutEvidence: boolean
 }
 
+/** F2 — 指纹采集返回:特征摘要 + 顺带刷新的 authProfile(一次采样两份画像)。 */
+export interface LoginFingerprintCaptureResult {
+  summary: LoginFingerprintSummary
+  profile: AuthProfile
+}
+
 /** matchStationsByUrl 单条匹配结果。 */
 export interface StationUrlMatch {
   stationId: string

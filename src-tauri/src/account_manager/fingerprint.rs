@@ -160,6 +160,24 @@ pub(crate) async fn any_feature_present_in_window<R: Runtime>(
     Ok(false)
 }
 
+/// 轮询等待指纹特征出现（SPA 站点 cookie/localStorage 可能延迟就绪）。
+/// 判定为"存在"即提前返回；耗尽 attempts 仍无则返回 false。
+pub(crate) async fn wait_for_any_feature_present<R: Runtime>(
+    window: &WebviewWindow<R>,
+    target_url: &str,
+    fingerprint: &LoginFingerprint,
+    attempts: usize,
+    interval_ms: u64,
+) -> AccountManagerResult<bool> {
+    for _ in 0..attempts {
+        if any_feature_present_in_window(window, target_url, fingerprint).await? {
+            return Ok(true);
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(interval_ms)).await;
+    }
+    Ok(false)
+}
+
 /// L0a 判定（HTTP 路径）：恢复的 canonical session 是否缺失全部指纹特征。
 ///
 /// 保守边界：storage 键名在恢复 session 中为密文、无法轻量核对，

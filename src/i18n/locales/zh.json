@@ -747,6 +747,7 @@
       "cancel": "取消",
       "confirm": "识别为已登录",
       "confirming": "识别中...",
+      "sampling": "正在采样站点登录指纹...",
       "sampledBadge": "指纹已采样（{{sampledAt}}）：Cookie {{cookies}} 项 / 存储 {{storageKeys}} 项，特征缺失的账号判定为未登录",
       "sampledBadgeTooltip": "本站点已采集登录态指纹。指纹全部缺失的账号会被确定为「待登录」，即使用户直觉认为仍处于登录态。"
     },

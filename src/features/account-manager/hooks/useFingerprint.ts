@@ -11,24 +11,47 @@ import { useAccountManagerStore } from "@/features/account-manager/store"
 import { useGuardedAsync } from "@/hooks/useGuardedAsync"
 import { translateError } from "@/lib/tauri/errors"
 
-export function useFingerprint({ loadInitialData }: { loadInitialData: () => Promise<void> }) {
+export function useFingerprint() {
   const { t } = useTranslation()
   const { pending: capturingFingerprint, run: runCapture } = useGuardedAsync()
   const { pending: confirmingFingerprint, run: runConfirm } = useGuardedAsync()
 
-  /** F2.采集:站点 + 采样账号 → 后端采集(顺带刷新 authProfile)→ 打开确认弹窗。 */
+  /** F2.采集:点击后立即弹窗(后台采样),采样完成更新摘要与站点画像。 */
   function handleCaptureFingerprint(stationId: string, accountId: string) {
     return runCapture(async () => {
       const s = useAccountManagerStore.getState()
+      // 先弹窗:用户点击即获得反馈,弹窗内展示「采样中」,避免等窗口加载才响应。
+      s.setFingerprintTarget({ stationId, accountId })
+      s.setFingerprintSummary(null)
+      s.setFingerprintConfirmOpen(true)
       try {
-        const summary = await accountManagerUseCases.captureLoginFingerprint(stationId, accountId)
+        const result = await accountManagerUseCases.captureLoginFingerprint(stationId, accountId)
+        const summary = result.summary
+        // 本地 patch 站点指纹摘要与 authProfile(不重载全量数据,避免选中项被 applyInitialSelection 重置)。
+        s.setStations((prev) =>
+          prev.map((station) =>
+            station.id === stationId
+              ? {
+                  ...station,
+                  authProfile: result.profile,
+                  loginFingerprint: {
+                    sampledAt: summary.sampledAt,
+                    sampledByAccount: accountId,
+                    cookieCount: summary.cookieCount,
+                    storageKeyCount: summary.storageKeyCount,
+                  },
+                }
+              : station,
+          ),
+        )
         s.setFingerprintSummary(summary)
-        s.setFingerprintTarget({ stationId, accountId })
-        s.setFingerprintConfirmOpen(true)
-        // 刷新站点列表以获得 authProfile / loginFingerprint 摘要的最新状态。
-        await loadInitialData()
       } catch (error) {
-        useAccountManagerStore.getState().setRegionError(
+        // 采样失败:关闭弹窗并给出区域错误。
+        const current = useAccountManagerStore.getState()
+        current.setFingerprintConfirmOpen(false)
+        current.setFingerprintTarget(null)
+        current.setFingerprintSummary(null)
+        current.setRegionError(
           "detail",
           makeRegionError(error, "accountManager.errors.fingerprintCapture", {
             retry: () => handleCaptureFingerprint(stationId, accountId),
@@ -38,7 +61,7 @@ export function useFingerprint({ loadInitialData }: { loadInitialData: () => Pro
     })
   }
 
-  /** F2.确认:用户显式将当前账号识别为站点活跃状态 → 标记 Ready → 自动刷新该站点全部账号。 */
+  /** F2.确认:用户显式将当前账号识别为站点活跃状态 → 标记 Ready → 按确认刷新该站点全部账号。 */
   function handleConfirmFingerprint() {
     return runConfirm(async () => {
       const s = useAccountManagerStore.getState()
@@ -49,14 +72,15 @@ export function useFingerprint({ loadInitialData }: { loadInitialData: () => Pro
           target.stationId,
           target.accountId,
         )
-        s.setAccounts((prev) => prev.map((a) => (a.id === updated.id ? updated : a)))
         s.setFingerprintConfirmOpen(false)
         s.setFingerprintSummary(null)
         s.setFingerprintTarget(null)
         toast.success(t("accountManager.toasts.fingerprintConfirmed"))
-        // 确认后自动刷新:同站其它账号按 L0 预检判定 —— 指纹缺失者确定性判未登录。
+        // 根据用户的确定,刷新该站点全部账号:目标账号保持 Ready(用 updated 覆盖刷新结果),
+        // 其余账号按 L0 指纹预检判定 —— 指纹缺失者确定性判未登录。
         const report = await accountManagerUseCases.refreshStation(target.stationId)
         const byId = new Map(report.succeeded.map((a) => [a.id, a] as const))
+        byId.set(updated.id, updated)
         useAccountManagerStore
           .getState()
           .setAccounts((prev) => prev.map((a) => byId.get(a.id) ?? a))

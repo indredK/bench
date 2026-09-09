@@ -747,6 +747,7 @@
       "cancel": "Cancel",
       "confirm": "Recognize as signed in",
       "confirming": "Recognizing...",
+      "sampling": "Capturing the site login fingerprint...",
       "sampledBadge": "Fingerprint sampled ({{sampledAt}}): {{cookies}} cookies / {{storageKeys}} storage keys — accounts missing all features are judged logged-out",
       "sampledBadgeTooltip": "This site's login fingerprint was captured. Accounts missing every fingerprint feature are determined to be logged out, even if one expects them signed in."
     },

@@ -95,6 +95,13 @@ function AccountManagerPage() {
   const accountLogTarget = useAccountManagerStore((s) => s.accountLogTarget)
   const keeperLogs = c.sessionKeeper.logs
 
+  /** 指纹确认弹窗展示的账号名:取自采样目标(而非当前选中,避免选中被重置后文案错位)。 */
+  const fingerprintUsername = useMemo(() => {
+    const target = c.fingerprintTarget
+    if (!target) return ""
+    return c.accounts.find((account) => account.id === target.accountId)?.username ?? ""
+  }, [c.fingerprintTarget, c.accounts])
+
   /** 日志对话框展示模型:计划摘要 + 下次执行时间(本地化)。 */
   const accountLogView = useMemo(() => {
     if (!keeperLogs) return null
@@ -430,7 +437,7 @@ function AccountManagerPage() {
         open={c.isFingerprintConfirmOpen}
         onOpenChange={c.setFingerprintConfirmOpen}
         summary={c.fingerprintSummary}
-        username={c.selectedAccount?.username ?? ""}
+        username={fingerprintUsername}
         onConfirm={c.handleConfirmFingerprint}
         confirming={c.confirmingFingerprint}
       />

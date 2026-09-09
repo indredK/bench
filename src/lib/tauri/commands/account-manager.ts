@@ -15,7 +15,7 @@ import type {
   ExternalApp,
   ExternalAppBinding,
   LoginDetectionConfig,
-  LoginFingerprintSummary,
+  LoginFingerprintCaptureResult,
   LoginMethod,
   NetworkProxyConfig,
   PasswordAction,
@@ -51,6 +51,7 @@ export type {
   LoginDetectionMode,
   LoginDetectionPresence,
   LoginDetectionRule,
+  LoginFingerprintCaptureResult,
   LoginFingerprintSummary,
   LoginMethod,
   MatchConfidence,
@@ -313,7 +314,7 @@ export function matchStationsByUrl(url: string): Promise<StationUrlMatch[]> {
 export function captureLoginFingerprint(
   stationId: string,
   accountId: string,
-): Promise<LoginFingerprintSummary> {
+): Promise<LoginFingerprintCaptureResult> {
   return invokeTauriCommand(TAURI_COMMANDS.accountManager.captureLoginFingerprint, {
     stationId,
     accountId,

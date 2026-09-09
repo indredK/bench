@@ -37,7 +37,7 @@ import type {
   ExternalAppBinding,
   LoginDetectionConfig,
   LoginMethod,
-  LoginFingerprintSummary,
+  LoginFingerprintCaptureResult,
   NetworkProxyConfig,
   PasswordAction,
   ProbeStrategy,
@@ -377,7 +377,7 @@ export const TAURI_COMMAND_CONTRACTS = {
   ),
   capture_login_fingerprint: defineTauriCommand<
     { stationId: string; accountId: string },
-    LoginFingerprintSummary
+    LoginFingerprintCaptureResult
   >()("capture_login_fingerprint"),
   confirm_login_fingerprint: defineTauriCommand<
     { stationId: string; accountId: string },

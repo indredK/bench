@@ -20,6 +20,14 @@ use crate::account_manager::webview;
 
 const DETECT_WINDOW_LOAD_TIMEOUT_MS: u64 = 15000;
 
+/// 指纹采集返回：特征摘要 + 顺带刷新后的 authProfile（一次采样两份画像）。
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoginFingerprintCaptureResult {
+    pub summary: LoginFingerprintSummary,
+    pub profile: crate::account_manager::types::AuthProfile,
+}
+
 /// 采集登录指纹：优先复用已打开的登录窗口；否则开隐藏窗口（注入该账号 session）。
 /// 同一窗口顺带刷新 authProfile（一次加载同时产出「认证方法画像」与「登录态证据」）。
 #[tauri::command]
@@ -28,7 +36,7 @@ pub async fn capture_login_fingerprint<R: Runtime>(
     state: State<'_, AccountManagerState>,
     station_id: String,
     account_id: String,
-) -> AccountManagerResult<LoginFingerprintSummary> {
+) -> AccountManagerResult<LoginFingerprintCaptureResult> {
     // 1. 校验站点与账号归属（锁内读取，释放后再建窗口）。
     let (website, proxy_url) = {
         let snapshot = state.read_snapshot_checked()?;
@@ -175,7 +183,7 @@ pub async fn capture_login_fingerprint<R: Runtime>(
                 "station {station_id}"
             )));
         };
-        station.auth_profile = Some(profile);
+        station.auth_profile = Some(profile.clone());
         station.login_fingerprint = Some(info);
         snapshot
             .fingerprints
@@ -203,7 +211,7 @@ pub async fn capture_login_fingerprint<R: Runtime>(
         ],
     );
 
-    Ok(summary)
+    Ok(LoginFingerprintCaptureResult { summary, profile })
 }
 
 /// 用户确认：将该账号当前状态识别为该站点的活跃（已登录）状态。

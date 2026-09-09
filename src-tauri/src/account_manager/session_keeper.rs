@@ -281,7 +281,8 @@ async fn silent_refresh_leader<R: Runtime>(
         initialization_script.push_str(&script);
     }
 
-    let dead = Instant::now() + Duration::from_millis(5000);
+    // WebView 加载预算：SPA 站点(如 trae.cn)需要更长时间;与 detect/capture 的 15s 对齐。
+    let dead = Instant::now() + Duration::from_millis(15000);
     let (tx, rx) = oneshot::channel::<()>();
     let slot: Arc<Mutex<Option<oneshot::Sender<()>>>> = Arc::new(Mutex::new(Some(tx)));
     let window = {
@@ -337,19 +338,17 @@ async fn silent_refresh_leader<R: Runtime>(
             if wait_for_storage_restore {
                 super::browser_storage::wait_for_restore(&window).await?;
             }
-            // L0b 预检（keeper 路径）：指纹全缺失 → 确定性未登录，直接停止轮询，
-            // 并携带来源供账号徽标 tooltip（D1/方案 A）。
+            // L0b 预检（keeper 路径）：以采样指纹为登录态证据——
+            // 任一特征存在 → Ready(重新捕获 session);全部缺失 → 确定性未登录。
+            // 轮询等待特征就绪(SPA 延迟写 cookie/localStorage)。
             match fingerprint.as_ref() {
                 Some(fp) if !fp.is_empty() => {
-                    if super::fingerprint::any_feature_present_in_window(&window, &website, fp)
-                        .await?
+                    if super::fingerprint::wait_for_any_feature_present(
+                        &window, &website, fp, 6, 500,
+                    )
+                    .await?
                     {
-                        (
-                            poll_page_config(&config, &window)
-                                .await
-                                .or(Some(AccountSessionStatus::FetchFailed)),
-                            None,
-                        )
+                        (Some(AccountSessionStatus::Ready), None)
                     } else {
                         (
                             Some(AccountSessionStatus::LoginRequired),

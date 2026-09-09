@@ -5,7 +5,7 @@
  * confirm_login_fingerprint 并把账号置为 Ready。
  */
 import { useTranslation } from "react-i18next"
-import { ScanSearch } from "lucide-react"
+import { Loader2, ScanSearch } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -35,8 +35,11 @@ export function FingerprintConfirmDialog({
 }) {
   const { t } = useTranslation()
 
+  // summary 为 null 表示采样进行中(点击采样按钮后立即弹窗,后台采样)。
+  const sampling = open && summary === null && !confirming
+
   return (
-    <Dialog open={open} onOpenChange={(next) => !confirming && onOpenChange(next)}>
+    <Dialog open={open} onOpenChange={(next) => !confirming && !sampling && onOpenChange(next)}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -48,47 +51,56 @@ export function FingerprintConfirmDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {summary && (
-          <div className="bg-muted/30 space-y-2 rounded-lg border px-3 py-3 text-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">
-                {t("accountManager.fingerprint.cookieCount")}
-              </span>
-              <span className="font-medium">{summary.cookieCount}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">
-                {t("accountManager.fingerprint.storageKeyCount")}
-              </span>
-              <span className="font-medium">{summary.storageKeyCount}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">
-                {t("accountManager.fingerprint.sampledAt")}
-              </span>
-              <span className="font-medium">{summary.sampledAt}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">
-                {t("accountManager.fingerprint.logoutEvidence")}
-              </span>
-              <span className="font-medium">
-                {summary.hasLogoutEvidence
-                  ? t("accountManager.fingerprint.logoutEvidenceYes")
-                  : t("accountManager.fingerprint.logoutEvidenceNo")}
-              </span>
-            </div>
+        {sampling ? (
+          <div className="text-muted-foreground flex items-center gap-2 rounded-lg border px-3 py-4 text-sm">
+            <Loader2 size={14} className="animate-spin" />
+            {t("accountManager.fingerprint.sampling")}
           </div>
+        ) : (
+          summary && (
+            <div className="bg-muted/30 space-y-2 rounded-lg border px-3 py-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">
+                  {t("accountManager.fingerprint.cookieCount")}
+                </span>
+                <span className="font-medium">{summary.cookieCount}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">
+                  {t("accountManager.fingerprint.storageKeyCount")}
+                </span>
+                <span className="font-medium">{summary.storageKeyCount}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">
+                  {t("accountManager.fingerprint.sampledAt")}
+                </span>
+                <span className="font-medium">{summary.sampledAt}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">
+                  {t("accountManager.fingerprint.logoutEvidence")}
+                </span>
+                <span className="font-medium">
+                  {summary.hasLogoutEvidence
+                    ? t("accountManager.fingerprint.logoutEvidenceYes")
+                    : t("accountManager.fingerprint.logoutEvidenceNo")}
+                </span>
+              </div>
+            </div>
+          )
         )}
 
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             {t("accountManager.fingerprint.cancel")}
           </Button>
-          <Button type="button" onClick={onConfirm} disabled={confirming}>
-            {confirming
-              ? t("accountManager.fingerprint.confirming")
-              : t("accountManager.fingerprint.confirm")}
+          <Button type="button" onClick={onConfirm} disabled={confirming || sampling}>
+            {sampling
+              ? t("accountManager.fingerprint.sampling")
+              : confirming
+                ? t("accountManager.fingerprint.confirming")
+                : t("accountManager.fingerprint.confirm")}
           </Button>
         </DialogFooter>
       </DialogContent>

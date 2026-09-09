@@ -21,6 +21,9 @@ const HTTP_PROBE_BACKOFF_BASE_MS: u64 = 200;
 const HTTP_PROBE_BACKOFF_MAX_MS: u64 = 2_000;
 const HTTP_PROBE_MAX_RETRY_AFTER: Duration = Duration::from_secs(2);
 
+/// HTTP 401/403 判定未登录的来源标记(服务端强证据,指纹存在也不升级)。
+const HTTP_AUTH_STATUS_REASON: &str = "httpAuthStatus";
+
 pub(crate) fn init_script() -> String {
     format!("(function(){{window.__probeBillingSnapshot=function(){{var b=document.body;var r=(b&&b.innerText)?b.innerText:'';return r.length>{}?r.slice(0,{}):r;}};}})();", 200_000, 200_000)
 }
@@ -126,9 +129,10 @@ async fn classify_http_response(
         return Ok(None);
     }
     if matches!(response.status().as_u16(), 401 | 403) {
+        // HTTP 401/403 是服务端强证据:即使指纹存在也判未登录(与文本分类弱证据区分)。
         return Ok(Some(ProbeOutcome {
             status: AccountSessionStatus::LoginRequired,
-            reason: None,
+            reason: Some(HTTP_AUTH_STATUS_REASON),
         }));
     }
     if !response.status().is_success() {
@@ -336,23 +340,41 @@ pub async fn run_probe<R: Runtime>(
         let state = app.state::<AccountManagerState>();
         session::restore_session(&state, account_id)?
     };
-    // L0a 预检（HTTP 路径）：指纹全缺失（纯 cookie 指纹）→ 确定性未登录，跳过 HTTP 请求。
-    if let (Some(fp), Some(saved)) = (fingerprint, saved_session.as_ref()) {
-        if fingerprint::all_features_missing_from_session(saved, fp) {
-            return Ok(ProbeOutcome {
-                status: AccountSessionStatus::LoginRequired,
-                reason: Some(super::fingerprint::FINGERPRINT_MISSING_REASON),
-            });
+    // L0a 预检（HTTP 路径）：
+    // - 指纹全缺失（纯 cookie 指纹）→ 确定性未登录。HttpOnly 直接返回;
+    //   其余策略跳过 HTTP 请求、走 WebView L0b 复核(避免 canonical session 为空
+    //   但 WebView data dir 有登录态残留的账号被误判,见 7242 案例)。
+    // - 指纹存在 → 不短路,但 HTTP 弱证据(文本分类)不得覆盖指纹,见下方升级逻辑。
+    let fingerprint_missing = match (fingerprint, saved_session.as_ref()) {
+        (Some(fp), Some(saved)) if !fp.is_empty() => {
+            fingerprint::all_features_missing_from_session(saved, fp)
         }
+        _ => false,
+    };
+    if fingerprint_missing && strategy == ProbeStrategy::HttpOnly {
+        return Ok(ProbeOutcome {
+            status: AccountSessionStatus::LoginRequired,
+            reason: Some(super::fingerprint::FINGERPRINT_MISSING_REASON),
+        });
     }
+    let fingerprint_present = fingerprint.is_some_and(|fp| !fp.is_empty());
     if matches!(
         strategy,
         ProbeStrategy::HttpFirst | ProbeStrategy::HttpOnly | ProbeStrategy::Hybrid
-    ) {
+    ) && !fingerprint_missing
+    {
         match run_http_probe(&target, config, saved_session.as_ref(), proxy_url).await {
+            // HTTP 强证据(401/403)或 Ready:直接返回。
+            // 弱证据(文本分类 LoginRequired/Expired)且指纹存在:不轻信,升级 WebView 复核。
             Ok(Some(outcome))
-                if strategy != ProbeStrategy::Hybrid
-                    || outcome.status == AccountSessionStatus::Ready =>
+                if (strategy != ProbeStrategy::Hybrid
+                    || outcome.status == AccountSessionStatus::Ready)
+                    && !(fingerprint_present
+                        && outcome.reason != Some(HTTP_AUTH_STATUS_REASON)
+                        && matches!(
+                            outcome.status,
+                            AccountSessionStatus::LoginRequired | AccountSessionStatus::Expired
+                        )) =>
             {
                 return Ok(outcome);
             }
@@ -381,7 +403,8 @@ pub async fn run_probe<R: Runtime>(
         std::fs::create_dir_all(p)
             .map_err(|e| AccountManagerError::store_fail(format!("dir: {e}")))?;
     }
-    let dead = Instant::now() + Duration::from_millis(5000);
+    // WebView 加载预算：SPA 站点(如 trae.cn)需要更长时间;与 detect/capture 的 15s 对齐。
+    let dead = Instant::now() + Duration::from_millis(15000);
     let (tx, rx) = oneshot::channel::<()>();
     let slot: Arc<Mutex<Option<oneshot::Sender<()>>>> = Arc::new(Mutex::new(Some(tx)));
     let restore_script = saved_session
@@ -450,16 +473,26 @@ pub async fn run_probe<R: Runtime>(
             if wait_for_storage_restore {
                 super::browser_storage::wait_for_restore(&window).await?;
             }
-            // L0b 预检（WebView 路径）：指纹全缺失 → 确定性未登录，
-            // 覆盖「canonical session 为空但 WebView data dir 有残留」的账号。
+            // L0b 预检（WebView 路径）：以采样指纹为登录态证据——
+            // 指纹任一特征存在 → 判定已登录(用户采样确认的站点特征,信任之);
+            // 指纹全部缺失 → 确定性未登录。均无需再走文本分类。
+            // 轮询等待特征就绪(SPA 延迟写 cookie/localStorage)。
             if let Some(fp) = fingerprint {
-                if !fp.is_empty()
-                    && !fingerprint::any_feature_present_in_window(&window, website, fp).await?
-                {
+                if !fp.is_empty() {
+                    let present =
+                        fingerprint::wait_for_any_feature_present(&window, website, fp, 6, 500)
+                            .await?;
                     let _ = window.close();
-                    return Ok(ProbeOutcome {
-                        status: AccountSessionStatus::LoginRequired,
-                        reason: Some(super::fingerprint::FINGERPRINT_MISSING_REASON),
+                    return Ok(if present {
+                        ProbeOutcome {
+                            status: AccountSessionStatus::Ready,
+                            reason: None,
+                        }
+                    } else {
+                        ProbeOutcome {
+                            status: AccountSessionStatus::LoginRequired,
+                            reason: Some(super::fingerprint::FINGERPRINT_MISSING_REASON),
+                        }
                     });
                 }
             }
