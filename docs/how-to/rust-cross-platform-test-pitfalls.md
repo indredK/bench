@@ -52,11 +52,14 @@ right: None
 
 ## 本地验证注意事项（Windows 开发机）
 
-- 本机无 MSVC/cmake/cl，`cargo check|test` 的 build script 链接与
-  `aws-lc-sys` 的 C 编译均无法完成 —— Rust 编译验证以 CI 双平台 verify
-  为准；本地可跑的门禁：`cargo fmt --check`、`check:be-cfg`、
-  `check-rust-crates.mjs`；
+- 2026-09-09 起：本机已装 VS 2022 Community（MSVC 14.44）+ Windows SDK
+  10.0.26100.0，`cargo check` / `cargo test` 可在本机完整运行（rustc 经
+  vswhere 自动探测 MSVC，无需 VsDevCmd；`cargo check` 2m06s、
+  `cargo test` 456 通过）。aws-lc-sys 当前 feature 下不需要 cmake；
+  若日后构建报缺 cmake/nasm，安装 VS 的 C++ CMake 组件即可；
+- 本机仍需绕过 `src-tauri/.cargo/config.toml` 的 sccache wrapper
+  （`.sh` 脚本 Windows 无法作为 rustc-wrapper 执行，报 os error 193）：
+  临时方案 `RUSTC_WRAPPER="" cargo ...`（与 CI 的 D-021 做法一致）；
 - 在 WorkBuddy/Git Bash 沙箱里跑 cargo 需手动补 PATH：
   `~/.cargo/bin`、rustup 工具链 `bin/`（rustc 代理要加载同目录 DLL）、
-  `/c/Windows/System32`；并设 `RUSTC_WRAPPER=""` 绕过 `.cargo/config.toml`
-  的 `.sh` wrapper（Windows 无法执行）。
+  `/c/Windows/System32`，并设 `RUSTC_WRAPPER=""`。
