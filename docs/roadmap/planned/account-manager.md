@@ -167,6 +167,23 @@
 
 > 提交策略：按任务独立 commit（Conventional Commits）；涉及 Rust 平台分支的改动（F2-T2 隐藏窗口构建）提交前必跑 `pnpm run check:be-cfg`；全部完成后执行 /fix 验证链，同步 product-specs/design.md，并移除本节。
 
+## 待实现（F5：浏览器会话注入——一键在浏览器中打开账号会话）
+
+> 状态：**已调研、未实现、待用户确认**。唯一详细方案见 [`explanation/browser-session-injection-research.md`](../../explanation/browser-session-injection-research.md)（方案对比 / CDP 设计 / 安全边界 / 分期任务表 / 验收标准 / D-A~D-D 决策点）。
+> 结论摘要：推荐 **CDP + Bench 托管 profile**（账号专属 `user-data-dir` 独立实例 + `Network.setCookie` 注入，会话全程 Rust 内存 → loopback CDP，不进前端）；扩展注入日常浏览器为 M3 进阶选项（cookie 互踩需冲突警告）；直写浏览器 Cookies DB 与明文 cookies.txt 导出排除（红线冲突）；Safari/Firefox v1 明确不支持。
+
+### 任务（M1 最小可用，详见调研文档 §6）
+
+- [ ] M1-T1 Rust：CDP 客户端模块（WS + setCookie/navigate/Browser.close + DevToolsActivePort + 探活）
+- [ ] M1-T2 Rust：`browser_session_open/status/close` 命令 + 互斥检查 + profile 目录生命周期 + cfg 双平台浏览器定位
+- [ ] M1-T3 双端：IPC 契约双写 + capabilities 新增 `browserSessionOpen`（真机验证前 partial）
+- [ ] M1-T4 前端：useBrowserSession hook（防重入）+ DetailColumn 按钮 + 首次浏览器选择弹窗 + i18n zh/en
+- [ ] M1-T5 测试：CDP 消息序列/互斥/目录生命周期/DTO 无凭据断言 + `pnpm run check:be-cfg`
+
+### 待拍板
+
+- [ ] D-A 是否立项 M3（扩展注入日常浏览器）；D-B TTL 是否联动删 profile；D-C 互斥方向；D-D 浏览器选择模式
+
 ## 待验证（真机，全新 macOS 测试用户 + Windows Sandbox/VM，禁用生产账号）
 
 ### 1. Keyring、持久化与重启
@@ -226,6 +243,7 @@
 
 > 每轮功能改动先在此追加一行，再在实施后同步进产品说明。
 
+- 2026-09-10：新增规划 **F5 浏览器会话注入**（一键在浏览器中打开账号会话，仅调研未实现）：调研 `explanation/browser-session-injection-research.md`。四方案对比（CDP+托管 profile / 扩展注入日常浏览器 / 直写 Cookies DB / cookies.txt 导出），推荐 CDP + Bench 托管 profile 先行（隔离语义与 design.md §3「每账号独立 data directory」一致、凭据链路不出 Rust 内存、零扩展依赖），扩展注入为 M3 进阶，后两者因红线冲突排除；M1 任务分解与 D-A~D-D 决策点待确认后实施。
 - 2026-09-10：落地**登录判定规则包（rulepack）**（调研：`explanation/login-detection-rulepack-research.md`，规格：`reference/login-rulepack-spec.md`）——①`login_rules.rs` 新模块：声明式 JSON 规则（loginCheck 服务端权威探针 + text/selector fallback 弱证据），fail-closed 校验（deny_unknown_fields / id=可注册域 / kind 白名单），bundled 内置集（`ruledata/`：trae.cn `CheckLogin Result.IsLogin` 实测 + github.com `api/user` 401/200 实测）+ 远程拉取（command-market 登录规则板块 `rules.json`，零配置官方源 + `BENCH_LOGIN_RULES_URL/DIR` env，缓存 `$APPDATA/login-rules/`，启动后台拉取 + 24h TTL 惰性刷新，失败静默沿用）；②判定融合：优先级 = 用户手配 Custom > 规则包 > 旧预设，证据分层不变，loginCheck 为强判据短路（`loginCheck` reason）；③**修复 L0b 弱肯定越权**（trae.cn 误判根因）：probe/keeper 两路「指纹 present → Ready」改为继续走文本分类链，仅保留「全缺失 → 未登录」否定短路；④仓库侧：kindred-plugin-market/command-market 新增 `rules.json` + `rules/` + `build-rules.mjs` + CI 重算（与命令市场独立 schema，老客户端零影响）。安全铁律：loginCheck 同可注册域 + GET/POST 白名单 + 不跟随重定向（携带账号 cookie 的请求，同域约束下投毒无法外泄）。测试 +9（校验/匹配/fallback 判定/JSON 路径）；门禁全绿（clippy/test 492/check:be-cfg 368）。**注意：trae CheckLogin 实测仅接受 POST（GET 404），`login-state-detection-research.md` 的 GET 记录已修正**。UI 规则来源标注待后续轮（未新增 IPC，contracts 无改动）。
 - 2026-09-10：规则包升级为**通用规则 + 站点特殊规则双层体系 + 「更新登录逻辑」弹窗**（规格 §4.4/§6 同步回写）——①仓库侧 command-market 新增 `rules/generic.json`（id 固定 `"generic"`、match 省略 = 全局兜底、禁 loginCheck、中英文文本弱证据；`build-rules.mjs` 特例放行，commit a642fd9 已推送）；②宿主 `login_rules.rs`：`match_rule` 改 `Option<RuleMatch>`、generic 校验特例（禁 match/loginCheck、必须 fallback）、`rule_matches_host` generic 对任意 host 生效、`pick_best` 优先级 = 站点特殊 > generic > 精确 host > 同 id 版本高者（同版本平局取 remote，消除顺序依赖缺陷）> 远程 > bundled，bundled 新增 `ruledata/generic.json`；③新增 IPC `get_login_rules_overview`（当前生效 generic/站点规则详情 + 远程索引版本比较 `updatable`）与 `update_login_rules`（scope = all/generic/site 按需拉取，逐条 sha256/size/schema 校验 + 版本单调防降级守卫，meta 记录 indexUpdatedAt），commands 注册 + contracts 契约双写；④前端：DetailColumn 右上角「打开官网」左侧新增按钮 → `LoginRulesDialog`（标题「更新登录逻辑」，展示通用/站点规则卡片的判定逻辑与更新时间，三个更新按钮按远程 `updatable` 才可点、检查中/更新中 loading），`useLoginRules` hook 编排（防重入 + 更新后自动重新检查），i18n zh/en 同步；测试 +4（弹窗行为）+ Rust generic 校验/优先级 +5；门禁全绿（fmt/clippy/nextest 497/check:be-cfg 369/lint:fe/vitest 280/prettier）。注意：`fetch_and_cache` 重构为 `fetch_index`/`fetch_validated_entry`/`write_docs_to_cache` 共用路径，全量后台刷新同样获得版本单调守卫。
 - 2026-09-10：按用户要求废弃 HTML 字段（登录页检测）判定，改为**指纹值形态匹配**——采样时对每个特征记录**值长度**（`CookieFeature.value_len` / `LoginFingerprint.storage_key_lens`，不存值本身，serde default 兼容旧指纹），判定时要求同名特征值长度与采样同量级（`value_shape_matches`：≥ 采样一半且 ≥ 4 字符）。效果：已登录账号特征值为长串密钥 → 匹配判已登录；未登录账号同名 cookie 是短占位/空值 → 形态不符判未登录（修复 www.trae.cn 误判）。移除 `is_login_page`/`IS_LOGIN_PAGE_SCRIPT` 与两处调用；`capture_from_window` 采集长度、storage 脚本返回 `{k,l}` 条目；probe/keeper L0b 两路生效。**注意：已采样的旧指纹无 value_len（=0）不校验长度，需重新采样一次才能获得带形态的指纹。** 新增测试覆盖短占位不符、长串匹配、阈值边界。
