@@ -26,7 +26,8 @@ command-market/
 ├── commands/              # 命令文件（不变）
 ├── rules.json             # 登录规则索引（§3）
 ├── rules/
-│   └── <id>.json          # 单站点规则（§4），id = 可注册域
+│   ├── <id>.json          # 单站点规则（§4），id = 可注册域
+│   └── generic.json       # 通用兜底规则（§4.4），id 固定 "generic"
 ├── scripts/
 │   ├── build-registry.mjs # 命令索引构建（不变）
 │   └── build-rules.mjs    # 扫描 rules/ 重算 sha256/size，重写 rules.json
@@ -34,7 +35,7 @@ command-market/
     └── registry.yml       # push main 自动重算并提交两个索引
 ```
 
-- `rules/` 文件名必须等于规则 `id`（可注册域，如 `trae.cn.json`）。
+- `rules/` 文件名必须等于规则 `id`（可注册域，如 `trae.cn.json`；通用规则固定 `generic.json`）。
 - 发布流程：新增/修改 `rules/*.json` → `node scripts/build-rules.mjs` → commit & push（CI 会再算一遍兜底）。
 
 ## 3. registry.json schema v1
@@ -108,11 +109,22 @@ command-market/
 ### 4.3 宿主校验清单（fail-closed，任一失败整条规则拒绝并记审计）
 
 1. `schemaVersion == 1`；未知字段拒绝（`deny_unknown_fields`）。
-2. `id` 为合法可注册域格式（`^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$`），且 `id == match.registrableDomain == 文件名（去 .json）`。
+2. 非 generic 规则：`id` 为合法可注册域格式（`^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$`），且 `id == match.registrableDomain == 文件名（去 .json）`；generic 特例见 §4.4。
 3. `match.hosts` 每项为合法 host，且同属 `registrableDomain`。
 4. `loginCheck`：https、host 同可注册域、`method ∈ {GET, POST}`（POST 空请求体）、`expect.kind` 白名单、`status` 集合取值 100–599、`jsonBool.path` 仅 `[A-Za-z0-9_.]`。
 5. `fallback`：`kind` 白名单、`value` 非空 ≤200、`presence` 白名单。
 6. registry 条目与规则文件：`id`/`version` 一致；sha256 + size 一致。
+
+### 4.4 通用兜底规则（generic）
+
+站点规则按可注册域匹配；**未命中任何站点规则的站点**回落到通用规则，文件固定 `rules/generic.json`：
+
+| 约束                  | 语义                                                                                                  |
+| --------------------- | ----------------------------------------------------------------------------------------------------- |
+| `id` 固定 `"generic"` | 非域名特例（构建脚本与宿主双侧放行域名校验）                                                          |
+| `match` 必须省略      | 全局生效（对任意 host 命中，specificity 最低）                                                        |
+| 禁止 `loginCheck`     | 通用规则无法预知各站点同域鉴权接口，强行下发会破坏同域铁律                                            |
+| 必须提供 `fallback`   | 仅中英文页面文本弱证据（登录/注册 CTA vs 退出登录入口），`loggedOut` 文本不得是 `loggedIn` 文本的子串 |
 
 ## 5. 分发与缓存（宿主）
 
@@ -125,14 +137,22 @@ command-market/
 | 失败语义 | 拉取/校验失败静默沿用旧缓存或内置规则；网络不可用不产生用户可见错误                                |
 | 版本单调 | 同 id 缓存版本 ≥ 远程版本时拒绝回写（防降级）                                                      |
 
+**按需更新（update_login_rules IPC）**：支持 `scope = all | generic | site` 三档——`all` 拉取索引全量、`generic` 仅 `rules/generic.json`、`site` 仅命中当前站点 host 的特殊规则（索引条目 `id` 即可注册域匹配）。每条仍走 sha256/size/schema 校验与版本单调守卫；`BENCH_LOGIN_RULES_DIR` 调试模式无远程源，返回空报告。配套 `get_login_rules_overview` IPC 返回当前生效的 generic/站点规则详情（版本、来源、判定要点）+ 远程索引版本比较（`updatable` 标志，驱动「更新登录逻辑」弹窗按钮可用态；远程检查失败时按钮禁用并提示）。
+
 ## 6. 匹配与优先级
 
-匹配键：目标 URL host。`match.hosts` 精确命中 > `registrableDomain` 等于目标 host 的可注册域。同站点多来源规则时按优先级取一：
+匹配键：目标 URL host。`match.hosts` 精确命中 > `registrableDomain` 等于目标 host 的可注册域；generic 规则对任意 host 命中（specificity 最低）。候选按以下优先级取一：
+
+1. **站点特殊规则 > generic 兜底**（无论来源）
+2. **精确 host > 可注册域**（speciality 内）
+3. **同 id 取版本更高者**（同版本平局取 remote，与候选顺序无关）
+4. **远程缓存 > bundled 内置**（同 specificity 跨 id 时）
+
+站点无特殊规则时 `resolve` 返回 generic 规则（fallback 文本弱证据对所有站点生效）。用户手配优先级不变：
 
 1. **用户手配**（`station.login_detection` Custom 模式非空 / `station.loginCheck` 非空）
-2. **远程缓存**规则（版本较新者）
-3. **bundled 内置**规则（编译进二进制，离线兜底）
-4. 现行预设（PresetLogout / PresetLogin 中文 needle）
+2. **规则包**（上述候选最优）
+3. 现行预设（PresetLogout / PresetLogin 中文 needle）
 
 **证据分层不变**（由宿主管，规则包不改写）：
 `loginCheck`（强）→ HTTP 401/403（强）→ 指纹全缺失否定短路（强）→ 规则包 fallback（弱）→ 手配/预设文本（弱）。
@@ -140,5 +160,5 @@ command-market/
 ## 7. Bundled 内置集
 
 - 位置：`src-tauri/src/account_manager/ruledata/`，每个文件 `include_str!` 进二进制；随版本发布，无 sha256 自校验（仅 schema 校验）。
-- 首批：`trae.cn`（loginCheck `Result.IsLogin`，前置调研实测 3/3）、`github.com`（`api.github.com/user` 401/200 实测）。
-- bundled 与远程同 id 时按 §6 优先级取用（远程版本 > bundled 即覆盖）。
+- 首批：`generic`（中英文文本弱证据全局兜底）、`trae.cn`（loginCheck `Result.IsLogin`，前置调研实测 3/3）、`github.com`（`api.github.com/user` 401/200 实测）。
+- bundled 与远程同 id 时按 §6 优先级取用（远程版本 > bundled 即覆盖；同版本取 remote）。

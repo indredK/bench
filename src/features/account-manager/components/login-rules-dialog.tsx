@@ -39,7 +39,7 @@ function RuleCard({
   language: string
 }) {
   const { t } = useTranslation()
-  const formatTime = (ts: number) => {
+  const formatTs = (ts: number) => {
     try {
       return new Intl.DateTimeFormat(language, {
         dateStyle: "short",
@@ -49,10 +49,20 @@ function RuleCard({
       return null
     }
   }
+  const formatIso = (iso: string) => {
+    try {
+      return new Intl.DateTimeFormat(language, {
+        dateStyle: "short",
+        timeStyle: "medium",
+      }).format(new Date(iso))
+    } catch {
+      return iso
+    }
+  }
   const updatedLabel =
     rule.source === "remote"
-      ? (indexUpdatedAt ??
-        (lastFetchedAt ? formatTime(lastFetchedAt) : null) ??
+      ? ((indexUpdatedAt ? formatIso(indexUpdatedAt) : null) ??
+        (lastFetchedAt ? formatTs(lastFetchedAt) : null) ??
         t("accountManager.loginRules.unknownTime"))
       : t("accountManager.loginRules.bundledTime")
 
@@ -91,14 +101,14 @@ function RuleCard({
           </p>
         ) : null}
         {rule.loggedOutTexts.length > 0 && (
-          <p className="truncate">
+          <p>
             {t("accountManager.loginRules.loggedOutEvidence", {
               evidence: rule.loggedOutTexts.join("、"),
             })}
           </p>
         )}
         {rule.loggedInTexts.length > 0 && (
-          <p className="truncate">
+          <p>
             {t("accountManager.loginRules.loggedInEvidence", {
               evidence: rule.loggedInTexts.join("、"),
             })}
@@ -146,7 +156,7 @@ export function LoginRulesDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent size="xl" className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CloudDownload size={16} />
@@ -216,7 +226,7 @@ export function LoginRulesDialog({
           </div>
         )}
 
-        <DialogFooter className="items-center gap-2">
+        <DialogFooter className="flex-wrap items-center gap-2">
           <Button
             type="button"
             variant="outline"

@@ -84,10 +84,12 @@ AuthProfile 检测从页面、cookie、Web Storage、CSRF、SSO、anti-bot 和 W
 
 站点级判定先验由声明式 JSON 规则包提供（规格真相源 [login-rulepack-spec.md](../../reference/login-rulepack-spec.md)），安全边界：
 
-- 规则是**纯数据**，判定引擎仅在宿主；远程仓库不得下发逻辑。加载器 fail-closed（deny_unknown_fields / kind 白名单 / id=可注册域）。
+- 规则是**纯数据**，判定引擎仅在宿主；远程仓库不得下发逻辑。加载器 fail-closed（deny_unknown_fields / kind 白名单 / 非 generic 规则 id=可注册域）。
 - **同域铁律**：`loginCheck.url` 必须 https + 与站点同可注册域 + method 白名单 GET/POST + 不跟随重定向——loginCheck 携带账号 cookie，同域约束下规则投毒无法外泄 session。
-- fallback 仅 text/selector **弱证据**，不得覆盖 401/403 强证据与指纹否定短路；优先级：用户手配 > 远程缓存 > bundled 内置 > 旧预设。
+- **双层规则体系（2026-09-10 同日扩展）**：站点特殊规则（trae.cn / github.com）按可注册域匹配，`generic` 通用兜底规则（match 省略、禁 loginCheck、纯文本弱证据）对未命中站点生效；候选优先级 = 站点特殊 > generic > 精确 host > 同 id 版本高者 > 远程 > bundled。
+- fallback 仅 text/selector **弱证据**，不得覆盖 401/403 强证据与指纹否定短路；融合优先级：用户手配 > 规则包 > 旧预设。
 - L0b「特征 present」为弱肯定，不得直接判 Ready（trae.cn 误判根因）；仅保留「全缺失 → LoginRequired」否定短路。
+- **更新面**：`get_login_rules_overview`（生效规则详情 + 远程版本比较）与 `update_login_rules`（scope = all/generic/site，逐条校验 + 版本单调防降级）支撑账号管理「更新登录逻辑」弹窗；更新按钮按远程 `updatable` 才可点。
 
 ## 5. 加密与存储
 

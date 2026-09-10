@@ -234,6 +234,7 @@ function AccountManagerPage() {
       station={c.selectedStation}
       account={c.selectedAccount}
       onOpenWebsite={() => c.selectedStation && void openExternal(c.selectedStation.website)}
+      onOpenLoginRules={loginRules.openDialog}
       onRedetectProfile={c.handleRedetectProfile}
       onToggleProxy={c.handleToggleProxy}
       onManageExternalApps={c.handleOpenExternalApps}
