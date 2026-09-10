@@ -285,7 +285,9 @@ fn classify_effective(
 ///
 /// 强判据：判定成功即短路返回；请求失败/超时/结果不明确一律 None
 ///（不定论，静默走后续证据链），不产生用户可见错误。
-async fn run_login_check(
+/// `pub(crate)`：账号档案补采（`webview_sync`）用**刚捕获的真实凭证**复用同一
+/// 判据 —— 探针的凭证来源由调用方决定（probe 主链用 S1，补采用本次捕获）。
+pub(crate) async fn run_login_check(
     check: &super::login_rules::LoginCheckSpec,
     saved_session: Option<&AccountSession>,
     proxy_url: Option<&str>,

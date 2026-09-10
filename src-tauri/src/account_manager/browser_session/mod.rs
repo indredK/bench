@@ -324,18 +324,32 @@ async fn ensure_session_for_sync<R: Runtime>(
     account_id: &str,
 ) -> AccountManagerResult<(Option<AccountSession>, bool, Option<String>)> {
     let existing = session::restore_session(state, account_id)?;
+    let existing_stale = existing
+        .as_ref()
+        .is_some_and(|saved| !session_is_fresh(saved));
     if existing.as_ref().is_some_and(session_is_fresh) {
         return Ok((existing, false, None));
     }
     match super::webview_sync::sync_from_account_profile(app, state, account_id).await {
-        Ok(recovered) => Ok((
-            recovered.session,
-            recovered.outcome.recovered,
-            recovered.outcome.reason,
-        )),
+        Ok(recovered) => {
+            // S1 已陈旧且补采判定「未登录」→ 意味着 Bench 里的登录态整体失效
+            //（探针同样判 loginRequired）。此时旧会话虽仍会被注入（用户可能就要看），
+            // 但必须把 reason 升级为 `staleSession`，让前端明确警告
+            // 「注入的不是有效登录态」，而不是报「会话已就绪」误导用户。
+            let reason = match (recovered.outcome.reason.as_deref(), existing_stale) {
+                (Some("notLoggedIn"), true) => Some("staleSession".to_string()),
+                (reason, _) => reason.map(str::to_string),
+            };
+            Ok((recovered.session, recovered.outcome.recovered, reason))
+        }
         Err(error) => {
             eprintln!("[account_manager] bench webview sync failed for {account_id}: {error}");
-            Ok((existing, false, Some("syncFailed".to_string())))
+            let fallback = if existing_stale {
+                Some("staleSession".to_string())
+            } else {
+                None
+            };
+            Ok((existing, false, fallback.or(Some("syncFailed".to_string()))))
         }
     }
 }

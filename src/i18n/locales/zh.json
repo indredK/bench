@@ -360,7 +360,8 @@
         "notLoggedIn": "Bench 内置浏览器判定该账号未登录",
         "noSessionData": "页面无响应或没有可采集的登录数据",
         "syncFailed": "从 Bench 登录档案补采失败",
-        "conflict": "Bench 中已存在更新的会话"
+        "conflict": "Bench 中已存在更新的会话",
+        "staleSession": "Bench 里的登录态已失效（探针判定未登录），注入的是过期数据"
       },
       "openForLogin": "打开站点并手动登录",
       "openForLoginHint": "不注入会话，供你在浏览器中完成扫码、二次验证或 SSO，完成后点「回采登录态」写回 Bench。",
@@ -678,6 +679,7 @@
       "browserDailyRecovered": "已从 Bench 里的登录态补采 {{count}} 条 Cookie 并打开站点，请用 Bench Companion 扩展完成写入。",
       "browserDailyStorageSkipped": "该账号的登录态包含本地存储（{{origins}} 个 origin）。请使用 Bench Companion 0.3.0+ 注入，并在弹窗中授权站点访问——Cookie 与本地存储都会写入且注入前自动备份；登录凭证存于 IndexedDB 的站点请改用「Bench 隔离实例」。",
       "browserNoStoredSession": "Bench 里没有检测到该账号的登录态（{{reason}}），本次没有可同步的内容。请先在 Bench 中点击「登录」确认已登录，再来同步。",
+      "browserStaleSession": "Bench 里该账号的登录态已失效（探针判定未登录），本次注入的是过期数据，站点大概率不会识别。请先在 Bench 中点击「登录」重新登录，再回来同步。",
       "browserNothingInjected": "已保存的会话里没有可注入的 Cookie（分区隔离跳过 {{skipped}} 条，浏览器拒绝 {{rejected}} 条）。",
       "browserProbeNotRunning": "该账号的浏览器实例未运行，请先打开。",
       "browserProbeNoSession": "浏览器里没有检测到该站点的登录态。",

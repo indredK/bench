@@ -221,7 +221,7 @@ async fn build_sync_window<R: Runtime>(
     Ok(window)
 }
 
-/// 判定窗口中的登录态，并在 `Ready` 时捕获、仲裁、加密落盘。
+/// 判定窗口中的登录态，并在 `Ready` 时仲裁、加密落盘。
 async fn recover_from_window<R: Runtime>(
     app: &AppHandle<R>,
     state: &AccountManagerState,
@@ -230,21 +230,11 @@ async fn recover_from_window<R: Runtime>(
     window: &WebviewWindow<R>,
 ) -> AccountManagerResult<RecoveredSession> {
     let existing = session::restore_session(state, account_id)?;
-    let status = classify_login_state(app, context, window).await?;
 
-    if status != AccountSessionStatus::Ready {
-        return Ok(RecoveredSession {
-            outcome: WebviewSyncOutcome {
-                recovered: false,
-                cookie_count: 0,
-                storage_origins: 0,
-                status,
-                reason: Some(failure_reason(status).to_string()),
-            },
-            session: existing,
-        });
-    }
-
+    // **先捕获再判定**：判定必须看到真实凭证（.trae.cn 这类域级登录 cookie、
+    // localStorage token）。trae 类 SPA 的同构 shell 无文本区分度，若先按文本
+    // 猜测再捕获，会把「残缺数据 + 错误判定」一起固化进 S1（2026-09-10 实测：
+    // 探针判 loginRequired 而登录窗口里明明是登录态，根因即此顺序）。
     let captured = match session::capture_session_from_window(
         window,
         state,
@@ -262,13 +252,28 @@ async fn recover_from_window<R: Runtime>(
                     recovered: false,
                     cookie_count: 0,
                     storage_origins: 0,
-                    status,
+                    status: AccountSessionStatus::FetchFailed,
                     reason: Some("noSessionData".to_string()),
                 },
                 session: existing,
             });
         }
     };
+
+    let status = classify_login_state(app, context, window, Some(&captured)).await?;
+
+    if status != AccountSessionStatus::Ready {
+        return Ok(RecoveredSession {
+            outcome: WebviewSyncOutcome {
+                recovered: false,
+                cookie_count: captured.cookies.len(),
+                storage_origins: captured.origins.len(),
+                status,
+                reason: Some(failure_reason(status).to_string()),
+            },
+            session: existing,
+        });
+    }
 
     let captured_ts = captured
         .captured_at_ts
@@ -359,16 +364,21 @@ async fn recover_from_window<R: Runtime>(
     })
 }
 
-/// 判定窗口中的登录态（与 keeper 同一套证据链）。
+/// 判定窗口中的登录态（与 keeper 同一套证据链，外加规则包 loginCheck）。
 ///
-/// - 站点已采样指纹 → 全部特征缺失是**确定性未登录**，直接短路；
-/// - 否则走文本/规则包分类（超时回退 `classify_effective` 的确定值）；
-/// - 分类无结论（页面无响应）→ `FetchFailed`，**不**退化为「cookie 非空」——
-///   那会把匿名 cookie 固化成会话。
+/// 证据优先级：指纹全缺失确定性短路（强否定）→ **规则包 loginCheck（强判据，
+/// 用刚捕获的真实凭证请求站点自己的鉴权接口）** → 文本/规则包分类（弱兜底）。
+///
+/// loginCheck 必须用**本次捕获**的 cookie 而非 S1：S1 可能是历史残缺采集
+///（缺域级登录 cookie），用它跑 CheckLogin 会把「数据残缺」误判成「未登录」
+///（trae 实测误判根因）；而捕获窗口读的是账号档案里的真实登录态。
+/// 文本分类无结论（页面无响应）→ `FetchFailed`，**不**退化为「cookie 非空」——
+/// 那会把匿名 cookie 固化成会话。
 async fn classify_login_state<R: Runtime>(
     app: &AppHandle<R>,
     context: &SyncContext,
     window: &WebviewWindow<R>,
+    captured: Option<&AccountSession>,
 ) -> AccountManagerResult<AccountSessionStatus> {
     if let Some(fingerprint) = context.fingerprint.as_ref().filter(|fp| !fp.is_empty()) {
         if !super::fingerprint::wait_for_any_feature_present(
@@ -385,6 +395,16 @@ async fn classify_login_state<R: Runtime>(
     }
 
     let rule = crate::account_manager::login_rules::resolve(app, &context.website).await;
+    if let Some(resolved) = rule.as_ref() {
+        if let Some(check) = resolved.doc.detection.login_check.as_ref() {
+            if let Some(status) =
+                super::probe::run_login_check(check, captured, context.proxy_url.as_deref()).await
+            {
+                return Ok(status);
+            }
+        }
+    }
+
     Ok(probe::poll_effective_classification(
         &context.login_detection,
         rule.as_ref().map(|resolved| &resolved.doc),

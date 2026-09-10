@@ -360,7 +360,8 @@
         "notLoggedIn": "Bench's built-in browser reports this account as signed out",
         "noSessionData": "The page did not respond or exposed no session data",
         "syncFailed": "Recovering from Bench's login profile failed",
-        "conflict": "Bench already holds a newer session"
+        "conflict": "Bench already holds a newer session",
+        "staleSession": "Bench's session for this account is stale (probe reports signed out); the injected data is expired"
       },
       "openForLogin": "Open site and sign in manually",
       "openForLoginHint": "No session is injected. Complete QR / 2FA / SSO in the browser, then capture the session back into Bench.",
@@ -678,6 +679,7 @@
       "browserDailyRecovered": "Recovered {{count}} cookie(s) from Bench's session and opened the site — finish the write with the Bench Companion extension.",
       "browserDailyStorageSkipped": "This account's session contains local storage ({{origins}} origin(s)). Use Bench Companion 0.3.0+ and grant site access in its popup — cookies and local storage are both written (backed up first); for sites whose credentials live in IndexedDB, use the \"Bench isolated instance\" instead.",
       "browserNoStoredSession": "Bench detected no session for this account ({{reason}}), so there was nothing to sync. Click \"Login\" in Bench, confirm you are signed in, then sync again.",
+      "browserStaleSession": "Bench's session for this account is stale (probe reports signed out); what gets injected is expired data and the site will most likely not recognize it. Log in again in Bench first, then sync.",
       "browserNothingInjected": "The saved session had no injectable cookies ({{skipped}} skipped as partitioned, {{rejected}} rejected by the browser).",
       "browserProbeNotRunning": "This account's browser instance is not running. Open it first.",
       "browserProbeNoSession": "No session for this site was detected in the browser.",
