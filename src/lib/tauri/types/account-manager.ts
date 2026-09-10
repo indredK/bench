@@ -22,6 +22,10 @@ export interface AccountManagerCapabilities {
   indexedDb: AccountManagerCapability
   networkProxy: AccountManagerCapability
   deepLink: AccountManagerCapability
+  /** 互通 I1：把账号会话注入 Bench 托管的浏览器实例（出向）。 */
+  browserSessionOpen: AccountManagerCapability
+  /** 互通 I2：从 Bench 托管的浏览器 profile 回采会话（入向）。 */
+  browserSessionCapture: AccountManagerCapability
 }
 
 export type ExclusivityMode = "coexisting" | "exclusive" | "rotating"
@@ -149,6 +153,10 @@ export interface StationAccount {
   firstLoginAt?: string | null
   /** F2/D1 — 当前 status 的判定来源:仅指纹 L0 短路时为 "fingerprintMissing",其余 null。 */
   statusReason?: string | null
+  /** 互通 I0 — 当前 session 的采集来源端点(旧数据缺失,故可选)。 */
+  sessionOrigin?: SessionOrigin | null
+  /** 互通 I0 — 来源端点补充标识(浏览器 id 等),不含凭据。 */
+  originDetail?: string | null
 }
 
 // ═══════════════════════════════════════════════
@@ -447,4 +455,83 @@ export interface LoginRulesUpdateReport {
   /** 因「已最新/防降级」跳过的规则 id */
   skipped: string[]
   indexUpdatedAt?: string | null
+}
+
+// ═══════════════════════════════════════════════
+// 互通 I0/I1/I2 — 账号 ↔ 浏览器会话互操作
+// ═══════════════════════════════════════════════
+
+/**
+ * 会话采集来源端点（后端稳定字符串，**非本地化**；展示文案由前端 i18n 映射）。
+ * 用于冲突弹窗里向用户交代「Bench 里这条会话是哪来的、比浏览器里的新还是旧」。
+ */
+export type SessionOrigin =
+  | "unknown"
+  | "webviewLogin"
+  | "webviewKeeper"
+  | "authProxy"
+  | "browserCdp"
+  | "browserExtension"
+  | "import"
+
+/** 可用的受支持浏览器（不含本机路径，故可安全下发给前端）。 */
+export interface BrowserOptionDto {
+  id: string
+  name: string
+}
+
+/** browser_session_open 结果。 */
+export interface BrowserOpenOutcome {
+  browserId: string
+  /** 复用已在运行的实例（未重新拉起进程）。 */
+  reusedInstance: boolean
+  injectedCookies: number
+  /** 因 Cookie-Partition 隔离而跳过注入的条数。 */
+  skippedPartitioned: number
+  /** 浏览器拒绝写入的条数（属性不合法，如 sameSite=None 且非 secure）。 */
+  rejectedCookies: number
+  /**
+   * 本次是否**真的**把账号会话写进了该实例。
+   * 登录模式（injectSession=false）为 false；注入模式下若 Bench 没有该账号的已保存会话，
+   * 同样为 false —— **不要**把这种情况当成成功。
+   */
+  sessionInjected: boolean
+  /** Bench 中是否存在该账号的已保存会话。false 表示此账号还没在 Bench 里登录过。 */
+  hasStoredSession: boolean
+  /** 实际恢复了 Web Storage / IndexedDB 的 origin 份数（0 = 该会话没有存储快照）。 */
+  storageOrigins: number
+}
+
+/** browser_session_status 结果。 */
+export interface BrowserStatusOutcome {
+  running: boolean
+  browserId?: string | null
+  port?: number | null
+}
+
+/** browser_session_capture 的结果类别。 */
+export type BrowserCaptureOutcomeKind = "saved" | "conflict" | "empty"
+
+/** browser_session_capture 结果（只含计数/枚举，不含任何 cookie 或 storage 值）。 */
+export interface BrowserCaptureOutcome {
+  outcome: BrowserCaptureOutcomeKind
+  cookieCount: number
+  skippedPartitioned: number
+  storageOrigins: number
+  indexedDbStatus: string
+  capturedAtTs: number
+  /** outcome = "conflict" 时，Bench 侧已有会话的采集时间与来源。 */
+  existingCapturedAtTs?: number | null
+  existingOrigin?: SessionOrigin | null
+  /** 写入后按站点探针复验的结果（无法复验时为 null）。 */
+  verified?: boolean | null
+}
+
+/** browser_session_probe 结果：只读预检，不写入任何数据。 */
+export interface BrowserProbeOutcome {
+  running: boolean
+  cookieCount: number
+  /** 命中的站点指纹特征数（站点未采样指纹时为 null）。 */
+  fingerprintHits?: number | null
+  fingerprintTotal?: number | null
 }

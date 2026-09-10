@@ -13,6 +13,7 @@ const REASON_KEYS: Record<string, string> = {
     "accountManager.capabilities.reasons.networkProxyRequiresMacos14",
   NETWORK_PROXY_UNSUPPORTED_PLATFORM:
     "accountManager.capabilities.reasons.networkProxyUnsupportedPlatform",
+  NO_CHROMIUM_BROWSER: "accountManager.capabilities.reasons.noChromiumBrowser",
 }
 
 export function isCapabilityUsable(capability: AccountManagerCapability | null | undefined) {

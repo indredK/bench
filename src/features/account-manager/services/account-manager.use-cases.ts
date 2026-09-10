@@ -391,4 +391,58 @@ export const accountManagerUseCases = {
   exportAccountSnapshot(accountId: string) {
     return accountManagerRepository.exportAccountSnapshot(accountId)
   },
+
+  // ═══════════════════════════════════════════════
+  // 互通 I1/I2 — 账号 ↔ 浏览器会话互操作
+  // ═══════════════════════════════════════════════
+
+  /** 互通 I1 — 列出本机可用的受支持浏览器(Chromium 系:Chrome/Edge/Brave/Chromium)。 */
+  listBrowsers() {
+    return accountManagerRepository.browserSessionBrowsers()
+  },
+
+  /**
+   * 互通 I1(出向) — 以该账号身份打开站点。
+   *
+   * `injectSession = true` 注入账号会话;`false` 用于「在真实浏览器里完成
+   * 扫码 / 2FA / SSO 后回采」的场景。站点地址由后端从 RelayStation 读取。
+   */
+  openBrowserSession(
+    accountId: string,
+    opts?: { browserId?: string | null; injectSession?: boolean; resetProfile?: boolean },
+  ) {
+    return accountManagerRepository.browserSessionOpen(accountId, opts)
+  },
+
+  /** 互通 I1 — 查询该账号浏览器实例状态(是否运行 / 浏览器 id / 调试端口)。 */
+  browserSessionStatus(accountId: string) {
+    return accountManagerRepository.browserSessionStatus(accountId)
+  },
+
+  /** 互通 I1 — 关闭该账号的浏览器实例。 */
+  closeBrowserSession(accountId: string) {
+    return accountManagerRepository.browserSessionClose(accountId)
+  },
+
+  /** 互通 I2 — 只读预检:浏览器里是否已存在该站点的登录态(不写入任何数据)。 */
+  probeBrowserSession(accountId: string) {
+    return accountManagerRepository.browserSessionProbe(accountId)
+  },
+
+  /**
+   * 互通 I2(入向) — 把浏览器会话回采进 Bench。
+   *
+   * 默认 `confirmed = false`:若 Bench 已有**不早于**本次的会话,后端返回
+   * `outcome = "conflict"` 且不写入;UI 应据 `existingCapturedAtTs` /
+   * `existingOrigin` 向用户交代冲突,用户确认后再以 `confirmed = true` 重试
+   * (后端据此携带 force)。**不存在静默覆盖更新鲜会话的路径。**
+   */
+  captureFromBrowser(accountId: string, confirmed = false) {
+    return accountManagerRepository.browserSessionCapture(accountId, confirmed)
+  },
+
+  /** 「重新登录」— 关闭实例并清空该账号的浏览器 profile,回到干净起点。 */
+  clearBrowserProfile(accountId: string) {
+    return accountManagerRepository.browserSessionClearProfile(accountId)
+  },
 }

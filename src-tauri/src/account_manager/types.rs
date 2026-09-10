@@ -67,6 +67,47 @@ pub struct CsrfTokenEntry {
     pub token_value: String,
 }
 
+/// 会话来源端点（互通 I0）。
+///
+/// 账号会话可以从多个端点写入 canonical store：Bench 内部 WebView 的登录窗口、
+/// 会话保活的后台刷新、外部 App 登录代理，以及本方案新增的浏览器端点（CDP 托管
+/// profile / bench-companion 扩展）。该字段用于审计与冲突诊断，**不携带任何凭据**：
+/// 只记录「哪类端点、由什么动作写入」，不含 cookie 值、URL query 或账号明文。
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum SessionOrigin {
+    /// 来源未知（1.32.0 及更早写入的会话，或旧数据迁移）。
+    #[default]
+    Unknown,
+    /// 用户在 Bench 隔离登录窗口中完成登录后捕获。
+    WebviewLogin,
+    /// 会话保活（Session Keeper）静默刷新后重新捕获。
+    WebviewKeeper,
+    /// 外部 App 登录代理（`bench-auth://` / loopback 回调）完成后捕获。
+    AuthProxy,
+    /// 通过 CDP 从 Bench 托管的浏览器 profile 回采（互通 I2）。
+    BrowserCdp,
+    /// 通过 bench-companion 扩展从用户日常浏览器回采（互通 I3）。
+    BrowserExtension,
+    /// 由导入（sanitized / encrypted 导出文件）写入。
+    Import,
+}
+
+impl SessionOrigin {
+    /// 日志 / 审计用稳定字符串（非本地化，前端自行映射 i18n）。
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Unknown => "unknown",
+            Self::WebviewLogin => "webviewLogin",
+            Self::WebviewKeeper => "webviewKeeper",
+            Self::AuthProxy => "authProxy",
+            Self::BrowserCdp => "browserCdp",
+            Self::BrowserExtension => "browserExtension",
+            Self::Import => "import",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountSession {
@@ -87,6 +128,12 @@ pub struct AccountSession {
     /// 恢复时精确按 origin 注入,避免跨 origin 污染。
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub origins: Vec<OriginStorage>,
+    /// 会话来源端点（互通 I0）。旧数据缺失时回退 `Unknown`，不影响读写。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_origin: Option<SessionOrigin>,
+    /// 来源端点补充标识（浏览器 id 等），**不得包含凭据 / URL query / 账号明文**。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin_detail: Option<String>,
 }
 
 /// per-origin 存储。localStorage 和 sessionStorage 都按 origin 隔离。
@@ -809,6 +856,10 @@ pub struct AccountManagerCapabilities {
     pub indexed_db: AccountManagerCapability,
     pub network_proxy: AccountManagerCapability,
     pub deep_link: AccountManagerCapability,
+    /// 互通 I1：把账号会话注入 Bench 托管的浏览器 profile（出向）。
+    pub browser_session_open: AccountManagerCapability,
+    /// 互通 I2：从 Bench 托管的浏览器 profile 回采会话（入向）。
+    pub browser_session_capture: AccountManagerCapability,
 }
 
 #[derive(Debug, Clone, Serialize)]

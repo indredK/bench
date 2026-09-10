@@ -1,3 +1,4 @@
+pub mod browser_session;
 mod browser_storage;
 mod capabilities;
 pub mod commands;
@@ -12,6 +13,7 @@ pub mod network_proxy;
 mod probe;
 pub mod proxy;
 pub mod session;
+pub mod session_arbitration;
 pub mod session_keeper;
 pub mod state;
 mod storage;

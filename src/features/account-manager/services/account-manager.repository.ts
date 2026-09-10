@@ -2,6 +2,13 @@
  * Repository / 仓储层: adapt Tauri account-manager commands; 只适配外部接口.
  */
 import {
+  browserSessionBrowsers,
+  browserSessionCapture,
+  browserSessionClearProfile,
+  browserSessionClose,
+  browserSessionOpen,
+  browserSessionProbe,
+  browserSessionStatus,
   captureLoginFingerprint,
   confirmLoginFingerprint,
   copyPasswordToClipboard,
@@ -97,6 +104,13 @@ export const accountManagerRepository = {
   listExternalApps,
   removeExternalApp,
   listExternalAppBindings,
+  browserSessionBrowsers,
+  browserSessionOpen,
+  browserSessionStatus,
+  browserSessionClose,
+  browserSessionCapture,
+  browserSessionProbe,
+  browserSessionClearProfile,
   openExternal,
   openPlatformDialog,
   savePlatformDialog,

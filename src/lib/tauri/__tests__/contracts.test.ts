@@ -40,6 +40,11 @@ import type { AppUpdateInfo, AppUpdateInstallResult } from "@/lib/tauri/types/up
 import type {
   AccountManagerCapabilities,
   AccountManagerCapability,
+  BrowserCaptureOutcome,
+  BrowserOpenOutcome,
+  BrowserOptionDto,
+  BrowserProbeOutcome,
+  BrowserStatusOutcome,
   OriginStorage,
 } from "@/lib/tauri/types/account-manager"
 
@@ -113,12 +118,60 @@ describe("Tauri contracts", () => {
           "indexedDb",
           "networkProxy",
           "deepLink",
+          "browserSessionOpen",
+          "browserSessionCapture",
         ]),
       ],
       [
         "OriginStorage",
         "camel",
         dtoKeys<OriginStorage>(["origin", "localStorage", "sessionStorage", "indexedDb"]),
+      ],
+      // 互通 I1/I2 — 浏览器会话互操作 DTO
+      ["BrowserOptionDto", "camel", dtoKeys<BrowserOptionDto>(["id", "name"])],
+      [
+        "BrowserOpenOutcome",
+        "camel",
+        dtoKeys<BrowserOpenOutcome>([
+          "browserId",
+          "reusedInstance",
+          "injectedCookies",
+          "skippedPartitioned",
+          "rejectedCookies",
+          "sessionInjected",
+          "hasStoredSession",
+          "storageOrigins",
+        ]),
+      ],
+      [
+        "BrowserStatusOutcome",
+        "camel",
+        dtoKeys<BrowserStatusOutcome>(["running", "browserId", "port"]),
+      ],
+      [
+        "BrowserCaptureOutcome",
+        "camel",
+        dtoKeys<BrowserCaptureOutcome>([
+          "outcome",
+          "cookieCount",
+          "skippedPartitioned",
+          "storageOrigins",
+          "indexedDbStatus",
+          "capturedAtTs",
+          "existingCapturedAtTs",
+          "existingOrigin",
+          "verified",
+        ]),
+      ],
+      [
+        "BrowserProbeOutcome",
+        "camel",
+        dtoKeys<BrowserProbeOutcome>([
+          "running",
+          "cookieCount",
+          "fingerprintHits",
+          "fingerprintTotal",
+        ]),
       ],
       [
         "AppInfo",

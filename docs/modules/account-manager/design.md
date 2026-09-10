@@ -57,6 +57,21 @@ schema v5 起，`AccountManagerSnapshot.sessions` 是唯一 Session 真理源；
 
 Cookie 同时保存 Unix expiry，恢复时还原过期时间。Tauri 当前只暴露 `partitioned` 布尔值而不暴露 partition key，因此 partitioned Cookie 不进入 HTTP probe；取得完整 partition key 语义前不得降级发送。
 
+### 3.1 浏览态三存放点与互通（2026-09-10）
+
+引入浏览器互通后，会话存在于三处，**S1 恒为唯一可写真理源**：
+
+| 存放点 | 位置                                         | 角色                                     | 可写                 |
+| ------ | -------------------------------------------- | ---------------------------------------- | -------------------- |
+| S1     | 加密 store `AccountManagerSnapshot.sessions` | canonical 会话；所有读取方的唯一来源     | 仅经仲裁函数         |
+| S2     | 隔离 WebView data dir（登录窗口 / 会话保活） | Bench 自管浏览上下文，登录与静默刷新载体 | 由 WebView 流程决定  |
+| S3     | 托管浏览器 profile（每账号一个）             | 互通端点；真实 Chromium 实例             | 由用户在浏览器内决定 |
+
+- 互通只搬 **S1 ↔ S3**，S2 不参与；任何来源写 S1 都必须经过 `session_arbitration::arbitrate`——`force=false` 且 S1 已有不早于本次的会话时返回 `Conflict` 且不写入，决定权交回用户。
+- 每条 S1 会话带 `session_origin`（`SessionOrigin`）与 `origin_detail`，用于冲突时向用户交代来源、以及后续按来源做策略。
+- CDP 通道仅允许 loopback（非回环地址一律拒绝）；互通 IPC 只接受 `accountId` 与布尔/枚举，站点地址由后端从 `RelayStation` 读取，renderer 不传 URL。
+- I2 复用 §3 同一套捕获脚本与资源上限，不得另立一套截断阈值。
+
 ## 4. 检测与分层探针
 
 AuthProfile 检测从页面、cookie、Web Storage、CSRF、SSO、anti-bot 和 WebSocket 信号生成候选策略。

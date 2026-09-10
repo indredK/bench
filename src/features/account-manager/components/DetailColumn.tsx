@@ -11,6 +11,7 @@ import {
   Eye,
   EyeOff,
   Fingerprint,
+  Globe,
   HelpCircle,
   RefreshCw,
   ScanSearch,
@@ -72,6 +73,8 @@ export function DetailColumn({
   onRedetectProfile,
   onToggleProxy,
   onManageExternalApps,
+  onOpenBrowserInterop,
+  browserInteropDisabledReason,
   onRevealPassword,
   onCopyPassword,
   onProbeStrategyChange,
@@ -99,6 +102,10 @@ export function DetailColumn({
   onRedetectProfile: (stationId: string, accountId?: string) => void
   onToggleProxy?: (accountId: string, enabled: boolean) => void
   onManageExternalApps?: (accountId: string | null) => void
+  /** 互通 I1/I2 — 打开「浏览器互通」弹窗（注入会话 / 手动登录 / 回采）。 */
+  onOpenBrowserInterop?: (account: StationAccount) => void
+  /** 互通不可用时的原因文案（能力门控未通过）；有值时入口禁用并展示原因。 */
+  browserInteropDisabledReason?: string
   onRevealPassword: (accountId: string) => Promise<string>
   onCopyPassword: (accountId: string) => Promise<void>
   onProbeStrategyChange: (stationId: string, strategy: ProbeStrategy | "auto") => void
@@ -425,6 +432,26 @@ export function DetailColumn({
                   </TooltipTrigger>
                   <TooltipContent side="top">
                     {t("accountManager.fingerprint.capture")}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            {onOpenBrowserInterop && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="icon-sm"
+                      variant="outline"
+                      onClick={() => onOpenBrowserInterop(account)}
+                      disabled={!!browserInteropDisabledReason}
+                      aria-label={t("accountManager.browserInterop.openEntry")}
+                    >
+                      <Globe size={14} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    {browserInteropDisabledReason ?? t("accountManager.browserInterop.openEntry")}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>

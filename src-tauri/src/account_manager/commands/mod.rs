@@ -7,6 +7,7 @@
 //! fn and re-exports them only via the defining module).
 
 mod account;
+mod browser_session;
 mod external_apps;
 mod fingerprint;
 mod import_export;
@@ -17,6 +18,7 @@ mod shared;
 mod station;
 
 pub use account::*;
+pub use browser_session::*;
 pub use external_apps::*;
 pub use fingerprint::*;
 pub use import_export::*;

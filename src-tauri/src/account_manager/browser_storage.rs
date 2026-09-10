@@ -29,14 +29,54 @@ pub struct OriginCaptureResult {
     pub has_data: bool,
 }
 
+/// capture 脚本写入 `window[slot]` 的桥接状态（WebView 与 CDP 两条路径共用）。
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct BridgeState {
-    status: String,
+pub(crate) struct BridgeState {
+    pub(crate) status: String,
     #[serde(default)]
-    payload: Option<String>,
+    pub(crate) payload: Option<String>,
     #[serde(default)]
-    reason_code: Option<String>,
+    pub(crate) reason_code: Option<String>,
+}
+
+impl BridgeState {
+    /// 解析 capture 脚本产出的原始 JSON 文本（CDP 路径用）。
+    pub(crate) fn parse(raw: &str) -> AccountManagerResult<Self> {
+        serde_json::from_str(raw)
+            .map_err(|e| AccountManagerError::store_fail(format!("decode storage bridge: {e}")))
+    }
+
+    /// 生成「读取该槽位当前状态」的 JS 表达式（WebView 与 CDP 共用）。
+    pub(crate) fn poll_expression(slot: &str) -> String {
+        format!(
+            "JSON.stringify(window[{}]||{{status:'pending'}})",
+            json!(slot)
+        )
+    }
+
+    /// 清理槽位，避免在页面里留下快照残留。
+    pub(crate) fn cleanup_expression(slot: &str) -> String {
+        format!("delete window[{}]", json!(slot))
+    }
+
+    /// 从完成的桥接状态中取出并构造 `OriginCaptureResult`（含上限与 origin 校验）。
+    pub(crate) fn into_capture(
+        self,
+        state: &AccountManagerState,
+        expected_origin: &str,
+    ) -> AccountManagerResult<OriginCaptureResult> {
+        if self.status != "complete" {
+            return Err(AccountManagerError::store_fail(format!(
+                "storage capture failed ({})",
+                self.reason_code.as_deref().unwrap_or("UNKNOWN")
+            )));
+        }
+        let payload = self
+            .payload
+            .ok_or_else(|| AccountManagerError::store_fail("storage capture payload missing"))?;
+        decode_captured_payload(state, &payload, expected_origin)
+    }
 }
 
 #[derive(Deserialize)]
@@ -81,29 +121,37 @@ pub async fn capture_current_origin<R: Runtime>(
     {
         return Ok(None);
     }
-    let slot = format!("__BENCH_STORAGE_CAPTURE_{}", uuid::Uuid::new_v4().simple());
+    let slot = new_capture_slot();
     let script = capture_script(&slot)?;
     window
         .eval(script)
         .map_err(|e| AccountManagerError::store_fail(format!("start storage capture: {e}")))?;
 
     let bridge = poll_bridge(window, &slot, CAPTURE_TIMEOUT).await?;
-    let _ = window.eval(format!("delete window[{}]", json!(slot)));
-    if bridge.status != "complete" {
-        return Err(AccountManagerError::store_fail(format!(
-            "storage capture failed ({})",
-            bridge.reason_code.as_deref().unwrap_or("UNKNOWN")
-        )));
-    }
-    let payload = bridge
-        .payload
-        .ok_or_else(|| AccountManagerError::store_fail("storage capture payload missing"))?;
+    let _ = window.eval(BridgeState::cleanup_expression(&slot));
+    bridge.into_capture(state, &expected_origin).map(Some)
+}
+
+/// 生成一个新的 capture 桥接槽位名（WebView 与 CDP 两条路径共用命名约定）。
+pub(crate) fn new_capture_slot() -> String {
+    format!("__BENCH_STORAGE_CAPTURE_{}", uuid::Uuid::new_v4().simple())
+}
+
+/// 把 capture 脚本产出的 payload 解码 → 加密 → [`OriginCaptureResult`]。
+///
+/// 互通 I2 复用点：CDP 路径与 WebView 路径共用同一份脚本与上限规则，保证两条
+/// 端点的捕获语义（origin 精确匹配、体积上限、IndexedDB fail-closed）完全一致。
+fn decode_captured_payload(
+    state: &AccountManagerState,
+    payload: &str,
+    expected_origin: &str,
+) -> AccountManagerResult<OriginCaptureResult> {
     if payload.len() > MAX_BRIDGE_PAYLOAD_BYTES {
         return Err(AccountManagerError::store_fail(
             "storage capture payload exceeds limit",
         ));
     }
-    let captured: BrowserCapture = serde_json::from_str(&payload)
+    let captured: BrowserCapture = serde_json::from_str(payload)
         .map_err(|e| AccountManagerError::store_fail(format!("decode storage capture: {e}")))?;
     if captured.origin != expected_origin {
         return Err(AccountManagerError::store_fail(
@@ -135,16 +183,16 @@ pub async fn capture_current_origin<R: Runtime>(
         || !captured.session_storage.is_empty()
         || indexed_db.is_some();
 
-    Ok(Some(OriginCaptureResult {
+    Ok(OriginCaptureResult {
         storage: OriginStorage {
-            origin: expected_origin,
+            origin: expected_origin.to_string(),
             local_storage: Some(crypto::encrypt(&key, &local_json)?),
             session_storage: Some(crypto::encrypt(&key, &session_json)?),
             indexed_db,
         },
         indexed_db_status,
         has_data,
-    }))
+    })
 }
 
 pub fn merge_origin(session: &mut AccountSession, captured: OriginStorage) {
@@ -269,10 +317,7 @@ async fn poll_bridge<R: Runtime>(
     slot: &str,
     timeout: Duration,
 ) -> AccountManagerResult<BridgeState> {
-    let expression = format!(
-        "JSON.stringify(window[{}]||{{status:'pending'}})",
-        json!(slot)
-    );
+    let expression = BridgeState::poll_expression(slot);
     let deadline = Instant::now() + timeout;
     while Instant::now() < deadline {
         let raw = evaluate_js(window, &expression).await?;
@@ -281,8 +326,7 @@ async fn poll_bridge<R: Runtime>(
                 "storage bridge payload exceeds limit",
             ));
         }
-        let bridge: BridgeState = serde_json::from_str(&raw)
-            .map_err(|e| AccountManagerError::store_fail(format!("decode storage bridge: {e}")))?;
+        let bridge = BridgeState::parse(&raw)?;
         if bridge.status != "pending" {
             return Ok(bridge);
         }
@@ -291,7 +335,8 @@ async fn poll_bridge<R: Runtime>(
     Err(AccountManagerError::store_fail("storage capture timeout"))
 }
 
-fn capture_script(slot: &str) -> AccountManagerResult<String> {
+/// 生成一页 capture 脚本（供 WebView `eval` 与 CDP `Runtime.evaluate` 共用）。
+pub(crate) fn capture_script(slot: &str) -> AccountManagerResult<String> {
     let slot_json = serde_json::to_string(slot)
         .map_err(|e| AccountManagerError::store_fail(format!("encode capture slot: {e}")))?;
     Ok(CAPTURE_SCRIPT_TEMPLATE.replace("__SLOT__", &slot_json))

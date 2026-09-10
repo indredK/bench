@@ -98,7 +98,7 @@
 
 - **会话保活块**（仅 persistent 账号显示，紧凑单行）：开关 + 模式（每 N 小时 / 每天定时）+ 参数（小时数 1..=8760 / 时刻 HH:MM）+ 下次执行时间（`Intl.DateTimeFormat` 本地化）；变更即时保存（saving 期间禁用）+「日志」按钮打开账号日志对话框（见 §16）。ephemeral 账号不显示。
 
-- 底部操作行：代理开关（Switch `proxyEnabled`）、管理外部应用（Settings）、刷新当前账号。
+- 底部操作行：代理开关（Switch `proxyEnabled`）、浏览器互通（Globe，见 §17）、管理外部应用（Settings）、刷新当前账号。
 
 ## 6. 对话框与弹层
 
@@ -109,6 +109,8 @@
 - **快速登录**：URL（自动补 `https://` 前缀；有历史 datalist 补全）+ **站点自动匹配**（输入防抖 300ms 调 `match_stations_by_url`：精确 host → exact、互为父子域 → registrableDomain；有匹配时预选最高置信度站点，含「新建站点」选项）+ **账号选择**（选中已有站点且该站有账号时：选已有账号或「新账号」；选已有账号 → 提交 `openLoginWindow(accountId, url)` 在该账号隔离环境打开粘贴的 URL，只读展示账号名 + 状态徽章；新账号 → 用户名输入 + 可选「关闭时销毁 Session（destroyOnClose）」+ 附加到所选站点）+ 未匹配时回退原新建流程（附加到当前选中站点）。提交载荷为联合类型 `{kind:"existing"}|{kind:"new"}`。
 
 - **删除确认**：站点/账号删除均为 `DeleteConfirmDialog` 二次确认；删除站点后自动选中剩余第一个站点及其账号。
+
+- **浏览器互通（Browser Interop，见 §17）**：下拉选本机受支持的 Chromium 系浏览器；三条主路径「以该账号身份打开 / 打开站点并手动登录 / 回采登录态」，外加「关闭浏览器」与「清空浏览器数据」（destructive，`DeleteConfirmDialog` 二次确认）。回采遇冲突时弹内联告警区，需二次确认才覆盖。
 
 - **外部应用管理面板**：列出已授权外部 App 及其账号绑定，可吊销授权（`removeExternalApp`）。
 
@@ -152,11 +154,11 @@
 
 ## 9. capability（平台能力）体系
 
-- 后端 `get_account_manager_capabilities` 为唯一真理源，逐项返回 `supported / partial / unsupported / failed + reasonCode`：`platform`、`credentialStore`、`isolatedWebview`、`cookieSession`、`webStorage`、`indexedDb`、`networkProxy`、`deepLink`。
+- 后端 `get_account_manager_capabilities` 为唯一真理源，逐项返回 `supported / partial / unsupported / failed + reasonCode`：`platform`、`credentialStore`、`isolatedWebview`、`cookieSession`、`webStorage`、`indexedDb`、`networkProxy`、`deepLink`、`browserSessionOpen`、`browserSessionCapture`。
 
 - 前端允许 `supported/partial`，对 `unsupported/failed` 禁用对应操作并显示原因（reasonCode → i18n）。
 
-- 登录依赖 `isolatedWebview`；外部登录依赖 `isolatedWebview` + `deepLink`；网络代理依赖 `networkProxy`。
+- 登录依赖 `isolatedWebview`；外部登录依赖 `isolatedWebview` + `deepLink`；网络代理依赖 `networkProxy`；浏览器互通（出向 `browserSessionOpen` / 入向 `browserSessionCapture`）依赖 `credentialStore`（会话加解密）+ 本机存在受支持的 Chromium 系浏览器，任一不满足即 `failed` 并被详情栏入口引用为禁用原因。
 
 - 顶部警告条：`X 项受限 / Y 项不可用` 汇总。
 
@@ -189,9 +191,9 @@
 
 - **控制器拆分**：`useStationActions`（站点 CRUD/重排序/重检测/probe 策略）、`useAccountActions`（账号 CRUD/快速登录[新/已有账号两种提交]/密码/代理）、`useRefreshOrchestrator`（刷新编排/防重入）、`useDataPorting`（导入导出）、`useAuthProxy`（代理）、`useQuickLoginHistory`、`useSessionKeeper`（保活计划保存/账号日志加载/URL 站点匹配）。
 
-- **后端模块** `src-tauri/src/account_manager/`：`types.rs`（领域类型）、`state.rs`/`storage.rs`（串行状态与落盘）、`crypto.rs`（Keyring 主密钥 + AES-256-GCM 每写独立 nonce）、`session.rs`（Session 捕获/恢复/TTL/退出持久化,`capture_session_from_window` 公共捕获）、`detection.rs`/`probe.rs`（认证检测与分层探针）、`exclusivity.rs`（coexisting/exclusive/rotating 互斥）、`webview.rs`/`proxy/`（隔离 WebView + 登录代理 + token 提取/自动填充）、`session_keeper.rs`（会话保活调度器,见 §15）、`deep_link.rs`、`browser_storage.rs`、`network_proxy.rs`。
+- **后端模块** `src-tauri/src/account_manager/`：`types.rs`（领域类型）、`state.rs`/`storage.rs`（串行状态与落盘）、`crypto.rs`（Keyring 主密钥 + AES-256-GCM 每写独立 nonce）、`session.rs`（Session 捕获/恢复/TTL/退出持久化,`capture_session_from_window` 公共捕获）、`detection.rs`/`probe.rs`（认证检测与分层探针）、`exclusivity.rs`（coexisting/exclusive/rotating 互斥）、`webview.rs`/`proxy/`（隔离 WebView + 登录代理 + token 提取/自动填充）、`session_keeper.rs`（会话保活调度器,见 §15）、`session_arbitration.rs`（会话新鲜度仲裁,见 §17）、`browser_session/`（互通 I1/I2：`browser.rs` 浏览器探测、`cdp.rs` CDP 客户端、`profile.rs` 实例与 profile 生命周期、`mod.rs` 编排,见 §17）、`deep_link.rs`、`browser_storage.rs`、`network_proxy.rs`。
 
-- **IPC 命令**：capabilities / listStations / create/update/deleteStation / listAllAccounts / create/update/deleteAccount / createEphemeralAccount / revealPassword / setPassword / copyPasswordToClipboard / openLoginWindow（可选 `url` 显式目标） / refreshAccount / refreshStation / refreshAll / reorderStations / reorderAccounts / detectStationAuthProfile / setProbeStrategy / resetProbeStrategy / setSessionTtl / setStationNetworkProxy / setAccountProxyEnabled / setAccountRefreshSchedule / listAccountLogs / matchStationsByUrl / exportRelayData / importRelayData / proxyLogin / proxyLoginNewAccount / handleBrowserOpen / getAuthProxyInboxStatus / drainAuthProxyRequest / listExternalApps / removeExternalApp / listExternalAppBindings。
+- **IPC 命令**：capabilities / listStations / create/update/deleteStation / listAllAccounts / create/update/deleteAccount / createEphemeralAccount / revealPassword / setPassword / copyPasswordToClipboard / openLoginWindow（可选 `url` 显式目标） / refreshAccount / refreshStation / refreshAll / reorderStations / reorderAccounts / detectStationAuthProfile / setProbeStrategy / resetProbeStrategy / setSessionTtl / setStationNetworkProxy / setAccountProxyEnabled / setAccountRefreshSchedule / listAccountLogs / matchStationsByUrl / exportRelayData / importRelayData / proxyLogin / proxyLoginNewAccount / handleBrowserOpen / getAuthProxyInboxStatus / drainAuthProxyRequest / listExternalApps / removeExternalApp / listExternalAppBindings / browserSessionBrowsers / browserSessionOpen / browserSessionStatus / browserSessionClose / browserSessionCapture / browserSessionProbe / browserSessionClearProfile。
 
 - **持久化**：加密 store 落盘（`AccountManagerSnapshot`，schema v5 起 `sessions` 为唯一 Session 真理源）；写入由 `AccountManagerState` 串行 + 显式 flush；Keyring 首建与 store mutation 使用跨进程文件锁，锁内 reload 磁盘 canonical snapshot 后再 save/replace（防 last-write-wins）。
 
@@ -219,7 +221,11 @@
 
 - `SessionSettings`（前端模型）：probeOverride / probeStrategy / sessionTtlHours / networkProxy / networkProxyPassword(undefined=保留, ""=清除)。
 
-- `AccountManagerCapabilities`：platform + 7 项 capability（status + reasonCode）。
+- `AccountManagerCapabilities`：platform + 9 项 capability（status + reasonCode）。
+
+- `SessionOrigin`（互通 I0）：`unknown | webviewLogin | webviewKeeper | authProxy | browserCdp | browserExtension | import`；`StationAccount.sessionOrigin?` 记录当前会话由哪个端点采集、`originDetail?` 记录补充标识（浏览器 id 等，不含凭据）。`AccountSession` 同名字段持久化在加密 store 内。
+
+- `BrowserOptionDto`：id / name（**不含本机路径**）。`BrowserOpenOutcome`：browserId / reusedInstance / injectedCookies / skippedPartitioned / rejectedCookies / sessionInjected / hasStoredSession / storageOrigins。`BrowserStatusOutcome`：running / browserId? / port?。`BrowserCaptureOutcome`：outcome(`saved|conflict|empty`) / cookieCount / skippedPartitioned / storageOrigins / indexedDbStatus / capturedAtTs / existingCapturedAtTs? / existingOrigin? / verified?。`BrowserProbeOutcome`：running / cookieCount / fingerprintHits? / fingerprintTotal?。
 
 - 错误码：NOT\_FOUND / INVALID\_INPUT / STORE\_FAIL / KEYRING\_UNAVAILABLE / CRYPTO\_FAIL / CLIPBOARD\_FAIL。
 
@@ -238,6 +244,10 @@
 - **危险操作**：删除站点/账号、吊销代理/外部 App、覆盖导入均二次确认；删除返回逐资源 report，目录占用等 partial 结果保留可重试信息，不得先删 metadata 再丢资源 owner。
 
 - **输入校验**：代理密码更新只接受 keep/set/clear 窄 DTO，renderer 不回传完整读取 DTO。
+
+- **浏览器互通**：仅支持 Chromium 系（Chrome / Edge / Brave / Chromium），不支持 Arc / Safari / Firefox；CDP WebSocket 地址必须经 loopback 校验（非回环一律拒绝）；互通命令只接受 `accountId` 与布尔/枚举，**站点地址由后端从 RelayStation 读取，renderer 不传 URL**；返回 DTO 只含计数与枚举，绝不含 cookie 值 / storage 值 / 明文会话。
+
+- **互斥纪律**：一个账号同一时刻只允许一个托管浏览器实例（按账号隔离 profile 目录）；互通不改变 exclusivity 语义——同一账号的 WebView 与浏览器实例可并存，但写 S1（加密 store）仍由后端串行化。
 
 - **探针**：禁自动 redirect；只接受无嵌入凭据的 http/https URL；本机开发站点允许 loopback HTTP。
 
@@ -309,4 +319,38 @@
 
 - **敏感信息红线**：detail 禁止记录 URL 原文（query 可能含 token）、cookie、用户名、密码；只有枚举字符串与数值。
 
-- **UI**（`account-log-dialog`）：头部 = 账号名 + 当前计划摘要（interval/daily/已暂停）+ 下次执行时间（`Intl.DateTimeFormat` 本地化）+ 刷新按钮（loading 旋转）；时间线倒序（最新在前）= kind 图标（Login→UserRound、ManualRefresh→RefreshCw、AutoRefresh→Timer、ScheduleChanged→CalendarClock、StatusChanged→Activity、Error→AlertTriangle）+ level 色点（slate/emerald/amber/red）+ 本地时间 + kind 标签 + detail 次要行（状态/错误码/跳过原因/耗时，i18n 渲染）；≤100 条直接渲染不虚拟化；空态/骨架×5/错误条（InlineErrorBar 重试）齐备。读取命令 `listAccountLogs(accountId)` 纯内存读不落盘。
+- **UI**（`account-log-dialog`）：头部 = 账号名 + 当前计划摘要（interval/daily/已暂停）+ 下次执行时间（`Intl.DateTimeFormat` 本地化）+ 刷新按钮（loading 旋转）；时间线倒序（最新在前）= kind 图标（Login→UserRound、ManualRefresh→RefreshCw、AutoRefresh→Timer、ScheduleChanged→CalendarClock、StatusChanged→Activity、Error→AlertTriangle）+ level 色点（slate/emerald/amber/red）+ 本地时间 + kind 标签 + detail 次要行（状态/错误码/跳过原因/耗时，i18n 渲染）；≤100 条直接渲染不虚拟化；空态/骨架×5/错误条（InlineErrorBar 重试）齐全。读取命令 `listAccountLogs(accountId)` 纯内存读不落盘。
+
+## 17. 浏览器互通（Browser Interop）
+
+- **定位**：把浏览器变成 Session 的**第二个端点**——出向（I1）把 Bench 里保存的账号会话注入真实的 Chromium 浏览器，让「用该账号打开站点」在浏览器里直接是登录态；入向（I2）把用户在浏览器里登录好的会话回采进 Bench。规划全文见 `../../explanation/browser-session-interop-plan.md`。
+
+- **三态模型**：S1 加密 store（canonical 会话，唯一真理源）/ S2 隔离 WebView data dir（登录窗口、keeper）/ S3 托管浏览器 profile。互通只搬 S1↔S3，S2 不参与；任何写入 S1 的动作都必须经过 §17 的仲裁。
+
+- **浏览器范围**：仅 Chromium 系（Google Chrome / Microsoft Edge / Brave / Chromium），按平台内置候选路径探测（macOS `/Applications`、Windows `Program Files` 系）。**不含 Arc / Safari / Firefox**（前二者无 CDP，Safari 需私有协议且合规风险高）。探测结果以 `BrowserOptionDto{id,name}` 下发，**本机路径不出后端**。
+
+- **实例与 profile 隔离**：每账号一个独立 `userDataDir`（`sessions_root/<sanitized accountId>/profile`，accountId 经白名单化防路径穿越），以 `--remote-debugging-port=0` 启动由 Chromium 自行选端口，端口从 profile 内 `DevToolsActivePort` 读取；同一账号同时只允许一个实例，进程表按账号跟踪，`browser_session_close` / 应用退出时回收。
+
+- **CDP 通道**：`tokio-tungstenite` 直连浏览器 WebSocket（`ws://127.0.0.1:<port>/devtools/browser/...`）。连接前必须通过 loopback 校验——**非回环地址一律拒绝**，避免把会话推给远端调试端口。命令带 `id` 关联应答，读取线程负责派发与断线唤醒（断线唤醒所有等待者，避免命令悬挂到超时）。
+
+- **I1 出向（`browser_session_open`）**：
+  - `injectSession=true`：`Network.setCookie` 逐条注入（`sameSite` 归一化为 CDP 大小写；partitioned cookie 跳过并计数；被浏览器拒绝（属性不合法）计入 `rejectedCookies`）→ 以 `Page.addScriptToEvaluateOnNewDocument` 注册 **`browser_storage` 的同一份 storage 恢复脚本**（在页面脚本之前运行，等价 WebView 的 `initialization_script`；导航完成后立即注销该注册，避免复用实例上累积）→ 按「同引擎」规则决定是否覆盖 UA（见下）→ 导航到站点 origin。
+  - **UA 覆盖规则（同引擎才覆盖）**：Bench 登录窗口在 macOS 上是 WKWebView（Safari 系 UA），托管浏览器是 Chromium 系。跨引擎覆盖等于把 Chrome 伪装成 Safari，站点若对 UA 绑定/分流会把请求判为新客户端而**丢掉会话**。因此仅在「会话来源为 `browserCdp` 且 UA 是 Chromium 系（含 `chrome/`/`chromium/`/`edg/`）」时覆盖，其余一律保留浏览器原生 UA。
+  - **存储恢复是必备环节**：只注 cookie 无法覆盖 token 存 localStorage / IndexedDB 的 SPA 站点，注入会形同虚设。
+  - **已知时序边界**：Web Storage 部分同步完成；IndexedDB 恢复为异步，页面可能先于其就绪 —— 依赖 IndexedDB 首屏即刻读写的站点可能有竞态，需真机验收确认影响面。
+  - **`hasStoredSession = false` 时不得视为成功**：该账号在 Bench 里没有已保存会话，注入为空转；`injectedCookies === 0` 且 `hasStoredSession === true` 时需把 `skippedPartitioned` / `rejectedCookies` 暴露给用户，避免静默失败。前端据此分三档提示（无会话 → warning 引导先登录；有会话但 0 条注入 → error 报跳过/拒绝数；正常 → success 报注入与存储份数），并在弹窗内展示「上次打开结果」。
+  - `injectSession=false`：只打开站点，供用户在真实浏览器内完成扫码 / 2FA / SSO，之后再走 I2 回采。
+
+- **I2 入向（`browser_session_capture`）**：确保页面停在站点 origin（否则先导航并等待首屏结算）→ 复用 WebView 侧同一套捕获脚本与上限（Web Storage ≤512 key/2 MiB、IndexedDB ≤32 db/128 store/10000 record/8 MiB、桥接总量 12 MiB、超时 10s）→ 组装 `AccountSession` → **仲裁** → 写入 S1 并标 `sessionOrigin=browserCdp`、`originDetail=<browserId>` → 按站点探针复验（`verified`）。
+
+- **新鲜度仲裁（`session_arbitration.rs`，I0 地基）**：把「谁能写 S1」收敛为一个可单测的纯函数。`force=false` 时，若 Bench 已有会话**不早于**本次回采时间戳 → 返回 `Conflict{existingCapturedAtTs, existingOrigin}` 且**不写入**，由前端二次确认；用户确认后以 `force=true` 重试才覆盖。Bench 无会话、或已有会话更旧、或无法判断新鲜度 → `Accept`（错过更新比拒绝更新更糟）。时间基准优先 `capturedAtTs`（UTC 秒），缺失时回退解析 `capturedAt` 字符串。**不存在静默覆盖更新鲜会话的路径。**
+
+- **只读预检（`browser_session_probe`）**：不写入任何数据，只报告浏览器中是否已有站点登录态（`cookieCount` + 站点指纹命中数）。供「先探后采」与状态展示。UI 入口为弹窗内的「检测登录态」按钮，结果就地展示（实例未运行 / 无登录态 / 已发现 N 条 Cookie），不依赖 toast。
+
+- **清空 profile（`browser_session_clear_profile`）**：先关闭实例再删 profile 目录，用于「重新登录」。属 destructive，UI 走 `DeleteConfirmDialog` 二次确认。
+
+- **前端编排（`useBrowserInterop`）**：打开弹窗即拉浏览器列表 + 实例状态；`busy` 由 **ref 同步守卫**（同 tick 重复点击也拦得住）+ state 驱动 UI 禁用双轨实现；冲突结果留在 hook 内交给弹窗决策，不直接 toast 成功。回采成功（`saved`）后触发列表刷新（读后写），`empty` 只提示不刷新。
+
+- **命令与门控**：`browser_session_browsers / open / status / close / capture / probe / clear_profile` 七个命令只接受 `accountId` 与布尔/枚举，**不接受 URL、路径或凭据**。capability `browserSessionOpen` / `browserSessionCapture` 任一不可用时，详情栏入口禁用并以 tooltip 说明原因（reasonCode → i18n）。
+
+- **未实现（I3）**：从**用户日常浏览器**（非 Bench 托管实例）回采，需要 `bench-companion` 浏览器扩展 + 本机桥接（`Origin：BrowserExtension` 已预留）。当前 S1 的浏览器来源仅 `browserCdp`。

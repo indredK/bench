@@ -10,7 +10,12 @@ import type {
   AuthProxyDrainResult,
   AuthProxyInboxStatus,
   AuthProxyResult,
+  BrowserCaptureOutcome,
+  BrowserOpenOutcome,
   BrowserOpenResult,
+  BrowserOptionDto,
+  BrowserProbeOutcome,
+  BrowserStatusOutcome,
   DeletionReport,
   ExternalApp,
   ExternalAppBinding,
@@ -46,7 +51,13 @@ export type {
   AuthProxyMatch,
   AuthProxyRequest,
   AuthProxyResult,
+  BrowserCaptureOutcome,
+  BrowserCaptureOutcomeKind,
+  BrowserOpenOutcome,
   BrowserOpenResult,
+  BrowserOptionDto,
+  BrowserProbeOutcome,
+  BrowserStatusOutcome,
   DeletionReport,
   ExclusivityMode,
   ExternalApp,
@@ -77,6 +88,7 @@ export type {
   RelayDataImportResult,
   RelayExportMode,
   RelayStation,
+  SessionOrigin,
   StationAccount,
   StationUrlMatch,
   StationUrlMatchConfidence,
@@ -441,4 +453,74 @@ export function listExternalAppBindings(accountId?: string | null): Promise<Exte
   return invokeTauriCommand(TAURI_COMMANDS.accountManager.listExternalAppBindings, {
     accountId: accountId ?? null,
   })
+}
+
+// ═══════════════════════════════════════════════
+// 互通 I1/I2 — 账号 ↔ 浏览器会话互操作
+// ═══════════════════════════════════════════════
+
+/**
+ * 列出本机可用的受支持浏览器（Chromium 系：Chrome / Edge / Brave / Chromium）。
+ * 返回项只含 id 与展示名，不含本机路径。
+ */
+export function browserSessionBrowsers(): Promise<BrowserOptionDto[]> {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.browserSessionBrowsers)
+}
+
+/**
+ * 打开（或复用）该账号的托管浏览器实例。
+ *
+ * - `injectSession = true`：注入账号会话后导航到站点（以该账号身份浏览）。
+ * - `injectSession = false`：只打开站点，供用户在真实浏览器里完成扫码 / 2FA / SSO。
+ * - `resetProfile = true`：先关闭实例并清空 profile，保证干净起点。
+ *
+ * 站点地址由后端从账号所属 RelayStation 读取，前端**不传 URL**。
+ */
+export function browserSessionOpen(
+  accountId: string,
+  opts?: { browserId?: string | null; injectSession?: boolean; resetProfile?: boolean },
+): Promise<BrowserOpenOutcome> {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.browserSessionOpen, {
+    accountId,
+    browserId: opts?.browserId ?? null,
+    injectSession: opts?.injectSession ?? true,
+    resetProfile: opts?.resetProfile ?? false,
+  })
+}
+
+/// 查询该账号的浏览器实例状态（是否运行、浏览器 id、调试端口）。
+export function browserSessionStatus(accountId: string): Promise<BrowserStatusOutcome> {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.browserSessionStatus, { accountId })
+}
+
+/// 关闭该账号的浏览器实例。返回是否确有实例被关闭。
+export function browserSessionClose(accountId: string): Promise<boolean> {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.browserSessionClose, { accountId })
+}
+
+/**
+ * 从托管浏览器回采会话并写入 Bench（入向）。
+ *
+ * `force = false` 时若 Bench 已有**不早于**本次的会话，返回 `outcome = "conflict"`
+ * 且不写入；前端应据 `existingCapturedAtTs` / `existingOrigin` 二次确认后再以
+ * `force = true` 重试，绝不静默覆盖更新鲜的会话。
+ */
+export function browserSessionCapture(
+  accountId: string,
+  force = false,
+): Promise<BrowserCaptureOutcome> {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.browserSessionCapture, {
+    accountId,
+    force,
+  })
+}
+
+/// 只读预检：判断浏览器中是否已存在该站点的登录态（不写入任何数据）。
+export function browserSessionProbe(accountId: string): Promise<BrowserProbeOutcome> {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.browserSessionProbe, { accountId })
+}
+
+/// 清空该账号的浏览器 profile（先关闭实例）。用于「重新登录」场景。
+export function browserSessionClearProfile(accountId: string): Promise<boolean> {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.browserSessionClearProfile, { accountId })
 }

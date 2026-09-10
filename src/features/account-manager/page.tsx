@@ -9,6 +9,7 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/
 import { openExternal } from "@/platform/shell"
 import { useAccountManagerController } from "@/features/account-manager/hooks/useAccountManagerController"
 import { useLoginRules } from "@/features/account-manager/hooks/useLoginRules"
+import { useBrowserInterop } from "@/features/account-manager/hooks/useBrowserInterop"
 import { useAccountExport } from "@/features/account-manager/hooks/useAccountExport"
 import { StationColumn } from "@/features/account-manager/components/StationColumn"
 import { AccountColumn } from "@/features/account-manager/components/AccountColumn"
@@ -25,6 +26,7 @@ import { AccountLogDialog } from "@/features/account-manager/components/account-
 import { FingerprintConfirmDialog } from "@/features/account-manager/components/fingerprint-confirm-dialog"
 import { FingerprintDetailDialog } from "@/features/account-manager/components/fingerprint-detail-dialog"
 import { LoginRulesDialog } from "@/features/account-manager/components/login-rules-dialog"
+import { BrowserInteropDialog } from "@/features/account-manager/components/browser-interop-dialog"
 import { AccountExportDialog } from "@/features/account-manager/components/account-export-dialog"
 import { useAccountManagerStore } from "@/features/account-manager/store"
 import { useNotificationCenterStore } from "@/components/layout/notification-center/store"
@@ -155,6 +157,8 @@ function AccountManagerPage() {
         externalLoginDisabledReason: reason,
         networkProxyAvailable: false,
         networkProxyNotice: reason,
+        browserInteropAvailable: false,
+        browserInteropDisabledReason: reason,
         degradedCount: 0,
         blockedCount: 1,
       }
@@ -167,6 +171,8 @@ function AccountManagerPage() {
       capabilities.indexedDb,
       capabilities.networkProxy,
       capabilities.deepLink,
+      capabilities.browserSessionOpen,
+      capabilities.browserSessionCapture,
     ]
     const loginDisabledReason = isCapabilityUsable(capabilities.isolatedWebview)
       ? undefined
@@ -174,6 +180,10 @@ function AccountManagerPage() {
     const externalCapability = [capabilities.isolatedWebview, capabilities.deepLink].find(
       (capability) => !isCapabilityUsable(capability),
     )
+    const browserInteropCapability = [
+      capabilities.browserSessionOpen,
+      capabilities.browserSessionCapture,
+    ].find((capability) => !isCapabilityUsable(capability))
     return {
       loginDisabledReason,
       externalLoginDisabledReason: externalCapability
@@ -184,6 +194,10 @@ function AccountManagerPage() {
         capabilities.networkProxy.status === "supported"
           ? undefined
           : getCapabilityReason(t, capabilities.networkProxy),
+      browserInteropAvailable: !browserInteropCapability,
+      browserInteropDisabledReason: browserInteropCapability
+        ? getCapabilityReason(t, browserInteropCapability)
+        : undefined,
       degradedCount: values.filter((capability) => capability.status === "partial").length,
       blockedCount: values.filter(
         (capability) => capability.status === "unsupported" || capability.status === "failed",
@@ -236,6 +250,11 @@ function AccountManagerPage() {
   /** 更新登录逻辑弹窗（挂在当前选中站点上；未选中站点时打开按钮不渲染）。 */
   const loginRules = useLoginRules({ website: c.selectedStation?.website ?? null })
 
+  /** 互通 I1/I2 — 账号 ↔ 浏览器会话互操作（注入 / 手动登录 / 回采）。 */
+  const browserInterop = useBrowserInterop({
+    onCaptured: () => void c.loadInitialData().catch(() => undefined),
+  })
+
   const renderDetailColumn = (className?: string) => (
     <DetailColumn
       className={className}
@@ -246,6 +265,10 @@ function AccountManagerPage() {
       onRedetectProfile={c.handleRedetectProfile}
       onToggleProxy={c.handleToggleProxy}
       onManageExternalApps={c.handleOpenExternalApps}
+      onOpenBrowserInterop={
+        capabilityState.browserInteropAvailable ? browserInterop.openDialog : undefined
+      }
+      browserInteropDisabledReason={capabilityState.browserInteropDisabledReason}
       onRevealPassword={c.handleRevealPassword}
       onCopyPassword={c.handleCopyPassword}
       onProbeStrategyChange={c.handleProbeStrategyChange}
@@ -483,6 +506,26 @@ function AccountManagerPage() {
         checking={loginRules.checking}
         updatingScope={loginRules.updatingScope}
         onUpdate={loginRules.handleUpdate}
+      />
+      <BrowserInteropDialog
+        open={browserInterop.open}
+        onOpenChange={(next) => {
+          if (!next) browserInterop.closeDialog()
+        }}
+        account={browserInterop.account}
+        browsers={browserInterop.browsers}
+        browserId={browserInterop.browserId}
+        onBrowserIdChange={browserInterop.setBrowserId}
+        status={browserInterop.status}
+        busy={browserInterop.busy}
+        conflict={browserInterop.conflict}
+        lastOpen={browserInterop.lastOpen}
+        probe={browserInterop.probe}
+        onOpenBrowser={browserInterop.handleOpen}
+        onCapture={browserInterop.handleCapture}
+        onCloseInstance={browserInterop.handleCloseInstance}
+        onClearProfile={browserInterop.handleClearProfile}
+        onProbe={browserInterop.handleProbe}
       />
       <AccountExportDialog
         open={isAccountExportOpen}

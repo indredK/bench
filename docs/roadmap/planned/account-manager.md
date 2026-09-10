@@ -8,6 +8,23 @@
 
 - [ ] 将同账号 single-flight、429/5xx 重试预算、Cookie scope、Deep Link 多 URL/去重和平台行为测试接入 macOS/Windows CI runner。
 
+## 待验证（互通 I1/I2 浏览器会话互操作 · 2026-09-10 已实现，未真机验收）
+
+> 状态：**代码与单测已完成**（Rust 侧 `account_manager/browser_session/**` + `session_arbitration.rs`，前端 `useBrowserInterop` + `browser-interop-dialog`）。产品语义见 [product-specs/account-manager.md §17](../../reference/product-specs/account-manager.md)。
+> 阻断项：能力状态在真机用例通过前只能维持 `partial`（reasonCode `TARGET_PLATFORM_VALIDATION_PENDING`），不得提升为 `supported`。
+
+- [ ] **macOS 真机矩阵**（全新测试用户，禁用生产账号）：
+  - [ ] I1 注入：`injectSession=true` 打开站点后浏览器内直接是登录态；核对 `injectedCookies` / `skippedPartitioned` / `rejectedCookies` 与实际 cookie 数一致。
+  - [ ] I1 手动登录：`injectSession=false` → 浏览器内完成扫码 / 2FA / SSO → `browser_session_probe` 报告命中 → `browser_session_capture` 落库 → Bench 侧刷新后状态 Ready。
+  - [ ] I2 冲突：先在 Bench 刷新出更新会话，再从浏览器回采 → 必须返回 `conflict` 且 **Bench 数据不变**；确认覆盖后 `capturedAtTs` 前进、`sessionOrigin=browserCdp`。
+  - [ ] 实例生命周期：重复 `open` 复用实例（`reusedInstance=true`）；`close` 后进程退出；`clear_profile` 后 profile 目录消失且下次打开是干净起点。
+  - [ ] CDP 边界：把调试端口指到非回环地址必须被拒绝；浏览器中途退出时命令返回结构化错误而非悬挂到超时。
+  - [ ] 中文路径 / 带空格用户名下 `userDataDir` 正常（accountId 白名单化不应破坏正常 id）。
+- [ ] **Windows 真机矩阵**（Windows Sandbox/VM）：同上述 I1/I2 全项；额外核对候选安装路径探测（`Program Files` 系）与 `taskkill` 收尾无残留进程。
+- [ ] **无浏览器环境**：卸载全部 Chromium 系浏览器后，`browserSessionOpen`/`browserSessionCapture` 必须为 `failed`（reasonCode `NO_CHROMIUM_BROWSER`），详情栏入口禁用且 tooltip 说明原因。
+- [ ] **Keyring 失败**：拒绝钥匙串授权后互通能力必须 `failed`（`CREDENTIAL_STORE_INITIALIZATION_FAILED`），且不暴露入口（fail-closed 优先于浏览器可用性）。
+- [ ] **I3 日常浏览器回采**（未实现，代码阻断）：`bench-companion` 浏览器扩展 + 本机桥接；`SessionOrigin::BrowserExtension` 已预留，当前无写入路径。
+
 ## 待实现（2026-09-09 规划轮 F1–F4：登录指纹 · 入口收敛 · 日志增强 · 弹窗修复）
 
 > 状态：**已调研、未实现**。本节是本轮规划的唯一详细方案（调研结论 / 技术讨论 / 任务分解 / 验收标准），实施按「任务分配总表」顺序执行；完成后本节整体移除，设计边界同步 `design.md`、功能同步 `product-specs/account-manager.md`。

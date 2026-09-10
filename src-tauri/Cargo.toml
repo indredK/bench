@@ -37,7 +37,13 @@ walkdir = "2"
 chrono = "0.4"
 cookie = "0.18"
 dirs = "6"
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "net"] }
+# CDP（Chrome DevTools Protocol）WebSocket 客户端：浏览器会话注入 / 回采（browser_session）。
+# 仅连接本机 loopback `ws://127.0.0.1:<port>`，无需 TLS，故关掉默认 TLS 相关特性。
+tokio-tungstenite = { version = "0.30", default-features = false, features = [
+    "connect",
+    "handshake",
+] }
 base64 = "0.22"
 minisign-verify = "0.2.5"
 plist = "1.10"

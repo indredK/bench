@@ -31,7 +31,12 @@ import type {
   AuthProxyDrainResult,
   AuthProxyInboxStatus,
   AuthProxyResult,
+  BrowserCaptureOutcome,
+  BrowserOpenOutcome,
   BrowserOpenResult,
+  BrowserOptionDto,
+  BrowserProbeOutcome,
+  BrowserStatusOutcome,
   DeletionReport,
   ExternalApp,
   ExternalAppBinding,
@@ -430,6 +435,35 @@ export const TAURI_COMMAND_CONTRACTS = {
     { accountId?: string | null },
     ExternalAppBinding[]
   >()("list_external_app_bindings"),
+  // 互通 I1/I2 — 账号 ↔ 浏览器会话互操作
+  browser_session_browsers: defineTauriCommand<undefined, BrowserOptionDto[]>()(
+    "browser_session_browsers",
+  ),
+  browser_session_open: defineTauriCommand<
+    {
+      accountId: string
+      browserId?: string | null
+      injectSession: boolean
+      resetProfile: boolean
+    },
+    BrowserOpenOutcome
+  >()("browser_session_open"),
+  browser_session_status: defineTauriCommand<{ accountId: string }, BrowserStatusOutcome>()(
+    "browser_session_status",
+  ),
+  browser_session_close: defineTauriCommand<{ accountId: string }, boolean>()(
+    "browser_session_close",
+  ),
+  browser_session_capture: defineTauriCommand<
+    { accountId: string; force: boolean },
+    BrowserCaptureOutcome
+  >()("browser_session_capture"),
+  browser_session_probe: defineTauriCommand<{ accountId: string }, BrowserProbeOutcome>()(
+    "browser_session_probe",
+  ),
+  browser_session_clear_profile: defineTauriCommand<{ accountId: string }, boolean>()(
+    "browser_session_clear_profile",
+  ),
   list_pricing_standards: defineTauriCommand<undefined, PricingStandard[]>()(
     "list_pricing_standards",
   ),
@@ -1076,6 +1110,13 @@ export const TAURI_COMMANDS = {
     listExternalApps: commandName("list_external_apps"),
     removeExternalApp: commandName("remove_external_app"),
     listExternalAppBindings: commandName("list_external_app_bindings"),
+    browserSessionBrowsers: commandName("browser_session_browsers"),
+    browserSessionOpen: commandName("browser_session_open"),
+    browserSessionStatus: commandName("browser_session_status"),
+    browserSessionClose: commandName("browser_session_close"),
+    browserSessionCapture: commandName("browser_session_capture"),
+    browserSessionProbe: commandName("browser_session_probe"),
+    browserSessionClearProfile: commandName("browser_session_clear_profile"),
   },
   tokenCalculator: {
     listPricingStandards: commandName("list_pricing_standards"),
@@ -1375,6 +1416,13 @@ export const TAURI_COMMAND_ARG_KEYS = {
   list_external_apps: ["stationId", "accountId"],
   remove_external_app: ["appId"],
   list_external_app_bindings: ["accountId"],
+  browser_session_browsers: [],
+  browser_session_open: ["accountId", "browserId", "injectSession", "resetProfile"],
+  browser_session_status: ["accountId"],
+  browser_session_close: ["accountId"],
+  browser_session_capture: ["accountId", "force"],
+  browser_session_probe: ["accountId"],
+  browser_session_clear_profile: ["accountId"],
   list_pricing_standards: [],
   create_pricing_standard: ["name", "models"],
   update_pricing_standard: ["id", "name", "models"],

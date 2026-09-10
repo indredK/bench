@@ -60,7 +60,7 @@ pub(crate) async fn evaluate_js<R: Runtime>(
 /// - 带前导点的域级 cookie（如 `.trae.cn`）→ host 等于去点域名，或以
 ///   `.{去点域名}` 结尾（`www.trae.cn` / `api.trae.cn` 均命中）；
 /// - 无前导点（host-only 或显式 `Domain=host`）→ 精确命中，不放大到兄弟子域。
-fn cookie_domain_matches_target(cookie_domain: Option<&str>, host: &str) -> bool {
+pub(crate) fn cookie_domain_matches_target(cookie_domain: Option<&str>, host: &str) -> bool {
     let host = host.trim().to_ascii_lowercase();
     let Some(raw) = cookie_domain else {
         return true;

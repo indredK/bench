@@ -2,6 +2,26 @@
 
 本文件只记录仍影响当前实现的方向性取舍；“做什么”以 [ROADMAP.md](../roadmap/ROADMAP.md) 为准，当前风险以 [audit-report.md](./audit-report.md) 为准。已推翻和已完成历史由 Git 保留。
 
+## D-028 · 账号会话互通采用「CDP + 新鲜度仲裁」，浏览器作为第二端点
+
+- **日期**：2026-09-10
+- **状态**：采纳
+- **背景**：账号管理的会话此前只有两个存放点——S1 加密 store（canonical）与 S2 隔离 WebView data dir（登录窗口 / 会话保活），二者均由 Bench 自己掌管。用户诉求是把浏览器接入这条链路：既要用 Bench 里保存的账号直接以登录态打开站点，也要把在真实浏览器里登录好的会话搬回 Bench。引入第三个存放点后，最大风险变成**用陈旧的浏览态覆盖更新的 canonical 会话**，且浏览器不是 Bench 的子进程，控制手段有限。规划全文见 [browser-session-interop-plan.md](./browser-session-interop-plan.md)。
+- **决策**：
+  1. **协议走 CDP（Chrome DevTools Protocol）直连浏览器调试 WebSocket**，不引入浏览器扩展作为前置条件。I1（出向注入）与 I2（入向回采）共用同一条通道；扩展方案（I3，从用户日常浏览器回采）保留为后续里程碑，`SessionOrigin::BrowserExtension` 先占位。理由：CDP 无需用户装扩展、覆盖路径短；扩展方案要处理 manifest/permission/商店分发，收益不足以阻塞主链路。
+  2. **只支持 Chromium 系**（Chrome / Edge / Brave / Chromium）。Arc / Safari / Firefox 明确排除：前二者不提供 CDP，Safari 需私有协议且合规风险高。
+  3. **每账号独立托管 profile**（`userDataDir` 按账号隔离，accountId 白名单化防路径穿越），`--remote-debugging-port=0` 由浏览器自选端口、从 `DevToolsActivePort` 读回。**CDP WS 地址必须经 loopback 校验**，非回环一律拒绝——调试端口是完整会话控制面，绝不能指向远端。
+  4. **新增 `SessionOrigin` 维度**，把「这条会话从哪来」变成一等数据（`unknown / webviewLogin / webviewKeeper / authProxy / browserCdp / browserExtension / import`），随 `AccountSession` 一起持久化。没有来源维度就无法在冲突时向用户交代，也无法后续按来源做策略。
+  5. **写 S1 一律经新鲜度仲裁纯函数**（`session_arbitration.rs`）：`force=false` 且 Bench 已有会话不早于本次回采 → `Conflict`，**不写入**，把决定权交回用户；`force=true`（用户在冲突弹窗显式确认）或已有会话更旧或无法判断 → `Accept`。**禁止任何静默覆盖路径。**
+  6. **I2 复用 WebView 侧同一套捕获脚本与资源上限**（`browser_storage` 的脚本、key/record/字节上限、10s 超时全部共用），避免两条采集链路对同一站点给出不同的截断结果。
+  7. **IPC 契约收紧**：互通命令只接受 `accountId` 与布尔/枚举，**不接受 URL / 路径 / 凭据**——站点地址由后端从 `RelayStation` 读取，避免 renderer 扩大授权范围；返回 DTO 只含计数与枚举，cookie 值 / storage 值 / 明文会话永不出后端。
+  8. **能力门控 fail-closed 优先于浏览器可用性**：`browserSessionOpen` / `browserSessionCapture` 在 keyring 不可用时为 `failed`（而非「先用着」），因为无法解密会话时注入毫无意义；本机无受支持浏览器时同样 `failed`（reasonCode `NO_CHROMIUM_BROWSER`）。真机验收前维持 `partial`。
+  9. **UA 覆盖限定「同引擎」**（2026-09-10 修正）：原实现无条件把捕获的 UA 覆盖到托管浏览器上。但 Bench 登录窗口在 macOS 上是 WKWebView（Safari 系 UA），托管浏览器是 Chromium 系——跨引擎覆盖等于把 Chrome 伪装成 Safari，站点若对 UA 做绑定/分流会把请求判成新客户端而**丢掉会话**，与本意（避免 UA 突变触发风控）相反。改为只在「会话来源为 `BrowserCdp` 且 UA 本身是 Chromium 系」时覆盖，其余保留浏览器原生 UA。
+  10. **注入结果必须自证真值**（2026-09-10 修正）：原 `session_injected` 直接回填请求参数，导致「Bench 里根本没有该账号的会话」时注入 0 条仍被 UI 报成成功。改为 `session_injected = inject_session && has_stored_session`，并新增 `has_stored_session` / `storage_origins` 两个字段，让前端能分三档提示（无会话 / 有会话但 0 条被跳过拒绝 / 正常），并在弹窗内展示「上次打开结果」。
+- **理由**：把「谁能写 S1」从隐式时序假设收敛成可单测的纯函数，是本方案唯一真正难的部分；其余（CDP 客户端、profile 生命周期、DTO 收窄）都是工程量。仲裁函数 9 条单测覆盖 accept / conflict / force / 时间戳回退分支。
+- **影响**：新增 Rust 依赖 `tokio-tungstenite 0.30`（关闭默认 TLS features，仅 `connect` + `handshake`，目标恒为 loopback 明文）；`AccountManagerCapabilities` 从 7 项变 9 项（前端契约测试与 i18n 同步）；`AccountSession` 新增可选字段（serde default，旧数据无感）。
+- **相关**：[browser-session-interop-plan.md](./browser-session-interop-plan.md) · [product-specs/account-manager.md §17](../reference/product-specs/account-manager.md) · [D-012](#d-012--account-manager-使用有界同源浏览器状态与逐能力发布) · [D-007](#d-007--account-manager-使用单写者状态与后端授权票据)
+
 ## D-027 · Rust 测试运行器迁移 cargo-nextest
 
 - **日期**：2026-09-09
