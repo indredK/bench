@@ -364,7 +364,6 @@
 - **命令与门控**：`browser_session_browsers / open / sync_daily / status / close / capture / probe / clear_profile` 八个命令只接受 `accountId` 与布尔/枚举，**不接受 URL、路径或凭据**。capability `browserSessionOpen` / `browserSessionCapture` 任一不可用时，详情栏入口禁用并以 tooltip 说明原因（reasonCode → i18n）。
 
 - **扩展通道（I3 读 / I5 写，2026-09-10 落地）**：浏览器端点分两类，**语义必须在 UI 上区分**：
-
   | 端点             | 由谁启动                                   | 通道                             | 隔离性 | 登录态来源           |
   | ---------------- | ------------------------------------------ | -------------------------------- | ------ | -------------------- |
   | **A 隔离实例**   | Bench（每账号/每站点专属 `user-data-dir`） | CDP                              | 强     | Bench 里该账号的会话 |
@@ -374,6 +373,6 @@
   - **数据面**：app 起 `127.0.0.1:0` 本地桥，每次启动重新生成一次性 token（`0600` 描述文件），并校验 `Origin` = 固定扩展 ID。**控制面**（下发端口与 token）经 Native Messaging，由 NM manifest 的 `allowed_origins` 保证只有该扩展能取到。明文会话只经「浏览器进程 → loopback → Rust 内存 → 加密 store」，**不经过 bench-host 进程**。
   - **交互模型**：扩展**主动发起**（popup 内的用户手势），Bench 侧只提供引导与状态。读：在目标站点上点扩展图标 →「保存此站点登录态到 Bench」；写：「用 Bench 账号登录此站点」（**默认不勾选、写入前把该站点现有 Cookie 备份进 `chrome.storage.local`、可一键回滚**）。
   - **落库纪律与 CDP 通道完全一致**：复用同一 `finalize_capture`（新鲜度仲裁 → 互斥 → 加密 → probe 验证），`sessionOrigin = browserExtension`。**不存在第二条静默覆盖路径。**
-  - **能力边界（必须向用户交代）**：扩展通道 **v1 只搬 Cookie**；`storageOrigins > 0` 时必须提示「本地存储无法经扩展写入，若仍显示未登录请改用浏览器实例方式」。**不打开任何窗口**，因此没有实时预览。
+  - **能力边界（D-031，bench-companion 0.3.0 起）**：写方向为 **Cookie + Web Storage**——桥 `/v1/session/export` 增发 `webStorage` 载荷（`browser_storage::web_storage_restore_payload`，形状与恢复脚本 origin 分支一致），扩展经 `chrome.scripting` 注入站点页（isolated world 与页面共享 localStorage/sessionStorage）覆盖写入后重载；**写前全量备份、可一键回滚**（与 cookie 同一备份键）；host 权限在 popup 用户手势中按站点申请。**IndexedDB 刻意不注入**（无法廉价备份、误覆盖不可逆），登录凭证存 IndexedDB 的站点走隔离实例。实测动机：trae 的登录凭证在 localStorage（`Cloud-IDE-Token`），cookie-only 对该类站点无效。`storageOrigins > 0` 时提示用户确认扩展 ≥ 0.3.0 并授权站点访问。**不打开任何可见窗口**（注入用后台标签页），因此没有实时预览。
   - **安装与分发**：Chrome 137 已从 branded 构建移除 `--load-extension`，官方替代只对 Bench 新起的实例生效 —— **无法自动装入用户的日常浏览器**。流程为「一键导出扩展目录 + 打开扩展管理页 + 引导『加载已解压的扩展程序』」；消除「停用开发者模式扩展程序」提示的唯一路径是商店上架（未做）。
   - **命令与路由**：`browser_ext_status`（含 `bridgeReady` / `bridgePort`）/ `browser_ext_export`（同时确保本地桥启动）；桥路由 `GET /v1/ping`、`POST /v1/site/resolve`、`POST /v1/session/import`、`POST /v1/session/export`。capability `browserSessionExtension` **不受**「本机是否装有 Chromium 系浏览器」约束（扩展跑在用户自己的浏览器里）。

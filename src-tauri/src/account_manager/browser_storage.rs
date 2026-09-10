@@ -210,6 +210,56 @@ pub fn merge_origin(session: &mut AccountSession, captured: OriginStorage) {
     }
 }
 
+/// 校验存储 origin 是 canonical 的 http(s) origin（WebView 与扩展通道共用同一约束）。
+fn ensure_canonical_http_origin(origin: &str) -> AccountManagerResult<()> {
+    let parsed = url::Url::parse(origin)
+        .map_err(|_| AccountManagerError::store_fail("stored Web Storage origin is invalid"))?;
+    if !matches!(parsed.scheme(), "http" | "https")
+        || parsed.origin().ascii_serialization() != origin
+    {
+        return Err(AccountManagerError::store_fail(
+            "stored Web Storage origin is not canonical",
+        ));
+    }
+    Ok(())
+}
+
+/// 组装「Web Storage 恢复载荷」——扩展通道（bench-companion ≥ 0.3）的注入数据。
+///
+/// 载荷形状与 [`RESTORE_SCRIPT_TEMPLATE`] 的 origin 分支**完全一致**
+///（`{origin, localStorage: [{name,value}], sessionStorage: [{name,value}]}`），
+/// 执行器是模板的扩展侧等价物，双端以载荷 JSON 为唯一 schema 锚点，改动必须同步。
+///
+/// **刻意不包含 IndexedDB**：扩展注入在用户日常浏览器执行，`localStorage.clear()`
+/// 级别的破坏对 Web Storage 可经「注入前全量备份 + 一键回滚」兜底（载荷小、同步
+/// API），而 IndexedDB 既无法廉价备份、误覆盖又不可逆——对登录态主要存 Web
+/// Storage 的站点（trae 的 `Cloud-IDE-Token` 等）这已足够；依赖 IndexedDB 的站点
+/// 仍应走隔离实例通道（见 D-031）。
+///
+/// 返回 `None` 表示该会话没有存储快照。
+pub fn web_storage_restore_payload(
+    state: &AccountManagerState,
+    session: &AccountSession,
+) -> AccountManagerResult<Option<Vec<Value>>> {
+    if session.origins.is_empty() {
+        return Ok(None);
+    }
+    let mut payload = Vec::new();
+    for origin in &session.origins {
+        ensure_canonical_http_origin(&origin.origin)?;
+        payload.push(json!({
+            "origin": origin.origin,
+            "localStorage": decrypt_json_array(state, origin.local_storage.as_ref(), "localStorage")?,
+            "sessionStorage": decrypt_json_array(
+                state,
+                origin.session_storage.as_ref(),
+                "sessionStorage",
+            )?,
+        }));
+    }
+    Ok(Some(payload))
+}
+
 pub fn restore_initialization_script(
     state: &AccountManagerState,
     session: &AccountSession,
@@ -220,15 +270,7 @@ pub fn restore_initialization_script(
     let key = state.master_key()?;
     let mut branches = String::new();
     for origin in &session.origins {
-        let parsed = url::Url::parse(&origin.origin)
-            .map_err(|_| AccountManagerError::store_fail("stored Web Storage origin is invalid"))?;
-        if !matches!(parsed.scheme(), "http" | "https")
-            || parsed.origin().ascii_serialization() != origin.origin
-        {
-            return Err(AccountManagerError::store_fail(
-                "stored Web Storage origin is not canonical",
-            ));
-        }
+        ensure_canonical_http_origin(&origin.origin)?;
         let local = decrypt_json_array(state, origin.local_storage.as_ref(), "localStorage")?;
         let session_storage =
             decrypt_json_array(state, origin.session_storage.as_ref(), "sessionStorage")?;
@@ -567,5 +609,16 @@ mod tests {
         let script = capture_script("slot-with-'quotes").expect("script");
         assert!(script.contains("const slot=\"slot-with-'quotes\""));
         assert!(!script.contains("__SLOT__"));
+    }
+
+    #[test]
+    fn canonical_origin_check_accepts_only_normalized_http_origins() {
+        assert!(ensure_canonical_http_origin("https://www.trae.cn").is_ok());
+        assert!(ensure_canonical_http_origin("http://localhost:1420").is_ok());
+        // 非法 scheme / 带路径与 query 的非 canonical 形态一律拒绝：
+        // 扩展按该 origin 精确匹配分支，脏数据会导致注入打偏。
+        assert!(ensure_canonical_http_origin("ftp://www.trae.cn").is_err());
+        assert!(ensure_canonical_http_origin("https://www.trae.cn/app").is_err());
+        assert!(ensure_canonical_http_origin("not a url").is_err());
     }
 }

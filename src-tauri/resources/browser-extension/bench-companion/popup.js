@@ -271,8 +271,36 @@ async function injectSession() {
     return
   }
   $inject.disabled = true
-  setMessage("注入中…（会先备份本浏览器该站点现有 Cookie）")
-  const res = await send({ type: "bench:session:inject", accountId: picked.value, url: state.url })
+  setMessage("注入中…（会先备份本浏览器该站点现有 Cookie 与本地存储）")
+
+  // 预检：该账号会话是否含本站点的 Web Storage 载荷。host 权限申请必须在
+  // 本次点击的用户手势内完成（background 里调用 request 会被 Chrome 拒绝）。
+  let withStorage = false
+  try {
+    const preview = await send({
+      type: "bench:session:storagePreview",
+      accountId: picked.value,
+      url: state.url,
+    })
+    if (preview.ok && preview.data.outcome === "ok" && preview.data.hasWebStorage) {
+      const origin = new URL(state.url).origin
+      const granted = await chrome.permissions.request({ origins: [origin + "/*"] })
+      if (granted) {
+        withStorage = true
+      } else {
+        setMessage("未授权站点访问：本次仅注入 Cookie，本地存储保持不变。", "warn")
+      }
+    }
+  } catch (e) {
+    // 预检失败不阻断注入（Cookie 仍可写），storage 视为不可用。
+  }
+
+  const res = await send({
+    type: "bench:session:inject",
+    accountId: picked.value,
+    url: state.url,
+    withStorage,
+  })
   $inject.disabled = false
   if (!res.ok) {
     setMessage(res.error, "err")
@@ -291,17 +319,32 @@ async function injectSession() {
     "已写入 " + data.written + " 条 Cookie（原站点已有 " + data.replaced + " 条，已备份）。",
   ]
   if (data.failed) lines.push("失败 " + data.failed + " 条。")
-  if (data.storageOrigins > 0) {
+  const storage = data.storage || {}
+  if (storage.attempted && storage.granted && storage.writtenKeys > 0) {
     lines.push(
-      "注意：该账号的登录态还包含本地存储（" +
-        data.storageOrigins +
-        " 个 origin），浏览器扩展无法写入 —— 若站点仍显示未登录，请在 Bench 里改用「浏览器实例」方式打开。",
+      "已写入本地存储 " +
+        storage.writtenKeys +
+        " 个键（localStorage " +
+        storage.writtenLocal +
+        " + sessionStorage " +
+        storage.writtenSession +
+        "），页面已刷新。",
+    )
+  }
+  if (storage.attempted && storage.error) {
+    lines.push("本地存储写入失败：" + storage.error)
+  }
+  if (data.storageOrigins > 0 && !storage.writtenKeys) {
+    lines.push(
+      "注意：该账号的登录态还包含本地存储" +
+        (storage.attempted && !storage.granted ? "（本次未授权写入）" : "") +
+        "。若站点仍显示未登录（登录凭证存于 IndexedDB 的站点），请在 Bench 里改用「Bench 隔离实例」方式同步。",
     )
   }
   if (data.skippedPartitioned > 0) {
     lines.push("已跳过 " + data.skippedPartitioned + " 条分区隔离 Cookie。")
   }
-  setMessage(lines.join("\n"), data.storageOrigins > 0 ? "warn" : "ok")
+  setMessage(lines.join("\n"), data.storageOrigins > 0 && !storage.writtenKeys ? "warn" : "ok")
   await renderBackups()
 }
 
@@ -315,20 +358,22 @@ async function renderBackups() {
   $backups.innerHTML =
     '<div class="slabel">可回滚的备份</div>' +
     res.data
-      .map(
-        (b) =>
+      .map((b) => {
+        const meta = b.count + " 条" + (b.storageKeys ? " + " + b.storageKeys + " 个存储键" : "")
+        return (
           '<div class="bk"><span class="origin" title="' +
           escapeHtml(b.origin) +
           '">' +
           escapeHtml(b.origin) +
           "</span>" +
           '<span class="meta">' +
-          b.count +
-          " 条</span>" +
+          escapeHtml(meta) +
+          "</span>" +
           '<a data-key="' +
           escapeHtml(b.key) +
-          '">回滚</a></div>',
-      )
+          '">回滚</a></div>'
+        )
+      })
       .join("")
   for (const link of $backups.querySelectorAll("a[data-key]")) {
     link.addEventListener("click", async () => {
@@ -338,7 +383,12 @@ async function renderBackups() {
         setMessage(done.error, "err")
         return
       }
-      setMessage("已回滚 " + done.data.written + " 条 Cookie。", "ok")
+      const parts = ["已回滚 " + done.data.written + " 条 Cookie。"]
+      if (done.data.storageWritten > 0)
+        parts.push("本地存储 " + done.data.storageWritten + " 个键。")
+      if (done.data.storageWritten < 0)
+        parts.push("本地存储未回滚（未授权该站点，可在注入流程中授权后重试）。")
+      setMessage(parts.join(" "), "ok")
       await renderBackups()
     })
   }

@@ -1580,6 +1580,11 @@ pub fn export_for_extension(
         .filter(in_scope)
         .filter(|entry| entry.partitioned)
         .count();
+    // Web Storage 恢复载荷（bench-companion ≥ 0.3 消费）：与 WebView / CDP 共用
+    // 同一份 browser_storage schema；IndexedDB 刻意不下发（无法廉价备份，见
+    // `web_storage_restore_payload` 文档）。载荷含明文 token，仅回给通过
+    // token + Origin 双校验的扩展——与 cookie 载荷同一信任边界。
+    let web_storage = browser_storage::web_storage_restore_payload(state, &saved)?;
 
     Ok(json!({
         "outcome": if cookies.is_empty() { "empty" } else { "ok" },
@@ -1588,6 +1593,7 @@ pub fn export_for_extension(
         "userAgent": saved.user_agent,
         "cookies": cookies,
         "skippedPartitioned": skipped_partitioned,
+        "webStorage": web_storage,
         "storageOrigins": saved.origins.len(),
         "capturedAtTs": saved.captured_at_ts,
         "sessionOrigin": saved.session_origin,

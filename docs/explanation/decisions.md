@@ -2,6 +2,20 @@
 
 本文件只记录仍影响当前实现的方向性取舍；“做什么”以 [ROADMAP.md](../roadmap/ROADMAP.md) 为准，当前风险以 [audit-report.md](./audit-report.md) 为准。已推翻和已完成历史由 Git 保留。
 
+## D-031 · 扩展通道升级「Cookie + Web Storage」注入，IndexedDB 仍排除
+
+- **日期**：2026-09-10
+- **状态**：采纳（**supersede [D-029](#d-029--日常浏览器方向改用扩展--本地桥i3i5-提前为必须实现) 决议 4「扩展通道 v1 只搬 Cookie」中的 Web Storage 部分**；IndexedDB 排除维持）
+- **背景**：D-029 把扩展通道定为「只搬 Cookie」，理由是避免在扩展里复制一份 `browser_storage` 采集载荷 schema。用户实测发现关键缺口：**trae 的登录凭证存在 localStorage（`Cloud-IDE-Token` / `__tea_session_id_*`），cookie 只是风控辅助**——对这类站点，cookie-only 通道即使全部写入也无法登录，扩展通道形同虚设。
+- **决策**：
+  1. **桥 `/v1/session/export` 增发 `webStorage` 载荷**：`browser_storage::web_storage_restore_payload` 解密出 `{origin, localStorage, sessionStorage}` 数组，形状与 `RESTORE_SCRIPT_TEMPLATE` 的 origin 分支**完全一致**——扩展执行器是模板的 JS 等价物，双端以载荷 JSON 为唯一 schema 锚点，不产生 D-029 当初担心的 schema 漂移。
+  2. **扩展侧注入流程**（bench-companion 0.3.0，manifest +`scripting`）：预检（`bench:session:storagePreview`，只回计数）→ **host 权限在 popup 用户手势中按站点申请**（`chrome.permissions.request`，background 深处调用会被 Chrome 拒绝）→ 打开站点后台标签页 → `chrome.scripting.executeScript`（isolated world 与页面**共享** localStorage/sessionStorage，无需 MAIN world）覆盖写入 → 重载页面。
+  3. **写前备份 + 回滚对齐 cookie 纪律**（D-029 决议 6）：注入前把站点现有 localStorage/sessionStorage 全量读回，与 cookie 合并存入同一备份键；回滚时一并恢复。`localStorage.clear()` 级别的破坏由此兜底。
+  4. **IndexedDB 刻意不注入**：无法廉价备份、误覆盖不可逆，且扩展侧重建需要复制整套 capture/restore 逻辑。依赖 IndexedDB 的站点走隔离实例通道（完整恢复）。UI 文案显式交代这一边界。
+- **理由**：把扩展通道从「对 trae 类站点无效」修复为可用，而 schema 单一实现的关键约束没有破。安全边界不变：明文 token 经 loopback 桥只回给通过 token + Origin 双校验的扩展，与 cookie 载荷同级。
+- **影响**：扩展 manifest 权限变更（`scripting`）→ 用户需重载扩展并确认 Chrome「待确认」提示；桥 export 响应新增 `webStorage` 字段（旧扩展忽略，向后兼容）；Bench 侧 daily 同步提示文案改为「0.3.0+ 可写本地存储」。
+- **相关**：[product-specs/account-manager.md §17](../reference/product-specs/account-manager.md) · [D-029](#d-029--日常浏览器方向改用扩展--本地桥i3i5-提前为必须实现) · [D-030](#d-030--出向注入前自动补采-bench-内置登录态出向目标显式二选一)
+
 ## D-030 · 出向注入前自动补采 Bench 内置登录态；出向目标显式二选一
 
 - **日期**：2026-09-10

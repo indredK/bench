@@ -125,6 +125,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     "bench:session:resolve": () => resolveSite(msg.url),
     "bench:session:import": () => importSession(msg),
     "bench:session:export": () => exportSession(msg.accountId),
+    "bench:session:storagePreview": () => storagePreview(msg),
     "bench:session:inject": () => injectSession(msg),
     "bench:session:backups": () => listBackups(),
     "bench:session:restore": () => restoreBackup(msg.key),
@@ -258,19 +259,100 @@ async function exportSession(accountId) {
   return bridgeCall("/v1/session/export", { accountId })
 }
 
+/** 注入预检：该账号会话在本站点是否有可写的 Web Storage 载荷（不回传载荷本身）。 */
+async function storagePreview({ accountId, url }) {
+  const exported = await exportSession(accountId)
+  if (exported.outcome !== "ok") return { outcome: exported.outcome }
+  const origin = new URL(url).origin
+  const branch = (exported.webStorage || []).find((item) => item.origin === origin)
+  const localKeys = (branch?.localStorage || []).length
+  const sessionKeys = (branch?.sessionStorage || []).length
+  return {
+    outcome: "ok",
+    hasWebStorage: localKeys + sessionKeys > 0,
+    localKeys,
+    sessionKeys,
+    storageOrigins: exported.storageOrigins || 0,
+  }
+}
+
+/** 打开（或复用）一个指向 origin 的标签页并等待加载完成，返回 tabId。 */
+async function openAndWaitTab(url, timeoutMs = 20000) {
+  const tab = await chrome.tabs.create({ url, active: false })
+  await new Promise((resolve) => {
+    let settled = false
+    const finish = () => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      chrome.tabs.onUpdated.removeListener(listener)
+      resolve()
+    }
+    const timer = setTimeout(finish, timeoutMs)
+    const listener = (tabId, changeInfo) => {
+      if (tabId === tab.id && changeInfo.status === "complete") finish()
+    }
+    chrome.tabs.onUpdated.addListener(listener)
+  })
+  return tab.id
+}
+
+/**
+ * 把 Bench 账号的 Web Storage 写进本站点（v0.3 新能力）。
+ *
+ * 顺序：备份现有 localStorage/sessionStorage → 在页面上下文执行覆盖写入 →
+ * 重载页面使站点读到新存储。执行器与 Bench 的恢复脚本（browser_storage
+ * `RESTORE_SCRIPT_TEMPLATE` 的 Web Storage 分支）行为一致，双端以载荷 JSON
+ * `{origin, localStorage:[{name,value}], sessionStorage:[{name,value}]}` 为唯一
+ * schema 锚点，改动必须两处同步。IndexedDB 刻意不注入（无法廉价备份）。
+ */
+async function injectWebStorage(origin, branch) {
+  const tabId = await openAndWaitTab(origin + "/")
+  const backupResult = await chrome.scripting.executeScript({
+    target: { tabId },
+    func: () => ({
+      localStorage: Object.fromEntries(Object.entries(localStorage)),
+      sessionStorage: Object.fromEntries(Object.entries(sessionStorage)),
+    }),
+  })
+  const backup = backupResult?.[0]?.result || { localStorage: {}, sessionStorage: {} }
+
+  const writeResult = await chrome.scripting.executeScript({
+    target: { tabId },
+    func: (payload) => {
+      localStorage.clear()
+      for (const entry of payload.localStorage) localStorage.setItem(entry.name, entry.value)
+      sessionStorage.clear()
+      for (const entry of payload.sessionStorage) sessionStorage.setItem(entry.name, entry.value)
+      return {
+        writtenLocal: payload.localStorage.length,
+        writtenSession: payload.sessionStorage.length,
+        replacedLocal: Object.keys(localStorage).length,
+      }
+    },
+    args: [branch],
+  })
+  const written = writeResult?.[0]?.result || { writtenLocal: 0, writtenSession: 0 }
+  await chrome.tabs.reload(tabId)
+  return {
+    writtenKeys: written.writtenLocal + written.writtenSession,
+    writtenLocal: written.writtenLocal,
+    writtenSession: written.writtenSession,
+    backup,
+  }
+}
+
 const BACKUP_PREFIX = "bench:backup:"
 
-/** I5 第二步：先备份该站点现有 cookie，再逐条写入。 */
-async function injectSession({ accountId, url }) {
+/** I5 第二步：先备份该站点现有登录态（Cookie + Web Storage），再逐条写入。 */
+async function injectSession({ accountId, url, withStorage }) {
   const exported = await exportSession(accountId)
   if (exported.outcome !== "ok") return exported
 
   const origin = new URL(url).origin
   const existing = await collectCookies(url)
   const backupKey = BACKUP_PREFIX + origin
-  await chrome.storage.local.set({
-    [backupKey]: { at: Date.now(), origin, cookies: existing },
-  })
+  const backup = { at: Date.now(), origin, cookies: existing }
 
   let written = 0
   let failed = 0
@@ -295,6 +377,43 @@ async function injectSession({ accountId, url }) {
     }
   }
 
+  // Web Storage 注入（v0.3）：host 权限必须在 popup 的用户手势里申请完毕，
+  // 这里只检查是否已授予；未授予则降级为「仅 Cookie」并在结果里说明。
+  const storage = {
+    attempted: false,
+    granted: false,
+    writtenKeys: 0,
+    writtenLocal: 0,
+    writtenSession: 0,
+    error: null,
+  }
+  const branch = (exported.webStorage || []).find((item) => item.origin === origin)
+  if (withStorage && branch) {
+    const keys = (branch.localStorage || []).length + (branch.sessionStorage || []).length
+    if (keys > 0) {
+      storage.attempted = true
+      try {
+        storage.granted = await chrome.permissions.contains({
+          origins: [origin + "/*"],
+        })
+      } catch (e) {
+        storage.granted = false
+      }
+      if (storage.granted) {
+        try {
+          const result = await injectWebStorage(origin, branch)
+          storage.writtenKeys = result.writtenKeys
+          storage.writtenLocal = result.writtenLocal
+          storage.writtenSession = result.writtenSession
+          backup.webStorage = result.backup
+        } catch (e) {
+          storage.error = String(e?.message || e)
+        }
+      }
+    }
+  }
+  await chrome.storage.local.set({ [backupKey]: backup })
+
   return {
     outcome: "injected",
     origin,
@@ -305,6 +424,7 @@ async function injectSession({ accountId, url }) {
     // > 0 表示该账号的登录态还含本地存储（扩展无法写入），必须提示用户。
     storageOrigins: exported.storageOrigins || 0,
     skippedPartitioned: exported.skippedPartitioned || 0,
+    storage,
   }
 }
 
@@ -317,11 +437,35 @@ async function listBackups() {
       origin: all[key]?.origin || "",
       at: all[key]?.at || 0,
       count: (all[key]?.cookies || []).length,
+      storageKeys: Object.keys(all[key]?.webStorage?.localStorage || {}).length,
     }))
     .sort((a, b) => b.at - a.at)
 }
 
-/** 回滚：把备份里的 cookie 写回，并清掉备份。 */
+/** 把某站点现有 Web Storage 写回（回滚）。返回写入键数；站点页未授权时返回 -1。 */
+async function restoreWebStorage(origin, webStorage) {
+  const localEntries = Object.entries(webStorage?.localStorage || {})
+  const sessionEntries = Object.entries(webStorage?.sessionStorage || {})
+  if (localEntries.length + sessionEntries.length === 0) return 0
+  const granted = await chrome.permissions.contains({ origins: [origin + "/*"] })
+  if (!granted) return -1
+  const tabId = await openAndWaitTab(origin + "/")
+  const result = await chrome.scripting.executeScript({
+    target: { tabId },
+    func: (payload) => {
+      localStorage.clear()
+      for (const [name, value] of payload.local) localStorage.setItem(name, value)
+      sessionStorage.clear()
+      for (const [name, value] of payload.session) sessionStorage.setItem(name, value)
+      return payload.local.length + payload.session.length
+    },
+    args: [{ local: localEntries, session: sessionEntries }],
+  })
+  await chrome.tabs.reload(tabId)
+  return result?.[0]?.result ?? 0
+}
+
+/** 回滚：把备份里的 Cookie 与 Web Storage 写回，并清掉备份。 */
 async function restoreBackup(key) {
   if (!key || !key.startsWith(BACKUP_PREFIX)) throw new Error("BAD_BACKUP_KEY")
   const all = await chrome.storage.local.get(key)
@@ -347,8 +491,9 @@ async function restoreBackup(key) {
       /* 单条失败不中断整体回滚 */
     }
   }
+  const storageWritten = await restoreWebStorage(backup.origin, backup.webStorage)
   await chrome.storage.local.remove(key)
-  return { written }
+  return { written, storageWritten }
 }
 
 // SW 冷启动即尝试连接（首次消息到达时也会 lazy connect）
