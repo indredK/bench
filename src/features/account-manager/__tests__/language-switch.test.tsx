@@ -96,6 +96,7 @@ function renderColumns(stations: RelayStation[] = [station], accounts = [account
           onRefreshStation={noop}
           onEdit={noop}
           onDelete={noop}
+          onExport={noop}
           onReorder={noop}
           reorderDisabled={false}
         />

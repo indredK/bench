@@ -9,6 +9,7 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/
 import { openExternal } from "@/platform/shell"
 import { useAccountManagerController } from "@/features/account-manager/hooks/useAccountManagerController"
 import { useLoginRules } from "@/features/account-manager/hooks/useLoginRules"
+import { useAccountExport } from "@/features/account-manager/hooks/useAccountExport"
 import { StationColumn } from "@/features/account-manager/components/StationColumn"
 import { AccountColumn } from "@/features/account-manager/components/AccountColumn"
 import { DetailColumn } from "@/features/account-manager/components/DetailColumn"
@@ -24,6 +25,7 @@ import { AccountLogDialog } from "@/features/account-manager/components/account-
 import { FingerprintConfirmDialog } from "@/features/account-manager/components/fingerprint-confirm-dialog"
 import { FingerprintDetailDialog } from "@/features/account-manager/components/fingerprint-detail-dialog"
 import { LoginRulesDialog } from "@/features/account-manager/components/login-rules-dialog"
+import { AccountExportDialog } from "@/features/account-manager/components/account-export-dialog"
 import { useAccountManagerStore } from "@/features/account-manager/store"
 import { useNotificationCenterStore } from "@/components/layout/notification-center/store"
 import { cn } from "@/lib/utils"
@@ -97,6 +99,12 @@ function AccountManagerPage() {
   const setAccountLogOpen = useAccountManagerStore((s) => s.setAccountLogOpen)
   const accountLogTarget = useAccountManagerStore((s) => s.accountLogTarget)
   const keeperLogs = c.sessionKeeper.logs
+
+  /** 账号快照导出弹窗（导出按钮 → openDialog 生成快照,出口为复制/保存）。 */
+  const accountExport = useAccountExport()
+  const isAccountExportOpen = useAccountManagerStore((s) => s.isAccountExportOpen)
+  const setAccountExportOpen = useAccountManagerStore((s) => s.setAccountExportOpen)
+  const accountExportTarget = useAccountManagerStore((s) => s.accountExportTarget)
 
   /** 指纹确认弹窗展示的账号名:取自采样目标(而非当前选中,避免选中被重置后文案错位)。 */
   const fingerprintUsername = useMemo(() => {
@@ -335,6 +343,7 @@ function AccountManagerPage() {
             c.setDeletingAccount(account)
             c.setDeleteAccountOpen(true)
           }}
+          onExport={(account) => accountExport.openDialog(account.id, account.username)}
           onReorder={(ids) => void c.handleReorderAccounts(ids)}
           reorderDisabled={c.reorderingAccounts}
           loginDisabledReason={capabilityState.loginDisabledReason}
@@ -474,6 +483,17 @@ function AccountManagerPage() {
         checking={loginRules.checking}
         updatingScope={loginRules.updatingScope}
         onUpdate={loginRules.handleUpdate}
+      />
+      <AccountExportDialog
+        open={isAccountExportOpen}
+        onOpenChange={setAccountExportOpen}
+        accountName={accountExportTarget?.accountName ?? ""}
+        stationName={c.selectedStation?.remark ?? ""}
+        loading={accountExport.loading}
+        saving={accountExport.saving}
+        ready={accountExport.ready}
+        onCopy={() => void accountExport.copyToClipboard()}
+        onSave={() => void accountExport.saveAsJson()}
       />
     </div>
   )

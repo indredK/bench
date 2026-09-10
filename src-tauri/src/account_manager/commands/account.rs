@@ -323,6 +323,106 @@ pub fn copy_password_to_clipboard<R: Runtime>(
     Ok(())
 }
 
+// ───── account snapshot export（用户主动触发的明文凭证出口） ─────
+
+/// 解密 origin storage blob（localStorage/sessionStorage/IndexedDB 加密块）。
+/// 解密失败不阻断整体导出，标注 `decryptError`；明文不是 JSON 时原样作字符串返回。
+fn decrypt_storage_blob(key: &[u8; 32], blob: &Option<crypto::EncryptedBlob>) -> serde_json::Value {
+    match blob {
+        None => serde_json::Value::Null,
+        Some(blob) => match crypto::decrypt(key, blob) {
+            Ok(text) => serde_json::from_str(&text).unwrap_or(serde_json::Value::String(text)),
+            Err(error) => serde_json::json!({ "decryptError": error.to_string() }),
+        },
+    }
+}
+
+/// 导出账号完整快照（pretty JSON 字符串）：账号信息 + 明文密码 + 站点信息 +
+/// session（cookies 明文、CSRF、origins 解密明文）+ 登录指纹 + 认证画像。
+/// **明文凭证出口**：与 reveal_password 同级的敏感面，仅由用户主动触发；
+/// 内容去向（剪贴板 / JSON 文件）由前端决定。
+#[tauri::command]
+pub fn export_account_snapshot(
+    state: State<'_, AccountManagerState>,
+    account_id: String,
+) -> AccountManagerResult<String> {
+    let snapshot = state.read_snapshot_checked()?;
+    let account = snapshot
+        .accounts
+        .iter()
+        .find(|a| a.id == account_id)
+        .ok_or_else(|| AccountManagerError::not_found(format!("account {account_id}")))?;
+    let station = snapshot
+        .stations
+        .iter()
+        .find(|s| s.id == account.station_id)
+        .ok_or_else(|| AccountManagerError::not_found(format!("station {}", account.station_id)))?;
+
+    let key = state.master_key()?;
+
+    // 明文密码（无密码时省略字段）。
+    let password = snapshot
+        .secrets
+        .get(&account_id)
+        .map(|blob| crypto::decrypt(&key, blob))
+        .transpose()?;
+
+    // session：外层 blob 已由 restore_session 解密；origins 内层 storage 再逐块解密。
+    let session_value = match crate::account_manager::session::restore_session(&state, &account_id)?
+    {
+        Some(session) => {
+            let origins: Vec<serde_json::Value> = session
+                .origins
+                .iter()
+                .map(|origin| {
+                    serde_json::json!({
+                        "origin": origin.origin,
+                        "localStorage": decrypt_storage_blob(&key, &origin.local_storage),
+                        "sessionStorage": decrypt_storage_blob(&key, &origin.session_storage),
+                        "indexedDb": decrypt_storage_blob(&key, &origin.indexed_db),
+                    })
+                })
+                .collect();
+            serde_json::json!({
+                "capturedAt": session.captured_at,
+                "capturedAtTs": session.captured_at_ts,
+                "expiresHint": session.expires_hint,
+                "userAgent": session.user_agent,
+                "cookies": session.cookies,
+                "csrfToken": session.csrf_token,
+                "origins": origins,
+            })
+        }
+        None => serde_json::Value::Null,
+    };
+
+    // 站点级登录指纹（特征名 + 值长度；值本身从未存储）。
+    let fingerprint = snapshot.fingerprints.get(&account.station_id);
+
+    let mut account_value = serde_json::to_value(account)
+        .map_err(|e| AccountManagerError::store_fail(format!("serialize account: {e}")))?;
+    if let Some(password) = password {
+        account_value["password"] = serde_json::Value::String(password);
+    }
+
+    let payload = serde_json::json!({
+        "kind": "bench-account-snapshot",
+        "version": 1,
+        "exportedAt": now_label(),
+        "station": {
+            "id": station.id,
+            "remark": station.remark,
+            "website": station.website,
+        },
+        "account": account_value,
+        "session": session_value,
+        "fingerprint": fingerprint,
+        "authProfile": station.auth_profile,
+    });
+    serde_json::to_string_pretty(&payload)
+        .map_err(|e| AccountManagerError::store_fail(format!("serialize snapshot: {e}")))
+}
+
 // ───── ephemeral (Phase 2) ─────
 
 /// 创建一个临时账号(快速登录入口)。

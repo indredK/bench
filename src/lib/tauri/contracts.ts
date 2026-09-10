@@ -319,6 +319,9 @@ export const TAURI_COMMAND_CONTRACTS = {
   copy_password_to_clipboard: defineTauriCommand<{ accountId: string }, void>()(
     "copy_password_to_clipboard",
   ),
+  export_account_snapshot: defineTauriCommand<{ accountId: string }, string>()(
+    "export_account_snapshot",
+  ),
   open_login_window: defineTauriCommand<
     { accountId: string; returnUrl?: string | null; url?: string | null },
     void
@@ -1041,6 +1044,7 @@ export const TAURI_COMMANDS = {
     revealPassword: commandName("reveal_password"),
     setPassword: commandName("set_password"),
     copyPasswordToClipboard: commandName("copy_password_to_clipboard"),
+    exportAccountSnapshot: commandName("export_account_snapshot"),
     openLoginWindow: commandName("open_login_window"),
     refreshAccount: commandName("refresh_account"),
     refreshStation: commandName("refresh_station"),
@@ -1339,6 +1343,7 @@ export const TAURI_COMMAND_ARG_KEYS = {
   reveal_password: ["accountId"],
   set_password: ["accountId", "password"],
   copy_password_to_clipboard: ["accountId"],
+  export_account_snapshot: ["accountId"],
   open_login_window: ["accountId", "returnUrl", "url"],
   refresh_account: ["accountId"],
   refresh_station: ["stationId"],

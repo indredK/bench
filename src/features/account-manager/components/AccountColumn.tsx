@@ -10,6 +10,7 @@ import {
   Check,
   ChevronRight,
   Copy,
+  FileDown,
   Filter,
   Inbox,
   Link2,
@@ -51,6 +52,7 @@ export function AccountColumn({
   onRefreshStation,
   onEdit,
   onDelete,
+  onExport,
   onReorder,
   reorderDisabled,
   loginDisabledReason,
@@ -73,6 +75,7 @@ export function AccountColumn({
   onRefreshStation: (stationId: string) => void
   onEdit: (account: StationAccount) => void
   onDelete: (account: StationAccount) => void
+  onExport: (account: StationAccount) => void
   onReorder: (orderedIds: string[]) => void
   reorderDisabled: boolean
   loginDisabledReason?: string
@@ -153,6 +156,7 @@ export function AccountColumn({
       onRefresh={onRefresh}
       onEdit={onEdit}
       onDelete={onDelete}
+      onExport={onExport}
       loginDisabledReason={loginDisabledReason}
     />
   )
@@ -264,6 +268,7 @@ export function AccountColumn({
                         onRefresh={onRefresh}
                         onEdit={onEdit}
                         onDelete={onDelete}
+                        onExport={onExport}
                         loginDisabledReason={loginDisabledReason}
                       />
                     ))}
@@ -413,6 +418,7 @@ function AccountCardContent({
   onRefresh,
   onEdit,
   onDelete,
+  onExport,
   loginDisabledReason,
 }: {
   account: StationAccount
@@ -426,6 +432,7 @@ function AccountCardContent({
   onRefresh: (account: StationAccount) => void
   onEdit: (account: StationAccount) => void
   onDelete: (account: StationAccount) => void
+  onExport: (account: StationAccount) => void
   loginDisabledReason?: string
 }) {
   const { t } = useTranslation()
@@ -532,6 +539,27 @@ function AccountCardContent({
       <div className="mt-3 flex items-center justify-between gap-2">
         <StatusBadge status={account.status} statusReason={account.statusReason} />
         <div className="flex items-center gap-1">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onExport(account)
+                  }}
+                  aria-label={t("accountManager.exportSnapshot.tooltip")}
+                  className="hover:bg-muted/50 cursor-pointer rounded-md"
+                >
+                  <FileDown size={13} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                {t("accountManager.exportSnapshot.tooltip")}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>

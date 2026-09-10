@@ -156,6 +156,7 @@ macro_rules! app_invoke_handler {
             $crate::account_manager::commands::reveal_password,
             $crate::account_manager::commands::set_password,
             $crate::account_manager::commands::copy_password_to_clipboard,
+            $crate::account_manager::commands::export_account_snapshot,
             $crate::account_manager::commands::open_login_window,
             $crate::account_manager::commands::refresh_account,
             $crate::account_manager::commands::refresh_station,

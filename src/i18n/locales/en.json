@@ -464,6 +464,31 @@
       "updateSite": "Update This Site",
       "close": "Close"
     },
+    "exportSnapshot": {
+      "tooltip": "Export account data",
+      "title": "Export Account Snapshot",
+      "description": "Export the session and credentials of account \"{{account}}\" ({{station}}) as a JSON snapshot.",
+      "includesTitle": "What's included",
+      "includes": {
+        "cookies": "Cookies (plaintext values)",
+        "storage": "localStorage / sessionStorage / IndexedDB (decrypted plaintext)",
+        "fingerprint": "Login fingerprint (feature names and value lengths)",
+        "account": "Account and station information",
+        "password": "Login password (plaintext)"
+      },
+      "warning": "The snapshot contains plaintext passwords and full login credentials. Keep it safe, delete it after use, and never share it with untrusted parties.",
+      "loading": "Generating snapshot…",
+      "copyButton": "Copy to Clipboard",
+      "saveButton": "Export as JSON",
+      "closeButton": "Close",
+      "toasts": {
+        "copied": "Snapshot copied to clipboard",
+        "copyFailed": "Copy failed, please retry",
+        "saved": "Snapshot saved",
+        "saveFailed": "Save failed, please retry",
+        "loadFailed": "Failed to generate snapshot"
+      }
+    },
     "toasts": {
       "initFailed": "Failed to load gateway data",
       "openLoginFailed": "Failed to open the isolated login window",

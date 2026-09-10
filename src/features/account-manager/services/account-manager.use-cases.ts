@@ -386,4 +386,9 @@ export const accountManagerUseCases = {
   updateLoginRules(scope: LoginRulesUpdateScope, website?: string | null) {
     return accountManagerRepository.updateLoginRules(scope, website)
   },
+
+  /** 账号快照导出 — 完整 JSON 字符串(明文凭证,去向由调用方决定)。 */
+  exportAccountSnapshot(accountId: string) {
+    return accountManagerRepository.exportAccountSnapshot(accountId)
+  },
 }

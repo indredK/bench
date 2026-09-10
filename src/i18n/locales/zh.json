@@ -464,6 +464,31 @@
       "updateSite": "更新当前站点逻辑",
       "close": "关闭"
     },
+    "exportSnapshot": {
+      "tooltip": "导出账号数据",
+      "title": "导出账号快照",
+      "description": "将账号「{{account}}」（{{station}}）的会话与凭证导出为 JSON 快照。",
+      "includesTitle": "包含内容",
+      "includes": {
+        "cookies": "Cookie（明文值）",
+        "storage": "localStorage / sessionStorage / IndexedDB（解密后明文）",
+        "fingerprint": "登录指纹（特征名与值长度）",
+        "account": "账号信息与站点信息",
+        "password": "登录密码（明文）"
+      },
+      "warning": "快照包含明文密码与完整登录凭证，请妥善保管、用后即删，切勿发送给不可信的第三方。",
+      "loading": "正在生成快照…",
+      "copyButton": "复制到剪贴板",
+      "saveButton": "导出为 JSON",
+      "closeButton": "关闭",
+      "toasts": {
+        "copied": "快照已复制到剪贴板",
+        "copyFailed": "复制失败，请重试",
+        "saved": "快照已保存",
+        "saveFailed": "保存失败，请重试",
+        "loadFailed": "生成快照失败"
+      }
+    },
     "toasts": {
       "initFailed": "加载站点数据失败",
       "openLoginFailed": "打开隔离登录窗口失败",

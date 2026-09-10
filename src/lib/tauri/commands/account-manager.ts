@@ -192,6 +192,15 @@ export function copyPasswordToClipboard(accountId: string): Promise<void> {
   return invokeTauriCommand(TAURI_COMMANDS.accountManager.copyPasswordToClipboard, { accountId })
 }
 
+/**
+ * 导出账号完整快照（pretty JSON 字符串）：账号信息 + 明文密码 + session
+ * （cookies 明文、origins 解密明文）+ 登录指纹 + 站点信息。**明文凭证出口**，
+ * 调用方负责去向（剪贴板 / JSON 文件）与用户警示。
+ */
+export function exportAccountSnapshot(accountId: string): Promise<string> {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.exportAccountSnapshot, { accountId })
+}
+
 export function openLoginWindow(accountId: string, url?: string): Promise<void> {
   return invokeTauriCommand(TAURI_COMMANDS.accountManager.openLoginWindow, {
     accountId,

@@ -45,6 +45,9 @@ export type AccountManagerState = {
   /** F2 — 指纹特征明细二级弹窗(值不出后端)。 */
   isFingerprintDetailOpen: boolean
   fingerprintDetail: LoginFingerprintDetail | null
+  /** 账号快照导出弹窗(明文凭证,去向由用户决定)。 */
+  isAccountExportOpen: boolean
+  accountExportTarget: { accountId: string; accountName: string } | null
   /** 三栏区域持久化错误；partial 刷新失败后支持区域级重试（A1-1）。 */
   regionErrors: Record<AccountManagerRegion, RegionErrorPayload | null>
 }
@@ -82,6 +85,8 @@ export type AccountManagerActions = {
   setFingerprintTarget: (target: { stationId: string; accountId: string } | null) => void
   setFingerprintDetailOpen: (open: boolean) => void
   setFingerprintDetail: (detail: LoginFingerprintDetail | null) => void
+  setAccountExportOpen: (open: boolean) => void
+  setAccountExportTarget: (target: { accountId: string; accountName: string } | null) => void
   applyInitialSelection: (stations: RelayStation[], accounts: StationAccount[]) => void
   selectStation: (id: string, accounts: StationAccount[]) => void
   setRegionError: (region: AccountManagerRegion, payload: RegionErrorPayload | null) => void
@@ -121,5 +126,7 @@ export const initialAccountManagerState: AccountManagerState = {
   fingerprintTarget: null,
   isFingerprintDetailOpen: false,
   fingerprintDetail: null,
+  isAccountExportOpen: false,
+  accountExportTarget: null,
   regionErrors: { station: null, account: null, detail: null },
 }
