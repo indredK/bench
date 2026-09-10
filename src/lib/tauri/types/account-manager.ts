@@ -381,3 +381,70 @@ export interface ExternalAppBinding {
   lastUsedAt: string
   useCount: number
 }
+
+// ═══════════════════════════════════════════════
+// 登录规则包 — 更新登录逻辑弹窗
+// ═══════════════════════════════════════════════
+
+/** 规则来源："bundled"（随版本内置）| "remote"（远程市场缓存） */
+export type LoginRuleSource = "bundled" | "remote"
+
+/** 单条生效规则的概要（弹窗「当前使用的判断逻辑」详情） */
+export interface LoginRuleSummary {
+  id: string
+  version: string
+  title: string
+  description: string
+  source: LoginRuleSource
+  /** 是否含服务端权威探针（强判据） */
+  hasLoginCheck: boolean
+  loginCheckUrl?: string | null
+  loginCheckMethod?: string | null
+  /** 文本弱证据（已登录侧） */
+  loggedInTexts: string[]
+  /** 文本弱证据（未登录侧） */
+  loggedOutTexts: string[]
+}
+
+/** 远程索引中某条规则相对本地的可更新状态 */
+export interface LoginRuleRemoteEntry {
+  id: string
+  version: string
+  /** 远程版本 > 本地生效版本（可升级；本地缺失视为可新装） */
+  updatable: boolean
+}
+
+/** 远程检查结果（null = 检查失败或无远程源，按钮禁用） */
+export interface LoginRulesRemoteStatus {
+  /** 本次检查时间（ISO 8601 UTC） */
+  checkedAt: string
+  /** 远程索引构建时间（rules.json updatedAt，即规则的「更新时间」） */
+  indexUpdatedAt?: string | null
+  generic: LoginRuleRemoteEntry | null
+  site: LoginRuleRemoteEntry | null
+  genericUpdatable: boolean
+  siteUpdatable: boolean
+}
+
+/** get_login_rules_overview 响应 */
+export interface LoginRulesOverview {
+  /** 当前生效的 generic 兜底规则（恒存在，bundled 保底） */
+  generic: LoginRuleSummary | null
+  /** 当前站点命中的特殊规则（无则 null，判定走 generic） */
+  site: LoginRuleSummary | null
+  remote: LoginRulesRemoteStatus | null
+  remoteError?: string | null
+  /** 缓存最近一次成功拉取时间（unix 秒） */
+  lastFetchedAt?: number | null
+}
+
+/** 更新范围：all（全部）| generic（仅兜底）| site（仅当前站点） */
+export type LoginRulesUpdateScope = "all" | "generic" | "site"
+
+/** update_login_rules 结果 */
+export interface LoginRulesUpdateReport {
+  updated: string[]
+  /** 因「已最新/防降级」跳过的规则 id */
+  skipped: string[]
+  indexUpdatedAt?: string | null
+}

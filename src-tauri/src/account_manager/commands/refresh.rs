@@ -73,6 +73,10 @@ async fn refresh_one_leader<R: Runtime>(
         .acquire_owned()
         .await
         .map_err(|e| AccountManagerError::store_fail(format!("acquire probe permit: {e}")))?;
+    // 规则包解析（远程缓存 > bundled，按可注册域匹配；TTL 过期惰性后台刷新）。
+    let rule_doc = crate::account_manager::login_rules::resolve(&app, &website)
+        .await
+        .map(|resolved| resolved.doc);
     let outcome = probe::run_probe(
         &app,
         &account_id,
@@ -81,6 +85,7 @@ async fn refresh_one_leader<R: Runtime>(
         strategy,
         proxy_url.as_deref(),
         fingerprint.as_ref(),
+        rule_doc.as_ref(),
     )
     .await?;
     let state = app.state::<AccountManagerState>();

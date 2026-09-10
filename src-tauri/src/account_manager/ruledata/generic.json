@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "generic",
+  "version": "1.0.0",
+  "title": "通用登录判定（兜底）",
+  "description": "站点无特殊规则时的全局兜底：仅提供中英文页面文本弱证据（登录/注册 CTA vs 退出登录入口）。不定义 loginCheck——通用规则无法预知各站点同域鉴权接口，强行下发会破坏同域铁律。弱证据仅产生倾向性判定，站点特殊规则（trae.cn / github.com 等）优先于本规则。",
+  "detection": {
+    "fallback": {
+      "loggedIn": [
+        { "kind": "text", "value": "退出登录" },
+        { "kind": "text", "value": "退出账号" },
+        { "kind": "text", "value": "退出帐号" },
+        { "kind": "text", "value": "Sign out" },
+        { "kind": "text", "value": "Log out" }
+      ],
+      "loggedOut": [
+        { "kind": "text", "value": "立即登录" },
+        { "kind": "text", "value": "请先登录" },
+        { "kind": "text", "value": "扫码登录" },
+        { "kind": "text", "value": "登录/注册" },
+        { "kind": "text", "value": "登录 / 注册" },
+        { "kind": "text", "value": "Sign up" },
+        { "kind": "text", "value": "Sign in" },
+        { "kind": "text", "value": "Log in" }
+      ]
+    }
+  }
+}

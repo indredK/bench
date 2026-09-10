@@ -15,7 +15,7 @@ use chrono::{Local, Timelike};
 use serde_json::json;
 use tauri::{AppHandle, Manager, Runtime, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 use tokio::sync::oneshot;
-use tokio::time::{sleep, Instant};
+use tokio::time::Instant;
 
 use super::commands::{account_log_error_code, build_proxy_url_for_station};
 use super::crypto::EncryptedBlob;
@@ -32,33 +32,13 @@ use super::webview;
 
 const KEEPER_TICK_SECONDS: u64 = 30;
 
-/// 在窗口上轮询页面文本并按登录检测配置分类
-/// （`classify_confident` 有确定性结果即提前返回，超时回退 `classify`）。
+/// 在窗口上轮询页面文本并按融合优先级分类（probe 与 keeper 共用实现）。
 async fn poll_page_config<R: Runtime>(
     config: &LoginDetectionConfig,
+    rule: Option<&super::login_rules::LoginRuleDoc>,
     window: &WebviewWindow<R>,
 ) -> Option<AccountSessionStatus> {
-    let poll_deadline = Instant::now() + Duration::from_millis(8000);
-    let mut last_text: Option<String> = None;
-    let mut confident: Option<AccountSessionStatus> = None;
-    let interval = Duration::from_millis(500);
-    while Instant::now() < poll_deadline {
-        match probe::eval_text(window).await {
-            Ok(text) => {
-                if let Some(status) = super::detection::classify_confident(&text, config) {
-                    confident = Some(status);
-                    break;
-                }
-                last_text = Some(text);
-            }
-            Err(_) => {
-                sleep(interval).await;
-                continue;
-            }
-        }
-        sleep(interval).await;
-    }
-    confident.or_else(|| last_text.map(|text| super::detection::classify(&text, config)))
+    probe::poll_effective_classification(config, rule, window).await
 }
 
 pub fn keeper_window_label(account_id: &str) -> String {
@@ -225,6 +205,10 @@ async fn silent_refresh_leader<R: Runtime>(
         )
     };
 
+    // 规则包解析（远程缓存 > bundled，按可注册域匹配）。
+    let rule = crate::account_manager::login_rules::resolve(app, &website).await;
+    let rule_doc = rule.map(|resolved| resolved.doc);
+
     // 2. 用户正开着该账号的登录窗口 → 跳过(避免与用户交互争抢 session)。
     if app
         .get_webview_window(&webview::login_window_label(account_id))
@@ -340,6 +324,8 @@ async fn silent_refresh_leader<R: Runtime>(
             }
             // L0b 预检（keeper 路径）：以采样指纹为登录态证据（含值形态匹配）——
             // 轮询等待特征就绪(SPA 延迟写 cookie/localStorage)。
+            // 修复（前置调研 P0）：present 是「弱肯定」不定论，继续文本分类链；
+            // 仅保留「全缺失 → 确定性未登录」否定短路（trae.cn 误判根因同 probe 路径）。
             match fingerprint.as_ref() {
                 Some(fp) if !fp.is_empty() => {
                     if super::fingerprint::wait_for_any_feature_present(
@@ -347,7 +333,12 @@ async fn silent_refresh_leader<R: Runtime>(
                     )
                     .await?
                     {
-                        (Some(AccountSessionStatus::Ready), None)
+                        (
+                            poll_page_config(&config, rule_doc.as_ref(), &window)
+                                .await
+                                .or(Some(AccountSessionStatus::FetchFailed)),
+                            None,
+                        )
                     } else {
                         (
                             Some(AccountSessionStatus::LoginRequired),
@@ -356,7 +347,7 @@ async fn silent_refresh_leader<R: Runtime>(
                     }
                 }
                 _ => (
-                    poll_page_config(&config, &window)
+                    poll_page_config(&config, rule_doc.as_ref(), &window)
                         .await
                         .or(Some(AccountSessionStatus::FetchFailed)),
                     None,

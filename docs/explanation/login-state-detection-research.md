@@ -11,7 +11,7 @@
 1. **误判根因已实锤，是双重叠加**：
    - **特征无判别力**：trae.cn 站点指纹的 7 项特征中 6 项是字节 analytics/设备特征（`__tea_cache_tokens_*`、`gfkadpd`、`s_v_web_id`、`__tea_session_id_*`），**匿名访问即全部存在且长度与登录态完全一致**；
    - **L0b 违反设计红线**：`probe.rs` L0b 对「任一特征存在」直接返回 `Ready`，把设计文档明确要求的弱肯定（「指纹存在 → 仍需原探针验证」）当成了定论。账号 1 的 WebView 存储残留了 7 月登录期的 `Cloud-IDE-Token`，特征命中 → 误判 Ready。
-2. **唯一能 3/3 全对的方案是服务端权威探针**（S1）：用账号 cookie 调站点自己的鉴权接口，从响应判定登录态。trae.cn 已实测存在现成接口：`GET https://api.trae.cn/cloudide/api/v3/trae/CheckLogin` → `Result.IsLogin: false/true`（结构化布尔，匿名即返回，凭证走 `.trae.cn` 域 cookie，跨子域自动携带）。
+2. **唯一能 3/3 全对的方案是服务端权威探针**（S1）：用账号 cookie 调站点自己的鉴权接口，从响应判定登录态。trae.cn 已实测存在现成接口：`POST https://api.trae.cn/cloudide/api/v3/trae/CheckLogin` → `Result.IsLogin: false/true`（结构化布尔，匿名即返回，凭证走 `.trae.cn` 域 cookie，跨子域自动携带；**2026-09-10 复测修正：接口仅接受 POST（带 Origin/Referer），GET 返回 404——初版记录的 GET 有误**）。
 3. **建议的判定分层**（详见 §6）：S1 服务端探针为「肯定/否定」主判据 → 指纹仅保留「全缺失 → 确定性未登录」的否定短路 → 指纹存在只作为线索，**不再直接判 Ready** → 文本分类仅作最后兜底。
 
 ---

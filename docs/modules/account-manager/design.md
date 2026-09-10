@@ -80,6 +80,15 @@ AuthProfile 检测从页面、cookie、Web Storage、CSRF、SSO、anti-bot 和 W
 
 上述边界参考的开源实现、固定 commit、License 和未采用原因见本文 §8。修改重试或 Session 语义时必须同步更新参考矩阵和行为测试。
 
+### 4.1 登录规则包（rulepack，2026-09-10）
+
+站点级判定先验由声明式 JSON 规则包提供（规格真相源 [login-rulepack-spec.md](../../reference/login-rulepack-spec.md)），安全边界：
+
+- 规则是**纯数据**，判定引擎仅在宿主；远程仓库不得下发逻辑。加载器 fail-closed（deny_unknown_fields / kind 白名单 / id=可注册域）。
+- **同域铁律**：`loginCheck.url` 必须 https + 与站点同可注册域 + method 白名单 GET/POST + 不跟随重定向——loginCheck 携带账号 cookie，同域约束下规则投毒无法外泄 session。
+- fallback 仅 text/selector **弱证据**，不得覆盖 401/403 强证据与指纹否定短路；优先级：用户手配 > 远程缓存 > bundled 内置 > 旧预设。
+- L0b「特征 present」为弱肯定，不得直接判 Ready（trae.cn 误判根因）；仅保留「全缺失 → LoginRequired」否定短路。
+
 ## 5. 加密与存储
 
 - 主密钥来自系统 Keychain；首次使用生成随机 256-bit key。

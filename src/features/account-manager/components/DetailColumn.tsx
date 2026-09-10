@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import {
   BadgeCheck,
+  CloudDownload,
   ExternalLink,
   Eye,
   EyeOff,
@@ -67,6 +68,7 @@ export function DetailColumn({
   station,
   account,
   onOpenWebsite,
+  onOpenLoginRules,
   onRedetectProfile,
   onToggleProxy,
   onManageExternalApps,
@@ -92,6 +94,8 @@ export function DetailColumn({
   station: RelayStation | null
   account: StationAccount | null
   onOpenWebsite: () => void
+  /** 打开「更新登录逻辑」弹窗（展示当前生效规则 + 按范围更新）。 */
+  onOpenLoginRules?: () => void
   onRedetectProfile: (stationId: string, accountId?: string) => void
   onToggleProxy?: (accountId: string, enabled: boolean) => void
   onManageExternalApps?: (accountId: string | null) => void
@@ -186,10 +190,31 @@ export function DetailColumn({
         title={t("accountManager.detailTitle")}
         action={
           station ? (
-            <Button size="sm" variant="outline" onClick={onOpenWebsite}>
-              <ExternalLink />
-              {t("accountManager.detail.openWebsite")}
-            </Button>
+            <div className="flex items-center gap-1.5">
+              {onOpenLoginRules && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="icon-sm"
+                        variant="outline"
+                        onClick={onOpenLoginRules}
+                        aria-label={t("accountManager.loginRules.open")}
+                      >
+                        <CloudDownload size={14} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      {t("accountManager.loginRules.open")}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+              <Button size="sm" variant="outline" onClick={onOpenWebsite}>
+                <ExternalLink />
+                {t("accountManager.detail.openWebsite")}
+              </Button>
+            </div>
           ) : null
         }
       />

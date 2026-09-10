@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "github.com",
+  "version": "1.0.0",
+  "title": "GitHub",
+  "description": "api.github.com/user 匿名返回 401、已登录返回 200（服务端权威）；fallback 提供语言无关的未登录选择器与页头文本弱证据。",
+  "match": {
+    "registrableDomain": "github.com",
+    "hosts": ["github.com", "api.github.com"]
+  },
+  "detection": {
+    "loginCheck": {
+      "url": "https://api.github.com/user",
+      "method": "GET",
+      "expect": {
+        "kind": "status",
+        "loggedIn": [200],
+        "loggedOut": [401]
+      }
+    },
+    "fallback": {
+      "loggedIn": [{ "kind": "text", "value": "Sign out" }],
+      "loggedOut": [
+        { "kind": "selector", "value": "a[href^='/login']" },
+        { "kind": "text", "value": "Sign up" }
+      ]
+    }
+  }
+}

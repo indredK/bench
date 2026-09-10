@@ -7,6 +7,7 @@ pub mod detection;
 mod detection_legacy;
 pub mod exclusivity;
 pub mod fingerprint;
+pub mod login_rules;
 pub mod network_proxy;
 mod probe;
 pub mod proxy;

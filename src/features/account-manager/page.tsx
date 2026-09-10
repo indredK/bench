@@ -8,6 +8,7 @@ import { FeatureLoadError } from "@/components/common/FeatureLoadError"
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet"
 import { openExternal } from "@/platform/shell"
 import { useAccountManagerController } from "@/features/account-manager/hooks/useAccountManagerController"
+import { useLoginRules } from "@/features/account-manager/hooks/useLoginRules"
 import { StationColumn } from "@/features/account-manager/components/StationColumn"
 import { AccountColumn } from "@/features/account-manager/components/AccountColumn"
 import { DetailColumn } from "@/features/account-manager/components/DetailColumn"
@@ -22,6 +23,7 @@ import { ExternalAppsPanel } from "@/features/account-manager/components/externa
 import { AccountLogDialog } from "@/features/account-manager/components/account-log-dialog"
 import { FingerprintConfirmDialog } from "@/features/account-manager/components/fingerprint-confirm-dialog"
 import { FingerprintDetailDialog } from "@/features/account-manager/components/fingerprint-detail-dialog"
+import { LoginRulesDialog } from "@/features/account-manager/components/login-rules-dialog"
 import { useAccountManagerStore } from "@/features/account-manager/store"
 import { useNotificationCenterStore } from "@/components/layout/notification-center/store"
 import { cn } from "@/lib/utils"
@@ -222,6 +224,9 @@ function AccountManagerPage() {
       setDetailSheetOpen(true)
     }
   }
+
+  /** 更新登录逻辑弹窗（挂在当前选中站点上；未选中站点时打开按钮不渲染）。 */
+  const loginRules = useLoginRules({ website: c.selectedStation?.website ?? null })
 
   const renderDetailColumn = (className?: string) => (
     <DetailColumn
@@ -459,6 +464,15 @@ function AccountManagerPage() {
         onOpenChange={c.setFingerprintDetailOpen}
         detail={c.fingerprintDetail}
         loading={c.loadingFingerprintDetail}
+      />
+      <LoginRulesDialog
+        open={loginRules.open}
+        onOpenChange={(next) => (next ? loginRules.openDialog() : loginRules.closeDialog())}
+        website={c.selectedStation?.website ?? null}
+        overview={loginRules.overview}
+        checking={loginRules.checking}
+        updatingScope={loginRules.updatingScope}
+        onUpdate={loginRules.handleUpdate}
       />
     </div>
   )

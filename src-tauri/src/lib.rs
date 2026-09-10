@@ -274,6 +274,8 @@ pub fn run() {
             // 启动补跑一次错过的静默刷新计划)。任务随 runtime 退出自动取消。
             let keeper_handle = app.handle().clone();
             account_manager::spawn_session_keeper(keeper_handle);
+            // 登录规则包:启动后台拉取一次(24h TTL 惰性刷新;失败静默沿用缓存/内置集)。
+            account_manager::login_rules::spawn_background_refresh(app.handle().clone());
             // P1: 回填插件根目录槽位；P3.4: 部署 bundled 插件（resources → $APPDATA）；
             // 设置了 BENCH_POC_EXT 时自动打开 POC 插件窗口。
             if let Some(state) = app.try_state::<extension_host::ExtensionRootState>() {

@@ -18,6 +18,7 @@ import type {
   RelayStation,
   StationAccount,
   StationUrlMatch,
+  LoginRulesUpdateScope,
 } from "@/lib/tauri/types/account-manager"
 
 export function isInvalidInput(error: unknown): boolean {
@@ -374,5 +375,15 @@ export const accountManagerUseCases = {
   /** F2 — 读取站点登录指纹明细(弹窗二级视图;值不出后端,站点无指纹时返回 null)。 */
   getLoginFingerprintDetail(stationId: string) {
     return accountManagerRepository.getLoginFingerprintDetail(stationId)
+  },
+
+  /** 登录规则包 — 当前生效规则详情 + 远程可更新状态(更新登录逻辑弹窗)。 */
+  getLoginRulesOverview(website: string) {
+    return accountManagerRepository.getLoginRulesOverview(website)
+  },
+
+  /** 登录规则包 — 按范围拉取远程规则(all | generic | site)。 */
+  updateLoginRules(scope: LoginRulesUpdateScope, website?: string | null) {
+    return accountManagerRepository.updateLoginRules(scope, website)
   },
 }

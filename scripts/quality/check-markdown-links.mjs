@@ -24,10 +24,14 @@ for (const markdownFile of markdownFiles) {
   // Strip fenced code blocks before link extraction: ASCII diagrams inside
   // ``` fences contain parenthesized text that is not a Markdown link.
   const linkSource = source.replace(/^(`{3}|~{3})[^\n]*$[\s\S]*?^\1[^\n]*$/gm, "")
+  // Strip inline code spans too: regex literals in `...` (e.g.
+  // `^[a-z0-9]([a-z0-9-]*[a-z0-9])?`) contain `](` sequences that would
+  // otherwise be parsed as link syntax.
+  const codeStripped = linkSource.replace(/`[^`\n]+`/g, " ")
   // Angle-bracketed URLs (e.g. <https://x.com/a-(b)>) may contain ")" which
   // would otherwise break the simple [^)]+ capture; handle them as a unit.
   const linkPattern = /!?\[[^\]]*\]\((?:<([^>]+)>|([^)]+))\)/g
-  for (const match of linkSource.matchAll(linkPattern)) {
+  for (const match of codeStripped.matchAll(linkPattern)) {
     let target = (match[1] ?? match[2]).trim()
     if (
       !target ||

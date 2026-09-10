@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "trae.cn",
+  "version": "1.0.0",
+  "title": "Trae 云端 IDE",
+  "description": "使用 Trae 官方鉴权接口 CheckLogin 判定登录态（匿名可访问，凭证走 .trae.cn 域 cookie，跨子域自动携带；接口仅接受 POST）。SPA 同构 shell 无文本区分度，故不提供 fallback。",
+  "match": {
+    "registrableDomain": "trae.cn",
+    "hosts": ["www.trae.cn", "api.trae.cn"]
+  },
+  "detection": {
+    "loginCheck": {
+      "url": "https://api.trae.cn/cloudide/api/v3/trae/CheckLogin",
+      "method": "POST",
+      "expect": {
+        "kind": "jsonBool",
+        "path": "Result.IsLogin"
+      }
+    }
+  }
+}

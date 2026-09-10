@@ -185,6 +185,9 @@ macro_rules! app_invoke_handler {
             $crate::account_manager::commands::capture_login_fingerprint,
             $crate::account_manager::commands::confirm_login_fingerprint,
             $crate::account_manager::commands::get_login_fingerprint_detail,
+            // 登录规则包（更新登录逻辑弹窗 + 按范围更新）
+            $crate::account_manager::commands::get_login_rules_overview,
+            $crate::account_manager::commands::update_login_rules,
             $crate::token_calculator::commands::list_pricing_standards,
             $crate::token_calculator::commands::create_pricing_standard,
             $crate::token_calculator::commands::update_pricing_standard,

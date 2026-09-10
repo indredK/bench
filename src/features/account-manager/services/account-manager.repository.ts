@@ -17,6 +17,7 @@ import {
   getAuthProxyInboxStatus,
   getAccountManagerCapabilities,
   getLoginFingerprintDetail,
+  getLoginRulesOverview,
   importRelayData,
   listAccountLogs,
   listAllAccounts,
@@ -43,6 +44,7 @@ import {
   setSessionTtl,
   setStationNetworkProxy,
   updateAccount,
+  updateLoginRules,
   updateStation,
 } from "@/lib/tauri/commands/account-manager"
 import { openExternal } from "@/platform/shell"
@@ -83,6 +85,8 @@ export const accountManagerRepository = {
   captureLoginFingerprint,
   confirmLoginFingerprint,
   getLoginFingerprintDetail,
+  getLoginRulesOverview,
+  updateLoginRules,
   proxyLogin,
   handleBrowserOpen,
   getAuthProxyInboxStatus,

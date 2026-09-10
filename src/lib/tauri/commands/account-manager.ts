@@ -18,6 +18,9 @@ import type {
   LoginFingerprintCaptureResult,
   LoginFingerprintDetail,
   LoginMethod,
+  LoginRulesOverview,
+  LoginRulesUpdateReport,
+  LoginRulesUpdateScope,
   NetworkProxyConfig,
   PasswordAction,
   ProbeStrategy,
@@ -56,6 +59,13 @@ export type {
   LoginFingerprintDetail,
   LoginFingerprintSummary,
   LoginMethod,
+  LoginRulesOverview,
+  LoginRuleRemoteEntry,
+  LoginRuleSource,
+  LoginRuleSummary,
+  LoginRulesRemoteStatus,
+  LoginRulesUpdateReport,
+  LoginRulesUpdateScope,
   MatchConfidence,
   NetworkProxyConfig,
   NetworkProxyType,
@@ -344,6 +354,22 @@ export function getLoginFingerprintDetail(
   stationId: string,
 ): Promise<LoginFingerprintDetail | null> {
   return invokeTauriCommand(TAURI_COMMANDS.accountManager.getLoginFingerprintDetail, { stationId })
+}
+
+/** 「更新登录逻辑」弹窗:当前生效规则详情(generic + 当前站点)+ 远程可更新状态。 */
+export function getLoginRulesOverview(website: string): Promise<LoginRulesOverview> {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.getLoginRulesOverview, { website })
+}
+
+/** 按范围拉取远程登录规则并写入缓存:all | generic | site。 */
+export function updateLoginRules(
+  scope: LoginRulesUpdateScope,
+  website?: string | null,
+): Promise<LoginRulesUpdateReport> {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.updateLoginRules, {
+    scope,
+    website: website ?? null,
+  })
 }
 
 /// 启动外部代理登录:打开登录窗口 → 注入凭证 → 返回占位 AuthProxyResult。

@@ -39,6 +39,9 @@ import type {
   LoginMethod,
   LoginFingerprintCaptureResult,
   LoginFingerprintDetail,
+  LoginRulesOverview,
+  LoginRulesUpdateReport,
+  LoginRulesUpdateScope,
   NetworkProxyConfig,
   PasswordAction,
   ProbeStrategy,
@@ -323,6 +326,13 @@ export const TAURI_COMMAND_CONTRACTS = {
   refresh_account: defineTauriCommand<{ accountId: string }, StationAccount>()("refresh_account"),
   refresh_station: defineTauriCommand<{ stationId: string }, RefreshReport>()("refresh_station"),
   refresh_all: defineTauriCommand<undefined, RefreshReport>()("refresh_all"),
+  get_login_rules_overview: defineTauriCommand<{ website: string }, LoginRulesOverview>()(
+    "get_login_rules_overview",
+  ),
+  update_login_rules: defineTauriCommand<
+    { scope: LoginRulesUpdateScope; website?: string | null },
+    LoginRulesUpdateReport
+  >()("update_login_rules"),
   export_relay_data: defineTauriCommand<
     { path: string; mode?: RelayExportMode | null },
     RelayDataExportResult
@@ -1035,6 +1045,8 @@ export const TAURI_COMMANDS = {
     refreshAccount: commandName("refresh_account"),
     refreshStation: commandName("refresh_station"),
     refreshAll: commandName("refresh_all"),
+    getLoginRulesOverview: commandName("get_login_rules_overview"),
+    updateLoginRules: commandName("update_login_rules"),
     exportRelayData: commandName("export_relay_data"),
     importRelayData: commandName("import_relay_data"),
     reorderStations: commandName("reorder_stations"),
@@ -1331,6 +1343,8 @@ export const TAURI_COMMAND_ARG_KEYS = {
   refresh_account: ["accountId"],
   refresh_station: ["stationId"],
   refresh_all: [],
+  get_login_rules_overview: ["website"],
+  update_login_rules: ["scope", "website"],
   export_relay_data: ["path", "mode"],
   import_relay_data: ["path"],
   reorder_stations: ["orderedIds"],

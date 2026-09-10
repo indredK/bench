@@ -24,6 +24,9 @@ const HTTP_PROBE_MAX_RETRY_AFTER: Duration = Duration::from_secs(2);
 /// HTTP 401/403 判定未登录的来源标记(服务端强证据,指纹存在也不升级)。
 const HTTP_AUTH_STATUS_REASON: &str = "httpAuthStatus";
 
+/// loginCheck（规则包 S1 服务端权威探针）判定的来源标记。
+const LOGIN_CHECK_REASON: &str = "loginCheck";
+
 pub(crate) fn init_script() -> String {
     format!("(function(){{window.__probeBillingSnapshot=function(){{var b=document.body;var r=(b&&b.innerText)?b.innerText:'';return r.length>{}?r.slice(0,{}):r;}};}})();", 200_000, 200_000)
 }
@@ -124,6 +127,7 @@ fn retry_delay(
 async fn classify_http_response(
     mut response: reqwest::Response,
     config: &LoginDetectionConfig,
+    rule: Option<&super::login_rules::LoginRuleDoc>,
 ) -> AccountManagerResult<Option<ProbeOutcome>> {
     if response.status().is_redirection() {
         return Ok(None);
@@ -153,7 +157,7 @@ async fn classify_http_response(
     }
     let text = String::from_utf8_lossy(&body);
     Ok(
-        detection::classify_confident(&text, config).map(|status| ProbeOutcome {
+        classify_effective_confident(&text, config, rule).map(|status| ProbeOutcome {
             status,
             reason: None,
         }),
@@ -163,6 +167,7 @@ async fn classify_http_response(
 async fn run_http_probe(
     target: &url::Url,
     config: &LoginDetectionConfig,
+    rule: Option<&super::login_rules::LoginRuleDoc>,
     saved_session: Option<&AccountSession>,
     proxy_url: Option<&str>,
 ) -> AccountManagerResult<Option<ProbeOutcome>> {
@@ -207,7 +212,7 @@ async fn run_http_probe(
                     };
                     sleep(delay).await;
                 }
-                Ok(response) => return classify_http_response(response, config).await,
+                Ok(response) => return classify_http_response(response, config, rule).await,
                 Err(error)
                     if is_retryable_request_error(&error)
                         && attempt + 1 < HTTP_PROBE_MAX_ATTEMPTS =>
@@ -227,6 +232,243 @@ async fn run_http_probe(
     })
     .await
     .map_err(|_| AccountManagerError::store_fail("HTTP probe deadline exceeded"))?
+}
+
+// ═══════════════════════════════════════════════
+// 判定融合（优先级见 login-rulepack-spec §6）：
+// 用户手配（Custom 非空）> 规则包 fallback（弱）> 旧预设文本。
+// 证据分层不变：loginCheck（强）> HTTP 401/403（强）> 指纹否定短路（强）> 文本（弱）。
+// ═══════════════════════════════════════════════
+
+/// 站点是否手配了非空 Custom 文本规则。
+fn has_custom_rules(config: &LoginDetectionConfig) -> bool {
+    config.mode == LoginDetectionMode::Custom
+        && (!config.logged_in_rule.text.trim().is_empty()
+            || !config.logged_out_rule.text.trim().is_empty())
+}
+
+/// 确定性文本分类（有确定倾向才返回 Some）。
+fn classify_effective_confident(
+    page_text: &str,
+    config: &LoginDetectionConfig,
+    rule: Option<&super::login_rules::LoginRuleDoc>,
+) -> Option<AccountSessionStatus> {
+    if has_custom_rules(config) {
+        return detection::classify_confident(page_text, config);
+    }
+    if let Some(rule) = rule {
+        if let Some(status) = super::login_rules::classify_fallback_text_confident(page_text, rule)
+        {
+            return Some(status);
+        }
+    }
+    detection::classify_confident(page_text, config)
+}
+
+/// 文本分类兜底（无确定倾向时返回 Expired）。
+fn classify_effective(
+    page_text: &str,
+    config: &LoginDetectionConfig,
+    rule: Option<&super::login_rules::LoginRuleDoc>,
+) -> AccountSessionStatus {
+    if has_custom_rules(config) {
+        return detection::classify(page_text, config);
+    }
+    if let Some(rule) = rule {
+        return super::login_rules::classify_fallback_text(page_text, rule);
+    }
+    detection::classify(page_text, config)
+}
+
+/// S1 服务端权威探针：用账号凭证请求站点自己的鉴权接口（规则包声明，
+/// 加载器已校验 https + 同可注册域 + GET/POST 白名单）。
+///
+/// 强判据：判定成功即短路返回；请求失败/超时/结果不明确一律 None
+///（不定论，静默走后续证据链），不产生用户可见错误。
+async fn run_login_check(
+    check: &super::login_rules::LoginCheckSpec,
+    saved_session: Option<&AccountSession>,
+    proxy_url: Option<&str>,
+) -> Option<AccountSessionStatus> {
+    let url = url::Url::parse(&check.url).ok()?;
+    let mut client = reqwest::Client::builder()
+        .timeout(HTTP_PROBE_REQUEST_TIMEOUT)
+        .redirect(reqwest::redirect::Policy::none());
+    if let Some(proxy_url) = proxy_url {
+        client = client.proxy(reqwest::Proxy::all(proxy_url).ok()?);
+    }
+    let client = client.build().ok()?;
+    let cookie_header = saved_session
+        .map(|session| cookie_header_for_url(session, &url))
+        .filter(|header| !header.is_empty());
+    let user_agent = saved_session
+        .map(|session| session.user_agent.trim())
+        .filter(|user_agent| !user_agent.is_empty());
+
+    let mut request = match check.method.as_str() {
+        "POST" => client.post(url.clone()),
+        _ => client.get(url.clone()),
+    };
+    if let Some(header) = cookie_header.as_deref() {
+        request = request.header(COOKIE, header);
+    }
+    if let Some(user_agent) = user_agent {
+        request = request.header(USER_AGENT, user_agent);
+    }
+    let mut response = timeout(HTTP_PROBE_TOTAL_TIMEOUT, request.send())
+        .await
+        .ok()?
+        .ok()?;
+    let status = response.status().as_u16();
+
+    let expect = &check.expect;
+    if expect.kind == "status" {
+        let hit = |side: &[serde_json::Value]| {
+            side.iter()
+                .filter_map(|v| v.as_u64())
+                .any(|c| c == u64::from(status))
+        };
+        return if hit(&expect.logged_in) {
+            Some(AccountSessionStatus::Ready)
+        } else if hit(&expect.logged_out) {
+            Some(AccountSessionStatus::LoginRequired)
+        } else {
+            None
+        };
+    }
+
+    // jsonBool / bodyContains 需要读响应体（大小受限）。
+    let mut body = Vec::new();
+    while let Ok(Some(chunk)) = response.chunk().await {
+        let remaining = HTTP_PROBE_MAX_BODY_BYTES.saturating_sub(body.len());
+        if remaining == 0 {
+            break;
+        }
+        body.extend_from_slice(&chunk[..chunk.len().min(remaining)]);
+    }
+    if expect.kind == "jsonBool" {
+        let value: serde_json::Value = serde_json::from_slice(&body).ok()?;
+        let path = expect.path.as_deref()?;
+        return match super::login_rules::json_bool_path(&value, path) {
+            Some(true) => Some(AccountSessionStatus::Ready),
+            Some(false) => Some(AccountSessionStatus::LoginRequired),
+            None => None,
+        };
+    }
+    if expect.kind == "bodyContains" {
+        let text = String::from_utf8_lossy(&body);
+        let hit = |side: &[serde_json::Value]| {
+            side.iter()
+                .filter_map(|v| v.as_str())
+                .any(|indicator| text.contains(indicator))
+        };
+        return if hit(&expect.logged_in) {
+            Some(AccountSessionStatus::Ready)
+        } else if hit(&expect.logged_out) {
+            Some(AccountSessionStatus::LoginRequired)
+        } else {
+            None
+        };
+    }
+    None
+}
+
+/// WebView 内检查 CSS 选择器存在性（规则包 fallback 的 selector 弱证据）。
+async fn eval_selector_exists<R: Runtime>(
+    window: &tauri::WebviewWindow<R>,
+    selector: &str,
+) -> AccountManagerResult<bool> {
+    let script = format!(
+        "!!document.querySelector({})",
+        serde_json::to_string(selector)
+            .map_err(|e| AccountManagerError::store_fail(format!("selector encode: {e}")))?
+    );
+    let (tx, rx) = oneshot::channel::<String>();
+    let slot: Arc<Mutex<Option<oneshot::Sender<String>>>> = Arc::new(Mutex::new(Some(tx)));
+    window
+        .eval_with_callback(&script, move |r| {
+            if let Ok(mut g) = slot.lock() {
+                if let Some(s) = g.take() {
+                    let _ = s.send(r);
+                }
+            }
+        })
+        .map_err(|e| AccountManagerError::store_fail(format!("eval selector: {e}")))?;
+    let payload = timeout(Duration::from_millis(2000), rx)
+        .await
+        .map_err(|_| AccountManagerError::store_fail("selector timeout"))?
+        .map_err(|_| AccountManagerError::store_fail("selector closed"))?;
+    let result: bool = serde_json::from_str(&payload)
+        .map_err(|e| AccountManagerError::store_fail(format!("selector decode: {e}")))?;
+    Ok(result)
+}
+
+/// 轮询页面文本（+规则包 selector DOM 检查）并按融合优先级分类。
+///
+/// `classify_effective_confident` 有确定性结果即提前返回；超时回退
+/// `classify_effective`（返回 Expired 等确定值）。probe 与 keeper 共用。
+pub(crate) async fn poll_effective_classification<R: Runtime>(
+    config: &LoginDetectionConfig,
+    rule: Option<&super::login_rules::LoginRuleDoc>,
+    window: &tauri::WebviewWindow<R>,
+) -> Option<AccountSessionStatus> {
+    let selectors = |side| {
+        rule.map(|r| super::login_rules::selector_conditions(r, side))
+            .unwrap_or_default()
+    };
+    let logged_in_selectors = selectors(super::login_rules::FallbackSide::LoggedIn);
+    let logged_out_selectors = selectors(super::login_rules::FallbackSide::LoggedOut);
+    let has_selectors = !logged_in_selectors.is_empty() || !logged_out_selectors.is_empty();
+
+    let poll_deadline = Instant::now() + Duration::from_millis(8000);
+    let mut last_text: Option<String> = None;
+    let mut confident: Option<AccountSessionStatus> = None;
+    let interval = Duration::from_millis(500);
+    while Instant::now() < poll_deadline {
+        match eval_text(window).await {
+            Ok(text) => {
+                if let Some(status) = classify_effective_confident(&text, config, rule) {
+                    confident = Some(status);
+                    break;
+                }
+                last_text = Some(text);
+            }
+            Err(_) => {
+                sleep(interval).await;
+                continue;
+            }
+        }
+        if has_selectors {
+            // DOM selector 弱证据：loggedOut 命中优先（与 fallback 语义一致）。
+            let mut dom_status = None;
+            for selector in &logged_out_selectors {
+                if eval_selector_exists(window, selector)
+                    .await
+                    .unwrap_or(false)
+                {
+                    dom_status = Some(AccountSessionStatus::LoginRequired);
+                    break;
+                }
+            }
+            if dom_status.is_none() {
+                for selector in &logged_in_selectors {
+                    if eval_selector_exists(window, selector)
+                        .await
+                        .unwrap_or(false)
+                    {
+                        dom_status = Some(AccountSessionStatus::Ready);
+                        break;
+                    }
+                }
+            }
+            if let Some(status) = dom_status {
+                confident = Some(status);
+                break;
+            }
+        }
+        sleep(interval).await;
+    }
+    confident.or_else(|| last_text.map(|text| classify_effective(&text, config, rule)))
 }
 
 fn cookie_path_matches(cookie_path: &str, request_path: &str) -> bool {
@@ -325,6 +567,9 @@ pub fn set_probe_strategy<R: Runtime>(
     })
 }
 
+// 注：8 个参数是分层证据管线（账号/站点/配置/策略/代理/指纹/规则包）的自然形态；
+// 拆结构体的收益低于可读性损失，此处豁免 clippy::too_many_arguments。
+#[allow(clippy::too_many_arguments)]
 #[cfg_attr(not(target_os = "macos"), allow(unused_variables))]
 pub async fn run_probe<R: Runtime>(
     app: &AppHandle<R>,
@@ -334,6 +579,7 @@ pub async fn run_probe<R: Runtime>(
     strategy: ProbeStrategy,
     proxy_url: Option<&str>,
     fingerprint: Option<&LoginFingerprint>,
+    rule: Option<&super::login_rules::LoginRuleDoc>,
 ) -> AccountManagerResult<ProbeOutcome> {
     let target = parse_probe_target(website)?;
     let saved_session = {
@@ -358,12 +604,25 @@ pub async fn run_probe<R: Runtime>(
         });
     }
     let fingerprint_present = fingerprint.is_some_and(|fp| !fp.is_empty());
+    // S1 loginCheck（规则包强判据）：站点自己的鉴权接口是最高置信证据
+    // （前置调研 §4：唯一 3/3 全对方案）。不受 probe_strategy 限制——目标
+    // 是规则声明的站点自身 API 端点（同可注册域 + GET/POST 白名单由加载器保证）。
+    if let Some(rule) = rule {
+        if let Some(check) = rule.detection.login_check.as_ref() {
+            if let Some(status) = run_login_check(check, saved_session.as_ref(), proxy_url).await {
+                return Ok(ProbeOutcome {
+                    status,
+                    reason: Some(LOGIN_CHECK_REASON),
+                });
+            }
+        }
+    }
     if matches!(
         strategy,
         ProbeStrategy::HttpFirst | ProbeStrategy::HttpOnly | ProbeStrategy::Hybrid
     ) && !fingerprint_missing
     {
-        match run_http_probe(&target, config, saved_session.as_ref(), proxy_url).await {
+        match run_http_probe(&target, config, rule, saved_session.as_ref(), proxy_url).await {
             // HTTP 强证据(401/403)或 Ready:直接返回。
             // 弱证据(文本分类 LoginRequired/Expired)且指纹存在:不轻信,升级 WebView 复核。
             Ok(Some(outcome))
@@ -475,50 +734,25 @@ pub async fn run_probe<R: Runtime>(
             }
             // L0b 预检（WebView 路径）：以采样指纹为登录态证据（含值形态匹配）——
             // 轮询等待特征就绪(SPA 延迟写 cookie/localStorage)。
+            // 修复（前置调研 P0）：特征 present 是「弱肯定」——不得直接判 Ready
+            //（trae.cn 误判根因：残留/匿名即有的特征被当定论），仅保留
+            // 「全缺失 → 确定性未登录」的否定短路，present 继续走文本分类链。
             if let Some(fp) = fingerprint {
                 if !fp.is_empty() {
                     let present =
                         fingerprint::wait_for_any_feature_present(&window, website, fp, 6, 500)
                             .await?;
-                    let _ = window.close();
-                    return Ok(if present {
-                        ProbeOutcome {
-                            status: AccountSessionStatus::Ready,
-                            reason: None,
-                        }
-                    } else {
-                        ProbeOutcome {
+                    if !present {
+                        let _ = window.close();
+                        return Ok(ProbeOutcome {
                             status: AccountSessionStatus::LoginRequired,
                             reason: Some(super::fingerprint::FINGERPRINT_MISSING_REASON),
-                        }
-                    });
-                }
-            }
-            let pd = Instant::now() + Duration::from_millis(8000);
-            let mut lt: Option<String> = None;
-            let mut out = None;
-            let iv = Duration::from_millis(500);
-            while Instant::now() < pd {
-                match eval_text(&window).await {
-                    Ok(t) => {
-                        if let Some(s) = detection::classify_confident(&t, config) {
-                            out = Some(s);
-                            break;
-                        }
-                        lt = Some(t);
-                    }
-                    Err(_) => {
-                        sleep(iv).await;
-                        continue;
+                        });
                     }
                 }
-                sleep(iv).await;
             }
-            if out.is_none() {
-                lt.map(|t| detection::classify(&t, config))
-            } else {
-                out
-            }
+            // 文本/selector 融合分类（8s 预算；probe 与 keeper 共用）。
+            poll_effective_classification(config, rule, &window).await
         }
     };
     let _ = window.close();
@@ -710,7 +944,7 @@ mod tests {
             },
         };
 
-        let outcome = run_http_probe(&target, &config, Some(&session), None)
+        let outcome = run_http_probe(&target, &config, None, Some(&session), None)
             .await
             .unwrap()
             .unwrap();
