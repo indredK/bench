@@ -127,6 +127,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     "bench:session:export": () => exportSession(msg.accountId),
     "bench:session:storagePreview": () => storagePreview(msg),
     "bench:session:inject": () => injectSession(msg),
+    "bench:session:pendingCheck": () => maybeAutoInject(),
     "bench:session:backups": () => listBackups(),
     "bench:session:restore": () => restoreBackup(msg.key),
   }
@@ -307,7 +308,10 @@ async function openAndWaitTab(url, timeoutMs = 20000) {
  * schema 锚点，改动必须两处同步。IndexedDB 刻意不注入（无法廉价备份）。
  */
 async function injectWebStorage(origin, branch) {
-  const tabId = await openAndWaitTab(origin + "/")
+  // 优先复用该站点已存在的标签页（手动注入=用户当前页；自动注入=Bench 打开的页），
+  // 避免额外开后台标签；没有才新开。
+  let tabId = (await findTabByOrigin(origin))?.id
+  if (!tabId) tabId = await openAndWaitTab(origin + "/")
   const backupResult = await chrome.scripting.executeScript({
     target: { tabId },
     func: () => ({
@@ -413,6 +417,8 @@ async function injectSession({ accountId, url, withStorage }) {
     }
   }
   await chrome.storage.local.set({ [backupKey]: backup })
+  // 注入成功即完成同 origin 的自动注入任务（若存在），避免自动流程重复注入。
+  void bridgeCall("/v1/tasks/complete", { origin }).catch(() => {})
 
   return {
     outcome: "injected",
@@ -427,6 +433,68 @@ async function injectSession({ accountId, url, withStorage }) {
     storage,
   }
 }
+
+// ── 自动注入（D-032）──────────────────────────────────────────────────────
+// Bench 点「同步到日常浏览器」后登记 pending 任务并打开站点页；本扩展在页面
+// 加载完成时领取任务并自动完成注入，用户无需再点扩展图标。任务不含凭据
+//（注入载荷仍走 /v1/session/export 双校验通道），10 分钟未完成自动过期。
+
+/** 领取 pending 任务并对匹配的标签页自动注入。返回已完成的 origin 列表。 */
+async function maybeAutoInject() {
+  let pending
+  try {
+    pending = await bridgeCall("/v1/tasks/pending", {})
+  } catch (e) {
+    return { ok: false, completed: [] }
+  }
+  const tasks = Array.isArray(pending) ? pending : []
+  const completed = []
+  for (const task of tasks) {
+    if (!task?.origin || !task?.accountId) continue
+    let tab = null
+    try {
+      tab = await findTabByOrigin(task.origin)
+    } catch (e) {
+      tab = null
+    }
+    if (!tab) continue
+    const granted = await chrome.permissions
+      .contains({ origins: [task.origin + "/*"] })
+      .catch(() => false)
+    if (!granted) continue // 未授权站点：保留任务，等用户在 popup 手动完成授权注入
+    try {
+      await injectSession({ accountId: task.accountId, url: task.origin + "/", withStorage: true })
+      completed.push(task.origin)
+    } catch (e) {
+      /* 单任务失败不阻断其他任务；任务保留到过期 */
+    }
+  }
+  for (const origin of completed) {
+    try {
+      await bridgeCall("/v1/tasks/complete", { origin })
+    } catch (e) {
+      /* 完成确认失败无妨：任务 10 分钟后过期 */
+    }
+  }
+  return { ok: true, completed }
+}
+
+/** 按 locating origin 查找已加载完成的标签页（需要 tabs 权限读取 url）。 */
+async function findTabByOrigin(origin) {
+  const tabs = await chrome.tabs.query({ url: origin + "/*" })
+  if (tabs.length) return tabs[0]
+  return null
+}
+
+// 页面加载完成 / URL 变化 → 尝试领取任务自动注入（Bench 打开站点的场景即命中）。
+chrome.tabs.onUpdated.addListener((_tabId, changeInfo, tab) => {
+  if (!changeInfo.status && !changeInfo.url) return
+  if (changeInfo.status && changeInfo.status !== "complete") return
+  if (!tab?.url) return
+  void maybeAutoInject()
+})
+// 标签页创建也触发一次（Bench 打开的新 tab 在 complete 前即可预领）。
+chrome.tabs.onCreated.addListener(() => void maybeAutoInject())
 
 async function listBackups() {
   const all = await chrome.storage.local.get(null)
