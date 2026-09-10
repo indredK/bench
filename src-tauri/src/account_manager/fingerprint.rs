@@ -14,8 +14,7 @@ use super::types::*;
 pub const FINGERPRINT_MISSING_REASON: &str = "fingerprintMissing";
 
 /// 采集 storage 键名与值长度的 JS：token/auth/session/jwt/access/id_token/refresh 命中的
-/// localStorage + sessionStorage 键（去重，附值长度作形态特征），
-/// 并返回采样页是否存在登出元素（登录佐证）。
+/// localStorage + sessionStorage 键（去重，附值长度作形态特征）。
 const CAPTURE_STORAGE_SCRIPT: &str = r#"
 (function() {
   'use strict';
@@ -38,18 +37,14 @@ const CAPTURE_STORAGE_SCRIPT: &str = r#"
   try { all = all.concat(entriesOf(sessionStorage)); } catch (e) {}
   var seen = {};
   all = all.filter(function(e) { return seen[e.k] ? false : (seen[e.k] = true); });
-  var logout = !!document.querySelector(
-    'a[href*="logout"], a[href*="signout"], a[href*="sign-out"], button[data-testid="logout"], [aria-label*="logout"], [data-action="logout"]'
-  );
-  return JSON.stringify({ entries: all, logout: logout });
+  return JSON.stringify({ entries: all });
 })()
 "#;
 
-/// 一次采集的结果：指纹 + 采样页登录佐证（登出元素是否存在）。
+/// 一次采集的结果：登录态指纹。
 #[derive(Debug, Clone)]
 pub struct FingerprintCapture {
     pub fingerprint: LoginFingerprint,
-    pub logout_evidence: bool,
 }
 
 /// 从已加载目标页面的窗口采集指纹（cookie 特征 + storage 键名）。
@@ -81,7 +76,6 @@ pub(crate) async fn capture_from_window<R: Runtime>(
     let mut storage_keys: Vec<String> = Vec::new();
     let mut storage_key_lens: std::collections::HashMap<String, usize> =
         std::collections::HashMap::new();
-    let mut logout_evidence = false;
     let raw = evaluate_js(window, CAPTURE_STORAGE_SCRIPT).await;
     if let Ok(payload) = raw {
         if let Ok(value) = serde_json::from_str::<serde_json::Value>(&payload) {
@@ -96,10 +90,6 @@ pub(crate) async fn capture_from_window<R: Runtime>(
                     }
                 }
             }
-            logout_evidence = value
-                .get("logout")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false);
         }
     }
 
@@ -110,10 +100,7 @@ pub(crate) async fn capture_from_window<R: Runtime>(
         sampled_at: super::commands::now_label(),
         sampled_by_account: account_id.to_string(),
     };
-    Ok(FingerprintCapture {
-        fingerprint,
-        logout_evidence,
-    })
+    Ok(FingerprintCapture { fingerprint })
 }
 
 /// 值形态匹配：当前值长度与采样值长度同量级（≥ 采样的一半，至少 4 字符）。
@@ -239,7 +226,6 @@ pub struct LoginFingerprintSummary {
     pub cookie_count: usize,
     pub storage_key_count: usize,
     pub sampled_at: String,
-    pub has_logout_evidence: bool,
 }
 
 impl LoginFingerprintSummary {
@@ -248,7 +234,6 @@ impl LoginFingerprintSummary {
             cookie_count: capture.fingerprint.cookie_features.len(),
             storage_key_count: capture.fingerprint.storage_keys.len(),
             sampled_at: capture.fingerprint.sampled_at.clone(),
-            has_logout_evidence: capture.logout_evidence,
         }
     }
 }

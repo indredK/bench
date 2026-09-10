@@ -1,6 +1,6 @@
 /**
  * Login fingerprint confirm dialog / 登录指纹确认对话框 (F2).
- * 采样成功后弹窗:展示特征计数 + 登出元素佐证,询问用户是否将该账号
+ * 采样成功后弹窗:展示特征计数,询问用户是否将该账号
  * 当前状态识别为该站点的活跃(已登录)状态。确认后由 controller 调用
  * confirm_login_fingerprint 并把账号置为 Ready。
  */
@@ -76,16 +76,6 @@ export function FingerprintConfirmDialog({
                   {t("accountManager.fingerprint.sampledAt")}
                 </span>
                 <span className="font-medium">{summary.sampledAt}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">
-                  {t("accountManager.fingerprint.logoutEvidence")}
-                </span>
-                <span className="font-medium">
-                  {summary.hasLogoutEvidence
-                    ? t("accountManager.fingerprint.logoutEvidenceYes")
-                    : t("accountManager.fingerprint.logoutEvidenceNo")}
-                </span>
               </div>
             </div>
           )

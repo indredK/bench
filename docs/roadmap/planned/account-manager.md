@@ -73,7 +73,6 @@
 | Cookie 特征 `{name, domain, path, httpOnly}` | `cookies_for_url()`（`session.rs extract_cookies` 已有，含 HttpOnly） | 高     | **只记名与域，不记值**；值随会话变化且敏感 |
 | localStorage/sessionStorage token 键名       | `DETECTION_SCRIPT` 已采集 `tokenKeys`（`detection.rs:13-79`）         | 中     | 键名稳定；正则模式需按需扩充               |
 | session 快照存在性 + `captured_at_ts`        | 内存判定，零成本                                                      | 中     | 配合 station TTL 判断新鲜度                |
-| 登出元素选择器（logout link 等）             | `DETECTION_SCRIPT` 已采集 `logoutElements`                            | 中     | 「已登录」的 DOM 佐证，用于确认弹窗展示    |
 | 页面文本规则                                 | 现有 `LoginDetectionConfig`                                           | 低     | 保留兼容，继续作为 L1/L2 输入              |
 
 安全边界（design.md §5）：指纹本体（cookie 特征名单 + storage 键名）存 Rust 侧加密 store 的**站点级字段**；前端 DTO 只回摘要（特征数量、命中数、采样时间），不回键名明文列表。
@@ -81,8 +80,8 @@
 **方案设计**
 
 1. 数据模型：`RelayStation.login_fingerprint: Option<LoginFingerprint>`（serde default，旧数据兼容 + migration 检查）：`cookie_features: Vec<{name, domain, path, http_only}>`、`storage_keys: Vec<String>`、`sampled_at`、`sampled_by_account`。
-2. 采样命令 `capture_login_fingerprint(station_id, account_id)`：优先复用该账号已打开的登录窗口；无则开隐藏窗口（注入该账号 session，复用 `detect_station_auth_profile` 的窗口构建逻辑，`commands/proxy.rs:202-311`）→ 扩展版指纹脚本（DETECTION_SCRIPT 基础上返回 cookie 名单+域、storage 键名、logout 选择器）→ 写入站点指纹；**同一窗口顺带刷新 authProfile**（一次加载两份画像，消除「尚未检测认证配置」与指纹的分离感）。
-3. 确认弹窗（采样成功后）：展示「检测到 N 项 cookie 特征 / M 个 storage 键」+ 登录佐证（logout 元素）→「是否将该账号当前状态识别为该站点的活跃（已登录）状态？」→ 确认：`account.status = Ready` + `last_login_at` 回填 + 写 statusChanged / fingerprint 日志。
+2. 采样命令 `capture_login_fingerprint(station_id, account_id)`：优先复用该账号已打开的登录窗口；无则开隐藏窗口（注入该账号 session，复用 `detect_station_auth_profile` 的窗口构建逻辑，`commands/proxy.rs:202-311`）→ 扩展版指纹脚本（DETECTION_SCRIPT 基础上返回 cookie 名单+域、storage 键名）→ 写入站点指纹；**同一窗口顺带刷新 authProfile**（一次加载两份画像，消除「尚未检测认证配置」与指纹的分离感）。
+3. 确认弹窗（采样成功后）：展示「检测到 N 项 cookie 特征 / M 个 storage 键」→「是否将该账号当前状态识别为该站点的活跃（已登录）状态？」→ 确认：`account.status = Ready` + `last_login_at` 回填 + 写 statusChanged / fingerprint 日志。
 4. 判定集成（probe L0 预检，两路都只做「特征全缺失」短路）：
    - L0a（HTTP 路径，`run_probe` 入口）：站点有指纹 && 恢复的 canonical session 中特征 cookie 名全部缺失 → 直接 `LoginRequired`，跳过 HTTP 请求（省预算，结果确定）；
    - L0b（WebView 路径，probe/keeper 窗口加载后）：在文本分类轮询外增加指纹 eval 脚本（`cookies_for_url` + storage 键检查）→ 特征全缺失 → `LoginRequired`（覆盖「canonical session 为空但 WebView data dir 有残留」的账号，避免 L0a 误判）；
@@ -95,7 +94,7 @@
 
 - D1 「未登录」是否新增独立状态枚举（如 `loggedOut`）vs 复用 `loginRequired` + detail 标注？新增枚举动 TS/Rust 双端契约与全部状态映射。**2026-09-10 已定：方案 A（复用 + 来源标注）**——`StationAccount.status_reason` 仅指纹 L0 短路时记 `fingerprintMissing`，前端 `StatusBadge` 在 `loginRequired && statusReason=fingerprintMissing` 时挂 tooltip「指纹缺失，已确认未登录」；手动/keeper 刷新的日志 detail 同步带 `reason`。确认登录（`confirm_login_fingerprint`）与 Ready 时清空。
 - D2 指纹为站点级：采样确认后立即对同站全部账号生效（自动批量刷新）——与用户描述一致，确认刷新范围与并发预算（复用现有 semaphore/single-flight）。
-- D3 采样前置条件：是否要求采样账号当前探针 Ready（防止把登出态采成指纹）？建议不强制，但确认弹窗展示采样页面的登录佐证供用户判断。
+- D3 采样前置条件：是否要求采样账号当前探针 Ready（防止把登出态采成指纹）？建议不强制。**2026-09-10 已定：不强制，且确认弹窗不展示「登录佐证（登出入口）」**——登出元素存在性检查（DOM 文本/元素判断）已整体移除（Rust 采集脚本、`FingerprintCapture.logout_evidence`、`LoginFingerprintSummary.hasLogoutEvidence`、弹窗展示行与 i18n），用户以特征计数自行判断。
 - D4 「用户显式确认即 Ready」与 design.md §3「不能仅凭 cookie 存在标记 Ready」红线的关系：显式确认是用户断言而非自动推断，且指纹来自实时页面采样——**建议在 design.md §3 补一句例外条款**而非违反红线。
 
 **任务**
