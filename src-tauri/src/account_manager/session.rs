@@ -1,7 +1,7 @@
 //! Session 持久化引擎 — 登录捕获、启动恢复、退出持久化
 //!
 //! 核心原则: 不依赖 WebView 自身的 cookie 持久化。
-//! 登录完成后立即通过 cookies_for_url() 提取并加密存储；
+//! 登录完成后立即通过全量 cookies() + RFC 6265 domain-match 提取并加密存储；
 //! 退出前通过 ExitRequested hook 做最后一次提取 + flush；
 //! 启动时从加密存储恢复并注入到 WebView。
 
@@ -54,7 +54,51 @@ pub(crate) async fn evaluate_js<R: Runtime>(
     }
 }
 
-/// 通过 Tauri v2 cookies_for_url() 获取指定 URL 的全部 cookie
+/// RFC 6265 domain-match：cookie 的 domain 是否覆盖目标 host（纯逻辑，便于单测）。
+///
+/// - `None`（无 domain 属性，host-only 语义）→ 视为归属当前 host，随目标捕获；
+/// - 带前导点的域级 cookie（如 `.trae.cn`）→ host 等于去点域名，或以
+///   `.{去点域名}` 结尾（`www.trae.cn` / `api.trae.cn` 均命中）；
+/// - 无前导点（host-only 或显式 `Domain=host`）→ 精确命中，不放大到兄弟子域。
+fn cookie_domain_matches_target(cookie_domain: Option<&str>, host: &str) -> bool {
+    let host = host.trim().to_ascii_lowercase();
+    let Some(raw) = cookie_domain else {
+        return true;
+    };
+    let domain = raw.trim().trim_start_matches('.').to_ascii_lowercase();
+    if domain.is_empty() {
+        return true;
+    }
+    host == domain || host.ends_with(&format!(".{domain}"))
+}
+
+/// 拉取 WebView cookie store 中与目标 URL 域匹配的全部 cookie。
+///
+/// 为什么不用 `cookies_for_url`：wry（≤0.55）的实现是
+/// `cookie.domain() == url.domain()` 的**精确字符串匹配**，域级 cookie
+/// （`.trae.cn` 的 passport 会话 `sessionid`/`sid_guard`/`ttwid` 等）会被整体
+/// 过滤 —— trae.cn 账号曾因此丢失全部登录凭证，loginCheck 探针退化为匿名请求
+/// 而恒判未登录（2026-09-10 实测）。改为全量 `cookies()` 后自行 domain-match；
+/// 捕获端对 secure/host-only 细节刻意从宽（略有过收，加密存储，发送与恢复
+/// 链路各自再从严把关），换取不丢凭证。
+///
+/// Windows 注意：`cookies()` 在同步 command/event handler 中会死锁（WebView2
+/// 已知问题），调用方必须处于异步上下文 —— 本函数为 async，仅在 async 链路使用。
+pub(crate) async fn cookies_for_target<R: Runtime>(
+    window: &WebviewWindow<R>,
+    target: &Url,
+) -> AccountManagerResult<Vec<WebviewCookie<'static>>> {
+    let host = target.host_str().unwrap_or_default().to_string();
+    let cookies = window
+        .cookies()
+        .map_err(|e| AccountManagerError::store_fail(format!("cookies failed: {e}")))?;
+    Ok(cookies
+        .into_iter()
+        .filter(|c| cookie_domain_matches_target(c.domain(), &host))
+        .collect())
+}
+
+/// 提取与指定 URL 域匹配的全部 cookie 并转换为存储条目
 async fn extract_cookies<R: Runtime>(
     window: &WebviewWindow<R>,
     url: &str,
@@ -64,9 +108,7 @@ async fn extract_cookies<R: Runtime>(
         .map_err(|e| AccountManagerError::invalid_input(format!("parse url: {e}")))?;
 
     let capture_host = parsed.host_str().unwrap_or_default().to_string();
-    let cookies = window
-        .cookies_for_url(parsed)
-        .map_err(|e| AccountManagerError::store_fail(format!("cookies_for_url failed: {e}")))?;
+    let cookies = cookies_for_target(window, &parsed).await?;
 
     Ok(cookies
         .into_iter()
@@ -552,4 +594,78 @@ fn set_status<R: Runtime>(
         }
         Ok(())
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn domain_cookie_matches_registrable_domain_and_subdomains() {
+        // 域级 cookie（带前导点）对可注册域与其全部子域生效 —— trae.cn passport
+        // 会话（sessionid/sid_guard/ttwid）正是这种形态，捕获不得丢失。
+        assert!(cookie_domain_matches_target(
+            Some(".trae.cn"),
+            "www.trae.cn"
+        ));
+        assert!(cookie_domain_matches_target(
+            Some(".trae.cn"),
+            "api.trae.cn"
+        ));
+        assert!(cookie_domain_matches_target(Some(".trae.cn"), "trae.cn"));
+        // 无前导点但与可注册域同名（部分内核去点存储）同样按域级处理。
+        assert!(cookie_domain_matches_target(Some("trae.cn"), "www.trae.cn"));
+    }
+
+    #[test]
+    fn host_only_cookie_matches_only_its_host() {
+        assert!(cookie_domain_matches_target(
+            Some("www.trae.cn"),
+            "www.trae.cn"
+        ));
+        assert!(!cookie_domain_matches_target(
+            Some("www.trae.cn"),
+            "api.trae.cn"
+        ));
+        assert!(!cookie_domain_matches_target(
+            Some("api.trae.cn"),
+            "www.trae.cn"
+        ));
+    }
+
+    #[test]
+    fn unrelated_or_partial_suffix_never_matches() {
+        assert!(!cookie_domain_matches_target(
+            Some(".evil.cn"),
+            "www.trae.cn"
+        ));
+        // 后缀必须落在域边界上，不能是字符串片段。
+        assert!(!cookie_domain_matches_target(
+            Some(".rae.cn"),
+            "www.trae.cn"
+        ));
+        assert!(!cookie_domain_matches_target(
+            Some(".xtrae.cn"),
+            "www.trae.cn"
+        ));
+    }
+
+    #[test]
+    fn missing_or_blank_domain_follows_target_host() {
+        assert!(cookie_domain_matches_target(None, "www.trae.cn"));
+        assert!(cookie_domain_matches_target(Some(""), "www.trae.cn"));
+        assert!(cookie_domain_matches_target(Some("   "), "www.trae.cn"));
+    }
+
+    #[test]
+    fn domain_match_is_case_insensitive() {
+        assert!(cookie_domain_matches_target(
+            Some(".TRAE.CN"),
+            "WWW.TRAE.CN"
+        ));
+        assert!(cookie_domain_matches_target(
+            Some("Www.Trae.cn"),
+            "www.TRAE.cn"
+        ));
+    }
 }

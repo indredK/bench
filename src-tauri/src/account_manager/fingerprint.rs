@@ -48,7 +48,9 @@ pub struct FingerprintCapture {
 }
 
 /// 从已加载目标页面的窗口采集指纹（cookie 特征 + storage 键名）。
-/// cookie 从原生 `cookies_for_url` 获取（含 HttpOnly）；storage 键名走 JS。
+/// cookie 走 `session::cookies_for_target`（全量 + RFC 6265 domain-match，含
+/// HttpOnly；不用 wry `cookies_for_url`——其精确 domain 匹配会丢域级 cookie）；
+/// storage 键名走 JS。
 pub(crate) async fn capture_from_window<R: Runtime>(
     window: &WebviewWindow<R>,
     target_url: &str,
@@ -59,9 +61,7 @@ pub(crate) async fn capture_from_window<R: Runtime>(
         .map_err(|e| AccountManagerError::invalid_input(format!("fingerprint url: {e}")))?;
     let capture_host = parsed.host_str().unwrap_or_default().to_string();
 
-    let cookies = window
-        .cookies_for_url(parsed)
-        .map_err(|e| AccountManagerError::store_fail(format!("cookies_for_url: {e}")))?;
+    let cookies = super::session::cookies_for_target(window, &parsed).await?;
     let cookie_features = cookies
         .into_iter()
         .map(|c| CookieFeature {
@@ -129,9 +129,7 @@ pub(crate) async fn any_feature_present_in_window<R: Runtime>(
         .parse()
         .map_err(|e| AccountManagerError::invalid_input(format!("fingerprint url: {e}")))?;
     let capture_host = parsed.host_str().unwrap_or_default().to_string();
-    let cookies = window
-        .cookies_for_url(parsed)
-        .map_err(|e| AccountManagerError::store_fail(format!("cookies_for_url: {e}")))?;
+    let cookies = super::session::cookies_for_target(window, &parsed).await?;
 
     for feature in &fingerprint.cookie_features {
         let matched = cookies.iter().any(|c| {

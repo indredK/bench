@@ -121,6 +121,15 @@ refresh(acct-e72016f3)
 2. **S1 是唯一同时具备否定与肯定确定性的方案**，且大厂（GitHub 401/302）、标准（OIDC prompt=none ≈ S1 的协议化封装）、开源工具（session_check_url / success_indicator）殊途同归。
 3. 指纹的真实价值在两点：① 否定短路省探针预算；② 供用户在确认弹窗中**理解判定依据**（配合本次新增的特征明细二级弹窗）。
 
+### 4.1 勘误与补充（2026-09-10 下午，rulepack 上线后实测）
+
+本表 S1 行「7242/0627 → IsLogin:true」的实测结论**方向正确，但当时未覆盖捕获层**。rulepack（`trae.cn` v1.0.0）上线后两个已登录账号仍被判 `LoginRequired(loginCheck)`，二轮实测定位到完整根因链：
+
+1. **CheckLogin 是纯 cookie 鉴权**：用真实凭证实测 6 种形态（无凭证 / 仅快照 cookie / `Authorization: Bearer` / `Cloud-IDE-JWT`（前端真实 scheme，见站点 bundle `Authorization:"Cloud-IDE-JWT ".concat(token)`）/ `X-Cloudide-Token` / token 作 cookie）全部 `IsLogin:false`。前端 JWT（localStorage `Cloud-IDE-Token`，8h TTL）只用于 IDE 类接口；`GetUserToken` 调用本身不带任何 header，靠 passport cookie 换 token。
+2. **捕获层丢失域级 cookie（真正根因）**：wry ≤0.55 的 `cookies_for_url` 是 `cookie.domain() == url.domain()` 精确字符串匹配 → 对 `www.trae.cn` 抓取时 `.trae.cn` 域级 cookie（`sessionid`/`sid_guard`/`sid_tt`/`sid_ucp`/`uid_tt`/`ttwid`/`passport_csrf_token`）全部被过滤。磁盘实证：登录账号 WK store 有完整 passport cookie 集，快照捕获里一个都没有。探针侧 `cookie_header_for_url` 的 domain-match 本身正确——两端认知不一致，bug 独在捕获端。
+3. **修复**：`session.rs` 新增 `cookies_for_target`（全量 `cookies()` + RFC 6265 domain-match 过滤），`extract_cookies` 与 `fingerprint.rs` 两处采样统一切换；规则包 `trae.cn` v1.1.0 已把实测结论沉淀进 description。
+4. **教训**：S1 的「3/3 全对」必须以「宿主捕获的 canonical session 能否还原探针所需凭证」为前提验证；捕获层缺陷会让强判据系统性失效，且失效方向恰好是「恒判未登录」，与站点行为差异（SPA/无 401）难以区分。
+
 ---
 
 ## 5. 指纹质量改进：匿名基线差集（建议）
