@@ -1,3 +1,4 @@
+pub mod browser_bridge;
 pub mod browser_session;
 mod browser_storage;
 mod capabilities;

@@ -109,6 +109,13 @@ pub const COMMANDS: &[Command] = &[
             "required": ["src", "build"]
         }"#,
     },
+    Command {
+        name: "browser_bridge_descriptor",
+        description: "取回 Bench 浏览器扩展本地桥的端口与一次性 token（仅浏览器扩展可用）。扩展据此才能与 Bench app 交换会话；不暴露为 MCP tool（含一次性凭据）。",
+        mcp_tool: false,
+        requires_root: false,
+        input_schema: r#"{ "type": "object", "properties": {} }"#,
+    },
 ];
 
 pub fn find(name: &str) -> Option<&'static Command> {
@@ -218,6 +225,15 @@ pub fn invoke(config: &HostConfig, name: &str, params: &Value) -> Result<Value, 
             .map(|count| json!({ "count": count, "build": build }))
             .map_err(|e| e.to_string())
         }
+        "browser_bridge_descriptor" => {
+            let path = config.bridge_descriptor.as_ref().ok_or(
+                "BRIDGE_DESCRIPTOR_UNCONFIGURED: 请从 Bench 重新执行「导出浏览器扩展」以生成 wrapper",
+            )?;
+            let raw = std::fs::read_to_string(path)
+                .map_err(|e| format!("BRIDGE_DESCRIPTOR_UNREADABLE: {e}"))?;
+            serde_json::from_str::<Value>(&raw)
+                .map_err(|e| format!("BRIDGE_DESCRIPTOR_INVALID: {e}"))
+        }
         other => Err(format!("UNKNOWN_COMMAND: {other}")),
     };
     let _ = Arc::new(()); // 保持 std 引用风格一致（无操作）
@@ -233,7 +249,37 @@ mod tests {
         HostConfig {
             guard: PathGuard::default(),
             store: StoreLocator::default(),
+            bridge_descriptor: None,
         }
+    }
+
+    #[test]
+    fn bridge_descriptor_requires_a_configured_path() {
+        // 未由 Bench 生成 wrapper 启动时必须明确报错，而不是去猜路径。
+        let err = invoke(&test_config(), "browser_bridge_descriptor", &json!({})).unwrap_err();
+        assert!(err.contains("BRIDGE_DESCRIPTOR_UNCONFIGURED"), "got: {err}");
+    }
+
+    #[test]
+    fn bridge_descriptor_is_read_verbatim_from_the_file() {
+        let dir = std::env::temp_dir().join(format!("bench-host-bridge-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("create temp dir");
+        let path = dir.join("browser-bridge.json");
+        std::fs::write(
+            &path,
+            r#"{"version":1,"port":12345,"token":"abc","extensionOrigin":"chrome-extension://x/"}"#,
+        )
+        .expect("write descriptor");
+        let config = HostConfig {
+            bridge_descriptor: Some(path.clone()),
+            ..test_config()
+        };
+
+        let value = invoke(&config, "browser_bridge_descriptor", &json!({})).unwrap();
+        assert_eq!(value["port"], 12345);
+        assert_eq!(value["token"], "abc");
+
+        std::fs::remove_dir_all(&dir).ok();
     }
 
     #[test]

@@ -10,7 +10,8 @@
 //! - 模板经 `include_str!/include_bytes!` 编译期嵌入，无运行时资源路径问题；
 //! - 扩展 manifest 携带固定 `key`，扩展 ID 恒为
 //!   `dmcfgfpfilhgcoddmciglpjdggkpinje`，与 NM host manifest 的
-//!   `allowed_origins` 永久匹配（见 docs/browser-extension-export-research.md R3）；
+//!   `allowed_origins` 永久匹配（见
+//!   `docs/explanation/browser-session-extension-plan.md` §3.1）；
 //! - 本模块只写「用户可见的安装/注册文件」，不改浏览器内部数据。
 
 pub mod commands;
@@ -135,6 +136,7 @@ pub fn detect_browsers() -> Vec<BrowserInfo> {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BrowserInfo {
     pub id: String,
     pub name: String,
@@ -142,6 +144,7 @@ pub struct BrowserInfo {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NmRegistration {
     pub browser: String,
     pub manifest_path: String,
@@ -149,6 +152,7 @@ pub struct NmRegistration {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ExportResult {
     pub extension_dir: String,
     pub wrapper_path: String,
@@ -199,13 +203,21 @@ pub fn write_extension_dir(target: &Path) -> Result<usize, String> {
 }
 
 /// 生成 NM wrapper 脚本（Native Messaging 启动 host 不带参数，
-/// 参数 `native` 必须经 wrapper 传入）。返回脚本绝对路径。
-pub fn write_wrapper(bin_dir: &Path, host_bin: &Path) -> Result<PathBuf, String> {
+/// 参数必须经 wrapper 传入）。返回脚本绝对路径。
+///
+/// wrapper 额外带上 `--bridge-descriptor`：扩展需要经 bench-host 取回本地桥的
+/// 端口与一次性 token（控制面），因此 host 必须知道描述文件在哪。
+pub fn write_wrapper(
+    bin_dir: &Path,
+    host_bin: &Path,
+    descriptor_path: &Path,
+) -> Result<PathBuf, String> {
     std::fs::create_dir_all(bin_dir).map_err(|e| format!("创建 bin 目录失败: {e}"))?;
     let wrapper = bin_dir.join("bench-host-nm.sh");
     let script = format!(
-        "#!/bin/sh\n# 由 Bench 生成：Native Messaging host 启动入口（NM 不支持传参）\nexec \"{}\" native \"$@\"\n",
-        host_bin.display()
+        "#!/bin/sh\n# 由 Bench 生成：Native Messaging host 启动入口（NM 不支持传参）\nexec \"{}\" native --bridge-descriptor \"{}\" \"$@\"\n",
+        host_bin.display(),
+        descriptor_path.display()
     );
     std::fs::write(&wrapper, script).map_err(|e| format!("写入 wrapper 失败: {e}"))?;
     #[cfg(unix)]

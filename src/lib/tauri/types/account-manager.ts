@@ -26,6 +26,13 @@ export interface AccountManagerCapabilities {
   browserSessionOpen: AccountManagerCapability
   /** 互通 I2：从 Bench 托管的浏览器 profile 回采会话（入向）。 */
   browserSessionCapture: AccountManagerCapability
+  /**
+   * 互通 I3/I5：经浏览器扩展读写**用户日常浏览器**的会话。
+   *
+   * 不依赖 Bench 启动浏览器，故不受「本机是否装有 Chromium 系浏览器」影响；
+   * 「扩展是否已装」属运行态信息，见 `browserExtStatus.bridgeReady`。
+   */
+  browserSessionExtension: AccountManagerCapability
 }
 
 export type ExclusivityMode = "coexisting" | "exclusive" | "rotating"
@@ -534,4 +541,41 @@ export interface BrowserProbeOutcome {
   /** 命中的站点指纹特征数（站点未采样指纹时为 null）。 */
   fingerprintHits?: number | null
   fingerprintTotal?: number | null
+}
+
+/** 站点维度回采面板的实时预览（只读，含 cookie 名称与计数，绝不含值）。 */
+export interface BrowserSessionPreview {
+  /** 站点实例是否在运行。 */
+  running: boolean
+  /** 命中站点可注册域的 cookie 条数。 */
+  cookieCount: number
+  /** 命中 cookie 的名称列表（不含值），供面板逐条展示。 */
+  cookieNames: string[]
+  /** 实际恢复了 Web Storage / IndexedDB 的 origin 份数。 */
+  storageOrigins: number
+  userAgent: string
+  indexedDbStatus: string
+  /** 命中的站点指纹特征数（站点未采样指纹时为 null）。 */
+  fingerprintHits?: number | null
+  fingerprintTotal?: number | null
+}
+
+/** browser_session_capture_station 的结果类别。 */
+export type BrowserStationCaptureOutcomeKind = BrowserCaptureOutcomeKind
+
+/** browser_session_capture_station 结果（只含计数/枚举/新建账号 id，不含任何值）。 */
+export interface BrowserStationCaptureOutcome {
+  outcome: BrowserStationCaptureOutcomeKind
+  /** 实际写入的账号 id（新建或已有）。 */
+  targetAccountId: string
+  /** 仅当本次新建账号承接登录态时非空。 */
+  createdAccountId?: string | null
+  cookieCount: number
+  skippedPartitioned: number
+  storageOrigins: number
+  indexedDbStatus: string
+  capturedAtTs: number
+  existingCapturedAtTs?: number | null
+  existingOrigin?: SessionOrigin | null
+  verified?: boolean | null
 }

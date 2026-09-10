@@ -64,6 +64,7 @@ pub struct McpTarget {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct McpInstallResult {
     pub target_id: String,
     pub config_path: String,

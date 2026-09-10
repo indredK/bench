@@ -2,6 +2,23 @@
 
 本文件只记录仍影响当前实现的方向性取舍；“做什么”以 [ROADMAP.md](../roadmap/ROADMAP.md) 为准，当前风险以 [audit-report.md](./audit-report.md) 为准。已推翻和已完成历史由 Git 保留。
 
+## D-029 · 日常浏览器方向改用「扩展 + 本地桥」，I3/I5 提前为必须实现
+
+- **日期**：2026-09-10
+- **状态**：采纳（**supersede [D-028](#d-028--账号会话互通采用cdp--新鲜度仲裁浏览器作为第二端点) 决议 1 中「不引入浏览器扩展作为前置条件」**；扩展通道已实现，商店分发待定）
+- **背景**：D-028 把扩展方案（I3）列为后续里程碑，理由是「要处理 manifest/permission/商店分发，收益不足以阻塞主链路」，并据此把浏览器端点的语义定为「Bench 以账号专属 profile 拉起一个隔离实例」。用户真机实测后推翻了这条产品语义：**采样的价值在于读取我日常浏览器里已经登录好的登录态**，若仍需在一个隔离窗口里重新登录一次，那它与「新增账号 + 在新实例里登录」没有区别，采样入口失去存在意义。而「读写日常浏览器」这一诉求，CDP 与直读数据库两条路都被堵死，扩展成为唯一可行路径。
+- **决策**：
+  1. **浏览器端点分两类，语义必须在 UI 上区分**：**A 隔离实例**（Bench 拉起，CDP 读写，强隔离）与 **B 日常浏览器**（用户自己开着，扩展 + Native Messaging，弱隔离）。把 B 的日常登录态误认成 A 的账号会话是最危险的误用，因此文案与入口必须标明「这是哪个端点」。
+  2. **数据面走 app 侧本地桥**：`127.0.0.1:0` 随机端口 + 每次启动重新生成的一次性 token（`0600` 描述文件）+ `Origin` 白名单（= 固定扩展 ID `dmcfgfpfilhgcoddmciglpjdggkpinje`）。**控制面**（下发端口与 token）经 Native Messaging —— NM host manifest 的 `allowed_origins` 由 Chromium 保证只有该扩展能取到它。**排除** bench-host 直读 store：那会引入第二个 writer，并违反 design.md §5「解密只发生在 Rust app 内」。
+  3. **扩展主动发起，不做「app 推送任务」模型**：外部进程无法唤醒扩展（NM 拉起的是 host 进程而非扩展），因此读/写都由用户在扩展 popup 里以用户手势触发；Bench 侧只提供引导与状态。
+  4. **扩展通道 v1 只搬 Cookie**（明确的能力边界）：`localStorage` / `IndexedDB` 在扩展侧没有直读 API，只能 `scripting` 注入脚本，而采集载荷 schema 目前是 `browser_storage` 里的**单一实现**（WebView 与 CDP 共用）。若在扩展里再抄一份，两处 schema 必然漂移。因此扩展通道先只覆盖 cookie 承载的登录态；`storageOrigins > 0` 时**必须**提示用户改用实例通道，不得静默给一个半截会话。
+  5. **权限最小化**：扩展声明 `cookies` + `activeTab` + 仅 loopback 的 `host_permissions`；任意站点走 `optional_host_permissions` 运行时按站点申请（须由扩展自身 UI 的用户手势触发）。不声明 `<all_urls>`。
+  6. **I5 覆盖前必须先备份**：注入日常浏览器会顶掉用户同站点的日常登录态（这是既有多账号隔离定位下的反向操作），因此写入前把该站点现有 cookie 备份到 `chrome.storage.local` 并提供一键回滚。**备份留在浏览器侧，不进 Bench 加密 store**——避免为「别人的会话」新增一个凭据存放点。
+  7. **无法自动安装，只能手动一次**：Chrome 137 已从 branded 构建移除 `--load-extension`；官方替代（`--remote-debugging-pipe` + CDP `Extensions.loadUnpacked`）会把 `navigator.webdriver` 置为 `true`，且只对 Bench **新起的、独立 user-data-dir 的**实例生效——对用户正在使用的日常浏览器无解。故流程为「一键导出扩展目录 + 打开扩展管理页 + 引导『加载已解压的扩展程序』」；彻底消除「停用开发者模式扩展程序」提示的唯一路径是商店上架。
+- **理由**：把「读日常浏览器」这件事从「再开一个窗口让你登录」纠正为「读你已经登录好的那份」，是产品语义层面的修正，不是实现细节的取舍。技术上的关键判断有三条：CDP 对默认 profile 已被 Chrome 主动封禁（安全策略）、直读 Cookies DB 被 OS 凭据体系挡住（技术+安全）、外部进程无法唤醒扩展（模型约束）——三条共同把扩展 + 本地桥定为唯一形态。
+- **影响**：新增 `browser_bridge` 模块（loopback HTTP 服务端，含 token/Origin 双校验）与 3 条桥路由；`bench-host` 新增 `--bridge-descriptor` 与 `browser_bridge_descriptor` 命令（wrapper 同步带上该参数）；`AccountManagerCapabilities` 从 9 项变 10 项（`browserSessionExtension`，**不**受「本机是否装有 Chromium」约束）；扩展权限由 2 项增至 4 项 + 1 组可选 host 权限，**扩展版本升级会触发 Chrome「扩展已禁用，待用户确认」**，属已知一次性成本；`docs/explanation/browser-session-extension-plan.md` 为实现现状的权威文档。
+- **相关**：[browser-session-extension-plan.md](./browser-session-extension-plan.md) · [browser-session-interop-plan.md](./browser-session-interop-plan.md) · [browser-session-injection-research.md](./browser-session-injection-research.md) · [product-specs/account-manager.md §17](../reference/product-specs/account-manager.md)
+
 ## D-028 · 账号会话互通采用「CDP + 新鲜度仲裁」，浏览器作为第二端点
 
 - **日期**：2026-09-10

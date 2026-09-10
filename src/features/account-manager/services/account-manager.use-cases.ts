@@ -441,8 +441,82 @@ export const accountManagerUseCases = {
     return accountManagerRepository.browserSessionCapture(accountId, confirmed)
   },
 
-  /** 「重新登录」— 关闭实例并清空该账号的浏览器 profile,回到干净起点。 */
+  /**
+   * 「重新登录」— 关闭实例并清空该账号的浏览器 profile,回到干净起点。
+   *
+   * 注意:自 2026-09-10 起**不再由 UI 暴露**(账号档案本就是隔离目录、删账号时
+   * 会整体清理;单按钮收益低于认知成本)。能力本身保留:站点级「只清当前站点」
+   * 将来走 CDP `Storage.clearDataForOrigin`，与此处的「整档案清理」是两件事。
+   */
   clearBrowserProfile(accountId: string) {
     return accountManagerRepository.browserSessionClearProfile(accountId)
+  },
+
+  // ═══════════════════════════════════════════════
+  // 浏览器扩展通道(I3 读日常浏览器 / I5 写日常浏览器)
+  //
+  // 与上面 CDP 通道的区别:Bench **不启动**那个浏览器,而是由用户自己开着的
+  // 日常浏览器里的 bench-companion 扩展读写会话,经 loopback 本地桥交回 app。
+  // ═══════════════════════════════════════════════
+
+  /** 扩展通道 — 导出/注册状态 + 本地桥是否就绪（前端据此渲染引导）。 */
+  browserExtensionStatus() {
+    return accountManagerRepository.getBrowserExtensionStatus()
+  },
+
+  /** 扩展通道 — 一键导出扩展目录 + Native Messaging 注册（并启动本地桥）。 */
+  exportBrowserExtension() {
+    return accountManagerRepository.exportBrowserExtension()
+  },
+
+  /** 扩展通道 — 打开指定浏览器的扩展管理页（引导用户「加载已解压的扩展程序」）。 */
+  openBrowserExtensionsPage(browserId: string) {
+    return accountManagerRepository.openBrowserExtensionsPage(browserId)
+  },
+
+  // ═══════════════════════════════════════════════
+  // 站点维度互通(账号列表头部入口:手动登录 + 回采)
+  // ═══════════════════════════════════════════════
+
+  /** 站点维度 — 打开(或复用)站点实例,导航到站点首页供用户手动登录。 */
+  openStationBrowserSession(
+    stationId: string,
+    opts?: { browserId?: string | null; resetProfile?: boolean },
+  ) {
+    return accountManagerRepository.browserSessionOpenStation(stationId, opts)
+  },
+
+  /** 站点维度 — 查询站点实例运行状态。 */
+  stationBrowserStatus(stationId: string) {
+    return accountManagerRepository.browserSessionStatusStation(stationId)
+  },
+
+  /** 站点维度 — 关闭站点实例。 */
+  closeStationBrowserSession(stationId: string) {
+    return accountManagerRepository.browserSessionCloseStation(stationId)
+  },
+
+  /** 站点维度 — 实时预览实例中的登录态概览(只读,不关闭实例)。 */
+  previewStationBrowserSession(stationId: string) {
+    return accountManagerRepository.browserSessionPreviewStation(stationId)
+  },
+
+  /**
+   * 站点维度 — 从站点实例回采登录态并落库到目标账号。
+   *
+   * - `targetAccountId` 给定 → 写入**已有**账号(走新鲜度仲裁,可能 `conflict`)。
+   * - `targetAccountId` 为 null → 以 `newUsername` 在该站点下**新建**账号承接。
+   * - `force = true` → 覆盖 `conflict`(用户二次确认「仍要覆盖」后重试)。
+   */
+  captureFromStationBrowser(
+    stationId: string,
+    opts: {
+      targetAccountId?: string | null
+      newUsername?: string | null
+      newPassword?: string | null
+      force?: boolean
+    },
+  ) {
+    return accountManagerRepository.browserSessionCaptureStation(stationId, opts)
   },
 }

@@ -197,6 +197,12 @@ macro_rules! app_invoke_handler {
             $crate::account_manager::commands::browser_session_capture,
             $crate::account_manager::commands::browser_session_probe,
             $crate::account_manager::commands::browser_session_clear_profile,
+            // 站点维度互通（账号列表头部入口：手动登录 + 回采）
+            $crate::account_manager::commands::browser_session_open_station,
+            $crate::account_manager::commands::browser_session_status_station,
+            $crate::account_manager::commands::browser_session_close_station,
+            $crate::account_manager::commands::browser_session_preview_station,
+            $crate::account_manager::commands::browser_session_capture_station,
             $crate::token_calculator::commands::list_pricing_standards,
             $crate::token_calculator::commands::create_pricing_standard,
             $crate::token_calculator::commands::update_pricing_standard,

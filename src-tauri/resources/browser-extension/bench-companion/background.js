@@ -117,8 +117,239 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       .catch((e) => sendResponse({ ok: false, error: e?.message || String(e) }))
     return true // 异步响应
   }
+
+  // ── 会话互通（I3 读 / I5 写）────────────────────────────────────────────
+  // 全部经「本地桥」直达 Bench app：明文会话只在 浏览器进程 → loopback →
+  // Rust 内存 → 加密 store 之间流转，**不经过 bench-host 进程**。
+  const sessionHandlers = {
+    "bench:session:resolve": () => resolveSite(msg.url),
+    "bench:session:import": () => importSession(msg),
+    "bench:session:export": () => exportSession(msg.accountId),
+    "bench:session:inject": () => injectSession(msg),
+    "bench:session:backups": () => listBackups(),
+    "bench:session:restore": () => restoreBackup(msg.key),
+  }
+  const handler = sessionHandlers[msg?.type]
+  if (handler) {
+    handler()
+      .then((data) => sendResponse({ ok: true, data }))
+      .catch((e) => sendResponse({ ok: false, error: e?.message || String(e) }))
+    return true
+  }
   return false
 })
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 会话互通：本地桥客户端 + cookie 读写 + 覆盖前备份
+//
+// 设计约束（对应 docs/explanation/browser-session-extension-plan.md §3.2）：
+// 1. 桥参数（端口 + 一次性 token）只经 Native Messaging 取回 —— NM host 的
+//    allowed_origins 写死了本扩展 ID，等于由 Chromium 保证只有本扩展能拿到；
+// 2. 401 时清缓存重取一次，覆盖「Bench 重启换了 token」这一常见情形；
+// 3. 写入日常浏览器前**必须**把该站点现有 cookie 备份进 chrome.storage.local，
+//    让用户可一键回滚 —— 这是 I5 能上线的先决条件。
+// ═══════════════════════════════════════════════════════════════════════════
+
+let bridgeCache = null
+
+async function bridgeDescriptor(force) {
+  if (bridgeCache && !force) return bridgeCache
+  const raw = await invoke("browser_bridge_descriptor", {})
+  bridgeCache = raw && raw.port ? raw : null
+  return bridgeCache
+}
+
+async function bridgeCall(path, body, allowRetry = true) {
+  const descriptor = await bridgeDescriptor(false)
+  if (!descriptor) {
+    throw new Error("BRIDGE_UNAVAILABLE: 请在 Bench 中执行「导出浏览器扩展」以启动本地桥")
+  }
+  let response
+  try {
+    response = await fetch("http://127.0.0.1:" + descriptor.port + path, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-bench-token": descriptor.token },
+      body: JSON.stringify(body || {}),
+    })
+  } catch (e) {
+    // 连接失败：多半是描述文件属于上一次 app 运行（端口已失效）。
+    if (allowRetry) {
+      bridgeCache = null
+      return bridgeCall(path, body, false)
+    }
+    throw new Error("BRIDGE_UNREACHABLE: 请确认 Bench 正在运行")
+  }
+  const payload = await response.json().catch(() => null)
+  if (response.status === 401 && allowRetry) {
+    // token 属于上一次 app 运行：重取描述后再试一次。
+    bridgeCache = null
+    return bridgeCall(path, body, false)
+  }
+  if (!payload || payload.ok !== true) {
+    throw new Error((payload && payload.error) || "BRIDGE_HTTP_" + response.status)
+  }
+  return payload.data
+}
+
+/**
+ * 该 host 的候选域（自身 + 逐级去掉子域，最多到两级标签）。
+ * 不是严格的公共后缀解析：宁可多取几层，Rust 侧会按站点可注册域再过滤一次。
+ */
+function candidateDomains(host) {
+  const parts = String(host || "")
+    .split(".")
+    .filter(Boolean)
+  const out = []
+  for (let i = 0; i + 2 <= parts.length && i <= 1; i += 1) {
+    out.push(parts.slice(i).join("."))
+  }
+  if (!out.length && host) out.push(String(host))
+  return out
+}
+
+/** 采集该 URL 的 cookie（含 HttpOnly）；跨域去重。 */
+async function collectCookies(url) {
+  const origin = new URL(url).origin
+  const host = new URL(url).hostname
+  const seen = new Map()
+  const queries = [{ url: origin }]
+  for (const domain of candidateDomains(host)) queries.push({ domain })
+
+  for (const query of queries) {
+    let batch = []
+    try {
+      batch = await chrome.cookies.getAll(query)
+    } catch (e) {
+      // 缺 host 权限时 continue：让上层把「需要授权」暴露给用户，而不是整体失败。
+      continue
+    }
+    for (const cookie of batch) {
+      const key = [
+        cookie.name,
+        cookie.domain,
+        cookie.path,
+        cookie.storeId,
+        cookie.partitionKey ? "p" : "",
+      ].join("\u0000")
+      seen.set(key, cookie)
+    }
+  }
+  return Array.from(seen.values())
+}
+
+async function resolveSite(url) {
+  return bridgeCall("/v1/site/resolve", { url })
+}
+
+/** I3：把当前页的登录态交给 Bench。 */
+async function importSession({ url, accountId, force }) {
+  const cookies = await collectCookies(url)
+  return bridgeCall("/v1/session/import", {
+    url,
+    accountId: accountId || undefined,
+    force: !!force,
+    cookies,
+    userAgent: navigator.userAgent,
+  })
+}
+
+/** I5 第一步：取回 Bench 里该账号的会话载荷（只回给本扩展）。 */
+async function exportSession(accountId) {
+  return bridgeCall("/v1/session/export", { accountId })
+}
+
+const BACKUP_PREFIX = "bench:backup:"
+
+/** I5 第二步：先备份该站点现有 cookie，再逐条写入。 */
+async function injectSession({ accountId, url }) {
+  const exported = await exportSession(accountId)
+  if (exported.outcome !== "ok") return exported
+
+  const origin = new URL(url).origin
+  const existing = await collectCookies(url)
+  const backupKey = BACKUP_PREFIX + origin
+  await chrome.storage.local.set({
+    [backupKey]: { at: Date.now(), origin, cookies: existing },
+  })
+
+  let written = 0
+  let failed = 0
+  for (const cookie of exported.cookies || []) {
+    const details = {
+      url: origin,
+      name: cookie.name,
+      value: cookie.value,
+      path: cookie.path || "/",
+      secure: !!cookie.secure,
+      httpOnly: !!cookie.httpOnly,
+    }
+    // host-only 必须靠 url 推导域，传 domain 会被浏览器拒绝或写成域级 cookie。
+    if (!cookie.hostOnly && cookie.domain) details.domain = cookie.domain
+    if (cookie.expirationDate) details.expirationDate = cookie.expirationDate
+    if (cookie.sameSite && cookie.sameSite !== "unspecified") details.sameSite = cookie.sameSite
+    try {
+      await chrome.cookies.set(details)
+      written += 1
+    } catch (e) {
+      failed += 1
+    }
+  }
+
+  return {
+    outcome: "injected",
+    origin,
+    written,
+    failed,
+    backupKey,
+    replaced: existing.length,
+    // > 0 表示该账号的登录态还含本地存储（扩展无法写入），必须提示用户。
+    storageOrigins: exported.storageOrigins || 0,
+    skippedPartitioned: exported.skippedPartitioned || 0,
+  }
+}
+
+async function listBackups() {
+  const all = await chrome.storage.local.get(null)
+  return Object.keys(all)
+    .filter((key) => key.startsWith(BACKUP_PREFIX))
+    .map((key) => ({
+      key,
+      origin: all[key]?.origin || "",
+      at: all[key]?.at || 0,
+      count: (all[key]?.cookies || []).length,
+    }))
+    .sort((a, b) => b.at - a.at)
+}
+
+/** 回滚：把备份里的 cookie 写回，并清掉备份。 */
+async function restoreBackup(key) {
+  if (!key || !key.startsWith(BACKUP_PREFIX)) throw new Error("BAD_BACKUP_KEY")
+  const all = await chrome.storage.local.get(key)
+  const backup = all[key]
+  if (!backup) throw new Error("BACKUP_NOT_FOUND")
+  let written = 0
+  for (const cookie of backup.cookies || []) {
+    const details = {
+      url: backup.origin,
+      name: cookie.name,
+      value: cookie.value,
+      path: cookie.path || "/",
+      secure: !!cookie.secure,
+      httpOnly: !!cookie.httpOnly,
+    }
+    // 带前导点 = 域级 cookie，必须显式传 domain；否则靠 url 推导为 host-only。
+    if (String(cookie.domain || "").startsWith(".")) details.domain = cookie.domain
+    if (cookie.expirationDate) details.expirationDate = cookie.expirationDate
+    try {
+      await chrome.cookies.set(details)
+      written += 1
+    } catch (e) {
+      /* 单条失败不中断整体回滚 */
+    }
+  }
+  await chrome.storage.local.remove(key)
+  return { written }
+}
 
 // SW 冷启动即尝试连接（首次消息到达时也会 lazy connect）
 connectNative()

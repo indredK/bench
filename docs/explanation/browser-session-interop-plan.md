@@ -1,6 +1,7 @@
 # 账号 ↔ 浏览器双向互通（Session Interop）实现逻辑与整体计划
 
-> 状态：**I0 / I1 / I2 已实现（2026-09-10），待双平台真机验收；I3 及以后未实现**。
+> 状态：**I0 / I1 / I2 已实现（2026-09-10），待双平台真机验收；I3 / I5（日常浏览器方向）已于 2026-09-10 实现，见 [browser-session-extension-plan.md](./browser-session-extension-plan.md)**。
+> ⚠️ 本文下方「§5.4 I3 详细设计」「§1 判断 3/4」等章节成文于扩展方案立项之前，其中「I3 未实现」「不引入浏览器扩展作为前置条件」的结论**已被 [D-029](./decisions.md#d-029--日常浏览器方向改用扩展--本地桥i3i5-提前为必须实现) 与本次实现 supersede**；扩展通道的权威描述以 [browser-session-extension-plan.md](./browser-session-extension-plan.md) 与 [product-specs §17](../reference/product-specs/account-manager.md) 为准，本文保留原始论证。
 > 本文是「账号与浏览器双向互通」构想的唯一总体方案文档；**落地后的产品语义以 [product-specs/account-manager.md §17](../reference/product-specs/account-manager.md) 与 [DECISIONS D-028](./decisions.md#d-028--账号会话互通采用cdp--新鲜度仲裁浏览器作为第二端点) 为准**，本文保留原始论证与后续里程碑设计。
 > 方向一（Bench → 浏览器）的详细方案见 [browser-session-injection-research.md](./browser-session-injection-research.md)（F5），本文不重复其论证，只做统一收口与方向二设计。
 > 待验收清单见 `../roadmap/planned/account-manager.md`「待验证（互通 I1/I2 …）」一节；实施完成度回写 `../modules/account-manager/design.md` 与 `../reference/product-specs/account-manager.md`。
@@ -8,13 +9,14 @@
 
 ### 实施进度（2026-09-10）
 
-| 里程碑 | 内容                                                | 状态                                                                             |
-| ------ | --------------------------------------------------- | -------------------------------------------------------------------------------- |
-| I0     | `SessionOrigin` 维度 + 新鲜度仲裁纯函数             | ✅ 已实现（`session_arbitration.rs`，9 单测）                                    |
-| I1     | 出向注入：CDP 客户端 + 浏览器实例 / profile 隔离    | ✅ 已实现（`browser_session/{browser,cdp,profile}.rs` + `browser_session_open`） |
-| I2     | 入向回采：CDP 采集 + 仲裁 + 写 S1 + 探针复验        | ✅ 已实现（`browser_session::capture`，复用 WebView 捕获脚本与上限）             |
-| I3     | 从用户日常浏览器回采（bench-companion 扩展 + 桥接） | ⬜ 未实现；`SessionOrigin::BrowserExtension` 已占位，当前无写入路径              |
-| I4–I6  | 见下方里程碑章节                                    | ⬜ 未实现                                                                        |
+| 里程碑  | 内容                                                | 状态                                                                                       |
+| ------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| I0      | `SessionOrigin` 维度 + 新鲜度仲裁纯函数             | ✅ 已实现（`session_arbitration.rs`，9 单测）                                              |
+| I1      | 出向注入：CDP 客户端 + 浏览器实例 / profile 隔离    | ✅ 已实现（`browser_session/{browser,cdp,profile}.rs` + `browser_session_open`）           |
+| I2      | 入向回采：CDP 采集 + 仲裁 + 写 S1 + 探针复验        | ✅ 已实现（`browser_session::capture`，复用 WebView 捕获脚本与上限）                       |
+| I3      | 从用户日常浏览器回采（bench-companion 扩展 + 桥接） | ✅ 已实现（`browser_bridge` + 扩展 popup「保存此站点登录态到 Bench」）；**v1 只搬 Cookie** |
+| I5      | 向日常浏览器注入（扩展写入 + 覆盖前备份 + 回滚）    | ✅ 已实现（扩展 popup「用 Bench 账号登录此站点」，备份存 `chrome.storage.local`）          |
+| I4 / I6 | 见下方里程碑章节                                    | ⬜ 未实现                                                                                  |
 
 ---
 

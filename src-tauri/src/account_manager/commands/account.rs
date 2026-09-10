@@ -42,6 +42,39 @@ pub fn create_account<R: Runtime>(
     invite_link: Option<String>,
     login_methods: Vec<LoginMethod>,
 ) -> AccountManagerResult<StationAccount> {
+    create_account_inner(
+        &app,
+        &state,
+        station_id,
+        username,
+        password,
+        notes,
+        phone,
+        tg_account,
+        linked_account,
+        invite_link,
+        login_methods,
+    )
+}
+
+/// 建号的共用实现：命令创建与「站点回采 → 新建账号」共用同一条路径，避免两套建号规则。
+///
+/// 回采场景传入 `phone`/`tg_account`/`linked_account`/`invite_link`/`login_methods` 为 `None`/`[]`，
+/// 仅用 `station_id` + `username` + 可选 `password` + `notes`；其余字段保持默认。
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn create_account_inner<R: Runtime>(
+    app: &AppHandle<R>,
+    state: &AccountManagerState,
+    station_id: String,
+    username: String,
+    password: Option<String>,
+    notes: String,
+    phone: Option<String>,
+    tg_account: Option<String>,
+    linked_account: Option<String>,
+    invite_link: Option<String>,
+    login_methods: Vec<LoginMethod>,
+) -> AccountManagerResult<StationAccount> {
     let password = normalize_optional(password);
     let encrypted_password = match password {
         Some(pw) => {
@@ -77,7 +110,7 @@ pub fn create_account<R: Runtime>(
         has_password: encrypted_password.is_some(),
     };
 
-    storage::with_state_mut(&app, &state, |snapshot| {
+    storage::with_state_mut(app, state, |snapshot| {
         if !snapshot.stations.iter().any(|s| s.id == account.station_id) {
             return Err(AccountManagerError::not_found(format!(
                 "station {}",

@@ -347,10 +347,27 @@
 
 - **只读预检（`browser_session_probe`）**：不写入任何数据，只报告浏览器中是否已有站点登录态（`cookieCount` + 站点指纹命中数）。供「先探后采」与状态展示。UI 入口为弹窗内的「检测登录态」按钮，结果就地展示（实例未运行 / 无登录态 / 已发现 N 条 Cookie），不依赖 toast。
 
-- **清空 profile（`browser_session_clear_profile`）**：先关闭实例再删 profile 目录，用于「重新登录」。属 destructive，UI 走 `DeleteConfirmDialog` 二次确认。
+- **清空 profile（`browser_session_clear_profile`）**：先关闭实例再删 profile 目录。**自 2026-09-10 起 UI 不再暴露该入口**：账号档案本就是隔离目录、删账号时会整体清理，单按钮收益低于认知成本；站点级「只清当前站点」是另一件事（将来走 CDP `Storage.clearDataForOrigin`）。命令本身保留为后端能力。
+
+- **页面选择策略（`pick_page_target`，2026-09-10 修）**：CDP 附加页面时按「**已在目标 origin 的页面** → `about:` 空白页 → 任意已存在页面」的优先级复用，**只有一页都没有时才新建**。两条必须守住的语义：
+  1. **只读操作不得新建标签页、不得导航**。历史缺陷：`attach_page` 只认 `about:` 页面，而实时预览每 2s 轮询一次 → 首次导航后每轮都新建一个标签页并被导航到站点，实测堆积 46 个（`Sessions/Tabs_*` 取证）。
+  2. **只读预览不得把用户页面导航走**（`collect_from_instance(allow_navigate = false)`）。为读 storage 而导航会打断用户正在进行的扫码/风控流程；页面不在目标 origin 时 storage 采集本就返回空，跳过导航只是少读一项，不会读到别的站点。
 
 - **前端编排（`useBrowserInterop`）**：打开弹窗即拉浏览器列表 + 实例状态；`busy` 由 **ref 同步守卫**（同 tick 重复点击也拦得住）+ state 驱动 UI 禁用双轨实现；冲突结果留在 hook 内交给弹窗决策，不直接 toast 成功。回采成功（`saved`）后触发列表刷新（读后写），`empty` 只提示不刷新。
 
 - **命令与门控**：`browser_session_browsers / open / status / close / capture / probe / clear_profile` 七个命令只接受 `accountId` 与布尔/枚举，**不接受 URL、路径或凭据**。capability `browserSessionOpen` / `browserSessionCapture` 任一不可用时，详情栏入口禁用并以 tooltip 说明原因（reasonCode → i18n）。
 
-- **未实现（I3）**：从**用户日常浏览器**（非 Bench 托管实例）回采，需要 `bench-companion` 浏览器扩展 + 本机桥接（`Origin：BrowserExtension` 已预留）。当前 S1 的浏览器来源仅 `browserCdp`。
+- **扩展通道（I3 读 / I5 写，2026-09-10 落地）**：浏览器端点分两类，**语义必须在 UI 上区分**：
+
+  | 端点             | 由谁启动                                   | 通道                             | 隔离性 | 登录态来源           |
+  | ---------------- | ------------------------------------------ | -------------------------------- | ------ | -------------------- |
+  | **A 隔离实例**   | Bench（每账号/每站点专属 `user-data-dir`） | CDP                              | 强     | Bench 里该账号的会话 |
+  | **B 日常浏览器** | 用户自己                                   | 扩展 + Native Messaging + 本地桥 | 弱     | 用户日常的登录态     |
+  - **产品语义**：采样的价值在于**读取日常浏览器里已经登录好的登录态**。若仍需在隔离窗口里重新登录一次，则与「新增账号 + 在新实例里登录」没有区别，采样入口失去意义。
+  - **为什么必须用扩展**：Chrome 136+ 对**默认** profile 禁用 `--remote-debugging-port`（CDP 不通）；直读 Cookies SQLite 被 macOS Keychain Safe Storage 与 app-bound encryption 挡住；外部进程无法唤醒扩展（NM 拉起的是 host 进程）。三条共同把「扩展 + 本地桥」定为唯一形态。
+  - **数据面**：app 起 `127.0.0.1:0` 本地桥，每次启动重新生成一次性 token（`0600` 描述文件），并校验 `Origin` = 固定扩展 ID。**控制面**（下发端口与 token）经 Native Messaging，由 NM manifest 的 `allowed_origins` 保证只有该扩展能取到。明文会话只经「浏览器进程 → loopback → Rust 内存 → 加密 store」，**不经过 bench-host 进程**。
+  - **交互模型**：扩展**主动发起**（popup 内的用户手势），Bench 侧只提供引导与状态。读：在目标站点上点扩展图标 →「保存此站点登录态到 Bench」；写：「用 Bench 账号登录此站点」（**默认不勾选、写入前把该站点现有 Cookie 备份进 `chrome.storage.local`、可一键回滚**）。
+  - **落库纪律与 CDP 通道完全一致**：复用同一 `finalize_capture`（新鲜度仲裁 → 互斥 → 加密 → probe 验证），`sessionOrigin = browserExtension`。**不存在第二条静默覆盖路径。**
+  - **能力边界（必须向用户交代）**：扩展通道 **v1 只搬 Cookie**；`storageOrigins > 0` 时必须提示「本地存储无法经扩展写入，若仍显示未登录请改用浏览器实例方式」。**不打开任何窗口**，因此没有实时预览。
+  - **安装与分发**：Chrome 137 已从 branded 构建移除 `--load-extension`，官方替代只对 Bench 新起的实例生效 —— **无法自动装入用户的日常浏览器**。流程为「一键导出扩展目录 + 打开扩展管理页 + 引导『加载已解压的扩展程序』」；消除「停用开发者模式扩展程序」提示的唯一路径是商店上架（未做）。
+  - **命令与路由**：`browser_ext_status`（含 `bridgeReady` / `bridgePort`）/ `browser_ext_export`（同时确保本地桥启动）；桥路由 `GET /v1/ping`、`POST /v1/site/resolve`、`POST /v1/session/import`、`POST /v1/session/export`。capability `browserSessionExtension` **不受**「本机是否装有 Chromium 系浏览器」约束（扩展跑在用户自己的浏览器里）。

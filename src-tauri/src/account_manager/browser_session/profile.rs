@@ -44,20 +44,44 @@ pub fn sessions_root<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String> 
     Ok(base.join("browser-sessions"))
 }
 
-/// `<sessions_root>/<accountId>`（该账号的会话根）。
-pub fn session_root<R: Runtime>(app: &AppHandle<R>, account_id: &str) -> Result<PathBuf, String> {
-    Ok(sessions_root(app)?.join(sanitize_account_id(account_id)))
+/// 互通实例的隔离维度。
+///
+/// - **出向注入**固定按**账号**隔离：会话本来就属于某个账号。
+/// - **站点回采流程**按**站点**隔离：用户是「在某个站点上登录」，此时还不知道
+///   这份登录态该归哪个账号（可能归已有账号，也可能要新建），因此以站点为单位
+///   开一个实例，回采时再决定归属。
+///
+/// 两者共用同一套 profile 生命周期实现，只是目录前缀不同 —— 前缀**不可省略**，
+/// 否则 account id 与 station id 可能映射到同一个目录而互相串号。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Scope {
+    Account(String),
+    Station(String),
 }
 
-/// 该账号的浏览器 user-data-dir。
-pub fn user_data_dir<R: Runtime>(app: &AppHandle<R>, account_id: &str) -> Result<PathBuf, String> {
-    Ok(session_root(app, account_id)?.join("profile"))
+impl Scope {
+    /// 进程表与磁盘目录共用的键。
+    pub fn key(&self) -> String {
+        match self {
+            Scope::Account(id) => format!("account-{}", sanitize_id(id)),
+            Scope::Station(id) => format!("station-{}", sanitize_id(id)),
+        }
+    }
 }
 
-/// accountId 会被当作路径片段使用，必须先做白名单化，禁止路径穿越。
-fn sanitize_account_id(account_id: &str) -> String {
-    account_id
-        .chars()
+/// `<sessions_root>/<scope key>`（该 scope 的会话根）。
+pub fn session_root<R: Runtime>(app: &AppHandle<R>, scope: &Scope) -> Result<PathBuf, String> {
+    Ok(sessions_root(app)?.join(scope.key()))
+}
+
+/// 该 scope 的浏览器 user-data-dir。
+pub fn user_data_dir<R: Runtime>(app: &AppHandle<R>, scope: &Scope) -> Result<PathBuf, String> {
+    Ok(session_root(app, scope)?.join("profile"))
+}
+
+/// scope 中的原始 id 会被当作路径片段使用，必须先做白名单化，禁止路径穿越。
+fn sanitize_id(raw: &str) -> String {
+    raw.chars()
         .map(|ch| {
             if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
                 ch
@@ -86,9 +110,9 @@ pub async fn wait_for_devtools_port(user_data_dir: &Path) -> Result<u16, String>
     Err("BROWSER_DEVTOOLS_PORT_TIMEOUT".to_string())
 }
 
-/// 以账号专属 profile 启动一个独立浏览器实例，返回操作系统进程号。
+/// 以该 scope 专属 profile 启动一个独立浏览器实例，返回操作系统进程号。
 pub fn spawn_browser(
-    account_id: &str,
+    scope: &Scope,
     installation: &BrowserInstallation,
     user_data_dir: &Path,
     initial_url: &str,
@@ -115,15 +139,15 @@ pub fn spawn_browser(
         .map_err(|e| format!("BROWSER_SPAWN_FAILED: {e}"))?;
     let pid = child.id();
     if let Ok(mut guard) = children().lock() {
-        // 同一账号重复启动时旧句柄被替换，Drop 不会杀进程，仅释放句柄。
-        guard.insert(sanitize_account_id(account_id), child);
+        // 同一 scope 重复启动时旧句柄被替换，Drop 不会杀进程，仅释放句柄。
+        guard.insert(scope.key(), child);
     }
     Ok(pid)
 }
 
 /// 回收已自行退出的实例句柄（避免 Unix 僵尸进程堆积）。
-pub fn reap_finished(account_id: &str) -> bool {
-    let key = sanitize_account_id(account_id);
+pub fn reap_finished(scope: &Scope) -> bool {
+    let key = scope.key();
     let mut guard = match children().lock() {
         Ok(guard) => guard,
         Err(_) => return false,
@@ -141,8 +165,8 @@ pub fn reap_finished(account_id: &str) -> bool {
 
 /// 强制终止本进程启动的实例（跨平台 `Child::kill`）。
 /// 返回是否真的终止了一个实例；Bench 重启后启动的实例不在表内，返回 false。
-pub fn kill_tracked(account_id: &str) -> bool {
-    let key = sanitize_account_id(account_id);
+pub fn kill_tracked(scope: &Scope) -> bool {
+    let key = scope.key();
     let child = children()
         .lock()
         .ok()
@@ -167,9 +191,9 @@ pub async fn is_port_alive(port: u16) -> bool {
     )
 }
 
-/// 解析该账号当前运行实例的调试端口（`DevToolsActivePort` + TCP 探活双重确认）。
-pub async fn resolve_running_port<R: Runtime>(app: &AppHandle<R>, account_id: &str) -> Option<u16> {
-    let dir = user_data_dir(app, account_id).ok()?;
+/// 解析该 scope 当前运行实例的调试端口（`DevToolsActivePort` + TCP 探活双重确认）。
+pub async fn resolve_running_port<R: Runtime>(app: &AppHandle<R>, scope: &Scope) -> Option<u16> {
+    let dir = user_data_dir(app, scope).ok()?;
     let port = read_devtools_port(&dir)?;
     if is_port_alive(port).await {
         Some(port)
@@ -178,13 +202,65 @@ pub async fn resolve_running_port<R: Runtime>(app: &AppHandle<R>, account_id: &s
     }
 }
 
-/// 删除该账号的 profile 目录（调用方负责先关闭实例）。
-pub fn remove_profile_dir<R: Runtime>(app: &AppHandle<R>, account_id: &str) -> Result<(), String> {
-    let root = session_root(app, account_id)?;
+/// 删除该 scope 的 profile 目录（调用方负责先关闭实例）。
+pub fn remove_profile_dir<R: Runtime>(app: &AppHandle<R>, scope: &Scope) -> Result<(), String> {
+    let root = session_root(app, scope)?;
     if !root.exists() {
         return Ok(());
     }
     std::fs::remove_dir_all(&root).map_err(|e| format!("remove browser profile: {e}"))
+}
+
+/// 把历史上**无前缀**的旧命名目录迁移为现行命名（幂等，可重复调用）。
+///
+/// 背景：`Scope::key()` 早期版本直接以裸 id 作为目录名（实测残留 `acct-xxx`），
+/// 后来才引入 `account-` / `station-` 前缀以避免两个维度串号。旧目录不被现行
+/// 代码引用，其中的登录态会变成**孤儿**——用户表现为「之前登录过的账号又要重新
+/// 登录」，且磁盘上永远留着删不掉的副本。
+///
+/// 迁移规则（保守，宁可少迁不可错迁）：
+/// 1. 只处理 `browser-sessions` 下「不带 `account-` / `station-` 前缀」的目录；
+/// 2. 且该目录必须带有 Bench 的痕迹（`profile/` 或 `bench-browser.json`），
+///    避免误动同目录下其它来源的文件夹；
+/// 3. 目标已存在时**跳过并保留两者**，绝不删除任何用户数据（交由后续清理决策）。
+///
+/// 返回被迁移的旧目录名列表，供调用方写日志。
+pub fn migrate_legacy_profile_dirs<R: Runtime>(app: &AppHandle<R>) -> Vec<String> {
+    let Ok(root) = sessions_root(app) else {
+        return Vec::new();
+    };
+    migrate_legacy_dirs_in(&root)
+}
+
+/// [`migrate_legacy_profile_dirs`] 的实现主体（脱离 `AppHandle`，便于单测）。
+pub(crate) fn migrate_legacy_dirs_in(root: &Path) -> Vec<String> {
+    let Ok(entries) = std::fs::read_dir(root) else {
+        return Vec::new();
+    };
+    let mut migrated = Vec::new();
+    for entry in entries.flatten() {
+        if !entry.file_type().map(|kind| kind.is_dir()).unwrap_or(false) {
+            continue;
+        }
+        let name = entry.file_name().to_string_lossy().to_string();
+        if name.starts_with("account-") || name.starts_with("station-") {
+            continue;
+        }
+        let path = entry.path();
+        let looks_like_ours =
+            path.join("profile").is_dir() || path.join("bench-browser.json").is_file();
+        if !looks_like_ours {
+            continue;
+        }
+        let target = root.join(format!("account-{}", sanitize_id(&name)));
+        if target.exists() {
+            continue;
+        }
+        if std::fs::rename(&path, &target).is_ok() {
+            migrated.push(name);
+        }
+    }
+    migrated
 }
 
 /// 删除某个 profile 目录下的调试端口文件（重新启动前清理陈旧端口）。
@@ -207,10 +283,10 @@ pub struct SessionMeta {
 /// 写入会话元信息（状态查询与 UI 展示用）。
 pub fn write_meta<R: Runtime>(
     app: &AppHandle<R>,
-    account_id: &str,
+    scope: &Scope,
     meta: &SessionMeta,
 ) -> Result<(), String> {
-    let root = session_root(app, account_id)?;
+    let root = session_root(app, scope)?;
     std::fs::create_dir_all(&root).map_err(|e| format!("create session root: {e}"))?;
     let payload = serde_json::to_string(meta).map_err(|e| format!("encode session meta: {e}"))?;
     std::fs::write(root.join("bench-browser.json"), payload)
@@ -218,15 +294,15 @@ pub fn write_meta<R: Runtime>(
 }
 
 /// 读取会话元信息；不存在或损坏时返回 `None`（元信息缺失不影响功能）。
-pub fn read_meta<R: Runtime>(app: &AppHandle<R>, account_id: &str) -> Option<SessionMeta> {
-    let root = session_root(app, account_id).ok()?;
+pub fn read_meta<R: Runtime>(app: &AppHandle<R>, scope: &Scope) -> Option<SessionMeta> {
+    let root = session_root(app, scope).ok()?;
     let payload = std::fs::read_to_string(root.join("bench-browser.json")).ok()?;
     serde_json::from_str(&payload).ok()
 }
 
 /// 删除会话元信息。
-pub fn clear_meta<R: Runtime>(app: &AppHandle<R>, account_id: &str) {
-    if let Ok(root) = session_root(app, account_id) {
+pub fn clear_meta<R: Runtime>(app: &AppHandle<R>, scope: &Scope) {
+    if let Ok(root) = session_root(app, scope) {
         let path = root.join("bench-browser.json");
         if path.exists() {
             let _ = std::fs::remove_file(path);
@@ -240,10 +316,25 @@ mod tests {
 
     #[test]
     fn account_id_is_sanitized_against_path_traversal() {
-        assert_eq!(sanitize_account_id("acct-1234"), "acct-1234");
-        assert_eq!(sanitize_account_id("../../etc/passwd"), "______etc_passwd");
-        assert_eq!(sanitize_account_id("a/b\\c"), "a_b_c");
-        assert!(!sanitize_account_id("../x").contains('/'));
+        assert_eq!(sanitize_id("acct-1234"), "acct-1234");
+        assert_eq!(sanitize_id("../../etc/passwd"), "______etc_passwd");
+        assert_eq!(sanitize_id("a/b\\c"), "a_b_c");
+        assert!(!sanitize_id("../x").contains('/'));
+    }
+
+    #[test]
+    fn scope_keys_never_collide_between_account_and_station() {
+        // 同一原始 id 在两个维度下必须落到不同目录，否则会话会串号。
+        let account = Scope::Account("abc-1".into());
+        let station = Scope::Station("abc-1".into());
+        assert_eq!(account.key(), "account-abc-1");
+        assert_eq!(station.key(), "station-abc-1");
+        assert_ne!(account.key(), station.key());
+        // 穿越片段在两个维度下都被白名单化。
+        assert_eq!(
+            Scope::Station("../../etc/passwd".into()).key(),
+            "station-______etc_passwd"
+        );
     }
 
     #[test]
@@ -264,5 +355,77 @@ mod tests {
     fn devtools_port_missing_file_is_none() {
         let dir = std::env::temp_dir().join("bench-cdp-missing-dir");
         assert_eq!(read_devtools_port(&dir), None);
+    }
+
+    fn temp_root(tag: &str) -> PathBuf {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        static SEQ: AtomicUsize = AtomicUsize::new(0);
+        let dir = std::env::temp_dir().join(format!(
+            "bench-migrate-{tag}-{}-{}",
+            std::process::id(),
+            SEQ.fetch_add(1, Ordering::SeqCst)
+        ));
+        std::fs::create_dir_all(&dir).expect("create temp root");
+        dir
+    }
+
+    #[test]
+    fn legacy_account_dirs_are_migrated_to_prefixed_names() {
+        let root = temp_root("happy");
+        let legacy = root.join("acct-9d07f4ce");
+        std::fs::create_dir_all(legacy.join("profile")).expect("create legacy profile");
+
+        let migrated = migrate_legacy_dirs_in(&root);
+
+        assert_eq!(migrated, vec!["acct-9d07f4ce".to_string()]);
+        assert!(root.join("account-acct-9d07f4ce/profile").is_dir());
+        assert!(!legacy.exists(), "旧目录应已被重命名而非复制");
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn migration_is_idempotent_and_never_touches_current_naming() {
+        let root = temp_root("idempotent");
+        std::fs::create_dir_all(root.join("account-acct-1/profile")).expect("current account");
+        std::fs::create_dir_all(root.join("station-stn-1/profile")).expect("current station");
+
+        assert!(migrate_legacy_dirs_in(&root).is_empty());
+        assert!(root.join("account-acct-1").is_dir());
+        assert!(root.join("station-stn-1").is_dir());
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn migration_keeps_both_when_target_already_exists() {
+        // 冲突时不得删除任何一侧：宁可留下副本让人工处置。
+        let root = temp_root("conflict");
+        std::fs::create_dir_all(root.join("acct-1/profile")).expect("legacy");
+        std::fs::create_dir_all(root.join("account-acct-1/profile")).expect("target");
+        std::fs::write(root.join("account-acct-1/bench-browser.json"), "{}").expect("marker");
+
+        assert!(migrate_legacy_dirs_in(&root).is_empty());
+        assert!(root.join("acct-1/profile").is_dir(), "旧目录必须保留");
+        assert!(
+            root.join("account-acct-1/profile").is_dir(),
+            "新目录必须保留"
+        );
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn migration_ignores_dirs_without_bench_markers() {
+        // 没有 Bench 痕迹的目录不属于我们，不得重命名。
+        let root = temp_root("foreign");
+        std::fs::create_dir_all(root.join("someone-elses-folder")).expect("foreign dir");
+
+        assert!(migrate_legacy_dirs_in(&root).is_empty());
+        assert!(root.join("someone-elses-folder").is_dir());
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn migration_of_missing_root_is_a_noop() {
+        let dir = std::env::temp_dir().join("bench-migrate-absent-root");
+        assert!(migrate_legacy_dirs_in(&dir).is_empty());
     }
 }

@@ -10,6 +10,7 @@ import { openExternal } from "@/platform/shell"
 import { useAccountManagerController } from "@/features/account-manager/hooks/useAccountManagerController"
 import { useLoginRules } from "@/features/account-manager/hooks/useLoginRules"
 import { useBrowserInterop } from "@/features/account-manager/hooks/useBrowserInterop"
+import { useStationBrowserInterop } from "@/features/account-manager/hooks/useStationBrowserInterop"
 import { useAccountExport } from "@/features/account-manager/hooks/useAccountExport"
 import { StationColumn } from "@/features/account-manager/components/StationColumn"
 import { AccountColumn } from "@/features/account-manager/components/AccountColumn"
@@ -27,6 +28,7 @@ import { FingerprintConfirmDialog } from "@/features/account-manager/components/
 import { FingerprintDetailDialog } from "@/features/account-manager/components/fingerprint-detail-dialog"
 import { LoginRulesDialog } from "@/features/account-manager/components/login-rules-dialog"
 import { BrowserInteropDialog } from "@/features/account-manager/components/browser-interop-dialog"
+import { StationBrowserInteropDialog } from "@/features/account-manager/components/station-browser-interop-dialog"
 import { AccountExportDialog } from "@/features/account-manager/components/account-export-dialog"
 import { useAccountManagerStore } from "@/features/account-manager/store"
 import { useNotificationCenterStore } from "@/components/layout/notification-center/store"
@@ -173,6 +175,7 @@ function AccountManagerPage() {
       capabilities.deepLink,
       capabilities.browserSessionOpen,
       capabilities.browserSessionCapture,
+      capabilities.browserSessionExtension,
     ]
     const loginDisabledReason = isCapabilityUsable(capabilities.isolatedWebview)
       ? undefined
@@ -250,8 +253,11 @@ function AccountManagerPage() {
   /** 更新登录逻辑弹窗（挂在当前选中站点上；未选中站点时打开按钮不渲染）。 */
   const loginRules = useLoginRules({ website: c.selectedStation?.website ?? null })
 
-  /** 互通 I1/I2 — 账号 ↔ 浏览器会话互操作（注入 / 手动登录 / 回采）。 */
-  const browserInterop = useBrowserInterop({
+  /** 互通 I1 — 账号 ↔ 浏览器会话注入（仅注入；回采已迁至站点维度）。 */
+  const browserInterop = useBrowserInterop()
+
+  /** 站点维度互通 — 手动登录 + 回采（账号列表头部入口）。 */
+  const stationInterop = useStationBrowserInterop({
     onCaptured: () => void c.loadInitialData().catch(() => undefined),
   })
 
@@ -358,6 +364,10 @@ function AccountManagerPage() {
           onLogin={c.handleLogin}
           onRefresh={c.handleRefreshAccount}
           onRefreshStation={c.handleRefreshStation}
+          onOpenStationBrowser={(stationId) => {
+            const target = c.stations.find((station) => station.id === stationId)
+            if (target) stationInterop.confirmOpen(target, c.stationAccounts)
+          }}
           onEdit={(account) => {
             c.setEditingAccount(account)
             c.setEditAccountOpen(true)
@@ -513,19 +523,46 @@ function AccountManagerPage() {
           if (!next) browserInterop.closeDialog()
         }}
         account={browserInterop.account}
+        stationName={c.selectedStation?.remark ?? ""}
         browsers={browserInterop.browsers}
         browserId={browserInterop.browserId}
         onBrowserIdChange={browserInterop.setBrowserId}
         status={browserInterop.status}
         busy={browserInterop.busy}
-        conflict={browserInterop.conflict}
         lastOpen={browserInterop.lastOpen}
-        probe={browserInterop.probe}
         onOpenBrowser={browserInterop.handleOpen}
-        onCapture={browserInterop.handleCapture}
         onCloseInstance={browserInterop.handleCloseInstance}
-        onClearProfile={browserInterop.handleClearProfile}
-        onProbe={browserInterop.handleProbe}
+      />
+      <StationBrowserInteropDialog
+        confirming={stationInterop.confirming}
+        open={stationInterop.open}
+        station={stationInterop.station}
+        accounts={stationInterop.accounts}
+        browsers={stationInterop.browsers}
+        browserId={stationInterop.browserId}
+        onBrowserIdChange={stationInterop.setBrowserId}
+        status={stationInterop.status}
+        preview={stationInterop.preview}
+        busy={stationInterop.busy}
+        conflict={stationInterop.conflict}
+        targetMode={stationInterop.targetMode}
+        onTargetModeChange={stationInterop.setTargetMode}
+        targetAccountId={stationInterop.targetAccountId}
+        onTargetAccountIdChange={stationInterop.setTargetAccountId}
+        newUsername={stationInterop.newUsername}
+        onNewUsernameChange={stationInterop.setNewUsername}
+        onConfirm={stationInterop.proceed}
+        onCancelConfirm={stationInterop.cancelConfirm}
+        onOpenChange={(next) => {
+          if (!next) stationInterop.closeDialog()
+        }}
+        onRefreshPreview={stationInterop.refreshPreview}
+        onCapture={stationInterop.handleCapture}
+        onCloseInstance={stationInterop.handleCloseInstance}
+        onReopen={stationInterop.reopen}
+        extensionStatus={stationInterop.extensionStatus}
+        extensionBusy={stationInterop.extensionBusy}
+        onExportExtension={(browserId) => void stationInterop.handleExportExtension(browserId)}
       />
       <AccountExportDialog
         open={isAccountExportOpen}

@@ -36,6 +36,10 @@ export interface BrowserExtensionStatus {
   hostBinPath: string
   nmRegistrations: NmRegistration[]
   browsers: BrowserInfo[]
+  /** 浏览器扩展本地桥是否已就绪：扩展把会话交回 Bench 的唯一通道。 */
+  bridgeReady: boolean
+  /** 本地桥端口（未就绪时为 null）。 */
+  bridgePort: number | null
 }
 
 /** MCP 客户端探测（Rust `McpTargetStatus`）。 */

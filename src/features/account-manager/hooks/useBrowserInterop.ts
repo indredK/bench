@@ -1,37 +1,35 @@
 /**
- * Browser interop hook / 账号 ↔ 浏览器互通编排（互通 I1 出向 / I2 入向）。
+ * Browser interop hook / 账号 ↔ 浏览器互通编排（互通 I1 出向，仅注入）。
+ *
+ * 收敛说明（站点维度互通上线后）：
+ *  - 本 hook / 弹窗只保留「以该账号身份打开（注入会话）」与实例管理（关闭）。
+ *  - 「手动登录 + 回采」已整体迁移到站点维度（useStationBrowserInterop），
+ *    因此回采 / 冲突 / 只读预检（probe）从此处移除，避免两条并行入口。
+ *  - 「清空浏览器数据」于 2026-09-10 移除（账号档案本就是隔离目录，删账号时整体
+ *    清理；单按钮收益低于认知成本）。
  *
  * 编排规则：
  *  - 打开弹窗即拉取可用浏览器列表与当前实例状态（只读，不落库）。
- *  - 「以该账号身份打开」= injectSession=true；「打开站点并手动登录」
- *    = injectSession=false（供浏览器内扫码 / 2FA / SSO 后回采）。
- *  - 回采默认 confirmed=false：后端在「Bench 已有不早于本次的会话」时返回
- *    outcome="conflict" 且不写入；UI 展示冲突详情，用户确认后才以 force 重试。
- *    不存在静默覆盖更新鲜会话的路径。
+ *  - 「以该账号身份打开」= injectSession=true，注入账号会话后导航到站点。
  *  - 防重入：busy 非 null 期间所有动作按钮禁用。
  */
 import { useCallback, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
-import type { TFunction } from "i18next"
 import { accountManagerUseCases } from "@/features/account-manager/services/account-manager.use-cases"
 import { translateError } from "@/lib/tauri/errors"
 import type {
-  BrowserCaptureOutcome,
   BrowserOpenOutcome,
   BrowserOptionDto,
-  BrowserProbeOutcome,
   BrowserStatusOutcome,
-  SessionOrigin,
   StationAccount,
 } from "@/lib/tauri/types/account-manager"
 
 /** 当前进行中的动作（用于防重入与按钮禁用）。 */
-export type BrowserInteropBusy = "open" | "login" | "capture" | "close" | "clear" | "probe" | null
+export type BrowserInteropBusy = "open" | "close" | null
 
-export function useBrowserInterop(options?: { onCaptured?: () => void }) {
+export function useBrowserInterop() {
   const { t } = useTranslation()
-  const onCaptured = options?.onCaptured
   const [open, setOpen] = useState(false)
   const [account, setAccount] = useState<StationAccount | null>(null)
   const [browsers, setBrowsers] = useState<BrowserOptionDto[]>([])
@@ -44,12 +42,8 @@ export function useBrowserInterop(options?: { onCaptured?: () => void }) {
    * state 只负责禁用 UI，ref 负责拦截。两者始终同步更新。
    */
   const busyRef = useRef<BrowserInteropBusy>(null)
-  /** outcome="conflict" 时的后端结果（含 Bench 侧已有会话的时间与来源）。 */
-  const [conflict, setConflict] = useState<BrowserCaptureOutcome | null>(null)
   /** 最近一次「打开」的结果：用于在弹窗内交代到底注入了什么，而不是只弹一个 toast。 */
   const [lastOpen, setLastOpen] = useState<BrowserOpenOutcome | null>(null)
-  /** 最近一次「检测登录态」的结果（只读预检）。 */
-  const [probe, setProbe] = useState<BrowserProbeOutcome | null>(null)
 
   const begin = useCallback((kind: Exclude<BrowserInteropBusy, null>) => {
     if (busyRef.current) return false
@@ -75,7 +69,6 @@ export function useBrowserInterop(options?: { onCaptured?: () => void }) {
   const openDialog = useCallback(
     (target: StationAccount) => {
       setAccount(target)
-      setConflict(null)
       setOpen(true)
       void (async () => {
         try {
@@ -94,115 +87,44 @@ export function useBrowserInterop(options?: { onCaptured?: () => void }) {
 
   const closeDialog = useCallback(() => setOpen(false), [])
 
-  /** 打开（或复用）该账号的浏览器实例。injectSession=false 走手动登录分支。 */
-  const handleOpen = useCallback(
-    (injectSession: boolean) => {
-      if (!account) return
-      if (!begin(injectSession ? "open" : "login")) return
-      setConflict(null)
-      setProbe(null)
-      setLastOpen(null)
-      accountManagerUseCases
-        .openBrowserSession(account.id, {
-          browserId,
-          injectSession,
-          resetProfile: false,
-        })
-        .then((outcome) => {
-          setLastOpen(outcome)
-          if (!injectSession) {
-            toast.info(t("accountManager.toasts.browserOpenedForLogin"))
-            return refreshStatus(account.id)
-          }
-          if (!outcome.hasStoredSession) {
-            // 最关键的一条提示：Bench 里根本没有这个账号的会话，注入必然是空转。
-            toast.warning(t("accountManager.toasts.browserNoStoredSession"))
-          } else if (outcome.injectedCookies === 0) {
-            toast.error(
-              t("accountManager.toasts.browserNothingInjected", {
-                skipped: outcome.skippedPartitioned,
-                rejected: outcome.rejectedCookies,
-              }),
-            )
-          } else {
-            toast.success(
-              t("accountManager.toasts.browserSessionInjected", {
-                count: outcome.injectedCookies,
-                origins: outcome.storageOrigins,
-              }),
-            )
-          }
-          return refreshStatus(account.id)
-        })
-        .catch((error) => {
-          toast.error(translateError(t, error, t("accountManager.toasts.browserOpenFailed")))
-        })
-        .finally(end)
-    },
-    [account, begin, browserId, end, refreshStatus, t],
-  )
-
-  /** 只读预检：浏览器里是否已存在该站点的登录态（不写入任何数据）。 */
-  const handleProbe = useCallback(() => {
+  /** 打开（或复用）该账号的浏览器实例并注入会话。 */
+  const handleOpen = useCallback(() => {
     if (!account) return
-    if (!begin("probe")) return
-    setProbe(null)
+    if (!begin("open")) return
+    setLastOpen(null)
     accountManagerUseCases
-      .probeBrowserSession(account.id)
+      .openBrowserSession(account.id, {
+        browserId,
+        injectSession: true,
+        resetProfile: false,
+      })
       .then((outcome) => {
-        setProbe(outcome)
-        if (!outcome.running) {
-          toast.warning(t("accountManager.toasts.browserProbeNotRunning"))
-        } else if (outcome.cookieCount === 0) {
-          toast.info(t("accountManager.toasts.browserProbeNoSession"))
+        setLastOpen(outcome)
+        if (!outcome.hasStoredSession) {
+          // 最关键的一条提示：Bench 里根本没有这个账号的会话，注入必然是空转。
+          toast.warning(t("accountManager.toasts.browserNoStoredSession"))
+        } else if (outcome.injectedCookies === 0) {
+          toast.error(
+            t("accountManager.toasts.browserNothingInjected", {
+              skipped: outcome.skippedPartitioned,
+              rejected: outcome.rejectedCookies,
+            }),
+          )
         } else {
           toast.success(
-            t("accountManager.toasts.browserProbeFound", { count: outcome.cookieCount }),
+            t("accountManager.toasts.browserSessionInjected", {
+              count: outcome.injectedCookies,
+              origins: outcome.storageOrigins,
+            }),
           )
         }
+        return refreshStatus(account.id)
       })
       .catch((error) => {
-        toast.error(translateError(t, error, t("accountManager.toasts.browserProbeFailed")))
+        toast.error(translateError(t, error, t("accountManager.toasts.browserOpenFailed")))
       })
       .finally(end)
-  }, [account, begin, end, t])
-
-  /**
-   * 回采浏览器会话。`confirmed=false` 时若 Bench 已有不早于本次的会话，
-   * 后端返回 conflict 且不写入；此时把结果交给 UI 二次确认。
-   */
-  const handleCapture = useCallback(
-    (confirmed = false) => {
-      if (!account) return
-      if (!begin("capture")) return
-      accountManagerUseCases
-        .captureFromBrowser(account.id, confirmed)
-        .then((outcome) => {
-          if (outcome.outcome === "conflict") {
-            setConflict(outcome)
-            return
-          }
-          setConflict(null)
-          if (outcome.outcome === "empty") {
-            toast.info(t("accountManager.toasts.browserCaptureEmpty"))
-          } else {
-            toast.success(
-              t("accountManager.toasts.browserCaptureSaved", {
-                count: outcome.cookieCount,
-                origins: outcome.storageOrigins,
-              }),
-            )
-            // 读后写：会话已落库，刷新列表让状态 / 登录时间同步反映。
-            onCaptured?.()
-          }
-        })
-        .catch((error) => {
-          toast.error(translateError(t, error, t("accountManager.toasts.browserCaptureFailed")))
-        })
-        .finally(end)
-    },
-    [account, begin, end, onCaptured, t],
-  )
+  }, [account, begin, browserId, end, refreshStatus, t])
 
   const handleCloseInstance = useCallback(() => {
     if (!account) return
@@ -216,23 +138,6 @@ export function useBrowserInterop(options?: { onCaptured?: () => void }) {
       .finally(end)
   }, [account, begin, end, refreshStatus, t])
 
-  /** 「重新登录」：关闭实例并清空浏览器 profile。 */
-  const handleClearProfile = useCallback(() => {
-    if (!account) return
-    if (!begin("clear")) return
-    setConflict(null)
-    accountManagerUseCases
-      .clearBrowserProfile(account.id)
-      .then(() => {
-        toast.success(t("accountManager.toasts.browserProfileCleared"))
-        return refreshStatus(account.id)
-      })
-      .catch((error) => {
-        toast.error(translateError(t, error, t("accountManager.toasts.browserClearFailed")))
-      })
-      .finally(end)
-  }, [account, begin, end, refreshStatus, t])
-
   return {
     open,
     account,
@@ -240,23 +145,11 @@ export function useBrowserInterop(options?: { onCaptured?: () => void }) {
     browserId,
     status,
     busy,
-    conflict,
     lastOpen,
-    probe,
     setBrowserId,
     openDialog,
     closeDialog,
     handleOpen,
-    handleCapture,
     handleCloseInstance,
-    handleClearProfile,
-    handleProbe,
   }
-}
-
-/** SessionOrigin → 本地化展示文案（后端只给稳定字符串，映射在前端）。 */
-export function sessionOriginLabel(t: TFunction, origin?: SessionOrigin | null): string {
-  const key = `accountManager.sessionOrigin.${origin ?? "unknown"}`
-  const label = t(key)
-  return label === key ? t("accountManager.sessionOrigin.unknown") : label
 }

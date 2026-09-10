@@ -60,6 +60,115 @@ body {
 .search {
   margin-top: 10px;
 }
+
+/* ── 站点登录态（I3 读 / I5 写）──────────────────────────── */
+.session {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.srow-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.slabel {
+  font-weight: 500;
+}
+.site {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 11px;
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.smsg {
+  margin-top: 6px;
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+.smsg.ok {
+  color: var(--ok);
+}
+.smsg.warn {
+  color: #8a5a00;
+}
+.smsg.err {
+  color: var(--danger);
+}
+.srow {
+  margin-top: 8px;
+}
+.btn {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.hidden {
+  display: none;
+}
+.targets {
+  margin-top: 6px;
+  display: grid;
+  gap: 4px;
+}
+.target {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+}
+.target .uname {
+  font-weight: 500;
+}
+.target .meta {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 11px;
+}
+.backups {
+  margin-top: 8px;
+  font-size: 11px;
+}
+.backups .bk {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  border-top: 1px solid var(--border);
+}
+.backups .bk .origin {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.backups a {
+  color: var(--accent);
+  text-decoration: none;
+  margin-left: auto;
+  cursor: pointer;
+}
+
 #q {
   width: 100%;
   padding: 8px 10px;

@@ -290,18 +290,40 @@ pub fn match_stations_by_url(
     url: String,
 ) -> AccountManagerResult<Vec<crate::account_manager::types::StationUrlMatch>> {
     let snapshot = state.read_snapshot_checked()?;
+    Ok(station_matches_for_url(
+        &snapshot.stations,
+        &snapshot.accounts,
+        &url,
+    ))
+}
+
+/// URL → 站点匹配的**纯函数**实现。
+///
+/// 抽出来供两处共用，避免规则漂移：
+/// - IPC 命令 `match_stations_by_url`（快速登录粘贴 URL → 自动识别分组）；
+/// - 浏览器扩展本地桥 `POST /v1/site/resolve`（读日常浏览器登录态前先定位站点）。
+///
+/// 规则：host 精确相等 → `Exact`；互为父子域 → `RegistrableDomain`；
+/// URL 无法解析（输入中途不完整属常态）返回空列表，不报错。
+pub fn station_matches_for_url(
+    stations: &[crate::account_manager::types::RelayStation],
+    accounts: &[crate::account_manager::types::StationAccount],
+    url: &str,
+) -> Vec<crate::account_manager::types::StationUrlMatch> {
+    use crate::account_manager::types::{StationUrlMatch, StationUrlMatchConfidence};
+
     let Some(parsed) = url::Url::parse(url.trim()).ok() else {
-        return Ok(Vec::new());
+        return Vec::new();
     };
     let Some(target_host) = parsed.host_str().map(|h| h.to_lowercase()) else {
-        return Ok(Vec::new());
+        return Vec::new();
     };
     if target_host.is_empty() {
-        return Ok(Vec::new());
+        return Vec::new();
     }
 
     let mut matches = Vec::new();
-    for station in &snapshot.stations {
+    for station in stations {
         let Some(station_host) = url::Url::parse(station.website.trim())
             .ok()
             .and_then(|u| u.host_str().map(|h| h.to_lowercase()))
@@ -312,29 +334,27 @@ pub fn match_stations_by_url(
             continue;
         }
         let confidence = if target_host == station_host {
-            crate::account_manager::types::StationUrlMatchConfidence::Exact
+            StationUrlMatchConfidence::Exact
         } else if target_host.ends_with(&format!(".{station_host}"))
             || station_host.ends_with(&format!(".{target_host}"))
         {
-            crate::account_manager::types::StationUrlMatchConfidence::RegistrableDomain
+            StationUrlMatchConfidence::RegistrableDomain
         } else {
             continue;
         };
-        matches.push(crate::account_manager::types::StationUrlMatch {
+        matches.push(StationUrlMatch {
             station_id: station.id.clone(),
             remark: station.remark.clone(),
             website: station.website.clone(),
-            account_count: snapshot
-                .accounts
+            account_count: accounts
                 .iter()
                 .filter(|account| account.station_id == station.id)
                 .count(),
             confidence,
         });
     }
-    // Exact 优先,同置信度按站点备注排序保证稳定输出。
+    // Exact 优先，同置信度按站点备注排序保证稳定输出。
     matches.sort_by(|a, b| {
-        use crate::account_manager::types::StationUrlMatchConfidence;
         let rank = |c: &StationUrlMatchConfidence| match c {
             StationUrlMatchConfidence::Exact => 0,
             StationUrlMatchConfidence::RegistrableDomain => 1,
@@ -343,5 +363,5 @@ pub fn match_stations_by_url(
             .cmp(&rank(&b.confidence))
             .then_with(|| a.remark.cmp(&b.remark))
     });
-    Ok(matches)
+    matches
 }

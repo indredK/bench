@@ -860,6 +860,12 @@ pub struct AccountManagerCapabilities {
     pub browser_session_open: AccountManagerCapability,
     /// 互通 I2：从 Bench 托管的浏览器 profile 回采会话（入向）。
     pub browser_session_capture: AccountManagerCapability,
+    /// 互通 I3/I5：经浏览器扩展读写**用户日常浏览器**的会话。
+    ///
+    /// 与上面两项的关键差异：不依赖 Bench 启动浏览器、也不依赖 Chromium 系之外
+    /// 的引擎判断，但要求用户已加载 `bench-companion` 扩展且本地桥就绪
+    /// （后者由 `browser_ext_status.bridge_ready` 单独上报）。
+    pub browser_session_extension: AccountManagerCapability,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -902,6 +908,21 @@ impl AccountManagerError {
     pub fn clipboard_fail(msg: impl Into<String>) -> Self {
         Self::ClipboardFail {
             message: msg.into(),
+        }
+    }
+
+    /// 错误文案（不含 code）。
+    ///
+    /// 供**非 IPC 通道**使用：浏览器扩展本地桥只回 JSON
+    /// `{ ok: false, error }`，没有 `AppResult` 的错误结构，故需要取纯文案。
+    pub fn message(&self) -> String {
+        match self {
+            Self::NotFound { message }
+            | Self::InvalidInput { message }
+            | Self::StoreFail { message }
+            | Self::KeyringUnavailable { message }
+            | Self::CryptoFail { message }
+            | Self::ClipboardFail { message } => message.clone(),
         }
     }
 }

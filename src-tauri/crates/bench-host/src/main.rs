@@ -27,6 +27,9 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub struct HostConfig {
     pub guard: PathGuard,
     pub store: StoreLocator,
+    /// Bench app 写下的浏览器扩展本地桥描述文件（端口 + 一次性 token）。
+    /// `None` 表示未由 app 生成 wrapper 启动，此时桥相关命令会明确报错而非猜测路径。
+    pub bridge_descriptor: Option<std::path::PathBuf>,
 }
 
 fn print_usage() {
@@ -34,16 +37,19 @@ fn print_usage() {
         "bench-host v{VERSION}\n\
          \n\
          USAGE:\n\
-         \x20 bench-host mcp [--allow-root <dir>]... [--store-dir <dir>]\n\
-         \x20 bench-host native [--allow-root <dir>]... [--store-dir <dir>]\n\
+         \x20 bench-host mcp [--allow-root <dir>]... [--store-dir <dir>] [--bridge-descriptor <file>]\n\
+         \x20 bench-host native [--allow-root <dir>]... [--store-dir <dir>] [--bridge-descriptor <file>]\n\
          \x20 bench-host tools\n\
-         \x20 bench-host call <command> [params-json] [--allow-root <dir>]... [--store-dir <dir>]\n\
+         \x20 bench-host call <command> [params-json] [--allow-root <dir>]... [--store-dir <dir>] [--bridge-descriptor <file>]\n\
          \n\
          Subcommands:\n\
          \x20 mcp     MCP stdio server (AI clients)\n\
          \x20 native  Browser Native Messaging host (bench-companion extension)\n\
          \x20 tools   List available commands\n\
-         \x20 call    Invoke one command and print the JSON result"
+         \x20 call    Invoke one command and print the JSON result\n\
+         \n\
+         Flags:\n\
+         \x20 --bridge-descriptor <file>  Bench 写入的浏览器扩展本地桥描述（端口 + 一次性 token）"
     );
 }
 
@@ -53,6 +59,7 @@ fn parse_args(args: &[String]) -> Option<(String, Vec<String>, HostConfig)> {
     let mut rest: Vec<String> = Vec::new();
     let mut allow_roots: Vec<String> = Vec::new();
     let mut store_dir: Option<String> = None;
+    let mut bridge_descriptor: Option<String> = None;
 
     let mut i = 0;
     while i < args.len() {
@@ -65,6 +72,10 @@ fn parse_args(args: &[String]) -> Option<(String, Vec<String>, HostConfig)> {
             "--store-dir" => {
                 i += 1;
                 store_dir = Some(args.get(i)?.clone());
+            }
+            "--bridge-descriptor" => {
+                i += 1;
+                bridge_descriptor = Some(args.get(i)?.clone());
             }
             "--help" | "-h" | "help" => return None,
             _ if subcommand.is_none() => subcommand = Some(arg.clone()),
@@ -83,6 +94,7 @@ fn parse_args(args: &[String]) -> Option<(String, Vec<String>, HostConfig)> {
         HostConfig {
             guard: PathGuard::new(allow_roots),
             store,
+            bridge_descriptor: bridge_descriptor.map(std::path::PathBuf::from),
         },
     ))
 }

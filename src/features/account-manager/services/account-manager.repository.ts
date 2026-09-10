@@ -4,11 +4,16 @@
 import {
   browserSessionBrowsers,
   browserSessionCapture,
+  browserSessionCaptureStation,
   browserSessionClearProfile,
   browserSessionClose,
+  browserSessionCloseStation,
   browserSessionOpen,
+  browserSessionOpenStation,
+  browserSessionPreviewStation,
   browserSessionProbe,
   browserSessionStatus,
+  browserSessionStatusStation,
   captureLoginFingerprint,
   confirmLoginFingerprint,
   copyPasswordToClipboard,
@@ -57,6 +62,11 @@ import {
 } from "@/lib/tauri/commands/account-manager"
 import { openExternal } from "@/platform/shell"
 import { openPlatformDialog, savePlatformDialog } from "@/platform/dialog"
+import {
+  exportBrowserExtension,
+  getBrowserExtensionStatus,
+  openBrowserExtensionsPage,
+} from "@/lib/tauri/commands/browser-ext"
 
 export const accountManagerRepository = {
   getAccountManagerCapabilities,
@@ -111,6 +121,15 @@ export const accountManagerRepository = {
   browserSessionCapture,
   browserSessionProbe,
   browserSessionClearProfile,
+  browserSessionOpenStation,
+  browserSessionStatusStation,
+  browserSessionCloseStation,
+  browserSessionPreviewStation,
+  browserSessionCaptureStation,
+  // 互通 I3/I5：读写**日常浏览器**（扩展通道）所需的导出/状态命令。
+  getBrowserExtensionStatus,
+  exportBrowserExtension,
+  openBrowserExtensionsPage,
   openExternal,
   openPlatformDialog,
   savePlatformDialog,

@@ -15,6 +15,8 @@ import type {
   BrowserOpenResult,
   BrowserOptionDto,
   BrowserProbeOutcome,
+  BrowserSessionPreview,
+  BrowserStationCaptureOutcome,
   BrowserStatusOutcome,
   DeletionReport,
   ExternalApp,
@@ -523,4 +525,69 @@ export function browserSessionProbe(accountId: string): Promise<BrowserProbeOutc
 /// 清空该账号的浏览器 profile（先关闭实例）。用于「重新登录」场景。
 export function browserSessionClearProfile(accountId: string): Promise<boolean> {
   return invokeTauriCommand(TAURI_COMMANDS.accountManager.browserSessionClearProfile, { accountId })
+}
+
+// ═══════════════════════════════════════════════
+// 站点维度互通（账号列表头部入口：手动登录 + 回采）
+// ═══════════════════════════════════════════════
+
+/**
+ * 以站点维度打开（或复用）托管浏览器实例，导航到站点首页供用户手动登录。
+ * 站点维度实例**没有可注入的会话**，仅作为「用户手动登录」的沙箱。
+ */
+export function browserSessionOpenStation(
+  stationId: string,
+  opts?: { browserId?: string | null; resetProfile?: boolean },
+): Promise<BrowserOpenOutcome> {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.browserSessionOpenStation, {
+    stationId,
+    browserId: opts?.browserId ?? null,
+    resetProfile: opts?.resetProfile ?? false,
+  })
+}
+
+/// 查询站点维度实例运行状态。
+export function browserSessionStatusStation(stationId: string): Promise<BrowserStatusOutcome> {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.browserSessionStatusStation, {
+    stationId,
+  })
+}
+
+/// 关闭站点维度实例。
+export function browserSessionCloseStation(stationId: string): Promise<boolean> {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.browserSessionCloseStation, { stationId })
+}
+
+/// 实时预览站点维度实例中的登录态概览（只读，不关闭实例、不写入数据）。
+export function browserSessionPreviewStation(stationId: string): Promise<BrowserSessionPreview> {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.browserSessionPreviewStation, {
+    stationId,
+  })
+}
+
+/**
+ * 从站点维度实例回采登录态并落库到目标账号。
+ *
+ * - `targetAccountId` 给定 → 写入**已有**账号（走新鲜度仲裁，可能 `conflict`）。
+ * - `targetAccountId` 为 null → 以 `newUsername` 在该站点下**新建**账号承接登录态。
+ * - `force = true` → 覆盖 `conflict`（即用户二次确认「仍要覆盖」）。
+ *
+ * 内部顺序为「采集 → 关闭实例 → 落库」。
+ */
+export function browserSessionCaptureStation(
+  stationId: string,
+  opts: {
+    targetAccountId?: string | null
+    newUsername?: string | null
+    newPassword?: string | null
+    force?: boolean
+  },
+): Promise<BrowserStationCaptureOutcome> {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.browserSessionCaptureStation, {
+    stationId,
+    targetAccountId: opts.targetAccountId ?? null,
+    newUsername: opts.newUsername ?? null,
+    newPassword: opts.newPassword ?? null,
+    force: opts.force ?? false,
+  })
 }

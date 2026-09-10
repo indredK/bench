@@ -71,6 +71,7 @@ fn for_platform(
             deep_link: unsupported(),
             browser_session_open: unsupported(),
             browser_session_capture: unsupported(),
+            browser_session_extension: unsupported(),
         };
     }
 
@@ -122,6 +123,10 @@ fn for_platform(
         deep_link: AccountManagerCapability::partial(REASON_PLATFORM_VALIDATION_PENDING),
         browser_session_open: browser_session(),
         browser_session_capture: browser_session(),
+        // 扩展通道不要求本机装有 Chromium 系浏览器（扩展跑在用户自己的浏览器里），
+        // 所以只受 keyring 约束；「扩展是否已安装」是运行态信息，由
+        // `browser_ext_status` 单独上报，不进能力矩阵（能力矩阵是平台真理源）。
+        browser_session_extension: persisted_session(),
     }
 }
 
@@ -225,6 +230,38 @@ mod tests {
         assert_eq!(
             capabilities.browser_session_capture.status,
             CapabilityStatus::Unsupported
+        );
+        assert_eq!(
+            capabilities.browser_session_extension.status,
+            CapabilityStatus::Unsupported
+        );
+    }
+
+    #[test]
+    fn extension_channel_does_not_require_a_local_chromium_browser() {
+        // 扩展跑在用户自己的浏览器里，Bench 不需要在本机探测到 Chromium 系安装。
+        // 若这里跟着 browser_session 一起 fail-closed，纯 Safari/Firefox 用户
+        // 就被无理由地挡在门外。
+        let capabilities = for_platform(Platform::Macos, true, Some(14), false);
+        assert_eq!(
+            capabilities.browser_session_extension.status,
+            CapabilityStatus::Partial
+        );
+        assert_eq!(
+            capabilities.browser_session_open.status,
+            CapabilityStatus::Failed
+        );
+    }
+
+    #[test]
+    fn extension_channel_fails_closed_without_keyring() {
+        let capabilities = for_platform(Platform::Macos, false, Some(14), true);
+        assert_eq!(
+            capabilities
+                .browser_session_extension
+                .reason_code
+                .as_deref(),
+            Some(REASON_KEYRING_FAILED)
         );
     }
 }

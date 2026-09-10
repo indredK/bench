@@ -24,7 +24,11 @@ fn bench_data_dir(app: &tauri::AppHandle) -> AppResult<std::path::PathBuf> {
         .map_err(|e| AppError::internal(format!("无法定位数据目录: {e}")))
 }
 
+/// 序列化统一走 camelCase —— 前端类型（`src/lib/tauri/types/browser-ext.ts`）按
+/// camelCase 声明；缺这个属性时 `extension_dir` / `bridge_ready` 等字段在前端读到的
+/// 是 `undefined`（不报错，但会把「缺少 bench-host」误判为真、禁用导出按钮）。
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BrowserExtStatus {
     pub exported: bool,
     pub extension_dir: String,
@@ -33,6 +37,10 @@ pub struct BrowserExtStatus {
     pub host_bin_path: String,
     pub nm_registrations: Vec<super::NmRegistration>,
     pub browsers: Vec<super::BrowserInfo>,
+    /// 浏览器扩展本地桥是否已就绪（扩展要靠它把会话交回 Bench）。
+    pub bridge_ready: bool,
+    /// 本地桥端口（未就绪时为 null）。
+    pub bridge_port: Option<u16>,
 }
 
 /// 当前导出与注册状态（前端据此渲染按钮态）。
@@ -42,6 +50,7 @@ pub fn browser_ext_status(app: tauri::AppHandle) -> AppResult<BrowserExtStatus> 
     let extension_dir = data_dir.join("browser-extensions/bench-companion");
     let exported = extension_dir.join("manifest.json").exists();
     let host_bin = locate_host_bin();
+    let bridge = crate::account_manager::browser_bridge::descriptor();
     Ok(BrowserExtStatus {
         exported,
         extension_dir: extension_dir.display().to_string(),
@@ -50,20 +59,30 @@ pub fn browser_ext_status(app: tauri::AppHandle) -> AppResult<BrowserExtStatus> 
         host_bin_path: host_bin.clone().unwrap_or_default().display().to_string(),
         nm_registrations: registered_nm_paths(),
         browsers: detect_browsers(),
+        bridge_ready: bridge.is_some(),
+        bridge_port: bridge.map(|value| value.port),
     })
 }
 
 /// 一键导出：扩展目录 + wrapper + NM manifest。
+///
+/// 同时确保浏览器扩展本地桥已启动 —— wrapper 必须带上描述文件路径，扩展才能
+/// 经 bench-host 取回桥的端口与一次性 token（控制面）。
 #[tauri::command]
 pub fn browser_ext_export(app: tauri::AppHandle) -> AppResult<super::ExportResult> {
     let host_bin = locate_host_bin().map_err(AppError::not_found)?;
     let data_dir = bench_data_dir(&app)?;
 
+    crate::account_manager::browser_bridge::ensure_started(app.clone());
+    let descriptor_path = crate::account_manager::browser_bridge::descriptor_path(&app)
+        .map_err(AppError::internal)?;
+
     let extension_dir = data_dir.join("browser-extensions/bench-companion");
     let files = write_extension_dir(&extension_dir).map_err(AppError::internal)?;
     let _ = files; // 写出文件数（日志用途）
 
-    let wrapper = write_wrapper(&data_dir.join("bin"), &host_bin).map_err(AppError::internal)?;
+    let wrapper = write_wrapper(&data_dir.join("bin"), &host_bin, &descriptor_path)
+        .map_err(AppError::internal)?;
     let nm_registrations = write_nm_manifests(&wrapper).map_err(AppError::internal)?;
 
     Ok(super::ExportResult {
@@ -116,6 +135,7 @@ pub fn browser_ext_open_extensions_page(browser_id: String) -> AppResult<()> {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct McpTargetStatus {
     pub id: String,
     pub name: String,

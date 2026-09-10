@@ -12,8 +12,25 @@
       <span id="status" class="badge off">检测中</span>
     </header>
 
+    <section class="session">
+      <div class="srow-head">
+        <span class="slabel">站点登录态</span>
+        <span id="site" class="site">读取中…</span>
+      </div>
+      <div id="session-msg" class="smsg"></div>
+      <div class="srow">
+        <button id="save" class="btn primary" disabled>保存此站点登录态到 Bench</button>
+      </div>
+      <div id="targets" class="targets hidden"></div>
+      <div class="srow">
+        <button id="inject" class="btn" disabled>用 Bench 账号登录此站点</button>
+      </div>
+      <div id="inject-list" class="targets hidden"></div>
+      <div id="backups" class="backups hidden"></div>
+    </section>
+
     <section class="search">
-      <input id="q" type="search" placeholder="搜索术语库…" autofocus />
+      <input id="q" type="search" placeholder="搜索术语库…" />
       <div id="hits" class="hits"></div>
     </section>
 

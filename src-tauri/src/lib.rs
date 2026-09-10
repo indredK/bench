@@ -107,6 +107,25 @@ pub fn run() {
             menu::setup_menu(app)?;
             tray::setup_tray(app)?;
 
+            // 浏览器互通：把历史上无前缀的旧 profile 目录迁移为现行命名（幂等）。
+            // 只做文件系统重命名，放后台线程，不阻塞启动；失败仅记日志。
+            {
+                let handle = app.handle().clone();
+                tauri::async_runtime::spawn_blocking(move || {
+                    let migrated = crate::account_manager::browser_session::profile::
+                        migrate_legacy_profile_dirs(&handle);
+                    if !migrated.is_empty() {
+                        eprintln!(
+                            "[account-manager] migrated legacy browser profile dirs: {migrated:?}"
+                        );
+                    }
+                });
+            }
+
+            // 浏览器扩展本地桥（loopback + 一次性 token）：让日常浏览器的
+            // bench-companion 扩展能把会话交回 app。未就绪时既有功能不受影响。
+            crate::account_manager::browser_bridge::ensure_started(app.handle().clone());
+
             // 关闭按钮行为: 拦截 window close, 根据偏好决定 minimize_to_tray 或 quit
             if let Some(main_window) = app.get_webview_window("main") {
                 let app_handle = app.handle().clone();
@@ -306,6 +325,9 @@ pub fn run() {
         .run(|app_handle, event| {
             match event {
                 tauri::RunEvent::Exit => {
+                    // 清掉浏览器扩展本地桥描述文件：留下过期的端口与 token 会让
+                    // 扩展白跑一次连接失败（虽然它会自动重取，但尽快收敛更好）。
+                    account_manager::browser_bridge::remove_descriptor(app_handle);
                     sleep_inhibitor::commands::cleanup_on_exit();
                 }
                 // macOS: 登录项静默启动后应用以 Regular 策略驻留程序坞(窗口隐藏),

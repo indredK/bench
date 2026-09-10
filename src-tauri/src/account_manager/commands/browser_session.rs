@@ -7,7 +7,8 @@
 use tauri::{AppHandle, Runtime, State};
 
 use crate::account_manager::browser_session::{
-    self, BrowserCaptureOutcome, BrowserOpenOutcome, BrowserProbeOutcome, BrowserStatusOutcome,
+    self, BrowserCaptureOutcome, BrowserOpenOutcome, BrowserProbeOutcome, BrowserSessionPreview,
+    BrowserStationCaptureOutcome, BrowserStatusOutcome,
 };
 use crate::account_manager::state::AccountManagerState;
 use crate::account_manager::types::{AccountManagerError, AccountManagerResult};
@@ -39,7 +40,8 @@ pub async fn browser_session_open<R: Runtime>(
             )));
         }
     }
-    browser_session::open(&app, &account_id, browser_id, inject_session, reset_profile).await
+    browser_session::open_for_account(&app, &account_id, browser_id, inject_session, reset_profile)
+        .await
 }
 
 /// 查询该账号的浏览器实例状态（是否运行、浏览器 id、调试端口）。
@@ -48,7 +50,8 @@ pub async fn browser_session_status<R: Runtime>(
     app: AppHandle<R>,
     account_id: String,
 ) -> AccountManagerResult<BrowserStatusOutcome> {
-    browser_session::status(&app, &account_id).await
+    let scope = browser_session::profile::Scope::Account(account_id);
+    browser_session::status_for_scope(&app, &scope).await
 }
 
 /// 关闭该账号的浏览器实例。
@@ -79,7 +82,8 @@ pub async fn browser_session_probe<R: Runtime>(
     app: AppHandle<R>,
     account_id: String,
 ) -> AccountManagerResult<BrowserProbeOutcome> {
-    browser_session::probe(&app, &account_id).await
+    let scope = browser_session::profile::Scope::Account(account_id);
+    browser_session::probe(&app, &scope).await
 }
 
 /// 清空该账号的浏览器 profile（先关闭实例）。用于「重新登录」场景。
@@ -91,7 +95,95 @@ pub async fn browser_session_clear_profile<R: Runtime>(
 ) -> AccountManagerResult<bool> {
     state.ensure_ready()?;
     browser_session::close(&app, &account_id).await;
-    browser_session::profile::remove_profile_dir(&app, &account_id)
+    let scope = browser_session::profile::Scope::Account(account_id);
+    browser_session::profile::remove_profile_dir(&app, &scope)
         .map_err(AccountManagerError::store_fail)?;
     Ok(true)
+}
+
+// ═══════════════════════════════════════════════
+// 站点维度互通（「账号列表头部 → 浏览器互通」入口）
+//
+// 与账号维度不同：站点维度实例属于「某个站点」而非「某个账号」——用户是
+// 「在某个站点上登录」，此时还不知道这份登录态该归哪个账号（可能新建，也可能
+// 归已有账号）。因此站点维度实例只用于「手动登录 + 回采」，不注入任何会话。
+// ═══════════════════════════════════════════════
+
+/// 以站点维度打开（或复用）托管浏览器实例，导航到站点首页供用户手动登录。
+///
+/// 与 `browser_session_open` 的区别：站点维度**没有可注入的会话**
+/// （`injectSession` 恒为 false），仅作为「用户手动登录」的沙箱。
+#[tauri::command]
+pub async fn browser_session_open_station<R: Runtime>(
+    app: AppHandle<R>,
+    station_id: String,
+    browser_id: Option<String>,
+    reset_profile: bool,
+) -> AccountManagerResult<BrowserOpenOutcome> {
+    if let Some(id) = browser_id.as_deref() {
+        if !browser_session::browser::is_supported_id(id) {
+            return Err(AccountManagerError::invalid_input(format!(
+                "UNSUPPORTED_BROWSER: {id}"
+            )));
+        }
+    }
+    browser_session::open_for_station(&app, &station_id, browser_id, reset_profile).await
+}
+
+/// 查询站点维度实例的运行状态。
+#[tauri::command]
+pub async fn browser_session_status_station<R: Runtime>(
+    app: AppHandle<R>,
+    station_id: String,
+) -> AccountManagerResult<BrowserStatusOutcome> {
+    let scope = browser_session::profile::Scope::Station(station_id);
+    browser_session::status_for_scope(&app, &scope).await
+}
+
+/// 关闭站点维度实例。
+#[tauri::command]
+pub async fn browser_session_close_station<R: Runtime>(
+    app: AppHandle<R>,
+    station_id: String,
+) -> AccountManagerResult<bool> {
+    let scope = browser_session::profile::Scope::Station(station_id);
+    Ok(browser_session::close_for_scope(&app, &scope).await)
+}
+
+/// 实时预览站点维度实例中的登录态概览（只读，不关闭实例、不写入数据）。
+///
+/// 供回采面板展示「当前浏览器登录态的所有信息」。
+#[tauri::command]
+pub async fn browser_session_preview_station<R: Runtime>(
+    app: AppHandle<R>,
+    station_id: String,
+) -> AccountManagerResult<BrowserSessionPreview> {
+    browser_session::preview_station_session(&app, &station_id).await
+}
+
+/// 从站点维度实例回采登录态并落库到目标账号。
+///
+/// - `target_account_id = Some(id)`：写入已有账号（走新鲜度仲裁，可能 `conflict`）。
+/// - `target_account_id = None`：以 `new_username` 在该站点下**新建**账号承接登录态。
+/// - `force = true`：覆盖 `conflict`（即用户二次确认「仍要覆盖」）。
+///
+/// 内部顺序为「采集 → 关闭实例 → 落库」；用户感知到的是「点完回采浏览器就关了」。
+#[tauri::command]
+pub async fn browser_session_capture_station<R: Runtime>(
+    app: AppHandle<R>,
+    station_id: String,
+    target_account_id: Option<String>,
+    new_username: Option<String>,
+    new_password: Option<String>,
+    force: bool,
+) -> AccountManagerResult<BrowserStationCaptureOutcome> {
+    browser_session::capture_for_station(
+        &app,
+        &station_id,
+        target_account_id,
+        new_username,
+        new_password,
+        force,
+    )
+    .await
 }

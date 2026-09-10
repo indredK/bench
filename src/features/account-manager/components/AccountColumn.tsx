@@ -12,6 +12,7 @@ import {
   Copy,
   FileDown,
   Filter,
+  Globe,
   Inbox,
   Link2,
   LogIn,
@@ -50,6 +51,7 @@ export function AccountColumn({
   onLogin,
   onRefresh,
   onRefreshStation,
+  onOpenStationBrowser,
   onEdit,
   onDelete,
   onExport,
@@ -73,6 +75,7 @@ export function AccountColumn({
   onLogin: (account: StationAccount) => void
   onRefresh: (account: StationAccount) => void
   onRefreshStation: (stationId: string) => void
+  onOpenStationBrowser?: (stationId: string) => void
   onEdit: (account: StationAccount) => void
   onDelete: (account: StationAccount) => void
   onExport: (account: StationAccount) => void
@@ -170,6 +173,26 @@ export function AccountColumn({
         title={`${t("accountManager.accountTitle")} (${accounts.length})`}
         action={
           <div className="flex items-center gap-1.5">
+            {onOpenStationBrowser && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="icon-sm"
+                      variant="outline"
+                      onClick={() => station && onOpenStationBrowser(station.id)}
+                      disabled={!station}
+                      aria-label={t("accountManager.stationInterop.title")}
+                    >
+                      <Globe />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    {t("accountManager.stationInterop.title")}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>

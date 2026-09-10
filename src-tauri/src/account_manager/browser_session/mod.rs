@@ -35,7 +35,8 @@ use super::types::{
     AccountLogKind, AccountLogLevel, AccountManagerError, AccountManagerResult, AccountSession,
     AccountSessionStatus, CookieEntry, RelayStation, SessionOrigin,
 };
-use crate::account_manager::commands::now_label;
+use crate::account_manager::browser_session::profile::Scope;
+use crate::account_manager::commands::{create_account_inner, now_label};
 use cdp::CdpClient;
 use profile::SessionMeta;
 
@@ -108,6 +109,50 @@ pub struct BrowserProbeOutcome {
     pub fingerprint_total: Option<usize>,
 }
 
+/// 站点维度回采面板的实时预览（只读，不关闭实例、不写入任何数据）。
+///
+/// 刻意只暴露**名称**与计数，**绝不**返回 cookie 值 / storage 值 / 明文会话。
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BrowserSessionPreview {
+    pub running: bool,
+    pub cookie_count: usize,
+    /// 命中 cookie 的名称（不含值），供面板逐条展示「浏览器里有哪些登录态」。
+    pub cookie_names: Vec<String>,
+    /// 实际恢复了 Web Storage / IndexedDB 的 origin 份数（0 = 该会话没有存储快照）。
+    pub storage_origins: usize,
+    pub user_agent: String,
+    pub indexed_db_status: String,
+    /// 命中的站点指纹特征数（站点未采样指纹时为 None）。
+    pub fingerprint_hits: Option<usize>,
+    pub fingerprint_total: Option<usize>,
+}
+
+/// 站点维度回采结果的类别（与账号维度一致：`saved` | `conflict` | `empty`）。
+pub type BrowserStationCaptureOutcomeKind = String;
+
+/// 站点维度回采结果。
+///
+/// 与账号维度 `BrowserCaptureOutcome` 的区别：目标账号可能是**新建**的
+/// （`created_account_id` 非 `None`），因此多一个 `target_account_id` / `created_account_id` 字段对。
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BrowserStationCaptureOutcome {
+    pub outcome: BrowserStationCaptureOutcomeKind,
+    /// 实际写入的账号 id（新建或已有的都填这里）。
+    pub target_account_id: String,
+    /// 仅当本次**新建**了一个账号承接登录态时非空。
+    pub created_account_id: Option<String>,
+    pub cookie_count: usize,
+    pub skipped_partitioned: usize,
+    pub storage_origins: usize,
+    pub indexed_db_status: String,
+    pub captured_at_ts: i64,
+    pub existing_captured_at_ts: Option<i64>,
+    pub existing_origin: Option<String>,
+    pub verified: Option<bool>,
+}
+
 // ═══════════════════════════════════════════════
 // 内部：账号 / 站点解析
 // ═══════════════════════════════════════════════
@@ -116,6 +161,7 @@ struct AccountContext {
     station: RelayStation,
 }
 
+/// 账号维度解析：从账号 id 找到其所属站点。
 fn load_context(
     state: &AccountManagerState,
     account_id: &str,
@@ -135,6 +181,28 @@ fn load_context(
     Ok(AccountContext { station })
 }
 
+/// 站点维度解析：直接从站点 id 取站点（回采流程尚未确定归属哪个账号）。
+fn load_station_context(
+    state: &AccountManagerState,
+    station_id: &str,
+) -> AccountManagerResult<AccountContext> {
+    let snapshot = state.read_snapshot_checked()?;
+    let station = snapshot
+        .stations
+        .iter()
+        .find(|item| item.id == station_id)
+        .cloned()
+        .ok_or_else(|| AccountManagerError::not_found(format!("station {station_id}")))?;
+    Ok(AccountContext { station })
+}
+
+fn context_for(state: &AccountManagerState, scope: &Scope) -> AccountManagerResult<AccountContext> {
+    match scope {
+        Scope::Account(account_id) => load_context(state, account_id),
+        Scope::Station(station_id) => load_station_context(state, station_id),
+    }
+}
+
 fn station_origin(station: &RelayStation) -> AccountManagerResult<String> {
     let parsed = url::Url::parse(&station.website)
         .map_err(|e| AccountManagerError::invalid_input(format!("station website: {e}")))?;
@@ -150,12 +218,12 @@ fn station_origin(station: &RelayStation) -> AccountManagerResult<String> {
 // 出向：打开浏览器并（可选）注入会话
 // ═══════════════════════════════════════════════
 
-/// 连接指定账号的浏览器实例；未运行时返回 `None`。
+/// 连接指定 scope 的浏览器实例；未运行时返回 `None`。
 async fn connect_running<R: Runtime>(
     app: &AppHandle<R>,
-    account_id: &str,
+    scope: &Scope,
 ) -> AccountManagerResult<Option<(CdpClient, u16)>> {
-    let Some(port) = profile::resolve_running_port(app, account_id).await else {
+    let Some(port) = profile::resolve_running_port(app, scope).await else {
         return Ok(None);
     };
     let ws_url = cdp::browser_ws_url(port)
@@ -167,48 +235,94 @@ async fn connect_running<R: Runtime>(
     Ok(Some((client, port)))
 }
 
-/// 打开（或复用）该账号的托管浏览器实例。
-///
-/// - `inject_session = true`：注入 canonical session 后导航（「以该账号身份浏览」）。
-/// - `inject_session = false`：只打开站点首页，供用户在真实浏览器中登录（入向前置）。
-/// - `reset_profile = true`：先关闭实例并清空 profile，保证干净起点。
-pub async fn open<R: Runtime>(
+/// 账号维度入口：打开（或复用）该账号的托管浏览器实例。
+pub async fn open_for_account<R: Runtime>(
     app: &AppHandle<R>,
     account_id: &str,
     browser_id: Option<String>,
     inject_session: bool,
     reset_profile: bool,
 ) -> AccountManagerResult<BrowserOpenOutcome> {
+    open_for_scope(
+        app,
+        &Scope::Account(account_id.to_string()),
+        browser_id,
+        inject_session,
+        reset_profile,
+    )
+    .await
+}
+
+/// 站点维度入口：**只**打开站点供手动登录。
+/// 站点实例不属于任何账号，因此没有可注入的会话（`inject_session` 恒为 false）。
+pub async fn open_for_station<R: Runtime>(
+    app: &AppHandle<R>,
+    station_id: &str,
+    browser_id: Option<String>,
+    reset_profile: bool,
+) -> AccountManagerResult<BrowserOpenOutcome> {
+    open_for_scope(
+        app,
+        &Scope::Station(station_id.to_string()),
+        browser_id,
+        false,
+        reset_profile,
+    )
+    .await
+}
+
+/// 打开（或复用）该 scope 的托管浏览器实例。
+///
+/// - `inject_session = true`：注入 canonical session 后导航（「以该账号身份浏览」）。
+/// - `inject_session = false`：只打开站点首页，供用户在真实浏览器中登录（入向前置）。
+/// - `reset_profile = true`：先关闭实例并清空 profile，保证干净起点。
+pub async fn open_for_scope<R: Runtime>(
+    app: &AppHandle<R>,
+    scope: &Scope,
+    browser_id: Option<String>,
+    inject_session: bool,
+    reset_profile: bool,
+) -> AccountManagerResult<BrowserOpenOutcome> {
     let state = app.state::<AccountManagerState>();
     state.ensure_ready()?;
-    let context = load_context(&state, account_id)?;
+    let context = context_for(&state, scope)?;
     let website = context.station.website.clone();
     let origin = station_origin(&context.station)?;
 
-    // 登录窗口打开中 → 拒绝，避免同一账号出现两个活跃浏览上下文。
-    let login_label = super::webview::login_window_label(account_id);
-    if app.get_webview_window(&login_label).is_some() {
+    // 注入会话必须有明确的账号（会话属于账号）；站点维度实例只用于手动登录 + 回采。
+    let account_id = match scope {
+        Scope::Account(id) => Some(id.as_str()),
+        Scope::Station(_) => None,
+    };
+    if inject_session && account_id.is_none() {
         return Err(AccountManagerError::invalid_input(
-            "LOGIN_WINDOW_OPEN: close the Bench login window before opening a browser session",
+            "STATION_SCOPE_CANNOT_INJECT: station-scoped instances have no account to inject from",
         ));
     }
 
-    profile::reap_finished(account_id);
+    // 登录窗口打开中 → 拒绝，避免同一账号出现两个活跃浏览上下文。
+    if let Some(account_id) = account_id {
+        let login_label = super::webview::login_window_label(account_id);
+        if app.get_webview_window(&login_label).is_some() {
+            return Err(AccountManagerError::invalid_input(
+                "LOGIN_WINDOW_OPEN: close the Bench login window before opening a browser session",
+            ));
+        }
+    }
+
+    profile::reap_finished(scope);
 
     if reset_profile {
-        close(app, account_id).await;
-        profile::remove_profile_dir(app, account_id).map_err(AccountManagerError::store_fail)?;
+        close_for_scope(app, scope).await;
+        profile::remove_profile_dir(app, scope).map_err(AccountManagerError::store_fail)?;
     }
 
     let user_data_dir =
-        profile::user_data_dir(app, account_id).map_err(AccountManagerError::store_fail)?;
+        profile::user_data_dir(app, scope).map_err(AccountManagerError::store_fail)?;
     let mut reused = false;
 
     // 已运行 → 复用实例（只重新注入 + 导航）。
-    if profile::resolve_running_port(app, account_id)
-        .await
-        .is_some()
-    {
+    if profile::resolve_running_port(app, scope).await.is_some() {
         reused = true;
     } else {
         let installation = browser::find(browser_id.as_deref()).ok_or_else(|| {
@@ -217,11 +331,11 @@ pub async fn open<R: Runtime>(
             )
         })?;
         profile::clear_devtools_port(&user_data_dir);
-        let pid = profile::spawn_browser(account_id, &installation, &user_data_dir, "about:blank")
+        let pid = profile::spawn_browser(scope, &installation, &user_data_dir, "about:blank")
             .map_err(AccountManagerError::store_fail)?;
         profile::write_meta(
             app,
-            account_id,
+            scope,
             &SessionMeta {
                 browser_id: installation.id.clone(),
                 pid,
@@ -234,14 +348,14 @@ pub async fn open<R: Runtime>(
             .map_err(AccountManagerError::store_fail)?;
     }
 
-    let Some((mut client, _port)) = connect_running(app, account_id).await? else {
+    let Some((mut client, _port)) = connect_running(app, scope).await? else {
         return Err(AccountManagerError::store_fail(
             "BROWSER_INSTANCE_UNAVAILABLE",
         ));
     };
-    // 新实例复用启动时的空白页；复用实例则附着到已有页面。
+    // 页面选择带 origin 偏好：复用实例时若用户页面已在站点上，就地注入而不新开标签页。
     client
-        .attach_page()
+        .attach_page(Some(&origin))
         .await
         .map_err(AccountManagerError::store_fail)?;
 
@@ -256,8 +370,8 @@ pub async fn open<R: Runtime>(
     // 属该方案的已知时序边界。
     let mut restore_script_id: Option<String> = None;
 
-    let saved = if inject_session {
-        session::restore_session(&state, account_id)?
+    let saved = if let Some(id) = account_id.filter(|_| inject_session) {
+        session::restore_session(&state, id)?
     } else {
         None
     };
@@ -299,14 +413,15 @@ pub async fn open<R: Runtime>(
         let _ = client.remove_init_script(identifier).await;
     }
 
-    let browser_id = profile::read_meta(app, account_id)
+    let scope_label = scope.key();
+    let browser_id = profile::read_meta(app, scope)
         .map(|meta| meta.browser_id)
         .unwrap_or_else(|| "unknown".to_string());
 
     super::proxy::protocol::audit_log(
         "browser_session_opened",
         &[
-            ("account", account_id),
+            ("scope", scope_label.as_str()),
             ("injected", &injected.to_string()),
             ("skipped_partitioned", &skipped_partitioned.to_string()),
             ("rejected", &rejected.to_string()),
@@ -424,27 +539,27 @@ fn normalize_same_site(raw: &str) -> Option<&'static str> {
 // 状态查询与关闭
 // ═══════════════════════════════════════════════
 
-/// 查询该账号的浏览器实例是否在运行。
-pub async fn status<R: Runtime>(
+/// 查询该 scope 的浏览器实例是否在运行。
+pub async fn status_for_scope<R: Runtime>(
     app: &AppHandle<R>,
-    account_id: &str,
+    scope: &Scope,
 ) -> AccountManagerResult<BrowserStatusOutcome> {
-    profile::reap_finished(account_id);
-    let port = profile::resolve_running_port(app, account_id).await;
+    profile::reap_finished(scope);
+    let port = profile::resolve_running_port(app, scope).await;
     Ok(BrowserStatusOutcome {
         running: port.is_some(),
-        browser_id: profile::read_meta(app, account_id).map(|meta| meta.browser_id),
+        browser_id: profile::read_meta(app, scope).map(|meta| meta.browser_id),
         port,
     })
 }
 
-/// 关闭该账号的浏览器实例。
+/// 关闭该 scope 的浏览器实例。
 ///
 /// 先经 CDP `Browser.close` 优雅退出（会冲刷 profile），失败再退回进程终止。
 /// Bench 重启后启动的实例不在进程表内，此时只能依赖 CDP。
-pub async fn close<R: Runtime>(app: &AppHandle<R>, account_id: &str) -> bool {
+pub async fn close_for_scope<R: Runtime>(app: &AppHandle<R>, scope: &Scope) -> bool {
     let mut closed = false;
-    if let Ok(Some((client, port))) = connect_running(app, account_id).await {
+    if let Ok(Some((client, port))) = connect_running(app, scope).await {
         if client.close_browser().await.is_ok() {
             // 等待端口释放，给 profile 冲刷留时间。
             for _ in 0..20 {
@@ -456,14 +571,20 @@ pub async fn close<R: Runtime>(app: &AppHandle<R>, account_id: &str) -> bool {
             closed = true;
         }
     }
-    if profile::kill_tracked(account_id) {
+    if profile::kill_tracked(scope) {
         closed = true;
     }
     if closed {
-        profile::clear_meta(app, account_id);
-        super::proxy::protocol::audit_log("browser_session_closed", &[("account", account_id)]);
+        profile::clear_meta(app, scope);
+        let scope_label = scope.key();
+        super::proxy::protocol::audit_log("browser_session_closed", &[("scope", &scope_label)]);
     }
     closed
+}
+
+/// 关闭该账号的浏览器实例（账号维度入口）。
+pub async fn close<R: Runtime>(app: &AppHandle<R>, account_id: &str) -> bool {
+    close_for_scope(app, &Scope::Account(account_id.to_string())).await
 }
 
 // ═══════════════════════════════════════════════
@@ -476,21 +597,67 @@ pub async fn capture<R: Runtime>(
     account_id: &str,
     force: bool,
 ) -> AccountManagerResult<BrowserCaptureOutcome> {
+    let scope = Scope::Account(account_id.to_string());
     let state = app.state::<AccountManagerState>();
     state.ensure_ready()?;
-    let context = load_context(&state, account_id)?;
+    let context = context_for(&state, &scope)?;
     let origin = station_origin(&context.station)?;
-    let website = context.station.website.clone();
 
-    let Some((mut client, _port)) = connect_running(app, account_id).await? else {
+    let Some((mut client, _port)) = connect_running(app, &scope).await? else {
         return Err(AccountManagerError::invalid_input(
             "BROWSER_NOT_RUNNING: open the browser session before capturing",
         ));
     };
     client
-        .attach_page()
+        .attach_page(Some(&origin))
         .await
         .map_err(AccountManagerError::store_fail)?;
+
+    // 显式回采：允许导航到站点 origin（storage 采集需要页面在该 origin 上）。
+    let collected = collect_from_instance(&mut client, &state, &context.station, true).await?;
+
+    finalize_capture(
+        app,
+        &state,
+        account_id,
+        &context.station,
+        collected.session,
+        collected.cookie_count,
+        collected.skipped_partitioned,
+        collected.storage_origins,
+        collected.indexed_db_status,
+        force,
+    )
+    .await
+}
+
+/// 一次采集的产物（与落库目标解耦，供账号维度与站点维度两条路径复用）。
+struct CollectedSession {
+    session: AccountSession,
+    cookie_count: usize,
+    skipped_partitioned: usize,
+    storage_origins: usize,
+    indexed_db_status: String,
+}
+
+/// 从已附着的浏览器实例采集登录态：cookie（过滤到站点域）+ storage + UA。
+/// 只读取、不落库，也不会关闭实例。
+///
+/// `allow_navigate`：是否允许「为读 storage 而把当前页面导航到站点 origin」。
+/// - **显式回采**（用户点了按钮）传 `true`；
+/// - **只读预览**（2s 轮询）必须传 `false` —— 否则每一轮都可能把用户正在操作的
+///   页面导航走（扫码 / 风控场景下会直接打断登录），且这正是 2026-09-10 实测到
+///   「浏览器不断新增同一页面」的伴生问题。
+///   storage 采集在页面不处于目标 origin 时本来就会返回 `None`（见
+///   [`capture_origin_via_cdp`]），因此跳过导航只是少读一项，不会读到别的站点。
+async fn collect_from_instance(
+    client: &mut CdpClient,
+    state: &AccountManagerState,
+    station: &RelayStation,
+    allow_navigate: bool,
+) -> AccountManagerResult<CollectedSession> {
+    let origin = station_origin(station)?;
+    let website = station.website.clone();
 
     // 1. cookie：浏览器级全量 → 按站点可注册域过滤（不采集第三方 / 追踪 cookie）。
     let host = url::Url::parse(&website)
@@ -518,10 +685,13 @@ pub async fn capture<R: Runtime>(
     }
 
     // 2. storage：确保页面在站点 origin 上再采集（复用与 WebView 同一份脚本与上限）。
-    ensure_page_on_origin(&client, &origin, &website).await?;
+    //    只读预览（allow_navigate=false）不导航，页面不在 origin 时该项自然采不到。
+    if allow_navigate {
+        ensure_page_on_origin(client, &origin, &website).await?;
+    }
     let mut storage_origins = 0usize;
     let mut indexed_db_status = "unsupported".to_string();
-    let captured_origin = capture_origin_via_cdp(&client, &state, &origin).await?;
+    let captured_origin = capture_origin_via_cdp(client, state, &origin).await?;
 
     let user_agent = client
         .evaluate("navigator.userAgent")
@@ -546,19 +716,13 @@ pub async fn capture<R: Runtime>(
     }
     let cookie_count = session.cookies.len();
 
-    finalize_capture(
-        app,
-        &state,
-        account_id,
-        &context.station,
+    Ok(CollectedSession {
         session,
         cookie_count,
         skipped_partitioned,
         storage_origins,
         indexed_db_status,
-        force,
-    )
-    .await
+    })
 }
 
 fn build_session_with_ua(cookies: Vec<CookieEntry>, user_agent: String) -> AccountSession {
@@ -714,17 +878,17 @@ async fn finalize_capture<R: Runtime>(
 /// 登录态预检：只读 cookie，判断「浏览器里是否已登录」，不写入任何数据。
 pub async fn probe<R: Runtime>(
     app: &AppHandle<R>,
-    account_id: &str,
+    scope: &Scope,
 ) -> AccountManagerResult<BrowserProbeOutcome> {
     let state = app.state::<AccountManagerState>();
-    let context = load_context(&state, account_id)?;
+    let context = context_for(&state, scope)?;
     let website = context.station.website.clone();
     let host = url::Url::parse(&website)
         .ok()
         .and_then(|parsed| parsed.host_str().map(str::to_string))
         .ok_or_else(|| AccountManagerError::invalid_input("station website has no host"))?;
 
-    let Some((mut client, _port)) = connect_running(app, account_id).await? else {
+    let Some((mut client, _port)) = connect_running(app, scope).await? else {
         return Ok(BrowserProbeOutcome {
             running: false,
             cookie_count: 0,
@@ -733,7 +897,7 @@ pub async fn probe<R: Runtime>(
         });
     };
     client
-        .attach_page()
+        .attach_page(origin_of(&website).as_deref())
         .await
         .map_err(AccountManagerError::store_fail)?;
     let raw_cookies = client
@@ -771,6 +935,507 @@ pub async fn probe<R: Runtime>(
         fingerprint_hits: hits,
         fingerprint_total: total,
     })
+}
+
+/// 站点维度实时预览：只读采集浏览器登录态概览，不关闭实例、不写入任何数据。
+///
+/// 供回采面板在用户手动登录后实时展示「当前浏览器登录态的所有信息」。
+pub async fn preview_station_session<R: Runtime>(
+    app: &AppHandle<R>,
+    station_id: &str,
+) -> AccountManagerResult<BrowserSessionPreview> {
+    let scope = Scope::Station(station_id.to_string());
+    let state = app.state::<AccountManagerState>();
+    state.ensure_ready()?;
+    let context = context_for(&state, &scope)?;
+
+    let Some((mut client, _port)) = connect_running(app, &scope).await? else {
+        return Ok(BrowserSessionPreview {
+            running: false,
+            cookie_count: 0,
+            cookie_names: Vec::new(),
+            storage_origins: 0,
+            user_agent: String::new(),
+            indexed_db_status: "unsupported".to_string(),
+            fingerprint_hits: None,
+            fingerprint_total: None,
+        });
+    };
+    client
+        .attach_page(origin_of(&context.station.website).as_deref())
+        .await
+        .map_err(AccountManagerError::store_fail)?;
+
+    // 只读预览：绝不导航用户页面（allow_navigate = false）。
+    let collected = collect_from_instance(&mut client, &state, &context.station, false).await?;
+    let cookie_names: Vec<String> = collected
+        .session
+        .cookies
+        .iter()
+        .map(|cookie| cookie.name.clone())
+        .collect();
+
+    let fingerprint = state
+        .read_snapshot_checked()?
+        .fingerprints
+        .get(&context.station.id)
+        .cloned();
+    let (hits, total) = match fingerprint {
+        Some(fingerprint) if !fingerprint.cookie_features.is_empty() => {
+            let total = fingerprint.cookie_features.len();
+            let hits = fingerprint
+                .cookie_features
+                .iter()
+                .filter(|feature| cookie_names.iter().any(|name| name == &feature.name))
+                .count();
+            (Some(hits), Some(total))
+        }
+        _ => (None, None),
+    };
+
+    Ok(BrowserSessionPreview {
+        running: true,
+        cookie_count: collected.cookie_count,
+        cookie_names,
+        storage_origins: collected.storage_origins,
+        user_agent: collected.session.user_agent.clone(),
+        indexed_db_status: collected.indexed_db_status.clone(),
+        fingerprint_hits: hits,
+        fingerprint_total: total,
+    })
+}
+
+/// 站点维度回采：从「站点实例」采集登录态 → 关闭实例 → 落库到目标账号。
+///
+/// 目标账号由调用方决定：
+/// - `target_account_id = Some(id)`：写入**已有**账号（走新鲜度仲裁，可能 conflict）。
+/// - `target_account_id = None`：以 `new_username` 在该站点下**新建**一个账号承接登录态
+///   （没有既有会话，永不 conflict）。
+///
+/// 顺序严格为「采集 → 关闭实例 → 落库」：回采须经 CDP 从运行中的浏览器读取，
+/// 关闭后再读就为时已晚；用户感知到的则是「点完回采浏览器就关了」。
+pub async fn capture_for_station<R: Runtime>(
+    app: &AppHandle<R>,
+    station_id: &str,
+    target_account_id: Option<String>,
+    new_username: Option<String>,
+    new_password: Option<String>,
+    force: bool,
+) -> AccountManagerResult<BrowserStationCaptureOutcome> {
+    let scope = Scope::Station(station_id.to_string());
+    let state = app.state::<AccountManagerState>();
+    state.ensure_ready()?;
+    let context = context_for(&state, &scope)?;
+
+    let Some((mut client, _port)) = connect_running(app, &scope).await? else {
+        return Err(AccountManagerError::invalid_input(
+            "BROWSER_NOT_RUNNING: open the browser session before capturing",
+        ));
+    };
+    client
+        .attach_page(origin_of(&context.station.website).as_deref())
+        .await
+        .map_err(AccountManagerError::store_fail)?;
+
+    // 1) 采集（实例仍在运行）。显式回采：允许导航到站点 origin 以读 storage。
+    let collected = collect_from_instance(&mut client, &state, &context.station, true).await?;
+
+    // 2) 采集完成后关闭实例（用户感知：点击回采后浏览器关闭）。
+    close_for_scope(app, &scope).await;
+
+    // 3) 解析目标账号：已有或新建。
+    let (target_account_id, created_account_id) = match target_account_id {
+        Some(id) => (id, None),
+        None => {
+            let username = new_username
+                .filter(|name| !name.trim().is_empty())
+                .ok_or_else(|| {
+                    AccountManagerError::invalid_input(
+                        "NEW_ACCOUNT_REQUIRES_USERNAME: provide a username for the new account",
+                    )
+                })?;
+            let account = create_account_inner(
+                app,
+                &state,
+                station_id.to_string(),
+                username,
+                new_password,
+                "浏览器回采导入".to_string(),
+                None,
+                None,
+                None,
+                None,
+                Vec::new(),
+            )?;
+            (account.id.clone(), Some(account.id))
+        }
+    };
+
+    // 4) 复用到账号维度同一套落库逻辑（仲裁 / 加密 / 写回 / probe 验证）。
+    let saved = finalize_capture(
+        app,
+        &state,
+        &target_account_id,
+        &context.station,
+        collected.session,
+        collected.cookie_count,
+        collected.skipped_partitioned,
+        collected.storage_origins,
+        collected.indexed_db_status,
+        force,
+    )
+    .await?;
+
+    Ok(BrowserStationCaptureOutcome {
+        outcome: saved.outcome,
+        target_account_id,
+        created_account_id,
+        cookie_count: saved.cookie_count,
+        skipped_partitioned: saved.skipped_partitioned,
+        storage_origins: saved.storage_origins,
+        indexed_db_status: saved.indexed_db_status,
+        captured_at_ts: saved.captured_at_ts,
+        existing_captured_at_ts: saved.existing_captured_at_ts,
+        existing_origin: saved.existing_origin,
+        verified: saved.verified,
+    })
+}
+
+// ═══════════════════════════════════════════════
+// 浏览器扩展通道（I3 读日常浏览器 / I5 写日常浏览器）
+//
+// 与 CDP 通道的本质差异：**Bench 不启动那个浏览器**，它由用户自己开着，因此
+// 只能靠浏览器扩展（`chrome.cookies`）读写；扩展执行完经 `browser_bridge`
+// 这条 loopback 本地桥把结果交回 app。
+//
+// 本通道 v1 的**明确边界**：只处理 Cookie。理由：`localStorage` / `IndexedDB`
+// 在扩展侧没有直读 API，只能 `scripting` 注入脚本，而「采集脚本的载荷 schema」
+// 目前是 `browser_storage` 里的单一实现（WebView 与 CDP 共用）。若在扩展里再抄
+// 一份，两处 schema 必然漂移。因此扩展通道先只覆盖 cookie 承载的登录态（绝大多数
+// 站点），采集结果里 `storageOrigins` 恒为 0，UI 需据此提示用户改用实例通道。
+// ═══════════════════════════════════════════════
+
+/// 扩展通道写入的 `origin_detail`（与 CDP 通道的 `"cdp"` 区分）。
+pub const EXTENSION_ORIGIN_DETAIL: &str = "extension";
+
+/// 站点摘要（回给扩展，只含展示信息，不含凭据）。
+fn station_summary(station: &RelayStation) -> Value {
+    json!({
+        "id": station.id,
+        "remark": station.remark,
+        "website": station.website,
+    })
+}
+
+/// 站点定位：把日常浏览器当前页 URL 映射到 Bench 站点 + 该站点下的账号候选。
+///
+/// 供扩展在采集/注入前确认「这一页对应哪个站点、有哪些账号」，避免让它自己猜。
+pub fn resolve_site_for_extension(state: &AccountManagerState, url: &str) -> Result<Value, String> {
+    let snapshot = state.read_snapshot_checked().map_err(|e| e.message())?;
+    let matches =
+        super::commands::station_matches_for_url(&snapshot.stations, &snapshot.accounts, url);
+    let Some(best) = matches.first() else {
+        return Ok(json!({ "matched": false }));
+    };
+    let station = snapshot
+        .stations
+        .iter()
+        .find(|item| item.id == best.station_id);
+    let accounts: Vec<Value> = snapshot
+        .accounts
+        .iter()
+        .filter(|account| account.station_id == best.station_id)
+        .map(|account| {
+            json!({
+                "id": account.id,
+                "username": account.username,
+                "status": account.status,
+                "lastRefreshedAt": account.last_refreshed_at,
+                "hasSession": snapshot.sessions.contains_key(&account.id),
+            })
+        })
+        .collect();
+    Ok(json!({
+        "matched": true,
+        "confidence": best.confidence,
+        "station": {
+            "id": best.station_id,
+            "remark": best.remark,
+            "website": best.website,
+        },
+        "origin": station.and_then(|item| station_origin(item).ok()),
+        "accounts": accounts,
+    }))
+}
+
+/// chrome.cookies 的 `sameSite` → canonical 小写值。
+fn same_site_from_extension(raw: &str) -> Option<String> {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "no_restriction" => Some("none".to_string()),
+        "lax" => Some("lax".to_string()),
+        "strict" => Some("strict".to_string()),
+        _ => None,
+    }
+}
+
+/// canonical 小写值 → chrome.cookies 的 `sameSite`。
+fn same_site_to_extension(raw: Option<&str>) -> &'static str {
+    match raw.map(|value| value.trim().to_ascii_lowercase()) {
+        Some(value) if value == "none" => "no_restriction",
+        Some(value) if value == "lax" => "lax",
+        Some(value) if value == "strict" => "strict",
+        _ => "unspecified",
+    }
+}
+
+/// 扩展侧 cookie（chrome.cookies.Cookie）→ canonical [`CookieEntry`]。
+///
+/// 返回 `None` 表示结构非法（缺 name / domain），调用方计为 rejected。
+fn cookie_from_extension(raw: &Value) -> Option<CookieEntry> {
+    let name = raw.get("name").and_then(Value::as_str)?.to_string();
+    let domain = raw.get("domain").and_then(Value::as_str)?.to_string();
+    if domain.is_empty() {
+        return None;
+    }
+    let expires_at_ts = raw
+        .get("expirationDate")
+        .and_then(Value::as_f64)
+        .filter(|value| *value > 0.0)
+        .map(|value| value as i64);
+    Some(CookieEntry {
+        name,
+        value: raw
+            .get("value")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+        host_only: !domain.starts_with('.'),
+        domain,
+        path: raw
+            .get("path")
+            .and_then(Value::as_str)
+            .unwrap_or("/")
+            .to_string(),
+        http_only: raw
+            .get("httpOnly")
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
+        secure: raw.get("secure").and_then(Value::as_bool).unwrap_or(false),
+        same_site: raw
+            .get("sameSite")
+            .and_then(Value::as_str)
+            .and_then(same_site_from_extension),
+        // CHIPS（partitioned）cookie：Chromium 会带 partitionKey。
+        partitioned: raw
+            .get("partitionKey")
+            .map(|key| !key.is_null())
+            .unwrap_or(false),
+        expires: None,
+        expires_at_ts,
+    })
+}
+
+/// canonical [`CookieEntry`] → 扩展侧 cookie（供 `chrome.cookies.set` 使用）。
+fn cookie_to_extension(entry: &CookieEntry) -> Value {
+    json!({
+        "name": entry.name,
+        "value": entry.value,
+        "domain": entry.domain,
+        "hostOnly": entry.host_only,
+        "path": if entry.path.is_empty() { "/" } else { entry.path.as_str() },
+        "secure": entry.secure,
+        "httpOnly": entry.http_only,
+        "sameSite": same_site_to_extension(entry.same_site.as_deref()),
+        "expirationDate": entry.expires_at_ts,
+    })
+}
+
+/// 从日常浏览器（扩展采集）导入登录态。
+///
+/// 目标账号判定顺序：显式 `accountId` → 站点下唯一账号 → 返回候选让扩展弹选择。
+/// 落库复用 CDP 通道的 [`finalize_capture`]，因此新鲜度仲裁、互斥、加密、
+/// probe 验证四条纪律完全一致（**不允许**出现第二条静默覆盖路径）。
+pub async fn import_from_extension<R: Runtime>(
+    app: &AppHandle<R>,
+    state: &AccountManagerState,
+    body: &Value,
+) -> AccountManagerResult<Value> {
+    state.ensure_ready()?;
+    let url = body.get("url").and_then(Value::as_str).unwrap_or_default();
+
+    let snapshot = state.read_snapshot_checked()?;
+    let matches =
+        super::commands::station_matches_for_url(&snapshot.stations, &snapshot.accounts, url);
+    let Some(best) = matches.first() else {
+        return Ok(json!({ "outcome": "unmatched" }));
+    };
+    let station = snapshot
+        .stations
+        .iter()
+        .find(|item| item.id == best.station_id)
+        .cloned()
+        .ok_or_else(|| AccountManagerError::not_found(format!("station {}", best.station_id)))?;
+    let candidates: Vec<(String, String)> = snapshot
+        .accounts
+        .iter()
+        .filter(|account| account.station_id == station.id)
+        .map(|account| (account.id.clone(), account.username.clone()))
+        .collect();
+    let host = url::Url::parse(&station.website)
+        .ok()
+        .and_then(|parsed| parsed.host_str().map(str::to_string))
+        .ok_or_else(|| AccountManagerError::invalid_input("station website has no host"))?;
+
+    let account_id = match body.get("accountId").and_then(Value::as_str) {
+        Some(explicit) => {
+            if !candidates.iter().any(|(id, _)| id == explicit) {
+                return Err(AccountManagerError::invalid_input(
+                    "ACCOUNT_NOT_IN_STATION: the account does not belong to this station",
+                ));
+            }
+            explicit.to_string()
+        }
+        None => match candidates.len() {
+            0 => {
+                return Ok(json!({
+                    "outcome": "noAccount",
+                    "station": station_summary(&station),
+                }))
+            }
+            1 => candidates[0].0.clone(),
+            _ => {
+                return Ok(json!({
+                    "outcome": "needTarget",
+                    "station": station_summary(&station),
+                    "candidates": candidates
+                        .iter()
+                        .map(|(id, username)| json!({ "id": id, "username": username }))
+                        .collect::<Vec<_>>(),
+                }))
+            }
+        },
+    };
+
+    let mut cookies = Vec::new();
+    let mut skipped_partitioned = 0usize;
+    let mut rejected = 0usize;
+    if let Some(list) = body.get("cookies").and_then(Value::as_array) {
+        for raw in list {
+            let Some(entry) = cookie_from_extension(raw) else {
+                rejected += 1;
+                continue;
+            };
+            if entry.partitioned {
+                // 与 CDP 通道同一 fail-closed 语义：跳过并计数，不降级为普通 cookie。
+                skipped_partitioned += 1;
+                continue;
+            }
+            if !cookie_domain_matches_target(Some(entry.domain.as_str()), &host) {
+                continue;
+            }
+            cookies.push(entry);
+        }
+    }
+
+    let user_agent = body
+        .get("userAgent")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let mut session = build_session_with_ua(cookies, user_agent);
+    session.session_origin = Some(SessionOrigin::BrowserExtension);
+    session.origin_detail = Some(EXTENSION_ORIGIN_DETAIL.to_string());
+
+    let cookie_count = session.cookies.len();
+    let force = body.get("force").and_then(Value::as_bool).unwrap_or(false);
+    let outcome = finalize_capture(
+        app,
+        state,
+        &account_id,
+        &station,
+        session,
+        cookie_count,
+        skipped_partitioned,
+        0,
+        "unsupported".to_string(),
+        force,
+    )
+    .await?;
+
+    Ok(json!({
+        "outcome": outcome.outcome,
+        "targetAccountId": account_id,
+        "station": station_summary(&station),
+        "cookieCount": outcome.cookie_count,
+        "skippedPartitioned": outcome.skipped_partitioned,
+        "rejectedCookies": rejected,
+        "storageOrigins": outcome.storage_origins,
+        "capturedAtTs": outcome.captured_at_ts,
+        "existingCapturedAtTs": outcome.existing_captured_at_ts,
+        "existingOrigin": outcome.existing_origin,
+        "verified": outcome.verified,
+    }))
+}
+
+/// 导出某账号的会话给扩展，用于注入**日常浏览器**（I5 出向）。
+///
+/// 只回该账号已存的 cookie 与 UA；`storageOrigins > 0` 时调用方（扩展）应提示
+/// 用户「本地存储无法经扩展注入」，而不是静默给一个半截会话。
+pub fn export_for_extension(
+    state: &AccountManagerState,
+    account_id: &str,
+    _body: &Value,
+) -> AccountManagerResult<Value> {
+    let snapshot = state.read_snapshot_checked()?;
+    let account = snapshot
+        .accounts
+        .iter()
+        .find(|item| item.id == account_id)
+        .ok_or_else(|| AccountManagerError::not_found(format!("account {account_id}")))?;
+    let station = snapshot
+        .stations
+        .iter()
+        .find(|item| item.id == account.station_id)
+        .ok_or_else(|| AccountManagerError::not_found(format!("station {}", account.station_id)))?;
+
+    let Some(saved) = session::restore_session(state, account_id)? else {
+        return Ok(json!({
+            "outcome": "noSession",
+            "station": station_summary(station),
+        }));
+    };
+
+    let host = url::Url::parse(&station.website)
+        .ok()
+        .and_then(|parsed| parsed.host_str().map(str::to_string))
+        .ok_or_else(|| AccountManagerError::invalid_input("station website has no host"))?;
+    let in_scope =
+        |entry: &&CookieEntry| cookie_domain_matches_target(Some(entry.domain.as_str()), &host);
+    let cookies: Vec<Value> = saved
+        .cookies
+        .iter()
+        .filter(in_scope)
+        .filter(|entry| !entry.partitioned)
+        .map(cookie_to_extension)
+        .collect();
+    let skipped_partitioned = saved
+        .cookies
+        .iter()
+        .filter(in_scope)
+        .filter(|entry| entry.partitioned)
+        .count();
+
+    Ok(json!({
+        "outcome": if cookies.is_empty() { "empty" } else { "ok" },
+        "station": station_summary(station),
+        "origin": station_origin(station).ok(),
+        "userAgent": saved.user_agent,
+        "cookies": cookies,
+        "skippedPartitioned": skipped_partitioned,
+        "storageOrigins": saved.origins.len(),
+        "capturedAtTs": saved.captured_at_ts,
+        "sessionOrigin": saved.session_origin,
+    }))
 }
 
 // ═══════════════════════════════════════════════
@@ -1122,5 +1787,108 @@ mod tests {
             station_origin(&station).expect("origin"),
             "https://www.trae.cn"
         );
+    }
+
+    // ── 浏览器扩展通道（I3 读 / I5 写）─────────────────────────────
+
+    #[test]
+    fn same_site_maps_between_chrome_and_canonical_spelling() {
+        // chrome.cookies 用 no_restriction，canonical 用 none。
+        assert_eq!(
+            same_site_from_extension("no_restriction").as_deref(),
+            Some("none")
+        );
+        assert_eq!(same_site_from_extension("Lax").as_deref(), Some("lax"));
+        assert_eq!(
+            same_site_from_extension("strict").as_deref(),
+            Some("strict")
+        );
+        assert_eq!(same_site_from_extension("unspecified"), None);
+
+        assert_eq!(same_site_to_extension(Some("none")), "no_restriction");
+        assert_eq!(same_site_to_extension(Some("Lax")), "lax");
+        assert_eq!(same_site_to_extension(Some("strict")), "strict");
+        assert_eq!(same_site_to_extension(None), "unspecified");
+        assert_eq!(same_site_to_extension(Some("garbage")), "unspecified");
+    }
+
+    #[test]
+    fn extension_cookie_maps_domain_cookie_without_url_scoping() {
+        let entry = cookie_from_extension(&json!({
+            "name": "sid",
+            "value": "v",
+            "domain": ".trae.cn",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "sameSite": "no_restriction",
+            "expirationDate": 1800000000.5,
+        }))
+        .expect("map cookie");
+
+        assert_eq!(entry.name, "sid");
+        assert_eq!(entry.domain, ".trae.cn");
+        assert!(!entry.host_only, "带前导点 = 域级 cookie");
+        assert_eq!(entry.same_site.as_deref(), Some("none"));
+        assert_eq!(entry.expires_at_ts, Some(1800000000));
+        assert!(!entry.partitioned);
+    }
+
+    #[test]
+    fn extension_cookie_detects_host_only_and_partitioned() {
+        let host_only = cookie_from_extension(&json!({
+            "name": "sid",
+            "value": "v",
+            "domain": "www.trae.cn",
+            "path": "/",
+        }))
+        .expect("map cookie");
+        assert!(host_only.host_only);
+        assert_eq!(host_only.expires_at_ts, None, "会话 cookie 无过期时间");
+
+        // CHIPS：Chromium 带 partitionKey 时必须标记为 partitioned（fail-closed 前置）。
+        let partitioned = cookie_from_extension(&json!({
+            "name": "sid",
+            "value": "v",
+            "domain": "www.trae.cn",
+            "partitionKey": { "topLevelSite": "https://a.com" },
+        }))
+        .expect("map cookie");
+        assert!(partitioned.partitioned);
+    }
+
+    #[test]
+    fn extension_cookie_rejects_entries_without_domain() {
+        assert!(cookie_from_extension(&json!({ "name": "sid", "value": "v" })).is_none());
+        assert!(cookie_from_extension(&json!({ "value": "v", "domain": "a.cn" })).is_none());
+    }
+
+    #[test]
+    fn extension_cookie_round_trip_keeps_scope_semantics() {
+        // 回采 → 注入的往返语义必须不变：host-only 仍走 url，域级仍带 domain。
+        let original = cookie_from_extension(&json!({
+            "name": "sid",
+            "value": "v",
+            "domain": ".trae.cn",
+            "path": "/x",
+            "secure": true,
+            "httpOnly": true,
+            "sameSite": "lax",
+            "expirationDate": 1800000000.0,
+        }))
+        .expect("map cookie");
+        let payload = cookie_to_extension(&original);
+
+        assert_eq!(payload["domain"], json!(".trae.cn"));
+        assert_eq!(payload["hostOnly"], json!(false));
+        assert_eq!(payload["sameSite"], json!("lax"));
+        assert_eq!(payload["path"], json!("/x"));
+        assert_eq!(payload["expirationDate"], json!(1_800_000_000i64));
+    }
+
+    #[test]
+    fn extension_origin_detail_is_stable() {
+        // origin_detail 是对外契约（冲突弹窗据此交代来源），不得随意改名。
+        assert_eq!(EXTENSION_ORIGIN_DETAIL, "extension");
     }
 }

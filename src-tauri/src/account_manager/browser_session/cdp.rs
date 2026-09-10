@@ -66,6 +66,27 @@ fn parse_response(value: &Value) -> Result<Value, String> {
     Ok(value.get("result").cloned().unwrap_or(Value::Null))
 }
 
+/// 按优先级从现有页面中挑选复用目标；返回 `None` 表示必须新建一个页面。
+///
+/// 优先级：**已在 `prefer_origin` 上** → **`about:` 空白页** → **任意页面**。
+/// 顺序不可调换：第一项保证「只读采集不会把用户页面导航走」，第三项是防 Tab
+/// 风暴的兜底 —— 只要还存在任何页面就绝不新建（2026-09-10 实测旧实现每次轮询
+/// 新建一个标签页，堆积 46 个）。
+pub fn pick_page_target(pages: &[(String, String)], prefer_origin: Option<&str>) -> Option<String> {
+    let on_origin = prefer_origin.and_then(|origin| {
+        pages
+            .iter()
+            .find(|(_, url)| super::origin_of(url).as_deref() == Some(origin))
+            .map(|(id, _)| id.clone())
+    });
+    let blank = pages
+        .iter()
+        .find(|(_, url)| url.starts_with("about:"))
+        .map(|(id, _)| id.clone());
+    let any = pages.first().map(|(id, _)| id.clone());
+    on_origin.or(blank).or(any)
+}
+
 /// 一个 CDP 连接（浏览器级），可附带一个页面 session。
 pub struct CdpClient {
     outbound: mpsc::Sender<Value>,
@@ -187,30 +208,49 @@ impl CdpClient {
         self.send(method, params, Some(session)).await
     }
 
-    /// 定位（或创建）一个空白页面并附加为 flatten session，同时启用所需域。
-    pub async fn attach_page(&mut self) -> Result<(), String> {
+    /// 列出全部 `page` 类型目标，返回 `(targetId, url)`。
+    ///
+    /// 顺序即 CDP 返回顺序（最近使用的排在前面），调用方据此做稳定选择。
+    async fn page_targets(&self) -> Result<Vec<(String, String)>, String> {
         let targets = self.call("Target.getTargets", json!({})).await?;
-        let existing = targets
+        Ok(targets
             .get("targetInfos")
             .and_then(Value::as_array)
-            .and_then(|infos| {
-                infos.iter().find_map(|info| {
-                    let kind = info.get("type").and_then(Value::as_str)?;
-                    if kind != "page" {
-                        return None;
-                    }
-                    let url = info.get("url").and_then(Value::as_str).unwrap_or_default();
-                    // 优先复用启动时的空白页，避免把用户已打开的页面当作注入目标。
-                    if !url.starts_with("about:") {
-                        return None;
-                    }
-                    info.get("targetId")
-                        .and_then(Value::as_str)
-                        .map(str::to_string)
-                })
-            });
+            .map(|infos| {
+                infos
+                    .iter()
+                    .filter_map(|info| {
+                        if info.get("type").and_then(Value::as_str)? != "page" {
+                            return None;
+                        }
+                        let id = info.get("targetId").and_then(Value::as_str)?.to_string();
+                        let url = info
+                            .get("url")
+                            .and_then(Value::as_str)
+                            .unwrap_or_default()
+                            .to_string();
+                        Some((id, url))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default())
+    }
 
-        let target_id = match existing {
+    /// 定位并附加一个页面作为 flatten session，同时启用所需域。
+    ///
+    /// **选择顺序（顺序即优先级，任何一步命中都不得再新建标签页）**：
+    /// 1. 已在 `prefer_origin` 上的页面 —— 复用它可以避免「为了采集把用户页面导航走」；
+    /// 2. 启动时的空白页（`about:`）；
+    /// 3. 任意已存在的页面 —— 兜底复用，**这是防 Tab 风暴的关键一步**：只要还有页面
+    ///    就绝不新建；
+    /// 4. 一个页面都没有时才 `Target.createTarget`。
+    ///
+    /// 历史缺陷：旧实现只认 `about:` 页面，于是「轮询实时预览」在首次导航后每轮都
+    /// 新建一个标签页并被导航到站点，实测堆积 46 个（2026-09-10 取证）。
+    /// **只读调用方请勿依赖本函数创建页面**：先自己判断有没有可用页面。
+    pub async fn attach_page(&mut self, prefer_origin: Option<&str>) -> Result<(), String> {
+        let pages = self.page_targets().await?;
+        let target_id = match pick_page_target(&pages, prefer_origin) {
             Some(id) => id,
             None => {
                 let created = self
@@ -430,5 +470,72 @@ mod tests {
     fn response_result_payload_is_returned() {
         let value = json!({ "id": 7, "result": { "success": false } });
         assert_eq!(parse_response(&value).unwrap()["success"], json!(false));
+    }
+
+    fn page(id: &str, url: &str) -> (String, String) {
+        (id.to_string(), url.to_string())
+    }
+
+    #[test]
+    fn empty_page_list_requires_creating_a_target() {
+        // 只有「一个页面都没有」时才允许新建，这是防 Tab 风暴的兜底条件。
+        assert_eq!(
+            pick_page_target(&[], Some("https://www.workbuddy.cn")),
+            None
+        );
+        assert_eq!(pick_page_target(&[], None), None);
+    }
+
+    #[test]
+    fn page_already_on_target_origin_wins_over_blank_page() {
+        // 首选已在站点 origin 的页面：避免为采集把用户页面导航走。
+        let pages = vec![
+            page("blank", "about:blank"),
+            page("site", "https://www.workbuddy.cn/console"),
+        ];
+        assert_eq!(
+            pick_page_target(&pages, Some("https://www.workbuddy.cn")),
+            Some("site".to_string())
+        );
+    }
+
+    #[test]
+    fn any_existing_page_is_reused_instead_of_creating_a_new_one() {
+        // 复现历史缺陷场景：首次导航后只剩站点页，下一轮必须复用它而不是新建。
+        let pages = vec![page("site", "https://www.workbuddy.cn/")];
+        assert_eq!(
+            pick_page_target(&pages, Some("https://www.workbuddy.cn")),
+            Some("site".to_string())
+        );
+        // 连 origin 都不匹配时也必须复用，绝不新建。
+        assert_eq!(
+            pick_page_target(&pages, Some("https://www.trae.cn")),
+            Some("site".to_string())
+        );
+    }
+
+    #[test]
+    fn blank_page_is_preferred_over_unrelated_page() {
+        // 启动页优先于用户已打开的无关页面。
+        let pages = vec![
+            page("other", "https://example.com/"),
+            page("blank", "about:blank"),
+        ];
+        assert_eq!(pick_page_target(&pages, None), Some("blank".to_string()));
+    }
+
+    #[test]
+    fn opaque_schemes_never_match_a_preferred_origin() {
+        // opaque 源（about:/data:/file:）序列化为字符串 "null"。
+        // 把这类页面排在空白页之前：若它被误当成 origin 命中，就会选中 "data"
+        // 而不是应该走的空白页分支。
+        let pages = vec![
+            page("data", "data:text/html,<p>x"),
+            page("blank", "about:blank"),
+        ];
+        assert_eq!(
+            pick_page_target(&pages, Some("null")),
+            Some("blank".to_string())
+        );
     }
 }

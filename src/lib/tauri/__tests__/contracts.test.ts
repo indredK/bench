@@ -44,9 +44,18 @@ import type {
   BrowserOpenOutcome,
   BrowserOptionDto,
   BrowserProbeOutcome,
+  BrowserSessionPreview,
+  BrowserStationCaptureOutcome,
   BrowserStatusOutcome,
   OriginStorage,
 } from "@/lib/tauri/types/account-manager"
+import type {
+  BrowserExtensionStatus,
+  BrowserInfo,
+  McpInstallResult,
+  McpTargetStatus,
+  NmRegistration,
+} from "@/lib/tauri/types/browser-ext"
 
 describe("Tauri contracts", () => {
   it("keeps grouped command constants derived from the canonical command contracts", () => {
@@ -120,6 +129,7 @@ describe("Tauri contracts", () => {
           "deepLink",
           "browserSessionOpen",
           "browserSessionCapture",
+          "browserSessionExtension",
         ]),
       ],
       [
@@ -171,6 +181,37 @@ describe("Tauri contracts", () => {
           "cookieCount",
           "fingerprintHits",
           "fingerprintTotal",
+        ]),
+      ],
+      [
+        "BrowserSessionPreview",
+        "camel",
+        dtoKeys<BrowserSessionPreview>([
+          "running",
+          "cookieCount",
+          "cookieNames",
+          "storageOrigins",
+          "userAgent",
+          "indexedDbStatus",
+          "fingerprintHits",
+          "fingerprintTotal",
+        ]),
+      ],
+      [
+        "BrowserStationCaptureOutcome",
+        "camel",
+        dtoKeys<BrowserStationCaptureOutcome>([
+          "outcome",
+          "targetAccountId",
+          "createdAccountId",
+          "cookieCount",
+          "skippedPartitioned",
+          "storageOrigins",
+          "indexedDbStatus",
+          "capturedAtTs",
+          "existingCapturedAtTs",
+          "existingOrigin",
+          "verified",
         ]),
       ],
       [
@@ -380,6 +421,52 @@ describe("Tauri contracts", () => {
         "snake",
         dtoKeys<FolderScanResult>(["freed_bytes", "item_count", "items"]),
       ],
+      // 浏览器扩展 / MCP 出口 DTO。
+      // 这些结构原先没有 `#[serde(rename_all = "camelCase")]`，而后端字段是
+      // `extension_dir` / `bridge_ready` 这类多词名 —— 前端按 camelCase 读会全部拿到
+      // `undefined`（不报错，但会把「缺少 bench-host」误判为真并禁用导出按钮）。
+      // 纳入契约测试后这类「Rust 侧漏 rename」不会再静默溜过去。
+      [
+        "NmRegistration",
+        "camel",
+        dtoKeys<NmRegistration>(["browser", "manifestPath", "registered"]),
+      ],
+      ["BrowserInfo", "camel", dtoKeys<BrowserInfo>(["id", "name", "installed"])],
+      // 注：`ExportResult`（browser_ext 的一键导出结果）故意未纳入 —— 该名字在
+      // 仓库内另有同名的结构（字段 copied/errors/zipPath），而解析器按**扁平结构名**
+      // 索引，纳入会取到另一个结构。其余 browser_ext DTO 已覆盖同类风险。
+      [
+        "BrowserExtStatus",
+        "camel",
+        dtoKeys<BrowserExtensionStatus>([
+          "exported",
+          "extensionDir",
+          "extensionId",
+          "hostBinFound",
+          "hostBinPath",
+          "nmRegistrations",
+          "browsers",
+          "bridgeReady",
+          "bridgePort",
+        ]),
+      ],
+      [
+        "McpTargetStatus",
+        "camel",
+        dtoKeys<McpTargetStatus>(["id", "name", "configPath", "installedHint", "benchConfigured"]),
+      ],
+      [
+        "McpInstallResult",
+        "camel",
+        dtoKeys<McpInstallResult>([
+          "targetId",
+          "configPath",
+          "installed",
+          "alreadyUpToDate",
+          "backupPath",
+          "message",
+        ]),
+      ],
     ]
 
     for (const [rustTypeName, serdeCase, frontendKeys] of checks) {
@@ -391,6 +478,19 @@ describe("Tauri contracts", () => {
       expect(rustFields, `${rustTypeName} fields should match frontend DTO keys`).toEqual(
         frontendKeys,
       )
+
+      // 光对齐「字段名形状」还不够：若 Rust 侧漏了 `#[serde(rename_all = "camelCase")]`，
+      // 多词字段（extension_dir / bridge_ready / …）到前端会变成 `undefined` —— 不报错，
+      // 但会把布尔判断静默翻成错误的真值。browser_ext 的 DTO 曾整组漏掉该属性。
+      if (serdeCase === "camel") {
+        const renamed = new RegExp(
+          `#\\[serde\\(rename_all = "camelCase"\\)\\](?:\\s*\\n#[^\\n]*)*\\s*\\npub struct ${rustTypeName}\\b`,
+        )
+        expect(
+          renamed.test(rustSource),
+          `${rustTypeName} must declare #[serde(rename_all = "camelCase")]`,
+        ).toBe(true)
+      }
     }
   })
 })
