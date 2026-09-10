@@ -25,6 +25,7 @@
     "dev:fe": "vite",
     "build:fe": "tsc && vite build",
     "build:bench-host": "node scripts/plugins/build-bench-host.mjs",
+    "build:bench-host:dev": "node scripts/plugins/build-bench-host.mjs",
     "preview:fe": "vite preview",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

@@ -355,6 +355,7 @@
       "syncBadge": "Written by extension",
       "lastDailyTitle": "Last sync result",
       "lastDailyReady": "Bench session is ready ({{count}} cookie(s), {{origins}} origin(s)). Finish the write in your browser via the Bench Companion extension.",
+      "lastDailyStorage": "This account's session also contains local storage; the extension can only write cookies. If the site still shows signed out, sync via the \"Bench isolated instance\" instead (it fully restores local storage).",
       "reason": {
         "notLoggedIn": "Bench's built-in browser reports this account as signed out",
         "noSessionData": "The page did not respond or exposed no session data",
@@ -675,6 +676,7 @@
       "browserSessionRecovered": "Synced from Bench's session: injected {{count}} cookie(s) and restored local storage for {{origins}} origin(s)",
       "browserDailyReady": "Bench session is ready ({{count}} cookie(s)). Site opened in your browser — finish the write with the Bench Companion extension.",
       "browserDailyRecovered": "Recovered {{count}} cookie(s) from Bench's session and opened the site — finish the write with the Bench Companion extension.",
+      "browserDailyStorageSkipped": "This account's session also contains local storage ({{origins}} origin(s)); the extension can only write cookies. If the site still shows signed out, sync via the \"Bench isolated instance\" instead (it fully restores local storage).",
       "browserNoStoredSession": "Bench detected no session for this account ({{reason}}), so there was nothing to sync. Click \"Login\" in Bench, confirm you are signed in, then sync again.",
       "browserNothingInjected": "The saved session had no injectable cookies ({{skipped}} skipped as partitioned, {{rejected}} rejected by the browser).",
       "browserProbeNotRunning": "This account's browser instance is not running. Open it first.",

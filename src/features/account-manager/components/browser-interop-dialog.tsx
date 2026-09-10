@@ -244,11 +244,20 @@ export function BrowserInteropDialog({
                   })}
                 </div>
               ) : (
-                <div className="text-muted-foreground">
-                  {t("accountManager.browserInterop.lastDailyReady", {
-                    count: lastDaily.cookieCount,
-                    origins: lastDaily.storageOrigins,
-                  })}
+                <div className="text-muted-foreground space-y-1">
+                  <div>
+                    {t("accountManager.browserInterop.lastDailyReady", {
+                      count: lastDaily.cookieCount,
+                      origins: lastDaily.storageOrigins,
+                    })}
+                  </div>
+                  {lastDaily.storageOrigins > 0 && (
+                    <div className="text-amber-600">
+                      {t("accountManager.browserInterop.lastDailyStorage", {
+                        origins: lastDaily.storageOrigins,
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

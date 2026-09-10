@@ -295,6 +295,51 @@ pub struct BrowserDailySyncOutcome {
     pub recovery_reason: Option<String>,
 }
 
+/// S1 会话超过该时长即视为「可能滞后于账号实际登录态」，出向同步前重新对齐。
+///
+/// 实测案例（2026-09-10，trae 的 0627）：CDP 回采只拿到 4 条风控/缓存 cookie
+///（无任何登录凭证），账号 status 却是 Ready —— 因为 probe / keeper 的判定
+/// 依据是账号的 WebView 档案（S2，始终反映最新登录态），而 S1 里躺着一份残缺
+/// 的旧采集。出向同步的语义是「把账号**当前**登录态搬出去」，所以 S1 陈旧时
+/// 先对齐再注入。新鲜度仲裁保证：对齐采到的会话若不比 S1 新 → Conflict，不覆盖。
+const SESSION_STALE_SECS: i64 = 30 * 60;
+
+/// S1 会话是否足够新鲜（可信地等于账号当前登录态）。
+fn session_is_fresh(session: &AccountSession) -> bool {
+    match session.captured_at_ts {
+        Some(ts) => chrono::Utc::now().timestamp() - ts < SESSION_STALE_SECS,
+        // 无时间戳的历史数据无法判断新鲜度 → 触发一次对齐补采。
+        None => false,
+    }
+}
+
+/// 出向同步前确保 S1 会话就绪：S1 为空或已陈旧时，先从该账号的 Bench 内置
+/// 登录档案补采（见 [`super::webview_sync`]）。
+///
+/// 返回 `(会话, 是否补采而来, 补采未成功的原因)`；补采失败或判定未登录时，
+/// 保留原 S1 会话（可能为 None）交由调用方决策，不让注入链路整个失败。
+async fn ensure_session_for_sync<R: Runtime>(
+    app: &AppHandle<R>,
+    state: &AccountManagerState,
+    account_id: &str,
+) -> AccountManagerResult<(Option<AccountSession>, bool, Option<String>)> {
+    let existing = session::restore_session(state, account_id)?;
+    if existing.as_ref().is_some_and(session_is_fresh) {
+        return Ok((existing, false, None));
+    }
+    match super::webview_sync::sync_from_account_profile(app, state, account_id).await {
+        Ok(recovered) => Ok((
+            recovered.session,
+            recovered.outcome.recovered,
+            recovered.outcome.reason,
+        )),
+        Err(error) => {
+            eprintln!("[account_manager] bench webview sync failed for {account_id}: {error}");
+            Ok((existing, false, Some("syncFailed".to_string())))
+        }
+    }
+}
+
 /// 把该账号的登录态同步到**用户日常浏览器**（不是 Bench 的隔离实例）。
 ///
 /// ## 为什么这一步不是「一键写入」
@@ -317,27 +362,8 @@ pub async fn sync_to_daily_browser<R: Runtime>(
     state.ensure_ready()?;
     let context = load_context(&state, account_id)?;
 
-    let mut session_recovered = false;
-    let mut recovery_reason = None;
-    let session = match session::restore_session(&state, account_id)? {
-        Some(session) => Some(session),
-        None => {
-            match super::webview_sync::sync_from_account_profile(app, &state, account_id).await {
-                Ok(recovered) => {
-                    session_recovered = recovered.outcome.recovered;
-                    recovery_reason = recovered.outcome.reason;
-                    recovered.session
-                }
-                Err(error) => {
-                    eprintln!(
-                        "[account_manager] bench webview sync failed for {account_id}: {error}"
-                    );
-                    recovery_reason = Some("syncFailed".to_string());
-                    None
-                }
-            }
-        }
-    };
+    let (session, session_recovered, recovery_reason) =
+        ensure_session_for_sync(app, &state, account_id).await?;
 
     let Some(session) = session else {
         return Ok(BrowserDailySyncOutcome {
@@ -495,31 +521,13 @@ pub async fn open_for_scope<R: Runtime>(
     // 属该方案的已知时序边界。
     let mut restore_script_id: Option<String> = None;
 
-    let mut session_recovered = false;
-    let mut recovery_reason: Option<String> = None;
-    let saved = if let Some(id) = account_id.filter(|_| inject_session) {
-        match session::restore_session(&state, id)? {
-            Some(session) => Some(session),
-            // canonical store 里没有会话 ≠ 该账号没登录：在 Bench 内置登录窗口中
-            // 手动完成的登录只落在账号专属的 WebView 档案里（历史上从不落盘），
-            // probe 因此能判 Ready 而出向注入却报「无会话」。注入前先补采这条缺失
-            // 路径（见 `webview_sync` 模块文档）。
-            None => match super::webview_sync::sync_from_account_profile(app, &state, id).await {
-                Ok(recovered) => {
-                    session_recovered = recovered.outcome.recovered;
-                    recovery_reason = recovered.outcome.reason;
-                    recovered.session
-                }
-                Err(error) => {
-                    eprintln!("[account_manager] bench webview sync failed for {id}: {error}");
-                    recovery_reason = Some("syncFailed".to_string());
-                    None
-                }
-            },
-        }
-    } else {
-        None
-    };
+    let (saved, session_recovered, recovery_reason) =
+        if let Some(id) = account_id.filter(|_| inject_session) {
+            // S1 为空（内置登录从不落盘）或陈旧（旧采集可能残缺）→ 先对齐补采。
+            ensure_session_for_sync(app, &state, id).await?
+        } else {
+            (None, false, None)
+        };
     let has_stored_session = saved.is_some();
 
     if let Some(saved) = saved.as_ref() {

@@ -355,6 +355,7 @@
       "syncBadge": "就绪后由扩展写入",
       "lastDailyTitle": "上次同步结果",
       "lastDailyReady": "Bench 会话已就绪（{{count}} 条 Cookie，{{origins}} 个 origin）。请在浏览器中通过 Bench Companion 扩展完成写入。",
+      "lastDailyStorage": "该账号的登录态还包含本地存储，扩展通道只能写入 Cookie；若打开站点后仍未登录，请改用「Bench 隔离实例」同步（可完整恢复本地存储）。",
       "reason": {
         "notLoggedIn": "Bench 内置浏览器判定该账号未登录",
         "noSessionData": "页面无响应或没有可采集的登录数据",
@@ -675,6 +676,7 @@
       "browserSessionRecovered": "已用 Bench 中的登录态同步：注入 {{count}} 条 Cookie，恢复 {{origins}} 个 origin 的本地存储",
       "browserDailyReady": "Bench 会话已就绪（{{count}} 条 Cookie）。已在浏览器中打开站点，请用 Bench Companion 扩展完成写入。",
       "browserDailyRecovered": "已从 Bench 里的登录态补采 {{count}} 条 Cookie 并打开站点，请用 Bench Companion 扩展完成写入。",
+      "browserDailyStorageSkipped": "该账号的登录态还包含本地存储（{{origins}} 个 origin），扩展通道只能写入 Cookie。若打开站点后仍未登录，请改用「Bench 隔离实例」同步（可完整恢复本地存储）。",
       "browserNoStoredSession": "Bench 里没有检测到该账号的登录态（{{reason}}），本次没有可同步的内容。请先在 Bench 中点击「登录」确认已登录，再来同步。",
       "browserNothingInjected": "已保存的会话里没有可注入的 Cookie（分区隔离跳过 {{skipped}} 条，浏览器拒绝 {{rejected}} 条）。",
       "browserProbeNotRunning": "该账号的浏览器实例未运行，请先打开。",

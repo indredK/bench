@@ -158,19 +158,27 @@ export function useBrowserInterop() {
               reason: describeReason(outcome.recoveryReason),
             }),
           )
-        } else if (outcome.sessionRecovered) {
-          toast.success(
-            t("accountManager.toasts.browserDailyRecovered", {
-              count: outcome.cookieCount,
+          return
+        }
+        toast.success(
+          outcome.sessionRecovered
+            ? t("accountManager.toasts.browserDailyRecovered", {
+                count: outcome.cookieCount,
+                origins: outcome.storageOrigins,
+              })
+            : t("accountManager.toasts.browserDailyReady", {
+                count: outcome.cookieCount,
+                origins: outcome.storageOrigins,
+              }),
+        )
+        // 扩展通道 v1 只搬 Cookie（浏览器不允许写 localStorage/IndexedDB）。
+        // 登录态含本地存储时必须显式告知能力边界，避免「注入成功却未登录」被当成同步失败。
+        if (outcome.storageOrigins > 0) {
+          toast.warning(
+            t("accountManager.toasts.browserDailyStorageSkipped", {
               origins: outcome.storageOrigins,
             }),
-          )
-        } else {
-          toast.success(
-            t("accountManager.toasts.browserDailyReady", {
-              count: outcome.cookieCount,
-              origins: outcome.storageOrigins,
-            }),
+            { duration: 10000 },
           )
         }
       }),
