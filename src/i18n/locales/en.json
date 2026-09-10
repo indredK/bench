@@ -391,7 +391,7 @@
       "isolatedNoticeDesc": "The window is your installed browser plus a Bench-dedicated profile, fully isolated from your daily browser (bookmarks, everyday extensions and existing sign-ins are not shared), so you need to sign in here once. Once done the session is saved into Bench, and the account-level \"Browser interop\" can inject it from then on.",
       "extensionTitle": "① Recommended: read from your daily browser",
       "extensionDesc": "Your session already lives in your daily browser. Once the extension below is installed, open the target site there and click the extension icon → \"Save this site's session to Bench\" — no second sign-in needed.",
-      "extensionSteps": "Install it once: click the button on the right to export → in the extensions page that opens, enable Developer mode → \"Load unpacked\" → pick the exported folder. (Since Chrome 137 an app can no longer install an extension into your daily browser automatically — one manual step is required.)",
+      "extensionSteps": "Install it once: click the button on the right to export (the extension lands in the \"bench-companion\" folder on your Desktop) → in the extensions page that opens, enable Developer mode → \"Load unpacked\" → pick the bench-companion folder on your Desktop. (Since Chrome 137 an app can no longer install an extension into your daily browser automatically — one manual step is required.)",
       "extensionStatus": {
         "unknown": "Status unknown (use the button on the right to re-export)",
         "notExported": "Extension not exported yet",

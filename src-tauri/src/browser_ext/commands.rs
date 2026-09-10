@@ -24,6 +24,24 @@ fn bench_data_dir(app: &tauri::AppHandle) -> AppResult<std::path::PathBuf> {
         .map_err(|e| AppError::internal(format!("无法定位数据目录: {e}")))
 }
 
+/// 扩展导出目录：放在**用户桌面**下（`<Desktop>/bench-companion`）。
+///
+/// 为什么不放应用数据目录：Chrome 的「加载已解压的扩展程序」文件夹选择器在
+/// macOS 上到不了 `~/Library/Application Support`（Finder 默认隐藏 Library，
+/// 系统文件选择器也无法前往该层级），用户实测反馈「找不到要选的文件夹」
+/// （2026-09-10）。桌面是三平台文件选择器都能直接到达、用户最容易识别的位置。
+///
+/// 桌面目录经 `dirs::desktop_dir()` 获取（Windows 走 `SHGetKnownFolderPath`，
+/// 能正确处理 OneDrive 等已知文件夹重定向；macOS 为 `$HOME/Desktop`），
+/// 获取失败时回退到应用数据目录，保证导出流程永远可完成。
+fn extension_export_dir(app: &tauri::AppHandle) -> AppResult<std::path::PathBuf> {
+    let base = match dirs::desktop_dir() {
+        Some(dir) => dir,
+        None => bench_data_dir(app)?,
+    };
+    Ok(base.join("bench-companion"))
+}
+
 /// 序列化统一走 camelCase —— 前端类型（`src/lib/tauri/types/browser-ext.ts`）按
 /// camelCase 声明；缺这个属性时 `extension_dir` / `bridge_ready` 等字段在前端读到的
 /// 是 `undefined`（不报错，但会把「缺少 bench-host」误判为真、禁用导出按钮）。
@@ -46,8 +64,7 @@ pub struct BrowserExtStatus {
 /// 当前导出与注册状态（前端据此渲染按钮态）。
 #[tauri::command]
 pub fn browser_ext_status(app: tauri::AppHandle) -> AppResult<BrowserExtStatus> {
-    let data_dir = bench_data_dir(&app)?;
-    let extension_dir = data_dir.join("browser-extensions/bench-companion");
+    let extension_dir = extension_export_dir(&app)?;
     let exported = extension_dir.join("manifest.json").exists();
     let host_bin = locate_host_bin();
     let bridge = crate::account_manager::browser_bridge::descriptor();
@@ -77,7 +94,7 @@ pub fn browser_ext_export(app: tauri::AppHandle) -> AppResult<super::ExportResul
     let descriptor_path = crate::account_manager::browser_bridge::descriptor_path(&app)
         .map_err(AppError::internal)?;
 
-    let extension_dir = data_dir.join("browser-extensions/bench-companion");
+    let extension_dir = extension_export_dir(&app)?;
     let files = write_extension_dir(&extension_dir).map_err(AppError::internal)?;
     let _ = files; // 写出文件数（日志用途）
 
