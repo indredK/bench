@@ -2,6 +2,19 @@
 
 本文件只记录仍影响当前实现的方向性取舍；“做什么”以 [ROADMAP.md](../roadmap/ROADMAP.md) 为准，当前风险以 [audit-report.md](./audit-report.md) 为准。已推翻和已完成历史由 Git 保留。
 
+## D-030 · 出向注入前自动补采 Bench 内置登录态；出向目标显式二选一
+
+- **日期**：2026-09-10
+- **状态**：采纳
+- **背景**：canonical store（S1）历史上没有「用户在 Bench 内置登录窗口手动登录」这条落盘路径——登录态只留在账号专属 WebView 档案（S2）里。probe / keeper 读 S2 判定登录态，账号状态可以是 `Ready`，但出向注入读 S1 却报「该账号在 Bench 中还没有已保存的登录态，本次没有可注入的内容」，并引导用户去浏览器里重新登录再回采。用户实测推翻了这条产品语义：**点击账号 → 浏览器互通，就该把当前账号在 Bench 里已有的登录态同步出去**，而不是被要求再做一次登录。2026-09-10 取证：18 个账号中 16 个处于「状态 Ready 但 S1 无会话」的错位。
+- **决策**：
+  1. **补齐缺失的落盘路径（`webview_sync` 模块）**：出向注入且 S1 无会话时，自动从该账号的 S2 档案补采——登录窗口开着直接复用，否则建隐藏窗口（`relay-sync-{accountId}`，同 data dir + `data_store_identifier`）→ 与 keeper 完全同一条证据链判定登录态（指纹全缺失确定性短路；分类无结论判 `FetchFailed`）→ **只有判定 Ready 才捕获**（不退化为「cookie 非空」，避免把匿名 cookie 固化成会话）→ 过仲裁（D-028 决议 5 的纪律不松动）→ 加密写入 S1 并同步账号状态。判定本身就是一次 webview 层探测，因此不再二次开 probe 窗口复验。
+  2. **DTO 自证来源**：`BrowserOpenOutcome` 新增 `sessionRecovered`（本次会话是否来自当场补采）与 `recoveryReason`（`notLoggedIn` / `noSessionData` / `syncFailed` / `conflict`），前端据此把「已补采并同步」与「真的没有登录态」区分开——后者才引导用户先登录。
+  3. **出向目标在 UI 上显式二选一**：**Bench 隔离实例**（默认，CDP，点一次即可用）与**日常浏览器**（`browser_session_sync_daily`：确保 S1 会话就绪 + 在所选浏览器的日常实例打开站点；写入由 Bench Companion 扩展完成）。理由与边界见 D-029 决议 3/7——Bench 无法主动给扩展下指令，因此「日常浏览器」入口必须向用户交代「写入这一步在扩展里完成」，不得伪装成一键写入。
+- **理由**：S2 → S1 的补采把「状态与数据错位」的根因修掉，而不是在 UI 上换一种说法继续要求用户重复登录；这与 probe / keeper 共用证据链，三条路径对同一账号给出一致结论。
+- **影响**：新增 `webview_sync` 模块与 `browser_session_sync_daily` 命令（四写同步）；`BrowserOpenOutcome` 两个字段（契约测试数组同步）；互通弹窗新增「同步到」选择与对应文案（zh/en）；删账号清理列表纳入 `relay-sync-*` 窗口。
+- **相关**：[product-specs/account-manager.md §17](../reference/product-specs/account-manager.md) · [D-028](#d-028--账号会话互通采用cdp--新鲜度仲裁浏览器作为第二端点) · [D-029](#d-029--日常浏览器方向改用扩展--本地桥i3i5-提前为必须实现)
+
 ## D-029 · 日常浏览器方向改用「扩展 + 本地桥」，I3/I5 提前为必须实现
 
 - **日期**：2026-09-10

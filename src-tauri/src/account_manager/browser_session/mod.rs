@@ -65,8 +65,16 @@ pub struct BrowserOpenOutcome {
     /// 已保存会话，同样为 false —— 调用方不应把这种情况当成成功。
     pub session_injected: bool,
     /// Bench 中是否存在该账号的已保存会话。
-    /// false 表示「此账号还没在 Bench 里登录过」，前端应引导用户先登录，而不是提示已注入 0 条。
+    /// false 表示「连 Bench 内置的账号档案里也没有登录态」，前端应引导用户先登录，
+    /// 而不是提示已注入 0 条。
     pub has_stored_session: bool,
+    /// 本次注入所用的会话是否由 Bench **当场从该账号的内置登录档案补采**而来。
+    ///
+    /// canonical store 为空并不等于账号没登录（详见 [`super::webview_sync`]）：
+    /// 补采成功后这里为 true，前端应报「已同步」而不是「无会话」。
+    pub session_recovered: bool,
+    /// 补采未成功时的原因：`notLoggedIn` / `noSessionData` / `syncFailed` / `conflict`。
+    pub recovery_reason: Option<String>,
     /// 实际恢复了 Web Storage / IndexedDB 的 origin 份数（0 = 该会话没有存储快照）。
     pub storage_origins: usize,
 }
@@ -271,6 +279,123 @@ pub async fn open_for_station<R: Runtime>(
     .await
 }
 
+/// 同步到**用户日常浏览器**的结果。
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BrowserDailySyncOutcome {
+    /// `ready`（Bench 侧会话就绪，已在目标浏览器打开站点）|
+    /// `noSession`（Bench 里没有该账号的登录态，没有可同步的内容）。
+    pub outcome: String,
+    pub browser_id: String,
+    pub cookie_count: usize,
+    pub storage_origins: usize,
+    /// 会话是否由 Bench 当场从内置登录档案补采而来。
+    pub session_recovered: bool,
+    /// 补采失败原因（语义同 [`BrowserOpenOutcome::recovery_reason`]）。
+    pub recovery_reason: Option<String>,
+}
+
+/// 把该账号的登录态同步到**用户日常浏览器**（不是 Bench 的隔离实例）。
+///
+/// ## 为什么这一步不是「一键写入」
+///
+/// 用户日常浏览器的已登录 profile 有三道锁：远程调试被 Chrome 主动封禁（136+
+/// 仅放行自定义 `user-data-dir`）、Cookie 的 SQLite 受 macOS Keychain app-bound
+/// encryption 保护、命令行自动加载扩展自 Chrome 137 起被移除。因此 Bench 既
+/// **无法**直接写日常浏览器的 cookie 存储，也**无法**主动给扩展下指令（扩展是
+/// 连接发起方，Bench 侧只是被动的 loopback HTTP 桥）。
+///
+/// 本函数只负责它确实能做到的事：**确保 canonical store 里该账号的会话就绪**
+/// （必要时从 Bench 内置登录档案补采），并在用户选择的浏览器里打开站点；把会话
+/// 真正写进日常浏览器由 Bench Companion 扩展完成（用户在扩展面板点一次）。
+pub async fn sync_to_daily_browser<R: Runtime>(
+    app: &AppHandle<R>,
+    account_id: &str,
+    browser_id: Option<String>,
+) -> AccountManagerResult<BrowserDailySyncOutcome> {
+    let state = app.state::<AccountManagerState>();
+    state.ensure_ready()?;
+    let context = load_context(&state, account_id)?;
+
+    let mut session_recovered = false;
+    let mut recovery_reason = None;
+    let session = match session::restore_session(&state, account_id)? {
+        Some(session) => Some(session),
+        None => {
+            match super::webview_sync::sync_from_account_profile(app, &state, account_id).await {
+                Ok(recovered) => {
+                    session_recovered = recovered.outcome.recovered;
+                    recovery_reason = recovered.outcome.reason;
+                    recovered.session
+                }
+                Err(error) => {
+                    eprintln!(
+                        "[account_manager] bench webview sync failed for {account_id}: {error}"
+                    );
+                    recovery_reason = Some("syncFailed".to_string());
+                    None
+                }
+            }
+        }
+    };
+
+    let Some(session) = session else {
+        return Ok(BrowserDailySyncOutcome {
+            outcome: "noSession".to_string(),
+            browser_id: browser_id.unwrap_or_default(),
+            cookie_count: 0,
+            storage_origins: 0,
+            session_recovered,
+            recovery_reason,
+        });
+    };
+
+    let installation = browser::find(browser_id.as_deref()).ok_or_else(|| {
+        AccountManagerError::invalid_input("NO_CHROMIUM_BROWSER: no supported browser installed")
+    })?;
+    open_url_in_daily_browser(&installation, &context.station.website)?;
+
+    let cookie_count = session.cookies.len();
+    let storage_origins = session.origins.len();
+    super::proxy::protocol::audit_log(
+        "browser_daily_sync_requested",
+        &[
+            ("account", account_id),
+            ("browser", installation.id.as_str()),
+            ("cookies", &cookie_count.to_string()),
+            ("recovered", &session_recovered.to_string()),
+        ],
+    );
+
+    Ok(BrowserDailySyncOutcome {
+        outcome: "ready".to_string(),
+        browser_id: installation.id.clone(),
+        cookie_count,
+        storage_origins,
+        session_recovered,
+        recovery_reason,
+    })
+}
+
+/// 在**用户自己的浏览器实例**（不带 Bench 的隔离档案）里打开站点。
+fn open_url_in_daily_browser(
+    installation: &browser::BrowserInstallation,
+    url: &str,
+) -> AccountManagerResult<()> {
+    // 刻意**不带** `--user-data-dir`：交给浏览器自己已有的 profile，即用户的日常
+    // 实例。Chrome 的单实例语义会让这个新进程把 URL 转交给已在运行的实例后退出。
+    std::process::Command::new(&installation.path)
+        .arg("--no-first-run")
+        .arg("--no-default-browser-check")
+        .arg(url)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .map_err(|e| AccountManagerError::store_fail(format!("BROWSER_SPAWN_FAILED: {e}")))?;
+    Ok(())
+}
+
 /// 打开（或复用）该 scope 的托管浏览器实例。
 ///
 /// - `inject_session = true`：注入 canonical session 后导航（「以该账号身份浏览」）。
@@ -370,8 +495,28 @@ pub async fn open_for_scope<R: Runtime>(
     // 属该方案的已知时序边界。
     let mut restore_script_id: Option<String> = None;
 
+    let mut session_recovered = false;
+    let mut recovery_reason: Option<String> = None;
     let saved = if let Some(id) = account_id.filter(|_| inject_session) {
-        session::restore_session(&state, id)?
+        match session::restore_session(&state, id)? {
+            Some(session) => Some(session),
+            // canonical store 里没有会话 ≠ 该账号没登录：在 Bench 内置登录窗口中
+            // 手动完成的登录只落在账号专属的 WebView 档案里（历史上从不落盘），
+            // probe 因此能判 Ready 而出向注入却报「无会话」。注入前先补采这条缺失
+            // 路径（见 `webview_sync` 模块文档）。
+            None => match super::webview_sync::sync_from_account_profile(app, &state, id).await {
+                Ok(recovered) => {
+                    session_recovered = recovered.outcome.recovered;
+                    recovery_reason = recovered.outcome.reason;
+                    recovered.session
+                }
+                Err(error) => {
+                    eprintln!("[account_manager] bench webview sync failed for {id}: {error}");
+                    recovery_reason = Some("syncFailed".to_string());
+                    None
+                }
+            },
+        }
     } else {
         None
     };
@@ -427,6 +572,7 @@ pub async fn open_for_scope<R: Runtime>(
             ("rejected", &rejected.to_string()),
             ("storage_origins", &storage_origins.to_string()),
             ("has_session", &has_stored_session.to_string()),
+            ("recovered", &session_recovered.to_string()),
             ("reused", &reused.to_string()),
         ],
     );
@@ -441,6 +587,8 @@ pub async fn open_for_scope<R: Runtime>(
         // 否则 0 条注入会被 UI 误报为成功。
         session_injected: inject_session && has_stored_session,
         has_stored_session,
+        session_recovered,
+        recovery_reason,
         storage_origins,
     })
 }

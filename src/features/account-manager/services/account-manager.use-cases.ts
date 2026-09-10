@@ -414,6 +414,16 @@ export const accountManagerUseCases = {
     return accountManagerRepository.browserSessionOpen(accountId, opts)
   },
 
+  /**
+   * 互通 I5(出向) — 把该账号的登录态同步到**用户日常浏览器**。
+   *
+   * 会话写入日常浏览器由 Bench Companion 扩展完成;这里只保证 Bench 侧会话就绪
+   * (必要时从内置登录档案补采)并在所选浏览器里打开站点。
+   */
+  syncToDailyBrowser(accountId: string, opts?: { browserId?: string | null }) {
+    return accountManagerRepository.browserSessionSyncDaily(accountId, opts)
+  },
+
   /** 互通 I1 — 查询该账号浏览器实例状态(是否运行 / 浏览器 id / 调试端口)。 */
   browserSessionStatus(accountId: string) {
     return accountManagerRepository.browserSessionStatus(accountId)

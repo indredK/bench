@@ -20,6 +20,7 @@ pub mod state;
 mod storage;
 mod types;
 mod webview;
+mod webview_sync;
 
 pub use session_keeper::spawn_session_keeper;
 pub use state::AccountManagerState;

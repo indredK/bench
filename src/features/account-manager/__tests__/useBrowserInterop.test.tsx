@@ -8,12 +8,14 @@ const {
   browserSessionOpen,
   browserSessionStatus,
   browserSessionClose,
+  browserSessionSyncDaily,
   toasts,
 } = vi.hoisted(() => ({
   browserSessionBrowsers: vi.fn(),
   browserSessionOpen: vi.fn(),
   browserSessionStatus: vi.fn(),
   browserSessionClose: vi.fn(),
+  browserSessionSyncDaily: vi.fn(),
   toasts: { error: vi.fn(), success: vi.fn(), info: vi.fn(), warning: vi.fn() },
 }))
 
@@ -21,6 +23,7 @@ vi.mock("@/features/account-manager/services/account-manager.repository", () => 
   accountManagerRepository: {
     browserSessionBrowsers,
     browserSessionOpen,
+    browserSessionSyncDaily,
     browserSessionStatus,
     browserSessionClose,
   },
@@ -56,18 +59,21 @@ function openOutcome(overrides: Partial<BrowserOpenOutcome> = {}): BrowserOpenOu
     rejectedCookies: 0,
     sessionInjected: true,
     hasStoredSession: true,
+    sessionRecovered: false,
+    recoveryReason: null,
     storageOrigins: 1,
     ...overrides,
   }
 }
 
-describe("useBrowserInterop (inject-only after site-scope split)", () => {
+describe("useBrowserInterop (sync out, per-target)", () => {
   beforeEach(() => {
     browserSessionBrowsers.mockReset().mockResolvedValue([
       { id: "chrome", name: "Google Chrome" },
       { id: "edge", name: "Microsoft Edge" },
     ])
     browserSessionOpen.mockReset()
+    browserSessionSyncDaily.mockReset()
     browserSessionStatus
       .mockReset()
       .mockResolvedValue({ running: false, browserId: null, port: null })
@@ -86,23 +92,68 @@ describe("useBrowserInterop (inject-only after site-scope split)", () => {
     await waitFor(() => expect(result.current.browsers).toHaveLength(2))
     expect(result.current.open).toBe(true)
     expect(result.current.browserId).toBe("chrome")
+    expect(result.current.target).toBe("isolated")
     await waitFor(() => expect(result.current.status?.running).toBe(false))
     expect(browserSessionStatus).toHaveBeenCalledWith("acct-1")
   })
 
   it("does not report success when Bench has no stored session to inject", async () => {
     browserSessionOpen.mockResolvedValueOnce(
-      openOutcome({ hasStoredSession: false, sessionInjected: false, injectedCookies: 0 }),
+      openOutcome({
+        hasStoredSession: false,
+        sessionInjected: false,
+        injectedCookies: 0,
+        sessionRecovered: false,
+        recoveryReason: "notLoggedIn",
+      }),
     )
 
     const { result } = renderHook(() => useBrowserInterop())
     act(() => result.current.openDialog(account()))
     await waitFor(() => expect(result.current.browserId).toBe("chrome"))
 
-    act(() => result.current.handleOpen())
+    act(() => result.current.handleSync())
     await waitFor(() => expect(toasts.warning).toHaveBeenCalledTimes(1))
     expect(toasts.success).not.toHaveBeenCalled()
     expect(result.current.lastOpen?.hasStoredSession).toBe(false)
+  })
+
+  it("reports a recovered session distinctly from a stored one", async () => {
+    browserSessionOpen.mockResolvedValueOnce(
+      openOutcome({ sessionRecovered: true, injectedCookies: 4 }),
+    )
+
+    const { result } = renderHook(() => useBrowserInterop())
+    act(() => result.current.openDialog(account()))
+    await waitFor(() => expect(result.current.browserId).toBe("chrome"))
+
+    act(() => result.current.handleSync())
+    await waitFor(() => expect(toasts.success).toHaveBeenCalledTimes(1))
+    // 补采成功 ≠ 无会话：绝不能落进 warning/error 分支。
+    expect(toasts.warning).not.toHaveBeenCalled()
+    expect(toasts.error).not.toHaveBeenCalled()
+    expect(result.current.lastOpen?.sessionRecovered).toBe(true)
+  })
+
+  it("routes the daily-browser target to the extension-channel command", async () => {
+    browserSessionSyncDaily.mockResolvedValueOnce({
+      outcome: "ready",
+      browserId: "chrome",
+      cookieCount: 6,
+      storageOrigins: 0,
+      sessionRecovered: true,
+      recoveryReason: null,
+    })
+
+    const { result } = renderHook(() => useBrowserInterop())
+    act(() => result.current.openDialog(account()))
+    await waitFor(() => expect(result.current.browserId).toBe("chrome"))
+
+    act(() => result.current.setTarget("daily"))
+    act(() => result.current.handleSync())
+    await waitFor(() => expect(browserSessionSyncDaily).toHaveBeenCalledTimes(1))
+    expect(browserSessionOpen).not.toHaveBeenCalled()
+    await waitFor(() => expect(toasts.success).toHaveBeenCalledTimes(1))
   })
 
   it("surfaces skipped and rejected counts when nothing could be injected", async () => {
@@ -114,7 +165,7 @@ describe("useBrowserInterop (inject-only after site-scope split)", () => {
     act(() => result.current.openDialog(account()))
     await waitFor(() => expect(result.current.browserId).toBe("chrome"))
 
-    act(() => result.current.handleOpen())
+    act(() => result.current.handleSync())
     await waitFor(() => expect(toasts.error).toHaveBeenCalledTimes(1))
     expect(toasts.success).not.toHaveBeenCalled()
     expect(result.current.lastOpen?.rejectedCookies).toBe(3)
@@ -135,30 +186,18 @@ describe("useBrowserInterop (inject-only after site-scope split)", () => {
     await waitFor(() => expect(result.current.browserId).toBe("chrome"))
 
     act(() => {
-      result.current.handleOpen()
-      result.current.handleOpen()
+      result.current.handleSync()
+      result.current.handleSync()
     })
     expect(browserSessionOpen).toHaveBeenCalledTimes(1)
 
     await act(async () => {
-      resolveOpen({
-        browserId: "chrome",
-        reusedInstance: false,
-        injectedCookies: 1,
-        skippedPartitioned: 0,
-        rejectedCookies: 0,
-        sessionInjected: true,
-        hasStoredSession: true,
-        storageOrigins: 1,
-      })
+      resolveOpen(openOutcome({ injectedCookies: 1 }))
     })
     await waitFor(() => expect(result.current.busy).toBeNull())
   })
 
-  it("exposes only the inject-and-manage API surface", () => {
-    // 账号档案本就是隔离目录、删账号时整体清理，故「清空浏览器数据」已于
-    // 2026-09-10 移除。此处把 API 面钉住：一旦有人把 clear 类动作加回来，
-    // 这个用例会失败并提醒重新评估产品语义。
+  it("exposes only the sync-and-manage API surface", () => {
     const { result } = renderHook(() => useBrowserInterop())
     expect(Object.keys(result.current).sort()).toEqual(
       [
@@ -168,12 +207,15 @@ describe("useBrowserInterop (inject-only after site-scope split)", () => {
         "busy",
         "closeDialog",
         "handleCloseInstance",
-        "handleOpen",
+        "handleSync",
+        "lastDaily",
         "lastOpen",
         "open",
         "openDialog",
         "setBrowserId",
+        "setTarget",
         "status",
+        "target",
       ].sort(),
     )
   })

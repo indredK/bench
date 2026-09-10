@@ -41,6 +41,7 @@ pub fn remove_account_data_dir<R: Runtime>(
         login_window_label(account_id),
         probe_window_label(account_id),
         super::session_keeper::keeper_window_label(account_id),
+        super::webview_sync::sync_window_label(account_id),
     ] {
         if let Some(window) = app.get_webview_window(&label) {
             window.clear_all_browsing_data().map_err(|e| {

@@ -192,6 +192,7 @@ macro_rules! app_invoke_handler {
             // 账号 ↔ 浏览器互通（I1 出向注入 / I2 入向回采）
             $crate::account_manager::commands::browser_session_browsers,
             $crate::account_manager::commands::browser_session_open,
+            $crate::account_manager::commands::browser_session_sync_daily,
             $crate::account_manager::commands::browser_session_status,
             $crate::account_manager::commands::browser_session_close,
             $crate::account_manager::commands::browser_session_capture,

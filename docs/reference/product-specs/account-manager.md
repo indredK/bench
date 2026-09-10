@@ -338,7 +338,8 @@
   - **UA 覆盖规则（同引擎才覆盖）**：Bench 登录窗口在 macOS 上是 WKWebView（Safari 系 UA），托管浏览器是 Chromium 系。跨引擎覆盖等于把 Chrome 伪装成 Safari，站点若对 UA 绑定/分流会把请求判为新客户端而**丢掉会话**。因此仅在「会话来源为 `browserCdp` 且 UA 是 Chromium 系（含 `chrome/`/`chromium/`/`edg/`）」时覆盖，其余一律保留浏览器原生 UA。
   - **存储恢复是必备环节**：只注 cookie 无法覆盖 token 存 localStorage / IndexedDB 的 SPA 站点，注入会形同虚设。
   - **已知时序边界**：Web Storage 部分同步完成；IndexedDB 恢复为异步，页面可能先于其就绪 —— 依赖 IndexedDB 首屏即刻读写的站点可能有竞态，需真机验收确认影响面。
-  - **`hasStoredSession = false` 时不得视为成功**：该账号在 Bench 里没有已保存会话，注入为空转；`injectedCookies === 0` 且 `hasStoredSession === true` 时需把 `skippedPartitioned` / `rejectedCookies` 暴露给用户，避免静默失败。前端据此分三档提示（无会话 → warning 引导先登录；有会话但 0 条注入 → error 报跳过/拒绝数；正常 → success 报注入与存储份数），并在弹窗内展示「上次打开结果」。
+  - **`hasStoredSession = false` 时不得视为成功**：该账号连 Bench 内置登录档案里也没有登录态，注入为空转；`injectedCookies === 0` 且 `hasStoredSession === true` 时需把 `skippedPartitioned` / `rejectedCookies` 暴露给用户，避免静默失败。前端据此分三档提示（无会话 → warning 引导先登录；有会话但 0 条注入 → error 报跳过/拒绝数；正常 → success 报注入与存储份数），并在弹窗内展示「上次打开结果」。
+  - **出向前自动补采（`webview_sync`，2026-09-10 修根因）**：Bench 内置登录窗口里手动完成的登录历史上**从不落 canonical store**——登录态只留在账号专属 WebView 档案（`relay-accounts/<accountId>`）里，probe/keeper 读档案判 Ready，出向注入却报「无会话」，形成「状态 Ready 但无会话」的长期错位（2026-09-10 实测 18 账号 16 个如此）。现在 `inject_session=true` 且 canonical 无会话时，注入前自动走一次档案补采：加载该账号的 WebView 档案（登录窗口开着则直接复用，否则建隐藏窗口 `relay-sync-{accountId}`）→ 与 keeper 同一套证据链判定登录态（指纹全缺失确定性短路；无结论判 FetchFailed，**不**退化为「cookie 非空」以免固化匿名会话）→ Ready 才捕获 → **过仲裁**（不存在静默覆盖）→ 加密写入 S1（`sessionOrigin=webviewLogin`）并同步账号状态。DTO 以 `sessionRecovered=true` 标明本次会话来自补采，前端报「已同步」而非「无会话」；补采失败原因经 `recoveryReason`（`notLoggedIn` / `noSessionData` / `syncFailed` / `conflict`）直达提示文案。
   - `injectSession=false`：只打开站点，供用户在真实浏览器内完成扫码 / 2FA / SSO，之后再走 I2 回采。
 
 - **I2 入向（`browser_session_capture`）**：确保页面停在站点 origin（否则先导航并等待首屏结算）→ 复用 WebView 侧同一套捕获脚本与上限（Web Storage ≤512 key/2 MiB、IndexedDB ≤32 db/128 store/10000 record/8 MiB、桥接总量 12 MiB、超时 10s）→ 组装 `AccountSession` → **仲裁** → 写入 S1 并标 `sessionOrigin=browserCdp`、`originDetail=<browserId>` → 按站点探针复验（`verified`）。
@@ -355,7 +356,11 @@
 
 - **前端编排（`useBrowserInterop`）**：打开弹窗即拉浏览器列表 + 实例状态；`busy` 由 **ref 同步守卫**（同 tick 重复点击也拦得住）+ state 驱动 UI 禁用双轨实现；冲突结果留在 hook 内交给弹窗决策，不直接 toast 成功。回采成功（`saved`）后触发列表刷新（读后写），`empty` 只提示不刷新。
 
-- **命令与门控**：`browser_session_browsers / open / status / close / capture / probe / clear_profile` 七个命令只接受 `accountId` 与布尔/枚举，**不接受 URL、路径或凭据**。capability `browserSessionOpen` / `browserSessionCapture` 任一不可用时，详情栏入口禁用并以 tooltip 说明原因（reasonCode → i18n）。
+- **出向目标二选一（2026-09-10）**：弹窗以「同步到」下拉显式区分两个端点——
+  1. **Bench 隔离实例**（默认）：本节所述 CDP 通道，点一次即可用；
+  2. **日常浏览器（需扩展）**：`browser_session_sync_daily`——浏览器安全模型不允许 Bench 直接写日常 profile 的 Cookie（远程调试被 Chrome 封禁、Cookie SQLite 受 app-bound encryption 保护、命令行加载扩展自 Chrome 137 起移除），Bench 也无法主动给扩展下指令（扩展是连接发起方）。因此该命令只做两件事：确保 S1 会话就绪（必要时档案补采）+ 在所选浏览器的**日常实例**（不带 `user-data-dir`）里打开站点；真正写入由 Bench Companion 扩展在用户点击后完成。UI 上必须向用户交代这一步需要扩展，避免被理解为「一键写入失败」。
+
+- **命令与门控**：`browser_session_browsers / open / sync_daily / status / close / capture / probe / clear_profile` 八个命令只接受 `accountId` 与布尔/枚举，**不接受 URL、路径或凭据**。capability `browserSessionOpen` / `browserSessionCapture` 任一不可用时，详情栏入口禁用并以 tooltip 说明原因（reasonCode → i18n）。
 
 - **扩展通道（I3 读 / I5 写，2026-09-10 落地）**：浏览器端点分两类，**语义必须在 UI 上区分**：
 

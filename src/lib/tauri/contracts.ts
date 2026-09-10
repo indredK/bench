@@ -32,6 +32,7 @@ import type {
   AuthProxyInboxStatus,
   AuthProxyResult,
   BrowserCaptureOutcome,
+  BrowserDailySyncOutcome,
   BrowserOpenOutcome,
   BrowserOpenResult,
   BrowserOptionDto,
@@ -450,6 +451,10 @@ export const TAURI_COMMAND_CONTRACTS = {
     },
     BrowserOpenOutcome
   >()("browser_session_open"),
+  browser_session_sync_daily: defineTauriCommand<
+    { accountId: string; browserId?: string | null },
+    BrowserDailySyncOutcome
+  >()("browser_session_sync_daily"),
   browser_session_status: defineTauriCommand<{ accountId: string }, BrowserStatusOutcome>()(
     "browser_session_status",
   ),
@@ -1143,6 +1148,7 @@ export const TAURI_COMMANDS = {
     listExternalAppBindings: commandName("list_external_app_bindings"),
     browserSessionBrowsers: commandName("browser_session_browsers"),
     browserSessionOpen: commandName("browser_session_open"),
+    browserSessionSyncDaily: commandName("browser_session_sync_daily"),
     browserSessionStatus: commandName("browser_session_status"),
     browserSessionClose: commandName("browser_session_close"),
     browserSessionCapture: commandName("browser_session_capture"),
@@ -1454,6 +1460,7 @@ export const TAURI_COMMAND_ARG_KEYS = {
   list_external_app_bindings: ["accountId"],
   browser_session_browsers: [],
   browser_session_open: ["accountId", "browserId", "injectSession", "resetProfile"],
+  browser_session_sync_daily: ["accountId", "browserId"],
   browser_session_status: ["accountId"],
   browser_session_close: ["accountId"],
   browser_session_capture: ["accountId", "force"],

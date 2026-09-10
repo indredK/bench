@@ -503,10 +503,36 @@ export interface BrowserOpenOutcome {
    * 同样为 false —— **不要**把这种情况当成成功。
    */
   sessionInjected: boolean
-  /** Bench 中是否存在该账号的已保存会话。false 表示此账号还没在 Bench 里登录过。 */
+  /**
+   * Bench 中是否存在该账号的已保存会话。
+   * false 表示连 Bench 内置的账号登录档案里也没有登录态，应引导用户先在 Bench 里登录。
+   */
   hasStoredSession: boolean
+  /**
+   * 本次注入所用的会话是否由 Bench 当场从其内置登录档案补采而来。
+   * 补采成功时应报「已同步」，而不是「没有已保存的登录态」。
+   */
+  sessionRecovered: boolean
+  /**
+   * 补采未成功的原因：`notLoggedIn`(Bench 里没登录) / `noSessionData`(页面无响应或无可采数据)
+   * / `syncFailed`(补采异常) / `conflict`(Bench 已有更新的会话)。
+   */
+  recoveryReason: string | null
   /** 实际恢复了 Web Storage / IndexedDB 的 origin 份数（0 = 该会话没有存储快照）。 */
   storageOrigins: number
+}
+
+/** browser_session_sync_daily 结果（同步到用户日常浏览器）。 */
+export interface BrowserDailySyncOutcome {
+  /** `ready`（Bench 侧会话就绪，已在目标浏览器打开站点）| `noSession`（无登录态可同步）。 */
+  outcome: string
+  browserId: string
+  cookieCount: number
+  storageOrigins: number
+  /** 会话是否由 Bench 当场从其内置登录档案补采而来。 */
+  sessionRecovered: boolean
+  /** 补采失败原因：notLoggedIn / noSessionData / syncFailed / conflict。 */
+  recoveryReason: string | null
 }
 
 /** browser_session_status 结果。 */

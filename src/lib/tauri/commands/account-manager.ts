@@ -11,6 +11,7 @@ import type {
   AuthProxyInboxStatus,
   AuthProxyResult,
   BrowserCaptureOutcome,
+  BrowserDailySyncOutcome,
   BrowserOpenOutcome,
   BrowserOpenResult,
   BrowserOptionDto,
@@ -487,6 +488,24 @@ export function browserSessionOpen(
     browserId: opts?.browserId ?? null,
     injectSession: opts?.injectSession ?? true,
     resetProfile: opts?.resetProfile ?? false,
+  })
+}
+
+/**
+ * 把该账号的登录态同步到**用户日常浏览器**（不是 Bench 的隔离实例）。
+ *
+ * 浏览器安全模型不允许 Bench 直接写日常浏览器 profile 的 cookie（远程调试被
+ * 封禁、命令行加载扩展自 Chrome 137 起被移除），因此本命令只做两件事：确保 Bench
+ * 侧会话就绪（必要时从内置登录档案补采），并在所选浏览器里打开站点；把会话写入
+ * 日常浏览器由 Bench Companion 扩展完成。
+ */
+export function browserSessionSyncDaily(
+  accountId: string,
+  opts?: { browserId?: string | null },
+): Promise<BrowserDailySyncOutcome> {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.browserSessionSyncDaily, {
+    accountId,
+    browserId: opts?.browserId ?? null,
   })
 }
 

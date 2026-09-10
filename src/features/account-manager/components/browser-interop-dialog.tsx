@@ -1,13 +1,16 @@
 /**
- * Browser interop dialog / 账号 ↔ 浏览器互通弹窗（互通 I1 出向，仅注入）。
+ * Browser interop dialog / 账号 ↔ 浏览器互通弹窗（出向：把 Bench 里的登录态同步到浏览器）。
  *
- * 收敛说明：自站点维度互通（useStationBrowserInterop）上线后，本弹窗只保留
- * 「以该账号身份打开（注入会话）」与实例管理（关闭）。「手动登录 + 回采登录态」
- * 整体属于站点维度，故此处不再含回采 / 冲突 / 只读预检。
+ * 与「站点维度互通」（手动登录 + 回采）不同，本弹窗是**出向**入口：把该账号在 Bench
+ * 中的登录态写进浏览器。两个目标由用户显式选择：
+ *
+ *  - **Bench 隔离实例**：Bench 拉起「用户选的浏览器 + Bench 专属档案」的独立进程，
+ *    会话经 CDP 直接注入，点一次即可用。
+ *  - **日常浏览器**：在用户自己的浏览器实例里打开站点；写入由 Bench Companion 扩展
+ *    完成（浏览器不允许 Bench 直接写日常 profile 的 Cookie），扩展未安装时只会打开站点。
  *
  * 「清空浏览器数据」已于 2026-09-10 移除：账号档案本就是隔离目录，删账号时会整体
- * 清理，单按钮收益低于认知成本；站点级清理若确有需要，将来走 CDP
- * `Storage.clearDataForOrigin`（按 origin 精确清理）而不是删整个档案。
+ * 清理，单按钮收益低于认知成本。
  *
  * 后端从 RelayStation 读取站点地址，前端不传 URL。
  */
@@ -31,7 +34,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import type { BrowserInteropTarget } from "@/features/account-manager/hooks/useBrowserInterop"
+import { describeSyncReason } from "@/features/account-manager/model/browser-interop"
 import type {
+  BrowserDailySyncOutcome,
   BrowserOpenOutcome,
   BrowserOptionDto,
   BrowserStatusOutcome,
@@ -47,12 +53,17 @@ export interface BrowserInteropDialogProps {
   browsers: BrowserOptionDto[]
   browserId: string | null
   onBrowserIdChange: (browserId: string) => void
+  /** 同步目标：Bench 隔离实例 / 用户日常浏览器。 */
+  target: BrowserInteropTarget
+  onTargetChange: (target: BrowserInteropTarget) => void
   status: BrowserStatusOutcome | null
   busy: "open" | "close" | null
-  /** 最近一次「打开」的结果（用于在弹窗内交代实际注入了什么）。 */
+  /** 最近一次「同步到隔离实例」的结果（用于在弹窗内交代实际注入了什么）。 */
   lastOpen: BrowserOpenOutcome | null
-  /** 以该账号身份打开（注入会话）。 */
-  onOpenBrowser: () => void
+  /** 最近一次「同步到日常浏览器」的结果。 */
+  lastDaily: BrowserDailySyncOutcome | null
+  /** 把该账号的登录态同步到所选目标。 */
+  onSync: () => void
   onCloseInstance: () => void
 }
 
@@ -64,10 +75,13 @@ export function BrowserInteropDialog({
   browsers,
   browserId,
   onBrowserIdChange,
+  target,
+  onTargetChange,
   status,
   busy,
   lastOpen,
-  onOpenBrowser,
+  lastDaily,
+  onSync,
   onCloseInstance,
 }: BrowserInteropDialogProps) {
   const { t } = useTranslation()
@@ -77,6 +91,7 @@ export function BrowserInteropDialog({
   const running = !!status?.running
   const runningBrowserName =
     browsers.find((browser) => browser.id === status?.browserId)?.name ?? status?.browserId ?? ""
+  const isolated = target === "isolated"
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -126,41 +141,75 @@ export function BrowserInteropDialog({
             </div>
           )}
 
-          <div className="bg-muted/20 flex items-center justify-between gap-2 rounded-lg border px-3 py-2">
-            <span className="text-muted-foreground text-xs">
-              {running
-                ? t("accountManager.browserInterop.instanceRunning", {
-                    browser: runningBrowserName,
-                  })
-                : t("accountManager.browserInterop.instanceStopped")}
-            </span>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={onCloseInstance}
-              disabled={!idle || !running}
+          <div className="space-y-2">
+            <Label htmlFor="am-browser-interop-target">
+              {t("accountManager.browserInterop.targetLabel")}
+            </Label>
+            <Select
+              value={target}
+              onValueChange={(value) => onTargetChange(value as BrowserInteropTarget)}
+              disabled={!idle}
             >
-              {t("accountManager.browserInterop.closeInstance")}
-            </Button>
+              <SelectTrigger id="am-browser-interop-target" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="isolated">
+                  {t("accountManager.browserInterop.targetIsolated")}
+                </SelectItem>
+                <SelectItem value="daily">
+                  {t("accountManager.browserInterop.targetDaily")}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-muted-foreground text-xs">
+              {isolated
+                ? t("accountManager.browserInterop.targetIsolatedHint")
+                : t("accountManager.browserInterop.targetDailyHint")}
+            </p>
           </div>
+
+          {isolated && (
+            <div className="bg-muted/20 flex items-center justify-between gap-2 rounded-lg border px-3 py-2">
+              <span className="text-muted-foreground text-xs">
+                {running
+                  ? t("accountManager.browserInterop.instanceRunning", {
+                      browser: runningBrowserName,
+                    })
+                  : t("accountManager.browserInterop.instanceStopped")}
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={onCloseInstance}
+                disabled={!idle || !running}
+              >
+                {t("accountManager.browserInterop.closeInstance")}
+              </Button>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Button
               type="button"
               className="w-full justify-start"
-              onClick={onOpenBrowser}
+              onClick={onSync}
               disabled={!idle || noBrowser}
             >
               <Globe size={14} />
-              {t("accountManager.browserInterop.openWithSession")}
+              {t("accountManager.browserInterop.sync")}
               <span className="text-primary-foreground/70 ml-auto text-xs font-normal">
-                {t("accountManager.browserInterop.injectBadge")}
+                {isolated
+                  ? t("accountManager.browserInterop.injectBadge")
+                  : t("accountManager.browserInterop.syncBadge")}
               </span>
             </Button>
-            <p className="text-muted-foreground text-xs">
-              {t("accountManager.browserInterop.openWithSessionHint")}
-            </p>
+            {!isolated && (
+              <p className="text-muted-foreground text-xs">
+                {t("accountManager.browserInterop.dailyExtensionHint")}
+              </p>
+            )}
           </div>
 
           {lastOpen && (
@@ -177,7 +226,29 @@ export function BrowserInteropDialog({
                 </div>
               ) : (
                 <div className="text-destructive">
-                  {t("accountManager.browserInterop.lastOpenNoSession")}
+                  {t("accountManager.browserInterop.lastOpenNoSession", {
+                    reason: describeSyncReason(t, lastOpen.recoveryReason),
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {lastDaily && (
+            <div className="min-w-0 space-y-1 rounded-lg border px-3 py-2 text-xs">
+              <div className="font-medium">{t("accountManager.browserInterop.lastDailyTitle")}</div>
+              {lastDaily.outcome === "noSession" ? (
+                <div className="text-destructive">
+                  {t("accountManager.browserInterop.lastOpenNoSession", {
+                    reason: describeSyncReason(t, lastDaily.recoveryReason),
+                  })}
+                </div>
+              ) : (
+                <div className="text-muted-foreground">
+                  {t("accountManager.browserInterop.lastDailyReady", {
+                    count: lastDaily.cookieCount,
+                    origins: lastDaily.storageOrigins,
+                  })}
                 </div>
               )}
             </div>

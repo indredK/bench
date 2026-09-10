@@ -527,10 +527,13 @@ function AccountManagerPage() {
         browsers={browserInterop.browsers}
         browserId={browserInterop.browserId}
         onBrowserIdChange={browserInterop.setBrowserId}
+        target={browserInterop.target}
+        onTargetChange={browserInterop.setTarget}
         status={browserInterop.status}
         busy={browserInterop.busy}
         lastOpen={browserInterop.lastOpen}
-        onOpenBrowser={browserInterop.handleOpen}
+        lastDaily={browserInterop.lastDaily}
+        onSync={browserInterop.handleSync}
         onCloseInstance={browserInterop.handleCloseInstance}
       />
       <StationBrowserInteropDialog

@@ -7,8 +7,8 @@
 use tauri::{AppHandle, Runtime, State};
 
 use crate::account_manager::browser_session::{
-    self, BrowserCaptureOutcome, BrowserOpenOutcome, BrowserProbeOutcome, BrowserSessionPreview,
-    BrowserStationCaptureOutcome, BrowserStatusOutcome,
+    self, BrowserCaptureOutcome, BrowserDailySyncOutcome, BrowserOpenOutcome, BrowserProbeOutcome,
+    BrowserSessionPreview, BrowserStationCaptureOutcome, BrowserStatusOutcome,
 };
 use crate::account_manager::state::AccountManagerState;
 use crate::account_manager::types::{AccountManagerError, AccountManagerResult};
@@ -42,6 +42,28 @@ pub async fn browser_session_open<R: Runtime>(
     }
     browser_session::open_for_account(&app, &account_id, browser_id, inject_session, reset_profile)
         .await
+}
+
+/// 把该账号的登录态同步到**用户日常浏览器**（不是 Bench 的隔离实例）。
+///
+/// 会话写入日常浏览器由 Bench Companion 扩展完成（浏览器安全模型不允许 Bench
+/// 直接写别人 profile 的 cookie，详见
+/// [`browser_session::sync_to_daily_browser`]）；本命令负责确保 Bench 侧会话就绪
+/// （必要时从内置登录档案补采）并在所选浏览器里打开站点。
+#[tauri::command]
+pub async fn browser_session_sync_daily<R: Runtime>(
+    app: AppHandle<R>,
+    account_id: String,
+    browser_id: Option<String>,
+) -> AccountManagerResult<BrowserDailySyncOutcome> {
+    if let Some(id) = browser_id.as_deref() {
+        if !browser_session::browser::is_supported_id(id) {
+            return Err(AccountManagerError::invalid_input(format!(
+                "UNSUPPORTED_BROWSER: {id}"
+            )));
+        }
+    }
+    browser_session::sync_to_daily_browser(&app, &account_id, browser_id).await
 }
 
 /// 查询该账号的浏览器实例状态（是否运行、浏览器 id、调试端口）。

@@ -333,7 +333,7 @@
     },
     "browserInterop": {
       "title": "Browser interop",
-      "description": "Open the site in Bench's isolated browser using {{name}}'s saved session (station: {{station}}).",
+      "description": "Sync {{name}}'s session from Bench (station: {{station}}) into the browser you choose.",
       "openEntry": "Browser interop",
       "noBrowserTitle": "No supported browser detected",
       "noBrowserDesc": "Browser interop supports Chromium-based browsers only (Google Chrome / Microsoft Edge / Brave / Chromium). Install one and reopen this dialog.",
@@ -345,6 +345,22 @@
       "openWithSession": "Open as this account",
       "injectBadge": "Injects session",
       "openWithSessionHint": "Opens \"your installed browser + a Bench-dedicated profile\": the address bar and downloads are there, but bookmarks and your everyday extensions are not shared — and your daily browser's sessions are untouched.",
+      "targetLabel": "Sync into",
+      "targetIsolated": "Bench isolated instance",
+      "targetDaily": "Daily browser (needs extension)",
+      "targetIsolatedHint": "Launches a standalone instance of the browser you pick; Bench injects the session directly and it works immediately. Nothing in your daily browser is touched.",
+      "targetDailyHint": "Opens the site in your own browser; the Bench Companion extension writes the session. Browsers do not let Bench write cookies into your everyday profile, so the extension is required.",
+      "dailyExtensionHint": "Without the Bench Companion extension Bench can only open the site; after installing it, use \"Sign in with a Bench account\" in the extension panel to finish.",
+      "sync": "Sync session",
+      "syncBadge": "Written by extension",
+      "lastDailyTitle": "Last sync result",
+      "lastDailyReady": "Bench session is ready ({{count}} cookie(s), {{origins}} origin(s)). Finish the write in your browser via the Bench Companion extension.",
+      "reason": {
+        "notLoggedIn": "Bench's built-in browser reports this account as signed out",
+        "noSessionData": "The page did not respond or exposed no session data",
+        "syncFailed": "Recovering from Bench's login profile failed",
+        "conflict": "Bench already holds a newer session"
+      },
       "openForLogin": "Open site and sign in manually",
       "openForLoginHint": "No session is injected. Complete QR / 2FA / SSO in the browser, then capture the session back into Bench.",
       "capture": "Capture session",
@@ -359,7 +375,7 @@
       "probeFound": "Found {{count}} cookie(s) for this site (fingerprint hits {{hits}}/{{total}}).",
       "lastOpenTitle": "Last open result",
       "lastOpenCounts": "Injected {{injected}} cookie(s); {{skipped}} skipped as partitioned, {{rejected}} rejected by the browser; restored local storage for {{origins}} origin(s).",
-      "lastOpenNoSession": "This account has no saved session in Bench yet, so there was nothing to inject. Open this station's \"Browser interop\" (button in the account column header), sign in once and use \"Capture session\" — after that this action injects automatically."
+      "lastOpenNoSession": "Bench detected no session for this account ({{reason}}), so there was nothing to sync. Click \"Login\" in Bench, confirm you are signed in, then sync again."
     },
     "indexedDbStatus": {
       "complete": "Complete",
@@ -656,7 +672,10 @@
       "browserListFailed": "Failed to list available browsers.",
       "browserOpenFailed": "Failed to open the browser.",
       "browserSessionInjected": "Injected {{count}} cookie(s) and restored local storage for {{origins}} origin(s)",
-      "browserNoStoredSession": "This account has no saved session in Bench, so nothing was injected. Use \"Open site and sign in manually\" first, then \"Capture session\".",
+      "browserSessionRecovered": "Synced from Bench's session: injected {{count}} cookie(s) and restored local storage for {{origins}} origin(s)",
+      "browserDailyReady": "Bench session is ready ({{count}} cookie(s)). Site opened in your browser — finish the write with the Bench Companion extension.",
+      "browserDailyRecovered": "Recovered {{count}} cookie(s) from Bench's session and opened the site — finish the write with the Bench Companion extension.",
+      "browserNoStoredSession": "Bench detected no session for this account ({{reason}}), so there was nothing to sync. Click \"Login\" in Bench, confirm you are signed in, then sync again.",
       "browserNothingInjected": "The saved session had no injectable cookies ({{skipped}} skipped as partitioned, {{rejected}} rejected by the browser).",
       "browserProbeNotRunning": "This account's browser instance is not running. Open it first.",
       "browserProbeNoSession": "No session for this site was detected in the browser.",
