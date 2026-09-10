@@ -85,12 +85,23 @@ export async function openLoginWebview(account: StationAccount, website: string)
 }
 
 export const accountManagerUseCases = {
-  loadInitialData() {
-    return Promise.all([
-      accountManagerRepository.getAccountManagerCapabilities(),
-      accountManagerRepository.listStations(),
-      accountManagerRepository.listAllAccounts(),
-    ])
+  async loadInitialData() {
+    const load = () =>
+      Promise.all([
+        accountManagerRepository.getAccountManagerCapabilities(),
+        accountManagerRepository.listStations(),
+        accountManagerRepository.listAllAccounts(),
+      ])
+    try {
+      return await load()
+    } catch (error) {
+      // 启动初始化失败（典型：macOS 钥匙串授权被拒）后，后端 ensure_ready()
+      // 令所有命令恒定失败 —— 重试前必须先触发后端重新初始化（master key 走
+      // keyring → 重新弹出授权框），否则重试永远无法恢复。
+      // 后端幂等：初始化正常时该调用为 no-op，不会重复弹框。
+      await accountManagerRepository.retryInit()
+      return load()
+    }
   },
 
   async addStation(remark: string, website: string, sessionSettings?: SessionSettings) {
@@ -358,5 +369,10 @@ export const accountManagerUseCases = {
   /** F2 — 用户确认账号为站点的活跃(已登录)状态。 */
   confirmLoginFingerprint(stationId: string, accountId: string) {
     return accountManagerRepository.confirmLoginFingerprint(stationId, accountId)
+  },
+
+  /** F2 — 读取站点登录指纹明细(弹窗二级视图;值不出后端,站点无指纹时返回 null)。 */
+  getLoginFingerprintDetail(stationId: string) {
+    return accountManagerRepository.getLoginFingerprintDetail(stationId)
   },
 }

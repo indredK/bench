@@ -20,6 +20,73 @@ use crate::account_manager::webview;
 
 const DETECT_WINDOW_LOAD_TIMEOUT_MS: u64 = 15000;
 
+/// 指纹确认弹窗二级明细 — 单条 cookie 特征(只含形态信息,值永不出后端)。
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FingerprintCookieFeatureDto {
+    pub name: String,
+    pub domain: String,
+    pub path: String,
+    pub http_only: bool,
+    pub value_len: usize,
+}
+
+/// 指纹确认弹窗二级明细 — 单条 storage 键特征(只含键名与值长度)。
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FingerprintStorageKeyFeatureDto {
+    pub key: String,
+    pub value_len: usize,
+}
+
+/// 指纹确认弹窗二级明细 — 站点指纹完整特征列表(读取自加密 store,只读)。
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoginFingerprintDetail {
+    pub sampled_at: String,
+    pub sampled_by_account: String,
+    pub cookies: Vec<FingerprintCookieFeatureDto>,
+    pub storage_keys: Vec<FingerprintStorageKeyFeatureDto>,
+}
+
+/// 读取站点登录指纹明细(弹窗二级视图)。站点无指纹时返回 None。
+/// 值(cookie value / storage value)不出后端,只回特征形态信息。
+#[tauri::command]
+pub async fn get_login_fingerprint_detail(
+    state: State<'_, AccountManagerState>,
+    station_id: String,
+) -> AccountManagerResult<Option<LoginFingerprintDetail>> {
+    let snapshot = state.read_snapshot_checked()?;
+    let detail = snapshot.fingerprints.get(&station_id).map(|fp| {
+        let cookies = fp
+            .cookie_features
+            .iter()
+            .map(|c| FingerprintCookieFeatureDto {
+                name: c.name.clone(),
+                domain: c.domain.clone(),
+                path: c.path.clone(),
+                http_only: c.http_only,
+                value_len: c.value_len,
+            })
+            .collect::<Vec<_>>();
+        let storage_keys = fp
+            .storage_keys
+            .iter()
+            .map(|key| FingerprintStorageKeyFeatureDto {
+                key: key.clone(),
+                value_len: fp.storage_key_lens.get(key).copied().unwrap_or(0),
+            })
+            .collect::<Vec<_>>();
+        LoginFingerprintDetail {
+            sampled_at: fp.sampled_at.clone(),
+            sampled_by_account: fp.sampled_by_account.clone(),
+            cookies,
+            storage_keys,
+        }
+    });
+    Ok(detail)
+}
+
 /// 指纹采集返回：特征摘要 + 顺带刷新后的 authProfile（一次采样两份画像）。
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]

@@ -16,6 +16,7 @@ import {
   handleBrowserOpen,
   getAuthProxyInboxStatus,
   getAccountManagerCapabilities,
+  getLoginFingerprintDetail,
   importRelayData,
   listAccountLogs,
   listAllAccounts,
@@ -33,6 +34,7 @@ import {
   reorderAccounts,
   reorderStations,
   resetProbeStrategy,
+  retryAccountManagerInit,
   revealPassword,
   setAccountProxyEnabled,
   setAccountRefreshSchedule,
@@ -48,6 +50,7 @@ import { openPlatformDialog, savePlatformDialog } from "@/platform/dialog"
 
 export const accountManagerRepository = {
   getAccountManagerCapabilities,
+  retryInit: retryAccountManagerInit,
   listStations,
   createStation,
   updateStation,
@@ -79,6 +82,7 @@ export const accountManagerRepository = {
   matchStationsByUrl,
   captureLoginFingerprint,
   confirmLoginFingerprint,
+  getLoginFingerprintDetail,
   proxyLogin,
   handleBrowserOpen,
   getAuthProxyInboxStatus,

@@ -10,6 +10,7 @@ import {
   proxyLogin,
   proxyLoginNewAccount,
   refreshAll,
+  retryAccountManagerInit,
   setAccountRefreshSchedule,
 } from "@/lib/tauri/commands/account-manager"
 import { TAURI_COMMANDS } from "@/lib/tauri/contracts"
@@ -83,6 +84,12 @@ describe("account-manager commands", () => {
     await getAccountManagerCapabilities()
 
     expect(invokeTauriCommand).toHaveBeenCalledWith(TAURI_COMMANDS.accountManager.getCapabilities)
+  })
+
+  it("delegates init retry to the backend re-init command", async () => {
+    await retryAccountManagerInit()
+
+    expect(invokeTauriCommand).toHaveBeenCalledWith(TAURI_COMMANDS.accountManager.retryInit)
   })
 
   it("saves a refresh schedule with a null clearing payload", async () => {

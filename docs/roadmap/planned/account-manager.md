@@ -106,6 +106,7 @@
 - [x] F2-T5 前端：DetailColumn 底部按钮（设置按钮左侧，Fingerprint 图标）+ 采样确认弹窗（`FingerprintConfirmDialog`，普通确认非 Destructive）+ 详情栏「指纹已采样」状态条（站点级，展示采样时间与特征计数，并说明指纹缺失账号判定为未登录）。账号级来源标注按 D1 方案 A 落地：`loginRequired && statusReason="fingerprintMissing"` 时状态徽标挂 tooltip「指纹缺失，已确认未登录」（无小字）
 - [x] F2-T6 前端：i18n zh/en + 空态/失败态（region error + toast）+ 防重入（`useGuardedAsync`）
 - [x] F2-T7 测试：`fingerprint.rs` 单测覆盖指纹缺失→短路、特征存在→不短路、storage 键保守不短路、空指纹不短路（L0a 判定逻辑）
+- [x] F2-T8（2026-09-10）确认弹窗特征明细二级弹窗：新增 `get_login_fingerprint_detail` 命令（`commands/fingerprint.rs`，State-only 非泛型），「Cookie 特征 / 存储键特征」计数可点击 → `FingerprintDetailDialog` 展示键名/域名/path/httpOnly/值长度；**值永不出后端**（修订原「键名列表不出后端」边界：键名可看、值不可出，D3 同日决策）。i18n zh/en 同步；contracts 双端对齐测试覆盖。调研依据见 `explanation/login-state-detection-research.md`（trae.cn 账号 1 误判根因 = 特征无判别力 + L0b 弱肯定越权，P0~P3 改进建议已列出）
 
 **验收**
 

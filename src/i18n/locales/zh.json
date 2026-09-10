@@ -490,6 +490,7 @@
       "revokeExternalAppFailed": "取消授权失败",
       "fingerprintConfirmed": "已将该账号识别为已登录状态",
       "fingerprintConfirmFailed": "确认登录状态失败，请重试",
+      "fingerprintDetailFailed": "读取指纹特征明细失败，请重试",
       "unknown": "操作失败，请稍后重试"
     },
     "authProxy": {
@@ -746,7 +747,24 @@
       "confirming": "识别中...",
       "sampling": "正在采样站点登录指纹...",
       "sampledBadge": "指纹已采样（{{sampledAt}}）：Cookie {{cookies}} 项 / 存储 {{storageKeys}} 项，特征缺失的账号判定为未登录",
-      "sampledBadgeTooltip": "本站点已采集登录态指纹。指纹全部缺失的账号会被确定为「待登录」，即使用户直觉认为仍处于登录态。"
+      "sampledBadgeTooltip": "本站点已采集登录态指纹。指纹全部缺失的账号会被确定为「待登录」，即使用户直觉认为仍处于登录态。",
+      "viewDetailTitle": "查看特征明细"
+    },
+    "fingerprintDetail": {
+      "title": "指纹特征明细",
+      "description": "以下为站点采样到的登录态特征（采样时间 {{sampledAt}}）。仅展示特征形态，不含任何特征值。",
+      "loadingDescription": "正在读取指纹特征明细...",
+      "loading": "正在加载特征明细...",
+      "empty": "暂无指纹特征数据。",
+      "cookieSection": "Cookie 特征（{{count}}）",
+      "storageSection": "存储键特征（{{count}}）",
+      "noFeatures": "无",
+      "cookieMeta": "{{domain}} · HttpOnly {{httpOnly}} · 值长度 {{valueLen}}",
+      "storageMeta": "值长度 {{valueLen}}",
+      "httpOnlyYes": "是",
+      "httpOnlyNo": "否",
+      "privacyHint": "出于安全考虑，特征的具体值（cookie 值 / 存储值）不会离开后端，此处仅展示键名与形态信息。",
+      "close": "关闭"
     },
     "errors": {
       "refreshAccount": "刷新账号失败，账号数据保持不变。",
@@ -1492,6 +1510,13 @@
       "token-calculator": "Token 计算器",
       "terminology": "术语库"
     }
+  },
+  "notificationCenter": {
+    "title": "消息通知",
+    "empty": "暂无新消息",
+    "clearAll": "全部清除",
+    "dismiss": "移除",
+    "unreadCount": "{{count}} 条未读消息"
   },
   "titlebar": {
     "minimize": "最小化",

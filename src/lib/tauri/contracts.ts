@@ -38,6 +38,7 @@ import type {
   LoginDetectionConfig,
   LoginMethod,
   LoginFingerprintCaptureResult,
+  LoginFingerprintDetail,
   NetworkProxyConfig,
   PasswordAction,
   ProbeStrategy,
@@ -264,6 +265,7 @@ export const TAURI_COMMAND_CONTRACTS = {
   get_account_manager_capabilities: defineTauriCommand<undefined, AccountManagerCapabilities>()(
     "get_account_manager_capabilities",
   ),
+  retry_account_manager_init: defineTauriCommand<undefined, void>()("retry_account_manager_init"),
   list_stations: defineTauriCommand<undefined, RelayStation[]>()("list_stations"),
   create_station: defineTauriCommand<
     { remark: string; website: string; loginDetection?: LoginDetectionConfig | null },
@@ -383,6 +385,10 @@ export const TAURI_COMMAND_CONTRACTS = {
     { stationId: string; accountId: string },
     StationAccount
   >()("confirm_login_fingerprint"),
+  get_login_fingerprint_detail: defineTauriCommand<
+    { stationId: string },
+    LoginFingerprintDetail | null
+  >()("get_login_fingerprint_detail"),
   proxy_login: defineTauriCommand<{ accountId: string; ticketId: string }, AuthProxyResult>()(
     "proxy_login",
   ),
@@ -1013,6 +1019,7 @@ export const TAURI_COMMANDS = {
   },
   accountManager: {
     getCapabilities: commandName("get_account_manager_capabilities"),
+    retryInit: commandName("retry_account_manager_init"),
     listStations: commandName("list_stations"),
     createStation: commandName("create_station"),
     updateStation: commandName("update_station"),
@@ -1044,6 +1051,7 @@ export const TAURI_COMMANDS = {
     matchStationsByUrl: commandName("match_stations_by_url"),
     captureLoginFingerprint: commandName("capture_login_fingerprint"),
     confirmLoginFingerprint: commandName("confirm_login_fingerprint"),
+    getLoginFingerprintDetail: commandName("get_login_fingerprint_detail"),
     proxyLogin: commandName("proxy_login"),
     handleBrowserOpen: commandName("handle_browser_open"),
     getAuthProxyInboxStatus: commandName("get_auth_proxy_inbox_status"),
@@ -1288,6 +1296,7 @@ export const TAURI_COMMAND_ARG_KEYS = {
   import_command_cards: ["path"],
   set_window_theme: ["theme", "appearance"],
   get_account_manager_capabilities: [],
+  retry_account_manager_init: [],
   list_stations: [],
   create_station: ["remark", "website", "loginDetection"],
   update_station: ["id", "remark", "website", "loginDetection", "sessionTtlHours"],
@@ -1338,6 +1347,7 @@ export const TAURI_COMMAND_ARG_KEYS = {
   match_stations_by_url: ["url"],
   capture_login_fingerprint: ["stationId", "accountId"],
   confirm_login_fingerprint: ["stationId", "accountId"],
+  get_login_fingerprint_detail: ["stationId"],
   proxy_login: ["accountId", "ticketId"],
   handle_browser_open: ["url"],
   get_auth_proxy_inbox_status: [],

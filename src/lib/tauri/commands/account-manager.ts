@@ -16,6 +16,7 @@ import type {
   ExternalAppBinding,
   LoginDetectionConfig,
   LoginFingerprintCaptureResult,
+  LoginFingerprintDetail,
   LoginMethod,
   NetworkProxyConfig,
   PasswordAction,
@@ -52,6 +53,7 @@ export type {
   LoginDetectionPresence,
   LoginDetectionRule,
   LoginFingerprintCaptureResult,
+  LoginFingerprintDetail,
   LoginFingerprintSummary,
   LoginMethod,
   MatchConfidence,
@@ -73,6 +75,11 @@ export { DEFAULT_LOGIN_DETECTION } from "@/lib/tauri/types/account-manager"
 
 export function getAccountManagerCapabilities(): Promise<AccountManagerCapabilities> {
   return invokeTauriCommand(TAURI_COMMANDS.accountManager.getCapabilities)
+}
+
+/** 初始化失败后的重试入口：后端仅在 init_error 置位时重跑 init_state（会重新弹出钥匙串授权）。 */
+export function retryAccountManagerInit(): Promise<void> {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.retryInit)
 }
 
 export function listStations(): Promise<RelayStation[]> {
@@ -330,6 +337,13 @@ export function confirmLoginFingerprint(
     stationId,
     accountId,
   })
+}
+
+/// F2 — 读取站点登录指纹明细(弹窗二级视图;值不出后端,站点无指纹时返回 null)。
+export function getLoginFingerprintDetail(
+  stationId: string,
+): Promise<LoginFingerprintDetail | null> {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.getLoginFingerprintDetail, { stationId })
 }
 
 /// 启动外部代理登录:打开登录窗口 → 注入凭证 → 返回占位 AuthProxyResult。

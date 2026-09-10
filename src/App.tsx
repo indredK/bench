@@ -17,8 +17,8 @@ import { useNavigationLayout } from "@/hooks/useNavigationLayout"
 import { AboutDialog } from "@/components/common/AboutDialog"
 import { CloseBehaviorDialog } from "@/components/common/CloseBehaviorDialog"
 import { SettingsDialog } from "@/components/common/SettingsDialog"
-import { StartupIssuesAlert } from "@/components/common/StartupIssuesAlert"
 import { UpdateDialog } from "@/components/common/UpdateDialog"
+import { useNotificationCenterStore } from "@/components/layout/notification-center/store"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useReducedMotionProps } from "@/lib/motion-utils"
 import { appFeatures, createNavigationItems, createConfigItems } from "@/features/registry"
@@ -31,7 +31,6 @@ import { TAURI_EVENTS, WINDOW_BOOTSTRAP_EVENTS } from "@/lib/tauri/contracts"
 import { emitPlatformEventTo, listenToPlatformEvent } from "@/platform/events"
 import { canUseWindowControls } from "@/platform/window"
 import { useWindowTheme } from "@/hooks/useWindowTheme"
-import type { StartupIssue } from "@/lib/tauri/types/bootstrap"
 import { RuntimeFeatureGate } from "@/components/common/RuntimeFeatureGate"
 import { canUseFeature, canUseTauriCommands } from "@/platform/capabilities"
 import type { AuthProxyInboxStatus } from "@/lib/tauri/types/account-manager"
@@ -127,7 +126,7 @@ function App() {
   const [aboutOpen, setAboutOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [closeBehaviorOpen, setCloseBehaviorOpen] = useState(false)
-  const [startupIssues, setStartupIssues] = useState<StartupIssue[]>([])
+  const pushNotification = useNotificationCenterStore((s) => s.pushNotification)
 
   useEffect(() => {
     if (!canUseWindowControls()) return undefined
@@ -139,15 +138,30 @@ function App() {
     return undefined
   }, [])
 
+  // 启动诊断不再占据版面高度，改为推入标题栏消息中心（id 稳定，重复拉取按 upsert 处理）。
   useEffect(() => {
     let cancelled = false
-    void listStartupIssues().then((issues) => {
-      if (!cancelled) setStartupIssues(issues)
-    })
+    void listStartupIssues()
+      .then((issues) => {
+        if (cancelled || issues.length === 0) return
+        pushNotification({
+          id: "startup-issues",
+          level: "error",
+          titleKey: "startupIssues.title",
+          descriptionKey: "startupIssues.description",
+          descriptionParams: {
+            features: issues.map((issue) => ({
+              key: `startupIssues.features.${issue.feature}`,
+              params: { defaultValue: issue.feature },
+            })),
+          },
+        })
+      })
+      .catch(() => undefined)
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [pushNotification])
 
   useEffect(() => {
     void setTrayLabels({
@@ -235,7 +249,6 @@ function App() {
                 configItems={configItems}
                 onPrefs={handleOpenPrefs}
               >
-                <StartupIssuesAlert issues={startupIssues} />
                 <AnimatedRoutes />
               </NavigationShell>
             </div>

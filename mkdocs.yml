@@ -21,6 +21,7 @@ nav:
       - 决策日志: explanation/decisions.md
       - 功能定位与闭环: explanation/functional-positioning.md
       - 插件化工作流: explanation/extension-workflow.md
+      - 登录态识别方案调研: explanation/login-state-detection-research.md
       - 质量审计: explanation/audit-report.md
   - 路线图 (Roadmap):
       - 全局路线图: roadmap/ROADMAP.md

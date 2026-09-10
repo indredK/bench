@@ -21,9 +21,10 @@ import { AuthProxyDialog } from "@/features/account-manager/components/auth-prox
 import { ExternalAppsPanel } from "@/features/account-manager/components/external-apps-panel"
 import { AccountLogDialog } from "@/features/account-manager/components/account-log-dialog"
 import { FingerprintConfirmDialog } from "@/features/account-manager/components/fingerprint-confirm-dialog"
+import { FingerprintDetailDialog } from "@/features/account-manager/components/fingerprint-detail-dialog"
 import { useAccountManagerStore } from "@/features/account-manager/store"
+import { useNotificationCenterStore } from "@/components/layout/notification-center/store"
 import { cn } from "@/lib/utils"
-import { AlertTriangle } from "lucide-react"
 import {
   getCapabilityReason,
   isCapabilityUsable,
@@ -180,6 +181,31 @@ function AccountManagerPage() {
     }
   }, [c.capabilities, t])
 
+  // 能力摘要不再内联占行，推入标题栏消息中心；条件消失时移除对应消息（id 稳定，重复推送按 upsert 处理）。
+  const pushNotification = useNotificationCenterStore((s) => s.pushNotification)
+  const dismissNotification = useNotificationCenterStore((s) => s.dismissNotification)
+  useEffect(() => {
+    if (capabilityState.degradedCount > 0 || capabilityState.blockedCount > 0) {
+      pushNotification({
+        id: "account-manager:capabilities",
+        level: capabilityState.blockedCount > 0 ? "error" : "warning",
+        titleKey: "sidebar.accountManager",
+        descriptionKey: "accountManager.capabilities.summary",
+        descriptionParams: {
+          partial: capabilityState.degradedCount,
+          blocked: capabilityState.blockedCount,
+        },
+      })
+    } else {
+      dismissNotification("account-manager:capabilities")
+    }
+  }, [
+    capabilityState.degradedCount,
+    capabilityState.blockedCount,
+    pushNotification,
+    dismissNotification,
+  ])
+
   useEffect(() => {
     const media = window.matchMedia?.("(min-width: 1280px)")
     if (!media) return
@@ -249,20 +275,6 @@ function AccountManagerPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2">
-      {(capabilityState.degradedCount > 0 || capabilityState.blockedCount > 0) && (
-        <div
-          className="border-border bg-muted/40 text-muted-foreground flex shrink-0 items-center gap-2 border-b px-2 py-1.5 text-xs"
-          role="status"
-        >
-          <AlertTriangle className="size-3.5 shrink-0" />
-          <span className="min-w-0 truncate">
-            {t("accountManager.capabilities.summary", {
-              partial: capabilityState.degradedCount,
-              blocked: capabilityState.blockedCount,
-            })}
-          </span>
-        </div>
-      )}
       <div className="flex min-h-0 flex-1 gap-4">
         <StationColumn
           stations={c.stations}
@@ -440,6 +452,13 @@ function AccountManagerPage() {
         username={fingerprintUsername}
         onConfirm={c.handleConfirmFingerprint}
         confirming={c.confirmingFingerprint}
+        onViewDetail={() => void c.handleViewFingerprintDetail()}
+      />
+      <FingerprintDetailDialog
+        open={c.isFingerprintDetailOpen}
+        onOpenChange={c.setFingerprintDetailOpen}
+        detail={c.fingerprintDetail}
+        loading={c.loadingFingerprintDetail}
       />
     </div>
   )

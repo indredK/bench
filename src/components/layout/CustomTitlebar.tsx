@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils"
 import { canUseWindowControls } from "@/platform/window"
 import { getCurrentAppWindow } from "@/platform/window"
 import { Button } from "@/components/ui/button"
+import { NotificationCenter } from "@/components/layout/notification-center/NotificationCenter"
 
 interface CustomTitlebarProps {
   className?: string
@@ -127,6 +128,8 @@ export function CustomTitlebar({ className }: CustomTitlebarProps) {
       <div data-tauri-drag-region className="absolute inset-0" aria-hidden="true" />
 
       <div data-no-window-drag className="relative z-10 flex items-center gap-0.5">
+        <NotificationCenter />
+
         {desktop && (
           <>
             <Button

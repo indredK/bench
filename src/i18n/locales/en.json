@@ -490,6 +490,7 @@
       "revokeExternalAppFailed": "Failed to revoke authorization",
       "fingerprintConfirmed": "This account is now recognized as signed in",
       "fingerprintConfirmFailed": "Failed to confirm the sign-in state. Please retry.",
+      "fingerprintDetailFailed": "Failed to load fingerprint details. Please retry.",
       "unknown": "The operation failed. Please try again."
     },
     "authProxy": {
@@ -746,7 +747,24 @@
       "confirming": "Recognizing...",
       "sampling": "Capturing the site login fingerprint...",
       "sampledBadge": "Fingerprint sampled ({{sampledAt}}): {{cookies}} cookies / {{storageKeys}} storage keys — accounts missing all features are judged logged-out",
-      "sampledBadgeTooltip": "This site's login fingerprint was captured. Accounts missing every fingerprint feature are determined to be logged out, even if one expects them signed in."
+      "sampledBadgeTooltip": "This site's login fingerprint was captured. Accounts missing every fingerprint feature are determined to be logged out, even if one expects them signed in.",
+      "viewDetailTitle": "View feature details"
+    },
+    "fingerprintDetail": {
+      "title": "Fingerprint feature details",
+      "description": "Login-state features sampled from this site (sampled at {{sampledAt}}). Only shapes are shown — no feature values.",
+      "loadingDescription": "Loading fingerprint feature details...",
+      "loading": "Loading feature details...",
+      "empty": "No fingerprint features available.",
+      "cookieSection": "Cookie features ({{count}})",
+      "storageSection": "Storage key features ({{count}})",
+      "noFeatures": "None",
+      "cookieMeta": "{{domain}} · HttpOnly {{httpOnly}} · value length {{valueLen}}",
+      "storageMeta": "value length {{valueLen}}",
+      "httpOnlyYes": "yes",
+      "httpOnlyNo": "no",
+      "privacyHint": "For security reasons, feature values (cookie values / storage values) never leave the backend — only key names and shapes are shown here.",
+      "close": "Close"
     },
     "errors": {
       "refreshAccount": "Failed to refresh this account; its data is unchanged.",
@@ -1492,6 +1510,13 @@
       "token-calculator": "Token Calculator",
       "terminology": "Terminology"
     }
+  },
+  "notificationCenter": {
+    "title": "Notifications",
+    "empty": "You're all caught up",
+    "clearAll": "Clear all",
+    "dismiss": "Dismiss",
+    "unreadCount": "{{count}} unread messages"
   },
   "titlebar": {
     "minimize": "Minimize",

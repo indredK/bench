@@ -1,6 +1,6 @@
 /**
  * Login fingerprint confirm dialog / 登录指纹确认对话框 (F2).
- * 采样成功后弹窗:展示特征计数,询问用户是否将该账号
+ * 采样成功后弹窗:展示特征计数(可点开二级明细弹窗),询问用户是否将该账号
  * 当前状态识别为该站点的活跃(已登录)状态。确认后由 controller 调用
  * confirm_login_fingerprint 并把账号置为 Ready。
  */
@@ -24,6 +24,7 @@ export function FingerprintConfirmDialog({
   username,
   onConfirm,
   confirming,
+  onViewDetail,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -32,6 +33,8 @@ export function FingerprintConfirmDialog({
   username: string
   onConfirm: () => void
   confirming: boolean
+  /** 点击「Cookie 特征 / 存储键特征」计数 → 打开特征明细二级弹窗。 */
+  onViewDetail: () => void
 }) {
   const { t } = useTranslation()
 
@@ -63,13 +66,27 @@ export function FingerprintConfirmDialog({
                 <span className="text-muted-foreground">
                   {t("accountManager.fingerprint.cookieCount")}
                 </span>
-                <span className="font-medium">{summary.cookieCount}</span>
+                <button
+                  type="button"
+                  className="font-medium underline decoration-dashed underline-offset-4 hover:opacity-80"
+                  onClick={onViewDetail}
+                  title={t("accountManager.fingerprint.viewDetailTitle")}
+                >
+                  {summary.cookieCount}
+                </button>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">
                   {t("accountManager.fingerprint.storageKeyCount")}
                 </span>
-                <span className="font-medium">{summary.storageKeyCount}</span>
+                <button
+                  type="button"
+                  className="font-medium underline decoration-dashed underline-offset-4 hover:opacity-80"
+                  onClick={onViewDetail}
+                  title={t("accountManager.fingerprint.viewDetailTitle")}
+                >
+                  {summary.storageKeyCount}
+                </button>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">

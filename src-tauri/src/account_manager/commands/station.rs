@@ -1,6 +1,6 @@
 //! Station-owned commands: CRUD, per-station network proxy, deletion and reorder.
 
-use tauri::{AppHandle, Runtime, State};
+use tauri::{AppHandle, Manager, Runtime, State};
 
 use super::shared::{
     deletion_resource, new_id, now_label, remove_station_metadata, reorder_by_ids, trim_or_invalid,
@@ -24,6 +24,31 @@ pub fn get_account_manager_capabilities(
 ) -> AccountManagerCapabilities {
     let keyring_ready = state.ensure_ready().is_ok() && state.master_key().is_ok();
     capabilities::current(keyring_ready)
+}
+
+/// 初始化失败后的显式重试入口（前端加载失败页的「重试」触发）。
+///
+/// 背景：启动时 `init_state` 失败（典型：用户在 macOS 钥匙串授权弹窗点了拒绝）
+/// 后，`ensure_ready()` 令所有命令恒定失败，而 master key 只会在 `init_state`
+/// 内初始化 —— 没有重试入口时钥匙串授权弹窗不会再出现，账号管理功能将永久
+/// 失效直至重启应用。
+///
+/// 幂等护栏：`ensure_ready()` 已通过（初始化正常）时直接返回，不重跑
+/// `init_state`，避免普通加载失败误触发钥匙串弹窗；仅当 `init_error` 置位时
+/// 才重新执行 `init_state`（内部 master key 走 keyring → 重新弹出授权框，
+/// 成功后由 `init_state` 清除 `init_error` 并重建 snapshot）。
+#[tauri::command]
+pub async fn retry_account_manager_init<R: Runtime>(app: AppHandle<R>) -> AccountManagerResult<()> {
+    if app.state::<AccountManagerState>().ensure_ready().is_ok() {
+        return Ok(());
+    }
+    // init_state 含钥匙串 GUI 授权（阻塞至用户响应）与文件 IO，放 blocking 线程。
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AccountManagerState>();
+        crate::account_manager::init_state(&app, &state)
+    })
+    .await
+    .map_err(|error| AccountManagerError::store_fail(format!("join retry init task: {error}")))?
 }
 
 #[tauri::command]

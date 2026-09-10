@@ -201,6 +201,29 @@ export interface LoginFingerprintSummary {
   sampledAt: string
 }
 
+/** 指纹明细 — 单条 cookie 特征(仅形态信息,值永不出后端)。 */
+export interface FingerprintCookieFeature {
+  name: string
+  domain: string
+  path: string
+  httpOnly: boolean
+  valueLen: number
+}
+
+/** 指纹明细 — 单条 storage 键特征(仅键名与值长度)。 */
+export interface FingerprintStorageKeyFeature {
+  key: string
+  valueLen: number
+}
+
+/** 指纹确认弹窗二级明细 — 站点指纹完整特征列表(只读,值不出后端)。 */
+export interface LoginFingerprintDetail {
+  sampledAt: string
+  sampledByAccount: string
+  cookies: FingerprintCookieFeature[]
+  storageKeys: FingerprintStorageKeyFeature[]
+}
+
 /** F2 — 指纹采集返回:特征摘要 + 顺带刷新的 authProfile(一次采样两份画像)。 */
 export interface LoginFingerprintCaptureResult {
   summary: LoginFingerprintSummary

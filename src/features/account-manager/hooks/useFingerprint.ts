@@ -1,6 +1,6 @@
 /**
  * Fingerprint hooks / 登录指纹编排 (F2):
- *   采集 → 打开确认弹窗(展示特征计数+佐证) → 用户确认 → 标记 Ready + 自动刷新该站点。
+ *   采集 → 打开确认弹窗(展示特征计数,可点开二级明细) → 用户确认 → 标记 Ready + 自动刷新该站点。
  * 防重入使用 useGuardedAsync;错误统一走 region error / toast。
  */
 import { useTranslation } from "react-i18next"
@@ -20,6 +20,7 @@ export function useFingerprint({
   const { t } = useTranslation()
   const { pending: capturingFingerprint, run: runCapture } = useGuardedAsync()
   const { pending: confirmingFingerprint, run: runConfirm } = useGuardedAsync()
+  const { pending: loadingFingerprintDetail, run: runDetail } = useGuardedAsync()
 
   /** F2.采集:点击后立即弹窗(后台采样),采样完成更新摘要与站点画像。 */
   function handleCaptureFingerprint(stationId: string, accountId: string) {
@@ -28,6 +29,8 @@ export function useFingerprint({
       // 先弹窗:用户点击即获得反馈,弹窗内展示「采样中」,避免等窗口加载才响应。
       s.setFingerprintTarget({ stationId, accountId })
       s.setFingerprintSummary(null)
+      s.setFingerprintDetail(null)
+      s.setFingerprintDetailOpen(false)
       s.setFingerprintConfirmOpen(true)
       try {
         const result = await accountManagerUseCases.captureLoginFingerprint(stationId, accountId)
@@ -66,6 +69,25 @@ export function useFingerprint({
     })
   }
 
+  /** F2.明细:立即打开二级弹窗(展示 loading),后台拉取指纹特征明细(值不出后端)。 */
+  function handleViewFingerprintDetail() {
+    return runDetail(async () => {
+      const s = useAccountManagerStore.getState()
+      const target = s.fingerprintTarget
+      if (!target) return
+      s.setFingerprintDetailOpen(true)
+      s.setFingerprintDetail(null)
+      try {
+        const detail = await accountManagerUseCases.getLoginFingerprintDetail(target.stationId)
+        useAccountManagerStore.getState().setFingerprintDetail(detail)
+      } catch (error) {
+        const current = useAccountManagerStore.getState()
+        current.setFingerprintDetailOpen(false)
+        toast.error(translateError(t, error, t("accountManager.toasts.fingerprintDetailFailed")))
+      }
+    })
+  }
+
   /** F2.确认:用户显式将当前账号识别为站点活跃状态 → 标记 Ready → 刷新该站点全部账号。 */
   function handleConfirmFingerprint() {
     return runConfirm(async () => {
@@ -78,6 +100,7 @@ export function useFingerprint({
           target.accountId,
         )
         s.setFingerprintConfirmOpen(false)
+        s.setFingerprintDetailOpen(false)
         s.setFingerprintSummary(null)
         s.setFingerprintTarget(null)
         toast.success(t("accountManager.toasts.fingerprintConfirmed"))
@@ -96,7 +119,9 @@ export function useFingerprint({
   return {
     capturingFingerprint,
     confirmingFingerprint,
+    loadingFingerprintDetail,
     handleCaptureFingerprint,
     handleConfirmFingerprint,
+    handleViewFingerprintDetail,
   }
 }
