@@ -13,16 +13,24 @@
 //! 本次没有可注入的内容」，并让用户去浏览器里重新登录再回采。2026-09-10 实测
 //! 18 个账号中 16 个处于这种「状态 Ready 但无会话」的错位。
 //!
-//! 本模块补上缺失的那条路径：**加载该账号的 WebView 档案 → 判定登录态 → 捕获 →
-//! 加密写入 canonical store**。判定与捕获全部复用 probe / keeper 的实现，保证
-//! 同一账号在三条路径下得到一致结论。
+//! 本模块补上缺失的那条路径：**加载该账号的 WebView 档案 → 捕获 → 加密写入
+//! canonical store**。捕获复用 probe / keeper 的同一套实现。
+//!
+//! ## 语义（D-032 修订：无条件全量同步）
+//!
+//! 出向同步是用户的显式动作，且登录判定依赖规则包判据的完备性——对「登录态
+//! 存于域级 cookie + localStorage」的站点（trae），cookie-only / 文本判据会把
+//! 真实登录误判成未登录（实测：探针判 loginRequired 而登录窗口里明明是登录态）。
+//! 因此本通道收敛为 **「S1 忠实镜像 S2 当前状态」**：捕获到什么就写什么，
+//! 不做登录判定闸门；是否真的已登录由用户确认，probe / keeper 稍后用完整 S1
+//! 走 loginCheck 自然得出正确状态。
 //!
 //! ## 纪律
 //!
 //! 1. 写入 canonical store 前一律过 [`super::session_arbitration::arbitrate`]，
 //!    不存在绕过仲裁的静默覆盖。
-//! 2. 只有判定为 `Ready` 才捕获落盘；判定不通过时**不写入**任何数据，避免把
-//!    匿名 cookie 固化成会话。
+//! 2. 捕获为空（cookie 与存储皆无，即档案里从没登录过）→ 不写入，
+//!    返回 `noSessionData`。
 //! 3. 明文会话只在「WebView 进程 → Rust 内存 → 加密 store」之间流转，不进
 //!    renderer、不进日志。
 
@@ -41,16 +49,12 @@ use super::state::{push_account_log, AccountManagerState};
 use super::storage;
 use super::types::{
     AccountLogKind, AccountLogLevel, AccountManagerError, AccountManagerResult, AccountSession,
-    AccountSessionStatus, AccountType, LoginDetectionConfig, LoginFingerprint, SessionOrigin,
-    TokenStorage,
+    AccountSessionStatus, AccountType, SessionOrigin, TokenStorage,
 };
 use super::webview;
 
 /// 页面加载预算（与 probe / keeper 的 15s 对齐）。
 const LOAD_BUDGET: Duration = Duration::from_secs(15);
-/// 指纹轮询参数（与 keeper 一致：6 次 × 500ms）。
-const FINGERPRINT_ATTEMPTS: usize = 6;
-const FINGERPRINT_INTERVAL_MS: u64 = 500;
 
 /// 补采窗口的 label（与 login / probe / keeper 三个 label 互斥）。
 pub fn sync_window_label(account_id: &str) -> String {
@@ -65,9 +69,10 @@ pub struct WebviewSyncOutcome {
     pub recovered: bool,
     pub cookie_count: usize,
     pub storage_origins: usize,
-    /// 本次在 Bench 内置 WebView 中判定出的登录状态。
+    /// 无判定语义（同步不做登录判定，见模块文档），恒为 `Inactive`；
+    /// 保留字段以稳定 DTO 形状。
     pub status: AccountSessionStatus,
-    /// 未采到时的原因：`notLoggedIn` / `noSessionData` / `conflict`。
+    /// 未采到时的原因：`noSessionData` / `conflict`。
     pub reason: Option<String>,
 }
 
@@ -82,10 +87,8 @@ pub struct RecoveredSession {
 /// 一次补采所需的站点上下文（从快照取值后立即释放快照锁）。
 struct SyncContext {
     website: String,
-    login_detection: LoginDetectionConfig,
     proxy_url: Option<String>,
     requires_indexed_db: bool,
-    fingerprint: Option<LoginFingerprint>,
     persistent: bool,
 }
 
@@ -94,8 +97,8 @@ struct SyncContext {
 /// - 用户正开着该账号的登录窗口 → 直接在那个窗口采集（零额外加载，最贴近用户所见）；
 /// - 否则建一个**隐藏**的一次性窗口加载站点，采集后立即关闭。
 ///
-/// 只有判定为 `Ready` 才落盘；其余情况返回 `recovered = false` 与具体原因，
-/// 由调用方向用户交代「为什么没有可注入的内容」。
+/// **无条件全量同步**（D-032）：不做登录判定闸门，捕获到什么就写什么；
+/// 只有捕获为空（档案里从没登录过）才返回 `recovered = false`。
 pub async fn sync_from_account_profile<R: Runtime>(
     app: &AppHandle<R>,
     state: &AccountManagerState,
@@ -118,13 +121,11 @@ pub async fn sync_from_account_profile<R: Runtime>(
         let proxy_url = super::commands::build_proxy_url_for_station(app, station)?;
         SyncContext {
             website: station.website.clone(),
-            login_detection: station.login_detection.clone(),
             proxy_url,
             requires_indexed_db: station
                 .auth_profile
                 .as_ref()
                 .is_some_and(|profile| profile.token_storage == TokenStorage::IndexedDB),
-            fingerprint: snapshot.fingerprints.get(&station.id).cloned(),
             persistent: account.account_type == AccountType::Persistent,
         }
     };
@@ -221,7 +222,20 @@ async fn build_sync_window<R: Runtime>(
     Ok(window)
 }
 
-/// 判定窗口中的登录态，并在 `Ready` 时仲裁、加密落盘。
+/// 把窗口中的账号档案**无条件全量同步**进 canonical store（仲裁后）。
+///
+/// ## 为什么不再做登录判定闸门（D-032）
+///
+/// 出向同步是用户的显式动作（「把当前登录态搬出去」），且「是否登录」的判定
+/// 依赖规则包判据的完备性——对 trae 这类「登录态存于域级 cookie + localStorage」
+/// 的站点，任何 cookie-only / 文本判据都可能把真实登录误判成未登录（2026-09-10
+/// 实测：探针判 loginRequired 而登录窗口里明明是登录态，根因是 S1 历史残缺数据
+/// 放大了判据缺陷）。因此本通道语义收敛为 **「S1 忠实镜像 S2 当前状态」**：
+/// 捕获到什么就写什么，是否真的已登录由用户自己确认；探针/keeper 稍后用完整
+/// S1 数据走 loginCheck 自然得出正确状态。
+///
+/// 捕获为空（cookie 与存储皆无，即档案里从没登录过）→ 不写入，返回
+/// `noSessionData`。仲裁纪律不变：S1 已有更新会话时 `Conflict` 不覆盖。
 async fn recover_from_window<R: Runtime>(
     app: &AppHandle<R>,
     state: &AccountManagerState,
@@ -231,10 +245,6 @@ async fn recover_from_window<R: Runtime>(
 ) -> AccountManagerResult<RecoveredSession> {
     let existing = session::restore_session(state, account_id)?;
 
-    // **先捕获再判定**：判定必须看到真实凭证（.trae.cn 这类域级登录 cookie、
-    // localStorage token）。trae 类 SPA 的同构 shell 无文本区分度，若先按文本
-    // 猜测再捕获，会把「残缺数据 + 错误判定」一起固化进 S1（2026-09-10 实测：
-    // 探针判 loginRequired 而登录窗口里明明是登录态，根因即此顺序）。
     let captured = match session::capture_session_from_window(
         window,
         state,
@@ -252,28 +262,13 @@ async fn recover_from_window<R: Runtime>(
                     recovered: false,
                     cookie_count: 0,
                     storage_origins: 0,
-                    status: AccountSessionStatus::FetchFailed,
+                    status: AccountSessionStatus::Inactive,
                     reason: Some("noSessionData".to_string()),
                 },
                 session: existing,
             });
         }
     };
-
-    let status = classify_login_state(app, context, window, Some(&captured)).await?;
-
-    if status != AccountSessionStatus::Ready {
-        return Ok(RecoveredSession {
-            outcome: WebviewSyncOutcome {
-                recovered: false,
-                cookie_count: captured.cookies.len(),
-                storage_origins: captured.origins.len(),
-                status,
-                reason: Some(failure_reason(status).to_string()),
-            },
-            session: existing,
-        });
-    }
 
     let captured_ts = captured
         .captured_at_ts
@@ -286,7 +281,7 @@ async fn recover_from_window<R: Runtime>(
                 recovered: false,
                 cookie_count: captured.cookies.len(),
                 storage_origins: captured.origins.len(),
-                status,
+                status: AccountSessionStatus::Inactive,
                 reason: Some("conflict".to_string()),
             },
             session: existing,
@@ -314,10 +309,8 @@ async fn recover_from_window<R: Runtime>(
                 "account {account_id}"
             )));
         };
-        // 捕获与判定都在 Bench 内置 WebView 里完成（等价于一次 webview 层探测），
-        // 因此这里直接采信判定结果，无需再开 probe 窗口二次验证。
-        account.status = status;
-        account.status_reason = None;
+        // 刻意**不改账号状态**：同步是数据搬运，不是登录判定（见函数文档）；
+        // probe / keeper 稍后用这份完整 S1 走 loginCheck 自然得出正确状态。
         let now = super::commands::now_label();
         account.last_login_at = Some(now.clone());
         account.last_refreshed_at = Some(now.clone());
@@ -357,70 +350,11 @@ async fn recover_from_window<R: Runtime>(
             recovered: true,
             cookie_count,
             storage_origins,
-            status,
+            status: AccountSessionStatus::Inactive,
             reason: None,
         },
         session: Some(session),
     })
-}
-
-/// 判定窗口中的登录态（与 keeper 同一套证据链，外加规则包 loginCheck）。
-///
-/// 证据优先级：指纹全缺失确定性短路（强否定）→ **规则包 loginCheck（强判据，
-/// 用刚捕获的真实凭证请求站点自己的鉴权接口）** → 文本/规则包分类（弱兜底）。
-///
-/// loginCheck 必须用**本次捕获**的 cookie 而非 S1：S1 可能是历史残缺采集
-///（缺域级登录 cookie），用它跑 CheckLogin 会把「数据残缺」误判成「未登录」
-///（trae 实测误判根因）；而捕获窗口读的是账号档案里的真实登录态。
-/// 文本分类无结论（页面无响应）→ `FetchFailed`，**不**退化为「cookie 非空」——
-/// 那会把匿名 cookie 固化成会话。
-async fn classify_login_state<R: Runtime>(
-    app: &AppHandle<R>,
-    context: &SyncContext,
-    window: &WebviewWindow<R>,
-    captured: Option<&AccountSession>,
-) -> AccountManagerResult<AccountSessionStatus> {
-    if let Some(fingerprint) = context.fingerprint.as_ref().filter(|fp| !fp.is_empty()) {
-        if !super::fingerprint::wait_for_any_feature_present(
-            window,
-            &context.website,
-            fingerprint,
-            FINGERPRINT_ATTEMPTS,
-            FINGERPRINT_INTERVAL_MS,
-        )
-        .await?
-        {
-            return Ok(AccountSessionStatus::LoginRequired);
-        }
-    }
-
-    let rule = crate::account_manager::login_rules::resolve(app, &context.website).await;
-    if let Some(resolved) = rule.as_ref() {
-        if let Some(check) = resolved.doc.detection.login_check.as_ref() {
-            if let Some(status) =
-                super::probe::run_login_check(check, captured, context.proxy_url.as_deref()).await
-            {
-                return Ok(status);
-            }
-        }
-    }
-
-    Ok(probe::poll_effective_classification(
-        &context.login_detection,
-        rule.as_ref().map(|resolved| &resolved.doc),
-        window,
-    )
-    .await
-    .unwrap_or(AccountSessionStatus::FetchFailed))
-}
-
-/// 判定失败时给前端的原因枚举。
-fn failure_reason(status: AccountSessionStatus) -> &'static str {
-    match status {
-        AccountSessionStatus::Ready => "notLoggedIn",
-        AccountSessionStatus::FetchFailed => "noSessionData",
-        _ => "notLoggedIn",
-    }
 }
 
 #[cfg(test)]
@@ -438,24 +372,6 @@ mod tests {
         assert_ne!(
             sync_window_label("acct-1"),
             super::super::session_keeper::keeper_window_label("acct-1")
-        );
-    }
-
-    #[test]
-    fn failure_reason_maps_status_to_stable_code() {
-        assert_eq!(
-            failure_reason(AccountSessionStatus::LoginRequired),
-            "notLoggedIn"
-        );
-        assert_eq!(failure_reason(AccountSessionStatus::Expired), "notLoggedIn");
-        assert_eq!(
-            failure_reason(AccountSessionStatus::Inactive),
-            "notLoggedIn"
-        );
-        // 页面无响应 ≠ 未登录：区分开，便于前端给不同提示。
-        assert_eq!(
-            failure_reason(AccountSessionStatus::FetchFailed),
-            "noSessionData"
         );
     }
 }

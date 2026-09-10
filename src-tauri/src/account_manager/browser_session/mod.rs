@@ -393,6 +393,15 @@ pub async fn sync_to_daily_browser<R: Runtime>(
     let installation = browser::find(browser_id.as_deref()).ok_or_else(|| {
         AccountManagerError::invalid_input("NO_CHROMIUM_BROWSER: no supported browser installed")
     })?;
+    // 登记自动注入任务（D-032）：扩展在站点页加载完成后取走并自动完成注入
+    // （Cookie + Web Storage）。登记在打开站点**之前**，保证页面加载完成时
+    // 任务已可见。10 分钟未认领自动过期；注入成功由扩展显式确认完成。
+    // 任务 origin 取 canonical origin，与扩展侧 `new URL(tab.url).origin` 对齐。
+    let target_origin = url::Url::parse(&context.station.website)
+        .ok()
+        .map(|parsed| parsed.origin().ascii_serialization())
+        .unwrap_or_else(|| context.station.website.clone());
+    super::browser_bridge::register_pending_inject(account_id, &target_origin);
     open_url_in_daily_browser(&installation, &context.station.website)?;
 
     let cookie_count = session.cookies.len();

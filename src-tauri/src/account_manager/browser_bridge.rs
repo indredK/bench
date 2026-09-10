@@ -413,6 +413,12 @@ async fn dispatch<R: Runtime>(
             browser_session::export_for_extension(&state, &account_id, &body)
                 .map_err(|error| BridgeError::Failed(error.message()))
         }
+        ("POST", "/v1/tasks/pending") => Ok(pending_inject_tasks()),
+        ("POST", "/v1/tasks/complete") => {
+            let origin = require_str(&body, "origin")?;
+            complete_pending_inject(&origin);
+            Ok(json!({ "outcome": "completed" }))
+        }
         ("GET", _) | ("POST", _) => Err(BridgeError::NotFound),
         _ => Err(BridgeError::MethodNotAllowed),
     }
@@ -423,6 +429,62 @@ fn require_str(body: &Value, key: &str) -> Result<String, BridgeError> {
         .and_then(Value::as_str)
         .map(str::to_string)
         .ok_or_else(|| BridgeError::BadRequest(format!("MISSING_PARAM: {key}")))
+}
+
+// ═══════════════════════════════════════════════
+// 「自动注入」任务队列（D-032）：Bench 点「同步到日常浏览器」时登记，
+// 扩展在站点页加载完成后取走并自动完成注入（含 Cookie + Web Storage）。
+//
+// 只放内存（Bench 重启即清）、只含 accountId + origin（**不含任何凭据**，
+// 凭据仍走 /v1/session/export 经 token+Origin 双校验获取）；10 分钟未被
+// 认领视为过期，避免扩展长期离线时堆积陈旧任务。
+// ═══════════════════════════════════════════════
+
+/// 任务有效期：超过即视为扩展不再在线，丢弃。
+const PENDING_TASK_TTL_SECS: i64 = 600;
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PendingInjectTask {
+    pub account_id: String,
+    pub origin: String,
+    pub created_at_ts: i64,
+}
+
+fn pending_table() -> &'static std::sync::Mutex<Vec<PendingInjectTask>> {
+    static PENDING: std::sync::OnceLock<std::sync::Mutex<Vec<PendingInjectTask>>> =
+        std::sync::OnceLock::new();
+    PENDING.get_or_init(|| std::sync::Mutex::new(Vec::new()))
+}
+
+/// 登记一条待自动注入任务（同 origin 幂等：重复登记只刷新账号与时间戳）。
+pub fn register_pending_inject(account_id: &str, origin: &str) {
+    let Ok(mut guard) = pending_table().lock() else {
+        return;
+    };
+    guard.retain(|task| task.origin != origin);
+    guard.push(PendingInjectTask {
+        account_id: account_id.to_string(),
+        origin: origin.to_string(),
+        created_at_ts: chrono::Utc::now().timestamp(),
+    });
+}
+
+/// 未过期任务快照（不删除；由 `/v1/tasks/complete` 显式确认完成）。
+fn pending_inject_tasks() -> Value {
+    let now = chrono::Utc::now().timestamp();
+    let Ok(mut guard) = pending_table().lock() else {
+        return json!([]);
+    };
+    guard.retain(|task| now - task.created_at_ts <= PENDING_TASK_TTL_SECS);
+    json!(guard.clone())
+}
+
+/// 标记某 origin 的任务已完成（注入成功或用户手动处理）。
+fn complete_pending_inject(origin: &str) {
+    if let Ok(mut guard) = pending_table().lock() {
+        guard.retain(|task| task.origin != origin);
+    }
 }
 
 #[cfg(test)]

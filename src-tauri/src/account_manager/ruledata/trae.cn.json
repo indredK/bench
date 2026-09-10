@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "id": "trae.cn",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "title": "Trae 云端 IDE",
-  "description": "使用 Trae 官方鉴权接口 CheckLogin 判定登录态（匿名可访问，凭证走 .trae.cn 域 cookie，跨子域自动携带；接口仅接受 POST）。SPA 同构 shell 无文本区分度，故不提供 fallback。",
+  "description": "使用 Trae 官方鉴权接口 CheckLogin 判定登录态（匿名可访问，接口仅接受 POST，判定字段 Result.IsLogin）。鉴权为纯 cookie 型：依赖字节系 passport 会话 cookie（sessionid/sid_guard/sid_tt/ttwid 等，写在 .trae.cn 域，跨子域自动携带），宿主探针请求 api.trae.cn 时由 cookie domain-match 自动携带。2026-09-10 实测：Authorization Bearer / Cloud-IDE-JWT 头携带 localStorage Cloud-IDE-Token 均不被该接口接受（IsLogin 恒 false），探针勿改走 token 头。前置条件：宿主会话捕获必须包含可注册域级（.trae.cn）cookie——wry cookies_for_url 为精确 domain 匹配会漏掉域级 cookie，捕获层须用全量 cookies() + RFC6265 domain-match 自行过滤；SPA 同构 shell 无文本区分度，故不提供 fallback。",
   "match": {
     "registrableDomain": "trae.cn",
     "hosts": ["www.trae.cn", "api.trae.cn"]
