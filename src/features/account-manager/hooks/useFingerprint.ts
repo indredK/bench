@@ -11,7 +11,12 @@ import { useAccountManagerStore } from "@/features/account-manager/store"
 import { useGuardedAsync } from "@/hooks/useGuardedAsync"
 import { translateError } from "@/lib/tauri/errors"
 
-export function useFingerprint() {
+export function useFingerprint({
+  refreshStation,
+}: {
+  /** 站点刷新入口(复用刷新编排,自带 loading 状态)。确认后据此刷新全组账号。 */
+  refreshStation: (stationId: string) => Promise<unknown>
+}) {
   const { t } = useTranslation()
   const { pending: capturingFingerprint, run: runCapture } = useGuardedAsync()
   const { pending: confirmingFingerprint, run: runConfirm } = useGuardedAsync()
@@ -61,7 +66,7 @@ export function useFingerprint() {
     })
   }
 
-  /** F2.确认:用户显式将当前账号识别为站点活跃状态 → 标记 Ready → 按确认刷新该站点全部账号。 */
+  /** F2.确认:用户显式将当前账号识别为站点活跃状态 → 标记 Ready → 刷新该站点全部账号。 */
   function handleConfirmFingerprint() {
     return runConfirm(async () => {
       const s = useAccountManagerStore.getState()
@@ -76,27 +81,12 @@ export function useFingerprint() {
         s.setFingerprintSummary(null)
         s.setFingerprintTarget(null)
         toast.success(t("accountManager.toasts.fingerprintConfirmed"))
-        // 根据用户的确定,刷新该站点全部账号:目标账号保持 Ready(用 updated 覆盖刷新结果),
-        // 其余账号按 L0 指纹预检判定 —— 指纹缺失者确定性判未登录。
-        const report = await accountManagerUseCases.refreshStation(target.stationId)
-        const byId = new Map(report.succeeded.map((a) => [a.id, a] as const))
-        byId.set(updated.id, updated)
+        // 根据用户的确定,刷新该站点全部账号(刷新按钮进入 loading 态)。
+        // 目标账号保持 Ready(用 updated 覆盖刷新结果),其余账号按指纹判定。
+        await refreshStation(target.stationId)
         useAccountManagerStore
           .getState()
-          .setAccounts((prev) => prev.map((a) => byId.get(a.id) ?? a))
-        if (report.failed.length > 0) {
-          useAccountManagerStore.getState().setRegionError(
-            "account",
-            makeRegionError(
-              { code: "PARTIAL_REFRESH", message: "" },
-              "accountManager.errors.partialRefresh",
-              {
-                values: { failed: report.failed.length, total: report.total },
-                retry: () => handleConfirmFingerprint(),
-              },
-            ),
-          )
-        }
+          .setAccounts((prev) => prev.map((a) => (a.id === updated.id ? updated : a)))
       } catch (error) {
         toast.error(translateError(t, error, t("accountManager.toasts.fingerprintConfirmFailed")))
       }

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Deserializer, Serialize};
 
 use super::crypto::EncryptedBlob;
@@ -425,8 +427,8 @@ impl Default for LoginDetectionConfig {
 // 登录指纹（F2）— 站点级登录态特征（不含任何值）
 // ═══════════════════════════════════════════════
 
-/// 单条 cookie 特征：只记录 name/domain/path/httpOnly，**绝不记录值**。
-/// 值随会话变化且敏感；指纹只用于登录态存在性判定。
+/// 单条 cookie 特征：记录 name/domain/path/httpOnly 与**值的形态**（长度）。
+/// **绝不记录值本身**；`value_len` 用于区分「长串密钥的登录态」与「短占位/空的未登录态」。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CookieFeature {
@@ -434,21 +436,25 @@ pub struct CookieFeature {
     pub domain: String,
     pub path: String,
     pub http_only: bool,
+    /// 采样时该 cookie 值的字符数（形态特征）。0 = 旧数据未记录，不校验长度。
+    #[serde(default)]
+    pub value_len: usize,
 }
 
 /// 站点级登录指纹：登录态的确定性证据集合。
 ///
-/// - `cookie_features`: 采样时页面域下的 cookie 特征（name/domain/path）。
+/// - `cookie_features`: 采样时页面域下的 cookie 特征（name/domain/path + 值长度）。
 /// - `storage_keys`: localStorage/sessionStorage 中与登录态相关的键名
 ///   （token/auth/session/jwt/access/id_token/refresh 正则命中）。
+/// - `storage_key_lens`: 上述键在采样时的值长度（形态特征）。
 /// - `sampled_at`: 采样时刻（`%Y-%m-%d %H:%M`，本地）。
 /// - `sampled_by_account`: 采样时处于登录态的账号 id（元信息，不进日志）。
 ///
-/// 判定原则（probe L0 预检，两路只做「特征全缺失」短路）：
-/// - 全部特征缺失 → 确定性未登录（LoginRequired / 已确认未登录）。
-/// - 至少一项存在 → 疑似已登录，仍需原 L1/L2 探针验证。
+/// 判定原则（probe L0 预检，两路只做「特征全缺失/形态不符」短路）：
+/// - 特征缺失或值长度与采样形态不符（如短占位 cookie）→ 确定性未登录。
+/// - 至少一项特征存在且值形态匹配（长串密钥）→ 判定已登录。
 ///
-/// 安全边界：完整指纹（特征名列表）只存 Rust 侧 snapshot（`fingerprints` map，
+/// 安全边界：完整指纹（特征名 + 值长度）只存 Rust 侧 snapshot（`fingerprints` map，
 /// 不入 RelayStation DTO）；IPC 只暴露 `LoginFingerprintInfo` 摘要。
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -457,6 +463,9 @@ pub struct LoginFingerprint {
     pub cookie_features: Vec<CookieFeature>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub storage_keys: Vec<String>,
+    /// storage 键对应的采样值长度（key → len）。旧数据无此字段时不校验长度。
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub storage_key_lens: HashMap<String, usize>,
     #[serde(default)]
     pub sampled_at: String,
     #[serde(default)]

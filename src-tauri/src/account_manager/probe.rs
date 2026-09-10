@@ -473,9 +473,7 @@ pub async fn run_probe<R: Runtime>(
             if wait_for_storage_restore {
                 super::browser_storage::wait_for_restore(&window).await?;
             }
-            // L0b 预检（WebView 路径）：以采样指纹为登录态证据——
-            // 指纹任一特征存在 → 判定已登录(用户采样确认的站点特征,信任之);
-            // 指纹全部缺失 → 确定性未登录。均无需再走文本分类。
+            // L0b 预检（WebView 路径）：以采样指纹为登录态证据（含值形态匹配）——
             // 轮询等待特征就绪(SPA 延迟写 cookie/localStorage)。
             if let Some(fp) = fingerprint {
                 if !fp.is_empty() {

@@ -151,7 +151,12 @@ export function useAccountManagerController() {
   const accountActions = useAccountActions({ loadInitialData })
   const dataPorting = useDataPorting()
   const sessionKeeper = useSessionKeeper()
-  const fingerprint = useFingerprint()
+  /** 指纹确认后刷新全组:复用刷新编排(自带 loading),包装为可 await 的 Promise。 */
+  const refreshStationForFingerprint = useCallback(
+    (stationId: string) => Promise.resolve(refresh.handleRefreshStation(stationId)),
+    [refresh],
+  )
+  const fingerprint = useFingerprint({ refreshStation: refreshStationForFingerprint })
   const { readQuickLoginHistory } = useQuickLoginHistory()
 
   const selectedStation = useMemo(

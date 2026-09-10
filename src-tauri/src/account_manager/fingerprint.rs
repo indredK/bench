@@ -13,31 +13,35 @@ use super::types::*;
 /// 写入 `StationAccount.status_reason`，前端徽标据此显示 tooltip 来源。
 pub const FINGERPRINT_MISSING_REASON: &str = "fingerprintMissing";
 
-/// 采集 storage 键名的 JS：token/auth/session/jwt/access/id_token/refresh 命中的
-/// localStorage + sessionStorage 键（去重），并返回采样页是否存在登出元素（登录佐证）。
+/// 采集 storage 键名与值长度的 JS：token/auth/session/jwt/access/id_token/refresh 命中的
+/// localStorage + sessionStorage 键（去重，附值长度作形态特征），
+/// 并返回采样页是否存在登出元素（登录佐证）。
 const CAPTURE_STORAGE_SCRIPT: &str = r#"
 (function() {
   'use strict';
   var re = /token|auth|session|jwt|access|id_token|refresh/i;
-  function keysOf(store) {
+  function entriesOf(store) {
     var out = [];
     try {
       var raw = Object.keys(store);
       for (var i = 0; i < raw.length; i++) {
-        if (re.test(raw[i])) out.push(raw[i]);
+        if (re.test(raw[i])) {
+          var v = store.getItem(raw[i]);
+          out.push({ k: raw[i], l: v ? String(v).length : 0 });
+        }
       }
     } catch (e) {}
     return out;
   }
   var all = [];
-  try { all = all.concat(keysOf(localStorage)); } catch (e) {}
-  try { all = all.concat(keysOf(sessionStorage)); } catch (e) {}
+  try { all = all.concat(entriesOf(localStorage)); } catch (e) {}
+  try { all = all.concat(entriesOf(sessionStorage)); } catch (e) {}
   var seen = {};
-  all = all.filter(function(k) { return seen[k] ? false : (seen[k] = true); });
+  all = all.filter(function(e) { return seen[e.k] ? false : (seen[e.k] = true); });
   var logout = !!document.querySelector(
     'a[href*="logout"], a[href*="signout"], a[href*="sign-out"], button[data-testid="logout"], [aria-label*="logout"], [data-action="logout"]'
   );
-  return JSON.stringify({ keys: all, logout: logout });
+  return JSON.stringify({ entries: all, logout: logout });
 })()
 "#;
 
@@ -70,19 +74,27 @@ pub(crate) async fn capture_from_window<R: Runtime>(
             domain: c.domain().unwrap_or(&capture_host).to_string(),
             path: c.path().unwrap_or("/").to_string(),
             http_only: c.http_only().unwrap_or(false),
+            value_len: c.value().len(),
         })
         .collect::<Vec<_>>();
 
     let mut storage_keys: Vec<String> = Vec::new();
+    let mut storage_key_lens: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
     let mut logout_evidence = false;
     let raw = evaluate_js(window, CAPTURE_STORAGE_SCRIPT).await;
     if let Ok(payload) = raw {
         if let Ok(value) = serde_json::from_str::<serde_json::Value>(&payload) {
-            if let Some(keys) = value.get("keys").and_then(|v| v.as_array()) {
-                storage_keys = keys
-                    .iter()
-                    .filter_map(|k| k.as_str().map(|s| s.to_string()))
-                    .collect();
+            if let Some(entries) = value.get("entries").and_then(|v| v.as_array()) {
+                for entry in entries {
+                    if let Some(key) = entry.get("k").and_then(|k| k.as_str()) {
+                        storage_keys.push(key.to_string());
+                        storage_key_lens.insert(
+                            key.to_string(),
+                            entry.get("l").and_then(|l| l.as_u64()).unwrap_or(0) as usize,
+                        );
+                    }
+                }
             }
             logout_evidence = value
                 .get("logout")
@@ -94,6 +106,7 @@ pub(crate) async fn capture_from_window<R: Runtime>(
     let fingerprint = LoginFingerprint {
         cookie_features,
         storage_keys,
+        storage_key_lens,
         sampled_at: super::commands::now_label(),
         sampled_by_account: account_id.to_string(),
     };
@@ -103,10 +116,20 @@ pub(crate) async fn capture_from_window<R: Runtime>(
     })
 }
 
-/// 在线判定：窗口当前是否仍具备指纹中的任一特征。
-/// - 任一 cookie 特征匹配（name 为主，domain/path 宽松）→ true。
-/// - 任一 storage 键名匹配 → true。
-/// - 全部缺失 → false。
+/// 值形态匹配：当前值长度与采样值长度同量级（≥ 采样的一半，至少 4 字符）。
+/// 用于区分「长串密钥的登录态」与「短占位/空的未登录态」。
+/// sample_len == 0 表示旧数据未记录长度，不校验（保持兼容）。
+pub(crate) fn value_shape_matches(sample_len: usize, current_len: usize) -> bool {
+    if sample_len == 0 {
+        return true;
+    }
+    current_len >= sample_len / 2 && current_len >= 4
+}
+
+/// 在线判定：窗口当前是否仍具备指纹中的任一特征（含值形态匹配）。
+/// - 任一 cookie 特征：name/domain 匹配 且 值长度与采样同量级 → true。
+/// - 任一 storage 键：键名匹配 且 值长度与采样同量级 → true。
+/// - 全部缺失或形态不符（短占位/空）→ false。
 pub(crate) async fn any_feature_present_in_window<R: Runtime>(
     window: &WebviewWindow<R>,
     target_url: &str,
@@ -128,12 +151,13 @@ pub(crate) async fn any_feature_present_in_window<R: Runtime>(
             if c.name() != feature.name {
                 return false;
             }
-            if c.domain().is_some() {
+            let domain_ok = if c.domain().is_some() {
                 c.domain().unwrap_or("") == feature.domain
             } else {
                 // host-only：采样时以 capture_host 存储，此处域名相同或为空均视为等同。
                 feature.domain == capture_host || feature.domain.is_empty()
-            }
+            };
+            domain_ok && value_shape_matches(feature.value_len, c.value().len())
         });
         if matched {
             return Ok(true);
@@ -144,12 +168,20 @@ pub(crate) async fn any_feature_present_in_window<R: Runtime>(
         let payload = evaluate_js(window, CAPTURE_STORAGE_SCRIPT).await;
         if let Ok(payload) = payload {
             if let Ok(value) = serde_json::from_str::<serde_json::Value>(&payload) {
-                if let Some(keys) = value.get("keys").and_then(|v| v.as_array()) {
-                    let present: Vec<&str> = keys.iter().filter_map(|k| k.as_str()).collect();
-                    let any = fingerprint
-                        .storage_keys
-                        .iter()
-                        .any(|wanted| present.contains(&wanted.as_str()));
+                if let Some(entries) = value.get("entries").and_then(|v| v.as_array()) {
+                    let any = fingerprint.storage_keys.iter().any(|wanted| {
+                        entries.iter().any(|entry| {
+                            entry.get("k").and_then(|k| k.as_str()) == Some(wanted.as_str())
+                                && value_shape_matches(
+                                    fingerprint
+                                        .storage_key_lens
+                                        .get(wanted)
+                                        .copied()
+                                        .unwrap_or(0),
+                                    entry.get("l").and_then(|l| l.as_u64()).unwrap_or(0) as usize,
+                                )
+                        })
+                    });
                     if any {
                         return Ok(true);
                     }
@@ -178,7 +210,7 @@ pub(crate) async fn wait_for_any_feature_present<R: Runtime>(
     Ok(false)
 }
 
-/// L0a 判定（HTTP 路径）：恢复的 canonical session 是否缺失全部指纹特征。
+/// L0a 判定（HTTP 路径）：恢复的 canonical session 是否缺失全部指纹特征（含值形态）。
 ///
 /// 保守边界：storage 键名在恢复 session 中为密文、无法轻量核对，
 /// 因此只要指纹含 storage 键即视为「可能存在」不短路；
@@ -191,10 +223,12 @@ pub(crate) fn all_features_missing_from_session(
         return false;
     }
     fingerprint.cookie_features.iter().all(|feature| {
-        !session
-            .cookies
-            .iter()
-            .any(|c| c.name == feature.name && c.domain == feature.domain && c.path == feature.path)
+        !session.cookies.iter().any(|c| {
+            c.name == feature.name
+                && c.domain == feature.domain
+                && c.path == feature.path
+                && value_shape_matches(feature.value_len, c.value.len())
+        })
     })
 }
 
@@ -229,25 +263,40 @@ mod tests {
             domain: domain.into(),
             path: path.into(),
             http_only: false,
+            value_len: 0,
+        }
+    }
+
+    fn feature_len(name: &str, domain: &str, path: &str, value_len: usize) -> CookieFeature {
+        CookieFeature {
+            name: name.into(),
+            domain: domain.into(),
+            path: path.into(),
+            http_only: false,
+            value_len,
+        }
+    }
+
+    fn cookie(name: &str, domain: &str, value: &str) -> super::super::types::CookieEntry {
+        super::super::types::CookieEntry {
+            name: name.into(),
+            value: value.into(),
+            domain: domain.into(),
+            host_only: false,
+            path: "/".into(),
+            http_only: false,
+            secure: true,
+            same_site: None,
+            partitioned: false,
+            expires: None,
+            expires_at_ts: None,
         }
     }
 
     #[test]
     fn missing_when_all_cookie_features_absent() {
         let session = AccountSession {
-            cookies: vec![super::super::types::CookieEntry {
-                name: "other".into(),
-                value: "v".into(),
-                domain: "example.com".into(),
-                host_only: false,
-                path: "/".into(),
-                http_only: false,
-                secure: true,
-                same_site: None,
-                partitioned: false,
-                expires: None,
-                expires_at_ts: None,
-            }],
+            cookies: vec![cookie("other", "example.com", "v")],
             ..Default::default()
         };
         let fp = LoginFingerprint {
@@ -261,19 +310,7 @@ mod tests {
     #[test]
     fn present_when_any_cookie_feature_matches() {
         let session = AccountSession {
-            cookies: vec![super::super::types::CookieEntry {
-                name: "sid".into(),
-                value: "v".into(),
-                domain: "example.com".into(),
-                host_only: false,
-                path: "/".into(),
-                http_only: true,
-                secure: true,
-                same_site: None,
-                partitioned: false,
-                expires: None,
-                expires_at_ts: None,
-            }],
+            cookies: vec![cookie("sid", "example.com", "v")],
             ..Default::default()
         };
         let fp = LoginFingerprint {
@@ -282,6 +319,47 @@ mod tests {
             ..Default::default()
         };
         assert!(!all_features_missing_from_session(&session, &fp));
+    }
+
+    #[test]
+    fn short_placeholder_value_does_not_match_long_key_shape() {
+        // 采样值 48 字符(长串密钥);当前同名 cookie 仅 2 字符占位 → 形态不符,视为缺失。
+        let session = AccountSession {
+            cookies: vec![cookie("sid", "example.com", "x")],
+            ..Default::default()
+        };
+        let fp = LoginFingerprint {
+            cookie_features: vec![feature_len("sid", "example.com", "/", 48)],
+            storage_keys: vec![],
+            ..Default::default()
+        };
+        assert!(all_features_missing_from_session(&session, &fp));
+    }
+
+    #[test]
+    fn long_key_value_matches_shape() {
+        let long_token = "abcdef0123456789abcdef0123456789"; // 32 chars
+        let session = AccountSession {
+            cookies: vec![cookie("sid", "example.com", long_token)],
+            ..Default::default()
+        };
+        let fp = LoginFingerprint {
+            cookie_features: vec![feature_len("sid", "example.com", "/", 40)],
+            storage_keys: vec![],
+            ..Default::default()
+        };
+        // 32 >= 40/2=20 且 >=4 → 形态匹配 → 非缺失。
+        assert!(!all_features_missing_from_session(&session, &fp));
+    }
+
+    #[test]
+    fn value_shape_matches_requires_minimum_and_half() {
+        assert!(value_shape_matches(0, 0)); // 旧数据不校验
+        assert!(value_shape_matches(40, 20)); // 正好一半
+        assert!(value_shape_matches(40, 24));
+        assert!(!value_shape_matches(40, 19)); // 不足一半
+        assert!(!value_shape_matches(40, 3)); // 低于最小 4
+        assert!(!value_shape_matches(40, 0)); // 空值
     }
 
     #[test]

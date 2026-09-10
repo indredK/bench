@@ -338,8 +338,7 @@ async fn silent_refresh_leader<R: Runtime>(
             if wait_for_storage_restore {
                 super::browser_storage::wait_for_restore(&window).await?;
             }
-            // L0b 预检（keeper 路径）：以采样指纹为登录态证据——
-            // 任一特征存在 → Ready(重新捕获 session);全部缺失 → 确定性未登录。
+            // L0b 预检（keeper 路径）：以采样指纹为登录态证据（含值形态匹配）——
             // 轮询等待特征就绪(SPA 延迟写 cookie/localStorage)。
             match fingerprint.as_ref() {
                 Some(fp) if !fp.is_empty() => {
