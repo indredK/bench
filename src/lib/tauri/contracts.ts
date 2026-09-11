@@ -1723,6 +1723,7 @@ export const TAURI_EVENTS = {
   },
   accountManager: {
     authProxyPending: "account-manager:auth-proxy-pending",
+    storeChanged: "account-manager:store-changed",
   },
   networkProbe: {
     healthItem: "network-probe:health-item",
@@ -1742,6 +1743,18 @@ export type TauriEventName =
 
 // keep payload map in sync below
 
+/** 扩展桥写入后由后端下发的存储变更负载（`account-manager:store-changed`）。 */
+export interface StoreChangedEventPayload {
+  /** 被写入数据的站点/账号 id：前端重载后可把选中项跳过去。 */
+  stationId: string
+  accountId: string
+  stationRemark: string
+  cookieCount: number
+  createdStation: boolean
+  createdAccount: boolean
+  saved: boolean
+}
+
 export interface TauriEventContracts {
   "app-updater-download": AppUpdateDownloadEvent
   "env-scan-done": EnvScanDonePayload
@@ -1757,6 +1770,7 @@ export interface TauriEventContracts {
   "photo-triage:scan-done": ScanStatus
   "show-close-behavior-dialog": void
   "account-manager:auth-proxy-pending": AuthProxyInboxStatus
+  "account-manager:store-changed": StoreChangedEventPayload
   "network-probe:health-item": HealthCheckItem
   "network-probe:traceroute-hop": TracerouteHop
   "network-probe:scan-session": ScanSessionEvent

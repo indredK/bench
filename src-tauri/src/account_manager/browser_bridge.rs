@@ -380,6 +380,17 @@ fn authorize(request: &HttpRequest) -> Result<(), String> {
     Ok(())
 }
 
+/// 把主窗口带到前台（与 `deep_link.rs::focus_main_window` 同一套语义：
+/// unminimize → show → set_focus）。
+fn focus_main_window<R: Runtime>(app: &AppHandle<R>) {
+    let Some(window) = app.get_webview_window("main") else {
+        return;
+    };
+    let _ = window.unminimize();
+    let _ = window.show();
+    let _ = window.set_focus();
+}
+
 /// 路由分发。
 async fn dispatch<R: Runtime>(
     app: &AppHandle<R>,
@@ -409,6 +420,12 @@ async fn dispatch<R: Runtime>(
             browser_session::import_from_extension(app, &state, &body)
                 .await
                 .map_err(|error| BridgeError::Failed(error.message()))
+        }
+        ("POST", "/v1/app/show") => {
+            // 扩展保存成功后经通知唤起：把 Bench 主窗口带到前台（unminimize + show + focus）。
+            // 复用 deep-link 同一套聚焦语义，保证「点击通知 → 打开 Bench」。
+            focus_main_window(app);
+            Ok(json!({ "shown": true }))
         }
         ("POST", "/v1/session/export") => {
             let account_id = require_str(&body, "accountId")?;

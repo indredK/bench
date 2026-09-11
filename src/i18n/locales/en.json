@@ -615,6 +615,7 @@
     },
     "toasts": {
       "initFailed": "Failed to load gateway data",
+      "extensionSaveSuccess": "Saved the login state of \"{{station}}\" ({{cookieCount}} cookies)",
       "openLoginFailed": "Failed to open the isolated login window",
       "createStationFailed": "Failed to create gateway",
       "createAccountFailed": "Failed to create account",

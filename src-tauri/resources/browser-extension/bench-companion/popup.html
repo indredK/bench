@@ -19,26 +19,63 @@
         <span id="site" class="site">读取中…</span>
       </div>
       <div id="session-msg" class="smsg"></div>
-      <div class="srow">
-        <button id="save" class="btn primary" disabled>保存此站点登录态到 Bench</button>
+      <div id="naming" class="naming">
+        <div class="slabel">保存到 Bench 前，先给记录命名</div>
+        <label class="field">
+          <span id="site-label">站点标题（必填）</span>
+          <input
+            id="name-site"
+            type="text"
+            maxlength="80"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="例如：GitHub"
+          />
+        </label>
+        <label class="field">
+          <span id="account-label">账号用户名（必填）</span>
+          <input
+            id="name-account"
+            type="text"
+            maxlength="120"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="请输入账号名，如邮箱或 ID"
+          />
+        </label>
+        <div class="srow">
+          <button id="save" class="btn primary" disabled>保存此站点当前登录态</button>
+        </div>
       </div>
       <div id="targets" class="targets hidden"></div>
-      <div class="srow">
-        <button id="inject" class="btn" disabled>用 Bench 账号登录此站点</button>
-      </div>
-      <div id="inject-list" class="targets hidden"></div>
-      <div id="backups" class="backups hidden"></div>
     </section>
 
-    <section class="search">
-      <input id="q" type="search" placeholder="搜索术语库…" />
-      <div id="hits" class="hits"></div>
+    <section class="inject-sec">
+      <div class="srow">
+        <button id="inject" class="btn" disabled>用 Bench 账号注入此站点</button>
+      </div>
+      <div id="inject-list" class="targets hidden"></div>
+    </section>
+
+    <section class="backups-sec">
+      <button id="backups-btn" class="btn">可回滚的备份</button>
     </section>
 
     <footer class="foot">
       <a id="open-tab" href="#">打开完整面板</a>
       <a id="reconnect" href="#">重连</a>
     </footer>
+
+    <!-- 备份列表弹窗 -->
+    <div id="backup-modal" class="modal-backdrop hidden" role="dialog" aria-label="可回滚的备份">
+      <div class="modal">
+        <div class="slabel">可回滚的备份</div>
+        <div id="backup-modal-list" class="backups"></div>
+        <div class="srow">
+          <button id="backup-close" class="btn">关闭</button>
+        </div>
+      </div>
+    </div>
 
     <script src="popup.js"></script>
   </body>

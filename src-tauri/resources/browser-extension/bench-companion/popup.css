@@ -127,12 +127,87 @@ body {
   cursor: default;
 }
 .hidden {
-  display: none;
+  display: none !important;
+}
+/* ── 保存前命名（新建站点 / 新建账号）────────────────────── */
+.naming {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+}
+.field {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.field input {
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+}
+.field input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+.field input:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+.row-btns {
+  display: grid;
+  grid-template-columns: 1fr 1.6fr;
+  gap: 8px;
+}
+/* ── 注入区 / 备份区 ─────────────────────────────── */
+.inject-sec,
+.backups-sec {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+/* ── 备份列表弹窗 ────────────────────────────────── */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+.modal {
+  width: 300px;
+  max-height: 72vh;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+}
+.modal .backups {
+  max-height: 46vh;
+  overflow-y: auto;
+  margin-top: 0;
+}
+.modal .empty {
+  color: var(--muted);
+  padding: 6px 2px;
 }
 .targets {
   margin-top: 6px;
   display: grid;
   gap: 4px;
+  max-height: 168px;
+  overflow-y: auto;
 }
 .target {
   display: flex;
@@ -172,59 +247,6 @@ body {
   text-decoration: none;
   margin-left: auto;
   cursor: pointer;
-}
-
-#q {
-  width: 100%;
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg);
-  color: var(--fg);
-  font: inherit;
-}
-#q:focus {
-  outline: 2px solid var(--accent);
-  outline-offset: -1px;
-}
-
-.hits {
-  margin-top: 8px;
-  display: grid;
-  gap: 6px;
-  max-height: 320px;
-  overflow: auto;
-}
-.hit {
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--accent-soft);
-}
-.hit .t {
-  font-weight: 500;
-}
-.hit .p {
-  color: var(--muted);
-  font-size: 11px;
-}
-.hit .d {
-  margin-top: 2px;
-}
-.hit a {
-  color: var(--accent);
-  text-decoration: none;
-  font-size: 11px;
-  margin-right: 8px;
-}
-.empty {
-  color: var(--muted);
-  padding: 6px 2px;
-}
-.error {
-  color: var(--danger);
-  padding: 6px 2px;
-  white-space: pre-wrap;
 }
 
 .foot {

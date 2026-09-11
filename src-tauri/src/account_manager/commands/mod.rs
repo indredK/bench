@@ -29,6 +29,8 @@ pub use station::*;
 
 // 供兄弟模块复用的时间标签（session.rs / detection.rs 经 super::commands::now_label 访问）。
 pub use shared::now_label;
+// 供兄弟模块复用（browser_session 扩展导入按 URL origin 建站时生成站点 ID）。
+pub use shared::new_id;
 
 // Session Keeper(session_keeper.rs)复用的跨模块入口。
 pub(crate) use shared::{account_log_error_code, build_proxy_url_for_station};

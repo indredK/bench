@@ -25,7 +25,11 @@ pub mod profile;
 
 use serde::Serialize;
 use serde_json::{json, Value};
-use tauri::{AppHandle, Manager, Runtime};
+use tauri::{AppHandle, Emitter, Manager, Runtime};
+
+/// 扩展桥（外部通道）写入 store 后通知前端刷新站点/账号列表。
+/// 前端在 `useAccountManagerController` 监听并重跑 `loadInitialData`。
+pub const STORE_CHANGED_EVENT: &str = "account-manager:store-changed";
 
 use super::browser_storage;
 use super::session::{self, cookie_domain_matches_target};
@@ -36,7 +40,7 @@ use super::types::{
     AccountSessionStatus, CookieEntry, RelayStation, SessionOrigin,
 };
 use crate::account_manager::browser_session::profile::Scope;
-use crate::account_manager::commands::{create_account_inner, now_label};
+use crate::account_manager::commands::{create_account_inner, new_id, now_label};
 use cdp::CdpClient;
 use profile::SessionMeta;
 
@@ -1528,7 +1532,11 @@ fn cookie_to_extension(entry: &CookieEntry) -> Value {
 
 /// 从日常浏览器（扩展采集）导入登录态。
 ///
-/// 目标账号判定顺序：显式 `accountId` → 站点下唯一账号 → 返回候选让扩展弹选择。
+/// 目标账号判定：显式 `accountId` → 直接写入该账号；`username` 明确且站点下
+/// 已有同名账号 → 写入该账号（显式意图）；`username` 留空 → 自动按站点 host
+/// 新建一个**不重名**的新账号（[`default_account_username`]），绝不静默覆盖
+/// 已有账号。站点完全不匹配时回 `needStation`，扩展让用户给新站点起名后携带
+/// `stationTitle` 重试，后端按 URL origin 建站并自动建号。
 /// 落库复用 CDP 通道的 [`finalize_capture`]，因此新鲜度仲裁、互斥、加密、
 /// probe 验证四条纪律完全一致（**不允许**出现第二条静默覆盖路径）。
 pub async fn import_from_extension<R: Runtime>(
@@ -1539,29 +1547,58 @@ pub async fn import_from_extension<R: Runtime>(
     state.ensure_ready()?;
     let url = body.get("url").and_then(Value::as_str).unwrap_or_default();
 
+    let mut created_station = false;
+    let mut created_account: Option<String> = None;
     let snapshot = state.read_snapshot_checked()?;
     let matches =
         super::commands::station_matches_for_url(&snapshot.stations, &snapshot.accounts, url);
-    let Some(best) = matches.first() else {
-        return Ok(json!({ "outcome": "unmatched" }));
+
+    // 站点解析：已有匹配站点 → 沿用；无匹配 → 扩展提供 `stationTitle` 后按 URL
+    // origin 新建（remark = 标题），账号随后统一按用户名新建。
+    let (station, mut candidates) = match matches.first() {
+        Some(best) => {
+            let station = snapshot
+                .stations
+                .iter()
+                .find(|item| item.id == best.station_id)
+                .cloned()
+                .ok_or_else(|| {
+                    AccountManagerError::not_found(format!("station {}", best.station_id))
+                })?;
+            let candidates: Vec<(String, String)> = snapshot
+                .accounts
+                .iter()
+                .filter(|account| account.station_id == station.id)
+                .map(|account| (account.id.clone(), account.username.clone()))
+                .collect();
+            (station, candidates)
+        }
+        None => {
+            let title = body
+                .get("stationTitle")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .unwrap_or_default();
+            if title.is_empty() {
+                return Ok(json!({ "outcome": "needStation" }));
+            }
+            let website = site_origin_for(url).ok_or_else(|| {
+                AccountManagerError::invalid_input("NEED_STATION_URL_HAS_NO_ORIGIN")
+            })?;
+            let station = create_station_inner(app, state, title, &website)?;
+            created_station = true;
+            (station, Vec::new())
+        }
     };
-    let station = snapshot
-        .stations
-        .iter()
-        .find(|item| item.id == best.station_id)
-        .cloned()
-        .ok_or_else(|| AccountManagerError::not_found(format!("station {}", best.station_id)))?;
-    let candidates: Vec<(String, String)> = snapshot
-        .accounts
-        .iter()
-        .filter(|account| account.station_id == station.id)
-        .map(|account| (account.id.clone(), account.username.clone()))
-        .collect();
     let host = url::Url::parse(&station.website)
         .ok()
         .and_then(|parsed| parsed.host_str().map(str::to_string))
         .ok_or_else(|| AccountManagerError::invalid_input("station website has no host"))?;
 
+    // 账号解析：
+    // - 显式 `accountId` → 校验属于该站点后直接写入；
+    // - `username` 明确 → 站点下存在同名账号则写入该账号（显式意图），否则新建；
+    // - `username` 留空 → 自动生成「不重名」的新账号，绝不静默覆盖已有账号。
     let account_id = match body.get("accountId").and_then(Value::as_str) {
         Some(explicit) => {
             if !candidates.iter().any(|(id, _)| id == explicit) {
@@ -1571,25 +1608,49 @@ pub async fn import_from_extension<R: Runtime>(
             }
             explicit.to_string()
         }
-        None => match candidates.len() {
-            0 => {
-                return Ok(json!({
-                    "outcome": "noAccount",
-                    "station": station_summary(&station),
-                }))
+        None => {
+            let username = body
+                .get("username")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .unwrap_or_default()
+                .to_string();
+            // 用户名明确且站点下已有同名账号 → 直接写入该账号。
+            let matched = if username.is_empty() {
+                None
+            } else {
+                candidates
+                    .iter()
+                    .find(|(_, name)| *name == username)
+                    .map(|(id, _)| id.clone())
+            };
+            match matched {
+                Some(id) => id,
+                None => {
+                    let name = if username.is_empty() {
+                        default_account_username(&station, &candidates)
+                    } else {
+                        username
+                    };
+                    let account = create_account_inner(
+                        app,
+                        state,
+                        station.id.clone(),
+                        name,
+                        None,
+                        "浏览器扩展导入".to_string(),
+                        None,
+                        None,
+                        None,
+                        None,
+                        Vec::new(),
+                    )?;
+                    created_account = Some(account.id.clone());
+                    candidates.push((account.id.clone(), account.username.clone()));
+                    account.id
+                }
             }
-            1 => candidates[0].0.clone(),
-            _ => {
-                return Ok(json!({
-                    "outcome": "needTarget",
-                    "station": station_summary(&station),
-                    "candidates": candidates
-                        .iter()
-                        .map(|(id, username)| json!({ "id": id, "username": username }))
-                        .collect::<Vec<_>>(),
-                }))
-            }
-        },
+        }
     };
 
     let mut cookies = Vec::new();
@@ -1624,6 +1685,49 @@ pub async fn import_from_extension<R: Runtime>(
 
     let cookie_count = session.cookies.len();
     let force = body.get("force").and_then(Value::as_bool).unwrap_or(false);
+    // 扩展可把当前页的 localStorage / sessionStorage 一并交来（与 CDP 通道同构的
+    // OriginStorage，按 origin 加密入库）。缺省/无法读取时仅 cookie，行为与旧版一致。
+    let mut storage_origins = 0usize;
+    if let Some(list) = body.get("storage").and_then(Value::as_array) {
+        let key = state.master_key()?;
+        for raw in list {
+            let Some(origin) = raw.get("origin").and_then(Value::as_str) else {
+                continue;
+            };
+            let origin = origin.trim();
+            if origin.is_empty() {
+                continue;
+            }
+            // canonical http(s) origin 约束（与 browser_storage 采集端一致），
+            // 避免来历不明的 origin 被写入会话。
+            let canonical = url::Url::parse(origin)
+                .map(|parsed| {
+                    matches!(parsed.scheme(), "http" | "https")
+                        && parsed.origin().ascii_serialization() == origin
+                })
+                .unwrap_or(false);
+            if !canonical {
+                continue;
+            }
+            let local_value = raw.get("localStorage").and_then(Value::as_array);
+            let local_json = serde_json::to_string(
+                local_value.map(|v| v.as_slice()).unwrap_or(&[]),
+            )
+            .map_err(|e| AccountManagerError::store_fail(format!("encode localStorage: {e}")))?;
+            let session_value = raw.get("sessionStorage").and_then(Value::as_array);
+            let session_json = serde_json::to_string(
+                session_value.map(|v| v.as_slice()).unwrap_or(&[]),
+            )
+            .map_err(|e| AccountManagerError::store_fail(format!("encode sessionStorage: {e}")))?;
+            session.origins.push(super::types::OriginStorage {
+                origin: origin.to_string(),
+                local_storage: Some(super::crypto::encrypt(&key, &local_json)?),
+                session_storage: Some(super::crypto::encrypt(&key, &session_json)?),
+                indexed_db: None,
+            });
+            storage_origins += 1;
+        }
+    }
     let outcome = finalize_capture(
         app,
         state,
@@ -1632,16 +1736,17 @@ pub async fn import_from_extension<R: Runtime>(
         session,
         cookie_count,
         skipped_partitioned,
-        0,
+        storage_origins,
         "unsupported".to_string(),
         force,
     )
     .await?;
 
-    Ok(json!({
+    let mut result = json!({
         "outcome": outcome.outcome,
         "targetAccountId": account_id,
         "station": station_summary(&station),
+        "createdStation": created_station,
         "cookieCount": outcome.cookie_count,
         "skippedPartitioned": outcome.skipped_partitioned,
         "rejectedCookies": rejected,
@@ -1650,7 +1755,85 @@ pub async fn import_from_extension<R: Runtime>(
         "existingCapturedAtTs": outcome.existing_captured_at_ts,
         "existingOrigin": outcome.existing_origin,
         "verified": outcome.verified,
-    }))
+    });
+    if let Some(id) = &created_account {
+        result["createdAccountId"] = json!(id);
+    }
+    // 外部通道（扩展桥）写入后通知前端：刷新列表，并让前端在「真的保存成功」
+    // 时弹 toast + 归档到消息中心「系统通知」（否则用户回到 Bench 看不到新站点）。
+    // stationId/accountId 供前端重载后直接把选中项跳到被写入的站点/账号。
+    let _ = app.emit(
+        STORE_CHANGED_EVENT,
+        json!({
+            "stationId": station.id,
+            "accountId": account_id,
+            "stationRemark": station.remark,
+            "cookieCount": cookie_count,
+            "createdStation": created_station,
+            "createdAccount": created_account.is_some(),
+            "saved": outcome.outcome == "saved",
+        }),
+    );
+    Ok(result)
+}
+
+/// 站点下「不重名」的默认账号名：以站点 host 为基础名，冲突时追加序号。
+/// 用于扩展导入时用户名留空——绝不静默覆盖已有账号，而是自动新建一个不重名的账号。
+fn default_account_username(station: &RelayStation, candidates: &[(String, String)]) -> String {
+    let base = url::Url::parse(station.website.trim())
+        .ok()
+        .and_then(|parsed| parsed.host_str().map(str::to_string))
+        .filter(|host| !host.is_empty())
+        .unwrap_or_else(|| "导入账号".to_string());
+    let mut name = base.clone();
+    let mut n = 2;
+    while candidates.iter().any(|(_, existing)| existing == &name) {
+        name = format!("{base} ({n})");
+        n += 1;
+    }
+    name
+}
+
+/// URL 的 http(s) origin 序列化（新建站点的 `website` 落点）。
+fn site_origin_for(url: &str) -> Option<String> {
+    let parsed = url::Url::parse(url).ok()?;
+    if !matches!(parsed.scheme(), "http" | "https") {
+        return None;
+    }
+    Some(parsed.origin().ascii_serialization())
+}
+
+/// 新建站点（与 `commands::station::create_station` 同一套默认值与校验）。
+pub(crate) fn create_station_inner<R: Runtime>(
+    app: &AppHandle<R>,
+    state: &AccountManagerState,
+    remark: &str,
+    website: &str,
+) -> AccountManagerResult<RelayStation> {
+    let remark = remark.trim();
+    let website = website.trim();
+    if remark.is_empty() || website.is_empty() {
+        return Err(AccountManagerError::invalid_input(
+            "station remark and website are required",
+        ));
+    }
+    let station = RelayStation {
+        exclusivity_mode: Default::default(),
+        auth_profile: None,
+        probe_failure_count: 0,
+        session_ttl_hours: crate::account_manager::types::default_session_ttl_hours(),
+        id: new_id("stn"),
+        remark: remark.to_string(),
+        website: website.to_string(),
+        created_at: now_label(),
+        login_detection: Default::default(),
+        network_proxy: None,
+        login_fingerprint: None,
+    };
+    storage::with_state_mut(app, state, |snapshot| {
+        snapshot.stations.push(station.clone());
+        Ok(station.clone())
+    })
 }
 
 /// 导出某账号的会话给扩展，用于注入**日常浏览器**（I5 出向）。

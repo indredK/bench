@@ -30,15 +30,29 @@ export function selectSelectedAccount(
   )
 }
 
+/**
+ * 初始/重载选中：优先保留仍有效的当前选中项（重载数据时不应把用户
+ * 所在站点重置回第一个，否则扩展保存等异步刷新会"藏"掉新数据）；
+ * 仅当当前选中已失效（删除/不存在）或首次加载时才回退到第一个站点。
+ */
 export function pickInitialSelection(
   stations: RelayStation[],
   accounts: StationAccount[],
+  currentStationId = "",
+  currentAccountId = "",
 ): { stationId: string; accountId: string } {
   if (stations.length === 0) {
     return { stationId: "", accountId: "" }
   }
-  const stationId = stations[0].id
-  const accountId = accounts.find((account) => account.stationId === stationId)?.id ?? ""
+  const stationId =
+    currentStationId && stations.some((station) => station.id === currentStationId)
+      ? currentStationId
+      : stations[0].id
+  const accountId =
+    currentAccountId &&
+    accounts.some((account) => account.id === currentAccountId && account.stationId === stationId)
+      ? currentAccountId
+      : (accounts.find((account) => account.stationId === stationId)?.id ?? "")
   return { stationId, accountId }
 }
 

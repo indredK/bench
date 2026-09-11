@@ -245,16 +245,58 @@ async function resolveSite(url) {
 }
 
 /** I3：把当前页的登录态交给 Bench。 */
-async function importSession({ url, accountId, force }) {
+async function importSession({ url, accountId, force, stationTitle, username, storage }) {
   const cookies = await collectCookies(url)
-  return bridgeCall("/v1/session/import", {
+  const data = await bridgeCall("/v1/session/import", {
     url,
     accountId: accountId || undefined,
     force: !!force,
+    stationTitle: stationTitle || undefined,
+    username: username || undefined,
     cookies,
+    storage: storage && storage.length ? storage : undefined,
     userAgent: navigator.userAgent,
   })
+  // 保存成功 → 弹系统通知；点击通知唤起 Bench（与「其他软件的大通知」一致）。
+  notifyImportSaved(data)
+  return data
 }
+
+// ── 保存成功通知（B1 收尾）────────────────────────────────────────────
+// 保存成功后弹一条浏览器系统通知；用户点击通知 → 经桥唤起 Bench 主窗口
+// （POST /v1/app/show）。只报结果，不携带任何凭据。
+const IMPORT_NOTIFICATION_ID = "bench-import-saved"
+
+function notifyImportSaved(data) {
+  if (!data || data.outcome !== "saved") return
+  if (!chrome.notifications) return // 权限被禁时静默降级，不阻断保存
+  const created = []
+  if (data.createdStation) created.push("新建站点")
+  if (data.createdAccountId) created.push("新建账号")
+  const remark = data.station && data.station.remark ? data.station.remark : ""
+  const parts = []
+  if (created.length) parts.push(created.join(" + "))
+  parts.push("已写入 " + data.cookieCount + " 条 Cookie")
+  if (remark) parts.push(remark)
+  try {
+    chrome.notifications.create(IMPORT_NOTIFICATION_ID, {
+      type: "basic",
+      iconUrl: chrome.runtime.getURL("icons/icon128.png"),
+      title: "登录态已保存到 Bench",
+      message: parts.join("，") + "。点击打开 Bench",
+      priority: 2,
+    })
+  } catch (e) {
+    /* 通知失败不影响保存本身 */
+  }
+}
+
+chrome.notifications.onClicked.addListener((id) => {
+  if (id !== IMPORT_NOTIFICATION_ID) return
+  chrome.notifications.clear(id)
+  // 能保存成功说明 Bench 正在运行（桥可用）：把主窗口带到前台。
+  void bridgeCall("/v1/app/show", {}).catch(() => {})
+})
 
 /** I5 第一步：取回 Bench 里该账号的会话载荷（只回给本扩展）。 */
 async function exportSession(accountId) {

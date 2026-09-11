@@ -60,10 +60,16 @@ export const useAccountManagerStore = create<AccountManagerState & AccountManage
     setFingerprintDetail: (fingerprintDetail) => set({ fingerprintDetail }),
     setAccountExportOpen: (isAccountExportOpen) => set({ isAccountExportOpen }),
     setAccountExportTarget: (accountExportTarget) => set({ accountExportTarget }),
-    applyInitialSelection: (stations, accounts) => {
-      const { stationId, accountId } = pickInitialSelection(stations, accounts)
-      set({ selectedStationId: stationId, selectedAccountId: accountId })
-    },
+    applyInitialSelection: (stations, accounts) =>
+      set((state) => {
+        const { stationId, accountId } = pickInitialSelection(
+          stations,
+          accounts,
+          state.selectedStationId,
+          state.selectedAccountId,
+        )
+        return { selectedStationId: stationId, selectedAccountId: accountId }
+      }),
     selectStation: (id, accounts) => {
       const first = accounts.find((account) => account.stationId === id)
       set({ selectedStationId: id, selectedAccountId: first?.id ?? "" })

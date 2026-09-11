@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useMemo, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { useShallow } from "zustand/react/shallow"
+import { toast } from "sonner"
 import { accountManagerUseCases } from "@/features/account-manager/services/account-manager.use-cases"
 import {
   selectAccountCountByStation,
@@ -24,7 +25,9 @@ import { useRefreshOrchestrator } from "@/features/account-manager/hooks/useRefr
 import { useSessionKeeper } from "@/features/account-manager/hooks/useSessionKeeper"
 import { useStationActions } from "@/features/account-manager/hooks/useStationActions"
 import type { AccountManagerRegion } from "@/features/account-manager/errors"
+import { TAURI_EVENTS, type StoreChangedEventPayload } from "@/lib/tauri/contracts"
 import { translateError } from "@/lib/tauri/errors"
+import { listenToPlatformEvent } from "@/platform/events"
 
 export function useAccountManagerController() {
   const { t } = useTranslation()
@@ -151,6 +154,56 @@ export function useAccountManagerController() {
   useEffect(() => {
     void loadInitialData().catch(() => undefined)
   }, [loadInitialData])
+
+  // 外部通道（浏览器扩展桥）写入站点/账号后，后端发 store-changed 事件：
+  // ① 重载数据并（在重载完成后）把选中项跳到被写入的站点/账号，
+  //    保证「扩展里保存 → 回到 Bench 立刻能看到」；
+  // ② 真实保存成功时弹 toast（右下角消息通知），sonner-archive 会自动把该 toast
+  //    镜像归档到右上角消息中心「系统通知」，供事后追溯。
+  useEffect(() => {
+    let unlisten: (() => void) | undefined
+    let cancelled = false
+    ;(async () => {
+      try {
+        const nextUnlisten = await listenToPlatformEvent<StoreChangedEventPayload>(
+          TAURI_EVENTS.accountManager.storeChanged,
+          (event) => {
+            const payload = event.payload
+            const reload = loadInitialData().then(() => {
+              // 站点可能已被重载覆盖成最新列表，校验存在后再跳选中项。
+              const s = useAccountManagerStore.getState()
+              if (payload?.stationId && s.stations.some((item) => item.id === payload.stationId)) {
+                s.setSelectedStationId(payload.stationId)
+                s.setSelectedAccountId(payload.accountId ?? "")
+              }
+            })
+            void reload.catch(() => undefined)
+            if (payload?.saved) {
+              toast.success(
+                t("accountManager.toasts.extensionSaveSuccess", {
+                  station: payload.stationRemark,
+                  cookieCount: payload.cookieCount,
+                }),
+              )
+            }
+          },
+        )
+        if (cancelled) {
+          nextUnlisten()
+          return
+        }
+        unlisten = nextUnlisten
+      } catch (error) {
+        if (!cancelled) {
+          console.warn("[account-manager] store-changed listener failed:", String(error))
+        }
+      }
+    })()
+    return () => {
+      cancelled = true
+      unlisten?.()
+    }
+  }, [loadInitialData, t])
 
   const refresh = useRefreshOrchestrator()
   const stationActions = useStationActions({ loadInitialData })
