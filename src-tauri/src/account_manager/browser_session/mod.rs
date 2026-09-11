@@ -1688,6 +1688,7 @@ pub async fn import_from_extension<R: Runtime>(
     // 扩展可把当前页的 localStorage / sessionStorage 一并交来（与 CDP 通道同构的
     // OriginStorage，按 origin 加密入库）。缺省/无法读取时仅 cookie，行为与旧版一致。
     let mut storage_origins = 0usize;
+    let mut indexed_db_captured = false;
     if let Some(list) = body.get("storage").and_then(Value::as_array) {
         let key = state.master_key()?;
         for raw in list {
@@ -1719,11 +1720,25 @@ pub async fn import_from_extension<R: Runtime>(
                 session_value.map(|v| v.as_slice()).unwrap_or(&[]),
             )
             .map_err(|e| AccountManagerError::store_fail(format!("encode sessionStorage: {e}")))?;
+            // IndexedDB 也属于会话的一部分。Trae 等站点可能把唯一凭证放在
+            // IndexedDB；若只保存 local/sessionStorage，回到 Bench 后再次导出
+            // 会丢失凭证，形成“账号已登录但无法注入”的假成功。
+            let indexed_db = raw
+                .get("indexedDb")
+                .filter(|value| !value.is_null())
+                .map(|value| {
+                    let encoded = serde_json::to_string(value).map_err(|e| {
+                        AccountManagerError::store_fail(format!("encode IndexedDB: {e}"))
+                    })?;
+                    super::crypto::encrypt(&key, &encoded)
+                })
+                .transpose()?;
+            indexed_db_captured |= indexed_db.is_some();
             session.origins.push(super::types::OriginStorage {
                 origin: origin.to_string(),
                 local_storage: Some(super::crypto::encrypt(&key, &local_json)?),
                 session_storage: Some(super::crypto::encrypt(&key, &session_json)?),
-                indexed_db: None,
+                indexed_db,
             });
             storage_origins += 1;
         }
@@ -1737,7 +1752,11 @@ pub async fn import_from_extension<R: Runtime>(
         cookie_count,
         skipped_partitioned,
         storage_origins,
-        "unsupported".to_string(),
+        if indexed_db_captured {
+            "complete".to_string()
+        } else {
+            "unsupported".to_string()
+        },
         force,
     )
     .await?;

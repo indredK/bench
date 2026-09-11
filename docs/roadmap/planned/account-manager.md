@@ -23,7 +23,7 @@
 - [ ] **Windows 真机矩阵**（Windows Sandbox/VM）：同上述 I1/I2 全项；额外核对候选安装路径探测（`Program Files` 系）与 `taskkill` 收尾无残留进程。
 - [ ] **无浏览器环境**：卸载全部 Chromium 系浏览器后，`browserSessionOpen`/`browserSessionCapture` 必须为 `failed`（reasonCode `NO_CHROMIUM_BROWSER`），详情栏入口禁用且 tooltip 说明原因。
 - [ ] **Keyring 失败**：拒绝钥匙串授权后互通能力必须 `failed`（`CREDENTIAL_STORE_INITIALIZATION_FAILED`），且不暴露入口（fail-closed 优先于浏览器可用性）。
-- [ ] **I3 日常浏览器回采**（未实现，代码阻断）：`bench-companion` 浏览器扩展 + 本机桥接；`SessionOrigin::BrowserExtension` 已预留，当前无写入路径。
+- [x] **I3/I5 日常浏览器双向互通**（代码已实现，待真机验收）：`bench-companion` 通过 Native Messaging + loopback bridge 读取/写入默认浏览器的 Cookie、Web Storage 与 IndexedDB；首次站点访问需在扩展弹窗授予 host 权限，注入前自动备份并支持回滚。扩展版本 0.8.1；Trae 额外采集 `api.trae.cn` host-only Cookie，并按原 host 回写。
 
 ## 待实现（2026-09-09 规划轮 F1–F4：登录指纹 · 入口收敛 · 日志增强 · 弹窗修复）
 

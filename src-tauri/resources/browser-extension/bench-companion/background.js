@@ -124,6 +124,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   const sessionHandlers = {
     "bench:session:resolve": () => resolveSite(msg.url),
     "bench:session:import": () => importSession(msg),
+    // Cookie 读取必须在扩展后台完成；同时把页面存储（含 IndexedDB）
+    // 采集结果交给 popup，再由同一条 import 请求写入 Bench。
+    "bench:session:collectStorage": () => collectPageStorage(msg.tabId, msg.url),
     "bench:session:export": () => exportSession(msg.accountId),
     "bench:session:storagePreview": () => storagePreview(msg),
     "bench:session:inject": () => injectSession(msg),
@@ -210,6 +213,28 @@ function candidateDomains(host) {
   return out
 }
 
+// Trae 页面通过 api.trae.cn 发起带凭据请求。大多数认证 Cookie 是
+// .trae.cn 域级，但如果服务端下发 host-only 的 API Cookie，按当前页面
+// 查询会漏掉它；仅对已知 API 域做显式补采，避免扩大到任意第三方域。
+function auxiliaryCookieHosts(host) {
+  const normalized = String(host || "")
+    .toLowerCase()
+    .replace(/^\.+/, "")
+  if (normalized === "trae.cn" || normalized.endsWith(".trae.cn")) return ["api.trae.cn"]
+  return []
+}
+
+/** 返回可用于 Cookie/存储隔离的规范 origin；受限协议一律拒绝。 */
+function originOf(url) {
+  try {
+    const parsed = new URL(url)
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null
+    return parsed.origin
+  } catch (_) {
+    return null
+  }
+}
+
 /** 采集该 URL 的 cookie（含 HttpOnly）；跨域去重。 */
 async function collectCookies(url) {
   const origin = new URL(url).origin
@@ -217,6 +242,10 @@ async function collectCookies(url) {
   const seen = new Map()
   const queries = [{ url: origin }]
   for (const domain of candidateDomains(host)) queries.push({ domain })
+  for (const apiHost of auxiliaryCookieHosts(host)) {
+    queries.push({ url: "https://" + apiHost + "/" })
+    queries.push({ domain: apiHost })
+  }
 
   for (const query of queries) {
     let batch = []
@@ -240,8 +269,86 @@ async function collectCookies(url) {
   return Array.from(seen.values())
 }
 
+function cookieWriteUrl(cookie, fallbackOrigin) {
+  const domain = String(cookie?.domain || "")
+    .replace(/^\.+/, "")
+    .toLowerCase()
+  let fallbackHost = ""
+  try {
+    fallbackHost = new URL(fallbackOrigin).hostname.toLowerCase()
+  } catch (_) {
+    // fallbackOrigin 已由调用方校验；保留保护性降级。
+  }
+  // host-only Cookie 必须写回原 host，否则 api.trae.cn 的会话会被错误
+  // 写成 www.trae.cn，导致 CheckLogin 仍返回未登录。
+  if (cookie?.hostOnly && domain && domain !== fallbackHost) return "https://" + domain + "/"
+  return fallbackOrigin
+}
+
+// www.trae.cn 会重定向到 apex trae.cn，但两者仍是同一站点的页面存储。
+// 导出会话可能记录任一 origin；注入时精确匹配优先，Trae 仅允许这两个
+// 明确别名互相回退，避免把其他子域的存储误写入当前页面。
+function storageBranchForOrigin(webStorage, origin) {
+  const branches = Array.isArray(webStorage) ? webStorage : []
+  const exact = branches.find((item) => item && item.origin === origin)
+  if (exact) return exact
+  try {
+    const host = new URL(origin).hostname.toLowerCase()
+    if (host !== "trae.cn" && host !== "www.trae.cn") return null
+    return (
+      branches.find((item) => {
+        try {
+          const candidate = new URL(item?.origin || "")
+          return (
+            candidate.protocol === "https:" &&
+            (candidate.hostname.toLowerCase() === "trae.cn" ||
+              candidate.hostname.toLowerCase() === "www.trae.cn")
+          )
+        } catch (_) {
+          return false
+        }
+      }) || null
+    )
+  } catch (_) {
+    return null
+  }
+}
+
 async function resolveSite(url) {
   return bridgeCall("/v1/site/resolve", { url })
+}
+
+/** 采集当前页的 Web Storage + IndexedDB（仅在扩展权限已授予时调用）。 */
+async function collectPageStorage(tabId, url) {
+  const origin = originOf(url)
+  if (!origin || !Number.isInteger(tabId)) return []
+  try {
+    const result = await executeInPage(
+      tabId,
+      () =>
+        (async () => {
+          const entries = (obj) =>
+            Object.keys(obj || {}).map((name) => ({ name, value: obj[name] }))
+          let localStorageEntries = []
+          let sessionStorageEntries = []
+          try {
+            localStorageEntries = entries(localStorage)
+            sessionStorageEntries = entries(sessionStorage)
+          } catch (_) {
+            // 受限页面可能禁止 Web Storage；Cookie 采集仍可继续。
+          }
+          return { localStorage: localStorageEntries, sessionStorage: sessionStorageEntries }
+        })(),
+      [],
+    )
+    const storage = result || { localStorage: [], sessionStorage: [] }
+    // IndexedDB 与注入端使用同一个快照编码器，保证类型/结构可回滚。
+    const idb = await executeInPage(tabId, IDB_CAPTURE_FUNC, [])
+    if (idb?.status === "complete") storage.indexedDb = idb.snapshot
+    return [{ origin, ...storage }]
+  } catch (_) {
+    return []
+  }
 }
 
 /** I3：把当前页的登录态交给 Bench。 */
@@ -382,7 +489,7 @@ async function storagePreview({ accountId, url }) {
   const exported = await exportSession(accountId)
   if (exported.outcome !== "ok") return { outcome: exported.outcome }
   const origin = new URL(url).origin
-  const branch = (exported.webStorage || []).find((item) => item.origin === origin)
+  const branch = storageBranchForOrigin(exported.webStorage, origin)
   const localKeys = (branch?.localStorage || []).length
   const sessionKeys = (branch?.sessionStorage || []).length
   // 含有 object store 的库才会在注入时被实际写入，空的库壳不计。
@@ -899,7 +1006,7 @@ async function injectSession({ accountId, url, withStorage }) {
   let failed = 0
   for (const cookie of exported.cookies || []) {
     const details = {
-      url: origin,
+      url: cookieWriteUrl(cookie, origin),
       name: cookie.name,
       value: cookie.value,
       path: cookie.path || "/",

@@ -84,47 +84,32 @@ function originOf(url) {
   }
 }
 
+// Cookie 的 Domain 可能是当前 host 的父域（Trae 使用 .trae.cn）。
+// 仅申请 www.trae.cn/* 会让 cookies.getAll({domain:"trae.cn"}) 仍被浏览器拒绝，
+// 因此首次授权同时覆盖当前 host 与最多一级父域，权限仍保持按站点最小化。
+function permissionOrigins(url) {
+  try {
+    const parsed = new URL(url)
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return []
+    const labels = parsed.hostname.split(".").filter(Boolean)
+    const hosts = [parsed.hostname]
+    if (labels.length > 2) hosts.push(labels.slice(1).join("."))
+    // Trae 页面实际把鉴权请求发往 api.trae.cn；host-only Cookie 需要
+    // 单独的 host 权限才能由 chrome.cookies 读取并写回默认浏览器。
+    const normalized = parsed.hostname.toLowerCase().replace(/^\.+/, "")
+    if (normalized === "trae.cn" || normalized.endsWith(".trae.cn")) hosts.push("api.trae.cn")
+    return hosts.map((host) => parsed.protocol + "//" + host + "/*")
+  } catch (_) {
+    return []
+  }
+}
+
 /** 从 URL 推断默认命名（去 www 的 host，如 github.com）。 */
 function guessSiteName(url) {
   try {
     return new URL(url).hostname.replace(/^www\./, "") || ""
   } catch (e) {
     return ""
-  }
-}
-
-/**
- * 读取当前页 localStorage / sessionStorage（与「注入」同一读写模式）。
- * 仅供保存登录态时随 Cookie 一并交给 Bench——很多站点把登录凭证放在 Web
- * Storage，只传 Cookie 会导致保存后在 Bench 里仍是未登录。
- * 读取失败（无 activeTab / 受限页面）时返回 []，仅保存 Cookie，不阻断保存。
- */
-async function collectPageStorage(tab) {
-  if (!tab || !tab.id || !chrome.scripting) return []
-  const origin = originOf(state.url)
-  if (!origin) return []
-  try {
-    const res = await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: () => {
-        const toEntries = (obj) =>
-          Object.keys(obj || {}).map((name) => ({ name, value: obj[name] }))
-        let local = []
-        let session = []
-        try {
-          local = toEntries(localStorage)
-          session = toEntries(sessionStorage)
-        } catch (e) {
-          // 无痕 / 受限页面拒绝存储访问：留空即可，Cookie 仍可保存。
-        }
-        return { local, session }
-      },
-    })
-    const data = res && res[0] && res[0].result
-    if (!data || (data.local.length === 0 && data.session.length === 0)) return []
-    return [{ origin, localStorage: data.local, sessionStorage: data.session }]
-  } catch (e) {
-    return []
   }
 }
 
@@ -255,7 +240,32 @@ async function saveSession(force) {
   let res
   try {
     const tab = await activeTab()
-    const storage = await collectPageStorage(tab)
+    if (!tab || !tab.id || !originOf(state.url)) {
+      setMessage("请在目标站点页面打开扩展面板后重试。", "err")
+      return
+    }
+    // optional_host_permissions 不能由 Bench 或 background 代为申请。
+    // 必须在保存按钮的用户手势内申请，否则 cookies.getAll 会静默返回空数组，
+    // Trae 等使用域级 Cookie 的站点会被误报为“没有登录态”。
+    const origin = originOf(state.url)
+    const permissionPatterns = permissionOrigins(state.url)
+    let granted = false
+    try {
+      granted = await chrome.permissions.contains({ origins: permissionPatterns })
+      if (!granted) granted = await chrome.permissions.request({ origins: permissionPatterns })
+    } catch (_) {
+      granted = false
+    }
+    if (!granted) {
+      setMessage("未获得该站点访问权限，无法读取登录态。请允许扩展访问此站点后重试。", "err")
+      return
+    }
+    const storageResult = await send({
+      type: "bench:session:collectStorage",
+      tabId: tab.id,
+      url: state.url,
+    })
+    const storage = storageResult.ok ? storageResult.data : []
     res = await send({
       type: "bench:session:import",
       url: state.url,
@@ -363,7 +373,7 @@ async function injectSession() {
         (preview.data.hasWebStorage || preview.data.hasIndexedDb)
       ) {
         const origin = new URL(state.url).origin
-        const granted = await chrome.permissions.request({ origins: [origin + "/*"] })
+        const granted = await chrome.permissions.request({ origins: permissionOrigins(state.url) })
         if (granted) {
           withStorage = true
         } else {
