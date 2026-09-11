@@ -1,5 +1,34 @@
 # Changelog
 
+## [1.33.0](https://github.com/indredK/bench/compare/v1.32.0...v1.33.0) (2026-09-11)
+
+
+### Features
+
+* **account_manager:** add workbuddy.cn login rule, fix origin matching issues ([21cfe41](https://github.com/indredK/bench/commit/21cfe410d6af2eb6c0f59f3ab500c8c2a03c95ce))
+* **account-manager:** 出向注入自动补采 Bench 内置登录态并支持同步到日常浏览器 ([083aaee](https://github.com/indredK/bench/commit/083aaee772bb7ba7a8f5b21b9c544e09df8de2da))
+* **account-manager:** 同步到日常浏览器改为自动注入并全量同步 ([7f98061](https://github.com/indredK/bench/commit/7f98061c7316d733b80632dc42aca34d60c676d2))
+* **account-manager:** 实现登录指纹采集与确认 ([c033917](https://github.com/indredK/bench/commit/c033917419171f7d93dbac14504dc5bf70046efa))
+* **account-manager:** 支持登录指纹明细与启动重试 ([808452c](https://github.com/indredK/bench/commit/808452c0ac6b93434e481ee9979f8a9d1867cff0))
+* **account-manager:** 新增登录规则包分发与判定集成 ([ed5b80c](https://github.com/indredK/bench/commit/ed5b80c82dd34201942b689b0461cd45de29f4fc))
+* **account-manager:** 添加账号快照导出功能 ([03b1626](https://github.com/indredK/bench/commit/03b1626b92cecc01fa76e2db4acb8fde516198e6))
+* **account-manager:** 规则包升级为双层体系并新增更新登录逻辑弹窗 ([c3f8650](https://github.com/indredK/bench/commit/c3f865028c52e72b6cd2375f611c3160f82accb2))
+* **account-manager:** 账号状态来源标注支持指纹缺失判定 ([80b8696](https://github.com/indredK/bench/commit/80b869660a8c3cdc5b066ca52d260fe9efb212ab))
+* **browser-extension:** 支持 IndexedDB 注入与 UA 覆写 ([e6d27b5](https://github.com/indredK/bench/commit/e6d27b543f781970e09bb87bec2b251785b35913))
+* **extension:** 扩展通道支持 Web Storage 与 IndexedDB ([60d1eb9](https://github.com/indredK/bench/commit/60d1eb9d2450211c476ef91bc8a13624cd69f328))
+* **extension:** 支持注入 Cookie 与 Web Storage ([2a112bd](https://github.com/indredK/bench/commit/2a112bd27a2edfbd562bcfc6b1f9b1cc60170d6a))
+* 扩展登录态导入功能与站点账号管理优化 ([e5da450](https://github.com/indredK/bench/commit/e5da45027a76de4b358ca45c08b862270e7800e4))
+
+
+### Bug Fixes
+
+* **account-manager:** 修复指纹判定误判并优化采样交互 ([7c513e2](https://github.com/indredK/bench/commit/7c513e231c77274f3419d00a939ee0c996bf5546))
+* **account-manager:** 出向同步前对陈旧会话自动补采 ([2ae2f9c](https://github.com/indredK/bench/commit/2ae2f9cf6ac8cd24587f3a37e1bbc88bb56dc8a1))
+* **account-manager:** 废弃登录页检测改为指纹值形态匹配 ([ee3e043](https://github.com/indredK/bench/commit/ee3e043a8cbf5bfa0b402cba675d083fc77ce944))
+* **account-manager:** 补采时先捕获真实凭证再判定登录态 ([585ccc3](https://github.com/indredK/bench/commit/585ccc3f3162b5a3df9997519444e156bc3b50c7))
+* **browser-ext:** 导出扩展至桌面 bench-companion 文件夹 ([4d1a039](https://github.com/indredK/bench/commit/4d1a039cf6df3bb18ce21a37d6efd1e543c071c9))
+* **session:** 修复域级 cookie 丢失导致登录误判 ([e432db9](https://github.com/indredK/bench/commit/e432db90a7d0a71cb15ff2fb8c0bf7bc7357aca8))
+
 ## [1.32.0](https://github.com/indredK/bench/compare/v1.31.0...v1.32.0) (2026-09-09)
 
 
