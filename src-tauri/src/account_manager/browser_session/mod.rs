@@ -380,6 +380,18 @@ pub async fn sync_to_daily_browser<R: Runtime>(
         ensure_session_for_sync(app, &state, account_id).await?;
 
     let Some(session) = session else {
+        super::state::log_account_operation(
+            app,
+            &state,
+            account_id,
+            AccountLogKind::BrowserInterop,
+            AccountLogLevel::Warn,
+            serde_json::json!({
+                "action": "syncDaily",
+                "outcome": "noSession",
+                "recoveryReason": recovery_reason,
+            }),
+        );
         return Ok(BrowserDailySyncOutcome {
             outcome: "noSession".to_string(),
             browser_id: browser_id.unwrap_or_default(),
@@ -406,6 +418,21 @@ pub async fn sync_to_daily_browser<R: Runtime>(
 
     let cookie_count = session.cookies.len();
     let storage_origins = session.origins.len();
+    super::state::log_account_operation(
+        app,
+        &state,
+        account_id,
+        AccountLogKind::BrowserInterop,
+        AccountLogLevel::Success,
+        serde_json::json!({
+            "action": "syncDaily",
+            "outcome": "ready",
+            "browser": installation.id,
+            "cookieCount": cookie_count,
+            "storageOrigins": storage_origins,
+            "sessionRecovered": session_recovered,
+        }),
+    );
     super::proxy::protocol::audit_log(
         "browser_daily_sync_requested",
         &[
@@ -593,6 +620,21 @@ pub async fn open_for_scope<R: Runtime>(
     let browser_id = profile::read_meta(app, scope)
         .map(|meta| meta.browser_id)
         .unwrap_or_else(|| "unknown".to_string());
+    if let Some(id) = account_id {
+        super::state::log_account_operation(
+            app,
+            &state,
+            id,
+            AccountLogKind::BrowserInterop,
+            AccountLogLevel::Info,
+            serde_json::json!({
+                "action": if inject_session { "openIsolated" } else { "openForLogin" },
+                "browser": browser_id,
+                "injectedCookies": injected,
+                "sessionRecovered": session_recovered,
+            }),
+        );
+    }
 
     super::proxy::protocol::audit_log(
         "browser_session_opened",
@@ -756,6 +798,17 @@ pub async fn close_for_scope<R: Runtime>(app: &AppHandle<R>, scope: &Scope) -> b
     if closed {
         profile::clear_meta(app, scope);
         let scope_label = scope.key();
+        if let Scope::Account(account_id) = scope {
+            let state = app.state::<AccountManagerState>();
+            super::state::log_account_operation(
+                app,
+                &state,
+                account_id,
+                AccountLogKind::BrowserInterop,
+                AccountLogLevel::Info,
+                serde_json::json!({ "action": "closeInstance" }),
+            );
+        }
         super::proxy::protocol::audit_log("browser_session_closed", &[("scope", &scope_label)]);
     }
     closed
@@ -1287,11 +1340,11 @@ pub async fn capture_for_station<R: Runtime>(
 // 只能靠浏览器扩展（`chrome.cookies`）读写；扩展执行完经 `browser_bridge`
 // 这条 loopback 本地桥把结果交回 app。
 //
-// 本通道 v1 的**明确边界**：只处理 Cookie。理由：`localStorage` / `IndexedDB`
-// 在扩展侧没有直读 API，只能 `scripting` 注入脚本，而「采集脚本的载荷 schema」
-// 目前是 `browser_storage` 里的单一实现（WebView 与 CDP 共用）。若在扩展里再抄
-// 一份，两处 schema 必然漂移。因此扩展通道先只覆盖 cookie 承载的登录态（绝大多数
-// 站点），采集结果里 `storageOrigins` 恒为 0，UI 需据此提示用户改用实例通道。
+// 本通道的能力边界随 bench-companion 版本演进：v1 只覆盖 Cookie（扩展侧没有
+// storage 直读 API，只能 `scripting` 注入脚本）；v0.3 起经 `/v1/session/export`
+// 下发 Web Storage 载荷；v0.5 起载荷进一步包含 IndexedDB 快照（扩展先备份后
+// 覆盖，fail-closed）。载荷 schema 始终以 `browser_storage` 的单一实现为锚点，
+// 扩展侧执行器与 WebView/CDP 的 RESTORE_SCRIPT_TEMPLATE 保持同语义。
 // ═══════════════════════════════════════════════
 
 /// 扩展通道写入的 `origin_detail`（与 CDP 通道的 `"cdp"` 区分）。
@@ -1344,6 +1397,50 @@ pub fn resolve_site_for_extension(state: &AccountManagerState, url: &str) -> Res
         },
         "origin": station.and_then(|item| station_origin(item).ok()),
         "accounts": accounts,
+    }))
+}
+
+/// 站点 × 账号互通总览（bench-companion ≥ 0.6 完整面板的「账号互通」区块）。
+///
+/// 只含展示元数据：站点名/地址、账号名、登录态状态枚举、最近登录/同步时间、
+/// S1 是否有可注入会话。**不含任何凭据与 cookie**；信任边界与
+/// `/v1/session/export` 相同（token + Origin 双校验后才可达）。
+///
+/// `hasSession` 读 S1 的 sessions 表——与出向注入的真实可用性一致：临时账号
+/// 不落 S1，即使账号状态 Ready 也会如实显示「未互通」，不给扩展面板虚假承诺。
+pub fn interop_overview_for_extension(state: &AccountManagerState) -> AccountManagerResult<Value> {
+    let snapshot = state.read_snapshot_checked()?;
+    let stations: Vec<Value> = snapshot
+        .stations
+        .iter()
+        .map(|station| {
+            let accounts: Vec<Value> = snapshot
+                .accounts
+                .iter()
+                .filter(|account| account.station_id == station.id)
+                .map(|account| {
+                    json!({
+                        "id": account.id,
+                        "username": account.username,
+                        "status": account.status,
+                        "hasSession": snapshot.sessions.contains_key(&account.id),
+                        "lastLoginAt": account.last_login_at,
+                        "lastRefreshedAt": account.last_refreshed_at,
+                    })
+                })
+                .collect();
+            json!({
+                "id": station.id,
+                "remark": station.remark,
+                "website": station.website,
+                "origin": station_origin(station).ok(),
+                "accounts": accounts,
+            })
+        })
+        .collect();
+    Ok(json!({
+        "stations": stations,
+        "generatedAtTs": chrono::Utc::now().timestamp(),
     }))
 }
 
@@ -1558,8 +1655,12 @@ pub async fn import_from_extension<R: Runtime>(
 
 /// 导出某账号的会话给扩展，用于注入**日常浏览器**（I5 出向）。
 ///
-/// 只回该账号已存的 cookie 与 UA；`storageOrigins > 0` 时调用方（扩展）应提示
-/// 用户「本地存储无法经扩展注入」，而不是静默给一个半截会话。
+/// 回该账号已存的 cookie、UA 与存储恢复载荷（Cookie + Web Storage + IndexedDB，
+/// schema 见 `browser_storage::storage_restore_payload`）。`outcome` 的判定：
+/// cookie 与存储载荷**任一存在**即为 `ok`——登录凭证只存 IndexedDB / localStorage
+/// 的站点（如 trae 的 7242 端口实例）没有任何站点域 cookie，若按「cookie 为空
+/// 即 empty」会直接掐断注入链路（2026-09-11 实测根因之一）。`storageOrigins`
+/// 不再隐含「扩展无法写入」：扩展 ≥ 0.5 会写入全部三类存储。
 pub fn export_for_extension(
     state: &AccountManagerState,
     account_id: &str,
@@ -1603,20 +1704,34 @@ pub fn export_for_extension(
         .filter(in_scope)
         .filter(|entry| entry.partitioned)
         .count();
-    // Web Storage 恢复载荷（bench-companion ≥ 0.3 消费）：与 WebView / CDP 共用
-    // 同一份 browser_storage schema；IndexedDB 刻意不下发（无法廉价备份，见
-    // `web_storage_restore_payload` 文档）。载荷含明文 token，仅回给通过
-    // token + Origin 双校验的扩展——与 cookie 载荷同一信任边界。
-    let web_storage = browser_storage::web_storage_restore_payload(state, &saved)?;
+    // 存储恢复载荷（bench-companion ≥ 0.5 消费）：与 WebView / CDP 共用同一份
+    // browser_storage schema，含 localStorage / sessionStorage / IndexedDB。
+    // 载荷含明文 token，仅回给通过 token + Origin 双校验的扩展——与 cookie
+    // 载荷同一信任边界。
+    let storage_payload = browser_storage::storage_restore_payload(state, &saved)?;
+    let has_storage_payload = storage_payload.as_ref().is_some_and(|branches| {
+        branches.iter().any(|branch| {
+            let web_storage = ["localStorage", "sessionStorage"].iter().any(|key| {
+                branch
+                    .get(key)
+                    .and_then(Value::as_array)
+                    .is_some_and(|entries| !entries.is_empty())
+            });
+            let indexed_db = branch
+                .get("indexedDb")
+                .is_some_and(|value| !value.is_null());
+            web_storage || indexed_db
+        })
+    });
 
     Ok(json!({
-        "outcome": if cookies.is_empty() { "empty" } else { "ok" },
+        "outcome": if cookies.is_empty() && !has_storage_payload { "empty" } else { "ok" },
         "station": station_summary(station),
         "origin": station_origin(station).ok(),
         "userAgent": saved.user_agent,
         "cookies": cookies,
         "skippedPartitioned": skipped_partitioned,
-        "webStorage": web_storage,
+        "webStorage": storage_payload,
         "storageOrigins": saved.origins.len(),
         "capturedAtTs": saved.captured_at_ts,
         "sessionOrigin": saved.session_origin,

@@ -80,7 +80,11 @@ export function BridgePanel() {
       const result = await exportBrowserExtension()
       setExportResult(result)
       await refresh()
-      toast.success(t("extensionCenter.bridgeExported"))
+      toast.success(
+        result.extensionVersion
+          ? t("extensionCenter.bridgeExportedVersion", { version: result.extensionVersion })
+          : t("extensionCenter.bridgeExported"),
+      )
     } catch (e) {
       const parsed = parseCommandError(e)
       setError(parsed)
@@ -149,7 +153,17 @@ export function BridgePanel() {
       {/* —— 浏览器扩展 —— */}
       <section className="rounded-lg border p-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-medium">{t("extensionCenter.bridgeExportBtn")}</h3>
+          <h3 className="flex items-center gap-2 text-sm font-medium">
+            {t("extensionCenter.bridgeExportBtn")}
+            {(exportResult?.extensionVersion ?? status?.extensionVersion) && (
+              <span
+                className="bg-muted text-muted-foreground rounded border px-1.5 py-0.5 font-mono text-[11px]"
+                title={t("extensionCenter.bridgeExtVersion")}
+              >
+                v{exportResult?.extensionVersion ?? status?.extensionVersion}
+              </span>
+            )}
+          </h3>
           <div className="flex items-center gap-2">
             <span
               className={`rounded border px-2 py-0.5 text-xs ${

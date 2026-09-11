@@ -186,6 +186,32 @@ pub fn push_account_log(
     }
 }
 
+/// 独立记录一条账号操作日志（自带一次原子写盘）。
+///
+/// 用于互通/生命周期等**散点命令**——它们不在既有的批量落盘事务里，调用本函数
+/// 即可完成「记录 + 持久化」；日志写入失败只降级为 stderr，不打断主操作
+///（日志是审计增强，不能反过来阻断用户的业务动作）。账号不存在时静默忽略
+///（删除竞态下日志晚于账号消亡到达属正常时序）。
+pub fn log_account_operation<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    state: &AccountManagerState,
+    account_id: &str,
+    kind: AccountLogKind,
+    level: AccountLogLevel,
+    detail: serde_json::Value,
+) {
+    let result = super::storage::with_state_mut(app, state, |snapshot| {
+        if !snapshot.accounts.iter().any(|item| item.id == account_id) {
+            return Ok(());
+        }
+        push_account_log(snapshot, account_id, kind, level, Some(detail));
+        Ok(())
+    });
+    if let Err(error) = result {
+        eprintln!("[account_manager] log_account_operation({account_id}) failed: {error}");
+    }
+}
+
 pub struct AccountManagerState {
     pub snapshot: RwLock<AccountManagerSnapshot>,
     pub probe_semaphore: Arc<Semaphore>,

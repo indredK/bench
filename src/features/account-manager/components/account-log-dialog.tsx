@@ -9,9 +9,12 @@ import {
   Activity,
   AlertTriangle,
   CalendarClock,
+  Globe,
+  History,
   Inbox,
   RefreshCw,
   ScrollText,
+  Settings2,
   Timer,
   UserRound,
 } from "lucide-react"
@@ -37,6 +40,9 @@ const KIND_ICON: Record<AccountLogKind, typeof UserRound> = {
   autoRefresh: Timer,
   scheduleChanged: CalendarClock,
   statusChanged: Activity,
+  browserInterop: Globe,
+  lifecycle: History,
+  config: Settings2,
   error: AlertTriangle,
 }
 
@@ -53,6 +59,9 @@ const ALL_KINDS: AccountLogKind[] = [
   "autoRefresh",
   "scheduleChanged",
   "statusChanged",
+  "browserInterop",
+  "lifecycle",
+  "config",
   "error",
 ]
 

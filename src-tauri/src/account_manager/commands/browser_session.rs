@@ -11,7 +11,9 @@ use crate::account_manager::browser_session::{
     BrowserSessionPreview, BrowserStationCaptureOutcome, BrowserStatusOutcome,
 };
 use crate::account_manager::state::AccountManagerState;
-use crate::account_manager::types::{AccountManagerError, AccountManagerResult};
+use crate::account_manager::types::{
+    AccountLogKind, AccountLogLevel, AccountManagerError, AccountManagerResult,
+};
 
 /// 可用的受支持浏览器列表（前端首次选择弹窗的数据源，不含本机路径）。
 #[tauri::command]
@@ -117,9 +119,17 @@ pub async fn browser_session_clear_profile<R: Runtime>(
 ) -> AccountManagerResult<bool> {
     state.ensure_ready()?;
     browser_session::close(&app, &account_id).await;
-    let scope = browser_session::profile::Scope::Account(account_id);
+    let scope = browser_session::profile::Scope::Account(account_id.clone());
     browser_session::profile::remove_profile_dir(&app, &scope)
         .map_err(AccountManagerError::store_fail)?;
+    crate::account_manager::state::log_account_operation(
+        &app,
+        &state,
+        &account_id,
+        AccountLogKind::BrowserInterop,
+        AccountLogLevel::Warn,
+        serde_json::json!({ "action": "clearProfile" }),
+    );
     Ok(true)
 }
 

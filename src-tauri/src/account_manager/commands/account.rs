@@ -13,8 +13,9 @@ use crate::account_manager::crypto;
 use crate::account_manager::state::AccountManagerState;
 use crate::account_manager::storage;
 use crate::account_manager::types::{
-    AccountManagerError, AccountManagerResult, AccountSessionStatus, AccountType, DeletionReport,
-    DeletionResourceKind, DeletionResourceStatus, DeletionStatus, LoginMethod, StationAccount,
+    AccountLogKind, AccountLogLevel, AccountManagerError, AccountManagerResult,
+    AccountSessionStatus, AccountType, DeletionReport, DeletionResourceKind,
+    DeletionResourceStatus, DeletionStatus, LoginMethod, StationAccount,
 };
 use crate::account_manager::webview;
 
@@ -121,6 +122,16 @@ pub(crate) fn create_account_inner<R: Runtime>(
         if let Some(blob) = encrypted_password.clone() {
             snapshot.secrets.insert(account.id.clone(), blob);
         }
+        crate::account_manager::state::push_account_log(
+            snapshot,
+            &account.id,
+            AccountLogKind::Lifecycle,
+            AccountLogLevel::Success,
+            Some(serde_json::json!({
+                "action": "create",
+                "accountType": account.account_type,
+            })),
+        );
         Ok(account.clone())
     })
 }
@@ -275,7 +286,8 @@ pub fn reorder_accounts<R: Runtime>(
 // ───── secrets (P1: AES-256-GCM encrypted at rest) ─────
 
 #[tauri::command]
-pub fn reveal_password(
+pub fn reveal_password<R: Runtime>(
+    app: AppHandle<R>,
     state: State<'_, AccountManagerState>,
     account_id: String,
 ) -> AccountManagerResult<String> {
@@ -286,7 +298,17 @@ pub fn reveal_password(
         .cloned()
         .ok_or_else(|| AccountManagerError::not_found(format!("password for {account_id}")))?;
     let key = state.master_key()?;
-    crypto::decrypt(&key, &blob)
+    let plaintext = crypto::decrypt(&key, &blob);
+    // 敏感操作留痕：只记动作，不记任何凭据内容。
+    super::super::state::log_account_operation(
+        &app,
+        &state,
+        &account_id,
+        AccountLogKind::Lifecycle,
+        AccountLogLevel::Info,
+        serde_json::json!({ "action": "revealPassword" }),
+    );
+    plaintext
 }
 
 #[tauri::command]
@@ -318,6 +340,15 @@ pub fn set_password<R: Runtime>(
             }
         }
         account.has_password = snapshot.secrets.contains_key(&account_id);
+        crate::account_manager::state::push_account_log(
+            snapshot,
+            &account_id,
+            AccountLogKind::Lifecycle,
+            AccountLogLevel::Info,
+            Some(serde_json::json!({
+                "action": if blob.is_some() { "setPassword" } else { "removePassword" },
+            })),
+        );
         Ok(())
     })
 }
@@ -353,6 +384,15 @@ pub fn copy_password_to_clipboard<R: Runtime>(
             }
         }
     });
+    // 敏感操作留痕：只记动作，不记任何凭据内容。
+    super::super::state::log_account_operation(
+        &app,
+        &state,
+        &account_id,
+        AccountLogKind::Lifecycle,
+        AccountLogLevel::Info,
+        serde_json::json!({ "action": "copyPassword" }),
+    );
     Ok(())
 }
 

@@ -457,6 +457,7 @@ describe("Tauri contracts", () => {
           "exported",
           "extensionDir",
           "extensionId",
+          "extensionVersion",
           "hostBinFound",
           "hostBinPath",
           "nmRegistrations",

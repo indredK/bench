@@ -6,6 +6,7 @@ import ReactDOM from "react-dom/client"
 import { ThemeProvider } from "next-themes"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { Toaster } from "@/components/ui/sonner"
+import { SonnerNotificationArchive } from "@/components/layout/notification-center/sonner-archive"
 import App from "./App"
 import "./styles/index.css"
 import { i18nInitPromise } from "./i18n/config"
@@ -29,6 +30,8 @@ async function bootstrap() {
           <App />
         </TooltipProvider>
         <Toaster />
+        {/* 右下角 toast → 右上角消息中心的留痕桥（用户约定：操作反馈必须可追溯）。 */}
+        <SonnerNotificationArchive />
       </ThemeProvider>
     </StrictMode>,
   )

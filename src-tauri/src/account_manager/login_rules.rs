@@ -123,6 +123,18 @@ pub struct LoginCheckSpec {
     /// 白名单 GET | POST（POST 空请求体）。
     pub method: String,
     pub expect: LoginCheckExpect,
+    /// 判据前置凭证（可选，cookie 名列表，语义为「全部缺席」）。
+    ///
+    /// 站点可能存在多套登录体系（如 trae：passport OAuth 产生
+    /// sessionid/sid_guard 系 cookie；www 直接登录只产生 Cloud-IDE 会话）。
+    /// 当会话中这些 cookie **全部缺席**时，说明用户走的登录路径根本不产生
+    /// 本判据所依赖的凭证体系——此时 CheckLogin=false 是「判据失明」而非
+    /// 「未登录」，探针必须**弃权**（返回不定论），把状态判断让给其他证据
+    /// 或保持现状。2026-09-11 实测：trae 用 25 条域级 cookie（含
+    /// X-Cloudide-Session）调 CheckLogin 仍 IsLogin=false，而登录窗口里
+    /// 明明是登录态，根因即此。
+    #[serde(default)]
+    pub prerequisite_cookies: Vec<String>,
 }
 
 /// 期望判定（kind 白名单 status | jsonBool | bodyContains）。

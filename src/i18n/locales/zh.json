@@ -355,7 +355,7 @@
       "syncBadge": "就绪后由扩展写入",
       "lastDailyTitle": "上次同步结果",
       "lastDailyReady": "Bench 会话已就绪（{{count}} 条 Cookie，{{origins}} 个 origin）。请在浏览器中通过 Bench Companion 扩展完成写入。",
-      "lastDailyStorage": "该账号的登录态包含本地存储。Bench Companion 0.3.0+ 注入时会同时写入 Cookie 与本地存储（注入前自动备份，需在弹窗中授权站点访问）；登录凭证存于 IndexedDB 的站点请改用「Bench 隔离实例」。",
+      "lastDailyStorage": "该账号的登录态包含本地存储。Bench Companion 0.5.0+ 注入时会同时写入 Cookie、本地存储与 IndexedDB（注入前自动备份、可回滚，需在弹窗中授权站点访问）；若扩展版本较旧，请重新导出并更新扩展。",
       "reason": {
         "notLoggedIn": "Bench 内置浏览器判定该账号未登录",
         "noSessionData": "页面无响应或没有可采集的登录数据",
@@ -677,7 +677,7 @@
       "browserSessionRecovered": "已用 Bench 中的登录态同步：注入 {{count}} 条 Cookie，恢复 {{origins}} 个 origin 的本地存储",
       "browserDailyReady": "已在浏览器中打开站点（{{count}} 条 Cookie，{{origins}} 个 origin）。Bench Companion 将在几秒内自动完成登录注入；若未自动完成，请点扩展图标手动注入。",
       "browserDailyRecovered": "已补采最新登录态（{{count}} 条 Cookie，{{origins}} 个 origin）并在浏览器中打开站点，扩展将自动完成注入；若未自动完成，请点扩展图标手动注入。",
-      "browserDailyStorageSkipped": "该账号的登录态包含本地存储（{{origins}} 个 origin）。请使用 Bench Companion 0.3.0+ 注入，并在弹窗中授权站点访问——Cookie 与本地存储都会写入且注入前自动备份；登录凭证存于 IndexedDB 的站点请改用「Bench 隔离实例」。",
+      "browserDailyStorageSkipped": "该账号的登录态包含本地存储（{{origins}} 个 origin）。请使用 Bench Companion 0.5.0+ 注入，并在弹窗中授权站点访问——Cookie、本地存储与 IndexedDB 都会写入且注入前自动备份；若已装扩展较旧，请重新导出并更新。",
       "browserNoStoredSession": "Bench 里没有检测到该账号的登录态（{{reason}}），本次没有可同步的内容。请先在 Bench 中点击「登录」确认已登录，再来同步。",
       "browserStaleSession": "Bench 里该账号的登录态已失效（探针判定未登录），本次注入的是过期数据，站点大概率不会识别。请先在 Bench 中点击「登录」重新登录，再回来同步。",
       "browserNothingInjected": "已保存的会话里没有可注入的 Cookie（分区隔离跳过 {{skipped}} 条，浏览器拒绝 {{rejected}} 条）。",
@@ -842,7 +842,10 @@
         "autoRefresh": "自动刷新",
         "scheduleChanged": "计划变更",
         "statusChanged": "状态变更",
-        "error": "错误"
+        "error": "错误",
+        "browserInterop": "浏览器互通",
+        "lifecycle": "账号操作",
+        "config": "配置变更"
       },
       "skipReason": {
         "loginWindowOpen": "登录窗口打开中，本次跳过",
@@ -1723,7 +1726,12 @@
     "empty": "暂无新消息",
     "clearAll": "全部清除",
     "dismiss": "移除",
-    "unreadCount": "{{count}} 条未读消息"
+    "unreadCount": "{{count}} 条未读消息",
+    "emptyAnnouncements": "暂无公告",
+    "tabs": {
+      "system": "系统通知",
+      "announcements": "公告通知"
+    }
   },
   "titlebar": {
     "minimize": "最小化",
@@ -2777,6 +2785,8 @@
     "bridgeExportBtn": "导出浏览器扩展",
     "bridgeExporting": "导出中…",
     "bridgeExported": "已导出",
+    "bridgeExportedVersion": "已导出 Bench Companion v{{version}}",
+    "bridgeExtVersion": "扩展版本",
     "bridgeNotExported": "未导出",
     "bridgeHostMissing": "未找到 bench-host 可执行文件（需先构建 cargo build -p bench-host）",
     "bridgeExtDir": "扩展目录",

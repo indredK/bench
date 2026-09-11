@@ -147,6 +147,7 @@ function App() {
         pushNotification({
           id: "startup-issues",
           level: "error",
+          category: "announcement",
           titleKey: "startupIssues.title",
           descriptionKey: "startupIssues.description",
           descriptionParams: {

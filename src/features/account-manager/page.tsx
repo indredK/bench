@@ -216,6 +216,7 @@ function AccountManagerPage() {
       pushNotification({
         id: "account-manager:capabilities",
         level: capabilityState.blockedCount > 0 ? "error" : "warning",
+        category: "announcement",
         titleKey: "sidebar.accountManager",
         descriptionKey: "accountManager.capabilities.summary",
         descriptionParams: {

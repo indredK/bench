@@ -355,7 +355,7 @@
       "syncBadge": "Written by extension",
       "lastDailyTitle": "Last sync result",
       "lastDailyReady": "Bench session is ready ({{count}} cookie(s), {{origins}} origin(s)). Finish the write in your browser via the Bench Companion extension.",
-      "lastDailyStorage": "This account's session contains local storage. Bench Companion 0.3.0+ writes both cookies and local storage (backed up first; grant site access in its popup); for sites whose credentials live in IndexedDB, use the \"Bench isolated instance\" instead.",
+      "lastDailyStorage": "This account's session contains local storage. Bench Companion 0.5.0+ writes cookies, local storage and IndexedDB together (backed up first and restorable; grant site access in its popup). If the installed extension is older, re-export and reload it in the browser.",
       "reason": {
         "notLoggedIn": "Bench's built-in browser reports this account as signed out",
         "noSessionData": "The page did not respond or exposed no session data",
@@ -677,7 +677,7 @@
       "browserSessionRecovered": "Synced from Bench's session: injected {{count}} cookie(s) and restored local storage for {{origins}} origin(s)",
       "browserDailyReady": "Site opened in your browser ({{count}} cookie(s), {{origins}} origin(s)). Bench Companion will auto-inject the login within seconds; if it doesn't, click the extension icon and inject manually.",
       "browserDailyRecovered": "Recovered fresh session ({{count}} cookie(s), {{origins}} origin(s)) and opened the site — the extension will auto-inject; if it doesn't, click the extension icon and inject manually.",
-      "browserDailyStorageSkipped": "This account's session contains local storage ({{origins}} origin(s)). Use Bench Companion 0.3.0+ and grant site access in its popup — cookies and local storage are both written (backed up first); for sites whose credentials live in IndexedDB, use the \"Bench isolated instance\" instead.",
+      "browserDailyStorageSkipped": "This account's session contains local storage ({{origins}} origin(s)). Use Bench Companion 0.5.0+ and grant site access in its popup — cookies, local storage and IndexedDB are all written (backed up first). If the installed extension is older, re-export and update it.",
       "browserNoStoredSession": "Bench detected no session for this account ({{reason}}), so there was nothing to sync. Click \"Login\" in Bench, confirm you are signed in, then sync again.",
       "browserStaleSession": "Bench's session for this account is stale (probe reports signed out); what gets injected is expired data and the site will most likely not recognize it. Log in again in Bench first, then sync.",
       "browserNothingInjected": "The saved session had no injectable cookies ({{skipped}} skipped as partitioned, {{rejected}} rejected by the browser).",
@@ -842,7 +842,10 @@
         "autoRefresh": "Auto refresh",
         "scheduleChanged": "Schedule changed",
         "statusChanged": "Status changed",
-        "error": "Error"
+        "error": "Error",
+        "browserInterop": "Browser interop",
+        "lifecycle": "Account ops",
+        "config": "Config change"
       },
       "skipReason": {
         "loginWindowOpen": "Skipped: login window is open",
@@ -1720,10 +1723,15 @@
   },
   "notificationCenter": {
     "title": "Notifications",
-    "empty": "You're all caught up",
+    "empty": "You’re all caught up",
     "clearAll": "Clear all",
     "dismiss": "Dismiss",
-    "unreadCount": "{{count}} unread messages"
+    "unreadCount": "{{count}} unread messages",
+    "emptyAnnouncements": "No announcements",
+    "tabs": {
+      "system": "System",
+      "announcements": "Announcements"
+    }
   },
   "titlebar": {
     "minimize": "Minimize",
@@ -2777,6 +2785,8 @@
     "bridgeExportBtn": "Export browser extension",
     "bridgeExporting": "Exporting…",
     "bridgeExported": "Exported",
+    "bridgeExportedVersion": "Exported Bench Companion v{{version}}",
+    "bridgeExtVersion": "Extension version",
     "bridgeNotExported": "Not exported",
     "bridgeHostMissing": "bench-host binary not found (run cargo build -p bench-host first)",
     "bridgeExtDir": "Extension dir",

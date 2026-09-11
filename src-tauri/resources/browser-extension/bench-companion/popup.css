@@ -43,6 +43,11 @@ body {
 .title {
   font-weight: 500;
 }
+.ver {
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
 .badge {
   margin-left: auto;
   font-size: 11px;

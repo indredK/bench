@@ -51,6 +51,8 @@ pub struct BrowserExtStatus {
     pub exported: bool,
     pub extension_dir: String,
     pub extension_id: String,
+    /// 扩展版本（来自内嵌 manifest；前端展示并与浏览器已加载版本核对）。
+    pub extension_version: String,
     pub host_bin_found: bool,
     pub host_bin_path: String,
     pub nm_registrations: Vec<super::NmRegistration>,
@@ -72,6 +74,7 @@ pub fn browser_ext_status(app: tauri::AppHandle) -> AppResult<BrowserExtStatus> 
         exported,
         extension_dir: extension_dir.display().to_string(),
         extension_id: EXTENSION_ID.to_string(),
+        extension_version: super::extension_version(),
         host_bin_found: host_bin.is_ok(),
         host_bin_path: host_bin.clone().unwrap_or_default().display().to_string(),
         nm_registrations: registered_nm_paths(),
@@ -109,6 +112,7 @@ pub fn browser_ext_export(app: tauri::AppHandle) -> AppResult<super::ExportResul
         nm_registrations,
         browsers: detect_browsers(),
         extension_id: EXTENSION_ID.to_string(),
+        extension_version: super::extension_version(),
     })
 }
 

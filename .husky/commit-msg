@@ -2,4 +2,16 @@
 
 set -e
 
+# Git hooks run in a stripped environment (especially when invoked from an IDE),
+# where node is not on PATH. Resolve node via fnm's default version (>=24, per
+# package.json engines) and fall back to common install locations.
+FNM_DEFAULT="$(/opt/homebrew/bin/fnm default 2>/dev/null)"
+FNM_NODE_BIN="$HOME/.local/share/fnm/node-versions/$FNM_DEFAULT/installation/bin"
+BASE_TOOLS="$HOME/.hermes/node/bin:$HOME/.local/bin:/Users/apple/.cargo/bin:/usr/local/bin:/opt/homebrew/bin"
+if [ -n "$FNM_DEFAULT" ] && [ -d "$FNM_NODE_BIN" ]; then
+  export PATH="$FNM_NODE_BIN:$BASE_TOOLS:$PATH"
+else
+  export PATH="$BASE_TOOLS:$PATH"
+fi
+
 node scripts/quality/commit-msg-check.mjs "$1"

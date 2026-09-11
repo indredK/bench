@@ -177,8 +177,9 @@ export function useBrowserInterop() {
         if (outcome.recoveryReason === "staleSession") {
           toast.warning(t("accountManager.toasts.browserStaleSession"), { duration: 10000 })
         }
-        // 扩展通道 v1 只搬 Cookie（浏览器不允许写 localStorage/IndexedDB）。
-        // 登录态含本地存储时必须显式告知能力边界，避免「注入成功却未登录」被当成同步失败。
+        // 扩展通道自 0.5.0 起写入 Cookie + Web Storage + IndexedDB（先备份）。
+        // 登录态含本地存储时仍显式提示，让用户核对扩展版本与站点授权，避免
+        // 「注入成功却未登录」被当成同步失败。
         if (outcome.storageOrigins > 0) {
           toast.warning(
             t("accountManager.toasts.browserDailyStorageSkipped", {

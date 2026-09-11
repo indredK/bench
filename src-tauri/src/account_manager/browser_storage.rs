@@ -224,20 +224,24 @@ fn ensure_canonical_http_origin(origin: &str) -> AccountManagerResult<()> {
     Ok(())
 }
 
-/// 组装「Web Storage 恢复载荷」——扩展通道（bench-companion ≥ 0.3）的注入数据。
+/// 组装「存储恢复载荷」——扩展通道（bench-companion ≥ 0.5）的注入数据。
 ///
 /// 载荷形状与 [`RESTORE_SCRIPT_TEMPLATE`] 的 origin 分支**完全一致**
-///（`{origin, localStorage: [{name,value}], sessionStorage: [{name,value}]}`），
+///（`{origin, localStorage: [{name,value}], sessionStorage: [{name,value}], indexedDb}`），
 /// 执行器是模板的扩展侧等价物，双端以载荷 JSON 为唯一 schema 锚点，改动必须同步。
 ///
-/// **刻意不包含 IndexedDB**：扩展注入在用户日常浏览器执行，`localStorage.clear()`
-/// 级别的破坏对 Web Storage 可经「注入前全量备份 + 一键回滚」兜底（载荷小、同步
-/// API），而 IndexedDB 既无法廉价备份、误覆盖又不可逆——对登录态主要存 Web
-/// Storage 的站点（trae 的 `Cloud-IDE-Token` 等）这已足够；依赖 IndexedDB 的站点
-/// 仍应走隔离实例通道（见 D-031）。
+/// **IndexedDB 自 bench-companion 0.5 起随载荷下发**：扩展在页面上下文
+///（MAIN world）执行与本模板同语义的恢复脚本。原先「不下发」的理由是
+/// IndexedDB 无法廉价备份、误覆盖不可逆；现在扩展写入前会先以与采集端
+/// 同构的快照脚本把该站点现有 IndexedDB 备份进 `chrome.storage.local`
+///（manifest 已带 `unlimitedStorage` 解除体积顾虑），备份不完整则拒绝覆盖
+///（fail-closed），误覆盖可经「一键回滚」恢复——前提已不成立。
+///
+/// `indexedDb` 为 `null` 表示该 origin 没有可用的 IndexedDB 快照（未采集 /
+/// 采集 limited / failed），扩展侧据此跳过对应步骤。
 ///
 /// 返回 `None` 表示该会话没有存储快照。
-pub fn web_storage_restore_payload(
+pub fn storage_restore_payload(
     state: &AccountManagerState,
     session: &AccountSession,
 ) -> AccountManagerResult<Option<Vec<Value>>> {
@@ -255,6 +259,7 @@ pub fn web_storage_restore_payload(
                 origin.session_storage.as_ref(),
                 "sessionStorage",
             )?,
+            "indexedDb": decrypt_json_value(state, origin.indexed_db.as_ref(), "IndexedDB")?,
         }));
     }
     Ok(Some(payload))
@@ -573,6 +578,63 @@ const RESTORE_SCRIPT_TEMPLATE: &str = r#"
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn storage_restore_payload_includes_indexed_db_branch() {
+        let state = AccountManagerState::new();
+        let key = [7u8; 32];
+        state
+            .initialize_master_key_for_tests(key)
+            .expect("test master key");
+        let local = crypto::encrypt(&key, r#"[{"name":"k","value":"v"}]"#).expect("encrypt local");
+        let session_storage = crypto::encrypt(&key, r#"[]"#).expect("encrypt session");
+        let indexed_db = crypto::encrypt(
+            &key,
+            r#"{"version":1,"databases":[{"name":"db","version":1,"stores":[]}]}"#,
+        )
+        .expect("encrypt idb");
+        let mut session = AccountSession::default();
+        session.origins.push(OriginStorage {
+            origin: "http://127.0.0.1:7242".into(),
+            local_storage: Some(local),
+            session_storage: Some(session_storage),
+            indexed_db: Some(indexed_db),
+        });
+
+        let payload = storage_restore_payload(&state, &session)
+            .expect("payload")
+            .expect("non-empty");
+        assert_eq!(payload.len(), 1);
+        let branch = &payload[0];
+        assert_eq!(branch["origin"], json!("http://127.0.0.1:7242"));
+        assert_eq!(
+            branch["localStorage"],
+            json!([{ "name": "k", "value": "v" }])
+        );
+        assert_eq!(branch["sessionStorage"], json!([]));
+        // D-033：IndexedDB 快照必须随载荷下发，扩展侧（≥0.5）据此恢复。
+        assert_eq!(
+            branch["indexedDb"],
+            json!({"version":1,"databases":[{"name":"db","version":1,"stores":[]}]})
+        );
+    }
+
+    #[test]
+    fn storage_restore_payload_null_indexed_db_when_missing() {
+        let state = AccountManagerState::new();
+        state
+            .initialize_master_key_for_tests([9u8; 32])
+            .expect("test master key");
+        let mut session = AccountSession::default();
+        session.origins.push(OriginStorage {
+            origin: "https://a.test".into(),
+            ..Default::default()
+        });
+        let payload = storage_restore_payload(&state, &session)
+            .expect("payload")
+            .expect("non-empty");
+        assert!(payload[0]["indexedDb"].is_null());
+    }
 
     #[test]
     fn merge_origin_replaces_only_the_matching_origin() {

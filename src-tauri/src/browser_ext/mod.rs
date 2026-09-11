@@ -27,6 +27,20 @@ pub const EXTENSION_ID: &str = "dmcfgfpfilhgcoddmciglpjdggkpinje";
 /// Firefox/Gecko 扩展 ID（manifest 的 browser_specific_settings.gecko.id）。
 pub const GECKO_EXTENSION_ID: &str = "bench-companion@kindred.dev";
 
+/// 从编译期内嵌的扩展 manifest 解析版本号（status / export 都要带给前端展示，
+/// 用户据此核对浏览器里已加载扩展的版本是否与本次导出一致）。
+pub fn extension_version() -> String {
+    serde_json::from_str::<serde_json::Value>(template::MANIFEST)
+        .ok()
+        .and_then(|value| {
+            value
+                .get("version")
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_string)
+        })
+        .unwrap_or_default()
+}
+
 // —— 模板（编译期嵌入，避免运行时资源路径解析问题）——
 mod template {
     pub const MANIFEST: &str =
@@ -160,6 +174,8 @@ pub struct ExportResult {
     pub nm_registrations: Vec<NmRegistration>,
     pub browsers: Vec<BrowserInfo>,
     pub extension_id: String,
+    /// 本次导出的扩展版本（弹窗/toast 提示用）。
+    pub extension_version: String,
 }
 
 /// bench-host 可执行文件位置：与当前进程同目录（打包后 = Contents/MacOS/，

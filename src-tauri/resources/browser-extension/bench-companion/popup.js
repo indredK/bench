@@ -17,6 +17,10 @@ const $injectList = document.getElementById("inject-list")
 const $backups = document.getElementById("backups")
 const $q = document.getElementById("q")
 const $hits = document.getElementById("hits")
+const $version = document.getElementById("version")
+
+// 版本号自证：用户据此与 Bench 导出面板展示的版本核对是否为同一次导出。
+if ($version) $version.textContent = "v" + chrome.runtime.getManifest().version
 
 function send(msg) {
   return new Promise((resolve) => chrome.runtime.sendMessage(msg, resolve))
@@ -273,8 +277,9 @@ async function injectSession() {
   $inject.disabled = true
   setMessage("注入中…（会先备份本浏览器该站点现有 Cookie 与本地存储）")
 
-  // 预检：该账号会话是否含本站点的 Web Storage 载荷。host 权限申请必须在
-  // 本次点击的用户手势内完成（background 里调用 request 会被 Chrome 拒绝）。
+  // 预检：该账号会话是否含本站点的存储载荷（Web Storage / IndexedDB）。
+  // host 权限申请必须在本次点击的用户手势内完成（background 里调用 request
+  // 会被 Chrome 拒绝）。
   let withStorage = false
   try {
     const preview = await send({
@@ -282,13 +287,17 @@ async function injectSession() {
       accountId: picked.value,
       url: state.url,
     })
-    if (preview.ok && preview.data.outcome === "ok" && preview.data.hasWebStorage) {
+    if (
+      preview.ok &&
+      preview.data.outcome === "ok" &&
+      (preview.data.hasWebStorage || preview.data.hasIndexedDb)
+    ) {
       const origin = new URL(state.url).origin
       const granted = await chrome.permissions.request({ origins: [origin + "/*"] })
       if (granted) {
         withStorage = true
       } else {
-        setMessage("未授权站点访问：本次仅注入 Cookie，本地存储保持不变。", "warn")
+        setMessage("未授权站点访问：本次仅注入 Cookie，本地存储与 IndexedDB 保持不变。", "warn")
       }
     }
   } catch (e) {
@@ -319,6 +328,11 @@ async function injectSession() {
     "已写入 " + data.written + " 条 Cookie（原站点已有 " + data.replaced + " 条，已备份）。",
   ]
   if (data.failed) lines.push("失败 " + data.failed + " 条。")
+  const ua = data.uaOverride || {}
+  if (ua.active) {
+    lines.push("已启用站点 UA 指纹覆写：该站点的会话建立于其他浏览器内核，请求将携带原会话 UA。")
+  }
+  if (ua.error) lines.push("UA 指纹覆写失败：" + ua.error)
   const storage = data.storage || {}
   if (storage.attempted && storage.granted && storage.writtenKeys > 0) {
     lines.push(
@@ -334,17 +348,38 @@ async function injectSession() {
   if (storage.attempted && storage.error) {
     lines.push("本地存储写入失败：" + storage.error)
   }
-  if (data.storageOrigins > 0 && !storage.writtenKeys) {
+  const idb = storage.indexedDb || {}
+  if (idb.attempted && idb.restored > 0) {
+    lines.push("已恢复 IndexedDB " + idb.restored + " 个库（注入前已备份，可回滚）。")
+  }
+  if (idb.attempted && idb.failed?.length) {
+    lines.push(
+      "IndexedDB 部分库未恢复：" + idb.failed.map((f) => f.name + "（" + f.code + "）").join("、"),
+    )
+  }
+  if (idb.attempted && !idb.backedUp && !idb.error) {
+    lines.push("IndexedDB 现有数据未能完整备份，已跳过覆盖（保持原样）。")
+  }
+  if (idb.error) {
+    lines.push("IndexedDB 未写入：" + idb.error + "。可改用 Bench 隔离实例同步。")
+  }
+  const storageIncomplete =
+    storage.attempted &&
+    ((!storage.granted && storage.writtenKeys === 0 && !idb.restored) ||
+      storage.error ||
+      idb.error ||
+      (idb.failed?.length || 0) > 0)
+  if (data.storageOrigins > 0 && !storage.writtenKeys && !idb.restored) {
     lines.push(
       "注意：该账号的登录态还包含本地存储" +
         (storage.attempted && !storage.granted ? "（本次未授权写入）" : "") +
-        "。若站点仍显示未登录（登录凭证存于 IndexedDB 的站点），请在 Bench 里改用「Bench 隔离实例」方式同步。",
+        "。若站点仍显示未登录，请核对上方存储写入明细，或改用「Bench 隔离实例」方式同步。",
     )
   }
   if (data.skippedPartitioned > 0) {
     lines.push("已跳过 " + data.skippedPartitioned + " 条分区隔离 Cookie。")
   }
-  setMessage(lines.join("\n"), data.storageOrigins > 0 && !storage.writtenKeys ? "warn" : "ok")
+  setMessage(lines.join("\n"), storageIncomplete ? "warn" : "ok")
   await renderBackups()
 }
 
@@ -359,7 +394,11 @@ async function renderBackups() {
     '<div class="slabel">可回滚的备份</div>' +
     res.data
       .map((b) => {
-        const meta = b.count + " 条" + (b.storageKeys ? " + " + b.storageKeys + " 个存储键" : "")
+        const meta =
+          b.count +
+          " 条" +
+          (b.storageKeys ? " + " + b.storageKeys + " 个存储键" : "") +
+          (b.idbDatabases ? " + " + b.idbDatabases + " 个 IndexedDB 库" : "")
         return (
           '<div class="bk"><span class="origin" title="' +
           escapeHtml(b.origin) +
@@ -388,6 +427,10 @@ async function renderBackups() {
         parts.push("本地存储 " + done.data.storageWritten + " 个键。")
       if (done.data.storageWritten < 0)
         parts.push("本地存储未回滚（未授权该站点，可在注入流程中授权后重试）。")
+      if (done.data.idbRestored > 0) parts.push("IndexedDB " + done.data.idbRestored + " 个库。")
+      if (done.data.idbRestored < 0) parts.push("IndexedDB 未回滚（未授权该站点）。")
+      if (done.data.idbFailed?.length)
+        parts.push("IndexedDB 部分库失败：" + done.data.idbFailed.map((f) => f.name).join("、"))
       setMessage(parts.join(" "), "ok")
       await renderBackups()
     })

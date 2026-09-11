@@ -2,6 +2,20 @@
 
 本文件只记录仍影响当前实现的方向性取舍；“做什么”以 [ROADMAP.md](../roadmap/ROADMAP.md) 为准，当前风险以 [audit-report.md](./audit-report.md) 为准。已推翻和已完成历史由 Git 保留。
 
+## D-033 · 扩展通道升级「Cookie + Web Storage + IndexedDB」全量注入；版本号双端自证
+
+- **日期**：2026-09-11
+- **状态**：采纳（**supersede [D-031](#d-031--扩展通道升级cookie--web-storage注入indexeddb-仍排除) 决议 4「IndexedDB 刻意不注入」**）
+- **背景**：D-031 排除 IndexedDB 的前提是「无法廉价备份、误覆盖不可逆」。用户实测（2026-09-11，trae 的 7242 端口实例）推翻该产品约束：该站点登录凭证只存 IndexedDB、站点域 Cookie 为零 → `/v1/session/export` 按「cookie 为空即 `empty`」直接掐断注入链路；即便绕过 outcome 判定，扩展侧也没有任何 IndexedDB 写入能力。表现为「账号卡片已登录，同步到日常浏览器后仍未登录」，扩展通道对这类站点形同虚设。
+- **决策**：
+  1. **载荷补全**：`web_storage_restore_payload` → `storage_restore_payload`，per-origin 增发 `indexedDb` 快照，形状与 `RESTORE_SCRIPT_TEMPLATE` 的 origin 分支**完全同形**——schema 锚点仍是 `browser_storage` 的单一实现，扩展执行器与 Rust 采集 / 恢复模板三处同步。
+  2. **export outcome 判定修复**：`ok` 的条件从「cookie 非空」放宽为「cookie 或存储载荷任一存在」，凭证不在 Cookie 里的站点不再被误判 `empty`。
+  3. **扩展先备份后覆盖（fail-closed）**：注入前以与采集端同构的快照脚本备份站点现有 IndexedDB 进 `chrome.storage.local`（manifest 新增 `unlimitedStorage` 解除体积顾虑）；备份不完整（limited / failed / 不支持）**拒绝覆盖**；单库恢复失败（版本 / schema 不一致、被其他连接阻塞）只记入 failed 列表，不阻断整体注入。回滚链路同步恢复 IndexedDB。
+  4. **版本号双端自证**：`browser_ext_status` / `browser_ext_export` 增发 `extensionVersion`（来自编译期内嵌 manifest）；Bench 导出面板显示版本徽章、导出 toast 带版本；扩展 popup / 完整面板头部显示 `chrome.runtime.getManifest().version`——用户可核对「浏览器已加载版本 = 本次导出版本」，避免旧扩展静默缺能力。
+- **理由**：备份技术前提已不成立，「IndexedDB 站点走隔离实例」等于把扩展通道的正确性责任转嫁给用户手动选通道；自动注入（D-032）的目标是零操作闭环，用户没有判断「该用哪个通道」的信息位。
+- **影响**：bench-companion 0.5.0（新增 `unlimitedStorage` 权限，重载扩展时 Chrome 一次确认）；`BrowserExtStatus` / `ExportResult` 新增字段（契约测试同步）；互通弹窗与 toast 文案改为「0.5.0+ 会写入 IndexedDB（先备份）」；Bench 侧既有会话**无需重新采集**（IndexedDB 快照本就在 S1 里，此前只是不下发）。
+- **相关**：[product-specs/account-manager.md §17](../reference/product-specs/account-manager.md) · [D-032](#d-032--同步到日常浏览器--自动注入--无条件全量同步不做登录判定闸门) · [D-031](#d-031--扩展通道升级cookie--web-storage注入indexeddb-仍排除) · [D-030](#d-030--出向注入前自动补采-bench-内置登录态出向目标显式二选一)
+
 ## D-032 · 同步到日常浏览器 = 自动注入 + 无条件全量同步（不做登录判定闸门）
 
 - **日期**：2026-09-11
@@ -18,7 +32,7 @@
 ## D-031 · 扩展通道升级「Cookie + Web Storage」注入，IndexedDB 仍排除
 
 - **日期**：2026-09-10
-- **状态**：采纳（**supersede [D-029](#d-029--日常浏览器方向改用扩展--本地桥i3i5-提前为必须实现) 决议 4「扩展通道 v1 只搬 Cookie」中的 Web Storage 部分**；IndexedDB 排除维持）
+- **状态**：采纳（**supersede [D-029](#d-029--日常浏览器方向改用扩展--本地桥i3i5-提前为必须实现) 决议 4「扩展通道 v1 只搬 Cookie」中的 Web Storage 部分**；IndexedDB 排除原维持，已被 [D-033](#d-033--扩展通道升级cookie--web-storage--indexeddb全量注入版本号双端自证) supersede）
 - **背景**：D-029 把扩展通道定为「只搬 Cookie」，理由是避免在扩展里复制一份 `browser_storage` 采集载荷 schema。用户实测发现关键缺口：**trae 的登录凭证存在 localStorage（`Cloud-IDE-Token` / `__tea_session_id_*`），cookie 只是风控辅助**——对这类站点，cookie-only 通道即使全部写入也无法登录，扩展通道形同虚设。
 - **决策**：
   1. **桥 `/v1/session/export` 增发 `webStorage` 载荷**：`browser_storage::web_storage_restore_payload` 解密出 `{origin, localStorage, sessionStorage}` 数组，形状与 `RESTORE_SCRIPT_TEMPLATE` 的 origin 分支**完全一致**——扩展执行器是模板的 JS 等价物，双端以载荷 JSON 为唯一 schema 锚点，不产生 D-029 当初担心的 schema 漂移。

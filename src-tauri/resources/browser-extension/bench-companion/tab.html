@@ -10,10 +10,24 @@
     <header class="head wide">
       <img src="icons/icon48.png" width="22" height="22" alt="" />
       <span class="title">Bench Companion</span>
+      <span id="version" class="ver" title="扩展版本号"></span>
       <span id="status" class="badge off">检测中</span>
     </header>
 
     <main class="grid">
+      <section class="card interop">
+        <h2>账号互通总览</h2>
+        <p class="hint">
+          Bench「账号管理」里的全部站点与账号。<b>已互通</b>
+          = Bench 已存该账号可注入的登录态（可在 Bench 里同步到本浏览器或隔离实例）。
+        </p>
+        <div class="row inline">
+          <span id="interop-meta" class="meta-line"></span>
+          <button id="interop-refresh">刷新</button>
+        </div>
+        <div id="interop-out" class="empty">读取中…</div>
+      </section>
+
       <section class="card">
         <h2>存储扫描（clean-space）</h2>
         <p class="hint">只读扫描白名单内的目录，按「早于 N 天」估算可清理项。不会删除任何文件。</p>

@@ -128,6 +128,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     "bench:session:storagePreview": () => storagePreview(msg),
     "bench:session:inject": () => injectSession(msg),
     "bench:session:pendingCheck": () => maybeAutoInject(),
+    "bench:session:overview": () => bridgeCall("/v1/interop/overview", {}),
     "bench:session:backups": () => listBackups(),
     "bench:session:restore": () => restoreBackup(msg.key),
   }
@@ -260,7 +261,81 @@ async function exportSession(accountId) {
   return bridgeCall("/v1/session/export", { accountId })
 }
 
-/** 注入预检：该账号会话在本站点是否有可写的 Web Storage 载荷（不回传载荷本身）。 */
+// ── 会话环境一致性（UA 覆写，业内指纹浏览器的标准做法）──────────────────
+// 会话建立于某个浏览器内核（如 Bench 内置 WKWebView 的 Safari UA），注入到
+// 用户日常 Chrome 后 UA 不一致——绑定 UA/设备的服务端会把会话判为异常。
+// 用 declarativeNetRequest session rule 把该站点的 User-Agent 请求头覆写为
+// 会话原始 UA，作用域限定目标站点域；回滚时一并移除。
+
+const UA_RULE_BASE = 500000
+
+function hashString(value) {
+  let hash = 0
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 31 + value.charCodeAt(i)) | 0
+  }
+  return Math.abs(hash)
+}
+
+/**
+ * 为站点注册 UA 覆写（会话 UA ≠ 当前浏览器 UA 时）。
+ * 返回 { active }；注册失败不阻断注入（降级为纯 Cookie+存储写入）。
+ */
+async function applyUaOverride(origin, userAgent) {
+  if (!userAgent || userAgent === navigator.userAgent) return { active: false }
+  const host = new URL(origin).hostname.replace(/^www\./, "")
+  const ruleId = UA_RULE_BASE + (hashString(host) % 100000)
+  try {
+    await chrome.declarativeNetRequest.updateSessionRules({
+      removeRuleIds: [ruleId],
+      addRules: [
+        {
+          id: ruleId,
+          priority: 1,
+          action: {
+            type: "modifyHeaders",
+            requestHeaders: [{ header: "User-Agent", operation: "set", value: userAgent }],
+          },
+          condition: {
+            requestDomains: [host],
+            resourceTypes: [
+              "main_frame",
+              "sub_frame",
+              "xmlhttprequest",
+              "script",
+              "stylesheet",
+              "image",
+              "font",
+              "other",
+            ],
+          },
+        },
+      ],
+    })
+    await chrome.storage.local.set({
+      ["bench:ua-rule:" + origin]: { origin, ruleId, host, userAgent, at: Date.now() },
+    })
+    return { active: true }
+  } catch (e) {
+    return { active: false, error: String(e?.message || e) }
+  }
+}
+
+/** 移除站点的 UA 覆写（回滚时调用）。 */
+async function removeUaOverride(origin) {
+  const key = "bench:ua-rule:" + origin
+  const all = await chrome.storage.local.get(key)
+  const record = all[key]
+  if (!record) return
+  try {
+    await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: [record.ruleId] })
+  } catch (e) {
+    /* 规则可能已被清理 */
+  }
+  await chrome.storage.local.remove(key)
+}
+
+/** 注入预检：该账号会话在本站点是否有可写的存储载荷（不回传载荷本身）。 */
 async function storagePreview({ accountId, url }) {
   const exported = await exportSession(accountId)
   if (exported.outcome !== "ok") return { outcome: exported.outcome }
@@ -268,11 +343,17 @@ async function storagePreview({ accountId, url }) {
   const branch = (exported.webStorage || []).find((item) => item.origin === origin)
   const localKeys = (branch?.localStorage || []).length
   const sessionKeys = (branch?.sessionStorage || []).length
+  // 含有 object store 的库才会在注入时被实际写入，空的库壳不计。
+  const indexedDbDatabases = (branch?.indexedDb?.databases || []).filter(
+    (db) => (db.stores || []).length > 0,
+  ).length
   return {
     outcome: "ok",
     hasWebStorage: localKeys + sessionKeys > 0,
+    hasIndexedDb: indexedDbDatabases > 0,
     localKeys,
     sessionKeys,
+    indexedDbDatabases,
     storageOrigins: exported.storageOrigins || 0,
   }
 }
@@ -299,13 +380,22 @@ async function openAndWaitTab(url, timeoutMs = 20000) {
 }
 
 /**
- * 把 Bench 账号的 Web Storage 写进本站点（v0.3 新能力）。
+ * 把 Bench 账号的存储写进本站点（v0.5：localStorage / sessionStorage / IndexedDB）。
  *
- * 顺序：备份现有 localStorage/sessionStorage → 在页面上下文执行覆盖写入 →
- * 重载页面使站点读到新存储。执行器与 Bench 的恢复脚本（browser_storage
- * `RESTORE_SCRIPT_TEMPLATE` 的 Web Storage 分支）行为一致，双端以载荷 JSON
- * `{origin, localStorage:[{name,value}], sessionStorage:[{name,value}]}` 为唯一
- * schema 锚点，改动必须两处同步。IndexedDB 刻意不注入（无法廉价备份）。
+ * 顺序：备份现有 localStorage/sessionStorage → 覆盖写入 → 备份现有 IndexedDB →
+ * 恢复 IndexedDB → 重载页面使站点读到新存储。执行器与 Bench 的恢复脚本
+ *（browser_storage `RESTORE_SCRIPT_TEMPLATE`）及采集脚本
+ *（`CAPTURE_SCRIPT_TEMPLATE` 的 IndexedDB 分支）行为一致，双端以载荷 JSON
+ * `{origin, localStorage:[{name,value}], sessionStorage:[{name,value}], indexedDb}`
+ * 为唯一 schema 锚点，改动必须三处同步（Rust 采集 / Rust 恢复模板 / 本文件）。
+ *
+ * IndexedDB 的安全纪律（v0.5 起支持注入的前提）：
+ * 1. 写入前先快照该站点现有 IndexedDB（与 Bench 采集端同构的编码）存入
+ *    `chrome.storage.local`（`unlimitedStorage` 解除体积顾虑），可一键回滚；
+ * 2. 快照不完整（limited / failed / 不支持）→ **拒绝覆盖**（fail-closed），
+ *    IndexedDB 保持原样并在结果里说明；
+ * 3. 单个库恢复失败（版本 / schema 不一致、被其他连接阻塞）只记入 failed
+ *    列表，不阻断其他库，也不阻断整体注入。
  */
 async function injectWebStorage(origin, branch) {
   // 优先复用该站点已存在的标签页（手动注入=用户当前页；自动注入=Bench 打开的页），
@@ -337,14 +427,410 @@ async function injectWebStorage(origin, branch) {
     args: [branch],
   })
   const written = writeResult?.[0]?.result || { writtenLocal: 0, writtenSession: 0 }
+
+  // ── IndexedDB（v0.5）：先备份后覆盖，页面上下文执行 ──
+  const idb = { attempted: false, backedUp: false, restored: 0, failed: [], error: null }
+  const idbPayload = branch.indexedDb
+  if (idbPayload && (idbPayload.databases || []).length > 0) {
+    idb.attempted = true
+    try {
+      const captured = await executeInPage(tabId, IDB_CAPTURE_FUNC, [])
+      if (captured?.status === "complete") {
+        idb.backedUp = true
+        backup.indexedDb = captured.snapshot
+        const restored = await executeInPage(tabId, IDB_RESTORE_FUNC, [idbPayload])
+        idb.restored = (restored?.restored || []).length
+        idb.failed = restored?.failed || []
+      } else if (captured?.status === "unsupported") {
+        idb.error = "INDEXED_DB_UNSUPPORTED"
+      } else {
+        // 备份不完整（limited / failed）：拒绝覆盖用户现有数据。
+        idb.error =
+          captured?.status === "limited" ? "INDEXED_DB_BACKUP_LIMITED" : "INDEXED_DB_BACKUP_FAILED"
+      }
+    } catch (e) {
+      idb.error = String(e?.message || e)
+    }
+  }
+
   await chrome.tabs.reload(tabId)
   return {
     writtenKeys: written.writtenLocal + written.writtenSession,
     writtenLocal: written.writtenLocal,
     writtenSession: written.writtenSession,
+    idb,
     backup,
   }
 }
+
+/** 在页面上下文（MAIN world）执行一个自包含函数并等待其 Promise 完成。 */
+async function executeInPage(tabId, func, args) {
+  const results = await chrome.scripting.executeScript({
+    target: { tabId },
+    world: "MAIN",
+    func,
+    args,
+  })
+  return results?.[0]?.result
+}
+
+/**
+ * IndexedDB 快照（备份用）。在页面上下文执行，编码与 Bench 采集端
+ *（browser_storage.rs `CAPTURE_SCRIPT_TEMPLATE`）完全一致：值统一编码为
+ * `{t, v}` 标签结构，保证 JSON 可序列化且回滚时可精确还原类型。
+ */
+const IDB_CAPTURE_FUNC = () =>
+  (async () => {
+    const MAX_DATABASES = 32,
+      MAX_STORES = 128,
+      MAX_RECORDS = 10000,
+      MAX_INDEXED_DB_BYTES = 8388608
+    const bytesToBase64 = (bytes) => {
+      let binary = ""
+      for (let i = 0; i < bytes.length; i += 32768) {
+        binary += String.fromCharCode.apply(
+          null,
+          bytes.subarray(i, Math.min(i + 32768, bytes.length)),
+        )
+      }
+      return btoa(binary)
+    }
+    const encode = (value, seen, depth) => {
+      if (depth > 64) throw new Error("INDEXED_DB_VALUE_DEPTH_LIMIT")
+      if (value === null) return { t: "null" }
+      const type = typeof value
+      if (type === "string" || type === "boolean") return { t: type, v: value }
+      if (type === "undefined") return { t: "undefined" }
+      if (type === "number") {
+        if (Number.isNaN(value)) return { t: "number", v: "NaN" }
+        if (value === Infinity) return { t: "number", v: "Infinity" }
+        if (value === -Infinity) return { t: "number", v: "-Infinity" }
+        if (Object.is(value, -0)) return { t: "number", v: "-0" }
+        return { t: "number", v: value }
+      }
+      if (type === "bigint") return { t: "bigint", v: String(value) }
+      if (type !== "object") throw new Error("INDEXED_DB_VALUE_TYPE_UNSUPPORTED")
+      if (seen.has(value)) throw new Error("INDEXED_DB_CIRCULAR_VALUE_UNSUPPORTED")
+      seen.add(value)
+      try {
+        if (value instanceof Date) return { t: "date", v: value.toISOString() }
+        if (value instanceof RegExp) return { t: "regexp", v: value.source, f: value.flags }
+        if (value instanceof ArrayBuffer)
+          return { t: "arrayBuffer", v: bytesToBase64(new Uint8Array(value)) }
+        if (ArrayBuffer.isView(value))
+          return {
+            t: "typedArray",
+            c: value.constructor.name,
+            v: bytesToBase64(new Uint8Array(value.buffer, value.byteOffset, value.byteLength)),
+          }
+        if (Array.isArray(value))
+          return { t: "array", v: value.map((item) => encode(item, seen, depth + 1)) }
+        if (value instanceof Map)
+          return {
+            t: "map",
+            v: Array.from(value.entries(), ([k, v]) => [
+              encode(k, seen, depth + 1),
+              encode(v, seen, depth + 1),
+            ]),
+          }
+        if (value instanceof Set)
+          return {
+            t: "set",
+            v: Array.from(value.values(), (item) => encode(item, seen, depth + 1)),
+          }
+        const proto = Object.getPrototypeOf(value)
+        if (proto !== Object.prototype && proto !== null)
+          throw new Error("INDEXED_DB_VALUE_TYPE_UNSUPPORTED")
+        return {
+          t: "object",
+          v: Object.keys(value).map((key) => [key, encode(value[key], seen, depth + 1)]),
+        }
+      } finally {
+        seen.delete(value)
+      }
+    }
+    const request = (req) =>
+      new Promise((resolve, reject) => {
+        req.onsuccess = () => resolve(req.result)
+        req.onerror = () => reject(req.error || new Error("INDEXED_DB_REQUEST_FAILED"))
+      })
+    const transactionDone = (tx) =>
+      new Promise((resolve, reject) => {
+        tx.oncomplete = resolve
+        tx.onabort = () => reject(tx.error || new Error("INDEXED_DB_TRANSACTION_ABORTED"))
+        tx.onerror = () => reject(tx.error || new Error("INDEXED_DB_TRANSACTION_FAILED"))
+      })
+    const openExisting = (name) =>
+      new Promise((resolve, reject) => {
+        const req = indexedDB.open(name)
+        let created = false
+        req.onupgradeneeded = () => {
+          created = req.oldVersion === 0
+          try {
+            req.transaction.abort()
+          } catch (_) {}
+        }
+        req.onsuccess = () => {
+          if (created) {
+            req.result.close()
+            reject(new Error("INDEXED_DB_CHANGED_DURING_CAPTURE"))
+          } else resolve(req.result)
+        }
+        req.onerror = () => reject(req.error || new Error("INDEXED_DB_OPEN_FAILED"))
+        req.onblocked = () => reject(new Error("INDEXED_DB_BLOCKED"))
+      })
+    if (!globalThis.indexedDB || typeof indexedDB.databases !== "function")
+      return { status: "unsupported" }
+    try {
+      const infos = (await indexedDB.databases()).filter(
+        (info) => typeof info.name === "string" && info.name.length > 0,
+      )
+      if (infos.length > MAX_DATABASES) return { status: "limited" }
+      const databases = []
+      let totalStores = 0,
+        totalRecords = 0
+      for (const info of infos) {
+        const db = await openExisting(info.name)
+        try {
+          const storeNames = Array.from(db.objectStoreNames)
+          totalStores += storeNames.length
+          if (totalStores > MAX_STORES) return { status: "limited" }
+          if (storeNames.length === 0) {
+            databases.push({ name: db.name, version: db.version, stores: [] })
+            continue
+          }
+          const tx = db.transaction(storeNames, "readonly")
+          const stores = storeNames.map((name) => {
+            const store = tx.objectStore(name)
+            const indexes = Array.from(store.indexNames, (indexName) => {
+              const index = store.index(indexName)
+              return {
+                name: index.name,
+                keyPath: index.keyPath,
+                unique: index.unique,
+                multiEntry: index.multiEntry,
+              }
+            })
+            const records = []
+            const read = new Promise((resolve, reject) => {
+              const cursorRequest = store.openCursor()
+              cursorRequest.onerror = () =>
+                reject(cursorRequest.error || new Error("INDEXED_DB_CURSOR_FAILED"))
+              cursorRequest.onsuccess = () => {
+                const cursor = cursorRequest.result
+                if (!cursor) {
+                  resolve()
+                  return
+                }
+                totalRecords++
+                if (totalRecords > MAX_RECORDS) {
+                  reject(new Error("INDEXED_DB_RECORD_LIMIT"))
+                  return
+                }
+                records.push({
+                  key: encode(cursor.primaryKey, new Set(), 0),
+                  value: encode(cursor.value, new Set(), 0),
+                })
+                cursor.continue()
+              }
+            })
+            return {
+              metadata: {
+                name: store.name,
+                keyPath: store.keyPath,
+                autoIncrement: store.autoIncrement,
+                indexes,
+              },
+              records,
+              read,
+            }
+          })
+          await Promise.all(stores.map((store) => store.read))
+          await transactionDone(tx)
+          databases.push({
+            name: db.name,
+            version: db.version,
+            stores: stores.map(({ metadata, records }) => ({ ...metadata, records })),
+          })
+        } finally {
+          db.close()
+        }
+      }
+      const snapshot = { version: 1, databases }
+      if (JSON.stringify(snapshot).length * 2 > MAX_INDEXED_DB_BYTES) return { status: "limited" }
+      return { status: "complete", snapshot }
+    } catch (error) {
+      const code =
+        error && typeof error.message === "string" ? error.message : "INDEXED_DB_CAPTURE_FAILED"
+      if (code.includes("LIMIT")) return { status: "limited" }
+      return { status: "failed" }
+    }
+  })()
+
+/**
+ * IndexedDB 恢复（注入 / 回滚共用）。在页面上下文执行，语义与 Bench 的
+ * `RESTORE_SCRIPT_TEMPLATE.restoreDatabase` 一致，差异仅两点：
+ * 1. 单库失败（版本 / schema 不一致、被阻塞）只记入 failed，不整体中止；
+ * 2. 校验错误码与 Rust 模板同源，便于两端日志对读。
+ */
+const IDB_RESTORE_FUNC = (payload) =>
+  (async () => {
+    const base64ToBytes = (value) => {
+      const binary = atob(value),
+        out = new Uint8Array(binary.length)
+      for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i)
+      return out
+    }
+    const decode = (encoded) => {
+      switch (encoded.t) {
+        case "null":
+          return null
+        case "string":
+        case "boolean":
+          return encoded.v
+        case "undefined":
+          return undefined
+        case "number":
+          return encoded.v === "NaN"
+            ? NaN
+            : encoded.v === "Infinity"
+              ? Infinity
+              : encoded.v === "-Infinity"
+                ? -Infinity
+                : encoded.v === "-0"
+                  ? -0
+                  : encoded.v
+        case "bigint":
+          return BigInt(encoded.v)
+        case "date":
+          return new Date(encoded.v)
+        case "regexp":
+          return new RegExp(encoded.v, encoded.f)
+        case "arrayBuffer":
+          return base64ToBytes(encoded.v).buffer
+        case "typedArray": {
+          const bytes = base64ToBytes(encoded.v)
+          const ctor = globalThis[encoded.c]
+          if (typeof ctor !== "function") throw new Error("INDEXED_DB_TYPED_ARRAY_UNSUPPORTED")
+          return new ctor(bytes.buffer)
+        }
+        case "array":
+          return encoded.v.map(decode)
+        case "map":
+          return new Map(encoded.v.map(([k, v]) => [decode(k), decode(v)]))
+        case "set":
+          return new Set(encoded.v.map(decode))
+        case "object": {
+          const out = {}
+          for (const [key, value] of encoded.v) out[key] = decode(value)
+          return out
+        }
+        default:
+          throw new Error("INDEXED_DB_VALUE_ENCODING_UNSUPPORTED")
+      }
+    }
+    const sameKeyPath = (left, right) => JSON.stringify(left) === JSON.stringify(right)
+    const restoreDatabase = (snapshot) =>
+      new Promise((resolve, reject) => {
+        const request = indexedDB.open(snapshot.name, snapshot.version)
+        let upgradeError = null
+        request.onblocked = () => reject(new Error("INDEXED_DB_BLOCKED"))
+        request.onerror = () =>
+          reject(upgradeError || request.error || new Error("INDEXED_DB_OPEN_FAILED"))
+        request.onupgradeneeded = () => {
+          const db = request.result
+          try {
+            // 已存在的库不得借注入升级 schema（与 Rust 模板同款 fail-closed）。
+            if (request.oldVersion !== 0) throw new Error("INDEXED_DB_SCHEMA_VERSION_MISMATCH")
+            for (const storeSnapshot of snapshot.stores) {
+              const store = db.createObjectStore(storeSnapshot.name, {
+                keyPath: storeSnapshot.keyPath,
+                autoIncrement: storeSnapshot.autoIncrement,
+              })
+              for (const index of storeSnapshot.indexes)
+                store.createIndex(index.name, index.keyPath, {
+                  unique: index.unique,
+                  multiEntry: index.multiEntry,
+                })
+            }
+          } catch (error) {
+            upgradeError = error
+            try {
+              request.transaction.abort()
+            } catch (_) {}
+          }
+        }
+        request.onsuccess = () => {
+          const db = request.result
+          try {
+            const expected = snapshot.stores.map((store) => store.name).sort()
+            const actual = Array.from(db.objectStoreNames).sort()
+            if (JSON.stringify(expected) !== JSON.stringify(actual))
+              throw new Error("INDEXED_DB_STORE_SET_MISMATCH")
+            const tx = db.transaction(expected, "readwrite")
+            tx.oncomplete = () => {
+              db.close()
+              resolve()
+            }
+            tx.onabort = () => {
+              db.close()
+              reject(tx.error || new Error("INDEXED_DB_TRANSACTION_ABORTED"))
+            }
+            tx.onerror = () => {}
+            for (const storeSnapshot of snapshot.stores) {
+              const store = tx.objectStore(storeSnapshot.name)
+              if (
+                !sameKeyPath(store.keyPath, storeSnapshot.keyPath) ||
+                store.autoIncrement !== storeSnapshot.autoIncrement
+              )
+                throw new Error("INDEXED_DB_STORE_SCHEMA_MISMATCH")
+              const indexNames = Array.from(store.indexNames).sort()
+              const expectedIndexes = storeSnapshot.indexes.map((index) => index.name).sort()
+              if (JSON.stringify(indexNames) !== JSON.stringify(expectedIndexes))
+                throw new Error("INDEXED_DB_INDEX_SET_MISMATCH")
+              for (const indexSnapshot of storeSnapshot.indexes) {
+                const index = store.index(indexSnapshot.name)
+                if (
+                  !sameKeyPath(index.keyPath, indexSnapshot.keyPath) ||
+                  index.unique !== indexSnapshot.unique ||
+                  index.multiEntry !== indexSnapshot.multiEntry
+                )
+                  throw new Error("INDEXED_DB_INDEX_SCHEMA_MISMATCH")
+              }
+              store.clear()
+              for (const record of storeSnapshot.records) {
+                const value = decode(record.value)
+                if (store.keyPath === null) store.put(value, decode(record.key))
+                else store.put(value)
+              }
+            }
+          } catch (error) {
+            db.close()
+            reject(error)
+          }
+        }
+      })
+    const result = { restored: [], failed: [] }
+    if (!globalThis.indexedDB) {
+      result.failed.push({ name: "*", code: "INDEXED_DB_UNSUPPORTED" })
+      return result
+    }
+    for (const database of payload.databases) {
+      try {
+        await restoreDatabase(database)
+        result.restored.push(database.name)
+      } catch (error) {
+        result.failed.push({
+          name: database.name,
+          code:
+            error && typeof error.message === "string"
+              ? error.message
+              : "INDEXED_DB_RESTORE_FAILED",
+        })
+      }
+    }
+    return result
+  })()
 
 const BACKUP_PREFIX = "bench:backup:"
 
@@ -354,9 +840,18 @@ async function injectSession({ accountId, url, withStorage }) {
   if (exported.outcome !== "ok") return exported
 
   const origin = new URL(url).origin
+  // 环境一致性优先：注册 UA 覆写必须在写 Cookie 之前，保证后续请求（含站点
+  // 自身的鉴权调用）立即使用会话建立时的浏览器内核标识。
+  const uaOverride = await applyUaOverride(origin, exported.userAgent)
+
   const existing = await collectCookies(url)
   const backupKey = BACKUP_PREFIX + origin
-  const backup = { at: Date.now(), origin, cookies: existing }
+  const backup = {
+    at: Date.now(),
+    origin,
+    cookies: existing,
+    ua: uaOverride.active ? exported.userAgent : null,
+  }
 
   let written = 0
   let failed = 0
@@ -381,20 +876,23 @@ async function injectSession({ accountId, url, withStorage }) {
     }
   }
 
-  // Web Storage 注入（v0.3）：host 权限必须在 popup 的用户手势里申请完毕，
-  // 这里只检查是否已授予；未授予则降级为「仅 Cookie」并在结果里说明。
+  // 存储注入（v0.3 Web Storage / v0.5 IndexedDB）：host 权限必须在 popup 的
+  // 用户手势里申请完毕，这里只检查是否已授予；未授予则降级为「仅 Cookie」
+  // 并在结果里说明。
   const storage = {
     attempted: false,
     granted: false,
     writtenKeys: 0,
     writtenLocal: 0,
     writtenSession: 0,
+    indexedDb: { attempted: false, backedUp: false, restored: 0, failed: [], error: null },
     error: null,
   }
   const branch = (exported.webStorage || []).find((item) => item.origin === origin)
   if (withStorage && branch) {
     const keys = (branch.localStorage || []).length + (branch.sessionStorage || []).length
-    if (keys > 0) {
+    const idbDatabases = (branch.indexedDb?.databases || []).length
+    if (keys > 0 || idbDatabases > 0) {
       storage.attempted = true
       try {
         storage.granted = await chrome.permissions.contains({
@@ -409,6 +907,7 @@ async function injectSession({ accountId, url, withStorage }) {
           storage.writtenKeys = result.writtenKeys
           storage.writtenLocal = result.writtenLocal
           storage.writtenSession = result.writtenSession
+          storage.indexedDb = result.idb
           backup.webStorage = result.backup
         } catch (e) {
           storage.error = String(e?.message || e)
@@ -427,10 +926,12 @@ async function injectSession({ accountId, url, withStorage }) {
     failed,
     backupKey,
     replaced: existing.length,
-    // > 0 表示该账号的登录态还含本地存储（扩展无法写入），必须提示用户。
+    // 该账号登录态含存储快照的 origin 份数。扩展 ≥ 0.5 会写入全部三类存储；
+    // 仅当上方 storage 明细显示未写成功时才需要向用户解释差异。
     storageOrigins: exported.storageOrigins || 0,
     skippedPartitioned: exported.skippedPartitioned || 0,
     storage,
+    uaOverride,
   }
 }
 
@@ -506,6 +1007,7 @@ async function listBackups() {
       at: all[key]?.at || 0,
       count: (all[key]?.cookies || []).length,
       storageKeys: Object.keys(all[key]?.webStorage?.localStorage || {}).length,
+      idbDatabases: (all[key]?.webStorage?.indexedDb?.databases || []).length,
     }))
     .sort((a, b) => b.at - a.at)
 }
@@ -533,7 +1035,19 @@ async function restoreWebStorage(origin, webStorage) {
   return result?.[0]?.result ?? 0
 }
 
-/** 回滚：把备份里的 Cookie 与 Web Storage 写回，并清掉备份。 */
+/** 把备份里的 IndexedDB 快照写回本站点。返回 {restored, failed}；未授权时 restored = -1。 */
+async function restoreIdbBackup(origin, idbSnapshot) {
+  const databases = idbSnapshot?.databases || []
+  if (!databases.length) return { restored: 0, failed: [] }
+  const granted = await chrome.permissions.contains({ origins: [origin + "/*"] })
+  if (!granted) return { restored: -1, failed: [] }
+  const tabId = await openAndWaitTab(origin + "/")
+  const result = await executeInPage(tabId, IDB_RESTORE_FUNC, [{ databases }])
+  await chrome.tabs.reload(tabId)
+  return { restored: (result?.restored || []).length, failed: result?.failed || [] }
+}
+
+/** 回滚：把备份里的 Cookie、Web Storage 与 IndexedDB 写回，并清掉备份。 */
 async function restoreBackup(key) {
   if (!key || !key.startsWith(BACKUP_PREFIX)) throw new Error("BAD_BACKUP_KEY")
   const all = await chrome.storage.local.get(key)
@@ -560,8 +1074,11 @@ async function restoreBackup(key) {
     }
   }
   const storageWritten = await restoreWebStorage(backup.origin, backup.webStorage)
+  const idb = await restoreIdbBackup(backup.origin, backup.webStorage?.indexedDb)
+  // 回滚时一并移除该站点的 UA 覆写，恢复浏览器原生 UA。
+  await removeUaOverride(backup.origin)
   await chrome.storage.local.remove(key)
-  return { written, storageWritten }
+  return { written, storageWritten, idbRestored: idb.restored, idbFailed: idb.failed }
 }
 
 // SW 冷启动即尝试连接（首次消息到达时也会 lazy connect）

@@ -124,6 +124,53 @@ pre {
   overflow: auto;
 }
 
+/* —— 账号互通总览 —— */
+.card.interop {
+  grid-column: 1 / -1;
+}
+.meta-line {
+  color: var(--muted);
+  font-size: 12px;
+  flex: 1;
+}
+.station {
+  margin: 12px 0 4px;
+}
+.station .s-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.station .s-origin {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
+  font-family: ui-monospace, monospace;
+}
+.pill {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+.pill.on {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 40%, transparent);
+  background: color-mix(in srgb, var(--ok) 10%, transparent);
+}
+.pill.off {
+  color: var(--muted);
+}
+.station td.time {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .error {
   color: var(--danger);
   white-space: pre-wrap;

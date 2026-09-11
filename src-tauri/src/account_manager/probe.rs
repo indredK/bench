@@ -285,11 +285,38 @@ fn classify_effective(
 ///
 /// 强判据：判定成功即短路返回；请求失败/超时/结果不明确一律 None
 ///（不定论，静默走后续证据链），不产生用户可见错误。
+///
+/// **判据弃权**：规则包声明 `prerequisiteCookies`（cookie 名列表）时，会话中
+/// 这些 cookie **全部缺席**说明用户走的登录路径不产生本判据依赖的凭证体系
+///（trae：passport OAuth vs Cloud-IDE 直接登录，2026-09-11 实测）——此时
+/// CheckLogin=false 是判据失明而非未登录，返回 None 弃权，不钉死状态。
 async fn run_login_check(
     check: &super::login_rules::LoginCheckSpec,
     saved_session: Option<&AccountSession>,
     proxy_url: Option<&str>,
 ) -> Option<AccountSessionStatus> {
+    if !check.prerequisite_cookies.is_empty() {
+        let session = saved_session?;
+        let check_host = url::Url::parse(&check.url)
+            .ok()
+            .and_then(|parsed| parsed.host_str().map(str::to_string));
+        let present = |wanted: &str| {
+            let Some(host) = check_host.as_deref() else {
+                return false;
+            };
+            session.cookies.iter().any(|entry| {
+                entry.name == wanted
+                    && super::session::cookie_domain_matches_target(
+                        Some(entry.domain.as_str()),
+                        host,
+                    )
+            })
+        };
+        // 语义：前置凭证**全部缺席** → 判据不适用，弃权。
+        if check.prerequisite_cookies.iter().all(|name| !present(name)) {
+            return None;
+        }
+    }
     let url = url::Url::parse(&check.url).ok()?;
     let mut client = reqwest::Client::builder()
         .timeout(HTTP_PROBE_REQUEST_TIMEOUT)

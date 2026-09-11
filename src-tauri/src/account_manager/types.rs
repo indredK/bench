@@ -286,6 +286,12 @@ pub enum AccountLogKind {
     AutoRefresh,
     ScheduleChanged,
     StatusChanged,
+    /// 浏览器互通操作（同步到日常浏览器 / 隔离实例开关 / 回采 / 清档案）。
+    BrowserInterop,
+    /// 账号生命周期（创建 / 删除 / 凭据查看与复制等管理操作）。
+    Lifecycle,
+    /// 站点 / 外部应用等账号级配置变更。
+    Config,
     Error,
 }
 

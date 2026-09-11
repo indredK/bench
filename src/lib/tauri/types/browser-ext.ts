@@ -25,6 +25,8 @@ export interface BrowserExtensionExport {
   nmRegistrations: NmRegistration[]
   browsers: BrowserInfo[]
   extensionId: string
+  /** 本次导出的扩展版本（弹窗/toast 提示用）。 */
+  extensionVersion: string
 }
 
 /** 导出/注册状态（Rust `BrowserExtStatus`）。 */
@@ -32,6 +34,8 @@ export interface BrowserExtensionStatus {
   exported: boolean
   extensionDir: string
   extensionId: string
+  /** 扩展版本（来自内嵌 manifest；与浏览器已加载版本核对）。 */
+  extensionVersion: string
   hostBinFound: boolean
   hostBinPath: string
   nmRegistrations: NmRegistration[]

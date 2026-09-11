@@ -182,7 +182,15 @@ export interface RefreshSchedule {
 
 /** 账号日志事件类型。 */
 export type AccountLogKind =
-  "login" | "manualRefresh" | "autoRefresh" | "scheduleChanged" | "statusChanged" | "error"
+  | "login"
+  | "manualRefresh"
+  | "autoRefresh"
+  | "scheduleChanged"
+  | "statusChanged"
+  | "browserInterop"
+  | "lifecycle"
+  | "config"
+  | "error"
 
 /** 账号日志级别。 */
 export type AccountLogLevel = "info" | "success" | "warn" | "error"

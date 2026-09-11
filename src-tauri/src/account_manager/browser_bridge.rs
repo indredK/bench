@@ -403,6 +403,8 @@ async fn dispatch<R: Runtime>(
             browser_session::resolve_site_for_extension(&state, &url)
                 .map_err(BridgeError::BadRequest)
         }
+        ("POST", "/v1/interop/overview") => browser_session::interop_overview_for_extension(&state)
+            .map_err(|error| BridgeError::Failed(error.message())),
         ("POST", "/v1/session/import") => {
             browser_session::import_from_extension(app, &state, &body)
                 .await
