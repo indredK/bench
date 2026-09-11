@@ -56,6 +56,15 @@ use super::webview;
 /// 页面加载预算（与 probe / keeper 的 15s 对齐）。
 const LOAD_BUDGET: Duration = Duration::from_secs(15);
 
+/// 首次 `Finished` 后再等重定向链 + SPA/登录页引导稳定的时长。
+///
+/// 站点会把登录页 www → apex 重新定向（trae.cn 实测，2026-09-11）：`Finished`
+/// 在**重定向前的中间页**（www）上就触发，此时立刻采集会读到错误 origin 的
+/// storage（`Cloud-IDE-Token` 等登录态 localStorage 落在 apex），请求的直接
+/// 后果就是「cookie 在、token 不在 → 互通后仍未登录」。等一个稳定窗口让
+/// 302/JS 重定向落定后再采，采集端才会站在最终 origin 上。
+const SYNC_SETTLE: Duration = Duration::from_millis(1500);
+
 /// 补采窗口的 label（与 login / probe / keeper 三个 label 互斥）。
 pub fn sync_window_label(account_id: &str) -> String {
     format!("relay-sync-{account_id}")
@@ -219,6 +228,9 @@ async fn build_sync_window<R: Runtime>(
         .map_err(|e| AccountManagerError::store_fail(format!("navigate sync window: {e}")))?;
     // 加载超时不视为致命：SPA 可能长时间不触发 Finished，仍继续判定。
     let _ = tokio::time::timeout_at(Instant::now() + LOAD_BUDGET, rx).await;
+    // 重定向前后的 origin 稳定窗口：见 [`SYNC_SETTLE`] 注释。只有 hidden 补采
+    // 窗口需要（登录窗口是用户自己停靠的既定位置，采集直接以当前 origin 为准）。
+    tokio::time::sleep(SYNC_SETTLE).await;
     Ok(window)
 }
 

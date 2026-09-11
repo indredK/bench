@@ -160,5 +160,5 @@ command-market/
 ## 7. Bundled 内置集
 
 - 位置：`src-tauri/src/account_manager/ruledata/`，每个文件 `include_str!` 进二进制；随版本发布，无 sha256 自校验（仅 schema 校验）。
-- 首批：`generic`（中英文文本弱证据全局兜底）、`trae.cn`（loginCheck `Result.IsLogin`，前置调研实测 3/3）、`github.com`（`api.github.com/user` 401/200 实测）。
+- 首批：`generic`（中英文文本弱证据全局兜底）、`trae.cn`（loginCheck `Result.IsLogin`，前置调研实测 3/3）、`github.com`（`api.github.com/user` 401/200 实测）、`workbuddy.cn`（loginCheck `/console/accounts` 200/302，`session` cookie 前置，2026-09-11 调研）。
 - bundled 与远程同 id 时按 §6 优先级取用（远程版本 > bundled 即覆盖；同版本取 remote）。

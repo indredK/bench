@@ -423,6 +423,7 @@ const BUNDLED_RULE_SOURCES: &[(&str, &str)] = &[
     ("generic", include_str!("ruledata/generic.json")),
     ("github.com", include_str!("ruledata/github.com.json")),
     ("trae.cn", include_str!("ruledata/trae.cn.json")),
+    ("workbuddy.cn", include_str!("ruledata/workbuddy.cn.json")),
 ];
 
 fn parse_rule_doc(bytes: &[u8]) -> Result<LoginRuleDoc, String> {

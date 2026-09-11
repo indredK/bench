@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "workbuddy.cn",
+  "version": "1.0.0",
+  "title": "WorkBuddy（腾讯云 AI 编码助手）",
+  "description": "WorkBuddy 登录态用其业务 API `/console/accounts` 判定（2026-09-11 实测：未登录时 APISIX 网关会 302 跳同域 Keycloak OIDC 登录页；携带有效 APISIX session cookie 时返回 200 账号列表）。判据前置：会话中必须存在网关 `session` cookie（HttpOnly、SameSite=Lax、Path=/，由 APISIX 在登录后下发）——该 cookie 全部缺席说明会话没采到网关凭证（可能只采到页面/埋点数据），loginCheck 弃权（不定论），避免把采全前的会话钉死为未登录。注意：WorkBuddy 登录本身是多层流程（Keycloak OIDC 会话 + 网关 session + X-Device-Token 设备/风控上下文 + 企业/账号选择 + localStorage loggedIn），本判定只回答「网关会话是否有效」；设备绑定、企业域或短期 token 已过期而导致的 302/401 属预期，宿主应记录失败原因并提示走官方 SSO 流程。",
+  "match": {
+    "registrableDomain": "workbuddy.cn",
+    "hosts": ["www.workbuddy.cn"]
+  },
+  "detection": {
+    "loginCheck": {
+      "url": "https://www.workbuddy.cn/console/accounts",
+      "method": "GET",
+      "expect": {
+        "kind": "status",
+        "loggedIn": [200],
+        "loggedOut": [302]
+      },
+      "prerequisiteCookies": ["session"]
+    }
+  }
+}

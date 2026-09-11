@@ -726,8 +726,8 @@ fn count_partitioned(saved: &AccountSession) -> usize {
 
 /// 把 canonical cookie 映射为 `Network.setCookie` 参数。
 ///
-/// host-only cookie 走 `url`（由浏览器绑定到该 host），域级 cookie 走 `domain` + `path`，
-/// 两者的作用域语义与捕获时一致。
+/// host-only cookie 走 `url`（由其自身 host 推导，见 [`host_only_cookie_url`]），
+/// 域级 cookie 走 `domain` + `path`，两者的作用域语义与捕获时一致。
 fn cookie_injection_params(entry: &CookieEntry, origin: &str) -> Value {
     let mut params = json!({
         "name": entry.name,
@@ -737,7 +737,7 @@ fn cookie_injection_params(entry: &CookieEntry, origin: &str) -> Value {
         "secure": entry.secure,
     });
     if entry.host_only || entry.domain.trim().is_empty() {
-        params["url"] = Value::String(origin.to_string());
+        params["url"] = Value::String(host_only_cookie_url(entry, origin));
     } else {
         params["domain"] = Value::String(entry.domain.clone());
     }
@@ -748,6 +748,24 @@ fn cookie_injection_params(entry: &CookieEntry, origin: &str) -> Value {
         params["expires"] = json!(expires);
     }
     params
+}
+
+/// host-only cookie 的注入 URL：**优先 cookie 自身的 host**，站点 origin 兜底。
+///
+/// 不能站在站点 origin（如 `https://www.trae.cn`）上重建：Trae 实测把登录页
+/// www → apex 重定向后，apex 下发的 host-only cookie（domain=`trae.cn`）若按
+/// www origin 注入会被错钉到 `www.trae.cn`，apex 上永远读不到，呈现「Cookie
+/// 注入了但站点仍未登录」。保留 origin 的 scheme（http/https），host 换用
+/// cookie 的 domain（去掉前导点），对常见单 host 站点结果与原来完全一致。
+fn host_only_cookie_url(entry: &CookieEntry, origin: &str) -> String {
+    let host = entry.domain.trim().trim_start_matches('.');
+    if host.is_empty() {
+        return origin.to_string();
+    }
+    let scheme = url::Url::parse(origin)
+        .map(|parsed| parsed.scheme().to_string())
+        .unwrap_or_else(|_| "https".to_string());
+    format!("{scheme}://{host}")
 }
 
 /// CDP 的 `sameSite` 只接受 `Strict` / `Lax` / `None`（首字母大写）。
@@ -2020,14 +2038,36 @@ async fn current_origin(client: &CdpClient) -> Option<String> {
     origin_of(value.as_str()?)
 }
 
-/// 确保页面停在站点 origin 上（否则导航过去并等待就绪）。
+/// 两个 origin 是否「同 scheme + 同可注册域」。
+///
+/// 用于 storage 采集与页面临近判定：站点把登录页 www → apex 重定向
+/// （trae.cn 实测，2026-09-11）后，真实登录 origin 与 `station.website`
+/// origin 不等但同属一个可注册域。此时必须继续采，否则 localStorage
+/// token（如 `Cloud-IDE-Token`）整体丢失；但跨无关站点依旧拒绝。
+fn origins_same_site(left: &str, right: &str) -> bool {
+    let (Ok(left_url), Ok(right_url)) = (url::Url::parse(left), url::Url::parse(right)) else {
+        return left == right;
+    };
+    match (left_url.host_str(), right_url.host_str()) {
+        (Some(left_host), Some(right_host)) => {
+            left_url.scheme() == right_url.scheme()
+                && super::session::hosts_share_registrable_domain(left_host, right_host)
+        }
+        _ => left == right,
+    }
+}
+
+/// 确保页面停在站点可注册域内（同域内不导航：用户正停在 apex 就不把他
+/// 拽回 www，省一次导航也避免打断页面状态）。不在同域才导航过去并等待就绪。
 async fn ensure_page_on_origin(
     client: &CdpClient,
     expected_origin: &str,
     website: &str,
 ) -> AccountManagerResult<()> {
-    if current_origin(client).await.as_deref() == Some(expected_origin) {
-        return Ok(());
+    if let Some(current) = current_origin(client).await {
+        if current == expected_origin || origins_same_site(&current, expected_origin) {
+            return Ok(());
+        }
     }
     client
         .navigate(website)
@@ -2059,10 +2099,17 @@ async fn capture_origin_via_cdp(
     state: &AccountManagerState,
     expected_origin: &str,
 ) -> AccountManagerResult<Option<super::browser_storage::OriginCaptureResult>> {
-    // 页面不在目标 origin 时，localStorage 属于别的站点，不得跨 origin 采集。
-    if current_origin(client).await.as_deref() != Some(expected_origin) {
+    // 页面不在站点可注册域内时，localStorage 属于别的站点，不得跨站点采集。
+    let Some(current) = current_origin(client).await else {
+        return Ok(None);
+    };
+    if current != expected_origin && !origins_same_site(&current, expected_origin) {
         return Ok(None);
     }
+    // www → apex 这类同域跳转后，以**实际**当前 origin 为采集与校验锚点
+    // （不要用站点 origin）：脚本记录 location.origin，into_capture 校验
+    // payload.origin == 锚点，传错会把 apex 的数据钉回 www 名下。
+    let capture_origin = current;
     let slot = super::browser_storage::new_capture_slot();
     let script = super::browser_storage::capture_script(&slot)?;
     client
@@ -2085,7 +2132,7 @@ async fn capture_origin_via_cdp(
                         &slot,
                     ))
                     .await;
-                return bridge.into_capture(state, expected_origin).map(Some);
+                return bridge.into_capture(state, &capture_origin).map(Some);
             }
         }
         tokio::time::sleep(PAGE_READY_POLL).await;
@@ -2119,6 +2166,30 @@ mod tests {
             cookie_injection_params(&cookie("sid", "www.trae.cn", true), "https://www.trae.cn");
         assert_eq!(params["url"], json!("https://www.trae.cn"));
         assert!(params.get("domain").is_none());
+    }
+
+    #[test]
+    fn apex_host_only_cookie_is_injected_on_its_own_host_not_station_origin() {
+        // Trae 实测把登录页 www → apex 重定向，apex 下发的 host-only cookie
+        // 若按站点 www origin 注入会被错钉到 www 子域，apex 上永远读不到。
+        let params =
+            cookie_injection_params(&cookie("sid", "trae.cn", true), "https://www.trae.cn");
+        assert_eq!(params["url"], json!("https://trae.cn"));
+        assert!(params.get("domain").is_none());
+
+        // 站内子域 host-only cookie：保留 scheme，与注入前语义一致。
+        let params =
+            cookie_injection_params(&cookie("api", "api.trae.cn", true), "https://www.trae.cn");
+        assert_eq!(params["url"], json!("https://api.trae.cn"));
+
+        // 空 domain 的 host-only cookie 回退到站点 origin。
+        let params = cookie_injection_params(&cookie("sid", "", true), "https://www.trae.cn");
+        assert_eq!(params["url"], json!("https://www.trae.cn"));
+
+        // http 站点保留 http scheme。
+        let params =
+            cookie_injection_params(&cookie("sid", "trae.cn", true), "http://127.0.0.1:7242");
+        assert_eq!(params["url"], json!("http://trae.cn"));
     }
 
     #[test]

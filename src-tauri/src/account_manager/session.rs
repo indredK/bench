@@ -72,6 +72,44 @@ pub(crate) fn cookie_domain_matches_target(cookie_domain: Option<&str>, host: &s
     host == domain || host.ends_with(&format!(".{domain}"))
 }
 
+/// 两个 host 是否落在**同一个可注册域**下（对称版 domain-match）。
+///
+/// 用于跨子域 / apex 的 storage 采集判定：Trae 实测（2026-09-11）登录页会被
+/// `www.trae.cn` 重定向到 apex `trae.cn`，localStorage（`Cloud-IDE-Token`）
+/// 因此落在与 `station.website` 不同的 origin 上。判定「能否安全读取该页
+/// storage」应比较**可注册域**是否一致（www/apex/api 互相兼容），而不是严格
+/// origin 相等；但绝不能放大到无关站点（`evil.cn` vs `trae.cn`）。
+///
+/// 算法：两段及以下（apex 如 `trae.cn`）整串即可注册域；多段剥掉第一段
+/// 子域标签后比较剩余部分（eTLD+1 近似）。对 `co.uk` 等多级公共后缀会保守
+/// 偏向拒绝（`example.co.uk` vs `www.example.co.uk` 判异），方向安全。
+/// 任一 host 无效返回 false。
+pub(crate) fn hosts_share_registrable_domain(left: &str, right: &str) -> bool {
+    match (registrable_suffix(left), registrable_suffix(right)) {
+        (Some(left_domain), Some(right_domain)) => left_domain.eq_ignore_ascii_case(&right_domain),
+        _ => false,
+    }
+}
+
+/// host 的「可注册域」近似（供 [`hosts_share_registrable_domain`] 比对）。
+///
+/// - 无标签 / 单标签（`localhost`、单段域名）→ 无法构成可注册域，None；
+/// - 两段（apex，如 `trae.cn`）→ 整串即可注册域，**不能**剥成公共后缀 `cn`；
+/// - 多段（`www.trae.cn` / `api.trae.cn`）→ 剥掉第一段子域标签，余下仍需
+///   至少两段（既兼容 www/apex，也不会放大到 `trae.cn.evil.com` 之类）。
+fn registrable_suffix(host: &str) -> Option<String> {
+    let host = host.trim().trim_end_matches('.');
+    let labels: Vec<&str> = host.split('.').filter(|label| !label.is_empty()).collect();
+    match labels.len() {
+        0 | 1 => None,
+        2 => Some(host.to_string()),
+        _ => {
+            let rest = labels[1..].join(".");
+            (rest.split('.').count() >= 2).then_some(rest)
+        }
+    }
+}
+
 /// 拉取 WebView cookie store 中与目标 URL 域匹配的全部 cookie。
 ///
 /// 为什么不用 `cookies_for_url`：wry（≤0.55）的实现是
@@ -667,5 +705,55 @@ mod tests {
             Some("Www.Trae.cn"),
             "www.TRAE.cn"
         ));
+    }
+
+    #[test]
+    fn hosts_share_registrable_domain_across_www_apex_and_api() {
+        // Trae 实测：登录页 www → apex 重定向，storage 落在 apex。
+        assert!(hosts_share_registrable_domain("www.trae.cn", "trae.cn"));
+        assert!(hosts_share_registrable_domain("trae.cn", "www.trae.cn"));
+        assert!(hosts_share_registrable_domain("api.trae.cn", "www.trae.cn"));
+        assert!(hosts_share_registrable_domain(
+            "www.trae.cn",
+            "WEBSITE.trae.CN"
+        ));
+        assert!(hosts_share_registrable_domain("www.trae.cn", "www.trae.cn"));
+    }
+
+    #[test]
+    fn hosts_on_different_registrable_domains_never_share() {
+        // 后缀必须落在域边界上，不能是字符串片段或近似域名。
+        assert!(!hosts_share_registrable_domain(
+            "www.trae.cn",
+            "www.eviltrae.cn"
+        ));
+        assert!(!hosts_share_registrable_domain(
+            "www.trae.cn",
+            "trae.cn.evil.com"
+        ));
+        assert!(!hosts_share_registrable_domain(
+            "www.trae.cn",
+            "evil.trae.cn.evil.com"
+        ));
+        assert!(!hosts_share_registrable_domain(
+            "www.trae.cn",
+            "example.com"
+        ));
+    }
+
+    #[test]
+    fn hosts_sharing_fails_open_on_public_suffix_style_hosts() {
+        // 多级公共后缀无法从 host 形状判断 eTLD+1：保守偏向拒绝（fail-safe）。
+        assert!(!hosts_share_registrable_domain(
+            "example.co.uk",
+            "www.example.co.uk"
+        ));
+    }
+
+    #[test]
+    fn hosts_sharing_rejects_malformed_hosts() {
+        assert!(!hosts_share_registrable_domain("trae", "trae"));
+        assert!(!hosts_share_registrable_domain("", "trae.cn"));
+        assert!(!hosts_share_registrable_domain("localhost", "localhost"));
     }
 }

@@ -235,6 +235,29 @@ function originOf(url) {
   }
 }
 
+/**
+ * host 的「可注册域」近似（与 Rust `registrable_suffix` 同算法）：
+ * - 0/1 段（`localhost` 等）→ 空串（无法构成可注册域）；
+ * - 2 段（apex，如 `trae.cn`）→ 整串，**不能**剥成公共后缀 `cn`；
+ * - 3+ 段（`www.trae.cn` / `api.trae.cn`）→ 剥掉第一段子域标签。
+ */
+function registrableBase(host) {
+  const labels = String(host || "")
+    .toLowerCase()
+    .split(".")
+    .filter(Boolean)
+  if (labels.length === 0 || labels.length === 1) return ""
+  if (labels.length === 2) return labels.join(".")
+  return labels.slice(1).join(".")
+}
+
+/** 两个 host 是否同属一个可注册域（www/apex/api 互通，`evil.cn` 不复用）。 */
+function hostsShareSite(left, right) {
+  const l = registrableBase(left)
+  const r = registrableBase(right)
+  return l !== "" && l === r
+}
+
 /** 采集该 URL 的 cookie（含 HttpOnly）；跨域去重。 */
 async function collectCookies(url) {
   const origin = new URL(url).origin
@@ -285,30 +308,32 @@ function cookieWriteUrl(cookie, fallbackOrigin) {
   return fallbackOrigin
 }
 
-// www.trae.cn 会重定向到 apex trae.cn，但两者仍是同一站点的页面存储。
-// 导出会话可能记录任一 origin；注入时精确匹配优先，Trae 仅允许这两个
-// 明确别名互相回退，避免把其他子域的存储误写入当前页面。
+/**
+ * 导出会话中匹配当前页 origin 的存储分支。
+ *
+ * www → apex 重定型的站点（trae.cn 实测）：登录 localStorage 可能记录在
+ * `https://trae.cn`，而任务/注入入口拿到的 origin 是 `https://www.trae.cn`。
+ * 精确匹配优先；未命中时按「同 scheme + 同可注册域」回退（www/apex/api
+ * 互通），避免 token 存 localStorage 的站点因别名差异丢失存储注入。
+ */
 function storageBranchForOrigin(webStorage, origin) {
   const branches = Array.isArray(webStorage) ? webStorage : []
   const exact = branches.find((item) => item && item.origin === origin)
   if (exact) return exact
   try {
-    const host = new URL(origin).hostname.toLowerCase()
-    if (host !== "trae.cn" && host !== "www.trae.cn") return null
-    return (
-      branches.find((item) => {
-        try {
-          const candidate = new URL(item?.origin || "")
-          return (
-            candidate.protocol === "https:" &&
-            (candidate.hostname.toLowerCase() === "trae.cn" ||
-              candidate.hostname.toLowerCase() === "www.trae.cn")
-          )
-        } catch (_) {
-          return false
-        }
-      }) || null
-    )
+    const requested = new URL(origin)
+    const fallback = branches.find((item) => {
+      try {
+        const candidate = new URL(item?.origin || "")
+        return (
+          candidate.protocol === requested.protocol &&
+          hostsShareSite(candidate.hostname, requested.hostname)
+        )
+      } catch (_) {
+        return false
+      }
+    })
+    return fallback || null
   } catch (_) {
     return null
   }
@@ -1037,7 +1062,11 @@ async function injectSession({ accountId, url, withStorage }) {
     indexedDb: { attempted: false, backedUp: false, restored: 0, failed: [], error: null },
     error: null,
   }
-  const branch = (exported.webStorage || []).find((item) => item.origin === origin)
+  // 存储分支可能记录在 apex / 子域（trae 实测 www.trae.cn → apex 重定向），
+  // 注入必须在**分支自己的 origin** 上写 localStorage，否则会把 token 写进
+  // 错误的命名空间（如把 apex 的 Cloud-IDE-Token 写进 www）。
+  const branch = storageBranchForOrigin(exported.webStorage, origin)
+  const storageOrigin = branch && branch.origin ? branch.origin : origin
   if (withStorage && branch) {
     const keys = (branch.localStorage || []).length + (branch.sessionStorage || []).length
     const idbDatabases = (branch.indexedDb?.databases || []).length
@@ -1045,14 +1074,14 @@ async function injectSession({ accountId, url, withStorage }) {
       storage.attempted = true
       try {
         storage.granted = await chrome.permissions.contains({
-          origins: [origin + "/*"],
+          origins: [storageOrigin + "/*"],
         })
       } catch (e) {
         storage.granted = false
       }
       if (storage.granted) {
         try {
-          const result = await injectWebStorage(origin, branch)
+          const result = await injectWebStorage(storageOrigin, branch)
           storage.writtenKeys = result.writtenKeys
           storage.writtenLocal = result.writtenLocal
           storage.writtenSession = result.writtenSession
@@ -1108,12 +1137,20 @@ async function maybeAutoInject() {
       tab = null
     }
     if (!tab) continue
+    // 页面可能已从任务登记的 origin 重定向到同站点别名（www → apex，trae
+    // 实测）：权限与注入都以**实际标签页 origin** 为准，否则 apex 页授权在
+    // www/* 上查不到，自动注入被错误跳过。
+    const tabOrigin = originOf(tab.url) || task.origin
     const granted = await chrome.permissions
-      .contains({ origins: [task.origin + "/*"] })
+      .contains({ origins: [tabOrigin + "/*"] })
       .catch(() => false)
     if (!granted) continue // 未授权站点：保留任务，等用户在 popup 手动完成授权注入
     try {
-      await injectSession({ accountId: task.accountId, url: task.origin + "/", withStorage: true })
+      await injectSession({
+        accountId: task.accountId,
+        url: tab.url || tabOrigin + "/",
+        withStorage: true,
+      })
       completed.push(task.origin)
     } catch (e) {
       /* 单任务失败不阻断其他任务；任务保留到过期 */
@@ -1129,11 +1166,33 @@ async function maybeAutoInject() {
   return { ok: true, completed }
 }
 
-/** 按 locating origin 查找已加载完成的标签页（需要 tabs 权限读取 url）。 */
+/** 按定位 origin 查找已加载完成的标签页（需要 tabs 权限读取 url）。 */
 async function findTabByOrigin(origin) {
-  const tabs = await chrome.tabs.query({ url: origin + "/*" })
-  if (tabs.length) return tabs[0]
-  return null
+  try {
+    const tabs = await chrome.tabs.query({ url: origin + "/*" })
+    if (tabs.length) return tabs[0]
+  } catch (_) {
+    /* 正则匹配失败走下面同站点回退 */
+  }
+  // www → apex 重定向（trae 实测）：页面完成加载后已不在任务登记的
+  // origin 上，按原 origin 精确查询会漏掉它导致自动注入被整体跳过。
+  try {
+    const host = new URL(origin).hostname
+    const all = await chrome.tabs.query({})
+    return (
+      all.find((tab) => {
+        if (!tab?.url) return false
+        try {
+          const parsed = new URL(tab.url)
+          return hostsShareSite(parsed.hostname, host)
+        } catch (_) {
+          return false
+        }
+      }) || null
+    )
+  } catch (_) {
+    return null
+  }
 }
 
 // 页面加载完成 / URL 变化 → 尝试领取任务自动注入（Bench 打开站点的场景即命中）。

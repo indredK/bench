@@ -116,9 +116,19 @@ pub async fn capture_current_origin<R: Runtime>(
     let expected_origin = current_url.origin().ascii_serialization();
     let allowed = url::Url::parse(allowed_url)
         .map_err(|_| AccountManagerError::invalid_input("storage capture URL is invalid"))?;
-    if !matches!(allowed.scheme(), "http" | "https")
-        || allowed.origin().ascii_serialization() != expected_origin
-    {
+    // 不需要严格 origin 相等：站点可能把登录页 www → apex 重定向（trae.cn 实测，
+    // 2026-09-11），localStorage 落在与 login_detection 配的 website 不同的
+    // origin 上。只要求「同 scheme + 同可注册域」（www/apex/api 互相兼容），
+    // 采集脚本记录的是**当前文档**的 location.origin，进去仍按实际 origin
+    // 加密存储并校验，不会张冠李戴；跨无关站点依旧拒绝。
+    let same_site = match (current_url.host_str(), allowed.host_str()) {
+        (Some(current_host), Some(allowed_host)) => {
+            current_url.scheme() == allowed.scheme()
+                && super::session::hosts_share_registrable_domain(current_host, allowed_host)
+        }
+        _ => false,
+    };
+    if !same_site {
         return Ok(None);
     }
     let slot = new_capture_slot();
