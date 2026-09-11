@@ -88,6 +88,13 @@ objc2-web-kit = "=0.3.2"
 # 遍历 webview 子视图树所需（NSArray<NSView> 的正确编码，避免裸指针编码校验 panic）。
 objc2-foundation = "=0.3.2"
 
+[profile.dev]
+# 限制 target 目录体积：默认 dev profile 对每个 crate 都带全量 debuginfo，
+# 是 debug 构建目录膨胀（数十 GB）的首要原因。line-tables-only 保留
+# 行号表（panic backtrace 仍然可用），debuginfo 体积大幅缩小且增量编译
+# 更快（Rust perf-team 推荐）。
+debug = "line-tables-only"
+
 [profile.release]
 panic = "abort"
 codegen-units = 16

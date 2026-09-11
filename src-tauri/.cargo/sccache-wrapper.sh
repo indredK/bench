@@ -24,8 +24,17 @@ set -e
 # fail with "could not execute process `...rustc -vV` (never executed)".
 # CI jobs additionally set `RUSTC_WRAPPER=""`; this guard is the fallback for
 # any other environment that has sccache on PATH but an unusable compiler.
-if command -v sccache >/dev/null 2>&1 && [ -x "$1" ]; then
-    exec sccache "$@"
+# sccache 查找顺序：先试绝对路径（IDE / GUI 启动的终端 PATH 常不含
+# Homebrew，会导致 sccache 从未生效、缓存 0 命中），再退到 PATH 查找，
+# 都没有就直接编译。可用环境变量 SCCACHE_BIN 覆盖。
+SCCACHE_BIN="${SCCACHE_BIN:-/opt/homebrew/bin/sccache}"
+if [ -x "$SCCACHE_BIN" ]; then
+    SCCACHE="$SCCACHE_BIN"
+elif command -v sccache >/dev/null 2>&1; then
+    SCCACHE="$(command -v sccache)"
+fi
+if [ -n "${SCCACHE:-}" ] && [ -x "$1" ]; then
+    exec "$SCCACHE" "$@"
 fi
 
 # Fallback: no sccache on PATH (or compiler path not usable). Pass through to
