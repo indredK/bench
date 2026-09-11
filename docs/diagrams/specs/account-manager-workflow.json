@@ -1,0 +1,250 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Bench 账号管理 · 生命周期流程图",
+    "locale": "zh-CN",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    { "id": "user", "label": "用户与页面（前端）" },
+    { "id": "case", "label": "业务编排 · use-case" },
+    { "id": "backend", "label": "Rust 后端 · IPC" },
+    { "id": "security", "label": "加密与探测边界" },
+    { "id": "exception", "label": "异常与安全操作", "variant": "exception" }
+  ],
+  "phases": [
+    { "id": "phase-init", "label": "初始化与入口", "fromCol": 0, "toCol": 0 },
+    { "id": "phase-capture", "label": "捕获", "fromCol": 1, "toCol": 1 },
+    { "id": "phase-encrypt", "label": "加密落盘", "fromCol": 2, "toCol": 2, "variant": "emphasis" },
+    {
+      "id": "phase-recover",
+      "label": "恢复与探测",
+      "fromCol": 3,
+      "toCol": 4,
+      "variant": "emphasis"
+    },
+    { "id": "phase-maintain", "label": "就绪与维护", "fromCol": 5, "toCol": 5 }
+  ],
+  "groups": [
+    {
+      "id": "g-probe",
+      "label": "探针判定边界 · 仅 Uncertain 可升级",
+      "lane": "security",
+      "fromCol": 4,
+      "toCol": 4,
+      "variant": "security"
+    }
+  ],
+  "mainPath": ["init", "capture", "encrypt", "restore", "probe", "ready"],
+  "semanticChecks": {
+    "allowedRoots": ["init"],
+    "allowedTerminals": ["ready", "keepalive", "interop", "danger"]
+  },
+  "nodes": [
+    {
+      "id": "init",
+      "lane": "user",
+      "col": 0,
+      "type": "frontend",
+      "label": "初始化加载",
+      "sublabel": "capabilities · 站点 · 账号",
+      "width": 150
+    },
+    {
+      "id": "capture",
+      "lane": "case",
+      "col": 1,
+      "type": "backend",
+      "label": "捕获登录 Session",
+      "sublabel": "WebView 登录 · 外部代理 · 快速登录",
+      "width": 160
+    },
+    {
+      "id": "encrypt",
+      "lane": "security",
+      "col": 2,
+      "type": "security",
+      "label": "加密落盘",
+      "sublabel": "Keyring 主密钥 · AES-256-GCM",
+      "width": 160
+    },
+    {
+      "id": "restore",
+      "lane": "backend",
+      "col": 3,
+      "type": "backend",
+      "label": "恢复 Session",
+      "sublabel": "canonical cookie · 按 origin 隔离",
+      "width": 160
+    },
+    {
+      "id": "probe",
+      "lane": "security",
+      "col": 4,
+      "type": "security",
+      "label": "分层探测登录态",
+      "sublabel": "L1 HTTP · L2 WebView · L3 Hybrid",
+      "width": 170
+    },
+    {
+      "id": "relogin",
+      "lane": "exception",
+      "col": 4,
+      "type": "security",
+      "label": "登录态失效",
+      "sublabel": "LoginRequired / Expired",
+      "width": 150
+    },
+    {
+      "id": "ready",
+      "lane": "user",
+      "col": 5,
+      "type": "frontend",
+      "label": "就绪 · 标记可用",
+      "sublabel": "probe 通过后展示账号",
+      "width": 150
+    },
+    {
+      "id": "keepalive",
+      "lane": "backend",
+      "col": 5,
+      "type": "backend",
+      "label": "刷新与保活",
+      "sublabel": "TTL 会话 · 同账号 single-flight",
+      "width": 150
+    },
+    {
+      "id": "interop",
+      "lane": "case",
+      "col": 5,
+      "type": "backend",
+      "label": "浏览器互通",
+      "sublabel": "目标软件 ⇄ 浏览器 ⇄ Bench",
+      "width": 150
+    },
+    {
+      "id": "danger",
+      "lane": "exception",
+      "col": 5,
+      "type": "security",
+      "label": "删除 / 覆盖导入",
+      "sublabel": "二次确认 · 逐资源 report",
+      "width": 150
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-init-capture",
+      "from": "init",
+      "to": "capture",
+      "label": "新增账号 · 进入登录",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e-init-restore",
+      "from": "init",
+      "to": "restore",
+      "label": "已有账号直接恢复",
+      "role": "branch",
+      "variant": "dashed"
+    },
+    {
+      "id": "e-capture-encrypt",
+      "from": "capture",
+      "to": "encrypt",
+      "label": "写入凭据与 Session",
+      "role": "main"
+    },
+    {
+      "id": "e-encrypt-restore",
+      "from": "encrypt",
+      "to": "restore",
+      "label": "读盘解密（锁内 reload）",
+      "role": "main"
+    },
+    {
+      "id": "e-restore-probe",
+      "from": "restore",
+      "to": "probe",
+      "label": "校验登录态",
+      "role": "main"
+    },
+    {
+      "id": "e-probe-ready",
+      "from": "probe",
+      "to": "ready",
+      "label": "Ready",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e-probe-relogin",
+      "from": "probe",
+      "to": "relogin",
+      "label": "LoginRequired / Expired",
+      "role": "error",
+      "variant": "security"
+    },
+    {
+      "id": "e-relogin-capture",
+      "from": "relogin",
+      "to": "capture",
+      "label": "重新登录",
+      "role": "return"
+    },
+    {
+      "id": "e-ready-keepalive",
+      "from": "ready",
+      "to": "keepalive",
+      "label": "定时刷新 · 保活",
+      "role": "branch"
+    },
+    {
+      "id": "e-ready-interop",
+      "from": "ready",
+      "to": "interop",
+      "label": "登录态互通",
+      "role": "branch",
+      "variant": "dashed"
+    },
+    {
+      "id": "e-ready-danger",
+      "from": "ready",
+      "to": "danger",
+      "label": "危险操作",
+      "role": "branch",
+      "variant": "security"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "加密即边界",
+      "items": [
+        "主密钥来自系统 Keyring，首次使用生成随机 256-bit key",
+        "密码与 Session 用 AES-256-GCM，每次写入独立 nonce，解密只在 Rust 内存",
+        "初始化失败（钥匙串授权被拒）→ retryInit 重新触发初始化；store 锁内 reload 防 last-write-wins"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "探针分层与并发",
+      "items": [
+        "L1 HTTP → 不确定升级 L2 WebView → L3 Hybrid；结果区分 Ready / LoginRequired / Expired / Uncertain 等",
+        "仅 Uncertain 才允许升级探针，避免所有账号默认创建 WebView",
+        "全局 semaphore + 同账号 single-flight，leader 取消时唤醒 follower 并清理 registry"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "危险操作与互通",
+      "items": [
+        "删除 / 覆盖导入须二次确认，删除必须返回逐资源 report",
+        "登录态三角流：目标软件 ⇄ 浏览器 ⇄ Bench 三存放点互通，见账号管理三角闭环图",
+        "rulepack 同域铁律 + 双层规则体系，登录检测 URL 必须与站点同可注册域"
+      ]
+    }
+  ]
+}
