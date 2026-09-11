@@ -1021,16 +1021,16 @@
                 />
               </g>
 
-              <!-- 底边 · 上弧：B1 浏览器 → Bench（插件保存 · 保活） -->
+              <!-- 底边 · 上弧：B1 浏览器 → Bench（插件保存登录态） -->
               <g
                 class="edge"
                 data-edge="b1"
                 role="button"
                 tabindex="0"
-                aria-label="B1 插件保存保活：浏览器到 Bench"
+                aria-label="B1 插件保存登录态：浏览器到 Bench"
                 style="--e: #0a8f85"
               >
-                <title>B1 · 插件保存保活 — 点击查看流程</title>
+                <title>B1 · 插件保存登录态 — 点击查看流程</title>
                 <path class="edge-hit" d="M 285 495 Q 390 545 495 495" />
                 <path class="edge-glow" d="M 285 495 Q 390 545 495 495" />
                 <path
@@ -1041,16 +1041,16 @@
                 />
               </g>
 
-              <!-- 底边 · 下弧：B2 Bench → 浏览器（注入独立浏览器实例） -->
+              <!-- 底边 · 下弧：B2 Bench → 浏览器（插件注入登录态） -->
               <g
                 class="edge"
                 data-edge="b2"
                 role="button"
                 tabindex="0"
-                aria-label="B2 注入浏览器：Bench 到浏览器"
+                aria-label="B2 插件注入登录态：Bench 到浏览器"
                 style="--e: #0f6e56"
               >
-                <title>B2 · 注入浏览器 — 点击查看流程</title>
+                <title>B2 · 插件注入登录态 — 点击查看流程</title>
                 <path class="edge-hit" d="M 495 560 Q 390 598 285 560" />
                 <path class="edge-glow" d="M 495 560 Q 390 598 285 560" />
                 <path
@@ -1229,22 +1229,22 @@
                     font-weight="600"
                     fill="#06605A"
                   >
-                    B1 · 插件保存保活
+                    B1 · 插件保存登录态
                   </text>
                 </g>
               </g>
-              <g class="edge-badge" data-edge="b2" transform="translate(332, 590)">
+              <g class="edge-badge" data-edge="b2" transform="translate(324, 590)">
                 <g class="edge-badge-inner">
-                  <rect width="116" height="28" rx="14" fill="#E3F4EB" stroke="#7FC49B" />
+                  <rect width="132" height="28" rx="14" fill="#E3F4EB" stroke="#7FC49B" />
                   <text
-                    x="58"
+                    x="66"
                     y="18.5"
                     text-anchor="middle"
                     font-size="12"
                     font-weight="600"
                     fill="#0A5C38"
                   >
-                    B2 · 注入浏览器
+                    B2 · 插件注入登录态
                   </text>
                 </g>
               </g>
@@ -1360,9 +1360,9 @@
             color: PALETTE.blue,
             title: "场景 A · 起：软件调起浏览器登录",
             summary:
-              "目标软件唤起浏览器完成身份验证，免去频繁输入验证码——这是三角闭环的起点。在 Bench 中对应「外部登录代理」：Bench 可代外部 App 执起登录授权（bench-auth:// 深链），软件自身也可直接调起浏览器。",
+              "大多数软件都使用跳转浏览器登录的方式完成身份验证——这是三角闭环的起点。在 Bench 中对应「外部登录代理」：Bench 可代外部 App 执起登录授权（bench-auth:// 深链），软件自身也可直接调起浏览器。",
             flow: [
-              { role: "用户", tone: PALETTE.blue, text: "想要登录某软件，不想每次输入验证码" },
+              { role: "用户", tone: PALETTE.blue, text: "大多数软件都使用跳转浏览器登录的方式" },
               { role: "目标软件", tone: PALETTE.purple, text: "调出浏览器，打开登录页" },
               { role: "浏览器", tone: PALETTE.green, text: "用户在浏览器完成登录，拿到回调 URL" },
               { role: "浏览器", tone: PALETTE.green, text: "登录结果以 URL 形式回调目标软件" },
@@ -1877,8 +1877,8 @@
           var items = [
             { key: "a1", label: "A1 · 调起浏览器登录" },
             { key: "a2", label: "A2 · 浏览器回调" },
-            { key: "b1", label: "B1 · 插件保存保活" },
-            { key: "b2", label: "B2 · 注入浏览器" },
+            { key: "b1", label: "B1 · 插件保存登录态" },
+            { key: "b2", label: "B2 · 插件注入登录态" },
             { key: "c1", label: "C1 · 复制URL登录" },
             { key: "c2", label: "C2 · 注入登录态" },
             { key: "ov", label: "总览" },
