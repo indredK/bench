@@ -1,0 +1,12 @@
+{
+  "schema_version": 2,
+  "diagram_type": "triangle",
+  "meta": {
+    "title": "Bench 账号管理 · 三角闭环交互图",
+    "locale": "zh-CN",
+    "hand_crafted": true,
+    "note": "本页为手工维护的交互式 SVG 单文件（非 archify 渲染产物），此 spec 仅为目录索引元数据，不作为再生成依据"
+  },
+  "nodes": ["soft", "browser", "bench", "core"],
+  "edges": ["a1", "a2", "b1", "b2", "c1", "c2"]
+}

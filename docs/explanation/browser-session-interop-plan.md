@@ -1,11 +1,11 @@
 # 账号 ↔ 浏览器双向互通（Session Interop）实现逻辑与整体计划
 
 > 状态：**I0 / I1 / I2 已实现（2026-09-10），待双平台真机验收；I3 / I5（日常浏览器方向）已于 2026-09-10 实现，见 [browser-session-extension-plan.md](./browser-session-extension-plan.md)**。
-> ⚠️ 本文下方「§5.4 I3 详细设计」「§1 判断 3/4」等章节成文于扩展方案立项之前，其中「I3 未实现」「不引入浏览器扩展作为前置条件」的结论**已被 [D-029](./decisions.md#d-029--日常浏览器方向改用扩展--本地桥i3i5-提前为必须实现) 与本次实现 supersede**；扩展通道的权威描述以 [browser-session-extension-plan.md](./browser-session-extension-plan.md) 与 [product-specs §17](../reference/product-specs/account-manager.md) 为准，本文保留原始论证。
-> 本文是「账号与浏览器双向互通」构想的唯一总体方案文档；**落地后的产品语义以 [product-specs/account-manager.md §17](../reference/product-specs/account-manager.md) 与 [DECISIONS D-028](./decisions.md#d-028--账号会话互通采用cdp--新鲜度仲裁浏览器作为第二端点) 为准**，本文保留原始论证与后续里程碑设计。
+> ⚠️ 本文下方「§5.4 I3 详细设计」「§1 判断 3/4」等章节成文于扩展方案立项之前，其中「I3 未实现」「不引入浏览器扩展作为前置条件」的结论**已被 [D-029](./decisions.md#d-029--日常浏览器方向改用扩展--本地桥i3i5-提前为必须实现) 与本次实现 supersede**；扩展通道的权威描述以 [browser-session-extension-plan.md](./browser-session-extension-plan.md) 与 [交互图：账号管理三角闭环（B1/B2）](../diagrams/account-manager-triangle.html) 为准，本文保留原始论证。
+> 本文是「账号与浏览器双向互通」构想的唯一总体方案文档；**落地后的产品语义以 [交互图：账号管理三角闭环](../diagrams/account-manager-triangle.html) 与 [DECISIONS D-028](./decisions.md#d-028--账号会话互通采用cdp--新鲜度仲裁浏览器作为第二端点) 为准**，本文保留原始论证与后续里程碑设计。
 > 方向一（Bench → 浏览器）的详细方案见 [browser-session-injection-research.md](./browser-session-injection-research.md)（F5），本文不重复其论证，只做统一收口与方向二设计。
 > 待验收清单见 `../roadmap/planned/account-manager.md`「待验证（互通 I1/I2 …）」一节；实施完成度回写 `../modules/account-manager/design.md` 与 `../reference/product-specs/account-manager.md`。
-> 关联：`../modules/account-manager/design.md`（§3 Session 生命周期 / §5 加密与存储 / §6 外部登录代理 / §7 前端边界）、`../reference/architecture.md` §2（禁止模式）、`../reference/extension-spec.md` 与 `../modules/extension-center/roadmap.md`（bench-companion 扩展与 Native Messaging）、`src-tauri/src/browser_ext/`。
+> 关联：`../modules/account-manager/design.md`（§5 加密与存储 / §7 前端边界）与交互图 [account-manager-triangle.html](../diagrams/account-manager-triangle.html)（三角流程语义）、`../reference/architecture.md` §2（禁止模式）、`../reference/extension-spec.md` 与 `../modules/extension-center/roadmap.md`（bench-companion 扩展与 Native Messaging）、`src-tauri/src/browser_ext/`。
 
 ### 实施进度（2026-09-10）
 
@@ -92,7 +92,7 @@
 
 1. **S1 永远优先**。S2/S3 只由 S1 单向注入生成，不得反向渗透。
 2. **唯一允许的反向写入是显式回采**（S3/S2 → S1），且必须满足三个条件：用户显式动作触发、经 probe 验证、通过新鲜度比较（§3.4）。
-3. **物化视图不参与登录态判定**。账号状态仍以 S1 + probe 为准，S3 里「看起来已登录」不构成 Ready 依据（与 design.md §3 红线一致）。
+3. **物化视图不参与登录态判定**。账号状态仍以 S1 + probe 为准，S3 里「看起来已登录」不构成 Ready 依据（与交互图 C2 限制的红线一致）。
 4. **同一账号同一时刻只允许一个活跃写入端点**。回采进行中禁止注入，反之亦然——复用 `enforce_exclusivity_before_login` 的同源互斥语义（F5 D-C 的推广）。
 
 ### 3.2 端点抽象（I0 的核心产出）
@@ -200,10 +200,10 @@ Bench: browser_session_capture(accountId, stationUrl)
   4. Runtime.evaluate → 复用 browser_storage.rs 的采集脚本
      （精确 origin 校验 scheme+host+port；IndexedDB 按 schema 校验，不兼容 fail-closed）
   5. Runtime.evaluate → navigator.userAgent
-  6. 组装 AccountSession（体积上限沿用 design.md §3：512 key/2 MiB、32 db、128 store、10k record/8 MiB）
+  6. 组装 AccountSession（体积上限沿用交互图与 WebView 链路同一套捕获边界——B1 技术实现：512 key/2 MiB、32 db、128 store、10k record/8 MiB）
   7. 新鲜度仲裁（§3.4）→ 冲突时返回需确认的结构化结果，不静默覆盖
   8. 用户确认后：encrypt_session → storage::with_state_mut → revision 单调写入
-  9. 触发 probe 验证；Ready 必须由 probe 确认（design.md §3 红线）
+  9. 触发 probe 验证；Ready 必须由 probe 确认（交互图 C2 限制红线）
        │
        ▼
 账号卡片显示「已保存浏览器登录态」+ 日志记录 origin_kind=browserCdp
@@ -298,18 +298,18 @@ S1 canonical session ──① I1 注入──▶ 托管浏览器（真实浏览
 
 ## 7. 安全边界与红线对照
 
-| 红线（来源）                                                        | 本方案如何满足                                                                                      | 违反风险点                            |
-| ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------- |
-| 明文 session 只在 Rust 内存与目标浏览上下文短时存在（design.md §5） | 出向：加密 store → Rust → CDP loopback；入向：浏览器 → CDP → Rust → 加密 store。**均不进 renderer** | I3 的本地桥若把数据下发给前端即违反   |
-| 每账号独立 data directory，禁止跨账号复用浏览上下文（design.md §3） | S2/S3 均按 accountId 一一对应；回采只读该账号 profile，不跨账号                                     | 复用一个 profile 服务多账号           |
-| 恢复后必须 probe，不能仅凭 cookie 存在标记 Ready（design.md §3）    | 回采后同样走 probe；S3「看起来已登录」不构成 Ready 依据                                             | 回采即直接标 Ready                    |
-| partitioned Cookie fail-closed（design.md §3）                      | 出向注入与入向回采都跳过并计数，不降级为普通 cookie                                                 | 回采把 partitioned 当普通 cookie 写回 |
-| 含凭据导出必须保持加密（design.md §5）                              | 排除 cookies.txt / HAR 明文导出；跨机迁移走远期加密会话包（I6）                                     | 引入任何明文导出                      |
-| 不改浏览器内部数据（`browser_ext/mod.rs` 注释）                     | CDP 读的是运行时 cookie，不触碰 Cookies DB 文件                                                     | 直读 SQLite                           |
-| 危险操作二次确认（coding-standards §5）                             | 「用浏览器登录态覆盖 Bench 已有会话」走 DestructiveConfirmDialog                                    | 静默覆盖                              |
-| IPC 双边契约、错误走 `AppResult<T>`（design.md §7）                 | 新命令全部 `contracts.ts` + `commands.rs` 双写，禁止 `.unwrap()`                                    | 单边写                                |
-| capabilities 是平台能力真理源（design.md §7）                       | 新增 `browserSessionOpen`（出向，F5 已规划）与 `browserSessionCapture`（入向）                      | 前端自行探测提升能力                  |
-| Rust 平台专有 API 必须 `#[cfg]` 包裹（coding-standards §7.4.1）     | 浏览器定位、进程管理、profile 路径双平台分支；提交前必跑 `pnpm run check:be-cfg`                    | 本机 macOS 编译通过即认为双平台可用   |
+| 红线（来源）                                                                     | 本方案如何满足                                                                                      | 违反风险点                            |
+| -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| 明文 session 只在 Rust 内存与目标浏览上下文短时存在（design.md §5）              | 出向：加密 store → Rust → CDP loopback；入向：浏览器 → CDP → Rust → 加密 store。**均不进 renderer** | I3 的本地桥若把数据下发给前端即违反   |
+| 每账号独立 data directory，禁止跨账号复用浏览上下文（product-specs §1 核心保证） | S2/S3 均按 accountId 一一对应；回采只读该账号 profile，不跨账号                                     | 复用一个 profile 服务多账号           |
+| 恢复后必须 probe，不能仅凭 cookie 存在标记 Ready（交互图 C2 限制）               | 回采后同样走 probe；S3「看起来已登录」不构成 Ready 依据                                             | 回采即直接标 Ready                    |
+| partitioned Cookie fail-closed（交互图 C2 限制）                                 | 出向注入与入向回采都跳过并计数，不降级为普通 cookie                                                 | 回采把 partitioned 当普通 cookie 写回 |
+| 含凭据导出必须保持加密（design.md §5）                                           | 排除 cookies.txt / HAR 明文导出；跨机迁移走远期加密会话包（I6）                                     | 引入任何明文导出                      |
+| 不改浏览器内部数据（`browser_ext/mod.rs` 注释）                                  | CDP 读的是运行时 cookie，不触碰 Cookies DB 文件                                                     | 直读 SQLite                           |
+| 危险操作二次确认（coding-standards §5）                                          | 「用浏览器登录态覆盖 Bench 已有会话」走 DestructiveConfirmDialog                                    | 静默覆盖                              |
+| IPC 双边契约、错误走 `AppResult<T>`（design.md §7）                              | 新命令全部 `contracts.ts` + `commands.rs` 双写，禁止 `.unwrap()`                                    | 单边写                                |
+| capabilities 是平台能力真理源（design.md §7）                                    | 新增 `browserSessionOpen`（出向，F5 已规划）与 `browserSessionCapture`（入向）                      | 前端自行探测提升能力                  |
+| Rust 平台专有 API 必须 `#[cfg]` 包裹（coding-standards §7.4.1）                  | 浏览器定位、进程管理、profile 路径双平台分支；提交前必跑 `pnpm run check:be-cfg`                    | 本机 macOS 编译通过即认为双平台可用   |
 
 **新增需在 design.md 落条款的两点**：
 

@@ -1,7 +1,7 @@
 # 登录态识别方案调研 — 以 trae.cn 三账号案例验证置信度
 
 > 状态：调研结论已验证（2026-09-10，基于本机 Bench 真实数据实测）
-> 关联：`roadmap/planned/account-manager.md` F2（登录指纹）、`modules/account-manager/design.md` §3、D3 决策（移除登录佐证）
+> 关联：`roadmap/planned/account-manager.md` F2（登录指纹）、交互图 C2 限制（恢复后必须 probe 红线）、D3 决策（移除登录佐证）
 > 触发问题：站点 `www.trae.cn` 三个已存账号中，第 1 个（`acct-e72016f3`）实际已登出，Bench 判定为 `ready`（误判）；`7242` / `0627` 实际已登录，判定正确。
 
 ---
@@ -64,7 +64,7 @@ refresh(acct-e72016f3)
    → 401/403 无；classify_confident 文本无确定结果 → 无判据
 → WebView L0b: wait_for_any_feature_present(6×500ms)
    → 账号 1 的 store 残留 Cloud-IDE-Token（且 analytics 键匿名即有）→ present=true
-   → probe.rs:484-488: present → 直接返回 Ready  ← ★ 违反 design.md §3「弱肯定不定论」
+   → probe.rs:484-488: present → 直接返回 Ready  ← ★ 违反「恢复后必须 probe 才能标记 Ready」红线（见交互图 C2 限制）
 → status=ready, statusReason=null
 ```
 

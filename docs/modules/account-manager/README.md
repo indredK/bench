@@ -2,11 +2,13 @@
 
 > **完备功能规格** → [product-specs/account-manager.md](../../reference/product-specs/account-manager.md)
 > **规划功能** → [planned/account-manager.md](../../roadmap/planned/account-manager.md)
+> **登录态三角流转（交互图）** → [account-manager-triangle.html](../../diagrams/account-manager-triangle.html)
 
 代码：`src/features/account-manager/` · `src-tauri/src/account_manager/`
 
-定位：集中管理「站点（RelayStation）+ 隔离账号（StationAccount）」——保存凭据、捕获/恢复登录 Session、探测登录状态、外部 App 登录代理、账号 ↔ 浏览器会话互通（见 design.md §3.1 与 product-specs §17）、导入导出；凭据以系统 Keyring 主密钥 + AES-256-GCM 加密，账号数据目录隔离，Session 恢复后须 probe 才标记 Ready。
+定位：集中管理「站点（RelayStation）+ 隔离账号（StationAccount）」——保存凭据、捕获/恢复登录 Session、探测登录状态、外部 App 登录代理、账号 ↔ 浏览器会话互通（登录态在 目标软件 ⇄ 浏览器 ⇄ Bench 之间的三角流转语义见[交互图](../../diagrams/account-manager-triangle.html)）、导入导出；凭据以系统 Keyring 主密钥 + AES-256-GCM 加密，账号数据目录隔离，Session 恢复后须 probe 才标记 Ready。
 
-| 文档                     | 说明                                        |
-| ------------------------ | ------------------------------------------- |
-| [design.md](./design.md) | Session、加密、探针和登录代理的长期安全边界 |
+| 文档                                                   | 说明                                              |
+| ------------------------------------------------------ | ------------------------------------------------- |
+| [design.md](./design.md)                               | 加密、探针、rulepack 等深度技术边界               |
+| [交互图](../../diagrams/account-manager-triangle.html) | 登录态三角流转：流程 / 技术实现 / 限制 / 远期规划 |

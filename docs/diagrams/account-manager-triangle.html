@@ -1,0 +1,2220 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bench 账号管理 — 三角闭环交互图</title>
+    <style>
+      :root {
+        --bg: #f4f2ec;
+        --ink: #26262a;
+        --muted: #7d7b74;
+        --line: #e2dfd5;
+        --card: #ffffff;
+
+        --blue: #185fa5;
+        --green: #0f6e56;
+        --orange: #854f0b;
+        --purple: #534ab7;
+        --ok: #3b6d11;
+
+        --radius: 16px;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html {
+        height: 100%;
+      }
+
+      body {
+        height: 100vh;
+        height: 100dvh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        background:
+          radial-gradient(circle at 1px 1px, rgba(60, 55, 40, 0.055) 1px, transparent 0) 0 0 / 22px
+            22px,
+          linear-gradient(180deg, #f7f5f0 0%, var(--bg) 100%);
+        color: var(--ink);
+        font-family:
+          -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+        -webkit-font-smoothing: antialiased;
+        padding: 20px 24px 20px;
+      }
+
+      /* ---------- 顶部 ---------- */
+      .shell {
+        width: 100%;
+        max-width: 1180px;
+        margin: 0 auto;
+        height: 100%;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .topbar {
+        flex-shrink: 0;
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 14px 24px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+      }
+
+      .topbar h1 {
+        font-family: "Songti SC", "STSong", "Noto Serif SC", serif;
+        font-size: 24px;
+        letter-spacing: 0.01em;
+        color: #1f1f22;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .topbar h1::before {
+        content: "";
+        width: 10px;
+        height: 10px;
+        border-radius: 3px;
+        background: linear-gradient(135deg, var(--blue), var(--purple));
+        box-shadow: 0 0 0 4px rgba(83, 74, 183, 0.12);
+      }
+
+      .topbar .sub {
+        margin-top: 8px;
+        font-size: 13px;
+        color: var(--muted);
+        letter-spacing: 0.02em;
+      }
+
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font: inherit;
+        font-size: 12px;
+        color: #55534c;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 6px 13px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+      }
+      .chip i {
+        width: 9px;
+        height: 9px;
+        border-radius: 3px;
+        display: inline-block;
+      }
+
+      /* ---------- 主工作区：一页显示，图自适应缩放 ---------- */
+      .workspace {
+        position: relative;
+        flex: 1 1 auto;
+        min-height: 0;
+        min-width: 0;
+        display: flex;
+      }
+
+      .canvas-card {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        max-width: 900px;
+        min-height: 0;
+        min-width: 0;
+        margin: 0 auto;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        box-shadow: 0 18px 50px -24px rgba(40, 35, 20, 0.28);
+        padding: 16px 16px 0;
+        animation: cardIn 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+      }
+
+      @keyframes cardIn {
+        from {
+          opacity: 0;
+          transform: translateY(14px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .canvas-view {
+        flex: 1 1 auto;
+        min-height: 0;
+      }
+
+      .canvas-view svg {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+
+      .hintbar {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 9px;
+        padding: 14px 0 16px;
+        font-size: 12.5px;
+        color: var(--muted);
+        border-top: 1px dashed var(--line);
+        flex-wrap: wrap;
+        text-align: center;
+      }
+      .hintbar .pulse {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--purple);
+        box-shadow: 0 0 0 0 rgba(83, 74, 183, 0.4);
+        animation: pulse 2s infinite;
+      }
+      @keyframes pulse {
+        0% {
+          box-shadow: 0 0 0 0 rgba(83, 74, 183, 0.35);
+        }
+        70% {
+          box-shadow: 0 0 0 9px rgba(83, 74, 183, 0);
+        }
+        100% {
+          box-shadow: 0 0 0 0 rgba(83, 74, 183, 0);
+        }
+      }
+      .hintbar kbd {
+        font-family: -apple-system, "PingFang SC", sans-serif;
+        font-size: 11px;
+        background: #f1efe8;
+        border: 1px solid var(--line);
+        border-bottom-width: 2px;
+        border-radius: 5px;
+        padding: 1px 6px;
+        color: #66635b;
+      }
+
+      /* ---------- SVG 内元素 ---------- */
+      g.edge,
+      g.node {
+        cursor: pointer;
+      }
+
+      .edge {
+        transition: opacity 0.3s ease;
+      }
+      .edge.dim {
+        opacity: 0.16;
+      }
+
+      .edge-hit {
+        fill: none;
+        stroke: transparent;
+        stroke-width: 26;
+        pointer-events: stroke;
+      }
+      .edge-line {
+        fill: none;
+        stroke: var(--e, var(--blue));
+        stroke-width: 2.2;
+        stroke-linecap: round;
+        stroke-dasharray: 1;
+        stroke-dashoffset: 1;
+        animation: draw 0.85s ease forwards;
+        transition: stroke-width 0.18s ease;
+        pointer-events: none;
+      }
+      .edge-glow {
+        fill: none;
+        stroke: var(--e, var(--blue));
+        stroke-width: 9;
+        stroke-linecap: round;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        pointer-events: none;
+      }
+      @keyframes draw {
+        to {
+          stroke-dashoffset: 0;
+        }
+      }
+      .edge:hover .edge-line {
+        stroke-width: 3.6;
+      }
+      .edge:focus-visible .edge-line {
+        stroke-width: 3.6;
+      }
+      .edge.active .edge-line {
+        stroke-width: 3.6;
+      }
+      .edge.active .edge-glow {
+        opacity: 0.22;
+      }
+
+      .edge-badge {
+        cursor: pointer;
+      }
+      .edge-badge-inner {
+        transition: transform 0.18s ease;
+        transform-box: fill-box;
+        transform-origin: center;
+      }
+      .edge-badge:hover .edge-badge-inner,
+      .edge-badge:focus-visible .edge-badge-inner,
+      .edge-badge.hot .edge-badge-inner {
+        transform: scale(1.08);
+      }
+      .edge-badge rect {
+        filter: drop-shadow(0 2px 4px rgba(40, 35, 20, 0.1));
+        transition: filter 0.18s ease;
+      }
+      .edge-badge.hot rect {
+        filter: drop-shadow(0 4px 10px rgba(40, 35, 20, 0.22));
+      }
+
+      .node-bg {
+        transition:
+          stroke-width 0.18s ease,
+          filter 0.3s ease;
+      }
+      g.node:hover .node-bg,
+      g.node:focus-visible .node-bg {
+        stroke-width: 3;
+        filter: drop-shadow(0 5px 12px rgba(40, 35, 20, 0.13));
+      }
+      .node.active .node-bg {
+        stroke-width: 3;
+        filter: drop-shadow(0 0 10px var(--glow, rgba(24, 95, 165, 0.45)));
+      }
+      g.core-node:hover .core-ring,
+      g.core-node:focus-visible .core-ring {
+        stroke-width: 2.6;
+        opacity: 1;
+      }
+
+      .core-ring {
+        animation: spin 46s linear infinite;
+        transform-box: view-box;
+        transform-origin: 390px 388px;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .core-pulse {
+        opacity: 0.9;
+        animation: corePulse 2.6s ease-in-out infinite;
+        transform-box: view-box;
+        transform-origin: 390px 388px;
+      }
+      @keyframes corePulse {
+        0%,
+        100% {
+          transform: scale(1);
+          opacity: 0.85;
+        }
+        50% {
+          transform: scale(1.06);
+          opacity: 1;
+        }
+      }
+
+      /* ---------- 侧边抽屉：遮罩 ---------- */
+      .drawer-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 50;
+        background: rgba(38, 38, 42, 0.3);
+        -webkit-backdrop-filter: blur(3px);
+        backdrop-filter: blur(3px);
+        opacity: 0;
+        visibility: hidden;
+        transition:
+          opacity 0.3s ease,
+          visibility 0s linear 0.3s;
+      }
+      .drawer-backdrop.show {
+        opacity: 1;
+        visibility: visible;
+        transition:
+          opacity 0.3s ease,
+          visibility 0s;
+      }
+
+      /* ---------- 侧边抽屉：面板 ---------- */
+      .scenebox {
+        --accent: var(--blue);
+        --accent-rgb: 24, 95, 165;
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 60;
+        width: min(460px, 94vw);
+        display: flex;
+        flex-direction: column;
+        background: #fdfcf9;
+        border-left: 4px solid var(--accent);
+        box-shadow: -30px 0 64px -32px rgba(40, 35, 20, 0.5);
+        transform: translateX(calc(100% + 24px));
+        visibility: hidden;
+        transition:
+          transform 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+          visibility 0s linear 0.38s;
+      }
+      .scenebox.open {
+        transform: translateX(0);
+        visibility: visible;
+        transition:
+          transform 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+          visibility 0s;
+      }
+
+      .scenebox-top {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 16px 20px 14px;
+        border-bottom: 1px solid var(--line);
+        background: linear-gradient(180deg, rgba(var(--accent-rgb), 0.06), transparent);
+      }
+      .s-heading {
+        min-width: 0;
+      }
+      .scenebox-badge {
+        flex-shrink: 0;
+        width: 46px;
+        height: 46px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        font-weight: 700;
+        color: #fff;
+        background: var(--accent);
+        box-shadow: 0 6px 14px -5px var(--accent);
+        letter-spacing: 0.02em;
+      }
+      .scenebox h3 {
+        font-family: "Songti SC", "STSong", "Noto Serif SC", serif;
+        font-size: 17px;
+        line-height: 1.3;
+        color: #23231f;
+      }
+      .s-route {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--accent);
+        flex-wrap: wrap;
+      }
+      .s-route .arr {
+        color: #b8b4a9;
+        font-weight: 400;
+      }
+      .route-node {
+        padding: 2px 9px;
+        border: 1px solid rgba(var(--accent-rgb), 0.35);
+        border-radius: 999px;
+        background: rgba(var(--accent-rgb), 0.07);
+      }
+      .scenebox-close {
+        margin-left: auto;
+        flex-shrink: 0;
+        width: 30px;
+        height: 30px;
+        border: none;
+        border-radius: 9px;
+        background: #f0ede4;
+        color: #6d6a62;
+        font-size: 15px;
+        line-height: 1;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition:
+          background 0.15s ease,
+          color 0.15s ease,
+          transform 0.15s ease;
+      }
+      .scenebox-close:hover {
+        background: #e4e0d4;
+        color: #2b2b28;
+        transform: rotate(90deg);
+      }
+      .scenebox-close:focus-visible,
+      .foot-nav .chip:focus-visible,
+      .scenebox-tabs .tab:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+
+      /* ---------- 抽屉：tab 栏 ---------- */
+      .scenebox-tabs {
+        flex-shrink: 0;
+        display: flex;
+        gap: 7px;
+        padding: 12px 20px 10px;
+        border-bottom: 1px solid var(--line);
+        flex-wrap: wrap;
+      }
+      .scenebox-tabs .tab {
+        font: inherit;
+        font-size: 12px;
+        border-radius: 999px;
+        padding: 5px 12px;
+        cursor: pointer;
+        border: 1px solid var(--line);
+        background: #fff;
+        color: #55534c;
+        transition:
+          border-color 0.15s ease,
+          color 0.15s ease,
+          background 0.15s ease;
+      }
+      .scenebox-tabs .tab:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+      .scenebox-tabs .tab.on {
+        border-color: var(--accent);
+        background: rgba(var(--accent-rgb), 0.1);
+        color: var(--accent);
+        font-weight: 600;
+      }
+
+      .scenebox-main {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        padding: 18px 20px 22px;
+        scrollbar-width: thin;
+        scrollbar-color: #d8d4c6 transparent;
+      }
+      .scenebox-main::-webkit-scrollbar {
+        width: 8px;
+      }
+      .scenebox-main::-webkit-scrollbar-thumb {
+        background: #d8d4c6;
+        border-radius: 4px;
+      }
+      .scenebox-main::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      /* 抽屉内切换内容时的滑入动画 */
+      .scenebox-main.swap #s-summary,
+      .scenebox-main.swap #s-body,
+      .scenebox-main.swap #s-foot {
+        animation: contentIn 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+      }
+      @keyframes contentIn {
+        from {
+          opacity: 0;
+          transform: translateX(12px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+
+      .scenebox-summary {
+        font-size: 13.5px;
+        line-height: 1.7;
+        color: #55534c;
+        background: #f4f1e9;
+        border-left: 3px solid var(--accent);
+        border-radius: 0 10px 10px 0;
+        padding: 11px 14px;
+        margin-bottom: 20px;
+      }
+
+      /* ---------- 时间线 ---------- */
+      .branch-name {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        font-weight: 700;
+        color: #3c3c38;
+        margin: 4px 0 14px;
+      }
+      .branch-name::before {
+        content: "";
+        width: 6px;
+        height: 18px;
+        border-radius: 3px;
+        background: var(--accent);
+      }
+      .branch + .branch {
+        margin-top: 26px;
+      }
+
+      .timeline {
+        list-style: none;
+      }
+      .tl-item {
+        position: relative;
+        display: flex;
+        gap: 14px;
+        padding-bottom: 22px;
+      }
+      .tl-item:last-child {
+        padding-bottom: 2px;
+      }
+      .tl-item::before {
+        content: "";
+        position: absolute;
+        left: 15px;
+        top: 34px;
+        bottom: 4px;
+        width: 2px;
+        background: linear-gradient(180deg, rgba(var(--accent-rgb), 0.3), var(--line));
+      }
+      .tl-item:last-child::before {
+        display: none;
+      }
+
+      .tl-dot {
+        flex-shrink: 0;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        font-weight: 700;
+        color: #fff;
+        background: var(--c, var(--accent));
+        box-shadow: 0 4px 10px -3px var(--c, var(--accent));
+        z-index: 1;
+      }
+      .tl-dot.done {
+        background: none !important;
+        box-shadow: none !important;
+        color: var(--ok) !important;
+      }
+      .tl-text {
+        flex: 1;
+        padding-top: 1px;
+      }
+      .tl-role {
+        display: inline-block;
+        font-size: 10.5px;
+        font-weight: 700;
+        color: var(--c, var(--accent));
+        letter-spacing: 0.05em;
+        border: 1px solid rgba(0, 0, 0, 0.14);
+        border-radius: 5px;
+        padding: 1px 7px;
+        margin-bottom: 5px;
+        background: rgba(0, 0, 0, 0.03);
+      }
+      .tl-desc {
+        font-size: 13.5px;
+        line-height: 1.65;
+        color: #43423e;
+      }
+
+      /* ---------- 文本列表（技术实现 / 限制 / 远期规划） ---------- */
+      .tab-empty {
+        font-size: 13px;
+        color: var(--muted);
+        line-height: 1.7;
+        padding: 4px 0;
+      }
+      .tab-list {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .tab-list li {
+        position: relative;
+        font-size: 13px;
+        line-height: 1.65;
+        color: #43423e;
+        padding-left: 17px;
+      }
+      .tab-list li::before {
+        content: "";
+        position: absolute;
+        left: 2px;
+        top: 7px;
+        width: 7px;
+        height: 7px;
+        border-radius: 2px;
+        background: var(--accent);
+        opacity: 0.55;
+      }
+      .tab-list li strong {
+        color: #23231f;
+        font-weight: 600;
+      }
+
+      /* ---------- 抽屉底部 ---------- */
+      .scenebox-foot {
+        margin-top: 18px;
+        border-top: 1px dashed var(--line);
+        padding-top: 14px;
+      }
+      .foot-note {
+        display: block;
+        font-size: 12.5px;
+        color: var(--muted);
+        line-height: 1.6;
+        margin-bottom: 12px;
+      }
+      .foot-finish {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12.5px;
+        font-weight: 700;
+        color: var(--ok);
+        background: #eaf3de;
+        border: 1px solid #97c459;
+        border-radius: 999px;
+        padding: 8px 15px;
+        width: fit-content;
+      }
+      .foot-finish::before {
+        content: "";
+        flex-shrink: 0;
+        width: 13px;
+        height: 13px;
+        background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233B6D11' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12h14'/%3E%3Cpath d='m12 5 7 7-7 7'/%3E%3C/svg%3E")
+          no-repeat center / contain;
+      }
+
+      .foot-nav {
+        display: flex;
+        gap: 7px;
+        margin-top: 16px;
+        flex-wrap: wrap;
+      }
+      .foot-nav .chip {
+        border-radius: 999px;
+        font-size: 11.5px;
+        padding: 5px 11px;
+        cursor: pointer;
+        border: 1px solid var(--line);
+        background: #fff;
+        color: #55534c;
+        transition:
+          border-color 0.15s ease,
+          color 0.15s ease,
+          background 0.15s ease;
+      }
+      .foot-nav .chip:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+      .foot-nav .chip.on {
+        border-color: var(--accent);
+        background: rgba(var(--accent-rgb), 0.1);
+        color: var(--accent);
+        font-weight: 600;
+      }
+
+      /* ---------- 响应式 ----------
+     ≥1024px：宽屏「挤让」模式 —— 正文右侧留出抽屉宽度，图与抽屉同屏一页显示，
+     抽屉不遮挡内容，点击图中其他标签/节点可直接切换抽屉内容；
+     <1024px：抽屉浮层 + 遮罩，点遮罩 / Esc / ✕ 关闭。 */
+      @media (min-width: 1024px) {
+        :root {
+          --dw: min(460px, 38vw);
+        }
+        .scenebox {
+          width: var(--dw);
+        }
+        body {
+          transition: padding-right 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        body.drawer-open {
+          padding-right: calc(24px + var(--dw));
+        }
+        .drawer-backdrop.show {
+          opacity: 0;
+          visibility: hidden;
+          pointer-events: none;
+          transition: none;
+        }
+      }
+
+      @media (max-width: 720px) {
+        body {
+          padding: 14px 12px 14px;
+        }
+        .topbar {
+          margin-bottom: 12px;
+          gap: 10px 14px;
+        }
+        .topbar h1 {
+          font-size: 19px;
+        }
+        .topbar .sub {
+          display: none;
+        }
+        .canvas-card {
+          padding: 10px 10px 0;
+        }
+        .hintbar {
+          font-size: 11.5px;
+          padding: 10px 0 12px;
+          gap: 7px;
+        }
+        .scenebox {
+          width: min(430px, 92vw);
+        }
+        .scenebox-top {
+          padding: 13px 16px 12px;
+        }
+        .scenebox-main {
+          padding: 14px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell" id="page-shell">
+      <header class="topbar">
+        <div>
+          <h1>Bench 账号管理 · 三角闭环交互图</h1>
+          <p class="sub">
+            目标软件 ⇄ 浏览器 ⇄ Bench 登录态三角流转 · 点击箭头 / 标签 / 节点，抽屉内可切「流程 /
+            技术实现 / 限制 / 远期规划」
+          </p>
+        </div>
+      </header>
+
+      <div class="workspace">
+        <section class="canvas-card">
+          <div class="canvas-view">
+            <svg
+              viewBox="0 0 780 640"
+              width="100%"
+              xmlns="http://www.w3.org/2000/svg"
+              role="img"
+              aria-label="Bench 账号管理三角闭环交互图"
+            >
+              <defs>
+                <marker
+                  id="ar-blue"
+                  viewBox="0 0 10 10"
+                  refX="8"
+                  refY="5"
+                  markerWidth="7.5"
+                  markerHeight="7.5"
+                  orient="auto"
+                >
+                  <path
+                    d="M2 1L8 5L2 9"
+                    fill="none"
+                    stroke="#185FA5"
+                    stroke-width="1.7"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </marker>
+                <marker
+                  id="ar-green"
+                  viewBox="0 0 10 10"
+                  refX="8"
+                  refY="5"
+                  markerWidth="7.5"
+                  markerHeight="7.5"
+                  orient="auto"
+                >
+                  <path
+                    d="M2 1L8 5L2 9"
+                    fill="none"
+                    stroke="#0F6E56"
+                    stroke-width="1.7"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </marker>
+                <marker
+                  id="ar-orange"
+                  viewBox="0 0 10 10"
+                  refX="8"
+                  refY="5"
+                  markerWidth="7.5"
+                  markerHeight="7.5"
+                  orient="auto"
+                >
+                  <path
+                    d="M2 1L8 5L2 9"
+                    fill="none"
+                    stroke="#854F0B"
+                    stroke-width="1.7"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </marker>
+                <marker
+                  id="ar-a2"
+                  viewBox="0 0 10 10"
+                  refX="8"
+                  refY="5"
+                  markerWidth="7.5"
+                  markerHeight="7.5"
+                  orient="auto"
+                >
+                  <path
+                    d="M2 1L8 5L2 9"
+                    fill="none"
+                    stroke="#5B4BC4"
+                    stroke-width="1.7"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </marker>
+                <marker
+                  id="ar-b1"
+                  viewBox="0 0 10 10"
+                  refX="8"
+                  refY="5"
+                  markerWidth="7.5"
+                  markerHeight="7.5"
+                  orient="auto"
+                >
+                  <path
+                    d="M2 1L8 5L2 9"
+                    fill="none"
+                    stroke="#0A8F85"
+                    stroke-width="1.7"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </marker>
+                <marker
+                  id="ar-c2"
+                  viewBox="0 0 10 10"
+                  refX="8"
+                  refY="5"
+                  markerWidth="7.5"
+                  markerHeight="7.5"
+                  orient="auto"
+                >
+                  <path
+                    d="M2 1L8 5L2 9"
+                    fill="none"
+                    stroke="#A5255F"
+                    stroke-width="1.7"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </marker>
+                <radialGradient id="coreGrad" cx="35%" cy="30%" r="80%">
+                  <stop offset="0%" stop-color="#7B73D8" />
+                  <stop offset="100%" stop-color="#413A9E" />
+                </radialGradient>
+              </defs>
+
+              <!-- 中心登录态节点：点击打开三角闭环总览 -->
+              <g
+                class="node core-node"
+                data-node="core"
+                role="button"
+                tabindex="0"
+                aria-label="登录态：三角闭环总览"
+              >
+                <title>登录态 · 三角闭环 — 点击查看总览</title>
+                <circle
+                  class="core-ring"
+                  cx="390"
+                  cy="388"
+                  r="56"
+                  fill="none"
+                  stroke="#534AB7"
+                  stroke-width="1.6"
+                  stroke-dasharray="5 9"
+                  stroke-linecap="round"
+                  opacity=".75"
+                />
+                <circle class="core-pulse" cx="390" cy="388" r="46" fill="url(#coreGrad)" />
+                <text
+                  x="390"
+                  y="381"
+                  text-anchor="middle"
+                  font-size="13"
+                  font-weight="700"
+                  fill="#fff"
+                  letter-spacing=".12em"
+                >
+                  登录态
+                </text>
+                <text
+                  x="390"
+                  y="400"
+                  text-anchor="middle"
+                  font-size="10"
+                  fill="rgba(255,255,255,.82)"
+                >
+                  三角流转
+                </text>
+              </g>
+
+              <!-- 连线层 -->
+              <!-- 左斜边 · 外弧：A1 目标软件 → 浏览器（调起浏览器登录） -->
+              <g
+                class="edge"
+                data-edge="a1"
+                role="button"
+                tabindex="0"
+                aria-label="A1 调起浏览器登录：目标软件到浏览器"
+                style="--e: #185fa5"
+              >
+                <title>A1 · 调起浏览器登录 — 点击查看流程</title>
+                <path class="edge-hit" d="M 335 150 C 245 238, 190 356, 172 488" />
+                <path class="edge-glow" d="M 335 150 C 245 238, 190 356, 172 488" />
+                <path
+                  class="edge-line"
+                  pathLength="1"
+                  d="M 335 150 C 245 238, 190 356, 172 488"
+                  marker-end="url(#ar-blue)"
+                />
+              </g>
+
+              <!-- 右斜边 · 内弧：C2 Bench → 目标软件（注入登录态） -->
+              <g
+                class="edge"
+                data-edge="c2"
+                role="button"
+                tabindex="0"
+                aria-label="C2 注入登录态：Bench 到目标软件"
+                style="--e: #a5255f"
+              >
+                <title>C2 · 注入登录态 — 点击查看流程</title>
+                <path class="edge-hit" d="M 530 487 C 512 358, 476 238, 428 150" />
+                <path class="edge-glow" d="M 530 487 C 512 358, 476 238, 428 150" />
+                <path
+                  class="edge-line"
+                  pathLength="1"
+                  d="M 530 487 C 512 358, 476 238, 428 150"
+                  marker-end="url(#ar-c2)"
+                />
+              </g>
+
+              <!-- 底边 · 上弧：B1 浏览器 → Bench（插件保存 · 保活） -->
+              <g
+                class="edge"
+                data-edge="b1"
+                role="button"
+                tabindex="0"
+                aria-label="B1 插件保存保活：浏览器到 Bench"
+                style="--e: #0a8f85"
+              >
+                <title>B1 · 插件保存保活 — 点击查看流程</title>
+                <path class="edge-hit" d="M 285 495 Q 390 545 495 495" />
+                <path class="edge-glow" d="M 285 495 Q 390 545 495 495" />
+                <path
+                  class="edge-line"
+                  pathLength="1"
+                  d="M 285 495 Q 390 545 495 495"
+                  marker-end="url(#ar-b1)"
+                />
+              </g>
+
+              <!-- 底边 · 下弧：B2 Bench → 浏览器（注入独立浏览器实例） -->
+              <g
+                class="edge"
+                data-edge="b2"
+                role="button"
+                tabindex="0"
+                aria-label="B2 注入浏览器：Bench 到浏览器"
+                style="--e: #0f6e56"
+              >
+                <title>B2 · 注入浏览器 — 点击查看流程</title>
+                <path class="edge-hit" d="M 495 560 Q 390 598 285 560" />
+                <path class="edge-glow" d="M 495 560 Q 390 598 285 560" />
+                <path
+                  class="edge-line"
+                  pathLength="1"
+                  d="M 495 560 Q 390 598 285 560"
+                  marker-end="url(#ar-green)"
+                />
+              </g>
+
+              <!-- 左斜边 · 内弧：A2 浏览器 → 目标软件（浏览器回调登录） -->
+              <g
+                class="edge"
+                data-edge="a2"
+                role="button"
+                tabindex="0"
+                aria-label="A2 浏览器回调登录：浏览器到目标软件"
+                style="--e: #5b4bc4"
+              >
+                <title>A2 · 浏览器回调 — 点击查看流程</title>
+                <path class="edge-hit" d="M 250 487 C 268 358, 304 238, 352 150" />
+                <path class="edge-glow" d="M 250 487 C 268 358, 304 238, 352 150" />
+                <path
+                  class="edge-line"
+                  pathLength="1"
+                  d="M 250 487 C 268 358, 304 238, 352 150"
+                  marker-end="url(#ar-a2)"
+                />
+              </g>
+
+              <!-- 右斜边 · 外弧：C1 目标软件 → Bench（复制URL登录） -->
+              <g
+                class="edge"
+                data-edge="c1"
+                role="button"
+                tabindex="0"
+                aria-label="C1 复制URL登录：目标软件到 Bench"
+                style="--e: #c2571b"
+              >
+                <title>C1 · 复制URL登录 — 点击查看流程</title>
+                <path class="edge-hit" d="M 445 150 C 535 238, 590 356, 608 488" />
+                <path class="edge-glow" d="M 445 150 C 535 238, 590 356, 608 488" />
+                <path
+                  class="edge-line"
+                  pathLength="1"
+                  d="M 445 150 C 535 238, 590 356, 608 488"
+                  marker-end="url(#ar-orange)"
+                />
+              </g>
+
+              <!-- 节点：目标软件 -->
+              <g
+                class="node"
+                data-node="soft"
+                id="node-soft"
+                role="button"
+                tabindex="0"
+                aria-label="目标软件"
+                style="--glow: rgba(24, 95, 165, 0.4)"
+              >
+                <title>目标软件 — 点击查看关联流转</title>
+                <rect
+                  class="node-bg"
+                  x="305"
+                  y="84"
+                  width="170"
+                  height="66"
+                  rx="12"
+                  fill="#fff"
+                  stroke="#85B7EB"
+                  stroke-width="1.5"
+                />
+                <circle cx="330" cy="100" r="4.5" fill="#185FA5" />
+                <text x="346" y="105" font-size="13.5" font-weight="600" fill="#0C447C">
+                  目标软件
+                </text>
+                <text x="346" y="124" font-size="11" fill="#8A93A0">调起浏览器登录</text>
+              </g>
+
+              <!-- 节点：浏览器 -->
+              <g
+                class="node"
+                data-node="browser"
+                id="node-browser"
+                role="button"
+                tabindex="0"
+                aria-label="浏览器"
+                style="--glow: rgba(15, 110, 86, 0.4)"
+              >
+                <title>浏览器 — 点击查看关联流转</title>
+                <rect
+                  class="node-bg"
+                  x="115"
+                  y="487"
+                  width="170"
+                  height="66"
+                  rx="12"
+                  fill="#fff"
+                  stroke="#5DCAA5"
+                  stroke-width="1.5"
+                />
+                <circle cx="140" cy="502" r="4.5" fill="#0F6E56" />
+                <text x="156" y="506" font-size="13.5" font-weight="600" fill="#085041">
+                  浏览器
+                </text>
+                <text x="156" y="525" font-size="11" fill="#8A93A0">各种浏览器+扩展插件</text>
+              </g>
+
+              <!-- 节点：Bench -->
+              <g
+                class="node"
+                data-node="bench"
+                id="node-bench"
+                role="button"
+                tabindex="0"
+                aria-label="Bench"
+                style="--glow: rgba(83, 74, 183, 0.4)"
+              >
+                <title>Bench — 点击查看关联流转</title>
+                <rect
+                  class="node-bg"
+                  x="495"
+                  y="487"
+                  width="170"
+                  height="66"
+                  rx="12"
+                  fill="#fff"
+                  stroke="#B9B3E8"
+                  stroke-width="1.5"
+                />
+                <circle cx="520" cy="502" r="4.5" fill="#534AB7" />
+                <text x="536" y="506" font-size="13.5" font-weight="600" fill="#413A9E">Bench</text>
+                <text x="536" y="520" font-size="10.5" fill="#8A93A0">账号管理+保活</text>
+                <text x="536" y="534" font-size="10.5" fill="#8A93A0">独立浏览器实例</text>
+              </g>
+
+              <!-- 箭头标签层：统一放在最上层，保证标签可点击且不被其他箭头的透明命中条遮挡 -->
+              <g class="edge-badge" data-edge="a1" transform="translate(141, 288)">
+                <g class="edge-badge-inner">
+                  <rect width="140" height="28" rx="14" fill="#E8F0FA" stroke="#85B7EB" />
+                  <text
+                    x="70"
+                    y="18.5"
+                    text-anchor="middle"
+                    font-size="12"
+                    font-weight="600"
+                    fill="#0C447C"
+                  >
+                    A1 · 调起浏览器登录
+                  </text>
+                </g>
+              </g>
+              <g class="edge-badge" data-edge="a2" transform="translate(63, 414)">
+                <g class="edge-badge-inner">
+                  <rect width="116" height="28" rx="14" fill="#F1EDFB" stroke="#B3A5E8" />
+                  <text
+                    x="58"
+                    y="18.5"
+                    text-anchor="middle"
+                    font-size="12"
+                    font-weight="600"
+                    fill="#3A2990"
+                  >
+                    A2 · 浏览器回调
+                  </text>
+                </g>
+              </g>
+              <g class="edge-badge" data-edge="b1" transform="translate(326, 486)">
+                <g class="edge-badge-inner">
+                  <rect width="128" height="28" rx="14" fill="#E3F4F2" stroke="#7FC9C0" />
+                  <text
+                    x="64"
+                    y="18.5"
+                    text-anchor="middle"
+                    font-size="12"
+                    font-weight="600"
+                    fill="#06605A"
+                  >
+                    B1 · 插件保存保活
+                  </text>
+                </g>
+              </g>
+              <g class="edge-badge" data-edge="b2" transform="translate(332, 590)">
+                <g class="edge-badge-inner">
+                  <rect width="116" height="28" rx="14" fill="#E3F4EB" stroke="#7FC49B" />
+                  <text
+                    x="58"
+                    y="18.5"
+                    text-anchor="middle"
+                    font-size="12"
+                    font-weight="600"
+                    fill="#0A5C38"
+                  >
+                    B2 · 注入浏览器
+                  </text>
+                </g>
+              </g>
+              <g class="edge-badge" data-edge="c1" transform="translate(498, 288)">
+                <g class="edge-badge-inner">
+                  <rect width="138" height="28" rx="14" fill="#FBEDE1" stroke="#EFB884" />
+                  <text
+                    x="69"
+                    y="18.5"
+                    text-anchor="middle"
+                    font-size="12"
+                    font-weight="600"
+                    fill="#8A3C08"
+                  >
+                    C1 · 复制URL登录
+                  </text>
+                </g>
+              </g>
+              <g class="edge-badge" data-edge="c2" transform="translate(592, 414)">
+                <g class="edge-badge-inner">
+                  <rect width="116" height="28" rx="14" fill="#F9E9F0" stroke="#E39BB8" />
+                  <text
+                    x="58"
+                    y="18.5"
+                    text-anchor="middle"
+                    font-size="12"
+                    font-weight="600"
+                    fill="#7E1E48"
+                  >
+                    C2 · 注入登录态
+                  </text>
+                </g>
+              </g>
+            </svg>
+          </div>
+
+          <div class="hintbar">
+            <span class="pulse"></span>
+            点击箭头、A1/A2
+            等流程标签或三端节点，侧边抽屉查看对应流程&nbsp;·&nbsp;点击中心「登录态」查看三角闭环总览&nbsp;·&nbsp;抽屉上方可切「流程
+            / 技术实现 / 限制 / 远期规划」&nbsp;·&nbsp;再点同一处 / <kbd>Esc</kbd> / 遮罩可关闭
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <!-- 侧边抽屉：遮罩 + 面板 -->
+    <div class="drawer-backdrop" id="drawer-backdrop" aria-hidden="true"></div>
+
+    <section class="scenebox" id="scenebox" role="dialog" aria-label="流程详情" aria-hidden="true">
+      <div class="scenebox-top">
+        <span class="scenebox-badge" id="s-badge">A1</span>
+        <div class="s-heading">
+          <h3 id="s-title">场景 A · 起</h3>
+          <div class="s-route" id="s-route"></div>
+        </div>
+        <button class="scenebox-close" id="s-close" aria-label="关闭侧边抽屉">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M18 6 6 18" />
+            <path d="m6 6 12 12" />
+          </svg>
+        </button>
+      </div>
+      <div class="scenebox-tabs" id="s-tabs" role="tablist" aria-label="内容分页"></div>
+      <div class="scenebox-main" id="s-main">
+        <p class="scenebox-summary" id="s-summary"></p>
+        <div id="s-body"></div>
+        <div class="scenebox-foot" id="s-foot"></div>
+      </div>
+    </section>
+
+    <script>
+      ;(function () {
+        "use strict"
+
+        var PALETTE = {
+          blue: "#185FA5",
+          green: "#0F6E56",
+          orange: "#854F0B",
+          purple: "#534AB7",
+          ok: "#3B6D11",
+        }
+
+        var TABS = [
+          ["flow", "流程"],
+          ["tech", "技术实现"],
+          ["limits", "限制"],
+          ["future", "远期规划"],
+        ]
+
+        var ENDPOINTS = {
+          a1: { from: "目标软件", to: "浏览器" },
+          a2: { from: "浏览器", to: "目标软件" },
+          b1: { from: "浏览器", to: "Bench" },
+          b2: { from: "Bench", to: "浏览器" },
+          c1: { from: "目标软件", to: "Bench" },
+          c2: { from: "Bench", to: "目标软件" },
+        }
+
+        var EDGES = {
+          a1: {
+            badge: "A1",
+            color: PALETTE.blue,
+            title: "场景 A · 起：软件调起浏览器登录",
+            summary:
+              "目标软件唤起浏览器完成身份验证，免去频繁输入验证码——这是三角闭环的起点。在 Bench 中对应「外部登录代理」：Bench 可代外部 App 执起登录授权（bench-auth:// 深链），软件自身也可直接调起浏览器。",
+            flow: [
+              { role: "用户", tone: PALETTE.blue, text: "想要登录某软件，不想每次输入验证码" },
+              { role: "目标软件", tone: PALETTE.purple, text: "调出浏览器，打开登录页" },
+              { role: "浏览器", tone: PALETTE.green, text: "用户在浏览器完成登录，拿到回调 URL" },
+              { role: "浏览器", tone: PALETTE.green, text: "登录结果以 URL 形式回调目标软件" },
+            ],
+            tech: [
+              "<strong>深链入口（外部登录代理）</strong>：外部 App 或浏览器通过自定义协议 <strong>bench-auth://authorize</strong>（RFC 8252 的推广形态）唤起 Bench；Deep Link 只由 Rust App 根 listener 接收，Windows 经 <strong>tauri-plugin-single-instance</strong>（deep-link feature）把第二实例参数交回主实例并聚焦主窗口",
+              "<strong>签发一次性票据</strong>：<code>handle_browser_open</code> 归一化为 BrowserOpenResult（ticket / expiry / target / returnUrl / host / isAuthorize / matches），签发 <strong>5 分钟一次性 ticket</strong>；后续启动登录的 IPC 只接受 <code>ticketId + accountId</code>，不接受 renderer 重传 target/return",
+              "<strong>非授权链接导流</strong>：解析结果为非 bench-auth 且非 authorize-like 的普通 URL 时，第二步提示「该链接不是登录授权链接」并提供「改用快速登录打开」（URL 预填，即 C1 链路）",
+              "<strong>确认后拉起登录</strong>：<code>proxyLogin(ticketId, accountId)</code> 在后端拉起隔离 WebView 完成登录，命中 return URL 后把原始 callback 交还外部 App；解析/确认中对话框不可关闭（防重入）",
+            ],
+            limits: [
+              "callback 必须精确匹配 scheme、host、有效端口与 path；请求带 state 时 callback 必须回传相同 state",
+              "<code>return</code> 只允许受控自定义 scheme 或 localhost / 127.0.0.1 / ::1 loopback；拒绝任意 http(s)、file、javascript",
+              "<code>site</code> 只能预选已有候选站，不能扩大授权范围；<strong>只有 <code>proxy_enabled</code> 账号可参与匹配</strong>，关闭代理时撤销 binding 并写审计记录",
+              "原始 bench-auth:// URL 不进入 renderer；队列超过 32 条报告 dropped，非法请求计数 rejected 并提示",
+              "站点匹配优先级：精确 host → eTLD+1 → 已知 SSO provider；任何模糊匹配都不能绕过用户选择和账号授权",
+            ],
+            note: "回调完成后进入中转环节：把登录态交给 Bench 的「外部登录 / 复制 URL」，或用插件一键保存（沿 A2 / B1 箭头）。",
+            finish: "下一步 → 将 URL 粘贴到 Bench「外部登录」，或通过插件保存",
+          },
+
+          b1: {
+            badge: "B1",
+            color: "#0A8F85",
+            title: "场景 B · 保活：浏览器 → Bench 登录态入库",
+            summary:
+              "登录态进入 Bench 的两条途径：手动把回调 URL 粘贴到「外部登录」，或通过浏览器扩展一键保存；之后再靠 Session Keeper 定时静默刷新保活，账号常驻活跃。",
+            branches: [
+              {
+                name: "途径 · 手动粘贴 URL（外部登录）",
+                steps: [
+                  { role: "用户", tone: PALETTE.blue, text: "把回调 URL 粘贴到 Bench「外部登录」" },
+                  { role: "Bench", tone: PALETTE.purple, text: "选择已保存登录态的账号" },
+                  {
+                    role: "Bench",
+                    tone: PALETTE.purple,
+                    text: "保存账号 + 登录态到 Bench",
+                    done: true,
+                  },
+                ],
+              },
+              {
+                name: "途径 · 插件一键保存（保活）",
+                steps: [
+                  {
+                    role: "用户",
+                    tone: PALETTE.blue,
+                    text: "浏览器中已登录某网站，但担心登录态过期",
+                  },
+                  {
+                    role: "插件",
+                    tone: PALETTE.orange,
+                    text: "点击「保存到 Bench」→ 提取登录态（Cookies / Session）",
+                  },
+                  { role: "Bench", tone: PALETTE.purple, text: "调起 Bench → 保存账号 + 登录态" },
+                  {
+                    role: "Bench",
+                    tone: PALETTE.green,
+                    text: "启用定时刷新保活 → 账号保持活跃，随时可用",
+                    done: true,
+                  },
+                ],
+              },
+            ],
+            tech: [
+              "<strong>两条入向通道</strong>：I2 在 Bench 托管的 Chromium 实例内回采（CDP，<code>browser_session_capture</code>）；I3 经 <strong>bench-companion 扩展</strong>从用户日常浏览器读取（Native Messaging + 本地桥，popup 用户手势触发）",
+              "<strong>落库统一走一套纪律</strong>：<code>finalize_capture</code> = 新鲜度仲裁 → 互斥 → 加密 → probe 验证；每条会话带 <code>sessionOrigin</code>（webviewLogin / browserCdp / browserExtension / import…）与 origin_detail，冲突时向用户交代来源",
+              "<strong>会话保活（Session Keeper）</strong>：每账号 <code>RefreshSchedule{interval|daily}</code>，30s tick 调度器在隐藏 WebView「等价网页刷新」→ 分层探针判登录态 → Ready 则重新捕获 session 加密落盘；全程不弹 UI，日志可追溯",
+              "捕获边界与 WebView 链路同一套：canonical cookies + 按 origin 加密的 Web Storage / IndexedDB（Web Storage ≤512 key/2 MiB；IndexedDB ≤32 db/128 store/10000 record/8 MiB；桥接总量 12 MiB）",
+            ],
+            limits: [
+              "<strong>回采冲突不覆盖</strong>：Bench 已有不早于本次的会话 → 返回 Conflict 不写入，需用户二次确认（force=true）才覆盖；不存在静默覆盖路径",
+              "保活计划仅 persistent 账号可设置；ephemeral 账号不参与启动恢复、退出即清理",
+              "扩展需在浏览器手动「加载已解压的扩展程序」一次（Chrome 137 已移除 <code>--load-extension</code>）；每个新站点首次需一次 host 授权手势",
+              "扩展通道只搬 Cookie；localStorage / IndexedDB 在扩展侧无直读 API，需 scripting 注入且依赖目标页面已存在",
+            ],
+            note: "途径 B 是长期保活的关键：登录态在过期前被定时刷新，账号常驻活跃。",
+            finish: "登录态已在 Bench 就绪，随时可注入",
+          },
+
+          c2: {
+            badge: "C2",
+            color: "#A5255F",
+            title: "Bench → 目标软件：注入登录态",
+            summary:
+              "Bench 将保存的登录态直接注入目标软件（Session 恢复），无需再次验证——一次登录，全程免验证码。目标软件侧由分层探针复核后才标 Ready。",
+            flow: [
+              { role: "Bench", tone: PALETTE.purple, text: "注入登录态到目标软件" },
+              { role: "目标软件", tone: PALETTE.blue, text: "目标软件登录成功，无需验证码" },
+              {
+                role: "闭环达成",
+                tone: PALETTE.green,
+                text: "目标软件 → 浏览器 → Bench → 目标软件，三角闭环完成",
+                done: true,
+              },
+            ],
+            tech: [
+              "<strong>Session 捕获 / 恢复</strong>：登录成功后捕获 Session（canonical cookies + 按 origin 加密的 Web Storage / IndexedDB + 可选 CSRF 信息）→ 加密（独立 nonce）→ 更新状态 → flush；恢复时还原过期时间并比较 scheme+host+port，不得跨 origin 注入",
+              "<strong>恢复后必须 probe</strong>：L1 HTTP（低成本）→ L2 WebView（HTTP 不确定 / JS challenge / anti-bot）→ L3 Hybrid（SSO / 复杂重定向）；只有 Uncertain 才升级探针，避免所有账号默认创建 WebView",
+              "<strong>L0 指纹预检</strong>：站点登录指纹（cookie 特征名单 + storage 键名，不存值）特征全缺失 → 确定性 LoginRequired，跳过请求省预算；特征存在再走 L1/L2 验证",
+              "<strong>规则包判定</strong>：站点级判定先验由声明式 JSON 规则提供（login-rulepack-spec），优先级 站点特殊 > generic > 精确 host > 远程 > bundled；loginCheck 为强判据短路（同可注册域 + GET/POST 白名单 + 不跟随重定向）",
+              "结果区分 Ready / LoginRequired / Expired / Uncertain / AntiBotBlocked / SsoChallenge / NetworkError；每结果可见、失败不静默",
+            ],
+            limits: [
+              "<strong>恢复后必须 probe 才能标记 Ready</strong>——不能仅凭 cookie 存在标记 Ready；例外：<strong>用户显式确认</strong>（指纹采样后的确认弹窗 = 用户实时断言，属红线外显式授权路径）",
+              "HttpOnly cookie 只能经 WebView 原生 cookie API 获取；明文只在 Rust 内存与目标账号 WebView 短时存在，不得进入前端 store / 事件 / 日志",
+              "partitioned Cookie 不进入 HTTP probe（Tauri 未暴露 partition key 前不得降级为普通 Cookie 发送）",
+              "存储恢复 schema 不兼容 / 超限 → fail-closed，不覆盖现有数据库；Blob / CryptoKey / 循环引用等不可移植值返回受限/失败",
+            ],
+            note: "闭环达成：登录态在三个角色间完成一次完整流转。",
+            finish: "闭环完成",
+          },
+
+          a2: {
+            badge: "A2",
+            color: "#5B4BC4",
+            title: "场景 A · 闭环：浏览器回调登录",
+            summary:
+              "用户在浏览器完成登录后，浏览器带着登录结果调起目标软件（deep link 回调）——补上 浏览器 → 目标软件 这段，登录闭环就此闭合。",
+            flow: [
+              {
+                role: "用户",
+                tone: PALETTE.blue,
+                text: "在浏览器完成登录，浏览器获得登录结果 / 回调地址",
+              },
+              {
+                role: "浏览器",
+                tone: PALETTE.green,
+                text: "以回调方式调起目标软件（如 myapp://callback?token=…）",
+              },
+              {
+                role: "目标软件",
+                tone: PALETTE.purple,
+                text: "软件被唤起，接收登录结果，直接登录成功",
+              },
+              {
+                role: "闭环达成",
+                tone: PALETTE.green,
+                text: "目标软件 ↔ 浏览器 双向闭环完成，全程免验证码",
+                done: true,
+              },
+            ],
+            tech: [
+              "<strong>回调形态</strong>：浏览器把登录结果经受控自定义 scheme（<code>myapp://callback?token=…</code>）或 <strong>RFC 8252 loopback 回调</strong>调起目标软件；autoLAUNCH 后 Bench 监听 pending 事件再取队列，不在事件里携带 URL",
+              "<strong>Bench 只做通道、不碰 token</strong>：不在 WebView 命中 return URL 前解析/转发任何 token；命中后把原始 callback 交还外部 App，由外部 App 自行完成登录落地",
+              "<strong>state 回传校验</strong>：请求带 state 时 callback 必须回传相同 state，配合 5 分钟一次性 ticket 防重放",
+              "<strong>自动填充</strong>：有密码时支持延迟自动填充，只填写字段、默认不自动提交",
+            ],
+            limits: [
+              "callback 必须精确匹配 scheme / host / 有效端口 / path；伪 loopback、过期 ticket、重放均按预期拒绝",
+              "展示层的 return URL 截断展示（60 字符），原始 URL 不进 renderer 日志",
+              "Bench 不解析或转发 token：明文只在 Rust 内存与目标账号 WebView 中短时存在",
+              "跨 origin 或跳转后的自动填充被拒绝；密码只在后端精确 origin 校验后的单次操作中解密",
+            ],
+            note: "与 A1 互为反方向：A1 软件调起浏览器，A2 浏览器回调软件，两者构成完整的登录闭环。",
+            finish: "登录闭环闭合",
+          },
+
+          c1: {
+            badge: "C1",
+            color: "#C2571B",
+            title: "目标软件 → Bench：复制 URL 登录",
+            summary:
+              "目标软件把登录回调 URL 交出来，用户手动复制到 Bench「外部登录 / 快速登录」，在 Bench 里完成账号与登录态的入库——不依赖插件也能保存。",
+            flow: [
+              { role: "目标软件", tone: PALETTE.purple, text: "提供登录回调 URL（登录结果）" },
+              { role: "用户", tone: PALETTE.blue, text: "手动复制 URL" },
+              {
+                role: "用户",
+                tone: PALETTE.blue,
+                text: "粘贴到 Bench「外部登录」，选择已保存登录态的账号",
+              },
+              {
+                role: "Bench",
+                tone: PALETTE.green,
+                text: "完成登录 → 保存账号 + 登录态到 Bench",
+                done: true,
+              },
+            ],
+            tech: [
+              '<strong>快速登录 / 外部登录共用骨架</strong>：「粘贴 URL → 站点自动匹配 → 账号选择（已有 / 新建）→ 登录窗口打开」；提交载荷为联合类型 <code>{kind:"existing"} | {kind:"new"}</code>',
+              "<strong>站点自动匹配</strong>：<code>match_stations_by_url</code> 精确 host → exact、互为父子域 → registrableDomain；输入防抖 300ms，可预选最高置信度站点，含「新建站点」选项",
+              "<strong>账号选择</strong>：选已有账号 → 在该账号隔离环境打开 URL（只读展示账号名 + 状态徽章）；新建账号支持 persistent / ephemeral（勾选「关闭时销毁 Session」则关窗即焚）",
+              "快速登录历史 datalist 补全：localStorage 保存，<strong>最多 5 条、按最近使用去重</strong>；URL 自动补 <code>https://</code> 前缀",
+            ],
+            limits: [
+              "空字段 / 非法网站 / 重复用户名 / 排序 ids 不匹配 / 代理密码超限 / 非法导入文件 → <code>INVALID_INPUT</code>（toast 级提示，修正后重试）",
+              "外部登录仅匹配 <code>proxy_enabled</code> 账号（安全边界）；快速登录匹配全部账号——两类安全上下文不合并",
+              "外部登录承担代理安全上下文（ticket / return allowlist / state 回传 / 审计），快速登录承担轻量打开（全部账号 / 临时账号）",
+            ],
+            note: "与「外部登录」同一途径，但起点不同：URL 来自目标软件而不是浏览器。",
+            finish: "登录态已入库",
+          },
+
+          b2: {
+            badge: "B2",
+            color: "#0F6E56",
+            title: "场景 B：注入独立浏览器实例",
+            summary:
+              "用 Bench 保存的账号注入独立的浏览器实例（每账号专属 profile）——在专属实例里恢复对应网站的正常浏览状态，不影响日常浏览器。",
+            flow: [
+              {
+                role: "用户",
+                tone: PALETTE.blue,
+                text: "想用 Bench 保存的账号在独立浏览器实例中打开对应网站",
+              },
+              {
+                role: "用户",
+                tone: PALETTE.blue,
+                text: "在 Bench 选择账号 → 点击「注入独立浏览器实例」",
+              },
+              {
+                role: "Bench",
+                tone: PALETTE.purple,
+                text: "将登录态同步注入到新建的独立浏览器实例",
+              },
+              {
+                role: "浏览器",
+                tone: PALETTE.green,
+                text: "独立实例中仅该账号登录，恢复对应网站的正常浏览状态",
+                done: true,
+              },
+            ],
+            tech: [
+              "<strong>实例与档案隔离</strong>：每账号独立 <code>user-data-dir</code>（profile），以 <code>--remote-debugging-port=0</code> 启动由 Chromium 自行选端口，端口从 <code>DevToolsActivePort</code> 读取；同账号同时只允许一个实例",
+              "<strong>I1 出向注入（CDP）</strong>：<code>Network.setCookie</code> 逐条注入（sameSite 归一化；partitioned 跳过并计数；被浏览器拒绝计入 <code>rejectedCookies</code>）；在页面脚本前注册 storage 恢复脚本（导航完成后注销，避免实例上累积），再导航到站点 origin",
+              "<strong>UA 覆盖规则</strong>：仅在「会话来源 browserCdp 且 UA 为 Chromium 系」时覆盖 UA，其余保留浏览器原生 UA——跨引擎伪装会把会话判成新客户端而丢弃",
+              "<strong>出向前自动补采（webview_sync）</strong>：S1 无会话或已陈旧（≥30 分钟）时先对齐该账号当前登录态（加载档案 → 证据链判定 → Ready 才捕获 → 过仲裁 → 加密入库），避免「状态 Ready 但无会话」的错位",
+              "<strong>I5 写日常浏览器</strong>：扩展 popup 用户手势触发「用 Bench 账号登录此站点」，写入前把该站点现有 Cookie 备份进 <code>chrome.storage.local</code>，可一键回滚",
+            ],
+            limits: [
+              "仅支持 Chromium 系浏览器（Chrome / Edge / Brave / Chromium），<strong>不含 Arc / Safari / Firefox</strong>",
+              "CDP 通道仅允许 loopback（<code>ws://127.0.0.1</code>），非回环地址一律拒绝；互通 IPC 只接受 <code>accountId</code> 与布尔/枚举，站点地址由后端读取，renderer 不传 URL",
+              "<code>hasStoredSession = false</code> 时注入为空转，不得视为成功；<code>injectedCookies === 0</code> 且已有会话时需暴露 skippedPartitioned / rejectedCookies，避免静默失败",
+              "浏览器安全模型限制日常浏览器无法直写 Cookie（远程调试被 Chrome 封禁、Cookie SQLite 受 app-bound encryption 保护）——这就是 I5 必须走扩展+本地桥的原因",
+              "Chrome 137 无法把扩展自动装入用户的日常浏览器：需手动「加载已解压的扩展程序」，彻底消除提示的唯一路径是商店上架（P3）",
+            ],
+            note: "独立实例互不干扰：不会影响日常浏览器的登录态，可同时登录多个账号。",
+            finish: "独立浏览器实例登录态已就绪",
+          },
+        }
+
+        var NODES = {
+          soft: {
+            label: "目标软件",
+            sub: "调起浏览器登录",
+            color: PALETTE.blue,
+            summary: "通过调起浏览器完成登录，再接收 Bench 注入的登录态，实现免验证码登录。",
+            edges: ["a1", "a2", "c1", "c2"],
+            tech: [
+              "登录起点：通过 <code>bench-auth://authorize</code> 深链或直接调起浏览器打开登录页；浏览器完成登录后经 deep link / loopback 回调目标软件（A1/A2）",
+              "也可把回调 URL 直接交给 Bench：粘贴到「外部登录 / 快速登录」（C1），由 Bench 完成账号与登录态入库",
+              "Bench 注入的登录态（Session 恢复 + 分层探针复核）让其免验证码登录（C2）",
+            ],
+            limits: [
+              "外部登录匹配仅限 <code>proxy_enabled</code> 账号；任何模糊匹配（精确 host → eTLD+1 → SSO）都不能绕过用户选择与账号授权",
+              "callback 精确匹配 scheme/host/port/path；伪造 loopback、过期 ticket、重放均被拒绝",
+            ],
+          },
+          browser: {
+            label: "浏览器",
+            sub: "各种浏览器+扩展插件",
+            color: PALETTE.green,
+            summary:
+              "登录行为的发生地：既是登录态的来源（B1 插件保存 / 回采），也是独立实例的注入目标（B2）。",
+            edges: ["a1", "a2", "b1", "b2"],
+            tech: [
+              "两个端点并存：<strong>A 隔离实例</strong>（Bench 拉起的 Chromium，CDP 通道，强隔离）；<strong>B 日常浏览器</strong>（用户自己开，扩展 + Native Messaging + 本地桥，弱隔离）",
+              "I2 / I3 入向：在托管实例内回采（CDP），或经扩展读取日常浏览器已登录的登录态并存入 Bench（B1）",
+              "I1 / I5 出向：注入登录态到独立实例（CDP），或经扩展写入日常浏览器（带冲突警告 + 覆盖前备份 + 一键回滚）（B2）",
+            ],
+            limits: [
+              "仅 Chromium 系可托管注入（Chrome / Edge / Brave / Chromium），不含 Arc / Safari / Firefox",
+              "日常浏览器无法自动安装扩展（Chrome 137 移除 <code>--load-extension</code>）：需手动加载一次，P3 上架才能消除提示",
+              "扩展通道只搬 Cookie；storage 采集/注入需 scripting 注入且依赖目标页面已存在",
+            ],
+          },
+          bench: {
+            label: "Bench",
+            sub: "账号管理 · 保活 · 独立实例",
+            color: PALETTE.purple,
+            summary:
+              "账号与登录态的中心枢纽：保存（S1 加密 store 唯一真理源）、探测、保活、并注入到独立浏览器实例。",
+            edges: ["b1", "b2", "c1", "c2"],
+            tech: [
+              "中心角色 = <strong>登录态枢纽</strong>：S1 加密 store 是唯一可写真理源，任何来源写 S1 都须经 <code>session_arbitration::arbitrate</code>（冲突不静默覆盖）",
+              "入（B1）→ 保存：捕获 / 回采 / 扩展读，落库统一走 finalize_capture（仲裁 → 互斥 → 加密 → probe 验证）",
+              "活（keep-alive）→ Session Keeper 按计划静默刷新，登录态在过期前被刷新，账号常驻活跃",
+              "出（B2 / C2）→ 注入：出向到独立浏览器实例（CDP）或日常浏览器（扩展），或恢复进目标软件（Session 恢复 + probe 标记 Ready）",
+            ],
+            limits: [
+              "capability 纪律：<code>get_account_manager_capabilities</code> 为唯一真理源，前端只允许 supported / partial；真机用例通过前不得提升为 supported",
+              "凭据加密（Keyring 主密钥 + AES-256-GCM），明文只在 Rust 内存与目标账号 WebView 短时存在，不进前端 store / 事件 / 日志",
+              "浏览器互通依赖 credentialStore + 本机受支持的 Chromium 浏览器，任一不满足即 failed 并禁用入口",
+            ],
+          },
+          core: {
+            label: "登录态",
+            sub: "三角流转",
+            color: PALETTE.purple,
+            summary: "登录态在 目标软件 ↔ 浏览器 ↔ Bench 之间流转，形成三角闭环。",
+            edges: ["a1", "a2", "b1", "b2", "c1", "c2"],
+          },
+        }
+
+        var NODE_KEY = { 目标软件: "soft", 浏览器: "browser", Bench: "bench" }
+
+        var OVERVIEW = {
+          badge: "总览",
+          color: PALETTE.purple,
+          title: "三角闭环总览",
+          route: ["目标软件", "浏览器", "Bench", "目标软件"],
+          summary:
+            "登录态在三个角色间流转：软件调出浏览器登录 → 浏览器回调 → Bench 保存保活 → 随时注入，一次登录全程免验证码。",
+          branches: [
+            {
+              name: "场景 A · 免验证码登录（闭环）",
+              steps: [
+                { role: "目标软件", tone: PALETTE.blue, text: "调出浏览器，打开登录页" },
+                { role: "浏览器", tone: PALETTE.green, text: "用户完成登录，登录态回调目标软件" },
+                {
+                  role: "Bench",
+                  tone: PALETTE.purple,
+                  text: "粘贴 URL 选账号 / 插件保存，登录态入库",
+                },
+                {
+                  role: "闭环达成",
+                  tone: PALETTE.green,
+                  text: "Bench 注入 → 软件登录成功，闭环完成",
+                  done: true,
+                },
+              ],
+            },
+            {
+              name: "场景 B · 登录态保活",
+              steps: [
+                { role: "用户", tone: PALETTE.blue, text: "浏览器中已登录某网站，担心过期" },
+                {
+                  role: "插件",
+                  tone: PALETTE.orange,
+                  text: "提取登录态（Cookies / Session）保存到 Bench",
+                },
+                {
+                  role: "Bench",
+                  tone: PALETTE.green,
+                  text: "定时刷新保活，账号保持活跃",
+                  done: true,
+                },
+              ],
+            },
+            {
+              name: "场景 C · 注入独立浏览器实例",
+              steps: [
+                {
+                  role: "用户",
+                  tone: PALETTE.blue,
+                  text: "在 Bench 选择账号 → 点击「注入独立浏览器实例」",
+                },
+                {
+                  role: "Bench",
+                  tone: PALETTE.purple,
+                  text: "将登录态同步注入新建的独立浏览器实例",
+                },
+                {
+                  role: "浏览器",
+                  tone: PALETTE.green,
+                  text: "独立实例中恢复对应网站的正常浏览状态",
+                  done: true,
+                },
+              ],
+            },
+          ],
+          tech: [
+            "<strong>浏览态三存放点（S1/S2/S3）</strong>：S1 加密 store（canonical 会话，<strong>唯一真理源</strong>）/ S2 隔离 WebView data dir（登录窗口 / 保活载体）/ S3 托管浏览器 profile（互通端点，真实 Chromium 实例）",
+            "<strong>互通只搬 S1 ↔ S3</strong>，S2 不参与；任何写 S1 必须经 <code>session_arbitration::arbitrate</code>——force=false 且 S1 已有不早于本次的会话 → 返回 <code>Conflict</code> 且不写入，决定权交回用户",
+            "<strong>无静默覆盖</strong>：时间基准优先 <code>capturedAtTs</code>（UTC 秒），缺失回退解析 <code>capturedAt</code>；Bench 无会话、或已有会话更旧、或无法判断新鲜度 → Accept（错过更新比拒绝更新更糟）",
+            "<strong>通道不变式</strong>：明文会话只在「加密 store → Rust 内存 → 通道（loopback CDP / 扩展 + 本地桥）→ 浏览器」之间流转，<strong>不进 renderer / 前端 store / 事件 / 日志</strong>；每次会话带 <code>sessionOrigin</code> 留痕来源",
+            "<strong>单写者纪律</strong>：store 写入由 AccountManagerState 串行化并显式 flush；Keyring 首建与 store mutation 使用跨进程文件锁，禁止 last-write-wins 覆盖",
+          ],
+          limits: [
+            "<strong>capability 纪律</strong>：后端 <code>get_account_manager_capabilities</code> 为平台能力唯一真理源；不得依据 <code>navigator.platform</code> 或编译成功自行提升能力，真机用例通过前只能维持 partial",
+            "<strong>平台限制</strong>：macOS + Windows；Windows 的 <code>networkProxy</code> 恒为 unsupported，后端 fail-closed 拒绝非空代理配置，已有配置可清除",
+            "<strong>安全红线</strong>：明文密码 / token / Cookie 只在 Rust 内存与目标账号 WebView 短时存在；HttpOnly cookie 只能经 WebView 原生 cookie API 获取；partitioned Cookie 不进入 HTTP probe",
+            "<strong>新会话来源可追溯</strong>：<code>session_origin</code> + <code>origin_detail</code> 用于冲突时向用户交代来源，以及后续按来源做策略",
+          ],
+          future: [
+            "<strong>可移植加密导出</strong>：passphrase + KDF + AEAD 的可移植格式；当前 renderer 只能请求 sanitized 导出，后端继续拒绝 <code>encryptedFull</code>",
+            "<strong>指纹隔离评估</strong>：TLS 指纹模拟、Canvas / WebGL 指纹隔离；不得降低 origin、账号隔离或日志脱敏边界",
+            "<strong>云同步</strong>：先提交独立 RFC；只允许 BYO endpoint、客户端加密、版本迁移、冲突与删除语义；不得内置维护者公共服务",
+            "<strong>扩展商店上架（P3）</strong>：Chrome Web Store / Edge Add-ons 上架是消除「停用开发者模式扩展」提示的唯一路径",
+          ],
+          note: "A 完成闭环、B 维持活跃、C 恢复日常——三者共享同一份登录态。",
+          finish: "登录态三角闭环",
+        }
+
+        var panel = document.getElementById("scenebox")
+        var backdrop = document.getElementById("drawer-backdrop")
+        var routeEl = document.getElementById("s-route")
+        var bodyEl = document.getElementById("s-body")
+        var footEl = document.getElementById("s-foot")
+        var mainEl = document.getElementById("s-main")
+        var titleEl = document.getElementById("s-title")
+        var badgeEl = document.getElementById("s-badge")
+        var summaryEl = document.getElementById("s-summary")
+        var closeBtn = document.getElementById("s-close")
+        var tabsEl = document.getElementById("s-tabs")
+
+        var activeKind = null // "edge" | "node" | "overview" | null
+        var activeId = null
+        var activeData = null // 当前面板数据（供 tab 切换渲染）
+        var activeTab = "flow"
+
+        function esc(s) {
+          return String(s).replace(/[&<>"]/g, function (m) {
+            return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[m]
+          })
+        }
+
+        function setAccent(hex) {
+          panel.style.setProperty("--accent", hex)
+          var n = parseInt(hex.slice(1), 16)
+          panel.style.setProperty(
+            "--accent-rgb",
+            ((n >> 16) & 255) + "," + ((n >> 8) & 255) + "," + (n & 255),
+          )
+        }
+        setAccent(PALETTE.blue)
+
+        function renderDot(i, tone) {
+          var doneIcon =
+            '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>'
+          return (
+            '<span class="tl-dot' +
+            (i === null ? " done" : "") +
+            '" style="--c:' +
+            tone +
+            '">' +
+            (i === null ? doneIcon : i + 1) +
+            "</span>"
+          )
+        }
+
+        function renderSteps(steps) {
+          return (
+            '<ol class="timeline">' +
+            steps
+              .map(function (s, i) {
+                return (
+                  '<li class="tl-item">' +
+                  (s.done ? renderDot(null, s.tone) : renderDot(i + 1, s.tone)) +
+                  '<div class="tl-text">' +
+                  '<span class="tl-role" style="--c:' +
+                  s.tone +
+                  '">' +
+                  esc(s.role) +
+                  "</span>" +
+                  '<div class="tl-desc">' +
+                  esc(s.text) +
+                  "</div>" +
+                  "</div></li>"
+                )
+              })
+              .join("") +
+            "</ol>"
+          )
+        }
+
+        /* flow 分支版（原 buildBody） */
+        function buildFlowBody(d) {
+          if (d.branches) {
+            return d.branches
+              .map(function (b) {
+                return (
+                  '<div class="branch"><span class="branch-name">' +
+                  esc(b.name) +
+                  "</span>" +
+                  renderSteps(b.steps) +
+                  "</div>"
+                )
+              })
+              .join("")
+          }
+          return renderSteps(d.flow)
+        }
+
+        /* 按当前 tab 渲染主体 */
+        function buildTabBody(d, tab) {
+          if (tab === "flow") return buildFlowBody(d)
+          var arr = d[tab]
+          if (!arr || !arr.length) return '<p class="tab-empty">暂无内容</p>'
+          return (
+            '<ul class="tab-list">' +
+            arr
+              .map(function (s) {
+                return "<li>" + s + "</li>" /* 条目内含 <strong>/<code>，不做整体转义 */
+              })
+              .join("") +
+            "</ul>"
+          )
+        }
+
+        function renderRoute(parts) {
+          return parts
+            .map(function (p, i) {
+              var sep = i > 0 ? '<span class="arr">⟶</span>' : ""
+              return sep + '<span class="route-node">' + esc(p) + "</span>"
+            })
+            .join("")
+        }
+
+        function footNav(currentKey) {
+          var items = [
+            { key: "a1", label: "A1 · 调起浏览器登录" },
+            { key: "a2", label: "A2 · 浏览器回调" },
+            { key: "b1", label: "B1 · 插件保存保活" },
+            { key: "b2", label: "B2 · 注入浏览器" },
+            { key: "c1", label: "C1 · 复制URL登录" },
+            { key: "c2", label: "C2 · 注入登录态" },
+            { key: "ov", label: "总览" },
+          ]
+          return items
+            .map(function (it) {
+              return (
+                '<button type="button" class="chip' +
+                (it.key === currentKey ? " on" : "") +
+                '" data-nav="' +
+                it.key +
+                '">' +
+                it.label +
+                "</button>"
+              )
+            })
+            .join("")
+        }
+
+        /* 渲染抽屉 tab 栏（roving tabindex：仅当前 tab 可聚焦） */
+        function renderTabs() {
+          tabsEl.innerHTML = TABS.map(function (t) {
+            var on = t[0] === activeTab
+            return (
+              '<button type="button" class="tab' +
+              (on ? " on" : "") +
+              '" role="tab" id="s-tab-' +
+              t[0] +
+              '"' +
+              ' data-tab="' +
+              t[0] +
+              '" aria-selected="' +
+              on +
+              '"' +
+              ' tabindex="' +
+              (on ? "0" : "-1") +
+              '">' +
+              t[1] +
+              "</button>"
+            )
+          }).join("")
+        }
+
+        function replaySwap() {
+          mainEl.classList.remove("swap")
+          void mainEl.offsetWidth
+          mainEl.classList.add("swap")
+        }
+
+        function switchTab(key) {
+          if (!activeData || key === activeTab) return
+          activeTab = key
+          renderTabs()
+          bodyEl.innerHTML = buildTabBody(activeData, activeTab)
+          replaySwap()
+        }
+
+        function highlight(activeEdges, activeNodes) {
+          document.querySelectorAll(".edge").forEach(function (e) {
+            e.classList.toggle("active", activeEdges.indexOf(e.dataset.edge) !== -1)
+            e.classList.toggle(
+              "dim",
+              activeEdges.length && activeEdges.indexOf(e.dataset.edge) === -1,
+            )
+            e.setAttribute(
+              "aria-pressed",
+              activeEdges.indexOf(e.dataset.edge) !== -1 ? "true" : "false",
+            )
+          })
+          document.querySelectorAll(".node").forEach(function (n) {
+            n.classList.toggle("active", activeNodes.indexOf(n.dataset.node) !== -1)
+            n.setAttribute(
+              "aria-pressed",
+              activeNodes.indexOf(n.dataset.node) !== -1 ? "true" : "false",
+            )
+          })
+          /* 箭头标签独立成层：同步激活态（.hot） */
+          document.querySelectorAll(".edge-badge").forEach(function (b) {
+            b.classList.toggle("hot", activeEdges.indexOf(b.dataset.edge) !== -1)
+          })
+        }
+
+        function clearHighlight() {
+          highlight([], [])
+        }
+
+        function isOpen() {
+          return panel.classList.contains("open")
+        }
+
+        /* 节点视图：取节点自带 tab 内容（去重，防止聚合重复条目） */
+        function aggregateNodeBlock(d, key) {
+          var seen = {}
+          return (d[key] || []).filter(function (v) {
+            if (seen[v]) return false
+            seen[v] = true
+            return true
+          })
+        }
+
+        function openPanel(kind, id) {
+          var d, relatedEdges, relatedNodes
+
+          if (kind === "overview") {
+            d = OVERVIEW
+            relatedEdges = ["a1", "a2", "b1", "b2", "c1", "c2"]
+            relatedNodes = ["soft", "browser", "bench"]
+          } else if (kind === "edge") {
+            d = EDGES[id]
+            d.route = [
+              ENDPOINTS[id].from,
+              ENDPOINTS[id].to,
+            ] /* EDGES 数据缺 route，这里补上，供顶部路线渲染 */
+            relatedEdges = [id]
+            relatedNodes = [NODE_KEY[ENDPOINTS[id].from], NODE_KEY[ENDPOINTS[id].to]]
+          } else {
+            // node
+            d = {
+              badge: NODES[id].label,
+              color: NODES[id].color,
+              title: NODES[id].label + " · 关联流转",
+              route: [NODES[id].label],
+              summary: NODES[id].summary,
+              branches: NODES[id].edges.reduce(function (list, eid) {
+                var eb = EDGES[eid]
+                if (eb.flow) {
+                  list.push({ name: eb.badge + " · " + eb.title, steps: eb.flow.concat() })
+                } else if (eb.branches) {
+                  eb.branches.forEach(function (b) {
+                    list.push({ name: eb.badge + " · " + b.name, steps: b.steps.concat() })
+                  })
+                }
+                return list
+              }, []),
+              tech: aggregateNodeBlock(NODES[id], "tech"),
+              limits: aggregateNodeBlock(NODES[id], "limits"),
+              future: [],
+              note: "点击图中其他标签 / 节点，或下方流程可切换查看。",
+              finish: "",
+            }
+            relatedEdges = NODES[id].edges
+            relatedNodes = [id]
+          }
+
+          var wasOpen = isOpen()
+
+          activeKind = kind
+          activeId = id
+          activeData = d
+
+          setAccent(d.color)
+          badgeEl.textContent = d.badge
+          badgeEl.style.background = d.color
+          titleEl.textContent = d.title
+          panel.setAttribute("aria-label", d.title)
+          routeEl.innerHTML = renderRoute(d.route)
+          summaryEl.textContent = d.summary
+          bodyEl.innerHTML = buildTabBody(d, activeTab)
+          footEl.innerHTML =
+            (d.note ? '<span class="foot-note">' + esc(d.note) + "</span>" : "") +
+            (d.finish ? '<span class="foot-finish">' + esc(d.finish) + "</span>" : "") +
+            '<div class="foot-nav">' +
+            footNav(kind === "overview" ? "ov" : id) +
+            "</div>"
+
+          renderTabs()
+          mainEl.scrollTop = 0
+          if (wasOpen) {
+            /* 抽屉已展开：仅重放内容滑入动画 */
+            replaySwap()
+          }
+
+          panel.classList.add("open")
+          panel.setAttribute("aria-hidden", "false")
+          backdrop.classList.add("show")
+          document.body.classList.add("drawer-open")
+
+          if (!wasOpen) {
+            closeBtn.focus()
+          }
+
+          highlight(relatedEdges, relatedNodes)
+        }
+
+        function closePanel() {
+          if (!isOpen()) return
+          panel.classList.remove("open")
+          panel.setAttribute("aria-hidden", "true")
+          backdrop.classList.remove("show")
+          document.body.classList.remove("drawer-open")
+          activeKind = null
+          activeId = null
+          activeData = null
+          clearHighlight()
+        }
+
+        /* ---- 事件绑定 ---- */
+        document.querySelectorAll(".edge").forEach(function (edge) {
+          edge.addEventListener("click", function () {
+            if (activeKind === "edge" && activeId === edge.dataset.edge) {
+              closePanel()
+              return
+            }
+            openPanel("edge", edge.dataset.edge)
+          })
+          edge.addEventListener("keydown", function (ev) {
+            if (ev.key === "Enter" || ev.key === " ") {
+              ev.preventDefault()
+              if (activeKind === "edge" && activeId === edge.dataset.edge) {
+                closePanel()
+                return
+              }
+              openPanel("edge", edge.dataset.edge)
+            }
+          })
+        })
+
+        document.querySelectorAll(".node").forEach(function (node) {
+          node.addEventListener("click", function () {
+            var id = node.dataset.node
+            if (id === "core") {
+              if (activeKind === "overview") {
+                closePanel()
+                return
+              }
+              openPanel("overview", null)
+              return
+            }
+            if (activeKind === "node" && activeId === id) {
+              closePanel()
+              return
+            }
+            openPanel("node", id)
+          })
+          node.addEventListener("keydown", function (ev) {
+            if (ev.key === "Enter" || ev.key === " ") {
+              ev.preventDefault()
+              var id = node.dataset.node
+              if (id === "core") {
+                if (activeKind === "overview") {
+                  closePanel()
+                  return
+                }
+                openPanel("overview", null)
+              } else {
+                if (activeKind === "node" && activeId === id) {
+                  closePanel()
+                  return
+                }
+                openPanel("node", id)
+              }
+            }
+          })
+        })
+
+        closeBtn.addEventListener("click", closePanel)
+        backdrop.addEventListener("click", closePanel)
+
+        /* ---- 箭头标签（A1/A2/B1/B2/C1/C2）本身可点击 ----
+     标签是独立成层的最上层元素，直接绑定点击打开对应流程。 */
+        document.querySelectorAll(".edge-badge").forEach(function (badge) {
+          badge.addEventListener("click", function () {
+            var id = badge.dataset.edge
+            if (!id) return
+            if (activeKind === "edge" && activeId === id) {
+              closePanel()
+              return
+            }
+            openPanel("edge", id)
+          })
+          badge.addEventListener("keydown", function (ev) {
+            if (ev.key === "Enter" || ev.key === " ") {
+              ev.preventDefault()
+              var id = badge.dataset.edge
+              if (!id) return
+              if (activeKind === "edge" && activeId === id) {
+                closePanel()
+                return
+              }
+              openPanel("edge", id)
+            }
+          })
+        })
+
+        /* ---- 抽屉 tab 键盘导航（左右移动焦点、Enter/Space 激活） ---- */
+        tabsEl.addEventListener("keydown", function (ev) {
+          var tab = ev.target.closest ? ev.target.closest("[data-tab]") : null
+          if (!tab) return
+          var keys = TABS.map(function (t) {
+            return t[0]
+          })
+          var i = keys.indexOf(tab.getAttribute("data-tab"))
+          if (i === -1) return
+          if (ev.key === "ArrowRight" || ev.key === "ArrowLeft") {
+            ev.preventDefault()
+            var dir = ev.key === "ArrowRight" ? 1 : -1
+            var next = keys[(i + dir + keys.length) % keys.length]
+            switchTab(next)
+            var el = document.getElementById("s-tab-" + next)
+            if (el) el.focus()
+          } else if (ev.key === "Enter" || ev.key === " ") {
+            ev.preventDefault()
+            switchTab(tab.getAttribute("data-tab"))
+          } else if (ev.key === "Home" || ev.key === "End") {
+            ev.preventDefault()
+            var target = ev.key === "Home" ? keys[0] : keys[keys.length - 1]
+            switchTab(target)
+            var home = document.getElementById("s-tab-" + target)
+            if (home) home.focus()
+          }
+        })
+
+        /* ---- 全局点击：tab 切换 + 底部场景导航 ---- */
+        document.addEventListener("click", function (ev) {
+          if (!isOpen()) return
+          var tab = ev.target.closest ? ev.target.closest("[data-tab]") : null
+          if (tab) {
+            switchTab(tab.getAttribute("data-tab"))
+            return
+          }
+          var nav = ev.target.closest ? ev.target.closest("[data-nav]") : null
+          if (!nav) return
+          var key = nav.getAttribute("data-nav")
+          var currentKey = activeKind === "overview" ? "ov" : activeId
+          if (key === currentKey) return
+          if (key === "ov") {
+            openPanel("overview", null)
+          } else {
+            openPanel("edge", key)
+          }
+        })
+
+        document.addEventListener("keydown", function (ev) {
+          if (ev.key === "Escape") closePanel()
+        })
+      })()
+    </script>
+  </body>
+</html>

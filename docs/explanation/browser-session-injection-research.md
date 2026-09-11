@@ -1,7 +1,7 @@
 # 浏览器会话注入（一键在浏览器中打开账号会话）调研与方案
 
 > 状态：**已调研、未实现、待确认**。本文是「一键打开浏览器并注入当前账号登录信息」需求的唯一调研与方案文档；确认后按项目规则把 F5 节任务同步 `docs/roadmap/planned/account-manager.md`，实施完成后回写 `design.md` 与 `product-specs/account-manager.md`。
-> 关联：`docs/modules/account-manager/design.md`（§3 Session 生命周期 / §5 加密与存储 / §6 外部登录代理 / §7 前端边界）、`docs/roadmap/planned/account-manager.md`（F1–F4）、`src-tauri/src/browser_ext/`（bench-companion 扩展与 Native Messaging）。
+> 关联：`docs/modules/account-manager/design.md`（§5 加密与存储 / §7 前端边界）与交互图 [`docs/diagrams/account-manager-triangle.html`](../diagrams/account-manager-triangle.html)（三角流程语义）、`docs/roadmap/planned/account-manager.md`（F1–F4）、`src-tauri/src/browser_ext/`（bench-companion 扩展与 Native Messaging）。
 
 ---
 

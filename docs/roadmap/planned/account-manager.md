@@ -10,7 +10,7 @@
 
 ## 待验证（互通 I1/I2 浏览器会话互操作 · 2026-09-10 已实现，未真机验收）
 
-> 状态：**代码与单测已完成**（Rust 侧 `account_manager/browser_session/**` + `session_arbitration.rs`，前端 `useBrowserInterop` + `browser-interop-dialog`）。产品语义见 [product-specs/account-manager.md §17](../../reference/product-specs/account-manager.md)。
+> 状态：**代码与单测已完成**（Rust 侧 `account_manager/browser_session/**` + `session_arbitration.rs`，前端 `useBrowserInterop` + `browser-interop-dialog`）。产品语义见 [交互图：账号管理三角闭环（B1/B2）](../../diagrams/account-manager-triangle.html)。
 > 阻断项：能力状态在真机用例通过前只能维持 `partial`（reasonCode `TARGET_PLATFORM_VALIDATION_PENDING`），不得提升为 `supported`。
 
 - [ ] **macOS 真机矩阵**（全新测试用户，禁用生产账号）：
@@ -41,7 +41,7 @@
 | 入口      | 站点栏底部 LogIn 图标（`StationColumn.tsx:157-177`）         | 站点栏底部「外部登录」按钮（`StationColumn.tsx:178-199`）+ `bench-auth://` deep link |
 | URL 范围  | http(s)                                                      | `bench-auth://` + 任意 http(s)                                                       |
 | 站点匹配  | `match_stations_by_url`（exact / 同可注册域）                | `match_target_to_stations`（精确 host → eTLD+1 → SSO）+ 合并全部站点                 |
-| 账号范围  | 全部账号                                                     | 仅 `proxy_enabled` 账号（安全边界，design.md §6）                                    |
+| 账号范围  | 全部账号                                                     | 仅 `proxy_enabled` 账号（安全边界，见交互图 A1/A2 限制）                             |
 | 新建账号  | persistent / ephemeral、destroyOnClose、历史 datalist        | persistent（`proxy_login_new_account`）                                              |
 | 票据/回调 | 无                                                           | 5 分钟一次性 ticket、return URL 捕获 + state 校验 + 转交外部 App                     |
 | 审计/填充 | 无                                                           | `audit_log` + ExternalApp binding、有密码时延迟自动填充                              |
@@ -81,7 +81,7 @@
 
 - 指纹**缺失** → 一定未登录（强否定证据）✅ 可作为确定性判据；
 - 指纹**存在** → 疑似已登录，但 token 可能已被服务端吊销（弱肯定证据）❌ 不能单独定论；
-- 因此指纹只能作为 L0 预检层 +「未登录」的确定性判据；Ready 仍须经现有探针验证或由用户显式确认——与 design.md §3「恢复后必须 probe，不能仅凭 cookie 存在标记 Ready」红线一致（用户显式确认属于例外：见决策点 D4）。
+- 因此指纹只能作为 L0 预检层 +「未登录」的确定性判据；Ready 仍须经现有探针验证或由用户显式确认——与「恢复后必须 probe 才能标记 Ready」红线一致（见交互图 C2 限制；用户显式确认属于例外：见决策点 D4）。
 
 **指纹内容选型（调研结论：cookie 特征名单为主 + storage 键名为辅，一律不记值）**
 
@@ -112,7 +112,7 @@
 - D1 「未登录」是否新增独立状态枚举（如 `loggedOut`）vs 复用 `loginRequired` + detail 标注？新增枚举动 TS/Rust 双端契约与全部状态映射。**2026-09-10 已定：方案 A（复用 + 来源标注）**——`StationAccount.status_reason` 仅指纹 L0 短路时记 `fingerprintMissing`，前端 `StatusBadge` 在 `loginRequired && statusReason=fingerprintMissing` 时挂 tooltip「指纹缺失，已确认未登录」；手动/keeper 刷新的日志 detail 同步带 `reason`。确认登录（`confirm_login_fingerprint`）与 Ready 时清空。
 - D2 指纹为站点级：采样确认后立即对同站全部账号生效（自动批量刷新）——与用户描述一致，确认刷新范围与并发预算（复用现有 semaphore/single-flight）。
 - D3 采样前置条件：是否要求采样账号当前探针 Ready（防止把登出态采成指纹）？建议不强制。**2026-09-10 已定：不强制，且确认弹窗不展示「登录佐证（登出入口）」**——登出元素存在性检查（DOM 文本/元素判断）已整体移除（Rust 采集脚本、`FingerprintCapture.logout_evidence`、`LoginFingerprintSummary.hasLogoutEvidence`、弹窗展示行与 i18n），用户以特征计数自行判断。
-- D4 「用户显式确认即 Ready」与 design.md §3「不能仅凭 cookie 存在标记 Ready」红线的关系：显式确认是用户断言而非自动推断，且指纹来自实时页面采样——**建议在 design.md §3 补一句例外条款**而非违反红线。
+- D4 「用户显式确认即 Ready」与「恢复后必须 probe 才能标记 Ready」红线的关系：显式确认是用户断言而非自动推断，且指纹来自实时页面采样——交互图 C2 限制已写明该例外条款（用户显式确认），不违反红线。
 
 **任务**
 
@@ -260,7 +260,7 @@
 
 > 每轮功能改动先在此追加一行，再在实施后同步进产品说明。
 
-- 2026-09-10：新增规划 **F5 浏览器会话注入**（一键在浏览器中打开账号会话，仅调研未实现）：调研 `explanation/browser-session-injection-research.md`。四方案对比（CDP+托管 profile / 扩展注入日常浏览器 / 直写 Cookies DB / cookies.txt 导出），推荐 CDP + Bench 托管 profile 先行（隔离语义与 design.md §3「每账号独立 data directory」一致、凭据链路不出 Rust 内存、零扩展依赖），扩展注入为 M3 进阶，后两者因红线冲突排除；M1 任务分解与 D-A~D-D 决策点待确认后实施。
+- 2026-09-10：新增规划 **F5 浏览器会话注入**（一键在浏览器中打开账号会话，仅调研未实现）：调研 `explanation/browser-session-injection-research.md`。四方案对比（CDP+托管 profile / 扩展注入日常浏览器 / 直写 Cookies DB / cookies.txt 导出），推荐 CDP + Bench 托管 profile 先行（隔离语义与「每账号独立 data directory」原则一致——见交互图 C2 技术实现、凭据链路不出 Rust 内存、零扩展依赖），扩展注入为 M3 进阶，后两者因红线冲突排除；M1 任务分解与 D-A~D-D 决策点待确认后实施。
 - 2026-09-10：落地**登录判定规则包（rulepack）**（调研：`explanation/login-detection-rulepack-research.md`，规格：`reference/login-rulepack-spec.md`）——①`login_rules.rs` 新模块：声明式 JSON 规则（loginCheck 服务端权威探针 + text/selector fallback 弱证据），fail-closed 校验（deny_unknown_fields / id=可注册域 / kind 白名单），bundled 内置集（`ruledata/`：trae.cn `CheckLogin Result.IsLogin` 实测 + github.com `api/user` 401/200 实测）+ 远程拉取（command-market 登录规则板块 `rules.json`，零配置官方源 + `BENCH_LOGIN_RULES_URL/DIR` env，缓存 `$APPDATA/login-rules/`，启动后台拉取 + 24h TTL 惰性刷新，失败静默沿用）；②判定融合：优先级 = 用户手配 Custom > 规则包 > 旧预设，证据分层不变，loginCheck 为强判据短路（`loginCheck` reason）；③**修复 L0b 弱肯定越权**（trae.cn 误判根因）：probe/keeper 两路「指纹 present → Ready」改为继续走文本分类链，仅保留「全缺失 → 未登录」否定短路；④仓库侧：kindred-plugin-market/command-market 新增 `rules.json` + `rules/` + `build-rules.mjs` + CI 重算（与命令市场独立 schema，老客户端零影响）。安全铁律：loginCheck 同可注册域 + GET/POST 白名单 + 不跟随重定向（携带账号 cookie 的请求，同域约束下投毒无法外泄）。测试 +9（校验/匹配/fallback 判定/JSON 路径）；门禁全绿（clippy/test 492/check:be-cfg 368）。**注意：trae CheckLogin 实测仅接受 POST（GET 404），`login-state-detection-research.md` 的 GET 记录已修正**。UI 规则来源标注待后续轮（未新增 IPC，contracts 无改动）。
 - 2026-09-10：规则包升级为**通用规则 + 站点特殊规则双层体系 + 「更新登录逻辑」弹窗**（规格 §4.4/§6 同步回写）——①仓库侧 command-market 新增 `rules/generic.json`（id 固定 `"generic"`、match 省略 = 全局兜底、禁 loginCheck、中英文文本弱证据；`build-rules.mjs` 特例放行，commit a642fd9 已推送）；②宿主 `login_rules.rs`：`match_rule` 改 `Option<RuleMatch>`、generic 校验特例（禁 match/loginCheck、必须 fallback）、`rule_matches_host` generic 对任意 host 生效、`pick_best` 优先级 = 站点特殊 > generic > 精确 host > 同 id 版本高者（同版本平局取 remote，消除顺序依赖缺陷）> 远程 > bundled，bundled 新增 `ruledata/generic.json`；③新增 IPC `get_login_rules_overview`（当前生效 generic/站点规则详情 + 远程索引版本比较 `updatable`）与 `update_login_rules`（scope = all/generic/site 按需拉取，逐条 sha256/size/schema 校验 + 版本单调防降级守卫，meta 记录 indexUpdatedAt），commands 注册 + contracts 契约双写；④前端：DetailColumn 右上角「打开官网」左侧新增按钮 → `LoginRulesDialog`（标题「更新登录逻辑」，展示通用/站点规则卡片的判定逻辑与更新时间，三个更新按钮按远程 `updatable` 才可点、检查中/更新中 loading），`useLoginRules` hook 编排（防重入 + 更新后自动重新检查），i18n zh/en 同步；测试 +4（弹窗行为）+ Rust generic 校验/优先级 +5；门禁全绿（fmt/clippy/nextest 497/check:be-cfg 369/lint:fe/vitest 280/prettier）。注意：`fetch_and_cache` 重构为 `fetch_index`/`fetch_validated_entry`/`write_docs_to_cache` 共用路径，全量后台刷新同样获得版本单调守卫。
 - 2026-09-10：按用户要求废弃 HTML 字段（登录页检测）判定，改为**指纹值形态匹配**——采样时对每个特征记录**值长度**（`CookieFeature.value_len` / `LoginFingerprint.storage_key_lens`，不存值本身，serde default 兼容旧指纹），判定时要求同名特征值长度与采样同量级（`value_shape_matches`：≥ 采样一半且 ≥ 4 字符）。效果：已登录账号特征值为长串密钥 → 匹配判已登录；未登录账号同名 cookie 是短占位/空值 → 形态不符判未登录（修复 www.trae.cn 误判）。移除 `is_login_page`/`IS_LOGIN_PAGE_SCRIPT` 与两处调用；`capture_from_window` 采集长度、storage 脚本返回 `{k,l}` 条目；probe/keeper L0b 两路生效。**注意：已采样的旧指纹无 value_len（=0）不校验长度，需重新采样一次才能获得带形态的指纹。** 新增测试覆盖短占位不符、长串匹配、阈值边界。
@@ -271,5 +271,5 @@
 - 2026-09-10：D1 拍板方案 A 落地——新增 `StationAccount.status_reason`（仅指纹 L0 短路时 `fingerprintMissing`），手动/keeper 刷新写账号字段与日志 detail（reason），`StatusBadge` 与快速登录徽标在指纹判定未登录时挂 tooltip「指纹缺失，已确认未登录」，确认登录时清空；`status.reason.fingerprintMissing` 与 `accountLog.detail.reason` 双语。
 - 2026-09-09：实施 F1/F2/F3/F4（F1-T1/T2/T4、F2-T1..T7、F3-T1/T2/T3、F4-T1 已实现，F1-T3 匹配统一调研可延后，F2-T5 的「已确认未登录」徽标标注待 D1）：指纹采样按钮+确认弹窗+probe L0a/L0b 预检（完整特征存 snapshot.fingerprints，DTO 只出摘要）、外部登录 isAuthorize 引导转快速登录、run_proxy_login 补互斥、keeper/代理日志写点与 detail 扩展、弹窗选项卡溢出修复。真机验证项见 F1/F2 验收；见变更记录下一条。
 - 2026-09-09：新增规划轮 F1–F4（仅规划未实现）：确认快速登录与外部登录在普通 URL 场景功能重叠并给出「双入口保留 + isAuthorize 引导分流」收敛方案（含 run_proxy_login 互斥缺失问题）；设计站点级登录指纹（cookie 特征名单 + storage 键名，不含值）采样按钮、确认弹窗与 probe L0a/L0b 预检判定链；账号日志 detail 扩展（source/probeLayer/fingerprintHit 等）与写点补齐；定位外部登录弹窗第二步选项卡 `h-8`/`whitespace-nowrap` 溢出根因。附 D1–D4 待拍板决策点与任务分配总表。
-- 2026-09-09：实现 Session Keeper 会话保活(每账号 interval/daily 静默刷新计划 + 后端 30s 调度器 + 隐藏 WebView 重新捕获 session)、账号日志(每账号 100 条环形,加密 store 持久化)、快速登录 URL 站点自动匹配与已有账号选择、first_login_at 初次登录时间;新增 IPC `set_account_refresh_schedule` / `list_account_logs` / `match_stations_by_url`,`open_login_window` 扩展显式 url 参数并修复 ephemeral 无 station 的 NotFound 缺陷。已同步产品说明 §5/§6/§15/§16;真机验证项见 §4a。
+- 2026-09-09：实现 Session Keeper 会话保活(每账号 interval/daily 静默刷新计划 + 后端 30s 调度器 + 隐藏 WebView 重新捕获 session)、账号日志(每账号 100 条环形,加密 store 持久化)、快速登录 URL 站点自动匹配与已有账号选择、first_login_at 初次登录时间;新增 IPC `set_account_refresh_schedule` / `list_account_logs` / `match_stations_by_url`,`open_login_window` 扩展显式 url 参数并修复 ephemeral 无 station 的 NotFound 缺陷。已同步产品说明 §5/§6/§16 与交互图 B1（会话保活语义）;真机验证项见 §4a。
 - 2026-09-03：生成产品说明与规划功能文档（依据 `src/features/account-manager/`、`src-tauri/src/account_manager/`、`docs/modules/account-manager/` 与 ROADMAP R01/R04）。

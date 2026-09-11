@@ -14,7 +14,7 @@
   4. **版本号双端自证**：`browser_ext_status` / `browser_ext_export` 增发 `extensionVersion`（来自编译期内嵌 manifest）；Bench 导出面板显示版本徽章、导出 toast 带版本；扩展 popup / 完整面板头部显示 `chrome.runtime.getManifest().version`——用户可核对「浏览器已加载版本 = 本次导出版本」，避免旧扩展静默缺能力。
 - **理由**：备份技术前提已不成立，「IndexedDB 站点走隔离实例」等于把扩展通道的正确性责任转嫁给用户手动选通道；自动注入（D-032）的目标是零操作闭环，用户没有判断「该用哪个通道」的信息位。
 - **影响**：bench-companion 0.5.0（新增 `unlimitedStorage` 权限，重载扩展时 Chrome 一次确认）；`BrowserExtStatus` / `ExportResult` 新增字段（契约测试同步）；互通弹窗与 toast 文案改为「0.5.0+ 会写入 IndexedDB（先备份）」；Bench 侧既有会话**无需重新采集**（IndexedDB 快照本就在 S1 里，此前只是不下发）。
-- **相关**：[product-specs/account-manager.md §17](../reference/product-specs/account-manager.md) · [D-032](#d-032--同步到日常浏览器--自动注入--无条件全量同步不做登录判定闸门) · [D-031](#d-031--扩展通道升级cookie--web-storage注入indexeddb-仍排除) · [D-030](#d-030--出向注入前自动补采-bench-内置登录态出向目标显式二选一)
+- **相关**：[浏览器互通三角流转（交互图）](../diagrams/account-manager-triangle.html) · [D-032](#d-032--同步到日常浏览器--自动注入--无条件全量同步不做登录判定闸门) · [D-031](#d-031--扩展通道升级cookie--web-storage注入indexeddb-仍排除) · [D-030](#d-030--出向注入前自动补采-bench-内置登录态出向目标显式二选一)
 
 ## D-032 · 同步到日常浏览器 = 自动注入 + 无条件全量同步（不做登录判定闸门）
 
@@ -27,7 +27,7 @@
   3. **手动注入路径保留且幂等**：popup 手动注入成功也确认完成同 origin 任务；自动注入若站点 host 权限未授予（首次）则保留任务，由用户在 popup 手势中授权注入。
 - **理由**：判据完备性与数据完备性错位时，「先判定后搬运」会把错误结论固化进数据链路；而同步本质是数据搬运，判定应由持有完整数据的探针在事后完成。自动注入通过任务队列把「Bench 无法唤醒扩展」（D-029 决议 3 的模型约束）转化为「扩展在页面生命周期事件中主动领取」，不破坏信任模型。
 - **影响**：扩展 0.4.0 新增 `tabs` 权限（重载时 Chrome 一次确认）；桥新增两个 tasks 端点（内存任务表，Bench 重启即清）；`WebviewSyncOutcome.status` 语义降级为恒 `Inactive`（DTO 形状不变）；daily 同步 toast 文案改为「扩展将自动完成注入」。
-- **相关**：[product-specs/account-manager.md §17](../reference/product-specs/account-manager.md) · [D-029](#d-029--日常浏览器方向改用扩展--本地桥i3i5-提前为必须实现) · [D-030](#d-030--出向注入前自动补采-bench-内置登录态出向目标显式二选一) · [D-031](#d-031--扩展通道升级cookie--web-storage注入indexeddb-仍排除)
+- **相关**：[浏览器互通三角流转（交互图）](../diagrams/account-manager-triangle.html) · [D-029](#d-029--日常浏览器方向改用扩展--本地桥i3i5-提前为必须实现) · [D-030](#d-030--出向注入前自动补采-bench-内置登录态出向目标显式二选一) · [D-031](#d-031--扩展通道升级cookie--web-storage注入indexeddb-仍排除)
 
 ## D-031 · 扩展通道升级「Cookie + Web Storage」注入，IndexedDB 仍排除
 
@@ -41,7 +41,7 @@
   4. **IndexedDB 刻意不注入**：无法廉价备份、误覆盖不可逆，且扩展侧重建需要复制整套 capture/restore 逻辑。依赖 IndexedDB 的站点走隔离实例通道（完整恢复）。UI 文案显式交代这一边界。
 - **理由**：把扩展通道从「对 trae 类站点无效」修复为可用，而 schema 单一实现的关键约束没有破。安全边界不变：明文 token 经 loopback 桥只回给通过 token + Origin 双校验的扩展，与 cookie 载荷同级。
 - **影响**：扩展 manifest 权限变更（`scripting`）→ 用户需重载扩展并确认 Chrome「待确认」提示；桥 export 响应新增 `webStorage` 字段（旧扩展忽略，向后兼容）；Bench 侧 daily 同步提示文案改为「0.3.0+ 可写本地存储」。
-- **相关**：[product-specs/account-manager.md §17](../reference/product-specs/account-manager.md) · [D-029](#d-029--日常浏览器方向改用扩展--本地桥i3i5-提前为必须实现) · [D-030](#d-030--出向注入前自动补采-bench-内置登录态出向目标显式二选一)
+- **相关**：[浏览器互通三角流转（交互图）](../diagrams/account-manager-triangle.html) · [D-029](#d-029--日常浏览器方向改用扩展--本地桥i3i5-提前为必须实现) · [D-030](#d-030--出向注入前自动补采-bench-内置登录态出向目标显式二选一)
 
 ## D-030 · 出向注入前自动补采 Bench 内置登录态；出向目标显式二选一
 
@@ -54,7 +54,7 @@
   3. **出向目标在 UI 上显式二选一**：**Bench 隔离实例**（默认，CDP，点一次即可用）与**日常浏览器**（`browser_session_sync_daily`：确保 S1 会话就绪 + 在所选浏览器的日常实例打开站点；写入由 Bench Companion 扩展完成）。理由与边界见 D-029 决议 3/7——Bench 无法主动给扩展下指令，因此「日常浏览器」入口必须向用户交代「写入这一步在扩展里完成」，不得伪装成一键写入。
 - **理由**：S2 → S1 的补采把「状态与数据错位」的根因修掉，而不是在 UI 上换一种说法继续要求用户重复登录；这与 probe / keeper 共用证据链，三条路径对同一账号给出一致结论。
 - **影响**：新增 `webview_sync` 模块与 `browser_session_sync_daily` 命令（四写同步）；`BrowserOpenOutcome` 两个字段（契约测试数组同步）；互通弹窗新增「同步到」选择与对应文案（zh/en）；删账号清理列表纳入 `relay-sync-*` 窗口。
-- **相关**：[product-specs/account-manager.md §17](../reference/product-specs/account-manager.md) · [D-028](#d-028--账号会话互通采用cdp--新鲜度仲裁浏览器作为第二端点) · [D-029](#d-029--日常浏览器方向改用扩展--本地桥i3i5-提前为必须实现)
+- **相关**：[浏览器互通三角流转（交互图）](../diagrams/account-manager-triangle.html) · [D-028](#d-028--账号会话互通采用cdp--新鲜度仲裁浏览器作为第二端点) · [D-029](#d-029--日常浏览器方向改用扩展--本地桥i3i5-提前为必须实现)
 
 ## D-029 · 日常浏览器方向改用「扩展 + 本地桥」，I3/I5 提前为必须实现
 
@@ -71,7 +71,7 @@
   7. **无法自动安装，只能手动一次**：Chrome 137 已从 branded 构建移除 `--load-extension`；官方替代（`--remote-debugging-pipe` + CDP `Extensions.loadUnpacked`）会把 `navigator.webdriver` 置为 `true`，且只对 Bench **新起的、独立 user-data-dir 的**实例生效——对用户正在使用的日常浏览器无解。故流程为「一键导出扩展目录 + 打开扩展管理页 + 引导『加载已解压的扩展程序』」；彻底消除「停用开发者模式扩展程序」提示的唯一路径是商店上架。
 - **理由**：把「读日常浏览器」这件事从「再开一个窗口让你登录」纠正为「读你已经登录好的那份」，是产品语义层面的修正，不是实现细节的取舍。技术上的关键判断有三条：CDP 对默认 profile 已被 Chrome 主动封禁（安全策略）、直读 Cookies DB 被 OS 凭据体系挡住（技术+安全）、外部进程无法唤醒扩展（模型约束）——三条共同把扩展 + 本地桥定为唯一形态。
 - **影响**：新增 `browser_bridge` 模块（loopback HTTP 服务端，含 token/Origin 双校验）与 3 条桥路由；`bench-host` 新增 `--bridge-descriptor` 与 `browser_bridge_descriptor` 命令（wrapper 同步带上该参数）；`AccountManagerCapabilities` 从 9 项变 10 项（`browserSessionExtension`，**不**受「本机是否装有 Chromium」约束）；扩展权限由 2 项增至 4 项 + 1 组可选 host 权限，**扩展版本升级会触发 Chrome「扩展已禁用，待用户确认」**，属已知一次性成本；`docs/explanation/browser-session-extension-plan.md` 为实现现状的权威文档。
-- **相关**：[browser-session-extension-plan.md](./browser-session-extension-plan.md) · [browser-session-interop-plan.md](./browser-session-interop-plan.md) · [browser-session-injection-research.md](./browser-session-injection-research.md) · [product-specs/account-manager.md §17](../reference/product-specs/account-manager.md)
+- **相关**：[browser-session-extension-plan.md](./browser-session-extension-plan.md) · [browser-session-interop-plan.md](./browser-session-interop-plan.md) · [browser-session-injection-research.md](./browser-session-injection-research.md) · [浏览器互通三角流转（交互图）](../diagrams/account-manager-triangle.html)
 
 ## D-028 · 账号会话互通采用「CDP + 新鲜度仲裁」，浏览器作为第二端点
 
@@ -91,7 +91,7 @@
   10. **注入结果必须自证真值**（2026-09-10 修正）：原 `session_injected` 直接回填请求参数，导致「Bench 里根本没有该账号的会话」时注入 0 条仍被 UI 报成成功。改为 `session_injected = inject_session && has_stored_session`，并新增 `has_stored_session` / `storage_origins` 两个字段，让前端能分三档提示（无会话 / 有会话但 0 条被跳过拒绝 / 正常），并在弹窗内展示「上次打开结果」。
 - **理由**：把「谁能写 S1」从隐式时序假设收敛成可单测的纯函数，是本方案唯一真正难的部分；其余（CDP 客户端、profile 生命周期、DTO 收窄）都是工程量。仲裁函数 9 条单测覆盖 accept / conflict / force / 时间戳回退分支。
 - **影响**：新增 Rust 依赖 `tokio-tungstenite 0.30`（关闭默认 TLS features，仅 `connect` + `handshake`，目标恒为 loopback 明文）；`AccountManagerCapabilities` 从 7 项变 9 项（前端契约测试与 i18n 同步）；`AccountSession` 新增可选字段（serde default，旧数据无感）。
-- **相关**：[browser-session-interop-plan.md](./browser-session-interop-plan.md) · [product-specs/account-manager.md §17](../reference/product-specs/account-manager.md) · [D-012](#d-012--account-manager-使用有界同源浏览器状态与逐能力发布) · [D-007](#d-007--account-manager-使用单写者状态与后端授权票据)
+- **相关**：[browser-session-interop-plan.md](./browser-session-interop-plan.md) · [浏览器互通三角流转（交互图）](../diagrams/account-manager-triangle.html) · [D-012](#d-012--account-manager-使用有界同源浏览器状态与逐能力发布) · [D-007](#d-007--account-manager-使用单写者状态与后端授权票据)
 
 ## D-027 · Rust 测试运行器迁移 cargo-nextest
 

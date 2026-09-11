@@ -1,6 +1,7 @@
 # Account Manager 技术设计
 
 > 本文记录长期安全边界、生命周期和修改入口；字段与命令以 Rust 类型和 IPC 契约为准。未完成代码与目标平台验收见 [roadmap.md](./roadmap.md)。
+> **登录态的三角流转语义（Session 生命周期、三存放点 S1/S2/S3、外部登录代理、会话保活、浏览器互通）已汇集至交互图 [account-manager-triangle.html](../../diagrams/account-manager-triangle.html)**；本文件保留加密、探针、rulepack 等深度技术边界。
 
 ## 1. 模块职责
 
@@ -33,44 +34,6 @@ Rust 关键文件：
 - 持久化类型新增字段必须提供 serde 默认值；schema 变更必须支持旧数据读取和回滚。
 
 不要在文档复制完整 struct。修改模型时同时检查 `types.rs`、TS DTO、storage migration 和契约测试。
-
-## 3. Session 生命周期
-
-```text
-启动 -> 读取加密 store -> 恢复 persistent sessions -> probe 状态 -> UI 就绪
-登录成功 -> 捕获 Session -> 加密 -> 更新状态 -> flush
-退出 -> 捕获 Ready sessions -> 清理 ephemeral -> flush -> 退出
-```
-
-schema v5 起，`AccountManagerSnapshot.sessions` 是唯一 Session 真理源；旧 `account.session` 只读迁移且不再序列化。捕获、恢复注入、TTL、导入导出和互斥必须使用 canonical map，Ready 必须由 probe 验证。
-
-强制约束：
-
-- HttpOnly cookie 只能通过 WebView 原生 cookie API 获取。
-- local/session storage 仅捕获 Station website 的精确 origin；恢复脚本再次比较 `scheme + host + port`，不得跨 origin 注入。明文只在 Rust 内存和目标账号 WebView 中短时存在，不得进入前端 store、事件或日志。
-- IndexedDB 捕获保存 database version、object store、keyPath、autoIncrement、index 和记录；恢复前验证 schema，版本或 store/index 不兼容时 fail-closed，不覆盖现有数据库。
-- 单次 Web Storage 最多 512 key/2 MiB；IndexedDB 最多 32 database、128 store、10,000 record/8 MiB；桥接总量 12 MiB，捕获/恢复各 10 秒。Blob、CryptoKey、循环引用等不可移植值返回受限/失败，不伪装为完整快照。
-- 恢复后必须 probe，不能仅凭 cookie 存在标记 Ready。
-- 例外（F2/D4，2026-09-09）：**用户显式确认**可将账号标为 Ready——登录指纹采样后的确认弹窗是用户实时断言（指纹来自当次窗口加载的证据），非自动推断，属红线外显式授权路径；确认后仍建议触发该站点全量刷新，让其它账号走指纹 L0 预检。
-- TTL 清理和退出持久化必须幂等；失败需要可见错误或明确降级状态。
-- 每个账号使用独立 data directory/data store，禁止跨账号复用浏览上下文。
-
-Cookie 同时保存 Unix expiry，恢复时还原过期时间。Tauri 当前只暴露 `partitioned` 布尔值而不暴露 partition key，因此 partitioned Cookie 不进入 HTTP probe；取得完整 partition key 语义前不得降级发送。
-
-### 3.1 浏览态三存放点与互通（2026-09-10）
-
-引入浏览器互通后，会话存在于三处，**S1 恒为唯一可写真理源**：
-
-| 存放点 | 位置                                         | 角色                                     | 可写                 |
-| ------ | -------------------------------------------- | ---------------------------------------- | -------------------- |
-| S1     | 加密 store `AccountManagerSnapshot.sessions` | canonical 会话；所有读取方的唯一来源     | 仅经仲裁函数         |
-| S2     | 隔离 WebView data dir（登录窗口 / 会话保活） | Bench 自管浏览上下文，登录与静默刷新载体 | 由 WebView 流程决定  |
-| S3     | 托管浏览器 profile（每账号一个）             | 互通端点；真实 Chromium 实例             | 由用户在浏览器内决定 |
-
-- 互通只搬 **S1 ↔ S3**，S2 不参与；任何来源写 S1 都必须经过 `session_arbitration::arbitrate`——`force=false` 且 S1 已有不早于本次的会话时返回 `Conflict` 且不写入，决定权交回用户。
-- 每条 S1 会话带 `session_origin`（`SessionOrigin`）与 `origin_detail`，用于冲突时向用户交代来源、以及后续按来源做策略。
-- CDP 通道仅允许 loopback（非回环地址一律拒绝）；互通 IPC 只接受 `accountId` 与布尔/枚举，站点地址由后端从 `RelayStation` 读取，renderer 不传 URL。
-- I2 复用 §3 同一套捕获脚本与资源上限，不得另立一套截断阈值。
 
 ## 4. 检测与分层探针
 
@@ -114,25 +77,6 @@ AuthProfile 检测从页面、cookie、Web Storage、CSRF、SSO、anti-bot 和 W
 - store 写入由 `AccountManagerState` 串行化并显式 flush；Dev/Prod 共用 bundle ID 时遵守 [共存策略](../../how-to/dev-prod-coexistence.md)。
 - Keyring 首建和 store mutation 使用跨进程文件锁；mutation 在锁内 reload 磁盘 canonical snapshot 后再 save/replace，禁止 last-write-wins 覆盖。
 - 导出默认使用 sanitized 模式；包含凭据的导出必须保持加密并明确告知用户。
-
-## 6. 外部登录代理
-
-支持自定义协议 `bench-auth://authorize` 和 RFC 8252 loopback 回调。
-
-安全约束：
-
-- Deep Link 只由 Rust App 根 listener 接收；最多排队 32 条，每条最多 32 KiB，按 FIFO 消费并用短时 SHA-256 指纹去重。原始 `bench-auth://` URL 不发送到 renderer。
-- Windows 使用第一个注册的 `tauri-plugin-single-instance`（启用 `deep-link` feature）把第二实例参数交回主实例，并聚焦主窗口；前端只监听无敏感 URL 的 pending 事件，再调用无参数 drain IPC。
-- `target` 必须是合法登录 URL；hostname 使用 URL parser，不做字符串裁剪。
-- `handle_browser_open` 签发 5 分钟一次性 ticket；启动登录 IPC 只接受 `ticketId + accountId`，不接受 renderer 重传 target/return。
-- `return` 只允许受控自定义 scheme 或 `localhost/127.0.0.1/::1` loopback；拒绝任意 http(s)、file 和 javascript。
-- callback 必须精确匹配 scheme、host、有效端口和 path；请求带 state 时 callback 必须回传相同 state。
-- `site` 只能预选已有候选，不能扩大授权范围。
-- 只有 `proxy_enabled` 账号可参与匹配；关闭代理时撤销 binding 并写审计记录。
-- Bench 不解析或转发 token，只在 WebView 命中 return URL 后将原始 callback 交还外部 App。
-- 自动填充只填写字段，默认不自动提交。
-
-站点匹配优先级：精确 host -> eTLD+1 -> 已知 SSO provider。任何模糊匹配都不能绕过用户选择和账号授权。
 
 ## 7. 前端边界
 
