@@ -4,7 +4,7 @@
 members = [".", "crates/bench-capabilities", "crates/bench-host"]
 
 [workspace.package]
-version = "1.32.0"
+version = "1.33.0"
 
 [package]
 name = "bench"
