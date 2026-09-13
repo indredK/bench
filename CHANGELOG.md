@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.34.0](https://github.com/indredK/bench/compare/v1.33.0...v1.34.0) (2026-09-13)
+
+
+### Features
+
+* **extension:** 支持 description 字段并扩展能力面 ([541adff](https://github.com/indredK/bench/commit/541adff7de2867540421633116e3df05d159bf81))
+
 ## [1.33.0](https://github.com/indredK/bench/compare/v1.32.0...v1.33.0) (2026-09-13)
 
 
