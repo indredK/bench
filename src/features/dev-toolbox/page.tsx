@@ -1,11 +1,11 @@
 /**
  * Dev Toolbox Page / 开发工具箱: 统一入口，6 个子 Tab。
  *
- * 收容: 端口管理 / 环境检测 / Token 计算 / 开发工具 / 网络诊断 / 系统信息
+ * 收容: 端口管理 / 环境检测 / 开发工具 / 网络诊断 / 系统信息
  */
 import { lazy, Suspense } from "react"
 import { useTranslation } from "react-i18next"
-import { Loader2Icon, Code, Network, Monitor, Zap, Box, Coins } from "lucide-react"
+import { Loader2Icon, Code, Network, Monitor, Zap, Box } from "lucide-react"
 import { SettingGroup } from "@/components/ui/setting-group"
 import { ScrollableArea } from "@/components/common/ScrollableArea"
 import { Button } from "@/components/ui/button"
@@ -28,14 +28,13 @@ import {
 
 const PortManager = lazy(() => import("@/features/port-manager/page"))
 const EnvDetector = lazy(() => import("@/features/env-detector/page"))
-const TokenCalculatorPage = lazy(() => import("@/features/token-calculator/page"))
 
 // Full-page tools own their internal scroll (h-full + nested ScrollableArea).
 // Mounting them inside the outer ScrollableArea creates a fragile double h-full
 // height chain (outer scroll tag is NOT a flex container, inner uses h-full),
 // which collapses and breaks scrolling. Give them a plain flex-1 min-h-0 box
 // instead — same height context they get as a standalone route (motion.div.h-full).
-const FULL_PAGE_TOOL_TABS = new Set<ToolboxTab>(["port-manager", "env-detector", "token-calc"])
+const FULL_PAGE_TOOL_TABS = new Set<ToolboxTab>(["port-manager", "env-detector"])
 
 interface DevToolboxProps {
   feature: AppFeature
@@ -342,7 +341,7 @@ export default function DevToolbox({ feature }: DevToolboxProps) {
   }
 
   // ── Rendering the active full-page tool ──
-  // For port-manager, env-detector, token-calc: render their page component directly.
+  // For port-manager, env-detector: render their page component directly.
   // These components use their own controllers/hooks and work independently.
   const renderFullPageTool = () => {
     switch (activeTab) {
@@ -356,12 +355,6 @@ export default function DevToolbox({ feature }: DevToolboxProps) {
         return (
           <Suspense fallback={<PageFallback />}>
             <EnvDetector active feature={feature} />
-          </Suspense>
-        )
-      case "token-calc":
-        return (
-          <Suspense fallback={<PageFallback />}>
-            <TokenCalculatorPage />
           </Suspense>
         )
       case "devtools":
@@ -378,7 +371,6 @@ export default function DevToolbox({ feature }: DevToolboxProps) {
   const tabs: { id: ToolboxTab; labelKey: string; icon: typeof Zap }[] = [
     { id: "port-manager", labelKey: "sidebar.portManager", icon: Zap },
     { id: "env-detector", labelKey: "sidebar.envDetector", icon: Box },
-    { id: "token-calc", labelKey: "sidebar.tokenCalculator", icon: Coins },
     { id: "devtools", labelKey: "devToolbox.devtools", icon: Code },
     { id: "diagnostics", labelKey: "devToolbox.diagnostics", icon: Network },
     { id: "info", labelKey: "devToolbox.info", icon: Monitor },

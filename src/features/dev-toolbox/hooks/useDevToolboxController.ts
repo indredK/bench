@@ -8,8 +8,7 @@ import { useSettingAction } from "@/features/system-settings/hooks/useSettingAct
 import { getErrorMessage } from "@/lib/tauri/errors"
 import type { SystemInfoData } from "@/lib/tauri/types/system-info"
 
-export type ToolboxTab =
-  "port-manager" | "env-detector" | "token-calc" | "devtools" | "diagnostics" | "info"
+export type ToolboxTab = "port-manager" | "env-detector" | "devtools" | "diagnostics" | "info"
 
 export function useDevToolboxController() {
   const { run, applying } = useSettingAction()

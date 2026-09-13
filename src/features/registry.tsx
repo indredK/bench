@@ -1,7 +1,7 @@
 /**
  * Feature Registry / 功能注册: compose descriptors only; 只聚合功能描述.
  *
- * v2: 侧边栏精简 — 端口管理/环境检测/Token计算收进开发工具箱，
+ * v2: 侧边栏精简 — 端口管理/环境检测收进开发工具箱，
  * 存储空间清理（clean-space）作为顶层主菜单模块。
  */
 import type { TFunction } from "i18next"
@@ -12,7 +12,6 @@ import { envDetectorFeature } from "@/features/env-detector/feature"
 import { networkProbeFeature } from "@/features/network-probe/feature"
 import { portManagerFeature } from "@/features/port-manager/feature"
 import { quickLaunchFeature } from "@/features/quick-launch/feature"
-import { tokenCalculatorFeature } from "@/features/token-calculator/feature"
 import { systemSettingsFeature } from "@/features/system-settings/feature"
 import { devToolboxFeature } from "@/features/dev-toolbox/feature"
 import { extensionCenterFeature } from "@/features/extension-center/feature"
@@ -32,13 +31,12 @@ export const appFeatures: AppFeature[] = [
   devToolboxFeature,
   portManagerFeature,
   envDetectorFeature,
-  tokenCalculatorFeature,
   // Config
   systemSettingsFeature,
 ]
 
 /** IDs hidden from sidebar (shown as tabs inside Dev Toolbox instead). */
-const TOOLBOX_FEATURE_IDS = new Set(["port-manager", "env-detector", "token-calculator"])
+const TOOLBOX_FEATURE_IDS = new Set(["port-manager", "env-detector"])
 
 export function getFeatureByPath(path: string): AppFeature | undefined {
   return appFeatures.find((feature) => feature.path === path)
