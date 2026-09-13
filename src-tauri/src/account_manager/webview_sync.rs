@@ -209,14 +209,12 @@ async fn build_sync_window<R: Runtime>(
             builder =
                 builder.data_store_identifier(webview::account_data_store_identifier(account_id));
         }
+        #[cfg(target_os = "macos")]
         if let Some(url) = context.proxy_url.as_deref() {
-            #[cfg(target_os = "macos")]
-            {
-                let parsed_url = url.parse::<tauri::Url>().map_err(|e| {
-                    AccountManagerError::invalid_input(format!("invalid network proxy URL: {e}"))
-                })?;
-                builder = builder.proxy_url(parsed_url);
-            }
+            let parsed_url = url.parse::<tauri::Url>().map_err(|e| {
+                AccountManagerError::invalid_input(format!("invalid network proxy URL: {e}"))
+            })?;
+            builder = builder.proxy_url(parsed_url);
         }
         builder
             .build()
