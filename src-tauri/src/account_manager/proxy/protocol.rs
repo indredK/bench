@@ -212,7 +212,17 @@ pub fn callback_state_matches(actual: &str, expected_state: Option<&str>) -> boo
 ///
 /// 兼容多种命名:`auth_callback_url`、`redirect_uri`、`redirect_url`、
 /// `callback_url`、`callback`、`redirect`(忽略纯数字/布尔等占位值)。
-/// 只在解析出的值是合法 URL 时返回。
+///
+/// 仅当值是**真正的回调**时才返回:
+/// - loopback(http/https 的 127.0.0.1/localhost);或
+/// - 自定义 scheme(如 `myapp://cb`,非 http/https)。
+///
+/// 非 loopback 的 http/https(如 trae 的 `redirect_url` 指向
+/// `https://www.trae.cn/authorization?...`)只是站点内部跳转而非 OAuth
+/// 回调,若当成 return_url 会被 `validate_return_url` 因「非 loopback https」
+/// 拒绝,导致整个 `handle_browser_open` 报错、外部登录按钮失效。这类内部
+/// 跳转本来也无法被 webview 捕获,真正的 loopback 回调会在登录完成后由
+/// webview 导航处理器捕获。
 pub fn extract_loopback_callback(target: &str) -> Option<String> {
     let parsed = url::Url::parse(target).ok()?;
     const KEYS: &[&str] = &[
@@ -227,12 +237,26 @@ pub fn extract_loopback_callback(target: &str) -> Option<String> {
         let key = k.to_lowercase();
         if KEYS.contains(&key.as_str()) {
             let val = v.to_string();
-            if url::Url::parse(&val).is_ok() {
+            if is_return_url_candidate(&val) {
                 return Some(val);
             }
         }
     }
     None
+}
+
+/// 判断一个候选值是否可作为 OAuth 回调地址(供 `extract_loopback_callback` 使用):
+/// loopback(http/https)或自定义 scheme。非 loopback 的 http/https 一律视为
+/// 站点内部跳转,不是回调。
+fn is_return_url_candidate(value: &str) -> bool {
+    let Ok(parsed) = url::Url::parse(value) else {
+        return false;
+    };
+    match parsed.scheme() {
+        "http" | "https" => is_loopback_url(value),
+        "" => false,
+        _ => true, // 自定义 scheme(如 myapp://cb):合法回调
+    }
 }
 
 /// 启发式判断一个 URL 是否「像」OAuth/OIDC/登录 authorize 链接。
@@ -428,6 +452,17 @@ mod tests {
             extract_loopback_callback("https://x.com/a?redirect=0"),
             None
         );
+    }
+
+    #[test]
+    fn extract_loopback_callback_skips_non_loopback_internal_redirect() {
+        // trae solo 登录入口:redirect_url 指向同域 /authorization 内部跳转,
+        // 真正的 loopback 回调(127.0.0.1:57611)嵌套在内部,顶层不应把它
+        // 当成 return_url 否则会被 validate_return_url 拒绝。
+        let trae = "https://www.trae.cn/login?login_platform=solo&\
+            redirect_url=https%3A%2F%2Fwww.trae.cn%2Fauthorization%3Flogin_version%3D1%26\
+            auth_callback_url%3Dhttp%3A%2F%2F127.0.0.1%3A57611%2Fauthorize%26machine_id%3Dabc";
+        assert_eq!(extract_loopback_callback(trae), None);
     }
 
     #[test]
