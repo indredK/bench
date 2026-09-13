@@ -73,6 +73,33 @@ pub const EXTENSION_ALLOWED_COMMANDS: &[&str] = &[
     "get_custom_cleanup_commands",
     "execute_custom_cleanup",
     "stop_custom_cleanup",
+    // token-calculator 能力面（4 条计费标准 CRUD，P5 迁移；宿主核心实现）
+    "list_pricing_standards",
+    "create_pricing_standard",
+    "update_pricing_standard",
+    "delete_pricing_standard",
+    // app-manager / quick-launch 能力面（19 条应用清单与启停，P5 迁移）。
+    // ⚠️ 含 install/uninstall/upgrade 等系统级操作：宿主内置功能原本即具备，
+    // 插件化后能力面不变，风险由安装时的信任披露（ACL 列表）向用户明示。
+    "scan_installed_apps",
+    "cancel_app_inventory_scan",
+    "get_cached_app_inventory",
+    "get_app_icon_base64",
+    "launch_app",
+    "reveal_app_in_finder",
+    "authorize_mac_app",
+    "check_managed_app_updates",
+    "upgrade_app",
+    "uninstall_app",
+    "batch_upgrade_apps",
+    "batch_uninstall_apps",
+    "install_app",
+    "cancel_batch_operation",
+    "check_all_app_updates",
+    "open_in_mac_app_store",
+    "open_in_mac_app_store_updates",
+    "install_app_update",
+    "cancel_app_update",
     // hardware 为纯前端插件（零 IPC，acl.commands 为空，P5 迁移）
 ];
 

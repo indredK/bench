@@ -29,7 +29,7 @@ use super::{
     audit::{self, AuditEvent},
     integrity,
     manifest::{ExtensionDistribution, ExtensionManifest, EXT_DISABLED_MARKER, MANIFEST_FILE},
-    records, signature,
+    records, registry, signature,
     url::{extension_url, extension_window_label},
     EXT_DATA_DIR_NAME,
 };
@@ -213,7 +213,13 @@ pub fn ext_open(app: AppHandle, extension_id: String, locale: Option<String>) ->
                 manifest.id, manifest.engines.bench
             )));
         }
-        signature::verify_distribution_signature(&manifest, &canonical_text)?;
+        // 与安装路径（market.rs）保持一致：官方 registry 豁免 minisign 验签
+        // （完整性由 registry sha256 + 包内 files 清单双通道兜底，spec §13）；
+        // 第三方源仍强制验签（fail-closed）。
+        let official_source = registry::is_official_registry(&registry::registry_base_url()?);
+        if !official_source {
+            signature::verify_distribution_signature(&manifest, &canonical_text)?;
+        }
         // 逐文件 hash 校验 + 清单外文件拒绝（P3.1 核心：开窗前最后一道完整性闸门）。
         integrity::verify_bundle_integrity(&dir, &manifest)?;
         if manifest.distribution == ExtensionDistribution::Market {

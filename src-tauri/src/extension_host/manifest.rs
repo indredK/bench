@@ -42,6 +42,10 @@ pub struct ExtensionManifest {
     pub version: String,
     /// 展示名（en 必填；zh 可选，缺失回退 en）。
     pub display: ExtensionDisplay,
+    /// 插件描述（可选，结构与 `display` 一致）。仅用于市场/列表展示，宿主不消费；
+    /// registry 的 `description` 由此生成（缺失时回退 display）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<ExtensionDisplay>,
     /// 分发形态：bundled（随主包捆绑）/ market（registry 下载）。
     pub distribution: ExtensionDistribution,
     /// 入口（相对产物根目录）。
@@ -465,6 +469,22 @@ mod tests {
             ExtensionManifest::parse(&text).unwrap_err().code,
             "INVALID_INPUT"
         );
+    }
+
+    /// 插件 manifest 的 `description`（市场展示用，与 registry 对齐）必须被接受
+    /// —— 曾因 `deny_unknown_fields` 让 token-calculator/app-manager/quick-launch
+    /// 安装时报 INVALID_INPUT（宿主审计日志实测）。
+    #[test]
+    fn accepts_optional_description_field() {
+        let text = VALID_MANIFEST.replace(
+            "\"engines\": { \"bench\": \">=2.0.0\" }",
+            "\"description\": { \"zh\": \"计费标准管理\", \"en\": \"Pricing standards\" }, \
+             \"engines\": { \"bench\": \">=2.0.0\" }",
+        );
+        let m = ExtensionManifest::parse(&text).expect("description should be accepted");
+        let description = m.description.expect("description present");
+        assert_eq!(description.zh.as_deref(), Some("计费标准管理"));
+        assert_eq!(description.en, "Pricing standards");
     }
 
     #[test]

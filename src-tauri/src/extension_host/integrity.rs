@@ -204,6 +204,7 @@ mod tests {
                 zh: Some("照片筛选".into()),
                 en: "Photo Triage".into(),
             },
+            description: None,
             distribution: super::super::manifest::ExtensionDistribution::Bundled,
             entry: super::super::manifest::ExtensionEntry {
                 index: "index.html".into(),
