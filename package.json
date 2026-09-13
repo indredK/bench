@@ -42,6 +42,7 @@
     "clippy:be": "cd src-tauri && cargo clippy -- -D warnings",
     "format:be": "cd src-tauri && cargo fmt --all -- --check",
     "clean:be": "cd src-tauri && cargo clean",
+    "clean:rust-cache": "node scripts/maintenance/rust-cache-clean.mjs",
     "dev": "tauri dev",
     "build": "tauri build",
     "build:debug": "tauri build --debug",

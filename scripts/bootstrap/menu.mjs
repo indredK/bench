@@ -77,6 +77,18 @@ const menu = [
         cmd: PKG,
         args: ["run", "clean:be"],
       },
+      {
+        key: "clean:rust-cache",
+        label: "后端缓存体检(查看 target 占用明细)",
+        cmd: PKG,
+        args: ["run", "clean:rust-cache", "--stats"],
+      },
+      {
+        key: "clean:rust-cache-sweep",
+        label: "后端缓存瘦身(保留 7 天内产物)",
+        cmd: PKG,
+        args: ["run", "clean:rust-cache", "--sweep", "--yes"],
+      },
     ],
   },
   {

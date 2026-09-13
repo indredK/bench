@@ -15,7 +15,12 @@ default-run = "bench"
 
 [lib]
 name = "bench_lib"
-crate-type = ["lib", "cdylib", "staticlib"]
+# 桌面端只需 rlib（bin target 直接链接它）。cdylib/staticlib 是 Tauri 移动端模板
+# 的产物要求，本地 debug 会额外生成一份 456 MB 的 libbench_lib.a 且每次链接都要
+# 处理它；release 下更糟——每个 crate-type 都要单独走一遍 codegen + LTO，
+# 是 CI 发布构建里 `bench` crate 阶段耗时的主因之一（详见 D-021 相关调研）。
+# 若将来启用 `tauri android init` / `tauri ios init`，把 staticlib,cdylib 加回来即可。
+crate-type = ["lib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -94,6 +99,16 @@ objc2-foundation = "=0.3.2"
 # 行号表（panic backtrace 仍然可用），debuginfo 体积大幅缩小且增量编译
 # 更快（Rust perf-team 推荐）。
 debug = "line-tables-only"
+
+# 依赖包不生成调试信息：deps/ 目录 4.5G 的主要构成是第三方 crate 的
+# rlib/rmeta debuginfo（objc2-app-kit 单个 rlib 即 151M + rmeta 111M）。
+# 关闭后依赖产物体积大幅下降，链接更省内存；**自己代码的调试能力不受影响**
+# （上面 [profile.dev] 仍保留 line-tables-only，断点与栈回溯正常）。
+# 代价：无法在依赖库内部下断点，依赖帧的栈回溯无行号；改动会触发一次全量重编译。
+# 回滚：删除本段落 + 重新 `cargo build` 即可。
+# 详见 docs/explanation/rust-build-cache-optimization-research.md 方案 A。
+[profile.dev.package."*"]
+debug = false
 
 [profile.release]
 panic = "abort"

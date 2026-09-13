@@ -26,7 +26,7 @@
 
 | 文件                                   | 大小               | 说明                                                            |
 | -------------------------------------- | ------------------ | --------------------------------------------------------------- |
-| `libbench_lib.a`                       | 808 MB             | staticlib（链接进 .app 的最终静态库，含全量 debuginfo）         |
+| `libbench_lib.a`                       | 808 MB             | staticlib（**已于 2026-09-14 随 crate-type 收敛移除**，见 §8）  |
 | `libbench_lib.rlib`                    | 350 MB             | 自身 crate 全量调试信息                                         |
 | `libobjc2_app_kit-*.rlib` + 两份 rmeta | 168 + 111 + 107 MB | objc2 系 crate 代码量巨大且**存在两份不同 hash 的历史版本残留** |
 | `bench-<hash>` 可执行文件 × 4+         | 各 ~100 MB         | 每次依赖图变化都产生新 hash 副本，**Cargo 永远不主动删旧的**    |
@@ -151,3 +151,23 @@
 4. **是否顺带设定 sccache 上限**（推荐 5 GB）。
 
 确认后按 Phase 1 → 2 顺序实施。
+
+---
+
+## 8. 实施状态（2026-09-14 更新）
+
+| 方案                             | 状态          | 备注                                                                                                                                              |
+| -------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **A. profile.dev 调优**          | ✅ 全部完成   | `[profile.dev] debug = "line-tables-only"` 早先已落地；本次补上 `[profile.dev.package."*"] debug = false`（依赖 crate 不再生成 debuginfo）        |
+| **B. 一次性清理**                | ✅ 完成       | 以本工具的 `--sweep` 替代手工 rm，保留每份产物的最新副本                                                                                          |
+| **C. 自动清理脚本**              | ✅ 完成       | `scripts/maintenance/rust-cache-clean.mjs`，零依赖，`--stats` / `--sweep`；已注册 `pnpm run clean:rust-cache` 与启动菜单「清理(细粒度)」分组      |
+| **F. release 改 `lto = "thin"`** | ⏳ 待评估     | CI 发布（`ci-build.yml` release-build）实测 aarch64 target 单次 release 编译 **49 分钟**，其中依赖树 5 min、`bench` crate + fat LTO 占 44 min     |
+| **额外：lib crate-type 收敛**    | ✅ 完成       | `crate-type` 由 `["lib","cdylib","staticlib"]` 收敛为 `["lib"]`：本地少一份 456 MB staticlib，release 下少两遍 codegen + LTO（CI 与本地同时受益） |
+| **额外：sccache 上限**           | ⏳ 待用户配置 | `export SCCACHE_CACHE_SIZE=5G` 写入 shell profile                                                                                                 |
+
+日常建议：
+
+- 别手删 `debug/build/`（build script 产物，删掉要重编译 `aws-lc-sys` 等 C 依赖，极慢）；
+- 别用 `pnpm run clean:be`（= `cargo clean` 全清，会触发一次完整重编译）；
+- 需要瘦身时跑 `pnpm run clean:rust-cache --sweep`（默认保留 7 天内产物）；
+- `--include rust-analyzer` 会整删 IDE check 产物（约 1.9 GB，可无损重建），建议先关闭 VS Code。
