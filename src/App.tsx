@@ -204,7 +204,7 @@ function App() {
         items: [
           {
             id: "refresh",
-            label: t("appManager.refresh"),
+            label: t("common.refresh"),
             icon: undefined,
             onClick: () => {
               void handleRefresh()

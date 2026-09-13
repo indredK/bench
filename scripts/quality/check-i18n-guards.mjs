@@ -12,11 +12,6 @@ const REQUIRED_KEYS = [
   "portManager.errors.desktopOnly",
   "portManager.errors.killOneFailed",
   "portManager.errors.killAllFailed",
-  "appManager.errors.scanFailed",
-  "appManager.errors.updateCheckFailed",
-  "appManager.errors.missingMacAppStoreId",
-  "appManager.errors.noDownloadUrl",
-  "appManager.errors.genericBatchFailure",
 ]
 
 // UNKNOWN intentionally falls back to the structured backend message.

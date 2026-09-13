@@ -1,16 +1,16 @@
 # Bench
 
-> A macOS-first desktop workbench for launching applications, managing isolated accounts, and controlling system settings.
+> A macOS-first desktop workbench for launching applications, managing isolated accounts, and controlling system settings. App launching & management ship as a bundled extension opened from the extension center.
 >
-> 以 macOS 为主的桌面工作台，重点解决应用启动、隔离账号管理和系统设置三个高频场景。
+> 以 macOS 为主的桌面工作台，重点解决应用启动（插件）、隔离账号管理和系统设置三个高频场景。
 
 Bench 基于 Tauri v2、React 和 Rust。版本号由 release-please 自动维护，以 [GitHub Releases](https://github.com/indredK/bench/releases) 与 `package.json` 为准；当前正在进行 2.0 发布前收口，已经实现但尚未完成目标平台真机验收的能力会明确标记为待验证，不以“可以编译”代替跨平台支持。产品定位与功能闭环的完整分析见[功能定位与功能闭环](./docs/explanation/functional-positioning.md)。
 
 ## 核心能力 / Core Workflows
 
-### 1. 应用启动与管理 / App Launch & Management
+### 1. 应用启动与管理（插件）/ App Launch & Management (Extension)
 
-Quick Launch 和 App Manager 共用同一份后端应用清单，避免扫描结果、分类和更新状态互相漂移。
+> 自 2.0 起，快速启动与应用管理作为**插件**分发（bundled，经插件中心打开），复用同一份后端应用清单，避免扫描结果、分类和更新状态互相漂移。
 
 - **快速启动**：搜索、分类、拖拽排序、用户覆盖和虚拟化应用网格；图标按可见项加载。
 - **跨平台清单**：macOS 识别 `.app`、bundle 与安装来源；Windows 识别传统 EXE/MSI、Registry、Start Apps 和 AUMID。
@@ -56,24 +56,27 @@ System Settings 是面向 macOS 14+ 的受控设置中心，不尝试复制整�
 
 - **Command Center**：把常用命令/脚本保存为卡片一键运行（`shell`/`shellAdmin`/`copy`/`open`），支持拖拽排序、导入导出、运行中终止；macOS/Windows 双平台。
 - **Network Probe**：网络诊断急救箱——本机体检、「上不了网」诊断、traceroute/MTR、站点延迟、测速、安全与发现工具；Post-MVP 能力按波次交付。
-- **Dev Toolbox**：端口管理、环境检测、Token 计算等开发工具的聚合 Tab。
-- **Clean Space**：macOS 存储概览与受控清理（开发项目/自定义目录/清理记录），带路径白名单、逐项结果和真实释放量。
-- **Hardware Compare**：硬件规格查询与对比。
-- **Terminology**：可搜索、可固定的行业术语与关联站点库。
+- **Dev Toolbox**：端口管理、环境检测等开发工具的聚合 Tab。
+- **插件（经插件中心，bundled）**：
+  - **Quick Launch / App Manager**：场景化应用启动网格与应用清单管理（更新/升级/卸载/批量操作），共用同一份后端应用清单。
+  - **Token Calculator**：管理计费标准、按工作量/预算对比模型费用、估算文本 Token 与费用。
+  - **Clean Space**：macOS 存储概览与受控清理（开发项目/自定义目录/清理记录），带路径白名单、逐项结果和真实释放量。
+  - **Hardware Compare**：硬件规格查询与对比。
+  - **Terminology**：可搜索、可固定的行业术语与关联站点库。
 - **全局能力**：中英文切换、浅色/深色/系统主题、菜单栏托盘、防睡眠和签名校验的应用内更新。
 
 ## 平台状态 / Platform Status
 
-| 能力                       |    macOS 14+     | Windows 11 | 说明                                                 |
-| -------------------------- | :--------------: | :--------: | ---------------------------------------------------- |
-| Quick Launch / App Manager |    待真机验收    | 待真机验收 | 核心实现完成；fixture、启动与更新/卸载 smoke 未完成  |
-| Account Manager            |    待真机验收    | 待真机验收 | capability gate 已实现；Windows WebView proxy 不支持 |
-| System Settings            | 支持，待版本回归 |   不适用   | macOS 专属系统 adapter                               |
-| Command Center             |       支持       |    支持    | Windows 提权命令无输出且不可终止（已知限制）         |
-| Network Probe              |       支持       |  能力降级  | 按能力矩阵降级，见模块 roadmap                       |
-| Dev Toolbox                |       支持       |  部分支持  | 以各子模块的 capability 为准                         |
-| Clean Space / Hardware     |       支持       |   不适用   | 2.0 维持 macOS-only                                  |
-| Terminology                |       支持       |    支持    | 纯前端与本地持久化                                   |
+| 能力                       |    macOS 14+     | Windows 11 | 说明                                                   |
+| -------------------------- | :--------------: | :--------: | ------------------------------------------------------ |
+| Quick Launch / App Manager |    待真机验收    | 待真机验收 | 插件（bundled）；fixture、启动与更新/卸载 smoke 未完成 |
+| Account Manager            |    待真机验收    | 待真机验收 | capability gate 已实现；Windows WebView proxy 不支持   |
+| System Settings            | 支持，待版本回归 |   不适用   | macOS 专属系统 adapter                                 |
+| Command Center             |       支持       |    支持    | Windows 提权命令无输出且不可终止（已知限制）           |
+| Network Probe              |       支持       |  能力降级  | 按能力矩阵降级，见模块 roadmap                         |
+| Dev Toolbox                |       支持       |  部分支持  | 以各子模块的 capability 为准                           |
+| Clean Space / Hardware     |       支持       |   不适用   | 2.0 维持 macOS-only                                    |
+| Terminology                |       支持       |    支持    | 纯前端与本地持久化                                     |
 
 2.0 正式目标是 macOS 14+（Apple Silicon/Intel）和 Windows 11 x64；Linux 不受支持，也不进入 CI/CD、构建或发布流程。剩余步骤与停止条件见[2.0 最终路线图](./docs/roadmap/ROADMAP.md)。
 

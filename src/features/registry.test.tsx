@@ -13,8 +13,8 @@ describe("feature platform gating", () => {
     expect(paths).toContain("/account-manager")
     expect(paths).not.toContain("/clean-space")
     expect(createConfigItems(t, environment)).toEqual([])
-    expect(paths).toContain("/app-manager")
-    // P5：hardware / terminology 已插件化，不再出现在宿主导航。
+    // P5：app-manager / quick-launch / hardware / terminology 已插件化，不再出现在宿主导航。
+    expect(paths).not.toContain("/app-manager")
     expect(paths).not.toContain("/hardware")
     expect(paths).not.toContain("/terminology")
   })

@@ -6,12 +6,10 @@
  */
 import type { TFunction } from "i18next"
 import { accountManagerFeature } from "@/features/account-manager/feature"
-import { appManagerFeature } from "@/features/app-manager/feature"
 import { commandCenterFeature } from "@/features/command-center/feature"
 import { envDetectorFeature } from "@/features/env-detector/feature"
 import { networkProbeFeature } from "@/features/network-probe/feature"
 import { portManagerFeature } from "@/features/port-manager/feature"
-import { quickLaunchFeature } from "@/features/quick-launch/feature"
 import { systemSettingsFeature } from "@/features/system-settings/feature"
 import { devToolboxFeature } from "@/features/dev-toolbox/feature"
 import { extensionCenterFeature } from "@/features/extension-center/feature"
@@ -21,16 +19,14 @@ import { canUseFeature, type RuntimeEnvironment } from "@/platform/capabilities"
 /** All features (for routing); order matters for sidebar.
  *  P5：hardware / terminology / clean-space 已插件化（extensions/，经插件中心打开）。 */
 export const appFeatures: AppFeature[] = [
-  quickLaunchFeature,
-  commandCenterFeature,
-  extensionCenterFeature,
-  appManagerFeature,
-  networkProbeFeature,
-  accountManagerFeature,
-  // Development tools — routed but condensed into dev-toolbox in sidebar
+  // 开发工具箱：默认第一个模块 / default landing（端口管理·环境检测收进工具箱内）
   devToolboxFeature,
   portManagerFeature,
   envDetectorFeature,
+  commandCenterFeature,
+  extensionCenterFeature,
+  networkProbeFeature,
+  accountManagerFeature,
   // Config
   systemSettingsFeature,
 ]

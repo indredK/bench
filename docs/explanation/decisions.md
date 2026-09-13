@@ -261,7 +261,7 @@
   - 新增代码不得在 `lib.rs` setup / 启动关键路径引入 osascript、System Events 或其他 TCC 触发调用（见 ARCHITECTURE §2 第 12 条）。
   - 旧版本已启用自启动的用户（System Events 登录项）：更新后首次开机仍会按旧机制隐藏启动（无 `--hidden`，会显示主窗口）；在设置中关闭再开启一次即可迁移到新机制。
   - 新机制的自启动条目在系统设置中显示于「允许在后台」而非「打开时打开」；应用内开关是主控制入口。
-- **相关**：[system-settings roadmap](../modules/system-settings/roadmap.md) · [quick-launch roadmap](../modules/quick-launch/roadmap.md) · [ARCHITECTURE §2](../reference/architecture.md#2--ai-编码规则--禁止模式)
+- **相关**：[system-settings roadmap](../modules/system-settings/roadmap.md) · [quick-launch roadmap](https://github.com/kindred-plugin-market/plugin-market/tree/main/extensions/quick-launch/docs/roadmap.md) · [ARCHITECTURE §2](../reference/architecture.md#2--ai-编码规则--禁止模式)
 
 ## D-018 · 智能体工具文件不进版本库
 
@@ -389,7 +389,7 @@
 - **决策**：App Manager inventory 是应用清单唯一真理源，输出带 revision 的不可变 snapshot；Quick Launch 只消费 snapshot。启动、定位、升级、卸载 IPC 只接受稳定 ID；平台路径、AUMID、package ID、URL 和校验材料由后端 canonical state 解析。能力使用 `supported/partial/unsupported/failed`；模糊匹配只用于建议，破坏性动作要求 exact evidence。
 - **理由**：共享任务唯一 owner 可避免并发覆盖；窄 IPC 建立 renderer 信任边界；显式状态防止失败被伪装为空结果成功。
 - **影响**：禁止 Quick Launch 新建扫描流程，禁止 renderer 提交最终执行路径或更新 URL。
-- **相关**：[App Manager design](../modules/app-manager/design.md) · [Quick Launch design](../modules/quick-launch/design.md)
+- **相关**：[App Manager design](https://github.com/kindred-plugin-market/plugin-market/tree/main/extensions/app-manager/docs/design.md) · [Quick Launch design](https://github.com/kindred-plugin-market/plugin-market/tree/main/extensions/quick-launch/docs/design.md)
 
 ## D-004 · AGENTS.md 是逻辑入口，冲突时停止问人
 
