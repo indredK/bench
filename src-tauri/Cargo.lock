@@ -360,7 +360,7 @@ version = "1.34.0"
 dependencies = [
  "aes-gcm",
  "async-trait",
- "base64 0.22.1",
+ "base64 0.23.1",
  "bench-capabilities",
  "chrono",
  "cookie",
