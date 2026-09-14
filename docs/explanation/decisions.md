@@ -153,7 +153,7 @@
 - **状态**：采纳（P2 前置定案）
 - **背景**：[D-023](#d-023--20-目标变更为插件化生态r00r10-全部降级) 确立 2.0 = 插件化生态，P1 已证实 B′ 方案。进入 P2 前需定案「插件在哪个仓库开发、如何开发与发布」。行业先例（VS Code 内置扩展 / uTools / Raycast / Obsidian / dprint）与三选项对比见 [extension-workflow.md](./extension-workflow.md)。
 - **决策**：
-  1. **两阶段仓库组织**：契约演进期（P2–P4）官方插件住**主仓库 `extensions/` 目录**（VS Code 内置扩展模式）；开放第三方后提供 `bench-extension-template` 模板仓库，第三方在**各自独立仓库**开发，产物 + manifest 经 **registry PR 审核**上架（Obsidian 社区插件模式）。**不设官方插件集合仓库**。
+  1. **两阶段仓库组织**：契约演进期（P2–P4）官方插件住**主仓库 `extensions/` 目录**（VS Code 内置扩展模式）；开放第三方后提供 `bench-extension-template` 模板仓库，第三方在**各自独立仓库**开发，产物 + manifest 经 **registry PR 审核**上架（Obsidian 社区插件模式）；现已落地**官方集合仓 `kindred-plugin-market/plugin-market`**（插件真相源，宿主 `src/extensions/<id>/` 经 `pnpm run sync:ext-repos` 与之同步）。
   2. **bundled / market 双分发形态**：`manifest.distribution: "bundled" | "market"`。bundled 产物随主包构建捆绑（2.0 过渡期功能不真空）；market 走 registry 下载 + minisign 校验（复用 `updater/keys/`）。同一套 manifest，仅分发字段不同。
   3. **photo-triage 作为 P2/P3 首个迁移试点**（替换原计划的 token-calculator——它更简单但代表性弱）：**Rust 能力面留核心**（15 条命令 / 2350 行改造为宿主能力 + ACL 注册表，IPC 命令名不变），**前端 21 文件迁出**为 `extensions/photo-triage/`。理由：TCC 权限、进程树回收（`trash_ops.rs` 870 行）、持久化 schema 属宿主级系统能力；B′ 插件形态是前端 bundle，Rust 不随插件走；能力面共享可供后续插件复用。
   4. **开发工作流**：试点期在主仓库 `extensions/` 照常开发，dev 模式宿主直接加载仓库目录；extension URL 一律显式 `tauri://localhost/ext/…`（**禁用 `WebviewUrl::App`**——dev 下它被 `get_app_url` 拼到 devUrl，永远到不了 asset provider，P1 实测踩坑）。

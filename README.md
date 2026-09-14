@@ -20,7 +20,7 @@ Bench 基于 Tauri v2、React 和 Rust。版本号由 release-please 自动维�
 
 当前状态：macOS 和 Windows 核心代码已经接线，正式发布前仍需完成两平台真实应用 fixture、启动 smoke 和 500+ 应用性能验收。
 
-文档：[Quick Launch](./docs/modules/quick-launch/README.md) · [App Manager](./docs/modules/app-manager/README.md)
+文档：[Quick Launch](../kindred-plugin-market/plugin-market/extensions/quick-launch/docs/README.md) · [App Manager](../kindred-plugin-market/plugin-market/extensions/app-manager/docs/README.md)
 
 ### 2. 账号管理 / Account Manager
 

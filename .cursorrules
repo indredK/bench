@@ -16,10 +16,10 @@
 以下情况**必须停下问用户**，不许猜、不许自作主张：
 
 1. **文档 / workflow 没覆盖你要做的事** → 停，问用户。
-2. **你要做的事会违反 `docs/ARCHITECTURE.md` §2 任一条** → 停，问用户。
+2. **你要做的事会违反 `docs/reference/architecture.md` §2 任一条** → 停，问用户。
 3. **验证链（`lint:fe` / `test:critical` / `clippy`）任何一条失败** → 停，不许带病提交、不许改测试让它过。
 4. **涉及危险操作**（关机 / 删数据 / 撤销授权 / `git push` / `git add .`）→ 停，等用户明确同意。
-5. **看不懂某个既有模式为什么这么写** → 先查 `docs/DECISIONS.md` 和 `docs/audit-report.md`，还不懂 → 问用户，不许重写。
+5. **看不懂某个既有模式为什么这么写** → 先查 `docs/explanation/decisions.md` 和 `docs/explanation/audit-report.md`，还不懂 → 问用户，不许重写。
 
 ---
 
@@ -29,12 +29,12 @@
 
 1. `AGENTS.md` — 唯一逻辑入口，路由到工作流
 2. `.cursorrules` (本文) — 行为约束（最高优先级）
-3. `docs/ARCHITECTURE.md` §2 — 🔴 禁止模式（不可触犯）
-4. `docs/coding-standards.md` — 编码规范（强制/建议）
-5. `docs/AI-WORKFLOWS.md` — 工作流定义
-6. `docs/DECISIONS.md` — 方向性决策（做取舍前先读，取舍后回写）
+3. `docs/reference/architecture.md` §2 — 🔴 禁止模式（不可触犯）
+4. `docs/how-to/coding-standards.md` — 编码规范（强制/建议）
+5. `docs/how-to/ai-workflows.md` — 工作流定义
+6. `docs/explanation/decisions.md` — 方向性决策（做取舍前先读，取舍后回写）
 
-**参考**（按需查阅）：`docs/development-workflow.md`（开发流程）、`docs/audit-report.md`（不计违规决策，避免重复标记）。
+**参考**（按需查阅）：`docs/how-to/development-workflow.md`（开发流程）、`docs/explanation/audit-report.md`（不计违规决策，避免重复标记）。
 
 ---
 
@@ -43,7 +43,7 @@
 以下行为在任何情况下都不允许：
 
 1. **不要修改 `docs/` 下文件而不更新对应 `roadmap.md`**
-2. **不要跳过 `docs/ARCHITECTURE.md` §2 中的 11 条禁止模式**
+2. **不要跳过 `docs/reference/architecture.md` §2 中的 11 条禁止模式**
 3. **不要一次提交多个不相关的改动** — 每个 commit 聚焦一个逻辑变更
 4. **不要使用 `git add .`** — 只 stage 与本次改动直接相关的文件
 5. **不要推送 (`git push`) 除非用户明确要求**
@@ -62,10 +62,10 @@
 
 | 用户指令关键词 | 路由到 |
 |----------------|--------|
-| review / 审查 / 审计 / 检查代码 | `docs/AI-WORKFLOWS.md → /review` |
-| fix / 修复 / 改 bug / 修 bug | `docs/AI-WORKFLOWS.md → /fix` |
-| doc / 文档 / 更新文档 / 对齐 | `docs/AI-WORKFLOWS.md → /doc` |
-| feature / 新功能 / 开发 / 实现 | `docs/AI-WORKFLOWS.md → /feature` |
+| review / 审查 / 审计 / 检查代码 | `docs/how-to/ai-workflows.md → /review` |
+| fix / 修复 / 改 bug / 修 bug | `docs/how-to/ai-workflows.md → /fix` |
+| doc / 文档 / 更新文档 / 对齐 | `docs/how-to/ai-workflows.md → /doc` |
+| feature / 新功能 / 开发 / 实现 | `docs/how-to/ai-workflows.md → /feature` |
 | audit / 审计 (Phase N) | `AGENTS.md → Phase N` |
 
 如果无法判断，询问用户。
@@ -95,7 +95,7 @@ cd src-tauri && cargo clippy -- -D warnings
 
 - 对应 `docs/modules/<id>/roadmap.md` 的 Backlog 项必须打勾或移除
 - 如果修复了已知 bug，且该模块存在 `docs/modules/<id>/bugs.md`（建议级、非必备），更新之
-- 如果发现新的架构约束，沉淀到 `docs/coding-standards.md` 或 `docs/ARCHITECTURE.md`
+- 如果发现新的架构约束，沉淀到 `docs/how-to/coding-standards.md` 或 `docs/reference/architecture.md`
 - 不留下过时的 roadmap checkbox
 
 ---

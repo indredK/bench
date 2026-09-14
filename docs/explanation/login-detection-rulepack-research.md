@@ -3,6 +3,7 @@
 > **状态**：调研完成，待拍板（2026-09-10）
 > **关联**：[login-state-detection-research.md](login-state-detection-research.md)（同日前置调研：S1 服务端探针为唯一高置信判据，P1 建议落地 `loginCheck`）、[extension-spec.md](../reference/extension-spec.md)、[extension-center/roadmap.md](../modules/extension-center/roadmap.md)、D-023 / D-024
 > **触发问题**：账号管理「是否登录」的判定逻辑能否插件化——GitHub 专门仓库维护规则，Bench 自带内置规则 + 按域名从仓库匹配拉取，用规则驱动登录态判定。
+> **文档定位（降级说明）**：本文为**方案设计调研**，含待拍板项（§7）与早期 schema 草稿（§3.1），**非现行规格**。现行契约以 [login-rulepack-spec.md](../reference/login-rulepack-spec.md) 为唯一真相源（已采纳声明式规则、method 白名单 GET/POST）。站点规则**作者方法论**已沉淀至 command-market `skills/login-rule-authoring/SKILL.md`；本文 §3.1 早期「强制 GET」草稿已被规格的 GET/POST 取代，引用请以规格为准。
 
 ---
 
