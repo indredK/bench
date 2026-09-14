@@ -45,7 +45,7 @@ sysinfo = "0.39"
 walkdir = "2"
 chrono = "0.4"
 cookie = "0.18"
-dirs = "6"
+dirs = "7"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "net"] }
 # CDP（Chrome DevTools Protocol）WebSocket 客户端：浏览器会话注入 / 回采（browser_session）。
 # 仅连接本机 loopback `ws://127.0.0.1:<port>`，无需 TLS，故关掉默认 TLS 相关特性。
@@ -53,11 +53,11 @@ tokio-tungstenite = { version = "0.30", default-features = false, features = [
     "connect",
     "handshake",
 ] }
-base64 = "0.22"
+base64 = "0.23"
 minisign-verify = "0.2.5"
 plist = "1.10"
 async-trait = "0.1"
-quick-xml = { version = "0.41", features = ["serialize"] }
+quick-xml = { version = "0.42", features = ["serialize"] }
 serde_yaml = "0.9"
 semver = "1"
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "gzip", "brotli", "stream", "socks", "query", "json"] }
@@ -73,7 +73,7 @@ keyring = "4"
 uuid = { version = "1", features = ["v4"] }
 url = "2"
 zeroize = "1"
-if-addrs = "0.14"
+if-addrs = "0.15"
 surge-ping = "0.9.0"
 hickory-resolver = "0.26.1"
 trippy-core = "0.13.0"

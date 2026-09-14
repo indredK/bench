@@ -83,7 +83,7 @@ pub fn parse_appcast(xml: &str) -> Result<Vec<AppcastItem>, String> {
     loop {
         match reader.read_event_into(&mut buf) {
             Ok(Event::Start(e)) => {
-                let name = String::from_utf8_lossy(e.name().as_ref()).to_string();
+                let name = e.name().as_ref().to_string();
                 match name.as_str() {
                     "item" => {
                         in_item = true;
@@ -94,8 +94,7 @@ pub fn parse_appcast(xml: &str) -> Result<Vec<AppcastItem>, String> {
                         if in_item && !in_deltas {
                             if let Some(item) = current.as_mut() {
                                 for attr in e.attributes().flatten() {
-                                    let key =
-                                        String::from_utf8_lossy(attr.key.as_ref()).to_string();
+                                    let key = attr.key.as_ref().to_string();
                                     let val = attr
                                         .normalized_value(XmlVersion::Implicit1_0)
                                         .unwrap_or_default()
@@ -121,7 +120,7 @@ pub fn parse_appcast(xml: &str) -> Result<Vec<AppcastItem>, String> {
                 }
             }
             Ok(Event::End(e)) => {
-                let name = String::from_utf8_lossy(e.name().as_ref()).to_string();
+                let name = e.name().as_ref().to_string();
                 match name.as_str() {
                     "item" => {
                         in_item = false;
@@ -137,7 +136,7 @@ pub fn parse_appcast(xml: &str) -> Result<Vec<AppcastItem>, String> {
             }
             Ok(Event::Text(t)) => {
                 if in_item && !in_deltas {
-                    let text = quick_xml::escape::unescape(&String::from_utf8_lossy(&t))
+                    let text = quick_xml::escape::unescape(&t)
                         .unwrap_or_default()
                         .to_string();
                     if let (Some(item), Some(tag)) = (current.as_mut(), current_tag.as_deref()) {
@@ -154,7 +153,7 @@ pub fn parse_appcast(xml: &str) -> Result<Vec<AppcastItem>, String> {
             }
             Ok(Event::CData(t)) => {
                 if in_item && !in_deltas {
-                    let text = String::from_utf8_lossy(t.as_ref()).to_string();
+                    let text = t.as_ref().to_string();
                     if let (Some(item), Some(tag)) = (current.as_mut(), current_tag.as_deref()) {
                         match tag {
                             "sparkle:version" => item.version = text,
@@ -168,11 +167,11 @@ pub fn parse_appcast(xml: &str) -> Result<Vec<AppcastItem>, String> {
                 }
             }
             Ok(Event::Empty(e)) => {
-                let name = String::from_utf8_lossy(e.name().as_ref()).to_string();
+                let name = e.name().as_ref().to_string();
                 if name == "enclosure" && in_item && !in_deltas {
                     if let Some(item) = current.as_mut() {
                         for attr in e.attributes().flatten() {
-                            let key = String::from_utf8_lossy(attr.key.as_ref()).to_string();
+                            let key = attr.key.as_ref().to_string();
                             let val = attr
                                 .normalized_value(XmlVersion::Implicit1_0)
                                 .unwrap_or_default()
