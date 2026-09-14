@@ -31,7 +31,7 @@
     "format:check": "prettier --check .",
     "lint:fe": "pnpm run check:i18n && pnpm run check:docs && pnpm run check:ci-platforms && pnpm run check:workflows && tsc --noEmit",
     "check:docs": "node scripts/quality/check-docs-consistency.mjs && pnpm run check:md-links",
-    "check:md-links": "find docs -name '*.md' -exec pnpm exec markdown-link-check {} +",
+    "check:md-links": "node scripts/quality/check-markdown-links.mjs --all",
     "test:fe": "vitest run",
     "test:fe:watch": "vitest",
     "test:extensions": "node scripts/plugins/test-extensions.mjs",
