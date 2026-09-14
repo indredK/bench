@@ -14,6 +14,7 @@ import type {
 import type {
   ExtensionDiagnostics,
   ExtensionSummary,
+  HostCapability,
   MarketInstallPreview,
   MarketListing,
 } from "@/lib/tauri/types/extension-center"
@@ -928,6 +929,8 @@ export const TAURI_COMMAND_CONTRACTS = {
   ext_uninstall: defineTauriCommand<{ extensionId: string }, void>()("ext_uninstall"),
   // P3.1：插件私有数据目录（仅 ext- 窗口可调用，路径由窗口 label 推导）
   ext_data_dir: defineTauriCommand<undefined, string>()("ext_data_dir"),
+  // P5：能力面自助发现（返回 EXTENSION_ALLOWED_COMMANDS 快照，spec §9.4）
+  ext_capabilities: defineTauriCommand<undefined, HostCapability>()("ext_capabilities"),
   // P4 market（宿主窗口专用，未进 ext 网关白名单）
   ext_market_list: defineTauriCommand<undefined, MarketListing>()("ext_market_list"),
   ext_market_prepare: defineTauriCommand<
@@ -1308,6 +1311,7 @@ export const TAURI_COMMANDS = {
     setEnabled: commandName("ext_set_enabled"),
     uninstall: commandName("ext_uninstall"),
     dataDir: commandName("ext_data_dir"),
+    capabilities: commandName("ext_capabilities"),
     marketList: commandName("ext_market_list"),
     marketPrepare: commandName("ext_market_prepare"),
     marketCommit: commandName("ext_market_commit"),
@@ -1676,6 +1680,7 @@ export const TAURI_COMMAND_ARG_KEYS = {
   ext_set_enabled: ["extensionId", "enabled"],
   ext_uninstall: ["extensionId"],
   ext_data_dir: [],
+  ext_capabilities: [],
   ext_market_list: [],
   ext_market_prepare: ["extensionId", "version"],
   ext_market_commit: ["extensionId", "version"],

@@ -27,6 +27,8 @@ pub const EXTENSION_ALLOWED_COMMANDS: &[&str] = &[
     "ext_set_enabled",
     "ext_uninstall",
     "ext_data_dir",
+    // 能力面自助发现（返回本注册表快照，spec §9.4）
+    "ext_capabilities",
     // photo-triage 能力面（15 条，IPC 命令名不变，D-024）
     "photo_triage_scan",
     "photo_triage_scan_status",
@@ -254,6 +256,7 @@ mod tests {
             "ext_set_enabled",
             "ext_uninstall",
             "ext_data_dir",
+            "ext_capabilities",
         ] {
             assert!(is_command_allowed(command));
         }

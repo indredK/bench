@@ -76,3 +76,9 @@ export interface ExtensionDiagnostics {
   audit: string[]
   runtime: string[]
 }
+
+/** 宿主开放给插件空间的 IPC 命令清单（Rust `ext_capabilities` 返回）。 */
+export interface HostCapability {
+  /** 允许 `ext-*` 窗口调用的全部命令名（deny-by-default 白名单）。 */
+  commands: string[]
+}

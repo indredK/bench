@@ -6,6 +6,7 @@ import { invokeTauriCommand } from "@/lib/tauri/invoke"
 import type {
   ExtensionDiagnostics,
   ExtensionSummary,
+  HostCapability,
   MarketInstallPreview,
   MarketListing,
 } from "@/lib/tauri/types/extension-center"
@@ -59,4 +60,20 @@ export function getExtensionDiagnostics() {
   return invokeTauriCommand(TAURI_COMMANDS.extensionHost.diagnostics)
 }
 
-export type { ExtensionSummary, MarketListing, MarketInstallPreview, ExtensionDiagnostics }
+/**
+ * 返回宿主开放给插件空间的 IPC 命令清单（能力面快照，spec §9.4）。
+ *
+ * 插件可在运行时拉取后校验自身 `acl.commands`，避免依赖仓库同目录或
+ * 试错式调用。命令名集合即 `EXTENSION_ALLOWED_COMMANDS` 的只读视图。
+ */
+export function getExtensionCapabilities(): Promise<HostCapability> {
+  return invokeTauriCommand(TAURI_COMMANDS.extensionHost.capabilities)
+}
+
+export type {
+  ExtensionSummary,
+  MarketListing,
+  MarketInstallPreview,
+  ExtensionDiagnostics,
+  HostCapability,
+}

@@ -9,6 +9,8 @@
 //! - `ext_uninstall`：关窗 + 删产物目录（**默认保留插件数据目录**）+ 清版本水位；
 //! - `ext_data_dir`：向插件窗口提供其私有数据目录（`$APPDATA/extension-data/<id>/`，
 //!   spec §9.3 —— 产物目录只读，数据必须写在这里）。
+//! - `ext_capabilities`：返回宿主开放给插件空间的 IPC 命令清单（能力面快照），
+//!   供插件运行时自助发现可用命令，无需依赖仓库同目录或试错式调用。
 //!
 //! 所有入口都 fail-closed：manifest 解析/校验失败、id 非法、ACL 越权、
 //! 完整性不符一律拒绝。已注册命令受 [super::acl] 网关保护。
@@ -351,6 +353,31 @@ pub fn ext_data_dir(webview: tauri::WebviewWindow) -> AppResult<String> {
     let dir = extension_data_dir(webview.app_handle(), extension_id)?;
     fs::create_dir_all(&dir).map_err(|e| AppError::io(format!("create data dir: {e}")))?;
     Ok(dir.to_string_lossy().into_owned())
+}
+
+/// 宿主开放给插件空间的 IPC 命令清单（能力面快照，spec §7 / §9.4）。
+///
+/// 供插件在运行时自助发现可用命令，无需依赖「两仓库同目录」或试错式调用。
+/// 等价于 `acl::EXTENSION_ALLOWED_COMMANDS` 的只读视图（deny-by-default 白名单）。
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HostCapability {
+    /// 允许 `ext-*` 窗口调用的全部命令名。
+    pub commands: Vec<String>,
+}
+
+/// 返回宿主当前开放给插件空间的 IPC 命令清单（能力面）。
+///
+/// 命令名集合即 `acl::EXTENSION_ALLOWED_COMMANDS`；本命令自身也在该白名单内，
+/// 因此插件窗口可直接 `invoke("ext_capabilities")` 拉取后校验自身 `acl.commands`，
+/// 在调用前给出友好报错而非靠网关拒绝反推（spec §9.4）。
+#[tauri::command]
+pub fn ext_capabilities() -> AppResult<HostCapability> {
+    let commands = super::acl::EXTENSION_ALLOWED_COMMANDS
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    Ok(HostCapability { commands })
 }
 
 /// P1 语义保留：打开 POC 插件窗口（等价 `ext_open("bench-poc")`）。
