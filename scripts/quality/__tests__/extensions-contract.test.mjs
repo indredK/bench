@@ -26,7 +26,8 @@ function makeMarket(plugins) {
   const dir = tempDir("bench-market-")
   for (const [id, hasConfig] of Object.entries(plugins)) {
     mkdirSync(join(dir, id), { recursive: true })
-    if (hasConfig) writeFileSync(join(dir, id, "vitest.config.ts"), "export default { test: { include: [] } }\n")
+    if (hasConfig)
+      writeFileSync(join(dir, id, "vitest.config.ts"), "export default { test: { include: [] } }\n")
   }
   return dir
 }
