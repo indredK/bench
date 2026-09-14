@@ -1,0 +1,15 @@
+{
+  "schema_version": 2,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "Bench 宿主全景与 IPC 往返 · 架构说明",
+    "locale": "zh-CN",
+    "hand_crafted": true,
+    "note": "手工维护 SVG/HTML；本 spec 仅为目录索引元数据，不作为再生成依据",
+    "fig": "FIG-01",
+    "owner": "host",
+    "audited": "2026-09-14"
+  },
+  "nodes": ["registry", "controller", "usecase", "ipc", "rust", "plugin", "acl", "market"],
+  "edges": ["e1", "e2", "e3", "e4", "e5", "e6", "e7"]
+}

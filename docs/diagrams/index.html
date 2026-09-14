@@ -167,7 +167,10 @@
         </p>
       </div>
       <nav id="nav">
-        <button data-file="bench-architecture.html" data-en="architecture" class="active">
+        <button data-file="bench-host-ecosystem.html" data-en="host-ecosystem" class="active">
+          <span>宿主全景与 IPC 往返</span><span class="en">host-ecosystem</span>
+        </button>
+        <button data-file="bench-architecture.html" data-en="architecture">
           <span>整体分层架构</span><span class="en">architecture</span>
         </button>
         <button data-file="account-manager-triangle.html" data-en="triangle">
@@ -216,6 +219,8 @@
             "triangle · 目标软件 ⇄ 浏览器 ⇄ Bench 登录态三角闭环 · 抽屉内切 流程/技术实现/限制/远期规划",
           "start-menu-workflow.html":
             "workflow · 启动 → 菜单选择 → spawnSync 执行 → 判定 → 循环 / 退出",
+          "bench-host-ecosystem.html":
+            "host-ecosystem · 用户动作 → controller → use-case → typed IPC → Rust → Zustand selector → UI；插件经全局 ACL 网关复用宿主能力",
           "bench-architecture.html":
             "architecture · React 前端 ↔ IPC 双契约 ↔ Rust 后端 ↔ 宿主操作系统",
           "ipc-roundtrip-sequence.html":

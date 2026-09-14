@@ -28,6 +28,28 @@ AI 从 [`AGENTS.md`](../AGENTS.md) 开始，按其必读清单读取规范后按
 
 **改动同步流程**：功能改动 → 先在 `roadmap/planned/<模块>.md` 变更记录追加一行 → 实施后同步 `reference/product-specs/<模块>.md` → 从 planned 移除已完成项。产品规格不依赖会话记忆，可移植给其他项目/AI 复刻。
 
+## 架构图集（diagrams/）
+
+手工维护、离线单文件 SVG/HTML 交互图，内嵌 CSS/JS、无外部 fetch/CDN，支持点击节点/边/编号
+打开抽屉、场景高亮、中英文切换、键盘导航与 `prefers-reduced-motion`。
+
+| 图                  | FIG    | 所有者 | 用途                                                       | 实际 HTML                                                                 |
+| ------------------- | ------ | ------ | ---------------------------------------------------------- | ------------------------------------------------------------------------- |
+| 宿主全景与 IPC 往返 | FIG-01 | host   | 分层 + 一次完整 IPC 往返 + 插件经全局 ACL 网关复用宿主能力 | [bench-host-ecosystem.html](./diagrams/bench-host-ecosystem.html)         |
+| 账号管理三角闭环    | FIG-04 | host   | 目标软件 ⇄ 浏览器 ⇄ Bench 登录态三角闭环（既有）           | [account-manager-triangle.html](./diagrams/account-manager-triangle.html) |
+
+本地预览：
+
+```bash
+# npm start → 文档预览 → 选择单张图 / 图集门户（:3200）
+pnpm start
+# 或直接：
+pnpm run diagrams          # 图集门户
+pnpm run diagrams:select   # 交互式选图并自动打开浏览器
+```
+
+图集门户：`docs/diagrams/index.html`；规格：同目录 `specs/*.json`（`meta.hand_crafted: true`，仅目录索引）。
+
 ## 维护规则
 
 - 编码规范：`how-to/coding-standards.md`（12 节，含强制/建议级别）

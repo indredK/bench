@@ -1,0 +1,1120 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bench 宿主全景与 IPC 往返 · 交互架构图</title>
+    <style>
+      :root {
+        --bg: #f4f2ec;
+        --ink: #26262a;
+        --muted: #7d7b74;
+        --line: #e2dfd5;
+        --card: #ffffff;
+        --blue: #185fa5;
+        --green: #0f6e56;
+        --orange: #854f0b;
+        --purple: #534ab7;
+        --ok: #3b6d11;
+        --radius: 16px;
+        --shadow: 0 6px 22px rgba(60, 55, 40, 0.1);
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        height: 100vh;
+        height: 100dvh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        background:
+          radial-gradient(circle at 1px 1px, rgba(60, 55, 40, 0.05) 1px, transparent 0) 0 0 / 22px
+            22px,
+          linear-gradient(180deg, #f7f5f0 0%, var(--bg) 100%);
+        color: var(--ink);
+        font-family:
+          -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+        -webkit-font-smoothing: antialiased;
+        padding: 18px 22px 14px;
+      }
+      .topbar {
+        flex-shrink: 0;
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 14px 24px;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+      }
+      .topbar h1 {
+        font-family: "Songti SC", "STSong", "Noto Serif SC", serif;
+        font-size: 22px;
+        color: #1f1f22;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .topbar h1::before {
+        content: "";
+        width: 10px;
+        height: 10px;
+        border-radius: 3px;
+        background: linear-gradient(135deg, var(--blue), var(--purple));
+        box-shadow: 0 0 0 4px rgba(83, 74, 183, 0.12);
+      }
+      .topbar .sub {
+        margin-top: 6px;
+        font-size: 12.5px;
+        color: var(--muted);
+        max-width: 720px;
+        line-height: 1.5;
+      }
+      .controls {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .chip {
+        font-size: 12px;
+        color: #55534c;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 5px 12px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+      }
+      .chip i {
+        width: 9px;
+        height: 9px;
+        border-radius: 3px;
+        display: inline-block;
+        margin-right: 6px;
+        vertical-align: middle;
+      }
+      button.btn {
+        font: inherit;
+        font-size: 12.5px;
+        cursor: pointer;
+        border: 1px solid var(--line);
+        background: #fff;
+        color: #33312c;
+        border-radius: 9px;
+        padding: 7px 12px;
+        transition:
+          background 0.15s,
+          border-color 0.15s;
+      }
+      button.btn:hover {
+        background: #f1efe8;
+        border-color: #cfcbbd;
+      }
+      .workspace {
+        position: relative;
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        gap: 0;
+      }
+      .stage-scroll {
+        flex: 1;
+        min-width: 0;
+        overflow: auto;
+        position: relative;
+      }
+      .stage {
+        position: relative;
+        width: 1120px;
+        height: 640px;
+        margin: 0 auto;
+        transform-origin: top center;
+      }
+      svg.edges {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        overflow: visible;
+      }
+      svg.edges path.hit {
+        pointer-events: stroke;
+        stroke: transparent;
+        stroke-width: 16;
+        fill: none;
+        cursor: pointer;
+      }
+      .node {
+        position: absolute;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding: 12px 14px;
+        cursor: pointer;
+        border-left: 5px solid var(--blue);
+        transition:
+          transform 0.12s,
+          box-shadow 0.15s,
+          outline 0.1s;
+        outline: none;
+      }
+      .node:hover,
+      .node:focus-visible {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 26px rgba(60, 55, 40, 0.16);
+        outline: 2px solid var(--blue);
+        outline-offset: 2px;
+      }
+      .node.dim {
+        opacity: 0.32;
+      }
+      .node .name {
+        font-size: 14px;
+        font-weight: 600;
+        color: #1f1f22;
+      }
+      .node .desc {
+        font-size: 11.5px;
+        color: var(--muted);
+        margin-top: 4px;
+        line-height: 1.45;
+      }
+      .node .badge {
+        display: inline-block;
+        font-size: 10.5px;
+        margin-top: 7px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: #f0eee7;
+        color: #6a675e;
+      }
+      .node.external {
+        border-style: dashed;
+        border-left-color: var(--orange);
+        background: #fbf6ee;
+      }
+      .edge-badge {
+        position: absolute;
+        transform: translate(-50%, -50%);
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 600;
+        color: #4a463d;
+        padding: 2px 8px;
+        cursor: pointer;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+      }
+      .edge-badge:hover,
+      .edge-badge:focus-visible {
+        background: #fbf3e6;
+        outline: 2px solid var(--orange);
+      }
+      .scenarios {
+        flex-shrink: 0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 10px 0 2px;
+      }
+      .scenarios .lbl {
+        font-size: 12px;
+        color: var(--muted);
+        align-self: center;
+        margin-right: 2px;
+      }
+      .drawer {
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 440px;
+        max-width: 92vw;
+        height: 100%;
+        background: #fff;
+        border-left: 1px solid var(--line);
+        box-shadow: -8px 0 28px rgba(60, 55, 40, 0.12);
+        transform: translateX(100%);
+        transition: transform 0.22s ease;
+        display: flex;
+        flex-direction: column;
+        z-index: 5;
+      }
+      .drawer.open {
+        transform: translateX(0);
+      }
+      .drawer header {
+        flex-shrink: 0;
+        padding: 16px 18px 12px;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .drawer header h2 {
+        font-size: 16px;
+        color: #1f1f22;
+      }
+      .drawer header .kind {
+        font-size: 11.5px;
+        color: var(--muted);
+        margin-top: 3px;
+      }
+      .drawer .close {
+        border: 0;
+        background: #f0eee7;
+        border-radius: 8px;
+        width: 30px;
+        height: 30px;
+        cursor: pointer;
+        font-size: 16px;
+        color: #4a463d;
+      }
+      .tabs {
+        flex-shrink: 0;
+        display: flex;
+        gap: 4px;
+        padding: 10px 14px 0;
+        border-bottom: 1px solid var(--line);
+        role: tablist;
+      }
+      .tab {
+        font: inherit;
+        font-size: 12.5px;
+        border: 0;
+        background: transparent;
+        color: var(--muted);
+        padding: 8px 10px;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+      }
+      .tab[aria-selected="true"] {
+        color: var(--blue);
+        border-bottom-color: var(--blue);
+        font-weight: 600;
+      }
+      .drawer .body {
+        flex: 1;
+        overflow: auto;
+        padding: 16px 18px 22px;
+        font-size: 13px;
+        line-height: 1.7;
+        color: #35332e;
+      }
+      .drawer .body h3 {
+        font-size: 13px;
+        color: #1f1f22;
+        margin: 14px 0 6px;
+      }
+      .drawer .body h3:first-child {
+        margin-top: 0;
+      }
+      .drawer .body ul {
+        padding-left: 18px;
+      }
+      .drawer .body code {
+        background: #f3f1ea;
+        border-radius: 4px;
+        padding: 1px 5px;
+        font-size: 12px;
+      }
+      .legend {
+        flex-shrink: 0;
+        font-size: 11px;
+        color: var(--muted);
+        padding: 6px 0 0;
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+      }
+      .legend span {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .legend i {
+        width: 10px;
+        height: 10px;
+        border-radius: 3px;
+        display: inline-block;
+      }
+      .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          transition: none !important;
+          animation: none !important;
+        }
+      }
+      @media (max-width: 820px) {
+        .stage {
+          transform: scale(0.78);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="topbar">
+      <div>
+        <h1 id="title">Bench 宿主全景与 IPC 往返</h1>
+        <div class="sub" id="subtitle">
+          合并宿主分层与一次完整 IPC 往返：用户动作经 controller → use-case → repository → 类型化
+          IPC → Rust，结果经 Zustand selector 回流 UI；插件 WebView 经当前全局 ACL
+          网关复用宿主能力。
+        </div>
+      </div>
+      <div class="controls">
+        <span class="chip"
+          ><i style="background: var(--blue)"></i><span id="owner">所有者：宿主</span></span
+        >
+        <button class="btn" id="langBtn" aria-pressed="false">EN</button>
+      </div>
+    </div>
+
+    <div class="scenarios" id="scenarios" role="group" aria-label="场景">
+      <span class="lbl" id="sceneLbl">场景：</span>
+    </div>
+
+    <div class="workspace">
+      <div class="stage-scroll">
+        <div class="stage" id="stage">
+          <svg class="edges" id="edges" aria-hidden="true"></svg>
+          <!-- nodes injected -->
+          <div
+            class="drawer"
+            id="drawer"
+            role="dialog"
+            aria-modal="false"
+            aria-labelledby="drawerTitle"
+            tabindex="-1"
+          >
+            <header>
+              <div>
+                <h2 id="drawerTitle">详情</h2>
+                <div class="kind" id="drawerKind"></div>
+              </div>
+              <button class="close" id="drawerClose" aria-label="关闭">×</button>
+            </header>
+            <div class="tabs" role="tablist" id="tabs">
+              <button class="tab" role="tab" id="tab-flow" aria-selected="true" data-tab="flow">
+                流程
+              </button>
+              <button class="tab" role="tab" id="tab-tech" aria-selected="false" data-tab="tech">
+                技术实现
+              </button>
+              <button class="tab" role="tab" id="tab-risk" aria-selected="false" data-tab="risk">
+                限制与风险
+              </button>
+              <button class="tab" role="tab" id="tab-plan" aria-selected="false" data-tab="plan">
+                后续规划
+              </button>
+            </div>
+            <div class="body" id="drawerBody" role="tabpanel" tabindex="0"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="legend" id="legend">
+      <span><i style="background: var(--blue)"></i><span id="lg-blue">外壳 / 插件</span></span>
+      <span><i style="background: var(--green)"></i><span id="lg-green">前端编排</span></span>
+      <span><i style="background: var(--purple)"></i><span id="lg-purple">IPC / 网关</span></span>
+      <span
+        ><i style="background: var(--orange)"></i><span id="lg-orange">Rust / 外部源</span></span
+      >
+    </div>
+
+    <script>
+      // ---- 双语字典（页面文案） ----
+      const UI = {
+        zh: {
+          title: "Bench 宿主全景与 IPC 往返",
+          subtitle:
+            "合并宿主分层与一次完整 IPC 往返：用户动作经 controller → use-case → repository → 类型化 IPC → Rust，结果经 Zustand selector 回流 UI；插件 WebView 经当前全局 ACL 网关复用宿主能力。",
+          owner: "所有者：宿主",
+          sceneLbl: "场景：",
+          lgBlue: "外壳 / 插件",
+          lgGreen: "前端编排",
+          lgPurple: "IPC / 网关",
+          lgOrange: "Rust / 外部源",
+          drawerTitleHolder: "详情",
+        },
+        en: {
+          title: "Bench Host Panorama & IPC Round-trip",
+          subtitle:
+            "Host layering fused with one full IPC round-trip: a user action flows controller → use-case → repository → typed IPC → Rust, and the result returns to the UI via a Zustand selector; plugin WebViews reuse host capabilities through the current global ACL gateway.",
+          owner: "Owner: Host",
+          sceneLbl: "Scenarios:",
+          lgBlue: "Shell / Plugin",
+          lgGreen: "Frontend orchestration",
+          lgPurple: "IPC / Gateway",
+          lgOrange: "Rust / External",
+          drawerTitleHolder: "Details",
+        },
+      }
+
+      // ---- 节点（坐标基于 1120×640 舞台） ----
+      const NODES = {
+        registry: {
+          x: 40,
+          y: 250,
+          w: 210,
+          h: 110,
+          color: "blue",
+          external: false,
+          zh: {
+            name: "宿主外壳 / Registry",
+            desc: "App 入口、路由与功能注册；用户动作从这里进入",
+            badge: "shell",
+          },
+          en: {
+            name: "Host Shell / Registry",
+            desc: "App entry, routing & feature registry; user action enters here",
+            badge: "shell",
+          },
+        },
+        controller: {
+          x: 300,
+          y: 70,
+          w: 210,
+          h: 96,
+          color: "green",
+          external: false,
+          zh: {
+            name: "Feature Controller",
+            desc: "连接 store ↔ use-cases；承接页面 handler",
+            badge: "frontend",
+          },
+          en: {
+            name: "Feature Controller",
+            desc: "Bridges store ↔ use-cases; receives page handlers",
+            badge: "frontend",
+          },
+        },
+        usecase: {
+          x: 300,
+          y: 280,
+          w: 210,
+          h: 96,
+          color: "green",
+          external: false,
+          zh: {
+            name: "Use-case / Repository",
+            desc: "领域编排与 Rust 适配；DTO ⇄ 领域模型",
+            badge: "frontend",
+          },
+          en: {
+            name: "Use-case / Repository",
+            desc: "Domain orchestration & Rust adapter; DTO ⇄ domain",
+            badge: "frontend",
+          },
+        },
+        ipc: {
+          x: 560,
+          y: 150,
+          w: 200,
+          h: 96,
+          color: "purple",
+          external: false,
+          zh: {
+            name: "TS 类型化 IPC",
+            desc: "invokeTauriCommand 类型化封装；契约在 contracts.ts",
+            badge: "ipc",
+          },
+          en: {
+            name: "Typed TS IPC",
+            desc: "invokeTauriCommand typed wrapper; contract in contracts.ts",
+            badge: "ipc",
+          },
+        },
+        rust: {
+          x: 560,
+          y: 360,
+          w: 220,
+          h: 120,
+          color: "orange",
+          external: false,
+          zh: {
+            name: "Rust commands / 领域能力",
+            desc: "#[tauri::command]；AppResult<T>；spawn_blocking 隔离 I/O",
+            badge: "backend",
+          },
+          en: {
+            name: "Rust commands / domain",
+            desc: "#[tauri::command]; AppResult<T>; spawn_blocking for I/O",
+            badge: "backend",
+          },
+        },
+        plugin: {
+          x: 300,
+          y: 520,
+          w: 230,
+          h: 96,
+          color: "blue",
+          external: false,
+          zh: {
+            name: "独立插件 WebView",
+            desc: "自带 React 应用，复用宿主 Tauri 命令",
+            badge: "plugin",
+          },
+          en: {
+            name: "Isolated Plugin WebView",
+            desc: "Self-contained React app reusing host Tauri commands",
+            badge: "plugin",
+          },
+        },
+        acl: {
+          x: 560,
+          y: 520,
+          w: 200,
+          h: 96,
+          color: "purple",
+          external: false,
+          zh: {
+            name: "当前全局 ACL 网关",
+            desc: "EXTENSION_ALLOWED_COMMANDS 白名单；按命令授权",
+            badge: "gateway",
+          },
+          en: {
+            name: "Global ACL Gateway",
+            desc: "EXTENSION_ALLOWED_COMMANDS allow-list; per-command grant",
+            badge: "gateway",
+          },
+        },
+        market: {
+          x: 850,
+          y: 70,
+          w: 240,
+          h: 120,
+          color: "orange",
+          external: true,
+          zh: {
+            name: "外部 plugin / command-market",
+            desc: "插件与命令的发布源；宿主校验后安装",
+            badge: "external",
+          },
+          en: {
+            name: "External plugin / command-market",
+            desc: "Distribution source for plugins & commands; host verifies then installs",
+            badge: "external",
+          },
+        },
+      }
+
+      // ---- 边 ----
+      const EDGES = {
+        e1: {
+          from: "registry",
+          to: "controller",
+          fromSide: "top",
+          toSide: "left",
+          color: "green",
+          zh: {
+            label: "用户动作 → controller",
+            flow: "页面 handler 调用 controller.run()，controller 仅做状态桥接，不写业务。",
+            tech: "controller 来自 src/features/<id>/hooks；遵循 §2 规则 1，禁止组件直调 invoke()。",
+            risk: "controller 不应承载业务逻辑或 IO 编排（规则 10）。",
+            plan: "TOOLBOX_FEATURE_IDS 仍为硬编码，未由 manifest children 驱动。",
+          },
+          en: {
+            label: "user action → controller",
+            flow: "Page handler calls controller.run(); the controller only bridges state, no business logic.",
+            tech: "Controllers live in src/features/<id>/hooks; rule §2-1 forbids direct invoke() in components.",
+            risk: "The controller must not hold business logic or IO orchestration (rule 10).",
+            plan: "TOOLBOX_FEATURE_IDS is still hard-coded, not manifest-children driven.",
+          },
+        },
+        e2: {
+          from: "controller",
+          to: "usecase",
+          fromSide: "bottom",
+          toSide: "top",
+          color: "green",
+          zh: {
+            label: "controller → use-case",
+            flow: "controller 调 useCase.execute() 编排。",
+            tech: "use-case 在 services/*.use-cases.ts；repository 在 services/*.repository.ts。",
+            risk: "store 只放状态+简单 setter（规则 10），复杂逻辑必须进 use-cases。",
+            plan: "保持 use-case/repository 分层；新增能力先扩 contracts.ts。",
+          },
+          en: {
+            label: "controller → use-case",
+            flow: "Controller invokes useCase.execute() to orchestrate.",
+            tech: "Use-cases in services/*.use-cases.ts; repositories in services/*.repository.ts.",
+            risk: "Store holds only state + simple setters (rule 10); complex logic belongs in use-cases.",
+            plan: "Keep use-case/repository split; extend contracts.ts first for new capabilities.",
+          },
+        },
+        e3: {
+          from: "usecase",
+          to: "ipc",
+          fromSide: "right",
+          toSide: "left",
+          color: "purple",
+          zh: {
+            label: "repository → 类型化 IPC",
+            flow: "repository 调 commands/*.ts 函数发命令。",
+            tech: "invokeTauriCommand() 封装 @tauri-apps/api/core invoke；命令/事件在 contracts.ts 登记。",
+            risk: "新增命令必须同步更新 contracts.ts 与 commands.rs（规则 7），否则契约漂移。",
+            plan: "类型化双契约继续作为唯一 IPC 真源。",
+          },
+          en: {
+            label: "repository → typed IPC",
+            flow: "Repository calls a commands/*.ts function to issue the command.",
+            tech: "invokeTauriCommand() wraps @tauri-apps/api/core invoke; commands/events are registered in contracts.ts.",
+            risk: "New commands must update contracts.ts and commands.rs together (rule 7) or the contract drifts.",
+            plan: "The typed dual contract remains the single IPC source of truth.",
+          },
+        },
+        e4: {
+          from: "ipc",
+          to: "rust",
+          fromSide: "bottom",
+          toSide: "top",
+          color: "orange",
+          zh: {
+            label: "IPC → Rust command",
+            flow: "异步 #[tauri::command] 执行；阻塞 I/O 用 spawn_blocking。",
+            tech: "invoke_handler 在 lib.rs 注册；返回 AppResult<T> 经 parseCommandError 解析。",
+            risk: "IPC 路径禁止 .expect()/.unwrap()（规则 9），错误必须走 AppResult。",
+            plan: "按领域拆分 <domain>/{commands,types}.rs 维持当前结构。",
+          },
+          en: {
+            label: "IPC → Rust command",
+            flow: "Async #[tauri::command] runs; blocking I/O is isolated via spawn_blocking.",
+            tech: "invoke_handler registered in lib.rs; returns AppResult<T> parsed by parseCommandError.",
+            risk: "No .expect()/.unwrap() on the IPC path (rule 9); errors must use AppResult.",
+            plan: "Keep <domain>/{commands,types}.rs split as the current structure.",
+          },
+        },
+        e5: {
+          from: "rust",
+          to: "controller",
+          fromSide: "left",
+          toSide: "right",
+          color: "green",
+          curve: "down",
+          zh: {
+            label: "Rust → DTO → UI",
+            flow: "AppResult/DTO → controller setter → Zustand selector → 重渲染。",
+            tech: "useCase 将 DTO 转领域模型，getState().setXxx() 更新 store；组件用 selector 订阅。",
+            risk: "不带 selector 的 useXxxStore() 进依赖会无限重渲染（规则 2）。",
+            plan: "响应式读取坚持独立 selector。",
+          },
+          en: {
+            label: "Rust → DTO → UI",
+            flow: "AppResult/DTO → controller setter → Zustand selector → re-render.",
+            tech: "useCase maps DTO to domain model, getState().setXxx() updates store; components subscribe via selector.",
+            risk: "A non-selector useXxxStore() inside hook deps causes infinite re-renders (rule 2).",
+            plan: "Keep independent selectors for reactive reads.",
+          },
+        },
+        e6: {
+          from: "plugin",
+          to: "acl",
+          fromSide: "right",
+          toSide: "left",
+          color: "purple",
+          zh: {
+            label: "插件 → ACL 网关",
+            flow: "插件 WebView 调命令先经当前全局 ACL 白名单校验。",
+            tech: "manifest.acl.commands 须 ∈ EXTENSION_ALLOWED_COMMANDS；否则 FORBIDDEN_PATH。",
+            risk: "当前仅官方源免签；尚未落实按插件 manifest 逐命令隔离（单插件越权缺口）。",
+            plan: "事务安装 / 单插件授权 / 完整撤权为规划闸门，不放当前已实现。",
+          },
+          en: {
+            label: "plugin → ACL gateway",
+            flow: "A plugin WebView's command first passes the current global ACL allow-list.",
+            tech: "manifest.acl.commands must be ⊆ EXTENSION_ALLOWED_COMMANDS, else FORBIDDEN_PATH.",
+            risk: "Official source is signature-exempt today; per-plugin manifest command isolation is not yet enforced (single-plugin privilege gap).",
+            plan: "Transactional install / per-plugin auth / full revocation are planned gates, not current features.",
+          },
+        },
+        e7: {
+          from: "market",
+          to: "registry",
+          fromSide: "left",
+          toSide: "top",
+          color: "orange",
+          curve: "down",
+          zh: {
+            label: "外部市场 → 宿主校验安装",
+            flow: "registry 展示；用户确认后市场包经校验落位。",
+            tech: "后端 canonical registry → prepare/commit；安全解压、来源策略与验签。",
+            risk: "非原子落位：先删旧目录再 rename，失败可能丢旧版；水位 read-max-write 无锁。",
+            plan: "事务安装与锁为规划区，当前不伪装已实现。",
+          },
+          en: {
+            label: "market → host verify & install",
+            flow: "Registry displays; after user confirmation the market package is verified and committed.",
+            tech: "Backend canonical registry → prepare/commit; safe extraction, origin policy & signature check.",
+            risk: "Non-atomic placement: delete-old then rename, a failed step can lose the old version; watermark read-max-write is lock-free.",
+            plan: "Transactional install & locking are planned, not claimed as done.",
+          },
+        },
+      }
+
+      const SCENARIOS = [
+        {
+          id: "s1",
+          edges: ["e1", "e2", "e3", "e4", "e5"],
+          zh: "宿主只读操作",
+          en: "Host read-only op",
+        },
+        {
+          id: "s2",
+          edges: ["e1", "e2", "e3", "e4", "e5"],
+          zh: "宿主写操作失败",
+          en: "Host write failure",
+        },
+        { id: "s3", edges: ["e6"], zh: "插件 ACL 允许 / 拒绝", en: "Plugin ACL allow / deny" },
+        { id: "s4", edges: ["e4", "e5"], zh: "浏览器降级", en: "Browser fallback" },
+        { id: "s7", edges: ["e7"], zh: "外部市场不可用", en: "External market down" },
+      ]
+
+      let lang = "zh"
+      const COLORVAR = {
+        blue: "var(--blue)",
+        green: "var(--green)",
+        orange: "var(--orange)",
+        purple: "var(--purple)",
+      }
+      const $ = (id) => document.getElementById(id)
+
+      function t(key) {
+        return UI[lang][key]
+      }
+
+      function applyUI() {
+        $("title").textContent = t("title")
+        $("subtitle").textContent = t("subtitle")
+        $("owner").textContent = t("owner")
+        $("sceneLbl").textContent = t("sceneLbl")
+        $("lg-blue").textContent = t("lgBlue")
+        $("lg-green").textContent = t("lgGreen")
+        $("lg-purple").textContent = t("lgPurple")
+        $("lg-orange").textContent = t("lgOrange")
+        $("langBtn").textContent = lang === "zh" ? "EN" : "ZH"
+      }
+
+      function nodeRect(id) {
+        const n = NODES[id]
+        return { x: n.x, y: n.y, w: n.w, h: n.h, cx: n.x + n.w / 2, cy: n.y + n.h / 2 }
+      }
+      function anchor(r, side) {
+        if (side === "left") return { x: r.x, y: r.cy }
+        if (side === "right") return { x: r.x + r.w, y: r.cy }
+        if (side === "top") return { x: r.cx, y: r.y }
+        return { x: r.cx, y: r.y + r.h }
+      }
+      function edgePath(e) {
+        const a = anchor(nodeRect(e.from), e.fromSide)
+        const b = anchor(nodeRect(e.to), e.toSide)
+        const dx = (e.curve === "down" ? 1 : 0.5) * Math.abs(b.x - a.x || 60)
+        const c1 = { x: a.x + (a.x < b.x ? dx : -dx), y: a.y }
+        const c2 = { x: b.x + (a.x < b.x ? -dx : dx), y: b.y }
+        return `M ${a.x} ${a.y} C ${c1.x} ${c1.y} ${c2.x} ${c2.y} ${b.x} ${b.y}`
+      }
+
+      function renderNodes() {
+        const stage = $("stage")
+        Object.entries(NODES).forEach(([id, n]) => {
+          const el = document.createElement("div")
+          el.className = "node" + (n.external ? " external" : "")
+          el.style.left = n.x + "px"
+          el.style.top = n.y + "px"
+          el.style.width = n.w + "px"
+          el.style.height = n.h + "px"
+          el.style.borderLeftColor = COLORVAR[n.color]
+          const d = n[lang]
+          el.innerHTML = `<div class="name">${d.name}</div><div class="desc">${d.desc}</div><span class="badge">${d.badge}</span>`
+          el.tabIndex = 0
+          el.setAttribute("role", "button")
+          el.setAttribute("aria-label", d.name)
+          el.dataset.node = id
+          el.addEventListener("click", () => openNode(id))
+          el.addEventListener("keydown", (ev) => {
+            if (ev.key === "Enter" || ev.key === " ") {
+              ev.preventDefault()
+              openNode(id)
+            }
+          })
+          stage.insertBefore(el, $("drawer"))
+        })
+      }
+
+      function renderEdges() {
+        const svg = $("edges")
+        const ns = "http://www.w3.org/2000/svg"
+        Object.entries(EDGES).forEach(([id, e], i) => {
+          const d = e[lang]
+          const path = document.createElementNS(ns, "path")
+          path.setAttribute("d", edgePath(e))
+          path.setAttribute("fill", "none")
+          path.setAttribute("stroke", COLORVAR[e.color])
+          path.setAttribute("stroke-width", "2.2")
+          path.setAttribute("stroke-linecap", "round")
+          path.setAttribute("stroke-dasharray", e.curve === "down" ? "6 5" : "none")
+          path.setAttribute("opacity", "0.85")
+          path.setAttribute("class", "edge-main")
+          path.dataset.edge = id
+          svg.appendChild(path)
+          const hit = document.createElementNS(ns, "path")
+          hit.setAttribute("class", "hit")
+          hit.setAttribute("d", edgePath(e))
+          hit.setAttribute("tabindex", "0")
+          hit.setAttribute("role", "button")
+          hit.setAttribute("aria-label", d.label)
+          const open = () => openEdge(id)
+          hit.addEventListener("click", open)
+          hit.addEventListener("keydown", (ev) => {
+            if (ev.key === "Enter" || ev.key === " ") {
+              ev.preventDefault()
+              open()
+            }
+          })
+          svg.appendChild(hit)
+          // badge
+          const a = anchor(nodeRect(e.from), e.fromSide)
+          const b = anchor(nodeRect(e.to), e.toSide)
+          const mx = (a.x + b.x) / 2,
+            my = (a.y + b.y) / 2
+          const badge = document.createElement("button")
+          badge.className = "edge-badge"
+          badge.style.left = mx + "px"
+          badge.style.top = my + "px"
+          badge.textContent = String(i + 1)
+          badge.setAttribute("aria-label", d.label)
+          badge.addEventListener("click", open)
+          $("stage").insertBefore(badge, $("drawer"))
+        })
+      }
+
+      function renderScenarios() {
+        const box = $("scenarios")
+        SCENARIOS.forEach((s) => {
+          const b = document.createElement("button")
+          b.className = "btn"
+          b.textContent = s[lang]
+          b.setAttribute("aria-pressed", "false")
+          b.addEventListener("click", () => toggleScenario(s, b))
+          box.appendChild(b)
+        })
+      }
+
+      let activeScenario = null
+      function toggleScenario(s, btn) {
+        if (activeScenario === s) {
+          clearHighlight()
+          btn.setAttribute("aria-pressed", "false")
+          activeScenario = null
+          return
+        }
+        activeScenario = s
+        box_allScenarioBtns().forEach((x) => x.setAttribute("aria-pressed", "false"))
+        btn.setAttribute("aria-pressed", "true")
+        highlightEdges(s.edges)
+      }
+      function box_allScenarioBtns() {
+        return Array.from($("scenarios").querySelectorAll("button"))
+      }
+      function highlightEdges(edgeIds) {
+        const edgeSet = new Set(edgeIds)
+        Object.keys(EDGES).forEach((id) => {
+          const on = edgeSet.has(id)
+          document.querySelectorAll("svg.edges path").forEach((p) => {})
+        })
+        // dim nodes not related
+        const relatedNodes = new Set()
+        edgeIds.forEach((id) => {
+          relatedNodes.add(EDGES[id].from)
+          relatedNodes.add(EDGES[id].to)
+        })
+        Object.keys(NODES).forEach((id) => {
+          const el = document.querySelector(`.node[data-node="${id}"]`)
+          if (el) el.classList.toggle("dim", !relatedNodes.has(id))
+        })
+        // dim edges via opacity (re-render simple)
+        document.querySelectorAll("svg.edges path[stroke]").forEach((p, idx) => {
+          // mark handled in render by data-id
+        })
+        setEdgeOpacity(edgeIds)
+      }
+      function setEdgeOpacity(edgeIds) {
+        const ids = new Set(edgeIds)
+        const entries = Object.entries(EDGES)
+        document.querySelectorAll("svg.edges path[fill='none']").forEach((p) => {
+          // recompute by matching d is fragile; instead tag
+        })
+        // Simpler: store references
+        EDGE_REFS.forEach((ref, i) => {
+          const id = entries[i][0]
+          ref.style.opacity = ids.has(id) ? "1" : "0.2"
+        })
+        EDGE_BADGES.forEach((b, i) => {
+          const id = entries[i][0]
+          b.style.opacity = ids.has(id) ? "1" : "0.3"
+        })
+      }
+      let EDGE_REFS = [],
+        EDGE_BADGES = []
+      function clearHighlight() {
+        activeScenario = null
+        box_allScenarioBtns().forEach((x) => x.setAttribute("aria-pressed", "false"))
+        Object.keys(NODES).forEach((id) => {
+          const el = document.querySelector(`.node[data-node="${id}"]`)
+          if (el) el.classList.remove("dim")
+        })
+        EDGE_REFS.forEach((r) => (r.style.opacity = "0.85"))
+        EDGE_BADGES.forEach((b) => (b.style.opacity = "1"))
+      }
+
+      function openNode(id) {
+        const n = NODES[id]
+        const d = n[lang]
+        showDrawer(d.name, (n.external ? "external · " : "") + d.badge, {
+          flow:
+            lang === "zh"
+              ? "节点承担职责，不是一条调用边。"
+              : "This node carries responsibility, not a single call edge.",
+          tech: `${d.name} — ${d.desc}`,
+          risk:
+            lang === "zh"
+              ? "边界：组件不直接 invoke，store 不编排 IO，DTO/事件不含明文会话。"
+              : "Boundary: components don't invoke directly, store doesn't orchestrate IO, DTOs carry no plaintext sessions.",
+          plan:
+            lang === "zh"
+              ? "宿主仍保留 Rust app_manager/photo_triage/clean_space 等能力面；插件私有 UI 外置。"
+              : "Host keeps Rust app_manager/photo_triage/clean_space capability surfaces; plugin private UIs live externally.",
+        })
+      }
+      function openEdge(id) {
+        const e = EDGES[id]
+        const d = e[lang]
+        showDrawer(d.label, "edge", { flow: d.flow, tech: d.tech, risk: d.risk, plan: d.plan })
+      }
+
+      let lastFocus = null
+      function showDrawer(title, kind, content) {
+        lastFocus = document.activeElement
+        $("drawerTitle").textContent = title
+        $("drawerKind").textContent = kind
+        $("drawer").classList.add("open")
+        renderTab(content)
+        $("drawer").focus()
+      }
+      function closeDrawer() {
+        $("drawer").classList.remove("open")
+        if (lastFocus && lastFocus.focus) lastFocus.focus()
+      }
+      let CURRENT = null
+      function renderTab(content) {
+        CURRENT = content
+        const key = currentTab
+        const map = { flow: "流程", tech: "技术实现", risk: "限制与风险", plan: "后续规划" }
+        const enmap = { flow: "Flow", tech: "Technical", risk: "Limits & Risk", plan: "Planned" }
+        const heading = lang === "zh" ? map[key] : enmap[key]
+        $("drawerBody").innerHTML = `<h3>${heading}</h3><div>${content[key] || ""}</div>`
+      }
+      let currentTab = "flow"
+      function selectTab(key) {
+        currentTab = key
+        document.querySelectorAll(".tab").forEach((tb) => {
+          tb.setAttribute("aria-selected", String(tb.dataset.tab === key))
+        })
+        if (CURRENT) renderTab(CURRENT)
+      }
+
+      function init() {
+        applyUI()
+        renderNodes()
+        renderEdges()
+        // collect edge refs for highlight
+        document.querySelectorAll("svg.edges path.edge-main").forEach((p) => EDGE_REFS.push(p))
+        document.querySelectorAll(".edge-badge").forEach((b) => EDGE_BADGES.push(b))
+        renderScenarios()
+
+        $("langBtn").addEventListener("click", () => {
+          lang = lang === "zh" ? "en" : "zh"
+          applyUI()
+          // re-render dynamic text
+          renderNodesText()
+          renderEdgesText()
+          renderScenariosText()
+          if ($("drawer").classList.contains("open") && CURRENT) renderTab(CURRENT)
+        })
+        $("drawerClose").addEventListener("click", closeDrawer)
+        $("drawer").addEventListener("keydown", (ev) => {
+          if (ev.key === "Escape") {
+            ev.stopPropagation()
+            closeDrawer()
+          }
+        })
+        document.addEventListener("keydown", (ev) => {
+          if (ev.key === "Escape" && $("drawer").classList.contains("open")) closeDrawer()
+        })
+        document.querySelectorAll(".tab").forEach((tb) => {
+          tb.addEventListener("click", () => selectTab(tb.dataset.tab))
+          tb.addEventListener("keydown", (ev) => {
+            if (
+              ev.key === "ArrowRight" ||
+              ev.key === "ArrowLeft" ||
+              ev.key === "Home" ||
+              ev.key === "End"
+            ) {
+              ev.preventDefault()
+              const tabs = Array.from(document.querySelectorAll(".tab"))
+              let i = tabs.indexOf(tb)
+              if (ev.key === "ArrowRight") i = (i + 1) % tabs.length
+              if (ev.key === "ArrowLeft") i = (i - 1 + tabs.length) % tabs.length
+              if (ev.key === "Home") i = 0
+              if (ev.key === "End") i = tabs.length - 1
+              tabs[i].focus()
+              selectTab(tabs[i].dataset.tab)
+            }
+          })
+        })
+      }
+
+      // re-render helpers for language switch
+      function renderNodesText() {
+        Object.keys(NODES).forEach((id) => {
+          const el = document.querySelector(`.node[data-node="${id}"]`)
+          if (!el) return
+          const d = NODES[id][lang]
+          el.innerHTML = `<div class="name">${d.name}</div><div class="desc">${d.desc}</div><span class="badge">${d.badge}</span>`
+          el.setAttribute("aria-label", d.name)
+        })
+      }
+      function renderEdgesText() {
+        // edge labels live in badges aria-label; rebuild
+        document.querySelectorAll(".edge-badge").forEach((b, i) => {
+          const id = Object.keys(EDGES)[i]
+          b.setAttribute("aria-label", EDGES[id][lang].label)
+        })
+      }
+      function renderScenariosText() {
+        const btns = box_allScenarioBtns()
+        SCENARIOS.forEach((s, i) => {
+          if (btns[i]) btns[i].textContent = s[lang]
+        })
+      }
+
+      init()
+    </script>
+  </body>
+</html>

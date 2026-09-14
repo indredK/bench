@@ -92,6 +92,23 @@ const menu = [
     ],
   },
   {
+    group: "文档预览",
+    items: [
+      {
+        key: "diagrams",
+        label: "启动架构图集门户(:3200, 浏览器内选图)",
+        cmd: PKG,
+        args: ["run", "diagrams"],
+      },
+      {
+        key: "diagrams:select",
+        label: "选择单张架构图并本地预览",
+        cmd: PKG,
+        args: ["run", "diagrams:select"],
+      },
+    ],
+  },
+  {
     group: "维护",
     items: [
       {
