@@ -12,3 +12,9 @@ minimumReleaseAgeExclude:
   - lefthook-windows-arm64@2.1.14
   - lefthook-windows-x64@2.1.14
   - lefthook@2.1.14
+  - "@tanstack/react-virtual@3.14.13"
+  - "@tanstack/virtual-core@3.17.11"
+  - lucide-react@1.46.0
+  - zod@4.6.5
+  - "@clack/core@1.5.1"
+  - "@clack/prompts@1.8.1"
