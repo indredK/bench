@@ -1,31 +1,59 @@
 # Managed entries below are owned by bench-quality-cli (init/update). Do not edit by hand.
-#
-# Semantics (verified against lefthook 2.1.14, see the CLI evidence):
-#   - `commands` + `glob` is the only reliable file gate; `scripts` + `only`
-#     never fires for nested paths.
-#   - "*.md"-style patterns match at any depth; "src-tauri/**/*.rs" does NOT
-#     match "src-tauri/build.rs", so Rust entries use "*.rs".
-#   - lefthook drops deleted/renamed paths from every file list, which is why
-#     `changed-paths` runs unconditionally and re-runs the affected scope.
-#   - partial staging protection lives in .husky/pre-commit (lefthook stashes
-#     unstaged changes before running commands) and is chained in front of every
-#     command that rewrites the worktree.
+# bench-quality-cli:managed-entries pre-commit.commands.partial-staging,pre-commit.commands.whitespace,pre-commit.commands.markdown-links,pre-commit.commands.changed-paths,pre-commit.commands.i18n-guards,pre-commit.commands.docs-consistency,pre-commit.commands.ci-platforms,pre-commit.commands.workflow-hygiene,pre-commit.commands.rust-cfg-hygiene,pre-commit.commands.rust-crates,commit-msg.commands.commitlint
 min_version: 1.6.0
 colors: true
-
 commit-msg:
   commands:
     commitlint:
       run: pnpm exec commitlint --edit {1}
       fail_text: Commit message failed conventional-commits lint
-
 pre-commit:
   commands:
-    # --- managed -----------------------------------------------------------
-    changed-paths:
-      priority: 1
-      run: node scripts/quality/check-changed-paths.mjs
-      fail_text: A deleted or renamed path left its scope unverified
+    prettier:
+      glob: "*.{cjs,css,html,js,json,jsonc,jsx,md,mjs,scss,ts,tsx,yaml,yml}"
+      exclude:
+        - CHANGELOG.md
+        - .release-please-manifest.json
+        - src-tauri/tauri.conf.json
+        - pnpm-lock.yaml
+        - scripts/quality/**
+      run: pnpm exec prettier --write {staged_files}
+      stage_fixed: true
+    node-syntax:
+      glob:
+        - scripts/*.{js,mjs,cjs}
+        - "*.config.{js,mjs,cjs}"
+      run: node --check {staged_files}
+    shell-syntax:
+      glob: "*.sh"
+      run: sh -n {staged_files}
+    husky-shell:
+      glob: .husky/*
+      run: sh -n {staged_files}
+    rust-fmt:
+      glob: "*.rs"
+      run: cargo fmt --manifest-path src-tauri/Cargo.toml -- {staged_files}
+      stage_fixed: true
+    frontend:
+      glob:
+        - src/**
+        - public/**
+        - extensions/**
+        - index.html
+        - splash.html
+        - components.json
+        - postcss.config.*
+        - tailwind.config.*
+        - vite.config.*
+        - tsconfig*.json
+        - package.json
+        - pnpm-lock.yaml
+        - pnpm-workspace.yaml
+        - scripts/quality/**
+      run: pnpm run lint:fe && pnpm run test:fe && pnpm run build:fe
+    backend:
+      glob: src-tauri/**
+      run: pnpm run check:be && pnpm run clippy:be && pnpm run test:be
     partial-staging:
       priority: 2
       run: node scripts/quality/guard-partial-staging.mjs
@@ -40,87 +68,45 @@ pre-commit:
       priority: 10
       run: node scripts/quality/check-markdown-links.mjs {staged_files}
       fail_text: Dead link found in a staged markdown file
+    changed-paths:
+      priority: 1
+      run: node scripts/quality/check-changed-paths.mjs
+      fail_text: A deleted or renamed path left its scope unverified
     i18n-guards:
       glob:
-        - "src/**"
-        - "extensions/**"
+        - src/**
+        - extensions/**
       priority: 10
       run: node scripts/quality/check-i18n-guards.mjs
       fail_text: i18n guard failed
     docs-consistency:
       glob:
-        - "docs/**"
-        - "src/features/**"
-        - "extensions/**"
-        - "README.md"
-        - "AGENTS.md"
+        - docs/**
+        - src/features/**
+        - extensions/**
+        - README.md
+        - AGENTS.md
       priority: 10
       run: node scripts/quality/check-docs-consistency.mjs
       fail_text: Feature/docs structure is inconsistent
     ci-platforms:
-      glob: ".github/workflows/**"
+      glob: .github/workflows/**
       priority: 10
       run: node scripts/quality/check-ci-platforms.mjs
       fail_text: CI workflow targets a platform outside the supported matrix
     workflow-hygiene:
-      glob: ".github/workflows/**"
+      glob: .github/workflows/**
       priority: 10
       run: node scripts/quality/check-workflow-hygiene.mjs
       fail_text: Workflow hygiene check failed
     rust-cfg-hygiene:
-      glob: "*.rs"
+      glob: src-tauri/**
       priority: 10
       run: node scripts/quality/guard-partial-staging.mjs && node scripts/quality/check-rust-cfg-hygiene.mjs --fix
       stage_fixed: true
       fail_text: cargo cfg hygiene could not be normalized
     rust-crates:
-      glob: "*.rs"
+      glob: src-tauri/**
       priority: 10
       run: node scripts/quality/check-rust-crates.mjs
       fail_text: Rust crate/feature usage violates the guarded-crates policy
-
-    # --- repository-owned ---------------------------------------------------
-    prettier:
-      glob: "*.{cjs,css,html,js,json,jsonc,jsx,md,mjs,scss,ts,tsx,yaml,yml}"
-      exclude:
-        - CHANGELOG.md
-        - .release-please-manifest.json
-        - src-tauri/tauri.conf.json
-        - pnpm-lock.yaml
-      run: pnpm exec prettier --write {staged_files}
-      stage_fixed: true
-    node-syntax:
-      glob:
-        - "scripts/*.{js,mjs,cjs}"
-        - "*.config.{js,mjs,cjs}"
-      run: node --check {staged_files}
-    shell-syntax:
-      glob: "*.sh"
-      run: sh -n {staged_files}
-    husky-shell:
-      glob: ".husky/*"
-      run: sh -n {staged_files}
-    rust-fmt:
-      glob: "*.rs"
-      run: cargo fmt --manifest-path src-tauri/Cargo.toml -- {staged_files}
-      stage_fixed: true
-    frontend:
-      glob:
-        - "src/**"
-        - "public/**"
-        - "extensions/**"
-        - "index.html"
-        - "splash.html"
-        - "components.json"
-        - "postcss.config.*"
-        - "tailwind.config.*"
-        - "vite.config.*"
-        - "tsconfig*.json"
-        - "package.json"
-        - "pnpm-lock.yaml"
-        - "pnpm-workspace.yaml"
-        - "scripts/quality/**"
-      run: pnpm run lint:fe && pnpm run test:fe && pnpm run build:fe
-    backend:
-      glob: "src-tauri/**"
-      run: pnpm run check:be && pnpm run clippy:be && pnpm run test:be

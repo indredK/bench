@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "generator": {
+    "name": "bench-quality-cli",
+    "version": "0.1.0"
+  },
+  "profile": "tauri-host",
+  "features": ["commitlint", "markdown", "bench-guards"],
+  "profiles": ["tauri-host"],
+  "files": {
+    "scripts/quality/git-changes.mjs": "a8e5c0883c489a881f808389e07b10970e14d9894b69f618e3f541cf6e33a2d5",
+    "scripts/quality/guard-partial-staging.mjs": "a6e17dada278a56ccfe4c8def9aa22b9117b9cf96bae9b5068f016db230986ce",
+    "scripts/quality/fix-staged-whitespace.mjs": "927d3d5108df7970c79356845c76cc68ff34235d7c5df3ddabcdcd9cccc4347f",
+    "scripts/quality/install-hooks.mjs": "16ac817c2b26de798d33878a7f294f79ee63f54d3a2637f5de60ac37c3583a2d",
+    "commitlint.config.js": "13697fba68e67123367a54e35528f6098765d327b39d3dca3454c8f79de07d79",
+    ".markdown-link-check.json": "ad03b7699377c22c3fee72d12cc208f3999b7dc73a03e63b656b793f832f4126",
+    "scripts/quality/check-markdown-links.mjs": "cc2d63183cf7bf5dd8951cfdcf619d0360f9b686b4e17ac07dde6c74b35e82e3",
+    "scripts/quality/check-changed-paths.mjs": "75110323a1ab3c7027a7345141f0643ab012bfe23adcff0608a901f99bf193c5",
+    "scripts/quality/check-i18n-guards.mjs": "f877cbd1c3ec840de0ec98154fb47ada2eaa94bde8e87a9410e7f480c50b4e34",
+    "scripts/quality/check-docs-consistency.mjs": "308b30f63757ea6c078d4758c9b37eaf76cbb578c680f05bd5b1386e50fef778",
+    "scripts/quality/check-ci-platforms.mjs": "a6f2484bf4dc58ede355cebf64027e94bfa81d16a27a52db85fd83b7aa5ae4c9",
+    "scripts/quality/check-workflow-hygiene.mjs": "a26dacef6b50a9cbb92ebc11b25ff4b150701171d688ae7b6ca407521e511188",
+    "scripts/quality/check-rust-cfg-hygiene.mjs": "50572d0699851bcd0889d61f7220774da0598c8ba6b5c6f185d2eacf399782ee",
+    "scripts/quality/check-rust-crates.mjs": "2e53df181c9dcfe289f61acd7f6683de08be070fe4a0e71b2846626c6676aab4",
+    ".husky/pre-commit": "89c8e30d5a2d6da40e67899ad4419daa8f24eeb222b3953e90ae1591e727f811",
+    ".husky/commit-msg": "5456d621c4bd546c9d4fdecbc8a285a5e667f215645b2d52f03e865365d6394c",
+    "lefthook.yml": "f635278a4c103ab115e09e916beaf4d4c8b2e8c74d93e7f283d18c1a14d396d0",
+    "package.json": "251225d58a8b69334a80533fdc171078e2712a527b4a991eb145874d954f1eb9",
+    "pnpm-workspace.yaml": "44702a2ede700eae6da226fb8f2d607702ce61c6641d145b2b811f62aa2a1517"
+  },
+  "packageJson": {
+    "managed": {
+      "devDependencies": {
+        "lefthook": "^2.1.14",
+        "@commitlint/cli": "^21.2.2",
+        "@commitlint/config-conventional": "^21.2.2",
+        "typescript": "^6.0.3"
+      },
+      "scripts": {
+        "check:precommit": "node node_modules/lefthook/bin/index.js run pre-commit",
+        "check:changed-paths": "node scripts/quality/check-changed-paths.mjs",
+        "check:md-links": "node scripts/quality/check-markdown-links.mjs --all"
+      }
+    }
+  },
+  "workspace": {
+    "managedKeys": {
+      "allowBuilds": {
+        "lefthook": false
+      }
+    }
+  },
+  "lefthook": {
+    "managedEntries": [
+      "pre-commit.commands.partial-staging",
+      "pre-commit.commands.whitespace",
+      "pre-commit.commands.markdown-links",
+      "pre-commit.commands.changed-paths",
+      "pre-commit.commands.i18n-guards",
+      "pre-commit.commands.docs-consistency",
+      "pre-commit.commands.ci-platforms",
+      "pre-commit.commands.workflow-hygiene",
+      "pre-commit.commands.rust-cfg-hygiene",
+      "pre-commit.commands.rust-crates",
+      "commit-msg.commands.commitlint"
+    ]
+  },
+  "git": {
+    "hooksPath": ".husky",
+    "previousHooksPath": ".husky"
+  },
+  "batch": {
+    "id": "20260914T162630-3hfm",
+    "startedAt": "2026-09-14T16:26:30.797Z",
+    "finishedAt": "2026-09-14T16:26:30.805Z"
+  }
+}
