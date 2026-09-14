@@ -1,2 +1,14 @@
 allowBuilds:
   lefthook: false
+minimumReleaseAgeExclude:
+  - lefthook-darwin-arm64@2.1.14
+  - lefthook-darwin-x64@2.1.14
+  - lefthook-freebsd-arm64@2.1.14
+  - lefthook-freebsd-x64@2.1.14
+  - lefthook-linux-arm64@2.1.14
+  - lefthook-linux-x64@2.1.14
+  - lefthook-openbsd-arm64@2.1.14
+  - lefthook-openbsd-x64@2.1.14
+  - lefthook-windows-arm64@2.1.14
+  - lefthook-windows-x64@2.1.14
+  - lefthook@2.1.14
