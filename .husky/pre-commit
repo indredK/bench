@@ -6,7 +6,7 @@ set -e
 # project's required node >=24) is not on PATH. `.zshrc`'s `fnm env` is never
 # sourced here, so `node` would fall back to the hermes v22 symlink and trip the
 # `engines.node >=24` guard. Resolve node via fnm's default version (currently
-# v26.4.0) so the quality script runs on a supported node. Fall back to common
+# v26.4.0) so the quality tooling runs on a supported node. Fall back to common
 # install locations if fnm is unavailable. Order matters: fnm node must win.
 FNM_DEFAULT="$(/opt/homebrew/bin/fnm default 2>/dev/null)"
 FNM_NODE_BIN="$HOME/.local/share/fnm/node-versions/$FNM_DEFAULT/installation/bin"
@@ -17,4 +17,8 @@ else
   export PATH="$BASE_TOOLS:$PATH"
 fi
 
-node scripts/quality/pre-commit-check.mjs
+# Dispatch the pre-commit gate to Lefthook (replaces the custom
+# scripts/quality/pre-commit-check.mjs orchestrator). Lefthook reads
+# lefthook.yml from the repo root, runs staged-file-scoped auto-fixes, and
+# re-stages fixed files before the read-only guards.
+node node_modules/lefthook/bin/index.js run pre-commit

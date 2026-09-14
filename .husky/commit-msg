@@ -14,4 +14,7 @@ else
   export PATH="$BASE_TOOLS:$PATH"
 fi
 
-node scripts/quality/commit-msg-check.mjs "$1"
+# Dispatch commit-message linting to commitlint via Lefthook (replaces the
+# custom scripts/quality/commit-msg-check.mjs). $1 is the commit message file
+# path, forwarded as {1} to the commitlint command in lefthook.yml.
+node node_modules/lefthook/bin/index.js run commit-msg "$1"

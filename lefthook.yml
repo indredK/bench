@@ -1,0 +1,130 @@
+# Lefthook configuration — replaces the custom `scripts/quality/pre-commit-check.mjs`
+# orchestrator with best-practice, config-driven tooling.
+#
+# Why Lefthook: modern (Go, actively maintained), cross-platform, and the
+# community-recommended hook manager for mixed JS + Rust repos. It natively
+# supports staged-file globs, auto-fix + re-stage (`stage_fixed`), and running
+# arbitrary pnpm/cargo commands — exactly what bench's hand-rolled orchestrator did.
+#
+# Hook *installation* + node PATH bootstrap still live in `.husky/*` (those
+# shell wrappers are NOT reinvented wheels — they solve the IDE-stripped-env
+# PATH problem). The `.husky` scripts simply call `lefthook run <hook>`, so all
+# dispatch logic is centralized here and stays portable across machines.
+
+min_version: "1.6.0"
+
+colors: true
+
+# --- Commit message linting (replaces commit-msg-check.mjs) ---
+commit-msg:
+  commands:
+    commitlint:
+      run: pnpm exec commitlint --edit {1}
+      fail_text: "Commit message failed conventional-commits lint (see output above)"
+
+pre-commit:
+  # Sequential (matches the previous orchestrator's order): auto-fix steps must
+  # complete and re-stage before the read-only guards run.
+  commands:
+    # Prettier auto-fix — replaces the prettier section of pre-commit-check.mjs.
+    prettier:
+      glob: "*.{cjs,css,html,js,json,jsonc,jsx,md,mjs,scss,ts,tsx,yaml,yml}"
+      exclude:
+        - "CHANGELOG.md"
+        - ".release-please-manifest.json"
+        - "src-tauri/tauri.conf.json"
+        - "pnpm-lock.yaml"
+      run: pnpm exec prettier --write {staged_files}
+      stage_fixed: true
+
+    # Node script syntax check (replaces node --check loop).
+    node-syntax:
+      glob:
+        - "scripts/**/*.{js,mjs,cjs}"
+        - "*.config.{js,mjs,cjs}"
+        - "postcss.config.js"
+      run: node --check {staged_files}
+
+    # Shell syntax check (replaces sh -n loop).
+    shell-syntax:
+      glob: "*.sh"
+      run: sh -n {staged_files}
+
+    # Husky hook scripts are shell too.
+    husky-shell:
+      glob: ".husky/*"
+      run: sh -n {staged_files}
+
+    # Markdown relative-link check — replaces check-markdown-links.mjs.
+    # Config (.markdown-link-check.json) skips http(s)/mailto/anchor links so
+    # no network is touched; only intra-repo relative links are validated.
+    markdown-links:
+      glob: "*.md"
+      run: pnpm exec markdown-link-check {staged_files}
+
+    # Rust formatting auto-fix — replaces the cargo fmt section.
+    rust-fmt:
+      glob: "src-tauri/**/*.rs"
+      run: cargo fmt --manifest-path src-tauri/Cargo.toml -- {staged_files}
+      stage_fixed: true
+
+    # Rust cfg hygiene auto-fix (Rule B); Rule A intentionally left for manual
+    # resolution — the --fix run exits non-zero on Rule A, blocking the commit.
+    # Replaces the cfg-hygiene section of pre-commit-check.mjs.
+    rust-cfg-hygiene:
+      glob: "src-tauri/**/*.rs"
+      run: node scripts/quality/check-rust-cfg-hygiene.mjs --fix
+      stage_fixed: true
+
+    # Whitespace auto-fix — re-stage aware. Retained as a tiny script because
+    # Lefthook (unlike the Python pre-commit framework) ships no built-in
+    # trailing-whitespace/EOF fixer; prettier + cargo fmt already cover their
+    # own file types, this catches the rest (shell, toml, etc.).
+    whitespace:
+      run: node scripts/quality/fix-staged-whitespace.mjs
+      stage_fixed: true
+
+  # --- Full-repo / conditional guards (replace the hasDocsChanges / hasFrontendChanges
+  #     / hasBackendChanges dispatch branches). Each runs only when matching files
+  #     are staged, mirroring the previous orchestrator's branch conditions. ---
+  scripts:
+    docs-consistency:
+      runner: pnpm run check:docs-consistency
+      only:
+        - "docs/**"
+        - "src/features/**"
+        - "extensions/**"
+        - "AGENTS.md"
+        - "README.md"
+
+    ci-platforms:
+      runner: pnpm run check:ci-platforms
+      only:
+        - ".github/workflows/**"
+
+    workflow-hygiene:
+      runner: pnpm run check:workflows
+      only:
+        - ".github/workflows/**"
+
+    frontend:
+      runner: pnpm run lint:fe && pnpm run test:fe && pnpm run build:fe
+      only:
+        - "src/**"
+        - "public/**"
+        - "scripts/quality/**"
+        - "index.html"
+        - "splash.html"
+        - "components.json"
+        - "postcss.config.*"
+        - "tailwind.config.*"
+        - "vite.config.*"
+        - "tsconfig*.json"
+        - "package.json"
+        - "pnpm-lock.yaml"
+        - "pnpm-workspace.yaml"
+
+    backend:
+      runner: pnpm run check:be && pnpm run clippy:be && pnpm run test:be
+      only:
+        - "src-tauri/**"
