@@ -1,0 +1,10 @@
+# Bench (tauri-app) Rust 工具链固定。
+#
+# 理由：CI 曾跟随 dtolnay/rust-toolchain 的浮动 `stable` 分支，本机 stable 与 CI
+# stable 可能不同；这里把唯一被验证过的版本显式固定下来（DEP-09/T11）。
+# MSRV 只承诺实测值：当前只验证了 1.98.1，因此 Cargo.toml 的 rust-version 也是它，
+# 不宣称兼容更早的 1.95/1.96。
+[toolchain]
+channel = "1.98.1"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

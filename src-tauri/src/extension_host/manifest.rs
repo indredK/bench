@@ -579,11 +579,9 @@ mod tests {
         assert_eq!(m.display_name("zh"), "Photo Triage");
         assert_eq!(m.display_name("en"), "Photo Triage");
 
-        let text = VALID_MANIFEST.replace(
-            "\"display\": { \"zh\": \"照片筛选\", \"en\": \"Photo Triage\" }",
-            "\"display\": { \"zh\": \"照片筛选\", \"en\": \"Photo Triage\" }",
-        );
-        let m = ExtensionManifest::parse(&text).expect("zh present");
+        // 与上例相同的 display 映射：验证解析结果稳定（无需替换）。
+        let text = VALID_MANIFEST;
+        let m = ExtensionManifest::parse(text).expect("zh present");
         assert_eq!(m.display_name("zh"), "照片筛选");
     }
 

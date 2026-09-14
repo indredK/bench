@@ -407,7 +407,8 @@ mod tests {
         state
             .initialize_master_key_for_tests([9u8; 32])
             .expect("test master key");
-        let stations: Vec<RelayStation> =
+        // 校验 stations 可解码（本用例只关心 accounts/sessions/secrets 的迁移结果）。
+        let _stations: Vec<RelayStation> =
             decode_or_default(doc.get(KEY_STATIONS).cloned(), KEY_STATIONS)
                 .expect("stations decode");
         let mut accounts: Vec<StationAccount> =

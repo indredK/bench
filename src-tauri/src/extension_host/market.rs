@@ -746,7 +746,7 @@ mod tests {
         .expect("valid package passes full pipeline");
         assert_eq!(manifest.id, "fake-ext");
         assert!(staging.join("index.html").is_file());
-        fs::remove_dir_all(&zip_path.parent().unwrap()).ok();
+        fs::remove_dir_all(zip_path.parent().unwrap()).ok();
     }
 
     #[test]
@@ -772,7 +772,7 @@ mod tests {
         assert_eq!(err.code, "FORBIDDEN_PATH");
         assert!(err.message.contains("sha256 mismatch"));
         let _ = hash;
-        fs::remove_dir_all(&zip_path.parent().unwrap()).ok();
+        fs::remove_dir_all(zip_path.parent().unwrap()).ok();
     }
 
     #[test]
@@ -795,7 +795,7 @@ mod tests {
         .unwrap_err();
         assert_eq!(err.code, "FORBIDDEN_PATH");
         assert!(err.message.contains("sha256 mismatch"));
-        fs::remove_dir_all(&zip_path.parent().unwrap()).ok();
+        fs::remove_dir_all(zip_path.parent().unwrap()).ok();
     }
 
     #[test]
@@ -817,6 +817,6 @@ mod tests {
         .unwrap_err();
         assert_eq!(err.code, "FORBIDDEN_PATH");
         assert!(err.message.contains("does not match requested"));
-        fs::remove_dir_all(&zip_path.parent().unwrap()).ok();
+        fs::remove_dir_all(zip_path.parent().unwrap()).ok();
     }
 }

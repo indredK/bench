@@ -2,6 +2,7 @@
 name = "bench-host"
 version = "0.1.0"
 edition = "2021"
+rust-version.workspace = true
 license = "MIT"
 description = "Bench capability host: exposes bench-capabilities over Native Messaging, MCP (stdio) and CLI. Ships as a Tauri sidecar."
 

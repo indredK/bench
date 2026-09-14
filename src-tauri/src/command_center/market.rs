@@ -512,7 +512,7 @@ mod tests {
             REGISTRY_URL_ENV,
             "http://insecure.example.com/registry.json",
         );
-        assert!(matches!(market_source(), Err(_)));
+        assert!(market_source().is_err());
         std::env::remove_var(REGISTRY_URL_ENV);
         std::env::set_var(REGISTRY_DIR_ENV, "/tmp/cmd-market");
         assert!(matches!(market_source(), Ok(Some(MarketSource::Dir(_)))));
