@@ -44,7 +44,10 @@ export async function gotoWithMockedTauri(
     },
     { mockedHandlers: handlers, lang: language },
   )
-  await page.goto(path)
+  // 应用使用 hash 路由（src/App.tsx 的 useHashLocation）：直接 `goto("/account-manager")`
+  // 会落在默认路由上，断言全部找不到元素（历史遗留的 e2e 漂移，本批修正）。
+  const hashPath = path.startsWith("#") ? path : `#${path.startsWith("/") ? path : `/${path}`}`
+  await page.goto(hashPath)
 }
 
 export function screenshotName(path: string, testInfo: TestInfo, suffix: string) {
