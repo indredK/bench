@@ -1,20 +1,57 @@
 #!/usr/bin/env sh
+# Managed by bench-quality-cli (init/update). Do not edit by hand.
+set -eu
 
-set -e
+repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+cd "$repo_root"
 
-# Git hooks run in a stripped environment (especially when invoked from an IDE),
-# where node is not on PATH. Resolve node via fnm's default version (>=24, per
-# package.json engines) and fall back to common install locations.
-FNM_DEFAULT="$(/opt/homebrew/bin/fnm default 2>/dev/null)"
-FNM_NODE_BIN="$HOME/.local/share/fnm/node-versions/$FNM_DEFAULT/installation/bin"
-BASE_TOOLS="$HOME/.hermes/node/bin:$HOME/.local/bin:/Users/apple/.cargo/bin:/usr/local/bin:/opt/homebrew/bin"
-if [ -n "$FNM_DEFAULT" ] && [ -d "$FNM_NODE_BIN" ]; then
-  export PATH="$FNM_NODE_BIN:$BASE_TOOLS:$PATH"
-else
-  export PATH="$BASE_TOOLS:$PATH"
+# Strip nothing from PATH, then make the standard tool locations reachable:
+# git hooks run with a stripped environment (GUI clients, IDEs) where neither
+# the package manager nor cargo may be found. These are the conventional
+# locations, not a specific machine's layout; machine-specific extras belong in
+# .husky/hooks.env (optional, sourced below, never managed by the generator).
+for tool_dir in "$HOME/.local/bin" "$HOME/.cargo/bin" /usr/local/bin /opt/homebrew/bin; do
+  if [ -d "$tool_dir" ]; then
+    PATH="$PATH:$tool_dir"
+  fi
+done
+export PATH
+
+if [ -f .husky/hooks.env ]; then
+  # shellcheck disable=SC1091
+  . ./.husky/hooks.env
 fi
 
-# Dispatch commit-message linting to commitlint via Lefthook (replaces the
-# custom scripts/quality/commit-msg-check.mjs). $1 is the commit message file
-# path, forwarded as {1} to the commitlint command in lefthook.yml.
-node node_modules/lefthook/bin/index.js run commit-msg "$1"
+if ! command -v node >/dev/null 2>&1; then
+  pinned=""
+  if [ -f .node-version ]; then pinned=$(tr -d '[:space:]' < .node-version); fi
+  if [ -z "$pinned" ] && [ -f .nvmrc ]; then pinned=$(tr -d 'v[:space:]' < .nvmrc); fi
+  for candidate in \
+    "$HOME/.local/share/fnm/node-versions/$pinned/installation/bin" \
+    "$HOME/.nvm/versions/node/v$pinned/bin" \
+    "$HOME/.asdf/installs/nodejs/$pinned/bin" \
+    "$HOME/.volta/bin" \
+    /opt/homebrew/opt/node/bin \
+    /usr/local/opt/node/bin
+  do
+    if [ -n "$candidate" ] && [ -x "$candidate/node" ]; then
+      PATH="$candidate:$PATH"
+      export PATH
+      break
+    fi
+  done
+fi
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "NODE_NOT_FOUND: no usable node on PATH and no version-manager match for .node-version." >&2
+  echo "Install Node (see .node-version), or run git from a shell where 'node -v' works." >&2
+  exit 1
+fi
+
+if [ ! -f node_modules/lefthook/bin/index.js ]; then
+  echo "LEFTHOOK_NOT_INSTALLED: node_modules/lefthook/bin/index.js is missing." >&2
+  echo "Install the project dependencies (for example 'pnpm install') and commit again." >&2
+  exit 1
+fi
+
+exec node node_modules/lefthook/bin/index.js run commit-msg "$1"

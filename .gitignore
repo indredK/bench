@@ -62,3 +62,5 @@ stitch_exports/
 /updater/
 .tmp/
 .git.broken/
+# Machine-local tool paths for the generated git hooks (see .husky/hooks.env).
+.husky/hooks.env

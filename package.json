@@ -12,7 +12,7 @@
     "clean": "node scripts/bootstrap/clean.mjs",
     "start": "node scripts/bootstrap/menu.mjs",
     "setup:unix": "node scripts/bootstrap/setup.mjs",
-    "check:precommit": "lefthook run pre-commit",
+    "check:precommit": "node node_modules/lefthook/bin/index.js run pre-commit",
     "commitlint": "commitlint",
     "hooks:install": "node scripts/bootstrap/install-hooks.mjs",
     "prepare": "node scripts/bootstrap/install-hooks.mjs",

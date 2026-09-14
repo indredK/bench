@@ -1,14 +1,85 @@
 # Managed entries below are owned by bench-quality-cli (init/update). Do not edit by hand.
-# bench-quality-cli:managed-entries commit-msg.commands.commitlint,pre-commit.commands.markdown-links,pre-commit.commands.whitespace,pre-commit.scripts.i18n-guards,pre-commit.scripts.docs-consistency,pre-commit.scripts.ci-platforms,pre-commit.scripts.workflow-hygiene,pre-commit.scripts.rust-cfg-hygiene,pre-commit.scripts.rust-crates
+#
+# Semantics (verified against lefthook 2.1.14, see the CLI evidence):
+#   - `commands` + `glob` is the only reliable file gate; `scripts` + `only`
+#     never fires for nested paths.
+#   - "*.md"-style patterns match at any depth; "src-tauri/**/*.rs" does NOT
+#     match "src-tauri/build.rs", so Rust entries use "*.rs".
+#   - lefthook drops deleted/renamed paths from every file list, which is why
+#     `changed-paths` runs unconditionally and re-runs the affected scope.
+#   - partial staging protection lives in .husky/pre-commit (lefthook stashes
+#     unstaged changes before running commands) and is chained in front of every
+#     command that rewrites the worktree.
 min_version: 1.6.0
 colors: true
+
 commit-msg:
   commands:
     commitlint:
       run: pnpm exec commitlint --edit {1}
       fail_text: Commit message failed conventional-commits lint
+
 pre-commit:
   commands:
+    # --- managed -----------------------------------------------------------
+    changed-paths:
+      priority: 1
+      run: node scripts/quality/check-changed-paths.mjs
+      fail_text: A deleted or renamed path left its scope unverified
+    partial-staging:
+      priority: 2
+      run: node scripts/quality/guard-partial-staging.mjs
+      fail_text: Refusing to rewrite a partially staged file
+    whitespace:
+      priority: 3
+      run: node scripts/quality/guard-partial-staging.mjs && node scripts/quality/fix-staged-whitespace.mjs
+      stage_fixed: true
+      fail_text: Trailing whitespace could not be fixed automatically
+    markdown-links:
+      glob: "*.md"
+      priority: 10
+      run: node scripts/quality/check-markdown-links.mjs {staged_files}
+      fail_text: Dead link found in a staged markdown file
+    i18n-guards:
+      glob:
+        - "src/**"
+        - "extensions/**"
+      priority: 10
+      run: node scripts/quality/check-i18n-guards.mjs
+      fail_text: i18n guard failed
+    docs-consistency:
+      glob:
+        - "docs/**"
+        - "src/features/**"
+        - "extensions/**"
+        - "README.md"
+        - "AGENTS.md"
+      priority: 10
+      run: node scripts/quality/check-docs-consistency.mjs
+      fail_text: Feature/docs structure is inconsistent
+    ci-platforms:
+      glob: ".github/workflows/**"
+      priority: 10
+      run: node scripts/quality/check-ci-platforms.mjs
+      fail_text: CI workflow targets a platform outside the supported matrix
+    workflow-hygiene:
+      glob: ".github/workflows/**"
+      priority: 10
+      run: node scripts/quality/check-workflow-hygiene.mjs
+      fail_text: Workflow hygiene check failed
+    rust-cfg-hygiene:
+      glob: "*.rs"
+      priority: 10
+      run: node scripts/quality/guard-partial-staging.mjs && node scripts/quality/check-rust-cfg-hygiene.mjs --fix
+      stage_fixed: true
+      fail_text: cargo cfg hygiene could not be normalized
+    rust-crates:
+      glob: "*.rs"
+      priority: 10
+      run: node scripts/quality/check-rust-crates.mjs
+      fail_text: Rust crate/feature usage violates the guarded-crates policy
+
+    # --- repository-owned ---------------------------------------------------
     prettier:
       glob: "*.{cjs,css,html,js,json,jsonc,jsx,md,mjs,scss,ts,tsx,yaml,yml}"
       exclude:
@@ -20,74 +91,36 @@ pre-commit:
       stage_fixed: true
     node-syntax:
       glob:
-        - scripts/**/*.{js,mjs,cjs}
+        - "scripts/*.{js,mjs,cjs}"
         - "*.config.{js,mjs,cjs}"
-        - postcss.config.js
       run: node --check {staged_files}
     shell-syntax:
       glob: "*.sh"
       run: sh -n {staged_files}
     husky-shell:
-      glob: .husky/*
+      glob: ".husky/*"
       run: sh -n {staged_files}
-    markdown-links:
-      root: git
-      run: pnpm exec markdown-link-check --config .markdown-link-check.json --quiet {staged_files}
     rust-fmt:
-      glob: src-tauri/**/*.rs
+      glob: "*.rs"
       run: cargo fmt --manifest-path src-tauri/Cargo.toml -- {staged_files}
       stage_fixed: true
-    whitespace:
-      stage_fixed: true
-      run: node scripts/quality/fix-staged-whitespace.mjs
-  scripts:
-    docs-consistency:
-      runner: node scripts/quality/check-docs-consistency.mjs
-      only:
-        - docs/**
-        - src/features/**
-        - extensions/**
-        - AGENTS.md
-        - README.md
-    ci-platforms:
-      runner: node scripts/quality/check-ci-platforms.mjs
-      only:
-        - .github/workflows/**
-    workflow-hygiene:
-      runner: node scripts/quality/check-workflow-hygiene.mjs
-      only:
-        - .github/workflows/**
     frontend:
-      runner: pnpm run lint:fe && pnpm run test:fe && pnpm run build:fe
-      only:
-        - src/**
-        - public/**
-        - scripts/quality/**
-        - index.html
-        - splash.html
-        - components.json
-        - postcss.config.*
-        - tailwind.config.*
-        - vite.config.*
-        - tsconfig*.json
-        - package.json
-        - pnpm-lock.yaml
-        - pnpm-workspace.yaml
+      glob:
+        - "src/**"
+        - "public/**"
+        - "extensions/**"
+        - "index.html"
+        - "splash.html"
+        - "components.json"
+        - "postcss.config.*"
+        - "tailwind.config.*"
+        - "vite.config.*"
+        - "tsconfig*.json"
+        - "package.json"
+        - "pnpm-lock.yaml"
+        - "pnpm-workspace.yaml"
+        - "scripts/quality/**"
+      run: pnpm run lint:fe && pnpm run test:fe && pnpm run build:fe
     backend:
-      runner: pnpm run check:be && pnpm run clippy:be && pnpm run test:be
-      only:
-        - src-tauri/**
-    i18n-guards:
-      runner: node scripts/quality/check-i18n-guards.mjs
-      only:
-        - src/**
-        - extensions/**
-    rust-cfg-hygiene:
-      runner: node scripts/quality/check-rust-cfg-hygiene.mjs --fix
-      stage_fixed: true
-      only:
-        - src-tauri/**/*.rs
-    rust-crates:
-      runner: node scripts/quality/check-rust-crates.mjs
-      only:
-        - src-tauri/**/*.rs
+      glob: "src-tauri/**"
+      run: pnpm run check:be && pnpm run clippy:be && pnpm run test:be
