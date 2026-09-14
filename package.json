@@ -6,7 +6,7 @@
   "engines": {
     "node": ">=24.15.0"
   },
-  "packageManager": "pnpm@11.8.0",
+  "packageManager": "pnpm@12.4.1",
   "scripts": {
     "setup": "node scripts/bootstrap/setup.mjs",
     "clean": "node scripts/bootstrap/clean.mjs",
