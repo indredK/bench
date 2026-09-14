@@ -1,23 +1,29 @@
-import { runCommand } from "../lib/platform.mjs"
+// Vendored by bench-quality-cli (feature: bench-guards).
+// Self-contained: shells out to `git diff --check` via node:child_process so no
+// repo-internal helper is required. (The tauri-app original imported a private
+// scripts/lib/platform.mjs; this copy avoids that coupling.)
+import { execFileSync } from "node:child_process"
 import { readFileSync, writeFileSync } from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..")
 
-// git diff --check detects trailing whitespace and "new blank line at EOF"
-// on staged content but cannot fix it. This script rewrites the offending
-// files in place (safe because the pre-commit check only runs on fully
-// staged files) and prints one `fixed:<file>` line per file so the caller
-// can re-stage them. See scripts/quality/pre-commit-check.mjs.
-const result = runCommand("git", ["diff", "--cached", "--check"], {
-  cwd: rootDir,
-  encoding: "utf8",
-})
-if (result.error) {
-  console.error(result.error.message)
-  process.exit(1)
+// git diff --check detects trailing whitespace and "new blank line at EOF" on
+// staged content but cannot fix it. This script rewrites the offending files in
+// place (safe because the pre-commit check only runs on fully staged files) and
+// prints one `fixed:<file>` line per file so the caller can re-stage them.
+let result
+try {
+  const stdout = execFileSync("git", ["diff", "--cached", "--check"], {
+    cwd: rootDir,
+    encoding: "utf8",
+  })
+  result = { status: 0, stdout, stderr: "" }
+} catch (err) {
+  result = { status: err.status ?? 1, stdout: err.stdout ?? "", stderr: err.stderr ?? "" }
 }
+
 if (result.status === 0) {
   console.log("No staged whitespace issues to fix.")
   process.exit(0)
