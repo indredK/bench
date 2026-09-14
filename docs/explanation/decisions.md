@@ -2,6 +2,50 @@
 
 本文件只记录仍影响当前实现的方向性取舍；“做什么”以 [ROADMAP.md](../roadmap/ROADMAP.md) 为准，当前风险以 [audit-report.md](./audit-report.md) 为准。已推翻和已完成历史由 Git 保留。
 
+## D-036 · 插件验证必须显式给出市场与宿主输入
+
+- **日期**：2026-09-14
+- **状态**：采纳（否定此前「空容错」实现）
+- **背景**：插件源码迁往 plugin-market 仓库后，宿主 `extensions/` 目录不再存在，`pnpm run test:extensions` 的发现集恒为空——旧实现把「零发现」当成功返回（`no extensions directory; nothing to test` → exit 0），门禁形同虚设；同时 `--id <不存在>` 也静默通过。
+- **决策**：
+  1. `scripts/plugins/test-extensions.mjs` 要求显式输入：`--market <插件源码根>` 或 `BENCH_MARKET_DIR`，宿主根默认当前仓库（可 `--host` 覆盖）；两者以 `BENCH_MARKET_DIR` / `BENCH_HOST_DIR` 传给子进程，作为插件配置解析宿主的固定接口。
+  2. 缺输入、目录不存在、零发现、`--id` 未命中、全部跳过（零实测）一律非零退出，并给出稳定错误码（`EXTENSION_MARKET_REQUIRED` / `EXTENSION_MARKET_MISSING` / `EXTENSION_ZERO_DISCOVERY` / `EXTENSION_NOT_FOUND` / `EXTENSION_ZERO_TESTED`）。
+  3. 报告 expected / discovered / tested / skipped / failed；`--json` 输出单份可解析 JSON（进度走 stderr）。
+  4. 构建侧（`build-extensions` 等）保持空容错：空集不阻断构建链，但**验证侧不再宽容**。
+- **理由**：审计确认宿主侧插件测试长期假绿；fail-closed 是唯一能恢复该门禁信用的方式，且 market 仓库成为真源后「验证什么」必须由调用者说清楚。
+- **影响**：`pnpm run test:extensions` 现在需要 `--market`；CI/市场批（P04）需先安装市场侧工具链再调用（真实运行会暴露 `Cannot find package 'vitest'`，属预期）。
+- **相关**：[test-extensions.mjs](../../scripts/plugins/test-extensions.mjs) · [extensions-contract.test.mjs](../../scripts/quality/__tests__/extensions-contract.test.mjs)
+
+## D-035 · 运行时与工具链基线：Node 26.8.2 / 最低 24.15.0、pnpm 12.4.1、Rust 1.98.1
+
+- **日期**：2026-09-14
+- **状态**：采纳
+- **背景**：`engines.node` 只声明 `>=24` 但没有任何地方验证最低线；CI 硬编码 `node-version: "24"`；`@types/node` 停在 26.x 而承诺的最低运行时是 24；pnpm 声明 11.8.0 且未验证 12；Rust 工具链在 CI 里跟随浮动的 `stable` 分支。
+- **决策**：
+  1. `engines.node = ">=24.15.0"`（jsdom 30 的下限），`.node-version = 26.8.2` 作为本机/开发/主 CI 运行时；CI 用 `node-version-file: .node-version` 读取。
+  2. 新增 `node-compat` job 跑 Node 24.15.0（安装 + lint:fe + test:fe + build:fe），并纳入 `ci-ok` 聚合——最低支持是**实测**而非声明。
+  3. `@types/node` 对齐到 `^24.13.4`：类型必须描述最老的受支持运行时，否则 Node 26 专属 API 会在本机类型检查通过、在 CI 失败。
+  4. `packageManager: pnpm@12.4.1`（lockfileVersion 仍 9.0，无需锁迁移）；`pnpm-workspace.yaml` 的 `allowBuilds.lefthook: false` 保留——pnpm 12 在构建脚本既未批准也未拒绝时会让 install 直接失败。
+  5. Rust 工具链在 `dtolnay/rust-toolchain` 上显式传 `toolchain: 1.98.1`，不再依赖 `stable` 浮动。
+  6. `scripts/lib/node-contract.mjs` 是宿主侧契约单一来源，`setup.mjs` / `menu.mjs` 在导入依赖前校验并以 `NODE_VERSION_UNSUPPORTED` 退出。
+- **影响**：本机需 `.node-version`（26.8.2）与 24.15.0 两条工具链用于对照；低版本运行 bootstrap 会得到明确诊断而不是模块报错。
+- **相关**：[.node-version](../../.node-version) · [node-contract.mjs](../../scripts/lib/node-contract.mjs) · [ci-build.yml](../../.github/workflows/ci-build.yml)
+
+## D-034 · 质量门禁由 bench-quality-cli 生成器接管（Hook 语义 + 部分暂存保护 + profile）
+
+- **日期**：2026-09-14
+- **状态**：采纳
+- **背景**：审计（R1/R2/R4）确认三处风险：`scripts:` + `only:` 对嵌套路径**不触发**（门禁可能假绿）、`src-tauri/**/*.rs` **不匹配** `src-tauri/build.rs`、自动修复（prettier/whitespace/cargo fmt）在部分暂存时会重新暂存用户未审阅的改动。同时宿主自维护的守卫副本与生成器模板开始漂移。
+- **决策**：
+  1. 全部门禁改为 `commands:` + `glob:`（glob 形态按 lefthook 2.1.14 实测选取）；删除 `only:` / 错误的 `root:`。
+  2. 新增无条件执行的 `changed-paths`：删除/重命名路径会被 lefthook 从所有文件列表剔除，只有自发现（NUL 分隔的 `git diff --cached --name-status`）才能触发对应 scope 的门禁。
+  3. **部分暂存保护写在 `.husky/pre-commit` 本体**（先于 lefthook）：lefthook 跑 pre-commit 命令前会 `git stash create`，命令内部看不到未暂存改动；两个自动修复命令再各自链一次 `guard-partial-staging.mjs`。
+  4. 守卫与 Hook 本体由 `bench-quality-cli` 生成（profile `tauri-host`），来源固定为 `CLI_SOURCE_SHA` + tarball sha256；`.bench-quality.json` 记录 profile/features/文件 hash/托管项。
+  5. `scripts/quality/**` 从 prettier 排除：格式化由工具托管的文件会让每次 `update` 变成漂移冲突。
+- **理由**：门禁必须「实际执行过」才算存在；生成器把三处风险固化为机制，且消费者侧仍保留自有条目（prettier / node-syntax / frontend / backend）。
+- **影响**：`.husky/hooks.env`（本机 PATH 调优，已 gitignore）承接机器相关路径；`check:md-links` 改用生成器 runner（原 `find -exec` 会吞掉失败退出码且未传 config）。
+- **相关**：[lefthook.yml](../../lefthook.yml) · [.bench-quality.json](../../.bench-quality.json) · [development-workflow.md §9](../how-to/development-workflow.md#9-质量门禁与工程化基线)
+
 ## D-033 · 扩展通道升级「Cookie + Web Storage + IndexedDB」全量注入；版本号双端自证
 
 - **日期**：2026-09-11

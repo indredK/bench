@@ -313,7 +313,7 @@ pnpm run extensions:pack <id>     # P4.5 交付
 ### 11.6 测试
 
 - [ ] 插件测试放 `extensions/<id>/src/__tests__/`（随代码迁入）；**每个插件建 `vitest.config.ts` + `vitest.setup.ts`**（jsdom + 与构建一致的 alias，含 `"@/i18n/config"` 重绑定），并加**页面冒烟测试**（jsdom 渲染根组件 + 最小 invoke 桩）——"打开即白屏"类回归直接浮出
-- [ ] 跑 `pnpm run test:extensions`（runner 循环全部带 vitest.config 的插件，fail-fast）；宿主 vitest 仍 exclude `extensions/**`，两套并行
+- [ ] 跑 `pnpm run test:extensions -- --market <插件源码根>`（runner 循环全部带 vitest.config 的插件，fail-fast；缺输入/零发现/零实测一律失败，见 [D-036](./decisions.md)）；宿主 vitest 仍 exclude `extensions/**`，两套并行
 - [ ] 宿主侧更新：`src/features/registry.test.tsx` 断言反转（`not.toContain` 被迁路由）；`test:critical` 名单核对（被迁 feature 的测试若在列需移除）
 - [ ] **迁走共享工具前必须查全宿主消费者**（`grep -rln` 全 src，含测试文件）：两边都用 → 各留一份副本（如 `refresh.ts`：宿主原件保留、插件内 `lib/feature-refresh.ts` 副本，与 common 快照同理）；只删不查 = 宿主测试收集直接红（P5 实测踩坑）
 

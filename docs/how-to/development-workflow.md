@@ -75,3 +75,51 @@ Rust 改动涉及窗口构建、托盘、系统 API 或外部命令时，额外�
 若出现 `window_vibrancy` 重复符号或 bitcode 加载失败，检查 `src-tauri/Cargo.toml` 的 `window-vibrancy` 是否与 Tauri 依赖版本一致，再用 `cargo update -p window-vibrancy` 更新 lockfile。不要长期并存多个不兼容版本。
 
 上游问题：[tauri#15478](https://github.com/tauri-apps/tauri/issues/15478)。
+
+## 9. 质量门禁与工程化基线
+
+取舍见 [decisions.md](../explanation/decisions.md) 的 D-034（生成器接管门禁）、D-035（运行时基线）、D-036（插件验证输入）。
+
+### 9.1 版本基线
+
+| 工具                    | 版本        | 说明                                                                                                                               |
+| ----------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Node（本机/开发/主 CI） | `26.8.2`    | 来自 [.node-version](../../.node-version)，CI 用 `node-version-file` 读取                                                          |
+| Node（最低支持）        | `>=24.15.0` | `engines.node`；CI `node-compat` job 在 24.15.0 上实跑 install / lint:fe / test:fe / build:fe                                      |
+| pnpm                    | `12.4.1`    | `packageManager`；lockfileVersion 仍 9.0；`pnpm-workspace.yaml` 的 `allowBuilds.lefthook: false` 必须保留（否则 install 直接失败） |
+| Rust                    | `1.98.1`    | CI 在 `dtolnay/rust-toolchain` 上显式传 `toolchain: 1.98.1`，不再跟随 `stable` 浮动                                                |
+
+低版本直接运行 bootstrap（`pnpm setup` / `pnpm start`）会得到 `NODE_VERSION_UNSUPPORTED: require >=24.15.0; got …`，而不是模块报错；契约单一来源是 [scripts/lib/node-contract.mjs](../../scripts/lib/node-contract.mjs)。
+
+### 9.2 提交门禁（本地 Hook）
+
+`.husky/pre-commit` → lefthook（`lefthook.yml`）→ 各 `commands` 条目：
+
+1. `changed-paths`（无条件）：删除/重命名会被 lefthook 从文件列表剔除，这里用 NUL 分隔的 git 自发现把对应 scope 的门禁重新触发。
+2. `partial-staging`：**在 hook 本体里先于 lefthook** 拒绝部分暂存（lefthook 会 `git stash create`，命令内部看不到未暂存改动）；自动修复命令再各自链一次同一个 guard。
+3. `whitespace`、`markdown-links`、`i18n-guards`、`docs-consistency`、`ci-platforms`、`workflow-hygiene`、`rust-cfg-hygiene`、`rust-crates`（按 glob 触发）。
+4. 仓库自有条目：`prettier`（stage_fixed）、`node-syntax`、`shell-syntax`、`husky-shell`、`rust-fmt`、`frontend`（lint:fe + test:fe + build:fe）、`backend`（check:be + clippy:be + test:be）。
+
+手工执行：`pnpm run check:precommit`。常见诊断：`PARTIALLY_STAGED_FILE`（stage 整个文件或先 stash）、`NODE_NOT_FOUND` / `LEFTHOOK_NOT_INSTALLED`（安装依赖或修正 PATH）、`HOOKS_NOT_WIRED`（新克隆跑 `pnpm run hooks:install`）。本机额外 PATH 放 `.husky/hooks.env`（已 gitignore，由 hook 自动 source）。
+
+### 9.3 生成器托管文件
+
+`scripts/quality/**`、`.husky/{pre-commit,commit-msg}`、`commitlint.config.js`、`.markdown-link-check.json` 由 [bench-quality-cli](https://github.com/kindred-plugin-market/bench-quality-cli)（profile `tauri-host`）生成；`.bench-quality.json` 记录 profile、features、文件 hash 与托管项。
+
+- 不要手改这些文件（prettier 也已把它们排除）：编辑会让下一次 `update` 报漂移冲突。
+- 更新：`node <cli>/bin/index.mjs update --profile tauri-host`（先 `--dry-run` 审阅）；被本地改过的文件需显式 `--accept-drift`，原件会先备份到 `.git/bench-quality-cli/backups/<batchId>/`。
+- 排障：`node <cli>/bin/index.mjs doctor --json`；中断批次用 `doctor --recover`。
+
+### 9.4 插件验证
+
+插件源码在市场仓库，宿主侧验证必须显式给输入：
+
+```bash
+pnpm run test:extensions -- --market ../plugin-market/extensions
+```
+
+缺输入、目录不存在、零发现、`--id` 未命中、零实测都会非零退出（见 decisions.md D-036）；`--json` 输出 `expected/discovered/tested/skipped/failed`。市场侧工具链需先安装（否则会看到 `Cannot find package 'vitest'`，这是真实失败而非环境噪声）。
+
+### 9.5 CI 结构
+
+`.github/workflows/ci-build.yml`：`guards`（格式警告 + lint:fe + rust-crates）、`node-compat`（24.15.0）、`frontend`（test:fe + build:fe）、`rust`（macOS/Windows：cfg → clippy → nextest → build:debug），全部由 `ci-ok` 聚合；`release-build` 挂 `ci-ok`。Action 全部固定到 commit SHA（注释标版本），`pnpm/action-setup` 固定 12.4.1，`taiki-e/install-action` 固定 `cargo-nextest@0.9.144` / `cargo-audit@0.22.2` / `cargo-deny@0.20.2`。格式类检查仍是警告（D-025），正确性检查一律阻断。
