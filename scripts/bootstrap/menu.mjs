@@ -1,8 +1,21 @@
-import * as p from "@clack/prompts"
 import { createInterface } from "node:readline"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+import { assertSupportedNode } from "../lib/node-contract.mjs"
 import { resolvePackageManager, runCommand as spawnViaPlatform } from "../lib/platform.mjs"
+
+// The runtime check runs before the interactive UI is imported: a static import
+// of @clack/prompts would pull the dependency graph in first, and an unsupported
+// runtime would then fail with a module error instead of a clear diagnostic.
+try {
+  assertSupportedNode()
+} catch (error) {
+  console.error(error.message)
+  if (error.hint) console.error(error.hint)
+  process.exit(1)
+}
+
+const p = await import("@clack/prompts")
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..")
 

@@ -1,7 +1,18 @@
 import { execSync } from "node:child_process"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+import { assertSupportedNode } from "../lib/node-contract.mjs"
 import { commandExists, resolvePackageManager, runCommand } from "../lib/platform.mjs"
+
+// Fail before touching the package manager or any dependency: a runtime below
+// the contract would otherwise fail later with an unrelated module error.
+try {
+  assertSupportedNode()
+} catch (error) {
+  console.error(error.message)
+  if (error.hint) console.error(error.hint)
+  process.exit(1)
+}
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..")
 
