@@ -2329,21 +2329,5 @@
     "bridgeMcpFailed": "Some clients failed",
     "bridgeStatusError": "Failed to load status",
     "bridgeRefresh": "Refresh status"
-  },
-  "hardwareCompare": {
-    "groupPcHardware": "PC Hardware",
-    "groupDigitalProducts": "Digital Products",
-    "filters": "Filters",
-    "clearFilters": "Clear",
-    "filteredCount": "{{count}} found",
-    "viewSource": "View benchmark source",
-    "noModelsSelected": "Select models above to compare",
-    "clearSelected": "Clear selected",
-    "collapseFilters": "Collapse filters",
-    "expandFilters": "Expand filters",
-    "autoExpandHint": "Hover to expand, click to pin",
-    "pinnedHint": "Pinned open, click for auto-expand",
-    "loadFailedTitle": "Failed to load comparison data",
-    "loadFailed": "The comparison data module could not be loaded."
   }
 }

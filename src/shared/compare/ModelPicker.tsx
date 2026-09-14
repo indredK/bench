@@ -20,6 +20,7 @@ interface ModelPickerProps<T extends { id: string; model: string }> {
   uid?: string
   selectModelsTitleKey?: string
   clearSelectedKey: string
+  noModelsKey?: string
 }
 
 function ModelPicker<T extends { id: string; model: string }>({
@@ -34,8 +35,12 @@ function ModelPicker<T extends { id: string; model: string }>({
   uid,
   selectModelsTitleKey,
   clearSelectedKey,
+  noModelsKey,
 }: ModelPickerProps<T>) {
   const { t } = useTranslation()
+  const prefix = i18nPrefix ?? "hardwareCompare"
+  const resolvedSelectModelsTitleKey = selectModelsTitleKey ?? `${prefix}.selectModels`
+  const resolvedNoModelsKey = noModelsKey ?? `${prefix}.noModelsSelected`
   const [collapsed, setCollapsed] = useState(false)
 
   return (
@@ -43,7 +48,7 @@ function ModelPicker<T extends { id: string; model: string }>({
       <CollapsibleTrigger className="group flex w-full cursor-pointer items-center justify-between select-none">
         <div className="flex min-w-0 flex-1 items-center gap-2 px-4 py-2.5">
           <span className="text-foreground/70 text-xs font-semibold tracking-wider uppercase">
-            {t(selectModelsTitleKey ?? `${i18nPrefix ?? "hardwareCompare"}.selectModels`)}
+            {t(resolvedSelectModelsTitleKey)}
           </span>
           {hasActiveFilters && (
             <span className="text-muted-foreground text-xs font-normal tabular-nums">
@@ -104,9 +109,7 @@ function ModelPicker<T extends { id: string; model: string }>({
             })}
           </div>
         ) : (
-          <p className="text-muted-foreground py-2 text-sm">
-            {t("hardwareCompare.noModelsSelected")}
-          </p>
+          <p className="text-muted-foreground py-2 text-sm">{t(resolvedNoModelsKey)}</p>
         )}
       </CollapsibleContent>
     </Collapsible>

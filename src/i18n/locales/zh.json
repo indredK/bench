@@ -2329,21 +2329,5 @@
     "bridgeMcpFailed": "部分客户端写入失败",
     "bridgeStatusError": "状态加载失败",
     "bridgeRefresh": "刷新状态"
-  },
-  "hardwareCompare": {
-    "groupPcHardware": "电脑硬件",
-    "groupDigitalProducts": "数码产品",
-    "filters": "筛选",
-    "clearFilters": "清除",
-    "filteredCount": "找到 {{count}} 个",
-    "viewSource": "查看跑分来源",
-    "noModelsSelected": "请从上方选择要对比的型号",
-    "clearSelected": "清除已选",
-    "collapseFilters": "收起筛选",
-    "expandFilters": "展开筛选",
-    "autoExpandHint": "悬停自动展开，点击固定",
-    "pinnedHint": "固定展开，点击启用自动展开",
-    "loadFailedTitle": "加载对比数据失败",
-    "loadFailed": "对比数据模块加载失败。"
   }
 }

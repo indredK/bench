@@ -8,6 +8,7 @@ import type {
 } from "@/lib/tauri/types/extension-center"
 
 import { useMarketController } from "../hooks/useMarketController"
+import { selectMetadata, useResolvedLocale } from "../lib/metadata"
 
 function VersionBadges({
   version,
@@ -57,13 +58,16 @@ function ExtensionCard({
   const sortedVersions = [...entry.versions].sort((a, b) => b.version.localeCompare(a.version))
   const installable = sortedVersions.filter((version) => !version.yanked)
   const latestInstallable = installable[0]
-  const description = entry.descriptionZh ?? entry.descriptionEn
+  const locale = useResolvedLocale()
+  const description = selectMetadata(locale, { zh: entry.descriptionZh, en: entry.descriptionEn })
 
   return (
     <div className="rounded-lg border p-4">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h3 className="text-sm font-semibold">{entry.displayZh ?? entry.displayEn}</h3>
+          <h3 className="text-sm font-semibold">
+            {selectMetadata(locale, { zh: entry.displayZh, en: entry.displayEn }, entry.id)}
+          </h3>
           <p className="text-muted-foreground text-xs">
             {entry.id}
             {entry.publisherName ? ` · ${entry.publisherName}` : ""}

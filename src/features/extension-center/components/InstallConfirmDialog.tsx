@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import type { MarketInstallPreview } from "@/lib/tauri/types/extension-center"
+import { selectMetadata, useResolvedLocale } from "../lib/metadata"
 
 /**
  * 信任披露弹窗（A4-1，对标 VS Code publisher trust）：安装前展示
@@ -27,6 +28,7 @@ export function InstallConfirmDialog({
   onCancel: () => void
 }) {
   const { t } = useTranslation()
+  const locale = useResolvedLocale()
   return (
     <Dialog open={preview !== null} onOpenChange={(open) => !open && onCancel()}>
       <DialogContent>
@@ -35,7 +37,14 @@ export function InstallConfirmDialog({
           <DialogDescription>
             {preview
               ? t("extensionCenter.market.trustDescription")
-                  .replace("{name}", preview.displayZh ?? preview.displayEn)
+                  .replace(
+                    "{name}",
+                    selectMetadata(
+                      locale,
+                      { zh: preview.displayZh, en: preview.displayEn },
+                      preview.id,
+                    ),
+                  )
                   .replace("{version}", preview.version)
                   .replace(
                     "{publisher}",

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirmDialog"
 import { useExtensionCenterController } from "@/features/extension-center/hooks/useExtensionCenterController"
 import { useMarketController } from "@/features/extension-center/hooks/useMarketController"
+import { selectMetadata, useResolvedLocale } from "@/features/extension-center/lib/metadata"
 import { BridgePanel } from "@/features/extension-center/components/BridgePanel"
 import { DiagnosticsPanel } from "@/features/extension-center/components/DiagnosticsPanel"
 import { InstallConfirmDialog } from "@/features/extension-center/components/InstallConfirmDialog"
@@ -40,6 +41,7 @@ function DistributionBadge({
 
 function InstalledPanel({
   t,
+  locale,
   items,
   loading,
   error,
@@ -50,6 +52,7 @@ function InstalledPanel({
   onUninstall,
 }: {
   t: (key: string) => string
+  locale: string
   items: ExtensionSummary[]
   loading: boolean
   error: { code: string; message: string } | null
@@ -107,7 +110,9 @@ function InstalledPanel({
             return (
               <tr key={item.id} className="border-t">
                 <td className="px-4 py-2">
-                  <div className="font-medium">{item.displayZh}</div>
+                  <div className="font-medium">
+                    {selectMetadata(locale, { zh: item.displayZh, en: item.displayEn }, item.id)}
+                  </div>
                   <div className="text-muted-foreground text-xs">{item.id}</div>
                 </td>
                 <td className="px-4 py-2 font-mono text-xs">{item.version}</td>
@@ -164,6 +169,7 @@ function InstalledPanel({
 
 export default function ExtensionCenterPage() {
   const { t } = useTranslation()
+  const locale = useResolvedLocale()
   const { items, loading, error, busyIds, refresh, open, toggleEnabled, uninstall } =
     useExtensionCenterController()
   const {
@@ -237,6 +243,7 @@ export default function ExtensionCenterPage() {
       {tab === "installed" && (
         <InstalledPanel
           t={t}
+          locale={locale}
           items={items}
           loading={loading}
           error={error}
@@ -268,7 +275,11 @@ export default function ExtensionCenterPage() {
           uninstallTarget
             ? t("extensionCenter.uninstallConfirmDescription").replace(
                 "{name}",
-                uninstallTarget.displayZh,
+                selectMetadata(
+                  locale,
+                  { zh: uninstallTarget.displayZh, en: uninstallTarget.displayEn },
+                  uninstallTarget.id,
+                ),
               )
             : ""
         }

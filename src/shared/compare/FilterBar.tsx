@@ -36,6 +36,7 @@ interface FilterBarProps<T extends { id: string; model: string }> {
   uid?: string
   selectModelsTitleKey?: string
   clearSelectedKey?: string
+  noModelsKey?: string
 }
 
 function FilterBar<T extends { id: string; model: string }>({
@@ -45,11 +46,11 @@ function FilterBar<T extends { id: string; model: string }>({
   onFilterChange,
   onClearFilters,
   resultCount,
-  filterTitleKey = "hardwareCompare.filters",
-  clearFiltersKey = "hardwareCompare.clearFilters",
-  filteredCountKey = "hardwareCompare.filteredCount",
-  autoExpandHintKey = "hardwareCompare.autoExpandHint",
-  pinnedHintKey = "hardwareCompare.pinnedHint",
+  filterTitleKey,
+  clearFiltersKey,
+  filteredCountKey,
+  autoExpandHintKey,
+  pinnedHintKey,
   models,
   selectedIds,
   onToggleModel,
@@ -57,9 +58,21 @@ function FilterBar<T extends { id: string; model: string }>({
   i18nPrefix,
   uid,
   selectModelsTitleKey,
-  clearSelectedKey = "hardwareCompare.clearSelected",
+  clearSelectedKey,
+  noModelsKey,
 }: FilterBarProps<T>) {
   const { t } = useTranslation()
+  // 文案 key 跟随消费者传入的 i18nPrefix：硬件插件传 "hardwareCompare" 即解析为其私有视图文案；
+  // 宿主 env-detector 等通过显式 key 覆盖。共享组件不再硬编码硬件专属默认文本。
+  const prefix = i18nPrefix ?? "hardwareCompare"
+  const resolvedFilterTitleKey = filterTitleKey ?? `${prefix}.filters`
+  const resolvedClearFiltersKey = clearFiltersKey ?? `${prefix}.clearFilters`
+  const resolvedFilteredCountKey = filteredCountKey ?? `${prefix}.filteredCount`
+  const resolvedAutoExpandHintKey = autoExpandHintKey ?? `${prefix}.autoExpandHint`
+  const resolvedPinnedHintKey = pinnedHintKey ?? `${prefix}.pinnedHint`
+  const resolvedSelectModelsTitleKey = selectModelsTitleKey ?? `${prefix}.selectModels`
+  const resolvedClearSelectedKey = clearSelectedKey ?? `${prefix}.clearSelected`
+  const resolvedNoModelsKey = noModelsKey ?? `${prefix}.noModelsSelected`
   const hasActiveFilters = Object.keys(filters).length > 0
   const [masterCollapsed, setMasterCollapsed] = useState(false)
   const [autoMode, setAutoMode] = useState(false)
@@ -123,7 +136,7 @@ function FilterBar<T extends { id: string; model: string }>({
         onClick={toggleMaster}
       >
         <span className="text-foreground/70 text-xs font-semibold tracking-wider uppercase">
-          {t(filterTitleKey)}
+          {t(resolvedFilterTitleKey)}
         </span>
         <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
           <Button
@@ -134,7 +147,7 @@ function FilterBar<T extends { id: string; model: string }>({
             disabled={!hasActiveFilters}
           >
             <RotateCcw className="size-2.5 shrink-0" />
-            {t(clearFiltersKey)}
+            {t(resolvedClearFiltersKey)}
           </Button>
           <Button
             variant="ghost"
@@ -146,7 +159,7 @@ function FilterBar<T extends { id: string; model: string }>({
                 : "bg-primary/10 text-primary hover:bg-primary/20 ring-primary/20 ring-1",
             )}
             onClick={toggleMaster}
-            title={autoMode ? t(autoExpandHintKey) : t(pinnedHintKey)}
+            title={autoMode ? t(resolvedAutoExpandHintKey) : t(resolvedPinnedHintKey)}
           >
             {autoMode ? (
               <PinOff className="size-3.5 transition-transform duration-300 group-hover:scale-110" />
@@ -188,11 +201,12 @@ function FilterBar<T extends { id: string; model: string }>({
                     onClearSelected={modelPicker.onClearSelected}
                     hasActiveFilters={hasActiveFilters}
                     resultCount={resultCount}
-                    filteredCountKey={filteredCountKey}
+                    filteredCountKey={resolvedFilteredCountKey}
                     i18nPrefix={i18nPrefix}
                     uid={uid}
-                    selectModelsTitleKey={selectModelsTitleKey}
-                    clearSelectedKey={clearSelectedKey}
+                    selectModelsTitleKey={resolvedSelectModelsTitleKey}
+                    clearSelectedKey={resolvedClearSelectedKey}
+                    noModelsKey={resolvedNoModelsKey}
                   />
                 </>
               )}
