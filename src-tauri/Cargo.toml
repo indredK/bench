@@ -83,7 +83,7 @@ tauri-plugin-updater = "2.10.1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 core-foundation = "0.10"
-window-vibrancy = "0.6"
+window-vibrancy = "0.8"
 # 禁用 WKWebView 原生橡皮筋（overscroll bounce）时需要，版本与 Tauri 2.11.5 内部一致，
 # 精确锁定避免依赖树出现第二个 objc2 副本导致类型/链接冲突。
 # disable-encoding-assertions：objc2 0.6 的 msg_send! 在 debug 构建下会严格校验
