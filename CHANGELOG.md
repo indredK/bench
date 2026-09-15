@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.35.1](https://github.com/indredK/bench/compare/v1.35.0...v1.35.1) (2026-09-15)
+
+
+### Bug Fixes
+
+* **ci:** install release targets for pinned rust toolchain ([332a3ab](https://github.com/indredK/bench/commit/332a3abbe609772b8dd903beb052b534ba6705f8))
+
 ## [1.35.0](https://github.com/indredK/bench/compare/v1.34.0...v1.35.0) (2026-09-14)
 
 
