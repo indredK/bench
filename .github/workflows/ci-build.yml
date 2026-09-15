@@ -61,9 +61,9 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
-          version: 12.4.1
-          # standalone：直接下载 @pnpm/exe@12.4.1 单二进制。非 standalone 在 Windows
-          # 经 npm self-installer 落地 11.7.0 再被 packageManager 自切 12.4.1，
+          version: 12.4.2
+          # standalone：直接下载 @pnpm/exe@12.4.2 单二进制。非 standalone 在 Windows
+          # 经 npm self-installer 落地 11.7.0 再被 packageManager 自切 12.4.2，
           # CMD shim 指向不存在的 global/v11 路径，`pnpm store path`（setup-node
           # cache）即断链（run 575 实测）。
           standalone: true
@@ -129,9 +129,9 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
-          version: 12.4.1
-          # standalone：直接下载 @pnpm/exe@12.4.1 单二进制。非 standalone 在 Windows
-          # 经 npm self-installer 落地 11.7.0 再被 packageManager 自切 12.4.1，
+          version: 12.4.2
+          # standalone：直接下载 @pnpm/exe@12.4.2 单二进制。非 standalone 在 Windows
+          # 经 npm self-installer 落地 11.7.0 再被 packageManager 自切 12.4.2，
           # CMD shim 指向不存在的 global/v11 路径，`pnpm store path`（setup-node
           # cache）即断链（run 575 实测）。
           standalone: true
@@ -167,9 +167,9 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
-          version: 12.4.1
-          # standalone：直接下载 @pnpm/exe@12.4.1 单二进制。非 standalone 在 Windows
-          # 经 npm self-installer 落地 11.7.0 再被 packageManager 自切 12.4.1，
+          version: 12.4.2
+          # standalone：直接下载 @pnpm/exe@12.4.2 单二进制。非 standalone 在 Windows
+          # 经 npm self-installer 落地 11.7.0 再被 packageManager 自切 12.4.2，
           # CMD shim 指向不存在的 global/v11 路径，`pnpm store path`（setup-node
           # cache）即断链（run 575 实测）。
           standalone: true
@@ -223,9 +223,9 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
-          version: 12.4.1
-          # standalone：直接下载 @pnpm/exe@12.4.1 单二进制。非 standalone 在 Windows
-          # 经 npm self-installer 落地 11.7.0 再被 packageManager 自切 12.4.1，
+          version: 12.4.2
+          # standalone：直接下载 @pnpm/exe@12.4.2 单二进制。非 standalone 在 Windows
+          # 经 npm self-installer 落地 11.7.0 再被 packageManager 自切 12.4.2，
           # CMD shim 指向不存在的 global/v11 路径，`pnpm store path`（setup-node
           # cache）即断链（run 575 实测）。
           standalone: true
@@ -322,9 +322,9 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
-          version: 12.4.1
-          # standalone：直接下载 @pnpm/exe@12.4.1 单二进制。非 standalone 在 Windows
-          # 经 npm self-installer 落地 11.7.0 再被 packageManager 自切 12.4.1，
+          version: 12.4.2
+          # standalone：直接下载 @pnpm/exe@12.4.2 单二进制。非 standalone 在 Windows
+          # 经 npm self-installer 落地 11.7.0 再被 packageManager 自切 12.4.2，
           # CMD shim 指向不存在的 global/v11 路径，`pnpm store path`（setup-node
           # cache）即断链（run 575 实测）。
           standalone: true
@@ -650,7 +650,10 @@ jobs:
           if gh release view "$TAG_NAME" >/dev/null 2>&1; then
             gh release view "$TAG_NAME" --json body,publishedAt > release-metadata.json
           else
-            published_at="$(git show -s --format=%cI "$TAG_NAME")"
+            # dry-run 用合成 tag（例如 v1.35.1-verify），检出不里没有这个 ref：退回 HEAD 的
+            # 提交时间。预检（校验资产/签名/生成 latest.json）不应因为一个不存在的 tag 失败，
+            # 也不该因此制造任何 GitHub 变更。
+            published_at="$(git show -s --format=%cI "$TAG_NAME" 2>/dev/null || git show -s --format=%cI HEAD)"
             jq -n --arg publishedAt "$published_at" '{body: "", publishedAt: $publishedAt}' > release-metadata.json
           fi
 

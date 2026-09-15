@@ -86,7 +86,7 @@ Rust 改动涉及窗口构建、托盘、系统 API 或外部命令时，额外�
 | ----------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | Node（本机/开发/主 CI） | `26.8.2`    | 来自 [.node-version](../../.node-version)，CI 用 `node-version-file` 读取                                                          |
 | Node（最低支持）        | `>=24.15.0` | `engines.node`；CI `node-compat` job 在 24.15.0 上实跑 install / lint:fe / test:fe / build:fe                                      |
-| pnpm                    | `12.4.1`    | `packageManager`；lockfileVersion 仍 9.0；`pnpm-workspace.yaml` 的 `allowBuilds.lefthook: false` 必须保留（否则 install 直接失败） |
+| pnpm                    | `12.4.2`    | `packageManager`；lockfileVersion 仍 9.0；`pnpm-workspace.yaml` 的 `allowBuilds.lefthook: false` 必须保留（否则 install 直接失败） |
 | Rust                    | `1.98.1`    | CI 在 `dtolnay/rust-toolchain` 上显式传 `toolchain: 1.98.1`，不再跟随 `stable` 浮动                                                |
 
 低版本直接运行 bootstrap（`pnpm setup` / `pnpm start`）会得到 `NODE_VERSION_UNSUPPORTED: require >=24.15.0; got …`，而不是模块报错；契约单一来源是 [scripts/lib/node-contract.mjs](../../scripts/lib/node-contract.mjs)。
@@ -122,4 +122,4 @@ pnpm run test:extensions -- --market ../plugin-market/extensions
 
 ### 9.5 CI 结构
 
-`.github/workflows/ci-build.yml`：`guards`（格式警告 + lint:fe + rust-crates）、`node-compat`（24.15.0）、`frontend`（test:fe + build:fe）、`rust`（macOS/Windows：cfg → clippy → nextest → build:debug），全部由 `ci-ok` 聚合；`release-build` 挂 `ci-ok`。Action 全部固定到 commit SHA（注释标版本），`pnpm/action-setup` 固定 12.4.1，`taiki-e/install-action` 固定 `cargo-nextest@0.9.144` / `cargo-audit@0.22.2` / `cargo-deny@0.20.2`。格式类检查仍是警告（D-025），正确性检查一律阻断。
+`.github/workflows/ci-build.yml`：`guards`（格式警告 + lint:fe + rust-crates）、`node-compat`（24.15.0）、`frontend`（test:fe + build:fe）、`rust`（macOS/Windows：cfg → clippy → nextest → build:debug），全部由 `ci-ok` 聚合；`release-build` 挂 `ci-ok`。Action 全部固定到 commit SHA（注释标版本），`pnpm/action-setup` 固定 12.4.2，`taiki-e/install-action` 固定 `cargo-nextest@0.9.144` / `cargo-audit@0.22.2` / `cargo-deny@0.20.2`。格式类检查仍是警告（D-025），正确性检查一律阻断。

@@ -16,7 +16,7 @@
 - **影响**：`pnpm run test:extensions` 现在需要 `--market`；CI/市场批（P04）需先安装市场侧工具链再调用（真实运行会暴露 `Cannot find package 'vitest'`，属预期）。
 - **相关**：[test-extensions.mjs](../../scripts/plugins/test-extensions.mjs) · [extensions-contract.test.mjs](../../scripts/quality/__tests__/extensions-contract.test.mjs)
 
-## D-035 · 运行时与工具链基线：Node 26.8.2 / 最低 24.15.0、pnpm 12.4.1、Rust 1.98.1
+## D-035 · 运行时与工具链基线：Node 26.8.2 / 最低 24.15.0、pnpm 12.4.2、Rust 1.98.1
 
 - **日期**：2026-09-14
 - **状态**：采纳
@@ -25,7 +25,7 @@
   1. `engines.node = ">=24.15.0"`（jsdom 30 的下限），`.node-version = 26.8.2` 作为本机/开发/主 CI 运行时；CI 用 `node-version-file: .node-version` 读取。
   2. 新增 `node-compat` job 跑 Node 24.15.0（安装 + lint:fe + test:fe + build:fe），并纳入 `ci-ok` 聚合——最低支持是**实测**而非声明。
   3. `@types/node` 对齐到 `^24.13.4`：类型必须描述最老的受支持运行时，否则 Node 26 专属 API 会在本机类型检查通过、在 CI 失败。
-  4. `packageManager: pnpm@12.4.1`（lockfileVersion 仍 9.0，无需锁迁移）；`pnpm-workspace.yaml` 的 `allowBuilds.lefthook: false` 保留——pnpm 12 在构建脚本既未批准也未拒绝时会让 install 直接失败。
+  4. `packageManager: pnpm@12.4.2`（lockfileVersion 仍 9.0，无需锁迁移）；`pnpm-workspace.yaml` 的 `allowBuilds.lefthook: false` 保留——pnpm 12 在构建脚本既未批准也未拒绝时会让 install 直接失败。
   5. Rust 工具链在 `dtolnay/rust-toolchain` 上显式传 `toolchain: 1.98.1`，不再依赖 `stable` 浮动。
   6. `scripts/lib/node-contract.mjs` 是宿主侧契约单一来源，`setup.mjs` / `menu.mjs` 在导入依赖前校验并以 `NODE_VERSION_UNSUPPORTED` 退出。
 - **影响**：本机需 `.node-version`（26.8.2）与 24.15.0 两条工具链用于对照；低版本运行 bootstrap 会得到明确诊断而不是模块报错。
