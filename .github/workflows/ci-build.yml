@@ -84,18 +84,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # D-025：格式漂移不阻塞 CI——本地 pre-commit 会自动修复并 re-stage，
-      # CI 走到这一步还失败只可能是 --no-verify 提交或 bot PR，降为警告。
-      - name: Check repository formatting (non-blocking)
-        id: format_check
-        continue-on-error: true
+      # T28：格式漂移现在阻塞 CI（收进 ci-ok 聚合的 required check）。
+      # main 已零漂移，且 pre-commit 对 staged 文件自动修复入库；让格式成为
+      # 门禁可杜绝绕过 hooks 的提交与 bot PR 引入漂移。D-025 的非阻塞分级已撤销。
+      - name: Check repository formatting
         run: pnpm run format:check
-
-      - name: Report formatting drift as warning
-        if: ${{ always() && steps.format_check.outcome == 'failure' }}
-        run: |
-          echo "::warning::存在 Prettier 格式漂移，本检查不阻塞 CI（决策 D-025）。"
-          echo "::warning::修复方式：pnpm run format（本地 pre-commit 对 staged 文件自动修复）。"
 
       - name: Run frontend static guards
         run: pnpm run lint:fe
@@ -103,17 +96,9 @@ jobs:
       - name: Check Rust crate declarations
         run: node scripts/quality/check-rust-crates.mjs
 
-      # D-025：Rust 格式漂移同样不阻塞 CI（pre-commit 对 staged .rs 自动 cargo fmt）。
-      - name: Check Rust formatting (non-blocking)
-        id: rustfmt_check
-        continue-on-error: true
+      # T28：Rust 格式同样阻塞 CI。
+      - name: Check Rust formatting
         run: pnpm run format:be
-
-      - name: Report Rust formatting drift as warning
-        if: ${{ always() && steps.rustfmt_check.outcome == 'failure' }}
-        run: |
-          echo "::warning::存在 cargo fmt 格式漂移，本检查不阻塞 CI（决策 D-025）。"
-          echo "::warning::修复方式：cd src-tauri && cargo fmt --all"
 
   # DEP-01：最低支持运行时（24.15.0）的兼容验证。主 CI 固定 26.8.2，
   # 这里只证明最低版本线仍可安装并跑通静态门禁 + 前端测试/构建。
