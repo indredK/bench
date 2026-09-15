@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.35.0](https://github.com/indredK/bench/compare/v1.34.0...v1.35.0) (2026-09-14)
+
+
+### Features
+
+* **extension:** 新增 ext_capabilities 能力面自助发现 ([3a9be6e](https://github.com/indredK/bench/commit/3a9be6ef20d97b3ad88b176446ae849b616aba02))
+* **tauri:** expose explicit market verification inputs ([48c1921](https://github.com/indredK/bench/commit/48c1921ff3383749c97a1212adcae31f1306a716))
+
+
+### Bug Fixes
+
+* **ci:** install pnpm standalone to unbreak windows job ([945dc48](https://github.com/indredK/bench/commit/945dc48afaae1280a6b5a108845884622edf5d1b))
+* **deps:** bump rustls to 0.23.45 for RUSTSEC-2026-0285 ([787b85d](https://github.com/indredK/bench/commit/787b85d655aa4d7ae353985a770654f78e4cc8dc))
+* **docs:** point plugin doc links to github instead of cross-repo paths ([053897a](https://github.com/indredK/bench/commit/053897a8983dbc4a8fd2494dd30658c9b40863a6))
+* **tauri:** commit the manifest counterparts of the DEP-08 migrations ([1003f48](https://github.com/indredK/bench/commit/1003f484e22ec81846794ca191b70796868f53d4))
+* **tauri:** make the markdown link gate fail closed ([990b6a8](https://github.com/indredK/bench/commit/990b6a80d7b2a9a68082f1e203b979649701d73a))
+* **tauri:** protect staged changes in quality hooks ([d9a015b](https://github.com/indredK/bench/commit/d9a015b8419f362d43729c558573562b98fdf420))
+
 ## [1.34.0](https://github.com/indredK/bench/compare/v1.33.0...v1.34.0) (2026-09-13)
 
 
