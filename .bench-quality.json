@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "generator": {
     "name": "bench-quality-cli",
-    "version": "0.1.0"
+    "version": "0.1.1"
   },
   "profile": "tauri-host",
   "features": ["commitlint", "markdown", "bench-guards"],
@@ -25,8 +25,9 @@
     ".husky/pre-commit": "89c8e30d5a2d6da40e67899ad4419daa8f24eeb222b3953e90ae1591e727f811",
     ".husky/commit-msg": "5456d621c4bd546c9d4fdecbc8a285a5e667f215645b2d52f03e865365d6394c",
     "lefthook.yml": "f635278a4c103ab115e09e916beaf4d4c8b2e8c74d93e7f283d18c1a14d396d0",
-    "package.json": "251225d58a8b69334a80533fdc171078e2712a527b4a991eb145874d954f1eb9",
-    "pnpm-workspace.yaml": "44702a2ede700eae6da226fb8f2d607702ce61c6641d145b2b811f62aa2a1517"
+    "package.json": "4349148234726e62d5a02ddf262ec43bfa40378f0746f41c0c248b899c39cfab",
+    "pnpm-workspace.yaml": "c091ad7e06db0d72ca7596fd477b5320eb287086243ab7d36e1581e5a8fc0707",
+    ".prettierignore": "8785fce45ea3d58be144702848f9b273e38186d1b5058a5c0da3d7a4f4bb70a1"
   },
   "packageJson": {
     "managed": {
@@ -50,6 +51,15 @@
       }
     }
   },
+  "prettierIgnore": {
+    "managedLines": [
+      "scripts/quality/",
+      "commitlint.config.js",
+      "lefthook.yml",
+      "pnpm-workspace.yaml",
+      ".husky/"
+    ]
+  },
   "lefthook": {
     "managedEntries": [
       "pre-commit.commands.partial-staging",
@@ -70,8 +80,8 @@
     "previousHooksPath": ".husky"
   },
   "batch": {
-    "id": "20260914T162630-3hfm",
-    "startedAt": "2026-09-14T16:26:30.797Z",
-    "finishedAt": "2026-09-14T16:26:30.805Z"
+    "id": "20260915T144357-o53c",
+    "startedAt": "2026-09-15T14:43:57.208Z",
+    "finishedAt": "2026-09-15T14:43:57.249Z"
   }
 }

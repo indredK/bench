@@ -16,4 +16,4 @@ export default {
     // Bench-only deviation: allow long body lines (docs/desc occasionally need it).
     "body-max-line-length": [2, "always", 500],
   },
-}
+};
