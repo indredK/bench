@@ -11,3 +11,12 @@ pnpm-lock.yaml
 CHANGELOG.md
 .release-please-manifest.json
 src-tauri/tauri.conf.json
+
+# bench-quality-cli managed — 以下路径由生成器拥有（init/update 维护），
+# 消费者格式器不得重排；否则 doctor 会把格式差异报成本地改动。
+scripts/quality/
+commitlint.config.js
+lefthook.yml
+pnpm-workspace.yaml
+.husky/
+# /bench-quality-cli managed
