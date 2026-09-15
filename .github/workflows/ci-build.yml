@@ -61,9 +61,9 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
-          version: 12.4.1
-          # standalone：直接下载 @pnpm/exe@12.4.1 单二进制。非 standalone 在 Windows
-          # 经 npm self-installer 落地 11.7.0 再被 packageManager 自切 12.4.1，
+          version: 12.4.2
+          # standalone：直接下载 @pnpm/exe@12.4.2 单二进制。非 standalone 在 Windows
+          # 经 npm self-installer 落地 11.7.0 再被 packageManager 自切 12.4.2，
           # CMD shim 指向不存在的 global/v11 路径，`pnpm store path`（setup-node
           # cache）即断链（run 575 实测）。
           standalone: true
@@ -129,9 +129,9 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
-          version: 12.4.1
-          # standalone：直接下载 @pnpm/exe@12.4.1 单二进制。非 standalone 在 Windows
-          # 经 npm self-installer 落地 11.7.0 再被 packageManager 自切 12.4.1，
+          version: 12.4.2
+          # standalone：直接下载 @pnpm/exe@12.4.2 单二进制。非 standalone 在 Windows
+          # 经 npm self-installer 落地 11.7.0 再被 packageManager 自切 12.4.2，
           # CMD shim 指向不存在的 global/v11 路径，`pnpm store path`（setup-node
           # cache）即断链（run 575 实测）。
           standalone: true
@@ -167,9 +167,9 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
-          version: 12.4.1
-          # standalone：直接下载 @pnpm/exe@12.4.1 单二进制。非 standalone 在 Windows
-          # 经 npm self-installer 落地 11.7.0 再被 packageManager 自切 12.4.1，
+          version: 12.4.2
+          # standalone：直接下载 @pnpm/exe@12.4.2 单二进制。非 standalone 在 Windows
+          # 经 npm self-installer 落地 11.7.0 再被 packageManager 自切 12.4.2，
           # CMD shim 指向不存在的 global/v11 路径，`pnpm store path`（setup-node
           # cache）即断链（run 575 实测）。
           standalone: true
@@ -223,9 +223,9 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
-          version: 12.4.1
-          # standalone：直接下载 @pnpm/exe@12.4.1 单二进制。非 standalone 在 Windows
-          # 经 npm self-installer 落地 11.7.0 再被 packageManager 自切 12.4.1，
+          version: 12.4.2
+          # standalone：直接下载 @pnpm/exe@12.4.2 单二进制。非 standalone 在 Windows
+          # 经 npm self-installer 落地 11.7.0 再被 packageManager 自切 12.4.2，
           # CMD shim 指向不存在的 global/v11 路径，`pnpm store path`（setup-node
           # cache）即断链（run 575 实测）。
           standalone: true
@@ -322,9 +322,9 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
-          version: 12.4.1
-          # standalone：直接下载 @pnpm/exe@12.4.1 单二进制。非 standalone 在 Windows
-          # 经 npm self-installer 落地 11.7.0 再被 packageManager 自切 12.4.1，
+          version: 12.4.2
+          # standalone：直接下载 @pnpm/exe@12.4.2 单二进制。非 standalone 在 Windows
+          # 经 npm self-installer 落地 11.7.0 再被 packageManager 自切 12.4.2，
           # CMD shim 指向不存在的 global/v11 路径，`pnpm store path`（setup-node
           # cache）即断链（run 575 实测）。
           standalone: true
