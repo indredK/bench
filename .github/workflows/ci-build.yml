@@ -338,7 +338,22 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable (branch pinned; bump manually on toolchain update)
         with:
+          # T24：toolchain 必须精确指定。省略时 action 只把 target 装到浮动的
+          # `stable-<host>` 上，而 cargo 走 rust-toolchain.toml 的 1.98.1，两者是
+          # 不同的 rustup toolchain → 构建时报 `can't find crate for std`。
+          toolchain: 1.98.1
           targets: ${{ matrix.target }}
+
+      # 发布前把「实际使用的 toolchain 与已安装 target」打进日志：上面两个名字
+      # 不匹配时构建会以晦涩的 std 缺失失败，这一步让故障在 30 秒内可诊断。
+      - name: Verify release target is installed
+        env:
+          RELEASE_TARGET: ${{ matrix.target }}
+        shell: bash
+        run: |
+          rustc --version
+          rustup target list --installed
+          rustup target list --installed | grep -Fx "$RELEASE_TARGET"
 
       - name: Cache Rust build outputs
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
