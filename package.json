@@ -59,7 +59,6 @@
     "extensions:build": "node scripts/plugins/build-extensions.mjs",
     "extensions:stage": "node scripts/plugins/stage-bundled-extensions.mjs",
     "audit:ext-i18n": "node scripts/plugins/audit-extension-i18n.mjs",
-    "sync:ext-repos": "node scripts/plugins/sync-extension-repos.mjs",
     "update:ext-registry": "node scripts/plugins/update-extension-registry.mjs",
     "pack:ext": "node scripts/plugins/pack-extension.mjs",
     "check:changed-paths": "node scripts/quality/check-changed-paths.mjs"

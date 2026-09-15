@@ -163,7 +163,7 @@ src-tauri/src/<domain>/  — 命令实现
 
 ## §5 目录源码地图（供 AI 文件导航用）
 
-> **插件位置说明（2026-09-14 对齐 DOC-05）**：下列模块已以**插件**形态存在——宿主 `src/extensions/<id>/` 开发，并经 `pnpm run sync:ext-repos` 同步到官方集合仓 `kindred-plugin-market/plugin-market/extensions/<id>/`（插件真相源）：`photo-triage` / `clean-space` / `hardware` / `terminology` / `quick-launch` / `app-manager` / `token-calculator`。其前端源码已迁出宿主 `features/`，**后端能力面（Rust 命令 / ACL）仍归属宿主**；下方 `features/` 中这些条目保留的是宿主侧承载与共享组件引用，并非插件前端位置。
+> **插件位置说明（2026-09-14 对齐 DOC-05）**：下列模块已以**插件**形态存在——插件源码唯一真相源 = 官方集合仓 `kindred-plugin-market/plugin-market/extensions/<id>/`（宿主 `src/extensions/<id>/` 不再持有前端源码，构建/runtime host 由 Bench 提供，不再经 `sync:ext-repos` 同步，见 extension-workflow.md §12）：`photo-triage` / `clean-space` / `hardware` / `terminology` / `quick-launch` / `app-manager` / `token-calculator`。其前端源码已迁出宿主 `features/`，**后端能力面（Rust 命令 / ACL）仍归属宿主**；下方 `features/` 中这些条目保留的是宿主侧承载与共享组件引用，并非插件前端位置。
 
 ```
 src/

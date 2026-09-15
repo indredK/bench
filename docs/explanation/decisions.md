@@ -172,8 +172,8 @@
 ## D-025 · CI 运行时治理、供应链加固与格式类检查降级为警告
 
 - **日期**：2026-09-09
-- **状态**：采纳
-- **背景**：对「本地提交检查 vs CI/CD 门禁」做系统性梳理后，识别出 CI 运行时治理与 action 供应链两处缺口（PR 迭代不取消旧 run、无 timeout、actions 以可变 tag 引用、run 块内直接插值不可信上下文、workflow 顶层 write 权限过宽）。同时确立格式类问题的分级策略：格式/空白属「不影响代码运行」且本地 pre-commit 已自动修复（prettier --write / cargo fmt / whitespace fix 均 re-stage 入库），CI 端失败只可能来自绕过 hooks 的提交或 bot PR，阻塞双平台 verify 的收益低于成本。
+- **状态**：采纳（格式分级于 T28 撤销：格式检查改为 CI 门禁，阻塞合并）
+- **背景**：对「本地提交检查 vs CI/CD 门禁」做系统性梳理后，识别出 CI 运行时治理与 action 供应链两处缺口（PR 迭代不取消旧 run、无 timeout、actions 以可变 tag 引用、run 块内直接插值不可信上下文、workflow 顶层 write 权限过宽）。同时确立格式类问题的分级策略：格式/空白属「不影响代码运行」且本地 pre-commit 已自动修复（prettier --write / cargo fmt / whitespace fix 均 re-stage 入库），CI 端失败只可能来自绕过 hooks 的提交或 bot PR，阻塞双平台 verify 的收益低于成本。**该格式降级分级已被 T28 撤销。**
 - **决策**：
   1. **concurrency**：全部 workflow 增加顶层 `concurrency`（`cancel-in-progress`）；ci-build 对 tag push（正式发布链路）不取消，防止发布构建被误中断。
   2. **timeout-minutes**：所有 job 显式设置（verify 75 / release-build 90 / publish 40 / security 30 / 其余 10–5），不再依赖 6 小时默认上限。
@@ -442,3 +442,16 @@
 - **决策**：所有 AI 工具入口导向 `AGENTS.md`；裁决优先级为 `.cursorrules > AGENTS.md > docs/*.md`。文档未覆盖、规则冲突、危险操作或不理解既有模式时必须停止并询问用户。
 - **理由**：工具的物理入口无法统一，但逻辑入口和防呆行为可以统一；猜错的代价高于多问一次。
 - **相关**：[AGENTS.md](../../AGENTS.md) · [.cursorrules](../../.cursorrules) · [AI workflows](../how-to/ai-workflows.md)
+
+## T28 · 格式检查升级为 CI 门禁（撤销 D-025 的格式降级）
+
+- **日期**：2026-09-16
+- **状态**：采纳（supersede D-025 的「格式类检查降级为警告」分级）
+- **背景**：工程化第二阶段收尾时，D-025 将 Prettier / cargo fmt 降级为 `continue-on-error` 警告，理由是 pre-commit 已自动修复入库。但 R08 复核指出：非阻塞让绕过 hooks 的提交（`--no-verify`）与 bot PR 持续引入格式漂移，且规则集 required check 不含格式，等于没有格式门禁。第二阶段末 main 已零漂移（prettier 全绿、rustfmt 无输出），具备改为阻塞的条件。
+- **决策**：
+  1. `ci-build.yml` 的 `guards` job 内 `Check repository formatting` 与 `Check Rust formatting` 移除 `continue-on-error: true`，并删除对应的 warning 报告步骤；格式失败现在使 job 失败 → 失败 `CI OK (aggregate)` → PR 合并被 required check 阻断。
+  2. 本地 `pnpm run verify` 本就含 `format:check` + `format:be`，与 CI 同源；开发者用 `pnpm run format` / `cargo fmt --all` 在提交前自修。
+  3. D-025 其余运行时治理（concurrency / timeout / action 供应链 pin / 最小权限）保持不变，仅撤销格式降级部分。
+- **理由**：格式门禁是「单次失败即红灯」的低噪信号，避免漂移累积；main 已零漂移，切换无即期成本。
+- **影响**：新增 PR 若含格式漂移会被阻断（提示运行 `pnpm run format`）；历史无格式债。
+- **相关**：[ci-build.yml](../../.github/workflows/ci-build.yml) · [D-025](#d-025--ci-运行时治理供应链加固与格式类检查降级为警告)

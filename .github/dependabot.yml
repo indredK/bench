@@ -1,0 +1,37 @@
+version: 2
+updates:
+  # Rust 依赖（src-tauri）。gtk-rs / webkit2gtk 等原生 crate 的发布节奏与
+  # 系统库（glib）强耦合，Dependabot 无法安全自动升级且历史报错，故显式忽略；
+  # 其余 Rust 依赖正常提 PR。
+  - package-ecosystem: "cargo"
+    directory: "/src-tauri"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    ignore:
+      - dependency-name: "glib"
+      - dependency-name: "glib-sys"
+      - dependency-name: "gio"
+      - dependency-name: "gio-sys"
+      - dependency-name: "gtk"
+      - dependency-name: "gtk4"
+      - dependency-name: "webkit2gtk"
+      - dependency-name: "webkit2gtk-sys"
+      - dependency-name: "gobject-sys"
+      - dependency-name: "pango"
+      - dependency-name: "cairo"
+
+  # 前端依赖（pnpm workspace 根）
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+
+  # GitHub Actions 供应链（与 ci-build.yml 的 action SHA pin 互补：pin 防漂移，
+  # Dependabot 负责把 pin 往前推）
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10

@@ -278,7 +278,7 @@ pnpm run extensions:pack <id>     # P4.5 交付
 
 - [ ] 建目录 `extensions/<id>/`：`manifest.json`（schema v2）+ `vite.config.ts` + `index.html` + `src/` + `locales/{zh,en}.json`（对照任一现有插件脚手架）
 - [ ] `vite.config.ts`：`base: "./"` 铁律；`@` → 宿主 `src/`（复用 UI 组件/契约 wrapper，随 bundle 打包）；`@extension` → 插件 `src/`；outDir `assets/`
-- [ ] 插件源码位于宿主 `src/extensions/<id>/`（与 `kindred-plugin-market/plugin-market/extensions/<id>/` 经 `sync:ext-repos` 双向同步；AppFeature 描述符 `feature.tsx` 是宿主概念，不随插件走）；内部 `@/features/<id>/` 引用改 `@extension/`
+- [ ] 插件源码位于宿主 `src/extensions/<id>/`（插件唯一真相源 = `kindred-plugin-market/plugin-market/extensions/<id>/`，不再经 `sync:ext-repos` 同步回 Bench；AppFeature 描述符 `feature.tsx` 是宿主概念，不随插件走）；内部 `@/features/<id>/` 引用改 `@extension/`
 - [ ] 插件私有子能力（如 dev-cleaner）作 `src/<sub>/` 子目录随迁
 - [ ] 宿主独占实例的引用要换成插件内实例：数据模块若 import `@/i18n/config`（宿主 i18n，会把全量语言资源拖进插件 bundle），改为 `@extension/i18n`（hardware 的教训）
 - [ ] **i18n 资源不得双重包装**：插件 locale 文件本身是 `{ "translation": { 命名空间... } }`，`i18n.ts` 里必须解包一层 `resources: { zh: { translation: zh.translation } }`——直接 `{ translation: zh }` 会让 `t()` 全部返回 key 原文（P5 四插件曾集体中招；用 i18next 离线复演 `t(key) !== key` 验证）
@@ -372,7 +372,7 @@ pnpm run extensions:pack <id>     # P4.5 交付
 
 ### 13.3 发布流程（plugin-market）
 
-1. Bench 内开发插件 → `pnpm run sync:ext-repos`（提交到 plugin-market 仓库）；
+1. 在 plugin-market 仓库内开发插件源码（Bench 不再经 `sync:ext-repos` 同步，见 §12）；
 2. 更新该插件 `manifest.json` 的 version → commit；
 3. `git tag photo-triage-v0.1.1 && git push origin photo-triage-v0.1.1` → CI 发布 Release；
 4. `pnpm run update:ext-registry` → registry.json commit + push → Bench 市场立即可见。
