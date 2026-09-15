@@ -230,7 +230,7 @@ jobs:
       # D-027：测试运行器 cargo-nextest（进程级并行 + retries 治 flaky），
       # 与本地 `pnpm run test:be` 同源（src-tauri/.config/nextest.toml）。
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@d438492cf8a250514fa2d34b30bc3c0dc37c65ff # v2
+        uses: taiki-e/install-action@3f74d7c16a4242f1c95561e98edc25d36adb4375 # v2
         with:
           tool: cargo-nextest@0.9.144
 
