@@ -650,7 +650,10 @@ jobs:
           if gh release view "$TAG_NAME" >/dev/null 2>&1; then
             gh release view "$TAG_NAME" --json body,publishedAt > release-metadata.json
           else
-            published_at="$(git show -s --format=%cI "$TAG_NAME")"
+            # dry-run 用合成 tag（例如 v1.35.1-verify），检出不里没有这个 ref：退回 HEAD 的
+            # 提交时间。预检（校验资产/签名/生成 latest.json）不应因为一个不存在的 tag 失败，
+            # 也不该因此制造任何 GitHub 变更。
+            published_at="$(git show -s --format=%cI "$TAG_NAME" 2>/dev/null || git show -s --format=%cI HEAD)"
             jq -n --arg publishedAt "$published_at" '{body: "", publishedAt: $publishedAt}' > release-metadata.json
           fi
 
