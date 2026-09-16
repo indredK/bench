@@ -675,12 +675,11 @@ jobs:
           )
 
       # 显式 guard: 只有正式 tag 且非 dry-run 才允许 Release 副作用 (A3-1)。
+      # T30: guard 只在正式发布模式运行 —— dry-run 的成功语义就是
+      # “预检全部通过且无副作用”，拒绝写入不能实现成整条流水线失败。
       - name: Publish guard
+        if: env.DRY_RUN == 'false'
         run: |
-          if [[ "$DRY_RUN" != "false" ]]; then
-            echo "::error::Refusing to mutate GitHub Releases in dry-run mode."
-            exit 1
-          fi
           if [[ "$FINAL_TAG" != "true" ]]; then
             echo "::error::Refusing to publish: tag '$TAG_NAME' is not a final vX.Y.Z tag."
             exit 1
@@ -700,9 +699,10 @@ jobs:
               release-assets/*
           fi
 
-      - name: Mark dry-run summary (no Release side effects)
-        if: always() && env.DRY_RUN == 'true'
+      - name: Mark successful dry-run
+        if: env.DRY_RUN == 'true'
         run: |
+          echo "DRY-RUN verification passed; no Release mutation was attempted." >> "$GITHUB_STEP_SUMMARY"
           echo "### DRY-RUN: 未创建/更新 GitHub Release" >> "$GITHUB_STEP_SUMMARY"
           echo "产物以 CI artifact 形式上传 (bundle-*), latest.json 与签名校验均在 dry-run 下完成。" >> "$GITHUB_STEP_SUMMARY"
 
