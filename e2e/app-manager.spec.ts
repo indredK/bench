@@ -6,15 +6,18 @@ import { AxeBuilder } from "@axe-core/playwright"
 import { expect, test } from "@playwright/test"
 import { gotoWithMockedTauri } from "./mock-tauri"
 
+// FIXME(appmanager-plugin): app-manager 已随插件化迁出宿主路由（appFeatures 无
+// "/app-manager"），宿主浏览器内无法渲染该页面 —— 用例等待 GUI 验收批次在插件
+// 运行时内重建（定界见 5988e75）。本批只保证管道与 mock 基建正确。
 test.describe("app-manager state matrix", () => {
-  test("renders empty state when no apps are installed", async ({ page }) => {
+  test.fixme("renders empty state when no apps are installed", async ({ page }) => {
     await gotoWithMockedTauri(page, "/app-manager", { handlers: {} })
     await expect(page.getByText(/暂无应用|No apps|empty/i).first()).toBeVisible({
       timeout: 15_000,
     })
   })
 
-  test("partial scan keeps succeeded apps and shows the partial banner", async ({ page }) => {
+  test.fixme("partial scan keeps succeeded apps and shows the partial banner", async ({ page }) => {
     await gotoWithMockedTauri(page, "/app-manager", {
       handlers: {
         // partial: complete=false + warning, 但 apps 非空 (不得折叠为空态成功)。
@@ -55,7 +58,7 @@ test.describe("app-manager state matrix", () => {
 })
 
 test.describe("app-manager accessibility (A4-2)", () => {
-  test("has no axe WCAG A/AA violations on the catalog page", async ({ page }, testInfo) => {
+  test.fixme("has no axe WCAG A/AA violations on the catalog page", async ({ page }, testInfo) => {
     await gotoWithMockedTauri(page, "/app-manager", { handlers: {} })
     await page.waitForLoadState("networkidle")
 

@@ -706,11 +706,53 @@ jobs:
           echo "### DRY-RUN: 未创建/更新 GitHub Release" >> "$GITHUB_STEP_SUMMARY"
           echo "产物以 CI artifact 形式上传 (bundle-*), latest.json 与签名校验均在 dry-run 下完成。" >> "$GITHUB_STEP_SUMMARY"
 
+  # T27.1：关键浏览器 E2E 上 CI —— 单元测试证明状态函数，浏览器测试证明
+  # i18n 切换、焦点副作用、响应式布局与用户可见错误在组合后仍成立。
+  # 只跑 viewport-1280 单 project 的 17 项关键流（Ubuntu + Chromium，成本可控）；
+  # 完整 5-project 矩阵留给本地/定时任务。失败即 ci-ok 红，并有 artifact 可查。
+  e2e-critical:
+    name: E2E (critical, ubuntu chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: 12.4.2
+          standalone: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Chromium (with deps)
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run critical E2E (viewport-1280)
+        run: pnpm run test:e2e -- --project=viewport-1280
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
+          if-no-files-found: ignore
+
   # D-025：branch protection 只需把本 job 设为 required check，
   # 不用分别盯 matrix 里两个会漂移的 "Verify (os)" 条目。
   ci-ok:
     name: CI OK (aggregate)
-    needs: [guards, node-compat, frontend, rust]
+    needs: [guards, node-compat, frontend, rust, e2e-critical]
     if: always()
     runs-on: macos-latest
     timeout-minutes: 5
@@ -723,7 +765,8 @@ jobs:
           needs.guards.result != 'success' ||
           needs.node-compat.result != 'success' ||
           needs.frontend.result != 'success' ||
-          needs.rust.result != 'success'
+          needs.rust.result != 'success' ||
+          needs.e2e-critical.result != 'success'
         run: |
           echo "::error::质量门禁流水线未全绿: ${{ toJSON(needs.*.result) }}"
           exit 1
@@ -733,5 +776,6 @@ jobs:
           needs.guards.result == 'success' &&
           needs.node-compat.result == 'success' &&
           needs.frontend.result == 'success' &&
-          needs.rust.result == 'success'
+          needs.rust.result == 'success' &&
+          needs.e2e-critical.result == 'success'
         run: echo "guards / node-compat / frontend / rust 全绿。"

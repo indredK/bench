@@ -47,7 +47,10 @@ const SCAN_OK = {
   schemaVersion: 1,
 }
 
-test("renders empty state with actions when no apps are installed", async ({ page }) => {
+// FIXME(quicklaunch-plugin): quick-launch 已随插件化迁出宿主路由（appFeatures 无
+// "/quick-launch"），宿主浏览器内无法渲染该页面 —— 用例等待 GUI 验收批次在插件
+// 运行时内重建（定界见 5988e75）。本批只保证管道与 mock 基建正确。
+test.fixme("renders empty state with actions when no apps are installed", async ({ page }) => {
   await gotoWithMockedTauri(page, "/quick-launch", {
     handlers: {
       scan_installed_apps: SCAN_OK,
@@ -58,7 +61,9 @@ test("renders empty state with actions when no apps are installed", async ({ pag
   await expect(page.getByRole("main")).toBeVisible({ timeout: 15_000 })
 })
 
-test("failed scan keeps previous data and surfaces a retryable error bar", async ({ page }) => {
+test.fixme("failed scan keeps previous data and surfaces a retryable error bar", async ({
+  page,
+}) => {
   let calls = 0
   await gotoWithMockedTauri(page, "/quick-launch", {
     handlers: {
@@ -85,7 +90,7 @@ test("failed scan keeps previous data and surfaces a retryable error bar", async
   await expect(page.getByText("Sample App")).toBeVisible()
 })
 
-test("search input narrows results without blocking", async ({ page }) => {
+test.fixme("search input narrows results without blocking", async ({ page }) => {
   await gotoWithMockedTauri(page, "/quick-launch", {
     handlers: {
       get_cached_app_inventory: null,
@@ -107,7 +112,7 @@ test("search input narrows results without blocking", async ({ page }) => {
   await expect(page.getByText("Sample App 0")).toBeVisible()
 })
 
-test("long app names do not overflow the card", async ({ page }) => {
+test.fixme("long app names do not overflow the card", async ({ page }) => {
   await gotoWithMockedTauri(page, "/quick-launch", {
     handlers: {
       get_cached_app_inventory: null,
@@ -128,7 +133,7 @@ test("long app names do not overflow the card", async ({ page }) => {
   await expect(name).toHaveClass(/truncate|line-clamp/, { timeout: 15_000 })
 })
 
-test("language switch updates UI copy without stale text", async ({ page }) => {
+test.fixme("language switch updates UI copy without stale text", async ({ page }) => {
   await gotoWithMockedTauri(page, "/quick-launch", {
     handlers: {
       scan_installed_apps: SCAN_OK,

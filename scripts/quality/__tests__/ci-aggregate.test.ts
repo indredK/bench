@@ -42,9 +42,9 @@ describe("ci-ok aggregate fail-closed contract (T31)", () => {
     }
   })
 
-  it("aggregate job needs exactly the four required pipelines", () => {
+  it("aggregate job needs exactly the five required pipelines", () => {
     expect(content).toMatch(
-      /ci-ok:\s*\n\s*name: CI OK \(aggregate\)\s*\n\s*needs: \[guards, node-compat, frontend, rust\]/,
+      /ci-ok:\s*\n\s*name: CI OK \(aggregate\)\s*\n\s*needs: \[guards, node-compat, frontend, rust, e2e-critical\]/,
     )
   })
 })
