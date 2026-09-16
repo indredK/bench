@@ -59,9 +59,15 @@ jobs:
         with:
           tool: cargo-deny@0.20.2
 
+      # SEC01：cargo audit 把 unsound/unmaintained 归入 warning（退出码 0），
+      # "绿色"不等于零告警。summary 必须显式列出 informational warnings，
+      # 并与 docs/security/rust-advisories.md 的有期限风险接受记录对齐。
       - name: Run cargo audit
         working-directory: src-tauri
-        run: cargo audit
+        run: |
+          cargo audit --json > /tmp/audit.json || true
+          cargo audit
+          node ../scripts/release/summarize-cargo-audit.mjs /tmp/audit.json >> "$GITHUB_STEP_SUMMARY"
 
       - name: Run cargo deny
         working-directory: src-tauri
