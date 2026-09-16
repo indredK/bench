@@ -737,7 +737,7 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Run critical E2E (viewport-1280)
-        run: pnpm run test:e2e -- --project=viewport-1280
+        run: pnpm exec playwright test --project=viewport-1280
 
       - name: Upload Playwright report on failure
         if: failure()

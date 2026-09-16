@@ -18,14 +18,14 @@
     "scripts/quality/check-changed-paths.mjs": "75110323a1ab3c7027a7345141f0643ab012bfe23adcff0608a901f99bf193c5",
     "scripts/quality/check-i18n-guards.mjs": "f877cbd1c3ec840de0ec98154fb47ada2eaa94bde8e87a9410e7f480c50b4e34",
     "scripts/quality/check-docs-consistency.mjs": "308b30f63757ea6c078d4758c9b37eaf76cbb578c680f05bd5b1386e50fef778",
-    "scripts/quality/check-ci-platforms.mjs": "a6f2484bf4dc58ede355cebf64027e94bfa81d16a27a52db85fd83b7aa5ae4c9",
+    "scripts/quality/check-ci-platforms.mjs": "050aee4152249166dc0f2fb9725c3fe316c8e97b0cfc1f6aff021538975a0b4e",
     "scripts/quality/check-workflow-hygiene.mjs": "a26dacef6b50a9cbb92ebc11b25ff4b150701171d688ae7b6ca407521e511188",
     "scripts/quality/check-rust-cfg-hygiene.mjs": "50572d0699851bcd0889d61f7220774da0598c8ba6b5c6f185d2eacf399782ee",
     "scripts/quality/check-rust-crates.mjs": "2e53df181c9dcfe289f61acd7f6683de08be070fe4a0e71b2846626c6676aab4",
     ".husky/pre-commit": "89c8e30d5a2d6da40e67899ad4419daa8f24eeb222b3953e90ae1591e727f811",
     ".husky/commit-msg": "5456d621c4bd546c9d4fdecbc8a285a5e667f215645b2d52f03e865365d6394c",
     "lefthook.yml": "f635278a4c103ab115e09e916beaf4d4c8b2e8c74d93e7f283d18c1a14d396d0",
-    "package.json": "4349148234726e62d5a02ddf262ec43bfa40378f0746f41c0c248b899c39cfab",
+    "package.json": "1feefba07d4fa14eedb806f57dda57b983ff093a1f103cc01e97cdb2ae146896",
     "pnpm-workspace.yaml": "c091ad7e06db0d72ca7596fd477b5320eb287086243ab7d36e1581e5a8fc0707",
     ".prettierignore": "8785fce45ea3d58be144702848f9b273e38186d1b5058a5c0da3d7a4f4bb70a1"
   },
@@ -80,8 +80,8 @@
     "previousHooksPath": ".husky"
   },
   "batch": {
-    "id": "20260915T144357-o53c",
-    "startedAt": "2026-09-15T14:43:57.208Z",
-    "finishedAt": "2026-09-15T14:43:57.249Z"
+    "id": "20260916T072453-ttcm",
+    "startedAt": "2026-09-16T07:24:53.849Z",
+    "finishedAt": "2026-09-16T07:24:53.861Z"
   }
 }

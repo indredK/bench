@@ -38,6 +38,7 @@ export function useUpdaterController() {
   const { t } = useTranslation()
   const canUsePlatformFeatures = canUseDesktopFeatures()
   const mountedAtRef = useRef(Date.now())
+  const cancelRequestedRef = useRef(false)
 
   const open = useUpdaterStore((s) => s.open)
   const status = useUpdaterStore((s) => s.status)
@@ -194,11 +195,14 @@ export function useUpdaterController() {
       downloadedBytes: 0,
       totalBytes: null,
     })
+    cancelRequestedRef.current = false
 
     try {
       await downloadAndInstallAppUpdate()
+      if (cancelRequestedRef.current) return
       useUpdaterStore.setState({ status: "readyToRestart", error: "", errorInfo: null })
     } catch (error) {
+      if (cancelRequestedRef.current) return
       // User-initiated cancel returns a stable code. Keep the available update so it can be retried.
       if (parseCommandError(error).code === "UPDATER_CANCELLED") {
         useUpdaterStore.setState((state) => ({
@@ -223,10 +227,19 @@ export function useUpdaterController() {
   const cancelDownload = useCallback(async () => {
     const { status: currentStatus } = useUpdaterStore.getState()
     if (currentStatus !== "downloading") return
+    cancelRequestedRef.current = true
     useUpdaterStore.setState({ status: "cancelling" })
     try {
       await cancelAppUpdateDownload()
+      useUpdaterStore.setState((state) => ({
+        status: state.updateInfo?.available ? "available" : "idle",
+        downloadedBytes: 0,
+        totalBytes: null,
+        error: "",
+        errorInfo: null,
+      }))
     } catch (error) {
+      cancelRequestedRef.current = false
       const errorInfo = classifyUpdaterError(error, "install", t("updater.errors.installFailed"))
       useUpdaterStore.setState({ status: "error", error: errorInfo.message, errorInfo })
     }
