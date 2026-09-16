@@ -16,9 +16,40 @@ const forbiddenPlatformPatterns = [
   { label: "rpm package", pattern: /(?:^|[^a-z0-9])\.?rpm(?:$|[^a-z0-9])/i },
 ]
 
+// T27.1 豁免：关键浏览器 E2E 跑在 ubuntu（Chromium 依赖链最省事、runner 最便宜）。
+// 豁免范围精确到 e2e-critical job 块内的行；Linux 上的 Rust / 打包 / 发布链
+// 位于其它 job，仍一律拒绝。
+const E2E_JOB_RE = /^ {2}e2e-critical:\s*$/
+
+function e2eJobLines(content) {
+  const lines = content.split("\n")
+  const allowed = new Set()
+  let inside = false
+  for (const [index, line] of lines.entries()) {
+    if (E2E_JOB_RE.test(line)) {
+      inside = true
+      allowed.add(index)
+      // job 头上方的连续注释行同样豁免（属于该 job 的说明文字）。
+      for (let cursor = index - 1; cursor >= 0 && /^\s*#/.test(lines[cursor]); cursor--) {
+        allowed.add(cursor)
+      }
+      continue
+    }
+    if (inside) {
+      // 下一个顶层 job（两空格缩进的 key）即离开 e2e-critical 块。
+      if (/^ {2}\S/.test(line)) inside = false
+      else allowed.add(index)
+    }
+  }
+  return allowed
+}
+
 export function findForbiddenCiPlatforms(file, content) {
   const violations = []
-  for (const [index, line] of content.split("\n").entries()) {
+  const lines = content.split("\n")
+  const allowed = e2eJobLines(content)
+  for (const [index, line] of lines.entries()) {
+    if (allowed.has(index)) continue
     for (const rule of forbiddenPlatformPatterns) {
       if (rule.pattern.test(line)) {
         violations.push({ file, line: index + 1, label: rule.label, source: line.trim() })
