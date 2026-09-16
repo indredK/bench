@@ -8,10 +8,10 @@ on:
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+*"
   pull_request:
-    # docs-only PR 不触发双平台 verify（格式/文档门禁由守卫脚本与 pre-commit 覆盖）。
-    paths-ignore:
-      - "**.md"
-      - "docs/**"
+    # T31: 每个 PR 都必须产生 required context（CI OK (aggregate)）。
+    # 此前 docs-only PR 因 paths-ignore 完全不触发 workflow，而 Ruleset 又要求
+    # 该 context，会造成 PR 永久等待；fail-closed 的聚合门禁不能依赖
+    # "workflow 未运行"这种缺失信号。
   workflow_dispatch:
     inputs:
       dry_run:
@@ -715,12 +715,23 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 5
     steps:
-      - name: Fail if any gate pipeline failed
-        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+      # T31: fail-closed —— 四条必需流水线必须逐一 success 才放行。
+      # 只检查 failure/cancelled 会放过 skipped：任何一条意外 skipped 时
+      # "All passed" 仍会执行，聚合结果失真。
+      - name: Fail unless every required pipeline succeeded
+        if: >-
+          needs.guards.result != 'success' ||
+          needs.node-compat.result != 'success' ||
+          needs.frontend.result != 'success' ||
+          needs.rust.result != 'success'
         run: |
           echo "::error::质量门禁流水线未全绿: ${{ toJSON(needs.*.result) }}"
           exit 1
 
       - name: All gate pipelines passed
-        if: ${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
+        if: >-
+          needs.guards.result == 'success' &&
+          needs.node-compat.result == 'success' &&
+          needs.frontend.result == 'success' &&
+          needs.rust.result == 'success'
         run: echo "guards / node-compat / frontend / rust 全绿。"
