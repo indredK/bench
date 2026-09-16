@@ -4,7 +4,7 @@
 members = [".", "crates/bench-capabilities", "crates/bench-host"]
 
 [workspace.package]
-version = "1.35.1"
+version = "1.35.2"
 # MSRV：只承诺实测过的版本（rust-toolchain.toml 固定 1.98.1）。
 # 未验证 1.95/1.96 之前不要下调；成员 crate 用 rust-version.workspace = true 继承。
 rust-version = "1.98.1"

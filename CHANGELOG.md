@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.35.2](https://github.com/indredK/bench/compare/v1.35.1...v1.35.2) (2026-09-16)
+
+
+### Bug Fixes
+
+* **a11y:** restore settings trigger focus ([5cc9c90](https://github.com/indredK/bench/commit/5cc9c903dba55c96df2bf1ec86f622e92187a4ea))
+* **ci:** let verified release dry-runs succeed ([#83](https://github.com/indredK/bench/issues/83)) ([12618d7](https://github.com/indredK/bench/commit/12618d75e9838b6b7c95bfe3bfc6b87d33757b7e))
+* **ci:** require every gate on every pull request ([#84](https://github.com/indredK/bench/issues/84)) ([fc8e73e](https://github.com/indredK/bench/commit/fc8e73e591df9228feaed381fc5bd23982f3324d))
+* **ci:** stabilize critical browser checks ([9612af1](https://github.com/indredK/bench/commit/9612af12802b639be4dbb5fa25c21811cbbaf17e))
+
 ## [1.35.1](https://github.com/indredK/bench/compare/v1.35.0...v1.35.1) (2026-09-15)
 
 
