@@ -278,7 +278,7 @@ pnpm run extensions:pack <id>     # P4.5 交付
 
 - [ ] 建目录 `extensions/<id>/`：`manifest.json`（schema v2）+ `vite.config.ts` + `index.html` + `src/` + `locales/{zh,en}.json`（对照任一现有插件脚手架）
 - [ ] `vite.config.ts`：`base: "./"` 铁律；`@` → 宿主 `src/`（复用 UI 组件/契约 wrapper，随 bundle 打包）；`@extension` → 插件 `src/`；outDir `assets/`
-- [ ] 插件源码位于宿主 `src/extensions/<id>/`（插件唯一真相源 = `kindred-plugin-market/plugin-market/extensions/<id>/`，不再经 `sync:ext-repos` 同步回 Bench；AppFeature 描述符 `feature.tsx` 是宿主概念，不随插件走）；内部 `@/features/<id>/` 引用改 `@extension/`
+- [ ] 插件源码位于 `kindred-plugin-market/plugin-market/extensions/<id>/`（唯一真相源；宿主没有 `src/extensions/<id>/`，也不再有 `sync:ext-repos` 同步；AppFeature 描述符 `feature.tsx` 是宿主概念，不随插件走）；内部 `@/features/<id>/` 引用改 `@extension/`
 - [ ] 插件私有子能力（如 dev-cleaner）作 `src/<sub>/` 子目录随迁
 - [ ] 宿主独占实例的引用要换成插件内实例：数据模块若 import `@/i18n/config`（宿主 i18n，会把全量语言资源拖进插件 bundle），改为 `@extension/i18n`（hardware 的教训）
 - [ ] **i18n 资源不得双重包装**：插件 locale 文件本身是 `{ "translation": { 命名空间... } }`，`i18n.ts` 里必须解包一层 `resources: { zh: { translation: zh.translation } }`——直接 `{ translation: zh }` 会让 `t()` 全部返回 key 原文（P5 四插件曾集体中招；用 i18next 离线复演 `t(key) !== key` 验证）
@@ -299,8 +299,7 @@ pnpm run extensions:pack <id>     # P4.5 交付
 - [ ] 插件入口建**独立 i18next 实例**（`src/i18n.ts`，语言取 `window.__BENCH_EXT_LOCALE` 注入 → 回退 navigator.language）
 - [ ] **主包 locales 删除该模块全部键**：模块命名空间 + `sidebar.<labelKey>`，zh/en 同步（parity 由守卫强制）
 - [ ] `check-i18n-guards.mjs` 已自动校验插件 locales 成对/结构一致/JSON 无重复键（输出 `Plugin locales passed: N plugin(s)`）——新增插件若缺 locales 会直接挂 CI
-- [ ] **文案自包含验收（用户约定：插件目录将来整体搬去独立仓库）**：跑 `pnpm run audit:ext-i18n`——扫描插件源码 + 其经 `@/` 引用的宿主共享模块的全部 `t()` key/动态族，必须 100% 命中插件 locales（4/4 自包含为准）。宿主共享组件新增 key 时重跑审计并同步各插件 common；**插件专用的工具/命名空间（如 `i18nBrand` + `brands`）直接迁入插件**，不留宿主引用
-- [ ] **文案自包含验收（用户约定：插件目录将来整体搬去独立仓库）**：跑 `pnpm run audit:ext-i18n`——扫描插件源码 + 其经 `@/` 引用的宿主共享模块的全部 `t()` key/动态族，必须 100% 命中插件 locales（4/4 自包含为准）。宿主共享组件新增 key 时重跑审计并同步各插件 common；**插件专用的工具/命名空间（如 `i18nBrand` + `brands`）直接迁入插件**，不留宿主引用
+- [ ] **文案自包含验收（用户约定：插件目录将来整体搬去独立仓库）**：跑 `pnpm run audit:ext-i18n`——扫描插件源码 + 其经 `@/` 引用的宿主共享模块的全部 `t()` key/动态族，必须 100% 命中插件 locales（7/7 自包含为准）。宿主共享组件新增 key 时重跑审计并同步各插件 common；**插件专用的工具/命名空间（如 `i18nBrand` + `brands`）直接迁入插件**，不留宿主引用
 
 ### 11.5 文档归集（守卫已强制）
 
@@ -349,16 +348,16 @@ pnpm run extensions:pack <id>     # P4.5 交付
 
 > **模型（双仓库）**：组织下仅两个仓库，均公开——
 >
-> - `plugin-market`：4 个插件源码（`extensions/<id>/`）+ `registry.json`（插件市场索引真相源）+ tag 驱动构建 CI；
-> - `command-market`：命令中心的市场（`commands/*.json` + `registry.json` + build 脚本）。
->   push tag / push main 由 CI 自动构建/重算索引；Bench 经 `BENCH_EXT_REGISTRY_URL` /
->   `BENCH_COMMAND_MARKET_URL` 拉取安装。组织与仓库由用户手动创建（GitHub 无创建组织的 API）。
+> - `plugin-market`：7 个插件源码（`extensions/<id>/`，当前为 app-manager / clean-space / hardware / photo-triage / quick-launch / terminology / token-calculator）+ `registry.json`（插件市场索引真相源）+ Release Please（conventional commits → release PR → tag）→ release.yml 构建 zip；
+> - `command-market`：命令中心的市场（`commands/*.json` + `registry.json` + build 脚本；**源文件与生成索引在同一 PR 提交，CI 只读校验**，无自动写回）。
+>   main 受 Ruleset 保护（PR + required check `gate / quality gate (node 26.8.2 / macos)`）；Bench 经 `BENCH_EXT_REGISTRY_URL` /
+>   `BENCH_COMMAND_MARKET_URL` 拉取安装。
 
 ### 13.1 本地与远端
 
 - 本地：`~/Documents/github/kindred-plugin-market/{plugin-market, command-market}/`（SSH 走 443：`~/.ssh/config` 已配 `Host github.com → ssh.github.com:443`，本机 22 端口被网络拦截）；
-- `plugin-market` CI：push `<pluginId>-v<version>` tag → checkout Bench main（需 secret `BENCH_REPO_TOKEN`，Bench 私有）→ 构建 + 注入 files → zip → GitHub Release；
-- `command-market` CI：push main → 重算 registry.json（漂移自动 commit 回 main）；
+- `plugin-market` CI：quality / Build（rolling `build-latest`，只保留当前 main 快照）/ Release Please（自动维护 release PR 并打 `<pluginId>-v<version>` tag）→ release.yml 走 gate → pack → provenance → Release 上传 → registry.json 以 bot PR 写回（P11 后 main 直推一律被 Ruleset 拒绝）。宿主 checkout 固定 `.github/host-baseline.txt` 的完整 SHA（indredK/bench 为 public，匿名 checkout，不携带 PAT）；
+- `command-market` CI：只读校验（索引漂移 → 失败并提示在 PR 中重建；无 bot 写回、无并发环）；
 - 市场源（**官方默认已内置**，env 仅作覆盖/本地调试）：
   - 插件市场默认：`https://raw.githubusercontent.com/kindred-plugin-market/plugin-market/main/registry.json`（`BENCH_EXT_REGISTRY_URL` 覆盖）
   - 命令市场默认：`https://raw.githubusercontent.com/kindred-plugin-market/command-market/main/registry.json`（`BENCH_COMMAND_MARKET_URL` 覆盖；`BENCH_COMMAND_MARKET_DIR` 调试优先）
@@ -366,20 +365,18 @@ pnpm run extensions:pack <id>     # P4.5 交付
 
 ### 13.2 工具链（Bench 仓库内）
 
-- `pnpm run pack:ext -- <id>`：构建 → 注入 files → zip → `<id>.meta.json`（sha256/size）；
-- `pnpm run update:ext-registry`：对 4 插件跑 pack，重写 `plugin-market/registry.json`（downloadUrl = Release 资产模式）；
-- `sync:ext-repos` 已退役（2026-09-09）：**真相源反转完成**——插件源码唯一真相源 = `plugin-market` 仓库，Bench 基座不再包含 `extensions/`（打包链对空集容忍：build/stage/sync 直接跳过）。开发插件 = 在 plugin-market 仓库内改源码 → pack → 装入 APPDATA 或走市场；发布 = tag 推送。
+- `pnpm run pack:ext -- <id>`：构建 → 注入 files → zip → `<id>.meta.json`（sha256/size）——宿主侧工具，仅本地诊断用；
+- `sync:ext-repos` 已退役（2026-09-09）：**真相源反转完成**——插件源码唯一真相源 = `plugin-market` 仓库的 `extensions/<id>/`（不是宿主 `src/extensions/<id>/`，宿主没有该目录），Bench 基座不再包含 `extensions/`（打包链对空集容忍：build/stage/sync 直接跳过）。开发插件 = 在 plugin-market 仓库内改源码 → 本地 pack 装入 APPDATA 或走市场；正式发布 = conventional commit → Release Please 自动打 tag → release.yml 发布；registry.json 由该 workflow 经 bot PR 更新，不再手工维护。
 
 ### 13.3 发布流程（plugin-market）
 
-1. 在 plugin-market 仓库内开发插件源码（Bench 不再经 `sync:ext-repos` 同步，见 §12）；
-2. 更新该插件 `manifest.json` 的 version → commit；
-3. `git tag photo-triage-v0.1.1 && git push origin photo-triage-v0.1.1` → CI 发布 Release；
-4. `pnpm run update:ext-registry` → registry.json commit + push → Bench 市场立即可见。
+1. 在 plugin-market 仓库内开发插件源码（PR 合入 main，过 quality gate；Bench 不再有 `sync:ext-repos`）；
+2. 用 conventional commit 更新该插件 `manifest.json` 的 version（`fix(photo-triage): ...` 等，且改动触及 `extensions/<id>/`）→ Release Please 自动开 release PR（bump 版本 + CHANGELOG）并自动合并；
+3. 合并后 Release Please 自动打 `<pluginId>-v<version>` tag 并创建 GitHub Release → release.yml 接力（gate → pack → provenance → 上传 zip）；
+4. registry.json 由 release.yml 以 bot PR 写回（等 quality gate 绿色后合并）→ Bench 市场立即可见。
 
 ### 13.4 卡点（需用户手动）
 
-- **创建组织与两个仓库**（公开）：`kindred-plugin-market` org + `plugin-market`、`command-market` 两个空仓库（不初始化 README，直接接收 push）；
-- **组织第三方应用限制**：WorkBuddy 的 OAuth token 被 org 的 Third-party Access 限制拦截（无法 API 建仓库）——要么在 org Settings → Third-party Access 批准应用，要么 web 手动建两个空仓库后由助手 SSH push；
-- **CI 拉取私有 Bench**：`plugin-market` 仓库配 secret `BENCH_REPO_TOKEN`（有 Bench read 权限的 PAT）；
+- ~~创建组织与两个仓库~~（已完成：`kindred-plugin-market` org + `plugin-market`、`command-market` 均已上线）；
+- ~~CI 拉取私有 Bench~~（Bench 已 public：宿主 checkout 匿名进行，`BENCH_REPO_TOKEN` 已从全部工作流移除，P12）；
 - **SSH**：本机 22 端口被网络拦截，已在 `~/.ssh/config` 配 GitHub over 443（保留勿删）。
