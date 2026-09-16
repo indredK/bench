@@ -125,6 +125,7 @@ function App() {
 
   const [aboutOpen, setAboutOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsOpener, setSettingsOpener] = useState<HTMLElement | null>(null)
   const [closeBehaviorOpen, setCloseBehaviorOpen] = useState(false)
   const pushNotification = useNotificationCenterStore((s) => s.pushNotification)
 
@@ -194,6 +195,7 @@ function App() {
   }, [])
 
   const handleOpenPrefs = useCallback(() => {
+    setSettingsOpener(document.activeElement instanceof HTMLElement ? document.activeElement : null)
     setSettingsOpen(true)
   }, [])
 
@@ -267,6 +269,7 @@ function App() {
       <SettingsDialog
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
+        restoreFocusElement={settingsOpener}
         appVersion={updater.currentVersion || "-"}
         onCheckUpdates={() => void updater.checkUpdates()}
         autoCheckEnabled={updater.autoCheckEnabled}

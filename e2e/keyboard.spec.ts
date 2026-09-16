@@ -6,12 +6,7 @@
 import { expect, test } from "@playwright/test"
 import { gotoWithMockedTauri } from "./mock-tauri"
 
-// FIXME(keyboard-focus): 受控 SettingsDialog 在 Esc 后把焦点留在 body（Radix
-// 焦点恢复目标在卸载链路中丢失，探针实证 activeElement === body）。这是产品级
-// 可达性缺口，归 GUI 验收批次修复；本批不让它阻塞 CI 管道。
-test.fixme("settings dialog traps focus and restores it to the trigger on Escape", async ({
-  page,
-}) => {
+test("settings dialog traps focus and restores it to the trigger on Escape", async ({ page }) => {
   await gotoWithMockedTauri(page, "/quick-launch", { handlers: {} })
 
   const trigger = page.getByRole("button", { name: /设置|Settings/ }).first()

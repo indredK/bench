@@ -1,7 +1,7 @@
 /**
  * Common UI / 通用 UI: share cross-feature UI; 只放跨功能通用界面.
  */
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useTheme } from "next-themes"
 import { toast } from "sonner"
@@ -61,6 +61,7 @@ const TAB_ITEMS: { id: SettingsTab; icon: typeof Settings; labelKey: string }[] 
 interface SettingsDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  restoreFocusElement?: HTMLElement | null
   appVersion?: string
   tauriVersion?: string
   onCheckUpdates?: () => void
@@ -71,6 +72,7 @@ interface SettingsDialogProps {
 export function SettingsDialog({
   open,
   onOpenChange,
+  restoreFocusElement = null,
   appVersion = "1.0.0",
   tauriVersion = "2.x",
   onCheckUpdates,
@@ -78,6 +80,7 @@ export function SettingsDialog({
   onAutoCheckEnabledChange,
 }: SettingsDialogProps) {
   const { t } = useTranslation()
+  const openerRef = useRef<HTMLElement | null>(null)
   const { theme, setTheme } = useTheme()
   const currentTheme = (theme as ThemeMode) || "system"
   const { themeId: windowThemeId, setThemeId: setWindowThemeId, isSupported } = useWindowTheme()
@@ -114,6 +117,20 @@ export function SettingsDialog({
   const [autostartEnabled, setAutostartEnabled] = useState<boolean | null>(null)
   const [autostartLoading, setAutostartLoading] = useState(false)
   const [closeBehaviorValue, setCloseBehaviorValue] = useState("minimize_to_tray")
+
+  useEffect(() => {
+    if (open && restoreFocusElement) openerRef.current = restoreFocusElement
+  }, [open, restoreFocusElement])
+
+  const handleOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      if (nextOpen && document.activeElement instanceof HTMLElement) {
+        openerRef.current = document.activeElement
+      }
+      onOpenChange(nextOpen)
+    },
+    [onOpenChange],
+  )
 
   useEffect(() => {
     if (!open) return
@@ -177,8 +194,14 @@ export function SettingsDialog({
   ] as const
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="p-0 sm:max-w-[680px]">
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent
+        className="p-0 sm:max-w-[680px]"
+        onCloseAutoFocus={(event) => {
+          event.preventDefault()
+          openerRef.current?.focus()
+        }}
+      >
         <div className="flex h-[480px]">
           {/* Sidebar */}
           <div className="bg-muted/30 w-44 shrink-0 border-r p-3">
