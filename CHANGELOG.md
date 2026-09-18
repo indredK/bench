@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.36.0](https://github.com/indredK/bench/compare/v1.35.2...v1.36.0) (2026-09-18)
+
+
+### Features
+
+* **account-manager:** make keychain unlock explicit instead of on page open ([63e0e44](https://github.com/indredK/bench/commit/63e0e441acc04393b1a0d40a2e67b2b6ca881b74))
+* **douyin-assets:** add P1 capability face, capture bridge and companion v0.9.0 ([9d0f76e](https://github.com/indredK/bench/commit/9d0f76e71cc757717935624cd44b722f261479aa))
+* **macos:** launch straight to tray for every start mode ([1d03667](https://github.com/indredK/bench/commit/1d03667c48968fb209c3bf694f3e16c068c8fce3))
+
+
+### Bug Fixes
+
+* **account-manager:** defer macOS keychain prompt until credentials are first used ([2a14011](https://github.com/indredK/bench/commit/2a14011ac0ab77b256f8610c4b57e4ea9448c4c6))
+* **extensions:** give build/sync/stage an explicit market source resolver ([0def802](https://github.com/indredK/bench/commit/0def802920239cb236ea1ca069551799957454b7))
+
 ## [1.35.2](https://github.com/indredK/bench/compare/v1.35.1...v1.35.2) (2026-09-16)
 
 
