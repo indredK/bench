@@ -1,9 +1,10 @@
 use std::collections::{HashMap, VecDeque};
 use std::fs::OpenOptions;
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock, RwLock};
 
 use sha2::{Digest, Sha256};
-use tauri::{AppHandle, Manager, Runtime};
 use tokio::sync::{Notify, Semaphore};
 
 use super::crypto;
@@ -218,6 +219,11 @@ pub struct AccountManagerState {
     probe_flights: ProbeFlightRegistry,
     master_key: OnceLock<[u8; 32]>,
     master_key_init: Mutex<()>,
+    /// 懒初始化所需的 app 数据目录（init_state 启动时缓存，避免 master_key
+    /// 携带 AppHandle；钥匙串访问因此可以推迟到首次真正使用凭据时）。
+    app_data_dir: OnceLock<PathBuf>,
+    /// 启动时因钥匙串未解锁而跳过的会话恢复；解锁后由 keeper/capabilities 补跑。
+    restore_pending: AtomicBool,
     auth_proxy_tickets: Mutex<HashMap<String, AuthProxyTicket>>,
     auth_proxy_inbox: Mutex<AuthProxyInbox>,
     init_error: RwLock<Option<String>>,
@@ -231,6 +237,8 @@ impl AccountManagerState {
             probe_flights: Arc::new(Mutex::new(HashMap::new())),
             master_key: OnceLock::new(),
             master_key_init: Mutex::new(()),
+            app_data_dir: OnceLock::new(),
+            restore_pending: AtomicBool::new(false),
             auth_proxy_tickets: Mutex::new(HashMap::new()),
             auth_proxy_inbox: Mutex::new(AuthProxyInbox::default()),
             init_error: RwLock::default(),
@@ -293,10 +301,7 @@ impl AccountManagerState {
         })
     }
 
-    pub fn initialize_master_key<R: Runtime>(
-        &self,
-        app: &AppHandle<R>,
-    ) -> AccountManagerResult<()> {
+    pub fn initialize_master_key(&self) -> AccountManagerResult<()> {
         if let Some(k) = self.master_key.get() {
             let _ = k;
             return Ok(());
@@ -310,11 +315,12 @@ impl AccountManagerState {
             return Ok(());
         }
 
-        let app_data_dir = app
-            .path()
-            .app_data_dir()
-            .map_err(|e| AccountManagerError::keyring_unavailable(format!("app data dir: {e}")))?;
-        std::fs::create_dir_all(&app_data_dir).map_err(|e| {
+        let app_data_dir = self.app_data_dir.get().ok_or_else(|| {
+            AccountManagerError::keyring_unavailable(
+                "app data dir not captured; init_state must run before key use",
+            )
+        })?;
+        std::fs::create_dir_all(app_data_dir).map_err(|e| {
             AccountManagerError::keyring_unavailable(format!("create app data dir: {e}"))
         })?;
         let lock_file = OpenOptions::new()
@@ -339,7 +345,37 @@ impl AccountManagerState {
         })
     }
 
+    /// 缓存 app 数据目录（懒初始化钥匙串用）；启动路径调用，不触发钥匙串。
+    pub fn set_app_data_dir(&self, path: PathBuf) {
+        let _ = self.app_data_dir.set(path);
+    }
+
+    /// 钥匙串主密钥是否已解锁（只窥探，不触发授权弹窗）。
+    pub fn key_initialized(&self) -> bool {
+        self.master_key.get().is_some()
+    }
+
+    /// 仅当密钥已解锁时返回密钥；不触发钥匙串（供启动路径守卫使用）。
+    pub fn master_key_if_initialized(&self) -> Option<[u8; 32]> {
+        self.master_key.get().copied()
+    }
+
+    pub fn mark_restore_pending(&self) {
+        self.restore_pending.store(true, Ordering::SeqCst);
+    }
+
+    pub fn take_restore_pending(&self) -> bool {
+        self.restore_pending.swap(false, Ordering::SeqCst)
+    }
+
+    /// 主密钥（懒初始化）：首次调用时才访问 macOS 钥匙串并可能弹出授权框。
+    /// 因此「启动不弹窗、首次使用凭据功能时才获取」由本方法的调用位置保证：
+    /// 启动路径不得调用它（用 [`Self::key_initialized`] 守卫）。
     pub fn master_key(&self) -> AccountManagerResult<[u8; 32]> {
+        if let Some(key) = self.master_key.get() {
+            return Ok(*key);
+        }
+        self.initialize_master_key()?;
         self.master_key.get().copied().ok_or_else(|| {
             AccountManagerError::keyring_unavailable("master key is not initialized")
         })

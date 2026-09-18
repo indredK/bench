@@ -21,6 +21,7 @@ use super::commands::{account_log_error_code, build_proxy_url_for_station};
 use super::crypto::EncryptedBlob;
 use super::probe;
 use super::session;
+use super::session::restore_sessions_on_startup;
 use super::state::{push_account_log, AccountManagerState, ProbeFlight};
 use super::storage;
 use super::types::{
@@ -96,6 +97,25 @@ pub fn spawn_session_keeper<R: Runtime>(app: AppHandle<R>) {
 
 /// 扫描到期账号并逐个执行静默刷新。init 失败(keyring 不可用等)整轮静默跳过。
 async fn run_keeper_tick<R: Runtime>(app: &AppHandle<R>) {
+    // 钥匙串未解锁（用户尚未使用任何凭据功能）时整轮跳过：
+    // 不做静默刷新、不触发授权弹窗；仅处理解锁后待补跑的启动恢复。
+    let restore_due = {
+        let state = app.state::<AccountManagerState>();
+        if !state.key_initialized() {
+            return;
+        }
+        state.take_restore_pending()
+    };
+    if restore_due {
+        let state = app.state::<AccountManagerState>();
+        match restore_sessions_on_startup(app, &state).await {
+            Ok(restored) if restored > 0 => eprintln!(
+                "[account_manager] keeper: restored {restored} deferred session(s) after unlock"
+            ),
+            Ok(_) => {}
+            Err(error) => eprintln!("[account_manager] keeper: deferred restore failed: {error}"),
+        }
+    }
     // state guard 在块作用域内释放,不跨 await 持有。
     let due: Vec<String> = {
         let state = app.state::<AccountManagerState>();

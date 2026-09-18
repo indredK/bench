@@ -7,6 +7,7 @@ use super::shared::{
 };
 use crate::account_manager::capabilities;
 use crate::account_manager::crypto;
+use crate::account_manager::session::restore_sessions_on_startup;
 use crate::account_manager::state::AccountManagerState;
 use crate::account_manager::storage;
 use crate::account_manager::types::{
@@ -20,9 +21,31 @@ const MAX_PROXY_PASSWORD_BYTES: usize = 4 * 1024;
 
 #[tauri::command]
 pub fn get_account_manager_capabilities(
+    app: AppHandle,
     state: State<'_, AccountManagerState>,
 ) -> AccountManagerCapabilities {
+    // 打开账号管理页（前端拉取能力）即为「使用凭据功能」的触发点：
+    // master_key() 在此懒初始化，首次会弹 macOS 钥匙串授权框。
     let keyring_ready = state.ensure_ready().is_ok() && state.master_key().is_ok();
+    if keyring_ready && state.take_restore_pending() {
+        // 启动时因未解锁而推迟的会话恢复，现在补跑（不阻塞能力返回）。
+        let app = app.clone();
+        tauri::async_runtime::spawn(async move {
+            let state = app.state::<AccountManagerState>();
+            match restore_sessions_on_startup(&app, &state).await {
+                Ok(restored) if restored > 0 => {
+                    eprintln!(
+                        "[account_manager] restored {restored} deferred session(s) after unlock"
+                    );
+                }
+                Ok(_) => {}
+                Err(error) => {
+                    eprintln!("[account_manager] deferred restore failed: {error}");
+                    state.mark_restore_pending();
+                }
+            }
+        });
+    }
     capabilities::current(keyring_ready)
 }
 

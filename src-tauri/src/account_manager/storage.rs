@@ -31,7 +31,13 @@ pub fn init_state<R: Runtime>(
     app: &AppHandle<R>,
     state: &AccountManagerState,
 ) -> AccountManagerResult<()> {
-    state.initialize_master_key(app)?;
+    // 只缓存路径，不触碰钥匙串：macOS 授权弹窗推迟到首次使用凭据功能时
+    // （master_key() 懒初始化，见 state.rs；启动路径用 key_initialized() 守卫）。
+    let app_data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| AccountManagerError::store_fail(format!("app data dir: {e}")))?;
+    state.set_app_data_dir(app_data_dir);
     let _store_lock = acquire_store_lock(app)?;
     let store_path = account_store_path(app)?;
     ensure_file_size(&store_path, MAX_STORE_FILE_BYTES)
@@ -178,19 +184,18 @@ fn load_and_migrate_secrets(
 
     let mut out: HashMap<String, EncryptedBlob> = HashMap::new();
     let mut migrated = false;
-    let mut key_cache: Option<[u8; 32]> = None;
 
     for (id, entry) in map {
         match entry {
             Value::String(plaintext) => {
                 // P0 format: encrypt and mark dirty.
-                let key = match key_cache {
-                    Some(k) => k,
-                    None => {
-                        let k = state.master_key()?;
-                        key_cache = Some(k);
-                        k
-                    }
+                // 启动路径不触发钥匙串：主密钥未解锁时跳过该条迁移（store 保持
+                // 原样不动，解锁后的下一次启动完成迁移；P0 遗留量≈0）。
+                let Some(key) = state.master_key_if_initialized() else {
+                    eprintln!(
+                        "[account_manager] deferred P0 secret migration for {id}: keyring locked"
+                    );
+                    continue;
                 };
                 let blob = crypto::encrypt(&key, &plaintext)?;
                 out.insert(id, blob);

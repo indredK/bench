@@ -357,6 +357,12 @@ pub async fn restore_sessions_on_startup<R: Runtime>(
     app: &AppHandle<R>,
     state: &AccountManagerState,
 ) -> AccountManagerResult<usize> {
+    // 启动路径不触发钥匙串：主密钥未解锁（用户尚未使用任何凭据功能）时
+    // 跳过恢复并标记待办，解锁后由 keeper/capabilities 补跑。
+    if !state.key_initialized() {
+        state.mark_restore_pending();
+        return Ok(0);
+    }
     let snapshot = state.read_snapshot();
     let account_ids = snapshot
         .accounts
