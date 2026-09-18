@@ -284,6 +284,7 @@ export const TAURI_COMMAND_CONTRACTS = {
     "get_account_manager_capabilities",
   ),
   retry_account_manager_init: defineTauriCommand<undefined, void>()("retry_account_manager_init"),
+  unlock_account_manager: defineTauriCommand<undefined, void>()("unlock_account_manager"),
   list_stations: defineTauriCommand<undefined, RelayStation[]>()("list_stations"),
   create_station: defineTauriCommand<
     { remark: string; website: string; loginDetection?: LoginDetectionConfig | null },
@@ -1132,6 +1133,7 @@ export const TAURI_COMMANDS = {
   accountManager: {
     getCapabilities: commandName("get_account_manager_capabilities"),
     retryInit: commandName("retry_account_manager_init"),
+    unlock: commandName("unlock_account_manager"),
     listStations: commandName("list_stations"),
     createStation: commandName("create_station"),
     updateStation: commandName("update_station"),
@@ -1432,6 +1434,7 @@ export const TAURI_COMMAND_ARG_KEYS = {
   set_window_theme: ["theme", "appearance"],
   get_account_manager_capabilities: [],
   retry_account_manager_init: [],
+  unlock_account_manager: [],
   list_stations: [],
   create_station: ["remark", "website", "loginDetection"],
   update_station: ["id", "remark", "website", "loginDetection", "sessionTtlHours"],

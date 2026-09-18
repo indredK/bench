@@ -7,7 +7,6 @@ use super::shared::{
 };
 use crate::account_manager::capabilities;
 use crate::account_manager::crypto;
-use crate::account_manager::session::restore_sessions_on_startup;
 use crate::account_manager::state::AccountManagerState;
 use crate::account_manager::storage;
 use crate::account_manager::types::{
@@ -21,32 +20,28 @@ const MAX_PROXY_PASSWORD_BYTES: usize = 4 * 1024;
 
 #[tauri::command]
 pub fn get_account_manager_capabilities(
-    app: AppHandle,
     state: State<'_, AccountManagerState>,
 ) -> AccountManagerCapabilities {
-    // 打开账号管理页（前端拉取能力）即为「使用凭据功能」的触发点：
-    // master_key() 在此懒初始化，首次会弹 macOS 钥匙串授权框。
-    let keyring_ready = state.ensure_ready().is_ok() && state.master_key().is_ok();
-    if keyring_ready && state.take_restore_pending() {
-        // 启动时因未解锁而推迟的会话恢复，现在补跑（不阻塞能力返回）。
-        let app = app.clone();
-        tauri::async_runtime::spawn(async move {
-            let state = app.state::<AccountManagerState>();
-            match restore_sessions_on_startup(&app, &state).await {
-                Ok(restored) if restored > 0 => {
-                    eprintln!(
-                        "[account_manager] restored {restored} deferred session(s) after unlock"
-                    );
-                }
-                Ok(_) => {}
-                Err(error) => {
-                    eprintln!("[account_manager] deferred restore failed: {error}");
-                    state.mark_restore_pending();
-                }
-            }
-        });
-    }
+    // 只窥探、不触发：打开账号页浏览列表不该弹 macOS 钥匙串授权框。
+    // 解锁由显式 unlock_account_manager 或首个需要加解密的命令懒触发。
+    let keyring_ready = state.ensure_ready().is_ok() && state.key_initialized();
     capabilities::current(keyring_ready)
+}
+
+/// 显式解锁凭据（幂等）：首次访问 macOS 钥匙串（可能弹授权框），成功后
+/// 由 keeper/capabilities 补跑被推迟的启动会话恢复。
+///
+/// 这是「使用凭据功能时才获取」 UX 的解锁入口：前端在 keyring 未就绪时
+/// 提供「解锁凭据」按钮，其余路径仍走 master_key() 的懒初始化。
+#[tauri::command]
+pub async fn unlock_account_manager(app: AppHandle) -> AccountManagerResult<()> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AccountManagerState>();
+        state.ensure_ready()?;
+        state.initialize_master_key()
+    })
+    .await
+    .map_err(|error| AccountManagerError::store_fail(format!("join unlock task: {error}")))?
 }
 
 /// 初始化失败后的显式重试入口（前端加载失败页的「重试」触发）。

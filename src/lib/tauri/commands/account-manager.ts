@@ -107,6 +107,11 @@ export function retryAccountManagerInit(): Promise<void> {
   return invokeTauriCommand(TAURI_COMMANDS.accountManager.retryInit)
 }
 
+/** 显式解锁凭据（幂等）：首次会访问 macOS 钥匙串（可能弹授权框）。 */
+export function unlockAccountManager(): Promise<void> {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.unlock)
+}
+
 export function listStations(): Promise<RelayStation[]> {
   return invokeTauriCommand(TAURI_COMMANDS.accountManager.listStations)
 }

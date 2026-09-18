@@ -610,8 +610,16 @@
         "loadFailed": "Failed to generate snapshot"
       }
     },
+    "lockedNotice": {
+      "title": "Credentials locked",
+      "description": "The keychain is not touched at startup. Unlock before using credential features such as password reveal or session capture/injection (first unlock triggers the macOS keychain prompt).",
+      "unlockButton": "Unlock credentials",
+      "unlocking": "Unlocking…"
+    },
     "toasts": {
       "initFailed": "Failed to load gateway data",
+      "unlocked": "Credentials unlocked",
+      "unlockFailed": "Failed to unlock credentials",
       "extensionSaveSuccess": "Saved the login state of \"{{station}}\" ({{cookieCount}} cookies)",
       "openLoginFailed": "Failed to open the isolated login window",
       "createStationFailed": "Failed to create gateway",

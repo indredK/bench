@@ -9,6 +9,8 @@ import { useTranslation } from "react-i18next"
 import { useShallow } from "zustand/react/shallow"
 import { toast } from "sonner"
 import { accountManagerUseCases } from "@/features/account-manager/services/account-manager.use-cases"
+import { accountManagerRepository } from "@/features/account-manager/services/account-manager.repository"
+import { useGuardedAsync } from "@/hooks/useGuardedAsync"
 import {
   selectAccountCountByStation,
   selectSelectedAccount,
@@ -288,6 +290,32 @@ export function useAccountManagerController() {
     useAccountManagerStore.getState().setRegionError(region, null)
   }, [])
 
+  // 凭据锁定态与显式解锁：启动不再触碰钥匙串，解锁推迟到用户点「解锁凭据」
+  // 或首次执行需要加解密的命令（后端 master_key() 懒初始化兜底）。
+  const unlockGuard = useGuardedAsync()
+  const credentialsLocked = useMemo(
+    () =>
+      !loading &&
+      loadError == null &&
+      capabilities != null &&
+      capabilities.credentialStore.status !== "supported",
+    [loading, loadError, capabilities],
+  )
+  const unlockCredentials = useCallback(
+    () =>
+      unlockGuard.run(async () => {
+        try {
+          await accountManagerRepository.unlock()
+          await loadInitialData()
+          toast.success(t("accountManager.toasts.unlocked"))
+        } catch (error) {
+          toast.error(translateError(t, error, t("accountManager.toasts.unlockFailed")))
+          throw error
+        }
+      }),
+    [unlockGuard, loadInitialData, t],
+  )
+
   return {
     stations,
     accounts,
@@ -295,6 +323,9 @@ export function useAccountManagerController() {
     loadError,
     capabilities,
     loadInitialData,
+    credentialsLocked,
+    unlockingCredentials: unlockGuard.pending,
+    unlockCredentials,
     selectedStation,
     selectedAccount,
     stationAccounts,

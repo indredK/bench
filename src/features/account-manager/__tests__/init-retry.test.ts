@@ -12,6 +12,7 @@ const repository = vi.hoisted(() => ({
   listStations: vi.fn(),
   listAllAccounts: vi.fn(),
   retryInit: vi.fn(),
+  unlock: vi.fn(),
 }))
 
 vi.mock("@/features/account-manager/services/account-manager.repository", () => ({

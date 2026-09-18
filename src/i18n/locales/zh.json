@@ -610,8 +610,16 @@
         "loadFailed": "生成快照失败"
       }
     },
+    "lockedNotice": {
+      "title": "凭据已锁定",
+      "description": "启动不会访问钥匙串。解锁后再使用密码查看、会话采集/注入等凭据功能（首次解锁会弹出 macOS 钥匙串授权）。",
+      "unlockButton": "解锁凭据",
+      "unlocking": "解锁中…"
+    },
     "toasts": {
       "initFailed": "加载站点数据失败",
+      "unlocked": "凭据已解锁",
+      "unlockFailed": "解锁凭据失败",
       "extensionSaveSuccess": "已保存「{{station}}」的登录态（{{cookieCount}} 条 Cookie）",
       "openLoginFailed": "打开隔离登录窗口失败",
       "createStationFailed": "创建站点失败",

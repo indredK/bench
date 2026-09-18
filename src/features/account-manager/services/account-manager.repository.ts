@@ -50,6 +50,7 @@ import {
   reorderStations,
   resetProbeStrategy,
   retryAccountManagerInit,
+  unlockAccountManager,
   revealPassword,
   setAccountProxyEnabled,
   setAccountRefreshSchedule,
@@ -72,6 +73,7 @@ import {
 export const accountManagerRepository = {
   getAccountManagerCapabilities,
   retryInit: retryAccountManagerInit,
+  unlock: unlockAccountManager,
   listStations,
   createStation,
   updateStation,

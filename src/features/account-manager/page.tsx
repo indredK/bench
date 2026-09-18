@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { FeatureLoadError } from "@/components/common/FeatureLoadError"
+import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet"
 import { openExternal } from "@/platform/shell"
 import { useAccountManagerController } from "@/features/account-manager/hooks/useAccountManagerController"
@@ -319,6 +320,25 @@ function AccountManagerPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2">
+      {c.credentialsLocked ? (
+        <div className="border-border flex items-center gap-3 rounded-md border p-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium">{t("accountManager.lockedNotice.title")}</p>
+            <p className="text-muted-foreground text-xs">
+              {t("accountManager.lockedNotice.description")}
+            </p>
+          </div>
+          <Button
+            size="sm"
+            disabled={c.unlockingCredentials}
+            onClick={() => void c.unlockCredentials()}
+          >
+            {c.unlockingCredentials
+              ? t("accountManager.lockedNotice.unlocking")
+              : t("accountManager.lockedNotice.unlockButton")}
+          </Button>
+        </div>
+      ) : null}
       <div className="flex min-h-0 flex-1 gap-4">
         <StationColumn
           stations={c.stations}
