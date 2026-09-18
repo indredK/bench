@@ -319,3 +319,16 @@ pnpm run test:critical       # ✓ 145 passed
 **UI 与生态规模**：成功插件市场（uTools 3000+ / VS Code 5 万+ / Raycast / Obsidian）的插件**必能贡献 UI**；纯逻辑插件生态（Zed / Lapce / dprint）规模仅数十至数百。Bench 是工具箱，模块 90% 工作量是 UI → B′ 路线正确。
 
 **registry 形态**：静态 JSON + Git 托管是当前主流轻量做法（Claude Code plugin marketplace 的 `marketplace.json` + Git；Obsidian `community-plugins.json` + GitHub Release；Rubick 的 npm 源 + WebDAV）。静态托管**不降低**验签安全性 —— 前提是 P3.1 的完整性校验已到位。
+
+---
+
+## 候选研发：抖音内容资产插件（douyin-content-assets，未排期）
+
+> 状态：**候选**（仅用户明确激活 DCA-ID 才实施；任务卡与实现事实核对见 bench 根 `候选任务/07-抖音内容资产插件分阶段实施提示词.md`，预检结论见 [decisions.md D-037](../../explanation/decisions.md#d-037--抖音内容资产插件范围与预检结论)）。
+
+- **DCA-00**：P0 预检 + 识别 PoC（FFmpeg/SenseVoice/whisper.cpp/PP-OCRv6）+ worker/持久化 ADR（PoC 待授权样本，未完成）。
+- **DCA-01**：P1 宿主骨架与采集闭环 —— `douyin_assets_get_capabilities / list_items / import_files / delete_items` 四命令进 `EXTENSION_ALLOWED_COMMANDS`；桥接新增 `POST /v1/douyin/items/import-batch`（沿用 token/Origin 机制）；Companion 增加「收集当前页面可见视频」action；插件源码在 plugin-market `extensions/douyin-content-assets/`。
+- **DCA-02**（未启动）：本地媒体识别、任务状态机与审核导出；worker 发行形态按 DCA-00 ADR 子项决定。
+- **DCA-03**（未启动）：硬化与发布准备。
+
+边界：不读 Cookie、不拦截 API、不自动翻页、不自动下载视频；插件 zip 不含模型或可执行文件；D-017 能力包机制未实现，不得预设。

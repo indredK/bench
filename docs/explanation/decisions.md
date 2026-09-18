@@ -2,6 +2,34 @@
 
 本文件只记录仍影响当前实现的方向性取舍；“做什么”以 [ROADMAP.md](../roadmap/ROADMAP.md) 为准，当前风险以 [audit-report.md](./audit-report.md) 为准。已推翻和已完成历史由 Git 保留。
 
+## D-037 · 抖音内容资产插件：范围与预检结论
+
+- **日期**：2026-09-18
+- **状态**：采纳（DCA-00 预检产出；DCA-01 起据此实施）
+- **背景**：KnowledgeBase《Bench插件版实施准备.md》提出新增 `douyin-content-assets` 插件，覆盖抖音条目采集 + 本地视频 ASR/OCR + 审核导出。源文档假设了若干仓库能力（SQLite、worker、Companion 采集 action 等），DCA-00 预检需核对实情后再进入 DCA-01。
+- **预检核对结论（2026-09-18 快照，执行时以代码为准）**：
+  1. manifest schema v2 / acl.commands / engines.bench / platforms：与源文档一致（`extension-spec.md` §3.1；现役 7 插件均此格式）。
+  2. ACL：`extension_host/acl.rs` `EXTENSION_ALLOWED_COMMANDS` 全局 deny-by-default 白名单，`guarded()` 为 `ext-` 前缀窗口网关；新命令必须在 Rust `app_invoke_handler!` + `EXTENSION_ALLOWED_COMMANDS` + TS `contracts.ts`/`TAURI_COMMAND_ARG_KEYS` + 插件 `manifest.acl.commands` 四处同步登记，契约测试强校验。
+  3. 私有数据目录：`ext_data_dir` 命令（`extension_host/commands.rs`）已返回 `$APPDATA/extension-data/<id>/`，卸载默认保留数据；复用，不新造约定。
+  4. 持久化：**仓库无 rusqlite/sqlx/sqlite**；现行约定是 `tauri-plugin-store`（JSON）+ `persistence::atomic_write` + schema version + `MAX_STORE_FILE_BYTES` + `backup_file`（见 token_calculator/storage.rs 范式）。源文档 §7.2 的 SQLite 8 表仅作讨论起点；**默认沿用版本化 JSON 约定**，若 DCA-02 数据量确有需要，可在 ADR 补 SQLite 选型验证结论后再换。
+  5. 任务事件：现状为全局 `app.emit`（如 `photo_triage SCAN_PROGRESS_EVENT`），`extension_host` 本身只写文件级 audit 无 emit；**复用全局 emit + 前端重开先查询兜底**，是否做限域事件由 DCA-01 按现状评估。
+  6. 文件选择：`tauri-plugin-dialog` 已注册（`lib.rs:70`），但无任何 picker 命令进入插件白名单；**DCA-01 新增宿主侧 picker 命令**（宿主内部 `DialogExt` 弹框，插件只收资产 ID 与元数据，不接触任意路径）。
+  7. Companion：预检时为 v0.8.1，本批随采集功能升级至 **v0.9.0**；已含 `activeTab,scripting,tabs`；`host_permissions` 仅 `127.0.0.1/localhost`，`optional_host_permissions` 为 `*/*`。**采集只经用户点击时 activeTab 授权**，不新增 douyin `host_permissions`、不加权限面；现有 `executeInPage`/`chrome.scripting.executeScript` 范式可复用。
+  8. 桥接：`account_manager/browser_bridge.rs` 已是 127.0.0.1 随机端口 + 一次性 token（NM 下发，0600 描述文件）+ 固定扩展 Origin 白名单 + 全局 16 MiB/30s 上限；现有路由 `/v1/ping`、`/v1/site/resolve`、`/v1/session/import` 等。**新路由 `POST /v1/douyin/items/import-batch` 沿用同一 token/Origin/超时机制**，路由级独立校验 ≤100 条 / ≤1 MiB / 域名白名单 / 幂等去重；响应不含内部绝对路径。
+  9. D-017 能力包：**仅有决策文字**，`extension-center roadmap` 未落地 capability-pack/sidecar/worker 实现；不得当作现成功能引用，DCA-00 不预设 worker 发行形态。
+  10. 媒体基建：**无任何 ffmpeg/worker/ASR/OCR 基建**；仅 `photo_triage/ffmpeg.rs` 探测**外部** ffmpeg 二进制（PATH→homebrew）并 shell out 抽帧。印证源文档 §6.4 第 3 条「开发机工具路径」可作 PoC 过渡；发行形态由 DCA-00 ADR 决定。
+  11. 插件真源：7 插件在 `kindred-plugin-market/plugin-market/extensions/`，宿主无旧 `extensions/` 副本；TS typed wrappers 在 `tauri-app/src/lib/tauri/commands/*.ts`（经 `contracts.ts` 类型化）。新插件建在插件市场仓，宿主只留 Rust/ACL/contracts/wrapper。
+  12. 门禁：`audit:ext-i18n` / `check:i18n-parity` / `test:extensions` 三条命令确认（plugin-market README:92–95），需与 `.github/host-baseline.txt` 的 `HOST_BASELINE_SHA` 一致的 host checkout。
+  13. roadmap：extension-center roadmap P0–P4 已完成，下一步 P4.5（作者交付/SDK）；DCA 不与 P4.5 冲突；**契约先行：改代码前先更新受影响规格/roadmap**。
+- **决策**：
+  1. 第一版闭环 = Companion 手动采集可见条目 + 用户导入本地视频 + 本机 ASR/OCR 识别与人工审核导出；不读 Cookie、不拦截 API、不自动翻页、不自动下载视频、插件 zip 不含模型或可执行文件。
+  2. 默认沿用版本化 JSON 持久化（DCA-02 若确需 SQLite 再补选型 ADR）。
+  3. 任务进度复用全局 `app.emit` + 前端重开先查询，不另建限域事件机制。
+  4. worker 发行形态暂不定死；DCA-02 接入前需 DCA-00 PoC ADR 子项（bench-media-worker 随包 / D-017 签名能力包（未实现）/ 开发机工具路径仅试验）。
+  5. 采集经用户点击授权的 activeTab/scripting 读当前可见 DOM，适配器失配返回 `unsupported_page`，不静默零条成功。
+- **影响**：DCA-01 实现按本核对结论执行；源文档 §7.2 SQLite 表结构与 §6.4 worker 分发以本决策为准。
+- **相关**：[extension-spec.md](../reference/extension-spec.md) · [extension-center roadmap](../modules/extension-center/roadmap.md) · [persistence-schema.md](../reference/persistence-schema.md) · D-017（能力包） · D-024（仓库组织）
+
 ## D-036 · 插件验证必须显式给出市场与宿主输入
 
 - **日期**：2026-09-14
