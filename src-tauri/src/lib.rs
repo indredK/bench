@@ -89,6 +89,12 @@ pub fn run() {
             extension_root_slot.clone(),
         ))
         .setup(|app| {
+            // macOS：启动即驻留托盘（D-019 静默启动扩展为一切启动方式）。
+            // 自启动与手动打开都不显示窗口、不驻留程序坞；主窗口由托盘图标
+            // 点击唤出（tray.rs show_main_window）。Accessory 策略隐藏 Dock 图标。
+            #[cfg(target_os = "macos")]
+            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+
             // 探测是否由登录项(隐藏)启动; 缓存供前端决定是否后台运行。
             // 仅读取启动参数(--hidden), 不做任何可能触发 TCC 授权弹窗的子进程调用。
             let launched_at_login =
