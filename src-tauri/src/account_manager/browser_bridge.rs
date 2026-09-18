@@ -438,6 +438,16 @@ async fn dispatch<R: Runtime>(
             complete_pending_inject(&origin);
             Ok(json!({ "outcome": "completed" }))
         }
+        // douyin-content-assets 采集批次导入（DCA-01；D-037）：token/Origin 已由
+        // authorize() 统一校验，这里再做路由级上限校验后交给领域模块处理。
+        ("POST", "/v1/douyin/items/import-batch") => {
+            if request.body.len() > crate::douyin_content_assets::bridge::import_body_limit() {
+                return Err(BridgeError::BadRequest("BODY_TOO_LARGE".to_string()));
+            }
+            crate::douyin_content_assets::bridge::import_batch(app, &body)
+                .await
+                .map_err(BridgeError::BadRequest)
+        }
         ("GET", _) | ("POST", _) => Err(BridgeError::NotFound),
         _ => Err(BridgeError::MethodNotAllowed),
     }

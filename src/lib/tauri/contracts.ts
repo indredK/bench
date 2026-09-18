@@ -153,6 +153,12 @@ import type {
 } from "@/lib/tauri/types/terminology"
 import type { ModelPricing, PricingStandard } from "@/lib/tauri/types/token-calculator"
 import type {
+  CapturedItemPage,
+  DeleteOutcome,
+  DouyinCapabilities,
+  ImportFilesOutcome,
+} from "@/lib/tauri/types/douyin-content-assets"
+import type {
   AppUpdateDownloadEvent,
   AppUpdateInfo,
   AppUpdateInstallResult,
@@ -513,6 +519,26 @@ export const TAURI_COMMAND_CONTRACTS = {
     PricingStandard
   >()("update_pricing_standard"),
   delete_pricing_standard: defineTauriCommand<{ id: string }, void>()("delete_pricing_standard"),
+  // douyin-content-assets 能力面（DCA-01；与 acl.rs 白名单 / manifest acl 同步）
+  douyin_assets_get_capabilities: defineTauriCommand<undefined, DouyinCapabilities>()(
+    "douyin_assets_get_capabilities",
+  ),
+  douyin_assets_list_items: defineTauriCommand<
+    {
+      offset?: number
+      limit?: number
+      listType?: string
+      search?: string
+    },
+    CapturedItemPage
+  >()("douyin_assets_list_items"),
+  douyin_assets_import_files: defineTauriCommand<undefined, ImportFilesOutcome>()(
+    "douyin_assets_import_files",
+  ),
+  douyin_assets_delete_items: defineTauriCommand<
+    { itemIds?: string[]; assetIds?: string[] },
+    DeleteOutcome
+  >()("douyin_assets_delete_items"),
   list_terminology_data: defineTauriCommand<undefined, TerminologyBundle>()(
     "list_terminology_data",
   ),
@@ -1169,6 +1195,12 @@ export const TAURI_COMMANDS = {
     updatePricingStandard: commandName("update_pricing_standard"),
     deletePricingStandard: commandName("delete_pricing_standard"),
   },
+  douyinContentAssets: {
+    getCapabilities: commandName("douyin_assets_get_capabilities"),
+    listItems: commandName("douyin_assets_list_items"),
+    importFiles: commandName("douyin_assets_import_files"),
+    deleteItems: commandName("douyin_assets_delete_items"),
+  },
   terminology: {
     listTerminologyData: commandName("list_terminology_data"),
     createIndustry: commandName("create_industry"),
@@ -1485,6 +1517,10 @@ export const TAURI_COMMAND_ARG_KEYS = {
   create_pricing_standard: ["name", "models"],
   update_pricing_standard: ["id", "name", "models"],
   delete_pricing_standard: ["id"],
+  douyin_assets_get_capabilities: [],
+  douyin_assets_list_items: ["offset", "limit", "listType", "search"],
+  douyin_assets_import_files: [],
+  douyin_assets_delete_items: ["itemIds", "assetIds"],
   list_terminology_data: [],
   create_industry: ["label"],
   update_industry: ["id", "label"],

@@ -167,11 +167,31 @@ body {
 }
 /* ── 注入区 / 备份区 ─────────────────────────────── */
 .inject-sec,
-.backups-sec {
+.backups-sec,
+.douyin-sec {
   margin-top: 10px;
   padding: 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
+}
+/* ── 抖音内容采集 ────────────────────────────────── */
+.douyin-sec .type-row {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 8px;
+}
+.douyin-sec select {
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+.douyin-sec select:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
 }
 /* ── 备份列表弹窗 ────────────────────────────────── */
 .modal-backdrop {

@@ -80,6 +80,12 @@ pub const EXTENSION_ALLOWED_COMMANDS: &[&str] = &[
     "create_pricing_standard",
     "update_pricing_standard",
     "delete_pricing_standard",
+    // douyin-content-assets 能力面（4 条采集条目查询/本地视频导入/软删，DCA-01；D-037）。
+    // 媒体路径由宿主解析，插件只接触资产 ID；无凭据读写、无系统级破坏面。
+    "douyin_assets_get_capabilities",
+    "douyin_assets_list_items",
+    "douyin_assets_import_files",
+    "douyin_assets_delete_items",
     // app-manager / quick-launch 能力面（19 条应用清单与启停，P5 迁移）。
     // ⚠️ 含 install/uninstall/upgrade 等系统级操作：宿主内置功能原本即具备，
     // 插件化后能力面不变，风险由安装时的信任披露（ACL 列表）向用户明示。
@@ -259,6 +265,22 @@ mod tests {
             "ext_capabilities",
         ] {
             assert!(is_command_allowed(command));
+        }
+    }
+
+    #[test]
+    fn douyin_assets_commands_allowed() {
+        for command in [
+            "douyin_assets_get_capabilities",
+            "douyin_assets_list_items",
+            "douyin_assets_import_files",
+            "douyin_assets_delete_items",
+        ] {
+            assert!(is_command_allowed(command));
+        }
+        // 越权面回归：桥接/账号控制面命令不得因新路由混入插件白名单。
+        for command in ["handle_browser_open", "proxy_login", "ext_market_commit"] {
+            assert!(!is_command_allowed(command));
         }
     }
 

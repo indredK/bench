@@ -208,6 +208,11 @@ macro_rules! app_invoke_handler {
             $crate::token_calculator::commands::create_pricing_standard,
             $crate::token_calculator::commands::update_pricing_standard,
             $crate::token_calculator::commands::delete_pricing_standard,
+            // douyin-content-assets 能力面（4 条采集/导入/删除，DCA-01；D-037）
+            $crate::douyin_content_assets::commands::douyin_assets_get_capabilities,
+            $crate::douyin_content_assets::commands::douyin_assets_list_items,
+            $crate::douyin_content_assets::commands::douyin_assets_import_files,
+            $crate::douyin_content_assets::commands::douyin_assets_delete_items,
             $crate::terminology::commands::list_terminology_data,
             $crate::terminology::commands::create_industry,
             $crate::terminology::commands::update_industry,

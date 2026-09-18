@@ -134,6 +134,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     "bench:session:overview": () => bridgeCall("/v1/interop/overview", {}),
     "bench:session:backups": () => listBackups(),
     "bench:session:restore": () => restoreBackup(msg.key),
+    // douyin-content-assets 采集（DCA-01；D-037）：activeTab 读当前可见卡片，
+    // 用户在 popup 预览确认后才经本地桥提交。不读 Cookie、不拦截 API、不自动翻页。
+    "bench:douyin:collect": () => collectDouyinCards(msg.tabId, msg.url),
+    "bench:douyin:submit": () => bridgeCall("/v1/douyin/items/import-batch", msg.payload),
   }
   const handler = sessionHandlers[msg?.type]
   if (handler) {
@@ -648,6 +652,112 @@ async function executeInPage(tabId, func, args) {
   return results?.[0]?.result
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 抖音内容采集（douyin-content-assets 插件，DCA-01；D-037）。
+//
+// 边界（与宿主 D-037 一致）：
+// 1. 仅在用户点击 popup 的 activeTab 手势内读取**当前可见**卡片；不自动滚动、
+//    不后台翻页、不读 Cookie/存储、不拦截任何站内 API、不做点赞/收藏等动作；
+// 2. 域名白名单与 Rust 侧一致：仅 https + douyin.com 及其子域
+//    （host 校验拒绝 `douyin.com.attacker.example` 后缀欺骗）；
+// 3. 页面结构适配器独立成 DOUYIN_EXTRACT_FUNC：选择器失配返回
+//    `unsupported: true`（popup 明确提示「未支持的页面」），不静默零条成功；
+// 4. 单批上限 100 条与 Rust 路由校验一致，超出截断并如实标注。
+// ═══════════════════════════════════════════════════════════════════════════
+
+const DOUYIN_HOST_RE = /(^|\.)douyin\.com$/
+
+function isDouyinUrl(url) {
+  try {
+    const parsed = new URL(url)
+    return parsed.protocol === "https:" && DOUYIN_HOST_RE.test(parsed.hostname)
+  } catch (e) {
+    return false
+  }
+}
+
+/** 页面上下文执行的自包含提取器：只读可见 DOM，不改页面、不发请求。 */
+function DOUYIN_EXTRACT_FUNC(pageUrl) {
+  const MAX_ITEMS = 100
+  const clip = (value, limit) =>
+    String(value || "")
+      .replace(/[\u0000-\u001f\u007f]/g, "")
+      .trim()
+      .slice(0, limit)
+  const anchors = Array.from(document.querySelectorAll('a[href*="/video/"], a[href*="/note/"]'))
+  const found = new Map()
+  for (const anchor of anchors) {
+    if (found.size >= MAX_ITEMS * 4) break // 防御异常巨页
+    const rect = anchor.getBoundingClientRect()
+    if (rect.width <= 0 || rect.height <= 0) continue // 不可见即跳过
+    const raw = anchor.getAttribute("href") || ""
+    let link
+    try {
+      link = new URL(raw, location.origin)
+    } catch (e) {
+      continue
+    }
+    if (link.protocol !== "https:" || link.hostname !== location.hostname) continue
+    const match = link.pathname.match(/^\/(video|note)\/([A-Za-z0-9_-]+)/)
+    if (!match) continue
+    const platformItemId = match[2]
+    if (!found.has(platformItemId)) {
+      found.set(platformItemId, { anchor, shareUrl: link.origin + link.pathname })
+    }
+  }
+  const items = []
+  for (const [platformItemId, info] of found) {
+    if (items.length >= MAX_ITEMS) break
+    const { anchor, shareUrl } = info
+    const card =
+      anchor.closest('[data-e2e="scroll-list-item"]') ||
+      anchor.closest("li, article, section") ||
+      anchor.parentElement
+    let title = anchor.getAttribute("aria-label") || anchor.getAttribute("title") || ""
+    if (!title && card) title = card.textContent || ""
+    let author = ""
+    if (card) {
+      const userLink = card.querySelector('a[href*="/user/"]')
+      author = userLink ? userLink.textContent || "" : ""
+    }
+    items.push({
+      platformItemId,
+      shareUrl,
+      title: clip(title, 200) || null,
+      author: clip(author, 120) || null,
+      coverUrl: null,
+    })
+  }
+  return {
+    pageUrl,
+    items,
+    matchedTotal: found.size,
+    truncated: found.size > items.length,
+    unsupported: found.size === 0,
+  }
+}
+
+/** 收集当前标签页可见卡片。域名不符 / 提取失败都以 Error 抛给 popup 展示。 */
+async function collectDouyinCards(tabId, url) {
+  if (!isDouyinUrl(url)) {
+    throw new Error("UNSUPPORTED_PAGE: 仅支持 https://*.douyin.com 页面")
+  }
+  if (!Number.isInteger(tabId)) {
+    throw new Error("TAB_UNAVAILABLE: 请在目标页面打开扩展面板后重试")
+  }
+  const result = await chrome.scripting.executeScript({
+    target: { tabId },
+    world: "MAIN",
+    func: DOUYIN_EXTRACT_FUNC,
+    args: [url],
+  })
+  const extracted = result?.[0]?.result
+  if (!extracted) {
+    throw new Error("EXTRACT_FAILED: 页面读取失败，请刷新后重试")
+  }
+  return extracted
+}
+
 /**
  * IndexedDB 快照（备份用）。在页面上下文执行，编码与 Bench 采集端
  *（browser_storage.rs `CAPTURE_SCRIPT_TEMPLATE`）完全一致：值统一编码为
@@ -723,11 +833,6 @@ const IDB_CAPTURE_FUNC = () =>
         seen.delete(value)
       }
     }
-    const request = (req) =>
-      new Promise((resolve, reject) => {
-        req.onsuccess = () => resolve(req.result)
-        req.onerror = () => reject(req.error || new Error("INDEXED_DB_REQUEST_FAILED"))
-      })
     const transactionDone = (tx) =>
       new Promise((resolve, reject) => {
         tx.oncomplete = resolve

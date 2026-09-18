@@ -57,6 +57,28 @@
       <div id="inject-list" class="targets hidden"></div>
     </section>
 
+    <section class="douyin-sec">
+      <div class="srow-head">
+        <span class="slabel">抖音内容采集</span>
+        <span id="douyin-page" class="site">—</span>
+      </div>
+      <div id="douyin-msg" class="smsg"></div>
+      <div id="douyin-controls" class="type-row">
+        <select id="douyin-type" aria-label="列表类型">
+          <option value="favorite">收藏列表</option>
+          <option value="like">点赞列表</option>
+          <option value="watch_later">稍后再看</option>
+          <option value="profile">作品列表</option>
+          <option value="other">其他列表</option>
+        </select>
+        <button id="douyin-capture" class="btn" disabled>读取当前页可见条目</button>
+      </div>
+      <div id="douyin-preview" class="targets hidden"></div>
+      <div id="douyin-submit-row" class="srow hidden">
+        <button id="douyin-submit" class="btn primary">确认提交到 Bench</button>
+      </div>
+    </section>
+
     <section class="backups-sec">
       <button id="backups-btn" class="btn">可回滚的备份</button>
     </section>

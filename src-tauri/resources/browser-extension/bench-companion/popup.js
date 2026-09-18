@@ -247,7 +247,6 @@ async function saveSession(force) {
     // optional_host_permissions 不能由 Bench 或 background 代为申请。
     // 必须在保存按钮的用户手势内申请，否则 cookies.getAll 会静默返回空数组，
     // Trae 等使用域级 Cookie 的站点会被误报为“没有登录态”。
-    const origin = originOf(state.url)
     const permissionPatterns = permissionOrigins(state.url)
     let granted = false
     try {
@@ -372,7 +371,6 @@ async function injectSession() {
         preview.data.outcome === "ok" &&
         (preview.data.hasWebStorage || preview.data.hasIndexedDb)
       ) {
-        const origin = new URL(state.url).origin
         const granted = await chrome.permissions.request({ origins: permissionOrigins(state.url) })
         if (granted) {
           withStorage = true
@@ -466,6 +464,180 @@ async function injectSession() {
   }
 }
 
+// ── 抖音内容采集（douyin-content-assets，DCA-01；D-037）─────────────
+// 用户点击「读取当前页可见条目」→ background 经 activeTab 读可见卡片 →
+// 预览确认 → 经本地桥提交。只在 https://*.douyin.com 页面启用；
+// 不读 Cookie、不自动滚动、不拦截 API。
+
+const $douyinPage = document.getElementById("douyin-page")
+const $douyinMsg = document.getElementById("douyin-msg")
+const $douyinType = document.getElementById("douyin-type")
+const $douyinCapture = document.getElementById("douyin-capture")
+const $douyinPreview = document.getElementById("douyin-preview")
+const $douyinSubmitRow = document.getElementById("douyin-submit-row")
+const $douyinSubmit = document.getElementById("douyin-submit")
+
+const DOUYIN_HOST_RE = /(^|\.)douyin\.com$/
+
+function isDouyinUrl(url) {
+  try {
+    const parsed = new URL(url)
+    return parsed.protocol === "https:" && DOUYIN_HOST_RE.test(parsed.hostname)
+  } catch (e) {
+    return false
+  }
+}
+
+function setDouyinMessage(text, kind) {
+  $douyinMsg.textContent = text || ""
+  $douyinMsg.className = "smsg" + (kind ? " " + kind : "")
+}
+
+const douyinState = { pageUrl: null, items: [] }
+
+function renderDouyin() {
+  const enabled = !!state.url && isDouyinUrl(state.url)
+  $douyinPage.textContent = enabled ? state.url.replace(/^https:\/\//, "") : "—"
+  $douyinCapture.disabled = !enabled || !state.url
+  if (!enabled) {
+    douyinState.pageUrl = null
+    douyinState.items = []
+    $douyinPreview.classList.add("hidden")
+    $douyinPreview.innerHTML = ""
+    $douyinSubmitRow.classList.add("hidden")
+    setDouyinMessage(
+      state.url
+        ? "仅在 https://*.douyin.com 页面可用（只读当前页可见条目）。"
+        : "请在一个 http(s) 网页上打开本面板。",
+      "warn",
+    )
+    return
+  }
+  setDouyinMessage("选择列表类型后读取当前页可见条目；向下滚动后可再次读取并继续采集。", "warn")
+}
+
+function renderDouyinPreview(data) {
+  douyinState.pageUrl = data.pageUrl
+  douyinState.items = data.items || []
+  $douyinPreview.classList.remove("hidden")
+  const rows = douyinState.items
+    .map(
+      (item, index) =>
+        '<div class="target"><span class="uname">' +
+        escapeHtml(item.title || "(无标题)") +
+        "</span>" +
+        '<span class="meta">' +
+        escapeHtml([item.author, "#" + (index + 1)].filter(Boolean).join(" · ")) +
+        "</span></div>",
+    )
+    .join("")
+  const note =
+    data.truncated || data.matchedTotal > douyinState.items.length
+      ? '<div class="empty">页面共 ' +
+        data.matchedTotal +
+        " 条，本批已按上限截断；滚动到下一屏后再次读取可继续采集。</div>"
+      : ""
+  $douyinPreview.innerHTML = rows + note
+  $douyinSubmitRow.classList.toggle("hidden", douyinState.items.length === 0)
+}
+
+async function captureDouyin() {
+  if (!state.url || !isDouyinUrl(state.url)) {
+    setDouyinMessage("请在 https://*.douyin.com 页面打开本面板。", "err")
+    return
+  }
+  $douyinCapture.disabled = true
+  setDouyinMessage("读取中…（仅读取当前页可见条目）")
+  let res
+  try {
+    const tab = await activeTab()
+    res = await send({ type: "bench:douyin:collect", tabId: tab?.id, url: state.url })
+  } finally {
+    $douyinCapture.disabled = false
+  }
+  if (!res.ok) {
+    douyinState.pageUrl = null
+    douyinState.items = []
+    $douyinPreview.classList.add("hidden")
+    $douyinPreview.innerHTML = ""
+    $douyinSubmitRow.classList.add("hidden")
+    setDouyinMessage(res.error, "err")
+    return
+  }
+  const data = res.data
+  if (data.unsupported) {
+    douyinState.pageUrl = null
+    douyinState.items = []
+    $douyinPreview.classList.add("hidden")
+    $douyinPreview.innerHTML = ""
+    $douyinSubmitRow.classList.add("hidden")
+    setDouyinMessage(
+      "未支持的页面或没有可见的视频卡片（页面可能改版）。不会把零条误报为成功。",
+      "warn",
+    )
+    return
+  }
+  renderDouyinPreview(data)
+  setDouyinMessage("读取到 " + douyinState.items.length + " 条可见条目，确认无误后提交。", "ok")
+}
+
+async function submitDouyinBatch() {
+  if (!douyinState.items.length) return
+  $douyinSubmit.disabled = true
+  $douyinSubmit.textContent = "提交中…"
+  setDouyinMessage("提交中…")
+  let res
+  try {
+    res = await send({
+      type: "bench:douyin:submit",
+      payload: {
+        captureId: crypto.randomUUID
+          ? crypto.randomUUID()
+          : String(Date.now()) + "-" + Math.random().toString(16).slice(2),
+        listType: $douyinType.value,
+        pageUrl: douyinState.pageUrl,
+        capturedAt: new Date().toISOString(),
+        items: douyinState.items,
+      },
+    })
+  } finally {
+    $douyinSubmit.disabled = false
+    $douyinSubmit.textContent = "确认提交到 Bench"
+  }
+  if (!res.ok) {
+    setDouyinMessage(res.error, "err")
+    return
+  }
+  const data = res.data
+  const lines = [
+    "已保存 " +
+      data.accepted +
+      " 条，重复 " +
+      data.duplicates +
+      " 条，被拒 " +
+      (data.rejectedTotal || 0) +
+      " 条。",
+  ]
+  const rejected = data.rejected || []
+  if (rejected.length) {
+    lines.push(
+      "被拒原因（前 " +
+        rejected.length +
+        " 条）：" +
+        rejected.map((r) => "#" + (r.index + 1) + " " + r.reason).join("；"),
+    )
+  }
+  setDouyinMessage(lines.join("\n"), rejected.length ? "warn" : "ok")
+  douyinState.pageUrl = null
+  douyinState.items = []
+  $douyinPreview.classList.add("hidden")
+  $douyinPreview.innerHTML = ""
+  $douyinSubmitRow.classList.add("hidden")
+}
+
+$douyinCapture.addEventListener("click", () => void captureDouyin())
+$douyinSubmit.addEventListener("click", () => void submitDouyinBatch())
+
 // ── 备份列表弹窗 ─────────────────────────────────────────────
 
 function closeBackupModal() {
@@ -555,11 +727,13 @@ async function refreshSession() {
   state.resolved = null
   if (!originOf(state.url)) {
     renderSession()
+    renderDouyin()
     return
   }
   const res = await send({ type: "bench:session:resolve", url: state.url })
   if (res.ok) state.resolved = res.data
   renderSession()
+  renderDouyin()
   if (!res.ok) setMessage(res.error, "err")
 }
 

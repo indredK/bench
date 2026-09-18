@@ -8,6 +8,7 @@ mod clean_space;
 mod command_center;
 mod commands;
 mod dev_cleaner;
+mod douyin_content_assets;
 mod env_detector;
 mod error;
 mod extension_host;
