@@ -32,13 +32,18 @@ import {
 } from "node:fs"
 import { homedir, platform } from "node:os"
 import { join } from "node:path"
-import { DISABLED_MARKER, injectFilesManifest, skipDotfiles } from "./lib/extension-files.mjs"
+import {
+  DISABLED_MARKER,
+  injectFilesManifest,
+  isViteSourceEntry,
+  skipDotfiles,
+} from "./lib/extension-files.mjs"
+import { resolveMarketDir } from "./lib/market-dir.mjs"
 
 /** 与 src-tauri/tauri.conf.json 的 identifier 保持一致。 */
 const IDENTIFIER = "com.bench.app"
 /** 与 src-tauri/src/extension_host/assets.rs::EXT_DIR_NAME 一致。 */
 const EXT_DIR_NAME = "extensions"
-const REPO_EXTENSIONS = join(process.cwd(), "extensions")
 
 function appDataDir() {
   const home = homedir()
@@ -80,9 +85,19 @@ function main() {
     return
   }
 
-  if (!existsSync(REPO_EXTENSIONS)) {
-    // P5 真相源反转：无插件目录 → 无需同步（基座零内置插件）。
-    console.log("[extensions] no extensions directory; nothing to sync")
+  // 插件源目录解析（真源反转后默认可用，见 lib/market-dir.mjs）。
+  const market = resolveMarketDir()
+  if (market.missing) {
+    console.error(
+      `[extensions] market dir does not exist (${market.source}): ${market.dir ?? "(unspecified)"}`,
+    )
+    process.exit(1)
+  }
+  const REPO_EXTENSIONS = market.dir
+  if (!REPO_EXTENSIONS) {
+    console.log(
+      "[extensions] no plugin sources found (hint: pass --market <dir> or set BENCH_MARKET_DIR); nothing to sync",
+    )
     return
   }
 
@@ -107,6 +122,11 @@ function main() {
       deployContents(join(source, "assets"), target)
       cpSync(join(source, "manifest.json"), join(target, "manifest.json"))
     } else if (existsSync(join(source, "index.html"))) {
+      if (isViteSourceEntry(join(source, "index.html"))) {
+        // P2b 白屏根因防线：源码入口不是部署物，先跑 extensions:build。
+        console.warn(`[extensions] skip ${id}: vite source entry (run \`extensions:build\` first)`)
+        continue
+      }
       // 静态模式：仅 manifest + 入口 + assets（源码/文档不进运行时目录）。
       const staging = join(targetRoot, `.${id}.staging`)
       rmSync(staging, { recursive: true, force: true })

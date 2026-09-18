@@ -3,7 +3,7 @@
  * manifest v2 `files` 清单工具。零三方依赖（Node built-ins only）。
  */
 
-import { readdirSync, readFileSync, writeFileSync } from "node:fs"
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs"
 import { createHash } from "node:crypto"
 import { join, relative, sep } from "node:path"
 
@@ -16,6 +16,23 @@ export const HASH_EXCLUDED = new Set(["manifest.json", DISABLED_MARKER])
 export function skipDotfiles(src) {
   const base = src.split(sep).pop() ?? ""
   return !(base.startsWith(".") && base !== ".")
+}
+
+/**
+ * 检测 `index.html` 是否是 vite **源码入口**（P2b 白屏根因：把 `/src/main.tsx`
+ * 开发入口当部署物同步/打包）。市场仓插件根下的 index.html 全是源码入口；
+ * 只有构建产物 `assets/index.html`（base:"./"）可作为部署物。
+ * 返回 true 表示不可部署（应提示先跑 `extensions:build`）。
+ */
+export function isViteSourceEntry(indexHtmlPath) {
+  if (!existsSync(indexHtmlPath)) return false
+  try {
+    const html = readFileSync(indexHtmlPath, "utf8")
+    return /src="\/?src\/(main|index)\.(tsx?|jsx?)"/.test(html)
+  } catch {
+    // 读不了当不可部署处理（fail-closed）。
+    return true
+  }
 }
 
 /** 递归收集部署根下的文件（相对路径，`/` 分隔；跳过 manifest.json/.disabled/点文件）。 */

@@ -19,14 +19,14 @@
 
 import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from "node:fs"
 import { join } from "node:path"
-import { injectFilesManifest, skipDotfiles } from "./lib/extension-files.mjs"
+import { injectFilesManifest, isViteSourceEntry, skipDotfiles } from "./lib/extension-files.mjs"
+import { resolveMarketDir } from "./lib/market-dir.mjs"
 
-const REPO_EXTENSIONS = join(process.cwd(), "extensions")
 /** 与 tauri.conf.json bundle.resources 的 key 保持一致（相对 src-tauri/）。 */
 const STAGING_ROOT = join(process.cwd(), "src-tauri", "resources", "extensions")
 
-function stage(id) {
-  const source = join(REPO_EXTENSIONS, id)
+function stage(id, repoExtensions) {
+  const source = join(repoExtensions, id)
   const target = join(STAGING_ROOT, id)
   if (!existsSync(join(source, "manifest.json"))) {
     console.warn(`[extensions:stage] skip ${id}: missing manifest.json`)
@@ -47,6 +47,13 @@ function stage(id) {
       })
     }
   } else if (existsSync(join(source, "index.html"))) {
+    if (isViteSourceEntry(join(source, "index.html"))) {
+      // P2b 白屏根因防线：源码入口不是部署物，先跑 extensions:build。
+      console.warn(
+        `[extensions:stage] skip ${id}: vite source entry (run \`extensions:build\` first)`,
+      )
+      return false
+    }
     // 静态模式：仅 manifest + 入口 + assets。
     for (const entry of ["index.html", "assets"]) {
       const from = join(source, entry)
@@ -67,18 +74,29 @@ function stage(id) {
 
 function main() {
   mkdirSync(STAGING_ROOT, { recursive: true })
-  if (!existsSync(REPO_EXTENSIONS)) {
+  // 插件源目录解析（真源反转后默认可用，见 lib/market-dir.mjs）。
+  const market = resolveMarketDir()
+  if (market.missing) {
+    console.error(
+      `[extensions:stage] market dir does not exist (${market.source}): ${market.dir ?? "(unspecified)"}`,
+    )
+    process.exit(1)
+  }
+  if (!market.dir) {
     // 无插件仓库也要保证 resources 目录存在（tauri resources 引用路径必须存在）。
-    console.log("[extensions:stage] no extensions directory; created empty staging root")
+    console.log(
+      "[extensions:stage] no plugin sources found (hint: pass --market <dir> or set BENCH_MARKET_DIR); created empty staging root",
+    )
     return
   }
+  const REPO_EXTENSIONS = market.dir
   const ids = readdirSync(REPO_EXTENSIONS, { withFileTypes: true })
     .filter((d) => d.isDirectory())
     .map((d) => d.name)
 
   let staged = 0
   for (const id of ids) {
-    if (stage(id)) staged += 1
+    if (stage(id, REPO_EXTENSIONS)) staged += 1
   }
   console.log(`[extensions:stage] done (${staged} extension(s))`)
 }

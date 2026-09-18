@@ -186,10 +186,13 @@ extensions/<id>/
 ### 8.3 构建
 
 ```bash
-pnpm run extensions:build     # 当前单插件；P4.5 起支持 --id
+pnpm run extensions:build     # 全部插件；支持 --id <id>；P4.5 起支持 --id
 ```
 
 产出 `extensions/<id>/assets/`（`base: "./"` 是硬性要求，否则子路径下 404 白屏）。
+
+> **真源反转后的源目录解析（2026-09-18）**：`extensions:build/sync/stage` 按优先级解析插件源：
+> `--market <dir>` > `BENCH_MARKET_DIR` > 兄弟市场仓（`../kindred-plugin-market/plugin-market/extensions`）> 旧 `cwd/extensions`（CI release 流程）。显式输入指向不存在的目录会 fail-closed；树外源由 build 脚本拷入宿主树临时区构建并回拷 `assets/`（与 CI release 流程一致）。市场仓插件根的 `index.html` 是 vite 源码入口，未构建时会被拒用（P2b 白屏防线），提示先跑 `extensions:build`。
 
 ### 8.4 打包与签名
 
