@@ -888,7 +888,10 @@ mod tests {
         // 按 taskId 命中时不查状态，重复/乱序到达的 claimed 曾把 injected 打回
         // claimed —— 过 CLAIM_REQUEUE_SECS 又能被领取，等于同一份会话二次注入。
         let origin = unique_origin("regress");
-        let id = register_pending_inject("acct-2b", &origin);
+        // account_id 也必须唯一：登记新任务会按账号互斥清理同账号的旧任务，
+        // 复用固定 id 会和并行跑的其它用例互相摘掉任务（表是进程级全局的）。
+        let id =
+            register_pending_inject(&format!("acct-{}", uuid::Uuid::new_v4().simple()), &origin);
         report_pending_inject(Some(&id), None, inject_status::CLAIMED, None, &json!({}));
         report_pending_inject(
             Some(&id),
