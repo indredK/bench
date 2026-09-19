@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.37.0](https://github.com/indredK/bench/compare/v1.36.0...v1.37.0) (2026-09-19)
+
+
+### Features
+
+* **account-manager, browser-ext:** 新增 Chrome 本地 Cookie 导入与扩展交互优化 ([38c06ab](https://github.com/indredK/bench/commit/38c06ab855b8b28342016140a97ccabbb07f3500))
+
 ## [1.36.0](https://github.com/indredK/bench/compare/v1.35.2...v1.36.0) (2026-09-18)
 
 
