@@ -323,8 +323,11 @@ pub async fn command_market_list() -> AppResult<CommandMarketListing> {
         .map(|entry| {
             let installed_version = installed.get(&entry.id);
             let installed = installed_version.is_some_and(|v| version_at_least(v, &entry.version));
+            // 「可更新」= 本地版本低于市场版本。原来写成 `!version_at_least(market, local)`
+            // 方向是反的：真有新版本时不显示可更新，registry 回滚/CDN 陈旧（市场比本地旧）
+            // 时反而显示可更新，点下去必然被降级拒绝。
             let upgradable =
-                installed_version.is_some_and(|v| !version_at_least(&entry.version, v));
+                installed_version.is_some_and(|v| !version_at_least(v, &entry.version));
             MarketCommandDto {
                 id: entry.id.clone(),
                 version: entry.version.clone(),

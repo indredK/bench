@@ -2,7 +2,7 @@
  * Use Cases / 用例: orchestrate feature flows; 只编排业务流.
  */
 import { networkProbeRepository } from "@/features/network-probe/services/network-probe.repository"
-import { useNetworkProbeStore } from "@/features/network-probe/store"
+import { type NetworkProbeKind, useNetworkProbeStore } from "@/features/network-probe/store"
 import { TAURI_EVENTS } from "@/lib/tauri/contracts"
 import { getErrorMessage } from "@/lib/tauri/errors"
 import type {
@@ -15,6 +15,36 @@ import type {
   TracerouteHop,
 } from "@/lib/tauri/types/network-probe"
 import { listenToPlatformEvent } from "@/platform/events"
+
+/**
+ * 订阅 scan-session 事件, 把后端回传的会话只写进「本类探测专属」的槽位。
+ * 分槽的原因: 体检 / 端口扫描等可以并发跑, 共用一个槽会让 Cancel 打错目标,
+ * 或先结束的那轮无条件清空槽, 令仍在跑的面板失去取消能力。
+ */
+function createScanSessionTracker(kind: NetworkProbeKind) {
+  let sessionId: string | null = null
+  let unlisten: (() => void) | undefined
+  return {
+    async start() {
+      // 起跑先占位清空, 槽里之后只可能是本轮会话, 取消目标不会串到上一轮。
+      useNetworkProbeStore.getState().setActiveSessionId(kind, null)
+      unlisten = await listenToPlatformEvent<{ sessionId: string; kind: string }>(
+        TAURI_EVENTS.networkProbe.scanSession,
+        (event) => {
+          if (event.payload.kind !== kind) return
+          sessionId = event.payload.sessionId
+          useNetworkProbeStore.getState().setActiveSessionId(kind, sessionId)
+        },
+      )
+    },
+    stop() {
+      unlisten?.()
+      unlisten = undefined
+      // 只清自己这轮占的槽, 别的探测进度不受影响。
+      useNetworkProbeStore.getState().clearActiveSessionId(kind, sessionId)
+    },
+  }
+}
 
 export const networkProbeUseCases = {
   async bootstrap() {
@@ -156,19 +186,13 @@ export const networkProbeUseCases = {
     store.setLoadingSites(true)
     store.setError(null)
     store.resetSitesStreaming()
-    store.setActiveSessionId(null)
+    // 重跑先清空上一轮结果, 否则面板会优先渲染旧结果而遮蔽本轮流式进度。
+    store.setSitesResult(null)
+    const sessions = createScanSessionTracker("sites")
     store.appendCommandLog(`startSitesProbe(local, '${packId}')`)
     let unlistenSample: (() => void) | undefined
-    let unlistenSession: (() => void) | undefined
     try {
-      unlistenSession = await listenToPlatformEvent<{ sessionId: string; kind: string }>(
-        TAURI_EVENTS.networkProbe.scanSession,
-        (event) => {
-          if (event.payload.kind === "sites") {
-            useNetworkProbeStore.getState().setActiveSessionId(event.payload.sessionId)
-          }
-        },
-      )
+      await sessions.start()
       unlistenSample = await listenToPlatformEvent<SiteSampleResult>(
         TAURI_EVENTS.networkProbe.siteSample,
         (event) => {
@@ -189,8 +213,7 @@ export const networkProbeUseCases = {
       })
     } finally {
       unlistenSample?.()
-      unlistenSession?.()
-      useNetworkProbeStore.getState().setActiveSessionId(null)
+      sessions.stop()
       useNetworkProbeStore.getState().setLoadingSites(false)
     }
   },
@@ -201,19 +224,13 @@ export const networkProbeUseCases = {
     store.setLoadingSites(true)
     store.setError(null)
     store.resetSitesStreaming()
-    store.setActiveSessionId(null)
+    // 同上: 单站重测也要先清掉整包结果, 避免旧数据顶替本轮进度。
+    store.setSitesResult(null)
+    const sessions = createScanSessionTracker("sites")
     store.appendCommandLog(`startSitesProbe(local, custom[${targets.length}])`)
     let unlistenSample: (() => void) | undefined
-    let unlistenSession: (() => void) | undefined
     try {
-      unlistenSession = await listenToPlatformEvent<{ sessionId: string; kind: string }>(
-        TAURI_EVENTS.networkProbe.scanSession,
-        (event) => {
-          if (event.payload.kind === "sites") {
-            useNetworkProbeStore.getState().setActiveSessionId(event.payload.sessionId)
-          }
-        },
-      )
+      await sessions.start()
       unlistenSample = await listenToPlatformEvent<SiteSampleResult>(
         TAURI_EVENTS.networkProbe.siteSample,
         (event) => {
@@ -234,8 +251,7 @@ export const networkProbeUseCases = {
       })
     } finally {
       unlistenSample?.()
-      unlistenSession?.()
-      useNetworkProbeStore.getState().setActiveSessionId(null)
+      sessions.stop()
       useNetworkProbeStore.getState().setLoadingSites(false)
     }
   },
@@ -246,19 +262,13 @@ export const networkProbeUseCases = {
     store.setLoadingHealth(true)
     store.setError(null)
     store.resetHealthStreaming()
-    store.setActiveSessionId(null)
+    // 重跑体检先清空上一轮结论: 报告 / 意见面板有各自空态, 不该继续显示旧扫描。
+    store.setHealthResult(null)
+    const sessions = createScanSessionTracker("health")
     store.appendCommandLog("startHealthScan(local)")
     let unlistenItem: (() => void) | undefined
-    let unlistenSession: (() => void) | undefined
     try {
-      unlistenSession = await listenToPlatformEvent<{ sessionId: string; kind: string }>(
-        TAURI_EVENTS.networkProbe.scanSession,
-        (event) => {
-          if (event.payload.kind === "health") {
-            useNetworkProbeStore.getState().setActiveSessionId(event.payload.sessionId)
-          }
-        },
-      )
+      await sessions.start()
       unlistenItem = await listenToPlatformEvent<HealthCheckItem>(
         TAURI_EVENTS.networkProbe.healthItem,
         (event) => {
@@ -282,19 +292,22 @@ export const networkProbeUseCases = {
       })
     } finally {
       unlistenItem?.()
-      unlistenSession?.()
-      useNetworkProbeStore.getState().setActiveSessionId(null)
+      sessions.stop()
       useNetworkProbeStore.getState().setLoadingHealth(false)
     }
   },
 
-  async cancelScan() {
+  /**
+   * 取消某一类探测: 目标只从该类的槽位取, 因此体检与端口扫描并发时各取消各的。
+   * 槽为空（该类没在跑）时保持 no-op, 不报错。
+   */
+  async cancelScan(kind: NetworkProbeKind) {
     const store = useNetworkProbeStore.getState()
-    const sessionId = store.activeSessionId
+    const sessionId = store.activeSessionIdByKind[kind]
     if (!sessionId) return
     // 幂等 (A4-4): 同一会话只允许发出一次 cancel 请求。
-    if (store.cancelRequestedSessionId === sessionId) return
-    store.setCancelRequestedSessionId(sessionId)
+    if (store.cancelRequestedSessionIdByKind[kind] === sessionId) return
+    store.setCancelRequestedSessionId(kind, sessionId)
     store.appendCommandLog(`cancelScan('${sessionId}')`)
     try {
       await networkProbeRepository.cancelScan(sessionId)
@@ -397,21 +410,15 @@ export const networkProbeUseCases = {
     store.setLoadingTraceroute(true)
     store.setError(null)
     store.resetTracerouteStreaming()
-    store.setActiveSessionId(null)
+    // 重跑先清掉上一轮跳数结果, 让本轮 streaming 可见。
+    store.setTracerouteResult(null)
+    const sessions = createScanSessionTracker("traceroute")
     store.appendCommandLog(
       `startTraceroute(local, '${target.trim()}', {maxTtl:${maxTtl},rounds:${rounds}})`,
     )
     let unlistenHop: (() => void) | undefined
-    let unlistenSession: (() => void) | undefined
     try {
-      unlistenSession = await listenToPlatformEvent<{ sessionId: string; kind: string }>(
-        TAURI_EVENTS.networkProbe.scanSession,
-        (event) => {
-          if (event.payload.kind === "traceroute") {
-            useNetworkProbeStore.getState().setActiveSessionId(event.payload.sessionId)
-          }
-        },
-      )
+      await sessions.start()
       unlistenHop = await listenToPlatformEvent<TracerouteHop>(
         TAURI_EVENTS.networkProbe.tracerouteHop,
         (event) => {
@@ -432,8 +439,7 @@ export const networkProbeUseCases = {
       })
     } finally {
       unlistenHop?.()
-      unlistenSession?.()
-      useNetworkProbeStore.getState().setActiveSessionId(null)
+      sessions.stop()
       useNetworkProbeStore.getState().setLoadingTraceroute(false)
     }
   },
@@ -617,19 +623,11 @@ export const networkProbeUseCases = {
     store.setError(null)
     store.setSpeedSample(null)
     store.setSpeedResult(null)
-    store.setActiveSessionId(null)
+    const sessions = createScanSessionTracker("speed")
     store.appendCommandLog(`startSpeedTest('${sourceId}')`)
     let unlistenSample: (() => void) | undefined
-    let unlistenSession: (() => void) | undefined
     try {
-      unlistenSession = await listenToPlatformEvent<{ sessionId: string; kind: string }>(
-        TAURI_EVENTS.networkProbe.scanSession,
-        (event) => {
-          if (event.payload.kind === "speed") {
-            useNetworkProbeStore.getState().setActiveSessionId(event.payload.sessionId)
-          }
-        },
-      )
+      await sessions.start()
       unlistenSample = await listenToPlatformEvent<SpeedSampleEvent>(
         TAURI_EVENTS.networkProbe.speedSample,
         (event) => {
@@ -657,8 +655,7 @@ export const networkProbeUseCases = {
       })
     } finally {
       unlistenSample?.()
-      unlistenSession?.()
-      useNetworkProbeStore.getState().setActiveSessionId(null)
+      sessions.stop()
       useNetworkProbeStore.getState().setLoadingSpeed(false)
     }
   },
@@ -755,19 +752,11 @@ export const networkProbeUseCases = {
     store.setError(null)
     store.resetPortScanStreaming()
     store.setPortScanResult(null)
-    store.setActiveSessionId(null)
+    const sessions = createScanSessionTracker("ports")
     store.appendCommandLog(`scanPorts(local, '${target.trim()}', '${ports.trim()}')`)
     let unlistenSample: (() => void) | undefined
-    let unlistenSession: (() => void) | undefined
     try {
-      unlistenSession = await listenToPlatformEvent<{ sessionId: string; kind: string }>(
-        TAURI_EVENTS.networkProbe.scanSession,
-        (event) => {
-          if (event.payload.kind === "ports") {
-            useNetworkProbeStore.getState().setActiveSessionId(event.payload.sessionId)
-          }
-        },
-      )
+      await sessions.start()
       unlistenSample = await listenToPlatformEvent<PortSampleEvent>(
         TAURI_EVENTS.networkProbe.portSample,
         (event) => {
@@ -788,8 +777,7 @@ export const networkProbeUseCases = {
       })
     } finally {
       unlistenSample?.()
-      unlistenSession?.()
-      useNetworkProbeStore.getState().setActiveSessionId(null)
+      sessions.stop()
       useNetworkProbeStore.getState().setLoadingPorts(false)
     }
   },
@@ -837,18 +825,10 @@ export const networkProbeUseCases = {
     if (store.loadingLan) return
     store.setLoadingLan(true)
     store.setError(null)
-    store.setActiveSessionId(null)
+    const sessions = createScanSessionTracker("lan")
     store.appendCommandLog("scanLan(local)")
-    let unlistenSession: (() => void) | undefined
     try {
-      unlistenSession = await listenToPlatformEvent<{ sessionId: string; kind: string }>(
-        TAURI_EVENTS.networkProbe.scanSession,
-        (event) => {
-          if (event.payload.kind === "lan") {
-            useNetworkProbeStore.getState().setActiveSessionId(event.payload.sessionId)
-          }
-        },
-      )
+      await sessions.start()
       const result = await networkProbeRepository.discoverLan()
       store.setLanResult(result)
       store.appendCommandLog(
@@ -862,8 +842,7 @@ export const networkProbeUseCases = {
         fallback: getErrorMessage(error),
       })
     } finally {
-      unlistenSession?.()
-      useNetworkProbeStore.getState().setActiveSessionId(null)
+      sessions.stop()
       useNetworkProbeStore.getState().setLoadingLan(false)
     }
   },
@@ -899,18 +878,10 @@ export const networkProbeUseCases = {
     if (store.loadingPcap) return
     store.setLoadingPcap(true)
     store.setError(null)
-    store.setActiveSessionId(null)
+    const sessions = createScanSessionTracker("pcap")
     store.appendCommandLog(`startPacketCapture(local, {secs:${durationSecs ?? 5}})`)
-    let unlistenSession: (() => void) | undefined
     try {
-      unlistenSession = await listenToPlatformEvent<{ sessionId: string; kind: string }>(
-        TAURI_EVENTS.networkProbe.scanSession,
-        (event) => {
-          if (event.payload.kind === "pcap") {
-            useNetworkProbeStore.getState().setActiveSessionId(event.payload.sessionId)
-          }
-        },
-      )
+      await sessions.start()
       const result = await networkProbeRepository.runPcapDiag(durationSecs ?? 5)
       store.setPcapResult(result)
     } catch (error) {
@@ -919,8 +890,7 @@ export const networkProbeUseCases = {
         fallback: getErrorMessage(error),
       })
     } finally {
-      unlistenSession?.()
-      useNetworkProbeStore.getState().setActiveSessionId(null)
+      sessions.stop()
       useNetworkProbeStore.getState().setLoadingPcap(false)
     }
   },

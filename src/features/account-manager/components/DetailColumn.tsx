@@ -141,6 +141,11 @@ export function DetailColumn({
     setRevealedPassword(null)
   }, [])
 
+  const activeAccountIdRef = useRef(account?.id)
+  useEffect(() => {
+    activeAccountIdRef.current = account?.id
+  }, [account?.id])
+
   useEffect(() => {
     clearRevealedPassword()
     return clearRevealedPassword
@@ -161,8 +166,12 @@ export function DetailColumn({
       return
     }
     setRevealing(true)
+    const requestId = account.id
     try {
       const pw = await onRevealPassword(account.id)
+      // IPC 在途时用户可能已切到别的账号：把上一个账号的明文密码写到新账号那一行
+      // 既是错误信息也是泄露。切换时的清理 effect 只在切换那一刻生效，救不了已到店的响应。
+      if (activeAccountIdRef.current !== requestId) return
       setRevealedPassword(pw)
       setPasswordHidden(false)
       revealTimerRef.current = window.setTimeout(clearRevealedPassword, REVEALED_PASSWORD_TTL_MS)

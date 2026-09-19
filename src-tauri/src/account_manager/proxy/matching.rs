@@ -4,7 +4,11 @@ use url::Url;
 use super::super::types::StationAccount;
 
 /// 匹配置信度
+///
+/// 必须 camelCase：前端 `MatchConfidence` 声明的是 `"exact" | "sso" | "manual"`，
+/// 而 serde 默认输出 `"Exact"` —— 大小写不一致会让向导里的置信度分支全部走空。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum MatchConfidence {
     Exact,
     Sso,
@@ -12,7 +16,11 @@ pub enum MatchConfidence {
 }
 
 /// 匹配结果
+///
+/// 嵌套结构体也要自己带 `rename_all`：外层 `BrowserOpenResult` 的 camelCase
+/// 不会传导到内层字段（前端读 `stationId` 拿到 undefined，去重与显示一起失效）。
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AuthProxyMatch {
     pub station_id: String,
     pub station_name: String,

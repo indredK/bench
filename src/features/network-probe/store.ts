@@ -89,6 +89,13 @@ function persistReportHistory(history: HealthScanResult[]) {
 
 export type NetworkProbeL1 = "basic" | "sites" | "test" | "security" | "discover"
 
+/**
+ * 会话归属的探测种类; 字面量与后端 `network-probe:scan-session` 事件的 `kind` 一致。
+ * 注意与 `ProbeNode.kind`（local / remote-proxy / remote-agent）不是一回事——那是「探测原点」。
+ */
+export type NetworkProbeKind =
+  "health" | "sites" | "traceroute" | "speed" | "ports" | "pcap" | "lan"
+
 export type NetworkProbeOfflineSub =
   "all" | "captive" | "proxy" | "ipv6" | "mtu" | "egress" | "diff"
 
@@ -144,9 +151,10 @@ interface NetworkProbeState {
   probeNodes: ProbeNode[]
   reportHistory: HealthScanResult[]
   securityAuthorized: boolean
-  activeSessionId: string | null
-  /** 已发出 cancel 请求的会话; 用于保证取消幂等 (A4-4)。 */
-  cancelRequestedSessionId: string | null
+  /** 按探测种类分槽的活动会话; 多类探测并发时取消目标各自独立, 不会互相抢占。 */
+  activeSessionIdByKind: Record<NetworkProbeKind, string | null>
+  /** 各探测种类已发出 cancel 请求的会话; 用于保证取消幂等 (A4-4)。 */
+  cancelRequestedSessionIdByKind: Record<NetworkProbeKind, string | null>
   commandLog: string[]
   loadingSummary: boolean
   loadingTcp: boolean
@@ -226,8 +234,9 @@ interface NetworkProbeState {
   pushReportHistory: (scan: HealthScanResult) => void
   clearReportHistory: () => void
   setSecurityAuthorized: (securityAuthorized: boolean) => void
-  setActiveSessionId: (activeSessionId: string | null) => void
-  setCancelRequestedSessionId: (sessionId: string | null) => void
+  setActiveSessionId: (kind: NetworkProbeKind, sessionId: string | null) => void
+  clearActiveSessionId: (kind: NetworkProbeKind, expectedSessionId?: string | null) => void
+  setCancelRequestedSessionId: (kind: NetworkProbeKind, sessionId: string | null) => void
   appendCommandLog: (line: string) => void
   clearCommandLog: () => void
   setLoadingSummary: (loading: boolean) => void
@@ -274,6 +283,17 @@ const OFFLINE_SUBS: NetworkProbeOfflineSub[] = [
   "egress",
   "diff",
 ]
+
+/** 会话槽初值: 一类探测一个槽, 并发探测各自只看得见自己那一个。 */
+const EMPTY_SESSION_ID_SLOTS: Record<NetworkProbeKind, string | null> = {
+  health: null,
+  sites: null,
+  traceroute: null,
+  speed: null,
+  ports: null,
+  pcap: null,
+  lan: null,
+}
 
 function isOfflineSub(value: unknown): value is NetworkProbeOfflineSub {
   return typeof value === "string" && (OFFLINE_SUBS as string[]).includes(value)
@@ -358,8 +378,8 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   probeNodes: [],
   reportHistory: loadReportHistory(),
   securityAuthorized: loadSecurityAuthorized(),
-  activeSessionId: null,
-  cancelRequestedSessionId: null,
+  activeSessionIdByKind: { ...EMPTY_SESSION_ID_SLOTS },
+  cancelRequestedSessionIdByKind: { ...EMPTY_SESSION_ID_SLOTS },
   commandLog: [],
   loadingSummary: false,
   loadingTcp: false,
@@ -520,16 +540,33 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
     persistSecurityAuthorized(securityAuthorized)
     set({ securityAuthorized })
   },
-  setActiveSessionId: (activeSessionId) =>
+  setActiveSessionId: (kind, sessionId) =>
+    set((state) => {
+      const prev = state.activeSessionIdByKind[kind]
+      return {
+        activeSessionIdByKind: { ...state.activeSessionIdByKind, [kind]: sessionId },
+        // 该类探测换新会话时重置它的取消标记, 保证每个会话的取消可各发一次 (A4-4)。
+        cancelRequestedSessionIdByKind:
+          sessionId && sessionId !== prev
+            ? { ...state.cancelRequestedSessionIdByKind, [kind]: null }
+            : state.cancelRequestedSessionIdByKind,
+      }
+    }),
+  clearActiveSessionId: (kind, expectedSessionId) =>
+    set((state) => {
+      const prev = state.activeSessionIdByKind[kind]
+      // 只有当前值仍是自己那次才清: 否则先结束的那轮会把仍在跑的那轮的 Cancel 目标抹掉。
+      if (expectedSessionId != null && prev !== expectedSessionId) return {}
+      if (prev === null) return {}
+      return { activeSessionIdByKind: { ...state.activeSessionIdByKind, [kind]: null } }
+    }),
+  setCancelRequestedSessionId: (kind, sessionId) =>
     set((state) => ({
-      activeSessionId,
-      // 新会话开始时重置取消标记, 保证每个会话的取消可各发一次 (A4-4)。
-      cancelRequestedSessionId:
-        activeSessionId && activeSessionId !== state.activeSessionId
-          ? null
-          : state.cancelRequestedSessionId,
+      cancelRequestedSessionIdByKind: {
+        ...state.cancelRequestedSessionIdByKind,
+        [kind]: sessionId,
+      },
     })),
-  setCancelRequestedSessionId: (cancelRequestedSessionId) => set({ cancelRequestedSessionId }),
   appendCommandLog: (line) =>
     set((state) => ({
       commandLog: [...state.commandLog.slice(-199), `${new Date().toISOString()} ${line}`],

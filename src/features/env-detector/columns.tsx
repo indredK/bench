@@ -139,6 +139,16 @@ export function EnvStatusBadge({ tool }: { tool: EnvTool }) {
     )
   }
 
+  // 后端在全局探测预算耗尽时产出该状态（classification.rs 明确要求 UI 区分）：
+  // 它不是「探测过但拿不到版本」，落到下面的绿色兜底会把未探测说成可用。
+  if (tool.status === "versionProbeThrottled") {
+    return (
+      <Badge variant="outline" className="border-amber-500/40 text-amber-700 dark:text-amber-300">
+        {t("envDetector.filterValues.status.versionProbeThrottled")}
+      </Badge>
+    )
+  }
+
   return (
     <Badge
       variant="default"

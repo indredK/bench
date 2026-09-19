@@ -369,6 +369,9 @@ function AccountManagerPage() {
           exportingData={c.exportingData}
           quickLoginDisabledReason={capabilityState.loginDisabledReason}
           externalLoginDisabledReason={capabilityState.externalLoginDisabledReason}
+          error={c.regionErrors.station ? describeRegionError(t, c.regionErrors.station) : null}
+          onRetryError={() => c.retryRegion("station")}
+          onDismissError={() => c.dismissRegionError("station")}
         />
 
         <AccountColumn
@@ -401,6 +404,9 @@ function AccountManagerPage() {
           onReorder={(ids) => void c.handleReorderAccounts(ids)}
           reorderDisabled={c.reorderingAccounts}
           loginDisabledReason={capabilityState.loginDisabledReason}
+          error={c.regionErrors.account ? describeRegionError(t, c.regionErrors.account) : null}
+          onRetryError={() => c.retryRegion("account")}
+          onDismissError={() => c.dismissRegionError("account")}
         />
 
         {renderDetailColumn()}

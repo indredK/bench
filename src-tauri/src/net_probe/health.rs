@@ -33,11 +33,13 @@ pub async fn run_health_scan<R: Runtime>(
         .await
         .ok()
         .and_then(|r| r.ok());
-    let hosts = tauri::async_runtime::spawn_blocking(super::hosts::check_hosts_overrides)
-        .await
-        .ok()
-        .and_then(|r| r.ok())
-        .unwrap_or_default();
+    // 读不到 ≠ 没有改写：必须保留「未判定」，否则下面的 `unwrap_or_default()`
+    // 会让一次失败被体检报成绿色通过。
+    let hosts: Option<Vec<super::types::HostsOverride>> =
+        tauri::async_runtime::spawn_blocking(super::hosts::check_hosts_overrides)
+            .await
+            .ok()
+            .and_then(|r| r.ok());
     let firewall = tauri::async_runtime::spawn_blocking(|| {
         #[cfg(target_os = "macos")]
         {
@@ -453,7 +455,16 @@ async fn check_dns_resolve_name() -> HealthCheckItem {
     }
 }
 
-fn check_hosts_override(hosts: &[super::types::HostsOverride]) -> HealthCheckItem {
+fn check_hosts_override(hosts: &Option<Vec<super::types::HostsOverride>>) -> HealthCheckItem {
+    let Some(hosts) = hosts.as_ref() else {
+        return item(
+            "hosts.override",
+            "L1",
+            "skip",
+            Some("/etc/hosts could not be read; override check not evaluated".into()),
+            Some("checkHostsOverrides()".into()),
+        );
+    };
     let suspicious: Vec<_> = hosts.iter().filter(|h| h.suspicious).collect();
     if suspicious.is_empty() {
         item(

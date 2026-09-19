@@ -19,6 +19,10 @@ const REASON_KEYS: Record<string, string> = {
   // 落回 notLoggedIn，把「会话过期」说成「从没登录过」，用户会去重新登录，
   // 而不是按提示刷新一次登录态。
   staleSession: "staleSession",
+  // 采集侧失败被后端分型出来（webview_sync::sync_from_account_profile）：
+  // 漏了这两条会落回 notLoggedIn，把「采不到」说成「没登录」，用户白重登一次。
+  idbBlocked: "idbBlocked",
+  captureFailed: "captureFailed",
 }
 
 const REASON_BASE = "accountManager.browserInterop.reason"

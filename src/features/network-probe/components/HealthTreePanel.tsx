@@ -28,7 +28,8 @@ export function HealthTreePanel({
   onCancel,
 }: HealthTreePanelProps) {
   const { t } = useTranslation()
-  const items = result?.items?.length ? result.items : streamingItems
+  // 跑动中只渲染本轮 streaming: 旧 result 优先会把上一轮结论当成新一轮进度。
+  const items = loading ? streamingItems : result?.items?.length ? result.items : streamingItems
 
   return (
     <ProbePanelShell

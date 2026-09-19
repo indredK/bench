@@ -85,10 +85,15 @@ export function useUpdaterController() {
         currentStatus === "checking" ||
         currentStatus === "downloading" ||
         currentStatus === "cancelling" ||
-        currentStatus === "installing" ||
-        currentStatus === "installFailed" ||
-        currentStatus === "readyToRestart"
+        currentStatus === "installing"
       ) {
+        return
+      }
+      if (currentStatus === "readyToRestart" || currentStatus === "installFailed") {
+        // 这两个是「需要用户动作」的终态：closeDialog（X/Esc/点遮罩）不重置状态，
+        // 若在此一并早退，「检查更新」就永久静默，本会话再也回不到「立即重启 / 重试」。
+        if (!interactive) return
+        setOpen(true)
         return
       }
 
@@ -164,7 +169,7 @@ export function useUpdaterController() {
         persistPolicy({ lastFailureAt: failedAt, failureCount })
       }
     },
-    [canUsePlatformFeatures, persistPolicy, t],
+    [canUsePlatformFeatures, persistPolicy, setOpen, t],
   )
 
   const checkUpdates = useCallback(() => runUpdateCheck(true), [runUpdateCheck])

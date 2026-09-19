@@ -130,6 +130,7 @@ pub(super) fn error_code(error: &AccountManagerError) -> &'static str {
         AccountManagerError::KeyringUnavailable { .. } => "KEYRING_UNAVAILABLE",
         AccountManagerError::CryptoFail { .. } => "CRYPTO_FAIL",
         AccountManagerError::ClipboardFail { .. } => "CLIPBOARD_FAIL",
+        AccountManagerError::Unsupported { .. } => "UNSUPPORTED",
     }
 }
 

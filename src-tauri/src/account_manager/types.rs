@@ -881,12 +881,34 @@ pub struct AccountManagerCapabilities {
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "code", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum AccountManagerError {
-    NotFound { message: String },
-    InvalidInput { message: String },
-    StoreFail { message: String },
-    KeyringUnavailable { message: String },
-    CryptoFail { message: String },
-    ClipboardFail { message: String },
+    NotFound {
+        message: String,
+    },
+    InvalidInput {
+        message: String,
+    },
+    StoreFail {
+        message: String,
+    },
+    KeyringUnavailable {
+        message: String,
+    },
+    CryptoFail {
+        message: String,
+    },
+    ClipboardFail {
+        message: String,
+    },
+    /// 当前平台不支持该能力（与 `AppError` 的 `UNSUPPORTED` 同口径）。
+    ///
+    /// 这个变体长期缺失：`chrome_store` 的两处 `#[cfg(not(target_os = "macos"))]`
+    /// 分支一直在调 `unsupported(...)`，而 macOS 本机构译不到那些分支，于是
+    /// Windows CI 从引入那天起就是红的（§7.4.1「本机编译 ≠ 双平台验证」）。
+    /// 构造点只存在于非 macOS 分支，故在 macOS 上豁免 dead_code。
+    #[allow(dead_code)]
+    Unsupported {
+        message: String,
+    },
 }
 
 impl AccountManagerError {
@@ -920,6 +942,13 @@ impl AccountManagerError {
             message: msg.into(),
         }
     }
+    /// 仅在非 macOS 分支被构造，故豁免 dead_code（见 `Unsupported` 变体注释）。
+    #[allow(dead_code)]
+    pub fn unsupported(msg: impl Into<String>) -> Self {
+        Self::Unsupported {
+            message: msg.into(),
+        }
+    }
 
     /// 错误文案（不含 code）。
     ///
@@ -932,7 +961,8 @@ impl AccountManagerError {
             | Self::StoreFail { message }
             | Self::KeyringUnavailable { message }
             | Self::CryptoFail { message }
-            | Self::ClipboardFail { message } => message.clone(),
+            | Self::ClipboardFail { message }
+            | Self::Unsupported { message } => message.clone(),
         }
     }
 }
@@ -946,6 +976,7 @@ impl std::fmt::Display for AccountManagerError {
             Self::KeyringUnavailable { message } => write!(f, "keyring unavailable: {message}"),
             Self::CryptoFail { message } => write!(f, "crypto failure: {message}"),
             Self::ClipboardFail { message } => write!(f, "clipboard failure: {message}"),
+            Self::Unsupported { message } => write!(f, "unsupported: {message}"),
         }
     }
 }

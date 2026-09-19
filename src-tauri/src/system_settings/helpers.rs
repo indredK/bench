@@ -2,13 +2,36 @@
 use std::process::Command;
 use std::{thread, time::Duration};
 
+/// 普通 `defaults` / 系统查询命令的超时。这类调用应当是毫秒级的，卡住通常意味着
+/// cfprefsd 或目标进程异常，不能让它把前端开关永久钉在 loading 上。
+#[cfg(target_os = "macos")]
+const QUICK_CMD_TIMEOUT: Duration = Duration::from_secs(15);
+
+/// 会弹系统授权框的调用（osascript `with administrator privileges`、System Events
+/// 自动化）要留出用户输入密码的时间，但同样必须有上限。
+#[cfg(target_os = "macos")]
+const PROMPT_CMD_TIMEOUT: Duration = Duration::from_secs(120);
+
+#[cfg(target_os = "macos")]
+fn subprocess_failure(cmd: &str, error: crate::subprocess::SubprocessError) -> String {
+    use crate::subprocess::SubprocessErrorKind;
+    match error.kind {
+        SubprocessErrorKind::Timeout => format!("{cmd} timed out"),
+        SubprocessErrorKind::Spawn => format!("{cmd}: failed to start"),
+        SubprocessErrorKind::Aborted => format!("{cmd}: cancelled"),
+        other => format!("{cmd}: {other:?}"),
+    }
+}
+
 /// Run a shell command synchronously (blocking). Use only inside spawn_blocking.
+/// 必须带超时：design.md §3 规定 AppleScript/System Events 一类调用要设 timeout，
+/// 否则授权弹窗被忽略时该设置项在本会话内再也点不动（applyingKey 永不复位）。
 #[cfg(target_os = "macos")]
 pub fn run_cmd(cmd: &str, args: &[&str]) -> Result<String, String> {
-    let output = Command::new(cmd)
-        .args(args)
-        .output()
-        .map_err(|e| format!("{}: {}", cmd, e))?;
+    let mut command = Command::new(cmd);
+    command.args(args);
+    let output = crate::subprocess::run_output_with_timeout(&mut command, QUICK_CMD_TIMEOUT, None)
+        .map_err(|e| subprocess_failure(cmd, e))?;
     Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
 
@@ -21,10 +44,10 @@ pub fn run_cmd(_cmd: &str, _args: &[&str]) -> Result<String, String> {
 /// Run a shell command synchronously, return error if non-zero exit code.
 #[cfg(target_os = "macos")]
 pub fn run_cmd_err(cmd: &str, args: &[&str]) -> Result<String, String> {
-    let output = Command::new(cmd)
-        .args(args)
-        .output()
-        .map_err(|e| format!("{}: {}", cmd, e))?;
+    let mut command = Command::new(cmd);
+    command.args(args);
+    let output = crate::subprocess::run_output_with_timeout(&mut command, QUICK_CMD_TIMEOUT, None)
+        .map_err(|e| subprocess_failure(cmd, e))?;
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         return Err(format!("{} failed: {}", cmd, stderr));
@@ -44,10 +67,10 @@ pub fn sudo_cmd(shell_cmd: &str) -> Result<String, String> {
         "do shell script \"{}\" with administrator privileges",
         shell_cmd.replace('\\', "\\\\").replace('"', "\\\"")
     );
-    let output = Command::new("osascript")
-        .args(["-e", &script])
-        .output()
-        .map_err(|e| format!("osascript: {}", e))?;
+    let mut command = Command::new("osascript");
+    command.args(["-e", &script]);
+    let output = crate::subprocess::run_output_with_timeout(&mut command, PROMPT_CMD_TIMEOUT, None)
+        .map_err(|e| subprocess_failure("osascript", e))?;
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         if stderr.contains("User canceled") || stderr.contains("(-128)") {

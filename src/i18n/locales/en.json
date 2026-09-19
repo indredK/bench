@@ -115,6 +115,10 @@
       "view": "View",
       "reset": "Reset",
       "resetPrompt": "Enter bundle ID to reset {{label}} permission for:",
+      "resetConfirmTitle": "Reset “{{label}}” permission?",
+      "resetConfirmDescription": "The app’s grant for this service is cleared and returns to “not determined”. This cannot be undone: macOS will ask again the next time it is used, and anything that relied on the grant stops working until you allow it again.",
+      "resetBundleIdRequired": "Enter the bundle ID to reset first.",
+      "resetBundleIdPlaceholder": "e.g. com.example.app",
       "resetSuccess": "Reset {{label}} permission for {{bundleId}}",
       "tccAllowed": "Allowed",
       "tccDenied": "Denied",
@@ -280,6 +284,7 @@
     "importData": "Import",
     "exportData": "Export",
     "searchAccounts": "Search accounts...",
+    "searchAccountsEmpty": "No matching accounts. Try another keyword.",
     "sortByUsername": "Sort by username",
     "groupByStatus": "Group by status",
     "addAccount": "Add Account",
@@ -380,7 +385,9 @@
         "noSessionData": "The page did not respond or exposed no session data",
         "syncFailed": "Recovering from Bench's login profile failed",
         "conflict": "Bench already holds a newer session",
-        "staleSession": "Bench's session for this account is stale (probe reports signed out); the injected data is expired"
+        "staleSession": "Bench's session for this account is stale (probe reports signed out); the injected data is expired",
+        "idbBlocked": "This site keeps its credentials in IndexedDB, but the capture was not completed (the page blocked it). Collect via the Bench Companion extension, or reload the page and sync again.",
+        "captureFailed": "Could not capture the login state from the Bench sign-in window (page unresponsive or capture timed out). Keep the window on that site and try again."
       },
       "openForLogin": "Open site and sign in manually",
       "openForLoginHint": "No session is injected. Complete QR / 2FA / SSO in the browser, then capture the session back into Bench.",
@@ -1105,7 +1112,8 @@
         "ok": "Available",
         "missing": "Missing",
         "multipleVersions": "Multiple versions",
-        "versionUnknown": "Version unknown"
+        "versionUnknown": "Version unknown",
+        "versionProbeThrottled": "Version not probed"
       }
     }
   },
@@ -1129,6 +1137,7 @@
     "killAllDisabledHint": "No occupied ports to free",
     "port": "Port {{port}}",
     "browserError": "Cannot terminate port processes in a browser environment. Please run this as a Tauri desktop application.",
+    "queryFailed": "Process lookup failed",
     "emptyResults": "No scan results yet. Enter port(s) above and click 'Add to Scan' to start scanning.",
     "emptyOnly": "All scanned ports are free. Click 'Show All Ports' to display them.",
     "emptyChips": "No ports selected. Enter port number(s) above to add them to the scan list.",
@@ -1507,6 +1516,8 @@
       "stderr": "Error output",
       "noOutput": "The command produced no output.",
       "copied": "Copied to clipboard",
+      "copyFailed": "Could not copy to clipboard",
+      "locked": "A command is already running. Wait for it or choose Stop first.",
       "output": "Output",
       "escHint": "Press Esc or click outside to collapse"
     },
@@ -1569,7 +1580,8 @@
     },
     "nodeSelect": {
       "label": "Probe origin",
-      "local": "This Mac"
+      "local": "This Mac",
+      "localOnlyHint": "Remote probe execution isn't implemented yet — every probe still runs on this Mac."
     },
     "sideLog": {
       "title": "Command log",

@@ -80,22 +80,26 @@ export default function CommandCenter({ feature }: { feature?: FeatureDescriptor
 
   const runCard = useCallback(
     async (card: CommandCard) => {
+      const outcome = await controller.runCard(card)
+      if (!outcome) {
+        // 被独占锁挡下 = 这条命令压根没跑。绝不能沿用上一次结论弹「执行成功」，
+        // 也不能静默无反应（用户会以为命令秒过）。
+        toast.error(t("commandCenter.result.locked"))
+        return
+      }
       if (card.kind === "copy") {
-        await controller.runCard(card)
-        toast.success(t("commandCenter.result.copied"))
+        if (outcome.result?.success) {
+          toast.success(t("commandCenter.result.copied"))
+        } else {
+          toast.error(t("commandCenter.result.copyFailed"))
+        }
         return
       }
       setExpandedId(card.id)
-      await controller.runCard(card)
-      const outcome = useCommandCenterStore.getState().runOutcome[card.id]
-      if (outcome?.result) {
-        if (outcome.result.success) {
-          toast.success(t("commandCenter.result.success"))
-        } else {
-          toast.error(t("commandCenter.result.failed", { code: outcome.result.exitCode ?? "?" }))
-        }
-      } else if (controller.error) {
-        toast.error(controller.error)
+      if (outcome.result?.success) {
+        toast.success(t("commandCenter.result.success"))
+      } else {
+        toast.error(t("commandCenter.result.failed", { code: outcome.result?.exitCode ?? "?" }))
       }
     },
     [controller, setExpandedId, t],

@@ -37,12 +37,14 @@ pub(super) fn query_port_processes(ports: Vec<u16>) -> Vec<PortProcessDetail> {
             };
 
             if pids.is_empty() {
+                // 空闲不是错误：`error` 一旦置位，前端就只能把它当查询失败或
+                // 把两种情况一起折叠掉。空 pids 已经表达了「没有进程占用」。
                 return PortProcessDetail {
                     port,
                     pids: vec![],
                     process_trees: vec![],
                     fingerprint: None,
-                    error: Some("No process found on this port".to_string()),
+                    error: None,
                 };
             }
 

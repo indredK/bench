@@ -17,6 +17,7 @@ import {
   selectStation as selectStationById,
   selectStationAccounts,
 } from "@/features/account-manager/model/selectors"
+import { isCapabilityUsable } from "@/features/account-manager/model/capabilities"
 import { useAccountManagerStore } from "@/features/account-manager/store"
 import { useAuthProxy } from "@/features/account-manager/hooks/useAuthProxy"
 import { useAccountActions } from "@/features/account-manager/hooks/useAccountActions"
@@ -133,7 +134,11 @@ export function useAccountManagerController() {
 
   const loadInitialData = useCallback(async () => {
     const s = useAccountManagerStore.getState()
-    s.setLoading(true)
+    // 只有首屏（还没有任何数据可展示）才用整页骨架；回采/扩展保存/解锁后的重载
+    // 保留旧数据 + 紧凑刷新态，不用骨架盖掉用户正在看的内容（ux-standards §2）。
+    if (s.stations.length === 0) {
+      s.setLoading(true)
+    }
     s.setLoadError(null)
     try {
       const [loadedCapabilities, loadedStations, loadedAccounts] =
@@ -298,7 +303,9 @@ export function useAccountManagerController() {
       !loading &&
       loadError == null &&
       capabilities != null &&
-      capabilities.credentialStore.status !== "supported",
+      // 后端在钥匙串就绪时把 credentialStore 报成 `partial`（双平台真机验收未完成），
+      // 因此不能用 `!== "supported"` 判锁定 —— 那样解锁成功后横幅也永不消失。
+      !isCapabilityUsable(capabilities.credentialStore),
     [loading, loadError, capabilities],
   )
   const unlockCredentials = useCallback(

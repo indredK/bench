@@ -4,6 +4,7 @@
 import { useCallback, useEffect } from "react"
 import { networkProbeUseCases } from "@/features/network-probe/services/network-probe.use-cases"
 import {
+  type NetworkProbeKind,
   type NetworkProbeL1,
   type NetworkProbeOfflineSub,
   useNetworkProbeStore,
@@ -64,7 +65,8 @@ export function useNetworkProbeController() {
   const probeNodes = useNetworkProbeStore((s) => s.probeNodes)
   const reportHistory = useNetworkProbeStore((s) => s.reportHistory)
   const securityAuthorized = useNetworkProbeStore((s) => s.securityAuthorized)
-  const activeSessionId = useNetworkProbeStore((s) => s.activeSessionId)
+  // 会话按探测种类分槽: 面板只读自己那一槽, 决定 Cancel 目标与按钮可见性。
+  const activeSessionIdByKind = useNetworkProbeStore((s) => s.activeSessionIdByKind)
   const commandLog = useNetworkProbeStore((s) => s.commandLog)
   const loadingSummary = useNetworkProbeStore((s) => s.loadingSummary)
   const loadingTcp = useNetworkProbeStore((s) => s.loadingTcp)
@@ -150,7 +152,10 @@ export function useNetworkProbeController() {
     [],
   )
   const runHealthScan = useCallback(() => networkProbeUseCases.runHealthScan(), [])
-  const cancelScan = useCallback(() => networkProbeUseCases.cancelScan(), [])
+  const cancelScan = useCallback(
+    (kind: NetworkProbeKind) => networkProbeUseCases.cancelScan(kind),
+    [],
+  )
   const clearCommandLog = useCallback(() => {
     useNetworkProbeStore.getState().clearCommandLog()
   }, [])
@@ -319,7 +324,7 @@ export function useNetworkProbeController() {
     probeNodes,
     reportHistory,
     securityAuthorized,
-    activeSessionId,
+    activeSessionIdByKind,
     commandLog,
     loadingSummary,
     loadingTcp,

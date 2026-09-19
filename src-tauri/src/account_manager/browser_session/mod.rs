@@ -616,10 +616,19 @@ pub async fn open_for_scope<R: Runtime>(
     if let Some(saved) = saved.as_ref() {
         injected = inject_cookies(&client, saved, &origin).await?;
         skipped_partitioned = count_partitioned(saved);
+        let skipped_expired = count_expired(saved, chrono::Utc::now().timestamp());
+        if skipped_expired > 0 && injected == 0 && saved.cookies.len() == skipped_expired {
+            // 整份会话都已过期：这不是「注入成功」，必须给一条可行动的错误，
+            // 而不是把用户送去一个未登录的浏览器窗口。
+            return Err(AccountManagerError::invalid_input(format!(
+                "SESSION_ALL_EXPIRED: 该账号存下的 {} 条 cookie 已全部过期，请在窗口里重新登录后再同步",
+                saved.cookies.len()
+            )));
+        }
         rejected = saved
             .cookies
             .len()
-            .saturating_sub(injected + skipped_partitioned);
+            .saturating_sub(injected + skipped_partitioned + skipped_expired);
         // UA 覆盖只在「同引擎」时进行：把 WebView 的 Safari 系 UA 覆盖到 Chromium
         // 上会让站点把请求判成新客户端，反而作废会话。
         if should_override_user_agent(saved) {
@@ -796,6 +805,19 @@ fn should_override_user_agent(saved: &AccountSession) -> bool {
         || user_agent.contains("edg/")
 }
 
+/// 会话里的 cookie 是否已过期（`expires_at_ts` 为 UTC 秒；`None`/0 = 会话期 cookie，不过期）。
+fn is_cookie_expired(entry: &CookieEntry, now_ts: i64) -> bool {
+    entry.expires_at_ts.is_some_and(|ts| ts > 0 && ts <= now_ts)
+}
+
+fn count_expired(saved: &AccountSession, now_ts: i64) -> usize {
+    saved
+        .cookies
+        .iter()
+        .filter(|entry| !entry.partitioned && is_cookie_expired(entry, now_ts))
+        .count()
+}
+
 /// 向该实例注入 canonical session 的 cookie（partitioned 跳过）。
 async fn inject_cookies(
     client: &CdpClient,
@@ -803,9 +825,16 @@ async fn inject_cookies(
     origin: &str,
 ) -> AccountManagerResult<usize> {
     let mut injected = 0;
+    let now = chrono::Utc::now().timestamp();
     for entry in &saved.cookies {
         if entry.partitioned {
             // fail-closed：不把 partition 作用域的 cookie 降级为普通 cookie。
+            continue;
+        }
+        if is_cookie_expired(entry, now) {
+            // `Network.setCookie` 对已过期的值仍回 `success:true`，随后浏览器立刻丢弃它。
+            // 不在此跳过的话，隔几天再「以该账号身份打开」会报「已注入 42 条 Cookie」
+            // 而浏览器其实仍未登录，且这批死 cookie 也不进 rejected 计数。
             continue;
         }
         let params = cookie_injection_params(entry, origin);

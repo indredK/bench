@@ -15,7 +15,7 @@ use tokio::sync::oneshot;
 
 use super::browser_storage::{self, IndexedDbCaptureStatus};
 use super::crypto;
-use super::state::AccountManagerState;
+use super::state::{AccountManagerSnapshot, AccountManagerState};
 use super::storage;
 use super::types::*;
 use super::webview;
@@ -542,6 +542,20 @@ pub fn is_session_expired(
     age > ttl
 }
 
+/// 清理动作：`Expired` 才是真的到期（删密文）；`Unreadable` 只是解不开/读不回，
+/// 标 `LoginRequired` 但**保留密文**，等钥匙串恢复后仍可复用。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ClearReason {
+    Expired,
+    Unreadable,
+}
+
+struct ClearTarget {
+    account_id: String,
+    old_status: AccountSessionStatus,
+    reason: ClearReason,
+}
+
 /// 启动时遍历清理 TTL 超时的 session(F.6.3)。
 /// 返回被清理的 (account_id, old_status) 列表,供上层做埋点。
 pub fn cleanup_expired_sessions<R: Runtime>(
@@ -550,6 +564,12 @@ pub fn cleanup_expired_sessions<R: Runtime>(
     now: chrono::DateTime<chrono::Utc>,
 ) -> AccountManagerResult<Vec<(String, AccountSessionStatus)>> {
     use std::collections::HashMap;
+    // 启动/周期路径不得触碰钥匙串：主密钥未解锁时 `restore_session` 会懒初始化并
+    // 弹出授权框（违反 state.rs 的启动路径约束），且授权失败会被下面的分支误判成
+    // 「全部会话已过期」而把密文删光。未解锁就整轮跳过，解锁后由下一轮再清。
+    if !state.key_initialized() {
+        return Ok(Vec::new());
+    }
     let snapshot = state.read_snapshot();
 
     // 按 station 预取 ttl 减少重复查找
@@ -560,11 +580,7 @@ pub fn cleanup_expired_sessions<R: Runtime>(
         .collect();
 
     // 找出需要清理的账号
-    struct ToClear {
-        account_id: String,
-        old_status: AccountSessionStatus,
-    }
-    let to_clear: Vec<ToClear> = snapshot
+    let to_clear: Vec<ClearTarget> = snapshot
         .accounts
         .iter()
         .filter(|a| a.account_type == AccountType::Persistent)
@@ -574,20 +590,25 @@ pub fn cleanup_expired_sessions<R: Runtime>(
                 .get(a.station_id.as_str())
                 .copied()
                 .unwrap_or(720);
-            // 先尝试从内存里的 session 解密做时间检查;无法解密的视为过期
-            let expired = match restore_session(state, &a.id) {
-                Ok(Some(s)) => is_session_expired(&s, ttl, now),
-                Ok(None) => false, // 内存没有 → 留待快照迁移逻辑
-                Err(_) => true,    // 解密失败 → 过期处理
+            let reason = match restore_session(state, &a.id) {
+                Ok(Some(s)) if is_session_expired(&s, ttl, now) => Some(ClearReason::Expired),
+                // 内存没有 → 留待快照迁移逻辑
+                Ok(_) => None,
+                // 解密/反序列化失败 ≠ 过期：不删数据，只把状态降级。
+                Err(error) => {
+                    eprintln!(
+                        "[account_manager] TTL cleanup: session for {} is unreadable ({error}) \u{2014} \
+                         keeping the stored blob and requiring re-login",
+                        a.id
+                    );
+                    Some(ClearReason::Unreadable)
+                }
             };
-            if expired {
-                Some(ToClear {
-                    account_id: a.id.clone(),
-                    old_status: a.status,
-                })
-            } else {
-                None
-            }
+            reason.map(|reason| ClearTarget {
+                account_id: a.id.clone(),
+                old_status: a.status,
+                reason,
+            })
         })
         .collect();
 
@@ -597,21 +618,32 @@ pub fn cleanup_expired_sessions<R: Runtime>(
 
     let cleared = to_clear
         .iter()
+        .filter(|t| t.reason == ClearReason::Expired)
         .map(|t| (t.account_id.clone(), t.old_status))
         .collect::<Vec<_>>();
 
     storage::with_state_mut(app, state, |snapshot| {
-        for t in &to_clear {
-            if let Some(a) = snapshot.accounts.iter_mut().find(|a| a.id == t.account_id) {
-                a.session = None;
-                a.status = AccountSessionStatus::LoginRequired;
-            }
-            snapshot.sessions.remove(&t.account_id);
-        }
+        apply_clear_targets(snapshot, &to_clear);
         Ok(())
     })?;
 
     Ok(cleared)
+}
+
+/// 落盘清理动作。`Expired` 才删密文；`Unreadable` 只降级状态、**保留密文** ——
+/// 钥匙串读不回不等于会话作废，删掉就是把可恢复的数据当垃圾清了。
+fn apply_clear_targets(snapshot: &mut AccountManagerSnapshot, targets: &[ClearTarget]) {
+    for t in targets {
+        if let Some(a) = snapshot.accounts.iter_mut().find(|a| a.id == t.account_id) {
+            if t.reason == ClearReason::Expired {
+                a.session = None;
+            }
+            a.status = AccountSessionStatus::LoginRequired;
+        }
+        if t.reason == ClearReason::Expired {
+            snapshot.sessions.remove(&t.account_id);
+        }
+    }
 }
 
 // ═══════════════════════════════════════════════
@@ -643,6 +675,88 @@ fn set_status<R: Runtime>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::account_manager::crypto::EncryptedBlob;
+    use std::collections::HashMap;
+
+    fn blob(tag: &str) -> EncryptedBlob {
+        EncryptedBlob {
+            v: 1,
+            nonce: tag.into(),
+            ct: tag.into(),
+        }
+    }
+
+    fn account(id: &str, session: Option<EncryptedBlob>) -> StationAccount {
+        StationAccount {
+            id: id.into(),
+            station_id: "station".into(),
+            username: "user".into(),
+            notes: String::new(),
+            phone: None,
+            tg_account: None,
+            linked_account: None,
+            invite_link: None,
+            login_methods: Vec::new(),
+            status: AccountSessionStatus::Ready,
+            last_login_at: None,
+            last_refreshed_at: None,
+            created_at: String::new(),
+            has_password: false,
+            account_type: AccountType::Persistent,
+            website: None,
+            session,
+            exclusivity_group: None,
+            proxy_enabled: false,
+            external_app_ids: Vec::new(),
+            refresh_schedule: None,
+            next_refresh_at_ts: None,
+            first_login_at: None,
+            status_reason: None,
+        }
+    }
+
+    fn target(id: &str, reason: ClearReason) -> ClearTarget {
+        ClearTarget {
+            account_id: id.into(),
+            old_status: AccountSessionStatus::Ready,
+            reason,
+        }
+    }
+
+    /// 钥匙串/解密读不回 ≠ 会话过期：只降级状态，密文必须留下（A1 数据丢失回归）。
+    #[test]
+    fn unreadable_session_is_downgraded_but_not_deleted() {
+        let mut snapshot = AccountManagerSnapshot::default();
+        snapshot.accounts = vec![
+            account("expired", Some(blob("a"))),
+            account("unreadable", Some(blob("b"))),
+        ];
+        snapshot.sessions = HashMap::from([
+            ("expired".to_string(), blob("a")),
+            ("unreadable".to_string(), blob("b")),
+        ]);
+
+        apply_clear_targets(
+            &mut snapshot,
+            &[
+                target("expired", ClearReason::Expired),
+                target("unreadable", ClearReason::Unreadable),
+            ],
+        );
+
+        assert!(snapshot.sessions.contains_key("unreadable"));
+        assert!(!snapshot.sessions.contains_key("expired"));
+        let unreadable = snapshot
+            .accounts
+            .iter()
+            .find(|a| a.id == "unreadable")
+            .expect("account kept");
+        assert_eq!(unreadable.status, AccountSessionStatus::LoginRequired);
+        assert!(
+            unreadable.session.is_some(),
+            "per-account copy must survive an unreadable decrypt"
+        );
+    }
 
     #[test]
     fn domain_cookie_matches_registrable_domain_and_subdomains() {
