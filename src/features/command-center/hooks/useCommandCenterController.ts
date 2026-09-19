@@ -4,7 +4,7 @@
 import { useCallback, useEffect } from "react"
 import { useTranslation } from "react-i18next"
 import { commandCenterUseCases } from "@/features/command-center/services/command-center.use-cases"
-import { useCommandCenterStore } from "@/features/command-center/store"
+import { useCommandCenterStore, type RunOutcome } from "@/features/command-center/store"
 import { useGuardedAsync, useGuardedAsyncSet } from "@/hooks/useGuardedAsync"
 import { canUseDesktopFeatures } from "@/platform/capabilities"
 import { localizeError } from "@/lib/errors"
@@ -79,19 +79,27 @@ export function useCommandCenterController() {
     [setCards, setError],
   )
 
+  /**
+   * 运行一张卡片。返回值即本次结论；`undefined` 表示**这条命令根本没执行**
+   * （被独占锁或同卡重入挡下）—— 调用方不得沿用上一次的结果给「执行成功」。
+   */
   const runCard = useCallback(
-    async (card: CommandCard) => {
-      await runExclusive(async () => {
-        await runGuarded(card.id, async () => {
+    async (card: CommandCard): Promise<RunOutcome | undefined> =>
+      runExclusive(async () =>
+        runGuarded(card.id, async (): Promise<RunOutcome> => {
           setError(null)
           setRunStatus(card.id, "running")
           try {
             const result = await commandCenterUseCases.runCard(card)
-            setRunStatus(card.id, result.success ? "success" : "failed")
-            setRunOutcome(card.id, { status: result.success ? "success" : "failed", result })
+            const outcome: RunOutcome = {
+              status: result.success ? "success" : "failed",
+              result,
+            }
+            setRunStatus(card.id, outcome.status)
+            setRunOutcome(card.id, outcome)
+            return outcome
           } catch (err) {
-            setRunStatus(card.id, "failed")
-            setRunOutcome(card.id, {
+            const outcome: RunOutcome = {
               status: "failed",
               result: {
                 success: false,
@@ -99,12 +107,14 @@ export function useCommandCenterController() {
                 stdout: "",
                 stderr: getErrorMessage(err),
               },
-            })
+            }
+            setRunStatus(card.id, "failed")
+            setRunOutcome(card.id, outcome)
             setError({ key: "commandCenter.errors.runFailed", fallback: getErrorMessage(err) })
+            return outcome
           }
-        })
-      })
-    },
+        }),
+      ),
     [runExclusive, runGuarded, setError, setRunOutcome, setRunStatus],
   )
 

@@ -65,21 +65,31 @@ pub async fn run_pcap_diag<R: Runtime>(
 fn run_tcpdump_sample(duration_secs: u32) -> AppResult<PcapDiagResult> {
     // tcpdump -c limits packets; -tttt for timestamps. No payload dump to disk by default.
     let count = (duration_secs * 40).clamp(40, 400);
-    let output = Command::new("tcpdump")
-        .args([
-            "-nn",
-            "-c",
-            &count.to_string(),
-            "-tttt",
-            "tcp or udp or icmp",
-        ])
-        .output()
-        .map_err(|e| {
-            AppError::new(
+    // `-c` 只封顶**包数**：网络空闲时永远凑不满，tcpdump 会一直挂着。必须另外给
+    // 墙钟上限（采样时长 + 收尾余量），否则这个探测永久转圈，且每重试一次就泄漏
+    // 一个 blocking 线程和一个 tcpdump 子进程。
+    let mut command = Command::new("tcpdump");
+    command.args([
+        "-nn",
+        "-c",
+        &count.to_string(),
+        "-tttt",
+        "tcp or udp or icmp",
+    ]);
+    let budget = std::time::Duration::from_secs(u64::from(duration_secs) + 10);
+    let output = crate::subprocess::run_output_with_timeout(&mut command, budget, None).map_err(
+        |error| match error.kind {
+            crate::subprocess::SubprocessErrorKind::Spawn => AppError::new(
                 "PCAP_NO_TCPDUMP",
-                format!("tcpdump unavailable or not permitted: {e}"),
-            )
-        })?;
+                format!("tcpdump unavailable or not permitted: {error:?}"),
+            ),
+            crate::subprocess::SubprocessErrorKind::Timeout => AppError::new(
+                "PCAP_TIMEOUT",
+                format!("tcpdump did not finish within {}s", duration_secs + 10),
+            ),
+            other => AppError::new("PCAP_FAILED", format!("tcpdump failed: {other:?}")),
+        },
+    )?;
 
     let text = String::from_utf8_lossy(&output.stderr).to_string()
         + &String::from_utf8_lossy(&output.stdout);

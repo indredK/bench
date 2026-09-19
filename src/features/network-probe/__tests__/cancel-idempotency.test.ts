@@ -52,7 +52,24 @@ beforeEach(() => {
   useNetworkProbeStore.setState({
     loadingHealth: false,
     healthResult: null,
-    activeSessionId: null,
+    activeSessionIdByKind: {
+      health: null,
+      sites: null,
+      traceroute: null,
+      speed: null,
+      ports: null,
+      pcap: null,
+      lan: null,
+    },
+    cancelRequestedSessionIdByKind: {
+      health: null,
+      sites: null,
+      traceroute: null,
+      speed: null,
+      ports: null,
+      pcap: null,
+      lan: null,
+    },
     reportHistory: [],
     commandLog: [],
     error: null,
@@ -62,7 +79,7 @@ beforeEach(() => {
 describe("network-probe cancel idempotency (A4-4)", () => {
   it("no-ops when there is no active session", async () => {
     await act(async () => {
-      await networkProbeUseCases.cancelScan()
+      await networkProbeUseCases.cancelScan("health")
     })
     expect(cancelScan).not.toHaveBeenCalled()
     expect(useNetworkProbeStore.getState().error).toBeNull()
@@ -79,17 +96,17 @@ describe("network-probe cancel idempotency (A4-4)", () => {
     cancelScan.mockResolvedValue(true)
 
     const scanPromise = networkProbeUseCases.runHealthScan()
-    // scanSession 事件把活动会话写入 store。
+    // scanSession 事件把活动会话写进 health 那一槽。
     act(() => {
       listeners.get(TAURI_EVENTS.networkProbe.scanSession)?.({
         payload: { sessionId: "session-1", kind: "health" },
       })
     })
-    expect(useNetworkProbeStore.getState().activeSessionId).toBe("session-1")
+    expect(useNetworkProbeStore.getState().activeSessionIdByKind.health).toBe("session-1")
 
     await act(async () => {
-      await networkProbeUseCases.cancelScan()
-      await networkProbeUseCases.cancelScan()
+      await networkProbeUseCases.cancelScan("health")
+      await networkProbeUseCases.cancelScan("health")
     })
     expect(cancelScan).toHaveBeenCalledTimes(1)
     expect(cancelScan).toHaveBeenCalledWith("session-1")
@@ -97,10 +114,10 @@ describe("network-probe cancel idempotency (A4-4)", () => {
     // 会话在 finally 中被清理, 之后重复取消 no-op (幂等)。
     resolveScan(healthResult("session-1", true))
     await scanPromise
-    expect(useNetworkProbeStore.getState().activeSessionId).toBeNull()
+    expect(useNetworkProbeStore.getState().activeSessionIdByKind.health).toBeNull()
 
     await act(async () => {
-      await networkProbeUseCases.cancelScan()
+      await networkProbeUseCases.cancelScan("health")
     })
     expect(cancelScan).toHaveBeenCalledTimes(1)
   })

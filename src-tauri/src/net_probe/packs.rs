@@ -203,13 +203,9 @@ pub async fn install_capability_pack<R: Runtime>(
             command_hint: format!("installCapabilityPack('{pack_id}') // hash-mismatch"),
         });
     } else if entry.download_url.is_empty() || entry.sha256.is_empty() {
-        emit_progress(
-            app,
-            &pack_id,
-            "marker",
-            entry.size_bytes / 2,
-            entry.size_bytes,
-        );
+        // marker 安装不下载任何字节：拿 size_bytes 的一半当进度分子是伪造进度
+        // （ux-standards §2 禁止）。这里只报阶段，不报字节数。
+        emit_progress(app, &pack_id, "marker", 0, 0);
         "marker"
     } else {
         match download_and_verify(app, &entry).await {
@@ -266,11 +262,14 @@ pub fn uninstall_capability_pack(app: &AppHandle<impl Runtime>, pack_id: String)
     Ok(())
 }
 
+/// 能力位判定：**只有真正带回二进制的 sidecar 安装**才算可用。
+/// marker 记录只代表「装过一条本地安装记录」，把它算成 supported 会让前端
+/// 在什么都没解锁的情况下全绿（SYN 扫描/富 pcap 依旧降级）。
 pub fn is_pack_installed(app: &AppHandle<impl Runtime>, pack_id: &str) -> bool {
     packs_dir(app)
         .ok()
         .and_then(|dir| read_installed(&dir, pack_id))
-        .is_some()
+        .is_some_and(|record| record.mode != "marker")
 }
 
 pub fn build_capabilities(app: Option<&AppHandle<impl Runtime>>) -> NetworkProbeCapabilities {

@@ -94,99 +94,115 @@ export function usePortManagerController() {
     return portsToAdd
   }, [])
 
-  const scan = useCallback(async (portsToScan: number[]) => {
-    if (!portManagerUseCases.isAvailable()) {
-      usePortManagerStore.setState({
-        error: { key: "portManager.errors.desktopOnly" },
-      })
-      return
-    }
-    if (portsToScan.length === 0) return
+  const scan = useCallback(
+    async (portsToScan: number[], options?: { keepKillMessagesFor?: number[] }) => {
+      if (!portManagerUseCases.isAvailable()) {
+        usePortManagerStore.setState({
+          error: { key: "portManager.errors.desktopOnly" },
+        })
+        return
+      }
+      if (portsToScan.length === 0) return
 
-    const mode = usePortManagerStore.getState().scanMode
-    const host = usePortManagerStore.getState().remoteHost.trim()
-    if (mode === "remote" && !host) {
-      usePortManagerStore.setState({
-        error: { key: "portManager.errors.remoteHostRequired" },
-      })
-      return
-    }
-
-    const sessionId = usePortManagerStore.getState().scanSession
-
-    usePortManagerStore.setState((state) => ({
-      error: null,
-      portDetails: state.portDetails.filter((detail) => !portsToScan.includes(detail.port)),
-      portKillMessages: {},
-    }))
-
-    for (const port of portsToScan) {
-      if (usePortManagerStore.getState().scanSession !== sessionId) {
-        usePortManagerStore.setState((state) => ({
-          portStates: state.portStates.map((ps) =>
-            portsToScan.includes(ps.port) && (ps.status === "waiting" || ps.status === "scanning")
-              ? { ...ps, status: "ended" as PortScanStatus }
-              : ps,
-          ),
-        }))
-        break
+      const mode = usePortManagerStore.getState().scanMode
+      const host = usePortManagerStore.getState().remoteHost.trim()
+      if (mode === "remote" && !host) {
+        usePortManagerStore.setState({
+          error: { key: "portManager.errors.remoteHostRequired" },
+        })
+        return
       }
 
+      const sessionId = usePortManagerStore.getState().scanSession
+
+      const keepMessages = new Set(options?.keepKillMessagesFor ?? [])
+
       usePortManagerStore.setState((state) => ({
-        portStates: state.portStates.map((ps) =>
-          ps.port === port ? { ...ps, status: "scanning" as PortScanStatus } : ps,
+        error: null,
+        // 重扫期间**保留旧行**：先删后加会让结果卡塌成「暂无扫描结果」、
+        // 工具按钮一起消失（ux-standards §2：刷新不得用空态盖掉已有数据）。
+        // 新结果落地时按端口覆盖（见循环内的 merge）。
+        portKillMessages: Object.fromEntries(
+          Object.entries(state.portKillMessages).filter(
+            ([port]) => !portsToScan.includes(Number(port)) || keepMessages.has(Number(port)),
+          ),
         ),
       }))
 
-      try {
-        // v1.18: remote 模式用 portCheck,local 模式用 queryPortProcesses。
-        const details =
-          mode === "remote"
-            ? (await portManagerUseCases.portCheck(host, [port])).map((r) =>
-                portManagerUseCases.mapPortCheckToDetail(r),
-              )
-            : await portManagerUseCases.queryPortProcesses([port])
-
+      for (const port of portsToScan) {
         if (usePortManagerStore.getState().scanSession !== sessionId) {
           usePortManagerStore.setState((state) => ({
             portStates: state.portStates.map((ps) =>
-              ps.port === port ? { ...ps, status: "ended" as PortScanStatus } : ps,
+              portsToScan.includes(ps.port) && (ps.status === "waiting" || ps.status === "scanning")
+                ? { ...ps, status: "ended" as PortScanStatus }
+                : ps,
             ),
           }))
           break
         }
 
-        const portDetail = details.find((detail) => detail.port === port)
-        const isOccupied = portDetail && !portDetail.error && portDetail.pids.length > 0
-
-        usePortManagerStore.setState((state) => {
-          // The user may have removed this port between scan kickoff and the
-          // result arriving; drop stale details so removed rows don't reappear (#090).
-          const trackedPorts = new Set(state.portStates.map((ps) => ps.port))
-          const fresh = details.filter((detail) => trackedPorts.has(detail.port))
-          return {
-            portDetails: [...state.portDetails, ...fresh],
-            portStates: state.portStates.map((ps) =>
-              ps.port === port
-                ? { ...ps, status: (isOccupied ? "success" : "empty") as PortScanStatus }
-                : ps,
-            ),
-          }
-        })
-      } catch {
-        if (usePortManagerStore.getState().scanSession !== sessionId) break
         usePortManagerStore.setState((state) => ({
           portStates: state.portStates.map((ps) =>
-            ps.port === port ? { ...ps, status: "error" as PortScanStatus } : ps,
+            ps.port === port ? { ...ps, status: "scanning" as PortScanStatus } : ps,
           ),
         }))
-      }
-    }
 
-    usePortManagerStore.setState((state) => ({
-      portDetails: [...state.portDetails].sort((left, right) => left.port - right.port),
-    }))
-  }, [])
+        try {
+          // v1.18: remote 模式用 portCheck,local 模式用 queryPortProcesses。
+          const details =
+            mode === "remote"
+              ? (await portManagerUseCases.portCheck(host, [port])).map((r) =>
+                  portManagerUseCases.mapPortCheckToDetail(r),
+                )
+              : await portManagerUseCases.queryPortProcesses([port])
+
+          if (usePortManagerStore.getState().scanSession !== sessionId) {
+            usePortManagerStore.setState((state) => ({
+              portStates: state.portStates.map((ps) =>
+                ps.port === port ? { ...ps, status: "ended" as PortScanStatus } : ps,
+              ),
+            }))
+            break
+          }
+
+          const portDetail = details.find((detail) => detail.port === port)
+          const isOccupied = portDetail && !portDetail.error && portDetail.pids.length > 0
+
+          usePortManagerStore.setState((state) => {
+            // The user may have removed this port between scan kickoff and the
+            // result arriving; drop stale details so removed rows don't reappear (#090).
+            const trackedPorts = new Set(state.portStates.map((ps) => ps.port))
+            const fresh = details.filter((detail) => trackedPorts.has(detail.port))
+            // 按端口覆盖而不是追加：并发重扫同一端口会渲染出两行、把计数双计。
+            const freshByPort = new Map(fresh.map((detail) => [detail.port, detail]))
+            const seen = new Set(state.portDetails.map((detail) => detail.port))
+            const merged = state.portDetails.map((detail) => freshByPort.get(detail.port) ?? detail)
+            const appended = fresh.filter((detail) => !seen.has(detail.port))
+            return {
+              portDetails: [...merged, ...appended],
+              portStates: state.portStates.map((ps) =>
+                ps.port === port
+                  ? { ...ps, status: (isOccupied ? "success" : "empty") as PortScanStatus }
+                  : ps,
+              ),
+            }
+          })
+        } catch {
+          if (usePortManagerStore.getState().scanSession !== sessionId) break
+          usePortManagerStore.setState((state) => ({
+            portStates: state.portStates.map((ps) =>
+              ps.port === port ? { ...ps, status: "error" as PortScanStatus } : ps,
+            ),
+          }))
+        }
+      }
+
+      usePortManagerStore.setState((state) => ({
+        portDetails: [...state.portDetails].sort((left, right) => left.port - right.port),
+      }))
+    },
+    [],
+  )
 
   const rescanAll = useCallback(() => {
     const allPorts = usePortManagerStore.getState().portStates.map((ps) => ps.port)
@@ -209,7 +225,9 @@ export function usePortManagerController() {
         usePortManagerStore.setState((state) => ({
           portKillMessages: { ...state.portKillMessages, [port]: messages },
         }))
-        void scan([port])
+        // kill 结论必须活过紧随的自动重扫：scan 若不保留这批端口，提示会在同一帧
+        // 被清空，权限不足/PID 复用被拒也都看不见，只剩「端口行消失又回来」。
+        void scan([port], { keepKillMessagesFor: [port] })
       } catch (error) {
         usePortManagerStore.setState({
           error: {
@@ -235,7 +253,7 @@ export function usePortManagerController() {
       const killMessages = portManagerUseCases.groupKillMessagesByPort(result, currentPortDetails)
       usePortManagerStore.setState({ portKillMessages: killMessages })
       if (portsToRescan.length > 0) {
-        void scan(portsToRescan)
+        void scan(portsToRescan, { keepKillMessagesFor: portsToRescan })
       }
     } catch (error) {
       usePortManagerStore.setState({
@@ -379,7 +397,12 @@ export function usePortManagerController() {
   }, [clearInvalidTimer, setInputError, setInputValue, setShowInvalidToast])
 
   const displayedDetails = useMemo(
-    () => (showEmptyPorts ? portDetails : portDetails.filter((d) => !d.error && d.pids.length > 0)),
+    () =>
+      showEmptyPorts
+        ? portDetails
+        : // 查询失败的行不是「空闲」，隐藏空闲时也必须留在列表里，
+          // 否则一次 lsof 失败就被说成「已扫描的端口均为空闲」。
+          portDetails.filter((d) => Boolean(d.error) || d.pids.length > 0),
     [portDetails, showEmptyPorts],
   )
 

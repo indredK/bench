@@ -9,12 +9,14 @@ export function useGuardedAsync() {
   const lockRef = useRef(false)
   const [pending, setPending] = useState(false)
 
-  const run = useCallback(async (task: () => Promise<void>) => {
-    if (lockRef.current) return
+  // 返回任务结果，调用方才能区分「被锁挡下、根本没跑」和「跑了但返回空值」。
+  // 之前固定返回 void，命令中心就据此给一条没执行过的命令弹了「执行成功」。
+  const run = useCallback(async <T>(task: () => Promise<T>): Promise<T | undefined> => {
+    if (lockRef.current) return undefined
     lockRef.current = true
     setPending(true)
     try {
-      await task()
+      return await task()
     } finally {
       lockRef.current = false
       setPending(false)
@@ -28,8 +30,8 @@ export function useGuardedAsyncSet<K = string>() {
   const lockRef = useRef<Set<K>>(new Set())
   const [pendingKeys, setPendingKeys] = useState<Set<K>>(() => new Set())
 
-  const run = useCallback(async (key: K, task: () => Promise<void>) => {
-    if (lockRef.current.has(key)) return
+  const run = useCallback(async <T>(key: K, task: () => Promise<T>): Promise<T | undefined> => {
+    if (lockRef.current.has(key)) return undefined
     lockRef.current.add(key)
     setPendingKeys((prev) => {
       const next = new Set(prev)
@@ -37,7 +39,7 @@ export function useGuardedAsyncSet<K = string>() {
       return next
     })
     try {
-      await task()
+      return await task()
     } finally {
       lockRef.current.delete(key)
       setPendingKeys((prev) => {

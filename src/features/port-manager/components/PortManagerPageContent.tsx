@@ -342,9 +342,20 @@ export function PortManagerPageContent({
                         )}
                       >
                         {detail.error ? (
-                          <div className="flex items-center gap-2 rounded-md bg-blue-50 px-3 py-2 text-[13px] text-blue-700 dark:bg-blue-950/30 dark:text-blue-300">
-                            <span className="size-2 shrink-0 rounded-full bg-blue-500 dark:bg-blue-400" />
-                            {t("portManager.port", { port: detail.port })}: {detail.error}
+                          <div className="flex items-center gap-2 rounded-md bg-amber-50 px-3 py-2 text-[13px] text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+                            <span className="size-2 shrink-0 rounded-full bg-amber-500 dark:bg-amber-400" />
+                            <span className="shrink-0 font-medium">
+                              {t("portManager.port", { port: detail.port })}:
+                            </span>
+                            {/* 后端 message 只作副行细节；主文案必须走 i18n，
+                                否则中文界面上是一条裸英文。 */}
+                            <span className="shrink-0">{t("portManager.queryFailed")}</span>
+                            <span
+                              className="text-muted-foreground min-w-0 truncate"
+                              title={detail.error}
+                            >
+                              {detail.error}
+                            </span>
                           </div>
                         ) : (
                           <>

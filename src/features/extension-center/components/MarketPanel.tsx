@@ -10,6 +10,21 @@ import type {
 import { useMarketController } from "../hooks/useMarketController"
 import { selectMetadata, useResolvedLocale } from "../lib/metadata"
 
+/** 数字段比较（与后端 `version_at_least` 同口径）：a &gt; b 返回正数。 */
+export function compareVersions(a: string, b: string): number {
+  const parse = (value: string) =>
+    value
+      .split(".")
+      .slice(0, 3)
+      .map((part) => Number.parseInt(part, 10) || 0)
+  const [left, right] = [parse(a), parse(b)]
+  for (let index = 0; index < 3; index += 1) {
+    const diff = (left[index] ?? 0) - (right[index] ?? 0)
+    if (diff !== 0) return diff
+  }
+  return 0
+}
+
 function VersionBadges({
   version,
   t,
@@ -48,14 +63,17 @@ function ExtensionCard({
   t,
   onInstall,
   busy,
+  revoked,
 }: {
   entry: MarketExtensionSummary
   t: (key: string) => string
   onInstall: (extensionId: string, version: string) => void
   busy: boolean
+  revoked?: boolean
 }) {
-  // 可安装版本：非 yanked；优先最新（registry 顺序通常最新在前，这里显式按版本降序）。
-  const sortedVersions = [...entry.versions].sort((a, b) => b.version.localeCompare(a.version))
+  // 可安装版本：非 yanked；优先最新。必须按数字段比较 —— localeCompare 会把
+  // 0.10.0 排在 0.9.0 之前，导致真正的最新版被判「已装」而整颗按钮不渲染。
+  const sortedVersions = [...entry.versions].sort((a, b) => compareVersions(b.version, a.version))
   const installable = sortedVersions.filter((version) => !version.yanked)
   const latestInstallable = installable[0]
   const locale = useResolvedLocale()
@@ -77,7 +95,9 @@ function ExtensionCard({
         {latestInstallable && !latestInstallable.installed && (
           <Button
             size="sm"
-            disabled={busy || !latestInstallable.compatible}
+            /* 已吊销的插件不得再安装/更新：卡片下方就是红色吊销说明，
+               按钮若仍可点，等于告诉用户「警示只是装饰」。 */
+            disabled={busy || !latestInstallable.compatible || Boolean(revoked)}
             onClick={() => onInstall(entry.id, latestInstallable.version)}
           >
             {latestInstallable.updateAvailable
@@ -166,7 +186,11 @@ export function MarketPanel() {
             <ExtensionCard
               entry={entry}
               t={t}
-              onInstall={(id, version) => void prepareInstall(id, version)}
+              revoked={Boolean(hit)}
+              onInstall={(id, version) => {
+                if (revokedById.has(id)) return
+                void prepareInstall(id, version)
+              }}
               busy={busy}
             />
             {hit && (

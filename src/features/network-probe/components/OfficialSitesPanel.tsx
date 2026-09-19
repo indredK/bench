@@ -1,7 +1,7 @@
 /**
  * Feature UI / 功能界面: Sites L1 · official website reachability cards.
  */
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
@@ -80,7 +80,10 @@ export function OfficialSitesPanel({
 
   // Merge streaming / final results by target so single-card runs keep prior results.
   useEffect(() => {
-    const incoming = [...streaming, ...(result?.results ?? [])]
+    // 跑动中 streaming 必须排在旧 result 之后: 反过来的话上一轮的整包结果会盖掉本轮逐站进度。
+    const incoming = loading
+      ? [...(result?.results ?? []), ...streaming]
+      : [...streaming, ...(result?.results ?? [])]
     if (incoming.length === 0) return
 
     setSamplesByTarget((prev) => {
@@ -97,7 +100,17 @@ export function OfficialSitesPanel({
       }
       return changed ? next : prev
     })
-  }, [streaming, result])
+  }, [streaming, result, loading])
+
+  // 整包重跑时本轮 streaming 是唯一可信来源: 本地缓存必须一起清, 否则尚未测到的卡片
+  // 仍显示上一轮的绿/红状态和「刚刚测于」时间, 看起来像本轮没在推进。
+  // 单站重测（pendingTarget 非空）保留其它卡片结果, 与原设计一致。
+  const wasLoadingRef = useRef(loading)
+  useEffect(() => {
+    const started = loading && !wasLoadingRef.current
+    wasLoadingRef.current = loading
+    if (started && pendingTarget === null) setSamplesByTarget({})
+  }, [loading, pendingTarget])
 
   useEffect(() => {
     if (!loading) setPendingTarget(null)

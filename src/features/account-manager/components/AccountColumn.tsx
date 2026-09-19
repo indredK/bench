@@ -1,7 +1,7 @@
 /**
  * Account column / 账号栏: accounts of the selected station with reorder.
  */
-import { useState, useMemo, type ReactNode } from "react"
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import {
@@ -91,6 +91,18 @@ export function AccountColumn({
   const [searchQuery, setSearchQuery] = useState("")
   const [sortMode, setSortMode] = useState<"manual" | "asc" | "desc">("manual")
   const [groupByStatus, setGroupByStatus] = useState(false)
+  const stationId = station?.id ?? ""
+  const filterStationId = useRef(stationId)
+
+  // 搜索/排序/分组是本列的视图态：切站点必须重置，否则上一站点筛不中任何账号的
+  // 关键词会让新站点看起来「没有账号」。
+  useEffect(() => {
+    if (filterStationId.current === stationId) return
+    filterStationId.current = stationId
+    setSearchQuery("")
+    setSortMode("manual")
+    setGroupByStatus(false)
+  }, [stationId])
 
   const filteredAccounts = useMemo(() => {
     let result = [...accounts]
@@ -241,7 +253,7 @@ export function AccountColumn({
           <div className="p-3">
             <EmptyHint
               icon={<Search className="size-8 opacity-40" />}
-              text={t("accountManager.searchAccounts")}
+              text={t("accountManager.searchAccountsEmpty")}
             />
           </div>
         ) : shouldVirtualize ? (

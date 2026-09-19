@@ -261,13 +261,17 @@ mod macos {
         Some(expires_utc / 1_000_000 - CHROM_EPOCH_DELTA_SECS)
     }
 
-    /// Chrome 的 `samesite` 整数 → canonical 字符串（与扩展通道的取值口径一致：
-    /// 未指定时回 `None`，交给注入端按默认处理）。
+    /// Chrome 的 `samesite` 整数 → **canonical** 字符串（与 AccountSession 的取值口径
+    /// 一致：`strict` / `lax` / `none`，未指定回 `None` 交给注入端按默认处理）。
+    ///
+    /// 注意不能照抄 chrome.cookies 的 `no_restriction`：注入端 `normalize_same_site`
+    /// 与 WebView 侧都只认 canonical 值，`no_restriction` 会落到 `_` 分支被丢掉属性，
+    /// 跨站接口（iframe / 跨子域 XHR）因此不带凭证 —— 「导入了但还是没登录」。
     fn same_site_from_chrome(value: i64) -> Option<&'static str> {
         // Chromium net::cookies::CookieSameSite：0=OMITTED 1=NO_RESTRICTION
         // 2=LAX 4=STRICT（3 为历史值，按未指定处理）。
         match value {
-            1 => Some("no_restriction"),
+            1 => Some("none"),
             2 => Some("lax"),
             4 => Some("strict"),
             _ => None,
@@ -507,7 +511,9 @@ mod macos {
 
         #[test]
         fn same_site_maps_known_values_and_passes_through_unknown() {
-            assert_eq!(same_site_from_chrome(1), Some("no_restriction"));
+            // canonical 口径：`none` 而非 chrome.cookies 的 `no_restriction`，
+            // 否则注入端认不出来，跨站 cookie 会丢掉 SameSite 属性。
+            assert_eq!(same_site_from_chrome(1), Some("none"));
             assert_eq!(same_site_from_chrome(2), Some("lax"));
             assert_eq!(same_site_from_chrome(4), Some("strict"));
             assert_eq!(same_site_from_chrome(0), None);

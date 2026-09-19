@@ -162,6 +162,12 @@ export default function SystemSettings(_props: SystemSettingsProps) {
   )
   const [launchDaemonsError, setLaunchDaemonsError] = useState("")
   const [loginItemToRemove, setLoginItemToRemove] = useState<string | null>(null)
+  // TCC 权限重置：需要输入 Bundle ID，故用「输入 + 二次确认」一体的对话框
+  // （原先的 window.prompt 在本应用 WebView 里不可用）。
+  const [tccResetTarget, setTccResetTarget] = useState<{ service: string; label: string } | null>(
+    null,
+  )
+  const [tccBundleId, setTccBundleId] = useState("")
 
   // Default browser state
   const [defaultBrowser, setDefaultBrowser] = useState(store.defaultBrowser)
@@ -664,27 +670,64 @@ export default function SystemSettings(_props: SystemSettingsProps) {
                             variant="destructive"
                             size="sm"
                             disabled={store.applyingKeys.size > 0}
-                            onClick={async () => {
-                              const bundleId = prompt(
-                                t("systemSettings.privacy.resetPrompt", { label }),
-                              )
-                              if (bundleId) {
-                                await run(
-                                  `privacy.reset.${service}`,
-                                  () =>
-                                    systemSettingsUseCases.resetTccPermission(service, bundleId),
-                                  {
-                                    success: t("systemSettings.privacy.resetSuccess", {
-                                      label,
-                                      bundleId,
-                                    }),
-                                  },
-                                )
-                              }
+                            onClick={() => {
+                              // 原来这里用 window.prompt()：wry 没有实现 JS 文本输入面板，
+                              // 点了直接返回 null —— 高影响操作既无反应也没有二次确认
+                              // （design.md §3 要求 TCC 重置必须确认）。
+                              setTccBundleId("")
+                              setTccResetTarget({ service, label })
                             }}
                           >
                             {t("systemSettings.privacy.reset")}
                           </Button>
+                          <DestructiveConfirmDialog
+                            open={tccResetTarget?.service === service}
+                            onOpenChange={(open) => {
+                              if (!open) setTccResetTarget(null)
+                            }}
+                            title={t("systemSettings.privacy.resetConfirmTitle", {
+                              label: tccResetTarget?.label ?? label,
+                            })}
+                            description={t("systemSettings.privacy.resetConfirmDescription")}
+                            confirmLabel={t("common.confirm")}
+                            cancelLabel={t("common.cancel")}
+                            onConfirm={async () => {
+                              const bundleId = tccBundleId.trim()
+                              if (!bundleId || !tccResetTarget) {
+                                toast.error(t("systemSettings.privacy.resetBundleIdRequired"))
+                                return
+                              }
+                              await run(
+                                `privacy.reset.${tccResetTarget.service}`,
+                                () =>
+                                  systemSettingsUseCases.resetTccPermission(
+                                    tccResetTarget.service,
+                                    bundleId,
+                                  ),
+                                {
+                                  success: t("systemSettings.privacy.resetSuccess", {
+                                    label: tccResetTarget.label,
+                                    bundleId,
+                                  }),
+                                },
+                              )
+                            }}
+                          >
+                            <div className="space-y-1.5 pt-1">
+                              <Label htmlFor="tcc-bundle-id" className="text-xs">
+                                {t("systemSettings.privacy.resetPrompt", {
+                                  label: tccResetTarget?.label ?? label,
+                                })}
+                              </Label>
+                              <Input
+                                id="tcc-bundle-id"
+                                value={tccBundleId}
+                                onChange={(event) => setTccBundleId(event.target.value)}
+                                placeholder={t("systemSettings.privacy.resetBundleIdPlaceholder")}
+                                className="font-mono text-xs"
+                              />
+                            </div>
+                          </DestructiveConfirmDialog>
                         </div>
                       </div>
                     )

@@ -2,6 +2,7 @@
  * Controller / 控制器: bind dev toolbox state; 子 Tab 切换、开发工具、诊断、系统信息.
  */
 import { useEffect, useState } from "react"
+import { registerFeatureRefresh, requestFeatureRefresh } from "@/features/refresh"
 import { systemInfoUseCases } from "@/features/system-settings/services/system-info.use-cases"
 import { systemSettingsUseCases } from "@/features/system-settings/services/system-settings.use-cases"
 import { useSettingAction } from "@/features/system-settings/hooks/useSettingAction"
@@ -36,6 +37,15 @@ export function useDevToolboxController() {
   const [systemInfoError, setSystemInfoError] = useState("")
 
   const [activeTab, setActiveTab] = useState<ToolboxTab>("port-manager")
+
+  // ⌘R / 右键菜单「刷新」按**当前路由**的 feature id 找 handler，而路由始终停在
+  // /dev-toolbox；子页面把 handler 注册在 port-manager / env-detector 名下，
+  // 不代理就等于默认落地页上刷新静默无反应。
+  useEffect(() => {
+    const childId = activeTab === "port-manager" || activeTab === "env-detector" ? activeTab : null
+    if (!childId) return
+    return registerFeatureRefresh("dev-toolbox", () => requestFeatureRefresh(childId))
+  }, [activeTab])
 
   const runDiagnostic = async (action: () => Promise<unknown>) => {
     const result = await run("diagnostic.run", action)

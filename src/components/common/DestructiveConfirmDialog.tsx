@@ -28,6 +28,7 @@ export function DestructiveConfirmDialog({
   cancelLabel,
   onConfirm,
   loading,
+  children,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -38,6 +39,8 @@ export function DestructiveConfirmDialog({
   cancelLabel: string
   onConfirm: () => void | Promise<void>
   loading?: boolean
+  /** 需要用户在确认前补一个输入（Bundle ID、目标路径等）时使用。 */
+  children?: ReactNode
 }) {
   const [pending, setPending] = useState(false)
 
@@ -79,6 +82,7 @@ export function DestructiveConfirmDialog({
                   {consequence}
                 </div>
               ) : null}
+              {children}
             </div>
           </AlertDialogDescription>
         </AlertDialogHeader>

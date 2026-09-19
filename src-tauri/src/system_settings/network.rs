@@ -225,6 +225,13 @@ pub async fn get_wifi_info() -> AppResult<super::types::WifiInfo> {
         #[cfg(target_os = "macos")]
         {
             let airport = "/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport";
+            // 该私有二进制在 macOS 15.4+ 已被移除。缺文件要显式 unsupported，
+            // 否则 `run_cmd` 的 spawn 失败会被折成 INTERNAL，用户只看到「内部错误」。
+            if !std::path::Path::new(airport).exists() {
+                return Err(AppError::unsupported(
+                    "WIFI_INFO_UNAVAILABLE: 本机 macOS 已移除 airport 工具，请改用系统 Wi-Fi 菜单",
+                ));
+            }
             let output = run_cmd(airport, &["-I"])?;
             let mut info = super::types::WifiInfo {
                 ssid: String::new(), signal_strength: None, channel: None, frequency: None, security: None,
@@ -234,10 +241,14 @@ pub async fn get_wifi_info() -> AppResult<super::types::WifiInfo> {
                 if parts.len() != 2 { continue; }
                 let key = parts[0].trim();
                 let val = parts[1].trim();
+                // `key` 已经 trim 过，分支却写成带前导空格的 " SSID" —— 永远不命中，
+                // 结果是所有字段都留空、界面显示一份空壳 Wi-Fi 信息。
                 match key {
-                    " SSID" => info.ssid = val.to_string(),
-                    " agrCtlRSSI" => info.signal_strength = val.parse().ok(),
-                    " channel" => info.channel = Some(val.to_string()),
+                    "SSID" => info.ssid = val.to_string(),
+                    "agrCtlRSSI" => info.signal_strength = val.parse().ok(),
+                    "channel" => info.channel = Some(val.to_string()),
+                    "freq" => info.frequency = Some(val.to_string()),
+                    "security" => info.security = Some(val.to_string()),
                     _ => {}
                 }
             }

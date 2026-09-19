@@ -19,6 +19,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
+import { envDetectorFeature } from "@/features/env-detector/feature"
+import { portManagerFeature } from "@/features/port-manager/feature"
 import type { AppFeature } from "@/features/types"
 import { formatMemory, formatUptime } from "@/lib/utils"
 import {
@@ -48,7 +50,11 @@ function PageFallback() {
   )
 }
 
-export default function DevToolbox({ feature }: DevToolboxProps) {
+/**
+ * 路由仍然传入工具箱自己的 descriptor，但这里不再往下传：门控条件属于各子功能
+ * （端口管理/环境检测都是 desktopOnly:true），传工具箱的会把子页面的「仅桌面」占位吃掉。
+ */
+export default function DevToolbox(_props: DevToolboxProps) {
   const { t } = useTranslation()
   const {
     applying,
@@ -348,13 +354,15 @@ export default function DevToolbox({ feature }: DevToolboxProps) {
       case "port-manager":
         return (
           <Suspense fallback={<PageFallback />}>
-            <PortManager feature={feature} />
+            {/* 门控条件属于子功能自己：传工具箱的 descriptor（desktopOnly:false）
+                会让子页面在非桌面环境下不再显示「仅桌面功能」占位。 */}
+            <PortManager feature={portManagerFeature} />
           </Suspense>
         )
       case "env-detector":
         return (
           <Suspense fallback={<PageFallback />}>
-            <EnvDetector active feature={feature} />
+            <EnvDetector active feature={envDetectorFeature} />
           </Suspense>
         )
       case "devtools":

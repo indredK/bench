@@ -115,6 +115,10 @@
       "view": "查看",
       "reset": "重置",
       "resetPrompt": "输入要重置 {{label}} 权限的 Bundle ID：",
+      "resetConfirmTitle": "重置「{{label}}」权限？",
+      "resetConfirmDescription": "该应用在此项上的授权会被清除，回到「未授权」状态。这是不可逆操作：下次它再访问时会由 macOS 重新询问，若它此前依赖该权限，功能会立即失效直到你重新允许。",
+      "resetBundleIdRequired": "请先输入要重置的 Bundle ID。",
+      "resetBundleIdPlaceholder": "例如 com.example.app",
       "resetSuccess": "已重置 {{label}} 权限：{{bundleId}}",
       "tccAllowed": "已允许",
       "tccDenied": "已拒绝",
@@ -280,6 +284,7 @@
     "importData": "导入",
     "exportData": "导出",
     "searchAccounts": "搜索账号...",
+    "searchAccountsEmpty": "没有匹配的账号，换个关键词试试。",
     "sortByUsername": "按用户名排序",
     "groupByStatus": "按状态分组",
     "addAccount": "添加账号",
@@ -380,7 +385,9 @@
         "noSessionData": "页面无响应或没有可采集的登录数据",
         "syncFailed": "从 Bench 登录档案补采失败",
         "conflict": "Bench 中已存在更新的会话",
-        "staleSession": "Bench 里的登录态已失效（探针判定未登录），注入的是过期数据"
+        "staleSession": "Bench 里的登录态已失效（探针判定未登录），注入的是过期数据",
+        "idbBlocked": "该站点把登录凭证放在 IndexedDB 里，但本次采集没能完整读出（页面拦截了采集）。请改用 Bench Companion 扩展采集，或先刷新页面再同步一次。",
+        "captureFailed": "从 Bench 登录窗口采集登录态失败（页面未响应或采集超时）。请确认窗口仍停留在该站点，再重试一次。"
       },
       "openForLogin": "打开站点并手动登录",
       "openForLoginHint": "不注入会话，供你在浏览器中完成扫码、二次验证或 SSO，完成后点「回采登录态」写回 Bench。",
@@ -1105,7 +1112,8 @@
         "ok": "可用",
         "missing": "未安装",
         "multipleVersions": "多版本",
-        "versionUnknown": "版本未知"
+        "versionUnknown": "版本未知",
+        "versionProbeThrottled": "版本未探测"
       }
     }
   },
@@ -1129,6 +1137,7 @@
     "killAllDisabledHint": "没有已占用的端口可供释放",
     "port": "端口 {{port}}",
     "browserError": "无法在浏览器环境中终止端口进程，请以 Tauri 桌面应用方式运行。",
+    "queryFailed": "查询占用进程失败",
     "emptyResults": "暂无扫描结果。在上方输入端口并点击「加入扫描」开始扫描。",
     "emptyOnly": "已扫描的端口均为空闲。点击「显示全部端口」查看。",
     "emptyChips": "暂无已选端口。在上方输入端口号以添加到扫描列表。",
@@ -1507,6 +1516,8 @@
       "stderr": "错误输出",
       "noOutput": "命令没有产生任何输出。",
       "copied": "已复制到剪贴板",
+      "copyFailed": "复制到剪贴板失败",
+      "locked": "已有命令在执行中，请等待它结束或先点「终止」。",
       "output": "运行输出",
       "escHint": "按 Esc 或点击空白处收起"
     },
@@ -1569,7 +1580,8 @@
     },
     "nodeSelect": {
       "label": "探测原点",
-      "local": "本机"
+      "local": "本机",
+      "localOnlyHint": "远端节点执行尚未实现，当前所有探测都在本机运行。"
     },
     "sideLog": {
       "title": "命令日志",

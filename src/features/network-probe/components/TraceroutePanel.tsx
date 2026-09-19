@@ -36,7 +36,8 @@ export function TraceroutePanel({
   const [maxTtl, setMaxTtl] = useState("20")
   const [rounds, setRounds] = useState("3")
 
-  const hops = result?.hops?.length ? result.hops : streamingHops
+  // 跑动中只渲染本轮 streaming 跳数: 旧 result 优先会遮蔽新一轮逐跳进度。
+  const hops = loading ? streamingHops : result?.hops?.length ? result.hops : streamingHops
   const modeKey = result?.privilegeMode
     ? `networkProbe.traceroute.mode.${result.privilegeMode}`
     : null

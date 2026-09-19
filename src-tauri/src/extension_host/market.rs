@@ -314,6 +314,14 @@ pub async fn ext_market_prepare(
             "extension `{extension_id}` version `{version}` has been yanked"
         )));
     }
+    // 吊销通道（spec §5.3）必须在安装入口也生效：列表路径只做「已装插件强制禁用 +
+    // 警示」，prepare 不看 revoke 的话，红色吊销说明旁边那颗按钮照样能把产物装进来。
+    if let Some(reason) = registry::revoke_hit(&doc, &extension_id, &version) {
+        return Err(AppError::new(
+            "EXTENSION_REVOKED",
+            format!("extension `{extension_id}` version `{version}` has been revoked: {reason}"),
+        ));
+    }
     if registry::validate_download_url(&version_entry.download_url).is_err() {
         return Err(AppError::forbidden_path(format!(
             "registry download url rejected: {}",

@@ -701,6 +701,12 @@ fn report_pending_inject(
             .unwrap_or(0)
     };
     let task = &mut guard[index];
+    // 终态不可回退：按 taskId 命中时不查状态，一条重复/乱序到达的 `claimed` 回报
+    // 会把已 `injected` 的任务打回 claimed，等 CLAIM_REQUEUE_SECS 后又变成可领取
+    // —— 结果是同一份会话被二次注入，顶掉用户随后手挑的账号（D-038 明令禁止）。
+    if matches!(task.status, inject_status::INJECTED | inject_status::FAILED) {
+        return true;
+    }
     task.status = status;
     task.updated_at_ts = now_ts();
     task.error = error;
@@ -875,6 +881,33 @@ mod tests {
         assert!(offered());
         report_pending_inject(Some(&id), None, inject_status::INJECTED, None, &json!({}));
         assert!(!offered());
+    }
+
+    #[test]
+    fn a_late_claimed_report_cannot_regress_an_injected_task() {
+        // 按 taskId 命中时不查状态，重复/乱序到达的 claimed 曾把 injected 打回
+        // claimed —— 过 CLAIM_REQUEUE_SECS 又能被领取，等于同一份会话二次注入。
+        let origin = unique_origin("regress");
+        let id = register_pending_inject("acct-2b", &origin);
+        report_pending_inject(Some(&id), None, inject_status::CLAIMED, None, &json!({}));
+        report_pending_inject(
+            Some(&id),
+            None,
+            inject_status::INJECTED,
+            None,
+            &counters(9, 0),
+        );
+
+        assert!(report_pending_inject(
+            Some(&id),
+            None,
+            inject_status::CLAIMED,
+            None,
+            &json!({})
+        ));
+        let status = inject_task_status(&id);
+        assert_eq!(status.outcome, inject_status::INJECTED);
+        assert_eq!(status.cookies_written, 9, "counters must not be wiped");
     }
 
     #[test]

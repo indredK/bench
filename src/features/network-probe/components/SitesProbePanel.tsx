@@ -103,7 +103,8 @@ export function SitesProbePanel({
   }, [customSites])
 
   const packs = useMemo(() => (packIds.length > 0 ? packIds : ["global"]), [packIds])
-  const rows = result?.results?.length ? result.results : streaming
+  // 跑动中以本轮 streaming 为准: 旧 result 优先会让新一轮逐站推进看起来「没反应」。
+  const rows = loading ? streaming : result?.results?.length ? result.results : streaming
 
   const addCustom = () => {
     const value = draft.trim()

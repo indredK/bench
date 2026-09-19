@@ -53,6 +53,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import type { FeatureDescriptor } from "@/platform/capabilities"
 
@@ -86,7 +87,6 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
   const [packsOpen, setPacksOpen] = useState(false)
   const [focusPackId, setFocusPackId] = useState<string | null>(null)
   const [packsBusy, setPacksBusy] = useState(false)
-  const [nodeId, setNodeId] = useState("local")
   const [sideLogOpen, setSideLogOpen] = useState(true)
 
   const l2Items = L2_BY_L1[c.l1Id]
@@ -96,6 +96,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
     if (c.l2Id !== resolvedL2) c.selectL2(resolvedL2)
   }, [c.l2Id, c.selectL2, resolvedL2])
 
+  const activeSessionIdByKind = c.activeSessionIdByKind
   const hostsSuspicious = useMemo(
     () => (c.hosts ?? []).filter((h) => h.suspicious).length,
     [c.hosts],
@@ -119,7 +120,12 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
             reachable: true,
           },
         ]
-  const activeNode = probeNodes.find((n) => n.id === nodeId) ?? probeNodes[0]
+  // 远端节点执行（Globalping / 自有 agent）尚未接入任何 use-case, 探测一律本机跑;
+  // 按 design.md §4.2「实现前不要假连接」, 可选项收敛为 local, 其余节点在下方渲染为 disabled。
+  const activeNode = useMemo(
+    () => probeNodes.find((n) => n.kind === "local") ?? probeNodes[0],
+    [probeNodes],
+  )
 
   const errorText = c.error ? t(c.error.key, { defaultValue: c.error.fallback }) : null
   const offlineSub = c.offlineSub
@@ -222,25 +228,38 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
               </button>
             ))}
           </nav>
-          <Select
-            value={activeNode?.id ?? "local"}
-            onValueChange={(v) => {
-              if (v) setNodeId(v)
-            }}
-          >
-            <SelectTrigger
-              size="sm"
-              className="h-8 w-[9.5rem] shrink-0"
-              aria-label={t("networkProbe.nodeSelect.label")}
-            >
-              <SelectValue placeholder={t("networkProbe.nodeSelect.label")} />
-            </SelectTrigger>
+          {/* 探测原点当前只有本机可选: 非 local 项标 disabled 并提示尚未实现, 避免「选了却仍本机跑」的假连接。 */}
+          <Select value={activeNode?.id ?? "local"}>
+            <TooltipProvider delay={280}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <SelectTrigger
+                    size="sm"
+                    className="h-8 w-[9.5rem] shrink-0"
+                    aria-label={t("networkProbe.nodeSelect.label")}
+                  >
+                    <SelectValue placeholder={t("networkProbe.nodeSelect.label")} />
+                  </SelectTrigger>
+                </TooltipTrigger>
+                <TooltipContent className="text-[11px]">
+                  {t("networkProbe.nodeSelect.localOnlyHint")}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             <SelectContent>
-              {probeNodes.map((n) => (
-                <SelectItem key={n.id} value={n.id}>
-                  {n.label}
-                </SelectItem>
-              ))}
+              {probeNodes.map((n) => {
+                const pending = n.kind !== "local"
+                return (
+                  <SelectItem key={n.id} value={n.id} disabled={pending}>
+                    {n.label}
+                    {pending ? (
+                      <span className="text-muted-foreground ml-1 text-[10px] font-bold tracking-wider uppercase">
+                        {t("networkProbe.badge.planning")}
+                      </span>
+                    ) : null}
+                  </SelectItem>
+                )
+              })}
             </SelectContent>
           </Select>
           <Button
@@ -332,9 +351,9 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     loading={c.loadingHealth}
                     result={c.healthResult}
                     streamingItems={c.healthStreamingItems}
-                    canCancel={Boolean(c.activeSessionId)}
+                    canCancel={Boolean(activeSessionIdByKind.health)}
                     onRun={c.runHealthScan}
-                    onCancel={c.cancelScan}
+                    onCancel={() => c.cancelScan("health")}
                   />
                 ) : null}
 
@@ -345,7 +364,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                 {showSitePacks ? (
                   <SitesProbePanel
                     loading={c.loadingSites}
-                    canCancel={Boolean(c.activeSessionId) && c.loadingSites}
+                    canCancel={Boolean(activeSessionIdByKind.sites) && c.loadingSites}
                     result={c.sitesResult}
                     streaming={c.sitesStreaming}
                     sparklines={c.siteSparklineById}
@@ -354,14 +373,14 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     toolStatus={c.toolStatus.sitesProbe}
                     onRunPack={c.runSitesProbe}
                     onRunCustom={c.runSitesProbeCustom}
-                    onCancel={c.cancelScan}
+                    onCancel={() => c.cancelScan("sites")}
                   />
                 ) : null}
 
                 {showOfficialSites ? (
                   <OfficialSitesPanel
                     loading={c.loadingSites}
-                    canCancel={Boolean(c.activeSessionId) && c.loadingSites}
+                    canCancel={Boolean(activeSessionIdByKind.sites) && c.loadingSites}
                     presets={officialPresets}
                     result={c.sitesResult}
                     streaming={c.sitesStreaming}
@@ -369,7 +388,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     toolStatus={c.toolStatus.sitesProbe}
                     onTestAll={() => c.runSitesProbe(OFFICIAL_PACK_ID)}
                     onTestOne={(target) => c.runSitesProbeCustom([target])}
-                    onCancel={c.cancelScan}
+                    onCancel={() => c.cancelScan("sites")}
                   />
                 ) : null}
 
@@ -512,13 +531,13 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                 {showTraceroute ? (
                   <TraceroutePanel
                     loading={c.loadingTraceroute}
-                    canCancel={Boolean(c.activeSessionId) && c.loadingTraceroute}
+                    canCancel={Boolean(activeSessionIdByKind.traceroute) && c.loadingTraceroute}
                     result={c.tracerouteResult}
                     streamingHops={c.tracerouteStreamingHops}
                     toolEnabled={c.toolEnabled.traceroute}
                     toolStatus={c.toolStatus.traceroute}
                     onRun={c.runTraceroute}
-                    onCancel={c.cancelScan}
+                    onCancel={() => c.cancelScan("traceroute")}
                   />
                 ) : null}
 
@@ -543,7 +562,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                 {showSpeed ? (
                   <SpeedPanel
                     loading={c.loadingSpeed}
-                    canCancel={c.loadingSpeed && Boolean(c.activeSessionId)}
+                    canCancel={c.loadingSpeed && Boolean(activeSessionIdByKind.speed)}
                     sources={c.speedSources}
                     result={c.speedResult}
                     sample={c.speedSample}
@@ -552,20 +571,20 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     toolStatus={c.toolStatus.speedTest}
                     onLoadSources={c.loadSpeedSources}
                     onRun={c.runSpeedTest}
-                    onCancel={c.cancelScan}
+                    onCancel={() => c.cancelScan("speed")}
                   />
                 ) : null}
 
                 {showPorts && c.securityAuthorized ? (
                   <PortScanPanel
                     loading={c.loadingPorts}
-                    canCancel={c.loadingPorts && Boolean(c.activeSessionId)}
+                    canCancel={c.loadingPorts && Boolean(activeSessionIdByKind.ports)}
                     result={c.portScanResult}
                     streaming={c.portScanStreaming}
                     toolEnabled={c.toolEnabled.portScan}
                     toolStatus={c.toolStatus.portScan}
                     onRun={c.runPortScan}
-                    onCancel={c.cancelScan}
+                    onCancel={() => c.cancelScan("ports")}
                   />
                 ) : null}
 
@@ -605,9 +624,9 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     result={c.pcapResult}
                     toolEnabled={c.toolEnabled.pcap}
                     toolStatus={c.toolStatus.pcap}
-                    canCancel={c.loadingPcap && Boolean(c.activeSessionId)}
+                    canCancel={c.loadingPcap && Boolean(activeSessionIdByKind.pcap)}
                     onRun={() => c.runPcapDiag(5)}
-                    onCancel={c.cancelScan}
+                    onCancel={() => c.cancelScan("pcap")}
                     onManagePacks={() => {
                       setFocusPackId("pcap-diag")
                       setPacksOpen(true)
@@ -621,9 +640,9 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     result={c.lanResult}
                     toolEnabled={c.toolEnabled.arp}
                     toolStatus={c.toolStatus.arp}
-                    canCancel={c.loadingLan && Boolean(c.activeSessionId)}
+                    canCancel={c.loadingLan && Boolean(activeSessionIdByKind.lan)}
                     onRun={c.discoverLan}
-                    onCancel={c.cancelScan}
+                    onCancel={() => c.cancelScan("lan")}
                     onOpenSettings={c.openSystemNetworkSettings}
                   />
                 ) : null}

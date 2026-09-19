@@ -267,13 +267,24 @@ async fn recover_from_window<R: Runtime>(
         Ok(session) => session,
         Err(error) => {
             eprintln!("[account_manager] webview sync capture failed for {account_id}: {error}");
+            // 分型出真实原因：一律折成 `noSessionData` 会把「IDB 采集被挡」
+            // 「页面求值超时」「档案读取失败」都说成「Bench 里没有登录态」，
+            // 于是用户被引导去重新登录，而真正的问题在采集端。
+            let message = error.message();
+            let reason = if message.contains("IndexedDB") {
+                "idbBlocked"
+            } else if message.contains("without capturable session data") {
+                "noSessionData"
+            } else {
+                "captureFailed"
+            };
             return Ok(RecoveredSession {
                 outcome: WebviewSyncOutcome {
                     recovered: false,
                     cookie_count: 0,
                     storage_origins: 0,
                     status: AccountSessionStatus::Inactive,
-                    reason: Some("noSessionData".to_string()),
+                    reason: Some(reason.to_string()),
                 },
                 session: existing,
             });
