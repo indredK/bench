@@ -173,7 +173,11 @@ export function useStationBrowserInterop(options?: { onCaptured?: () => void }) 
       if (extensionBusy) return
       setExtensionBusy(true)
       try {
-        await accountManagerUseCases.exportBrowserExtension()
+        const exported = await accountManagerUseCases.exportBrowserExtension()
+        if (!exported) {
+          // 用户在原生目录选择器里取消了：没有导出，自然也不该打开扩展管理页。
+          return
+        }
         const target = browserIdOverride ?? browserId ?? browsers[0]?.id ?? null
         if (target) {
           await accountManagerUseCases.openBrowserExtensionsPage(target)

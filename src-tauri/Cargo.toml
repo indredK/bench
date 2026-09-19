@@ -96,6 +96,10 @@ objc2-app-kit = "=0.3.2"
 objc2-web-kit = "=0.3.2"
 # 遍历 webview 子视图树所需（NSArray<NSView> 的正确编码，避免裸指针编码校验 panic）。
 objc2-foundation = "=0.3.2"
+rusqlite = { version = "0.40.2", features = ["bundled"] }
+pbkdf2 = "0.13.0"
+aes = "0.9.3"
+cbc = { version = "0.2.1", features = ["alloc", "block-padding"] }
 
 [profile.dev]
 # 限制 target 目录体积：默认 dev profile 对每个 crate 都带全量 debuginfo，

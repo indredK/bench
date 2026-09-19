@@ -1,3 +1,4 @@
+use std::future::Future;
 use std::time::{Duration, Instant};
 
 use serde::Deserialize;
@@ -10,10 +11,21 @@ use super::state::AccountManagerState;
 use super::types::{AccountManagerError, AccountManagerResult, AccountSession, OriginStorage};
 
 const CAPTURE_TIMEOUT: Duration = Duration::from_secs(10);
-const RESTORE_TIMEOUT: Duration = Duration::from_secs(10);
+/// 等待页面内恢复脚本到达终态的上限。
+///
+/// 对 WebView 与 CDP 两条链路共用（CDP 侧显式传入本常量）：同一份 S1 回放到
+/// 不同端点，「多久算恢复失败」的判定必须一致（D-028 决议 6）。
+pub(crate) const RESTORE_TIMEOUT: Duration = Duration::from_secs(10);
 const POLL_INTERVAL: Duration = Duration::from_millis(50);
 const MAX_BRIDGE_PAYLOAD_BYTES: usize = 12 * 1024 * 1024;
 const MAX_RESTORE_SCRIPT_BYTES: usize = 16 * 1024 * 1024;
+
+/// 恢复脚本写进页面的状态槽位名。
+///
+/// **模板与等待器必须共用这一个常量**：两侧字面量一旦漂移，等待器永远读到
+/// `pending`、把已经成功的恢复报成超时，而这条判据是 WebView 与 CDP 两条链路
+/// 唯一的自证手段（恢复脚本本身在页面里静默执行，没有任何回传通道）。
+pub(crate) const RESTORE_STATE_SLOT: &str = "__BENCH_SESSION_RESTORE__";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IndexedDbCaptureStatus {
@@ -304,7 +316,11 @@ pub fn restore_initialization_script(
     }
     branches.push_str("{selected=null;}");
 
-    let script = RESTORE_SCRIPT_TEMPLATE.replace("__ORIGIN_BRANCHES__", &branches);
+    let script = RESTORE_SCRIPT_TEMPLATE
+        // 槽位名先替换、origin 分支后替换：分支里嵌的是站点存储原文，反过来
+        // 时页面数据中恰好含 `__RESTORE_SLOT__` 字面量就会被改名，篡改恢复载荷。
+        .replace("__RESTORE_SLOT__", RESTORE_STATE_SLOT)
+        .replace("__ORIGIN_BRANCHES__", &branches);
     if script.len() > MAX_RESTORE_SCRIPT_BYTES {
         return Err(AccountManagerError::store_fail(
             "storage restore script exceeds limit",
@@ -314,28 +330,94 @@ pub fn restore_initialization_script(
     Ok(Some(script))
 }
 
-pub async fn wait_for_restore<R: Runtime>(window: &WebviewWindow<R>) -> AccountManagerResult<()> {
-    let deadline = Instant::now() + RESTORE_TIMEOUT;
+/// 该会话是否带 IndexedDB 快照（任一 origin 有即算）。
+///
+/// 决定出向注入后要不要把页面再导航一次：只有 IndexedDB 是异步落库的，
+/// Web Storage 同步写完页面首次读取就能看到。
+pub(crate) fn has_indexed_db_snapshot(session: &AccountSession) -> bool {
+    session
+        .origins
+        .iter()
+        .any(|origin| origin.indexed_db.is_some())
+}
+
+/// 页面内恢复脚本的终态（由 [`RESTORE_SCRIPT_TEMPLATE`] 写进状态槽位）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum RestoreTerminal {
+    /// 存储已落盘（Web Storage 同步完成 + IndexedDB 事务全部提交）。
+    Complete,
+    /// 当前文档 origin 不在本次恢复载荷里，脚本主动什么都不做。
+    Skipped,
+    /// 脚本自己报失败，`reason` 是页面里的 reasonCode / 异常 message。
+    Failed { reason: String },
+    /// 到时限仍未观察到终态。
+    Timeout,
+}
+
+impl RestoreTerminal {
+    /// 给前端的形态（`BrowserOpenOutcome::storage_restore_status`）：
+    /// `complete` / `skipped` / `failed:<reason>` / `timeout`。
+    pub(crate) fn as_status(&self) -> String {
+        match self {
+            Self::Complete => "complete".to_string(),
+            Self::Skipped => "skipped".to_string(),
+            Self::Failed { reason } => format!("failed:{reason}"),
+            Self::Timeout => "timeout".to_string(),
+        }
+    }
+}
+
+/// 轮询页面里的恢复状态直到终态 —— **运行时无关**的等待器。
+///
+/// WebView（`eval_with_callback`）与 CDP（`Runtime.evaluate`）只提供一个
+/// 「给表达式、回字符串」的闭包，「什么算恢复完成」的判定与轮询节奏只此一份：
+/// 同一份 S1 回放到两个端点必须给出同一个结论，否则浏览器端点会静默地比
+/// WebView 端点少一道自证（CDP 链路正是因缺这一步而对 IndexedDB 站点报假成功）。
+///
+/// `Err` 只表示**轮询通道本身**不可用（求值失败 / 返回不是合法 JSON）；
+/// 恢复失败是 `Failed`，其 reason 来自页面自己的 reasonCode，比通道错误可诊断得多。
+pub(crate) async fn wait_for_restore_terminal<F, Fut>(
+    mut evaluate: F,
+    timeout: Duration,
+) -> AccountManagerResult<RestoreTerminal>
+where
+    F: FnMut(String) -> Fut,
+    Fut: Future<Output = AccountManagerResult<String>>,
+{
+    let expression = BridgeState::poll_expression(RESTORE_STATE_SLOT);
+    let deadline = Instant::now() + timeout;
     while Instant::now() < deadline {
-        let raw = evaluate_js(
-            window,
-            "JSON.stringify(window.__BENCH_SESSION_RESTORE__||{status:'pending'})",
-        )
-        .await?;
+        let raw = evaluate(expression.clone()).await?;
         let bridge: BridgeState = serde_json::from_str(&raw)
             .map_err(|e| AccountManagerError::store_fail(format!("decode restore state: {e}")))?;
         match bridge.status.as_str() {
-            "complete" | "skipped" => return Ok(()),
+            "complete" => return Ok(RestoreTerminal::Complete),
+            "skipped" => return Ok(RestoreTerminal::Skipped),
             "failed" => {
-                return Err(AccountManagerError::store_fail(format!(
-                    "storage restore failed ({})",
-                    bridge.reason_code.as_deref().unwrap_or("UNKNOWN")
-                )))
+                return Ok(RestoreTerminal::Failed {
+                    reason: bridge.reason_code.unwrap_or_else(|| "UNKNOWN".to_string()),
+                })
             }
             _ => tokio::time::sleep(POLL_INTERVAL).await,
         }
     }
-    Err(AccountManagerError::store_fail("storage restore timeout"))
+    Ok(RestoreTerminal::Timeout)
+}
+
+/// WebView 侧的薄封装：运行时适配 + 把「未成功」折成错误（调用点全部用 `?` 上抛）。
+pub async fn wait_for_restore<R: Runtime>(window: &WebviewWindow<R>) -> AccountManagerResult<()> {
+    let terminal = wait_for_restore_terminal(
+        |expression: String| async move { evaluate_js(window, &expression).await },
+        RESTORE_TIMEOUT,
+    )
+    .await?;
+    match terminal {
+        RestoreTerminal::Complete | RestoreTerminal::Skipped => Ok(()),
+        RestoreTerminal::Failed { reason } => Err(AccountManagerError::store_fail(format!(
+            "storage restore failed ({reason})"
+        ))),
+        RestoreTerminal::Timeout => Err(AccountManagerError::store_fail("storage restore timeout")),
+    }
 }
 
 fn decrypt_json_array(
@@ -517,13 +599,25 @@ const CAPTURE_SCRIPT_TEMPLATE: &str = r#"
 })();
 "#;
 
+/// 恢复脚本模板（WebView `initialization_script` 与 CDP
+/// `Page.addScriptToEvaluateOnNewDocument` 共用）。
+///
+/// `__RESTORE_SLOT__` 由 [`RESTORE_STATE_SLOT`] 替换（等待器读的就是这个槽位，
+/// 名字必须同源），`__ORIGIN_BRANCHES__` 由
+/// [`restore_initialization_script`] 按会话里的 origin 逐个拼出。
+///
+/// **IndexedDB 恢复是异步的**（`restoreDatabase` 走 `open` → `transaction` →
+/// `complete` 事件链），所以脚本先同步写完 Web Storage、再把 IDB 恢复挂进
+/// 微任务，完成 / 失败才把终态写进状态槽位。页面自己的脚本可能抢在那之前读到
+/// 空库并把会话判死，因此调用方**必须**等 [`wait_for_restore_terminal`] 到
+/// `Complete` 再放行页面（CDP 链路还需二次导航，见 `browser_session::open_for_scope`）。
 const RESTORE_SCRIPT_TEMPLATE: &str = r#"
 (function(){
   let selected=null;
   __ORIGIN_BRANCHES__
-  if(!selected){window.__BENCH_SESSION_RESTORE__={status:'skipped'};return;}
-  window.__BENCH_SESSION_RESTORE__={status:'pending'};
-  const fail=(code)=>{window.__BENCH_SESSION_RESTORE__={status:'failed',reasonCode:code};};
+  if(!selected){window.__RESTORE_SLOT__={status:'skipped'};return;}
+  window.__RESTORE_SLOT__={status:'pending'};
+  const fail=(code)=>{window.__RESTORE_SLOT__={status:'failed',reasonCode:code};};
   const base64ToBytes=(value)=>{const binary=atob(value),out=new Uint8Array(binary.length);for(let i=0;i<binary.length;i++)out[i]=binary.charCodeAt(i);return out;};
   const decode=(encoded)=>{
     switch(encoded.t){
@@ -579,7 +673,7 @@ const RESTORE_SCRIPT_TEMPLATE: &str = r#"
   (async()=>{
     try{
       if(selected.indexedDb){if(!globalThis.indexedDB)throw new Error('INDEXED_DB_UNSUPPORTED');for(const database of selected.indexedDb.databases)await restoreDatabase(database);}
-      window.__BENCH_SESSION_RESTORE__={status:'complete'};
+      window.__RESTORE_SLOT__={status:'complete'};
     }catch(error){fail(error&&typeof error.message==='string'?error.message:'INDEXED_DB_RESTORE_FAILED');}
   })();
 })();
@@ -588,6 +682,163 @@ const RESTORE_SCRIPT_TEMPLATE: &str = r#"
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// 造一个带存储快照的会话：`with_indexed_db` 决定该 origin 是否有 IDB 快照。
+    fn session_with_storage(with_indexed_db: bool) -> AccountSession {
+        let key = [7u8; 32];
+        let mut session = AccountSession::default();
+        session.origins.push(OriginStorage {
+            origin: "https://a.test".into(),
+            local_storage: Some(
+                crypto::encrypt(&key, r#"[{"name":"k","value":"v"}]"#).expect("encrypt local"),
+            ),
+            session_storage: Some(crypto::encrypt(&key, "[]").expect("encrypt session")),
+            indexed_db: with_indexed_db.then(|| {
+                crypto::encrypt(
+                    &key,
+                    r#"{"version":1,"databases":[{"name":"db","version":1,"stores":[]}]}"#,
+                )
+                .expect("encrypt idb")
+            }),
+        });
+        session
+    }
+
+    /// 假页面：按 `script` 顺序吐出恢复状态 JSON，吐完后一直返回 `pending`
+    /// （等价于「页面始终没写终态」），让等待器可以在无浏览器的情况下测全部分支。
+    fn fake_page(script: &'static [&'static str]) -> impl FnMut(String) -> Ready {
+        let mut queue = std::collections::VecDeque::from(script.to_vec());
+        move |_expression: String| {
+            Ready(Some(Ok(queue
+                .pop_front()
+                .unwrap_or(r#"{"status":"pending"}"#)
+                .to_string())))
+        }
+    }
+
+    /// 假页面的 future 形态：值已就绪，`poll` 一次即完成。
+    struct Ready(Option<AccountManagerResult<String>>);
+
+    impl std::future::Future for Ready {
+        type Output = AccountManagerResult<String>;
+
+        fn poll(
+            mut self: std::pin::Pin<&mut Self>,
+            _cx: &mut std::task::Context<'_>,
+        ) -> std::task::Poll<Self::Output> {
+            std::task::Poll::Ready(
+                self.0
+                    .take()
+                    .unwrap_or_else(|| Err(AccountManagerError::store_fail("fake page drained"))),
+            )
+        }
+    }
+
+    #[tokio::test]
+    async fn restore_waiter_reports_complete_after_pending_polls() {
+        let terminal = wait_for_restore_terminal(
+            fake_page(&[r#"{"status":"pending"}"#, r#"{"status":"complete"}"#]),
+            Duration::from_millis(500),
+        )
+        .await
+        .expect("waiter");
+        assert_eq!(terminal, RestoreTerminal::Complete);
+        assert_eq!(terminal.as_status(), "complete");
+    }
+
+    #[tokio::test]
+    async fn restore_waiter_carries_page_reason_on_failure() {
+        // 失败原因必须来自页面写的 reasonCode：这是唯一能说清「为什么没登上」的信息。
+        let terminal = wait_for_restore_terminal(
+            fake_page(&[
+                r#"{"status":"pending"}"#,
+                r#"{"status":"failed","reasonCode":"INDEXED_DB_BLOCKED"}"#,
+            ]),
+            Duration::from_millis(500),
+        )
+        .await
+        .expect("waiter");
+        assert_eq!(
+            terminal,
+            RestoreTerminal::Failed {
+                reason: "INDEXED_DB_BLOCKED".to_string()
+            }
+        );
+        assert_eq!(terminal.as_status(), "failed:INDEXED_DB_BLOCKED");
+    }
+
+    #[tokio::test]
+    async fn restore_waiter_times_out_when_page_never_reaches_terminal_state() {
+        // IDB 恢复被页面自己的连接阻塞时脚本会一直 pending；等待器必须自己收口，
+        // 不能把出向链路挂在轮询上（CDP 路径据此回报 timeout 而不是失败）。
+        let terminal = wait_for_restore_terminal(
+            fake_page(&[r#"{"status":"pending"}"#; 8]),
+            Duration::from_millis(120),
+        )
+        .await
+        .expect("waiter");
+        assert_eq!(terminal, RestoreTerminal::Timeout);
+        assert_eq!(terminal.as_status(), "timeout");
+    }
+
+    #[tokio::test]
+    async fn restore_waiter_propagates_channel_errors() {
+        // 求值通道坏了 ≠ 恢复失败：不能折成 `failed:`，否则页面根本没跑起来也会
+        // 被报成「存储恢复失败」，把排查方向带偏。
+        let error = wait_for_restore_terminal(
+            |_expression: String| Ready(Some(Err(AccountManagerError::store_fail("eval timeout")))),
+            Duration::from_millis(500),
+        )
+        .await
+        .expect_err("channel error");
+        assert!(error.message().contains("eval timeout"), "got {error}");
+    }
+
+    #[tokio::test]
+    async fn restore_waiter_polls_the_shared_slot() {
+        // 等待器读的槽位与恢复脚本写的必须是同一个：模板里的占位符若没被常量
+        // 替换，等待器就永远读不到终态（表现为「注入成功但报 timeout」）。
+        assert_eq!(
+            BridgeState::poll_expression(RESTORE_STATE_SLOT),
+            r#"JSON.stringify(window["__BENCH_SESSION_RESTORE__"]||{status:'pending'})"#
+        );
+        let terminal = wait_for_restore_terminal(
+            fake_page(&[r#"{"status":"skipped"}"#]),
+            Duration::from_millis(500),
+        )
+        .await
+        .expect("waiter");
+        assert_eq!(terminal, RestoreTerminal::Skipped);
+        assert_eq!(terminal.as_status(), "skipped");
+    }
+
+    #[test]
+    fn restore_script_writes_the_slot_the_waiter_polls() {
+        let state = AccountManagerState::new();
+        state
+            .initialize_master_key_for_tests([7u8; 32])
+            .expect("test master key");
+        let session = session_with_storage(true);
+        let script = restore_initialization_script(&state, &session)
+            .expect("script")
+            .expect("non-empty");
+        assert!(
+            !script.contains("__RESTORE_SLOT__"),
+            "占位符未被替换，恢复脚本会写进一个错误的全局名"
+        );
+        assert!(script.contains(&format!("window.{RESTORE_STATE_SLOT}={{status:'pending'}}")));
+        assert!(script.contains(&format!(
+            "window.{RESTORE_STATE_SLOT}={{status:'complete'}}"
+        )));
+    }
+
+    #[test]
+    fn has_indexed_db_snapshot_only_true_when_a_snapshot_exists() {
+        // 只有 localStorage 的站点不需要二次导航：Web Storage 是同步写的。
+        assert!(has_indexed_db_snapshot(&session_with_storage(true)));
+        assert!(!has_indexed_db_snapshot(&session_with_storage(false)));
+        assert!(!has_indexed_db_snapshot(&AccountSession::default()));
+    }
 
     #[test]
     fn storage_restore_payload_includes_indexed_db_branch() {

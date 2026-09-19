@@ -16,18 +16,27 @@
  * 编排规则：
  *  - 打开弹窗即拉取可用浏览器列表与当前实例状态（只读，不落库）。
  *  - 防重入：busy 非 null 期间所有动作按钮禁用。
+ *  - 「同步到日常浏览器」是**两段式**的：命令只登记注入任务并打开站点，真正写入
+ *    由 Bench Companion 扩展在页面加载完成后认领。因此命令返回时什么都不该宣布，
+ *    要按 taskId 轮询注入回执（见 [`watchInject`]）直到终态才报成功/失败。
  */
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { accountManagerUseCases } from "@/features/account-manager/services/account-manager.use-cases"
-import { describeSyncReason } from "@/features/account-manager/model/browser-interop"
+import {
+  describeInjectOutcome,
+  describeStorageRestore,
+  describeSyncReason,
+} from "@/features/account-manager/model/browser-interop"
 import { translateError } from "@/lib/tauri/errors"
 import type {
   BrowserDailySyncOutcome,
+  BrowserInjectStatus,
   BrowserOpenOutcome,
   BrowserOptionDto,
   BrowserStatusOutcome,
+  ChromeStoreAvailability,
   StationAccount,
 } from "@/lib/tauri/types/account-manager"
 
@@ -36,6 +45,11 @@ export type BrowserInteropTarget = "isolated" | "daily"
 
 /** 当前进行中的动作（用于防重入与按钮禁用）。 */
 export type BrowserInteropBusy = "open" | "close" | null
+
+/** 注入回执轮询节奏。扩展由页面加载完成事件唤醒，正常 1–3 秒内领取任务。 */
+const INJECT_POLL_MS = 1500
+/** 轮询上限。超过即认定这一单不会来了，必须给用户一个交代而不是无限转圈。 */
+const INJECT_POLL_LIMIT_MS = 45_000
 
 export function useBrowserInterop() {
   const { t } = useTranslation()
@@ -56,6 +70,18 @@ export function useBrowserInterop() {
   const [lastOpen, setLastOpen] = useState<BrowserOpenOutcome | null>(null)
   /** 最近一次「同步到日常浏览器」的结果。 */
   const [lastDaily, setLastDaily] = useState<BrowserDailySyncOutcome | null>(null)
+  /** 「同步到日常浏览器」的注入回执（扩展回报的真实终态）。 */
+  const [lastInject, setLastInject] = useState<BrowserInjectStatus | null>(null)
+  /**
+   * 轮询的存活代数：关窗 / 重新同步 / 卸载都会推进它，正在飞的这一次轮询发现
+   * 代数变了就自行停手。用代数而不是布尔标志，是因为 `await` 之后布尔值可能被
+   * 后启动的那一轮覆盖成 true，从而让上一轮复活。
+   */
+  const pollGeneration = useRef(0)
+  const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  /** 兜底通道（直读本机 Chrome）在本机是否可用；null = 未知/不可用。 */
+  const [chromeStore, setChromeStore] = useState<ChromeStoreAvailability | null>(null)
 
   const begin = useCallback((kind: Exclude<BrowserInteropBusy, null>) => {
     if (busyRef.current) return false
@@ -95,6 +121,13 @@ export function useBrowserInterop() {
           toast.error(translateError(t, error, t("accountManager.toasts.browserListFailed")))
         }
         await refreshStatus(target.id)
+        // 兜底通道可用性探测（纯本地文件与钥匙串条目检查，不弹窗、不读 cookie）。
+        // 失败按「不可用」处理：入口不显示，比显示了一个点了就错的按钮好。
+        try {
+          setChromeStore(await accountManagerUseCases.chromeStoreStatus())
+        } catch {
+          setChromeStore(null)
+        }
       })()
     },
     [refreshStatus, t],
@@ -145,16 +178,129 @@ export function useBrowserInterop() {
               }),
             )
           }
+          // cookie 注入成功 ≠ 站点认了这个会话：IndexedDB 没恢复完时页面读到的
+          // 仍是空库。终态必须单独说一句，否则「报成功、打开还是未登录」。
+          const restoreWarning = describeStorageRestore(t, outcome.storageRestoreStatus)
+          if (restoreWarning) {
+            toast.warning(restoreWarning, { duration: 12000 })
+          }
           return refreshStatus(accountId)
         }),
     [browserId, describeReason, refreshStatus, t],
   )
 
-  /** 同步到日常浏览器：确保会话就绪 + 在所选浏览器打开站点（写入由扩展完成）。 */
+  /** 中止在跑的注入回执轮询。 */
+  const stopInjectWatch = useCallback(() => {
+    pollGeneration.current += 1
+    if (pollTimer.current) {
+      clearTimeout(pollTimer.current)
+      pollTimer.current = null
+    }
+  }, [])
+
+  // 关窗或组件卸载即停轮询：用户已经不看这一单了，迟到的 toast 只会像幽灵提示。
+  useEffect(() => {
+    if (!open) stopInjectWatch()
+    return stopInjectWatch
+  }, [open, stopInjectWatch])
+
+  /** 把注入终态讲清楚：成功要报出写进去多少，失败要说卡在哪一环。 */
+  const reportInject = useCallback(
+    (status: BrowserInjectStatus, expectedStorageOrigins: number) => {
+      const message = describeInjectOutcome(t, status)
+      if (status.outcome === "injected") {
+        toast.success(message)
+        if (status.cookiesFailed > 0 || status.idbFailed > 0) {
+          toast.warning(
+            t("accountManager.toasts.browserInjectPartial", {
+              cookies: status.cookiesFailed,
+              idb: status.idbFailed,
+            }),
+            { duration: 10000 },
+          )
+        }
+        // 账号登录态里有存储、这次一条都没写进去：多半是站点没授权或扩展过旧。
+        // 早先这里是「只要 storageOrigins>0 就提示已跳过」，把写成功也说成跳过。
+        if (
+          expectedStorageOrigins > 0 &&
+          status.storageKeysWritten === 0 &&
+          status.idbRestored === 0
+        ) {
+          toast.warning(
+            t("accountManager.toasts.browserInjectStorageMissing", {
+              origins: expectedStorageOrigins,
+            }),
+            { duration: 10000 },
+          )
+        }
+        return
+      }
+      toast.error(message, { duration: 10000 })
+    },
+    [t],
+  )
+
+  /**
+   * 按 taskId 轮询注入回执直到终态。
+   *
+   * 为什么必须轮：扩展是连接发起方，Bench 既叫不动它也没有回执通道，同步命令
+   * 返回的那一刻写入尚未发生。此前命令直接回 `ready` + cookie 条数，前端就据此
+   * 弹「会话已就绪」——扩展没装、站点没授权、注入到一半 Service Worker 被回收，
+   * 用户读到的都是同一句成功。
+   */
+  const watchInject = useCallback(
+    (taskId: string, expectedStorageOrigins: number) => {
+      stopInjectWatch()
+      const generation = pollGeneration.current
+      const startedAt = Date.now()
+      const tick = () => {
+        if (pollGeneration.current !== generation) return
+        accountManagerUseCases
+          .injectStatus(taskId)
+          .then((status) => {
+            if (pollGeneration.current !== generation) return
+            setLastInject(status)
+            if (status.outcome === "queued" || status.outcome === "claimed") {
+              if (Date.now() - startedAt >= INJECT_POLL_LIMIT_MS) {
+                // 到点仍非终态：区分「扩展压根没联系 Bench」与「联系了但这单没走完」，
+                // 两者的用户动作完全不同（装/启用扩展 vs 回浏览器看页面与授权）。
+                toast.warning(
+                  t(
+                    status.extensionConnected
+                      ? "accountManager.toasts.browserInjectStalled"
+                      : "accountManager.toasts.browserInjectNoExtension",
+                    {
+                      seconds: Math.round(INJECT_POLL_LIMIT_MS / 1000),
+                      phase: describeInjectOutcome(t, status),
+                    },
+                  ),
+                  { duration: 12000 },
+                )
+                return
+              }
+              pollTimer.current = setTimeout(tick, INJECT_POLL_MS)
+              return
+            }
+            reportInject(status, expectedStorageOrigins)
+          })
+          .catch(() => {
+            // 单次查询失败不打断这一单：任务还在 Bench 内存里，下一拍再试。
+            if (pollGeneration.current !== generation) return
+            pollTimer.current = setTimeout(tick, INJECT_POLL_MS)
+          })
+      }
+      // 先立刻读一次：让弹窗的状态行马上从「等待扩展」开始滚动，而不是空一拍。
+      tick()
+    },
+    [reportInject, stopInjectWatch, t],
+  )
+
+  /** 同步到日常浏览器：确保会话就绪 + 在所选浏览器打开站点，再等扩展回报结果。 */
   const syncToDaily = useCallback(
     (accountId: string) =>
       accountManagerUseCases.syncToDailyBrowser(accountId, { browserId }).then((outcome) => {
         setLastDaily(outcome)
+        setLastInject(null)
         if (outcome.outcome === "noSession") {
           toast.warning(
             t("accountManager.toasts.browserNoStoredSession", {
@@ -163,34 +309,69 @@ export function useBrowserInterop() {
           )
           return
         }
-        toast.success(
-          outcome.sessionRecovered
-            ? t("accountManager.toasts.browserDailyRecovered", {
-                count: outcome.cookieCount,
-                origins: outcome.storageOrigins,
-              })
-            : t("accountManager.toasts.browserDailyReady", {
-                count: outcome.cookieCount,
-                origins: outcome.storageOrigins,
-              }),
-        )
         if (outcome.recoveryReason === "staleSession") {
+          // 会话数据存在但已失效（补采时探针判定未登录）：注入的是过期数据。
           toast.warning(t("accountManager.toasts.browserStaleSession"), { duration: 10000 })
         }
-        // 扩展通道自 0.5.0 起写入 Cookie + Web Storage + IndexedDB（先备份）。
-        // 登录态含本地存储时仍显式提示，让用户核对扩展版本与站点授权，避免
-        // 「注入成功却未登录」被当成同步失败。
-        if (outcome.storageOrigins > 0) {
-          toast.warning(
-            t("accountManager.toasts.browserDailyStorageSkipped", {
+        if (!outcome.taskId) {
+          // 后端没给任务 id 就没有回执可等，只能如实说「已打开站点」。
+          toast.info(t("accountManager.toasts.browserDailyOpened", { count: outcome.cookieCount }))
+          return
+        }
+        toast.info(
+          t(
+            outcome.sessionRecovered
+              ? "accountManager.toasts.browserDailyQueuedRecovered"
+              : "accountManager.toasts.browserDailyQueued",
+            {
+              count: outcome.cookieCount,
               origins: outcome.storageOrigins,
-            }),
-            { duration: 10000 },
+            },
+          ),
+        )
+        watchInject(outcome.taskId, outcome.storageOrigins)
+      }),
+    [browserId, describeReason, t, watchInject],
+  )
+
+  /**
+   * 兜底入向：直读本机 Chrome 的落盘 cookie 导入该账号（不装扩展）。
+   *
+   * 与出向同步不同，这条命令是**同步完成**的（读库 + 解密 + 落库都在后端一次走完），
+   * 所以不需要轮询回执。首次使用会弹一次 macOS 钥匙串授权。
+   */
+  const handleImportFromChrome = useCallback(() => {
+    if (!account) return
+    if (!begin("open")) return
+    setLastOpen(null)
+    setLastDaily(null)
+    setLastInject(null)
+    accountManagerUseCases
+      .importFromChrome(account.id)
+      .then(async (outcome) => {
+        if (outcome.outcome === "conflict") {
+          // 不静默覆盖：Bench 已有不早于本次的会话，覆盖是危险操作，本入口
+          // 不提供 force —— 要覆盖请用扩展回采或在 Bench 里重新登录。
+          toast.warning(t("accountManager.toasts.browserChromeImportConflict"), {
+            duration: 12000,
+          })
+        } else if (outcome.outcome === "empty") {
+          toast.warning(t("accountManager.toasts.browserChromeImportEmpty"), { duration: 12000 })
+        } else {
+          toast.success(
+            t("accountManager.toasts.browserChromeImported", { count: outcome.cookieCount }),
           )
         }
-      }),
-    [browserId, describeReason, t],
-  )
+        return refreshStatus(account.id)
+      })
+      .catch((error) => {
+        toast.error(
+          translateError(t, error, t("accountManager.toasts.browserChromeImportFailed")),
+          { duration: 12000 },
+        )
+      })
+      .finally(end)
+  }, [account, begin, end, refreshStatus, t])
 
   /** 按所选目标同步登录态。 */
   const handleSync = useCallback(() => {
@@ -228,11 +409,14 @@ export function useBrowserInterop() {
     busy,
     lastOpen,
     lastDaily,
+    lastInject,
+    chromeStore,
     setBrowserId,
     setTarget,
     openDialog,
     closeDialog,
     handleSync,
+    handleImportFromChrome,
     handleCloseInstance,
   }
 }

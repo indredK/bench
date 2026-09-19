@@ -10,7 +10,13 @@ import type {
   McpTargetStatus,
 } from "@/lib/tauri/types/browser-ext"
 
-export function exportBrowserExtension(): Promise<BrowserExtensionExport> {
+/**
+ * 导出 bench-companion 扩展（宿主弹原生目录选择器让用户选位置，并记住上次位置）。
+ *
+ * 返回 `null` 表示用户取消了选择 —— 不是失败，调用方不得报错、也不得继续去
+ * 打开浏览器扩展管理页。路径只由宿主决定，renderer 无法指定任意目录。
+ */
+export function exportBrowserExtension(): Promise<BrowserExtensionExport | null> {
   return invokeTauriCommand(TAURI_COMMANDS.browserExt.export)
 }
 

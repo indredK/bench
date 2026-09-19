@@ -12,6 +12,7 @@ import type {
   AuthProxyResult,
   BrowserCaptureOutcome,
   BrowserDailySyncOutcome,
+  BrowserInjectStatus,
   BrowserOpenOutcome,
   BrowserOpenResult,
   BrowserOptionDto,
@@ -19,6 +20,7 @@ import type {
   BrowserSessionPreview,
   BrowserStationCaptureOutcome,
   BrowserStatusOutcome,
+  ChromeStoreAvailability,
   DeletionReport,
   ExternalApp,
   ExternalAppBinding,
@@ -514,6 +516,17 @@ export function browserSessionSyncDaily(
   })
 }
 
+/**
+ * 轮询「同步到日常浏览器」的注入任务回执。
+ *
+ * `browserSessionSyncDaily` 只保证「会话就绪 + 站点已打开」；写入动作由 Bench
+ * Companion 扩展在页面加载完成后认领完成，而扩展是连接发起方，所以终态只能靠
+ * 这张任务表取回。`outcome` 为 `unknown` 表示任务已过期（10 分钟）或 Bench 重启过。
+ */
+export function browserSessionInjectStatus(taskId: string): Promise<BrowserInjectStatus> {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.browserSessionInjectStatus, { taskId })
+}
+
 /// 查询该账号的浏览器实例状态（是否运行、浏览器 id、调试端口）。
 export function browserSessionStatus(accountId: string): Promise<BrowserStatusOutcome> {
   return invokeTauriCommand(TAURI_COMMANDS.accountManager.browserSessionStatus, { accountId })
@@ -536,6 +549,32 @@ export function browserSessionCapture(
   force = false,
 ): Promise<BrowserCaptureOutcome> {
   return invokeTauriCommand(TAURI_COMMANDS.accountManager.browserSessionCapture, {
+    accountId,
+    force,
+  })
+}
+
+/**
+ * 兜底通道（直读本机 Chrome 落盘 cookie）在本机是否可用。
+ *
+ * 该通道不要求安装 Bench Companion 扩展，代价是只拿得到 cookie：令牌存在
+ * localStorage / IndexedDB 的站点仍需走扩展，所以它是兜底而不是替代。
+ */
+export function browserSessionChromeStoreStatus(): Promise<ChromeStoreAvailability> {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.browserSessionChromeStoreStatus)
+}
+
+/**
+ * 从本机 Chrome 的登录态存储导入该账号所属站点的 cookie（只读，按可注册域过滤）。
+ *
+ * 落库与 CDP / 扩展通道共用同一条 `finalize_capture`，因此 `force = false` 时同样
+ * 可能返回 `outcome = "conflict"` 而不写入。首次使用会弹一次 macOS 钥匙串授权。
+ */
+export function browserSessionImportFromChrome(
+  accountId: string,
+  force = false,
+): Promise<BrowserCaptureOutcome> {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.browserSessionImportFromChrome, {
     accountId,
     force,
   })

@@ -6,6 +6,10 @@ use crate::error::{AppError, AppResult};
 
 const STORE_FILE: &str = "app-preferences.json";
 const CLOSE_BEHAVIOR_KEY: &str = "closeButtonBehavior";
+/// 浏览器扩展导出目录（`browser_ext_export` 落盘的那个目录，含 `bench-companion`
+/// 本身）。存**最终目录**而非它的父目录：下次直接作为选择器的起始位置，用户在
+/// 同一目录点「打开」也不会再套一层。
+const BROWSER_EXT_EXPORT_DIR_KEY: &str = "browserExtensionExportDir";
 const KEY_SCHEMA_VERSION: &str = "schema_version";
 /// A5-1: 偏好存储版本保护。旧数据 (无该字段) 按 schema 0 兼容读取;
 /// 未来版本拒绝 (fail-closed); 损坏/缺键降级为默认值。
@@ -74,6 +78,42 @@ pub fn set_close_behavior<R: Runtime>(app: &AppHandle<R>, behavior: &str) -> App
         .map_err(|e| AppError::internal(format!("Failed to save store: {e}")))
 }
 
+/// 记住浏览器扩展的导出目录（`browser_ext_export` 成功后调用）。
+pub fn set_browser_ext_export_dir<R: Runtime>(
+    app: &AppHandle<R>,
+    dir: &std::path::Path,
+) -> AppResult<()> {
+    let store = app
+        .store(STORE_FILE)
+        .map_err(|e| AppError::internal(format!("Failed to open store: {e}")))?;
+    store.set(
+        BROWSER_EXT_EXPORT_DIR_KEY,
+        serde_json::Value::String(dir.display().to_string()),
+    );
+    store
+        .save()
+        .map_err(|e| AppError::internal(format!("Failed to save store: {e}")))
+}
+
+/// 上次记住的扩展导出目录；没有记住、或存的值形状不对时为 `None`。
+///
+/// 与 [`get_close_behavior`] 不同，这里**不做** schema 未来版本 fail-closed：该值
+/// 只决定原生选择器的起始文件夹，取错了一次就能改，而按 A5-1 拒绝读取会让用户
+/// 直接导出不了扩展（跨版本装回旧版 Bench 时的真实场景）。路径字符串的语义不随
+/// schema 变化，无需按版本解释。
+pub fn get_browser_ext_export_dir<R: Runtime>(app: &AppHandle<R>) -> Option<String> {
+    let store = app.store(STORE_FILE).ok()?;
+    let value = store.get(BROWSER_EXT_EXPORT_DIR_KEY);
+    browser_ext_export_dir_from_doc(value.as_ref()).map(str::to_string)
+}
+
+/// 从 store 取值解析导出目录：只接受非空字符串。是否存在、是否是目录由调用方判
+/// （用户可能已把那个文件夹删掉或搬走，那时应当回退到桌面而不是报错）。
+pub(crate) fn browser_ext_export_dir_from_doc(value: Option<&serde_json::Value>) -> Option<&str> {
+    let path = value?.as_str()?;
+    (!path.trim().is_empty()).then_some(path)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -122,5 +162,25 @@ mod tests {
             "closeButtonBehavior": "quit"
         });
         assert_eq!(close_behavior_from_doc(Some(&doc)).expect("ok"), "quit");
+    }
+
+    #[test]
+    fn export_dir_accepts_only_non_empty_strings() {
+        assert_eq!(
+            browser_ext_export_dir_from_doc(Some(&json!("/Users/a/Dev/bench-companion"))),
+            Some("/Users/a/Dev/bench-companion")
+        );
+        // 没记住 / 存成别的类型 / 空白串 → None，由调用方回退到桌面。
+        assert_eq!(browser_ext_export_dir_from_doc(None), None);
+        assert_eq!(browser_ext_export_dir_from_doc(Some(&json!(""))), None);
+        assert_eq!(browser_ext_export_dir_from_doc(Some(&json!("   "))), None);
+        assert_eq!(browser_ext_export_dir_from_doc(Some(&json!(null))), None);
+        assert_eq!(browser_ext_export_dir_from_doc(Some(&json!(42))), None);
+    }
+
+    #[test]
+    fn export_dir_key_does_not_collide_with_close_behavior() {
+        assert_eq!(BROWSER_EXT_EXPORT_DIR_KEY, "browserExtensionExportDir");
+        assert_ne!(BROWSER_EXT_EXPORT_DIR_KEY, CLOSE_BEHAVIOR_KEY);
     }
 }

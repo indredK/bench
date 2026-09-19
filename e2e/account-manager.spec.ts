@@ -79,3 +79,86 @@ test("language switch re-renders column titles immediately", async ({ page }) =>
   await expect(page.getByText("Station List (0)")).toBeVisible({ timeout: 15_000 })
   await expect(page.getByText("站点列表 (0)")).toHaveCount(0)
 })
+
+/**
+ * 浏览器互通弹窗的宽度回归（互通面板文案密度高：站点/目标选择 + 实例状态 +
+ * 注入回执 + 存储恢复终态 + 长路径 / UA / cookie 名列表）。
+ *
+ * 钉两件事：
+ * 1. 弹窗实际渲染宽度达到 `sm:max-w-lg`（历史上为修 D3「被内容撑宽」压到 460px，
+ *    结果反过来变成「内容挤不进去」；D3 的正解是 break-all + min-w-0，不是窄）；
+ * 2. 内容不横向溢出弹窗（DialogContent 是 overflow-x-hidden，溢出=被裁掉，
+ *    用户看到的就是半截文字，且不会有任何滚动条提示）。
+ */
+test("browser interop dialog keeps its width and does not clip content", async ({ page }) => {
+  await gotoWithMockedTauri(page, "/account-manager", {
+    handlers: {
+      ...accountManagerHandlers,
+      list_stations: [
+        {
+          id: "stn-1",
+          remark: "Trae CN",
+          website: "https://www.trae.cn",
+          createdAt: "2026-09-10 10:00",
+          loginDetection: {},
+          exclusivityMode: null,
+          authProfile: null,
+          probeFailureCount: 0,
+          sessionTtlHours: 720,
+          networkProxy: null,
+        },
+      ],
+      list_all_accounts: [
+        {
+          id: "acct-1",
+          stationId: "stn-1",
+          username: "alice",
+          notes: "",
+          phone: null,
+          tgAccount: null,
+          linkedAccount: null,
+          inviteLink: null,
+          loginMethods: [],
+          status: "ready",
+          lastLoginAt: null,
+          lastRefreshedAt: null,
+          createdAt: "2026-09-10 10:00",
+          hasPassword: false,
+        },
+      ],
+      list_account_logs: { entries: [], schedule: null, nextRefreshAtTs: null },
+      browser_session_browsers: [{ id: "chrome", name: "Google Chrome" }],
+      browser_session_status: { running: true, browserId: "chrome", port: 9333 },
+      get_browser_extension_status: {
+        exported: true,
+        extensionDir: "/Users/dev/浏览器扩展/bench-companion",
+        extensionId: "dmcfgfpfilhgcoddmciglpjdggkpinje",
+        extensionVersion: "0.10.0",
+        hostBinFound: true,
+        hostBinPath: "/Applications/Bench.app/Contents/MacOS/bench-host",
+        nmRegistrations: [],
+        browsers: [],
+        bridgeReady: true,
+        bridgePort: 51234,
+      },
+    },
+  })
+
+  await page
+    .getByText(/Trae CN/)
+    .first()
+    .click()
+  await page.getByText("alice").first().click()
+  // 宽视口下账号行与详情栏各有一个「浏览器互通」入口（同一个弹窗），取第一个。
+  await page.getByRole("button", { name: "浏览器互通" }).first().click()
+
+  const dialog = page.getByRole("dialog")
+  await expect(dialog).toBeVisible({ timeout: 15_000 })
+
+  const geometry = await dialog.evaluate((el) => ({
+    width: el.getBoundingClientRect().width,
+    overflowX: Math.round(el.scrollWidth - el.clientWidth),
+  }))
+  expect(geometry.width, "弹窗应保持 sm:max-w-lg（512px）").toBeGreaterThanOrEqual(500)
+  expect(geometry.overflowX, "内容不得横向溢出弹窗").toBeLessThanOrEqual(1)
+})

@@ -89,6 +89,9 @@ pub enum SessionOrigin {
     BrowserCdp,
     /// 通过 bench-companion 扩展从用户日常浏览器回采（互通 I3）。
     BrowserExtension,
+    /// 直读本机 Chrome 落盘的 Cookies 库导入（互通 I3 的**兜底**通道，仅 macOS，
+    /// 只含 cookie）。见 `browser_session::chrome_store`。
+    ChromeStore,
     /// 由导入（sanitized / encrypted 导出文件）写入。
     Import,
 }
@@ -103,6 +106,7 @@ impl SessionOrigin {
             Self::AuthProxy => "authProxy",
             Self::BrowserCdp => "browserCdp",
             Self::BrowserExtension => "browserExtension",
+            Self::ChromeStore => "chromeStore",
             Self::Import => "import",
         }
     }

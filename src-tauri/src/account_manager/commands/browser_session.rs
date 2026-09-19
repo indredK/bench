@@ -68,6 +68,44 @@ pub async fn browser_session_sync_daily<R: Runtime>(
     browser_session::sync_to_daily_browser(&app, &account_id, browser_id).await
 }
 
+/// 轮询「同步到日常浏览器」的注入任务结果。
+///
+/// 扩展是连接发起方，Bench 不能主动确认写入是否发生，所以
+/// `browser_session_sync_daily` 只回 `queued`；真实终态由扩展回报进任务表，
+/// 前端按 `taskId` 轮询本命令取回（返回 `unknown` 表示任务已过期或 Bench 重启过）。
+#[tauri::command]
+pub async fn browser_session_inject_status(
+    task_id: String,
+) -> AccountManagerResult<super::super::browser_bridge::BrowserInjectStatus> {
+    Ok(super::super::browser_bridge::inject_task_status(&task_id))
+}
+
+/// 兜底通道（直读本机 Chrome 落盘 cookie）在本机是否可用。
+///
+/// 前端据此决定要不要显示「从 Chrome 导入」入口；不可用时带出原因码
+/// （未装 Chrome / 平台不支持），不静默隐藏。
+#[tauri::command]
+pub async fn browser_session_chrome_store_status<R: Runtime>(
+    app: AppHandle<R>,
+) -> AccountManagerResult<browser_session::ChromeStoreAvailabilityOutcome> {
+    browser_session::chrome_store_availability(&app)
+}
+
+/// 从本机 Chrome 的登录态存储导入该账号所属站点的 cookie（互通 I3 兜底入向）。
+///
+/// 只读、只按可注册域过滤到当前站点、只含 cookie。落库走与 CDP / 扩展通道同一条
+/// `finalize_capture`（新鲜度仲裁 + 互斥 + 加密 + 探针复验），因此 `force` 语义与
+/// `browser_session_capture` 完全一致：`false` 时若 Bench 已有不早于本次的会话，
+/// 返回 `outcome = "conflict"` 且不写入。
+#[tauri::command]
+pub async fn browser_session_import_from_chrome<R: Runtime>(
+    app: AppHandle<R>,
+    account_id: String,
+    force: bool,
+) -> AccountManagerResult<BrowserCaptureOutcome> {
+    browser_session::import_from_chrome_store(&app, &account_id, force).await
+}
+
 /// 查询该账号的浏览器实例状态（是否运行、浏览器 id、调试端口）。
 #[tauri::command]
 pub async fn browser_session_status<R: Runtime>(

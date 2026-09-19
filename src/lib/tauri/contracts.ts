@@ -34,6 +34,7 @@ import type {
   AuthProxyResult,
   BrowserCaptureOutcome,
   BrowserDailySyncOutcome,
+  BrowserInjectStatus,
   BrowserOpenOutcome,
   BrowserOpenResult,
   BrowserOptionDto,
@@ -41,6 +42,7 @@ import type {
   BrowserSessionPreview,
   BrowserStationCaptureOutcome,
   BrowserStatusOutcome,
+  ChromeStoreAvailability,
   DeletionReport,
   ExternalApp,
   ExternalAppBinding,
@@ -463,6 +465,9 @@ export const TAURI_COMMAND_CONTRACTS = {
     { accountId: string; browserId?: string | null },
     BrowserDailySyncOutcome
   >()("browser_session_sync_daily"),
+  browser_session_inject_status: defineTauriCommand<{ taskId: string }, BrowserInjectStatus>()(
+    "browser_session_inject_status",
+  ),
   browser_session_status: defineTauriCommand<{ accountId: string }, BrowserStatusOutcome>()(
     "browser_session_status",
   ),
@@ -473,6 +478,13 @@ export const TAURI_COMMAND_CONTRACTS = {
     { accountId: string; force: boolean },
     BrowserCaptureOutcome
   >()("browser_session_capture"),
+  browser_session_chrome_store_status: defineTauriCommand<undefined, ChromeStoreAvailability>()(
+    "browser_session_chrome_store_status",
+  ),
+  browser_session_import_from_chrome: defineTauriCommand<
+    { accountId: string; force: boolean },
+    BrowserCaptureOutcome
+  >()("browser_session_import_from_chrome"),
   browser_session_probe: defineTauriCommand<{ accountId: string }, BrowserProbeOutcome>()(
     "browser_session_probe",
   ),
@@ -969,7 +981,10 @@ export const TAURI_COMMAND_CONTRACTS = {
   ),
   ext_diagnostics: defineTauriCommand<undefined, ExtensionDiagnostics>()("ext_diagnostics"),
   // browser extension export / MCP one-click install（能力出口：bench-host）
-  browser_ext_export: defineTauriCommand<undefined, BrowserExtensionExport>()("browser_ext_export"),
+  // 返回 null = 用户在原生目录选择器里点了取消（不是错误，调用方不得报失败）。
+  browser_ext_export: defineTauriCommand<undefined, BrowserExtensionExport | null>()(
+    "browser_ext_export",
+  ),
   browser_ext_status: defineTauriCommand<undefined, BrowserExtensionStatus>()("browser_ext_status"),
   browser_ext_open_extensions_page: defineTauriCommand<{ browserId: string }, void>()(
     "browser_ext_open_extensions_page",
@@ -1180,9 +1195,12 @@ export const TAURI_COMMANDS = {
     browserSessionBrowsers: commandName("browser_session_browsers"),
     browserSessionOpen: commandName("browser_session_open"),
     browserSessionSyncDaily: commandName("browser_session_sync_daily"),
+    browserSessionInjectStatus: commandName("browser_session_inject_status"),
     browserSessionStatus: commandName("browser_session_status"),
     browserSessionClose: commandName("browser_session_close"),
     browserSessionCapture: commandName("browser_session_capture"),
+    browserSessionChromeStoreStatus: commandName("browser_session_chrome_store_status"),
+    browserSessionImportFromChrome: commandName("browser_session_import_from_chrome"),
     browserSessionProbe: commandName("browser_session_probe"),
     browserSessionClearProfile: commandName("browser_session_clear_profile"),
     browserSessionOpenStation: commandName("browser_session_open_station"),
@@ -1500,9 +1518,12 @@ export const TAURI_COMMAND_ARG_KEYS = {
   browser_session_browsers: [],
   browser_session_open: ["accountId", "browserId", "injectSession", "resetProfile"],
   browser_session_sync_daily: ["accountId", "browserId"],
+  browser_session_inject_status: ["taskId"],
   browser_session_status: ["accountId"],
   browser_session_close: ["accountId"],
   browser_session_capture: ["accountId", "force"],
+  browser_session_chrome_store_status: [],
+  browser_session_import_from_chrome: ["accountId", "force"],
   browser_session_probe: ["accountId"],
   browser_session_clear_profile: ["accountId"],
   browser_session_open_station: ["stationId", "browserId", "resetProfile"],

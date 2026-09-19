@@ -19,11 +19,22 @@
   - [ ] I2 冲突：先在 Bench 刷新出更新会话，再从浏览器回采 → 必须返回 `conflict` 且 **Bench 数据不变**；确认覆盖后 `capturedAtTs` 前进、`sessionOrigin=browserCdp`。
   - [ ] 实例生命周期：重复 `open` 复用实例（`reusedInstance=true`）；`close` 后进程退出；`clear_profile` 后 profile 目录消失且下次打开是干净起点。
   - [ ] CDP 边界：把调试端口指到非回环地址必须被拒绝；浏览器中途退出时命令返回结构化错误而非悬挂到超时。
+  - [ ] **I1 存储恢复终态（D-038）**：登录凭证只在 IndexedDB 的站点（本地 7242 端口 Cloud-IDE 类）走 `injectSession=true` → `storageRestoreStatus` 必须为 `complete` 且页面直接是登录态；人为制造失败（IDB 被其他连接占用）时必须出现「存储未恢复完」告警而不是纯成功 toast。
+  - [ ] **I5 注入回执（D-038）**：① 未装/未启用扩展 → 轮询超时后必须报「扩展没联系 Bench」，全程不得出现成功 toast；② 站点未授权 → 扩展回报 `failed:SITE_NOT_AUTHORIZED` 并红色终态；③ 正常路径 → `injected` 且计数（cookie / 存储键 / IDB 库数）与浏览器实际写入一致；④ 注入中途关扩展面板或 SW 被回收 → 任务在 90 秒后重新可领取，不出现永久「同步中」。
+  - [ ] **采集作用域（D-039）**：在凭证落在兄弟子域（页面 `www.x.com`、会话 cookie host-only 于 `api.x.com`）的站点保存登录态，`collectCookies` 必须带回该 cookie；`x.co.uk` / `x.com.cn` 形态的 apex 页必须**只**申请精确 host（不得出现 `*.co.uk` 这类越界授权提示）。
   - [ ] 中文路径 / 带空格用户名下 `userDataDir` 正常（accountId 白名单化不应破坏正常 id）。
 - [ ] **Windows 真机矩阵**（Windows Sandbox/VM）：同上述 I1/I2 全项；额外核对候选安装路径探测（`Program Files` 系）与 `taskkill` 收尾无残留进程。
 - [ ] **无浏览器环境**：卸载全部 Chromium 系浏览器后，`browserSessionOpen`/`browserSessionCapture` 必须为 `failed`（reasonCode `NO_CHROMIUM_BROWSER`），详情栏入口禁用且 tooltip 说明原因。
 - [ ] **Keyring 失败**：拒绝钥匙串授权后互通能力必须 `failed`（`CREDENTIAL_STORE_INITIALIZATION_FAILED`），且不暴露入口（fail-closed 优先于浏览器可用性）。
-- [x] **I3/I5 日常浏览器双向互通**（代码已实现，待真机验收）：`bench-companion` 通过 Native Messaging + loopback bridge 读取/写入默认浏览器的 Cookie、Web Storage 与 IndexedDB；首次站点访问需在扩展弹窗授予 host 权限，注入前自动备份并支持回滚。扩展版本 0.8.1；Trae 额外采集 `api.trae.cn` host-only Cookie，并按原 host 回写。
+- [ ] **I3 兜底入向：直读本机 Chrome 落盘登录态**（[D-040](../../explanation/decisions.md#d-040--新增直读本机-chrome-落盘登录态作为-i3-兜底入向修正一条基于错误事实的红线)；代码与单测已完成，未真机验收）：`browser_session/chrome_store.rs` 只读打开 Chrome 的 Cookies 库，钥匙串 `Chrome Safe Storage` → PBKDF2-SHA1 + AES-128-CBC 解 `v10`、剥 `SHA256(host_key)` 前缀，按当前站点可注册域过滤后交 `finalize_capture` 入 S1。仅 macOS、仅 cookie。
+  - [ ] 首次点「从本机 Chrome 导入」应弹一次钥匙串授权；点「始终允许」后第二次不再弹；点「拒绝」必须得到 `CHROME_IMPORT_KEYCHAIN_DENIED` 的可读提示而不是静默失败。
+  - [ ] Chrome **正在运行时**导入应成功（不需要先退出 Chrome）；`Default` 之外的 profile（`Profile 1` 等）应被读到并取命中最多的那个。
+  - [ ] 域级 cookie（Chrome 存成 `.trae.cn`）必须导入成功 —— 去前导点是这条链路唯一的静默失败点。
+  - [ ] 分区（CHIPS）cookie 与已过期 cookie 应被丢弃并计入 `skippedPartitioned` / 日志，不降级为普通 cookie。
+  - [ ] `conflict` 路径：先在 Bench 刷新出更新会话，再从 Chrome 导入 → 必须不覆盖，且 UI 不提供 force。
+  - [ ] 令牌存在本地存储的站点（trae / 7242 Cloud-IDE）导入后**仍判未登录**是预期行为，文案须引导用户改用扩展。
+  - [ ] Windows / Linux：入口不显示（`CHROME_IMPORT_PLATFORM_UNSUPPORTED`），且双平台 CI 编译通过（新依赖全部挂在 macOS target 下）。
+- [x] **I3/I5 日常浏览器双向互通**（代码已实现，待真机验收）：`bench-companion` 通过 Native Messaging + loopback bridge 读取/写入默认浏览器的 Cookie、Web Storage 与 IndexedDB；首次站点访问需在扩展弹窗授予 host 权限，注入前自动备份并支持回滚。扩展版本 **0.10.0**：采集与授权作用域按可注册域泛到同站全部子域（[D-039](../../explanation/decisions.md#d-039--扩展采集作用域--可注册域泛到同站全部子域删除站点特例硬编码)，不再硬编码 `api.trae.cn`），并按任务回执上报真实注入终态（[D-038](../../explanation/decisions.md#d-038--出向同步必须回报真实终态注入任务回执--cdp-等存储恢复落库)）；host-only Cookie 注入时仍按原 host 回写。
 
 ## 待实现（2026-09-09 规划轮 F1–F4：登录指纹 · 入口收敛 · 日志增强 · 弹窗修复）
 

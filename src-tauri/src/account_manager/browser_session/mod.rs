@@ -21,6 +21,7 @@
 
 pub mod browser;
 pub mod cdp;
+pub mod chrome_store;
 pub mod profile;
 
 use serde::Serialize;
@@ -81,6 +82,15 @@ pub struct BrowserOpenOutcome {
     pub recovery_reason: Option<String>,
     /// 实际恢复了 Web Storage / IndexedDB 的 origin 份数（0 = 该会话没有存储快照）。
     pub storage_origins: usize,
+    /// 本次页面内存储恢复的终态：`complete` / `skipped` / `failed:<reasonCode>` /
+    /// `timeout`；`null` = 本次没注册恢复脚本（登录模式，或该会话没有存储快照）。
+    ///
+    /// 为什么必须带出去：IndexedDB 恢复是**异步**落库的，等待超时/失败并不构成
+    /// 打开失败（浏览器已开、cookie 已注入），但此时页面很可能仍在未登录态。
+    /// UI 只有拿到这个终态才能把「已同步」和「存储没恢复完」区分开，
+    /// 不再复现「报注入成功、打开还是未登录」（实测：登录凭证在 IndexedDB 里的
+    /// 本地 7242 端口 Cloud-IDE 类站点）。
+    pub storage_restore_status: Option<String>,
 }
 
 /// 运行状态。
@@ -287,8 +297,9 @@ pub async fn open_for_station<R: Runtime>(
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BrowserDailySyncOutcome {
-    /// `ready`（Bench 侧会话就绪，已在目标浏览器打开站点）|
-    /// `noSession`（Bench 里没有该账号的登录态，没有可同步的内容）。
+    /// `queued`（Bench 侧会话就绪、站点已打开、注入任务已登记，**实际写入由扩展
+    /// 完成，结果要经 `taskId` 轮询 [`super::browser_bridge::inject_task_status`]**）
+    /// | `noSession`（Bench 里没有该账号的登录态，没有可同步的内容）。
     pub outcome: String,
     pub browser_id: String,
     pub cookie_count: usize,
@@ -297,6 +308,12 @@ pub struct BrowserDailySyncOutcome {
     pub session_recovered: bool,
     /// 补采失败原因（语义同 [`BrowserOpenOutcome::recovery_reason`]）。
     pub recovery_reason: Option<String>,
+    /// 注入任务 id；`noSession` 时为 `None`（没有任务可等）。
+    pub task_id: Option<String>,
+    /// 登记任务时扩展是否在线（近 `EXTENSION_ALIVE_SECS` 内联系过桥）。
+    /// `false` 不代表一定失败——站点页加载完成会把扩展唤醒并立刻联系桥，
+    /// 所以前端只能在轮询超时后据此判「扩展没装/没跑」。
+    pub extension_connected: bool,
 }
 
 /// S1 会话超过该时长即视为「可能滞后于账号实际登录态」，出向同步前重新对齐。
@@ -403,6 +420,8 @@ pub async fn sync_to_daily_browser<R: Runtime>(
             storage_origins: 0,
             session_recovered,
             recovery_reason,
+            task_id: None,
+            extension_connected: super::browser_bridge::extension_connected(),
         });
     };
 
@@ -411,34 +430,39 @@ pub async fn sync_to_daily_browser<R: Runtime>(
     })?;
     // 登记自动注入任务（D-032）：扩展在站点页加载完成后取走并自动完成注入
     // （Cookie + Web Storage）。登记在打开站点**之前**，保证页面加载完成时
-    // 任务已可见。10 分钟未认领自动过期；注入成功由扩展显式确认完成。
+    // 任务已可见。10 分钟未认领自动过期；注入结果由扩展显式回报。
     // 任务 origin 取 canonical origin，与扩展侧 `new URL(tab.url).origin` 对齐。
     let target_origin = url::Url::parse(&context.station.website)
         .ok()
         .map(|parsed| parsed.origin().ascii_serialization())
         .unwrap_or_else(|| context.station.website.clone());
-    super::browser_bridge::register_pending_inject(account_id, &target_origin);
+    let task_id = super::browser_bridge::register_pending_inject(account_id, &target_origin);
     open_url_in_daily_browser(&installation, &context.station.website)?;
 
     let cookie_count = session.cookies.len();
     let storage_origins = session.origins.len();
+    let extension_connected = super::browser_bridge::extension_connected();
     super::state::log_account_operation(
         app,
         &state,
         account_id,
         AccountLogKind::BrowserInterop,
-        AccountLogLevel::Success,
+        AccountLogLevel::Info,
         serde_json::json!({
             "action": "syncDaily",
-            "outcome": "ready",
+            // 到这里只完成了「备好会话 + 打开站点」，写入由扩展异步认领，
+            // 记 Success 会把没发生的动作记成成功了。
+            "outcome": "queued",
             "browser": installation.id,
             "cookieCount": cookie_count,
             "storageOrigins": storage_origins,
             "sessionRecovered": session_recovered,
+            "taskId": task_id,
+            "extensionConnected": extension_connected,
         }),
     );
     super::proxy::protocol::audit_log(
-        "browser_daily_sync_requested",
+        "browser_daily_sync_queued",
         &[
             ("account", account_id),
             ("browser", installation.id.as_str()),
@@ -448,12 +472,14 @@ pub async fn sync_to_daily_browser<R: Runtime>(
     );
 
     Ok(BrowserDailySyncOutcome {
-        outcome: "ready".to_string(),
+        outcome: "queued".to_string(),
         browser_id: installation.id.clone(),
         cookie_count,
         storage_origins,
         session_recovered,
         recovery_reason,
+        task_id: Some(task_id),
+        extension_connected,
     })
 }
 
@@ -571,9 +597,12 @@ pub async fn open_for_scope<R: Runtime>(
     // localStorage / sessionStorage / IndexedDB 恢复脚本必须在导航**之前**注册，
     // 才能在页面脚本首次读取存储前跑完（与 WebView 的 initialization_script 同语义）。
     // 缺这一步时，token 存 localStorage 的 SPA 站点即使 cookie 注入成功也仍是未登录态。
-    // 注：Web Storage 部分同步完成；IndexedDB 恢复本身是异步的，页面可能先于其就绪，
-    // 属该方案的已知时序边界。
+    // Web Storage 部分同步完成；IndexedDB 是异步落库的，所以注册之后还要**等**它落完
+    // （见下方 `restore_terminal`），光注册不够。
     let mut restore_script_id: Option<String> = None;
+    // `add_init_script` 未必回 identifier（拿不到只是无法注销），因此「本次是否
+    // 注册过恢复脚本」单独记一个标志，供等待 / 重载两步判定。
+    let mut restore_script_registered = false;
 
     let (saved, session_recovered, recovery_reason) =
         if let Some(id) = account_id.filter(|_| inject_session) {
@@ -607,6 +636,7 @@ pub async fn open_for_scope<R: Runtime>(
                 .add_init_script(&script)
                 .await
                 .map_err(AccountManagerError::store_fail)?;
+            restore_script_registered = true;
         }
     }
 
@@ -615,11 +645,34 @@ pub async fn open_for_scope<R: Runtime>(
         .await
         .map_err(AccountManagerError::store_fail)?;
 
-    // 恢复脚本只服务本次导航；立即注销，避免复用实例上重复累积。
+    // 等页面里的恢复脚本跑到终态。缺这一步时，登录凭证在 IndexedDB 里的站点
+    // （实测：本地 7242 端口的 Cloud-IDE 类应用）必然「注入成功但仍未登录」——
+    // 页面自己的脚本抢在 IDB 落库前读到空库，据此判定未登录并把会话清掉；
+    // cookie 型站点因为不依赖异步落库所以看起来正常。
+    let restore_terminal = if restore_script_registered {
+        Some(wait_for_restore_via_cdp(&client).await)
+    } else {
+        None
+    };
+
+    // 等完之后**再导航一次**：第一份文档的页面脚本已经在空库上跑过了（可能已经把
+    // token 清掉），只有重新加载才是在「库已就绪」的起点上启动页面。语义与扩展链路
+    // 「写完 IndexedDB 后 chrome.tabs.reload」一致（D-031 决议 2 / D-033）。
+    if should_renavigate_after_restore(restore_terminal.as_ref(), saved.as_ref()) {
+        // 重载失败不影响已经完成的恢复（库已落盘，用户手动刷新即可看到登录态），
+        // 而此刻浏览器是开着的、cookie 是注入进去的——不值得为此让整条打开链路报错。
+        if let Err(error) = client.navigate(&website).await {
+            eprintln!("[account_manager] browser storage restore reload failed: {error}");
+        }
+    }
+
+    // 恢复脚本只服务本次导航；最后才注销（重载还要靠它把 Web Storage 重新写齐），
+    // 避免复用实例上重复累积。
     if let Some(identifier) = restore_script_id.as_deref() {
         let _ = client.remove_init_script(identifier).await;
     }
 
+    let storage_restore_status = restore_terminal.map(|terminal| terminal.as_status());
     let scope_label = scope.key();
     let browser_id = profile::read_meta(app, scope)
         .map(|meta| meta.browser_id)
@@ -636,6 +689,7 @@ pub async fn open_for_scope<R: Runtime>(
                 "browser": browser_id,
                 "injectedCookies": injected,
                 "sessionRecovered": session_recovered,
+                "storageRestoreStatus": storage_restore_status,
             }),
         );
     }
@@ -651,6 +705,10 @@ pub async fn open_for_scope<R: Runtime>(
             ("has_session", &has_stored_session.to_string()),
             ("recovered", &session_recovered.to_string()),
             ("reused", &reused.to_string()),
+            (
+                "storage_restore",
+                storage_restore_status.as_deref().unwrap_or("none"),
+            ),
         ],
     );
 
@@ -667,7 +725,57 @@ pub async fn open_for_scope<R: Runtime>(
         session_recovered,
         recovery_reason,
         storage_origins,
+        storage_restore_status,
     })
+}
+
+/// 经 CDP 等页面里的存储恢复脚本跑到终态。
+///
+/// 刻意**不**把结果做成 `Err`：走到这一步浏览器已经开着、cookie 已经注入进去，
+/// 恢复超时/失败只是「这一份页面没看到完整存储」，让整条打开链路报错等于把
+/// 一份可用会话判死刑。终态一律经
+/// [`BrowserOpenOutcome::storage_restore_status`] 带给前端自证。
+async fn wait_for_restore_via_cdp(client: &CdpClient) -> browser_storage::RestoreTerminal {
+    match browser_storage::wait_for_restore_terminal(
+        |expression: String| cdp_restore_probe(client, expression),
+        browser_storage::RESTORE_TIMEOUT,
+    )
+    .await
+    {
+        Ok(terminal) => terminal,
+        // 轮询通道自身出错（页面被导航走 / 标签页被关）：无法得知恢复状态，
+        // 与页面报的失败同形带出去，reason 是通道错误文案。
+        Err(error) => browser_storage::RestoreTerminal::Failed {
+            reason: error.message(),
+        },
+    }
+}
+
+/// CDP 侧读取恢复槽位：把 `Runtime.evaluate` 的返回值折成等待器要的 JSON 文本。
+///
+/// 导航刚发起时旧文档的执行上下文会被销毁，这一窗口里 `Runtime.evaluate`
+/// 可能直接报错或回 null —— 那是**过渡态**不是恢复失败（脚本还没跑到写终态那步），
+/// 折成 `pending` 继续轮；真失败由页面写进槽位的 `reasonCode` 说明。
+/// 求值彻底不可用（连接断开）时会一直 pending 到超时，报 `timeout`。
+async fn cdp_restore_probe(client: &CdpClient, expression: String) -> AccountManagerResult<String> {
+    let value = client.evaluate(&expression).await.unwrap_or(Value::Null);
+    Ok(value
+        .as_str()
+        .unwrap_or(r#"{"status":"pending"}"#)
+        .to_string())
+}
+
+/// 恢复到达终态后是否要把站点**再导航一次**。
+///
+/// 只有 IndexedDB 需要这第二次导航：Web Storage 是同步写入的，首份文档就能读到；
+/// IDB 是异步落库的，首份文档的页面脚本已经在空库上跑过、很可能已经把会话判死。
+/// 非 `complete` 不重载 —— 那时库里没有可信的完整快照，多打一次站点只是噪声。
+fn should_renavigate_after_restore(
+    terminal: Option<&browser_storage::RestoreTerminal>,
+    session: Option<&AccountSession>,
+) -> bool {
+    terminal == Some(&browser_storage::RestoreTerminal::Complete)
+        && session.is_some_and(browser_storage::has_indexed_db_snapshot)
 }
 
 /// 是否应把会话里记录的 UA 覆盖到托管浏览器上。
@@ -883,6 +991,116 @@ pub async fn capture<R: Runtime>(
         force,
     )
     .await
+}
+
+/// 直读本机 Chrome 的落盘登录态并写入该账号（互通 I3 的**兜底**入向）。
+///
+/// 与 [`capture`]（CDP 回采）和 [`import_from_extension`]（扩展回采）并列的第三条
+/// 入向：不要求用户装扩展，代价是**只拿得到 cookie** —— 令牌存在 localStorage /
+/// IndexedDB 的站点（trae 的 Cloud-IDE-Token、7242 端口的 IDB-only 实测案例）仍然
+/// 只能走扩展，所以它是兜底而不是替代，扩展可用时一律优先扩展。
+///
+/// 落库完全复用 [`finalize_capture`]：新鲜度仲裁、互斥、加密、探针复验四条纪律与
+/// 另两条通道一字不差，本模块只负责「把 cookie 弄进来」。
+pub async fn import_from_chrome_store<R: Runtime>(
+    app: &AppHandle<R>,
+    account_id: &str,
+    force: bool,
+) -> AccountManagerResult<BrowserCaptureOutcome> {
+    let state = app.state::<AccountManagerState>();
+    state.ensure_ready()?;
+    let context = context_for(&state, &Scope::Account(account_id.to_string()))?;
+    let site_host = url::Url::parse(&context.station.website)
+        .ok()
+        .and_then(|parsed| parsed.host_str().map(str::to_string))
+        .filter(|host| !host.is_empty())
+        .ok_or_else(|| {
+            AccountManagerError::invalid_input(
+                "STATION_WEBSITE_INVALID: 站点地址解析不出 host，无法定位 Chrome 里的 cookie",
+            )
+        })?;
+
+    let imported = chrome_store::import_site_cookies(&site_host)?;
+    if imported.cookies.is_empty() {
+        // 空结果不写库：否则会把一条「Chrome 里没有这个站点」的误判钉成会话覆盖。
+        return Err(AccountManagerError::not_found(format!(
+            "CHROME_IMPORT_EMPTY: Chrome 里没有 {site_host} 的可用 cookie（该站点可能未登录，或登录凭证在本地存储里——那种情况请改用 Bench Companion 扩展）"
+        )));
+    }
+
+    let captured_at = chrono::Utc::now();
+    let cookie_count = imported.cookies.len();
+    let session = AccountSession {
+        cookies: imported.cookies,
+        captured_at: captured_at.to_rfc3339(),
+        captured_at_ts: Some(captured_at.timestamp()),
+        session_origin: Some(SessionOrigin::ChromeStore),
+        ..Default::default()
+    };
+
+    let outcome = finalize_capture(
+        app,
+        &state,
+        account_id,
+        &context.station,
+        session,
+        cookie_count,
+        imported.skipped_partitioned,
+        // 该通道不采集任何页面存储：storage_origins 恒为 0，IndexedDB 恒为
+        // unsupported，前端据此才能说清「为什么这条会话不完整」。
+        0,
+        "unsupported".to_string(),
+        force,
+    )
+    .await?;
+
+    super::state::log_account_operation(
+        app,
+        &state,
+        account_id,
+        AccountLogKind::BrowserInterop,
+        AccountLogLevel::Info,
+        json!({
+            "action": "importFromChromeStore",
+            "outcome": outcome.outcome.clone(),
+            "cookieCount": cookie_count,
+            "skippedPartitioned": imported.skipped_partitioned,
+            "skippedUnusable": imported.skipped_unusable,
+            "profilesRead": imported.profiles_read,
+        }),
+    );
+    Ok(outcome)
+}
+
+/// 兜底通道在本机是否可用（前端据此决定要不要显示入口，并把不可用的原因带出去）。
+pub fn chrome_store_availability<R: Runtime>(
+    _app: &AppHandle<R>,
+) -> AccountManagerResult<ChromeStoreAvailabilityOutcome> {
+    match chrome_store::availability() {
+        Ok(available) => Ok(ChromeStoreAvailabilityOutcome {
+            available: true,
+            profile_count: available.profile_count,
+            chrome_version: available.chrome_version,
+            reason: None,
+        }),
+        Err(error) => Ok(ChromeStoreAvailabilityOutcome {
+            available: false,
+            profile_count: 0,
+            chrome_version: String::new(),
+            reason: Some(error.message()),
+        }),
+    }
+}
+
+/// `browser_session_chrome_store_status` 的结果（只含计数与版本号，不含任何凭据）。
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChromeStoreAvailabilityOutcome {
+    pub available: bool,
+    pub profile_count: usize,
+    pub chrome_version: String,
+    /// 不可用原因（`CHROME_IMPORT_NO_PROFILE` / 平台不支持等）。
+    pub reason: Option<String>,
 }
 
 /// 一次采集的产物（与落库目标解耦，供账号维度与站点维度两条路径复用）。
@@ -2463,5 +2681,66 @@ mod tests {
     fn extension_origin_detail_is_stable() {
         // origin_detail 是对外契约（冲突弹窗据此交代来源），不得随意改名。
         assert_eq!(EXTENSION_ORIGIN_DETAIL, "extension");
+    }
+
+    /// 造一个只有一个 origin 的会话；`with_indexed_db` 决定该 origin 是否带 IDB 快照。
+    fn session_with_storage(with_indexed_db: bool) -> AccountSession {
+        use crate::account_manager::crypto::EncryptedBlob;
+        use crate::account_manager::types::OriginStorage;
+        let blob = |text: &str| EncryptedBlob {
+            v: 1,
+            nonce: "nonce".into(),
+            ct: text.into(),
+        };
+        let mut session = AccountSession::default();
+        session.origins.push(OriginStorage {
+            origin: "http://127.0.0.1:7242".into(),
+            local_storage: Some(blob("local")),
+            session_storage: Some(blob("session")),
+            indexed_db: with_indexed_db.then(|| blob("idb")),
+        });
+        session
+    }
+
+    #[test]
+    fn only_indexed_db_restores_trigger_a_second_navigation() {
+        use browser_storage::RestoreTerminal;
+        // 有 IDB 快照 + 恢复完成：第一份文档已经在空库上跑过页面脚本，必须重来一次。
+        assert!(should_renavigate_after_restore(
+            Some(&RestoreTerminal::Complete),
+            Some(&session_with_storage(true))
+        ));
+        // 只有 Web Storage：恢复是同步写完的，首份文档就读得到，不该多打一次站点。
+        assert!(!should_renavigate_after_restore(
+            Some(&RestoreTerminal::Complete),
+            Some(&session_with_storage(false))
+        ));
+        // 没有会话（登录模式 / 无存储快照）时同样不重载。
+        assert!(!should_renavigate_after_restore(
+            Some(&RestoreTerminal::Complete),
+            None
+        ));
+    }
+
+    #[test]
+    fn non_complete_restore_never_reloads_the_page() {
+        use browser_storage::RestoreTerminal;
+        let idb = session_with_storage(true);
+        // skipped：当前文档 origin 不在载荷里；timeout / failed：库里没有可信的完整
+        // 快照。此时重载只会再失败一次，并把「为什么没登上」变得更难归。
+        for terminal in [
+            RestoreTerminal::Skipped,
+            RestoreTerminal::Timeout,
+            RestoreTerminal::Failed {
+                reason: "INDEXED_DB_BLOCKED".to_string(),
+            },
+        ] {
+            assert!(
+                !should_renavigate_after_restore(Some(&terminal), Some(&idb)),
+                "{terminal:?} 不该触发重载"
+            );
+        }
+        // 没注册恢复脚本（等待器压根没跑）→ 无终态，不重载。
+        assert!(!should_renavigate_after_restore(None, Some(&idb)));
     }
 }

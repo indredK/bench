@@ -2,6 +2,61 @@
 
 本文件只记录仍影响当前实现的方向性取舍；“做什么”以 [ROADMAP.md](../roadmap/ROADMAP.md) 为准，当前风险以 [audit-report.md](./audit-report.md) 为准。已推翻和已完成历史由 Git 保留。
 
+## D-040 · 新增「直读本机 Chrome 落盘登录态」作为 I3 兜底入向（修正一条基于错误事实的红线）
+
+- **日期**：2026-09-19
+- **状态**：采纳（**推翻 [browser-session-extension-plan.md](./browser-session-extension-plan.md) §6「显式不做：直读浏览器 Cookies SQLite」的技术前提**；扩展通道仍是 I3 主路径，本通道只做兜底）
+- **背景**：该红线写的理由是「macOS Keychain Safe Storage + Chrome 130+ app-bound encryption」挡住直读。实测两处都不成立：
+  1. App-Bound Encryption 是 Google 2024-07 公告里明确**只面向 Windows** 的（Chrome 127 起，密文前缀 `v20`）；macOS 至今仍是老的 Keychain 方案。
+  2. 本机 Chrome 152.0.7977.84 / macOS：`Default/Cookies` 3678 条 `encrypted_value` 前缀**全部 `v10`**，明文列 0 行使用；密钥 = 钥匙串 `Chrome Safe Storage` → PBKDF2-HMAC-SHA1(salt `saltysalt`, 1003 轮, 16B) → AES-128-CBC，IV 为 16 个 `0x20`；解出并去填充后**前 32 字节恰为 `SHA256(host_key)`**（抽样 40/40 命中，剥后 40/40 可打印 ASCII）。
+  3. Chrome **正在运行时**以 `mode=ro` 打开原库即可读（该库 `journal_mode` 非 WAL），**不需要退出 Chrome**，也不需要 Full Disk Access；唯一门槛是一次钥匙串授权弹窗。
+  4. 外部先例：ZCode 的「导入 Chrome 登录状态」正是这条路（本机日志可见一次 3653→3617 的成功导入），零扩展、零 nativeMessaging。
+     因此「唯一可行路径是扩展」不成立。
+- **决议**：
+  1. 新增第三条入向通道 `browser_session/chrome_store.rs` + 命令 `browser_session_import_from_chrome(accountId, force)`，来源标记 `SessionOrigin::ChromeStore`。**只读**（`SQLITE_OPEN_READ_ONLY`），不改、不复制用户浏览器数据。
+  2. **只做兜底，不做替代**：cookie 库只有 cookie，拿不到 localStorage / sessionStorage / IndexedDB，对令牌存在本地存储的站点（trae 的 `Cloud-IDE-Token`、7242 端口 IDB-only 实测案例）仍然必须走扩展。扩展可用时一律优先扩展，UI 上本通道标注「不装扩展」的兜底定位。
+  3. **粒度按当前站点**（用户选定）：只取该账号所属站点可注册域下的 cookie，不做全量搬运。ZCode 那种一次性全量（上限 1000 origins）会在 Bench 里批量造出站点与账号，与「账号管理」的产品定位冲突。
+  4. 过滤口径**复用** `session::hosts_share_registrable_domain`，不新增第四份可注册域近似；调用前必须去掉 Chrome 域级 cookie 的**前导点**（`.trae.cn` 直接比对会判异，把整站 passport 会话丢光 —— 与 2026-09-10 wry 精确匹配漏域级 cookie 是同一类事故）。
+  5. **剥摘要写成「算一遍比对、相等才剥」**，不无条件砍前 32 字节：Chrome 改格式时要得到显式的「解不出」，而不是每个值被静默截短后入库。非 UTF-8 / 非 `v10` / 长度不对齐一律丢弃并计数（fail-closed，与分区 cookie 的处置口径一致）。
+  6. 落库完全复用 `finalize_capture`（新鲜度仲裁 + 互斥 + 加密 + 探针复验），`force = false` 时同样可能 `conflict` 且不覆盖；UI 不提供 force 入口（覆盖是危险操作）。
+  7. 平台与浏览器范围：v1 **仅 macOS、仅 Chrome 系且仅 `Chrome Safe Storage` 这一把钥匙**。Edge/Brave 用各自钥匙串条目，未实现即报不可用，不猜。非 macOS 走 `unsupported("CHROME_IMPORT_PLATFORM_UNSUPPORTED")`。
+  8. 钥匙串读取只发生在用户显式点「导入」时，不在启动路径（architecture.md §2 第 12 条）。
+- **影响**：新增依赖 `rusqlite`(bundled) / `pbkdf2` / `aes` / `cbc`，全部挂在 `[target.'cfg(target_os = "macos")'.dependencies]`；`keyring`（已有）经 `Entry::get_secret` 取钥匙串，不 shell out `security`。契约新增两条命令（`browser_session_chrome_store_status` / `browser_session_import_from_chrome`）。互通弹窗新增兜底区块，仅在探测到可用 profile 时显示。
+- **被漏掉的第四条路（记录，暂不采用）**：Chrome 144+（2025-12）在 `chrome://inspect/#remote-debugging` 提供官方开关，客户端可经 `--autoConnect` 直连**日常浏览器的已登录会话**（含 cookie），每次连接弹一次 Allow —— 它连「写回日常浏览器」都能覆盖，比扩展干净。暂不采用的原因是要求用户去翻一个 `chrome://` 开关，比装扩展更隐蔽、更难解释。
+- **理由**：这条红线的唯一依据是技术不可行，而它可行。留下一个基于错误事实的「不做」，等于把产品能力永久锁死在一个错误结论上。
+- **相关**：[D-029](#d-029--日常浏览器方向改用扩展--本地桥i3i5-提前为必须实现) · [D-039](#d-039--扩展采集作用域--可注册域泛到同站全部子域删除站点特例硬编码) · [browser-session-extension-plan.md §6/§8](./browser-session-extension-plan.md)
+
+## D-039 · 扩展采集作用域 = 可注册域泛到同站全部子域（删除站点特例硬编码）
+
+- **日期**：2026-09-19
+- **状态**：采纳（supersede [D-033](#d-033--扩展通道升级cookie--web-storage--indexeddb全量注入版本号双端自证) 及此前实现里「Trae 的 `api.trae.cn` 作为明确的辅助认证域采集」这一条站点特例）
+- **背景**：「同步登录态」在 trae 上好使、在别的站点上静默缺一半。根因是登录凭证常常**不在页面 host 上**：`www.x.com` 的页面把带凭据的请求发往 `api.x.com`，服务端下发的是 `api.x.com` 的 host-only cookie。`chrome.cookies.getAll({url: 页面origin})` 按定义拿不到它（host-only 不跨 host 发送），域级查询 `{domain: www.x.com}` 也拿不到（`api.x.com` 不是它的子域）。先前为此写了 `auxiliaryCookieHosts()` 硬编码 `api.trae.cn`（`background.js`）与 `permissionOrigins()` 里的同一份（`popup.js`）——等于把「一个站点的实测事实」固化成通用代码，其余站点对不上号就是漏采。
+- **决议**：
+  1. 作用域以**可注册域**为界：授权 `scheme://host/*` + `scheme://base/*` + `scheme://*.base/*`，查询追加 `{domain: base}`（Chromium 语义为「等于该域或其子域」，一次覆盖 api/accounts/auth/sso 等全部兄弟子域）。
+  2. **授权与查询必须出自同一个函数**（`background.js` 的 `siteScope()`，popup 经 `bench:site:scope` 取回）。两边各算一套时，未授权的那批 cookie 会被 `chrome.cookies` 静默过滤（不报错、只是少几条）——这正是最难查的一类失败。
+  3. **可注册域无法安全确定时退化为精确 host**：`x.co.uk` / `x.com.cn` 这类三段形态与 `www.x.com` 在纯标签计数下不可区分，泛域会向用户申请 `*.co.uk` 这种越界授权。判定为可疑即不泛（fail-closed 于授权面），代价只是这些站点不增益。
+  4. 删除两处 `api.trae.cn` 硬编码。`cookieWriteUrl()` 的「host-only 按原 host 写回」保留（那是注入侧的另一件事，仍然必要）。
+- **影响**：扩展 0.9.0 → **0.10.0**；用户需重新导出并在浏览器里重载扩展。已保存过的账号不必重采：`{domain: base}` 是原查询的超集。
+- **理由**：漏采是静默的，而授权提示是显式的——宁可让用户在同站内多批一次泛域，也不要在通用代码里养一份「哪个站点的哪个子域特殊」的清单。
+- **相关**：[workbuddy-trae-session-research](./workbuddy-trae-session-research.md)（域/host-only 关系实测） · [browser-session-extension-plan](./browser-session-extension-plan.md) §8 · [D-029](#d-029--日常浏览器方向改用扩展--本地桥i3i5-提前为必须实现)
+
+## D-038 · 出向同步必须回报真实终态（注入任务回执 + CDP 等存储恢复落库）
+
+- **日期**：2026-09-19
+- **状态**：采纳（补全 [D-032](#d-032--同步到日常浏览器--自动注入--无条件全量同步不做登录判定闸门) 的自动注入闭环；解除 [browser-session-interop-plan](./browser-session-interop-plan.md) 里「CDP 出向不等 IndexedDB」这一已知时序边界）
+- **背景**：两条出向链路都存在「对用户报成功，实际什么都没发生」。
+  1. **日常浏览器（I5）**：`sync_to_daily_browser` 只做「备好会话 + 登记任务 + 打开站点」就返回 `outcome: "ready"` 并附 cookie 条数，前端据此弹「会话已就绪（N 条 Cookie）」。真实写入发生在扩展的 `tabs.onUpdated` 回调里，Bench 侧既叫不动扩展也没有回执通道——扩展没装、站点没授权、导出失败、注入到一半 Service Worker 被回收，用户读到的都是同一句成功。更糟的是扩展 `maybeAutoInject` 把 `injectSession` 的 `return`（导出失败）当成没出错，照样 `completed.push` → 任务被标记完成。
+  2. **隔离实例（I1）**：`RESTORE_SCRIPT` 里 Web Storage 同步落、**IndexedDB 异步落**，而 CDP 路径注册完脚本 `navigate` 后立刻 `remove_init_script`，从不等待（`wait_for_restore` 签名要求 `&WebviewWindow`，CDP 结构上调不到）。页面自己的脚本抢在 IDB 落库前读到空库并据此判定未登录 —— 实测：登录凭证只在 IndexedDB 的本地 7242 端口 Cloud-IDE 类站点必然「报注入成功、打开还是未登录」。扩展链路是靠写完 IDB 后 `chrome.tabs.reload` 绕过的，CDP 链路缺这一步。
+- **决议**：
+  1. **注入任务升级为可回报的状态机**：`queued → claimed → injected | failed`，扩展经新增路由 `POST /v1/tasks/report` 显式回报**计数与枚举**（cookiesWritten/Failed、storageKeysWritten、idbRestored/Failed、reason），任务表仍只存内存、永不含凭据。命令改回 `outcome: "queued"` + `taskId`，新增 `browser_session_inject_status` 供前端按 taskId 轮询到终态才报成功。
+  2. **桥侧记录最后一次已授权请求时刻作为扩展在线判据**，用于区分「扩展压根没联系 Bench」（该提示装/启用扩展）与「联系了但这单没走完」（该提示回浏览器看页面与授权）。两者的用户动作完全不同，不能共用一句。
+  3. `claimed` 停留超过 90 秒视为 Service Worker 中途被回收，**重新变为可领取**（MV3 worker 几十秒即被终止，注入中途死掉是常态）；终态任务一律不再下发，避免页面每次加载都重复注入覆盖用户手挑的账号。
+  4. **CDP 出向补上「等终态 + 二次导航」**：等待器从 `&WebviewWindow` 抽成运行时无关的 `wait_for_restore_terminal(evaluate, timeout)`，WebView 侧退化为薄封装（4 个既有调用点语义不变），CDP 侧用 `Runtime.evaluate` 复用同一个槽位常量。等待/重载失败**不让整条打开链路报错**（浏览器已开、cookie 已注入），而是经新字段 `storageRestoreStatus`（`complete|skipped|failed:<code>|timeout|null`）带给 UI 单独告警。
+  5. UI 侧禁令：**「命令返回的那一刻还没发生的事，不许写成完成」**。原先 `browserDailyStorageSkipped` 在写成功时也提示「存储被跳过」（把对的说成错的），`staleSession` 因缺 i18n 映射被降级成「未登录」（把过期说成没登录），一并修正。
+- **影响**：`browser_bridge.rs`（任务状态机 + `/v1/tasks/report`）、`browser_session/mod.rs`（`queued` + taskId + CDP 等待与重载）、`browser_storage.rs`（运行时无关等待器）、扩展 0.10.0（回报 + 不再误报完成）、`contracts.ts`/`commands.rs`/types/DTO 契约与 i18n 双语言。旧扩展（只会上报 origin）经 `/v1/tasks/complete` 兼容路径仍可结单。
+- **理由**：这两个症状（假成功、真丢数据）都源于同一处结构性缺失——**没有终态可回报**，所以只能猜。补回执通道而不是补文案。
+- **相关**：[D-030](#d-030--出向注入前自动补采-bench-内置登录态出向目标显式二选一) · [D-031](#d-031--扩展通道升级cookie--web-storage注入indexeddb-仍排除) · [D-033](#d-033--扩展通道升级cookie--web-storage--indexeddb全量注入版本号双端自证) · [浏览器互通三角流转（交互图）](../diagrams/account-manager-triangle.html)
+
 ## D-037 · 抖音内容资产插件：范围与预检结论
 
 - **日期**：2026-09-18

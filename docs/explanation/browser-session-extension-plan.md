@@ -150,7 +150,9 @@ Chrome Web Store / Edge Add-ons 上架。这是唯一能消除「每次重启提
 | I5 顶掉日常登录态                            | 默认关闭 + 冲突确认 + 覆盖前备份 + 可回滚（C4）                                   |
 | 扩展与 app 通道被本机其它进程冒用            | 一次性 token + `Origin`/扩展 ID 白名单 + 仅 loopback 绑定                         |
 
-**显式不做**：直读/直写浏览器 Cookies SQLite（macOS Keychain Safe Storage + Chrome 130+ app-bound encryption）；`--load-extension` 编程注入日常浏览器（Chrome 137 已移除）；把 session 明文经扩展页面（popup/tab）中转。
+**显式不做**：~~直读/直写浏览器 Cookies SQLite（macOS Keychain Safe Storage + Chrome 130+ app-bound encryption）~~ —— **此条前提已被实测推翻，见 [D-040](./decisions.md#d-040--新增直读本机-chrome-落盘登录态作为-i3-兜底入向修正一条基于错误事实的红线)**：macOS 上 app-bound encryption 从未落地（那是 Windows-only，Chrome 127+ / `v20`），直读**可行**且已作为 I3 兜底入向实现（`browser_session/chrome_store.rs`，仅 macOS、仅 cookie、按当前站点）。**直写**浏览器 Cookies SQLite 仍然不做（改浏览器内部数据违反既有边界，且需要用户退出 Chrome）。其余不变：`--load-extension` 编程注入日常浏览器（Chrome 137 已移除）；把 session 明文经扩展页面（popup/tab）中转。
+
+> 另记一条被漏掉的路径：**Chrome 144+**（2025-12）在 `chrome://inspect/#remote-debugging` 提供官方开关，可经 `--autoConnect` 直连日常浏览器的已登录会话（含 cookie，每次连接弹一次 Allow），连「写回日常浏览器」都能覆盖、比扩展干净。暂不采用：要求用户翻一个 `chrome://` 开关，比装扩展更隐蔽。
 
 ---
 
@@ -185,7 +187,7 @@ Chrome Web Store / Edge Add-ons 上架。这是唯一能消除「每次重启提
 - `browser_session/mod.rs`：`resolve_site_for_extension` / `import_from_extension` / `export_for_extension`；落库**复用** `finalize_capture`（新鲜度仲裁、互斥、加密、probe 验证四条纪律与 CDP 通道完全一致）。
 - 站点 → 站点匹配逻辑抽为纯函数 `commands::station::station_matches_for_url`，IPC 命令与桥共用，避免规则漂移。
 - `bench-host`：新增 `--bridge-descriptor` 与 `browser_bridge_descriptor` 命令；NM wrapper 由 Bench 生成时带上该路径（控制面）。
-- 扩展：权限加 `cookies` / `activeTab` / `scripting` / `tabs` / `unlimitedStorage`，加 `optional_host_permissions`；`background.js` 增桥客户端（401 与连接失败各重试一次，覆盖 app 重启换 token）、按候选域采集 Cookie、Web Storage 与 IndexedDB。Trae 的 `api.trae.cn` 作为明确的辅助认证域采集；host-only Cookie 注入时按原 host 写回，避免凭据被错误落到页面 host。
+- 扩展：权限加 `cookies` / `activeTab` / `scripting` / `tabs` / `unlimitedStorage`，加 `optional_host_permissions`；`background.js` 增桥客户端（401 与连接失败各重试一次，覆盖 app 重启换 token）、按候选域采集 Cookie、Web Storage 与 IndexedDB。host-only Cookie 注入时按原 host 写回，避免凭据被错误落到页面 host。（**0.10 起采集作用域改由 `siteScope()` 统一决定，见下方 P4；本条原先的「Trae 的 `api.trae.cn` 作为明确的辅助认证域」站点特例已删除**。）
 - 前端：`browserSessionExtension` 能力项（不受「本机是否装有 Chromium」约束）；站点互通弹窗新增「① 推荐：从你的日常浏览器读取」区块（状态机 + 一键导出 + 打开扩展页）。
 
 **P2（I5 写日常浏览器）**
@@ -193,12 +195,20 @@ Chrome Web Store / Edge Add-ons 上架。这是唯一能消除「每次重启提
 - 扩展 `popup` 提供「用 Bench 账号登录此站点」：先取账号会话 → **把该站点现有 cookie 备份进 `chrome.storage.local`** → 逐条 `chrome.cookies.set` → 展示写入/失败计数与备份入口；「回滚」一键还原。
 - 注入前备份并恢复 Cookie、Web Storage 与 IndexedDB；权限拒绝、快照不完整、分区 Cookie 和单库失败均显示明确结果，必要时建议改用隔离实例。
 
+**P4（0.10 · 采集作用域泛域 + 注入真实回执）**
+
+- `background.js` 新增 `siteScope(url)`：**授权模式与查询域出自同一个函数**，按可注册域给出 `scheme://host/*` + `scheme://base/*` + `scheme://*.base/*`，`collectCookies` 追加 `{domain: base}`（Chromium 语义「等于该域或其子域」，一次拿全 api/accounts/auth 等兄弟子域上的 host-only 会话）。popup 经新增消息 `bench:site:scope` 取回同一份模式再 `chrome.permissions.request`（授权必须在用户手势内发，所以模式是**预取**的，不在点击时算）。删除 `auxiliaryCookieHosts` 与 popup 里的 `permissionOrigins` 两份 `api.trae.cn` 硬编码。理由与边界见 [D-039](./decisions.md#d-039--扩展采集作用域--可注册域泛到同站全部子域删除站点特例硬编码)。
+- 注入任务改为可回报状态机：`POST /v1/tasks/report`（`claimed` / `injected` / `failed` + 计数），`browser_session_sync_daily` 改回 `queued` + `taskId`，新增 `browser_session_inject_status` 供前端轮询到终态；桥记录最后已授权请求时刻作扩展在线判据。`claimed` 超 90 秒重新可领取（MV3 SW 中途被回收是常态）。理由见 [D-038](./decisions.md#d-038--出向同步必须回报真实终态注入任务回执--cdp-等存储恢复落库)。
+- 旧版扩展兼容：仍只会上报 `origin` 的扩展经 `/v1/tasks/complete` 结单，不会被新 app 卡住。
+- **导出位置改由用户自选**：`browser_ext_export` 改为 `async`，由宿主经 `tauri_plugin_dialog::DialogExt` 弹原生**目录**选择器（renderer 不传路径，沿用 `douyin_assets_import_files` 的「宿主弹选择器」范式），起始位置取上次记住的选择、首次为桌面；结果写进 `app-preferences.json` 的 `browserExtensionExportDir`。用户取消 → 命令返回 `null`（不是错误），两个调用方据此不得再弹成功提示或打开扩展页。仍固定写进 `<所选>/bench-companion` 子目录（`write_extension_dir` 不清空目标，撒进用户自有目录会让「加载已解压的扩展程序」该选哪个文件夹说不清，也会污染 `exported` 判定）；所选目录本身就叫 `bench-companion` 时直接用它，避免套嵌。
+
 ### 8.2 已知边界（**不是**缺陷，是有意为之）
 
 1. **扩展通道需要目标页权限**。Cookie 通过 `chrome.cookies` 读取，Web Storage/IndexedDB 通过 `scripting` 在目标页采集；首次访问站点必须在扩展弹窗中授权，受限页面或不完整快照会明确降级并保留原数据。
 2. **扩展必须手动安装一次**，且 Chrome 会自动禁用开发者模式扩展的提示无法消除（Chrome 137 移除了 `--load-extension`）。要开箱即用只能走 P3 商店上架。
-3. **每站点首次需要一次 host 授权手势**（`optional_host_permissions` + `chrome.permissions.request`），比声明 `<all_urls>` 更保守，代价是多一次点击。
+3. **每站点首次需要一次 host 授权手势**（`optional_host_permissions` + `chrome.permissions.request`），比声明 `<all_urls>` 更保守，代价是多一次点击。0.10 起该手势的范围是**同一可注册域内的全部子域**（`*.x.com`）而非单个 host——因为分开申请就会出现「授权了一套、查询另一套」的静默漏采。无法安全确定可注册域的形态（`x.co.uk` / `x.com.cn` 这类 apex）不泛域，只申请精确 host。
 4. **I5 会顶掉用户同站的日常登录态**——这是该方向固有的产品代价，只能靠「默认不勾选 + 覆盖前备份 + 一键回滚」控制，无法消除。
+5. **注入结果只在弹窗存活期间跟进**：轮询窗口 45 秒，关窗即停（避免迟到的幽灵 toast）。任务本身在 Bench 内存里活 10 分钟，重开弹窗不再续接 —— 需要「离线完成后回来看到结果」的话，得把任务终态落到 store 并接进账号日志，目前只有 `queued` 一条日志。
 
 ### 8.3 未做
 

@@ -110,7 +110,10 @@ export function StationBrowserInteropDialog({
   if (confirming) {
     return (
       <Dialog open={confirming} onOpenChange={(next) => !next && onCancelConfirm()}>
-        <DialogContent className="max-h-[85vh] overflow-x-hidden overflow-y-auto sm:max-w-[460px]">
+        {/* 两个互通弹窗统一用 `sm:max-w-lg`：460/480px 是当年为「内容把弹窗撑宽」
+            （取证 D3）设的上限，但那次的根因是不可断 token 缺 break-all + min-w-0
+            （见下方 UA 串与 cookie 名列表），不是弹窗本该这么窄。 */}
+        <DialogContent className="max-h-[85vh] min-w-0 overflow-x-hidden overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{t("accountManager.stationInterop.confirmTitle")}</DialogTitle>
             <DialogDescription className="pt-2 text-sm">
@@ -193,7 +196,7 @@ export function StationBrowserInteropDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] overflow-x-hidden overflow-y-auto sm:max-w-[480px]">
+      <DialogContent className="max-h-[85vh] min-w-0 overflow-x-hidden overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{t("accountManager.stationInterop.title")}</DialogTitle>
           <DialogDescription className="pt-2 text-sm">
@@ -310,6 +313,9 @@ function ExtensionSection({
       <div className="font-medium">{t("accountManager.stationInterop.extensionTitle")}</div>
       <p className="text-muted-foreground">{t("accountManager.stationInterop.extensionDesc")}</p>
       <p className="text-muted-foreground">{t("accountManager.stationInterop.extensionSteps")}</p>
+      <p className="text-muted-foreground">
+        {t("accountManager.stationInterop.extensionExportLocationHint")}
+      </p>
       {/* 「加载已解压的扩展程序」需要用户自己选文件夹 —— 必须把路径直接给出来，
           否则这一步无从完成。路径在状态里恒有（无需先导出）。 */}
       {status?.extensionDir && (

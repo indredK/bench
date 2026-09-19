@@ -554,7 +554,10 @@ function AccountManagerPage() {
         busy={browserInterop.busy}
         lastOpen={browserInterop.lastOpen}
         lastDaily={browserInterop.lastDaily}
+        lastInject={browserInterop.lastInject}
+        chromeStore={browserInterop.chromeStore}
         onSync={browserInterop.handleSync}
+        onImportFromChrome={browserInterop.handleImportFromChrome}
         onCloseInstance={browserInterop.handleCloseInstance}
       />
       <StationBrowserInteropDialog

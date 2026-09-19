@@ -195,9 +195,12 @@ macro_rules! app_invoke_handler {
             $crate::account_manager::commands::browser_session_browsers,
             $crate::account_manager::commands::browser_session_open,
             $crate::account_manager::commands::browser_session_sync_daily,
+            $crate::account_manager::commands::browser_session_inject_status,
             $crate::account_manager::commands::browser_session_status,
             $crate::account_manager::commands::browser_session_close,
             $crate::account_manager::commands::browser_session_capture,
+            $crate::account_manager::commands::browser_session_chrome_store_status,
+            $crate::account_manager::commands::browser_session_import_from_chrome,
             $crate::account_manager::commands::browser_session_probe,
             $crate::account_manager::commands::browser_session_clear_profile,
             // 站点维度互通（账号列表头部入口：手动登录 + 回采）

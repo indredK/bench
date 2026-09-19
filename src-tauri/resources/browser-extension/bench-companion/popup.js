@@ -69,6 +69,8 @@ async function activeTab() {
 const state = {
   url: null,
   resolved: null,
+  /** 本站点需要授权的 host 模式，由 background 的 siteScope 单点算好后预取。 */
+  sitePatterns: [],
   pendingAccountId: null,
   stationTitle: null,
   username: null,
@@ -84,23 +86,33 @@ function originOf(url) {
   }
 }
 
-// Cookie 的 Domain 可能是当前 host 的父域（Trae 使用 .trae.cn）。
-// 仅申请 www.trae.cn/* 会让 cookies.getAll({domain:"trae.cn"}) 仍被浏览器拒绝，
-// 因此首次授权同时覆盖当前 host 与最多一级父域，权限仍保持按站点最小化。
-function permissionOrigins(url) {
+/**
+ * 预取本站点的作用域授权模式（在拿到 URL 时就调用，不等按钮）。
+ *
+ * 算法刻意放在 background：申请的 host 模式必须与 `chrome.cookies` 的查询域
+ * 出自同一处，两边各写一份就会「申请了一套、查了另一套」，退化成静默漏采
+ * （原先是写死 api.trae.cn，只有 trae 一家好使）。
+ */
+async function prefetchSiteScope(url) {
+  const res = await send({ type: "bench:site:scope", url })
+  state.sitePatterns = res.ok ? res.data?.patterns || [] : []
+}
+
+/**
+ * 申请并确认本站点的访问权限。**必须在用户手势内调用**：由 background 代发
+ * 会被 Chrome 直接拒绝，`cookies.getAll` 随后静默返回空数组，表现成
+ * 「这个站点根本没有登录态」。授权模式已预取，这里不再 await 计算结果，
+ * 以免手势失效。
+ */
+async function ensureSitePermission(url) {
+  if (originOf(url) && !state.sitePatterns.length) await prefetchSiteScope(url)
+  const patterns = state.sitePatterns
+  if (!patterns.length) return false
   try {
-    const parsed = new URL(url)
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return []
-    const labels = parsed.hostname.split(".").filter(Boolean)
-    const hosts = [parsed.hostname]
-    if (labels.length > 2) hosts.push(labels.slice(1).join("."))
-    // Trae 页面实际把鉴权请求发往 api.trae.cn；host-only Cookie 需要
-    // 单独的 host 权限才能由 chrome.cookies 读取并写回默认浏览器。
-    const normalized = parsed.hostname.toLowerCase().replace(/^\.+/, "")
-    if (normalized === "trae.cn" || normalized.endsWith(".trae.cn")) hosts.push("api.trae.cn")
-    return hosts.map((host) => parsed.protocol + "//" + host + "/*")
+    if (await chrome.permissions.contains({ origins: patterns })) return true
+    return await chrome.permissions.request({ origins: patterns })
   } catch (_) {
-    return []
+    return false
   }
 }
 
@@ -244,17 +256,9 @@ async function saveSession(force) {
       setMessage("请在目标站点页面打开扩展面板后重试。", "err")
       return
     }
-    // optional_host_permissions 不能由 Bench 或 background 代为申请。
-    // 必须在保存按钮的用户手势内申请，否则 cookies.getAll 会静默返回空数组，
-    // Trae 等使用域级 Cookie 的站点会被误报为“没有登录态”。
-    const permissionPatterns = permissionOrigins(state.url)
-    let granted = false
-    try {
-      granted = await chrome.permissions.contains({ origins: permissionPatterns })
-      if (!granted) granted = await chrome.permissions.request({ origins: permissionPatterns })
-    } catch (_) {
-      granted = false
-    }
+    // optional_host_permissions 不能由 Bench 或 background 代为申请，必须在保存
+    // 按钮的用户手势内完成；作用域按站点可注册域泛到同站全部子域（见 siteScope）。
+    const granted = await ensureSitePermission(state.url)
     if (!granted) {
       setMessage("未获得该站点访问权限，无法读取登录态。请允许扩展访问此站点后重试。", "err")
       return
@@ -371,7 +375,7 @@ async function injectSession() {
         preview.data.outcome === "ok" &&
         (preview.data.hasWebStorage || preview.data.hasIndexedDb)
       ) {
-        const granted = await chrome.permissions.request({ origins: permissionOrigins(state.url) })
+        const granted = await ensureSitePermission(state.url)
         if (granted) {
           withStorage = true
         } else {
@@ -720,6 +724,7 @@ async function refreshSession() {
     state.pendingAccountId = null
     state.stationTitle = null
     state.username = null
+    state.sitePatterns = []
     $nameSite.value = ""
     $nameAccount.value = ""
   }
@@ -730,7 +735,11 @@ async function refreshSession() {
     renderDouyin()
     return
   }
-  const res = await send({ type: "bench:session:resolve", url: state.url })
+  // 授权模式与站点解析并行预取，都要在用户点按钮之前备好。
+  const [res] = await Promise.all([
+    send({ type: "bench:session:resolve", url: state.url }),
+    prefetchSiteScope(state.url),
+  ])
   if (res.ok) state.resolved = res.data
   renderSession()
   renderDouyin()

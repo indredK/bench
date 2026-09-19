@@ -336,17 +336,25 @@ async fn serve_connection<R: Runtime>(app: &AppHandle<R>, mut stream: TcpStream)
 
     let (status, body) = match authorize(&request) {
         Err(error) => (401, json!({ "ok": false, "error": error })),
-        Ok(()) => match dispatch(app, &request).await {
-            Ok(data) => (200, json!({ "ok": true, "data": data })),
-            Err(BridgeError::BadRequest(message)) => {
-                (400, json!({ "ok": false, "error": message }))
+        Ok(()) => {
+            // 过了鉴权的就是扩展本人：任何一条 /v1 请求都算一次心跳，用于
+            // 区分「扩展根本没在跑」与「扩展在跑但这单没干成」——这两种情况
+            // 给用户的提示必须不同。
+            mark_extension_polling();
+            match dispatch(app, &request).await {
+                Ok(data) => (200, json!({ "ok": true, "data": data })),
+                Err(BridgeError::BadRequest(message)) => {
+                    (400, json!({ "ok": false, "error": message }))
+                }
+                Err(BridgeError::MethodNotAllowed) => {
+                    (405, json!({ "ok": false, "error": "METHOD_NOT_ALLOWED" }))
+                }
+                Err(BridgeError::NotFound) => (404, json!({ "ok": false, "error": "NOT_FOUND" })),
+                Err(BridgeError::Failed(message)) => {
+                    (500, json!({ "ok": false, "error": message }))
+                }
             }
-            Err(BridgeError::MethodNotAllowed) => {
-                (405, json!({ "ok": false, "error": "METHOD_NOT_ALLOWED" }))
-            }
-            Err(BridgeError::NotFound) => (404, json!({ "ok": false, "error": "NOT_FOUND" })),
-            Err(BridgeError::Failed(message)) => (500, json!({ "ok": false, "error": message })),
-        },
+        }
     };
     let _ = write_response(&mut stream, status, &body).await;
 }
@@ -433,10 +441,43 @@ async fn dispatch<R: Runtime>(
                 .map_err(|error| BridgeError::Failed(error.message()))
         }
         ("POST", "/v1/tasks/pending") => Ok(pending_inject_tasks()),
+        // 扩展回报注入进展：{ taskId | origin, status: claimed|injected|failed,
+        // reason?, cookiesWritten?, cookiesFailed?, storageKeysWritten?,
+        // idbRestored?, idbFailed? }。只收计数与枚举，不接受任何凭据字段。
+        ("POST", "/v1/tasks/report") => {
+            let status = match require_str(&body, "status")?.as_str() {
+                "claimed" => inject_status::CLAIMED,
+                "injected" => inject_status::INJECTED,
+                "failed" => inject_status::FAILED,
+                other => {
+                    return Err(BridgeError::BadRequest(format!(
+                        "UNKNOWN_TASK_STATUS: {other}"
+                    )))
+                }
+            };
+            let reported = report_pending_inject(
+                optional_str(&body, "taskId").as_deref(),
+                optional_str(&body, "origin").as_deref(),
+                status,
+                optional_str(&body, "reason"),
+                &body,
+            );
+            if !reported {
+                return Err(BridgeError::BadRequest("TASK_NOT_FOUND".to_string()));
+            }
+            Ok(json!({ "outcome": status }))
+        }
+        // 兼容只会上报 origin 的旧版扩展（< 0.10）：语义等于「注入完成」。
         ("POST", "/v1/tasks/complete") => {
             let origin = require_str(&body, "origin")?;
-            complete_pending_inject(&origin);
-            Ok(json!({ "outcome": "completed" }))
+            let reported = report_pending_inject(
+                optional_str(&body, "taskId").as_deref(),
+                Some(&origin),
+                inject_status::INJECTED,
+                None,
+                &body,
+            );
+            Ok(json!({ "outcome": if reported { "completed" } else { "expired" } }))
         }
         // douyin-content-assets 采集批次导入（DCA-01；D-037）：token/Origin 已由
         // authorize() 统一校验，这里再做路由级上限校验后交给领域模块处理。
@@ -460,24 +501,106 @@ fn require_str(body: &Value, key: &str) -> Result<String, BridgeError> {
         .ok_or_else(|| BridgeError::BadRequest(format!("MISSING_PARAM: {key}")))
 }
 
+/// 可选字符串参数；缺省或非字符串都按 `None`（调用方以「未提供」处理）。
+fn optional_str(body: &Value, key: &str) -> Option<String> {
+    body.get(key)
+        .and_then(Value::as_str)
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
 // ═══════════════════════════════════════════════
 // 「自动注入」任务队列（D-032）：Bench 点「同步到日常浏览器」时登记，
 // 扩展在站点页加载完成后取走并自动完成注入（含 Cookie + Web Storage）。
 //
-// 只放内存（Bench 重启即清）、只含 accountId + origin（**不含任何凭据**，
-// 凭据仍走 /v1/session/export 经 token+Origin 双校验获取）；10 分钟未被
-// 认领视为过期，避免扩展长期离线时堆积陈旧任务。
+// 只放内存（Bench 重启即清）、只含 accountId + origin + **计数与枚举结果**
+// （不含任何凭据，凭据仍走 /v1/session/export 经 token+Origin 双校验获取）；
+// 10 分钟未被认领视为过期，避免扩展长期离线时堆积陈旧任务。
+//
+// ## 为什么要带状态机
+//
+// 扩展是连接发起方，Bench 无法主动下指令，所以「同步到日常浏览器」这个动作
+// 在命令返回的那一刻**还没有发生**：命令只能保证「会话已就绪 + 站点已打开」。
+// 早期实现就此返回 `ready` 并附上 cookie 条数，用户读到的是「会话已就绪
+// （N 条 Cookie）」，而实际可能扩展没装、页面没授权、导出失败、注入到一半
+// Service Worker 被杀。真实结果只存在于扩展那边。
+//
+// 因此任务必须能被**回报**（claimed / injected / failed + 计数），并由
+// [`inject_task_status`] 供前端轮询取回；同时记录最后一次收到桥请求的时刻
+// （[`extension_connected`]），用来区分「扩展没连上」与「连上了但没干成」。
 // ═══════════════════════════════════════════════
 
-/// 任务有效期：超过即视为扩展不再在线，丢弃。
+/// 任务有效期：超过即视为扩展不再会完成它，丢弃。
 const PENDING_TASK_TTL_SECS: i64 = 600;
+/// `claimed` 停留超过该时长即认为扩展的 Service Worker 中途被回收，允许重投。
+/// MV3 的 worker 空闲几十秒就会被终止，注入中途死掉是常态而非异常。
+const CLAIM_REQUEUE_SECS: i64 = 90;
+/// 距最后一次收到桥请求超过该时长，判定扩展不在线。
+const EXTENSION_ALIVE_SECS: i64 = 120;
+
+/// 任务状态（对前端只暴露这四个终态字符串 + `unknown`）。
+pub mod inject_status {
+    /// 已登记，等待扩展领取。
+    pub const QUEUED: &str = "queued";
+    /// 扩展已领取，正在写入。
+    pub const CLAIMED: &str = "claimed";
+    /// 扩展确认写入完成。
+    pub const INJECTED: &str = "injected";
+    /// 扩展明确报告失败（原因见 `error`）。
+    pub const FAILED: &str = "failed";
+    /// Bench 侧查不到该任务（已过期，或 Bench 在注入完成前重启过）。
+    pub const UNKNOWN: &str = "unknown";
+}
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PendingInjectTask {
+    pub id: String,
     pub account_id: String,
     pub origin: String,
     pub created_at_ts: i64,
+    /// [`inject_status`] 之一。
+    pub status: &'static str,
+    pub updated_at_ts: i64,
+    pub error: Option<String>,
+    /// 以下均为扩展回报的**计数**，用于把「成功」说清楚成功在哪。
+    pub cookies_written: u32,
+    pub cookies_failed: u32,
+    pub storage_keys_written: u32,
+    pub idb_restored: u32,
+    pub idb_failed: u32,
+}
+
+impl PendingInjectTask {
+    /// 扩展是否还应尝试领取它。
+    fn claimable(&self, now: i64) -> bool {
+        match self.status {
+            inject_status::QUEUED => true,
+            // 领取后超时未终结 → worker 中途死了，允许重试而不是干等到过期。
+            inject_status::CLAIMED => now - self.updated_at_ts > CLAIM_REQUEUE_SECS,
+            _ => false,
+        }
+    }
+}
+
+/// 前端轮询用的任务快照（含在线判定，不含任何凭据）。
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BrowserInjectStatus {
+    /// [`inject_status`] 之一；任务不存在时为 `unknown`。
+    pub outcome: &'static str,
+    pub account_id: String,
+    pub origin: String,
+    pub created_at_ts: i64,
+    pub updated_at_ts: i64,
+    pub error: Option<String>,
+    pub cookies_written: u32,
+    pub cookies_failed: u32,
+    pub storage_keys_written: u32,
+    pub idb_restored: u32,
+    pub idb_failed: u32,
+    /// 扩展近期是否有过桥请求（判「没装/没启动」与「启动了但没干成」）。
+    pub extension_connected: bool,
 }
 
 fn pending_table() -> &'static std::sync::Mutex<Vec<PendingInjectTask>> {
@@ -486,34 +609,167 @@ fn pending_table() -> &'static std::sync::Mutex<Vec<PendingInjectTask>> {
     PENDING.get_or_init(|| std::sync::Mutex::new(Vec::new()))
 }
 
-/// 登记一条待自动注入任务（同 origin 幂等：重复登记只刷新账号与时间戳）。
-pub fn register_pending_inject(account_id: &str, origin: &str) {
+/// 最后一次收到**已授权**桥请求的时刻（扩展在线判据）。
+fn last_poll_ts() -> &'static std::sync::atomic::AtomicI64 {
+    static LAST_POLL: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0);
+    &LAST_POLL
+}
+
+fn now_ts() -> i64 {
+    chrono::Utc::now().timestamp()
+}
+
+/// 记录一次扩展侧请求（在任何已授权请求的处理入口调用）。
+fn mark_extension_polling() {
+    last_poll_ts().store(now_ts(), std::sync::atomic::Ordering::Relaxed);
+}
+
+/// 扩展是否在近 [`EXTENSION_ALIVE_SECS`] 内联系过 Bench。
+pub fn extension_connected() -> bool {
+    let last = last_poll_ts().load(std::sync::atomic::Ordering::Relaxed);
+    last > 0 && now_ts() - last < EXTENSION_ALIVE_SECS
+}
+
+/// 登记一条待自动注入任务，返回任务 id。
+///
+/// 同 origin 幂等：重复登记会替换旧任务（用户连点两次以最后一次为准）。
+pub fn register_pending_inject(account_id: &str, origin: &str) -> String {
+    let id = uuid::Uuid::new_v4().simple().to_string();
+    let now = now_ts();
     let Ok(mut guard) = pending_table().lock() else {
-        return;
+        return id;
     };
     guard.retain(|task| task.origin != origin);
     guard.push(PendingInjectTask {
+        id: id.clone(),
         account_id: account_id.to_string(),
         origin: origin.to_string(),
-        created_at_ts: chrono::Utc::now().timestamp(),
+        created_at_ts: now,
+        status: inject_status::QUEUED,
+        updated_at_ts: now,
+        error: None,
+        cookies_written: 0,
+        cookies_failed: 0,
+        storage_keys_written: 0,
+        idb_restored: 0,
+        idb_failed: 0,
     });
+    id
 }
 
-/// 未过期任务快照（不删除；由 `/v1/tasks/complete` 显式确认完成）。
+/// 按 taskId（新扩展）或 origin（旧扩展只带 origin）定位未终结的任务。
+fn find_task_index(
+    tasks: &[PendingInjectTask],
+    task_id: Option<&str>,
+    origin: Option<&str>,
+) -> Option<usize> {
+    if let Some(id) = task_id {
+        if let Some(index) = tasks.iter().position(|task| task.id == id) {
+            return Some(index);
+        }
+    }
+    let origin = origin?;
+    let now = now_ts();
+    let expires = now - PENDING_TASK_TTL_SECS;
+    tasks.iter().position(|task| {
+        task.origin == origin && task.created_at_ts >= expires && task.claimable(now)
+    })
+}
+
+/// 扩展回报任务进展。`status` 只接受 claimed / injected / failed。
+///
+/// 返回 `false` 表示找不到对应任务（多半已被过期清理），调用方据此回 400，
+/// 扩展侧不重试——任务本来就不存在了。
+fn report_pending_inject(
+    task_id: Option<&str>,
+    origin: Option<&str>,
+    status: &'static str,
+    error: Option<String>,
+    report: &Value,
+) -> bool {
+    let Ok(mut guard) = pending_table().lock() else {
+        return false;
+    };
+    let Some(index) = find_task_index(guard.as_slice(), task_id, origin) else {
+        return false;
+    };
+    let counter = |key: &str| {
+        report
+            .get(key)
+            .and_then(Value::as_u64)
+            .and_then(|value| u32::try_from(value).ok())
+            .unwrap_or(0)
+    };
+    let task = &mut guard[index];
+    task.status = status;
+    task.updated_at_ts = now_ts();
+    task.error = error;
+    // claimed 回报不带计数，保留 0；injected/failed 的计数以扩展回报为准。
+    task.cookies_written = counter("cookiesWritten");
+    task.cookies_failed = counter("cookiesFailed");
+    task.storage_keys_written = counter("storageKeysWritten");
+    task.idb_restored = counter("idbRestored");
+    task.idb_failed = counter("idbFailed");
+    true
+}
+
+/// 查不到任务时的兜底状态（任务过期 / Bench 重启过 / 队列锁不可用）。
+fn no_task_state(connected: bool, error: &str) -> BrowserInjectStatus {
+    BrowserInjectStatus {
+        outcome: inject_status::UNKNOWN,
+        account_id: String::new(),
+        origin: String::new(),
+        created_at_ts: 0,
+        updated_at_ts: 0,
+        error: Some(error.to_string()),
+        cookies_written: 0,
+        cookies_failed: 0,
+        storage_keys_written: 0,
+        idb_restored: 0,
+        idb_failed: 0,
+        extension_connected: connected,
+    }
+}
+
+/// 查询任务当前状态（供 `browser_session_inject_status` 命令轮询）。
+pub fn inject_task_status(task_id: &str) -> BrowserInjectStatus {
+    let connected = extension_connected();
+    let found = match pending_table().lock() {
+        Ok(guard) => guard.iter().find(|task| task.id == task_id).cloned(),
+        Err(_) => return no_task_state(connected, "BRIDGE_STATE_UNAVAILABLE"),
+    };
+    match found {
+        Some(task) => BrowserInjectStatus {
+            outcome: task.status,
+            account_id: task.account_id,
+            origin: task.origin,
+            created_at_ts: task.created_at_ts,
+            updated_at_ts: task.updated_at_ts,
+            error: task.error,
+            cookies_written: task.cookies_written,
+            cookies_failed: task.cookies_failed,
+            storage_keys_written: task.storage_keys_written,
+            idb_restored: task.idb_restored,
+            idb_failed: task.idb_failed,
+            extension_connected: connected,
+        },
+        None => no_task_state(connected, "TASK_EXPIRED"),
+    }
+}
+
+/// 扩展取走待领取任务（过期与已终结的一律不出；已领取超时的重投）。
 fn pending_inject_tasks() -> Value {
-    let now = chrono::Utc::now().timestamp();
+    let now = now_ts();
+    let expires = now - PENDING_TASK_TTL_SECS;
     let Ok(mut guard) = pending_table().lock() else {
         return json!([]);
     };
-    guard.retain(|task| now - task.created_at_ts <= PENDING_TASK_TTL_SECS);
-    json!(guard.clone())
-}
-
-/// 标记某 origin 的任务已完成（注入成功或用户手动处理）。
-fn complete_pending_inject(origin: &str) {
-    if let Ok(mut guard) = pending_table().lock() {
-        guard.retain(|task| task.origin != origin);
-    }
+    guard.retain(|task| task.created_at_ts >= expires);
+    json!(guard
+        .iter()
+        .filter(|task| task.claimable(now))
+        .cloned()
+        .collect::<Vec<_>>())
 }
 
 #[cfg(test)]
@@ -559,5 +815,138 @@ mod tests {
         assert_eq!(DESCRIPTOR_VERSION, 1);
         assert!(TOKEN_HEADER.starts_with("x-"));
         assert_eq!(MAX_BODY_BYTES, 16 * 1024 * 1024);
+    }
+
+    // —— 自动注入任务状态机 ——
+    // 队列表是进程级单例，用例之间以唯一 origin 登记任务互不干扰；断言一律按
+    // 自己那张 taskId 查，不去数全局行数。
+
+    fn unique_origin(label: &str) -> String {
+        format!("https://{}-{}.test", label, uuid::Uuid::new_v4().simple())
+    }
+
+    fn counters(written: u64, storage_keys: u64) -> Value {
+        json!({ "cookiesWritten": written, "storageKeysWritten": storage_keys, "idbRestored": 1 })
+    }
+
+    #[test]
+    fn registered_task_starts_queued_and_reaches_injected_with_counts() {
+        let origin = unique_origin("ok");
+        let id = register_pending_inject("acct-1", &origin);
+        assert_eq!(inject_task_status(&id).outcome, inject_status::QUEUED);
+
+        assert!(report_pending_inject(
+            Some(&id),
+            None,
+            inject_status::CLAIMED,
+            None,
+            &json!({})
+        ));
+        assert_eq!(inject_task_status(&id).outcome, inject_status::CLAIMED);
+
+        assert!(report_pending_inject(
+            Some(&id),
+            None,
+            inject_status::INJECTED,
+            None,
+            &counters(12, 5)
+        ));
+        let status = inject_task_status(&id);
+        assert_eq!(status.outcome, inject_status::INJECTED);
+        assert_eq!(status.cookies_written, 12);
+        assert_eq!(status.storage_keys_written, 5);
+        assert_eq!(status.idb_restored, 1);
+        assert_eq!(status.account_id, "acct-1");
+        assert_eq!(status.origin, origin);
+    }
+
+    #[test]
+    fn terminal_tasks_are_never_offered_to_the_extension_again() {
+        // 否则页面每次加载完成都会重复注入一遍，把用户手挑的账号覆盖掉。
+        let origin = unique_origin("terminal");
+        let id = register_pending_inject("acct-2", &origin);
+        let offered = || {
+            pending_inject_tasks()
+                .as_array()
+                .expect("pending list is an array")
+                .iter()
+                .any(|task| task["id"] == json!(id))
+        };
+        assert!(offered());
+        report_pending_inject(Some(&id), None, inject_status::INJECTED, None, &json!({}));
+        assert!(!offered());
+    }
+
+    #[test]
+    fn failed_task_carries_the_reason_and_stops_being_claimable() {
+        let origin = unique_origin("failed");
+        let id = register_pending_inject("acct-3", &origin);
+        assert!(report_pending_inject(
+            Some(&id),
+            None,
+            inject_status::FAILED,
+            Some("SITE_NOT_AUTHORIZED".to_string()),
+            &json!({})
+        ));
+        let status = inject_task_status(&id);
+        assert_eq!(status.outcome, inject_status::FAILED);
+        assert_eq!(status.error.as_deref(), Some("SITE_NOT_AUTHORIZED"));
+    }
+
+    #[test]
+    fn legacy_complete_by_origin_settles_a_queued_task() {
+        // < 0.10 的扩展只会上报 origin；不能让它把任务留到过期。
+        let origin = unique_origin("legacy");
+        let id = register_pending_inject("acct-4", &origin);
+        assert!(report_pending_inject(
+            None,
+            Some(&origin),
+            inject_status::INJECTED,
+            None,
+            &json!({})
+        ));
+        assert_eq!(inject_task_status(&id).outcome, inject_status::INJECTED);
+    }
+
+    #[test]
+    fn reporting_an_unknown_task_is_rejected() {
+        assert!(!report_pending_inject(
+            Some("no-such-task"),
+            Some(&unique_origin("missing")),
+            inject_status::INJECTED,
+            None,
+            &json!({})
+        ));
+        let status = inject_task_status("no-such-task");
+        assert_eq!(status.outcome, inject_status::UNKNOWN);
+        assert_eq!(status.error.as_deref(), Some("TASK_EXPIRED"));
+    }
+
+    #[test]
+    fn a_claim_stuck_past_the_worker_lifetime_becomes_claimable_again() {
+        // MV3 的 Service Worker 会在注入中途被回收；任务必须能重投，
+        // 而不是停在 claimed 干等到 10 分钟过期（用户看到的是永久「同步中」）。
+        let now = now_ts();
+        let mut stuck = PendingInjectTask {
+            id: "t".to_string(),
+            account_id: "a".to_string(),
+            origin: "https://a.test".to_string(),
+            created_at_ts: now,
+            status: inject_status::QUEUED,
+            updated_at_ts: now,
+            error: None,
+            cookies_written: 0,
+            cookies_failed: 0,
+            storage_keys_written: 0,
+            idb_restored: 0,
+            idb_failed: 0,
+        };
+        assert!(stuck.claimable(now));
+        stuck.status = inject_status::CLAIMED;
+        assert!(!stuck.claimable(now));
+        assert!(!stuck.claimable(now + CLAIM_REQUEUE_SECS));
+        assert!(stuck.claimable(now + CLAIM_REQUEUE_SECS + 1));
+        stuck.status = inject_status::INJECTED;
+        assert!(!stuck.claimable(now + CLAIM_REQUEUE_SECS * 10));
     }
 }

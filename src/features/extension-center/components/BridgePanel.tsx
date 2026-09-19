@@ -78,6 +78,10 @@ export function BridgePanel() {
     setExporting(true)
     try {
       const result = await exportBrowserExtension()
+      if (!result) {
+        // 用户取消选位置：什么都没发生，不要报成功，也不要跳扩展页。
+        return
+      }
       setExportResult(result)
       await refresh()
       toast.success(
@@ -187,6 +191,10 @@ export function BridgePanel() {
             </Button>
           </div>
         </div>
+
+        <p className="text-muted-foreground mt-2 text-xs">
+          {t("extensionCenter.bridgeExportLocationHint")}
+        </p>
 
         {shownDir && (
           <div className="mt-3 grid gap-1">

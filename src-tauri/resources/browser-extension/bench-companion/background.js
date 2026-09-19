@@ -123,6 +123,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   // Rust 内存 → 加密 store 之间流转，**不经过 bench-host 进程**。
   const sessionHandlers = {
     "bench:session:resolve": () => resolveSite(msg.url),
+    // 站点作用域（需要授权的 host 模式）由这里单点给出：popup 必须在保存按钮
+    // 的用户手势里申请权限，但作用域算法要跟采集侧完全一致，否则「申请了一套、
+    // 查了另一套」又会退化成静默漏采。
+    "bench:site:scope": () => siteScope(msg.url),
     "bench:session:import": () => importSession(msg),
     // Cookie 读取必须在扩展后台完成；同时把页面存储（含 IndexedDB）
     // 采集结果交给 popup，再由同一条 import 请求写入 Bench。
@@ -202,30 +206,73 @@ async function bridgeCall(path, body, allowRetry = true) {
 }
 
 /**
- * 该 host 的候选域（自身 + 逐级去掉子域，最多到两级标签）。
- * 不是严格的公共后缀解析：宁可多取几层，Rust 侧会按站点可注册域再过滤一次。
+ * `www.x.com` 形态里可能其实是「多段公共后缀」（`x.co.uk` / `x.com.cn`）的信号：
+ * 三标签 + 两段式公共后缀。此时 `registrableBase` 会算出 `co.uk` 这种整段后缀，
+ * 拿它泛域授权等于向用户申请 `*.co.uk`，因此该形态退化为只授权精确 host。
+ *
+ * 只在 TLD 恰为两字符（ccTLD）时判定，所以 `www.x.com`（TLD 三段）不会被误伤。
  */
-function candidateDomains(host) {
-  const parts = String(host || "")
-    .split(".")
-    .filter(Boolean)
-  const out = []
-  for (let i = 0; i + 2 <= parts.length && i <= 1; i += 1) {
-    out.push(parts.slice(i).join("."))
-  }
-  if (!out.length && host) out.push(String(host))
-  return out
-}
+const MULTI_LABEL_SUFFIX_PARTS = new Set([
+  "co",
+  "com",
+  "net",
+  "org",
+  "edu",
+  "gov",
+  "ac",
+  "or",
+  "ne",
+  "go",
+  "in",
+  "res",
+  "gen",
+  "sch",
+  "me",
+  "ltd",
+  "plc",
+  "firm",
+  "assn",
+])
 
-// Trae 页面通过 api.trae.cn 发起带凭据请求。大多数认证 Cookie 是
-// .trae.cn 域级，但如果服务端下发 host-only 的 API Cookie，按当前页面
-// 查询会漏掉它；仅对已知 API 域做显式补采，避免扩大到任意第三方域。
-function auxiliaryCookieHosts(host) {
-  const normalized = String(host || "")
-    .toLowerCase()
-    .replace(/^\.+/, "")
-  if (normalized === "trae.cn" || normalized.endsWith(".trae.cn")) return ["api.trae.cn"]
-  return []
+/**
+ * 站点作用域：读取/写回一个站点的登录态所需的**查询域**与**host 权限模式**。
+ *
+ * 为什么必须扩到同站全部子域：登录凭证常常不在页面 host 上，而是兄弟子域的
+ * host-only cookie（`www.x.com` 页面 ↔ `api.x.com` 会话）。host-only 不会随
+ * 域级查询带出来，`chrome.cookies` 又按 host 权限过滤结果——所以「查询」和
+ * 「授权」必须一起扩到同站全域，缺一边都仍是静默漏采。原先这里靠写死
+ * `api.trae.cn` 兜住 trae，其它站点对不上号，是「只有部分站点好使」的直接原因。
+ *
+ * 泛域只扩到**同一个可注册域内**（`*.x.com`），不触及任何第三方域；Rust 侧
+ * 入库前仍按可注册域再过滤一次（`browser_session::import_from_extension`）。
+ */
+function siteScope(url) {
+  let parsed
+  try {
+    parsed = new URL(url)
+  } catch (_) {
+    return { domains: [], patterns: [] }
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:")
+    return { domains: [], patterns: [] }
+  const scheme = parsed.protocol.replace(":", "")
+  const host = parsed.hostname.toLowerCase()
+  const base = registrableBase(host)
+  const labels = host.split(".").filter(Boolean)
+  // 整段就是公共后缀（`co.uk` / `com.cn`）时它不是站点，不能参与查询与授权。
+  const publicSuffixAsBase =
+    labels.length === 2 && labels[1].length === 2 && MULTI_LABEL_SUFFIX_PARTS.has(labels[0])
+  const domains = new Set([host])
+  if (base && !publicSuffixAsBase) domains.add(base)
+  // `x.co.uk` / `x.com.cn`：可注册域无法安全确定，退化为精确 host（与改造前一致）。
+  const ambiguous =
+    labels.length === 3 && labels[2].length === 2 && MULTI_LABEL_SUFFIX_PARTS.has(labels[1])
+  const patterns = new Set()
+  for (const entry of domains) {
+    patterns.add(`${scheme}://${entry}/*`)
+    if (!ambiguous && base && !publicSuffixAsBase) patterns.add(`${scheme}://*.${base}/*`)
+  }
+  return { domains: [...domains], patterns: [...patterns] }
 }
 
 /** 返回可用于 Cookie/存储隔离的规范 origin；受限协议一律拒绝。 */
@@ -265,14 +312,11 @@ function hostsShareSite(left, right) {
 /** 采集该 URL 的 cookie（含 HttpOnly）；跨域去重。 */
 async function collectCookies(url) {
   const origin = new URL(url).origin
-  const host = new URL(url).hostname
   const seen = new Map()
   const queries = [{ url: origin }]
-  for (const domain of candidateDomains(host)) queries.push({ domain })
-  for (const apiHost of auxiliaryCookieHosts(host)) {
-    queries.push({ url: "https://" + apiHost + "/" })
-    queries.push({ domain: apiHost })
-  }
+  // 同站全部域（含兄弟子域的 host-only cookie）；`{domain}` 的语义是
+  // 「等于该域或其子域」，所以可注册域一次查询即可覆盖 api/accounts/auth 等。
+  for (const domain of siteScope(url).domains) queries.push({ domain })
 
   for (const query of queries) {
     let batch = []
@@ -1113,10 +1157,29 @@ const IDB_RESTORE_FUNC = (payload) =>
 
 const BACKUP_PREFIX = "bench:backup:"
 
+// ── 任务回报（0.10）──────────────────────────────────────────────────────
+// Bench 点「同步到日常浏览器」时只是**登记任务 + 打开站点**，写入发生在这里。
+// 扩展是连接发起方，Bench 拿不到任何过程信息，所以每一步都要显式回报：
+// claimed（开始写）→ injected / failed（终态 + 计数）。不回报 = Bench 侧只能
+// 一路「已就绪」骗到超时。回报失败一律吞掉：任务在 Bench 侧按过期收敛。
+async function reportTask(task, status, extra = {}) {
+  if (!task?.id) return
+  try {
+    await bridgeCall("/v1/tasks/report", { taskId: task.id, status, ...extra })
+  } catch (e) {
+    /* Bench 重启或任务已过期：没有接收方，不重试 */
+  }
+}
+
 /** I5 第二步：先备份该站点现有登录态（Cookie + Web Storage），再逐条写入。 */
-async function injectSession({ accountId, url, withStorage }) {
+async function injectSession({ accountId, url, withStorage, task }) {
+  await reportTask(task, "claimed")
   const exported = await exportSession(accountId)
-  if (exported.outcome !== "ok") return exported
+  if (exported.outcome !== "ok") {
+    // 取不到会话载荷：Bench 侧没有该账号的可用会话，或桥的导出被拒。
+    await reportTask(task, "failed", { reason: "EXPORT_" + (exported.outcome || "unknown") })
+    return exported
+  }
 
   const origin = new URL(url).origin
   // 环境一致性优先：注册 UA 覆写必须在写 Cookie 之前，保证后续请求（含站点
@@ -1199,8 +1262,24 @@ async function injectSession({ accountId, url, withStorage }) {
     }
   }
   await chrome.storage.local.set({ [backupKey]: backup })
-  // 注入成功即完成同 origin 的自动注入任务（若存在），避免自动流程重复注入。
-  void bridgeCall("/v1/tasks/complete", { origin }).catch(() => {})
+  const summary = {
+    cookiesWritten: written,
+    cookiesFailed: failed,
+    storageKeysWritten: storage.writtenKeys,
+    idbRestored: storage.indexedDb.restored || 0,
+    idbFailed: (storage.indexedDb.failed || []).length,
+  }
+  if (task?.id) {
+    await reportTask(task, "injected", summary)
+  } else {
+    // popup 里手动注入：把同 origin 的待领取任务一并结掉，避免页面下次加载
+    // 又被自动流程注入一遍（用户刚手工挑过账号，重复注入会覆盖他的选择）。
+    try {
+      await bridgeCall("/v1/tasks/complete", { origin, ...summary })
+    } catch (e) {
+      /* 没有待领取任务时这是预期的 404/过期，不影响本次注入结果 */
+    }
+  }
 
   return {
     outcome: "injected",
@@ -1249,23 +1328,26 @@ async function maybeAutoInject() {
     const granted = await chrome.permissions
       .contains({ origins: [tabOrigin + "/*"] })
       .catch(() => false)
-    if (!granted) continue // 未授权站点：保留任务，等用户在 popup 手动完成授权注入
+    if (!granted) {
+      // 未授权站点：host-only cookie 与本地存储都写不进去。必须**显式报失败**，
+      // 否则 Bench 侧只能一路显示「等待扩展」直到超时，用户不知道该去点一次授权。
+      await reportTask(task, "failed", { reason: "SITE_NOT_AUTHORIZED" })
+      continue
+    }
     try {
-      await injectSession({
+      // 终态由 injectSession 自己回报（它才知道写了几条、跳过了什么）。
+      const result = await injectSession({
         accountId: task.accountId,
         url: tab.url || tabOrigin + "/",
         withStorage: true,
+        task,
       })
-      completed.push(task.origin)
+      if (result?.outcome === "injected") completed.push(task.origin)
     } catch (e) {
-      /* 单任务失败不阻断其他任务；任务保留到过期 */
-    }
-  }
-  for (const origin of completed) {
-    try {
-      await bridgeCall("/v1/tasks/complete", { origin })
-    } catch (e) {
-      /* 完成确认失败无妨：任务 10 分钟后过期 */
+      // 抛出来的一律回报：不回报就等于任务永远停在 claimed，Bench 只能猜。
+      await reportTask(task, "failed", {
+        reason: String((e && e.message) || e || "INJECT_THREW").slice(0, 200),
+      })
     }
   }
   return { ok: true, completed }

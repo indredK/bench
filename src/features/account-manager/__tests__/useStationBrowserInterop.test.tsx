@@ -302,6 +302,23 @@ describe("useStationBrowserInterop", () => {
     expect(result.current.extensionBusy).toBe(false)
   })
 
+  it("does nothing after the user cancels the export location picker", async () => {
+    // 取消选位置 = 什么都没发生。报成功或跳扩展页都会让用户以为扩展已经装上了。
+    exportBrowserExtension.mockResolvedValueOnce(null)
+    const { result } = renderHook(() => useStationBrowserInterop())
+    act(() => result.current.confirmOpen(station(), accounts()))
+    await waitFor(() => expect(result.current.browserId).toBe("chrome"))
+
+    await act(async () => {
+      await result.current.handleExportExtension()
+    })
+
+    expect(openBrowserExtensionsPage).not.toHaveBeenCalled()
+    expect(toasts.success).not.toHaveBeenCalled()
+    expect(toasts.error).not.toHaveBeenCalled()
+    expect(result.current.extensionBusy).toBe(false)
+  })
+
   it("surfaces an export failure and clears the busy flag", async () => {
     exportBrowserExtension.mockRejectedValueOnce(new Error("no bench-host"))
     const { result } = renderHook(() => useStationBrowserInterop())

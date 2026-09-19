@@ -35,14 +35,29 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import type { BrowserInteropTarget } from "@/features/account-manager/hooks/useBrowserInterop"
-import { describeSyncReason } from "@/features/account-manager/model/browser-interop"
+import {
+  describeInjectOutcome,
+  describeStorageRestore,
+  describeSyncReason,
+} from "@/features/account-manager/model/browser-interop"
 import type {
   BrowserDailySyncOutcome,
+  BrowserInjectStatus,
   BrowserOpenOutcome,
   BrowserOptionDto,
   BrowserStatusOutcome,
+  ChromeStoreAvailability,
   StationAccount,
 } from "@/lib/tauri/types/account-manager"
+
+/** 注入回执的语气色：成功绿、进行中琥珀、失败红（避免手拼 className）。 */
+const INJECT_TONE: Record<BrowserInjectStatus["outcome"], string> = {
+  injected: "text-primary",
+  queued: "text-amber-600",
+  claimed: "text-amber-600",
+  failed: "text-destructive",
+  unknown: "text-destructive",
+}
 
 export interface BrowserInteropDialogProps {
   open: boolean
@@ -62,8 +77,14 @@ export interface BrowserInteropDialogProps {
   lastOpen: BrowserOpenOutcome | null
   /** 最近一次「同步到日常浏览器」的结果。 */
   lastDaily: BrowserDailySyncOutcome | null
+  /** 「同步到日常浏览器」的注入回执：扩展回报的真实终态（未回报时为 null）。 */
+  lastInject: BrowserInjectStatus | null
+  /** 兜底通道（直读本机 Chrome 落盘 cookie）可用性；null/不可用时不显示该入口。 */
+  chromeStore: ChromeStoreAvailability | null
   /** 把该账号的登录态同步到所选目标。 */
   onSync: () => void
+  /** 从本机 Chrome 导入该站点的 cookie（不装扩展的兜底入向）。 */
+  onImportFromChrome: () => void
   onCloseInstance: () => void
 }
 
@@ -81,7 +102,10 @@ export function BrowserInteropDialog({
   busy,
   lastOpen,
   lastDaily,
+  lastInject,
+  chromeStore,
   onSync,
+  onImportFromChrome,
   onCloseInstance,
 }: BrowserInteropDialogProps) {
   const { t } = useTranslation()
@@ -92,10 +116,17 @@ export function BrowserInteropDialog({
   const runningBrowserName =
     browsers.find((browser) => browser.id === status?.browserId)?.name ?? status?.browserId ?? ""
   const isolated = target === "isolated"
+  // 恢复终态只在非 complete 时才需要说话；文案映射与 toast 共用 model 那一份。
+  const restoreWarning = describeStorageRestore(t, lastOpen?.storageRestoreStatus)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] overflow-x-hidden overflow-y-auto sm:max-w-[460px]">
+      {/* 宽度取 `sm:max-w-lg`（与 account-log-dialog 等长内容弹窗一致）：
+          460px 是当年为「弹窗被 UA 串与 cookie 名列表撑宽」（取证 D3）设的上限，
+          那次的正确修法是给不可断 token 加 break-all + min-w-0（已在站点弹窗里做掉），
+          不是把宽度永久钉死。互通面板现在多了注入回执与存储恢复终态两段状态行，
+          460px 下整屏都是三五行的小字换行。 */}
+      <DialogContent className="max-h-[85vh] min-w-0 overflow-x-hidden overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{t("accountManager.browserInterop.title")}</DialogTitle>
           <DialogDescription className="pt-2 text-sm">
@@ -212,6 +243,31 @@ export function BrowserInteropDialog({
             )}
           </div>
 
+          {/* 兜底入向：不装扩展，直读本机 Chrome 落盘的 cookie。
+              只在探测到可用 Chrome profile 时出现；不可用时不显示死按钮。 */}
+          {chromeStore?.available && (
+            <div className="min-w-0 space-y-2 rounded-lg border px-3 py-2">
+              <div className="text-muted-foreground text-xs">
+                {t("accountManager.browserInterop.chromeImportDesc")}
+              </div>
+              <div className="text-muted-foreground font-mono text-[11px]">
+                {t("accountManager.browserInterop.chromeImportSource", {
+                  version: chromeStore.chromeVersion || "?",
+                  profiles: chromeStore.profileCount,
+                })}
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={!idle}
+                onClick={onImportFromChrome}
+              >
+                {t("accountManager.browserInterop.chromeImport")}
+              </Button>
+            </div>
+          )}
+
           {lastOpen && (
             <div className="min-w-0 space-y-1 rounded-lg border px-3 py-2 text-xs">
               <div className="font-medium">{t("accountManager.browserInterop.lastOpenTitle")}</div>
@@ -231,6 +287,7 @@ export function BrowserInteropDialog({
                   })}
                 </div>
               )}
+              {restoreWarning && <div className="text-amber-600">{restoreWarning}</div>}
             </div>
           )}
 
@@ -246,16 +303,16 @@ export function BrowserInteropDialog({
               ) : (
                 <div className="text-muted-foreground space-y-1">
                   <div>
-                    {t("accountManager.browserInterop.lastDailyReady", {
+                    {t("accountManager.browserInterop.lastDailyQueued", {
                       count: lastDaily.cookieCount,
                       origins: lastDaily.storageOrigins,
                     })}
                   </div>
-                  {lastDaily.storageOrigins > 0 && (
-                    <div className="text-amber-600">
-                      {t("accountManager.browserInterop.lastDailyStorage", {
-                        origins: lastDaily.storageOrigins,
-                      })}
+                  {/* 真实回执：命令返回时写入还没发生，这一行才是结果。
+                      没有它，弹窗只会说「已就绪」，而那句话在扩展没装时是假的。 */}
+                  {lastInject && (
+                    <div className={INJECT_TONE[lastInject.outcome]}>
+                      {describeInjectOutcome(t, lastInject)}
                     </div>
                   )}
                 </div>

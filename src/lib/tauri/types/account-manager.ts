@@ -487,6 +487,8 @@ export type SessionOrigin =
   | "authProxy"
   | "browserCdp"
   | "browserExtension"
+  /** 直读本机 Chrome 落盘 Cookies 库导入（兜底通道，仅 macOS，只含 Cookie）。 */
+  | "chromeStore"
   | "import"
 
 /** 可用的受支持浏览器（不含本机路径，故可安全下发给前端）。 */
@@ -523,24 +525,74 @@ export interface BrowserOpenOutcome {
   sessionRecovered: boolean
   /**
    * 补采未成功的原因：`notLoggedIn`(Bench 里没登录) / `noSessionData`(页面无响应或无可采数据)
-   * / `syncFailed`(补采异常) / `conflict`(Bench 已有更新的会话)。
+   * / `syncFailed`(补采异常) / `conflict`(Bench 已有更新的会话)
+   * / `staleSession`(S1 里有会话但补采判定已未登录，注入的是过期数据)。
    */
   recoveryReason: string | null
   /** 实际恢复了 Web Storage / IndexedDB 的 origin 份数（0 = 该会话没有存储快照）。 */
   storageOrigins: number
+  /**
+   * 本次页面内存储恢复的终态：`complete` / `skipped` / `failed:<reasonCode>` /
+   * `timeout`；null = 本次没有注册恢复脚本（登录模式，或该会话没有存储快照）。
+   *
+   * IndexedDB 是异步落库的，恢复超时/失败**不构成打开失败**（浏览器已开、cookie
+   * 已注入），但此时页面很可能仍是未登录态。UI 必须据此把「已同步」与「存储没
+   * 恢复完」分开说，否则会复现「报注入成功、打开还是未登录」。
+   */
+  storageRestoreStatus: string | null
 }
 
 /** browser_session_sync_daily 结果（同步到用户日常浏览器）。 */
 export interface BrowserDailySyncOutcome {
-  /** `ready`（Bench 侧会话就绪，已在目标浏览器打开站点）| `noSession`（无登录态可同步）。 */
+  /**
+   * `queued`（Bench 侧会话已就绪、站点已打开、注入任务已登记）|
+   * `noSession`（无登录态可同步）。
+   *
+   * **`queued` 不等于注入完成**：写日常浏览器由 Bench Companion 扩展完成，而扩展
+   * 是连接发起方，本命令返回的那一刻写入还没发生。终态要按 `taskId` 轮询
+   * `browser_session_inject_status`。
+   */
   outcome: string
   browserId: string
   cookieCount: number
   storageOrigins: number
   /** 会话是否由 Bench 当场从其内置登录档案补采而来。 */
   sessionRecovered: boolean
-  /** 补采失败原因：notLoggedIn / noSessionData / syncFailed / conflict。 */
+  /** 补采失败原因：notLoggedIn / noSessionData / syncFailed / conflict / staleSession。 */
   recoveryReason: string | null
+  /** 注入任务 id；`noSession` 时为 null（没有任务可等）。 */
+  taskId: string | null
+  /**
+   * 登记任务那一刻扩展是否在线。false 不代表失败——打开站点会唤醒扩展并让它
+   * 立刻联系 Bench，所以只能在轮询超时后据此判「扩展没装 / 没在跑」。
+   */
+  extensionConnected: boolean
+}
+
+/**
+ * browser_session_inject_status 结果：「同步到日常浏览器」的真实回执。
+ *
+ * 只含计数与枚举，不含任何 cookie 或 storage 值。
+ */
+export interface BrowserInjectStatus {
+  /**
+   * `queued` 等待扩展领取 | `claimed` 扩展正在写 | `injected` 已写入 |
+   * `failed` 扩展明确报失败 | `unknown` 任务已过期或 Bench 重启过。
+   */
+  outcome: "queued" | "claimed" | "injected" | "failed" | "unknown"
+  accountId: string
+  origin: string
+  createdAtTs: number
+  updatedAtTs: number
+  /** failed 时的原因码（SITE_NOT_AUTHORIZED / EXPORT_* / 扩展异常）。 */
+  error: string | null
+  cookiesWritten: number
+  cookiesFailed: number
+  storageKeysWritten: number
+  idbRestored: number
+  idbFailed: number
+  /** 扩展近 2 分钟内是否联系过 Bench（区分「没装/没跑」与「跑了但没干成」）。 */
+  extensionConnected: boolean
 }
 
 /** browser_session_status 结果。 */
@@ -566,6 +618,20 @@ export interface BrowserCaptureOutcome {
   existingOrigin?: SessionOrigin | null
   /** 写入后按站点探针复验的结果（无法复验时为 null）。 */
   verified?: boolean | null
+}
+
+/**
+ * browser_session_chrome_store_status 结果：兜底通道（直读本机 Chrome 落盘 cookie）
+ * 在本机是否可用。只含计数与版本号，不含任何凭据。
+ */
+export interface ChromeStoreAvailability {
+  available: boolean
+  /** 可读取的 Chrome profile 数（0 = 没找到可读的 Cookies 库）。 */
+  profileCount: number
+  /** 探测到的 Chrome 版本（CFBundleVersion），用于向用户交代读的是哪个浏览器。 */
+  chromeVersion: string
+  /** 不可用原因码 + 说明（CHROME_IMPORT_NO_PROFILE / 平台不支持）。 */
+  reason: string | null
 }
 
 /** browser_session_probe 结果：只读预检，不写入任何数据。 */

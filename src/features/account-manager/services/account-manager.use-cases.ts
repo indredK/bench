@@ -418,10 +418,22 @@ export const accountManagerUseCases = {
    * 互通 I5(出向) — 把该账号的登录态同步到**用户日常浏览器**。
    *
    * 会话写入日常浏览器由 Bench Companion 扩展完成;这里只保证 Bench 侧会话就绪
-   * (必要时从内置登录档案补采)并在所选浏览器里打开站点。
+   * (必要时从内置登录档案补采)并在所选浏览器里打开站点。返回 `queued` 时**注入
+   * 还没有发生**,终态要用 `injectStatus(taskId)` 轮询。
    */
   syncToDailyBrowser(accountId: string, opts?: { browserId?: string | null }) {
     return accountManagerRepository.browserSessionSyncDaily(accountId, opts)
+  },
+
+  /**
+   * 互通 I5 — 查询「同步到日常浏览器」那张注入任务的真实回执。
+   *
+   * 扩展是连接发起方,Bench 既不能主动下指令,也就无法在同步命令里给出注入结果;
+   * 结果由扩展显式回报进任务表,这里读回来。没有这个方法,UI 能说的就只有
+   * 「会话已就绪(N 条 Cookie)」——而这句话在扩展没装时是假的。
+   */
+  injectStatus(taskId: string) {
+    return accountManagerRepository.browserSessionInjectStatus(taskId)
   },
 
   /** 互通 I1 — 查询该账号浏览器实例状态(是否运行 / 浏览器 id / 调试端口)。 */
@@ -449,6 +461,22 @@ export const accountManagerUseCases = {
    */
   captureFromBrowser(accountId: string, confirmed = false) {
     return accountManagerRepository.browserSessionCapture(accountId, confirmed)
+  },
+
+  /**
+   * 互通 I3 兜底 — 直读本机 Chrome 的落盘 cookie 导入该账号（不装扩展）。
+   *
+   * 只含 cookie，拿不到 localStorage / sessionStorage / IndexedDB，所以令牌存在
+   * 本地存储的站点仍必须走扩展；扩展可用时一律优先扩展。首次使用会弹一次 macOS
+   * 钥匙串授权（用户点「始终允许」后不再询问）。
+   */
+  importFromChrome(accountId: string, confirmed = false) {
+    return accountManagerRepository.browserSessionImportFromChrome(accountId, confirmed)
+  },
+
+  /** 兜底通道在本机是否可用（未装 Chrome / 非 macOS 时前端隐藏该入口）。 */
+  chromeStoreStatus() {
+    return accountManagerRepository.browserSessionChromeStoreStatus()
   },
 
   /**
