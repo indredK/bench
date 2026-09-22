@@ -1531,6 +1531,8 @@
     },
     "searchPlaceholder": "Search commands…",
     "noMatch": "No matching commands.",
+    "groupToggle": "Group",
+    "uncategorized": "Uncategorized",
     "confirmDelete": {
       "title": "Delete command card?",
       "description": "Delete \"{{title}}\"? This action cannot be undone."

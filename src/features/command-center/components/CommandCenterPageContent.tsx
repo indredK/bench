@@ -44,7 +44,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
-import { filterCardsByQuery } from "@/features/command-center/services/card-search"
+import { filterCardsByQuery, groupByFirstTag } from "@/features/command-center/services/card-search"
 import { useCommandCenterStore } from "@/features/command-center/store"
 import { TerminateButton } from "@/features/command-center/components/RunDetailDrawer"
 import type { CardKind, CommandCard } from "@/lib/tauri/types/command-center"
@@ -339,7 +339,9 @@ export function CommandCenterPageContent({
   const { t } = useTranslation()
   const [activeId, setActiveId] = useState<string | null>(null)
   const [query, setQuery] = useState("")
+  const [grouped, setGrouped] = useState(false)
   const visibleCards = useMemo(() => filterCardsByQuery(cards, query), [cards, query])
+  const groups = useMemo(() => groupByFirstTag(visibleCards), [visibleCards])
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -349,8 +351,8 @@ export function CommandCenterPageContent({
   const handleDragStart = (event: DragStartEvent) => setActiveId(String(event.active.id))
   const handleDragEnd = (event: DragEndEvent) => {
     setActiveId(null)
-    // 搜索过滤态下不重排：网格只渲染命中项，按可见顺序重排会与全量顺序错位。
-    if (query.trim().length > 0) return
+    // 搜索过滤 / 分组态下不重排：网格只渲染命中项或分组片段，按可见顺序重排会与全量顺序错位。
+    if (query.trim().length > 0 || grouped) return
     const { active, over } = event
     if (!over || active.id === over.id) return
     const ids = cards.map((c) => c.id)
@@ -401,15 +403,25 @@ export function CommandCenterPageContent({
       </div>
 
       {cards.length > 0 && (
-        <div className="relative">
-          <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
-          <Input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={t("commandCenter.searchPlaceholder")}
-            aria-label={t("commandCenter.searchPlaceholder")}
-            className="pl-8"
-          />
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={t("commandCenter.searchPlaceholder")}
+              aria-label={t("commandCenter.searchPlaceholder")}
+              className="pl-8"
+            />
+          </div>
+          <Button
+            variant={grouped ? "default" : "outline"}
+            size="sm"
+            aria-pressed={grouped}
+            onClick={() => setGrouped((prev) => !prev)}
+          >
+            {t("commandCenter.groupToggle")}
+          </Button>
         </div>
       )}
 
@@ -445,6 +457,46 @@ export function CommandCenterPageContent({
         <div className="text-muted-foreground py-12 text-center text-sm">
           {t("commandCenter.noMatch")}
         </div>
+      ) : grouped ? (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDragCancel={() => setActiveId(null)}
+        >
+          <div className="space-y-5">
+            {groups.map((group) => (
+              <div key={group.key || "__uncategorized"}>
+                <h2 className="text-muted-foreground mb-2 text-xs font-semibold tracking-wider uppercase">
+                  {group.key ? `#${group.key}` : t("commandCenter.uncategorized")}
+                </h2>
+                <SortableContext
+                  items={group.cards.map((c) => c.id)}
+                  strategy={rectSortingStrategy}
+                >
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {group.cards.map((card) => (
+                      <CommandCardTile
+                        key={card.id}
+                        card={card}
+                        running={runningIds.has(card.id)}
+                        onRun={onRun}
+                        onEdit={onEdit}
+                        onDelete={onDelete}
+                        onExpand={onExpand}
+                        onTerminate={onTerminate}
+                        peekable={hasResult(card.id)}
+                        dragDisabled
+                        onSelectTag={(tag) => setQuery(tag)}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </div>
+            ))}
+          </div>
+        </DndContext>
       ) : (
         <DndContext
           sensors={sensors}

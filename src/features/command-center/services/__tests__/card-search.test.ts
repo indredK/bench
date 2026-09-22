@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
   filterCardsByQuery,
+  groupByFirstTag,
   parseTags,
   tagsToText,
 } from "@/features/command-center/services/card-search"
@@ -77,5 +78,28 @@ describe("parseTags / tagsToText", () => {
     const once = parseTags("a,b,c")
     expect(tagsToText(once)).toBe("a, b, c")
     expect(parseTags(tagsToText(once))).toEqual(once)
+  })
+})
+
+describe("groupByFirstTag", () => {
+  it("groups by the first tag in first-appearance order, preserving intra-group order", () => {
+    const groups = groupByFirstTag([
+      card({ id: "1", tags: ["b", "a"] }),
+      card({ id: "2", tags: ["a"] }),
+      card({ id: "3", tags: ["b"] }),
+    ])
+    expect(groups.map((g) => g.key)).toEqual(["b", "a"])
+    expect(groups[0].cards.map((c) => c.id)).toEqual(["1", "3"])
+    expect(groups[1].cards.map((c) => c.id)).toEqual(["2"])
+  })
+
+  it("collects untagged cards under the empty key", () => {
+    const groups = groupByFirstTag([card({ id: "x" }), card({ id: "y", tags: ["prod"] })])
+    const untagged = groups.find((g) => g.key === "")
+    expect(untagged?.cards.map((c) => c.id)).toEqual(["x"])
+  })
+
+  it("returns [] for no cards", () => {
+    expect(groupByFirstTag([])).toEqual([])
   })
 })

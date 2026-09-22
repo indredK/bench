@@ -35,3 +35,30 @@ export function parseTags(raw: string): string[] {
 export function tagsToText(tags: string[]): string {
   return tags.join(", ")
 }
+
+export interface CardGroup {
+  /** 分组键 = 卡片首个标签；无标签卡片归到空串键。 */
+  key: string
+  cards: CommandCard[]
+}
+
+/**
+ * groupByFirstTag / 按首个标签分组.
+ * 纯函数：按各分组「首次出现」的顺序排列，组内保持原相对顺序，不打乱卡片次序。
+ * 无标签的卡片统一落到 key === "" 的分组（上层显示为「未分类」）。
+ */
+export function groupByFirstTag(cards: CommandCard[]): CardGroup[] {
+  const groups: CardGroup[] = []
+  const index = new Map<string, CardGroup>()
+  for (const card of cards) {
+    const key = card.tags && card.tags.length > 0 ? card.tags[0] : ""
+    let group = index.get(key)
+    if (!group) {
+      group = { key, cards: [] }
+      index.set(key, group)
+      groups.push(group)
+    }
+    group.cards.push(card)
+  }
+  return groups
+}

@@ -1531,6 +1531,8 @@
     },
     "searchPlaceholder": "搜索命令…",
     "noMatch": "没有匹配的命令。",
+    "groupToggle": "分组",
+    "uncategorized": "未分类",
     "confirmDelete": {
       "title": "删除命令卡片？",
       "description": "确定删除「{{title}}」吗？此操作无法撤销。"
