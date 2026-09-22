@@ -139,7 +139,11 @@ export function SettingsDialog({
       .then((v) => {
         if (!cancelled) setCloseBehaviorValue(v)
       })
-      .catch(() => {})
+      .catch((error) => {
+        // 读取失败不能静默留着默认值冒充当前设置——那会把「读不到」伪装成「最小化到托盘」。
+        // 与同组件自启动错误处理一致：以 toast 明确告知用户，而非 catch(() => {}) 吞掉。
+        if (!cancelled) toast.error(t("closeBehavior.loadError", { error: getErrorMessage(error) }))
+      })
     return () => {
       cancelled = true
     }

@@ -1610,7 +1610,8 @@
     "alwaysAsk": "每次提醒",
     "alwaysAskDesc": "每次关闭时弹出选择对话框",
     "remember": "记住我的选择",
-    "confirm": "确认"
+    "confirm": "确认",
+    "loadError": "读取关闭行为设置失败：{{error}}"
   },
   "networkProbe": {
     "title": "网络探测",

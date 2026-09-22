@@ -1610,7 +1610,8 @@
     "alwaysAsk": "Always Ask",
     "alwaysAskDesc": "Show a dialog each time",
     "remember": "Remember my choice",
-    "confirm": "Confirm"
+    "confirm": "Confirm",
+    "loadError": "Could not load close-behavior setting: {{error}}"
   },
   "networkProbe": {
     "title": "Network Probe",
