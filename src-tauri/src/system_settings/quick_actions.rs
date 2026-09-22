@@ -4,8 +4,11 @@ use crate::error::{AppError, AppResult};
 #[tauri::command]
 pub async fn get_lock_screen_password_enabled() -> AppResult<bool> {
     tauri::async_runtime::spawn_blocking(|| {
-        let val = defaults_read("com.apple.screensaver", "askForPassword").unwrap_or_default();
-        Ok(val == "1" || val.to_lowercase() == "true")
+        // 读取失败（cfprefsd 异常/超时/值损坏）必须作为错误上抛，交前端呈现可重试错误态，
+        // 不能像旧的 `unwrap_or_default()` 那样把 `""` 判成「未开启」——那是 design §2 禁止的
+        // 「失败伪装成 off」，且这是安全相关开关。仅当键确实不存在才回退 false。
+        defaults_read_bool_or("com.apple.screensaver", "askForPassword", false)
+            .map_err(AppError::internal)
     })
     .await
     .map_err(|e| AppError::internal(format!("get_lock_screen_password_enabled: {e}")))?
@@ -28,8 +31,11 @@ pub async fn set_lock_screen_password_enabled(enabled: bool) -> AppResult<()> {
 #[tauri::command]
 pub async fn get_lock_screen_password_delay() -> AppResult<i32> {
     tauri::async_runtime::spawn_blocking(|| {
-        let val = defaults_read("com.apple.screensaver", "askForPasswordDelay").unwrap_or_default();
-        Ok(val.parse::<i32>().unwrap_or(5))
+        // 同上：真实读取失败要上抛，不能伪装成默认 5 秒；仅键缺失才回退 "5"。
+        let val = defaults_read_string_or("com.apple.screensaver", "askForPasswordDelay", "5")
+            .map_err(AppError::internal)?;
+        val.parse::<i32>()
+            .map_err(|e| AppError::internal(format!("askForPasswordDelay: {e}")))
     })
     .await
     .map_err(|e| AppError::internal(format!("get_lock_screen_password_delay: {e}")))?
