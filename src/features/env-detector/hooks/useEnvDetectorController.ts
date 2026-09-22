@@ -3,12 +3,14 @@
  */
 import { useCallback, useEffect, useMemo } from "react"
 import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 import i18n from "@/i18n/config"
 import type { FilterGroup } from "@/shared/compare/FilterBar"
 import { useContextMenuRegistration } from "@/shared/context-menu/useContextMenuRegistration"
 import type { ContextMenuConfig, ContextMenuRegistration } from "@/shared/context-menu/types"
 import { createEnvDetectorColumns } from "@/features/env-detector/columns"
 import { envDetectorUseCases } from "@/features/env-detector/services/env-detector.use-cases"
+import { buildEnvSnapshot } from "@/features/env-detector/services/env-snapshot"
 import { EnvScanTimeoutError } from "@/features/env-detector/services/env-detector.repository"
 import { useEnvDetectorStore } from "@/features/env-detector/store"
 import { registerFeatureRefresh } from "@/features/refresh"
@@ -111,6 +113,21 @@ export function useEnvDetectorController(active: boolean) {
       /* clipboard may be unavailable */
     }
   }, [])
+
+  // 导出当前扫描到的环境清单到剪贴板；路径已脱敏（用户主目录 → <HOME>），不含凭据。
+  const handleExportSnapshot = useCallback(async () => {
+    const snapshot = buildEnvSnapshot(tools)
+    if (!snapshot) {
+      toast.info(t("envDetector.exportEmpty"))
+      return
+    }
+    try {
+      await writeClipboardText(`${t("envDetector.exportTitle")}\n\n${snapshot}`)
+      toast.success(t("envDetector.exportCopied"))
+    } catch {
+      toast.error(t("envDetector.exportFailed"))
+    }
+  }, [tools, t])
 
   const getRowAttributes = useCallback(
     (tool: EnvTool) => ({
@@ -274,6 +291,7 @@ export function useEnvDetectorController(active: boolean) {
     handleFilterChange,
     clearFilters,
     loadTools,
+    handleExportSnapshot,
     getRowAttributes,
   }
 }

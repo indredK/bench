@@ -47,6 +47,7 @@ function EnvDetector({
     handleFilterChange,
     clearFilters,
     loadTools,
+    handleExportSnapshot,
     getRowAttributes,
   } = controller
 
@@ -98,6 +99,14 @@ function EnvDetector({
                   ) : (
                     t("envDetector.refresh")
                   )}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportSnapshot}
+                  disabled={!scanned || scanning}
+                >
+                  {t("envDetector.exportSnapshot")}
                 </Button>
               </div>
               <div className="mb-2">
