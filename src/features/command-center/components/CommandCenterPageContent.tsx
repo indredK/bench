@@ -9,7 +9,7 @@
  *    运行中持续打印；运行结束不自动退出，Esc 或点击遮罩复位。
  *  - 点击只查详情时不触发运行；运行需显式点运行按钮。
  */
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { AnimatePresence, motion } from "motion/react"
 import {
@@ -25,7 +25,7 @@ import {
 } from "@dnd-kit/core"
 import { SortableContext, rectSortingStrategy, useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { GripVertical, Terminal, Trash2, Store } from "lucide-react"
+import { GripVertical, Terminal, Trash2, Store, Search } from "lucide-react"
 import {
   CheckCircle2,
   Copy,
@@ -43,6 +43,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { Input } from "@/components/ui/input"
+import { filterCardsByQuery } from "@/features/command-center/services/card-search"
 import { useCommandCenterStore } from "@/features/command-center/store"
 import { TerminateButton } from "@/features/command-center/components/RunDetailDrawer"
 import type { CardKind, CommandCard } from "@/lib/tauri/types/command-center"
@@ -319,6 +321,8 @@ export function CommandCenterPageContent({
 }) {
   const { t } = useTranslation()
   const [activeId, setActiveId] = useState<string | null>(null)
+  const [query, setQuery] = useState("")
+  const visibleCards = useMemo(() => filterCardsByQuery(cards, query), [cards, query])
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -328,6 +332,8 @@ export function CommandCenterPageContent({
   const handleDragStart = (event: DragStartEvent) => setActiveId(String(event.active.id))
   const handleDragEnd = (event: DragEndEvent) => {
     setActiveId(null)
+    // 搜索过滤态下不重排：网格只渲染命中项，按可见顺序重排会与全量顺序错位。
+    if (query.trim().length > 0) return
     const { active, over } = event
     if (!over || active.id === over.id) return
     const ids = cards.map((c) => c.id)
@@ -377,6 +383,19 @@ export function CommandCenterPageContent({
         </div>
       </div>
 
+      {cards.length > 0 && (
+        <div className="relative">
+          <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={t("commandCenter.searchPlaceholder")}
+            aria-label={t("commandCenter.searchPlaceholder")}
+            className="pl-8"
+          />
+        </div>
+      )}
+
       {error && (
         <Alert variant="destructive" className="flex items-center">
           <AlertDescription className="flex-1">{error}</AlertDescription>
@@ -405,6 +424,10 @@ export function CommandCenterPageContent({
             {t("commandCenter.addCard")}
           </Button>
         </div>
+      ) : visibleCards.length === 0 ? (
+        <div className="text-muted-foreground py-12 text-center text-sm">
+          {t("commandCenter.noMatch")}
+        </div>
       ) : (
         <DndContext
           sensors={sensors}
@@ -413,9 +436,9 @@ export function CommandCenterPageContent({
           onDragEnd={handleDragEnd}
           onDragCancel={() => setActiveId(null)}
         >
-          <SortableContext items={cards.map((c) => c.id)} strategy={rectSortingStrategy}>
+          <SortableContext items={visibleCards.map((c) => c.id)} strategy={rectSortingStrategy}>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {cards.map((card) => (
+              {visibleCards.map((card) => (
                 <CommandCardTile
                   key={card.id}
                   card={card}

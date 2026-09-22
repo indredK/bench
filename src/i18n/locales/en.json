@@ -1525,6 +1525,8 @@
       "preview": "Command preview",
       "run": "Run"
     },
+    "searchPlaceholder": "Search commands…",
+    "noMatch": "No matching commands.",
     "confirmDelete": {
       "title": "Delete command card?",
       "description": "Delete \"{{title}}\"? This action cannot be undone."

@@ -1525,6 +1525,8 @@
       "preview": "命令预览",
       "run": "运行"
     },
+    "searchPlaceholder": "搜索命令…",
+    "noMatch": "没有匹配的命令。",
     "confirmDelete": {
       "title": "删除命令卡片？",
       "description": "确定删除「{{title}}」吗？此操作无法撤销。"
