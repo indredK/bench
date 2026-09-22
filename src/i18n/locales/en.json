@@ -259,7 +259,9 @@
       "targetPlaceholder": "e.g. google.com or 8.8.8.8:53",
       "ping": "Ping",
       "localIp": "Local IP",
-      "wifi": "WiFi"
+      "wifi": "WiFi",
+      "portPlaceholder": "Port",
+      "portCheck": "Check Port"
     },
     "browser": {
       "title": "Default Browser",

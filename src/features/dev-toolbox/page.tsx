@@ -96,10 +96,13 @@ export default function DevToolbox(_props: DevToolboxProps) {
     handleRegexTest,
     diagnosticTarget,
     setDiagnosticTarget,
+    diagnosticPort,
+    setDiagnosticPort,
     diagnosticResult,
     handlePing,
     handleLocalIp,
     handleWifiInfo,
+    handlePortCheck,
     systemInfo,
     systemInfoLoading,
     systemInfoError,
@@ -311,10 +314,28 @@ export default function DevToolbox(_props: DevToolboxProps) {
             placeholder={t("systemSettings.diagnostics.targetPlaceholder")}
             className="flex-1"
           />
+          <Input
+            value={diagnosticPort}
+            onChange={(e) => setDiagnosticPort(e.target.value)}
+            placeholder={t("systemSettings.diagnostics.portPlaceholder")}
+            inputMode="numeric"
+            className="w-24 shrink-0"
+          />
         </div>
         <div className="flex flex-wrap gap-2 py-2">
           <Button variant="outline" size="sm" disabled={applying} onClick={handlePing}>
             {t("systemSettings.diagnostics.ping")}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={
+              applying ||
+              !(/^\d+$/.test(diagnosticPort) && +diagnosticPort >= 1 && +diagnosticPort <= 65535)
+            }
+            onClick={handlePortCheck}
+          >
+            {t("systemSettings.diagnostics.portCheck")}
           </Button>
           <Button variant="outline" size="sm" disabled={applying} onClick={handleLocalIp}>
             {t("systemSettings.diagnostics.localIp")}

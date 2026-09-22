@@ -5,9 +5,10 @@
 import { act, renderHook, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const { loadSystemInfo, jsonFormat } = vi.hoisted(() => ({
+const { loadSystemInfo, jsonFormat, portCheck } = vi.hoisted(() => ({
   loadSystemInfo: vi.fn(),
   jsonFormat: vi.fn(),
+  portCheck: vi.fn(),
 }))
 
 vi.mock("@/features/system-settings/services/system-info.use-cases", () => ({
@@ -15,7 +16,7 @@ vi.mock("@/features/system-settings/services/system-info.use-cases", () => ({
 }))
 
 vi.mock("@/features/system-settings/services/system-settings.use-cases", () => ({
-  systemSettingsUseCases: { jsonFormat },
+  systemSettingsUseCases: { jsonFormat, portCheck },
 }))
 
 vi.mock("@/features/system-settings/hooks/useSettingAction", () => ({
@@ -30,6 +31,7 @@ import { useDevToolboxController } from "@/features/dev-toolbox/hooks/useDevTool
 beforeEach(() => {
   loadSystemInfo.mockReset().mockResolvedValue({ cpu: "Apple M2", memory: "16GB" })
   jsonFormat.mockReset()
+  portCheck.mockReset()
 })
 
 describe("useDevToolboxController (A4-4)", () => {
@@ -79,5 +81,24 @@ describe("useDevToolboxController (A4-4)", () => {
     expect(jsonFormat).toHaveBeenCalledWith('{"a":1}', true)
     expect(jsonFormat).toHaveBeenCalledWith('{"a":1}', false)
     expect(result.current.jsonOutput).toBe('{"a":1}')
+  })
+
+  it("wires the port-check handler through the existing port_check command", async () => {
+    portCheck.mockResolvedValue({ host: "example.com", port: 443, open: true, error: null })
+    const { result } = renderHook(() => useDevToolboxController())
+    act(() => {
+      result.current.setDiagnosticTarget("example.com")
+      result.current.setDiagnosticPort("443")
+    })
+    await act(async () => {
+      await result.current.handlePortCheck()
+    })
+    expect(portCheck).toHaveBeenCalledWith("example.com", 443)
+    expect(JSON.parse(result.current.diagnosticResult as string)).toEqual({
+      host: "example.com",
+      port: 443,
+      open: true,
+      error: null,
+    })
   })
 })

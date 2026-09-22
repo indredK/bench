@@ -259,7 +259,9 @@
       "targetPlaceholder": "如 google.com 或 8.8.8.8:53",
       "ping": "Ping",
       "localIp": "本机 IP",
-      "wifi": "WiFi"
+      "wifi": "WiFi",
+      "portPlaceholder": "端口",
+      "portCheck": "检测端口"
     },
     "browser": {
       "title": "默认浏览器",

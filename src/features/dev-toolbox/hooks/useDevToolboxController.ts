@@ -35,6 +35,7 @@ export function useDevToolboxController() {
 
   // ── Diagnostics sub-tab state ──
   const [diagnosticTarget, setDiagnosticTarget] = useState("")
+  const [diagnosticPort, setDiagnosticPort] = useState("80")
   const [diagnosticResult, setDiagnosticResult] = useState<string | null>(null)
 
   // ── Info sub-tab state ──
@@ -138,6 +139,12 @@ export function useDevToolboxController() {
     if (r !== undefined) setDiagnosticResult(JSON.stringify(r, null, 2))
   }
 
+  const handlePortCheck = () =>
+    runDiagnostic(() => {
+      const port = parseInt(diagnosticPort, 10)
+      return systemSettingsUseCases.portCheck(diagnosticTarget, Number.isFinite(port) ? port : 0)
+    })
+
   return {
     // setting action
     applying,
@@ -183,11 +190,14 @@ export function useDevToolboxController() {
     // diagnostics state
     diagnosticTarget,
     setDiagnosticTarget,
+    diagnosticPort,
+    setDiagnosticPort,
     diagnosticResult,
     // diagnostics handlers
     handlePing,
     handleLocalIp,
     handleWifiInfo,
+    handlePortCheck,
     // system info
     systemInfo,
     systemInfoLoading,
