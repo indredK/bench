@@ -238,7 +238,19 @@
       "formatFullDateTime": "Full DateTime",
       "formatDateOnly": "Date Only",
       "formatTimeOnly": "Time Only",
-      "formatIso": "ISO 8601"
+      "formatIso": "ISO 8601",
+      "regexTitle": "Regex Tester",
+      "regexPatternPlaceholder": "Pattern, e.g. (\\d+)-(\\w+)",
+      "regexFlagsLabel": "Flags",
+      "regexFlagsPlaceholder": "flags",
+      "regexInputPlaceholder": "Test string...",
+      "regexReplacePlaceholder": "Replacement (optional), e.g. [$1]",
+      "regexTest": "Test",
+      "regexNoMatch": "No match",
+      "regexMatchCount": "{{total}} match(es)",
+      "regexTruncated": "showing first {{max}}",
+      "regexInvalidPattern": "Invalid pattern",
+      "regexIndexLabel": "at {{index}}"
     },
     "diagnostics": {
       "title": "Network Diagnostics",
