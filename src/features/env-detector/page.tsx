@@ -6,6 +6,13 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import FilterBar from "@/shared/compare/FilterBar"
 import { ContentView } from "@/components/content/ContentView"
 import { EnvStatusBadge } from "@/features/env-detector/columns"
@@ -49,6 +56,9 @@ function EnvDetector({
     clearFilters,
     loadTools,
     handleExportSnapshot,
+    ciPlatform,
+    setCiPlatform,
+    handleExportCiTemplate,
     getRowAttributes,
   } = controller
 
@@ -137,6 +147,29 @@ function EnvDetector({
                 >
                   {t("envDetector.exportSnapshot")}
                 </Button>
+                <div className="flex items-center gap-1">
+                  <Select value={ciPlatform} onValueChange={setCiPlatform}>
+                    <SelectTrigger
+                      className="h-8 w-[92px] text-xs"
+                      aria-label={t("envDetector.ciTargetPlatform")}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="macos">{t("envDetector.platformMacos")}</SelectItem>
+                      <SelectItem value="windows">{t("envDetector.platformWindows")}</SelectItem>
+                      <SelectItem value="linux">{t("envDetector.platformLinux")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleExportCiTemplate}
+                    disabled={!scanned || scanning}
+                  >
+                    {t("envDetector.ciTemplate")}
+                  </Button>
+                </div>
               </div>
               <div className="mb-2">
                 <FilterBar

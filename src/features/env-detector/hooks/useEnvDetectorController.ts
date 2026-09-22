@@ -1,7 +1,7 @@
 /**
  * Controller / 控制器: bind view events and use cases; 连接视图事件与用例.
  */
-import { useCallback, useEffect, useMemo } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import i18n from "@/i18n/config"
@@ -11,6 +11,7 @@ import type { ContextMenuConfig, ContextMenuRegistration } from "@/shared/contex
 import { createEnvDetectorColumns } from "@/features/env-detector/columns"
 import { envDetectorUseCases } from "@/features/env-detector/services/env-detector.use-cases"
 import { buildEnvSnapshot } from "@/features/env-detector/services/env-snapshot"
+import { renderCiEnvManifest } from "@/features/env-detector/services/env-ci"
 import { diffEnvTools } from "@/features/env-detector/services/env-diff"
 import { EnvScanTimeoutError } from "@/features/env-detector/services/env-detector.repository"
 import { useEnvDetectorStore } from "@/features/env-detector/store"
@@ -133,6 +134,29 @@ export function useEnvDetectorController(active: boolean) {
       toast.error(t("envDetector.exportFailed"))
     }
   }, [tools, t])
+
+  // 生成 CI 版本清单（asdf .tool-versions 风格），带所选目标平台标题，复制到剪贴板。
+  const [ciPlatform, setCiPlatform] = useState("macos")
+  const handleExportCiTemplate = useCallback(async () => {
+    const body = renderCiEnvManifest(tools)
+    if (!body) {
+      toast.info(t("envDetector.exportEmpty"))
+      return
+    }
+    const platformLabel =
+      ciPlatform === "windows"
+        ? t("envDetector.platformWindows")
+        : ciPlatform === "linux"
+          ? t("envDetector.platformLinux")
+          : t("envDetector.platformMacos")
+    const header = `${t("envDetector.ciHeader")} · ${t("envDetector.ciTargetPlatform")} ${platformLabel}`
+    try {
+      await writeClipboardText(`${header}\n${body}`)
+      toast.success(t("envDetector.exportCopied"))
+    } catch {
+      toast.error(t("envDetector.exportFailed"))
+    }
+  }, [tools, ciPlatform, t])
 
   const getRowAttributes = useCallback(
     (tool: EnvTool) => ({
@@ -301,6 +325,9 @@ export function useEnvDetectorController(active: boolean) {
     clearFilters,
     loadTools,
     handleExportSnapshot,
+    ciPlatform,
+    setCiPlatform,
+    handleExportCiTemplate,
     getRowAttributes,
   }
 }
