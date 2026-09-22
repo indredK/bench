@@ -11,6 +11,7 @@ import type { ContextMenuConfig, ContextMenuRegistration } from "@/shared/contex
 import { createEnvDetectorColumns } from "@/features/env-detector/columns"
 import { envDetectorUseCases } from "@/features/env-detector/services/env-detector.use-cases"
 import { buildEnvSnapshot } from "@/features/env-detector/services/env-snapshot"
+import { diffEnvTools } from "@/features/env-detector/services/env-diff"
 import { EnvScanTimeoutError } from "@/features/env-detector/services/env-detector.repository"
 import { useEnvDetectorStore } from "@/features/env-detector/store"
 import { registerFeatureRefresh } from "@/features/refresh"
@@ -42,6 +43,7 @@ export function useEnvDetectorController(active: boolean) {
   const canUsePlatformFeatures = canUseDesktopFeatures()
 
   const tools = useEnvDetectorStore((s) => s.tools)
+  const previousTools = useEnvDetectorStore((s) => s.previousTools)
   const loading = useEnvDetectorStore((s) => s.loading)
   const scanning = useEnvDetectorStore((s) => s.scanning)
   const error = useEnvDetectorStore((s) => s.error)
@@ -60,7 +62,7 @@ export function useEnvDetectorController(active: boolean) {
   const setViewMode = useEnvDetectorStore((s) => s.setViewMode)
 
   const loadTools = useCallback(async () => {
-    const { scanning: currentScanning } = useEnvDetectorStore.getState()
+    const { scanning: currentScanning, tools: prevTools } = useEnvDetectorStore.getState()
     if (currentScanning) return
 
     useEnvDetectorStore.setState({ loading: true, scanning: true, error: "", tools: [] })
@@ -74,6 +76,9 @@ export function useEnvDetectorController(active: boolean) {
       const payload = await envDetectorUseCases.scanEnvTools()
       useEnvDetectorStore.setState({
         tools: [...payload.tools, ...payload.unavailable],
+        // 保留本次扫描前的快照，供「较上次扫描」差异对比；仅在成功扫描时更新，
+        // 失败（tools 清空）不动它，避免把失败误报成「全部移除」。
+        previousTools: prevTools,
         loading: false,
         scanning: false,
         scanned: true,
@@ -264,6 +269,9 @@ export function useEnvDetectorController(active: boolean) {
 
   const tableColumns = useMemo(() => createEnvDetectorColumns(t), [t])
 
+  // 「较上次扫描」差异：仅在有两次成功扫描结果时非空（diffEnvTools 内含空侧短路）。
+  const scanDiff = useMemo(() => diffEnvTools(previousTools, tools), [previousTools, tools])
+
   return {
     t,
     canUsePlatformFeatures,
@@ -283,6 +291,7 @@ export function useEnvDetectorController(active: boolean) {
     missingTools,
     displayedTools,
     hasActiveResultFilter,
+    scanDiff,
     tableColumns,
     setSearchQuery,
     setSorting,

@@ -7,6 +7,8 @@ import type { EnvTool } from "@/lib/tauri/types/env-detector"
 
 interface EnvDetectorState {
   tools: EnvTool[]
+  /** 上一次成功扫描的结果快照，用于「较上次扫描」差异对比。 */
+  previousTools: EnvTool[]
   loading: boolean
   scanning: boolean
   error: string
@@ -30,6 +32,7 @@ interface EnvDetectorState {
 
 export const useEnvDetectorStore = create<EnvDetectorState>((set) => ({
   tools: [],
+  previousTools: [],
   loading: false,
   scanning: false,
   error: "",
@@ -57,6 +60,7 @@ export const useEnvDetectorStore = create<EnvDetectorState>((set) => ({
   reset: () =>
     set({
       tools: [],
+      previousTools: [],
       loading: false,
       scanning: false,
       error: "",

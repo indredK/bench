@@ -39,6 +39,7 @@ function EnvDetector({
     missingTools,
     displayedTools,
     hasActiveResultFilter,
+    scanDiff,
     tableColumns,
     setSearchQuery,
     setSorting,
@@ -67,6 +68,34 @@ function EnvDetector({
               <Alert variant="destructive" className="mb-4 shrink-0">
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
+            )}
+
+            {scanDiff && !scanDiff.isEmpty && (
+              <div className="bg-muted/30 mb-3 shrink-0 rounded-lg border p-3 text-xs">
+                <p className="text-muted-foreground mb-1 font-semibold">
+                  {t("envDetector.diffTitle")}
+                </p>
+                <div className="space-y-0.5">
+                  {scanDiff.added.length > 0 && (
+                    <p>
+                      {t("envDetector.diffAdded", { n: scanDiff.added.length })}:{" "}
+                      {scanDiff.added.map((x) => x.name).join(", ")}
+                    </p>
+                  )}
+                  {scanDiff.removed.length > 0 && (
+                    <p>
+                      {t("envDetector.diffRemoved", { n: scanDiff.removed.length })}:{" "}
+                      {scanDiff.removed.map((x) => x.name).join(", ")}
+                    </p>
+                  )}
+                  {scanDiff.changed.length > 0 && (
+                    <p>
+                      {t("envDetector.diffChanged", { n: scanDiff.changed.length })}:{" "}
+                      {scanDiff.changed.map((c) => `${c.name} ${c.from}→${c.to}`).join(", ")}
+                    </p>
+                  )}
+                </div>
+              </div>
             )}
 
             <div className="mb-3 shrink-0">
