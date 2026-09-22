@@ -214,7 +214,9 @@ describe("useBrowserInterop (sync out, per-target)", () => {
     // 终态来自扩展回报的任务表，而不是同步命令本身。
     await waitFor(() => expect(toasts.success).toHaveBeenCalledTimes(1), { timeout: 6000 })
     expect(browserSessionInjectStatus).toHaveBeenCalledWith("task-1")
-    expect(result.current.lastInject?.outcome).toBe("injected")
+    // toast.success 与 lastInject 状态提交可能差一次渲染：断言要等状态落定，
+    // 否则读到上一拍的 'queued' 造成偶发失败（真若永不 injected，waitFor 仍会超时）。
+    await waitFor(() => expect(result.current.lastInject?.outcome).toBe("injected"))
   })
 
   it("reports an extension-side failure as an error, never as success", async () => {
