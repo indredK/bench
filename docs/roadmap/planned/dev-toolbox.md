@@ -5,7 +5,6 @@
 
 ## 待实现
 
-- [ ] **拆分 `devtools/`、`diagnostics/`、`info/` 子模块**：当前三块内联渲染函数都写在 `page.tsx`（约 400 行），需拆为独立目录/文件，避免继续膨胀。
 - [ ] **JSON Schema 可选校验**：JSON 格式化工具旁增加 Schema 校验能力。
 - [ ] **页面级 Tab 编排行为测试**：各工具接线行为测试已补（JSON/base64/hash/uuid/timestamp/ping/port-check 经 `useDevToolboxController.test.tsx`）；仍缺渲染级 Tab 编排用例。
 
@@ -26,3 +25,4 @@
 - 2026-09-22：开发工具 Tab 新增正则测试器（原生 RegExp；非法模式内联报错、零长度匹配防死循环、匹配/输入上界）。
 - 2026-09-22：网络诊断接入 `port_check` 端口连通性检测（复用既有后端命令，仅补前端 UI）。
 - 2026-09-22：控制器测试补齐各工具接线行为（base64/hash/uuid/timestamp/ping/port-check），planned#11 的「各工具行为测试」部分关闭。
+- 2026-09-22：把 page.tsx 的三个内联渲染函数拆到 `components/{devtools,diagnostics,info}-panel.tsx`（共享同一 controller 实例，行为不变），planned#9「拆分文件」关闭。
