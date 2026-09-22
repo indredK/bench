@@ -389,8 +389,14 @@ fn authorize(request: &HttpRequest) -> Result<(), String> {
 }
 
 /// 把主窗口带到前台（与 `deep_link.rs::focus_main_window` 同一套语义：
-/// unminimize → show → set_focus）。
+/// 恢复 Regular 激活策略 → unminimize → show → set_focus）。
 fn focus_main_window<R: Runtime>(app: &AppHandle<R>) {
+    // macOS: 应用以 Accessory 态驻留托盘时，仅 show() 会让唤出的窗口没有 Dock 图标、
+    // ⌘Q 也不可用；须先切回 `Regular`。与 `tray::show_main_window` 同一语义。
+    #[cfg(target_os = "macos")]
+    {
+        let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
+    }
     let Some(window) = app.get_webview_window("main") else {
         return;
     };

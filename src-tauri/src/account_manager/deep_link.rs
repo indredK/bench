@@ -5,6 +5,13 @@ use super::state::{AccountManagerState, AuthProxyInboxStatus};
 pub const AUTH_PROXY_PENDING_EVENT: &str = "account-manager:auth-proxy-pending";
 
 fn focus_main_window<R: Runtime>(app: &AppHandle<R>) {
+    // 从深链唤回主窗口时，macOS 必须先切回 `Regular` 激活策略：应用以「启动即驻留托盘」
+    // 的 Accessory 态启动后，只 show() 会让唤出的窗口没有 Dock 图标、⌘Q 也不可用。
+    // 与 `tray::show_main_window` 保持同一语义（该 API 为 macOS 专有，按 §7.4.1 门控）。
+    #[cfg(target_os = "macos")]
+    {
+        let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
+    }
     let Some(window) = app.get_webview_window("main") else {
         return;
     };
