@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest"
-import { diffEnvTools } from "@/features/env-detector/services/env-diff"
+import {
+  diffEnvTools,
+  entriesToTools,
+  parseEnvExchange,
+  serializeEnvExchange,
+} from "@/features/env-detector/services/env-diff"
 import type { EnvTool } from "@/lib/tauri/types"
 
 function tool(name: string, version: string): EnvTool {
@@ -43,5 +48,51 @@ describe("diffEnvTools", () => {
   it("isEmpty true when the two scans match", () => {
     const same = [tool("node", "v20"), tool("git", "2.40")]
     expect(diffEnvTools(same, [...same]).isEmpty).toBe(true)
+  })
+})
+
+describe("serializeEnvExchange / parseEnvExchange", () => {
+  it("exports only available, versioned tools, deduped by name", () => {
+    const json = serializeEnvExchange([
+      tool("node", "v20"),
+      tool("node", "v18"),
+      tool("make", ""),
+      tool("go", "1.22"),
+    ])
+    expect(JSON.parse(json)).toEqual([
+      { name: "node", version: "v20" },
+      { name: "go", version: "1.22" },
+    ])
+  })
+
+  it("round-trips through parseEnvExchange", () => {
+    const json = serializeEnvExchange([tool("node", "v20"), tool("git", "2.40")])
+    const parsed = parseEnvExchange(json)
+    expect(parsed.ok).toBe(true)
+    if (parsed.ok)
+      expect(parsed.entries).toEqual([
+        { name: "node", version: "v20" },
+        { name: "git", version: "2.40" },
+      ])
+  })
+
+  it("rejects malformed input", () => {
+    expect(parseEnvExchange("not json").ok).toBe(false)
+    expect(parseEnvExchange('{"name":"x"}').ok).toBe(false)
+    expect(parseEnvExchange('["x"]').ok).toBe(false)
+  })
+
+  it("defaults a missing version to empty string", () => {
+    const parsed = parseEnvExchange('[{"name":"node"}]')
+    expect(parsed.ok && parsed.entries).toEqual([{ name: "node", version: "" }])
+  })
+})
+
+describe("entriesToTools", () => {
+  it("produces available stubs diffEnvTools can consume", () => {
+    const stubs = entriesToTools([{ name: "node", version: "v20" }])
+    expect(diffEnvTools(stubs, [tool("node", "v21")]).changed).toEqual([
+      { name: "node", from: "v20", to: "v21" },
+    ])
   })
 })

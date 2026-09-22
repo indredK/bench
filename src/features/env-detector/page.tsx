@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
   SelectContent,
@@ -59,6 +60,11 @@ function EnvDetector({
     ciPlatform,
     setCiPlatform,
     handleExportCiTemplate,
+    exchangeText,
+    setExchangeText,
+    crossDiff,
+    handleExportExchange,
+    handleCompareExchange,
     getRowAttributes,
   } = controller
 
@@ -107,6 +113,66 @@ function EnvDetector({
                 </div>
               </div>
             )}
+
+            <div className="bg-muted/20 mb-3 shrink-0 rounded-lg border p-3 text-xs">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <span className="text-muted-foreground font-semibold">
+                  {t("envDetector.exchangeTitle")}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportExchange}
+                  disabled={!scanned || scanning}
+                >
+                  {t("envDetector.exchangeExport")}
+                </Button>
+              </div>
+              <Textarea
+                className="bg-muted h-16 font-mono text-xs"
+                value={exchangeText}
+                onChange={(event) => setExchangeText(event.target.value)}
+                placeholder={t("envDetector.exchangePlaceholder")}
+              />
+              <div className="mt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCompareExchange}
+                  disabled={!exchangeText.trim()}
+                >
+                  {t("envDetector.exchangeCompare")}
+                </Button>
+              </div>
+              {crossDiff && (
+                <div className="text-muted-foreground mt-2 space-y-0.5">
+                  {crossDiff.isEmpty ? (
+                    <p>{t("envDetector.exchangeNoDiff")}</p>
+                  ) : (
+                    <>
+                      {crossDiff.added.length > 0 && (
+                        <p>
+                          {t("envDetector.diffAdded", { n: crossDiff.added.length })}:{" "}
+                          {crossDiff.added.map((x) => x.name).join(", ")}
+                        </p>
+                      )}
+                      {crossDiff.removed.length > 0 && (
+                        <p>
+                          {t("envDetector.diffRemoved", { n: crossDiff.removed.length })}:{" "}
+                          {crossDiff.removed.map((x) => x.name).join(", ")}
+                        </p>
+                      )}
+                      {crossDiff.changed.length > 0 && (
+                        <p>
+                          {t("envDetector.diffChanged", { n: crossDiff.changed.length })}:{" "}
+                          {crossDiff.changed.map((c) => `${c.name} ${c.from}→${c.to}`).join(", ")}
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
 
             <div className="mb-3 shrink-0">
               <div className="mb-2 flex items-center gap-3">

@@ -33,3 +33,71 @@ export function diffEnvTools(prev: EnvTool[], curr: EnvTool[]): EnvDiff {
   }
   return { added, removed, changed, isEmpty: added.length + removed.length + changed.length === 0 }
 }
+
+/** 跨机器对比交换用的最小条目：只带 name + version。 */
+export interface EnvEntry {
+  name: string
+  version: string
+}
+
+/**
+ * serializeEnvExchange / 序列化为可粘贴到另一台机器的 JSON。
+ * 只导出「已安装且有版本」的工具，按名去重，取 `{name,version}[]`。
+ */
+export function serializeEnvExchange(tools: EnvTool[]): string {
+  const seen = new Set<string>()
+  const entries: EnvEntry[] = []
+  for (const tool of tools) {
+    if (!tool.available || !tool.version || seen.has(tool.name)) continue
+    seen.add(tool.name)
+    entries.push({ name: tool.name, version: tool.version })
+  }
+  return JSON.stringify(entries)
+}
+
+/**
+ * parseEnvExchange / 解析另一台机器粘贴来的 JSON。
+ * 结构校验：必须是 `{name:string, version?:string}` 数组；非法返回 ok:false + error。
+ */
+export function parseEnvExchange(
+  text: string,
+): { ok: true; entries: EnvEntry[] } | { ok: false; error: string } {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(text)
+  } catch {
+    return { ok: false, error: "invalid-json" }
+  }
+  if (!Array.isArray(parsed)) return { ok: false, error: "not-array" }
+  const entries: EnvEntry[] = []
+  for (const item of parsed) {
+    if (typeof item !== "object" || item === null) return { ok: false, error: "bad-item" }
+    const record = item as Record<string, unknown>
+    if (typeof record.name !== "string") return { ok: false, error: "bad-item" }
+    entries.push({
+      name: record.name,
+      version: typeof record.version === "string" ? record.version : "",
+    })
+  }
+  return { ok: true, entries }
+}
+
+/** 把交换条目还原成 diffEnvTools 可消费的最小 EnvTool（available 恒真，其余留空）。 */
+export function entriesToTools(entries: EnvEntry[]): EnvTool[] {
+  return entries.map((entry) => ({
+    name: entry.name,
+    version: entry.version,
+    path: "",
+    size_bytes: 0,
+    size_display: "",
+    install_time: "",
+    available: true,
+    category: "",
+    source: "",
+    kind: "",
+    status: "",
+    detector: "",
+    all_paths: [],
+    issue: "",
+  }))
+}

@@ -5,8 +5,6 @@
 
 ## 待实现
 
-- [ ] **跨机器扫描结果对比**：支持导入另一台机器的结果做横向对比（本机「上次扫描 vs 本次」差异对比已交付）。
-
 ## 待验证（真机/跨平台）
 
 - [ ] 为探测失败、部分结果和平台差异补测试：低信号 Node bin 过滤 / 声明 bin 解析已由 `src-tauri/src/env_detector/node_bins.rs` 单测覆盖；仍缺 macOS / Windows 真机探测、超时截断、多版本并存等场景验证。
@@ -24,3 +22,4 @@
 - 2026-09-03：生成产品说明文档与规划文档（对齐 photo-triage 模板）。
 - 2026-09-22：新增「CI 模板」导出（`env-ci.ts` 生成 asdf `.tool-versions` 风格版本清单，可选目标平台 macOS/Windows/Linux，复制剪贴板），planned#12 关闭。
 - 2026-09-22：`node_bins.rs` 补 6 项纯函数单测（低信号 Node bin/命令名过滤、声明 bin 解析），planned#14 的「低信号 Node bin 过滤」子项覆盖（真机探测/超时仍待验）。
+- 2026-09-22：新增跨机器对比（导出 `{name,version}[]` JSON + 粘贴另一台机器导出 → `diffEnvTools` 复用），planned#8 关闭。

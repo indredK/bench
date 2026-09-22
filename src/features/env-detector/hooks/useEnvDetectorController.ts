@@ -12,7 +12,13 @@ import { createEnvDetectorColumns } from "@/features/env-detector/columns"
 import { envDetectorUseCases } from "@/features/env-detector/services/env-detector.use-cases"
 import { buildEnvSnapshot } from "@/features/env-detector/services/env-snapshot"
 import { renderCiEnvManifest } from "@/features/env-detector/services/env-ci"
-import { diffEnvTools } from "@/features/env-detector/services/env-diff"
+import {
+  diffEnvTools,
+  entriesToTools,
+  parseEnvExchange,
+  serializeEnvExchange,
+  type EnvDiff,
+} from "@/features/env-detector/services/env-diff"
 import { EnvScanTimeoutError } from "@/features/env-detector/services/env-detector.repository"
 import { useEnvDetectorStore } from "@/features/env-detector/store"
 import { registerFeatureRefresh } from "@/features/refresh"
@@ -157,6 +163,34 @@ export function useEnvDetectorController(active: boolean) {
       toast.error(t("envDetector.exportFailed"))
     }
   }, [tools, ciPlatform, t])
+
+  // 跨机器对比：导出本机 {name,version} JSON，粘贴另一台机器的导出后做差异。
+  const [exchangeText, setExchangeText] = useState("")
+  const [crossDiff, setCrossDiff] = useState<EnvDiff | null>(null)
+  const handleExportExchange = useCallback(async () => {
+    const json = serializeEnvExchange(tools)
+    if (json === "[]") {
+      toast.info(t("envDetector.exportEmpty"))
+      return
+    }
+    try {
+      await writeClipboardText(json)
+      toast.success(t("envDetector.exportCopied"))
+    } catch {
+      toast.error(t("envDetector.exportFailed"))
+    }
+  }, [tools, t])
+
+  const handleCompareExchange = useCallback(() => {
+    const parsed = parseEnvExchange(exchangeText)
+    if (!parsed.ok) {
+      setCrossDiff(null)
+      toast.error(t("envDetector.exchangeInvalid"))
+      return
+    }
+    const current = tools.filter((tool) => tool.available)
+    setCrossDiff(diffEnvTools(entriesToTools(parsed.entries), current))
+  }, [exchangeText, tools, t])
 
   const getRowAttributes = useCallback(
     (tool: EnvTool) => ({
@@ -328,6 +362,11 @@ export function useEnvDetectorController(active: boolean) {
     ciPlatform,
     setCiPlatform,
     handleExportCiTemplate,
+    exchangeText,
+    setExchangeText,
+    crossDiff,
+    handleExportExchange,
+    handleCompareExchange,
     getRowAttributes,
   }
 }
