@@ -8,6 +8,7 @@ import { systemSettingsUseCases } from "@/features/system-settings/services/syst
 import { useSettingAction } from "@/features/system-settings/hooks/useSettingAction"
 import { getErrorMessage } from "@/lib/tauri/errors"
 import type { SystemInfoData } from "@/lib/tauri/types/system-info"
+import { testRegex, type RegexTestResult } from "@/features/dev-toolbox/services/regex-tester"
 
 export type ToolboxTab = "port-manager" | "env-detector" | "devtools" | "diagnostics" | "info"
 
@@ -26,6 +27,11 @@ export function useDevToolboxController() {
   const [tsFormat, setTsFormat] = useState("datetime")
   const [tsOutput, setTsOutput] = useState("")
   const [uuidOutput, setUuidOutput] = useState("")
+  const [regexPattern, setRegexPattern] = useState("")
+  const [regexFlags, setRegexFlags] = useState("g")
+  const [regexInput, setRegexInput] = useState("")
+  const [regexReplacement, setRegexReplacement] = useState("")
+  const [regexResult, setRegexResult] = useState<RegexTestResult | null>(null)
 
   // ── Diagnostics sub-tab state ──
   const [diagnosticTarget, setDiagnosticTarget] = useState("")
@@ -114,6 +120,11 @@ export function useDevToolboxController() {
     if (r !== undefined) setTsOutput(r)
   }
 
+  // 正则是即时纯计算，非法模式以内联结构化错误呈现（不弹 toast，避免反复测试时刷屏）。
+  const handleRegexTest = () => {
+    setRegexResult(testRegex(regexPattern, regexFlags, regexInput, regexReplacement || undefined))
+  }
+
   // ── Diagnostics handlers ──
   const handlePing = () => runDiagnostic(() => systemSettingsUseCases.pingHost(diagnosticTarget, 5))
 
@@ -151,6 +162,15 @@ export function useDevToolboxController() {
     setTsFormat,
     tsOutput,
     uuidOutput,
+    regexPattern,
+    setRegexPattern,
+    regexFlags,
+    setRegexFlags,
+    regexInput,
+    setRegexInput,
+    regexReplacement,
+    setRegexReplacement,
+    regexResult,
     // devtools handlers
     handleJsonPretty,
     handleJsonMinify,
@@ -159,6 +179,7 @@ export function useDevToolboxController() {
     handleHash,
     handleUuid,
     handleTimestamp,
+    handleRegexTest,
     // diagnostics state
     diagnosticTarget,
     setDiagnosticTarget,
