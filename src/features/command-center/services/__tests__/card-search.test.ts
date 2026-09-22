@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { filterCardsByQuery } from "@/features/command-center/services/card-search"
+import {
+  filterCardsByQuery,
+  parseTags,
+  tagsToText,
+} from "@/features/command-center/services/card-search"
 import type { CommandCard } from "@/lib/tauri/types/command-center"
 
 function card(overrides: Partial<CommandCard> = {}): CommandCard {
@@ -42,7 +46,36 @@ describe("filterCardsByQuery", () => {
     expect(filterCardsByQuery(cards, "  GIT  ").map((c) => c.id)).toEqual(["a"])
   })
 
+  it("matches on tags", () => {
+    const tagged = [
+      card({ id: "x", title: "Deploy", tags: ["prod", "k8s"] }),
+      card({ id: "y", title: "Cleanup", tags: ["dev"] }),
+    ]
+    expect(filterCardsByQuery(tagged, "k8s").map((c) => c.id)).toEqual(["x"])
+    expect(filterCardsByQuery(tagged, "PROD").map((c) => c.id)).toEqual(["x"])
+  })
+
   it("returns [] when nothing matches", () => {
     expect(filterCardsByQuery(cards, "kubernetes")).toEqual([])
+  })
+})
+
+describe("parseTags / tagsToText", () => {
+  it("splits on commas and newlines, trims and drops empties", () => {
+    expect(parseTags(" prod , dev\n, ,staging ")).toEqual(["prod", "dev", "staging"])
+  })
+
+  it("dedupes while preserving order", () => {
+    expect(parseTags("a, b, a, c, b")).toEqual(["a", "b", "c"])
+  })
+
+  it("returns [] for blank input", () => {
+    expect(parseTags("   ,  \n  ")).toEqual([])
+  })
+
+  it("round-trips through tagsToText (stable on second parse)", () => {
+    const once = parseTags("a,b,c")
+    expect(tagsToText(once)).toBe("a, b, c")
+    expect(parseTags(tagsToText(once))).toEqual(once)
   })
 })

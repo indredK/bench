@@ -1497,6 +1497,8 @@
       "titlePlaceholder": "例如：给 Claude 打中文补丁",
       "fieldDescription": "描述",
       "descriptionPlaceholder": "可选，简单说明这条命令的用途",
+      "fieldTags": "标签",
+      "tagsPlaceholder": "逗号分隔，例如 prod, k8s",
       "fieldKind": "动作类型",
       "suggestion": "看起来这更像「{{kind}}」，要切换吗？",
       "applySuggestion": "应用建议",

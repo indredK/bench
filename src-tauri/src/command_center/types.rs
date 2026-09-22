@@ -34,6 +34,9 @@ pub struct CommandCard {
     /// 命令市场来源（P5；缺省 = 本地手建卡片）。市场安装/升级时写入。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub market: Option<MarketProvenance>,
+    /// 标签（planned#9）：用于分类与过滤。空 = 无标签，不写入磁盘以兼容 v1 数据。
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tags: Vec<String>,
 }
 
 /// 命令市场来源标记（spec：extension-workflow §12）。

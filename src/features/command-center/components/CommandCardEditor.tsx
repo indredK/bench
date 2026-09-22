@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { detectCardKind } from "@/features/command-center/services/detect-card-kind"
+import { parseTags, tagsToText } from "@/features/command-center/services/card-search"
 import type { CardKind, CommandCard } from "@/lib/tauri/types/command-center"
 
 const KIND_OPTIONS: CardKind[] = ["shell", "shellAdmin", "copy", "open"]
@@ -42,9 +43,11 @@ export function CommandCardEditor({
   const { t } = useTranslation()
   const [form, setForm] = useState<CommandCard | null>(draft)
   const [saving, setSaving] = useState(false)
+  const [tagsText, setTagsText] = useState("")
 
   useEffect(() => {
     setForm(draft)
+    setTagsText(tagsToText(draft?.tags ?? []))
   }, [draft])
 
   const suggestedKind = useMemo(() => (form ? detectCardKind(form.command) : null), [form])
@@ -90,6 +93,18 @@ export function CommandCardEditor({
               value={form.description}
               placeholder={t("commandCenter.editor.descriptionPlaceholder")}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="cc-tags">{t("commandCenter.editor.fieldTags")}</Label>
+            <Input
+              id="cc-tags"
+              value={tagsText}
+              placeholder={t("commandCenter.editor.tagsPlaceholder")}
+              onChange={(e) => {
+                setTagsText(e.target.value)
+                setForm({ ...form, tags: parseTags(e.target.value) })
+              }}
             />
           </div>
           <div className="space-y-2">

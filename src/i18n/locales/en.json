@@ -1497,6 +1497,8 @@
       "titlePlaceholder": "e.g. Patch Claude with Chinese pack",
       "fieldDescription": "Description",
       "descriptionPlaceholder": "Optional. Briefly explain what this command does",
+      "fieldTags": "Tags",
+      "tagsPlaceholder": "Comma-separated, e.g. prod, k8s",
       "fieldKind": "Action type",
       "suggestion": "This looks more like \"{{kind}}\". Switch to it?",
       "applySuggestion": "Apply",

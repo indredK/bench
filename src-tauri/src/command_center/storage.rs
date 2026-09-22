@@ -41,6 +41,7 @@ fn seed_cards() -> Vec<CommandCard> {
         created_at: 0,
         updated_at: 0,
         market: None,
+        tags: Vec::new(),
     }]
 }
 

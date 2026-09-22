@@ -448,6 +448,7 @@ pub async fn command_market_install(command_id: String) -> AppResult<()> {
             version: doc.version.clone(),
             installed_at: now,
         }),
+        tags: Vec::new(),
     };
 
     // 落位：upsert 语义（已装 market 卡 → 覆盖升级；否则追加）。

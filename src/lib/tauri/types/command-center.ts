@@ -15,6 +15,8 @@ export interface CommandCard {
   updatedAt: number
   /** 命令市场来源（P5；缺省 = 本地手建卡片）。 */
   market?: MarketProvenance | null
+  /** 标签：用于分类与过滤。空/缺省 = 无标签。 */
+  tags?: string[]
 }
 
 /** 命令市场来源标记。 */

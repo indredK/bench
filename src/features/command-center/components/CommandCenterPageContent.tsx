@@ -89,6 +89,7 @@ function CommandCardTile({
   onTerminate,
   peekable,
   dragDisabled,
+  onSelectTag,
 }: {
   card: CommandCard
   running: boolean
@@ -99,6 +100,7 @@ function CommandCardTile({
   onTerminate: () => void
   peekable: boolean
   dragDisabled?: boolean
+  onSelectTag?: (tag: string) => void
 }) {
   const { t } = useTranslation()
   const Icon = KIND_ICON[card.kind]
@@ -192,6 +194,21 @@ function CommandCardTile({
       <pre className="text-muted-foreground bg-muted/40 mt-2 line-clamp-3 flex-1 overflow-hidden rounded-md p-2 font-mono text-[11px] leading-snug">
         {card.command}
       </pre>
+
+      {card.tags && card.tags.length > 0 && (
+        <div className="mt-1.5 flex flex-wrap gap-1">
+          {card.tags.map((tag) => (
+            <button
+              type="button"
+              key={tag}
+              onClick={() => onSelectTag?.(tag)}
+              className="bg-muted text-muted-foreground hover:text-foreground rounded-full px-2 py-0.5 text-[10px] transition"
+            >
+              {`#${tag}`}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* 行内操作（始终位于浮层之上，保证可点击） */}
       <div
@@ -449,6 +466,8 @@ export function CommandCenterPageContent({
                   onExpand={onExpand}
                   onTerminate={onTerminate}
                   peekable={hasResult(card.id)}
+                  dragDisabled={query.trim().length > 0}
+                  onSelectTag={(tag) => setQuery(tag)}
                 />
               ))}
             </div>

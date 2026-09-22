@@ -56,6 +56,7 @@ export const commandCenterUseCases = {
       icon: null,
       createdAt: now,
       updatedAt: now,
+      tags: [],
     }
   },
 
