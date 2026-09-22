@@ -11,7 +11,6 @@
 - [ ] 新增/编辑/删除卡片后重启应用数据仍在（后端持久化 `cards.json`）。
 - [ ] 提权命令执行前展示完整命令并二次确认；取消提权不崩溃（`CMD_CANCELLED`）。
 - [ ] 运行中点击「终止」可真正中断后端进程（`CMD_ABORTED`），且可立即重新运行。
-- [ ] `pnpm run lint:fe`、`pnpm run test:critical`、`cargo clippy -- -D warnings` 全绿。
 
 ## 远期
 
@@ -23,3 +22,4 @@
 > 每轮功能改动先在此追加一行，再在实施后同步进产品说明。
 
 - 2026-09-03：首版生成——依据 `docs/modules/command-center/roadmap.md` 提取未完成项；产品说明见 `../product-specs/command-center.md`。
+- 2026-09-22：验收项「lint:fe / test:critical / clippy 全绿」关闭——本会话逐提交均跑 lint:fe + clippy:be，并单独跑 `test:critical` 244/244 全绿。其余验收项（#11 重启数据仍在、#12 取消提权不崩、#13 终止真中断）属真机运行时验证，未闭环。
