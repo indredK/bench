@@ -164,3 +164,98 @@ fn is_low_signal_command_name(command_name: &str) -> bool {
         || command.contains("language-server")
         || command.ends_with("-lsp")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn declared_bin(name: &str, rel: &str) -> NodeDeclaredBin {
+        NodeDeclaredBin {
+            name: name.to_string(),
+            relative_path: rel.to_string(),
+        }
+    }
+
+    fn node_bin_info(package_name: &str, declared_bins: Vec<NodeDeclaredBin>) -> NodeBinInfo {
+        NodeBinInfo {
+            package_name: package_name.to_string(),
+            declared_bins,
+            matched_name: None,
+        }
+    }
+
+    fn json(raw: &str) -> serde_json::Value {
+        serde_json::from_str(raw).unwrap()
+    }
+
+    #[test]
+    fn package_name_strips_scope() {
+        assert_eq!(
+            command_name_from_package_name("@vue/cli-service"),
+            "cli-service"
+        );
+        assert_eq!(command_name_from_package_name("eslint"), "eslint");
+    }
+
+    #[test]
+    fn low_signal_command_name_flags_noise() {
+        assert!(is_low_signal_command_name("tsserver"));
+        assert!(is_low_signal_command_name("TSServer"));
+        assert!(is_low_signal_command_name("typescript-language-server"));
+        assert!(is_low_signal_command_name("gopls-lsp"));
+        assert!(!is_low_signal_command_name("eslint"));
+        assert!(!is_low_signal_command_name("prettier"));
+    }
+
+    #[test]
+    fn low_signal_node_bin_rules() {
+        assert!(is_low_signal_node_bin(
+            "tsserver",
+            &node_bin_info("typescript", vec![])
+        ));
+        assert!(is_low_signal_node_bin(
+            "x-language-server",
+            &node_bin_info("x", vec![])
+        ));
+        // 多 bin + command 以 server 结尾且非包名本身 → 判为低信号（IDE 后台服务，不是用户 CLI）。
+        let multi = node_bin_info(
+            "foo",
+            vec![
+                declared_bin("foo", "index.js"),
+                declared_bin("foo-server", "srv.js"),
+            ],
+        );
+        assert!(is_low_signal_node_bin("foo-server", &multi));
+        // 单 bin 的真实 CLI 不算低信号。
+        assert!(!is_low_signal_node_bin(
+            "eslint",
+            &node_bin_info("eslint", vec![declared_bin("eslint", "bin.js")])
+        ));
+    }
+
+    #[test]
+    fn parse_declared_bins_string_shorthand() {
+        let bins = parse_node_declared_bins(&json(r#"{"bin":"cli.js"}"#), "eslint").unwrap();
+        assert_eq!(bins.len(), 1);
+        assert_eq!(bins[0].name, "eslint");
+        assert_eq!(bins[0].relative_path, "cli.js");
+    }
+
+    #[test]
+    fn parse_declared_bins_object_map() {
+        let mut bins =
+            parse_node_declared_bins(&json(r#"{"bin":{"a":"x.js","b":"y.js"}}"#), "pkg").unwrap();
+        bins.sort_by(|l, r| l.name.cmp(&r.name));
+        assert_eq!(
+            bins.iter().map(|b| b.name.as_str()).collect::<Vec<_>>(),
+            vec!["a", "b"]
+        );
+    }
+
+    #[test]
+    fn parse_declared_bins_absent_or_empty_is_none() {
+        assert!(parse_node_declared_bins(&json("{}"), "pkg").is_none());
+        assert!(parse_node_declared_bins(&json(r#"{"bin":{}}"#), "pkg").is_none());
+        assert!(parse_node_declared_bins(&json(r#"{"bin":[]}"#), "pkg").is_none());
+    }
+}

@@ -9,7 +9,7 @@
 
 ## 待验证（真机/跨平台）
 
-- [ ] 为探测失败、部分结果和平台差异补测试：目前仅有 use-case 层单测（`__tests__/env-detector.test.ts`），缺少 macOS / Windows 真机探测、超时截断、多版本并存、低信号 Node bin 过滤等场景验证。
+- [ ] 为探测失败、部分结果和平台差异补测试：低信号 Node bin 过滤 / 声明 bin 解析已由 `src-tauri/src/env_detector/node_bins.rs` 单测覆盖；仍缺 macOS / Windows 真机探测、超时截断、多版本并存等场景验证。
 
 - [ ] 跨平台：macOS 登录 shell PATH 收集（zsh/fish/bash）在真实 shell 环境下与 `which`/`type -p` 结果一致性。
 
@@ -23,3 +23,4 @@
 
 - 2026-09-03：生成产品说明文档与规划文档（对齐 photo-triage 模板）。
 - 2026-09-22：新增「CI 模板」导出（`env-ci.ts` 生成 asdf `.tool-versions` 风格版本清单，可选目标平台 macOS/Windows/Linux，复制剪贴板），planned#12 关闭。
+- 2026-09-22：`node_bins.rs` 补 6 项纯函数单测（低信号 Node bin/命令名过滤、声明 bin 解析），planned#14 的「低信号 Node bin 过滤」子项覆盖（真机探测/超时仍待验）。
