@@ -105,10 +105,6 @@ pub fn parse_defaults_bool(value: &str) -> Result<bool, String> {
     }
 }
 
-pub fn defaults_read_bool_result(domain: &str, key: &str) -> Result<bool, String> {
-    defaults_read(domain, key).and_then(|value| parse_defaults_bool(&value))
-}
-
 pub fn defaults_read_bool_or(domain: &str, key: &str, default: bool) -> Result<bool, String> {
     match run_cmd_err("defaults", &["read", domain, key]) {
         Ok(value) => parse_defaults_bool(&value),
@@ -188,11 +184,6 @@ pub fn defaults_write(domain: &str, key: &str, value: &str) -> Result<(), String
 #[cfg(not(target_os = "macos"))]
 pub fn defaults_write(_domain: &str, _key: &str, _value: &str) -> Result<(), String> {
     Err("defaults is only supported on macOS".to_string())
-}
-
-/// defaults read boolean
-pub fn defaults_read_bool(domain: &str, key: &str) -> bool {
-    defaults_read_bool_result(domain, key).unwrap_or(false)
 }
 
 /// defaults -currentHost read helper (ByHost 域)
@@ -297,4 +288,38 @@ pub fn macos_major_version() -> u32 {
 /// Escape double quotes for AppleScript string interpolation
 pub fn escape_applescript(s: &str) -> String {
     s.replace('"', "\"\"")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_defaults_bool;
+
+    #[test]
+    fn parses_canonical_true_forms() {
+        for raw in ["1", "yes", "true", "TRUE", "  true  ", "Yes"] {
+            assert_eq!(parse_defaults_bool(raw), Ok(true), "value: {raw:?}");
+        }
+    }
+
+    #[test]
+    fn parses_canonical_false_forms() {
+        for raw in ["0", "no", "false", "FALSE", "  No "] {
+            assert_eq!(parse_defaults_bool(raw), Ok(false), "value: {raw:?}");
+        }
+    }
+
+    // Reliability guard (design §2): a corrupt / unexpected value must surface as an
+    // error rather than being silently coerced to `false`. `defaults_read_bool_or`
+    // propagates this Err, so system-settings getters report a retryable failure state
+    // instead of falsely showing an enabled toggle as off.
+    #[test]
+    fn rejects_non_boolean_values() {
+        for raw in ["", "on", "off", "2", "maybe", "null", "1.0"] {
+            assert!(
+                parse_defaults_bool(raw).is_err(),
+                "expected Err for {raw:?}, got {:?}",
+                parse_defaults_bool(raw)
+            );
+        }
+    }
 }

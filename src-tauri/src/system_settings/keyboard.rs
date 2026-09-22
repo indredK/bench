@@ -1,11 +1,16 @@
 use super::helpers::*;
 use crate::error::{AppError, AppResult};
 
+// 读取失败（cfprefsd 卡住、超时、值格式异常）必须作为错误上抛，由前端呈现可重试的错误态，
+// 不能像旧的 `defaults_read_bool` 那样被 `unwrap_or(false)` 吞成「关闭」——那是 design §2
+// 明令禁止的「失败伪装成 off」。仅当键确实不存在时才回退到系统默认 false。
 #[tauri::command]
 pub async fn get_keyboard_fn_key_state() -> AppResult<bool> {
-    tauri::async_runtime::spawn_blocking(|| Ok(defaults_read_bool("com.apple.keyboard", "fnState")))
-        .await
-        .map_err(|e| AppError::internal(format!("get_keyboard_fn_key_state: {e}")))?
+    tauri::async_runtime::spawn_blocking(|| {
+        defaults_read_bool_or("com.apple.keyboard", "fnState", false).map_err(AppError::internal)
+    })
+    .await
+    .map_err(|e| AppError::internal(format!("get_keyboard_fn_key_state: {e}")))?
 }
 
 #[tauri::command]
@@ -23,9 +28,11 @@ macro_rules! ns_global_bool_toggle {
     ($get_fn:ident, $set_fn:ident, $key:literal) => {
         #[tauri::command]
         pub async fn $get_fn() -> AppResult<bool> {
-            tauri::async_runtime::spawn_blocking(|| Ok(defaults_read_bool("NSGlobalDomain", $key)))
-                .await
-                .map_err(|e| AppError::internal(format!("{}: {}", stringify!($get_fn), e)))?
+            tauri::async_runtime::spawn_blocking(|| {
+                defaults_read_bool_or("NSGlobalDomain", $key, false).map_err(AppError::internal)
+            })
+            .await
+            .map_err(|e| AppError::internal(format!("{}: {}", stringify!($get_fn), e)))?
         }
 
         #[tauri::command]
