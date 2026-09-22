@@ -238,7 +238,19 @@
       "formatFullDateTime": "完整日期时间",
       "formatDateOnly": "仅日期",
       "formatTimeOnly": "仅时间",
-      "formatIso": "ISO 8601"
+      "formatIso": "ISO 8601",
+      "regexTitle": "正则测试",
+      "regexPatternPlaceholder": "正则，例如 (\\d+)-(\\w+)",
+      "regexFlagsLabel": "修饰符",
+      "regexFlagsPlaceholder": "修饰符",
+      "regexInputPlaceholder": "待测文本...",
+      "regexReplacePlaceholder": "替换内容（可选），例如 [$1]",
+      "regexTest": "测试",
+      "regexNoMatch": "无匹配",
+      "regexMatchCount": "共 {{total}} 处匹配",
+      "regexTruncated": "仅显示前 {{max}} 个",
+      "regexInvalidPattern": "无效的正则",
+      "regexIndexLabel": "位置 {{index}}"
     },
     "diagnostics": {
       "title": "网络诊断",
