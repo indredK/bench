@@ -14,9 +14,11 @@ import { RuntimeFeatureGate } from "@/components/common/RuntimeFeatureGate"
 import { CommandCardEditor } from "@/features/command-center/components/CommandCardEditor"
 import { CommandMarketDialog } from "@/features/command-center/components/CommandMarketDialog"
 import { CommandCenterPageContent } from "@/features/command-center/components/CommandCenterPageContent"
+import { ParamPromptDialog } from "@/features/command-center/components/ParamPromptDialog"
 import { RunDetailDrawer } from "@/features/command-center/components/RunDetailDrawer"
 import { useCommandCenterController } from "@/features/command-center/hooks/useCommandCenterController"
 import { useCommandCenterStore } from "@/features/command-center/store"
+import { extractParamNames } from "@/features/command-center/services/command-params"
 import type { FeatureDescriptor } from "@/platform/capabilities"
 import { openPlatformDialog, savePlatformDialog } from "@/platform/dialog"
 import type { CommandCard } from "@/lib/tauri/types/command-center"
@@ -30,6 +32,7 @@ export default function CommandCenter({ feature }: { feature?: FeatureDescriptor
   const [editorCard, setEditorCard] = useState<CommandCard | null>(null)
   const [confirmRun, setConfirmRun] = useState<CommandCard | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<CommandCard | null>(null)
+  const [paramsCard, setParamsCard] = useState<CommandCard | null>(null)
   const [ioBusy, setIoBusy] = useState<"export" | "import" | null>(null)
   const [marketOpen, setMarketOpen] = useState(false)
 
@@ -110,7 +113,8 @@ export default function CommandCenter({ feature }: { feature?: FeatureDescriptor
     void controller.cancelRun()
   }, [controller])
 
-  const handleRunRequest = useCallback(
+  // 分发执行：提权/危险类型走确认弹窗，其余直接跑。确认弹窗展示的是最终命令。
+  const dispatchRun = useCallback(
     (card: CommandCard) => {
       if (controller.requiresConfirm(card.kind)) {
         setConfirmRun(card)
@@ -119,6 +123,18 @@ export default function CommandCenter({ feature }: { feature?: FeatureDescriptor
       }
     },
     [controller, runCard],
+  )
+
+  // 运行请求总入口：命令含 {{占位符}} 时先弹窗填值（填满才放行），否则直接分发。
+  const handleRunRequest = useCallback(
+    (card: CommandCard) => {
+      if (extractParamNames(card.command).length > 0) {
+        setParamsCard(card)
+        return
+      }
+      dispatchRun(card)
+    },
+    [dispatchRun],
   )
 
   const handleReorder = useCallback(
@@ -188,13 +204,7 @@ export default function CommandCenter({ feature }: { feature?: FeatureDescriptor
         card={expandedCard}
         runningIds={controller.runningIds}
         runStatus={controller.runStatus}
-        onRun={(card) => {
-          if (controller.requiresConfirm(card.kind)) {
-            setConfirmRun(card)
-          } else {
-            void runCard(card)
-          }
-        }}
+        onRun={handleRunRequest}
         onEdit={handleEditFromDrawer}
         onTerminate={cancelRun}
         onOpenChange={(open) => {
@@ -206,6 +216,18 @@ export default function CommandCenter({ feature }: { feature?: FeatureDescriptor
         open={marketOpen}
         onOpenChange={setMarketOpen}
         onInstalled={() => void controller.loadCards()}
+      />
+
+      <ParamPromptDialog
+        card={paramsCard}
+        onOpenChange={(open) => {
+          if (!open) setParamsCard(null)
+        }}
+        onRunFilled={(filledCommand) => {
+          const base = paramsCard
+          setParamsCard(null)
+          if (base) dispatchRun({ ...base, command: filledCommand })
+        }}
       />
 
       <CommandCardEditor

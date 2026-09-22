@@ -1518,6 +1518,13 @@
       "description": "About to run \"{{title}}\", which requests administrator privileges.",
       "action": "Run"
     },
+    "params": {
+      "title": "Fill parameters",
+      "description": "Provide values for \"{{title}}\" before running.",
+      "valuePlaceholder": "Value",
+      "preview": "Command preview",
+      "run": "Run"
+    },
     "confirmDelete": {
       "title": "Delete command card?",
       "description": "Delete \"{{title}}\"? This action cannot be undone."

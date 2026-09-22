@@ -1518,6 +1518,13 @@
       "description": "即将执行「{{title}}」，该命令会请求管理员权限。",
       "action": "确认运行"
     },
+    "params": {
+      "title": "填写参数",
+      "description": "运行「{{title}}」前请填写参数。",
+      "valuePlaceholder": "取值",
+      "preview": "命令预览",
+      "run": "运行"
+    },
     "confirmDelete": {
       "title": "删除命令卡片？",
       "description": "确定删除「{{title}}」吗？此操作无法撤销。"
