@@ -200,4 +200,38 @@ describe("validateJsonSchema", () => {
     // Truncated must never be reported as a clean pass.
     expect(result.valid).toBe(false)
   })
+
+  it("applies patternProperties to matching keys only", () => {
+    const schema = JSON.stringify({
+      type: "object",
+      patternProperties: { "^s_": { type: "string" } },
+    })
+    // key "s_x" matches and must be a string; "other" is unconstrained.
+    expect(ok(validateJsonSchema(schema, JSON.stringify({ s_x: "a", other: 5 }))).valid).toBe(true)
+    const bad = ok(validateJsonSchema(schema, JSON.stringify({ s_x: 5 })))
+    expect(bad.valid).toBe(false)
+    expect(bad.issues.some((i) => i.path === "/s_x")).toBe(true)
+  })
+
+  it("validates extra keys against additionalProperties when it is a schema", () => {
+    const schema = JSON.stringify({
+      type: "object",
+      properties: { known: { type: "string" } },
+      additionalProperties: { type: "integer" },
+    })
+    expect(ok(validateJsonSchema(schema, JSON.stringify({ known: "a", extra: 3 }))).valid).toBe(
+      true,
+    )
+    expect(ok(validateJsonSchema(schema, JSON.stringify({ extra: "nope" }))).valid).toBe(false)
+  })
+
+  it("enforces propertyNames and contains", () => {
+    const names = JSON.stringify({ propertyNames: { maxLength: 3 } })
+    expect(ok(validateJsonSchema(names, JSON.stringify({ ab: 1 }))).valid).toBe(true)
+    expect(ok(validateJsonSchema(names, JSON.stringify({ abcdef: 1 }))).valid).toBe(false)
+
+    const contains = JSON.stringify({ type: "array", contains: { type: "integer", minimum: 5 } })
+    expect(ok(validateJsonSchema(contains, JSON.stringify([1, 9]))).valid).toBe(true)
+    expect(ok(validateJsonSchema(contains, JSON.stringify([1, 2]))).valid).toBe(false)
+  })
 })
