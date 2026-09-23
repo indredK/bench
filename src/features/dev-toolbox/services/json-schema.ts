@@ -59,7 +59,6 @@ const SUPPORTED_KEYWORDS = new Set([
   "maxProperties",
   "items",
   "additionalItems",
-  "prefixItems",
   "minItems",
   "maxItems",
   "uniqueItems",

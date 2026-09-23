@@ -131,6 +131,17 @@ describe("validateJsonSchema", () => {
     expect(result.unsupported).toContain("contentEncoding")
   })
 
+  it("flags prefixItems as unsupported rather than falsely accepting a 2020-12 tuple", () => {
+    // prefixItems is NOT evaluated by this Draft-07 subset; it must be reported, not ignored.
+    const result = ok(
+      validateJsonSchema(
+        JSON.stringify({ type: "array", prefixItems: [{ type: "string" }] }),
+        JSON.stringify([1, 2]),
+      ),
+    )
+    expect(result.unsupported).toContain("prefixItems")
+  })
+
   it("ignores annotations without marking them unsupported", () => {
     const result = ok(
       validateJsonSchema(JSON.stringify({ title: "t", format: "email", type: "string" }), '"a@b"'),
