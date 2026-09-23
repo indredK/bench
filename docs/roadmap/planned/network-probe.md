@@ -14,7 +14,7 @@
 ### Wave 0 · Polish 基线（可并行）
 
 - [ ] **P0-1** MVP 面板空态 / 失败态 / 重入与取消一致性扫尾（S-X-\* · coding §3/§5）。
-- [ ] **P0-2** 关键测试补强：契约 · cancel 幂等 · Advisor 纯函数 · 无特权降级（部分完成，◐）。
+- [x] **P0-2** 关键测试补强：契约 · cancel 幂等 · Advisor 纯函数 · 无特权降级——契约字段奇偶已覆盖 `PingSample`/`PingProbeResult`/`LanDiscoveryResult`/`PortScanResult`/`TracerouteResult`；cancel 幂等 `cancel-idempotency.test.ts`；Advisor `net_probe/advisor.rs` 4 纯函数测；无特权降级 `health/fake_ip/probe/defaults/summary.rs` 带 `#[test]`。
 
 ### Wave 3 · 安全 Tab（续）
 
@@ -61,3 +61,4 @@
 > 每轮功能改动先在此追加一行，再在实施后同步进产品说明。
 
 - 2026-09-03：首版生成——依据 `docs/modules/network-probe/roadmap.md`（Wave 0–6）与 `docs/roadmap/ROADMAP.md` D-016，提炼 ⬜/◐ 未完成项为「待实现」「待验证」「远期」三档；产品说明见 `../product-specs/network-probe.md`。
+- 2026-09-23：P5-1 长列表虚拟化关闭（端口/ARP 设备列表接入自包含 `VirtualRowList`，traceroute 跳点为受限表格有意不虚拟化）；P0-2 关键测试补强关闭（`contracts.test.ts` 补齐 5 个 network-probe IPC DTO 字段奇偶 + 既有 advisor/cancel/degrade 测试）。
