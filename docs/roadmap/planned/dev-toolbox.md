@@ -5,7 +5,7 @@
 
 ## 待实现
 
-- [ ] **JSON Schema 可选校验**：JSON 格式化工具旁增加 Schema 校验能力。
+- 暂无（纯前端、可本地闭环项已全部交付）。
 
 ## 待验证
 
@@ -26,3 +26,4 @@
 - 2026-09-22：控制器测试补齐各工具接线行为（base64/hash/uuid/timestamp/ping/port-check），planned#11 的「各工具行为测试」部分关闭。
 - 2026-09-22：把 page.tsx 的三个内联渲染函数拆到 `components/{devtools,diagnostics,info}-panel.tsx`（共享同一 controller 实例，行为不变），planned#9「拆分文件」关闭。
 - 2026-09-22：新增 `__tests__/dev-toolbox-panels.test.tsx` 渲染用例，验证拆分后各面板分节标题/控件齐全（含端口检测按钮），planned#11 关闭。
+- 2026-09-23：JSON 格式化工具旁新增 **JSON Schema 校验**（`services/json-schema.ts`，零依赖自研 Draft-07 核心子集：type/enum/const/数值/字符串/数组/对象/组合器/if-then-else/布尔 schema/本地 $ref）。本机离线装不了 ajv，故自研并配 13 项单测；可靠性护栏照 design §2——schema/数据解析失败返回结构化错误不抛异常，**不支持的关键字记入 unsupported 并标注「尽力校验」而非静默放过**，递归深度/步数/错误数设上界防钉死。即时纯计算、无 IPC 变更。→ planned「JSON Schema 可选校验」关闭。

@@ -250,7 +250,15 @@
       "regexMatchCount": "{{total}} match(es)",
       "regexTruncated": "showing first {{max}}",
       "regexInvalidPattern": "Invalid pattern",
-      "regexIndexLabel": "at {{index}}"
+      "regexIndexLabel": "at {{index}}",
+      "schemaTitle": "JSON Schema Validation",
+      "schemaDataHint": "Validates the content typed in the JSON formatter above as the data. Enter a schema below, then Validate.",
+      "schemaPlaceholder": "Paste a JSON Schema here (Draft-07 core subset)",
+      "schemaValidate": "Validate",
+      "schemaParseError": "Cannot validate",
+      "schemaValid": "Data conforms to the schema",
+      "schemaInvalid": "{{n}} violation(s) found",
+      "schemaUnsupported": "Best-effort: these keywords were not evaluated here ({{keywords}})"
     },
     "diagnostics": {
       "title": "Network Diagnostics",

@@ -250,7 +250,15 @@
       "regexMatchCount": "共 {{total}} 处匹配",
       "regexTruncated": "仅显示前 {{max}} 个",
       "regexInvalidPattern": "无效的正则",
-      "regexIndexLabel": "位置 {{index}}"
+      "regexIndexLabel": "位置 {{index}}",
+      "schemaTitle": "JSON Schema 校验",
+      "schemaDataHint": "以左侧「JSON 格式化」里的输入内容作为被校验数据，在下方填入 Schema 后点「校验」。",
+      "schemaPlaceholder": "在此粘贴 JSON Schema（Draft-07 核心子集）",
+      "schemaValidate": "校验",
+      "schemaParseError": "无法校验",
+      "schemaValid": "数据符合 Schema",
+      "schemaInvalid": "发现 {{n}} 处不符",
+      "schemaUnsupported": "尽力校验：以下关键字本工具未评估（{{keywords}}）"
     },
     "diagnostics": {
       "title": "网络诊断",

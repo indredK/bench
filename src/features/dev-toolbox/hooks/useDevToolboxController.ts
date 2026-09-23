@@ -9,6 +9,10 @@ import { useSettingAction } from "@/features/system-settings/hooks/useSettingAct
 import { getErrorMessage } from "@/lib/tauri/errors"
 import type { SystemInfoData } from "@/lib/tauri/types/system-info"
 import { testRegex, type RegexTestResult } from "@/features/dev-toolbox/services/regex-tester"
+import {
+  validateJsonSchema,
+  type JsonSchemaResult,
+} from "@/features/dev-toolbox/services/json-schema"
 
 export type ToolboxTab = "port-manager" | "env-detector" | "devtools" | "diagnostics" | "info"
 
@@ -32,6 +36,8 @@ export function useDevToolboxController() {
   const [regexInput, setRegexInput] = useState("")
   const [regexReplacement, setRegexReplacement] = useState("")
   const [regexResult, setRegexResult] = useState<RegexTestResult | null>(null)
+  const [schemaInput, setSchemaInput] = useState("")
+  const [schemaResult, setSchemaResult] = useState<JsonSchemaResult | null>(null)
 
   // ── Diagnostics sub-tab state ──
   const [diagnosticTarget, setDiagnosticTarget] = useState("")
@@ -126,6 +132,12 @@ export function useDevToolboxController() {
     setRegexResult(testRegex(regexPattern, regexFlags, regexInput, regexReplacement || undefined))
   }
 
+  // JSON Schema 校验同样是即时纯计算（零依赖自研），结果以结构化 issue 内联呈现，
+  // 数据复用上方 JSON 输入框内容。
+  const handleSchemaValidate = () => {
+    setSchemaResult(validateJsonSchema(schemaInput, jsonInput))
+  }
+
   // ── Diagnostics handlers ──
   const handlePing = () => runDiagnostic(() => systemSettingsUseCases.pingHost(diagnosticTarget, 5))
 
@@ -178,6 +190,9 @@ export function useDevToolboxController() {
     regexReplacement,
     setRegexReplacement,
     regexResult,
+    schemaInput,
+    setSchemaInput,
+    schemaResult,
     // devtools handlers
     handleJsonPretty,
     handleJsonMinify,
@@ -187,6 +202,7 @@ export function useDevToolboxController() {
     handleUuid,
     handleTimestamp,
     handleRegexTest,
+    handleSchemaValidate,
     // diagnostics state
     diagnosticTarget,
     setDiagnosticTarget,

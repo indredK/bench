@@ -47,6 +47,9 @@ export function DevtoolsPanel({ controller }: { controller: DevToolboxController
     regexReplacement,
     setRegexReplacement,
     regexResult,
+    schemaInput,
+    setSchemaInput,
+    schemaResult,
     handleJsonPretty,
     handleJsonMinify,
     handleBase64Encode,
@@ -55,6 +58,7 @@ export function DevtoolsPanel({ controller }: { controller: DevToolboxController
     handleUuid,
     handleTimestamp,
     handleRegexTest,
+    handleSchemaValidate,
   } = controller
 
   return (
@@ -77,6 +81,61 @@ export function DevtoolsPanel({ controller }: { controller: DevToolboxController
           </div>
           {jsonOutput && (
             <pre className="bg-muted max-h-32 overflow-auto rounded p-2 text-xs">{jsonOutput}</pre>
+          )}
+        </div>
+      </SettingGroup>
+      <SettingGroup title={t("systemSettings.devtools.schemaTitle")}>
+        <div className="space-y-2 py-2">
+          <p className="text-muted-foreground text-xs">
+            {t("systemSettings.devtools.schemaDataHint")}
+          </p>
+          <Textarea
+            className="bg-muted h-24 font-mono text-xs"
+            value={schemaInput}
+            onChange={(e) => setSchemaInput(e.target.value)}
+            placeholder={t("systemSettings.devtools.schemaPlaceholder")}
+          />
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={handleSchemaValidate}>
+              {t("systemSettings.devtools.schemaValidate")}
+            </Button>
+          </div>
+          {schemaResult && !schemaResult.ok && (
+            <div className="text-destructive border-destructive/40 bg-destructive/10 rounded border p-2 text-xs">
+              {t("systemSettings.devtools.schemaParseError")}: {schemaResult.error}
+            </div>
+          )}
+          {schemaResult && schemaResult.ok && (
+            <div className="space-y-2">
+              <p
+                className={
+                  schemaResult.valid
+                    ? "text-xs font-medium text-emerald-700 dark:text-emerald-400"
+                    : "text-destructive text-xs font-medium"
+                }
+              >
+                {schemaResult.valid
+                  ? t("systemSettings.devtools.schemaValid")
+                  : t("systemSettings.devtools.schemaInvalid", { n: schemaResult.issues.length })}
+              </p>
+              {schemaResult.unsupported.length > 0 && (
+                <p className="text-xs text-amber-700 dark:text-amber-400">
+                  {t("systemSettings.devtools.schemaUnsupported", {
+                    keywords: schemaResult.unsupported.join(", "),
+                  })}
+                </p>
+              )}
+              {schemaResult.issues.length > 0 && (
+                <ul className="bg-muted max-h-40 space-y-1 overflow-auto rounded p-2 text-xs">
+                  {schemaResult.issues.map((issue, i) => (
+                    <li key={`${issue.path}-${i}`} className="font-mono break-all">
+                      <span className="text-muted-foreground">{issue.path || "/"}</span>{" "}
+                      <span>{issue.message}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           )}
         </div>
       </SettingGroup>
