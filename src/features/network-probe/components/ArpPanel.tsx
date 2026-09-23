@@ -3,6 +3,7 @@
  */
 import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
+import { VirtualRowList } from "@/components/common/VirtualRowList"
 import { Button } from "@/components/ui/button"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import type { LanDiscoveryResult } from "@/lib/tauri/types/network-probe"
@@ -109,16 +110,20 @@ export function ArpPanel({
               ) : null}
             </div>
           ) : (
-            <ul className="space-y-1 font-mono text-xs">
-              {result.neighbors.map((n) => (
-                <li key={n.ip}>
+            <VirtualRowList
+              items={result.neighbors}
+              estimatedRowHeight={20}
+              className="font-mono text-xs"
+              getItemKey={(n) => n.ip}
+              renderItem={(n) => (
+                <div>
                   {n.ip}
                   {n.mac ? ` · ${n.mac}` : " · (incomplete)"}
                   {n.iface ? ` · ${n.iface}` : ""}
                   {n.source ? ` · ${n.source}` : ""}
-                </li>
-              ))}
-            </ul>
+                </div>
+              )}
+            />
           )}
           <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
         </div>
