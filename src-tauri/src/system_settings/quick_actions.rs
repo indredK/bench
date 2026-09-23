@@ -65,14 +65,25 @@ pub async fn lock_screen() -> AppResult<()> {
     .map_err(|e| AppError::internal(format!("lock_screen: {e}")))?
 }
 
+/// 判定回收站目录当前是否为空。
+/// - 目录不存在（新用户从未产生 Trash）→ 视为空（`Ok(true)`），良性；
+/// - 读取失败（权限等）→ 上抛 `Err`，不得伪装成「已经空了」（design §2「失败不显示为成功」）：
+///   此时调用方应报错、**不要**据此声称已清空、也不要在不确定时贸然触发清空动作。
+fn trash_is_empty(read: std::io::Result<std::fs::ReadDir>) -> Result<bool, std::io::Error> {
+    match read {
+        Ok(mut entries) => Ok(entries.next().is_none()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(true),
+        Err(error) => Err(error),
+    }
+}
+
 #[tauri::command]
 pub async fn empty_trash() -> AppResult<String> {
     tauri::async_runtime::spawn_blocking(|| {
         let home = std::env::var("HOME").unwrap_or_default();
         let trash_path = format!("{}/.Trash", home);
-        let is_empty = std::fs::read_dir(&trash_path)
-            .map(|mut entries| entries.next().is_none())
-            .unwrap_or(true);
+        let is_empty = trash_is_empty(std::fs::read_dir(&trash_path))
+            .map_err(|e| AppError::io(format!("read trash dir: {e}")))?;
         if is_empty {
             return Ok("Trash is already empty".to_string());
         }
@@ -114,4 +125,38 @@ pub async fn shutdown_now() -> AppResult<()> {
     })
     .await
     .map_err(|e| AppError::internal(format!("shutdown_now: {e}")))?
+}
+
+#[cfg(test)]
+mod tests {
+    use super::trash_is_empty;
+    use std::io;
+
+    #[test]
+    fn missing_trash_counts_as_empty() {
+        let error = io::Error::new(io::ErrorKind::NotFound, "no trash dir");
+        assert_eq!(trash_is_empty(Err(error)).ok(), Some(true));
+    }
+
+    // Reliability guard (design §2): an unreadable Trash must surface as an error rather
+    // than being coerced into "already empty", which would falsely report a completed action.
+    #[test]
+    fn unreadable_trash_surfaces_error_not_false_empty() {
+        let error = io::Error::new(io::ErrorKind::PermissionDenied, "denied");
+        assert!(trash_is_empty(Err(error)).is_err());
+    }
+
+    #[test]
+    fn reads_present_trash_entries() {
+        let dir = std::env::temp_dir().join(format!(
+            "bench-trash-is-empty-{}-{}",
+            std::process::id(),
+            line!()
+        ));
+        std::fs::create_dir_all(&dir).expect("create temp dir");
+        assert!(trash_is_empty(std::fs::read_dir(&dir)).expect("read empty dir"));
+        std::fs::write(dir.join("leftover.txt"), b"x").expect("write file");
+        assert!(!trash_is_empty(std::fs::read_dir(&dir)).expect("read filled dir"));
+        std::fs::remove_dir_all(&dir).ok();
+    }
 }
