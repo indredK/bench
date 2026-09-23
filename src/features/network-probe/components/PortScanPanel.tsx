@@ -5,6 +5,7 @@ import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirmDialog"
+import { VirtualRowList } from "@/components/common/VirtualRowList"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
@@ -165,15 +166,19 @@ export function PortScanPanel({
         <p className="text-xs text-amber-700 dark:text-amber-400">{result.message}</p>
       ) : null}
       {samples.length > 0 ? (
-        <ul className="text-muted-foreground space-y-0.5 font-mono text-xs">
-          {samples.map((s) => (
-            <li key={`${s.port}-${s.state}`}>
+        <VirtualRowList
+          items={samples}
+          className="text-muted-foreground font-mono text-xs"
+          estimatedRowHeight={22}
+          getItemKey={(s, i) => `${s.port}-${s.state}-${i}`}
+          renderItem={(s) => (
+            <div className="py-0.5">
               {s.port}: {s.state}
               {s.serviceHint ? ` (${s.serviceHint})` : ""}
               {s.rttMs != null ? ` · ${s.rttMs.toFixed(0)} ms` : ""}
-            </li>
-          ))}
-        </ul>
+            </div>
+          )}
+        />
       ) : null}
       {result?.commandHint ? (
         <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
