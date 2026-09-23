@@ -18,6 +18,7 @@ import type {
   OperationResult,
 } from "@/lib/tauri/types/app-manager"
 import type { EnvScanDonePayload, EnvTool } from "@/lib/tauri/types/env-detector"
+import type { PingProbeResult, PingSample } from "@/lib/tauri/types/network-probe"
 import type { ProjectInfo, ScanResult as DevCleanerScanResult } from "@/lib/tauri/types/dev-cleaner"
 import type {
   CategoryCleanupResult,
@@ -274,6 +275,24 @@ describe("Tauri contracts", () => {
           "allowedActions",
           "iconBase64",
           "launchTarget",
+        ]),
+      ],
+      ["PingSample", "camel", dtoKeys<PingSample>(["seq", "ok", "rttMs", "error"])],
+      [
+        "PingProbeResult",
+        "camel",
+        dtoKeys<PingProbeResult>([
+          "target",
+          "resolvedIp",
+          "packetsSent",
+          "packetsReceived",
+          "lossPercent",
+          "minRttMs",
+          "avgRttMs",
+          "maxRttMs",
+          "stddevRttMs",
+          "samples",
+          "commandHint",
         ]),
       ],
       [
