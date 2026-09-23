@@ -18,7 +18,13 @@ import type {
   OperationResult,
 } from "@/lib/tauri/types/app-manager"
 import type { EnvScanDonePayload, EnvTool } from "@/lib/tauri/types/env-detector"
-import type { PingProbeResult, PingSample } from "@/lib/tauri/types/network-probe"
+import type {
+  LanDiscoveryResult,
+  PingProbeResult,
+  PingSample,
+  PortScanResult,
+  TracerouteResult,
+} from "@/lib/tauri/types/network-probe"
 import type { ProjectInfo, ScanResult as DevCleanerScanResult } from "@/lib/tauri/types/dev-cleaner"
 import type {
   CategoryCleanupResult,
@@ -292,6 +298,51 @@ describe("Tauri contracts", () => {
           "maxRttMs",
           "stddevRttMs",
           "samples",
+          "commandHint",
+        ]),
+      ],
+      [
+        "LanDiscoveryResult",
+        "camel",
+        dtoKeys<LanDiscoveryResult>([
+          "mode",
+          "neighbors",
+          "message",
+          "emptyReason",
+          "cidr",
+          "cancelled",
+          "sessionId",
+          "elapsedMs",
+          "commandHint",
+        ]),
+      ],
+      [
+        "PortScanResult",
+        "camel",
+        dtoKeys<PortScanResult>([
+          "target",
+          "mode",
+          "openPorts",
+          "samples",
+          "cancelled",
+          "sessionId",
+          "message",
+          "commandHint",
+        ]),
+      ],
+      [
+        "TracerouteResult",
+        "camel",
+        dtoKeys<TracerouteResult>([
+          "target",
+          "resolvedIp",
+          "privilegeMode",
+          "hops",
+          "rounds",
+          "elapsedMs",
+          "message",
+          "sessionId",
+          "cancelled",
           "commandHint",
         ]),
       ],
