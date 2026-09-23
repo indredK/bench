@@ -258,7 +258,8 @@
       "schemaParseError": "Cannot validate",
       "schemaValid": "Data conforms to the schema",
       "schemaInvalid": "{{n}} violation(s) found",
-      "schemaUnsupported": "Best-effort: these keywords were not evaluated here ({{keywords}})"
+      "schemaUnsupported": "Best-effort: these keywords were not evaluated here ({{keywords}})",
+      "schemaTruncated": "Incomplete result: input size or nesting exceeded the cap, so validation stopped early and did not check every constraint."
     },
     "diagnostics": {
       "title": "Network Diagnostics",

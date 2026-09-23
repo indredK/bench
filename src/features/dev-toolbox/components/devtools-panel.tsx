@@ -107,22 +107,25 @@ export function DevtoolsPanel({ controller }: { controller: DevToolboxController
           )}
           {schemaResult && schemaResult.ok && (
             <div className="space-y-2">
-              <p
-                className={
-                  schemaResult.valid
-                    ? "text-xs font-medium text-emerald-700 dark:text-emerald-400"
-                    : "text-destructive text-xs font-medium"
-                }
-              >
-                {schemaResult.valid
-                  ? t("systemSettings.devtools.schemaValid")
-                  : t("systemSettings.devtools.schemaInvalid", { n: schemaResult.issues.length })}
-              </p>
+              {schemaResult.valid ? (
+                <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                  {t("systemSettings.devtools.schemaValid")}
+                </p>
+              ) : schemaResult.issues.length > 0 ? (
+                <p className="text-destructive text-xs font-medium">
+                  {t("systemSettings.devtools.schemaInvalid", { n: schemaResult.issues.length })}
+                </p>
+              ) : null}
               {schemaResult.unsupported.length > 0 && (
                 <p className="text-xs text-amber-700 dark:text-amber-400">
                   {t("systemSettings.devtools.schemaUnsupported", {
                     keywords: schemaResult.unsupported.join(", "),
                   })}
+                </p>
+              )}
+              {schemaResult.truncated && (
+                <p className="text-xs text-amber-700 dark:text-amber-400">
+                  {t("systemSettings.devtools.schemaTruncated")}
                 </p>
               )}
               {schemaResult.issues.length > 0 && (

@@ -258,7 +258,8 @@
       "schemaParseError": "无法校验",
       "schemaValid": "数据符合 Schema",
       "schemaInvalid": "发现 {{n}} 处不符",
-      "schemaUnsupported": "尽力校验：以下关键字本工具未评估（{{keywords}}）"
+      "schemaUnsupported": "尽力校验：以下关键字本工具未评估（{{keywords}}）",
+      "schemaTruncated": "结果不完整：输入规模或嵌套超出上限，已提前停止，未遍历全部约束。"
     },
     "diagnostics": {
       "title": "网络诊断",
