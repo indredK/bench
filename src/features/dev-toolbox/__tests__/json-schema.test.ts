@@ -171,4 +171,33 @@ describe("validateJsonSchema", () => {
     expect(ok(validateJsonSchema(schema, JSON.stringify(["a", 1]))).valid).toBe(true)
     expect(ok(validateJsonSchema(schema, JSON.stringify([1, "a"]))).valid).toBe(false)
   })
+
+  // Reliability guardrails (design §2 + don't hang the render thread): the size cap and
+  // recursion cap must reject / stop on pathological input rather than parse forever or
+  // blow the stack — and must say so, not silently report a clean verdict.
+  it("rejects oversized input instead of attempting to parse it", () => {
+    const big = " ".repeat(200_001)
+    expect(validateJsonSchema(big, "{}")).toEqual({
+      ok: false,
+      error: expect.stringContaining("exceeds"),
+    })
+    expect(validateJsonSchema("{}", big)).toEqual({
+      ok: false,
+      error: expect.stringContaining("exceeds"),
+    })
+  })
+
+  it("stops and flags truncation on a schema nested past the max depth", () => {
+    const levels = 80
+    let schema: Record<string, unknown> = { type: "object", properties: { v: { type: "string" } } }
+    let data: unknown = "ok"
+    for (let i = 0; i < levels; i += 1) {
+      schema = { type: "object", properties: { child: schema } }
+      data = { child: data }
+    }
+    const result = ok(validateJsonSchema(JSON.stringify(schema), JSON.stringify(data)))
+    expect(result.truncated).toBe(true)
+    // Truncated must never be reported as a clean pass.
+    expect(result.valid).toBe(false)
+  })
 })
