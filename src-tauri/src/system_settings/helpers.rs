@@ -86,17 +86,6 @@ pub fn sudo_cmd(_shell_cmd: &str) -> Result<String, String> {
     Err("sudo_cmd is only supported on macOS".to_string())
 }
 
-/// defaults read helper
-#[cfg(target_os = "macos")]
-pub fn defaults_read(domain: &str, key: &str) -> Result<String, String> {
-    run_cmd("defaults", &["read", domain, key])
-}
-
-#[cfg(not(target_os = "macos"))]
-pub fn defaults_read(_domain: &str, _key: &str) -> Result<String, String> {
-    Err("defaults is only supported on macOS".to_string())
-}
-
 pub fn parse_defaults_bool(value: &str) -> Result<bool, String> {
     match value.trim().to_ascii_lowercase().as_str() {
         "1" | "yes" | "true" => Ok(true),
@@ -120,6 +109,58 @@ pub fn defaults_read_string_or(domain: &str, key: &str, default: &str) -> Result
             "defaults returned an empty value for {domain}/{key}"
         )),
         Err(error) if error.contains("does not exist") => Ok(default.to_string()),
+        Err(error) => Err(error),
+    }
+}
+
+/// 三态读取一个 `defaults` 键：`Ok(Some(v))` = 存在且有值，`Ok(None)` = 键不存在
+/// （或非 macOS 平台，良性 → 调用方回落默认值），`Err` = 真正的子进程失败
+/// （超时 / 无法启动 / cfprefsd 异常）。
+///
+/// 与 `defaults_read_bool_or`/`string_or` 同源：把「读不到」和「读失败」区分开，
+/// 修复 design §2 禁止的「读取失败被伪装成默认值」缺陷。
+#[cfg(target_os = "macos")]
+pub fn defaults_read_optional(domain: &str, key: &str) -> Result<Option<String>, String> {
+    classify_defaults_read(run_cmd_err("defaults", &["read", domain, key]))
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn defaults_read_optional(_domain: &str, _key: &str) -> Result<Option<String>, String> {
+    Ok(None)
+}
+
+/// `defaults_read_optional` 的 `-currentHost`（ByHost 域）版本。
+#[cfg(target_os = "macos")]
+pub fn defaults_read_current_host_optional(
+    domain: &str,
+    key: &str,
+) -> Result<Option<String>, String> {
+    classify_defaults_read(run_cmd_err(
+        "defaults",
+        &["-currentHost", "read", domain, key],
+    ))
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn defaults_read_current_host_optional(
+    _domain: &str,
+    _key: &str,
+) -> Result<Option<String>, String> {
+    Ok(None)
+}
+
+#[cfg(target_os = "macos")]
+fn classify_defaults_read(result: Result<String, String>) -> Result<Option<String>, String> {
+    match result {
+        Ok(value) => {
+            let trimmed = value.trim();
+            Ok(if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_string())
+            })
+        }
+        Err(error) if error.contains("does not exist") => Ok(None),
         Err(error) => Err(error),
     }
 }
@@ -183,21 +224,6 @@ pub fn defaults_write(domain: &str, key: &str, value: &str) -> Result<(), String
 
 #[cfg(not(target_os = "macos"))]
 pub fn defaults_write(_domain: &str, _key: &str, _value: &str) -> Result<(), String> {
-    Err("defaults is only supported on macOS".to_string())
-}
-
-/// defaults -currentHost read helper (ByHost 域)
-///
-/// 读取 `~/Library/Preferences/ByHost/<domain>.<UUID>.plist` 中的键值。
-/// 某些 macOS 设置(如 Tahoe 电池百分比)存储在 ByHost 域,必须用 `-currentHost` 读取,
-/// 普通 `defaults read` 读不到这些键。
-#[cfg(target_os = "macos")]
-pub fn defaults_read_current_host(domain: &str, key: &str) -> Result<String, String> {
-    run_cmd("defaults", &["-currentHost", "read", domain, key])
-}
-
-#[cfg(not(target_os = "macos"))]
-pub fn defaults_read_current_host(_domain: &str, _key: &str) -> Result<String, String> {
     Err("defaults is only supported on macOS".to_string())
 }
 

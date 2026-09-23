@@ -32,3 +32,4 @@
 > 每轮功能改动先在此追加一行，再在实施后同步进产品说明。
 
 - 2026-09-03：首版生成——依据 `docs/modules/system-settings/roadmap.md` 与 `docs/roadmap/ROADMAP.md` R03/D-019 提取未完成项；产品说明见 `../product-specs/system-settings.md`。
+- 2026-09-23：可靠性收口（design §2「失败不显示为 off」）——`get_display_battery_percent` 不再把 `defaults read` 的真实子进程失败（超时/cfprefsd 异常）伪装成「隐藏」：新增三态 helper `defaults_read_optional` / `defaults_read_current_host_optional`（键不存在→回落默认，读失败→上抛可重试错误），旧版 `defaults_read`/`defaults_read_current_host` 随之移除；解释逻辑抽为纯函数并补 3 项单测。与既有 keyboard / dock / quick_actions 同类收口一致。
