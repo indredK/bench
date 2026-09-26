@@ -24,6 +24,10 @@ import { portManagerFeature } from "@/features/port-manager/feature"
 import type { AppFeature } from "@/features/types"
 import { formatMemory, formatUptime } from "@/lib/utils"
 import {
+  MAX_REGEX_INPUT_LENGTH,
+  MAX_REGEX_PATTERN_LENGTH,
+} from "@/features/dev-toolbox/services/regex-tester"
+import {
   useDevToolboxController,
   type ToolboxTab,
 } from "@/features/dev-toolbox/hooks/useDevToolboxController"
@@ -77,6 +81,16 @@ export default function DevToolbox(_props: DevToolboxProps) {
     setTsFormat,
     tsOutput,
     uuidOutput,
+    regexPattern,
+    setRegexPattern,
+    regexFlags,
+    setRegexFlags,
+    regexInput,
+    setRegexInput,
+    regexReplacement,
+    setRegexReplacement,
+    regexResult,
+    regexTesting,
     handleJsonPretty,
     handleJsonMinify,
     handleBase64Encode,
@@ -84,6 +98,7 @@ export default function DevToolbox(_props: DevToolboxProps) {
     handleHash,
     handleUuid,
     handleTimestamp,
+    handleRegexTest,
     diagnosticTarget,
     setDiagnosticTarget,
     diagnosticResult,
@@ -203,6 +218,124 @@ export default function DevToolbox(_props: DevToolboxProps) {
             </Button>
           </div>
           {tsOutput && <pre className="bg-muted overflow-auto rounded p-2 text-xs">{tsOutput}</pre>}
+        </div>
+      </SettingGroup>
+      <SettingGroup title={t("systemSettings.devtools.regexTitle")}>
+        <div className="space-y-2 py-2">
+          <div className="flex gap-2">
+            <Input
+              className="min-w-0 flex-1 font-mono text-xs"
+              value={regexPattern}
+              disabled={regexTesting}
+              onChange={(e) => setRegexPattern(e.target.value)}
+              placeholder={t("systemSettings.devtools.regexPatternPlaceholder")}
+            />
+            <Input
+              className="w-24 shrink-0 font-mono text-xs"
+              value={regexFlags}
+              disabled={regexTesting}
+              onChange={(e) => setRegexFlags(e.target.value)}
+              placeholder={t("systemSettings.devtools.regexFlagsPlaceholder")}
+              aria-label={t("systemSettings.devtools.regexFlagsLabel")}
+            />
+          </div>
+          <Textarea
+            className="bg-muted h-20 font-mono text-xs"
+            value={regexInput}
+            disabled={regexTesting}
+            onChange={(e) => setRegexInput(e.target.value)}
+            placeholder={t("systemSettings.devtools.regexInputPlaceholder")}
+          />
+          <Input
+            className="font-mono text-xs"
+            value={regexReplacement}
+            disabled={regexTesting}
+            onChange={(e) => setRegexReplacement(e.target.value)}
+            placeholder={t("systemSettings.devtools.regexReplacePlaceholder")}
+          />
+          <p className="text-muted-foreground text-[11px]">
+            {t("systemSettings.devtools.regexSizeHint", {
+              patternMax: MAX_REGEX_PATTERN_LENGTH,
+              inputMax: MAX_REGEX_INPUT_LENGTH,
+            })}
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={regexTesting}
+              aria-busy={regexTesting}
+              onClick={handleRegexTest}
+            >
+              {t(
+                regexTesting
+                  ? "systemSettings.devtools.regexTesting"
+                  : "systemSettings.devtools.regexTest",
+              )}
+            </Button>
+          </div>
+          {regexResult && !regexResult.ok && (
+            <div className="text-destructive border-destructive/40 bg-destructive/10 rounded border p-2 text-xs">
+              {regexResult.code === "TIMEOUT"
+                ? t("systemSettings.devtools.regexTimeout")
+                : regexResult.code === "WORKER_UNAVAILABLE"
+                  ? t("systemSettings.devtools.regexWorkerUnavailable")
+                  : regexResult.code === "WORKER_FAILED"
+                    ? t("systemSettings.devtools.regexWorkerFailed")
+                    : regexResult.code === "PATTERN_TOO_LONG"
+                      ? t("systemSettings.devtools.regexPatternTooLong", {
+                          max: MAX_REGEX_PATTERN_LENGTH,
+                        })
+                      : regexResult.code === "INPUT_TOO_LONG"
+                        ? t("systemSettings.devtools.regexInputTooLong", {
+                            max: MAX_REGEX_INPUT_LENGTH,
+                          })
+                        : regexResult.code === "REPLACEMENT_TOO_LONG"
+                          ? t("systemSettings.devtools.regexReplacementTooLong", {
+                              max: MAX_REGEX_INPUT_LENGTH,
+                            })
+                          : t("systemSettings.devtools.regexInvalidPattern")}
+            </div>
+          )}
+          {regexResult && regexResult.ok && (
+            <div className="space-y-2">
+              <p className="text-muted-foreground text-xs">
+                {regexResult.total === 0
+                  ? t("systemSettings.devtools.regexNoMatch")
+                  : t("systemSettings.devtools.regexMatchCount", { total: regexResult.total })}
+                {regexResult.truncated
+                  ? ` · ${t("systemSettings.devtools.regexTruncated", { max: regexResult.total })}`
+                  : ""}
+              </p>
+              {regexResult.matches.length > 0 && (
+                <ul className="bg-muted max-h-48 space-y-1 overflow-auto rounded p-2 text-xs">
+                  {regexResult.matches.map((m, i) => (
+                    <li key={`${m.index}-${i}`} className="font-mono break-all">
+                      <span className="text-muted-foreground">
+                        {i + 1}. {t("systemSettings.devtools.regexIndexLabel", { index: m.index })}
+                      </span>{" "}
+                      <span className="font-semibold">{m.value}</span>
+                      {m.groups.length > 0 && (
+                        <span className="text-muted-foreground">
+                          {" "}
+                          (
+                          {m.groups
+                            .map((g) => `${g.name ? `${g.name}:` : ""}${g.value ?? ""}`)
+                            .join(", ")}
+                          )
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {regexResult.replaced !== null && (
+                <pre className="bg-muted max-h-32 overflow-auto rounded p-2 text-xs">
+                  {regexResult.replaced}
+                </pre>
+              )}
+            </div>
+          )}
         </div>
       </SettingGroup>
     </div>

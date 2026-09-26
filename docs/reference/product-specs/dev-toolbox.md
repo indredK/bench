@@ -5,7 +5,7 @@
 
 ## 1. 定位
 
-- 路由 `/dev-toolbox`；`desktopOnly: false`（浏览器也可进入页面，但六类功能底层均为 Tauri IPC，浏览器下操作会失败并 toast 报错）。
+- 路由 `/dev-toolbox`；`desktopOnly: false`（浏览器也可进入页面；除纯前端正则测试外，其余功能依赖 Tauri IPC，浏览器下操作会失败并 toast 报错）。
 - 侧边栏「开发工具箱」**主菜单入口**；同时**收容**三个被侧边栏隐藏的子 feature——端口管理（port-manager）、环境检测（env-detector）、Token 计算（token-calc，见 `features/registry.tsx` 的 `TOOLBOX_FEATURE_IDS`）作为 Tab。
 - 用途：开发者常用小工具聚合——端口 / 环境 / Token 三个完整页面，加内置的 JSON/Base64/Hash/UUID/时间戳转换、网络诊断（ping/本机 IP/WiFi）、系统信息。
 - 历史说明：原「开发清理」已迁出为独立主菜单模块 Clean Space，「网络诊断」已独立为 Network Probe；本模块保留轻量版诊断（见 `docs/modules/dev-toolbox/README.md`）。
@@ -37,19 +37,20 @@
 
 ## 4. 开发工具 Tab（devtools）
 
-共 5 组工具，每组 = `SettingGroup` 卡片，操作用「正在执行」态禁用按钮，结果以 `<pre>` 展示：
+共 6 组工具，每组 = `SettingGroup` 卡片：
 
 - **JSON 格式化**：多行文本输入 → 「格式化（pretty）」/「压缩（minify）」；非法 JSON 报错（toast）。
 - **Base64**：文本输入 → 「编码」/「解码」；解码非法 base64 或非 UTF-8 报错。
 - **Hash 计算**：文本输入 + 算法下拉（MD5 / SHA1 / SHA256 / SHA384 / SHA512）→ 「计算」，输出小写十六进制。
 - **UUID 生成器**：点击「生成 UUID v4」输出一个 v4 UUID。
 - **时间戳转换**：Unix 秒数输入 + 格式下拉（完整日期时间 / 仅日期 / 仅时间 / ISO 8601）→ 「转换」，按 UTC 输出。
+- **正则测试**：pattern / flags / 待测文本 / replacement 输入，使用原生 JavaScript RegExp 语义；计算在可终止 Web Worker 中运行，1 秒超时会终止任务并提示缩短输入或调整表达式。正则表达式最多 4,096 字符，flags 最多 8 个，待测文本和 replacement 各最多 20,000 字符；匹配结果最多 1,000 条，只有存在第 1,001 条匹配时才显示截断提示。超长内容会在创建 Worker 前明确报错，避免结构化克隆复制无界数据。
 
 **通用交互细节**：
 
-- 任一操作执行中（`applying`）该 Tab **全部**工具按钮禁用，防重复触发；按钮无单独 loading spinner（由禁用态承载）。
+- IPC 工具执行中（`applying`）该 Tab **全部**工具按钮禁用，防重复触发；正则测试有独立的 Worker 运行态，只禁用正则输入并显示「测试中…」。
 - 输出 `<pre>` 仅在有值时渲染：JSON `max-h-32`、Base64 `max-h-24`（超出滚动），Hash/时间戳无高度上限；Hash 输出为小写十六进制，无换行上限。
-- **输入控件**：JSON 用 `Textarea`（`h-24`，无字数上限、无防抖）；Base64/Hash/时间戳用 `Input`；算法/格式下拉为 `Select`（固定 5 种算法 / 4 种格式）；均无 `aria-label`（仅 placeholder）。UUID 输出用 `<code>` 内联（非 `<pre>`）。
+- **输入控件**：JSON 用 `Textarea`（`h-24`，无字数上限、无防抖）；Base64/Hash/时间戳用 `Input`；算法/格式下拉为 `Select`（固定 5 种算法 / 4 种格式）；均无 `aria-label`（仅 placeholder）。UUID 输出用 `<code>` 内联（非 `<pre>`）。正则输入超出上述限额时显示本地化错误，不启动 Worker。
 - **Base64 解码容忍空白**：后端先 `.trim()` 再解码（首尾空白不影响结果）。
 - 操作失败时 toast 报错（「操作失败: {{error}}」），**输出区保持上一次结果不变**（`run` 返回 `undefined`，不覆盖）。
 - **非法 JSON** → toast「操作失败: Invalid JSON: ...」；**Base64 解码**非 base64 或非 UTF-8 文本 → toast「操作失败: ...」，均不产出输出。
@@ -113,12 +114,12 @@
 ## 10. 数据模型
 
 - `ToolboxTab`：`"port-manager" | "env-detector" | "token-calc" | "devtools" | "diagnostics" | "info"`。
-- 局部状态：各工具输入/输出字符串、`hashAlgo`、`tsFormat`、`diagnosticTarget`、`diagnosticResult`、`systemInfo`（`SystemInfoData`）/`systemInfoLoading`/`systemInfoError`、`activeTab`。
+- 局部状态：各工具输入/输出字符串、`hashAlgo`、`tsFormat`、正则测试输入/结果/运行态、`diagnosticTarget`、`diagnosticResult`、`systemInfo`（`SystemInfoData`）/`systemInfoLoading`/`systemInfoError`、`activeTab`。
 - 返回值类型：`PingResult`（host/packets_sent/packets_received/min_rtt/avg_rtt/max_rtt/loss_percent）、`IpInfo`（local_ip/external_ip?）、`WifiInfo`（ssid/signal_strength?/channel?）、`SystemInfoData`（见 §6）。
 
 ## 11. 边界与限制
 
-- 六类功能依赖 Tauri IPC：浏览器运行时操作会失败并 toast 报错（页面本身可进）。
+- IPC 工具依赖 Tauri IPC：浏览器运行时操作会失败并 toast 报错（页面本身可进）；正则测试在支持 Web Worker 的浏览器中独立运行。
 - 网络诊断的「本机 IP」「WiFi」仅 macOS；Ping 跨平台（委托 network-probe 实现）。
 - 时间戳转换按 **UTC**（naive UTC），不转本地时区；非法时间戳报错。
 - Base64 解码要求 UTF-8 文本（非文本二进制解码报错）。
@@ -149,6 +150,9 @@
 | DNS 解析的 `spawn_blocking` 任务失败                          | toast「操作失败: ...」（`TASK_FAILED`）                                                                         | 重试                                                                              |
 | macOS 本机 IP 无 en0 接口 / 未联网                            | 返回**空字符串** `local_ip`，无 toast（`unwrap_or_default` 静默）                                               | 无（静默空结果）                                                                  |
 | macOS WiFi 未连接（airport `-I` 退出码非 0）                  | toast「操作失败: ...」                                                                                          | 连接网络后重试                                                                    |
+| 正则语法或 flags 无效                                         | 正则卡片内联显示「无效的正则」                                                                                  | 修改表达式或 flags 后重试                                                         |
+| 正则计算超过 1 秒                                             | Worker 被终止，正则卡片内联显示超时提示                                                                         | 缩短输入或简化表达式                                                              |
+| 正则表达式/待测文本/replacement 超过大小上限                  | 在创建 Worker 前内联显示超限提示                                                                                | 缩短对应内容后重试                                                                |
 
 - **幂等/防重入**：`run` 同一 key 防并发（重复点击静默忽略）；所有操作按钮在任意操作进行中禁用（`applying`）。
 - **取消/并发**：无取消机制（操作均为短时 `spawn_blocking`，无长任务）；不同 key 可并行。
