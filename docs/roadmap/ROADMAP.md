@@ -22,9 +22,11 @@
 
 本文件是 2.0 收尾的唯一跨模块执行清单。模块级约束和未完成项见 [modules/](../modules/README.md)，方向性取舍见 [DECISIONS.md](../explanation/decisions.md)。已完成历史由 Git 保留。
 
+收尾追踪入口：[Bench 2.0 收尾追踪（R00–R10）](https://github.com/indredK/bench/issues/105)。
+
 ## 发布契约
 
-- 当前代码版本为 `1.28.0`（由 release-please 自动维护，历史基线为 `1.23.0`），只有 R00-R08 全部通过后才能执行 R09。
+- 当前代码版本为 `1.37.0`（由 release-please 自动维护，历史基线为 `1.23.0`），只有 R00-R08 全部通过后才能执行 R09。
 - 目标平台：macOS 14+ arm64、macOS 14+ x64、Windows 11 x64。Linux 不受支持，也不进入 CI/CD、构建或发布流程。
 - Quick Launch、App Manager、Account Manager 必须在 macOS/Windows 保持相同核心语义；不支持的子能力返回 `partial/unsupported/failed`，不得伪装为空结果成功。
 - Clean Space、Hardware、System Settings 维持 macOS-only；Windows 隐藏导航，直达路由显示 unsupported。
@@ -106,7 +108,7 @@ flowchart LR
 **步骤**：
 
 1. 确认 `git status --short` 没有来源不明的改动。
-2. 确认 `package.json`、`src-tauri/Cargo.toml`、`src-tauri/tauri.conf.json`、`.release-please-manifest.json` 四处版本一致（当前为 `1.28.0`）。
+2. 确认 `package.json`、`src-tauri/Cargo.toml`、`src-tauri/tauri.conf.json`、`.release-please-manifest.json` 四处版本一致（当前为 `1.37.0`）。
 3. 建立一个 2.0 收尾 PR 或 issue，复制 R00-R10 状态表；后续证据只挂到该入口和 CI artifact，不新建平行路线图。
 4. 把模块 roadmap 中已完成项删除；远期项保留但本轮不得执行。
 
