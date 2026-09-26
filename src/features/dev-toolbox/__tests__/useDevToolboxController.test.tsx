@@ -5,9 +5,10 @@
 import { act, renderHook, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const { loadSystemInfo, jsonFormat } = vi.hoisted(() => ({
+const { loadSystemInfo, jsonFormat, runRegexTestInWorker } = vi.hoisted(() => ({
   loadSystemInfo: vi.fn(),
   jsonFormat: vi.fn(),
+  runRegexTestInWorker: vi.fn(),
 }))
 
 vi.mock("@/features/system-settings/services/system-info.use-cases", () => ({
@@ -16,6 +17,10 @@ vi.mock("@/features/system-settings/services/system-info.use-cases", () => ({
 
 vi.mock("@/features/system-settings/services/system-settings.use-cases", () => ({
   systemSettingsUseCases: { jsonFormat },
+}))
+
+vi.mock("@/features/dev-toolbox/services/regex-runner", () => ({
+  runRegexTestInWorker,
 }))
 
 vi.mock("@/features/system-settings/hooks/useSettingAction", () => ({
@@ -30,6 +35,7 @@ import { useDevToolboxController } from "@/features/dev-toolbox/hooks/useDevTool
 beforeEach(() => {
   loadSystemInfo.mockReset().mockResolvedValue({ cpu: "Apple M2", memory: "16GB" })
   jsonFormat.mockReset()
+  runRegexTestInWorker.mockReset()
 })
 
 describe("useDevToolboxController (A4-4)", () => {
@@ -79,5 +85,53 @@ describe("useDevToolboxController (A4-4)", () => {
     expect(jsonFormat).toHaveBeenCalledWith('{"a":1}', true)
     expect(jsonFormat).toHaveBeenCalledWith('{"a":1}', false)
     expect(result.current.jsonOutput).toBe('{"a":1}')
+  })
+
+  it("runs regex tests asynchronously and ignores duplicate requests", async () => {
+    let resolveWorkerResult!: (value: {
+      ok: true
+      matches: []
+      total: number
+      truncated: false
+      replaced: null
+    }) => void
+    runRegexTestInWorker.mockReturnValue(
+      new Promise((resolve) => {
+        resolveWorkerResult = resolve
+      }),
+    )
+    const { result } = renderHook(() => useDevToolboxController())
+
+    act(() => {
+      result.current.setRegexPattern("\\d+")
+      result.current.setRegexInput("value 42")
+    })
+    act(() => {
+      void result.current.handleRegexTest()
+    })
+    expect(result.current.regexTesting).toBe(true)
+
+    act(() => {
+      void result.current.handleRegexTest()
+    })
+    expect(runRegexTestInWorker).toHaveBeenCalledTimes(1)
+    expect(runRegexTestInWorker).toHaveBeenCalledWith({
+      pattern: "\\d+",
+      flags: "g",
+      input: "value 42",
+      replacement: undefined,
+    })
+
+    await act(async () => {
+      resolveWorkerResult({
+        ok: true,
+        matches: [],
+        total: 0,
+        truncated: false,
+        replaced: null,
+      })
+    })
+    expect(result.current.regexTesting).toBe(false)
+    expect(result.current.regexResult?.ok).toBe(true)
   })
 })

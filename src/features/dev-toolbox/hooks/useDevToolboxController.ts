@@ -1,14 +1,15 @@
 /**
  * Controller / 控制器: bind dev toolbox state; 子 Tab 切换、开发工具、诊断、系统信息.
  */
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { registerFeatureRefresh, requestFeatureRefresh } from "@/features/refresh"
 import { systemInfoUseCases } from "@/features/system-settings/services/system-info.use-cases"
 import { systemSettingsUseCases } from "@/features/system-settings/services/system-settings.use-cases"
 import { useSettingAction } from "@/features/system-settings/hooks/useSettingAction"
 import { getErrorMessage } from "@/lib/tauri/errors"
 import type { SystemInfoData } from "@/lib/tauri/types/system-info"
-import { testRegex, type RegexTestResult } from "@/features/dev-toolbox/services/regex-tester"
+import { runRegexTestInWorker } from "@/features/dev-toolbox/services/regex-runner"
+import type { RegexTestResult } from "@/features/dev-toolbox/services/regex-tester"
 
 export type ToolboxTab = "port-manager" | "env-detector" | "devtools" | "diagnostics" | "info"
 
@@ -32,6 +33,8 @@ export function useDevToolboxController() {
   const [regexInput, setRegexInput] = useState("")
   const [regexReplacement, setRegexReplacement] = useState("")
   const [regexResult, setRegexResult] = useState<RegexTestResult | null>(null)
+  const [regexTesting, setRegexTesting] = useState(false)
+  const regexTestInFlight = useRef(false)
 
   // ── Diagnostics sub-tab state ──
   const [diagnosticTarget, setDiagnosticTarget] = useState("")
@@ -120,9 +123,23 @@ export function useDevToolboxController() {
     if (r !== undefined) setTsOutput(r)
   }
 
-  // 正则是即时纯计算，非法模式以内联结构化错误呈现（不弹 toast，避免反复测试时刷屏）。
-  const handleRegexTest = () => {
-    setRegexResult(testRegex(regexPattern, regexFlags, regexInput, regexReplacement || undefined))
+  // 正则在可终止的 Worker 中执行；超时只终止计算，不阻塞其余界面。
+  const handleRegexTest = async () => {
+    if (regexTestInFlight.current) return
+    regexTestInFlight.current = true
+    setRegexTesting(true)
+    try {
+      const result = await runRegexTestInWorker({
+        pattern: regexPattern,
+        flags: regexFlags,
+        input: regexInput,
+        replacement: regexReplacement || undefined,
+      })
+      setRegexResult(result)
+    } finally {
+      regexTestInFlight.current = false
+      setRegexTesting(false)
+    }
   }
 
   // ── Diagnostics handlers ──
@@ -171,6 +188,7 @@ export function useDevToolboxController() {
     regexReplacement,
     setRegexReplacement,
     regexResult,
+    regexTesting,
     // devtools handlers
     handleJsonPretty,
     handleJsonMinify,
