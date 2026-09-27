@@ -43,6 +43,7 @@ import type {
   Ipv6StackResult,
   PathMtuResult,
 } from "@/lib/tauri/types/network-probe"
+import { parseHealthReportHistory, type HealthReportSnapshot } from "./report-history"
 
 const SECURITY_AUTH_KEY = "network-probe:security-authorized"
 const REPORT_HISTORY_KEY = "network-probe:report-history"
@@ -66,19 +67,16 @@ function persistSecurityAuthorized(value: boolean) {
   }
 }
 
-function loadReportHistory(): HealthScanResult[] {
+function loadReportHistory(): HealthReportSnapshot[] {
   if (typeof localStorage === "undefined") return []
   try {
-    const raw = localStorage.getItem(REPORT_HISTORY_KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw) as HealthScanResult[]
-    return Array.isArray(parsed) ? parsed.slice(0, 10) : []
+    return parseHealthReportHistory(localStorage.getItem(REPORT_HISTORY_KEY))
   } catch {
     return []
   }
 }
 
-function persistReportHistory(history: HealthScanResult[]) {
+function persistReportHistory(history: HealthReportSnapshot[]) {
   if (typeof localStorage === "undefined") return
   try {
     localStorage.setItem(REPORT_HISTORY_KEY, JSON.stringify(history.slice(0, 10)))
@@ -152,7 +150,7 @@ interface NetworkProbeState {
   pcapResult: PcapDiagResult | null
   multiNodeDnsResult: MultiNodeDnsResult | null
   probeNodes: ProbeNode[]
-  reportHistory: HealthScanResult[]
+  reportHistory: HealthReportSnapshot[]
   securityAuthorized: boolean
   agentMutation: NetworkProbeAgentMutation
   openingSystemSettings: boolean
@@ -540,7 +538,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   setProbeNodes: (probeNodes) => set({ probeNodes }),
   pushReportHistory: (scan) =>
     set((state) => {
-      const reportHistory = [scan, ...state.reportHistory].slice(0, 10)
+      const reportHistory = [{ ...scan, savedAt: Date.now() }, ...state.reportHistory].slice(0, 10)
       persistReportHistory(reportHistory)
       return { reportHistory }
     }),

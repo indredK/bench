@@ -12,6 +12,28 @@ const translations: Record<string, string> = {
   "networkProbe.report.historyEmpty": "暂无历史",
   "networkProbe.report.historyItem":
     "{{session}}… · {{count}} 项检查 · {{ms}} ms · {{opinions}} 条建议",
+  "networkProbe.report.historyRank": "最近第 {{rank}} 次",
+  "networkProbe.report.historyOption":
+    "{{date}} · 最近第 {{rank}} 次 · {{session}}… · {{count}} 项",
+  "networkProbe.report.legacySnapshotDate": "旧快照（未记录时间）",
+  "networkProbe.report.comparisonTitle": "体检快照对比",
+  "networkProbe.report.comparisonHint": "选择两次体检进行比较。",
+  "networkProbe.report.comparisonNeedTwo": "至少完成两次体检后即可对比。",
+  "networkProbe.report.snapshotA": "快照 A",
+  "networkProbe.report.snapshotB": "快照 B",
+  "networkProbe.report.comparisonSummary":
+    "新增 {{added}} · 移除 {{removed}} · 变化 {{changed}} · 未变 {{unchanged}}",
+  "networkProbe.report.showUnchanged": "同时显示未变化的检查项",
+  "networkProbe.report.checkComparisonTable": "体检检查项对比",
+  "networkProbe.report.checkColumn": "检查项",
+  "networkProbe.report.notInSnapshot": "此快照没有该项",
+  "networkProbe.report.change.changed": "内容变化",
+  "networkProbe.report.change.added": "新增",
+  "networkProbe.report.change.removed": "已移除",
+  "networkProbe.report.change.unchanged": "未变化",
+  "networkProbe.report.noCheckChanges": "检查项没有差异。",
+  "networkProbe.report.opinionChanges": "建议变化",
+  "networkProbe.report.noOpinionChanges": "建议没有变化。",
   "networkProbe.report.clearHistory": "清空历史",
   "networkProbe.report.clearHistoryConfirmTitle": "清空体检历史？",
   "networkProbe.report.clearHistoryConfirmDescription":
@@ -27,6 +49,7 @@ const translations: Record<string, string> = {
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
+    i18n: { language: "zh-CN", resolvedLanguage: "zh-CN" },
     t: (key: string, options?: Record<string, unknown>) => {
       const template = translations[key] ?? key
       return template.replace(/{{(\w+)}}/g, (_match, name: string) => String(options?.[name] ?? ""))
@@ -52,11 +75,11 @@ const historyEntry = {
   opinions: [],
 } as HealthScanResult
 
-function renderReport(onClearHistory = vi.fn()) {
+function renderReport(onClearHistory = vi.fn(), history: HealthScanResult[] = [historyEntry]) {
   render(
     <ReportPanel
       health={null}
-      history={[historyEntry]}
+      history={history}
       commandLog={[]}
       onClearLog={vi.fn()}
       onClearHistory={onClearHistory}
@@ -92,5 +115,37 @@ describe("ReportPanel history clearing", () => {
     )
 
     await waitFor(() => expect(onClearHistory).toHaveBeenCalledTimes(1))
+  })
+
+  it("compares the latest two scans and lets the user choose another snapshot", () => {
+    const oldest = {
+      ...historyEntry,
+      sessionId: "oldest-12345678",
+      items: [{ key: "dns", layer: "L0", status: "pass", detail: "resolver A" }],
+    } as HealthScanResult
+    const middle = {
+      ...historyEntry,
+      sessionId: "middle-12345678",
+      items: [{ key: "dns", layer: "L0", status: "warn", detail: "resolver B" }],
+    } as HealthScanResult
+    const latest = {
+      ...historyEntry,
+      sessionId: "latest-12345678",
+      items: [{ key: "dns", layer: "L0", status: "pass", detail: "resolver C" }],
+    } as HealthScanResult
+
+    renderReport(vi.fn(), [latest, middle, oldest])
+
+    const snapshotA = screen.getByRole("combobox", { name: "快照 A" })
+    const snapshotB = screen.getByRole("combobox", { name: "快照 B" })
+    expect(snapshotA).toHaveValue("middle-12345678")
+    expect(snapshotB).toHaveValue("latest-12345678")
+    expect(screen.getByText("resolver B")).toBeInTheDocument()
+    expect(screen.getByText("resolver C")).toBeInTheDocument()
+
+    fireEvent.change(snapshotA, { target: { value: "oldest-12345678" } })
+
+    expect(screen.getByText("resolver A")).toBeInTheDocument()
+    expect(screen.getByText("resolver C")).toBeInTheDocument()
   })
 })

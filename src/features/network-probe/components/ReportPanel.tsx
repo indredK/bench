@@ -6,11 +6,13 @@ import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirmDialog"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { ReportHistoryComparison } from "@/features/network-probe/components/ReportHistoryComparison"
+import type { HealthReportSnapshot } from "@/features/network-probe/report-history"
 import type { HealthScanResult } from "@/lib/tauri/types/network-probe"
 
 interface ReportPanelProps {
   health: HealthScanResult | null
-  history: HealthScanResult[]
+  history: HealthReportSnapshot[]
   commandLog: string[]
   onClearLog: () => void
   onClearHistory: () => void
@@ -65,7 +67,7 @@ export function ReportPanel({
   onClearHistory,
   onGoTree,
 }: ReportPanelProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [clearHistoryOpen, setClearHistoryOpen] = useState(false)
   const stamp = useMemo(() => new Date().toISOString().replace(/[:.]/g, "-"), [health])
 
@@ -148,19 +150,32 @@ export function ReportPanel({
         {history.length === 0 ? (
           <p className="text-muted-foreground text-xs">{t("networkProbe.report.historyEmpty")}</p>
         ) : (
-          <ul className="space-y-1 text-xs">
-            {history.map((h, idx) => (
-              <li key={`${h.sessionId}-${idx}`} className="bg-muted/30 rounded border px-2 py-1">
-                {t("networkProbe.report.historyItem", {
-                  session: h.sessionId.slice(0, 8),
-                  count: h.items.length,
-                  ms: h.elapsedMs.toFixed(0),
-                  opinions: h.opinions.length,
-                })}
-              </li>
-            ))}
-          </ul>
+          <ol className="space-y-1 text-xs">
+            {history.map((h, idx) => {
+              const date = h.savedAt === undefined ? null : new Date(h.savedAt)
+              const capturedAt =
+                date && !Number.isNaN(date.getTime())
+                  ? date.toLocaleString(i18n.resolvedLanguage ?? i18n.language)
+                  : t("networkProbe.report.legacySnapshotDate")
+              return (
+                <li key={`${h.sessionId}-${idx}`} className="bg-muted/30 rounded border px-2 py-1">
+                  <p>
+                    {t("networkProbe.report.historyItem", {
+                      session: h.sessionId.slice(0, 8),
+                      count: h.items.length,
+                      ms: h.elapsedMs.toFixed(0),
+                      opinions: h.opinions.length,
+                    })}
+                  </p>
+                  <p className="text-muted-foreground mt-1">
+                    {t("networkProbe.report.historyRank", { rank: idx + 1 })} · {capturedAt}
+                  </p>
+                </li>
+              )
+            })}
+          </ol>
         )}
+        <ReportHistoryComparison history={history} />
       </section>
 
       <DestructiveConfirmDialog
