@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import { ProbeCancelButton } from "@/features/network-probe/components/ProbeCancelButton"
+import { VirtualizedResultList } from "@/features/network-probe/components/VirtualizedResultList"
 import type { PortSampleEvent, PortScanResult } from "@/lib/tauri/types/network-probe"
 
 interface PortScanPanelProps {
@@ -176,15 +177,20 @@ export function PortScanPanel({
         <p className="text-xs text-amber-700 dark:text-amber-400">{resultMessage}</p>
       ) : null}
       {samples.length > 0 ? (
-        <ul className="text-muted-foreground space-y-0.5 font-mono text-xs">
-          {samples.map((s) => (
-            <li key={`${s.port}-${s.state}`}>
-              {s.port}: {s.state}
-              {s.serviceHint ? ` (${s.serviceHint})` : ""}
-              {s.rttMs != null ? ` · ${s.rttMs.toFixed(0)} ms` : ""}
-            </li>
-          ))}
-        </ul>
+        <VirtualizedResultList
+          items={samples}
+          ariaLabel={t("networkProbe.ports.results")}
+          followTail={loading}
+          getItemKey={(sample) => `${sample.port}-${sample.state}`}
+          className="text-muted-foreground font-mono text-xs"
+          renderItem={(sample) => (
+            <span className="break-words">
+              {sample.port}: {sample.state}
+              {sample.serviceHint ? ` (${sample.serviceHint})` : ""}
+              {sample.rttMs != null ? ` · ${sample.rttMs.toFixed(0)} ms` : ""}
+            </span>
+          )}
+        />
       ) : null}
       {result?.commandHint ? (
         <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>

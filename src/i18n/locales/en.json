@@ -2075,6 +2075,7 @@
       "running": "Scanning…",
       "cancel": "Cancel",
       "openList": "Open: {{ports}}",
+      "results": "Port scan results",
       "resultCancelled": "Port scan was cancelled.",
       "resultTcpConnect": "This run used a TCP connect scan.",
       "resultNmap": "This run used nmap SYN or TCP connect scanning; NSE scripts were not enabled.",
@@ -2095,6 +2096,7 @@
       "openSettings": "Open system network settings",
       "cidr": "Sweep CIDR: {{cidr}}",
       "meta": "{{count}} neighbors · mode={{mode}} · {{ms}} ms",
+      "results": "LAN neighbor list",
       "cancelled": "LAN discovery was cancelled mid-sweep."
     },
     "lanSvc": {
@@ -2103,7 +2105,8 @@
       "run": "Browse LAN services",
       "running": "Browsing…",
       "empty": "No mDNS/SSDP responses in the listen window.",
-      "meta": "{{count}} services · {{ms}} ms"
+      "meta": "{{count}} services · {{ms}} ms",
+      "results": "LAN services list"
     },
     "pcap": {
       "hint": "Short counter-only packet sample (RST / retransmit hints). Full pcap write stays opt-in.",
@@ -2240,6 +2243,7 @@
       "cancelled": "cancelled",
       "meta": "{{ip}} · {{mode}} · {{ms}} ms",
       "empty": "No hops yet. Run a trace to populate the table.",
+      "results": "Traceroute hop results table",
       "mode": {
         "privileged": "privileged ICMP",
         "unprivileged": "unprivileged UDP",

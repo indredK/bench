@@ -18,7 +18,6 @@
 
 ### Wave 5 · Polish 增强（产品化）
 
-- [ ] **P5-1** 长列表虚拟化（端口 / 跳点 / 设备列表，UX-STANDARDS）。
 - [ ] **P5-2** 持续监控 / 阈值告警。
 - [ ] **P5-3** 健康报告历史快照 + 跨时间对比（部分完成，◐——报告历史已有，对比 UI 待做）。
 - [ ] **P5-4** 一体化 BasicView 视觉合并。
@@ -63,3 +62,4 @@
 - 2026-09-27：P0-3 修复端口扫描中 nmap 子进程无法及时取消、可能继续 TCP 回退的问题：共用扫描会话，复用 `subprocess.rs` 的超时、输出限制和进程组回收；本地单测、macOS 真机界面取消两次及 GitHub Actions #691 全部必需检查通过。
 - 2026-09-27：P0-4 修复中文界面直接显示英文端口扫描结果消息：取消态与 TCP/nmap 结果改由前端 i18n 映射，产品说明与审计记录同步；组件中英回归、本地门禁与 macOS 真机取消/完成态验证通过，GitHub Actions #692 全部必需检查通过。
 - 2026-09-27：P0-5 修复网络能力读取中 `nmap -V` 无超时并阻塞 async worker：移入阻塞池，复用 `subprocess.rs` 的 2 秒超时和进程组回收；补充超时回归测试。本地门禁、完整 Rust 测试通过；macOS 真机确认 2 秒内能力矩阵恢复、端口扫描降级按钮可用且子进程回收；debug `.app` 已签名（完整 `build:debug` 仅因缺少可选 `TAURI_SIGNING_PRIVATE_KEY` 未生成 updater manifest）；GitHub Actions #693 全部检查通过。
+- 2026-09-27：P5-1 长结果虚拟化已实现：端口样本、Traceroute 跳点、ARP 邻居和 LAN 服务超过 50 条时使用既有 TanStack Virtual；长列表支持键盘滚动与屏幕阅读器位置/总数，流式结果只在滚动贴底时跟随。组件回归、前端门禁与 macOS 真机 100 端口列表/键盘首行验证通过；`build:debug` 的 `.app` 已签名可运行，完整命令仅因本机缺少 `TAURI_SIGNING_PRIVATE_KEY` 未生成 updater artifact。

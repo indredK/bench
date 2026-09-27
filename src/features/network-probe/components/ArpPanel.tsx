@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import { ProbeOpenSettingsButton } from "@/features/network-probe/components/ProbeOpenSettingsButton"
 import { ProbeCancelButton } from "@/features/network-probe/components/ProbeCancelButton"
+import { VirtualizedResultList } from "@/features/network-probe/components/VirtualizedResultList"
 import type { LanDiscoveryResult } from "@/lib/tauri/types/network-probe"
 
 interface ArpPanelProps {
@@ -118,16 +119,20 @@ export function ArpPanel({
               ) : null}
             </div>
           ) : (
-            <ul className="space-y-1 font-mono text-xs">
-              {result.neighbors.map((n) => (
-                <li key={n.ip}>
-                  {n.ip}
-                  {n.mac ? ` · ${n.mac}` : " · (incomplete)"}
-                  {n.iface ? ` · ${n.iface}` : ""}
-                  {n.source ? ` · ${n.source}` : ""}
-                </li>
-              ))}
-            </ul>
+            <VirtualizedResultList
+              items={result.neighbors}
+              ariaLabel={t("networkProbe.arp.results")}
+              getItemKey={(neighbor) => neighbor.ip}
+              className="font-mono text-xs"
+              renderItem={(neighbor) => (
+                <span className="break-words">
+                  {neighbor.ip}
+                  {neighbor.mac ? ` · ${neighbor.mac}` : " · (incomplete)"}
+                  {neighbor.iface ? ` · ${neighbor.iface}` : ""}
+                  {neighbor.source ? ` · ${neighbor.source}` : ""}
+                </span>
+              )}
+            />
           )}
           <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
         </div>

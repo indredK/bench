@@ -2075,6 +2075,7 @@
       "running": "扫描中…",
       "cancel": "取消",
       "openList": "开放：{{ports}}",
+      "results": "端口扫描结果",
       "resultCancelled": "端口扫描已取消。",
       "resultTcpConnect": "本次使用 TCP connect 扫描。",
       "resultNmap": "本次使用 nmap 进行 SYN 或 TCP connect 探测；未启用 NSE 脚本。",
@@ -2095,6 +2096,7 @@
       "openSettings": "打开系统网络设置",
       "cidr": "扫描网段：{{cidr}}",
       "meta": "{{count}} 个邻居 · mode={{mode}} · {{ms}} ms",
+      "results": "局域网邻居列表",
       "cancelled": "局域网发现已在扫描中取消。"
     },
     "lanSvc": {
@@ -2103,7 +2105,8 @@
       "run": "浏览局域网服务",
       "running": "浏览中…",
       "empty": "监听窗口内无 mDNS/SSDP 响应。",
-      "meta": "{{count}} 个服务 · {{ms}} ms"
+      "meta": "{{count}} 个服务 · {{ms}} ms",
+      "results": "局域网服务列表"
     },
     "pcap": {
       "hint": "短时只计计数器的抓包采样（RST / 重传提示）。完整 pcap 落盘保持可选。",
@@ -2240,6 +2243,7 @@
       "cancelled": "已取消",
       "meta": "{{ip}} · {{mode}} · {{ms}} ms",
       "empty": "尚无跳点。运行追踪以填充表格。",
+      "results": "Traceroute 跳点结果表",
       "mode": {
         "privileged": "特权 ICMP",
         "unprivileged": "无特权 UDP",
