@@ -452,6 +452,7 @@ export interface NatProbeResult {
   mappedAddress?: string
   stunServer: string
   serverResults?: NatProbeServerResult[]
+  behaviorResults?: NatBehaviorServerResult[]
   /** Legacy free-form message from older app versions. */
   detail?: string
   elapsedMs: number
@@ -462,6 +463,20 @@ export interface NatProbeServerResult {
   server: string
   status: string
   mappedAddress?: string
+  elapsedMs: number
+  errorCode?: string
+}
+
+export interface NatBehaviorServerResult {
+  server: string
+  endpoint?: string
+  status: string
+  mappingBehavior?: string
+  filteringBehavior?: string
+  mappedAddress?: string
+  mappingStatus: string
+  filteringStatus: string
+  elapsedMs: number
   errorCode?: string
 }
 

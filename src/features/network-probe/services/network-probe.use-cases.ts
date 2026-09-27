@@ -782,14 +782,14 @@ export const networkProbeUseCases = {
     }
   },
 
-  async probeNat() {
+  async probeNat(behaviorServers: string[] = []) {
     const store = useNetworkProbeStore.getState()
     if (store.loadingNat) return
     store.setLoadingNat(true)
     store.setError(null)
     store.appendCommandLog("probeNat(local)")
     try {
-      const result = await networkProbeRepository.probeNat()
+      const result = await networkProbeRepository.probeNat(behaviorServers)
       store.setNatResult(result)
     } catch (error) {
       store.setError({

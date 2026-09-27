@@ -2119,13 +2119,22 @@
       "meta": "{{domain}} · {{count}} 条答案 · {{ms}} ms"
     },
     "nat": {
-      "hint": "对公网 STUN 服务器做 Binding，查看映射地址 / NAT 暴露情况。",
+      "hint": "先查询常见 STUN 映射地址。填写支持 RFC 5780 的服务器后，还会报告该服务器上的映射与过滤行为。",
+      "behaviorServersLabel": "RFC 5780 服务器（可选）",
+      "behaviorServersPlaceholder": "每行一个服务域名或 host:port",
+      "behaviorServersHint": "域名通过 _stun-behavior._udp SRV 记录发现；host:port 用于已知端点。最多 {{max}} 个，服务器须支持 RFC 5780 UDP 行为发现。",
+      "behaviorServersLimit": "最多配置 {{max}} 个服务器。",
       "run": "探测 NAT",
       "running": "探测中…",
       "type": "结果",
       "mapped": "映射地址",
       "elapsed": "耗时 {{seconds}} 秒",
       "serverResults": "STUN 服务器结果",
+      "behaviorResults": "RFC 5780 行为发现",
+      "behaviorEndpoint": "实际端点：{{endpoint}}",
+      "mappingBehaviorLabel": "映射行为",
+      "filteringBehaviorLabel": "过滤行为",
+      "elapsedMs": "{{milliseconds}} ms",
       "types": {
         "blocked-or-timeout": "没有收到 STUN 响应",
         "mapped-address": "已发现映射地址，NAT 类型未知",
@@ -2148,6 +2157,36 @@
         "no-mapping": "无映射地址",
         "error": "请求失败",
         "unknown": "未知状态"
+      },
+      "behaviors": {
+        "endpoint-independent": "端点无关",
+        "address-dependent": "地址相关",
+        "address-and-port-dependent": "地址与端口相关",
+        "unknown": "未知"
+      },
+      "behaviorStatuses": {
+        "complete": "已完成",
+        "partial": "部分可判定",
+        "unsupported": "服务器不支持或拒绝请求",
+        "incompatible": "服务器响应不符合要求",
+        "timeout": "主服务器无响应",
+        "dns-timeout": "DNS 查询超时",
+        "dns-error": "DNS 查询失败",
+        "srv-unavailable": "没有可用的 RFC 5780 SRV 服务",
+        "invalid-server": "服务器地址格式无效",
+        "server-limit": "最多支持 3 个服务器",
+        "error": "探测失败",
+        "unknown": "未知状态"
+      },
+      "behaviorStageStatuses": {
+        "classified": "已判定",
+        "inconclusive": "信息不足，无法判定",
+        "alternate-unreachable": "备用地址不可达，无法判定",
+        "unsupported": "服务器不支持或拒绝请求",
+        "incompatible": "服务器响应不符合要求",
+        "no-response": "没有收到响应",
+        "error": "探测失败",
+        "unknown": "未知"
       }
     },
     "ntp": {

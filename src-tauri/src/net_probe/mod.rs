@@ -18,6 +18,7 @@ mod ipv6;
 mod lan_services;
 mod mtu;
 mod nat;
+mod nat_behavior;
 mod ntp;
 mod offline;
 mod packs;

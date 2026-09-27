@@ -668,6 +668,8 @@ pub struct NatProbeResult {
     pub mapped_address: Option<String>,
     pub stun_server: String,
     pub server_results: Vec<NatProbeServerResult>,
+    /// RFC 5780 results from explicitly configured behavior-discovery servers.
+    pub behavior_results: Vec<NatBehaviorServerResult>,
     pub elapsed_ms: f64,
     pub command_hint: String,
 }
@@ -680,7 +682,36 @@ pub struct NatProbeServerResult {
     pub status: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mapped_address: Option<String>,
+    pub elapsed_ms: f64,
     /// Stable error code for logs and diagnostics; UI copy is localized separately.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_code: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NatBehaviorServerResult {
+    /// User-configured domain name or host:port.
+    pub server: String,
+    /// Resolved RFC 5780 transport endpoint, when one was selected.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub endpoint: Option<String>,
+    /// complete | partial | unsupported | incompatible | timeout | dns-timeout | dns-error | srv-unavailable | invalid-server | server-limit | error
+    pub status: String,
+    /// endpoint-independent | address-dependent | address-and-port-dependent
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mapping_behavior: Option<String>,
+    /// endpoint-independent | address-dependent | address-and-port-dependent
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub filtering_behavior: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mapped_address: Option<String>,
+    /// classified | inconclusive | alternate-unreachable | unsupported | error
+    pub mapping_status: String,
+    /// classified | inconclusive | alternate-unreachable | unsupported | error
+    pub filtering_status: String,
+    pub elapsed_ms: f64,
+    /// Stable diagnostic code; presentation uses localized status text.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error_code: Option<String>,
 }

@@ -18,47 +18,14 @@ const STUN_SERVERS: &[&str] = &[
 ];
 const STUN_TIMEOUT: Duration = Duration::from_secs(3);
 
-pub async fn probe_nat() -> AppResult<NatProbeResult> {
-    let command_hint = "probeNat(local) // multi-STUN Binding (google/cloudflare)".to_string();
+pub async fn probe_nat(behavior_servers: Vec<String>) -> AppResult<NatProbeResult> {
+    let command_hint = "probeNat(local) // multi-STUN Binding + optional RFC 5780".to_string();
     let started = Instant::now();
 
-    // Reuse one socket per address family so requests to different servers use a stable local
-    // endpoint. IPv4 is preferred when a server publishes both address families.
-    let mut socket_v4: Option<UdpSocket> = None;
-    let mut socket_v6: Option<UdpSocket> = None;
-    let mut server_results = Vec::with_capacity(STUN_SERVERS.len());
-
-    for server_name in STUN_SERVERS {
-        let result = probe_server(server_name, &mut socket_v4, &mut socket_v6).await;
-
-        server_results.push(match result {
-            Ok(mapped_address) => NatProbeServerResult {
-                server: (*server_name).to_string(),
-                status: "mapped".into(),
-                mapped_address: Some(mapped_address),
-                error_code: None,
-            },
-            Err(error) if error.code == "NAT_TIMEOUT" => NatProbeServerResult {
-                server: (*server_name).to_string(),
-                status: "timeout".into(),
-                mapped_address: None,
-                error_code: Some(error.code),
-            },
-            Err(error) if error.code == "NAT_NO_MAPPING" => NatProbeServerResult {
-                server: (*server_name).to_string(),
-                status: "no-mapping".into(),
-                mapped_address: None,
-                error_code: Some(error.code),
-            },
-            Err(error) => NatProbeServerResult {
-                server: (*server_name).to_string(),
-                status: "error".into(),
-                mapped_address: None,
-                error_code: Some(error.code),
-            },
-        });
-    }
-
+    let (server_results, behavior_results) = tokio::join!(
+        probe_mapping_servers(),
+        super::nat_behavior::probe_behavior_servers(&behavior_servers),
+    );
     let (nat_type, mapped_address) = classify_mappings(&server_results);
 
     Ok(NatProbeResult {
@@ -70,9 +37,55 @@ pub async fn probe_nat() -> AppResult<NatProbeResult> {
             .collect::<Vec<_>>()
             .join(", "),
         server_results,
+        behavior_results,
         elapsed_ms: started.elapsed().as_secs_f64() * 1000.0,
         command_hint,
     })
+}
+
+async fn probe_mapping_servers() -> Vec<NatProbeServerResult> {
+    // Reuse one socket per address family so requests to different servers use a stable local
+    // endpoint. IPv4 is preferred when a server publishes both address families.
+    let mut socket_v4: Option<UdpSocket> = None;
+    let mut socket_v6: Option<UdpSocket> = None;
+    let mut server_results = Vec::with_capacity(STUN_SERVERS.len());
+
+    for server_name in STUN_SERVERS {
+        let server_started = Instant::now();
+        let result = probe_server(server_name, &mut socket_v4, &mut socket_v6).await;
+
+        server_results.push(match result {
+            Ok(mapped_address) => NatProbeServerResult {
+                server: (*server_name).to_string(),
+                status: "mapped".into(),
+                mapped_address: Some(mapped_address),
+                elapsed_ms: server_started.elapsed().as_secs_f64() * 1000.0,
+                error_code: None,
+            },
+            Err(error) if error.code == "NAT_TIMEOUT" => NatProbeServerResult {
+                server: (*server_name).to_string(),
+                status: "timeout".into(),
+                mapped_address: None,
+                elapsed_ms: server_started.elapsed().as_secs_f64() * 1000.0,
+                error_code: Some(error.code),
+            },
+            Err(error) if error.code == "NAT_NO_MAPPING" => NatProbeServerResult {
+                server: (*server_name).to_string(),
+                status: "no-mapping".into(),
+                mapped_address: None,
+                elapsed_ms: server_started.elapsed().as_secs_f64() * 1000.0,
+                error_code: Some(error.code),
+            },
+            Err(error) => NatProbeServerResult {
+                server: (*server_name).to_string(),
+                status: "error".into(),
+                mapped_address: None,
+                elapsed_ms: server_started.elapsed().as_secs_f64() * 1000.0,
+                error_code: Some(error.code),
+            },
+        });
+    }
+    server_results
 }
 
 fn classify_mappings(results: &[NatProbeServerResult]) -> (&'static str, Option<String>) {
@@ -343,6 +356,7 @@ mod tests {
             server: "stun.example:3478".into(),
             status: status.into(),
             mapped_address: mapped_address.map(str::to_owned),
+            elapsed_ms: 0.0,
             error_code: None,
         }
     }

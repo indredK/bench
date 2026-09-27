@@ -213,7 +213,10 @@ export function useNetworkProbeController() {
     (target: string, ports: string) => networkProbeUseCases.runPortScan(target, ports),
     [],
   )
-  const probeNat = useCallback(() => networkProbeUseCases.probeNat(), [])
+  const probeNat = useCallback(
+    (behaviorServers: string[]) => networkProbeUseCases.probeNat(behaviorServers),
+    [],
+  )
   const probeNtp = useCallback(() => networkProbeUseCases.probeNtp(), [])
   const discoverLan = useCallback(() => networkProbeUseCases.discoverLan(), [])
   const browseLanServices = useCallback(() => networkProbeUseCases.browseLanServices(), [])

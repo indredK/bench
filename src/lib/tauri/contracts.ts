@@ -856,7 +856,7 @@ export const TAURI_COMMAND_CONTRACTS = {
   network_probe_scan_ports: defineTauriCommand<{ target: string; ports: string }, PortScanResult>()(
     "network_probe_scan_ports",
   ),
-  network_probe_probe_nat: defineTauriCommand<undefined, NatProbeResult>()(
+  network_probe_probe_nat: defineTauriCommand<{ behaviorServers: string[] }, NatProbeResult>()(
     "network_probe_probe_nat",
   ),
   network_probe_probe_ntp: defineTauriCommand<undefined, NtpProbeResult>()(
@@ -1699,7 +1699,7 @@ export const TAURI_COMMAND_ARG_KEYS = {
   network_probe_whois: ["query"],
   network_probe_check_dnssec: ["domain"],
   network_probe_scan_ports: ["target", "ports"],
-  network_probe_probe_nat: [],
+  network_probe_probe_nat: ["behaviorServers"],
   network_probe_probe_ntp: [],
   network_probe_discover_lan: [],
   network_probe_browse_lan_services: [],
