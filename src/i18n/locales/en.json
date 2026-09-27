@@ -1573,6 +1573,10 @@
   "networkProbe": {
     "title": "Network Probe",
     "subtitle": "First-aid diagnostics and targeted probes (module 1.0 / MVP A+B).",
+    "common": {
+      "cancelling": "Cancelling…",
+      "openingSettings": "Opening Network Settings…"
+    },
     "nav": {
       "l1": "Primary sections",
       "l2": "Tools",
@@ -1862,6 +1866,9 @@
     "fix": {
       "hint": "Privilege-free self-heal actions. Backend re-validates services and DNS against a whitelist.",
       "service": "Network service",
+      "servicesLoading": "Loading network services…",
+      "servicesEmpty": "No network services available",
+      "refreshServices": "Refresh services",
       "dnsPreset": "DNS preset",
       "flush": "Flush DNS",
       "switchDns": "Switch DNS",
@@ -2108,6 +2115,9 @@
       "run": "Compare DNS (multi-node)",
       "running": "Comparing…",
       "refresh": "Refresh nodes",
+      "refreshing": "Refreshing nodes…",
+      "addingAgent": "Adding…",
+      "removingAgent": "Removing…",
       "listTitle": "Probe nodes",
       "addTitle": "Add agent",
       "addHint": "Endpoint must be https:// or wss://. Arbitrary shell actions are rejected.",

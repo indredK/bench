@@ -99,6 +99,9 @@ export type NetworkProbeKind =
 export type NetworkProbeOfflineSub =
   "all" | "captive" | "proxy" | "ipv6" | "mtu" | "egress" | "diff"
 
+export type NetworkProbeAgentMutation =
+  { action: "add" } | { action: "remove"; agentId: string } | null
+
 export type NetworkProbeL2ByL1 = Record<NetworkProbeL1, string>
 
 interface NetworkProbeState {
@@ -151,6 +154,9 @@ interface NetworkProbeState {
   probeNodes: ProbeNode[]
   reportHistory: HealthScanResult[]
   securityAuthorized: boolean
+  agentMutation: NetworkProbeAgentMutation
+  openingSystemSettings: boolean
+  loadingServices: boolean
   /** 按探测种类分槽的活动会话; 多类探测并发时取消目标各自独立, 不会互相抢占。 */
   activeSessionIdByKind: Record<NetworkProbeKind, string | null>
   /** 各探测种类已发出 cancel 请求的会话; 用于保证取消幂等 (A4-4)。 */
@@ -263,6 +269,9 @@ interface NetworkProbeState {
   setLoadingPcap: (loading: boolean) => void
   setLoadingMultiNode: (loading: boolean) => void
   setLoadingNodes: (loading: boolean) => void
+  setAgentMutation: (mutation: NetworkProbeAgentMutation) => void
+  setOpeningSystemSettings: (opening: boolean) => void
+  setLoadingServices: (loading: boolean) => void
   setError: (error: LocalizedError | null) => void
 }
 
@@ -405,6 +414,9 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   loadingPcap: false,
   loadingMultiNode: false,
   loadingNodes: false,
+  agentMutation: null,
+  openingSystemSettings: false,
+  loadingServices: false,
   error: null,
 
   setL1: (l1Id) => {
@@ -558,7 +570,13 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
       // 只有当前值仍是自己那次才清: 否则先结束的那轮会把仍在跑的那轮的 Cancel 目标抹掉。
       if (expectedSessionId != null && prev !== expectedSessionId) return {}
       if (prev === null) return {}
-      return { activeSessionIdByKind: { ...state.activeSessionIdByKind, [kind]: null } }
+      return {
+        activeSessionIdByKind: { ...state.activeSessionIdByKind, [kind]: null },
+        cancelRequestedSessionIdByKind:
+          state.cancelRequestedSessionIdByKind[kind] === prev
+            ? { ...state.cancelRequestedSessionIdByKind, [kind]: null }
+            : state.cancelRequestedSessionIdByKind,
+      }
     }),
   setCancelRequestedSessionId: (kind, sessionId) =>
     set((state) => ({
@@ -596,6 +614,9 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   setLoadingPcap: (loadingPcap) => set({ loadingPcap }),
   setLoadingMultiNode: (loadingMultiNode) => set({ loadingMultiNode }),
   setLoadingNodes: (loadingNodes) => set({ loadingNodes }),
+  setAgentMutation: (agentMutation) => set({ agentMutation }),
+  setOpeningSystemSettings: (openingSystemSettings) => set({ openingSystemSettings }),
+  setLoadingServices: (loadingServices) => set({ loadingServices }),
   setError: (error) => set({ error }),
 }))
 

@@ -8,11 +8,13 @@ import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirm
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { ProbeCancelButton } from "@/features/network-probe/components/ProbeCancelButton"
 import type { PortSampleEvent, PortScanResult } from "@/lib/tauri/types/network-probe"
 
 interface PortScanPanelProps {
   loading: boolean
   canCancel: boolean
+  cancelling?: boolean
   result: PortScanResult | null
   streaming: PortSampleEvent[]
   toolEnabled: boolean
@@ -57,6 +59,7 @@ function estimatePortCount(spec: string): number {
 export function PortScanPanel({
   loading,
   canCancel,
+  cancelling = false,
   result,
   streaming,
   toolEnabled,
@@ -146,11 +149,12 @@ export function PortScanPanel({
               </Button>
             </CommandHint>
             {canCancel ? (
-              <CommandHint hint={t("networkProbe.cmd.cancelScan")}>
-                <Button type="button" variant="outline" onClick={onCancel}>
-                  {t("networkProbe.ports.cancel")}
-                </Button>
-              </CommandHint>
+              <ProbeCancelButton
+                canCancel={canCancel}
+                cancelling={cancelling}
+                cancelLabel={t("networkProbe.ports.cancel")}
+                onCancel={onCancel}
+              />
             ) : null}
           </div>
         </>

@@ -7,11 +7,13 @@ import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import type { NetworkProbeAgentMutation } from "@/features/network-probe/store"
 import type { MultiNodeDnsResult, ProbeNode } from "@/lib/tauri/types/network-probe"
 
 interface MultiNodePanelProps {
   loading: boolean
   loadingNodes: boolean
+  agentMutation: NetworkProbeAgentMutation
   result: MultiNodeDnsResult | null
   nodes: ProbeNode[]
   toolEnabled: boolean
@@ -25,6 +27,7 @@ interface MultiNodePanelProps {
 export function MultiNodePanel({
   loading,
   loadingNodes,
+  agentMutation,
   result,
   nodes,
   toolEnabled,
@@ -72,10 +75,10 @@ export function MultiNodePanel({
             <Button
               type="button"
               variant="outline"
-              disabled={loadingNodes}
+              disabled={loadingNodes || agentMutation !== null}
               onClick={onRefreshNodes}
             >
-              {t("networkProbe.nodes.refresh")}
+              {t(loadingNodes ? "networkProbe.nodes.refreshing" : "networkProbe.nodes.refresh")}
             </Button>
           </div>
 
@@ -93,9 +96,12 @@ export function MultiNodePanel({
                       type="button"
                       size="sm"
                       variant="outline"
+                      disabled={loadingNodes || agentMutation !== null}
                       onClick={() => onRemoveAgent(n.id)}
                     >
-                      {t("networkProbe.nodes.removeAgent")}
+                      {agentMutation?.action === "remove" && agentMutation.agentId === n.id
+                        ? t("networkProbe.nodes.removingAgent")
+                        : t("networkProbe.nodes.removeAgent")}
                     </Button>
                   ) : null}
                 </li>
@@ -122,10 +128,14 @@ export function MultiNodePanel({
               <CommandHint hint={t("networkProbe.cmd.addAgent")}>
                 <Button
                   type="button"
-                  disabled={!label.trim() || !endpoint.trim()}
+                  disabled={
+                    loadingNodes || agentMutation !== null || !label.trim() || !endpoint.trim()
+                  }
                   onClick={() => onAddAgent(label.trim(), endpoint.trim())}
                 >
-                  {t("networkProbe.nodes.addAgent")}
+                  {agentMutation?.action === "add"
+                    ? t("networkProbe.nodes.addingAgent")
+                    : t("networkProbe.nodes.addAgent")}
                 </Button>
               </CommandHint>
             </div>

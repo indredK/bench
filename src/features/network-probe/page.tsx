@@ -97,6 +97,11 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
   }, [c.l2Id, c.selectL2, resolvedL2])
 
   const activeSessionIdByKind = c.activeSessionIdByKind
+  const cancelRequestedSessionIdByKind = c.cancelRequestedSessionIdByKind
+  const isCancelling = (kind: keyof typeof activeSessionIdByKind) => {
+    const sessionId = activeSessionIdByKind[kind]
+    return sessionId !== null && cancelRequestedSessionIdByKind[kind] === sessionId
+  }
   const hostsSuspicious = useMemo(
     () => (c.hosts ?? []).filter((h) => h.suspicious).length,
     [c.hosts],
@@ -341,6 +346,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     summary={c.summary}
                     firewall={c.firewall}
                     hostsSuspiciousCount={hostsSuspicious}
+                    openingSettings={c.openingSystemSettings}
                     onRefresh={c.refreshOverview}
                     onOpenSettings={c.openSystemNetworkSettings}
                   />
@@ -352,6 +358,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     result={c.healthResult}
                     streamingItems={c.healthStreamingItems}
                     canCancel={Boolean(activeSessionIdByKind.health)}
+                    cancelling={isCancelling("health")}
                     onRun={c.runHealthScan}
                     onCancel={() => c.cancelScan("health")}
                   />
@@ -365,6 +372,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                   <SitesProbePanel
                     loading={c.loadingSites}
                     canCancel={Boolean(activeSessionIdByKind.sites) && c.loadingSites}
+                    cancelling={isCancelling("sites")}
                     result={c.sitesResult}
                     streaming={c.sitesStreaming}
                     sparklines={c.siteSparklineById}
@@ -381,6 +389,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                   <OfficialSitesPanel
                     loading={c.loadingSites}
                     canCancel={Boolean(activeSessionIdByKind.sites) && c.loadingSites}
+                    cancelling={isCancelling("sites")}
                     presets={officialPresets}
                     result={c.sitesResult}
                     streaming={c.sitesStreaming}
@@ -470,6 +479,8 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                 {showFix ? (
                   <FixPanel
                     loading={c.loadingFix}
+                    loadingServices={c.loadingServices}
+                    openingSettings={c.openingSystemSettings}
                     services={c.networkServices}
                     dnsPresets={c.defaults?.dnsPresets ?? []}
                     lastResult={c.fixResult}
@@ -532,6 +543,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                   <TraceroutePanel
                     loading={c.loadingTraceroute}
                     canCancel={Boolean(activeSessionIdByKind.traceroute) && c.loadingTraceroute}
+                    cancelling={isCancelling("traceroute")}
                     result={c.tracerouteResult}
                     streamingHops={c.tracerouteStreamingHops}
                     toolEnabled={c.toolEnabled.traceroute}
@@ -563,6 +575,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                   <SpeedPanel
                     loading={c.loadingSpeed}
                     canCancel={c.loadingSpeed && Boolean(activeSessionIdByKind.speed)}
+                    cancelling={isCancelling("speed")}
                     sources={c.speedSources}
                     result={c.speedResult}
                     sample={c.speedSample}
@@ -579,6 +592,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                   <PortScanPanel
                     loading={c.loadingPorts}
                     canCancel={c.loadingPorts && Boolean(activeSessionIdByKind.ports)}
+                    cancelling={isCancelling("ports")}
                     result={c.portScanResult}
                     streaming={c.portScanStreaming}
                     toolEnabled={c.toolEnabled.portScan}
@@ -625,6 +639,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     toolEnabled={c.toolEnabled.pcap}
                     toolStatus={c.toolStatus.pcap}
                     canCancel={c.loadingPcap && Boolean(activeSessionIdByKind.pcap)}
+                    cancelling={isCancelling("pcap")}
                     onRun={() => c.runPcapDiag(5)}
                     onCancel={() => c.cancelScan("pcap")}
                     onManagePacks={() => {
@@ -641,8 +656,10 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     toolEnabled={c.toolEnabled.arp}
                     toolStatus={c.toolStatus.arp}
                     canCancel={c.loadingLan && Boolean(activeSessionIdByKind.lan)}
+                    cancelling={isCancelling("lan")}
                     onRun={c.discoverLan}
                     onCancel={() => c.cancelScan("lan")}
+                    openingSettings={c.openingSystemSettings}
                     onOpenSettings={c.openSystemNetworkSettings}
                   />
                 ) : null}
@@ -681,6 +698,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                   <MultiNodePanel
                     loading={c.loadingMultiNode}
                     loadingNodes={c.loadingNodes}
+                    agentMutation={c.agentMutation}
                     result={c.multiNodeDnsResult}
                     nodes={c.probeNodes}
                     toolEnabled={c.toolEnabled.multiNode}

@@ -65,8 +65,14 @@ export function useNetworkProbeController() {
   const probeNodes = useNetworkProbeStore((s) => s.probeNodes)
   const reportHistory = useNetworkProbeStore((s) => s.reportHistory)
   const securityAuthorized = useNetworkProbeStore((s) => s.securityAuthorized)
+  const agentMutation = useNetworkProbeStore((s) => s.agentMutation)
+  const openingSystemSettings = useNetworkProbeStore((s) => s.openingSystemSettings)
+  const loadingServices = useNetworkProbeStore((s) => s.loadingServices)
   // 会话按探测种类分槽: 面板只读自己那一槽, 决定 Cancel 目标与按钮可见性。
   const activeSessionIdByKind = useNetworkProbeStore((s) => s.activeSessionIdByKind)
+  const cancelRequestedSessionIdByKind = useNetworkProbeStore(
+    (s) => s.cancelRequestedSessionIdByKind,
+  )
   const commandLog = useNetworkProbeStore((s) => s.commandLog)
   const loadingSummary = useNetworkProbeStore((s) => s.loadingSummary)
   const loadingTcp = useNetworkProbeStore((s) => s.loadingTcp)
@@ -327,7 +333,11 @@ export function useNetworkProbeController() {
     probeNodes,
     reportHistory,
     securityAuthorized,
+    agentMutation,
+    openingSystemSettings,
+    loadingServices,
     activeSessionIdByKind,
+    cancelRequestedSessionIdByKind,
     commandLog,
     loadingSummary,
     loadingTcp,

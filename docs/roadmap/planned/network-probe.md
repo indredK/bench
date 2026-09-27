@@ -13,7 +13,6 @@
 
 ### Wave 0 · Polish 基线（可并行）
 
-- [ ] **P0-1** MVP 面板空态 / 失败态 / 重入与取消一致性扫尾（S-X-\* · coding §3/§5）。
 - [ ] **P0-2** 关键测试补强：契约 · cancel 幂等 · Advisor 纯函数 · 无特权降级（部分完成，◐）。
 
 ### Wave 3 · 安全 Tab（续）
@@ -63,3 +62,4 @@
 - 2026-09-03：首版生成——依据 `docs/modules/network-probe/roadmap.md`（Wave 0–6）与 `docs/roadmap/ROADMAP.md` D-016，提炼 ⬜/◐ 未完成项为「待实现」「待验证」「远期」三档；产品说明见 `../product-specs/network-probe.md`。
 - 2026-09-27：登记 STUN RFC 5780 分类、兼容服务器配置与逐源耗时为 C2-4；当前实现仅提供多源 Binding 映射观察。
 - 2026-09-27：C2-4 已实现：可配置 RFC 5780 服务域名/端点、逐源映射与过滤行为/耗时、备用地址可达性校验和故障隔离；SRV 优先级在 IPv4 偏好与去重后仍保持；验收说明见产品说明与 `docs/modules/network-probe/design-discover.md`。
+- 2026-09-27：P0-1 已实现：统一长任务取消中的反馈与禁用态；取消 IPC 失败后恢复重试；网络服务读取、节点注册/移除和系统设置打开均增加防重入/loading/空列表恢复；详情见产品说明 §3、§13 与审计记录。

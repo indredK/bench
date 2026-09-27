@@ -308,11 +308,18 @@ export const networkProbeUseCases = {
     // 幂等 (A4-4): 同一会话只允许发出一次 cancel 请求。
     if (store.cancelRequestedSessionIdByKind[kind] === sessionId) return
     store.setCancelRequestedSessionId(kind, sessionId)
+    store.setError(null)
     store.appendCommandLog(`cancelScan('${sessionId}')`)
     try {
       await networkProbeRepository.cancelScan(sessionId)
     } catch (error) {
-      store.setError({
+      const current = useNetworkProbeStore.getState()
+      // 失败只回滚本次仍活动的会话，避免旧请求覆盖新会话的取消状态或错误。
+      if (current.activeSessionIdByKind[kind] !== sessionId) return
+      if (current.cancelRequestedSessionIdByKind[kind] === sessionId) {
+        current.setCancelRequestedSessionId(kind, null)
+      }
+      current.setError({
         key: "networkProbe.errors.cancelFailed",
         fallback: getErrorMessage(error),
       })
@@ -321,6 +328,9 @@ export const networkProbeUseCases = {
 
   async loadNetworkServices() {
     const store = useNetworkProbeStore.getState()
+    if (store.loadingServices) return
+    store.setLoadingServices(true)
+    store.setError(null)
     try {
       const services = await networkProbeRepository.listNetworkServices()
       store.setNetworkServices(services)
@@ -329,6 +339,8 @@ export const networkProbeUseCases = {
         key: "networkProbe.errors.servicesFailed",
         fallback: getErrorMessage(error),
       })
+    } finally {
+      useNetworkProbeStore.getState().setLoadingServices(false)
     }
   },
 
@@ -528,6 +540,8 @@ export const networkProbeUseCases = {
 
   async openSystemNetworkSettings() {
     const store = useNetworkProbeStore.getState()
+    if (store.openingSystemSettings) return
+    store.setOpeningSystemSettings(true)
     store.setError(null)
     try {
       await networkProbeRepository.openSystemNetworkSettings()
@@ -536,6 +550,8 @@ export const networkProbeUseCases = {
         key: "networkProbe.errors.openSettingsFailed",
         fallback: getErrorMessage(error),
       })
+    } finally {
+      useNetworkProbeStore.getState().setOpeningSystemSettings(false)
     }
   },
 
@@ -897,7 +913,7 @@ export const networkProbeUseCases = {
 
   async refreshProbeNodes() {
     const store = useNetworkProbeStore.getState()
-    if (store.loadingNodes) return
+    if (store.loadingNodes || store.agentMutation) return
     store.setLoadingNodes(true)
     store.setError(null)
     try {
@@ -938,6 +954,9 @@ export const networkProbeUseCases = {
 
   async addAgent(label: string, endpoint: string) {
     const store = useNetworkProbeStore.getState()
+    if (store.loadingNodes || store.agentMutation) return
+    store.setLoadingNodes(true)
+    store.setAgentMutation({ action: "add" })
     store.setError(null)
     store.appendCommandLog(`addAgent('${label}', '${endpoint}')`)
     try {
@@ -949,11 +968,18 @@ export const networkProbeUseCases = {
         key: "networkProbe.errors.agentFailed",
         fallback: getErrorMessage(error),
       })
+    } finally {
+      const current = useNetworkProbeStore.getState()
+      current.setAgentMutation(null)
+      current.setLoadingNodes(false)
     }
   },
 
   async removeAgent(agentId: string) {
     const store = useNetworkProbeStore.getState()
+    if (store.loadingNodes || store.agentMutation) return
+    store.setLoadingNodes(true)
+    store.setAgentMutation({ action: "remove", agentId })
     store.setError(null)
     store.appendCommandLog(`removeAgent('${agentId}')`)
     try {
@@ -965,6 +991,10 @@ export const networkProbeUseCases = {
         key: "networkProbe.errors.agentFailed",
         fallback: getErrorMessage(error),
       })
+    } finally {
+      const current = useNetworkProbeStore.getState()
+      current.setAgentMutation(null)
+      current.setLoadingNodes(false)
     }
   },
 

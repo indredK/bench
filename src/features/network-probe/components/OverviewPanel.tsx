@@ -5,6 +5,7 @@ import { useEffect } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { ProbeOpenSettingsButton } from "@/features/network-probe/components/ProbeOpenSettingsButton"
 import { cn } from "@/lib/utils"
 
 interface OverviewPanelProps {
@@ -20,6 +21,7 @@ interface OverviewPanelProps {
   } | null
   firewall: { status: string; detail?: string } | null
   hostsSuspiciousCount: number
+  openingSettings?: boolean
   onRefresh: () => void
   onOpenSettings: () => void
 }
@@ -29,6 +31,7 @@ export function OverviewPanel({
   summary,
   firewall,
   hostsSuspiciousCount,
+  openingSettings = false,
   onRefresh,
   onOpenSettings,
 }: OverviewPanelProps) {
@@ -45,9 +48,12 @@ export function OverviewPanel({
           <Button type="button" size="sm" onClick={onRefresh} disabled={loading}>
             {loading ? t("networkProbe.overview.refreshing") : t("networkProbe.overview.refresh")}
           </Button>
-          <Button type="button" size="sm" variant="outline" onClick={onOpenSettings}>
-            {t("networkProbe.overview.openSettings")}
-          </Button>
+          <ProbeOpenSettingsButton
+            size="sm"
+            label={t("networkProbe.overview.openSettings")}
+            opening={openingSettings}
+            onOpen={onOpenSettings}
+          />
           <span className="text-muted-foreground font-mono text-xs">
             {t("networkProbe.cmd.summary")}
           </span>

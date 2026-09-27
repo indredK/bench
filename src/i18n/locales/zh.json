@@ -1573,6 +1573,10 @@
   "networkProbe": {
     "title": "网络探测",
     "subtitle": "急救诊断与主动探测（模块 1.0 / MVP A+B）。",
+    "common": {
+      "cancelling": "正在取消…",
+      "openingSettings": "正在打开网络设置…"
+    },
     "nav": {
       "l1": "一级分区",
       "l2": "工具",
@@ -1862,6 +1866,9 @@
     "fix": {
       "hint": "免特权自愈操作。后端会复核网络服务与 DNS 白名单。",
       "service": "网络服务",
+      "servicesLoading": "正在加载网络服务…",
+      "servicesEmpty": "没有可用的网络服务",
+      "refreshServices": "刷新服务",
       "dnsPreset": "DNS 预设",
       "flush": "刷新 DNS",
       "switchDns": "切换 DNS",
@@ -2108,6 +2115,9 @@
       "run": "多节点对比 DNS",
       "running": "对比中…",
       "refresh": "刷新节点",
+      "refreshing": "正在刷新节点…",
+      "addingAgent": "正在添加…",
+      "removingAgent": "正在移除…",
       "listTitle": "探测节点",
       "addTitle": "添加 agent",
       "addHint": "端点必须为 https:// 或 wss://。任意 shell 动作会被拒绝。",

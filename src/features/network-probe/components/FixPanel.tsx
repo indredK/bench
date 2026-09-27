@@ -7,10 +7,13 @@ import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirm
 import { TripleDestructiveConfirm } from "@/components/common/TripleDestructiveConfirm"
 import { Button } from "@/components/ui/button"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { ProbeOpenSettingsButton } from "@/features/network-probe/components/ProbeOpenSettingsButton"
 import type { DnsPreset, FixResult } from "@/lib/tauri/types/network-probe"
 
 interface FixPanelProps {
   loading: boolean
+  loadingServices: boolean
+  openingSettings: boolean
   services: string[]
   dnsPresets: DnsPreset[]
   lastResult: FixResult | null
@@ -38,6 +41,8 @@ export function FixPanel({
   services,
   dnsPresets,
   lastResult,
+  loadingServices,
+  openingSettings,
   onLoadServices,
   onFlushDns,
   onSwitchDns,
@@ -87,7 +92,17 @@ export function FixPanel({
                 className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
                 value={service}
                 onChange={(e) => setService(e.target.value)}
+                disabled={loading || loadingServices}
               >
+                {services.length === 0 ? (
+                  <option value="">
+                    {t(
+                      loadingServices
+                        ? "networkProbe.fix.servicesLoading"
+                        : "networkProbe.fix.servicesEmpty",
+                    )}
+                  </option>
+                ) : null}
                 {services.map((s) => (
                   <option key={s} value={s}>
                     {s}
@@ -95,6 +110,19 @@ export function FixPanel({
                 ))}
               </select>
             </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={loading || loadingServices}
+              onClick={onLoadServices}
+            >
+              {t(
+                loadingServices
+                  ? "networkProbe.fix.servicesLoading"
+                  : "networkProbe.fix.refreshServices",
+              )}
+            </Button>
             <div className="min-w-[10rem] flex-1 space-y-1">
               <label className="text-xs font-medium" htmlFor="np-fix-dns">
                 {t("networkProbe.fix.dnsPreset")}
@@ -140,9 +168,11 @@ export function FixPanel({
             >
               {t("networkProbe.fix.resetStack")}
             </Button>
-            <Button type="button" variant="outline" onClick={onOpenSettings}>
-              {t("networkProbe.fix.openSettings")}
-            </Button>
+            <ProbeOpenSettingsButton
+              label={t("networkProbe.fix.openSettings")}
+              opening={openingSettings}
+              onOpen={onOpenSettings}
+            />
           </div>
 
           <div className="text-muted-foreground space-y-0.5 font-mono text-xs">
