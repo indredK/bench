@@ -179,32 +179,97 @@ mod tests {
         }
     }
 
-    #[test]
-    fn link_down_emits_critical_opinion() {
-        let opinions = build_opinions(&[item("link.iface", "fail", None)]);
-        assert!(opinions.iter().any(|o| o.id == "link-down"));
+    fn opinion_ids(items: &[HealthCheckItem]) -> Vec<String> {
+        build_opinions(items).into_iter().map(|o| o.id).collect()
     }
 
     #[test]
-    fn all_clear_when_diff_pass() {
-        let opinions = build_opinions(&[item("diff.dns_vs_ip", "pass", Some("ok"))]);
-        assert!(opinions.iter().any(|o| o.id == "all-clear"));
+    fn maps_each_health_signal_to_its_expected_opinion() {
+        let cases: Vec<(&str, &str, Option<&str>, &[&str])> = vec![
+            ("link.iface", "fail", None, &["link-down"]),
+            ("route.default", "fail", None, &["no-default-route"]),
+            ("addr.ipv4", "fail", None, &["no-ipv4"]),
+            ("dns.servers", "fail", None, &["dns-broken"]),
+            ("dns.resolve_name", "fail", None, &["dns-broken"]),
+            ("hosts.override", "fail", None, &["hosts-hijack"]),
+            (
+                "diff.dns_vs_ip",
+                "fail",
+                Some("DNS or hosts issue"),
+                &["dns-vs-ip-dns"],
+            ),
+            (
+                "diff.dns_vs_ip",
+                "fail",
+                Some("Public IP does not match expected uplink"),
+                &["dns-vs-ip-uplink"],
+            ),
+            (
+                "diff.dns_vs_ip",
+                "fail",
+                Some("Gateway or LAN reachability differs"),
+                &["dns-vs-ip-lan"],
+            ),
+            ("proxy.system", "warn", None, &["proxy-on"]),
+            ("dns.fake_ip", "warn", None, &["fake-ip-active"]),
+            ("vpn.tunnel", "warn", None, &["vpn-active"]),
+            ("reach.captive", "fail", None, &["captive"]),
+            // A warning is inconclusive; only a confirmed captive result produces advice.
+            ("reach.captive", "warn", None, &[]),
+            ("diff.dns_vs_ip", "pass", Some("ok"), &["all-clear"]),
+            ("diff.dns_vs_ip", "fail", Some("unclassified detail"), &[]),
+            ("link.iface", "skip", None, &[]),
+        ];
+
+        for (key, status, detail, expected) in cases {
+            assert_eq!(
+                opinion_ids(&[item(key, status, detail)]),
+                expected
+                    .iter()
+                    .map(|id| (*id).to_string())
+                    .collect::<Vec<_>>(),
+                "unexpected advice for {key}={status}, detail={detail:?}"
+            );
+        }
     }
 
     #[test]
-    fn dns_vs_ip_dns_branch() {
-        let opinions =
-            build_opinions(&[item("diff.dns_vs_ip", "fail", Some("DNS or hosts issue"))]);
-        assert!(opinions.iter().any(|o| o.id == "dns-vs-ip-dns"));
+    fn combines_independent_findings_without_claiming_all_clear() {
+        let opinions = build_opinions(&[
+            item("link.iface", "fail", None),
+            item("route.default", "fail", None),
+            item("diff.dns_vs_ip", "pass", Some("ok")),
+        ]);
+
+        assert_eq!(
+            opinions.iter().map(|o| o.id.as_str()).collect::<Vec<_>>(),
+            ["link-down", "no-default-route"]
+        );
+        assert!(opinions
+            .iter()
+            .all(|opinion| opinion.severity == "critical"));
+        assert!(opinions.iter().all(|opinion| !opinion.title_key.is_empty()));
+        assert!(opinions.iter().all(|opinion| !opinion.body_key.is_empty()));
     }
 
     #[test]
-    fn fake_ip_emits_warn_opinion() {
-        let opinions = build_opinions(&[item(
-            "dns.fake_ip",
-            "warn",
-            Some("Fake-IP / enhanced mode likely"),
-        )]);
-        assert!(opinions.iter().any(|o| o.id == "fake-ip-active"));
+    fn warning_advice_keeps_warning_severity_and_related_health_keys() {
+        let opinions = build_opinions(&[
+            item("proxy.system", "warn", None),
+            item("dns.fake_ip", "warn", None),
+            item("vpn.tunnel", "warn", None),
+        ]);
+
+        assert_eq!(
+            opinions.iter().map(|o| o.id.as_str()).collect::<Vec<_>>(),
+            ["proxy-on", "fake-ip-active", "vpn-active"]
+        );
+        assert!(opinions.iter().all(|opinion| opinion.severity == "warn"));
+        assert_eq!(opinions[0].related_keys, ["proxy.system"]);
+        assert_eq!(
+            opinions[1].related_keys,
+            ["dns.fake_ip", "proxy.system", "vpn.tunnel"]
+        );
+        assert_eq!(opinions[2].related_keys, ["vpn.tunnel"]);
     }
 }

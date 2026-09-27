@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { ProbeCancelButton } from "@/features/network-probe/components/ProbeCancelButton"
 import type {
   SpeedSampleEvent,
   SpeedSource,
@@ -22,6 +23,7 @@ import type {
 interface SpeedPanelProps {
   loading: boolean
   canCancel: boolean
+  cancelling?: boolean
   sources: SpeedSource[]
   result: SpeedTestResult | null
   sample: SpeedSampleEvent | null
@@ -36,6 +38,7 @@ interface SpeedPanelProps {
 export function SpeedPanel({
   loading,
   canCancel,
+  cancelling = false,
   sources,
   result,
   sample,
@@ -133,11 +136,12 @@ export function SpeedPanel({
               </Button>
             </CommandHint>
             {canCancel ? (
-              <CommandHint hint={t("networkProbe.cmd.cancelScan")}>
-                <Button type="button" variant="outline" onClick={onCancel}>
-                  {t("networkProbe.speed.cancel")}
-                </Button>
-              </CommandHint>
+              <ProbeCancelButton
+                canCancel={canCancel}
+                cancelling={cancelling}
+                cancelLabel={t("networkProbe.speed.cancel")}
+                onCancel={onCancel}
+              />
             ) : null}
           </div>
         </>

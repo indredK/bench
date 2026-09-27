@@ -453,8 +453,6 @@ export interface NatProbeResult {
   stunServer: string
   serverResults?: NatProbeServerResult[]
   behaviorResults?: NatBehaviorServerResult[]
-  /** Legacy free-form message from older app versions. */
-  detail?: string
   elapsedMs: number
   commandHint: string
 }
@@ -485,10 +483,22 @@ export interface NtpProbeResult {
   ok: boolean
   offsetSeconds?: number
   rttSeconds?: number
-  severity: string
+  sources: NtpProbeSourceResult[]
+  severity: "ok" | "warn" | "high" | "fail"
   detail?: string
   elapsedMs: number
   commandHint: string
+}
+
+export interface NtpProbeSourceResult {
+  server: string
+  ok: boolean
+  offsetSeconds?: number
+  rttSeconds?: number
+  stratum?: number
+  errorCode?:
+    "NTP_DNS" | "NTP_BIND" | "NTP_TIMEOUT" | "NTP_PROTOCOL" | "NTP_CLOCK" | "NTP_UNAVAILABLE"
+  detail?: string
 }
 
 export interface ArpNeighbor {
@@ -516,14 +526,24 @@ export interface LanServiceItem {
   serviceType?: string
   host?: string
   port?: number
-  detail: string
+  txtProperties: string[]
+  addresses: string[]
+  usn?: string
+  location?: string
 }
 
 export interface LanServicesResult {
   items: LanServiceItem[]
-  message?: string
+  failures: LanServiceFailure[]
+  truncated: boolean
   elapsedMs: number
   commandHint: string
+}
+
+export interface LanServiceFailure {
+  protocol: string
+  code: string
+  message: string
 }
 
 export interface PcapDiagResult {
@@ -539,17 +559,30 @@ export interface PcapDiagResult {
   commandHint: string
 }
 
-export interface NodeDnsAnswer {
+export type MultiNodeMeasurementType = "dns" | "ping" | "http"
+
+export interface ProbeResultMetric {
+  key: string
+  value: string
+}
+
+export interface NodeProbeMeasurementResult {
   nodeId: string
   nodeLabel: string
   ok: boolean
-  answers: string[]
+  summary: ProbeResultMetric[]
   detail?: string
 }
 
-export interface MultiNodeDnsResult {
-  domain: string
-  answers: NodeDnsAnswer[]
+export interface MultiNodeProbeResult {
+  target: string
+  measurementType: MultiNodeMeasurementType
+  results: NodeProbeMeasurementResult[]
   elapsedMs: number
   commandHint: string
+}
+
+export interface GlobalpingTokenStatus {
+  available: boolean
+  configured: boolean
 }

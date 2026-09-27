@@ -8,11 +8,14 @@ import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirm
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { ProbeCancelButton } from "@/features/network-probe/components/ProbeCancelButton"
+import { VirtualizedResultList } from "@/features/network-probe/components/VirtualizedResultList"
 import type { PortSampleEvent, PortScanResult } from "@/lib/tauri/types/network-probe"
 
 interface PortScanPanelProps {
   loading: boolean
   canCancel: boolean
+  cancelling?: boolean
   result: PortScanResult | null
   streaming: PortSampleEvent[]
   toolEnabled: boolean
@@ -57,6 +60,7 @@ function estimatePortCount(spec: string): number {
 export function PortScanPanel({
   loading,
   canCancel,
+  cancelling = false,
   result,
   streaming,
   toolEnabled,
@@ -73,6 +77,13 @@ export function PortScanPanel({
   const open = result?.openPorts?.length
     ? result.openPorts
     : samples.filter((s) => s.state === "open").map((s) => s.port)
+  const resultMessage = result?.cancelled
+    ? t("networkProbe.ports.resultCancelled")
+    : result?.mode === "tcp-connect"
+      ? t("networkProbe.ports.resultTcpConnect")
+      : result?.mode === "nmap-syn-or-connect"
+        ? t("networkProbe.ports.resultNmap")
+        : null
 
   const portCount = useMemo(() => estimatePortCount(ports), [ports])
   const needsConfirm = useMemo(() => {
@@ -146,11 +157,12 @@ export function PortScanPanel({
               </Button>
             </CommandHint>
             {canCancel ? (
-              <CommandHint hint={t("networkProbe.cmd.cancelScan")}>
-                <Button type="button" variant="outline" onClick={onCancel}>
-                  {t("networkProbe.ports.cancel")}
-                </Button>
-              </CommandHint>
+              <ProbeCancelButton
+                canCancel={canCancel}
+                cancelling={cancelling}
+                cancelLabel={t("networkProbe.ports.cancel")}
+                onCancel={onCancel}
+              />
             ) : null}
           </div>
         </>
@@ -161,19 +173,24 @@ export function PortScanPanel({
           {t("networkProbe.ports.openList", { ports: open.join(", ") })}
         </p>
       ) : null}
-      {result?.message ? (
-        <p className="text-xs text-amber-700 dark:text-amber-400">{result.message}</p>
+      {resultMessage ? (
+        <p className="text-xs text-amber-700 dark:text-amber-400">{resultMessage}</p>
       ) : null}
       {samples.length > 0 ? (
-        <ul className="text-muted-foreground space-y-0.5 font-mono text-xs">
-          {samples.map((s) => (
-            <li key={`${s.port}-${s.state}`}>
-              {s.port}: {s.state}
-              {s.serviceHint ? ` (${s.serviceHint})` : ""}
-              {s.rttMs != null ? ` · ${s.rttMs.toFixed(0)} ms` : ""}
-            </li>
-          ))}
-        </ul>
+        <VirtualizedResultList
+          items={samples}
+          ariaLabel={t("networkProbe.ports.results")}
+          followTail={loading}
+          getItemKey={(sample) => `${sample.port}-${sample.state}`}
+          className="text-muted-foreground font-mono text-xs"
+          renderItem={(sample) => (
+            <span className="break-words">
+              {sample.port}: {sample.state}
+              {sample.serviceHint ? ` (${sample.serviceHint})` : ""}
+              {sample.rttMs != null ? ` · ${sample.rttMs.toFixed(0)} ms` : ""}
+            </span>
+          )}
+        />
       ) : null}
       {result?.commandHint ? (
         <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>

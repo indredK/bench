@@ -72,14 +72,16 @@ macOS 注意：
 
 ### 3.2 局域网服务（mDNS / SSDP）
 
-| 协议          | macOS 路径                                                                            | 产出                                                    |
-| ------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| mDNS / DNS-SD | Bonjour：`dns_sd` API 或成熟 crate（如 `mdns-sd`）浏览 `_services._dns-sd._udp.local` | 服务名、类型、端口、TXT                                 |
-| SSDP / UPnP   | UDP 1900 M-SEARCH；解析 `LOCATION` 后 HTTP GET device desc（限长）                    | 设备类型、友微名、控制 URL（只展示，不调用危险 action） |
+| 协议          | macOS 路径                                                                          | 产出                                      |
+| ------------- | ----------------------------------------------------------------------------------- | ----------------------------------------- |
+| mDNS / DNS-SD | 采用成熟 `mdns-sd` 浏览 `_services._dns-sd._udp.local.`，再按发现的服务类型解析实例 | 服务名、类型、主机、端口、TXT、非回环地址 |
+| SSDP / UPnP   | 使用 `httparse` 校验 UDP 1900 M-SEARCH 响应；只读出站请求，不访问响应提供的 URL     | 设备响应名、类型、USN、LOCATION（仅展示） |
 
 护栏：
 
 - 不自动调用 UPnP `AddPortMapping` 等写操作。
+- 不请求 SSDP 响应给出的 `LOCATION`，避免把局域网设备提供的 URL 当作可信目标访问。
+- mDNS 结果过滤回环 IP 与仅在回环接口上发现的地址；没有任何非回环地址的实例不列为局域网服务。
 - 浏览器式超时；同一 UUID 去重。
 - 结果虚拟化（设备可能很多）。
 
@@ -101,11 +103,13 @@ RFC 5780 服务可使用 DNS 服务发现域名（查询 `_stun-behavior._udp.<d
 
 ### 3.4 NTP 时间
 
-| 项       | 约定                                                                            |
-| -------- | ------------------------------------------------------------------------------- |
-| 查询     | 标准 NTP（UDP 123）或 SNTP；多源中位数                                          |
-| 输出     | offset_ms、rtt、stratum、是否超出阈值（如 >500ms warn，>2s high）               |
-| 系统对照 | 可读系统时钟；**不**在本模块强制改系统时间（改时间属系统设置/需提权，避免越权） |
+| 项       | 约定                                                                                                  |
+| -------- | ----------------------------------------------------------------------------------------------------- |
+| 查询     | 标准 SNTP（UDP 123）；对 Apple、Cloudflare、Google、阿里云来源并发查询，逐源错误隔离                  |
+| 输出     | 多源 offset 与 RTT 中位数；逐源 offset、RTT、stratum；阈值使用偏差绝对值（`>500ms warn`，`>2s high`） |
+| 系统对照 | 可读系统时钟；**不**在本模块强制改系统时间（改时间属系统设置/需提权，避免越权）                       |
+
+客户端使用成熟 Rust SNTP 实现校验响应来源、报文长度、mode/version、stratum、originate timestamp、KoD 与时间戳；单个来源的 DNS/UDP/协议错误不丢弃其他来源的有效样本。每源请求（含 DNS）最多等待 4 秒，多个来源并发执行。
 
 macOS `sntp` / `ntpq` 可作调试对照，产品路径优先纯 Rust，避免解析本地化输出。
 
@@ -127,12 +131,15 @@ type ProbeNode = {
 
 #### Globalping（`remote-proxy`）
 
-| 项   | 约定                                                      |
-| ---- | --------------------------------------------------------- |
-| 传输 | HTTPS REST；Rust `reqwest` 创建 measurement + 轮询 status |
-| 能力 | ping / traceroute / dns / mtr / http（**无带宽**）        |
-| 配额 | 匿名额度用尽 → 提示配置 token；错误映射 `AppError`        |
-| ToS  | 遵守官方限额；前端展示剩余额度（若 API 提供）             |
+| 项   | 约定                                                                                                                                                                              |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 传输 | HTTPS REST；Rust `reqwest` 创建 measurement + 轮询 status；使用产品 User-Agent、压缩响应与 ETag，并在 macOS / Windows 遵循系统代理                                                |
+| 能力 | 本产品接入 DNS A / Ping 3 包 / HTTP HEAD；Globalping API 另支持 traceroute / MTR，但当前 UI 不宣称可运行。**无带宽测速**                                                          |
+| 位置 | 从 world / US / Europe / Asia 选择 1–3 个预设区域，每区请求 1 个在线探点；本机与远端并发执行                                                                                      |
+| 配额 | 可匿名使用；可选 token 提高额度。token 只存 OS Keychain，renderer 只拿 configured / available 状态，提交后不回显、不进日志。429 显示响应头中的额度/重置数据，远端失败不丢本机结果 |
+| 轮询 | 探点超时 20 秒；客户端总时限 35 秒；轮询间隔至少 500ms（产品默认 700ms），使用 ETag；超时保留已收到的探点结果；API JSON 响应上限 1 MiB；原始诊断详情默认折叠，失败摘要本地化      |
+| HTTP | 本机与远端均使用 HEAD，不下载页面体；输入须为完整 HTTP(S) URL，不接受 URL 内嵌用户名/密码或 fragment。结果展示 origin，避免 query 被命令提示和历史命令暴露                        |
+| 隐私 | UI 明示远端探点会收到目标和测量类型；用户输入到 Globalping 的目标由该服务执行。遵守官方限额                                                                                       |
 
 #### 自有 agent（`remote-agent`）
 
@@ -151,12 +158,11 @@ type ProbeNode = {
 #### 对比视图
 
 ```text
-同一 (tool, target) → store.byNode[nodeId] = Result
-UI：表格列 = 节点；行 = 指标（RTT、DNS 答案、hop 差异）
-例：本机 DNS 正常、探点 A 污染 → 结论导向「链路/污染在途中」
+同一 (tool, target) → 结果按节点并排展示（当前 DNS / Ping / HTTP HEAD）
+例：本机 DNS 正常、探点 A 返回不同答案 → 显示单独节点行供用户对照
 ```
 
-MVP：`listProbeNodes()` 至少返回 `local`；远程 kind 在类型中预留，UI 选中时提示「后续版本」。
+MVP：`listProbeNodes()` 至少返回 `local`；未实现执行能力的远程 kind 不得显示为可运行选项。agent 注册不表示自有 agent 已支持远程执行。
 
 ---
 
@@ -175,7 +181,9 @@ checkNtpOffset(nodeId, servers?): NtpResult
 
 // C
 listProbeNodes(): ProbeNode[]
-// ping/dns/http/traceroute 等复用既有 command + nodeId 路由
+measureMulti(target, measurementType, locations): MultiNodeProbeResult
+getGlobalpingTokenStatus(): { available: boolean; configured: boolean }
+setGlobalpingToken(token) / clearGlobalpingToken()
 ```
 
 `node.rs` 路由表：
@@ -193,8 +201,9 @@ listProbeNodes(): ProbeNode[]
 ## 5. UX
 
 - ARP/服务扫描：进度条 + 已发现计数；空态文案区分权限/隔离/真静网。
-- 多节点：先选 tool + target，再勾选节点并跑；部分节点失败不阻断整表。
-- 命令透明：remote 路径标注 `via globalping|agent`。
+- 多节点：先选 DNS / Ping / HTTP HEAD 和目标，再选 1–3 个 Globalping 区域并运行；DNS 至少返回一条有效 IPv4 A 记录、Ping 至少收到一个包、HTTP 收到 100–599 的状态码才报告该探点成功；部分节点失败不阻断其余结果。
+- token 输入只在内存态；保存/移除由后端 Keychain 命令完成，loading 与错误可见，不回显 token。
+- 命令透明：运行行展示测量类型、脱敏目标 origin 与区域；远端路径标注 Globalping。
 - Post / C badge 与 roadmap 档位一致。
 
 ---
@@ -204,7 +213,7 @@ listProbeNodes(): ProbeNode[]
 - 局域网扫描默认私网；公网 CIDR 拒绝或强确认。
 - agent 与 Globalping 流量仅测量结果 JSON；不中继用户任意 TCP 成开放代理。
 - 发现类数据可进报告；导出提示内网拓扑敏感。
-- **D-017**：ARP/深度发现若依赖 `adv-scanner`，走与安全 Tab 同一 `PackInstallDialog`；mDNS/STUN/NTP 优先主包轻量实现，不默认拆成下载项。
+- **D-017**：ARP/深度发现若依赖 `adv-scanner`，走与安全 Tab 同一 `PackInstallDialog`；mDNS 使用 `mdns-sd` 完成标准 DNS-SD 查询与资源记录解析，STUN/NTP 优先主包轻量实现，不默认拆成下载项。
 
 ---
 
@@ -214,13 +223,14 @@ listProbeNodes(): ProbeNode[]
 
 - [ ] ARP 有特权路径 + ping 降级；CIDR 硬顶
 - [ ] 需要 pack 时正确返回 `missing_pack` 并完成安装校验流（D-017）
-- [ ] mDNS/SSDP 只读浏览；无 UPnP 写操作
+- [x] mDNS/SSDP 只读浏览；无 UPnP 写操作
 - [x] STUN RFC 5780 映射/过滤行为分类、逐源耗时 + 多源故障隔离（显式兼容服务器）
-- [ ] NTP offset 阈值；不擅自改系统钟
+- [x] NTP offset / RTT 多源中位数、逐源 stratum 与阈值（`>500ms warn` / `>2s high`）；不擅自改系统钟
 
 **C**
 
-- [ ] `listProbeNodes` + Globalping 至少一种测量端到端
+- [x] `listProbeNodes` + Globalping DNS / Ping / HTTP HEAD 端到端；本机与远端并发、单节点失败保留
+- [x] Globalping token 仅由后端写入/读取/删除系统钥匙串；不进入前端持久化与命令日志
 - [ ] agent 鉴权/限速/拒绝 shell 有测试
 - [ ] `store.byNode` 对比视图；单节点失败可诊断
 - [ ] 远程能力不要求本机 Adv pack（本机零重库）

@@ -60,7 +60,8 @@ pub async fn run_speed_test<R: Runtime>(
         .find(|s| s.id == source_id)
         .ok_or_else(|| AppError::invalid_input(format!("Unknown speed source: {source_id}")))?;
 
-    let session_id = super::session::new_session_id();
+    let session = super::session::new_session();
+    let session_id = session.id().to_owned();
     if let Some(app) = app {
         let _ = app.emit(
             SCAN_SESSION_EVENT,
@@ -168,8 +169,6 @@ pub async fn run_speed_test<R: Runtime>(
     }
 
     cancelled = cancelled || super::session::is_cancelled(&session_id);
-    super::session::clear_session(&session_id);
-
     let ok = ping_ms.is_some() || download_mbps.is_some() || upload_mbps.is_some();
     Ok(SpeedTestResult {
         source_id: source.id,

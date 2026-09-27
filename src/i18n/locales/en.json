@@ -1573,6 +1573,10 @@
   "networkProbe": {
     "title": "Network Probe",
     "subtitle": "First-aid diagnostics and targeted probes (module 1.0 / MVP A+B).",
+    "common": {
+      "cancelling": "Cancelling…",
+      "openingSettings": "Opening Network Settings…"
+    },
     "nav": {
       "l1": "Primary sections",
       "l2": "Tools",
@@ -1862,6 +1866,9 @@
     "fix": {
       "hint": "Privilege-free self-heal actions. Backend re-validates services and DNS against a whitelist.",
       "service": "Network service",
+      "servicesLoading": "Loading network services…",
+      "servicesEmpty": "No network services available",
+      "refreshServices": "Refresh services",
       "dnsPreset": "DNS preset",
       "flush": "Flush DNS",
       "switchDns": "Switch DNS",
@@ -2068,6 +2075,10 @@
       "running": "Scanning…",
       "cancel": "Cancel",
       "openList": "Open: {{ports}}",
+      "results": "Port scan results",
+      "resultCancelled": "Port scan was cancelled.",
+      "resultTcpConnect": "This run used a TCP connect scan.",
+      "resultNmap": "This run used nmap SYN or TCP connect scanning; NSE scripts were not enabled.",
       "confirmTitle": "Confirm port scan scope",
       "confirmDesc": "Target {{target}} · about {{count}} ports. Public hosts or large ranges need an extra confirm.",
       "confirmConsequence": "Only scan assets you own or are authorized to test. TCP connect only (no SYN).",
@@ -2085,6 +2096,7 @@
       "openSettings": "Open system network settings",
       "cidr": "Sweep CIDR: {{cidr}}",
       "meta": "{{count}} neighbors · mode={{mode}} · {{ms}} ms",
+      "results": "LAN neighbor list",
       "cancelled": "LAN discovery was cancelled mid-sweep."
     },
     "lanSvc": {
@@ -2092,8 +2104,21 @@
       "readOnlyHint": "Read-only discovery. No UPnP Write / AddPortMapping actions are exposed.",
       "run": "Browse LAN services",
       "running": "Browsing…",
+      "partialFailure": "Some discovery protocols failed; results may be incomplete.",
+      "allFailed": "All discovery protocols failed; service presence could not be determined.",
+      "protocolFailure": "{{protocol}} browsing failed.",
+      "technicalDetails": "Technical details",
+      "txt": "TXT: {{value}}",
+      "addresses": "Addresses: {{value}}",
+      "usn": "USN: {{value}}",
+      "location": "LOCATION (display only; not fetched): {{value}}",
+      "mdns": "mDNS",
+      "ssdp": "SSDP",
+      "otherProtocol": "Other protocol",
+      "truncated": "The discovery list or service details were limited, so results may be incomplete.",
       "empty": "No mDNS/SSDP responses in the listen window.",
-      "meta": "{{count}} services · {{ms}} ms"
+      "meta": "{{count}} services · {{ms}} ms",
+      "results": "LAN services list"
     },
     "pcap": {
       "hint": "Short counter-only packet sample (RST / retransmit hints). Full pcap write stays opt-in.",
@@ -2104,19 +2129,64 @@
       "stats": "packets={{packets}} · RST={{rst}} · retrans≈{{retrans}} · OOO≈{{ooo}}"
     },
     "nodes": {
-      "hint": "Compare DNS answers from this Mac and Globalping locations. Register HTTPS agents for self-hosted probes.",
-      "run": "Compare DNS (multi-node)",
-      "running": "Comparing…",
+      "hint": "Compare DNS, ping, or HTTP HEAD from this Mac and Globalping locations.",
+      "remotePrivacy": "Remote probes receive the target and probe type. HTTP uses HEAD and does not download page content.",
+      "measurementLabel": "Probe type",
+      "targetLabel": "Probe target",
+      "types": {
+        "dns": "DNS (A record)",
+        "ping": "Ping (3 packets)",
+        "http": "HTTP HEAD"
+      },
+      "locationsLabel": "Globalping locations (up to 3)",
+      "locationsHint": "One online probe is selected per region. Deselect one to choose another.",
+      "locations": {
+        "world": "World",
+        "us": "United States",
+        "europe": "Europe",
+        "asia": "Asia"
+      },
+      "run": "Run multi-node comparison",
+      "running": "Probing…",
+      "statusOk": "OK",
+      "statusFail": "FAIL",
+      "failedHint": "This node did not return a successful measurement.",
+      "technicalDetails": "Technical details",
       "refresh": "Refresh nodes",
+      "refreshing": "Refreshing nodes…",
+      "addingAgent": "Adding…",
+      "removingAgent": "Removing…",
       "listTitle": "Probe nodes",
+      "agentExecutionPending": "Registered self-hosted agents are not connected to remote measurements yet.",
       "addTitle": "Add agent",
       "addHint": "Endpoint must be https:// or wss://. Arbitrary shell actions are rejected.",
       "labelPlaceholder": "Label",
       "domainPlaceholder": "example.com",
+      "httpPlaceholder": "https://example.com",
       "endpointPlaceholder": "https://agent.example:8443",
       "addAgent": "Add agent",
       "removeAgent": "Remove",
-      "meta": "{{domain}} · {{count}} answers · {{ms}} ms"
+      "meta": "{{type}} · {{target}} · {{count}} nodes · {{ms}} ms",
+      "tokenTitle": "Globalping API token",
+      "tokenHint": "Optional. Store it in macOS Keychain to raise API limits; the backend uses it for measurements.",
+      "tokenConfigured": "Saved in the system credential store. The form and command log never show the token.",
+      "tokenUnavailable": "The system credential store is unavailable, so the token cannot be saved securely.",
+      "tokenPlaceholder": "Paste a Globalping token",
+      "tokenSave": "Save securely",
+      "tokenSaving": "Saving…",
+      "tokenClear": "Remove token",
+      "metrics": {
+        "dnsAnswer": "{{value}}",
+        "resolvedAddress": "Resolved address: {{value}}",
+        "rttAvg": "Average RTT: {{value}}",
+        "rttMin": "Minimum RTT: {{value}}",
+        "rttMax": "Maximum RTT: {{value}}",
+        "packetCount": "Packets: {{value}}",
+        "packetLoss": "Packet loss: {{value}}",
+        "httpStatus": "HTTP status: {{value}}",
+        "ttfb": "Time to first byte: {{value}}",
+        "timing": "Timing: {{value}}"
+      }
     },
     "nat": {
       "hint": "Check mapped addresses with common STUN servers. Add an RFC 5780 server to report mapping and filtering behavior for that server.",
@@ -2190,11 +2260,28 @@
       }
     },
     "ntp": {
-      "hint": "Query pool.ntp.org for clock offset. Large skew can break TLS and auth.",
+      "hint": "Estimate this clock's offset from Apple, Cloudflare, Google, and Alibaba NTP sources. Read-only; system time is never changed.",
       "run": "Probe NTP",
       "running": "Probing…",
-      "offset": "Offset {{seconds}} s ({{severity}})",
-      "fail": "NTP probe failed"
+      "offset": "Median offset {{milliseconds}} ms",
+      "rtt": "Median RTT {{milliseconds}} ms",
+      "sources": "NTP server results",
+      "sourceMetrics": "Offset {{offset}} ms · RTT {{rtt}} ms · Stratum {{stratum}}",
+      "sourceErrors": {
+        "dns": "Name resolution failed",
+        "bind": "Could not open a UDP socket",
+        "timeout": "Request timed out",
+        "clock": "The local clock is before the Unix epoch",
+        "response": "The server response was invalid or unreachable",
+        "unknown": "Probe failed"
+      },
+      "severity": {
+        "ok": "Normal",
+        "warn": "Warning",
+        "high": "High"
+      },
+      "technicalDetails": "Technical details",
+      "fail": "No valid NTP responses were received"
     },
     "report": {
       "hint": "Export the latest health scan and browse the session command log.",
@@ -2213,7 +2300,34 @@
       "historyTitle": "Recent health snapshots",
       "historyEmpty": "No saved health scans yet. Run a health scan to keep history.",
       "clearHistory": "Clear history",
+      "clearHistoryConfirmTitle": "Clear health history?",
+      "clearHistoryConfirmDescription": "This removes the recent health snapshots saved on this device. Bench cannot restore them.",
+      "clearHistoryConfirmAction": "Clear history",
+      "clearHistoryConfirmCancel": "Keep history",
       "historyItem": "{{session}}… · {{count}} checks · {{ms}} ms · {{opinions}} opinions",
+      "historyRank": "Rank {{rank}} (1 is newest)",
+      "legacySnapshotDate": "Older snapshot (time not recorded)",
+      "historyOption": "{{date}} · Rank {{rank}} · {{session}}… · {{count}} checks",
+      "comparisonTitle": "Health snapshot comparison",
+      "comparisonHint": "Compare any two of the latest 10 completed scans. New snapshots record their local save time.",
+      "comparisonNeedTwo": "Complete at least two health scans to compare them.",
+      "snapshotA": "Snapshot A",
+      "snapshotB": "Snapshot B",
+      "comparisonSummary": "Checks: {{added}} added · {{removed}} removed · {{changed}} changed · {{unchanged}} unchanged. Opinions: {{opinionsA}} → {{opinionsB}}; elapsed: {{elapsedA}} → {{elapsedB}} ms.",
+      "showUnchanged": "Show unchanged checks too",
+      "checkComparisonTable": "Checks compared between two health scans",
+      "checkColumn": "Check",
+      "notInSnapshot": "Not present in this snapshot",
+      "change": {
+        "added": "Added",
+        "removed": "Removed",
+        "changed": "Changed",
+        "unchanged": "Unchanged"
+      },
+      "noCheckChanges": "No check differences between these scans.",
+      "opinionChanges": "Opinion changes",
+      "noOpinionChanges": "Opinions are unchanged.",
+      "relatedChecks": "Related checks",
       "privacyHint": "Exports may include public IP, Wi‑Fi SSID, hosts overrides, and local addresses. Share only with people you trust."
     },
     "traceroute": {
@@ -2227,6 +2341,7 @@
       "cancelled": "cancelled",
       "meta": "{{ip}} · {{mode}} · {{ms}} ms",
       "empty": "No hops yet. Run a trace to populate the table.",
+      "results": "Traceroute hop results table",
       "mode": {
         "privileged": "privileged ICMP",
         "unprivileged": "unprivileged UDP",
@@ -2268,7 +2383,7 @@
       "dnssec": "checkDnsSec('{{domain}}')",
       "scanPorts": "scanPorts(local, '{{target}}', '{{ports}}') // tcp-connect",
       "arp": "scanLan(local) // arp-cache",
-      "lanSvc": "browseLanServices(local) // mDNS+SSDP",
+      "lanSvc": "browseLanServices(local) // DNS-SD+SSDP",
       "pcap": "startPacketCapture(local) // tcpdump counters",
       "compareDns": "dnsLookup(multi, domain)",
       "addAgent": "addAgent(label, https://…)",
@@ -2285,6 +2400,7 @@
       "gatekeeperNote": "Ad-hoc / unsigned builds cannot claim Gatekeeper trust for sidecars (D-010).",
       "empty": "No packs available on this platform.",
       "refresh": "Refresh",
+      "refreshing": "Refreshing…",
       "install": "Install",
       "installing": "Installing…",
       "uninstall": "Uninstall",
@@ -2342,7 +2458,8 @@
       "lanSvcFailed": "LAN service browse failed.",
       "pcapFailed": "Packet diagnostics failed.",
       "nodesFailed": "Failed to list probe nodes.",
-      "multiNodeFailed": "Multi-node DNS compare failed.",
+      "multiNodeFailed": "Multi-node probe failed.",
+      "globalpingTokenFailed": "Failed to save or remove the Globalping token.",
       "agentFailed": "Agent registry operation failed."
     }
   },

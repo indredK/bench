@@ -20,7 +20,8 @@ const MAX_PREFIX_HOSTS: u32 = 256;
 
 pub async fn discover_lan<R: Runtime>(app: Option<&AppHandle<R>>) -> AppResult<LanDiscoveryResult> {
     let started = Instant::now();
-    let session_id = super::session::new_session_id();
+    let session = super::session::new_session();
+    let session_id = session.id().to_owned();
     if let Some(app) = app {
         let _ = app.emit(
             SCAN_SESSION_EVENT,
@@ -52,7 +53,6 @@ pub async fn discover_lan<R: Runtime>(app: Option<&AppHandle<R>>) -> AppResult<L
         .and_then(|s| s.parse::<Ipv4Addr>().ok());
 
     if primary.is_none() {
-        super::session::clear_session(&session_id);
         return Ok(LanDiscoveryResult {
             mode: "arp-cache".into(),
             neighbors: cache,
@@ -73,7 +73,6 @@ pub async fn discover_lan<R: Runtime>(app: Option<&AppHandle<R>>) -> AppResult<L
     let base = u32::from(primary) & 0xffff_ff00;
     let host_count = 256u32;
     if host_count > MAX_PREFIX_HOSTS {
-        super::session::clear_session(&session_id);
         return Err(AppError::invalid_input(
             "CIDR wider than /24 is rejected without explicit confirmation",
         ));
@@ -124,8 +123,6 @@ pub async fn discover_lan<R: Runtime>(app: Option<&AppHandle<R>>) -> AppResult<L
     }
 
     cancelled = cancelled || super::session::is_cancelled(&session_id);
-    super::session::clear_session(&session_id);
-
     let neighbors: Vec<ArpNeighbor> = by_ip.into_values().collect();
     let gateway_seen = gateway
         .map(|g| neighbors.iter().any(|n| n.ip == g.to_string()))
