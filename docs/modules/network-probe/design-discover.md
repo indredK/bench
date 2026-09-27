@@ -72,14 +72,16 @@ macOS 注意：
 
 ### 3.2 局域网服务（mDNS / SSDP）
 
-| 协议          | macOS 路径                                                                            | 产出                                                    |
-| ------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| mDNS / DNS-SD | Bonjour：`dns_sd` API 或成熟 crate（如 `mdns-sd`）浏览 `_services._dns-sd._udp.local` | 服务名、类型、端口、TXT                                 |
-| SSDP / UPnP   | UDP 1900 M-SEARCH；解析 `LOCATION` 后 HTTP GET device desc（限长）                    | 设备类型、友微名、控制 URL（只展示，不调用危险 action） |
+| 协议          | macOS 路径                                                                          | 产出                                      |
+| ------------- | ----------------------------------------------------------------------------------- | ----------------------------------------- |
+| mDNS / DNS-SD | 采用成熟 `mdns-sd` 浏览 `_services._dns-sd._udp.local.`，再按发现的服务类型解析实例 | 服务名、类型、主机、端口、TXT、非回环地址 |
+| SSDP / UPnP   | 使用 `httparse` 校验 UDP 1900 M-SEARCH 响应；只读出站请求，不访问响应提供的 URL     | 设备响应名、类型、USN、LOCATION（仅展示） |
 
 护栏：
 
 - 不自动调用 UPnP `AddPortMapping` 等写操作。
+- 不请求 SSDP 响应给出的 `LOCATION`，避免把局域网设备提供的 URL 当作可信目标访问。
+- mDNS 结果过滤回环 IP 与仅在回环接口上发现的地址；没有任何非回环地址的实例不列为局域网服务。
 - 浏览器式超时；同一 UUID 去重。
 - 结果虚拟化（设备可能很多）。
 
@@ -211,7 +213,7 @@ setGlobalpingToken(token) / clearGlobalpingToken()
 - 局域网扫描默认私网；公网 CIDR 拒绝或强确认。
 - agent 与 Globalping 流量仅测量结果 JSON；不中继用户任意 TCP 成开放代理。
 - 发现类数据可进报告；导出提示内网拓扑敏感。
-- **D-017**：ARP/深度发现若依赖 `adv-scanner`，走与安全 Tab 同一 `PackInstallDialog`；mDNS/STUN/NTP 优先主包轻量实现，不默认拆成下载项。
+- **D-017**：ARP/深度发现若依赖 `adv-scanner`，走与安全 Tab 同一 `PackInstallDialog`；mDNS 使用 `mdns-sd` 完成标准 DNS-SD 查询与资源记录解析，STUN/NTP 优先主包轻量实现，不默认拆成下载项。
 
 ---
 
@@ -221,7 +223,7 @@ setGlobalpingToken(token) / clearGlobalpingToken()
 
 - [ ] ARP 有特权路径 + ping 降级；CIDR 硬顶
 - [ ] 需要 pack 时正确返回 `missing_pack` 并完成安装校验流（D-017）
-- [ ] mDNS/SSDP 只读浏览；无 UPnP 写操作
+- [x] mDNS/SSDP 只读浏览；无 UPnP 写操作
 - [x] STUN RFC 5780 映射/过滤行为分类、逐源耗时 + 多源故障隔离（显式兼容服务器）
 - [x] NTP offset / RTT 多源中位数、逐源 stratum 与阈值（`>500ms warn` / `>2s high`）；不擅自改系统钟
 

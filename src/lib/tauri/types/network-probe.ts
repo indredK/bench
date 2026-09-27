@@ -526,14 +526,24 @@ export interface LanServiceItem {
   serviceType?: string
   host?: string
   port?: number
-  detail: string
+  txtProperties: string[]
+  addresses: string[]
+  usn?: string
+  location?: string
 }
 
 export interface LanServicesResult {
   items: LanServiceItem[]
-  message?: string
+  failures: LanServiceFailure[]
+  truncated: boolean
   elapsedMs: number
   commandHint: string
+}
+
+export interface LanServiceFailure {
+  protocol: string
+  code: string
+  message: string
 }
 
 export interface PcapDiagResult {

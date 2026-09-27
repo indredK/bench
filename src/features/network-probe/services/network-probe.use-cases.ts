@@ -898,10 +898,14 @@ export const networkProbeUseCases = {
     if (store.loadingLanServices) return
     store.setLoadingLanServices(true)
     store.setError(null)
+    store.setLanServicesResult(null)
     store.appendCommandLog("browseLanServices(local)")
     try {
       const result = await networkProbeRepository.browseLanServices()
       store.setLanServicesResult(result)
+      store.appendCommandLog(
+        `browseLanServices done services=${result.items.length} failures=${result.failures.length}`,
+      )
     } catch (error) {
       store.setError({
         key: "networkProbe.errors.lanSvcFailed",

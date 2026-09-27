@@ -78,6 +78,8 @@ zeroize = "1"
 if-addrs = "0.15"
 surge-ping = "0.9.0"
 hickory-resolver = "0.26.1"
+mdns-sd = "0.21.4"
+httparse = "1.10"
 trippy-core = "0.13.0"
 rtc-stun = { version = "0.21.0", default-features = false, features = ["crypto-ring"] }
 
