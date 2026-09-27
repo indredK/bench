@@ -76,6 +76,13 @@ export function PortScanPanel({
   const open = result?.openPorts?.length
     ? result.openPorts
     : samples.filter((s) => s.state === "open").map((s) => s.port)
+  const resultMessage = result?.cancelled
+    ? t("networkProbe.ports.resultCancelled")
+    : result?.mode === "tcp-connect"
+      ? t("networkProbe.ports.resultTcpConnect")
+      : result?.mode === "nmap-syn-or-connect"
+        ? t("networkProbe.ports.resultNmap")
+        : null
 
   const portCount = useMemo(() => estimatePortCount(ports), [ports])
   const needsConfirm = useMemo(() => {
@@ -165,8 +172,8 @@ export function PortScanPanel({
           {t("networkProbe.ports.openList", { ports: open.join(", ") })}
         </p>
       ) : null}
-      {result?.message ? (
-        <p className="text-xs text-amber-700 dark:text-amber-400">{result.message}</p>
+      {resultMessage ? (
+        <p className="text-xs text-amber-700 dark:text-amber-400">{resultMessage}</p>
       ) : null}
       {samples.length > 0 ? (
         <ul className="text-muted-foreground space-y-0.5 font-mono text-xs">
