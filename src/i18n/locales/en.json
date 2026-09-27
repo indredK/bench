@@ -2206,11 +2206,28 @@
       }
     },
     "ntp": {
-      "hint": "Query pool.ntp.org for clock offset. Large skew can break TLS and auth.",
+      "hint": "Estimate this clock's offset from Apple, Cloudflare, Google, and Alibaba NTP sources. Read-only; system time is never changed.",
       "run": "Probe NTP",
       "running": "Probing…",
-      "offset": "Offset {{seconds}} s ({{severity}})",
-      "fail": "NTP probe failed"
+      "offset": "Median offset {{milliseconds}} ms",
+      "rtt": "Median RTT {{milliseconds}} ms",
+      "sources": "NTP server results",
+      "sourceMetrics": "Offset {{offset}} ms · RTT {{rtt}} ms · Stratum {{stratum}}",
+      "sourceErrors": {
+        "dns": "Name resolution failed",
+        "bind": "Could not open a UDP socket",
+        "timeout": "Request timed out",
+        "clock": "The local clock is before the Unix epoch",
+        "response": "The server response was invalid or unreachable",
+        "unknown": "Probe failed"
+      },
+      "severity": {
+        "ok": "Normal",
+        "warn": "Warning",
+        "high": "High"
+      },
+      "technicalDetails": "Technical details",
+      "fail": "No valid NTP responses were received"
     },
     "report": {
       "hint": "Export the latest health scan and browse the session command log.",

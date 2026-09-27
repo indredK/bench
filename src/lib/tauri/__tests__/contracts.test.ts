@@ -58,6 +58,7 @@ import type {
   McpTargetStatus,
   NmRegistration,
 } from "@/lib/tauri/types/browser-ext"
+import type { NtpProbeResult, NtpProbeSourceResult } from "@/lib/tauri/types/network-probe"
 
 describe("Tauri contracts", () => {
   it("keeps grouped command constants derived from the canonical command contracts", () => {
@@ -112,6 +113,34 @@ describe("Tauri contracts", () => {
     const rustStructFields = parseRustStructFields(rustSource)
 
     const checks: Array<[string, string, string[]]> = [
+      [
+        "NtpProbeResult",
+        "camel",
+        dtoKeys<NtpProbeResult>([
+          "server",
+          "ok",
+          "offsetSeconds",
+          "rttSeconds",
+          "sources",
+          "severity",
+          "detail",
+          "elapsedMs",
+          "commandHint",
+        ]),
+      ],
+      [
+        "NtpProbeSourceResult",
+        "camel",
+        dtoKeys<NtpProbeSourceResult>([
+          "server",
+          "ok",
+          "offsetSeconds",
+          "rttSeconds",
+          "stratum",
+          "errorCode",
+          "detail",
+        ]),
+      ],
       [
         "AccountManagerCapability",
         "camel",

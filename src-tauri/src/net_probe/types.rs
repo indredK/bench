@@ -725,11 +725,31 @@ pub struct NtpProbeResult {
     pub offset_seconds: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rtt_seconds: Option<f64>,
+    pub sources: Vec<NtpProbeSourceResult>,
+    /// ok | warn | high | fail
     pub severity: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,
     pub elapsed_ms: f64,
     pub command_hint: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NtpProbeSourceResult {
+    pub server: String,
+    pub ok: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub offset_seconds: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rtt_seconds: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stratum: Option<u8>,
+    /// NTP_DNS | NTP_BIND | NTP_TIMEOUT | NTP_PROTOCOL | NTP_CLOCK | NTP_UNAVAILABLE
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_code: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

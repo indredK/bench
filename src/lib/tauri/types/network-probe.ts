@@ -483,10 +483,22 @@ export interface NtpProbeResult {
   ok: boolean
   offsetSeconds?: number
   rttSeconds?: number
-  severity: string
+  sources: NtpProbeSourceResult[]
+  severity: "ok" | "warn" | "high" | "fail"
   detail?: string
   elapsedMs: number
   commandHint: string
+}
+
+export interface NtpProbeSourceResult {
+  server: string
+  ok: boolean
+  offsetSeconds?: number
+  rttSeconds?: number
+  stratum?: number
+  errorCode?:
+    "NTP_DNS" | "NTP_BIND" | "NTP_TIMEOUT" | "NTP_PROTOCOL" | "NTP_CLOCK" | "NTP_UNAVAILABLE"
+  detail?: string
 }
 
 export interface ArpNeighbor {

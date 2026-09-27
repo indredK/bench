@@ -164,13 +164,13 @@ L1 → L2 映射：
 
 ## 7. 发现（discover）L1
 
-| 面板    | 说明                                                                                                                                                                                                                                  |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| arp     | 局域网发现：ARP 缓存 + TCP /24 扫（degraded；特权 RAW 扫待 helper）；输出邻居表（ip/mac/iface/source）；空态区分 权限不足（引导开 Local Network 权限）/隔离/安静；可取消                                                              |
-| lan-svc | mDNS/DNS-SD + SSDP/UPnP 服务浏览（只读），输出 `LanServicesResult`                                                                                                                                                                    |
-| nat     | 多 STUN Binding 观察映射地址与服务器间一致性；可选配置 RFC 5780 服务域名（SRV）或 `host:port`，按兼容服务器逐源报告映射/过滤行为和耗时；备用路径不可达时保留未判定；不从普通 Binding 的跨服务器差异推断 NAT 类型                      |
-| ntp     | NTP 时间偏移（多源中位数），输出 `NtpProbeResult`                                                                                                                                                                                     |
-| nodes   | **多节点 DNS 对比 + agent 注册**：域名对比（local + 各节点 DNS 结果按节点列出）；节点列表（local / Globalping 区域 / remote-agent）；注册 agent（label + https endpoint）→ `addAgent`（HTTPS 注册/健康检查/白名单），可移除；刷新节点 |
+| 面板    | 说明                                                                                                                                                                                                                                       |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| arp     | 局域网发现：ARP 缓存 + TCP /24 扫（degraded；特权 RAW 扫待 helper）；输出邻居表（ip/mac/iface/source）；空态区分 权限不足（引导开 Local Network 权限）/隔离/安静；可取消                                                                   |
+| lan-svc | mDNS/DNS-SD + SSDP/UPnP 服务浏览（只读），输出 `LanServicesResult`                                                                                                                                                                         |
+| nat     | 多 STUN Binding 观察映射地址与服务器间一致性；可选配置 RFC 5780 服务域名（SRV）或 `host:port`，按兼容服务器逐源报告映射/过滤行为和耗时；备用路径不可达时保留未判定；不从普通 Binding 的跨服务器差异推断 NAT 类型                           |
+| ntp     | SNTP 多源探测：Apple / Cloudflare / Google / 阿里云并发查询；汇总 offset 与 RTT 中位数、逐源展示 offset / RTT / stratum；`>500ms` 警告、`>2s` 严重；DNS/UDP/超时/无效响应逐源隔离并本地化；只读系统时间，不调整时钟，输出 `NtpProbeResult` |
+| nodes   | **多节点 DNS 对比 + agent 注册**：域名对比（local + 各节点 DNS 结果按节点列出）；节点列表（local / Globalping 区域 / remote-agent）；注册 agent（label + https endpoint）→ `addAgent`（HTTPS 注册/健康检查/白名单），可移除；刷新节点      |
 
 ## 8. 能力包（D-017 packs）
 
@@ -242,7 +242,7 @@ L1 → L2 映射：
 | `ICMP_UNAVAILABLE`                                                                                               | ICMP socket 打开失败（ping.rs）                                                                                                              | 提示「可能需 Local Network 权限」，引导打开系统网络设置；ping 全丢包时命令日志追加同提示      |
 | `DNS_LOOKUP_FAILED` / `DNS_CONFIG`                                                                               | DNS 解析失败 / 解析器配置读取失败                                                                                                            | 错误横幅 `networkProbe.errors.dnsFailed`                                                      |
 | `NETWORKSETUP_FAILED`                                                                                            | `networksetup -listallnetworkservices` 失败                                                                                                  | 错误横幅 `networkProbe.errors.servicesFailed`                                                 |
-| `NTP_BIND/DNS/SEND/RECV/TIMEOUT/SHORT`                                                                           | NTP 探测各阶段失败                                                                                                                           | 错误横幅 `networkProbe.errors.ntpFailed`                                                      |
+| `NTP_DNS/BIND/TIMEOUT/PROTOCOL/CLOCK/UNAVAILABLE`                                                                | 单台 SNTP 服务器解析、UDP 套接字、超时、报文校验、本机时钟或地址失败                                                                         | 在该服务器行展示本地化状态；其他服务器结果仍保留；可展开技术详情                              |
 | `NAT_BIND_V4/V6/DNS/DNS_TIMEOUT/SEND/RECV/TIMEOUT/STUN_ENCODE/STUN_RESPONSE/NO_MAPPING`                          | 单台 STUN 服务器探测失败（逐源结果）                                                                                                         | 在该服务器行展示本地化状态；其他服务器结果仍保留                                              |
 | `NAT_BEHAVIOR_INVALID_SERVER/DNS/DNS_TIMEOUT/SRV/TIMEOUT/REJECTED/RESPONSE/NETWORK/ALT_UNREACHABLE/SERVER_LIMIT` | RFC 5780 配置、服务发现或行为探测阶段失败（逐源结果）                                                                                        | 在该行为发现源行显示本地化状态；备用地址不可达时不伪造过滤行为；普通 Binding 与其他源结果保留 |
 | `SPEED_CLIENT`                                                                                                   | 测速源请求失败                                                                                                                               | 进入 30s 冷却 + 错误横幅 `networkProbe.errors.speedFailed`                                    |

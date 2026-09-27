@@ -2206,11 +2206,28 @@
       }
     },
     "ntp": {
-      "hint": "查询 pool.ntp.org 时钟偏移。过大偏差可能影响 TLS 与鉴权。",
+      "hint": "通过 Apple、Cloudflare、Google 和阿里云 NTP 多源估算本机时钟偏差；只读取，不修改系统时间。",
       "run": "探测 NTP",
       "running": "探测中…",
-      "offset": "偏移 {{seconds}} 秒（{{severity}}）",
-      "fail": "NTP 探测失败"
+      "offset": "多源中位偏移 {{milliseconds}} ms",
+      "rtt": "多源 RTT 中位数 {{milliseconds}} ms",
+      "sources": "NTP 服务器结果",
+      "sourceMetrics": "偏移 {{offset}} ms · RTT {{rtt}} ms · 层级 {{stratum}}",
+      "sourceErrors": {
+        "dns": "域名解析失败",
+        "bind": "无法打开 UDP 套接字",
+        "timeout": "请求超时",
+        "clock": "本机时钟早于 Unix 纪元，无法计算",
+        "response": "服务器响应无效或不可达",
+        "unknown": "探测失败"
+      },
+      "severity": {
+        "ok": "正常",
+        "warn": "警告",
+        "high": "严重"
+      },
+      "technicalDetails": "技术详情",
+      "fail": "没有收到有效的 NTP 响应"
     },
     "report": {
       "hint": "导出最近一次体检，并浏览本会话命令日志。",
