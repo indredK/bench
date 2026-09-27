@@ -35,7 +35,8 @@ import type {
   LanDiscoveryResult,
   LanServicesResult,
   PcapDiagResult,
-  MultiNodeDnsResult,
+  GlobalpingTokenStatus,
+  MultiNodeProbeResult,
   ProbeNode,
   TcpConnectResult,
   TracerouteHop,
@@ -148,7 +149,8 @@ interface NetworkProbeState {
   lanResult: LanDiscoveryResult | null
   lanServicesResult: LanServicesResult | null
   pcapResult: PcapDiagResult | null
-  multiNodeDnsResult: MultiNodeDnsResult | null
+  multiNodeResult: MultiNodeProbeResult | null
+  globalpingTokenStatus: GlobalpingTokenStatus
   probeNodes: ProbeNode[]
   reportHistory: HealthReportSnapshot[]
   securityAuthorized: boolean
@@ -183,6 +185,7 @@ interface NetworkProbeState {
   loadingLanServices: boolean
   loadingPcap: boolean
   loadingMultiNode: boolean
+  loadingGlobalpingToken: boolean
   loadingNodes: boolean
   error: LocalizedError | null
 
@@ -233,7 +236,8 @@ interface NetworkProbeState {
   setLanResult: (lanResult: LanDiscoveryResult | null) => void
   setLanServicesResult: (lanServicesResult: LanServicesResult | null) => void
   setPcapResult: (pcapResult: PcapDiagResult | null) => void
-  setMultiNodeDnsResult: (multiNodeDnsResult: MultiNodeDnsResult | null) => void
+  setMultiNodeResult: (multiNodeResult: MultiNodeProbeResult | null) => void
+  setGlobalpingTokenStatus: (status: GlobalpingTokenStatus) => void
   setProbeNodes: (probeNodes: ProbeNode[]) => void
   pushReportHistory: (scan: HealthScanResult) => void
   clearReportHistory: () => void
@@ -266,6 +270,7 @@ interface NetworkProbeState {
   setLoadingLanServices: (loading: boolean) => void
   setLoadingPcap: (loading: boolean) => void
   setLoadingMultiNode: (loading: boolean) => void
+  setLoadingGlobalpingToken: (loading: boolean) => void
   setLoadingNodes: (loading: boolean) => void
   setAgentMutation: (mutation: NetworkProbeAgentMutation) => void
   setOpeningSystemSettings: (opening: boolean) => void
@@ -381,7 +386,8 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   lanResult: null,
   lanServicesResult: null,
   pcapResult: null,
-  multiNodeDnsResult: null,
+  multiNodeResult: null,
+  globalpingTokenStatus: { available: false, configured: false },
   probeNodes: [],
   reportHistory: loadReportHistory(),
   securityAuthorized: loadSecurityAuthorized(),
@@ -411,6 +417,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   loadingLanServices: false,
   loadingPcap: false,
   loadingMultiNode: false,
+  loadingGlobalpingToken: false,
   loadingNodes: false,
   agentMutation: null,
   openingSystemSettings: false,
@@ -534,7 +541,8 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   setLanResult: (lanResult) => set({ lanResult }),
   setLanServicesResult: (lanServicesResult) => set({ lanServicesResult }),
   setPcapResult: (pcapResult) => set({ pcapResult }),
-  setMultiNodeDnsResult: (multiNodeDnsResult) => set({ multiNodeDnsResult }),
+  setMultiNodeResult: (multiNodeResult) => set({ multiNodeResult }),
+  setGlobalpingTokenStatus: (globalpingTokenStatus) => set({ globalpingTokenStatus }),
   setProbeNodes: (probeNodes) => set({ probeNodes }),
   pushReportHistory: (scan) =>
     set((state) => {
@@ -611,6 +619,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   setLoadingLanServices: (loadingLanServices) => set({ loadingLanServices }),
   setLoadingPcap: (loadingPcap) => set({ loadingPcap }),
   setLoadingMultiNode: (loadingMultiNode) => set({ loadingMultiNode }),
+  setLoadingGlobalpingToken: (loadingGlobalpingToken) => set({ loadingGlobalpingToken }),
   setLoadingNodes: (loadingNodes) => set({ loadingNodes }),
   setAgentMutation: (agentMutation) => set({ agentMutation }),
   setOpeningSystemSettings: (openingSystemSettings) => set({ openingSystemSettings }),

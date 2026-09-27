@@ -62,6 +62,33 @@ pub async fn probe_http_target(target: &str) -> (Option<HttpProbeDetail>, Option
     }
 }
 
+/// Perform the same lightweight HEAD check used by Globalping's HTTP measurement.
+pub async fn probe_http_target_head(target: &str) -> HttpProbeDetail {
+    match parse_http_url(target) {
+        Ok(url) => probe_http_with_method(url, false, reqwest::Method::HEAD)
+            .await
+            .0
+            .unwrap_or(HttpProbeDetail {
+                ok: false,
+                status: None,
+                ttfb_ms: None,
+                final_url: None,
+                download_mbps: None,
+                download_bytes: None,
+                error: Some("No HTTP result was returned.".into()),
+            }),
+        Err(error) => HttpProbeDetail {
+            ok: false,
+            status: None,
+            ttfb_ms: None,
+            final_url: None,
+            download_mbps: None,
+            download_bytes: None,
+            error: Some(error.to_string()),
+        },
+    }
+}
+
 /// HTTP probe that also samples bounded download throughput (sites / official cards).
 pub async fn probe_http_target_with_throughput(
     target: &str,
@@ -114,6 +141,14 @@ async fn probe_http(
     url: Url,
     measure_throughput: bool,
 ) -> (Option<HttpProbeDetail>, Option<TlsLightDetail>) {
+    probe_http_with_method(url, measure_throughput, reqwest::Method::GET).await
+}
+
+async fn probe_http_with_method(
+    url: Url,
+    measure_throughput: bool,
+    method: reqwest::Method,
+) -> (Option<HttpProbeDetail>, Option<TlsLightDetail>) {
     let is_https = url.scheme() == "https";
     let client = match reqwest::Client::builder()
         .timeout(HTTP_TIMEOUT)
@@ -148,7 +183,7 @@ async fn probe_http(
     };
 
     let started = Instant::now();
-    match client.get(url.clone()).send().await {
+    match client.request(method, url.clone()).send().await {
         Ok(resp) => {
             let status = resp.status().as_u16();
             let final_url = resp.url().to_string();

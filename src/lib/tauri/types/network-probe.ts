@@ -549,17 +549,30 @@ export interface PcapDiagResult {
   commandHint: string
 }
 
-export interface NodeDnsAnswer {
+export type MultiNodeMeasurementType = "dns" | "ping" | "http"
+
+export interface ProbeResultMetric {
+  key: string
+  value: string
+}
+
+export interface NodeProbeMeasurementResult {
   nodeId: string
   nodeLabel: string
   ok: boolean
-  answers: string[]
+  summary: ProbeResultMetric[]
   detail?: string
 }
 
-export interface MultiNodeDnsResult {
-  domain: string
-  answers: NodeDnsAnswer[]
+export interface MultiNodeProbeResult {
+  target: string
+  measurementType: MultiNodeMeasurementType
+  results: NodeProbeMeasurementResult[]
   elapsedMs: number
   commandHint: string
+}
+
+export interface GlobalpingTokenStatus {
+  available: boolean
+  configured: boolean
 }

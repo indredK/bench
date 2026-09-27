@@ -113,7 +113,9 @@ import type {
   LanDiscoveryResult,
   LanServicesResult,
   PcapDiagResult,
-  MultiNodeDnsResult,
+  GlobalpingTokenStatus,
+  MultiNodeMeasurementType,
+  MultiNodeProbeResult,
 } from "@/lib/tauri/types/network-probe"
 import type { CardKind, RunResult } from "@/lib/tauri/types/command-center"
 import type {
@@ -872,10 +874,20 @@ export const TAURI_COMMAND_CONTRACTS = {
     { durationSecs?: number | null },
     PcapDiagResult
   >()("network_probe_run_pcap_diag"),
-  network_probe_compare_dns_multi: defineTauriCommand<
-    { domain: string; locations?: string[] | null },
-    MultiNodeDnsResult
-  >()("network_probe_compare_dns_multi"),
+  network_probe_measure_multi: defineTauriCommand<
+    { target: string; measurementType: MultiNodeMeasurementType; locations: string[] },
+    MultiNodeProbeResult
+  >()("network_probe_measure_multi"),
+  network_probe_get_globalping_token_status: defineTauriCommand<undefined, GlobalpingTokenStatus>()(
+    "network_probe_get_globalping_token_status",
+  ),
+  network_probe_set_globalping_token: defineTauriCommand<
+    { token: string },
+    GlobalpingTokenStatus
+  >()("network_probe_set_globalping_token"),
+  network_probe_clear_globalping_token: defineTauriCommand<undefined, GlobalpingTokenStatus>()(
+    "network_probe_clear_globalping_token",
+  ),
   network_probe_add_agent: defineTauriCommand<{ label: string; endpoint: string }, ProbeNode>()(
     "network_probe_add_agent",
   ),
@@ -1099,7 +1111,10 @@ export const TAURI_COMMANDS = {
     discoverLan: commandName("network_probe_discover_lan"),
     browseLanServices: commandName("network_probe_browse_lan_services"),
     runPcapDiag: commandName("network_probe_run_pcap_diag"),
-    compareDnsMulti: commandName("network_probe_compare_dns_multi"),
+    measureMulti: commandName("network_probe_measure_multi"),
+    getGlobalpingTokenStatus: commandName("network_probe_get_globalping_token_status"),
+    setGlobalpingToken: commandName("network_probe_set_globalping_token"),
+    clearGlobalpingToken: commandName("network_probe_clear_globalping_token"),
     addAgent: commandName("network_probe_add_agent"),
     removeAgent: commandName("network_probe_remove_agent"),
     rejectAgentAction: commandName("network_probe_reject_agent_action"),
@@ -1704,7 +1719,10 @@ export const TAURI_COMMAND_ARG_KEYS = {
   network_probe_discover_lan: [],
   network_probe_browse_lan_services: [],
   network_probe_run_pcap_diag: ["durationSecs"],
-  network_probe_compare_dns_multi: ["domain", "locations"],
+  network_probe_measure_multi: ["target", "measurementType", "locations"],
+  network_probe_get_globalping_token_status: [],
+  network_probe_set_globalping_token: ["token"],
+  network_probe_clear_globalping_token: [],
   network_probe_add_agent: ["label", "endpoint"],
   network_probe_remove_agent: ["agentId"],
   network_probe_reject_agent_action: ["action"],

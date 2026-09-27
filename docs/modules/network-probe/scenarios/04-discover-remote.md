@@ -81,7 +81,7 @@ Post-MVP-Adv
 
 ---
 
-## S-DIS-04 · 多地对比同一域名 DNS
+## S-DIS-04 · 多地对比 DNS / Ping / HTTP HEAD
 
 ### 背景
 
@@ -90,19 +90,24 @@ Post-MVP-Adv
 ### 前置
 
 - Post-C；可匿名额度或已配置 token
-- `listProbeNodes` 含 local + 若干 `remote-proxy`
+- `listProbeNodes` 含 local + Globalping 区域
 
 ### 步骤
 
-1. 「多节点对比」选 tool=DNS、目标域名、勾选本机 + 2 个远端
-2. 并排查看答案差异
-3. 额度用尽时出现可理解错误（非空成功）
+1. 「多节点对比」选择 DNS、Ping 或 HTTP HEAD，填写目标，并选择 1–3 个 Globalping 区域
+2. 并排查看本机与每个实际返回探点的结果
+3. 使用 HTTP HEAD 时确认响应仅显示 URL origin，且未下载页面体
+4. 额度用尽时出现可理解错误；已返回的本机/远端结果仍保留
+5. 在 token 区域保存一个 token 后只显示已保存状态；命令日志、页面状态与本机配置中不可读出 token
+6. DNS 目标无 A 记录、Ping 未收到响应或 HTTP 没有状态码时，对应探点显示失败；简短失败说明本地化，原始诊断默认折叠
 
 ### 期望
 
-- 同一 `(tool,target)` 写入 `store.byNode`
-- 远端失败不阻断整表
-- 命令日志标注 `via globalping`
+- 本机与 Globalping 测量并发执行，结果按节点列出
+- 单节点失败不阻断整表
+- Globalping 测量任务结束但没有当前探测类型的有效结果数据时不得显示成功
+- 命令提示标注 `via globalping`，HTTP 目标只显示 origin
+- Globalping token 保存在 OS Keychain，清除后可匿名运行
 - **不**要求本机 Adv pack（远程零重库）
 
 ### 档位
@@ -112,6 +117,8 @@ Post-MVP-C
 ---
 
 ## S-DIS-05 · 添加自有 agent 节点
+
+> C2-3 远程执行尚未实现。当前只允许注册、健康检查、白名单与移除；不要把登记的 agent 当作可选执行节点。
 
 ### 背景
 

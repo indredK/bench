@@ -2117,25 +2117,64 @@
       "stats": "packets={{packets}} · RST={{rst}} · retrans≈{{retrans}} · OOO≈{{ooo}}"
     },
     "nodes": {
-      "hint": "对比本机与 Globalping 多地的 DNS 答案。可注册 HTTPS agent 作为自有探测节点。",
-      "run": "多节点对比 DNS",
-      "running": "对比中…",
+      "hint": "从本机和 Globalping 多地并行对比 DNS、Ping 或 HTTP HEAD。",
+      "remotePrivacy": "远端探点会收到目标和探测类型；HTTP 使用 HEAD，不下载页面内容。",
+      "measurementLabel": "探测类型",
+      "targetLabel": "探测目标",
+      "types": {
+        "dns": "DNS（A 记录）",
+        "ping": "Ping（3 个包）",
+        "http": "HTTP HEAD"
+      },
+      "locationsLabel": "Globalping 区域（最多 3 个）",
+      "locationsHint": "每个区域选 1 个在线探点；取消一个后可选择其他区域。",
+      "locations": {
+        "world": "全球",
+        "us": "美国",
+        "europe": "欧洲",
+        "asia": "亚洲"
+      },
+      "run": "运行多节点对比",
+      "running": "探测中…",
       "statusOk": "正常",
       "statusFail": "失败",
+      "failedHint": "此节点未返回有效的探测数据。",
       "technicalDetails": "技术详情",
       "refresh": "刷新节点",
       "refreshing": "正在刷新节点…",
       "addingAgent": "正在添加…",
       "removingAgent": "正在移除…",
       "listTitle": "探测节点",
+      "agentExecutionPending": "已登记的自有 agent 暂未接入远程测量。",
       "addTitle": "添加 agent",
       "addHint": "端点必须为 https:// 或 wss://。任意 shell 动作会被拒绝。",
       "labelPlaceholder": "名称",
       "domainPlaceholder": "example.com",
+      "httpPlaceholder": "https://example.com",
       "endpointPlaceholder": "https://agent.example:8443",
       "addAgent": "添加 agent",
       "removeAgent": "移除",
-      "meta": "{{domain}} · {{count}} 条答案 · {{ms}} ms"
+      "meta": "{{type}} · {{target}} · {{count}} 个节点 · {{ms}} ms",
+      "tokenTitle": "Globalping API token",
+      "tokenHint": "可选。保存到 macOS 钥匙串以提高额度；测量时由后端使用。",
+      "tokenConfigured": "已保存到系统钥匙串；表单和命令日志不会显示 token。",
+      "tokenUnavailable": "系统钥匙串不可用，无法安全保存 token。",
+      "tokenPlaceholder": "粘贴 Globalping token",
+      "tokenSave": "安全保存",
+      "tokenSaving": "保存中…",
+      "tokenClear": "移除 token",
+      "metrics": {
+        "dnsAnswer": "{{value}}",
+        "resolvedAddress": "解析地址：{{value}}",
+        "rttAvg": "平均 RTT：{{value}}",
+        "rttMin": "最小 RTT：{{value}}",
+        "rttMax": "最大 RTT：{{value}}",
+        "packetCount": "数据包：{{value}}",
+        "packetLoss": "丢包率：{{value}}",
+        "httpStatus": "HTTP 状态码：{{value}}",
+        "ttfb": "首字节时间：{{value}}",
+        "timing": "耗时：{{value}}"
+      }
     },
     "nat": {
       "hint": "先查询常见 STUN 映射地址。填写支持 RFC 5780 的服务器后，还会报告该服务器上的映射与过滤行为。",
@@ -2407,7 +2446,8 @@
       "lanSvcFailed": "局域网服务浏览失败。",
       "pcapFailed": "包级诊断失败。",
       "nodesFailed": "列举探测节点失败。",
-      "multiNodeFailed": "多节点 DNS 对比失败。",
+      "multiNodeFailed": "多节点探测失败。",
+      "globalpingTokenFailed": "Globalping token 保存或移除失败。",
       "agentFailed": "Agent 注册操作失败。"
     }
   },

@@ -10,6 +10,7 @@ import type {
   CapabilityPackProgress,
   HealthCheckItem,
   NetworkProbeCapabilities,
+  MultiNodeMeasurementType,
   PingSample,
   SiteSampleResult,
   SpeedSampleEvent,
@@ -78,15 +79,19 @@ export const networkProbeUseCases = {
     const store = useNetworkProbeStore.getState()
     store.setError(null)
     try {
-      const [packSnapshot, defaults, nodes] = await Promise.all([
+      const [packSnapshot, defaults, nodes, globalpingTokenStatus] = await Promise.all([
         loadCapabilityPackSnapshot(),
         networkProbeRepository.getDefaults(),
         networkProbeRepository.listProbeNodes(),
+        networkProbeRepository
+          .getGlobalpingTokenStatus()
+          .catch(() => ({ available: false, configured: false })),
       ])
       store.setCapabilities(packSnapshot.capabilities)
       store.setDefaults(defaults)
       store.setCapabilityPacks(packSnapshot.packs)
       store.setProbeNodes(nodes)
+      store.setGlobalpingTokenStatus(globalpingTokenStatus)
     } catch (error) {
       store.setError({
         key: "networkProbe.errors.bootstrapFailed",
@@ -942,8 +947,14 @@ export const networkProbeUseCases = {
     store.setLoadingNodes(true)
     store.setError(null)
     try {
-      const nodes = await networkProbeRepository.listProbeNodes()
+      const [nodes, tokenStatus] = await Promise.all([
+        networkProbeRepository.listProbeNodes(),
+        networkProbeRepository
+          .getGlobalpingTokenStatus()
+          .catch(() => ({ available: false, configured: false })),
+      ])
       store.setProbeNodes(nodes)
+      store.setGlobalpingTokenStatus(tokenStatus)
     } catch (error) {
       store.setError({
         key: "networkProbe.errors.nodesFailed",
@@ -954,19 +965,25 @@ export const networkProbeUseCases = {
     }
   },
 
-  async compareDnsMulti(domain: string) {
+  async measureMulti(
+    target: string,
+    measurementType: MultiNodeMeasurementType,
+    locations: string[],
+  ) {
     const store = useNetworkProbeStore.getState()
     if (store.loadingMultiNode) return
     store.setLoadingMultiNode(true)
     store.setError(null)
-    store.appendCommandLog(`dnsLookup(multi, '${domain.trim()}')`)
+    store.appendCommandLog(
+      `measureMulti(type:'${measurementType}', locations=${locations.join(",")})`,
+    )
     try {
-      const result = await networkProbeRepository.compareDnsMulti(domain.trim(), [
-        "world",
-        "US",
-        "Europe",
-      ])
-      store.setMultiNodeDnsResult(result)
+      const result = await networkProbeRepository.measureMulti(
+        target.trim(),
+        measurementType,
+        locations,
+      )
+      store.setMultiNodeResult(result)
     } catch (error) {
       store.setError({
         key: "networkProbe.errors.multiNodeFailed",
@@ -974,6 +991,45 @@ export const networkProbeUseCases = {
       })
     } finally {
       useNetworkProbeStore.getState().setLoadingMultiNode(false)
+    }
+  },
+
+  async saveGlobalpingToken(token: string) {
+    const store = useNetworkProbeStore.getState()
+    if (store.loadingGlobalpingToken) return false
+    store.setLoadingGlobalpingToken(true)
+    store.setError(null)
+    // Never include credentials or user targets in command logs.
+    store.appendCommandLog("saveGlobalpingToken()")
+    try {
+      store.setGlobalpingTokenStatus(await networkProbeRepository.setGlobalpingToken(token))
+      return true
+    } catch (error) {
+      store.setError({
+        key: "networkProbe.errors.globalpingTokenFailed",
+        fallback: getErrorMessage(error),
+      })
+      return false
+    } finally {
+      useNetworkProbeStore.getState().setLoadingGlobalpingToken(false)
+    }
+  },
+
+  async clearGlobalpingToken() {
+    const store = useNetworkProbeStore.getState()
+    if (store.loadingGlobalpingToken) return
+    store.setLoadingGlobalpingToken(true)
+    store.setError(null)
+    store.appendCommandLog("clearGlobalpingToken()")
+    try {
+      store.setGlobalpingTokenStatus(await networkProbeRepository.clearGlobalpingToken())
+    } catch (error) {
+      store.setError({
+        key: "networkProbe.errors.globalpingTokenFailed",
+        fallback: getErrorMessage(error),
+      })
+    } finally {
+      useNetworkProbeStore.getState().setLoadingGlobalpingToken(false)
     }
   },
 

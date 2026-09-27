@@ -4,6 +4,9 @@ const repository = vi.hoisted(() => ({
   listNetworkServices: vi.fn(),
   openSystemNetworkSettings: vi.fn(),
   listProbeNodes: vi.fn(),
+  getGlobalpingTokenStatus: vi.fn(),
+  setGlobalpingToken: vi.fn(),
+  clearGlobalpingToken: vi.fn(),
   getDefaults: vi.fn(),
   listCapabilityPacks: vi.fn(),
   getCapabilities: vi.fn(),
@@ -30,6 +33,7 @@ function deferred<T>() {
 
 beforeEach(() => {
   Object.values(repository).forEach((mock) => mock.mockReset())
+  repository.getGlobalpingTokenStatus.mockResolvedValue({ available: true, configured: false })
   useNetworkProbeStore.setState({
     capabilityPacks: [],
     capabilities: null,

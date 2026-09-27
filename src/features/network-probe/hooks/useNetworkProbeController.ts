@@ -10,6 +10,7 @@ import {
   type NetworkProbeOfflineSub,
   useNetworkProbeStore,
 } from "@/features/network-probe/store"
+import type { MultiNodeMeasurementType } from "@/lib/tauri/types/network-probe"
 import { canUseTauriCommands } from "@/platform/capabilities"
 
 function toolStatus(tools: Record<string, string> | undefined, key: string): string | undefined {
@@ -61,7 +62,8 @@ export function useNetworkProbeController() {
   const lanResult = useNetworkProbeStore((s) => s.lanResult)
   const lanServicesResult = useNetworkProbeStore((s) => s.lanServicesResult)
   const pcapResult = useNetworkProbeStore((s) => s.pcapResult)
-  const multiNodeDnsResult = useNetworkProbeStore((s) => s.multiNodeDnsResult)
+  const multiNodeResult = useNetworkProbeStore((s) => s.multiNodeResult)
+  const globalpingTokenStatus = useNetworkProbeStore((s) => s.globalpingTokenStatus)
   const probeNodes = useNetworkProbeStore((s) => s.probeNodes)
   const reportHistory = useNetworkProbeStore((s) => s.reportHistory)
   const securityAuthorized = useNetworkProbeStore((s) => s.securityAuthorized)
@@ -97,6 +99,7 @@ export function useNetworkProbeController() {
   const loadingLanServices = useNetworkProbeStore((s) => s.loadingLanServices)
   const loadingPcap = useNetworkProbeStore((s) => s.loadingPcap)
   const loadingMultiNode = useNetworkProbeStore((s) => s.loadingMultiNode)
+  const loadingGlobalpingToken = useNetworkProbeStore((s) => s.loadingGlobalpingToken)
   const loadingNodes = useNetworkProbeStore((s) => s.loadingNodes)
   const error = useNetworkProbeStore((s) => s.error)
   const setL1 = useNetworkProbeStore((s) => s.setL1)
@@ -231,10 +234,16 @@ export function useNetworkProbeController() {
     [],
   )
   const refreshProbeNodes = useCallback(() => networkProbeUseCases.refreshProbeNodes(), [])
-  const compareDnsMulti = useCallback(
-    (domain: string) => networkProbeUseCases.compareDnsMulti(domain),
+  const measureMulti = useCallback(
+    (target: string, type: MultiNodeMeasurementType, locations: string[]) =>
+      networkProbeUseCases.measureMulti(target, type, locations),
     [],
   )
+  const saveGlobalpingToken = useCallback(
+    (token: string) => networkProbeUseCases.saveGlobalpingToken(token),
+    [],
+  )
+  const clearGlobalpingToken = useCallback(() => networkProbeUseCases.clearGlobalpingToken(), [])
   const addAgent = useCallback(
     (label: string, endpoint: string) => networkProbeUseCases.addAgent(label, endpoint),
     [],
@@ -329,7 +338,8 @@ export function useNetworkProbeController() {
     lanResult,
     lanServicesResult,
     pcapResult,
-    multiNodeDnsResult,
+    multiNodeResult,
+    globalpingTokenStatus,
     probeNodes,
     reportHistory,
     securityAuthorized,
@@ -362,6 +372,7 @@ export function useNetworkProbeController() {
     loadingLanServices,
     loadingPcap,
     loadingMultiNode,
+    loadingGlobalpingToken,
     loadingNodes,
     error,
     selectL1,
@@ -403,7 +414,9 @@ export function useNetworkProbeController() {
     browseLanServices,
     runPcapDiag,
     refreshProbeNodes,
-    compareDnsMulti,
+    measureMulti,
+    saveGlobalpingToken,
+    clearGlobalpingToken,
     addAgent,
     removeAgent,
     installCapabilityPackVerifyFail,

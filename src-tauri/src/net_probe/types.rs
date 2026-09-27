@@ -16,6 +16,13 @@ pub struct ProbeNode {
     pub capabilities: Option<Vec<String>>,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GlobalpingTokenStatus {
+    pub available: bool,
+    pub configured: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NetworkProbeCapabilities {
@@ -821,22 +828,38 @@ pub struct PcapDiagResult {
     pub command_hint: String,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum MultiNodeMeasurementType {
+    Dns,
+    Ping,
+    Http,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct NodeDnsAnswer {
+pub struct ProbeResultMetric {
+    pub key: String,
+    pub value: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NodeProbeMeasurementResult {
     pub node_id: String,
     pub node_label: String,
     pub ok: bool,
-    pub answers: Vec<String>,
+    pub summary: Vec<ProbeResultMetric>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct MultiNodeDnsResult {
-    pub domain: String,
-    pub answers: Vec<NodeDnsAnswer>,
+pub struct MultiNodeProbeResult {
+    pub target: String,
+    pub measurement_type: MultiNodeMeasurementType,
+    pub results: Vec<NodeProbeMeasurementResult>,
     pub elapsed_ms: f64,
     pub command_hint: String,
 }

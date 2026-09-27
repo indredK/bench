@@ -2117,25 +2117,64 @@
       "stats": "packets={{packets}} · RST={{rst}} · retrans≈{{retrans}} · OOO≈{{ooo}}"
     },
     "nodes": {
-      "hint": "Compare DNS answers from this Mac and Globalping locations. Register HTTPS agents for self-hosted probes.",
-      "run": "Compare DNS (multi-node)",
-      "running": "Comparing…",
+      "hint": "Compare DNS, ping, or HTTP HEAD from this Mac and Globalping locations.",
+      "remotePrivacy": "Remote probes receive the target and probe type. HTTP uses HEAD and does not download page content.",
+      "measurementLabel": "Probe type",
+      "targetLabel": "Probe target",
+      "types": {
+        "dns": "DNS (A record)",
+        "ping": "Ping (3 packets)",
+        "http": "HTTP HEAD"
+      },
+      "locationsLabel": "Globalping locations (up to 3)",
+      "locationsHint": "One online probe is selected per region. Deselect one to choose another.",
+      "locations": {
+        "world": "World",
+        "us": "United States",
+        "europe": "Europe",
+        "asia": "Asia"
+      },
+      "run": "Run multi-node comparison",
+      "running": "Probing…",
       "statusOk": "OK",
       "statusFail": "FAIL",
+      "failedHint": "This node did not return a successful measurement.",
       "technicalDetails": "Technical details",
       "refresh": "Refresh nodes",
       "refreshing": "Refreshing nodes…",
       "addingAgent": "Adding…",
       "removingAgent": "Removing…",
       "listTitle": "Probe nodes",
+      "agentExecutionPending": "Registered self-hosted agents are not connected to remote measurements yet.",
       "addTitle": "Add agent",
       "addHint": "Endpoint must be https:// or wss://. Arbitrary shell actions are rejected.",
       "labelPlaceholder": "Label",
       "domainPlaceholder": "example.com",
+      "httpPlaceholder": "https://example.com",
       "endpointPlaceholder": "https://agent.example:8443",
       "addAgent": "Add agent",
       "removeAgent": "Remove",
-      "meta": "{{domain}} · {{count}} answers · {{ms}} ms"
+      "meta": "{{type}} · {{target}} · {{count}} nodes · {{ms}} ms",
+      "tokenTitle": "Globalping API token",
+      "tokenHint": "Optional. Store it in macOS Keychain to raise API limits; the backend uses it for measurements.",
+      "tokenConfigured": "Saved in the system credential store. The form and command log never show the token.",
+      "tokenUnavailable": "The system credential store is unavailable, so the token cannot be saved securely.",
+      "tokenPlaceholder": "Paste a Globalping token",
+      "tokenSave": "Save securely",
+      "tokenSaving": "Saving…",
+      "tokenClear": "Remove token",
+      "metrics": {
+        "dnsAnswer": "{{value}}",
+        "resolvedAddress": "Resolved address: {{value}}",
+        "rttAvg": "Average RTT: {{value}}",
+        "rttMin": "Minimum RTT: {{value}}",
+        "rttMax": "Maximum RTT: {{value}}",
+        "packetCount": "Packets: {{value}}",
+        "packetLoss": "Packet loss: {{value}}",
+        "httpStatus": "HTTP status: {{value}}",
+        "ttfb": "Time to first byte: {{value}}",
+        "timing": "Timing: {{value}}"
+      }
     },
     "nat": {
       "hint": "Check mapped addresses with common STUN servers. Add an RFC 5780 server to report mapping and filtering behavior for that server.",
@@ -2407,7 +2446,8 @@
       "lanSvcFailed": "LAN service browse failed.",
       "pcapFailed": "Packet diagnostics failed.",
       "nodesFailed": "Failed to list probe nodes.",
-      "multiNodeFailed": "Multi-node DNS compare failed.",
+      "multiNodeFailed": "Multi-node probe failed.",
+      "globalpingTokenFailed": "Failed to save or remove the Globalping token.",
       "agentFailed": "Agent registry operation failed."
     }
   },

@@ -1,5 +1,5 @@
 /**
- * Feature UI / 功能界面: multi-node DNS compare + agent registry.
+ * Feature UI / 功能界面: Globalping DNS/ping/HTTP comparison + agent registry.
  */
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -8,18 +8,46 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import type { NetworkProbeAgentMutation } from "@/features/network-probe/store"
-import type { MultiNodeDnsResult, ProbeNode } from "@/lib/tauri/types/network-probe"
+import type {
+  GlobalpingTokenStatus,
+  MultiNodeMeasurementType,
+  MultiNodeProbeResult,
+  ProbeNode,
+} from "@/lib/tauri/types/network-probe"
+
+const LOCATION_PRESETS = ["world", "US", "Europe", "Asia"] as const
+type LocationPreset = (typeof LOCATION_PRESETS)[number]
+
+function isValidHttpTarget(target: string): boolean {
+  if (!target || target.length > 2048) return false
+  try {
+    const url = new URL(target)
+    return (
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      Boolean(url.hostname) &&
+      !url.username &&
+      !url.password &&
+      !url.hash
+    )
+  } catch {
+    return false
+  }
+}
 
 interface MultiNodePanelProps {
   loading: boolean
   loadingNodes: boolean
+  loadingToken: boolean
   agentMutation: NetworkProbeAgentMutation
-  result: MultiNodeDnsResult | null
+  result: MultiNodeProbeResult | null
+  tokenStatus: GlobalpingTokenStatus
   nodes: ProbeNode[]
   toolEnabled: boolean
   toolStatus?: string
-  onCompare: (domain: string) => void
+  onMeasure: (target: string, type: MultiNodeMeasurementType, locations: string[]) => void
   onRefreshNodes: () => void
+  onSaveToken: (token: string) => Promise<boolean>
+  onClearToken: () => void
   onAddAgent: (label: string, endpoint: string) => void
   onRemoveAgent: (agentId: string) => void
 }
@@ -27,26 +55,50 @@ interface MultiNodePanelProps {
 export function MultiNodePanel({
   loading,
   loadingNodes,
+  loadingToken,
   agentMutation,
   result,
+  tokenStatus,
   nodes,
   toolEnabled,
   toolStatus,
-  onCompare,
+  onMeasure,
   onRefreshNodes,
+  onSaveToken,
+  onClearToken,
   onAddAgent,
   onRemoveAgent,
 }: MultiNodePanelProps) {
   const { t } = useTranslation()
-  const [domain, setDomain] = useState("example.com")
+  const [measurementType, setMeasurementType] = useState<MultiNodeMeasurementType>("dns")
+  const [target, setTarget] = useState("example.com")
+  const [locations, setLocations] = useState<LocationPreset[]>(["world", "US", "Europe"])
+  const [tokenDraft, setTokenDraft] = useState("")
   const [label, setLabel] = useState("")
   const [endpoint, setEndpoint] = useState("https://")
+
+  const targetPlaceholder =
+    measurementType === "http"
+      ? t("networkProbe.nodes.httpPlaceholder")
+      : t("networkProbe.nodes.domainPlaceholder")
+  const canAddLocation = locations.length < 3
+
+  function toggleLocation(location: LocationPreset) {
+    setLocations((selected) =>
+      selected.includes(location)
+        ? selected.filter((value) => value !== location)
+        : selected.length < 3
+          ? [...selected, location]
+          : selected,
+    )
+  }
 
   return (
     <ProbePanelShell
       toolbar={
         <>
           <p className="text-muted-foreground text-sm">{t("networkProbe.nodes.hint")}</p>
+          <p className="text-muted-foreground text-xs">{t("networkProbe.nodes.remotePrivacy")}</p>
           {!toolEnabled ? (
             <p className="text-xs text-amber-700 dark:text-amber-400">
               {t("networkProbe.caps.toolDisabled", {
@@ -56,18 +108,47 @@ export function MultiNodePanel({
             </p>
           ) : null}
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="flex min-w-32 flex-col gap-1 text-xs">
+              <span>{t("networkProbe.nodes.measurementLabel")}</span>
+              <select
+                className="border-input bg-background h-9 rounded-md border px-3 text-sm"
+                aria-label={t("networkProbe.nodes.measurementLabel")}
+                value={measurementType}
+                onChange={(event) => {
+                  const next = event.target.value as MultiNodeMeasurementType
+                  setMeasurementType(next)
+                  if (next === "http" && target.trim() === "example.com") {
+                    setTarget("https://example.com")
+                  }
+                }}
+                disabled={loading}
+              >
+                <option value="dns">{t("networkProbe.nodes.types.dns")}</option>
+                <option value="ping">{t("networkProbe.nodes.types.ping")}</option>
+                <option value="http">{t("networkProbe.nodes.types.http")}</option>
+              </select>
+            </label>
             <Input
-              className="max-w-xs"
-              value={domain}
-              onChange={(e) => setDomain(e.target.value)}
-              placeholder={t("networkProbe.nodes.domainPlaceholder")}
+              className="max-w-sm flex-1"
+              value={target}
+              onChange={(event) => setTarget(event.target.value)}
+              placeholder={targetPlaceholder}
+              aria-label={t("networkProbe.nodes.targetLabel")}
+              disabled={loading}
             />
             <CommandHint hint={t("networkProbe.cmd.compareDns")}>
               <Button
                 type="button"
-                disabled={loading || !toolEnabled || !domain.trim()}
-                onClick={() => onCompare(domain.trim())}
+                disabled={
+                  loading ||
+                  loadingToken ||
+                  !toolEnabled ||
+                  !target.trim() ||
+                  locations.length === 0 ||
+                  (measurementType === "http" && !isValidHttpTarget(target.trim()))
+                }
+                onClick={() => onMeasure(target.trim(), measurementType, locations)}
               >
                 {loading ? t("networkProbe.nodes.running") : t("networkProbe.nodes.run")}
               </Button>
@@ -82,24 +163,107 @@ export function MultiNodePanel({
             </Button>
           </div>
 
+          <fieldset className="space-y-2 rounded-md border p-3">
+            <legend className="px-1 text-xs font-medium">
+              {t("networkProbe.nodes.locationsLabel")}
+            </legend>
+            <div className="flex flex-wrap gap-x-4 gap-y-2">
+              {LOCATION_PRESETS.map((location) => {
+                const checked = locations.includes(location)
+                return (
+                  <label key={location} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={loading || (!checked && !canAddLocation)}
+                      onChange={() => toggleLocation(location)}
+                    />
+                    {t(`networkProbe.nodes.locations.${location.toLowerCase()}`)}
+                  </label>
+                )
+              })}
+            </div>
+            <p className="text-muted-foreground text-xs">{t("networkProbe.nodes.locationsHint")}</p>
+          </fieldset>
+
+          <div className="space-y-2 rounded-lg border p-3">
+            <p className="text-sm font-medium">{t("networkProbe.nodes.tokenTitle")}</p>
+            <p className="text-muted-foreground text-xs">
+              {t(
+                tokenStatus.configured
+                  ? "networkProbe.nodes.tokenConfigured"
+                  : "networkProbe.nodes.tokenHint",
+              )}
+            </p>
+            {!tokenStatus.available ? (
+              <p role="status" className="text-xs text-amber-700 dark:text-amber-400">
+                {t("networkProbe.nodes.tokenUnavailable")}
+              </p>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2">
+                <Input
+                  className="min-w-[16rem] flex-1"
+                  type="password"
+                  autoComplete="new-password"
+                  value={tokenDraft}
+                  onChange={(event) => setTokenDraft(event.target.value)}
+                  placeholder={t("networkProbe.nodes.tokenPlaceholder")}
+                  aria-label={t("networkProbe.nodes.tokenTitle")}
+                  disabled={loadingToken}
+                />
+                <Button
+                  type="button"
+                  disabled={loadingToken || !tokenDraft.trim()}
+                  onClick={() => {
+                    void onSaveToken(tokenDraft).then((saved) => {
+                      if (saved) setTokenDraft("")
+                    })
+                  }}
+                >
+                  {t(
+                    loadingToken
+                      ? "networkProbe.nodes.tokenSaving"
+                      : "networkProbe.nodes.tokenSave",
+                  )}
+                </Button>
+                {tokenStatus.configured ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={loadingToken}
+                    onClick={onClearToken}
+                  >
+                    {t("networkProbe.nodes.tokenClear")}
+                  </Button>
+                ) : null}
+              </div>
+            )}
+          </div>
+
           <div className="space-y-2">
             <p className="text-sm font-medium">{t("networkProbe.nodes.listTitle")}</p>
+            {nodes.some((node) => node.kind === "remote-agent") ? (
+              <p className="text-muted-foreground text-xs">
+                {t("networkProbe.nodes.agentExecutionPending")}
+              </p>
+            ) : null}
             <ul className="space-y-1 font-mono text-xs">
-              {nodes.map((n) => (
-                <li key={n.id} className="flex flex-wrap items-center gap-2">
+              {nodes.map((node) => (
+                <li key={node.id} className="flex flex-wrap items-center gap-2">
                   <span>
-                    {n.label} · {n.kind}
-                    {n.endpoint ? ` · ${n.endpoint}` : ""}
+                    {node.id === "local" ? t("networkProbe.nodeSelect.local") : node.label} ·{" "}
+                    {node.kind}
+                    {node.endpoint ? ` · ${node.endpoint}` : ""}
                   </span>
-                  {n.kind === "remote-agent" ? (
+                  {node.kind === "remote-agent" ? (
                     <Button
                       type="button"
                       size="sm"
                       variant="outline"
                       disabled={loadingNodes || agentMutation !== null}
-                      onClick={() => onRemoveAgent(n.id)}
+                      onClick={() => onRemoveAgent(node.id)}
                     >
-                      {agentMutation?.action === "remove" && agentMutation.agentId === n.id
+                      {agentMutation?.action === "remove" && agentMutation.agentId === node.id
                         ? t("networkProbe.nodes.removingAgent")
                         : t("networkProbe.nodes.removeAgent")}
                     </Button>
@@ -116,13 +280,13 @@ export function MultiNodePanel({
               <Input
                 className="max-w-[10rem]"
                 value={label}
-                onChange={(e) => setLabel(e.target.value)}
+                onChange={(event) => setLabel(event.target.value)}
                 placeholder={t("networkProbe.nodes.labelPlaceholder")}
               />
               <Input
                 className="min-w-[16rem] flex-1"
                 value={endpoint}
-                onChange={(e) => setEndpoint(e.target.value)}
+                onChange={(event) => setEndpoint(event.target.value)}
                 placeholder={t("networkProbe.nodes.endpointPlaceholder")}
               />
               <CommandHint hint={t("networkProbe.cmd.addAgent")}>
@@ -147,38 +311,44 @@ export function MultiNodePanel({
         <div className="space-y-2">
           <p className="text-muted-foreground text-xs">
             {t("networkProbe.nodes.meta", {
-              domain: result.domain,
-              count: result.answers.length,
+              target: result.target,
+              type: t(`networkProbe.nodes.types.${result.measurementType}`),
+              count: result.results.length,
               ms: result.elapsedMs.toFixed(0),
             })}
           </p>
           <ul className="space-y-2 text-sm">
-            {result.answers.map((a) => (
-              <li key={a.nodeId} className="rounded-md border px-3 py-2">
+            {result.results.map((item) => (
+              <li key={item.nodeId} className="rounded-md border px-3 py-2">
                 <div className="font-medium">
-                  {a.nodeLabel}{" "}
+                  {item.nodeId === "local" ? t("networkProbe.nodeSelect.local") : item.nodeLabel}{" "}
                   <span className="font-mono text-xs">
-                    {t(a.ok ? "networkProbe.nodes.statusOk" : "networkProbe.nodes.statusFail")}
+                    {t(item.ok ? "networkProbe.nodes.statusOk" : "networkProbe.nodes.statusFail")}
                   </span>
                 </div>
-                {a.answers.length > 0 ? (
-                  <pre className="text-muted-foreground mt-1 overflow-auto font-mono text-xs">
-                    {a.answers.join("\n")}
-                  </pre>
+                {!item.ok ? (
+                  <p role="status" className="text-muted-foreground mt-1 text-xs">
+                    {t("networkProbe.nodes.failedHint")}
+                  </p>
                 ) : null}
-                {a.detail ? (
-                  a.detail.length > 240 ? (
-                    <details className="text-xs">
-                      <summary className="text-muted-foreground mt-1 cursor-pointer">
-                        {t("networkProbe.nodes.technicalDetails")}
-                      </summary>
-                      <pre className="text-muted-foreground bg-muted/40 mt-1 max-h-48 overflow-auto rounded p-2 font-mono break-words whitespace-pre-wrap">
-                        {a.detail}
-                      </pre>
-                    </details>
-                  ) : (
-                    <p className="text-muted-foreground mt-1 text-xs">{a.detail}</p>
-                  )
+                {item.summary.length > 0 ? (
+                  <ul className="text-muted-foreground mt-1 space-y-0.5 font-mono text-xs">
+                    {item.summary.map((line, index) => (
+                      <li key={`${item.nodeId}-${index}`}>
+                        {t(`networkProbe.nodes.metrics.${line.key}`, { value: line.value })}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+                {item.detail ? (
+                  <details className="text-xs">
+                    <summary className="text-muted-foreground mt-1 cursor-pointer">
+                      {t("networkProbe.nodes.technicalDetails")}
+                    </summary>
+                    <pre className="text-muted-foreground bg-muted/40 mt-1 max-h-48 overflow-auto rounded p-2 font-mono break-words whitespace-pre-wrap">
+                      {item.detail}
+                    </pre>
+                  </details>
                 ) : null}
               </li>
             ))}

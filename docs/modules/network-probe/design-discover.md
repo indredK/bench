@@ -129,13 +129,15 @@ type ProbeNode = {
 
 #### Globalping（`remote-proxy`）
 
-| 项   | 约定                                                                                                                                   |
-| ---- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| 传输 | HTTPS REST；Rust `reqwest` 创建 measurement + 轮询 status                                                                              |
-| 能力 | ping / traceroute / dns / mtr / http（**无带宽**）                                                                                     |
-| 配额 | 匿名额度用尽 → 提示配置 token；HTTP 429 读取 API 响应中的剩余点数/重置时间；显示逐节点失败且不丢弃本机结果                             |
-| 轮询 | DNS 探点超时 20 秒；客户端总时限 35 秒；按官方要求至少间隔 500ms，使用 ETag；超时保留已收到的探点结果；超过 240 字符的原始诊断默认折叠 |
-| ToS  | 遵守官方限额；前端展示剩余额度（若 API 提供）                                                                                          |
+| 项   | 约定                                                                                                                                                                              |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 传输 | HTTPS REST；Rust `reqwest` 创建 measurement + 轮询 status；使用产品 User-Agent、压缩响应与 ETag，并在 macOS / Windows 遵循系统代理                                                |
+| 能力 | 本产品接入 DNS A / Ping 3 包 / HTTP HEAD；Globalping API 另支持 traceroute / MTR，但当前 UI 不宣称可运行。**无带宽测速**                                                          |
+| 位置 | 从 world / US / Europe / Asia 选择 1–3 个预设区域，每区请求 1 个在线探点；本机与远端并发执行                                                                                      |
+| 配额 | 可匿名使用；可选 token 提高额度。token 只存 OS Keychain，renderer 只拿 configured / available 状态，提交后不回显、不进日志。429 显示响应头中的额度/重置数据，远端失败不丢本机结果 |
+| 轮询 | 探点超时 20 秒；客户端总时限 35 秒；轮询间隔至少 500ms（产品默认 700ms），使用 ETag；超时保留已收到的探点结果；API JSON 响应上限 1 MiB；原始诊断详情默认折叠，失败摘要本地化      |
+| HTTP | 本机与远端均使用 HEAD，不下载页面体；输入须为完整 HTTP(S) URL，不接受 URL 内嵌用户名/密码或 fragment。结果展示 origin，避免 query 被命令提示和历史命令暴露                        |
+| 隐私 | UI 明示远端探点会收到目标和测量类型；用户输入到 Globalping 的目标由该服务执行。遵守官方限额                                                                                       |
 
 #### 自有 agent（`remote-agent`）
 
@@ -154,12 +156,11 @@ type ProbeNode = {
 #### 对比视图
 
 ```text
-同一 (tool, target) → store.byNode[nodeId] = Result
-UI：表格列 = 节点；行 = 指标（RTT、DNS 答案、hop 差异）
-例：本机 DNS 正常、探点 A 污染 → 结论导向「链路/污染在途中」
+同一 (tool, target) → 结果按节点并排展示（当前 DNS / Ping / HTTP HEAD）
+例：本机 DNS 正常、探点 A 返回不同答案 → 显示单独节点行供用户对照
 ```
 
-MVP：`listProbeNodes()` 至少返回 `local`；远程 kind 在类型中预留，UI 选中时提示「后续版本」。
+MVP：`listProbeNodes()` 至少返回 `local`；未实现执行能力的远程 kind 不得显示为可运行选项。agent 注册不表示自有 agent 已支持远程执行。
 
 ---
 
@@ -178,7 +179,9 @@ checkNtpOffset(nodeId, servers?): NtpResult
 
 // C
 listProbeNodes(): ProbeNode[]
-// ping/dns/http/traceroute 等复用既有 command + nodeId 路由
+measureMulti(target, measurementType, locations): MultiNodeProbeResult
+getGlobalpingTokenStatus(): { available: boolean; configured: boolean }
+setGlobalpingToken(token) / clearGlobalpingToken()
 ```
 
 `node.rs` 路由表：
@@ -196,8 +199,9 @@ listProbeNodes(): ProbeNode[]
 ## 5. UX
 
 - ARP/服务扫描：进度条 + 已发现计数；空态文案区分权限/隔离/真静网。
-- 多节点：先选 tool + target，再勾选节点并跑；部分节点失败不阻断整表。
-- 命令透明：remote 路径标注 `via globalping|agent`。
+- 多节点：先选 DNS / Ping / HTTP HEAD 和目标，再选 1–3 个 Globalping 区域并运行；DNS 至少返回一条有效 IPv4 A 记录、Ping 至少收到一个包、HTTP 收到 100–599 的状态码才报告该探点成功；部分节点失败不阻断其余结果。
+- token 输入只在内存态；保存/移除由后端 Keychain 命令完成，loading 与错误可见，不回显 token。
+- 命令透明：运行行展示测量类型、脱敏目标 origin 与区域；远端路径标注 Globalping。
 - Post / C badge 与 roadmap 档位一致。
 
 ---
@@ -223,7 +227,8 @@ listProbeNodes(): ProbeNode[]
 
 **C**
 
-- [ ] `listProbeNodes` + Globalping 至少一种测量端到端
+- [x] `listProbeNodes` + Globalping DNS / Ping / HTTP HEAD 端到端；本机与远端并发、单节点失败保留
+- [x] Globalping token 仅由后端写入/读取/删除系统钥匙串；不进入前端持久化与命令日志
 - [ ] agent 鉴权/限速/拒绝 shell 有测试
 - [ ] `store.byNode` 对比视图；单节点失败可诊断
 - [ ] 远程能力不要求本机 Adv pack（本机零重库）

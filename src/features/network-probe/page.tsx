@@ -125,8 +125,8 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
             reachable: true,
           },
         ]
-  // 远端节点执行（Globalping / 自有 agent）尚未接入任何 use-case, 探测一律本机跑;
-  // 按 design.md §4.2「实现前不要假连接」, 可选项收敛为 local, 其余节点在下方渲染为 disabled。
+  // 仅 Discover > Nodes 的 DNS / Ping / HTTP HEAD 对比使用 Globalping；其他工具还没有 nodeId 路由。
+  // 顶栏节点选择器因此保持本机执行，并禁用尚未接入的远端路径，避免显示假连接。
   const activeNode = useMemo(
     () => probeNodes.find((n) => n.kind === "local") ?? probeNodes[0],
     [probeNodes],
@@ -698,13 +698,17 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                   <MultiNodePanel
                     loading={c.loadingMultiNode}
                     loadingNodes={c.loadingNodes}
+                    loadingToken={c.loadingGlobalpingToken}
                     agentMutation={c.agentMutation}
-                    result={c.multiNodeDnsResult}
+                    result={c.multiNodeResult}
+                    tokenStatus={c.globalpingTokenStatus}
                     nodes={c.probeNodes}
                     toolEnabled={c.toolEnabled.multiNode}
                     toolStatus={c.toolStatus.multiNode}
-                    onCompare={c.compareDnsMulti}
+                    onMeasure={c.measureMulti}
                     onRefreshNodes={c.refreshProbeNodes}
+                    onSaveToken={c.saveGlobalpingToken}
+                    onClearToken={c.clearGlobalpingToken}
                     onAddAgent={c.addAgent}
                     onRemoveAgent={c.removeAgent}
                   />
