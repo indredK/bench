@@ -2246,6 +2246,10 @@
       "historyTitle": "Recent health snapshots",
       "historyEmpty": "No saved health scans yet. Run a health scan to keep history.",
       "clearHistory": "Clear history",
+      "clearHistoryConfirmTitle": "Clear health history?",
+      "clearHistoryConfirmDescription": "This removes the recent health snapshots saved on this device. Bench cannot restore them.",
+      "clearHistoryConfirmAction": "Clear history",
+      "clearHistoryConfirmCancel": "Keep history",
       "historyItem": "{{session}}… · {{count}} checks · {{ms}} ms · {{opinions}} opinions",
       "privacyHint": "Exports may include public IP, Wi‑Fi SSID, hosts overrides, and local addresses. Share only with people you trust."
     },
