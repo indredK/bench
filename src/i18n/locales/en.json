@@ -2119,13 +2119,22 @@
       "meta": "{{domain}} · {{count}} answers · {{ms}} ms"
     },
     "nat": {
-      "hint": "STUN Binding against a public server to learn your mapped address / NAT exposure.",
+      "hint": "Check mapped addresses with common STUN servers. Add an RFC 5780 server to report mapping and filtering behavior for that server.",
+      "behaviorServersLabel": "RFC 5780 servers (optional)",
+      "behaviorServersPlaceholder": "One service domain or host:port per line",
+      "behaviorServersHint": "Domains use _stun-behavior._udp SRV discovery; host:port uses a known endpoint. Up to {{max}} servers. Each must support RFC 5780 over UDP.",
+      "behaviorServersLimit": "Configure no more than {{max}} servers.",
       "run": "Probe NAT",
       "running": "Probing…",
       "type": "Result",
       "mapped": "Mapped address",
       "elapsed": "Elapsed {{seconds}} s",
       "serverResults": "STUN server results",
+      "behaviorResults": "RFC 5780 behavior discovery",
+      "behaviorEndpoint": "Resolved endpoint: {{endpoint}}",
+      "mappingBehaviorLabel": "Mapping behavior",
+      "filteringBehaviorLabel": "Filtering behavior",
+      "elapsedMs": "{{milliseconds}} ms",
       "types": {
         "blocked-or-timeout": "No STUN response received",
         "mapped-address": "Mapped address found; NAT behavior is unknown",
@@ -2148,6 +2157,36 @@
         "no-mapping": "No mapped address",
         "error": "Request failed",
         "unknown": "Unknown status"
+      },
+      "behaviors": {
+        "endpoint-independent": "Endpoint-independent",
+        "address-dependent": "Address-dependent",
+        "address-and-port-dependent": "Address and port-dependent",
+        "unknown": "Unknown"
+      },
+      "behaviorStatuses": {
+        "complete": "Complete",
+        "partial": "Partly determined",
+        "unsupported": "Server unsupported or rejected the request",
+        "incompatible": "Server response is incompatible",
+        "timeout": "Primary server did not respond",
+        "dns-timeout": "DNS lookup timed out",
+        "dns-error": "DNS lookup failed",
+        "srv-unavailable": "No usable RFC 5780 SRV service was found",
+        "invalid-server": "Server address format is invalid",
+        "server-limit": "At most three servers are supported",
+        "error": "Probe failed",
+        "unknown": "Unknown status"
+      },
+      "behaviorStageStatuses": {
+        "classified": "Determined",
+        "inconclusive": "Insufficient data to determine",
+        "alternate-unreachable": "Alternate address unreachable; cannot determine",
+        "unsupported": "Server unsupported or rejected the request",
+        "incompatible": "Server response is incompatible",
+        "no-response": "No response received",
+        "error": "Probe failed",
+        "unknown": "Unknown"
       }
     },
     "ntp": {

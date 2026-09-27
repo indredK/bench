@@ -173,8 +173,8 @@ export function scanPorts(target: string, ports: string) {
   return invokeTauriCommand(TAURI_COMMANDS.networkProbe.scanPorts, { target, ports })
 }
 
-export function probeNat() {
-  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.probeNat)
+export function probeNat(behaviorServers: string[] = []) {
+  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.probeNat, { behaviorServers })
 }
 
 export function probeNtp() {

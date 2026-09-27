@@ -108,8 +108,8 @@ pub async fn network_probe_scan_ports(
 }
 
 #[tauri::command]
-pub async fn network_probe_probe_nat() -> AppResult<NatProbeResult> {
-    super::nat::probe_nat().await
+pub async fn network_probe_probe_nat(behavior_servers: Vec<String>) -> AppResult<NatProbeResult> {
+    super::nat::probe_nat(behavior_servers).await
 }
 
 #[tauri::command]

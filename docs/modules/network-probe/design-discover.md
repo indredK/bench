@@ -85,15 +85,17 @@ macOS 注意：
 
 ### 3.3 NAT 类型（STUN）
 
-| 项       | 约定                                                                                                                                                    |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 协议     | STUN Binding（RFC 8489）；多服务器对照；行为发现按 RFC 5780                                                                                             |
-| 分类目标 | 按服务器报告当前映射行为与过滤行为：Endpoint-Independent、Address-Dependent、Address and Port-Dependent；不用旧式 cone / symmetric 名称代替协议观测结果 |
-| 当前实现 | 普通 Binding 只报告映射地址、单源发现、多源一致、多源不同或无响应；不把服务器间差异推断为 NAT 类型                                                      |
-| 实现     | 使用 `rtc-stun`（webrtc-rs/rtc）处理 STUN 消息、随机事务 ID 和 XOR 映射地址；**不必**引入完整 ICE/TURN 栈                                               |
-| 服务器   | 服务器清单应可配置；Google / Cloudflare 当前仅用于普通 Binding，完整分类须使用明确支持 RFC 5780 的服务器；逐源显示结果和耗时，失败时保留其他服务器结果  |
+| 项       | 约定                                                                                                                                                                            |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 协议     | STUN Binding（RFC 8489）；多服务器对照；行为发现按 RFC 5780                                                                                                                     |
+| 分类目标 | 按服务器报告当前映射行为与过滤行为：Endpoint-Independent、Address-Dependent、Address and Port-Dependent；不用旧式 cone / symmetric 名称代替协议观测结果                         |
+| 当前实现 | 普通 Binding 报告映射地址和多源一致性；配置 RFC 5780 服务器后，按该服务器报告映射/过滤行为；不从普通 Binding 的跨服务器差异推断 NAT 类型                                        |
+| 实现     | 使用 `rtc-stun`（webrtc-rs/rtc）处理 STUN 消息、随机事务 ID、XOR 映射和 RFC 5780 属性；**不必**引入完整 ICE/TURN 栈                                                             |
+| 服务器   | Google / Cloudflare 仅用于普通 Binding；可配置 RFC 5780 服务域名（`_stun-behavior._udp` SRV）或明确的 `host:port`；最多 3 个；逐源显示映射/过滤结果和耗时，单源错误不影响其他源 |
 
-普通 STUN Binding 可以发现某条 UDP 路径的映射地址，但不足以区分 RFC 5780 定义的映射与过滤行为；该 RFC 是实验性规范，结果只描述相对所用服务器和端口的当前行为，不能作为 NAT 永久特征。当前实现仍只提供映射观察，RFC 5780 分类与可配置兼容服务器清单仍是待完成需求（见下方检查清单）。超时也只说明没有收到响应，不能单独证明 UDP 已被阻断。
+普通 STUN Binding 可以发现某条 UDP 路径的映射地址，但不足以区分 RFC 5780 定义的映射与过滤行为。行为发现使用新建 UDP socket，并先做过滤测试再做映射测试；服务器必须返回合法的 `OTHER-ADDRESS` 与 `RESPONSE-ORIGIN`。备用地址为私网/保留地址时拒绝发送探测；过滤测试无响应后，还要测试备用地址的主端口可达性，只有可达才能报告「地址与端口相关过滤」。此检查针对 RFC 5780 已报告勘误 #7971 提出的误分类场景。该 RFC 为实验性规范，结果只描述相对所用服务器、端口和当次网络路径的行为，不是 NAT 永久特征。普通服务器的超时也只说明没有收到响应，不能单独证明 UDP 已被阻断。
+
+RFC 5780 服务可使用 DNS 服务发现域名（查询 `_stun-behavior._udp.<domain>` SRV）或用户已知的 `host:port`；必须运行在 UDP 上并明确支持 `CHANGE-REQUEST`、`OTHER-ADDRESS`。SRV 目标按优先级和权重选择，域名解析和探测都有界超时。当前不支持需要认证的行为发现服务器；此类服务器显示为不支持/拒绝，不会覆盖普通 Binding 结果。
 
 与「公网出口」区别：出口要的是 **IP/ASN**；NAT 面板报告的是 **STUN 观察到的映射/行为**。两处可共用一次 Binding 的 XOR-MAPPED-ADDRESS 候选，但 UI 分面板。
 
@@ -213,7 +215,7 @@ listProbeNodes(): ProbeNode[]
 - [ ] ARP 有特权路径 + ping 降级；CIDR 硬顶
 - [ ] 需要 pack 时正确返回 `missing_pack` 并完成安装校验流（D-017）
 - [ ] mDNS/SSDP 只读浏览；无 UPnP 写操作
-- [ ] STUN NAT 分类 + 多源故障转移
+- [x] STUN RFC 5780 映射/过滤行为分类、逐源耗时 + 多源故障隔离（显式兼容服务器）
 - [ ] NTP offset 阈值；不擅自改系统钟
 
 **C**
@@ -230,4 +232,5 @@ listProbeNodes(): ProbeNode[]
 - [design.md](./design.md) §4 多节点 · §5.2 ARP · §11 Globalping
 - Globalping API · librespeed（测速在测试 Tab，不在此重复）
 - RFC 8489 STUN · Bonjour / DNS-SD · UPnP 设备发现（只读）
+- [RFC 5780 NAT Behavior Discovery](https://www.rfc-editor.org/info/rfc5780/) · [RFC Editor Errata 7971](https://www.rfc-editor.org/errata/eid7971) · [webrtc-rs rtc-stun](https://github.com/webrtc-rs/rtc)
 - NETworkManager IP Scanner / LLDP·CDP：发现与远程工具分栏——本 L1 对齐「周围有什么」
