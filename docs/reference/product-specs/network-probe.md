@@ -195,7 +195,7 @@ L1 → L2 映射：
 - **架构分层**（Feature-sliced）：`page.tsx`（装配）→ `components/`（面板 UI，`ProbePanelShell` 统一工具栏/内容壳）→ `hooks/useNetworkProbeController`（store↔use-cases 桥接，逐项 selector）→ `services/network-probe.use-cases.ts`（业务编排、事件订阅、防重入、取消幂等）→ `services/network-probe.repository.ts`（IPC 适配）→ `@/lib/tauri/commands/network-probe`。
 - **store**（zustand）：单一 feature store，保存全部结果/loading/error/导航/安全授权/报告历史/命令日志/会话状态；持久化仅 nav（sessionStorage）、securityAuthorized 与 reportHistory（localStorage）。
 - **IPC 契约**：`src/lib/tauri/contracts.ts` + `src-tauri/src/net_probe/commands.rs` 双边集中维护；全部命令返回 `AppResult<T>`。
-- **长任务**：events 流式（`network-probe:health-item` / `traceroute-hop` / `site-sample` / `ping-sample` / `speed-sample` / `port-sample` / `pack-progress` / `scan-session`）；会话取消统一 `network-probe-cancel-scan(sessionId)`，**同一会话只允许发一次取消（幂等）**，新会话重置取消标记（有单测 `cancel-idempotency.test.ts`）。
+- **长任务**：events 流式（`network-probe:health-item` / `traceroute-hop` / `site-sample` / `ping-sample` / `speed-sample` / `port-sample` / `pack-progress` / `scan-session`）；会话取消统一 `network-probe-cancel-scan(sessionId)`，**同一会话只允许发一次取消（幂等）**，新会话重置取消标记（有单测 `cancel-idempotency.test.ts`）。端口扫描从可选 nmap 到 TCP connect 回退共用同一会话；nmap 用 `subprocess.rs` 在阻塞池运行，限制 35 秒并限制输出，取消会终止并回收进程组，且不会继续启动 TCP 回退扫描。
 - **capabilities 能力声明**：后端 `build_capabilities` 返回 platform / privilegeLevel / tools 状态（supported/partial/degraded/unsupported/missing_pack）/ externalTools（如 nmap）；前端 `toolEnabled` 依此控制按钮可用性与降级提示。
 - **defaults 目录**：`get_network_probe_defaults` 返回 DNS 预设、站点包、探测目标、强制门户、公网 IP API、MTU 目标等默认资源；支持用户覆盖（`saveDefaultsOverride`）与重置（`resetDefaults`）。
 - **面板复用**：offline 内的 ipv6/mtu/egress 复用同一 `Ipv6Panel`/`MtuPanel`/`EgressPanel`（`dualFrom` 区分来源），避免双入口冲突。

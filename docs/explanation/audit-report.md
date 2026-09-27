@@ -29,6 +29,7 @@
 - [§7/§9] `src-tauri/tauri.conf.json` - `com.bench.app` 后缀警告已接受；D-011 要求 2.0 保留，不得直接改字符串 - **建议** - 状态：接受风险
 - [§7/§9] `src-tauri/src/net_probe/nat_behavior.rs:304` - SRV 目标异步解析后全局优先 IPv4，可能让低优先级服务越过高优先级 IPv6 服务 - 改为保留 SRV 顺序并在各目标内优先 IPv4，补充顺序/去重回归测试 - **强制** - 状态：已修复；macOS 真机加载新构建并确认 NAT 面板与输入状态，SRV 排序回归测试通过
 - [§3/§5/§9] `src/features/network-probe/`、`src-tauri/src/net_probe/session.rs` - 取消 IPC 失败会遗留 pending 会话标记；后端接受任意 session ID 会令取消集合随无效请求无限增长；长任务取消中没有禁用与进行中文案；网络服务刷新、节点注册/移除、系统设置打开可重复触发，Fix 面板缺加载/空列表恢复反馈 - 限制取消到活动 RAII 会话并自动清理；清理匹配前端标记以允许重试；共享取消/设置进行中组件；为服务加载和节点变更加防重入、反馈、空态与刷新恢复 - **强制** - 状态：已修复；新增注册表、全量 DTO、Advisor 与降级能力测试；P0-1 已经专用单测、全量前端测试与 `lint:fe` 通过，并在 macOS 真机确认体检运行/取消、Fix 面板读取并刷新到 Wi-Fi 服务、系统网络设置可打开；P0-2 本地门禁、macOS 真机取消后重试与 GitHub Actions #689 全部必需检查均通过
+- [§7/§9] `src-tauri/src/net_probe/ports.rs` - nmap 在同步探测和扫描路径中没有统一的超时、取消与输出上限；nmap 与 TCP 回退分属不同会话，取消竞态可能启动下一条扫描 - 共用活动扫描会话，使用 `subprocess.rs` 的有界输出、35 秒总时限与进程组终止/回收，取消作为终态返回且不启动 TCP 回退 - **强制** - 状态：已修复；Rust 取消回归测试通过；macOS 真机在本机端口扫描界面连续取消两次，均显示已取消且无残留子进程；`lint:fe`、`test:critical`、Clippy、`check:be-cfg` 全通过；GitHub Actions 待验证
 
 未完成 R00-R08 前不得切换 2.0.0 版本；未完成目标平台行为测试前不得把对应能力标记为发布对等。
 
