@@ -12,7 +12,10 @@ use tauri::AppHandle;
 
 #[tauri::command]
 pub async fn get_network_probe_capabilities(app: AppHandle) -> AppResult<NetworkProbeCapabilities> {
-    Ok(super::packs::build_capabilities(Some(&app)))
+    let nmap = tauri::async_runtime::spawn_blocking(super::packs::nmap_status)
+        .await
+        .unwrap_or_else(|_| "not_found".into());
+    Ok(super::packs::build_capabilities(Some(&app), nmap))
 }
 
 #[tauri::command]

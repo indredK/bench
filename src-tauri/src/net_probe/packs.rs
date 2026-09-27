@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 
 pub const PACK_PROGRESS_EVENT: &str = "network-probe:pack-progress";
@@ -124,9 +124,15 @@ fn platform_id() -> &'static str {
     }
 }
 
-fn nmap_status() -> String {
-    match Command::new("nmap").arg("-V").output() {
-        Ok(out) if out.status.success() => "found".into(),
+pub(crate) fn nmap_status() -> String {
+    let mut command = Command::new("nmap");
+    command.arg("-V");
+    nmap_status_with_timeout(&mut command, Duration::from_secs(2))
+}
+
+fn nmap_status_with_timeout(command: &mut Command, timeout: Duration) -> String {
+    match crate::subprocess::run_status_with_timeout(command, timeout) {
+        Ok(_) => "found".into(),
         _ => "not_found".into(),
     }
 }
@@ -288,7 +294,10 @@ pub fn is_pack_installed(app: &AppHandle<impl Runtime>, pack_id: &str) -> bool {
         .is_some_and(|record| record.mode != "marker")
 }
 
-pub fn build_capabilities(app: Option<&AppHandle<impl Runtime>>) -> NetworkProbeCapabilities {
+pub fn build_capabilities(
+    app: Option<&AppHandle<impl Runtime>>,
+    nmap: String,
+) -> NetworkProbeCapabilities {
     let platform = platform_id().to_string();
     let mut tools = HashMap::new();
     let s = |v: &str| v.to_string();
@@ -370,8 +379,6 @@ pub fn build_capabilities(app: Option<&AppHandle<impl Runtime>>) -> NetworkProbe
     let pcap_installed = app
         .map(|a| is_pack_installed(a, "pcap-diag"))
         .unwrap_or(false);
-    let nmap = nmap_status();
-
     // TCP connect always available (degraded); SYN when nmap found.
     tools.insert(
         "portScan".into(),
@@ -429,6 +436,20 @@ mod tests {
     fn packet_diagnostics_reports_counter_only_path_as_degraded_without_pack() {
         assert_eq!(pcap_status(false), "degraded");
         assert_eq!(pcap_status(true), "supported");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn nmap_capability_probe_times_out_and_reports_not_found() {
+        let started_at = std::time::Instant::now();
+        let mut command = Command::new("sh");
+        command.args(["-c", "sleep 30"]);
+
+        assert_eq!(
+            nmap_status_with_timeout(&mut command, Duration::from_millis(50)),
+            "not_found"
+        );
+        assert!(started_at.elapsed() < Duration::from_secs(2));
     }
 }
 
