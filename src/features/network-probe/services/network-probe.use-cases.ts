@@ -6,8 +6,10 @@ import { type NetworkProbeKind, useNetworkProbeStore } from "@/features/network-
 import { TAURI_EVENTS } from "@/lib/tauri/contracts"
 import { getErrorMessage } from "@/lib/tauri/errors"
 import type {
+  CapabilityPackInfo,
   CapabilityPackProgress,
   HealthCheckItem,
+  NetworkProbeCapabilities,
   PingSample,
   SiteSampleResult,
   SpeedSampleEvent,
@@ -46,20 +48,44 @@ function createScanSessionTracker(kind: NetworkProbeKind) {
   }
 }
 
+type CapabilityPackSnapshot = {
+  packs: CapabilityPackInfo[]
+  capabilities: NetworkProbeCapabilities
+}
+
+let capabilityPackSnapshotInFlight: Promise<CapabilityPackSnapshot> | null = null
+
+/** Bootstrap and dialog refresh share one capability probe while the current read is pending. */
+function loadCapabilityPackSnapshot(): Promise<CapabilityPackSnapshot> {
+  if (capabilityPackSnapshotInFlight) return capabilityPackSnapshotInFlight
+
+  const request = Promise.all([
+    networkProbeRepository.listCapabilityPacks(),
+    networkProbeRepository.getCapabilities(),
+  ]).then(([packs, capabilities]) => ({ packs, capabilities }))
+  capabilityPackSnapshotInFlight = request
+
+  const clearFlight = () => {
+    if (capabilityPackSnapshotInFlight === request) capabilityPackSnapshotInFlight = null
+  }
+  void request.then(clearFlight, clearFlight)
+
+  return request
+}
+
 export const networkProbeUseCases = {
   async bootstrap() {
     const store = useNetworkProbeStore.getState()
     store.setError(null)
     try {
-      const [capabilities, defaults, packs, nodes] = await Promise.all([
-        networkProbeRepository.getCapabilities(),
+      const [packSnapshot, defaults, nodes] = await Promise.all([
+        loadCapabilityPackSnapshot(),
         networkProbeRepository.getDefaults(),
-        networkProbeRepository.listCapabilityPacks(),
         networkProbeRepository.listProbeNodes(),
       ])
-      store.setCapabilities(capabilities)
+      store.setCapabilities(packSnapshot.capabilities)
       store.setDefaults(defaults)
-      store.setCapabilityPacks(packs)
+      store.setCapabilityPacks(packSnapshot.packs)
       store.setProbeNodes(nodes)
     } catch (error) {
       store.setError({
@@ -557,13 +583,12 @@ export const networkProbeUseCases = {
 
   async refreshCapabilityPacks() {
     const store = useNetworkProbeStore.getState()
+    store.setError(null)
     try {
-      const [packs, capabilities] = await Promise.all([
-        networkProbeRepository.listCapabilityPacks(),
-        networkProbeRepository.getCapabilities(),
-      ])
-      store.setCapabilityPacks(packs)
-      store.setCapabilities(capabilities)
+      const snapshot = await loadCapabilityPackSnapshot()
+      const latestStore = useNetworkProbeStore.getState()
+      latestStore.setCapabilityPacks(snapshot.packs)
+      latestStore.setCapabilities(snapshot.capabilities)
     } catch (error) {
       store.setError({
         key: "networkProbe.errors.packsFailed",

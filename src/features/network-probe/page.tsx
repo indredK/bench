@@ -774,7 +774,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
           progressText={c.packProgressText}
           focusPackId={focusPackId}
           onOpenChange={setPacksOpen}
-          onRefresh={() => void c.refreshCapabilityPacks()}
+          onRefresh={() => c.refreshCapabilityPacks()}
           onInstall={(packId) => {
             setPacksBusy(true)
             void c.installCapabilityPack(packId).finally(() => setPacksBusy(false))

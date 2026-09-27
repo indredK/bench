@@ -181,8 +181,8 @@ L1 → L2 映射：
 
 - pack 列表为单选项列表（点击选中高亮），选中后右侧描述区展示 pack 描述 + Gatekeeper 说明；安装/卸载按钮带 CommandHint 包裹（hover 显示真实命令）。
 - **focusPackId 自动聚焦**：从 pcap 面板「管理能力包」入口进入时自动选中 `pcap-diag`、从端口/ARP 面板进入时自动选中 `adv-scanner`（`focusPackId → setSelected`）；pack 列表为空时右侧显示 `packs.empty` 占位。
-- `busy` 为真时**全部按钮禁用**（刷新/安装/卸载/测试哈希失败），安装按钮文案切为「安装中…」；进度文本 `packId phase bytes/totalBytes` 实时刷新，安装完成/失败后清除。
-- **能力包刷新防重入由对话框承载**：`refreshCapabilityPacks` 用例**没有**自身 loading 标志（连续调用会并发重读），其防重入依赖 PackInstallDialog 的页面级 `busy` 状态（`onRefresh/onInstall/onUninstall/onVerifyFail` 均以 `busy` 包裹，执行中按钮全部禁用）。
+- 能力包刷新开始时清除上次刷新错误；刷新中显示「正在刷新…」并禁用刷新/安装/卸载/哈希验证操作，失败后可再次刷新。安装时安装按钮显示「安装中…」。能力包安装进度 `packId phase bytes/totalBytes` 实时刷新，安装完成/失败后清除。
+- **能力包刷新防重入**：PackInstallDialog 用同步 ref 拦截同一轮中的重复点击并在刷新期间禁用所有动作；用例层 single-flight 合并 bootstrap 与手动刷新共享的能力查询，避免重复 IPC。安装/卸载结束后的刷新仍会在既有请求结束后读取新状态。
 - 已安装 pack 显示「卸载」（destructive 样式）；未安装显示「安装」；`markerOnly`（制品未发布）显示标记提示。
 - 「测试哈希失败」按钮（验证通道）仅用于开发验证：安装强制返回 hash 不匹配并写入命令日志，不实际安装。
 
@@ -274,7 +274,7 @@ L1 → L2 映射：
 - **事件监听清理**：所有流式长任务在 `finally` 中 `unlisten()` 全部事件订阅（health-item / site-sample / traceroute-hop / ping-sample / speed-sample / port-sample / scan-session / pack-progress），避免泄漏与跨会话串扰。
 - **单工具防重入**：每个 use-case 入口 `if (store.loadingX) return`；同一工具不可并发，不同工具可并行（store 每工具独立 loading）。
 - **修复幂等**：后端每次执行前重新校验服务白名单（忽略前端「已确认」标志）；刷新 DNS 对 `dscacheutil`/`killall` 分别报告成功/失败，不把权限失败当成功。
-- **single-flight 式刷新**：刷新概览（`loadingSummary`）、节点（`loadingNodes`）在用例内以 loading 标志防重复触发；**能力包刷新除外**——`refreshCapabilityPacks` 无 loading 标志，防重入由 PackInstallDialog 的 `busy` 提供（见 §8）。
+- **single-flight 式刷新**：刷新概览（`loadingSummary`）、节点（`loadingNodes`）在用例内以 loading 标志防重复触发；能力包列表与 capabilities 由用例层合并并发读取，PackInstallDialog 同时拦截快速重复点击并在读取期间禁用其他能力包操作（见 §8）。
 - **节点与设置动作防重入**：`addAgent` / `removeAgent` 与 `refreshProbeNodes` 共享 `loadingNodes` 锁，注册/移除时显示对应进行中状态；`loadNetworkServices` 与 `openSystemNetworkSettings` 各有独立 loading 状态，避免重复 IPC/应用打开。
 
 ### 13.4 数据与安全

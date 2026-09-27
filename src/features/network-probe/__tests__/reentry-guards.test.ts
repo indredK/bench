@@ -4,6 +4,9 @@ const repository = vi.hoisted(() => ({
   listNetworkServices: vi.fn(),
   openSystemNetworkSettings: vi.fn(),
   listProbeNodes: vi.fn(),
+  getDefaults: vi.fn(),
+  listCapabilityPacks: vi.fn(),
+  getCapabilities: vi.fn(),
   addAgent: vi.fn(),
   removeAgent: vi.fn(),
 }))
@@ -28,6 +31,8 @@ function deferred<T>() {
 beforeEach(() => {
   Object.values(repository).forEach((mock) => mock.mockReset())
   useNetworkProbeStore.setState({
+    capabilityPacks: [],
+    capabilities: null,
     networkServices: [],
     probeNodes: [],
     loadingServices: false,
@@ -39,6 +44,83 @@ beforeEach(() => {
 })
 
 describe("network probe action re-entry guards", () => {
+  it("shares a bootstrap capability probe with a dialog refresh", async () => {
+    const pendingPacks = deferred<Array<{ id: string }>>()
+    const pendingCapabilities = deferred<{ platform: string; tools: Record<string, string> }>()
+    repository.listCapabilityPacks.mockReturnValueOnce(pendingPacks.promise)
+    repository.getCapabilities.mockReturnValueOnce(pendingCapabilities.promise)
+    repository.getDefaults.mockResolvedValueOnce({})
+    repository.listProbeNodes.mockResolvedValueOnce([])
+
+    const bootstrap = networkProbeUseCases.bootstrap()
+    const refresh = networkProbeUseCases.refreshCapabilityPacks()
+
+    expect(repository.listCapabilityPacks).toHaveBeenCalledOnce()
+    expect(repository.getCapabilities).toHaveBeenCalledOnce()
+
+    const packs = [{ id: "pcap-diag" }]
+    const capabilities = { platform: "macos", tools: { pcap: "missing_pack" } }
+    pendingPacks.resolve(packs)
+    pendingCapabilities.resolve(capabilities)
+    await Promise.all([bootstrap, refresh])
+
+    expect(useNetworkProbeStore.getState().capabilityPacks).toEqual(packs)
+    expect(useNetworkProbeStore.getState().capabilities).toEqual(capabilities)
+  })
+
+  it("single-flights capability pack refreshes and allows a later refresh", async () => {
+    const pendingPacks = deferred<Array<{ id: string }>>()
+    const pendingCapabilities = deferred<{ platform: string; tools: Record<string, string> }>()
+    repository.listCapabilityPacks.mockReturnValueOnce(pendingPacks.promise)
+    repository.getCapabilities.mockReturnValueOnce(pendingCapabilities.promise)
+
+    const first = networkProbeUseCases.refreshCapabilityPacks()
+    const second = networkProbeUseCases.refreshCapabilityPacks()
+
+    expect(repository.listCapabilityPacks).toHaveBeenCalledOnce()
+    expect(repository.getCapabilities).toHaveBeenCalledOnce()
+
+    const packs = [{ id: "pcap-diag" }]
+    const capabilities = { platform: "macos", tools: { pcap: "missing_pack" } }
+    pendingPacks.resolve(packs)
+    pendingCapabilities.resolve(capabilities)
+    await Promise.all([first, second])
+
+    expect(useNetworkProbeStore.getState().capabilityPacks).toEqual(packs)
+    expect(useNetworkProbeStore.getState().capabilities).toEqual(capabilities)
+
+    repository.listCapabilityPacks.mockResolvedValueOnce([{ id: "adv-scanner" }])
+    repository.getCapabilities.mockResolvedValueOnce({
+      platform: "macos",
+      tools: { portScan: "degraded" },
+    })
+    await networkProbeUseCases.refreshCapabilityPacks()
+
+    expect(repository.listCapabilityPacks).toHaveBeenCalledTimes(2)
+    expect(repository.getCapabilities).toHaveBeenCalledTimes(2)
+    expect(useNetworkProbeStore.getState().capabilityPacks).toEqual([{ id: "adv-scanner" }])
+  })
+
+  it("releases the capability refresh flight after a failed read", async () => {
+    repository.listCapabilityPacks.mockRejectedValueOnce(new Error("pack manifest unavailable"))
+    repository.getCapabilities.mockResolvedValueOnce({ platform: "macos", tools: {} })
+
+    await networkProbeUseCases.refreshCapabilityPacks()
+
+    expect(useNetworkProbeStore.getState().error?.key).toBe("networkProbe.errors.packsFailed")
+
+    repository.listCapabilityPacks.mockResolvedValueOnce([{ id: "pcap-diag" }])
+    repository.getCapabilities.mockResolvedValueOnce({
+      platform: "macos",
+      tools: { pcap: "degraded" },
+    })
+    await networkProbeUseCases.refreshCapabilityPacks()
+
+    expect(repository.listCapabilityPacks).toHaveBeenCalledTimes(2)
+    expect(useNetworkProbeStore.getState().capabilityPacks).toEqual([{ id: "pcap-diag" }])
+    expect(useNetworkProbeStore.getState().error).toBeNull()
+  })
+
   it("deduplicates network-service loads and unlocks after failure", async () => {
     const pending = deferred<string[]>()
     repository.listNetworkServices.mockReturnValueOnce(pending.promise)

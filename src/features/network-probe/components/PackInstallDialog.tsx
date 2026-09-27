@@ -1,7 +1,7 @@
 /**
  * Feature UI / 功能界面: D-017 capability pack install / uninstall dialog.
  */
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
@@ -25,7 +25,7 @@ interface PackInstallDialogProps {
   onInstall: (packId: string) => void
   onVerifyFail?: (packId: string) => void
   onUninstall: (packId: string) => void
-  onRefresh: () => void
+  onRefresh: () => Promise<void> | void
 }
 
 export function PackInstallDialog({
@@ -42,6 +42,20 @@ export function PackInstallDialog({
 }: PackInstallDialogProps) {
   const { t } = useTranslation()
   const [selected, setSelected] = useState<string | null>(focusPackId ?? null)
+  const [refreshing, setRefreshing] = useState(false)
+  const refreshingRef = useRef(false)
+
+  const handleRefresh = async () => {
+    if (busy || refreshingRef.current) return
+    refreshingRef.current = true
+    setRefreshing(true)
+    try {
+      await onRefresh()
+    } finally {
+      refreshingRef.current = false
+      setRefreshing(false)
+    }
+  }
 
   useEffect(() => {
     if (focusPackId) setSelected(focusPackId)
@@ -98,15 +112,21 @@ export function PackInstallDialog({
         </div>
 
         <DialogFooter className="flex-wrap gap-2">
-          <Button type="button" variant="outline" disabled={busy} onClick={onRefresh}>
-            {t("networkProbe.packs.refresh")}
+          <Button
+            type="button"
+            variant="outline"
+            disabled={busy || refreshing}
+            aria-busy={refreshing}
+            onClick={() => void handleRefresh()}
+          >
+            {t(refreshing ? "networkProbe.packs.refreshing" : "networkProbe.packs.refresh")}
           </Button>
           {current?.status === "installed" ? (
             <CommandHint hint={t("networkProbe.cmd.uninstallPack", { packId: current.id })}>
               <Button
                 type="button"
                 variant="destructive"
-                disabled={busy}
+                disabled={busy || refreshing}
                 onClick={() => onUninstall(current.id)}
               >
                 {t("networkProbe.packs.uninstall")}
@@ -114,7 +134,11 @@ export function PackInstallDialog({
             </CommandHint>
           ) : current ? (
             <CommandHint hint={t("networkProbe.cmd.installPack", { packId: current.id })}>
-              <Button type="button" disabled={busy} onClick={() => onInstall(current.id)}>
+              <Button
+                type="button"
+                disabled={busy || refreshing}
+                onClick={() => onInstall(current.id)}
+              >
                 {busy ? t("networkProbe.packs.installing") : t("networkProbe.packs.install")}
               </Button>
             </CommandHint>
@@ -123,7 +147,7 @@ export function PackInstallDialog({
             <Button
               type="button"
               variant="outline"
-              disabled={busy}
+              disabled={busy || refreshing}
               onClick={() => onVerifyFail(current.id)}
             >
               {t("networkProbe.packs.verifyFail")}
