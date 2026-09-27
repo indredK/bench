@@ -99,7 +99,7 @@ Tokio TcpStream::connect 带 timeout
 
 1. 规范化 URL / host（拒绝 file://、危险 scheme）。
 2. 可选 ICMP（同 ping 引擎）。
-3. HTTP(S)：`reqwest` + `rustls`；记录状态码、TTFB、重定向终局。
+3. HTTP(S)：`reqwest` + `rustls`；记录状态码、TTFB、重定向终局。仅需状态与延迟时在响应头返回后关闭响应，不读取任意大小的响应体；吞吐采样只用于站点包，并限制为 ≤1MiB / 5s。
 4. HTTPS 轻量 TLS：证书 notAfter、subject/SAN 与 host 是否匹配；**完整 MITM 链分析留给安全 Tab**。
 
 ### 3.5 Traceroute / MTR（`startTraceroute`）

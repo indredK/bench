@@ -8,3 +8,5 @@
 **硬性红线**（不实现 · 法律/合规约束，详见 design.md §12.3.2）：主动攻击能力——ARP 欺骗**攻击** / MITM 流量**注入** / **DoS** / 密码**爆破**，违法绝不构建；仅提供对应检测/防御版本（`detectArpSpoofing` / `checkSsl.mitmSuspected` / 暴露面评估）。
 
 **验证命令**：`pnpm run lint:fe` + `pnpm run test:critical` + `cargo clippy -- -D warnings`。
+
+- 2026-09-27：普通 HTTP(S) 目标探测只展示状态码、TTFB 与轻量 TLS 摘要；不再为无用的响应体读取等待流结束，避免慢流端点拖住探测并无界缓冲内容。站点测速仍使用 ≤1MiB / 5s 的吞吐上限。

@@ -156,7 +156,10 @@ async fn probe_http(
             let (download_mbps, download_bytes) = if measure_throughput {
                 drain_body_with_throughput(resp).await
             } else {
-                let _ = resp.bytes().await;
+                // Status and TTFB are determined by the response headers. This client is
+                // scoped to one probe, so draining the body cannot enable connection reuse;
+                // dropping it avoids buffering arbitrary response bodies and waiting for
+                // streaming endpoints to finish.
                 (None, None)
             };
             (
@@ -239,6 +242,13 @@ async fn drain_body_with_throughput(resp: reqwest::Response) -> (Option<f64>, Op
 
 #[cfg(test)]
 mod tests {
+    use super::probe_http_target;
+    use std::time::{Duration, Instant};
+    use tokio::{
+        io::{AsyncReadExt, AsyncWriteExt},
+        net::TcpListener,
+    };
+
     #[test]
     fn mbps_math_example() {
         // 256 KiB in 0.2s → 10.48576 Mbps
@@ -246,5 +256,35 @@ mod tests {
         let elapsed = 0.2_f64;
         let mbps = (bytes as f64 * 8.0) / elapsed / 1_000_000.0;
         assert!((mbps - 10.485_76).abs() < 0.01);
+    }
+
+    #[tokio::test]
+    async fn http_probe_returns_after_headers_without_buffering_response_body() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut request = [0_u8; 1024];
+            let _ = socket.read(&mut request).await;
+            socket
+                .write_all(
+                    b"HTTP/1.1 200 OK\r\nContent-Length: 4096\r\nConnection: keep-alive\r\n\r\n",
+                )
+                .await
+                .unwrap();
+            tokio::time::sleep(Duration::from_millis(750)).await;
+        });
+
+        let started = Instant::now();
+        let (detail, _) = probe_http_target(&format!("http://{addr}/slow-body")).await;
+        let elapsed = started.elapsed();
+        server.abort();
+
+        let detail = detail.expect("HTTP response details should be returned");
+        assert_eq!(detail.status, Some(200));
+        assert!(
+            elapsed < Duration::from_millis(500),
+            "probe took {elapsed:?}"
+        );
     }
 }
