@@ -156,14 +156,30 @@ export function MultiNodePanel({
             {result.answers.map((a) => (
               <li key={a.nodeId} className="rounded-md border px-3 py-2">
                 <div className="font-medium">
-                  {a.nodeLabel} <span className="font-mono text-xs">{a.ok ? "OK" : "FAIL"}</span>
+                  {a.nodeLabel}{" "}
+                  <span className="font-mono text-xs">
+                    {t(a.ok ? "networkProbe.nodes.statusOk" : "networkProbe.nodes.statusFail")}
+                  </span>
                 </div>
                 {a.answers.length > 0 ? (
                   <pre className="text-muted-foreground mt-1 overflow-auto font-mono text-xs">
                     {a.answers.join("\n")}
                   </pre>
                 ) : null}
-                {a.detail ? <p className="text-muted-foreground mt-1 text-xs">{a.detail}</p> : null}
+                {a.detail ? (
+                  a.detail.length > 240 ? (
+                    <details className="text-xs">
+                      <summary className="text-muted-foreground mt-1 cursor-pointer">
+                        {t("networkProbe.nodes.technicalDetails")}
+                      </summary>
+                      <pre className="text-muted-foreground bg-muted/40 mt-1 max-h-48 overflow-auto rounded p-2 font-mono break-words whitespace-pre-wrap">
+                        {a.detail}
+                      </pre>
+                    </details>
+                  ) : (
+                    <p className="text-muted-foreground mt-1 text-xs">{a.detail}</p>
+                  )
+                ) : null}
               </li>
             ))}
           </ul>

@@ -65,3 +65,4 @@
 - 2026-09-27：P5-1 长结果虚拟化已实现：端口样本、Traceroute 跳点、ARP 邻居和 LAN 服务超过 50 条时使用既有 TanStack Virtual；长列表支持键盘滚动与屏幕阅读器位置/总数，流式结果只在滚动贴底时跟随。组件回归、前端门禁与 macOS 真机 100 端口列表/键盘首行验证通过；`build:debug` 的 `.app` 已签名可运行，完整命令仅因本机缺少 `TAURI_SIGNING_PRIVATE_KEY` 未生成 updater artifact。
 - 2026-09-27：发现 Tab 的 NTP 阈值与多源结果完成：替换手写报文为 `sntpc` + Tokio adapter，逐源校验并发探测，offset / RTT 取中位数并展示 stratum；阈值修正为 `>500ms warn` / `>2s high`，中文 severity 与逐源错误本地化，单源故障不影响其他结果；不调整系统时钟。组件回归、前端门禁、Rust 全量测试和 macOS 真机验证通过；debug `.app` 已签名并完成 NTP 真机探测，命令日志时间戳与命令分行显示，保留命令标识完整性；完整 `build:debug` 仅因本机缺少可选 Tauri updater 私钥未生成 updater artifact；GitHub PR #109（commit `4f9b9b6`）的前端、macOS/Windows Rust、E2E、安全、静态、Node 兼容与 CI aggregate 检查均通过，release build/publish 因非发版提交跳过。
 - 2026-09-27：报告历史清空改为二次确认；取消保留快照，中英文提示说明本机数据不可恢复。
+- 2026-09-27：Globalping DNS 轮询增加 35 秒总时限、保留部分结果、采用 ETag，并在 429 时显示 API 提供的额度/重置数据；多节点状态与长诊断输出完成本地化和折叠。
