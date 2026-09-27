@@ -451,9 +451,18 @@ export interface NatProbeResult {
   natType: string
   mappedAddress?: string
   stunServer: string
+  serverResults?: NatProbeServerResult[]
+  /** Legacy free-form message from older app versions. */
   detail?: string
   elapsedMs: number
   commandHint: string
+}
+
+export interface NatProbeServerResult {
+  server: string
+  status: string
+  mappedAddress?: string
+  errorCode?: string
 }
 
 export interface NtpProbeResult {

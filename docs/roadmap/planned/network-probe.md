@@ -32,6 +32,7 @@
 
 - [ ] **C2-2** Globalping 代理补全：remote ping / http + token（DNS multi 已交付，◐）。
 - [ ] **C2-3** 自有 agent 远程执行：TLS / 鉴权 / 限速贯通，`nodeId` 全链路（HTTPS 注册/健康检查/白名单已交付，远程执行待，◐）。
+- [ ] **C2-4** STUN NAT 行为分类：接入明确支持 RFC 5780 的可配置服务器，逐源报告映射/过滤行为与耗时，并验证单源故障不丢弃其他结果；不得从普通 Binding 的跨服务器差异推断 cone/symmetric NAT。
 
 ## 待验证（真机 / 行为）
 
@@ -61,3 +62,4 @@
 > 每轮功能改动先在此追加一行，再在实施后同步进产品说明。
 
 - 2026-09-03：首版生成——依据 `docs/modules/network-probe/roadmap.md`（Wave 0–6）与 `docs/roadmap/ROADMAP.md` D-016，提炼 ⬜/◐ 未完成项为「待实现」「待验证」「远期」三档；产品说明见 `../product-specs/network-probe.md`。
+- 2026-09-27：登记 STUN RFC 5780 分类、兼容服务器配置与逐源耗时为 C2-4；当前实现仅提供多源 Binding 映射观察。
