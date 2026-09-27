@@ -269,7 +269,8 @@ L1 → L2 映射：
 
 ### 13.3 幂等 / 取消 / 并发保护
 
-- **会话取消幂等（前后端双保险）**：前端 `cancelRequestedSessionId` 保证同一活动 `sessionId` 只发一次 `cancelScan`；后端 `session.rs` 以 `HashSet` 记录已取消 id，重复取消为 no-op 成功。IPC 失败时前端清除 pending 标记并允许重试；会话结束时清理该会话标记，新会话自动重置（有单测 `cancel-idempotency.test.ts`）。UI 在请求等待期间显示「正在取消…」并禁用重复点击。
+- **会话取消幂等与有界注册表**：前端 `cancelRequestedSessionId` 保证同一活动 `sessionId` 只发一次 `cancelScan`；后端仅为 `new_session()` 注册的活动 ID 记录取消状态，未知、空白或已结束的 ID 均忽略，防止随机 IPC 输入造成集合无界增长。`ScanSession` 的 RAII `Drop` 在成功、错误及提前返回时清理活动与取消标记。IPC 失败时前端清除 pending 标记并允许重试；UI 在请求等待期间显示「正在取消…」并禁用重复点击。前后端幂等、未知 ID 与清理均有单测。
+- **契约与纯逻辑回归**：`contracts.test.ts` 自动比对 Network Probe 所有 TypeScript IPC interface 与 Rust DTO 的字段、camelCase 序列化及结构名；Advisor 针对每类单项信号、分支详情、严重级别与相关检查键测试。端口扫描缺少 nmap/能力包及抓包缺少能力包时映射为 `degraded`；前端保留降级能力的可运行按钮，只禁用 `unsupported` / `missing_pack` / 未知状态。
 - **事件监听清理**：所有流式长任务在 `finally` 中 `unlisten()` 全部事件订阅（health-item / site-sample / traceroute-hop / ping-sample / speed-sample / port-sample / scan-session / pack-progress），避免泄漏与跨会话串扰。
 - **单工具防重入**：每个 use-case 入口 `if (store.loadingX) return`；同一工具不可并发，不同工具可并行（store 每工具独立 loading）。
 - **修复幂等**：后端每次执行前重新校验服务白名单（忽略前端「已确认」标志）；刷新 DNS 对 `dscacheutil`/`killall` 分别报告成功/失败，不把权限失败当成功。

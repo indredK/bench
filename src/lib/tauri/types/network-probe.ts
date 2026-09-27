@@ -453,8 +453,6 @@ export interface NatProbeResult {
   stunServer: string
   serverResults?: NatProbeServerResult[]
   behaviorResults?: NatBehaviorServerResult[]
-  /** Legacy free-form message from older app versions. */
-  detail?: string
   elapsedMs: number
   commandHint: string
 }

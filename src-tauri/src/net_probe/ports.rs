@@ -44,7 +44,8 @@ pub async fn scan_ports_tcp<R: Runtime>(
         }
     }
 
-    let session_id = super::session::new_session_id();
+    let session = super::session::new_session();
+    let session_id = session.id().to_owned();
     if let Some(app) = app {
         let _ = app.emit(
             SCAN_SESSION_EVENT,
@@ -108,7 +109,6 @@ pub async fn scan_ports_tcp<R: Runtime>(
     }
 
     cancelled = cancelled || super::session::is_cancelled(&session_id);
-    super::session::clear_session(&session_id);
     open_ports.sort_unstable();
 
     Ok(PortScanResult {
@@ -191,7 +191,8 @@ async fn try_nmap_syn<R: Runtime>(
     target: &str,
     ports: &[u16],
 ) -> AppResult<Option<PortScanResult>> {
-    let session_id = super::session::new_session_id();
+    let session = super::session::new_session();
+    let session_id = session.id().to_owned();
     if let Some(app) = app {
         let _ = app.emit(
             SCAN_SESSION_EVENT,
@@ -242,8 +243,6 @@ async fn try_nmap_syn<R: Runtime>(
     .map_err(|e| AppError::task_failed(format!("nmap join: {e}")))?;
 
     let cancelled = super::session::is_cancelled(&session_for_block);
-    super::session::clear_session(&session_for_block);
-
     let out = match output {
         Ok(o) => o,
         Err(_) => return Ok(None),

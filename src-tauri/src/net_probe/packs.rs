@@ -88,6 +88,22 @@ fn packs_dir(app: &AppHandle<impl Runtime>) -> AppResult<PathBuf> {
     Ok(dir)
 }
 
+fn port_scan_status(nmap_found: bool, adv_pack_installed: bool) -> &'static str {
+    if nmap_found || adv_pack_installed {
+        "supported"
+    } else {
+        "degraded"
+    }
+}
+
+fn pcap_status(pcap_pack_installed: bool) -> &'static str {
+    if pcap_pack_installed {
+        "supported"
+    } else {
+        "degraded"
+    }
+}
+
 fn record_path(dir: &Path, pack_id: &str) -> PathBuf {
     dir.join(format!("{pack_id}.json"))
 }
@@ -359,23 +375,12 @@ pub fn build_capabilities(app: Option<&AppHandle<impl Runtime>>) -> NetworkProbe
     // TCP connect always available (degraded); SYN when nmap found.
     tools.insert(
         "portScan".into(),
-        if nmap == "found" || adv_installed {
-            s("supported")
-        } else {
-            s("degraded")
-        },
+        s(port_scan_status(nmap == "found", adv_installed)),
     );
     // ARP: cache read always; privileged sweep needs pack.
     tools.insert("arp".into(), s("degraded"));
     // Pcap: tcpdump counters always attempted; pack unlocks richer mode later.
-    tools.insert(
-        "pcap".into(),
-        if pcap_installed {
-            s("supported")
-        } else {
-            s("degraded")
-        },
-    );
+    tools.insert("pcap".into(), s(pcap_status(pcap_installed)));
     if adv_installed {
         tools.insert("fingerprint".into(), s("degraded"));
     } else if nmap == "found" {
@@ -406,6 +411,24 @@ pub fn build_capabilities(app: Option<&AppHandle<impl Runtime>>) -> NetworkProbe
         tools,
         packs,
         external_tools,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn port_scan_reports_tcp_connect_as_degraded_without_optional_scanner() {
+        assert_eq!(port_scan_status(false, false), "degraded");
+        assert_eq!(port_scan_status(true, false), "supported");
+        assert_eq!(port_scan_status(false, true), "supported");
+    }
+
+    #[test]
+    fn packet_diagnostics_reports_counter_only_path_as_degraded_without_pack() {
+        assert_eq!(pcap_status(false), "degraded");
+        assert_eq!(pcap_status(true), "supported");
     }
 }
 

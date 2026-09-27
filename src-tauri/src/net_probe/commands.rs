@@ -233,7 +233,7 @@ pub async fn network_probe_run_health_scan(app: AppHandle) -> AppResult<HealthSc
 
 #[tauri::command]
 pub async fn network_probe_cancel_scan(session_id: String) -> AppResult<()> {
-    super::session::cancel_scan(session_id);
+    super::session::cancel_scan(&session_id);
     Ok(())
 }
 

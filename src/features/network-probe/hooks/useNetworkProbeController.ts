@@ -3,6 +3,7 @@
  */
 import { useCallback, useEffect } from "react"
 import { networkProbeUseCases } from "@/features/network-probe/services/network-probe.use-cases"
+import { isNetworkProbeToolEnabled } from "@/features/network-probe/services/capability-status"
 import {
   type NetworkProbeKind,
   type NetworkProbeL1,
@@ -16,8 +17,7 @@ function toolStatus(tools: Record<string, string> | undefined, key: string): str
 }
 
 function toolEnabled(tools: Record<string, string> | undefined, key: string): boolean {
-  const status = toolStatus(tools, key)
-  return status === "supported" || status === "partial" || status === "degraded"
+  return isNetworkProbeToolEnabled(toolStatus(tools, key))
 }
 
 export function useNetworkProbeController() {
