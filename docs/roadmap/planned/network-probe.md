@@ -7,7 +7,7 @@
 ## 当前状态
 
 - 模块 1.0 / MVP A+B 已闭环（D-016）。
-- Post-MVP：测速、Globalping DNS/Ping/HTTP 与可选 token、agent 注册骨架、安全/发现主路径已交付；Nmap 轻量服务 / OS 指纹已在工作区实现，待隔离 macOS 真机验收与远程构建；**特权 helper 仍待**。
+- Post-MVP：测速、Globalping DNS/Ping/HTTP 与可选 token、agent 注册骨架、安全/发现主路径已交付；Nmap 轻量服务 / OS 指纹已完成 loopback 真机验收；STUN 多源映射观察已完成 loopback UI 验收；**特权 helper 仍待**。
 
 ## 待实现（未完成项）
 
@@ -25,6 +25,7 @@
 ### Wave 2 · Post-MVP-C（续）
 
 - [ ] **C2-3** 自有 agent 远程执行：TLS / 鉴权 / 限速贯通，`nodeId` 全链路（HTTPS 与 WSS 注册/健康检查、白名单已交付；凭据存储与远程执行待，◐）。
+- [ ] **C2-4** STUN NAT 行为分类：仅在接入明确兼容 RFC 5780 的服务器后评估；逐源报告映射 / 过滤行为与耗时，并验证单源故障不丢弃其他结果。不得从普通 Binding 的跨服务器差异推断 NAT 类型。本期映射观察已交付。
 
 ## 待验证（真机 / 行为）
 
@@ -52,6 +53,8 @@
 - 主动攻击能力：ARP 欺骗攻击 / MITM 流量注入 / DoS / 密码爆破 → 违法，绝不构建（每波验收含 S-X-06 红线负向）。
 
 ## 变更记录
+
+- 2026-10-27：采用成熟 `rtc-stun` 实现 STUN Binding 编解码与事务 ID 校验，逐源显示映射 / 超时 / 失败；用户确认本期只报告映射观察，RFC 5780 分类保留为 C2-4。隔离 macOS QA 对 loopback responder 完成一次 UI 真机验收，远程 CI 等分支更新后验证。
 
 > 每轮功能改动先在此追加一行，再在实施后同步进产品说明。
 
