@@ -78,42 +78,38 @@ function AuthProxyNavigationListener() {
 
 function AnimatedRoutes() {
   const [location, navigate] = useLocation()
+  const { t } = useTranslation()
+  const { reduce } = useReducedMotionProps()
+
   useEffect(() => {
     const defaultFeature = appFeatures.find((feature) => canUseFeature(feature))
     if ((location === "" || location === "/") && defaultFeature) {
       navigate(defaultFeature.path, { replace: true })
     }
   }, [location, navigate])
+
   if (location === "" || location === "/") return null
   return (
     <AnimatePresence mode="wait" initial={false}>
-      <FeaturePanel key={location} location={location} />
+      <motion.div
+        key={location}
+        initial={reduce({ opacity: 0, y: 4 })}
+        animate={reduce({ opacity: 1, y: 0 })}
+        exit={reduce({ opacity: 0, y: -4 })}
+        transition={{ duration: 0.12, ease: "easeOut" }}
+        className="h-full"
+      >
+        <Switch location={location}>
+          {appFeatures.map((feature) => (
+            <Route key={feature.id} path={feature.path}>
+              <RuntimeFeatureGate feature={feature} title={t(feature.labelKey)} icon={feature.icon}>
+                {feature.render(feature)}
+              </RuntimeFeatureGate>
+            </Route>
+          ))}
+        </Switch>
+      </motion.div>
     </AnimatePresence>
-  )
-}
-
-function FeaturePanel({ location }: { location: string }) {
-  const [frozenLocation] = useState(location)
-  const { t } = useTranslation()
-  const { reduce } = useReducedMotionProps()
-  return (
-    <motion.div
-      initial={reduce({ opacity: 0, y: 4 })}
-      animate={reduce({ opacity: 1, y: 0 })}
-      exit={reduce({ opacity: 0, y: -4 })}
-      transition={{ duration: 0.12, ease: "easeOut" }}
-      className="h-full"
-    >
-      <Switch location={frozenLocation}>
-        {appFeatures.map((feature) => (
-          <Route key={feature.id} path={feature.path}>
-            <RuntimeFeatureGate feature={feature} title={t(feature.labelKey)} icon={feature.icon}>
-              {feature.render(feature)}
-            </RuntimeFeatureGate>
-          </Route>
-        ))}
-      </Switch>
-    </motion.div>
   )
 }
 
