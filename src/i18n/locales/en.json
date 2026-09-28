@@ -1231,8 +1231,7 @@
     "SCAN_IN_PROGRESS": "A scan is already in progress, please wait",
     "SCAN_CANCELED": "Scan cancelled",
     "EXTENSION_MARKET_BUSY": "Another install operation for this extension is still running. Try again shortly.",
-    "EXTENSION_REVOKED": "This extension version was revoked by its registry. Choose another available release.",
-    "NO_SESSION": "Please pick a photo folder first"
+    "EXTENSION_REVOKED": "This extension version was revoked by its registry. Choose another available release."
   },
   "common": {
     "yes": "Yes",

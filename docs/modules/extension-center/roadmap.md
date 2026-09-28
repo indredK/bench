@@ -5,7 +5,7 @@
 > **架构边界与工作流**（含作者侧流程）：[extension-workflow.md](../../explanation/extension-workflow.md)
 > **插件中心功能规格**：[product-specs/extension-center.md](../../reference/product-specs/extension-center.md) ｜ **未完成项**：[planned/extension-center.md](../../roadmap/planned/extension-center.md)
 > **方向性决策**：[DECISIONS.md](../../explanation/decisions.md)（D-023 / D-024）
-> **最后更新**：2026-09-28（更新 P4.5 交付状态、CI/真机证据、来源信任披露、提交复验、缓存回收与市场网络 URL 防护）。
+> **最后更新**：2026-09-28（更新 P4.5 交付状态、CI/真机证据、来源信任披露、提交复验、缓存回收、市场网络 URL 防护与 P5 宿主残留清理）。
 
 ## 成本原则（贯穿全部阶段）
 
@@ -255,7 +255,8 @@ pnpm run test:critical       # ✓ 145 passed
 - [ ] 候选后续批次（中等）：port-manager / env-detector
 - [x] **重系统耦合模块降级为「按需」而非计划内**：quick-launch / app-manager / command-center / network-probe / updater / system-settings / account-manager（涉及权限、凭据、系统级动作，插件化收益低而破坏面高）
 - [ ] dev-toolbox host 泛化（删 `TOOLBOX_FEATURE_IDS` 与硬编码 tabs）—— 仅在前述迁移确有收益时执行
-- [ ] 宿主主包残留清理：`src/shared/compare/`（ModelPicker 已无宿主消费者）、photo-triage 主包 i18n 遗留键（`sidebar.photoTriage` + `photoTriage` 命名空间）
+- [x] 清理宿主无调用者的 `src/shared/compare/CompareTabs.tsx`，并移除已迁出照片插件的孤立 `errors.NO_SESSION` 翻译键（zh/en）。
+- [ ] 将 `ModelPicker` 从宿主 `FilterBar` 拆入官方 hardware 插件后，再移除宿主侧型号选择能力；目前 plugin-market 源码仍通过宿主 Vite alias 使用该能力，直接删除会破坏插件构建。
 - [ ] 253 条命令的 ACL 能力面按批登记，不预先全量登记（每批 `verify` + 双平台 CI 护航）
 
 ---

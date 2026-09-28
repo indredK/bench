@@ -1231,8 +1231,7 @@
     "SCAN_IN_PROGRESS": "正在扫描中，请稍候",
     "SCAN_CANCELED": "扫描已取消",
     "EXTENSION_MARKET_BUSY": "该插件的其他安装操作仍在进行，请稍后重试。",
-    "EXTENSION_REVOKED": "该插件版本已被市场吊销，请选择其他可安装版本。",
-    "NO_SESSION": "请先选择一个照片目录"
+    "EXTENSION_REVOKED": "该插件版本已被市场吊销，请选择其他可安装版本。"
   },
   "common": {
     "yes": "有",
