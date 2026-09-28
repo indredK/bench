@@ -51,8 +51,8 @@ src/main.tsx                           # 启动入口（i18n 就绪 → 渲染�
   └─ App.tsx                           # 外壳：路由 + 布局 + 全局弹窗
       ├─ CustomTitlebar                 # 无边框窗口装饰条
       ├─ Sidebar                        # 导航（200px）
-      ├─ AnimatedRoutes                 # wouter <Switch> + AnimatePresence
-      │   └─ Feature Panel              # 每个路由懒加载
+      ├─ AnimatedRoutes                 # Wouter <Switch> 位于 keyed motion.div 内，由 AnimatePresence 管理
+      │   └─ RuntimeFeatureGate + Feature # 路由变化时主面板随 hash location 更新
       └─ Global Dialogs                 # 关于、设置、关闭行为、更新
 
 功能模块（按领域）：
