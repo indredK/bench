@@ -63,3 +63,4 @@
 - 2026-09-28：加固 D-017 能力包下载与状态一致性：复用市场的公网 HTTPS/逐跳重定向校验，加入 64 MiB 流式上限、精确大小与 SHA-256 校验、临时文件清理、覆盖共享 app-data 多进程的 packId 并发互斥及版本化制品卸载清理。正式下载路径仍待制品发布后端到端验证；当前 canonical manifest 未配置制品 URL/hash。
 - 2026-09-29：完成 P5-1：Network Probe 端口、ARP 邻居、LAN 服务列表超过 50 项时使用共享 `VirtualList` 虚拟渲染；traceroute 表格超过 50 跳时保留原生表格语义并按行虚拟化。同步修复 ARP incomplete 状态缺少中文翻译，以及端口扫描直接暴露英文后端消息的问题。产品说明见 `../reference/product-specs/network-probe.md`。
 - 2026-09-29：替换 LAN mDNS 手写 UDP/DNS 字节扫描为 `mdns-sd`，使用 `ssdp-client` 发送并解析 SSDP；对服务类型校验和 64 种上限，mDNS/SSDP 并行探测并各限制最多 512 条，按服务类型/主机保留不同设备服务，并合并多接口地址。结束时停止 browse、关闭 daemon 与转发任务；不访问 SSDP `LOCATION`，提示区分发现内容与只读边界，协议错误按双语呈现并隐藏原始系统诊断，超上限提示截断，不抹掉另一协议成功结果。产品说明见 `../reference/product-specs/network-probe.md`。
+- 2026-09-29：修复取消未知/已结束扫描会话时后端永久累积取消 ID 的问题。会话登记时初始化取消状态，取消只更新活动会话，完成后清除；补充 Rust 幂等与过期 ID 回归测试。P0-2 仍待契约、Advisor 与无特权降级测试。

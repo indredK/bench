@@ -380,7 +380,7 @@ L0→L3 编排，部分并行；`healthEvent` 流式；`CancellationToken`；结
 ## 6. IPC 契约（须同步 `contracts.ts` / `commands.rs` / events）
 
 > 下列为设计契约草图。实现时字段以 Rust `types.rs` + TS DTO 为准，本文不复制完整 struct。
-> 所有长任务：`start*` → `ScanSessionId`；事件携带 `sessionId`；`cancelScan(sessionId)` **幂等**。
+> 所有长任务：`start*` → `ScanSessionId`；事件携带 `sessionId`；`cancelScan(sessionId)` **幂等**。后端只为本进程已登记的活动会话记录取消状态；未知或已结束的 ID 是 no-op，不得因取消请求而留在状态表中。
 
 ### 6.1 MVP（A+B）必须实现
 
