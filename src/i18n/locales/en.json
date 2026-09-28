@@ -1628,7 +1628,7 @@
       "whois": "WHOIS",
       "arp": "ARP discovery",
       "lan-svc": "LAN services",
-      "nat": "NAT type",
+      "nat": "NAT mapping",
       "ntp": "NTP",
       "nodes": "Multi-node"
     },
@@ -2175,18 +2175,30 @@
       "meta": "{{domain}} · {{count}} answers · {{ms}} ms"
     },
     "nat": {
-      "hint": "STUN Binding against a public server to learn your mapped address / NAT exposure.",
+      "hint": "Compare STUN mapped addresses across public servers. This check does not determine the full NAT type.",
       "run": "Probe NAT",
       "running": "Probing…",
-      "type": "Result",
-      "mapped": "Mapped address"
+      "result": "Mapping comparison",
+      "mappingConsistent": "Mapped address consistent across servers",
+      "mappingVaries": "Mapped address differs across servers",
+      "mappingInsufficient": "Not enough STUN responses to compare mappings",
+      "unavailable": "No usable STUN response",
+      "mapped": "Mapped address",
+      "technicalDetails": "Technical details"
     },
     "ntp": {
-      "hint": "Query pool.ntp.org for clock offset. Large skew can break TLS and auth.",
+      "hint": "Compare clock offset across multiple NTP sources. Large skew can break TLS and authentication.",
       "run": "Probe NTP",
       "running": "Probing…",
       "offset": "Offset {{seconds}} s ({{severity}})",
-      "fail": "NTP probe failed"
+      "rtt": "Round-trip delay {{seconds}} s",
+      "stratum": "Server stratum {{value}}",
+      "sourceCount": "Sources responding: {{succeeded}} of {{configured}}",
+      "ok": "within expected range",
+      "warn": "offset exceeds 500 ms",
+      "high": "offset exceeds 2 s",
+      "fail": "NTP probe failed",
+      "technicalDetails": "Technical details"
     },
     "report": {
       "hint": "Export the latest health scan and browse the session command log.",

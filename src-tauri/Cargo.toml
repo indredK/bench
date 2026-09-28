@@ -79,6 +79,8 @@ hickory-resolver = "0.26.1"
 trippy-core = "0.13.0"
 mdns-sd = "0.21.4"
 ssdp-client = "2.1.0"
+rsntp = { version = "4.1.2", default-features = false, features = ["async"] }
+stun-proto = "2.0.2"
 
 [target."cfg(not(any(target_os = \"android\", target_os = \"ios\")))".dependencies]
 tauri-plugin-updater = "2.10.1"

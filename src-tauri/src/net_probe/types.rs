@@ -662,7 +662,7 @@ pub struct PortScanResult {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NatProbeResult {
-    /// stun-mapped | blocked-or-timeout | unknown | fail
+    /// mapping-consistent | mapping-varies | mapping-insufficient | blocked-or-timeout
     pub nat_type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mapped_address: Option<String>,
@@ -682,6 +682,10 @@ pub struct NtpProbeResult {
     pub offset_seconds: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rtt_seconds: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stratum: Option<u8>,
+    pub sources_succeeded: u8,
+    pub sources_configured: u8,
     pub severity: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,

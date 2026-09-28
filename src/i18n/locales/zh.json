@@ -1628,7 +1628,7 @@
       "whois": "WHOIS",
       "arp": "ARP 发现",
       "lan-svc": "局域网服务",
-      "nat": "NAT 类型",
+      "nat": "NAT 映射",
       "ntp": "NTP",
       "nodes": "多节点对比"
     },
@@ -2175,18 +2175,30 @@
       "meta": "{{domain}} · {{count}} 条答案 · {{ms}} ms"
     },
     "nat": {
-      "hint": "对公网 STUN 服务器做 Binding，查看映射地址 / NAT 暴露情况。",
+      "hint": "比较多个公网 STUN 服务器返回的映射地址；此检查不能确定完整 NAT 类型。",
       "run": "探测 NAT",
       "running": "探测中…",
-      "type": "结果",
-      "mapped": "映射地址"
+      "result": "映射对比",
+      "mappingConsistent": "多个服务器返回的映射地址一致",
+      "mappingVaries": "不同服务器返回的映射地址不同",
+      "mappingInsufficient": "STUN 响应不足，无法对比映射",
+      "unavailable": "没有可用的 STUN 响应",
+      "mapped": "映射地址",
+      "technicalDetails": "技术详情"
     },
     "ntp": {
-      "hint": "查询 pool.ntp.org 时钟偏移。过大偏差可能影响 TLS 与鉴权。",
+      "hint": "对比多个 NTP 时间源的时钟偏差。较大偏差可能影响 TLS 与身份验证。",
       "run": "探测 NTP",
       "running": "探测中…",
       "offset": "偏移 {{seconds}} 秒（{{severity}}）",
-      "fail": "NTP 探测失败"
+      "rtt": "往返延迟 {{seconds}} 秒",
+      "stratum": "服务器层级 {{value}}",
+      "sourceCount": "响应源：{{succeeded}} / {{configured}}",
+      "ok": "处于正常范围",
+      "warn": "偏差超过 500 毫秒",
+      "high": "偏差超过 2 秒",
+      "fail": "NTP 探测失败",
+      "technicalDetails": "技术详情"
     },
     "report": {
       "hint": "导出最近一次体检，并浏览本会话命令日志。",

@@ -17,6 +17,16 @@ interface NtpPanelProps {
 
 export function NtpPanel({ loading, result, toolEnabled, toolStatus, onRun }: NtpPanelProps) {
   const { t } = useTranslation()
+  const severityLabel = result
+    ? result.severity === "high"
+      ? t("networkProbe.ntp.high")
+      : result.severity === "warn"
+        ? t("networkProbe.ntp.warn")
+        : result.severity === "ok"
+          ? t("networkProbe.ntp.ok")
+          : t("networkProbe.ntp.fail")
+    : null
+
   return (
     <ProbePanelShell
       toolbar={
@@ -40,19 +50,36 @@ export function NtpPanel({ loading, result, toolEnabled, toolStatus, onRun }: Nt
     >
       {result ? (
         <div className="bg-muted/40 space-y-1 rounded-lg border px-3 py-2 text-sm">
-          <div className="font-mono text-xs">{result.server}</div>
           {result.offsetSeconds != null ? (
             <div>
               {t("networkProbe.ntp.offset", {
                 seconds: result.offsetSeconds.toFixed(3),
-                severity: result.severity,
+                severity: severityLabel,
               })}
             </div>
           ) : (
             <div>{t("networkProbe.ntp.fail")}</div>
           )}
-          {result.detail ? <p className="text-muted-foreground text-xs">{result.detail}</p> : null}
-          <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
+          {result.rttSeconds != null ? (
+            <div>{t("networkProbe.ntp.rtt", { seconds: result.rttSeconds.toFixed(3) })}</div>
+          ) : null}
+          {result.stratum != null ? (
+            <div>{t("networkProbe.ntp.stratum", { value: result.stratum })}</div>
+          ) : null}
+          <div>
+            {t("networkProbe.ntp.sourceCount", {
+              succeeded: result.sourcesSucceeded,
+              configured: result.sourcesConfigured,
+            })}
+          </div>
+          {result.detail ? (
+            <details className="text-muted-foreground text-xs">
+              <summary className="cursor-pointer">{t("networkProbe.ntp.technicalDetails")}</summary>
+              <p className="mt-1 break-words">{result.detail}</p>
+              <p className="mt-1 font-mono">{result.server}</p>
+              <p className="mt-1 font-mono">{result.commandHint}</p>
+            </details>
+          ) : null}
         </div>
       ) : null}
     </ProbePanelShell>

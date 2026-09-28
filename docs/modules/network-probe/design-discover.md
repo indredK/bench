@@ -83,26 +83,29 @@ macOS 注意：
 - 浏览器式超时；同一 UUID 去重。
 - 结果虚拟化（设备可能很多）。
 
-### 3.3 NAT 类型（STUN）
+### 3.3 NAT 映射对比（STUN）
 
-| 项     | 约定                                                                                              |
-| ------ | ------------------------------------------------------------------------------------------------- |
-| 协议   | STUN Binding（RFC 8489）；多服务器对照                                                            |
-| 分类   | 至少：Open / Full Cone / Restricted / Port-Restricted / Symmetric / UDP Blocked（映射到产品文案） |
-| 实现   | 轻量 STUN client（评估 `hightower-stun` 或自研最小 Binding）；**不必**引入完整 ICE/TURN 栈        |
-| 服务器 | 可配列表（Google STUN 等公共源）；失败转移；遵守配额                                              |
+| 项     | 约定                                                                                                                         |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| 协议   | STUN Binding（RFC 8489）；多服务器对照                                                                                       |
+| 输出   | `mapping-consistent` / `mapping-varies` / `mapping-insufficient` / `blocked-or-timeout`；只描述映射观测，不推断完整 NAT 类型 |
+| 实现   | `stun-proto` RFC 5389/8489 codec 与事务状态；一个 socket/源端口按序查询，连接 UDP peer 并核对随机 transaction ID             |
+| 服务器 | Google / Cloudflare 公共源；失败转移；遵守配额                                                                               |
 
-与「公网出口」区别：出口要的是 **IP/ASN**；NAT 要的是 **映射行为**。可共用一次 Binding 的 XOR-MAPPED-ADDRESS 作出口候选，但 UI 分面板。
+仅发送 Binding 请求无法得出 Open、Full Cone、Restricted、Port-Restricted 等完整 NAT 分类；服务器负载均衡也可能造成映射差异。界面将其描述为映射对比，避免把可能性说成确定 NAT 类型。若未来需要行为分类，须接入明确支持 RFC 5780 的 STUN 服务并单独验证。
+
+与「公网出口」区别：出口要的是 **IP/ASN**；NAT 探测展示映射地址观测。两者职责不同；映射地址可作为出口候选，但不得由 Binding 结果推断完整 NAT 行为。
 
 ### 3.4 NTP 时间
 
-| 项       | 约定                                                                            |
-| -------- | ------------------------------------------------------------------------------- |
-| 查询     | 标准 NTP（UDP 123）或 SNTP；多源中位数                                          |
-| 输出     | offset_ms、rtt、stratum、是否超出阈值（如 >500ms warn，>2s high）               |
-| 系统对照 | 可读系统时钟；**不**在本模块强制改系统时间（改时间属系统设置/需提权，避免越权） |
+| 项       | 约定                                                                                 |
+| -------- | ------------------------------------------------------------------------------------ |
+| 查询     | `rsntp` 异步 SNTP 客户端（RFC 5905）；多源并行查询                                   |
+| 校验     | 已连接 UDP peer；检查 NTP 版本、模式、leap、stratum、originate/transmit timestamp    |
+| 输出     | offset 中位数、RTT 中位数、stratum、成功源数/配置源数、阈值（>500ms warn，>2s high） |
+| 系统对照 | 可读系统时钟；**不**在本模块强制改系统时间（改时间属系统设置/需提权，避免越权）      |
 
-macOS `sntp` / `ntpq` 可作调试对照，产品路径优先纯 Rust，避免解析本地化输出。
+macOS `sntp` / `ntpq` 可作调试对照，产品路径使用纯 Rust 客户端，避免解析本地化输出。
 
 ### 3.5 多节点对比（Post-MVP-C）
 
@@ -210,8 +213,8 @@ listProbeNodes(): ProbeNode[]
 - [ ] ARP 有特权路径 + ping 降级；CIDR 硬顶
 - [ ] 需要 pack 时正确返回 `missing_pack` 并完成安装校验流（D-017）
 - [ ] mDNS/SSDP 只读浏览；无 UPnP 写操作
-- [ ] STUN NAT 分类 + 多源故障转移
-- [ ] NTP offset 阈值；不擅自改系统钟
+- [x] STUN 映射对比 + 多源故障转移（样本不足时不判一致；不推断完整 NAT 类型；需要 RFC 5780 服务才能增强分类）
+- [x] NTP offset 阈值、RTT、stratum 与成功源计数；不擅自改系统钟
 
 **C**
 

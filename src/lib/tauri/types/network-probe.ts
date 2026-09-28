@@ -462,6 +462,9 @@ export interface NtpProbeResult {
   ok: boolean
   offsetSeconds?: number
   rttSeconds?: number
+  stratum?: number
+  sourcesSucceeded: number
+  sourcesConfigured: number
   severity: string
   detail?: string
   elapsedMs: number
