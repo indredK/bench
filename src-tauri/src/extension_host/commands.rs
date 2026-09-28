@@ -3,7 +3,7 @@
 //! P1 的 `ext_poc_open` / `ext_poc_report` 保留语义；通用命令：
 //! - `ext_list_installed`：扫描 `$APPDATA/extensions/*/manifest.json`，返回摘要；
 //! - `ext_open`：按插件 id 打开独立 WebView（**全量校验链**：manifest v2 →
-//!   engines 兼容 → market 签名（canonical 文本 + trusted comment）→ 逐文件
+//!   engines 兼容 → 按安装来源校验 market 签名 → 逐文件
 //!   完整性 → 抬升版本水位）；
 //! - `ext_set_enabled`：以 `.disabled` 标记文件实现启用/禁用（禁用时关闭已开窗口）；
 //! - `ext_uninstall`：关窗 + 删产物目录（**默认保留插件数据目录**）+ 清版本水位；
@@ -26,6 +26,7 @@ use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
 use crate::error::{AppError, AppResult};
 
+use super::records::ExtensionTrustSource;
 use super::{
     assets::EXT_DIR_NAME,
     audit::{self, AuditEvent},
@@ -215,12 +216,37 @@ pub fn ext_open(app: AppHandle, extension_id: String, locale: Option<String>) ->
                 manifest.id, manifest.engines.bench
             )));
         }
-        // 与安装路径（market.rs）保持一致：官方 registry 豁免 minisign 验签
-        // （完整性由 registry sha256 + 包内 files 清单双通道兜底，spec §13）；
-        // 第三方源仍强制验签（fail-closed）。
-        let official_source = registry::is_official_registry(&registry::registry_base_url()?);
-        if !official_source {
-            signature::verify_distribution_signature(&manifest, &canonical_text)?;
+        // market 插件按安装时记录的信任来源验签；registry 配置变化不会改变已安装
+        // 插件的信任策略。旧版本没有来源记录时，依据当前源与签名状态安全迁移。
+        let mut legacy_market_source = None;
+        if manifest.distribution == ExtensionDistribution::Market {
+            let saved_source = records::market_source(&app, &manifest.id)?;
+            let source = match saved_source {
+                Some(source) => source,
+                None => {
+                    let current_source = registry::registry_base_url()?;
+                    let inferred_source = if registry::is_official_registry(&current_source)
+                        && manifest.signature.is_none()
+                    {
+                        ExtensionTrustSource::OfficialRegistry
+                    } else if !registry::is_official_registry(&current_source)
+                        && signature::dev_mode_enabled()
+                    {
+                        ExtensionTrustSource::DevelopmentUnverified
+                    } else {
+                        ExtensionTrustSource::ThirdPartySignature
+                    };
+                    legacy_market_source = Some(inferred_source);
+                    inferred_source
+                }
+            };
+            match source {
+                ExtensionTrustSource::OfficialRegistry => {}
+                ExtensionTrustSource::ThirdPartySignature
+                | ExtensionTrustSource::DevelopmentUnverified => {
+                    signature::verify_distribution_signature(&manifest, &canonical_text)?;
+                }
+            }
         }
         // 逐文件 hash 校验 + 清单外文件拒绝（P3.1 核心：开窗前最后一道完整性闸门）。
         integrity::verify_bundle_integrity(&dir, &manifest)?;
@@ -231,6 +257,9 @@ pub fn ext_open(app: AppHandle, extension_id: String, locale: Option<String>) ->
         }
         // 完整校验通过 → 抬升已验证版本水位（拒绝侧见 records 模块文档）。
         records::record_verified_version(&app, &manifest.id, &manifest.version)?;
+        if let Some(source) = legacy_market_source {
+            records::record_market_source(&app, &manifest.id, source)?;
+        }
         Ok((manifest, dir))
     };
     let (manifest, dir) = match open_verified() {

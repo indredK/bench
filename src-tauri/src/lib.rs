@@ -307,6 +307,7 @@ pub fn run() {
             if let Some(state) = app.try_state::<extension_host::ExtensionRootState>() {
                 extension_host::init_extension_root(app.handle(), &state.0);
             }
+            extension_host::market::cleanup_stale_market_cache(app.handle());
             extension_host::bundle::deploy_bundled_extensions(app.handle());
             extension_host::maybe_auto_open_poc(app.handle());
 

@@ -30,31 +30,33 @@ export function InstallConfirmDialog({
   const { t } = useTranslation()
   const locale = useResolvedLocale()
   return (
-    <Dialog open={preview !== null} onOpenChange={(open) => !open && onCancel()}>
-      <DialogContent>
+    <Dialog open={preview !== null} onOpenChange={(open) => !open && !committing && onCancel()}>
+      <DialogContent
+        showCloseButton={!committing}
+        onEscapeKeyDown={(event) => committing && event.preventDefault()}
+        onPointerDownOutside={(event) => committing && event.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>{t("extensionCenter.market.trustTitle")}</DialogTitle>
           <DialogDescription>
             {preview
-              ? t("extensionCenter.market.trustDescription")
-                  .replace(
-                    "{name}",
-                    selectMetadata(
-                      locale,
-                      { zh: preview.displayZh, en: preview.displayEn },
-                      preview.id,
-                    ),
-                  )
-                  .replace("{version}", preview.version)
-                  .replace(
-                    "{publisher}",
-                    preview.publisherName ?? t("extensionCenter.market.unknownPublisher"),
-                  )
+              ? t("extensionCenter.market.trustDescription", {
+                  name: selectMetadata(
+                    locale,
+                    { zh: preview.displayZh, en: preview.displayEn },
+                    preview.id,
+                  ),
+                  version: preview.version,
+                  publisher: preview.publisherName ?? t("extensionCenter.market.unknownPublisher"),
+                })
               : ""}
           </DialogDescription>
         </DialogHeader>
         {preview && (
           <div className="flex flex-col gap-3 text-sm">
+            <p className="border-primary/30 bg-primary/5 rounded border p-2 text-xs">
+              {t(`extensionCenter.market.trustKind.${preview.trustKind}`)}
+            </p>
             <div>
               <p className="mb-1 text-xs font-medium">
                 {t("extensionCenter.market.requestedPermissions")}

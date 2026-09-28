@@ -136,7 +136,7 @@ tauri-app/
 - **单二进制 + minisign**：核心随主包签名；插件与其并列，不削弱主包签名链。
 - **IPC 契约双写铁律不削弱**（[ARCHITECTURE.md §2](../reference/architecture.md#2--ai-编码规则--禁止模式) 第 7 条）：插件经命令白名单网关，反而收窄了 renderer 信任边界。
 - **i18n**：`labelKey` / manifest `display` 仍须落 locale；插件自带 namespace。
-- **renderer 信任边界**：下载 URL / 版本 / hash / 签名材料**只由后端 canonical 配置决定**，renderer 不得提交最终下载地址或可执行路径（D-007）。
+- **renderer 与网络信任边界**：下载 URL / 版本 / hash / 签名材料**只由后端 canonical 配置决定**，renderer 不得提交最终下载地址或可执行路径（D-007）。URL 用 `url` crate 结构化校验 HTTPS、凭据/片段、本地和保留 IP 字面量；每一跳重定向复验；请求错误不输出原始下载 URL，避免泄露签名 query。DNS 解析交给操作系统或用户配置的代理。
 
 ### 7.3 明确的非目标
 
@@ -364,7 +364,7 @@ pnpm run extensions:pack <id>     # P4.5 交付
 - 市场源（**官方默认已内置**，env 仅作覆盖/本地调试）：
   - 插件市场默认：`https://raw.githubusercontent.com/kindred-plugin-market/plugin-market/main/registry.json`（`BENCH_EXT_REGISTRY_URL` 覆盖）
   - 命令市场默认：`https://raw.githubusercontent.com/kindred-plugin-market/command-market/main/registry.json`（`BENCH_COMMAND_MARKET_URL` 覆盖；`BENCH_COMMAND_MARKET_DIR` 调试优先）
-- **官方源免 minisign**：`registry::is_official_registry` 命中时豁免签名校验（完整性由 registry sha256 + 包内 files 清单双通道兜底）；第三方 registry 一律强制 minisign。市场分发 zip 由 `pack-extension.mjs` 注入 `distribution: "market"`（bundled 语义仅指应用包内随包分发）；
+- **官方源免 minisign**：`registry::is_official_registry` 命中时由 HTTPS registry 条目整包摘要与包内 `files` 清单双重校验；第三方 registry 一律强制 minisign。信任来源在安装时记入 `$APPDATA/extension-records/<id>/source`，切换当前市场配置不会重设既有插件的信任策略；安装提交阶段会再次校验来源签名、`distribution` 和 `files`。安装确认取消会清理预览缓存，超过 24 小时的残留会自动回收。市场分发 zip 由 `pack-extension.mjs` 注入 `distribution: "market"`（bundled 语义仅指应用包内随包分发）；
 
 ### 13.2 工具链（Bench 仓库内）
 

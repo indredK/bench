@@ -19,11 +19,14 @@ use std::{
     fs,
     io::{Read, Write},
     path::Path,
+    sync::atomic::{AtomicU64, Ordering},
 };
 
 use crate::error::{AppError, AppResult};
 
 use super::assets::is_safe_relative_path;
+
+static PROMOTION_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 /// 解压资源上限（插件 bundle 在 MB 级，上限取宽松但有界值）。
 #[derive(Debug, Clone, Copy)]
@@ -48,25 +51,84 @@ impl Default for ExtractLimits {
 
 /// 校验通过后原子落位：staging → 正式目录。
 ///
-/// - 正式目录已存在（覆盖更新）：先整体移除旧产物（此时新产物已通过全部
-///   校验，替换窗口极小；spec §6.1 步骤 8 的语义）；
-/// - rename 失败：清理 staging，正式目录保持不变。
-pub fn promote_staged_bundle(staging: &Path, final_dir: &Path) -> AppResult<()> {
+/// - 正式目录已存在（覆盖更新）：先 rename 到同目录备份，再将 staging 落位；
+/// - 落位或提交回调失败：移除新版本并恢复旧目录；
+/// - 提交回调可在旧目录备份尚存时更新宿主记录，确保记录失败可回滚插件目录。
+pub fn promote_staged_bundle_with(
+    staging: &Path,
+    final_dir: &Path,
+    commit: impl FnOnce() -> AppResult<()>,
+) -> AppResult<()> {
     if !staging.is_dir() {
         return Err(AppError::internal(format!(
             "staging dir missing: {}",
             staging.display()
         )));
     }
-    if final_dir.exists() {
-        fs::remove_dir_all(final_dir)
-            .map_err(|e| AppError::io(format!("remove previous bundle: {e}")))?;
-    }
-    fs::rename(staging, final_dir).map_err(|e| {
-        // 失败即清理 staging，不留半成品。
+    let parent = final_dir.parent().ok_or_else(|| {
+        AppError::internal(format!(
+            "final bundle has no parent: {}",
+            final_dir.display()
+        ))
+    })?;
+    fs::create_dir_all(parent)
+        .map_err(|error| AppError::io(format!("create extensions root: {error}")))?;
+
+    let backup = match fs::symlink_metadata(final_dir) {
+        Ok(_) => {
+            let counter = PROMOTION_COUNTER.fetch_add(1, Ordering::Relaxed);
+            let backup = parent.join(format!(".bench-backup-{}-{counter}", std::process::id()));
+            fs::rename(final_dir, &backup)
+                .map_err(|error| AppError::io(format!("backup previous bundle: {error}")))?;
+            Some(backup)
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+        Err(error) => return Err(AppError::io(format!("inspect previous bundle: {error}"))),
+    };
+
+    if let Err(error) = fs::rename(staging, final_dir) {
+        let rollback = backup
+            .as_ref()
+            .map(|path| fs::rename(path, final_dir))
+            .transpose();
         let _ = fs::remove_dir_all(staging);
-        AppError::io(format!("promote staged bundle: {e}"))
-    })
+        return match rollback {
+            Ok(_) => Err(AppError::io(format!("promote staged bundle: {error}"))),
+            Err(rollback_error) => Err(AppError::io(format!(
+                "promote staged bundle failed: {error}; restore previous bundle failed: {rollback_error}"
+            ))),
+        };
+    }
+
+    if let Err(error) = commit() {
+        let remove_new = fs::remove_dir_all(final_dir);
+        let restore_old = backup
+            .as_ref()
+            .map(|path| fs::rename(path, final_dir))
+            .transpose();
+        if let Err(rollback_error) = remove_new.and(restore_old.map(|_| ())) {
+            return Err(AppError::io(format!(
+                "commit promoted bundle failed: {error}; rollback failed: {rollback_error}"
+            )));
+        }
+        return Err(error);
+    }
+
+    if let Some(backup) = backup {
+        let result = match fs::symlink_metadata(&backup) {
+            Ok(metadata) if metadata.file_type().is_dir() => fs::remove_dir_all(&backup),
+            Ok(_) => fs::remove_file(&backup),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(error) => Err(error),
+        };
+        if let Err(error) = result {
+            eprintln!(
+                "[extension_host] previous bundle backup cleanup failed at {}: {error}",
+                backup.display()
+            );
+        }
+    }
+    Ok(())
 }
 
 /// 安全解压插件 zip 到 `target_dir`（必须为空或不存在）。
@@ -492,12 +554,36 @@ mod tests {
         fs::create_dir_all(&final_dir).expect("final");
         fs::write(final_dir.join("index.html"), b"old").expect("old bundle");
 
-        promote_staged_bundle(&staging, &final_dir).expect("promote");
+        promote_staged_bundle_with(&staging, &final_dir, || Ok(())).expect("promote");
         assert_eq!(
             fs::read_to_string(final_dir.join("index.html")).unwrap(),
             "new"
         );
         assert!(!staging.exists(), "staging moved away");
+        fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn promotion_callback_failure_restores_previous_bundle() {
+        let root = temp_root("promote-callback-fail");
+        let staging = root.join("staging");
+        let final_dir = root.join("final");
+        fs::create_dir_all(&staging).expect("staging");
+        fs::write(staging.join("index.html"), b"new").expect("new bundle");
+        fs::create_dir_all(&final_dir).expect("final");
+        fs::write(final_dir.join("index.html"), b"old").expect("old bundle");
+
+        let error = promote_staged_bundle_with(&staging, &final_dir, || {
+            Err(AppError::io("simulated host record write failure"))
+        })
+        .expect_err("failed metadata commit must roll back the directory replacement");
+
+        assert_eq!(error.code, "IO_ERROR");
+        assert_eq!(
+            fs::read_to_string(final_dir.join("index.html")).unwrap(),
+            "old"
+        );
+        assert!(!staging.exists());
         fs::remove_dir_all(&root).ok();
     }
 
@@ -509,7 +595,7 @@ mod tests {
         fs::create_dir_all(&final_dir).expect("final");
         fs::write(final_dir.join("index.html"), b"old").expect("old bundle");
         let missing_staging = root.join("missing-staging");
-        let err = promote_staged_bundle(&missing_staging, &final_dir).unwrap_err();
+        let err = promote_staged_bundle_with(&missing_staging, &final_dir, || Ok(())).unwrap_err();
         assert_eq!(err.code, "INTERNAL");
         assert_eq!(
             fs::read_to_string(final_dir.join("index.html")).unwrap(),

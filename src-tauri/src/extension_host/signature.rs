@@ -3,7 +3,8 @@
 //! 分发策略：
 //! - `bundled`：随主包构建捆绑，**豁免**插件级签名（主包二进制本身由
 //!   minisign updater 签名链覆盖）；
-//! - `market`：registry 分发，**强制**校验 minisign 签名，fail-closed。
+//! - `market`：第三方 registry 和 release 模式**强制**验签；官方 registry 的来源
+//!   豁免由调用方按 registry 基址判定，开发模式可显式跳过（UI 必须披露）。
 //!
 //! **签名对象 = canonical 文本**（spec §4.1，不是 manifest 文件原文）：
 //! 1. manifest 的 JSON 对象；
@@ -74,7 +75,7 @@ fn dev_mode_from_env(value: Option<&str>) -> bool {
     value.map(str::trim) == Some("1")
 }
 
-fn dev_mode_enabled() -> bool {
+pub(crate) fn dev_mode_enabled() -> bool {
     dev_mode_from_env(std::env::var(DEV_MODE_ENV).ok().as_deref())
 }
 

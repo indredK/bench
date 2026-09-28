@@ -65,8 +65,8 @@ pub struct ExtensionManifest {
     /// **缺省 = 全平台**，空数组非法。宿主在已装列表中过滤不含当前平台的插件。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub platforms: Option<Vec<String>>,
-    /// minisign 签名（对「去掉 `signature` 字段后的 canonical JSON」的签名，
-    /// 见 [signature]；`market` 强制校验，`bundled` 豁免）。
+    /// minisign 签名（对「去掉 `signature` 字段后的 canonical JSON」的签名；
+    /// 第三方 market 强制校验，官方 registry 与 bundled 豁免策略见 [signature] / spec §4.6）。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub signature: Option<String>,
 }

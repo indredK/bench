@@ -979,6 +979,9 @@ export const TAURI_COMMAND_CONTRACTS = {
   ext_market_commit: defineTauriCommand<{ extensionId: string; version: string }, void>()(
     "ext_market_commit",
   ),
+  ext_market_cancel: defineTauriCommand<{ extensionId: string; version: string }, void>()(
+    "ext_market_cancel",
+  ),
   ext_diagnostics: defineTauriCommand<undefined, ExtensionDiagnostics>()("ext_diagnostics"),
   // browser extension export / MCP one-click install（能力出口：bench-host）
   // 返回 null = 用户在原生目录选择器里点了取消（不是错误，调用方不得报失败）。
@@ -1367,6 +1370,7 @@ export const TAURI_COMMANDS = {
     marketList: commandName("ext_market_list"),
     marketPrepare: commandName("ext_market_prepare"),
     marketCommit: commandName("ext_market_commit"),
+    marketCancel: commandName("ext_market_cancel"),
     diagnostics: commandName("ext_diagnostics"),
   },
   browserExt: {
@@ -1744,6 +1748,7 @@ export const TAURI_COMMAND_ARG_KEYS = {
   ext_market_list: [],
   ext_market_prepare: ["extensionId", "version"],
   ext_market_commit: ["extensionId", "version"],
+  ext_market_cancel: ["extensionId", "version"],
   ext_diagnostics: [],
   browser_ext_export: [],
   browser_ext_status: [],

@@ -1228,6 +1228,7 @@
     "DEFAULT_BROWSER_CHANGE_REQUIRES_USER_ACTION": "Finish changing the default browser in macOS settings.",
     "SCAN_IN_PROGRESS": "A scan is already in progress, please wait",
     "SCAN_CANCELED": "Scan cancelled",
+    "EXTENSION_MARKET_BUSY": "Another install operation for this extension is still running. Try again shortly.",
     "NO_SESSION": "Please pick a photo folder first"
   },
   "common": {
@@ -2321,6 +2322,7 @@
     "tabDiagnostics": "Diagnostics",
     "market": {
       "loadFailed": "Failed to load the market",
+      "loadFailedHint": "Check your internet connection or proxy settings, then try again.",
       "empty": "No extensions available in the market",
       "install": "Install",
       "update": "Update",
@@ -2331,15 +2333,21 @@
       "revokedBanner": "The following extensions have been revoked and force-disabled",
       "revokedNote": "This extension was revoked: {reason}. Uninstalling is recommended.",
       "trustTitle": "Trust this extension?",
-      "trustDescription": "\"{name}\" v{version} ({publisher}) passed integrity and signature verification. Review the host commands it requests before installing.",
+      "trustDescription": "\"{name}\" v{version} ({publisher}). Review the verification basis and the host commands it requests before installing.",
+      "trustKind": {
+        "officialRegistry": "Official market: the HTTPS registry's package checksum and per-file manifest were verified; official packages do not require individual minisign signatures.",
+        "thirdPartySignature": "Third-party market: the minisign signature and its extension ID/version binding were verified.",
+        "developmentUnverified": "Development mode: signature verification was skipped; the distribution source is unverified."
+      },
       "unknownPublisher": "Unknown publisher",
       "requestedPermissions": "Requested host commands (deny-by-default)",
       "noPermissions": "This extension requests no host commands",
-      "trustNote": "Unregistered commands are rejected by the host gateway; the capability surface is vetted via the registry review process.",
+      "trustNote": "The extension can call only host commands explicitly allowed by Bench; its code remains untrusted.",
       "trustAndInstall": "Trust & Install",
       "installing": "Installing…",
       "prepareFailed": "Install verification failed",
       "commitFailed": "Install failed",
+      "cancelCleanupFailed": "Install canceled, but preview cleanup failed. The cache will be removed automatically after 24 hours.",
       "toastInstalled": "Extension installed"
     },
     "diagnostics": {

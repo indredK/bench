@@ -4,7 +4,7 @@
 > **执行顺序与状态**：见 [modules/extension-center/roadmap.md](../modules/extension-center/roadmap.md)。
 > **架构边界与工作流**：见 [extension-workflow.md](../explanation/extension-workflow.md)。
 > **版本**：本文对应 **manifest schema v2**（P3.1 起）。schema v1 的迁移说明见 §3.6。
-> **最后更新**：2026-09-08
+> **最后更新**：2026-09-28
 
 ---
 
@@ -70,7 +70,7 @@
 | `engines`       | object                    |  ✅  | `bench` 为 `*` 或 `>=X.Y.Z`                                             | 宿主兼容约束；非法约束 fail-closed                                                                                       |
 | `platforms`     | string\[\]                |  ⬜  | 每项为 `"macos"` \| `"windows"`；不得为空数组                           | 声明可用平台（P5）；**缺省 = 全平台**。宿主在已装列表中过滤掉不含当前平台的插件（能力判定由宿主做，renderer 不自行决定） |
 | `expiresAt`     | string \| null            |  ⬜  | ISO 8601 UTC                                                            | **market 推荐**；过期元数据被拒绝（防 freeze attack）                                                                    |
-| `signature`     | string \| null            |  ⬜  | minisign 签名                                                           | **market 必填**；bundled 豁免（由主包签名链覆盖）                                                                        |
+| `signature`     | string \| null            |  ⬜  | minisign 签名                                                           | 第三方 market registry 必填；官方 registry 可省略（见 §4.6）；bundled 豁免（由主包签名链覆盖）                           |
 
 > 未列出的字段一律拒绝（`deny_unknown_fields`）。字段演进随本规格修订（`platforms` 为 v2 增补，P5）；破坏性字段变更必须走 schemaVersion 升级。
 
@@ -108,7 +108,7 @@
 2. `id` / `version` / `display` / `entry` / `acl` / `engines` 格式与约束
 3. `files` 非空、无重复、路径合法
 4. `engines.bench` 满足宿主版本
-5. `satisfies_engines` 通过后：market 校验 `signature`（§4）；bundled 跳过
+5. `satisfies_engines` 通过后：第三方 market 校验 `signature`（§4）；官方 registry 按 §4.6 校验来源；bundled 跳过
 6. `expiresAt` 未过期
 7. 版本单调性：不高于已安装版本（仅 market 安装/更新路径）
 8. 逐文件 hash 校验（开窗前；实现上可在安装时一次 + 开窗时校验 manifest）
@@ -199,6 +199,16 @@
 
 本项目取 **Mozilla 层级**（逐文件 SHA256），不取 Chrome 的 4KB 分块 treehash —— 后者是为 GB 级资源增量校验设计，Bench 插件 bundle 在 MB 级，逐文件足够。
 
+### 4.6 官方 registry 与第三方 registry 的信任方式
+
+- **官方 registry**：只有当宿主 registry 基址与代码内 `OFFICIAL_REGISTRY_URL` 完全一致（忽略末尾 `/`）时，才允许 market manifest 缺少 `signature`。来源校验依赖 HTTPS 获取 registry、registry 条目的整包 `sha256`/`size`，以及安装后逐文件 `manifest.files` 校验。官方包目前不要求单独 minisign 签名。
+- **第三方 registry**：market manifest 必须有有效 minisign 签名，且 trusted comment 必须绑定 `<id>@<version>`；release 模式下必须配置 `BENCH_EXT_REGISTRY_PUBKEY`。
+- **bundled**：由 Bench 应用包的分发链保护，跳过插件级签名。
+- renderer 不得选择 registry 或提交下载地址。下载 URL 的允许规则见 §5.1/§6。
+- 安装时使用的信任来源持久化在宿主记录 `$APPDATA/extension-records/<id>/source`；后续开窗按该记录校验，不因用户切换 registry 配置而改变已安装插件的信任策略。旧版本无来源记录时，首次成功开窗后写入迁移记录。
+
+这两种 market 信任模式提供的证据不同：官方源依赖 registry 与包摘要的一致性，第三方源额外依赖签名者密钥。官方免签不是“所有 market 都可免签”，也不等同于对每个官方 manifest 做独立的离线签名验证。
+
 ---
 
 ## 5. canonical registry 格式
@@ -210,6 +220,8 @@
 先例：Claude Code plugin marketplace（`marketplace.json` + Git）、Obsidian（`community-plugins.json` + GitHub Release）、Rubick（npm 源 + WebDAV）。
 
 静态托管**不降低**验签安全性 —— 前提是 §4 的完整性校验已到位。
+
+网络 URL 由 Rust `url` crate 解析，不用字符串前缀或手工拆 host：registry 基址和下载 URL 必须使用 HTTPS，拒绝 URL 凭据、片段、localhost / 本地域名及非公网 IP 字面量；下载 URL 可保留 CDN 签名查询参数。registry 基址禁止 query，目录路径通过 URL path segment 追加 `registry.json`。HTTP 重定向的每一跳都执行相同的 URL 校验，并保留 reqwest 的循环检测与最多 10 跳限制。错误与审计消息不得写入原始下载 URL，避免暴露签名查询参数。域名解析仍交给操作系统或用户配置的代理处理，不在宿主中另建 DNS 栈。
 
 ### 5.2 目录文件
 
@@ -265,26 +277,30 @@
 3. 校验整包 `sha256` 与 `size`
 4. 解压到**临时目录**（§6.3 安全规则）
 5. 读 manifest → 按 §3.4 顺序校验（含逐文件 hash）
-6. market：验签 + trusted comment 比对
+6. 第三方 market：验签 + trusted comment 比对；官方 registry 按 §4.6 依赖 registry 整包摘要；bundled 不经过 market 安装
 7. 版本单调性检查（`new > installed`）
 8. **全部通过后**原子 rename 到 `$APPDATA/extensions/<id>/`
 9. 写审计日志 `install`
-10. 刷新插件中心列表
+10. 安装成功后刷新插件中心列表
+
+用户取消确认时立即删除预览缓存；超过 24 小时的中断/残留预览在启动或下一次 prepare 时清理。
+
+同一插件的 prepare / commit / cancel 在宿主进程内串行化，避免共享 staging、正式目录和版本水位发生并发交错；清理缓存时跳过当前活跃插件。提交阶段再次校验 staging 中的 `distribution`、来源对应的签名和 `files`；任一步失败都清理预览目录并保留原安装版本。失败后关闭确认弹窗，用户可重新准备安装。
 
 **任一步失败**：清理临时目录，保留已安装版本不变，UI 给出可读错误，记审计日志。
 
 ### 6.2 失败分支矩阵
 
-| 失败点                          | 错误码                          | 用户可见提示             | 已安装版本 |
-| ------------------------------- | ------------------------------- | ------------------------ | ---------- |
-| 整包 sha256 不匹配              | `INVALID_INPUT`                 | 下载文件损坏，请重试     | 不变       |
-| manifest 解析/校验失败          | `INVALID_INPUT` / `UNSUPPORTED` | 插件清单不合法           | 不变       |
-| ACL 越权                        | `FORBIDDEN_PATH`                | 插件申请了不允许的权限   | 不变       |
-| engines 不满足                  | `UNSUPPORTED`                   | 需要 Bench ≥ X.Y.Z       | 不变       |
-| 签名无效 / trusted comment 不符 | `FORBIDDEN_PATH`                | 签名校验失败，已阻止安装 | 不变       |
-| 版本回退                        | `INVALID_INPUT`                 | 已安装版本更高           | 不变       |
-| 逐文件 hash 不匹配 / 清单外文件 | `FORBIDDEN_PATH`                | 插件内容被篡改，已阻止   | 不变       |
-| 解压路径越界 / 超配额           | `FORBIDDEN_PATH`                | 插件包结构异常           | 不变       |
+| 失败点                                     | 错误码                          | 用户可见提示             | 已安装版本 |
+| ------------------------------------------ | ------------------------------- | ------------------------ | ---------- |
+| 整包 sha256 不匹配                         | `INVALID_INPUT`                 | 下载文件损坏，请重试     | 不变       |
+| manifest 解析/校验失败                     | `INVALID_INPUT` / `UNSUPPORTED` | 插件清单不合法           | 不变       |
+| ACL 越权                                   | `FORBIDDEN_PATH`                | 插件申请了不允许的权限   | 不变       |
+| engines 不满足                             | `UNSUPPORTED`                   | 需要 Bench ≥ X.Y.Z       | 不变       |
+| 第三方签名缺失/无效或 trusted comment 不符 | `FORBIDDEN_PATH`                | 签名校验失败，已阻止安装 | 不变       |
+| 版本回退                                   | `INVALID_INPUT`                 | 已安装版本更高           | 不变       |
+| 逐文件 hash 不匹配 / 清单外文件            | `FORBIDDEN_PATH`                | 插件内容被篡改，已阻止   | 不变       |
+| 解压路径越界 / 超配额                      | `FORBIDDEN_PATH`                | 插件包结构异常           | 不变       |
 
 ### 6.3 解压安全规则（实现前必须锁定）
 
@@ -396,32 +412,32 @@
 
 ## 10. 测试与验收清单
 
-### 9.1 安全测试矩阵（P3.1 / P3.3 必须全部覆盖）
+### 10.1 安全测试矩阵（P3.1 / P3.3 必须全部覆盖）
 
-| #   | 用例                                 | 期望                           |
-| --- | ------------------------------------ | ------------------------------ |
-| 1   | 篡改任一产物文件（改 JS 内容）       | 拒绝加载                       |
-| 2   | 产物中新增 `files` 未登记的文件      | 拒绝加载                       |
-| 3   | `files` 为空数组 / `path` 重复       | manifest 校验失败              |
-| 4   | 用旧版本（签名合法）重放             | 拒绝（版本单调性）             |
-| 5   | trusted comment 与 id/version 不一致 | 拒绝                           |
-| 6   | 签名串篡改                           | 拒绝                           |
-| 7   | market 插件缺 `signature`            | 拒绝                           |
-| 8   | registry 公钥缺失（release 模式）    | 报配置错误，不回退             |
-| 9   | `expiresAt` 已过期                   | 拒绝                           |
-| 10  | `engines` 不满足                     | 拒绝，列表标记 incompatible    |
-| 11  | `acl.commands` 含能力面外命令        | manifest 校验失败              |
-| 12  | `ext-` 窗口调用未登记命令            | 网关拒绝                       |
-| 13  | zip entry `../evil.js`               | 整包拒绝                       |
-| 14  | zip entry `/abs/path.js`             | 整包拒绝                       |
-| 15  | zip entry `C:\Windows\evil.js`       | 整包拒绝                       |
-| 16  | zip entry `\\server\share\x.js`      | 整包拒绝                       |
-| 17  | zip 内含 symlink entry               | 整包拒绝                       |
-| 18  | 解压体积 / entry 数超限              | 中断并拒绝                     |
-| 19  | 整包 sha256 不匹配                   | 拒绝（不解压）                 |
-| 20  | 安装失败后                           | 临时目录已清理，已安装版本不变 |
+| #   | 用例                                 | 期望                                                        |
+| --- | ------------------------------------ | ----------------------------------------------------------- |
+| 1   | 篡改任一产物文件（改 JS 内容）       | 拒绝加载                                                    |
+| 2   | 产物中新增 `files` 未登记的文件      | 拒绝加载                                                    |
+| 3   | `files` 为空数组 / `path` 重复       | manifest 校验失败                                           |
+| 4   | 用旧版本（签名合法）重放             | 拒绝（版本单调性）                                          |
+| 5   | trusted comment 与 id/version 不一致 | 拒绝                                                        |
+| 6   | 签名串篡改                           | 拒绝                                                        |
+| 7   | 第三方 market 插件缺 `signature`     | 拒绝；官方 registry 免签路径仍须通过整包摘要与 `files` 校验 |
+| 8   | registry 公钥缺失（release 模式）    | 报配置错误，不回退                                          |
+| 9   | `expiresAt` 已过期                   | 拒绝                                                        |
+| 10  | `engines` 不满足                     | 拒绝，列表标记 incompatible                                 |
+| 11  | `acl.commands` 含能力面外命令        | manifest 校验失败                                           |
+| 12  | `ext-` 窗口调用未登记命令            | 网关拒绝                                                    |
+| 13  | zip entry `../evil.js`               | 整包拒绝                                                    |
+| 14  | zip entry `/abs/path.js`             | 整包拒绝                                                    |
+| 15  | zip entry `C:\Windows\evil.js`       | 整包拒绝                                                    |
+| 16  | zip entry `\\server\share\x.js`      | 整包拒绝                                                    |
+| 17  | zip 内含 symlink entry               | 整包拒绝                                                    |
+| 18  | 解压体积 / entry 数超限              | 中断并拒绝                                                  |
+| 19  | 整包 sha256 不匹配                   | 拒绝（不解压）                                              |
+| 20  | 安装失败后                           | 临时目录已清理，已安装版本不变                              |
 
-### 9.2 常规门禁
+### 10.2 常规门禁
 
 ```bash
 pnpm run check:be-cfg
@@ -432,6 +448,6 @@ pnpm run test:critical
 pnpm run check:docs
 ```
 
-### 9.3 双平台
+### 10.3 双平台
 
 macOS 与 Windows runner 必须同时全绿（P3.2 起）。本机 macOS 编译通过**不能替代**双平台验证（[coding-standards.md §7.4.1](../how-to/coding-standards.md)）。

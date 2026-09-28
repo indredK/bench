@@ -55,6 +55,11 @@ export function commitMarketInstall(extensionId: string, version: string) {
   return invokeTauriCommand(TAURI_COMMANDS.extensionHost.marketCommit, { extensionId, version })
 }
 
+/** 用户取消确认时立即清理安装预览缓存。 */
+export function cancelMarketInstall(extensionId: string, version: string) {
+  return invokeTauriCommand(TAURI_COMMANDS.extensionHost.marketCancel, { extensionId, version })
+}
+
 /** 读取插件子系统诊断（审计日志 + 运行时错误尾部）。 */
 export function getExtensionDiagnostics() {
   return invokeTauriCommand(TAURI_COMMANDS.extensionHost.diagnostics)

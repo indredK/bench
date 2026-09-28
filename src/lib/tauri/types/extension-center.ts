@@ -60,6 +60,8 @@ export interface MarketInstallPreview {
   displayZh: string | null
   publisherName: string | null
   sizeBytes: number
+  /** 本次安装实际使用的信任依据。 */
+  trustKind: "officialRegistry" | "thirdPartySignature" | "developmentUnverified"
   /** 产物 manifest 申请的宿主命令（ACL 披露）。 */
   aclCommands: string[]
 }

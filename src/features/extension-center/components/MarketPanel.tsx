@@ -138,9 +138,7 @@ export function MarketPanel() {
     return (
       <div className="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-700">
         <p>{t("extensionCenter.market.loadFailed")}</p>
-        <p className="mt-1 font-mono text-xs opacity-80">
-          [{marketError.code}] {marketError.message}
-        </p>
+        <p className="mt-1 text-xs opacity-80">{t("extensionCenter.market.loadFailedHint")}</p>
         <Button variant="outline" size="sm" className="mt-2" onClick={() => void refreshMarket()}>
           {t("extensionCenter.retry")}
         </Button>

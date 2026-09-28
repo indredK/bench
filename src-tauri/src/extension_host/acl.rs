@@ -279,7 +279,12 @@ mod tests {
             assert!(is_command_allowed(command));
         }
         // 越权面回归：桥接/账号控制面命令不得因新路由混入插件白名单。
-        for command in ["handle_browser_open", "proxy_login", "ext_market_commit"] {
+        for command in [
+            "handle_browser_open",
+            "proxy_login",
+            "ext_market_commit",
+            "ext_market_cancel",
+        ] {
             assert!(!is_command_allowed(command));
         }
     }

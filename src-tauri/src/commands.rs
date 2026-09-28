@@ -334,6 +334,7 @@ macro_rules! app_invoke_handler {
             $crate::extension_host::market::ext_market_list,
             $crate::extension_host::market::ext_market_prepare,
             $crate::extension_host::market::ext_market_commit,
+            $crate::extension_host::market::ext_market_cancel,
             $crate::extension_host::market::ext_diagnostics,
         ]
     };

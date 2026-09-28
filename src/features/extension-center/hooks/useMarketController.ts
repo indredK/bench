@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
 import {
+  cancelMarketInstall,
   commitMarketInstall,
   listInstalledExtensions,
   listMarketExtensions,
@@ -44,7 +45,9 @@ export function useMarketController() {
       const listing = await listMarketExtensions()
       setMarketListing(listing)
     } catch (rawError) {
-      setMarketError(parseCommandError(rawError))
+      const error = parseCommandError(rawError)
+      console.warn("[ExtensionCenter] Market request failed", error)
+      setMarketError(error)
     } finally {
       setMarketLoading(false)
       fetchingRef.current = false
@@ -85,15 +88,26 @@ export function useMarketController() {
       if (installed.status === "fulfilled") setItems(installed.value)
       if (listing.status === "fulfilled") setMarketListing(listing.value)
     } catch (rawError) {
+      setPendingPreview(null)
+      void cancelMarketInstall(preview.id, preview.version).catch((cleanupError) => {
+        console.warn("[extension-center] failed to clean canceled market preview", cleanupError)
+      })
       toast.error(translateError(t, rawError, t("extensionCenter.market.commitFailed")))
     } finally {
       setCommitting(false)
     }
   }, [setCommitting, setItems, setMarketListing, setPendingPreview, t])
 
-  const cancelInstall = useCallback(() => {
+  const cancelInstall = useCallback(async () => {
+    const preview = useExtensionCenterStore.getState().pendingPreview
     setPendingPreview(null)
-  }, [setPendingPreview])
+    if (!preview) return
+    try {
+      await cancelMarketInstall(preview.id, preview.version)
+    } catch (rawError) {
+      toast.error(translateError(t, rawError, t("extensionCenter.market.cancelCleanupFailed")))
+    }
+  }, [setPendingPreview, t])
 
   return {
     marketListing,

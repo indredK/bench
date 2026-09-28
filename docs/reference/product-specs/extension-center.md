@@ -2,7 +2,7 @@
 
 > 本文件是 extension-center 模块的**完备产品规格**。一切功能改动、优化、bug 修复都必须同步更新本文件。
 > 自包含、可移植：复制到任何项目或交给任何 AI，可据此完整复刻本模块功能。
-> **当前进度**：P2 骨架已落地，P4 完整化为待实现（见下方状态标记与 [../planned/extension-center.md](../../roadmap/planned/extension-center.md)）。
+> **当前进度**：P4 市场安装与管理流程已实现；本机真机已验证市场目录加载。安装、更新、卸载的干净环境验收及 P4.5 新作者 30 分钟验收仍未完成（见 [../planned/extension-center.md](../../roadmap/planned/extension-center.md)）。
 
 ## 1. 定位
 
@@ -27,16 +27,18 @@
 | 行操作   | 打开（禁用时不可点）、启用/禁用、卸载（红字）             | ✅   |
 | 卸载确认 | `DestructiveConfirmDialog`，含插件名占位符                | ✅   |
 
-### 2.2 市场（P4 ⬜）
+### 2.2 市场（P4 ✅ 实现已交付，端到端验收待完成）
 
-| 区块     | 内容                                                                                                            |
-| -------- | --------------------------------------------------------------------------------------------------------------- |
-| 目录浏览 | 从后端 canonical registry 拉取，**renderer 不提供 URL**；展示展示名、描述、发布者、最新版本                     |
-| 安装向导 | 浏览 → 下载 → 权限披露 → 验签 → 解压 → 启用（步骤与失败提示见 [../extension-spec.md](../extension-spec.md) §6） |
-| 权限披露 | 安装前展示该插件申请的 `acl.commands` 的**人类可读描述**，而非裸命令名                                          |
-| 更新提示 | registry 版本比对；`engines` 不满足时给出升级引导；`yanked` 版本提示                                            |
+| 区块     | 内容                                                                                                                             |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| 目录浏览 | 从后端 canonical registry 拉取，**renderer 不提供 URL**；展示展示名、描述、发布者、最新版本                                      |
+| 安装向导 | 浏览 → 下载 → 权限披露 → 按来源校验签名 → 解压 → 安装（步骤与失败提示见 [../extension-spec.md](../extension-spec.md) §4.6 / §6） |
+| 权限披露 | 安装前展示该插件申请的 `acl.commands` 的**人类可读描述**，而非裸命令名                                                           |
+| 更新提示 | registry 版本比对；`engines` 不满足时给出升级引导；`yanked` 版本提示                                                             |
+| 来源说明 | 安装确认弹窗明确显示官方 registry 摘要校验、第三方 minisign 验签或开发模式未验证状态                                             |
+| 网络安全 | registry / 包 URL 必须为 HTTPS；拒绝本地地址、凭据和片段；每一跳重定向复验；签名查询参数不进入错误或审计日志                     |
 
-### 2.3 详情与诊断（P4 ⬜）
+### 2.3 详情与诊断（P4 ✅ 基础功能已交付，专用详情页待实现）
 
 | 区块     | 内容                                                                                                            |
 | -------- | --------------------------------------------------------------------------------------------------------------- |
@@ -50,17 +52,18 @@
 
 ## 4. 交互细节
 
-| 场景      | 行为                                                          |
-| --------- | ------------------------------------------------------------- |
-| 加载态    | 首次加载且无数据时显示骨架区块；刷新按钮禁用                  |
-| 空态      | 「暂无插件」+ 引导文案                                        |
-| 失败态    | 红色区块展示 `[错误码] 消息` **与**重试按钮（不只显示"失败"） |
-| 行级 busy | 操作中的行按钮全部禁用（`busyIds`），防重入                   |
-| 打开      | 仅启用状态可点；点击后宿主开独立 `ext-<id>` 窗口，已开则聚焦  |
-| 启用/禁用 | 切换 `.disabled` 标记；禁用时关闭已开窗口                     |
-| 卸载      | 二次确认（DestructiveConfirmDialog）→ 关窗 → 删产物目录       |
-| 不兼容    | `engines` 不满足时列表标记 incompatible 且禁止打开            |
-| 长文本    | 插件名、id 允许截断但不遮挡操作按钮                           |
+| 场景      | 行为                                                                     |
+| --------- | ------------------------------------------------------------------------ |
+| 加载态    | 首次加载且无数据时显示骨架区块；刷新按钮禁用                             |
+| 空态      | 「暂无插件」+ 引导文案                                                   |
+| 失败态    | 红色区块展示 `[错误码] 消息` **与**重试按钮（不只显示"失败"）            |
+| 行级 busy | 操作中的行按钮全部禁用（`busyIds`），防重入                              |
+| 打开      | 仅启用状态可点；点击后宿主开独立 `ext-<id>` 窗口，已开则聚焦             |
+| 启用/禁用 | 切换 `.disabled` 标记；禁用时关闭已开窗口                                |
+| 卸载      | 二次确认（DestructiveConfirmDialog）→ 关窗 → 删产物目录                  |
+| 安装取消  | 关闭信任确认弹窗时删除预览目录与 zip 缓存；24 小时未完成的残留由宿主回收 |
+| 不兼容    | `engines` 不满足时列表标记 incompatible 且禁止打开                       |
+| 长文本    | 插件名、id 允许截断但不遮挡操作按钮                                      |
 
 ## 5. 异常处理
 
@@ -77,10 +80,10 @@
 ## 6. 技术实现要点
 
 - 前端：`src/features/extension-center/`（page + hooks/controller + store），zustand selector + `parseCommandError` / `translateError` + 重入保护。
-- 后端：`src-tauri/src/extension_host/`（manifest / acl / assets / signature / commands / url / mod）。
+- 后端：`src-tauri/src/extension_host/`（manifest / acl / assets / signature / commands / url / mod）；market prepare/commit 两阶段均校验包来源，安装时记录信任来源。
 - 契约：`ext_list_installed` / `ext_open` / `ext_set_enabled` / `ext_uninstall`，三张表双写（`src/lib/tauri/contracts.ts`）。
 - 插件产物：`extensions/<id>/`（仓库）→ `scripts/plugins/sync-extensions.mjs` → `$APPDATA/extensions/<id>/`（运行时）。
-- 安全：deny-by-default 命令网关 + manifest fail-closed + 逐文件 hash 校验 + minisign 验签（[../extension-spec.md](../extension-spec.md)）。
+- 安全：deny-by-default 命令网关 + manifest fail-closed + 逐文件 hash 校验；第三方 market 使用 minisign，官方 registry 使用整包摘要校验（[../extension-spec.md](../extension-spec.md) §4.6）。
 
 ## 7. 数据模型
 
@@ -93,6 +96,15 @@ interface ExtensionSummary {
   distribution: "bundled" | "market"
   enabled: boolean
   compatible: boolean // engines 是否满足宿主版本
+}
+
+interface MarketInstallPreview {
+  id: string
+  version: string
+  publisherName: string | null
+  sizeBytes: number
+  trustKind: "officialRegistry" | "thirdPartySignature" | "developmentUnverified"
+  aclCommands: string[]
 }
 ```
 
