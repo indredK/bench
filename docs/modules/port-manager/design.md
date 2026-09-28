@@ -39,6 +39,7 @@ controls -> controller -> use-case -> repository -> typed IPC -> Rust scan/proce
 ## 4. Kill 安全
 
 - Kill 仅允许 Local 模式和后端当前扫描得到的 PID。
+- 仅当前扫描确认仍被占用的端口提供 Kill 操作；空闲与查询失败结果不展示危险操作。提交确认前若扫描结果已变化，取消 Kill 并提示用户重新扫描。
 - 前端必须使用 `DestructiveConfirmDialog` 展示 PID、进程名和影响。
 - 后端需重新检查进程仍存在，避免 PID 复用导致误杀。
 - 结果区分成功、权限不足、已退出、受保护和失败；禁止只写 console。

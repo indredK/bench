@@ -376,7 +376,7 @@ export function PortManagerPageContent({
                                   </span>
                                 )}
                               </div>
-                              {!isRemoteMode && (
+                              {!isRemoteMode && detail.pids.length > 0 && (
                                 <div className="flex gap-1.5">
                                   <Tooltip>
                                     <TooltipTrigger asChild>
@@ -410,14 +410,20 @@ export function PortManagerPageContent({
                               </div>
                             ) : (
                               <div className="bg-background overflow-x-auto rounded-md border px-1 py-1.5 font-mono text-xs">
-                                {detail.process_trees.map((tree) => (
-                                  <ProcessTreeView
-                                    key={tree.pid}
-                                    node={tree}
-                                    depth={0}
-                                    targetPid={detail.pids[0]}
-                                  />
-                                ))}
+                                {detail.pids.length === 0 ? (
+                                  <p className="text-muted-foreground px-2 py-1.5 font-sans">
+                                    {t("portManager.noProcess")}
+                                  </p>
+                                ) : (
+                                  detail.process_trees.map((tree) => (
+                                    <ProcessTreeView
+                                      key={tree.pid}
+                                      node={tree}
+                                      depth={0}
+                                      targetPid={detail.pids[0]}
+                                    />
+                                  ))
+                                )}
                               </div>
                             )}
                           </>

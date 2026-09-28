@@ -216,6 +216,22 @@ export function usePortManagerController() {
 
   const killPort = useCallback(
     async (port: number, pids: number[]) => {
+      const currentDetail = usePortManagerStore
+        .getState()
+        .portDetails.find((detail) => detail.port === port)
+      const currentPids = [...new Set(currentDetail?.pids ?? [])]
+      const confirmedPids = [...new Set(pids)]
+      if (
+        !currentDetail ||
+        currentDetail.error ||
+        currentPids.length === 0 ||
+        confirmedPids.length !== currentPids.length ||
+        confirmedPids.some((pid) => !currentPids.includes(pid))
+      ) {
+        usePortManagerStore.setState({ error: { key: "portManager.errors.scanChanged" } })
+        return
+      }
+
       usePortManagerStore.setState({ error: null, killing: true })
       try {
         const { portDetails: currentDetails } = usePortManagerStore.getState()
@@ -243,7 +259,13 @@ export function usePortManagerController() {
   )
 
   const killAll = useCallback(async () => {
-    const { portDetails: currentPortDetails } = usePortManagerStore.getState()
+    const currentPortDetails = usePortManagerStore
+      .getState()
+      .portDetails.filter((detail) => !detail.error && detail.pids.length > 0)
+    if (currentPortDetails.length === 0) {
+      usePortManagerStore.setState({ error: { key: "portManager.errors.scanChanged" } })
+      return
+    }
     usePortManagerStore.setState({ error: null, killing: true })
     try {
       const allPids = currentPortDetails.flatMap((detail) => detail.pids)

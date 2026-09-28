@@ -1138,6 +1138,7 @@
     "port": "Port {{port}}",
     "browserError": "Cannot terminate port processes in a browser environment. Please run this as a Tauri desktop application.",
     "queryFailed": "Process lookup failed",
+    "noProcess": "No process is currently using this port",
     "emptyResults": "No scan results yet. Enter port(s) above and click 'Add to Scan' to start scanning.",
     "emptyOnly": "All scanned ports are free. Click 'Show All Ports' to display them.",
     "emptyChips": "No ports selected. Enter port number(s) above to add them to the scan list.",
@@ -1171,6 +1172,7 @@
       "desktopOnly": "Port management is only available in the desktop app.",
       "killOneFailed": "Failed to free the selected port.",
       "killAllFailed": "Failed to free one or more selected ports.",
+      "scanChanged": "The scan results changed. Rescan before freeing processes.",
       "remoteHostRequired": "Remote host is required for remote scanning."
     },
     "confirmKillPortTitle": "Free port {{port}}?",

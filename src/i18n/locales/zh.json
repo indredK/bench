@@ -1138,6 +1138,7 @@
     "port": "端口 {{port}}",
     "browserError": "无法在浏览器环境中终止端口进程，请以 Tauri 桌面应用方式运行。",
     "queryFailed": "查询占用进程失败",
+    "noProcess": "当前没有进程占用此端口",
     "emptyResults": "暂无扫描结果。在上方输入端口并点击「加入扫描」开始扫描。",
     "emptyOnly": "已扫描的端口均为空闲。点击「显示全部端口」查看。",
     "emptyChips": "暂无已选端口。在上方输入端口号以添加到扫描列表。",
@@ -1171,6 +1172,7 @@
       "desktopOnly": "端口管理功能仅可在桌面版应用中使用。",
       "killOneFailed": "释放所选端口失败。",
       "killAllFailed": "释放一个或多个所选端口失败。",
+      "scanChanged": "扫描结果已变化，请重新扫描后再释放端口。",
       "remoteHostRequired": "远程扫描需要填写远程主机。"
     },
     "confirmKillPortTitle": "释放端口 {{port}}？",
