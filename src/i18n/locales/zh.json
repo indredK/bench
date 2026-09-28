@@ -2065,6 +2065,8 @@
     "ports": {
       "hint": "对自有或已授权主机做 TCP connect 端口扫描。最多 256 端口；可取消。",
       "degradedHint": "降级模式：仅 TCP connect。安装 adv-scanner / nmap 可启用 SYN。",
+      "nmapModeHint": "已检测到 nmap：权限允许时使用 SYN，否则退回 TCP connect；不会运行利用或版本探测脚本。",
+      "cancelledResult": "端口扫描已取消。",
       "target": "目标",
       "range": "端口",
       "run": "扫描端口",
@@ -2085,6 +2087,7 @@
       "emptyQuiet": "未发现邻居 — 可能是静网，或探测被过滤。",
       "emptyIsolation": "仅网关有响应 — 可能是访客 Wi‑Fi / 客户端隔离。",
       "emptyPermission": "无可用 IPv4 — 请检查系统设置中的「本地网络」权限。",
+      "incomplete": "（不完整）",
       "openSettings": "打开系统网络设置",
       "cidr": "扫描网段：{{cidr}}",
       "meta": "{{count}} 个邻居 · mode={{mode}} · {{ms}} ms",

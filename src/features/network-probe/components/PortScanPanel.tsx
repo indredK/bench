@@ -7,6 +7,7 @@ import { CommandHint } from "@/components/common/CommandHint"
 import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirmDialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { VirtualList } from "@/components/content/VirtualList"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import type { PortSampleEvent, PortScanResult } from "@/lib/tauri/types/network-probe"
 
@@ -54,6 +55,10 @@ function estimatePortCount(spec: string): number {
   return n
 }
 
+function formatPortSample(sample: PortSampleEvent): string {
+  return `${sample.port}: ${sample.state}${sample.serviceHint ? ` (${sample.serviceHint})` : ""}${sample.rttMs != null ? ` · ${sample.rttMs.toFixed(0)} ms` : ""}`
+}
+
 export function PortScanPanel({
   loading,
   canCancel,
@@ -73,6 +78,13 @@ export function PortScanPanel({
   const open = result?.openPorts?.length
     ? result.openPorts
     : samples.filter((s) => s.state === "open").map((s) => s.port)
+  const statusMessageKey = result?.cancelled
+    ? "networkProbe.ports.cancelledResult"
+    : result?.mode === "nmap-syn-or-connect"
+      ? "networkProbe.ports.nmapModeHint"
+      : result?.mode === "tcp-connect"
+        ? "networkProbe.ports.degradedHint"
+        : null
 
   const portCount = useMemo(() => estimatePortCount(ports), [ports])
   const needsConfirm = useMemo(() => {
@@ -101,11 +113,13 @@ export function PortScanPanel({
                 status: toolStatus ?? "unsupported",
               })}
             </p>
-          ) : (
+          ) : !result && toolStatus === "degraded" ? (
             <p className="text-xs text-amber-700 dark:text-amber-400">
               {t("networkProbe.ports.degradedHint")}
             </p>
-          )}
+          ) : statusMessageKey ? (
+            <p className="text-xs text-amber-700 dark:text-amber-400">{t(statusMessageKey)}</p>
+          ) : null}
           <div className="flex flex-wrap items-end gap-2">
             <div className="min-w-[10rem] flex-1 space-y-1">
               <label className="text-xs font-medium" htmlFor="np-ports-target">
@@ -161,19 +175,14 @@ export function PortScanPanel({
           {t("networkProbe.ports.openList", { ports: open.join(", ") })}
         </p>
       ) : null}
-      {result?.message ? (
-        <p className="text-xs text-amber-700 dark:text-amber-400">{result.message}</p>
-      ) : null}
       {samples.length > 0 ? (
-        <ul className="text-muted-foreground space-y-0.5 font-mono text-xs">
-          {samples.map((s) => (
-            <li key={`${s.port}-${s.state}`}>
-              {s.port}: {s.state}
-              {s.serviceHint ? ` (${s.serviceHint})` : ""}
-              {s.rttMs != null ? ` · ${s.rttMs.toFixed(0)} ms` : ""}
-            </li>
-          ))}
-        </ul>
+        <VirtualList
+          items={samples}
+          getItemKey={(sample) => `${sample.port}-${sample.state}`}
+          getItemLabel={formatPortSample}
+          renderItem={formatPortSample}
+          className="text-muted-foreground font-mono text-xs"
+        />
       ) : null}
       {result?.commandHint ? (
         <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>

@@ -1,8 +1,9 @@
 /**
  * Feature UI / 功能界面: traceroute / MTR hop table.
  */
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { useVirtualizer } from "@tanstack/react-virtual"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -35,12 +36,31 @@ export function TraceroutePanel({
   const [target, setTarget] = useState("1.1.1.1")
   const [maxTtl, setMaxTtl] = useState("20")
   const [rounds, setRounds] = useState("3")
+  const hopsContainerRef = useRef<HTMLDivElement>(null)
 
   // 跑动中只渲染本轮 streaming 跳数: 旧 result 优先会遮蔽新一轮逐跳进度。
   const hops = loading ? streamingHops : result?.hops?.length ? result.hops : streamingHops
+  const hopVirtualizer = useVirtualizer({
+    count: hops.length,
+    getScrollElement: () => hopsContainerRef.current,
+    estimateSize: () => 32,
+    overscan: 6,
+    initialRect: { width: 960, height: 320 },
+  })
   const modeKey = result?.privilegeMode
     ? `networkProbe.traceroute.mode.${result.privilegeMode}`
     : null
+  const virtualizedHops = hops.length > 50
+  const virtualItems = virtualizedHops ? hopVirtualizer.getVirtualItems() : []
+  const renderedHops = virtualizedHops
+    ? virtualItems.map((item) => ({ hop: hops[item.index]!, index: item.index, size: item.size }))
+    : hops.map((hop, index) => ({ hop, index, size: undefined }))
+  const topPadding = virtualItems[0]?.start ?? 0
+  const lastVirtualItem = virtualItems.at(-1)
+  const bottomPadding =
+    virtualizedHops && lastVirtualItem
+      ? Math.max(0, hopVirtualizer.getTotalSize() - lastVirtualItem.start - lastVirtualItem.size)
+      : 0
 
   return (
     <ProbePanelShell
@@ -143,10 +163,16 @@ export function TraceroutePanel({
       ) : null}
 
       {hops.length > 0 ? (
-        <div className="overflow-auto rounded-lg border">
-          <table className="w-full text-left text-sm">
+        <div
+          ref={hopsContainerRef}
+          className={cn(
+            "rounded-lg border",
+            virtualizedHops ? "max-h-80 overflow-auto" : "overflow-auto",
+          )}
+        >
+          <table className="w-full text-left text-sm" aria-rowcount={hops.length + 1}>
             <thead className="bg-muted/50 text-muted-foreground text-xs">
-              <tr>
+              <tr aria-rowindex={1}>
                 <th className="px-2 py-1.5 font-medium">{t("networkProbe.traceroute.col.ttl")}</th>
                 <th className="px-2 py-1.5 font-medium">{t("networkProbe.traceroute.col.addr")}</th>
                 <th className="px-2 py-1.5 font-medium">{t("networkProbe.traceroute.col.asn")}</th>
@@ -159,8 +185,18 @@ export function TraceroutePanel({
               </tr>
             </thead>
             <tbody>
-              {hops.map((hop) => (
-                <tr key={hop.ttl} className="border-t">
+              {virtualizedHops && topPadding > 0 ? (
+                <tr aria-hidden="true" key="top-spacer">
+                  <td colSpan={7} style={{ height: topPadding, padding: 0, border: 0 }} />
+                </tr>
+              ) : null}
+              {renderedHops.map(({ hop, index, size }) => (
+                <tr
+                  key={hop.ttl}
+                  aria-rowindex={index + 2}
+                  className="h-8 border-t"
+                  style={size == null ? undefined : { height: size }}
+                >
                   <td className="px-2 py-1.5 font-mono text-xs">{hop.ttl}</td>
                   <td className="max-w-[12rem] truncate px-2 py-1.5 font-mono text-xs">
                     {hop.addrs.length > 0 ? hop.addrs.join(", ") : "*"}
@@ -202,6 +238,11 @@ export function TraceroutePanel({
                   </td>
                 </tr>
               ))}
+              {virtualizedHops && bottomPadding > 0 ? (
+                <tr aria-hidden="true" key="bottom-spacer">
+                  <td colSpan={7} style={{ height: bottomPadding, padding: 0, border: 0 }} />
+                </tr>
+              ) : null}
             </tbody>
           </table>
         </div>

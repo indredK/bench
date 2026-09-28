@@ -2065,6 +2065,8 @@
     "ports": {
       "hint": "TCP connect scan of a host you own or are authorized to test. Max 256 ports; cancel stops mid-run.",
       "degradedHint": "Degraded mode: TCP connect only. Install adv-scanner / nmap for SYN stealth.",
+      "nmapModeHint": "nmap detected: SYN is used when permitted; otherwise TCP connect. Exploit and version scripts stay disabled.",
+      "cancelledResult": "Port scan was cancelled.",
       "target": "Target",
       "range": "Ports",
       "run": "Scan ports",
@@ -2085,6 +2087,7 @@
       "emptyQuiet": "No neighbors found — quiet network, or probes were filtered.",
       "emptyIsolation": "Only the gateway responded — guest Wi‑Fi / client isolation is likely.",
       "emptyPermission": "No usable IPv4 — check Local Network permission in System Settings.",
+      "incomplete": "(incomplete)",
       "openSettings": "Open system network settings",
       "cidr": "Sweep CIDR: {{cidr}}",
       "meta": "{{count}} neighbors · mode={{mode}} · {{ms}} ms",

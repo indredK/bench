@@ -23,7 +23,6 @@
 
 ### Wave 5 · Polish 增强（产品化）
 
-- [ ] **P5-1** 长列表虚拟化（端口 / 跳点 / 设备列表，UX-STANDARDS）。
 - [ ] **P5-2** 持续监控 / 阈值告警。
 - [ ] **P5-3** 健康报告历史快照 + 跨时间对比（部分完成，◐——报告历史已有，对比 UI 待做）。
 - [ ] **P5-4** 一体化 BasicView 视觉合并。
@@ -62,3 +61,4 @@
 
 - 2026-09-03：首版生成——依据 `docs/modules/network-probe/roadmap.md`（Wave 0–6）与 `docs/roadmap/ROADMAP.md` D-016，提炼 ⬜/◐ 未完成项为「待实现」「待验证」「远期」三档；产品说明见 `../product-specs/network-probe.md`。
 - 2026-09-28：加固 D-017 能力包下载与状态一致性：复用市场的公网 HTTPS/逐跳重定向校验，加入 64 MiB 流式上限、精确大小与 SHA-256 校验、临时文件清理、覆盖共享 app-data 多进程的 packId 并发互斥及版本化制品卸载清理。正式下载路径仍待制品发布后端到端验证；当前 canonical manifest 未配置制品 URL/hash。
+- 2026-09-29：完成 P5-1：Network Probe 端口、ARP 邻居、LAN 服务列表超过 50 项时使用共享 `VirtualList` 虚拟渲染；traceroute 表格超过 50 跳时保留原生表格语义并按行虚拟化。同步修复 ARP incomplete 状态缺少中文翻译，以及端口扫描直接暴露英文后端消息的问题。产品说明见 `../reference/product-specs/network-probe.md`。

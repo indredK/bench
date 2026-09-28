@@ -3,9 +3,14 @@
  */
 import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
+import { VirtualList } from "@/components/content/VirtualList"
 import { Button } from "@/components/ui/button"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
-import type { LanServicesResult } from "@/lib/tauri/types/network-probe"
+import type { LanServiceItem, LanServicesResult } from "@/lib/tauri/types/network-probe"
+
+function formatService(item: LanServiceItem): string {
+  return `[${item.protocol}] ${item.name}${item.serviceType ? ` · ${item.serviceType}` : ""}${item.host ? ` · ${item.host}` : ""}${item.port != null ? `:${item.port}` : ""}${item.detail ? ` — ${item.detail}` : ""}`
+}
 
 interface LanServicesPanelProps {
   loading: boolean
@@ -62,17 +67,13 @@ export function LanServicesPanel({
           {result.items.length === 0 ? (
             <p className="text-muted-foreground text-sm">{t("networkProbe.lanSvc.empty")}</p>
           ) : (
-            <ul className="space-y-1 font-mono text-xs">
-              {result.items.map((it, idx) => (
-                <li key={`${it.protocol}-${it.name}-${idx}`}>
-                  [{it.protocol}] {it.name}
-                  {it.serviceType ? ` · ${it.serviceType}` : ""}
-                  {it.host ? ` · ${it.host}` : ""}
-                  {it.port ? `:${it.port}` : ""}
-                  {it.detail ? ` — ${it.detail}` : ""}
-                </li>
-              ))}
-            </ul>
+            <VirtualList
+              items={result.items}
+              getItemKey={(item, index) => `${item.protocol}-${item.name}-${index}`}
+              getItemLabel={formatService}
+              renderItem={formatService}
+              className="font-mono text-xs"
+            />
           )}
           <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
         </div>
