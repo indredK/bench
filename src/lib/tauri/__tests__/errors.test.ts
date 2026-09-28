@@ -67,6 +67,7 @@ describe("translateError", () => {
   const t = ((key: string, opts?: { defaultValue?: string }) => {
     const table: Record<string, string> = {
       "errors.FORBIDDEN_PATH": "Path not allowed",
+      "errors.EXTENSION_REVOKED": "This release was revoked. Choose another version.",
       "errors.UNKNOWN": "",
     }
     if (key in table) return table[key]
@@ -75,6 +76,15 @@ describe("translateError", () => {
 
   it("prefers localized code message", () => {
     expect(translateError(t, { code: "FORBIDDEN_PATH", message: "raw" })).toBe("Path not allowed")
+  })
+
+  it("localizes revoked extension errors instead of exposing backend details", () => {
+    expect(
+      translateError(t, {
+        code: "EXTENSION_REVOKED",
+        message: "extension `revocation-demo` version `1.2.0` has been revoked: raw reason",
+      }),
+    ).toBe("This release was revoked. Choose another version.")
   })
 
   it("falls back to backend message when code has no localization", () => {

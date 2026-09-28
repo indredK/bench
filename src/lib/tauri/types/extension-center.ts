@@ -26,12 +26,16 @@ export interface MarketVersionSummary {
   size: number
   publishedAt: string | null
   yanked: boolean
+  /** 命中 registry 吊销规则时的原因。 */
+  revokedReason: string | null
   /** 宿主版本是否满足 engines（不满足禁止安装）。 */
   compatible: boolean
   /** 已安装（版本一致）。 */
   installed: boolean
   /** 已装版本更低（可升级）。 */
   updateAvailable: boolean
+  /** 后端已综合兼容性、吊销、yanked 与版本单调性判定可安装。 */
+  installable: boolean
 }
 
 /** market 插件条目（Rust `MarketExtensionDto`）。 */

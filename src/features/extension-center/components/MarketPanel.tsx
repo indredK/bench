@@ -1,6 +1,14 @@
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import type {
   MarketExtensionSummary,
   MarketVersionSummary,
@@ -25,6 +33,14 @@ export function compareVersions(a: string, b: string): number {
   return 0
 }
 
+export function sortInstallableMarketVersions(
+  versions: MarketVersionSummary[],
+): MarketVersionSummary[] {
+  return versions
+    .filter((version) => version.installable)
+    .sort((a, b) => compareVersions(b.version, a.version))
+}
+
 function VersionBadges({
   version,
   t,
@@ -37,6 +53,11 @@ function VersionBadges({
       {version.yanked && (
         <span className="rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs text-amber-700">
           {t("extensionCenter.market.yanked")}
+        </span>
+      )}
+      {version.revokedReason && (
+        <span className="rounded border border-red-200 bg-red-50 px-2 py-0.5 text-xs text-red-700">
+          {t("extensionCenter.market.revoked")}
         </span>
       )}
       {!version.compatible && (
@@ -63,26 +84,27 @@ function ExtensionCard({
   t,
   onInstall,
   busy,
-  revoked,
 }: {
   entry: MarketExtensionSummary
   t: (key: string) => string
   onInstall: (extensionId: string, version: string) => void
   busy: boolean
-  revoked?: boolean
 }) {
-  // 可安装版本：非 yanked；优先最新。必须按数字段比较 —— localeCompare 会把
-  // 0.10.0 排在 0.9.0 之前，导致真正的最新版被判「已装」而整颗按钮不渲染。
   const sortedVersions = [...entry.versions].sort((a, b) => compareVersions(b.version, a.version))
-  const installable = sortedVersions.filter((version) => !version.yanked)
-  const latestInstallable = installable[0]
+  const installableVersions = sortInstallableMarketVersions(entry.versions)
+  const hasInstalledVersion = entry.versions.some((version) => version.installed)
+  const [selectedVersion, setSelectedVersion] = useState<string | null>(null)
+  const selected =
+    installableVersions.find((version) => version.version === selectedVersion) ??
+    installableVersions[0]
   const locale = useResolvedLocale()
   const description = selectMetadata(locale, { zh: entry.descriptionZh, en: entry.descriptionEn })
+  const selectorId = `market-version-${entry.id}`
 
   return (
     <div className="rounded-lg border p-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+        <div className="min-w-0 flex-1">
           <h3 className="text-sm font-semibold">
             {selectMetadata(locale, { zh: entry.displayZh, en: entry.displayEn }, entry.id)}
           </h3>
@@ -92,28 +114,67 @@ function ExtensionCard({
           </p>
           {description && <p className="mt-1 text-xs">{description}</p>}
         </div>
-        {latestInstallable && !latestInstallable.installed && (
-          <Button
-            size="sm"
-            /* 已吊销的插件不得再安装/更新：卡片下方就是红色吊销说明，
-               按钮若仍可点，等于告诉用户「警示只是装饰」。 */
-            disabled={busy || !latestInstallable.compatible || Boolean(revoked)}
-            onClick={() => onInstall(entry.id, latestInstallable.version)}
-          >
-            {latestInstallable.updateAvailable
-              ? t("extensionCenter.market.update")
-              : t("extensionCenter.market.install")}
-          </Button>
-        )}
+        <div className="flex min-w-0 flex-wrap items-center gap-2 sm:justify-end">
+          {selected ? (
+            <>
+              <label className="sr-only" htmlFor={selectorId}>
+                {t("extensionCenter.market.selectVersion")}
+              </label>
+              <Select value={selected.version} onValueChange={setSelectedVersion} disabled={busy}>
+                <SelectTrigger
+                  id={selectorId}
+                  aria-label={t("extensionCenter.market.selectVersion")}
+                  className="w-28"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {installableVersions.map((version) => (
+                    <SelectItem key={version.version} value={version.version}>
+                      {version.version}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                size="sm"
+                disabled={busy}
+                onClick={() => onInstall(entry.id, selected.version)}
+              >
+                {selected.updateAvailable
+                  ? t("extensionCenter.market.update")
+                  : t("extensionCenter.market.install")}
+              </Button>
+            </>
+          ) : (
+            <p className="text-muted-foreground text-xs">
+              {t(
+                hasInstalledVersion
+                  ? "extensionCenter.market.noUpdateAvailable"
+                  : "extensionCenter.market.noInstallableVersion",
+              )}
+            </p>
+          )}
+        </div>
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
         {sortedVersions.map((version) => (
           <div
             key={version.version}
-            className="flex items-center gap-2 rounded border px-2 py-1 text-xs"
+            className="flex max-w-full min-w-0 flex-col items-start gap-1 rounded border px-2 py-1 text-xs"
           >
-            <span className="font-mono">{version.version}</span>
-            <VersionBadges version={version} t={t} />
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <span className="font-mono">{version.version}</span>
+              <VersionBadges version={version} t={t} />
+            </div>
+            {version.revokedReason && (
+              <p className="max-w-full min-w-0 text-xs break-words whitespace-normal text-red-700">
+                {t("extensionCenter.market.revokedReason").replace(
+                  "{reason}",
+                  version.revokedReason,
+                )}
+              </p>
+            )}
           </div>
         ))}
       </div>
@@ -168,7 +229,7 @@ export function MarketPanel() {
           <ul className="mt-1 list-inside list-disc text-xs">
             {marketListing.revokedHits.map((hit) => (
               <li key={hit.id}>
-                {hit.id} @ {hit.version} — {hit.reason}
+                {hit.id} @ {hit.version}
               </li>
             ))}
           </ul>
@@ -180,21 +241,17 @@ export function MarketPanel() {
           busyIds.includes(`${entry.id}@${version.version}`),
         )
         return (
-          <div key={entry.id} className={hit ? "opacity-60" : undefined}>
+          <div key={entry.id}>
             <ExtensionCard
               entry={entry}
               t={t}
-              revoked={Boolean(hit)}
               onInstall={(id, version) => {
-                if (revokedById.has(id)) return
                 void prepareInstall(id, version)
               }}
               busy={busy}
             />
             {hit && (
-              <p className="mt-1 text-xs text-red-700">
-                {t("extensionCenter.market.revokedNote").replace("{reason}", hit.reason)}
-              </p>
+              <p className="mt-1 text-xs text-red-700">{t("extensionCenter.market.revokedNote")}</p>
             )}
           </div>
         )

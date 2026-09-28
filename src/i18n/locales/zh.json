@@ -1229,6 +1229,7 @@
     "SCAN_IN_PROGRESS": "正在扫描中，请稍候",
     "SCAN_CANCELED": "扫描已取消",
     "EXTENSION_MARKET_BUSY": "该插件的其他安装操作仍在进行，请稍后重试。",
+    "EXTENSION_REVOKED": "该插件版本已被市场吊销，请选择其他可安装版本。",
     "NO_SESSION": "请先选择一个照片目录"
   },
   "common": {
@@ -2330,8 +2331,13 @@
       "installed": "已安装",
       "updateAvailable": "可更新",
       "requiresBench": "需要 Bench {range}",
+      "revoked": "已吊销",
+      "revokedReason": "吊销原因：{reason}",
+      "selectVersion": "选择要安装的版本",
+      "noInstallableVersion": "当前没有兼容且可安装的版本",
+      "noUpdateAvailable": "当前没有兼容的更新版本",
       "revokedBanner": "以下插件已被吊销并强制禁用",
-      "revokedNote": "该插件已被吊销：{reason}。建议卸载。",
+      "revokedNote": "已安装版本已强制禁用。可选择安全版本更新，或卸载插件。",
       "trustTitle": "信任此插件？",
       "trustDescription": "「{name}」v{version}（{publisher}）。请查看本次校验依据，并确认其申请的宿主命令权限。",
       "trustKind": {

@@ -1229,6 +1229,7 @@
     "SCAN_IN_PROGRESS": "A scan is already in progress, please wait",
     "SCAN_CANCELED": "Scan cancelled",
     "EXTENSION_MARKET_BUSY": "Another install operation for this extension is still running. Try again shortly.",
+    "EXTENSION_REVOKED": "This extension version was revoked by its registry. Choose another available release.",
     "NO_SESSION": "Please pick a photo folder first"
   },
   "common": {
@@ -2330,8 +2331,13 @@
       "installed": "Installed",
       "updateAvailable": "Update available",
       "requiresBench": "Requires Bench {range}",
+      "revoked": "Revoked",
+      "revokedReason": "Revocation reason: {reason}",
+      "selectVersion": "Select a version to install",
+      "noInstallableVersion": "No compatible release is currently available to install",
+      "noUpdateAvailable": "No compatible update is currently available",
       "revokedBanner": "The following extensions have been revoked and force-disabled",
-      "revokedNote": "This extension was revoked: {reason}. Uninstalling is recommended.",
+      "revokedNote": "The installed version was force-disabled. Choose a safe release to update, or uninstall the extension.",
       "trustTitle": "Trust this extension?",
       "trustDescription": "\"{name}\" v{version} ({publisher}). Review the verification basis and the host commands it requests before installing.",
       "trustKind": {

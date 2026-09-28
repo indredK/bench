@@ -199,10 +199,10 @@ pnpm run test:critical       # ✓ 145 passed
 - [x] 安装向导（两段式）：`ext_market_prepare`（下载 → 整包 sha256+size → 安全解压 → manifest v2 + id/version 绑定 → engines → 验签 + trusted comment → 逐文件 hash）→ 信任弹窗 → `ext_market_commit`（版本单调 → 原子落位 → 审计 install）；同一插件的 prepare/commit/cancel 串行化，任一步失败清理临时产物、已装版本不变
 - [x] **信任披露（A4-1）**：prepare 返回 `aclCommands`，确认弹窗展示发布者/版本/申请的全部宿主命令（未申请则明示「无权限」），对齐 VS Code 1.97 publisher trust 取向
 - [x] **吊销通道（A4-2）**：`revoked[]` 支持 `*` / `<X` / `<=X` / 精确版本（未知表达式 fail-closed 视为命中）；`ext_market_list` 拉取时强制禁用命中插件 + 审计 `revoke_hit` + UI 显著警示横幅
-- [x] 插件中心 UI：已安装/市场/诊断三标签；market 卡片含 yanked / engines 不兼容 / 已安装 / 可更新徽标，安装按钮走两段式信任流；i18n zh+en 全覆盖
+- [x] 插件中心 UI：已安装/市场/诊断三标签；market 卡片展示 yanked / 吊销原因 / engines 不兼容 / 已安装 / 可更新徽标；版本选择器只列后端判定兼容、未吊销、未下架且不违反版本单调性的版本，无候选时区分不可安装与已安装且暂无更新；已安装吊销版本保留更新/卸载指引；安装按钮走两段式信任流；i18n zh+en 全覆盖
 - [x] 诊断面板：`ext_diagnostics` 返回 `ext-audit.log` + `ext-diagnostics.jsonl` 各最近 200 条，插件中心内直接查看
 - [x] minisign 真实签名：管线已按 spec §4 全量校验（canonical + trusted comment）；单测以确定性 ed25519 夹具构造真实签名走通正向路径。_签出首批插件需 registry 私钥环境（外部前置）_
-- [x] 能力兼容标记：market 版本条目 `compatible`（engines 比对）/ `installed` / `updateAvailable` / `yanked`；D-017 pack 形态（degraded/missing_pack）当前无 pack 交付物，字段位预留、随首个 pack 插件启用
+- [x] 能力兼容标记：market 版本条目包含 `compatible` / `installed` / `updateAvailable` / `yanked` / `revokedReason` / `installable`；安装候选由后端综合 engines、吊销、下架和版本单调性计算；D-017 pack 形态（degraded/missing_pack）当前无 pack 交付物，字段位预留、随首个 pack 插件启用
 
 **验收状态**：PR #109 macOS/Windows CI 全绿；本机真机确认市场目录加载成功。安装、更新、卸载及干净数据目录验收仍待完成。官方 registry 插件以 HTTPS registry 条目中的整包 SHA-256/size 和包内 `files` 清单校验，不要求每个插件单独 minisign 签名；第三方 registry 必须通过 minisign 验签（见 spec §4.6）。安装确认会显示实际信任依据；提交时再次检查分发类型、来源签名与文件清单；安装来源写入宿主记录，缓存取消时立即删除、过期后回收。
 

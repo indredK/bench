@@ -234,12 +234,52 @@ pub struct MarketVersionDto {
     pub size: u64,
     pub published_at: Option<String>,
     pub yanked: bool,
+    /// 命中 registry 吊销规则时的原因；未命中为 `None`。
+    pub revoked_reason: Option<String>,
     /// 宿主版本是否满足 engines（不满足禁止安装）。
     pub compatible: bool,
     /// 已安装（版本完全一致）。
     pub installed: bool,
     /// 已装版本低于该版本（可升级）。
     pub update_available: bool,
+    /// 后端已综合兼容性、吊销、yanked 与版本单调性判定可安装。
+    pub installable: bool,
+}
+
+fn market_version_dto(
+    doc: &RegistryDoc,
+    extension_id: &str,
+    version: &RegistryVersion,
+    installed_version: Option<&str>,
+    host_version: &str,
+) -> MarketVersionDto {
+    let compatible = ManifestEnginesProbe {
+        bench: version.engines.bench.clone(),
+    }
+    .satisfies(host_version);
+    let installed = installed_version == Some(version.version.as_str());
+    let revoked_reason = registry::revoke_hit(doc, extension_id, &version.version);
+    let newer_than_installed = installed_version.is_some_and(|current| {
+        version.version != current && super::manifest::semver_at_least(&version.version, current)
+    });
+    let installable = !version.yanked
+        && revoked_reason.is_none()
+        && compatible
+        && !installed
+        && (installed_version.is_none() || newer_than_installed);
+
+    MarketVersionDto {
+        version: version.version.clone(),
+        engines_bench: version.engines.bench.clone(),
+        size: version.size,
+        published_at: version.published_at.clone(),
+        yanked: version.yanked,
+        revoked_reason,
+        compatible,
+        installed,
+        update_available: installed_version.is_some() && installable,
+        installable,
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -297,7 +337,7 @@ pub async fn ext_market_list(app: AppHandle) -> AppResult<MarketListing> {
     let doc = fetch_registry().await?;
 
     // 吊销通道（spec §5.3）：强制禁用 + 警示信息回传。
-    let installed = ext_list_installed(app.clone()).unwrap_or_default();
+    let installed = ext_list_installed(app.clone())?;
     let mut revoked_hits = Vec::new();
     for summary in &installed {
         if let Some(reason) = registry::revoke_hit(&doc, &summary.id, &summary.version) {
@@ -320,7 +360,7 @@ pub async fn ext_market_list(app: AppHandle) -> AppResult<MarketListing> {
         }
     }
     // 吊销后重读安装状态（禁用状态可能已变化）。
-    let installed = ext_list_installed(app.clone()).unwrap_or_default();
+    let installed = ext_list_installed(app.clone())?;
     let installed_by_id: std::collections::BTreeMap<String, &ExtensionSummary> =
         installed.iter().map(|s| (s.id.clone(), s)).collect();
     let host_version = app.package_info().version.to_string();
@@ -332,26 +372,13 @@ pub async fn ext_market_list(app: AppHandle) -> AppResult<MarketListing> {
             .versions
             .iter()
             .map(|version| {
-                let manifest_like = ManifestEnginesProbe {
-                    bench: version.engines.bench.clone(),
-                };
-                let compatible = manifest_like.satisfies(&host_version);
-                let installed = installed_version
-                    .as_deref()
-                    .is_some_and(|v| v == version.version);
-                let update_available = installed_version.as_deref().is_some_and(|v| {
-                    super::manifest::semver_at_least(&version.version, v) && v != version.version
-                });
-                MarketVersionDto {
-                    version: version.version.clone(),
-                    engines_bench: version.engines.bench.clone(),
-                    size: version.size,
-                    published_at: version.published_at.clone(),
-                    yanked: version.yanked,
-                    compatible,
-                    installed,
-                    update_available,
-                }
+                market_version_dto(
+                    &doc,
+                    &entry.id,
+                    version,
+                    installed_version.as_deref(),
+                    &host_version,
+                )
             })
             .collect();
         extensions.push(MarketExtensionDto {
@@ -1005,6 +1032,64 @@ mod tests {
             market_trust_kind(false, true),
             MarketTrustKind::DevelopmentUnverified
         );
+    }
+
+    #[test]
+    fn market_version_eligibility_excludes_revoked_incompatible_yanked_and_downgrades() {
+        let doc: RegistryDoc =
+            serde_json::from_str(include_str!("fixtures/revoked-market/registry.json"))
+                .expect("parse revocation fixture");
+        let entry = doc
+            .extensions
+            .iter()
+            .find(|entry| entry.id == "revocation-demo")
+            .expect("fixture extension");
+        let revoked = entry
+            .versions
+            .iter()
+            .find(|version| version.version == "1.2.0")
+            .expect("revoked version");
+        let revoked_dto = market_version_dto(&doc, &entry.id, revoked, None, "1.40.0");
+        assert_eq!(
+            revoked_dto.revoked_reason.as_deref(),
+            Some("Physical QA: revoked version must not appear installable.")
+        );
+        assert!(!revoked_dto.installable);
+
+        let safe = entry
+            .versions
+            .iter()
+            .find(|version| version.version == "1.1.0")
+            .expect("safe version");
+        let safe_dto = market_version_dto(&doc, &entry.id, safe, None, "1.40.0");
+        assert_eq!(safe_dto.revoked_reason, None);
+        assert!(safe_dto.installable);
+
+        let safe_update = market_version_dto(&doc, &entry.id, safe, Some("1.0.0"), "1.40.0");
+        assert!(safe_update.installable);
+        assert!(safe_update.update_available);
+
+        let downgrade = RegistryVersion {
+            version: "1.0.0".into(),
+            ..safe.clone()
+        };
+        assert!(
+            !market_version_dto(&doc, &entry.id, &downgrade, Some("2.0.0"), "1.40.0").installable
+        );
+
+        let incompatible = RegistryVersion {
+            engines: super::super::registry::RegistryEngines {
+                bench: ">=99.0.0".into(),
+            },
+            ..safe.clone()
+        };
+        assert!(!market_version_dto(&doc, &entry.id, &incompatible, None, "1.40.0").installable);
+
+        let yanked = RegistryVersion {
+            yanked: true,
+            ..safe.clone()
+        };
+        assert!(!market_version_dto(&doc, &entry.id, &yanked, None, "1.40.0").installable);
     }
 
     #[test]

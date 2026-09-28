@@ -58,6 +58,7 @@ import type {
   McpTargetStatus,
   NmRegistration,
 } from "@/lib/tauri/types/browser-ext"
+import type { MarketVersionSummary } from "@/lib/tauri/types/extension-center"
 
 describe("Tauri contracts", () => {
   it("keeps grouped command constants derived from the canonical command contracts", () => {
@@ -112,6 +113,22 @@ describe("Tauri contracts", () => {
     const rustStructFields = parseRustStructFields(rustSource)
 
     const checks: Array<[string, string, string[]]> = [
+      [
+        "MarketVersionDto",
+        "camel",
+        dtoKeys<MarketVersionSummary>([
+          "version",
+          "enginesBench",
+          "size",
+          "publishedAt",
+          "yanked",
+          "revokedReason",
+          "compatible",
+          "installed",
+          "updateAvailable",
+          "installable",
+        ]),
+      ],
       [
         "AccountManagerCapability",
         "camel",
