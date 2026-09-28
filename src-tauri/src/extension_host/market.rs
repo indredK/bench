@@ -296,7 +296,7 @@ async fn fetch_registry() -> AppResult<RegistryDoc> {
     let url = registry::registry_index_url(&base)?;
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
-        .redirect(public_https_redirect_policy())
+        .redirect(registry::public_https_redirect_policy())
         .build()
         .map_err(|e| AppError::internal(format!("build http client: {}", e.without_url())))?;
     let response = client
@@ -318,17 +318,6 @@ async fn fetch_registry() -> AppResult<RegistryDoc> {
         .map_err(|e| AppError::invalid_input(format!("registry JSON invalid: {e}")))?;
     registry::validate_registry_doc(&doc)?;
     Ok(doc)
-}
-
-/// 只跟随指向公网 HTTPS 的跳转，同时保留 reqwest 的循环检测和 10 跳上限。
-fn public_https_redirect_policy() -> reqwest::redirect::Policy {
-    reqwest::redirect::Policy::custom(|attempt| {
-        if registry::validate_download_url(attempt.url().as_str()).is_err() {
-            attempt.error("redirect target is not an allowed public HTTPS URL")
-        } else {
-            reqwest::redirect::Policy::default().redirect(attempt)
-        }
-    })
 }
 
 /// 浏览 market：拉目录 + 吊销强制禁用 + 与已装版本比对。
@@ -553,7 +542,7 @@ pub async fn ext_market_prepare(
         // 步骤 3：下载（content-length 预检 + 流式上限）。
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(300))
-            .redirect(public_https_redirect_policy())
+            .redirect(registry::public_https_redirect_policy())
             .build()
             .map_err(|e| AppError::internal(format!("build http client: {}", e.without_url())))?;
         let mut response = client

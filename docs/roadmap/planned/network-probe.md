@@ -61,3 +61,4 @@
 > 每轮功能改动先在此追加一行，再在实施后同步进产品说明。
 
 - 2026-09-03：首版生成——依据 `docs/modules/network-probe/roadmap.md`（Wave 0–6）与 `docs/roadmap/ROADMAP.md` D-016，提炼 ⬜/◐ 未完成项为「待实现」「待验证」「远期」三档；产品说明见 `../product-specs/network-probe.md`。
+- 2026-09-28：加固 D-017 能力包下载与状态一致性：复用市场的公网 HTTPS/逐跳重定向校验，加入 64 MiB 流式上限、精确大小与 SHA-256 校验、临时文件清理、覆盖共享 app-data 多进程的 packId 并发互斥及版本化制品卸载清理。正式下载路径仍待制品发布后端到端验证；当前 canonical manifest 未配置制品 URL/hash。

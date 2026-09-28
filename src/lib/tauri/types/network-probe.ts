@@ -39,6 +39,7 @@ export interface CapabilityPackInstallResult {
 }
 
 export interface CapabilityPackProgress {
+  operationId: string
   packId: string
   phase: string
   bytes: number

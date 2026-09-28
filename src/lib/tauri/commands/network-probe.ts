@@ -29,8 +29,11 @@ export function listCapabilityPacks() {
   return invokeTauriCommand(TAURI_COMMANDS.networkProbe.listCapabilityPacks)
 }
 
-export function installCapabilityPack(packId: string) {
-  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.installCapabilityPack, { packId })
+export function installCapabilityPack(packId: string, operationId: string) {
+  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.installCapabilityPack, {
+    packId,
+    operationId,
+  })
 }
 
 export function uninstallCapabilityPack(packId: string) {
@@ -209,8 +212,9 @@ export function rejectAgentAction(action: string) {
   return invokeTauriCommand(TAURI_COMMANDS.networkProbe.rejectAgentAction, { action })
 }
 
-export function installCapabilityPackVerifyFail(packId: string) {
+export function installCapabilityPackVerifyFail(packId: string, operationId: string) {
   return invokeTauriCommand(TAURI_COMMANDS.networkProbe.installCapabilityPackVerifyFail, {
     packId,
+    operationId,
   })
 }

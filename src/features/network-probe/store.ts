@@ -6,6 +6,7 @@ import type { LocalizedError } from "@/lib/errors"
 import type {
   CaptivePortalResult,
   CapabilityPackInfo,
+  CapabilityPackProgress,
   DnsLookupResult,
   FirewallStatus,
   FixResult,
@@ -109,6 +110,7 @@ interface NetworkProbeState {
   }
   capabilities: NetworkProbeCapabilities | null
   capabilityPacks: CapabilityPackInfo[]
+  packProgress: CapabilityPackProgress | null
   packProgressText: string | null
   defaults: NetworkProbeDefaultsCatalog | null
   summary: LocalNetworkSummary | null
@@ -187,6 +189,7 @@ interface NetworkProbeState {
   setOfflineSub: (offlineSub: NetworkProbeOfflineSub) => void
   setCapabilities: (capabilities: NetworkProbeCapabilities | null) => void
   setCapabilityPacks: (capabilityPacks: CapabilityPackInfo[]) => void
+  setPackProgress: (packProgress: CapabilityPackProgress | null) => void
   setPackProgressText: (packProgressText: string | null) => void
   setDefaults: (defaults: NetworkProbeDefaultsCatalog | null) => void
   setSummary: (summary: LocalNetworkSummary | null) => void
@@ -336,6 +339,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   nav: loadNav(),
   capabilities: null,
   capabilityPacks: [],
+  packProgress: null,
   packProgressText: null,
   defaults: null,
   summary: null,
@@ -428,6 +432,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   },
   setCapabilities: (capabilities) => set({ capabilities }),
   setCapabilityPacks: (capabilityPacks) => set({ capabilityPacks }),
+  setPackProgress: (packProgress) => set({ packProgress }),
   setPackProgressText: (packProgressText) => set({ packProgressText }),
   setDefaults: (defaults) => set({ defaults }),
   setSummary: (summary) => set({ summary }),

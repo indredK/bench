@@ -834,7 +834,7 @@ export const TAURI_COMMAND_CONTRACTS = {
     "network_probe_list_capability_packs",
   ),
   network_probe_install_capability_pack: defineTauriCommand<
-    { packId: string },
+    { packId: string; operationId: string },
     CapabilityPackInstallResult
   >()("network_probe_install_capability_pack"),
   network_probe_uninstall_capability_pack: defineTauriCommand<{ packId: string }, void>()(
@@ -886,7 +886,7 @@ export const TAURI_COMMAND_CONTRACTS = {
     "network_probe_reject_agent_action",
   ),
   network_probe_install_capability_pack_verify_fail: defineTauriCommand<
-    { packId: string },
+    { packId: string; operationId: string },
     CapabilityPackInstallResult
   >()("network_probe_install_capability_pack_verify_fail"),
   get_local_network_summary: defineTauriCommand<undefined, LocalNetworkSummary>()(
@@ -1694,8 +1694,8 @@ export const TAURI_COMMAND_ARG_KEYS = {
   network_probe_save_defaults_override: ["overrideData"],
   network_probe_reset_defaults: [],
   network_probe_list_capability_packs: [],
-  network_probe_install_capability_pack: ["packId"],
-  network_probe_install_capability_pack_verify_fail: ["packId"],
+  network_probe_install_capability_pack: ["packId", "operationId"],
+  network_probe_install_capability_pack_verify_fail: ["packId", "operationId"],
   network_probe_uninstall_capability_pack: ["packId"],
   network_probe_list_speed_sources: [],
   network_probe_run_speed_test: ["sourceId"],

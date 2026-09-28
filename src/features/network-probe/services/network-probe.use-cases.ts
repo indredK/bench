@@ -3,6 +3,7 @@
  */
 import { networkProbeRepository } from "@/features/network-probe/services/network-probe.repository"
 import { type NetworkProbeKind, useNetworkProbeStore } from "@/features/network-probe/store"
+import i18n from "@/i18n/config"
 import { TAURI_EVENTS } from "@/lib/tauri/contracts"
 import { getErrorMessage } from "@/lib/tauri/errors"
 import type {
@@ -558,7 +559,9 @@ export const networkProbeUseCases = {
 
   async installCapabilityPack(packId: string) {
     const store = useNetworkProbeStore.getState()
+    const operationId = crypto.randomUUID()
     store.setError(null)
+    store.setPackProgress(null)
     store.setPackProgressText(null)
     store.appendCommandLog(`installCapabilityPack('${packId}')`)
     let unlisten: (() => void) | undefined
@@ -567,13 +570,19 @@ export const networkProbeUseCases = {
         TAURI_EVENTS.networkProbe.packProgress,
         (event) => {
           const p = event.payload
-          useNetworkProbeStore
-            .getState()
-            .setPackProgressText(`${p.packId} ${p.phase} ${p.bytes}/${p.totalBytes}`)
+          if (p.operationId !== operationId || p.packId !== packId) return
+          useNetworkProbeStore.getState().setPackProgress(p)
         },
       )
-      const result = await networkProbeRepository.installCapabilityPack(packId)
+      const result = await networkProbeRepository.installCapabilityPack(packId, operationId)
       store.appendCommandLog(result.commandHint)
+      if (!result.ok) {
+        store.appendCommandLog(result.message)
+        store.setError({
+          key: "networkProbe.errors.packInstallFailed",
+          fallback: result.message,
+        })
+      }
       await networkProbeUseCases.refreshCapabilityPacks()
     } catch (error) {
       store.setError({
@@ -582,6 +591,7 @@ export const networkProbeUseCases = {
       })
     } finally {
       unlisten?.()
+      useNetworkProbeStore.getState().setPackProgress(null)
       useNetworkProbeStore.getState().setPackProgressText(null)
     }
   },
@@ -970,11 +980,15 @@ export const networkProbeUseCases = {
 
   async installCapabilityPackVerifyFail(packId: string) {
     const store = useNetworkProbeStore.getState()
+    const operationId = crypto.randomUUID()
     store.setError(null)
     store.appendCommandLog(`installCapabilityPack('${packId}') // hash-mismatch test`)
     try {
-      const result = await networkProbeRepository.installCapabilityPackVerifyFail(packId)
-      store.setPackProgressText(result.message)
+      const result = await networkProbeRepository.installCapabilityPackVerifyFail(
+        packId,
+        operationId,
+      )
+      store.setPackProgressText(i18n.t("networkProbe.packs.hashMismatch"))
       if (!result.ok) {
         store.appendCommandLog(`pack verify fail: ${result.mode}`)
       }

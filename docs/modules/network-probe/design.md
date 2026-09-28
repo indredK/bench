@@ -558,6 +558,7 @@ src/features/network-probe/
 3. 安装完成 ≠ 已提权：仍按 §11.4 走 helper / 触发式提权 / 降级；`unsupported`/`degraded` 不伪装成功。
 4. 与 D-010：ad-hoc 包必须提示 Gatekeeper 限制，不得宣称 sidecar/helper 已获系统信任。
 5. 可选包不得引入攻击能力（§12.3.2）；IPC 仍走统一契约与 `cancelScan` 幂等。
+6. 下载 URL 复用 Extension Market 的公网 HTTPS 校验和逐跳重定向策略；下载流上限 64 MiB、实际长度必须精确匹配 manifest，SHA-256 通过后才落盘。安装/卸载按 packId 用进程内互斥与 app-data 文件锁排他，覆盖共享 app-data 的 dev/prod 并发实例；卸载清理该 pack 的版本化缓存制品，后续操作回收超过 24 小时的崩溃残留临时文件。
 
 **建议 pack id（实现期可调，勿随意改已发布 id）**
 

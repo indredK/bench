@@ -753,6 +753,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
           open={packsOpen}
           packs={c.capabilityPacks}
           busy={packsBusy}
+          progress={c.packProgress}
           progressText={c.packProgressText}
           focusPackId={focusPackId}
           onOpenChange={setPacksOpen}

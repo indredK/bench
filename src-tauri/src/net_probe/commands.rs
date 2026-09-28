@@ -12,7 +12,9 @@ use tauri::AppHandle;
 
 #[tauri::command]
 pub async fn get_network_probe_capabilities(app: AppHandle) -> AppResult<NetworkProbeCapabilities> {
-    Ok(super::packs::build_capabilities(Some(&app)))
+    tauri::async_runtime::spawn_blocking(move || super::packs::build_capabilities(Some(&app)))
+        .await
+        .map_err(|e| AppError::task_failed(format!("network probe capabilities: {e}")))
 }
 
 #[tauri::command]
@@ -42,23 +44,27 @@ pub async fn network_probe_reset_defaults() -> AppResult<()> {
 pub async fn network_probe_list_capability_packs(
     app: AppHandle,
 ) -> AppResult<Vec<CapabilityPackInfo>> {
-    super::packs::list_capability_packs(&app)
+    tauri::async_runtime::spawn_blocking(move || super::packs::list_capability_packs(&app))
+        .await
+        .map_err(|e| AppError::task_failed(format!("list capability packs: {e}")))?
 }
 
 #[tauri::command]
 pub async fn network_probe_install_capability_pack(
     app: AppHandle,
     pack_id: String,
+    operation_id: String,
 ) -> AppResult<CapabilityPackInstallResult> {
-    super::packs::install_capability_pack(&app, pack_id).await
+    super::packs::install_capability_pack(&app, pack_id, operation_id).await
 }
 
 #[tauri::command]
 pub async fn network_probe_install_capability_pack_verify_fail(
     app: AppHandle,
     pack_id: String,
+    operation_id: String,
 ) -> AppResult<CapabilityPackInstallResult> {
-    super::packs::install_capability_pack_verify_fail(&app, pack_id).await
+    super::packs::install_capability_pack_verify_fail(&app, pack_id, operation_id).await
 }
 
 #[tauri::command]
@@ -66,7 +72,7 @@ pub async fn network_probe_uninstall_capability_pack(
     app: AppHandle,
     pack_id: String,
 ) -> AppResult<()> {
-    super::packs::uninstall_capability_pack(&app, pack_id)
+    super::packs::uninstall_capability_pack(&app, pack_id).await
 }
 
 #[tauri::command]

@@ -2227,6 +2227,23 @@
       "installing": "安装中…",
       "uninstall": "卸载",
       "verifyFail": "测试哈希失败",
+      "hashMismatch": "SHA-256 校验失败，能力包未安装。",
+      "progressPhaseOnly": "{{packId}} · {{phase}}",
+      "progressBytes": "{{packId}} · {{phase}} · {{bytes}} / {{totalBytes}}",
+      "names": {
+        "advScanner": "高级扫描器",
+        "pcapDiag": "抓包诊断",
+        "privHelper": "特权助手"
+      },
+      "progressPhase": {
+        "validating": "准备中",
+        "downloading": "下载中",
+        "verifying": "校验完整性",
+        "marker": "记录本地安装标记",
+        "done": "已安装",
+        "failed": "失败",
+        "unknown": "处理中"
+      },
       "manage": "管理组件",
       "missingHint": "该工具需要可选能力包（{{packId}}）。",
       "desc": {
@@ -2267,6 +2284,7 @@
       "mtuFailed": "路径 MTU 探测失败。",
       "openSettingsFailed": "无法打开系统网络设置。",
       "packsFailed": "能力包操作失败。",
+      "packInstallFailed": "能力包安装失败，请检查网络连接后重试。",
       "defaultsFailed": "Defaults 覆盖/重置失败。",
       "speedFailed": "带宽测速失败。",
       "securityAuthRequired": "请先确认安全 Tab 授权声明。",

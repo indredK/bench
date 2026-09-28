@@ -4,13 +4,14 @@
 
 ## 共享的资源
 
-| 资源       | 路径 / 机制                                          | 影响                                                                       |
-| ---------- | ---------------------------------------------------- | -------------------------------------------------------------------------- |
-| Store 文件 | `~/Library/Application Support/com.bench.app/*.json` | 设置（关闭行为、token pricing 等）两边互通；**并发写入时后保存者覆盖前者** |
-| 账号数据   | 同上（Account Manager 持久化）                       | 账号互通，正式版可直接使用 dev 中导入的账号                                |
-| Keychain   | macOS Keychain, 按 bundle id 索引                    | 共享密钥项                                                                 |
-| 窗口状态   | Tauri 自动保存的窗口位置/大小                        | 两边会互相覆盖窗口布局                                                     |
-| Deep Link  | `bench-auth://` scheme 注册                          | 两边都注册同一 scheme，macOS 只路由给最后注册的实例                        |
+| 资源                 | 路径 / 机制                                          | 影响                                                                       |
+| -------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------- |
+| Store 文件           | `~/Library/Application Support/com.bench.app/*.json` | 设置（关闭行为、token pricing 等）两边互通；**并发写入时后保存者覆盖前者** |
+| 账号数据             | 同上（Account Manager 持久化）                       | 账号互通，正式版可直接使用 dev 中导入的账号                                |
+| Keychain             | macOS Keychain, 按 bundle id 索引                    | 共享密钥项                                                                 |
+| 窗口状态             | Tauri 自动保存的窗口位置/大小                        | 两边会互相覆盖窗口布局                                                     |
+| Deep Link            | `bench-auth://` scheme 注册                          | 两边都注册同一 scheme，macOS 只路由给最后注册的实例                        |
+| Network Probe 能力包 | `network-probe/packs/`                               | 包记录和制品共享；安装/卸载使用按 packId 命名的 OS 文件锁跨进程互斥        |
 
 ## 隔离的资源
 

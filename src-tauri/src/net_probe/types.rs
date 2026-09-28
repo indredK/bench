@@ -57,6 +57,7 @@ pub struct CapabilityPackInstallResult {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CapabilityPackProgress {
+    pub operation_id: String,
     pub pack_id: String,
     pub phase: String,
     pub bytes: u64,

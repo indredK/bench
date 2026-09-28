@@ -2227,6 +2227,23 @@
       "installing": "Installing…",
       "uninstall": "Uninstall",
       "verifyFail": "Test hash fail",
+      "hashMismatch": "SHA-256 verification failed. The pack was not installed.",
+      "progressPhaseOnly": "{{packId}} · {{phase}}",
+      "progressBytes": "{{packId}} · {{phase}} · {{bytes}} / {{totalBytes}}",
+      "names": {
+        "advScanner": "Advanced scanner",
+        "pcapDiag": "Packet capture diagnostics",
+        "privHelper": "Privileged helper"
+      },
+      "progressPhase": {
+        "validating": "Preparing",
+        "downloading": "Downloading",
+        "verifying": "Verifying integrity",
+        "marker": "Recording install marker",
+        "done": "Installed",
+        "failed": "Failed",
+        "unknown": "Working"
+      },
       "manage": "Manage packs",
       "missingHint": "This tool needs an optional pack ({{packId}}).",
       "desc": {
@@ -2267,6 +2284,7 @@
       "mtuFailed": "Path MTU probe failed.",
       "openSettingsFailed": "Could not open system network settings.",
       "packsFailed": "Capability pack operation failed.",
+      "packInstallFailed": "Could not install the capability pack. Check your connection and try again.",
       "defaultsFailed": "Defaults override / reset failed.",
       "speedFailed": "Speed test failed.",
       "securityAuthRequired": "Authorize the Security tab before running these tools.",

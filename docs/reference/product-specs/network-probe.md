@@ -173,17 +173,17 @@ L1 → L2 映射：
 
 ## 8. 能力包（D-017 packs）
 
-- **能力包**：`adv-scanner`（SYN 扫描）、`pcap-diag`（诊断抓包）、`priv-helper`（特权 helper）。内置 manifest（packId / version / hash / 签名来源）。
-- PackInstallDialog：pack 列表（version / sizeMB / status / markerOnly 提示 / 描述），安装 / 卸载 / 刷新；安装走后端（**禁止前端传 URL**，marker + hash 校验，测试通道可强制 hash-fail）；进度事件 `pack-progress` 实时显示 `packId phase bytes/totalBytes`。
-- 安装/卸载后自动刷新 capabilities 与 packs 列表；capabilities 中 `tools.<key>` 可反映 `missing_pack`（缺能力包时面板显示缺失提示并可跳转安装）。
+- **能力包**：`adv-scanner`（SYN 扫描）、`pcap-diag`（诊断抓包）、`priv-helper`（特权 helper）。内置 manifest（packId / version / hash / 签名来源）。下载使用共享的公网 HTTPS URL 校验与逐跳重定向策略；流式下载上限 64 MiB，实际字节数必须与 manifest 一致，SHA-256 验证成功后才原子落盘。临时文件失败自动清理，后续操作回收超过 24 小时的崩溃残留，卸载清理该 pack 的版本化制品。
+- PackInstallDialog：pack 列表（version / sizeMB / status / markerOnly 提示 / 描述），安装 / 卸载 / 刷新；安装走后端（**禁止前端传 URL**，marker + hash 校验，测试通道可强制 hash-fail）；进度事件 `pack-progress` 按 `operationId` 与 `packId` 关联本次安装，以当前语言显示能力包名称、阶段与格式化字节数；后端返回 `ok: false` 时页面明确提示失败并保留后端原因到命令日志。
+- 安装/卸载后自动刷新 capabilities 与 packs 列表；capabilities 中 `tools.<key>` 可反映 `missing_pack`（缺能力包时面板显示缺失提示并可跳转安装）。安装/卸载通过进程内互斥与 app-data 文件锁按 packId 排他，覆盖共享 app-data 的 dev/prod 并发实例。
 
 **交互细节**：
 
 - pack 列表为单选项列表（点击选中高亮），选中后右侧描述区展示 pack 描述 + Gatekeeper 说明；安装/卸载按钮带 CommandHint 包裹（hover 显示真实命令）。
 - **focusPackId 自动聚焦**：从 pcap 面板「管理能力包」入口进入时自动选中 `pcap-diag`、从端口/ARP 面板进入时自动选中 `adv-scanner`（`focusPackId → setSelected`）；pack 列表为空时右侧显示 `packs.empty` 占位。
 - `busy` 为真时**全部按钮禁用**（刷新/安装/卸载/测试哈希失败），安装按钮文案切为「安装中…」；进度文本 `packId phase bytes/totalBytes` 实时刷新，安装完成/失败后清除。
-- **能力包刷新防重入由对话框承载**：`refreshCapabilityPacks` 用例**没有**自身 loading 标志（连续调用会并发重读），其防重入依赖 PackInstallDialog 的页面级 `busy` 状态（`onRefresh/onInstall/onUninstall/onVerifyFail` 均以 `busy` 包裹，执行中按钮全部禁用）。
-- 已安装 pack 显示「卸载」（destructive 样式）；未安装显示「安装」；`markerOnly`（制品未发布）显示标记提示。
+- **能力包刷新防重入由对话框承载**：`refreshCapabilityPacks` 用例**没有**自身 loading 标志（连续调用会并发重读），其防重入依赖 PackInstallDialog 的页面级 `busy` 状态（`onRefresh/onInstall/onUninstall/onVerifyFail` 均以 `busy` 包裹，执行中按钮全部禁用）；后端另外按 packId 拒绝并发安装/卸载，进程内存锁覆盖同实例多窗口，app-data 文件锁覆盖 dev/prod 多进程，避免 IPC 并发绕过 UI 后覆盖记录。
+- 已安装 pack 显示「卸载」（destructive 样式）；未安装显示「安装」；`markerOnly`（制品未发布）显示标记提示。marker 后续遇到已发布制品时转为可安装/升级，旧版本或损坏制品不会误报为健康安装。
 - 「测试哈希失败」按钮（验证通道）仅用于开发验证：安装强制返回 hash 不匹配并写入命令日志，不实际安装。
 
 ## 9. 快捷键
@@ -277,5 +277,5 @@ L1 → L2 映射：
 ### 13.4 数据与安全
 
 - 报告导出（JSON/Markdown）含公网 IP、Wi-Fi SSID、hosts 异常等，导出前展示隐私提示；reportHistory 仅保留最近 10 条（localStorage），清空需确认。
-- 能力包安装路径：前端禁止提交下载 URL；仅后端 manifest 的 https URL + SHA-256 校验；`PACK_HASH_MISMATCH` 时二进制不落盘。
+- 能力包安装路径：前端禁止提交下载 URL；仅后端 manifest 的公网 HTTPS URL + 每跳重定向校验、64 MiB 流式上限、精确长度与 SHA-256 校验；`PACK_HASH_MISMATCH` 时临时文件自动清理，正式制品不落盘。网络错误不回传带签名参数的 URL。
 - `saveDefaultsOverride`/`resetDefaults` 失败 → `networkProbe.errors.defaultsFailed`；默认资源损坏时重置即可恢复内置值。

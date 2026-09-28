@@ -351,6 +351,18 @@ pub fn validate_download_url(url: &str) -> AppResult<()> {
     validate_public_https_url(&parsed, url)
 }
 
+/// Reuse one redirect policy for every backend-managed artifact download.
+/// Each hop must pass the same public HTTPS checks as the initial URL.
+pub(crate) fn public_https_redirect_policy() -> reqwest::redirect::Policy {
+    reqwest::redirect::Policy::custom(|attempt| {
+        if validate_download_url(attempt.url().as_str()).is_err() {
+            attempt.error("redirect target is not an allowed public HTTPS URL")
+        } else {
+            reqwest::redirect::Policy::default().redirect(attempt)
+        }
+    })
+}
+
 /// 判断某已安装版本是否命中吊销列表；命中返回原因。
 pub fn revoke_hit(doc: &RegistryDoc, extension_id: &str, version: &str) -> Option<String> {
     doc.revoked
