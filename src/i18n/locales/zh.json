@@ -1783,6 +1783,52 @@
       "cancelled": "已取消",
       "empty": "尚无结果。运行体检以填充检查树。",
       "elapsed": "完成于 {{ms}} ms",
+      "technicalDetails": "技术详情",
+      "checks": {
+        "link": {
+          "iface": "网络接口",
+          "wifi_or_wired": "连接介质"
+        },
+        "addr": {
+          "ipv4": "IPv4 地址",
+          "ipv6": "IPv6 地址",
+          "dhcp_or_static": "地址配置方式"
+        },
+        "route": {
+          "default": "默认路由"
+        },
+        "dns": {
+          "servers": "DNS 服务器",
+          "resolve_name": "域名解析",
+          "fake_ip": "Fake-IP 检测"
+        },
+        "hosts": {
+          "override": "hosts 覆盖"
+        },
+        "proxy": {
+          "system": "系统代理"
+        },
+        "vpn": {
+          "tunnel": "VPN / 隧道"
+        },
+        "firewall": {
+          "status": "系统防火墙"
+        },
+        "svc": {
+          "network": "网络服务"
+        },
+        "reach": {
+          "gateway": "网关连通性",
+          "public_ip": "公网 IP 连通性",
+          "public_name": "域名连通性",
+          "captive": "门户检测",
+          "public_egress": "公网出口",
+          "mtu": "路径 MTU"
+        },
+        "diff": {
+          "dns_vs_ip": "DNS 与 IP 对照"
+        }
+      },
       "layers": {
         "L0": "L0 · 链路",
         "L1": "L1 · 地址 / DNS / 策略",

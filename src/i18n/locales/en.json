@@ -1783,6 +1783,52 @@
       "cancelled": "cancelled",
       "empty": "No scan yet. Run a health scan to populate the tree.",
       "elapsed": "Completed in {{ms}} ms",
+      "technicalDetails": "Technical details",
+      "checks": {
+        "link": {
+          "iface": "Network interfaces",
+          "wifi_or_wired": "Connection medium"
+        },
+        "addr": {
+          "ipv4": "IPv4 address",
+          "ipv6": "IPv6 address",
+          "dhcp_or_static": "Address configuration"
+        },
+        "route": {
+          "default": "Default route"
+        },
+        "dns": {
+          "servers": "DNS servers",
+          "resolve_name": "Name resolution",
+          "fake_ip": "Fake-IP detection"
+        },
+        "hosts": {
+          "override": "hosts overrides"
+        },
+        "proxy": {
+          "system": "System proxy"
+        },
+        "vpn": {
+          "tunnel": "VPN / tunnel"
+        },
+        "firewall": {
+          "status": "System firewall"
+        },
+        "svc": {
+          "network": "Network services"
+        },
+        "reach": {
+          "gateway": "Gateway reachability",
+          "public_ip": "Public IP reachability",
+          "public_name": "Domain reachability",
+          "captive": "Captive portal check",
+          "public_egress": "Public egress",
+          "mtu": "Path MTU"
+        },
+        "diff": {
+          "dns_vs_ip": "DNS vs IP comparison"
+        }
+      },
       "layers": {
         "L0": "L0 · Link",
         "L1": "L1 · Address / DNS / Policy",
