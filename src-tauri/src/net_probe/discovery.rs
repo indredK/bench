@@ -20,7 +20,8 @@ const MAX_PREFIX_HOSTS: u32 = 256;
 
 pub async fn discover_lan<R: Runtime>(app: Option<&AppHandle<R>>) -> AppResult<LanDiscoveryResult> {
     let started = Instant::now();
-    let session_id = super::session::new_session_id();
+    let session_guard = super::session::SessionGuard::new();
+    let session_id = session_guard.id().to_string();
     if let Some(app) = app {
         let _ = app.emit(
             SCAN_SESSION_EVENT,

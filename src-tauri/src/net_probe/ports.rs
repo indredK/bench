@@ -44,7 +44,8 @@ pub async fn scan_ports_tcp<R: Runtime>(
         }
     }
 
-    let session_id = super::session::new_session_id();
+    let session_guard = super::session::SessionGuard::new();
+    let session_id = session_guard.id().to_string();
     if let Some(app) = app {
         let _ = app.emit(
             SCAN_SESSION_EVENT,
@@ -191,7 +192,8 @@ async fn try_nmap_syn<R: Runtime>(
     target: &str,
     ports: &[u16],
 ) -> AppResult<Option<PortScanResult>> {
-    let session_id = super::session::new_session_id();
+    let session_guard = super::session::SessionGuard::new();
+    let session_id = session_guard.id().to_string();
     if let Some(app) = app {
         let _ = app.emit(
             SCAN_SESSION_EVENT,
@@ -209,7 +211,7 @@ async fn try_nmap_syn<R: Runtime>(
     let target_owned = target.to_string();
     let session_for_block = session_id.clone();
 
-    let output = tauri::async_runtime::spawn_blocking(move || {
+    let (output, cancelled) = tauri::async_runtime::spawn_blocking(move || {
         // Prefer -sS (SYN); fall back to -sT (connect) without root.
         let run = |scan: &str| {
             std::process::Command::new("nmap")
@@ -226,7 +228,7 @@ async fn try_nmap_syn<R: Runtime>(
                 ])
                 .output()
         };
-        match run("-sS") {
+        let output = match run("-sS") {
             Ok(out)
                 if (out.status.success() || !out.stdout.is_empty())
                     && !String::from_utf8_lossy(&out.stderr)
@@ -236,13 +238,13 @@ async fn try_nmap_syn<R: Runtime>(
                 Ok(out)
             }
             _ => run("-sT").map_err(|e| AppError::io(format!("nmap: {e}"))),
-        }
+        };
+        let cancelled = super::session::is_cancelled(&session_for_block);
+        drop(session_guard);
+        (output, cancelled)
     })
     .await
     .map_err(|e| AppError::task_failed(format!("nmap join: {e}")))?;
-
-    let cancelled = super::session::is_cancelled(&session_for_block);
-    super::session::clear_session(&session_for_block);
 
     let out = match output {
         Ok(o) => o,

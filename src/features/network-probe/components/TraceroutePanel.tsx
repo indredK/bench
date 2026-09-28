@@ -61,6 +61,11 @@ export function TraceroutePanel({
     virtualizedHops && lastVirtualItem
       ? Math.max(0, hopVirtualizer.getTotalSize() - lastVirtualItem.start - lastVirtualItem.size)
       : 0
+  const resultHintKey = result?.cancelled
+    ? null
+    : result?.privilegeMode === "unprivileged"
+      ? "networkProbe.traceroute.unprivilegedHint"
+      : null
 
   return (
     <ProbePanelShell
@@ -154,12 +159,18 @@ export function TraceroutePanel({
               <span className="ml-2">{t("networkProbe.traceroute.cancelled")}</span>
             ) : null}
           </div>
-          {result.message ? <div>{result.message}</div> : null}
+          {resultHintKey ? <div>{t(resultHintKey)}</div> : null}
         </div>
       ) : null}
 
-      {hops.length === 0 && !loading ? (
-        <p className="text-muted-foreground text-sm">{t("networkProbe.traceroute.empty")}</p>
+      {hops.length === 0 && !loading && !result?.cancelled ? (
+        <p className="text-muted-foreground text-sm">
+          {t(
+            result?.privilegeMode === "unavailable"
+              ? "networkProbe.traceroute.unavailableEmpty"
+              : "networkProbe.traceroute.empty",
+          )}
+        </p>
       ) : null}
 
       {hops.length > 0 ? (

@@ -2163,7 +2163,7 @@
       "privacyHint": "Exports may include public IP, Wi‑Fi SSID, hosts overrides, and local addresses. Share only with people you trust."
     },
     "traceroute": {
-      "hint": "Path hop table via trippy (privileged ICMP, falls back to unprivileged UDP). Loss % is color-coded. ASN via Team Cymru DNS (may be empty).",
+      "hint": "Path hop table via trippy (macOS prefers privileged ICMP and falls back to unprivileged UDP; other platforms use privileged ICMP). Loss % is color-coded. ASN via Team Cymru DNS (may be empty).",
       "target": "Target",
       "maxTtl": "Max TTL",
       "rounds": "Rounds",
@@ -2173,6 +2173,8 @@
       "cancelled": "cancelled",
       "meta": "{{ip}} · {{mode}} · {{ms}} ms",
       "empty": "No hops yet. Run a trace to populate the table.",
+      "unavailableEmpty": "No usable traceroute hops were received. Check network permissions or the firewall, then retry or choose another target.",
+      "unprivilegedHint": "This trace used unprivileged UDP; some network devices may not return hop responses.",
       "mode": {
         "privileged": "privileged ICMP",
         "unprivileged": "unprivileged UDP",

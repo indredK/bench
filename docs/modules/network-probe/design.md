@@ -83,22 +83,22 @@
 
 > 选型原则：**能用成熟库就绝不自研**。traceroute/MTR 复用 `trippy-core`。
 
-| crate                                         | 用途                        | 特权                         | 交付档           | 验证状态                                  |
-| --------------------------------------------- | --------------------------- | ---------------------------- | ---------------- | ----------------------------------------- |
-| `trippy-core`                                 | traceroute + MTR            | 需特权（`trippy-privilege`） | MVP-B            | ✅ 0.13.0，MSRV 1.78，spike 通过          |
-| `surge-ping`                                  | 轻量 ICMP ping              | 平台相关；不足则 HTTP 兜底   | MVP-A            | ✅ 活跃；macOS/Windows 需真机验 ICMP 权限 |
-| `hickory-resolver`                            | DNS 查询 / 多 resolver      | 免特权                       | MVP-A / Adv      | ✅ 正确 crate 名（非笼统 hickory-dns）    |
-| `netdev` + `if-addrs`                         | 接口/网关/MAC + 变更通知    | 免特权                       | MVP-A            | ✅                                        |
-| `system-configuration`(mac) / `ipconfig`(win) | 系统 DNS / 代理             | 免特权                       | MVP-A/B          | 平台分支                                  |
-| `reqwest` + `rustls`                          | HTTP / SSL / Captive / 测速 | 免特权                       | MVP + Post-MVP-C | 既有栈                                    |
-| `pnet` + `socket2` + `etherparse` + `pcap`    | SYN / ARP / 抓包            | 需特权                       | Post-MVP-Adv     | 标准底层                                  |
-| `ipnetwork` 等                                | 网段 / 辅助                 | 免特权                       | 按需             | —                                         |
+| crate                                         | 用途                        | 特权                            | 交付档           | 验证状态                                  |
+| --------------------------------------------- | --------------------------- | ------------------------------- | ---------------- | ----------------------------------------- |
+| `trippy-core`                                 | traceroute + MTR            | 特权 ICMP；macOS 支持无特权 UDP | MVP-B            | ✅ 0.13.0，MSRV 1.78；复用成熟路径引擎    |
+| `surge-ping`                                  | 轻量 ICMP ping              | 平台相关；不足则 HTTP 兜底      | MVP-A            | ✅ 活跃；macOS/Windows 需真机验 ICMP 权限 |
+| `hickory-resolver`                            | DNS 查询 / 多 resolver      | 免特权                          | MVP-A / Adv      | ✅ 正确 crate 名（非笼统 hickory-dns）    |
+| `netdev` + `if-addrs`                         | 接口/网关/MAC + 变更通知    | 免特权                          | MVP-A            | ✅                                        |
+| `system-configuration`(mac) / `ipconfig`(win) | 系统 DNS / 代理             | 免特权                          | MVP-A/B          | 平台分支                                  |
+| `reqwest` + `rustls`                          | HTTP / SSL / Captive / 测速 | 免特权                          | MVP + Post-MVP-C | 既有栈                                    |
+| `pnet` + `socket2` + `etherparse` + `pcap`    | SYN / ARP / 抓包            | 需特权                          | Post-MVP-Adv     | 标准底层                                  |
+| `ipnetwork` 等                                | 网段 / 辅助                 | 免特权                          | 按需             | —                                         |
 
 **特权与降级（摘要，细节 §11.4）**
 
 - 免特权：DNS、HTTP、接口枚举、站点 HTTP、Captive、公网 IP、多数 L0–L3 体检。
-- 需特权：`trippy-core` traceroute/MTR、SYN、ARP、pcap。
-- 降级：SYN→TCP connect；ARP→ICMP/ping 扫；traceroute 无特权→UI「需授权」且不伪装成功；抓包→禁用。
+- 需特权：特权 ICMP traceroute/MTR、SYN、ARP、pcap。
+- 降级：SYN→TCP connect；ARP→ICMP/ping 扫；macOS traceroute 优先特权 ICMP、失败后用无特权 UDP；其他平台仅尝试特权 ICMP，均失败时显示本地化不可用状态；抓包→禁用。
 
 ### 2.1 可行性验证结论
 
@@ -106,7 +106,7 @@
 2. DNS crate = **`hickory-resolver`**。
 3. L0/L1 用 `netdev` + `if-addrs`。
 4. SYN/ARP 无 turnkey Rust 库 → Post-MVP 自研或 `nmap` fallback。
-5. `trippy-core` 0.13.0 与当前 rustc 兼容；运行时仍依赖特权层。
+5. `trippy-core` 0.13.0 与当前 rustc 兼容；UDP 必须显式配置端口方向；无特权 UDP fallback 仅用于 macOS。
 
 ---
 
@@ -630,7 +630,7 @@ src/features/network-probe/
 - **Windows**：Npcap / 能力矩阵降级；不承诺与 mac 对等 SYN/ARP。
 - **Linux**：**不支持、不实现、不进 CI**（D-014）。文档中出现的 Linux 能力描述仅作业界对照，**不是产品承诺**。
 
-MVP-B traceroute：主包内 `trippy-core`；有特权走完整路径；无特权明确 `degraded/unsupported`，禁止空跳点表假装成功。
+MVP-B traceroute：主包内复用成熟依赖 `trippy-core`；macOS 先走特权 ICMP，失败时降级到正确配置的无特权 UDP，并为并行会话分配不同的动态源端口；其他平台只走特权 ICMP。取消记录由作用域 guard 在所有退出路径清理，并跟随阻塞任务至线程结束。没有可用跳点时显示本地化不可用状态，不把空表伪装成成功；取消后不再显示空结果提示。
 
 ---
 

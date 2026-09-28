@@ -10,7 +10,8 @@ pub async fn run_health_scan<R: Runtime>(
     app: Option<&AppHandle<R>>,
 ) -> AppResult<HealthScanResult> {
     let started = Instant::now();
-    let session_id = super::session::new_session_id();
+    let session_guard = super::session::SessionGuard::new();
+    let session_id = session_guard.id().to_string();
     let command_hint = format!("startHealthScan(local) // sessionId={session_id}");
     let mut items = Vec::new();
     let mut cancelled = false;

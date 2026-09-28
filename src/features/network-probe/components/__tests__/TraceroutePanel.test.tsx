@@ -62,7 +62,10 @@ function createHop(ttl: number): TracerouteHop {
   }
 }
 
-function createResult(hops: TracerouteHop[]): TracerouteResult {
+function createResult(
+  hops: TracerouteHop[],
+  overrides: Partial<TracerouteResult> = {},
+): TracerouteResult {
   return {
     target: "example.com",
     resolvedIp: "192.0.2.1",
@@ -73,6 +76,7 @@ function createResult(hops: TracerouteHop[]): TracerouteResult {
     sessionId: "session-1",
     cancelled: false,
     commandHint: "traceroute example.com",
+    ...overrides,
   }
 }
 
@@ -97,5 +101,65 @@ describe("TraceroutePanel", () => {
     expect(screen.getByText("192.0.2.6").closest("tr")).toHaveAttribute("aria-rowindex", "7")
     expect(screen.queryByText("192.0.2.60")).not.toBeInTheDocument()
     expect(container.querySelector(".max-h-80")).not.toBeNull()
+  })
+
+  it("shows a localized unavailable state without exposing backend diagnostics", () => {
+    const diagnostic =
+      "Traceroute unavailable without sufficient privileges. [TRACEROUTE_BUILD] invalid config"
+    render(
+      <TraceroutePanel
+        loading={false}
+        canCancel={false}
+        result={createResult([], {
+          privilegeMode: "unavailable",
+          message: diagnostic,
+        })}
+        streamingHops={[]}
+        toolEnabled
+        onRun={() => {}}
+        onCancel={() => {}}
+      />,
+    )
+
+    expect(screen.getByText("networkProbe.traceroute.unavailableEmpty")).toBeInTheDocument()
+    expect(screen.queryByText(diagnostic)).not.toBeInTheDocument()
+  })
+
+  it("localizes the unprivileged UDP fallback hint", () => {
+    const diagnostic = "Completed with unprivileged UDP traceroute."
+    render(
+      <TraceroutePanel
+        loading={false}
+        canCancel={false}
+        result={createResult([createHop(1)], {
+          privilegeMode: "unprivileged",
+          message: diagnostic,
+        })}
+        streamingHops={[]}
+        toolEnabled
+        onRun={() => {}}
+        onCancel={() => {}}
+      />,
+    )
+
+    expect(screen.getByText("networkProbe.traceroute.unprivilegedHint")).toBeInTheDocument()
+    expect(screen.queryByText(diagnostic)).not.toBeInTheDocument()
+  })
+
+  it("does not show an empty-result prompt after a cancelled trace", () => {
+    render(
+      <TraceroutePanel
+        loading={false}
+        canCancel={false}
+        result={createResult([], { privilegeMode: "cancelled", cancelled: true })}
+        streamingHops={[]}
+        toolEnabled
+        onRun={() => {}}
+        onCancel={() => {}}
+      />,
+    )
+
+    expect(screen.queryByText("networkProbe.traceroute.empty")).not.toBeInTheDocument()
+    expect(screen.getByText("networkProbe.traceroute.cancelled")).toBeInTheDocument()
   })
 })

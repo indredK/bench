@@ -2163,7 +2163,7 @@
       "privacyHint": "导出内容可能含公网 IP、Wi‑Fi SSID、hosts 异常与本机地址。请仅分享给可信对象。"
     },
     "traceroute": {
-      "hint": "基于 trippy 的路径跳点表（优先特权 ICMP，不足时降级无特权 UDP）。丢包率着色。ASN 经 Team Cymru DNS（可空）。",
+      "hint": "基于 trippy 的路径跳点表（macOS 优先特权 ICMP，失败时降级无特权 UDP；其他平台使用特权 ICMP）。丢包率着色。ASN 经 Team Cymru DNS（可空）。",
       "target": "目标",
       "maxTtl": "最大 TTL",
       "rounds": "轮次",
@@ -2173,6 +2173,8 @@
       "cancelled": "已取消",
       "meta": "{{ip}} · {{mode}} · {{ms}} ms",
       "empty": "尚无跳点。运行追踪以填充表格。",
+      "unavailableEmpty": "没有收到可用的 traceroute 跳点。请检查网络权限或防火墙，再重试或更换目标。",
+      "unprivilegedHint": "当前使用无特权 UDP 追踪；部分网络设备可能不会返回跳点。",
       "mode": {
         "privileged": "特权 ICMP",
         "unprivileged": "无特权 UDP",

@@ -21,6 +21,30 @@ pub fn new_session_id() -> String {
     }
 }
 
+/// Clears an active cancellation record on every function exit path.
+#[must_use = "dropping the guard is what clears the cancellation record"]
+pub struct SessionGuard {
+    session_id: String,
+}
+
+impl SessionGuard {
+    pub fn new() -> Self {
+        Self {
+            session_id: new_session_id(),
+        }
+    }
+
+    pub fn id(&self) -> &str {
+        &self.session_id
+    }
+}
+
+impl Drop for SessionGuard {
+    fn drop(&mut self) {
+        clear_session(&self.session_id);
+    }
+}
+
 /// Idempotent: repeated cancel for an active session is a no-op success.
 /// Unknown and already-finished IDs are ignored without retaining caller input.
 pub fn cancel_scan(session_id: String) {
@@ -51,7 +75,15 @@ pub fn clear_session(session_id: &str) {
 
 #[cfg(test)]
 mod tests {
-    use super::{cancel_scan, clear_session, is_cancelled, new_session_id};
+    use super::{cancel_scan, clear_session, is_cancelled, new_session_id, sessions, SessionGuard};
+    use std::sync::PoisonError;
+
+    fn has_session(session_id: &str) -> bool {
+        sessions()
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .contains_key(session_id)
+    }
 
     #[test]
     fn cancellation_only_marks_active_sessions() {
@@ -71,5 +103,16 @@ mod tests {
         assert!(!is_cancelled(&session_id));
         cancel_scan(session_id.clone());
         assert!(!is_cancelled(&session_id));
+    }
+
+    #[test]
+    fn session_guard_clears_the_registry_on_scope_exit() {
+        let session_id;
+        {
+            let guard = SessionGuard::new();
+            session_id = guard.id().to_string();
+            assert!(has_session(&session_id));
+        }
+        assert!(!has_session(&session_id));
     }
 }
