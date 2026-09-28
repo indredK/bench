@@ -1129,12 +1129,16 @@ mod tests {
             fs::write(path, b"temp").expect("write temp file");
         }
         let old_time = SystemTime::now() - STALE_PACK_TEMP_AGE - std::time::Duration::from_secs(1);
-        fs::File::open(&stale_download)
-            .expect("open stale download temp")
+        fs::OpenOptions::new()
+            .write(true)
+            .open(&stale_download)
+            .expect("open stale download temp for timestamp update")
             .set_modified(old_time)
             .expect("age stale download temp");
-        fs::File::open(&stale_record)
-            .expect("open stale record temp")
+        fs::OpenOptions::new()
+            .write(true)
+            .open(&stale_record)
+            .expect("open stale record temp for timestamp update")
             .set_modified(old_time)
             .expect("age stale record temp");
 
