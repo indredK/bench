@@ -44,7 +44,7 @@
     "check:be": "cd src-tauri && cargo check",
     "clippy:be": "cd src-tauri && cargo clippy -- -D warnings",
     "format:be": "cd src-tauri && cargo fmt --all -- --check",
-    "clean:be": "cd src-tauri && cargo clean",
+    "clean:be": "node scripts/maintenance/rust-cache-clean.mjs --sweep",
     "clean:rust-cache": "node scripts/maintenance/rust-cache-clean.mjs",
     "dev": "tauri dev",
     "build": "tauri build",
@@ -119,6 +119,7 @@
     "prettier-plugin-tailwindcss": "^0.8.1",
     "shadcn": "^4.21.0",
     "tailwindcss": "^4.3.3",
+    "trash": "^10.1.1",
     "typescript": "^6.0.3",
     "vite": "^8.3.0",
     "vitest": "^5.0.1"
