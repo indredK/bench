@@ -195,7 +195,7 @@ export function MarketPanel() {
       </div>
     )
   }
-  if (marketError) {
+  if (!marketListing && marketError) {
     return (
       <div className="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-700">
         <p>{t("extensionCenter.market.loadFailed")}</p>
@@ -206,7 +206,7 @@ export function MarketPanel() {
       </div>
     )
   }
-  if (!marketListing || marketListing.extensions.length === 0) {
+  if (!marketListing) {
     return (
       <div className="rounded border border-dashed p-8 text-center">
         <p className="text-sm font-medium">{t("extensionCenter.market.empty")}</p>
@@ -223,39 +223,81 @@ export function MarketPanel() {
 
   return (
     <div className="flex flex-col gap-3">
-      {marketListing.revokedHits.length > 0 && (
-        <div className="rounded border border-red-300 bg-red-50 p-4 text-sm text-red-800">
-          <p className="font-semibold">{t("extensionCenter.market.revokedBanner")}</p>
-          <ul className="mt-1 list-inside list-disc text-xs">
-            {marketListing.revokedHits.map((hit) => (
-              <li key={hit.id}>
-                {hit.id} @ {hit.version}
-              </li>
-            ))}
-          </ul>
+      {marketError && (
+        <div
+          role="alert"
+          className="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"
+        >
+          <p className="font-medium">{t("extensionCenter.market.refreshFailed")}</p>
+          <p className="mt-1 text-xs">{t("extensionCenter.market.staleDataHint")}</p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-2"
+            disabled={marketLoading}
+            onClick={() => void refreshMarket()}
+          >
+            {t("extensionCenter.retry")}
+          </Button>
         </div>
       )}
-      {marketListing.extensions.map((entry) => {
-        const hit = revokedById.get(entry.id)
-        const busy = entry.versions.some((version) =>
-          busyIds.includes(`${entry.id}@${version.version}`),
-        )
-        return (
-          <div key={entry.id}>
-            <ExtensionCard
-              entry={entry}
-              t={t}
-              onInstall={(id, version) => {
-                void prepareInstall(id, version)
-              }}
-              busy={busy}
-            />
-            {hit && (
-              <p className="mt-1 text-xs text-red-700">{t("extensionCenter.market.revokedNote")}</p>
-            )}
-          </div>
-        )
-      })}
+      {marketLoading && (
+        <p role="status" aria-live="polite" className="text-muted-foreground text-xs">
+          {t("extensionCenter.market.refreshing")}
+        </p>
+      )}
+      {marketListing.extensions.length === 0 ? (
+        <div className="rounded border border-dashed p-8 text-center">
+          <p className="text-sm font-medium">{t("extensionCenter.market.empty")}</p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-3"
+            disabled={marketLoading}
+            onClick={() => void refreshMarket()}
+          >
+            {t("extensionCenter.refresh")}
+          </Button>
+        </div>
+      ) : (
+        <>
+          {marketListing.revokedHits.length > 0 && (
+            <div className="rounded border border-red-300 bg-red-50 p-4 text-sm text-red-800">
+              <p className="font-semibold">{t("extensionCenter.market.revokedBanner")}</p>
+              <ul className="mt-1 list-inside list-disc text-xs">
+                {marketListing.revokedHits.map((hit) => (
+                  <li key={hit.id}>
+                    {hit.id} @ {hit.version}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {marketListing.extensions.map((entry) => {
+            const hit = revokedById.get(entry.id)
+            const busy = entry.versions.some((version) =>
+              busyIds.includes(`${entry.id}@${version.version}`),
+            )
+            return (
+              <div key={entry.id}>
+                <ExtensionCard
+                  entry={entry}
+                  t={t}
+                  onInstall={(id, version) => {
+                    void prepareInstall(id, version)
+                  }}
+                  busy={busy}
+                />
+                {hit && (
+                  <p className="mt-1 text-xs text-red-700">
+                    {t("extensionCenter.market.revokedNote")}
+                  </p>
+                )}
+              </div>
+            )
+          })}
+        </>
+      )}
     </div>
   )
 }

@@ -5,6 +5,8 @@ import { MarketPanel } from "./MarketPanel"
 
 const mocks = vi.hoisted(() => ({
   marketListing: null as unknown,
+  marketLoading: false,
+  marketError: null as unknown,
   prepareInstall: vi.fn(),
   refreshMarket: vi.fn(),
 }))
@@ -24,6 +26,11 @@ vi.mock("react-i18next", () => ({
         "extensionCenter.market.revokedBanner": "Revoked extensions were force-disabled",
         "extensionCenter.market.revokedNote":
           "The installed version was force-disabled. Choose a safe release to update, or uninstall the extension.",
+        "extensionCenter.market.refreshFailed": "Market refresh failed",
+        "extensionCenter.market.staleDataHint":
+          "Showing the last successfully loaded catalog. Retry when your connection is available.",
+        "extensionCenter.market.refreshing": "Refreshing market…",
+        "extensionCenter.retry": "Retry",
       }
       return translations[key] ?? options?.defaultValue ?? key
     },
@@ -33,8 +40,8 @@ vi.mock("react-i18next", () => ({
 vi.mock("../hooks/useMarketController", () => ({
   useMarketController: () => ({
     marketListing: mocks.marketListing,
-    marketLoading: false,
-    marketError: null,
+    marketLoading: mocks.marketLoading,
+    marketError: mocks.marketError,
     busyIds: [],
     refreshMarket: mocks.refreshMarket,
     prepareInstall: mocks.prepareInstall,
@@ -100,6 +107,9 @@ function listing(
 describe("MarketPanel version selection", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.marketListing = null
+    mocks.marketLoading = false
+    mocks.marketError = null
     Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
       configurable: true,
       value: vi.fn(),
@@ -198,5 +208,27 @@ describe("MarketPanel version selection", () => {
       ),
     ).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Update" })).toBeEnabled()
+  })
+
+  it("keeps the last successful listing visible when a refresh fails", async () => {
+    mocks.marketListing = listing([version("1.2.0")])
+    mocks.marketError = { code: "INTERNAL", message: "registry unavailable" }
+
+    render(<MarketPanel />)
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Market refresh failed")
+    expect(screen.getByText("Revocation Demo")).toBeInTheDocument()
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }))
+    expect(mocks.refreshMarket).toHaveBeenCalledOnce()
+  })
+
+  it("shows a compact refresh status while retaining loaded market entries", () => {
+    mocks.marketListing = listing([version("1.2.0")])
+    mocks.marketLoading = true
+
+    render(<MarketPanel />)
+
+    expect(screen.getByRole("status")).toHaveTextContent("Refreshing market…")
+    expect(screen.getByText("Revocation Demo")).toBeInTheDocument()
   })
 })

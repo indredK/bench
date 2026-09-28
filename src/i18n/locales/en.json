@@ -2343,6 +2343,9 @@
     "market": {
       "loadFailed": "Failed to load the market",
       "loadFailedHint": "Check your internet connection or proxy settings, then try again.",
+      "refreshFailed": "Market refresh failed",
+      "staleDataHint": "Showing the last successfully loaded catalog. Retry when your connection is available.",
+      "refreshing": "Refreshing market…",
       "empty": "No extensions available in the market",
       "install": "Install",
       "update": "Update",
