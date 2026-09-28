@@ -386,6 +386,7 @@ pub async fn browser_ws_url(port: u16) -> Result<String, String> {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(5))
         .redirect(reqwest::redirect::Policy::none())
+        .no_proxy()
         .build()
         .map_err(|_| "CDP_HTTP_CLIENT_FAILED".to_string())?;
     let response = client

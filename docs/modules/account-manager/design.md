@@ -49,7 +49,8 @@ AuthProfile 检测从页面、cookie、Web Storage、CSRF、SSO、anti-bot 和 W
 
 - 全局 semaphore 限制同时运行的 probe 数量；账号级 single-flight 把同账号并发刷新合并为一次执行，follower 共享 leader 的成功或结构化错误。
 - leader 被取消或 future 被 drop 时必须唤醒 follower 并清理 registry；禁止 waiter 无限等待，也禁止两个 probe 争用同一 WebView label。
-- HTTP probe 只接受无嵌入凭据的 `http/https` URL，禁止自动 redirect；本机开发站点可继续使用 loopback HTTP。
+- HTTP probe 只接受无嵌入凭据的 `http/https` URL，禁止自动 redirect；本机开发站点可继续使用 loopback HTTP。未配置站点代理时，loopback 探针必须绕过系统代理，避免本机请求和捕获的 Cookie 被转发；公网 URL 仍遵循系统代理，显式站点代理优先。
+- CDP 的 `/json/version` 只访问本机 loopback 调试端点，必须直连并绕过系统代理；后续 WebSocket 地址仍须通过 loopback 校验。
 - 单请求 timeout 4 秒，HTTP 总预算 10 秒，最多 3 次。只重试 408/429/500/502/503/504 和 connect/timeout，使用 200 ms 基数、2 秒上限的 full-jitter 指数退避。
 - `Retry-After` 不超过 2 秒时服从服务端；超过交互预算时停止 HTTP 重试并返回不确定结果，由策略决定是否升级 WebView，不得提前重试违反服务端节流。
 - HTTP probe 使用捕获 Session 的 User-Agent；Cookie 必须满足 host/domain、RFC 6265 path boundary 和 secure 约束。缺少 partition key 时 partitioned Cookie 不得降级发送。

@@ -171,15 +171,13 @@ async fn run_http_probe(
     saved_session: Option<&AccountSession>,
     proxy_url: Option<&str>,
 ) -> AccountManagerResult<Option<ProbeOutcome>> {
-    let mut client = reqwest::Client::builder()
-        .timeout(HTTP_PROBE_REQUEST_TIMEOUT)
-        .redirect(reqwest::redirect::Policy::none());
-    if let Some(proxy_url) = proxy_url {
-        client = client.proxy(
-            reqwest::Proxy::all(proxy_url)
-                .map_err(|e| AccountManagerError::invalid_input(format!("proxy: {e}")))?,
-        );
-    }
+    let client = configure_probe_proxy(
+        reqwest::Client::builder()
+            .timeout(HTTP_PROBE_REQUEST_TIMEOUT)
+            .redirect(reqwest::redirect::Policy::none()),
+        target,
+        proxy_url,
+    )?;
     let client = client
         .build()
         .map_err(|e| AccountManagerError::store_fail(format!("HTTP probe client: {e}")))?;
@@ -232,6 +230,45 @@ async fn run_http_probe(
     })
     .await
     .map_err(|_| AccountManagerError::store_fail("HTTP probe deadline exceeded"))?
+}
+
+/// 为账号探针配置代理。reqwest 的 `system-proxy` feature 会让默认 Client 自动
+/// 使用系统代理，因此无显式站点代理时，loopback 地址必须关闭代理，避免本机
+/// Cookie 请求被转发到代理服务；公网目标仍遵循系统代理，显式站点代理优先。
+fn configure_probe_proxy(
+    client: reqwest::ClientBuilder,
+    target: &url::Url,
+    proxy_url: Option<&str>,
+) -> AccountManagerResult<reqwest::ClientBuilder> {
+    if let Some(proxy_url) = proxy_url {
+        let proxy = reqwest::Proxy::all(proxy_url)
+            .map_err(|e| AccountManagerError::invalid_input(format!("proxy: {e}")))?;
+        return Ok(client.proxy(proxy));
+    }
+
+    if is_loopback_target(target) {
+        return Ok(client.no_proxy());
+    }
+
+    Ok(client)
+}
+
+fn is_loopback_target(target: &url::Url) -> bool {
+    match target.host() {
+        Some(url::Host::Ipv4(address)) => address.is_loopback(),
+        Some(url::Host::Ipv6(address)) => {
+            address.is_loopback()
+                || address
+                    .to_ipv4_mapped()
+                    .is_some_and(|mapped| mapped.is_loopback())
+        }
+        Some(url::Host::Domain(host)) => {
+            let host = host.strip_suffix('.').unwrap_or(host);
+            host.eq_ignore_ascii_case("localhost")
+                || host.to_ascii_lowercase().ends_with(".localhost")
+        }
+        None => false,
+    }
 }
 
 // ═══════════════════════════════════════════════
@@ -318,13 +355,16 @@ async fn run_login_check(
         }
     }
     let url = url::Url::parse(&check.url).ok()?;
-    let mut client = reqwest::Client::builder()
-        .timeout(HTTP_PROBE_REQUEST_TIMEOUT)
-        .redirect(reqwest::redirect::Policy::none());
-    if let Some(proxy_url) = proxy_url {
-        client = client.proxy(reqwest::Proxy::all(proxy_url).ok()?);
-    }
-    let client = client.build().ok()?;
+    let client = configure_probe_proxy(
+        reqwest::Client::builder()
+            .timeout(HTTP_PROBE_REQUEST_TIMEOUT)
+            .redirect(reqwest::redirect::Policy::none()),
+        &url,
+        proxy_url,
+    )
+    .ok()?
+    .build()
+    .ok()?;
     let cookie_header = saved_session
         .map(|session| cookie_header_for_url(session, &url))
         .filter(|header| !header.is_empty());
@@ -925,6 +965,68 @@ mod tests {
         for attempt in 0..20 {
             assert!(full_jitter_delay(attempt) <= Duration::from_millis(2_000));
         }
+    }
+
+    #[test]
+    fn loopback_probe_targets_bypass_system_proxy_only_for_local_hosts() {
+        for target in [
+            "http://127.0.0.1:3000/",
+            "http://127.42.0.9:3000/",
+            "http://[::1]:3000/",
+            "http://[::ffff:127.0.0.1]:3000/",
+            "http://localhost:3000/",
+            "http://dev.localhost:3000/",
+            "http://localhost.:3000/",
+        ] {
+            let target = url::Url::parse(target).unwrap();
+            assert!(is_loopback_target(&target), "expected loopback: {target}");
+        }
+
+        for target in ["https://example.com/", "http://192.168.1.2:3000/"] {
+            let target = url::Url::parse(target).unwrap();
+            assert!(
+                !is_loopback_target(&target),
+                "unexpected loopback: {target}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn http_probe_keeps_an_explicit_station_proxy_for_loopback_targets() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let proxy_address = listener.local_addr().unwrap();
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(2)))
+                .unwrap();
+            let request = read_http_request(&mut stream);
+            stream
+                .write_all(
+                    b"HTTP/1.1 200 OK\r\nContent-Length: 7\r\nConnection: close\r\n\r\nAUTH_OK",
+                )
+                .unwrap();
+            request
+        });
+        let target = url::Url::parse("http://127.0.0.1:1/session").unwrap();
+        let proxy_url = format!("http://{proxy_address}");
+        let config = LoginDetectionConfig {
+            mode: LoginDetectionMode::Custom,
+            logged_out_rule: LoginDetectionRule::default(),
+            logged_in_rule: LoginDetectionRule {
+                presence: LoginDetectionPresence::Present,
+                text: "AUTH_OK".into(),
+            },
+        };
+
+        let outcome = run_http_probe(&target, &config, None, None, Some(&proxy_url))
+            .await
+            .unwrap()
+            .unwrap();
+        let request = server.join().unwrap();
+
+        assert_eq!(outcome.status, AccountSessionStatus::Ready);
+        assert!(request.starts_with("GET http://127.0.0.1:1/session HTTP/1.1"));
     }
 
     #[tokio::test]
