@@ -190,8 +190,8 @@
 
 ### 3.3 Advisor
 
-- `network-probe.advisor.ts`：纯函数 `advise(item): Suggestion[]`，规则表驱动。
-- 后端 `advisor_rules.rs` 供报告导出复用同一语义（避免双源漂移：规则 ID 共享）。
+- 当前由后端 `net_probe::advisor::build_opinions(items)` 作为纯函数生成意见，健康扫描与报告共用同一结果；前端只按稳定 i18n key 渲染，不再维护第二份规则表。
+- 诊断分类只依据稳定检查 key/status，不解析 `detail` 等面向用户的文本，避免翻译或文案改动造成建议丢失。
 - 基础视角只展示精简可操作建议；判定依据在展开详情或「安全 / 发现」中呈现〔决策7〕。
 
 ### 3.4 三次确认 UX（决策4 · 规格）
