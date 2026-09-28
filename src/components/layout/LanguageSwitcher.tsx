@@ -11,6 +11,7 @@ import { readStorageItem, removeStorageItem, writeStorageItem } from "@/platform
 import { setTrayLabels } from "@/lib/tauri/commands"
 
 type LangMode = "system" | "zh" | "en"
+type Language = Exclude<LangMode, "system">
 const CYCLE_ORDER: LangMode[] = ["system", "zh", "en"]
 
 const FLAG_ICON: Record<LangMode, React.ReactNode> = {
@@ -35,9 +36,26 @@ function setStoredMode(mode: LangMode) {
   }
 }
 
+function resolveLanguage(mode: LangMode, systemLanguage: Language): Language {
+  return mode === "system" ? systemLanguage : mode
+}
+
+function getNextMode(currentMode: LangMode, systemLanguage: Language): LangMode {
+  const currentLanguage = resolveLanguage(currentMode, systemLanguage)
+  const currentIndex = CYCLE_ORDER.indexOf(currentMode)
+
+  for (let offset = 1; offset < CYCLE_ORDER.length; offset += 1) {
+    const candidate = CYCLE_ORDER[(currentIndex + offset) % CYCLE_ORDER.length]
+    if (resolveLanguage(candidate, systemLanguage) !== currentLanguage) return candidate
+  }
+
+  return currentMode
+}
+
 function LanguageSwitcher() {
   const { t } = useTranslation()
   const [currentMode, setCurrentMode] = useState<LangMode>(getStoredMode)
+  const systemLanguage = detectSystemLanguage() === "zh" ? "zh" : "en"
 
   const changeLanguage = async (mode: LangMode) => {
     const resolvedLang = mode === "system" ? detectSystemLanguage() : mode
@@ -54,8 +72,7 @@ function LanguageSwitcher() {
     })
   }
 
-  const currentIndex = CYCLE_ORDER.indexOf(currentMode)
-  const nextMode = CYCLE_ORDER[(currentIndex + 1) % CYCLE_ORDER.length]
+  const nextMode = getNextMode(currentMode, systemLanguage)
 
   const tooltipText = t("language.switchTo", { next: t(`language.${nextMode}`) })
 
