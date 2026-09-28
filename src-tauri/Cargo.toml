@@ -60,7 +60,7 @@ async-trait = "0.1"
 quick-xml = { version = "0.42", features = ["serialize"] }
 serde_yaml = "0.9"
 semver = "1"
-reqwest = { version = "0.13", default-features = false, features = ["rustls", "gzip", "brotli", "stream", "socks", "query", "json"] }
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "gzip", "brotli", "stream", "socks", "query", "json", "system-proxy"] }
 sha2 = "0.11"
 md5 = "0.8"
 sha1 = "0.11"

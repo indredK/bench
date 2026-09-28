@@ -195,12 +195,14 @@ pnpm run test:critical       # ✓ 145 passed
 > 原「P3 剩余：registry 服务端 / 目录拉取 / zip 下载解压」与「P4：market 安装向导」描述的是**同一条用户路径的两半**。拆开做的典型后果是后端通了但 UI 没接、无法端到端验证。此处合并为一条，验收标准唯一。
 
 - [x] **registry 形态：静态 JSON + Git/GitHub Pages/jsDelivr 托管**（`registry.rs`：schema v1 全量校验 + `yanked`；基址由 env `BENCH_EXT_REGISTRY_URL` 配置，未配置时使用官方默认源）
-- [x] 目录拉取：renderer **不自选 URL**（`ext_market_list` 只回传展示数据，**不含 downloadUrl**）；基址由后端 env 决定，复用 `url` crate 解析 HTTPS URL，拒绝私有/保留 IP 字面量、本地域名、凭据和片段；registry 与包下载的每一跳重定向均复验，保留 reqwest 的循环检测及 10 跳限制；请求错误脱敏，不记录签名 URL 查询参数（D-007）
+- [x] 目录拉取：renderer **不自选 URL**（`ext_market_list` 只回传展示数据，**不含 downloadUrl**）；基址由后端 env 决定，复用 `url` crate 解析 HTTPS URL，拒绝私有/保留 IP 字面量、本地域名、凭据和片段；HTTP 请求遵循 macOS / Windows 系统代理；registry 与包下载的每一跳重定向均复验，保留 reqwest 的循环检测及 10 跳限制；请求错误脱敏，不记录签名 URL 查询参数（D-007）
 - [x] 安装向导（两段式）：`ext_market_prepare`（下载 → 整包 sha256+size → 安全解压 → manifest v2 + id/version 绑定 → engines → 验签 + trusted comment → 逐文件 hash）→ 信任弹窗 → `ext_market_commit`（版本单调 → 原子落位 → 审计 install）；同一插件的 prepare/commit/cancel 串行化，任一步失败清理临时产物、已装版本不变
 - [x] **信任披露（A4-1）**：prepare 返回 `aclCommands`，确认弹窗展示发布者/版本/申请的全部宿主命令（未申请则明示「无权限」），对齐 VS Code 1.97 publisher trust 取向
 - [x] **吊销通道（A4-2）**：`revoked[]` 支持 `*` / `<X` / `<=X` / 精确版本（未知表达式 fail-closed 视为命中）；`ext_market_list` 拉取时强制禁用命中插件 + 审计 `revoke_hit` + UI 显著警示横幅
 - [x] 插件中心 UI：已安装/市场/诊断三标签；market 卡片展示 yanked / 吊销原因 / engines 不兼容 / 已安装 / 可更新徽标；版本选择器只列后端判定兼容、未吊销、未下架且不违反版本单调性的版本，无候选时区分不可安装与已安装且暂无更新；已安装吊销版本保留更新/卸载指引；安装按钮走两段式信任流；i18n zh+en 全覆盖
 - [x] 市场刷新体验：刷新失败时保留上次成功目录并提供就地重试；刷新进行中展示轻量状态，不以错误页覆盖已加载内容
+- [x] 市场详情与信任披露：详情弹窗展示发布者、版本、体积、发布时间、engines 与吊销状态；用户主动校验包后才显示来自已验证 manifest 的完整 ACL、信任依据及按权限类别归组的 host-command 支持状态
+- [ ] 完整运行能力矩阵（`supported / degraded / unsupported / missing_pack`）：`supported`/engines 不兼容已在详情中反映；剩余状态依赖 D-017 能力声明、能力包探测与安装/卸载契约，当前 manifest 不支持声明，禁止由 renderer 猜测
 - [x] 诊断面板：`ext_diagnostics` 返回 `ext-audit.log` + `ext-diagnostics.jsonl` 各最近 200 条，插件中心内直接查看
 - [x] minisign 真实签名：管线已按 spec §4 全量校验（canonical + trusted comment）；单测以确定性 ed25519 夹具构造真实签名走通正向路径。_签出首批插件需 registry 私钥环境（外部前置）_
 - [x] 能力兼容标记：market 版本条目包含 `compatible` / `installed` / `updateAvailable` / `yanked` / `revokedReason` / `installable`；安装候选由后端综合 engines、吊销、下架和版本单调性计算；D-017 pack 形态（degraded/missing_pack）当前无 pack 交付物，字段位预留、随首个 pack 插件启用
@@ -257,7 +259,7 @@ pnpm run test:critical       # ✓ 145 passed
 - [x] **重系统耦合模块降级为「按需」而非计划内**：quick-launch / app-manager / command-center / network-probe / updater / system-settings / account-manager（涉及权限、凭据、系统级动作，插件化收益低而破坏面高）
 - [ ] dev-toolbox host 泛化（删 `TOOLBOX_FEATURE_IDS` 与硬编码 tabs）—— 仅在前述迁移确有收益时执行
 - [x] 清理宿主无调用者的 `src/shared/compare/CompareTabs.tsx`，并移除已迁出照片插件的孤立 `errors.NO_SESSION` 翻译键（zh/en）。
-- [ ] 将 `ModelPicker` 从宿主 `FilterBar` 拆入官方 hardware 插件后，再移除宿主侧型号选择能力；目前 plugin-market 源码仍通过宿主 Vite alias 使用该能力，直接删除会破坏插件构建。
+- [ ] 将 `ModelPicker` 与 `CompareTabs` 从宿主共享目录迁入官方 hardware 插件后，再移除宿主侧对比组件；目前 plugin-market 源码仍通过宿主 Vite alias 使用两者，直接删除会破坏插件构建。
 - [ ] 253 条命令的 ACL 能力面按批登记，不预先全量登记（每批 `verify` + 双平台 CI 护航）
 
 ---

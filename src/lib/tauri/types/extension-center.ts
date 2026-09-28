@@ -60,6 +60,8 @@ export interface RevokedHit {
 export interface MarketInstallPreview {
   id: string
   version: string
+  /** 已通过 manifest 与 registry 双重校验的 Bench 版本约束。 */
+  enginesBench: string
   displayEn: string
   displayZh: string | null
   publisherName: string | null

@@ -435,6 +435,8 @@ fn cache_dir<R: Runtime>(app: &AppHandle<R>) -> AppResult<PathBuf> {
 pub struct MarketInstallPreview {
     pub id: String,
     pub version: String,
+    /// 已通过 manifest 与 registry 双重校验的 Bench 版本约束。
+    pub engines_bench: String,
     pub display_en: String,
     pub display_zh: Option<String>,
     pub publisher_name: Option<String>,
@@ -607,6 +609,7 @@ pub async fn ext_market_prepare(
         Ok((manifest, trust_kind)) => Ok(MarketInstallPreview {
             id: manifest.id.clone(),
             version: manifest.version.clone(),
+            engines_bench: manifest.engines.bench.clone(),
             display_en: manifest.display_name("en").to_string(),
             display_zh: manifest.display.zh.clone(),
             publisher_name: entry.publisher.as_ref().map(|p| p.name.clone()),

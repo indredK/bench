@@ -8,7 +8,6 @@ import { useMarketController } from "@/features/extension-center/hooks/useMarket
 import { selectMetadata, useResolvedLocale } from "@/features/extension-center/lib/metadata"
 import { BridgePanel } from "@/features/extension-center/components/BridgePanel"
 import { DiagnosticsPanel } from "@/features/extension-center/components/DiagnosticsPanel"
-import { InstallConfirmDialog } from "@/features/extension-center/components/InstallConfirmDialog"
 import { MarketPanel } from "@/features/extension-center/components/MarketPanel"
 import type { ExtensionSummary } from "@/lib/tauri/types/extension-center"
 
@@ -172,14 +171,7 @@ export default function ExtensionCenterPage() {
   const locale = useResolvedLocale()
   const { items, loading, error, busyIds, refresh, open, toggleEnabled, uninstall } =
     useExtensionCenterController()
-  const {
-    marketLoading,
-    refreshMarket,
-    pendingPreview,
-    committing,
-    confirmInstall,
-    cancelInstall,
-  } = useMarketController()
+  const { marketLoading, refreshMarket } = useMarketController()
   const [uninstallTarget, setUninstallTarget] = useState<ExtensionSummary | null>(null)
   const [tab, setTab] = useState<TabKey>("installed")
 
@@ -257,13 +249,6 @@ export default function ExtensionCenterPage() {
       {tab === "market" && <MarketPanel />}
       {tab === "bridge" && <BridgePanel />}
       {tab === "diagnostics" && <DiagnosticsPanel />}
-
-      <InstallConfirmDialog
-        preview={pendingPreview}
-        committing={committing}
-        onConfirm={() => void confirmInstall()}
-        onCancel={cancelInstall}
-      />
 
       <DestructiveConfirmDialog
         open={uninstallTarget !== null}

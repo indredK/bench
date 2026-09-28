@@ -6,8 +6,8 @@
 
 ### 市场详情与能力矩阵
 
-- [ ] 专用插件详情页：发布者、完整宿主命令、`engines` 约束及信任/签名状态。
-- [ ] 完整能力矩阵：`supported / degraded / unsupported / missing_pack`，对齐 D-017。
+- [x] 专用插件详情弹窗：立即显示发布者、`engines`、版本、体积和撤回/吊销状态；用户主动校验包后显示完整宿主命令、按权限类别归组的支持状态及真实信任/签名结果。
+- [ ] 完整运行能力矩阵：`supported / degraded / unsupported / missing_pack`。当前仅能从 ACL/engines 判断宿主命令和版本兼容；其余状态必须等待 D-017 能力声明、宿主探测与能力包生命周期契约，不允许从 registry 或 renderer 猜测。
 
 ### P4.5 作者侧验收
 

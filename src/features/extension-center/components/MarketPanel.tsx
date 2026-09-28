@@ -17,6 +17,7 @@ import type {
 
 import { useMarketController } from "../hooks/useMarketController"
 import { selectMetadata, useResolvedLocale } from "../lib/metadata"
+import { InstallConfirmDialog } from "./InstallConfirmDialog"
 
 /** 数字段比较（与后端 `version_at_least` 同口径）：a &gt; b 返回正数。 */
 export function compareVersions(a: string, b: string): number {
@@ -83,11 +84,13 @@ function ExtensionCard({
   entry,
   t,
   onInstall,
+  onDetails,
   busy,
 }: {
   entry: MarketExtensionSummary
   t: (key: string) => string
   onInstall: (extensionId: string, version: string) => void
+  onDetails: (entry: MarketExtensionSummary, version: MarketVersionSummary) => void
   busy: boolean
 }) {
   const sortedVersions = [...entry.versions].sort((a, b) => compareVersions(b.version, a.version))
@@ -175,6 +178,14 @@ function ExtensionCard({
                 )}
               </p>
             )}
+            <Button
+              variant="link"
+              size="sm"
+              className="h-auto px-0 py-0 text-xs"
+              onClick={() => onDetails(entry, version)}
+            >
+              {t("extensionCenter.market.details")}
+            </Button>
           </div>
         ))}
       </div>
@@ -185,8 +196,22 @@ function ExtensionCard({
 /** P4 market 面板：registry 目录浏览 + 信任披露 + 安装/升级。 */
 export function MarketPanel() {
   const { t } = useTranslation()
-  const { marketListing, marketLoading, marketError, busyIds, refreshMarket, prepareInstall } =
-    useMarketController()
+  const {
+    marketListing,
+    marketLoading,
+    marketError,
+    busyIds,
+    pendingPreview,
+    committing,
+    refreshMarket,
+    prepareInstall,
+    confirmInstall,
+    cancelInstall,
+  } = useMarketController()
+  const [detailsTarget, setDetailsTarget] = useState<{
+    entry: MarketExtensionSummary
+    version: MarketVersionSummary
+  } | null>(null)
 
   if (marketLoading && marketListing === null) {
     return (
@@ -284,8 +309,15 @@ export function MarketPanel() {
                   entry={entry}
                   t={t}
                   onInstall={(id, version) => {
+                    const selected = entry.versions.find(
+                      (candidate) => candidate.version === version,
+                    )
+                    if (selected) setDetailsTarget({ entry, version: selected })
                     void prepareInstall(id, version)
                   }}
+                  onDetails={(selectedEntry, version) =>
+                    setDetailsTarget({ entry: selectedEntry, version })
+                  }
                   busy={busy}
                 />
                 {hit && (
@@ -298,6 +330,32 @@ export function MarketPanel() {
           })}
         </>
       )}
+      <InstallConfirmDialog
+        entry={detailsTarget?.entry ?? null}
+        version={detailsTarget?.version ?? null}
+        preview={pendingPreview}
+        verifying={
+          detailsTarget !== null &&
+          busyIds.includes(`${detailsTarget.entry.id}@${detailsTarget.version.version}`)
+        }
+        committing={committing}
+        onVerify={() => {
+          if (detailsTarget) {
+            void prepareInstall(detailsTarget.entry.id, detailsTarget.version.version)
+          }
+        }}
+        onConfirm={() => {
+          void confirmInstall().finally(() => setDetailsTarget(null))
+        }}
+        onCancel={() => {
+          const previewMatches =
+            detailsTarget !== null &&
+            pendingPreview?.id === detailsTarget.entry.id &&
+            pendingPreview.version === detailsTarget.version.version
+          if (previewMatches) void cancelInstall()
+          setDetailsTarget(null)
+        }}
+      />
     </div>
   )
 }

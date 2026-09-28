@@ -7,16 +7,53 @@ const mocks = vi.hoisted(() => ({
   marketListing: null as unknown,
   marketLoading: false,
   marketError: null as unknown,
+  pendingPreview: null as unknown,
   prepareInstall: vi.fn(),
+  confirmInstall: vi.fn(async () => {}),
+  cancelInstall: vi.fn(async () => {}),
   refreshMarket: vi.fn(),
 }))
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string, options?: { defaultValue?: string }) => {
+    t: (
+      key: string,
+      options?: { defaultValue?: string; name?: string; id?: string; version?: string },
+    ) => {
       const translations: Record<string, string> = {
         "extensionCenter.market.install": "Install",
+        "extensionCenter.cancel": "Cancel",
+        "extensionCenter.close": "Close",
         "extensionCenter.market.update": "Update",
+        "extensionCenter.market.details": "Details",
+        "extensionCenter.market.detailsTitle": "Extension details",
+        "extensionCenter.market.detailsDescription": "{{name}} ({{id}}), version {{version}}",
+        "extensionCenter.market.publisher": "Registry-declared publisher",
+        "extensionCenter.market.releaseVersion": "Release version",
+        "extensionCenter.market.requiresBenchLabel": "Bench version requirement",
+        "extensionCenter.market.packageSize": "Package size",
+        "extensionCenter.market.publishedAt": "Published",
+        "extensionCenter.market.unknownDate": "Unknown",
+        "extensionCenter.market.releaseStatus": "Release status",
+        "extensionCenter.market.compatible": "Compatible",
+        "extensionCenter.market.supported": "Supported",
+        "extensionCenter.market.unsupported": "Unsupported",
+        "extensionCenter.market.verificationTitle": "Package trust and permissions",
+        "extensionCenter.market.verifyToViewPermissions":
+          "Verify this release to inspect package trust and permissions",
+        "extensionCenter.market.permissionsHiddenUntilVerified":
+          "Permission details are hidden until verified",
+        "extensionCenter.market.permissionGroups.photoTriage":
+          "Local photo scanning and file organization",
+        "extensionCenter.market.capabilityStatusNote":
+          "Supported means commands passed the host ACL allow-list check",
+        "extensionCenter.market.noOptionalPacks": "No optional packs are declared",
+        "extensionCenter.market.verifyPackage": "Verify package",
+        "extensionCenter.market.verifying": "Verifying…",
+        "extensionCenter.market.trustKind.officialRegistry":
+          "Official registry package checksum and file manifest verified",
+        "extensionCenter.market.requestedPermissions": "Requested host commands",
+        "extensionCenter.market.trustNote": "Extension code remains untrusted",
         "extensionCenter.market.revoked": "Revoked",
         "extensionCenter.market.revokedReason": "Reason: {reason}",
         "extensionCenter.market.selectVersion": "Select a version to install",
@@ -32,7 +69,10 @@ vi.mock("react-i18next", () => ({
         "extensionCenter.market.refreshing": "Refreshing market…",
         "extensionCenter.retry": "Retry",
       }
-      return translations[key] ?? options?.defaultValue ?? key
+      return (translations[key] ?? options?.defaultValue ?? key).replace(
+        /{{(name|id|version)}}/g,
+        (_placeholder, name: "name" | "id" | "version") => options?.[name] ?? `{{${name}}}`,
+      )
     },
   }),
 }))
@@ -43,8 +83,12 @@ vi.mock("../hooks/useMarketController", () => ({
     marketLoading: mocks.marketLoading,
     marketError: mocks.marketError,
     busyIds: [],
+    pendingPreview: mocks.pendingPreview,
+    committing: false,
     refreshMarket: mocks.refreshMarket,
     prepareInstall: mocks.prepareInstall,
+    confirmInstall: mocks.confirmInstall,
+    cancelInstall: mocks.cancelInstall,
   }),
 }))
 
@@ -110,6 +154,7 @@ describe("MarketPanel version selection", () => {
     mocks.marketListing = null
     mocks.marketLoading = false
     mocks.marketError = null
+    mocks.pendingPreview = null
     Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
       configurable: true,
       value: vi.fn(),
@@ -230,5 +275,62 @@ describe("MarketPanel version selection", () => {
 
     expect(screen.getByRole("status")).toHaveTextContent("Refreshing market…")
     expect(screen.getByText("Revocation Demo")).toBeInTheDocument()
+  })
+
+  it("opens registry details without downloading or trusting registry permissions", async () => {
+    mocks.marketListing = listing([version("1.2.0")])
+
+    render(<MarketPanel />)
+    await userEvent.click(screen.getByRole("button", { name: "Details" }))
+
+    expect(screen.getByRole("dialog")).toHaveTextContent("Extension details")
+    expect(screen.getByRole("dialog")).toHaveTextContent(
+      "Revocation Demo (revocation-demo), version 1.2.0",
+    )
+    expect(screen.getByText("Registry-declared publisher")).toBeInTheDocument()
+    expect(screen.getByText("Bench version requirement")).toBeInTheDocument()
+    expect(
+      screen.getByText("Verify this release to inspect package trust and permissions"),
+    ).toBeInTheDocument()
+    expect(mocks.prepareInstall).not.toHaveBeenCalled()
+  })
+
+  it("labels a non-installable details dialog as close instead of cancel", async () => {
+    mocks.marketListing = listing([version("1.2.0", { installable: false })])
+
+    render(<MarketPanel />)
+    await userEvent.click(screen.getByRole("button", { name: "Details" }))
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument()
+    expect(screen.getAllByRole("button", { name: "Close" })).toHaveLength(1)
+    expect(screen.queryByRole("button", { name: "Verify package" })).not.toBeInTheDocument()
+    expect(mocks.prepareInstall).not.toHaveBeenCalled()
+  })
+
+  it("shows package trust and the verified host-command matrix only after verification", async () => {
+    mocks.marketListing = listing([version("1.2.0")])
+    mocks.pendingPreview = {
+      id: "revocation-demo",
+      version: "1.2.0",
+      enginesBench: ">=1.2.0",
+      displayEn: "Revocation Demo",
+      displayZh: "吊销验证插件",
+      publisherName: "Bench QA",
+      sizeBytes: 1,
+      trustKind: "officialRegistry",
+      aclCommands: ["photo_triage_scan", "photo_triage_trash"],
+    }
+
+    render(<MarketPanel />)
+    await userEvent.click(screen.getByRole("button", { name: "Details" }))
+
+    const dialog = screen.getByRole("dialog")
+    expect(dialog).toHaveTextContent(
+      "Official registry package checksum and file manifest verified",
+    )
+    expect(dialog).toHaveTextContent("Local photo scanning and file organization")
+    expect(dialog).toHaveTextContent("photo_triage_scan")
+    expect(dialog).toHaveTextContent("photo_triage_trash")
+    expect(dialog).toHaveTextContent(">=1.2.0")
   })
 })
