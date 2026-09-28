@@ -1083,11 +1083,15 @@ mod tests {
 
         let now = SystemTime::now();
         let stale_time = now - MARKET_CACHE_TTL - Duration::from_secs(1);
-        fs::File::open(&stale_zip)
+        fs::OpenOptions::new()
+            .write(true)
+            .open(&stale_zip)
             .expect("open stale zip")
             .set_times(fs::FileTimes::new().set_modified(stale_time))
             .expect("age stale zip");
-        fs::File::open(&active_zip)
+        fs::OpenOptions::new()
+            .write(true)
+            .open(&active_zip)
             .expect("open active zip")
             .set_times(fs::FileTimes::new().set_modified(stale_time))
             .expect("age active zip");
