@@ -2094,8 +2094,12 @@
       "cancelled": "局域网发现已在扫描中取消。"
     },
     "lanSvc": {
-      "hint": "只读浏览局域网 mDNS/DNS-SD 与 SSDP/UPnP 通告。",
+      "hint": "浏览本机局域网发布的 mDNS/DNS-SD 服务与 SSDP/UPnP 设备。",
       "readOnlyHint": "只读发现。不暴露 UPnP Write / AddPortMapping。",
+      "mdnsError": "mDNS 服务浏览失败，请检查本地网络访问权限后重试。",
+      "ssdpError": "SSDP 设备浏览失败，请检查本地网络后重试。",
+      "ssdpSendError": "无法启动或发送 SSDP 多播请求，请检查本机网络权限和连接。",
+      "resultLimit": "已达到 {{limit}} 条服务结果上限，部分服务可能未显示。",
       "run": "浏览局域网服务",
       "running": "浏览中…",
       "empty": "监听窗口内无 mDNS/SSDP 响应。",
