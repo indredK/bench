@@ -10,6 +10,7 @@ import {
   useNetworkProbeStore,
 } from "@/features/network-probe/store"
 import { canUseTauriCommands } from "@/platform/capabilities"
+import type { ProbeServer } from "@/lib/tauri/types/network-probe"
 
 function toolStatus(tools: Record<string, string> | undefined, key: string): string | undefined {
   return tools?.[key]
@@ -242,6 +243,15 @@ export function useNetworkProbeController() {
   const authorizeSecurity = useCallback(() => setSecurityAuthorized(true), [setSecurityAuthorized])
   const revokeSecurity = useCallback(() => setSecurityAuthorized(false), [setSecurityAuthorized])
   const resetDefaults = useCallback(() => networkProbeUseCases.resetDefaults(), [])
+  const saveDiscoveryDefaults = useCallback(
+    (stunServers: ProbeServer[], ntpServers: ProbeServer[]) =>
+      networkProbeUseCases.saveDiscoveryDefaults(stunServers, ntpServers),
+    [],
+  )
+  const resetDiscoveryDefaults = useCallback(
+    () => networkProbeUseCases.resetDiscoveryDefaults(),
+    [],
+  )
 
   const l2Id = nav.l2ByL1[nav.l1Id]
   const tools = capabilities?.tools
@@ -400,5 +410,7 @@ export function useNetworkProbeController() {
     revokeSecurity,
     clearReportHistory,
     resetDefaults,
+    saveDiscoveryDefaults,
+    resetDiscoveryDefaults,
   }
 }

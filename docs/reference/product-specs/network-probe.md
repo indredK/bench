@@ -200,7 +200,7 @@ L1 → L2 映射：
 - **长任务**：events 流式（`network-probe:health-item` / `traceroute-hop` / `site-sample` / `ping-sample` / `speed-sample` / `port-sample` / `pack-progress` / `scan-session`）；会话取消统一 `network-probe-cancel-scan(sessionId)`，**同一会话只允许发一次取消（幂等）**，新会话重置取消标记（有单测 `cancel-idempotency.test.ts`）。
 - **长列表性能**：端口样本、ARP 邻居与 LAN 服务列表超过 50 项时复用 `VirtualList` 和已安装的 `@tanstack/react-virtual`，限制 320px 滚动视口并只渲染可见行；固定行高、溢出截断并保留完整 `title` 与列表位置语义。Traceroute 超过 50 跳时通过前后占位行虚拟化原生表格，当前后端最大 TTL 为 32，常规情况下仍使用完整原生表格。
 - **capabilities 能力声明**：后端 `build_capabilities` 返回 platform / privilegeLevel / tools 状态（supported/partial/degraded/unsupported/missing_pack）/ externalTools（如 nmap）；前端 `toolEnabled` 依此控制按钮可用性与降级提示。
-- **defaults 目录**：`get_network_probe_defaults` 返回 DNS 预设、站点包、探测目标、强制门户、公网 IP API、MTU 目标等默认资源；支持用户覆盖（`saveDefaultsOverride`）与重置（`resetDefaults`）。
+- **defaults 目录**：`get_network_probe_defaults` 返回 DNS 预设、站点包、探测目标、强制门户、公网 IP API、MTU、STUN 与 NTP 默认资源；`saveDefaultsOverride` 对提供的字段做局部合并并以原子写入、进程互斥和 OS 文件锁协调共享配置目录的并发实例，用户可编辑 STUN/NTP 来源，`resetDiscoveryDefaults` 只恢复这两类内置来源，`resetDefaults` 恢复全部目录。
 - **面板复用**：offline 内的 ipv6/mtu/egress 复用同一 `Ipv6Panel`/`MtuPanel`/`EgressPanel`（`dualFrom` 区分来源），避免双入口冲突。
 - **测速护栏**：LibreSpeed 硬上限 32/8 MB、失败 30s 冷却。
 - **体检健壮性**：VPN/utun 默认路由无 gateway 行不误报；识别 DNS Fake-IP（198.18/15）与本地系统代理；`reach.public_name` 在 Fake-IP 下跳过 ICMP。

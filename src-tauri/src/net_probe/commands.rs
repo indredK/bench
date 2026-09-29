@@ -41,6 +41,11 @@ pub async fn network_probe_reset_defaults() -> AppResult<()> {
 }
 
 #[tauri::command]
+pub async fn network_probe_reset_discovery_defaults() -> AppResult<()> {
+    super::defaults::reset_discovery_defaults()
+}
+
+#[tauri::command]
 pub async fn network_probe_list_capability_packs(
     app: AppHandle,
 ) -> AppResult<Vec<CapabilityPackInfo>> {
@@ -115,12 +120,14 @@ pub async fn network_probe_scan_ports(
 
 #[tauri::command]
 pub async fn network_probe_probe_nat() -> AppResult<NatProbeResult> {
-    super::nat::probe_nat().await
+    let defaults = super::defaults::get_defaults()?;
+    super::nat::probe_nat(&defaults.stun_servers).await
 }
 
 #[tauri::command]
 pub async fn network_probe_probe_ntp() -> AppResult<NtpProbeResult> {
-    super::ntp::probe_ntp().await
+    let defaults = super::defaults::get_defaults()?;
+    super::ntp::probe_ntp(&defaults.ntp_servers).await
 }
 
 #[tauri::command]

@@ -9,6 +9,7 @@ export const networkProbeRepository = {
   getDefaults: commands.getNetworkProbeDefaults,
   saveDefaultsOverride: commands.saveDefaultsOverride,
   resetDefaults: commands.resetNetworkProbeDefaults,
+  resetDiscoveryDefaults: commands.resetNetworkProbeDiscoveryDefaults,
   listCapabilityPacks: commands.listCapabilityPacks,
   installCapabilityPack: commands.installCapabilityPack,
   uninstallCapabilityPack: commands.uninstallCapabilityPack,

@@ -1,17 +1,11 @@
 //! NTP offset probe — multi-source median (design-discover §3.4).
 
-use super::types::NtpProbeResult;
+use super::types::{NtpProbeResult, ProbeServer};
 use crate::error::AppResult;
 use futures_util::future::join_all;
 use rsntp::{AsyncSntpClient, Config};
 use std::time::{Duration, Instant};
 
-const NTP_SERVERS: &[&str] = &[
-    "time.apple.com:123",
-    "time.cloudflare.com:123",
-    "time.google.com:123",
-    "ntp.aliyun.com:123",
-];
 const NTP_TIMEOUT: Duration = Duration::from_secs(4);
 
 #[derive(Debug)]
@@ -21,27 +15,34 @@ struct NtpSample {
     stratum: u8,
 }
 
-pub async fn probe_ntp() -> AppResult<NtpProbeResult> {
-    let command_hint =
-        "probeNtp(local) // multi-source median (Apple/Cloudflare/Google/Aliyun)".to_string();
+pub async fn probe_ntp(servers: &[ProbeServer]) -> AppResult<NtpProbeResult> {
+    let servers = servers
+        .iter()
+        .take(super::defaults::MAX_NTP_SERVERS)
+        .collect::<Vec<_>>();
+    let command_hint = format!(
+        "probeNtp(local) // multi-source median ({} configured source(s))",
+        servers.len()
+    );
     let started = Instant::now();
-    let attempts = join_all(NTP_SERVERS.iter().copied().map(probe_one)).await;
+    let attempts = join_all(servers.iter().map(|source| probe_one(&source.server))).await;
     let elapsed_ms = started.elapsed().as_secs_f64() * 1000.0;
 
     let mut samples = Vec::new();
     let mut details = Vec::with_capacity(attempts.len());
     let mut used = Vec::new();
-    for (server, attempt) in NTP_SERVERS.iter().zip(attempts) {
+    for (source, attempt) in servers.iter().zip(attempts) {
+        let server = &source.server;
         match attempt {
             Ok(sample) => {
-                used.push((*server).to_string());
+                used.push(format!("{} ({server})", source.id));
                 details.push(format!(
-                    "{server} offset={:.3}s stratum={}",
-                    sample.offset_seconds, sample.stratum
+                    "{} ({server}) offset={:.3}s stratum={}",
+                    source.id, sample.offset_seconds, sample.stratum
                 ));
                 samples.push(sample);
             }
-            Err(error) => details.push(format!("{server} fail:{error}")),
+            Err(error) => details.push(format!("{} ({server}) fail:{error}", source.id)),
         }
     }
 
@@ -53,9 +54,13 @@ pub async fn probe_ntp() -> AppResult<NtpProbeResult> {
             rtt_seconds: None,
             stratum: None,
             sources_succeeded: 0,
-            sources_configured: NTP_SERVERS.len() as u8,
+            sources_configured: servers.len() as u8,
             severity: "fail".into(),
-            detail: Some(format!("All NTP sources failed. {}", details.join("; "))),
+            detail: Some(if servers.is_empty() {
+                "No NTP sources are configured.".into()
+            } else {
+                format!("All NTP sources failed. {}", details.join("; "))
+            }),
             elapsed_ms,
             command_hint,
         });
@@ -96,7 +101,7 @@ pub async fn probe_ntp() -> AppResult<NtpProbeResult> {
         rtt_seconds: Some(rtt_median),
         stratum,
         sources_succeeded: samples.len() as u8,
-        sources_configured: NTP_SERVERS.len() as u8,
+        sources_configured: servers.len() as u8,
         severity: severity.into(),
         detail: Some(format!(
             "median_offset={median:.3}s from {} source(s). {}",
@@ -108,7 +113,7 @@ pub async fn probe_ntp() -> AppResult<NtpProbeResult> {
     })
 }
 
-async fn probe_one(server: &'static str) -> Result<NtpSample, String> {
+async fn probe_one(server: &str) -> Result<NtpSample, String> {
     let mut addresses = tokio::net::lookup_host(server)
         .await
         .map_err(|error| format!("DNS lookup failed: {error}"))?

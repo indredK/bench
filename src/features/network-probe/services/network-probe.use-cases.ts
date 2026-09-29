@@ -8,6 +8,7 @@ import { TAURI_EVENTS } from "@/lib/tauri/contracts"
 import { getErrorMessage } from "@/lib/tauri/errors"
 import type {
   CapabilityPackProgress,
+  ProbeServer,
   HealthCheckItem,
   PingSample,
   SiteSampleResult,
@@ -1013,6 +1014,40 @@ export const networkProbeUseCases = {
         key: "networkProbe.errors.defaultsFailed",
         fallback: getErrorMessage(error),
       })
+    }
+  },
+
+  async saveDiscoveryDefaults(stunServers: ProbeServer[], ntpServers: ProbeServer[]) {
+    const store = useNetworkProbeStore.getState()
+    store.setError(null)
+    store.appendCommandLog("saveNetworkProbeDiscoveryDefaults()")
+    try {
+      await networkProbeRepository.saveDefaultsOverride({ stunServers, ntpServers })
+      store.setDefaults(await networkProbeRepository.getDefaults())
+      return true
+    } catch (error) {
+      store.setError({
+        key: "networkProbe.errors.defaultsFailed",
+        fallback: getErrorMessage(error),
+      })
+      return false
+    }
+  },
+
+  async resetDiscoveryDefaults() {
+    const store = useNetworkProbeStore.getState()
+    store.setError(null)
+    store.appendCommandLog("resetNetworkProbeDiscoveryDefaults()")
+    try {
+      await networkProbeRepository.resetDiscoveryDefaults()
+      store.setDefaults(await networkProbeRepository.getDefaults())
+      return true
+    } catch (error) {
+      store.setError({
+        key: "networkProbe.errors.defaultsFailed",
+        fallback: getErrorMessage(error),
+      })
+      return false
     }
   },
 }

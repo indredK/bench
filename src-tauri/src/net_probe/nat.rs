@@ -1,6 +1,6 @@
 //! NAT mapping consistency via multi-STUN Binding (design-discover §3.3).
 
-use super::types::NatProbeResult;
+use super::types::{NatProbeResult, ProbeServer};
 use crate::error::{AppError, AppResult};
 use std::collections::BTreeSet;
 use std::net::SocketAddr;
@@ -15,31 +15,44 @@ use stun_proto::Instant as StunInstant;
 use tokio::net::UdpSocket;
 use tokio::time::timeout;
 
-const STUN_SERVERS: &[&str] = &[
-    "stun.l.google.com:19302",
-    "stun1.l.google.com:19302",
-    "stun.cloudflare.com:3478",
-];
 const STUN_TIMEOUT: Duration = Duration::from_secs(3);
 
-pub async fn probe_nat() -> AppResult<NatProbeResult> {
-    let command_hint = "probeNat(local) // multi-STUN Binding (google/cloudflare)".to_string();
+pub async fn probe_nat(servers: &[ProbeServer]) -> AppResult<NatProbeResult> {
+    let servers = servers
+        .iter()
+        .take(super::defaults::MAX_STUN_SERVERS)
+        .collect::<Vec<_>>();
+    let command_hint = format!(
+        "probeNat(local) // multi-STUN Binding ({} configured server(s))",
+        servers.len()
+    );
     let started = Instant::now();
-    let mut resolved = Vec::with_capacity(STUN_SERVERS.len());
-    let mut details = Vec::with_capacity(STUN_SERVERS.len());
+    let mut resolved = Vec::with_capacity(servers.len());
+    let mut details = Vec::with_capacity(servers.len());
 
-    for server_name in STUN_SERVERS {
-        match tokio::net::lookup_host(server_name).await {
+    for source in &servers {
+        match tokio::net::lookup_host(&source.server).await {
             Ok(addresses) => {
                 let addresses = addresses.collect::<Vec<_>>();
                 if addresses.is_empty() {
-                    details.push(format!("{server_name} → no address"));
+                    details.push(format!("{} ({}) → no address", source.id, source.server));
                 } else {
-                    resolved.push((*server_name, addresses));
+                    resolved.push((source, addresses));
                 }
             }
-            Err(error) => details.push(format!("{server_name} → DNS: {error}")),
+            Err(error) => details.push(format!("{} ({}) → DNS: {error}", source.id, source.server)),
         }
+    }
+
+    if servers.is_empty() {
+        return Ok(NatProbeResult {
+            nat_type: "mapping-insufficient".into(),
+            mapped_address: None,
+            stun_server: String::new(),
+            detail: Some("No STUN sources are configured.".into()),
+            elapsed_ms: started.elapsed().as_secs_f64() * 1000.0,
+            command_hint,
+        });
     }
 
     // Use one socket and source port for every server in a family. Rebinding per server would
@@ -56,23 +69,27 @@ pub async fn probe_nat() -> AppResult<NatProbeResult> {
     let mut mapped = BTreeSet::new();
     let mut used = Vec::new();
     let mut success_count = 0;
-    for (server_name, addresses) in resolved {
+    for (source, addresses) in resolved {
+        let server_name = &source.server;
         let server = addresses
             .into_iter()
             .find(|address| address.is_ipv4() == use_ipv4);
         let Some(server) = server else {
-            details.push(format!("{server_name} → no address for selected IP family"));
+            details.push(format!(
+                "{} ({server_name}) → no address for selected IP family",
+                source.id
+            ));
             continue;
         };
 
-        used.push(server_name.to_string());
+        used.push(format!("{} ({server_name})", source.id));
         match probe_one(&socket, server).await {
             Ok(address) => {
                 success_count += 1;
-                details.push(format!("{server_name} → {address}"));
+                details.push(format!("{} ({server_name}) → {address}", source.id));
                 mapped.insert(address);
             }
-            Err(error) => details.push(format!("{server_name} → {error}")),
+            Err(error) => details.push(format!("{} ({server_name}) → {error}", source.id)),
         }
     }
 

@@ -47,6 +47,8 @@ export interface CapabilityPackProgress {
 }
 
 export interface DefaultsOverride {
+  stunServers?: ProbeServer[]
+  ntpServers?: ProbeServer[]
   dnsPresets?: { id: string; address: string; region: string }[]
   sitePacks?: Record<string, { id: string; target: string; channel: string }[]>
   reachTargets?: { id: string; kind: string; target: string }[]
@@ -386,12 +388,19 @@ export interface MtuTarget {
 
 export interface NetworkProbeDefaultsCatalog {
   schemaVersion: number
+  stunServers: ProbeServer[]
+  ntpServers: ProbeServer[]
   dnsPresets: DnsPreset[]
   reachTargets: ReachTarget[]
   captiveProbes: CaptiveProbe[]
   publicIpApis: PublicIpApi[]
   sitePacks: Record<string, SitePreset[]>
   mtuTargets: MtuTarget[]
+}
+
+export interface ProbeServer {
+  id: string
+  server: string
 }
 
 export interface PollutionFinding {

@@ -278,6 +278,7 @@ macro_rules! app_invoke_handler {
             $crate::net_probe::commands::get_network_probe_defaults,
             $crate::net_probe::commands::network_probe_save_defaults_override,
             $crate::net_probe::commands::network_probe_reset_defaults,
+            $crate::net_probe::commands::network_probe_reset_discovery_defaults,
             $crate::net_probe::commands::network_probe_list_capability_packs,
             $crate::net_probe::commands::network_probe_install_capability_pack,
             $crate::net_probe::commands::network_probe_install_capability_pack_verify_fail,

@@ -2200,6 +2200,30 @@
       "fail": "NTP probe failed",
       "technicalDetails": "Technical details"
     },
+    "defaults": {
+      "manage": "Sources",
+      "title": "Default probe sources",
+      "description": "Manage the servers used for NAT mapping and clock offset checks. Changes apply to future probes.",
+      "id": "ID",
+      "address": "Server address (host:port)",
+      "add": "Add",
+      "remove": "Remove {{id}}",
+      "restore": "Restore built-in sources",
+      "save": "Save",
+      "saving": "Saving…",
+      "saved": "Saved. Future probes will use these servers.",
+      "restored": "Built-in server lists restored.",
+      "saveFailed": "The operation failed. Check the error and try again.",
+      "invalid": "Check the source count, unique lowercase IDs, and unique host:port addresses.",
+      "stun": {
+        "title": "STUN servers",
+        "hint": "Used to compare public mappings; keep {{minimum}}–{{maximum}} distinct servers."
+      },
+      "ntp": {
+        "title": "NTP servers",
+        "hint": "Used to calculate the median clock offset; configure {{minimum}}–{{maximum}} distinct servers."
+      }
+    },
     "report": {
       "hint": "Export the latest health scan and browse the session command log.",
       "title": "Network Probe health report",

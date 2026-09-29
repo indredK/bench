@@ -588,14 +588,14 @@ src/features/network-probe/
 
 ### 10.1 开放项（实现前可再细化，不阻塞设计评审）
 
-| #   | 项                                                   | 状态                                                                          |
-| --- | ---------------------------------------------------- | ----------------------------------------------------------------------------- |
-| 1   | 默认站点清单定稿（区域包）                           | **草案已收至 [defaults.md §6](./defaults.md)**；实现前可微调，id 稳定后勿乱改 |
-| 2   | agent 协议字段级 schema                              | 草图 §4.4，Post-MVP 再冻                                                      |
-| 3   | `TripleDestructiveConfirm` 视觉稿                    | 规格 §3.4 已定                                                                |
-| 4   | 公网 IP / Captive 检测 URL 最终供应商列表            | **草案已收至 [defaults.md §4–§5](./defaults.md)**；实现期按可用性微调         |
-| 5   | trippy 在目标 macOS 真机特权路径                     | spike 编译过；运行时待真机                                                    |
-| 6   | Defaults 用户覆盖 UI / `getNetworkProbeDefaults` IPC | 规格见 defaults §1.1 / §11；实现随 MVP                                        |
+| #   | 项                                                   | 状态                                                                                  |
+| --- | ---------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| 1   | 默认站点清单定稿（区域包）                           | **草案已收至 [defaults.md §6](./defaults.md)**；实现前可微调，id 稳定后勿乱改         |
+| 2   | agent 协议字段级 schema                              | 草图 §4.4，Post-MVP 再冻                                                              |
+| 3   | `TripleDestructiveConfirm` 视觉稿                    | 规格 §3.4 已定                                                                        |
+| 4   | 公网 IP / Captive 检测 URL 最终供应商列表            | **草案已收至 [defaults.md §4–§5](./defaults.md)**；实现期按可用性微调                 |
+| 5   | trippy 在目标 macOS 真机特权路径                     | spike 编译过；运行时待真机                                                            |
+| 6   | Defaults 用户覆盖 UI / `getNetworkProbeDefaults` IPC | STUN/NTP 编辑与分组恢复已实现；其他目录类别的编辑 UI 待做；契约见 defaults §1.1 / §11 |
 
 ---
 

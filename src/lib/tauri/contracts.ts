@@ -830,6 +830,9 @@ export const TAURI_COMMAND_CONTRACTS = {
   network_probe_reset_defaults: defineTauriCommand<undefined, void>()(
     "network_probe_reset_defaults",
   ),
+  network_probe_reset_discovery_defaults: defineTauriCommand<undefined, void>()(
+    "network_probe_reset_discovery_defaults",
+  ),
   network_probe_list_capability_packs: defineTauriCommand<undefined, CapabilityPackInfo[]>()(
     "network_probe_list_capability_packs",
   ),
@@ -1085,6 +1088,7 @@ export const TAURI_COMMANDS = {
     getDefaults: commandName("get_network_probe_defaults"),
     saveDefaultsOverride: commandName("network_probe_save_defaults_override"),
     resetDefaults: commandName("network_probe_reset_defaults"),
+    resetDiscoveryDefaults: commandName("network_probe_reset_discovery_defaults"),
     listCapabilityPacks: commandName("network_probe_list_capability_packs"),
     installCapabilityPack: commandName("network_probe_install_capability_pack"),
     installCapabilityPackVerifyFail: commandName(
@@ -1693,6 +1697,7 @@ export const TAURI_COMMAND_ARG_KEYS = {
   get_network_probe_defaults: [],
   network_probe_save_defaults_override: ["overrideData"],
   network_probe_reset_defaults: [],
+  network_probe_reset_discovery_defaults: [],
   network_probe_list_capability_packs: [],
   network_probe_install_capability_pack: ["packId", "operationId"],
   network_probe_install_capability_pack_verify_fail: ["packId", "operationId"],

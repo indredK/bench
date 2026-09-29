@@ -3,7 +3,7 @@
  */
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Network } from "lucide-react"
+import { Network, SlidersHorizontal } from "lucide-react"
 import { RuntimeFeatureGate } from "@/components/common/RuntimeFeatureGate"
 import { ArpPanel } from "@/features/network-probe/components/ArpPanel"
 import { DnsLookupPanel } from "@/features/network-probe/components/DnsLookupPanel"
@@ -38,6 +38,7 @@ import { TcpConnectPanel } from "@/features/network-probe/components/TcpConnectP
 import { TraceroutePanel } from "@/features/network-probe/components/TraceroutePanel"
 import { WhoisPanel } from "@/features/network-probe/components/WhoisPanel"
 import { CommandLogSidePanel } from "@/features/network-probe/components/CommandLogSidePanel"
+import { DiscoveryDefaultsDialog } from "@/features/network-probe/components/DiscoveryDefaultsDialog"
 import { useNetworkProbeController } from "@/features/network-probe/hooks/useNetworkProbeController"
 import {
   OFFLINE_SUBS,
@@ -87,6 +88,8 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
   const [packsOpen, setPacksOpen] = useState(false)
   const [focusPackId, setFocusPackId] = useState<string | null>(null)
   const [packsBusy, setPacksBusy] = useState(false)
+  const [defaultsOpen, setDefaultsOpen] = useState(false)
+  const [defaultsBusy, setDefaultsBusy] = useState(false)
   const [sideLogOpen, setSideLogOpen] = useState(true)
 
   const l2Items = L2_BY_L1[c.l1Id]
@@ -262,6 +265,17 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
               })}
             </SelectContent>
           </Select>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 shrink-0"
+            disabled={!c.defaults || defaultsBusy}
+            onClick={() => setDefaultsOpen(true)}
+          >
+            <SlidersHorizontal aria-hidden="true" />
+            {t("networkProbe.defaults.manage")}
+          </Button>
           <Button
             type="button"
             variant="outline"
@@ -769,6 +783,28 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
           onUninstall={(packId) => {
             setPacksBusy(true)
             void c.uninstallCapabilityPack(packId).finally(() => setPacksBusy(false))
+          }}
+        />
+        <DiscoveryDefaultsDialog
+          open={defaultsOpen}
+          busy={defaultsBusy}
+          defaults={c.defaults}
+          onOpenChange={setDefaultsOpen}
+          onSave={async (stunServers, ntpServers) => {
+            setDefaultsBusy(true)
+            try {
+              return await c.saveDiscoveryDefaults(stunServers, ntpServers)
+            } finally {
+              setDefaultsBusy(false)
+            }
+          }}
+          onReset={async () => {
+            setDefaultsBusy(true)
+            try {
+              return await c.resetDiscoveryDefaults()
+            } finally {
+              setDefaultsBusy(false)
+            }
           }}
         />
       </div>

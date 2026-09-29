@@ -2200,6 +2200,30 @@
       "fail": "NTP 探测失败",
       "technicalDetails": "技术详情"
     },
+    "defaults": {
+      "manage": "默认源",
+      "title": "默认探测源",
+      "description": "管理 NAT 映射和时间偏差检查使用的服务器。更改只影响后续探测。",
+      "id": "标识",
+      "address": "服务器地址（主机:端口）",
+      "add": "添加",
+      "remove": "移除 {{id}}",
+      "restore": "恢复内置源",
+      "save": "保存",
+      "saving": "保存中…",
+      "saved": "已保存，后续探测将使用这些服务器。",
+      "restored": "已恢复内置服务器列表。",
+      "saveFailed": "操作失败，请检查错误提示后重试。",
+      "invalid": "请确认数量符合要求，标识唯一且仅用小写字母、数字和短横线，地址为唯一 host:port。",
+      "stun": {
+        "title": "STUN 服务器",
+        "hint": "用于比较公网映射地址；保留 {{minimum}}–{{maximum}} 个不同服务器。"
+      },
+      "ntp": {
+        "title": "NTP 服务器",
+        "hint": "用于计算时间偏差中位数；配置 {{minimum}}–{{maximum}} 个不同服务器。"
+      }
+    },
     "report": {
       "hint": "导出最近一次体检，并浏览本会话命令日志。",
       "title": "网络探测体检报告",

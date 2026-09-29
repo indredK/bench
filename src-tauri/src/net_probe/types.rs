@@ -68,6 +68,10 @@ pub struct CapabilityPackProgress {
 #[serde(rename_all = "camelCase")]
 pub struct DefaultsOverride {
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub stun_servers: Option<Vec<ProbeServer>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ntp_servers: Option<Vec<ProbeServer>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub dns_presets: Option<Vec<DnsPreset>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub site_packs: Option<HashMap<String, Vec<SitePreset>>>,
@@ -192,12 +196,21 @@ pub struct FirewallStatus {
 #[serde(rename_all = "camelCase")]
 pub struct NetworkProbeDefaultsCatalog {
     pub schema_version: u32,
+    pub stun_servers: Vec<ProbeServer>,
+    pub ntp_servers: Vec<ProbeServer>,
     pub dns_presets: Vec<DnsPreset>,
     pub reach_targets: Vec<ReachTarget>,
     pub captive_probes: Vec<CaptiveProbe>,
     pub public_ip_apis: Vec<PublicIpApi>,
     pub site_packs: HashMap<String, Vec<SitePreset>>,
     pub mtu_targets: Vec<MtuTarget>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ProbeServer {
+    pub id: String,
+    pub server: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

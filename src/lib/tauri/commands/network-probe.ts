@@ -25,6 +25,10 @@ export function resetNetworkProbeDefaults() {
   return invokeTauriCommand(TAURI_COMMANDS.networkProbe.resetDefaults)
 }
 
+export function resetNetworkProbeDiscoveryDefaults() {
+  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.resetDiscoveryDefaults)
+}
+
 export function listCapabilityPacks() {
   return invokeTauriCommand(TAURI_COMMANDS.networkProbe.listCapabilityPacks)
 }
