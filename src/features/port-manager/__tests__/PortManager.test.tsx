@@ -6,10 +6,25 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import React from "react"
 import PortManager from "../page"
+import { usePortManagerStore } from "@/features/port-manager/store"
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
   isTauri: vi.fn(() => true),
+}))
+
+vi.mock("@tanstack/react-virtual", () => ({
+  useVirtualizer: ({ count }: { count: number }) => ({
+    getTotalSize: () => count * 120,
+    getVirtualItems: () =>
+      Array.from({ length: count }, (_, index) => ({
+        index,
+        key: index,
+        start: index * 120,
+      })),
+    measureElement: vi.fn(),
+    scrollToIndex: vi.fn(),
+  }),
 }))
 
 vi.mock("react-i18next", () => ({
@@ -25,6 +40,7 @@ vi.mock("react-i18next", () => ({
         "portManager.killAllButton": "Free All Ports",
         "portManager.killAllDisabledHint": "No occupied ports to free",
         "portManager.port": "Port {{port}}",
+        "portManager.noProcess": "No process is currently using this port",
         "portManager.browserError": "Cannot terminate port processes in a browser environment.",
         "portManager.emptyResults": "No scan results yet.",
         "portManager.emptyOnly": "All scanned ports are free.",
@@ -239,6 +255,7 @@ vi.mock("lucide-react", () => ({
 describe("PortManager", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    usePortManagerStore.setState(usePortManagerStore.getInitialState(), true)
   })
 
   it("renders the port manager title", () => {
@@ -264,6 +281,29 @@ describe("PortManager", () => {
     render(<PortManager />)
     expect(screen.getByText("Clear Selected Ports")).toBeInTheDocument()
     expect(screen.getByText("Add to Scan")).toBeInTheDocument()
+  })
+
+  it("does not offer a destructive action for a free port", () => {
+    usePortManagerStore.setState({
+      portStates: [{ port: 3000, status: "empty" }],
+      portDetails: [{ port: 3000, pids: [], process_trees: [], fingerprint: null, error: null }],
+    })
+
+    render(<PortManager />)
+
+    expect(screen.queryByRole("button", { name: "Free Port" })).not.toBeInTheDocument()
+    expect(screen.getByText("No process is currently using this port")).toBeInTheDocument()
+  })
+
+  it("keeps the destructive action available for an occupied port", () => {
+    usePortManagerStore.setState({
+      portStates: [{ port: 3000, status: "success" }],
+      portDetails: [{ port: 3000, pids: [42], process_trees: [], fingerprint: null, error: null }],
+    })
+
+    render(<PortManager />)
+
+    expect(screen.getByRole("button", { name: "Free Port" })).toBeInTheDocument()
   })
 
   it("updates input value on typing valid port numbers", async () => {

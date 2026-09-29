@@ -2,14 +2,15 @@
 
 > 本文件是 extension-center 模块的**完备产品规格**。一切功能改动、优化、bug 修复都必须同步更新本文件。
 > 自包含、可移植：复制到任何项目或交给任何 AI，可据此完整复刻本模块功能。
-> **当前进度**：P2 骨架已落地，P4 完整化为待实现（见下方状态标记与 [../planned/extension-center.md](../../roadmap/planned/extension-center.md)）。
+> **当前进度**：P4 市场安装与管理流程已实现；本机真机已验证市场目录加载。安装、更新、卸载的干净环境验收及 P4.5 新作者 30 分钟验收仍未完成（见 [../planned/extension-center.md](../../roadmap/planned/extension-center.md)）。
 
 ## 1. 定位
 
 - **宿主前端的一部分**（插件中心本身**不是**插件），入口：路由 `/extension-center`，侧边栏注册，全平台显示。
+- 通过侧边栏或导航历史进入时，主面板必须显示对应路由内容；路由过渡动画退出旧面板后显示目标面板，不能只更新地址而保留旧内容。
 - 用途：浏览、安装、启用/禁用、卸载、更新 extension（插件），并查看其权限与诊断信息。
 - 核心保证：
-  - 插件是**不受信任的前端代码**，只能调用 manifest 声明且宿主能力面允许的命令；
+  - 插件是**不受信任的前端代码**，业务命令必须同时由该插件 manifest 声明且在宿主能力面开放；`ext_capabilities`（能力发现）与 `ext_poc_report`（本地诊断）是宿主基础接口；
   - 任何校验失败都**阻止加载或阻止开窗**，不改变已安装版本（fail-closed）；
   - 卸载、吊销等破坏性操作一律二次确认；
   - 越权与验签失败全部进入审计日志。
@@ -27,22 +28,26 @@
 | 行操作   | 打开（禁用时不可点）、启用/禁用、卸载（红字）             | ✅   |
 | 卸载确认 | `DestructiveConfirmDialog`，含插件名占位符                | ✅   |
 
-### 2.2 市场（P4 ⬜）
+### 2.2 市场（P4 ✅ 实现已交付，端到端验收待完成）
 
-| 区块     | 内容                                                                                                            |
-| -------- | --------------------------------------------------------------------------------------------------------------- |
-| 目录浏览 | 从后端 canonical registry 拉取，**renderer 不提供 URL**；展示展示名、描述、发布者、最新版本                     |
-| 安装向导 | 浏览 → 下载 → 权限披露 → 验签 → 解压 → 启用（步骤与失败提示见 [../extension-spec.md](../extension-spec.md) §6） |
-| 权限披露 | 安装前展示该插件申请的 `acl.commands` 的**人类可读描述**，而非裸命令名                                          |
-| 更新提示 | registry 版本比对；`engines` 不满足时给出升级引导；`yanked` 版本提示                                            |
+| 区块     | 内容                                                                                                                                        |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| 目录浏览 | 从后端 canonical registry 拉取，**renderer 不提供 URL**；展示展示名、描述、发布者和全部版本状态                                             |
+| 安装向导 | 浏览 → 下载 → 权限披露 → 按来源校验签名 → 解压 → 安装（步骤与失败提示见 [../extension-spec.md](../extension-spec.md) §4.6 / §6）            |
+| 权限披露 | 安装前展示该插件申请的 `acl.commands` 的**人类可读描述**，而非裸命令名                                                                      |
+| 版本选择 | 用户选择后端标记为可安装的版本；吊销、yanked、不兼容、已安装及非单调升级版本不能进入候选列表                                                |
+| 更新提示 | registry 版本比对；`engines` 不满足时给出升级引导；`yanked` 和吊销版本显示状态与原因，且不显示为可安装版本                                  |
+| 来源说明 | 安装确认弹窗明确显示官方 registry 摘要校验、第三方 minisign 验签或开发模式未验证状态                                                        |
+| 网络安全 | registry / 包 URL 必须为 HTTPS；遵循 macOS / Windows 系统代理；拒绝本地地址、凭据和片段；每一跳重定向复验；签名查询参数不进入错误或审计日志 |
 
-### 2.3 详情与诊断（P4 ⬜）
+### 2.3 详情与诊断（P4 ✅ 基础功能已交付，专用详情页待实现）
 
-| 区块     | 内容                                                                                                            |
-| -------- | --------------------------------------------------------------------------------------------------------------- |
-| 详情页   | 版本、发布者、能力矩阵、申请的宿主命令清单、`engines` 约束、签名状态                                            |
-| 诊断面板 | 查看插件运行日志（替代裸 JSON 文件），按 kind 过滤（window-error / unhandled-rejection / console.error / boot） |
-| 吊销警示 | 命中 registry `revoked` 时显著警示并强制禁用                                                                    |
+| 区块     | 内容                                                                                                                                                                                         |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 详情弹窗 | 立即展示发布者、版本、体积、发布时间、`engines`、撤回/吊销状态；权限清单和信任/签名状态必须在用户主动触发包校验后展示，信息取自已验证的包内 manifest。                                       |
+| 命令矩阵 | 按权限类别归组，列出全部原始宿主命令；`supported` 只表示通过当前 ACL 白名单校验，不承诺运行时操作必定成功。D-017 的 `degraded` / `missing_pack` 需要能力包声明与探测契约，未实现前不得猜测。 |
+| 诊断面板 | 查看插件运行日志（替代裸 JSON 文件），按 kind 过滤（window-error / unhandled-rejection / console.error / boot）                                                                              |
+| 吊销警示 | 命中 registry `revoked` 时显著警示并强制禁用                                                                                                                                                 |
 
 ## 3. 快捷键
 
@@ -50,37 +55,44 @@
 
 ## 4. 交互细节
 
-| 场景      | 行为                                                          |
-| --------- | ------------------------------------------------------------- |
-| 加载态    | 首次加载且无数据时显示骨架区块；刷新按钮禁用                  |
-| 空态      | 「暂无插件」+ 引导文案                                        |
-| 失败态    | 红色区块展示 `[错误码] 消息` **与**重试按钮（不只显示"失败"） |
-| 行级 busy | 操作中的行按钮全部禁用（`busyIds`），防重入                   |
-| 打开      | 仅启用状态可点；点击后宿主开独立 `ext-<id>` 窗口，已开则聚焦  |
-| 启用/禁用 | 切换 `.disabled` 标记；禁用时关闭已开窗口                     |
-| 卸载      | 二次确认（DestructiveConfirmDialog）→ 关窗 → 删产物目录       |
-| 不兼容    | `engines` 不满足时列表标记 incompatible 且禁止打开            |
-| 长文本    | 插件名、id 允许截断但不遮挡操作按钮                           |
+| 场景      | 行为                                                                                                       |
+| --------- | ---------------------------------------------------------------------------------------------------------- |
+| 加载态    | 首次加载且无数据时显示骨架区块；刷新按钮禁用                                                               |
+| 市场刷新  | 保留上次成功的目录；刷新中显示轻量状态，失败时在旧目录上方显示错误提示与重试按钮                           |
+| 市场详情  | registry 元数据立即可见；只有用户主动校验所选版本后，才显示包内 ACL 命令和本次实际信任依据                 |
+| 空态      | 「暂无插件」+ 引导文案                                                                                     |
+| 失败态    | 红色区块展示 `[错误码] 消息` **与**重试按钮（不只显示"失败"）                                              |
+| 行级 busy | 操作中的行按钮全部禁用（`busyIds`），防重入                                                                |
+| 打开      | 仅启用状态可点；点击后宿主开独立 `ext-<id>` 窗口，已开则聚焦                                               |
+| 启用/禁用 | 切换 `.disabled` 标记；禁用时关闭已开窗口                                                                  |
+| 卸载      | 二次确认（DestructiveConfirmDialog）→ 关窗 → 删产物目录                                                    |
+| 更新      | 信任确认提示更新窗口会关闭；提交前撤销旧 ACL 并关窗，安装完成后用户可重新打开                              |
+| 安装取消  | 关闭信任确认弹窗时删除预览目录与 zip 缓存；24 小时未完成的残留由宿主回收                                   |
+| 版本选择  | 默认选中版本号最高的可安装版本；无候选时，未安装插件说明没有可安装版本，已安装插件说明暂无兼容更新         |
+| 吊销版本  | 每个命中版本显示吊销徽标与原因，并从选择器排除；吊销已安装版本仍强制禁用并警示，其他安全版本可继续选择更新 |
+| 不兼容    | `engines` 不满足时列表标记 incompatible 且禁止打开                                                         |
+| 长文本    | 插件名、id 允许截断但不遮挡操作按钮                                                                        |
 
 ## 5. 异常处理
 
-| 错误码           | 提示                                      | 降级/重试                                               |
-| ---------------- | ----------------------------------------- | ------------------------------------------------------- |
-| `NOT_FOUND`      | 插件产物缺失                              | 提示重新同步/安装                                       |
-| `INVALID_INPUT`  | 清单不合法 / 版本回退                     | 阻止操作，保留原状态                                    |
-| `UNSUPPORTED`    | engines 不满足 / schema 版本不支持        | 标记 incompatible，引导升级宿主                         |
-| `FORBIDDEN_PATH` | ACL 越权 / 验签失败 / 内容篡改 / 解压越界 | **阻止加载**，提示具体原因，记审计                      |
-| `IO`             | 卸载或写标记失败                          | 提示重试；Windows 文件占用需给出可读提示（P6 实测补充） |
+| 错误码              | 提示                                      | 降级/重试                                               |
+| ------------------- | ----------------------------------------- | ------------------------------------------------------- |
+| `NOT_FOUND`         | 插件产物缺失                              | 提示重新同步/安装                                       |
+| `INVALID_INPUT`     | 清单不合法 / 版本回退                     | 阻止操作，保留原状态                                    |
+| `UNSUPPORTED`       | engines 不满足 / schema 版本不支持        | 标记 incompatible，引导升级宿主                         |
+| `EXTENSION_REVOKED` | registry 在列表刷新后新吊销了所选版本     | 显示本地化提示并建议改选版本；不改变已安装版本          |
+| `FORBIDDEN_PATH`    | ACL 越权 / 验签失败 / 内容篡改 / 解压越界 | **阻止加载**，提示具体原因，记审计                      |
+| `IO`                | 卸载或写标记失败                          | 提示重试；Windows 文件占用需给出可读提示（P6 实测补充） |
 
 失败一律**不改变已安装版本**；安装流程中途失败必须清理临时目录。
 
 ## 6. 技术实现要点
 
 - 前端：`src/features/extension-center/`（page + hooks/controller + store），zustand selector + `parseCommandError` / `translateError` + 重入保护。
-- 后端：`src-tauri/src/extension_host/`（manifest / acl / assets / signature / commands / url / mod）。
+- 后端：`src-tauri/src/extension_host/`（manifest / acl / assets / signature / commands / url / mod）；market prepare/commit 两阶段均校验包来源，安装时记录信任来源。
 - 契约：`ext_list_installed` / `ext_open` / `ext_set_enabled` / `ext_uninstall`，三张表双写（`src/lib/tauri/contracts.ts`）。
 - 插件产物：`extensions/<id>/`（仓库）→ `scripts/plugins/sync-extensions.mjs` → `$APPDATA/extensions/<id>/`（运行时）。
-- 安全：deny-by-default 命令网关 + manifest fail-closed + 逐文件 hash 校验 + minisign 验签（[../extension-spec.md](../extension-spec.md)）。
+- 安全：deny-by-default 命令网关按窗口强制执行已校验的 manifest ACL，窗口销毁、禁用、更新或卸载时撤销权限；插件生命周期按 ID 串行；manifest fail-closed + 逐文件 hash 校验；第三方 market 使用 minisign，官方 registry 使用整包摘要校验（[../extension-spec.md](../extension-spec.md) §4.6、§7）。
 
 ## 7. 数据模型
 
@@ -93,6 +105,26 @@ interface ExtensionSummary {
   distribution: "bundled" | "market"
   enabled: boolean
   compatible: boolean // engines 是否满足宿主版本
+}
+
+interface MarketInstallPreview {
+  id: string
+  version: string
+  publisherName: string | null
+  sizeBytes: number
+  trustKind: "officialRegistry" | "thirdPartySignature" | "developmentUnverified"
+  aclCommands: string[]
+}
+
+interface MarketVersionSummary {
+  version: string
+  yanked: boolean
+  revokedReason: string | null
+  compatible: boolean
+  installed: boolean
+  updateAvailable: boolean
+  /** 后端综合兼容性、吊销、yanked 与版本单调性后的候选资格。 */
+  installable: boolean
 }
 ```
 

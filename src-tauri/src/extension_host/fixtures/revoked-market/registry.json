@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-09-28T00:00:00Z",
+  "extensions": [
+    {
+      "id": "revocation-demo",
+      "display": {
+        "en": "Revocation Demo",
+        "zh": "吊销验证插件"
+      },
+      "description": {
+        "en": "Temporary physical QA fixture for version-level revocation behavior.",
+        "zh": "用于真机验证按版本吊销行为的测试数据。"
+      },
+      "publisher": {
+        "name": "Bench QA"
+      },
+      "versions": [
+        {
+          "version": "1.2.0",
+          "engines": {
+            "bench": "*"
+          },
+          "downloadUrl": "https://example.com/revocation-demo-1.2.0.zip",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "size": 1,
+          "publishedAt": "2026-09-28T00:00:00Z",
+          "yanked": false
+        },
+        {
+          "version": "1.1.0",
+          "engines": {
+            "bench": "*"
+          },
+          "downloadUrl": "https://example.com/revocation-demo-1.1.0.zip",
+          "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "size": 1,
+          "publishedAt": "2026-09-27T00:00:00Z",
+          "yanked": false
+        }
+      ]
+    }
+  ],
+  "revoked": [
+    {
+      "id": "revocation-demo",
+      "versions": "1.2.0",
+      "reason": "Physical QA: revoked version must not appear installable.",
+      "at": "2026-09-28T00:00:00Z"
+    }
+  ]
+}

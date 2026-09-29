@@ -26,12 +26,16 @@ export interface MarketVersionSummary {
   size: number
   publishedAt: string | null
   yanked: boolean
+  /** 命中 registry 吊销规则时的原因。 */
+  revokedReason: string | null
   /** 宿主版本是否满足 engines（不满足禁止安装）。 */
   compatible: boolean
   /** 已安装（版本一致）。 */
   installed: boolean
   /** 已装版本更低（可升级）。 */
   updateAvailable: boolean
+  /** 后端已综合兼容性、吊销、yanked 与版本单调性判定可安装。 */
+  installable: boolean
 }
 
 /** market 插件条目（Rust `MarketExtensionDto`）。 */
@@ -56,10 +60,14 @@ export interface RevokedHit {
 export interface MarketInstallPreview {
   id: string
   version: string
+  /** 已通过 manifest 与 registry 双重校验的 Bench 版本约束。 */
+  enginesBench: string
   displayEn: string
   displayZh: string | null
   publisherName: string | null
   sizeBytes: number
+  /** 本次安装实际使用的信任依据。 */
+  trustKind: "officialRegistry" | "thirdPartySignature" | "developmentUnverified"
   /** 产物 manifest 申请的宿主命令（ACL 披露）。 */
   aclCommands: string[]
 }

@@ -61,20 +61,21 @@ pub fn build_opinions(items: &[HealthCheckItem]) -> Vec<HealthOpinion> {
     }
 
     if status("diff.dns_vs_ip") == "fail" {
-        let detail = items
-            .iter()
-            .find(|i| i.key == "diff.dns_vs_ip")
-            .and_then(|i| i.detail.clone())
-            .unwrap_or_default();
-        if detail.contains("DNS or hosts") {
+        // Classify from stable machine statuses, never from localized diagnostic prose.
+        let gateway = status("reach.gateway");
+        let public_ip = status("reach.public_ip");
+        let public_name = status("reach.public_name");
+        let gateway_ok = gateway == "pass" || gateway == "skip";
+
+        if !gateway_ok && gateway == "fail" {
             out.push(opinion(
-                "dns-vs-ip-dns",
+                "dns-vs-ip-lan",
                 "critical",
-                &["diff.dns_vs_ip", "dns.resolve_name", "hosts.override"],
-                "networkProbe.advisor.dnsVsIpDns.title",
-                "networkProbe.advisor.dnsVsIpDns.body",
+                &["diff.dns_vs_ip", "reach.gateway"],
+                "networkProbe.advisor.dnsVsIpLan.title",
+                "networkProbe.advisor.dnsVsIpLan.body",
             ));
-        } else if detail.contains("uplink") || detail.contains("Public IP") {
+        } else if gateway_ok && public_ip == "fail" {
             out.push(opinion(
                 "dns-vs-ip-uplink",
                 "critical",
@@ -82,13 +83,13 @@ pub fn build_opinions(items: &[HealthCheckItem]) -> Vec<HealthOpinion> {
                 "networkProbe.advisor.dnsVsIpUplink.title",
                 "networkProbe.advisor.dnsVsIpUplink.body",
             ));
-        } else if detail.contains("Gateway") || detail.contains("LAN") {
+        } else if gateway_ok && public_ip == "pass" && public_name == "fail" {
             out.push(opinion(
-                "dns-vs-ip-lan",
+                "dns-vs-ip-dns",
                 "critical",
-                &["diff.dns_vs_ip", "reach.gateway"],
-                "networkProbe.advisor.dnsVsIpLan.title",
-                "networkProbe.advisor.dnsVsIpLan.body",
+                &["diff.dns_vs_ip", "dns.resolve_name", "hosts.override"],
+                "networkProbe.advisor.dnsVsIpDns.title",
+                "networkProbe.advisor.dnsVsIpDns.body",
             ));
         }
     }
@@ -193,9 +194,42 @@ mod tests {
 
     #[test]
     fn dns_vs_ip_dns_branch() {
+        let opinions = build_opinions(&[
+            item("diff.dns_vs_ip", "fail", Some("localized diagnostic text")),
+            item("reach.gateway", "pass", None),
+            item("reach.public_ip", "pass", None),
+            item("reach.public_name", "fail", None),
+        ]);
+        assert!(opinions.iter().any(|o| o.id == "dns-vs-ip-dns"));
+    }
+
+    #[test]
+    fn dns_vs_ip_uplink_branch_uses_statuses_not_detail_text() {
+        let opinions = build_opinions(&[
+            item("diff.dns_vs_ip", "fail", Some("任何本地化文本")),
+            item("reach.gateway", "skip", None),
+            item("reach.public_ip", "fail", None),
+            item("reach.public_name", "fail", None),
+        ]);
+        assert!(opinions.iter().any(|o| o.id == "dns-vs-ip-uplink"));
+    }
+
+    #[test]
+    fn dns_vs_ip_lan_branch_uses_gateway_status() {
+        let opinions = build_opinions(&[
+            item("diff.dns_vs_ip", "fail", Some("anything")),
+            item("reach.gateway", "fail", None),
+            item("reach.public_ip", "pass", None),
+            item("reach.public_name", "pass", None),
+        ]);
+        assert!(opinions.iter().any(|o| o.id == "dns-vs-ip-lan"));
+    }
+
+    #[test]
+    fn dns_vs_ip_fail_without_supporting_statuses_does_not_guess() {
         let opinions =
             build_opinions(&[item("diff.dns_vs_ip", "fail", Some("DNS or hosts issue"))]);
-        assert!(opinions.iter().any(|o| o.id == "dns-vs-ip-dns"));
+        assert!(opinions.iter().all(|o| !o.id.starts_with("dns-vs-ip-")));
     }
 
     #[test]

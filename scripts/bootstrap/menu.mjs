@@ -86,7 +86,7 @@ const menu = [
     items: [
       {
         key: "clean:be",
-        label: "仅清理后端构建产物(target)",
+        label: "后端缓存整理(移入废纸篓，保留 7 天内)",
         cmd: PKG,
         args: ["run", "clean:be"],
       },
@@ -98,7 +98,7 @@ const menu = [
       },
       {
         key: "clean:rust-cache-sweep",
-        label: "后端缓存瘦身(保留 7 天内产物)",
+        label: "后端缓存整理(直接移入废纸篓)",
         cmd: PKG,
         args: ["run", "clean:rust-cache", "--sweep", "--yes"],
       },

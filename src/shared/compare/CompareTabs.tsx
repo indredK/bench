@@ -25,6 +25,8 @@ function CompareTabs({ tabs, defaultTabId, groupLabels }: CompareTabsProps) {
   const [activeTab, setActiveTab] = useState(defaultTabId)
   const active = tabs.find((tab) => tab.id === activeTab) ?? tabs[0]
 
+  if (!active) return null
+
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <div

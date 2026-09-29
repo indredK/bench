@@ -1,78 +1,111 @@
 //! NTP offset probe — multi-source median (design-discover §3.4).
 
-use super::types::NtpProbeResult;
-use crate::error::{AppError, AppResult};
-use std::net::SocketAddr;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use tokio::net::UdpSocket;
-use tokio::time::timeout;
+use super::types::{NtpProbeResult, ProbeServer};
+use crate::error::AppResult;
+use futures_util::future::join_all;
+use rsntp::{AsyncSntpClient, Config};
+use std::time::{Duration, Instant};
 
-const NTP_SERVERS: &[&str] = &[
-    "time.cloudflare.com:123",
-    "time.google.com:123",
-    "pool.ntp.org:123",
-];
-const NTP_EPOCH_DELTA: u64 = 2_208_988_800;
+const NTP_TIMEOUT: Duration = Duration::from_secs(4);
 
-pub async fn probe_ntp() -> AppResult<NtpProbeResult> {
-    let command_hint =
-        "probeNtp(local) // multi-source median (cloudflare/google/pool)".to_string();
+#[derive(Debug)]
+struct NtpSample {
+    offset_seconds: f64,
+    rtt_seconds: f64,
+    stratum: u8,
+}
+
+pub async fn probe_ntp(servers: &[ProbeServer]) -> AppResult<NtpProbeResult> {
+    let servers = servers
+        .iter()
+        .take(super::defaults::MAX_NTP_SERVERS)
+        .collect::<Vec<_>>();
+    let command_hint = format!(
+        "probeNtp(local) // multi-source median ({} configured source(s))",
+        servers.len()
+    );
     let started = Instant::now();
+    let attempts = join_all(servers.iter().map(|source| probe_one(&source.server))).await;
+    let elapsed_ms = started.elapsed().as_secs_f64() * 1000.0;
 
-    let mut offsets = Vec::new();
-    let mut rtts = Vec::new();
-    let mut details = Vec::new();
+    let mut samples = Vec::new();
+    let mut details = Vec::with_capacity(attempts.len());
     let mut used = Vec::new();
-
-    for server in NTP_SERVERS {
-        match probe_one(server).await {
-            Ok((offset, rtt)) => {
-                used.push((*server).to_string());
-                offsets.push(offset);
-                rtts.push(rtt);
-                details.push(format!("{server} offset={offset:.3}s"));
+    for (source, attempt) in servers.iter().zip(attempts) {
+        let server = &source.server;
+        match attempt {
+            Ok(sample) => {
+                used.push(format!("{} ({server})", source.id));
+                details.push(format!(
+                    "{} ({server}) offset={:.3}s stratum={}",
+                    source.id, sample.offset_seconds, sample.stratum
+                ));
+                samples.push(sample);
             }
-            Err(e) => {
-                used.push((*server).to_string());
-                details.push(format!("{server} fail:{e}"));
-            }
+            Err(error) => details.push(format!("{} ({server}) fail:{error}", source.id)),
         }
     }
 
-    let elapsed_ms = started.elapsed().as_secs_f64() * 1000.0;
-    if offsets.is_empty() {
+    if samples.is_empty() {
         return Ok(NtpProbeResult {
-            server: used.join(", "),
+            server: String::new(),
             ok: false,
             offset_seconds: None,
             rtt_seconds: None,
+            stratum: None,
+            sources_succeeded: 0,
+            sources_configured: servers.len() as u8,
             severity: "fail".into(),
-            detail: Some(format!("All NTP sources failed. {}", details.join("; "))),
+            detail: Some(if servers.is_empty() {
+                "No NTP sources are configured.".into()
+            } else {
+                format!("All NTP sources failed. {}", details.join("; "))
+            }),
             elapsed_ms,
             command_hint,
         });
     }
 
-    offsets.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-    let median = offsets[offsets.len() / 2];
-    let rtt_avg = rtts.iter().sum::<f64>() / rtts.len() as f64;
-    let severity = if median.abs() > 2.0 {
-        "warn"
-    } else if median.abs() > 0.5 {
-        "info"
+    samples.sort_by(|left, right| left.offset_seconds.total_cmp(&right.offset_seconds));
+    let middle = samples.len() / 2;
+    let median = if samples.len() % 2 == 0 {
+        (samples[middle - 1].offset_seconds + samples[middle].offset_seconds) / 2.0
     } else {
-        "ok"
+        samples[middle].offset_seconds
     };
+    let stratum = samples
+        .iter()
+        .min_by(|left, right| {
+            (left.offset_seconds - median)
+                .abs()
+                .total_cmp(&(right.offset_seconds - median).abs())
+                .then_with(|| left.rtt_seconds.total_cmp(&right.rtt_seconds))
+        })
+        .map(|sample| sample.stratum);
+    let mut rtts = samples
+        .iter()
+        .map(|sample| sample.rtt_seconds)
+        .collect::<Vec<_>>();
+    rtts.sort_by(f64::total_cmp);
+    let rtt_median = if rtts.len() % 2 == 0 {
+        (rtts[middle - 1] + rtts[middle]) / 2.0
+    } else {
+        rtts[middle]
+    };
+    let severity = severity_for_offset(median);
 
     Ok(NtpProbeResult {
         server: used.join(", "),
         ok: true,
         offset_seconds: Some(median),
-        rtt_seconds: Some(rtt_avg),
+        rtt_seconds: Some(rtt_median),
+        stratum,
+        sources_succeeded: samples.len() as u8,
+        sources_configured: servers.len() as u8,
         severity: severity.into(),
         detail: Some(format!(
             "median_offset={median:.3}s from {} source(s). {}",
-            offsets.len(),
+            samples.len(),
             details.join("; ")
         )),
         elapsed_ms,
@@ -80,53 +113,62 @@ pub async fn probe_ntp() -> AppResult<NtpProbeResult> {
     })
 }
 
-async fn probe_one(server_name: &str) -> AppResult<(f64, f64)> {
-    let sock = UdpSocket::bind("0.0.0.0:0")
+async fn probe_one(server: &str) -> Result<NtpSample, String> {
+    let mut addresses = tokio::net::lookup_host(server)
         .await
-        .map_err(|e| AppError::new("NTP_BIND", e.to_string()))?;
-    let server: SocketAddr = tokio::net::lookup_host(server_name)
+        .map_err(|error| format!("DNS lookup failed: {error}"))?
+        .collect::<Vec<_>>();
+    addresses.sort_by_key(|address| !address.is_ipv4());
+    let address = addresses
+        .first()
+        .copied()
+        .ok_or_else(|| "DNS lookup returned no address".to_string())?;
+    let bind_address = if address.is_ipv4() {
+        "0.0.0.0:0"
+    } else {
+        "[::]:0"
+    }
+    .parse()
+    .map_err(|error| format!("Invalid local bind address: {error}"))?;
+    let config = Config::default()
+        .bind_address(bind_address)
+        .timeout(NTP_TIMEOUT)
+        .connect_ip(true);
+    let client = AsyncSntpClient::with_config(config);
+    // Use the address selected above. Passing the hostname here would make rsntp resolve it
+    // again and could select a different IP family than the socket's bind address.
+    let result = client
+        .synchronize(address)
         .await
-        .map_err(|e| AppError::new("NTP_DNS", e.to_string()))?
-        .next()
-        .ok_or_else(|| AppError::new("NTP_DNS", format!("No address for {server_name}")))?;
+        .map_err(|error| error.to_string())?;
 
-    let mut req = [0u8; 48];
-    req[0] = 0x1b;
-    let t1 = now_unix_secs_f64();
-    sock.send_to(&req, server)
-        .await
-        .map_err(|e| AppError::new("NTP_SEND", e.to_string()))?;
+    Ok(NtpSample {
+        offset_seconds: result.clock_offset().as_secs_f64(),
+        rtt_seconds: result.round_trip_delay().as_secs_f64().max(0.0),
+        stratum: result.stratum(),
+    })
+}
 
-    let mut buf = [0u8; 48];
-    let recv = timeout(Duration::from_secs(4), sock.recv_from(&mut buf)).await;
-    let t4 = now_unix_secs_f64();
-    match recv {
-        Ok(Ok((n, _))) if n >= 48 => {
-            let t2 = ntp_ts_to_unix(&buf[32..40]);
-            let t3 = ntp_ts_to_unix(&buf[40..48]);
-            let offset = ((t2 - t1) + (t3 - t4)) / 2.0;
-            let rtt = (t4 - t1) - (t3 - t2);
-            Ok((offset, rtt))
-        }
-        Ok(Ok(_)) => Err(AppError::new("NTP_SHORT", "response too short")),
-        Ok(Err(e)) => Err(AppError::new("NTP_RECV", e.to_string())),
-        Err(_) => Err(AppError::new("NTP_TIMEOUT", "timed out")),
+fn severity_for_offset(offset_seconds: f64) -> &'static str {
+    let absolute_offset = offset_seconds.abs();
+    if absolute_offset > 2.0 {
+        "high"
+    } else if absolute_offset > 0.5 {
+        "warn"
+    } else {
+        "ok"
     }
 }
 
-fn now_unix_secs_f64() -> f64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_secs_f64())
-        .unwrap_or(0.0)
-}
+#[cfg(test)]
+mod tests {
+    use super::severity_for_offset;
 
-fn ntp_ts_to_unix(bytes: &[u8]) -> f64 {
-    if bytes.len() < 8 {
-        return 0.0;
+    #[test]
+    fn ntp_severity_uses_documented_absolute_thresholds() {
+        assert_eq!(severity_for_offset(0.5), "ok");
+        assert_eq!(severity_for_offset(-0.501), "warn");
+        assert_eq!(severity_for_offset(2.0), "warn");
+        assert_eq!(severity_for_offset(-2.001), "high");
     }
-    let secs = u32::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]) as u64;
-    let frac = u32::from_be_bytes([bytes[4], bytes[5], bytes[6], bytes[7]]) as f64
-        / (u32::MAX as f64 + 1.0);
-    (secs.saturating_sub(NTP_EPOCH_DELTA) as f64) + frac
 }

@@ -19,29 +19,19 @@
 | 区域包       | 首次按 UI 语言或设置「网络区域」注入：`global` / `cn-friendly` / `dev` |
 | 合规         | 仅探测；公共源遵守 ToS/速率；默认目标偏 RFC1918 友好与知名 anycast     |
 
-### 1.1 落盘形态（实现建议）
+### 1.1 落盘形态
 
 ```text
-# 内置（只读，随 app 发布）
-src-tauri/resources/net_probe/defaults/
-  catalog.json              # 版本 + 包清单
-  dns_presets.json
-  reach_targets.json
-  captive_probes.json
-  public_ip_apis.json
-  site_packs/{global,cn-friendly,dev}.json
-  mtu_targets.json
-  stun_servers.json         # Post
-  ntp_servers.json          # Post
-  speed_sources.json        # Post-C
+# 内置（只读，随 app 发布；当前实现）
+src-tauri/src/net_probe/defaults.rs::builtin_defaults()
 
 # 用户覆盖（可写）
 {config_dir}/bench/network-probe/defaults-override.json
 ```
 
-后端加载：`builtin ← overlay(user)`；提供 `resetNetworkProbeDefaults()` 恢复。
+后端加载：`builtin ← overlay(user)`。`getNetworkProbeDefaults()` 返回完整目录；`saveDefaultsOverride()` 只更新请求中提供的字段，保留其他用户覆盖，并通过原子写入及进程内互斥锁和 OS 文件锁串行化并发保存（包括共用用户配置目录的正式版与 QA 版）。全局 `resetNetworkProbeDefaults()` 恢复全部内置值；发现页的「恢复内置源」仅清除 STUN/NTP 覆盖。文件锁哨兵 `defaults-override.lock` 会保留在配置目录中，以便多个进程使用同一路径协调。
 
-`catalog.json` 含 `schemaVersion`；升级时迁移用户覆盖，不静默丢自定义站点。
+目前 `schemaVersion` 随目录返回；将目录拆成随包 JSON 资源仍是后续整理项。新增或迁移用户覆盖时不得静默丢自定义资源。
 
 ---
 
@@ -211,16 +201,19 @@ ASN（可选第二跳）：
 | `google-b` | `stun1.l.google.com:19302` |
 | `google-c` | `stun2.l.google.com:19302` |
 
+发现页可编辑 STUN 来源（2–6 个），运行时使用此目录；添加的服务器必须是唯一 `host:port`。
+
 ### 8.2 NTP（`ntp_servers`）· S-DIS-03
 
-| id           | server                          |
-| ------------ | ------------------------------- |
-| `apple`      | `time.apple.com`                |
-| `cloudflare` | `time.cloudflare.com`           |
-| `google`     | `time.google.com`               |
-| `cn-ali`     | `ntp.aliyun.com`（cn 区域优先） |
+| id           | server                              |
+| ------------ | ----------------------------------- |
+| `apple`      | `time.apple.com:123`                |
+| `cloudflare` | `time.cloudflare.com:123`           |
+| `google`     | `time.google.com:123`               |
+| `cn-ali`     | `ntp.aliyun.com:123`（cn 区域优先） |
 
 阈值建议：`warn > 500ms`，`high > 2000ms`（相对中位源）。
+发现页可编辑 NTP 来源（1–8 个），运行时连接已解析的服务器地址，使用此目录。
 
 ### 8.3 测速源（`speed_sources`）· S-TT-04
 
@@ -263,13 +256,14 @@ ASN（可选第二跳）：
 
 ## 11. 实现检查表
 
-- [ ] 内置 JSON 随 app 发布；`schemaVersion` 可迁移
-- [ ] 用户覆盖与重置
+- [ ] 默认目录拆分为内置 JSON 资源并随 app 发布；`schemaVersion` 可迁移
+- [x] STUN/NTP 用户覆盖与分组恢复；保存时保留其他目录类别
+- [ ] 其余目录类别提供编辑 UI 与分组重置
 - [ ] Captive / 公网 IP 多源 + TTL
 - [ ] DNS 预设进 `switchDns` UI 与污染默认 resolver
 - [ ] 站点包按语言/区域首次注入
-- [ ] i18n：展示名走 locale；**id / host / URL 不翻译**
-- [ ] 契约可选：`getNetworkProbeDefaults()` / `resetNetworkProbeDefaults()`
+- [x] i18n：编辑器中英双语；**id / host / URL 不翻译**
+- [x] 契约：`getNetworkProbeDefaults()` / `resetNetworkProbeDefaults()`
 - [ ] 场景 S-FA-01…04 / S-TT-03 不依赖用户手工填 URL 即可演示
 
 ---

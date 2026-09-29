@@ -16,7 +16,10 @@
 //! 吊销语义（spec §5.3）：命中 `revoked` → 宿主**强制禁用**（写 `.disabled`）
 //! + UI 显著警示，不静默删除。
 
+use std::net::{Ipv4Addr, Ipv6Addr};
+
 use serde::{Deserialize, Serialize};
+use url::{Host, Url};
 
 use crate::error::{AppError, AppResult};
 
@@ -33,9 +36,19 @@ pub const OFFICIAL_REGISTRY_URL: &str =
     "https://raw.githubusercontent.com/kindred-plugin-market/plugin-market/main";
 
 /// 判断 registry 基址是否为官方源（官方源豁免 minisign 验签：
-/// 完整性由 registry sha256 + 包内 files 清单双通道兜底，spec §13）。
+/// 完整性由 registry sha256 + 包内 files 清单双通道兜底，spec §4.6）。
 pub fn is_official_registry(base_url: &str) -> bool {
-    base_url.trim_end_matches('/') == OFFICIAL_REGISTRY_URL.trim_end_matches('/')
+    let (Ok(base), Ok(official)) = (
+        validate_registry_base_url(base_url),
+        Url::parse(OFFICIAL_REGISTRY_URL),
+    ) else {
+        return false;
+    };
+
+    base.scheme() == official.scheme()
+        && base.host_str() == official.host_str()
+        && base.port() == official.port()
+        && base.path().trim_end_matches('/') == official.path().trim_end_matches('/')
 }
 
 /// registry 目录 schema 版本（与本文件同步演进）。
@@ -183,9 +196,9 @@ pub fn validate_registry_doc(doc: &RegistryDoc) -> AppResult<()> {
                     entry.id, version.version
                 )));
             }
-            if !version.download_url.starts_with("https://") {
+            if validate_download_url(&version.download_url).is_err() {
                 return Err(AppError::invalid_input(format!(
-                    "registry entry `{}` version `{}` downloadUrl must be https",
+                    "registry entry `{}` version `{}` downloadUrl must be an allowed HTTPS URL without credentials or fragments",
                     entry.id, version.version
                 )));
             }
@@ -194,7 +207,7 @@ pub fn validate_registry_doc(doc: &RegistryDoc) -> AppResult<()> {
     Ok(())
 }
 
-/// 读取 registry 基址（后端 canonical 配置；缺失 = market 功能未配置）。
+/// 读取 registry 基址（后端 canonical 配置；缺失 = 官方默认源）。
 pub fn registry_base_url() -> AppResult<String> {
     let url = std::env::var(REGISTRY_URL_ENV).unwrap_or_default();
     let url = url.trim().to_string();
@@ -204,43 +217,150 @@ pub fn registry_base_url() -> AppResult<String> {
     } else {
         url
     };
-    if !url.starts_with("https://") {
-        return Err(AppError::internal(format!(
-            "extension registry URL must be https, got `{url}`"
-        )));
+    let parsed = validate_registry_base_url(&url)
+        .map_err(|_| AppError::internal("extension registry URL is invalid or not allowed"))?;
+    Ok(parsed.to_string())
+}
+
+/// 校验 registry 基址；只能是无凭据、无查询和片段的 HTTPS URL，且 host 不得是本地地址。
+fn validate_registry_base_url(raw: &str) -> AppResult<Url> {
+    let parsed = Url::parse(raw)
+        .map_err(|_| AppError::invalid_input("extension registry URL is invalid"))?;
+    validate_public_https_url(&parsed, raw)?;
+    if parsed.query().is_some() {
+        return Err(AppError::invalid_input(
+            "extension registry URL must not contain a query",
+        ));
     }
-    Ok(url)
+    Ok(parsed)
+}
+
+/// 校验网络 URL，避免 URL 解析差异、凭据隐藏、非公网 IP 字面量和明显本地 host。
+fn validate_public_https_url(url: &Url, raw: &str) -> AppResult<()> {
+    if url.scheme() != "https" {
+        return Err(AppError::forbidden_path("URL must use HTTPS"));
+    }
+    if !url.username().is_empty() || url.password().is_some() || authority_contains_userinfo(raw) {
+        return Err(AppError::forbidden_path("URL credentials are not allowed"));
+    }
+    if url.fragment().is_some() {
+        return Err(AppError::forbidden_path("URL fragments are not allowed"));
+    }
+
+    match url.host() {
+        Some(Host::Domain(host)) => {
+            let host = host.trim_end_matches('.').to_ascii_lowercase();
+            if host == "localhost"
+                || host.ends_with(".localhost")
+                || host == "local"
+                || host.ends_with(".local")
+                || host == "internal"
+                || host.ends_with(".internal")
+            {
+                return Err(AppError::forbidden_path(
+                    "URL host is not a public network host",
+                ));
+            }
+        }
+        Some(Host::Ipv4(address)) if is_non_public_ipv4(address) => {
+            return Err(AppError::forbidden_path(
+                "URL host is not a public network host",
+            ));
+        }
+        Some(Host::Ipv6(address)) if is_non_public_ipv6(address) => {
+            return Err(AppError::forbidden_path(
+                "URL host is not a public network host",
+            ));
+        }
+        None => return Err(AppError::forbidden_path("URL host is missing")),
+        _ => {}
+    }
+
+    Ok(())
+}
+
+fn authority_contains_userinfo(raw: &str) -> bool {
+    raw.split_once("://")
+        .and_then(|(_, rest)| rest.split(['/', '?', '#']).next())
+        .is_some_and(|authority| authority.contains('@'))
+}
+
+fn is_non_public_ipv4(address: Ipv4Addr) -> bool {
+    let [a, b, c, _] = address.octets();
+    address.is_private()
+        || address.is_loopback()
+        || address.is_link_local()
+        || address.is_broadcast()
+        || address.is_unspecified()
+        || address.is_multicast()
+        || a == 0
+        || (a == 100 && (64..=127).contains(&b)) // shared address space (100.64.0.0/10)
+        || (a == 192 && b == 0 && (c == 0 || c == 2))
+        || (a == 192 && b == 88 && c == 99) // deprecated 6to4 relay anycast
+        || (a == 198 && (b == 18 || b == 19 || (b == 51 && c == 100)))
+        || (a == 203 && b == 0 && c == 113)
+        || a >= 240
+}
+
+fn is_non_public_ipv6(address: Ipv6Addr) -> bool {
+    let segments = address.segments();
+    let is_ipv4_compatible = segments[..6].iter().all(|segment| *segment == 0);
+    let is_nat64 = segments[0] == 0x0064 && segments[1] == 0xff9b;
+    let is_documentation = segments[0] == 0x2001 && segments[1] == 0x0db8;
+    let is_benchmarking = segments[0] == 0x2001 && segments[1] == 0x0002;
+    let is_orchid = segments[0] == 0x2001 && segments[1] & 0xfff0 == 0x0010;
+    let is_discard_only = segments[0] == 0x0100 && segments[1..4].iter().all(|part| *part == 0);
+    let is_6to4 = segments[0] == 0x2002;
+
+    address.is_loopback()
+        || address.is_unspecified()
+        || address.is_multicast()
+        || (segments[0] & 0xfe00 == 0xfc00) // unique local (fc00::/7)
+        || (segments[0] & 0xffc0 == 0xfe80) // link local (fe80::/10)
+        || (segments[0] & 0xffc0 == 0xfec0) // deprecated site local (fec0::/10)
+        || is_ipv4_compatible
+        || is_nat64
+        || is_documentation
+        || is_benchmarking
+        || is_orchid
+        || is_discard_only
+        || is_6to4
+        || address
+            .to_ipv4_mapped()
+            .is_some_and(is_non_public_ipv4)
 }
 
 /// 从基址解析目录 JSON URL（约定：`<base>/registry.json`，spec §5.2 静态托管）。
-pub fn registry_index_url(base: &str) -> String {
-    let base = base.trim_end_matches('/');
-    format!("{base}/registry.json")
+pub fn registry_index_url(base: &str) -> AppResult<String> {
+    let mut url = validate_registry_base_url(base)?;
+    url.path_segments_mut()
+        .map_err(|_| AppError::invalid_input("extension registry URL cannot be a base"))?
+        .pop_if_empty()
+        .push("registry.json");
+    Ok(url.to_string())
 }
 
-/// 下载 URL 必须与 registry 基址同源（防止 registry 内容投喂任意下载点）。
+/// 下载 URL 必须由 registry 提供；不允许 renderer 投喂任意下载点。
 ///
 /// registry 允许经 GitHub Pages/jsDelivr 托管，下载文件可在 CDN —— 因此这里
-/// 不做严格同源，而是要求 https 且非 localhost（公网分发语义），完整性由
-/// 整包 sha256 + minisign 签名双通道兜底。
+/// 不做严格同源，而是要求 HTTPS、拒绝明显本地 host 与非公网 IP 字面量。域名解析
+/// 由操作系统或用户配置的代理处理；完整性由整包 sha256 与来源对应的信任校验兜底。
 pub fn validate_download_url(url: &str) -> AppResult<()> {
-    if !url.starts_with("https://") {
-        return Err(AppError::forbidden_path(format!(
-            "download url must be https, got `{url}`"
-        )));
-    }
-    let host_part = url
-        .trim_start_matches("https://")
-        .split('/')
-        .next()
-        .unwrap_or("");
-    let host = host_part.split(':').next().unwrap_or("");
-    if host.is_empty() || host == "localhost" || host == "127.0.0.1" || host == "0.0.0.0" {
-        return Err(AppError::forbidden_path(format!(
-            "download url host `{host}` is not allowed"
-        )));
-    }
-    Ok(())
+    let parsed =
+        Url::parse(url).map_err(|_| AppError::forbidden_path("download URL is invalid"))?;
+    validate_public_https_url(&parsed, url)
+}
+
+/// Reuse one redirect policy for every backend-managed artifact download.
+/// Each hop must pass the same public HTTPS checks as the initial URL.
+pub(crate) fn public_https_redirect_policy() -> reqwest::redirect::Policy {
+    reqwest::redirect::Policy::custom(|attempt| {
+        if validate_download_url(attempt.url().as_str()).is_err() {
+            attempt.error("redirect target is not an allowed public HTTPS URL")
+        } else {
+            reqwest::redirect::Policy::default().redirect(attempt)
+        }
+    })
 }
 
 /// 判断某已安装版本是否命中吊销列表；命中返回原因。
@@ -342,6 +462,7 @@ mod tests {
     #[test]
     fn download_url_validation() {
         assert!(validate_download_url("https://cdn.example.com/a.zip").is_ok());
+        assert!(validate_download_url("https://cdn.example.com/a.zip?token=secret").is_ok());
         assert_eq!(
             validate_download_url("http://cdn.example.com/a.zip")
                 .unwrap_err()
@@ -360,16 +481,62 @@ mod tests {
                 .code,
             "FORBIDDEN_PATH"
         );
+        for url in [
+            "https://[::1]/a.zip",
+            "https://[::]/a.zip",
+            "https://[fe80::1]/a.zip",
+            "https://[fc00::1]/a.zip",
+            "https://[::ffff:127.0.0.1]/a.zip",
+            "https://127.1/a.zip",
+            "https://localhost./a.zip",
+            "https://foo.localhost/a.zip",
+            "https://printer.local/a.zip",
+            "https://service.internal/a.zip",
+            "https://user:secret@cdn.example.com/a.zip",
+            "https://@cdn.example.com/a.zip",
+            "https://cdn.example.com/a.zip#fragment",
+        ] {
+            let result = validate_download_url(url);
+            assert!(result.is_err(), "unexpectedly accepted {url}");
+            assert_eq!(result.unwrap_err().code, "FORBIDDEN_PATH",);
+        }
     }
 
     #[test]
     fn registry_url_requires_https() {
-        // 纯函数路径不易直接测 env；这里校验 URL 规则由 registry_base_url 的
-        // https 前缀检查覆盖 —— 直接测 index URL 拼接。
+        // 纯函数路径不易直接测 env；这里校验 HTTPS 基址解析与结构化路径拼接。
         assert_eq!(
-            registry_index_url("https://r.example.com/"),
+            registry_index_url("https://r.example.com/").unwrap(),
             "https://r.example.com/registry.json"
         );
+        assert_eq!(
+            registry_index_url("https://r.example.com/market").unwrap(),
+            "https://r.example.com/market/registry.json"
+        );
+        assert_eq!(
+            registry_index_url("https://r.example.com/market/").unwrap(),
+            "https://r.example.com/market/registry.json"
+        );
+        assert!(registry_index_url("https://r.example.com/market?token=x").is_err());
+    }
+
+    #[test]
+    fn registry_base_rejects_private_hosts_credentials_queries_and_fragments() {
+        for base in [
+            "http://registry.example.com",
+            "https://127.0.0.1/market",
+            "https://[::1]/market",
+            "https://registry.local/market",
+            "https://user:secret@registry.example.com/market",
+            "https://registry.example.com/market?token=secret",
+            "https://registry.example.com/market#fragment",
+        ] {
+            assert!(
+                validate_registry_base_url(base).is_err(),
+                "unexpectedly accepted {base}"
+            );
+        }
+        assert!(validate_registry_base_url("https://registry.example.com/market").is_ok());
     }
 }
 
@@ -401,7 +568,7 @@ mod official_fixture_tests {
             "https://market.example.com/registry.json"
         ));
         assert_eq!(
-            registry_index_url(OFFICIAL_REGISTRY_URL),
+            registry_index_url(OFFICIAL_REGISTRY_URL).unwrap(),
             "https://raw.githubusercontent.com/kindred-plugin-market/plugin-market/main/registry.json"
         );
     }

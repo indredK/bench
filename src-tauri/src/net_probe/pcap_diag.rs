@@ -14,7 +14,8 @@ pub async fn run_pcap_diag<R: Runtime>(
     duration_secs: u32,
 ) -> AppResult<PcapDiagResult> {
     let duration_secs = duration_secs.clamp(1, 15);
-    let session_id = super::session::new_session_id();
+    let session_guard = super::session::SessionGuard::new();
+    let session_id = session_guard.id().to_string();
     if let Some(app) = app {
         let _ = app.emit(
             SCAN_SESSION_EVENT,
@@ -29,12 +30,15 @@ pub async fn run_pcap_diag<R: Runtime>(
     );
     let started = Instant::now();
 
-    let result = tauri::async_runtime::spawn_blocking(move || run_tcpdump_sample(duration_secs))
-        .await
-        .map_err(|e| AppError::task_failed(format!("pcap join: {e}")))?;
-
-    let cancelled = super::session::is_cancelled(&session_id);
-    super::session::clear_session(&session_id);
+    let session_for_block = session_id.clone();
+    let (result, cancelled) = tauri::async_runtime::spawn_blocking(move || {
+        let result = run_tcpdump_sample(duration_secs);
+        let cancelled = super::session::is_cancelled(&session_for_block);
+        drop(session_guard);
+        (result, cancelled)
+    })
+    .await
+    .map_err(|e| AppError::task_failed(format!("pcap join: {e}")))?;
 
     match result {
         Ok(mut stats) => {

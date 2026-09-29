@@ -1,23 +1,26 @@
 use super::types::{
-    CapabilityPackInfo, CapabilityPackInstallResult, CaptivePortalResult, DefaultRouteInfo,
-    DefaultsOverride, DnsLookupResult, DnsSecCheckResult, FirewallStatus, FixResult,
-    HealthScanResult, HostsOverride, Ipv6StackResult, LanDiscoveryResult, LanServicesResult,
-    LocalNetworkSummary, MultiNodeDnsResult, NatProbeResult, NetworkProbeCapabilities,
-    NetworkProbeDefaultsCatalog, NtpProbeResult, PathMtuResult, PcapDiagResult, PingProbeResult,
-    PollutionReport, PortScanResult, ProbeNode, ProbeTargetResult, ProxyVpnStatus, PublicIpInfo,
-    SitesProbeResult, SpeedSource, SpeedTestResult, TcpConnectResult, TracerouteResult, WhoisInfo,
+    AgentMeasurementResult, CapabilityPackInfo, CapabilityPackInstallResult, CaptivePortalResult,
+    DefaultRouteInfo, DefaultsOverride, DnsLookupResult, DnsSecCheckResult, FirewallStatus,
+    FixResult, GlobalpingMeasurementResult, HealthScanResult, HostsOverride, Ipv6StackResult,
+    LanDiscoveryResult, LanServicesResult, LocalNetworkSummary, NatProbeResult,
+    NetworkFingerprintResult, NetworkProbeCapabilities, NetworkProbeDefaultsCatalog,
+    NtpProbeResult, PathMtuResult, PcapDiagResult, PingProbeResult, PollutionReport,
+    PortScanResult, ProbeNode, ProbeTargetResult, ProxyVpnStatus, PublicIpInfo, SitesProbeResult,
+    SpeedSource, SpeedTestResult, TcpConnectResult, TracerouteResult, WhoisInfo,
 };
 use crate::error::{AppError, AppResult};
 use tauri::AppHandle;
 
 #[tauri::command]
 pub async fn get_network_probe_capabilities(app: AppHandle) -> AppResult<NetworkProbeCapabilities> {
-    Ok(super::packs::build_capabilities(Some(&app)))
+    tauri::async_runtime::spawn_blocking(move || super::packs::build_capabilities(Some(&app)))
+        .await
+        .map_err(|e| AppError::task_failed(format!("network probe capabilities: {e}")))
 }
 
 #[tauri::command]
 pub async fn list_probe_nodes(app: AppHandle) -> AppResult<Vec<ProbeNode>> {
-    let agents = super::agent::agents_as_nodes(&app).unwrap_or_default();
+    let agents = super::agent::agents_as_nodes(&app).await?;
     Ok(super::globalping::list_nodes_with_agents(&agents))
 }
 
@@ -39,26 +42,35 @@ pub async fn network_probe_reset_defaults() -> AppResult<()> {
 }
 
 #[tauri::command]
+pub async fn network_probe_reset_discovery_defaults() -> AppResult<()> {
+    super::defaults::reset_discovery_defaults()
+}
+
+#[tauri::command]
 pub async fn network_probe_list_capability_packs(
     app: AppHandle,
 ) -> AppResult<Vec<CapabilityPackInfo>> {
-    super::packs::list_capability_packs(&app)
+    tauri::async_runtime::spawn_blocking(move || super::packs::list_capability_packs(&app))
+        .await
+        .map_err(|e| AppError::task_failed(format!("list capability packs: {e}")))?
 }
 
 #[tauri::command]
 pub async fn network_probe_install_capability_pack(
     app: AppHandle,
     pack_id: String,
+    operation_id: String,
 ) -> AppResult<CapabilityPackInstallResult> {
-    super::packs::install_capability_pack(&app, pack_id).await
+    super::packs::install_capability_pack(&app, pack_id, operation_id).await
 }
 
 #[tauri::command]
 pub async fn network_probe_install_capability_pack_verify_fail(
     app: AppHandle,
     pack_id: String,
+    operation_id: String,
 ) -> AppResult<CapabilityPackInstallResult> {
-    super::packs::install_capability_pack_verify_fail(&app, pack_id).await
+    super::packs::install_capability_pack_verify_fail(&app, pack_id, operation_id).await
 }
 
 #[tauri::command]
@@ -66,7 +78,7 @@ pub async fn network_probe_uninstall_capability_pack(
     app: AppHandle,
     pack_id: String,
 ) -> AppResult<()> {
-    super::packs::uninstall_capability_pack(&app, pack_id)
+    super::packs::uninstall_capability_pack(&app, pack_id).await
 }
 
 #[tauri::command]
@@ -108,13 +120,26 @@ pub async fn network_probe_scan_ports(
 }
 
 #[tauri::command]
+pub async fn network_probe_fingerprint_target(
+    app: AppHandle,
+    target: String,
+    ports: String,
+    include_os: bool,
+) -> AppResult<NetworkFingerprintResult> {
+    let parsed = super::ports::parse_port_range(&ports)?;
+    super::fingerprint::fingerprint_target(&app, target, parsed, include_os).await
+}
+
+#[tauri::command]
 pub async fn network_probe_probe_nat() -> AppResult<NatProbeResult> {
-    super::nat::probe_nat().await
+    let defaults = super::defaults::get_defaults()?;
+    super::nat::probe_nat(&defaults.stun_servers).await
 }
 
 #[tauri::command]
 pub async fn network_probe_probe_ntp() -> AppResult<NtpProbeResult> {
-    super::ntp::probe_ntp().await
+    let defaults = super::defaults::get_defaults()?;
+    super::ntp::probe_ntp(&defaults.ntp_servers).await
 }
 
 #[tauri::command]
@@ -136,11 +161,34 @@ pub async fn network_probe_run_pcap_diag(
 }
 
 #[tauri::command]
-pub async fn network_probe_compare_dns_multi(
-    domain: String,
-    locations: Option<Vec<String>>,
-) -> AppResult<MultiNodeDnsResult> {
-    super::globalping::compare_dns_multi(domain, locations.unwrap_or_default()).await
+pub async fn network_probe_globalping_measure(
+    window: tauri::WebviewWindow,
+    app: AppHandle,
+    measurement_type: String,
+    target: String,
+    locations: Vec<String>,
+) -> AppResult<GlobalpingMeasurementResult> {
+    super::globalping::run_measurement_multi(
+        window,
+        app.config().identifier.clone(),
+        measurement_type,
+        target,
+        locations,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn network_probe_manage_globalping_token(
+    app: AppHandle,
+    action: String,
+    token: Option<String>,
+) -> AppResult<bool> {
+    tauri::async_runtime::spawn_blocking(move || {
+        super::globalping::manage_globalping_token(&app.config().identifier, &action, token)
+    })
+    .await
+    .map_err(|_| AppError::task_failed("manage Globalping token"))?
 }
 
 #[tauri::command]
@@ -148,13 +196,33 @@ pub async fn network_probe_add_agent(
     app: AppHandle,
     label: String,
     endpoint: String,
+    token: String,
 ) -> AppResult<ProbeNode> {
-    super::agent::add_agent(&app, label, endpoint).await
+    super::agent::add_agent(&app, label, endpoint, token).await
+}
+
+#[tauri::command]
+pub async fn network_probe_set_agent_token(
+    app: AppHandle,
+    agent_id: String,
+    token: String,
+) -> AppResult<()> {
+    super::agent::set_agent_token(&app, agent_id, token).await
 }
 
 #[tauri::command]
 pub async fn network_probe_remove_agent(app: AppHandle, agent_id: String) -> AppResult<()> {
-    super::agent::remove_agent(&app, agent_id)
+    super::agent::remove_agent(&app, agent_id).await
+}
+
+#[tauri::command]
+pub async fn network_probe_run_agent_measurement(
+    app: AppHandle,
+    agent_id: String,
+    measurement_type: String,
+    target: String,
+) -> AppResult<AgentMeasurementResult> {
+    super::agent::run_agent_measurement(&app, agent_id, measurement_type, target).await
 }
 
 #[tauri::command]

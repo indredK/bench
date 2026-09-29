@@ -4,7 +4,7 @@
 > **执行顺序与状态**：见 [modules/extension-center/roadmap.md](../modules/extension-center/roadmap.md)。
 > **架构边界与工作流**：见 [extension-workflow.md](../explanation/extension-workflow.md)。
 > **版本**：本文对应 **manifest schema v2**（P3.1 起）。schema v1 的迁移说明见 §3.6。
-> **最后更新**：2026-09-08
+> **最后更新**：2026-09-30
 
 ---
 
@@ -70,7 +70,7 @@
 | `engines`       | object                    |  ✅  | `bench` 为 `*` 或 `>=X.Y.Z`                                             | 宿主兼容约束；非法约束 fail-closed                                                                                       |
 | `platforms`     | string\[\]                |  ⬜  | 每项为 `"macos"` \| `"windows"`；不得为空数组                           | 声明可用平台（P5）；**缺省 = 全平台**。宿主在已装列表中过滤掉不含当前平台的插件（能力判定由宿主做，renderer 不自行决定） |
 | `expiresAt`     | string \| null            |  ⬜  | ISO 8601 UTC                                                            | **market 推荐**；过期元数据被拒绝（防 freeze attack）                                                                    |
-| `signature`     | string \| null            |  ⬜  | minisign 签名                                                           | **market 必填**；bundled 豁免（由主包签名链覆盖）                                                                        |
+| `signature`     | string \| null            |  ⬜  | minisign 签名                                                           | 第三方 market registry 必填；官方 registry 可省略（见 §4.6）；bundled 豁免（由主包签名链覆盖）                           |
 
 > 未列出的字段一律拒绝（`deny_unknown_fields`）。字段演进随本规格修订（`platforms` 为 v2 增补，P5）；破坏性字段变更必须走 schemaVersion 升级。
 
@@ -108,7 +108,7 @@
 2. `id` / `version` / `display` / `entry` / `acl` / `engines` 格式与约束
 3. `files` 非空、无重复、路径合法
 4. `engines.bench` 满足宿主版本
-5. `satisfies_engines` 通过后：market 校验 `signature`（§4）；bundled 跳过
+5. `satisfies_engines` 通过后：第三方 market 校验 `signature`（§4）；官方 registry 按 §4.6 校验来源；bundled 跳过
 6. `expiresAt` 未过期
 7. 版本单调性：不高于已安装版本（仅 market 安装/更新路径）
 8. 逐文件 hash 校验（开窗前；实现上可在安装时一次 + 开窗时校验 manifest）
@@ -199,6 +199,16 @@
 
 本项目取 **Mozilla 层级**（逐文件 SHA256），不取 Chrome 的 4KB 分块 treehash —— 后者是为 GB 级资源增量校验设计，Bench 插件 bundle 在 MB 级，逐文件足够。
 
+### 4.6 官方 registry 与第三方 registry 的信任方式
+
+- **官方 registry**：只有当宿主 registry 基址与代码内 `OFFICIAL_REGISTRY_URL` 完全一致（忽略末尾 `/`）时，才允许 market manifest 缺少 `signature`。来源校验依赖 HTTPS 获取 registry、registry 条目的整包 `sha256`/`size`，以及安装后逐文件 `manifest.files` 校验。官方包目前不要求单独 minisign 签名。
+- **第三方 registry**：market manifest 必须有有效 minisign 签名，且 trusted comment 必须绑定 `<id>@<version>`；release 模式下必须配置 `BENCH_EXT_REGISTRY_PUBKEY`。
+- **bundled**：由 Bench 应用包的分发链保护，跳过插件级签名。
+- renderer 不得选择 registry 或提交下载地址。下载 URL 的允许规则见 §5.1/§6。
+- 安装时使用的信任来源持久化在宿主记录 `$APPDATA/extension-records/<id>/source`；后续开窗按该记录校验，不因用户切换 registry 配置而改变已安装插件的信任策略。旧版本无来源记录时，首次成功开窗后写入迁移记录。
+
+这两种 market 信任模式提供的证据不同：官方源依赖 registry 与包摘要的一致性，第三方源额外依赖签名者密钥。官方免签不是“所有 market 都可免签”，也不等同于对每个官方 manifest 做独立的离线签名验证。
+
 ---
 
 ## 5. canonical registry 格式
@@ -210,6 +220,8 @@
 先例：Claude Code plugin marketplace（`marketplace.json` + Git）、Obsidian（`community-plugins.json` + GitHub Release）、Rubick（npm 源 + WebDAV）。
 
 静态托管**不降低**验签安全性 —— 前提是 §4 的完整性校验已到位。
+
+网络 URL 由 Rust `url` crate 解析，不用字符串前缀或手工拆 host：registry 基址和下载 URL 必须使用 HTTPS，拒绝 URL 凭据、片段、localhost / 本地域名及非公网 IP 字面量；下载 URL 可保留 CDN 签名查询参数。registry 基址禁止 query，目录路径通过 URL path segment 追加 `registry.json`。HTTP 重定向的每一跳都执行相同的 URL 校验，并保留 reqwest 的循环检测与最多 10 跳限制。错误与审计消息不得写入原始下载 URL，避免暴露签名查询参数。域名解析仍交给操作系统或用户配置的代理处理，不在宿主中另建 DNS 栈。
 
 ### 5.2 目录文件
 
@@ -242,15 +254,17 @@
 }
 ```
 
-| 字段                         | 说明                                                                            |
-| ---------------------------- | ------------------------------------------------------------------------------- |
-| `versions[].yanked`          | 对齐 npm / crates.io 的下架语义：已安装仍可运行，但不再出现在可安装列表，并提示 |
-| `versions[].sha256` / `size` | **整包**摘要与字节数，下载后先验再解压                                          |
-| `revoked[].versions`         | `*` 或版本范围（`<1.2.0`）。命中则**强制禁用 + UI 显著警示**，不静默删除        |
+| 字段                         | 说明                                                                                                                      |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `versions[].yanked`          | 对齐 npm / crates.io 的下架语义：已安装仍可运行，但不再出现在可安装列表，并提示                                           |
+| `versions[].sha256` / `size` | **整包**摘要与字节数，下载后先验再解压                                                                                    |
+| `revoked[].versions`         | `*` 或版本范围（`<1.2.0`）。命中则**强制禁用 + UI 显著警示**，不静默删除；market 列表逐版本返回吊销原因，命中版本不能安装 |
 
 ### 5.3 吊销语义
 
 - 命中 `revoked` → 宿主**强制禁用**该插件（写 `.disabled`），插件中心显著警示，用户可卸载。
+- 未安装版本命中吊销规则时，market 卡片显示该版本的吊销状态和原因，并从版本选择器排除；同一插件的其他安全、兼容且不违反版本单调性的版本仍可安装。
+- 列表状态只用于用户选择，`ext_market_prepare` 必须重新读取 registry 并复查吊销规则；吊销状态变化时返回 `EXTENSION_REVOKED`，不得开始下载或改变已安装版本。
 - **不静默删除** —— 能力凭空消失的体验更差，且违背 [D-024](../explanation/decisions.md#d-024--extension-仓库组织与-photo-triage-试点拆法)「bundled 保证功能不真空」的取向。
 - 对标 VS Code Marketplace 的 block list（确认恶意后下架并强制卸载已安装实例）。
 
@@ -265,26 +279,32 @@
 3. 校验整包 `sha256` 与 `size`
 4. 解压到**临时目录**（§6.3 安全规则）
 5. 读 manifest → 按 §3.4 顺序校验（含逐文件 hash）
-6. market：验签 + trusted comment 比对
+6. 第三方 market：验签 + trusted comment 比对；官方 registry 按 §4.6 依赖 registry 整包摘要；bundled 不经过 market 安装
 7. 版本单调性检查（`new > installed`）
-8. **全部通过后**原子 rename 到 `$APPDATA/extensions/<id>/`
-9. 写审计日志 `install`
-10. 刷新插件中心列表
+8. 若更新对象已有运行窗口，先关闭窗口并撤销其旧 ACL；同一插件的开窗、更新、启停和卸载串行化
+9. **全部通过后**原子 rename 到 `$APPDATA/extensions/<id>/`
+10. 写审计日志 `install`
+11. 安装成功后刷新插件中心列表
+
+用户取消确认时立即删除预览缓存；超过 24 小时的中断/残留预览在启动或下一次 prepare 时清理。确认更新时，若插件窗口已打开，弹窗会提前说明该窗口将在替换文件和权限前关闭，用户可在更新完成后重新打开。
+
+同一插件的 prepare / commit / cancel 在宿主进程内串行化，避免共享 staging、正式目录和版本水位发生并发交错；开窗、更新、启停和卸载也经独占生命周期闸门串行化。更新前若窗口无法安全关闭，则恢复原 ACL 并中止提交；清理缓存时跳过当前活跃插件。提交阶段再次校验 staging 中的 `distribution`、来源对应的签名和 `files`；任一步失败都清理预览目录并保留原安装版本。失败后关闭确认弹窗，用户可重新准备安装。
 
 **任一步失败**：清理临时目录，保留已安装版本不变，UI 给出可读错误，记审计日志。
 
 ### 6.2 失败分支矩阵
 
-| 失败点                          | 错误码                          | 用户可见提示             | 已安装版本 |
-| ------------------------------- | ------------------------------- | ------------------------ | ---------- |
-| 整包 sha256 不匹配              | `INVALID_INPUT`                 | 下载文件损坏，请重试     | 不变       |
-| manifest 解析/校验失败          | `INVALID_INPUT` / `UNSUPPORTED` | 插件清单不合法           | 不变       |
-| ACL 越权                        | `FORBIDDEN_PATH`                | 插件申请了不允许的权限   | 不变       |
-| engines 不满足                  | `UNSUPPORTED`                   | 需要 Bench ≥ X.Y.Z       | 不变       |
-| 签名无效 / trusted comment 不符 | `FORBIDDEN_PATH`                | 签名校验失败，已阻止安装 | 不变       |
-| 版本回退                        | `INVALID_INPUT`                 | 已安装版本更高           | 不变       |
-| 逐文件 hash 不匹配 / 清单外文件 | `FORBIDDEN_PATH`                | 插件内容被篡改，已阻止   | 不变       |
-| 解压路径越界 / 超配额           | `FORBIDDEN_PATH`                | 插件包结构异常           | 不变       |
+| 失败点                                     | 错误码                          | 用户可见提示                 | 已安装版本 |
+| ------------------------------------------ | ------------------------------- | ---------------------------- | ---------- |
+| 整包 sha256 不匹配                         | `INVALID_INPUT`                 | 下载文件损坏，请重试         | 不变       |
+| manifest 解析/校验失败                     | `INVALID_INPUT` / `UNSUPPORTED` | 插件清单不合法               | 不变       |
+| ACL 越权                                   | `FORBIDDEN_PATH`                | 插件申请了不允许的权限       | 不变       |
+| engines 不满足                             | `UNSUPPORTED`                   | 需要 Bench ≥ X.Y.Z           | 不变       |
+| 所选版本已被 registry 吊销                 | `EXTENSION_REVOKED`             | 该版本已吊销，请选择其他版本 | 不变       |
+| 第三方签名缺失/无效或 trusted comment 不符 | `FORBIDDEN_PATH`                | 签名校验失败，已阻止安装     | 不变       |
+| 版本回退                                   | `INVALID_INPUT`                 | 已安装版本更高               | 不变       |
+| 逐文件 hash 不匹配 / 清单外文件            | `FORBIDDEN_PATH`                | 插件内容被篡改，已阻止       | 不变       |
+| 解压路径越界 / 超配额                      | `FORBIDDEN_PATH`                | 插件包结构异常               | 不变       |
 
 ### 6.3 解压安全规则（实现前必须锁定）
 
@@ -309,10 +329,12 @@
 
 - **宿主能力面**：`src-tauri/src/extension_host/acl.rs` 的 `EXTENSION_ALLOWED_COMMANDS`，deny-by-default。
 - **单插件**：`manifest.acl.commands` 必须是能力面的子集，否则 manifest 校验失败。
-- **运行时**：`acl::guarded` 网关拦截 `ext-` 前缀窗口的命令调用，越权即拒绝。
-- **自助发现**：插件窗口可调用 `ext_capabilities`（命令本身在白名单内）拉取当前能力面
-  命令清单，在调用前校验自身 `acl.commands` 并给出友好报错，无需依赖仓库同目录或
-  试错式调用（见 §9.4）。
+- **运行时**：`acl::guarded` 网关要求每个 `ext-<id>` 窗口调用的命令同时属于宿主能力面
+  与该窗口创建时经完整性校验的 `manifest.acl.commands`；未登记权限、权限缓存缺失或
+  读取失败均拒绝调用。窗口关闭、禁用或卸载时撤销权限。
+- **基础接口例外**：只读的 `ext_capabilities` 可用于自助发现；宿主注入的
+  `ext_poc_report` 仅用于本地诊断日志。两者无需重复声明，插件业务命令仍须在
+  `acl.commands` 中显式授权（见 §9.4）。
 
 > **为什么不能只靠 capability**：Tauri v2 对 `invoke_handler` 注册的自定命令**默认全窗口放行**，capability 只约束 core/plugin 命令。网关是必需的补充。
 
@@ -329,14 +351,15 @@
 
 ## 8. 版本与兼容
 
-| 机制            | 规则                                                                                                    |
-| --------------- | ------------------------------------------------------------------------------------------------------- |
-| `engines.bench` | `*` 或 `>=X.Y.Z`；其余前缀非法（fail-closed）。不满足则禁止打开，列表标记 `compatible: false`           |
-| 版本单调性      | market 安装/更新拒绝 `new <= installed`（对齐 `tauri.conf.json bundle.windows.allowDowngrades: false`） |
-| `expiresAt`     | 过期元数据被拒绝（防 freeze attack）                                                                    |
-| 插件版本        | 由 `manifest.version` 独立管理，与宿主版本解耦                                                          |
-| 卸载            | `ext_uninstall`：关窗 → 删除产物目录（仅限合法插件目录）；UI 走 `DestructiveConfirmDialog`              |
-| 禁用            | 写 `.disabled` 标记文件；禁用时关闭已开窗口                                                             |
+| 机制            | 规则                                                                                                                                  |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `engines.bench` | `*` 或 `>=X.Y.Z`；其余前缀非法（fail-closed）。不满足则禁止打开，列表标记 `compatible: false`                                         |
+| 版本单调性      | market 安装/更新拒绝 `new <= installed`（对齐 `tauri.conf.json bundle.windows.allowDowngrades: false`）                               |
+| `expiresAt`     | 过期元数据被拒绝（防 freeze attack）                                                                                                  |
+| 插件版本        | 由 `manifest.version` 独立管理，与宿主版本解耦                                                                                        |
+| 更新            | `ext_market_commit`：串行化开窗与更新 → 先撤销旧 ACL 并强制关闭已开窗口 → 校验通过后原子替换插件目录；关闭失败则恢复 ACL 并保留旧版本 |
+| 卸载            | `ext_uninstall`：先撤销权限并关闭窗口 → 删除产物目录（仅限合法插件目录）；UI 走 `DestructiveConfirmDialog`                            |
+| 禁用            | 先撤销权限并关闭已开窗口，再写 `.disabled` 标记文件                                                                                   |
 
 ---
 
@@ -347,8 +370,9 @@
 | 通道                        | 内容                                                          | 说明                                                                                                            |
 | --------------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | `window.__BENCH_EXT_LOCALE` | 宿主当前语言（如 `zh` / `en`）                                | 由 `ext_open(locale)` 经 init script 注入。dev/prod 跨 origin 下 `localStorage` 不共享，Rust 注入是唯一可靠通道 |
-| IPC `invoke`                | 调用能力面内的命令                                            | 经 `acl::guarded` 网关，越权即拒绝                                                                              |
-| IPC `ext_capabilities`      | 拉取宿主开放给插件空间的命令清单（能力面快照）                | 返回 `EXTENSION_ALLOWED_COMMANDS` 的只读视图；插件据此校验自身 `acl.commands`（spec §9.4）                      |
+| IPC `invoke`                | 调用宿主能力面命令                                            | 经 `acl::guarded` 网关；业务命令还必须在当前窗口的 manifest ACL 中，越权即拒绝                                  |
+| IPC `ext_capabilities`      | 拉取宿主开放给插件空间的命令清单（能力面快照）                | 只读自助发现入口，无需列入 manifest ACL；返回 `EXTENSION_ALLOWED_COMMANDS`（spec §9.4）                         |
+| IPC `ext_poc_report`        | 接收宿主注入诊断脚本的插件错误事件                            | 本地追加诊断 JSONL；不属于插件业务能力，无需列入 manifest ACL                                                   |
 | 错误捕获脚本                | 捕获 window-error / unhandledrejection / console.error / boot | 宿主在开窗时注入，回传宿主落盘（追加式）                                                                        |
 
 ### 9.2 i18n
@@ -378,13 +402,13 @@
 | label      | `ext-<id>`（固定前缀，网关据此判定插件窗口）                                                           |
 | URL        | 显式 `tauri://localhost/ext/<id>/<entry.index>`，**禁用 `WebviewUrl::App`**（dev 下会 join 到 devUrl） |
 | capability | `capabilities/extension.json` 中 `windows: ["ext-*"]`，仅授予 `core:default`                           |
-| 权限隔离   | 命令级隔离由 `acl::guarded` 提供，capability 只约束 core/plugin 命令，不能替代网关                     |
+| 权限隔离   | `acl::guarded` 同时检查宿主白名单和当前窗口已校验的 manifest ACL；能力发现与宿主诊断上报是基础接口例外 |
 
 ### 9.4 能力面自助发现（runtime capability discovery）
 
 插件**无需**依赖「宿主机仓库同目录」或试错式调用即可得知可用命令：
 
-- 调用 `ext_capabilities`（命令本身在 `EXTENSION_ALLOWED_COMMANDS` 白名单内，任何 `ext-*` 窗口可直接 `invoke`）。
+- 调用只读命令 `ext_capabilities`（在宿主能力面内，任何 `ext-*` 窗口可直接 `invoke`，无需在 manifest ACL 中重复声明）。
 - 返回 `{ commands: string[] }`，即宿主当前能力面全部命令名（`acl.rs` 的 `EXTENSION_ALLOWED_COMMANDS` 快照）。
 - 插件应在调用业务命令前，用返回的清单校验自身 `manifest.acl.commands` 是否全部命中：
   命中缺失时**提前给出可读报错**（如「插件需要 `foo_bar` 但宿主未开放」），而非等到
@@ -396,32 +420,33 @@
 
 ## 10. 测试与验收清单
 
-### 9.1 安全测试矩阵（P3.1 / P3.3 必须全部覆盖）
+### 10.1 安全测试矩阵（P3.1 / P3.3 必须全部覆盖）
 
-| #   | 用例                                 | 期望                           |
-| --- | ------------------------------------ | ------------------------------ |
-| 1   | 篡改任一产物文件（改 JS 内容）       | 拒绝加载                       |
-| 2   | 产物中新增 `files` 未登记的文件      | 拒绝加载                       |
-| 3   | `files` 为空数组 / `path` 重复       | manifest 校验失败              |
-| 4   | 用旧版本（签名合法）重放             | 拒绝（版本单调性）             |
-| 5   | trusted comment 与 id/version 不一致 | 拒绝                           |
-| 6   | 签名串篡改                           | 拒绝                           |
-| 7   | market 插件缺 `signature`            | 拒绝                           |
-| 8   | registry 公钥缺失（release 模式）    | 报配置错误，不回退             |
-| 9   | `expiresAt` 已过期                   | 拒绝                           |
-| 10  | `engines` 不满足                     | 拒绝，列表标记 incompatible    |
-| 11  | `acl.commands` 含能力面外命令        | manifest 校验失败              |
-| 12  | `ext-` 窗口调用未登记命令            | 网关拒绝                       |
-| 13  | zip entry `../evil.js`               | 整包拒绝                       |
-| 14  | zip entry `/abs/path.js`             | 整包拒绝                       |
-| 15  | zip entry `C:\Windows\evil.js`       | 整包拒绝                       |
-| 16  | zip entry `\\server\share\x.js`      | 整包拒绝                       |
-| 17  | zip 内含 symlink entry               | 整包拒绝                       |
-| 18  | 解压体积 / entry 数超限              | 中断并拒绝                     |
-| 19  | 整包 sha256 不匹配                   | 拒绝（不解压）                 |
-| 20  | 安装失败后                           | 临时目录已清理，已安装版本不变 |
+| #   | 用例                                                              | 期望                                                        |
+| --- | ----------------------------------------------------------------- | ----------------------------------------------------------- |
+| 1   | 篡改任一产物文件（改 JS 内容）                                    | 拒绝加载                                                    |
+| 2   | 产物中新增 `files` 未登记的文件                                   | 拒绝加载                                                    |
+| 3   | `files` 为空数组 / `path` 重复                                    | manifest 校验失败                                           |
+| 4   | 用旧版本（签名合法）重放                                          | 拒绝（版本单调性）                                          |
+| 5   | trusted comment 与 id/version 不一致                              | 拒绝                                                        |
+| 6   | 签名串篡改                                                        | 拒绝                                                        |
+| 7   | 第三方 market 插件缺 `signature`                                  | 拒绝；官方 registry 免签路径仍须通过整包摘要与 `files` 校验 |
+| 8   | registry 公钥缺失（release 模式）                                 | 报配置错误，不回退                                          |
+| 9   | `expiresAt` 已过期                                                | 拒绝                                                        |
+| 10  | `engines` 不满足                                                  | 拒绝，列表标记 incompatible                                 |
+| 11  | `acl.commands` 含能力面外命令                                     | manifest 校验失败                                           |
+| 12  | `ext-` 窗口调用宿主白名单内、但未在该插件 manifest ACL 声明的命令 | 网关拒绝                                                    |
+| 13  | 未登记 `ext_capabilities` / `ext_poc_report`                      | 能力发现与宿主诊断接口仍可调用                              |
+| 14  | zip entry `../evil.js`                                            | 整包拒绝                                                    |
+| 15  | zip entry `/abs/path.js`                                          | 整包拒绝                                                    |
+| 16  | zip entry `C:\Windows\evil.js`                                    | 整包拒绝                                                    |
+| 17  | zip entry `\\server\share\x.js`                                   | 整包拒绝                                                    |
+| 18  | zip 内含 symlink entry                                            | 整包拒绝                                                    |
+| 19  | 解压体积 / entry 数超限                                           | 中断并拒绝                                                  |
+| 20  | 整包 sha256 不匹配                                                | 拒绝（不解压）                                              |
+| 21  | 安装失败后                                                        | 临时目录已清理，已安装版本不变                              |
 
-### 9.2 常规门禁
+### 10.2 常规门禁
 
 ```bash
 pnpm run check:be-cfg
@@ -432,6 +457,6 @@ pnpm run test:critical
 pnpm run check:docs
 ```
 
-### 9.3 双平台
+### 10.3 双平台
 
 macOS 与 Windows runner 必须同时全绿（P3.2 起）。本机 macOS 编译通过**不能替代**双平台验证（[coding-standards.md §7.4.1](../how-to/coding-standards.md)）。

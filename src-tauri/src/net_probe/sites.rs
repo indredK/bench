@@ -30,7 +30,8 @@ pub async fn sites_probe<R: Runtime>(
         )));
     }
 
-    let session_id = super::session::new_session_id();
+    let session_guard = super::session::SessionGuard::new();
+    let session_id = session_guard.id().to_string();
     emit_session(app, &session_id);
     let command_hint = format!("startSitesProbe(local, '{pack_id}') // sessionId={session_id}");
 
@@ -78,7 +79,8 @@ pub async fn sites_probe_custom<R: Runtime>(
         return Err(AppError::invalid_input("No custom targets"));
     }
 
-    let session_id = super::session::new_session_id();
+    let session_guard = super::session::SessionGuard::new();
+    let session_id = session_guard.id().to_string();
     emit_session(app, &session_id);
     let command_hint = format!(
         "startSitesProbe(local, custom[{}]) // sessionId={session_id}",

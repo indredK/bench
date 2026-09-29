@@ -8,17 +8,24 @@
 
 ## 全局规划视图（待办项数速览）
 
-> 详单见各模块文件；勾选式 `- [ ]` 实现完成即从对应文件移除。
+> 详单见各模块文件；勾选式 `- [ ]` 实现完成即从对应文件移除。外部插件的待办数按 2026-09-28 的公开规划文档统计。
 
-| 模块                                                                                                                               | 待实现 / 待验证 | 远期   | 模块                                                                                                                   | 待实现 / 待验证 | 远期   |
-| ---------------------------------------------------------------------------------------------------------------------------------- | --------------- | ------ | ---------------------------------------------------------------------------------------------------------------------- | --------------- | ------ |
-| [account-manager](./account-manager.md)                                                                                            | 38              | 3      | [network-probe](./network-probe.md)                                                                                    | 15              | 6      |
-| [clean-space](https://github.com/kindred-plugin-market/plugin-market/tree/main/extensions/clean-space/docs/planned.md)             | 4               | 4      | [port-manager](./port-manager.md)                                                                                      | 5               | 2      |
-| [dev-cleaner](https://github.com/kindred-plugin-market/plugin-market/tree/main/extensions/clean-space/docs/dev-cleaner/planned.md) | 4               | 2      | [system-settings](./system-settings.md)                                                                                | 8               | 1      |
-| [dev-toolbox](./dev-toolbox.md)                                                                                                    | 6               | 2      | [terminology](https://github.com/kindred-plugin-market/plugin-market/tree/main/extensions/terminology/docs/planned.md) | 7               | 2      |
-| [extension-center](./extension-center.md)                                                                                          | 22              | 0      | [updater](./updater.md)                                                                                                | 4               | 0      |
-| [hardware](https://github.com/kindred-plugin-market/plugin-market/tree/main/extensions/hardware/docs/planned.md)                   | 4               | 2      | <br />                                                                                                                 | <br />          | <br /> |
-| **合计**                                                                                                                           | **141**         | **30** | <br />                                                                                                                 | <br />          | <br /> |
+| 模块                                                                                                                               | 待实现 / 待验证 |   远期 |
+| ---------------------------------------------------------------------------------------------------------------------------------- | --------------: | -----: |
+| [account-manager](./account-manager.md)                                                                                            |              49 |      3 |
+| [clean-space](https://github.com/kindred-plugin-market/plugin-market/tree/main/extensions/clean-space/docs/planned.md)             |               4 |      4 |
+| [command-center](./command-center.md)                                                                                              |               8 |      2 |
+| [dev-cleaner](https://github.com/kindred-plugin-market/plugin-market/tree/main/extensions/clean-space/docs/dev-cleaner/planned.md) |               4 |      2 |
+| [dev-toolbox](./dev-toolbox.md)                                                                                                    |               8 |      2 |
+| [env-detector](./env-detector.md)                                                                                                  |               6 |      1 |
+| [extension-center](./extension-center.md)                                                                                          |               7 |      0 |
+| [hardware](https://github.com/kindred-plugin-market/plugin-market/tree/main/extensions/hardware/docs/planned.md)                   |               4 |      2 |
+| [network-probe](./network-probe.md)                                                                                                |              17 |      6 |
+| [port-manager](./port-manager.md)                                                                                                  |               7 |      2 |
+| [system-settings](./system-settings.md)                                                                                            |               9 |      1 |
+| [terminology](https://github.com/kindred-plugin-market/plugin-market/tree/main/extensions/terminology/docs/planned.md)             |               7 |      2 |
+| [updater](./updater.md)                                                                                                            |               4 |      0 |
+| **合计**                                                                                                                           |         **134** | **27** |
 
 ## 统一模板（每份文档均含）
 

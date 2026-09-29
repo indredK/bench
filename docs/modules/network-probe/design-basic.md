@@ -174,14 +174,24 @@ Tauri v2：事件名进 `TAURI_EVENTS`；payload 必带 `sessionId`；前端只�
 
 ## 5. 前端状态与 UX
 
-| Store 域      | 内容                           |
-| ------------- | ------------------------------ |
-| `summary`     | 最近一次本机摘要               |
-| `healthByKey` | `Record<key, HealthCheckItem>` |
-| `advice`      | Advisor 输出（精简可操作）     |
-| `sites`       | 站点采样序列（火花线）         |
-| `offline`     | 各专项结果                     |
-| `lastReport`  | 导出缓存                       |
+### 5.1 一体化首页（`overview`）
+
+- 首页并列整合本机摘要与最近体检概况；窄窗口下纵向排列，摘要卡片和计数器可换行，不截断必须理解的地址或建议正文。
+- 本机摘要首次加载用与最终布局一致的 skeleton；刷新保留旧值并标记刷新中；无摘要、失败通过页面错误区域反馈，可重新刷新。
+- 体检状态仅由 `HealthScanResult.items` 的实际状态统计：`fail` 优先标成有问题，其次是 `warn`；`error` / `skip` / 未知状态或空结果显示为不完整；全部通过才显示无异常。**不计算健康分数**。
+- 体检运行时使用本轮 `healthStreamingItems`，明确提示已返回数量并允许取消；不显示上轮建议为本轮结论。取消后仍保留已收到的部分结果并标注已取消。
+- 显示最多两条 Advisor 建议，其余可跳转意见页；顶部保留体检运行/取消和「上不了网」操作，固定 L2 导航仍负责体检树、意见、修复和报告，避免重复一组导航按钮。详细检查证据与报告功能仍由原面板负责。
+- 所有文案来自中英文 locale；状态带可读文字而不只依赖颜色，操作均为原生按钮并可键盘触发。
+
+| Store 域               | 内容                                                 |
+| ---------------------- | ---------------------------------------------------- |
+| `summary`              | 最近一次本机摘要                                     |
+| `healthByKey`          | `Record<key, HealthCheckItem>`                       |
+| `advice`               | Advisor 输出（精简可操作）                           |
+| `sites`                | 站点采样序列（火花线）                               |
+| `offline`              | 各专项结果                                           |
+| `reportHistory`        | 最近 10 次脱敏体检快照（含采集时间），本机可关闭保存 |
+| `reportHistoryEnabled` | 是否在本机保存体检快照，关闭时清空现有记录           |
 
 UX 强制：
 
@@ -189,6 +199,7 @@ UX 强制：
 - 空/加载/失败/unsupported 四态齐全。
 - 防重入：`useGuardedAsync`；切换 L2 不取消后台 session，除非用户点停止。
 - i18n：`networkProbe.basic.*`；command 名不翻译。
+- 报告历史可选两次快照对比；错误/跳过状态只标注变化，不参与健康改善排序；清空与关闭保存均需确认。
 
 Advisor：前端 `network-probe.advisor.ts` 与后端 `advisor_rules.rs` **共享规则 ID**；基础视角只展示可操作建议，依据进展开区。
 
@@ -207,7 +218,7 @@ Advisor：前端 `network-probe.advisor.ts` 与后端 `advisor_rules.rs` **共�
 ## 7. 安全与隐私
 
 - 报告导出前提示可能含公网 IP / hosts / SSID。
-- 历史条数上限；默认不含 Cookie。
+- 体检快照只保存在本机、最多 10 次；仅存检查状态与建议标识，不存原始网络诊断；用户可关闭并清空，清空需确认。
 - 修复命令审计：后端记结构化日志（iface、DNS 列表），脱敏。
 
 ---

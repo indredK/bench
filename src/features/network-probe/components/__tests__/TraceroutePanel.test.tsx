@@ -1,0 +1,225 @@
+/**
+ * Test / 测试: preserve table semantics when traceroute rows are virtualized.
+ */
+import { describe, expect, it, vi } from "vitest"
+import { fireEvent, render, screen } from "@testing-library/react"
+import { TraceroutePanel } from "../TraceroutePanel"
+import type { TracerouteHop, TracerouteResult } from "@/lib/tauri/types/network-probe"
+
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({ t: (key: string) => key }),
+}))
+
+vi.mock("@tanstack/react-virtual", () => ({
+  useVirtualizer: ({ count, estimateSize }: { count: number; estimateSize: () => number }) => ({
+    getTotalSize: () => count * estimateSize(),
+    getVirtualItems: () =>
+      Array.from({ length: Math.min(count, 6) }, (_, index) => ({
+        index,
+        size: estimateSize(),
+        start: index * estimateSize(),
+      })),
+  }),
+}))
+
+vi.mock("@/components/common/CommandHint", () => ({
+  CommandHint: ({ children }: { children: React.ReactNode }) => children,
+}))
+
+vi.mock("@/components/ui/button", () => ({
+  Button: (props: React.ButtonHTMLAttributes<HTMLButtonElement>) => <button {...props} />,
+}))
+
+vi.mock("@/components/ui/input", () => ({
+  Input: (props: React.InputHTMLAttributes<HTMLInputElement>) => <input {...props} />,
+}))
+
+vi.mock("../ProbePanelShell", () => ({
+  ProbePanelShell: ({
+    toolbar,
+    children,
+  }: {
+    toolbar: React.ReactNode
+    children: React.ReactNode
+  }) => (
+    <section>
+      {toolbar}
+      {children}
+    </section>
+  ),
+}))
+
+function createHop(ttl: number): TracerouteHop {
+  return {
+    ttl,
+    addrs: [`192.0.2.${ttl}`],
+    lossPercent: 0,
+    avgRttMs: 10,
+    bestRttMs: 9,
+    worstRttMs: 11,
+    sent: 3,
+    recv: 3,
+  }
+}
+
+function createResult(
+  hops: TracerouteHop[],
+  overrides: Partial<TracerouteResult> = {},
+): TracerouteResult {
+  return {
+    target: "example.com",
+    resolvedIp: "192.0.2.1",
+    privilegeMode: "unprivileged",
+    hops,
+    rounds: 3,
+    elapsedMs: 120,
+    sessionId: "session-1",
+    cancelled: false,
+    commandHint: "traceroute example.com",
+    ...overrides,
+  }
+}
+
+describe("TraceroutePanel", () => {
+  it.each([
+    ["maxTtl", ""],
+    ["maxTtl", "0"],
+    ["maxTtl", "33"],
+    ["maxTtl", "1.5"],
+    ["rounds", ""],
+    ["rounds", "0"],
+    ["rounds", "11"],
+    ["rounds", "2.5"],
+  ])("blocks invalid %s value %s before starting", (field, value) => {
+    const onRun = vi.fn()
+    render(
+      <TraceroutePanel
+        loading={false}
+        canCancel={false}
+        result={null}
+        streamingHops={[]}
+        toolEnabled
+        onRun={onRun}
+        onCancel={() => {}}
+      />,
+    )
+
+    const input = screen.getByLabelText(`networkProbe.traceroute.${field}`)
+    fireEvent.change(input, { target: { value } })
+
+    expect(input).toHaveAttribute("aria-invalid", "true")
+    expect(input).toHaveAttribute(
+      "aria-describedby",
+      field === "maxTtl" ? "np-tr-ttl-range" : "np-tr-rounds-range",
+    )
+    expect(screen.getByRole("button", { name: "networkProbe.traceroute.run" })).toBeDisabled()
+    expect(onRun).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ["maxTtl", "1"],
+    ["maxTtl", "32"],
+    ["rounds", "1"],
+    ["rounds", "10"],
+  ])("allows the %s boundary value %s", (field, value) => {
+    render(
+      <TraceroutePanel
+        loading={false}
+        canCancel={false}
+        result={null}
+        streamingHops={[]}
+        toolEnabled
+        onRun={() => {}}
+        onCancel={() => {}}
+      />,
+    )
+
+    const input = screen.getByLabelText(`networkProbe.traceroute.${field}`)
+    fireEvent.change(input, { target: { value } })
+
+    expect(input).toHaveAttribute("aria-invalid", "false")
+    expect(screen.getByRole("button", { name: "networkProbe.traceroute.run" })).toBeEnabled()
+  })
+
+  it("keeps a long hop table bounded while exposing complete row count and positions", () => {
+    const hops = Array.from({ length: 60 }, (_, index) => createHop(index + 1))
+    const { container } = render(
+      <TraceroutePanel
+        loading={false}
+        canCancel={false}
+        result={createResult(hops)}
+        streamingHops={[]}
+        toolEnabled
+        onRun={() => {}}
+        onCancel={() => {}}
+      />,
+    )
+
+    const table = screen.getByRole("table")
+    expect(table).toHaveAttribute("aria-rowcount", "61")
+    expect(screen.getAllByRole("row")).toHaveLength(7)
+    expect(screen.getByText("192.0.2.6").closest("tr")).toHaveAttribute("aria-rowindex", "7")
+    expect(screen.queryByText("192.0.2.60")).not.toBeInTheDocument()
+    expect(container.querySelector(".max-h-80")).not.toBeNull()
+  })
+
+  it("shows a localized unavailable state without exposing backend diagnostics", () => {
+    const diagnostic =
+      "Traceroute unavailable without sufficient privileges. [TRACEROUTE_BUILD] invalid config"
+    render(
+      <TraceroutePanel
+        loading={false}
+        canCancel={false}
+        result={createResult([], {
+          privilegeMode: "unavailable",
+          message: diagnostic,
+        })}
+        streamingHops={[]}
+        toolEnabled
+        onRun={() => {}}
+        onCancel={() => {}}
+      />,
+    )
+
+    expect(screen.getByText("networkProbe.traceroute.unavailableEmpty")).toBeInTheDocument()
+    expect(screen.queryByText(diagnostic)).not.toBeInTheDocument()
+  })
+
+  it("localizes the unprivileged UDP fallback hint", () => {
+    const diagnostic = "Completed with unprivileged UDP traceroute."
+    render(
+      <TraceroutePanel
+        loading={false}
+        canCancel={false}
+        result={createResult([createHop(1)], {
+          privilegeMode: "unprivileged",
+          message: diagnostic,
+        })}
+        streamingHops={[]}
+        toolEnabled
+        onRun={() => {}}
+        onCancel={() => {}}
+      />,
+    )
+
+    expect(screen.getByText("networkProbe.traceroute.unprivilegedHint")).toBeInTheDocument()
+    expect(screen.queryByText(diagnostic)).not.toBeInTheDocument()
+  })
+
+  it("does not show an empty-result prompt after a cancelled trace", () => {
+    render(
+      <TraceroutePanel
+        loading={false}
+        canCancel={false}
+        result={createResult([], { privilegeMode: "cancelled", cancelled: true })}
+        streamingHops={[]}
+        toolEnabled
+        onRun={() => {}}
+        onCancel={() => {}}
+      />,
+    )
+
+    expect(screen.queryByText("networkProbe.traceroute.empty")).not.toBeInTheDocument()
+    expect(screen.getByText("networkProbe.traceroute.cancelled")).toBeInTheDocument()
+  })
+})

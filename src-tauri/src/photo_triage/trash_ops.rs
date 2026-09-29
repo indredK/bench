@@ -809,6 +809,8 @@ mod tests {
 
     #[test]
     fn move_items_moves_files_and_rewrites_ids() {
+        // The other trash tests read this process-wide variable while holding this lock.
+        let _env_guard = TRASH_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let src = temp_dir();
         let state = setup_state(&src);
         let target = temp_dir();

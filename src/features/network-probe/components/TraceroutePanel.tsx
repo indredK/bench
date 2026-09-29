@@ -1,8 +1,9 @@
 /**
  * Feature UI / 功能界面: traceroute / MTR hop table.
  */
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { useVirtualizer } from "@tanstack/react-virtual"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,6 +22,12 @@ interface TraceroutePanelProps {
   onCancel: () => void
 }
 
+function isIntegerInRange(value: string, min: number, max: number): boolean {
+  if (value.trim() === "") return false
+  const number = Number(value)
+  return Number.isInteger(number) && number >= min && number <= max
+}
+
 export function TraceroutePanel({
   loading,
   canCancel,
@@ -35,12 +42,38 @@ export function TraceroutePanel({
   const [target, setTarget] = useState("1.1.1.1")
   const [maxTtl, setMaxTtl] = useState("20")
   const [rounds, setRounds] = useState("3")
+  const maxTtlValid = isIntegerInRange(maxTtl, 1, 32)
+  const roundsValid = isIntegerInRange(rounds, 1, 10)
+  const hopsContainerRef = useRef<HTMLDivElement>(null)
 
   // 跑动中只渲染本轮 streaming 跳数: 旧 result 优先会遮蔽新一轮逐跳进度。
   const hops = loading ? streamingHops : result?.hops?.length ? result.hops : streamingHops
+  const hopVirtualizer = useVirtualizer({
+    count: hops.length,
+    getScrollElement: () => hopsContainerRef.current,
+    estimateSize: () => 32,
+    overscan: 6,
+    initialRect: { width: 960, height: 320 },
+  })
   const modeKey = result?.privilegeMode
     ? `networkProbe.traceroute.mode.${result.privilegeMode}`
     : null
+  const virtualizedHops = hops.length > 50
+  const virtualItems = virtualizedHops ? hopVirtualizer.getVirtualItems() : []
+  const renderedHops = virtualizedHops
+    ? virtualItems.map((item) => ({ hop: hops[item.index]!, index: item.index, size: item.size }))
+    : hops.map((hop, index) => ({ hop, index, size: undefined }))
+  const topPadding = virtualItems[0]?.start ?? 0
+  const lastVirtualItem = virtualItems.at(-1)
+  const bottomPadding =
+    virtualizedHops && lastVirtualItem
+      ? Math.max(0, hopVirtualizer.getTotalSize() - lastVirtualItem.start - lastVirtualItem.size)
+      : 0
+  const resultHintKey = result?.cancelled
+    ? null
+    : result?.privilegeMode === "unprivileged"
+      ? "networkProbe.traceroute.unprivilegedHint"
+      : null
 
   return (
     <ProbePanelShell
@@ -68,31 +101,49 @@ export function TraceroutePanel({
                 disabled={loading}
               />
             </div>
-            <div className="w-20 space-y-1">
+            <div className="w-24 space-y-1">
               <label className="text-xs font-medium" htmlFor="np-tr-ttl">
                 {t("networkProbe.traceroute.maxTtl")}
               </label>
               <Input
                 id="np-tr-ttl"
+                type="number"
+                min={1}
+                max={32}
+                step={1}
                 value={maxTtl}
                 onChange={(e) => setMaxTtl(e.target.value)}
                 inputMode="numeric"
                 autoComplete="off"
                 disabled={loading}
+                aria-invalid={!maxTtlValid}
+                aria-describedby="np-tr-ttl-range"
               />
+              <p id="np-tr-ttl-range" className="text-muted-foreground text-[10px]">
+                {t("networkProbe.traceroute.maxTtlRangeHint", { min: 1, max: 32 })}
+              </p>
             </div>
-            <div className="w-20 space-y-1">
+            <div className="w-24 space-y-1">
               <label className="text-xs font-medium" htmlFor="np-tr-rounds">
                 {t("networkProbe.traceroute.rounds")}
               </label>
               <Input
                 id="np-tr-rounds"
+                type="number"
+                min={1}
+                max={10}
+                step={1}
                 value={rounds}
                 onChange={(e) => setRounds(e.target.value)}
                 inputMode="numeric"
                 autoComplete="off"
                 disabled={loading}
+                aria-invalid={!roundsValid}
+                aria-describedby="np-tr-rounds-range"
               />
+              <p id="np-tr-rounds-range" className="text-muted-foreground text-[10px]">
+                {t("networkProbe.traceroute.roundsRangeHint", { min: 1, max: 10 })}
+              </p>
             </div>
             <CommandHint
               hint={t("networkProbe.cmd.traceroute", {
@@ -103,9 +154,7 @@ export function TraceroutePanel({
             >
               <Button
                 type="button"
-                disabled={
-                  loading || !toolEnabled || !target.trim() || !Number(maxTtl) || !Number(rounds)
-                }
+                disabled={loading || !toolEnabled || !target.trim() || !maxTtlValid || !roundsValid}
                 onClick={() => onRun(target, Number(maxTtl), Number(rounds))}
               >
                 {loading ? t("networkProbe.traceroute.running") : t("networkProbe.traceroute.run")}
@@ -134,19 +183,31 @@ export function TraceroutePanel({
               <span className="ml-2">{t("networkProbe.traceroute.cancelled")}</span>
             ) : null}
           </div>
-          {result.message ? <div>{result.message}</div> : null}
+          {resultHintKey ? <div>{t(resultHintKey)}</div> : null}
         </div>
       ) : null}
 
-      {hops.length === 0 && !loading ? (
-        <p className="text-muted-foreground text-sm">{t("networkProbe.traceroute.empty")}</p>
+      {hops.length === 0 && !loading && !result?.cancelled ? (
+        <p className="text-muted-foreground text-sm">
+          {t(
+            result?.privilegeMode === "unavailable"
+              ? "networkProbe.traceroute.unavailableEmpty"
+              : "networkProbe.traceroute.empty",
+          )}
+        </p>
       ) : null}
 
       {hops.length > 0 ? (
-        <div className="overflow-auto rounded-lg border">
-          <table className="w-full text-left text-sm">
+        <div
+          ref={hopsContainerRef}
+          className={cn(
+            "rounded-lg border",
+            virtualizedHops ? "max-h-80 overflow-auto" : "overflow-auto",
+          )}
+        >
+          <table className="w-full text-left text-sm" aria-rowcount={hops.length + 1}>
             <thead className="bg-muted/50 text-muted-foreground text-xs">
-              <tr>
+              <tr aria-rowindex={1}>
                 <th className="px-2 py-1.5 font-medium">{t("networkProbe.traceroute.col.ttl")}</th>
                 <th className="px-2 py-1.5 font-medium">{t("networkProbe.traceroute.col.addr")}</th>
                 <th className="px-2 py-1.5 font-medium">{t("networkProbe.traceroute.col.asn")}</th>
@@ -159,8 +220,18 @@ export function TraceroutePanel({
               </tr>
             </thead>
             <tbody>
-              {hops.map((hop) => (
-                <tr key={hop.ttl} className="border-t">
+              {virtualizedHops && topPadding > 0 ? (
+                <tr aria-hidden="true" key="top-spacer">
+                  <td colSpan={7} style={{ height: topPadding, padding: 0, border: 0 }} />
+                </tr>
+              ) : null}
+              {renderedHops.map(({ hop, index, size }) => (
+                <tr
+                  key={hop.ttl}
+                  aria-rowindex={index + 2}
+                  className="h-8 border-t"
+                  style={size == null ? undefined : { height: size }}
+                >
                   <td className="px-2 py-1.5 font-mono text-xs">{hop.ttl}</td>
                   <td className="max-w-[12rem] truncate px-2 py-1.5 font-mono text-xs">
                     {hop.addrs.length > 0 ? hop.addrs.join(", ") : "*"}
@@ -202,6 +273,11 @@ export function TraceroutePanel({
                   </td>
                 </tr>
               ))}
+              {virtualizedHops && bottomPadding > 0 ? (
+                <tr aria-hidden="true" key="bottom-spacer">
+                  <td colSpan={7} style={{ height: bottomPadding, padding: 0, border: 0 }} />
+                </tr>
+              ) : null}
             </tbody>
           </table>
         </div>

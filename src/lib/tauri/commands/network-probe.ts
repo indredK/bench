@@ -1,7 +1,7 @@
 /**
  * IPC Commands / 通信命令: wrap typed invokes only; 只封装 Tauri 调用.
  */
-import type { DefaultsOverride } from "@/lib/tauri/types/network-probe"
+import type { DefaultsOverride, GlobalpingMeasurementType } from "@/lib/tauri/types/network-probe"
 import { TAURI_COMMANDS } from "@/lib/tauri/contracts"
 import { invokeTauriCommand } from "@/lib/tauri/invoke"
 
@@ -25,12 +25,19 @@ export function resetNetworkProbeDefaults() {
   return invokeTauriCommand(TAURI_COMMANDS.networkProbe.resetDefaults)
 }
 
+export function resetNetworkProbeDiscoveryDefaults() {
+  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.resetDiscoveryDefaults)
+}
+
 export function listCapabilityPacks() {
   return invokeTauriCommand(TAURI_COMMANDS.networkProbe.listCapabilityPacks)
 }
 
-export function installCapabilityPack(packId: string) {
-  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.installCapabilityPack, { packId })
+export function installCapabilityPack(packId: string, operationId: string) {
+  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.installCapabilityPack, {
+    packId,
+    operationId,
+  })
 }
 
 export function uninstallCapabilityPack(packId: string) {
@@ -173,6 +180,14 @@ export function scanPorts(target: string, ports: string) {
   return invokeTauriCommand(TAURI_COMMANDS.networkProbe.scanPorts, { target, ports })
 }
 
+export function fingerprintTarget(target: string, ports: string, includeOs: boolean) {
+  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.fingerprintTarget, {
+    target,
+    ports,
+    includeOs,
+  })
+}
+
 export function probeNat() {
   return invokeTauriCommand(TAURI_COMMANDS.networkProbe.probeNat)
 }
@@ -193,24 +208,56 @@ export function runPcapDiag(durationSecs?: number | null) {
   return invokeTauriCommand(TAURI_COMMANDS.networkProbe.runPcapDiag, { durationSecs })
 }
 
-export function compareDnsMulti(domain: string, locations?: string[] | null) {
-  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.compareDnsMulti, { domain, locations })
+export function runGlobalpingMeasurement(
+  measurementType: GlobalpingMeasurementType,
+  target: string,
+  locations: string[],
+) {
+  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.globalpingMeasure, {
+    measurementType,
+    target,
+    locations,
+  })
 }
 
-export function addAgent(label: string, endpoint: string) {
-  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.addAgent, { label, endpoint })
+export function manageGlobalpingToken(action: "status" | "save" | "clear", token?: string | null) {
+  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.manageGlobalpingToken, {
+    action,
+    token: token ?? null,
+  })
+}
+
+export function addAgent(label: string, endpoint: string, token: string) {
+  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.addAgent, { label, endpoint, token })
+}
+
+export function setAgentToken(agentId: string, token: string) {
+  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.setAgentToken, { agentId, token })
 }
 
 export function removeAgent(agentId: string) {
   return invokeTauriCommand(TAURI_COMMANDS.networkProbe.removeAgent, { agentId })
 }
 
+export function runAgentMeasurement(
+  agentId: string,
+  measurementType: GlobalpingMeasurementType,
+  target: string,
+) {
+  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.runAgentMeasurement, {
+    agentId,
+    measurementType,
+    target,
+  })
+}
+
 export function rejectAgentAction(action: string) {
   return invokeTauriCommand(TAURI_COMMANDS.networkProbe.rejectAgentAction, { action })
 }
 
-export function installCapabilityPackVerifyFail(packId: string) {
+export function installCapabilityPackVerifyFail(packId: string, operationId: string) {
   return invokeTauriCommand(TAURI_COMMANDS.networkProbe.installCapabilityPackVerifyFail, {
     packId,
+    operationId,
   })
 }

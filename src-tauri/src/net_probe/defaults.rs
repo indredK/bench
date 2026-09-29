@@ -1,11 +1,58 @@
 use super::types::{
-    CaptiveProbe, DefaultsOverride, DnsPreset, MtuTarget, NetworkProbeDefaultsCatalog, PublicIpApi,
-    ReachTarget, SitePreset,
+    CaptiveProbe, DefaultsOverride, DnsPreset, MtuTarget, NetworkProbeDefaultsCatalog, ProbeServer,
+    PublicIpApi, ReachTarget, SitePreset,
 };
 use crate::error::{AppError, AppResult};
 use std::collections::HashMap;
-use std::fs;
-use std::path::PathBuf;
+use std::fs::{self, File, OpenOptions};
+use std::path::{Path, PathBuf};
+use std::sync::{Mutex, MutexGuard, OnceLock};
+
+pub(crate) const MAX_STUN_SERVERS: usize = 6;
+pub(crate) const MAX_NTP_SERVERS: usize = 8;
+
+fn override_lock() -> &'static Mutex<()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(()))
+}
+
+/// Serialize defaults writes across both windows in this process and separate Bench builds
+/// that share the same user config directory (for example, the installed app and a QA build).
+struct DefaultsWriteGuard {
+    process_lock: Option<MutexGuard<'static, ()>>,
+    os_lock: Option<File>,
+}
+
+impl DefaultsWriteGuard {
+    fn acquire(override_path: &Path) -> AppResult<Self> {
+        let process_lock = override_lock()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let lock_path = override_path.with_file_name("defaults-override.lock");
+        let os_lock = OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .read(true)
+            .write(true)
+            .open(lock_path)
+            .map_err(|e| AppError::io(format!("open defaults lock: {e}")))?;
+        os_lock
+            .lock()
+            .map_err(|e| AppError::io(format!("acquire defaults lock: {e}")))?;
+        Ok(Self {
+            process_lock: Some(process_lock),
+            os_lock: Some(os_lock),
+        })
+    }
+}
+
+impl Drop for DefaultsWriteGuard {
+    fn drop(&mut self) {
+        // Release the OS lock first so another process can proceed before this process unlocks.
+        self.os_lock.take();
+        self.process_lock.take();
+    }
+}
 
 pub fn builtin_defaults() -> AppResult<NetworkProbeDefaultsCatalog> {
     let mut site_packs = HashMap::new();
@@ -70,6 +117,17 @@ pub fn builtin_defaults() -> AppResult<NetworkProbeDefaultsCatalog> {
 
     Ok(NetworkProbeDefaultsCatalog {
         schema_version: 1,
+        stun_servers: vec![
+            probe_server("google-a", "stun.l.google.com:19302"),
+            probe_server("google-b", "stun1.l.google.com:19302"),
+            probe_server("google-c", "stun2.l.google.com:19302"),
+        ],
+        ntp_servers: vec![
+            probe_server("apple", "time.apple.com:123"),
+            probe_server("cloudflare", "time.cloudflare.com:123"),
+            probe_server("google", "time.google.com:123"),
+            probe_server("cn-ali", "ntp.aliyun.com:123"),
+        ],
         dns_presets: vec![
             dns("cf-dot1", "1.1.1.1", "global"),
             dns("cf-dot0", "1.0.0.1", "global"),
@@ -118,6 +176,13 @@ pub fn builtin_defaults() -> AppResult<NetworkProbeDefaultsCatalog> {
             },
         ],
     })
+}
+
+fn probe_server(id: &str, server: &str) -> ProbeServer {
+    ProbeServer {
+        id: id.into(),
+        server: server.into(),
+    }
 }
 
 fn dns(id: &str, address: &str, region: &str) -> DnsPreset {
@@ -183,6 +248,12 @@ fn apply_override(
     mut catalog: NetworkProbeDefaultsCatalog,
     overlay: DefaultsOverride,
 ) -> NetworkProbeDefaultsCatalog {
+    if let Some(v) = overlay.stun_servers {
+        catalog.stun_servers = v;
+    }
+    if let Some(v) = overlay.ntp_servers {
+        catalog.ntp_servers = v;
+    }
     if let Some(v) = overlay.dns_presets {
         catalog.dns_presets = v;
     }
@@ -213,24 +284,180 @@ pub fn get_defaults() -> AppResult<NetworkProbeDefaultsCatalog> {
 }
 
 pub fn save_defaults_override(overlay: DefaultsOverride) -> AppResult<()> {
+    validate_override(&overlay)?;
     let path = override_path()?;
-    let json = serde_json::to_string_pretty(&overlay)
+    let _guard = DefaultsWriteGuard::acquire(&path)?;
+    let mut merged = load_override()?.unwrap_or_default();
+    merge_override(&mut merged, overlay);
+    let json = serde_json::to_vec_pretty(&merged)
         .map_err(|e| AppError::io(format!("serialize override: {e}")))?;
-    fs::write(&path, json).map_err(|e| AppError::io(format!("write override: {e}")))?;
+    crate::persistence::atomic_write(&path, &json)
+        .map_err(|e| AppError::io(format!("write override: {e}")))?;
     Ok(())
 }
 
 pub fn reset_defaults() -> AppResult<()> {
     let path = override_path()?;
+    let _guard = DefaultsWriteGuard::acquire(&path)?;
     if path.exists() {
         fs::remove_file(&path).map_err(|e| AppError::io(format!("reset defaults: {e}")))?;
     }
     Ok(())
 }
 
+pub fn reset_discovery_defaults() -> AppResult<()> {
+    let path = override_path()?;
+    let _guard = DefaultsWriteGuard::acquire(&path)?;
+    let Some(mut overlay) = load_override()? else {
+        return Ok(());
+    };
+    overlay.stun_servers = None;
+    overlay.ntp_servers = None;
+    if override_is_empty(&overlay) {
+        if path.exists() {
+            fs::remove_file(&path)
+                .map_err(|e| AppError::io(format!("reset discovery defaults: {e}")))?;
+        }
+        return Ok(());
+    }
+    let json = serde_json::to_vec_pretty(&overlay)
+        .map_err(|e| AppError::io(format!("serialize override: {e}")))?;
+    crate::persistence::atomic_write(&path, &json)
+        .map_err(|e| AppError::io(format!("reset discovery defaults: {e}")))
+}
+
+fn validate_override(overlay: &DefaultsOverride) -> AppResult<()> {
+    if let Some(servers) = &overlay.stun_servers {
+        validate_servers("STUN", servers, 2, MAX_STUN_SERVERS)?;
+    }
+    if let Some(servers) = &overlay.ntp_servers {
+        validate_servers("NTP", servers, 1, MAX_NTP_SERVERS)?;
+    }
+    Ok(())
+}
+
+fn validate_servers(
+    kind: &str,
+    servers: &[ProbeServer],
+    minimum: usize,
+    maximum: usize,
+) -> AppResult<()> {
+    if !(minimum..=maximum).contains(&servers.len()) {
+        return Err(AppError::invalid_input(format!(
+            "{kind} source count must be between {minimum} and {maximum}"
+        )));
+    }
+    let mut ids = std::collections::HashSet::with_capacity(servers.len());
+    let mut endpoints = std::collections::HashSet::with_capacity(servers.len());
+    for source in servers {
+        let id = source.id.trim();
+        if source.id != id
+            || id.is_empty()
+            || id.len() > 64
+            || !id
+                .bytes()
+                .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+            || !ids.insert(id.to_string())
+        {
+            return Err(AppError::invalid_input(format!(
+                "{kind} source IDs must be unique lowercase letters, digits, or hyphens (1–64 characters)"
+            )));
+        }
+
+        let address = source.server.trim();
+        let parsed = url::Url::parse(&format!("udp://{address}"))
+            .map_err(|_| AppError::invalid_input(format!("Invalid {kind} server address")))?;
+        if source.server != address
+            || address.len() > 320
+            || address.chars().any(char::is_whitespace)
+            || parsed.host_str().is_none()
+            || parsed.port().is_none_or(|port| port == 0)
+            || !parsed.username().is_empty()
+            || parsed.password().is_some()
+            || !(parsed.path().is_empty() || parsed.path() == "/")
+            || parsed.query().is_some()
+            || parsed.fragment().is_some()
+            || !endpoints.insert(address.to_ascii_lowercase())
+        {
+            return Err(AppError::invalid_input(format!(
+                "{kind} servers must be unique host:port addresses without a path"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn merge_override(target: &mut DefaultsOverride, update: DefaultsOverride) {
+    if update.stun_servers.is_some() {
+        target.stun_servers = update.stun_servers;
+    }
+    if update.ntp_servers.is_some() {
+        target.ntp_servers = update.ntp_servers;
+    }
+    if update.dns_presets.is_some() {
+        target.dns_presets = update.dns_presets;
+    }
+    if update.site_packs.is_some() {
+        target.site_packs = update.site_packs;
+    }
+    if update.reach_targets.is_some() {
+        target.reach_targets = update.reach_targets;
+    }
+    if update.captive_probes.is_some() {
+        target.captive_probes = update.captive_probes;
+    }
+    if update.public_ip_apis.is_some() {
+        target.public_ip_apis = update.public_ip_apis;
+    }
+    if update.mtu_targets.is_some() {
+        target.mtu_targets = update.mtu_targets;
+    }
+}
+
+fn override_is_empty(overlay: &DefaultsOverride) -> bool {
+    overlay.stun_servers.is_none()
+        && overlay.ntp_servers.is_none()
+        && overlay.dns_presets.is_none()
+        && overlay.site_packs.is_none()
+        && overlay.reach_targets.is_none()
+        && overlay.captive_probes.is_none()
+        && overlay.public_ip_apis.is_none()
+        && overlay.mtu_targets.is_none()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn test_path() -> PathBuf {
+        std::env::temp_dir()
+            .join(format!("bench-defaults-lock-{}", uuid::Uuid::new_v4()))
+            .join("defaults-override.json")
+    }
+
+    #[test]
+    fn defaults_write_lock_serializes_other_processes() {
+        let path = test_path();
+        fs::create_dir_all(path.parent().unwrap()).expect("create test config directory");
+        let other_process_file = OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .read(true)
+            .write(true)
+            .open(path.with_file_name("defaults-override.lock"))
+            .expect("open simulated other-process lock");
+        let guard = DefaultsWriteGuard::acquire(&path).expect("acquire defaults lock");
+        assert!(matches!(
+            other_process_file.try_lock(),
+            Err(std::fs::TryLockError::WouldBlock)
+        ));
+        drop(guard);
+        other_process_file
+            .try_lock()
+            .expect("released defaults lock can be acquired");
+        drop(other_process_file);
+        fs::remove_dir_all(path.parent().unwrap()).expect("remove test config directory");
+    }
 
     #[test]
     fn builtin_has_site_packs() {
@@ -240,6 +467,14 @@ mod tests {
         assert!(d.site_packs.contains_key("dev"));
         assert!(d.site_packs.contains_key("official"));
         assert!(d.site_packs.get("official").map(|v| v.len()).unwrap_or(0) >= 16);
+        assert_eq!(
+            d.stun_servers
+                .iter()
+                .map(|s| s.id.as_str())
+                .collect::<Vec<_>>(),
+            ["google-a", "google-b", "google-c"]
+        );
+        assert_eq!(d.ntp_servers.len(), 4);
     }
 
     #[test]
@@ -252,5 +487,64 @@ mod tests {
         assert_eq!(merged.dns_presets.len(), 1);
         assert_eq!(merged.dns_presets[0].id, "custom");
         assert!(merged.site_packs.contains_key("dev"));
+    }
+
+    #[test]
+    fn partial_override_merge_preserves_other_categories() {
+        let mut current = DefaultsOverride {
+            dns_presets: Some(vec![dns("custom", "9.9.9.9", "global")]),
+            ..Default::default()
+        };
+        merge_override(
+            &mut current,
+            DefaultsOverride {
+                ntp_servers: Some(vec![probe_server("local", "time.example.com:123")]),
+                ..Default::default()
+            },
+        );
+        assert_eq!(current.dns_presets.unwrap()[0].id, "custom");
+        assert_eq!(current.ntp_servers.unwrap()[0].id, "local");
+    }
+
+    #[test]
+    fn rejects_invalid_or_excessive_server_lists() {
+        let invalid = DefaultsOverride {
+            stun_servers: Some(vec![probe_server("only-one", "stun.example.com:3478")]),
+            ..Default::default()
+        };
+        assert!(validate_override(&invalid).is_err());
+
+        let invalid = DefaultsOverride {
+            ntp_servers: Some(vec![probe_server("ntp", "time.example.com")]),
+            ..Default::default()
+        };
+        assert!(validate_override(&invalid).is_err());
+
+        let valid = DefaultsOverride {
+            ntp_servers: Some(vec![probe_server("ntp", "[2001:db8::1]:123")]),
+            ..Default::default()
+        };
+        assert!(validate_override(&valid).is_ok());
+
+        let invalid = DefaultsOverride {
+            ntp_servers: Some(vec![probe_server("ntp", "time.example.com:0")]),
+            ..Default::default()
+        };
+        assert!(validate_override(&invalid).is_err());
+
+        let invalid = DefaultsOverride {
+            ntp_servers: Some(
+                (0..=MAX_NTP_SERVERS)
+                    .map(|index| {
+                        probe_server(
+                            &format!("ntp-{index}"),
+                            &format!("time{index}.example.com:123"),
+                        )
+                    })
+                    .collect(),
+            ),
+            ..Default::default()
+        };
+        assert!(validate_override(&invalid).is_err());
     }
 }

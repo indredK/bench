@@ -9,8 +9,9 @@
 //!   [`check_version_monotonic`]：`new < recorded` 即判定重放/降级并拒绝；
 //! - 卸载清理水位（重装旧版本不受历史水位卡死）。
 //!
-//! 存储位置：`$APPDATA/extension-records/<id>/version`（宿主独占；**不是**
-//! 插件数据目录 `extension-data/`，后者归插件所有、宿主不解析）。
+//! 存储位置：版本水位 `$APPDATA/extension-records/<id>/version`；market 信任
+//! 来源 `$APPDATA/extension-records/<id>/source`。均由宿主独占写入，不在插件数据
+//! 目录 `extension-data/` 中（后者归插件所有、宿主不解析）。
 //!
 //! 范围说明（spec §8）：版本单调性**仅约束 market 安装/更新路径**；bundled
 //! 版本由应用发版控制，`ext_open` 只抬升水位、不做拒绝，避免应用整体回退
@@ -21,11 +22,43 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use serde::Serialize;
 use tauri::{AppHandle, Manager, Runtime};
 
 use crate::error::{AppError, AppResult};
 
 use super::manifest::{is_valid_extension_id, is_valid_semver, semver_at_least};
+
+/// 已安装 market 插件的信任来源。与当前 registry 配置解耦，避免切换市场后
+/// 改变已安装插件的签名策略。
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum ExtensionTrustSource {
+    OfficialRegistry,
+    ThirdPartySignature,
+    DevelopmentUnverified,
+}
+
+impl ExtensionTrustSource {
+    fn as_record_value(self) -> &'static str {
+        match self {
+            Self::OfficialRegistry => "officialRegistry",
+            Self::ThirdPartySignature => "thirdPartySignature",
+            Self::DevelopmentUnverified => "developmentUnverified",
+        }
+    }
+
+    fn from_record_value(value: &str) -> AppResult<Self> {
+        match value.trim() {
+            "officialRegistry" => Ok(Self::OfficialRegistry),
+            "thirdPartySignature" => Ok(Self::ThirdPartySignature),
+            "developmentUnverified" => Ok(Self::DevelopmentUnverified),
+            _ => Err(AppError::invalid_input(
+                "invalid extension trust source record",
+            )),
+        }
+    }
+}
 
 /// 宿主侧插件记录根目录名（`$APPDATA/extension-records`）。
 pub const EXT_RECORDS_DIR_NAME: &str = "extension-records";
@@ -47,6 +80,15 @@ fn record_path(root: &Path, extension_id: &str) -> AppResult<PathBuf> {
         )));
     }
     Ok(root.join(extension_id).join("version"))
+}
+
+fn source_record_path(root: &Path, extension_id: &str) -> AppResult<PathBuf> {
+    if !is_valid_extension_id(extension_id) {
+        return Err(AppError::invalid_input(format!(
+            "invalid extension id `{extension_id}`"
+        )));
+    }
+    Ok(root.join(extension_id).join("source"))
 }
 
 /// 读取已记录版本水位（纯文件系统核心，便于测试）。
@@ -92,6 +134,102 @@ fn record_at(root: &Path, extension_id: &str, version: &str) -> AppResult<()> {
         .map_err(|e| AppError::io(format!("write extension version record: {e}")))
 }
 
+fn read_market_source_at(
+    root: &Path,
+    extension_id: &str,
+) -> AppResult<Option<ExtensionTrustSource>> {
+    let path = source_record_path(root, extension_id)?;
+    match fs::read_to_string(&path) {
+        Ok(value) => ExtensionTrustSource::from_record_value(&value).map(Some),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(error) => Err(AppError::io(format!(
+            "read extension trust source record {}: {error}",
+            path.display()
+        ))),
+    }
+}
+
+fn write_market_source_at(
+    root: &Path,
+    extension_id: &str,
+    source: ExtensionTrustSource,
+) -> AppResult<()> {
+    let path = source_record_path(root, extension_id)?;
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|error| AppError::io(format!("create extension records dir: {error}")))?;
+    }
+    fs::write(&path, source.as_record_value())
+        .map_err(|error| AppError::io(format!("write extension trust source record: {error}")))
+}
+
+/// 安装 market 插件时更新版本水位与信任来源；source 写入失败时回滚水位。
+fn record_market_install_at(
+    root: &Path,
+    extension_id: &str,
+    version: &str,
+    source: ExtensionTrustSource,
+) -> AppResult<()> {
+    if !is_valid_semver(version) {
+        return Err(AppError::invalid_input(format!(
+            "invalid extension version `{version}`"
+        )));
+    }
+    let previous_version = read_record_at(root, extension_id)?;
+    let previous_source = read_market_source_at(root, extension_id)?;
+    record_at(root, extension_id, version)?;
+    if let Err(error) = write_market_source_at(root, extension_id, source) {
+        let rollback_version = match previous_version {
+            Some(previous) => {
+                let path = record_path(root, extension_id)?;
+                fs::write(path, previous).map_err(|rollback_error| {
+                    AppError::io(format!(
+                        "rollback extension version record: {rollback_error}"
+                    ))
+                })
+            }
+            None => {
+                let path = record_path(root, extension_id)?;
+                match fs::remove_file(path) {
+                    Ok(()) => Ok(()),
+                    Err(rollback_error)
+                        if rollback_error.kind() == std::io::ErrorKind::NotFound =>
+                    {
+                        Ok(())
+                    }
+                    Err(rollback_error) => Err(AppError::io(format!(
+                        "rollback extension version record: {rollback_error}"
+                    ))),
+                }
+            }
+        };
+        let rollback_source = match previous_source {
+            Some(previous) => write_market_source_at(root, extension_id, previous),
+            None => {
+                let path = source_record_path(root, extension_id)?;
+                match fs::remove_file(path) {
+                    Ok(()) => Ok(()),
+                    Err(rollback_error)
+                        if rollback_error.kind() == std::io::ErrorKind::NotFound =>
+                    {
+                        Ok(())
+                    }
+                    Err(rollback_error) => Err(AppError::io(format!(
+                        "rollback extension trust source record: {rollback_error}"
+                    ))),
+                }
+            }
+        };
+        if let Err(rollback_error) = rollback_version.and(rollback_source) {
+            return Err(AppError::io(format!(
+                "record extension trust source failed ({error}); {rollback_error}"
+            )));
+        }
+        return Err(error);
+    }
+    Ok(())
+}
+
 /// 版本单调性检查（纯文件系统核心）：`version < 已记录` → 重放/降级，拒绝。
 fn check_monotonic_at(root: &Path, extension_id: &str, version: &str) -> AppResult<()> {
     let Some(installed) = read_record_at(root, extension_id)? else {
@@ -109,14 +247,20 @@ fn check_monotonic_at(root: &Path, extension_id: &str, version: &str) -> AppResu
 /// 清除版本水位（卸载时调用，避免重装旧版本被历史水位卡死）。
 fn clear_record_at(root: &Path, extension_id: &str) -> AppResult<()> {
     let path = record_path(root, extension_id)?;
-    match fs::remove_file(&path) {
-        Ok(()) => Ok(()),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-        Err(e) => Err(AppError::io(format!(
-            "remove extension version record {}: {e}",
-            path.display()
-        ))),
+    let source_path = source_record_path(root, extension_id)?;
+    for record in [path, source_path] {
+        match fs::remove_file(&record) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => {
+                return Err(AppError::io(format!(
+                    "remove extension record {}: {error}",
+                    record.display()
+                )))
+            }
+        }
     }
+    Ok(())
 }
 
 /// 抬升已验证版本水位（`ext_open` / bundled 部署通过全量校验后调用）。
@@ -135,6 +279,33 @@ pub fn check_version_monotonic<R: Runtime>(
     version: &str,
 ) -> AppResult<()> {
     check_monotonic_at(&records_root(app)?, extension_id, version)
+}
+
+/// 读取已安装 market 插件的信任来源；旧记录返回 `None`，由调用方安全迁移。
+pub fn market_source<R: Runtime>(
+    app: &AppHandle<R>,
+    extension_id: &str,
+) -> AppResult<Option<ExtensionTrustSource>> {
+    read_market_source_at(&records_root(app)?, extension_id)
+}
+
+/// 保存 market 安装的版本与来源，供后续开窗独立于当前 registry 配置校验。
+pub fn record_market_install<R: Runtime>(
+    app: &AppHandle<R>,
+    extension_id: &str,
+    version: &str,
+    source: ExtensionTrustSource,
+) -> AppResult<()> {
+    record_market_install_at(&records_root(app)?, extension_id, version, source)
+}
+
+/// 为升级前的旧安装补记其首次成功开窗时验证过的来源。
+pub fn record_market_source<R: Runtime>(
+    app: &AppHandle<R>,
+    extension_id: &str,
+    source: ExtensionTrustSource,
+) -> AppResult<()> {
+    write_market_source_at(&records_root(app)?, extension_id, source)
 }
 
 /// 清除版本水位（`ext_uninstall` 调用）。
@@ -209,10 +380,41 @@ mod tests {
     #[test]
     fn clear_record_allows_reinstall_of_older_version() {
         let root = temp_root("clear");
-        record_at(&root, "fake-ext", "2.0.0").expect("record");
+        record_market_install_at(
+            &root,
+            "fake-ext",
+            "2.0.0",
+            ExtensionTrustSource::ThirdPartySignature,
+        )
+        .expect("record install");
         clear_record_at(&root, "fake-ext").expect("clear");
         assert_eq!(read_record_at(&root, "fake-ext").expect("empty"), None);
+        assert_eq!(
+            read_market_source_at(&root, "fake-ext").expect("source cleared"),
+            None
+        );
         check_monotonic_at(&root, "fake-ext", "1.0.0").expect("older install now allowed");
+        fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn market_source_is_persisted_independently_of_registry_configuration() {
+        let root = temp_root("source");
+        record_market_install_at(
+            &root,
+            "fake-ext",
+            "1.2.0",
+            ExtensionTrustSource::OfficialRegistry,
+        )
+        .expect("record official install");
+        assert_eq!(
+            read_market_source_at(&root, "fake-ext").expect("read source"),
+            Some(ExtensionTrustSource::OfficialRegistry)
+        );
+        assert_eq!(
+            read_record_at(&root, "fake-ext").expect("read version"),
+            Some("1.2.0".to_string())
+        );
         fs::remove_dir_all(&root).ok();
     }
 

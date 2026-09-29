@@ -39,6 +39,7 @@ export interface CapabilityPackInstallResult {
 }
 
 export interface CapabilityPackProgress {
+  operationId: string
   packId: string
   phase: string
   bytes: number
@@ -46,6 +47,8 @@ export interface CapabilityPackProgress {
 }
 
 export interface DefaultsOverride {
+  stunServers?: ProbeServer[]
+  ntpServers?: ProbeServer[]
   dnsPresets?: { id: string; address: string; region: string }[]
   sitePacks?: Record<string, { id: string; target: string; channel: string }[]>
   reachTargets?: { id: string; kind: string; target: string }[]
@@ -385,12 +388,19 @@ export interface MtuTarget {
 
 export interface NetworkProbeDefaultsCatalog {
   schemaVersion: number
+  stunServers: ProbeServer[]
+  ntpServers: ProbeServer[]
   dnsPresets: DnsPreset[]
   reachTargets: ReachTarget[]
   captiveProbes: CaptiveProbe[]
   publicIpApis: PublicIpApi[]
   sitePacks: Record<string, SitePreset[]>
   mtuTargets: MtuTarget[]
+}
+
+export interface ProbeServer {
+  id: string
+  server: string
 }
 
 export interface PollutionFinding {
@@ -447,6 +457,41 @@ export interface PortScanResult {
   commandHint: string
 }
 
+export interface NetworkFingerprintResult {
+  target: string
+  services: ServiceFingerprint[]
+  osStatus:
+    | "detected"
+    | "not-detected"
+    | "permission-required"
+    | "unavailable"
+    | "not-requested"
+    | "cancelled"
+  osMatches: OsFingerprintMatch[]
+  cancelled: boolean
+  sessionId: string
+  commandHint: string
+}
+
+export interface ServiceFingerprint {
+  port: number
+  protocol: string
+  name: string
+  product?: string
+  version?: string
+  extraInfo?: string
+  confidence?: number
+  cpe: string[]
+  riskTags: string[]
+}
+
+export interface OsFingerprintMatch {
+  name: string
+  accuracy: number
+  classes: string[]
+  cpe: string[]
+}
+
 export interface NatProbeResult {
   natType: string
   mappedAddress?: string
@@ -461,6 +506,9 @@ export interface NtpProbeResult {
   ok: boolean
   offsetSeconds?: number
   rttSeconds?: number
+  stratum?: number
+  sourcesSucceeded: number
+  sourcesConfigured: number
   severity: string
   detail?: string
   elapsedMs: number
@@ -515,17 +563,53 @@ export interface PcapDiagResult {
   commandHint: string
 }
 
-export interface NodeDnsAnswer {
-  nodeId: string
-  nodeLabel: string
-  ok: boolean
-  answers: string[]
-  detail?: string
+export type GlobalpingMeasurementType = "dns" | "ping" | "http"
+
+export type GlobalpingMeasurementStatus =
+  "in-progress" | "complete" | "partial" | "failed" | "timed-out" | "rate-limited"
+
+export interface GlobalpingRateLimit {
+  limit?: number
+  consumed?: number
+  remaining?: number
+  resetSeconds?: number
+  creditsRemaining?: number
 }
 
-export interface MultiNodeDnsResult {
-  domain: string
-  answers: NodeDnsAnswer[]
+export interface GlobalpingProbeResult {
+  id: string
+  label: string
+  status: "finished" | "failed" | "offline" | "in-progress"
+  summary?: string
+  detail?: string
+  answers: string[]
+  dnsRcode?: string
+  avgRttMs?: number
+  packetLossPercent?: number
+  packetsSent?: number
+  packetsReceived?: number
+  httpStatusCode?: number
+  totalTimeMs?: number
+  failureSource?: string
+}
+
+export interface GlobalpingMeasurementResult {
+  measurementType: GlobalpingMeasurementType
+  target: string
+  status: GlobalpingMeasurementStatus
+  probes: GlobalpingProbeResult[]
   elapsedMs: number
   commandHint: string
+  rateLimit?: GlobalpingRateLimit
+  retryAfterSeconds?: number
+}
+
+export interface AgentMeasurementResult {
+  nodeId: string
+  measurementType: GlobalpingMeasurementType
+  target: string
+  status: "complete" | "rate-limited"
+  probe: GlobalpingProbeResult
+  elapsedMs: number
+  retryAfterSeconds?: number
 }

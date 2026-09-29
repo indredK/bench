@@ -6,6 +6,7 @@ import type { LocalizedError } from "@/lib/errors"
 import type {
   CaptivePortalResult,
   CapabilityPackInfo,
+  CapabilityPackProgress,
   DnsLookupResult,
   FirewallStatus,
   FixResult,
@@ -35,7 +36,9 @@ import type {
   LanDiscoveryResult,
   LanServicesResult,
   PcapDiagResult,
-  MultiNodeDnsResult,
+  AgentMeasurementResult,
+  GlobalpingMeasurementResult,
+  NetworkFingerprintResult,
   ProbeNode,
   TcpConnectResult,
   TracerouteHop,
@@ -43,9 +46,17 @@ import type {
   Ipv6StackResult,
   PathMtuResult,
 } from "@/lib/tauri/types/network-probe"
+import {
+  createHealthReportSnapshot,
+  decodeReportHistory,
+  encodeReportHistory,
+  REPORT_HISTORY_LIMIT,
+  type HealthReportSnapshot,
+} from "@/features/network-probe/report-history"
 
 const SECURITY_AUTH_KEY = "network-probe:security-authorized"
-const REPORT_HISTORY_KEY = "network-probe:report-history"
+export const REPORT_HISTORY_KEY = "network-probe:report-history"
+export const REPORT_HISTORY_ENABLED_KEY = "network-probe:report-history-enabled"
 
 function loadSecurityAuthorized(): boolean {
   if (typeof localStorage === "undefined") return false
@@ -66,22 +77,53 @@ function persistSecurityAuthorized(value: boolean) {
   }
 }
 
-function loadReportHistory(): HealthScanResult[] {
+function loadReportHistoryEnabled(): boolean {
+  if (typeof localStorage === "undefined") return true
+  try {
+    return localStorage.getItem(REPORT_HISTORY_ENABLED_KEY) !== "0"
+  } catch {
+    return true
+  }
+}
+
+function persistReportHistoryEnabled(enabled: boolean) {
+  if (typeof localStorage === "undefined") return
+  try {
+    localStorage.setItem(REPORT_HISTORY_ENABLED_KEY, enabled ? "1" : "0")
+  } catch {
+    // ignore
+  }
+}
+
+function loadReportHistory(enabled: boolean): HealthReportSnapshot[] {
   if (typeof localStorage === "undefined") return []
   try {
+    if (!enabled) {
+      localStorage.removeItem(REPORT_HISTORY_KEY)
+      return []
+    }
     const raw = localStorage.getItem(REPORT_HISTORY_KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw) as HealthScanResult[]
-    return Array.isArray(parsed) ? parsed.slice(0, 10) : []
+    const history = decodeReportHistory(raw)
+    if (raw && history.length > 0) {
+      const migrated = encodeReportHistory(history)
+      if (migrated !== raw) {
+        try {
+          localStorage.setItem(REPORT_HISTORY_KEY, migrated)
+        } catch {
+          // Keep the sanitized in-memory history if browser storage is unavailable.
+        }
+      }
+    }
+    return history
   } catch {
     return []
   }
 }
 
-function persistReportHistory(history: HealthScanResult[]) {
+function persistReportHistory(history: HealthReportSnapshot[]) {
   if (typeof localStorage === "undefined") return
   try {
-    localStorage.setItem(REPORT_HISTORY_KEY, JSON.stringify(history.slice(0, 10)))
+    localStorage.setItem(REPORT_HISTORY_KEY, encodeReportHistory(history))
   } catch {
     // ignore
   }
@@ -99,6 +141,14 @@ export type NetworkProbeKind =
 export type NetworkProbeOfflineSub =
   "all" | "captive" | "proxy" | "ipv6" | "mtu" | "egress" | "diff"
 
+export type NetworkServicesLoadStatus = "idle" | "loading" | "loaded" | "failed"
+export type ProbeNodesLoadStatus = "idle" | "loading" | "loaded" | "failed"
+export type AgentMutation =
+  | { kind: "add" }
+  | { kind: "set-token"; agentId: string }
+  | { kind: "remove"; agentId: string }
+  | null
+
 export type NetworkProbeL2ByL1 = Record<NetworkProbeL1, string>
 
 interface NetworkProbeState {
@@ -109,6 +159,7 @@ interface NetworkProbeState {
   }
   capabilities: NetworkProbeCapabilities | null
   capabilityPacks: CapabilityPackInfo[]
+  packProgress: CapabilityPackProgress | null
   packProgressText: string | null
   defaults: NetworkProbeDefaultsCatalog | null
   summary: LocalNetworkSummary | null
@@ -121,10 +172,11 @@ interface NetworkProbeState {
   probeResult: ProbeTargetResult | null
   sitesResult: SitesProbeResult | null
   sitesStreaming: SiteSampleResult[]
-  siteSparklineById: Record<string, number[]>
+  siteSparklineByTarget: Record<string, Array<number | null>>
   healthResult: HealthScanResult | null
   healthStreamingItems: HealthCheckItem[]
   networkServices: string[]
+  networkServicesLoadStatus: NetworkServicesLoadStatus
   fixResult: FixResult | null
   captiveResult: CaptivePortalResult | null
   publicIpInfo: PublicIpInfo | null
@@ -142,14 +194,19 @@ interface NetworkProbeState {
   dnssecResult: DnsSecCheckResult | null
   portScanResult: PortScanResult | null
   portScanStreaming: PortSampleEvent[]
+  portFingerprintResult: NetworkFingerprintResult | null
   natResult: NatProbeResult | null
   ntpResult: NtpProbeResult | null
   lanResult: LanDiscoveryResult | null
   lanServicesResult: LanServicesResult | null
   pcapResult: PcapDiagResult | null
-  multiNodeDnsResult: MultiNodeDnsResult | null
+  globalpingResult: GlobalpingMeasurementResult | null
+  agentMeasurementResults: Record<string, AgentMeasurementResult>
+  agentMeasurementLoadingById: Record<string, boolean>
   probeNodes: ProbeNode[]
-  reportHistory: HealthScanResult[]
+  probeNodesLoadStatus: ProbeNodesLoadStatus
+  reportHistory: HealthReportSnapshot[]
+  reportHistoryEnabled: boolean
   securityAuthorized: boolean
   /** 按探测种类分槽的活动会话; 多类探测并发时取消目标各自独立, 不会互相抢占。 */
   activeSessionIdByKind: Record<NetworkProbeKind, string | null>
@@ -180,6 +237,8 @@ interface NetworkProbeState {
   loadingPcap: boolean
   loadingMultiNode: boolean
   loadingNodes: boolean
+  loadingSystemSettings: boolean
+  agentMutation: AgentMutation
   error: LocalizedError | null
 
   setL1: (l1Id: NetworkProbeL1) => void
@@ -187,6 +246,7 @@ interface NetworkProbeState {
   setOfflineSub: (offlineSub: NetworkProbeOfflineSub) => void
   setCapabilities: (capabilities: NetworkProbeCapabilities | null) => void
   setCapabilityPacks: (capabilityPacks: CapabilityPackInfo[]) => void
+  setPackProgress: (packProgress: CapabilityPackProgress | null) => void
   setPackProgressText: (packProgressText: string | null) => void
   setDefaults: (defaults: NetworkProbeDefaultsCatalog | null) => void
   setSummary: (summary: LocalNetworkSummary | null) => void
@@ -205,6 +265,7 @@ interface NetworkProbeState {
   resetHealthStreaming: () => void
   upsertHealthStreamingItem: (item: HealthCheckItem) => void
   setNetworkServices: (services: string[]) => void
+  setNetworkServicesLoadStatus: (status: NetworkServicesLoadStatus) => void
   setFixResult: (fixResult: FixResult | null) => void
   setCaptiveResult: (captiveResult: CaptivePortalResult | null) => void
   setPublicIpInfo: (publicIpInfo: PublicIpInfo | null) => void
@@ -222,6 +283,7 @@ interface NetworkProbeState {
   setWhoisResult: (whoisResult: WhoisInfo | null) => void
   setDnssecResult: (dnssecResult: DnsSecCheckResult | null) => void
   setPortScanResult: (portScanResult: PortScanResult | null) => void
+  setPortFingerprintResult: (result: NetworkFingerprintResult | null) => void
   resetPortScanStreaming: () => void
   upsertPortSample: (sample: PortSampleEvent) => void
   setNatResult: (natResult: NatProbeResult | null) => void
@@ -229,10 +291,15 @@ interface NetworkProbeState {
   setLanResult: (lanResult: LanDiscoveryResult | null) => void
   setLanServicesResult: (lanServicesResult: LanServicesResult | null) => void
   setPcapResult: (pcapResult: PcapDiagResult | null) => void
-  setMultiNodeDnsResult: (multiNodeDnsResult: MultiNodeDnsResult | null) => void
+  setGlobalpingResult: (globalpingResult: GlobalpingMeasurementResult | null) => void
+  setAgentMeasurementResult: (agentId: string, result: AgentMeasurementResult | null) => void
+  setAgentMeasurementLoading: (agentId: string, loading: boolean) => void
   setProbeNodes: (probeNodes: ProbeNode[]) => void
+  setProbeNodesLoadStatus: (status: ProbeNodesLoadStatus) => void
   pushReportHistory: (scan: HealthScanResult) => void
   clearReportHistory: () => void
+  setReportHistoryEnabled: (enabled: boolean) => void
+  syncReportHistoryFromStorage: () => void
   setSecurityAuthorized: (securityAuthorized: boolean) => void
   setActiveSessionId: (kind: NetworkProbeKind, sessionId: string | null) => void
   clearActiveSessionId: (kind: NetworkProbeKind, expectedSessionId?: string | null) => void
@@ -263,6 +330,8 @@ interface NetworkProbeState {
   setLoadingPcap: (loading: boolean) => void
   setLoadingMultiNode: (loading: boolean) => void
   setLoadingNodes: (loading: boolean) => void
+  setLoadingSystemSettings: (loading: boolean) => void
+  setAgentMutation: (mutation: AgentMutation) => void
   setError: (error: LocalizedError | null) => void
 }
 
@@ -327,8 +396,8 @@ function persistNav(nav: NetworkProbeState["nav"]) {
 }
 
 function sparkMs(sample: SiteSampleResult): number | null {
-  if (sample.icmpRttMs != null) return sample.icmpRttMs
   if (sample.httpTtfbMs != null) return sample.httpTtfbMs
+  if (sample.icmpRttMs != null) return sample.icmpRttMs
   return null
 }
 
@@ -336,6 +405,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   nav: loadNav(),
   capabilities: null,
   capabilityPacks: [],
+  packProgress: null,
   packProgressText: null,
   defaults: null,
   summary: null,
@@ -348,10 +418,11 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   probeResult: null,
   sitesResult: null,
   sitesStreaming: [],
-  siteSparklineById: {},
+  siteSparklineByTarget: {},
   healthResult: null,
   healthStreamingItems: [],
   networkServices: [],
+  networkServicesLoadStatus: "idle",
   fixResult: null,
   captiveResult: null,
   publicIpInfo: null,
@@ -369,14 +440,19 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   dnssecResult: null,
   portScanResult: null,
   portScanStreaming: [],
+  portFingerprintResult: null,
   natResult: null,
   ntpResult: null,
   lanResult: null,
   lanServicesResult: null,
   pcapResult: null,
-  multiNodeDnsResult: null,
+  globalpingResult: null,
+  agentMeasurementResults: {},
+  agentMeasurementLoadingById: {},
   probeNodes: [],
-  reportHistory: loadReportHistory(),
+  probeNodesLoadStatus: "idle",
+  reportHistoryEnabled: loadReportHistoryEnabled(),
+  reportHistory: loadReportHistory(loadReportHistoryEnabled()),
   securityAuthorized: loadSecurityAuthorized(),
   activeSessionIdByKind: { ...EMPTY_SESSION_ID_SLOTS },
   cancelRequestedSessionIdByKind: { ...EMPTY_SESSION_ID_SLOTS },
@@ -405,6 +481,8 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   loadingPcap: false,
   loadingMultiNode: false,
   loadingNodes: false,
+  loadingSystemSettings: false,
+  agentMutation: null,
   error: null,
 
   setL1: (l1Id) => {
@@ -428,6 +506,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   },
   setCapabilities: (capabilities) => set({ capabilities }),
   setCapabilityPacks: (capabilityPacks) => set({ capabilityPacks }),
+  setPackProgress: (packProgress) => set({ packProgress }),
   setPackProgressText: (packProgressText) => set({ packProgressText }),
   setDefaults: (defaults) => set({ defaults }),
   setSummary: (summary) => set({ summary }),
@@ -455,15 +534,15 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
           ? [...state.sitesStreaming, sample]
           : state.sitesStreaming.map((s, i) => (i === idx ? sample : s))
       const ms = sparkMs(sample)
-      const prev = state.siteSparklineById[sample.id] ?? []
-      const siteSparklineById =
-        ms == null
-          ? state.siteSparklineById
-          : {
-              ...state.siteSparklineById,
-              [sample.id]: [...prev.slice(-19), ms],
-            }
-      return { sitesStreaming, siteSparklineById }
+      const target = sample.target.trim()
+      const prev = state.siteSparklineByTarget[target] ?? []
+      const retained = Object.entries(state.siteSparklineByTarget).filter(([key]) => key !== target)
+      // Bound in-memory history even when users repeatedly add arbitrary custom targets.
+      const siteSparklineByTarget = Object.fromEntries([
+        ...retained.slice(-99),
+        [target, [...prev.slice(-19), sample.ok ? ms : null]],
+      ])
+      return { sitesStreaming, siteSparklineByTarget }
     }),
   setHealthResult: (healthResult) => set({ healthResult }),
   resetHealthStreaming: () => set({ healthStreamingItems: [] }),
@@ -478,6 +557,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
       return { healthStreamingItems: next }
     }),
   setNetworkServices: (networkServices) => set({ networkServices }),
+  setNetworkServicesLoadStatus: (networkServicesLoadStatus) => set({ networkServicesLoadStatus }),
   setFixResult: (fixResult) => set({ fixResult }),
   setCaptiveResult: (captiveResult) => set({ captiveResult }),
   setPublicIpInfo: (publicIpInfo) => set({ publicIpInfo }),
@@ -508,6 +588,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   setWhoisResult: (whoisResult) => set({ whoisResult }),
   setDnssecResult: (dnssecResult) => set({ dnssecResult }),
   setPortScanResult: (portScanResult) => set({ portScanResult }),
+  setPortFingerprintResult: (portFingerprintResult) => set({ portFingerprintResult }),
   resetPortScanStreaming: () => set({ portScanStreaming: [] }),
   upsertPortSample: (sample) =>
     set((state) => {
@@ -524,17 +605,63 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   setLanResult: (lanResult) => set({ lanResult }),
   setLanServicesResult: (lanServicesResult) => set({ lanServicesResult }),
   setPcapResult: (pcapResult) => set({ pcapResult }),
-  setMultiNodeDnsResult: (multiNodeDnsResult) => set({ multiNodeDnsResult }),
+  setGlobalpingResult: (globalpingResult) => set({ globalpingResult }),
+  setAgentMeasurementResult: (agentId, result) =>
+    set((state) => {
+      const agentMeasurementResults = { ...state.agentMeasurementResults }
+      if (result) agentMeasurementResults[agentId] = result
+      else delete agentMeasurementResults[agentId]
+      return { agentMeasurementResults }
+    }),
+  setAgentMeasurementLoading: (agentId, loading) =>
+    set((state) => {
+      const agentMeasurementLoadingById = { ...state.agentMeasurementLoadingById }
+      if (loading) agentMeasurementLoadingById[agentId] = true
+      else delete agentMeasurementLoadingById[agentId]
+      return { agentMeasurementLoadingById }
+    }),
   setProbeNodes: (probeNodes) => set({ probeNodes }),
+  setProbeNodesLoadStatus: (probeNodesLoadStatus) => set({ probeNodesLoadStatus }),
   pushReportHistory: (scan) =>
     set((state) => {
-      const reportHistory = [scan, ...state.reportHistory].slice(0, 10)
+      const persistedEnabled = loadReportHistoryEnabled()
+      if (!state.reportHistoryEnabled || !persistedEnabled) {
+        if (!persistedEnabled) {
+          persistReportHistory([])
+          return { reportHistoryEnabled: false, reportHistory: [] }
+        }
+        return state
+      }
+      const reportHistory = [
+        createHealthReportSnapshot(scan, Date.now()),
+        ...state.reportHistory,
+      ].slice(0, REPORT_HISTORY_LIMIT)
       persistReportHistory(reportHistory)
+      // Another window can turn history off between the pre-write check and setItem.
+      // Recheck after writing so a stale window cannot restore snapshots after opt-out.
+      if (!loadReportHistoryEnabled()) {
+        persistReportHistory([])
+        return { reportHistoryEnabled: false, reportHistory: [] }
+      }
       return { reportHistory }
     }),
   clearReportHistory: () => {
     persistReportHistory([])
     set({ reportHistory: [] })
+  },
+  setReportHistoryEnabled: (reportHistoryEnabled) => {
+    persistReportHistoryEnabled(reportHistoryEnabled)
+    if (!reportHistoryEnabled) {
+      persistReportHistory([])
+      set({ reportHistoryEnabled, reportHistory: [] })
+      return
+    }
+    set({ reportHistoryEnabled })
+  },
+  syncReportHistoryFromStorage: () => {
+    const reportHistoryEnabled = loadReportHistoryEnabled()
+    const reportHistory = loadReportHistory(reportHistoryEnabled)
+    set({ reportHistoryEnabled, reportHistory })
   },
   setSecurityAuthorized: (securityAuthorized) => {
     persistSecurityAuthorized(securityAuthorized)
@@ -596,6 +723,8 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   setLoadingPcap: (loadingPcap) => set({ loadingPcap }),
   setLoadingMultiNode: (loadingMultiNode) => set({ loadingMultiNode }),
   setLoadingNodes: (loadingNodes) => set({ loadingNodes }),
+  setLoadingSystemSettings: (loadingSystemSettings) => set({ loadingSystemSettings }),
+  setAgentMutation: (agentMutation) => set({ agentMutation }),
   setError: (error) => set({ error }),
 }))
 

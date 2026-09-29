@@ -5,7 +5,7 @@
 > **架构边界与工作流**（含作者侧流程）：[extension-workflow.md](../../explanation/extension-workflow.md)
 > **插件中心功能规格**：[product-specs/extension-center.md](../../reference/product-specs/extension-center.md) ｜ **未完成项**：[planned/extension-center.md](../../roadmap/planned/extension-center.md)
 > **方向性决策**：[DECISIONS.md](../../explanation/decisions.md)（D-023 / D-024）
-> **最后更新**：2026-09-08（P3 路线经行业最佳实践复核后重排，见「附录 B　重排依据」）。
+> **最后更新**：2026-09-30（真机修复插件市场更新时旧 WebView 与 ACL 未同步失效的问题）。
 
 ## 成本原则（贯穿全部阶段）
 
@@ -24,24 +24,25 @@
 
 ## 进度总览
 
-| 阶段     | 内容                                                            | 状态                   |
-| -------- | --------------------------------------------------------------- | ---------------------- |
-| P0       | 产品定案（2.0 = 插件化第三方生态）                              | ✅ 完成                |
-| P1       | 概念验证（ExtensionAssets 同源加载 + IPC）                      | ✅ 完成                |
-| P2       | 契约先行 + 插件中心最小版 + photo-triage bundled                | ✅ 完成                |
-| P2b      | photo-triage 完整 UI 迁移（独立 bundle）                        | ✅ 完成                |
-| P3       | 运行时治理（engines 门控 / 签名骨架 / 语言注入 / 卸载）         | ✅ 完成                |
-| **P3.1** | **包完整性安全地基**（逐文件 hash 清单 + 降级防护 + 公钥三态）  | ✅ 完成（2026-09-08）  |
-| **P3.2** | **Windows 双平台 CI 门禁**（verify job，不产包）                | ✅ 完成（2026-09-08）* |
-| **P3.3** | **安全解压 + 审计日志**                                         | ✅ 完成（2026-09-08）  |
-| **P3.4** | **bundled 产物发布集成**（随正式包发布）                        | ✅ 完成（2026-09-08）* |
-| **P4**   | **market 端到端闭环**（静态 registry → 安装向导 → 验签 → 启用） | ✅ 完成（2026-09-08）* |
-| P4.5     | 作者侧交付（SDK / 模板 / 脚手架 / 打包签名）                    | ⬜ **下一步**          |
-| P5       | 增量迁移（带停止线，每批复评）                                  | ⬜ P4 之后             |
-| P6       | Windows release 产物                                            | ⬜ 最后                |
+| 阶段     | 内容                                                            | 状态                          |
+| -------- | --------------------------------------------------------------- | ----------------------------- |
+| P0       | 产品定案（2.0 = 插件化第三方生态）                              | ✅ 完成                       |
+| P1       | 概念验证（ExtensionAssets 同源加载 + IPC）                      | ✅ 完成                       |
+| P2       | 契约先行 + 插件中心最小版 + photo-triage bundled                | ✅ 完成                       |
+| P2b      | photo-triage 完整 UI 迁移（独立 bundle）                        | ✅ 完成                       |
+| P3       | 运行时治理（engines 门控 / 签名骨架 / 语言注入 / 卸载）         | ✅ 完成                       |
+| **P3.1** | **包完整性安全地基**（逐文件 hash 清单 + 降级防护 + 公钥三态）  | ✅ 完成（2026-09-08）         |
+| **P3.2** | **Windows 双平台 CI 门禁**（verify job，不产包）                | ✅ 完成（2026-09-08）*        |
+| **P3.3** | **安全解压 + 审计日志**                                         | ✅ 完成（2026-09-08）         |
+| **P3.4** | **bundled 产物发布集成**（随正式包发布）                        | ✅ 完成（2026-09-08）*        |
+| **P4**   | **market 端到端闭环**（静态 registry → 安装向导 → 验签 → 启用） | ✅ 完成（2026-09-08）*        |
+| P4.5     | 作者侧交付（SDK / 模板 / 脚手架 / 打包签名）                    | ✅ 实物已交付；新手验收待完成 |
+| P5       | 增量迁移（带停止线，每批复评）                                  | ⬜ P4 之后                    |
+| P6       | Windows release 产物                                            | ⬜ 最后                       |
 
 > **P3.1 已完成（2026-09-08）**：插件产物格式（manifest schema v2）已冻结，P3.3 的 download/extract 可在此格式上实现。
-> **P3.2–P4 已完成（2026-09-08）**：实现、单测与本地门禁全绿。带 \* 项含外部前置——P3.2 双平台证据待下次 push 的 Windows runner 实跑确认；P3.4 真机验收待打一次 release 包全新安装；P4 端到端验收待 registry 私钥环境签出首批插件并配置 `BENCH_EXT_REGISTRY_URL`。
+> **P3.2–P4 实现已交付**：PR #109 的 macOS 与 Windows CI 均通过（[运行记录](https://github.com/indredK/bench/actions/runs/36353062738)）。本机 Bench 真机已打开 Extension Center，市场目录成功加载；尚未完成干净用户目录中的安装、升级、卸载全流程。P3.4 正式 release 包全新安装验收仍待完成。
+> **P4.5 实物已交付**：公开模板仓、模板工作区 SDK、脚手架、打包/签名脚本和作者指南已存在；模板 CI 通过（[运行记录](https://github.com/kindred-plugin-market/bench-extension-template/actions/runs/36356433567)）。SDK 未单独发布到 npm；30 分钟新手验收仍待完成。
 > **P6 是发布硬前置**：插件化能力在 Windows runner 复验前不得随正式版发布（D-023）。
 
 **契约前置**：P3.1 及之后的实施一律以 [extension-spec.md](../../reference/extension-spec.md) 为契约真相源 —— 改代码前先改规格。
@@ -63,7 +64,7 @@
 ## P2 ✅ 契约先行 + 插件中心最小版（2026-09-08）
 
 - [x] manifest schema v1（fail-closed：schemaVersion / id / semver / entry / ACL 子集 / engines）
-- [x] ACL 注册表 + `ext-` 窗口 IPC 网关（deny-by-default，补上 Tauri 自定命令全窗口放行的缺口）
+- [x] ACL 注册表 + `ext-` 窗口 IPC 网关（deny-by-default；运行时同时执行宿主白名单与每插件 manifest ACL，能力发现与宿主诊断上报为基础接口例外）
 - [x] `ext_list_installed` / `ext_open` / `ext_set_enabled` / `ext_uninstall` 契约双写
 - [x] 插件中心最小 UI（列表 / 打开 / 启用禁用 / 卸载确认 / 空态 / 错误重试）
 - [x] bundled 同步脚本（`extensions:sync`，双部署模式 + 保留用户禁用标记）
@@ -189,37 +190,41 @@ pnpm run test:critical       # ✓ 145 passed
 
 ---
 
-## P4 ✅ market 端到端闭环（2026-09-08 完成，端到端验收待外部条件）
+## P4 ✅ market 安装与管理闭环（代码已交付；干净环境验收待完成）
 
 > 原「P3 剩余：registry 服务端 / 目录拉取 / zip 下载解压」与「P4：market 安装向导」描述的是**同一条用户路径的两半**。拆开做的典型后果是后端通了但 UI 没接、无法端到端验证。此处合并为一条，验收标准唯一。
 
-- [x] **registry 形态：静态 JSON + Git/GitHub Pages/jsDelivr 托管**（`registry.rs`：schema v1 全量校验 + `yanked`；基址由 env `BENCH_EXT_REGISTRY_URL` 配置，未配置 = market 功能禁用提示）
-- [x] 目录拉取：renderer **不自选 URL**（`ext_market_list` 只回传展示数据，**不含 downloadUrl**）；基址由后端 env 决定，下载 URL 校验 https 且拒绝 localhost（D-007）
-- [x] 安装向导（两段式）：`ext_market_prepare`（下载 → 整包 sha256+size → 安全解压 → manifest v2 + id/version 绑定 → engines → 验签 + trusted comment → 逐文件 hash）→ 信任弹窗 → `ext_market_commit`（版本单调 → 原子落位 → 审计 install）；任一步失败清理临时产物、已装版本不变
+- [x] **registry 形态：静态 JSON + Git/GitHub Pages/jsDelivr 托管**（`registry.rs`：schema v1 全量校验 + `yanked`；基址由 env `BENCH_EXT_REGISTRY_URL` 配置，未配置时使用官方默认源）
+- [x] 目录拉取：renderer **不自选 URL**（`ext_market_list` 只回传展示数据，**不含 downloadUrl**）；基址由后端 env 决定，复用 `url` crate 解析 HTTPS URL，拒绝私有/保留 IP 字面量、本地域名、凭据和片段；HTTP 请求遵循 macOS / Windows 系统代理；registry 与包下载的每一跳重定向均复验，保留 reqwest 的循环检测及 10 跳限制；请求错误脱敏，不记录签名 URL 查询参数（D-007）
+- [x] 安装向导（两段式）：`ext_market_prepare`（下载 → 整包 sha256+size → 安全解压 → manifest v2 + id/version 绑定 → engines → 验签 + trusted comment → 逐文件 hash）→ 信任弹窗 → `ext_market_commit`（版本单调 → 关闭旧插件窗口并撤销 ACL → 原子落位 → 审计 install）；开窗、更新、启停、卸载按插件 ID 串行化，关闭失败则恢复 ACL 并保留旧版本
 - [x] **信任披露（A4-1）**：prepare 返回 `aclCommands`，确认弹窗展示发布者/版本/申请的全部宿主命令（未申请则明示「无权限」），对齐 VS Code 1.97 publisher trust 取向
 - [x] **吊销通道（A4-2）**：`revoked[]` 支持 `*` / `<X` / `<=X` / 精确版本（未知表达式 fail-closed 视为命中）；`ext_market_list` 拉取时强制禁用命中插件 + 审计 `revoke_hit` + UI 显著警示横幅
-- [x] 插件中心 UI：已安装/市场/诊断三标签；market 卡片含 yanked / engines 不兼容 / 已安装 / 可更新徽标，安装按钮走两段式信任流；i18n zh+en 全覆盖
+- [x] 插件中心 UI：已安装/市场/诊断三标签；market 卡片展示 yanked / 吊销原因 / engines 不兼容 / 已安装 / 可更新徽标；版本选择器只列后端判定兼容、未吊销、未下架且不违反版本单调性的版本，无候选时区分不可安装与已安装且暂无更新；已安装吊销版本保留更新/卸载指引；安装按钮走两段式信任流；i18n zh+en 全覆盖
+- [x] 市场刷新体验：刷新失败时保留上次成功目录并提供就地重试；刷新进行中展示轻量状态，不以错误页覆盖已加载内容
+- [x] 市场详情与信任披露：详情弹窗展示发布者、版本、体积、发布时间、engines 与吊销状态；用户主动校验包后才显示来自已验证 manifest 的完整 ACL、信任依据及按权限类别归组的 host-command 支持状态
+- [ ] 完整运行能力矩阵（`supported / degraded / unsupported / missing_pack`）：`supported`/engines 不兼容已在详情中反映；剩余状态依赖 D-017 能力声明、能力包探测与安装/卸载契约，当前 manifest 不支持声明，禁止由 renderer 猜测
+- [x] 更新时的运行窗口与 ACL 生命周期：用户确认前提示活动窗口会关闭；旧 WebView 销毁并撤销旧权限后才替换 bundle
 - [x] 诊断面板：`ext_diagnostics` 返回 `ext-audit.log` + `ext-diagnostics.jsonl` 各最近 200 条，插件中心内直接查看
 - [x] minisign 真实签名：管线已按 spec §4 全量校验（canonical + trusted comment）；单测以确定性 ed25519 夹具构造真实签名走通正向路径。_签出首批插件需 registry 私钥环境（外部前置）_
-- [x] 能力兼容标记：market 版本条目 `compatible`（engines 比对）/ `installed` / `updateAvailable` / `yanked`；D-017 pack 形态（degraded/missing_pack）当前无 pack 交付物，字段位预留、随首个 pack 插件启用
+- [x] 能力兼容标记：market 版本条目包含 `compatible` / `installed` / `updateAvailable` / `yanked` / `revokedReason` / `installable`；安装候选由后端综合 engines、吊销、下架和版本单调性计算；D-017 pack 形态（degraded/missing_pack）当前无 pack 交付物，字段位预留、随首个 pack 插件启用
 
-**验收状态**：管线全链路单测通过（真实 minisign 签名 zip：正路径 + 整包哈希不符 + 同哈希内容篡改 + 版本绑定错位 四用例）；_端到端外部验收（真实 registry URL 装第三方插件跑通生命周期）待私钥环境与 registry 上线_。
+**验收状态**：PR #109 macOS/Windows CI 全绿；本机真机确认市场目录加载成功。安装、更新、卸载及干净数据目录验收仍待完成。官方 registry 插件以 HTTPS registry 条目中的整包 SHA-256/size 和包内 `files` 清单校验，不要求每个插件单独 minisign 签名；第三方 registry 必须通过 minisign 验签（见 spec §4.6）。安装确认会显示实际信任依据；提交时再次检查分发类型、来源签名与文件清单；安装来源写入宿主记录，缓存取消时立即删除、过期后回收。
 
 ---
 
-## P4.5 ⬜ 作者侧交付（可与 P4 并行，🔴 生态冷启动唯一路径）
+## P4.5 🟡 作者侧交付（实物已交付，新手验收未完成）
 
 > 原 P0–P6 缺失这一整条线。而它决定了 P0 拍板的「目标 B：第三方生态」能否启动 —— uTools 生态 3000+ 的主因就是前端开发者零门槛。
 
-| 项               | 内容                                                                                                                                    |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `@bench/ext-sdk` | IPC 客户端薄封装（基于 `@tauri-apps/api`）+ i18n 桥 + 诊断上报接口                                                                      |
-| 模板仓库         | `bench-extension-template`：manifest 示例 + vite 配置（含 `base: "./"` 铁律）+ 本地 dev 加载 + 打包 + 签名脚本                          |
-| 脚手架           | `pnpm run extensions:create <id>` 生成目录与最小可运行插件                                                                              |
-| 打包脚本         | `pnpm run extensions:pack <id>` → 产出 zip + 生成 `files` hash 清单 + minisign 签名                                                     |
-| 作者文档         | 「开发 / 本地加载 / 打包签名 / 提交 registry PR」四步式 how-to，登记进 [extension-workflow.md](../../explanation/extension-workflow.md) |
+| 项               | 状态与说明                                                                                                                     |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `@bench/ext-sdk` | ✅ 模板仓 workspace package：IPC 客户端薄封装 + i18n 桥 + 诊断上报；**没有单独发布到 npm**                                     |
+| 模板仓库         | ✅ `kindred-plugin-market/bench-extension-template`：manifest、Vite、本地开发、打包与签名脚本；GitHub Template 已启用、CI 通过 |
+| 脚手架           | ✅ `pnpm run extensions:create <id>` 生成目录与最小可运行插件                                                                  |
+| 打包脚本         | ✅ `pnpm run extensions:pack <id>` 产出 zip、`files` hash 清单、minisign 签名与整包摘要                                        |
+| 作者文档         | ✅ 开发、本地加载、打包签名和提交 registry 的 how-to 已登记在 [extension-workflow.md](../../explanation/extension-workflow.md) |
 
-**验收**：一个未接触过本项目的开发者能在 30 分钟内产出可安装插件。
+**剩余验收**：邀请未接触过本项目的开发者，验证 30 分钟内能否产出并安装插件，记录卡点并更新指南。
 
 ---
 
@@ -254,7 +259,8 @@ pnpm run test:critical       # ✓ 145 passed
 - [ ] 候选后续批次（中等）：port-manager / env-detector
 - [x] **重系统耦合模块降级为「按需」而非计划内**：quick-launch / app-manager / command-center / network-probe / updater / system-settings / account-manager（涉及权限、凭据、系统级动作，插件化收益低而破坏面高）
 - [ ] dev-toolbox host 泛化（删 `TOOLBOX_FEATURE_IDS` 与硬编码 tabs）—— 仅在前述迁移确有收益时执行
-- [ ] 宿主主包残留清理：`src/shared/compare/`（ModelPicker 已无宿主消费者）、photo-triage 主包 i18n 遗留键（`sidebar.photoTriage` + `photoTriage` 命名空间）
+- [x] 清理宿主无调用者的 `src/shared/compare/CompareTabs.tsx`，并移除已迁出照片插件的孤立 `errors.NO_SESSION` 翻译键（zh/en）。
+- [ ] 将 `ModelPicker` 与 `CompareTabs` 从宿主共享目录迁入官方 hardware 插件后，再移除宿主侧对比组件；目前 plugin-market 源码仍通过宿主 Vite alias 使用两者，直接删除会破坏插件构建。
 - [ ] 253 条命令的 ACL 能力面按批登记，不预先全量登记（每批 `verify` + 双平台 CI 护航）
 
 ---
@@ -270,15 +276,15 @@ pnpm run test:critical       # ✓ 145 passed
 
 ## 已知风险与依赖
 
-| 风险 / 依赖                                     | 影响阶段  | 说明                                                   |
-| ----------------------------------------------- | --------- | ------------------------------------------------------ |
-| ~~P3.1 未做先写 download~~ 已消除（2026-09-08） | P3.3 / P4 | manifest schema v2 已冻结，download/extract 可安全实现 |
-| registry 私钥不在本机                           | P4        | 验签骨架已就绪，签名与 market 上架需私钥环境           |
-| Windows CI 暂停（D-021）                        | P3.2 / P6 | 非代码缺陷；已提前到 P3.2 处置                         |
-| bundled 不随包发布                              | P3.4      | 用户升级即插件消失；已提前处置                         |
-| 诊断文件单条覆写                                | P3.3      | boot 覆盖先前 error，改追加式即可                      |
-| 253 条命令的 ACL 登记量                         | P5        | 改为按批登记 + 停止线，不再全量规划                    |
-| 缺少作者侧交付物                                | P4.5      | 生态无法冷启动；已新增该阶段                           |
+| 风险 / 依赖                                     | 影响阶段  | 说明                                                                                           |
+| ----------------------------------------------- | --------- | ---------------------------------------------------------------------------------------------- |
+| ~~P3.1 未做先写 download~~ 已消除（2026-09-08） | P3.3 / P4 | manifest schema v2 已冻结，download/extract 可安全实现                                         |
+| 官方 registry 插件免 minisign                   | P4        | 以 HTTPS registry 条目的整包 SHA-256/size 与 `manifest.files` 校验；第三方 registry 仍强制验签 |
+| Windows CI 暂停（D-021）                        | P3.2 / P6 | 非代码缺陷；已提前到 P3.2 处置                                                                 |
+| bundled 不随包发布                              | P3.4      | 用户升级即插件消失；已提前处置                                                                 |
+| 诊断文件单条覆写                                | P3.3      | boot 覆盖先前 error，改追加式即可                                                              |
+| 253 条命令的 ACL 登记量                         | P5        | 改为按批登记 + 停止线，不再全量规划                                                            |
+| 新作者 30 分钟验收未完成                        | P4.5      | 模板、SDK、脚手架、pack/sign 和指南已交付，真实新手验收待完成                                  |
 
 ---
 

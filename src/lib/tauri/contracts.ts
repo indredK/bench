@@ -108,12 +108,15 @@ import type {
   WhoisInfo,
   DnsSecCheckResult,
   PortScanResult,
+  NetworkFingerprintResult,
   NatProbeResult,
   NtpProbeResult,
   LanDiscoveryResult,
   LanServicesResult,
   PcapDiagResult,
-  MultiNodeDnsResult,
+  AgentMeasurementResult,
+  GlobalpingMeasurementResult,
+  GlobalpingMeasurementType,
 } from "@/lib/tauri/types/network-probe"
 import type { CardKind, RunResult } from "@/lib/tauri/types/command-center"
 import type {
@@ -830,11 +833,14 @@ export const TAURI_COMMAND_CONTRACTS = {
   network_probe_reset_defaults: defineTauriCommand<undefined, void>()(
     "network_probe_reset_defaults",
   ),
+  network_probe_reset_discovery_defaults: defineTauriCommand<undefined, void>()(
+    "network_probe_reset_discovery_defaults",
+  ),
   network_probe_list_capability_packs: defineTauriCommand<undefined, CapabilityPackInfo[]>()(
     "network_probe_list_capability_packs",
   ),
   network_probe_install_capability_pack: defineTauriCommand<
-    { packId: string },
+    { packId: string; operationId: string },
     CapabilityPackInstallResult
   >()("network_probe_install_capability_pack"),
   network_probe_uninstall_capability_pack: defineTauriCommand<{ packId: string }, void>()(
@@ -856,6 +862,10 @@ export const TAURI_COMMAND_CONTRACTS = {
   network_probe_scan_ports: defineTauriCommand<{ target: string; ports: string }, PortScanResult>()(
     "network_probe_scan_ports",
   ),
+  network_probe_fingerprint_target: defineTauriCommand<
+    { target: string; ports: string; includeOs: boolean },
+    NetworkFingerprintResult
+  >()("network_probe_fingerprint_target"),
   network_probe_probe_nat: defineTauriCommand<undefined, NatProbeResult>()(
     "network_probe_probe_nat",
   ),
@@ -872,21 +882,33 @@ export const TAURI_COMMAND_CONTRACTS = {
     { durationSecs?: number | null },
     PcapDiagResult
   >()("network_probe_run_pcap_diag"),
-  network_probe_compare_dns_multi: defineTauriCommand<
-    { domain: string; locations?: string[] | null },
-    MultiNodeDnsResult
-  >()("network_probe_compare_dns_multi"),
-  network_probe_add_agent: defineTauriCommand<{ label: string; endpoint: string }, ProbeNode>()(
-    "network_probe_add_agent",
+  network_probe_globalping_measure: defineTauriCommand<
+    { measurementType: "dns" | "ping" | "http"; target: string; locations: string[] },
+    GlobalpingMeasurementResult
+  >()("network_probe_globalping_measure"),
+  network_probe_manage_globalping_token: defineTauriCommand<
+    { action: "status" | "save" | "clear"; token?: string | null },
+    boolean
+  >()("network_probe_manage_globalping_token"),
+  network_probe_add_agent: defineTauriCommand<
+    { label: string; endpoint: string; token: string },
+    ProbeNode
+  >()("network_probe_add_agent"),
+  network_probe_set_agent_token: defineTauriCommand<{ agentId: string; token: string }, void>()(
+    "network_probe_set_agent_token",
   ),
   network_probe_remove_agent: defineTauriCommand<{ agentId: string }, void>()(
     "network_probe_remove_agent",
   ),
+  network_probe_run_agent_measurement: defineTauriCommand<
+    { agentId: string; measurementType: GlobalpingMeasurementType; target: string },
+    AgentMeasurementResult
+  >()("network_probe_run_agent_measurement"),
   network_probe_reject_agent_action: defineTauriCommand<{ action: string }, void>()(
     "network_probe_reject_agent_action",
   ),
   network_probe_install_capability_pack_verify_fail: defineTauriCommand<
-    { packId: string },
+    { packId: string; operationId: string },
     CapabilityPackInstallResult
   >()("network_probe_install_capability_pack_verify_fail"),
   get_local_network_summary: defineTauriCommand<undefined, LocalNetworkSummary>()(
@@ -978,6 +1000,9 @@ export const TAURI_COMMAND_CONTRACTS = {
   >()("ext_market_prepare"),
   ext_market_commit: defineTauriCommand<{ extensionId: string; version: string }, void>()(
     "ext_market_commit",
+  ),
+  ext_market_cancel: defineTauriCommand<{ extensionId: string; version: string }, void>()(
+    "ext_market_cancel",
   ),
   ext_diagnostics: defineTauriCommand<undefined, ExtensionDiagnostics>()("ext_diagnostics"),
   // browser extension export / MCP one-click install（能力出口：bench-host）
@@ -1082,6 +1107,7 @@ export const TAURI_COMMANDS = {
     getDefaults: commandName("get_network_probe_defaults"),
     saveDefaultsOverride: commandName("network_probe_save_defaults_override"),
     resetDefaults: commandName("network_probe_reset_defaults"),
+    resetDiscoveryDefaults: commandName("network_probe_reset_discovery_defaults"),
     listCapabilityPacks: commandName("network_probe_list_capability_packs"),
     installCapabilityPack: commandName("network_probe_install_capability_pack"),
     installCapabilityPackVerifyFail: commandName(
@@ -1094,14 +1120,18 @@ export const TAURI_COMMANDS = {
     whois: commandName("network_probe_whois"),
     checkDnssec: commandName("network_probe_check_dnssec"),
     scanPorts: commandName("network_probe_scan_ports"),
+    fingerprintTarget: commandName("network_probe_fingerprint_target"),
     probeNat: commandName("network_probe_probe_nat"),
     probeNtp: commandName("network_probe_probe_ntp"),
     discoverLan: commandName("network_probe_discover_lan"),
     browseLanServices: commandName("network_probe_browse_lan_services"),
     runPcapDiag: commandName("network_probe_run_pcap_diag"),
-    compareDnsMulti: commandName("network_probe_compare_dns_multi"),
+    globalpingMeasure: commandName("network_probe_globalping_measure"),
+    manageGlobalpingToken: commandName("network_probe_manage_globalping_token"),
     addAgent: commandName("network_probe_add_agent"),
+    setAgentToken: commandName("network_probe_set_agent_token"),
     removeAgent: commandName("network_probe_remove_agent"),
+    runAgentMeasurement: commandName("network_probe_run_agent_measurement"),
     rejectAgentAction: commandName("network_probe_reject_agent_action"),
     getLocalNetworkSummary: commandName("get_local_network_summary"),
     getDefaultRoute: commandName("get_default_route"),
@@ -1367,6 +1397,7 @@ export const TAURI_COMMANDS = {
     marketList: commandName("ext_market_list"),
     marketPrepare: commandName("ext_market_prepare"),
     marketCommit: commandName("ext_market_commit"),
+    marketCancel: commandName("ext_market_cancel"),
     diagnostics: commandName("ext_diagnostics"),
   },
   browserExt: {
@@ -1689,9 +1720,10 @@ export const TAURI_COMMAND_ARG_KEYS = {
   get_network_probe_defaults: [],
   network_probe_save_defaults_override: ["overrideData"],
   network_probe_reset_defaults: [],
+  network_probe_reset_discovery_defaults: [],
   network_probe_list_capability_packs: [],
-  network_probe_install_capability_pack: ["packId"],
-  network_probe_install_capability_pack_verify_fail: ["packId"],
+  network_probe_install_capability_pack: ["packId", "operationId"],
+  network_probe_install_capability_pack_verify_fail: ["packId", "operationId"],
   network_probe_uninstall_capability_pack: ["packId"],
   network_probe_list_speed_sources: [],
   network_probe_run_speed_test: ["sourceId"],
@@ -1699,14 +1731,18 @@ export const TAURI_COMMAND_ARG_KEYS = {
   network_probe_whois: ["query"],
   network_probe_check_dnssec: ["domain"],
   network_probe_scan_ports: ["target", "ports"],
+  network_probe_fingerprint_target: ["target", "ports", "includeOs"],
   network_probe_probe_nat: [],
   network_probe_probe_ntp: [],
   network_probe_discover_lan: [],
   network_probe_browse_lan_services: [],
   network_probe_run_pcap_diag: ["durationSecs"],
-  network_probe_compare_dns_multi: ["domain", "locations"],
-  network_probe_add_agent: ["label", "endpoint"],
+  network_probe_globalping_measure: ["measurementType", "target", "locations"],
+  network_probe_manage_globalping_token: ["action", "token"],
+  network_probe_add_agent: ["label", "endpoint", "token"],
+  network_probe_set_agent_token: ["agentId", "token"],
   network_probe_remove_agent: ["agentId"],
+  network_probe_run_agent_measurement: ["agentId", "measurementType", "target"],
   network_probe_reject_agent_action: ["action"],
   get_local_network_summary: [],
   get_default_route: [],
@@ -1744,6 +1780,7 @@ export const TAURI_COMMAND_ARG_KEYS = {
   ext_market_list: [],
   ext_market_prepare: ["extensionId", "version"],
   ext_market_commit: ["extensionId", "version"],
+  ext_market_cancel: ["extensionId", "version"],
   ext_diagnostics: [],
   browser_ext_export: [],
   browser_ext_status: [],
@@ -1799,6 +1836,7 @@ export const TAURI_EVENTS = {
     packProgress: "network-probe:pack-progress",
     speedSample: "network-probe:speed-sample",
     portSample: "network-probe:port-sample",
+    globalpingProgress: "network-probe:globalping-progress",
   },
 } as const
 
@@ -1839,4 +1877,5 @@ export interface TauriEventContracts {
   "network-probe:health-item": HealthCheckItem
   "network-probe:traceroute-hop": TracerouteHop
   "network-probe:scan-session": ScanSessionEvent
+  "network-probe:globalping-progress": GlobalpingMeasurementResult
 }

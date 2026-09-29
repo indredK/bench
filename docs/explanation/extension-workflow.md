@@ -121,14 +121,16 @@ tauri-app/
 
 ### 7.1 宿主架构（B′，D-023）
 
-| 组件                                     | 职责                                                                    | 说明                                                                                                                                             |
-| ---------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `ExtensionAssets`（asset provider 包装） | 资源解析顺序：插件目录 `$APPDATA/extensions/<id>/…` → 内置资源          | P1 实读 Tauri 源码后选择的路径，优于原计划的 `asset://` 顶层窗口：IPC 天然同源、CSP 零改动、无 `asset://` 与 `http://asset.localhost` 的平台差异 |
-| `acl::guarded`（IPC 网关）               | `ext-` 前缀窗口只能调用 `EXTENSION_ALLOWED_COMMANDS` 注册表内的命令     | 补上 **Tauri 自定命令默认全窗口放行**的缺口；capability 只约束 core/plugin 命令，不能替代此网关                                                  |
-| `manifest.rs`                            | schema 校验、id/semver/entry/ACL 子集/engines，fail-closed              | 新增与其对接的签名与完整性校验见 roadmap P3.1                                                                                                    |
-| 命令面                                   | `ext_list_installed` / `ext_open` / `ext_set_enabled` / `ext_uninstall` | 契约双写，单测护航                                                                                                                               |
+| 组件                                     | 职责                                                                                                                                               | 说明                                                                                                                                             |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ExtensionAssets`（asset provider 包装） | 资源解析顺序：插件目录 `$APPDATA/extensions/<id>/…` → 内置资源                                                                                     | P1 实读 Tauri 源码后选择的路径，优于原计划的 `asset://` 顶层窗口：IPC 天然同源、CSP 零改动、无 `asset://` 与 `http://asset.localhost` 的平台差异 |
+| `acl::guarded`（IPC 网关）               | 每个 `ext-<id>` 窗口只能调用宿主能力面且由该插件已校验 manifest 声明的业务命令；能力发现 `ext_capabilities` 与宿主诊断 `ext_poc_report` 是基础接口 | 补上 **Tauri 自定命令默认全窗口放行**的缺口；权限按窗口缓存并在销毁、禁用、卸载时撤销；capability 不能替代此网关                                 |
+| `manifest.rs`                            | schema 校验、id/semver/entry/ACL 子集/engines，fail-closed                                                                                         | 新增与其对接的签名与完整性校验见 roadmap P3.1                                                                                                    |
+| 命令面                                   | `ext_list_installed` / `ext_open` / `ext_set_enabled` / `ext_uninstall`                                                                            | 契约双写，单测护航                                                                                                                               |
 
-**单个插件的权限边界** = `manifest.acl.commands` ⊆ `EXTENSION_ALLOWED_COMMANDS` ⊆ 后端全部命令。越权一律 fail-closed。
+**单个插件的权限边界** = `manifest.acl.commands` ⊆ `EXTENSION_ALLOWED_COMMANDS` ⊆ 后端全部命令。运行时双重校验宿主白名单与该窗口 manifest ACL，缺权限状态也 fail-closed；只有 `ext_capabilities` 与 `ext_poc_report` 这两个宿主基础接口无需插件重复声明。
+
+插件开窗、市场更新、启停和卸载按插件 ID 串行。更新前先撤销旧 ACL 并关闭运行窗口，之后才替换 bundle；若窗口关闭失败，则恢复旧授权并中止更新。信任弹窗会说明更新会关闭已打开的插件窗口。
 
 ### 7.2 仍然有效的约束（来自被取代的设计，未失效）
 
@@ -136,7 +138,7 @@ tauri-app/
 - **单二进制 + minisign**：核心随主包签名；插件与其并列，不削弱主包签名链。
 - **IPC 契约双写铁律不削弱**（[ARCHITECTURE.md §2](../reference/architecture.md#2--ai-编码规则--禁止模式) 第 7 条）：插件经命令白名单网关，反而收窄了 renderer 信任边界。
 - **i18n**：`labelKey` / manifest `display` 仍须落 locale；插件自带 namespace。
-- **renderer 信任边界**：下载 URL / 版本 / hash / 签名材料**只由后端 canonical 配置决定**，renderer 不得提交最终下载地址或可执行路径（D-007）。
+- **renderer 与网络信任边界**：下载 URL / 版本 / hash / 签名材料**只由后端 canonical 配置决定**，renderer 不得提交最终下载地址或可执行路径（D-007）。URL 用 `url` crate 结构化校验 HTTPS、凭据/片段、本地和保留 IP 字面量；每一跳重定向复验；请求错误不输出原始下载 URL，避免泄露签名 query。DNS 解析交给操作系统或用户配置的代理。
 
 ### 7.3 明确的非目标
 
@@ -252,7 +254,8 @@ pnpm run extensions:pack <id>     # P4.5 交付
 | **吊销**             | 拉取 registry 时同步 `revoked[]` → 强制禁用 + 警示                                                  | P4     |
 | **审计**             | 追加式 `$APPDATA/ext-audit.log`，字段见 [spec §6.2](../reference/extension-spec.md) 与 roadmap P3.3 | P3.3   |
 | **诊断**             | 插件中心诊断面板查看 ext 日志（替代裸 JSON）                                                        | P4     |
-| **卸载**             | `ext_uninstall`：关窗 + 删目录（仅限合法插件目录）+ `DestructiveConfirmDialog`                      | 已实现 |
+| **更新**             | `ext_market_commit`：确认弹窗说明会关闭运行窗口；撤销旧 ACL、关闭窗口后原子替换 bundle              | 已实现 |
+| **卸载**             | `ext_uninstall`：撤销权限、关窗 + 删目录（仅限合法插件目录）+ `DestructiveConfirmDialog`            | 已实现 |
 
 ---
 
@@ -364,7 +367,7 @@ pnpm run extensions:pack <id>     # P4.5 交付
 - 市场源（**官方默认已内置**，env 仅作覆盖/本地调试）：
   - 插件市场默认：`https://raw.githubusercontent.com/kindred-plugin-market/plugin-market/main/registry.json`（`BENCH_EXT_REGISTRY_URL` 覆盖）
   - 命令市场默认：`https://raw.githubusercontent.com/kindred-plugin-market/command-market/main/registry.json`（`BENCH_COMMAND_MARKET_URL` 覆盖；`BENCH_COMMAND_MARKET_DIR` 调试优先）
-- **官方源免 minisign**：`registry::is_official_registry` 命中时豁免签名校验（完整性由 registry sha256 + 包内 files 清单双通道兜底）；第三方 registry 一律强制 minisign。市场分发 zip 由 `pack-extension.mjs` 注入 `distribution: "market"`（bundled 语义仅指应用包内随包分发）；
+- **官方源免 minisign**：`registry::is_official_registry` 命中时由 HTTPS registry 条目整包摘要与包内 `files` 清单双重校验；第三方 registry 一律强制 minisign。信任来源在安装时记入 `$APPDATA/extension-records/<id>/source`，切换当前市场配置不会重设既有插件的信任策略；安装提交阶段会再次校验来源签名、`distribution` 和 `files`。安装确认取消会清理预览缓存，超过 24 小时的残留会自动回收。市场分发 zip 由 `pack-extension.mjs` 注入 `distribution: "market"`（bundled 语义仅指应用包内随包分发）；
 
 ### 13.2 工具链（Bench 仓库内）
 

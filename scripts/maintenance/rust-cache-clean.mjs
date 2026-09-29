@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * rust-cache-clean.mjs — Rust 构建缓存体检与温和瘦身（零三方依赖）。
+ * rust-cache-clean.mjs — Rust 构建缓存体检与可恢复整理。
  *
  * 背景（见 docs/explanation/rust-build-cache-optimization-research.md）：
  * Cargo 从不主动回收陈旧产物，`target/` 会随时间单调膨胀：
@@ -8,8 +8,8 @@
  *   - debug/deps/         依赖图每次变化产生新 hash 的 rlib/rmeta/可执行文件，旧副本保留
  *   - rust-analyzer/      IDE 的 check 产物，含被废弃的 target 变体，可安全整体重建
  *
- * 本脚本只做**保守删除**（保留每个产物组的最新副本），最坏后果是下次增量很慢或
- * 触发重编译，不会有数据损失（对比 `pnpm run clean:be` = cargo clean 全清）。
+ * 本脚本只将**保守筛选的旧产物移入系统废纸篓**（保留每个产物组的最新副本）。
+ * 移入系统废纸篓/回收站不会立即释放磁盘空间；清空后才释放。失败时保留原文件，不永久删除。
  *
  * 用法：
  *   node scripts/maintenance/rust-cache-clean.mjs --stats
@@ -17,23 +17,24 @@
  *   node scripts/maintenance/rust-cache-clean.mjs --sweep --include rust-analyzer --yes
  *
  * 参数：
- *   --stats                  只体检不删除（默认行为）
+ *   --stats                  只体检（默认行为）
  *   --sweep                  执行清理
- *   --dry-run                配合 --sweep：打印将删除的内容但不删除
+ *   --dry-run                配合 --sweep：打印候选项但不移动
  *   --yes                    --sweep 不经二次确认直接执行（交互式菜单预设）
  *   --older-than <Nd>      incremental/deps 陈旧产物的保留期限，默认 7d
  *   --include <csv>        限定处理范围：incremental,stale-deps,orphan-lib,rust-analyzer
- *                          （默认前三项；rust-analyzer 会整体删除 IDE 的 check 产物，
+ *                          （默认前三项；rust-analyzer 会整体移入 IDE 的 check 产物，
  *                          需先关闭 IDE，因此需手动指定）
  *   --target-dir <path>      覆盖默认 target 目录（默认 <repo>/../tauri-app-target，D-021）
  *
- * 注意：批量删除在部分沙箱环境中会被拦截，请在本地终端运行。
+ * 注意：批量移入系统废纸篓/回收站失败时，源文件会保留。
  */
 import { execFileSync } from "node:child_process"
 import { createInterface } from "node:readline"
-import { existsSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs"
+import { existsSync, lstatSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { basename, dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
+import trash from "trash"
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..")
 // D-021：target-dir 已外迁至 <repo>/../tauri-app-target
@@ -94,6 +95,39 @@ function allocBytes(stat) {
   return stat.blocks > 0 ? stat.blocks * 512 : stat.size
 }
 
+/** 以少量批量 du 进程估算文件的实际占用，避免每个候选文件各启动一次 du。 */
+function measureFiles(items) {
+  if (process.platform === "win32" || items.length === 0) return
+  const chunkSize = 100
+  for (let offset = 0; offset < items.length; offset += chunkSize) {
+    const chunk = items.slice(offset, offset + chunkSize)
+    try {
+      const output = execFileSync("du", ["-k", "-s", "-P", ...chunk.map((item) => item.path)], {
+        encoding: "utf8",
+        maxBuffer: 1024 * 1024,
+      })
+      for (const line of output.split("\n")) {
+        const match = /^(\d+)\s+(.+)$/.exec(line)
+        if (!match) continue
+        const bytes = Number(match[1]) * 1024
+        const item = chunk.find((candidate) => candidate.path === match[2])
+        if (item && Number.isFinite(bytes)) item.bytes = bytes
+      }
+    } catch {
+      // 统计失败只降低估算精度，不影响候选识别或安全移动。
+    }
+  }
+}
+
+function isRealDirectory(target) {
+  try {
+    const stat = lstatSync(target)
+    return stat.isDirectory() && !stat.isSymbolicLink()
+  } catch {
+    return false
+  }
+}
+
 /** 统计目录：bytes 用 du 口径，同时遍历得到文件数（用于提示 Cargo 不回收的性质）。 */
 function measure(target) {
   let files = 0
@@ -112,11 +146,11 @@ function measure(target) {
       const full = join(current, entry.name)
       let st
       try {
-        st = statSync(full, { throwIfNoEntry: false })
+        st = lstatSync(full, { throwIfNoEntry: false })
       } catch {
         continue
       }
-      if (!st) continue
+      if (!st || st.isSymbolicLink()) continue
       if (st.isDirectory()) {
         dirs++
         stack.push(full)
@@ -158,11 +192,11 @@ function latestMtime(target) {
       const full = join(current, entry.name)
       let st
       try {
-        st = statSync(full, { throwIfNoEntry: false })
+        st = lstatSync(full, { throwIfNoEntry: false })
       } catch {
         continue
       }
-      if (!st) continue
+      if (!st || st.isSymbolicLink()) continue
       seen = true
       if (st.mtimeMs > newest) newest = st.mtimeMs
       if (st.isDirectory()) stack.push(full)
@@ -174,7 +208,7 @@ function latestMtime(target) {
 // 陈旧产物识别：`bench-a1b2c3d4`、`libbench_lib-a1b2c3d4f5e.rmeta` —— 8 位以上 hex 后缀
 const HASH_SUFFIX = /^(.*)-([0-9a-f]{8,})(?:\.(.*))?$/
 
-/** 按「产物组」聚合 deps 内同名多 hash 副本，返回可删除的陈旧项。 */
+/** 按「产物组」聚合 deps 内同名多 hash 副本，返回可整理的陈旧项。 */
 function collectStaleDeps(depsDir, cutoffMs) {
   const groups = new Map()
   let entries
@@ -190,9 +224,10 @@ function collectStaleDeps(depsDir, cutoffMs) {
     const [, stem, hash, ext] = match
     const key = `${stem}|${ext ?? ""}`
     const full = join(depsDir, entry.name)
-    const stat = statSync(full)
+    const stat = lstatSync(full, { throwIfNoEntry: false })
+    if (!stat?.isFile()) continue
     const bucket = groups.get(key) ?? []
-    bucket.push({ path: full, bytes: duBytes(full) ?? allocBytes(stat), mtimeMs: stat.mtimeMs })
+    bucket.push({ path: full, bytes: allocBytes(stat), mtimeMs: stat.mtimeMs })
     groups.set(key, bucket)
   }
 
@@ -207,6 +242,7 @@ function collectStaleDeps(depsDir, cutoffMs) {
     }
     // 注意：deps 里同名多 hash 副本不会被 Cargo 回收，是 deps/ 膨胀的主因之一
   }
+  measureFiles(stale)
   return stale
 }
 
@@ -273,14 +309,15 @@ function collectOrphanLibArtifacts(depsDir, libTarget) {
   for (const entry of entries) {
     if (!candidates.has(entry.name) || expected.has(entry.name)) continue
     const full = join(depsDir, entry.name)
-    const stat = statSync(full)
+    const stat = lstatSync(full, { throwIfNoEntry: false })
+    if (!stat?.isFile()) continue
     if (stat.mtimeMs >= libTarget.mtimeMs) continue // 比 Cargo.toml 还新 = 仍在生产
-    stale.push({ path: full, bytes: duBytes(full) ?? allocBytes(stat), mtimeMs: stat.mtimeMs })
+    stale.push({ path: full, bytes: allocBytes(stat), mtimeMs: stat.mtimeMs })
   }
   return stale
 }
 
-/** incremental 会话：保留最新一个，其余按保留期限删除。 */
+/** incremental 会话：保留最新一个，其余按保留期限移入系统废纸篓/回收站。 */
 function collectIncrementalSessions(incDir, cutoffMs) {
   let entries
   try {
@@ -303,32 +340,73 @@ function collectIncrementalSessions(incDir, cutoffMs) {
   return { keep, stale }
 }
 
-function removeAll(items, dry, label) {
-  let freed = 0
-  let removed = 0
-  for (const item of items) {
-    if (dry) {
-      console.log(`   [预览] ${label} ${basename(item.path)} — ${human(item.bytes ?? 0)}`)
+async function moveAllToTrash(items, dry, label) {
+  let movedBytes = 0
+  let moved = 0
+  let failed = 0
+  if (dry) {
+    for (const item of items) {
+      console.log(
+        `   [预览] 移入废纸篓 ${label} ${basename(item.path)} — ${human(item.bytes ?? 0)}`,
+      )
+      movedBytes += item.bytes ?? 0
+      moved++
     }
-    freed += item.bytes ?? 0
-    removed++
-    if (!dry) {
+    return { movedBytes, moved, failed }
+  }
+
+  const batchSize = 100
+  for (let offset = 0; offset < items.length; offset += batchSize) {
+    const batch = items.slice(offset, offset + batchSize)
+    try {
+      await trash(
+        batch.map((item) => item.path),
+        { glob: false },
+      )
+    } catch (batchError) {
+      // Isolate a batch failure to individual candidates. Paths already moved by a
+      // partially successful platform call are ignored by trash() and verified below.
+      for (const item of batch) {
+        try {
+          await trash(item.path, { glob: false })
+        } catch {
+          // The source-path check below reports the item and leaves it untouched.
+        }
+      }
+      console.log(`   [批次部分失败，已逐项复核] ${label}: ${batchError.message}`)
+    }
+
+    for (const item of batch) {
+      let stillExists
       try {
-        rmSync(item.path, { recursive: true, force: true })
-      } catch (err) {
-        console.log(`   [跳过] ${basename(item.path)}: ${err.message}`)
-        freed -= item.bytes ?? 0
-        removed--
+        stillExists = lstatSync(item.path, { throwIfNoEntry: false }) !== undefined
+      } catch {
+        stillExists = true
+      }
+      if (stillExists) {
+        console.log(`   [失败，源文件保留] ${basename(item.path)}`)
+        failed++
+      } else {
+        movedBytes += item.bytes ?? 0
+        moved++
       }
     }
+    console.log(
+      `   [处理中] ${label}: ${Math.min(offset + batch.length, items.length)}/${items.length}`,
+    )
   }
-  return { freed, removed }
+  return { movedBytes, moved, failed }
 }
 
 // —— 主流程 ——
-function main() {
+async function main() {
   if (!existsSync(targetDir)) {
     console.log(`[rust-cache] target 目录不存在：${targetDir}`)
+    return
+  }
+  if (!isRealDirectory(targetDir)) {
+    console.error(`[rust-cache] target 必须是普通目录，拒绝跟随符号链接：${targetDir}`)
+    process.exitCode = 1
     return
   }
 
@@ -336,7 +414,7 @@ function main() {
   console.log("  Rust 构建缓存体检")
   console.log("==============================")
   console.log(`target 目录: ${targetDir}`)
-  console.log(`保留期限: ${olderThanRaw}（更早的产物才会被删除）\n`)
+  console.log(`保留期限: ${olderThanRaw}（更早的产物才会移入废纸篓）\n`)
 
   // 1) 顶层画像
   console.log("— 顶层占用 —")
@@ -345,9 +423,14 @@ function main() {
   const topRows = []
   for (const entry of topEntries) {
     const full = join(targetDir, entry.name)
-    const info = entry.isDirectory()
+    const stat = lstatSync(full)
+    const info = stat.isDirectory()
       ? measure(full)
-      : { bytes: allocBytes(statSync(full)), files: 1, dirs: 0 }
+      : {
+          bytes: stat.isSymbolicLink() ? 0 : allocBytes(stat),
+          files: stat.isFile() ? 1 : 0,
+          dirs: 0,
+        }
     topRows.push({ name: entry.name, ...info })
     totalBytes += info.bytes
   }
@@ -361,20 +444,20 @@ function main() {
   // 2) 可清理项
   const plans = []
   const incrementalDir = join(targetDir, "debug", "incremental")
-  if (include.has("incremental") && existsSync(incrementalDir)) {
+  if (include.has("incremental") && isRealDirectory(incrementalDir)) {
     const { stale } = collectIncrementalSessions(incrementalDir, olderThanMs)
     for (const item of stale) item.bytes = measure(item.path).bytes
     if (stale.length) plans.push({ label: "incremental 历史会话", items: stale })
   }
 
   const depsDir = join(targetDir, "debug", "deps")
-  if (include.has("stale-deps") && existsSync(depsDir)) {
+  if (include.has("stale-deps") && isRealDirectory(depsDir)) {
     const stale = collectStaleDeps(depsDir, olderThanMs)
     if (stale.length) plans.push({ label: "deps 陈旧 hash 副本", items: stale })
   }
 
   // crate-type 收敛后遗留的 staticlib/cdylib（Cargo 不会回收，且已不再生成）
-  if (include.has("orphan-lib") && existsSync(depsDir)) {
+  if (include.has("orphan-lib") && isRealDirectory(depsDir)) {
     const libTarget = readLibTarget(repoRoot)
     const stale = libTarget ? collectOrphanLibArtifacts(depsDir, libTarget) : []
     if (stale.length) plans.push({ label: "当前 crate-type 已不生成的 lib 产物", items: stale })
@@ -382,7 +465,9 @@ function main() {
 
   if (include.has("rust-analyzer")) {
     const raDir = join(targetDir, "rust-analyzer")
-    if (existsSync(raDir)) {
+    if (existsSync(raDir) && !isRealDirectory(raDir)) {
+      console.log("   [跳过] rust-analyzer 目标不是普通目录（可能是符号链接）")
+    } else if (isRealDirectory(raDir)) {
       // IDE 的 check 产物可整体重建（下次打开工程时重新跑 check，约 1-3 分钟），
       // 因此不受 --older-than 限制。**建议先关闭 VS Code 再删**，否则正在写的
       // 会话会被清掉，IDE 需要重新分析。
@@ -393,65 +478,76 @@ function main() {
     }
   }
 
-  console.log("— 可清理项 —")
+  console.log("— 可移入系统废纸篓/回收站 —")
   if (!plans.length) {
     console.log("  无（当前没有超过保留期限的陈旧产物）")
   } else {
-    let reclaimable = 0
+    let plannedBytes = 0
     for (const plan of plans) {
       const bytes = plan.items.reduce((sum, i) => sum + (i.bytes ?? 0), 0)
-      reclaimable += bytes
+      plannedBytes += bytes
       console.log(
         `  ${plan.label.padEnd(24)} ${String(plan.items.length).padStart(4)} 项   ${human(bytes).padStart(9)}`,
       )
     }
-    console.log(`  ${"可回收合计".padEnd(21)} ${human(reclaimable).padStart(9)}`)
+    console.log(`  ${"待整理合计".padEnd(21)} ${human(plannedBytes).padStart(9)}`)
+    console.log("  移入废纸篓/回收站不会立即释放磁盘空间；清空后才会释放。")
   }
 
   if (statsOnly || (!sweep && !dryRun)) {
     console.log("\n仅体检。执行清理：")
     console.log(
-      `  node scripts/maintenance/rust-cache-clean.mjs --sweep --older-than ${olderThanRaw} --yes`,
+      `  node scripts/maintenance/rust-cache-clean.mjs --sweep --older-than ${olderThanRaw}`,
     )
-    console.log("全清（等价于 cargo clean，会触发一次全量重编译）：pnpm run clean:be")
     return
   }
 
-  // 3) 删除
+  // 3) 移入系统废纸篓
   if (!dryRun && !yes) {
     console.log("\n未带 --yes，进入二次确认。")
   }
 
-  const runDelete = () => {
-    let freed = 0
-    let removed = 0
+  const runSweep = async () => {
+    let movedBytes = 0
+    let moved = 0
+    let failed = 0
     for (const plan of plans) {
-      const res = removeAll(plan.items, dryRun, plan.label)
-      freed += res.freed
-      removed += res.removed
+      const res = await moveAllToTrash(plan.items, dryRun, plan.label)
+      movedBytes += res.movedBytes
+      moved += res.moved
+      failed += res.failed
     }
     console.log("\n==============================")
-    console.log(`  ${dryRun ? "预览" : "清理"}完成: ${removed} 项, ${human(freed)}`)
+    console.log(
+      dryRun
+        ? `  预览完成: ${moved} 项, ${human(movedBytes)}`
+        : `  已移入废纸篓: ${moved} 项, 估算体量 ${human(movedBytes)}, 失败 ${failed} 项`,
+    )
     console.log("==============================")
-    if (!dryRun && removed) {
-      console.log("  下次构建会自动补齐所需产物（最多触发一次增量重编译）。")
+    if (!dryRun && moved) {
+      console.log("  以上体量仍占用磁盘；清空废纸篓/回收站后才会释放。下次构建会自动补齐所需产物。")
     }
+    if (failed) process.exitCode = 1
   }
 
   if (dryRun || yes) {
-    runDelete()
+    await runSweep()
     return
   }
 
   const rl = createInterface({ input: process.stdin, output: process.stdout })
-  rl.question("确认删除以上陈旧产物？输入 y 继续：", (answer) => {
-    rl.close()
-    if (answer.trim().toLowerCase() !== "y") {
-      console.log("已取消。")
-      return
-    }
-    runDelete()
+  const answer = await new Promise((resolveAnswer) => {
+    rl.question("确认将以上陈旧产物移入系统废纸篓/回收站？输入 y 继续：", resolveAnswer)
   })
+  rl.close()
+  if (answer.trim().toLowerCase() !== "y") {
+    console.log("已取消，文件未改动。")
+    return
+  }
+  await runSweep()
 }
 
-main()
+main().catch((err) => {
+  console.error(`[rust-cache] 清理器失败，未执行永久删除：${err.message}`)
+  process.exitCode = 1
+})

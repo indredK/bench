@@ -27,7 +27,7 @@
 
 - 默认 Tab：`port-manager`。
 - 布局细节：三个「整页工具」Tab（`FULL_PAGE_TOOL_TABS`：port-manager / env-detector / token-calc）渲染在普通 `flex-1 min-h-0` 盒内（自带滚动），其余 Tab 走 `ScrollableArea`——避免双层 h-full 滚动链塌陷。
-- **Tab 交互**：Tab 为普通 ghost 按钮（下划线样式），激活主色 + `border-primary`，hover 变 foreground；`whitespace-nowrap` + `overflow-x-auto` **横向滚动**（窄窗不换行）；**无 `role=tab` / `aria-selected` / 方向键导航**（对比 hardware 的 CompareTabs 有 `role="tab"`）。
+- **Tab 交互**：Tab 为普通 ghost 按钮（下划线样式），激活主色 + `border-primary`，hover 变 foreground；`whitespace-nowrap` + `overflow-x-auto` **横向滚动**（窄窗不换行）；**无 `role=tab` / `aria-selected` / 方向键导航**。
 - **挂载/状态保留语义**：整页工具 Tab 仅在激活时挂载（切换即卸载/重挂载）；devtools / diagnostics / info 的输入输出存于**页面级 controller**（顶层 `useState`，组件不因切 Tab 卸载）→ **切 Tab 不丢失**各工具输入与结果；env-detector 的 zustand store 为模块级单例，切走再切回**不会**重新触发扫描（`scanned` 持久），需手动点「刷新」。
 
 ## 3. 端口管理 / 环境检测 / Token 计算（整页子 feature）

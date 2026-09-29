@@ -46,7 +46,7 @@ walkdir = "2"
 chrono = "0.4"
 cookie = "0.18"
 dirs = "7"
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "net"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "net", "fs", "process"] }
 # CDP（Chrome DevTools Protocol）WebSocket 客户端：浏览器会话注入 / 回采（browser_session）。
 # 仅连接本机 loopback `ws://127.0.0.1:<port>`，无需 TLS，故关掉默认 TLS 相关特性。
 tokio-tungstenite = { version = "0.30", default-features = false, features = [
@@ -60,7 +60,7 @@ async-trait = "0.1"
 quick-xml = { version = "0.42", features = ["serialize"] }
 serde_yaml = "0.9"
 semver = "1"
-reqwest = { version = "0.13", default-features = false, features = ["rustls", "gzip", "brotli", "stream", "socks", "query", "json"] }
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "gzip", "brotli", "stream", "socks", "query", "json", "system-proxy"] }
 sha2 = "0.11"
 md5 = "0.8"
 sha1 = "0.11"
@@ -77,6 +77,11 @@ if-addrs = "0.15"
 surge-ping = "0.9.0"
 hickory-resolver = "0.26.1"
 trippy-core = "0.13.0"
+mdns-sd = "0.21.4"
+ssdp-client = "2.1.0"
+rsntp = { version = "4.1.2", default-features = false, features = ["async"] }
+stun-proto = "2.0.2"
+hmac = "0.13.0"
 
 [target."cfg(not(any(target_os = \"android\", target_os = \"ios\")))".dependencies]
 tauri-plugin-updater = "2.10.1"

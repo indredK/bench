@@ -3,9 +3,14 @@
  */
 import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
+import { VirtualList } from "@/components/content/VirtualList"
 import { Button } from "@/components/ui/button"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
-import type { LanDiscoveryResult } from "@/lib/tauri/types/network-probe"
+import type { ArpNeighbor, LanDiscoveryResult } from "@/lib/tauri/types/network-probe"
+
+function formatNeighbor(neighbor: ArpNeighbor, incompleteLabel: string): string {
+  return `${neighbor.ip}${neighbor.mac ? ` · ${neighbor.mac}` : ` · ${incompleteLabel}`}${neighbor.iface ? ` · ${neighbor.iface}` : ""}${neighbor.source ? ` · ${neighbor.source}` : ""}`
+}
 
 interface ArpPanelProps {
   loading: boolean
@@ -16,6 +21,7 @@ interface ArpPanelProps {
   onRun: () => void
   onCancel?: () => void
   onOpenSettings?: () => void
+  openingSettings?: boolean
 }
 
 export function ArpPanel({
@@ -27,8 +33,11 @@ export function ArpPanel({
   onRun,
   onCancel,
   onOpenSettings,
+  openingSettings = false,
 }: ArpPanelProps) {
   const { t } = useTranslation()
+  const incompleteLabel = t("networkProbe.arp.incomplete")
+  const renderNeighbor = (neighbor: ArpNeighbor) => formatNeighbor(neighbor, incompleteLabel)
   const emptyKey =
     result?.emptyReason === "permission"
       ? "networkProbe.arp.emptyPermission"
@@ -69,8 +78,15 @@ export function ArpPanel({
               </CommandHint>
             ) : null}
             {onOpenSettings ? (
-              <Button type="button" variant="outline" onClick={onOpenSettings}>
-                {t("networkProbe.arp.openSettings")}
+              <Button
+                type="button"
+                variant="outline"
+                disabled={openingSettings}
+                onClick={onOpenSettings}
+              >
+                {openingSettings
+                  ? t("networkProbe.openingSettings")
+                  : t("networkProbe.arp.openSettings")}
               </Button>
             ) : null}
           </div>
@@ -103,22 +119,27 @@ export function ArpPanel({
                 </p>
               ) : null}
               {result.emptyReason === "permission" && onOpenSettings ? (
-                <Button type="button" variant="outline" size="sm" onClick={onOpenSettings}>
-                  {t("networkProbe.arp.openSettings")}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={openingSettings}
+                  onClick={onOpenSettings}
+                >
+                  {openingSettings
+                    ? t("networkProbe.openingSettings")
+                    : t("networkProbe.arp.openSettings")}
                 </Button>
               ) : null}
             </div>
           ) : (
-            <ul className="space-y-1 font-mono text-xs">
-              {result.neighbors.map((n) => (
-                <li key={n.ip}>
-                  {n.ip}
-                  {n.mac ? ` · ${n.mac}` : " · (incomplete)"}
-                  {n.iface ? ` · ${n.iface}` : ""}
-                  {n.source ? ` · ${n.source}` : ""}
-                </li>
-              ))}
-            </ul>
+            <VirtualList
+              items={result.neighbors}
+              getItemKey={(neighbor) => neighbor.ip}
+              getItemLabel={renderNeighbor}
+              renderItem={renderNeighbor}
+              className="font-mono text-xs"
+            />
           )}
           <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
         </div>

@@ -38,6 +38,20 @@ import type {
 } from "@/lib/tauri/types"
 import type { AppUpdateInfo, AppUpdateInstallResult } from "@/lib/tauri/types/updater"
 import type {
+  CapabilityPackInfo,
+  CapabilityPackInstallResult,
+  CapabilityPackProgress,
+  AgentMeasurementResult,
+  GlobalpingMeasurementResult,
+  GlobalpingProbeResult,
+  GlobalpingRateLimit,
+  NetworkProbeCapabilities,
+  NetworkFingerprintResult,
+  OsFingerprintMatch,
+  ProbeNode,
+  ServiceFingerprint,
+} from "@/lib/tauri/types/network-probe"
+import type {
   AccountManagerCapabilities,
   AccountManagerCapability,
   BrowserCaptureOutcome,
@@ -58,6 +72,7 @@ import type {
   McpTargetStatus,
   NmRegistration,
 } from "@/lib/tauri/types/browser-ext"
+import type { MarketVersionSummary } from "@/lib/tauri/types/extension-center"
 
 describe("Tauri contracts", () => {
   it("keeps grouped command constants derived from the canonical command contracts", () => {
@@ -112,6 +127,161 @@ describe("Tauri contracts", () => {
     const rustStructFields = parseRustStructFields(rustSource)
 
     const checks: Array<[string, string, string[]]> = [
+      [
+        "ProbeNode",
+        "camel",
+        dtoKeys<ProbeNode>([
+          "id",
+          "kind",
+          "label",
+          "reachable",
+          "endpoint",
+          "region",
+          "capabilities",
+        ]),
+      ],
+      [
+        "GlobalpingMeasurementResult",
+        "camel",
+        dtoKeys<GlobalpingMeasurementResult>([
+          "measurementType",
+          "target",
+          "status",
+          "probes",
+          "elapsedMs",
+          "commandHint",
+          "rateLimit",
+          "retryAfterSeconds",
+        ]),
+      ],
+      [
+        "AgentMeasurementResult",
+        "camel",
+        dtoKeys<AgentMeasurementResult>([
+          "nodeId",
+          "measurementType",
+          "target",
+          "status",
+          "probe",
+          "elapsedMs",
+          "retryAfterSeconds",
+        ]),
+      ],
+      [
+        "GlobalpingProbeResult",
+        "camel",
+        dtoKeys<GlobalpingProbeResult>([
+          "id",
+          "label",
+          "status",
+          "summary",
+          "detail",
+          "answers",
+          "dnsRcode",
+          "avgRttMs",
+          "packetLossPercent",
+          "packetsSent",
+          "packetsReceived",
+          "httpStatusCode",
+          "totalTimeMs",
+          "failureSource",
+        ]),
+      ],
+      [
+        "GlobalpingRateLimit",
+        "camel",
+        dtoKeys<GlobalpingRateLimit>([
+          "limit",
+          "consumed",
+          "remaining",
+          "resetSeconds",
+          "creditsRemaining",
+        ]),
+      ],
+      [
+        "NetworkProbeCapabilities",
+        "camel",
+        dtoKeys<NetworkProbeCapabilities>([
+          "platform",
+          "privilegeLevel",
+          "tools",
+          "packs",
+          "externalTools",
+        ]),
+      ],
+      [
+        "NetworkFingerprintResult",
+        "camel",
+        dtoKeys<NetworkFingerprintResult>([
+          "target",
+          "services",
+          "osStatus",
+          "osMatches",
+          "cancelled",
+          "sessionId",
+          "commandHint",
+        ]),
+      ],
+      [
+        "ServiceFingerprint",
+        "camel",
+        dtoKeys<ServiceFingerprint>([
+          "port",
+          "protocol",
+          "name",
+          "product",
+          "version",
+          "extraInfo",
+          "confidence",
+          "cpe",
+          "riskTags",
+        ]),
+      ],
+      [
+        "OsFingerprintMatch",
+        "camel",
+        dtoKeys<OsFingerprintMatch>(["name", "accuracy", "classes", "cpe"]),
+      ],
+      [
+        "CapabilityPackInfo",
+        "camel",
+        dtoKeys<CapabilityPackInfo>([
+          "id",
+          "version",
+          "sizeBytes",
+          "status",
+          "descriptionKey",
+          "artifactReady",
+          "installedAtMs",
+          "installMode",
+        ]),
+      ],
+      [
+        "CapabilityPackInstallResult",
+        "camel",
+        dtoKeys<CapabilityPackInstallResult>(["packId", "ok", "mode", "message", "commandHint"]),
+      ],
+      [
+        "CapabilityPackProgress",
+        "camel",
+        dtoKeys<CapabilityPackProgress>(["operationId", "packId", "phase", "bytes", "totalBytes"]),
+      ],
+      [
+        "MarketVersionDto",
+        "camel",
+        dtoKeys<MarketVersionSummary>([
+          "version",
+          "enginesBench",
+          "size",
+          "publishedAt",
+          "yanked",
+          "revokedReason",
+          "compatible",
+          "installed",
+          "updateAvailable",
+          "installable",
+        ]),
+      ],
       [
         "AccountManagerCapability",
         "camel",

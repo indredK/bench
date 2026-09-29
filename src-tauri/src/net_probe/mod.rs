@@ -9,6 +9,7 @@ mod discovery;
 mod dns;
 mod dnssec;
 mod fake_ip;
+mod fingerprint;
 mod fix;
 mod globalping;
 mod health;

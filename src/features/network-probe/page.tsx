@@ -3,7 +3,7 @@
  */
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Network } from "lucide-react"
+import { Network, SlidersHorizontal } from "lucide-react"
 import { RuntimeFeatureGate } from "@/components/common/RuntimeFeatureGate"
 import { ArpPanel } from "@/features/network-probe/components/ArpPanel"
 import { DnsLookupPanel } from "@/features/network-probe/components/DnsLookupPanel"
@@ -15,6 +15,7 @@ import { Ipv6Panel } from "@/features/network-probe/components/Ipv6Panel"
 import { LanServicesPanel } from "@/features/network-probe/components/LanServicesPanel"
 import { MtuPanel } from "@/features/network-probe/components/MtuPanel"
 import { MultiNodePanel } from "@/features/network-probe/components/MultiNodePanel"
+import { getProbeNodeDisplayLabel } from "@/features/network-probe/utils/probe-node-label"
 import { NatPanel } from "@/features/network-probe/components/NatPanel"
 import { NtpPanel } from "@/features/network-probe/components/NtpPanel"
 import {
@@ -38,6 +39,7 @@ import { TcpConnectPanel } from "@/features/network-probe/components/TcpConnectP
 import { TraceroutePanel } from "@/features/network-probe/components/TraceroutePanel"
 import { WhoisPanel } from "@/features/network-probe/components/WhoisPanel"
 import { CommandLogSidePanel } from "@/features/network-probe/components/CommandLogSidePanel"
+import { DiscoveryDefaultsDialog } from "@/features/network-probe/components/DiscoveryDefaultsDialog"
 import { useNetworkProbeController } from "@/features/network-probe/hooks/useNetworkProbeController"
 import {
   OFFLINE_SUBS,
@@ -87,6 +89,8 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
   const [packsOpen, setPacksOpen] = useState(false)
   const [focusPackId, setFocusPackId] = useState<string | null>(null)
   const [packsBusy, setPacksBusy] = useState(false)
+  const [defaultsOpen, setDefaultsOpen] = useState(false)
+  const [defaultsBusy, setDefaultsBusy] = useState(false)
   const [sideLogOpen, setSideLogOpen] = useState(true)
 
   const l2Items = L2_BY_L1[c.l1Id]
@@ -120,8 +124,8 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
             reachable: true,
           },
         ]
-  // 远端节点执行（Globalping / 自有 agent）尚未接入任何 use-case, 探测一律本机跑;
-  // 按 design.md §4.2「实现前不要假连接」, 可选项收敛为 local, 其余节点在下方渲染为 disabled。
+  // 通用探测原点目前只路由本机；Globalping / 自有 agent 在「发现 > 多节点」面板走独立测量用例，
+  // 不会改变这里其他探测命令的执行来源。
   const activeNode = useMemo(
     () => probeNodes.find((n) => n.kind === "local") ?? probeNodes[0],
     [probeNodes],
@@ -251,7 +255,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                 const pending = n.kind !== "local"
                 return (
                   <SelectItem key={n.id} value={n.id} disabled={pending}>
-                    {n.label}
+                    {getProbeNodeDisplayLabel(n, t)}
                     {pending ? (
                       <span className="text-muted-foreground ml-1 text-[10px] font-bold tracking-wider uppercase">
                         {t("networkProbe.badge.planning")}
@@ -262,6 +266,17 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
               })}
             </SelectContent>
           </Select>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 shrink-0"
+            disabled={!c.defaults || defaultsBusy}
+            onClick={() => setDefaultsOpen(true)}
+          >
+            <SlidersHorizontal aria-hidden="true" />
+            {t("networkProbe.defaults.manage")}
+          </Button>
           <Button
             type="button"
             variant="outline"
@@ -343,6 +358,16 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     hostsSuspiciousCount={hostsSuspicious}
                     onRefresh={c.refreshOverview}
                     onOpenSettings={c.openSystemNetworkSettings}
+                    openingSettings={c.loadingSystemSettings}
+                    healthLoading={c.loadingHealth}
+                    healthResult={c.healthResult}
+                    healthStreamingItems={c.healthStreamingItems}
+                    healthCanCancel={Boolean(activeSessionIdByKind.health)}
+                    onRunHealthScan={c.runHealthScan}
+                    onCancelHealthScan={() => c.cancelScan("health")}
+                    onGoTree={() => c.selectL2("tree")}
+                    onGoOpinion={() => c.selectL2("opinion")}
+                    onGoOffline={() => c.selectL2("offline")}
                   />
                 ) : null}
 
@@ -367,7 +392,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     canCancel={Boolean(activeSessionIdByKind.sites) && c.loadingSites}
                     result={c.sitesResult}
                     streaming={c.sitesStreaming}
-                    sparklines={c.siteSparklineById}
+                    sparklines={c.siteSparklineByTarget}
                     packIds={sitePackIds}
                     toolEnabled={c.toolEnabled.sitesProbe}
                     toolStatus={c.toolStatus.sitesProbe}
@@ -479,6 +504,8 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     onRenewDhcp={c.renewDhcp}
                     onResetNetworkStack={c.resetNetworkStack}
                     onOpenSettings={c.openSystemNetworkSettings}
+                    openingSettings={c.loadingSystemSettings}
+                    servicesStatus={c.networkServicesLoadStatus}
                   />
                 ) : null}
 
@@ -486,9 +513,11 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                   <ReportPanel
                     health={c.healthResult}
                     history={c.reportHistory}
+                    historyEnabled={c.reportHistoryEnabled}
                     commandLog={c.commandLog}
                     onClearLog={c.clearCommandLog}
                     onClearHistory={c.clearReportHistory}
+                    onSetHistoryEnabled={c.setReportHistoryEnabled}
                     onGoTree={() => c.selectL2("tree")}
                   />
                 ) : null}
@@ -581,9 +610,13 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     canCancel={c.loadingPorts && Boolean(activeSessionIdByKind.ports)}
                     result={c.portScanResult}
                     streaming={c.portScanStreaming}
+                    fingerprintResult={c.portFingerprintResult}
+                    fingerprintAvailable={c.toolEnabled.fingerprint}
+                    nmapStatus={c.capabilities?.externalTools?.nmap}
                     toolEnabled={c.toolEnabled.portScan}
                     toolStatus={c.toolStatus.portScan}
                     onRun={c.runPortScan}
+                    onFingerprint={c.runPortFingerprint}
                     onCancel={() => c.cancelScan("ports")}
                   />
                 ) : null}
@@ -644,6 +677,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     onRun={c.discoverLan}
                     onCancel={() => c.cancelScan("lan")}
                     onOpenSettings={c.openSystemNetworkSettings}
+                    openingSettings={c.loadingSystemSettings}
                   />
                 ) : null}
 
@@ -681,14 +715,23 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                   <MultiNodePanel
                     loading={c.loadingMultiNode}
                     loadingNodes={c.loadingNodes}
-                    result={c.multiNodeDnsResult}
+                    nodesStatus={c.probeNodesLoadStatus}
+                    agentMutation={c.agentMutation}
+                    result={c.globalpingResult}
+                    agentMeasurementResults={c.agentMeasurementResults}
+                    agentMeasurementLoadingById={c.agentMeasurementLoadingById}
                     nodes={c.probeNodes}
-                    toolEnabled={c.toolEnabled.multiNode}
-                    toolStatus={c.toolStatus.multiNode}
-                    onCompare={c.compareDnsMulti}
+                    toolEnabled={c.toolEnabled.globalping}
+                    toolStatus={c.toolStatus.globalping}
+                    onRunMeasurement={c.runGlobalpingMeasurement}
+                    onGetTokenStatus={c.getGlobalpingTokenStatus}
+                    onSaveToken={c.saveGlobalpingToken}
+                    onClearToken={c.clearGlobalpingToken}
                     onRefreshNodes={c.refreshProbeNodes}
                     onAddAgent={c.addAgent}
+                    onSetAgentToken={c.setAgentToken}
                     onRemoveAgent={c.removeAgent}
+                    onRunAgentMeasurement={c.runAgentMeasurement}
                   />
                 ) : null}
 
@@ -753,6 +796,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
           open={packsOpen}
           packs={c.capabilityPacks}
           busy={packsBusy}
+          progress={c.packProgress}
           progressText={c.packProgressText}
           focusPackId={focusPackId}
           onOpenChange={setPacksOpen}
@@ -768,6 +812,28 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
           onUninstall={(packId) => {
             setPacksBusy(true)
             void c.uninstallCapabilityPack(packId).finally(() => setPacksBusy(false))
+          }}
+        />
+        <DiscoveryDefaultsDialog
+          open={defaultsOpen}
+          busy={defaultsBusy}
+          defaults={c.defaults}
+          onOpenChange={setDefaultsOpen}
+          onSave={async (stunServers, ntpServers) => {
+            setDefaultsBusy(true)
+            try {
+              return await c.saveDiscoveryDefaults(stunServers, ntpServers)
+            } finally {
+              setDefaultsBusy(false)
+            }
+          }}
+          onReset={async () => {
+            setDefaultsBusy(true)
+            try {
+              return await c.resetDiscoveryDefaults()
+            } finally {
+              setDefaultsBusy(false)
+            }
           }}
         />
       </div>

@@ -72,10 +72,10 @@ macOS 注意：
 
 ### 3.2 局域网服务（mDNS / SSDP）
 
-| 协议          | macOS 路径                                                                            | 产出                                                    |
-| ------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| mDNS / DNS-SD | Bonjour：`dns_sd` API 或成熟 crate（如 `mdns-sd`）浏览 `_services._dns-sd._udp.local` | 服务名、类型、端口、TXT                                 |
-| SSDP / UPnP   | UDP 1900 M-SEARCH；解析 `LOCATION` 后 HTTP GET device desc（限长）                    | 设备类型、友微名、控制 URL（只展示，不调用危险 action） |
+| 协议          | macOS 路径                                                                                    | 产出                                                           |
+| ------------- | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| mDNS / DNS-SD | `mdns-sd` 浏览 `_services._dns-sd._udp.local` 并查询发现的本地 TCP/UDP 服务类型               | 服务名与类型；当前实现不展示 TXT                               |
+| SSDP / UPnP   | `ssdp-client` 发送 UDP 1900 M-SEARCH；只解析响应中的 `LOCATION` 主机/端口供展示，不请求该 URL | 服务类型、SERVER 与 LOCATION；不读取设备描述或调用 UPnP action |
 
 护栏：
 
@@ -83,26 +83,29 @@ macOS 注意：
 - 浏览器式超时；同一 UUID 去重。
 - 结果虚拟化（设备可能很多）。
 
-### 3.3 NAT 类型（STUN）
+### 3.3 NAT 映射对比（STUN）
 
-| 项     | 约定                                                                                              |
-| ------ | ------------------------------------------------------------------------------------------------- |
-| 协议   | STUN Binding（RFC 8489）；多服务器对照                                                            |
-| 分类   | 至少：Open / Full Cone / Restricted / Port-Restricted / Symmetric / UDP Blocked（映射到产品文案） |
-| 实现   | 轻量 STUN client（评估 `hightower-stun` 或自研最小 Binding）；**不必**引入完整 ICE/TURN 栈        |
-| 服务器 | 可配列表（Google STUN 等公共源）；失败转移；遵守配额                                              |
+| 项     | 约定                                                                                                                         |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| 协议   | STUN Binding（RFC 8489）；多服务器对照                                                                                       |
+| 输出   | `mapping-consistent` / `mapping-varies` / `mapping-insufficient` / `blocked-or-timeout`；只描述映射观测，不推断完整 NAT 类型 |
+| 实现   | `stun-proto` RFC 5389/8489 codec 与事务状态；一个 socket/源端口按序查询，连接 UDP peer 并核对随机 transaction ID             |
+| 服务器 | Google / Cloudflare 公共源；失败转移；遵守配额                                                                               |
 
-与「公网出口」区别：出口要的是 **IP/ASN**；NAT 要的是 **映射行为**。可共用一次 Binding 的 XOR-MAPPED-ADDRESS 作出口候选，但 UI 分面板。
+仅发送 Binding 请求无法得出 Open、Full Cone、Restricted、Port-Restricted 等完整 NAT 分类；服务器负载均衡也可能造成映射差异。界面将其描述为映射对比，避免把可能性说成确定 NAT 类型。若未来需要行为分类，须接入明确支持 RFC 5780 的 STUN 服务并单独验证。
+
+与「公网出口」区别：出口要的是 **IP/ASN**；NAT 探测展示映射地址观测。两者职责不同；映射地址可作为出口候选，但不得由 Binding 结果推断完整 NAT 行为。
 
 ### 3.4 NTP 时间
 
-| 项       | 约定                                                                            |
-| -------- | ------------------------------------------------------------------------------- |
-| 查询     | 标准 NTP（UDP 123）或 SNTP；多源中位数                                          |
-| 输出     | offset_ms、rtt、stratum、是否超出阈值（如 >500ms warn，>2s high）               |
-| 系统对照 | 可读系统时钟；**不**在本模块强制改系统时间（改时间属系统设置/需提权，避免越权） |
+| 项       | 约定                                                                                 |
+| -------- | ------------------------------------------------------------------------------------ |
+| 查询     | `rsntp` 异步 SNTP 客户端（RFC 5905）；多源并行查询                                   |
+| 校验     | 已连接 UDP peer；检查 NTP 版本、模式、leap、stratum、originate/transmit timestamp    |
+| 输出     | offset 中位数、RTT 中位数、stratum、成功源数/配置源数、阈值（>500ms warn，>2s high） |
+| 系统对照 | 可读系统时钟；**不**在本模块强制改系统时间（改时间属系统设置/需提权，避免越权）      |
 
-macOS `sntp` / `ntpq` 可作调试对照，产品路径优先纯 Rust，避免解析本地化输出。
+macOS `sntp` / `ntpq` 可作调试对照，产品路径使用纯 Rust 客户端，避免解析本地化输出。
 
 ### 3.5 多节点对比（Post-MVP-C）
 
@@ -122,36 +125,39 @@ type ProbeNode = {
 
 #### Globalping（`remote-proxy`）
 
-| 项   | 约定                                                      |
-| ---- | --------------------------------------------------------- |
-| 传输 | HTTPS REST；Rust `reqwest` 创建 measurement + 轮询 status |
-| 能力 | ping / traceroute / dns / mtr / http（**无带宽**）        |
-| 配额 | 匿名额度用尽 → 提示配置 token；错误映射 `AppError`        |
-| ToS  | 遵守官方限额；前端展示剩余额度（若 API 提供）             |
+| 项   | 约定                                                                                                                                                                                              |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 传输 | 官方 HTTPS REST API；复用项目已有 `reqwest` 客户端，不额外引入 Globalping CLI/SDK                                                                                                                 |
+| 能力 | DNS / ping / HTTP 已实现；traceroute / MTR 仍未接入；不提供带宽测速                                                                                                                               |
+| 配额 | 匿名调用可用；可选 Bearer token 存系统钥匙串；429 显示官方 rate limit headers                                                                                                                     |
+| 轮询 | `inProgressUpdates=true`；读取间隔至少 500ms，支持 ETag；最多等待 50 秒并保留部分结果；后端将真实进行中结果通过 `network-probe:globalping-progress` 仅发送给发起调用的窗口，最终 IPC 结果收敛状态 |
+| 护栏 | 每次最多 3 个白名单区域、每区 1 个探点；HTTP 使用 HEAD；API client 不跟随跨源重定向                                                                                                               |
+| 隐私 | token 按 Tauri app identifier 隔离；不返回给 renderer、不写命令日志；HTTP 查询串不记日志                                                                                                          |
+| ToS  | 遵守官方限额；429 根据官方 `X-RateLimit-*` / `X-Credits-Remaining` 信息提示恢复路径                                                                                                               |
+
+DNS 使用 A 查询并并列显示本机解析；ping 固定 3 个包；HTTP 输入必须是无凭据的 HTTP(S) URL，路径与查询按请求发送；查询串参与对比目标匹配，但结果标签和命令日志会省略查询串，HTTP 供应商错误详情不展示。Globalping 区域列表中的 `reachable` 表示适配器已配置，不代表实时探点在线，实际状态以测量结果为准。
+
+token 可通过 `network_probe_manage_globalping_token` 查询配置状态、保存或移除；服务名包含 Tauri app identifier，QA bundle 与正式版不共享钥匙串条目。保存操作只回传是否已配置，不把秘密返回前端。
 
 #### 自有 agent（`remote-agent`）
 
-见 design §4.4 摘要落地：
+桌面端实现 HTTPS 客户端，不包含 agent 服务端。协议使用 `bench-probe-agent.v1`：`GET /v1/health` 校验兼容性；`POST /v1/measurements` 执行 `dns`、`ping`、`http` 三种固定操作。客户端关闭重定向、限制响应体，并用 HMAC-SHA256 签署 method、path、agent ID、秒级 timestamp、UUID nonce 和原始 body 的 SHA-256。共享 token 按 app identifier 与 agent ID 写入系统钥匙串，不返回前端或写入命令日志。WSS 暂不支持。
 
-| 项   | 约定                                                      |
-| ---- | --------------------------------------------------------- |
-| 传输 | HTTPS 或 WSS；禁止明文                                    |
-| 鉴权 | 每 agent token 或 mTLS；HMAC(timestamp+body)              |
-| 方法 | 白名单 tool id；**拒绝任意 shell**                        |
-| 限速 | 每 token QPS/并发；超限 → 429 语义                        |
-| SSRF | agent 拒绝被指使打云元数据/未声明目标                     |
-| 发现 | **手动**添加 endpoint；不做局域网自动扩散（防变僵尸网络） |
-| 密钥 | Keychain / 系统安全存储；不进前端持久化明文               |
+服务端必须校验 HMAC、timestamp 时效与 nonce 重放，按 token 限制 QPS / 并发并以 `429` + 可选秒数 `Retry-After` 返回限流状态；必须在 DNS 解析后检查全部地址以防 DNS rebinding，并拒绝回环、云元数据、link-local 和未授权私网目标。成功响应须含与 DNS、ping 或 HTTP 类型匹配的测量证据，空结果不能报告成功。客户端拒绝字面 localhost、link-local / 云元数据目标，前端与后端共同限制最多同时运行 3 个 agent 测量、最多登记 10 个 agent。未接入兼容服务端前，协议只有客户端测试，不视为端到端完成。
+
+结果以 `nodeId` 隔离，HTTP URL 查询串不进入结果展示或日志。对比时查询串参与 URL 身份匹配，但目标标签只显示 origin 与 path；HTTP 原始供应商错误详情不展示。仅手动添加 endpoint，不做局域网自动扩散；agent 不得开放通用代理或任意 shell。
+
+已评估 [Prometheus Blackbox Exporter](https://github.com/prometheus/blackbox_exporter)：它是成熟的 HTTPS / Basic Auth 服务，可探测 DNS、ICMP 与 HTTP；但 DNS 查询名固定在 server module 配置中，`/probe` 返回 Prometheus 指标且只报告答案记录数，不能直接支持 Bench 任意域名输入与 DNS 答案列表。因此当前没有把它误当作兼容 agent；后续若采用它，需要明确限定 DNS 能力或设计经过安全审查的适配层。
 
 #### 对比视图
 
 ```text
-同一 (tool, target) → store.byNode[nodeId] = Result
-UI：表格列 = 节点；行 = 指标（RTT、DNS 答案、hop 差异）
-例：本机 DNS 正常、探点 A 污染 → 结论导向「链路/污染在途中」
+Globalping 多探点结果 + agentMeasurementResults[nodeId]
+→ 按同一测量类型与规范化 target 对齐（HTTP 查询串参与匹配但不显示）
+→ 切换目标或类型后隐藏过期结果，不将其混入当前对比
 ```
 
-MVP：`listProbeNodes()` 至少返回 `local`；远程 kind 在类型中预留，UI 选中时提示「后续版本」。
+Globalping 多探点与各自建 agent 结果在同一对比区按来源分组展示；DNS 响应、RTT/丢包和 HTTP 状态/耗时保留各来源语义。不复制一份持久化 `byNode` 状态，避免结果与来源 store 分叉。HTTP query 只发往测量服务，不显示在对比标题或命令日志中。
 
 ---
 
@@ -188,8 +194,10 @@ listProbeNodes(): ProbeNode[]
 ## 5. UX
 
 - ARP/服务扫描：进度条 + 已发现计数；空态文案区分权限/隔离/真静网。
-- 多节点：先选 tool + target，再勾选节点并跑；部分节点失败不阻断整表。
-- 命令透明：remote 路径标注 `via globalping|agent`。
+- 多节点：选择 DNS / ping / HTTP、目标与 1–3 个 Globalping 区域后运行；DNS 并列本机结果，ping/HTTP 显示远端结果。
+- 用户可选配置 token；保存状态、重试、删除确认均有反馈，token 输入不会进入持久化前端状态或命令日志。
+- 显示完成、部分结果、失败、超时、额度限制；单探点失败不抹掉其他结果；ping 显示 RTT/丢包，HTTP 默认发 HEAD 并显示状态码/总耗时。
+- 命令透明：命令记录只显示 `globalping <type> <host> locations=...`，不记录 HTTP 查询串。
 - Post / C badge 与 roadmap 档位一致。
 
 ---
@@ -209,22 +217,23 @@ listProbeNodes(): ProbeNode[]
 
 - [ ] ARP 有特权路径 + ping 降级；CIDR 硬顶
 - [ ] 需要 pack 时正确返回 `missing_pack` 并完成安装校验流（D-017）
-- [ ] mDNS/SSDP 只读浏览；无 UPnP 写操作
-- [ ] STUN NAT 分类 + 多源故障转移
-- [ ] NTP offset 阈值；不擅自改系统钟
+- [x] mDNS/SSDP 只读浏览；SSDP `LOCATION` 仅从响应中解析并展示，不发起 HTTP 请求；无 UPnP 写操作
+- [x] STUN 映射对比 + 多源故障转移（样本不足时不判一致；不推断完整 NAT 类型；需要 RFC 5780 服务才能增强分类）
+- [x] NTP offset 阈值、RTT、stratum 与成功源计数；不擅自改系统钟
 
 **C**
 
-- [ ] `listProbeNodes` + Globalping 至少一种测量端到端
-- [ ] agent 鉴权/限速/拒绝 shell 有测试
-- [ ] `store.byNode` 对比视图；单节点失败可诊断
-- [ ] 远程能力不要求本机 Adv pack（本机零重库）
+- [x] `listProbeNodes` + Globalping DNS/ping/HTTP 测量、token、超时/限速/部分结果与真机验证（C2-2）
+- [x] 桌面端 agent 鉴权、限速响应映射、固定工具白名单、目标安全校验、`nodeId` 结果隔离与密钥存储
+- [ ] 接入兼容 agent 服务端，验证 HMAC 过期 / nonce 重放拒绝、并发与 QPS 限制、429 恢复时间、DNS rebinding / 元数据防护和三种测量的真结果
+- [x] Globalping + agent 统一结果对比区；当前分别保存 Globalping 与 `nodeId` agent 结果，视图按测量类型和规范化目标对齐，不重复持久化对比数据；切换目标或类型时隐藏旧结果
+- [x] Globalping 与自建 agent 测量不要求本机 Adv pack；Globalping 使用 HTTPS API，自建 agent 使用 HTTPS 客户端，能力包状态不参与远程测量准入
 
 ---
 
 ## 8. 参考
 
 - [design.md](./design.md) §4 多节点 · §5.2 ARP · §11 Globalping
-- Globalping API · librespeed（测速在测试 Tab，不在此重复）
+- [Globalping official OpenAPI specification](https://github.com/jsdelivr/globalping/blob/master/public/v1/spec.yaml) · librespeed（测速在测试 Tab，不在此重复）
 - RFC 8489 STUN · Bonjour / DNS-SD · UPnP 设备发现（只读）
 - NETworkManager IP Scanner / LLDP·CDP：发现与远程工具分栏——本 L1 对齐「周围有什么」

@@ -83,22 +83,22 @@
 
 > 选型原则：**能用成熟库就绝不自研**。traceroute/MTR 复用 `trippy-core`。
 
-| crate                                         | 用途                        | 特权                         | 交付档           | 验证状态                                  |
-| --------------------------------------------- | --------------------------- | ---------------------------- | ---------------- | ----------------------------------------- |
-| `trippy-core`                                 | traceroute + MTR            | 需特权（`trippy-privilege`） | MVP-B            | ✅ 0.13.0，MSRV 1.78，spike 通过          |
-| `surge-ping`                                  | 轻量 ICMP ping              | 平台相关；不足则 HTTP 兜底   | MVP-A            | ✅ 活跃；macOS/Windows 需真机验 ICMP 权限 |
-| `hickory-resolver`                            | DNS 查询 / 多 resolver      | 免特权                       | MVP-A / Adv      | ✅ 正确 crate 名（非笼统 hickory-dns）    |
-| `netdev` + `if-addrs`                         | 接口/网关/MAC + 变更通知    | 免特权                       | MVP-A            | ✅                                        |
-| `system-configuration`(mac) / `ipconfig`(win) | 系统 DNS / 代理             | 免特权                       | MVP-A/B          | 平台分支                                  |
-| `reqwest` + `rustls`                          | HTTP / SSL / Captive / 测速 | 免特权                       | MVP + Post-MVP-C | 既有栈                                    |
-| `pnet` + `socket2` + `etherparse` + `pcap`    | SYN / ARP / 抓包            | 需特权                       | Post-MVP-Adv     | 标准底层                                  |
-| `ipnetwork` 等                                | 网段 / 辅助                 | 免特权                       | 按需             | —                                         |
+| crate                                         | 用途                        | 特权                            | 交付档           | 验证状态                                  |
+| --------------------------------------------- | --------------------------- | ------------------------------- | ---------------- | ----------------------------------------- |
+| `trippy-core`                                 | traceroute + MTR            | 特权 ICMP；macOS 支持无特权 UDP | MVP-B            | ✅ 0.13.0，MSRV 1.78；复用成熟路径引擎    |
+| `surge-ping`                                  | 轻量 ICMP ping              | 平台相关；不足则 HTTP 兜底      | MVP-A            | ✅ 活跃；macOS/Windows 需真机验 ICMP 权限 |
+| `hickory-resolver`                            | DNS 查询 / 多 resolver      | 免特权                          | MVP-A / Adv      | ✅ 正确 crate 名（非笼统 hickory-dns）    |
+| `netdev` + `if-addrs`                         | 接口/网关/MAC + 变更通知    | 免特权                          | MVP-A            | ✅                                        |
+| `system-configuration`(mac) / `ipconfig`(win) | 系统 DNS / 代理             | 免特权                          | MVP-A/B          | 平台分支                                  |
+| `reqwest` + `rustls`                          | HTTP / SSL / Captive / 测速 | 免特权                          | MVP + Post-MVP-C | 既有栈                                    |
+| `pnet` + `socket2` + `etherparse` + `pcap`    | SYN / ARP / 抓包            | 需特权                          | Post-MVP-Adv     | 标准底层                                  |
+| `ipnetwork` 等                                | 网段 / 辅助                 | 免特权                          | 按需             | —                                         |
 
 **特权与降级（摘要，细节 §11.4）**
 
 - 免特权：DNS、HTTP、接口枚举、站点 HTTP、Captive、公网 IP、多数 L0–L3 体检。
-- 需特权：`trippy-core` traceroute/MTR、SYN、ARP、pcap。
-- 降级：SYN→TCP connect；ARP→ICMP/ping 扫；traceroute 无特权→UI「需授权」且不伪装成功；抓包→禁用。
+- 需特权：特权 ICMP traceroute/MTR、SYN、ARP、pcap。
+- 降级：SYN→TCP connect；ARP→ICMP/ping 扫；macOS traceroute 优先特权 ICMP、失败后用无特权 UDP；其他平台仅尝试特权 ICMP，均失败时显示本地化不可用状态；抓包→禁用。
 
 ### 2.1 可行性验证结论
 
@@ -106,7 +106,7 @@
 2. DNS crate = **`hickory-resolver`**。
 3. L0/L1 用 `netdev` + `if-addrs`。
 4. SYN/ARP 无 turnkey Rust 库 → Post-MVP 自研或 `nmap` fallback。
-5. `trippy-core` 0.13.0 与当前 rustc 兼容；运行时仍依赖特权层。
+5. `trippy-core` 0.13.0 与当前 rustc 兼容；UDP 必须显式配置端口方向；无特权 UDP fallback 仅用于 macOS。
 
 ---
 
@@ -190,8 +190,8 @@
 
 ### 3.3 Advisor
 
-- `network-probe.advisor.ts`：纯函数 `advise(item): Suggestion[]`，规则表驱动。
-- 后端 `advisor_rules.rs` 供报告导出复用同一语义（避免双源漂移：规则 ID 共享）。
+- 当前由后端 `net_probe::advisor::build_opinions(items)` 作为纯函数生成意见，健康扫描与报告共用同一结果；前端只按稳定 i18n key 渲染，不再维护第二份规则表。
+- 诊断分类只依据稳定检查 key/status，不解析 `detail` 等面向用户的文本，避免翻译或文案改动造成建议丢失。
 - 基础视角只展示精简可操作建议；判定依据在展开详情或「安全 / 发现」中呈现〔决策7〕。
 
 ### 3.4 三次确认 UX（决策4 · 规格）
@@ -263,19 +263,34 @@ MVP：`listProbeNodes` 至少返回 `local`；选中非 local 时 UI 提示「�
 
 ### 4.3 多节点对比（Post-MVP-C）
 
-同一 `(target, tool)` 结果入 `store.byNode`；并排展示（例：本机 DNS 正常、探点 A 污染）。
+Globalping 多探点结果与自建 agent 的 `nodeId` 结果在统一对比区并排展示。界面只对齐相同测量类型与规范化目标；HTTP 查询串参与目标匹配，但会从所有结果标签中省略，避免误把不同查询请求合并且不泄露参数；切换目标或类型后隐藏不匹配的旧结果。HTTP 供应商错误详情不展示，以免原始错误回显查询参数。当前不再复制一份持久化 `store.byNode`，对比数据仍分别归属 Globalping 与 agent 结果字段，避免两个可变状态副本分叉。HTTP URL 查询串仅发送给测量服务，不写入命令日志。
 
 ### 4.4 自有 agent 协议草图（Post-MVP-C）
 
-| 项       | 约定                                                                                           |
-| -------- | ---------------------------------------------------------------------------------------------- |
-| 传输     | HTTPS 或 WSS；禁止明文                                                                         |
-| 鉴权     | 每 agent 预共享 token 或 mTLS；请求带 HMAC(timestamp+body)                                     |
-| 允许方法 | 白名单 tool id（与本地 command 同名语义）；拒绝任意 shell                                      |
-| 限速     | 每 token QPS / 并发上限；超限 `429` 语义映射为 `AppError`                                      |
-| SSRF     | agent **不得**被指使访问 link-local / 元数据地址（云）以外的用户未声明目标时仍要校验目标字面量 |
-| 放大     | agent 不开放未鉴权 UDP 反射；只回传测量结果 JSON                                               |
-| 发现     | 用户手动添加 endpoint；不做局域网自动扩散                                                      |
+| 项       | 约定                                                                                                                                        |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| 传输     | HTTPS REST；客户端不跟随重定向，响应体受限；WSS 未实现                                                                                      |
+| 健康检查 | `GET <endpoint>/v1/health`，返回 `protocol=bench-probe-agent.v1` 与 `status=ok`                                                             |
+| 鉴权     | 每 agent 共享 token；HMAC-SHA256 对 canonical method/path/timestamp/nonce/body hash 签名；TLS 校验证书                                      |
+| 防重放   | 服务端必须拒绝超出时钟窗口的 timestamp，并对 agent + nonce 去重；建议窗口 5 分钟、nonce 保留至少窗口长度                                    |
+| 允许方法 | `dns`、`ping`、`http`；`POST <endpoint>/v1/measurements`，拒绝任意 shell                                                                    |
+| 限速     | 服务端按 token 限制 QPS / 并发；超限返回 `429` 与可选秒数 `Retry-After`。桌面端前端与后端共同限制最多并行 3 个任务；最多登记 10 个 agent    |
+| SSRF     | 客户端拒绝 localhost、云元数据与 link-local 字面目标；服务端 DNS 解析后仍须拦截回环、link-local、元数据及未授权私网目标，并防 DNS rebinding |
+| 放大     | agent 不开放未鉴权 UDP 反射；仅执行固定测量并回传受限 JSON，禁止把 agent 当任意 TCP/HTTP 代理                                               |
+| 发现     | 用户手动添加 endpoint；不做局域网自动扩散                                                                                                   |
+
+HMAC canonical string（UTF-8，LF 分隔；最后一项不额外加换行）：
+
+```text
+UPPERCASE_METHOD
+URL_PATH
+AGENT_ID
+UNIX_TIMESTAMP_SECONDS
+UUID_NONCE
+BASE64URL_NO_PAD(SHA256(raw_request_body))
+```
+
+请求头为 `x-bench-agent-id`、`x-bench-timestamp`、`x-bench-nonce`、`x-bench-signature`。测量请求体包含 `protocol`、`requestId`、`measurementType`、`target`、`timeoutMs`；响应必须回显 `protocol` 与 `requestId`，并返回 `status=complete` 和有界 `result`。结果必须包含对应测量证据：DNS 至少有答案或 RCODE，ping 必须回报实际发送与接收包数（最多 3 个），HTTP 至少返回状态码或有效总耗时；不能以空对象表示成功。桌面端将 HTTP 查询串从显示和日志中移除，但按用户输入发送。服务端实现和兼容 agent 尚未随 Bench 提供，只有接入真实 endpoint 后才算完成端到端验收。
 
 ---
 
@@ -380,7 +395,7 @@ L0→L3 编排，部分并行；`healthEvent` 流式；`CancellationToken`；结
 ## 6. IPC 契约（须同步 `contracts.ts` / `commands.rs` / events）
 
 > 下列为设计契约草图。实现时字段以 Rust `types.rs` + TS DTO 为准，本文不复制完整 struct。
-> 所有长任务：`start*` → `ScanSessionId`；事件携带 `sessionId`；`cancelScan(sessionId)` **幂等**。
+> 所有长任务：`start*` → `ScanSessionId`；事件携带 `sessionId`；`cancelScan(sessionId)` **幂等**。后端只为本进程已登记的活动会话记录取消状态；未知或已结束的 ID 是 no-op，不得因取消请求而留在状态表中。
 
 ### 6.1 MVP（A+B）必须实现
 
@@ -527,13 +542,14 @@ src/features/network-probe/
 
 ### 9.5 隐私与落盘
 
-| 数据              | 策略                                                           |
-| ----------------- | -------------------------------------------------------------- |
-| 体检/站点采样历史 | 本地可关；默认保留条数上限；不含 Cookie/密码                   |
-| 抓包              | 默认只统计计数器；原始 pcap 落盘需显式开启且本地路径可选       |
-| hosts / 公网 IP   | 可进报告；导出前提示敏感                                       |
-| 日志              | 脱敏；禁止把完整包 payload 打进 info 日志                      |
-| agent token       | 只存系统安全存储或用户配置加密通道（实现期对齐 Keychain 惯例） |
+| 数据            | 策略                                                                               |
+| --------------- | ---------------------------------------------------------------------------------- |
+| 体检报告历史    | 本机可关；默认最多保留 10 次；仅存检查状态/建议 ID，不存 detail、commandHint 或 IP |
+| 站点采样结果    | 仅保留在当前运行会话；不持久化、不含 Cookie/密码                                   |
+| 抓包            | 默认只统计计数器；原始 pcap 落盘需显式开启且本地路径可选                           |
+| hosts / 公网 IP | 可进报告；导出前提示敏感                                                           |
+| 日志            | 脱敏；禁止把完整包 payload 打进 info 日志                                          |
+| agent token     | 只存系统安全存储或用户配置加密通道（实现期对齐 Keychain 惯例）                     |
 
 ### 9.6 远程与放大
 
@@ -558,14 +574,15 @@ src/features/network-probe/
 3. 安装完成 ≠ 已提权：仍按 §11.4 走 helper / 触发式提权 / 降级；`unsupported`/`degraded` 不伪装成功。
 4. 与 D-010：ad-hoc 包必须提示 Gatekeeper 限制，不得宣称 sidecar/helper 已获系统信任。
 5. 可选包不得引入攻击能力（§12.3.2）；IPC 仍走统一契约与 `cancelScan` 幂等。
+6. 下载 URL 复用 Extension Market 的公网 HTTPS 校验和逐跳重定向策略；下载流上限 64 MiB、实际长度必须精确匹配 manifest，SHA-256 通过后才落盘。安装/卸载按 packId 用进程内互斥与 app-data 文件锁排他，覆盖共享 app-data 的 dev/prod 并发实例；卸载清理该 pack 的版本化缓存制品，后续操作回收超过 24 小时的崩溃残留临时文件。
 
 **建议 pack id（实现期可调，勿随意改已发布 id）**
 
-| pack id       | 覆盖能力（示例）                                | 档位         |
-| ------------- | ----------------------------------------------- | ------------ |
-| `adv-scanner` | SYN 扫描增强、ARP 发现增强、指纹                | Post-MVP-Adv |
-| `pcap-diag`   | 诊断级抓包统计 / 可选落盘                       | Post-MVP-Adv |
-| `priv-helper` | 正式 `SMAppService` helper（需签名/公证后主推） | Post-MVP-Adv |
+| pack id       | 覆盖能力（示例）                                                 | 档位         |
+| ------------- | ---------------------------------------------------------------- | ------------ |
+| `adv-scanner` | 预留 SYN / ARP 扫描增强；发布真实 sidecar 并接入执行路径后才解锁 | Post-MVP-Adv |
+| `pcap-diag`   | 诊断级抓包统计 / 可选落盘                                        | Post-MVP-Adv |
+| `priv-helper` | 正式 `SMAppService` helper（需签名/公证后主推）                  | Post-MVP-Adv |
 
 本机 `nmap` 不算 pack id，属 `external_tool` 探测项，在 capabilities 中单独标注。
 
@@ -587,14 +604,14 @@ src/features/network-probe/
 
 ### 10.1 开放项（实现前可再细化，不阻塞设计评审）
 
-| #   | 项                                                   | 状态                                                                          |
-| --- | ---------------------------------------------------- | ----------------------------------------------------------------------------- |
-| 1   | 默认站点清单定稿（区域包）                           | **草案已收至 [defaults.md §6](./defaults.md)**；实现前可微调，id 稳定后勿乱改 |
-| 2   | agent 协议字段级 schema                              | 草图 §4.4，Post-MVP 再冻                                                      |
-| 3   | `TripleDestructiveConfirm` 视觉稿                    | 规格 §3.4 已定                                                                |
-| 4   | 公网 IP / Captive 检测 URL 最终供应商列表            | **草案已收至 [defaults.md §4–§5](./defaults.md)**；实现期按可用性微调         |
-| 5   | trippy 在目标 macOS 真机特权路径                     | spike 编译过；运行时待真机                                                    |
-| 6   | Defaults 用户覆盖 UI / `getNetworkProbeDefaults` IPC | 规格见 defaults §1.1 / §11；实现随 MVP                                        |
+| #   | 项                                                   | 状态                                                                                  |
+| --- | ---------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| 1   | 默认站点清单定稿（区域包）                           | **草案已收至 [defaults.md §6](./defaults.md)**；实现前可微调，id 稳定后勿乱改         |
+| 2   | agent 协议字段级 schema                              | 草图 §4.4，Post-MVP 再冻                                                              |
+| 3   | `TripleDestructiveConfirm` 视觉稿                    | 规格 §3.4 已定                                                                        |
+| 4   | 公网 IP / Captive 检测 URL 最终供应商列表            | **草案已收至 [defaults.md §4–§5](./defaults.md)**；实现期按可用性微调                 |
+| 5   | trippy 在目标 macOS 真机特权路径                     | spike 编译过；运行时待真机                                                            |
+| 6   | Defaults 用户覆盖 UI / `getNetworkProbeDefaults` IPC | STUN/NTP 编辑与分组恢复已实现；其他目录类别的编辑 UI 待做；契约见 defaults §1.1 / §11 |
 
 ---
 
@@ -629,7 +646,7 @@ src/features/network-probe/
 - **Windows**：Npcap / 能力矩阵降级；不承诺与 mac 对等 SYN/ARP。
 - **Linux**：**不支持、不实现、不进 CI**（D-014）。文档中出现的 Linux 能力描述仅作业界对照，**不是产品承诺**。
 
-MVP-B traceroute：主包内 `trippy-core`；有特权走完整路径；无特权明确 `degraded/unsupported`，禁止空跳点表假装成功。
+MVP-B traceroute：主包内复用成熟依赖 `trippy-core`；macOS 先走特权 ICMP，失败时降级到正确配置的无特权 UDP，并为并行会话分配不同的动态源端口；其他平台只走特权 ICMP。取消记录由作用域 guard 在所有退出路径清理，并跟随阻塞任务至线程结束。没有可用跳点时显示本地化不可用状态，不把空表伪装成成功；取消后不再显示空结果提示。
 
 ---
 
@@ -683,7 +700,7 @@ MVP-B traceroute：主包内 `trippy-core`；有特权走完整路径；无特�
 
 用户可增删改；存本地 JSON；首次注入默认包（跟随 UI 语言或设置区）。
 
-规格：ICMP+HTTP 双通道、火花线、阈值、nodeId 路由（MVP 仅 local）、零特权优先。
+规格：ICMP+HTTP 双通道、火花线、阈值、nodeId 路由（MVP 仅 local）、零特权优先。官方站点与选定站点包支持持续监测：立即执行首轮、每轮结束后等待 30/60/300 秒再串行执行；默认阈值 200ms（可调 1–10,000ms），HTTP TTFB 优先、缺失时回退 ICMP，达到阈值或探测不可达在当前面板告警。监测只在面板打开时运行，显式停止会取消当前会话，离开面板停止后续轮次；不请求系统通知权限、不后台常驻、不持久化样本，火花线只保留每目标最近 20 点且最多 100 个目标。
 
 其余内置资源（推荐 DNS、Captive、公网 IP API、reach 目标、MTU/STUN/NTP）统一见 [defaults.md](./defaults.md)。
 

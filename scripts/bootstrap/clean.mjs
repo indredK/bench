@@ -1,45 +1,58 @@
-import { rmSync, existsSync } from "node:fs"
+import { existsSync, lstatSync } from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+import trash from "trash"
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..")
 
 const targets = [
-  { path: "node_modules", label: "前端依赖 (node_modules)" },
-  // D-021: Rust 构建目录已外迁至仓库外的 ../tauri-app-target；
-  // 旧路径仅用于清理历史遗留产物。
-  { path: "../tauri-app-target", label: "后端构建产物 (tauri-app-target)" },
+  // D-021: Rust 构建目录位于仓库外，并由多个 worktree 共用；这里只处理旧位置残留。
   { path: "src-tauri/target", label: "后端构建产物旧目录 (src-tauri/target)" },
   { path: "dist", label: "前端构建产物 (dist)" },
 ]
 
-console.log("==============================")
-console.log("  清理项目依赖与构建产物")
-console.log("==============================\n")
+async function main() {
+  console.log("==============================")
+  console.log("  整理项目构建产物")
+  console.log("==============================\n")
 
-let cleaned = 0
-let skipped = 0
+  let trashed = 0
+  let skipped = 0
+  let failed = 0
 
-for (const target of targets) {
-  const fullPath = path.join(rootDir, target.path)
-  process.stdout.write(`  ${target.label}... `)
-  if (!existsSync(fullPath)) {
-    console.log("跳过 (不存在)")
-    skipped++
-    continue
+  for (const target of targets) {
+    const fullPath = path.join(rootDir, target.path)
+    process.stdout.write(`  ${target.label}... `)
+    if (!existsSync(fullPath)) {
+      console.log("跳过 (不存在)")
+      skipped++
+      continue
+    }
+    const metadata = lstatSync(fullPath)
+    if (metadata.isSymbolicLink() || !metadata.isDirectory()) {
+      console.log("跳过 (目标不是普通目录，源路径保留)")
+      skipped++
+      continue
+    }
+    try {
+      await trash(fullPath, { glob: false })
+      console.log("已移入系统废纸篓/回收站")
+      trashed++
+    } catch (err) {
+      console.log(`失败，源文件保留: ${err.message}`)
+      failed++
+    }
   }
-  try {
-    rmSync(fullPath, { recursive: true, force: true })
-    console.log("已删除")
-    cleaned++
-  } catch (err) {
-    console.log(`失败: ${err.message}`)
-    process.exit(1)
-  }
+
+  console.log(`\n==============================`)
+  console.log(`  整理完成: 移入废纸篓 ${trashed} 项, 跳过 ${skipped} 项, 失败 ${failed} 项`)
+  console.log(`==============================`)
+  if (trashed) console.log("  移入废纸篓/回收站不会立即释放磁盘空间；清空后才会释放。")
+  console.log("  共享 target 请使用 pnpm run clean:rust-cache --sweep 做细粒度整理。")
+  if (failed) process.exitCode = 1
 }
 
-console.log(`\n==============================`)
-console.log(`  清理完成: 删除 ${cleaned} 项, 跳过 ${skipped} 项`)
-console.log(`==============================`)
-console.log(`  重新安装: pnpm run setup`)
-console.log(`==============================`)
+main().catch((err) => {
+  console.error(`[clean] 整理失败，未执行永久删除：${err.message}`)
+  process.exitCode = 1
+})

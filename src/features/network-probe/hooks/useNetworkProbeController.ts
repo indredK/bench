@@ -7,9 +7,12 @@ import {
   type NetworkProbeKind,
   type NetworkProbeL1,
   type NetworkProbeOfflineSub,
+  REPORT_HISTORY_ENABLED_KEY,
+  REPORT_HISTORY_KEY,
   useNetworkProbeStore,
 } from "@/features/network-probe/store"
 import { canUseTauriCommands } from "@/platform/capabilities"
+import type { GlobalpingMeasurementType, ProbeServer } from "@/lib/tauri/types/network-probe"
 
 function toolStatus(tools: Record<string, string> | undefined, key: string): string | undefined {
   return tools?.[key]
@@ -20,10 +23,13 @@ function toolEnabled(tools: Record<string, string> | undefined, key: string): bo
   return status === "supported" || status === "partial" || status === "degraded"
 }
 
+const REPORT_HISTORY_STORAGE_KEYS = new Set([REPORT_HISTORY_KEY, REPORT_HISTORY_ENABLED_KEY])
+
 export function useNetworkProbeController() {
   const nav = useNetworkProbeStore((s) => s.nav)
   const capabilities = useNetworkProbeStore((s) => s.capabilities)
   const capabilityPacks = useNetworkProbeStore((s) => s.capabilityPacks)
+  const packProgress = useNetworkProbeStore((s) => s.packProgress)
   const packProgressText = useNetworkProbeStore((s) => s.packProgressText)
   const defaults = useNetworkProbeStore((s) => s.defaults)
   const summary = useNetworkProbeStore((s) => s.summary)
@@ -35,10 +41,11 @@ export function useNetworkProbeController() {
   const probeResult = useNetworkProbeStore((s) => s.probeResult)
   const sitesResult = useNetworkProbeStore((s) => s.sitesResult)
   const sitesStreaming = useNetworkProbeStore((s) => s.sitesStreaming)
-  const siteSparklineById = useNetworkProbeStore((s) => s.siteSparklineById)
+  const siteSparklineByTarget = useNetworkProbeStore((s) => s.siteSparklineByTarget)
   const healthResult = useNetworkProbeStore((s) => s.healthResult)
   const healthStreamingItems = useNetworkProbeStore((s) => s.healthStreamingItems)
   const networkServices = useNetworkProbeStore((s) => s.networkServices)
+  const networkServicesLoadStatus = useNetworkProbeStore((s) => s.networkServicesLoadStatus)
   const fixResult = useNetworkProbeStore((s) => s.fixResult)
   const captiveResult = useNetworkProbeStore((s) => s.captiveResult)
   const publicIpInfo = useNetworkProbeStore((s) => s.publicIpInfo)
@@ -56,14 +63,19 @@ export function useNetworkProbeController() {
   const dnssecResult = useNetworkProbeStore((s) => s.dnssecResult)
   const portScanResult = useNetworkProbeStore((s) => s.portScanResult)
   const portScanStreaming = useNetworkProbeStore((s) => s.portScanStreaming)
+  const portFingerprintResult = useNetworkProbeStore((s) => s.portFingerprintResult)
   const natResult = useNetworkProbeStore((s) => s.natResult)
   const ntpResult = useNetworkProbeStore((s) => s.ntpResult)
   const lanResult = useNetworkProbeStore((s) => s.lanResult)
   const lanServicesResult = useNetworkProbeStore((s) => s.lanServicesResult)
   const pcapResult = useNetworkProbeStore((s) => s.pcapResult)
-  const multiNodeDnsResult = useNetworkProbeStore((s) => s.multiNodeDnsResult)
+  const globalpingResult = useNetworkProbeStore((s) => s.globalpingResult)
+  const agentMeasurementResults = useNetworkProbeStore((s) => s.agentMeasurementResults)
+  const agentMeasurementLoadingById = useNetworkProbeStore((s) => s.agentMeasurementLoadingById)
   const probeNodes = useNetworkProbeStore((s) => s.probeNodes)
+  const probeNodesLoadStatus = useNetworkProbeStore((s) => s.probeNodesLoadStatus)
   const reportHistory = useNetworkProbeStore((s) => s.reportHistory)
+  const reportHistoryEnabled = useNetworkProbeStore((s) => s.reportHistoryEnabled)
   const securityAuthorized = useNetworkProbeStore((s) => s.securityAuthorized)
   // 会话按探测种类分槽: 面板只读自己那一槽, 决定 Cancel 目标与按钮可见性。
   const activeSessionIdByKind = useNetworkProbeStore((s) => s.activeSessionIdByKind)
@@ -92,17 +104,32 @@ export function useNetworkProbeController() {
   const loadingPcap = useNetworkProbeStore((s) => s.loadingPcap)
   const loadingMultiNode = useNetworkProbeStore((s) => s.loadingMultiNode)
   const loadingNodes = useNetworkProbeStore((s) => s.loadingNodes)
+  const loadingSystemSettings = useNetworkProbeStore((s) => s.loadingSystemSettings)
+  const agentMutation = useNetworkProbeStore((s) => s.agentMutation)
   const error = useNetworkProbeStore((s) => s.error)
   const setL1 = useNetworkProbeStore((s) => s.setL1)
   const setL2 = useNetworkProbeStore((s) => s.setL2)
   const setOfflineSub = useNetworkProbeStore((s) => s.setOfflineSub)
   const setSecurityAuthorized = useNetworkProbeStore((s) => s.setSecurityAuthorized)
   const clearReportHistory = useNetworkProbeStore((s) => s.clearReportHistory)
+  const setReportHistoryEnabled = useNetworkProbeStore((s) => s.setReportHistoryEnabled)
+  const syncReportHistoryFromStorage = useNetworkProbeStore((s) => s.syncReportHistoryFromStorage)
 
   useEffect(() => {
     if (!canUseTauriCommands()) return
     void networkProbeUseCases.bootstrap()
   }, [])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const syncExternalReportHistory = (event: StorageEvent) => {
+      if (event.key === null || REPORT_HISTORY_STORAGE_KEYS.has(event.key)) {
+        syncReportHistoryFromStorage()
+      }
+    }
+    window.addEventListener("storage", syncExternalReportHistory)
+    return () => window.removeEventListener("storage", syncExternalReportHistory)
+  }, [syncReportHistoryFromStorage])
 
   const selectL1 = useCallback(
     (id: NetworkProbeL1) => {
@@ -213,6 +240,11 @@ export function useNetworkProbeController() {
     (target: string, ports: string) => networkProbeUseCases.runPortScan(target, ports),
     [],
   )
+  const runPortFingerprint = useCallback(
+    (target: string, ports: string, includeOs: boolean) =>
+      networkProbeUseCases.runPortFingerprint(target, ports, includeOs),
+    [],
+  )
   const probeNat = useCallback(() => networkProbeUseCases.probeNat(), [])
   const probeNtp = useCallback(() => networkProbeUseCases.probeNtp(), [])
   const discoverLan = useCallback(() => networkProbeUseCases.discoverLan(), [])
@@ -222,16 +254,36 @@ export function useNetworkProbeController() {
     [],
   )
   const refreshProbeNodes = useCallback(() => networkProbeUseCases.refreshProbeNodes(), [])
-  const compareDnsMulti = useCallback(
-    (domain: string) => networkProbeUseCases.compareDnsMulti(domain),
+  const runGlobalpingMeasurement = useCallback(
+    (measurementType: GlobalpingMeasurementType, target: string, locations: string[]) =>
+      networkProbeUseCases.runGlobalpingMeasurement(measurementType, target, locations),
     [],
   )
+  const getGlobalpingTokenStatus = useCallback(
+    () => networkProbeUseCases.getGlobalpingTokenStatus(),
+    [],
+  )
+  const saveGlobalpingToken = useCallback(
+    (token: string) => networkProbeUseCases.saveGlobalpingToken(token),
+    [],
+  )
+  const clearGlobalpingToken = useCallback(() => networkProbeUseCases.clearGlobalpingToken(), [])
   const addAgent = useCallback(
-    (label: string, endpoint: string) => networkProbeUseCases.addAgent(label, endpoint),
+    (label: string, endpoint: string, token: string) =>
+      networkProbeUseCases.addAgent(label, endpoint, token),
+    [],
+  )
+  const setAgentToken = useCallback(
+    (agentId: string, token: string) => networkProbeUseCases.setAgentToken(agentId, token),
     [],
   )
   const removeAgent = useCallback(
     (agentId: string) => networkProbeUseCases.removeAgent(agentId),
+    [],
+  )
+  const runAgentMeasurement = useCallback(
+    (agentId: string, measurementType: GlobalpingMeasurementType, target: string) =>
+      networkProbeUseCases.runAgentMeasurement(agentId, measurementType, target),
     [],
   )
   const installCapabilityPackVerifyFail = useCallback(
@@ -241,6 +293,15 @@ export function useNetworkProbeController() {
   const authorizeSecurity = useCallback(() => setSecurityAuthorized(true), [setSecurityAuthorized])
   const revokeSecurity = useCallback(() => setSecurityAuthorized(false), [setSecurityAuthorized])
   const resetDefaults = useCallback(() => networkProbeUseCases.resetDefaults(), [])
+  const saveDiscoveryDefaults = useCallback(
+    (stunServers: ProbeServer[], ntpServers: ProbeServer[]) =>
+      networkProbeUseCases.saveDiscoveryDefaults(stunServers, ntpServers),
+    [],
+  )
+  const resetDiscoveryDefaults = useCallback(
+    () => networkProbeUseCases.resetDiscoveryDefaults(),
+    [],
+  )
 
   const l2Id = nav.l2ByL1[nav.l1Id]
   const tools = capabilities?.tools
@@ -251,6 +312,7 @@ export function useNetworkProbeController() {
     offlineSub: nav.offlineSub,
     capabilities,
     capabilityPacks,
+    packProgress,
     packProgressText,
     toolEnabled: {
       ping: toolEnabled(tools, "ping"),
@@ -261,12 +323,14 @@ export function useNetworkProbeController() {
       whois: toolEnabled(tools, "whois"),
       dnssec: toolEnabled(tools, "dnssec"),
       portScan: toolEnabled(tools, "portScan"),
+      fingerprint: toolEnabled(tools, "fingerprint"),
       nat: toolEnabled(tools, "nat"),
       ntp: toolEnabled(tools, "ntp"),
       arp: toolEnabled(tools, "arp"),
       lanServices: toolEnabled(tools, "lanServices"),
       pcap: toolEnabled(tools, "pcap"),
       multiNode: toolEnabled(tools, "multiNode"),
+      globalping: toolEnabled(tools, "globalping"),
     },
     toolStatus: {
       ping: toolStatus(tools, "ping"),
@@ -277,12 +341,14 @@ export function useNetworkProbeController() {
       whois: toolStatus(tools, "whois"),
       dnssec: toolStatus(tools, "dnssec"),
       portScan: toolStatus(tools, "portScan"),
+      fingerprint: toolStatus(tools, "fingerprint"),
       nat: toolStatus(tools, "nat"),
       ntp: toolStatus(tools, "ntp"),
       arp: toolStatus(tools, "arp"),
       lanServices: toolStatus(tools, "lanServices"),
       pcap: toolStatus(tools, "pcap"),
       multiNode: toolStatus(tools, "multiNode"),
+      globalping: toolStatus(tools, "globalping"),
     },
     defaults,
     summary,
@@ -294,10 +360,11 @@ export function useNetworkProbeController() {
     probeResult,
     sitesResult,
     sitesStreaming,
-    siteSparklineById,
+    siteSparklineByTarget,
     healthResult,
     healthStreamingItems,
     networkServices,
+    networkServicesLoadStatus,
     fixResult,
     captiveResult,
     publicIpInfo,
@@ -315,14 +382,19 @@ export function useNetworkProbeController() {
     dnssecResult,
     portScanResult,
     portScanStreaming,
+    portFingerprintResult,
     natResult,
     ntpResult,
     lanResult,
     lanServicesResult,
     pcapResult,
-    multiNodeDnsResult,
+    globalpingResult,
+    agentMeasurementResults,
+    agentMeasurementLoadingById,
     probeNodes,
+    probeNodesLoadStatus,
     reportHistory,
+    reportHistoryEnabled,
     securityAuthorized,
     activeSessionIdByKind,
     commandLog,
@@ -350,6 +422,8 @@ export function useNetworkProbeController() {
     loadingPcap,
     loadingMultiNode,
     loadingNodes,
+    loadingSystemSettings,
+    agentMutation,
     error,
     selectL1,
     selectL2,
@@ -384,19 +458,28 @@ export function useNetworkProbeController() {
     runWhois,
     runDnssec,
     runPortScan,
+    runPortFingerprint,
     probeNat,
     probeNtp,
     discoverLan,
     browseLanServices,
     runPcapDiag,
     refreshProbeNodes,
-    compareDnsMulti,
+    runGlobalpingMeasurement,
+    getGlobalpingTokenStatus,
+    saveGlobalpingToken,
+    clearGlobalpingToken,
     addAgent,
+    setAgentToken,
     removeAgent,
+    runAgentMeasurement,
     installCapabilityPackVerifyFail,
     authorizeSecurity,
     revokeSecurity,
     clearReportHistory,
+    setReportHistoryEnabled,
     resetDefaults,
+    saveDiscoveryDefaults,
+    resetDiscoveryDefaults,
   }
 }

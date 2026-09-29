@@ -9,7 +9,7 @@
 - **独立一级 feature**（`desktopOnly: true`，非 Bench 2.0 主序列，与 2.0 并行旁路），入口：路由 `/network-probe`，侧边栏注册。
 - 用途：**网络急救箱 + 专业探测工具链**。对标 360 断网急救箱、NETworkManager、安全探测工具链。硬红线：**只检测、不攻击**（不做 ARP 欺骗攻击 / MITM 注入 / DoS / 爆破）。
 - 平台：macOS 主路径（Local Network / 系统能力）；Windows 降级；Linux 非目标。
-- 状态口径：模块 1.0 / MVP A+B 已闭环；Post-MVP（测速 · 多节点 · 安全 · 发现）主路径已交付，指纹增强与特权 helper 仍待（见 planned）。
+- 状态口径：模块 1.0 / MVP A+B 已闭环；Post-MVP（测速 · 多节点 · 安全 · 发现）主路径已交付；Nmap 服务/OS 指纹已完成 macOS 真机验收；特权 helper 仍待。Windows traceroute 能力矩阵回归按用户安排延期至本轮总目标完成后。
 
 ## 2. 界面总览（L1×5 壳 + L2 底栏）
 
@@ -57,12 +57,14 @@ L1 → L2 映射：
 
 ### 3.1 网络概览 overview
 
-- 首次进入自动拉取；信息卡网格：IPv4 / IPv6 / 网关 / DNS 服务器 / Wi-Fi（SSID + dBm）/ 防火墙状态 / hosts 可疑条目数 / 非回环接口数。
-- 按钮：刷新、打开系统网络设置。数据源 `getLocalNetworkSummary` + `getFirewallStatus` + `checkHostsOverrides`。
+- 首次进入自动拉取；信息卡网格：IPv4 / IPv6 / 网关 / DNS 服务器 / Wi-Fi（SSID + dBm）/ 防火墙状态 / hosts 可疑条目数 / 非回环接口数。刷新时保留旧摘要并显示紧凑加载状态；首次加载和无数据态提供明确反馈。
+- 首页同时展示最近一次体检概况：体检状态、各真实检查项的 pass/warn/fail/error/skip 数量、最多两条优先建议；体检运行中只显示本轮流式计数与取消入口，不能把旧结果当作当前进度。部分、未知、已取消结果均明确标识，不将错误或跳过项算作健康。
+- 顶部可运行/重新运行体检或取消当前体检，并可直接进入「上不了网」；固定 L2 导航可进入体检树、扫描意见、一键修复和报告，深度检查与历史仍在各自面板。
+- 按钮：刷新、打开系统网络设置、运行/重新运行体检、取消体检、前往「上不了网」、查看明细/全部建议。数据源为 `getLocalNetworkSummary` + `getFirewallStatus` + `checkHostsOverrides` 与现有 `healthResult`；**不合成未经定义的分数**。
 
 ### 3.2 体检树 tree（L0–L3 健康扫描）
 
-- 点击「运行体检」→ 后端 `runHealthScan` 逐项流式推送 `health-item` 事件，面板按层分组（L0 网络层 / L1 网关 / L2 DNS / L3 公网）实时渲染；每项显示 key、状态徽标（pass/warn/fail/error/skip）、detail、commandHint。
+- 点击「运行体检」→ 后端 `runHealthScan` 逐项流式推送 `health-item` 事件，面板按层分组（L0 网络层 / L1 网关 / L2 DNS / L3 公网）实时渲染；检查项名称与状态徽标本地化（pass/warn/fail/error/skip），原始 detail、稳定 key 和 commandHint 收在按需展开的「技术详情」内，避免把系统英文诊断直接混入中文界面。
 - 运行中可「取消」（走会话取消）；完成后显示耗时与「已取消」标记；未取消的结果自动加入报告历史。
 - 空态提示 + 顶部命令提示（CommandHint）。
 
@@ -101,8 +103,10 @@ L1 → L2 映射：
 ### 3.6 报告 report
 
 - 当前体检结果导出：**JSON**（整份 `HealthScanResult`）与 **Markdown**（含每个检查项与建议）浏览器下载；隐私提示文案。
-- **历史快照**：最近 10 次未取消体检（localStorage `network-probe:report-history`），显示 sessionId/项数/耗时/建议数，可清空。
-- **命令日志**：完整命令列表，可清空。
+- **历史快照**：默认在本机保存最近 10 次未取消体检（localStorage `network-probe:report-history`）；只持久化检查 key/layer/status、建议 ID/severity、耗时与 sessionId，不保存原始 detail、commandHint、IP 或主机诊断内容。用户可关闭保存，关闭时二次确认并清除既有快照；每次追加前复查本机开关。旧版记录继续显示，但采集时间标为未知，不从 sessionId 推断时间。
+- **跨时间对比**：可任选两次不同快照，按稳定检查 key 显示状态差异和新增/消失建议数；仅 `pass`、`warn`、`fail` 参与改善/恶化排序，`error`、`skip` 和未知状态只标为状态变化。新增检查与未返回检查单独展示，不当作健康改善。
+- **清空历史**：单独清空需二次确认；关闭本机保存也会清空现存历史。
+- **命令日志**：完整命令列表，可清空；报告页和侧栏统一要求二次确认。
 
 ## 4. 站点延迟（sites）L1
 
@@ -111,25 +115,27 @@ L1 → L2 映射：
 - 官方站点包（`official` pack）卡片网格；每卡：站点名 + host、状态徽标（idle/ok/fail/running）、最近测试时间 + 延迟（HTTP TTFB 优先，回退 ICMP）、吞吐（HTTP 有界下载，≤1MiB/5s → `downloadMbps`）。
 - 顶部「测试全部」+ 统计（总数/OK/失败）；点击单卡只测该站（保留既有结果不丢）；运行中可取消。
 - 流式事件 `site-sample` 实时更新卡片；结果按 target 合并去重（指纹去重），单卡多次测试保留历史。
+- **持续监测**：可启动官方站点整包监测；立即执行首轮，每轮结束后按 30/60/300 秒间隔再执行，始终串行、不积压。可设 1–10,000ms 阈值（默认 200ms）；HTTP TTFB 优先，缺失时回退 ICMP；延迟达到阈值或目标不可达时在面板显示当前告警目标。停止按钮会停止调度并尽可能取消当前会话；离开面板停止后续轮次，正在执行的一轮可能完成。仅前台面板运行，不启用系统通知、不后台常驻，不将监测结果保存到磁盘。
 
 ### 4.2 区域站点包 + 自定义 packs
 
 - 区域包下拉（global / cn-friendly / dev / official，取自 defaults.sitePacks 除 official 外全部），运行整包。
 - **自定义站点**：输入目标（多个，最多 24 个，去重）→「添加」→「运行自定义」；列表 chip 可逐个移除；持久化于 sessionStorage（`network-probe:custom-sites`）。
-- 结果表：每行 id、target · channel（degraded 标记）、Sparkline 迷你趋势线（近 20 次延迟）、ICMP/HTTP/吞吐或失败原因；流式刷新。
+- 结果表：每行 id、target · channel（degraded 标记）、Sparkline 迷你趋势线（近 20 次延迟；不可达样本显示断点）、ICMP/HTTP/吞吐或失败原因；流式刷新。趋势以内存保留，每目标最多 20 点、最多保留 100 个目标；自定义站点按目标地址隔离历史。
+- **持续监测**：可启动所选内置站点包监测，调度、阈值、告警和前台限制与官方站点相同；运行时锁定站点包与自定义目标编辑，避免监测对象中途改变。
 
 ## 5. 测试（test）L1
 
-| 面板       | 输入                                                                                     | 输出 / 行为                                                                                                                                                                 |
-| ---------- | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ping       | 目标 + 次数（默认 1.1.1.1 / 4）                                                          | ICMP ping；流式 `ping-sample` 逐包；汇总（解析 IP / 收发 / 丢包 / min-avg-max-jitter）；全丢包提示「可能需 Local Network 权限」                                             |
-| dns        | 域名 + RR 类型（A/AAAA/CNAME/MX/TXT）+ 解析器（可选，datalist 联想 defaults.dnsPresets） | 解析记录表（RR / data / TTL）、耗时、使用的 resolver                                                                                                                        |
-| tcp        | host + port（+ 超时）                                                                    | TCP 连接结果：status / rttMs / message                                                                                                                                      |
-| custom     | 目标串                                                                                   | 综合探测：ICMP + HTTP（状态/TTFB/吞吐/下载字节）+ 轻量 TLS（证书存在/握手）                                                                                                 |
-| traceroute | 目标 + maxTtl（默认 20）+ rounds（默认 3）                                               | 逐跳流式 `traceroute-hop`；跳点表（TTL / 地址 / ASN+AS名 / 丢包率[>50% 红、>0 琥珀] / avg-best-worst RTT）；显示解析 IP、privilegeMode、耗时；可取消                        |
-| mtu        | 目标（默认 1.1.1.1）                                                                     | 路径 MTU 探测：状态 / pathMtu / message                                                                                                                                     |
-| egress     | —                                                                                        | 公网出口：IP、来源、ASN/org（复用 offline.egress）                                                                                                                          |
-| speed      | 测速源下拉（LibreSpeed 公共源）                                                          | **带宽测速**：流式 `speed-sample` 阶段（ping/jitter/download/upload）；结果卡：ping / jitter / download / upload Mbps；**失败/源不可用进入 30s 冷却**（倒计时禁用）；可取消 |
+| 面板       | 输入                                                                                     | 输出 / 行为                                                                                                                                                                                                                                                                                                                                                        |
+| ---------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ping       | 目标 + 次数（默认 1.1.1.1 / 4）                                                          | ICMP ping；流式 `ping-sample` 逐包；汇总（解析 IP / 收发 / 丢包 / min-avg-max-jitter）；全丢包提示「可能需 Local Network 权限」                                                                                                                                                                                                                                    |
+| dns        | 域名 + RR 类型（A/AAAA/CNAME/MX/TXT）+ 解析器（可选，datalist 联想 defaults.dnsPresets） | 解析记录表（RR / data / TTL）、耗时、使用的 resolver                                                                                                                                                                                                                                                                                                               |
+| tcp        | host + port（+ 超时）                                                                    | TCP 连接结果：status / rttMs / message                                                                                                                                                                                                                                                                                                                             |
+| custom     | 目标串                                                                                   | 综合探测：ICMP + HTTP（状态/TTFB/吞吐/下载字节）+ 轻量 TLS（证书存在/握手）                                                                                                                                                                                                                                                                                        |
+| traceroute | 目标 + maxTtl（默认 20，1–32 整数）+ rounds（默认 3，1–10 整数）                         | 两个数值输入均显示可用范围并在范围外禁用运行；复用 `trippy-core`，逐跳流式 `traceroute-hop`；macOS 优先特权 ICMP，失败时降级无特权 UDP，并为并行会话分配不同动态源端口；跳点表（TTL / 地址 / ASN+AS名 / 丢包率[>50% 红、>0 琥珀] / avg-best-worst RTT）；显示解析 IP、模式、耗时；可取消。后端诊断不直接展示；无可用跳点时给出本地化恢复提示，取消后隐藏空结果提示 |
+| mtu        | 目标（默认 1.1.1.1）                                                                     | 路径 MTU 探测：状态 / pathMtu / message                                                                                                                                                                                                                                                                                                                            |
+| egress     | —                                                                                        | 公网出口：IP、来源、ASN/org（复用 offline.egress）                                                                                                                                                                                                                                                                                                                 |
+| speed      | 测速源下拉（LibreSpeed 公共源）                                                          | **带宽测速**：流式 `speed-sample` 阶段（ping/jitter/download/upload）；结果卡：ping / jitter / download / upload Mbps；**失败/源不可用进入 30s 冷却**（倒计时禁用）；可取消                                                                                                                                                                                        |
 
 - 所有探测按钮带 CommandHint（真实命令预览）；`toolEnabled=false` 时显示 toolDisabled 提示。
 
@@ -147,43 +153,46 @@ L1 → L2 映射：
 
 > 未授权时 use-case 直接报 `securityAuthRequired`，不发起探测。
 
-| 面板      | 说明                                                                                                                                                                                                                                                                  |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ports     | TCP connect 端口扫描（默认 127.0.0.1 / 22,80,443,8080，端口范围语法支持 `,`/`-`）；**目标非内网或端口数 >64 时强制二次确认**（DestructiveConfirm）；流式 `port-sample`；显示开放端口列表、每个端口状态/serviceHint/rtt、degraded 提示（本机 nmap -sS/-sT 可用时回退） |
-| pollution | DNS 污染检测：对域名跑检测（本地 + 公共 DNS 对照），输出 `PollutionReport`（finding 列表）                                                                                                                                                                            |
-| pcap      | 诊断抓包（`pcap-diag`，默认 5s）：重传/乱序/RST 统计；无特权时 tcpdump 计数降级；可取消；缺 pack 时引导安装 `pcap-diag`                                                                                                                                               |
-| dnssec    | DNSSEC 校验（Cloudflare DoH AD 位验证链），输出 `DnsSecCheckResult`                                                                                                                                                                                                   |
-| whois     | WHOIS 查询（任意 query），输出 `WhoisInfo`                                                                                                                                                                                                                            |
+| 面板      | 说明                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ports     | TCP 端口扫描（默认 127.0.0.1 / 22,80,443,8080，端口范围语法支持 `,`/`-`）；**目标非内网或端口数 >64 时强制二次确认**（DestructiveConfirm）；流式 `port-sample`；显示开放端口列表、状态/serviceHint/rtt、降级提示。本机已安装 Nmap 时使用 Nmap 路径（有权限时 SYN，否则 TCP connect），否则使用内置 TCP connect。当前未接入的 `adv-scanner` 安装记录不解锁扫描能力。独立的「识别服务」操作仅在检测到本机 Nmap 时启用，最多 64 个 TCP 端口；每次执行均明确确认目标、端口和是否包含 OS 估计。服务识别使用 `-sV --version-light`，不运行 NSE/漏洞脚本；OS 估计单独运行 `-O`，不自动提权，缺少权限时保留服务结果并显示权限提示。结果展示服务、产品/版本、探测置信度及有限的明文/远程管理/数据库风险标签；风险标签不代表漏洞。目标限单个 IP 或 DNS 主机，不接受 CIDR、目标范围或主机列表；支持取消与超时。 |
+| pollution | DNS 污染检测：对域名跑检测（本地 + 公共 DNS 对照），输出 `PollutionReport`（finding 列表）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| pcap      | 诊断抓包（`pcap-diag`，默认 5s）：重传/乱序/RST 统计；无特权时 tcpdump 计数降级；可取消；缺 pack 时引导安装 `pcap-diag`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| dnssec    | DNSSEC 校验（Cloudflare DoH AD 位验证链），输出 `DnsSecCheckResult`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| whois     | WHOIS 查询（任意 query），输出 `WhoisInfo`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 
 **交互细节**：
 
 - **SecurityAuthGate**：未授权时 L1=security 显示琥珀色提示 + 「我确认 — 启用安全工具」按钮；点击后 `authorizeSecurity` 置位并持久化 localStorage；已授权显示「本机已授权使用安全工具。」+「撤销」；授权/撤销即时生效。未授权点击任何安全工具，use-case 直接 `setError(securityAuthRequired)` 且不发起 IPC。
 - **端口扫描确认**：目标非内网（非私有/回环）或展开端口数 >64 时，点击「扫描端口」先弹 `DestructiveConfirmDialog`（展示目标 + 约 N 个端口 + 「仅扫描自有或已授权资产，当前为 TCP connect」），确认「仍然扫描」才执行；勾选范围内可免确认。端口范围解析失败（如超 256、非法语法）由后端返回 `INVALID_INPUT`。
+- **端口模式提示**：按 `result.mode` / `result.cancelled` 显示本地化的 TCP connect、nmap 降级路径或取消提示；不直接将后端英文 `message` 原样放入中文界面。能力状态为 `degraded` 且尚无结果时才提前显示降级提示。
+- **服务/OS 指纹**：服务识别为独立 opt-in 按钮，不能由普通端口扫描隐式触发；每次均显示精确目标、端口和 OS 选项并等待用户确认。仅限单主机与 1–64 个 TCP 端口，Nmap `-sV --version-light` 超时/重试受限且不运行 NSE；OS `-O` 默认关闭、单独执行，不请求或触发提权。能力矩阵仅在外部 Nmap 可执行时报告 `fingerprint=supported`；缺少 Nmap 时显示安装提示，普通 TCP 端口扫描仍可用。服务字段经过清理和长度限制；风险标签只提示协议类别，不作漏洞或可利用性结论。OS 结果最多显示 3 条并明确标成估计与置信百分比；无权限、未检测到、超时、取消均有独立状态，OS 阶段失败保留已完成的服务结果。
 - **空态细分（arp）**：按 `emptyReason` 区分「权限不足（引导打开系统网络设置）/ 客户端隔离（仅网关响应）/ 安静网络（无邻居）」三种空态文案，不统一显示空。
+- **局域网服务浏览**：mDNS 使用 `mdns-sd` 先查询 `_services._dns-sd._udp.local.`，再浏览发现的 TCP/UDP 本地服务类型，最多 64 种；枚举监听 750 ms，服务解析监听 1.5 s。SSDP 使用 `ssdp-client` 的 `M-SEARCH` 和响应解析；mDNS 与 SSDP 并行运行，每种协议最多返回 512 条服务结果。SSDP 仅展示已解析的 `LOCATION`，不会访问该 URL；其主机/端口只从 URL 字符串提取。协议级失败显示本地化提示，不把原始错误码、英文系统诊断或另一协议错误带入界面；SSDP 启动/发送失败使用同一说明，另一协议仍保留成功结果。达到结果上限时显示本地化截断提示；服务数不计错误/截断提示行，只有 Tauri 调用整体失败时显示顶部错误横幅。扫描结束会停止 mDNS browse、等待 daemon 关闭并结束事件转发任务。普通提示说明发现内容，安全提示单独说明只读边界。
 
 ## 7. 发现（discover）L1
 
-| 面板    | 说明                                                                                                                                                                                                                                  |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| arp     | 局域网发现：ARP 缓存 + TCP /24 扫（degraded；特权 RAW 扫待 helper）；输出邻居表（ip/mac/iface/source）；空态区分 权限不足（引导开 Local Network 权限）/隔离/安静；可取消                                                              |
-| lan-svc | mDNS/DNS-SD + SSDP/UPnP 服务浏览（只读），输出 `LanServicesResult`                                                                                                                                                                    |
-| nat     | NAT 类型（多 STUN），输出 `NatProbeResult`                                                                                                                                                                                            |
-| ntp     | NTP 时间偏移（多源中位数），输出 `NtpProbeResult`                                                                                                                                                                                     |
-| nodes   | **多节点 DNS 对比 + agent 注册**：域名对比（local + 各节点 DNS 结果按节点列出）；节点列表（local / Globalping 区域 / remote-agent）；注册 agent（label + https endpoint）→ `addAgent`（HTTPS 注册/健康检查/白名单），可移除；刷新节点 |
+| 面板    | 说明                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| arp     | 局域网发现：ARP 缓存 + TCP /24 扫（degraded；特权 RAW 扫待 helper）；输出邻居表（ip/mac/iface/source）；空态区分 权限不足（引导开 Local Network 权限）/隔离/安静；可取消                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| lan-svc | 通过 `mdns-sd` 浏览 mDNS/DNS-SD + `ssdp-client` 发送 SSDP/UPnP `M-SEARCH`（只读），输出 `LanServicesResult`；mDNS 解析由成熟库接管，不扫描原始 DNS 字节；SSDP `LOCATION` 只解析主机/端口供展示，不访问该 URL；不执行 UPnP 写操作                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| nat     | STUN 映射对比（多源）；显示映射地址一致 / 不一致 / 样本不足 / 无可用响应，不据此断言完整 NAT 类型；输出 `NatProbeResult`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ntp     | 经响应校验的 NTP 多源偏移中位数、RTT 中位数、stratum、成功源数与阈值等级；不修改系统时钟；输出 `NtpProbeResult`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| nodes   | **Globalping 多地测量 + 自建 agent HTTPS 客户端**：DNS（本机 + 远端 A 记录）、ping（3 包）与 HTTP（HEAD）可选；目标分别为域名、主机/IP 与 HTTP(S) URL。选择 1–3 个区域、每区最多 1 个探点；结果显示各探点状态、DNS 答案、RTT/丢包或 HTTP 状态码/总耗时；保留部分结果并显示超时/额度限制。Globalping token 与自建 agent 共享 token 均通过系统钥匙串按 app identifier 隔离，不回传前端、不记录到命令日志。自建 agent 固定允许 DNS/ping/HTTP，HMAC-SHA256 鉴权；桌面端有健康检查、限流映射、目标校验、前后端共同限制最多 3 个并发测量、最多登记 10 个节点。Globalping 与自建 agent 结果在统一区域按相同类型和规范化目标并排显示；HTTP 查询串参与精确匹配，但不进入目标标签、供应商错误详情或命令日志；切换输入后隐藏不匹配的旧结果。远程测量不要求本机 Adv 能力包。Bench 尚未附带 agent 服务端，C2-3 端到端兼容验证仍待真实服务。 |
 
 ## 8. 能力包（D-017 packs）
 
-- **能力包**：`adv-scanner`（SYN 扫描）、`pcap-diag`（诊断抓包）、`priv-helper`（特权 helper）。内置 manifest（packId / version / hash / 签名来源）。
-- PackInstallDialog：pack 列表（version / sizeMB / status / markerOnly 提示 / 描述），安装 / 卸载 / 刷新；安装走后端（**禁止前端传 URL**，marker + hash 校验，测试通道可强制 hash-fail）；进度事件 `pack-progress` 实时显示 `packId phase bytes/totalBytes`。
-- 安装/卸载后自动刷新 capabilities 与 packs 列表；capabilities 中 `tools.<key>` 可反映 `missing_pack`（缺能力包时面板显示缺失提示并可跳转安装）。
+- **能力包**：`adv-scanner`（预留 SYN / ARP 扩展；只有真实 sidecar 发布并接入执行命令后才能提升能力）、`pcap-diag`（诊断抓包）、`priv-helper`（特权 helper）。本机当前仅使用实际检测到的 Nmap 扫描路径；marker 安装记录不代表可执行扫描能力。内置 manifest（packId / version / hash / 签名来源）。下载使用共享的公网 HTTPS URL 校验与逐跳重定向策略；流式下载上限 64 MiB，实际字节数必须与 manifest 一致，SHA-256 验证成功后才原子落盘。临时文件失败自动清理，后续操作回收超过 24 小时的崩溃残留，卸载清理该 pack 的版本化制品。
+- PackInstallDialog：pack 列表（version / sizeMB / status / markerOnly 提示 / 描述），安装 / 卸载 / 刷新；安装走后端（**禁止前端传 URL**，marker + hash 校验，测试通道可强制 hash-fail）；进度事件 `pack-progress` 按 `operationId` 与 `packId` 关联本次安装，以当前语言显示能力包名称、阶段与格式化字节数；后端返回 `ok: false` 时页面明确提示失败并保留后端原因到命令日志。
+- 安装/卸载后自动刷新 capabilities 与 packs 列表；capabilities 中 `tools.<key>` 可反映 `missing_pack`（缺能力包时面板显示缺失提示并可跳转安装）。安装/卸载通过进程内互斥与 app-data 文件锁按 packId 排他，覆盖共享 app-data 的 dev/prod 并发实例。
 
 **交互细节**：
 
 - pack 列表为单选项列表（点击选中高亮），选中后右侧描述区展示 pack 描述 + Gatekeeper 说明；安装/卸载按钮带 CommandHint 包裹（hover 显示真实命令）。
 - **focusPackId 自动聚焦**：从 pcap 面板「管理能力包」入口进入时自动选中 `pcap-diag`、从端口/ARP 面板进入时自动选中 `adv-scanner`（`focusPackId → setSelected`）；pack 列表为空时右侧显示 `packs.empty` 占位。
 - `busy` 为真时**全部按钮禁用**（刷新/安装/卸载/测试哈希失败），安装按钮文案切为「安装中…」；进度文本 `packId phase bytes/totalBytes` 实时刷新，安装完成/失败后清除。
-- **能力包刷新防重入由对话框承载**：`refreshCapabilityPacks` 用例**没有**自身 loading 标志（连续调用会并发重读），其防重入依赖 PackInstallDialog 的页面级 `busy` 状态（`onRefresh/onInstall/onUninstall/onVerifyFail` 均以 `busy` 包裹，执行中按钮全部禁用）。
-- 已安装 pack 显示「卸载」（destructive 样式）；未安装显示「安装」；`markerOnly`（制品未发布）显示标记提示。
+- **能力包刷新防重入由对话框承载**：`refreshCapabilityPacks` 用例**没有**自身 loading 标志（连续调用会并发重读），其防重入依赖 PackInstallDialog 的页面级 `busy` 状态（`onRefresh/onInstall/onUninstall/onVerifyFail` 均以 `busy` 包裹，执行中按钮全部禁用）；后端另外按 packId 拒绝并发安装/卸载，进程内存锁覆盖同实例多窗口，app-data 文件锁覆盖 dev/prod 多进程，避免 IPC 并发绕过 UI 后覆盖记录。
+- 已安装 pack 显示「卸载」（destructive 样式）；未安装显示「安装」；`markerOnly`（制品未发布）显示标记提示。marker 后续遇到已发布制品时转为可安装/升级，旧版本或损坏制品不会误报为健康安装。
 - 「测试哈希失败」按钮（验证通道）仅用于开发验证：安装强制返回 hash 不匹配并写入命令日志，不实际安装。
 
 ## 9. 快捷键
@@ -193,11 +202,12 @@ L1 → L2 映射：
 ## 10. 技术实现要点
 
 - **架构分层**（Feature-sliced）：`page.tsx`（装配）→ `components/`（面板 UI，`ProbePanelShell` 统一工具栏/内容壳）→ `hooks/useNetworkProbeController`（store↔use-cases 桥接，逐项 selector）→ `services/network-probe.use-cases.ts`（业务编排、事件订阅、防重入、取消幂等）→ `services/network-probe.repository.ts`（IPC 适配）→ `@/lib/tauri/commands/network-probe`。
-- **store**（zustand）：单一 feature store，保存全部结果/loading/error/导航/安全授权/报告历史/命令日志/会话状态；持久化仅 nav（sessionStorage）、securityAuthorized 与 reportHistory（localStorage）。
+- **store**（zustand）：单一 feature store，保存全部结果/loading/error/导航/安全授权/报告历史/命令日志/会话状态；持久化仅 nav（sessionStorage）、securityAuthorized、reportHistory 与 reportHistoryEnabled（localStorage）。
 - **IPC 契约**：`src/lib/tauri/contracts.ts` + `src-tauri/src/net_probe/commands.rs` 双边集中维护；全部命令返回 `AppResult<T>`。
-- **长任务**：events 流式（`network-probe:health-item` / `traceroute-hop` / `site-sample` / `ping-sample` / `speed-sample` / `port-sample` / `pack-progress` / `scan-session`）；会话取消统一 `network-probe-cancel-scan(sessionId)`，**同一会话只允许发一次取消（幂等）**，新会话重置取消标记（有单测 `cancel-idempotency.test.ts`）。
+- **长任务**：events 流式（`network-probe:health-item` / `traceroute-hop` / `site-sample` / `ping-sample` / `speed-sample` / `port-sample` / `pack-progress` / `scan-session` / `globalping-progress`）；Globalping 进行中结果仅发给发起测量的窗口，最终 IPC 结果收敛状态。会话取消统一 `network-probe-cancel-scan(sessionId)`，**同一会话只允许发一次取消（幂等）**，新会话重置取消标记（有单测 `cancel-idempotency.test.ts`）。
+- **长列表性能**：端口样本、ARP 邻居与 LAN 服务列表超过 50 项时复用 `VirtualList` 和已安装的 `@tanstack/react-virtual`，限制 320px 滚动视口并只渲染可见行；固定行高、溢出截断并保留完整 `title` 与列表位置语义。Traceroute 超过 50 跳时通过前后占位行虚拟化原生表格，当前后端最大 TTL 为 32，常规情况下仍使用完整原生表格。
 - **capabilities 能力声明**：后端 `build_capabilities` 返回 platform / privilegeLevel / tools 状态（supported/partial/degraded/unsupported/missing_pack）/ externalTools（如 nmap）；前端 `toolEnabled` 依此控制按钮可用性与降级提示。
-- **defaults 目录**：`get_network_probe_defaults` 返回 DNS 预设、站点包、探测目标、强制门户、公网 IP API、MTU 目标等默认资源；支持用户覆盖（`saveDefaultsOverride`）与重置（`resetDefaults`）。
+- **defaults 目录**：`get_network_probe_defaults` 返回 DNS 预设、站点包、探测目标、强制门户、公网 IP API、MTU、STUN 与 NTP 默认资源；`saveDefaultsOverride` 对提供的字段做局部合并并以原子写入、进程互斥和 OS 文件锁协调共享配置目录的并发实例，用户可编辑 STUN/NTP 来源，`resetDiscoveryDefaults` 只恢复这两类内置来源，`resetDefaults` 恢复全部目录。
 - **面板复用**：offline 内的 ipv6/mtu/egress 复用同一 `Ipv6Panel`/`MtuPanel`/`EgressPanel`（`dualFrom` 区分来源），避免双入口冲突。
 - **测速护栏**：LibreSpeed 硬上限 32/8 MB、失败 30s 冷却。
 - **体检健壮性**：VPN/utun 默认路由无 gateway 行不误报；识别 DNS Fake-IP（198.18/15）与本地系统代理；`reach.public_name` 在 Fake-IP 下跳过 ICMP。
@@ -211,9 +221,9 @@ L1 → L2 映射：
 - `PingProbeResult` / `PingSample`；`DnsLookupResult` / `DnsRecordItem`；`TcpConnectResult`；`ProbeTargetResult`（icmp/http/tls）；`TracerouteHop` / `TracerouteResult`；`PathMtuResult`；`SpeedTestResult` / `SpeedSampleEvent` / `SpeedSource`。
 - `SitesProbeResult` / `SiteSampleResult`；`FixResult`；`CaptivePortalResult`；`PublicIpInfo`；`ProxyVpnStatus`；`Ipv6StackResult`。
 - `PortScanResult` / `PortSampleEvent`；`PollutionReport`；`WhoisInfo`；`DnsSecCheckResult`；`PcapDiagResult`。
-- `LanDiscoveryResult`（neighbors/mode/cidr/emptyReason）、`LanServicesResult`；`NatProbeResult`；`NtpProbeResult`；`MultiNodeDnsResult` / `ProbeNode`。
+- `LanDiscoveryResult`（neighbors/mode/cidr/emptyReason）、`LanServicesResult`；`NatProbeResult`；`NtpProbeResult`；`GlobalpingMeasurementResult` / `GlobalpingProbeResult` / `GlobalpingRateLimit` / `ProbeNode`。
 - `NetworkProbeDefaultsCatalog` / `DefaultsOverride`；`HostsOverride`；`FirewallStatus`。
-- store 关键状态：nav、capabilities、capabilityPacks、defaults、各结果/流式数组、loading*（每工具独立）、error、securityAuthorized、activeSessionId、cancelRequestedSessionId、commandLog、reportHistory。
+- store 关键状态：nav、capabilities、capabilityPacks、defaults、各结果/流式数组、loading*（每工具独立）、error、securityAuthorized、activeSessionId、cancelRequestedSessionId、commandLog、reportHistory、reportHistoryEnabled。
 
 ## 12. 边界与限制
 
@@ -230,52 +240,57 @@ L1 → L2 映射：
 
 后端统一返回 `{ code, message }`（`src-tauri/src/error.rs` AppError），前端 `parseCommandError`/`getErrorMessage` 解析；use-case 统一 `setError({ key: "networkProbe.errors.<tool>Failed", fallback })`，顶部错误横幅展示本地化文案。
 
-| 错误码                                 | 场景                                                                                                                                         | 前端行为/提示                                                                            |
-| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `INTERNAL` / `TASK_FAILED`             | 内部错误 / `spawn_blocking` JoinError                                                                                                        | 错误横幅显示 `networkProbe.errors.*Failed` + 后端 message                                |
-| `INVALID_INPUT`                        | 非法 host、空端口列表、>256 端口、非法 DNS IP、DNS 服务不在白名单、DNS 服务器 >4；探测目标长度 >2048、URL scheme 非 http/https（`input.rs`） | 错误横幅展示，不重试；修正输入后重试                                                     |
-| `NOT_FOUND`                            | 目标资源不存在                                                                                                                               | 错误横幅                                                                                 |
-| `UNSUPPORTED`                          | Windows/Linux 上 macOS-only 操作（网络服务枚举、修复、防火墙状态等）                                                                         | 面板降级/隐藏，或显示「仅 macOS 实现」提示                                               |
-| `IO_ERROR` / `FORBIDDEN_PATH`          | networksetup 等外部命令失败、路径越界                                                                                                        | 错误横幅 + 后端 message                                                                  |
-| `ICMP_UNAVAILABLE`                     | ICMP socket 打开失败（ping.rs）                                                                                                              | 提示「可能需 Local Network 权限」，引导打开系统网络设置；ping 全丢包时命令日志追加同提示 |
-| `DNS_LOOKUP_FAILED` / `DNS_CONFIG`     | DNS 解析失败 / 解析器配置读取失败                                                                                                            | 错误横幅 `networkProbe.errors.dnsFailed`                                                 |
-| `NETWORKSETUP_FAILED`                  | `networksetup -listallnetworkservices` 失败                                                                                                  | 错误横幅 `networkProbe.errors.servicesFailed`                                            |
-| `NTP_BIND/DNS/SEND/RECV/TIMEOUT/SHORT` | NTP 探测各阶段失败                                                                                                                           | 错误横幅 `networkProbe.errors.ntpFailed`                                                 |
-| `NAT_BIND/DNS/SEND/RECV/TIMEOUT`       | NAT/STUN 探测各阶段失败                                                                                                                      | 错误横幅 `networkProbe.errors.natFailed`                                                 |
-| `SPEED_CLIENT`                         | 测速源请求失败                                                                                                                               | 进入 30s 冷却 + 错误横幅 `networkProbe.errors.speedFailed`                               |
-| `GP_CLIENT` / `GP_PARSE`               | Globalping 节点请求/解析失败                                                                                                                 | 错误横幅 `networkProbe.errors.multiNodeFailed`                                           |
-| `WHOIS_CLIENT`                         | RDAP 查询失败                                                                                                                                | 错误横幅 `networkProbe.errors.whoisFailed`                                               |
-| `MDNS_BIND/SEND` / `SSDP_BIND/SEND`    | 局域网服务浏览失败                                                                                                                           | 错误横幅 `networkProbe.errors.lanSvcFailed`                                              |
-| `TRACEROUTE_BUILD` / `TRACEROUTE_RUN`  | traceroute 构建/运行失败                                                                                                                     | 错误横幅 `networkProbe.errors.tracerouteFailed`                                          |
-| `PACK_URL_INSECURE`                    | 包下载 URL 非 https（仅后端 manifest）                                                                                                       | 错误横幅 `networkProbe.errors.packsFailed`（正常不可达，防篡改）                         |
-| `PACK_CLIENT` / `PACK_DOWNLOAD`        | 包下载网络失败（120s 超时）                                                                                                                  | 错误横幅 `networkProbe.errors.packsFailed`；可刷新后重试                                 |
-| `PACK_HASH_MISMATCH`                   | SHA-256 校验失败（marker-only / 下载损坏）                                                                                                   | 错误横幅 `networkProbe.errors.packsFailed`，二进制不安装                                 |
-| 前端 `securityAuthRequired`            | 安全 Tab 未授权调用                                                                                                                          | 错误横幅「请先确认安全 Tab 授权声明。」，不发起 IPC                                      |
+| 错误码                                                                       | 场景                                                                                                                                         | 前端行为/提示                                                                                           |
+| ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `INTERNAL` / `TASK_FAILED`                                                   | 内部错误 / `spawn_blocking` JoinError                                                                                                        | 错误横幅显示 `networkProbe.errors.*Failed` + 后端 message                                               |
+| `INVALID_INPUT`                                                              | 非法 host、空端口列表、>256 端口、非法 DNS IP、DNS 服务不在白名单、DNS 服务器 >4；探测目标长度 >2048、URL scheme 非 http/https（`input.rs`） | 错误横幅展示，不重试；修正输入后重试                                                                    |
+| `NOT_FOUND`                                                                  | 目标资源不存在                                                                                                                               | 错误横幅                                                                                                |
+| `UNSUPPORTED`                                                                | Windows/Linux 上 macOS-only 操作（网络服务枚举、修复、防火墙状态等）                                                                         | 面板降级/隐藏，或显示「仅 macOS 实现」提示                                                              |
+| `IO_ERROR` / `FORBIDDEN_PATH`                                                | networksetup 等外部命令失败、路径越界                                                                                                        | 错误横幅 + 后端 message                                                                                 |
+| `ICMP_UNAVAILABLE`                                                           | ICMP socket 打开失败（ping.rs）                                                                                                              | 提示「可能需 Local Network 权限」，引导打开系统网络设置；ping 全丢包时命令日志追加同提示                |
+| `DNS_LOOKUP_FAILED` / `DNS_CONFIG`                                           | DNS 解析失败 / 解析器配置读取失败                                                                                                            | 错误横幅 `networkProbe.errors.dnsFailed`                                                                |
+| `NETWORKSETUP_FAILED`                                                        | `networksetup -listallnetworkservices` 失败                                                                                                  | 错误横幅 `networkProbe.errors.servicesFailed`                                                           |
+| NTP 所有源均失败 / SNTP 响应校验失败                                         | NTP 探测失败或超时                                                                                                                           | 面板显示本地化失败状态，技术原因收纳在可展开详情                                                        |
+| `NAT_BIND/CONNECT/SEND/RECV/REQUEST/TIMEOUT`                                 | NAT/STUN 本地套接字、请求或响应处理失败；DNS 单源失败记录在探测详情                                                                          | 命令错误横幅 `networkProbe.errors.natFailed`；单源失败不抹掉其他服务器结果                              |
+| `SPEED_CLIENT`                                                               | 测速源请求失败                                                                                                                               | 进入 30s 冷却 + 错误横幅 `networkProbe.errors.speedFailed`                                              |
+| `GP_CLIENT` / `GP_PARSE` / `GP_RESPONSE`                                     | Globalping 网络请求、响应或解析失败                                                                                                          | 错误横幅 `networkProbe.errors.multiNodeFailed`；HTTP 429 转为带 rate limit headers 的结构化结果         |
+| `GP_TOKEN_STORAGE`                                                           | Globalping token 钥匙串不可用或读写失败                                                                                                      | 错误横幅 `networkProbe.errors.globalpingTokenFailed`；不泄露 token 或钥匙串诊断                         |
+| `WHOIS_CLIENT`                                                               | RDAP 查询失败                                                                                                                                | 错误横幅 `networkProbe.errors.whoisFailed`                                                              |
+| `MDNS_DAEMON/MONITOR/BROWSE/RUNTIME/SHUTDOWN/SHUTDOWN_TIMEOUT` / `SSDP_SEND` | 局域网服务协议阶段失败（mDNS 初始化、监听、浏览、运行或关闭；SSDP 发现启动或发送）                                                           | 列表显示本地化协议错误行并保留另一协议结果；Tauri 调用整体失败时显示 `networkProbe.errors.lanSvcFailed` |
+| `TRACEROUTE_BUILD` / `TRACEROUTE_RUN`                                        | traceroute 构建/运行失败                                                                                                                     | 错误横幅 `networkProbe.errors.tracerouteFailed`                                                         |
+| `PACK_URL_INSECURE`                                                          | 包下载 URL 非 https（仅后端 manifest）                                                                                                       | 错误横幅 `networkProbe.errors.packsFailed`（正常不可达，防篡改）                                        |
+| `PACK_CLIENT` / `PACK_DOWNLOAD`                                              | 包下载网络失败（120s 超时）                                                                                                                  | 错误横幅 `networkProbe.errors.packsFailed`；可刷新后重试                                                |
+| `PACK_HASH_MISMATCH`                                                         | SHA-256 校验失败（marker-only / 下载损坏）                                                                                                   | 错误横幅 `networkProbe.errors.packsFailed`，二进制不安装                                                |
+| 前端 `securityAuthRequired`                                                  | 安全 Tab 未授权调用                                                                                                                          | 错误横幅「请先确认安全 Tab 授权声明。」，不发起 IPC                                                     |
 
 ### 13.2 常见失败场景与行为
 
-| 场景                                     | 行为/提示                                                  | 恢复/降级                                                                                    |
-| ---------------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| 网络断开/超时                            | 各探测命令返回对应错误码 → 错误横幅                        | 重试；`caps.localNetworkHint` 提示「全部探测丢失可能是权限/防火墙/真实断网，不要当唯一结论」 |
-| 权限拒绝（Local Network / TCC / 无特权） | `ICMP_UNAVAILABLE`、arp `emptyPermission`、pcap 无特权     | 降级到 tcpdump 计数 / ARP 缓存读取；给出「打开系统网络设置」入口，不静默                     |
-| 平台不支持（Windows/Linux）              | `UNSUPPORTED` 或能力矩阵 `unsupported`                     | 面板隐藏/禁用 + toolDisabled 提示；firewall 返回 status=unsupported + detail                 |
-| 能力包缺失                               | `tools.<key> = missing_pack`                               | 面板禁用 + 「管理能力包」入口跳转安装；安装后自动刷新                                        |
-| 外部工具缺失（如 nmap）                  | externalTools 反映                                         | 端口扫描降级为 TCP connect（degraded），提示安装 adv-scanner/nmap 可启用 SYN                 |
-| 测速源不可达                             | `!result.ok && !cancelled`                                 | 30s 冷却倒计时禁用，可换源；取消成功不计冷却                                                 |
-| 取消命令本身失败                         | `cancelFailed`                                             | 错误横幅提示；会话取消在前后端均幂等                                                         |
-| 一键诊断部分子项失败                     | `runOfflineDiagnostics` 用 `Promise.all`，任一失败整体失败 | `offlineFailed` 错误横幅、已成功子项不落 store；改用各子面板单独运行可逐项定位               |
+| 场景                                     | 行为/提示                                                  | 恢复/降级                                                                                                                      |
+| ---------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| 网络断开/超时                            | 各探测命令返回对应错误码 → 错误横幅                        | 重试；`caps.localNetworkHint` 提示「全部探测丢失可能是权限/防火墙/真实断网，不要当唯一结论」                                   |
+| traceroute 权限或路由不可用              | 优先尝试特权 ICMP；macOS 再尝试无特权 UDP                  | 两种方式都无有效跳点时显示本地化不可用提示；不显示原始英文诊断或空表成功状态                                                   |
+| 权限拒绝（Local Network / TCC / 无特权） | `ICMP_UNAVAILABLE`、arp `emptyPermission`、pcap 无特权     | 降级到 tcpdump 计数 / ARP 缓存读取；给出「打开系统网络设置」入口，不静默                                                       |
+| 平台不支持（Windows/Linux）              | `UNSUPPORTED` 或能力矩阵 `unsupported`                     | 面板隐藏/禁用 + toolDisabled 提示；firewall 返回 status=unsupported + detail                                                   |
+| 能力包缺失                               | `tools.<key> = missing_pack`                               | 面板禁用 + 「管理能力包」入口跳转安装；安装后自动刷新                                                                          |
+| 外部工具缺失（如 nmap）                  | `externalTools.nmap=not_found`                             | 端口扫描降级为 TCP connect（degraded）；服务/OS 指纹禁用并说明需本机安装 Nmap。文案不提示当前未接入的 `adv-scanner` 可启用 SYN |
+| 测速源不可达                             | `!result.ok && !cancelled`                                 | 30s 冷却倒计时禁用，可换源；取消成功不计冷却                                                                                   |
+| 取消命令本身失败                         | `cancelFailed`                                             | 错误横幅提示；会话取消在前后端均幂等                                                                                           |
+| 一键诊断部分子项失败                     | `runOfflineDiagnostics` 用 `Promise.all`，任一失败整体失败 | `offlineFailed` 错误横幅、已成功子项不落 store；改用各子面板单独运行可逐项定位                                                 |
 
 ### 13.3 幂等 / 取消 / 并发保护
 
-- **会话取消幂等（前后端双保险）**：前端 `cancelRequestedSessionId` 保证同一 `sessionId` 只发一次 `cancelScan`；后端 `session.rs` 以 `HashSet` 记录已取消 id，重复取消为 no-op 成功。新会话（新 sessionId）自动重置取消标记（有单测 `cancel-idempotency.test.ts`）。
+- **会话取消幂等（前后端双保险）**：前端 `cancelRequestedSessionId` 保证同一 `sessionId` 只发一次 `cancelScan`；后端 `session.rs` 只为已登记的活动会话保留取消状态，重复取消为 no-op 成功，未知或已结束的 ID 不写入状态表。会话结束后清除记录；前端与后端均有回归测试。
 - **事件监听清理**：所有流式长任务在 `finally` 中 `unlisten()` 全部事件订阅（health-item / site-sample / traceroute-hop / ping-sample / speed-sample / port-sample / scan-session / pack-progress），避免泄漏与跨会话串扰。
 - **单工具防重入**：每个 use-case 入口 `if (store.loadingX) return`；同一工具不可并发，不同工具可并行（store 每工具独立 loading）。
 - **修复幂等**：后端每次执行前重新校验服务白名单（忽略前端「已确认」标志）；刷新 DNS 对 `dscacheutil`/`killall` 分别报告成功/失败，不把权限失败当成功。
-- **single-flight 式刷新**：刷新概览（`loadingSummary`）、节点（`loadingNodes`）在用例内以 loading 标志防重复触发；**能力包刷新除外**——`refreshCapabilityPacks` 无 loading 标志，防重入由 PackInstallDialog 的 `busy` 提供（见 §8）。
-- **无 loading 标志的写操作（防重入缺口）**：`addAgent` / `removeAgent` / `loadNetworkServices` / `openSystemNetworkSettings` 均无 loading 短路与禁用态，快速连点会重复提交/重复打开（标记为已知并发边界，未见修复实现）。
+- **single-flight 式刷新与写操作**：刷新概览（`loadingSummary`）、节点（`loadingNodes`）和网络服务列表（`networkServicesLoadStatus`）在用例内防重复触发；系统设置打开（`loadingSystemSettings`）与 agent 新增/删除（`agentMutation`）同样短路重复操作，相关按钮显示进度并禁用。能力包刷新仍由 PackInstallDialog 的 `busy` 防重入（见 §8）。
+- **状态反馈**：网络服务选择器分别显示加载、失败与成功但无服务；失败时可重试，加载失败期间禁用依赖服务的 DNS/DHCP/重置操作，独立的刷新 DNS 操作仍可用。节点列表区分初始/刷新加载、失败（可重试）与成功空态。
+- **bootstrap 局部失败隔离**：能力矩阵、默认资源、能力包和节点列表独立接收成功结果；单一数据源失败不丢弃其他成功数据，也不把节点状态误标为失败。agent 写入成功后即保留新增/删除结果；后续节点刷新失败时明确提示刷新失败并允许重试，不伪报 agent 写入失败或保留可重复提交的新增表单。
+- **agent 注册表写入原子性**：同一进程以 Mutex 串行化，多 Bench 实例通过 `.agents.lock` OS 文件锁协调；锁内执行 load-modify-`atomic_write`，避免并发丢更新和部分 JSON 写入。读取端依赖原子替换保证只读到完整旧/新文件。
 
 ### 13.4 数据与安全
 
-- 报告导出（JSON/Markdown）含公网 IP、Wi-Fi SSID、hosts 异常等，导出前展示隐私提示；reportHistory 仅保留最近 10 条（localStorage），清空需确认。
-- 能力包安装路径：前端禁止提交下载 URL；仅后端 manifest 的 https URL + SHA-256 校验；`PACK_HASH_MISMATCH` 时二进制不落盘。
+- 报告导出（JSON/Markdown）含公网 IP、Wi-Fi SSID、hosts 异常等，导出前展示隐私提示；reportHistory 默认保留最近 10 条脱敏比较数据于 localStorage，可关闭并清空；历史与命令日志的清空需确认。
+- agent 客户端只接受 HTTPS JSON，不接受 WSS；URL 中的 userinfo、query、fragment 一律拒绝。HMAC 请求认证与系统钥匙串存储已实现。客户端不跟随重定向，限制响应大小，并在 UI / 后端拦截 localhost、云元数据和链路本地字面目标；agent 服务端仍需自行防止重放、DNS rebinding 和未授权私网探测。新增命令日志不记录 endpoint，既有记录中的 URL 凭证会在读取/写入时脱敏并原子清除。真实兼容服务端的鉴权、限流与测量尚待端到端验证，不能视为 C2-3 完成。
+- 能力包安装路径：前端禁止提交下载 URL；仅后端 manifest 的公网 HTTPS URL + 每跳重定向校验、64 MiB 流式上限、精确长度与 SHA-256 校验；`PACK_HASH_MISMATCH` 时临时文件自动清理，正式制品不落盘。网络错误不回传带签名参数的 URL。
 - `saveDefaultsOverride`/`resetDefaults` 失败 → `networkProbe.errors.defaultsFailed`；默认资源损坏时重置即可恢复内置值。

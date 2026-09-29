@@ -21,7 +21,7 @@
 │ 结果卡：标题(扫描结果 N · 占用 M)                               │
 │         [告警开关][隐藏/显示空端口][全量重扫][全部杀掉]           │
 │         端口详情列表（虚拟滚动）：                               │
-│           端口 | 指纹徽章 | kill 消息 | [杀掉]                  │
+│           端口 | 指纹徽章 | kill 消息 | [占用时显示杀掉]        │
 │           进程树（可展开，高亮占用者 PID / 根进程标记）            │
 └──────────────────────────────────────────────────────────────┘
 ```
@@ -69,7 +69,7 @@
 - `@tanstack/react-virtual` 虚拟化（overscan 5，动态行高重新测量）；仅渲染视口附近行，端口再多也流畅。
 - 每行：
   - 端口号 + **指纹徽章**（图标+名称，如 Vite/Flask/Spring Boot/Redis，后端按端口+命令行识别）+ 杀进程结果消息（黄色提示，如 `PID 123 killed`）。
-  - 非 Remote：进程树（可展开/收起，逐层缩进；占用者 PID 主色高亮 +「占用者」角标；pid==ppid 标「根进程」）+「杀掉」按钮（琥珀色）。
+  - 非 Remote：有进程占用时显示进程树（可展开/收起，逐层缩进；占用者 PID 主色高亮 +「占用者」角标；pid==ppid 标「根进程」）和「杀掉」按钮（琥珀色）；空闲端口显示“当前没有进程占用此端口”，不提供危险操作。
   - Remote：仅连通性提示，无按钮。
 - 查询失败行（`detail.error`）：蓝色提示「port N: 错误信息」。
 - **空态**：无结果 → 搜索图标 +「暂无结果」；隐藏空端口后全为空 → 「没有占用端口」。
@@ -78,10 +78,10 @@
 - **交互细节**：
   - 结果卡标题：`扫描结果 N · 占用 M`（occupied 只统计无 error 且有 PID 的端口）。
   - 「全部杀掉」「全量重扫」在 `isScanning || killing` 时禁用；「告警开关」在端口数=0 或 killing 时禁用（tooltip 提示原因）；「隐藏/显示空端口」仅在结果非空时出现。
-  - 每行「杀掉」按钮（琥珀色）在 killing 时禁用；tooltip 展示释放端口命令提示（`freePortCommandTemplate` 替换端口号）。
+  - 每行「杀掉」按钮仅在 Local 且 `pids.length > 0` 时出现，在 killing 时禁用；tooltip 展示释放端口命令提示（`freePortCommandTemplate` 替换端口号）。空闲端口展示本地化占用说明，不出现 Kill 按钮。
   - 进程树逐层缩进、每个有子节点的行可展开/收起（▼/▶），占用者 PID 主色高亮 +「占用者」角标，`pid==ppid` 标「根进程」；行点击不选中（纯展示）。
   - 单端口「杀掉」/「全部杀掉」均先弹 `DestructiveConfirmDialog`（端口、PID 数、后果），确认后执行，完成后**自动重扫该端口**刷新状态。
-  - 空态：无任何结果 → 「暂无结果」；隐藏空端口后全为空 → 「没有占用端口」；查询失败行以蓝色提示「port N: 错误信息」。
+  - 空态：无任何结果 → 「暂无结果」；隐藏空端口后全为空 → 「没有占用端口」；空闲本地端口显示 `noProcess`；查询失败行以蓝色提示「port N: 错误信息」。
   - 顶部错误 Alert 可一键关闭（X，`onClearError`）。
 
   - **查询失败行降级**：`detail.error` 时整行替换为蓝色提示（`port N: 错误信息`），**无进程树、无杀掉按钮、无指纹徽章**。
@@ -151,7 +151,7 @@
 ### 常见失败场景与行为
 
 - **查询失败**：`lsof` 运行失败 → `detail.error`（行内蓝色提示「port N: 错误信息」）、chip 状态 `error`；无进程 → 蓝色提示「No process found on this port」、chip 状态 `empty`（空闲）。
-- **整体错误**：Remote 未填 host → `remoteHostRequired` 顶部 Alert；非桌面端 → `desktopOnly`；单端口/全部杀掉命令失败 → `killOneFailed` / `killAllFailed`（带 fallback 消息），均可一键关闭。
+- **整体错误**：Remote 未填 host → `remoteHostRequired` 顶部 Alert；确认 Kill 前扫描结果变化 → `scanChanged` 顶部 Alert，并停止操作；非桌面端 → `desktopOnly`；单端口/全部杀掉命令失败 → `killOneFailed` / `killAllFailed`（带 fallback 消息），均可一键关闭。
 - **会话作废**：清空/切换 Local↔Remote 时 `scanSession` 递增，在途扫描结果作废（chip 转 `ended` 灰虚线），**迟到的扫描结果被丢弃**（不会让已删行复活）。
 - **并发/防重入**：`killing` 锁所有 Kill 与扫描入口按钮；扫描逐端口串行（非并行）；告警轮询定时器与高亮定时器在卸载时清理（`clearInterval`/`clearTimeout`）。
 - **告警降级**：系统通知权限被拒/环境不支持 → 静默忽略（catch 空），不打断轮询；首次轮询仅建 baseline 不发通知。

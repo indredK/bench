@@ -5,13 +5,93 @@
 //! **deny-by-default 网关**：`ext-` 前缀窗口只能调用注册表内的命令，
 //! 其余窗口（main / splashscreen）行为不变。
 //!
-//! 注册表语义：**允许暴露给 extension 空间的命令全集**。单个插件的
-//! `manifest.acl.commands` 必须是本表的子集（见 [manifest]）。
+//! 注册表语义：**允许暴露给 extension 空间的命令全集**。业务命令还必须列入
+//! 创建该窗口时验证的 `manifest.acl.commands`；能力发现和宿主诊断接口例外。
+
+use std::{
+    collections::{HashMap, HashSet},
+    sync::{Mutex, RwLock},
+};
 
 use tauri::{ipc::Invoke, Manager, Runtime};
 
 /// extension 窗口 label 前缀（`ext-<id>`）。
 pub const EXT_WINDOW_PREFIX: &str = "ext-";
+
+/// 经完整校验、当前已打开的插件窗口权限。
+///
+/// 按窗口 label 隔离，而不是按插件 id 临时读取磁盘 manifest：正在运行的
+/// WebView 必须继续使用创建该窗口时校验过的权限；权限状态缺失或锁中毒均拒绝。
+#[derive(Default)]
+pub struct ExtensionAclState {
+    grants: RwLock<HashMap<String, HashSet<String>>>,
+    transitions: Mutex<HashSet<String>>,
+}
+
+/// Exclusive lifecycle transition for one extension (open, update, disable, or uninstall).
+/// Serializing these operations prevents a newly opened WebView from racing a bundle swap.
+pub struct ExtensionTransitionGuard<'a> {
+    state: &'a ExtensionAclState,
+    extension_id: String,
+}
+
+impl ExtensionAclState {
+    /// 为即将创建的插件窗口登记已校验的 manifest 权限。
+    pub fn grant(&self, label: &str, commands: &[String]) -> bool {
+        let Ok(mut grants) = self.grants.write() else {
+            return false;
+        };
+        grants.insert(label.to_string(), commands.iter().cloned().collect());
+        true
+    }
+
+    /// 撤销已关闭、禁用或卸载的插件窗口权限。
+    pub fn revoke(&self, label: &str) {
+        if let Ok(mut grants) = self.grants.write() {
+            grants.remove(label);
+        }
+    }
+
+    /// Copy the current grant for rollback if a forced close fails before a bundle swap.
+    pub fn snapshot(&self, label: &str) -> Option<Vec<String>> {
+        self.grants
+            .read()
+            .ok()?
+            .get(label)
+            .map(|commands| commands.iter().cloned().collect())
+    }
+
+    /// Acquire an exclusive transition slot. Poisoning or a duplicate transition fails closed.
+    pub fn begin_transition(&self, extension_id: &str) -> Option<ExtensionTransitionGuard<'_>> {
+        let mut active = self.transitions.lock().ok()?;
+        if !active.insert(extension_id.to_string()) {
+            return None;
+        }
+        drop(active);
+        Some(ExtensionTransitionGuard {
+            state: self,
+            extension_id: extension_id.to_string(),
+        })
+    }
+
+    /// 窗口必须同时命中宿主白名单与 manifest 授权。
+    pub fn allows(&self, label: &str, command: &str) -> bool {
+        let Ok(grants) = self.grants.read() else {
+            return false;
+        };
+        grants
+            .get(label)
+            .is_some_and(|commands| command_allowed_for_manifest(commands, command))
+    }
+}
+
+impl Drop for ExtensionTransitionGuard<'_> {
+    fn drop(&mut self) {
+        if let Ok(mut active) = self.state.transitions.lock() {
+            active.remove(&self.extension_id);
+        }
+    }
+}
 
 /// 允许暴露给 extension 空间的命令全集（deny-by-default）。
 ///
@@ -116,6 +196,14 @@ pub fn is_command_allowed(command: &str) -> bool {
     EXTENSION_ALLOWED_COMMANDS.contains(&command)
 }
 
+/// 判断命令是否既在宿主能力面内，也由当前插件明确声明。
+/// `ext_capabilities` 是无副作用的能力面自助发现接口；`ext_poc_report` 是宿主
+/// 注入的诊断脚本使用的本地日志上报接口。两者不是插件业务能力，不要求重复声明。
+fn command_allowed_for_manifest(commands: &HashSet<String>, command: &str) -> bool {
+    is_command_allowed(command)
+        && (matches!(command, "ext_capabilities" | "ext_poc_report") || commands.contains(command))
+}
+
 /// 窗口是否属于 extension 空间。
 pub fn is_extension_window(label: &str) -> bool {
     label.starts_with(EXT_WINDOW_PREFIX)
@@ -124,7 +212,8 @@ pub fn is_extension_window(label: &str) -> bool {
 /// IPC 网关：包装 `generate_handler` 生成的核心 handler。
 ///
 /// - 非 extension 窗口：原样转发，行为与 P1 之前完全一致；
-/// - extension 窗口：命令在注册表内才转发，否则以 IPC 错误响应拒绝
+/// - extension 窗口：命令必须同时在宿主注册表及该窗口 manifest ACL 内；
+///   `ext_capabilities`（能力发现）与 `ext_poc_report`（宿主诊断上报）是基础接口例外。其它请求以 IPC 错误拒绝
 ///   （deny-by-default，拒绝信息进入插件页 console）并记 `acl_deny` 审计。
 pub fn guarded<R: Runtime>(invoke: Invoke<R>, inner: impl FnOnce(Invoke<R>) -> bool) -> bool {
     let label = invoke.message.webview().label().to_string();
@@ -132,12 +221,15 @@ pub fn guarded<R: Runtime>(invoke: Invoke<R>, inner: impl FnOnce(Invoke<R>) -> b
         return inner(invoke);
     }
     let command = invoke.message.command().to_string();
-    if is_command_allowed(&command) {
+    let webview = invoke.message.webview();
+    let app = webview.app_handle();
+    let allowed = app
+        .try_state::<ExtensionAclState>()
+        .is_some_and(|state| state.allows(&label, &command));
+    if allowed {
         inner(invoke)
     } else {
         // P3.3：越权命令记审计（best-effort，拒绝本身不受影响）。
-        let webview = invoke.message.webview();
-        let app = webview.app_handle();
         let extension_id = label
             .strip_prefix(EXT_WINDOW_PREFIX)
             .unwrap_or(&label)
@@ -170,6 +262,18 @@ mod tests {
         assert!(!is_extension_window("main"));
         assert!(!is_extension_window("splashscreen"));
         assert!(!is_extension_window("extension-center"));
+    }
+
+    #[test]
+    fn extension_transitions_are_exclusive_per_id_and_released_on_drop() {
+        let state = ExtensionAclState::default();
+        let first = state
+            .begin_transition("photo-triage")
+            .expect("first transition");
+        assert!(state.begin_transition("photo-triage").is_none());
+        assert!(state.begin_transition("terminology").is_some());
+        drop(first);
+        assert!(state.begin_transition("photo-triage").is_some());
     }
 
     #[test]
@@ -269,6 +373,41 @@ mod tests {
     }
 
     #[test]
+    fn manifest_acl_is_enforced_with_runtime_interface_exceptions() {
+        let no_permissions = HashSet::new();
+        assert!(!command_allowed_for_manifest(
+            &no_permissions,
+            "photo_triage_capabilities"
+        ));
+        assert!(command_allowed_for_manifest(
+            &no_permissions,
+            "ext_capabilities"
+        ));
+        assert!(command_allowed_for_manifest(
+            &no_permissions,
+            "ext_poc_report"
+        ));
+
+        let declared = HashSet::from(["photo_triage_capabilities".to_string()]);
+        assert!(command_allowed_for_manifest(
+            &declared,
+            "photo_triage_capabilities"
+        ));
+        assert!(!command_allowed_for_manifest(&declared, "cleanup_projects"));
+    }
+
+    #[test]
+    fn window_grants_are_isolated_and_revoked() {
+        let state = ExtensionAclState::default();
+        assert!(state.grant("ext-first", &["photo_triage_capabilities".to_string()]));
+        assert!(state.allows("ext-first", "photo_triage_capabilities"));
+        assert!(!state.allows("ext-second", "photo_triage_capabilities"));
+
+        state.revoke("ext-first");
+        assert!(!state.allows("ext-first", "photo_triage_capabilities"));
+    }
+
+    #[test]
     fn douyin_assets_commands_allowed() {
         for command in [
             "douyin_assets_get_capabilities",
@@ -279,7 +418,12 @@ mod tests {
             assert!(is_command_allowed(command));
         }
         // 越权面回归：桥接/账号控制面命令不得因新路由混入插件白名单。
-        for command in ["handle_browser_open", "proxy_login", "ext_market_commit"] {
+        for command in [
+            "handle_browser_open",
+            "proxy_login",
+            "ext_market_commit",
+            "ext_market_cancel",
+        ] {
             assert!(!is_command_allowed(command));
         }
     }

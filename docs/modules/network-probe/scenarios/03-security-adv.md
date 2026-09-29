@@ -58,36 +58,51 @@ Post-MVP-Adv
 
 ---
 
-## S-SEC-03 · 扫描自有 NAS 端口（含缺包安装）
+## S-SEC-03 · 扫描自有 NAS 端口（无 Nmap 降级）
 
 ### 背景
 
-用户只扫自家局域网 NAS（已授权），想看开放端口；本机无 nmap、未装 `adv-scanner`。
+用户只扫自家局域网 NAS（已授权），想看开放端口；本机无 Nmap，也没有可用 sidecar。
 
 ### 前置
 
 - 授权声明已确认
-- capabilities：`scanPorts = missing_pack`；`externalTools.nmap = not_found`
+- capabilities：`portScan = degraded`；`adv-scanner` 未安装；`externalTools.nmap = not_found`
 
 ### 步骤
 
-1. 「端口扫描」输入 NAS 的 RFC1918 地址与端口范围
-2. 出现 `PackInstallDialog`：用途/体积/版本/签名/Gatekeeper 提示
-3. 同意安装 → 后端按 manifest 下载校验（**前端不传 URL**）
-4. 安装后若仍无特权：以 TCP connect 降级跑通，并标注 `degraded`
-5. 有特权后可选 SYN 路径；中途取消
+1. 「端口扫描」输入 NAS 的 RFC1918 地址与最多 256 个端口
+2. 点击扫描直接走内置 TCP connect；不要求安装外部工具或能力包
+3. 结果标注 `tcp-connect` / `degraded`，列出状态、耗时和已知常见端口提示
+4. 可在独立「识别服务」动作中查看 S-SEC-03b 指纹流程；它需要本机 Nmap
 
 ### 期望
 
-- 大范围/公网目标需二次确认 + 速率硬顶
-- 安装成功刷新 capabilities；安装≠自动 root
+- 非内网目标或超过 64 个端口需二次确认；后端端口上限为 256
+- Nmap 缺失时 `portScan=degraded`；当前未接入端口扫描执行路径的 sidecar 不得被算作 supported，也不等于已提权
 - 结果无 Kill/进程树（边界：port-manager）
-- 命令日志含 `// missing_pack` → `installCapabilityPack` → `scanPorts`
+- 无 Nmap 时命令提示标明 `degraded: tcp connect`；不会隐式安装或提权
 
 ### 映射
 
-Pack：`adv-scanner`；可选本机 nmap fallback（另测：装 brew nmap 后应可 `found` 并增强）
 档位：Post-MVP-Adv
+
+---
+
+## S-SEC-03b · 服务 / OS 指纹（可选分支）
+
+1. `externalTools.nmap=found` 时，端口面板启用独立的「识别服务」；未检测到 Nmap 时禁用并给出本机安装提示，普通 TCP 扫描仍可使用。
+2. 输入单个 NAS 主机和 1–64 个 TCP 端口；点击后确认对话框准确显示主机、端口和 OS 估计选择。
+3. 默认不勾选 OS 估计。确认后低强度识别服务版本，不运行 NSE/漏洞脚本；用户选择 OS 估计时额外执行 `-O`。
+4. 查看服务名、产品/版本、探测置信度和有限风险类别。OS 匹配明确标为估计；权限不足不会提权，也不会丢弃已完成的服务结果。
+5. 扫描可取消；最多处理 64 个端口。CIDR、Nmap 地址范围、主机列表由后端拒绝。
+
+### 期望
+
+- 未安装 Nmap 时 capability 为 `fingerprint=unsupported`、`externalTools.nmap=not_found`，不把外部工具误报成缺失能力包。
+- 每次指纹探测都经过明确确认；服务探测低强度、OS 估计可选且不自动提权。
+- 风险标签只表示服务类别，不宣称存在漏洞；Nmap 非零退出、超时与取消按本地化状态呈现。
+- 服务和 OS 结果字段清理并限长，最多展示 3 个 OS 候选。
 
 ---
 

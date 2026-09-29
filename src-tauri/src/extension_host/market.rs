@@ -11,14 +11,17 @@
 //! 5. 安全解压到临时目录（P3.3 extraction，路径穿越/zip bomb/symlink 防御）
 //! 6. manifest v2 校验 + `id`/`version` 与请求绑定
 //! 7. engines 兼容
-//! 8. market 签名（canonical 文本 + trusted comment）
+//! 8. 按 registry 来源校验 market 签名（canonical 文本 + trusted comment）
 //! 9. 逐文件完整性（P3.1）
 //! 10. 版本单调性（`new <= installed` 拒绝）
 //! 11. 原子落位 → 审计 `install`
 
 use std::{
+    collections::HashSet,
     fs,
     path::{Path, PathBuf},
+    sync::{Mutex, OnceLock},
+    time::{Duration, SystemTime},
 };
 
 use serde::Serialize;
@@ -29,7 +32,7 @@ use crate::error::{AppError, AppResult};
 
 use super::{
     audit::{self, AuditEvent},
-    commands::{ext_list_installed, ExtensionSummary},
+    commands::{close_extension_window, ext_list_installed, ExtensionSummary},
     extraction::{self, ExtractLimits},
     integrity,
     manifest::{ExtensionDistribution, ExtensionManifest, EXT_DISABLED_MARKER, MANIFEST_FILE},
@@ -38,11 +41,168 @@ use super::{
     signature,
 };
 
+pub use super::records::ExtensionTrustSource as MarketTrustKind;
+
 /// 整包下载上限（与解压总体积上限一致；registry 声明的 size 另行精确校验）。
 const MAX_DOWNLOAD_BYTES: u64 = 256 * 1024 * 1024;
 
 /// 下载缓存目录名（`$APPDATA/extension-cache`）。
 const CACHE_DIR_NAME: &str = "extension-cache";
+/// 用户关闭安装确认或应用异常退出后，预览最多保留 24 小时。
+const MARKET_CACHE_TTL: Duration = Duration::from_secs(24 * 60 * 60);
+
+static ACTIVE_MARKET_OPERATIONS: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
+
+fn active_market_operations() -> &'static Mutex<HashSet<String>> {
+    ACTIVE_MARKET_OPERATIONS.get_or_init(|| Mutex::new(HashSet::new()))
+}
+
+/// 同一插件的准备、安装和取消不能并发修改共享预览目录或版本水位。
+#[derive(Debug)]
+struct MarketOperationGuard(String);
+
+impl MarketOperationGuard {
+    fn acquire(extension_id: &str) -> AppResult<Self> {
+        let mut active = active_market_operations()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        if !active.insert(extension_id.to_owned()) {
+            return Err(AppError::new(
+                "EXTENSION_MARKET_BUSY",
+                "another market operation for this extension is already in progress",
+            ));
+        }
+        Ok(Self(extension_id.to_owned()))
+    }
+}
+
+impl Drop for MarketOperationGuard {
+    fn drop(&mut self) {
+        active_market_operations()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .remove(&self.0);
+    }
+}
+
+/// 安装确认弹窗展示的实际信任依据。
+fn market_trust_kind(official_source: bool, dev_mode: bool) -> MarketTrustKind {
+    if official_source {
+        MarketTrustKind::OfficialRegistry
+    } else if dev_mode {
+        MarketTrustKind::DevelopmentUnverified
+    } else {
+        MarketTrustKind::ThirdPartySignature
+    }
+}
+
+fn stale_at(modified: SystemTime, now: SystemTime) -> bool {
+    now.duration_since(modified)
+        .is_ok_and(|age| age >= MARKET_CACHE_TTL)
+}
+
+/// 清理过期的安装预览与下载残留；只处理本模块专属目录中的旧缓存项。
+fn cache_entry_extension_id(name: &str) -> Option<&str> {
+    name.char_indices().find_map(|(index, character)| {
+        if character != '-' {
+            return None;
+        }
+        let extension_id = &name[..index];
+        let version = &name[index + 1..];
+        (super::manifest::is_valid_extension_id(extension_id)
+            && super::manifest::is_valid_semver(version))
+        .then_some(extension_id)
+    })
+}
+
+fn cleanup_stale_market_cache_at(
+    cache_root: &Path,
+    now: SystemTime,
+    active_extensions: &HashSet<String>,
+) -> std::io::Result<usize> {
+    let mut removed = 0;
+    let preview_root = cache_root.join("preview");
+    match fs::read_dir(&preview_root) {
+        Ok(entries) => {
+            for entry in entries {
+                let entry = entry?;
+                let file_type = entry.file_type()?;
+                let name = entry.file_name();
+                let name = name.to_string_lossy();
+                let active = cache_entry_extension_id(&name)
+                    .is_some_and(|extension_id| active_extensions.contains(extension_id));
+                if file_type.is_dir()
+                    && !active
+                    && entry
+                        .metadata()?
+                        .modified()
+                        .is_ok_and(|modified| stale_at(modified, now))
+                {
+                    fs::remove_dir_all(entry.path())?;
+                    removed += 1;
+                }
+            }
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error),
+    }
+
+    match fs::read_dir(cache_root) {
+        Ok(entries) => {
+            for entry in entries {
+                let entry = entry?;
+                let file_type = entry.file_type()?;
+                let name = entry.file_name();
+                let name = name.to_string_lossy();
+                let name = name.strip_suffix(".zip").unwrap_or(&name);
+                let active = cache_entry_extension_id(name)
+                    .is_some_and(|extension_id| active_extensions.contains(extension_id));
+                if file_type.is_file()
+                    && !active
+                    && entry
+                        .path()
+                        .extension()
+                        .is_some_and(|extension| extension == "zip")
+                    && entry
+                        .metadata()?
+                        .modified()
+                        .is_ok_and(|modified| stale_at(modified, now))
+                {
+                    fs::remove_file(entry.path())?;
+                    removed += 1;
+                }
+            }
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error),
+    }
+    Ok(removed)
+}
+
+/// 启动时回收崩溃或取消安装留下的过期缓存。清理失败不阻断 Bench 启动。
+pub fn cleanup_stale_market_cache<R: Runtime>(app: &AppHandle<R>) {
+    let cache_root = match app
+        .path()
+        .app_data_dir()
+        .map(|dir| dir.join(CACHE_DIR_NAME))
+    {
+        Ok(path) => path,
+        Err(error) => {
+            eprintln!("[extension_host] resolve market cache failed: {error}");
+            return;
+        }
+    };
+    let active_extensions = active_market_operations()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    match cleanup_stale_market_cache_at(&cache_root, SystemTime::now(), &active_extensions) {
+        Ok(removed) if removed > 0 => {
+            eprintln!("[extension_host] removed {removed} stale market cache entries");
+        }
+        Ok(_) => {}
+        Err(error) => eprintln!("[extension_host] market cache cleanup failed: {error}"),
+    }
+}
 
 /// market 列表（返回给插件中心；**不含下载 URL** —— renderer 不得提交地址）。
 #[derive(Debug, Clone, Serialize)]
@@ -74,12 +234,52 @@ pub struct MarketVersionDto {
     pub size: u64,
     pub published_at: Option<String>,
     pub yanked: bool,
+    /// 命中 registry 吊销规则时的原因；未命中为 `None`。
+    pub revoked_reason: Option<String>,
     /// 宿主版本是否满足 engines（不满足禁止安装）。
     pub compatible: bool,
     /// 已安装（版本完全一致）。
     pub installed: bool,
     /// 已装版本低于该版本（可升级）。
     pub update_available: bool,
+    /// 后端已综合兼容性、吊销、yanked 与版本单调性判定可安装。
+    pub installable: bool,
+}
+
+fn market_version_dto(
+    doc: &RegistryDoc,
+    extension_id: &str,
+    version: &RegistryVersion,
+    installed_version: Option<&str>,
+    host_version: &str,
+) -> MarketVersionDto {
+    let compatible = ManifestEnginesProbe {
+        bench: version.engines.bench.clone(),
+    }
+    .satisfies(host_version);
+    let installed = installed_version == Some(version.version.as_str());
+    let revoked_reason = registry::revoke_hit(doc, extension_id, &version.version);
+    let newer_than_installed = installed_version.is_some_and(|current| {
+        version.version != current && super::manifest::semver_at_least(&version.version, current)
+    });
+    let installable = !version.yanked
+        && revoked_reason.is_none()
+        && compatible
+        && !installed
+        && (installed_version.is_none() || newer_than_installed);
+
+    MarketVersionDto {
+        version: version.version.clone(),
+        engines_bench: version.engines.bench.clone(),
+        size: version.size,
+        published_at: version.published_at.clone(),
+        yanked: version.yanked,
+        revoked_reason,
+        compatible,
+        installed,
+        update_available: installed_version.is_some() && installable,
+        installable,
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -93,26 +293,27 @@ pub struct RevokedHitDto {
 /// 拉取 registry 目录（async 命令；reqwest rustls）。
 async fn fetch_registry() -> AppResult<RegistryDoc> {
     let base = registry::registry_base_url()?;
-    let url = registry::registry_index_url(&base);
+    let url = registry::registry_index_url(&base)?;
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
+        .redirect(registry::public_https_redirect_policy())
         .build()
-        .map_err(|e| AppError::internal(format!("build http client: {e}")))?;
+        .map_err(|e| AppError::internal(format!("build http client: {}", e.without_url())))?;
     let response = client
         .get(&url)
         .send()
         .await
-        .map_err(|e| AppError::internal(format!("fetch registry {url}: {e}")))?;
+        .map_err(|e| AppError::internal(format!("fetch registry: {}", e.without_url())))?;
     if !response.status().is_success() {
         return Err(AppError::internal(format!(
-            "fetch registry {url}: HTTP {}",
+            "fetch registry: HTTP {}",
             response.status()
         )));
     }
     let text = response
         .text()
         .await
-        .map_err(|e| AppError::internal(format!("read registry body: {e}")))?;
+        .map_err(|e| AppError::internal(format!("read registry body: {}", e.without_url())))?;
     let doc: RegistryDoc = serde_json::from_str(&text)
         .map_err(|e| AppError::invalid_input(format!("registry JSON invalid: {e}")))?;
     registry::validate_registry_doc(&doc)?;
@@ -125,7 +326,7 @@ pub async fn ext_market_list(app: AppHandle) -> AppResult<MarketListing> {
     let doc = fetch_registry().await?;
 
     // 吊销通道（spec §5.3）：强制禁用 + 警示信息回传。
-    let installed = ext_list_installed(app.clone()).unwrap_or_default();
+    let installed = ext_list_installed(app.clone())?;
     let mut revoked_hits = Vec::new();
     for summary in &installed {
         if let Some(reason) = registry::revoke_hit(&doc, &summary.id, &summary.version) {
@@ -148,7 +349,7 @@ pub async fn ext_market_list(app: AppHandle) -> AppResult<MarketListing> {
         }
     }
     // 吊销后重读安装状态（禁用状态可能已变化）。
-    let installed = ext_list_installed(app.clone()).unwrap_or_default();
+    let installed = ext_list_installed(app.clone())?;
     let installed_by_id: std::collections::BTreeMap<String, &ExtensionSummary> =
         installed.iter().map(|s| (s.id.clone(), s)).collect();
     let host_version = app.package_info().version.to_string();
@@ -160,26 +361,13 @@ pub async fn ext_market_list(app: AppHandle) -> AppResult<MarketListing> {
             .versions
             .iter()
             .map(|version| {
-                let manifest_like = ManifestEnginesProbe {
-                    bench: version.engines.bench.clone(),
-                };
-                let compatible = manifest_like.satisfies(&host_version);
-                let installed = installed_version
-                    .as_deref()
-                    .is_some_and(|v| v == version.version);
-                let update_available = installed_version.as_deref().is_some_and(|v| {
-                    super::manifest::semver_at_least(&version.version, v) && v != version.version
-                });
-                MarketVersionDto {
-                    version: version.version.clone(),
-                    engines_bench: version.engines.bench.clone(),
-                    size: version.size,
-                    published_at: version.published_at.clone(),
-                    yanked: version.yanked,
-                    compatible,
-                    installed,
-                    update_available,
-                }
+                market_version_dto(
+                    &doc,
+                    &entry.id,
+                    version,
+                    installed_version.as_deref(),
+                    &host_version,
+                )
             })
             .collect();
         extensions.push(MarketExtensionDto {
@@ -247,10 +435,14 @@ fn cache_dir<R: Runtime>(app: &AppHandle<R>) -> AppResult<PathBuf> {
 pub struct MarketInstallPreview {
     pub id: String,
     pub version: String,
+    /// 已通过 manifest 与 registry 双重校验的 Bench 版本约束。
+    pub engines_bench: String,
     pub display_en: String,
     pub display_zh: Option<String>,
     pub publisher_name: Option<String>,
     pub size_bytes: u64,
+    /// 安装前校验依据；用于避免把官方 registry 的摘要校验误称为签名校验。
+    pub trust_kind: MarketTrustKind,
     /// 产物 manifest 申请的宿主命令（ACL 披露）。
     pub acl_commands: Vec<String>,
 }
@@ -291,6 +483,8 @@ pub async fn ext_market_prepare(
             "invalid extension version `{version}`"
         )));
     }
+    let _operation = MarketOperationGuard::acquire(&extension_id)?;
+    cleanup_stale_market_cache(&app);
     // 步骤 1-2：拉目录并解析条目（yanked 拒绝）。
     let doc = fetch_registry().await?;
     let entry: &RegistryEntry = doc
@@ -323,10 +517,9 @@ pub async fn ext_market_prepare(
         ));
     }
     if registry::validate_download_url(&version_entry.download_url).is_err() {
-        return Err(AppError::forbidden_path(format!(
-            "registry download url rejected: {}",
-            version_entry.download_url
-        )));
+        return Err(AppError::forbidden_path(
+            "registry download URL is not an allowed HTTPS URL",
+        ));
     }
     // registry 声明的 engines 预检（与产物 manifest 双重校验）。
     let host_version = app.package_info().version.to_string();
@@ -351,19 +544,17 @@ pub async fn ext_market_prepare(
         // 步骤 3：下载（content-length 预检 + 流式上限）。
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(300))
+            .redirect(registry::public_https_redirect_policy())
             .build()
-            .map_err(|e| AppError::internal(format!("build http client: {e}")))?;
+            .map_err(|e| AppError::internal(format!("build http client: {}", e.without_url())))?;
         let mut response = client
             .get(&version_entry.download_url)
             .send()
             .await
-            .map_err(|e| {
-                AppError::internal(format!("download {}: {e}", version_entry.download_url))
-            })?;
+            .map_err(|e| AppError::internal(format!("download package: {}", e.without_url())))?;
         if !response.status().is_success() {
             return Err(AppError::internal(format!(
-                "download {}: HTTP {}",
-                version_entry.download_url,
+                "download package: HTTP {}",
                 response.status()
             )));
         }
@@ -381,7 +572,7 @@ pub async fn ext_market_prepare(
         while let Some(chunk) = response
             .chunk()
             .await
-            .map_err(|e| AppError::internal(format!("read download chunk: {e}")))?
+            .map_err(|e| AppError::internal(format!("read download chunk: {}", e.without_url())))?
         {
             downloaded += chunk.len() as u64;
             if downloaded > MAX_DOWNLOAD_BYTES {
@@ -397,6 +588,7 @@ pub async fn ext_market_prepare(
 
         // 步骤 4-9：整包校验 → 解压 → manifest/签名/完整性（可测核心）。
         let official_source = registry::is_official_registry(&registry::registry_base_url()?);
+        let trust_kind = market_trust_kind(official_source, signature::dev_mode_enabled());
         let manifest = verify_staged_package(
             &zip_path,
             &staging_dir,
@@ -407,20 +599,22 @@ pub async fn ext_market_prepare(
             None,
             official_source,
         )?;
-        Ok(manifest)
+        Ok((manifest, trust_kind))
     }
     .await;
 
     // 收尾：清理（成功时 zip 可删；失败时预览目录一并清理）。
     let _ = fs::remove_file(&zip_path);
     match prepared {
-        Ok(manifest) => Ok(MarketInstallPreview {
+        Ok((manifest, trust_kind)) => Ok(MarketInstallPreview {
             id: manifest.id.clone(),
             version: manifest.version.clone(),
+            engines_bench: manifest.engines.bench.clone(),
             display_en: manifest.display_name("en").to_string(),
             display_zh: manifest.display.zh.clone(),
             publisher_name: entry.publisher.as_ref().map(|p| p.name.clone()),
             size_bytes: version_entry.size,
+            trust_kind,
             acl_commands: manifest.acl.commands.clone(),
         }),
         Err(error) => {
@@ -455,6 +649,14 @@ pub async fn ext_market_commit(
             "invalid extension version `{version}`"
         )));
     }
+    let _operation = MarketOperationGuard::acquire(&extension_id)?;
+    let acl_state = app.state::<super::acl::ExtensionAclState>();
+    let _transition = acl_state.begin_transition(&extension_id).ok_or_else(|| {
+        AppError::new(
+            "EXTENSION_BUSY",
+            "another lifecycle operation for this extension is already in progress",
+        )
+    })?;
     let staging_dir = preview_dir(&app, &extension_id, &version)?;
     let result = async {
         let manifest_path = staging_dir.join(MANIFEST_FILE);
@@ -471,6 +673,11 @@ pub async fn ext_market_commit(
                 "staged manifest does not match the requested install",
             ));
         }
+        if manifest.distribution != ExtensionDistribution::Market {
+            return Err(AppError::forbidden_path(
+                "staged registry package must keep distribution `market`",
+            ));
+        }
         let host_version = app.package_info().version.to_string();
         if !manifest.satisfies_engines(&host_version) {
             return Err(AppError::unsupported(format!(
@@ -478,6 +685,16 @@ pub async fn ext_market_commit(
                 manifest.id, manifest.engines.bench
             )));
         }
+        // 用户确认与提交之间重新校验签名，防止 staging 内容在确认后被替换。
+        // 官方 registry 的包由 registry 整包摘要信任；第三方源仍 fail-closed。
+        let official_source = registry::is_official_registry(&registry::registry_base_url()?);
+        let trust_kind = market_trust_kind(official_source, signature::dev_mode_enabled());
+        verify_manifest_signature_for_source(
+            &manifest,
+            &manifest_text,
+            None,
+            trust_kind == MarketTrustKind::OfficialRegistry,
+        )?;
         integrity::verify_bundle_integrity(&staging_dir, &manifest)?;
         records::check_version_monotonic(&app, &manifest.id, &manifest.version)?;
 
@@ -489,8 +706,14 @@ pub async fn ext_market_commit(
             .map(Path::to_path_buf)
             .ok_or_else(|| AppError::internal("resolve extensions root failed"))?;
         let final_dir = extensions_root.join(&extension_id);
-        extraction::promote_staged_bundle(&staging_dir, &final_dir)?;
-        records::record_verified_version(&app, &manifest.id, &manifest.version)?;
+        let registry_is_official = registry::is_official_registry(&registry::registry_base_url()?);
+        let trust_kind = market_trust_kind(registry_is_official, signature::dev_mode_enabled());
+        // Updating an active bundle must not leave its old WebView using a stale manifest ACL.
+        // The shared transition guard blocks ext_open until the new bundle is committed.
+        close_extension_window(&app, &extension_id)?;
+        extraction::promote_staged_bundle_with(&staging_dir, &final_dir, || {
+            records::record_market_install(&app, &manifest.id, &manifest.version, trust_kind)
+        })?;
         audit::record(
             &app,
             AuditEvent::Install,
@@ -513,6 +736,32 @@ pub async fn ext_market_commit(
             Some(&error.message),
         );
         return Err(error);
+    }
+    Ok(())
+}
+
+/// 用户取消信任确认时立即清理准备目录和 zip 缓存。
+#[tauri::command]
+pub fn ext_market_cancel(app: AppHandle, extension_id: String, version: String) -> AppResult<()> {
+    if !super::manifest::is_valid_extension_id(&extension_id)
+        || !super::manifest::is_valid_semver(&version)
+    {
+        return Err(AppError::invalid_input(
+            "invalid extension id or version for cancel",
+        ));
+    }
+    let _operation = MarketOperationGuard::acquire(&extension_id)?;
+    let staging_dir = preview_dir(&app, &extension_id, &version)?;
+    match fs::remove_dir_all(&staging_dir) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(AppError::io(format!("remove install preview: {error}"))),
+    }
+    let zip_path = cache_dir(&app)?.join(format!("{extension_id}-{version}.zip"));
+    match fs::remove_file(&zip_path) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(AppError::io(format!("remove cached package: {error}"))),
     }
     Ok(())
 }
@@ -555,7 +804,7 @@ pub fn ext_diagnostics(app: AppHandle) -> AppResult<ExtensionDiagnostics> {
 /// 5. 安全解压到 `staging_dir`（必须为空或不存在）；
 /// 6. manifest v2 校验 + `id`/`version` 与请求绑定 + distribution=market；
 /// 7. engines 兼容；
-/// 8. market 签名（canonical 文本 + trusted comment）；
+/// 8. 按来源校验 market 签名（canonical 文本 + trusted comment）；
 /// 9. 逐文件完整性。
 ///
 /// 返回解析后的 manifest（供调用方做水位记录）。
@@ -619,21 +868,32 @@ fn verify_staged_package(
     }
 
     // 步骤 8：签名（canonical 文本 + trusted comment）。
-    let canonical = signature::canonical_manifest_text(&manifest_text)?;
-    match pubkey_override {
-        // 测试 / selfhost 注入公钥路径。
-        Some(pubkey) => {
-            signature::verify_signature_with(&manifest, &canonical, Some(pubkey), false)?
-        }
-        // 官方默认源（P5）：registry.json 由官方 org 托管（https + sha256 + files
-        // 清单双通道完整性），官方条目免 minisign；第三方 registry 一律强制验签。
-        None if official_source => {}
-        None => signature::verify_distribution_signature(&manifest, &canonical)?,
-    }
+    verify_manifest_signature_for_source(
+        &manifest,
+        &manifest_text,
+        pubkey_override,
+        official_source,
+    )?;
 
     // 步骤 9：逐文件完整性。
     integrity::verify_bundle_integrity(staging_dir, &manifest)?;
     Ok(manifest)
+}
+
+fn verify_manifest_signature_for_source(
+    manifest: &ExtensionManifest,
+    manifest_text: &str,
+    pubkey_override: Option<&str>,
+    official_source: bool,
+) -> AppResult<()> {
+    let canonical = signature::canonical_manifest_text(manifest_text)?;
+    match pubkey_override {
+        // 测试 / selfhost 注入公钥路径。
+        Some(pubkey) => signature::verify_signature_with(manifest, &canonical, Some(pubkey), false),
+        // 官方 registry 包由 registry 的 HTTPS 条目摘要及包内 files 清单校验。
+        None if official_source => Ok(()),
+        None => signature::verify_distribution_signature(manifest, &canonical),
+    }
 }
 
 /// 流式计算文件 sha256 + 大小（与 integrity 模块一致的 hex 规则）。
@@ -688,6 +948,22 @@ mod tests {
   "signature": "untrusted comment: bench test sig\nRUQBAgMEBQYHCEBrRau//nbRO+afsKe966zXO5HvL25WTHSyPlEDVa9Xh2sPHyu0JPVvKeOG7jwpaSFImZHcUbJ8aRSauSXTvAo=\ntrusted comment: fake-ext@1.0.0\nIMRjs1pxhOrlYHZUrCJk+Ou6htk77gEwX66NzVZvR2RpyPQ/9VI8QCJ/8bET4l9qOprMMfeW2xDOHmI+9hCbCg==\n"
 }"#;
 
+    /// 官方 registry 包可免插件级 minisign；仍须先匹配 registry 整包摘要，
+    /// 再验证包内逐文件清单。
+    const OFFICIAL_UNSIGNED_MANIFEST: &str = r#"{
+  "id": "fake-ext",
+  "version": "1.0.0",
+  "schemaVersion": 2,
+  "display": { "en": "Fake Ext" },
+  "distribution": "market",
+  "entry": { "index": "index.html" },
+  "acl": { "commands": [] },
+  "engines": { "bench": "*" },
+  "files": [
+    { "path": "index.html", "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08", "size": 4 }
+  ]
+}"#;
+
     static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
     fn temp_root(tag: &str) -> PathBuf {
@@ -703,6 +979,14 @@ mod tests {
 
     /// 组装插件 zip（manifest + index.html 内容可变，便于构造篡改用例）。
     fn build_zip(tag: &str, index_html: &[u8]) -> (PathBuf, String, u64) {
+        build_zip_with_manifest(tag, index_html, PIPELINE_MANIFEST)
+    }
+
+    fn build_zip_with_manifest(
+        tag: &str,
+        index_html: &[u8],
+        manifest_text: &str,
+    ) -> (PathBuf, String, u64) {
         let root = temp_root(tag);
         let zip_path = root.join("plugin.zip");
         {
@@ -712,7 +996,7 @@ mod tests {
                 .start_file("manifest.json", zip::write::SimpleFileOptions::default())
                 .expect("start manifest");
             writer
-                .write_all(PIPELINE_MANIFEST.as_bytes())
+                .write_all(manifest_text.as_bytes())
                 .expect("write manifest");
             writer
                 .start_file("index.html", zip::write::SimpleFileOptions::default())
@@ -734,6 +1018,209 @@ mod tests {
             published_at: None,
             yanked: false,
         }
+    }
+
+    #[test]
+    fn market_trust_kind_matches_the_verification_mode() {
+        assert_eq!(
+            market_trust_kind(true, false),
+            MarketTrustKind::OfficialRegistry
+        );
+        assert_eq!(
+            market_trust_kind(false, false),
+            MarketTrustKind::ThirdPartySignature
+        );
+        assert_eq!(
+            market_trust_kind(false, true),
+            MarketTrustKind::DevelopmentUnverified
+        );
+    }
+
+    #[test]
+    fn market_version_eligibility_excludes_revoked_incompatible_yanked_and_downgrades() {
+        let doc: RegistryDoc =
+            serde_json::from_str(include_str!("fixtures/revoked-market/registry.json"))
+                .expect("parse revocation fixture");
+        let entry = doc
+            .extensions
+            .iter()
+            .find(|entry| entry.id == "revocation-demo")
+            .expect("fixture extension");
+        let revoked = entry
+            .versions
+            .iter()
+            .find(|version| version.version == "1.2.0")
+            .expect("revoked version");
+        let revoked_dto = market_version_dto(&doc, &entry.id, revoked, None, "1.40.0");
+        assert_eq!(
+            revoked_dto.revoked_reason.as_deref(),
+            Some("Physical QA: revoked version must not appear installable.")
+        );
+        assert!(!revoked_dto.installable);
+
+        let safe = entry
+            .versions
+            .iter()
+            .find(|version| version.version == "1.1.0")
+            .expect("safe version");
+        let safe_dto = market_version_dto(&doc, &entry.id, safe, None, "1.40.0");
+        assert_eq!(safe_dto.revoked_reason, None);
+        assert!(safe_dto.installable);
+
+        let safe_update = market_version_dto(&doc, &entry.id, safe, Some("1.0.0"), "1.40.0");
+        assert!(safe_update.installable);
+        assert!(safe_update.update_available);
+
+        let downgrade = RegistryVersion {
+            version: "1.0.0".into(),
+            ..safe.clone()
+        };
+        assert!(
+            !market_version_dto(&doc, &entry.id, &downgrade, Some("2.0.0"), "1.40.0").installable
+        );
+
+        let incompatible = RegistryVersion {
+            engines: super::super::registry::RegistryEngines {
+                bench: ">=99.0.0".into(),
+            },
+            ..safe.clone()
+        };
+        assert!(!market_version_dto(&doc, &entry.id, &incompatible, None, "1.40.0").installable);
+
+        let yanked = RegistryVersion {
+            yanked: true,
+            ..safe.clone()
+        };
+        assert!(!market_version_dto(&doc, &entry.id, &yanked, None, "1.40.0").installable);
+    }
+
+    #[test]
+    fn market_operations_for_the_same_extension_are_serialized() {
+        let first = MarketOperationGuard::acquire("fake-ext").expect("first operation");
+        let second = MarketOperationGuard::acquire("fake-ext").expect_err("duplicate operation");
+        assert_eq!(second.code, "EXTENSION_MARKET_BUSY");
+        drop(first);
+        MarketOperationGuard::acquire("fake-ext").expect("operation can retry after completion");
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn stale_market_cache_cleanup_removes_old_previews_and_zip_files_only() {
+        let root = temp_root("cache-cleanup");
+        let preview_root = root.join("preview");
+        let stale_preview = preview_root.join("fake-ext-1.0.0");
+        fs::create_dir_all(&stale_preview).expect("create stale preview");
+        fs::write(stale_preview.join("index.html"), b"cached").expect("write preview");
+        let keep_file = root.join("keep.txt");
+        fs::write(&keep_file, b"keep").expect("write unrelated file");
+        let stale_zip = root.join("fake-ext-1.0.0.zip");
+        fs::write(&stale_zip, b"cached zip").expect("write zip");
+
+        let now = SystemTime::now();
+        let stale_time = now - MARKET_CACHE_TTL - Duration::from_secs(1);
+        fs::File::open(&stale_preview)
+            .expect("open preview directory")
+            .set_times(fs::FileTimes::new().set_modified(stale_time))
+            .expect("age preview directory");
+        fs::File::open(&stale_zip)
+            .expect("open zip")
+            .set_times(fs::FileTimes::new().set_modified(stale_time))
+            .expect("age zip");
+
+        let active = HashSet::from(["active-ext".to_owned()]);
+        let active_preview = preview_root.join("active-ext-1.0.0");
+        fs::create_dir_all(&active_preview).expect("create active preview");
+        fs::write(active_preview.join("index.html"), b"still in use")
+            .expect("write active preview");
+        let active_zip = root.join("active-ext-1.0.0.zip");
+        fs::write(&active_zip, b"still in use").expect("write active zip");
+        fs::File::open(&active_preview)
+            .expect("open active preview directory")
+            .set_times(fs::FileTimes::new().set_modified(stale_time))
+            .expect("age active preview directory");
+        fs::File::open(&active_zip)
+            .expect("open active zip")
+            .set_times(fs::FileTimes::new().set_modified(stale_time))
+            .expect("age active zip");
+
+        let removed =
+            cleanup_stale_market_cache_at(&root, now, &active).expect("cleanup stale cache");
+        assert_eq!(removed, 2);
+        assert!(!stale_preview.exists());
+        assert!(!stale_zip.exists());
+        assert!(active_preview.exists(), "active preview must be preserved");
+        assert!(active_zip.exists(), "active download must be preserved");
+        assert!(
+            keep_file.exists(),
+            "unrelated cache files must be preserved"
+        );
+        fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn stale_market_cache_cleanup_removes_old_zip_files_cross_platform() {
+        let root = temp_root("cache-zip-cleanup");
+        fs::create_dir_all(&root).expect("create cache root");
+        let stale_zip = root.join("fake-ext-1.0.0.zip");
+        let active_zip = root.join("active-ext-1.0.0.zip");
+        let keep_file = root.join("keep.txt");
+        fs::write(&stale_zip, b"stale").expect("write stale zip");
+        fs::write(&active_zip, b"active").expect("write active zip");
+        fs::write(&keep_file, b"keep").expect("write unrelated file");
+
+        let now = SystemTime::now();
+        let stale_time = now - MARKET_CACHE_TTL - Duration::from_secs(1);
+        fs::OpenOptions::new()
+            .write(true)
+            .open(&stale_zip)
+            .expect("open stale zip")
+            .set_times(fs::FileTimes::new().set_modified(stale_time))
+            .expect("age stale zip");
+        fs::OpenOptions::new()
+            .write(true)
+            .open(&active_zip)
+            .expect("open active zip")
+            .set_times(fs::FileTimes::new().set_modified(stale_time))
+            .expect("age active zip");
+
+        let active = HashSet::from(["active-ext".to_owned()]);
+        let removed =
+            cleanup_stale_market_cache_at(&root, now, &active).expect("cleanup stale cache");
+        assert_eq!(removed, 1);
+        assert!(!stale_zip.exists());
+        assert!(active_zip.exists());
+        assert!(keep_file.exists());
+        fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn pipeline_accepts_unsigned_official_package_with_integrity_checks() {
+        let (zip_path, hash, size) =
+            build_zip_with_manifest("official-unsigned", b"test", OFFICIAL_UNSIGNED_MANIFEST);
+        let entry = registry_version(&hash, size);
+        let staging = temp_root("official-unsigned").join("staging");
+        let manifest = verify_staged_package(
+            &zip_path, &staging, "fake-ext", "1.0.0", &entry, "1.30.0", None, true,
+        )
+        .expect("official registry package passes registry and per-file integrity checks");
+        assert!(manifest.signature.is_none());
+        assert!(staging.join("index.html").is_file());
+        fs::remove_dir_all(zip_path.parent().unwrap()).ok();
+    }
+
+    #[test]
+    fn pipeline_rejects_unsigned_third_party_package() {
+        let (zip_path, hash, size) =
+            build_zip_with_manifest("third-party-unsigned", b"test", OFFICIAL_UNSIGNED_MANIFEST);
+        let entry = registry_version(&hash, size);
+        let staging = temp_root("third-party-unsigned").join("staging");
+        let err = verify_staged_package(
+            &zip_path, &staging, "fake-ext", "1.0.0", &entry, "1.30.0", None, false,
+        )
+        .unwrap_err();
+        assert_eq!(err.code, "FORBIDDEN_PATH");
+        assert!(err.message.contains("missing a manifest signature"));
+        fs::remove_dir_all(zip_path.parent().unwrap()).ok();
     }
 
     #[test]

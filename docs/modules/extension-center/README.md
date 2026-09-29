@@ -1,31 +1,20 @@
 # Extension Center（插件中心）
 
-> 阶段：P2 骨架（[D-024](../../explanation/decisions.md#d-024--extension-仓库组织与-photo-triage-试点拆法)）。
-> 架构边界与工作流见 [extension-workflow.md](../../explanation/extension-workflow.md)；**执行顺序与状态唯一清单见 [roadmap.md](./roadmap.md)**。
+> 插件中心的市场闭环（P4）已实现；P4.5 模板、SDK、脚手架、打包工具和作者指南已交付，新开发者 30 分钟验收仍待完成。**执行顺序与状态唯一清单见 [roadmap.md](./roadmap.md)**。
+> 架构边界与作者工作流见 [extension-workflow.md](../../explanation/extension-workflow.md)。
 
-## 定位
+## 定位与当前能力
 
-- 浏览/管理已安装 extension（bundled / market，P2 仅 bundled）；
-- 打开/启用/禁用插件；market 下载、签名校验、能力矩阵为 P3+；
-- 本 feature 是**宿主前端**的一部分（插件中心本身不是插件）。
-
-## 架构边界
-
-- 前端：`src/features/extension-center/`（page + controller + store）；
-- 后端：`src-tauri/src/extension_host/`（manifest schema v1 / ACL 注册表 / IPC 网关 / asset provider）；
-- 契约：`ext_list_installed` / `ext_open` / `ext_set_enabled`（contracts.ts 三张表已双写）；
-- 插件产物：`extensions/<id>/`（仓库）→ `scripts/plugins/sync-extensions.mjs` → `$APPDATA/extensions/<id>/`（运行时）。
-
-## 安全模型（D-024）
-
-- 插件窗口 label 固定 `ext-<id>`，capability 仅 `core:default`；
-- **自定命令 deny-by-default 网关**：`ext-` 窗口只能调用 `extension_host::acl::EXTENSION_ALLOWED_COMMANDS` 注册表内的命令（photo-triage 15 条 + ext 自身）；
-- manifest fail-closed：schema 版本不匹配、id/version/entry 非法、ACL 越权一律拒绝加载。
+- 宿主前端的一部分，本身不是插件；用于管理已安装的 bundled / market 插件。
+- 已安装页支持打开、启用/禁用、卸载确认、不兼容提示与刷新。
+- 市场页从宿主配置的 registry 读取版本，支持安装/更新前的权限披露、兼容性与下架状态提示。
+- 诊断页显示最近的插件审计记录和运行时错误；跨端接入页展示宿主能力状态。
+- 作者 SDK 是模板仓工作区包，未单独发布到 npm；P4.5 新手验收与完整市场生命周期验收见 [roadmap.md](./roadmap.md)。
 
 ## 关联文档
 
-- [roadmap.md](./roadmap.md) — 执行状态与顺序唯一清单（含行业依据与技术铁律附录）
-- [../../extension-spec.md](../../reference/extension-spec.md) — **契约唯一规格**：manifest / 签名 / registry / 产物格式 / ACL / 运行时接口
-- [../../extension-workflow.md](../../explanation/extension-workflow.md) — 架构边界、仓库组织、作者侧与宿主侧工作流
-- [../../product-specs/extension-center.md](../../reference/product-specs/extension-center.md) — 插件中心功能规格
-- [../../planned/extension-center.md](../../roadmap/planned/extension-center.md) — 插件中心未完成项
+- [roadmap.md](./roadmap.md) — 执行状态与验收顺序
+- [extension-spec.md](../../reference/extension-spec.md) — manifest、签名、registry、产物格式与 ACL 契约
+- [extension-workflow.md](../../explanation/extension-workflow.md) — 仓库组织、作者侧与宿主侧工作流
+- [产品规格](../../reference/product-specs/extension-center.md)
+- [未完成项](../../roadmap/planned/extension-center.md)

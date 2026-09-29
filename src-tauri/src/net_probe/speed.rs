@@ -60,7 +60,8 @@ pub async fn run_speed_test<R: Runtime>(
         .find(|s| s.id == source_id)
         .ok_or_else(|| AppError::invalid_input(format!("Unknown speed source: {source_id}")))?;
 
-    let session_id = super::session::new_session_id();
+    let session_guard = super::session::SessionGuard::new();
+    let session_id = session_guard.id().to_string();
     if let Some(app) = app {
         let _ = app.emit(
             SCAN_SESSION_EVENT,

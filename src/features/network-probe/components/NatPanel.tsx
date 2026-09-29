@@ -1,5 +1,5 @@
 /**
- * Feature UI / 功能界面: NAT type via STUN.
+ * Feature UI / 功能界面: STUN mapped-address comparison.
  */
 import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
@@ -17,6 +17,16 @@ interface NatPanelProps {
 
 export function NatPanel({ loading, result, toolEnabled, toolStatus, onRun }: NatPanelProps) {
   const { t } = useTranslation()
+  const resultLabel = result
+    ? result.natType === "mapping-consistent"
+      ? t("networkProbe.nat.mappingConsistent")
+      : result.natType === "mapping-varies"
+        ? t("networkProbe.nat.mappingVaries")
+        : result.natType === "mapping-insufficient"
+          ? t("networkProbe.nat.mappingInsufficient")
+          : t("networkProbe.nat.unavailable")
+    : null
+
   return (
     <ProbePanelShell
       toolbar={
@@ -41,8 +51,7 @@ export function NatPanel({ loading, result, toolEnabled, toolStatus, onRun }: Na
       {result ? (
         <div className="bg-muted/40 space-y-1 rounded-lg border px-3 py-2 text-sm">
           <div>
-            {t("networkProbe.nat.type")}:{" "}
-            <span className="font-mono font-medium">{result.natType}</span>
+            {t("networkProbe.nat.result")}: <span className="font-medium">{resultLabel}</span>
           </div>
           {result.mappedAddress ? (
             <div>
@@ -50,8 +59,14 @@ export function NatPanel({ loading, result, toolEnabled, toolStatus, onRun }: Na
               <span className="font-mono">{result.mappedAddress}</span>
             </div>
           ) : null}
-          {result.detail ? <p className="text-muted-foreground text-xs">{result.detail}</p> : null}
-          <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
+          {result.detail ? (
+            <details className="text-muted-foreground text-xs">
+              <summary className="cursor-pointer">{t("networkProbe.nat.technicalDetails")}</summary>
+              <p className="mt-1 break-words">{result.detail}</p>
+              <p className="mt-1 font-mono">{result.stunServer}</p>
+              <p className="mt-1 font-mono">{result.commandHint}</p>
+            </details>
+          ) : null}
         </div>
       ) : null}
     </ProbePanelShell>

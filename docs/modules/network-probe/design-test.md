@@ -117,6 +117,8 @@ Tokio TcpStream::connect 带 timeout
 
 后端模块：`traceroute.rs` 把 trippy round 回调映射为 Tauri event。ASN 可用 Team Cymru DNS/HTTP（缓存 + 失败可空）。
 
+回归约束：特权 ICMP 失败后，macOS 必须尝试正确配置的无特权 UDP；用户取消后不得再启动下一种协议。Windows 当前仅尝试特权 ICMP，能力矩阵却标为 `supported` 的差异待专门 Windows 真机回归，详见 [规划与待验证项](../../roadmap/planned/network-probe.md)。
+
 ### 3.6 MTU / 公网出口（双入口）
 
 与 [design-basic.md](./design-basic.md) §3.6 同一实现：
