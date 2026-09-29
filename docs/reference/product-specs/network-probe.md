@@ -57,8 +57,10 @@ L1 → L2 映射：
 
 ### 3.1 网络概览 overview
 
-- 首次进入自动拉取；信息卡网格：IPv4 / IPv6 / 网关 / DNS 服务器 / Wi-Fi（SSID + dBm）/ 防火墙状态 / hosts 可疑条目数 / 非回环接口数。
-- 按钮：刷新、打开系统网络设置。数据源 `getLocalNetworkSummary` + `getFirewallStatus` + `checkHostsOverrides`。
+- 首次进入自动拉取；信息卡网格：IPv4 / IPv6 / 网关 / DNS 服务器 / Wi-Fi（SSID + dBm）/ 防火墙状态 / hosts 可疑条目数 / 非回环接口数。刷新时保留旧摘要并显示紧凑加载状态；首次加载和无数据态提供明确反馈。
+- 首页同时展示最近一次体检概况：体检状态、各真实检查项的 pass/warn/fail/error/skip 数量、最多两条优先建议；体检运行中只显示本轮流式计数与取消入口，不能把旧结果当作当前进度。部分、未知、已取消结果均明确标识，不将错误或跳过项算作健康。
+- 顶部可运行/重新运行体检或取消当前体检，并可直接进入「上不了网」；固定 L2 导航可进入体检树、扫描意见、一键修复和报告，深度检查与历史仍在各自面板。
+- 按钮：刷新、打开系统网络设置、运行/重新运行体检、取消体检、前往「上不了网」、查看明细/全部建议。数据源为 `getLocalNetworkSummary` + `getFirewallStatus` + `checkHostsOverrides` 与现有 `healthResult`；**不合成未经定义的分数**。
 
 ### 3.2 体检树 tree（L0–L3 健康扫描）
 

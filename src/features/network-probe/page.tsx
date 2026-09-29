@@ -358,6 +358,15 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     onRefresh={c.refreshOverview}
                     onOpenSettings={c.openSystemNetworkSettings}
                     openingSettings={c.loadingSystemSettings}
+                    healthLoading={c.loadingHealth}
+                    healthResult={c.healthResult}
+                    healthStreamingItems={c.healthStreamingItems}
+                    healthCanCancel={Boolean(activeSessionIdByKind.health)}
+                    onRunHealthScan={c.runHealthScan}
+                    onCancelHealthScan={() => c.cancelScan("health")}
+                    onGoTree={() => c.selectL2("tree")}
+                    onGoOpinion={() => c.selectL2("opinion")}
+                    onGoOffline={() => c.selectL2("offline")}
                   />
                 ) : null}
 

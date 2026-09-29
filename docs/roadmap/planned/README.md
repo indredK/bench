@@ -20,12 +20,12 @@
 | [env-detector](./env-detector.md)                                                                                                  |               6 |      1 |
 | [extension-center](./extension-center.md)                                                                                          |               7 |      0 |
 | [hardware](https://github.com/kindred-plugin-market/plugin-market/tree/main/extensions/hardware/docs/planned.md)                   |               4 |      2 |
-| [network-probe](./network-probe.md)                                                                                                |              20 |      6 |
+| [network-probe](./network-probe.md)                                                                                                |              19 |      6 |
 | [port-manager](./port-manager.md)                                                                                                  |               7 |      2 |
 | [system-settings](./system-settings.md)                                                                                            |               9 |      1 |
 | [terminology](https://github.com/kindred-plugin-market/plugin-market/tree/main/extensions/terminology/docs/planned.md)             |               7 |      2 |
 | [updater](./updater.md)                                                                                                            |               4 |      0 |
-| **合计**                                                                                                                           |         **137** | **27** |
+| **合计**                                                                                                                           |         **136** | **27** |
 
 ## 统一模板（每份文档均含）
 
