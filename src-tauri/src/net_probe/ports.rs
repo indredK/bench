@@ -4,6 +4,7 @@ use super::types::{PortSampleEvent, PortScanResult, ScanSessionEvent};
 use super::validate::validate_host;
 use crate::error::{AppError, AppResult};
 use std::net::IpAddr;
+use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Runtime};
@@ -38,8 +39,8 @@ pub async fn scan_ports_tcp<R: Runtime>(
     }
 
     // S-SEC-03: prefer nmap SYN when nmap is present; fall back to TCP connect.
-    if nmap_available() {
-        if let Ok(Some(syn)) = try_nmap_syn(app, &target, &ports).await {
+    if let Some(nmap_binary) = super::packs::nmap_binary() {
+        if let Ok(Some(syn)) = try_nmap_syn(app, &target, &ports, nmap_binary).await {
             return Ok(syn);
         }
     }
@@ -177,20 +178,13 @@ fn service_hint(port: u16) -> Option<String> {
     )
 }
 
-fn nmap_available() -> bool {
-    std::process::Command::new("nmap")
-        .arg("-V")
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
-}
-
 /// Try unprivileged TCP SYN-ish via `nmap -sT` (connect) first; if root-capable `-sS` works use that.
 /// Returns Ok(None) to fall back to built-in TCP connect scanner.
 async fn try_nmap_syn<R: Runtime>(
     app: Option<&AppHandle<R>>,
     target: &str,
     ports: &[u16],
+    nmap_binary: PathBuf,
 ) -> AppResult<Option<PortScanResult>> {
     let session_guard = super::session::SessionGuard::new();
     let session_id = session_guard.id().to_string();
@@ -214,7 +208,7 @@ async fn try_nmap_syn<R: Runtime>(
     let (output, cancelled) = tauri::async_runtime::spawn_blocking(move || {
         // Prefer -sS (SYN); fall back to -sT (connect) without root.
         let run = |scan: &str| {
-            std::process::Command::new("nmap")
+            std::process::Command::new(&nmap_binary)
                 .args([
                     "-Pn",
                     scan,
@@ -224,6 +218,7 @@ async fn try_nmap_syn<R: Runtime>(
                     "30s",
                     "-p",
                     &port_arg,
+                    "--",
                     &target_owned,
                 ])
                 .output()
@@ -314,7 +309,7 @@ async fn try_nmap_syn<R: Runtime>(
     }))
 }
 
-fn validate_scan_target(target: &str) -> AppResult<()> {
+pub(super) fn validate_scan_target(target: &str) -> AppResult<()> {
     // Prefer RFC1918 / localhost; allow single public host with explicit user intent (FE confirms).
     if let Ok(ip) = IpAddr::from_str(target) {
         match ip {

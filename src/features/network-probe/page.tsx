@@ -609,9 +609,13 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     canCancel={c.loadingPorts && Boolean(activeSessionIdByKind.ports)}
                     result={c.portScanResult}
                     streaming={c.portScanStreaming}
+                    fingerprintResult={c.portFingerprintResult}
+                    fingerprintAvailable={c.toolEnabled.fingerprint}
+                    nmapStatus={c.capabilities?.externalTools?.nmap}
                     toolEnabled={c.toolEnabled.portScan}
                     toolStatus={c.toolStatus.portScan}
                     onRun={c.runPortScan}
+                    onFingerprint={c.runPortFingerprint}
                     onCancel={() => c.cancelScan("ports")}
                   />
                 ) : null}

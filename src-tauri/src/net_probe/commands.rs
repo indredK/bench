@@ -2,10 +2,11 @@ use super::types::{
     CapabilityPackInfo, CapabilityPackInstallResult, CaptivePortalResult, DefaultRouteInfo,
     DefaultsOverride, DnsLookupResult, DnsSecCheckResult, FirewallStatus, FixResult,
     HealthScanResult, HostsOverride, Ipv6StackResult, LanDiscoveryResult, LanServicesResult,
-    LocalNetworkSummary, MultiNodeDnsResult, NatProbeResult, NetworkProbeCapabilities,
-    NetworkProbeDefaultsCatalog, NtpProbeResult, PathMtuResult, PcapDiagResult, PingProbeResult,
-    PollutionReport, PortScanResult, ProbeNode, ProbeTargetResult, ProxyVpnStatus, PublicIpInfo,
-    SitesProbeResult, SpeedSource, SpeedTestResult, TcpConnectResult, TracerouteResult, WhoisInfo,
+    LocalNetworkSummary, MultiNodeDnsResult, NatProbeResult, NetworkFingerprintResult,
+    NetworkProbeCapabilities, NetworkProbeDefaultsCatalog, NtpProbeResult, PathMtuResult,
+    PcapDiagResult, PingProbeResult, PollutionReport, PortScanResult, ProbeNode, ProbeTargetResult,
+    ProxyVpnStatus, PublicIpInfo, SitesProbeResult, SpeedSource, SpeedTestResult, TcpConnectResult,
+    TracerouteResult, WhoisInfo,
 };
 use crate::error::{AppError, AppResult};
 use tauri::AppHandle;
@@ -116,6 +117,17 @@ pub async fn network_probe_scan_ports(
 ) -> AppResult<PortScanResult> {
     let parsed = super::ports::parse_port_range(&ports)?;
     super::ports::scan_ports_tcp(Some(&app), target, parsed).await
+}
+
+#[tauri::command]
+pub async fn network_probe_fingerprint_target(
+    app: AppHandle,
+    target: String,
+    ports: String,
+    include_os: bool,
+) -> AppResult<NetworkFingerprintResult> {
+    let parsed = super::ports::parse_port_range(&ports)?;
+    super::fingerprint::fingerprint_target(&app, target, parsed, include_os).await
 }
 
 #[tauri::command]

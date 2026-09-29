@@ -42,7 +42,10 @@ import type {
   CapabilityPackInstallResult,
   CapabilityPackProgress,
   NetworkProbeCapabilities,
+  NetworkFingerprintResult,
+  OsFingerprintMatch,
   ProbeNode,
+  ServiceFingerprint,
 } from "@/lib/tauri/types/network-probe"
 import type {
   AccountManagerCapabilities,
@@ -143,6 +146,39 @@ describe("Tauri contracts", () => {
           "packs",
           "externalTools",
         ]),
+      ],
+      [
+        "NetworkFingerprintResult",
+        "camel",
+        dtoKeys<NetworkFingerprintResult>([
+          "target",
+          "services",
+          "osStatus",
+          "osMatches",
+          "cancelled",
+          "sessionId",
+          "commandHint",
+        ]),
+      ],
+      [
+        "ServiceFingerprint",
+        "camel",
+        dtoKeys<ServiceFingerprint>([
+          "port",
+          "protocol",
+          "name",
+          "product",
+          "version",
+          "extraInfo",
+          "confidence",
+          "cpe",
+          "riskTags",
+        ]),
+      ],
+      [
+        "OsFingerprintMatch",
+        "camel",
+        dtoKeys<OsFingerprintMatch>(["name", "accuracy", "classes", "cpe"]),
       ],
       [
         "CapabilityPackInfo",

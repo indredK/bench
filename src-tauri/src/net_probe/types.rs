@@ -674,6 +674,47 @@ pub struct PortScanResult {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct NetworkFingerprintResult {
+    pub target: String,
+    pub services: Vec<ServiceFingerprint>,
+    /// detected | not-detected | permission-required | unavailable | not-requested | cancelled
+    pub os_status: String,
+    pub os_matches: Vec<OsFingerprintMatch>,
+    pub cancelled: bool,
+    pub session_id: String,
+    pub command_hint: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ServiceFingerprint {
+    pub port: u16,
+    pub protocol: String,
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub product: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub extra_info: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub confidence: Option<u8>,
+    pub cpe: Vec<String>,
+    /// Heuristic categories only; these do not assert a vulnerability.
+    pub risk_tags: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OsFingerprintMatch {
+    pub name: String,
+    pub accuracy: u8,
+    pub classes: Vec<String>,
+    pub cpe: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NatProbeResult {
     /// mapping-consistent | mapping-varies | mapping-insufficient | blocked-or-timeout
     pub nat_type: String,

@@ -457,6 +457,41 @@ export interface PortScanResult {
   commandHint: string
 }
 
+export interface NetworkFingerprintResult {
+  target: string
+  services: ServiceFingerprint[]
+  osStatus:
+    | "detected"
+    | "not-detected"
+    | "permission-required"
+    | "unavailable"
+    | "not-requested"
+    | "cancelled"
+  osMatches: OsFingerprintMatch[]
+  cancelled: boolean
+  sessionId: string
+  commandHint: string
+}
+
+export interface ServiceFingerprint {
+  port: number
+  protocol: string
+  name: string
+  product?: string
+  version?: string
+  extraInfo?: string
+  confidence?: number
+  cpe: string[]
+  riskTags: string[]
+}
+
+export interface OsFingerprintMatch {
+  name: string
+  accuracy: number
+  classes: string[]
+  cpe: string[]
+}
+
 export interface NatProbeResult {
   natType: string
   mappedAddress?: string

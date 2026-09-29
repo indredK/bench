@@ -407,10 +407,58 @@ fn platform_id() -> &'static str {
     }
 }
 
+pub fn nmap_binary() -> Option<PathBuf> {
+    let is_windows = std::env::consts::OS == "windows";
+    let executable = if is_windows { "nmap.exe" } else { "nmap" };
+    let mut candidates = Vec::new();
+
+    match std::env::consts::OS {
+        "macos" => candidates.extend([
+            PathBuf::from("/opt/homebrew/bin/nmap"),
+            PathBuf::from("/usr/local/bin/nmap"),
+            PathBuf::from("/opt/local/bin/nmap"),
+        ]),
+        "windows" => candidates.extend([
+            PathBuf::from(r"C:\Program Files\Nmap\nmap.exe"),
+            PathBuf::from(r"C:\Program Files (x86)\Nmap\nmap.exe"),
+        ]),
+        _ => {}
+    }
+
+    if let Some(path) = std::env::var_os("PATH") {
+        candidates.extend(std::env::split_paths(&path).map(|dir| dir.join(executable)));
+    }
+
+    candidates.into_iter().find(|path| {
+        path.is_file()
+            && Command::new(path)
+                .arg("-V")
+                .output()
+                .is_ok_and(|output| output.status.success())
+    })
+}
+
 fn nmap_status() -> String {
-    match Command::new("nmap").arg("-V").output() {
-        Ok(out) if out.status.success() => "found".into(),
-        _ => "not_found".into(),
+    if nmap_binary().is_some() {
+        "found".into()
+    } else {
+        "not_found".into()
+    }
+}
+
+fn fingerprint_status(nmap_found: bool) -> &'static str {
+    if nmap_found {
+        "supported"
+    } else {
+        "unsupported"
+    }
+}
+
+fn port_scan_status(nmap_found: bool) -> &'static str {
+    if nmap_found {
+        "supported"
+    } else {
+        "degraded"
     }
 }
 
@@ -734,23 +782,14 @@ pub fn build_capabilities(app: Option<&AppHandle<impl Runtime>>) -> NetworkProbe
     tools.insert("multiNode".into(), s("partial")); // Globalping + agent registry
     tools.insert("agent".into(), s("partial"));
 
-    let adv_installed = app
-        .map(|a| is_pack_installed(a, "adv-scanner"))
-        .unwrap_or(false);
     let pcap_installed = app
         .map(|a| is_pack_installed(a, "pcap-diag"))
         .unwrap_or(false);
     let nmap = nmap_status();
 
-    // TCP connect always available (degraded); SYN when nmap found.
-    tools.insert(
-        "portScan".into(),
-        if nmap == "found" || adv_installed {
-            s("supported")
-        } else {
-            s("degraded")
-        },
-    );
+    // This command currently invokes Nmap or the built-in TCP-connect fallback.
+    // Do not count adv-scanner as usable until its sidecar is integrated here.
+    tools.insert("portScan".into(), s(port_scan_status(nmap == "found")));
     // ARP: cache read always; privileged sweep needs pack.
     tools.insert("arp".into(), s("degraded"));
     // Pcap: tcpdump counters always attempted; pack unlocks richer mode later.
@@ -762,13 +801,7 @@ pub fn build_capabilities(app: Option<&AppHandle<impl Runtime>>) -> NetworkProbe
             s("degraded")
         },
     );
-    if adv_installed {
-        tools.insert("fingerprint".into(), s("degraded"));
-    } else if nmap == "found" {
-        tools.insert("fingerprint".into(), s("unsupported"));
-    } else {
-        tools.insert("fingerprint".into(), s("missing_pack"));
-    }
+    tools.insert("fingerprint".into(), s(fingerprint_status(nmap == "found")));
 
     let mut packs = HashMap::new();
     if let Some(app) = app {
@@ -1007,6 +1040,18 @@ mod tests {
             .iter()
             .map(|byte| format!("{byte:02x}"))
             .collect()
+    }
+
+    #[test]
+    fn fingerprint_capability_matches_external_nmap_availability() {
+        assert_eq!(fingerprint_status(true), "supported");
+        assert_eq!(fingerprint_status(false), "unsupported");
+    }
+
+    #[test]
+    fn port_scan_capability_matches_the_tool_the_command_actually_invokes() {
+        assert_eq!(port_scan_status(true), "supported");
+        assert_eq!(port_scan_status(false), "degraded");
     }
 
     #[test]

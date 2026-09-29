@@ -42,25 +42,26 @@
 
 ### 3.1 哪些要包、哪些不要
 
-| 能力                                                                  | 供给方式                              | 说明                                           |
-| --------------------------------------------------------------------- | ------------------------------------- | ---------------------------------------------- |
-| TCP connect 降级扫描、污染里的 DNS/hosts/轻量 TLS、WHOIS、DNSSEC 只读 | **主包或轻量编译**                    | 无重内核依赖时可进主包；勿强行拆下载           |
-| SYN stealth、深度 ARP、指纹增强                                       | 可选包 `adv-scanner` 和/或本机 `nmap` | 首次点击若 `missing_pack` 且无 nmap → 安装向导 |
-| 诊断抓包                                                              | 可选包 `pcap-diag`                    | 依赖 libpcap + 通常需特权                      |
-| 正式特权 helper                                                       | 可选包 `priv-helper`                  | 公证前仅提示限制（D-010）                      |
+| 能力                                                                  | 供给方式             | 说明                                                          |
+| --------------------------------------------------------------------- | -------------------- | ------------------------------------------------------------- |
+| TCP connect 降级扫描、污染里的 DNS/hosts/轻量 TLS、WHOIS、DNSSEC 只读 | **主包或轻量编译**   | 无重内核依赖时可进主包；勿强行拆下载                          |
+| Nmap 端口扫描路径                                                     | 本机外部 `nmap`      | 检测到可执行工具才报告增强能力；缺失时保留 TCP connect 降级   |
+| 深度 ARP / 自研扫描增强                                               | `adv-scanner` 可选包 | 必须先发布真实 sidecar 并接入执行路径；安装记录本身不解锁能力 |
+| 服务 / OS 指纹                                                        | 本机外部 `nmap`      | 单独 opt-in；缺失时提示本机安装，不捆绑、不自动下载           |
+| 诊断抓包                                                              | 可选包 `pcap-diag`   | 依赖 libpcap + 通常需特权                                     |
+| 正式特权 helper                                                       | 可选包 `priv-helper` | 公证前仅提示限制（D-010）                                     |
 
 ### 3.2 点击流（强制）
 
 ```text
 用户打开「端口扫描」
   → getNetworkProbeCapabilities()
-  → tool=missing_pack 且无 external nmap
-      → PackInstallDialog：用途 / 体积 / 版本 / 签名来源 / Gatekeeper 提示
-      → 用户同意 → installCapabilityPack(packId)  // 无 URL 参数
-      → 后端读 canonical manifest → 下载到 App Support → 校验 hash/签名
-      → 刷新 capabilities → 若仍需特权再走提权/降级
-  → tool=degraded（仅有 connect）→ 可直接跑，并提示「安装 adv-scanner 可启用 SYN」
-  → tool=supported → 正常扫描
+  → externalTools.nmap=found → Nmap 路径可用（SYN 需相应权限，否则 connect）
+  → externalTools.nmap=not_found → 内置 TCP connect 可直接跑；portScan=degraded
+  → 不自动安装 adv-scanner：除非真实 sidecar 已发布并接入 port scan 命令，否则不能宣称可增强扫描
+  → 指纹识别是独立操作；仅 externalTools.nmap=found 时启用，最多 64 个 TCP 端口
+      → 每次确认精确目标/端口/OS 选项 → Nmap 低强度服务版本探测（无 NSE）
+      → OS 估计仅在用户勾选后运行；不自动提权，权限不足时保留服务结果
 ```
 
 ### 3.3 IPC（Post-MVP）
@@ -77,7 +78,7 @@ uninstallCapabilityPack(packId): void
 ### 3.4 UX 文案要点
 
 - 说「可选组件 / 能力包」，**不说**「下载某个 crate / 动态库随便挂载」。
-- 同时探测到本机 `nmap` 时：优先提示「检测到 nmap，可直接增强」；仍允许安装官方 sidecar（二选一或并存由 capabilities 决定）。
+- 同时探测到本机 `nmap` 时：显示已检测到本机工具并使用 Nmap 扫描路径；SYN 需要相应权限。未检测到时明确说明 TCP connect 降级。未发布并接入的 sidecar 不得显示为可用增强。服务/OS 指纹不安装 sidecar，也不自动下载 Nmap。
 - 提供「管理已安装组件」入口（设置或安全 Tab 页脚）：版本、卸载。
 
 ---
@@ -131,7 +132,7 @@ src-tauri/src/net_probe/
 
 库：`socket2` + `pnet`/`etherparse` + 可选 `pcap`；无 turnkey「完整 nmap」Rust 库——可接受薄封装或 nmap CLI fallback。
 
-指纹（可选同面板）：匹配常见 banner/端口→服务名风险标签；**不做**漏洞利用。
+服务指纹（独立 opt-in 操作）：复用外部 Nmap XML 输出，经受限 `-sV --version-light` 探测最多 64 个 TCP 端口；OS 估计默认关闭，用户勾选后单独运行 `-O`，权限不足不提权并保留服务结果。单主机校验拒绝 CIDR/目标范围/主机列表；设置执行超时与并发门。清理和限长 Nmap 字段；仅显示有限的明文/远程管理/数据库类别标签，**不运行 NSE，不做漏洞或攻击断言**。
 
 ### 5.2 污染检测（`pollution` 聚合）
 
@@ -215,7 +216,7 @@ uninstallCapabilityPack(packId): void
 
 - [ ] 授权声明可持久化；未确认前不可启动 Adv 扫描
 - [ ] D-017：`missing_pack` → 安装向导 → manifest 校验；前端不能传下载 URL
-- [ ] 本机 nmap 探测与 sidecar 并存策略有明确 capabilities 语义
+- [x] 本机 nmap 探测与 sidecar 并存策略有明确 capabilities 语义
 - [ ] SYN→connect 降级路径单测 + 真机
 - [ ] 无攻击类 API；代码审不出现投毒/注入/爆破入口
 - [ ] pcap 默认统计模式；落盘需显式开关

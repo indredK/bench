@@ -63,6 +63,7 @@ export function useNetworkProbeController() {
   const dnssecResult = useNetworkProbeStore((s) => s.dnssecResult)
   const portScanResult = useNetworkProbeStore((s) => s.portScanResult)
   const portScanStreaming = useNetworkProbeStore((s) => s.portScanStreaming)
+  const portFingerprintResult = useNetworkProbeStore((s) => s.portFingerprintResult)
   const natResult = useNetworkProbeStore((s) => s.natResult)
   const ntpResult = useNetworkProbeStore((s) => s.ntpResult)
   const lanResult = useNetworkProbeStore((s) => s.lanResult)
@@ -237,6 +238,11 @@ export function useNetworkProbeController() {
     (target: string, ports: string) => networkProbeUseCases.runPortScan(target, ports),
     [],
   )
+  const runPortFingerprint = useCallback(
+    (target: string, ports: string, includeOs: boolean) =>
+      networkProbeUseCases.runPortFingerprint(target, ports, includeOs),
+    [],
+  )
   const probeNat = useCallback(() => networkProbeUseCases.probeNat(), [])
   const probeNtp = useCallback(() => networkProbeUseCases.probeNtp(), [])
   const discoverLan = useCallback(() => networkProbeUseCases.discoverLan(), [])
@@ -295,6 +301,7 @@ export function useNetworkProbeController() {
       whois: toolEnabled(tools, "whois"),
       dnssec: toolEnabled(tools, "dnssec"),
       portScan: toolEnabled(tools, "portScan"),
+      fingerprint: toolEnabled(tools, "fingerprint"),
       nat: toolEnabled(tools, "nat"),
       ntp: toolEnabled(tools, "ntp"),
       arp: toolEnabled(tools, "arp"),
@@ -311,6 +318,7 @@ export function useNetworkProbeController() {
       whois: toolStatus(tools, "whois"),
       dnssec: toolStatus(tools, "dnssec"),
       portScan: toolStatus(tools, "portScan"),
+      fingerprint: toolStatus(tools, "fingerprint"),
       nat: toolStatus(tools, "nat"),
       ntp: toolStatus(tools, "ntp"),
       arp: toolStatus(tools, "arp"),
@@ -350,6 +358,7 @@ export function useNetworkProbeController() {
     dnssecResult,
     portScanResult,
     portScanStreaming,
+    portFingerprintResult,
     natResult,
     ntpResult,
     lanResult,
@@ -423,6 +432,7 @@ export function useNetworkProbeController() {
     runWhois,
     runDnssec,
     runPortScan,
+    runPortFingerprint,
     probeNat,
     probeNtp,
     discoverLan,

@@ -289,6 +289,7 @@ macro_rules! app_invoke_handler {
             $crate::net_probe::commands::network_probe_whois,
             $crate::net_probe::commands::network_probe_check_dnssec,
             $crate::net_probe::commands::network_probe_scan_ports,
+            $crate::net_probe::commands::network_probe_fingerprint_target,
             $crate::net_probe::commands::network_probe_probe_nat,
             $crate::net_probe::commands::network_probe_probe_ntp,
             $crate::net_probe::commands::network_probe_discover_lan,

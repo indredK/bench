@@ -108,6 +108,7 @@ import type {
   WhoisInfo,
   DnsSecCheckResult,
   PortScanResult,
+  NetworkFingerprintResult,
   NatProbeResult,
   NtpProbeResult,
   LanDiscoveryResult,
@@ -859,6 +860,10 @@ export const TAURI_COMMAND_CONTRACTS = {
   network_probe_scan_ports: defineTauriCommand<{ target: string; ports: string }, PortScanResult>()(
     "network_probe_scan_ports",
   ),
+  network_probe_fingerprint_target: defineTauriCommand<
+    { target: string; ports: string; includeOs: boolean },
+    NetworkFingerprintResult
+  >()("network_probe_fingerprint_target"),
   network_probe_probe_nat: defineTauriCommand<undefined, NatProbeResult>()(
     "network_probe_probe_nat",
   ),
@@ -1101,6 +1106,7 @@ export const TAURI_COMMANDS = {
     whois: commandName("network_probe_whois"),
     checkDnssec: commandName("network_probe_check_dnssec"),
     scanPorts: commandName("network_probe_scan_ports"),
+    fingerprintTarget: commandName("network_probe_fingerprint_target"),
     probeNat: commandName("network_probe_probe_nat"),
     probeNtp: commandName("network_probe_probe_ntp"),
     discoverLan: commandName("network_probe_discover_lan"),
@@ -1708,6 +1714,7 @@ export const TAURI_COMMAND_ARG_KEYS = {
   network_probe_whois: ["query"],
   network_probe_check_dnssec: ["domain"],
   network_probe_scan_ports: ["target", "ports"],
+  network_probe_fingerprint_target: ["target", "ports", "includeOs"],
   network_probe_probe_nat: [],
   network_probe_probe_ntp: [],
   network_probe_discover_lan: [],

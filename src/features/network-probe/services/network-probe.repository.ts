@@ -43,6 +43,7 @@ export const networkProbeRepository = {
   whoisLookup: commands.whoisLookup,
   checkDnssec: commands.checkDnssec,
   scanPorts: commands.scanPorts,
+  fingerprintTarget: commands.fingerprintTarget,
   probeNat: commands.probeNat,
   probeNtp: commands.probeNtp,
   discoverLan: commands.discoverLan,

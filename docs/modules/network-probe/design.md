@@ -563,11 +563,11 @@ src/features/network-probe/
 
 **建议 pack id（实现期可调，勿随意改已发布 id）**
 
-| pack id       | 覆盖能力（示例）                                | 档位         |
-| ------------- | ----------------------------------------------- | ------------ |
-| `adv-scanner` | SYN 扫描增强、ARP 发现增强、指纹                | Post-MVP-Adv |
-| `pcap-diag`   | 诊断级抓包统计 / 可选落盘                       | Post-MVP-Adv |
-| `priv-helper` | 正式 `SMAppService` helper（需签名/公证后主推） | Post-MVP-Adv |
+| pack id       | 覆盖能力（示例）                                                 | 档位         |
+| ------------- | ---------------------------------------------------------------- | ------------ |
+| `adv-scanner` | 预留 SYN / ARP 扫描增强；发布真实 sidecar 并接入执行路径后才解锁 | Post-MVP-Adv |
+| `pcap-diag`   | 诊断级抓包统计 / 可选落盘                                        | Post-MVP-Adv |
+| `priv-helper` | 正式 `SMAppService` helper（需签名/公证后主推）                  | Post-MVP-Adv |
 
 本机 `nmap` 不算 pack id，属 `external_tool` 探测项，在 capabilities 中单独标注。
 

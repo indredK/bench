@@ -37,6 +37,7 @@ import type {
   LanServicesResult,
   PcapDiagResult,
   MultiNodeDnsResult,
+  NetworkFingerprintResult,
   ProbeNode,
   TcpConnectResult,
   TracerouteHop,
@@ -188,6 +189,7 @@ interface NetworkProbeState {
   dnssecResult: DnsSecCheckResult | null
   portScanResult: PortScanResult | null
   portScanStreaming: PortSampleEvent[]
+  portFingerprintResult: NetworkFingerprintResult | null
   natResult: NatProbeResult | null
   ntpResult: NtpProbeResult | null
   lanResult: LanDiscoveryResult | null
@@ -274,6 +276,7 @@ interface NetworkProbeState {
   setWhoisResult: (whoisResult: WhoisInfo | null) => void
   setDnssecResult: (dnssecResult: DnsSecCheckResult | null) => void
   setPortScanResult: (portScanResult: PortScanResult | null) => void
+  setPortFingerprintResult: (result: NetworkFingerprintResult | null) => void
   resetPortScanStreaming: () => void
   upsertPortSample: (sample: PortSampleEvent) => void
   setNatResult: (natResult: NatProbeResult | null) => void
@@ -428,6 +431,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   dnssecResult: null,
   portScanResult: null,
   portScanStreaming: [],
+  portFingerprintResult: null,
   natResult: null,
   ntpResult: null,
   lanResult: null,
@@ -573,6 +577,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   setWhoisResult: (whoisResult) => set({ whoisResult }),
   setDnssecResult: (dnssecResult) => set({ dnssecResult }),
   setPortScanResult: (portScanResult) => set({ portScanResult }),
+  setPortFingerprintResult: (portFingerprintResult) => set({ portFingerprintResult }),
   resetPortScanStreaming: () => set({ portScanStreaming: [] }),
   upsertPortSample: (sample) =>
     set((state) => {

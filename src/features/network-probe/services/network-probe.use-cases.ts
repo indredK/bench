@@ -789,6 +789,7 @@ export const networkProbeUseCases = {
     store.setError(null)
     store.resetPortScanStreaming()
     store.setPortScanResult(null)
+    store.setPortFingerprintResult(null)
     const sessions = createScanSessionTracker("ports")
     store.appendCommandLog(`scanPorts(local, '${target.trim()}', '${ports.trim()}')`)
     let unlistenSample: (() => void) | undefined
@@ -814,6 +815,47 @@ export const networkProbeUseCases = {
       })
     } finally {
       unlistenSample?.()
+      sessions.stop()
+      useNetworkProbeStore.getState().setLoadingPorts(false)
+    }
+  },
+
+  async runPortFingerprint(target: string, ports: string, includeOs: boolean) {
+    const store = useNetworkProbeStore.getState()
+    if (!store.securityAuthorized) {
+      store.setError({
+        key: "networkProbe.errors.securityAuthRequired",
+        fallback: "Authorize the Security tab first.",
+      })
+      return
+    }
+    if (store.loadingPorts) return
+    store.setLoadingPorts(true)
+    store.setError(null)
+    store.setPortFingerprintResult(null)
+    const sessions = createScanSessionTracker("ports")
+    store.appendCommandLog(
+      `fingerprint(local, '${target.trim()}', '${ports.trim()}', includeOs=${includeOs})`,
+    )
+    try {
+      await sessions.start()
+      const result = await networkProbeRepository.fingerprintTarget(
+        target.trim(),
+        ports.trim(),
+        includeOs,
+      )
+      store.setPortFingerprintResult(result)
+      store.appendCommandLog(
+        result.cancelled
+          ? `fingerprint cancelled sessionId=${result.sessionId}`
+          : `fingerprint done services=${result.services.length} os=${result.osStatus}`,
+      )
+    } catch (error) {
+      store.setError({
+        key: "networkProbe.errors.fingerprintFailed",
+        fallback: getErrorMessage(error),
+      })
+    } finally {
       sessions.stop()
       useNetworkProbeStore.getState().setLoadingPorts(false)
     }

@@ -180,6 +180,14 @@ export function scanPorts(target: string, ports: string) {
   return invokeTauriCommand(TAURI_COMMANDS.networkProbe.scanPorts, { target, ports })
 }
 
+export function fingerprintTarget(target: string, ports: string, includeOs: boolean) {
+  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.fingerprintTarget, {
+    target,
+    ports,
+    includeOs,
+  })
+}
+
 export function probeNat() {
   return invokeTauriCommand(TAURI_COMMANDS.networkProbe.probeNat)
 }
