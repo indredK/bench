@@ -38,6 +38,13 @@ import type {
 } from "@/lib/tauri/types"
 import type { AppUpdateInfo, AppUpdateInstallResult } from "@/lib/tauri/types/updater"
 import type {
+  CapabilityPackInfo,
+  CapabilityPackInstallResult,
+  CapabilityPackProgress,
+  NetworkProbeCapabilities,
+  ProbeNode,
+} from "@/lib/tauri/types/network-probe"
+import type {
   AccountManagerCapabilities,
   AccountManagerCapability,
   BrowserCaptureOutcome,
@@ -113,6 +120,54 @@ describe("Tauri contracts", () => {
     const rustStructFields = parseRustStructFields(rustSource)
 
     const checks: Array<[string, string, string[]]> = [
+      [
+        "ProbeNode",
+        "camel",
+        dtoKeys<ProbeNode>([
+          "id",
+          "kind",
+          "label",
+          "reachable",
+          "endpoint",
+          "region",
+          "capabilities",
+        ]),
+      ],
+      [
+        "NetworkProbeCapabilities",
+        "camel",
+        dtoKeys<NetworkProbeCapabilities>([
+          "platform",
+          "privilegeLevel",
+          "tools",
+          "packs",
+          "externalTools",
+        ]),
+      ],
+      [
+        "CapabilityPackInfo",
+        "camel",
+        dtoKeys<CapabilityPackInfo>([
+          "id",
+          "version",
+          "sizeBytes",
+          "status",
+          "descriptionKey",
+          "artifactReady",
+          "installedAtMs",
+          "installMode",
+        ]),
+      ],
+      [
+        "CapabilityPackInstallResult",
+        "camel",
+        dtoKeys<CapabilityPackInstallResult>(["packId", "ok", "mode", "message", "commandHint"]),
+      ],
+      [
+        "CapabilityPackProgress",
+        "camel",
+        dtoKeys<CapabilityPackProgress>(["operationId", "packId", "phase", "bytes", "totalBytes"]),
+      ],
       [
         "MarketVersionDto",
         "camel",

@@ -25,6 +25,15 @@ const MAX_ROUNDS: usize = 10;
 const DEFAULT_MAX_TTL: u8 = 20;
 const MAX_TTL_CAP: u8 = 32;
 
+type TraceAttempt = (PrivilegeMode, Protocol, &'static str);
+
+const MACOS_TRACE_ATTEMPTS: &[TraceAttempt] = &[
+    (PrivilegeMode::Privileged, Protocol::Icmp, "privileged"),
+    (PrivilegeMode::Unprivileged, Protocol::Udp, "unprivileged"),
+];
+const PRIVILEGED_TRACE_ATTEMPTS: &[TraceAttempt] =
+    &[(PrivilegeMode::Privileged, Protocol::Icmp, "privileged")];
+
 #[cfg(target_os = "macos")]
 const DYNAMIC_UDP_SOURCE_PORT_START: u16 = 49_152;
 #[cfg(target_os = "macos")]
@@ -116,74 +125,121 @@ fn run_traceroute_blocking<R: Runtime>(
         });
     }
 
-    // Prefer privileged ICMP; fall back to unprivileged UDP (platform-dependent).
-    #[cfg(target_os = "macos")]
-    let attempts = [
-        (PrivilegeMode::Privileged, Protocol::Icmp, "privileged"),
-        (PrivilegeMode::Unprivileged, Protocol::Udp, "unprivileged"),
-    ];
-    #[cfg(not(target_os = "macos"))]
-    let attempts = [(PrivilegeMode::Privileged, Protocol::Icmp, "privileged")];
-
-    let mut last_err = None;
-    for (mode, proto, label) in attempts {
-        if super::session::is_cancelled(&session_id) {
-            break;
-        }
-        match trace_once(app, ip, max_ttl, rounds, mode, proto, &session_id) {
-            Ok((hops, cancelled)) => {
-                return Ok(TracerouteResult {
-                    target,
-                    resolved_ip: ip.to_string(),
-                    privilege_mode: label.into(),
-                    hops,
-                    rounds: rounds as u32,
-                    elapsed_ms: started.elapsed().as_secs_f64() * 1000.0,
-                    message: if cancelled {
-                        Some("Traceroute cancelled; hop stream stopped.".into())
-                    } else if label == "unprivileged" {
-                        Some(
-                            "Completed with unprivileged UDP traceroute (ICMP privileged path unavailable)."
-                                .into(),
-                        )
-                    } else {
-                        None
-                    },
-                    session_id,
-                    cancelled,
-                    command_hint,
-                });
-            }
-            Err(e) => last_err = Some(e),
+    // Prefer privileged ICMP; macOS can fall back to unprivileged UDP.
+    let attempts = traceroute_attempts_for(current_traceroute_platform());
+    match try_trace_attempts(
+        attempts,
+        || super::session::is_cancelled(&session_id),
+        |mode, proto| trace_once(app, ip, max_ttl, rounds, mode, proto, &session_id),
+    ) {
+        TraceAttemptsOutcome::Success((hops, cancelled), label) => Ok(TracerouteResult {
+            target,
+            resolved_ip: ip.to_string(),
+            privilege_mode: label.into(),
+            hops,
+            rounds: rounds as u32,
+            elapsed_ms: started.elapsed().as_secs_f64() * 1000.0,
+            message: if cancelled {
+                Some("Traceroute cancelled; hop stream stopped.".into())
+            } else if label == "unprivileged" {
+                Some(
+                    "Completed with unprivileged UDP traceroute (ICMP privileged path unavailable)."
+                        .into(),
+                )
+            } else {
+                None
+            },
+            session_id,
+            cancelled,
+            command_hint,
+        }),
+        TraceAttemptsOutcome::Cancelled => Ok(TracerouteResult {
+            target,
+            resolved_ip: ip.to_string(),
+            privilege_mode: "cancelled".into(),
+            hops: vec![],
+            rounds: 0,
+            elapsed_ms: started.elapsed().as_secs_f64() * 1000.0,
+            message: Some("Traceroute cancelled.".into()),
+            session_id,
+            cancelled: true,
+            command_hint,
+        }),
+        TraceAttemptsOutcome::Unavailable(last_err) => {
+            let cancelled = super::session::is_cancelled(&session_id);
+            Ok(TracerouteResult {
+                target,
+                resolved_ip: ip.to_string(),
+                privilege_mode: if cancelled {
+                    "cancelled".into()
+                } else {
+                    "unavailable".into()
+                },
+                hops: vec![],
+                rounds: 0,
+                elapsed_ms: started.elapsed().as_secs_f64() * 1000.0,
+                message: Some(if cancelled {
+                    "Traceroute cancelled.".into()
+                } else {
+                    format!(
+                        "Traceroute unavailable without sufficient privileges. {}",
+                        last_err
+                            .map(|e| e.to_string())
+                            .unwrap_or_else(|| "No usable protocol mode".into())
+                    )
+                }),
+                session_id,
+                cancelled,
+                command_hint,
+            })
         }
     }
+}
 
-    let cancelled = super::session::is_cancelled(&session_id);
-    Ok(TracerouteResult {
-        target,
-        resolved_ip: ip.to_string(),
-        privilege_mode: if cancelled {
-            "cancelled".into()
-        } else {
-            "unavailable".into()
-        },
-        hops: vec![],
-        rounds: 0,
-        elapsed_ms: started.elapsed().as_secs_f64() * 1000.0,
-        message: Some(if cancelled {
-            "Traceroute cancelled.".into()
-        } else {
-            format!(
-                "Traceroute unavailable without sufficient privileges. {}",
-                last_err
-                    .map(|e| e.to_string())
-                    .unwrap_or_else(|| "No usable protocol mode".into())
-            )
-        }),
-        session_id,
-        cancelled,
-        command_hint,
-    })
+fn traceroute_attempts_for(platform: &str) -> &'static [TraceAttempt] {
+    if platform == "macos" {
+        MACOS_TRACE_ATTEMPTS
+    } else {
+        PRIVILEGED_TRACE_ATTEMPTS
+    }
+}
+
+fn current_traceroute_platform() -> &'static str {
+    if cfg!(target_os = "macos") {
+        "macos"
+    } else if cfg!(target_os = "windows") {
+        "windows"
+    } else {
+        "unsupported"
+    }
+}
+
+enum TraceAttemptsOutcome<T, E> {
+    Success(T, &'static str),
+    Unavailable(Option<E>),
+    Cancelled,
+}
+
+fn try_trace_attempts<T, E, F, C>(
+    attempts: &[TraceAttempt],
+    mut is_cancelled: C,
+    mut trace: F,
+) -> TraceAttemptsOutcome<T, E>
+where
+    F: FnMut(PrivilegeMode, Protocol) -> Result<T, E>,
+    C: FnMut() -> bool,
+{
+    let mut last_error = None;
+    for (mode, protocol, label) in attempts {
+        if is_cancelled() {
+            return TraceAttemptsOutcome::Cancelled;
+        }
+        match trace(*mode, *protocol) {
+            Ok(result) => return TraceAttemptsOutcome::Success(result, label),
+            Err(error) => last_error = Some(error),
+        }
+    }
+    TraceAttemptsOutcome::Unavailable(last_error)
 }
 
 fn trace_once<R: Runtime>(
@@ -402,9 +458,68 @@ fn resolve_ip(target: &str) -> AppResult<IpAddr> {
 
 #[cfg(test)]
 mod tests {
-    use super::build_tracer;
+    use super::{build_tracer, traceroute_attempts_for, try_trace_attempts, TraceAttemptsOutcome};
     use std::net::{IpAddr, Ipv4Addr};
     use trippy_core::{Port, PortDirection, PrivilegeMode, Protocol};
+
+    #[test]
+    fn macos_falls_back_to_unprivileged_udp_after_privileged_icmp_fails() {
+        let mut calls = Vec::new();
+        let result = try_trace_attempts(
+            traceroute_attempts_for("macos"),
+            || false,
+            |mode, protocol| {
+                calls.push((mode, protocol));
+                if mode == PrivilegeMode::Privileged {
+                    Err("privileged sockets unavailable")
+                } else {
+                    Ok("hop stream")
+                }
+            },
+        );
+
+        match result {
+            TraceAttemptsOutcome::Success(value, mode) => {
+                assert_eq!(value, "hop stream");
+                assert_eq!(mode, "unprivileged");
+            }
+            TraceAttemptsOutcome::Unavailable(_) | TraceAttemptsOutcome::Cancelled => {
+                panic!("macOS should complete with the unprivileged UDP fallback")
+            }
+        }
+        assert_eq!(
+            calls,
+            [
+                (PrivilegeMode::Privileged, Protocol::Icmp),
+                (PrivilegeMode::Unprivileged, Protocol::Udp),
+            ]
+        );
+    }
+
+    #[test]
+    fn cancelled_traceroute_does_not_start_another_privilege_mode() {
+        let mut trace_called = false;
+        let result = try_trace_attempts(
+            traceroute_attempts_for("macos"),
+            || true,
+            |_, _| {
+                trace_called = true;
+                Ok::<_, ()>(())
+            },
+        );
+
+        assert!(matches!(result, TraceAttemptsOutcome::Cancelled));
+        assert!(!trace_called);
+    }
+
+    #[test]
+    fn windows_traceroute_does_not_claim_an_unprivileged_fallback() {
+        let attempts = traceroute_attempts_for("windows");
+
+        assert_eq!(attempts.len(), 1);
+        assert_eq!(attempts[0].0, PrivilegeMode::Privileged);
+        assert_eq!(attempts[0].1, Protocol::Icmp);
+    }
 
     #[cfg(target_os = "macos")]
     #[test]
