@@ -603,3 +603,13 @@ export interface GlobalpingMeasurementResult {
   rateLimit?: GlobalpingRateLimit
   retryAfterSeconds?: number
 }
+
+export interface AgentMeasurementResult {
+  nodeId: string
+  measurementType: GlobalpingMeasurementType
+  target: string
+  status: "complete" | "rate-limited"
+  probe: GlobalpingProbeResult
+  elapsedMs: number
+  retryAfterSeconds?: number
+}

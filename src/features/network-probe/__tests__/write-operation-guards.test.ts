@@ -97,7 +97,9 @@ describe("network-probe write operation guards", () => {
     addAgent.mockResolvedValueOnce(addedNode)
     listProbeNodes.mockRejectedValueOnce(new Error("refresh failed"))
 
-    await expect(networkProbeUseCases.addAgent("Lab", "https://agent.example/")).resolves.toBe(true)
+    await expect(
+      networkProbeUseCases.addAgent("Lab", "https://agent.example/", "test-token"),
+    ).resolves.toBe(true)
 
     const state = useNetworkProbeStore.getState()
     expect(state.probeNodes).toEqual([addedNode])
@@ -173,8 +175,16 @@ describe("network-probe write operation guards", () => {
 
     let first!: Promise<boolean>
     await act(async () => {
-      first = networkProbeUseCases.addAgent("lab", "https://agent.example/?token=secret")
-      await networkProbeUseCases.addAgent("lab", "https://agent.example/?token=secret")
+      first = networkProbeUseCases.addAgent(
+        "lab",
+        "https://agent.example/?token=secret",
+        "test-token",
+      )
+      await networkProbeUseCases.addAgent(
+        "lab",
+        "https://agent.example/?token=secret",
+        "test-token",
+      )
     })
     expect(addAgent).toHaveBeenCalledTimes(1)
     expect(useNetworkProbeStore.getState().agentMutation).toEqual({ kind: "add" })

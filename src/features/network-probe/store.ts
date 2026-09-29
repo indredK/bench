@@ -36,6 +36,7 @@ import type {
   LanDiscoveryResult,
   LanServicesResult,
   PcapDiagResult,
+  AgentMeasurementResult,
   GlobalpingMeasurementResult,
   NetworkFingerprintResult,
   ProbeNode,
@@ -142,7 +143,11 @@ export type NetworkProbeOfflineSub =
 
 export type NetworkServicesLoadStatus = "idle" | "loading" | "loaded" | "failed"
 export type ProbeNodesLoadStatus = "idle" | "loading" | "loaded" | "failed"
-export type AgentMutation = { kind: "add" } | { kind: "remove"; agentId: string } | null
+export type AgentMutation =
+  | { kind: "add" }
+  | { kind: "set-token"; agentId: string }
+  | { kind: "remove"; agentId: string }
+  | null
 
 export type NetworkProbeL2ByL1 = Record<NetworkProbeL1, string>
 
@@ -196,6 +201,8 @@ interface NetworkProbeState {
   lanServicesResult: LanServicesResult | null
   pcapResult: PcapDiagResult | null
   globalpingResult: GlobalpingMeasurementResult | null
+  agentMeasurementResults: Record<string, AgentMeasurementResult>
+  agentMeasurementLoadingById: Record<string, boolean>
   probeNodes: ProbeNode[]
   probeNodesLoadStatus: ProbeNodesLoadStatus
   reportHistory: HealthReportSnapshot[]
@@ -285,6 +292,8 @@ interface NetworkProbeState {
   setLanServicesResult: (lanServicesResult: LanServicesResult | null) => void
   setPcapResult: (pcapResult: PcapDiagResult | null) => void
   setGlobalpingResult: (globalpingResult: GlobalpingMeasurementResult | null) => void
+  setAgentMeasurementResult: (agentId: string, result: AgentMeasurementResult | null) => void
+  setAgentMeasurementLoading: (agentId: string, loading: boolean) => void
   setProbeNodes: (probeNodes: ProbeNode[]) => void
   setProbeNodesLoadStatus: (status: ProbeNodesLoadStatus) => void
   pushReportHistory: (scan: HealthScanResult) => void
@@ -438,6 +447,8 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   lanServicesResult: null,
   pcapResult: null,
   globalpingResult: null,
+  agentMeasurementResults: {},
+  agentMeasurementLoadingById: {},
   probeNodes: [],
   probeNodesLoadStatus: "idle",
   reportHistoryEnabled: loadReportHistoryEnabled(),
@@ -595,6 +606,20 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   setLanServicesResult: (lanServicesResult) => set({ lanServicesResult }),
   setPcapResult: (pcapResult) => set({ pcapResult }),
   setGlobalpingResult: (globalpingResult) => set({ globalpingResult }),
+  setAgentMeasurementResult: (agentId, result) =>
+    set((state) => {
+      const agentMeasurementResults = { ...state.agentMeasurementResults }
+      if (result) agentMeasurementResults[agentId] = result
+      else delete agentMeasurementResults[agentId]
+      return { agentMeasurementResults }
+    }),
+  setAgentMeasurementLoading: (agentId, loading) =>
+    set((state) => {
+      const agentMeasurementLoadingById = { ...state.agentMeasurementLoadingById }
+      if (loading) agentMeasurementLoadingById[agentId] = true
+      else delete agentMeasurementLoadingById[agentId]
+      return { agentMeasurementLoadingById }
+    }),
   setProbeNodes: (probeNodes) => set({ probeNodes }),
   setProbeNodesLoadStatus: (probeNodesLoadStatus) => set({ probeNodesLoadStatus }),
   pushReportHistory: (scan) =>

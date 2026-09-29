@@ -2228,7 +2228,7 @@
       "stats": "packets={{packets}} · RST={{rst}} · retrans≈{{retrans}} · OOO≈{{ooo}}"
     },
     "nodes": {
-      "hint": "Check DNS, ping, or HTTP from this Mac and remote Globalping probes. A token is optional; self-hosted agents currently support registration and health checks only.",
+      "hint": "Check DNS, ping, or HTTP from this Mac, Globalping probes, or a compatible self-hosted HTTPS agent.",
       "modeLabel": "Remote measurement type",
       "modeDns": "DNS",
       "modePing": "Ping",
@@ -2239,6 +2239,7 @@
       "targetInvalidHost": "Enter one hostname or IP address.",
       "targetInvalidHttp": "Enter a valid http:// or https:// URL.",
       "targetHttpCredentials": "HTTP URLs cannot contain credentials or a fragment.",
+      "targetRemoteBlocked": "Localhost, cloud metadata, and link-local targets are blocked for remote agents.",
       "httpTargetPlaceholder": "https://example.com/health",
       "pingTargetPlaceholder": "example.com or 1.1.1.1",
       "run": "Run remote measurement",
@@ -2248,6 +2249,8 @@
       "loadFailed": "Could not load probe nodes. Refresh to retry.",
       "empty": "No probe nodes are available.",
       "listTitle": "Probe nodes",
+      "localNode": "This Mac",
+      "globalpingNode": "Globalping · {{location}}",
       "locationsLabel": "Globalping locations",
       "locationWorld": "World",
       "locationUs": "United States",
@@ -2276,7 +2279,7 @@
       "tokenRemoveConfirm": "Remove token",
       "tokenRemoveCancel": "Cancel",
       "addTitle": "Add agent",
-      "addHint": "Endpoint must be an HTTPS agent URL. Credentials in URL fields are rejected; arbitrary shell actions are blocked.",
+      "addHint": "Use the HTTPS endpoint and token from a compatible Bench probe agent. The token is stored in the system keychain; only DNS, ping, and HTTP are allowed.",
       "labelPlaceholder": "Label",
       "domainPlaceholder": "example.com",
       "endpointPlaceholder": "https://agent.example:8443",
@@ -2287,7 +2290,22 @@
       "addingAgent": "Adding…",
       "removeAgent": "Remove",
       "removingAgent": "Removing…",
+      "agentOnline": "Available",
+      "agentOffline": "Unavailable · check endpoint or token",
+      "agentTokenPlaceholder": "Agent shared token",
+      "agentTokenInputLabel": "Shared token for {{label}}",
+      "newAgentTokenLabel": "New agent shared token",
+      "agentTokenSave": "Save token",
+      "agentTokenSaved": "Agent token saved in the system keychain.",
+      "agentLimitReached": "Up to {{count}} self-hosted agents can be registered.",
+      "agentRemoveTitle": "Remove this self-hosted agent?",
+      "agentRemoveDescription": "Remove {{label}} from the node list?",
+      "agentRemoveConsequence": "Its saved shared token will also be deleted from the system keychain.",
+      "measureFromAgent": "Measure from this agent",
+      "agentMeasuring": "Measuring from agent…",
+      "agentRateLimited": "This agent is rate limited. Retry in {{seconds}} seconds.",
       "measurementMeta": "{{target}} · {{count}} probe results · {{ms}} ms",
+      "elapsedMs": "Elapsed {{ms}} ms",
       "measurementStatus": {
         "in-progress": "In progress",
         "complete": "Complete",
@@ -2567,7 +2585,9 @@
       "nodesFailed": "Failed to list probe nodes.",
       "multiNodeFailed": "Globalping remote measurement failed.",
       "globalpingTokenFailed": "Could not read or update the Globalping token in the system keychain. Check keychain access and try again.",
-      "agentFailed": "Agent registry operation failed."
+      "agentFailed": "Agent registry operation failed.",
+      "agentTokenFailed": "Could not save the agent token to the system keychain.",
+      "agentMeasurementFailed": "The self-hosted agent measurement failed. Check its availability and token."
     }
   },
   "extensionCenter": {

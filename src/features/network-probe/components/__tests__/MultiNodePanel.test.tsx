@@ -1,10 +1,17 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { MultiNodePanel } from "../MultiNodePanel"
-import type { GlobalpingMeasurementResult, ProbeNode } from "@/lib/tauri/types/network-probe"
+import type {
+  AgentMeasurementResult,
+  GlobalpingMeasurementResult,
+  ProbeNode,
+} from "@/lib/tauri/types/network-probe"
 
 vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
+  useTranslation: () => ({
+    t: (key: string, options?: { location?: string }) =>
+      key === "networkProbe.nodes.globalpingNode" ? `${key}(${options?.location ?? ""})` : key,
+  }),
 }))
 
 vi.mock("@/components/common/CommandHint", () => ({
@@ -42,15 +49,19 @@ function renderPanel(overrides: Partial<React.ComponentProps<typeof MultiNodePan
       nodesStatus="loaded"
       agentMutation={null}
       result={null}
+      agentMeasurementResults={{}}
+      agentMeasurementLoadingById={{}}
       nodes={[]}
       toolEnabled
       onRunMeasurement={() => {}}
-      onGetTokenStatus={() => Promise.resolve(false)}
+      onGetTokenStatus={() => new Promise(() => {})}
       onSaveToken={() => Promise.resolve(true)}
       onClearToken={() => Promise.resolve(true)}
       onRefreshNodes={() => {}}
       onAddAgent={() => Promise.resolve(false)}
-      onRemoveAgent={() => {}}
+      onSetAgentToken={() => Promise.resolve(false)}
+      onRunAgentMeasurement={() => Promise.resolve(null)}
+      onRemoveAgent={() => Promise.resolve(false)}
       {...overrides}
     />,
   )
@@ -61,6 +72,44 @@ describe("MultiNodePanel agent states", () => {
     renderPanel()
 
     expect(screen.getByText("networkProbe.nodes.empty")).toBeInTheDocument()
+  })
+
+  it("shows localized node names without exposing internal routing identifiers", () => {
+    const nodes: ProbeNode[] = [
+      {
+        id: "local",
+        kind: "local",
+        label: "This Mac",
+        reachable: true,
+      },
+      {
+        id: "gp-world",
+        kind: "remote-proxy",
+        label: "Globalping · world",
+        reachable: true,
+        endpoint: "globalping:world",
+        region: "world",
+      },
+      {
+        id: "agent-test-id",
+        kind: "remote-agent",
+        label: "Lab node",
+        reachable: true,
+        endpoint: "https://agent.example",
+      },
+    ]
+    renderPanel({ nodes })
+
+    const nodeList = screen.getByRole("list")
+    expect(nodeList).toHaveTextContent("networkProbe.nodes.localNode")
+    expect(nodeList).toHaveTextContent(
+      "networkProbe.nodes.globalpingNode(networkProbe.nodes.locationWorld)",
+    )
+    expect(nodeList).toHaveTextContent("Lab node")
+    expect(nodeList).not.toHaveTextContent("remote-proxy")
+    expect(nodeList).not.toHaveTextContent("globalping:world")
+    expect(nodeList).not.toHaveTextContent("agent-test-id")
+    expect(nodeList).not.toHaveTextContent("https://agent.example")
   })
 
   it("limits selected Globalping locations to three and keeps one selected", () => {
@@ -89,6 +138,88 @@ describe("MultiNodePanel agent states", () => {
     fireEvent.click(screen.getByRole("button", { name: "networkProbe.nodes.run" }))
 
     expect(onRunMeasurement).toHaveBeenCalledWith("ping", "1.1.1.1", ["world", "US"])
+  })
+
+  it("blocks cloud metadata and link-local targets for remote measurements", () => {
+    const onRunMeasurement = vi.fn()
+    const onRunAgentMeasurement = vi.fn()
+    const node: ProbeNode = {
+      id: "agent-1",
+      kind: "remote-agent",
+      label: "Lab",
+      reachable: true,
+      endpoint: "https://agent.example",
+    }
+    renderPanel({ nodes: [node], onRunMeasurement, onRunAgentMeasurement })
+    fireEvent.click(screen.getByRole("button", { name: "networkProbe.nodes.modeHttp" }))
+    const target = screen.getByRole("textbox", { name: "networkProbe.nodes.targetLabel" })
+    fireEvent.change(target, { target: { value: "http://169.254.169.254/latest/meta-data" } })
+
+    expect(screen.getByRole("alert")).toHaveTextContent("networkProbe.nodes.targetRemoteBlocked")
+    expect(screen.getByRole("button", { name: "networkProbe.nodes.run" })).toBeDisabled()
+    expect(
+      screen.getByRole("button", { name: "networkProbe.nodes.measureFromAgent" }),
+    ).toBeDisabled()
+    expect(onRunMeasurement).not.toHaveBeenCalled()
+    expect(onRunAgentMeasurement).not.toHaveBeenCalled()
+  })
+
+  it("blocks agent-localhost targets through common IP literal forms", () => {
+    const node: ProbeNode = {
+      id: "agent-1",
+      kind: "remote-agent",
+      label: "Lab",
+      reachable: true,
+      endpoint: "https://agent.example",
+    }
+    renderPanel({ nodes: [node] })
+    fireEvent.click(screen.getByRole("button", { name: "networkProbe.nodes.modeHttp" }))
+    const target = screen.getByRole("textbox", { name: "networkProbe.nodes.targetLabel" })
+
+    for (const value of [
+      "http://localhost/admin",
+      "http://printer.localhost/",
+      "http://127.0.0.1/",
+      "http://[::1]/",
+      "http://2852039166/",
+      "http://0251.0376.0251.0376/",
+    ]) {
+      fireEvent.change(target, { target: { value } })
+      expect(screen.getByRole("alert")).toHaveTextContent("networkProbe.nodes.targetRemoteBlocked")
+    }
+  })
+
+  it("shows an agent measurement by node with retry information", () => {
+    const result: AgentMeasurementResult = {
+      nodeId: "agent-1",
+      measurementType: "http",
+      target: "https://example.com/health",
+      status: "rate-limited",
+      elapsedMs: 42,
+      retryAfterSeconds: 17,
+      probe: {
+        id: "agent-1",
+        label: "Lab",
+        status: "failed",
+        summary: "rate-limited",
+        answers: [],
+        httpStatusCode: 503,
+        failureSource: "agent",
+      },
+    }
+    const node: ProbeNode = {
+      id: "agent-1",
+      kind: "remote-agent",
+      label: "Lab",
+      reachable: true,
+      endpoint: "https://agent.example",
+    }
+    renderPanel({ nodes: [node], agentMeasurementResults: { [node.id]: result } })
+
+    expect(screen.getByRole("status")).toHaveTextContent("networkProbe.nodes.agentRateLimited")
+    expect(screen.getByRole("status")).toHaveTextContent("networkProbe.nodes.httpStatus")
+    expect(screen.getByRole("status")).toHaveTextContent("https://example.com/health")
+    expect(screen.getByRole("status")).toHaveTextContent("networkProbe.nodes.elapsedMs")
   })
 
   it("shows a bounded result summary without relying on English OK/FAIL labels", () => {
@@ -158,7 +289,23 @@ describe("MultiNodePanel agent states", () => {
 
     fireEvent.change(endpoint, { target: { value: "https://agent.example/?token=secret" } })
     expect(screen.getByRole("alert")).toHaveTextContent("networkProbe.nodes.endpointNoCredentials")
+    fireEvent.change(endpoint, { target: { value: "https://agent.example/?" } })
+    expect(screen.getByRole("alert")).toHaveTextContent("networkProbe.nodes.endpointNoCredentials")
+    fireEvent.change(endpoint, { target: { value: "https://agent.example/#" } })
+    expect(screen.getByRole("alert")).toHaveTextContent("networkProbe.nodes.endpointNoCredentials")
+    fireEvent.change(endpoint, { target: { value: "https://@agent.example" } })
+    expect(screen.getByRole("alert")).toHaveTextContent("networkProbe.nodes.endpointNoCredentials")
     expect(onAddAgent).not.toHaveBeenCalled()
+  })
+
+  it("rejects even empty URL userinfo in remote HTTP targets", () => {
+    renderPanel()
+    fireEvent.click(screen.getByRole("button", { name: "networkProbe.nodes.modeHttp" }))
+    fireEvent.change(screen.getByRole("textbox", { name: "networkProbe.nodes.targetLabel" }), {
+      target: { value: "http://@example.com/" },
+    })
+
+    expect(screen.getByRole("alert")).toHaveTextContent("networkProbe.nodes.targetHttpCredentials")
   })
 
   it("clears agent details only after a successful registration", async () => {
@@ -168,12 +315,49 @@ describe("MultiNodePanel agent states", () => {
     const endpoint = screen.getByPlaceholderText("networkProbe.nodes.endpointPlaceholder")
     fireEvent.change(label, { target: { value: "Lab" } })
     fireEvent.change(endpoint, { target: { value: "https://agent.example" } })
+    fireEvent.change(screen.getByLabelText("networkProbe.nodes.newAgentTokenLabel"), {
+      target: { value: "test-agent-token" },
+    })
     fireEvent.click(screen.getByRole("button", { name: "networkProbe.nodes.addAgent" }))
 
     await waitFor(() => {
-      expect(onAddAgent).toHaveBeenCalledWith("Lab", "https://agent.example")
+      expect(onAddAgent).toHaveBeenCalledWith("Lab", "https://agent.example", "test-agent-token")
       expect(label).toHaveValue("")
       expect(endpoint).toHaveValue("")
     })
+  })
+
+  it("shows connectivity and prevents removal while an agent measurement is running", () => {
+    const node: ProbeNode = {
+      id: "agent-1",
+      kind: "remote-agent",
+      label: "Lab",
+      reachable: false,
+      endpoint: "https://agent.example",
+    }
+    renderPanel({ nodes: [node], agentMeasurementLoadingById: { [node.id]: true } })
+
+    expect(screen.getByText("networkProbe.nodes.agentOffline")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "networkProbe.nodes.removeAgent" })).toBeDisabled()
+  })
+
+  it("confirms removal before deleting an agent and its saved credential", async () => {
+    const onRemoveAgent = vi.fn().mockResolvedValue(true)
+    const node: ProbeNode = {
+      id: "agent-1",
+      kind: "remote-agent",
+      label: "Lab",
+      reachable: true,
+      endpoint: "https://agent.example",
+    }
+    renderPanel({ nodes: [node], onRemoveAgent })
+
+    fireEvent.click(screen.getByRole("button", { name: "networkProbe.nodes.removeAgent" }))
+    expect(onRemoveAgent).not.toHaveBeenCalled()
+    expect(screen.getByText("networkProbe.nodes.agentRemoveTitle")).toBeInTheDocument()
+    const confirmButtons = screen.getAllByRole("button", { name: "networkProbe.nodes.removeAgent" })
+    fireEvent.click(confirmButtons[confirmButtons.length - 1]!)
+
+    await waitFor(() => expect(onRemoveAgent).toHaveBeenCalledWith(node.id))
   })
 })

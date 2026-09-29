@@ -1,7 +1,7 @@
 use super::types::{
-    CapabilityPackInfo, CapabilityPackInstallResult, CaptivePortalResult, DefaultRouteInfo,
-    DefaultsOverride, DnsLookupResult, DnsSecCheckResult, FirewallStatus, FixResult,
-    GlobalpingMeasurementResult, HealthScanResult, HostsOverride, Ipv6StackResult,
+    AgentMeasurementResult, CapabilityPackInfo, CapabilityPackInstallResult, CaptivePortalResult,
+    DefaultRouteInfo, DefaultsOverride, DnsLookupResult, DnsSecCheckResult, FirewallStatus,
+    FixResult, GlobalpingMeasurementResult, HealthScanResult, HostsOverride, Ipv6StackResult,
     LanDiscoveryResult, LanServicesResult, LocalNetworkSummary, NatProbeResult,
     NetworkFingerprintResult, NetworkProbeCapabilities, NetworkProbeDefaultsCatalog,
     NtpProbeResult, PathMtuResult, PcapDiagResult, PingProbeResult, PollutionReport,
@@ -20,7 +20,7 @@ pub async fn get_network_probe_capabilities(app: AppHandle) -> AppResult<Network
 
 #[tauri::command]
 pub async fn list_probe_nodes(app: AppHandle) -> AppResult<Vec<ProbeNode>> {
-    let agents = super::agent::agents_as_nodes(&app).unwrap_or_default();
+    let agents = super::agent::agents_as_nodes(&app).await?;
     Ok(super::globalping::list_nodes_with_agents(&agents))
 }
 
@@ -196,13 +196,33 @@ pub async fn network_probe_add_agent(
     app: AppHandle,
     label: String,
     endpoint: String,
+    token: String,
 ) -> AppResult<ProbeNode> {
-    super::agent::add_agent(&app, label, endpoint).await
+    super::agent::add_agent(&app, label, endpoint, token).await
+}
+
+#[tauri::command]
+pub async fn network_probe_set_agent_token(
+    app: AppHandle,
+    agent_id: String,
+    token: String,
+) -> AppResult<()> {
+    super::agent::set_agent_token(&app, agent_id, token).await
 }
 
 #[tauri::command]
 pub async fn network_probe_remove_agent(app: AppHandle, agent_id: String) -> AppResult<()> {
-    super::agent::remove_agent(&app, agent_id)
+    super::agent::remove_agent(&app, agent_id).await
+}
+
+#[tauri::command]
+pub async fn network_probe_run_agent_measurement(
+    app: AppHandle,
+    agent_id: String,
+    measurement_type: String,
+    target: String,
+) -> AppResult<AgentMeasurementResult> {
+    super::agent::run_agent_measurement(&app, agent_id, measurement_type, target).await
 }
 
 #[tauri::command]

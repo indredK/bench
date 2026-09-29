@@ -70,6 +70,8 @@ export function useNetworkProbeController() {
   const lanServicesResult = useNetworkProbeStore((s) => s.lanServicesResult)
   const pcapResult = useNetworkProbeStore((s) => s.pcapResult)
   const globalpingResult = useNetworkProbeStore((s) => s.globalpingResult)
+  const agentMeasurementResults = useNetworkProbeStore((s) => s.agentMeasurementResults)
+  const agentMeasurementLoadingById = useNetworkProbeStore((s) => s.agentMeasurementLoadingById)
   const probeNodes = useNetworkProbeStore((s) => s.probeNodes)
   const probeNodesLoadStatus = useNetworkProbeStore((s) => s.probeNodesLoadStatus)
   const reportHistory = useNetworkProbeStore((s) => s.reportHistory)
@@ -267,11 +269,21 @@ export function useNetworkProbeController() {
   )
   const clearGlobalpingToken = useCallback(() => networkProbeUseCases.clearGlobalpingToken(), [])
   const addAgent = useCallback(
-    (label: string, endpoint: string) => networkProbeUseCases.addAgent(label, endpoint),
+    (label: string, endpoint: string, token: string) =>
+      networkProbeUseCases.addAgent(label, endpoint, token),
+    [],
+  )
+  const setAgentToken = useCallback(
+    (agentId: string, token: string) => networkProbeUseCases.setAgentToken(agentId, token),
     [],
   )
   const removeAgent = useCallback(
     (agentId: string) => networkProbeUseCases.removeAgent(agentId),
+    [],
+  )
+  const runAgentMeasurement = useCallback(
+    (agentId: string, measurementType: GlobalpingMeasurementType, target: string) =>
+      networkProbeUseCases.runAgentMeasurement(agentId, measurementType, target),
     [],
   )
   const installCapabilityPackVerifyFail = useCallback(
@@ -377,6 +389,8 @@ export function useNetworkProbeController() {
     lanServicesResult,
     pcapResult,
     globalpingResult,
+    agentMeasurementResults,
+    agentMeasurementLoadingById,
     probeNodes,
     probeNodesLoadStatus,
     reportHistory,
@@ -456,7 +470,9 @@ export function useNetworkProbeController() {
     saveGlobalpingToken,
     clearGlobalpingToken,
     addAgent,
+    setAgentToken,
     removeAgent,
+    runAgentMeasurement,
     installCapabilityPackVerifyFail,
     authorizeSecurity,
     revokeSecurity,

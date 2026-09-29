@@ -114,7 +114,9 @@ import type {
   LanDiscoveryResult,
   LanServicesResult,
   PcapDiagResult,
+  AgentMeasurementResult,
   GlobalpingMeasurementResult,
+  GlobalpingMeasurementType,
 } from "@/lib/tauri/types/network-probe"
 import type { CardKind, RunResult } from "@/lib/tauri/types/command-center"
 import type {
@@ -888,12 +890,20 @@ export const TAURI_COMMAND_CONTRACTS = {
     { action: "status" | "save" | "clear"; token?: string | null },
     boolean
   >()("network_probe_manage_globalping_token"),
-  network_probe_add_agent: defineTauriCommand<{ label: string; endpoint: string }, ProbeNode>()(
-    "network_probe_add_agent",
+  network_probe_add_agent: defineTauriCommand<
+    { label: string; endpoint: string; token: string },
+    ProbeNode
+  >()("network_probe_add_agent"),
+  network_probe_set_agent_token: defineTauriCommand<{ agentId: string; token: string }, void>()(
+    "network_probe_set_agent_token",
   ),
   network_probe_remove_agent: defineTauriCommand<{ agentId: string }, void>()(
     "network_probe_remove_agent",
   ),
+  network_probe_run_agent_measurement: defineTauriCommand<
+    { agentId: string; measurementType: GlobalpingMeasurementType; target: string },
+    AgentMeasurementResult
+  >()("network_probe_run_agent_measurement"),
   network_probe_reject_agent_action: defineTauriCommand<{ action: string }, void>()(
     "network_probe_reject_agent_action",
   ),
@@ -1119,7 +1129,9 @@ export const TAURI_COMMANDS = {
     globalpingMeasure: commandName("network_probe_globalping_measure"),
     manageGlobalpingToken: commandName("network_probe_manage_globalping_token"),
     addAgent: commandName("network_probe_add_agent"),
+    setAgentToken: commandName("network_probe_set_agent_token"),
     removeAgent: commandName("network_probe_remove_agent"),
+    runAgentMeasurement: commandName("network_probe_run_agent_measurement"),
     rejectAgentAction: commandName("network_probe_reject_agent_action"),
     getLocalNetworkSummary: commandName("get_local_network_summary"),
     getDefaultRoute: commandName("get_default_route"),
@@ -1727,8 +1739,10 @@ export const TAURI_COMMAND_ARG_KEYS = {
   network_probe_run_pcap_diag: ["durationSecs"],
   network_probe_globalping_measure: ["measurementType", "target", "locations"],
   network_probe_manage_globalping_token: ["action", "token"],
-  network_probe_add_agent: ["label", "endpoint"],
+  network_probe_add_agent: ["label", "endpoint", "token"],
+  network_probe_set_agent_token: ["agentId", "token"],
   network_probe_remove_agent: ["agentId"],
+  network_probe_run_agent_measurement: ["agentId", "measurementType", "target"],
   network_probe_reject_agent_action: ["action"],
   get_local_network_summary: [],
   get_default_route: [],

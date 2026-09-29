@@ -52,7 +52,9 @@ export const networkProbeRepository = {
   runGlobalpingMeasurement: commands.runGlobalpingMeasurement,
   manageGlobalpingToken: commands.manageGlobalpingToken,
   addAgent: commands.addAgent,
+  setAgentToken: commands.setAgentToken,
   removeAgent: commands.removeAgent,
+  runAgentMeasurement: commands.runAgentMeasurement,
   rejectAgentAction: commands.rejectAgentAction,
   installCapabilityPackVerifyFail: commands.installCapabilityPackVerifyFail,
 }

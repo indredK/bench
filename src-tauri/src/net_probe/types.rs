@@ -860,6 +860,19 @@ pub struct GlobalpingProbeResult {
     pub failure_source: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentMeasurementResult {
+    pub node_id: String,
+    pub measurement_type: String,
+    pub target: String,
+    pub status: String,
+    pub probe: GlobalpingProbeResult,
+    pub elapsed_ms: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retry_after_seconds: Option<u64>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct GlobalpingRateLimit {

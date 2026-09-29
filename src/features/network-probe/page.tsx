@@ -15,6 +15,7 @@ import { Ipv6Panel } from "@/features/network-probe/components/Ipv6Panel"
 import { LanServicesPanel } from "@/features/network-probe/components/LanServicesPanel"
 import { MtuPanel } from "@/features/network-probe/components/MtuPanel"
 import { MultiNodePanel } from "@/features/network-probe/components/MultiNodePanel"
+import { getProbeNodeDisplayLabel } from "@/features/network-probe/utils/probe-node-label"
 import { NatPanel } from "@/features/network-probe/components/NatPanel"
 import { NtpPanel } from "@/features/network-probe/components/NtpPanel"
 import {
@@ -254,7 +255,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                 const pending = n.kind !== "local"
                 return (
                   <SelectItem key={n.id} value={n.id} disabled={pending}>
-                    {n.label}
+                    {getProbeNodeDisplayLabel(n, t)}
                     {pending ? (
                       <span className="text-muted-foreground ml-1 text-[10px] font-bold tracking-wider uppercase">
                         {t("networkProbe.badge.planning")}
@@ -717,6 +718,8 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     nodesStatus={c.probeNodesLoadStatus}
                     agentMutation={c.agentMutation}
                     result={c.globalpingResult}
+                    agentMeasurementResults={c.agentMeasurementResults}
+                    agentMeasurementLoadingById={c.agentMeasurementLoadingById}
                     nodes={c.probeNodes}
                     toolEnabled={c.toolEnabled.globalping}
                     toolStatus={c.toolStatus.globalping}
@@ -726,7 +729,9 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     onClearToken={c.clearGlobalpingToken}
                     onRefreshNodes={c.refreshProbeNodes}
                     onAddAgent={c.addAgent}
+                    onSetAgentToken={c.setAgentToken}
                     onRemoveAgent={c.removeAgent}
+                    onRunAgentMeasurement={c.runAgentMeasurement}
                   />
                 ) : null}
 

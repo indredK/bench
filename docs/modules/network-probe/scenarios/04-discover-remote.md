@@ -124,15 +124,16 @@ Post-MVP-C
 
 1. 手动添加 agent endpoint + 凭证（进 Keychain/安全存储）
 2. `listProbeNodes` 出现 `remote-agent`
-3. 用 ping/http 跑同一目标
+3. 健康检查显示 agent 可用后，对同一目标执行 DNS / ping / HTTP，结果按 `nodeId` 与 Globalping 区分
 4. 负向：尝试让 agent 执行非白名单/任意 shell → 被拒
 
 ### 期望
 
-- HTTPS/WSS；HMAC 或 mTLS；限速 429 映射 `AppError`
-- 当前健康检查只支持 HTTPS JSON；WSS 协议、凭证认证与 Keychain 安全存储属于 C2-3 待实现要求。完成前 endpoint 不得嵌入 userinfo、query 或 fragment
+- 桌面端协议为 HTTPS JSON + HMAC-SHA256；WSS 未实现。Keychain 密钥存储、health check、DNS/ping/HTTP 客户端执行、429 映射、重定向关闭、响应大小限制和 `nodeId` 独立结果已实现
+- 端点不得嵌入 userinfo、query 或 fragment；agent token 通过独立密码输入框录入并存入系统钥匙串
+- Bench 未附带服务端；接入兼容服务并验证 HMAC 时效 / nonce 重放防护、服务端并发限速、真实 429 与三种测量后，本场景才算端到端完成
 - 禁止明文；禁止局域网自动扩散发现 agent
-- SSRF：拒云元数据等危险目标
+- 客户端拒绝云元数据与 link-local 字面目标；服务端必须防 DNS rebinding，并在 DNS 解析后检查所有地址，避免回环/私网/元数据目标
 
 ### 档位
 

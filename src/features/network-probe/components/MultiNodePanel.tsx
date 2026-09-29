@@ -9,8 +9,10 @@ import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { getProbeNodeDisplayLabel } from "@/features/network-probe/utils/probe-node-label"
 import type { AgentMutation, ProbeNodesLoadStatus } from "@/features/network-probe/store"
 import type {
+  AgentMeasurementResult,
   GlobalpingMeasurementResult,
   GlobalpingMeasurementType,
   GlobalpingProbeResult,
@@ -30,12 +32,104 @@ const MEASUREMENT_OPTIONS: { value: GlobalpingMeasurementType; labelKey: string 
   { value: "http", labelKey: "networkProbe.nodes.modeHttp" },
 ]
 
+const MAX_SELF_HOSTED_AGENTS = 10
+
+function hasUrlAuthorityUserInfo(value: string) {
+  const authority = value.match(/^[a-z][a-z\d+.-]*:\/\/([^/?#]*)/iu)?.[1]
+  return authority?.includes("@") ?? false
+}
+
+function isBlockedRemoteTargetHost(value: string) {
+  const host = value
+    .trim()
+    .replace(/^\[|\]$/gu, "")
+    .replace(/\.$/u, "")
+    .toLowerCase()
+  if (
+    ["metadata", "metadata.google.internal", "instance-data.ec2.internal", "localhost"].includes(
+      host,
+    ) ||
+    host.endsWith(".localhost")
+  ) {
+    return true
+  }
+  const ipv4 = host.split(".").map((part) => Number(part))
+  if (
+    ipv4.length === 4 &&
+    ipv4.every((part) => Number.isInteger(part) && part >= 0 && part <= 255) &&
+    ((ipv4[0] === 169 && ipv4[1] === 254) || ipv4[0] === 127)
+  ) {
+    return true
+  }
+  if (host === "::1" || /^fe[89ab][\da-f]:/u.test(host)) return true
+  if (/^::ffff:/u.test(host)) {
+    const mapped = host.slice("::ffff:".length)
+    if (
+      /^a9fe(?::[\da-f]{1,4})?$/u.test(mapped) ||
+      /^169\.254\./u.test(mapped) ||
+      /^7f[\da-f]{2}:/u.test(mapped) ||
+      /^127\./u.test(mapped)
+    ) {
+      return true
+    }
+  }
+  return false
+}
+
+function AgentMeasurementSummary({ result }: { result: AgentMeasurementResult }) {
+  const { t } = useTranslation()
+  const { probe } = result
+  return (
+    <div className="bg-muted/40 space-y-1 rounded p-2 text-xs" role="status">
+      <p className="font-medium">
+        {t(`networkProbe.nodes.measurementStatus.${result.status}`)} · {result.target} ·{" "}
+        {t("networkProbe.nodes.elapsedMs", { ms: result.elapsedMs.toFixed(0) })}
+      </p>
+      {result.status === "rate-limited" ? (
+        <p className="text-amber-700 dark:text-amber-400">
+          {t("networkProbe.nodes.agentRateLimited", {
+            seconds: result.retryAfterSeconds ?? "—",
+          })}
+        </p>
+      ) : null}
+      {result.measurementType === "dns" && probe.answers.length > 0 ? (
+        <p className="break-all">{probe.answers.join(", ")}</p>
+      ) : null}
+      {result.measurementType === "dns" && probe.dnsRcode ? (
+        <p>{t("networkProbe.nodes.dnsResponseCode", { code: probe.dnsRcode })}</p>
+      ) : null}
+      {result.measurementType === "ping" && probe.avgRttMs !== undefined ? (
+        <p>{t("networkProbe.nodes.avgRtt", { ms: probe.avgRttMs.toFixed(2) })}</p>
+      ) : null}
+      {result.measurementType === "ping" && probe.packetLossPercent !== undefined ? (
+        <p>{t("networkProbe.nodes.packetLoss", { percent: probe.packetLossPercent })}</p>
+      ) : null}
+      {result.measurementType === "ping" && probe.packetsSent !== undefined ? (
+        <p>
+          {t("networkProbe.nodes.packets", {
+            received: probe.packetsReceived ?? 0,
+            sent: probe.packetsSent,
+          })}
+        </p>
+      ) : null}
+      {result.measurementType === "http" && probe.httpStatusCode !== undefined ? (
+        <p>{t("networkProbe.nodes.httpStatus", { code: probe.httpStatusCode })}</p>
+      ) : null}
+      {result.measurementType === "http" && probe.totalTimeMs !== undefined ? (
+        <p>{t("networkProbe.nodes.httpTiming", { ms: probe.totalTimeMs.toFixed(0) })}</p>
+      ) : null}
+    </div>
+  )
+}
+
 interface MultiNodePanelProps {
   loading: boolean
   loadingNodes: boolean
   nodesStatus: ProbeNodesLoadStatus
   agentMutation: AgentMutation
   result: GlobalpingMeasurementResult | null
+  agentMeasurementResults: Record<string, AgentMeasurementResult>
+  agentMeasurementLoadingById: Record<string, boolean>
   nodes: ProbeNode[]
   toolEnabled: boolean
   toolStatus?: string
@@ -48,8 +142,14 @@ interface MultiNodePanelProps {
   onSaveToken: (token: string) => Promise<boolean>
   onClearToken: () => Promise<boolean>
   onRefreshNodes: () => void
-  onAddAgent: (label: string, endpoint: string) => Promise<boolean>
-  onRemoveAgent: (agentId: string) => void
+  onAddAgent: (label: string, endpoint: string, token: string) => Promise<boolean>
+  onSetAgentToken: (agentId: string, token: string) => Promise<boolean>
+  onRemoveAgent: (agentId: string) => Promise<boolean>
+  onRunAgentMeasurement: (
+    agentId: string,
+    measurementType: GlobalpingMeasurementType,
+    target: string,
+  ) => Promise<AgentMeasurementResult | null>
 }
 
 export function MultiNodePanel({
@@ -58,6 +158,8 @@ export function MultiNodePanel({
   nodesStatus,
   agentMutation,
   result,
+  agentMeasurementResults,
+  agentMeasurementLoadingById,
   nodes,
   toolEnabled,
   toolStatus,
@@ -67,7 +169,9 @@ export function MultiNodePanel({
   onClearToken,
   onRefreshNodes,
   onAddAgent,
+  onSetAgentToken,
   onRemoveAgent,
+  onRunAgentMeasurement,
 }: MultiNodePanelProps) {
   const { t } = useTranslation()
   const [measurementType, setMeasurementType] = useState<GlobalpingMeasurementType>("dns")
@@ -75,6 +179,10 @@ export function MultiNodePanel({
   const [locations, setLocations] = useState<string[]>(["world"])
   const [label, setLabel] = useState("")
   const [endpoint, setEndpoint] = useState("")
+  const [agentToken, setAgentToken] = useState("")
+  const [agentTokenDrafts, setAgentTokenDrafts] = useState<Record<string, string>>({})
+  const [savedAgentTokenId, setSavedAgentTokenId] = useState<string | null>(null)
+  const [agentToRemove, setAgentToRemove] = useState<ProbeNode | null>(null)
   const [token, setToken] = useState("")
   const [tokenConfigured, setTokenConfigured] = useState<boolean | null>(null)
   const [tokenStatusLoading, setTokenStatusLoading] = useState(true)
@@ -99,9 +207,16 @@ export function MultiNodePanel({
   const endpointErrorKey = (() => {
     if (!endpoint.trim()) return null
     try {
-      const url = new URL(endpoint.trim())
+      const value = endpoint.trim()
+      const url = new URL(value)
       if (url.protocol !== "https:") return "networkProbe.nodes.endpointHttpsOnly"
-      if (url.username || url.password || url.search || url.hash) {
+      if (
+        url.username ||
+        url.password ||
+        hasUrlAuthorityUserInfo(value) ||
+        value.includes("?") ||
+        value.includes("#")
+      ) {
         return "networkProbe.nodes.endpointNoCredentials"
       }
       if (!url.hostname) return "networkProbe.nodes.endpointInvalid"
@@ -113,22 +228,26 @@ export function MultiNodePanel({
   const targetErrorKey = (() => {
     const value = target.trim()
     if (!value) return "networkProbe.nodes.targetRequired"
-    if (value.length > 2048) return "networkProbe.nodes.targetTooLong"
+    if (Array.from(value).length > 2048) return "networkProbe.nodes.targetTooLong"
     if (measurementType === "http") {
       try {
         const url = new URL(value)
         if (!(["http:", "https:"].includes(url.protocol) && url.hostname)) {
           return "networkProbe.nodes.targetInvalidHttp"
         }
-        if (url.username || url.password || url.hash) {
+        if (url.username || url.password || hasUrlAuthorityUserInfo(value) || value.includes("#")) {
           return "networkProbe.nodes.targetHttpCredentials"
+        }
+        if (isBlockedRemoteTargetHost(url.hostname)) {
+          return "networkProbe.nodes.targetRemoteBlocked"
         }
         return null
       } catch {
         return "networkProbe.nodes.targetInvalidHttp"
       }
     }
-    if (/[\s/?#@%,]/u.test(value)) return "networkProbe.nodes.targetInvalidHost"
+    if (/[\s/\\?#@%,]/u.test(value)) return "networkProbe.nodes.targetInvalidHost"
+    if (isBlockedRemoteTargetHost(value)) return "networkProbe.nodes.targetRemoteBlocked"
     return null
   })()
 
@@ -243,7 +362,11 @@ export function MultiNodePanel({
             <Button
               type="button"
               variant="outline"
-              disabled={nodesLoading || agentMutation !== null}
+              disabled={
+                nodesLoading ||
+                agentMutation !== null ||
+                Object.values(agentMeasurementLoadingById).some(Boolean)
+              }
               onClick={onRefreshNodes}
             >
               {t("networkProbe.nodes.refresh")}
@@ -341,97 +464,224 @@ export function MultiNodePanel({
               ) : null}
             </div>
           </details>
-
-          <div className="space-y-2">
-            <p className="text-sm font-medium">{t("networkProbe.nodes.listTitle")}</p>
-            {nodesStatus === "failed" ? (
-              <p role="alert" className="text-destructive text-xs">
-                {t("networkProbe.nodes.loadFailed")}
-              </p>
-            ) : null}
-            {nodes.length === 0 ? (
-              <p className="text-muted-foreground text-xs">
-                {nodesLoading
-                  ? t("networkProbe.nodes.loading")
-                  : nodesStatus === "failed"
-                    ? t("networkProbe.nodes.loadFailed")
-                    : t("networkProbe.nodes.empty")}
-              </p>
-            ) : null}
-            <ul className="space-y-1 font-mono text-xs">
-              {nodes.map((node) => (
-                <li key={node.id} className="flex flex-wrap items-center gap-2">
-                  <span>
-                    {node.label} · {node.kind}
-                    {node.endpoint ? ` · ${node.endpoint}` : ""}
+        </>
+      }
+    >
+      <div className="space-y-3">
+        <div className="space-y-2">
+          <p className="text-sm font-medium">{t("networkProbe.nodes.listTitle")}</p>
+          {nodesStatus === "failed" ? (
+            <p role="alert" className="text-destructive text-xs">
+              {t("networkProbe.nodes.loadFailed")}
+            </p>
+          ) : null}
+          {nodes.length === 0 ? (
+            <p className="text-muted-foreground text-xs">
+              {nodesLoading
+                ? t("networkProbe.nodes.loading")
+                : nodesStatus === "failed"
+                  ? t("networkProbe.nodes.loadFailed")
+                  : t("networkProbe.nodes.empty")}
+            </p>
+          ) : null}
+          <ul className="space-y-2 text-xs">
+            {nodes.map((node) => (
+              <li key={node.id} className="space-y-1 rounded border p-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="min-w-0 flex-1 break-words">
+                    {getProbeNodeDisplayLabel(node, t)}
                   </span>
                   {node.kind === "remote-agent" ? (
+                    <>
+                      <span
+                        className={
+                          node.reachable
+                            ? "text-emerald-700 dark:text-emerald-400"
+                            : "text-muted-foreground"
+                        }
+                      >
+                        {node.reachable
+                          ? t("networkProbe.nodes.agentOnline")
+                          : t("networkProbe.nodes.agentOffline")}
+                      </span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={
+                          agentMutation !== null ||
+                          nodesLoading ||
+                          Boolean(agentMeasurementLoadingById[node.id])
+                        }
+                        onClick={() => setAgentToRemove(node)}
+                      >
+                        {agentMutation?.kind === "remove" && agentMutation.agentId === node.id
+                          ? t("networkProbe.nodes.removingAgent")
+                          : t("networkProbe.nodes.removeAgent")}
+                      </Button>
+                    </>
+                  ) : null}
+                </div>
+                {node.kind === "remote-agent" ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Input
+                      type="password"
+                      autoComplete="new-password"
+                      maxLength={2048}
+                      className="min-w-[14rem] flex-1"
+                      value={agentTokenDrafts[node.id] ?? ""}
+                      onChange={(event) =>
+                        setAgentTokenDrafts((drafts) => ({
+                          ...drafts,
+                          [node.id]: event.target.value,
+                        }))
+                      }
+                      placeholder={t("networkProbe.nodes.agentTokenPlaceholder")}
+                      aria-label={t("networkProbe.nodes.agentTokenInputLabel", {
+                        label: node.label,
+                      })}
+                      disabled={
+                        agentMutation !== null ||
+                        nodesLoading ||
+                        Boolean(agentMeasurementLoadingById[node.id])
+                      }
+                      onFocus={() => setSavedAgentTokenId(null)}
+                    />
                     <Button
                       type="button"
                       size="sm"
                       variant="outline"
-                      disabled={agentMutation !== null || nodesLoading}
-                      onClick={() => onRemoveAgent(node.id)}
+                      disabled={
+                        !agentTokenDrafts[node.id]?.trim() ||
+                        agentMutation !== null ||
+                        nodesLoading ||
+                        Boolean(agentMeasurementLoadingById[node.id])
+                      }
+                      onClick={async () => {
+                        const saved = await onSetAgentToken(
+                          node.id,
+                          agentTokenDrafts[node.id]?.trim() ?? "",
+                        )
+                        if (saved) {
+                          setAgentTokenDrafts((drafts) => ({ ...drafts, [node.id]: "" }))
+                          setSavedAgentTokenId(node.id)
+                          onRefreshNodes()
+                        }
+                      }}
                     >
-                      {agentMutation?.kind === "remove" && agentMutation.agentId === node.id
-                        ? t("networkProbe.nodes.removingAgent")
-                        : t("networkProbe.nodes.removeAgent")}
+                      {agentMutation?.kind === "set-token" && agentMutation.agentId === node.id
+                        ? t("networkProbe.nodes.tokenSaving")
+                        : t("networkProbe.nodes.agentTokenSave")}
                     </Button>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={
+                        targetErrorKey !== null ||
+                        agentMutation !== null ||
+                        nodesLoading ||
+                        Boolean(agentMeasurementLoadingById[node.id]) ||
+                        Object.values(agentMeasurementLoadingById).filter(Boolean).length >= 3
+                      }
+                      onClick={() =>
+                        void onRunAgentMeasurement(node.id, measurementType, target.trim())
+                      }
+                    >
+                      {agentMeasurementLoadingById[node.id]
+                        ? t("networkProbe.nodes.agentMeasuring")
+                        : t("networkProbe.nodes.measureFromAgent")}
+                    </Button>
+                    {savedAgentTokenId === node.id ? (
+                      <p className="w-full text-xs" role="status">
+                        {t("networkProbe.nodes.agentTokenSaved")}
+                      </p>
+                    ) : null}
+                    {agentMeasurementResults[node.id] ? (
+                      <div className="w-full">
+                        <AgentMeasurementSummary result={agentMeasurementResults[node.id]} />
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </div>
 
-          <div className="space-y-2 rounded-lg border p-3">
-            <p className="text-sm font-medium">{t("networkProbe.nodes.addTitle")}</p>
-            <p className="text-muted-foreground text-xs">{t("networkProbe.nodes.addHint")}</p>
-            <div className="flex flex-wrap gap-2">
-              <Input
-                className="max-w-[10rem]"
-                value={label}
-                onChange={(event) => setLabel(event.target.value)}
-                placeholder={t("networkProbe.nodes.labelPlaceholder")}
-              />
-              <Input
-                className="min-w-[16rem] flex-1"
-                value={endpoint}
-                onChange={(event) => setEndpoint(event.target.value)}
-                placeholder={t("networkProbe.nodes.endpointPlaceholder")}
-              />
-              {endpointErrorKey ? (
-                <p role="alert" className="text-destructive w-full text-xs">
-                  {t(endpointErrorKey)}
-                </p>
-              ) : null}
-              <CommandHint hint={t("networkProbe.cmd.addAgent")}>
-                <Button
-                  type="button"
-                  disabled={
-                    !label.trim() ||
-                    !endpoint.trim() ||
-                    endpointErrorKey !== null ||
-                    agentMutation !== null ||
-                    nodesLoading
+        <div className="space-y-2 rounded-lg border p-3">
+          <p className="text-sm font-medium">{t("networkProbe.nodes.addTitle")}</p>
+          <p className="text-muted-foreground text-xs">{t("networkProbe.nodes.addHint")}</p>
+          <div className="flex flex-wrap gap-2">
+            <Input
+              className="max-w-[10rem]"
+              maxLength={80}
+              value={label}
+              onChange={(event) => setLabel(event.target.value)}
+              placeholder={t("networkProbe.nodes.labelPlaceholder")}
+              disabled={agentMutation !== null || nodesLoading}
+            />
+            <Input
+              className="min-w-[16rem] flex-1"
+              maxLength={2048}
+              value={endpoint}
+              onChange={(event) => setEndpoint(event.target.value)}
+              placeholder={t("networkProbe.nodes.endpointPlaceholder")}
+              aria-label={t("networkProbe.nodes.endpointPlaceholder")}
+              disabled={agentMutation !== null || nodesLoading}
+            />
+            <Input
+              type="password"
+              autoComplete="new-password"
+              maxLength={2048}
+              className="min-w-[14rem] flex-1"
+              value={agentToken}
+              onChange={(event) => setAgentToken(event.target.value)}
+              placeholder={t("networkProbe.nodes.agentTokenPlaceholder")}
+              aria-label={t("networkProbe.nodes.newAgentTokenLabel")}
+              disabled={agentMutation !== null || nodesLoading}
+            />
+            {nodes.filter((node) => node.kind === "remote-agent").length >=
+            MAX_SELF_HOSTED_AGENTS ? (
+              <p className="text-muted-foreground w-full text-xs">
+                {t("networkProbe.nodes.agentLimitReached", { count: MAX_SELF_HOSTED_AGENTS })}
+              </p>
+            ) : null}
+            {endpointErrorKey ? (
+              <p role="alert" className="text-destructive w-full text-xs">
+                {t(endpointErrorKey)}
+              </p>
+            ) : null}
+            <CommandHint hint={t("networkProbe.cmd.addAgent")}>
+              <Button
+                type="button"
+                disabled={
+                  !label.trim() ||
+                  !endpoint.trim() ||
+                  !agentToken.trim() ||
+                  nodes.filter((node) => node.kind === "remote-agent").length >=
+                    MAX_SELF_HOSTED_AGENTS ||
+                  endpointErrorKey !== null ||
+                  agentMutation !== null ||
+                  nodesLoading
+                }
+                onClick={async () => {
+                  const added = await onAddAgent(label.trim(), endpoint.trim(), agentToken.trim())
+                  if (added) {
+                    setLabel("")
+                    setEndpoint("")
+                    setAgentToken("")
+                    setSavedAgentTokenId(null)
                   }
-                  onClick={async () => {
-                    const added = await onAddAgent(label.trim(), endpoint.trim())
-                    if (added) {
-                      setLabel("")
-                      setEndpoint("")
-                    }
-                  }}
-                >
-                  {agentMutation?.kind === "add"
-                    ? t("networkProbe.nodes.addingAgent")
-                    : t("networkProbe.nodes.addAgent")}
-                </Button>
-              </CommandHint>
-            </div>
+                }}
+              >
+                {agentMutation?.kind === "add"
+                  ? t("networkProbe.nodes.addingAgent")
+                  : t("networkProbe.nodes.addAgent")}
+              </Button>
+            </CommandHint>
           </div>
-        </>
-      }
-    >
+        </div>
+      </div>
       {result ? (
         <div className="space-y-2">
           <p className="text-muted-foreground text-xs">
@@ -503,6 +753,31 @@ export function MultiNodePanel({
         cancelLabel={t("networkProbe.nodes.tokenRemoveCancel")}
         loading={tokenSaving}
         onConfirm={handleClearToken}
+      />
+      <DestructiveConfirmDialog
+        open={agentToRemove !== null}
+        onOpenChange={(open) => {
+          if (!open) setAgentToRemove(null)
+        }}
+        title={t("networkProbe.nodes.agentRemoveTitle")}
+        description={t("networkProbe.nodes.agentRemoveDescription", {
+          label: agentToRemove?.label ?? "",
+        })}
+        consequence={t("networkProbe.nodes.agentRemoveConsequence")}
+        confirmLabel={t("networkProbe.nodes.removeAgent")}
+        cancelLabel={t("networkProbe.nodes.tokenRemoveCancel")}
+        loading={agentMutation?.kind === "remove"}
+        onConfirm={async () => {
+          if (!agentToRemove) return
+          const removed = await onRemoveAgent(agentToRemove.id)
+          if (removed) {
+            setAgentTokenDrafts((drafts) => {
+              const next = { ...drafts }
+              delete next[agentToRemove.id]
+              return next
+            })
+          }
+        }}
       />
     </ProbePanelShell>
   )

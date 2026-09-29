@@ -227,12 +227,28 @@ export function manageGlobalpingToken(action: "status" | "save" | "clear", token
   })
 }
 
-export function addAgent(label: string, endpoint: string) {
-  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.addAgent, { label, endpoint })
+export function addAgent(label: string, endpoint: string, token: string) {
+  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.addAgent, { label, endpoint, token })
+}
+
+export function setAgentToken(agentId: string, token: string) {
+  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.setAgentToken, { agentId, token })
 }
 
 export function removeAgent(agentId: string) {
   return invokeTauriCommand(TAURI_COMMANDS.networkProbe.removeAgent, { agentId })
+}
+
+export function runAgentMeasurement(
+  agentId: string,
+  measurementType: GlobalpingMeasurementType,
+  target: string,
+) {
+  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.runAgentMeasurement, {
+    agentId,
+    measurementType,
+    target,
+  })
 }
 
 export function rejectAgentAction(action: string) {

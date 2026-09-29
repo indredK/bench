@@ -365,6 +365,7 @@ dependencies = [
  "ed25519-dalek",
  "futures-util",
  "hickory-resolver",
+ "hmac 0.13.0",
  "if-addrs",
  "keyring",
  "md5",

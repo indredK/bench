@@ -7,7 +7,7 @@
 ## 当前状态
 
 - 模块 1.0 / MVP A+B 已闭环（D-016）。
-- Post-MVP：测速 + Globalping DNS/ping/HTTP 与可选 token + agent 注册骨架 + 安全/发现主路径已交付；服务 / OS 指纹已完成 macOS 实机验收；特权 helper 与自有 agent 远程执行仍待。
+- Post-MVP：测速 + Globalping DNS/ping/HTTP 与可选 token + 自有 agent HTTPS 客户端 + 安全/发现主路径已交付；服务 / OS 指纹已完成 macOS 实机验收；特权 helper、自有 agent 服务端兼容验收仍待。
 
 ## 待实现（未完成项）
 
@@ -32,7 +32,11 @@
 
 ### Wave 2 · Post-MVP-C（续）
 
-- [ ] **C2-3** 自有 agent 远程执行：TLS / 鉴权 / 限速贯通，`nodeId` 全链路（当前仅 HTTPS 健康检查；WSS 健康协议、凭证安全存储与远程执行待，◐）。
+- [ ] **C2-3** 自有 agent 远程执行端到端闭环（部分完成）：
+  - [x] HTTPS HMAC-SHA256 客户端、Keychain token、健康检查、DNS/ping/HTTP 白名单执行请求、429 映射、目标护栏、`nodeId` 结果隔离。
+  - [ ] 接入兼容的 agent 服务端，真机验证健康状态、三种真实测量、HMAC 过期 / nonce 重放拒绝、QPS / 并发限制、429 重试时间和服务端 DNS rebinding / SSRF 护栏。Bench 当前不附带服务端；没有真实 endpoint 验收前不勾选 C2-3 完成。
+  - [ ] Globalping 与自建 agent 的通用并排对比视图。
+  - WSS 不在本期客户端协议范围；Windows agent UI / TLS / Keychain 回归待用户安排 Windows 环境。
 
 ## 待验证（真机 / 行为）
 
@@ -79,3 +83,4 @@
 - 2026-09-29：完成 P5-4：基础主页合并本机网络摘要、最近体检状态与 pass/warn/fail/error/skip 计数，最多显示两条优先建议；本轮流式状态与取消结果不复用旧结论，运行体检和「上不了网」入口提升至顶部；固定 L2 导航继续承载体检树、意见、修复和报告。未引入未经定义的健康分数。Mac QA 真机验证中文/英文、完整体检、取消后的部分结果、建议与上不了网导航及布局；状态优先级与边缘项由单元测试覆盖。
 - 2026-09-29：完成 S3-6：接入本机 Nmap 低强度服务版本识别与可选 OS 估计；单主机 / 64 端口上限、确认对话框、超时与取消、字段清理及有限风险分类已实现。macOS 真机验证 Nmap 存在时服务识别、OS 权限不足时保留服务结果；卸载 Nmap 后指纹按钮禁用、基础扫描仍以 TCP connect 降级运行，取消无孤儿进程。Windows traceroute 能力矩阵回归按用户安排留档，待本轮总目标完成后提供环境验证；本项不声称 Windows 已验收。
 - 2026-09-29：完成 C2-2：Globalping 统一支持 DNS（本机 + 远端 A 记录）、3 包 ping 与 HTTP HEAD；区域严格白名单、最多 3 个区域且每区 1 个探点，交互式部分结果通过 `network-probe:globalping-progress` 窗口定向事件实时更新、500ms 最小轮询、ETag、50 秒超时和官方限额头反馈。token 可匿名使用或保存至按 app identifier 隔离的系统钥匙串；HTTP 凭据/片段拒绝，查询串不写日志，API client 不跟随重定向。中文/英文 UI、契约/解析/输入边界回归以及 macOS QA 真机验证已完成；自有 agent 远程执行继续留在 C2-3。
+- 2026-09-29：C2-3 桌面端阶段：加入 HTTPS HMAC-SHA256 agent 客户端、Keychain 共享 token、签名健康检查与测量、DNS/ping/HTTP 白名单、目标字面值护栏、429 状态和 `Retry-After` 展示；最多登记 10 个节点，前后端共同限制最多并行 3 项测量。注册、换 token、删除使用跨进程锁，并在 Keychain 失败时回滚；空测量响应不能误报成功。节点刷新执行有界并发健康检查并显示真实可用状态，注册表错误不再被吞成成功空列表。服务端、nonce 防重放 / 限速 / DNS rebinding 及真实端到端测量仍待兼容服务环境，因此 C2-3 保持未完成。Windows 回归由用户安排，按本轮目标完成后的专门复验执行。

@@ -267,15 +267,30 @@ MVP：`listProbeNodes` 至少返回 `local`；选中非 local 时 UI 提示「�
 
 ### 4.4 自有 agent 协议草图（Post-MVP-C）
 
-| 项       | 约定                                                                                           |
-| -------- | ---------------------------------------------------------------------------------------------- |
-| 传输     | HTTPS 或 WSS；禁止明文                                                                         |
-| 鉴权     | 每 agent 预共享 token 或 mTLS；请求带 HMAC(timestamp+body)                                     |
-| 允许方法 | 白名单 tool id（与本地 command 同名语义）；拒绝任意 shell                                      |
-| 限速     | 每 token QPS / 并发上限；超限 `429` 语义映射为 `AppError`                                      |
-| SSRF     | agent **不得**被指使访问 link-local / 元数据地址（云）以外的用户未声明目标时仍要校验目标字面量 |
-| 放大     | agent 不开放未鉴权 UDP 反射；只回传测量结果 JSON                                               |
-| 发现     | 用户手动添加 endpoint；不做局域网自动扩散                                                      |
+| 项       | 约定                                                                                                                                        |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| 传输     | HTTPS REST；客户端不跟随重定向，响应体受限；WSS 未实现                                                                                      |
+| 健康检查 | `GET <endpoint>/v1/health`，返回 `protocol=bench-probe-agent.v1` 与 `status=ok`                                                             |
+| 鉴权     | 每 agent 共享 token；HMAC-SHA256 对 canonical method/path/timestamp/nonce/body hash 签名；TLS 校验证书                                      |
+| 防重放   | 服务端必须拒绝超出时钟窗口的 timestamp，并对 agent + nonce 去重；建议窗口 5 分钟、nonce 保留至少窗口长度                                    |
+| 允许方法 | `dns`、`ping`、`http`；`POST <endpoint>/v1/measurements`，拒绝任意 shell                                                                    |
+| 限速     | 服务端按 token 限制 QPS / 并发；超限返回 `429` 与可选秒数 `Retry-After`。桌面端前端与后端共同限制最多并行 3 个任务；最多登记 10 个 agent    |
+| SSRF     | 客户端拒绝 localhost、云元数据与 link-local 字面目标；服务端 DNS 解析后仍须拦截回环、link-local、元数据及未授权私网目标，并防 DNS rebinding |
+| 放大     | agent 不开放未鉴权 UDP 反射；仅执行固定测量并回传受限 JSON，禁止把 agent 当任意 TCP/HTTP 代理                                               |
+| 发现     | 用户手动添加 endpoint；不做局域网自动扩散                                                                                                   |
+
+HMAC canonical string（UTF-8，LF 分隔；最后一项不额外加换行）：
+
+```text
+UPPERCASE_METHOD
+URL_PATH
+AGENT_ID
+UNIX_TIMESTAMP_SECONDS
+UUID_NONCE
+BASE64URL_NO_PAD(SHA256(raw_request_body))
+```
+
+请求头为 `x-bench-agent-id`、`x-bench-timestamp`、`x-bench-nonce`、`x-bench-signature`。测量请求体包含 `protocol`、`requestId`、`measurementType`、`target`、`timeoutMs`；响应必须回显 `protocol` 与 `requestId`，并返回 `status=complete` 和有界 `result`。结果必须包含对应测量证据：DNS 至少有答案或 RCODE，ping 必须回报实际发送与接收包数（最多 3 个），HTTP 至少返回状态码或有效总耗时；不能以空对象表示成功。桌面端将 HTTP 查询串从显示和日志中移除，但按用户输入发送。服务端实现和兼容 agent 尚未随 Bench 提供，只有接入真实 endpoint 后才算完成端到端验收。
 
 ---
 

@@ -18,6 +18,7 @@ import type {
   TracerouteHop,
   GlobalpingMeasurementType,
   GlobalpingMeasurementResult,
+  AgentMeasurementResult,
 } from "@/lib/tauri/types/network-probe"
 import { listenToPlatformEvent } from "@/platform/events"
 
@@ -1082,7 +1083,7 @@ export const networkProbeUseCases = {
     }
   },
 
-  async addAgent(label: string, endpoint: string): Promise<boolean> {
+  async addAgent(label: string, endpoint: string, token: string): Promise<boolean> {
     const store = useNetworkProbeStore.getState()
     if (store.agentMutation || store.loadingNodes || store.probeNodesLoadStatus === "loading")
       return false
@@ -1091,7 +1092,7 @@ export const networkProbeUseCases = {
     store.appendCommandLog("addAgent()")
     let mutationSucceeded = false
     try {
-      const addedNode = await networkProbeRepository.addAgent(label, endpoint)
+      const addedNode = await networkProbeRepository.addAgent(label, endpoint, token)
       mutationSucceeded = true
       const current = useNetworkProbeStore.getState()
       current.setProbeNodes([
@@ -1120,10 +1121,63 @@ export const networkProbeUseCases = {
     return mutationSucceeded
   },
 
-  async removeAgent(agentId: string) {
+  async setAgentToken(agentId: string, token: string): Promise<boolean> {
     const store = useNetworkProbeStore.getState()
     if (store.agentMutation || store.loadingNodes || store.probeNodesLoadStatus === "loading")
-      return
+      return false
+    if (store.agentMeasurementLoadingById[agentId]) return false
+    store.setAgentMutation({ kind: "set-token", agentId })
+    store.setError(null)
+    try {
+      await networkProbeRepository.setAgentToken(agentId, token)
+      return true
+    } catch (error) {
+      useNetworkProbeStore.getState().setError({
+        key: "networkProbe.errors.agentTokenFailed",
+        fallback: getErrorMessage(error),
+      })
+      return false
+    } finally {
+      useNetworkProbeStore.getState().setAgentMutation(null)
+    }
+  },
+
+  async runAgentMeasurement(
+    agentId: string,
+    measurementType: GlobalpingMeasurementType,
+    target: string,
+  ): Promise<AgentMeasurementResult | null> {
+    const store = useNetworkProbeStore.getState()
+    const activeRuns = Object.values(store.agentMeasurementLoadingById).filter(Boolean).length
+    if (store.agentMeasurementLoadingById[agentId] || activeRuns >= 3) return null
+    store.setError(null)
+    store.setAgentMeasurementLoading(agentId, true)
+    store.setAgentMeasurementResult(agentId, null)
+    store.appendCommandLog(`agent ${measurementType}`)
+    try {
+      const result = await networkProbeRepository.runAgentMeasurement(
+        agentId,
+        measurementType,
+        target.trim(),
+      )
+      useNetworkProbeStore.getState().setAgentMeasurementResult(agentId, result)
+      return result
+    } catch (error) {
+      useNetworkProbeStore.getState().setError({
+        key: "networkProbe.errors.agentMeasurementFailed",
+        fallback: getErrorMessage(error),
+      })
+      return null
+    } finally {
+      useNetworkProbeStore.getState().setAgentMeasurementLoading(agentId, false)
+    }
+  },
+
+  async removeAgent(agentId: string): Promise<boolean> {
+    const store = useNetworkProbeStore.getState()
+    if (store.agentMutation || store.loadingNodes || store.probeNodesLoadStatus === "loading")
+      return false
+    if (store.agentMeasurementLoadingById[agentId]) return false
     store.setAgentMutation({ kind: "remove", agentId })
     store.setError(null)
     store.appendCommandLog(`removeAgent('${agentId}')`)
@@ -1133,6 +1187,8 @@ export const networkProbeUseCases = {
       mutationSucceeded = true
       const current = useNetworkProbeStore.getState()
       current.setProbeNodes(current.probeNodes.filter((node) => node.id !== agentId))
+      current.setAgentMeasurementResult(agentId, null)
+      current.setAgentMeasurementLoading(agentId, false)
       current.setProbeNodesLoadStatus("loading")
       const nodes = await networkProbeRepository.listProbeNodes()
       const latest = useNetworkProbeStore.getState()
@@ -1152,6 +1208,7 @@ export const networkProbeUseCases = {
     } finally {
       useNetworkProbeStore.getState().setAgentMutation(null)
     }
+    return mutationSucceeded
   },
 
   async installCapabilityPackVerifyFail(packId: string) {

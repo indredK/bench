@@ -141,17 +141,13 @@ token 可通过 `network_probe_manage_globalping_token` 查询配置状态、保
 
 #### 自有 agent（`remote-agent`）
 
-见 design §4.4 摘要落地：
+桌面端实现 HTTPS 客户端，不包含 agent 服务端。协议使用 `bench-probe-agent.v1`：`GET /v1/health` 校验兼容性；`POST /v1/measurements` 执行 `dns`、`ping`、`http` 三种固定操作。客户端关闭重定向、限制响应体，并用 HMAC-SHA256 签署 method、path、agent ID、秒级 timestamp、UUID nonce 和原始 body 的 SHA-256。共享 token 按 app identifier 与 agent ID 写入系统钥匙串，不返回前端或写入命令日志。WSS 暂不支持。
 
-| 项   | 约定                                                      |
-| ---- | --------------------------------------------------------- |
-| 传输 | HTTPS 或 WSS；禁止明文                                    |
-| 鉴权 | 每 agent token 或 mTLS；HMAC(timestamp+body)              |
-| 方法 | 白名单 tool id；**拒绝任意 shell**                        |
-| 限速 | 每 token QPS/并发；超限 → 429 语义                        |
-| SSRF | agent 拒绝被指使打云元数据/未声明目标                     |
-| 发现 | **手动**添加 endpoint；不做局域网自动扩散（防变僵尸网络） |
-| 密钥 | Keychain / 系统安全存储；不进前端持久化明文               |
+服务端必须校验 HMAC、timestamp 时效与 nonce 重放，按 token 限制 QPS / 并发并以 `429` + 可选秒数 `Retry-After` 返回限流状态；必须在 DNS 解析后检查全部地址以防 DNS rebinding，并拒绝回环、云元数据、link-local 和未授权私网目标。成功响应须含与 DNS、ping 或 HTTP 类型匹配的测量证据，空结果不能报告成功。客户端拒绝字面 localhost、link-local / 云元数据目标，前端与后端共同限制最多同时运行 3 个 agent 测量、最多登记 10 个 agent。未接入兼容服务端前，协议只有客户端测试，不视为端到端完成。
+
+结果以 `nodeId` 隔离，HTTP URL 查询串不进入结果展示或日志。仅手动添加 endpoint，不做局域网自动扩散；agent 不得开放通用代理或任意 shell。
+
+已评估 [Prometheus Blackbox Exporter](https://github.com/prometheus/blackbox_exporter)：它是成熟的 HTTPS / Basic Auth 服务，可探测 DNS、ICMP 与 HTTP；但 DNS 查询名固定在 server module 配置中，`/probe` 返回 Prometheus 指标且只报告答案记录数，不能直接支持 Bench 任意域名输入与 DNS 答案列表。因此当前没有把它误当作兼容 agent；后续若采用它，需要明确限定 DNS 能力或设计经过安全审查的适配层。
 
 #### 对比视图
 
@@ -228,8 +224,9 @@ listProbeNodes(): ProbeNode[]
 **C**
 
 - [x] `listProbeNodes` + Globalping DNS/ping/HTTP 测量、token、超时/限速/部分结果与真机验证（C2-2）
-- [ ] agent 鉴权/限速/拒绝 shell 有测试
-- [ ] `store.byNode` 通用对比视图；单节点失败可诊断（C2-3 agent 路由待做）
+- [x] 桌面端 agent 鉴权、限速响应映射、固定工具白名单、目标安全校验、`nodeId` 结果隔离与密钥存储
+- [ ] 接入兼容 agent 服务端，验证 HMAC 过期 / nonce 重放拒绝、并发与 QPS 限制、429 恢复时间、DNS rebinding / 元数据防护和三种测量的真结果
+- [ ] `store.byNode` 通用 Globalping + agent 对比视图；当前自有 agent 结果按 `nodeId` 独立存放，未形成跨源并排比较
 - [ ] 远程能力不要求本机 Adv pack（本机零重库）
 
 ---

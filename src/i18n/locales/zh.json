@@ -2228,7 +2228,7 @@
       "stats": "packets={{packets}} · RST={{rst}} · retrans≈{{retrans}} · OOO≈{{ooo}}"
     },
     "nodes": {
-      "hint": "从本机和 Globalping 远端探点检查 DNS、ping 或 HTTP。可选配置 token 提高额度；自有 agent 目前仅支持登记与健康检查。",
+      "hint": "从本机、Globalping 远端探点或兼容的自建 HTTPS agent 检查 DNS、ping 或 HTTP。",
       "modeLabel": "远程测量类型",
       "modeDns": "DNS",
       "modePing": "Ping",
@@ -2239,6 +2239,7 @@
       "targetInvalidHost": "请输入单个主机名或 IP 地址。",
       "targetInvalidHttp": "请输入有效的 http:// 或 https:// 地址。",
       "targetHttpCredentials": "HTTP 地址不能包含凭据或片段。",
+      "targetRemoteBlocked": "远程 agent 禁止探测 localhost、云元数据和链路本地目标。",
       "httpTargetPlaceholder": "https://example.com/health",
       "pingTargetPlaceholder": "example.com 或 1.1.1.1",
       "run": "开始远程测量",
@@ -2248,6 +2249,8 @@
       "loadFailed": "无法加载探测节点，请刷新重试。",
       "empty": "当前没有可用的探测节点。",
       "listTitle": "探测节点",
+      "localNode": "本机",
+      "globalpingNode": "Globalping · {{location}}",
       "locationsLabel": "Globalping 测量区域",
       "locationWorld": "全球",
       "locationUs": "美国",
@@ -2276,7 +2279,7 @@
       "tokenRemoveConfirm": "移除 token",
       "tokenRemoveCancel": "取消",
       "addTitle": "添加 agent",
-      "addHint": "端点必须是 HTTPS agent 地址。URL 中不能包含凭证；任意 shell 动作会被拒绝。",
+      "addHint": "填写兼容 Bench 探测 agent 提供的 HTTPS 地址和共享 token。token 保存在系统钥匙串；仅允许 DNS、ping 和 HTTP。",
       "labelPlaceholder": "名称",
       "domainPlaceholder": "example.com",
       "endpointPlaceholder": "https://agent.example:8443",
@@ -2287,7 +2290,22 @@
       "addingAgent": "正在添加…",
       "removeAgent": "移除",
       "removingAgent": "正在移除…",
+      "agentOnline": "可连接",
+      "agentOffline": "暂不可用 · 请检查地址或 token",
+      "agentTokenPlaceholder": "Agent 共享 token",
+      "agentTokenInputLabel": "{{label}} 的共享 token",
+      "newAgentTokenLabel": "新 agent 的共享 token",
+      "agentTokenSave": "保存 token",
+      "agentTokenSaved": "Agent token 已保存在系统钥匙串。",
+      "agentLimitReached": "最多可登记 {{count}} 个自建 agent。",
+      "agentRemoveTitle": "移除此自建 agent？",
+      "agentRemoveDescription": "从节点列表中移除 {{label}}？",
+      "agentRemoveConsequence": "对应的共享 token 也会从系统钥匙串删除。",
+      "measureFromAgent": "从此 agent 测量",
+      "agentMeasuring": "正在从 agent 测量…",
+      "agentRateLimited": "此 agent 已限流，请在 {{seconds}} 秒后重试。",
       "measurementMeta": "{{target}} · {{count}} 个探点结果 · {{ms}} ms",
+      "elapsedMs": "耗时 {{ms}} 毫秒",
       "measurementStatus": {
         "in-progress": "正在测量",
         "complete": "已完成",
@@ -2567,7 +2585,9 @@
       "nodesFailed": "列举探测节点失败。",
       "multiNodeFailed": "Globalping 远程测量失败。",
       "globalpingTokenFailed": "无法读取或更新系统钥匙串中的 Globalping token。请检查钥匙串访问状态后重试。",
-      "agentFailed": "Agent 注册操作失败。"
+      "agentFailed": "Agent 注册操作失败。",
+      "agentTokenFailed": "无法将 agent token 保存到系统钥匙串。",
+      "agentMeasurementFailed": "自建 agent 测量失败，请检查连接状态和 token。"
     }
   },
   "extensionCenter": {
