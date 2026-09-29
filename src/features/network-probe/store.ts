@@ -36,7 +36,7 @@ import type {
   LanDiscoveryResult,
   LanServicesResult,
   PcapDiagResult,
-  MultiNodeDnsResult,
+  GlobalpingMeasurementResult,
   NetworkFingerprintResult,
   ProbeNode,
   TcpConnectResult,
@@ -195,7 +195,7 @@ interface NetworkProbeState {
   lanResult: LanDiscoveryResult | null
   lanServicesResult: LanServicesResult | null
   pcapResult: PcapDiagResult | null
-  multiNodeDnsResult: MultiNodeDnsResult | null
+  globalpingResult: GlobalpingMeasurementResult | null
   probeNodes: ProbeNode[]
   probeNodesLoadStatus: ProbeNodesLoadStatus
   reportHistory: HealthReportSnapshot[]
@@ -284,7 +284,7 @@ interface NetworkProbeState {
   setLanResult: (lanResult: LanDiscoveryResult | null) => void
   setLanServicesResult: (lanServicesResult: LanServicesResult | null) => void
   setPcapResult: (pcapResult: PcapDiagResult | null) => void
-  setMultiNodeDnsResult: (multiNodeDnsResult: MultiNodeDnsResult | null) => void
+  setGlobalpingResult: (globalpingResult: GlobalpingMeasurementResult | null) => void
   setProbeNodes: (probeNodes: ProbeNode[]) => void
   setProbeNodesLoadStatus: (status: ProbeNodesLoadStatus) => void
   pushReportHistory: (scan: HealthScanResult) => void
@@ -437,7 +437,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   lanResult: null,
   lanServicesResult: null,
   pcapResult: null,
-  multiNodeDnsResult: null,
+  globalpingResult: null,
   probeNodes: [],
   probeNodesLoadStatus: "idle",
   reportHistoryEnabled: loadReportHistoryEnabled(),
@@ -594,7 +594,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   setLanResult: (lanResult) => set({ lanResult }),
   setLanServicesResult: (lanServicesResult) => set({ lanServicesResult }),
   setPcapResult: (pcapResult) => set({ pcapResult }),
-  setMultiNodeDnsResult: (multiNodeDnsResult) => set({ multiNodeDnsResult }),
+  setGlobalpingResult: (globalpingResult) => set({ globalpingResult }),
   setProbeNodes: (probeNodes) => set({ probeNodes }),
   setProbeNodesLoadStatus: (probeNodesLoadStatus) => set({ probeNodesLoadStatus }),
   pushReportHistory: (scan) =>

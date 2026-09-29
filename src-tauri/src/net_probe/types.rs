@@ -818,20 +818,59 @@ pub struct PcapDiagResult {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct NodeDnsAnswer {
-    pub node_id: String,
-    pub node_label: String,
-    pub ok: bool,
-    pub answers: Vec<String>,
+pub struct GlobalpingMeasurementResult {
+    pub measurement_type: String,
+    pub target: String,
+    pub status: String,
+    pub probes: Vec<GlobalpingProbeResult>,
+    pub elapsed_ms: f64,
+    pub command_hint: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub detail: Option<String>,
+    pub rate_limit: Option<GlobalpingRateLimit>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retry_after_seconds: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct MultiNodeDnsResult {
-    pub domain: String,
-    pub answers: Vec<NodeDnsAnswer>,
-    pub elapsed_ms: f64,
-    pub command_hint: String,
+pub struct GlobalpingProbeResult {
+    pub id: String,
+    pub label: String,
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+    pub answers: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dns_rcode: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avg_rtt_ms: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub packet_loss_percent: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub packets_sent: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub packets_received: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub http_status_code: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub total_time_ms: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub failure_source: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct GlobalpingRateLimit {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub consumed: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub remaining: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reset_seconds: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub credits_remaining: Option<u32>,
 }

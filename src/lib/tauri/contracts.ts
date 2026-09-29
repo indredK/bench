@@ -114,7 +114,7 @@ import type {
   LanDiscoveryResult,
   LanServicesResult,
   PcapDiagResult,
-  MultiNodeDnsResult,
+  GlobalpingMeasurementResult,
 } from "@/lib/tauri/types/network-probe"
 import type { CardKind, RunResult } from "@/lib/tauri/types/command-center"
 import type {
@@ -880,10 +880,14 @@ export const TAURI_COMMAND_CONTRACTS = {
     { durationSecs?: number | null },
     PcapDiagResult
   >()("network_probe_run_pcap_diag"),
-  network_probe_compare_dns_multi: defineTauriCommand<
-    { domain: string; locations?: string[] | null },
-    MultiNodeDnsResult
-  >()("network_probe_compare_dns_multi"),
+  network_probe_globalping_measure: defineTauriCommand<
+    { measurementType: "dns" | "ping" | "http"; target: string; locations: string[] },
+    GlobalpingMeasurementResult
+  >()("network_probe_globalping_measure"),
+  network_probe_manage_globalping_token: defineTauriCommand<
+    { action: "status" | "save" | "clear"; token?: string | null },
+    boolean
+  >()("network_probe_manage_globalping_token"),
   network_probe_add_agent: defineTauriCommand<{ label: string; endpoint: string }, ProbeNode>()(
     "network_probe_add_agent",
   ),
@@ -1112,7 +1116,8 @@ export const TAURI_COMMANDS = {
     discoverLan: commandName("network_probe_discover_lan"),
     browseLanServices: commandName("network_probe_browse_lan_services"),
     runPcapDiag: commandName("network_probe_run_pcap_diag"),
-    compareDnsMulti: commandName("network_probe_compare_dns_multi"),
+    globalpingMeasure: commandName("network_probe_globalping_measure"),
+    manageGlobalpingToken: commandName("network_probe_manage_globalping_token"),
     addAgent: commandName("network_probe_add_agent"),
     removeAgent: commandName("network_probe_remove_agent"),
     rejectAgentAction: commandName("network_probe_reject_agent_action"),
@@ -1720,7 +1725,8 @@ export const TAURI_COMMAND_ARG_KEYS = {
   network_probe_discover_lan: [],
   network_probe_browse_lan_services: [],
   network_probe_run_pcap_diag: ["durationSecs"],
-  network_probe_compare_dns_multi: ["domain", "locations"],
+  network_probe_globalping_measure: ["measurementType", "target", "locations"],
+  network_probe_manage_globalping_token: ["action", "token"],
   network_probe_add_agent: ["label", "endpoint"],
   network_probe_remove_agent: ["agentId"],
   network_probe_reject_agent_action: ["action"],
@@ -1816,6 +1822,7 @@ export const TAURI_EVENTS = {
     packProgress: "network-probe:pack-progress",
     speedSample: "network-probe:speed-sample",
     portSample: "network-probe:port-sample",
+    globalpingProgress: "network-probe:globalping-progress",
   },
 } as const
 
@@ -1856,4 +1863,5 @@ export interface TauriEventContracts {
   "network-probe:health-item": HealthCheckItem
   "network-probe:traceroute-hop": TracerouteHop
   "network-probe:scan-session": ScanSessionEvent
+  "network-probe:globalping-progress": GlobalpingMeasurementResult
 }

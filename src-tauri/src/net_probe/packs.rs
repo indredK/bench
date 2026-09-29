@@ -771,7 +771,7 @@ pub fn build_capabilities(app: Option<&AppHandle<impl Runtime>>) -> NetworkProbe
 
     // Post tools — matrix-driven (never hardcode all-green in UI).
     tools.insert("speedTest".into(), s("supported")); // Wave 2
-    tools.insert("globalping".into(), s("partial")); // Wave 2 remote DNS compare
+    tools.insert("globalping".into(), s("supported")); // Wave 2 DNS / ping / HTTP remote measurements
     tools.insert("whois".into(), s("supported")); // Wave 3
     tools.insert("dnssec".into(), s("partial")); // Wave 3 — DoH AD-bit
     tools.insert("pollution".into(), s("supported")); // Wave 3

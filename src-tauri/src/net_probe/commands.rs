@@ -1,12 +1,12 @@
 use super::types::{
     CapabilityPackInfo, CapabilityPackInstallResult, CaptivePortalResult, DefaultRouteInfo,
     DefaultsOverride, DnsLookupResult, DnsSecCheckResult, FirewallStatus, FixResult,
-    HealthScanResult, HostsOverride, Ipv6StackResult, LanDiscoveryResult, LanServicesResult,
-    LocalNetworkSummary, MultiNodeDnsResult, NatProbeResult, NetworkFingerprintResult,
-    NetworkProbeCapabilities, NetworkProbeDefaultsCatalog, NtpProbeResult, PathMtuResult,
-    PcapDiagResult, PingProbeResult, PollutionReport, PortScanResult, ProbeNode, ProbeTargetResult,
-    ProxyVpnStatus, PublicIpInfo, SitesProbeResult, SpeedSource, SpeedTestResult, TcpConnectResult,
-    TracerouteResult, WhoisInfo,
+    GlobalpingMeasurementResult, HealthScanResult, HostsOverride, Ipv6StackResult,
+    LanDiscoveryResult, LanServicesResult, LocalNetworkSummary, NatProbeResult,
+    NetworkFingerprintResult, NetworkProbeCapabilities, NetworkProbeDefaultsCatalog,
+    NtpProbeResult, PathMtuResult, PcapDiagResult, PingProbeResult, PollutionReport,
+    PortScanResult, ProbeNode, ProbeTargetResult, ProxyVpnStatus, PublicIpInfo, SitesProbeResult,
+    SpeedSource, SpeedTestResult, TcpConnectResult, TracerouteResult, WhoisInfo,
 };
 use crate::error::{AppError, AppResult};
 use tauri::AppHandle;
@@ -161,11 +161,34 @@ pub async fn network_probe_run_pcap_diag(
 }
 
 #[tauri::command]
-pub async fn network_probe_compare_dns_multi(
-    domain: String,
-    locations: Option<Vec<String>>,
-) -> AppResult<MultiNodeDnsResult> {
-    super::globalping::compare_dns_multi(domain, locations.unwrap_or_default()).await
+pub async fn network_probe_globalping_measure(
+    window: tauri::WebviewWindow,
+    app: AppHandle,
+    measurement_type: String,
+    target: String,
+    locations: Vec<String>,
+) -> AppResult<GlobalpingMeasurementResult> {
+    super::globalping::run_measurement_multi(
+        window,
+        app.config().identifier.clone(),
+        measurement_type,
+        target,
+        locations,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn network_probe_manage_globalping_token(
+    app: AppHandle,
+    action: String,
+    token: Option<String>,
+) -> AppResult<bool> {
+    tauri::async_runtime::spawn_blocking(move || {
+        super::globalping::manage_globalping_token(&app.config().identifier, &action, token)
+    })
+    .await
+    .map_err(|_| AppError::task_failed("manage Globalping token"))?
 }
 
 #[tauri::command]

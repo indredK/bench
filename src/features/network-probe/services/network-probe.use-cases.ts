@@ -16,6 +16,8 @@ import type {
   SpeedSampleEvent,
   PortSampleEvent,
   TracerouteHop,
+  GlobalpingMeasurementType,
+  GlobalpingMeasurementResult,
 } from "@/lib/tauri/types/network-probe"
 import { listenToPlatformEvent } from "@/platform/events"
 
@@ -997,26 +999,86 @@ export const networkProbeUseCases = {
     }
   },
 
-  async compareDnsMulti(domain: string) {
+  async runGlobalpingMeasurement(
+    measurementType: GlobalpingMeasurementType,
+    target: string,
+    locations: string[],
+  ) {
     const store = useNetworkProbeStore.getState()
     if (store.loadingMultiNode) return
     store.setLoadingMultiNode(true)
     store.setError(null)
-    store.appendCommandLog(`dnsLookup(multi, '${domain.trim()}')`)
+    store.setGlobalpingResult(null)
+    store.appendCommandLog(`globalping(${measurementType})`)
+    let unlisten: (() => void) | undefined
     try {
-      const result = await networkProbeRepository.compareDnsMulti(domain.trim(), [
-        "world",
-        "US",
-        "Europe",
-      ])
-      store.setMultiNodeDnsResult(result)
+      try {
+        unlisten = await listenToPlatformEvent<GlobalpingMeasurementResult>(
+          TAURI_EVENTS.networkProbe.globalpingProgress,
+          (event) => {
+            useNetworkProbeStore.getState().setGlobalpingResult(event.payload)
+          },
+        )
+      } catch {
+        // A missing progress listener should not prevent the final measurement result.
+      }
+      const result = await networkProbeRepository.runGlobalpingMeasurement(
+        measurementType,
+        target.trim(),
+        locations,
+      )
+      store.setGlobalpingResult(result)
+      store.appendCommandLog(result.commandHint)
     } catch (error) {
       store.setError({
         key: "networkProbe.errors.multiNodeFailed",
         fallback: getErrorMessage(error),
       })
     } finally {
+      unlisten?.()
       useNetworkProbeStore.getState().setLoadingMultiNode(false)
+    }
+  },
+
+  async getGlobalpingTokenStatus(): Promise<boolean | null> {
+    try {
+      return await networkProbeRepository.manageGlobalpingToken("status")
+    } catch (error) {
+      useNetworkProbeStore.getState().setError({
+        key: "networkProbe.errors.globalpingTokenFailed",
+        fallback: getErrorMessage(error),
+      })
+      return null
+    }
+  },
+
+  async saveGlobalpingToken(token: string): Promise<boolean> {
+    try {
+      const configured = await networkProbeRepository.manageGlobalpingToken("save", token)
+      useNetworkProbeStore.getState().setError(null)
+      useNetworkProbeStore.getState().appendCommandLog("globalpingToken(save)")
+      return configured
+    } catch (error) {
+      useNetworkProbeStore.getState().setError({
+        key: "networkProbe.errors.globalpingTokenFailed",
+        fallback: getErrorMessage(error),
+      })
+      return false
+    }
+  },
+
+  async clearGlobalpingToken(): Promise<boolean> {
+    try {
+      await networkProbeRepository.manageGlobalpingToken("clear")
+      useNetworkProbeStore.getState().setError(null)
+      useNetworkProbeStore.getState().appendCommandLog("globalpingToken(clear)")
+      return true
+    } catch (error) {
+      useNetworkProbeStore.getState().setError({
+        key: "networkProbe.errors.globalpingTokenFailed",
+        fallback: getErrorMessage(error),
+      })
+      return false
     }
   },
 

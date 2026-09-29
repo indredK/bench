@@ -563,17 +563,43 @@ export interface PcapDiagResult {
   commandHint: string
 }
 
-export interface NodeDnsAnswer {
-  nodeId: string
-  nodeLabel: string
-  ok: boolean
-  answers: string[]
-  detail?: string
+export type GlobalpingMeasurementType = "dns" | "ping" | "http"
+
+export type GlobalpingMeasurementStatus =
+  "in-progress" | "complete" | "partial" | "failed" | "timed-out" | "rate-limited"
+
+export interface GlobalpingRateLimit {
+  limit?: number
+  consumed?: number
+  remaining?: number
+  resetSeconds?: number
+  creditsRemaining?: number
 }
 
-export interface MultiNodeDnsResult {
-  domain: string
-  answers: NodeDnsAnswer[]
+export interface GlobalpingProbeResult {
+  id: string
+  label: string
+  status: "finished" | "failed" | "offline" | "in-progress"
+  summary?: string
+  detail?: string
+  answers: string[]
+  dnsRcode?: string
+  avgRttMs?: number
+  packetLossPercent?: number
+  packetsSent?: number
+  packetsReceived?: number
+  httpStatusCode?: number
+  totalTimeMs?: number
+  failureSource?: string
+}
+
+export interface GlobalpingMeasurementResult {
+  measurementType: GlobalpingMeasurementType
+  target: string
+  status: GlobalpingMeasurementStatus
+  probes: GlobalpingProbeResult[]
   elapsedMs: number
   commandHint: string
+  rateLimit?: GlobalpingRateLimit
+  retryAfterSeconds?: number
 }

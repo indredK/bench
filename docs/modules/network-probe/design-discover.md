@@ -125,12 +125,19 @@ type ProbeNode = {
 
 #### Globalping（`remote-proxy`）
 
-| 项   | 约定                                                      |
-| ---- | --------------------------------------------------------- |
-| 传输 | HTTPS REST；Rust `reqwest` 创建 measurement + 轮询 status |
-| 能力 | ping / traceroute / dns / mtr / http（**无带宽**）        |
-| 配额 | 匿名额度用尽 → 提示配置 token；错误映射 `AppError`        |
-| ToS  | 遵守官方限额；前端展示剩余额度（若 API 提供）             |
+| 项   | 约定                                                                                                                                                                                              |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 传输 | 官方 HTTPS REST API；复用项目已有 `reqwest` 客户端，不额外引入 Globalping CLI/SDK                                                                                                                 |
+| 能力 | DNS / ping / HTTP 已实现；traceroute / MTR 仍未接入；不提供带宽测速                                                                                                                               |
+| 配额 | 匿名调用可用；可选 Bearer token 存系统钥匙串；429 显示官方 rate limit headers                                                                                                                     |
+| 轮询 | `inProgressUpdates=true`；读取间隔至少 500ms，支持 ETag；最多等待 50 秒并保留部分结果；后端将真实进行中结果通过 `network-probe:globalping-progress` 仅发送给发起调用的窗口，最终 IPC 结果收敛状态 |
+| 护栏 | 每次最多 3 个白名单区域、每区 1 个探点；HTTP 使用 HEAD；API client 不跟随跨源重定向                                                                                                               |
+| 隐私 | token 按 Tauri app identifier 隔离；不返回给 renderer、不写命令日志；HTTP 查询串不记日志                                                                                                          |
+| ToS  | 遵守官方限额；429 根据官方 `X-RateLimit-*` / `X-Credits-Remaining` 信息提示恢复路径                                                                                                               |
+
+DNS 使用 A 查询并并列显示本机解析；ping 固定 3 个包；HTTP 输入必须是无凭据的 HTTP(S) URL，路径与查询按请求发送，界面与日志仅显示去掉查询串的目标。Globalping 区域列表中的 `reachable` 表示适配器已配置，不代表实时探点在线，实际状态以测量结果为准。
+
+token 可通过 `network_probe_manage_globalping_token` 查询配置状态、保存或移除；服务名包含 Tauri app identifier，QA bundle 与正式版不共享钥匙串条目。保存操作只回传是否已配置，不把秘密返回前端。
 
 #### 自有 agent（`remote-agent`）
 
@@ -191,8 +198,10 @@ listProbeNodes(): ProbeNode[]
 ## 5. UX
 
 - ARP/服务扫描：进度条 + 已发现计数；空态文案区分权限/隔离/真静网。
-- 多节点：先选 tool + target，再勾选节点并跑；部分节点失败不阻断整表。
-- 命令透明：remote 路径标注 `via globalping|agent`。
+- 多节点：选择 DNS / ping / HTTP、目标与 1–3 个 Globalping 区域后运行；DNS 并列本机结果，ping/HTTP 显示远端结果。
+- 用户可选配置 token；保存状态、重试、删除确认均有反馈，token 输入不会进入持久化前端状态或命令日志。
+- 显示完成、部分结果、失败、超时、额度限制；单探点失败不抹掉其他结果；ping 显示 RTT/丢包，HTTP 默认发 HEAD 并显示状态码/总耗时。
+- 命令透明：命令记录只显示 `globalping <type> <host> locations=...`，不记录 HTTP 查询串。
 - Post / C badge 与 roadmap 档位一致。
 
 ---
@@ -218,9 +227,9 @@ listProbeNodes(): ProbeNode[]
 
 **C**
 
-- [ ] `listProbeNodes` + Globalping 至少一种测量端到端
+- [x] `listProbeNodes` + Globalping DNS/ping/HTTP 测量、token、超时/限速/部分结果与真机验证（C2-2）
 - [ ] agent 鉴权/限速/拒绝 shell 有测试
-- [ ] `store.byNode` 对比视图；单节点失败可诊断
+- [ ] `store.byNode` 通用对比视图；单节点失败可诊断（C2-3 agent 路由待做）
 - [ ] 远程能力不要求本机 Adv pack（本机零重库）
 
 ---
@@ -228,6 +237,6 @@ listProbeNodes(): ProbeNode[]
 ## 8. 参考
 
 - [design.md](./design.md) §4 多节点 · §5.2 ARP · §11 Globalping
-- Globalping API · librespeed（测速在测试 Tab，不在此重复）
+- [Globalping official OpenAPI specification](https://github.com/jsdelivr/globalping/blob/master/public/v1/spec.yaml) · librespeed（测速在测试 Tab，不在此重复）
 - RFC 8489 STUN · Bonjour / DNS-SD · UPnP 设备发现（只读）
 - NETworkManager IP Scanner / LLDP·CDP：发现与远程工具分栏——本 L1 对齐「周围有什么」

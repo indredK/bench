@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { MultiNodePanel } from "../MultiNodePanel"
-import type { ProbeNode } from "@/lib/tauri/types/network-probe"
+import type { GlobalpingMeasurementResult, ProbeNode } from "@/lib/tauri/types/network-probe"
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -44,7 +44,10 @@ function renderPanel(overrides: Partial<React.ComponentProps<typeof MultiNodePan
       result={null}
       nodes={[]}
       toolEnabled
-      onCompare={() => {}}
+      onRunMeasurement={() => {}}
+      onGetTokenStatus={() => Promise.resolve(false)}
+      onSaveToken={() => Promise.resolve(true)}
+      onClearToken={() => Promise.resolve(true)}
       onRefreshNodes={() => {}}
       onAddAgent={() => Promise.resolve(false)}
       onRemoveAgent={() => {}}
@@ -58,6 +61,59 @@ describe("MultiNodePanel agent states", () => {
     renderPanel()
 
     expect(screen.getByText("networkProbe.nodes.empty")).toBeInTheDocument()
+  })
+
+  it("limits selected Globalping locations to three and keeps one selected", () => {
+    renderPanel()
+
+    const world = screen.getByRole("button", { name: "networkProbe.nodes.locationWorld" })
+    fireEvent.click(world)
+    expect(world).toHaveAttribute("aria-pressed", "true")
+
+    fireEvent.click(screen.getByRole("button", { name: "networkProbe.nodes.locationUs" }))
+    fireEvent.click(screen.getByRole("button", { name: "networkProbe.nodes.locationEurope" }))
+    const asia = screen.getByRole("button", { name: "networkProbe.nodes.locationAsia" })
+    expect(asia).toBeDisabled()
+    expect(screen.getByText("networkProbe.nodes.locationCount")).toBeInTheDocument()
+  })
+
+  it("passes the selected remote measurement mode, target, and regions", () => {
+    const onRunMeasurement = vi.fn()
+    renderPanel({ onRunMeasurement })
+
+    fireEvent.click(screen.getByRole("button", { name: "networkProbe.nodes.modePing" }))
+    fireEvent.change(screen.getByRole("textbox", { name: "networkProbe.nodes.targetLabel" }), {
+      target: { value: "1.1.1.1" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "networkProbe.nodes.locationUs" }))
+    fireEvent.click(screen.getByRole("button", { name: "networkProbe.nodes.run" }))
+
+    expect(onRunMeasurement).toHaveBeenCalledWith("ping", "1.1.1.1", ["world", "US"])
+  })
+
+  it("shows a bounded result summary without relying on English OK/FAIL labels", () => {
+    const result: GlobalpingMeasurementResult = {
+      measurementType: "http",
+      target: "https://example.com/health",
+      status: "complete",
+      probes: [
+        {
+          id: "globalping-0",
+          label: "Berlin, DE",
+          status: "finished",
+          answers: [],
+          httpStatusCode: 503,
+          totalTimeMs: 52,
+        },
+      ],
+      elapsedMs: 1000,
+      commandHint: "globalping http example.com locations=world",
+    }
+    renderPanel({ result })
+
+    expect(screen.getByText("networkProbe.nodes.httpStatus")).toBeInTheDocument()
+    expect(screen.queryByText("OK")).not.toBeInTheDocument()
+    expect(screen.queryByText("FAIL")).not.toBeInTheDocument()
   })
 
   it("distinguishes a failed node request from a successful empty result", () => {

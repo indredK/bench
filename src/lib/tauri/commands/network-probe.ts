@@ -1,7 +1,7 @@
 /**
  * IPC Commands / 通信命令: wrap typed invokes only; 只封装 Tauri 调用.
  */
-import type { DefaultsOverride } from "@/lib/tauri/types/network-probe"
+import type { DefaultsOverride, GlobalpingMeasurementType } from "@/lib/tauri/types/network-probe"
 import { TAURI_COMMANDS } from "@/lib/tauri/contracts"
 import { invokeTauriCommand } from "@/lib/tauri/invoke"
 
@@ -208,8 +208,23 @@ export function runPcapDiag(durationSecs?: number | null) {
   return invokeTauriCommand(TAURI_COMMANDS.networkProbe.runPcapDiag, { durationSecs })
 }
 
-export function compareDnsMulti(domain: string, locations?: string[] | null) {
-  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.compareDnsMulti, { domain, locations })
+export function runGlobalpingMeasurement(
+  measurementType: GlobalpingMeasurementType,
+  target: string,
+  locations: string[],
+) {
+  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.globalpingMeasure, {
+    measurementType,
+    target,
+    locations,
+  })
+}
+
+export function manageGlobalpingToken(action: "status" | "save" | "clear", token?: string | null) {
+  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.manageGlobalpingToken, {
+    action,
+    token: token ?? null,
+  })
 }
 
 export function addAgent(label: string, endpoint: string) {
