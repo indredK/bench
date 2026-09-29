@@ -7,6 +7,8 @@ import {
   type NetworkProbeKind,
   type NetworkProbeL1,
   type NetworkProbeOfflineSub,
+  REPORT_HISTORY_ENABLED_KEY,
+  REPORT_HISTORY_KEY,
   useNetworkProbeStore,
 } from "@/features/network-probe/store"
 import { canUseTauriCommands } from "@/platform/capabilities"
@@ -20,6 +22,8 @@ function toolEnabled(tools: Record<string, string> | undefined, key: string): bo
   const status = toolStatus(tools, key)
   return status === "supported" || status === "partial" || status === "degraded"
 }
+
+const REPORT_HISTORY_STORAGE_KEYS = new Set([REPORT_HISTORY_KEY, REPORT_HISTORY_ENABLED_KEY])
 
 export function useNetworkProbeController() {
   const nav = useNetworkProbeStore((s) => s.nav)
@@ -68,6 +72,7 @@ export function useNetworkProbeController() {
   const probeNodes = useNetworkProbeStore((s) => s.probeNodes)
   const probeNodesLoadStatus = useNetworkProbeStore((s) => s.probeNodesLoadStatus)
   const reportHistory = useNetworkProbeStore((s) => s.reportHistory)
+  const reportHistoryEnabled = useNetworkProbeStore((s) => s.reportHistoryEnabled)
   const securityAuthorized = useNetworkProbeStore((s) => s.securityAuthorized)
   // 会话按探测种类分槽: 面板只读自己那一槽, 决定 Cancel 目标与按钮可见性。
   const activeSessionIdByKind = useNetworkProbeStore((s) => s.activeSessionIdByKind)
@@ -104,11 +109,24 @@ export function useNetworkProbeController() {
   const setOfflineSub = useNetworkProbeStore((s) => s.setOfflineSub)
   const setSecurityAuthorized = useNetworkProbeStore((s) => s.setSecurityAuthorized)
   const clearReportHistory = useNetworkProbeStore((s) => s.clearReportHistory)
+  const setReportHistoryEnabled = useNetworkProbeStore((s) => s.setReportHistoryEnabled)
+  const syncReportHistoryFromStorage = useNetworkProbeStore((s) => s.syncReportHistoryFromStorage)
 
   useEffect(() => {
     if (!canUseTauriCommands()) return
     void networkProbeUseCases.bootstrap()
   }, [])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const syncExternalReportHistory = (event: StorageEvent) => {
+      if (event.key === null || REPORT_HISTORY_STORAGE_KEYS.has(event.key)) {
+        syncReportHistoryFromStorage()
+      }
+    }
+    window.addEventListener("storage", syncExternalReportHistory)
+    return () => window.removeEventListener("storage", syncExternalReportHistory)
+  }, [syncReportHistoryFromStorage])
 
   const selectL1 = useCallback(
     (id: NetworkProbeL1) => {
@@ -341,6 +359,7 @@ export function useNetworkProbeController() {
     probeNodes,
     probeNodesLoadStatus,
     reportHistory,
+    reportHistoryEnabled,
     securityAuthorized,
     activeSessionIdByKind,
     commandLog,
@@ -417,6 +436,7 @@ export function useNetworkProbeController() {
     authorizeSecurity,
     revokeSecurity,
     clearReportHistory,
+    setReportHistoryEnabled,
     resetDefaults,
     saveDiscoveryDefaults,
     resetDiscoveryDefaults,

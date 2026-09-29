@@ -101,8 +101,10 @@ L1 → L2 映射：
 ### 3.6 报告 report
 
 - 当前体检结果导出：**JSON**（整份 `HealthScanResult`）与 **Markdown**（含每个检查项与建议）浏览器下载；隐私提示文案。
-- **历史快照**：最近 10 次未取消体检（localStorage `network-probe:report-history`），显示 sessionId/项数/耗时/建议数，可清空。
-- **命令日志**：完整命令列表，可清空。
+- **历史快照**：默认在本机保存最近 10 次未取消体检（localStorage `network-probe:report-history`）；只持久化检查 key/layer/status、建议 ID/severity、耗时与 sessionId，不保存原始 detail、commandHint、IP 或主机诊断内容。用户可关闭保存，关闭时二次确认并清除既有快照；每次追加前复查本机开关。旧版记录继续显示，但采集时间标为未知，不从 sessionId 推断时间。
+- **跨时间对比**：可任选两次不同快照，按稳定检查 key 显示状态差异和新增/消失建议数；仅 `pass`、`warn`、`fail` 参与改善/恶化排序，`error`、`skip` 和未知状态只标为状态变化。新增检查与未返回检查单独展示，不当作健康改善。
+- **清空历史**：单独清空需二次确认；关闭本机保存也会清空现存历史。
+- **命令日志**：完整命令列表，可清空；报告页和侧栏统一要求二次确认。
 
 ## 4. 站点延迟（sites）L1
 
@@ -195,7 +197,7 @@ L1 → L2 映射：
 ## 10. 技术实现要点
 
 - **架构分层**（Feature-sliced）：`page.tsx`（装配）→ `components/`（面板 UI，`ProbePanelShell` 统一工具栏/内容壳）→ `hooks/useNetworkProbeController`（store↔use-cases 桥接，逐项 selector）→ `services/network-probe.use-cases.ts`（业务编排、事件订阅、防重入、取消幂等）→ `services/network-probe.repository.ts`（IPC 适配）→ `@/lib/tauri/commands/network-probe`。
-- **store**（zustand）：单一 feature store，保存全部结果/loading/error/导航/安全授权/报告历史/命令日志/会话状态；持久化仅 nav（sessionStorage）、securityAuthorized 与 reportHistory（localStorage）。
+- **store**（zustand）：单一 feature store，保存全部结果/loading/error/导航/安全授权/报告历史/命令日志/会话状态；持久化仅 nav（sessionStorage）、securityAuthorized、reportHistory 与 reportHistoryEnabled（localStorage）。
 - **IPC 契约**：`src/lib/tauri/contracts.ts` + `src-tauri/src/net_probe/commands.rs` 双边集中维护；全部命令返回 `AppResult<T>`。
 - **长任务**：events 流式（`network-probe:health-item` / `traceroute-hop` / `site-sample` / `ping-sample` / `speed-sample` / `port-sample` / `pack-progress` / `scan-session`）；会话取消统一 `network-probe-cancel-scan(sessionId)`，**同一会话只允许发一次取消（幂等）**，新会话重置取消标记（有单测 `cancel-idempotency.test.ts`）。
 - **长列表性能**：端口样本、ARP 邻居与 LAN 服务列表超过 50 项时复用 `VirtualList` 和已安装的 `@tanstack/react-virtual`，限制 320px 滚动视口并只渲染可见行；固定行高、溢出截断并保留完整 `title` 与列表位置语义。Traceroute 超过 50 跳时通过前后占位行虚拟化原生表格，当前后端最大 TTL 为 32，常规情况下仍使用完整原生表格。
@@ -216,7 +218,7 @@ L1 → L2 映射：
 - `PortScanResult` / `PortSampleEvent`；`PollutionReport`；`WhoisInfo`；`DnsSecCheckResult`；`PcapDiagResult`。
 - `LanDiscoveryResult`（neighbors/mode/cidr/emptyReason）、`LanServicesResult`；`NatProbeResult`；`NtpProbeResult`；`MultiNodeDnsResult` / `ProbeNode`。
 - `NetworkProbeDefaultsCatalog` / `DefaultsOverride`；`HostsOverride`；`FirewallStatus`。
-- store 关键状态：nav、capabilities、capabilityPacks、defaults、各结果/流式数组、loading*（每工具独立）、error、securityAuthorized、activeSessionId、cancelRequestedSessionId、commandLog、reportHistory。
+- store 关键状态：nav、capabilities、capabilityPacks、defaults、各结果/流式数组、loading*（每工具独立）、error、securityAuthorized、activeSessionId、cancelRequestedSessionId、commandLog、reportHistory、reportHistoryEnabled。
 
 ## 12. 边界与限制
 
@@ -282,7 +284,7 @@ L1 → L2 映射：
 
 ### 13.4 数据与安全
 
-- 报告导出（JSON/Markdown）含公网 IP、Wi-Fi SSID、hosts 异常等，导出前展示隐私提示；reportHistory 仅保留最近 10 条（localStorage），清空需确认。
+- 报告导出（JSON/Markdown）含公网 IP、Wi-Fi SSID、hosts 异常等，导出前展示隐私提示；reportHistory 默认保留最近 10 条脱敏比较数据于 localStorage，可关闭并清空；历史与命令日志的清空需确认。
 - agent 当前只支持 HTTPS JSON 健康检查，不接受 WSS（尚无 WebSocket 健康协议）；也不支持凭证认证。URL 中的 userinfo、query、fragment 一律拒绝；新增命令日志不记录 endpoint，既有记录中的 URL 凭证会在读取/写入时脱敏并原子清除。WSS、认证与安全存储仍属于 C2-3，未完成前不得把凭证放在 URL 中。
 - 能力包安装路径：前端禁止提交下载 URL；仅后端 manifest 的公网 HTTPS URL + 每跳重定向校验、64 MiB 流式上限、精确长度与 SHA-256 校验；`PACK_HASH_MISMATCH` 时临时文件自动清理，正式制品不落盘。网络错误不回传带签名参数的 URL。
 - `saveDefaultsOverride`/`resetDefaults` 失败 → `networkProbe.errors.defaultsFailed`；默认资源损坏时重置即可恢复内置值。

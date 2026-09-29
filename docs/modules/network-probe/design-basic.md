@@ -174,14 +174,15 @@ Tauri v2：事件名进 `TAURI_EVENTS`；payload 必带 `sessionId`；前端只�
 
 ## 5. 前端状态与 UX
 
-| Store 域      | 内容                           |
-| ------------- | ------------------------------ |
-| `summary`     | 最近一次本机摘要               |
-| `healthByKey` | `Record<key, HealthCheckItem>` |
-| `advice`      | Advisor 输出（精简可操作）     |
-| `sites`       | 站点采样序列（火花线）         |
-| `offline`     | 各专项结果                     |
-| `lastReport`  | 导出缓存                       |
+| Store 域               | 内容                                                 |
+| ---------------------- | ---------------------------------------------------- |
+| `summary`              | 最近一次本机摘要                                     |
+| `healthByKey`          | `Record<key, HealthCheckItem>`                       |
+| `advice`               | Advisor 输出（精简可操作）                           |
+| `sites`                | 站点采样序列（火花线）                               |
+| `offline`              | 各专项结果                                           |
+| `reportHistory`        | 最近 10 次脱敏体检快照（含采集时间），本机可关闭保存 |
+| `reportHistoryEnabled` | 是否在本机保存体检快照，关闭时清空现有记录           |
 
 UX 强制：
 
@@ -189,6 +190,7 @@ UX 强制：
 - 空/加载/失败/unsupported 四态齐全。
 - 防重入：`useGuardedAsync`；切换 L2 不取消后台 session，除非用户点停止。
 - i18n：`networkProbe.basic.*`；command 名不翻译。
+- 报告历史可选两次快照对比；错误/跳过状态只标注变化，不参与健康改善排序；清空与关闭保存均需确认。
 
 Advisor：前端 `network-probe.advisor.ts` 与后端 `advisor_rules.rs` **共享规则 ID**；基础视角只展示可操作建议，依据进展开区。
 
@@ -207,7 +209,7 @@ Advisor：前端 `network-probe.advisor.ts` 与后端 `advisor_rules.rs` **共�
 ## 7. 安全与隐私
 
 - 报告导出前提示可能含公网 IP / hosts / SSID。
-- 历史条数上限；默认不含 Cookie。
+- 体检快照只保存在本机、最多 10 次；仅存检查状态与建议标识，不存原始网络诊断；用户可关闭并清空，清空需确认。
 - 修复命令审计：后端记结构化日志（iface、DNS 列表），脱敏。
 
 ---

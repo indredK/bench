@@ -44,9 +44,17 @@ import type {
   Ipv6StackResult,
   PathMtuResult,
 } from "@/lib/tauri/types/network-probe"
+import {
+  createHealthReportSnapshot,
+  decodeReportHistory,
+  encodeReportHistory,
+  REPORT_HISTORY_LIMIT,
+  type HealthReportSnapshot,
+} from "@/features/network-probe/report-history"
 
 const SECURITY_AUTH_KEY = "network-probe:security-authorized"
-const REPORT_HISTORY_KEY = "network-probe:report-history"
+export const REPORT_HISTORY_KEY = "network-probe:report-history"
+export const REPORT_HISTORY_ENABLED_KEY = "network-probe:report-history-enabled"
 
 function loadSecurityAuthorized(): boolean {
   if (typeof localStorage === "undefined") return false
@@ -67,22 +75,53 @@ function persistSecurityAuthorized(value: boolean) {
   }
 }
 
-function loadReportHistory(): HealthScanResult[] {
+function loadReportHistoryEnabled(): boolean {
+  if (typeof localStorage === "undefined") return true
+  try {
+    return localStorage.getItem(REPORT_HISTORY_ENABLED_KEY) !== "0"
+  } catch {
+    return true
+  }
+}
+
+function persistReportHistoryEnabled(enabled: boolean) {
+  if (typeof localStorage === "undefined") return
+  try {
+    localStorage.setItem(REPORT_HISTORY_ENABLED_KEY, enabled ? "1" : "0")
+  } catch {
+    // ignore
+  }
+}
+
+function loadReportHistory(enabled: boolean): HealthReportSnapshot[] {
   if (typeof localStorage === "undefined") return []
   try {
+    if (!enabled) {
+      localStorage.removeItem(REPORT_HISTORY_KEY)
+      return []
+    }
     const raw = localStorage.getItem(REPORT_HISTORY_KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw) as HealthScanResult[]
-    return Array.isArray(parsed) ? parsed.slice(0, 10) : []
+    const history = decodeReportHistory(raw)
+    if (raw && history.length > 0) {
+      const migrated = encodeReportHistory(history)
+      if (migrated !== raw) {
+        try {
+          localStorage.setItem(REPORT_HISTORY_KEY, migrated)
+        } catch {
+          // Keep the sanitized in-memory history if browser storage is unavailable.
+        }
+      }
+    }
+    return history
   } catch {
     return []
   }
 }
 
-function persistReportHistory(history: HealthScanResult[]) {
+function persistReportHistory(history: HealthReportSnapshot[]) {
   if (typeof localStorage === "undefined") return
   try {
-    localStorage.setItem(REPORT_HISTORY_KEY, JSON.stringify(history.slice(0, 10)))
+    localStorage.setItem(REPORT_HISTORY_KEY, encodeReportHistory(history))
   } catch {
     // ignore
   }
@@ -157,7 +196,8 @@ interface NetworkProbeState {
   multiNodeDnsResult: MultiNodeDnsResult | null
   probeNodes: ProbeNode[]
   probeNodesLoadStatus: ProbeNodesLoadStatus
-  reportHistory: HealthScanResult[]
+  reportHistory: HealthReportSnapshot[]
+  reportHistoryEnabled: boolean
   securityAuthorized: boolean
   /** 按探测种类分槽的活动会话; 多类探测并发时取消目标各自独立, 不会互相抢占。 */
   activeSessionIdByKind: Record<NetworkProbeKind, string | null>
@@ -246,6 +286,8 @@ interface NetworkProbeState {
   setProbeNodesLoadStatus: (status: ProbeNodesLoadStatus) => void
   pushReportHistory: (scan: HealthScanResult) => void
   clearReportHistory: () => void
+  setReportHistoryEnabled: (enabled: boolean) => void
+  syncReportHistoryFromStorage: () => void
   setSecurityAuthorized: (securityAuthorized: boolean) => void
   setActiveSessionId: (kind: NetworkProbeKind, sessionId: string | null) => void
   clearActiveSessionId: (kind: NetworkProbeKind, expectedSessionId?: string | null) => void
@@ -394,7 +436,8 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   multiNodeDnsResult: null,
   probeNodes: [],
   probeNodesLoadStatus: "idle",
-  reportHistory: loadReportHistory(),
+  reportHistoryEnabled: loadReportHistoryEnabled(),
+  reportHistory: loadReportHistory(loadReportHistoryEnabled()),
   securityAuthorized: loadSecurityAuthorized(),
   activeSessionIdByKind: { ...EMPTY_SESSION_ID_SLOTS },
   cancelRequestedSessionIdByKind: { ...EMPTY_SESSION_ID_SLOTS },
@@ -551,13 +594,44 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   setProbeNodesLoadStatus: (probeNodesLoadStatus) => set({ probeNodesLoadStatus }),
   pushReportHistory: (scan) =>
     set((state) => {
-      const reportHistory = [scan, ...state.reportHistory].slice(0, 10)
+      const persistedEnabled = loadReportHistoryEnabled()
+      if (!state.reportHistoryEnabled || !persistedEnabled) {
+        if (!persistedEnabled) {
+          persistReportHistory([])
+          return { reportHistoryEnabled: false, reportHistory: [] }
+        }
+        return state
+      }
+      const reportHistory = [
+        createHealthReportSnapshot(scan, Date.now()),
+        ...state.reportHistory,
+      ].slice(0, REPORT_HISTORY_LIMIT)
       persistReportHistory(reportHistory)
+      // Another window can turn history off between the pre-write check and setItem.
+      // Recheck after writing so a stale window cannot restore snapshots after opt-out.
+      if (!loadReportHistoryEnabled()) {
+        persistReportHistory([])
+        return { reportHistoryEnabled: false, reportHistory: [] }
+      }
       return { reportHistory }
     }),
   clearReportHistory: () => {
     persistReportHistory([])
     set({ reportHistory: [] })
+  },
+  setReportHistoryEnabled: (reportHistoryEnabled) => {
+    persistReportHistoryEnabled(reportHistoryEnabled)
+    if (!reportHistoryEnabled) {
+      persistReportHistory([])
+      set({ reportHistoryEnabled, reportHistory: [] })
+      return
+    }
+    set({ reportHistoryEnabled })
+  },
+  syncReportHistoryFromStorage: () => {
+    const reportHistoryEnabled = loadReportHistoryEnabled()
+    const reportHistory = loadReportHistory(reportHistoryEnabled)
+    set({ reportHistoryEnabled, reportHistory })
   },
   setSecurityAuthorized: (securityAuthorized) => {
     persistSecurityAuthorized(securityAuthorized)

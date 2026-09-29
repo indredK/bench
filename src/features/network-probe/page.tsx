@@ -503,9 +503,11 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                   <ReportPanel
                     health={c.healthResult}
                     history={c.reportHistory}
+                    historyEnabled={c.reportHistoryEnabled}
                     commandLog={c.commandLog}
                     onClearLog={c.clearCommandLog}
                     onClearHistory={c.clearReportHistory}
+                    onSetHistoryEnabled={c.setReportHistoryEnabled}
                     onGoTree={() => c.selectL2("tree")}
                   />
                 ) : null}
