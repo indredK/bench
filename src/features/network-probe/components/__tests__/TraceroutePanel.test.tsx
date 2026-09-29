@@ -2,7 +2,7 @@
  * Test / 测试: preserve table semantics when traceroute rows are virtualized.
  */
 import { describe, expect, it, vi } from "vitest"
-import { render, screen } from "@testing-library/react"
+import { fireEvent, render, screen } from "@testing-library/react"
 import { TraceroutePanel } from "../TraceroutePanel"
 import type { TracerouteHop, TracerouteResult } from "@/lib/tauri/types/network-probe"
 
@@ -81,6 +81,66 @@ function createResult(
 }
 
 describe("TraceroutePanel", () => {
+  it.each([
+    ["maxTtl", ""],
+    ["maxTtl", "0"],
+    ["maxTtl", "33"],
+    ["maxTtl", "1.5"],
+    ["rounds", ""],
+    ["rounds", "0"],
+    ["rounds", "11"],
+    ["rounds", "2.5"],
+  ])("blocks invalid %s value %s before starting", (field, value) => {
+    const onRun = vi.fn()
+    render(
+      <TraceroutePanel
+        loading={false}
+        canCancel={false}
+        result={null}
+        streamingHops={[]}
+        toolEnabled
+        onRun={onRun}
+        onCancel={() => {}}
+      />,
+    )
+
+    const input = screen.getByLabelText(`networkProbe.traceroute.${field}`)
+    fireEvent.change(input, { target: { value } })
+
+    expect(input).toHaveAttribute("aria-invalid", "true")
+    expect(input).toHaveAttribute(
+      "aria-describedby",
+      field === "maxTtl" ? "np-tr-ttl-range" : "np-tr-rounds-range",
+    )
+    expect(screen.getByRole("button", { name: "networkProbe.traceroute.run" })).toBeDisabled()
+    expect(onRun).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ["maxTtl", "1"],
+    ["maxTtl", "32"],
+    ["rounds", "1"],
+    ["rounds", "10"],
+  ])("allows the %s boundary value %s", (field, value) => {
+    render(
+      <TraceroutePanel
+        loading={false}
+        canCancel={false}
+        result={null}
+        streamingHops={[]}
+        toolEnabled
+        onRun={() => {}}
+        onCancel={() => {}}
+      />,
+    )
+
+    const input = screen.getByLabelText(`networkProbe.traceroute.${field}`)
+    fireEvent.change(input, { target: { value } })
+
+    expect(input).toHaveAttribute("aria-invalid", "false")
+    expect(screen.getByRole("button", { name: "networkProbe.traceroute.run" })).toBeEnabled()
+  })
+
   it("keeps a long hop table bounded while exposing complete row count and positions", () => {
     const hops = Array.from({ length: 60 }, (_, index) => createHop(index + 1))
     const { container } = render(

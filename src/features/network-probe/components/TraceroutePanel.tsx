@@ -22,6 +22,12 @@ interface TraceroutePanelProps {
   onCancel: () => void
 }
 
+function isIntegerInRange(value: string, min: number, max: number): boolean {
+  if (value.trim() === "") return false
+  const number = Number(value)
+  return Number.isInteger(number) && number >= min && number <= max
+}
+
 export function TraceroutePanel({
   loading,
   canCancel,
@@ -36,6 +42,8 @@ export function TraceroutePanel({
   const [target, setTarget] = useState("1.1.1.1")
   const [maxTtl, setMaxTtl] = useState("20")
   const [rounds, setRounds] = useState("3")
+  const maxTtlValid = isIntegerInRange(maxTtl, 1, 32)
+  const roundsValid = isIntegerInRange(rounds, 1, 10)
   const hopsContainerRef = useRef<HTMLDivElement>(null)
 
   // 跑动中只渲染本轮 streaming 跳数: 旧 result 优先会遮蔽新一轮逐跳进度。
@@ -93,31 +101,49 @@ export function TraceroutePanel({
                 disabled={loading}
               />
             </div>
-            <div className="w-20 space-y-1">
+            <div className="w-24 space-y-1">
               <label className="text-xs font-medium" htmlFor="np-tr-ttl">
                 {t("networkProbe.traceroute.maxTtl")}
               </label>
               <Input
                 id="np-tr-ttl"
+                type="number"
+                min={1}
+                max={32}
+                step={1}
                 value={maxTtl}
                 onChange={(e) => setMaxTtl(e.target.value)}
                 inputMode="numeric"
                 autoComplete="off"
                 disabled={loading}
+                aria-invalid={!maxTtlValid}
+                aria-describedby="np-tr-ttl-range"
               />
+              <p id="np-tr-ttl-range" className="text-muted-foreground text-[10px]">
+                {t("networkProbe.traceroute.maxTtlRangeHint", { min: 1, max: 32 })}
+              </p>
             </div>
-            <div className="w-20 space-y-1">
+            <div className="w-24 space-y-1">
               <label className="text-xs font-medium" htmlFor="np-tr-rounds">
                 {t("networkProbe.traceroute.rounds")}
               </label>
               <Input
                 id="np-tr-rounds"
+                type="number"
+                min={1}
+                max={10}
+                step={1}
                 value={rounds}
                 onChange={(e) => setRounds(e.target.value)}
                 inputMode="numeric"
                 autoComplete="off"
                 disabled={loading}
+                aria-invalid={!roundsValid}
+                aria-describedby="np-tr-rounds-range"
               />
+              <p id="np-tr-rounds-range" className="text-muted-foreground text-[10px]">
+                {t("networkProbe.traceroute.roundsRangeHint", { min: 1, max: 10 })}
+              </p>
             </div>
             <CommandHint
               hint={t("networkProbe.cmd.traceroute", {
@@ -128,9 +154,7 @@ export function TraceroutePanel({
             >
               <Button
                 type="button"
-                disabled={
-                  loading || !toolEnabled || !target.trim() || !Number(maxTtl) || !Number(rounds)
-                }
+                disabled={loading || !toolEnabled || !target.trim() || !maxTtlValid || !roundsValid}
                 onClick={() => onRun(target, Number(maxTtl), Number(rounds))}
               >
                 {loading ? t("networkProbe.traceroute.running") : t("networkProbe.traceroute.run")}
