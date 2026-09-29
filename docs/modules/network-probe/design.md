@@ -685,7 +685,7 @@ MVP-B traceroute：主包内复用成熟依赖 `trippy-core`；macOS 先走特�
 
 用户可增删改；存本地 JSON；首次注入默认包（跟随 UI 语言或设置区）。
 
-规格：ICMP+HTTP 双通道、火花线、阈值、nodeId 路由（MVP 仅 local）、零特权优先。
+规格：ICMP+HTTP 双通道、火花线、阈值、nodeId 路由（MVP 仅 local）、零特权优先。官方站点与选定站点包支持持续监测：立即执行首轮、每轮结束后等待 30/60/300 秒再串行执行；默认阈值 200ms（可调 1–10,000ms），HTTP TTFB 优先、缺失时回退 ICMP，达到阈值或探测不可达在当前面板告警。监测只在面板打开时运行，显式停止会取消当前会话，离开面板停止后续轮次；不请求系统通知权限、不后台常驻、不持久化样本，火花线只保留每目标最近 20 点且最多 100 个目标。
 
 其余内置资源（推荐 DNS、Captive、公网 IP API、reach 目标、MTU/STUN/NTP）统一见 [defaults.md](./defaults.md)。
 

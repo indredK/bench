@@ -1715,7 +1715,7 @@
       "icmpMs": "ICMP {{ms}} ms",
       "httpMs": "HTTP {{status}} · {{ms}} ms",
       "mbps": "{{mbps}} Mbps",
-      "fail": "失败 — {{error}}",
+      "fail": "探测失败，请检查网络后重试。",
       "customTitle": "自定义站点",
       "customInput": "URL 或主机",
       "customPlaceholder": "https://registry.npmjs.org",
@@ -1723,6 +1723,20 @@
       "customRun": "探测自定义",
       "customRemove": "移除",
       "customEmpty": "尚无自定义站点。",
+      "monitor": {
+        "scopePack": "持续监测：{{pack}}",
+        "scopeOfficial": "持续监测：常用官网",
+        "interval": "检测间隔",
+        "seconds": "每 {{count}} 秒",
+        "threshold": "延迟阈值（ms）",
+        "start": "开始监测",
+        "stop": "停止监测",
+        "running": "监测中；每轮结束后等待 {{seconds}} 秒，阈值 {{threshold}} ms。",
+        "foregroundOnly": "仅在此面板打开时运行；离开面板会停止后续轮次，当前轮次可能完成。",
+        "probeFailed": "本轮没有返回结果，将在下一间隔重试。",
+        "alert": "{{count}} 个站点不可达或延迟达到 {{threshold}} ms。",
+        "thresholdRange": "请输入 {{min}} 到 {{max}} ms。"
+      },
       "packs": {
         "global": "全球",
         "cn-friendly": "国内友好",
@@ -1746,7 +1760,7 @@
       "icmpMs": "ICMP {{ms}} ms",
       "mbps": "{{mbps}} Mbps",
       "sampleSmall": "样本过小",
-      "fail": "{{error}}",
+      "fail": "探测失败，请检查网络后重试。",
       "testedAt": "测于 {{time}}",
       "cancelled": "批量已取消 — 已完成的卡片结果会保留。",
       "sites": {

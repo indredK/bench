@@ -166,7 +166,7 @@ interface NetworkProbeState {
   probeResult: ProbeTargetResult | null
   sitesResult: SitesProbeResult | null
   sitesStreaming: SiteSampleResult[]
-  siteSparklineById: Record<string, number[]>
+  siteSparklineByTarget: Record<string, Array<number | null>>
   healthResult: HealthScanResult | null
   healthStreamingItems: HealthCheckItem[]
   networkServices: string[]
@@ -384,8 +384,8 @@ function persistNav(nav: NetworkProbeState["nav"]) {
 }
 
 function sparkMs(sample: SiteSampleResult): number | null {
-  if (sample.icmpRttMs != null) return sample.icmpRttMs
   if (sample.httpTtfbMs != null) return sample.httpTtfbMs
+  if (sample.icmpRttMs != null) return sample.icmpRttMs
   return null
 }
 
@@ -406,7 +406,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   probeResult: null,
   sitesResult: null,
   sitesStreaming: [],
-  siteSparklineById: {},
+  siteSparklineByTarget: {},
   healthResult: null,
   healthStreamingItems: [],
   networkServices: [],
@@ -519,15 +519,15 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
           ? [...state.sitesStreaming, sample]
           : state.sitesStreaming.map((s, i) => (i === idx ? sample : s))
       const ms = sparkMs(sample)
-      const prev = state.siteSparklineById[sample.id] ?? []
-      const siteSparklineById =
-        ms == null
-          ? state.siteSparklineById
-          : {
-              ...state.siteSparklineById,
-              [sample.id]: [...prev.slice(-19), ms],
-            }
-      return { sitesStreaming, siteSparklineById }
+      const target = sample.target.trim()
+      const prev = state.siteSparklineByTarget[target] ?? []
+      const retained = Object.entries(state.siteSparklineByTarget).filter(([key]) => key !== target)
+      // Bound in-memory history even when users repeatedly add arbitrary custom targets.
+      const siteSparklineByTarget = Object.fromEntries([
+        ...retained.slice(-99),
+        [target, [...prev.slice(-19), sample.ok ? ms : null]],
+      ])
+      return { sitesStreaming, siteSparklineByTarget }
     }),
   setHealthResult: (healthResult) => set({ healthResult }),
   resetHealthStreaming: () => set({ healthStreamingItems: [] }),

@@ -7,6 +7,8 @@ import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { SiteMonitoringControls } from "@/features/network-probe/components/SiteMonitoringControls"
+import { useSitesMonitoring } from "@/features/network-probe/hooks/useSitesMonitoring"
 import type { SiteSampleResult, SitesProbeResult } from "@/lib/tauri/types/network-probe"
 import { cn } from "@/lib/utils"
 
@@ -24,12 +26,12 @@ interface SitesProbePanelProps {
   canCancel: boolean
   result: SitesProbeResult | null
   streaming: SiteSampleResult[]
-  sparklines: Record<string, number[]>
+  sparklines: Record<string, Array<number | null>>
   packIds: string[]
   toolEnabled: boolean
   toolStatus?: string
-  onRunPack: (packId: string) => void
-  onRunCustom: (targets: string[]) => void
+  onRunPack: (packId: string) => Promise<SitesProbeResult | null>
+  onRunCustom: (targets: string[]) => Promise<SitesProbeResult | null>
   onCancel: () => void
 }
 
@@ -56,25 +58,57 @@ function persistCustomSites(sites: string[]) {
   }
 }
 
-function Sparkline({ values }: { values: number[] }) {
-  if (values.length < 2) {
+function Sparkline({ values }: { values: Array<number | null> }) {
+  const measured = values.filter((value): value is number => value != null)
+  if (measured.length === 0) {
     return <span className="text-muted-foreground font-mono text-[10px]">—</span>
   }
-  const min = Math.min(...values)
-  const max = Math.max(...values)
+  const min = Math.min(...measured)
+  const max = Math.max(...measured)
   const span = Math.max(max - min, 1)
   const w = 64
   const h = 18
-  const points = values
-    .map((v, i) => {
-      const x = (i / (values.length - 1)) * w
-      const y = h - ((v - min) / span) * (h - 2) - 1
-      return `${x.toFixed(1)},${y.toFixed(1)}`
+  const segments: string[] = []
+  const dots: Array<{ x: number; y: number }> = []
+  let current: Array<{ x: number; y: number }> = []
+  const finishSegment = () => {
+    if (current.length === 1) dots.push(current[0]!)
+    else if (current.length > 1) {
+      segments.push(current.map(({ x, y }) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" "))
+    }
+    current = []
+  }
+  values.forEach((value, index) => {
+    if (value == null) {
+      finishSegment()
+      return
+    }
+    current.push({
+      x: (index / Math.max(values.length - 1, 1)) * w,
+      y: h - ((value - min) / span) * (h - 2) - 1,
     })
-    .join(" ")
+  })
+  finishSegment()
   return (
-    <svg width={w} height={h} className="text-emerald-600 dark:text-emerald-400" aria-hidden>
-      <polyline fill="none" stroke="currentColor" strokeWidth="1.5" points={points} />
+    <svg
+      width={w}
+      height={h}
+      className="text-emerald-600 dark:text-emerald-400"
+      aria-hidden
+      viewBox={`0 0 ${w} ${h}`}
+    >
+      {segments.map((points, index) => (
+        <polyline
+          key={`segment-${index}`}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          points={points}
+        />
+      ))}
+      {dots.map((point, index) => (
+        <circle key={`point-${index}`} cx={point.x} cy={point.y} r="1.5" fill="currentColor" />
+      ))}
     </svg>
   )
 }
@@ -97,6 +131,13 @@ export function SitesProbePanel({
   const [packId, setPackId] = useState(defaultPack)
   const [customSites, setCustomSites] = useState<string[]>(loadCustomSites)
   const [draft, setDraft] = useState("")
+  const monitor = useSitesMonitoring({
+    loading,
+    toolEnabled,
+    canCancel,
+    onProbe: () => onRunPack(packId),
+    onCancel,
+  })
 
   useEffect(() => {
     persistCustomSites(customSites)
@@ -141,7 +182,7 @@ export function SitesProbePanel({
                 className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
                 value={packId}
                 onChange={(e) => setPackId(e.target.value)}
-                disabled={loading}
+                disabled={loading || monitor.monitoring}
               >
                 {packs.map((id) => (
                   <option key={id} value={id}>
@@ -153,13 +194,13 @@ export function SitesProbePanel({
             <CommandHint hint={t("networkProbe.cmd.sitesProbe", { packId })}>
               <Button
                 type="button"
-                disabled={loading || !packId || !toolEnabled}
+                disabled={loading || monitor.monitoring || !packId || !toolEnabled}
                 onClick={() => onRunPack(packId)}
               >
                 {loading ? t("networkProbe.sites.running") : t("networkProbe.sites.run")}
               </Button>
             </CommandHint>
-            {canCancel ? (
+            {canCancel && !monitor.monitoring ? (
               <CommandHint hint={t("networkProbe.cmd.cancelScan")}>
                 <Button type="button" variant="outline" onClick={onCancel}>
                   {t("networkProbe.sites.cancel")}
@@ -167,6 +208,23 @@ export function SitesProbePanel({
               </CommandHint>
             ) : null}
           </div>
+
+          <SiteMonitoringControls
+            scopeText={t("networkProbe.sites.monitor.scopePack", {
+              pack: PACK_LABEL_KEYS[packId] ? t(PACK_LABEL_KEYS[packId]) : packId,
+            })}
+            disabled={loading || !toolEnabled}
+            monitoring={monitor.monitoring}
+            intervalSeconds={monitor.intervalSeconds}
+            onIntervalChange={monitor.setIntervalSeconds}
+            thresholdInput={monitor.thresholdInput}
+            onThresholdChange={monitor.setThresholdInput}
+            thresholdValid={monitor.thresholdValid}
+            alertTargets={monitor.alertTargets}
+            lastProbeFailed={monitor.lastProbeFailed}
+            onStart={monitor.start}
+            onStop={monitor.stop}
+          />
 
           <div className="space-y-2 rounded-lg border px-3 py-2">
             <p className="text-xs font-medium">{t("networkProbe.sites.customTitle")}</p>
@@ -181,13 +239,13 @@ export function SitesProbePanel({
                   onChange={(e) => setDraft(e.target.value)}
                   placeholder={t("networkProbe.sites.customPlaceholder")}
                   autoComplete="off"
-                  disabled={loading}
+                  disabled={loading || monitor.monitoring}
                 />
               </div>
               <Button
                 type="button"
                 variant="secondary"
-                disabled={loading || !draft.trim()}
+                disabled={loading || monitor.monitoring || !draft.trim()}
                 onClick={addCustom}
               >
                 {t("networkProbe.sites.customAdd")}
@@ -195,7 +253,9 @@ export function SitesProbePanel({
               <CommandHint hint={t("networkProbe.cmd.sitesProbeCustom", { n: customSites.length })}>
                 <Button
                   type="button"
-                  disabled={loading || customSites.length === 0 || !toolEnabled}
+                  disabled={
+                    loading || monitor.monitoring || customSites.length === 0 || !toolEnabled
+                  }
                   onClick={() => onRunCustom(customSites)}
                 >
                   {t("networkProbe.sites.customRun")}
@@ -213,7 +273,7 @@ export function SitesProbePanel({
                     <button
                       type="button"
                       className="text-muted-foreground hover:text-foreground"
-                      disabled={loading}
+                      disabled={loading || monitor.monitoring}
                       onClick={() => setCustomSites((prev) => prev.filter((s) => s !== site))}
                       aria-label={t("networkProbe.sites.customRemove")}
                     >
@@ -263,7 +323,7 @@ export function SitesProbePanel({
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Sparkline values={sparklines[row.id] ?? []} />
+                  <Sparkline values={sparklines[row.target.trim()] ?? []} />
                   <div className="text-right text-xs">
                     {row.ok ? (
                       <span className="font-medium text-emerald-700 dark:text-emerald-400">
@@ -285,8 +345,8 @@ export function SitesProbePanel({
                           .join(" · ")}
                       </span>
                     ) : (
-                      <span className="text-destructive">
-                        {t("networkProbe.sites.fail", { error: row.error ?? "—" })}
+                      <span className="text-destructive" title={row.error?.slice(0, 240)}>
+                        {t("networkProbe.sites.fail")}
                       </span>
                     )}
                   </div>

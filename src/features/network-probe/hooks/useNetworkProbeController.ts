@@ -41,7 +41,7 @@ export function useNetworkProbeController() {
   const probeResult = useNetworkProbeStore((s) => s.probeResult)
   const sitesResult = useNetworkProbeStore((s) => s.sitesResult)
   const sitesStreaming = useNetworkProbeStore((s) => s.sitesStreaming)
-  const siteSparklineById = useNetworkProbeStore((s) => s.siteSparklineById)
+  const siteSparklineByTarget = useNetworkProbeStore((s) => s.siteSparklineByTarget)
   const healthResult = useNetworkProbeStore((s) => s.healthResult)
   const healthStreamingItems = useNetworkProbeStore((s) => s.healthStreamingItems)
   const networkServices = useNetworkProbeStore((s) => s.networkServices)
@@ -328,7 +328,7 @@ export function useNetworkProbeController() {
     probeResult,
     sitesResult,
     sitesStreaming,
-    siteSparklineById,
+    siteSparklineByTarget,
     healthResult,
     healthStreamingItems,
     networkServices,
