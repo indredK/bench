@@ -100,6 +100,10 @@ export type NetworkProbeKind =
 export type NetworkProbeOfflineSub =
   "all" | "captive" | "proxy" | "ipv6" | "mtu" | "egress" | "diff"
 
+export type NetworkServicesLoadStatus = "idle" | "loading" | "loaded" | "failed"
+export type ProbeNodesLoadStatus = "idle" | "loading" | "loaded" | "failed"
+export type AgentMutation = { kind: "add" } | { kind: "remove"; agentId: string } | null
+
 export type NetworkProbeL2ByL1 = Record<NetworkProbeL1, string>
 
 interface NetworkProbeState {
@@ -127,6 +131,7 @@ interface NetworkProbeState {
   healthResult: HealthScanResult | null
   healthStreamingItems: HealthCheckItem[]
   networkServices: string[]
+  networkServicesLoadStatus: NetworkServicesLoadStatus
   fixResult: FixResult | null
   captiveResult: CaptivePortalResult | null
   publicIpInfo: PublicIpInfo | null
@@ -151,6 +156,7 @@ interface NetworkProbeState {
   pcapResult: PcapDiagResult | null
   multiNodeDnsResult: MultiNodeDnsResult | null
   probeNodes: ProbeNode[]
+  probeNodesLoadStatus: ProbeNodesLoadStatus
   reportHistory: HealthScanResult[]
   securityAuthorized: boolean
   /** 按探测种类分槽的活动会话; 多类探测并发时取消目标各自独立, 不会互相抢占。 */
@@ -182,6 +188,8 @@ interface NetworkProbeState {
   loadingPcap: boolean
   loadingMultiNode: boolean
   loadingNodes: boolean
+  loadingSystemSettings: boolean
+  agentMutation: AgentMutation
   error: LocalizedError | null
 
   setL1: (l1Id: NetworkProbeL1) => void
@@ -208,6 +216,7 @@ interface NetworkProbeState {
   resetHealthStreaming: () => void
   upsertHealthStreamingItem: (item: HealthCheckItem) => void
   setNetworkServices: (services: string[]) => void
+  setNetworkServicesLoadStatus: (status: NetworkServicesLoadStatus) => void
   setFixResult: (fixResult: FixResult | null) => void
   setCaptiveResult: (captiveResult: CaptivePortalResult | null) => void
   setPublicIpInfo: (publicIpInfo: PublicIpInfo | null) => void
@@ -234,6 +243,7 @@ interface NetworkProbeState {
   setPcapResult: (pcapResult: PcapDiagResult | null) => void
   setMultiNodeDnsResult: (multiNodeDnsResult: MultiNodeDnsResult | null) => void
   setProbeNodes: (probeNodes: ProbeNode[]) => void
+  setProbeNodesLoadStatus: (status: ProbeNodesLoadStatus) => void
   pushReportHistory: (scan: HealthScanResult) => void
   clearReportHistory: () => void
   setSecurityAuthorized: (securityAuthorized: boolean) => void
@@ -266,6 +276,8 @@ interface NetworkProbeState {
   setLoadingPcap: (loading: boolean) => void
   setLoadingMultiNode: (loading: boolean) => void
   setLoadingNodes: (loading: boolean) => void
+  setLoadingSystemSettings: (loading: boolean) => void
+  setAgentMutation: (mutation: AgentMutation) => void
   setError: (error: LocalizedError | null) => void
 }
 
@@ -356,6 +368,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   healthResult: null,
   healthStreamingItems: [],
   networkServices: [],
+  networkServicesLoadStatus: "idle",
   fixResult: null,
   captiveResult: null,
   publicIpInfo: null,
@@ -380,6 +393,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   pcapResult: null,
   multiNodeDnsResult: null,
   probeNodes: [],
+  probeNodesLoadStatus: "idle",
   reportHistory: loadReportHistory(),
   securityAuthorized: loadSecurityAuthorized(),
   activeSessionIdByKind: { ...EMPTY_SESSION_ID_SLOTS },
@@ -409,6 +423,8 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   loadingPcap: false,
   loadingMultiNode: false,
   loadingNodes: false,
+  loadingSystemSettings: false,
+  agentMutation: null,
   error: null,
 
   setL1: (l1Id) => {
@@ -483,6 +499,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
       return { healthStreamingItems: next }
     }),
   setNetworkServices: (networkServices) => set({ networkServices }),
+  setNetworkServicesLoadStatus: (networkServicesLoadStatus) => set({ networkServicesLoadStatus }),
   setFixResult: (fixResult) => set({ fixResult }),
   setCaptiveResult: (captiveResult) => set({ captiveResult }),
   setPublicIpInfo: (publicIpInfo) => set({ publicIpInfo }),
@@ -531,6 +548,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   setPcapResult: (pcapResult) => set({ pcapResult }),
   setMultiNodeDnsResult: (multiNodeDnsResult) => set({ multiNodeDnsResult }),
   setProbeNodes: (probeNodes) => set({ probeNodes }),
+  setProbeNodesLoadStatus: (probeNodesLoadStatus) => set({ probeNodesLoadStatus }),
   pushReportHistory: (scan) =>
     set((state) => {
       const reportHistory = [scan, ...state.reportHistory].slice(0, 10)
@@ -601,6 +619,8 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   setLoadingPcap: (loadingPcap) => set({ loadingPcap }),
   setLoadingMultiNode: (loadingMultiNode) => set({ loadingMultiNode }),
   setLoadingNodes: (loadingNodes) => set({ loadingNodes }),
+  setLoadingSystemSettings: (loadingSystemSettings) => set({ loadingSystemSettings }),
+  setAgentMutation: (agentMutation) => set({ agentMutation }),
   setError: (error) => set({ error }),
 }))
 

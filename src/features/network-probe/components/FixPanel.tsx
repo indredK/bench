@@ -7,11 +7,13 @@ import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirm
 import { TripleDestructiveConfirm } from "@/components/common/TripleDestructiveConfirm"
 import { Button } from "@/components/ui/button"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import type { NetworkServicesLoadStatus } from "@/features/network-probe/store"
 import type { DnsPreset, FixResult } from "@/lib/tauri/types/network-probe"
 
 interface FixPanelProps {
   loading: boolean
   services: string[]
+  servicesStatus: NetworkServicesLoadStatus
   dnsPresets: DnsPreset[]
   lastResult: FixResult | null
   onLoadServices: () => void
@@ -20,6 +22,7 @@ interface FixPanelProps {
   onRenewDhcp: (service: string) => Promise<void>
   onResetNetworkStack: (service: string) => Promise<void>
   onOpenSettings: () => void
+  openingSettings: boolean
 }
 
 type PendingAction =
@@ -36,6 +39,7 @@ const RESET_PHRASE = "RESET"
 export function FixPanel({
   loading,
   services,
+  servicesStatus,
   dnsPresets,
   lastResult,
   onLoadServices,
@@ -44,6 +48,7 @@ export function FixPanel({
   onRenewDhcp,
   onResetNetworkStack,
   onOpenSettings,
+  openingSettings,
 }: FixPanelProps) {
   const { t } = useTranslation()
   const [service, setService] = useState("")
@@ -86,14 +91,46 @@ export function FixPanel({
                 id="np-fix-service"
                 className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
                 value={service}
+                disabled={servicesStatus !== "loaded" || loading}
                 onChange={(e) => setService(e.target.value)}
               >
+                {services.length === 0 ? (
+                  <option value="" disabled>
+                    {t(
+                      servicesStatus === "loading"
+                        ? "networkProbe.fix.servicesLoading"
+                        : servicesStatus === "failed"
+                          ? "networkProbe.fix.servicesFailed"
+                          : servicesStatus === "loaded"
+                            ? "networkProbe.fix.servicesEmpty"
+                            : "networkProbe.fix.servicesLoading",
+                    )}
+                  </option>
+                ) : null}
                 {services.map((s) => (
                   <option key={s} value={s}>
                     {s}
                   </option>
                 ))}
               </select>
+              {servicesStatus !== "idle" ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={servicesStatus === "loading"}
+                  onClick={onLoadServices}
+                >
+                  {servicesStatus === "loading"
+                    ? t("networkProbe.fix.servicesLoading")
+                    : t("networkProbe.fix.refreshServices")}
+                </Button>
+              ) : null}
+              {servicesStatus === "failed" ? (
+                <p role="alert" className="text-destructive text-xs">
+                  {t("networkProbe.fix.servicesFailed")}
+                </p>
+              ) : null}
             </div>
             <div className="min-w-[10rem] flex-1 space-y-1">
               <label className="text-xs font-medium" htmlFor="np-fix-dns">
@@ -120,14 +157,14 @@ export function FixPanel({
             </Button>
             <Button
               type="button"
-              disabled={loading || !service || servers.length === 0}
+              disabled={loading || servicesStatus !== "loaded" || !service || servers.length === 0}
               onClick={() => setPending({ kind: "switch-step1" })}
             >
               {t("networkProbe.fix.switchDns")}
             </Button>
             <Button
               type="button"
-              disabled={loading || !service}
+              disabled={loading || servicesStatus !== "loaded" || !service}
               onClick={() => setPending({ kind: "renew-step1" })}
             >
               {t("networkProbe.fix.renewDhcp")}
@@ -135,13 +172,20 @@ export function FixPanel({
             <Button
               type="button"
               variant="destructive"
-              disabled={loading || !service}
+              disabled={loading || servicesStatus !== "loaded" || !service}
               onClick={() => setPending({ kind: "reset" })}
             >
               {t("networkProbe.fix.resetStack")}
             </Button>
-            <Button type="button" variant="outline" onClick={onOpenSettings}>
-              {t("networkProbe.fix.openSettings")}
+            <Button
+              type="button"
+              variant="outline"
+              disabled={openingSettings}
+              onClick={onOpenSettings}
+            >
+              {openingSettings
+                ? t("networkProbe.openingSettings")
+                : t("networkProbe.fix.openSettings")}
             </Button>
           </div>
 

@@ -7,24 +7,29 @@ import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import type { AgentMutation, ProbeNodesLoadStatus } from "@/features/network-probe/store"
 import type { MultiNodeDnsResult, ProbeNode } from "@/lib/tauri/types/network-probe"
 
 interface MultiNodePanelProps {
   loading: boolean
   loadingNodes: boolean
+  nodesStatus: ProbeNodesLoadStatus
+  agentMutation: AgentMutation
   result: MultiNodeDnsResult | null
   nodes: ProbeNode[]
   toolEnabled: boolean
   toolStatus?: string
   onCompare: (domain: string) => void
   onRefreshNodes: () => void
-  onAddAgent: (label: string, endpoint: string) => void
+  onAddAgent: (label: string, endpoint: string) => Promise<boolean>
   onRemoveAgent: (agentId: string) => void
 }
 
 export function MultiNodePanel({
   loading,
   loadingNodes,
+  nodesStatus,
+  agentMutation,
   result,
   nodes,
   toolEnabled,
@@ -37,7 +42,22 @@ export function MultiNodePanel({
   const { t } = useTranslation()
   const [domain, setDomain] = useState("example.com")
   const [label, setLabel] = useState("")
-  const [endpoint, setEndpoint] = useState("https://")
+  const [endpoint, setEndpoint] = useState("")
+  const nodesLoading = loadingNodes || nodesStatus === "idle" || nodesStatus === "loading"
+  const endpointErrorKey = (() => {
+    if (!endpoint.trim()) return null
+    try {
+      const url = new URL(endpoint.trim())
+      if (url.protocol !== "https:") return "networkProbe.nodes.endpointHttpsOnly"
+      if (url.username || url.password || url.search || url.hash) {
+        return "networkProbe.nodes.endpointNoCredentials"
+      }
+      if (!url.hostname) return "networkProbe.nodes.endpointInvalid"
+      return null
+    } catch {
+      return "networkProbe.nodes.endpointInvalid"
+    }
+  })()
 
   return (
     <ProbePanelShell
@@ -72,7 +92,7 @@ export function MultiNodePanel({
             <Button
               type="button"
               variant="outline"
-              disabled={loadingNodes}
+              disabled={nodesLoading || agentMutation !== null}
               onClick={onRefreshNodes}
             >
               {t("networkProbe.nodes.refresh")}
@@ -81,6 +101,20 @@ export function MultiNodePanel({
 
           <div className="space-y-2">
             <p className="text-sm font-medium">{t("networkProbe.nodes.listTitle")}</p>
+            {nodesStatus === "failed" ? (
+              <p role="alert" className="text-destructive text-xs">
+                {t("networkProbe.nodes.loadFailed")}
+              </p>
+            ) : null}
+            {nodes.length === 0 ? (
+              <p className="text-muted-foreground text-xs">
+                {nodesLoading
+                  ? t("networkProbe.nodes.loading")
+                  : nodesStatus === "failed"
+                    ? t("networkProbe.nodes.loadFailed")
+                    : t("networkProbe.nodes.empty")}
+              </p>
+            ) : null}
             <ul className="space-y-1 font-mono text-xs">
               {nodes.map((n) => (
                 <li key={n.id} className="flex flex-wrap items-center gap-2">
@@ -93,9 +127,12 @@ export function MultiNodePanel({
                       type="button"
                       size="sm"
                       variant="outline"
+                      disabled={agentMutation !== null || nodesLoading}
                       onClick={() => onRemoveAgent(n.id)}
                     >
-                      {t("networkProbe.nodes.removeAgent")}
+                      {agentMutation?.kind === "remove" && agentMutation.agentId === n.id
+                        ? t("networkProbe.nodes.removingAgent")
+                        : t("networkProbe.nodes.removeAgent")}
                     </Button>
                   ) : null}
                 </li>
@@ -119,13 +156,32 @@ export function MultiNodePanel({
                 onChange={(e) => setEndpoint(e.target.value)}
                 placeholder={t("networkProbe.nodes.endpointPlaceholder")}
               />
+              {endpointErrorKey ? (
+                <p role="alert" className="text-destructive w-full text-xs">
+                  {t(endpointErrorKey)}
+                </p>
+              ) : null}
               <CommandHint hint={t("networkProbe.cmd.addAgent")}>
                 <Button
                   type="button"
-                  disabled={!label.trim() || !endpoint.trim()}
-                  onClick={() => onAddAgent(label.trim(), endpoint.trim())}
+                  disabled={
+                    !label.trim() ||
+                    !endpoint.trim() ||
+                    endpointErrorKey !== null ||
+                    agentMutation !== null ||
+                    nodesLoading
+                  }
+                  onClick={async () => {
+                    const added = await onAddAgent(label.trim(), endpoint.trim())
+                    if (added) {
+                      setLabel("")
+                      setEndpoint("")
+                    }
+                  }}
                 >
-                  {t("networkProbe.nodes.addAgent")}
+                  {agentMutation?.kind === "add"
+                    ? t("networkProbe.nodes.addingAgent")
+                    : t("networkProbe.nodes.addAgent")}
                 </Button>
               </CommandHint>
             </div>

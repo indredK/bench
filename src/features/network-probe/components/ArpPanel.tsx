@@ -21,6 +21,7 @@ interface ArpPanelProps {
   onRun: () => void
   onCancel?: () => void
   onOpenSettings?: () => void
+  openingSettings?: boolean
 }
 
 export function ArpPanel({
@@ -32,6 +33,7 @@ export function ArpPanel({
   onRun,
   onCancel,
   onOpenSettings,
+  openingSettings = false,
 }: ArpPanelProps) {
   const { t } = useTranslation()
   const incompleteLabel = t("networkProbe.arp.incomplete")
@@ -76,8 +78,15 @@ export function ArpPanel({
               </CommandHint>
             ) : null}
             {onOpenSettings ? (
-              <Button type="button" variant="outline" onClick={onOpenSettings}>
-                {t("networkProbe.arp.openSettings")}
+              <Button
+                type="button"
+                variant="outline"
+                disabled={openingSettings}
+                onClick={onOpenSettings}
+              >
+                {openingSettings
+                  ? t("networkProbe.openingSettings")
+                  : t("networkProbe.arp.openSettings")}
               </Button>
             ) : null}
           </div>
@@ -110,8 +119,16 @@ export function ArpPanel({
                 </p>
               ) : null}
               {result.emptyReason === "permission" && onOpenSettings ? (
-                <Button type="button" variant="outline" size="sm" onClick={onOpenSettings}>
-                  {t("networkProbe.arp.openSettings")}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={openingSettings}
+                  onClick={onOpenSettings}
+                >
+                  {openingSettings
+                    ? t("networkProbe.openingSettings")
+                    : t("networkProbe.arp.openSettings")}
                 </Button>
               ) : null}
             </div>

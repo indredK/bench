@@ -1576,6 +1576,7 @@
   "networkProbe": {
     "title": "Network Probe",
     "subtitle": "First-aid diagnostics and targeted probes (module 1.0 / MVP A+B).",
+    "openingSettings": "Opening system settings…",
     "nav": {
       "l1": "Primary sections",
       "l2": "Tools",
@@ -1917,6 +1918,10 @@
       "renewDhcp": "Renew DHCP",
       "resetStack": "Reset network stack",
       "openSettings": "Open system network settings",
+      "servicesLoading": "Loading network services…",
+      "servicesEmpty": "No network services found",
+      "servicesFailed": "Could not load network services. Retry before changing a service.",
+      "refreshServices": "Refresh services",
       "ok": "ok",
       "failed": "failed",
       "confirm": {
@@ -2164,14 +2169,22 @@
       "run": "Compare DNS (multi-node)",
       "running": "Comparing…",
       "refresh": "Refresh nodes",
+      "loading": "Loading probe nodes…",
+      "loadFailed": "Could not load probe nodes. Refresh to retry.",
+      "empty": "No probe nodes are available.",
       "listTitle": "Probe nodes",
       "addTitle": "Add agent",
-      "addHint": "Endpoint must be https:// or wss://. Arbitrary shell actions are rejected.",
+      "addHint": "Endpoint must be an HTTPS agent URL. Credentials in URL fields are rejected; arbitrary shell actions are blocked.",
       "labelPlaceholder": "Label",
       "domainPlaceholder": "example.com",
       "endpointPlaceholder": "https://agent.example:8443",
+      "endpointHttpsOnly": "Agent health checks currently support HTTPS URLs only.",
+      "endpointNoCredentials": "Do not include credentials, query parameters, or fragments in the URL.",
+      "endpointInvalid": "Enter a valid HTTPS agent URL.",
       "addAgent": "Add agent",
+      "addingAgent": "Adding…",
       "removeAgent": "Remove",
+      "removingAgent": "Removing…",
       "meta": "{{domain}} · {{count}} answers · {{ms}} ms"
     },
     "nat": {

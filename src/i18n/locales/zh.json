@@ -1576,6 +1576,7 @@
   "networkProbe": {
     "title": "网络探测",
     "subtitle": "急救诊断与主动探测（模块 1.0 / MVP A+B）。",
+    "openingSettings": "正在打开系统设置…",
     "nav": {
       "l1": "一级分区",
       "l2": "工具",
@@ -1917,6 +1918,10 @@
       "renewDhcp": "续租 DHCP",
       "resetStack": "重置网络栈",
       "openSettings": "打开系统网络设置",
+      "servicesLoading": "正在加载网络服务…",
+      "servicesEmpty": "未发现网络服务",
+      "servicesFailed": "无法加载网络服务。请重试后再修改服务。",
+      "refreshServices": "刷新服务",
       "ok": "成功",
       "failed": "失败",
       "confirm": {
@@ -2164,14 +2169,22 @@
       "run": "多节点对比 DNS",
       "running": "对比中…",
       "refresh": "刷新节点",
+      "loading": "正在加载探测节点…",
+      "loadFailed": "无法加载探测节点，请刷新重试。",
+      "empty": "当前没有可用的探测节点。",
       "listTitle": "探测节点",
       "addTitle": "添加 agent",
-      "addHint": "端点必须为 https:// 或 wss://。任意 shell 动作会被拒绝。",
+      "addHint": "端点必须是 HTTPS agent 地址。URL 中不能包含凭证；任意 shell 动作会被拒绝。",
       "labelPlaceholder": "名称",
       "domainPlaceholder": "example.com",
       "endpointPlaceholder": "https://agent.example:8443",
+      "endpointHttpsOnly": "当前 agent 健康检查只支持 HTTPS 地址。",
+      "endpointNoCredentials": "URL 中不能包含凭证、查询参数或片段。",
+      "endpointInvalid": "请输入有效的 HTTPS agent 地址。",
       "addAgent": "添加 agent",
+      "addingAgent": "正在添加…",
       "removeAgent": "移除",
+      "removingAgent": "正在移除…",
       "meta": "{{domain}} · {{count}} 条答案 · {{ms}} ms"
     },
     "nat": {

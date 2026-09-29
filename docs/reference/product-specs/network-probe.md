@@ -275,11 +275,14 @@ L1 → L2 映射：
 - **事件监听清理**：所有流式长任务在 `finally` 中 `unlisten()` 全部事件订阅（health-item / site-sample / traceroute-hop / ping-sample / speed-sample / port-sample / scan-session / pack-progress），避免泄漏与跨会话串扰。
 - **单工具防重入**：每个 use-case 入口 `if (store.loadingX) return`；同一工具不可并发，不同工具可并行（store 每工具独立 loading）。
 - **修复幂等**：后端每次执行前重新校验服务白名单（忽略前端「已确认」标志）；刷新 DNS 对 `dscacheutil`/`killall` 分别报告成功/失败，不把权限失败当成功。
-- **single-flight 式刷新**：刷新概览（`loadingSummary`）、节点（`loadingNodes`）在用例内以 loading 标志防重复触发；**能力包刷新除外**——`refreshCapabilityPacks` 无 loading 标志，防重入由 PackInstallDialog 的 `busy` 提供（见 §8）。
-- **无 loading 标志的写操作（防重入缺口）**：`addAgent` / `removeAgent` / `loadNetworkServices` / `openSystemNetworkSettings` 均无 loading 短路与禁用态，快速连点会重复提交/重复打开（标记为已知并发边界，未见修复实现）。
+- **single-flight 式刷新与写操作**：刷新概览（`loadingSummary`）、节点（`loadingNodes`）和网络服务列表（`networkServicesLoadStatus`）在用例内防重复触发；系统设置打开（`loadingSystemSettings`）与 agent 新增/删除（`agentMutation`）同样短路重复操作，相关按钮显示进度并禁用。能力包刷新仍由 PackInstallDialog 的 `busy` 防重入（见 §8）。
+- **状态反馈**：网络服务选择器分别显示加载、失败与成功但无服务；失败时可重试，加载失败期间禁用依赖服务的 DNS/DHCP/重置操作，独立的刷新 DNS 操作仍可用。节点列表区分初始/刷新加载、失败（可重试）与成功空态。
+- **bootstrap 局部失败隔离**：能力矩阵、默认资源、能力包和节点列表独立接收成功结果；单一数据源失败不丢弃其他成功数据，也不把节点状态误标为失败。agent 写入成功后即保留新增/删除结果；后续节点刷新失败时明确提示刷新失败并允许重试，不伪报 agent 写入失败或保留可重复提交的新增表单。
+- **agent 注册表写入原子性**：同一进程以 Mutex 串行化，多 Bench 实例通过 `.agents.lock` OS 文件锁协调；锁内执行 load-modify-`atomic_write`，避免并发丢更新和部分 JSON 写入。读取端依赖原子替换保证只读到完整旧/新文件。
 
 ### 13.4 数据与安全
 
 - 报告导出（JSON/Markdown）含公网 IP、Wi-Fi SSID、hosts 异常等，导出前展示隐私提示；reportHistory 仅保留最近 10 条（localStorage），清空需确认。
+- agent 当前只支持 HTTPS JSON 健康检查，不接受 WSS（尚无 WebSocket 健康协议）；也不支持凭证认证。URL 中的 userinfo、query、fragment 一律拒绝；新增命令日志不记录 endpoint，既有记录中的 URL 凭证会在读取/写入时脱敏并原子清除。WSS、认证与安全存储仍属于 C2-3，未完成前不得把凭证放在 URL 中。
 - 能力包安装路径：前端禁止提交下载 URL；仅后端 manifest 的公网 HTTPS URL + 每跳重定向校验、64 MiB 流式上限、精确长度与 SHA-256 校验；`PACK_HASH_MISMATCH` 时临时文件自动清理，正式制品不落盘。网络错误不回传带签名参数的 URL。
 - `saveDefaultsOverride`/`resetDefaults` 失败 → `networkProbe.errors.defaultsFailed`；默认资源损坏时重置即可恢复内置值。

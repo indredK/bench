@@ -127,6 +127,7 @@ Post-MVP-C
 ### 期望
 
 - HTTPS/WSS；HMAC 或 mTLS；限速 429 映射 `AppError`
+- 当前健康检查只支持 HTTPS JSON；WSS 协议、凭证认证与 Keychain 安全存储属于 C2-3 待实现要求。完成前 endpoint 不得嵌入 userinfo、query 或 fragment
 - 禁止明文；禁止局域网自动扩散发现 agent
 - SSRF：拒云元数据等危险目标
 

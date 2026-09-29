@@ -41,6 +41,7 @@ export function useNetworkProbeController() {
   const healthResult = useNetworkProbeStore((s) => s.healthResult)
   const healthStreamingItems = useNetworkProbeStore((s) => s.healthStreamingItems)
   const networkServices = useNetworkProbeStore((s) => s.networkServices)
+  const networkServicesLoadStatus = useNetworkProbeStore((s) => s.networkServicesLoadStatus)
   const fixResult = useNetworkProbeStore((s) => s.fixResult)
   const captiveResult = useNetworkProbeStore((s) => s.captiveResult)
   const publicIpInfo = useNetworkProbeStore((s) => s.publicIpInfo)
@@ -65,6 +66,7 @@ export function useNetworkProbeController() {
   const pcapResult = useNetworkProbeStore((s) => s.pcapResult)
   const multiNodeDnsResult = useNetworkProbeStore((s) => s.multiNodeDnsResult)
   const probeNodes = useNetworkProbeStore((s) => s.probeNodes)
+  const probeNodesLoadStatus = useNetworkProbeStore((s) => s.probeNodesLoadStatus)
   const reportHistory = useNetworkProbeStore((s) => s.reportHistory)
   const securityAuthorized = useNetworkProbeStore((s) => s.securityAuthorized)
   // 会话按探测种类分槽: 面板只读自己那一槽, 决定 Cancel 目标与按钮可见性。
@@ -94,6 +96,8 @@ export function useNetworkProbeController() {
   const loadingPcap = useNetworkProbeStore((s) => s.loadingPcap)
   const loadingMultiNode = useNetworkProbeStore((s) => s.loadingMultiNode)
   const loadingNodes = useNetworkProbeStore((s) => s.loadingNodes)
+  const loadingSystemSettings = useNetworkProbeStore((s) => s.loadingSystemSettings)
+  const agentMutation = useNetworkProbeStore((s) => s.agentMutation)
   const error = useNetworkProbeStore((s) => s.error)
   const setL1 = useNetworkProbeStore((s) => s.setL1)
   const setL2 = useNetworkProbeStore((s) => s.setL2)
@@ -310,6 +314,7 @@ export function useNetworkProbeController() {
     healthResult,
     healthStreamingItems,
     networkServices,
+    networkServicesLoadStatus,
     fixResult,
     captiveResult,
     publicIpInfo,
@@ -334,6 +339,7 @@ export function useNetworkProbeController() {
     pcapResult,
     multiNodeDnsResult,
     probeNodes,
+    probeNodesLoadStatus,
     reportHistory,
     securityAuthorized,
     activeSessionIdByKind,
@@ -362,6 +368,8 @@ export function useNetworkProbeController() {
     loadingPcap,
     loadingMultiNode,
     loadingNodes,
+    loadingSystemSettings,
+    agentMutation,
     error,
     selectL1,
     selectL2,

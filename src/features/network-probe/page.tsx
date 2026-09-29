@@ -357,6 +357,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     hostsSuspiciousCount={hostsSuspicious}
                     onRefresh={c.refreshOverview}
                     onOpenSettings={c.openSystemNetworkSettings}
+                    openingSettings={c.loadingSystemSettings}
                   />
                 ) : null}
 
@@ -493,6 +494,8 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     onRenewDhcp={c.renewDhcp}
                     onResetNetworkStack={c.resetNetworkStack}
                     onOpenSettings={c.openSystemNetworkSettings}
+                    openingSettings={c.loadingSystemSettings}
+                    servicesStatus={c.networkServicesLoadStatus}
                   />
                 ) : null}
 
@@ -658,6 +661,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     onRun={c.discoverLan}
                     onCancel={() => c.cancelScan("lan")}
                     onOpenSettings={c.openSystemNetworkSettings}
+                    openingSettings={c.loadingSystemSettings}
                   />
                 ) : null}
 
@@ -695,6 +699,8 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                   <MultiNodePanel
                     loading={c.loadingMultiNode}
                     loadingNodes={c.loadingNodes}
+                    nodesStatus={c.probeNodesLoadStatus}
+                    agentMutation={c.agentMutation}
                     result={c.multiNodeDnsResult}
                     nodes={c.probeNodes}
                     toolEnabled={c.toolEnabled.multiNode}
