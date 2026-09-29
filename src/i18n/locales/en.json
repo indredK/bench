@@ -2123,7 +2123,32 @@
       "run": "Probe NAT",
       "running": "Probing…",
       "type": "Result",
-      "mapped": "Mapped address"
+      "mapped": "Mapped address",
+      "elapsed": "Elapsed {{seconds}} s",
+      "serverResults": "STUN server results",
+      "types": {
+        "blocked-or-timeout": "No STUN response received",
+        "mapped-address": "Mapped address found; NAT behavior is unknown",
+        "consistent-mapping": "Multiple servers returned the same mapped address",
+        "varying-mapping": "Multiple servers returned different mapped addresses",
+        "no-mapping": "Server response did not include a mapped address",
+        "unknown": "Unknown result"
+      },
+      "explanations": {
+        "blocked-or-timeout": "No STUN response was received. Check each server below; network filtering, DNS resolution, or server availability can cause this. A timeout alone cannot identify the cause.",
+        "mapped-address": "Only one server returned a mapped address, which is not enough to infer NAT behavior.",
+        "consistent-mapping": "Multiple servers returned the same mapped address; this is not a complete NAT type classification.",
+        "varying-mapping": "Different paths or servers can also cause mapping differences; this alone does not prove symmetric NAT.",
+        "no-mapping": "A STUN response arrived, but no valid mapped address could be read.",
+        "unknown": "Mapping behavior could not be determined."
+      },
+      "serverStatuses": {
+        "mapped": "Responded",
+        "timeout": "Timed out",
+        "no-mapping": "No mapped address",
+        "error": "Request failed",
+        "unknown": "Unknown status"
+      }
     },
     "ntp": {
       "hint": "Query pool.ntp.org for clock offset. Large skew can break TLS and auth.",

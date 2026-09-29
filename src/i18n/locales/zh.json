@@ -2123,7 +2123,32 @@
       "run": "探测 NAT",
       "running": "探测中…",
       "type": "结果",
-      "mapped": "映射地址"
+      "mapped": "映射地址",
+      "elapsed": "耗时 {{seconds}} 秒",
+      "serverResults": "STUN 服务器结果",
+      "types": {
+        "blocked-or-timeout": "没有收到 STUN 响应",
+        "mapped-address": "已发现映射地址，NAT 类型未知",
+        "consistent-mapping": "多个服务器的映射地址一致",
+        "varying-mapping": "多个服务器的映射地址不同",
+        "no-mapping": "服务器响应中没有映射地址",
+        "unknown": "未知结果"
+      },
+      "explanations": {
+        "blocked-or-timeout": "未收到 STUN 响应。请查看逐源状态；网络过滤、DNS 解析或服务器超时都可能导致无响应，单凭超时无法确认原因。",
+        "mapped-address": "只有一个服务器返回映射地址，当前信息不足以判断 NAT 行为。",
+        "consistent-mapping": "多个服务器返回相同映射地址；这不等同于完整的 NAT 类型判定。",
+        "varying-mapping": "映射差异也可能来自网络路径或服务器差异，不能单独据此判定为对称型 NAT。",
+        "no-mapping": "收到了 STUN 响应，但未解析到有效映射地址。",
+        "unknown": "无法判断映射行为。"
+      },
+      "serverStatuses": {
+        "mapped": "已响应",
+        "timeout": "请求超时",
+        "no-mapping": "无映射地址",
+        "error": "请求失败",
+        "unknown": "未知状态"
+      }
     },
     "ntp": {
       "hint": "查询 pool.ntp.org 时钟偏移。过大偏差可能影响 TLS 与鉴权。",

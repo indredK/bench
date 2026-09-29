@@ -77,6 +77,7 @@ if-addrs = "0.15"
 surge-ping = "0.9.0"
 hickory-resolver = "0.26.1"
 trippy-core = "0.13.0"
+rtc-stun = { version = "0.21.0", default-features = false, features = ["crypto-ring"] }
 
 [target."cfg(not(any(target_os = \"android\", target_os = \"ios\")))".dependencies]
 tauri-plugin-updater = "2.10.1"

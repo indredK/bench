@@ -661,15 +661,28 @@ pub struct PortScanResult {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NatProbeResult {
-    /// stun-mapped | blocked-or-timeout | unknown | fail
+    /// blocked-or-timeout | mapped-address | consistent-mapping | varying-mapping | no-mapping
     pub nat_type: String,
+    /// Present only when one mapping was found or all successful servers agree.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mapped_address: Option<String>,
     pub stun_server: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub detail: Option<String>,
+    pub server_results: Vec<NatProbeServerResult>,
     pub elapsed_ms: f64,
     pub command_hint: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NatProbeServerResult {
+    pub server: String,
+    /// mapped | timeout | no-mapping | error
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mapped_address: Option<String>,
+    /// Stable error code for logs and diagnostics; UI copy is localized separately.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_code: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
