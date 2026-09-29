@@ -263,7 +263,7 @@ MVP：`listProbeNodes` 至少返回 `local`；选中非 local 时 UI 提示「�
 
 ### 4.3 多节点对比（Post-MVP-C）
 
-同一 `(target, tool)` 结果入 `store.byNode`；并排展示（例：本机 DNS 正常、探点 A 污染）。
+Globalping 多探点结果与自建 agent 的 `nodeId` 结果在统一对比区并排展示。界面只对齐相同测量类型与规范化目标；HTTP 查询串参与目标匹配，但会从所有结果标签中省略，避免误把不同查询请求合并且不泄露参数；切换目标或类型后隐藏不匹配的旧结果。HTTP 供应商错误详情不展示，以免原始错误回显查询参数。当前不再复制一份持久化 `store.byNode`，对比数据仍分别归属 Globalping 与 agent 结果字段，避免两个可变状态副本分叉。HTTP URL 查询串仅发送给测量服务，不写入命令日志。
 
 ### 4.4 自有 agent 协议草图（Post-MVP-C）
 

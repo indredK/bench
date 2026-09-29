@@ -215,6 +215,10 @@ describe("MultiNodePanel agent states", () => {
       endpoint: "https://agent.example",
     }
     renderPanel({ nodes: [node], agentMeasurementResults: { [node.id]: result } })
+    fireEvent.click(screen.getByRole("button", { name: "networkProbe.nodes.modeHttp" }))
+    fireEvent.change(screen.getByRole("textbox", { name: "networkProbe.nodes.targetLabel" }), {
+      target: { value: "https://example.com/health" },
+    })
 
     expect(screen.getByRole("status")).toHaveTextContent("networkProbe.nodes.agentRateLimited")
     expect(screen.getByRole("status")).toHaveTextContent("networkProbe.nodes.httpStatus")
@@ -241,10 +245,155 @@ describe("MultiNodePanel agent states", () => {
       commandHint: "globalping http example.com locations=world",
     }
     renderPanel({ result })
+    fireEvent.click(screen.getByRole("button", { name: "networkProbe.nodes.modeHttp" }))
+    fireEvent.change(screen.getByRole("textbox", { name: "networkProbe.nodes.targetLabel" }), {
+      target: { value: "https://example.com/health" },
+    })
 
     expect(screen.getByText("networkProbe.nodes.httpStatus")).toBeInTheDocument()
     expect(screen.queryByText("OK")).not.toBeInTheDocument()
     expect(screen.queryByText("FAIL")).not.toBeInTheDocument()
+  })
+
+  it("hides stale agent results when the selected target changes", () => {
+    const node: ProbeNode = {
+      id: "agent-1",
+      kind: "remote-agent",
+      label: "Lab",
+      reachable: true,
+      endpoint: "https://agent.example",
+    }
+    const result: AgentMeasurementResult = {
+      nodeId: node.id,
+      measurementType: "dns",
+      target: "example.com",
+      status: "complete",
+      elapsedMs: 18,
+      probe: {
+        id: node.id,
+        label: node.label,
+        status: "finished",
+        answers: ["203.0.113.7"],
+        dnsRcode: "NOERROR",
+      },
+    }
+    renderPanel({ nodes: [node], agentMeasurementResults: { [node.id]: result } })
+
+    fireEvent.change(screen.getByRole("textbox", { name: "networkProbe.nodes.targetLabel" }), {
+      target: { value: "other.example" },
+    })
+
+    expect(screen.queryByText("203.0.113.7")).not.toBeInTheDocument()
+    expect(screen.getAllByText("networkProbe.nodes.comparisonNoResult")).toHaveLength(2)
+  })
+
+  it("does not align results with a different HTTP query string", () => {
+    const node: ProbeNode = {
+      id: "agent-1",
+      kind: "remote-agent",
+      label: "Lab",
+      reachable: true,
+      endpoint: "https://agent.example",
+    }
+    const globalpingResult: GlobalpingMeasurementResult = {
+      measurementType: "http",
+      target: "https://example.com/health?token=previous",
+      status: "complete",
+      probes: [
+        {
+          id: "globalping-0",
+          label: "Berlin, DE",
+          status: "finished",
+          answers: [],
+          httpStatusCode: 204,
+        },
+      ],
+      elapsedMs: 120,
+      commandHint: "globalping http example.com locations=world",
+    }
+    const agentResult: AgentMeasurementResult = {
+      nodeId: node.id,
+      measurementType: "http",
+      target: "https://example.com/health?token=previous",
+      status: "complete",
+      elapsedMs: 90,
+      probe: {
+        id: node.id,
+        label: node.label,
+        status: "finished",
+        answers: [],
+        httpStatusCode: 200,
+      },
+    }
+    const { container } = renderPanel({
+      nodes: [node],
+      result: globalpingResult,
+      agentMeasurementResults: { [node.id]: agentResult },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "networkProbe.nodes.modeHttp" }))
+    fireEvent.change(screen.getByRole("textbox", { name: "networkProbe.nodes.targetLabel" }), {
+      target: { value: "https://EXAMPLE.com/health?token=current" },
+    })
+
+    expect(screen.queryByText("networkProbe.nodes.httpStatus")).not.toBeInTheDocument()
+    expect(screen.getAllByText("networkProbe.nodes.comparisonNoResult")).toHaveLength(2)
+    expect(screen.getByText("networkProbe.nodes.comparisonTarget")).toBeInTheDocument()
+    expect(container.textContent).not.toContain("token=")
+  })
+
+  it("aligns equal HTTP queries but keeps query strings and provider details out of the UI", () => {
+    const node: ProbeNode = {
+      id: "agent-1",
+      kind: "remote-agent",
+      label: "Lab",
+      reachable: true,
+      endpoint: "https://agent.example",
+    }
+    const queryTarget = "https://example.com/health?token=private"
+    const globalpingResult: GlobalpingMeasurementResult = {
+      measurementType: "http",
+      target: queryTarget,
+      status: "complete",
+      probes: [
+        {
+          id: "globalping-0",
+          label: "Berlin, DE",
+          status: "finished",
+          answers: [],
+          httpStatusCode: 204,
+          detail: `Request failed for ${queryTarget}`,
+        },
+      ],
+      elapsedMs: 120,
+      commandHint: "globalping http example.com locations=world",
+    }
+    const agentResult: AgentMeasurementResult = {
+      nodeId: node.id,
+      measurementType: "http",
+      target: queryTarget,
+      status: "complete",
+      elapsedMs: 90,
+      probe: {
+        id: node.id,
+        label: node.label,
+        status: "finished",
+        answers: [],
+        httpStatusCode: 200,
+      },
+    }
+    const { container } = renderPanel({
+      nodes: [node],
+      result: globalpingResult,
+      agentMeasurementResults: { [node.id]: agentResult },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "networkProbe.nodes.modeHttp" }))
+    fireEvent.change(screen.getByRole("textbox", { name: "networkProbe.nodes.targetLabel" }), {
+      target: { value: "https://EXAMPLE.com/health?token=private" },
+    })
+
+    expect(screen.getAllByText("networkProbe.nodes.httpStatus")).toHaveLength(2)
+    expect(container.textContent).not.toContain("token=private")
+    expect(container.textContent).not.toContain("Request failed for")
   })
 
   it("distinguishes a failed node request from a successful empty result", () => {

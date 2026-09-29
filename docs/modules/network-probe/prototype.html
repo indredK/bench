@@ -727,7 +727,12 @@
             { id: "lan-svc", label: "局域网服务", cmd: "mDNS / SSDP", post: true },
             { id: "nat", label: "NAT 类型", cmd: "STUN NAT detect", post: true },
             { id: "ntp", label: "NTP 时间", cmd: "NTP offset detect", post: true },
-            { id: "nodes", label: "多节点对比", cmd: "listProbeNodes + store.byNode", post: true },
+            {
+              id: "nodes",
+              label: "多节点对比",
+              cmd: "listProbeNodes + unified provider results",
+              post: true,
+            },
           ],
         },
       ]
@@ -1044,7 +1049,7 @@
           "discover/nat": () => renderPost("NAT 类型", "STUN detect"),
           "discover/ntp": () => renderPost("NTP 时间偏移", "NTP offset detect"),
           "discover/nodes": () =>
-            renderPost("多节点对比", "listProbeNodes + store.byNode（Globalping/agent）"),
+            renderPost("多节点对比", "listProbeNodes + Globalping/agent 对齐结果"),
         }
         ;(
           map[key] ||

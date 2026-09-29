@@ -135,7 +135,7 @@ type ProbeNode = {
 | 隐私 | token 按 Tauri app identifier 隔离；不返回给 renderer、不写命令日志；HTTP 查询串不记日志                                                                                                          |
 | ToS  | 遵守官方限额；429 根据官方 `X-RateLimit-*` / `X-Credits-Remaining` 信息提示恢复路径                                                                                                               |
 
-DNS 使用 A 查询并并列显示本机解析；ping 固定 3 个包；HTTP 输入必须是无凭据的 HTTP(S) URL，路径与查询按请求发送，界面与日志仅显示去掉查询串的目标。Globalping 区域列表中的 `reachable` 表示适配器已配置，不代表实时探点在线，实际状态以测量结果为准。
+DNS 使用 A 查询并并列显示本机解析；ping 固定 3 个包；HTTP 输入必须是无凭据的 HTTP(S) URL，路径与查询按请求发送；查询串参与对比目标匹配，但结果标签和命令日志会省略查询串，HTTP 供应商错误详情不展示。Globalping 区域列表中的 `reachable` 表示适配器已配置，不代表实时探点在线，实际状态以测量结果为准。
 
 token 可通过 `network_probe_manage_globalping_token` 查询配置状态、保存或移除；服务名包含 Tauri app identifier，QA bundle 与正式版不共享钥匙串条目。保存操作只回传是否已配置，不把秘密返回前端。
 
@@ -145,19 +145,19 @@ token 可通过 `network_probe_manage_globalping_token` 查询配置状态、保
 
 服务端必须校验 HMAC、timestamp 时效与 nonce 重放，按 token 限制 QPS / 并发并以 `429` + 可选秒数 `Retry-After` 返回限流状态；必须在 DNS 解析后检查全部地址以防 DNS rebinding，并拒绝回环、云元数据、link-local 和未授权私网目标。成功响应须含与 DNS、ping 或 HTTP 类型匹配的测量证据，空结果不能报告成功。客户端拒绝字面 localhost、link-local / 云元数据目标，前端与后端共同限制最多同时运行 3 个 agent 测量、最多登记 10 个 agent。未接入兼容服务端前，协议只有客户端测试，不视为端到端完成。
 
-结果以 `nodeId` 隔离，HTTP URL 查询串不进入结果展示或日志。仅手动添加 endpoint，不做局域网自动扩散；agent 不得开放通用代理或任意 shell。
+结果以 `nodeId` 隔离，HTTP URL 查询串不进入结果展示或日志。对比时查询串参与 URL 身份匹配，但目标标签只显示 origin 与 path；HTTP 原始供应商错误详情不展示。仅手动添加 endpoint，不做局域网自动扩散；agent 不得开放通用代理或任意 shell。
 
 已评估 [Prometheus Blackbox Exporter](https://github.com/prometheus/blackbox_exporter)：它是成熟的 HTTPS / Basic Auth 服务，可探测 DNS、ICMP 与 HTTP；但 DNS 查询名固定在 server module 配置中，`/probe` 返回 Prometheus 指标且只报告答案记录数，不能直接支持 Bench 任意域名输入与 DNS 答案列表。因此当前没有把它误当作兼容 agent；后续若采用它，需要明确限定 DNS 能力或设计经过安全审查的适配层。
 
 #### 对比视图
 
 ```text
-同一 (tool, target) → store.byNode[nodeId] = Result
-UI：表格列 = 节点；行 = 指标（RTT、DNS 答案、hop 差异）
-例：本机 DNS 正常、探点 A 污染 → 结论导向「链路/污染在途中」
+Globalping 多探点结果 + agentMeasurementResults[nodeId]
+→ 按同一测量类型与规范化 target 对齐（HTTP 查询串参与匹配但不显示）
+→ 切换目标或类型后隐藏过期结果，不将其混入当前对比
 ```
 
-MVP：`listProbeNodes()` 至少返回 `local`；远程 kind 在类型中预留，UI 选中时提示「后续版本」。
+Globalping 多探点与各自建 agent 结果在同一对比区按来源分组展示；DNS 响应、RTT/丢包和 HTTP 状态/耗时保留各来源语义。不复制一份持久化 `byNode` 状态，避免结果与来源 store 分叉。HTTP query 只发往测量服务，不显示在对比标题或命令日志中。
 
 ---
 
@@ -226,7 +226,7 @@ listProbeNodes(): ProbeNode[]
 - [x] `listProbeNodes` + Globalping DNS/ping/HTTP 测量、token、超时/限速/部分结果与真机验证（C2-2）
 - [x] 桌面端 agent 鉴权、限速响应映射、固定工具白名单、目标安全校验、`nodeId` 结果隔离与密钥存储
 - [ ] 接入兼容 agent 服务端，验证 HMAC 过期 / nonce 重放拒绝、并发与 QPS 限制、429 恢复时间、DNS rebinding / 元数据防护和三种测量的真结果
-- [ ] `store.byNode` 通用 Globalping + agent 对比视图；当前自有 agent 结果按 `nodeId` 独立存放，未形成跨源并排比较
+- [x] Globalping + agent 统一结果对比区；当前分别保存 Globalping 与 `nodeId` agent 结果，视图按测量类型和规范化目标对齐，不重复持久化对比数据；切换目标或类型时隐藏旧结果
 - [ ] 远程能力不要求本机 Adv pack（本机零重库）
 
 ---

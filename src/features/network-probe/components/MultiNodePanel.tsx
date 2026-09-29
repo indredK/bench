@@ -10,6 +10,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import { getProbeNodeDisplayLabel } from "@/features/network-probe/utils/probe-node-label"
+import {
+  getProbeMeasurementTargetDisplay,
+  isMatchingProbeMeasurement,
+} from "@/features/network-probe/utils/probe-comparison"
 import type { AgentMutation, ProbeNodesLoadStatus } from "@/features/network-probe/store"
 import type {
   AgentMeasurementResult,
@@ -82,8 +86,10 @@ function AgentMeasurementSummary({ result }: { result: AgentMeasurementResult })
   return (
     <div className="bg-muted/40 space-y-1 rounded p-2 text-xs" role="status">
       <p className="font-medium">
-        {t(`networkProbe.nodes.measurementStatus.${result.status}`)} · {result.target} ·{" "}
-        {t("networkProbe.nodes.elapsedMs", { ms: result.elapsedMs.toFixed(0) })}
+        {t(`networkProbe.nodes.measurementStatus.${result.status}`)} ·{" "}
+        {getProbeMeasurementTargetDisplay(result.measurementType, result.target) ??
+          t("networkProbe.nodes.comparisonNoTarget")}{" "}
+        · {t("networkProbe.nodes.elapsedMs", { ms: result.elapsedMs.toFixed(0) })}
       </p>
       {result.status === "rate-limited" ? (
         <p className="text-amber-700 dark:text-amber-400">
@@ -118,6 +124,64 @@ function AgentMeasurementSummary({ result }: { result: AgentMeasurementResult })
       {result.measurementType === "http" && probe.totalTimeMs !== undefined ? (
         <p>{t("networkProbe.nodes.httpTiming", { ms: probe.totalTimeMs.toFixed(0) })}</p>
       ) : null}
+    </div>
+  )
+}
+
+function GlobalpingMeasurementSummary({ result }: { result: GlobalpingMeasurementResult }) {
+  const { t } = useTranslation()
+  return (
+    <div className="space-y-2" role="status">
+      <p className="text-muted-foreground text-xs">
+        {t("networkProbe.nodes.measurementMeta", {
+          target:
+            getProbeMeasurementTargetDisplay(result.measurementType, result.target) ??
+            t("networkProbe.nodes.comparisonNoTarget"),
+          count: result.probes.length,
+          ms: result.elapsedMs.toFixed(0),
+        })}
+        <span className="ml-2 font-medium">
+          {t(`networkProbe.nodes.measurementStatus.${result.status}`)}
+        </span>
+      </p>
+      {result.status === "rate-limited" ? (
+        <p className="text-xs text-amber-700 dark:text-amber-400">
+          {t("networkProbe.nodes.rateLimited", {
+            remaining: result.rateLimit?.remaining ?? "—",
+            limit: result.rateLimit?.limit ?? "—",
+            reset: result.rateLimit?.resetSeconds ?? result.retryAfterSeconds ?? "—",
+          })}
+        </p>
+      ) : null}
+      {result.probes.length === 0 ? (
+        <p className="text-muted-foreground text-xs">{t("networkProbe.nodes.noResults")}</p>
+      ) : (
+        <ul className="space-y-2 text-xs">
+          {result.probes.map((probe) => (
+            <li key={probe.id} className="rounded border p-2">
+              <div className="flex flex-wrap items-baseline gap-x-2">
+                <span className="font-medium">
+                  {probe.id === "local" ? t("networkProbe.nodes.local") : probe.label}
+                </span>
+                <span className="text-muted-foreground">
+                  {t(`networkProbe.nodes.probeStatus.${probe.status}`)}
+                </span>
+              </div>
+              {renderProbeMetrics(probe, result.measurementType, t)}
+              {probe.detail && result.measurementType !== "http" ? (
+                <details className="text-muted-foreground mt-1">
+                  <summary className="cursor-pointer">
+                    {t("networkProbe.nodes.technicalDetails")}
+                  </summary>
+                  <pre className="mt-1 overflow-auto font-mono whitespace-pre-wrap">
+                    {probe.detail}
+                  </pre>
+                </details>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }
@@ -250,6 +314,18 @@ export function MultiNodePanel({
     if (isBlockedRemoteTargetHost(value)) return "networkProbe.nodes.targetRemoteBlocked"
     return null
   })()
+  const remoteAgents = nodes.filter((node) => node.kind === "remote-agent")
+  const matchingGlobalpingResult =
+    result && isMatchingProbeMeasurement(result, measurementType, target) ? result : null
+  const getMatchingAgentResult = (agentId: string) => {
+    const candidate = agentMeasurementResults[agentId]
+    return candidate && isMatchingProbeMeasurement(candidate, measurementType, target)
+      ? candidate
+      : null
+  }
+  const comparisonDisplayTarget =
+    getProbeMeasurementTargetDisplay(measurementType, target) ??
+    t("networkProbe.nodes.comparisonNoTarget")
 
   const toggleLocation = (location: string) => {
     setLocations((selected) => {
@@ -467,6 +543,59 @@ export function MultiNodePanel({
         </>
       }
     >
+      <section
+        aria-labelledby="network-probe-node-comparison-title"
+        className="space-y-2 rounded-lg border p-3"
+      >
+        <div>
+          <h3 id="network-probe-node-comparison-title" className="text-sm font-medium">
+            {t("networkProbe.nodes.comparisonTitle")}
+          </h3>
+          <p className="text-muted-foreground text-xs">
+            {t("networkProbe.nodes.comparisonTarget", {
+              mode: t(
+                `networkProbe.nodes.mode${measurementType.charAt(0).toUpperCase()}${measurementType.slice(1)}`,
+              ),
+              target: comparisonDisplayTarget,
+            })}
+          </p>
+        </div>
+        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+          <article className="min-w-0 space-y-2 rounded border p-2">
+            <h4 className="text-xs font-semibold">{t("networkProbe.nodes.globalpingLabel")}</h4>
+            {matchingGlobalpingResult ? (
+              <GlobalpingMeasurementSummary result={matchingGlobalpingResult} />
+            ) : loading ? (
+              <p className="text-muted-foreground text-xs" role="status">
+                {t("networkProbe.nodes.comparisonLoading")}
+              </p>
+            ) : (
+              <p className="text-muted-foreground text-xs">
+                {t("networkProbe.nodes.comparisonNoResult")}
+              </p>
+            )}
+          </article>
+          {remoteAgents.map((node) => {
+            const agentResult = getMatchingAgentResult(node.id)
+            return (
+              <article key={node.id} className="min-w-0 space-y-2 rounded border p-2">
+                <h4 className="text-xs font-semibold break-words">{node.label}</h4>
+                {agentResult ? (
+                  <AgentMeasurementSummary result={agentResult} />
+                ) : agentMeasurementLoadingById[node.id] ? (
+                  <p className="text-muted-foreground text-xs" role="status">
+                    {t("networkProbe.nodes.comparisonLoading")}
+                  </p>
+                ) : (
+                  <p className="text-muted-foreground text-xs">
+                    {t("networkProbe.nodes.comparisonNoResult")}
+                  </p>
+                )}
+              </article>
+            )
+          })}
+        </div>
+      </section>
       <div className="space-y-3">
         <div className="space-y-2">
           <p className="text-sm font-medium">{t("networkProbe.nodes.listTitle")}</p>
@@ -596,11 +725,6 @@ export function MultiNodePanel({
                         {t("networkProbe.nodes.agentTokenSaved")}
                       </p>
                     ) : null}
-                    {agentMeasurementResults[node.id] ? (
-                      <div className="w-full">
-                        <AgentMeasurementSummary result={agentMeasurementResults[node.id]} />
-                      </div>
-                    ) : null}
                   </div>
                 ) : null}
               </li>
@@ -682,67 +806,6 @@ export function MultiNodePanel({
           </div>
         </div>
       </div>
-      {result ? (
-        <div className="space-y-2">
-          <p className="text-muted-foreground text-xs">
-            {t("networkProbe.nodes.measurementMeta", {
-              target: result.target,
-              count: result.probes.length,
-              ms: result.elapsedMs.toFixed(0),
-            })}
-            <span className="ml-2 font-medium">
-              {t(`networkProbe.nodes.measurementStatus.${result.status}`)}
-            </span>
-          </p>
-          {result.status === "rate-limited" ? (
-            <p role="status" className="text-xs text-amber-700 dark:text-amber-400">
-              {t("networkProbe.nodes.rateLimited", {
-                remaining: result.rateLimit?.remaining ?? "—",
-                limit: result.rateLimit?.limit ?? "—",
-                reset: result.rateLimit?.resetSeconds ?? result.retryAfterSeconds ?? "—",
-              })}
-            </p>
-          ) : null}
-          {result.probes.length === 0 ? (
-            <p className="text-muted-foreground text-xs">
-              {loading
-                ? t("networkProbe.nodes.waitingForProbes")
-                : t("networkProbe.nodes.noResults")}
-            </p>
-          ) : null}
-          <ul className="space-y-2 text-sm">
-            {result.probes.map((probe) => (
-              <li key={probe.id} className="rounded-md border px-3 py-2">
-                <div className="flex flex-wrap items-baseline gap-x-2">
-                  <span className="font-medium">
-                    {probe.id === "local" ? t("networkProbe.nodes.local") : probe.label}
-                  </span>
-                  <span className="text-muted-foreground text-xs">
-                    {t(`networkProbe.nodes.probeStatus.${probe.status}`)}
-                  </span>
-                </div>
-                {renderProbeMetrics(probe, result.measurementType, t)}
-                {probe.detail ? (
-                  <details className="text-muted-foreground mt-1 text-xs">
-                    <summary className="cursor-pointer">
-                      {t("networkProbe.nodes.technicalDetails")}
-                    </summary>
-                    <pre className="mt-1 overflow-auto font-mono whitespace-pre-wrap">
-                      {probe.detail}
-                    </pre>
-                  </details>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-          <div
-            className="text-muted-foreground min-w-0 truncate font-mono text-xs"
-            title={result.commandHint}
-          >
-            {result.commandHint}
-          </div>
-        </div>
-      ) : null}
       <DestructiveConfirmDialog
         open={removeTokenOpen}
         onOpenChange={setRemoveTokenOpen}
