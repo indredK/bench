@@ -124,8 +124,8 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
             reachable: true,
           },
         ]
-  // 远端节点执行（Globalping / 自有 agent）尚未接入任何 use-case, 探测一律本机跑;
-  // 按 design.md §4.2「实现前不要假连接」, 可选项收敛为 local, 其余节点在下方渲染为 disabled。
+  // 通用探测原点目前只路由本机；Globalping / 自有 agent 在「发现 > 多节点」面板走独立测量用例，
+  // 不会改变这里其他探测命令的执行来源。
   const activeNode = useMemo(
     () => probeNodes.find((n) => n.kind === "local") ?? probeNodes[0],
     [probeNodes],

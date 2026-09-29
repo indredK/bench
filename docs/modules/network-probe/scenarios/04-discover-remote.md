@@ -44,7 +44,7 @@ Post-MVP-Adv
 ### 步骤
 
 1. 「局域网服务」开始浏览
-2. 查看 mDNS 服务类型/端口/TXT；SSDP 设备名与 LOCATION
+2. 查看 mDNS 服务实例、服务类型与解析出的主机/端口/地址；当前不展示 TXT。SSDP 显示 SERVER、服务类型和 LOCATION 主机/端口，且不访问 LOCATION URL
 3. 确认 UI **不能**一键调用 UPnP 端口映射等写操作
 
 ### 期望

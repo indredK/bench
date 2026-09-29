@@ -72,10 +72,10 @@ macOS 注意：
 
 ### 3.2 局域网服务（mDNS / SSDP）
 
-| 协议          | macOS 路径                                                                            | 产出                                                    |
-| ------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| mDNS / DNS-SD | Bonjour：`dns_sd` API 或成熟 crate（如 `mdns-sd`）浏览 `_services._dns-sd._udp.local` | 服务名、类型、端口、TXT                                 |
-| SSDP / UPnP   | UDP 1900 M-SEARCH；解析 `LOCATION` 后 HTTP GET device desc（限长）                    | 设备类型、友微名、控制 URL（只展示，不调用危险 action） |
+| 协议          | macOS 路径                                                                                    | 产出                                                           |
+| ------------- | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| mDNS / DNS-SD | `mdns-sd` 浏览 `_services._dns-sd._udp.local` 并查询发现的本地 TCP/UDP 服务类型               | 服务名与类型；当前实现不展示 TXT                               |
+| SSDP / UPnP   | `ssdp-client` 发送 UDP 1900 M-SEARCH；只解析响应中的 `LOCATION` 主机/端口供展示，不请求该 URL | 服务类型、SERVER 与 LOCATION；不读取设备描述或调用 UPnP action |
 
 护栏：
 
@@ -217,7 +217,7 @@ listProbeNodes(): ProbeNode[]
 
 - [ ] ARP 有特权路径 + ping 降级；CIDR 硬顶
 - [ ] 需要 pack 时正确返回 `missing_pack` 并完成安装校验流（D-017）
-- [ ] mDNS/SSDP 只读浏览；无 UPnP 写操作
+- [x] mDNS/SSDP 只读浏览；SSDP `LOCATION` 仅从响应中解析并展示，不发起 HTTP 请求；无 UPnP 写操作
 - [x] STUN 映射对比 + 多源故障转移（样本不足时不判一致；不推断完整 NAT 类型；需要 RFC 5780 服务才能增强分类）
 - [x] NTP offset 阈值、RTT、stratum 与成功源计数；不擅自改系统钟
 
@@ -227,7 +227,7 @@ listProbeNodes(): ProbeNode[]
 - [x] 桌面端 agent 鉴权、限速响应映射、固定工具白名单、目标安全校验、`nodeId` 结果隔离与密钥存储
 - [ ] 接入兼容 agent 服务端，验证 HMAC 过期 / nonce 重放拒绝、并发与 QPS 限制、429 恢复时间、DNS rebinding / 元数据防护和三种测量的真结果
 - [x] Globalping + agent 统一结果对比区；当前分别保存 Globalping 与 `nodeId` agent 结果，视图按测量类型和规范化目标对齐，不重复持久化对比数据；切换目标或类型时隐藏旧结果
-- [ ] 远程能力不要求本机 Adv pack（本机零重库）
+- [x] Globalping 与自建 agent 测量不要求本机 Adv pack；Globalping 使用 HTTPS API，自建 agent 使用 HTTPS 客户端，能力包状态不参与远程测量准入
 
 ---
 
