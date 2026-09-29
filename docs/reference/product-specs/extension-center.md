@@ -10,7 +10,7 @@
 - 通过侧边栏或导航历史进入时，主面板必须显示对应路由内容；路由过渡动画退出旧面板后显示目标面板，不能只更新地址而保留旧内容。
 - 用途：浏览、安装、启用/禁用、卸载、更新 extension（插件），并查看其权限与诊断信息。
 - 核心保证：
-  - 插件是**不受信任的前端代码**，只能调用 manifest 声明且宿主能力面允许的命令；
+  - 插件是**不受信任的前端代码**，业务命令必须同时由该插件 manifest 声明且在宿主能力面开放；`ext_capabilities`（能力发现）与 `ext_poc_report`（本地诊断）是宿主基础接口；
   - 任何校验失败都**阻止加载或阻止开窗**，不改变已安装版本（fail-closed）；
   - 卸载、吊销等破坏性操作一律二次确认；
   - 越权与验签失败全部进入审计日志。
@@ -66,6 +66,7 @@
 | 打开      | 仅启用状态可点；点击后宿主开独立 `ext-<id>` 窗口，已开则聚焦                                               |
 | 启用/禁用 | 切换 `.disabled` 标记；禁用时关闭已开窗口                                                                  |
 | 卸载      | 二次确认（DestructiveConfirmDialog）→ 关窗 → 删产物目录                                                    |
+| 更新      | 信任确认提示更新窗口会关闭；提交前撤销旧 ACL 并关窗，安装完成后用户可重新打开                              |
 | 安装取消  | 关闭信任确认弹窗时删除预览目录与 zip 缓存；24 小时未完成的残留由宿主回收                                   |
 | 版本选择  | 默认选中版本号最高的可安装版本；无候选时，未安装插件说明没有可安装版本，已安装插件说明暂无兼容更新         |
 | 吊销版本  | 每个命中版本显示吊销徽标与原因，并从选择器排除；吊销已安装版本仍强制禁用并警示，其他安全版本可继续选择更新 |
@@ -91,7 +92,7 @@
 - 后端：`src-tauri/src/extension_host/`（manifest / acl / assets / signature / commands / url / mod）；market prepare/commit 两阶段均校验包来源，安装时记录信任来源。
 - 契约：`ext_list_installed` / `ext_open` / `ext_set_enabled` / `ext_uninstall`，三张表双写（`src/lib/tauri/contracts.ts`）。
 - 插件产物：`extensions/<id>/`（仓库）→ `scripts/plugins/sync-extensions.mjs` → `$APPDATA/extensions/<id>/`（运行时）。
-- 安全：deny-by-default 命令网关 + manifest fail-closed + 逐文件 hash 校验；第三方 market 使用 minisign，官方 registry 使用整包摘要校验（[../extension-spec.md](../extension-spec.md) §4.6）。
+- 安全：deny-by-default 命令网关按窗口强制执行已校验的 manifest ACL，窗口销毁、禁用、更新或卸载时撤销权限；插件生命周期按 ID 串行；manifest fail-closed + 逐文件 hash 校验；第三方 market 使用 minisign，官方 registry 使用整包摘要校验（[../extension-spec.md](../extension-spec.md) §4.6、§7）。
 
 ## 7. 数据模型
 

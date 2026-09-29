@@ -343,6 +343,11 @@ export function InstallConfirmDialog({
               <p className="text-muted-foreground text-xs">
                 {t("extensionCenter.market.noOptionalPacks")}
               </p>
+              {version.updateAvailable && (
+                <p className="rounded border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+                  {t("extensionCenter.market.updateClosesOpenWindow")}
+                </p>
+              )}
             </section>
 
             <p className="text-muted-foreground text-xs">{t("extensionCenter.market.trustNote")}</p>

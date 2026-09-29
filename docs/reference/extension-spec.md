@@ -4,7 +4,7 @@
 > **执行顺序与状态**：见 [modules/extension-center/roadmap.md](../modules/extension-center/roadmap.md)。
 > **架构边界与工作流**：见 [extension-workflow.md](../explanation/extension-workflow.md)。
 > **版本**：本文对应 **manifest schema v2**（P3.1 起）。schema v1 的迁移说明见 §3.6。
-> **最后更新**：2026-09-28
+> **最后更新**：2026-09-30
 
 ---
 
@@ -281,13 +281,14 @@
 5. 读 manifest → 按 §3.4 顺序校验（含逐文件 hash）
 6. 第三方 market：验签 + trusted comment 比对；官方 registry 按 §4.6 依赖 registry 整包摘要；bundled 不经过 market 安装
 7. 版本单调性检查（`new > installed`）
-8. **全部通过后**原子 rename 到 `$APPDATA/extensions/<id>/`
-9. 写审计日志 `install`
-10. 安装成功后刷新插件中心列表
+8. 若更新对象已有运行窗口，先关闭窗口并撤销其旧 ACL；同一插件的开窗、更新、启停和卸载串行化
+9. **全部通过后**原子 rename 到 `$APPDATA/extensions/<id>/`
+10. 写审计日志 `install`
+11. 安装成功后刷新插件中心列表
 
-用户取消确认时立即删除预览缓存；超过 24 小时的中断/残留预览在启动或下一次 prepare 时清理。
+用户取消确认时立即删除预览缓存；超过 24 小时的中断/残留预览在启动或下一次 prepare 时清理。确认更新时，若插件窗口已打开，弹窗会提前说明该窗口将在替换文件和权限前关闭，用户可在更新完成后重新打开。
 
-同一插件的 prepare / commit / cancel 在宿主进程内串行化，避免共享 staging、正式目录和版本水位发生并发交错；清理缓存时跳过当前活跃插件。提交阶段再次校验 staging 中的 `distribution`、来源对应的签名和 `files`；任一步失败都清理预览目录并保留原安装版本。失败后关闭确认弹窗，用户可重新准备安装。
+同一插件的 prepare / commit / cancel 在宿主进程内串行化，避免共享 staging、正式目录和版本水位发生并发交错；开窗、更新、启停和卸载也经独占生命周期闸门串行化。更新前若窗口无法安全关闭，则恢复原 ACL 并中止提交；清理缓存时跳过当前活跃插件。提交阶段再次校验 staging 中的 `distribution`、来源对应的签名和 `files`；任一步失败都清理预览目录并保留原安装版本。失败后关闭确认弹窗，用户可重新准备安装。
 
 **任一步失败**：清理临时目录，保留已安装版本不变，UI 给出可读错误，记审计日志。
 
@@ -328,10 +329,12 @@
 
 - **宿主能力面**：`src-tauri/src/extension_host/acl.rs` 的 `EXTENSION_ALLOWED_COMMANDS`，deny-by-default。
 - **单插件**：`manifest.acl.commands` 必须是能力面的子集，否则 manifest 校验失败。
-- **运行时**：`acl::guarded` 网关拦截 `ext-` 前缀窗口的命令调用，越权即拒绝。
-- **自助发现**：插件窗口可调用 `ext_capabilities`（命令本身在白名单内）拉取当前能力面
-  命令清单，在调用前校验自身 `acl.commands` 并给出友好报错，无需依赖仓库同目录或
-  试错式调用（见 §9.4）。
+- **运行时**：`acl::guarded` 网关要求每个 `ext-<id>` 窗口调用的命令同时属于宿主能力面
+  与该窗口创建时经完整性校验的 `manifest.acl.commands`；未登记权限、权限缓存缺失或
+  读取失败均拒绝调用。窗口关闭、禁用或卸载时撤销权限。
+- **基础接口例外**：只读的 `ext_capabilities` 可用于自助发现；宿主注入的
+  `ext_poc_report` 仅用于本地诊断日志。两者无需重复声明，插件业务命令仍须在
+  `acl.commands` 中显式授权（见 §9.4）。
 
 > **为什么不能只靠 capability**：Tauri v2 对 `invoke_handler` 注册的自定命令**默认全窗口放行**，capability 只约束 core/plugin 命令。网关是必需的补充。
 
@@ -348,14 +351,15 @@
 
 ## 8. 版本与兼容
 
-| 机制            | 规则                                                                                                    |
-| --------------- | ------------------------------------------------------------------------------------------------------- |
-| `engines.bench` | `*` 或 `>=X.Y.Z`；其余前缀非法（fail-closed）。不满足则禁止打开，列表标记 `compatible: false`           |
-| 版本单调性      | market 安装/更新拒绝 `new <= installed`（对齐 `tauri.conf.json bundle.windows.allowDowngrades: false`） |
-| `expiresAt`     | 过期元数据被拒绝（防 freeze attack）                                                                    |
-| 插件版本        | 由 `manifest.version` 独立管理，与宿主版本解耦                                                          |
-| 卸载            | `ext_uninstall`：关窗 → 删除产物目录（仅限合法插件目录）；UI 走 `DestructiveConfirmDialog`              |
-| 禁用            | 写 `.disabled` 标记文件；禁用时关闭已开窗口                                                             |
+| 机制            | 规则                                                                                                                                  |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `engines.bench` | `*` 或 `>=X.Y.Z`；其余前缀非法（fail-closed）。不满足则禁止打开，列表标记 `compatible: false`                                         |
+| 版本单调性      | market 安装/更新拒绝 `new <= installed`（对齐 `tauri.conf.json bundle.windows.allowDowngrades: false`）                               |
+| `expiresAt`     | 过期元数据被拒绝（防 freeze attack）                                                                                                  |
+| 插件版本        | 由 `manifest.version` 独立管理，与宿主版本解耦                                                                                        |
+| 更新            | `ext_market_commit`：串行化开窗与更新 → 先撤销旧 ACL 并强制关闭已开窗口 → 校验通过后原子替换插件目录；关闭失败则恢复 ACL 并保留旧版本 |
+| 卸载            | `ext_uninstall`：先撤销权限并关闭窗口 → 删除产物目录（仅限合法插件目录）；UI 走 `DestructiveConfirmDialog`                            |
+| 禁用            | 先撤销权限并关闭已开窗口，再写 `.disabled` 标记文件                                                                                   |
 
 ---
 
@@ -366,8 +370,9 @@
 | 通道                        | 内容                                                          | 说明                                                                                                            |
 | --------------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | `window.__BENCH_EXT_LOCALE` | 宿主当前语言（如 `zh` / `en`）                                | 由 `ext_open(locale)` 经 init script 注入。dev/prod 跨 origin 下 `localStorage` 不共享，Rust 注入是唯一可靠通道 |
-| IPC `invoke`                | 调用能力面内的命令                                            | 经 `acl::guarded` 网关，越权即拒绝                                                                              |
-| IPC `ext_capabilities`      | 拉取宿主开放给插件空间的命令清单（能力面快照）                | 返回 `EXTENSION_ALLOWED_COMMANDS` 的只读视图；插件据此校验自身 `acl.commands`（spec §9.4）                      |
+| IPC `invoke`                | 调用宿主能力面命令                                            | 经 `acl::guarded` 网关；业务命令还必须在当前窗口的 manifest ACL 中，越权即拒绝                                  |
+| IPC `ext_capabilities`      | 拉取宿主开放给插件空间的命令清单（能力面快照）                | 只读自助发现入口，无需列入 manifest ACL；返回 `EXTENSION_ALLOWED_COMMANDS`（spec §9.4）                         |
+| IPC `ext_poc_report`        | 接收宿主注入诊断脚本的插件错误事件                            | 本地追加诊断 JSONL；不属于插件业务能力，无需列入 manifest ACL                                                   |
 | 错误捕获脚本                | 捕获 window-error / unhandledrejection / console.error / boot | 宿主在开窗时注入，回传宿主落盘（追加式）                                                                        |
 
 ### 9.2 i18n
@@ -397,13 +402,13 @@
 | label      | `ext-<id>`（固定前缀，网关据此判定插件窗口）                                                           |
 | URL        | 显式 `tauri://localhost/ext/<id>/<entry.index>`，**禁用 `WebviewUrl::App`**（dev 下会 join 到 devUrl） |
 | capability | `capabilities/extension.json` 中 `windows: ["ext-*"]`，仅授予 `core:default`                           |
-| 权限隔离   | 命令级隔离由 `acl::guarded` 提供，capability 只约束 core/plugin 命令，不能替代网关                     |
+| 权限隔离   | `acl::guarded` 同时检查宿主白名单和当前窗口已校验的 manifest ACL；能力发现与宿主诊断上报是基础接口例外 |
 
 ### 9.4 能力面自助发现（runtime capability discovery）
 
 插件**无需**依赖「宿主机仓库同目录」或试错式调用即可得知可用命令：
 
-- 调用 `ext_capabilities`（命令本身在 `EXTENSION_ALLOWED_COMMANDS` 白名单内，任何 `ext-*` 窗口可直接 `invoke`）。
+- 调用只读命令 `ext_capabilities`（在宿主能力面内，任何 `ext-*` 窗口可直接 `invoke`，无需在 manifest ACL 中重复声明）。
 - 返回 `{ commands: string[] }`，即宿主当前能力面全部命令名（`acl.rs` 的 `EXTENSION_ALLOWED_COMMANDS` 快照）。
 - 插件应在调用业务命令前，用返回的清单校验自身 `manifest.acl.commands` 是否全部命中：
   命中缺失时**提前给出可读报错**（如「插件需要 `foo_bar` 但宿主未开放」），而非等到
@@ -417,28 +422,29 @@
 
 ### 10.1 安全测试矩阵（P3.1 / P3.3 必须全部覆盖）
 
-| #   | 用例                                 | 期望                                                        |
-| --- | ------------------------------------ | ----------------------------------------------------------- |
-| 1   | 篡改任一产物文件（改 JS 内容）       | 拒绝加载                                                    |
-| 2   | 产物中新增 `files` 未登记的文件      | 拒绝加载                                                    |
-| 3   | `files` 为空数组 / `path` 重复       | manifest 校验失败                                           |
-| 4   | 用旧版本（签名合法）重放             | 拒绝（版本单调性）                                          |
-| 5   | trusted comment 与 id/version 不一致 | 拒绝                                                        |
-| 6   | 签名串篡改                           | 拒绝                                                        |
-| 7   | 第三方 market 插件缺 `signature`     | 拒绝；官方 registry 免签路径仍须通过整包摘要与 `files` 校验 |
-| 8   | registry 公钥缺失（release 模式）    | 报配置错误，不回退                                          |
-| 9   | `expiresAt` 已过期                   | 拒绝                                                        |
-| 10  | `engines` 不满足                     | 拒绝，列表标记 incompatible                                 |
-| 11  | `acl.commands` 含能力面外命令        | manifest 校验失败                                           |
-| 12  | `ext-` 窗口调用未登记命令            | 网关拒绝                                                    |
-| 13  | zip entry `../evil.js`               | 整包拒绝                                                    |
-| 14  | zip entry `/abs/path.js`             | 整包拒绝                                                    |
-| 15  | zip entry `C:\Windows\evil.js`       | 整包拒绝                                                    |
-| 16  | zip entry `\\server\share\x.js`      | 整包拒绝                                                    |
-| 17  | zip 内含 symlink entry               | 整包拒绝                                                    |
-| 18  | 解压体积 / entry 数超限              | 中断并拒绝                                                  |
-| 19  | 整包 sha256 不匹配                   | 拒绝（不解压）                                              |
-| 20  | 安装失败后                           | 临时目录已清理，已安装版本不变                              |
+| #   | 用例                                                              | 期望                                                        |
+| --- | ----------------------------------------------------------------- | ----------------------------------------------------------- |
+| 1   | 篡改任一产物文件（改 JS 内容）                                    | 拒绝加载                                                    |
+| 2   | 产物中新增 `files` 未登记的文件                                   | 拒绝加载                                                    |
+| 3   | `files` 为空数组 / `path` 重复                                    | manifest 校验失败                                           |
+| 4   | 用旧版本（签名合法）重放                                          | 拒绝（版本单调性）                                          |
+| 5   | trusted comment 与 id/version 不一致                              | 拒绝                                                        |
+| 6   | 签名串篡改                                                        | 拒绝                                                        |
+| 7   | 第三方 market 插件缺 `signature`                                  | 拒绝；官方 registry 免签路径仍须通过整包摘要与 `files` 校验 |
+| 8   | registry 公钥缺失（release 模式）                                 | 报配置错误，不回退                                          |
+| 9   | `expiresAt` 已过期                                                | 拒绝                                                        |
+| 10  | `engines` 不满足                                                  | 拒绝，列表标记 incompatible                                 |
+| 11  | `acl.commands` 含能力面外命令                                     | manifest 校验失败                                           |
+| 12  | `ext-` 窗口调用宿主白名单内、但未在该插件 manifest ACL 声明的命令 | 网关拒绝                                                    |
+| 13  | 未登记 `ext_capabilities` / `ext_poc_report`                      | 能力发现与宿主诊断接口仍可调用                              |
+| 14  | zip entry `../evil.js`                                            | 整包拒绝                                                    |
+| 15  | zip entry `/abs/path.js`                                          | 整包拒绝                                                    |
+| 16  | zip entry `C:\Windows\evil.js`                                    | 整包拒绝                                                    |
+| 17  | zip entry `\\server\share\x.js`                                   | 整包拒绝                                                    |
+| 18  | zip 内含 symlink entry                                            | 整包拒绝                                                    |
+| 19  | 解压体积 / entry 数超限                                           | 中断并拒绝                                                  |
+| 20  | 整包 sha256 不匹配                                                | 拒绝（不解压）                                              |
+| 21  | 安装失败后                                                        | 临时目录已清理，已安装版本不变                              |
 
 ### 10.2 常规门禁
 

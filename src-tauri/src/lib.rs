@@ -88,6 +88,19 @@ pub fn run() {
         .manage(extension_host::ExtensionRootState(
             extension_root_slot.clone(),
         ))
+        .manage(extension_host::acl::ExtensionAclState::default())
+        .on_window_event(|window, event| {
+            if matches!(event, tauri::WindowEvent::Destroyed)
+                && extension_host::acl::is_extension_window(window.label())
+            {
+                if let Some(state) = window
+                    .app_handle()
+                    .try_state::<extension_host::acl::ExtensionAclState>()
+                {
+                    state.revoke(window.label());
+                }
+            }
+        })
         .setup(|app| {
             // macOS 正式版：启动即驻留托盘（D-019 静默启动扩展为一切启动方式）。
             // 自启动与手动打开都不显示窗口、不驻留程序坞；主窗口由托盘图标

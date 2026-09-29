@@ -2669,6 +2669,7 @@
       },
       "capabilityStatusNote": "“支持”表示申请的命令已通过当前宿主 ACL 白名单校验；不代表运行时操作必定成功。",
       "noOptionalPacks": "当前插件清单格式不声明可选能力包，因此此版本没有可验证的“降级”或“缺少能力包”状态。",
+      "updateClosesOpenWindow": "确认更新后，如果此插件窗口已打开，Bench 会先关闭它，再替换文件和权限；更新完成后可重新打开。",
       "verifyPackage": "校验安装包",
       "verifying": "正在校验…",
       "install": "安装",

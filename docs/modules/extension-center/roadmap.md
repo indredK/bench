@@ -5,7 +5,7 @@
 > **架构边界与工作流**（含作者侧流程）：[extension-workflow.md](../../explanation/extension-workflow.md)
 > **插件中心功能规格**：[product-specs/extension-center.md](../../reference/product-specs/extension-center.md) ｜ **未完成项**：[planned/extension-center.md](../../roadmap/planned/extension-center.md)
 > **方向性决策**：[DECISIONS.md](../../explanation/decisions.md)（D-023 / D-024）
-> **最后更新**：2026-09-28（更新 P4.5 交付状态、CI/真机证据、来源信任披露、提交复验、缓存回收、市场网络 URL 防护与 P5 宿主残留清理）。
+> **最后更新**：2026-09-30（真机修复插件市场更新时旧 WebView 与 ACL 未同步失效的问题）。
 
 ## 成本原则（贯穿全部阶段）
 
@@ -64,7 +64,7 @@
 ## P2 ✅ 契约先行 + 插件中心最小版（2026-09-08）
 
 - [x] manifest schema v1（fail-closed：schemaVersion / id / semver / entry / ACL 子集 / engines）
-- [x] ACL 注册表 + `ext-` 窗口 IPC 网关（deny-by-default，补上 Tauri 自定命令全窗口放行的缺口）
+- [x] ACL 注册表 + `ext-` 窗口 IPC 网关（deny-by-default；运行时同时执行宿主白名单与每插件 manifest ACL，能力发现与宿主诊断上报为基础接口例外）
 - [x] `ext_list_installed` / `ext_open` / `ext_set_enabled` / `ext_uninstall` 契约双写
 - [x] 插件中心最小 UI（列表 / 打开 / 启用禁用 / 卸载确认 / 空态 / 错误重试）
 - [x] bundled 同步脚本（`extensions:sync`，双部署模式 + 保留用户禁用标记）
@@ -196,13 +196,14 @@ pnpm run test:critical       # ✓ 145 passed
 
 - [x] **registry 形态：静态 JSON + Git/GitHub Pages/jsDelivr 托管**（`registry.rs`：schema v1 全量校验 + `yanked`；基址由 env `BENCH_EXT_REGISTRY_URL` 配置，未配置时使用官方默认源）
 - [x] 目录拉取：renderer **不自选 URL**（`ext_market_list` 只回传展示数据，**不含 downloadUrl**）；基址由后端 env 决定，复用 `url` crate 解析 HTTPS URL，拒绝私有/保留 IP 字面量、本地域名、凭据和片段；HTTP 请求遵循 macOS / Windows 系统代理；registry 与包下载的每一跳重定向均复验，保留 reqwest 的循环检测及 10 跳限制；请求错误脱敏，不记录签名 URL 查询参数（D-007）
-- [x] 安装向导（两段式）：`ext_market_prepare`（下载 → 整包 sha256+size → 安全解压 → manifest v2 + id/version 绑定 → engines → 验签 + trusted comment → 逐文件 hash）→ 信任弹窗 → `ext_market_commit`（版本单调 → 原子落位 → 审计 install）；同一插件的 prepare/commit/cancel 串行化，任一步失败清理临时产物、已装版本不变
+- [x] 安装向导（两段式）：`ext_market_prepare`（下载 → 整包 sha256+size → 安全解压 → manifest v2 + id/version 绑定 → engines → 验签 + trusted comment → 逐文件 hash）→ 信任弹窗 → `ext_market_commit`（版本单调 → 关闭旧插件窗口并撤销 ACL → 原子落位 → 审计 install）；开窗、更新、启停、卸载按插件 ID 串行化，关闭失败则恢复 ACL 并保留旧版本
 - [x] **信任披露（A4-1）**：prepare 返回 `aclCommands`，确认弹窗展示发布者/版本/申请的全部宿主命令（未申请则明示「无权限」），对齐 VS Code 1.97 publisher trust 取向
 - [x] **吊销通道（A4-2）**：`revoked[]` 支持 `*` / `<X` / `<=X` / 精确版本（未知表达式 fail-closed 视为命中）；`ext_market_list` 拉取时强制禁用命中插件 + 审计 `revoke_hit` + UI 显著警示横幅
 - [x] 插件中心 UI：已安装/市场/诊断三标签；market 卡片展示 yanked / 吊销原因 / engines 不兼容 / 已安装 / 可更新徽标；版本选择器只列后端判定兼容、未吊销、未下架且不违反版本单调性的版本，无候选时区分不可安装与已安装且暂无更新；已安装吊销版本保留更新/卸载指引；安装按钮走两段式信任流；i18n zh+en 全覆盖
 - [x] 市场刷新体验：刷新失败时保留上次成功目录并提供就地重试；刷新进行中展示轻量状态，不以错误页覆盖已加载内容
 - [x] 市场详情与信任披露：详情弹窗展示发布者、版本、体积、发布时间、engines 与吊销状态；用户主动校验包后才显示来自已验证 manifest 的完整 ACL、信任依据及按权限类别归组的 host-command 支持状态
 - [ ] 完整运行能力矩阵（`supported / degraded / unsupported / missing_pack`）：`supported`/engines 不兼容已在详情中反映；剩余状态依赖 D-017 能力声明、能力包探测与安装/卸载契约，当前 manifest 不支持声明，禁止由 renderer 猜测
+- [x] 更新时的运行窗口与 ACL 生命周期：用户确认前提示活动窗口会关闭；旧 WebView 销毁并撤销旧权限后才替换 bundle
 - [x] 诊断面板：`ext_diagnostics` 返回 `ext-audit.log` + `ext-diagnostics.jsonl` 各最近 200 条，插件中心内直接查看
 - [x] minisign 真实签名：管线已按 spec §4 全量校验（canonical + trusted comment）；单测以确定性 ed25519 夹具构造真实签名走通正向路径。_签出首批插件需 registry 私钥环境（外部前置）_
 - [x] 能力兼容标记：market 版本条目包含 `compatible` / `installed` / `updateAvailable` / `yanked` / `revokedReason` / `installable`；安装候选由后端综合 engines、吊销、下架和版本单调性计算；D-017 pack 形态（degraded/missing_pack）当前无 pack 交付物，字段位预留、随首个 pack 插件启用

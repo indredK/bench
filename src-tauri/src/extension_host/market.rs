@@ -32,7 +32,7 @@ use crate::error::{AppError, AppResult};
 
 use super::{
     audit::{self, AuditEvent},
-    commands::{ext_list_installed, ExtensionSummary},
+    commands::{close_extension_window, ext_list_installed, ExtensionSummary},
     extraction::{self, ExtractLimits},
     integrity,
     manifest::{ExtensionDistribution, ExtensionManifest, EXT_DISABLED_MARKER, MANIFEST_FILE},
@@ -650,6 +650,13 @@ pub async fn ext_market_commit(
         )));
     }
     let _operation = MarketOperationGuard::acquire(&extension_id)?;
+    let acl_state = app.state::<super::acl::ExtensionAclState>();
+    let _transition = acl_state.begin_transition(&extension_id).ok_or_else(|| {
+        AppError::new(
+            "EXTENSION_BUSY",
+            "another lifecycle operation for this extension is already in progress",
+        )
+    })?;
     let staging_dir = preview_dir(&app, &extension_id, &version)?;
     let result = async {
         let manifest_path = staging_dir.join(MANIFEST_FILE);
@@ -701,6 +708,9 @@ pub async fn ext_market_commit(
         let final_dir = extensions_root.join(&extension_id);
         let registry_is_official = registry::is_official_registry(&registry::registry_base_url()?);
         let trust_kind = market_trust_kind(registry_is_official, signature::dev_mode_enabled());
+        // Updating an active bundle must not leave its old WebView using a stale manifest ACL.
+        // The shared transition guard blocks ext_open until the new bundle is committed.
+        close_extension_window(&app, &extension_id)?;
         extraction::promote_staged_bundle_with(&staging_dir, &final_dir, || {
             records::record_market_install(&app, &manifest.id, &manifest.version, trust_kind)
         })?;

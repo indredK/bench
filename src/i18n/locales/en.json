@@ -2669,6 +2669,7 @@
       },
       "capabilityStatusNote": "Supported means the requested commands passed the current host ACL allow-list check. It does not guarantee every runtime operation will succeed.",
       "noOptionalPacks": "This extension manifest does not declare optional capability packs, so degraded and missing-pack states are not available for this release.",
+      "updateClosesOpenWindow": "After you confirm the update, Bench closes this extension if it is open before replacing its files and permissions. You can reopen it when the update finishes.",
       "verifyPackage": "Verify package",
       "verifying": "Verifying…",
       "install": "Install",
