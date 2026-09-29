@@ -6,7 +6,7 @@
 >
 > - **本文件转为技术债台账**，保留供插件化迁移时按模块评估，暂不删除（原定「全部关闭后删除」条款作废）。
 > - **必须重新评估的例外项**（插件分发启用前）：A5-1/A5-2/A5-3（持久化 schema 与迁移）、A3-1（RC dry-run）、A3-6（minisign 密钥与 OS-SIGNING-NOTICE，直接关系插件签名链）。
-> - 审计基线仍为 commit `44edf42`（1.28.0），但当前代码版本已推进至 1.30.0，复核时须重新对齐。
+> - 本清单静态审计于 2026-09-03 完成，审计基线为 commit `44edf42`（1.28.0）；当时文档记录的当前版本为 1.30.0。截至 2026-09-27，代码版本为 1.37.0，复用本清单前仍须对照当前代码复核。
 > - 执行序列见 [docs/modules/extension-center/roadmap.md](../modules/extension-center/roadmap.md)。
 
 > **性质**：本文件是 [docs/roadmap/ROADMAP.md](./ROADMAP.md) R00–R10 的差距明细展开，供 2.0 收尾执行使用；**不构成第二份路线图**（D-013）。全部差距关闭后本文件应删除，执行状态仍以 ROADMAP.md 为准。
@@ -23,7 +23,7 @@
 
 | 领域            | 现状                                                                                                                                 |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| 版本一致性      | `package.json` / `Cargo.toml` / `tauri.conf.json` / `.release-please-manifest.json` 四处一致为 `1.28.0`                              |
+| 版本一致性      | 审计时 `package.json` / `Cargo.toml` / `tauri.conf.json` / `.release-please-manifest.json` 四处一致为 `1.28.0`                       |
 | IPC 契约        | account-manager 35 个命令前后端一一对应；`contracts.test.ts` 自动校验命令名/参数/DTO/事件                                            |
 | i18n            | zh/en 各 2890 个叶子 key 完全对齐；`check:i18n` 门禁含硬编码文案 AST 扫描                                                            |
 | minisign 签名链 | 构建期私钥缺失即 exit 1 → collect 期 `.sig` 非空校验 → publish 期真实 minisign 逐平台验证，全链 fail-closed                          |
