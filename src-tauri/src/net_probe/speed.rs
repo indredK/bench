@@ -3,8 +3,11 @@
 
 use super::types::{ScanSessionEvent, SpeedSampleEvent, SpeedSource, SpeedTestResult};
 use crate::error::{AppError, AppResult};
+use futures_util::{Stream, StreamExt};
+use std::future::Future;
 use std::time::Instant;
 use tauri::{AppHandle, Emitter, Runtime};
+use tokio_util::sync::CancellationToken;
 
 pub const SPEED_SAMPLE_EVENT: &str = "network-probe:speed-sample";
 pub const SCAN_SESSION_EVENT: &str = "network-probe:scan-session";
@@ -62,6 +65,7 @@ pub async fn run_speed_test<R: Runtime>(
 
     let session = super::session::new_session();
     let session_id = session.id().to_owned();
+    let cancellation = session.cancellation_token();
     if let Some(app) = app {
         let _ = app.emit(
             SCAN_SESSION_EVENT,
@@ -90,20 +94,32 @@ pub async fn run_speed_test<R: Runtime>(
     let ping_url = join_url(&source.base_url, &source.ping_path);
     let mut rtts = Vec::new();
     for i in 0..PING_COUNT {
-        if super::session::is_cancelled(&session_id) {
+        if cancellation.is_cancelled() {
             cancelled = true;
             break;
         }
         let t0 = Instant::now();
-        let res = client.get(&ping_url).send().await;
+        let Some(res) = run_until_cancelled(client.get(&ping_url).send(), &cancellation).await
+        else {
+            cancelled = true;
+            break;
+        };
         let ok = res.map(|r| r.status().is_success()).unwrap_or(false);
         if ok {
             let ms = t0.elapsed().as_secs_f64() * 1000.0;
             rtts.push(ms);
             emit_sample(app, "ping", ms, "sample");
         }
-        if i + 1 < PING_COUNT {
-            tokio::time::sleep(std::time::Duration::from_millis(80)).await;
+        if i + 1 < PING_COUNT
+            && run_until_cancelled(
+                tokio::time::sleep(std::time::Duration::from_millis(80)),
+                &cancellation,
+            )
+            .await
+            .is_none()
+        {
+            cancelled = true;
+            break;
         }
     }
     if !rtts.is_empty() {
@@ -119,9 +135,10 @@ pub async fn run_speed_test<R: Runtime>(
     }
 
     // --- download ---
-    if !cancelled && !super::session::is_cancelled(&session_id) {
+    if !cancelled && !cancellation.is_cancelled() {
         emit_sample(app, "download", 0.0, "running");
-        // Hard cap: never request more than MAX_DOWNLOAD_MB.
+        // Ask the LibreSpeed endpoint for the configured amount and stop reading
+        // its response stream as soon as the byte budget is reached.
         let ck = MAX_DOWNLOAD_MB.clamp(1, MAX_DOWNLOAD_MB);
         let dl_url = format!(
             "{}?ckSize={ck}&r={}",
@@ -130,45 +147,60 @@ pub async fn run_speed_test<R: Runtime>(
         );
         let t0 = Instant::now();
         let max_bytes = (MAX_DOWNLOAD_MB * 1024 * 1024) as usize;
-        match client.get(&dl_url).send().await {
-            Ok(resp) if resp.status().is_success() => match resp.bytes().await {
-                Ok(bytes) => {
-                    let capped = bytes.len().min(max_bytes);
-                    let secs = t0.elapsed().as_secs_f64().max(0.001);
-                    let mbps = (capped as f64 * 8.0) / (secs * 1_000_000.0);
-                    download_mbps = Some(mbps);
-                    emit_sample(app, "download", mbps, "done");
+        match run_until_cancelled(client.get(&dl_url).send(), &cancellation).await {
+            None => {
+                cancelled = true;
+                emit_sample(app, "download", 0.0, "cancelled");
+            }
+            Some(Ok(resp)) if resp.status().is_success() => {
+                match read_capped_stream(resp.bytes_stream(), max_bytes, &cancellation).await {
+                    Ok(read) if read.cancelled => {
+                        cancelled = true;
+                        emit_sample(app, "download", 0.0, "cancelled");
+                    }
+                    Ok(read) if read.bytes_read > 0 => {
+                        let secs = t0.elapsed().as_secs_f64().max(0.001);
+                        let mbps = (read.bytes_read as f64 * 8.0) / (secs * 1_000_000.0);
+                        download_mbps = Some(mbps);
+                        emit_sample(app, "download", mbps, "done");
+                    }
+                    Ok(_) => emit_sample(app, "download", 0.0, "empty-body"),
+                    Err(e) => emit_sample(app, "download", 0.0, &format!("error:{e}")),
                 }
-                Err(e) => emit_sample(app, "download", 0.0, &format!("error:{e}")),
-            },
-            Ok(resp) => emit_sample(app, "download", 0.0, &format!("http:{}", resp.status())),
-            Err(e) => emit_sample(app, "download", 0.0, &format!("error:{e}")),
+            }
+            Some(Ok(resp)) => emit_sample(app, "download", 0.0, &format!("http:{}", resp.status())),
+            Some(Err(e)) => emit_sample(app, "download", 0.0, &format!("error:{e}")),
         }
     } else {
         cancelled = true;
     }
 
     // --- upload ---
-    if !cancelled && !super::session::is_cancelled(&session_id) {
+    if !cancelled && !cancellation.is_cancelled() {
         emit_sample(app, "upload", 0.0, "running");
         let ul_url = join_url(&source.base_url, &source.ul_path);
         let payload = vec![0u8; (MAX_UPLOAD_MB.clamp(1, MAX_UPLOAD_MB) * 1024 * 1024) as usize];
+        let payload_len = payload.len();
         let t0 = Instant::now();
-        match client.post(&ul_url).body(payload.clone()).send().await {
-            Ok(resp) if resp.status().is_success() || resp.status().as_u16() == 200 => {
+        match run_until_cancelled(client.post(&ul_url).body(payload).send(), &cancellation).await {
+            None => {
+                cancelled = true;
+                emit_sample(app, "upload", 0.0, "cancelled");
+            }
+            Some(Ok(resp)) if resp.status().is_success() => {
                 let secs = t0.elapsed().as_secs_f64().max(0.001);
-                let mbps = (payload.len() as f64 * 8.0) / (secs * 1_000_000.0);
+                let mbps = (payload_len as f64 * 8.0) / (secs * 1_000_000.0);
                 upload_mbps = Some(mbps);
                 emit_sample(app, "upload", mbps, "done");
             }
-            Ok(resp) => emit_sample(app, "upload", 0.0, &format!("http:{}", resp.status())),
-            Err(e) => emit_sample(app, "upload", 0.0, &format!("error:{e}")),
+            Some(Ok(resp)) => emit_sample(app, "upload", 0.0, &format!("http:{}", resp.status())),
+            Some(Err(e)) => emit_sample(app, "upload", 0.0, &format!("error:{e}")),
         }
     } else {
-        cancelled = cancelled || super::session::is_cancelled(&session_id);
+        cancelled = cancelled || cancellation.is_cancelled();
     }
 
-    cancelled = cancelled || super::session::is_cancelled(&session_id);
+    cancelled = cancelled || cancellation.is_cancelled();
     let ok = ping_ms.is_some() || download_mbps.is_some() || upload_mbps.is_some();
     Ok(SpeedTestResult {
         source_id: source.id,
@@ -203,6 +235,118 @@ fn emit_sample<R: Runtime>(app: Option<&AppHandle<R>>, phase: &str, value: f64, 
                 value,
                 detail: detail.into(),
             },
+        );
+    }
+}
+
+async fn run_until_cancelled<F: Future>(
+    future: F,
+    cancellation: &CancellationToken,
+) -> Option<F::Output> {
+    tokio::select! {
+        biased;
+        _ = cancellation.cancelled() => None,
+        output = future => Some(output),
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct StreamRead {
+    bytes_read: usize,
+    cancelled: bool,
+}
+
+async fn read_capped_stream<S, B, E>(
+    stream: S,
+    max_bytes: usize,
+    cancellation: &CancellationToken,
+) -> Result<StreamRead, E>
+where
+    S: Stream<Item = Result<B, E>>,
+    B: AsRef<[u8]>,
+{
+    let mut stream = Box::pin(stream);
+    let mut bytes_read = 0usize;
+
+    while bytes_read < max_bytes {
+        let Some(next) = run_until_cancelled(stream.as_mut().next(), cancellation).await else {
+            return Ok(StreamRead {
+                bytes_read,
+                cancelled: true,
+            });
+        };
+
+        match next {
+            Some(Ok(chunk)) => {
+                let remaining = max_bytes.saturating_sub(bytes_read);
+                bytes_read = bytes_read.saturating_add(chunk.as_ref().len().min(remaining));
+            }
+            Some(Err(error)) => return Err(error),
+            None => break,
+        }
+    }
+
+    Ok(StreamRead {
+        bytes_read,
+        cancelled: false,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use futures_util::stream::{self, pending};
+    use std::convert::Infallible;
+
+    #[tokio::test]
+    async fn download_stream_stops_counting_at_the_configured_limit() {
+        let cancellation = CancellationToken::new();
+        let poll_count = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let stream_poll_count = poll_count.clone();
+        let chunks = stream::unfold(0, move |index| {
+            let poll_count = stream_poll_count.clone();
+            async move {
+                if index == 3 {
+                    None
+                } else {
+                    poll_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    Some((Ok::<_, Infallible>(vec![0; 50]), index + 1))
+                }
+            }
+        });
+
+        let read = read_capped_stream(chunks, 100, &cancellation)
+            .await
+            .unwrap();
+
+        assert_eq!(read.bytes_read, 100);
+        assert!(!read.cancelled);
+        assert_eq!(poll_count.load(std::sync::atomic::Ordering::SeqCst), 2);
+    }
+
+    #[tokio::test]
+    async fn download_stream_returns_promptly_when_cancelled() {
+        let cancellation = CancellationToken::new();
+        let cancel_handle = cancellation.clone();
+        let reader = tokio::spawn(async move {
+            read_capped_stream(pending::<Result<Vec<u8>, Infallible>>(), 1, &cancellation)
+                .await
+                .unwrap()
+        });
+
+        tokio::task::yield_now().await;
+        cancel_handle.cancel();
+        let read = tokio::time::timeout(std::time::Duration::from_secs(1), reader)
+            .await
+            .expect("cancelled download stream completes")
+            .expect("reader task completes");
+
+        assert_eq!(
+            read,
+            StreamRead {
+                bytes_read: 0,
+                cancelled: true,
+            }
         );
     }
 }

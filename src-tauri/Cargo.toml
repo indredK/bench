@@ -47,6 +47,7 @@ chrono = "0.4"
 cookie = "0.18"
 dirs = "7"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "net"] }
+tokio-util = { version = "0.7", features = ["rt"] }
 sntpc = { version = "0.11", default-features = false, features = ["std"] }
 sntpc-net-tokio = "1.3"
 # CDP（Chrome DevTools Protocol）WebSocket 客户端：浏览器会话注入 / 回采（browser_session）。

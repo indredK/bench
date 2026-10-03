@@ -74,11 +74,20 @@ export function SpeedPanel({
   const coolingDown = cooldownSec > 0
 
   const phaseLabel =
-    sample?.phase != null
-      ? t(`networkProbe.speed.phase.${sample.phase}`, {
-          defaultValue: sample.phase,
-        })
+    sample?.phase === "ping" || sample?.phase === "download" || sample?.phase === "upload"
+      ? t(`networkProbe.speed.phase.${sample.phase}`)
       : null
+  const phaseDetail = (() => {
+    const detail = sample?.detail
+    if (!detail || detail === "running" || detail === "sample" || detail === "done") return null
+    if (detail === "cancelled") return t("networkProbe.speed.cancelled")
+    if (detail === "empty-body") return t("networkProbe.speed.emptyResponse")
+    if (detail.startsWith("http:")) {
+      return t("networkProbe.speed.httpError", { status: detail.slice("http:".length) })
+    }
+    if (detail.startsWith("error:")) return t("networkProbe.speed.requestFailed")
+    return null
+  })()
 
   const unavailable =
     result != null && !result.ok && !result.cancelled && result.downloadMbps == null
@@ -151,9 +160,9 @@ export function SpeedPanel({
         <p className="text-muted-foreground font-mono text-xs">
           {phaseLabel}
           {sample.detail === "sample" || sample.detail === "done"
-            ? ` · ${sample.value.toFixed(1)}`
-            : sample.detail
-              ? ` · ${sample.detail}`
+            ? ` · ${sample.value.toFixed(1)} ${sample.phase === "ping" ? "ms" : "Mbps"}`
+            : phaseDetail
+              ? ` · ${phaseDetail}`
               : null}
         </p>
       ) : null}
@@ -171,9 +180,6 @@ export function SpeedPanel({
             <p className="text-xs text-amber-700 dark:text-amber-400">
               {t("networkProbe.speed.sourceUnavailable")}
             </p>
-          ) : null}
-          {result.message ? (
-            <p className="text-xs text-amber-700 dark:text-amber-400">{result.message}</p>
           ) : null}
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Metric

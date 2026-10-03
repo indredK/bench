@@ -28,7 +28,7 @@
 ## 待验证（真机 / 行为）
 
 - [ ] macOS 真机：Local Network / TCC 权限不足时各探测（ping/ARP/抓包）的稳定错误码与「打开系统设置」引导生效。
-- [ ] 测速源不可用 / 超时 → 30s 冷却倒计时在真机可用；取消测速可立即重跑。
+- [x] 测速源不可用 / 超时 → 30s 冷却倒计时在真机可用；取消测速后开始按钮立即恢复，不进入冷却（2026-10-04 macOS 真机，LibreSpeed.org 与 Amsterdam mirror）。
 - [ ] `priv-helper` 提权路径（Wave 1 pack）在真实系统上可安装、触发提权、自动降级文案正确。
 - [ ] 能力包 hash 校验失败通道（`installCapabilityPackVerifyFail`）行为符合预期。
 - [ ] Windows 降级路径：各工具 `unsupported`/`degraded` 状态与按钮禁用一致，不误报。
@@ -67,3 +67,4 @@
 - 2026-09-28：C2-2 已完成：Globalping DNS / Ping / HTTP HEAD 与本机并发比较，API token 由 macOS 钥匙串管理；修复 HTTP 测量请求需传入 host 并将协议、端口、路径、查询参数放入 measurementOptions 的请求契约。真机用不存在域名发现 Globalping 将“无 A 记录但任务已结束”误报正常，现仅在收到有效 IPv4 A 记录、至少收到一个 Ping 响应或收到 100–599 状态码时判定成功；失败文案本地化且原始详情默认折叠。修复后确认本机与三个远端节点均正确显示失败，DNS 正向查询四节点均有有效 A 记录，Ping 四节点均 3/3 成功，HTTP HEAD 四节点均返回 200。启用 reqwest 内置 system-proxy 以遵循 macOS / Windows 系统代理。本地完整验证通过；commit `190dd681` 的 GitHub [PR #109 检查全部通过](https://github.com/indredK/bench/actions/runs/36333631127)，包括 macOS / Windows Rust、前端、E2E、安全、静态、Node 兼容与 CI aggregate；release build / publish 因非发版提交跳过。
 - 2026-09-27：P5-3 报告历史支持本机保存时间、兼容无时间戳的旧记录、从最近 10 次中任意选择两次比较检查项与建议变化；损坏记录不进入运行时视图且不改写原始存储。前端全量 395 项通过；macOS 真机用已有 3 条旧快照验证默认最近两次、切换任意快照，并运行一次真实体检确认新时间戳和最新比较更新；单个签名 `.app` 通过 codesign 校验。远程检查随本轮提交执行。
 - 2026-09-27：真机发现普通 HTTP(S) 主机探测在计算出状态码与 TTFB 后仍读取整个响应体；本机持续响应复现首字节 5ms、界面却约 8 秒后才恢复。修复为普通 URL 探测收到响应头即结束，吞吐采样继续沿用站点探针的有界路径；远程推送前补做 Rust 回归测试与 macOS 真机复验。
+- 2026-10-04：发现测速下载先将整个响应体载入内存、再裁剪计算值，导致 32 MiB 限额没有限制实际缓冲；取消也无法打断进行中的请求。真机还发现失败与进行中文案未完整本地化。改用流式增量计数与活动会话取消令牌，并本地化前端反馈；组件/全量门禁通过，独立 target 的 macOS 真机验证通过。共享 target 曾误用主仓库 Tauri build 输出，已隔离修复；PR #109 远端检查待完成。
