@@ -153,7 +153,7 @@ tauri-app/
 
 ## 8. 作者侧流程（P4.5 交付物）
 
-> 目标：**前端开发者零门槛** —— 会写 React 就能做插件，不需要懂 Rust（对标 uTools 生态的成功要素）。
+> 作者工具链已交付在 [kindred-plugin-market/bench-extension-template](https://github.com/kindred-plugin-market/bench-extension-template)。新作者应以模板仓库 README 为可执行指南；本节记录能力与发布边界。
 > 契约细节一律以 [extension-spec.md](../reference/extension-spec.md) 为准。
 
 ### 8.1 创建插件
@@ -175,18 +175,20 @@ extensions/<id>/
 
 `id` 必须匹配 `^[a-z][a-z0-9-]*$`。
 
+模板打包器只接受 `platforms: ["macos"]`、`["windows"]` 或两者组合；省略 `platforms` 表示支持当前两个宿主平台。Linux 尚未纳入 Bench 构建与发布支持范围。
+
 ### 8.2 本地开发与调试
 
-1. 照常在主仓库开发：改前端 → `pnpm run dev` → 插件窗口即时生效；改 Rust → 走 cargo 链路。
-2. 产物同步到运行时目录：`pnpm run extensions:sync`（保留 `.disabled` 用户标记，幂等）。
-3. 打开插件窗口：插件中心点击「打开」，或 `BENCH_POC_EXT=<id> pnpm run dev` 直开。
-4. 调试：宿主注入 `EXT_ERROR_CAPTURE_SCRIPT`，捕获 window-error / unhandledrejection / console.error / boot，回传宿主落盘（P3.3 起为**追加式**）。
-5. 开发期免签：设 `BENCH_EXT_DEV_MODE=1`（[spec §4.3](../reference/extension-spec.md)）。
+1. 在模板仓库执行 `pnpm install`，修改生成目录下的源码与 manifest。
+2. 本地验证时运行 `pnpm run extensions:pack <id> --dev-unsigned --install-dir <Bench 插件目录>`；模板 README 给出了 macOS / Windows 目标目录。
+3. 完全退出 Bench，再设 `BENCH_EXT_DEV_MODE=1` 启动宿主，在插件中心打开插件。
+4. 宿主捕获 window-error / unhandledrejection / console.error / boot 并写入追加式诊断日志；插件中心的诊断标签可查看结果。
+5. `BENCH_EXT_DEV_MODE=1` 只用于本地未签名调试，不得用于正式发行（[spec §4.3](../reference/extension-spec.md)）。
 
 ### 8.3 构建
 
 ```bash
-pnpm run extensions:build     # 全部插件；支持 --id <id>；P4.5 起支持 --id
+pnpm run extensions:build     # 宿主仓库维护者构建 bundled 插件；支持 --id <id>
 ```
 
 产出 `extensions/<id>/assets/`（`base: "./"` 是硬性要求，否则子路径下 404 白屏）。
@@ -220,7 +222,7 @@ pnpm run extensions:pack <id>     # P4.5 交付
 3. 维护者人工审核：manifest 合法性、ACL 是否最小、产物与源码是否对应
 4. 合入即上架（静态托管，无服务端）
 
-阶段一（当前，契约演进期）：官方插件住主仓库 `extensions/`，`distribution: "bundled"`，随主包发布。
+当前官方插件源码由 [kindred-plugin-market/plugin-market](https://github.com/kindred-plugin-market/plugin-market) 管理，并由该仓库的发布流程生成 registry 产物；Bench 宿主按 `distribution` 与 registry 契约加载。不要把插件模板仓库当作官方插件源码仓。
 
 ### 8.6 版本升级与下架
 
@@ -232,12 +234,12 @@ pnpm run extensions:pack <id>     # P4.5 交付
 
 ### 8.7 作者文档清单（P4.5 一并交付）
 
-| 文档                              | 位置                                                |
-| --------------------------------- | --------------------------------------------------- |
-| 快速开始（30 分钟做出可安装插件） | `extensions/README.md`                              |
-| 契约参考                          | [extension-spec.md](../reference/extension-spec.md) |
-| SDK 用法（IPC / i18n / 诊断上报） | `@bench/ext-sdk` 包内 README                        |
-| 提交 registry                     | 本文 §8.5                                           |
+| 文档                              | 位置                                                                                                                          |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| 快速开始（目标 30 分钟）          | [bench-extension-template README](https://github.com/kindred-plugin-market/bench-extension-template#30-分钟上手)              |
+| 契约参考                          | [extension-spec.md](../reference/extension-spec.md)                                                                           |
+| SDK 用法（IPC / i18n / 诊断上报） | [模板仓库 SDK README](https://github.com/kindred-plugin-market/bench-extension-template/blob/main/packages/ext-sdk/README.md) |
+| 提交 registry                     | 本文 §8.5                                                                                                                     |
 
 ---
 

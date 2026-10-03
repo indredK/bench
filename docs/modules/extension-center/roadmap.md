@@ -5,7 +5,7 @@
 > **架构边界与工作流**（含作者侧流程）：[extension-workflow.md](../../explanation/extension-workflow.md)
 > **插件中心功能规格**：[product-specs/extension-center.md](../../reference/product-specs/extension-center.md) ｜ **未完成项**：[planned/extension-center.md](../../roadmap/planned/extension-center.md)
 > **方向性决策**：[DECISIONS.md](../../explanation/decisions.md)（D-023 / D-024）
-> **最后更新**：2026-09-08（P3 路线经行业最佳实践复核后重排，见「附录 B　重排依据」）。
+> **最后更新**：2026-10-04（补齐 P4.5 交付状态与受支持平台契约）。
 
 ## 成本原则（贯穿全部阶段）
 
@@ -36,12 +36,12 @@
 | **P3.3** | **安全解压 + 审计日志**                                         | ✅ 完成（2026-09-08）  |
 | **P3.4** | **bundled 产物发布集成**（随正式包发布）                        | ✅ 完成（2026-09-08）* |
 | **P4**   | **market 端到端闭环**（静态 registry → 安装向导 → 验签 → 启用） | ✅ 完成（2026-09-08）* |
-| P4.5     | 作者侧交付（SDK / 模板 / 脚手架 / 打包签名）                    | ⬜ **下一步**          |
+| P4.5     | 作者侧交付（SDK / 模板 / 脚手架 / 打包签名）                    | ✅ 完成（2026-09-27）  |
 | P5       | 增量迁移（带停止线，每批复评）                                  | ⬜ P4 之后             |
 | P6       | Windows release 产物                                            | ⬜ 最后                |
 
 > **P3.1 已完成（2026-09-08）**：插件产物格式（manifest schema v2）已冻结，P3.3 的 download/extract 可在此格式上实现。
-> **P3.2–P4 已完成（2026-09-08）**：实现、单测与本地门禁全绿。带 \* 项含外部前置——P3.2 双平台证据待下次 push 的 Windows runner 实跑确认；P3.4 真机验收待打一次 release 包全新安装；P4 端到端验收待 registry 私钥环境签出首批插件并配置 `BENCH_EXT_REGISTRY_URL`。
+> **P3.2–P4 已完成（2026-09-08）**：实现、单测与本地门禁全绿。双平台 CI 已由后续 PR runner 验证；P3.4 真机验收仍待 release 包全新安装；P4 真实 registry 端到端验收仍待 registry 私钥环境签出首批插件并配置 `BENCH_EXT_REGISTRY_URL`。
 > **P6 是发布硬前置**：插件化能力在 Windows runner 复验前不得随正式版发布（D-023）。
 
 **契约前置**：P3.1 及之后的实施一律以 [extension-spec.md](../../reference/extension-spec.md) 为契约真相源 —— 改代码前先改规格。
@@ -207,19 +207,21 @@ pnpm run test:critical       # ✓ 145 passed
 
 ---
 
-## P4.5 ⬜ 作者侧交付（可与 P4 并行，🔴 生态冷启动唯一路径）
+## P4.5 ✅ 作者侧交付（2026-09-27）
 
-> 原 P0–P6 缺失这一整条线。而它决定了 P0 拍板的「目标 B：第三方生态」能否启动 —— uTools 生态 3000+ 的主因就是前端开发者零门槛。
+> 作者工具链降低第三方开发者创建、调试和发布 extension 的成本；模板与脚手架独立维护在官方市场组织。
 
-| 项               | 内容                                                                                                                                    |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `@bench/ext-sdk` | IPC 客户端薄封装（基于 `@tauri-apps/api`）+ i18n 桥 + 诊断上报接口                                                                      |
-| 模板仓库         | `bench-extension-template`：manifest 示例 + vite 配置（含 `base: "./"` 铁律）+ 本地 dev 加载 + 打包 + 签名脚本                          |
-| 脚手架           | `pnpm run extensions:create <id>` 生成目录与最小可运行插件                                                                              |
-| 打包脚本         | `pnpm run extensions:pack <id>` → 产出 zip + 生成 `files` hash 清单 + minisign 签名                                                     |
-| 作者文档         | 「开发 / 本地加载 / 打包签名 / 提交 registry PR」四步式 how-to，登记进 [extension-workflow.md](../../explanation/extension-workflow.md) |
+| 项               | 已交付内容                                                                                                                                                              |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@bench/ext-sdk` | IPC 客户端薄封装（基于 `@tauri-apps/api`）+ i18n 桥 + 诊断上报接口                                                                                                      |
+| 模板仓库         | [kindred-plugin-market/bench-extension-template](https://github.com/kindred-plugin-market/bench-extension-template)：manifest 示例、Vite 配置、本地 dev、打包与签名脚本 |
+| 脚手架           | `pnpm run extensions:create <id>` 生成目录与最小可运行插件                                                                                                              |
+| 打包脚本         | `pnpm run extensions:pack <id>` → 产出 zip + 生成 `files` hash 清单 + minisign 签名                                                                                     |
+| 作者文档         | 模板 README 覆盖创建、开发、本地加载、打包签名与发布步骤                                                                                                                |
 
-**验收**：一个未接触过本项目的开发者能在 30 分钟内产出可安装插件。
+**自动化证据**：[模板仓库 CI](https://github.com/kindred-plugin-market/bench-extension-template/actions/runs/36356433567) 已在 Ubuntu 与 Windows runner 完成依赖安装、lint、类型检查、测试、示例构建与 unsigned pack。
+
+**待验证的体验指标**：尚无独立新作者按 README 完成 30 分钟上手的实测记录；这属于可用性验收，不阻止工具链交付状态标为完成。
 
 ---
 
@@ -270,15 +272,15 @@ pnpm run test:critical       # ✓ 145 passed
 
 ## 已知风险与依赖
 
-| 风险 / 依赖                                     | 影响阶段  | 说明                                                   |
-| ----------------------------------------------- | --------- | ------------------------------------------------------ |
-| ~~P3.1 未做先写 download~~ 已消除（2026-09-08） | P3.3 / P4 | manifest schema v2 已冻结，download/extract 可安全实现 |
-| registry 私钥不在本机                           | P4        | 验签骨架已就绪，签名与 market 上架需私钥环境           |
-| Windows CI 暂停（D-021）                        | P3.2 / P6 | 非代码缺陷；已提前到 P3.2 处置                         |
-| bundled 不随包发布                              | P3.4      | 用户升级即插件消失；已提前处置                         |
-| 诊断文件单条覆写                                | P3.3      | boot 覆盖先前 error，改追加式即可                      |
-| 253 条命令的 ACL 登记量                         | P5        | 改为按批登记 + 停止线，不再全量规划                    |
-| 缺少作者侧交付物                                | P4.5      | 生态无法冷启动；已新增该阶段                           |
+| 风险 / 依赖                                     | 影响阶段  | 说明                                                       |
+| ----------------------------------------------- | --------- | ---------------------------------------------------------- |
+| ~~P3.1 未做先写 download~~ 已消除（2026-09-08） | P3.3 / P4 | manifest schema v2 已冻结，download/extract 可安全实现     |
+| registry 私钥不在本机                           | P4        | 验签骨架已就绪；真实签名 registry 生命周期验收需要私钥环境 |
+| ~~Windows CI 暂停（D-021）~~（已恢复）          | P3.2 / P6 | 双平台 CI 已运行；Windows 真机覆盖仍待完成                 |
+| ~~bundled 不随包发布~~（已解决）                | P3.4      | 正式包已包含 bundled 插件；全新安装验收仍待完成            |
+| ~~诊断文件单条覆写~~（已解决）                  | P3.3      | 诊断日志现为追加式 JSONL                                   |
+| 253 条命令的 ACL 登记量                         | P5        | 改为按批登记 + 停止线，不再全量规划                        |
+| ~~缺少作者侧交付物~~（已由 P4.5 解决）          | P4.5      | 模板仓库、SDK、脚手架与打包签名工具链已交付                |
 
 ---
 

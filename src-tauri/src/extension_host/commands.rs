@@ -168,7 +168,7 @@ pub fn ext_list_installed(app: AppHandle) -> AppResult<Vec<ExtensionSummary>> {
                 continue;
             }
         };
-        // 平台门控（P5，spec §3.1 platforms）：声明不含当前平台的插件不出现在
+        // 平台门控（P5，spec §3.1 platforms）：声明不含当前支持平台的插件不出现在
         // 已装列表（能力判定由宿主做，renderer 不自行决定 —— D-007）。
         if !manifest.supports_host_platform() {
             continue;
@@ -207,6 +207,7 @@ pub fn ext_open(app: AppHandle, extension_id: String, locale: Option<String>) ->
     let open_verified = || -> AppResult<(ExtensionManifest, PathBuf)> {
         let dir = extension_dir(&app, &extension_id)?;
         let (manifest, canonical_text) = read_manifest(&dir)?;
+        manifest.ensure_supported_host()?;
 
         let host_version = app.package_info().version.to_string();
         if !manifest.satisfies_engines(&host_version) {
