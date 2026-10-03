@@ -31,6 +31,7 @@ pub async fn sites_probe<R: Runtime>(
     }
 
     let session_id = super::session::new_session_id();
+    let _session_guard = super::session::SessionGuard::new(&session_id);
     emit_session(app, &session_id);
     let command_hint = format!("startSitesProbe(local, '{pack_id}') // sessionId={session_id}");
 
@@ -46,7 +47,7 @@ pub async fn sites_probe<R: Runtime>(
         results.push(sample);
     }
 
-    super::session::clear_session(&session_id);
+    cancelled |= super::session::finish_session(&session_id);
     Ok(SitesProbeResult {
         pack_id,
         results,
@@ -79,6 +80,7 @@ pub async fn sites_probe_custom<R: Runtime>(
     }
 
     let session_id = super::session::new_session_id();
+    let _session_guard = super::session::SessionGuard::new(&session_id);
     emit_session(app, &session_id);
     let command_hint = format!(
         "startSitesProbe(local, custom[{}]) // sessionId={session_id}",
@@ -102,7 +104,7 @@ pub async fn sites_probe_custom<R: Runtime>(
         results.push(sample);
     }
 
-    super::session::clear_session(&session_id);
+    cancelled |= super::session::finish_session(&session_id);
     Ok(SitesProbeResult {
         pack_id: "custom".into(),
         results,

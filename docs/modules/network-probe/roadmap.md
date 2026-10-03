@@ -8,3 +8,5 @@
 **硬性红线**（不实现 · 法律/合规约束，详见 design.md §12.3.2）：主动攻击能力——ARP 欺骗**攻击** / MITM 流量**注入** / **DoS** / 密码**爆破**，违法绝不构建；仅提供对应检测/防御版本（`detectArpSpoofing` / `checkSsl.mitmSuspected` / 暴露面评估）。
 
 **验证命令**：`pnpm run lint:fe` + `pnpm run test:critical` + `cargo clippy -- -D warnings`。
+
+**端口扫描取消**：Nmap 版本探测与扫描使用可取消子进程，Nmap 失败回退到 TCP connect 时沿用同一会话 ID；TCP connect 会中止当前批次未完成任务；取消结果清空并隐藏部分端口数据。自动化检查和 macOS 真机界面验收已通过（模拟 Nmap，不发网络包）。

@@ -91,13 +91,13 @@ describe("PortScanPanel status localization", () => {
     ).toBeNull()
   })
 
-  it("localizes cancellation and Nmap result notices", async () => {
+  it("localizes cancellation, discarded partial results, and Nmap notices", async () => {
     await i18n.changeLanguage("zh")
     const { unmount } = renderSamples(
       [],
       scanResult({ cancelled: true, message: "Port scan cancelled." }),
     )
-    expect(screen.getByText("端口扫描已取消。")).toBeTruthy()
+    expect(screen.getByText("扫描已取消；未完成结果已丢弃。")).toBeTruthy()
     expect(screen.queryByText("Port scan cancelled.")).toBeNull()
 
     unmount()

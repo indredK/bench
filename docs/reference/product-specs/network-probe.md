@@ -141,6 +141,7 @@ L1 → L2 映射：
 - **测速冷却**：测速源失败/不可达时 `speedCooldownUntil = now + 30s`，期间「开始测速」禁用并倒计时提示（`测速源失败 — {{seconds}} 秒后可重试`），冷却结束自动恢复；取消成功不计入冷却。
 - **测速冷却双重防护**：除按钮禁用外，`runSpeedTest` 用例入口 `if (speedCooldownUntil > now) return` 短路（连点/脚本调用也不触发）；冷却以 **500ms interval** 倒计时刷新；**源下拉在 `loading || coolingDown` 时同样 disabled**；结果卡 `unavailable`（`!ok && !cancelled && downloadMbps==null`）额外显示「测速源不可用」琥珀提示。
 - **重新运行前状态复位（流式状态机）**：所有可重复探测（health / sites / traceroute / speed / ports / lan / pcap）每次开始时先 `resetXxxStreaming()` 清空上次流式数据 + `setActiveSessionId(null)`；speed 额外 `setSpeedSample(null)` / `setSpeedResult(null)`、ports 额外 `setPortScanResult(null)`，**新一次探测不留旧结果混淆**；`finally` 里统一 `setActiveSessionId(null)` 复位取消可用性。
+- **端口扫描取消**：TCP connect 扫描中止当前批次尚未完成的探测任务；Nmap 模式终止正在运行的子进程。取消结果标记 `cancelled`，清空并隐藏已流出的部分端口，并显示本地化的取消提示。
 - **流式采样去重**：`site-sample` / `port-sample` 按 target/port 合并去重（`upsert*`），单卡多次测试保留历史并绘制近 20 次 Sparkline；完成后对未取消的站点包结果保留已测卡片（取消提示「已完成的卡片结果会保留」）。
 
 ## 6. 安全（security）L1（全部要求 SecurityAuthGate 已授权）
@@ -267,7 +268,7 @@ L1 → L2 映射：
 
 ### 13.3 幂等 / 取消 / 并发保护
 
-- **会话取消幂等（前后端双保险）**：前端 `cancelRequestedSessionId` 保证同一 `sessionId` 只发一次 `cancelScan`；后端 `session.rs` 以 `HashSet` 记录已取消 id，重复取消为 no-op 成功。新会话（新 sessionId）自动重置取消标记（有单测 `cancel-idempotency.test.ts`）。
+- **会话取消幂等（前后端双保险）**：前端 `cancelRequestedSessionId` 保证同一 `sessionId` 只发一次 `cancelScan`；后端 `session.rs` 在同一锁下维护活动/已取消 ID，并原子检查取消状态后结束会话；重复取消为 no-op，结束后的迟到取消不会重新登记。端口扫描的 Nmap 检测、Nmap 扫描和 TCP connect 回退共用同一 `sessionId`，避免实现切换时丢失取消请求（有前端 `cancel-idempotency.test.ts` 与 Rust 会话测试）。
 - **事件监听清理**：所有流式长任务在 `finally` 中 `unlisten()` 全部事件订阅（health-item / site-sample / traceroute-hop / ping-sample / speed-sample / port-sample / scan-session / pack-progress），避免泄漏与跨会话串扰。
 - **单工具防重入**：每个 use-case 入口 `if (store.loadingX) return`；同一工具不可并发，不同工具可并行（store 每工具独立 loading）。
 - **修复幂等**：后端每次执行前重新校验服务白名单（忽略前端「已确认」标志）；刷新 DNS 对 `dscacheutil`/`killall` 分别报告成功/失败，不把权限失败当成功。
