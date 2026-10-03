@@ -2062,12 +2062,21 @@
     "ports": {
       "hint": "TCP connect scan of a host you own or are authorized to test. Max 256 ports; cancel stops mid-run.",
       "degradedHint": "Degraded mode: TCP connect only. Install adv-scanner / nmap for SYN stealth.",
+      "cancelled": "Port scan cancelled.",
+      "nmapHint": "Nmap used SYN when permitted, otherwise TCP connect; exploit scripts (-sC/-sV) were not run.",
       "target": "Target",
       "range": "Ports",
       "run": "Scan ports",
       "running": "Scanning…",
       "cancel": "Cancel",
       "openList": "Open: {{ports}}",
+      "states": {
+        "open": "Open",
+        "closed": "Closed",
+        "filtered": "Undetermined (filtered)",
+        "error": "Probe failed",
+        "unknown": "Unknown"
+      },
       "confirmTitle": "Confirm port scan scope",
       "confirmDesc": "Target {{target}} · about {{count}} ports. Public hosts or large ranges need an extra confirm.",
       "confirmConsequence": "Only scan assets you own or are authorized to test. TCP connect only (no SYN).",

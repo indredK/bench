@@ -2062,12 +2062,21 @@
     "ports": {
       "hint": "对自有或已授权主机做 TCP connect 端口扫描。最多 256 端口；可取消。",
       "degradedHint": "降级模式：仅 TCP connect。安装 adv-scanner / nmap 可启用 SYN。",
+      "cancelled": "端口扫描已取消。",
+      "nmapHint": "已使用 Nmap 执行 SYN 扫描（权限不足时回退 TCP connect）；未运行攻击脚本（-sC/-sV）。",
       "target": "目标",
       "range": "端口",
       "run": "扫描端口",
       "running": "扫描中…",
       "cancel": "取消",
       "openList": "开放：{{ports}}",
+      "states": {
+        "open": "开放",
+        "closed": "已关闭",
+        "filtered": "无法确定（已过滤）",
+        "error": "探测失败",
+        "unknown": "未知"
+      },
       "confirmTitle": "确认端口扫描范围",
       "confirmDesc": "目标 {{target}} · 约 {{count}} 个端口。公网主机或较大范围需二次确认。",
       "confirmConsequence": "仅扫描自有或已授权资产。当前为 TCP connect（无 SYN）。",
