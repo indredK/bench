@@ -324,20 +324,26 @@ async fn try_nmap_syn<R: Runtime>(
 }
 
 fn nmap_args(scan_type: &str, port_arg: &str, target: &str) -> Vec<String> {
-    [
-        "-Pn",
-        scan_type,
-        "--max-retries",
-        "1",
-        "--host-timeout",
-        "30s",
-        "-p",
-        port_arg,
-        target,
-    ]
-    .into_iter()
-    .map(str::to_string)
-    .collect()
+    let mut args = Vec::with_capacity(10);
+    if matches!(target.parse::<IpAddr>(), Ok(IpAddr::V6(_))) {
+        args.push("-6".into());
+    }
+    args.extend(
+        [
+            "-Pn",
+            scan_type,
+            "--max-retries",
+            "1",
+            "--host-timeout",
+            "30s",
+            "-p",
+            port_arg,
+            target,
+        ]
+        .into_iter()
+        .map(str::to_string),
+    );
+    args
 }
 
 fn cancelled_port_scan_result(
@@ -608,5 +614,56 @@ exec /bin/sleep 30
             "cancelled fallback must not return results"
         );
         assert!(super::super::session::finish_session(&session_id));
+    }
+}
+
+#[cfg(test)]
+mod ipv6_tests {
+    use super::probe_one;
+    use std::time::Duration;
+    use tokio::net::TcpListener;
+    use tokio::time::timeout;
+
+    #[tokio::test]
+    async fn tcp_connect_uses_ipv6_socket_address_for_ipv6_literal() {
+        let listener = TcpListener::bind("[::1]:0")
+            .await
+            .expect("bind an IPv6 loopback listener");
+        let port = listener
+            .local_addr()
+            .expect("read IPv6 loopback listener address")
+            .port();
+        let accept = tokio::spawn(async move {
+            timeout(Duration::from_secs(2), listener.accept())
+                .await
+                .expect("scanner should connect to the open IPv6 port")
+                .expect("accept the scanner connection")
+        });
+
+        let sample = probe_one("::1".into(), port, 1_000).await;
+
+        assert_eq!(sample.state, "open");
+        let _ = accept.await.expect("listener task should not panic");
+    }
+}
+
+#[cfg(test)]
+mod nmap_args_tests {
+    use super::nmap_args;
+
+    #[test]
+    fn nmap_scans_ipv6_literals_with_ipv6_enabled() {
+        let args = nmap_args("-sS", "443", "::1");
+
+        assert_eq!(args.first().map(String::as_str), Some("-6"));
+    }
+
+    #[test]
+    fn nmap_keeps_ipv4_and_hostnames_on_the_default_address_family() {
+        for target in ["127.0.0.1", "example.com"] {
+            let args = nmap_args("-sS", "443", target);
+
+            assert!(!args.iter().any(|arg| arg == "-6"), "{target}");
+        }
     }
 }

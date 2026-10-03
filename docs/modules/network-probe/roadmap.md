@@ -9,4 +9,4 @@
 
 **验证命令**：`pnpm run lint:fe` + `pnpm run test:critical` + `cargo clippy -- -D warnings`。
 
-**端口扫描取消**：Nmap 版本探测与扫描使用可取消子进程，Nmap 失败回退到 TCP connect 时沿用同一会话 ID；TCP connect 会中止当前批次未完成任务；取消结果清空并隐藏部分端口数据。自动化检查和 macOS 真机界面验收已通过（模拟 Nmap，不发网络包）。
+**端口扫描**：Nmap 扫描 IPv6 字面量时传 `-6`，IPv4 与 hostname 保持默认地址族；Nmap 版本探测与扫描使用可取消子进程，Nmap 失败回退到 TCP connect 时沿用同一会话 ID；TCP connect 会中止当前批次未完成任务；取消结果清空并隐藏部分端口数据。IPv6 参数有跨平台回归测试；2026-10-04 macOS 真机界面通过 `::1` 回环监听端口验证 TCP connect 回退并显示开放结果。设备未安装 Nmap，因此 Nmap 实际进程路径未在真机运行；`-6` 参数由回归测试验证。
