@@ -21,6 +21,25 @@ interface PortScanPanelProps {
   onCancel: () => void
 }
 
+type PortScanStateKey = "open" | "closed" | "filtered" | "error" | "unknown"
+
+function portScanStateTranslationKey(
+  state: string,
+): `networkProbe.ports.states.${PortScanStateKey}` {
+  switch (state) {
+    case "open":
+      return "networkProbe.ports.states.open"
+    case "closed":
+      return "networkProbe.ports.states.closed"
+    case "filtered":
+      return "networkProbe.ports.states.filtered"
+    case "error":
+      return "networkProbe.ports.states.error"
+    default:
+      return "networkProbe.ports.states.unknown"
+  }
+}
+
 function isPrivateOrLocal(host: string): boolean {
   const h = host.trim().toLowerCase()
   if (h === "localhost" || h === "::1") return true
@@ -161,14 +180,18 @@ export function PortScanPanel({
           {t("networkProbe.ports.openList", { ports: open.join(", ") })}
         </p>
       ) : null}
-      {result?.message ? (
-        <p className="text-xs text-amber-700 dark:text-amber-400">{result.message}</p>
+      {result?.cancelled ? (
+        <p className="text-muted-foreground text-xs">{t("networkProbe.ports.cancelled")}</p>
+      ) : result?.mode === "nmap-syn-or-connect" ? (
+        <p className="text-xs text-amber-700 dark:text-amber-400">
+          {t("networkProbe.ports.nmapHint")}
+        </p>
       ) : null}
       {samples.length > 0 ? (
         <ul className="text-muted-foreground space-y-0.5 font-mono text-xs">
           {samples.map((s) => (
             <li key={`${s.port}-${s.state}`}>
-              {s.port}: {s.state}
+              {s.port}: {t(portScanStateTranslationKey(s.state))}
               {s.serviceHint ? ` (${s.serviceHint})` : ""}
               {s.rttMs != null ? ` · ${s.rttMs.toFixed(0)} ms` : ""}
             </li>
