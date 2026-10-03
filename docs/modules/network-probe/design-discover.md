@@ -129,6 +129,12 @@ type ProbeNode = {
 | 配额 | 匿名额度用尽 → 提示配置 token；错误映射 `AppError`        |
 | ToS  | 遵守官方限额；前端展示剩余额度（若 API 提供）             |
 
+DNS 判定必须区分探测状态和 DNS 响应码：只有探测 `finished` 且 `statusCode=0`（NOERROR）算查询成功；NXDOMAIN 显示为域名不存在，NOERROR 空答案显示为无记录。Globalping `rawOutput` 仅放在默认折叠的技术详情中。字段语义以[官方 API 规格](https://github.com/jsdelivr/globalping/blob/master/public/v1/spec.yaml)为准。
+
+远端查询会把输入域名发送到 Globalping；面板必须在执行按钮附近明确展示接收方，避免用户把内部域名误认为只在本机解析。结果摘要使用 polite live region，供屏幕阅读器获知异步查询完成。
+
+交互式 DNS 测量启用 `inProgressUpdates` 并按**顶层测量状态**轮询；单个已完成的 probe 不代表整个测量已结束。每次响应后至少等待 700 ms（官方要求不快于 500 ms），单请求最多 8 秒，测量创建后最多等待 45 秒。该上限覆盖 API 规定的最多 30 秒 probe 超时和至少 10 秒通信/收尾缓冲；到期保留已收到的部分结果并明确显示「等待超时」，不把未完成结果显示为普通 DNS 失败或空答案。
+
 #### 自有 agent（`remote-agent`）
 
 见 design §4.4 摘要落地：

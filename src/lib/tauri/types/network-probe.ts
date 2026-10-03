@@ -520,7 +520,9 @@ export interface NodeDnsAnswer {
   nodeLabel: string
   ok: boolean
   answers: string[]
+  statusCodeName?: string
   detail?: string
+  errorCode?: string
 }
 
 export interface MultiNodeDnsResult {
