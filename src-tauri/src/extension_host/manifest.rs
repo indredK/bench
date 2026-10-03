@@ -78,7 +78,7 @@ pub fn host_platform() -> &'static str {
     } else if cfg!(target_os = "windows") {
         "windows"
     } else {
-        "linux"
+        "unsupported"
     }
 }
 
@@ -89,6 +89,18 @@ impl ExtensionManifest {
             None => true,
             Some(list) => list.iter().any(|p| p == super::manifest::host_platform()),
         }
+    }
+
+    /// 校验插件是否可在当前宿主运行；用于安装和开窗，避免成功安装后才从列表消失。
+    pub fn ensure_supported_host(&self) -> AppResult<()> {
+        if self.supports_host_platform() {
+            return Ok(());
+        }
+        Err(AppError::unsupported(format!(
+            "extension `{}` does not support this Bench platform `{}`",
+            self.id,
+            host_platform()
+        )))
     }
 }
 
@@ -196,7 +208,7 @@ impl ExtensionManifest {
         Ok(())
     }
 
-    /// `platforms` 规则（P5，spec §3.1）：每项为已知平台名，且不得为空数组
+    /// `platforms` 规则（P5，spec §3.1）：每项为当前支持的平台名，且不得为空数组
     /// （空数组 = 哪里都不可用，视为配置错误 fail-closed）。
     fn validate_platforms(&self) -> AppResult<()> {
         let Some(platforms) = &self.platforms else {
@@ -208,9 +220,9 @@ impl ExtensionManifest {
             ));
         }
         for platform in platforms {
-            if !matches!(platform.as_str(), "macos" | "windows" | "linux") {
+            if !matches!(platform.as_str(), "macos" | "windows") {
                 return Err(AppError::invalid_input(format!(
-                    "manifest.platforms contains unknown platform `{platform}` (expected macos | windows | linux)"
+                    "manifest.platforms contains unsupported platform `{platform}` (expected macos | windows)"
                 )));
             }
         }
@@ -716,6 +728,27 @@ mod platform_tests {
     fn platforms_unknown_value_is_invalid() {
         let manifest = manifest_with_platforms(Some(vec!["android".into()]));
         assert_eq!(manifest.unwrap_err().code, "INVALID_INPUT");
+    }
+
+    #[test]
+    fn platforms_linux_is_invalid() {
+        let manifest = manifest_with_platforms(Some(vec!["linux".into()]));
+        let error = manifest.unwrap_err();
+        assert_eq!(error.code, "INVALID_INPUT");
+        assert!(error.message.contains("macos | windows"));
+    }
+
+    #[test]
+    fn platform_for_another_host_returns_unsupported() {
+        let other_host = if host_platform() == "macos" {
+            "windows"
+        } else {
+            "macos"
+        };
+        let manifest = manifest_with_platforms(Some(vec![other_host.into()])).expect("parse");
+        let error = manifest.ensure_supported_host().unwrap_err();
+        assert_eq!(error.code, "UNSUPPORTED");
+        assert!(error.message.contains(host_platform()));
     }
 
     fn manifest_with_platforms(platforms: Option<Vec<String>>) -> AppResult<ExtensionManifest> {
