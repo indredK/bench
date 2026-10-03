@@ -1,32 +1,25 @@
-# Bench 2.0 最终路线图
+# Bench 2.0 发布收尾路线图（R00–R10 已归档为 backlog）
 
 > ## 🔄 降级公告（2026-09-08 · [D-023](../explanation/decisions.md#d-023--20-目标变更为插件化生态r00r10-全部降级)，进度更新同日）
 >
 > **2.0 的目标已变更为「自带少量核心能力 + 绝大部分功能插件化 + 插件市场（第三方生态）」。本文件的 R00–R10 全部降级为 backlog，不再是 2.0 门禁。**
 >
-> **插件化执行进度（P 阶段，唯一状态清单见 [modules/extension-center/roadmap.md](../modules/extension-center/roadmap.md)）**：
+> **当前插件化进度（P 阶段）的唯一状态清单是 [modules/extension-center/roadmap.md](../modules/extension-center/roadmap.md)**；此处不复制阶段状态，避免与该路线图漂移。
 >
-> | 阶段                                                                    | 状态      |
-> | ----------------------------------------------------------------------- | --------- |
-> | P0 产品定案 / P1 概念验证 / P2 契约+插件中心 / P2b photo-triage 迁移    | ✅ 完成   |
-> | P3 运行时治理（engines / 签名骨架 / 语言注入 / 卸载）                   | ✅ 完成   |
-> | P3.1 包完整性安全地基（**硬阻塞**）/ P3.2 Windows 门禁 / P3.3 解压+审计 | ⬜ 未开始 |
-> | P3.4 bundled 发布集成 / P4 market 闭环 / P4.5 作者侧交付                | ⬜ 未开始 |
-> | P5 增量迁移（带停止线）/ P6 Windows release                             | ⬜ 未开始 |
->
-> - **P3.1（包完整性 + 降级防护）是硬阻塞**：完成前不得实现 download/extract，否则产物格式上线后返工。
-> - **P3.4（bundled 随正式包发布）与 P6（Windows release）是发布硬前置**：插件化能力在两者完成前不得随正式版发布。
-> - 本文件与 [GAP-TO-2.0.md](./GAP-TO-2.0.md) 的内容**保留作技术债台账**，供插件化迁移时按模块评估，不删除。
-> - 例外：涉及**数据安全与签名链**的条目（A5 持久化迁移、A3-1 RC dry-run、minisign 全链）在插件分发启用前必须重新评估。
+> - **P3.1（包完整性 + 降级防护）是下载/解压的前置安全门禁**；其完成状态以插件中心路线图为准。
+> - **P3.4（bundled 正式包验收）与 P6（Windows release）是正式发布前置**。代码或 CI 编译通过不等于真实安装和平台验收通过；完成证据必须记在插件中心路线图。
+> - 本文件与 [GAP-TO-2.0.md](./GAP-TO-2.0.md) 保留为历史技术债台账，供插件化迁移时评估；涉及数据安全和签名链的条目须按 D-023 重新评估。
 > - 采用 **B′ 方案**（宿主 + 可下载前端 bundle + 独立 WebView + IPC 命令白名单），架构边界见 [extension-workflow.md](../explanation/extension-workflow.md)。
 
-本文件是 2.0 收尾的唯一跨模块执行清单。模块级约束和未完成项见 [modules/](../modules/README.md)，方向性取舍见 [DECISIONS.md](../explanation/decisions.md)。已完成历史由 Git 保留。
+本文件保留原 R00–R10 的任务说明和验收模板，已降级为 backlog，不是当前 2.0 的执行清单或发布门禁。当前插件化阶段状态与执行顺序见 [extension-center roadmap](../modules/extension-center/roadmap.md)；模块约束见 [modules/](../modules/README.md)，方向性取舍见 [DECISIONS.md](../explanation/decisions.md)。
 
-收尾追踪入口：[Bench 2.0 收尾追踪（R00–R10）](https://github.com/indredK/bench/issues/105)。
+原 R00 基线跟踪入口 [Issue #105](https://github.com/indredK/bench/issues/105) 已关闭；其中记录 R00 完成，不代表 R01–R10 已启动。
 
-## 发布契约
+## 历史 2.0 发布契约（R00–R10 backlog）
 
-- 当前代码版本为 `1.37.0`（由 release-please 自动维护，历史基线为 `1.23.0`），只有 R00-R08 全部通过后才能执行 R09。
+> 以下是旧 R00–R10 路线图的约束快照，不是当前发布契约。D-023 已将其降级；复用任何条目前须按当前代码和插件中心路线图重新评估。
+
+- R00 基线时记录的代码版本为 `1.37.0`，历史基线为 `1.23.0`；原条件要求 R00–R08 通过后执行 R09。该条件现已降级，不得据此启动版本切换。
 - 目标平台：macOS 14+ arm64、macOS 14+ x64、Windows 11 x64。Linux 不受支持，也不进入 CI/CD、构建或发布流程。
 - Quick Launch、App Manager、Account Manager 必须在 macOS/Windows 保持相同核心语义；不支持的子能力返回 `partial/unsupported/failed`，不得伪装为空结果成功。
 - Clean Space、Hardware、System Settings 维持 macOS-only；Windows 隐藏导航，直达路由显示 unsupported。
@@ -35,7 +28,7 @@
 - 云同步、AI Agent、TOTP、播放器、白噪音等新品类不进入 2.0。
 - **Network Probe**（网络探测）按 [D-016](../explanation/decisions.md#d-016--network-probe-独立一级模块与分期设计) **不进入 2.0（R00–R10）执行序列**；作为 **2.0 旁路的独立模块 1.0（MVP A+B）** 已实现，见 [modules/network-probe](../modules/network-probe)；Post-MVP（测速/remote/高级探测）仍不进 2.0 门禁。
 
-平台状态：
+旧路线图中的平台验收基线（非当前发布状态）：
 
 | 模块            | macOS  | Windows | 2.0 剩余门禁                                         |
 | --------------- | :----: | :-----: | ---------------------------------------------------- |
@@ -46,11 +39,11 @@
 | Clean Space     | 待验收 | 不适用  | macOS 权限、受保护目录、timeout、取消、释放量        |
 | Updater         | 待验收 | 待验收  | 真实 minisign、错误矩阵、1.23.0 升级/回滚            |
 
-“待验收”只能在目标平台证据齐全后改为“通过”。编译成功、本机另一平台结果和文档声明都不能代替。
+该历史矩阵只有在某项 R 任务被重新启动后才可作为参考；目标平台证据要求仍以被重新确认的任务范围为准。
 
-## AI 执行协议
+## 原 R00–R10 任务的复用规则
 
-后续 AI 每次只执行一个 Rxx，不得跳步或顺手开发远期 backlog。
+仅当用户明确重新启动某个 Rxx backlog 任务时，才使用以下历史执行规则；它们不构成当前开发任务或插件化阶段的额外门禁。
 
 1. 读取 `AGENTS.md` 的必读清单、当前 Rxx、涉及模块的 `README.md`、`design.md` 和 `roadmap.md`。
 2. 检查前置任务已完成；没有证据时停止，不得自行勾选。
@@ -73,19 +66,19 @@
 
 ## 执行顺序
 
-| ID  | 状态 | 责任                 | 任务                                           | 前置     |
-| --- | ---- | -------------------- | ---------------------------------------------- | -------- |
-| R00 | [ ]  | AI                   | 冻结范围与记录基线                             | 无       |
-| R01 | [ ]  | AI                   | Account Manager 代码收口                       | R00      |
-| R02 | [ ]  | AI + 目标平台        | App Manager / Quick Launch fixture、启动与性能 | R01      |
-| R03 | [ ]  | macOS 人工           | System Settings / Clean Space 真机验证         | R00      |
-| R04 | [ ]  | macOS + Windows 人工 | Account Manager 真机验证                       | R01      |
-| R05 | [ ]  | AI + CI              | Updater 错误矩阵与真实 minisign RC             | R02      |
-| R06 | [ ]  | AI + 目标平台        | 1.23.0 升级、数据迁移与回滚                    | R04、R05 |
-| R07 | [ ]  | AI + 人工复核        | 多 viewport、键盘、a11y 与视觉回归             | R01、R02 |
-| R08 | [ ]  | AI + CI              | 全量回归与发布候选审计                         | R03-R07  |
-| R09 | [ ]  | AI                   | 切换 2.0.0 与准备 Release PR                   | R08      |
-| R10 | [ ]  | 仅发布负责人         | 批准并发布 v2.0.0                              | R09      |
+| ID  | 历史状态                                                      | 责任                 | 任务                                           | 前置     |
+| --- | ------------------------------------------------------------- | -------------------- | ---------------------------------------------- | -------- |
+| R00 | 已完成（[#105](https://github.com/indredK/bench/issues/105)） | AI                   | 冻结范围与记录基线                             | 无       |
+| R01 | backlog                                                       | AI                   | Account Manager 代码收口                       | R00      |
+| R02 | backlog                                                       | AI + 目标平台        | App Manager / Quick Launch fixture、启动与性能 | R01      |
+| R03 | backlog                                                       | macOS 人工           | System Settings / Clean Space 真机验证         | R00      |
+| R04 | backlog                                                       | macOS + Windows 人工 | Account Manager 真机验证                       | R01      |
+| R05 | backlog                                                       | AI + CI              | Updater 错误矩阵与真实 minisign RC             | R02      |
+| R06 | backlog                                                       | AI + 目标平台        | 1.23.0 升级、数据迁移与回滚                    | R04、R05 |
+| R07 | backlog                                                       | AI + 人工复核        | 多 viewport、键盘、a11y 与视觉回归             | R01、R02 |
+| R08 | backlog                                                       | AI + CI              | 全量回归与发布候选审计                         | R03-R07  |
+| R09 | backlog                                                       | AI                   | 切换 2.0.0 与准备 Release PR                   | R08      |
+| R10 | backlog                                                       | 仅发布负责人         | 批准并发布 v2.0.0                              | R09      |
 
 ```mermaid
 flowchart LR
