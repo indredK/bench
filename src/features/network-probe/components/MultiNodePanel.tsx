@@ -135,25 +135,45 @@ export function MultiNodePanel({
     >
       {result ? (
         <div className="space-y-2">
-          <p className="text-muted-foreground text-xs">
+          <p className="text-muted-foreground text-xs" role="status" aria-live="polite">
             {t("networkProbe.nodes.meta", {
               domain: result.domain,
               count: result.answers.length,
               ms: result.elapsedMs.toFixed(0),
             })}
           </p>
-          <ul className="space-y-2 text-sm">
+          <ul aria-label={t("networkProbe.nodes.answersLabel")} className="space-y-2 text-sm">
             {result.answers.map((a) => (
               <li key={a.nodeId} className="rounded-md border px-3 py-2">
                 <div className="font-medium">
-                  {a.nodeLabel} <span className="font-mono text-xs">{a.ok ? "OK" : "FAIL"}</span>
+                  {a.nodeLabel}{" "}
+                  <span
+                    className={`font-mono text-xs ${a.ok ? "text-emerald-700 dark:text-emerald-400" : "text-destructive"}`}
+                  >
+                    {a.statusCodeName?.toUpperCase() === "NXDOMAIN"
+                      ? t("networkProbe.nodes.answerNotFound")
+                      : a.statusCodeName?.toUpperCase() === "NOERROR" && a.answers.length === 0
+                        ? t("networkProbe.nodes.answerNoRecords")
+                        : a.errorCode === "GLOBALPING_TIMEOUT"
+                          ? t("networkProbe.nodes.answerTimedOut")
+                          : a.ok
+                            ? t("networkProbe.nodes.answerOk")
+                            : t("networkProbe.nodes.answerFailed")}
+                  </span>
                 </div>
                 {a.answers.length > 0 ? (
                   <pre className="text-muted-foreground mt-1 overflow-auto font-mono text-xs">
                     {a.answers.join("\n")}
                   </pre>
                 ) : null}
-                {a.detail ? <p className="text-muted-foreground mt-1 text-xs">{a.detail}</p> : null}
+                {a.detail ? (
+                  <details className="text-muted-foreground mt-1 text-xs">
+                    <summary className="cursor-pointer">
+                      {t("networkProbe.nodes.technicalDetails")}
+                    </summary>
+                    <pre className="mt-1 overflow-auto font-mono">{a.detail}</pre>
+                  </details>
+                ) : null}
               </li>
             ))}
           </ul>
