@@ -2104,7 +2104,7 @@
       "stats": "packets={{packets}} · RST={{rst}} · retrans≈{{retrans}} · OOO≈{{ooo}}"
     },
     "nodes": {
-      "hint": "对比本机与 Globalping 多地的 DNS 答案。可注册 HTTPS agent 作为自有探测节点。",
+      "hint": "对比本机与 Globalping 多地的 DNS 答案；远端查询会将域名发送给 Globalping。可注册 HTTPS agent 作为自有探测节点。",
       "run": "多节点对比 DNS",
       "running": "对比中…",
       "refresh": "刷新节点",
@@ -2116,7 +2116,14 @@
       "endpointPlaceholder": "https://agent.example:8443",
       "addAgent": "添加 agent",
       "removeAgent": "移除",
-      "meta": "{{domain}} · {{count}} 条答案 · {{ms}} ms"
+      "meta": "{{domain}} · {{count}} 条答案 · {{ms}} ms",
+      "answersLabel": "各探测节点返回的 DNS 答案",
+      "answerOk": "成功",
+      "answerFailed": "失败",
+      "answerNotFound": "域名不存在",
+      "answerNoRecords": "无记录",
+      "answerTimedOut": "等待超时",
+      "technicalDetails": "技术详情"
     },
     "nat": {
       "hint": "对公网 STUN 服务器做 Binding，查看映射地址 / NAT 暴露情况。",

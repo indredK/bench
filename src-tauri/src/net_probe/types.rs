@@ -765,7 +765,11 @@ pub struct NodeDnsAnswer {
     pub ok: bool,
     pub answers: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub status_code_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_code: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
