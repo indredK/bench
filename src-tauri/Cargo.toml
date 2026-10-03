@@ -54,7 +54,7 @@ tokio-tungstenite = { version = "0.30", default-features = false, features = [
     "handshake",
 ] }
 base64 = "0.23"
-minisign-verify = "0.2.5"
+minisign-verify = "0.3.0"
 plist = "1.10"
 async-trait = "0.1"
 quick-xml = { version = "0.42", features = ["serialize"] }
