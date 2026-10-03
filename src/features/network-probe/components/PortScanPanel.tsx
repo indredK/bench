@@ -26,8 +26,10 @@ function isPrivateOrLocal(host: string): boolean {
   if (h === "localhost" || h === "::1") return true
   const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(h)
   if (!m) return false
-  const a = Number(m[1])
-  const b = Number(m[2])
+  const [a, b, c, d] = m.slice(1).map(Number)
+  if ([a, b, c, d].some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) {
+    return false
+  }
   if (a === 10 || a === 127) return true
   if (a === 192 && b === 168) return true
   if (a === 172 && b >= 16 && b <= 31) return true
