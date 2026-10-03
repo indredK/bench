@@ -88,10 +88,14 @@ export function PortScanPanel({
   const [ports, setPorts] = useState("22,80,443,8080")
   const [confirmOpen, setConfirmOpen] = useState(false)
 
-  const samples = result?.samples?.length ? result.samples : streaming
-  const open = result?.openPorts?.length
-    ? result.openPorts
-    : samples.filter((s) => s.state === "open").map((s) => s.port)
+  // A cancelled run can still have emitted streaming samples before cancellation
+  // reached the backend. Never present that partial data as a scan result.
+  const samples = result?.cancelled ? [] : result?.samples?.length ? result.samples : streaming
+  const open = result?.cancelled
+    ? []
+    : result?.openPorts?.length
+      ? result.openPorts
+      : samples.filter((s) => s.state === "open").map((s) => s.port)
 
   const portCount = useMemo(() => estimatePortCount(ports), [ports])
   const needsConfirm = useMemo(() => {
@@ -181,7 +185,7 @@ export function PortScanPanel({
         </p>
       ) : null}
       {result?.cancelled ? (
-        <p className="text-muted-foreground text-xs">{t("networkProbe.ports.cancelled")}</p>
+        <p className="text-muted-foreground text-xs">{t("networkProbe.ports.cancelledPartial")}</p>
       ) : result?.mode === "nmap-syn-or-connect" ? (
         <p className="text-xs text-amber-700 dark:text-amber-400">
           {t("networkProbe.ports.nmapHint")}

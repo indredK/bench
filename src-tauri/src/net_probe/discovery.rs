@@ -21,6 +21,7 @@ const MAX_PREFIX_HOSTS: u32 = 256;
 pub async fn discover_lan<R: Runtime>(app: Option<&AppHandle<R>>) -> AppResult<LanDiscoveryResult> {
     let started = Instant::now();
     let session_id = super::session::new_session_id();
+    let _session_guard = super::session::SessionGuard::new(&session_id);
     if let Some(app) = app {
         let _ = app.emit(
             SCAN_SESSION_EVENT,
@@ -52,7 +53,7 @@ pub async fn discover_lan<R: Runtime>(app: Option<&AppHandle<R>>) -> AppResult<L
         .and_then(|s| s.parse::<Ipv4Addr>().ok());
 
     if primary.is_none() {
-        super::session::clear_session(&session_id);
+        let cancelled = super::session::finish_session(&session_id);
         return Ok(LanDiscoveryResult {
             mode: "arp-cache".into(),
             neighbors: cache,
@@ -62,7 +63,7 @@ pub async fn discover_lan<R: Runtime>(app: Option<&AppHandle<R>>) -> AppResult<L
             ),
             empty_reason: Some("permission".into()),
             cidr: None,
-            cancelled: false,
+            cancelled,
             session_id,
             elapsed_ms: started.elapsed().as_secs_f64() * 1000.0,
             command_hint,
@@ -123,8 +124,7 @@ pub async fn discover_lan<R: Runtime>(app: Option<&AppHandle<R>>) -> AppResult<L
         }
     }
 
-    cancelled = cancelled || super::session::is_cancelled(&session_id);
-    super::session::clear_session(&session_id);
+    cancelled |= super::session::finish_session(&session_id);
 
     let neighbors: Vec<ArpNeighbor> = by_ip.into_values().collect();
     let gateway_seen = gateway

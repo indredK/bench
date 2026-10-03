@@ -26,6 +26,7 @@
 - [§7/§9] `.github/workflows/ci-build.yml` - RC dry-run 入口与 Release 副作用 guard 已由 R05 落地；仍缺真实 updater 私钥三目标 run - 执行 [R05](../roadmap/ROADMAP.md#r05-updater供应链与-rc-流水线) dry-run - **强制** - 状态：部分修复/待验收
 - [§9] 全局 UX - Playwright/axe 基建、viewport 矩阵与键盘用例已落地（`pnpm run test:e2e`）；截图 baseline 人工审查与屏幕阅读器 smoke 未执行 - 执行 [R07](../roadmap/ROADMAP.md#r07-ux可访问性与视觉回归) - **强制** - 状态：部分修复/待验收
 - [§7/§9] 持久化与 updater - 持久化 schema 清单已建立（[persistence-schema.md](../reference/persistence-schema.md)），1.23.0 脱敏 fixture 与迁移幂等测试已入 `cargo test`；真机升级/回滚演练未执行 - 执行 [R06](../roadmap/ROADMAP.md#r06-1230-升级迁移与回滚) - **强制** - 状态：代码已修复/待验收
+- [§5/并发/UX] `src-tauri/src/net_probe/session.rs`、`ports.rs`、`src/features/network-probe/components/PortScanPanel.tsx` - Nmap 使用阻塞式 `.output()`，取消只设置标记，子进程仍运行至扫描超时；迟到取消可能把已结束会话留在取消集合；界面可能展示部分结果；Nmap 失败回退时过早注销会话会使后续 TCP 扫描无法取消 - 改为 Tokio 可取消子进程（包括版本探测）；Nmap 与 TCP 回退共用一个活动会话，结束时原子确认取消状态；TCP 取消时中止未完成任务；取消后丢弃部分结果并显示本地化提示；Rust/UI 自动化检查已补；2026-10-04 macOS 真机用模拟 Nmap 验证取消后界面恢复、无部分结果、子进程退出（未发网络包） - **强制** - 状态：已修复并验证
 - [§7/§9] `src-tauri/tauri.conf.json` - `com.bench.app` 后缀警告已接受；D-011 要求 2.0 保留，不得直接改字符串 - **建议** - 状态：接受风险
 
 未完成 R00-R08 前不得切换 2.0.0 版本；未完成目标平台行为测试前不得把对应能力标记为发布对等。

@@ -15,6 +15,7 @@ pub async fn run_pcap_diag<R: Runtime>(
 ) -> AppResult<PcapDiagResult> {
     let duration_secs = duration_secs.clamp(1, 15);
     let session_id = super::session::new_session_id();
+    let _session_guard = super::session::SessionGuard::new(&session_id);
     if let Some(app) = app {
         let _ = app.emit(
             SCAN_SESSION_EVENT,
@@ -33,8 +34,7 @@ pub async fn run_pcap_diag<R: Runtime>(
         .await
         .map_err(|e| AppError::task_failed(format!("pcap join: {e}")))?;
 
-    let cancelled = super::session::is_cancelled(&session_id);
-    super::session::clear_session(&session_id);
+    let cancelled = super::session::finish_session(&session_id);
 
     match result {
         Ok(mut stats) => {

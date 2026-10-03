@@ -2069,6 +2069,7 @@
       "run": "扫描端口",
       "running": "扫描中…",
       "cancel": "取消",
+      "cancelledPartial": "扫描已取消；未完成结果已丢弃。",
       "openList": "开放：{{ports}}",
       "states": {
         "open": "开放",

@@ -11,6 +11,7 @@ pub async fn run_health_scan<R: Runtime>(
 ) -> AppResult<HealthScanResult> {
     let started = Instant::now();
     let session_id = super::session::new_session_id();
+    let _session_guard = super::session::SessionGuard::new(&session_id);
     let command_hint = format!("startHealthScan(local) // sessionId={session_id}");
     let mut items = Vec::new();
     let mut cancelled = false;
@@ -161,7 +162,7 @@ pub async fn run_health_scan<R: Runtime>(
     } else {
         super::advisor::build_opinions(&items)
     };
-    super::session::clear_session(&session_id);
+    cancelled |= super::session::finish_session(&session_id);
     Ok(HealthScanResult {
         items,
         opinions,

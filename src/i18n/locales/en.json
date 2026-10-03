@@ -2069,6 +2069,7 @@
       "run": "Scan ports",
       "running": "Scanning…",
       "cancel": "Cancel",
+      "cancelledPartial": "Scan cancelled. Partial results were discarded.",
       "openList": "Open: {{ports}}",
       "states": {
         "open": "Open",
