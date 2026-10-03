@@ -127,6 +127,7 @@ src-tauri/src/net_probe/
 
 - 默认目标：RFC1918 / 本机 / 用户显式单个公网 host。
 - 大端口范围、公网、大 CIDR：二次确认 + 速率硬顶 + 并发上限。
+- Nmap 扫描 IPv6 字面量时必须传 `-6`；IPv4 与 hostname 保持默认地址族行为（[Nmap IPv6 scanning manual](https://nmap.org/book/port-scanning-ipv6.html)）。
 - 进度 event：`port-sample`（port、state、serviceHint?）；`cancelScan` 幂等，后端原子维护活动/已取消会话并忽略结束后的迟到取消。Nmap 版本探测和扫描都以异步子进程运行；Nmap 回退到 TCP connect 时沿用同一 session ID，取消时终止子进程/并发任务并丢弃部分结果。
 
 库：`socket2` + `pnet`/`etherparse` + 可选 `pcap`；无 turnkey「完整 nmap」Rust 库——可接受薄封装或 nmap CLI fallback。

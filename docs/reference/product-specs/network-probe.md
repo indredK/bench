@@ -160,6 +160,7 @@ L1 → L2 映射：
 
 - **SecurityAuthGate**：未授权时 L1=security 显示琥珀色提示 + 「我确认 — 启用安全工具」按钮；点击后 `authorizeSecurity` 置位并持久化 localStorage；已授权显示「本机已授权使用安全工具。」+「撤销」；授权/撤销即时生效。未授权点击任何安全工具，use-case 直接 `setError(securityAuthRequired)` 且不发起 IPC。
 - **端口扫描确认**：目标非内网（非私有/回环）或展开端口数 >64 时，点击「扫描端口」先弹 `DestructiveConfirmDialog`（展示目标 + 约 N 个端口 + 「仅扫描自有或已授权资产，当前为 TCP connect」），确认「仍然扫描」才执行；勾选范围内可免确认。端口范围解析失败（如超 256、非法语法）由后端返回 `INVALID_INPUT`。
+- **Nmap IPv6 扫描**：目标为 IPv6 字面量时调用 Nmap 必须传 `-6`；IPv4 与 hostname 不指定 `-6`。Nmap 不可用或执行失败时退回 TCP connect。
 - **空态细分（arp）**：按 `emptyReason` 区分「权限不足（引导打开系统网络设置）/ 客户端隔离（仅网关响应）/ 安静网络（无邻居）」三种空态文案，不统一显示空。
 
 ## 7. 发现（discover）L1
